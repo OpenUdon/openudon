@@ -52,6 +52,7 @@ Start from `templates/project.md`, then read:
 - `docs/project-authoring.md`
 - `docs/data-flow.md`
 - `docs/safety.md`
+- `docs/cross-repo-contracts.md`
 
 At minimum, include the goal, integration/OpenAPI policy, runtime policy, credential binding policy,
 safety boundary, and fallback behavior. Side-effectful workflows must declare approval/trusted-runner

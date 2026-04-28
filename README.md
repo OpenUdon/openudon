@@ -47,7 +47,7 @@ siblings used by `../udon/go.mod`, including `../grand`, `../golet`, `../hclligh
 - `cmd/ramen` is a small Go CLI for local checks.
 - `examples/support-email` is the first natural-language-to-UWS example.
 - `scripts/` contains local validation and execution wrappers.
-- `docs/` records architecture and safety boundaries.
+- `docs/` records architecture, safety boundaries, and cross-repo contracts.
 - `templates/project.md` is the starting point for new project briefs.
 
 ## Execution Boundary

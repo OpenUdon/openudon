@@ -23,3 +23,6 @@ AI may not directly execute operational actions.
 Extension-owned UWS operations, such as SMTP, SSH, SQL, command execution, or LLM calls, must name
 an implementation profile with `x-uws-operation-profile`. Ramen project policy decides which
 profiles are allowed for a given environment.
+
+Symphony approval states, trusted-runner handoff package contents, and future CI/secrets
+automation prerequisites are defined in `docs/cross-repo-contracts.md`.

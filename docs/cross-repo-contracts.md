@@ -1,0 +1,124 @@
+# Cross-Repo Contracts
+
+This page records the planning contracts for Ramen blockers that cannot be completed inside Ramen
+alone. Ramen stays an integration layer: public workflow semantics belong in `../uws`, generic
+compilation and execution belong in `../udon`, Symphony workflow ownership belongs in `../symphony`,
+and private checkout or secret automation belongs to infrastructure.
+
+## XRD-003 UWS Public Semantics Audit
+
+Ramen must not teach prompts to emit workflow semantics that lack a public UWS contract. If a
+capability is covered by UWS but not yet proven through udon and Ramen fixtures, keep it out of
+default generation until compatibility is demonstrated.
+
+| Capability | Already covered by UWS 1.0 | Belongs in `../uws` | Belongs in `../udon` | Ramen policy only | May Ramen generate today |
+| --- | --- | --- | --- | --- | --- |
+| Switch branches | Yes: `type: switch`, `cases`, `when`, and `default`. | No new public semantics. | Preserve, lower, and execute generated switch constructs. | Decide when a project should use a switch. | Yes. Slice 1 prompt/plan/review/quality support exists. |
+| Loops | Yes: `type: loop`, `items`, optional `batchSize`, and iteration context. | No new public semantics unless new loop modes are needed. | Preserve, lower, and execute loop constructs from Ramen-generated drafts. | Decide whether batch processing is allowed for the project. | No. Add Ramen compatibility fixtures and prove udon parity first. |
+| Structural results | Yes: top-level `results[]` with `kind` `switch`, `merge`, or `loop` and `from`. | No new public semantics for current result shapes. | Preserve structural result declarations and expose runtime outputs. | Require readable review evidence for result meaning. | Yes, but only for currently supported generated switch artifacts; broader loop/merge results wait for fixtures. |
+| Failure branches | Yes: `onFailure` actions support `end`, `goto`, and `retry` with criteria. | No new public semantics for basic failure routing. | Preserve and execute failure actions, including target resolution and retry counting. | Require side-effect review notes for failure paths. | No. Add udon/Ramen compatibility coverage before prompt support. |
+| Retries | Yes: `onFailure` action `type: retry`, `retryLimit`, and optional `retryAfter`. | No new public semantics for bounded failure retries. | Lower and run retry behavior reliably. | Limit retries for side-effectful operations and require idempotency review. | No. Generate only after failure-action compatibility is proven. |
+| Timeouts | Partly: `await` may be terminated by executor-owned timeout, but UWS 1.0 has no serialized timeout field. | Yes if a portable serialized timeout is required. | Own executor options or profile-specific timeout behavior. | Require project timeout policy in review, without inventing UWS fields. | No, except where an existing OpenAPI or runtime profile already defines a non-UWS timeout parameter. |
+| Idempotency keys | Partly: can be ordinary OpenAPI request headers/body fields when the API defines them; no core UWS idempotency field. | Yes if a portable workflow-level idempotency contract is required. | Own generic runtime support for automatic key injection or replay protection. | Require side-effect review evidence and credential-binding/idempotency policy. | Yes, but only as explicit OpenAPI request binding to a documented operation parameter; no invented metadata. |
+| Runtime profiles | Yes: extension-owned operations must declare `x-uws-operation-profile`; profile payloads are extensions. | Only profile marker semantics and reserved prefix policy. | Define and execute `x-udon-*` profile behavior. | Allow or deny profiles by project/environment policy. | Yes for existing validated udon profile shapes already covered by Ramen checks. |
+
+Decision rule: when the table says "No", Ramen may document the need and validate existing
+artifacts, but it must not add prompt defaults that synthesize the capability. When the table says
+"Yes, but only", Ramen may generate that capability only in the named constrained form.
+
+## XRD-005 Symphony Approval Handoff Contract
+
+Ramen emits an artifact package that Symphony can attach to a work item and route through review.
+The package is deterministic file output, not an approval workflow by itself.
+
+Required handoff package:
+
+| Path | Purpose |
+| --- | --- |
+| `project.md` | Source brief, integration policy, runtime policy, credentials policy, safety boundary, and fallback behavior. |
+| `workflows/intent.hcl` | Structured intent extracted from the project brief. |
+| `workflows/workflow.hcl` | udon workflow source produced from intent. |
+| `workflows/workflow.uws.yaml` | Exported UWS artifact validated against the public UWS schema and udon profile checks. |
+| `expected/plan.json` | Machine-readable expected steps, bindings, credentials, control flow, and side-effect hints. |
+| `expected/quality.json` | Deterministic quality gate results. |
+| `expected/refinement.json` | Generation/refinement attempts, failed checks, and stop reason. |
+| `expected/review.md` | Human review evidence, unresolved risks, skipped execution notes, and trusted-runner command text. |
+
+Required approval states for the Symphony-owned work item:
+
+| State | Meaning |
+| --- | --- |
+| `generated` | Ramen has emitted the handoff package. No approval is implied. |
+| `validated` | Required validators and quality gates have passed or known warnings are attached. |
+| `review_required` | Human review is required before any side-effectful execution. |
+| `approved_for_sandbox` | A reviewer approved sandbox or test-endpoint execution only. |
+| `approved_for_production` | A reviewer approved production execution through a trusted runner and approved credentials. |
+| `rejected` | A reviewer rejected the artifact or requested regeneration. |
+
+Ramen remains responsible for:
+
+- Artifact generation and deterministic validation.
+- Review evidence, including side-effect summary, unresolved risks, skipped execution, and sandbox
+  proof-run requirements.
+- Trusted-runner command text that an approved operator can execute outside the agent session.
+- Secret scanning and credential-binding evidence using names, not secret values.
+
+Symphony owns:
+
+- Approval routing, reviewer identity, and audit trail.
+- State transitions between the approval states above.
+- Workspace and work item linkage.
+- Enforcement that production execution cannot occur from an unapproved state.
+
+Acceptance: a Symphony implementer can consume the listed files, map them to the listed states, and
+build reviewer routing without guessing what Ramen emits or which approval state names are expected.
+
+## XRD-007 Private Checkout And Secrets Runbook
+
+GitHub CI remains disabled because hosted checks are not yet representative or safe for this private
+workspace.
+
+Current blockers:
+
+- Ramen imports private udon packages, and local Go builds need private sibling repos:
+  `../udon`, `../grand`, `../golet`, `../hcllight`, `../horizon`, `../molecule`, and `../arazzo`.
+- Real synthesis and eval need provider credentials.
+- Real LLM results can vary by provider availability, model behavior, and transient failures.
+- Secret exposure risk is higher in hosted logs, prompts, generated artifacts, and uploaded eval
+  bundles.
+
+Automation tiers:
+
+| Tier | Gate | Where it runs | Notes |
+| --- | --- | --- | --- |
+| Local deterministic | `go test ./...`, `go vet ./...`, `make check` | Developer workstation with private siblings checked out. | Normal development gate. |
+| Local/manual real LLM | `go run ./cmd/ramen eval --root ./examples/eval --provider <provider> --model <model> --release-gate` | Trusted workstation with provider credentials in environment variables. | Release smoke gate; results are reviewed manually. |
+| Future CI deterministic | `go test ./...`, `go vet ./...`, `make check` | Hosted or self-hosted runner with private sibling checkout. | Enable only after repo access and dependency checkout are stable. |
+| Future manual/release real-provider workflow | Release-gated eval command with explicit provider/model. | Protected manual workflow or trusted release machine. | Requires secret store controls and log/artifact redaction policy. |
+
+Allowed secret handling:
+
+- Provider API keys may exist only in a CI secret store or trusted local environment variables.
+- Prompts, examples, generated OpenAPI/UWS/HCL artifacts, review files, eval fixtures, and logs must
+  not contain literal secrets.
+- Generated artifacts should refer to credential binding names only.
+- CI logs and uploaded artifacts must be redacted or disabled for any command that may include model
+  prompts, provider responses, or generated side-effect configuration.
+
+Prerequisites to re-enable deterministic CI:
+
+- Private sibling checkout works non-interactively for every required repo.
+- The runner has no provider keys for deterministic checks.
+- `go test ./...`, `go vet ./...`, and `make check` pass on a clean private checkout.
+- Logs and artifacts exclude generated files that could contain prompt or credential-binding detail.
+
+Prerequisites to add a real-provider release workflow:
+
+- Provider keys are stored only in the protected secret store.
+- The workflow is manual or release-only, never a routine PR gate.
+- Eval output records provider, model, prompt version, generated directory, pass rate,
+  attempts-to-pass, fallback count, and blocking reference issues.
+- Uploaded artifacts are reviewed for secret redaction before retention is enabled.
+
+Acceptance: infrastructure can decide whether to re-enable CI by checking these prerequisites
+without inferring private repo layout, secret rules, or which checks are allowed in each tier.
