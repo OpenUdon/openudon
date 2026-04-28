@@ -70,7 +70,7 @@ export GEMINI_API_KEY=...
 go run ./cmd/ramen synthesize \
   --example ./examples/support-email \
   --provider gemini \
-  --model gemini-2.5-pro \
+  --model gemini-2.5-flash \
   --max-attempts 5
 ```
 
@@ -97,11 +97,22 @@ go run ./cmd/ramen assess --example ./examples/support-email   # quality reports
 Use the eval harness when changing prompts or synthesis behavior:
 
 ```bash
-go run ./cmd/ramen eval --root ./examples/eval --provider gemini --model gemini-2.5-pro
+go run ./cmd/ramen eval --root ./examples/eval --provider gemini --model gemini-2.5-flash
 ```
 
 Eval runs synthesize temporary copies of the eval briefs and writes JSON/Markdown summaries under
 `eval/runs/`.
+
+### Model Selection
+
+Use `gemini-2.5-flash` as the default Gemini model for synthesis. Ramen's task is mostly structured
+extraction and artifact generation, and reliability comes from prompt preprocessing, structured
+output when available, deterministic quality gates, and bounded repair attempts. In local smoke
+runs, Flash was fast enough to complete the `runtime-only-render` eval after validation fixes, while
+Gemini Pro preview models were slower and more prone to timeout or temporary capacity errors.
+
+Escalate to a larger model such as `gemini-2.5-pro` only after Flash fails deterministic checks
+after one or two attempts. Prefer a fast validated retry over a slow preview model as the default.
 
 LLM credentials must come from provider environment variables such as `GEMINI_API_KEY`,
 `OPENAI_API_KEY`, or `ANTHROPIC_API_KEY`; do not place tokens in prompts, commands, examples, or

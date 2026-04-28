@@ -77,13 +77,13 @@ Expected artifact locations:
 Preferred generation command:
 
 ```bash
-go run ./cmd/ramen synthesize --example examples/<name> --provider gemini --model gemini-2.5-pro --max-attempts 5
+go run ./cmd/ramen synthesize --example examples/<name> --provider gemini --model gemini-2.5-flash --max-attempts 5
 ```
 
 Refinement commands:
 
 ```bash
-go run ./cmd/ramen build --example examples/<name> --provider gemini --model gemini-2.5-pro --max-attempts 5
+go run ./cmd/ramen build --example examples/<name> --provider gemini --model gemini-2.5-flash --max-attempts 5
 go run ./cmd/ramen promote --example examples/<name>
 go run ./cmd/ramen assess --example examples/<name>
 ```
@@ -91,8 +91,14 @@ go run ./cmd/ramen assess --example examples/<name>
 Eval command for prompt/pipeline changes:
 
 ```bash
-go run ./cmd/ramen eval --root examples/eval --provider gemini --model gemini-2.5-pro
+go run ./cmd/ramen eval --root examples/eval --provider gemini --model gemini-2.5-flash
 ```
+
+Default to `gemini-2.5-flash` for Gemini-backed synthesis. The pipeline is validation-first:
+project preprocessing, structured output where supported, deterministic checks, and bounded repair
+attempts provide most of the reliability. Escalate to `gemini-2.5-pro` only after Flash fails
+deterministic checks; preview Pro models are not preferred defaults because they can be slower or
+capacity-limited.
 
 Symphony refinement loop:
 

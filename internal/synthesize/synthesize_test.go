@@ -353,6 +353,78 @@ OpenAPI: none required
 	}
 }
 
+func TestAssessAllowsRequiredRuntimeInputWithoutDefault(t *testing.T) {
+	example := filepath.Join(t.TempDir(), "examples", "runtime-input")
+	if err := os.MkdirAll(filepath.Join(example, "workflows"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(example, "project.md"), []byte(`# Runtime Input
+
+## Goal
+
+Render a local summary report.
+
+## Inputs
+
+- summary: required string.
+
+## External Systems and OpenAPI
+
+OpenAPI: none required
+
+## Runtime Policy
+
+- fnct allowed.
+
+## Data Flow
+
+- Pass inputs.summary to render_report.summary.
+
+## Credentials and Secrets
+
+- No credentials are required.
+
+## Safety and Approval Boundary
+
+- Generate and validate only.
+
+## Fallback Behavior
+
+- Stop if no approved function runtime exists.
+`), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(example, "workflows", "intent.hcl"), []byte(`workflow {
+  name = "runtime_input"
+}
+
+input "summary" {
+  type     = "string"
+  required = true
+}
+
+step "render_report" {
+  type = "fnct"
+  do   = "Render the summary report."
+  with = {
+    summary = "inputs.summary"
+  }
+}
+`), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	report, err := Assess(Options{ExampleDir: example})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !hasCheck(report, "intent.parse", "pass") {
+		t.Fatalf("expected intent.parse pass, got %#v", report.Checks)
+	}
+	if !hasCheck(report, "intent.slots", "pass") {
+		t.Fatalf("expected required runtime input without default to pass intent.slots, got %#v", report.Checks)
+	}
+}
+
 func TestAssessReportsProjectAuthoringWarnings(t *testing.T) {
 	example := filepath.Join(t.TempDir(), "examples", "weak-brief")
 	if err := os.MkdirAll(example, 0o755); err != nil {
