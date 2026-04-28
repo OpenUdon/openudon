@@ -1165,6 +1165,9 @@ func TestSynthesizeRetriesWorkflowGenerationAndWritesRefinementReport(t *testing
 	if !strings.Contains(string(refinement), `"prompt_version": "`+intentPromptVersion+`"`) {
 		t.Fatalf("refinement report missing prompt version:\n%s", refinement)
 	}
+	if !strings.Contains(string(refinement), `"prompt_snapshot":`) {
+		t.Fatalf("refinement report missing prompt snapshot:\n%s", refinement)
+	}
 }
 
 func TestSynthesizeStopsAtMaxAttemptsAndWritesRefinementReport(t *testing.T) {
@@ -1191,6 +1194,9 @@ func TestSynthesizeStopsAtMaxAttemptsAndWritesRefinementReport(t *testing.T) {
 	}
 	if !strings.Contains(string(refinement), "maximum refinement attempts reached") && !strings.Contains(string(refinement), "repeated quality failure") {
 		t.Fatalf("refinement report missing clean stop reason:\n%s", refinement)
+	}
+	if !strings.Contains(string(refinement), `"failure_class": "validation"`) {
+		t.Fatalf("refinement report missing validation failure class:\n%s", refinement)
 	}
 }
 

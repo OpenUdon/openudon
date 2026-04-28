@@ -1,7 +1,9 @@
 package synthesize
 
 import (
+	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -9,21 +11,24 @@ import (
 )
 
 const defaultMaxAttempts = 5
-const intentPromptVersion = "intent.v1"
+const intentPromptVersion = "intent.v3"
 
 type RefinementReport struct {
-	Status        string              `json:"status"`
-	Example       string              `json:"example"`
-	MaxAttempts   int                 `json:"max_attempts"`
-	PromptVersion string              `json:"prompt_version"`
-	Attempts      []RefinementAttempt `json:"attempts"`
-	StopReason    string              `json:"stop_reason,omitempty"`
+	Status         string              `json:"status"`
+	Example        string              `json:"example"`
+	MaxAttempts    int                 `json:"max_attempts"`
+	PromptVersion  string              `json:"prompt_version"`
+	PromptSnapshot string              `json:"prompt_snapshot,omitempty"`
+	Attempts       []RefinementAttempt `json:"attempts"`
+	StopReason     string              `json:"stop_reason,omitempty"`
 }
 
 type RefinementAttempt struct {
 	Number        int      `json:"number"`
 	Action        string   `json:"action"`
+	Mode          string   `json:"mode,omitempty"`
 	Status        string   `json:"status"`
+	FailureClass  string   `json:"failure_class,omitempty"`
 	FailingChecks []string `json:"failing_checks,omitempty"`
 	Detail        string   `json:"detail,omitempty"`
 	StopReason    string   `json:"stop_reason,omitempty"`
@@ -63,6 +68,7 @@ func (r *RefinementReport) addAttempt(number int, action string, report *Quality
 	if attempt.Status == "" {
 		attempt.Status = "pass"
 	}
+	attempt.FailureClass = classifyFailureClass(report, err)
 	r.Attempts = append(r.Attempts, attempt)
 	if stopReason != "" {
 		r.StopReason = stopReason
@@ -71,6 +77,49 @@ func (r *RefinementReport) addAttempt(number int, action string, report *Quality
 		r.Status = "pass"
 	} else {
 		r.Status = "fail"
+	}
+}
+
+func (r *RefinementReport) setLastAttemptMode(mode string) {
+	mode = strings.TrimSpace(mode)
+	if r == nil || mode == "" || len(r.Attempts) == 0 {
+		return
+	}
+	r.Attempts[len(r.Attempts)-1].Mode = mode
+}
+
+func classifyFailureClass(report *QualityReport, err error) string {
+	if report != nil && !report.Passed() {
+		return "validation"
+	}
+	if err == nil {
+		return ""
+	}
+	if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
+		return "model"
+	}
+	lower := strings.ToLower(err.Error())
+	switch {
+	case strings.Contains(lower, "api returned status"),
+		strings.Contains(lower, "extract intent json"),
+		strings.Contains(lower, "decode intent json"),
+		strings.Contains(lower, "render intent hcl"),
+		strings.Contains(lower, "generate intent"),
+		strings.Contains(lower, "generate workflow hcl"):
+		return "model"
+	case strings.Contains(lower, "generated intent referenced"),
+		strings.Contains(lower, "project declares openapi"),
+		strings.Contains(lower, "intent uses runtime not allowed"),
+		strings.Contains(lower, "intent references unavailable"),
+		strings.Contains(lower, "validate exported uws"):
+		return "validation"
+	case strings.Contains(lower, "read "),
+		strings.Contains(lower, "write "),
+		strings.Contains(lower, "mkdir"),
+		strings.Contains(lower, "discover "):
+		return "infra"
+	default:
+		return "infra"
 	}
 }
 
@@ -216,8 +265,17 @@ func refinementMarkdown(report *RefinementReport) string {
 	if report.PromptVersion != "" {
 		fmt.Fprintf(&b, "Prompt version: `%s`\n\n", report.PromptVersion)
 	}
+	if report.PromptSnapshot != "" {
+		b.WriteString("Prompt snapshot captured in JSON report.\n\n")
+	}
 	for _, attempt := range report.Attempts {
 		fmt.Fprintf(&b, "- Attempt `%d` `%s` %s\n", attempt.Number, attempt.Action, attempt.Status)
+		if attempt.Mode != "" {
+			fmt.Fprintf(&b, "  Mode: `%s`\n", attempt.Mode)
+		}
+		if attempt.FailureClass != "" {
+			fmt.Fprintf(&b, "  Failure class: `%s`\n", attempt.FailureClass)
+		}
 		if len(attempt.FailingChecks) > 0 {
 			fmt.Fprintf(&b, "  Failing checks: `%s`\n", strings.Join(attempt.FailingChecks, "`, `"))
 		}

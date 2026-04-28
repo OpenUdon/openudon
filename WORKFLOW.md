@@ -88,6 +88,12 @@ go run ./cmd/ramen promote --example examples/<name>
 go run ./cmd/ramen assess --example examples/<name>
 ```
 
+Eval command for prompt/pipeline changes:
+
+```bash
+go run ./cmd/ramen eval --root examples/eval --provider gemini --model gemini-2.5-pro
+```
+
 Symphony refinement loop:
 
 1. Run `synthesize` for a new or substantially changed `project.md`.

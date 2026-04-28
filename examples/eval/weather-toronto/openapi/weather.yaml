@@ -1,0 +1,57 @@
+openapi: 3.0.0
+info:
+  title: Weather API
+  version: 1.0.0
+paths:
+  /geo/1.0/direct:
+    get:
+      operationId: direct_get
+      parameters:
+        - name: q
+          in: query
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Coordinates
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    lat:
+                      type: number
+                    lon:
+                      type: number
+  /data/2.5/weather:
+    get:
+      operationId: getWeatherData
+      parameters:
+        - name: lat
+          in: query
+          required: true
+          schema:
+            type: number
+        - name: lon
+          in: query
+          required: true
+          schema:
+            type: number
+        - name: appid
+          in: query
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Weather
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  weather:
+                    type: array

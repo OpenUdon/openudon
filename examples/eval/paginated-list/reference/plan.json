@@ -1,0 +1,7 @@
+{
+  "version": "ramen.workflow-plan.v1",
+  "workflow": "paginated_list",
+  "steps": [
+    {"name": "list_customers", "runtime": "http", "operation": "listCustomers"}
+  ]
+}

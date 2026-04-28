@@ -1,0 +1,8 @@
+{
+  "version": "ramen.workflow-plan.v1",
+  "workflow": "weather_toronto",
+  "steps": [
+    {"name": "get_coordinates", "runtime": "http", "operation": "direct_get"},
+    {"name": "get_weather", "runtime": "http", "operation": "getWeatherData", "depends_on": ["get_coordinates"]}
+  ]
+}

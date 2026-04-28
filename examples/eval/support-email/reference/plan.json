@@ -1,0 +1,8 @@
+{
+  "version": "ramen.workflow-plan.v1",
+  "workflow": "support_email",
+  "steps": [
+    {"name": "get_ticket", "runtime": "http", "operation": "getTicket"},
+    {"name": "send_confirmation_email", "runtime": "fnct", "depends_on": ["get_ticket"]}
+  ]
+}

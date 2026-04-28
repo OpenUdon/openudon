@@ -1,0 +1,8 @@
+{
+  "openapi": "openapi/customers.yaml",
+  "workflow": {"name": "paginated_list", "description": "List the first page of customers."},
+  "steps": [
+    {"name": "list_customers", "type": "http", "do": "List customer records.", "operation": "listCustomers", "with": {"page": "1", "limit": "50"}}
+  ],
+  "outputs": [{"name": "customers", "from": "list_customers.received_body"}]
+}

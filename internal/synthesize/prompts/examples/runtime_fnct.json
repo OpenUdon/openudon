@@ -1,0 +1,8 @@
+{
+  "workflow": {"name": "runtime_only_render", "description": "Render a local summary report."},
+  "inputs": [{"name": "summary", "type": "string", "required": true}],
+  "steps": [
+    {"name": "render_report", "type": "fnct", "do": "Render the summary report.", "with": {"summary": "inputs.summary"}}
+  ],
+  "outputs": [{"name": "report", "from": "render_report.received_body"}]
+}

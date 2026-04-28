@@ -1,0 +1,7 @@
+{
+  "version": "ramen.workflow-plan.v1",
+  "workflow": "runtime_only_render",
+  "steps": [
+    {"name": "render_report", "runtime": "fnct"}
+  ]
+}

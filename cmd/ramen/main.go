@@ -6,10 +6,13 @@ import (
 	"fmt"
 	"os"
 	"os/signal"
+	"path/filepath"
+	"strings"
 	"syscall"
 	"time"
 
 	"github.com/genelet/ramen/internal/config"
+	evalpkg "github.com/genelet/ramen/internal/eval"
 	"github.com/genelet/ramen/internal/synthesize"
 	"github.com/genelet/ramen/internal/uwsvalidate"
 )
@@ -23,6 +26,7 @@ func main() {
 		fmt.Fprintf(flag.CommandLine.Output(), "  check     verify required sibling repositories are present\n")
 		fmt.Fprintf(flag.CommandLine.Output(), "  assess    assess existing example artifacts and write quality reports\n")
 		fmt.Fprintf(flag.CommandLine.Output(), "  build     regenerate workflow/UWS from an existing intent.hcl\n")
+		fmt.Fprintf(flag.CommandLine.Output(), "  eval      run synthesis eval briefs and write pass/fail reports\n")
 		fmt.Fprintf(flag.CommandLine.Output(), "  promote   export/validate UWS from an existing workflow.hcl\n")
 		fmt.Fprintf(flag.CommandLine.Output(), "  synthesize generate intent, workflow, UWS, and review artifacts for an example\n")
 		fmt.Fprintf(flag.CommandLine.Output(), "  validate  validate one UWS JSON/YAML file against the sibling UWS schema\n")
@@ -54,6 +58,8 @@ func main() {
 		fmt.Printf("ramen: %s is valid UWS\n", flag.Arg(1))
 	case "synthesize", "build", "promote", "assess":
 		runArtifactCommand(command, flag.Args()[1:])
+	case "eval":
+		runEvalCommand(flag.Args()[1:])
 	case "version":
 		fmt.Println(version)
 	case "-h", "--help", "help":
@@ -65,6 +71,68 @@ func main() {
 	}
 }
 
+func runEvalCommand(args []string) {
+	fs := flag.NewFlagSet("eval", flag.ExitOnError)
+	root := fs.String("root", "examples/eval", "Directory containing eval example subdirectories")
+	name := fs.String("name", "", "Run a single eval brief by directory name")
+	provider := fs.String("provider", "", "LLM provider: openai, anthropic, or gemini; defaults to udon runner env behavior")
+	model := fs.String("model", "", "LLM model")
+	timeout := fs.Duration("timeout", 2*time.Minute, "LLM generation timeout")
+	maxAttempts := fs.Int("max-attempts", 5, "Maximum refinement attempts")
+	temperature := fs.Float64("temperature", 0.2, "Intent generation temperature")
+	concurrency := fs.Int("concurrency", 2, "Maximum concurrent eval runs")
+	out := fs.String("out", evalpkg.DefaultOutputPath(time.Now()), "JSON report output path")
+	fs.Usage = func() {
+		fmt.Fprintf(fs.Output(), "Usage: ramen eval [--root examples/eval] [--name support-email] [--out eval/runs/<ts>.json]\n")
+		fs.PrintDefaults()
+	}
+	if err := fs.Parse(args); err != nil {
+		os.Exit(2)
+	}
+	opts := synthesize.Options{
+		Provider:          *provider,
+		Model:             *model,
+		Timeout:           *timeout,
+		MaxAttempts:       *maxAttempts,
+		IntentTemperature: temperature,
+	}
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer stop()
+	var results []evalpkg.EvalResult
+	if strings.TrimSpace(*name) != "" {
+		results = []evalpkg.EvalResult{evalpkg.RunOne(ctx, filepath.Join(*root, strings.TrimSpace(*name)), opts)}
+	} else {
+		results = evalpkg.RunAll(ctx, *root, opts, *concurrency)
+	}
+	if len(results) == 0 {
+		fmt.Fprintf(os.Stderr, "no eval briefs found under %s\n", *root)
+		os.Exit(1)
+	}
+	if err := evalpkg.WriteReports(*out, results); err != nil {
+		fmt.Fprintln(os.Stderr, err)
+		os.Exit(1)
+	}
+	fmt.Printf("ramen: eval wrote %s\n", *out)
+	fmt.Print(evalpkg.Markdown(results))
+	previousPath, err := evalpkg.FindPreviousRun(*out)
+	if err != nil {
+		fmt.Fprintln(os.Stderr, err)
+		os.Exit(1)
+	}
+	if previousPath == "" {
+		return
+	}
+	previous, err := evalpkg.ReadResults(previousPath)
+	if err != nil {
+		fmt.Fprintln(os.Stderr, err)
+		os.Exit(1)
+	}
+	if err := evalpkg.RegressionError(results, previous); err != nil {
+		fmt.Fprintln(os.Stderr, err)
+		os.Exit(1)
+	}
+}
+
 func runArtifactCommand(command string, args []string) {
 	fs := flag.NewFlagSet(command, flag.ExitOnError)
 	example := fs.String("example", "", "Example directory containing project.md and artifact subdirectories")
@@ -72,6 +140,7 @@ func runArtifactCommand(command string, args []string) {
 	model := fs.String("model", "", "LLM model")
 	timeout := fs.Duration("timeout", 2*time.Minute, "LLM generation timeout")
 	maxAttempts := fs.Int("max-attempts", 5, "Maximum refinement attempts for synthesize/build")
+	temperature := fs.Float64("temperature", 0.2, "Intent generation temperature for synthesize")
 	fs.Usage = func() {
 		fmt.Fprintf(fs.Output(), "Usage: ramen %s --example examples/<name> [--provider gemini --model gemini-2.5-pro]\n", command)
 		fs.PrintDefaults()
@@ -80,11 +149,12 @@ func runArtifactCommand(command string, args []string) {
 		os.Exit(2)
 	}
 	opts := synthesize.Options{
-		ExampleDir:  *example,
-		Provider:    *provider,
-		Model:       *model,
-		Timeout:     *timeout,
-		MaxAttempts: *maxAttempts,
+		ExampleDir:        *example,
+		Provider:          *provider,
+		Model:             *model,
+		Timeout:           *timeout,
+		MaxAttempts:       *maxAttempts,
+		IntentTemperature: temperature,
 	}
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()

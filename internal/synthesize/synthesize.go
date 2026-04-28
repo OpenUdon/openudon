@@ -18,11 +18,12 @@ import (
 )
 
 type Options struct {
-	ExampleDir  string
-	Provider    string
-	Model       string
-	Timeout     time.Duration
-	MaxAttempts int
+	ExampleDir        string
+	Provider          string
+	Model             string
+	Timeout           time.Duration
+	MaxAttempts       int
+	IntentTemperature *float64
 
 	Discoverer *openapidisco.Discoverer
 	LLMClient  rollout.LLMClient
@@ -66,13 +67,21 @@ func Synthesize(ctx context.Context, opts Options) (*Result, error) {
 		return nil, err
 	}
 	state.chat = chat
+	temperature := intentTemperature(opts)
+	state.intentTemperature = &temperature
 	return runRefinement(ctx, opts, state, llm, provider, model, "generate_intent", func(ctx context.Context, attempt int, action, feedback string, intent *rollout.Intent, state *refinementState) (*rollout.Intent, string, error) {
 		if attempt == 1 || action != "regenerate_workflow" || intent == nil {
 			if err := ctx.Err(); err != nil {
 				return nil, action, err
 			}
+			messages := intentPromptMessagesForMode(state.projectText, state.candidates, state.primaryPath, state.policy, feedback, supportsStructuredChat(state.chat))
+			if attempt == 1 && state.promptSnapshot == "" {
+				state.promptSnapshot = renderPromptSnapshot(messages)
+			}
 			var err error
-			intent, err = generateIntent(ctx, state.chat, state.projectText, state.candidates, state.primaryPath, state.policy, feedback)
+			var mode string
+			intent, mode, err = generateIntentFromMessagesWithMode(ctx, state.chat, messages, state.primaryPath, state.policy, state.intentTemperature)
+			state.generationMode = mode
 			if err != nil {
 				return nil, action, fmt.Errorf("generate intent: %w", err)
 			}
@@ -101,7 +110,9 @@ func Synthesize(ctx context.Context, opts Options) (*Result, error) {
 					return nil, "discover_openapi", err
 				}
 				var err error
-				intent, err = generateIntent(ctx, state.chat, state.projectText, state.candidates, state.primaryPath, state.policy, "Complementary OpenAPI discovery added candidate documents; preserve the project goal and use the newly available operations when needed.")
+				var mode string
+				intent, mode, err = generateIntentWithMode(ctx, state.chat, state.projectText, state.candidates, state.primaryPath, state.policy, "Complementary OpenAPI discovery added candidate documents; preserve the project goal and use the newly available operations when needed.", state.intentTemperature)
+				state.generationMode = mode
 				if err != nil {
 					return nil, "discover_openapi", fmt.Errorf("regenerate intent after complementary OpenAPI discovery: %w", err)
 				}
@@ -151,6 +162,7 @@ func Build(ctx context.Context, opts Options) (*Result, error) {
 	}
 	state.primaryPath = primary
 	state.result.PrimaryOpenAPI = primary
+	state.generationMode = "fixed_intent"
 	llm, _, provider, model, err := resolveClients(opts)
 	if err != nil {
 		return nil, err
@@ -161,14 +173,17 @@ func Build(ctx context.Context, opts Options) (*Result, error) {
 }
 
 type refinementState struct {
-	result          Result
-	projectText     string
-	policy          projectPolicy
-	discoverer      *openapidisco.Discoverer
-	candidates      []openapidisco.Candidate
-	primaryPath     string
-	discoveryReport openapidisco.DiscoveryReport
-	chat            rollout.ChatClient
+	result            Result
+	projectText       string
+	policy            projectPolicy
+	discoverer        *openapidisco.Discoverer
+	candidates        []openapidisco.Candidate
+	primaryPath       string
+	discoveryReport   openapidisco.DiscoveryReport
+	chat              rollout.ChatClient
+	promptSnapshot    string
+	generationMode    string
+	intentTemperature *float64
 }
 
 type refinementIntentSupplier func(context.Context, int, string, string, *rollout.Intent, *refinementState) (*rollout.Intent, string, error)
@@ -237,9 +252,13 @@ func runRefinement(ctx context.Context, opts Options, state *refinementState, ll
 		}
 		var err error
 		intent, action, err = supplyIntent(ctx, attempt, action, feedback, intent, state)
+		if refinement.PromptSnapshot == "" && state.promptSnapshot != "" {
+			refinement.PromptSnapshot = state.promptSnapshot
+		}
 		if err != nil {
 			stopReason := refinementStopReasonForError(err)
 			refinement.addAttempt(attempt, action, nil, err, stopReason)
+			refinement.setLastAttemptMode(state.generationMode)
 			if writeErr := writeRefinementReport(state.result, refinement); writeErr != nil {
 				return nil, fmt.Errorf("write refinement report: %w", writeErr)
 			}
@@ -247,6 +266,7 @@ func runRefinement(ctx context.Context, opts Options, state *refinementState, ll
 		}
 		if err := validateIntentOpenAPIRefs(intent, state.candidates, state.primaryPath, state.policy.NoOpenAPI); err != nil {
 			refinement.addAttempt(attempt, action, nil, err, "intent references unavailable OpenAPI metadata")
+			refinement.setLastAttemptMode(state.generationMode)
 			if writeErr := writeRefinementReport(state.result, refinement); writeErr != nil {
 				return nil, fmt.Errorf("write refinement report: %w", writeErr)
 			}
@@ -254,6 +274,7 @@ func runRefinement(ctx context.Context, opts Options, state *refinementState, ll
 		}
 		if err := validateIntentRuntimePolicy(intent, state.policy); err != nil {
 			refinement.addAttempt(attempt, action, nil, err, "intent uses a runtime outside project policy")
+			refinement.setLastAttemptMode(state.generationMode)
 			if writeErr := writeRefinementReport(state.result, refinement); writeErr != nil {
 				return nil, fmt.Errorf("write refinement report: %w", writeErr)
 			}
@@ -263,6 +284,7 @@ func runRefinement(ctx context.Context, opts Options, state *refinementState, ll
 		intentHCL, err := runner.RenderIntentHCL(intent)
 		if err != nil {
 			refinement.addAttempt(attempt, action, nil, fmt.Errorf("render intent HCL: %w", err), "intent rendering failed")
+			refinement.setLastAttemptMode(state.generationMode)
 			if writeErr := writeRefinementReport(state.result, refinement); writeErr != nil {
 				return nil, fmt.Errorf("write refinement report: %w", writeErr)
 			}
@@ -286,6 +308,7 @@ func runRefinement(ctx context.Context, opts Options, state *refinementState, ll
 				stopReason = "maximum refinement attempts reached"
 			}
 			refinement.addAttempt(attempt, action, nil, err, stopReason)
+			refinement.setLastAttemptMode(state.generationMode)
 			if writeErr := writeRefinementReport(state.result, refinement); writeErr != nil {
 				return nil, fmt.Errorf("write refinement report: %w", writeErr)
 			}
@@ -305,6 +328,7 @@ func runRefinement(ctx context.Context, opts Options, state *refinementState, ll
 				stopReason = "maximum refinement attempts reached"
 			}
 			refinement.addAttempt(attempt, action, nil, err, stopReason)
+			refinement.setLastAttemptMode(state.generationMode)
 			if writeErr := writeRefinementReport(state.result, refinement); writeErr != nil {
 				return nil, fmt.Errorf("write refinement report: %w", writeErr)
 			}
@@ -327,6 +351,7 @@ func runRefinement(ctx context.Context, opts Options, state *refinementState, ll
 		}
 		if report.Passed() {
 			refinement.addAttempt(attempt, action, report, nil, "quality passed")
+			refinement.setLastAttemptMode(state.generationMode)
 			if err := writeRefinementReport(state.result, refinement); err != nil {
 				return nil, fmt.Errorf("write refinement report: %w", err)
 			}
@@ -345,6 +370,7 @@ func runRefinement(ctx context.Context, opts Options, state *refinementState, ll
 			stopReason = "repeated quality failure"
 		}
 		refinement.addAttempt(attempt, action, report, nil, stopReason)
+		refinement.setLastAttemptMode(state.generationMode)
 		if err := writeRefinementReport(state.result, refinement); err != nil {
 			return nil, fmt.Errorf("write refinement report: %w", err)
 		}
@@ -523,7 +549,10 @@ func resolveClients(opts Options) (rollout.LLMClient, rollout.ChatClient, string
 	if opts.LLMClient != nil && opts.ChatClient != nil {
 		return opts.LLMClient, opts.ChatClient, strings.TrimSpace(opts.Provider), strings.TrimSpace(opts.Model), nil
 	}
-	llm, provider, model, err := runner.NewLLMClientFromEnv(opts.Provider, opts.Model)
+	temperature := intentTemperature(opts)
+	llm, provider, model, err := runner.NewLLMClientFromEnvWithOptions(opts.Provider, opts.Model, runner.LLMOptions{
+		Temperature: &temperature,
+	})
 	if err != nil {
 		return nil, nil, "", "", err
 	}
@@ -532,6 +561,13 @@ func resolveClients(opts Options) (rollout.LLMClient, rollout.ChatClient, string
 		return nil, nil, "", "", fmt.Errorf("selected provider %s does not support chat", provider)
 	}
 	return llm, chat, provider, model, nil
+}
+
+func intentTemperature(opts Options) float64 {
+	if opts.IntentTemperature == nil {
+		return 0.2
+	}
+	return *opts.IntentTemperature
 }
 
 func validateIntentOpenAPIRefs(intent *rollout.Intent, candidates []openapidisco.Candidate, primary string, noOpenAPI bool) error {

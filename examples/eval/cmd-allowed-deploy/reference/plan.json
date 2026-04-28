@@ -1,0 +1,7 @@
+{
+  "version": "ramen.workflow-plan.v1",
+  "workflow": "cmd_allowed_deploy",
+  "steps": [
+    {"name": "check_deploy_status", "runtime": "cmd"}
+  ]
+}

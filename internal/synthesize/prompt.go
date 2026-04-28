@@ -2,9 +2,10 @@ package synthesize
 
 import (
 	"context"
-	_ "embed"
+	"embed"
 	"encoding/json"
 	"fmt"
+	"path/filepath"
 	"sort"
 	"strings"
 
@@ -18,36 +19,104 @@ const (
 	maxPromptDescriptionChars      = 400
 	maxPromptOperationSummaryChars = 160
 	maxPromptResponseFields        = 12
+	intentGenerationModeStructured = "structured"
+	intentGenerationModeLegacy     = "legacy"
 )
 
 //go:embed prompts/intent_generation.tmpl
 var intentGenerationSystemPrompt string
 
+//go:embed prompts/examples/*.json
+var intentPromptExamples embed.FS
+
+//go:embed schemas/intent.schema.json
+var embeddedIntentSchema []byte
+
 func generateIntent(ctx context.Context, chat rollout.ChatClient, projectText string, candidates []openapidisco.Candidate, primary string, policy projectPolicy, feedback string) (*rollout.Intent, error) {
+	intent, _, err := generateIntentWithMode(ctx, chat, projectText, candidates, primary, policy, feedback, nil)
+	return intent, err
+}
+
+func generateIntentWithMode(ctx context.Context, chat rollout.ChatClient, projectText string, candidates []openapidisco.Candidate, primary string, policy projectPolicy, feedback string, temperature *float64) (*rollout.Intent, string, error) {
+	messages := intentPromptMessagesForMode(projectText, candidates, primary, policy, feedback, supportsStructuredChat(chat))
+	return generateIntentFromMessagesWithMode(ctx, chat, messages, primary, policy, temperature)
+}
+
+func intentPromptMessages(projectText string, candidates []openapidisco.Candidate, primary string, policy projectPolicy, feedback string) []rollout.ChatMessage {
+	return intentPromptMessagesForMode(projectText, candidates, primary, policy, feedback, false)
+}
+
+func intentPromptMessagesForMode(projectText string, candidates []openapidisco.Candidate, primary string, policy projectPolicy, feedback string, structured bool) []rollout.ChatMessage {
 	feedback = strings.TrimSpace(feedback)
 	feedbackSection := ""
 	if feedback != "" {
 		feedbackSection = "\nPrevious quality failure to repair:\n" + feedback + "\n"
 	}
-	user := fmt.Sprintf("Project brief:\n%s\n\nRuntime and OpenAPI policy:\n%s\nAvailable OpenAPI documents:\n%s\n\nPrimary OpenAPI path: %s\n%s\nReturn JSON matching this shape:\n%s",
+	user := fmt.Sprintf("Project brief:\n%s\n\nRuntime and OpenAPI policy:\n%s\n%sAvailable OpenAPI documents:\n%s\n\nPrimary OpenAPI path: %s\n%s\nReturn JSON matching this shape:\n%s",
 		projectText,
 		runtimePolicyPrompt(policy),
+		requiredByProjectPrompt(policy),
 		specSummary(candidates),
 		primary,
 		feedbackSection,
 		intentJSONShape(),
 	)
-	response, err := chat.Chat(ctx, []rollout.ChatMessage{
-		{Role: "system", Content: strings.TrimSpace(intentGenerationSystemPrompt)},
+	return []rollout.ChatMessage{
+		{Role: "system", Content: renderIntentSystemPromptForMode(structured)},
 		{Role: "user", Content: user},
-	})
+	}
+}
+
+func generateIntentFromMessages(ctx context.Context, chat rollout.ChatClient, messages []rollout.ChatMessage, primary string, policy projectPolicy) (*rollout.Intent, error) {
+	intent, _, err := generateIntentFromMessagesWithMode(ctx, chat, messages, primary, policy, nil)
+	return intent, err
+}
+
+func generateIntentFromMessagesWithMode(ctx context.Context, chat rollout.ChatClient, messages []rollout.ChatMessage, primary string, policy projectPolicy, temperature *float64) (*rollout.Intent, string, error) {
+	if structured, ok := chat.(rollout.StructuredChat); ok {
+		raw, err := structured.StructuredChat(ctx, messages, json.RawMessage(embeddedIntentSchema), rollout.StructuredOpts{Temperature: temperature})
+		if err == nil {
+			intent, err := decodeIntentJSON(raw, primary, policy)
+			if err != nil {
+				return nil, intentGenerationModeStructured, err
+			}
+			return intent, intentGenerationModeStructured, nil
+		}
+		messages = legacyJSONInstructionMessages(messages)
+	}
+	response, err := chat.Chat(ctx, messages)
 	if err != nil {
-		return nil, err
+		return nil, intentGenerationModeLegacy, err
 	}
 	jsonText, err := extractJSON(response)
 	if err != nil {
-		return nil, err
+		return nil, intentGenerationModeLegacy, fmt.Errorf("extract intent JSON: %w", err)
 	}
+	intent, err := decodeIntentJSON(jsonText, primary, policy)
+	if err != nil {
+		return nil, intentGenerationModeLegacy, err
+	}
+	return intent, intentGenerationModeLegacy, nil
+}
+
+func legacyJSONInstructionMessages(messages []rollout.ChatMessage) []rollout.ChatMessage {
+	const instruction = "Return only JSON. Do not include Markdown."
+	out := append([]rollout.ChatMessage(nil), messages...)
+	for i := range out {
+		if strings.Contains(out[i].Content, instruction) {
+			return out
+		}
+	}
+	for i := len(out) - 1; i >= 0; i-- {
+		if strings.TrimSpace(out[i].Role) == "user" {
+			out[i].Content = strings.TrimSpace(out[i].Content) + "\n\n" + instruction
+			return out
+		}
+	}
+	return out
+}
+
+func decodeIntentJSON(jsonText string, primary string, policy projectPolicy) (*rollout.Intent, error) {
 	var intent rollout.Intent
 	if err := json.Unmarshal([]byte(jsonText), &intent); err != nil {
 		return nil, fmt.Errorf("decode intent JSON: %w", err)
@@ -60,6 +129,100 @@ func generateIntent(ctx context.Context, chat rollout.ChatClient, projectText st
 		return nil, err
 	}
 	return &intent, nil
+}
+
+func renderIntentSystemPrompt() string {
+	return renderIntentSystemPromptForMode(false)
+}
+
+func renderIntentSystemPromptForMode(structured bool) string {
+	prompt := strings.ReplaceAll(strings.TrimSpace(intentGenerationSystemPrompt), "{{EXAMPLES}}", promptExamplesBlock())
+	if structured {
+		prompt = strings.ReplaceAll(prompt, "Return only JSON. Do not include Markdown.\n", "")
+		prompt = strings.ReplaceAll(prompt, "Return only JSON. Do not include Markdown.", "")
+	}
+	return strings.TrimSpace(prompt)
+}
+
+func supportsStructuredChat(chat rollout.ChatClient) bool {
+	_, ok := chat.(rollout.StructuredChat)
+	return ok
+}
+
+func promptExamplesBlock() string {
+	entries, err := intentPromptExamples.ReadDir("prompts/examples")
+	if err != nil {
+		return ""
+	}
+	var names []string
+	for _, entry := range entries {
+		if !entry.IsDir() && filepath.Ext(entry.Name()) == ".json" {
+			names = append(names, entry.Name())
+		}
+	}
+	sort.Strings(names)
+	var b strings.Builder
+	for _, name := range names {
+		data, err := intentPromptExamples.ReadFile(filepath.Join("prompts/examples", name))
+		if err != nil {
+			continue
+		}
+		fmt.Fprintf(&b, "### %s\n\n```json\n%s\n```\n\n", strings.TrimSuffix(name, ".json"), strings.TrimSpace(string(data)))
+	}
+	return strings.TrimSpace(b.String())
+}
+
+func renderPromptSnapshot(messages []rollout.ChatMessage) string {
+	var b strings.Builder
+	for _, message := range messages {
+		fmt.Fprintf(&b, "## %s\n\n%s\n\n", strings.ToUpper(strings.TrimSpace(message.Role)), strings.TrimSpace(message.Content))
+	}
+	return strings.TrimSpace(b.String())
+}
+
+func requiredByProjectPrompt(policy projectPolicy) string {
+	var lines []string
+	for _, input := range policy.Inputs {
+		parts := []string{input.Name}
+		if input.Type != "" {
+			parts = append(parts, input.Type)
+		}
+		if input.Required {
+			parts = append(parts, "required")
+		}
+		if input.Description != "" {
+			parts = append(parts, input.Description)
+		}
+		lines = append(lines, "- Input: "+strings.Join(parts, ", "))
+	}
+	for _, output := range policy.Outputs {
+		if output.From != "" {
+			lines = append(lines, fmt.Sprintf("- Output: %s from %s", output.Name, output.From))
+		} else if output.Description != "" {
+			lines = append(lines, fmt.Sprintf("- Output: %s (%s)", output.Name, output.Description))
+		}
+	}
+	for _, hint := range policy.BindingHints {
+		lines = append(lines, fmt.Sprintf("- Step `%s` MUST receive `%s` as input `%s`.", hint.To, hint.From, hint.Field))
+	}
+	for _, contract := range policy.FunctionContracts {
+		if contract.Name == "" {
+			continue
+		}
+		if len(contract.Inputs) > 0 {
+			lines = append(lines, fmt.Sprintf("- Function `%s` inputs: %s", contract.Name, strings.Join(contract.Inputs, ", ")))
+		}
+		if len(contract.Outputs) > 0 {
+			lines = append(lines, fmt.Sprintf("- Function `%s` outputs: %s", contract.Name, strings.Join(contract.Outputs, ", ")))
+		}
+		if contract.SideEffects != "" {
+			lines = append(lines, fmt.Sprintf("- Function `%s` side effects: %s", contract.Name, contract.SideEffects))
+		}
+	}
+	if len(lines) == 0 {
+		return "Required by project.md:\n- No structured requirements were extracted.\n\n"
+	}
+	return "Required by project.md:\n" + strings.Join(lines, "\n") + "\n\n"
 }
 
 func specSummary(candidates []openapidisco.Candidate) string {
@@ -169,7 +332,7 @@ func collectSchemaFieldNames(schema map[string]any, prefix string, out map[strin
 
 func intentJSONShape() string {
 	return `{
-  "openapi": "openapi/example.yaml",
+  "openapi": "<primary openapi path provided above>",
   "workflow": {"name": "workflow_name", "description": "short description"},
   "inputs": [{"name": "input_name", "type": "string", "required": true}],
   "steps": [

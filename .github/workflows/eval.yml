@@ -1,0 +1,66 @@
+name: Eval
+
+on:
+  workflow_dispatch:
+
+jobs:
+  eval:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ramen
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          path: ramen
+      - uses: actions/checkout@v4
+        with:
+          repository: genelet/udon
+          path: udon
+          token: ${{ secrets.RAMEN_CI_TOKEN || github.token }}
+      - uses: actions/checkout@v4
+        with:
+          repository: genelet/grand
+          path: grand
+          token: ${{ secrets.RAMEN_CI_TOKEN || github.token }}
+      - uses: actions/checkout@v4
+        with:
+          repository: genelet/golet
+          path: golet
+          token: ${{ secrets.RAMEN_CI_TOKEN || github.token }}
+      - uses: actions/checkout@v4
+        with:
+          repository: genelet/molecule
+          path: molecule
+          token: ${{ secrets.RAMEN_CI_TOKEN || github.token }}
+      - uses: actions/checkout@v4
+        with:
+          repository: genelet/hcllight
+          path: hcllight
+          token: ${{ secrets.RAMEN_CI_TOKEN || github.token }}
+      - uses: actions/checkout@v4
+        with:
+          repository: genelet/horizon
+          path: horizon
+          token: ${{ secrets.RAMEN_CI_TOKEN || github.token }}
+      - uses: actions/checkout@v4
+        with:
+          repository: tabilet/uws
+          path: uws
+          token: ${{ secrets.RAMEN_CI_TOKEN || github.token }}
+      - uses: actions/checkout@v4
+        with:
+          repository: tabilet/arazzo
+          path: arazzo
+          token: ${{ secrets.RAMEN_CI_TOKEN || github.token }}
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: ramen/go.mod
+          cache: true
+      - run: make eval
+        env:
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ramen-eval
+          path: ramen/eval/runs

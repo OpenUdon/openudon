@@ -94,6 +94,15 @@ go run ./cmd/ramen promote --example ./examples/support-email  # workflow.hcl ->
 go run ./cmd/ramen assess --example ./examples/support-email   # quality reports only
 ```
 
+Use the eval harness when changing prompts or synthesis behavior:
+
+```bash
+go run ./cmd/ramen eval --root ./examples/eval --provider gemini --model gemini-2.5-pro
+```
+
+Eval runs synthesize temporary copies of the eval briefs and writes JSON/Markdown summaries under
+`eval/runs/`.
+
 LLM credentials must come from provider environment variables such as `GEMINI_API_KEY`,
 `OPENAI_API_KEY`, or `ANTHROPIC_API_KEY`; do not place tokens in prompts, commands, examples, or
 workflow artifacts.

@@ -1,11 +1,11 @@
-.PHONY: help test check siblings validate-uws synthesize-support build-support promote-support assess-support run-example
+.PHONY: help test check siblings validate-uws eval synthesize-support build-support promote-support assess-support run-example
 
 GO ?= go
 RAMEN_PROVIDER ?= gemini
 RAMEN_MODEL ?= gemini-2.5-pro
 
 help:
-	@echo "Targets: test, check, siblings, validate-uws, synthesize-support, build-support, promote-support, assess-support, run-example"
+	@echo "Targets: test, check, siblings, validate-uws, eval, synthesize-support, build-support, promote-support, assess-support, run-example"
 
 test:
 	$(GO) test ./...
@@ -18,6 +18,9 @@ siblings:
 
 validate-uws:
 	./scripts/validate-uws.sh ./examples/support-email/workflows
+
+eval:
+	$(GO) run ./cmd/ramen eval --root ./examples/eval --provider $(RAMEN_PROVIDER) --model $(RAMEN_MODEL)
 
 synthesize-support:
 	$(GO) run ./cmd/ramen synthesize --example ./examples/support-email --provider $(RAMEN_PROVIDER) --model $(RAMEN_MODEL)

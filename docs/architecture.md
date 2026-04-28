@@ -51,3 +51,8 @@ Ramen performs a bounded deterministic refinement loop for generation stages and
 attempt in `expected/refinement.json`. Symphony owns the broader work loop around these commands:
 Symphony/Codex uses refinement and quality reports to decide whether to improve OpenAPI inputs,
 intent HCL, workflow HCL, project policy, or review evidence.
+
+Ramen also includes an opt-in eval harness for prompt and pipeline changes. Eval briefs live under
+`examples/eval`, are copied to temporary workspaces before synthesis, and produce JSON/Markdown run
+reports under `eval/runs` so prompt versions, pass rates, attempts-to-pass, and reference intent
+drift can be compared without dirtying committed examples.

@@ -1,0 +1,29 @@
+openapi: 3.0.0
+info:
+  title: Customers API
+  version: 1.0.0
+paths:
+  /customers:
+    get:
+      operationId: listCustomers
+      parameters:
+        - name: page
+          in: query
+          required: true
+          schema:
+            type: integer
+        - name: limit
+          in: query
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Customer page
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  customers:
+                    type: array
