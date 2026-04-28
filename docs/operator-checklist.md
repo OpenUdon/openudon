@@ -47,6 +47,8 @@ Use `docs/release-note-template.md`. Record the comparison baseline, eval JSON/M
 commit and dirty state, release-gate result, deterministic checks, and known external blockers.
 For real-provider release evidence, copy the Provider Drift Watch section from the eval Markdown
 report and follow `docs/xrd-006-provider-drift-watch.md`.
+CI and release automation remain disabled until the infra handoff in
+`docs/xrd-007-infra-handoff.md` is accepted.
 
 ## Trusted Handoff
 

@@ -89,6 +89,8 @@ the upstream request with the Symphony owner.
 
 GitHub CI remains disabled because hosted checks are not yet representative or safe for this private
 workspace.
+The concrete infrastructure handoff is
+[`docs/xrd-007-infra-handoff.md`](xrd-007-infra-handoff.md).
 
 Current blockers:
 

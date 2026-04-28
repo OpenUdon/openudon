@@ -168,6 +168,9 @@ fallbacks, no brief above two refinement attempts, no blocking reference issues 
 `make release-eval` uses `RAMEN_PROVIDER` and `RAMEN_MODEL`, defaulting to `gemini` and
 `gemini-2.5-flash`.
 
+CI and release automation remain disabled until the private-runner prerequisites in
+`docs/xrd-007-infra-handoff.md` are satisfied.
+
 Last full passing real-LLM smoke: 2026-04-28, `gemini-2.5-flash`, prompt `intent.v3`, structured
 output path with `0` legacy extraction fallbacks.
 

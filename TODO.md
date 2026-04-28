@@ -354,7 +354,7 @@ Dependency status markers:
 | XRD-004 | `[done]` | P1 | `../ramen`, then `../udon` | Generic OpenAPI execution/compiler behavior for richer API workflows. | Ramen now has a documented XRD-004 eval plan plus fixtures covering pagination variants, request bodies, security schemes, write operations, response extraction, and multi-service chains. | Ramen eval owner / udon | Keep `docs/xrd-004-openapi-eval-plan.md` and eval fixtures as the Ramen-owned coverage; propose reusable udon fixes only after concrete eval failures identify upstream gaps. |
 | XRD-005 | `[handoff]` | P1 | External `../symphony` owner | Review workflow, approval handoff, and agent workspace policy integration. | Ramen emits the minimum handoff package, full approval-state review evidence, and `docs/xrd-005-symphony-handoff.md` for Symphony implementation. | symphony owner | Hand `docs/xrd-005-symphony-handoff.md` to the Symphony owner; contract details stay in `docs/cross-repo-contracts.md`. |
 | XRD-006 | `[watch]` | P1 | Provider APIs | Structured-output schema dialect compatibility, rate limits, transient errors, and model availability. | Eval Markdown reports include a Provider Drift Watch section; `docs/xrd-006-provider-drift-watch.md` defines the release evidence path. | provider owners | Watch during release evals; no implementation plan is open. |
-| XRD-007 | `[blocked]` | P1 | Repo access / secrets | Private sibling checkout and provider credential availability for future workflow automation. | GitHub CI was removed because private siblings and credentials made hosted checks noisy; real-LLM eval remains local/manual. | infra | Use `docs/xrd-roadmap.md` for the infra handoff; runbook details stay in `docs/cross-repo-contracts.md`. |
+| XRD-007 | `[handoff]` | P1 | Repo access / secrets | Private sibling checkout and provider credential availability for future workflow automation. | Ramen has `docs/xrd-007-infra-handoff.md` for private checkout, self-hosted runner, and secret/artifact controls; real-LLM eval remains local/manual. | infra | Hand `docs/xrd-007-infra-handoff.md` to infra; keep CI disabled until prerequisites are met. |
 | XRD-008 | `[ready]` | P2 | `../ramen`, then `../udon` / `../uws` | Runtime/profile coverage for approved non-HTTP execution beyond current `fnct`/`cmd` smoke paths. | Runtime-only and command evals cover basic policy, but future runtime profiles need generic execution support outside Ramen. | Ramen eval owner / udon/uws | Use `docs/xrd-roadmap.md` for the runtime/profile eval follow-up plan. |
 
 Next upstream actions:
@@ -364,6 +364,6 @@ Next upstream actions:
 2. For XRD-005, hand `docs/xrd-005-symphony-handoff.md` and the
    `docs/cross-repo-contracts.md` approval contract to the Symphony owner; do not modify
    `../symphony` from Ramen.
-3. For XRD-007, keep CI disabled until the self-hosted deterministic runner prerequisites in
-   `docs/cross-repo-contracts.md` are satisfied.
+3. For XRD-007, hand `docs/xrd-007-infra-handoff.md` to infra and keep CI disabled until the
+   self-hosted deterministic runner prerequisites in `docs/cross-repo-contracts.md` are satisfied.
 4. Use `docs/xrd-roadmap.md` for the full XRD execution sequence and follow-up plan boundaries.

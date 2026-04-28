@@ -19,7 +19,7 @@ handoff requirements, and XRD-007 private checkout and secrets prerequisites.
 | XRD-004 | Closed | Ramen eval owner, then udon owner for reusable gaps | `../ramen`, then `../udon` | Ramen has `docs/xrd-004-openapi-eval-plan.md` plus fixtures covering pagination variants, request bodies, security schemes, write operations, response extraction, and multi-service chains. | Upstream udon issue only if future eval runs identify a reusable compiler/runtime gap. | None unless richer OpenAPI evals regress. |
 | XRD-005 | Handed off | External Symphony owner | `../symphony` | Ramen emits review evidence, handoff files, and the concrete owner handoff in `docs/xrd-005-symphony-handoff.md`; approval routing remains external. | Symphony owner implementation from the documented handoff package and approval states. | None in Ramen unless the handoff contract changes. |
 | XRD-006 | Watch | Ramen release owner / provider owners | Provider APIs | Provider behavior can drift in schema dialect support, rate limits, transient failures, and model availability. | Eval Markdown reports now include a Provider Drift Watch section, with the runbook in `docs/xrd-006-provider-drift-watch.md`. | No implementation plan; keep watching during release evals. |
-| XRD-007 | Blocked | Infra owner | Repo access / secrets | Hosted GitHub CI remains disabled because private siblings, credentials, and generated artifacts require private-runner controls. | Infra readiness package for private checkout, runner, and secret policy. | XRD-007 infra handoff. |
+| XRD-007 | Handed off | Infra owner | Repo access / secrets | Hosted GitHub CI remains disabled because private siblings, credentials, and generated artifacts require private-runner controls. | Ramen has `docs/xrd-007-infra-handoff.md` plus the runbook in `docs/cross-repo-contracts.md`. | None in Ramen unless infra changes the automation contract. |
 | XRD-008 | Ready | Ramen eval owner, then udon/uws owners for reusable semantics | `../ramen`, then `../udon` / `../uws` | Runtime-only and command evals cover basic policy, but future runtime profiles need broader compatibility proof. | Ramen runtime/profile policy and eval fixture plan. | XRD-008 runtime/profile eval coverage. |
 
 ## XRD-001 Structured Output
@@ -130,10 +130,10 @@ bug.
 
 ## XRD-007 Infra Handoff
 
-Decision: infra handoff.
+Decision: Ramen infra handoff package complete; automation remains disabled until infra accepts it.
 
-Next artifact: an infra readiness package for private checkout, self-hosted deterministic runner,
-and secret policy.
+Next artifact: infra owner implementation using
+[`docs/xrd-007-infra-handoff.md`](xrd-007-infra-handoff.md).
 
 Acceptance criteria:
 
@@ -141,6 +141,7 @@ Acceptance criteria:
   [`docs/cross-repo-contracts.md#xrd-007-private-checkout-and-secrets-runbook`](cross-repo-contracts.md#xrd-007-private-checkout-and-secrets-runbook).
 - The handoff links the self-hosted runner prerequisites in the same runbook.
 - The handoff links the provider secret and artifact redaction prerequisites in the same runbook.
+- The handoff records that Ramen currently has no `.github/workflows` automation to re-enable.
 - GitHub CI remains disabled until those prerequisites are met.
 
 Implementation boundary: Ramen records the allowed automation tiers and checks. Infrastructure owns
