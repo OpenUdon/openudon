@@ -329,6 +329,9 @@ projects.
 
 Done when: each cross-repo dependency has an owner, target repo, and compatibility plan.
 
+Execution sequencing, next artifacts, and follow-up plan ownership are tracked in
+`docs/xrd-roadmap.md`. Keep this section as the status summary only.
+
 Dependency status markers:
 
 - `[blocked]` needs upstream work before Ramen can finish the capability.
@@ -338,17 +341,21 @@ Dependency status markers:
 
 | ID | Status | Priority | Target | Capability | Ramen symptom/evidence | Owner | Compatibility plan |
 | --- | --- | --- | --- | --- | --- | --- | --- |
-| XRD-001 | `[done]` | P0 | `../udon` | Provider-native structured output for Gemini intent generation. | Structured eval smoke on 2026-04-28 reached 10/10 with zero legacy fallback after udon request wiring was fixed. | udon | Keep Ramen fallback regression checks and structured-mode eval reporting. |
-| XRD-002 | `[done]` | P0 | `../udon` | Preserve and lower public UWS structural constructs and failure actions from generated workflow drafts. | Workflow Artifact Power Slices 1-3 cover switch, loop, structural-result, success-criteria, failure-action, retry, and success-action artifact preservation through udon and Ramen compatibility checks. | udon | Keep regression coverage in udon workflow/rollout/generator/exec-cache/program-view/UWS bridge tests and Ramen synthesize quality tests. |
-| XRD-003 | `[blocked]` | P0 | `../uws` | Portable serialized timeout and workflow-level idempotency semantics not already in UWS 1.0. | UWS 1.0 covers loops, structural results, failure actions, retries, and runtime profiles; it does not define a general timeout field or workflow-level idempotency metadata. Ramen must not invent those semantics locally. | uws | Compatibility matrix is documented in `docs/cross-repo-contracts.md`; propose spec/model/schema changes in `../uws` before adding Ramen generation policy for portable timeout or idempotency metadata. |
-| XRD-004 | `[ready]` | P1 | `../udon` | Generic OpenAPI execution/compiler behavior for richer API workflows. | Eval Corpus Expansion needs pagination variants, request bodies, security schemes, write operations, and response extraction beyond current smoke coverage. | udon | Add Ramen evals first to identify concrete compiler/runtime gaps; upstream only reusable OpenAPI/UWS execution fixes. |
-| XRD-005 | `[blocked]` | P1 | External `../symphony` owner | Review workflow, approval handoff, and agent workspace policy integration. | Safety And Trusted Execution now emits a minimum handoff package, but approval routing is still only documented in Ramen review evidence. | symphony owner | Handoff package and state model are documented in `docs/cross-repo-contracts.md`; Ramen cannot modify Symphony and should only coordinate the required upstream change with its owner. |
-| XRD-006 | `[watch]` | P1 | Provider APIs | Structured-output schema dialect compatibility, rate limits, transient errors, and model availability. | README documents real-provider eval variance; release gate is local/manual because provider runs can fail for external reasons. | provider owners | Keep deterministic checks local; record provider/model/prompt version, legacy fallback, attempts, and generated dir in eval reports. |
-| XRD-007 | `[blocked]` | P1 | Repo access / secrets | Private sibling checkout and provider credential availability for future workflow automation. | GitHub CI was removed because private siblings and credentials made hosted checks noisy; real-LLM eval remains local/manual. | infra | Runbook and automation tiers are documented in `docs/cross-repo-contracts.md`; keep GitHub workflows disabled until a self-hosted deterministic runner and secret policy are stable. |
-| XRD-008 | `[ready]` | P2 | `../udon` / `../uws` | Runtime/profile coverage for approved non-HTTP execution beyond current `fnct`/`cmd` smoke paths. | Runtime-only and command evals cover basic policy, but future runtime profiles need generic execution support outside Ramen. | udon/uws | Ramen should add policy/eval fixtures only; profile semantics and execution belong upstream. |
+| XRD-001 | `[done]` | P0 | `../udon` | Provider-native structured output for Gemini intent generation. | Structured eval smoke on 2026-04-28 reached 10/10 with zero legacy fallback after udon request wiring was fixed. | udon | Closed capability; `docs/xrd-roadmap.md` keeps regression ownership only. |
+| XRD-002 | `[done]` | P0 | `../udon` | Preserve and lower public UWS structural constructs and failure actions from generated workflow drafts. | Workflow Artifact Power Slices 1-3 cover switch, loop, structural-result, success-criteria, failure-action, retry, and success-action artifact preservation through udon and Ramen compatibility checks. | udon | Closed capability; `docs/xrd-roadmap.md` keeps regression ownership only. |
+| XRD-003 | `[blocked]` | P0 | `../uws` | Portable serialized timeout and workflow-level idempotency semantics not already in UWS 1.0. | UWS 1.0 does not define a general timeout field or workflow-level idempotency metadata. Ramen must not invent those semantics locally. | uws | Use `docs/xrd-roadmap.md` for the upstream proposal handoff; contract details stay in `docs/cross-repo-contracts.md`. |
+| XRD-004 | `[ready]` | P1 | `../ramen`, then `../udon` | Generic OpenAPI execution/compiler behavior for richer API workflows. | Eval Corpus Expansion needs pagination variants, request bodies, security schemes, write operations, response extraction, and multi-service chains beyond current smoke coverage. | Ramen eval owner / udon | Use `docs/xrd-roadmap.md` for the Ramen eval follow-up plan before proposing reusable udon fixes. |
+| XRD-005 | `[blocked]` | P1 | External `../symphony` owner | Review workflow, approval handoff, and agent workspace policy integration. | Safety And Trusted Execution emits a minimum handoff package, but approval routing is only documented in Ramen review evidence. | symphony owner | Use `docs/xrd-roadmap.md` for the owner handoff; contract details stay in `docs/cross-repo-contracts.md`. |
+| XRD-006 | `[watch]` | P1 | Provider APIs | Structured-output schema dialect compatibility, rate limits, transient errors, and model availability. | README documents real-provider eval variance; release gate is local/manual because provider runs can fail for external reasons. | provider owners | Use `docs/xrd-roadmap.md` for the watch plan; no implementation plan is open. |
+| XRD-007 | `[blocked]` | P1 | Repo access / secrets | Private sibling checkout and provider credential availability for future workflow automation. | GitHub CI was removed because private siblings and credentials made hosted checks noisy; real-LLM eval remains local/manual. | infra | Use `docs/xrd-roadmap.md` for the infra handoff; runbook details stay in `docs/cross-repo-contracts.md`. |
+| XRD-008 | `[ready]` | P2 | `../ramen`, then `../udon` / `../uws` | Runtime/profile coverage for approved non-HTTP execution beyond current `fnct`/`cmd` smoke paths. | Runtime-only and command evals cover basic policy, but future runtime profiles need generic execution support outside Ramen. | Ramen eval owner / udon/uws | Use `docs/xrd-roadmap.md` for the runtime/profile eval follow-up plan. |
 
 Next upstream actions:
 
-1. For XRD-003, keep portable timeout and workflow-level idempotency prompt support disabled until `../uws` defines those contracts.
-2. For XRD-005, hand the `docs/cross-repo-contracts.md` approval package and state model to the Symphony owner; do not modify `../symphony` from Ramen.
-3. For XRD-007, keep CI disabled until the self-hosted deterministic runner prerequisites in `docs/cross-repo-contracts.md` are satisfied.
+1. For XRD-003, keep portable timeout and workflow-level idempotency prompt support disabled until
+   `../uws` defines those contracts.
+2. For XRD-005, hand the `docs/cross-repo-contracts.md` approval package and state model to the
+   Symphony owner; do not modify `../symphony` from Ramen.
+3. For XRD-007, keep CI disabled until the self-hosted deterministic runner prerequisites in
+   `docs/cross-repo-contracts.md` are satisfied.
+4. Use `docs/xrd-roadmap.md` for the full XRD execution sequence and follow-up plan boundaries.
