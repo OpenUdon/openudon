@@ -17,6 +17,7 @@ capabilities belong in `../udon`.
 ## Status
 
 Early private scaffold. Do not treat this repository as a public API yet.
+See `TODO.md` for the post-POC hardening roadmap and current product-readiness gaps.
 
 ## Quick Start
 
@@ -102,6 +103,42 @@ go run ./cmd/ramen eval --root ./examples/eval --provider gemini --model gemini-
 
 Eval runs synthesize temporary copies of the eval briefs and writes JSON/Markdown summaries under
 `eval/runs/`.
+
+### Real LLM Eval Smoke
+
+Real-provider evals are useful smoke tests for prompt, model, and refinement-loop changes, but they
+are not part of the normal development loop. They require provider credentials, spend external model
+quota, can vary run to run, and may fail for transient provider reasons. For routine code changes,
+prefer deterministic checks:
+
+```bash
+go test ./...
+go vet ./...
+make check
+```
+
+Run a real LLM eval when changing prompt templates, synthesis/refinement behavior, model defaults, or
+quality gates that could affect generated artifacts:
+
+```bash
+export GEMINI_API_KEY=...
+go run ./cmd/ramen eval --root ./examples/eval --provider gemini --model gemini-2.5-flash
+```
+
+Last full real-LLM smoke: 2026-04-28, `gemini-2.5-flash`, prompt `intent.v3`.
+
+| Eval brief | Result | Attempts | Reference issues |
+| --- | --- | ---: | ---: |
+| `cmd-allowed-deploy` | pass | 1 | 4 |
+| `cmd-disallowed-deploy` | pass | 1 | 4 |
+| `paginated-list` | pass | 1 | 0 |
+| `runtime-only-render` | pass | 1 | 0 |
+| `support-email` | pass | 1 | 2 |
+| `weather-toronto` | pass | 1 | 0 |
+
+Summary: all six examples passed deterministic quality gates on the first attempt. Reference issues
+are non-blocking structural comparison differences against illustrative reference artifacts; inspect
+them separately if the reference fixtures are meant to become exact golden outputs.
 
 ### Model Selection
 
