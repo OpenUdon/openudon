@@ -45,6 +45,8 @@ comparison regressions fail the command.
 
 Use `docs/release-note-template.md`. Record the comparison baseline, eval JSON/Markdown paths,
 commit and dirty state, release-gate result, deterministic checks, and known external blockers.
+For real-provider release evidence, copy the Provider Drift Watch section from the eval Markdown
+report and follow `docs/xrd-006-provider-drift-watch.md`.
 
 ## Trusted Handoff
 

@@ -48,6 +48,15 @@ Comparison:
 - Blocking-reference regressions:
 - Failing-check regressions:
 
+## Provider Drift Watch
+
+- Structured fallback count:
+- Rate/transient failures:
+- Model availability:
+- Maximum attempts-to-pass:
+- Release-gate failures:
+- Rerun evidence, if provider drift was suspected:
+
 ## Known External Blockers
 
 - 

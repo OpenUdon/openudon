@@ -18,7 +18,7 @@ handoff requirements, and XRD-007 private checkout and secrets prerequisites.
 | XRD-003 | Closed | uws owner | `../uws` | UWS 1.1.0 now defines portable `timeout` fields and workflow-level `idempotency` metadata in `../uws/versions/1.1.0.md` and `../uws/versions/1.1.0.json`. | Ramen follow-up only if prompt/schema/eval support should emit UWS 1.1 fields by default. | None for cross-repo public semantics. |
 | XRD-004 | Closed | Ramen eval owner, then udon owner for reusable gaps | `../ramen`, then `../udon` | Ramen has `docs/xrd-004-openapi-eval-plan.md` plus fixtures covering pagination variants, request bodies, security schemes, write operations, response extraction, and multi-service chains. | Upstream udon issue only if future eval runs identify a reusable compiler/runtime gap. | None unless richer OpenAPI evals regress. |
 | XRD-005 | Handed off | External Symphony owner | `../symphony` | Ramen emits review evidence, handoff files, and the concrete owner handoff in `docs/xrd-005-symphony-handoff.md`; approval routing remains external. | Symphony owner implementation from the documented handoff package and approval states. | None in Ramen unless the handoff contract changes. |
-| XRD-006 | Watch | Ramen release owner / provider owners | Provider APIs | Provider behavior can drift in schema dialect support, rate limits, transient failures, and model availability. | Provider drift watch report during release evaluation. | XRD-006 provider drift watch plan. |
+| XRD-006 | Watch | Ramen release owner / provider owners | Provider APIs | Provider behavior can drift in schema dialect support, rate limits, transient failures, and model availability. | Eval Markdown reports now include a Provider Drift Watch section, with the runbook in `docs/xrd-006-provider-drift-watch.md`. | No implementation plan; keep watching during release evals. |
 | XRD-007 | Blocked | Infra owner | Repo access / secrets | Hosted GitHub CI remains disabled because private siblings, credentials, and generated artifacts require private-runner controls. | Infra readiness package for private checkout, runner, and secret policy. | XRD-007 infra handoff. |
 | XRD-008 | Ready | Ramen eval owner, then udon/uws owners for reusable semantics | `../ramen`, then `../udon` / `../uws` | Runtime-only and command evals cover basic policy, but future runtime profiles need broader compatibility proof. | Ramen runtime/profile policy and eval fixture plan. | XRD-008 runtime/profile eval coverage. |
 
@@ -111,7 +111,8 @@ transitions, workspace linkage, and production-execution enforcement.
 Decision: watch plan, not an implementation plan.
 
 Next artifact: a provider drift watch report attached to release evaluation evidence when real
-providers are used.
+providers are used. The report source is the eval Markdown Provider Drift Watch section, documented
+in [`docs/xrd-006-provider-drift-watch.md`](xrd-006-provider-drift-watch.md).
 
 Acceptance criteria:
 
@@ -120,6 +121,8 @@ Acceptance criteria:
 - Watch model availability.
 - Watch attempts-to-pass.
 - Watch release-gate failures.
+- Release notes include the provider drift watch findings when real-provider release evidence is
+  used.
 
 Implementation boundary: deterministic checks stay local and stable. Provider drift evidence informs
 release decisions, but external provider variance is not treated as a Ramen-only implementation

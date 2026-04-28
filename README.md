@@ -152,6 +152,9 @@ go run ./cmd/ramen eval --root ./examples/eval --provider gemini --model gemini-
 
 Ramen records approximate prompt-token counts and has report fields for provider-reported token
 usage or cost when a provider path exposes them. It does not hardcode provider pricing tables.
+Eval Markdown reports also include a Provider Drift Watch section for XRD-006 signals: structured
+fallback count, rate/transient failures, model availability, attempts-to-pass, and release-gate
+failures.
 
 For a candidate release smoke, add the local release gate:
 

@@ -205,6 +205,8 @@ func MarkdownReport(report RunReport) string {
 	if len(summary.RepeatedRepairBriefs) > 0 {
 		fmt.Fprintf(&b, "- Repeated repair briefs: `%s`\n", strings.Join(summary.RepeatedRepairBriefs, "`, `"))
 	}
+	b.WriteString("\n## Provider Drift Watch\n\n")
+	b.WriteString(providerDriftWatchMarkdown(report, summary))
 	if report.Comparison != nil {
 		b.WriteString("\n## Run Comparison\n\n")
 		b.WriteString(comparisonMarkdown(*report.Comparison))
@@ -246,6 +248,135 @@ func MarkdownReport(report RunReport) string {
 		b.WriteString(details)
 	}
 	return b.String()
+}
+
+func providerDriftWatchMarkdown(report RunReport, summary RunSummary) string {
+	var b strings.Builder
+	fmt.Fprintf(&b, "- Structured fallback count: `%d`\n", summary.LegacyFallbacks)
+	fmt.Fprintf(&b, "- Rate/transient/model failures: %s\n", providerFailureWatchText(report.Results))
+	fmt.Fprintf(&b, "- Model availability: %s\n", modelAvailabilityWatchText(report, summary))
+	fmt.Fprintf(&b, "- Attempts-to-pass: max `%d`, repeated repair loops `%d`\n", maxAttemptCount(report.Results), summary.RepeatedRepairLoops)
+	if report.Metadata.ReleaseGate {
+		if failures := releaseGateWatchFailures(report); len(failures) > 0 {
+			fmt.Fprintf(&b, "- Release-gate failures: `%s`\n", strings.Join(failures, "`; `"))
+		} else {
+			b.WriteString("- Release-gate failures: none\n")
+		}
+	} else {
+		b.WriteString("- Release-gate failures: not evaluated (`release_gate=false`)\n")
+	}
+	return b.String()
+}
+
+func releaseGateWatchFailures(report RunReport) []string {
+	var failures []string
+	if err := ReleaseCriteriaError(report.Results, DefaultReleaseCriteria()); err != nil {
+		failures = append(failures, err.Error())
+	}
+	if err := ComparisonRegressionError(report.Comparison); err != nil {
+		failures = append(failures, err.Error())
+	}
+	return failures
+}
+
+func providerFailureWatchText(results []EvalResult) string {
+	var failures []string
+	for _, result := range results {
+		if result.Passed {
+			continue
+		}
+		if strings.EqualFold(strings.TrimSpace(result.FailureClass), "model") || providerErrorLooksTransient(result.Error) {
+			name := strings.TrimSpace(result.Name)
+			if name == "" {
+				name = "<unnamed>"
+			}
+			detail := strings.TrimSpace(result.Error)
+			if detail == "" {
+				detail = strings.TrimSpace(result.FailureClass)
+			}
+			if detail == "" {
+				detail = "provider/model failure"
+			}
+			failures = append(failures, fmt.Sprintf("%s: %s", name, detail))
+		}
+	}
+	if len(failures) == 0 {
+		return "none detected"
+	}
+	sort.Strings(failures)
+	return "`" + strings.Join(failures, "`; `") + "`"
+}
+
+func modelAvailabilityWatchText(report RunReport, summary RunSummary) string {
+	if modelUnavailableDetected(report.Results) {
+		return "model availability error detected"
+	}
+	var parts []string
+	if report.Metadata.Provider != "" {
+		parts = append(parts, "provider `"+report.Metadata.Provider+"`")
+	}
+	if report.Metadata.Model != "" {
+		parts = append(parts, "model `"+report.Metadata.Model+"`")
+	}
+	if len(parts) == 0 && len(summary.Providers) > 0 {
+		parts = append(parts, "providers "+summaryRowsText(summary.Providers))
+	}
+	if len(summary.Models) > 0 {
+		parts = append(parts, "models "+summaryRowsText(summary.Models))
+	}
+	if len(parts) == 0 {
+		return "provider/model not recorded"
+	}
+	return strings.Join(parts, ", ")
+}
+
+func modelUnavailableDetected(results []EvalResult) bool {
+	for _, result := range results {
+		lower := strings.ToLower(result.Error)
+		if strings.Contains(lower, "model") && (strings.Contains(lower, "unavailable") ||
+			strings.Contains(lower, "not found") ||
+			strings.Contains(lower, "not supported") ||
+			strings.Contains(lower, "permission")) {
+			return true
+		}
+	}
+	return false
+}
+
+func providerErrorLooksTransient(text string) bool {
+	lower := strings.ToLower(text)
+	for _, needle := range []string{
+		"429",
+		"rate limit",
+		"quota",
+		"timeout",
+		"deadline exceeded",
+		"temporarily unavailable",
+		"unavailable",
+		"transient",
+		"503",
+		"502",
+		"500",
+	} {
+		if strings.Contains(lower, needle) {
+			return true
+		}
+	}
+	return false
+}
+
+func maxAttemptCount(results []EvalResult) int {
+	maxAttempts := 0
+	for _, result := range results {
+		attempts := result.AttemptCount
+		if attempts == 0 {
+			attempts = result.AttemptsToPass
+		}
+		if attempts > maxAttempts {
+			maxAttempts = attempts
+		}
+	}
+	return maxAttempts
 }
 
 func BuildRunSummary(results []EvalResult) RunSummary {

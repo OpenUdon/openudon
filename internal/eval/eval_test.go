@@ -520,12 +520,56 @@ func TestMarkdownIncludesReferenceSeveritySummary(t *testing.T) {
 		"Providers: `gemini`=1",
 		"Models: `gemini-2.5-flash`=1",
 		"Prompt versions: `ramen.prompt.v1`=1",
+		"## Provider Drift Watch",
+		"Structured fallback count: `0`",
+		"Attempts-to-pass: max `2`, repeated repair loops `1`",
 		"| `a` | pass | gemini | gemini-2.5-flash | ramen.prompt.v1 | structured | 2 |  |  | 2/1/0 | advisory | 123 | 456ms |",
 		"## Reference Issue Details",
 		"- advisory `intent.outputs`: extra output (illustrative reference)",
 	} {
 		if !strings.Contains(md, expected) {
 			t.Fatalf("markdown missing %q:\n%s", expected, md)
+		}
+	}
+}
+
+func TestMarkdownIncludesProviderDriftWatch(t *testing.T) {
+	report := BuildRunReport([]EvalResult{
+		{
+			Name:              "legacy",
+			Provider:          "gemini",
+			Model:             "gemini-2.5-flash",
+			Mode:              "legacy",
+			UsedLegacyExtract: true,
+			Passed:            true,
+			AttemptCount:      3,
+		},
+		{
+			Name:         "rate-limit",
+			Provider:     "gemini",
+			Model:        "gemini-2.5-flash",
+			FailureClass: "model",
+			Error:        "api returned status 429 rate limit",
+		},
+	}, ReportOptions{
+		Metadata: RunMetadata{
+			Provider:    "gemini",
+			Model:       "gemini-2.5-flash",
+			ReleaseGate: true,
+		},
+	})
+	md := MarkdownReport(report)
+	for _, expected := range []string{
+		"## Provider Drift Watch",
+		"Structured fallback count: `1`",
+		"Rate/transient/model failures: `rate-limit: api returned status 429 rate limit`",
+		"Model availability: provider `gemini`, model `gemini-2.5-flash`, models `gemini-2.5-flash`=2",
+		"Attempts-to-pass: max `3`, repeated repair loops `1`",
+		"Release-gate failures: `release criteria failed: pass rate",
+		"legacy fallback count 1 exceeds allowed 0",
+	} {
+		if !strings.Contains(md, expected) {
+			t.Fatalf("provider drift watch missing %q:\n%s", expected, md)
 		}
 	}
 }
