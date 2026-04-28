@@ -41,6 +41,15 @@ func reviewMarkdown(result Result, provider, model string) string {
 	if provider != "" || model != "" {
 		fmt.Fprintf(&b, "- LLM: `%s` `%s`\n", provider, model)
 	}
+	b.WriteString("\n## Minimum Review Package\n\n")
+	fmt.Fprintf(&b, "- Project brief: `%s`\n", relOrAbs(result.ExampleDir, result.ProjectPath))
+	fmt.Fprintf(&b, "- Intent HCL: `%s`\n", relOrAbs(result.ExampleDir, result.IntentPath))
+	fmt.Fprintf(&b, "- Workflow HCL: `%s`\n", relOrAbs(result.ExampleDir, result.WorkflowPath))
+	fmt.Fprintf(&b, "- UWS artifact: `%s`\n", relOrAbs(result.ExampleDir, result.UWSPath))
+	fmt.Fprintf(&b, "- Expected plan: `%s`\n", relOrAbs(result.ExampleDir, result.PlanJSONPath))
+	fmt.Fprintf(&b, "- Quality report: `%s`\n", relOrAbs(result.ExampleDir, result.QualityJSONPath))
+	fmt.Fprintf(&b, "- Refinement report: `%s`\n", relOrAbs(result.ExampleDir, result.RefinementJSONPath))
+	fmt.Fprintf(&b, "- Review evidence: `%s`\n", relOrAbs(result.ExampleDir, result.ReviewPath))
 	b.WriteString("\n## OpenAPI Candidates\n\n")
 	for _, candidate := range result.OpenAPICandidates {
 		fmt.Fprintf(&b, "- `%s`", candidate.RelativePath)
@@ -88,9 +97,13 @@ func reviewMarkdown(result Result, provider, model string) string {
 	} else {
 		b.WriteString("- Sandbox/test proof-run policy: not detected in project.md.\n")
 	}
+	b.WriteString("- Credential binding audit: runtime binding names only; literal secrets are prohibited in prompts, examples, and artifacts.\n")
+	b.WriteString("- Direct production execution: not performed by Ramen synthesis.\n")
 	b.WriteString("\n## Unresolved Risks\n\n")
 	if profile.SideEffectful && !profile.HasApprovalPolicy {
 		b.WriteString("- Side-effectful workflow lacks explicit approval or trusted-runtime policy.\n")
+	} else if profile.SideEffectful && !profile.HasSandboxPolicy {
+		b.WriteString("- Side-effectful workflow lacks explicit sandbox/test proof-run policy.\n")
 	} else {
 		b.WriteString("- No unresolved execution-boundary risks detected by deterministic review.\n")
 	}
@@ -100,6 +113,15 @@ func reviewMarkdown(result Result, provider, model string) string {
 	b.WriteString("- Compiled workflow.hcl through udon runtime plan generation.\n")
 	b.WriteString("- Exported workflow.uws.yaml and validated it against the UWS schema.\n")
 	b.WriteString("- Side-effectful execution was skipped.\n\n")
+	b.WriteString("## Trusted Execution Handoff\n\n")
+	b.WriteString("- Direct production execution: not performed by Ramen synthesis.\n")
+	b.WriteString("- Human approval and trusted-runner invocation are required before operational side effects.\n")
+	if profile.SideEffectful {
+		b.WriteString("- Sandbox/test proof run is required before production side effects.\n")
+	} else {
+		b.WriteString("- Sandbox/test proof run is optional unless future changes add side effects.\n")
+	}
+	b.WriteString("- Credential binding audit must verify named runtime bindings and no literal secret values.\n\n")
 	b.WriteString("Trusted proof run, only when explicitly approved:\n\n")
 	fmt.Fprintf(&b, "```bash\n./scripts/run-udon.sh %s %s\n```\n", relOrAbs(filepath.Dir(result.ExampleDir), result.WorkflowPath), result.ExampleDir)
 	return b.String()

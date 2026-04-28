@@ -154,7 +154,7 @@ plan/review/quality output preserves parent, branch, branch condition, and contr
 nested steps. Quality coverage now indexes structural UWS steps as well as executable leaf
 operations, so a planned switch step can be validated without pretending it is a leaf operation.
 
-## [todo] Observability And Eval Analytics
+## [in-progress] Observability And Eval Analytics
 
 Goal: make generation quality measurable over time.
 
@@ -171,7 +171,14 @@ Done when: eval runs can be compared across prompt versions, models, providers, 
 - Document expected variance for real-LLM runs and avoid treating a single sample as proof of
   stability.
 
-## [todo] Safety And Trusted Execution
+Slice 1 adds run-level eval analytics without changing real-provider execution. Eval JSON reports
+now include a summary with pass/fail counts, pass rate, legacy fallback count, repeated repair-loop
+count and brief names, approximate prompt-token total, duration totals/average/max, provider/model
+/mode/prompt-version distributions, failure-class counts, and top failing checks. Per-brief results
+now record total attempt count and whether a repeated repair loop occurred, while generated artifact
+directories remain listed for manual inspection.
+
+## [in-progress] Safety And Trusted Execution
 
 Goal: make the approved path from generated artifact to trusted execution explicit.
 
@@ -190,7 +197,13 @@ policy.
   handoff notes.
 - Keep direct production execution out of agent-driven synthesis commands.
 
-## [todo] Local Checks And Future Release Process
+Slice 1 makes the trusted handoff package explicit. Review evidence now lists the minimum package
+required for trusted execution, records credential binding audit requirements, states that Ramen
+synthesis does not directly execute production workflows, and separates trusted-runner handoff notes
+from validation evidence. Deterministic quality now requires side-effectful workflows to declare both
+approval/trusted-runtime policy and sandbox/test proof-run policy before passing.
+
+## [in-progress] Local Checks And Future Release Process
 
 Goal: separate cheap deterministic development gates from expensive real-provider smoke tests.
 
@@ -210,7 +223,13 @@ Done when: local checks, manual evals, and future release checks have clear, rep
   known gaps.
 - Decide whether `make eval` should default to `gemini-2.5-flash` to match README guidance.
 
-## [todo] Product Usability
+Slice 1 aligns `make eval` with the README-backed `gemini-2.5-flash` default, adds an opt-in
+`ramen eval --release-gate` for candidate release smoke runs, and adds
+`docs/release-note-template.md`. The release gate requires a 100% pass rate, zero legacy extraction
+fallbacks, no brief above two attempts, zero blocking reference issues, and zero
+`artifacts.no_secrets` failures while keeping normal development checks deterministic and cheap.
+
+## [in-progress] Product Usability
 
 Goal: make Ramen easier for trusted internal users to apply correctly.
 
@@ -227,6 +246,12 @@ handoff without reading implementation code.
   prompt expectations.
 - Add onboarding documentation for environment setup, required sibling repos, provider credentials,
   and real-LLM eval policy.
+
+Slice 1 improves operator entry points. CLI help for artifact commands and eval now includes
+examples and artifact descriptions, `assess` output includes next-action hints for failed quality
+checks, `docs/onboarding.md` documents setup/credentials/eval policy, `docs/eval-gallery.md`
+explains the current eval samples, and the project template plus authoring docs now reflect the
+trusted-runner and sandbox proof-run safety requirements.
 
 ## [blocked] Cross-Repo Dependencies
 

@@ -1133,11 +1133,18 @@ func assessSideEffectPolicy(report *QualityReport, policy projectPolicy, intent 
 		report.add("side_effects.policy", "pass", "no side-effectful workflow behavior inferred", "")
 		return
 	}
-	if profile.HasApprovalPolicy {
-		report.add("side_effects.policy", "pass", "side-effectful workflow has approval or trusted-runtime policy", strings.Join(profile.Reasons, "; "))
+	if profile.HasApprovalPolicy && profile.HasSandboxPolicy {
+		report.add("side_effects.policy", "pass", "side-effectful workflow has approval/trusted-runtime and sandbox proof-run policy", strings.Join(profile.Reasons, "; "))
 		return
 	}
-	report.add("side_effects.policy", "fail", "side-effectful workflow lacks approval or trusted-runtime policy", "Add approval, trusted runner, or trusted runtime path guidance to the Safety and Approval Boundary or Function Contracts section. Detected: "+strings.Join(profile.Reasons, "; "))
+	var missing []string
+	if !profile.HasApprovalPolicy {
+		missing = append(missing, "approval or trusted-runtime policy")
+	}
+	if !profile.HasSandboxPolicy {
+		missing = append(missing, "sandbox/test proof-run policy")
+	}
+	report.add("side_effects.policy", "fail", "side-effectful workflow lacks required execution-boundary policy", "Add "+strings.Join(missing, " and ")+" to the Safety and Approval Boundary or Function Contracts section. Detected: "+strings.Join(profile.Reasons, "; "))
 }
 
 func assessReview(report *QualityReport, path string, profile sideEffectProfile) {
@@ -1152,11 +1159,26 @@ func assessReview(report *QualityReport, path string, profile sideEffectProfile)
 		return
 	}
 	report.add("review.execution_boundary", "pass", "review evidence records skipped side-effectful execution", "")
+	if !reviewContainsMinimumPackage(text) {
+		report.add("review.package", "fail", "review evidence must list the minimum trusted-execution review package", "")
+		return
+	}
+	report.add("review.package", "pass", "review evidence lists the minimum trusted-execution review package", "")
 	if !strings.Contains(text, "Trusted proof run") || !strings.Contains(text, "./scripts/run-udon.sh") {
 		report.add("review.trusted_runner", "fail", "review evidence must include trusted-runner handoff command", "")
 		return
 	}
 	report.add("review.trusted_runner", "pass", "review evidence includes trusted-runner handoff command", "")
+	if !strings.Contains(text, "Direct production execution: not performed by Ramen synthesis") {
+		report.add("review.production_boundary", "fail", "review evidence must state that synthesis does not directly execute production workflows", "")
+		return
+	}
+	report.add("review.production_boundary", "pass", "review evidence records the production execution boundary", "")
+	if !strings.Contains(text, "Credential binding audit") {
+		report.add("review.credential_audit", "fail", "review evidence must record credential binding audit requirements", "")
+		return
+	}
+	report.add("review.credential_audit", "pass", "review evidence records credential binding audit requirements", "")
 	if !strings.Contains(text, "## Side-Effect Summary") {
 		report.add("review.side_effect_summary", "fail", "review evidence must summarize inferred side effects", "")
 		return
@@ -1171,6 +1193,28 @@ func assessReview(report *QualityReport, path string, profile sideEffectProfile)
 		return
 	}
 	report.add("review.unresolved_risks", "pass", "review evidence records unresolved risks", "")
+}
+
+func reviewContainsMinimumPackage(text string) bool {
+	if !strings.Contains(text, "## Minimum Review Package") {
+		return false
+	}
+	required := []string{
+		"Project brief",
+		"Intent HCL",
+		"Workflow HCL",
+		"UWS artifact",
+		"Expected plan",
+		"Quality report",
+		"Refinement report",
+		"Review evidence",
+	}
+	for _, item := range required {
+		if !strings.Contains(text, item) {
+			return false
+		}
+	}
+	return true
 }
 
 func assessSecrets(report *QualityReport, result Result) {

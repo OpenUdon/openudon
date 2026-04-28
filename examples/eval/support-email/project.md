@@ -44,6 +44,8 @@ When a support ticket is created, fetch ticket details and send a confirmation e
 ## Safety and Approval Boundary
 
 - Generate and validate artifacts only.
+- Use sandbox email endpoints for proof runs before any production email handoff.
+- Sending real email requires human approval and trusted-runner execution.
 
 ## Fallback Behavior
 

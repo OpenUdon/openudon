@@ -395,6 +395,60 @@ func TestSideEffectPolicyRequiresApprovalOrTrustedRuntime(t *testing.T) {
 	}
 }
 
+func TestSideEffectPolicyRequiresSandboxProofRun(t *testing.T) {
+	policy := analyzeProject(`# Email
+
+## Function Contracts
+
+- send_email
+  - Inputs: to, subject, body
+  - Outputs: status
+  - Side effects: sends email through approved trusted runtime path.
+
+## Safety and Approval Boundary
+
+- Sending email requires approved trusted runner execution.
+`)
+	report := &QualityReport{}
+	assessSideEffectPolicy(report, policy, &rollout.Intent{Steps: []*rollout.Step{{
+		Name: "send_email",
+		Type: "fnct",
+		Do:   "Send email.",
+	}}})
+	if !hasCheck(report, "side_effects.policy", "fail") {
+		t.Fatalf("expected side_effects.policy failure without sandbox proof-run policy, got %#v", report.Checks)
+	}
+	if !strings.Contains(report.Checks[len(report.Checks)-1].Detail, "sandbox/test proof-run policy") {
+		t.Fatalf("expected sandbox detail, got %#v", report.Checks)
+	}
+}
+
+func TestSideEffectPolicyPassesWithApprovalAndSandboxProofRun(t *testing.T) {
+	policy := analyzeProject(`# Email
+
+## Function Contracts
+
+- send_email
+  - Inputs: to, subject, body
+  - Outputs: status
+  - Side effects: sends email through approved trusted runtime path.
+
+## Safety and Approval Boundary
+
+- Sending email requires approved trusted runner execution.
+- Use sandbox email endpoints for proof runs before production handoff.
+`)
+	report := &QualityReport{}
+	assessSideEffectPolicy(report, policy, &rollout.Intent{Steps: []*rollout.Step{{
+		Name: "send_email",
+		Type: "fnct",
+		Do:   "Send email.",
+	}}})
+	if !hasCheck(report, "side_effects.policy", "pass") {
+		t.Fatalf("expected side_effects.policy pass, got %#v", report.Checks)
+	}
+}
+
 func TestSideEffectPolicyIgnoresNoSideEffectsAndDeploymentStatusRead(t *testing.T) {
 	report := &QualityReport{}
 	policy := analyzeProject(`# Report
@@ -448,6 +502,7 @@ func TestReviewEvidenceRecordsSideEffectSummary(t *testing.T) {
 ## Safety and Approval Boundary
 
 - Generate and validate artifacts only.
+- Use sandbox email endpoints for proof runs before production handoff.
 `), 0o644); err != nil {
 		t.Fatal(err)
 	}
@@ -468,11 +523,43 @@ step "send_email" {
 		"Side-effectful workflow: yes",
 		"Approval/trusted-runtime policy: present",
 		"Unresolved Risks",
+		"Minimum Review Package",
+		"Quality report",
+		"Credential binding audit",
+		"Direct production execution: not performed by Ramen synthesis",
+		"Trusted Execution Handoff",
 		"Trusted proof run",
 	} {
 		if !strings.Contains(md, expected) {
 			t.Fatalf("review missing %q:\n%s", expected, md)
 		}
+	}
+}
+
+func TestAssessReviewRequiresTrustedExecutionPackage(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "review.md")
+	if err := os.WriteFile(path, []byte(`# Ramen Review Evidence
+
+## Side-Effect Summary
+
+- Side-effectful workflow: yes
+
+## Unresolved Risks
+
+- No unresolved execution-boundary risks detected by deterministic review.
+
+Side-effectful execution was skipped.
+
+Trusted proof run:
+
+`+"```bash\n./scripts/run-udon.sh workflows/workflow.hcl example\n```\n"+`
+`), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	report := &QualityReport{}
+	assessReview(report, path, sideEffectProfile{SideEffectful: true})
+	if !hasCheck(report, "review.package", "fail") {
+		t.Fatalf("expected review.package failure, got %#v", report.Checks)
 	}
 }
 

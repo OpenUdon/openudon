@@ -26,6 +26,9 @@ cd ../ramen
 make check
 ```
 
+New trusted operators should start with `docs/onboarding.md`, then use `templates/project.md` when
+authoring a new project brief.
+
 The scaffold expects the following sibling directories:
 
 ```text
@@ -45,6 +48,7 @@ siblings used by `../udon/go.mod`, including `../grand`, `../golet`, `../hclligh
 - `examples/support-email` is the first natural-language-to-UWS example.
 - `scripts/` contains local validation and execution wrappers.
 - `docs/` records architecture and safety boundaries.
+- `templates/project.md` is the starting point for new project briefs.
 
 ## Execution Boundary
 
@@ -124,6 +128,16 @@ quality gates that could affect generated artifacts:
 export GEMINI_API_KEY=...
 go run ./cmd/ramen eval --root ./examples/eval --provider gemini --model gemini-2.5-flash
 ```
+
+For a candidate release smoke, add the local release gate:
+
+```bash
+go run ./cmd/ramen eval --root ./examples/eval --provider gemini --model gemini-2.5-flash --release-gate
+```
+
+The release gate requires a 100% pass rate, structured-mode usage with zero legacy extraction
+fallbacks, no brief above two refinement attempts, no blocking reference issues, and zero
+`artifacts.no_secrets` failures.
 
 Last full passing real-LLM smoke: 2026-04-28, `gemini-2.5-flash`, prompt `intent.v3`, structured
 output path with `0` legacy extraction fallbacks.

@@ -24,7 +24,9 @@ type EvalResult struct {
 	Mode               string           `json:"mode,omitempty"`
 	UsedLegacyExtract  bool             `json:"used_legacy_extract,omitempty"`
 	Passed             bool             `json:"passed"`
+	AttemptCount       int              `json:"attempt_count,omitempty"`
 	AttemptsToPass     int              `json:"attempts_to_pass"`
+	RepeatedRepairLoop bool             `json:"repeated_repair_loop,omitempty"`
 	FailureClass       string           `json:"failure_class,omitempty"`
 	FailingChecks      []string         `json:"failing_checks,omitempty"`
 	DurationMs         int64            `json:"duration_ms"`
@@ -39,6 +41,24 @@ type ReferenceSummary struct {
 	Advisory int `json:"advisory,omitempty"`
 	Warning  int `json:"warning,omitempty"`
 	Blocking int `json:"blocking,omitempty"`
+}
+
+type ReleaseCriteria struct {
+	MinPassRate          float64
+	MaxLegacyFallbacks   int
+	MaxAttemptsPerBrief  int
+	MaxBlockingReference int
+	RequireNoSecretScan  bool
+}
+
+func DefaultReleaseCriteria() ReleaseCriteria {
+	return ReleaseCriteria{
+		MinPassRate:          1,
+		MaxLegacyFallbacks:   0,
+		MaxAttemptsPerBrief:  2,
+		MaxBlockingReference: 0,
+		RequireNoSecretScan:  true,
+	}
 }
 
 func RunOne(ctx context.Context, exampleDir string, opts synthesize.Options) EvalResult {
@@ -66,6 +86,8 @@ func RunOne(ctx context.Context, exampleDir string, opts synthesize.Options) Eva
 	refinement := readRefinement(filepath.Join(workDir, "expected", "refinement.json"))
 	if refinement != nil {
 		result.PromptVersion = refinement.PromptVersion
+		result.AttemptCount = len(refinement.Attempts)
+		result.RepeatedRepairLoop = result.AttemptCount > 1
 		for _, attempt := range refinement.Attempts {
 			if attempt.Status == "pass" && result.AttemptsToPass == 0 {
 				result.AttemptsToPass = attempt.Number
@@ -331,6 +353,68 @@ func RegressionError(current []EvalResult, previous []EvalResult) error {
 		return fmt.Errorf("blocking reference issue count regressed for brief(s): %s", strings.Join(referenceRegressions, ", "))
 	}
 	return nil
+}
+
+func ReleaseCriteriaError(results []EvalResult, criteria ReleaseCriteria) error {
+	if criteria.MinPassRate == 0 {
+		criteria.MinPassRate = 1
+	}
+	if criteria.MaxAttemptsPerBrief == 0 {
+		criteria.MaxAttemptsPerBrief = 2
+	}
+	if criteria.MaxBlockingReference < 0 {
+		criteria.MaxBlockingReference = 0
+	}
+	var failures []string
+	if rate := passRate(results); rate < criteria.MinPassRate {
+		failures = append(failures, fmt.Sprintf("pass rate %.1f%% below required %.1f%%", rate*100, criteria.MinPassRate*100))
+	}
+	if legacy := legacyExtractCount(results); legacy > criteria.MaxLegacyFallbacks {
+		failures = append(failures, fmt.Sprintf("legacy fallback count %d exceeds allowed %d", legacy, criteria.MaxLegacyFallbacks))
+	}
+	var attemptFailures []string
+	var referenceFailures []string
+	var secretFailures []string
+	for _, result := range results {
+		attempts := result.AttemptCount
+		if attempts == 0 {
+			attempts = result.AttemptsToPass
+		}
+		if attempts > criteria.MaxAttemptsPerBrief {
+			attemptFailures = append(attemptFailures, fmt.Sprintf("%s=%d", result.Name, attempts))
+		}
+		if blocking := blockingReferenceCount(result); blocking > criteria.MaxBlockingReference {
+			referenceFailures = append(referenceFailures, fmt.Sprintf("%s=%d", result.Name, blocking))
+		}
+		if criteria.RequireNoSecretScan && containsFailureCode(result.FailingChecks, "artifacts.no_secrets") {
+			secretFailures = append(secretFailures, result.Name)
+		}
+	}
+	if len(attemptFailures) > 0 {
+		sort.Strings(attemptFailures)
+		failures = append(failures, fmt.Sprintf("attempt count exceeds %d: %s", criteria.MaxAttemptsPerBrief, strings.Join(attemptFailures, ", ")))
+	}
+	if len(referenceFailures) > 0 {
+		sort.Strings(referenceFailures)
+		failures = append(failures, fmt.Sprintf("blocking reference issues exceed %d: %s", criteria.MaxBlockingReference, strings.Join(referenceFailures, ", ")))
+	}
+	if len(secretFailures) > 0 {
+		sort.Strings(secretFailures)
+		failures = append(failures, "secret-scan failures: "+strings.Join(secretFailures, ", "))
+	}
+	if len(failures) > 0 {
+		return fmt.Errorf("release criteria failed: %s", strings.Join(failures, "; "))
+	}
+	return nil
+}
+
+func containsFailureCode(values []string, code string) bool {
+	for _, value := range values {
+		if strings.TrimSpace(value) == code {
+			return true
+		}
+	}
+	return false
 }
 
 func summarizeReferenceIssues(issues []CompareIssue) ReferenceSummary {

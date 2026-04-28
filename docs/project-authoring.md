@@ -19,6 +19,10 @@ Use these sections for new projects:
 - Safety and Approval Boundary: what may be generated, validated, or executed.
 - Fallback Behavior: when Ramen should stop instead of guessing.
 
+For side-effectful workflows, the Safety and Approval Boundary must name both the approval or
+trusted-runtime path and the sandbox/test proof-run policy. Ramen synthesis should not directly
+execute production workflows.
+
 ## Runtime Selection Rules
 
 Ramen should use OpenAPI for API operations when a matching OpenAPI document and operation are
@@ -135,6 +139,8 @@ When a ticket is created, fetch the ticket details, classify the request, and wr
 
 - Generate and validate artifacts only.
 - Do not send any outbound customer message.
+- Use sandbox endpoints for proof runs before any production handoff.
+- Production execution requires human approval and trusted-runner handoff.
 
 ## Fallback Behavior
 

@@ -157,6 +157,9 @@ output "report" {
 	if result.PromptVersion == "" || result.AttemptsToPass != 1 {
 		t.Fatalf("result missing refinement evidence: %#v", result)
 	}
+	if result.AttemptCount != 1 || result.RepeatedRepairLoop {
+		t.Fatalf("result repair-loop evidence = attempts %d repeated %v, want one non-repeated attempt", result.AttemptCount, result.RepeatedRepairLoop)
+	}
 	if result.ReferenceSummary != (ReferenceSummary{}) || len(result.ReferenceIssues) != 0 {
 		t.Fatalf("reference summary = %#v issues = %#v, want no drift", result.ReferenceSummary, result.ReferenceIssues)
 	}
@@ -206,17 +209,162 @@ func TestRegressionErrorDetectsBlockingReferenceRegression(t *testing.T) {
 	}
 }
 
+func TestReleaseCriteriaErrorCatchesReleaseGateFailures(t *testing.T) {
+	err := ReleaseCriteriaError([]EvalResult{
+		{
+			Name:              "legacy",
+			Passed:            true,
+			Mode:              "legacy",
+			UsedLegacyExtract: true,
+			AttemptCount:      3,
+			ReferenceIssues: []CompareIssue{{
+				Code:     "intent.step_operation",
+				Detail:   "wrong operation",
+				Severity: "blocking",
+			}},
+		},
+		{
+			Name:          "secret",
+			Passed:        false,
+			FailingChecks: []string{"artifacts.no_secrets"},
+		},
+	}, DefaultReleaseCriteria())
+	for _, expected := range []string{
+		"pass rate",
+		"legacy fallback count",
+		"attempt count exceeds",
+		"blocking reference issues",
+		"secret-scan failures",
+	} {
+		if err == nil || !strings.Contains(err.Error(), expected) {
+			t.Fatalf("release criteria error missing %q: %v", expected, err)
+		}
+	}
+}
+
+func TestReleaseCriteriaErrorPassesCleanRun(t *testing.T) {
+	err := ReleaseCriteriaError([]EvalResult{{
+		Name:          "ok",
+		Passed:        true,
+		Mode:          "structured",
+		AttemptCount:  1,
+		FailingChecks: nil,
+	}}, DefaultReleaseCriteria())
+	if err != nil {
+		t.Fatalf("unexpected release criteria error: %v", err)
+	}
+}
+
 func TestMarkdownIncludesReferenceSeveritySummary(t *testing.T) {
 	md := Markdown([]EvalResult{{
-		Name:   "a",
-		Passed: true,
+		Name:               "a",
+		Provider:           "gemini",
+		Model:              "gemini-2.5-flash",
+		PromptVersion:      "ramen.prompt.v1",
+		Mode:               "structured",
+		Passed:             true,
+		AttemptCount:       2,
+		RepeatedRepairLoop: true,
+		PromptTokensApprox: 123,
+		DurationMs:         456,
 		ReferenceSummary: ReferenceSummary{
 			Advisory: 2,
 			Warning:  1,
 			Blocking: 0,
 		},
 	}})
-	if !strings.Contains(md, "Reference issues (A/W/B)") || !strings.Contains(md, "| `a` | pass |  | 0 |  |  | 2/1/0 |") {
-		t.Fatalf("markdown missing severity summary:\n%s", md)
+	for _, expected := range []string{
+		"Reference issues (A/W/B)",
+		"Repeated repair loops: `1`",
+		"Prompt tokens approx total: `123`",
+		"Modes: `structured`=1",
+		"Providers: `gemini`=1",
+		"Models: `gemini-2.5-flash`=1",
+		"Prompt versions: `ramen.prompt.v1`=1",
+		"| `a` | pass | gemini | gemini-2.5-flash | ramen.prompt.v1 | structured | 2 |  |  | 2/1/0 | 123 | 456ms |",
+	} {
+		if !strings.Contains(md, expected) {
+			t.Fatalf("markdown missing %q:\n%s", expected, md)
+		}
+	}
+}
+
+func TestBuildRunSummaryAggregatesAnalytics(t *testing.T) {
+	summary := BuildRunSummary([]EvalResult{
+		{
+			Name:               "pass",
+			Provider:           "gemini",
+			Model:              "gemini-2.5-flash",
+			PromptVersion:      "prompt-a",
+			Mode:               "structured",
+			Passed:             true,
+			AttemptCount:       1,
+			PromptTokensApprox: 100,
+			DurationMs:         10,
+		},
+		{
+			Name:               "repair",
+			Provider:           "gemini",
+			Model:              "gemini-2.5-flash",
+			PromptVersion:      "prompt-a",
+			Mode:               "legacy",
+			UsedLegacyExtract:  true,
+			Passed:             false,
+			AttemptCount:       3,
+			RepeatedRepairLoop: true,
+			FailureClass:       "workflow",
+			FailingChecks:      []string{"workflow.plan_match", "workflow.plan_match", "uws.validate"},
+			PromptTokensApprox: 300,
+			DurationMs:         30,
+		},
+	})
+	if summary.Briefs != 2 || summary.Passed != 1 || summary.Failed != 1 || summary.PassRate != 0.5 {
+		t.Fatalf("unexpected pass summary: %#v", summary)
+	}
+	if summary.LegacyFallbacks != 1 || summary.RepeatedRepairLoops != 1 || strings.Join(summary.RepeatedRepairBriefs, ",") != "repair" {
+		t.Fatalf("unexpected repair summary: %#v", summary)
+	}
+	if summary.PromptTokensApproxTotal != 400 || summary.DurationMsTotal != 40 || summary.DurationMsAvg != 20 || summary.DurationMsMax != 30 {
+		t.Fatalf("unexpected token/duration summary: %#v", summary)
+	}
+	if len(summary.TopFailingChecks) == 0 || summary.TopFailingChecks[0].Name != "workflow.plan_match" || summary.TopFailingChecks[0].Count != 2 {
+		t.Fatalf("unexpected top failing checks: %#v", summary.TopFailingChecks)
+	}
+	if len(summary.FailureClasses) != 1 || summary.FailureClasses[0].Name != "workflow" {
+		t.Fatalf("unexpected failure classes: %#v", summary.FailureClasses)
+	}
+	if len(summary.Providers) != 1 || summary.Providers[0].Name != "gemini" || summary.Providers[0].Count != 2 {
+		t.Fatalf("unexpected providers: %#v", summary.Providers)
+	}
+}
+
+func TestWriteReportsIncludesSummary(t *testing.T) {
+	out := filepath.Join(t.TempDir(), "run.json")
+	results := []EvalResult{{
+		Name:               "a",
+		Provider:           "gemini",
+		Passed:             true,
+		PromptTokensApprox: 20,
+		DurationMs:         5,
+	}}
+	if err := WriteReports(out, results); err != nil {
+		t.Fatal(err)
+	}
+	data, err := os.ReadFile(out)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(data), `"summary"`) || !strings.Contains(string(data), `"prompt_tokens_approx_total": 20`) {
+		t.Fatalf("json report missing summary:\n%s", data)
+	}
+	if read, err := ReadResults(out); err != nil || len(read) != 1 || read[0].Name != "a" {
+		t.Fatalf("ReadResults() = %#v, %v", read, err)
+	}
+	md, err := os.ReadFile(strings.TrimSuffix(out, filepath.Ext(out)) + ".md")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(md), "Prompt tokens approx total: `20`") {
+		t.Fatalf("markdown report missing summary:\n%s", md)
 	}
 }

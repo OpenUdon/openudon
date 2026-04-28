@@ -2,7 +2,7 @@
 
 GO ?= go
 RAMEN_PROVIDER ?= gemini
-RAMEN_MODEL ?= gemini-2.5-pro
+RAMEN_MODEL ?= gemini-2.5-flash
 
 help:
 	@echo "Targets: test, check, siblings, validate-uws, eval, synthesize-support, build-support, promote-support, assess-support, run-example"

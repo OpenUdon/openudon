@@ -62,6 +62,8 @@ confirmation email to the requester through SMTP.
 
 Agents may generate and validate the workflow. Sending real email requires an approved runtime
 execution path with trusted SMTP credentials.
+Use sandbox email endpoints for proof runs before any production email handoff, and require human
+approval plus trusted-runner execution for real delivery.
 
 ## Fallback Behavior
 

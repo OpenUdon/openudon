@@ -30,6 +30,53 @@ func TestCLIUnknownCommandSmoke(t *testing.T) {
 	}
 }
 
+func TestCLIArtifactHelpIncludesExamplesAndArtifacts(t *testing.T) {
+	cmd := helperCommand("synthesize", "--help")
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		t.Fatalf("synthesize help failed: %v\n%s", err, output)
+	}
+	text := string(output)
+	for _, expected := range []string{
+		"Usage: ramen synthesize",
+		"Examples:",
+		"gemini-2.5-flash",
+		"Artifacts:",
+		"workflows/intent.hcl",
+		"expected/quality.json",
+	} {
+		if !strings.Contains(text, expected) {
+			t.Fatalf("help missing %q:\n%s", expected, text)
+		}
+	}
+}
+
+func TestCLIEvalHelpIncludesReleaseGate(t *testing.T) {
+	cmd := helperCommand("eval", "--help")
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		t.Fatalf("eval help failed: %v\n%s", err, output)
+	}
+	text := string(output)
+	for _, expected := range []string{
+		"Usage: ramen eval",
+		"--release-gate",
+		"gemini-2.5-flash",
+		"writes JSON/Markdown reports",
+	} {
+		if !strings.Contains(text, expected) {
+			t.Fatalf("eval help missing %q:\n%s", expected, text)
+		}
+	}
+}
+
+func TestNextActionForQualityCheck(t *testing.T) {
+	got := nextActionForQualityCheck("artifacts.no_secrets")
+	if !strings.Contains(got, "credential binding names") {
+		t.Fatalf("unexpected next action: %q", got)
+	}
+}
+
 func helperCommand(args ...string) *exec.Cmd {
 	cmdArgs := append([]string{"-test.run=TestCLIHelperProcess", "--"}, args...)
 	cmd := exec.Command(os.Args[0], cmdArgs...)

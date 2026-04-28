@@ -43,7 +43,8 @@ Describe the workflow outcome in business terms.
 ## Safety and Approval Boundary
 
 - Describe what Ramen may generate, validate, or execute.
-- Side-effectful execution requires explicit approval and a trusted runner.
+- Side-effectful execution requires explicit approval, sandbox/test proof runs, and a trusted runner.
+- Ramen synthesis must not directly execute production workflows.
 
 ## Fallback Behavior
 

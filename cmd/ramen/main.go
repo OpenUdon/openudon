@@ -81,9 +81,15 @@ func runEvalCommand(args []string) {
 	maxAttempts := fs.Int("max-attempts", 5, "Maximum refinement attempts")
 	temperature := fs.Float64("temperature", 0.2, "Intent generation temperature")
 	concurrency := fs.Int("concurrency", 2, "Maximum concurrent eval runs")
+	releaseGate := fs.Bool("release-gate", false, "Fail unless eval results meet local release criteria")
 	out := fs.String("out", evalpkg.DefaultOutputPath(time.Now()), "JSON report output path")
 	fs.Usage = func() {
-		fmt.Fprintf(fs.Output(), "Usage: ramen eval [--root examples/eval] [--name support-email] [--out eval/runs/<ts>.json]\n")
+		fmt.Fprintf(fs.Output(), "Usage: ramen eval [--root examples/eval] [--name support-email] [--out eval/runs/<ts>.json] [--release-gate]\n")
+		fmt.Fprintf(fs.Output(), "\nRuns synthesis against temporary copies of eval briefs and writes JSON/Markdown reports.\n")
+		fmt.Fprintf(fs.Output(), "\nExamples:\n")
+		fmt.Fprintf(fs.Output(), "  ramen eval --root examples/eval --provider gemini --model gemini-2.5-flash\n")
+		fmt.Fprintf(fs.Output(), "  ramen eval --root examples/eval --name support-email --provider gemini --model gemini-2.5-flash\n")
+		fmt.Fprintf(fs.Output(), "  ramen eval --root examples/eval --provider gemini --model gemini-2.5-flash --release-gate\n\n")
 		fs.PrintDefaults()
 	}
 	if err := fs.Parse(args); err != nil {
@@ -114,6 +120,12 @@ func runEvalCommand(args []string) {
 	}
 	fmt.Printf("ramen: eval wrote %s\n", *out)
 	fmt.Print(evalpkg.Markdown(results))
+	if *releaseGate {
+		if err := evalpkg.ReleaseCriteriaError(results, evalpkg.DefaultReleaseCriteria()); err != nil {
+			fmt.Fprintln(os.Stderr, err)
+			os.Exit(1)
+		}
+	}
 	previousPath, err := evalpkg.FindPreviousRun(*out)
 	if err != nil {
 		fmt.Fprintln(os.Stderr, err)
@@ -142,7 +154,26 @@ func runArtifactCommand(command string, args []string) {
 	maxAttempts := fs.Int("max-attempts", 5, "Maximum refinement attempts for synthesize/build")
 	temperature := fs.Float64("temperature", 0.2, "Intent generation temperature for synthesize")
 	fs.Usage = func() {
-		fmt.Fprintf(fs.Output(), "Usage: ramen %s --example examples/<name> [--provider gemini --model gemini-2.5-pro]\n", command)
+		fmt.Fprintf(fs.Output(), "Usage: ramen %s --example examples/<name> [--provider gemini --model gemini-2.5-flash]\n", command)
+		fmt.Fprintf(fs.Output(), "\n%s\n", artifactCommandDescription(command))
+		fmt.Fprintf(fs.Output(), "\nExamples:\n")
+		switch command {
+		case "synthesize":
+			fmt.Fprintf(fs.Output(), "  ramen synthesize --example examples/support-email --provider gemini --model gemini-2.5-flash --max-attempts 5\n")
+		case "build":
+			fmt.Fprintf(fs.Output(), "  ramen build --example examples/support-email --provider gemini --model gemini-2.5-flash\n")
+		case "promote":
+			fmt.Fprintf(fs.Output(), "  ramen promote --example examples/support-email\n")
+		case "assess":
+			fmt.Fprintf(fs.Output(), "  ramen assess --example examples/support-email\n")
+		}
+		fmt.Fprintf(fs.Output(), "\nArtifacts:\n")
+		fmt.Fprintf(fs.Output(), "  workflows/intent.hcl        structured intent generated from project.md\n")
+		fmt.Fprintf(fs.Output(), "  workflows/workflow.hcl      udon workflow artifact\n")
+		fmt.Fprintf(fs.Output(), "  workflows/workflow.uws.yaml exported UWS artifact\n")
+		fmt.Fprintf(fs.Output(), "  expected/plan.json          expected operations, bindings, credentials, and control flow\n")
+		fmt.Fprintf(fs.Output(), "  expected/review.md          trusted execution review evidence and handoff notes\n")
+		fmt.Fprintf(fs.Output(), "  expected/quality.json       deterministic quality gate results\n\n")
 		fs.PrintDefaults()
 	}
 	if err := fs.Parse(args); err != nil {
@@ -205,6 +236,21 @@ func printResult(command string, result *synthesize.Result) {
 	fmt.Printf("  quality:  %s\n", result.QualityJSONPath)
 }
 
+func artifactCommandDescription(command string) string {
+	switch command {
+	case "synthesize":
+		return "Generate intent, workflow, UWS, plan, review evidence, refinement report, and quality report from project.md."
+	case "build":
+		return "Regenerate workflow, UWS, review evidence, and quality reports from an existing workflows/intent.hcl."
+	case "promote":
+		return "Export and validate workflows/workflow.uws.yaml from an existing workflows/workflow.hcl."
+	case "assess":
+		return "Run deterministic quality gates against existing artifacts and rewrite expected/quality.{json,md}."
+	default:
+		return "Run a Ramen artifact command."
+	}
+}
+
 func printQuality(report *synthesize.QualityReport) {
 	if report == nil {
 		return
@@ -213,5 +259,40 @@ func printQuality(report *synthesize.QualityReport) {
 	fmt.Printf("  report: %s\n", report.Artifacts.QualityJSONPath)
 	for _, check := range report.Checks {
 		fmt.Printf("  %s: %s\n", check.Code, check.Status)
+		if check.Status == "fail" {
+			if check.Detail != "" {
+				fmt.Printf("    detail: %s\n", check.Detail)
+			}
+			if next := nextActionForQualityCheck(check.Code); next != "" {
+				fmt.Printf("    next: %s\n", next)
+			}
+		}
+	}
+}
+
+func nextActionForQualityCheck(code string) string {
+	switch {
+	case code == "project.present":
+		return "Create project.md from templates/project.md, then rerun synthesize or assess."
+	case strings.HasPrefix(code, "project.authoring."):
+		return "Fill the missing project.md section so synthesis decisions are auditable."
+	case strings.HasPrefix(code, "openapi."):
+		return "Add or fix OpenAPI documents under openapi/, or declare OpenAPI: none required when no API is needed."
+	case code == "plan.gaps":
+		return "Resolve missing operations, required parameters, or credential bindings in project.md or intent.hcl."
+	case strings.HasPrefix(code, "intent."):
+		return "Inspect workflows/intent.hcl and project.md; rerun synthesize when the brief needs regeneration."
+	case code == "credentials.bindings", code == "workflow.credentials_bound":
+		return "Name runtime credential bindings in project.md and ensure workflow request fields reference binding names, never secret values."
+	case strings.HasPrefix(code, "workflow."):
+		return "Inspect workflows/workflow.hcl against expected/plan.md, then rerun build or synthesize."
+	case strings.HasPrefix(code, "uws."):
+		return "Inspect workflows/workflow.uws.yaml, then rerun promote or build after fixing workflow.hcl."
+	case strings.HasPrefix(code, "review."), code == "side_effects.policy":
+		return "Update Safety and Approval Boundary or regenerate review evidence with build/synthesize."
+	case code == "artifacts.no_secrets":
+		return "Remove literal secret-like values from artifacts; keep only credential binding names."
+	default:
+		return "Inspect expected/quality.md for details, fix the referenced artifact, and rerun assess."
 	}
 }
