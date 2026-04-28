@@ -107,6 +107,7 @@ func AssessContext(ctx context.Context, opts Options) (*QualityReport, error) {
 	assessUWS(report, result.UWSPath, opts.SchemaPath, exampleDir, expectedPlan)
 	sideEffects := sideEffectProfileForOpenAPI(policy, intent, candidates, result.PrimaryOpenAPI)
 	assessSideEffectProfile(report, sideEffects)
+	assessSideEffectRetryPolicy(report, sideEffects, policy, expectedPlan)
 	assessReview(report, result.ReviewPath, sideEffects, policy, expectedPlan)
 	assessSecrets(report, result)
 
@@ -1411,7 +1412,7 @@ func validateWorkflowAgainstExpectedPlan(report *QualityReport, compiled *runtim
 		return true
 	}
 	ops := compiledOperationIndex(compiled)
-	var missing, runtimeMismatch, operationMismatch, dependsMismatch, controlMismatch, requestMismatch, bindingSourceMismatch, credentialMismatch []string
+	var missing, runtimeMismatch, operationMismatch, dependsMismatch, controlMismatch, actionMismatch, requestMismatch, bindingSourceMismatch, credentialMismatch []string
 	for _, step := range expected.Steps {
 		name := strings.TrimSpace(step.Name)
 		if name == "" {
@@ -1461,6 +1462,9 @@ func validateWorkflowAgainstExpectedPlan(report *QualityReport, compiled *runtim
 		}
 		if strings.TrimSpace(step.BatchSize) != "" && !planControlValuesEqual(op.BatchSize, step.BatchSize) {
 			controlMismatch = append(controlMismatch, fmt.Sprintf("%s expected batch_size %s got %s", name, step.BatchSize, op.BatchSize))
+		}
+		if expectedStepHasActions(step) && !compiledActionsMatch(op, step) {
+			actionMismatch = append(actionMismatch, fmt.Sprintf("%s expected actions %s got %s", name, planStepActionsSummary(step), compiledActionsSummary(op)))
 		}
 		for _, param := range step.RequestParams {
 			if !param.Required {
@@ -1556,17 +1560,18 @@ func validateWorkflowAgainstExpectedPlan(report *QualityReport, compiled *runtim
 		return false
 	}
 	report.add("workflow.plan_coverage", "pass", "workflow.hcl includes every planned step", "")
-	if len(runtimeMismatch) > 0 || len(operationMismatch) > 0 || len(dependsMismatch) > 0 || len(controlMismatch) > 0 || len(requestMismatch) > 0 {
+	if len(runtimeMismatch) > 0 || len(operationMismatch) > 0 || len(dependsMismatch) > 0 || len(controlMismatch) > 0 || len(actionMismatch) > 0 || len(requestMismatch) > 0 {
 		var details []string
 		details = append(details, sortedCopy(runtimeMismatch)...)
 		details = append(details, sortedCopy(operationMismatch)...)
 		details = append(details, sortedCopy(dependsMismatch)...)
 		details = append(details, sortedCopy(controlMismatch)...)
+		details = append(details, sortedCopy(actionMismatch)...)
 		details = append(details, sortedCopy(requestMismatch)...)
 		report.add("workflow.plan_match", "fail", "workflow.hcl diverges from the expected plan", strings.Join(details, "; "))
 		return false
 	}
-	report.add("workflow.plan_match", "pass", "workflow.hcl preserves planned runtimes, operations, dependencies, and request mappings", "")
+	report.add("workflow.plan_match", "pass", "workflow.hcl preserves planned runtimes, operations, dependencies, actions, and request mappings", "")
 	if len(bindingSourceMismatch) > 0 {
 		report.add("workflow.binding_sources", "fail", "workflow.hcl request fields do not preserve planned data sources", strings.Join(sortedCopy(bindingSourceMismatch), "; "))
 		return false
@@ -1588,6 +1593,46 @@ func planControlValuesEqual(got, want string) bool {
 	return normalizeBindingExpression(got) == normalizeBindingExpression(want)
 }
 
+func expectedStepHasActions(step PlanStep) bool {
+	return len(step.SuccessCriteria) > 0 || len(step.OnFailure) > 0 || len(step.OnSuccess) > 0
+}
+
+func compiledActionsMatch(got *compiledOperation, want PlanStep) bool {
+	if got == nil {
+		return !expectedStepHasActions(want)
+	}
+	return canonicalActionJSON(got.SuccessCriteria, got.OnFailure, got.OnSuccess) ==
+		canonicalActionJSON(want.SuccessCriteria, want.OnFailure, want.OnSuccess)
+}
+
+func planStepActionsSummary(step PlanStep) string {
+	return canonicalActionJSON(step.SuccessCriteria, step.OnFailure, step.OnSuccess)
+}
+
+func compiledActionsSummary(op *compiledOperation) string {
+	if op == nil {
+		return "{}"
+	}
+	return canonicalActionJSON(op.SuccessCriteria, op.OnFailure, op.OnSuccess)
+}
+
+func canonicalActionJSON(criteria []*uws1.Criterion, failure []*uws1.FailureAction, success []*uws1.SuccessAction) string {
+	payload := struct {
+		SuccessCriteria []*uws1.Criterion     `json:"successCriteria,omitempty"`
+		OnFailure       []*uws1.FailureAction `json:"onFailure,omitempty"`
+		OnSuccess       []*uws1.SuccessAction `json:"onSuccess,omitempty"`
+	}{
+		SuccessCriteria: criteria,
+		OnFailure:       failure,
+		OnSuccess:       success,
+	}
+	data, err := json.Marshal(payload)
+	if err != nil {
+		return "{}"
+	}
+	return string(data)
+}
+
 type compiledOperation struct {
 	ServiceType        string
 	OpenAPIOperationID string
@@ -1601,6 +1646,9 @@ type compiledOperation struct {
 	Mode               string
 	BatchSize          string
 	Request            *light.Body
+	SuccessCriteria    []*uws1.Criterion
+	OnFailure          []*uws1.FailureAction
+	OnSuccess          []*uws1.SuccessAction
 }
 
 func compiledOperationIndex(plan *runtimeplan.Plan) map[string]*compiledOperation {
@@ -1626,6 +1674,9 @@ func compiledOperationIndex(plan *runtimeplan.Plan) map[string]*compiledOperatio
 		compiled.OpenAPIOperationID = op.OpenAPIOperationID
 		compiled.DependsOn = append([]string(nil), op.DependsOn...)
 		compiled.Request = op.Request
+		compiled.SuccessCriteria = cloneCriteria(op.SuccessCriteria)
+		compiled.OnFailure = cloneFailureActions(op.OnFailure)
+		compiled.OnSuccess = cloneSuccessActions(op.OnSuccess)
 	}
 	return out
 }
@@ -1937,6 +1988,13 @@ func assessUWS(report *QualityReport, path, schemaPath, exampleDir string, expec
 		}
 		report.add("uws.structural_results", "pass", "workflow.uws.yaml preserves planned structural results", "")
 	}
+	if expectedPlan != nil && planHasActions(expectedPlan) {
+		if err := validateUWSOperationActions(doc, expectedPlan); err != nil {
+			report.add("uws.operation_actions", "fail", "workflow.uws.yaml does not preserve planned operation actions", err.Error())
+			return
+		}
+		report.add("uws.operation_actions", "pass", "workflow.uws.yaml preserves planned operation actions", "")
+	}
 }
 
 func validateUWSStructuralResults(doc *uws1.Document, expected []PlanResult) error {
@@ -1979,6 +2037,56 @@ func validateUWSStructuralResults(doc *uws1.Document, expected []PlanResult) err
 	return fmt.Errorf("%s", strings.Join(details, "; "))
 }
 
+func validateUWSOperationActions(doc *uws1.Document, expected *WorkflowPlan) error {
+	if expected == nil {
+		return nil
+	}
+	ops := map[string]*uws1.Operation{}
+	if doc != nil {
+		for _, op := range doc.Operations {
+			if op != nil && strings.TrimSpace(op.OperationID) != "" {
+				ops[strings.TrimSpace(op.OperationID)] = op
+			}
+		}
+	}
+	var mismatches []string
+	for _, step := range expected.Steps {
+		if !expectedStepHasActions(step) {
+			continue
+		}
+		name := strings.TrimSpace(step.Name)
+		if name == "" {
+			continue
+		}
+		op := ops[name]
+		if op == nil {
+			mismatches = append(mismatches, name+" missing operation")
+			continue
+		}
+		got := canonicalActionJSON(op.SuccessCriteria, op.OnFailure, op.OnSuccess)
+		want := planStepActionsSummary(step)
+		if got != want {
+			mismatches = append(mismatches, fmt.Sprintf("%s expected %s got %s", name, want, got))
+		}
+	}
+	if len(mismatches) == 0 {
+		return nil
+	}
+	return fmt.Errorf("%s", strings.Join(sortedCopy(mismatches), "; "))
+}
+
+func planHasActions(plan *WorkflowPlan) bool {
+	if plan == nil {
+		return false
+	}
+	for _, step := range plan.Steps {
+		if expectedStepHasActions(step) {
+			return true
+		}
+	}
+	return false
+}
+
 func assessSideEffectPolicy(report *QualityReport, policy projectPolicy, intent *rollout.Intent) {
 	assessSideEffectProfile(report, sideEffectProfileFor(policy, intent))
 }
@@ -2007,6 +2115,38 @@ func assessSideEffectProfile(report *QualityReport, profile sideEffectProfile) {
 		missing = append(missing, "sandbox/test proof-run policy")
 	}
 	report.add("side_effects.policy", "fail", "side-effectful workflow lacks required execution-boundary policy", "Add "+strings.Join(missing, " and ")+" to the Safety and Approval Boundary or Function Contracts section. Detected: "+strings.Join(profile.Reasons, "; "))
+}
+
+func assessSideEffectRetryPolicy(report *QualityReport, profile sideEffectProfile, policy projectPolicy, expectedPlan *WorkflowPlan) {
+	if !profile.SideEffectful || !planHasRetryAction(expectedPlan) {
+		report.add("side_effects.retry_policy", "pass", "retry action policy is not required", "")
+		return
+	}
+	policyText := strings.ToLower(strings.Join([]string{
+		policy.SafetySection,
+		policy.FunctionSection,
+		policy.RuntimeSection,
+		policy.DataFlowSection,
+	}, "\n"))
+	if containsAny(policyText, []string{"idempotent", "idempotency", "safe to retry", "retry approved", "explicit retry", "bounded retry"}) {
+		report.add("side_effects.retry_policy", "pass", "side-effectful retry actions have explicit retry/idempotency policy", "")
+		return
+	}
+	report.add("side_effects.retry_policy", "fail", "side-effectful retry actions require explicit retry/idempotency policy", "Add retry or idempotency language to project.md before using onFailure retry actions on side-effectful workflows.")
+}
+
+func planHasRetryAction(plan *WorkflowPlan) bool {
+	if plan == nil {
+		return false
+	}
+	for _, step := range plan.Steps {
+		for _, action := range step.OnFailure {
+			if action != nil && strings.EqualFold(strings.TrimSpace(action.Type), "retry") {
+				return true
+			}
+		}
+	}
+	return false
 }
 
 func assessReview(report *QualityReport, path string, profile sideEffectProfile, policy projectPolicy, expectedPlan *WorkflowPlan) {

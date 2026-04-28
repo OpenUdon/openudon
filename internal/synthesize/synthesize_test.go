@@ -1909,6 +1909,148 @@ Search weather in Toronto, Canada.
 	}
 }
 
+func TestQualityFailsWhenExpectedOperationActionsAreMissing(t *testing.T) {
+	example := filepath.Join(t.TempDir(), "examples", "action-drift")
+	result := resultPaths(example)
+	for _, dir := range []string{filepath.Dir(result.IntentPath), filepath.Dir(result.PlanJSONPath)} {
+		if err := os.MkdirAll(dir, 0o755); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := os.WriteFile(result.ProjectPath, []byte(`# Action Drift
+
+OpenAPI: none required
+
+## Runtime Policy
+
+- fnct is allowed.
+
+## Safety and Approval Boundary
+
+- Generate only.
+`), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(result.IntentPath, []byte(`workflow {
+  name        = "action_drift"
+  description = "Send an email."
+}
+
+step "send_email" {
+  type = "fnct"
+  do   = "Send email."
+}
+`), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(result.WorkflowPath, []byte(`fnct "send_email" {
+  function = "send.Email"
+}
+`), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	doc := uwsDocumentWithRuntime(t, "send_email", &uwsprofile.OperationRuntime{Type: "fnct", Function: "send.Email"})
+	data, err := uwsprofile.MarshalDocument(doc, uwsprofile.DocumentFormatYAML)
+	if err != nil {
+		t.Fatal(err)
+	}
+	data, err = pruneEmptyUWSStepTypes(data)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(result.UWSPath, data, 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := writeWorkflowPlan(result, &WorkflowPlan{
+		Version:  workflowPlanVersion,
+		Workflow: "action_drift",
+		Steps: []PlanStep{{
+			Name:    "send_email",
+			Type:    "fnct",
+			Runtime: "fnct",
+			OnFailure: []*uws1.FailureAction{
+				{Name: "retry_once", Type: "retry", RetryLimit: 1},
+			},
+		}},
+	}); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(result.ReviewPath, []byte(validReviewEvidenceText(true, true)), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	report, err := Assess(Options{ExampleDir: example})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !hasCheck(report, "workflow.plan_match", "fail") {
+		t.Fatalf("expected workflow.plan_match failure, got %#v", report.Checks)
+	}
+	if !hasCheck(report, "uws.operation_actions", "fail") {
+		t.Fatalf("expected uws.operation_actions failure, got %#v", report.Checks)
+	}
+}
+
+func TestSideEffectfulRetryRequiresRetryOrIdempotencyPolicy(t *testing.T) {
+	report := &QualityReport{}
+	assessSideEffectRetryPolicy(report, sideEffectProfile{SideEffectful: true}, analyzeProject(`# Email
+
+## Safety and Approval Boundary
+
+- Approved trusted runner only.
+`), &WorkflowPlan{Steps: []PlanStep{{
+		Name: "send_email",
+		OnFailure: []*uws1.FailureAction{
+			{Name: "retry_once", Type: "retry", RetryLimit: 1},
+		},
+	}}})
+	if !hasCheck(report, "side_effects.retry_policy", "fail") {
+		t.Fatalf("expected side_effects.retry_policy failure, got %#v", report.Checks)
+	}
+
+	report = &QualityReport{}
+	assessSideEffectRetryPolicy(report, sideEffectProfile{SideEffectful: true}, analyzeProject(`# Email
+
+## Safety and Approval Boundary
+
+- Approved trusted runner only.
+- The send operation is idempotent and safe to retry with a bounded retry limit.
+`), &WorkflowPlan{Steps: []PlanStep{{
+		Name: "send_email",
+		OnFailure: []*uws1.FailureAction{
+			{Name: "retry_once", Type: "retry", RetryLimit: 1},
+		},
+	}}})
+	if !hasCheck(report, "side_effects.retry_policy", "pass") {
+		t.Fatalf("expected side_effects.retry_policy pass, got %#v", report.Checks)
+	}
+}
+
+func uwsDocumentWithRuntime(t *testing.T, operationID string, ext *uwsprofile.OperationRuntime) *uws1.Document {
+	t.Helper()
+	op := &uws1.Operation{OperationID: operationID}
+	op.Extensions = map[string]any{uws1.ExtensionOperationProfile: uwsprofile.ProfileName}
+	if err := uwsprofile.SetOperationExtension(&op.Extensions, ext); err != nil {
+		t.Fatal(err)
+	}
+	doc := &uws1.Document{
+		UWS:  "1.0.0",
+		Info: &uws1.Info{Title: operationID, Version: "1.0.0"},
+		Operations: []*uws1.Operation{
+			op,
+		},
+		Workflows: []*uws1.Workflow{{
+			WorkflowID: "main",
+			Type:       uws1.WorkflowTypeSequence,
+			Steps:      []*uws1.Step{{StepID: operationID, OperationRef: operationID}},
+		}},
+	}
+	if err := uwsprofile.ValidateForExecution(doc); err != nil {
+		t.Fatal(err)
+	}
+	return doc
+}
+
 func TestValidateIntentOpenAPIOperationsRequiresOperationOnOpenAPIStep(t *testing.T) {
 	err := validateIntentOpenAPIOperations(&rollout.Intent{
 		OpenAPI: "openapi/weather.yaml",

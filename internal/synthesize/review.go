@@ -270,6 +270,7 @@ func writeIntentStepReview(b *strings.Builder, steps []*rollout.Step, ctx review
 			}
 			b.WriteString("\n")
 		}
+		writeIntentActionReview(b, step)
 		writeIntentStepReview(b, step.Steps, reviewStepContext{Parent: name}, wrote)
 		for _, branch := range step.Cases {
 			if branch == nil {
@@ -287,5 +288,53 @@ func writeIntentStepReview(b *strings.Builder, steps []*rollout.Step, ctx review
 				Branch: "default",
 			}, wrote)
 		}
+	}
+}
+
+func writeIntentActionReview(b *strings.Builder, step *rollout.Step) {
+	if b == nil || step == nil {
+		return
+	}
+	for _, criterion := range step.SuccessCriteria {
+		if criterion == nil {
+			continue
+		}
+		fmt.Fprintf(b, "  - successCriteria: `%s`", criterion.Condition)
+		if criterion.Type != "" {
+			fmt.Fprintf(b, " type `%s`", criterion.Type)
+		}
+		b.WriteString("\n")
+	}
+	for _, action := range step.OnFailure {
+		if action == nil {
+			continue
+		}
+		fmt.Fprintf(b, "  - onFailure: `%s` type `%s`", action.Name, action.Type)
+		if action.StepID != "" {
+			fmt.Fprintf(b, " stepId `%s`", action.StepID)
+		}
+		if action.WorkflowID != "" {
+			fmt.Fprintf(b, " workflowId `%s`", action.WorkflowID)
+		}
+		if action.RetryLimit > 0 {
+			fmt.Fprintf(b, " retryLimit `%d`", action.RetryLimit)
+		}
+		if action.RetryAfter > 0 {
+			fmt.Fprintf(b, " retryAfter `%g`", action.RetryAfter)
+		}
+		b.WriteString("\n")
+	}
+	for _, action := range step.OnSuccess {
+		if action == nil {
+			continue
+		}
+		fmt.Fprintf(b, "  - onSuccess: `%s` type `%s`", action.Name, action.Type)
+		if action.StepID != "" {
+			fmt.Fprintf(b, " stepId `%s`", action.StepID)
+		}
+		if action.WorkflowID != "" {
+			fmt.Fprintf(b, " workflowId `%s`", action.WorkflowID)
+		}
+		b.WriteString("\n")
 	}
 }

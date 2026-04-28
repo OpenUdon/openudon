@@ -27,25 +27,28 @@ type WorkflowPlan struct {
 }
 
 type PlanStep struct {
-	Name           string        `json:"name"`
-	Type           string        `json:"type,omitempty"`
-	Parent         string        `json:"parent,omitempty"`
-	Branch         string        `json:"branch,omitempty"`
-	BranchWhen     string        `json:"branch_when,omitempty"`
-	Inferred       bool          `json:"inferred,omitempty"`
-	OpenAPI        string        `json:"openapi,omitempty"`
-	Operation      string        `json:"operation,omitempty"`
-	Runtime        string        `json:"runtime,omitempty"`
-	When           string        `json:"when,omitempty"`
-	ForEach        string        `json:"for_each,omitempty"`
-	Items          string        `json:"items,omitempty"`
-	Mode           string        `json:"mode,omitempty"`
-	BatchSize      string        `json:"batch_size,omitempty"`
-	DependsOn      []string      `json:"depends_on,omitempty"`
-	RequiredParams []string      `json:"required_params,omitempty"`
-	RequestParams  []PlanParam   `json:"request_params,omitempty"`
-	Bindings       []PlanBinding `json:"bindings,omitempty"`
-	Credentials    []string      `json:"credentials,omitempty"`
+	Name            string                `json:"name"`
+	Type            string                `json:"type,omitempty"`
+	Parent          string                `json:"parent,omitempty"`
+	Branch          string                `json:"branch,omitempty"`
+	BranchWhen      string                `json:"branch_when,omitempty"`
+	Inferred        bool                  `json:"inferred,omitempty"`
+	OpenAPI         string                `json:"openapi,omitempty"`
+	Operation       string                `json:"operation,omitempty"`
+	Runtime         string                `json:"runtime,omitempty"`
+	When            string                `json:"when,omitempty"`
+	ForEach         string                `json:"for_each,omitempty"`
+	Items           string                `json:"items,omitempty"`
+	Mode            string                `json:"mode,omitempty"`
+	BatchSize       string                `json:"batch_size,omitempty"`
+	DependsOn       []string              `json:"depends_on,omitempty"`
+	RequiredParams  []string              `json:"required_params,omitempty"`
+	RequestParams   []PlanParam           `json:"request_params,omitempty"`
+	Bindings        []PlanBinding         `json:"bindings,omitempty"`
+	Credentials     []string              `json:"credentials,omitempty"`
+	SuccessCriteria []*uws1.Criterion     `json:"successCriteria,omitempty"`
+	OnFailure       []*uws1.FailureAction `json:"onFailure,omitempty"`
+	OnSuccess       []*uws1.SuccessAction `json:"onSuccess,omitempty"`
 }
 
 type PlanParam struct {
@@ -109,20 +112,23 @@ func addStepsToWorkflowPlan(plan *WorkflowPlan, intent *rollout.Intent, steps []
 		}
 		name := strings.TrimSpace(step.Name)
 		planStep := PlanStep{
-			Name:       name,
-			Type:       strings.TrimSpace(step.Type),
-			Parent:     ctx.Parent,
-			Branch:     ctx.Branch,
-			BranchWhen: ctx.BranchWhen,
-			Runtime:    strings.TrimSpace(step.Type),
-			Operation:  strings.TrimSpace(step.Operation),
-			When:       strings.TrimSpace(step.When),
-			ForEach:    strings.TrimSpace(step.ForEach),
-			Items:      strings.TrimSpace(step.Items),
-			Mode:       strings.TrimSpace(step.Mode),
-			BatchSize:  strings.TrimSpace(step.BatchSize),
-			DependsOn:  sortedCopy(step.DependsOn),
-			Inferred:   true,
+			Name:            name,
+			Type:            strings.TrimSpace(step.Type),
+			Parent:          ctx.Parent,
+			Branch:          ctx.Branch,
+			BranchWhen:      ctx.BranchWhen,
+			Runtime:         strings.TrimSpace(step.Type),
+			Operation:       strings.TrimSpace(step.Operation),
+			When:            strings.TrimSpace(step.When),
+			ForEach:         strings.TrimSpace(step.ForEach),
+			Items:           strings.TrimSpace(step.Items),
+			Mode:            strings.TrimSpace(step.Mode),
+			BatchSize:       strings.TrimSpace(step.BatchSize),
+			DependsOn:       sortedCopy(step.DependsOn),
+			Inferred:        true,
+			SuccessCriteria: cloneCriteria(step.SuccessCriteria),
+			OnFailure:       cloneFailureActions(step.OnFailure),
+			OnSuccess:       cloneSuccessActions(step.OnSuccess),
 		}
 		planStep.OpenAPI = strings.TrimSpace(step.OpenAPI)
 		if planStep.OpenAPI == "" && intent != nil {
@@ -438,6 +444,7 @@ func workflowPlanMarkdown(plan *WorkflowPlan) string {
 			if len(step.Credentials) > 0 {
 				fmt.Fprintf(&b, "  - credentials: `%s`\n", strings.Join(step.Credentials, "`, `"))
 			}
+			writePlanActionMarkdown(&b, step)
 		}
 	}
 	if len(plan.Results) > 0 {
@@ -461,6 +468,57 @@ func workflowPlanMarkdown(plan *WorkflowPlan) string {
 		}
 	}
 	return b.String()
+}
+
+func writePlanActionMarkdown(b *strings.Builder, step PlanStep) {
+	if b == nil {
+		return
+	}
+	for _, criterion := range step.SuccessCriteria {
+		if criterion == nil {
+			continue
+		}
+		fmt.Fprintf(b, "  - successCriteria: `%s`", criterion.Condition)
+		if criterion.Type != "" {
+			fmt.Fprintf(b, " type `%s`", criterion.Type)
+		}
+		if criterion.Context != "" {
+			fmt.Fprintf(b, " context `%s`", criterion.Context)
+		}
+		b.WriteString("\n")
+	}
+	for _, action := range step.OnFailure {
+		if action == nil {
+			continue
+		}
+		fmt.Fprintf(b, "  - onFailure: `%s` type `%s`", action.Name, action.Type)
+		if action.WorkflowID != "" {
+			fmt.Fprintf(b, " workflowId `%s`", action.WorkflowID)
+		}
+		if action.StepID != "" {
+			fmt.Fprintf(b, " stepId `%s`", action.StepID)
+		}
+		if action.RetryLimit > 0 {
+			fmt.Fprintf(b, " retryLimit `%d`", action.RetryLimit)
+		}
+		if action.RetryAfter > 0 {
+			fmt.Fprintf(b, " retryAfter `%g`", action.RetryAfter)
+		}
+		b.WriteString("\n")
+	}
+	for _, action := range step.OnSuccess {
+		if action == nil {
+			continue
+		}
+		fmt.Fprintf(b, "  - onSuccess: `%s` type `%s`", action.Name, action.Type)
+		if action.WorkflowID != "" {
+			fmt.Fprintf(b, " workflowId `%s`", action.WorkflowID)
+		}
+		if action.StepID != "" {
+			fmt.Fprintf(b, " stepId `%s`", action.StepID)
+		}
+		b.WriteString("\n")
+	}
 }
 
 func discoverComplementaryOpenAPI(ctx context.Context, discoverer *openapidisco.Discoverer, exampleDir, projectText string, candidates []openapidisco.Candidate, intent *rollout.Intent, policy projectPolicy) ([]openapidisco.Candidate, []openapidisco.DiscoveryAttempt, bool) {

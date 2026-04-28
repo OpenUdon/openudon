@@ -91,6 +91,18 @@
         "items": { "type": "string" },
         "mode": { "type": "string" },
         "batch_size": { "type": "string" },
+        "successCriteria": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/criterion" }
+        },
+        "onFailure": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/failure_action" }
+        },
+        "onSuccess": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/success_action" }
+        },
         "steps": {
           "type": "array",
           "items": { "$ref": "#/$defs/step" }
@@ -110,6 +122,57 @@
           "then": { "required": ["operation"] }
         }
       ]
+    },
+    "criterion": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["condition"],
+      "properties": {
+        "condition": { "type": "string", "minLength": 1 },
+        "type": {
+          "type": "string",
+          "enum": ["simple", "regex", "jsonpath", "xpath"]
+        },
+        "context": { "type": "string" }
+      }
+    },
+    "failure_action": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "type"],
+      "properties": {
+        "name": { "type": "string", "minLength": 1 },
+        "type": {
+          "type": "string",
+          "enum": ["end", "goto", "retry"]
+        },
+        "workflowId": { "type": "string" },
+        "stepId": { "type": "string" },
+        "retryAfter": { "type": "number", "minimum": 0 },
+        "retryLimit": { "type": "integer", "minimum": 1 },
+        "criteria": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/criterion" }
+        }
+      }
+    },
+    "success_action": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "type"],
+      "properties": {
+        "name": { "type": "string", "minLength": 1 },
+        "type": {
+          "type": "string",
+          "enum": ["end", "goto"]
+        },
+        "workflowId": { "type": "string" },
+        "stepId": { "type": "string" },
+        "criteria": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/criterion" }
+        }
+      }
     },
     "bind": {
       "type": "object",

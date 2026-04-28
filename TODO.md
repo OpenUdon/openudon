@@ -148,7 +148,7 @@ workflow checks catch misplaced auth fields. Side-effect assessment now detects 
 methods, customer communication terms, command/SSH runtimes, and explicit production endpoints that
 lack production handoff policy.
 
-## [in-progress] Workflow Artifact Power
+## [done] Workflow Artifact Power
 
 Goal: support richer workflow artifacts without moving generic semantics out of `../uws` or
 `../udon`.
@@ -180,6 +180,14 @@ UWS `results[]`, and quality fails if exported results diverge from the expected
 failure-action compatibility is covered at the public UWS schema and udon execution-profile layer,
 but Ramen still keeps retry/failure prompt defaults disabled until workflow draft lowering can carry
 those action fields.
+
+Slice 3 adds failure-action and retry compatibility for UWS-supported operation actions. Udon now
+preserves `successCriteria`, `onFailure`, and `onSuccess` through rollout intent, workflow drafts,
+canonical HCL, runtime plans, exec-cache conversion, program-view import/export, and UWS export.
+Ramen intent schema, expected plans, plan Markdown, review evidence, and quality checks now preserve
+and compare those action policies. Retry actions remain opt-in: prompts only emit them when the
+project brief or intent explicitly asks, and side-effectful workflows with retry actions must include
+explicit retry/idempotency policy in `project.md`.
 
 ## [done] Observability And Eval Analytics
 
@@ -331,7 +339,7 @@ Dependency status markers:
 | ID | Status | Priority | Target | Capability | Ramen symptom/evidence | Owner | Compatibility plan |
 | --- | --- | --- | --- | --- | --- | --- | --- |
 | XRD-001 | `[done]` | P0 | `../udon` | Provider-native structured output for Gemini intent generation. | Structured eval smoke on 2026-04-28 reached 10/10 with zero legacy fallback after udon request wiring was fixed. | udon | Keep Ramen fallback regression checks and structured-mode eval reporting. |
-| XRD-002 | `[ready]` | P0 | `../udon` | Preserve and lower public UWS structural constructs and failure actions from generated workflow drafts. | Workflow Artifact Power Slices 1-2 added Ramen switch, loop, and structural-result plan/review/quality coverage. Retry and failure actions validate against UWS 1.0 and udon execution-profile helpers, but workflow draft lowering still cannot carry those action fields from Ramen-generated workflow drafts. | udon | Add generated workflow draft support for failure actions/retries in udon before enabling Ramen prompt defaults for those actions. |
+| XRD-002 | `[done]` | P0 | `../udon` | Preserve and lower public UWS structural constructs and failure actions from generated workflow drafts. | Workflow Artifact Power Slices 1-3 cover switch, loop, structural-result, success-criteria, failure-action, retry, and success-action artifact preservation through udon and Ramen compatibility checks. | udon | Keep regression coverage in udon workflow/rollout/generator/exec-cache/program-view/UWS bridge tests and Ramen synthesize quality tests. |
 | XRD-003 | `[blocked]` | P0 | `../uws` | Portable serialized timeout and workflow-level idempotency semantics not already in UWS 1.0. | UWS 1.0 covers loops, structural results, failure actions, retries, and runtime profiles; it does not define a general timeout field or workflow-level idempotency metadata. Ramen must not invent those semantics locally. | uws | Compatibility matrix is documented in `docs/cross-repo-contracts.md`; propose spec/model/schema changes in `../uws` before adding Ramen generation policy for portable timeout or idempotency metadata. |
 | XRD-004 | `[ready]` | P1 | `../udon` | Generic OpenAPI execution/compiler behavior for richer API workflows. | Eval Corpus Expansion needs pagination variants, request bodies, security schemes, write operations, and response extraction beyond current smoke coverage. | udon | Add Ramen evals first to identify concrete compiler/runtime gaps; upstream only reusable OpenAPI/UWS execution fixes. |
 | XRD-005 | `[blocked]` | P1 | External `../symphony` owner | Review workflow, approval handoff, and agent workspace policy integration. | Safety And Trusted Execution now emits a minimum handoff package, but approval routing is still only documented in Ramen review evidence. | symphony owner | Handoff package and state model are documented in `docs/cross-repo-contracts.md`; Ramen cannot modify Symphony and should only coordinate the required upstream change with its owner. |
@@ -341,7 +349,6 @@ Dependency status markers:
 
 Next upstream actions:
 
-1. Continue XRD-002 by adding udon workflow draft support for failure actions/retries, then add a Ramen generated-artifact fixture before enabling prompt defaults.
-2. For XRD-003, keep portable timeout and workflow-level idempotency prompt support disabled until `../uws` defines those contracts.
-3. For XRD-005, hand the `docs/cross-repo-contracts.md` approval package and state model to the Symphony owner; do not modify `../symphony` from Ramen.
-4. For XRD-007, keep CI disabled until the self-hosted deterministic runner prerequisites in `docs/cross-repo-contracts.md` are satisfied.
+1. For XRD-003, keep portable timeout and workflow-level idempotency prompt support disabled until `../uws` defines those contracts.
+2. For XRD-005, hand the `docs/cross-repo-contracts.md` approval package and state model to the Symphony owner; do not modify `../symphony` from Ramen.
+3. For XRD-007, keep CI disabled until the self-hosted deterministic runner prerequisites in `docs/cross-repo-contracts.md` are satisfied.
