@@ -342,6 +342,7 @@ Dependency status markers:
 
 - `[blocked]` needs upstream work before Ramen can finish the capability.
 - `[ready]` Ramen can add compatibility tests or integration glue now.
+- `[handoff]` Ramen's handoff package is complete; an external owner owns implementation.
 - `[watch]` external risk to monitor; no local code change is enough.
 - `[done]` upstream capability exists; keep regression coverage in Ramen.
 
@@ -351,7 +352,7 @@ Dependency status markers:
 | XRD-002 | `[done]` | P0 | `../udon` | Preserve and lower public UWS structural constructs and failure actions from generated workflow drafts. | Workflow Artifact Power Slices 1-3 cover switch, loop, structural-result, success-criteria, failure-action, retry, and success-action artifact preservation through udon and Ramen compatibility checks. | udon | Closed capability; `docs/xrd-roadmap.md` keeps regression ownership only. |
 | XRD-003 | `[done]` | P0 | `../uws` | Portable serialized timeout and workflow-level idempotency semantics not already in UWS 1.0. | UWS 1.1.0 defines `timeout` on operations, workflows, and steps, plus workflow-level `idempotency` metadata. Ramen generation behavior is unchanged in this pass. | uws | Cross-repo public semantics are closed; use a Ramen-owned follow-up if prompt/schema/eval support should emit UWS 1.1 fields. |
 | XRD-004 | `[done]` | P1 | `../ramen`, then `../udon` | Generic OpenAPI execution/compiler behavior for richer API workflows. | Ramen now has a documented XRD-004 eval plan plus fixtures covering pagination variants, request bodies, security schemes, write operations, response extraction, and multi-service chains. | Ramen eval owner / udon | Keep `docs/xrd-004-openapi-eval-plan.md` and eval fixtures as the Ramen-owned coverage; propose reusable udon fixes only after concrete eval failures identify upstream gaps. |
-| XRD-005 | `[blocked]` | P1 | External `../symphony` owner | Review workflow, approval handoff, and agent workspace policy integration. | Safety And Trusted Execution emits a minimum handoff package, but approval routing is only documented in Ramen review evidence. | symphony owner | Use `docs/xrd-roadmap.md` for the owner handoff; contract details stay in `docs/cross-repo-contracts.md`. |
+| XRD-005 | `[handoff]` | P1 | External `../symphony` owner | Review workflow, approval handoff, and agent workspace policy integration. | Ramen emits the minimum handoff package, full approval-state review evidence, and `docs/xrd-005-symphony-handoff.md` for Symphony implementation. | symphony owner | Hand `docs/xrd-005-symphony-handoff.md` to the Symphony owner; contract details stay in `docs/cross-repo-contracts.md`. |
 | XRD-006 | `[watch]` | P1 | Provider APIs | Structured-output schema dialect compatibility, rate limits, transient errors, and model availability. | README documents real-provider eval variance; release gate is local/manual because provider runs can fail for external reasons. | provider owners | Use `docs/xrd-roadmap.md` for the watch plan; no implementation plan is open. |
 | XRD-007 | `[blocked]` | P1 | Repo access / secrets | Private sibling checkout and provider credential availability for future workflow automation. | GitHub CI was removed because private siblings and credentials made hosted checks noisy; real-LLM eval remains local/manual. | infra | Use `docs/xrd-roadmap.md` for the infra handoff; runbook details stay in `docs/cross-repo-contracts.md`. |
 | XRD-008 | `[ready]` | P2 | `../ramen`, then `../udon` / `../uws` | Runtime/profile coverage for approved non-HTTP execution beyond current `fnct`/`cmd` smoke paths. | Runtime-only and command evals cover basic policy, but future runtime profiles need generic execution support outside Ramen. | Ramen eval owner / udon/uws | Use `docs/xrd-roadmap.md` for the runtime/profile eval follow-up plan. |
@@ -360,8 +361,9 @@ Next upstream actions:
 
 1. For XRD-003, public UWS 1.1 contracts now exist; keep Ramen generation behavior unchanged until
    a Ramen-owned follow-up adds prompt/schema/eval coverage for emitting those fields.
-2. For XRD-005, hand the `docs/cross-repo-contracts.md` approval package and state model to the
-   Symphony owner; do not modify `../symphony` from Ramen.
+2. For XRD-005, hand `docs/xrd-005-symphony-handoff.md` and the
+   `docs/cross-repo-contracts.md` approval contract to the Symphony owner; do not modify
+   `../symphony` from Ramen.
 3. For XRD-007, keep CI disabled until the self-hosted deterministic runner prerequisites in
    `docs/cross-repo-contracts.md` are satisfied.
 4. Use `docs/xrd-roadmap.md` for the full XRD execution sequence and follow-up plan boundaries.

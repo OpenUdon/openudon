@@ -38,6 +38,8 @@ blockers.
 
 Ramen emits an artifact package that Symphony can attach to a work item and route through review.
 The package is deterministic file output, not an approval workflow by itself.
+The concrete implementation request for the external owner is
+[`docs/xrd-005-symphony-handoff.md`](xrd-005-symphony-handoff.md).
 
 Required handoff package:
 

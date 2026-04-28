@@ -2182,7 +2182,7 @@ func assessReview(report *QualityReport, path string, profile sideEffectProfile,
 	}
 	report.add("review.credential_audit", "pass", "review evidence records credential binding audit requirements", "")
 	if !reviewContainsApprovalStates(text, profile) {
-		report.add("review.approval_states", "fail", "review evidence must state the generated, review, sandbox, and production approval states required before execution", "")
+		report.add("review.approval_states", "fail", "review evidence must state the Symphony approval states required before execution", "")
 		return
 	}
 	report.add("review.approval_states", "pass", "review evidence records approval-state requirements", "")
@@ -2238,13 +2238,13 @@ func reviewContainsApprovalStates(text string, profile sideEffectProfile) bool {
 	if !strings.Contains(text, "## Approval State Requirements") || !strings.Contains(text, "`generated`") {
 		return false
 	}
-	if !profile.SideEffectful {
-		return strings.Contains(text, "not required unless future changes add side effects")
-	}
-	for _, state := range []string{"`review_required`", "`approved_for_sandbox`", "`approved_for_production`"} {
+	for _, state := range []string{"`validated`", "`review_required`", "`approved_for_sandbox`", "`approved_for_production`", "`rejected`"} {
 		if !strings.Contains(text, state) {
 			return false
 		}
+	}
+	if !profile.SideEffectful {
+		return strings.Contains(text, "not required unless future changes add side effects")
 	}
 	return true
 }

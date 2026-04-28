@@ -102,6 +102,11 @@ func reviewMarkdown(result Result, provider, model string) string {
 	b.WriteString("- Direct production execution: not performed by Ramen synthesis.\n")
 	b.WriteString("\n## Approval State Requirements\n\n")
 	b.WriteString("- Ramen emitted state: `generated`; no approval is implied by artifact generation.\n")
+	b.WriteString("- `validated`: required validators and quality gates have passed or known warnings are attached.\n")
+	b.WriteString("- `review_required`: human review is required before side-effectful execution.\n")
+	b.WriteString("- `approved_for_sandbox`: sandbox or test-endpoint execution only.\n")
+	b.WriteString("- `approved_for_production`: production execution through a trusted runner and approved credentials.\n")
+	b.WriteString("- `rejected`: artifact rejected or regeneration requested.\n")
 	if profile.SideEffectful {
 		b.WriteString("- Required next state: `review_required` before any side-effectful execution.\n")
 		b.WriteString("- Sandbox proof run requires Symphony state `approved_for_sandbox`.\n")

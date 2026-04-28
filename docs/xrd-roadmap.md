@@ -17,7 +17,7 @@ handoff requirements, and XRD-007 private checkout and secrets prerequisites.
 | XRD-002 | Closed | udon / Ramen regression owner | `../udon` | Public UWS structural constructs and failure actions are preserved across udon and Ramen compatibility checks. | Regression report only if artifact preservation regresses. | None unless tests regress. |
 | XRD-003 | Closed | uws owner | `../uws` | UWS 1.1.0 now defines portable `timeout` fields and workflow-level `idempotency` metadata in `../uws/versions/1.1.0.md` and `../uws/versions/1.1.0.json`. | Ramen follow-up only if prompt/schema/eval support should emit UWS 1.1 fields by default. | None for cross-repo public semantics. |
 | XRD-004 | Closed | Ramen eval owner, then udon owner for reusable gaps | `../ramen`, then `../udon` | Ramen has `docs/xrd-004-openapi-eval-plan.md` plus fixtures covering pagination variants, request bodies, security schemes, write operations, response extraction, and multi-service chains. | Upstream udon issue only if future eval runs identify a reusable compiler/runtime gap. | None unless richer OpenAPI evals regress. |
-| XRD-005 | Blocked | External Symphony owner | `../symphony` | Ramen emits review evidence and handoff files, but approval routing is not implemented by Ramen. | Symphony handoff package using the documented files and approval states. | XRD-005 Symphony owner handoff. |
+| XRD-005 | Handed off | External Symphony owner | `../symphony` | Ramen emits review evidence, handoff files, and the concrete owner handoff in `docs/xrd-005-symphony-handoff.md`; approval routing remains external. | Symphony owner implementation from the documented handoff package and approval states. | None in Ramen unless the handoff contract changes. |
 | XRD-006 | Watch | Ramen release owner / provider owners | Provider APIs | Provider behavior can drift in schema dialect support, rate limits, transient failures, and model availability. | Provider drift watch report during release evaluation. | XRD-006 provider drift watch plan. |
 | XRD-007 | Blocked | Infra owner | Repo access / secrets | Hosted GitHub CI remains disabled because private siblings, credentials, and generated artifacts require private-runner controls. | Infra readiness package for private checkout, runner, and secret policy. | XRD-007 infra handoff. |
 | XRD-008 | Ready | Ramen eval owner, then udon/uws owners for reusable semantics | `../ramen`, then `../udon` / `../uws` | Runtime-only and command evals cover basic policy, but future runtime profiles need broader compatibility proof. | Ramen runtime/profile policy and eval fixture plan. | XRD-008 runtime/profile eval coverage. |
@@ -88,15 +88,18 @@ reusable OpenAPI/UWS compiler or runtime fixes found by those evals.
 
 ## XRD-005 Symphony Approval Handoff
 
-Decision: Symphony owner handoff.
+Decision: Ramen handoff package complete; Symphony owner implementation remains external.
 
-Next artifact: a handoff package for the external Symphony owner.
+Next artifact: Symphony owner implementation using
+[`docs/xrd-005-symphony-handoff.md`](xrd-005-symphony-handoff.md).
 
 Acceptance criteria:
 
 - The handoff uses the required files listed in
   [`docs/cross-repo-contracts.md#xrd-005-symphony-approval-handoff-contract`](cross-repo-contracts.md#xrd-005-symphony-approval-handoff-contract).
 - The handoff uses the documented approval states from the same contract.
+- Generated Ramen review evidence names the full state model: `generated`, `validated`,
+  `review_required`, `approved_for_sandbox`, `approved_for_production`, and `rejected`.
 - Ramen does not modify `../symphony`; it coordinates the upstream request with the Symphony owner.
 
 Implementation boundary: Ramen owns deterministic artifact generation, validation, review evidence,

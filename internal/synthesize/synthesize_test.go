@@ -846,9 +846,11 @@ step "send_email" {
 		"Side-effectful workflow: yes",
 		"Approval/trusted-runtime policy: present",
 		"Approval State Requirements",
+		"`validated`",
 		"`review_required`",
 		"`approved_for_sandbox`",
 		"`approved_for_production`",
+		"`rejected`",
 		"Credential Binding Audit",
 		"No credential bindings declared or required.",
 		"Unresolved Risks",
@@ -1009,6 +1011,11 @@ func validReviewEvidenceText(includeApprovalStates, includeCredentialInventory b
 		b.WriteString(`## Approval State Requirements
 
 - Ramen emitted state: ` + "`generated`" + `; no approval is implied by artifact generation.
+- ` + "`validated`" + `: required validators and quality gates have passed or known warnings are attached.
+- ` + "`review_required`" + `: human review is required before side-effectful execution.
+- ` + "`approved_for_sandbox`" + `: sandbox or test-endpoint execution only.
+- ` + "`approved_for_production`" + `: production execution through a trusted runner and approved credentials.
+- ` + "`rejected`" + `: artifact rejected or regeneration requested.
 - ` + "`approved_for_sandbox`" + ` and ` + "`approved_for_production`" + ` are not required unless future changes add side effects.
 
 `)

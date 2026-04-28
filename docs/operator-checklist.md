@@ -50,4 +50,5 @@ commit and dirty state, release-gate result, deterministic checks, and known ext
 
 Ramen emits generated artifacts only. Before any side-effectful execution, the Symphony-owned work
 item must move through review and the applicable approval state. The trusted handoff package and
-approval-state contract are defined in `docs/cross-repo-contracts.md`.
+approval-state contract are defined in `docs/cross-repo-contracts.md`; the external Symphony owner
+handoff is in `docs/xrd-005-symphony-handoff.md`.
