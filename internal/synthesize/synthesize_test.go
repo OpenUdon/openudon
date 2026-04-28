@@ -36,6 +36,67 @@ func (fakeRuntimeOnlyClient) Chat(context.Context, []rollout.ChatMessage) (strin
 }`, nil
 }
 
+type retryWorkflowClient struct {
+	chatCalls     int
+	generateCalls int
+}
+
+func (c *retryWorkflowClient) Chat(ctx context.Context, messages []rollout.ChatMessage) (string, error) {
+	c.chatCalls++
+	if c.chatCalls == 1 {
+		return `{
+  "openapi": "openapi/support.yaml",
+  "workflow": {"name": "support_ticket", "description": "Fetch support ticket details."},
+  "steps": [
+    {"name": "get_ticket", "type": "http", "do": "Fetch the support ticket", "operation": "missingTicketOperation", "with": {"ticketId": "ticket_123"}}
+  ],
+  "outputs": [{"name": "ticket", "from": "get_ticket.received_body"}]
+}`, nil
+	}
+	return fakeClient{}.Chat(ctx, messages)
+}
+
+func (c *retryWorkflowClient) Generate(ctx context.Context, prompt string) (string, error) {
+	c.generateCalls++
+	return fakeClient{}.Generate(ctx, prompt)
+}
+
+type badInputSourceClient struct{}
+
+func (badInputSourceClient) Chat(context.Context, []rollout.ChatMessage) (string, error) {
+	return `{
+  "openapi": "openapi/support.yaml",
+  "workflow": {"name": "support_ticket", "description": "Fetch support ticket details."},
+  "inputs": [{"name": "ticketId", "type": "string", "required": true}],
+  "steps": [
+    {"name": "get_ticket", "type": "http", "do": "Fetch the support ticket", "operation": "getTicket"}
+  ],
+  "outputs": [{"name": "ticket", "from": "get_ticket.received_body"}]
+}`, nil
+}
+
+func (badInputSourceClient) Generate(context.Context, string) (string, error) {
+	return "```json\n" + `{
+  "body": {
+    "blocks": [
+      {"type": "provider", "body": {"attributes": {"openapi": "openapi/support.yaml"}}}
+    ]
+  },
+  "steps": [
+    {
+      "type": "http",
+      "name": "get_ticket",
+      "body": {
+        "attributes": {"operation": "getTicket"},
+        "blocks": [
+          {"type": "request", "body": {"attributes": {"ticketId": "wrong_literal"}}}
+        ]
+      }
+    }
+  ]
+}` + "\n```", nil
+}
+
 type fakeWeatherChainClient struct{}
 
 func (fakeWeatherChainClient) Chat(context.Context, []rollout.ChatMessage) (string, error) {
@@ -140,6 +201,12 @@ info:
 servers:
   - url: https://support.example.test
 paths:
+  /tickets:
+    get:
+      operationId: listTickets
+      responses:
+        "200":
+          description: ok
   /tickets/{ticketId}:
     get:
       operationId: getTicket
@@ -177,7 +244,7 @@ paths:
 	if err != nil {
 		t.Fatal(err)
 	}
-	for _, path := range []string{result.IntentPath, result.WorkflowPath, result.UWSPath, result.PlanJSONPath, result.PlanMDPath, result.ReviewPath, result.QualityJSONPath, result.QualityMDPath} {
+	for _, path := range []string{result.IntentPath, result.WorkflowPath, result.UWSPath, result.PlanJSONPath, result.PlanMDPath, result.RefinementJSONPath, result.RefinementMDPath, result.ReviewPath, result.QualityJSONPath, result.QualityMDPath} {
 		if _, err := os.Stat(path); err != nil {
 			t.Fatalf("expected artifact %s: %v", path, err)
 		}
@@ -1054,6 +1121,136 @@ func TestSpecSummaryIncludesDataFlowPlanningMetadata(t *testing.T) {
 	}
 }
 
+func TestSynthesizeRetriesWorkflowGenerationAndWritesRefinementReport(t *testing.T) {
+	root := t.TempDir()
+	example := filepath.Join(root, "examples", "support-retry")
+	writeSupportExample(t, example, false)
+	schemaPath, err := filepath.Abs(filepath.Join("..", "..", "..", "uws", "versions", "1.0.0.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	client := &retryWorkflowClient{}
+	result, err := Synthesize(context.Background(), Options{
+		ExampleDir:  example,
+		Discoverer:  &openapidisco.Discoverer{APIsGuruListURL: "http://127.0.0.1/list.json"},
+		LLMClient:   client,
+		ChatClient:  client,
+		SchemaPath:  schemaPath,
+		MaxAttempts: 3,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if client.chatCalls < 2 {
+		t.Fatalf("expected refinement retry, got %d chat call(s)", client.chatCalls)
+	}
+	refinement, err := os.ReadFile(result.RefinementJSONPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(refinement), `"status": "pass"`) || !strings.Contains(string(refinement), "missingTicketOperation") {
+		t.Fatalf("refinement report missing retry evidence:\n%s", refinement)
+	}
+}
+
+func TestSynthesizeStopsAtMaxAttemptsAndWritesRefinementReport(t *testing.T) {
+	root := t.TempDir()
+	example := filepath.Join(root, "examples", "support-max")
+	writeSupportExample(t, example, true)
+	schemaPath, err := filepath.Abs(filepath.Join("..", "..", "..", "uws", "versions", "1.0.0.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, err = Synthesize(context.Background(), Options{
+		ExampleDir:  example,
+		LLMClient:   badInputSourceClient{},
+		ChatClient:  badInputSourceClient{},
+		SchemaPath:  schemaPath,
+		MaxAttempts: 2,
+	})
+	if err == nil {
+		t.Fatalf("expected quality failure")
+	}
+	refinement, readErr := os.ReadFile(filepath.Join(example, "expected", "refinement.json"))
+	if readErr != nil {
+		t.Fatal(readErr)
+	}
+	if !strings.Contains(string(refinement), "maximum refinement attempts reached") && !strings.Contains(string(refinement), "repeated quality failure") {
+		t.Fatalf("refinement report missing clean stop reason:\n%s", refinement)
+	}
+}
+
+func TestComplementaryDiscoveryRecordsAttempt(t *testing.T) {
+	example := filepath.Join(t.TempDir(), "examples", "weather-complementary")
+	if err := os.MkdirAll(filepath.Join(example, "openapi"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(example, "openapi", "weather.yaml"), []byte(weatherOnlyOpenAPI()), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	candidates, err := openapidisco.LocalFiles(filepath.Join(example, "openapi"), example, "weather")
+	if err != nil {
+		t.Fatal(err)
+	}
+	intent := &rollout.Intent{
+		OpenAPI: "openapi/weather.yaml",
+		Steps: []*rollout.Step{{
+			Name:      "get_weather",
+			Type:      "http",
+			Operation: "getWeatherData",
+		}},
+	}
+	_, attempts, _ := discoverComplementaryOpenAPI(context.Background(), &openapidisco.Discoverer{
+		APIsGuruListURL: "http://127.0.0.1/list.json",
+	}, example, "Search weather in Toronto, Canada.", candidates, intent, analyzeProject(""))
+	if len(attempts) != 1 || attempts[0].Kind != "apis.guru.complementary" || attempts[0].Status != "fail" {
+		t.Fatalf("unexpected complementary discovery attempts: %#v", attempts)
+	}
+}
+
+func TestAssessUsesPrimaryOpenAPIForIntentWithoutTopLevelOpenAPI(t *testing.T) {
+	example := filepath.Join(t.TempDir(), "examples", "primary-fallback")
+	writeSupportExample(t, example, false)
+	if err := os.MkdirAll(filepath.Join(example, "workflows"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(example, "workflows", "intent.hcl"), []byte(`workflow {
+  name = "support"
+}
+
+step "get_ticket" {
+  type      = "http"
+  do        = "Fetch the support ticket"
+  operation = "getTicket"
+  with = {
+    ticketId = "ticket_123"
+  }
+}
+`), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	report, err := Assess(Options{ExampleDir: example})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !hasCheck(report, "intent.openapi_operations", "pass") {
+		t.Fatalf("expected operation validation to use primary OpenAPI, got %#v", report.Checks)
+	}
+}
+
+func TestBuildAndPromoteRequireProjectBrief(t *testing.T) {
+	example := filepath.Join(t.TempDir(), "examples", "missing-project")
+	if err := os.MkdirAll(filepath.Join(example, "workflows"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := Build(context.Background(), Options{ExampleDir: example}); err == nil || !strings.Contains(err.Error(), "read project brief") {
+		t.Fatalf("expected build to require project.md, got %v", err)
+	}
+	if _, err := Promote(context.Background(), Options{ExampleDir: example}); err == nil || !strings.Contains(err.Error(), "read project brief") {
+		t.Fatalf("expected promote to require project.md, got %v", err)
+	}
+}
+
 func hasCheck(report *QualityReport, code, status string) bool {
 	if report == nil {
 		return false
@@ -1064,6 +1261,82 @@ func hasCheck(report *QualityReport, code, status string) bool {
 		}
 	}
 	return false
+}
+
+func writeSupportExample(t *testing.T, example string, includeInput bool) {
+	t.Helper()
+	if err := os.MkdirAll(filepath.Join(example, "openapi"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	project := `# Support
+
+## Goal
+
+When a support ticket is created, fetch the ticket details.
+
+## Inputs
+
+- ticketId: required string.
+
+## External Systems and OpenAPI
+
+- Use openapi/support.yaml.
+
+## Runtime Policy
+
+- openapi and http are allowed.
+
+## Credentials and Secrets
+
+- No credentials are required.
+
+## Safety and Approval Boundary
+
+- Generate only.
+
+## Fallback Behavior
+
+- Stop if the ticket cannot be fetched.
+`
+	if !includeInput {
+		project = strings.Replace(project, "- ticketId: required string.", "- ticket_id: required string.", 1)
+	}
+	if err := os.WriteFile(filepath.Join(example, "project.md"), []byte(project), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(example, "openapi", "support.yaml"), []byte(supportOpenAPI()), 0o644); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func supportOpenAPI() string {
+	return `openapi: 3.0.0
+info:
+  title: Support API
+  version: 1.0.0
+servers:
+  - url: https://support.example.test
+paths:
+  /tickets/{ticketId}:
+    get:
+      operationId: getTicket
+      parameters:
+        - name: ticketId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: ok
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  id:
+                    type: string
+`
 }
 
 func weatherOpenAPI() string {

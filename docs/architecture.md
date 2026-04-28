@@ -28,7 +28,7 @@ natural-language project brief
   -> intent.hcl
   -> udon-generated workflow.hcl
   -> exported UWS artifact
-  -> quality report and review evidence
+  -> refinement report, quality report, and review evidence
   -> approved UWS artifact
   -> udon execution by trusted runner
 ```
@@ -47,6 +47,7 @@ implementation; Symphony is invoked and configured operationally through `WORKFL
 Generic OpenAPI parsing, workflow lowering, and execution behavior should remain in `udon`. Ramen
 may wrap those capabilities to enforce project layout, review evidence, and trusted handoff policy.
 
-Symphony owns the iterative work loop around these commands. Ramen exposes deterministic stages and
-quality reports; Symphony/Codex uses those reports to decide whether to improve OpenAPI inputs,
-intent HCL, workflow HCL, or review evidence.
+Ramen performs a bounded deterministic refinement loop for generation stages and records each
+attempt in `expected/refinement.json`. Symphony owns the broader work loop around these commands:
+Symphony/Codex uses refinement and quality reports to decide whether to improve OpenAPI inputs,
+intent HCL, workflow HCL, project policy, or review evidence.

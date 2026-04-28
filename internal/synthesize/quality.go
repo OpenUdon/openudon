@@ -80,7 +80,7 @@ func Assess(opts Options) (*QualityReport, error) {
 
 	expectedPlan := assessWorkflowPlan(report, result)
 	assessDiscoveryReport(report, result.DiscoveryJSONPath)
-	intent, intentOK := assessIntent(report, result.IntentPath, candidates, policy)
+	intent, intentOK := assessIntent(report, result.IntentPath, candidates, result.PrimaryOpenAPI, policy)
 	planOK := assessWorkflow(report, result.WorkflowPath, exampleDir, intent, policy, expectedPlan)
 	assessUWS(report, result.UWSPath, opts.SchemaPath, exampleDir)
 	assessReview(report, result.ReviewPath)
@@ -96,7 +96,7 @@ func Assess(opts Options) (*QualityReport, error) {
 	return report, nil
 }
 
-func assessIntent(report *QualityReport, path string, candidates []openapidisco.Candidate, policy projectPolicy) (*rollout.Intent, bool) {
+func assessIntent(report *QualityReport, path string, candidates []openapidisco.Candidate, primary string, policy projectPolicy) (*rollout.Intent, bool) {
 	intent, err := rollout.ParseIntentFile(path)
 	if err != nil {
 		report.add("intent.parse", "fail", "intent.hcl is missing or invalid", err.Error())
@@ -104,27 +104,31 @@ func assessIntent(report *QualityReport, path string, candidates []openapidisco.
 	}
 	report.add("intent.parse", "pass", "intent.hcl parses", "")
 	missing := intent.MissingSlots()
+	if len(missing) > 0 && strings.TrimSpace(primary) != "" && strings.TrimSpace(intent.OpenAPI) == "" {
+		intent.OpenAPI = strings.TrimSpace(primary)
+		missing = intent.MissingSlots()
+	}
 	if len(missing) > 0 {
 		report.add("intent.slots", "fail", "intent.hcl has missing slots", strings.Join(missing, "; "))
 		return intent, false
 	}
 	report.add("intent.slots", "pass", "intent.hcl has required slots", "")
-	if err := validateIntentOpenAPIRefs(intent, candidates, intent.OpenAPI, policy.NoOpenAPI); err != nil {
+	if err := validateIntentOpenAPIRefs(intent, candidates, primary, policy.NoOpenAPI); err != nil {
 		report.add("intent.openapi_refs", "fail", "intent.hcl references unavailable OpenAPI documents", err.Error())
 		return intent, false
 	}
 	report.add("intent.openapi_refs", "pass", "intent.hcl OpenAPI references are available", "")
-	if err := validateIntentOpenAPIOperations(intent, candidates); err != nil {
+	if err := validateIntentOpenAPIOperations(intent, candidates, primary); err != nil {
 		report.add("intent.openapi_operations", "fail", "intent.hcl references unavailable OpenAPI operations", err.Error())
 		return intent, false
 	}
 	report.add("intent.openapi_operations", "pass", "intent.hcl OpenAPI operation references are available", "")
-	if err := validateIntentRequiredParameters(intent, candidates); err != nil {
+	if err := validateIntentRequiredParameters(intent, candidates, primary); err != nil {
 		report.add("intent.data_flow.required_params", "fail", "required OpenAPI parameters are not satisfied", err.Error())
 		return intent, false
 	}
 	report.add("intent.data_flow.required_params", "pass", "required OpenAPI parameters are satisfied or credential-bound", "")
-	if err := validateIntentCredentialPolicy(intent, candidates, policy); err != nil {
+	if err := validateIntentCredentialPolicy(intent, candidates, primary, policy); err != nil {
 		report.add("credentials.bindings", "fail", "credential-like parameters require declared credential policy", err.Error())
 		return intent, false
 	}
@@ -300,7 +304,7 @@ func assessWorkflow(report *QualityReport, path, exampleDir string, intent *roll
 	return true
 }
 
-func validateIntentOpenAPIOperations(intent *rollout.Intent, candidates []openapidisco.Candidate) error {
+func validateIntentOpenAPIOperations(intent *rollout.Intent, candidates []openapidisco.Candidate, primary string) error {
 	if intent == nil {
 		return nil
 	}
@@ -314,10 +318,7 @@ func validateIntentOpenAPIOperations(intent *rollout.Intent, candidates []openap
 		if operation == "" {
 			return
 		}
-		specPath := strings.TrimSpace(step.OpenAPI)
-		if specPath == "" {
-			specPath = strings.TrimSpace(intent.OpenAPI)
-		}
+		specPath := intentStepOpenAPIPath(intent, step, primary)
 		if op := ops[operationKey(specPath, operation)]; op == nil {
 			name := strings.TrimSpace(step.Name)
 			if name == "" {
@@ -333,7 +334,7 @@ func validateIntentOpenAPIOperations(intent *rollout.Intent, candidates []openap
 	return nil
 }
 
-func validateIntentRequiredParameters(intent *rollout.Intent, candidates []openapidisco.Candidate) error {
+func validateIntentRequiredParameters(intent *rollout.Intent, candidates []openapidisco.Candidate, primary string) error {
 	if intent == nil {
 		return nil
 	}
@@ -348,10 +349,7 @@ func validateIntentRequiredParameters(intent *rollout.Intent, candidates []opena
 		if operation == "" {
 			return
 		}
-		specPath := strings.TrimSpace(step.OpenAPI)
-		if specPath == "" {
-			specPath = strings.TrimSpace(intent.OpenAPI)
-		}
+		specPath := intentStepOpenAPIPath(intent, step, primary)
 		op := ops[operationKey(specPath, operation)]
 		if op == nil {
 			return
@@ -377,7 +375,7 @@ func validateIntentRequiredParameters(intent *rollout.Intent, candidates []opena
 	return nil
 }
 
-func validateIntentCredentialPolicy(intent *rollout.Intent, candidates []openapidisco.Candidate, policy projectPolicy) error {
+func validateIntentCredentialPolicy(intent *rollout.Intent, candidates []openapidisco.Candidate, primary string, policy projectPolicy) error {
 	if intent == nil {
 		return nil
 	}
@@ -392,10 +390,7 @@ func validateIntentCredentialPolicy(intent *rollout.Intent, candidates []openapi
 		if operation == "" {
 			return
 		}
-		specPath := strings.TrimSpace(step.OpenAPI)
-		if specPath == "" {
-			specPath = strings.TrimSpace(intent.OpenAPI)
-		}
+		specPath := intentStepOpenAPIPath(intent, step, primary)
 		op := ops[operationKey(specPath, operation)]
 		if op == nil {
 			return
@@ -464,6 +459,16 @@ func openAPIOperationIndex(candidates []openapidisco.Candidate) map[string]*roll
 
 func operationKey(specPath, operation string) string {
 	return strings.TrimSpace(specPath) + "\x00" + strings.TrimSpace(operation)
+}
+
+func intentStepOpenAPIPath(intent *rollout.Intent, step *rollout.Step, primary string) string {
+	if step != nil && strings.TrimSpace(step.OpenAPI) != "" {
+		return strings.TrimSpace(step.OpenAPI)
+	}
+	if intent != nil && strings.TrimSpace(intent.OpenAPI) != "" {
+		return strings.TrimSpace(intent.OpenAPI)
+	}
+	return strings.TrimSpace(primary)
 }
 
 func intentInputNames(intent *rollout.Intent) map[string]bool {
@@ -598,8 +603,26 @@ func validateWorkflowAgainstExpectedPlan(report *QualityReport, compiled *runtim
 				}
 				continue
 			}
-			if param.ExpectedSource != "" && !expressionReferencesExpectedSource(evidence.Expression, param.ExpectedSource) {
-				bindingSourceMismatch = append(bindingSourceMismatch, fmt.Sprintf("%s.%s expected source %s got %s", name, param.Name, param.ExpectedSource, evidence.Expression))
+			if param.ExpectedSource == "" {
+				continue
+			}
+			switch param.SourceKind {
+			case "input":
+				if !expressionReferencesInputSource(evidence.Expression, param.ExpectedSource) {
+					bindingSourceMismatch = append(bindingSourceMismatch, fmt.Sprintf("%s.%s expected input source %s got %s", name, param.Name, param.ExpectedSource, evidence.Expression))
+				}
+			case "binding":
+				if !expressionReferencesExpectedSource(evidence.Expression, param.ExpectedSource) {
+					bindingSourceMismatch = append(bindingSourceMismatch, fmt.Sprintf("%s.%s expected source %s got %s", name, param.Name, param.ExpectedSource, evidence.Expression))
+				}
+			case "literal":
+				if normalizeBindingExpression(evidence.Expression) != normalizeBindingExpression(param.ExpectedSource) {
+					bindingSourceMismatch = append(bindingSourceMismatch, fmt.Sprintf("%s.%s expected literal source %s got %s", name, param.Name, param.ExpectedSource, evidence.Expression))
+				}
+			default:
+				if !expressionReferencesExpectedSource(evidence.Expression, param.ExpectedSource) {
+					bindingSourceMismatch = append(bindingSourceMismatch, fmt.Sprintf("%s.%s expected source %s got %s", name, param.Name, param.ExpectedSource, evidence.Expression))
+				}
 			}
 		}
 		for _, binding := range step.Bindings {
@@ -776,6 +799,18 @@ func expressionReferencesExpectedSource(expression, expected string) bool {
 	return false
 }
 
+func expressionReferencesInputSource(expression, expected string) bool {
+	expression = normalizeBindingExpression(expression)
+	expected = normalizeBindingExpression(expected)
+	if expected == "" {
+		return true
+	}
+	return expression == expected ||
+		strings.Contains(expression, "input."+expected) ||
+		strings.Contains(expression, "inputs."+expected) ||
+		strings.Contains(expression, "var."+expected)
+}
+
 func normalizeBindingExpression(value string) string {
 	value = strings.TrimSpace(value)
 	value = strings.Trim(value, `"`)
@@ -857,7 +892,7 @@ func assessReview(report *QualityReport, path string) {
 }
 
 func assessSecrets(report *QualityReport, result Result) {
-	paths := []string{result.ProjectPath, result.IntentPath, result.WorkflowPath, result.UWSPath, result.PlanJSONPath, result.PlanMDPath, result.DiscoveryJSONPath, result.ReviewPath}
+	paths := []string{result.ProjectPath, result.IntentPath, result.WorkflowPath, result.UWSPath, result.PlanJSONPath, result.PlanMDPath, result.DiscoveryJSONPath, result.RefinementJSONPath, result.RefinementMDPath, result.ReviewPath}
 	var hits []string
 	for _, path := range paths {
 		data, err := os.ReadFile(path)

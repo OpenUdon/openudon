@@ -69,6 +69,7 @@ func runArtifactCommand(command string, args []string) {
 	provider := fs.String("provider", "", "LLM provider: openai, anthropic, or gemini; defaults to udon runner env behavior")
 	model := fs.String("model", "", "LLM model")
 	timeout := fs.Duration("timeout", 2*time.Minute, "LLM generation timeout")
+	maxAttempts := fs.Int("max-attempts", 5, "Maximum refinement attempts for synthesize/build")
 	fs.Usage = func() {
 		fmt.Fprintf(fs.Output(), "Usage: ramen %s --example examples/<name> [--provider gemini --model gemini-2.5-pro]\n", command)
 		fs.PrintDefaults()
@@ -77,10 +78,11 @@ func runArtifactCommand(command string, args []string) {
 		os.Exit(2)
 	}
 	opts := synthesize.Options{
-		ExampleDir: *example,
-		Provider:   *provider,
-		Model:      *model,
-		Timeout:    *timeout,
+		ExampleDir:  *example,
+		Provider:    *provider,
+		Model:       *model,
+		Timeout:     *timeout,
+		MaxAttempts: *maxAttempts,
 	}
 	var result *synthesize.Result
 	var report *synthesize.QualityReport
@@ -124,6 +126,7 @@ func printResult(command string, result *synthesize.Result) {
 	fmt.Printf("  workflow: %s\n", result.WorkflowPath)
 	fmt.Printf("  uws:      %s\n", result.UWSPath)
 	fmt.Printf("  plan:     %s\n", result.PlanJSONPath)
+	fmt.Printf("  refine:   %s\n", result.RefinementJSONPath)
 	fmt.Printf("  review:   %s\n", result.ReviewPath)
 	fmt.Printf("  quality:  %s\n", result.QualityJSONPath)
 }

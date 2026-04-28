@@ -43,6 +43,7 @@ type PlanParam struct {
 	In                 string `json:"in,omitempty"`
 	Required           bool   `json:"required,omitempty"`
 	Credential         bool   `json:"credential,omitempty"`
+	SourceKind         string `json:"source_kind,omitempty"`
 	ExpectedSource     string `json:"expected_source,omitempty"`
 	ExpectedCredential string `json:"expected_credential,omitempty"`
 }
@@ -133,10 +134,13 @@ func buildWorkflowPlan(result Result, intent *rollout.Intent, candidates []opena
 						Required:   true,
 						Credential: credentialLikeParam(param.Name),
 					}
-					planParam.ExpectedSource = expectedSourceForParam(step, param)
+					planParam.SourceKind, planParam.ExpectedSource = expectedSourceForParam(step, param, inputs)
 					if credentialLikeParam(param.Name) {
 						planStep.Credentials = append(planStep.Credentials, param.Name)
 						planParam.ExpectedCredential = expectedCredentialForParam(step, param, policy)
+						if planParam.ExpectedCredential != "" {
+							planParam.SourceKind = "credential"
+						}
 						if planParam.ExpectedSource == "" && planParam.ExpectedCredential == "" {
 							plan.Gaps = append(plan.Gaps, PlanGap{
 								Code:   "credentials.missing_binding",
@@ -249,6 +253,9 @@ func workflowPlanMarkdown(plan *WorkflowPlan) string {
 				if param.Credential {
 					b.WriteString(" credential")
 				}
+				if param.SourceKind != "" {
+					fmt.Fprintf(&b, " source_kind `%s`", param.SourceKind)
+				}
 				if param.ExpectedSource != "" {
 					fmt.Fprintf(&b, " source `%s`", param.ExpectedSource)
 				}
@@ -278,22 +285,35 @@ func workflowPlanMarkdown(plan *WorkflowPlan) string {
 	return b.String()
 }
 
-func discoverComplementaryOpenAPI(ctx context.Context, discoverer *openapidisco.Discoverer, exampleDir, projectText string, candidates []openapidisco.Candidate, intent *rollout.Intent, policy projectPolicy) ([]openapidisco.Candidate, bool) {
+func discoverComplementaryOpenAPI(ctx context.Context, discoverer *openapidisco.Discoverer, exampleDir, projectText string, candidates []openapidisco.Candidate, intent *rollout.Intent, policy projectPolicy) ([]openapidisco.Candidate, []openapidisco.DiscoveryAttempt, bool) {
 	if discoverer == nil {
-		return candidates, false
+		return candidates, nil, false
 	}
 	plan := buildWorkflowPlan(resultPaths(exampleDir), intent, candidates, policy)
 	query := complementaryDiscoveryQuery(projectText, plan)
 	if query == "" {
-		return candidates, false
+		return candidates, nil, false
 	}
 	imported, err := discoverer.ImportBestAPIsGuruMatch(ctx, filepath.Join(exampleDir, "openapi"), exampleDir, query)
 	if err != nil || imported.Path == "" {
-		return candidates, false
+		detail := "no complementary APIs.guru match"
+		if err != nil {
+			detail = err.Error()
+		}
+		return candidates, []openapidisco.DiscoveryAttempt{{
+			Kind:   "apis.guru.complementary",
+			Status: "fail",
+			Detail: detail,
+		}}, false
 	}
 	all := append(append([]openapidisco.Candidate(nil), candidates...), imported)
 	all = dedupeCandidates(all)
-	return all, len(all) > len(candidates)
+	return all, []openapidisco.DiscoveryAttempt{{
+		Kind:   "apis.guru.complementary",
+		Source: imported.Source,
+		Status: "pass",
+		Detail: imported.RelativePath,
+	}}, len(all) > len(candidates)
 }
 
 func complementaryDiscoveryQuery(projectText string, plan *WorkflowPlan) string {
@@ -364,13 +384,13 @@ func sortedUnique(values []string) []string {
 	return out
 }
 
-func expectedSourceForParam(step *rollout.Step, param *rollout.ParameterInfo) string {
+func expectedSourceForParam(step *rollout.Step, param *rollout.ParameterInfo, inputs map[string]bool) (string, string) {
 	if step == nil || param == nil {
-		return ""
+		return "", ""
 	}
 	for _, name := range paramTargetNames(param) {
 		if source := strings.TrimSpace(step.With[name]); source != "" {
-			return source
+			return sourceKindForValue(source, param.Name, inputs, step), source
 		}
 		for _, bind := range step.Binds {
 			if bind == nil {
@@ -379,17 +399,20 @@ func expectedSourceForParam(step *rollout.Step, param *rollout.ParameterInfo) st
 			if source := strings.TrimSpace(bind.Fields[name]); source != "" {
 				from := strings.TrimSpace(bind.From)
 				if from != "" && !strings.HasPrefix(source, from+".") {
-					return from + "." + source
+					return "binding", from + "." + source
 				}
-				return source
+				return sourceKindForValue(source, param.Name, inputs, step), source
 			}
 		}
 	}
-	return ""
+	if inputs[strings.TrimSpace(param.Name)] {
+		return "input", strings.TrimSpace(param.Name)
+	}
+	return "unresolved", ""
 }
 
 func expectedCredentialForParam(step *rollout.Step, param *rollout.ParameterInfo, policy projectPolicy) string {
-	source := expectedSourceForParam(step, param)
+	_, source := expectedSourceForParam(step, param, nil)
 	if source != "" && !referencesKnownStep(source, step) {
 		return source
 	}
@@ -399,6 +422,20 @@ func expectedCredentialForParam(step *rollout.Step, param *rollout.ParameterInfo
 		}
 	}
 	return ""
+}
+
+func sourceKindForValue(source, paramName string, inputs map[string]bool, step *rollout.Step) string {
+	source = strings.TrimSpace(source)
+	if source == "" {
+		return "unresolved"
+	}
+	if referencesKnownStep(source, step) {
+		return "binding"
+	}
+	if referencesInputName(source, paramName) || inputs[source] {
+		return "input"
+	}
+	return "literal"
 }
 
 func referencesKnownStep(source string, step *rollout.Step) bool {

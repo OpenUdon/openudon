@@ -164,6 +164,19 @@ func (d *Discoverer) ImportBestAPIsGuruMatch(ctx context.Context, openAPIDir, ba
 	if listURL == "" {
 		listURL = defaultAPIsGuruListURL
 	}
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	parsed, err := url.Parse(listURL)
+	if err != nil || parsed.Scheme == "" || parsed.Host == "" {
+		return Candidate{}, fmt.Errorf("valid APIs.guru list URL is required")
+	}
+	if parsed.Scheme != "http" && parsed.Scheme != "https" {
+		return Candidate{}, fmt.Errorf("APIs.guru list URL scheme must be http or https")
+	}
+	if err := rejectPrivateHost(ctx, parsed.Hostname()); err != nil {
+		return Candidate{}, err
+	}
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, listURL, nil)
 	if err != nil {
 		return Candidate{}, err
@@ -346,6 +359,7 @@ func (d *Discoverer) client() *http.Client {
 func (d *Discoverer) redirectSafeClient() *http.Client {
 	base := d.client()
 	clone := *base
+	clone.Transport = safeTransport(base.Transport)
 	baseCheck := base.CheckRedirect
 	clone.CheckRedirect = func(req *http.Request, via []*http.Request) error {
 		if len(via) >= 5 {
@@ -366,6 +380,54 @@ func (d *Discoverer) redirectSafeClient() *http.Client {
 		return nil
 	}
 	return &clone
+}
+
+func safeTransport(roundTripper http.RoundTripper) http.RoundTripper {
+	var transport *http.Transport
+	if roundTripper == nil {
+		if base, ok := http.DefaultTransport.(*http.Transport); ok {
+			transport = base.Clone()
+		}
+	} else if base, ok := roundTripper.(*http.Transport); ok {
+		transport = base.Clone()
+	}
+	if transport == nil {
+		return roundTripper
+	}
+	transport.DialContext = safeDialContext
+	return transport
+}
+
+func safeDialContext(ctx context.Context, network, address string) (net.Conn, error) {
+	host, port, err := net.SplitHostPort(address)
+	if err != nil {
+		return nil, err
+	}
+	addrs, err := net.DefaultResolver.LookupIPAddr(ctx, host)
+	if err != nil {
+		return nil, err
+	}
+	var firstErr error
+	dialer := &net.Dialer{}
+	for _, addr := range addrs {
+		if isUnsafeIP(addr.IP) {
+			if firstErr == nil {
+				firstErr = fmt.Errorf("refusing private OpenAPI URL host %q", host)
+			}
+			continue
+		}
+		conn, err := dialer.DialContext(ctx, network, net.JoinHostPort(addr.IP.String(), port))
+		if err == nil {
+			return conn, nil
+		}
+		if firstErr == nil {
+			firstErr = err
+		}
+	}
+	if firstErr != nil {
+		return nil, firstErr
+	}
+	return nil, fmt.Errorf("no public IP addresses found for %q", host)
 }
 
 var urlPattern = regexp.MustCompile(`https?://[^\s<>"')]+`)
@@ -407,7 +469,7 @@ func rejectPrivateHost(ctx context.Context, host string) error {
 }
 
 func isUnsafeIP(ip net.IP) bool {
-	return ip.IsLoopback() || ip.IsPrivate() || ip.IsLinkLocalUnicast() || ip.IsLinkLocalMulticast() || ip.IsUnspecified()
+	return ip.IsLoopback() || ip.IsPrivate() || ip.IsLinkLocalUnicast() || ip.IsLinkLocalMulticast() || ip.IsUnspecified() || ip.IsMulticast()
 }
 
 func hasOpenAPIExt(path string) bool {

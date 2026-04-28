@@ -70,22 +70,26 @@ export GEMINI_API_KEY=...
 go run ./cmd/ramen synthesize \
   --example ./examples/support-email \
   --provider gemini \
-  --model gemini-2.5-pro
+  --model gemini-2.5-pro \
+  --max-attempts 5
 ```
 
 The command reads `project.md`, discovers or imports OpenAPI documents under `openapi/`, writes
 `workflows/intent.hcl`, generates `workflows/workflow.hcl` through udon, exports
 `workflows/workflow.uws.yaml`, and writes `expected/plan.json`, `expected/plan.md`,
-`expected/discovery.json`, `expected/review.md`, `expected/quality.json`, and `expected/quality.md`.
+`expected/discovery.json`, `expected/refinement.json`, `expected/refinement.md`,
+`expected/review.md`, `expected/quality.json`, and `expected/quality.md`.
 
 The expected plan records inferred steps, OpenAPI operations, required request fields,
 step-to-step bindings, and credential-like parameters. `ramen assess` compiles the final
 `workflow.hcl` through udon and checks it still matches that plan.
 
-For refinement loops, use narrower stages after editing artifacts:
+`synthesize` and `build` run a bounded refinement loop, defaulting to five attempts. The loop records
+which stage was retried, which checks failed, and why it stopped in `expected/refinement.json`.
+Use narrower stages after editing artifacts:
 
 ```bash
-go run ./cmd/ramen build --example ./examples/support-email    # intent.hcl -> workflow/UWS
+go run ./cmd/ramen build --example ./examples/support-email --max-attempts 5  # intent.hcl -> workflow/UWS
 go run ./cmd/ramen promote --example ./examples/support-email  # workflow.hcl -> UWS
 go run ./cmd/ramen assess --example ./examples/support-email   # quality reports only
 ```

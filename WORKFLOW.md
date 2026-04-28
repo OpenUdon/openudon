@@ -68,6 +68,8 @@ Expected artifact locations:
 - Expected workflow plan: `examples/<name>/expected/plan.json`
 - Human-readable workflow plan: `examples/<name>/expected/plan.md`
 - OpenAPI discovery report: `examples/<name>/expected/discovery.json`
+- Machine-readable refinement report: `examples/<name>/expected/refinement.json`
+- Human-readable refinement report: `examples/<name>/expected/refinement.md`
 - Review notes: `examples/<name>/expected/review.md`
 - Machine-readable quality report: `examples/<name>/expected/quality.json`
 - Human-readable quality report: `examples/<name>/expected/quality.md`
@@ -75,13 +77,13 @@ Expected artifact locations:
 Preferred generation command:
 
 ```bash
-go run ./cmd/ramen synthesize --example examples/<name> --provider gemini --model gemini-2.5-pro
+go run ./cmd/ramen synthesize --example examples/<name> --provider gemini --model gemini-2.5-pro --max-attempts 5
 ```
 
 Refinement commands:
 
 ```bash
-go run ./cmd/ramen build --example examples/<name> --provider gemini --model gemini-2.5-pro
+go run ./cmd/ramen build --example examples/<name> --provider gemini --model gemini-2.5-pro --max-attempts 5
 go run ./cmd/ramen promote --example examples/<name>
 go run ./cmd/ramen assess --example examples/<name>
 ```
@@ -89,7 +91,7 @@ go run ./cmd/ramen assess --example examples/<name>
 Symphony refinement loop:
 
 1. Run `synthesize` for a new or substantially changed `project.md`.
-2. If it fails, read `expected/quality.json` and repair the earliest failing stage.
+2. If it fails, read `expected/refinement.json` and `expected/quality.json`, then repair the earliest failing stage.
 3. For `openapi.*` failures, add a valid OpenAPI file under `openapi/` or add an explicit OpenAPI
    URL to `project.md`, then rerun `synthesize`.
 4. For `intent.*` failures, edit `project.md` or `workflows/intent.hcl`, then rerun `build`.
@@ -97,8 +99,8 @@ Symphony refinement loop:
    edit `workflow.hcl` directly for narrow structural repairs, then run `promote` and `assess`.
 6. For `uws.*`, `review.*`, or `artifacts.*` failures, repair the generated artifact or evidence,
    then run `promote` or `assess` as appropriate.
-7. Stop after 5 attempts. If quality still fails, leave the best artifacts in place and report the
-   blocking checks from `expected/quality.json`.
+7. Stop after the configured attempt limit. If quality still fails, leave the best artifacts in place
+   and report the blocking checks from `expected/refinement.json` and `expected/quality.json`.
 
 Use provider environment variables for LLM credentials, such as `GEMINI_API_KEY`. Do not paste API
 keys into prompts, issue descriptions, commands, or generated artifacts.

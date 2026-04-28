@@ -1,6 +1,7 @@
 package openapidisco
 
 import (
+	"context"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -70,4 +71,34 @@ func TestRedirectSafeClientRejectsPrivateRedirectTarget(t *testing.T) {
 	if err := client.CheckRedirect(req, []*http.Request{via}); err == nil {
 		t.Fatalf("expected private redirect target to be rejected")
 	}
+}
+
+func TestImportBestAPIsGuruMatchRejectsPrivateListURLBeforeRequest(t *testing.T) {
+	var called bool
+	client := &http.Client{Transport: roundTripFunc(func(*http.Request) (*http.Response, error) {
+		called = true
+		return nil, nil
+	})}
+	_, err := (&Discoverer{
+		HTTPClient:      client,
+		APIsGuruListURL: "http://127.0.0.1/list.json",
+	}).ImportBestAPIsGuruMatch(context.Background(), t.TempDir(), t.TempDir(), "weather")
+	if err == nil {
+		t.Fatalf("expected private APIs.guru list URL to be rejected")
+	}
+	if called {
+		t.Fatalf("HTTP client was called before private host rejection")
+	}
+}
+
+func TestSafeDialContextRejectsPrivateAddress(t *testing.T) {
+	if _, err := safeDialContext(context.Background(), "tcp", "127.0.0.1:80"); err == nil {
+		t.Fatalf("expected private dial address to be rejected")
+	}
+}
+
+type roundTripFunc func(*http.Request) (*http.Response, error)
+
+func (f roundTripFunc) RoundTrip(req *http.Request) (*http.Response, error) {
+	return f(req)
 }

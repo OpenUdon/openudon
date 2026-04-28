@@ -3,6 +3,7 @@ package synthesize
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -22,10 +23,11 @@ import (
 )
 
 type Options struct {
-	ExampleDir string
-	Provider   string
-	Model      string
-	Timeout    time.Duration
+	ExampleDir  string
+	Provider    string
+	Model       string
+	Timeout     time.Duration
+	MaxAttempts int
 
 	Discoverer *openapidisco.Discoverer
 	LLMClient  rollout.LLMClient
@@ -34,20 +36,22 @@ type Options struct {
 }
 
 type Result struct {
-	ExampleDir        string
-	ProjectPath       string
-	IntentPath        string
-	WorkflowPath      string
-	UWSPath           string
-	PlanJSONPath      string
-	PlanMDPath        string
-	DiscoveryJSONPath string
-	ReviewPath        string
-	QualityJSONPath   string
-	QualityMDPath     string
-	PrimaryOpenAPI    string
-	OpenAPICandidates []openapidisco.Candidate
-	DiscoveryReport   openapidisco.DiscoveryReport
+	ExampleDir         string
+	ProjectPath        string
+	IntentPath         string
+	WorkflowPath       string
+	UWSPath            string
+	PlanJSONPath       string
+	PlanMDPath         string
+	DiscoveryJSONPath  string
+	RefinementJSONPath string
+	RefinementMDPath   string
+	ReviewPath         string
+	QualityJSONPath    string
+	QualityMDPath      string
+	PrimaryOpenAPI     string
+	OpenAPICandidates  []openapidisco.Candidate
+	DiscoveryReport    openapidisco.DiscoveryReport
 }
 
 func Run(ctx context.Context, opts Options) (*Result, error) {
@@ -79,7 +83,9 @@ func Synthesize(ctx context.Context, opts Options) (*Result, error) {
 	if !policy.NoOpenAPI {
 		candidates, discoveryReport, err = opts.Discoverer.DiscoverWithReport(ctx, exampleDir, projectText)
 		result.DiscoveryReport = discoveryReport
-		_ = writeDiscoveryReport(result, discoveryReport)
+		if err := writeDiscoveryReport(result, discoveryReport); err != nil {
+			return nil, fmt.Errorf("write discovery report: %w", err)
+		}
 		if err != nil {
 			return nil, fmt.Errorf("discover OpenAPI documents: %w", err)
 		}
@@ -98,62 +104,138 @@ func Synthesize(ctx context.Context, opts Options) (*Result, error) {
 		return nil, err
 	}
 
-	intent, err := generateIntent(ctx, chat, projectText, candidates, primaryPath, policy)
-	if err != nil {
-		return nil, fmt.Errorf("generate intent: %w", err)
-	}
-	if !policy.NoOpenAPI {
-		if refreshed, changed := discoverComplementaryOpenAPI(ctx, opts.Discoverer, exampleDir, projectText, candidates, intent, policy); changed {
-			candidates = refreshed
-			result.OpenAPICandidates = candidates
-			if primary, err := openapidisco.SelectPrimary(candidates); err == nil {
-				primaryPath = primary.RelativePath
-				result.PrimaryOpenAPI = primaryPath
-			}
-			intent, err = generateIntent(ctx, chat, projectText, candidates, primaryPath, policy)
+	attempts := maxAttempts(opts.MaxAttempts)
+	refinement := newRefinementReport(result, attempts)
+	action := "generate_intent"
+	var feedback, previousSignature string
+	var intent *rollout.Intent
+	for attempt := 1; attempt <= attempts; attempt++ {
+		if attempt == 1 || action != "regenerate_workflow" || intent == nil {
+			intent, err = generateIntent(ctx, chat, projectText, candidates, primaryPath, policy, feedback)
 			if err != nil {
-				return nil, fmt.Errorf("regenerate intent after complementary OpenAPI discovery: %w", err)
+				refinement.addAttempt(attempt, action, nil, fmt.Errorf("generate intent: %w", err), "intent generation failed")
+				_ = writeRefinementReport(result, refinement)
+				return nil, fmt.Errorf("generate intent: %w", err)
 			}
 		}
-	}
-	if err := validateIntentOpenAPIRefs(intent, candidates, primaryPath, policy.NoOpenAPI); err != nil {
-		return nil, err
-	}
-	if err := validateIntentRuntimePolicy(intent, policy); err != nil {
-		return nil, err
-	}
-	workflowPlan := buildWorkflowPlan(result, intent, candidates, policy)
-	intentHCL, err := runner.RenderIntentHCL(intent)
-	if err != nil {
-		return nil, fmt.Errorf("render intent HCL: %w", err)
-	}
+		if !policy.NoOpenAPI {
+			var attempts []openapidisco.DiscoveryAttempt
+			var changed bool
+			candidates, attempts, changed = discoverComplementaryOpenAPI(ctx, opts.Discoverer, exampleDir, projectText, candidates, intent, policy)
+			if len(attempts) > 0 {
+				discoveryReport.Attempts = append(discoveryReport.Attempts, attempts...)
+				result.DiscoveryReport = discoveryReport
+				if err := writeDiscoveryReport(result, discoveryReport); err != nil {
+					refinement.addAttempt(attempt, action, nil, fmt.Errorf("write discovery report: %w", err), "discovery evidence could not be written")
+					_ = writeRefinementReport(result, refinement)
+					return nil, fmt.Errorf("write discovery report: %w", err)
+				}
+			}
+			if changed {
+				result.OpenAPICandidates = candidates
+				if primary, err := openapidisco.SelectPrimary(candidates); err == nil {
+					primaryPath = primary.RelativePath
+					result.PrimaryOpenAPI = primaryPath
+				}
+				intent, err = generateIntent(ctx, chat, projectText, candidates, primaryPath, policy, "Complementary OpenAPI discovery added candidate documents; preserve the project goal and use the newly available operations when needed.")
+				if err != nil {
+					refinement.addAttempt(attempt, "discover_openapi", nil, fmt.Errorf("regenerate intent after complementary OpenAPI discovery: %w", err), "intent regeneration failed")
+					_ = writeRefinementReport(result, refinement)
+					return nil, fmt.Errorf("regenerate intent after complementary OpenAPI discovery: %w", err)
+				}
+			}
+		}
+		if err := validateIntentOpenAPIRefs(intent, candidates, primaryPath, policy.NoOpenAPI); err != nil {
+			refinement.addAttempt(attempt, action, nil, err, "intent references unavailable OpenAPI metadata")
+			_ = writeRefinementReport(result, refinement)
+			return nil, err
+		}
+		if err := validateIntentRuntimePolicy(intent, policy); err != nil {
+			refinement.addAttempt(attempt, action, nil, err, "intent uses a runtime outside project policy")
+			_ = writeRefinementReport(result, refinement)
+			return nil, err
+		}
+		workflowPlan := buildWorkflowPlan(result, intent, candidates, policy)
+		intentHCL, err := runner.RenderIntentHCL(intent)
+		if err != nil {
+			refinement.addAttempt(attempt, action, nil, fmt.Errorf("render intent HCL: %w", err), "intent rendering failed")
+			_ = writeRefinementReport(result, refinement)
+			return nil, fmt.Errorf("render intent HCL: %w", err)
+		}
 
-	if err := ensureArtifactDirs(result); err != nil {
-		return nil, err
+		if err := ensureArtifactDirs(result); err != nil {
+			return nil, err
+		}
+		if err := os.WriteFile(result.IntentPath, []byte(intentHCL), 0o644); err != nil {
+			return nil, err
+		}
+		if err := writeWorkflowPlan(result, workflowPlan); err != nil {
+			return nil, err
+		}
+		if err := generateWorkflow(ctx, result, intent, llm, provider, model, opts.Timeout); err != nil {
+			stopReason := ""
+			if attempt == attempts {
+				stopReason = "maximum refinement attempts reached"
+			}
+			refinement.addAttempt(attempt, action, nil, err, stopReason)
+			_ = writeRefinementReport(result, refinement)
+			if stopReason != "" {
+				return &result, err
+			}
+			action = "regenerate_workflow"
+			feedback = err.Error()
+			continue
+		}
+		if err := promoteWorkflow(result, opts.SchemaPath); err != nil {
+			stopReason := ""
+			if attempt == attempts {
+				stopReason = "maximum refinement attempts reached"
+			}
+			refinement.addAttempt(attempt, action, nil, err, stopReason)
+			_ = writeRefinementReport(result, refinement)
+			if stopReason != "" {
+				return &result, err
+			}
+			action = "regenerate_intent"
+			feedback = err.Error()
+			continue
+		}
+		if err := writeReview(result, provider, model); err != nil {
+			return nil, err
+		}
+		report, err := Assess(opts)
+		if err != nil {
+			return nil, err
+		}
+		if report.Passed() {
+			refinement.addAttempt(attempt, action, report, nil, "quality passed")
+			if err := writeRefinementReport(result, refinement); err != nil {
+				return nil, fmt.Errorf("write refinement report: %w", err)
+			}
+			return &result, nil
+		}
+		nextAction, terminal := classifyRefinementAction(report)
+		signature := qualityFailureSignature(report)
+		stopReason := ""
+		if terminal {
+			stopReason = "terminal quality failure"
+		} else if attempt == attempts {
+			stopReason = "maximum refinement attempts reached"
+		} else if attempt > 1 && signature == previousSignature {
+			stopReason = "repeated quality failure"
+		}
+		refinement.addAttempt(attempt, action, report, nil, stopReason)
+		if err := writeRefinementReport(result, refinement); err != nil {
+			return nil, fmt.Errorf("write refinement report: %w", err)
+		}
+		if stopReason != "" {
+			return &result, fmt.Errorf("quality gate failed; see %s", result.QualityJSONPath)
+		}
+		previousSignature = signature
+		action = nextAction
+		feedback = failingCheckDetails(report)
 	}
-	if err := os.WriteFile(result.IntentPath, []byte(intentHCL), 0o644); err != nil {
-		return nil, err
-	}
-	if err := writeWorkflowPlan(result, workflowPlan); err != nil {
-		return nil, err
-	}
-	if err := generateWorkflow(ctx, result, intent, llm, provider, model, opts.Timeout); err != nil {
-		return nil, err
-	}
-	if err := promoteWorkflow(result, opts.SchemaPath); err != nil {
-		return nil, err
-	}
-	if err := writeReview(result, provider, model); err != nil {
-		return nil, err
-	}
-	report, err := Assess(opts)
-	if err != nil {
-		return nil, err
-	}
-	if !report.Passed() {
-		return &result, fmt.Errorf("quality gate failed; see %s", result.QualityJSONPath)
-	}
-	return &result, nil
+	return &result, fmt.Errorf("quality gate failed; see %s", result.QualityJSONPath)
 }
 
 func Build(ctx context.Context, opts Options) (*Result, error) {
@@ -165,7 +247,10 @@ func Build(ctx context.Context, opts Options) (*Result, error) {
 		return nil, err
 	}
 	result := resultPaths(exampleDir)
-	projectBytes, _ := os.ReadFile(result.ProjectPath)
+	projectBytes, err := os.ReadFile(result.ProjectPath)
+	if err != nil {
+		return nil, fmt.Errorf("read project brief: %w", err)
+	}
 	policy := analyzeProject(string(projectBytes))
 	if opts.Discoverer == nil {
 		opts.Discoverer = &openapidisco.Discoverer{}
@@ -175,7 +260,9 @@ func Build(ctx context.Context, opts Options) (*Result, error) {
 	if !policy.NoOpenAPI {
 		candidates, discoveryReport, err = opts.Discoverer.DiscoverWithReport(ctx, exampleDir, string(projectBytes))
 		result.DiscoveryReport = discoveryReport
-		_ = writeDiscoveryReport(result, discoveryReport)
+		if err := writeDiscoveryReport(result, discoveryReport); err != nil {
+			return nil, fmt.Errorf("write discovery report: %w", err)
+		}
 		if err != nil {
 			return nil, fmt.Errorf("discover OpenAPI documents: %w", err)
 		}
@@ -209,34 +296,81 @@ func Build(ctx context.Context, opts Options) (*Result, error) {
 	if err := validateIntentRuntimePolicy(intent, policy); err != nil {
 		return nil, err
 	}
-	workflowPlan := buildWorkflowPlan(result, intent, candidates, policy)
 	result.PrimaryOpenAPI = primary
 	result.OpenAPICandidates = candidates
 	result.DiscoveryReport = discoveryReport
-	if err := writeWorkflowPlan(result, workflowPlan); err != nil {
-		return nil, err
-	}
 	llm, _, provider, model, err := resolveClients(opts)
 	if err != nil {
 		return nil, err
 	}
-	if err := generateWorkflow(ctx, result, intent, llm, provider, model, opts.Timeout); err != nil {
-		return nil, err
+	attempts := maxAttempts(opts.MaxAttempts)
+	refinement := newRefinementReport(result, attempts)
+	var previousSignature string
+	action := "regenerate_workflow"
+	for attempt := 1; attempt <= attempts; attempt++ {
+		workflowPlan := buildWorkflowPlan(result, intent, candidates, policy)
+		if err := writeWorkflowPlan(result, workflowPlan); err != nil {
+			return nil, err
+		}
+		if err := generateWorkflow(ctx, result, intent, llm, provider, model, opts.Timeout); err != nil {
+			stopReason := ""
+			if attempt == attempts {
+				stopReason = "maximum refinement attempts reached"
+			}
+			refinement.addAttempt(attempt, action, nil, err, stopReason)
+			_ = writeRefinementReport(result, refinement)
+			if stopReason != "" {
+				return &result, err
+			}
+			continue
+		}
+		if err := promoteWorkflow(result, opts.SchemaPath); err != nil {
+			stopReason := ""
+			if attempt == attempts {
+				stopReason = "maximum refinement attempts reached"
+			}
+			refinement.addAttempt(attempt, action, nil, err, stopReason)
+			_ = writeRefinementReport(result, refinement)
+			if stopReason != "" {
+				return &result, err
+			}
+			continue
+		}
+		if err := writeReview(result, provider, model); err != nil {
+			return nil, err
+		}
+		report, err := Assess(opts)
+		if err != nil {
+			return nil, err
+		}
+		if report.Passed() {
+			refinement.addAttempt(attempt, action, report, nil, "quality passed")
+			if err := writeRefinementReport(result, refinement); err != nil {
+				return nil, fmt.Errorf("write refinement report: %w", err)
+			}
+			return &result, nil
+		}
+		nextAction, terminal := classifyRefinementAction(report)
+		signature := qualityFailureSignature(report)
+		stopReason := ""
+		if terminal || nextAction != "regenerate_workflow" {
+			stopReason = "quality failure requires project.md or intent.hcl repair"
+		} else if attempt == attempts {
+			stopReason = "maximum refinement attempts reached"
+		} else if attempt > 1 && signature == previousSignature {
+			stopReason = "repeated quality failure"
+		}
+		refinement.addAttempt(attempt, action, report, nil, stopReason)
+		if err := writeRefinementReport(result, refinement); err != nil {
+			return nil, fmt.Errorf("write refinement report: %w", err)
+		}
+		if stopReason != "" {
+			return &result, fmt.Errorf("quality gate failed; see %s", result.QualityJSONPath)
+		}
+		previousSignature = signature
+		action = nextAction
 	}
-	if err := promoteWorkflow(result, opts.SchemaPath); err != nil {
-		return nil, err
-	}
-	if err := writeReview(result, provider, model); err != nil {
-		return nil, err
-	}
-	report, err := Assess(opts)
-	if err != nil {
-		return nil, err
-	}
-	if !report.Passed() {
-		return &result, fmt.Errorf("quality gate failed; see %s", result.QualityJSONPath)
-	}
-	return &result, nil
+	return &result, fmt.Errorf("quality gate failed; see %s", result.QualityJSONPath)
 }
 
 func Promote(ctx context.Context, opts Options) (*Result, error) {
@@ -245,8 +379,14 @@ func Promote(ctx context.Context, opts Options) (*Result, error) {
 		return nil, err
 	}
 	result := resultPaths(exampleDir)
-	projectBytes, _ := os.ReadFile(result.ProjectPath)
-	candidates, _ := openapidisco.LocalFiles(filepath.Join(exampleDir, "openapi"), exampleDir, string(projectBytes))
+	projectBytes, err := os.ReadFile(result.ProjectPath)
+	if err != nil {
+		return nil, fmt.Errorf("read project brief: %w", err)
+	}
+	candidates, err := openapidisco.LocalFiles(filepath.Join(exampleDir, "openapi"), exampleDir, string(projectBytes))
+	if err != nil && !errors.Is(err, os.ErrNotExist) {
+		return nil, fmt.Errorf("scan local OpenAPI documents: %w", err)
+	}
 	result.OpenAPICandidates = candidates
 	result.DiscoveryReport = openapidisco.DiscoveryReport{Attempts: []openapidisco.DiscoveryAttempt{{
 		Kind:   "local",
@@ -254,7 +394,9 @@ func Promote(ctx context.Context, opts Options) (*Result, error) {
 		Status: "pass",
 		Detail: fmt.Sprintf("%d local OpenAPI document(s)", len(candidates)),
 	}}}
-	_ = writeDiscoveryReport(result, result.DiscoveryReport)
+	if err := writeDiscoveryReport(result, result.DiscoveryReport); err != nil {
+		return nil, fmt.Errorf("write discovery report: %w", err)
+	}
 	if len(candidates) > 0 {
 		if primary, err := openapidisco.SelectPrimary(candidates); err == nil {
 			result.PrimaryOpenAPI = primary.RelativePath
@@ -354,18 +496,20 @@ func resultPaths(exampleDir string) Result {
 	workflowsDir := filepath.Join(exampleDir, "workflows")
 	expectedDir := filepath.Join(exampleDir, "expected")
 	return Result{
-		ExampleDir:        exampleDir,
-		ProjectPath:       filepath.Join(exampleDir, "project.md"),
-		IntentPath:        filepath.Join(workflowsDir, "intent.hcl"),
-		WorkflowPath:      filepath.Join(workflowsDir, "workflow.hcl"),
-		UWSPath:           filepath.Join(workflowsDir, "workflow.uws.yaml"),
-		PlanJSONPath:      filepath.Join(expectedDir, "plan.json"),
-		PlanMDPath:        filepath.Join(expectedDir, "plan.md"),
-		DiscoveryJSONPath: filepath.Join(expectedDir, "discovery.json"),
-		ReviewPath:        filepath.Join(expectedDir, "review.md"),
-		QualityJSONPath:   filepath.Join(expectedDir, "quality.json"),
-		QualityMDPath:     filepath.Join(expectedDir, "quality.md"),
-		OpenAPICandidates: nil,
+		ExampleDir:         exampleDir,
+		ProjectPath:        filepath.Join(exampleDir, "project.md"),
+		IntentPath:         filepath.Join(workflowsDir, "intent.hcl"),
+		WorkflowPath:       filepath.Join(workflowsDir, "workflow.hcl"),
+		UWSPath:            filepath.Join(workflowsDir, "workflow.uws.yaml"),
+		PlanJSONPath:       filepath.Join(expectedDir, "plan.json"),
+		PlanMDPath:         filepath.Join(expectedDir, "plan.md"),
+		DiscoveryJSONPath:  filepath.Join(expectedDir, "discovery.json"),
+		RefinementJSONPath: filepath.Join(expectedDir, "refinement.json"),
+		RefinementMDPath:   filepath.Join(expectedDir, "refinement.md"),
+		ReviewPath:         filepath.Join(expectedDir, "review.md"),
+		QualityJSONPath:    filepath.Join(expectedDir, "quality.json"),
+		QualityMDPath:      filepath.Join(expectedDir, "quality.md"),
+		OpenAPICandidates:  nil,
 	}
 }
 
@@ -490,7 +634,7 @@ func resolveClients(opts Options) (rollout.LLMClient, rollout.ChatClient, string
 	return llm, chat, provider, model, nil
 }
 
-func generateIntent(ctx context.Context, chat rollout.ChatClient, projectText string, candidates []openapidisco.Candidate, primary string, policy projectPolicy) (*rollout.Intent, error) {
+func generateIntent(ctx context.Context, chat rollout.ChatClient, projectText string, candidates []openapidisco.Candidate, primary string, policy projectPolicy, feedback string) (*rollout.Intent, error) {
 	system := `You turn a natural-language workflow brief into Udon rollout intent JSON.
 Return only JSON. Do not include Markdown.
 Use only the OpenAPI relative paths listed by the user. Do not invent OpenAPI filenames.
@@ -502,11 +646,17 @@ Use bind blocks only when the brief clearly describes step-to-step data flow.
 Use bind blocks for inferred hidden technical steps so required parameters are auditable.
 When a later step depends on a prior step's output, preserve both depends_on and with/bind field mappings.
 Never include secrets or credential values. Use security/token_from names instead.`
-	user := fmt.Sprintf("Project brief:\n%s\n\nRuntime and OpenAPI policy:\n%s\nAvailable OpenAPI documents:\n%s\n\nPrimary OpenAPI path: %s\n\nReturn JSON matching this shape:\n%s",
+	feedback = strings.TrimSpace(feedback)
+	feedbackSection := ""
+	if feedback != "" {
+		feedbackSection = "\nPrevious quality failure to repair:\n" + feedback + "\n"
+	}
+	user := fmt.Sprintf("Project brief:\n%s\n\nRuntime and OpenAPI policy:\n%s\nAvailable OpenAPI documents:\n%s\n\nPrimary OpenAPI path: %s\n%s\nReturn JSON matching this shape:\n%s",
 		projectText,
 		runtimePolicyPrompt(policy),
 		specSummary(candidates),
 		primary,
+		feedbackSection,
 		intentJSONShape(),
 	)
 	response, err := chat.Chat(ctx, []rollout.ChatMessage{
@@ -796,6 +946,7 @@ func reviewMarkdown(result Result, provider, model string) string {
 	fmt.Fprintf(&b, "- UWS artifact: `%s`\n", relOrAbs(result.ExampleDir, result.UWSPath))
 	fmt.Fprintf(&b, "- Expected plan: `%s`\n", relOrAbs(result.ExampleDir, result.PlanJSONPath))
 	fmt.Fprintf(&b, "- Discovery report: `%s`\n", relOrAbs(result.ExampleDir, result.DiscoveryJSONPath))
+	fmt.Fprintf(&b, "- Refinement report: `%s`\n", relOrAbs(result.ExampleDir, result.RefinementJSONPath))
 	fmt.Fprintf(&b, "- Primary OpenAPI: `%s`\n", result.PrimaryOpenAPI)
 	if provider != "" || model != "" {
 		fmt.Fprintf(&b, "- LLM: `%s` `%s`\n", provider, model)
