@@ -19,7 +19,7 @@ handoff requirements, and XRD-007 private checkout and secrets prerequisites.
 | XRD-004 | Closed | Ramen eval owner, then udon owner for reusable gaps | `../ramen`, then `../udon` | Ramen has `docs/xrd-004-openapi-eval-plan.md` plus fixtures covering pagination variants, request bodies, security schemes, write operations, response extraction, and multi-service chains. | Upstream udon issue only if future eval runs identify a reusable compiler/runtime gap. | None unless richer OpenAPI evals regress. |
 | XRD-005 | Handed off | External Symphony owner | `../symphony` | Ramen emits review evidence, handoff files, and the concrete owner handoff in `docs/xrd-005-symphony-handoff.md`; approval routing remains external. | Symphony owner implementation from the documented handoff package and approval states. | None in Ramen unless the handoff contract changes. |
 | XRD-006 | Watch | Ramen release owner / provider owners | Provider APIs | Provider behavior can drift in schema dialect support, rate limits, transient failures, and model availability. | Eval Markdown reports now include a Provider Drift Watch section, with the runbook in `docs/xrd-006-provider-drift-watch.md`. | No implementation plan; keep watching during release evals. |
-| XRD-007 | Handed off | Infra owner | Repo access / secrets | Hosted GitHub CI remains disabled because private siblings, credentials, and generated artifacts require private-runner controls. | Ramen has `docs/xrd-007-infra-handoff.md` plus the runbook in `docs/cross-repo-contracts.md`. | None in Ramen unless infra changes the automation contract. |
+| XRD-007 | Closed | Infra owner / Ramen | Repo access / secrets | Deterministic CI checks out private siblings and configures private module access with owner-scoped CI tokens; real-provider automation remains local/manual. | Regression report only if deterministic CI loses private dependency access. | None unless CI auth or checkout layout changes. |
 | XRD-008 | Closed | Ramen eval owner, then udon/uws owners for reusable semantics | `../ramen`, then `../udon` / `../uws` | Ramen has `docs/xrd-008-runtime-profile-eval-plan.md` plus runtime/profile fixtures for approved `fnct`, approved `cmd`, denied `cmd`/`ssh`, and future profile-boundary behavior. | Upstream udon/UWS issue only if future fixtures require reusable runtime/profile semantics. | None unless runtime/profile evals regress. |
 | XRD-009 | Closed | Ramen release owner | `../ramen` | Expanded eval corpus has a release-evidence gate beyond the original ten-example real-provider baseline. | `make release-eval` enforces a minimum brief count from the current eval corpus; evidence package lives in `docs/xrd-009-expanded-corpus-release-evidence.md`. | None unless release evidence is under-sampled or the corpus gate regresses. |
 
@@ -131,10 +131,9 @@ bug.
 
 ## XRD-007 Infra Handoff
 
-Decision: Ramen infra handoff package complete; automation remains disabled until infra accepts it.
+Decision: deterministic CI enabled with private dependency checkout and secret-scoped module auth.
 
-Next artifact: infra owner implementation using
-[`docs/xrd-007-infra-handoff.md`](xrd-007-infra-handoff.md).
+Next artifact: regression report only if deterministic CI loses private dependency access.
 
 Acceptance criteria:
 
@@ -142,11 +141,11 @@ Acceptance criteria:
   [`docs/cross-repo-contracts.md#xrd-007-private-checkout-and-secrets-runbook`](cross-repo-contracts.md#xrd-007-private-checkout-and-secrets-runbook).
 - The handoff links the self-hosted runner prerequisites in the same runbook.
 - The handoff links the provider secret and artifact redaction prerequisites in the same runbook.
-- The handoff records that Ramen currently has no `.github/workflows` automation to re-enable.
-- GitHub CI remains disabled until those prerequisites are met.
+- The workflow records that provider keys are not available to deterministic CI.
+- CI setup is documented in [`docs/ci.md`](ci.md).
 
-Implementation boundary: Ramen records the allowed automation tiers and checks. Infrastructure owns
-runner access, private checkout, CI secret policy, and any future re-enable decision.
+Implementation boundary: Ramen owns deterministic CI checks and private checkout layout.
+Infrastructure owns token provisioning, runner policy, and any future provider-key automation.
 
 ## XRD-008 Runtime/Profile Eval Coverage
 

@@ -87,10 +87,11 @@ the upstream request with the Symphony owner.
 
 ## XRD-007 Private Checkout And Secrets Runbook
 
-GitHub CI remains disabled because hosted checks are not yet representative or safe for this private
-workspace.
+Deterministic GitHub CI is available for this private workspace, but it must use private dependency
+checkout and private module authentication.
 The concrete infrastructure handoff is
 [`docs/xrd-007-infra-handoff.md`](xrd-007-infra-handoff.md).
+Workflow setup details are in [`docs/ci.md`](ci.md).
 
 Current blockers:
 
@@ -107,7 +108,7 @@ Automation tiers:
 | --- | --- | --- | --- |
 | Local deterministic | `go test ./...`, `go vet ./...`, `make check` | Developer workstation with private siblings checked out. | Normal development gate. |
 | Local/manual real LLM | `go run ./cmd/ramen eval --root ./examples/eval --provider <provider> --model <model> --release-gate` | Trusted workstation with provider credentials in environment variables. | Release smoke gate; results are reviewed manually. |
-| Future CI deterministic | `go test ./...`, `go vet ./...`, `make check` | Self-hosted private runner with private sibling checkout. | Enable only after repo access and dependency checkout are stable. No provider keys. |
+| CI deterministic | `go test ./...`, `go vet ./...`, `make check` | GitHub Actions private checkout with `RAMEN_CI_GENELET_TOKEN` and `RAMEN_CI_TABILET_TOKEN`. | No provider keys; no generated artifact uploads. |
 | Future manual/release real-provider workflow | Release-gated eval command with explicit provider/model. | Protected manual workflow or trusted release machine. | Requires secret store controls and log/artifact redaction policy. |
 
 Allowed secret handling:
@@ -119,11 +120,12 @@ Allowed secret handling:
 - CI logs and uploaded artifacts must be redacted or disabled for any command that may include model
   prompts, provider responses, or generated side-effect configuration.
 
-Prerequisites to re-enable deterministic CI:
+Prerequisites for deterministic CI:
 
-- A self-hosted private runner is available for Ramen checks.
+- `RAMEN_CI_GENELET_TOKEN` has read access to private `genelet/*` dependency repos.
+- `RAMEN_CI_TABILET_TOKEN` has read access to private `tabilet/*` dependency repos.
 - Private sibling checkout works non-interactively for every required repo.
-- The runner has no provider keys for deterministic checks.
+- CI has no provider keys for deterministic checks.
 - `go test ./...`, `go vet ./...`, and `make check` pass on a clean private checkout.
 - Logs and artifacts exclude generated files that could contain prompt or credential-binding detail.
 
@@ -135,5 +137,5 @@ Prerequisites to add a real-provider release workflow:
   attempts-to-pass, fallback count, and blocking reference issues.
 - Uploaded artifacts are reviewed for secret redaction before retention is enabled.
 
-Acceptance: infrastructure can decide whether to re-enable CI by checking these prerequisites
-without inferring private repo layout, secret rules, or which checks are allowed in each tier.
+Acceptance: infrastructure can maintain CI by checking these prerequisites without inferring private
+repo layout, secret rules, or which checks are allowed in each tier.

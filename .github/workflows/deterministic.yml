@@ -1,0 +1,136 @@
+name: deterministic
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    name: deterministic checks
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    env:
+      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+      GOPRIVATE: github.com/genelet/*,github.com/tabilet/*
+      GONOSUMDB: github.com/genelet/*,github.com/tabilet/*
+      GONOPROXY: github.com/genelet/*,github.com/tabilet/*
+
+    steps:
+      - name: Require private dependency token
+        env:
+          RAMEN_CI_GENELET_TOKEN: ${{ secrets.RAMEN_CI_GENELET_TOKEN }}
+          RAMEN_CI_TABILET_TOKEN: ${{ secrets.RAMEN_CI_TABILET_TOKEN }}
+        run: |
+          if [ -z "${RAMEN_CI_GENELET_TOKEN}" ]; then
+            echo "::error::Set RAMEN_CI_GENELET_TOKEN with read access to private genelet dependency repos."
+            exit 1
+          fi
+          if [ -z "${RAMEN_CI_TABILET_TOKEN}" ]; then
+            echo "::error::Set RAMEN_CI_TABILET_TOKEN with read access to private tabilet dependency repos."
+            exit 1
+          fi
+
+      - name: Check out ramen
+        uses: actions/checkout@v6
+        with:
+          path: ramen
+
+      - name: Set up Go
+        uses: actions/setup-go@v6
+        with:
+          go-version-file: ramen/go.mod
+          cache-dependency-path: ramen/go.sum
+
+      - name: Check out udon
+        uses: actions/checkout@v6
+        with:
+          repository: genelet/udon
+          token: ${{ secrets.RAMEN_CI_GENELET_TOKEN }}
+          path: udon
+
+      - name: Check out grand
+        uses: actions/checkout@v6
+        with:
+          repository: genelet/grand
+          token: ${{ secrets.RAMEN_CI_GENELET_TOKEN }}
+          path: grand
+
+      - name: Check out golet
+        uses: actions/checkout@v6
+        with:
+          repository: genelet/golet
+          token: ${{ secrets.RAMEN_CI_GENELET_TOKEN }}
+          path: golet
+
+      - name: Check out hcllight
+        uses: actions/checkout@v6
+        with:
+          repository: genelet/hcllight
+          token: ${{ secrets.RAMEN_CI_GENELET_TOKEN }}
+          path: hcllight
+
+      - name: Check out horizon
+        uses: actions/checkout@v6
+        with:
+          repository: genelet/horizon
+          token: ${{ secrets.RAMEN_CI_GENELET_TOKEN }}
+          path: horizon
+
+      - name: Check out molecule
+        uses: actions/checkout@v6
+        with:
+          repository: genelet/molecule
+          token: ${{ secrets.RAMEN_CI_GENELET_TOKEN }}
+          path: molecule
+
+      - name: Check out uws
+        uses: actions/checkout@v6
+        with:
+          repository: tabilet/uws
+          token: ${{ secrets.RAMEN_CI_TABILET_TOKEN }}
+          path: uws
+
+      - name: Check out arazzo
+        uses: actions/checkout@v6
+        with:
+          repository: tabilet/arazzo
+          token: ${{ secrets.RAMEN_CI_TABILET_TOKEN }}
+          path: arazzo
+
+      - name: Configure private module access
+        env:
+          RAMEN_CI_GENELET_TOKEN: ${{ secrets.RAMEN_CI_GENELET_TOKEN }}
+          RAMEN_CI_TABILET_TOKEN: ${{ secrets.RAMEN_CI_TABILET_TOKEN }}
+        run: |
+          git config --global url."https://x-access-token:${RAMEN_CI_GENELET_TOKEN}@github.com/genelet/".insteadOf "https://github.com/genelet/"
+          git config --global url."https://x-access-token:${RAMEN_CI_TABILET_TOKEN}@github.com/tabilet/".insteadOf "https://github.com/tabilet/"
+          go env -w GOPRIVATE="${GOPRIVATE}"
+          go env -w GONOSUMDB="${GONOSUMDB}"
+          go env -w GONOPROXY="${GONOPROXY}"
+
+      - name: Check sibling layout
+        working-directory: ramen
+        run: ./scripts/check-siblings.sh
+
+      - name: Test
+        working-directory: ramen
+        run: go test ./...
+
+      - name: Vet
+        working-directory: ramen
+        run: go vet ./...
+
+      - name: Check
+        working-directory: ramen
+        run: make check
+
+      - name: Whitespace
+        working-directory: ramen
+        run: git diff --check

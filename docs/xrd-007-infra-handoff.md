@@ -1,16 +1,16 @@
 # XRD-007 Infra Handoff
 
 This is the Ramen-owned handoff package for infrastructure owners. It defines the prerequisites for
-future deterministic CI and real-provider release automation without enabling GitHub CI from this
-repository.
+deterministic CI and future real-provider release automation.
 
 ## Current State
 
-- Hosted GitHub CI is disabled for Ramen.
+- Deterministic GitHub CI is available in `.github/workflows/deterministic.yml`.
 - Deterministic checks run locally on a trusted workstation with private siblings checked out.
 - Real-provider evals remain local/manual because they need provider credentials and can produce
   generated artifacts, prompts, and model responses that require redaction review.
-- This repository currently has no `.github/workflows` automation to re-enable.
+- CI requires `RAMEN_CI_GENELET_TOKEN` and `RAMEN_CI_TABILET_TOKEN` with read access to private
+  dependency repositories.
 
 ## Private Checkout Prerequisites
 
@@ -36,7 +36,7 @@ Readiness check:
 
 ## Deterministic Runner Gate
 
-Enable deterministic CI only after a self-hosted private runner can run these commands from a clean
+Deterministic CI is allowed only when the workflow can run these commands from a clean private
 checkout:
 
 ```bash
@@ -47,7 +47,8 @@ git diff --check
 ```
 
 Deterministic CI must not have provider API keys in its environment. It should not upload generated
-workflow artifacts, prompts, model responses, or eval archives.
+workflow artifacts, prompts, model responses, or eval archives. The workflow setup details are in
+[`docs/ci.md`](ci.md).
 
 ## Real-Provider Release Gate
 
@@ -84,7 +85,6 @@ Required release evidence:
 
 ## Re-enable Decision
 
-Infra owns the decision to add `.github/workflows` or another automation entry point. Ramen's
-readiness criteria are complete when the private checkout, self-hosted deterministic runner, and
-secret/artifact controls above are satisfied. Until then, CI remains disabled and release evals stay
-local/manual.
+Infra owns the token, runner policy, and any future automation expansion. Ramen's deterministic CI
+readiness criteria are complete when the private checkout and secret controls above are satisfied.
+Real-provider release evals stay local/manual.
