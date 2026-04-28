@@ -13,13 +13,8 @@ import (
 	"time"
 
 	"github.com/genelet/ramen/internal/openapidisco"
-	"github.com/genelet/ramen/internal/uwsvalidate"
-	"github.com/genelet/udon/generator"
 	"github.com/genelet/udon/pkg/rollout"
 	"github.com/genelet/udon/pkg/runner"
-	"github.com/genelet/udon/pkg/uwsprofile"
-	"github.com/tabilet/uws/uws1"
-	"gopkg.in/yaml.v3"
 )
 
 type Options struct {
@@ -62,6 +57,126 @@ func Synthesize(ctx context.Context, opts Options) (*Result, error) {
 	if ctx == nil {
 		ctx = context.Background()
 	}
+	state, err := prepareRefinement(ctx, opts)
+	if err != nil {
+		return nil, err
+	}
+	llm, chat, provider, model, err := resolveClients(opts)
+	if err != nil {
+		return nil, err
+	}
+	state.chat = chat
+	return runRefinement(ctx, opts, state, llm, provider, model, "generate_intent", func(ctx context.Context, attempt int, action, feedback string, intent *rollout.Intent, state *refinementState) (*rollout.Intent, string, error) {
+		if attempt == 1 || action != "regenerate_workflow" || intent == nil {
+			if err := ctx.Err(); err != nil {
+				return nil, action, err
+			}
+			var err error
+			intent, err = generateIntent(ctx, state.chat, state.projectText, state.candidates, state.primaryPath, state.policy, feedback)
+			if err != nil {
+				return nil, action, fmt.Errorf("generate intent: %w", err)
+			}
+		}
+		if !state.policy.NoOpenAPI {
+			if err := ctx.Err(); err != nil {
+				return nil, action, err
+			}
+			var attempts []openapidisco.DiscoveryAttempt
+			var changed bool
+			state.candidates, attempts, changed = discoverComplementaryOpenAPI(ctx, state.discoverer, state.result.ExampleDir, state.projectText, state.candidates, intent, state.policy)
+			if len(attempts) > 0 {
+				state.discoveryReport.Attempts = append(state.discoveryReport.Attempts, attempts...)
+				state.result.DiscoveryReport = state.discoveryReport
+				if err := writeDiscoveryReport(state.result, state.discoveryReport); err != nil {
+					return nil, action, fmt.Errorf("write discovery report: %w", err)
+				}
+			}
+			if changed {
+				state.result.OpenAPICandidates = state.candidates
+				if primary, err := openapidisco.SelectPrimary(state.candidates); err == nil {
+					state.primaryPath = primary.RelativePath
+					state.result.PrimaryOpenAPI = state.primaryPath
+				}
+				if err := ctx.Err(); err != nil {
+					return nil, "discover_openapi", err
+				}
+				var err error
+				intent, err = generateIntent(ctx, state.chat, state.projectText, state.candidates, state.primaryPath, state.policy, "Complementary OpenAPI discovery added candidate documents; preserve the project goal and use the newly available operations when needed.")
+				if err != nil {
+					return nil, "discover_openapi", fmt.Errorf("regenerate intent after complementary OpenAPI discovery: %w", err)
+				}
+				action = "discover_openapi"
+			}
+		}
+		return intent, action, nil
+	})
+}
+
+func Build(ctx context.Context, opts Options) (*Result, error) {
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	state, err := prepareRefinement(ctx, opts)
+	if err != nil {
+		return nil, err
+	}
+	intent, err := rollout.ParseIntentFile(state.result.IntentPath)
+	if err != nil {
+		return nil, fmt.Errorf("parse intent.hcl: %w", err)
+	}
+	primary := strings.TrimSpace(intent.OpenAPI)
+	if primary == "" && !state.policy.NoOpenAPI {
+		selected, err := openapidisco.SelectPrimary(state.candidates)
+		if err != nil {
+			return nil, err
+		}
+		primary = selected.RelativePath
+		intent.OpenAPI = primary
+		intentHCL, err := runner.RenderIntentHCL(intent)
+		if err != nil {
+			return nil, err
+		}
+		if err := ensureArtifactDirs(state.result); err != nil {
+			return nil, err
+		}
+		if err := os.WriteFile(state.result.IntentPath, []byte(intentHCL), 0o644); err != nil {
+			return nil, err
+		}
+	}
+	if err := validateIntentOpenAPIRefs(intent, state.candidates, primary, state.policy.NoOpenAPI); err != nil {
+		return nil, err
+	}
+	if err := validateIntentRuntimePolicy(intent, state.policy); err != nil {
+		return nil, err
+	}
+	state.primaryPath = primary
+	state.result.PrimaryOpenAPI = primary
+	llm, _, provider, model, err := resolveClients(opts)
+	if err != nil {
+		return nil, err
+	}
+	return runRefinement(ctx, opts, state, llm, provider, model, "regenerate_workflow", func(context.Context, int, string, string, *rollout.Intent, *refinementState) (*rollout.Intent, string, error) {
+		return intent, "regenerate_workflow", nil
+	})
+}
+
+type refinementState struct {
+	result          Result
+	projectText     string
+	policy          projectPolicy
+	discoverer      *openapidisco.Discoverer
+	candidates      []openapidisco.Candidate
+	primaryPath     string
+	discoveryReport openapidisco.DiscoveryReport
+	chat            rollout.ChatClient
+}
+
+type refinementIntentSupplier func(context.Context, int, string, string, *rollout.Intent, *refinementState) (*rollout.Intent, string, error)
+
+func prepareRefinement(ctx context.Context, opts Options) (*refinementState, error) {
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
 	exampleDir, err := resolveExampleDir(opts.ExampleDir)
 	if err != nil {
 		return nil, err
@@ -73,17 +188,25 @@ func Synthesize(ctx context.Context, opts Options) (*Result, error) {
 	}
 	projectText := string(projectBytes)
 	policy := analyzeProject(projectText)
-
-	if opts.Discoverer == nil {
-		opts.Discoverer = &openapidisco.Discoverer{}
+	discoverer := opts.Discoverer
+	if discoverer == nil {
+		discoverer = &openapidisco.Discoverer{}
 	}
-	var candidates []openapidisco.Candidate
-	var primaryPath string
-	var discoveryReport openapidisco.DiscoveryReport
+	state := &refinementState{
+		result:      result,
+		projectText: projectText,
+		policy:      policy,
+		discoverer:  discoverer,
+	}
 	if !policy.NoOpenAPI {
-		candidates, discoveryReport, err = opts.Discoverer.DiscoverWithReport(ctx, exampleDir, projectText)
-		result.DiscoveryReport = discoveryReport
-		if err := writeDiscoveryReport(result, discoveryReport); err != nil {
+		if err := ctx.Err(); err != nil {
+			return nil, err
+		}
+		candidates, discoveryReport, err := discoverer.DiscoverWithReport(ctx, exampleDir, projectText)
+		state.candidates = candidates
+		state.discoveryReport = discoveryReport
+		state.result.DiscoveryReport = discoveryReport
+		if err := writeDiscoveryReport(state.result, discoveryReport); err != nil {
 			return nil, fmt.Errorf("write discovery report: %w", err)
 		}
 		if err != nil {
@@ -93,131 +216,128 @@ func Synthesize(ctx context.Context, opts Options) (*Result, error) {
 		if err != nil {
 			return nil, err
 		}
-		primaryPath = primary.RelativePath
+		state.primaryPath = primary.RelativePath
 	}
-	result.PrimaryOpenAPI = primaryPath
-	result.OpenAPICandidates = candidates
-	result.DiscoveryReport = discoveryReport
+	state.result.PrimaryOpenAPI = state.primaryPath
+	state.result.OpenAPICandidates = state.candidates
+	state.result.DiscoveryReport = state.discoveryReport
+	return state, nil
+}
 
-	llm, chat, provider, model, err := resolveClients(opts)
-	if err != nil {
-		return nil, err
-	}
-
+func runRefinement(ctx context.Context, opts Options, state *refinementState, llm rollout.LLMClient, provider, model, initialAction string, supplyIntent refinementIntentSupplier) (*Result, error) {
 	attempts := maxAttempts(opts.MaxAttempts)
-	refinement := newRefinementReport(result, attempts)
-	action := "generate_intent"
-	var feedback, previousSignature string
+	refinement := newRefinementReport(state.result, attempts)
+	var previousSignature string
+	action := initialAction
+	var feedback string
 	var intent *rollout.Intent
 	for attempt := 1; attempt <= attempts; attempt++ {
-		if attempt == 1 || action != "regenerate_workflow" || intent == nil {
-			intent, err = generateIntent(ctx, chat, projectText, candidates, primaryPath, policy, feedback)
-			if err != nil {
-				refinement.addAttempt(attempt, action, nil, fmt.Errorf("generate intent: %w", err), "intent generation failed")
-				_ = writeRefinementReport(result, refinement)
-				return nil, fmt.Errorf("generate intent: %w", err)
-			}
+		if err := ctx.Err(); err != nil {
+			return &state.result, err
 		}
-		if !policy.NoOpenAPI {
-			var attempts []openapidisco.DiscoveryAttempt
-			var changed bool
-			candidates, attempts, changed = discoverComplementaryOpenAPI(ctx, opts.Discoverer, exampleDir, projectText, candidates, intent, policy)
-			if len(attempts) > 0 {
-				discoveryReport.Attempts = append(discoveryReport.Attempts, attempts...)
-				result.DiscoveryReport = discoveryReport
-				if err := writeDiscoveryReport(result, discoveryReport); err != nil {
-					refinement.addAttempt(attempt, action, nil, fmt.Errorf("write discovery report: %w", err), "discovery evidence could not be written")
-					_ = writeRefinementReport(result, refinement)
-					return nil, fmt.Errorf("write discovery report: %w", err)
-				}
+		var err error
+		intent, action, err = supplyIntent(ctx, attempt, action, feedback, intent, state)
+		if err != nil {
+			stopReason := refinementStopReasonForError(err)
+			refinement.addAttempt(attempt, action, nil, err, stopReason)
+			if writeErr := writeRefinementReport(state.result, refinement); writeErr != nil {
+				return nil, fmt.Errorf("write refinement report: %w", writeErr)
 			}
-			if changed {
-				result.OpenAPICandidates = candidates
-				if primary, err := openapidisco.SelectPrimary(candidates); err == nil {
-					primaryPath = primary.RelativePath
-					result.PrimaryOpenAPI = primaryPath
-				}
-				intent, err = generateIntent(ctx, chat, projectText, candidates, primaryPath, policy, "Complementary OpenAPI discovery added candidate documents; preserve the project goal and use the newly available operations when needed.")
-				if err != nil {
-					refinement.addAttempt(attempt, "discover_openapi", nil, fmt.Errorf("regenerate intent after complementary OpenAPI discovery: %w", err), "intent regeneration failed")
-					_ = writeRefinementReport(result, refinement)
-					return nil, fmt.Errorf("regenerate intent after complementary OpenAPI discovery: %w", err)
-				}
-			}
+			return &state.result, err
 		}
-		if err := validateIntentOpenAPIRefs(intent, candidates, primaryPath, policy.NoOpenAPI); err != nil {
+		if err := validateIntentOpenAPIRefs(intent, state.candidates, state.primaryPath, state.policy.NoOpenAPI); err != nil {
 			refinement.addAttempt(attempt, action, nil, err, "intent references unavailable OpenAPI metadata")
-			_ = writeRefinementReport(result, refinement)
-			return nil, err
+			if writeErr := writeRefinementReport(state.result, refinement); writeErr != nil {
+				return nil, fmt.Errorf("write refinement report: %w", writeErr)
+			}
+			return &state.result, err
 		}
-		if err := validateIntentRuntimePolicy(intent, policy); err != nil {
+		if err := validateIntentRuntimePolicy(intent, state.policy); err != nil {
 			refinement.addAttempt(attempt, action, nil, err, "intent uses a runtime outside project policy")
-			_ = writeRefinementReport(result, refinement)
-			return nil, err
+			if writeErr := writeRefinementReport(state.result, refinement); writeErr != nil {
+				return nil, fmt.Errorf("write refinement report: %w", writeErr)
+			}
+			return &state.result, err
 		}
-		workflowPlan := buildWorkflowPlan(result, intent, candidates, policy)
+		workflowPlan := buildWorkflowPlan(state.result, intent, state.candidates, state.policy)
 		intentHCL, err := runner.RenderIntentHCL(intent)
 		if err != nil {
 			refinement.addAttempt(attempt, action, nil, fmt.Errorf("render intent HCL: %w", err), "intent rendering failed")
-			_ = writeRefinementReport(result, refinement)
-			return nil, fmt.Errorf("render intent HCL: %w", err)
+			if writeErr := writeRefinementReport(state.result, refinement); writeErr != nil {
+				return nil, fmt.Errorf("write refinement report: %w", writeErr)
+			}
+			return &state.result, fmt.Errorf("render intent HCL: %w", err)
 		}
-
-		if err := ensureArtifactDirs(result); err != nil {
+		if err := ensureArtifactDirs(state.result); err != nil {
 			return nil, err
 		}
-		if err := os.WriteFile(result.IntentPath, []byte(intentHCL), 0o644); err != nil {
+		if err := os.WriteFile(state.result.IntentPath, []byte(intentHCL), 0o644); err != nil {
 			return nil, err
 		}
-		if err := writeWorkflowPlan(result, workflowPlan); err != nil {
+		if err := writeWorkflowPlan(state.result, workflowPlan); err != nil {
 			return nil, err
 		}
-		if err := generateWorkflow(ctx, result, intent, llm, provider, model, opts.Timeout); err != nil {
+		if err := ctx.Err(); err != nil {
+			return &state.result, err
+		}
+		if err := generateWorkflow(ctx, state.result, intent, llm, provider, model, opts.Timeout); err != nil {
 			stopReason := ""
 			if attempt == attempts {
 				stopReason = "maximum refinement attempts reached"
 			}
 			refinement.addAttempt(attempt, action, nil, err, stopReason)
-			_ = writeRefinementReport(result, refinement)
+			if writeErr := writeRefinementReport(state.result, refinement); writeErr != nil {
+				return nil, fmt.Errorf("write refinement report: %w", writeErr)
+			}
 			if stopReason != "" {
-				return &result, err
+				return &state.result, err
 			}
 			action = "regenerate_workflow"
 			feedback = err.Error()
 			continue
 		}
-		if err := promoteWorkflow(result, opts.SchemaPath); err != nil {
+		if err := ctx.Err(); err != nil {
+			return &state.result, err
+		}
+		if err := promoteWorkflow(state.result, opts.SchemaPath); err != nil {
 			stopReason := ""
 			if attempt == attempts {
 				stopReason = "maximum refinement attempts reached"
 			}
 			refinement.addAttempt(attempt, action, nil, err, stopReason)
-			_ = writeRefinementReport(result, refinement)
+			if writeErr := writeRefinementReport(state.result, refinement); writeErr != nil {
+				return nil, fmt.Errorf("write refinement report: %w", writeErr)
+			}
 			if stopReason != "" {
-				return &result, err
+				return &state.result, err
 			}
 			action = "regenerate_intent"
 			feedback = err.Error()
 			continue
 		}
-		if err := writeReview(result, provider, model); err != nil {
+		if err := writeReview(state.result, provider, model); err != nil {
 			return nil, err
 		}
-		report, err := Assess(opts)
+		if err := ctx.Err(); err != nil {
+			return &state.result, err
+		}
+		report, err := AssessContext(ctx, opts)
 		if err != nil {
 			return nil, err
 		}
 		if report.Passed() {
 			refinement.addAttempt(attempt, action, report, nil, "quality passed")
-			if err := writeRefinementReport(result, refinement); err != nil {
+			if err := writeRefinementReport(state.result, refinement); err != nil {
 				return nil, fmt.Errorf("write refinement report: %w", err)
 			}
-			return &result, nil
+			return &state.result, nil
 		}
 		nextAction, terminal := classifyRefinementAction(report)
 		signature := qualityFailureSignature(report)
 		stopReason := ""
-		if terminal {
+		if initialAction == "regenerate_workflow" && (terminal || nextAction != "regenerate_workflow") {
+			stopReason = "quality failure requires project.md or intent.hcl repair"
+		} else if terminal {
 			stopReason = "terminal quality failure"
 		} else if attempt == attempts {
 			stopReason = "maximum refinement attempts reached"
@@ -225,155 +345,42 @@ func Synthesize(ctx context.Context, opts Options) (*Result, error) {
 			stopReason = "repeated quality failure"
 		}
 		refinement.addAttempt(attempt, action, report, nil, stopReason)
-		if err := writeRefinementReport(result, refinement); err != nil {
+		if err := writeRefinementReport(state.result, refinement); err != nil {
 			return nil, fmt.Errorf("write refinement report: %w", err)
 		}
 		if stopReason != "" {
-			return &result, fmt.Errorf("quality gate failed; see %s", result.QualityJSONPath)
+			return &state.result, fmt.Errorf("quality gate failed; see %s", state.result.QualityJSONPath)
 		}
 		previousSignature = signature
 		action = nextAction
 		feedback = failingCheckDetails(report)
 	}
-	return &result, fmt.Errorf("quality gate failed; see %s", result.QualityJSONPath)
+	return &state.result, fmt.Errorf("quality gate failed; see %s", state.result.QualityJSONPath)
 }
 
-func Build(ctx context.Context, opts Options) (*Result, error) {
-	if ctx == nil {
-		ctx = context.Background()
+func refinementStopReasonForError(err error) string {
+	if err == nil {
+		return ""
 	}
-	exampleDir, err := resolveExampleDir(opts.ExampleDir)
-	if err != nil {
-		return nil, err
+	if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
+		return "cancelled"
 	}
-	result := resultPaths(exampleDir)
-	projectBytes, err := os.ReadFile(result.ProjectPath)
-	if err != nil {
-		return nil, fmt.Errorf("read project brief: %w", err)
+	if strings.Contains(err.Error(), "write discovery report") {
+		return "discovery evidence could not be written"
 	}
-	policy := analyzeProject(string(projectBytes))
-	if opts.Discoverer == nil {
-		opts.Discoverer = &openapidisco.Discoverer{}
+	if strings.Contains(err.Error(), "generate intent") {
+		return "intent generation failed"
 	}
-	var candidates []openapidisco.Candidate
-	var discoveryReport openapidisco.DiscoveryReport
-	if !policy.NoOpenAPI {
-		candidates, discoveryReport, err = opts.Discoverer.DiscoverWithReport(ctx, exampleDir, string(projectBytes))
-		result.DiscoveryReport = discoveryReport
-		if err := writeDiscoveryReport(result, discoveryReport); err != nil {
-			return nil, fmt.Errorf("write discovery report: %w", err)
-		}
-		if err != nil {
-			return nil, fmt.Errorf("discover OpenAPI documents: %w", err)
-		}
-	}
-	intent, err := rollout.ParseIntentFile(result.IntentPath)
-	if err != nil {
-		return nil, fmt.Errorf("parse intent.hcl: %w", err)
-	}
-	primary := strings.TrimSpace(intent.OpenAPI)
-	if primary == "" && !policy.NoOpenAPI {
-		selected, err := openapidisco.SelectPrimary(candidates)
-		if err != nil {
-			return nil, err
-		}
-		primary = selected.RelativePath
-		intent.OpenAPI = primary
-		intentHCL, err := runner.RenderIntentHCL(intent)
-		if err != nil {
-			return nil, err
-		}
-		if err := ensureArtifactDirs(result); err != nil {
-			return nil, err
-		}
-		if err := os.WriteFile(result.IntentPath, []byte(intentHCL), 0o644); err != nil {
-			return nil, err
-		}
-	}
-	if err := validateIntentOpenAPIRefs(intent, candidates, primary, policy.NoOpenAPI); err != nil {
-		return nil, err
-	}
-	if err := validateIntentRuntimePolicy(intent, policy); err != nil {
-		return nil, err
-	}
-	result.PrimaryOpenAPI = primary
-	result.OpenAPICandidates = candidates
-	result.DiscoveryReport = discoveryReport
-	llm, _, provider, model, err := resolveClients(opts)
-	if err != nil {
-		return nil, err
-	}
-	attempts := maxAttempts(opts.MaxAttempts)
-	refinement := newRefinementReport(result, attempts)
-	var previousSignature string
-	action := "regenerate_workflow"
-	for attempt := 1; attempt <= attempts; attempt++ {
-		workflowPlan := buildWorkflowPlan(result, intent, candidates, policy)
-		if err := writeWorkflowPlan(result, workflowPlan); err != nil {
-			return nil, err
-		}
-		if err := generateWorkflow(ctx, result, intent, llm, provider, model, opts.Timeout); err != nil {
-			stopReason := ""
-			if attempt == attempts {
-				stopReason = "maximum refinement attempts reached"
-			}
-			refinement.addAttempt(attempt, action, nil, err, stopReason)
-			_ = writeRefinementReport(result, refinement)
-			if stopReason != "" {
-				return &result, err
-			}
-			continue
-		}
-		if err := promoteWorkflow(result, opts.SchemaPath); err != nil {
-			stopReason := ""
-			if attempt == attempts {
-				stopReason = "maximum refinement attempts reached"
-			}
-			refinement.addAttempt(attempt, action, nil, err, stopReason)
-			_ = writeRefinementReport(result, refinement)
-			if stopReason != "" {
-				return &result, err
-			}
-			continue
-		}
-		if err := writeReview(result, provider, model); err != nil {
-			return nil, err
-		}
-		report, err := Assess(opts)
-		if err != nil {
-			return nil, err
-		}
-		if report.Passed() {
-			refinement.addAttempt(attempt, action, report, nil, "quality passed")
-			if err := writeRefinementReport(result, refinement); err != nil {
-				return nil, fmt.Errorf("write refinement report: %w", err)
-			}
-			return &result, nil
-		}
-		nextAction, terminal := classifyRefinementAction(report)
-		signature := qualityFailureSignature(report)
-		stopReason := ""
-		if terminal || nextAction != "regenerate_workflow" {
-			stopReason = "quality failure requires project.md or intent.hcl repair"
-		} else if attempt == attempts {
-			stopReason = "maximum refinement attempts reached"
-		} else if attempt > 1 && signature == previousSignature {
-			stopReason = "repeated quality failure"
-		}
-		refinement.addAttempt(attempt, action, report, nil, stopReason)
-		if err := writeRefinementReport(result, refinement); err != nil {
-			return nil, fmt.Errorf("write refinement report: %w", err)
-		}
-		if stopReason != "" {
-			return &result, fmt.Errorf("quality gate failed; see %s", result.QualityJSONPath)
-		}
-		previousSignature = signature
-		action = nextAction
-	}
-	return &result, fmt.Errorf("quality gate failed; see %s", result.QualityJSONPath)
+	return ""
 }
 
 func Promote(ctx context.Context, opts Options) (*Result, error) {
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
 	exampleDir, err := resolveExampleDir(opts.ExampleDir)
 	if err != nil {
 		return nil, err
@@ -408,13 +415,19 @@ func Promote(ctx context.Context, opts Options) (*Result, error) {
 			return nil, err
 		}
 	}
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
 	if err := promoteWorkflow(result, opts.SchemaPath); err != nil {
 		return nil, err
 	}
 	if err := writeReview(result, opts.Provider, opts.Model); err != nil {
 		return nil, err
 	}
-	report, err := Assess(opts)
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
+	report, err := AssessContext(ctx, opts)
 	if err != nil {
 		return nil, err
 	}
@@ -443,45 +456,6 @@ func generateWorkflow(ctx context.Context, result Result, intent *rollout.Intent
 		return err
 	}
 	return os.WriteFile(result.WorkflowPath, []byte(workflowHCL), 0o644)
-}
-
-func promoteWorkflow(result Result, schemaPath string) error {
-	plan, err := generator.NewRuntimePlanFromWorkflowFile(result.WorkflowPath, result.ExampleDir)
-	if err != nil {
-		return fmt.Errorf("compile workflow through udon: %w", err)
-	}
-	doc := plan.Document()
-	normalizeUWSStepsForSchema(doc)
-	uwsBytes, err := uwsprofile.MarshalDocument(doc, uwsprofile.DocumentFormatYAML)
-	if err != nil {
-		return fmt.Errorf("marshal UWS: %w", err)
-	}
-	uwsBytes, err = pruneEmptyUWSStepTypes(uwsBytes)
-	if err != nil {
-		return fmt.Errorf("normalize UWS YAML: %w", err)
-	}
-	if err := ensureArtifactDirs(result); err != nil {
-		return err
-	}
-	if err := os.WriteFile(result.UWSPath, uwsBytes, 0o644); err != nil {
-		return err
-	}
-
-	schemaPath = strings.TrimSpace(schemaPath)
-	if schemaPath == "" {
-		schemaPath = defaultSchemaPath(result.ExampleDir)
-	}
-	if err := uwsvalidate.ValidateFile(schemaPath, result.UWSPath); err != nil {
-		return fmt.Errorf("validate exported UWS: %w", err)
-	}
-	return nil
-}
-
-func writeReview(result Result, provider, model string) error {
-	if err := ensureArtifactDirs(result); err != nil {
-		return err
-	}
-	return os.WriteFile(result.ReviewPath, []byte(reviewMarkdown(result, provider, model)), 0o644)
 }
 
 func resolveExampleDir(example string) (string, error) {
@@ -545,80 +519,6 @@ func defaultSchemaPath(exampleDir string) string {
 	return filepath.Join(exampleDir, "..", "..", "..", "uws", "versions", "1.0.0.json")
 }
 
-func pruneEmptyUWSStepTypes(data []byte) ([]byte, error) {
-	var value any
-	if err := yaml.Unmarshal(data, &value); err != nil {
-		return nil, err
-	}
-	pruneEmptyTypeFields(value)
-	return yaml.Marshal(value)
-}
-
-func pruneEmptyTypeFields(value any) {
-	switch typed := value.(type) {
-	case map[string]any:
-		if raw, ok := typed["type"]; ok && strings.TrimSpace(fmt.Sprint(raw)) == "" {
-			delete(typed, "type")
-		}
-		for _, child := range typed {
-			pruneEmptyTypeFields(child)
-		}
-	case []any:
-		for _, child := range typed {
-			pruneEmptyTypeFields(child)
-		}
-	}
-}
-
-func normalizeUWSStepsForSchema(doc *uws1.Document) {
-	if doc == nil {
-		return
-	}
-	operationIDs := make(map[string]bool, len(doc.Operations))
-	for _, op := range doc.Operations {
-		if op != nil && strings.TrimSpace(op.OperationID) != "" {
-			operationIDs[strings.TrimSpace(op.OperationID)] = true
-		}
-	}
-	for _, workflow := range doc.Workflows {
-		if workflow == nil {
-			continue
-		}
-		normalizeUWSStepList(workflow.Steps, operationIDs)
-	}
-}
-
-func normalizeUWSStepList(steps []*uws1.Step, operationIDs map[string]bool) {
-	for _, step := range steps {
-		if step == nil {
-			continue
-		}
-		if strings.TrimSpace(step.OperationRef) == "" && !isUWSStructuralStepType(step.Type) && operationIDs[strings.TrimSpace(step.StepID)] {
-			step.OperationRef = strings.TrimSpace(step.StepID)
-		}
-		if strings.TrimSpace(step.OperationRef) != "" && !isUWSStructuralStepType(step.Type) {
-			step.Type = ""
-		}
-		normalizeUWSStepList(step.Steps, operationIDs)
-		for _, branch := range step.Cases {
-			if branch != nil {
-				normalizeUWSStepList(branch.Steps, operationIDs)
-			}
-		}
-		normalizeUWSStepList(step.Default, operationIDs)
-	}
-}
-
-func isUWSStructuralStepType(value string) bool {
-	switch strings.TrimSpace(value) {
-	case "", uws1.WorkflowTypeSequence, uws1.WorkflowTypeParallel, uws1.WorkflowTypeSwitch,
-		uws1.WorkflowTypeMerge, uws1.WorkflowTypeLoop, uws1.WorkflowTypeAwait:
-		return true
-	default:
-		return false
-	}
-}
-
 func resolveClients(opts Options) (rollout.LLMClient, rollout.ChatClient, string, string, error) {
 	if opts.LLMClient != nil && opts.ChatClient != nil {
 		return opts.LLMClient, opts.ChatClient, strings.TrimSpace(opts.Provider), strings.TrimSpace(opts.Model), nil
@@ -632,198 +532,6 @@ func resolveClients(opts Options) (rollout.LLMClient, rollout.ChatClient, string
 		return nil, nil, "", "", fmt.Errorf("selected provider %s does not support chat", provider)
 	}
 	return llm, chat, provider, model, nil
-}
-
-func generateIntent(ctx context.Context, chat rollout.ChatClient, projectText string, candidates []openapidisco.Candidate, primary string, policy projectPolicy, feedback string) (*rollout.Intent, error) {
-	system := `You turn a natural-language workflow brief into Udon rollout intent JSON.
-Return only JSON. Do not include Markdown.
-Use only the OpenAPI relative paths listed by the user. Do not invent OpenAPI filenames.
-Prefer concise step names in snake_case. Use operation when an operationId is clear from the listed metadata.
-Expand one business action into multiple technical steps when OpenAPI metadata requires intermediate calls.
-For example, if weather requires lat/lon and the user provided a city, add a coordinate lookup step when an allowed OpenAPI operation exists.
-If an intermediate operation is needed but no listed OpenAPI operation or approved fnct adapter exists, do not invent it.
-Use bind blocks only when the brief clearly describes step-to-step data flow.
-Use bind blocks for inferred hidden technical steps so required parameters are auditable.
-When a later step depends on a prior step's output, preserve both depends_on and with/bind field mappings.
-Never include secrets or credential values. Use security/token_from names instead.`
-	feedback = strings.TrimSpace(feedback)
-	feedbackSection := ""
-	if feedback != "" {
-		feedbackSection = "\nPrevious quality failure to repair:\n" + feedback + "\n"
-	}
-	user := fmt.Sprintf("Project brief:\n%s\n\nRuntime and OpenAPI policy:\n%s\nAvailable OpenAPI documents:\n%s\n\nPrimary OpenAPI path: %s\n%s\nReturn JSON matching this shape:\n%s",
-		projectText,
-		runtimePolicyPrompt(policy),
-		specSummary(candidates),
-		primary,
-		feedbackSection,
-		intentJSONShape(),
-	)
-	response, err := chat.Chat(ctx, []rollout.ChatMessage{
-		{Role: "system", Content: system},
-		{Role: "user", Content: user},
-	})
-	if err != nil {
-		return nil, err
-	}
-	jsonText, err := extractJSON(response)
-	if err != nil {
-		return nil, err
-	}
-	var intent rollout.Intent
-	if err := json.Unmarshal([]byte(jsonText), &intent); err != nil {
-		return nil, fmt.Errorf("decode intent JSON: %w", err)
-	}
-	if strings.TrimSpace(intent.OpenAPI) == "" && primary != "" && !policy.NoOpenAPI {
-		intent.OpenAPI = primary
-	}
-	intent.EnsureActionDescriptions()
-	if _, err := runner.RenderIntentHCL(&intent); err != nil {
-		return nil, err
-	}
-	return &intent, nil
-}
-
-func specSummary(candidates []openapidisco.Candidate) string {
-	if len(candidates) == 0 {
-		return "No OpenAPI documents are available.\n"
-	}
-	var b strings.Builder
-	for _, candidate := range candidates {
-		title := candidate.Title
-		if title == "" {
-			title = candidate.RelativePath
-		}
-		fmt.Fprintf(&b, "- path: %s\n  title: %s\n", candidate.RelativePath, title)
-		if candidate.Description != "" {
-			fmt.Fprintf(&b, "  description: %s\n", trimForPrompt(candidate.Description, 400))
-		}
-		spec, err := rollout.LoadOpenAPISpec(candidate.Path)
-		if err != nil {
-			continue
-		}
-		ops := append([]*rollout.OperationInfo(nil), spec.Operations...)
-		sort.SliceStable(ops, func(i, j int) bool {
-			return ops[i].OperationID < ops[j].OperationID
-		})
-		limit := len(ops)
-		if limit > 80 {
-			limit = 80
-		}
-		for i := 0; i < limit; i++ {
-			op := ops[i]
-			fmt.Fprintf(&b, "  operation: %s %s %s", op.OperationID, op.Method, op.Path)
-			if op.Summary != "" {
-				fmt.Fprintf(&b, " - %s", trimForPrompt(op.Summary, 160))
-			}
-			b.WriteString("\n")
-			required := requiredOpenAPIParams(op)
-			if len(required) > 0 {
-				fmt.Fprintf(&b, "    required_parameters: %s\n", strings.Join(required, ", "))
-			}
-			responseFields := responseFieldNames(op, 12)
-			if len(responseFields) > 0 {
-				fmt.Fprintf(&b, "    response_fields: %s\n", strings.Join(responseFields, ", "))
-			}
-		}
-		if len(ops) > limit {
-			fmt.Fprintf(&b, "  omitted_operations: %d\n", len(ops)-limit)
-		}
-	}
-	return b.String()
-}
-
-func requiredOpenAPIParams(op *rollout.OperationInfo) []string {
-	if op == nil {
-		return nil
-	}
-	var out []string
-	for _, param := range op.Parameters {
-		if param != nil && param.Required {
-			out = append(out, param.Name)
-		}
-	}
-	sort.Strings(out)
-	return out
-}
-
-func responseFieldNames(op *rollout.OperationInfo, limit int) []string {
-	if op == nil {
-		return nil
-	}
-	fields := map[string]bool{}
-	for _, response := range op.Responses {
-		collectSchemaFieldNames(response.Schema, "", fields, 0)
-	}
-	out := make([]string, 0, len(fields))
-	for field := range fields {
-		out = append(out, field)
-	}
-	sort.Strings(out)
-	if limit > 0 && len(out) > limit {
-		out = out[:limit]
-	}
-	return out
-}
-
-func collectSchemaFieldNames(schema map[string]any, prefix string, out map[string]bool, depth int) {
-	if schema == nil || depth > 2 {
-		return
-	}
-	if props, ok := schema["properties"].(map[string]any); ok {
-		for name, raw := range props {
-			field := name
-			if prefix != "" {
-				field = prefix + "." + name
-			}
-			out[field] = true
-			if child, ok := raw.(map[string]any); ok {
-				collectSchemaFieldNames(child, field, out, depth+1)
-			}
-		}
-	}
-	if items, ok := schema["items"].(map[string]any); ok {
-		collectSchemaFieldNames(items, prefix+"[]", out, depth+1)
-	}
-}
-
-func intentJSONShape() string {
-	return `{
-  "openapi": "openapi/example.yaml",
-  "workflow": {"name": "workflow_name", "description": "short description"},
-  "inputs": [{"name": "input_name", "type": "string", "required": true}],
-  "steps": [
-    {
-      "name": "step_name",
-      "type": "http",
-      "do": "natural-language action",
-      "operation": "optional_operationId",
-      "depends_on": ["prior_step"],
-      "with": {"query.id": "prior_step.received_body.id"}
-    }
-  ],
-  "outputs": [{"name": "result", "from": "step_name.received_body"}]
-}`
-}
-
-func extractJSON(response string) (string, error) {
-	response = strings.TrimSpace(response)
-	if response == "" {
-		return "", fmt.Errorf("empty model response")
-	}
-	if strings.HasPrefix(response, "```") {
-		lines := strings.Split(response, "\n")
-		if len(lines) >= 3 {
-			lines = lines[1 : len(lines)-1]
-			return strings.TrimSpace(strings.Join(lines, "\n")), nil
-		}
-	}
-	start := strings.Index(response, "{")
-	end := strings.LastIndex(response, "}")
-	if start < 0 || end <= start {
-		return "", fmt.Errorf("no JSON object found in model response")
-	}
-	return response[start : end+1], nil
 }
 
 func validateIntentOpenAPIRefs(intent *rollout.Intent, candidates []openapidisco.Candidate, primary string, noOpenAPI bool) error {
@@ -934,111 +642,6 @@ func allowedIntentRuntimeType(typ string) bool {
 		return true
 	default:
 		return false
-	}
-}
-
-func reviewMarkdown(result Result, provider, model string) string {
-	var b strings.Builder
-	b.WriteString("# Ramen Review Evidence\n\n")
-	fmt.Fprintf(&b, "- Project brief: `%s`\n", relOrAbs(result.ExampleDir, result.ProjectPath))
-	fmt.Fprintf(&b, "- Intent HCL: `%s`\n", relOrAbs(result.ExampleDir, result.IntentPath))
-	fmt.Fprintf(&b, "- Workflow HCL: `%s`\n", relOrAbs(result.ExampleDir, result.WorkflowPath))
-	fmt.Fprintf(&b, "- UWS artifact: `%s`\n", relOrAbs(result.ExampleDir, result.UWSPath))
-	fmt.Fprintf(&b, "- Expected plan: `%s`\n", relOrAbs(result.ExampleDir, result.PlanJSONPath))
-	fmt.Fprintf(&b, "- Discovery report: `%s`\n", relOrAbs(result.ExampleDir, result.DiscoveryJSONPath))
-	fmt.Fprintf(&b, "- Refinement report: `%s`\n", relOrAbs(result.ExampleDir, result.RefinementJSONPath))
-	fmt.Fprintf(&b, "- Primary OpenAPI: `%s`\n", result.PrimaryOpenAPI)
-	if provider != "" || model != "" {
-		fmt.Fprintf(&b, "- LLM: `%s` `%s`\n", provider, model)
-	}
-	b.WriteString("\n## OpenAPI Candidates\n\n")
-	for _, candidate := range result.OpenAPICandidates {
-		fmt.Fprintf(&b, "- `%s`", candidate.RelativePath)
-		if candidate.Title != "" {
-			fmt.Fprintf(&b, " - %s", candidate.Title)
-		}
-		if candidate.Source != "" {
-			fmt.Fprintf(&b, " (%s)", candidate.Source)
-		}
-		b.WriteString("\n")
-	}
-	if len(result.DiscoveryReport.Attempts) > 0 {
-		b.WriteString("\n## OpenAPI Discovery Attempts\n\n")
-		for _, attempt := range result.DiscoveryReport.Attempts {
-			fmt.Fprintf(&b, "- `%s` %s", attempt.Kind, attempt.Status)
-			if attempt.Source != "" {
-				fmt.Fprintf(&b, " `%s`", attempt.Source)
-			}
-			if attempt.Detail != "" {
-				fmt.Fprintf(&b, " - %s", attempt.Detail)
-			}
-			b.WriteString("\n")
-		}
-	}
-	if intent, err := rollout.ParseIntentFile(result.IntentPath); err == nil {
-		b.WriteString("\n## Inferred Steps And Data Flow\n\n")
-		writeIntentDataFlowReview(&b, intent)
-	}
-	b.WriteString("\n## Validation\n\n")
-	b.WriteString("- Generated intent.hcl from project.md.\n")
-	b.WriteString("- Generated workflow.hcl through udon rollout generation.\n")
-	b.WriteString("- Compiled workflow.hcl through udon runtime plan generation.\n")
-	b.WriteString("- Exported workflow.uws.yaml and validated it against the UWS schema.\n")
-	b.WriteString("- Side-effectful execution was skipped.\n\n")
-	b.WriteString("Trusted proof run, only when explicitly approved:\n\n")
-	fmt.Fprintf(&b, "```bash\n./scripts/run-udon.sh %s %s\n```\n", relOrAbs(filepath.Dir(result.ExampleDir), result.WorkflowPath), result.ExampleDir)
-	return b.String()
-}
-
-func writeIntentDataFlowReview(b *strings.Builder, intent *rollout.Intent) {
-	if intent == nil || len(intent.Steps) == 0 {
-		b.WriteString("- No intent steps were available for review.\n")
-		return
-	}
-	var wrote bool
-	walkIntentSteps(intent.Steps, func(step *rollout.Step) {
-		if step == nil {
-			return
-		}
-		name := strings.TrimSpace(step.Name)
-		if name == "" {
-			name = "<unnamed>"
-		}
-		typ := strings.TrimSpace(step.Type)
-		if typ == "" {
-			typ = "unspecified"
-		}
-		fmt.Fprintf(b, "- `%s` (%s)", name, typ)
-		if step.Operation != "" {
-			fmt.Fprintf(b, " operation `%s`", step.Operation)
-		}
-		if step.Do != "" {
-			fmt.Fprintf(b, ": %s", strings.Join(strings.Fields(step.Do), " "))
-		}
-		b.WriteString("\n")
-		wrote = true
-		for _, bind := range step.Binds {
-			if bind == nil {
-				continue
-			}
-			fmt.Fprintf(b, "  - bind from `%s`", bind.From)
-			if len(bind.Fields) == 0 {
-				b.WriteString("\n")
-				continue
-			}
-			keys := make([]string, 0, len(bind.Fields))
-			for key := range bind.Fields {
-				keys = append(keys, key)
-			}
-			sort.Strings(keys)
-			for _, key := range keys {
-				fmt.Fprintf(b, ": `%s <- %s`", key, bind.Fields[key])
-			}
-			b.WriteString("\n")
-		}
-	})
-	if !wrote {
-		b.WriteString("- No leaf intent steps were available for review.\n")
 	}
 }
 

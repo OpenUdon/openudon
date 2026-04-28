@@ -5,6 +5,8 @@ import (
 	"flag"
 	"fmt"
 	"os"
+	"os/signal"
+	"syscall"
 	"time"
 
 	"github.com/genelet/ramen/internal/config"
@@ -84,18 +86,20 @@ func runArtifactCommand(command string, args []string) {
 		Timeout:     *timeout,
 		MaxAttempts: *maxAttempts,
 	}
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer stop()
 	var result *synthesize.Result
 	var report *synthesize.QualityReport
 	var err error
 	switch command {
 	case "synthesize":
-		result, err = synthesize.Synthesize(context.Background(), opts)
+		result, err = synthesize.Synthesize(ctx, opts)
 	case "build":
-		result, err = synthesize.Build(context.Background(), opts)
+		result, err = synthesize.Build(ctx, opts)
 	case "promote":
-		result, err = synthesize.Promote(context.Background(), opts)
+		result, err = synthesize.Promote(ctx, opts)
 	case "assess":
-		report, err = synthesize.Assess(opts)
+		report, err = synthesize.AssessContext(ctx, opts)
 		if err == nil {
 			printQuality(report)
 			if !report.Passed() {

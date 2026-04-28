@@ -9,13 +9,15 @@ import (
 )
 
 const defaultMaxAttempts = 5
+const intentPromptVersion = "intent.v1"
 
 type RefinementReport struct {
-	Status      string              `json:"status"`
-	Example     string              `json:"example"`
-	MaxAttempts int                 `json:"max_attempts"`
-	Attempts    []RefinementAttempt `json:"attempts"`
-	StopReason  string              `json:"stop_reason,omitempty"`
+	Status        string              `json:"status"`
+	Example       string              `json:"example"`
+	MaxAttempts   int                 `json:"max_attempts"`
+	PromptVersion string              `json:"prompt_version"`
+	Attempts      []RefinementAttempt `json:"attempts"`
+	StopReason    string              `json:"stop_reason,omitempty"`
 }
 
 type RefinementAttempt struct {
@@ -36,9 +38,10 @@ func maxAttempts(value int) int {
 
 func newRefinementReport(result Result, max int) *RefinementReport {
 	return &RefinementReport{
-		Status:      "running",
-		Example:     result.ExampleDir,
-		MaxAttempts: max,
+		Status:        "running",
+		Example:       result.ExampleDir,
+		MaxAttempts:   max,
+		PromptVersion: intentPromptVersion,
 	}
 }
 
@@ -102,39 +105,90 @@ func failingCheckDetails(report *QualityReport) string {
 	return strings.Join(details, "; ")
 }
 
-func firstFailingCheck(report *QualityReport) QualityCheck {
-	if report == nil {
-		return QualityCheck{}
+func qualityFailureSignature(report *QualityReport) string {
+	failures := failingChecks(report)
+	if len(failures) == 0 {
+		return ""
 	}
-	for _, check := range report.Checks {
-		if check.Status == "fail" {
-			return check
+	best := checkRepairMetadata{family: "unknown", priority: -1}
+	for _, check := range failures {
+		meta := qualityCheckRepairMetadata(check.Code)
+		if meta.terminal {
+			return meta.family
+		}
+		if meta.priority > best.priority || (meta.priority == best.priority && meta.family < best.family) {
+			best = meta
 		}
 	}
-	return QualityCheck{}
-}
-
-func qualityFailureSignature(report *QualityReport) string {
-	return strings.Join(failingCheckCodes(report), "|")
+	return best.family
 }
 
 func classifyRefinementAction(report *QualityReport) (string, bool) {
-	check := firstFailingCheck(report)
-	code := check.Code
-	switch {
-	case code == "":
+	failures := failingChecks(report)
+	if len(failures) == 0 {
 		return "complete", true
-	case code == "project.present", code == "artifacts.no_secrets", code == "credentials.bindings", code == "intent.runtime_policy":
-		return "stop", true
-	case strings.HasPrefix(code, "openapi."), code == "plan.gaps":
-		return "discover_openapi", false
-	case strings.HasPrefix(code, "intent."):
-		return "regenerate_intent", false
-	case strings.HasPrefix(code, "workflow."), strings.HasPrefix(code, "uws."), strings.HasPrefix(code, "review."):
-		return "regenerate_workflow", false
-	default:
-		return "stop", true
 	}
+	best := checkRepairMetadata{action: "stop", terminal: true, priority: -1}
+	for _, check := range failures {
+		meta := qualityCheckRepairMetadata(check.Code)
+		if meta.terminal {
+			return "stop", true
+		}
+		if meta.priority > best.priority {
+			best = meta
+		}
+	}
+	return best.action, best.terminal
+}
+
+type checkRepairMetadata struct {
+	action   string
+	terminal bool
+	priority int
+	family   string
+}
+
+func failingChecks(report *QualityReport) []QualityCheck {
+	if report == nil {
+		return nil
+	}
+	var out []QualityCheck
+	for _, check := range report.Checks {
+		if check.Status == "fail" {
+			out = append(out, check)
+		}
+	}
+	return out
+}
+
+func qualityCheckRepairMetadata(code string) checkRepairMetadata {
+	family := qualityCheckFamily(code)
+	switch {
+	case code == "project.present", code == "artifacts.no_secrets", code == "credentials.bindings", code == "intent.runtime_policy":
+		return checkRepairMetadata{action: "stop", terminal: true, priority: 100, family: family}
+	case strings.HasPrefix(code, "openapi."), code == "plan.gaps":
+		return checkRepairMetadata{action: "discover_openapi", priority: 30, family: family}
+	case strings.HasPrefix(code, "intent."):
+		return checkRepairMetadata{action: "regenerate_intent", priority: 20, family: family}
+	case strings.HasPrefix(code, "workflow."), strings.HasPrefix(code, "uws."), strings.HasPrefix(code, "review."):
+		return checkRepairMetadata{action: "regenerate_workflow", priority: 10, family: family}
+	default:
+		return checkRepairMetadata{action: "stop", terminal: true, priority: 100, family: family}
+	}
+}
+
+func qualityCheckFamily(code string) string {
+	code = strings.TrimSpace(code)
+	if code == "" {
+		return "unknown"
+	}
+	if code == "plan.gaps" {
+		return "plan"
+	}
+	if prefix, _, ok := strings.Cut(code, "."); ok {
+		return prefix
+	}
+	return code
 }
 
 func writeRefinementReport(result Result, report *RefinementReport) error {
@@ -159,6 +213,9 @@ func refinementMarkdown(report *RefinementReport) string {
 	b.WriteString("# Ramen Refinement Report\n\n")
 	fmt.Fprintf(&b, "Status: `%s`\n\n", report.Status)
 	fmt.Fprintf(&b, "Max attempts: `%d`\n\n", report.MaxAttempts)
+	if report.PromptVersion != "" {
+		fmt.Fprintf(&b, "Prompt version: `%s`\n\n", report.PromptVersion)
+	}
 	for _, attempt := range report.Attempts {
 		fmt.Fprintf(&b, "- Attempt `%d` `%s` %s\n", attempt.Number, attempt.Action, attempt.Status)
 		if len(attempt.FailingChecks) > 0 {

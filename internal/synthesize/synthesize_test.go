@@ -2,6 +2,7 @@ package synthesize
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -62,6 +63,16 @@ func (c *retryWorkflowClient) Generate(ctx context.Context, prompt string) (stri
 }
 
 type badInputSourceClient struct{}
+
+type failingChatClient struct{}
+
+func (failingChatClient) Chat(context.Context, []rollout.ChatMessage) (string, error) {
+	return "", context.Canceled
+}
+
+func (failingChatClient) Generate(context.Context, string) (string, error) {
+	return "", context.Canceled
+}
 
 func (badInputSourceClient) Chat(context.Context, []rollout.ChatMessage) (string, error) {
 	return `{
@@ -1151,6 +1162,9 @@ func TestSynthesizeRetriesWorkflowGenerationAndWritesRefinementReport(t *testing
 	if !strings.Contains(string(refinement), `"status": "pass"`) || !strings.Contains(string(refinement), "missingTicketOperation") {
 		t.Fatalf("refinement report missing retry evidence:\n%s", refinement)
 	}
+	if !strings.Contains(string(refinement), `"prompt_version": "`+intentPromptVersion+`"`) {
+		t.Fatalf("refinement report missing prompt version:\n%s", refinement)
+	}
 }
 
 func TestSynthesizeStopsAtMaxAttemptsAndWritesRefinementReport(t *testing.T) {
@@ -1248,6 +1262,121 @@ func TestBuildAndPromoteRequireProjectBrief(t *testing.T) {
 	}
 	if _, err := Promote(context.Background(), Options{ExampleDir: example}); err == nil || !strings.Contains(err.Error(), "read project brief") {
 		t.Fatalf("expected promote to require project.md, got %v", err)
+	}
+}
+
+func TestSynthesizeHonorsCancelledContextBeforeWork(t *testing.T) {
+	example := filepath.Join(t.TempDir(), "examples", "cancelled")
+	writeSupportExample(t, example, false)
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	if _, err := Synthesize(ctx, Options{ExampleDir: example, LLMClient: fakeClient{}, ChatClient: fakeClient{}}); err == nil || err != context.Canceled {
+		t.Fatalf("expected context.Canceled, got %v", err)
+	}
+}
+
+func TestSynthesizePropagatesRefinementReportWriteFailure(t *testing.T) {
+	example := filepath.Join(t.TempDir(), "examples", "refinement-write-fail")
+	if err := os.MkdirAll(example, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(example, "project.md"), []byte(`# Runtime Only
+
+## Goal
+
+Render a local report.
+
+## External Systems and OpenAPI
+
+OpenAPI: none required
+
+## Runtime Policy
+
+- fnct allowed.
+
+## Safety and Approval Boundary
+
+- Generate only.
+
+## Fallback Behavior
+
+- Stop on failure.
+`), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(example, "expected"), []byte("not a directory"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	_, err := Synthesize(context.Background(), Options{
+		ExampleDir: example,
+		LLMClient:  failingChatClient{},
+		ChatClient: failingChatClient{},
+	})
+	if err == nil || !strings.Contains(err.Error(), "write refinement report") {
+		t.Fatalf("expected refinement write failure, got %v", err)
+	}
+}
+
+func TestClassifierUsesHighestPriorityFailingAction(t *testing.T) {
+	report := &QualityReport{Checks: []QualityCheck{
+		{Code: "workflow.plan_match", Status: "fail"},
+		{Code: "openapi.local", Status: "fail"},
+	}}
+	action, terminal := classifyRefinementAction(report)
+	if action != "discover_openapi" || terminal {
+		t.Fatalf("action = %s terminal=%v, want discover_openapi false", action, terminal)
+	}
+	report.Checks = append(report.Checks, QualityCheck{Code: "artifacts.no_secrets", Status: "fail"})
+	action, terminal = classifyRefinementAction(report)
+	if action != "stop" || !terminal {
+		t.Fatalf("action = %s terminal=%v, want stop true", action, terminal)
+	}
+}
+
+func TestQualityFailureSignatureUsesStableFamilies(t *testing.T) {
+	report := &QualityReport{Checks: []QualityCheck{
+		{Code: "workflow.plan_match", Status: "fail"},
+		{Code: "workflow.binding_sources", Status: "fail"},
+		{Code: "intent.slots", Status: "fail"},
+	}}
+	if got := qualityFailureSignature(report); got != "intent" {
+		t.Fatalf("signature = %q", got)
+	}
+}
+
+func TestSpecSummaryAppliesGlobalOperationBudget(t *testing.T) {
+	dir := t.TempDir()
+	first := filepath.Join(dir, "first.yaml")
+	second := filepath.Join(dir, "second.yaml")
+	if err := os.WriteFile(first, []byte(manyOperationsOpenAPI("first", 50)), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(second, []byte(manyOperationsOpenAPI("second", 50)), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	summary := specSummary([]openapidisco.Candidate{
+		{Path: first, RelativePath: "openapi/first.yaml"},
+		{Path: second, RelativePath: "openapi/second.yaml"},
+	})
+	if count := strings.Count(summary, "  operation:"); count != maxPromptOperationsTotal {
+		t.Fatalf("operation count = %d, want %d\n%s", count, maxPromptOperationsTotal, summary)
+	}
+	if !strings.Contains(summary, "omitted_operations: 20") {
+		t.Fatalf("summary missing omitted global-budget evidence:\n%s", summary)
+	}
+}
+
+func TestSecretScannerFlagsCommonTokenFamilies(t *testing.T) {
+	values := []string{
+		"ghp_abcdefghijklmnopqrstuvwxyzABCDEFGHIJ",
+		"sk-ant-api03-abcdefghijklmnopqrstuvwxyz1234567890",
+		"AKIA1234567890ABCDEF",
+		"eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIxMjM0NTY3ODkwIn0.TJVA95OrM7E2cBab30RMHrHDcEfxjoYZgeFONFh7HgQ",
+	}
+	for _, value := range values {
+		if !containsSecretLikeToken([]byte(value)) {
+			t.Fatalf("secret scanner did not flag %q", value)
+		}
 	}
 }
 
@@ -1437,4 +1566,13 @@ paths:
         "200":
           description: ok
 `
+}
+
+func manyOperationsOpenAPI(title string, count int) string {
+	var b strings.Builder
+	fmt.Fprintf(&b, "openapi: 3.0.0\ninfo:\n  title: %s\n  version: 1.0.0\npaths:\n", title)
+	for i := 0; i < count; i++ {
+		fmt.Fprintf(&b, "  /op%d:\n    get:\n      operationId: %sOp%d\n      responses:\n        \"200\":\n          description: ok\n", i, title, i)
+	}
+	return b.String()
 }

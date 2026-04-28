@@ -1,6 +1,7 @@
 package synthesize
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -39,6 +40,16 @@ func (r *QualityReport) Passed() bool {
 }
 
 func Assess(opts Options) (*QualityReport, error) {
+	return AssessContext(context.Background(), opts)
+}
+
+func AssessContext(ctx context.Context, opts Options) (*QualityReport, error) {
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
 	exampleDir, err := resolveExampleDir(opts.ExampleDir)
 	if err != nil {
 		return nil, err
@@ -60,6 +71,9 @@ func Assess(opts Options) (*QualityReport, error) {
 		addProjectAuthoringChecks(report, projectText)
 	}
 
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
 	candidates, err := openapidisco.LocalFiles(filepath.Join(exampleDir, "openapi"), exampleDir, projectText)
 	if err != nil && !(policy.NoOpenAPI && errors.Is(err, os.ErrNotExist)) {
 		report.add("openapi.local", "fail", "OpenAPI directory could not be scanned", err.Error())
@@ -81,7 +95,13 @@ func Assess(opts Options) (*QualityReport, error) {
 	expectedPlan := assessWorkflowPlan(report, result)
 	assessDiscoveryReport(report, result.DiscoveryJSONPath)
 	intent, intentOK := assessIntent(report, result.IntentPath, candidates, result.PrimaryOpenAPI, policy)
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
 	planOK := assessWorkflow(report, result.WorkflowPath, exampleDir, intent, policy, expectedPlan)
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
 	assessUWS(report, result.UWSPath, opts.SchemaPath, exampleDir)
 	assessReview(report, result.ReviewPath)
 	assessSecrets(report, result)
@@ -899,7 +919,7 @@ func assessSecrets(report *QualityReport, result Result) {
 		if err != nil {
 			continue
 		}
-		if secretPattern.Match(data) {
+		if containsSecretLikeToken(data) {
 			hits = append(hits, relOrAbs(result.ExampleDir, path))
 		}
 	}
@@ -1022,4 +1042,27 @@ func (r *QualityReport) finalize() {
 	r.Status = "pass"
 }
 
-var secretPattern = regexp.MustCompile(`(?i)(AIza[0-9A-Za-z_-]{20,}|sk-[0-9A-Za-z_-]{20,}|api[_-]?key\s*=\s*["'][^"']{12,}|token\s*=\s*["'][^"']{12,})`)
+const (
+	minAssignedSecretLength = 12
+	jwtSegmentMinLength     = 10
+)
+
+var secretPatterns = []*regexp.Regexp{
+	regexp.MustCompile(`AIza[0-9A-Za-z_-]{20,}`),
+	regexp.MustCompile(`sk-ant-api[0-9A-Za-z_-]*-[0-9A-Za-z_-]{20,}`),
+	regexp.MustCompile(`sk-(?:proj-)?[0-9A-Za-z_-]{20,}`),
+	regexp.MustCompile(`ghp_[0-9A-Za-z]{36,}`),
+	regexp.MustCompile(`github_pat_[0-9A-Za-z_]{20,}`),
+	regexp.MustCompile(`(?:AKIA|ASIA)[0-9A-Z]{16}`),
+	regexp.MustCompile(fmt.Sprintf(`(?i)(?:api[_-]?key|token|secret|password)\s*[:=]\s*["'][^"']{%d,}["']`, minAssignedSecretLength)),
+	regexp.MustCompile(fmt.Sprintf(`[A-Za-z0-9_-]{%d,}\.[A-Za-z0-9_-]{%d,}\.[A-Za-z0-9_-]{%d,}`, jwtSegmentMinLength, jwtSegmentMinLength, jwtSegmentMinLength)),
+}
+
+func containsSecretLikeToken(data []byte) bool {
+	for _, pattern := range secretPatterns {
+		if pattern.Match(data) {
+			return true
+		}
+	}
+	return false
+}
