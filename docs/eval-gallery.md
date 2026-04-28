@@ -13,6 +13,7 @@ specific workflow behavior or failure class rather than merely adding volume.
 | `inventory-api-key-binding` | Credential binding names for API-key-style request parameters. |
 | `order-fulfillment-chain` | Multi-service OpenAPI chain with per-service credentials, response extraction, request-body construction, and a sandbox write. |
 | `paginated-list` | Simple OpenAPI list operation with bounded request parameters. |
+| `profile-boundary-manifest` | Future runtime/profile boundary coverage: renders a local manifest with `fnct` instead of inventing SQL, SSH, or `x-udon-*` profile semantics. |
 | `runtime-only-render` | No-OpenAPI runtime-only `fnct` rendering workflow. |
 | `support-email` | API lookup plus approved side-effectful email adapter and safety boundary. |
 | `support-priority-routing` | Function-backed classification/routing with explicit contracts. |

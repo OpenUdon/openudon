@@ -20,7 +20,7 @@ handoff requirements, and XRD-007 private checkout and secrets prerequisites.
 | XRD-005 | Handed off | External Symphony owner | `../symphony` | Ramen emits review evidence, handoff files, and the concrete owner handoff in `docs/xrd-005-symphony-handoff.md`; approval routing remains external. | Symphony owner implementation from the documented handoff package and approval states. | None in Ramen unless the handoff contract changes. |
 | XRD-006 | Watch | Ramen release owner / provider owners | Provider APIs | Provider behavior can drift in schema dialect support, rate limits, transient failures, and model availability. | Eval Markdown reports now include a Provider Drift Watch section, with the runbook in `docs/xrd-006-provider-drift-watch.md`. | No implementation plan; keep watching during release evals. |
 | XRD-007 | Handed off | Infra owner | Repo access / secrets | Hosted GitHub CI remains disabled because private siblings, credentials, and generated artifacts require private-runner controls. | Ramen has `docs/xrd-007-infra-handoff.md` plus the runbook in `docs/cross-repo-contracts.md`. | None in Ramen unless infra changes the automation contract. |
-| XRD-008 | Ready | Ramen eval owner, then udon/uws owners for reusable semantics | `../ramen`, then `../udon` / `../uws` | Runtime-only and command evals cover basic policy, but future runtime profiles need broader compatibility proof. | Ramen runtime/profile policy and eval fixture plan. | XRD-008 runtime/profile eval coverage. |
+| XRD-008 | Closed | Ramen eval owner, then udon/uws owners for reusable semantics | `../ramen`, then `../udon` / `../uws` | Ramen has `docs/xrd-008-runtime-profile-eval-plan.md` plus runtime/profile fixtures for approved `fnct`, approved `cmd`, denied `cmd`/`ssh`, and future profile-boundary behavior. | Upstream udon/UWS issue only if future fixtures require reusable runtime/profile semantics. | None unless runtime/profile evals regress. |
 
 ## XRD-001 Structured Output
 
@@ -149,15 +149,18 @@ runner access, private checkout, CI secret policy, and any future re-enable deci
 
 ## XRD-008 Runtime/Profile Eval Coverage
 
-Decision: second actionable Ramen follow-up plan.
+Decision: closed Ramen follow-up plan with regression ownership.
 
-Next artifact: a Ramen runtime/profile eval plan and policy fixture set.
+Next artifact: upstream udon/UWS issue only if future fixtures need reusable runtime/profile
+semantics beyond Ramen policy evidence.
 
 Acceptance criteria:
 
 - Ramen adds only policy and eval fixtures for runtime/profile coverage.
 - Runtime/profile semantics remain upstream in `../udon` or `../uws`.
 - Fixtures distinguish Ramen policy decisions from reusable execution or public semantics gaps.
+- The coverage matrix lives in
+  [`docs/xrd-008-runtime-profile-eval-plan.md`](xrd-008-runtime-profile-eval-plan.md).
 
 Implementation boundary: Ramen owns project policy, curated fixtures, and compatibility evidence.
 Profile semantics and generic execution belong upstream.

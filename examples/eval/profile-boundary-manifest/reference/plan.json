@@ -1,0 +1,7 @@
+{
+  "version": "ramen.workflow-plan.v1",
+  "workflow": "profile_boundary_manifest",
+  "steps": [
+    {"name": "render_export_manifest", "runtime": "fnct"}
+  ]
+}

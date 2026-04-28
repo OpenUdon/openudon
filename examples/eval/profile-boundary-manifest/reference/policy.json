@@ -1,0 +1,7 @@
+{
+  "mode": "strict",
+  "notes": [
+    "The profile boundary fixture is stable; Ramen must use a trusted fnct manifest instead of inventing SQL, SSH, or x-udon profile runtime semantics."
+  ],
+  "max_blocking": 0
+}
