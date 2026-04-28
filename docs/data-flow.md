@@ -1,0 +1,83 @@
+# Ramen Data Flow
+
+Ramen workflows pass data through explicit step outputs and request inputs. A user can describe one
+business action, but generated artifacts must expose the technical steps and field mappings needed
+to execute it.
+
+## How Data Moves
+
+- OpenAPI steps receive request fields from literals, workflow inputs, credential bindings, or prior
+  step outputs.
+- Prior step outputs are referenced as `step_name.received_body...` in workflow HCL.
+- `intent.hcl` should use `bind` blocks when one step feeds another.
+- `fnct` steps are trusted adapters or transformations. Their input and output contract should be
+  documented in `project.md`.
+
+## Explicit Bindings
+
+Use explicit bindings when a later step needs fields from an earlier response:
+
+```hcl
+step "get_weather" {
+  type      = "http"
+  do        = "Fetch current weather from coordinates"
+  operation = "getWeatherData"
+
+  bind {
+    from = "get_coordinates"
+    fields = {
+      "lat" = "body[0].lat"
+      "lon" = "body[0].lon"
+    }
+  }
+}
+```
+
+This means:
+
+- `get_weather.lat` comes from `get_coordinates.received_body[0].lat`
+- `get_weather.lon` comes from `get_coordinates.received_body[0].lon`
+- `get_weather` depends on `get_coordinates`
+
+## Hidden Technical Steps
+
+Users do not need to know every API endpoint. For example:
+
+```md
+Search weather in Toronto, Canada.
+```
+
+If the available OpenAPI documents expose both geocoding and weather operations, Ramen should
+expand that into:
+
+1. `get_coordinates`: call geocoding with city and country.
+2. `get_weather`: call weather with `lat` and `lon` from `get_coordinates`.
+
+Those hidden technical steps must appear in `intent.hcl`, `workflow.hcl`, review evidence, and
+quality reports. They should not remain implicit.
+
+Ramen also writes `expected/plan.json` and `expected/plan.md`. The plan records each inferred
+technical step, the chosen runtime or OpenAPI operation, required parameters, dependencies, and
+bindings. During assessment, Ramen compiles the final `workflow.hcl` through udon and verifies the
+compiled workflow still preserves those mappings.
+
+## Missing Operations
+
+If the selected OpenAPI document only has a weather endpoint that requires `lat` and `lon`, Ramen
+must not invent coordinates for a city. It should try approved OpenAPI discovery/import. If no
+geocoding operation is available, it should stop with a clear missing-capability report.
+
+## Function Contracts
+
+For `fnct` steps, document the function contract in `project.md`:
+
+```md
+## Function Contracts
+
+- `normalize_ticket`
+  - Inputs: `get_ticket.received_body`
+  - Outputs: normalized ticket fields: `requester_email`, `subject`, `summary`
+  - Side effects: none
+```
+
+Ramen can then wire the function output into later API or runtime steps.

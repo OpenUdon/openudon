@@ -1,0 +1,63 @@
+module github.com/genelet/ramen
+
+go 1.25.5
+
+require (
+	github.com/genelet/udon v0.0.0
+	github.com/santhosh-tekuri/jsonschema/v6 v6.0.2
+	github.com/tabilet/uws v0.0.0-00010101000000-000000000000
+	gopkg.in/yaml.v3 v3.0.1
+)
+
+require (
+	cloud.google.com/go/compute/metadata v0.9.0 // indirect
+	github.com/agext/levenshtein v1.2.3 // indirect
+	github.com/antchfx/xmlquery v1.5.1 // indirect
+	github.com/antchfx/xpath v1.3.6 // indirect
+	github.com/apparentlymart/go-cidr v1.1.0 // indirect
+	github.com/apparentlymart/go-textseg/v15 v15.0.0 // indirect
+	github.com/basgys/goxml2json v1.1.0 // indirect
+	github.com/bmatcuk/doublestar v1.3.4 // indirect
+	github.com/genelet/determined v1.13.5 // indirect
+	github.com/genelet/grand v0.0.0-20251204155631-c0db9360e797 // indirect
+	github.com/genelet/hcllight v0.3.3 // indirect
+	github.com/genelet/horizon v1.14.2 // indirect
+	github.com/genelet/oas v0.0.0-20251230202742-6861c891a9d1 // indirect
+	github.com/golang/groupcache v0.0.0-20210331224755-41bb18bfe9da // indirect
+	github.com/google/go-cmp v0.7.0 // indirect
+	github.com/google/uuid v1.6.0 // indirect
+	github.com/hashicorp/go-uuid v1.0.3 // indirect
+	github.com/hashicorp/hcl/v2 v2.24.0 // indirect
+	github.com/mitchellh/copystructure v1.2.0 // indirect
+	github.com/mitchellh/go-homedir v1.1.0 // indirect
+	github.com/mitchellh/go-wordwrap v1.0.1 // indirect
+	github.com/mitchellh/reflectwalk v1.0.2 // indirect
+	github.com/tabilet/schema v0.0.0-20260413181549-3f8667c17b7f // indirect
+	github.com/zclconf/go-cty v1.17.0 // indirect
+	github.com/zclconf/go-cty-yaml v1.1.0 // indirect
+	golang.org/x/crypto v0.46.0 // indirect
+	golang.org/x/mod v0.30.0 // indirect
+	golang.org/x/net v0.48.0 // indirect
+	golang.org/x/oauth2 v0.34.0 // indirect
+	golang.org/x/sync v0.19.0 // indirect
+	golang.org/x/sys v0.39.0 // indirect
+	golang.org/x/text v0.32.0 // indirect
+	golang.org/x/tools v0.39.0 // indirect
+	google.golang.org/protobuf v1.36.11 // indirect
+)
+
+replace github.com/genelet/udon => ../udon
+
+replace github.com/genelet/grand => ../grand
+
+replace github.com/genelet/golet => ../golet
+
+replace github.com/genelet/molecule => ../molecule
+
+replace github.com/genelet/hcllight => ../hcllight
+
+replace github.com/genelet/horizon => ../horizon
+
+replace github.com/tabilet/uws => ../uws
+
+replace github.com/tabilet/arazzo => ../arazzo
