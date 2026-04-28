@@ -83,12 +83,13 @@ func runEvalCommand(args []string) {
 	temperature := fs.Float64("temperature", 0.2, "Intent generation temperature")
 	concurrency := fs.Int("concurrency", 2, "Maximum concurrent eval runs")
 	releaseGate := fs.Bool("release-gate", false, "Fail unless eval results meet local release criteria")
+	minBriefs := fs.Int("min-briefs", 0, "Minimum eval brief count required by --release-gate")
 	compare := fs.String("compare", "", "Compare this eval report against a specific previous JSON report")
 	noCompare := fs.Bool("no-compare", false, "Disable previous-run comparison")
 	archiveDir := fs.String("archive-dir", "", "Copy generated eval workspaces under this directory for manual inspection")
 	out := fs.String("out", evalpkg.DefaultOutputPath(time.Now()), "JSON report output path")
 	fs.Usage = func() {
-		fmt.Fprintf(fs.Output(), "Usage: ramen eval [--root examples/eval] [--name support-email] [--out eval/runs/<ts>.json] [--release-gate] [--compare eval/runs/<previous>.json] [--no-compare] [--archive-dir eval/artifacts]\n")
+		fmt.Fprintf(fs.Output(), "Usage: ramen eval [--root examples/eval] [--name support-email] [--out eval/runs/<ts>.json] [--release-gate] [--min-briefs N] [--compare eval/runs/<previous>.json] [--no-compare] [--archive-dir eval/artifacts]\n")
 		fmt.Fprintf(fs.Output(), "\nRuns synthesis against temporary copies of eval briefs and writes JSON/Markdown reports with optional run comparison.\n")
 		fmt.Fprintf(fs.Output(), "Normal evals print comparison regressions for review but exit successfully when synthesis completes.\n")
 		fmt.Fprintf(fs.Output(), "With --release-gate, absolute release criteria and comparison regressions fail the command.\n")
@@ -174,7 +175,9 @@ func runEvalCommand(args []string) {
 	fmt.Printf("ramen: eval wrote %s\n", *out)
 	fmt.Print(evalpkg.MarkdownReport(report))
 	if *releaseGate {
-		if err := evalpkg.ReleaseCriteriaError(results, evalpkg.DefaultReleaseCriteria()); err != nil {
+		criteria := evalpkg.DefaultReleaseCriteria()
+		criteria.MinBriefs = *minBriefs
+		if err := evalpkg.ReleaseCriteriaError(results, criteria); err != nil {
 			fmt.Fprintln(os.Stderr, err)
 			os.Exit(1)
 		}

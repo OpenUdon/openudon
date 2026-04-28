@@ -39,7 +39,8 @@ make release-eval
 
 `make release-eval` uses `RAMEN_PROVIDER` and `RAMEN_MODEL`, defaulting to `gemini` and
 `gemini-2.5-flash`. It runs `ramen eval --release-gate`, so absolute release criteria and
-comparison regressions fail the command.
+comparison regressions fail the command. It also passes a minimum brief count for the current
+committed eval corpus; see `docs/xrd-009-expanded-corpus-release-evidence.md`.
 
 ## Release Notes
 

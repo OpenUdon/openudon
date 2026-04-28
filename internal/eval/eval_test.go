@@ -437,8 +437,15 @@ func TestReleaseCriteriaErrorCatchesReleaseGateFailures(t *testing.T) {
 			Passed:        false,
 			FailingChecks: []string{"artifacts.no_secrets"},
 		},
-	}, DefaultReleaseCriteria())
+	}, ReleaseCriteria{
+		MinBriefs:            3,
+		MinPassRate:          1,
+		MaxAttemptsPerBrief:  2,
+		MaxBlockingReference: 0,
+		RequireNoSecretScan:  true,
+	})
 	for _, expected := range []string{
+		"eval corpus size",
 		"pass rate",
 		"legacy fallback count",
 		"attempt count exceeds",

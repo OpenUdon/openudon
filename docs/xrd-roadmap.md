@@ -21,6 +21,7 @@ handoff requirements, and XRD-007 private checkout and secrets prerequisites.
 | XRD-006 | Watch | Ramen release owner / provider owners | Provider APIs | Provider behavior can drift in schema dialect support, rate limits, transient failures, and model availability. | Eval Markdown reports now include a Provider Drift Watch section, with the runbook in `docs/xrd-006-provider-drift-watch.md`. | No implementation plan; keep watching during release evals. |
 | XRD-007 | Handed off | Infra owner | Repo access / secrets | Hosted GitHub CI remains disabled because private siblings, credentials, and generated artifacts require private-runner controls. | Ramen has `docs/xrd-007-infra-handoff.md` plus the runbook in `docs/cross-repo-contracts.md`. | None in Ramen unless infra changes the automation contract. |
 | XRD-008 | Closed | Ramen eval owner, then udon/uws owners for reusable semantics | `../ramen`, then `../udon` / `../uws` | Ramen has `docs/xrd-008-runtime-profile-eval-plan.md` plus runtime/profile fixtures for approved `fnct`, approved `cmd`, denied `cmd`/`ssh`, and future profile-boundary behavior. | Upstream udon/UWS issue only if future fixtures require reusable runtime/profile semantics. | None unless runtime/profile evals regress. |
+| XRD-009 | Closed | Ramen release owner | `../ramen` | Expanded eval corpus has a release-evidence gate beyond the original ten-example real-provider baseline. | `make release-eval` enforces a minimum brief count from the current eval corpus; evidence package lives in `docs/xrd-009-expanded-corpus-release-evidence.md`. | None unless release evidence is under-sampled or the corpus gate regresses. |
 
 ## XRD-001 Structured Output
 
@@ -164,3 +165,19 @@ Acceptance criteria:
 
 Implementation boundary: Ramen owns project policy, curated fixtures, and compatibility evidence.
 Profile semantics and generic execution belong upstream.
+
+## XRD-009 Expanded Corpus Release Evidence
+
+Decision: closed Ramen release-evidence gate with regression ownership.
+
+Next artifact: local/manual real-provider release report when a candidate release is evaluated.
+
+Acceptance criteria:
+
+- `make release-eval` passes `--min-briefs` using the current eval corpus size.
+- `ramen eval --release-gate --min-briefs N` fails when fewer than `N` briefs are run.
+- Release notes record the eval corpus size, minimum brief gate, and any intentional exception.
+- Real-provider eval outputs remain ignored and uncommitted.
+
+Implementation boundary: Ramen owns release evidence, local checks, and ignored report paths.
+Provider drift remains XRD-006, and automation/secrets remain XRD-007.

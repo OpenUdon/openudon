@@ -20,7 +20,7 @@ workflow-reference false positives.
 
 The remaining gap is product readiness. The current evidence is still narrow, real-provider runs can
 vary, Gemini structured-output smoke reached zero legacy fallback with the original ten-example
-baseline corpus, and newer eval fixtures still need real-provider release evidence.
+baseline corpus, and expanded-corpus release evidence is tracked by XRD-009.
 
 ## [done] Post-POC Baseline
 
@@ -356,6 +356,7 @@ Dependency status markers:
 | XRD-006 | `[watch]` | P1 | Provider APIs | Structured-output schema dialect compatibility, rate limits, transient errors, and model availability. | Eval Markdown reports include a Provider Drift Watch section; `docs/xrd-006-provider-drift-watch.md` defines the release evidence path. | provider owners | Watch during release evals; no implementation plan is open. |
 | XRD-007 | `[handoff]` | P1 | Repo access / secrets | Private sibling checkout and provider credential availability for future workflow automation. | Ramen has `docs/xrd-007-infra-handoff.md` for private checkout, self-hosted runner, and secret/artifact controls; real-LLM eval remains local/manual. | infra | Hand `docs/xrd-007-infra-handoff.md` to infra; keep CI disabled until prerequisites are met. |
 | XRD-008 | `[done]` | P2 | `../ramen`, then `../udon` / `../uws` | Runtime/profile coverage for approved non-HTTP execution beyond current `fnct`/`cmd` smoke paths. | Ramen has `docs/xrd-008-runtime-profile-eval-plan.md` plus fixtures covering approved `fnct`, approved `cmd`, denied `cmd`/`ssh`, and future profile-boundary behavior. | Ramen eval owner / udon/uws | Keep the Ramen coverage as regression evidence; open upstream udon/UWS work only when future fixtures need reusable runtime/profile semantics. |
+| XRD-009 | `[done]` | P1 | `../ramen` | Real-provider release evidence for the expanded eval corpus beyond the original ten-example baseline. | `make release-eval` now passes a minimum brief count for the current corpus, and `docs/xrd-009-expanded-corpus-release-evidence.md` defines the evidence package. | Ramen release owner | Run local/manual release evals with the expanded-corpus gate; real-provider artifacts remain uncommitted. |
 
 Next upstream actions:
 

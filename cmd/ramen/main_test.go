@@ -61,6 +61,7 @@ func TestCLIEvalHelpIncludesReleaseGate(t *testing.T) {
 	for _, expected := range []string{
 		"Usage: ramen eval",
 		"--release-gate",
+		"--min-briefs",
 		"--compare",
 		"--no-compare",
 		"--archive-dir",

@@ -3,6 +3,7 @@
 GO ?= go
 RAMEN_PROVIDER ?= gemini
 RAMEN_MODEL ?= gemini-2.5-flash
+RAMEN_RELEASE_MIN_BRIEFS ?= $(shell find ./examples/eval -mindepth 1 -maxdepth 1 -type d | wc -l | tr -d ' ')
 
 help:
 	@echo "Targets: test, vet, check, release-check, release-eval, siblings, validate-uws, eval, synthesize-support, build-support, promote-support, assess-support, run-example"
@@ -23,7 +24,7 @@ release-check:
 	git diff --check
 
 release-eval:
-	$(GO) run ./cmd/ramen eval --root ./examples/eval --provider $(RAMEN_PROVIDER) --model $(RAMEN_MODEL) --release-gate
+	$(GO) run ./cmd/ramen eval --root ./examples/eval --provider $(RAMEN_PROVIDER) --model $(RAMEN_MODEL) --release-gate --min-briefs $(RAMEN_RELEASE_MIN_BRIEFS)
 
 siblings:
 	./scripts/check-siblings.sh

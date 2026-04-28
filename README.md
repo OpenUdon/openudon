@@ -166,7 +166,8 @@ The release gate requires a 100% pass rate, structured-mode usage with zero lega
 fallbacks, no brief above two refinement attempts, no blocking reference issues after each fixture's
 `reference/policy.json` is applied, and zero `artifacts.no_secrets` failures.
 `make release-eval` uses `RAMEN_PROVIDER` and `RAMEN_MODEL`, defaulting to `gemini` and
-`gemini-2.5-flash`.
+`gemini-2.5-flash`. It also passes the current eval corpus size as a minimum brief gate; see
+`docs/xrd-009-expanded-corpus-release-evidence.md`.
 
 CI and release automation remain disabled until the private-runner prerequisites in
 `docs/xrd-007-infra-handoff.md` are satisfied.

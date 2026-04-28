@@ -54,6 +54,7 @@ type ReferenceSummary struct {
 }
 
 type ReleaseCriteria struct {
+	MinBriefs            int
 	MinPassRate          float64
 	MaxLegacyFallbacks   int
 	MaxAttemptsPerBrief  int
@@ -355,6 +356,9 @@ func ReleaseCriteriaError(results []EvalResult, criteria ReleaseCriteria) error 
 		criteria.MaxBlockingReference = 0
 	}
 	var failures []string
+	if criteria.MinBriefs > 0 && len(results) < criteria.MinBriefs {
+		failures = append(failures, fmt.Sprintf("eval corpus size %d below required %d", len(results), criteria.MinBriefs))
+	}
 	if rate := passRate(results); rate < criteria.MinPassRate {
 		failures = append(failures, fmt.Sprintf("pass rate %.1f%% below required %.1f%%", rate*100, criteria.MinPassRate*100))
 	}

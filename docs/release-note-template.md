@@ -6,6 +6,7 @@
 - Commit:
 - Dirty worktree state:
 - Eval corpus size:
+- Minimum eval brief gate:
 - Provider:
 - Model:
 - Prompt version:
@@ -17,6 +18,7 @@
 - Blocking reference issues:
 - Secret-scan failures:
 - Release-gate result:
+- Expanded-corpus evidence exception:
 
 ## Local Checks
 
