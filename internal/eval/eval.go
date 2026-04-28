@@ -31,11 +31,20 @@ type EvalResult struct {
 	FailingChecks      []string         `json:"failing_checks,omitempty"`
 	DurationMs         int64            `json:"duration_ms"`
 	PromptTokensApprox int              `json:"prompt_tokens_approx"`
+	TokenUsage         *TokenUsage      `json:"token_usage,omitempty"`
 	Error              string           `json:"error,omitempty"`
 	ReferenceIssues    []CompareIssue   `json:"reference_issues,omitempty"`
 	ReferenceSummary   ReferenceSummary `json:"reference_summary,omitempty"`
 	ReferencePolicy    *ReferencePolicy `json:"reference_policy,omitempty"`
 	GeneratedDir       string           `json:"generated_dir,omitempty"`
+}
+
+type TokenUsage struct {
+	PromptApprox    int     `json:"prompt_approx,omitempty"`
+	PromptReported  int     `json:"prompt_reported,omitempty"`
+	Completion      int     `json:"completion,omitempty"`
+	TotalReported   int     `json:"total_reported,omitempty"`
+	ReportedCostUSD float64 `json:"reported_cost_usd,omitempty"`
 }
 
 type ReferenceSummary struct {
@@ -65,11 +74,13 @@ func DefaultReleaseCriteria() ReleaseCriteria {
 func RunOne(ctx context.Context, exampleDir string, opts synthesize.Options) EvalResult {
 	start := time.Now()
 	name := filepath.Base(filepath.Clean(exampleDir))
+	promptTokensApprox := approximatePromptTokens(exampleDir)
 	result := EvalResult{
 		Name:               name,
 		Provider:           strings.TrimSpace(opts.Provider),
 		Model:              strings.TrimSpace(opts.Model),
-		PromptTokensApprox: approximatePromptTokens(exampleDir),
+		PromptTokensApprox: promptTokensApprox,
+		TokenUsage:         &TokenUsage{PromptApprox: promptTokensApprox},
 	}
 	workDir, err := copyExampleToTemp(exampleDir)
 	if err != nil {
@@ -329,39 +340,8 @@ func RegressionError(current []EvalResult, previous []EvalResult) error {
 	if len(previous) == 0 {
 		return nil
 	}
-	currentRate := passRate(current)
-	previousRate := passRate(previous)
-	if currentRate < previousRate {
-		return fmt.Errorf("eval pass rate regressed from %.1f%% to %.1f%%", previousRate*100, currentRate*100)
-	}
-	if currentLegacy, previousLegacy := legacyExtractCount(current), legacyExtractCount(previous); currentLegacy > previousLegacy {
-		return fmt.Errorf("legacy extractJSON fallback count regressed from %d to %d", previousLegacy, currentLegacy)
-	}
-	currentByName := map[string]EvalResult{}
-	for _, result := range current {
-		currentByName[result.Name] = result
-	}
-	var regressions []string
-	var referenceRegressions []string
-	for _, prior := range previous {
-		now, ok := currentByName[prior.Name]
-		if !ok {
-			continue
-		}
-		if prior.Passed && !now.Passed {
-			regressions = append(regressions, prior.Name)
-		}
-		if blockingReferenceCount(now) > blockingReferenceCount(prior) {
-			referenceRegressions = append(referenceRegressions, prior.Name)
-		}
-	}
-	if len(regressions) > 0 {
-		return fmt.Errorf("previously passing eval brief(s) failed: %s", strings.Join(regressions, ", "))
-	}
-	if len(referenceRegressions) > 0 {
-		return fmt.Errorf("blocking reference issue count regressed for brief(s): %s", strings.Join(referenceRegressions, ", "))
-	}
-	return nil
+	comparison := CompareRuns(current, previous, "")
+	return ComparisonRegressionError(&comparison)
 }
 
 func ReleaseCriteriaError(results []EvalResult, criteria ReleaseCriteria) error {

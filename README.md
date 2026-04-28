@@ -105,8 +105,10 @@ Use the eval harness when changing prompts or synthesis behavior:
 go run ./cmd/ramen eval --root ./examples/eval --provider gemini --model gemini-2.5-flash
 ```
 
-Eval runs synthesize temporary copies of the eval briefs and writes JSON/Markdown summaries under
-`eval/runs/`.
+Eval runs synthesize temporary copies of the eval briefs and write JSON/Markdown summaries under
+`eval/runs/`. Reports include run metadata, pass/fail summaries, provider/model/mode/prompt-version
+breakdowns, approximate prompt-token totals, generated workspace paths, and comparison against the
+previous report in the output directory when one exists.
 
 ### Real LLM Eval Smoke
 
@@ -128,6 +130,20 @@ quality gates that could affect generated artifacts:
 export GEMINI_API_KEY=...
 go run ./cmd/ramen eval --root ./examples/eval --provider gemini --model gemini-2.5-flash
 ```
+
+Use `--compare eval/runs/<previous>.json` to compare against a specific run, or `--no-compare` for
+an isolated smoke. Normal evals print comparison regressions but do not fail the command for them.
+Release-gated evals fail on both absolute release criteria and comparison regressions.
+
+Temporary generated workspaces are listed in the report for manual inspection. To preserve them
+under the repo-local ignored artifact directory, add:
+
+```bash
+go run ./cmd/ramen eval --root ./examples/eval --provider gemini --model gemini-2.5-flash --archive-dir eval/artifacts
+```
+
+Ramen records approximate prompt-token counts and has report fields for provider-reported token
+usage or cost when a provider path exposes them. It does not hardcode provider pricing tables.
 
 For a candidate release smoke, add the local release gate:
 

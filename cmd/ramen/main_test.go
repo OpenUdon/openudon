@@ -61,6 +61,9 @@ func TestCLIEvalHelpIncludesReleaseGate(t *testing.T) {
 	for _, expected := range []string{
 		"Usage: ramen eval",
 		"--release-gate",
+		"--compare",
+		"--no-compare",
+		"--archive-dir",
 		"gemini-2.5-flash",
 		"writes JSON/Markdown reports",
 	} {

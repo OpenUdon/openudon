@@ -5,6 +5,7 @@ import (
 	"flag"
 	"fmt"
 	"os"
+	"os/exec"
 	"os/signal"
 	"path/filepath"
 	"strings"
@@ -82,10 +83,13 @@ func runEvalCommand(args []string) {
 	temperature := fs.Float64("temperature", 0.2, "Intent generation temperature")
 	concurrency := fs.Int("concurrency", 2, "Maximum concurrent eval runs")
 	releaseGate := fs.Bool("release-gate", false, "Fail unless eval results meet local release criteria")
+	compare := fs.String("compare", "", "Compare this eval report against a specific previous JSON report")
+	noCompare := fs.Bool("no-compare", false, "Disable previous-run comparison")
+	archiveDir := fs.String("archive-dir", "", "Copy generated eval workspaces under this directory for manual inspection")
 	out := fs.String("out", evalpkg.DefaultOutputPath(time.Now()), "JSON report output path")
 	fs.Usage = func() {
-		fmt.Fprintf(fs.Output(), "Usage: ramen eval [--root examples/eval] [--name support-email] [--out eval/runs/<ts>.json] [--release-gate]\n")
-		fmt.Fprintf(fs.Output(), "\nRuns synthesis against temporary copies of eval briefs and writes JSON/Markdown reports.\n")
+		fmt.Fprintf(fs.Output(), "Usage: ramen eval [--root examples/eval] [--name support-email] [--out eval/runs/<ts>.json] [--release-gate] [--compare eval/runs/<previous>.json] [--no-compare] [--archive-dir eval/artifacts]\n")
+		fmt.Fprintf(fs.Output(), "\nRuns synthesis against temporary copies of eval briefs and writes JSON/Markdown reports with optional run comparison.\n")
 		fmt.Fprintf(fs.Output(), "\nExamples:\n")
 		fmt.Fprintf(fs.Output(), "  ramen eval --root examples/eval --provider gemini --model gemini-2.5-flash\n")
 		fmt.Fprintf(fs.Output(), "  ramen eval --root examples/eval --name support-email --provider gemini --model gemini-2.5-flash\n")
@@ -114,35 +118,89 @@ func runEvalCommand(args []string) {
 		fmt.Fprintf(os.Stderr, "no eval briefs found under %s\n", *root)
 		os.Exit(1)
 	}
-	if err := evalpkg.WriteReports(*out, results); err != nil {
+	runID := runIDFromOutput(*out)
+	if strings.TrimSpace(*archiveDir) != "" {
+		archived, err := evalpkg.ArchiveGeneratedDirs(results, *archiveDir, runID)
+		if err != nil {
+			fmt.Fprintln(os.Stderr, err)
+			os.Exit(1)
+		}
+		results = archived
+	}
+	commit, dirty := gitMetadata()
+	metadata := evalpkg.RunMetadata{
+		RunID:       runID,
+		Commit:      commit,
+		Dirty:       dirty,
+		EvalRoot:    *root,
+		OutputPath:  *out,
+		Provider:    strings.TrimSpace(*provider),
+		Model:       strings.TrimSpace(*model),
+		ReleaseGate: *releaseGate,
+		ArchiveDir:  strings.TrimSpace(*archiveDir),
+	}
+	var comparison *evalpkg.RunComparison
+	if !*noCompare {
+		previousPath := strings.TrimSpace(*compare)
+		if previousPath == "" {
+			var err error
+			previousPath, err = evalpkg.FindPreviousRun(*out)
+			if err != nil {
+				fmt.Fprintln(os.Stderr, err)
+				os.Exit(1)
+			}
+		}
+		if previousPath != "" {
+			previous, err := evalpkg.ReadResults(previousPath)
+			if err != nil {
+				fmt.Fprintln(os.Stderr, err)
+				os.Exit(1)
+			}
+			cmp := evalpkg.CompareRuns(results, previous, previousPath)
+			comparison = &cmp
+			metadata.ComparePath = previousPath
+		}
+	}
+	report := evalpkg.BuildRunReport(results, evalpkg.ReportOptions{
+		Metadata:   metadata,
+		Comparison: comparison,
+	})
+	if err := evalpkg.WriteReport(*out, report); err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
 	}
 	fmt.Printf("ramen: eval wrote %s\n", *out)
-	fmt.Print(evalpkg.Markdown(results))
+	fmt.Print(evalpkg.MarkdownReport(report))
 	if *releaseGate {
 		if err := evalpkg.ReleaseCriteriaError(results, evalpkg.DefaultReleaseCriteria()); err != nil {
 			fmt.Fprintln(os.Stderr, err)
 			os.Exit(1)
 		}
+		if err := evalpkg.ComparisonRegressionError(comparison); err != nil {
+			fmt.Fprintln(os.Stderr, err)
+			os.Exit(1)
+		}
 	}
-	previousPath, err := evalpkg.FindPreviousRun(*out)
+}
+
+func runIDFromOutput(outPath string) string {
+	base := strings.TrimSuffix(filepath.Base(outPath), filepath.Ext(outPath))
+	if strings.TrimSpace(base) == "" {
+		return time.Now().UTC().Format("20060102T150405Z")
+	}
+	return base
+}
+
+func gitMetadata() (string, bool) {
+	commitBytes, err := exec.Command("git", "rev-parse", "--short=12", "HEAD").Output()
 	if err != nil {
-		fmt.Fprintln(os.Stderr, err)
-		os.Exit(1)
+		return "", false
 	}
-	if previousPath == "" {
-		return
-	}
-	previous, err := evalpkg.ReadResults(previousPath)
+	statusBytes, err := exec.Command("git", "status", "--porcelain").Output()
 	if err != nil {
-		fmt.Fprintln(os.Stderr, err)
-		os.Exit(1)
+		return strings.TrimSpace(string(commitBytes)), false
 	}
-	if err := evalpkg.RegressionError(results, previous); err != nil {
-		fmt.Fprintln(os.Stderr, err)
-		os.Exit(1)
-	}
+	return strings.TrimSpace(string(commitBytes)), strings.TrimSpace(string(statusBytes)) != ""
 }
 
 func runArtifactCommand(command string, args []string) {

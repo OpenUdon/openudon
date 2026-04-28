@@ -87,6 +87,12 @@ checks:
 go run ./cmd/ramen eval --root ./examples/eval --provider gemini --model gemini-2.5-flash
 ```
 
+Eval reports are written under `eval/runs/` and compare against the previous run by default. Use
+`--compare eval/runs/<previous>.json` for an explicit baseline, `--no-compare` for an isolated
+experiment, and `--archive-dir eval/artifacts` when generated workspaces need to be preserved for
+manual inspection. Comparison regressions are visible in every compared report, but only
+release-gated runs fail because of comparison regression.
+
 For release candidates:
 
 ```bash
@@ -94,4 +100,6 @@ go run ./cmd/ramen eval --root ./examples/eval --provider gemini --model gemini-
 ```
 
 Release-gated evals require all briefs to pass, zero legacy extraction fallbacks, no brief above two
-attempts, zero blocking reference issues, and zero secret-scan failures.
+attempts, zero blocking reference issues, zero secret-scan failures, and no regression against the
+selected comparison run. Treat a single real-provider pass as a smoke result, not proof of long-term
+stability.

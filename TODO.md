@@ -181,7 +181,7 @@ failure-action compatibility is covered at the public UWS schema and udon execut
 but Ramen still keeps retry/failure prompt defaults disabled until workflow draft lowering can carry
 those action fields.
 
-## [in-progress] Observability And Eval Analytics
+## [done] Observability And Eval Analytics
 
 Goal: make generation quality measurable over time.
 
@@ -204,6 +204,16 @@ count and brief names, approximate prompt-token total, duration totals/average/m
 /mode/prompt-version distributions, failure-class counts, and top failing checks. Per-brief results
 now record total attempt count and whether a repeated repair loop occurred, while generated artifact
 directories remain listed for manual inspection.
+
+Slice 2 completes local eval comparability. Eval reports now include run metadata for commit,
+dirty-worktree state, eval root, output path, provider, model, release-gate state, and run ID. Runs
+compare against a selected or previous report by default and record pass-rate, brief, attempt,
+legacy-fallback, blocking-reference, failing-check, duration, and prompt-token deltas in JSON and
+Markdown. Comparison regressions are visible in normal eval output but fail only under
+`--release-gate`. `--archive-dir` preserves generated eval workspaces for manual inspection, while
+ignored `eval/runs/` and `eval/artifacts/` outputs keep real-provider artifacts out of commits.
+Provider-reported token and cost fields are available when a provider path exposes usage data;
+Ramen records approximate prompt tokens today and does not hardcode provider pricing.
 
 ## [in-progress] Safety And Trusted Execution
 

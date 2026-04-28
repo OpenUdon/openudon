@@ -11,9 +11,30 @@ import (
 )
 
 type RunReport struct {
-	GeneratedAt string       `json:"generated_at"`
-	Summary     RunSummary   `json:"summary"`
-	Results     []EvalResult `json:"results"`
+	GeneratedAt string         `json:"generated_at"`
+	Metadata    RunMetadata    `json:"metadata,omitempty"`
+	Summary     RunSummary     `json:"summary"`
+	Comparison  *RunComparison `json:"comparison,omitempty"`
+	Results     []EvalResult   `json:"results"`
+}
+
+type RunMetadata struct {
+	RunID       string `json:"run_id,omitempty"`
+	Commit      string `json:"commit,omitempty"`
+	Dirty       bool   `json:"dirty,omitempty"`
+	EvalRoot    string `json:"eval_root,omitempty"`
+	OutputPath  string `json:"output_path,omitempty"`
+	Provider    string `json:"provider,omitempty"`
+	Model       string `json:"model,omitempty"`
+	ReleaseGate bool   `json:"release_gate,omitempty"`
+	ComparePath string `json:"compare_path,omitempty"`
+	ArchiveDir  string `json:"archive_dir,omitempty"`
+}
+
+type ReportOptions struct {
+	GeneratedAt time.Time
+	Metadata    RunMetadata
+	Comparison  *RunComparison
 }
 
 type RunSummary struct {
@@ -24,6 +45,10 @@ type RunSummary struct {
 	LegacyFallbacks         int          `json:"legacy_fallbacks"`
 	RepeatedRepairLoops     int          `json:"repeated_repair_loops"`
 	PromptTokensApproxTotal int          `json:"prompt_tokens_approx_total"`
+	PromptTokensReported    int          `json:"prompt_tokens_reported,omitempty"`
+	CompletionTokens        int          `json:"completion_tokens,omitempty"`
+	TotalTokensReported     int          `json:"total_tokens_reported,omitempty"`
+	ReportedCostUSD         float64      `json:"reported_cost_usd,omitempty"`
 	DurationMsTotal         int64        `json:"duration_ms_total"`
 	DurationMsAvg           int64        `json:"duration_ms_avg"`
 	DurationMsMax           int64        `json:"duration_ms_max"`
@@ -46,14 +71,33 @@ func DefaultOutputPath(now time.Time) string {
 	return filepath.Join("eval", "runs", now.UTC().Format("20060102T150405Z")+".json")
 }
 
+func BuildRunReport(results []EvalResult, opts ReportOptions) RunReport {
+	generatedAt := opts.GeneratedAt
+	if generatedAt.IsZero() {
+		generatedAt = time.Now().UTC()
+	}
+	return RunReport{
+		GeneratedAt: generatedAt.UTC().Format(time.RFC3339),
+		Metadata:    opts.Metadata,
+		Summary:     BuildRunSummary(results),
+		Comparison:  opts.Comparison,
+		Results:     results,
+	}
+}
+
 func WriteReports(outPath string, results []EvalResult) error {
+	return WriteReport(outPath, BuildRunReport(results, ReportOptions{}))
+}
+
+func WriteReport(outPath string, report RunReport) error {
 	if err := os.MkdirAll(filepath.Dir(outPath), 0o755); err != nil {
 		return err
 	}
-	report := RunReport{
-		GeneratedAt: time.Now().UTC().Format(time.RFC3339),
-		Summary:     BuildRunSummary(results),
-		Results:     results,
+	if report.GeneratedAt == "" {
+		report.GeneratedAt = time.Now().UTC().Format(time.RFC3339)
+	}
+	if report.Summary.Briefs == 0 && len(report.Results) > 0 {
+		report.Summary = BuildRunSummary(report.Results)
 	}
 	data, err := json.MarshalIndent(report, "", "  ")
 	if err != nil {
@@ -63,34 +107,79 @@ func WriteReports(outPath string, results []EvalResult) error {
 		return err
 	}
 	mdPath := strings.TrimSuffix(outPath, filepath.Ext(outPath)) + ".md"
-	return os.WriteFile(mdPath, []byte(Markdown(results)), 0o644)
+	return os.WriteFile(mdPath, []byte(MarkdownReport(report)), 0o644)
 }
 
-func ReadResults(path string) ([]EvalResult, error) {
+func ReadReport(path string) (RunReport, error) {
 	data, err := os.ReadFile(path)
 	if err != nil {
-		return nil, err
+		return RunReport{}, err
 	}
 	var report RunReport
 	if err := json.Unmarshal(data, &report); err == nil && report.Results != nil {
-		return report.Results, nil
+		if report.Summary.Briefs == 0 && len(report.Results) > 0 {
+			report.Summary = BuildRunSummary(report.Results)
+		}
+		return report, nil
 	}
 	var results []EvalResult
 	if err := json.Unmarshal(data, &results); err != nil {
+		return RunReport{}, err
+	}
+	return RunReport{
+		Summary: BuildRunSummary(results),
+		Results: results,
+	}, nil
+}
+
+func ReadResults(path string) ([]EvalResult, error) {
+	report, err := ReadReport(path)
+	if err != nil {
 		return nil, err
 	}
-	return results, nil
+	return report.Results, nil
 }
 
 func Markdown(results []EvalResult) string {
-	summary := BuildRunSummary(results)
+	return MarkdownReport(BuildRunReport(results, ReportOptions{}))
+}
+
+func MarkdownReport(report RunReport) string {
+	summary := report.Summary
+	if summary.Briefs == 0 && len(report.Results) > 0 {
+		summary = BuildRunSummary(report.Results)
+	}
 	var b strings.Builder
 	fmt.Fprintf(&b, "# Ramen Eval Report\n\n")
+	if report.Metadata.RunID != "" {
+		fmt.Fprintf(&b, "- Run ID: `%s`\n", report.Metadata.RunID)
+	}
+	if report.GeneratedAt != "" {
+		fmt.Fprintf(&b, "- Generated at: `%s`\n", report.GeneratedAt)
+	}
+	if report.Metadata.Commit != "" {
+		fmt.Fprintf(&b, "- Commit: `%s`", report.Metadata.Commit)
+		if report.Metadata.Dirty {
+			b.WriteString(" (dirty)")
+		}
+		b.WriteString("\n")
+	}
+	if report.Metadata.EvalRoot != "" {
+		fmt.Fprintf(&b, "- Eval root: `%s`\n", report.Metadata.EvalRoot)
+	}
 	fmt.Fprintf(&b, "- Briefs: `%d`\n", summary.Briefs)
 	fmt.Fprintf(&b, "- Pass rate: `%.1f%%` (`%d` pass / `%d` fail)\n", summary.PassRate*100, summary.Passed, summary.Failed)
 	fmt.Fprintf(&b, "- Legacy extractJSON fallback: `%d`\n", summary.LegacyFallbacks)
 	fmt.Fprintf(&b, "- Repeated repair loops: `%d`\n", summary.RepeatedRepairLoops)
 	fmt.Fprintf(&b, "- Prompt tokens approx total: `%d`\n", summary.PromptTokensApproxTotal)
+	if summary.TotalTokensReported > 0 || summary.ReportedCostUSD > 0 {
+		fmt.Fprintf(&b, "- Provider-reported usage: prompt `%d`, completion `%d`, total `%d`, cost `$%.6f`\n",
+			summary.PromptTokensReported,
+			summary.CompletionTokens,
+			summary.TotalTokensReported,
+			summary.ReportedCostUSD,
+		)
+	}
 	fmt.Fprintf(&b, "- Duration: avg `%dms`, max `%dms`, total `%dms`\n", summary.DurationMsAvg, summary.DurationMsMax, summary.DurationMsTotal)
 	if len(summary.Modes) > 0 {
 		fmt.Fprintf(&b, "- Modes: %s\n", summaryRowsText(summary.Modes))
@@ -116,9 +205,13 @@ func Markdown(results []EvalResult) string {
 	if len(summary.RepeatedRepairBriefs) > 0 {
 		fmt.Fprintf(&b, "- Repeated repair briefs: `%s`\n", strings.Join(summary.RepeatedRepairBriefs, "`, `"))
 	}
+	if report.Comparison != nil {
+		b.WriteString("\n## Run Comparison\n\n")
+		b.WriteString(comparisonMarkdown(*report.Comparison))
+	}
 	b.WriteString("\n| Brief | Status | Provider | Model | Prompt | Mode | Attempts | Failure class | Failing checks | Reference issues (A/W/B) | Reference policy | Tokens | Duration | Generated dir |\n")
 	b.WriteString("| --- | --- | --- | --- | --- | --- | ---: | --- | --- | --- | --- | ---: | ---: | --- |\n")
-	for _, result := range results {
+	for _, result := range report.Results {
 		status := "fail"
 		if result.Passed {
 			status = "pass"
@@ -148,7 +241,7 @@ func Markdown(results []EvalResult) string {
 			escapeTable(result.GeneratedDir),
 		)
 	}
-	if details := referenceIssueDetailsMarkdown(results); details != "" {
+	if details := referenceIssueDetailsMarkdown(report.Results); details != "" {
 		b.WriteString("\n## Reference Issue Details\n\n")
 		b.WriteString(details)
 	}
@@ -181,6 +274,12 @@ func BuildRunSummary(results []EvalResult) RunSummary {
 			}
 		}
 		summary.PromptTokensApproxTotal += result.PromptTokensApprox
+		if result.TokenUsage != nil {
+			summary.PromptTokensReported += result.TokenUsage.PromptReported
+			summary.CompletionTokens += result.TokenUsage.Completion
+			summary.TotalTokensReported += result.TokenUsage.TotalReported
+			summary.ReportedCostUSD += result.TokenUsage.ReportedCostUSD
+		}
 		summary.DurationMsTotal += result.DurationMs
 		if result.DurationMs > summary.DurationMsMax {
 			summary.DurationMsMax = result.DurationMs
@@ -291,6 +390,54 @@ func referenceIssueDetailsMarkdown(results []EvalResult) string {
 		}
 	}
 	return b.String()
+}
+
+func comparisonMarkdown(comparison RunComparison) string {
+	var b strings.Builder
+	if comparison.PreviousPath != "" {
+		fmt.Fprintf(&b, "- Previous run: `%s`\n", comparison.PreviousPath)
+	}
+	fmt.Fprintf(&b, "- Pass rate delta: `%+.1f%%` (`%.1f%%` -> `%.1f%%`)\n",
+		comparison.PassRateDelta*100,
+		comparison.PreviousPassRate*100,
+		comparison.CurrentPassRate*100,
+	)
+	fmt.Fprintf(&b, "- Legacy fallback delta: `%+d`\n", comparison.LegacyFallbackDelta)
+	fmt.Fprintf(&b, "- Blocking reference delta: `%+d`\n", comparison.BlockingReferenceDelta)
+	fmt.Fprintf(&b, "- Prompt token delta: `%+d`\n", comparison.PromptTokensApproxDelta)
+	fmt.Fprintf(&b, "- Duration delta: `%+dms`\n", comparison.DurationMsDelta)
+	if len(comparison.NewlyFailingBriefs) > 0 {
+		fmt.Fprintf(&b, "- Newly failing briefs: `%s`\n", strings.Join(comparison.NewlyFailingBriefs, "`, `"))
+	}
+	if len(comparison.FixedBriefs) > 0 {
+		fmt.Fprintf(&b, "- Fixed briefs: `%s`\n", strings.Join(comparison.FixedBriefs, "`, `"))
+	}
+	if len(comparison.AttemptRegressions) > 0 {
+		fmt.Fprintf(&b, "- Attempt regressions: %s\n", briefIntDeltasMarkdown(comparison.AttemptRegressions))
+	}
+	if len(comparison.AttemptImprovements) > 0 {
+		fmt.Fprintf(&b, "- Attempt improvements: %s\n", briefIntDeltasMarkdown(comparison.AttemptImprovements))
+	}
+	if len(comparison.NewFailingChecks) > 0 {
+		fmt.Fprintf(&b, "- New failing checks: `%s`\n", strings.Join(comparison.NewFailingChecks, "`, `"))
+	}
+	if len(comparison.ResolvedFailingChecks) > 0 {
+		fmt.Fprintf(&b, "- Resolved failing checks: `%s`\n", strings.Join(comparison.ResolvedFailingChecks, "`, `"))
+	}
+	if comparison.HasRegression {
+		b.WriteString("- Regression: `true`\n")
+	} else {
+		b.WriteString("- Regression: `false`\n")
+	}
+	return b.String()
+}
+
+func briefIntDeltasMarkdown(deltas []BriefIntDelta) string {
+	parts := make([]string, 0, len(deltas))
+	for _, delta := range deltas {
+		parts = append(parts, fmt.Sprintf("`%s` %d -> %d", delta.Name, delta.Previous, delta.Current))
+	}
+	return strings.Join(parts, ", ")
 }
 
 func legacyExtractCount(results []EvalResult) int {

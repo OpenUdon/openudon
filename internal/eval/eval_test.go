@@ -2,6 +2,7 @@ package eval
 
 import (
 	"context"
+	"encoding/json"
 	"os"
 	"path/filepath"
 	"strings"
@@ -371,6 +372,52 @@ func TestRegressionErrorDetectsBlockingReferenceRegression(t *testing.T) {
 	}
 }
 
+func TestCompareRunsReportsAnalyticsDeltas(t *testing.T) {
+	previous := []EvalResult{
+		{Name: "a", Passed: true, Mode: "structured", AttemptCount: 1, PromptTokensApprox: 100, DurationMs: 10},
+		{Name: "b", Passed: false, FailingChecks: []string{"old.check"}, AttemptCount: 3, PromptTokensApprox: 200, DurationMs: 20},
+	}
+	current := []EvalResult{
+		{
+			Name:               "a",
+			Passed:             false,
+			Mode:               "legacy",
+			UsedLegacyExtract:  true,
+			AttemptCount:       2,
+			FailingChecks:      []string{"new.check"},
+			PromptTokensApprox: 150,
+			DurationMs:         15,
+			ReferenceIssues: []CompareIssue{{
+				Code:     "intent.step_operation",
+				Severity: "blocking",
+			}},
+		},
+		{Name: "b", Passed: true, AttemptCount: 2, PromptTokensApprox: 250, DurationMs: 35},
+	}
+	comparison := CompareRuns(current, previous, "eval/runs/previous.json")
+	if !comparison.HasRegression {
+		t.Fatalf("expected regression: %#v", comparison)
+	}
+	if comparison.PreviousPath != "eval/runs/previous.json" || comparison.PassRateDelta != 0 {
+		t.Fatalf("unexpected pass comparison: %#v", comparison)
+	}
+	if comparison.LegacyFallbackDelta != 1 || comparison.BlockingReferenceDelta != 1 {
+		t.Fatalf("unexpected regression deltas: %#v", comparison)
+	}
+	if strings.Join(comparison.NewlyFailingBriefs, ",") != "a" || strings.Join(comparison.FixedBriefs, ",") != "b" {
+		t.Fatalf("unexpected brief deltas: %#v", comparison)
+	}
+	if len(comparison.AttemptRegressions) != 1 || comparison.AttemptRegressions[0].Name != "a" {
+		t.Fatalf("unexpected attempt regressions: %#v", comparison.AttemptRegressions)
+	}
+	if strings.Join(comparison.NewFailingChecks, ",") != "new.check" || strings.Join(comparison.ResolvedFailingChecks, ",") != "old.check" {
+		t.Fatalf("unexpected check deltas: %#v", comparison)
+	}
+	if comparison.PromptTokensApproxDelta != 100 || comparison.DurationMsDelta != 20 {
+		t.Fatalf("unexpected resource deltas: %#v", comparison)
+	}
+}
+
 func TestReleaseCriteriaErrorCatchesReleaseGateFailures(t *testing.T) {
 	err := ReleaseCriteriaError([]EvalResult{
 		{
@@ -564,5 +611,105 @@ func TestWriteReportsIncludesSummary(t *testing.T) {
 	}
 	if !strings.Contains(string(md), "Prompt tokens approx total: `20`") {
 		t.Fatalf("markdown report missing summary:\n%s", md)
+	}
+}
+
+func TestWriteReportIncludesMetadataComparisonAndUsage(t *testing.T) {
+	out := filepath.Join(t.TempDir(), "run.json")
+	results := []EvalResult{{
+		Name:               "a",
+		Passed:             true,
+		PromptTokensApprox: 20,
+		TokenUsage: &TokenUsage{
+			PromptReported:  18,
+			Completion:      7,
+			TotalReported:   25,
+			ReportedCostUSD: 0.001,
+		},
+	}}
+	comparison := CompareRuns(results, []EvalResult{{Name: "a", Passed: true, PromptTokensApprox: 10}}, "previous.json")
+	report := BuildRunReport(results, ReportOptions{
+		Metadata: RunMetadata{
+			RunID:      "run",
+			Commit:     "abcdef123456",
+			Dirty:      true,
+			EvalRoot:   "examples/eval",
+			OutputPath: out,
+		},
+		Comparison: &comparison,
+	})
+	if err := WriteReport(out, report); err != nil {
+		t.Fatal(err)
+	}
+	read, err := ReadReport(out)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if read.Metadata.RunID != "run" || read.Metadata.Commit != "abcdef123456" || !read.Metadata.Dirty {
+		t.Fatalf("metadata not preserved: %#v", read.Metadata)
+	}
+	if read.Summary.TotalTokensReported != 25 || read.Summary.ReportedCostUSD != 0.001 {
+		t.Fatalf("usage summary not preserved: %#v", read.Summary)
+	}
+	if read.Comparison == nil || read.Comparison.PreviousPath != "previous.json" {
+		t.Fatalf("comparison not preserved: %#v", read.Comparison)
+	}
+	md, err := os.ReadFile(strings.TrimSuffix(out, filepath.Ext(out)) + ".md")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, expected := range []string{
+		"Run ID: `run`",
+		"Commit: `abcdef123456` (dirty)",
+		"## Run Comparison",
+		"Provider-reported usage",
+	} {
+		if !strings.Contains(string(md), expected) {
+			t.Fatalf("markdown missing %q:\n%s", expected, md)
+		}
+	}
+}
+
+func TestReadReportSupportsLegacyResultArray(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "legacy.json")
+	data, err := json.Marshal([]EvalResult{{Name: "legacy", Passed: true}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(path, data, 0o644); err != nil {
+		t.Fatal(err)
+	}
+	report, err := ReadReport(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(report.Results) != 1 || report.Results[0].Name != "legacy" || report.Summary.Briefs != 1 {
+		t.Fatalf("unexpected legacy report: %#v", report)
+	}
+}
+
+func TestArchiveGeneratedDirsCopiesWorkspace(t *testing.T) {
+	root := t.TempDir()
+	generated := filepath.Join(root, "generated", "brief")
+	if err := os.MkdirAll(filepath.Join(generated, "workflows"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(generated, "workflows", "intent.hcl"), []byte("workflow {}\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	archiveRoot := filepath.Join(root, "archive")
+	results, err := ArchiveGeneratedDirs([]EvalResult{{
+		Name:         "brief",
+		GeneratedDir: generated,
+	}}, archiveRoot, "run:1")
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := filepath.Join(archiveRoot, "run-1", "brief", "workflows", "intent.hcl")
+	if _, err := os.Stat(want); err != nil {
+		t.Fatalf("archived file missing: %v", err)
+	}
+	if results[0].GeneratedDir != filepath.Join(archiveRoot, "run-1", "brief") {
+		t.Fatalf("generated dir = %q", results[0].GeneratedDir)
 	}
 }
