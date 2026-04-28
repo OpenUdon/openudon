@@ -2,6 +2,7 @@ package synthesize
 
 import (
 	"context"
+	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -1044,25 +1045,136 @@ func (r *QualityReport) finalize() {
 
 const (
 	minAssignedSecretLength = 12
-	jwtSegmentMinLength     = 10
 )
 
-var secretPatterns = []*regexp.Regexp{
+var providerSecretPatterns = []*regexp.Regexp{
 	regexp.MustCompile(`AIza[0-9A-Za-z_-]{20,}`),
 	regexp.MustCompile(`sk-ant-api[0-9A-Za-z_-]*-[0-9A-Za-z_-]{20,}`),
 	regexp.MustCompile(`sk-(?:proj-)?[0-9A-Za-z_-]{20,}`),
 	regexp.MustCompile(`ghp_[0-9A-Za-z]{36,}`),
 	regexp.MustCompile(`github_pat_[0-9A-Za-z_]{20,}`),
 	regexp.MustCompile(`(?:AKIA|ASIA)[0-9A-Z]{16}`),
-	regexp.MustCompile(fmt.Sprintf(`(?i)(?:api[_-]?key|token|secret|password)\s*[:=]\s*["'][^"']{%d,}["']`, minAssignedSecretLength)),
-	regexp.MustCompile(fmt.Sprintf(`[A-Za-z0-9_-]{%d,}\.[A-Za-z0-9_-]{%d,}\.[A-Za-z0-9_-]{%d,}`, jwtSegmentMinLength, jwtSegmentMinLength, jwtSegmentMinLength)),
 }
 
+var (
+	jwtCandidatePattern         = regexp.MustCompile(`[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+`)
+	sensitiveAssignmentPattern  = regexp.MustCompile(`(?i)\b([A-Za-z0-9_.-]*(?:api[_-]?key|apikey|app[_-]?id|appid|token|secret|password|authorization)[A-Za-z0-9_.-]*)\s*[:=]\s*["']([^"'\r\n]+)["']`)
+	workflowReferencePattern    = regexp.MustCompile(`^[A-Za-z_][A-Za-z0-9_-]*(?:\[[0-9]+\])?(?:\.[A-Za-z_][A-Za-z0-9_-]*(?:\[[0-9]+\])?)*$`)
+	tokenShapedValuePattern     = regexp.MustCompile(`^[A-Za-z0-9_+/=-]+$`)
+	tokenSourceAssignmentSuffix = regexp.MustCompile(`(?i)(?:^|[_\-.])from$`)
+)
+
 func containsSecretLikeToken(data []byte) bool {
-	for _, pattern := range secretPatterns {
+	for _, pattern := range providerSecretPatterns {
 		if pattern.Match(data) {
 			return true
 		}
 	}
+	if containsValidatedJWT(data) {
+		return true
+	}
+	for _, match := range sensitiveAssignmentPattern.FindAllSubmatch(data, -1) {
+		if len(match) < 3 {
+			continue
+		}
+		if isSensitiveSourceAssignment(string(match[1])) {
+			continue
+		}
+		if isAssignedSecretLiteral(string(match[2])) {
+			return true
+		}
+	}
 	return false
+}
+
+func containsValidatedJWT(data []byte) bool {
+	for _, candidate := range jwtCandidatePattern.FindAll(data, -1) {
+		if isValidatedJWT(string(candidate)) {
+			return true
+		}
+	}
+	return false
+}
+
+func isValidatedJWT(candidate string) bool {
+	parts := strings.Split(candidate, ".")
+	if len(parts) != 3 {
+		return false
+	}
+	header := map[string]any{}
+	if !decodeBase64URLJSON(parts[0], &header) {
+		return false
+	}
+	if _, ok := header["alg"]; !ok {
+		if _, ok := header["typ"]; !ok {
+			return false
+		}
+	}
+	payload := map[string]any{}
+	return decodeBase64URLJSON(parts[1], &payload)
+}
+
+func decodeBase64URLJSON(segment string, out any) bool {
+	decoded, err := base64.RawURLEncoding.DecodeString(segment)
+	if err != nil {
+		decoded, err = base64.URLEncoding.DecodeString(segment)
+		if err != nil {
+			return false
+		}
+	}
+	if err := json.Unmarshal(decoded, out); err != nil {
+		return false
+	}
+	if object, ok := out.(*map[string]any); ok {
+		return len(*object) > 0
+	}
+	return true
+}
+
+func isSensitiveSourceAssignment(key string) bool {
+	normalized := strings.ToLower(strings.TrimSpace(key))
+	return normalized == "token_from" || tokenSourceAssignmentSuffix.MatchString(normalized)
+}
+
+func isAssignedSecretLiteral(value string) bool {
+	value = strings.TrimSpace(value)
+	if value == "" || isWorkflowReferenceOrBindingName(value) {
+		return false
+	}
+	for _, pattern := range providerSecretPatterns {
+		if pattern.MatchString(value) {
+			return true
+		}
+	}
+	if isValidatedJWT(value) {
+		return true
+	}
+	if len(value) < minAssignedSecretLength {
+		return false
+	}
+	return looksTokenShaped(value)
+}
+
+func isWorkflowReferenceOrBindingName(value string) bool {
+	value = strings.TrimSpace(value)
+	if !strings.ContainsAny(value, "._[]-") {
+		return false
+	}
+	return workflowReferencePattern.MatchString(value)
+}
+
+func looksTokenShaped(value string) bool {
+	if len(value) < 16 || !tokenShapedValuePattern.MatchString(value) {
+		return false
+	}
+	var hasLetter, hasDigit bool
+	for _, r := range value {
+		switch {
+		case r >= 'A' && r <= 'Z', r >= 'a' && r <= 'z':
+			hasLetter = true
+		case r >= '0' && r <= '9':
+			hasDigit = true
+		}
+	}
+	return hasLetter && hasDigit
 }

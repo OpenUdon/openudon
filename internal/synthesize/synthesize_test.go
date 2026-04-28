@@ -1446,15 +1446,127 @@ func TestSpecSummaryAppliesGlobalOperationBudget(t *testing.T) {
 
 func TestSecretScannerFlagsCommonTokenFamilies(t *testing.T) {
 	values := []string{
+		"AIzaabcdefghijklmnopqrstuvwxyz1234567890",
 		"ghp_abcdefghijklmnopqrstuvwxyzABCDEFGHIJ",
 		"sk-ant-api03-abcdefghijklmnopqrstuvwxyz1234567890",
+		"sk-proj-abcdefghijklmnopqrstuvwxyz1234567890",
 		"AKIA1234567890ABCDEF",
 		"eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIxMjM0NTY3ODkwIn0.TJVA95OrM7E2cBab30RMHrHDcEfxjoYZgeFONFh7HgQ",
+		`api_key = "sk-proj-abcdefghijklmnopqrstuvwxyz1234567890"`,
+		`appid = "abc123abc123abc123"`,
+		`password = "abc123abc123abc123"`,
 	}
 	for _, value := range values {
 		if !containsSecretLikeToken([]byte(value)) {
 			t.Fatalf("secret scanner did not flag %q", value)
 		}
+	}
+}
+
+func TestSecretScannerAllowsWorkflowReferencesAndBindings(t *testing.T) {
+	values := []string{
+		`from = "inputs.ticketId"`,
+		`to = "get_ticket.received_body.requesterEmail"`,
+		`subject = "get_ticket.received_body.subject"`,
+		`body = "get_ticket.received_body.summary"`,
+		`lat = "get_coordinates.received_body[0].lat"`,
+		`appid = "weather_appid"`,
+		`api_key = "weather_api_key"`,
+		`token_from = "weather_api_key"`,
+		`authorization = "inputs.authorization"`,
+		`get_ticket.received_body.requesterEmail`,
+		`weather_api_key`,
+		`weather_appid`,
+	}
+	for _, value := range values {
+		if containsSecretLikeToken([]byte(value)) {
+			t.Fatalf("secret scanner flagged valid reference or binding %q", value)
+		}
+	}
+}
+
+func TestNoSecretsQualityAllowsSupportEmailReferences(t *testing.T) {
+	example := filepath.Join(t.TempDir(), "examples", "support-email")
+	if err := os.MkdirAll(filepath.Join(example, "workflows"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.MkdirAll(filepath.Join(example, "expected"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	result := resultPaths(example)
+	files := map[string]string{
+		result.ProjectPath: `# Support Email
+
+## Goal
+
+Send a support confirmation email.
+
+## Credentials and Secrets
+
+- Use credential binding names only.
+`,
+		result.WorkflowPath: `step "get_ticket" {
+  type = "http"
+  with = {
+    ticketId = "inputs.ticketId"
+  }
+}
+
+step "send_confirmation_email" {
+  type = "fnct"
+  bind {
+    from = "get_ticket"
+    fields = {
+      to      = "get_ticket.received_body.requesterEmail"
+      subject = "get_ticket.received_body.subject"
+      body    = "get_ticket.received_body.summary"
+    }
+  }
+}
+`,
+		result.IntentPath: `output "email_status" {
+  from = "send_confirmation_email.received_body"
+}
+`,
+		result.PlanJSONPath:       `{"parameters":{"ticketId":"inputs.ticketId"}}`,
+		result.PlanMDPath:         "ticketId = inputs.ticketId\n",
+		result.DiscoveryJSONPath:  "{}\n",
+		result.RefinementJSONPath: "{}\n",
+		result.RefinementMDPath:   "No refinement.\n",
+		result.ReviewPath:         "Side-effectful execution was skipped.\n",
+	}
+	for path, content := range files {
+		if err := os.WriteFile(path, []byte(content), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	report := &QualityReport{Example: example, Artifacts: result}
+	assessSecrets(report, result)
+	if !hasCheck(report, "artifacts.no_secrets", "pass") {
+		t.Fatalf("expected artifacts.no_secrets pass, got %#v", report.Checks)
+	}
+}
+
+func TestNoSecretsQualityReportsOnlyArtifactPaths(t *testing.T) {
+	example := filepath.Join(t.TempDir(), "examples", "secret-reporting")
+	if err := os.MkdirAll(filepath.Join(example, "workflows"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	result := resultPaths(example)
+	secret := "sk-proj-abcdefghijklmnopqrstuvwxyz1234567890"
+	if err := os.WriteFile(result.WorkflowPath, []byte(`api_key = "`+secret+`"`), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	report := &QualityReport{Example: example, Artifacts: result}
+	assessSecrets(report, result)
+	if !hasCheck(report, "artifacts.no_secrets", "fail") {
+		t.Fatalf("expected artifacts.no_secrets fail, got %#v", report.Checks)
+	}
+	if len(report.Checks) != 1 || !strings.Contains(report.Checks[0].Detail, "workflows/workflow.hcl") {
+		t.Fatalf("expected artifact path in detail, got %#v", report.Checks)
+	}
+	if strings.Contains(report.Checks[0].Detail, secret) {
+		t.Fatalf("secret value leaked in quality detail: %q", report.Checks[0].Detail)
 	}
 }
 
