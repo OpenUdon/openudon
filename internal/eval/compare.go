@@ -12,9 +12,10 @@ type CompareIssue struct {
 	Code     string `json:"code"`
 	Detail   string `json:"detail"`
 	Severity string `json:"severity,omitempty"`
+	Note     string `json:"note,omitempty"`
 }
 
-func CompareIntentFiles(generatedPath, referencePath string) ([]CompareIssue, error) {
+func CompareIntentFiles(generatedPath, referencePath string, policies ...ReferencePolicy) ([]CompareIssue, error) {
 	generated, err := rollout.ParseIntentFile(generatedPath)
 	if err != nil {
 		return nil, fmt.Errorf("parse generated intent: %w", err)
@@ -23,7 +24,11 @@ func CompareIntentFiles(generatedPath, referencePath string) ([]CompareIssue, er
 	if err != nil {
 		return nil, fmt.Errorf("parse reference intent: %w", err)
 	}
-	return CompareIntents(generated, reference), nil
+	issues := CompareIntents(generated, reference)
+	if len(policies) > 0 {
+		issues = applyReferencePolicy(issues, policies[0])
+	}
+	return issues, nil
 }
 
 func CompareIntents(generated, reference *rollout.Intent) []CompareIssue {
@@ -53,6 +58,41 @@ func referenceIssueSeverity(issue CompareIssue) string {
 		return "advisory"
 	case "reference.compare":
 		return "warning"
+	default:
+		return "warning"
+	}
+}
+
+func applyReferencePolicy(issues []CompareIssue, policy ReferencePolicy) []CompareIssue {
+	if policy.IsZero() {
+		return issues
+	}
+	out := make([]CompareIssue, 0, len(issues))
+	for _, issue := range issues {
+		severity := normalizedReferenceSeverity(issue)
+		if strings.EqualFold(strings.TrimSpace(policy.Mode), "advisory") {
+			severity = "advisory"
+		}
+		if override := strings.TrimSpace(policy.SeverityOverrides[issue.Code]); override != "" {
+			severity = normalizeSeverityValue(override)
+		} else if override := strings.TrimSpace(policy.SeverityOverrides["*"]); override != "" {
+			severity = normalizeSeverityValue(override)
+		}
+		issue.Severity = severity
+		if note := strings.TrimSpace(policy.IssueNotes[issue.Code]); note != "" {
+			issue.Note = note
+		} else if note := strings.TrimSpace(policy.IssueNotes["*"]); note != "" {
+			issue.Note = note
+		}
+		out = append(out, issue)
+	}
+	return out
+}
+
+func normalizeSeverityValue(value string) string {
+	switch strings.ToLower(strings.TrimSpace(value)) {
+	case "advisory", "warning", "blocking":
+		return strings.ToLower(strings.TrimSpace(value))
 	default:
 		return "warning"
 	}

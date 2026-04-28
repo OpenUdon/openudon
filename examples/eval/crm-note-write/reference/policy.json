@@ -1,0 +1,7 @@
+{
+  "mode": "strict",
+  "notes": [
+    "The CRM write fixture is stable; operation selection and write-policy evidence are the golden behavior."
+  ],
+  "max_blocking": 0
+}

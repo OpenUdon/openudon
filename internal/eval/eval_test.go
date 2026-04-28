@@ -86,6 +86,142 @@ func TestReferenceIssueSeverityClassifiesAdvisoryDrift(t *testing.T) {
 	}
 }
 
+func TestReferencePolicyDowngradesIllustrativeReferenceDrift(t *testing.T) {
+	issues := applyReferencePolicy([]CompareIssue{{
+		Code:     "intent.step_operation",
+		Detail:   `fetch expected "getTicket" got "listTickets"`,
+		Severity: "blocking",
+	}}, ReferencePolicy{
+		Mode: "advisory",
+		IssueNotes: map[string]string{
+			"*": "illustrative reference",
+		},
+	})
+	if len(issues) != 1 {
+		t.Fatalf("unexpected issues: %#v", issues)
+	}
+	if issues[0].Severity != "advisory" || issues[0].Note != "illustrative reference" {
+		t.Fatalf("issue = %#v, want advisory with note", issues[0])
+	}
+}
+
+func TestReferencePolicyStrictPreservesDefaultSeverity(t *testing.T) {
+	issues := applyReferencePolicy([]CompareIssue{{
+		Code:     "intent.step_operation",
+		Detail:   `fetch expected "getTicket" got "listTickets"`,
+		Severity: "blocking",
+	}}, ReferencePolicy{Mode: "strict"})
+	if len(issues) != 1 {
+		t.Fatalf("unexpected issues: %#v", issues)
+	}
+	if issues[0].Severity != "blocking" {
+		t.Fatalf("severity = %q, want blocking", issues[0].Severity)
+	}
+}
+
+func TestReadReferencePolicyNormalizesModeAndSeverity(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "policy.json")
+	if err := os.WriteFile(path, []byte(`{
+  "mode": "ADVISORY",
+  "severity_overrides": {"intent.step_operation": "BLOCKING"},
+  "max_blocking": 1
+}`), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	policy, err := ReadReferencePolicy(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if policy.Mode != "advisory" {
+		t.Fatalf("mode = %q, want advisory", policy.Mode)
+	}
+	if policy.SeverityOverrides["intent.step_operation"] != "blocking" {
+		t.Fatalf("severity overrides = %#v", policy.SeverityOverrides)
+	}
+	if policy.MaxBlocking == nil || *policy.MaxBlocking != 1 {
+		t.Fatalf("max blocking = %#v, want 1", policy.MaxBlocking)
+	}
+}
+
+func TestRunOneReportsMalformedReferencePolicyWarning(t *testing.T) {
+	example := filepath.Join(t.TempDir(), "runtime-only")
+	if err := os.MkdirAll(filepath.Join(example, "reference"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(example, "project.md"), []byte(`# Runtime Only
+
+## Goal
+
+Render a local summary report.
+
+## Inputs
+
+- No inputs are required.
+
+## Outputs
+
+- Rendered report.
+
+## External Systems and OpenAPI
+
+OpenAPI: none required
+
+## Runtime Policy
+
+- fnct allowed.
+
+## Credentials and Secrets
+
+- No credentials are required.
+
+## Safety and Approval Boundary
+
+- Generate only.
+
+## Fallback Behavior
+
+- Stop on failure.
+`), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(example, "reference", "intent.hcl"), []byte(`workflow {
+  name = "runtime_only_render"
+}
+
+step "render_report" {
+  type = "fnct"
+  do   = "Render the summary report."
+}
+
+output "report" {
+  from = "render_report.received_body"
+}
+`), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(example, "reference", "policy.json"), []byte(`{`), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	schemaPath, err := filepath.Abs(filepath.Join("..", "..", "..", "uws", "versions", "1.0.0.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	result := RunOne(context.Background(), example, synthesize.Options{
+		LLMClient:  fakeRuntimeClient{},
+		ChatClient: fakeRuntimeClient{},
+		SchemaPath: schemaPath,
+	})
+	var found bool
+	for _, issue := range result.ReferenceIssues {
+		if issue.Code == "reference.policy" && issue.Severity == "warning" {
+			found = true
+		}
+	}
+	if !found {
+		t.Fatalf("reference issues = %#v, want reference.policy warning", result.ReferenceIssues)
+	}
+}
+
 func TestRunOneUsesTempCopyAndReadsRefinement(t *testing.T) {
 	example := filepath.Join(t.TempDir(), "runtime-only")
 	if err := os.MkdirAll(filepath.Join(example, "reference"), 0o755); err != nil {
@@ -242,6 +378,27 @@ func TestReleaseCriteriaErrorCatchesReleaseGateFailures(t *testing.T) {
 	}
 }
 
+func TestReleaseCriteriaErrorUsesPerFixtureReferenceThreshold(t *testing.T) {
+	allowed := 1
+	err := ReleaseCriteriaError([]EvalResult{{
+		Name:         "known-reference-drift",
+		Passed:       true,
+		Mode:         "structured",
+		AttemptCount: 1,
+		ReferencePolicy: &ReferencePolicy{
+			MaxBlocking: &allowed,
+		},
+		ReferenceIssues: []CompareIssue{{
+			Code:     "intent.step_operation",
+			Detail:   "known drift",
+			Severity: "blocking",
+		}},
+	}}, DefaultReleaseCriteria())
+	if err != nil {
+		t.Fatalf("unexpected release criteria error: %v", err)
+	}
+}
+
 func TestReleaseCriteriaErrorPassesCleanRun(t *testing.T) {
 	err := ReleaseCriteriaError([]EvalResult{{
 		Name:          "ok",
@@ -256,6 +413,7 @@ func TestReleaseCriteriaErrorPassesCleanRun(t *testing.T) {
 }
 
 func TestMarkdownIncludesReferenceSeveritySummary(t *testing.T) {
+	policy := ReferencePolicy{Mode: "advisory"}
 	md := Markdown([]EvalResult{{
 		Name:               "a",
 		Provider:           "gemini",
@@ -272,16 +430,26 @@ func TestMarkdownIncludesReferenceSeveritySummary(t *testing.T) {
 			Warning:  1,
 			Blocking: 0,
 		},
+		ReferencePolicy: &policy,
+		ReferenceIssues: []CompareIssue{{
+			Code:     "intent.outputs",
+			Detail:   "extra output",
+			Severity: "advisory",
+			Note:     "illustrative reference",
+		}},
 	}})
 	for _, expected := range []string{
 		"Reference issues (A/W/B)",
+		"Reference policies: `advisory`=1",
 		"Repeated repair loops: `1`",
 		"Prompt tokens approx total: `123`",
 		"Modes: `structured`=1",
 		"Providers: `gemini`=1",
 		"Models: `gemini-2.5-flash`=1",
 		"Prompt versions: `ramen.prompt.v1`=1",
-		"| `a` | pass | gemini | gemini-2.5-flash | ramen.prompt.v1 | structured | 2 |  |  | 2/1/0 | 123 | 456ms |",
+		"| `a` | pass | gemini | gemini-2.5-flash | ramen.prompt.v1 | structured | 2 |  |  | 2/1/0 | advisory | 123 | 456ms |",
+		"## Reference Issue Details",
+		"- advisory `intent.outputs`: extra output (illustrative reference)",
 	} {
 		if !strings.Contains(md, expected) {
 			t.Fatalf("markdown missing %q:\n%s", expected, md)
@@ -301,6 +469,7 @@ func TestBuildRunSummaryAggregatesAnalytics(t *testing.T) {
 			AttemptCount:       1,
 			PromptTokensApprox: 100,
 			DurationMs:         10,
+			ReferencePolicy:    &ReferencePolicy{Mode: "strict"},
 		},
 		{
 			Name:               "repair",
@@ -335,6 +504,9 @@ func TestBuildRunSummaryAggregatesAnalytics(t *testing.T) {
 	}
 	if len(summary.Providers) != 1 || summary.Providers[0].Name != "gemini" || summary.Providers[0].Count != 2 {
 		t.Fatalf("unexpected providers: %#v", summary.Providers)
+	}
+	if len(summary.ReferencePolicies) != 1 || summary.ReferencePolicies[0].Name != "strict" {
+		t.Fatalf("unexpected reference policies: %#v", summary.ReferencePolicies)
 	}
 }
 

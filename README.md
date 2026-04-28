@@ -136,8 +136,8 @@ go run ./cmd/ramen eval --root ./examples/eval --provider gemini --model gemini-
 ```
 
 The release gate requires a 100% pass rate, structured-mode usage with zero legacy extraction
-fallbacks, no brief above two refinement attempts, no blocking reference issues, and zero
-`artifacts.no_secrets` failures.
+fallbacks, no brief above two refinement attempts, no blocking reference issues after each fixture's
+`reference/policy.json` is applied, and zero `artifacts.no_secrets` failures.
 
 Last full passing real-LLM smoke: 2026-04-28, `gemini-2.5-flash`, prompt `intent.v3`, structured
 output path with `0` legacy extraction fallbacks.
@@ -155,9 +155,10 @@ output path with `0` legacy extraction fallbacks.
 | `support-priority-routing` | pass | structured | 1 | 5/0/1 |
 | `weather-toronto` | pass | structured | 1 | 2/0/0 |
 
-Summary: all ten examples passed deterministic quality gates. Eval reports now classify reference
-drift as advisory/warning/blocking; inspect blocking drift separately when reference fixtures are
-meant to become exact golden outputs.
+Summary: all ten examples passed deterministic quality gates. Eval reports classify reference drift
+as advisory/warning/blocking and apply each fixture's `reference/policy.json`. Runtime type,
+selected OpenAPI operation, and parse/compare failures are behavioral drift; step names, output
+names, request literal names, and bind field names are semantic hints by default.
 
 Structured-output smoke on 2026-04-28 recovered the ten-example quality baseline with
 `gemini-2.5-flash`: 10/10 passed, all in structured mode, with `0` legacy fallbacks.

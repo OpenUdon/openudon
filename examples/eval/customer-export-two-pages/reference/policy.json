@@ -1,0 +1,7 @@
+{
+  "mode": "strict",
+  "notes": [
+    "The two-page export fixture is stable; the two page fetches and merge adapter are the golden behavior."
+  ],
+  "max_blocking": 0
+}

@@ -63,7 +63,7 @@ keeps branch selection inside an approved function adapter for now; later slices
 condition/switch fixtures after the harness can classify those failures cleanly. Continue toward
 25-50 total briefs after these prove stable.
 
-## [in-progress] Golden Reference Discipline
+## [done] Golden Reference Discipline
 
 Goal: make reference issues actionable instead of merely informational.
 
@@ -82,6 +82,13 @@ Done when: eval reports distinguish acceptable naming drift from real behavioral
 Slice 1 classifies reference drift as `advisory`, `warning`, or `blocking`, reports A/W/B counts in
 eval Markdown, and treats increased blocking reference drift as an eval regression. Later slices
 should add per-fixture policy/triage notes and release thresholds.
+
+Slice 2 adds optional `reference/policy.json` files so each eval fixture can declare strict or
+advisory reference comparison, issue triage notes, severity overrides, and per-fixture blocking
+thresholds for release checks. Every current eval fixture has a policy file with `max_blocking: 0`;
+`support-priority-routing` is marked advisory while its routing reference remains illustrative.
+Step/output/request/bind names are documented as semantic hints, while runtime type, selected
+OpenAPI operation, and reference parse/compare failures are behavioral drift.
 
 ## [done] Structured Output By Default
 
@@ -272,17 +279,17 @@ Dependency status markers:
 | ID | Status | Priority | Target | Capability | Ramen symptom/evidence | Owner | Compatibility plan |
 | --- | --- | --- | --- | --- | --- | --- | --- |
 | XRD-001 | `[done]` | P0 | `../udon` | Provider-native structured output for Gemini intent generation. | Structured eval smoke on 2026-04-28 reached 10/10 with zero legacy fallback after udon request wiring was fixed. | udon | Keep Ramen fallback regression checks and structured-mode eval reporting. |
-| XRD-002 | `[ready]` | P0 | `../udon` | Preserve and lower public UWS structural constructs from generated workflow drafts. | Workflow Artifact Power Slice 1 added Ramen switch plan/review/quality coverage; future loop/retry/failure-branch fixtures need udon lowering/runtime parity. | udon | Add Ramen compatibility fixtures for switch, loop, retry, and failure branches; only move generic lowering/runtime changes into udon. |
-| XRD-003 | `[blocked]` | P0 | `../uws` | Public semantics for any new control-flow or execution metadata not already in UWS 1.0. | TODO roadmap includes retries, timeouts, idempotency keys, failure branches, and future runtime profiles; Ramen must not define public workflow semantics locally. | uws | Compatibility matrix is documented in `docs/cross-repo-contracts.md`; propose spec/model/schema changes in `../uws` before adding Ramen generation policy for unsupported semantics. |
+| XRD-002 | `[ready]` | P0 | `../udon` | Preserve and lower public UWS structural constructs and failure actions from generated workflow drafts. | Workflow Artifact Power Slice 1 added Ramen switch plan/review/quality coverage; loops, structural results, failure branches, retries, and runtime profiles now have UWS 1.0 contracts but still need Ramen/udon compatibility proof. | udon | Add Ramen compatibility fixtures for loop, structural result, retry, and failure-branch artifacts; only move generic lowering/runtime changes into udon. |
+| XRD-003 | `[blocked]` | P0 | `../uws` | Portable serialized timeout and workflow-level idempotency semantics not already in UWS 1.0. | UWS 1.0 covers loops, structural results, failure actions, retries, and runtime profiles; it does not define a general timeout field or workflow-level idempotency metadata. Ramen must not invent those semantics locally. | uws | Compatibility matrix is documented in `docs/cross-repo-contracts.md`; propose spec/model/schema changes in `../uws` before adding Ramen generation policy for portable timeout or idempotency metadata. |
 | XRD-004 | `[ready]` | P1 | `../udon` | Generic OpenAPI execution/compiler behavior for richer API workflows. | Eval Corpus Expansion needs pagination variants, request bodies, security schemes, write operations, and response extraction beyond current smoke coverage. | udon | Add Ramen evals first to identify concrete compiler/runtime gaps; upstream only reusable OpenAPI/UWS execution fixes. |
-| XRD-005 | `[blocked]` | P1 | `../symphony` | Review workflow, approval handoff, and agent workspace policy integration. | Safety And Trusted Execution now emits a minimum handoff package, but approval routing is still only documented in Ramen review evidence. | symphony | Handoff package and state model are documented in `docs/cross-repo-contracts.md`; integrate approval routing in Symphony without forking Symphony from Ramen. |
+| XRD-005 | `[blocked]` | P1 | External `../symphony` owner | Review workflow, approval handoff, and agent workspace policy integration. | Safety And Trusted Execution now emits a minimum handoff package, but approval routing is still only documented in Ramen review evidence. | symphony owner | Handoff package and state model are documented in `docs/cross-repo-contracts.md`; Ramen cannot modify Symphony and should only coordinate the required upstream change with its owner. |
 | XRD-006 | `[watch]` | P1 | Provider APIs | Structured-output schema dialect compatibility, rate limits, transient errors, and model availability. | README documents real-provider eval variance; release gate is local/manual because provider runs can fail for external reasons. | provider owners | Keep deterministic checks local; record provider/model/prompt version, legacy fallback, attempts, and generated dir in eval reports. |
-| XRD-007 | `[blocked]` | P1 | Repo access / secrets | Private sibling checkout and provider credential availability for future workflow automation. | GitHub CI was removed because private siblings and credentials made hosted checks noisy; real-LLM eval remains local/manual. | infra | Runbook and automation tiers are documented in `docs/cross-repo-contracts.md`; keep GitHub workflows disabled until private checkout and secret policy are stable. |
+| XRD-007 | `[blocked]` | P1 | Repo access / secrets | Private sibling checkout and provider credential availability for future workflow automation. | GitHub CI was removed because private siblings and credentials made hosted checks noisy; real-LLM eval remains local/manual. | infra | Runbook and automation tiers are documented in `docs/cross-repo-contracts.md`; keep GitHub workflows disabled until a self-hosted deterministic runner and secret policy are stable. |
 | XRD-008 | `[ready]` | P2 | `../udon` / `../uws` | Runtime/profile coverage for approved non-HTTP execution beyond current `fnct`/`cmd` smoke paths. | Runtime-only and command evals cover basic policy, but future runtime profiles need generic execution support outside Ramen. | udon/uws | Ramen should add policy/eval fixtures only; profile semantics and execution belong upstream. |
 
 Next upstream actions:
 
 1. Start with XRD-002: add one loop or failure-branch compatibility fixture in Ramen, then patch udon only if lowering/runtime support is missing.
-2. For XRD-003, use the `docs/cross-repo-contracts.md` compatibility matrix before adding any Ramen prompt policy.
-3. For XRD-005, implement Symphony approval routing against the handoff package and state model in `docs/cross-repo-contracts.md`.
-4. For XRD-007, keep CI disabled until the `docs/cross-repo-contracts.md` runbook prerequisites are satisfied.
+2. For XRD-003, keep portable timeout and workflow-level idempotency prompt support disabled until `../uws` defines those contracts.
+3. For XRD-005, hand the `docs/cross-repo-contracts.md` approval package and state model to the Symphony owner; do not modify `../symphony` from Ramen.
+4. For XRD-007, keep CI disabled until the self-hosted deterministic runner prerequisites in `docs/cross-repo-contracts.md` are satisfied.

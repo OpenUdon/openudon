@@ -34,6 +34,7 @@ type EvalResult struct {
 	Error              string           `json:"error,omitempty"`
 	ReferenceIssues    []CompareIssue   `json:"reference_issues,omitempty"`
 	ReferenceSummary   ReferenceSummary `json:"reference_summary,omitempty"`
+	ReferencePolicy    *ReferencePolicy `json:"reference_policy,omitempty"`
 	GeneratedDir       string           `json:"generated_dir,omitempty"`
 }
 
@@ -118,13 +119,21 @@ func RunOne(ctx context.Context, exampleDir string, opts synthesize.Options) Eva
 	}
 	referenceIntent := filepath.Join(exampleDir, "reference", "intent.hcl")
 	if _, statErr := os.Stat(referenceIntent); statErr == nil {
-		issues, compareErr := CompareIntentFiles(filepath.Join(workDir, "workflows", "intent.hcl"), referenceIntent)
+		policyPath := filepath.Join(exampleDir, "reference", "policy.json")
+		policy, policyErr := ReadReferencePolicy(policyPath)
+		if policyErr == nil {
+			result.ReferencePolicy = &policy
+		} else if !errors.Is(policyErr, os.ErrNotExist) {
+			issue := CompareIssue{Code: "reference.policy", Detail: policyErr.Error(), Severity: "warning"}
+			result.ReferenceIssues = append(result.ReferenceIssues, issue)
+		}
+		issues, compareErr := CompareIntentFiles(filepath.Join(workDir, "workflows", "intent.hcl"), referenceIntent, policy)
 		if compareErr != nil {
 			issue := CompareIssue{Code: "reference.compare", Detail: compareErr.Error()}
 			issue.Severity = referenceIssueSeverity(issue)
-			result.ReferenceIssues = []CompareIssue{issue}
+			result.ReferenceIssues = append(result.ReferenceIssues, issue)
 		} else {
-			result.ReferenceIssues = issues
+			result.ReferenceIssues = append(result.ReferenceIssues, issues...)
 		}
 		result.ReferenceSummary = summarizeReferenceIssues(result.ReferenceIssues)
 	}
@@ -383,8 +392,12 @@ func ReleaseCriteriaError(results []EvalResult, criteria ReleaseCriteria) error 
 		if attempts > criteria.MaxAttemptsPerBrief {
 			attemptFailures = append(attemptFailures, fmt.Sprintf("%s=%d", result.Name, attempts))
 		}
-		if blocking := blockingReferenceCount(result); blocking > criteria.MaxBlockingReference {
-			referenceFailures = append(referenceFailures, fmt.Sprintf("%s=%d", result.Name, blocking))
+		allowedBlocking := criteria.MaxBlockingReference
+		if result.ReferencePolicy != nil && result.ReferencePolicy.MaxBlocking != nil {
+			allowedBlocking = *result.ReferencePolicy.MaxBlocking
+		}
+		if blocking := blockingReferenceCount(result); blocking > allowedBlocking {
+			referenceFailures = append(referenceFailures, fmt.Sprintf("%s=%d>%d", result.Name, blocking, allowedBlocking))
 		}
 		if criteria.RequireNoSecretScan && containsFailureCode(result.FailingChecks, "artifacts.no_secrets") {
 			secretFailures = append(secretFailures, result.Name)

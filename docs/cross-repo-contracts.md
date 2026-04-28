@@ -2,14 +2,19 @@
 
 This page records the planning contracts for Ramen blockers that cannot be completed inside Ramen
 alone. Ramen stays an integration layer: public workflow semantics belong in `../uws`, generic
-compilation and execution belong in `../udon`, Symphony workflow ownership belongs in `../symphony`,
-and private checkout or secret automation belongs to infrastructure.
+compilation and execution belong in `../udon`, Symphony workflow ownership belongs with the external
+`../symphony` owner, and private checkout or secret automation belongs to infrastructure.
 
 ## XRD-003 UWS Public Semantics Audit
 
 Ramen must not teach prompts to emit workflow semantics that lack a public UWS contract. If a
 capability is covered by UWS but not yet proven through udon and Ramen fixtures, keep it out of
 default generation until compatibility is demonstrated.
+
+The remaining UWS-public-semantics blocker is intentionally narrow: portable serialized timeout
+fields and workflow-level idempotency metadata are not UWS 1.0 core fields. Loops, structural
+results, failure branches, retries, and runtime profiles are not blocked on `../uws`; they need
+Ramen/udon compatibility proof before Ramen expands prompt defaults.
 
 | Capability | Already covered by UWS 1.0 | Belongs in `../uws` | Belongs in `../udon` | Ramen policy only | May Ramen generate today |
 | --- | --- | --- | --- | --- | --- |
@@ -24,7 +29,9 @@ default generation until compatibility is demonstrated.
 
 Decision rule: when the table says "No", Ramen may document the need and validate existing
 artifacts, but it must not add prompt defaults that synthesize the capability. When the table says
-"Yes, but only", Ramen may generate that capability only in the named constrained form.
+"Yes, but only", Ramen may generate that capability only in the named constrained form. UWS-covered
+capabilities with "No" in the final column are ready compatibility work, not public-semantics
+blockers.
 
 ## XRD-005 Symphony Approval Handoff Contract
 
@@ -63,7 +70,7 @@ Ramen remains responsible for:
 - Trusted-runner command text that an approved operator can execute outside the agent session.
 - Secret scanning and credential-binding evidence using names, not secret values.
 
-Symphony owns:
+The external Symphony owner owns:
 
 - Approval routing, reviewer identity, and audit trail.
 - State transitions between the approval states above.
@@ -72,6 +79,8 @@ Symphony owns:
 
 Acceptance: a Symphony implementer can consume the listed files, map them to the listed states, and
 build reviewer routing without guessing what Ramen emits or which approval state names are expected.
+Ramen must not modify `../symphony`; it only maintains this emitted-artifact contract and coordinates
+the upstream request with the Symphony owner.
 
 ## XRD-007 Private Checkout And Secrets Runbook
 
@@ -93,7 +102,7 @@ Automation tiers:
 | --- | --- | --- | --- |
 | Local deterministic | `go test ./...`, `go vet ./...`, `make check` | Developer workstation with private siblings checked out. | Normal development gate. |
 | Local/manual real LLM | `go run ./cmd/ramen eval --root ./examples/eval --provider <provider> --model <model> --release-gate` | Trusted workstation with provider credentials in environment variables. | Release smoke gate; results are reviewed manually. |
-| Future CI deterministic | `go test ./...`, `go vet ./...`, `make check` | Hosted or self-hosted runner with private sibling checkout. | Enable only after repo access and dependency checkout are stable. |
+| Future CI deterministic | `go test ./...`, `go vet ./...`, `make check` | Self-hosted private runner with private sibling checkout. | Enable only after repo access and dependency checkout are stable. No provider keys. |
 | Future manual/release real-provider workflow | Release-gated eval command with explicit provider/model. | Protected manual workflow or trusted release machine. | Requires secret store controls and log/artifact redaction policy. |
 
 Allowed secret handling:
@@ -107,6 +116,7 @@ Allowed secret handling:
 
 Prerequisites to re-enable deterministic CI:
 
+- A self-hosted private runner is available for Ramen checks.
 - Private sibling checkout works non-interactively for every required repo.
 - The runner has no provider keys for deterministic checks.
 - `go test ./...`, `go vet ./...`, and `make check` pass on a clean private checkout.

@@ -1,0 +1,7 @@
+{
+  "mode": "strict",
+  "notes": [
+    "The approved command fixture is stable; runtime type drift is blocking while naming drift remains diagnostic."
+  ],
+  "max_blocking": 0
+}

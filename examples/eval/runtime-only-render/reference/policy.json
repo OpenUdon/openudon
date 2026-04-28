@@ -1,0 +1,7 @@
+{
+  "mode": "strict",
+  "notes": [
+    "The runtime-only render fixture is stable; fnct runtime selection and input flow are the golden behavior."
+  ],
+  "max_blocking": 0
+}

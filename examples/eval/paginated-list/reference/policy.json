@@ -1,0 +1,7 @@
+{
+  "mode": "strict",
+  "notes": [
+    "The paginated list fixture is stable; bounded list operation selection is the golden behavior."
+  ],
+  "max_blocking": 0
+}

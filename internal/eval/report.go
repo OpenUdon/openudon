@@ -33,6 +33,7 @@ type RunSummary struct {
 	PromptVersions          []SummaryRow `json:"prompt_versions,omitempty"`
 	FailureClasses          []SummaryRow `json:"failure_classes,omitempty"`
 	TopFailingChecks        []SummaryRow `json:"top_failing_checks,omitempty"`
+	ReferencePolicies       []SummaryRow `json:"reference_policies,omitempty"`
 	RepeatedRepairBriefs    []string     `json:"repeated_repair_briefs,omitempty"`
 }
 
@@ -109,11 +110,14 @@ func Markdown(results []EvalResult) string {
 	if len(summary.TopFailingChecks) > 0 {
 		fmt.Fprintf(&b, "- Top failing checks: %s\n", summaryRowsText(summary.TopFailingChecks))
 	}
+	if len(summary.ReferencePolicies) > 0 {
+		fmt.Fprintf(&b, "- Reference policies: %s\n", summaryRowsText(summary.ReferencePolicies))
+	}
 	if len(summary.RepeatedRepairBriefs) > 0 {
 		fmt.Fprintf(&b, "- Repeated repair briefs: `%s`\n", strings.Join(summary.RepeatedRepairBriefs, "`, `"))
 	}
-	b.WriteString("\n| Brief | Status | Provider | Model | Prompt | Mode | Attempts | Failure class | Failing checks | Reference issues (A/W/B) | Tokens | Duration | Generated dir |\n")
-	b.WriteString("| --- | --- | --- | --- | --- | --- | ---: | --- | --- | --- | ---: | ---: | --- |\n")
+	b.WriteString("\n| Brief | Status | Provider | Model | Prompt | Mode | Attempts | Failure class | Failing checks | Reference issues (A/W/B) | Reference policy | Tokens | Duration | Generated dir |\n")
+	b.WriteString("| --- | --- | --- | --- | --- | --- | ---: | --- | --- | --- | --- | ---: | ---: | --- |\n")
 	for _, result := range results {
 		status := "fail"
 		if result.Passed {
@@ -127,7 +131,7 @@ func Markdown(results []EvalResult) string {
 		if attempts == 0 {
 			attempts = result.AttemptsToPass
 		}
-		fmt.Fprintf(&b, "| `%s` | %s | %s | %s | %s | %s | %d | %s | %s | %s | %d | %dms | %s |\n",
+		fmt.Fprintf(&b, "| `%s` | %s | %s | %s | %s | %s | %d | %s | %s | %s | %s | %d | %dms | %s |\n",
 			result.Name,
 			status,
 			escapeTable(result.Provider),
@@ -138,10 +142,15 @@ func Markdown(results []EvalResult) string {
 			escapeTable(result.FailureClass),
 			escapeTable(failing),
 			referenceSummaryText(result.ReferenceSummary, result.ReferenceIssues),
+			escapeTable(referencePolicyText(result.ReferencePolicy)),
 			result.PromptTokensApprox,
 			result.DurationMs,
 			escapeTable(result.GeneratedDir),
 		)
+	}
+	if details := referenceIssueDetailsMarkdown(results); details != "" {
+		b.WriteString("\n## Reference Issue Details\n\n")
+		b.WriteString(details)
 	}
 	return b.String()
 }
@@ -158,6 +167,7 @@ func BuildRunSummary(results []EvalResult) RunSummary {
 	promptVersions := map[string]int{}
 	failureClasses := map[string]int{}
 	failingChecks := map[string]int{}
+	referencePolicies := map[string]int{}
 	for _, result := range results {
 		if result.Passed {
 			summary.Passed++
@@ -180,6 +190,7 @@ func BuildRunSummary(results []EvalResult) RunSummary {
 		incrementSummary(modes, result.Mode)
 		incrementSummary(promptVersions, result.PromptVersion)
 		incrementSummary(failureClasses, result.FailureClass)
+		incrementSummary(referencePolicies, referencePolicyText(result.ReferencePolicy))
 		for _, check := range result.FailingChecks {
 			incrementSummary(failingChecks, check)
 		}
@@ -194,6 +205,7 @@ func BuildRunSummary(results []EvalResult) RunSummary {
 	summary.PromptVersions = summaryRows(promptVersions, 0)
 	summary.FailureClasses = summaryRows(failureClasses, 0)
 	summary.TopFailingChecks = summaryRows(failingChecks, 5)
+	summary.ReferencePolicies = summaryRows(referencePolicies, 0)
 	return summary
 }
 
@@ -238,6 +250,47 @@ func referenceSummaryText(summary ReferenceSummary, issues []CompareIssue) strin
 		return "0/0/0"
 	}
 	return fmt.Sprintf("%d/%d/%d", summary.Advisory, summary.Warning, summary.Blocking)
+}
+
+func referencePolicyText(policy *ReferencePolicy) string {
+	if policy == nil || policy.IsZero() {
+		return ""
+	}
+	if strings.TrimSpace(policy.Mode) != "" {
+		return strings.TrimSpace(policy.Mode)
+	}
+	return "custom"
+}
+
+func referenceIssueDetailsMarkdown(results []EvalResult) string {
+	var b strings.Builder
+	for _, result := range results {
+		if len(result.ReferenceIssues) == 0 && (result.ReferencePolicy == nil || len(result.ReferencePolicy.Notes) == 0) {
+			continue
+		}
+		fmt.Fprintf(&b, "- `%s`", result.Name)
+		if policy := referencePolicyText(result.ReferencePolicy); policy != "" {
+			fmt.Fprintf(&b, " policy `%s`", policy)
+		}
+		b.WriteString("\n")
+		if result.ReferencePolicy != nil {
+			for _, note := range result.ReferencePolicy.Notes {
+				note = strings.TrimSpace(note)
+				if note != "" {
+					fmt.Fprintf(&b, "  - policy: %s\n", escapeTable(note))
+				}
+			}
+		}
+		for _, issue := range result.ReferenceIssues {
+			severity := normalizedReferenceSeverity(issue)
+			fmt.Fprintf(&b, "  - %s `%s`: %s", severity, issue.Code, escapeTable(issue.Detail))
+			if note := strings.TrimSpace(issue.Note); note != "" {
+				fmt.Fprintf(&b, " (%s)", escapeTable(note))
+			}
+			b.WriteString("\n")
+		}
+	}
+	return b.String()
 }
 
 func legacyExtractCount(results []EvalResult) int {

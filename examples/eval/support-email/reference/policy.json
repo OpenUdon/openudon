@@ -1,0 +1,7 @@
+{
+  "mode": "strict",
+  "notes": [
+    "The support email fixture is stable; ticket lookup plus approved email adapter are the golden behavior."
+  ],
+  "max_blocking": 0
+}

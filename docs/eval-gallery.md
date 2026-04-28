@@ -22,6 +22,14 @@ Add samples only when they strengthen coverage:
 
 - Prefer one clear purpose per sample.
 - Include `reference/intent.hcl` when reference comparison should detect drift.
+- Add `reference/policy.json` when the reference is illustrative or needs per-fixture triage notes.
+  Use `mode: "strict"` for golden references and `mode: "advisory"` when deterministic quality
+  gates are authoritative but exact intent shape may drift.
+- Treat step names, output names, request literal names, and bind field names as semantic hints by
+  default. They should help diagnose drift, but they are not release-blocking by themselves.
+- Treat wrong runtime type, wrong selected OpenAPI operation, and reference parse/compare failures
+  as behavioral drift. These are blocking unless a fixture policy deliberately overrides them.
+- Keep `max_blocking` at `0` unless the fixture is intentionally tracking a temporary known gap.
 - Keep secret-shaped values fake and avoid real provider data.
 - Document credential bindings by name only.
 - For side-effectful workflows, include approval/trusted-runtime policy and sandbox/test proof-run

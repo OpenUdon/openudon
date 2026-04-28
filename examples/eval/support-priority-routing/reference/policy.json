@@ -1,0 +1,10 @@
+{
+  "mode": "advisory",
+  "notes": [
+    "This fixture is illustrative until switch-style routing becomes a strict golden reference; deterministic quality gates remain authoritative."
+  ],
+  "issue_notes": {
+    "*": "Intent naming and adapter boundaries may drift while the routing fixture remains illustrative."
+  },
+  "max_blocking": 0
+}

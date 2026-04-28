@@ -1,0 +1,7 @@
+{
+  "mode": "strict",
+  "notes": [
+    "The Toronto weather fixture is stable; geocoding before weather lookup is the golden behavior."
+  ],
+  "max_blocking": 0
+}

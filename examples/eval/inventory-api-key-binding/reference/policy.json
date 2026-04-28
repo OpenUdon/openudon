@@ -1,0 +1,7 @@
+{
+  "mode": "strict",
+  "notes": [
+    "The inventory credential-binding fixture is stable; operation selection and credential binding are the golden behavior."
+  ],
+  "max_blocking": 0
+}

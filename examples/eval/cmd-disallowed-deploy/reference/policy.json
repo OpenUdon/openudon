@@ -1,0 +1,7 @@
+{
+  "mode": "strict",
+  "notes": [
+    "The denied command fixture is stable; generated command usage must remain visible to runtime-policy checks."
+  ],
+  "max_blocking": 0
+}
