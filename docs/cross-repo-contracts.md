@@ -11,10 +11,11 @@ Ramen must not teach prompts to emit workflow semantics that lack a public UWS c
 capability is covered by UWS but not yet proven through udon and Ramen fixtures, keep it out of
 default generation until compatibility is demonstrated.
 
-The remaining UWS-public-semantics blocker is intentionally narrow: portable serialized timeout
-fields and workflow-level idempotency metadata are not UWS 1.0 core fields. Loops, structural
-results, failure branches, retries, and runtime profiles are not blocked on `../uws`; they need
-Ramen/udon compatibility proof before Ramen expands prompt defaults.
+The original UWS-public-semantics blocker was intentionally narrow: portable serialized timeout
+fields and workflow-level idempotency metadata were not UWS 1.0 core fields. UWS 1.1 now defines
+those public fields in `../uws/versions/1.1.0.md` and `../uws/versions/1.1.0.json`. Loops,
+structural results, failure branches, retries, and runtime profiles are not blocked on `../uws`;
+they need Ramen/udon compatibility proof before Ramen expands prompt defaults.
 
 | Capability | Already covered by UWS 1.0 | Belongs in `../uws` | Belongs in `../udon` | Ramen policy only | May Ramen generate today |
 | --- | --- | --- | --- | --- | --- |
@@ -23,8 +24,8 @@ Ramen/udon compatibility proof before Ramen expands prompt defaults.
 | Structural results | Yes: top-level `results[]` with `kind` `switch`, `merge`, or `loop` and `from`. | No new public semantics for current result shapes. | Preserve structural result declarations and expose runtime outputs. | Require readable review evidence for result meaning. | Yes for generated structural step outputs. Slice 2 exports and validates UWS `results[]` from intent outputs that reference `switch`, `merge`, or `loop` steps. |
 | Failure branches | Yes: `onFailure` actions support `end`, `goto`, and `retry` with criteria. | No new public semantics for basic failure routing. | Preserve and execute failure actions, including target resolution and retry counting. | Require side-effect review notes for failure paths. | Yes, when the brief or intent explicitly asks for failure routing. Slice 3 proves draft lowering, plan/review evidence, UWS export, and quality coverage. |
 | Retries | Yes: `onFailure` action `type: retry`, `retryLimit`, and optional `retryAfter`. | No new public semantics for bounded failure retries. | Lower and run retry behavior reliably. | Limit retries for side-effectful operations and require idempotency review. | Yes, when the brief or intent explicitly asks for retry. Side-effectful retries require explicit retry/idempotency policy in `project.md`. |
-| Timeouts | Partly: `await` may be terminated by executor-owned timeout, but UWS 1.0 has no serialized timeout field. | Yes if a portable serialized timeout is required. | Own executor options or profile-specific timeout behavior. | Require project timeout policy in review, without inventing UWS fields. | No, except where an existing OpenAPI or runtime profile already defines a non-UWS timeout parameter. |
-| Idempotency keys | Partly: can be ordinary OpenAPI request headers/body fields when the API defines them; no core UWS idempotency field. | Yes if a portable workflow-level idempotency contract is required. | Own generic runtime support for automatic key injection or replay protection. | Require side-effect review evidence and credential-binding/idempotency policy. | Yes, but only as explicit OpenAPI request binding to a documented operation parameter; no invented metadata. |
+| Timeouts | Yes in UWS 1.1: `timeout` is available on operations, workflows, and steps. | Done for the portable field contract; future spec changes only if semantics need revision. | Own executor options or profile-specific timeout behavior and runtime enforcement. | Decide when project policy should request portable timeouts. | Not by default in Ramen yet; allowed only after a Ramen follow-up adds prompt/schema/eval coverage for UWS 1.1 timeout. |
+| Idempotency keys | Yes in UWS 1.1 for workflow-level `idempotency`; API-specific keys can still be ordinary OpenAPI request headers/body fields. | Done for the portable metadata contract; future spec changes only if semantics need revision. | Own generic runtime support for automatic key injection, replay protection, or idempotency record storage. | Require side-effect review evidence and credential-binding/idempotency policy. | API-specific request bindings may be generated today; workflow-level UWS 1.1 idempotency needs a Ramen follow-up before prompt defaults emit it. |
 | Runtime profiles | Yes: extension-owned operations must declare `x-uws-operation-profile`; profile payloads are extensions. | Only profile marker semantics and reserved prefix policy. | Define and execute `x-udon-*` profile behavior. | Allow or deny profiles by project/environment policy. | Yes for existing validated udon profile shapes already covered by Ramen checks. |
 
 Decision rule: when the table says "No", Ramen may document the need and validate existing

@@ -15,7 +15,7 @@ handoff requirements, and XRD-007 private checkout and secrets prerequisites.
 | --- | --- | --- | --- | --- | --- | --- |
 | XRD-001 | Closed | udon / Ramen regression owner | `../udon` | Provider-native structured output for Gemini intent generation exists; Ramen structured eval smoke reached 10/10 with zero legacy fallback on 2026-04-28. | Regression report only if fallback behavior regresses. | None unless tests regress. |
 | XRD-002 | Closed | udon / Ramen regression owner | `../udon` | Public UWS structural constructs and failure actions are preserved across udon and Ramen compatibility checks. | Regression report only if artifact preservation regresses. | None unless tests regress. |
-| XRD-003 | Blocked | uws owner | `../uws` | Portable serialized timeout and workflow-level idempotency metadata are not public UWS 1.0 semantics; an upstream proposal is drafted in `../uws/docs/proposals/xrd-003-timeout-idempotency.md`. | UWS owner review and, if accepted, UWS 1.1.0 spec/schema/model implementation. | XRD-003 upstream proposal handoff. |
+| XRD-003 | Closed | uws owner | `../uws` | UWS 1.1.0 now defines portable `timeout` fields and workflow-level `idempotency` metadata in `../uws/versions/1.1.0.md` and `../uws/versions/1.1.0.json`. | Ramen follow-up only if prompt/schema/eval support should emit UWS 1.1 fields by default. | None for cross-repo public semantics. |
 | XRD-004 | Ready | Ramen eval owner, then udon owner for reusable gaps | `../ramen`, then `../udon` | Current OpenAPI coverage is smoke-level and does not prove richer compiler/runtime behavior. | Ramen eval fixture plan and fixtures. | XRD-004 richer OpenAPI eval coverage. |
 | XRD-005 | Blocked | External Symphony owner | `../symphony` | Ramen emits review evidence and handoff files, but approval routing is not implemented by Ramen. | Symphony handoff package using the documented files and approval states. | XRD-005 Symphony owner handoff. |
 | XRD-006 | Watch | Ramen release owner / provider owners | Provider APIs | Provider behavior can drift in schema dialect support, rate limits, transient failures, and model availability. | Provider drift watch report during release evaluation. | XRD-006 provider drift watch plan. |
@@ -52,23 +52,21 @@ quality and compatibility checks.
 
 ## XRD-003 UWS Public Semantics
 
-Decision: upstream proposal handoff.
+Decision: closed upstream public-semantics handoff.
 
-Next artifact: UWS owner review of `../uws/docs/proposals/xrd-003-timeout-idempotency.md`, then a
-UWS 1.1.0 spec/schema/model implementation if accepted.
+Next artifact: a Ramen-owned follow-up only if Ramen should emit UWS 1.1 `timeout` or
+`idempotency` fields in generated artifacts.
 
 Acceptance criteria:
 
-- Portable timeout prompt/schema support remains disabled in Ramen until UWS defines the public
-  serialized semantics.
-- Workflow-level idempotency prompt/schema support remains disabled in Ramen until UWS defines the
-  public metadata contract.
-- The proposal uses the compatibility matrix in
+- UWS defines portable timeout semantics in `../uws/versions/1.1.0.md`.
+- UWS defines workflow-level idempotency metadata in `../uws/versions/1.1.0.md`.
+- The compatibility matrix in
   [`docs/cross-repo-contracts.md#xrd-003-uws-public-semantics-audit`](cross-repo-contracts.md#xrd-003-uws-public-semantics-audit)
-  as its starting point.
+  distinguishes the completed public contract from future Ramen prompt/eval work.
 
-Implementation boundary: Ramen may document policy and validate existing artifacts, but it must not
-invent public UWS fields locally.
+Implementation boundary: Ramen may now plan prompt/schema/eval support against UWS 1.1, but this
+pass does not change Ramen generation behavior.
 
 ## XRD-004 Richer OpenAPI Eval Coverage
 
