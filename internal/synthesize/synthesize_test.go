@@ -8,6 +8,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/genelet/hcllight/light"
 	"github.com/genelet/ramen/internal/openapidisco"
 	"github.com/genelet/udon/pkg/rollout"
 )
@@ -859,6 +860,85 @@ Search weather in Toronto, Canada.
 	}
 	if !hasCheck(report, "workflow.plan_match", "fail") {
 		t.Fatalf("expected workflow.plan_match failure, got %#v", report.Checks)
+	}
+}
+
+func TestBuildWorkflowPlanSkipsCmdCommandHint(t *testing.T) {
+	plan := buildWorkflowPlan(Result{ExampleDir: t.TempDir()}, &rollout.Intent{
+		Steps: []*rollout.Step{{
+			Name: "get_deployment_status",
+			Type: "cmd",
+			Do:   "Run deployment status command.",
+			With: map[string]string{"command": "get_deploy_status.sh"},
+		}},
+	}, nil, projectPolicy{})
+	if len(plan.Steps) != 1 {
+		t.Fatalf("unexpected plan: %#v", plan)
+	}
+	if len(plan.Steps[0].Bindings) != 0 {
+		t.Fatalf("cmd command hint should not become request binding: %#v", plan.Steps[0].Bindings)
+	}
+}
+
+func TestDeterministicNoOpenAPICommandWorkflow(t *testing.T) {
+	hcl, ok := deterministicNoOpenAPICommandWorkflow(&rollout.Intent{
+		Steps: []*rollout.Step{{
+			Name: "get_deployment_status",
+			Type: "cmd",
+			Do:   "Run deployment status.",
+			With: map[string]string{"command": `echo "Deployment status: OK"`},
+		}},
+	}, "")
+	if !ok {
+		t.Fatal("expected deterministic command workflow")
+	}
+	if strings.Contains(hcl, "openapi") || !strings.Contains(hcl, `cmd "get_deployment_status"`) || !strings.Contains(hcl, `\"Deployment status: OK\"`) {
+		t.Fatalf("unexpected workflow HCL:\n%s", hcl)
+	}
+}
+
+func TestRequestAttributeEvidenceFindsNestedParamMap(t *testing.T) {
+	expr, err := light.AnyToExpression(map[string]any{
+		"ticketId": map[string]any{"expr": "workflow.input.ticketId"},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	evidence, ok := requestAttributeEvidence(&light.Body{Attributes: map[string]*light.Attribute{
+		"path_pars": {Name: "path_pars", Expr: expr},
+	}}, []string{"path_pars.ticketId"})
+	if !ok {
+		t.Fatal("expected nested path_pars evidence")
+	}
+	if !strings.Contains(evidence.Expression, "ticketId") {
+		t.Fatalf("unexpected evidence: %#v", evidence)
+	}
+}
+
+func TestRequestAttributeEvidenceMatchingCanPreferCorrectDuplicate(t *testing.T) {
+	expr, err := light.AnyToExpression("inputs.ticketId")
+	if err != nil {
+		t.Fatal(err)
+	}
+	wrongExpr, err := light.AnyToExpression("trigger.received_body.ticketId")
+	if err != nil {
+		t.Fatal(err)
+	}
+	evidence, ok := requestAttributeEvidenceMatching(&light.Body{
+		Attributes: map[string]*light.Attribute{
+			"ticketId": {Name: "ticketId", Expr: expr},
+		},
+		Blocks: []*light.Block{{
+			Type: "path_pars",
+			Bdy: &light.Body{Attributes: map[string]*light.Attribute{
+				"ticketId": {Name: "ticketId", Expr: wrongExpr},
+			}},
+		}},
+	}, []string{"path_pars.ticketId", "ticketId"}, func(candidate requestAttribute) bool {
+		return expressionReferencesInputSource(candidate.Expression, "inputs.ticketId")
+	})
+	if !ok || evidence.Name != "ticketId" {
+		t.Fatalf("expected top-level matching evidence, got %#v ok=%v", evidence, ok)
 	}
 }
 

@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 	"runtime"
 	"sort"
+	"strconv"
 	"strings"
 	"time"
 
@@ -467,6 +468,12 @@ func generateWorkflow(ctx context.Context, result Result, intent *rollout.Intent
 	if timeout == 0 {
 		timeout = 2 * time.Minute
 	}
+	if workflowHCL, ok := deterministicNoOpenAPICommandWorkflow(intent, result.PrimaryOpenAPI); ok {
+		if err := ensureArtifactDirs(result); err != nil {
+			return err
+		}
+		return os.WriteFile(result.WorkflowPath, []byte(workflowHCL), 0o644)
+	}
 	workflowHCL, err := runner.GenerateConfigFromIntentWithClient(ctx, intent, result.PrimaryOpenAPI, llm, runner.GenerateOptions{
 		Provider: provider,
 		Model:    model,
@@ -482,6 +489,35 @@ func generateWorkflow(ctx context.Context, result Result, intent *rollout.Intent
 		return err
 	}
 	return os.WriteFile(result.WorkflowPath, []byte(workflowHCL), 0o644)
+}
+
+func deterministicNoOpenAPICommandWorkflow(intent *rollout.Intent, primaryOpenAPI string) (string, bool) {
+	if intent == nil || strings.TrimSpace(primaryOpenAPI) != "" || strings.TrimSpace(intent.OpenAPI) != "" || len(intent.Steps) != 1 {
+		return "", false
+	}
+	step := intent.Steps[0]
+	if step == nil || !strings.EqualFold(strings.TrimSpace(step.Type), "cmd") {
+		return "", false
+	}
+	name := strings.TrimSpace(step.Name)
+	if name == "" {
+		name = "run_command"
+	}
+	command := strings.TrimSpace(step.With["command"])
+	if command == "" {
+		command = strings.TrimSpace(step.Do)
+	}
+	if command == "" {
+		return "", false
+	}
+	var b strings.Builder
+	fmt.Fprintf(&b, "cmd %s {\n", strconv.Quote(name))
+	if do := strings.TrimSpace(step.Do); do != "" {
+		fmt.Fprintf(&b, "  description = %s\n", strconv.Quote(do))
+	}
+	fmt.Fprintf(&b, "  command = %s\n", strconv.Quote(command))
+	b.WriteString("}\n")
+	return b.String(), true
 }
 
 func resolveExampleDir(example string) (string, error) {

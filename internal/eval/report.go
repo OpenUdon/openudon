@@ -59,8 +59,8 @@ func Markdown(results []EvalResult) string {
 	fmt.Fprintf(&b, "- Briefs: `%d`\n", len(results))
 	fmt.Fprintf(&b, "- Pass rate: `%.1f%%`\n\n", passRate(results)*100)
 	fmt.Fprintf(&b, "- Legacy extractJSON fallback: `%d`\n\n", legacyExtractCount(results))
-	b.WriteString("| Brief | Status | Mode | Attempts | Failure class | Failing checks | Reference issues | Duration |\n")
-	b.WriteString("| --- | --- | --- | ---: | --- | --- | ---: | ---: |\n")
+	b.WriteString("| Brief | Status | Mode | Attempts | Failure class | Failing checks | Reference issues (A/W/B) | Duration |\n")
+	b.WriteString("| --- | --- | --- | ---: | --- | --- | --- | ---: |\n")
 	for _, result := range results {
 		status := "fail"
 		if result.Passed {
@@ -70,18 +70,28 @@ func Markdown(results []EvalResult) string {
 		if failing == "" && result.Error != "" {
 			failing = result.Error
 		}
-		fmt.Fprintf(&b, "| `%s` | %s | %s | %d | %s | %s | %d | %dms |\n",
+		fmt.Fprintf(&b, "| `%s` | %s | %s | %d | %s | %s | %s | %dms |\n",
 			result.Name,
 			status,
 			escapeTable(result.Mode),
 			result.AttemptsToPass,
 			escapeTable(result.FailureClass),
 			escapeTable(failing),
-			len(result.ReferenceIssues),
+			referenceSummaryText(result.ReferenceSummary, result.ReferenceIssues),
 			result.DurationMs,
 		)
 	}
 	return b.String()
+}
+
+func referenceSummaryText(summary ReferenceSummary, issues []CompareIssue) string {
+	if summary == (ReferenceSummary{}) {
+		summary = summarizeReferenceIssues(issues)
+	}
+	if summary == (ReferenceSummary{}) {
+		return "0/0/0"
+	}
+	return fmt.Sprintf("%d/%d/%d", summary.Advisory, summary.Warning, summary.Blocking)
 }
 
 func legacyExtractCount(results []EvalResult) int {

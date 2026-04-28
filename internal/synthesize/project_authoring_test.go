@@ -37,3 +37,24 @@ func TestAnalyzeProjectExtractsPromptRequirements(t *testing.T) {
 		t.Fatalf("unexpected function contracts: %#v", policy.FunctionContracts)
 	}
 }
+
+func TestAnalyzeProjectExtractsLiteralRequestHints(t *testing.T) {
+	policy := analyzeProject("# Demo\n\n" +
+		"## Data Flow\n\n" +
+		"- Fetch page 1 with literal `page = 1` and literal `limit = 50`.\n" +
+		"- Pass literal page `2` and limit `50` to the list operation.\n" +
+		"- Resolve Toronto to coordinates before fetching weather.\n")
+	want := map[string]bool{
+		"page=1:page_1":           true,
+		"limit=50:page_1":         true,
+		"page=2:list":             true,
+		"limit=50:list":           true,
+		"q=Toronto,CA:coordinate": true,
+	}
+	for _, hint := range policy.BindingHints {
+		delete(want, hint.Field+"="+hint.From+":"+hint.StepSelector)
+	}
+	if len(want) != 0 {
+		t.Fatalf("missing literal hints: %#v from %#v", want, policy.BindingHints)
+	}
+}

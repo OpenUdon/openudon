@@ -17,21 +17,28 @@ import (
 )
 
 type EvalResult struct {
-	Name               string         `json:"name"`
-	PromptVersion      string         `json:"prompt_version,omitempty"`
-	Provider           string         `json:"provider,omitempty"`
-	Model              string         `json:"model,omitempty"`
-	Mode               string         `json:"mode,omitempty"`
-	UsedLegacyExtract  bool           `json:"used_legacy_extract,omitempty"`
-	Passed             bool           `json:"passed"`
-	AttemptsToPass     int            `json:"attempts_to_pass"`
-	FailureClass       string         `json:"failure_class,omitempty"`
-	FailingChecks      []string       `json:"failing_checks,omitempty"`
-	DurationMs         int64          `json:"duration_ms"`
-	PromptTokensApprox int            `json:"prompt_tokens_approx"`
-	Error              string         `json:"error,omitempty"`
-	ReferenceIssues    []CompareIssue `json:"reference_issues,omitempty"`
-	GeneratedDir       string         `json:"generated_dir,omitempty"`
+	Name               string           `json:"name"`
+	PromptVersion      string           `json:"prompt_version,omitempty"`
+	Provider           string           `json:"provider,omitempty"`
+	Model              string           `json:"model,omitempty"`
+	Mode               string           `json:"mode,omitempty"`
+	UsedLegacyExtract  bool             `json:"used_legacy_extract,omitempty"`
+	Passed             bool             `json:"passed"`
+	AttemptsToPass     int              `json:"attempts_to_pass"`
+	FailureClass       string           `json:"failure_class,omitempty"`
+	FailingChecks      []string         `json:"failing_checks,omitempty"`
+	DurationMs         int64            `json:"duration_ms"`
+	PromptTokensApprox int              `json:"prompt_tokens_approx"`
+	Error              string           `json:"error,omitempty"`
+	ReferenceIssues    []CompareIssue   `json:"reference_issues,omitempty"`
+	ReferenceSummary   ReferenceSummary `json:"reference_summary,omitempty"`
+	GeneratedDir       string           `json:"generated_dir,omitempty"`
+}
+
+type ReferenceSummary struct {
+	Advisory int `json:"advisory,omitempty"`
+	Warning  int `json:"warning,omitempty"`
+	Blocking int `json:"blocking,omitempty"`
 }
 
 func RunOne(ctx context.Context, exampleDir string, opts synthesize.Options) EvalResult {
@@ -91,10 +98,13 @@ func RunOne(ctx context.Context, exampleDir string, opts synthesize.Options) Eva
 	if _, statErr := os.Stat(referenceIntent); statErr == nil {
 		issues, compareErr := CompareIntentFiles(filepath.Join(workDir, "workflows", "intent.hcl"), referenceIntent)
 		if compareErr != nil {
-			result.ReferenceIssues = []CompareIssue{{Code: "reference.compare", Detail: compareErr.Error()}}
+			issue := CompareIssue{Code: "reference.compare", Detail: compareErr.Error()}
+			issue.Severity = referenceIssueSeverity(issue)
+			result.ReferenceIssues = []CompareIssue{issue}
 		} else {
 			result.ReferenceIssues = issues
 		}
+		result.ReferenceSummary = summarizeReferenceIssues(result.ReferenceIssues)
 	}
 	result.DurationMs = time.Since(start).Milliseconds()
 	return result
@@ -293,23 +303,69 @@ func RegressionError(current []EvalResult, previous []EvalResult) error {
 	if currentRate < previousRate {
 		return fmt.Errorf("eval pass rate regressed from %.1f%% to %.1f%%", previousRate*100, currentRate*100)
 	}
+	if currentLegacy, previousLegacy := legacyExtractCount(current), legacyExtractCount(previous); currentLegacy > previousLegacy {
+		return fmt.Errorf("legacy extractJSON fallback count regressed from %d to %d", previousLegacy, currentLegacy)
+	}
 	currentByName := map[string]EvalResult{}
 	for _, result := range current {
 		currentByName[result.Name] = result
 	}
 	var regressions []string
+	var referenceRegressions []string
 	for _, prior := range previous {
-		if !prior.Passed {
+		now, ok := currentByName[prior.Name]
+		if !ok {
 			continue
 		}
-		if now, ok := currentByName[prior.Name]; ok && !now.Passed {
+		if prior.Passed && !now.Passed {
 			regressions = append(regressions, prior.Name)
+		}
+		if blockingReferenceCount(now) > blockingReferenceCount(prior) {
+			referenceRegressions = append(referenceRegressions, prior.Name)
 		}
 	}
 	if len(regressions) > 0 {
 		return fmt.Errorf("previously passing eval brief(s) failed: %s", strings.Join(regressions, ", "))
 	}
+	if len(referenceRegressions) > 0 {
+		return fmt.Errorf("blocking reference issue count regressed for brief(s): %s", strings.Join(referenceRegressions, ", "))
+	}
 	return nil
+}
+
+func summarizeReferenceIssues(issues []CompareIssue) ReferenceSummary {
+	var summary ReferenceSummary
+	for _, issue := range issues {
+		switch normalizedReferenceSeverity(issue) {
+		case "advisory":
+			summary.Advisory++
+		case "blocking":
+			summary.Blocking++
+		default:
+			summary.Warning++
+		}
+	}
+	return summary
+}
+
+func normalizedReferenceSeverity(issue CompareIssue) string {
+	severity := strings.ToLower(strings.TrimSpace(issue.Severity))
+	if severity == "" {
+		severity = referenceIssueSeverity(issue)
+	}
+	switch severity {
+	case "advisory", "warning", "blocking":
+		return severity
+	default:
+		return "warning"
+	}
+}
+
+func blockingReferenceCount(result EvalResult) int {
+	if result.ReferenceSummary.Blocking > 0 {
+		return result.ReferenceSummary.Blocking
+	}
+	return summarizeReferenceIssues(result.ReferenceIssues).Blocking
 }
 
 func passRate(results []EvalResult) float64 {

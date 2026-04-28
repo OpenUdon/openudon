@@ -125,24 +125,28 @@ export GEMINI_API_KEY=...
 go run ./cmd/ramen eval --root ./examples/eval --provider gemini --model gemini-2.5-flash
 ```
 
-Last full real-LLM smoke: 2026-04-28, `gemini-2.5-flash`, prompt `intent.v3`.
+Last full passing real-LLM smoke: 2026-04-28, `gemini-2.5-flash`, prompt `intent.v3`, structured
+output path with `0` legacy extraction fallbacks.
 
-| Eval brief | Result | Attempts | Reference issues |
-| --- | --- | ---: | ---: |
-| `cmd-allowed-deploy` | pass | 1 | 4 |
-| `cmd-disallowed-deploy` | pass | 2 | 4 |
-| `crm-note-write` | pass | 1 | 0 |
-| `customer-export-two-pages` | pass | 1 | 0 |
-| `inventory-api-key-binding` | pass | 1 | 0 |
-| `paginated-list` | pass | 1 | 0 |
-| `runtime-only-render` | pass | 1 | 0 |
-| `support-email` | pass | 1 | 2 |
-| `support-priority-routing` | pass | 3 | 4 |
-| `weather-toronto` | pass | 1 | 0 |
+| Eval brief | Result | Mode | Attempts | Reference issues (A/W/B) |
+| --- | --- | --- | ---: | --- |
+| `cmd-allowed-deploy` | pass | structured | 1 | 2/2/0 |
+| `cmd-disallowed-deploy` | pass | structured | 1 | 2/2/0 |
+| `crm-note-write` | pass | structured | 1 | 1/0/0 |
+| `customer-export-two-pages` | pass | structured | 2 | 4/0/0 |
+| `inventory-api-key-binding` | pass | structured | 2 | 0/0/0 |
+| `paginated-list` | pass | structured | 1 | 0/0/0 |
+| `runtime-only-render` | pass | structured | 1 | 0/0/0 |
+| `support-email` | pass | structured | 1 | 5/0/0 |
+| `support-priority-routing` | pass | structured | 1 | 5/0/1 |
+| `weather-toronto` | pass | structured | 1 | 2/0/0 |
 
-Summary: all ten examples passed deterministic quality gates. Reference issues are non-blocking
-structural comparison differences against illustrative reference artifacts; inspect them separately
-if the reference fixtures are meant to become exact golden outputs.
+Summary: all ten examples passed deterministic quality gates. Eval reports now classify reference
+drift as advisory/warning/blocking; inspect blocking drift separately when reference fixtures are
+meant to become exact golden outputs.
+
+Structured-output smoke on 2026-04-28 recovered the ten-example quality baseline with
+`gemini-2.5-flash`: 10/10 passed, all in structured mode, with `0` legacy fallbacks.
 
 ### Model Selection
 

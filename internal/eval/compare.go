@@ -9,8 +9,9 @@ import (
 )
 
 type CompareIssue struct {
-	Code   string `json:"code"`
-	Detail string `json:"detail"`
+	Code     string `json:"code"`
+	Detail   string `json:"detail"`
+	Severity string `json:"severity,omitempty"`
 }
 
 func CompareIntentFiles(generatedPath, referencePath string) ([]CompareIssue, error) {
@@ -30,6 +31,9 @@ func CompareIntents(generated, reference *rollout.Intent) []CompareIssue {
 	issues = append(issues, compareInputs(generated, reference)...)
 	issues = append(issues, compareOutputs(generated, reference)...)
 	issues = append(issues, compareSteps(generated, reference)...)
+	for i := range issues {
+		issues[i].Severity = referenceIssueSeverity(issues[i])
+	}
 	sort.SliceStable(issues, func(i, j int) bool {
 		if issues[i].Code != issues[j].Code {
 			return issues[i].Code < issues[j].Code
@@ -37,6 +41,21 @@ func CompareIntents(generated, reference *rollout.Intent) []CompareIssue {
 		return issues[i].Detail < issues[j].Detail
 	})
 	return issues
+}
+
+func referenceIssueSeverity(issue CompareIssue) string {
+	switch strings.TrimSpace(issue.Code) {
+	case "intent.step_type", "intent.step_operation":
+		return "blocking"
+	case "intent.inputs", "intent.steps":
+		return "warning"
+	case "intent.outputs", "intent.step_with", "intent.step_bind":
+		return "advisory"
+	case "reference.compare":
+		return "warning"
+	default:
+		return "warning"
+	}
 }
 
 func compareInputs(generated, reference *rollout.Intent) []CompareIssue {

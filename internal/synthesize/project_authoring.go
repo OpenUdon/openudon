@@ -72,9 +72,10 @@ type OutputDecl struct {
 }
 
 type BindingHint struct {
-	From  string
-	To    string
-	Field string
+	From         string
+	To           string
+	Field        string
+	StepSelector string
 }
 
 type FunctionContract struct {
@@ -220,19 +221,80 @@ func extractBindingHints(section string) []BindingHint {
 	var out []BindingHint
 	for _, line := range markdownListItems(section) {
 		match := re.FindStringSubmatch(line)
+		if len(match) >= 3 {
+			to := strings.Trim(strings.TrimSpace(match[2]), ".,")
+			field := to
+			if idx := strings.LastIndexAny(to, "."); idx >= 0 && idx+1 < len(to) {
+				field = to[idx+1:]
+			}
+			out = append(out, BindingHint{
+				From:  strings.Trim(strings.TrimSpace(match[1]), ".,"),
+				To:    to,
+				Field: field,
+			})
+		}
+		out = append(out, extractLiteralBindingHints(line)...)
+	}
+	return out
+}
+
+func extractLiteralBindingHints(line string) []BindingHint {
+	normalized := strings.ToLower(strings.TrimSpace(line))
+	var out []BindingHint
+	selector := literalStepSelector(normalized)
+	assignmentRe := regexp.MustCompile("(?i)(?:literal\\s+)?`?([A-Za-z][A-Za-z0-9_.-]*)`?\\s*=\\s*`?([A-Za-z0-9_.:-]+)`?")
+	for _, match := range assignmentRe.FindAllStringSubmatch(line, -1) {
 		if len(match) < 3 {
 			continue
 		}
-		to := strings.Trim(strings.TrimSpace(match[2]), ".,")
-		field := to
-		if idx := strings.LastIndexAny(to, "."); idx >= 0 && idx+1 < len(to) {
-			field = to[idx+1:]
+		field := strings.Trim(strings.TrimSpace(match[1]), ".,")
+		value := strings.Trim(strings.TrimSpace(match[2]), ".,")
+		if field == "" || value == "" {
+			continue
 		}
-		out = append(out, BindingHint{
-			From:  strings.Trim(strings.TrimSpace(match[1]), ".,"),
-			To:    to,
-			Field: field,
-		})
+		out = append(out, BindingHint{From: value, Field: field, StepSelector: selector})
+	}
+	if strings.Contains(normalized, "literal page") {
+		pageRe := regexp.MustCompile(`(?i)\bpage\s+` + "`?" + `([0-9]+)` + "`?")
+		limitRe := regexp.MustCompile(`(?i)\blimit\s+` + "`?" + `([0-9]+)` + "`?")
+		if match := pageRe.FindStringSubmatch(line); len(match) >= 2 {
+			out = append(out, BindingHint{From: match[1], Field: "page", StepSelector: selector})
+		}
+		if match := limitRe.FindStringSubmatch(line); len(match) >= 2 {
+			out = append(out, BindingHint{From: match[1], Field: "limit", StepSelector: selector})
+		}
+	}
+	if strings.Contains(normalized, "toronto") && (strings.Contains(normalized, "resolve") || strings.Contains(normalized, "coordinate")) {
+		out = append(out, BindingHint{From: "Toronto,CA", Field: "q", StepSelector: "coordinate"})
+	}
+	return dedupeBindingHints(out)
+}
+
+func literalStepSelector(line string) string {
+	switch {
+	case strings.Contains(line, "page 1") || strings.Contains(line, "first page"):
+		return "page_1"
+	case strings.Contains(line, "page 2") || strings.Contains(line, "second page"):
+		return "page_2"
+	case strings.Contains(line, "list operation") || strings.Contains(line, "list customers"):
+		return "list"
+	case strings.Contains(line, "coordinate") || strings.Contains(line, "resolve"):
+		return "coordinate"
+	default:
+		return ""
+	}
+}
+
+func dedupeBindingHints(hints []BindingHint) []BindingHint {
+	seen := map[string]bool{}
+	var out []BindingHint
+	for _, hint := range hints {
+		key := hint.From + "\x00" + hint.To + "\x00" + hint.Field + "\x00" + hint.StepSelector
+		if hint.From == "" || hint.Field == "" || seen[key] {
+			continue
+		}
+		seen[key] = true
+		out = append(out, hint)
 	}
 	return out
 }

@@ -13,13 +13,14 @@ implementation context; this file tracks current product-readiness work.
 
 ## Current State
 
-Ramen has moved beyond a pure proof of concept: the eval harness exists, ten eval examples pass with
-a real LLM, deterministic quality gates validate generated artifacts, bounded refinement is recorded,
-and secret scanning has been hardened against workflow-reference false positives.
+Ramen has moved beyond a pure proof of concept: the eval harness exists, ten eval examples have a
+known-good real-LLM legacy-extraction baseline, deterministic quality gates validate generated
+artifacts, bounded refinement is recorded, and secret scanning has been hardened against
+workflow-reference false positives.
 
 The remaining gap is product readiness. The current evidence is still narrow, real-provider runs can
-vary, all ten latest real-LLM evals used legacy JSON extraction, and reference drift is not yet
-formally triaged.
+vary, Gemini structured-output smoke now reaches zero legacy fallback with the ten-example corpus,
+and reference drift still needs per-fixture release thresholds.
 
 ## [done] Post-POC Baseline
 
@@ -38,7 +39,7 @@ overstating product readiness.
   expected-plan matching, UWS validation, review evidence, and secret scanning.
 - README documents deterministic checks versus optional real-LLM eval smoke tests.
 
-## [todo] Eval Corpus Expansion
+## [in-progress] Eval Corpus Expansion
 
 Goal: grow the eval set from smoke coverage to representative workflow coverage.
 
@@ -62,7 +63,7 @@ keeps branch selection inside an approved function adapter for now; later slices
 condition/switch fixtures after the harness can classify those failures cleanly. Continue toward
 25-50 total briefs after these prove stable.
 
-## [todo] Golden Reference Discipline
+## [in-progress] Golden Reference Discipline
 
 Goal: make reference issues actionable instead of merely informational.
 
@@ -78,7 +79,11 @@ Done when: eval reports distinguish acceptable naming drift from real behavioral
 - Track regressions against the previous run for pass rate, attempts, failure class, and blocking
   reference issues.
 
-## [todo] Structured Output By Default
+Slice 1 classifies reference drift as `advisory`, `warning`, or `blocking`, reports A/W/B counts in
+eval Markdown, and treats increased blocking reference drift as an eval regression. Later slices
+should add per-fixture policy/triage notes and release thresholds.
+
+## [done] Structured Output By Default
 
 Goal: make provider-native structured generation the normal path and legacy extraction the fallback.
 
@@ -94,6 +99,11 @@ fallbacks for the normal Gemini Flash run.
 - Keep legacy extraction available only for unsupported clients and explicit compatibility tests.
 - Add provider tests that assert schema, temperature, response mode, and fallback behavior.
 - Record structured versus legacy mode clearly in refinement and eval summaries.
+
+Slice 1 fixed Gemini structured-output request wiring in `../udon`, added fallback-regression
+detection to eval comparison, tightened structured-mode prompt and intent cleanup for model-only
+noise, and recovered the 2026-04-28 full `gemini-2.5-flash` run to 10/10 pass with `0` legacy
+fallbacks.
 
 ## [todo] Quality Gate Hardening
 

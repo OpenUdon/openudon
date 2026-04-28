@@ -92,6 +92,9 @@ func buildWorkflowPlan(result Result, intent *rollout.Intent, candidates []opena
 			if strings.TrimSpace(target) == "" {
 				continue
 			}
+			if strings.EqualFold(strings.TrimSpace(step.Type), "cmd") && strings.EqualFold(strings.TrimSpace(target), "command") {
+				continue
+			}
 			planStep.Bindings = append(planStep.Bindings, PlanBinding{
 				Target: strings.TrimSpace(target),
 				Source: strings.TrimSpace(source),
@@ -470,7 +473,7 @@ func credentialBindingNames(policy projectPolicy) []string {
 	for _, token := range strings.FieldsFunc(section, func(r rune) bool {
 		return !((r >= 'a' && r <= 'z') || (r >= 'A' && r <= 'Z') || (r >= '0' && r <= '9') || r == '_' || r == '-' || r == '.')
 	}) {
-		token = strings.TrimSpace(token)
+		token = strings.Trim(strings.TrimSpace(token), ".,;:")
 		if token == "" {
 			continue
 		}

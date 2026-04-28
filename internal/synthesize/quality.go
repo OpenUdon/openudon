@@ -594,7 +594,7 @@ func validateWorkflowAgainstExpectedPlan(report *QualityReport, compiled *runtim
 			wantRuntime = strings.ToLower(strings.TrimSpace(step.Type))
 		}
 		gotRuntime := strings.ToLower(strings.TrimSpace(op.ServiceType))
-		if wantRuntime != "" && gotRuntime != "" && wantRuntime != gotRuntime {
+		if wantRuntime != "" && gotRuntime != "" && wantRuntime != gotRuntime && !equivalentWorkflowRuntime(wantRuntime, gotRuntime) {
 			runtimeMismatch = append(runtimeMismatch, fmt.Sprintf("%s expected %s got %s", name, wantRuntime, gotRuntime))
 		}
 		if strings.TrimSpace(step.Operation) != "" && strings.TrimSpace(op.OpenAPIOperationID) != strings.TrimSpace(step.Operation) {
@@ -630,18 +630,38 @@ func validateWorkflowAgainstExpectedPlan(report *QualityReport, compiled *runtim
 			switch param.SourceKind {
 			case "input":
 				if !expressionReferencesInputSource(evidence.Expression, param.ExpectedSource) {
+					if _, ok := requestAttributeEvidenceMatching(op.Request, paramCandidateNames(param.Name), func(candidate requestAttribute) bool {
+						return expressionReferencesInputSource(candidate.Expression, param.ExpectedSource)
+					}); ok {
+						continue
+					}
 					bindingSourceMismatch = append(bindingSourceMismatch, fmt.Sprintf("%s.%s expected input source %s got %s", name, param.Name, param.ExpectedSource, evidence.Expression))
 				}
 			case "binding":
 				if !expressionReferencesExpectedSource(evidence.Expression, param.ExpectedSource) {
+					if _, ok := requestAttributeEvidenceMatching(op.Request, paramCandidateNames(param.Name), func(candidate requestAttribute) bool {
+						return expressionReferencesExpectedSource(candidate.Expression, param.ExpectedSource)
+					}); ok {
+						continue
+					}
 					bindingSourceMismatch = append(bindingSourceMismatch, fmt.Sprintf("%s.%s expected source %s got %s", name, param.Name, param.ExpectedSource, evidence.Expression))
 				}
 			case "literal":
 				if normalizeBindingExpression(evidence.Expression) != normalizeBindingExpression(param.ExpectedSource) {
+					if _, ok := requestAttributeEvidenceMatching(op.Request, paramCandidateNames(param.Name), func(candidate requestAttribute) bool {
+						return normalizeBindingExpression(candidate.Expression) == normalizeBindingExpression(param.ExpectedSource)
+					}); ok {
+						continue
+					}
 					bindingSourceMismatch = append(bindingSourceMismatch, fmt.Sprintf("%s.%s expected literal source %s got %s", name, param.Name, param.ExpectedSource, evidence.Expression))
 				}
 			default:
 				if !expressionReferencesExpectedSource(evidence.Expression, param.ExpectedSource) {
+					if _, ok := requestAttributeEvidenceMatching(op.Request, paramCandidateNames(param.Name), func(candidate requestAttribute) bool {
+						return expressionReferencesExpectedSource(candidate.Expression, param.ExpectedSource)
+					}); ok {
+						continue
+					}
 					bindingSourceMismatch = append(bindingSourceMismatch, fmt.Sprintf("%s.%s expected source %s got %s", name, param.Name, param.ExpectedSource, evidence.Expression))
 				}
 			}
@@ -661,6 +681,11 @@ func validateWorkflowAgainstExpectedPlan(report *QualityReport, compiled *runtim
 			}
 			expectedSource := bindingExpectedSource(binding)
 			if expectedSource != "" && !expressionReferencesExpectedSource(evidence.Expression, expectedSource) {
+				if _, ok := requestAttributeEvidenceMatching(op.Request, paramCandidateNames(binding.Target), func(candidate requestAttribute) bool {
+					return expressionReferencesExpectedSource(candidate.Expression, expectedSource)
+				}); ok {
+					continue
+				}
 				bindingSourceMismatch = append(bindingSourceMismatch, fmt.Sprintf("%s.%s expected source %s got %s", name, binding.Target, expectedSource, evidence.Expression))
 			}
 		}
@@ -745,36 +770,107 @@ func requestAttributeEvidence(body *light.Body, names []string) (requestAttribut
 	return requestAttribute{}, false
 }
 
+func requestAttributeEvidenceMatching(body *light.Body, names []string, match func(requestAttribute) bool) (requestAttribute, bool) {
+	if body == nil || match == nil {
+		return requestAttribute{}, false
+	}
+	for _, name := range names {
+		for _, evidence := range requestAttributeEvidences(body, name) {
+			if match(evidence) {
+				return evidence, true
+			}
+		}
+	}
+	return requestAttribute{}, false
+}
+
+func requestAttributeEvidences(body *light.Body, name string) []requestAttribute {
+	if body == nil {
+		return nil
+	}
+	var out []requestAttribute
+	if attr := body.Attributes[name]; attr != nil {
+		out = append(out, requestAttribute{Name: name, Expression: attributeExpression(attr)})
+	}
+	if block, child, ok := strings.Cut(name, "."); ok {
+		out = append(out, requestBlockAttributeEvidences(body, block, child)...)
+	}
+	out = append(out, requestNestedAttributeEvidences(body, name)...)
+	return out
+}
+
 func requestBlockAttributeEvidence(body *light.Body, blockType, name string) (requestAttribute, bool) {
+	evidences := requestBlockAttributeEvidences(body, blockType, name)
+	if len(evidences) == 0 {
+		return requestAttribute{}, false
+	}
+	return evidences[0], true
+}
+
+func requestBlockAttributeEvidences(body *light.Body, blockType, name string) []requestAttribute {
+	var out []requestAttribute
+	if attr := body.Attributes[blockType]; attr != nil {
+		expression := attributeExpression(attr)
+		if requestMapExpressionContainsKey(expression, name) {
+			out = append(out, requestAttribute{Name: blockType + "." + name, Expression: expression})
+		}
+	}
 	for _, block := range body.Blocks {
 		if block == nil || block.Bdy == nil {
 			continue
 		}
 		if block.Type == blockType {
 			if attr := block.Bdy.Attributes[name]; attr != nil {
-				return requestAttribute{Name: blockType + "." + name, Expression: attributeExpression(attr)}, true
+				out = append(out, requestAttribute{Name: blockType + "." + name, Expression: attributeExpression(attr)})
 			}
 		}
-		if evidence, found := requestBlockAttributeEvidence(block.Bdy, blockType, name); found {
-			return evidence, true
+		out = append(out, requestBlockAttributeEvidences(block.Bdy, blockType, name)...)
+	}
+	return out
+}
+
+func equivalentWorkflowRuntime(want, got string) bool {
+	return want == "openapi" && got == "http"
+}
+
+func requestMapExpressionContainsKey(expression, key string) bool {
+	expression = strings.TrimSpace(expression)
+	key = strings.TrimSpace(key)
+	if expression == "" || key == "" {
+		return false
+	}
+	for _, pattern := range []string{
+		key + " =",
+		`"` + key + `"`,
+		key + ":",
+	} {
+		if strings.Contains(expression, pattern) {
+			return true
 		}
 	}
-	return requestAttribute{}, false
+	return false
 }
 
 func requestNestedAttributeEvidence(body *light.Body, name string) (requestAttribute, bool) {
+	evidences := requestNestedAttributeEvidences(body, name)
+	if len(evidences) == 0 {
+		return requestAttribute{}, false
+	}
+	return evidences[0], true
+}
+
+func requestNestedAttributeEvidences(body *light.Body, name string) []requestAttribute {
+	var out []requestAttribute
 	for _, block := range body.Blocks {
 		if block == nil || block.Bdy == nil {
 			continue
 		}
 		if attr := block.Bdy.Attributes[name]; attr != nil {
-			return requestAttribute{Name: block.Type + "." + name, Expression: attributeExpression(attr)}, true
+			out = append(out, requestAttribute{Name: block.Type + "." + name, Expression: attributeExpression(attr)})
 		}
-		if evidence, found := requestNestedAttributeEvidence(block.Bdy, name); found {
-			return evidence, true
-		}
+		out = append(out, requestNestedAttributeEvidences(block.Bdy, name)...)
 	}
-	return requestAttribute{}, false
+	return out
 }
 
 func attributeExpression(attr *light.Attribute) string {

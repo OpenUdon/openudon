@@ -54,6 +54,36 @@ func TestCompareIntentsReportsStructuralIssues(t *testing.T) {
 	if len(issues) != 1 || issues[0].Code != "intent.step_operation" {
 		t.Fatalf("unexpected issues: %#v", issues)
 	}
+	if issues[0].Severity != "blocking" {
+		t.Fatalf("severity = %q, want blocking", issues[0].Severity)
+	}
+}
+
+func TestReferenceIssueSeverityClassifiesAdvisoryDrift(t *testing.T) {
+	generated := &rollout.Intent{
+		Outputs: []*rollout.Output{{Name: "status_text", From: "render_report.received_body"}},
+		Steps: []*rollout.Step{{
+			Name: "render_report",
+			Type: "fnct",
+			With: map[string]string{"summary": "inputs.summary"},
+		}},
+	}
+	reference := &rollout.Intent{
+		Outputs: []*rollout.Output{{Name: "status", From: "render_report.received_body"}},
+		Steps: []*rollout.Step{{
+			Name: "render_report",
+			Type: "fnct",
+			Binds: []*rollout.StepBind{{
+				From:   "source",
+				Fields: map[string]string{"summary": "received_body.summary"},
+			}},
+		}},
+	}
+	issues := CompareIntents(generated, reference)
+	summary := summarizeReferenceIssues(issues)
+	if summary.Advisory == 0 || summary.Blocking != 0 {
+		t.Fatalf("summary = %#v issues = %#v, want advisory-only drift", summary, issues)
+	}
 }
 
 func TestRunOneUsesTempCopyAndReadsRefinement(t *testing.T) {
@@ -127,6 +157,9 @@ output "report" {
 	if result.PromptVersion == "" || result.AttemptsToPass != 1 {
 		t.Fatalf("result missing refinement evidence: %#v", result)
 	}
+	if result.ReferenceSummary != (ReferenceSummary{}) || len(result.ReferenceIssues) != 0 {
+		t.Fatalf("reference summary = %#v issues = %#v, want no drift", result.ReferenceSummary, result.ReferenceIssues)
+	}
 	if result.GeneratedDir == "" || result.GeneratedDir == example {
 		t.Fatalf("expected generated temp dir, got %q", result.GeneratedDir)
 	}
@@ -142,5 +175,48 @@ func TestRegressionErrorDetectsFailedPreviouslyPassingBrief(t *testing.T) {
 	)
 	if err == nil || !strings.Contains(err.Error(), "pass rate regressed") {
 		t.Fatalf("expected regression error, got %v", err)
+	}
+}
+
+func TestRegressionErrorDetectsLegacyFallbackIncrease(t *testing.T) {
+	err := RegressionError(
+		[]EvalResult{{Name: "a", Passed: true, Mode: "legacy", UsedLegacyExtract: true}},
+		[]EvalResult{{Name: "a", Passed: true, Mode: "structured"}},
+	)
+	if err == nil || !strings.Contains(err.Error(), "legacy extractJSON fallback count regressed") {
+		t.Fatalf("expected legacy fallback regression, got %v", err)
+	}
+}
+
+func TestRegressionErrorDetectsBlockingReferenceRegression(t *testing.T) {
+	err := RegressionError(
+		[]EvalResult{{
+			Name:   "a",
+			Passed: true,
+			ReferenceIssues: []CompareIssue{{
+				Code:     "intent.step_operation",
+				Detail:   `fetch expected "getTicket" got "listTickets"`,
+				Severity: "blocking",
+			}},
+		}},
+		[]EvalResult{{Name: "a", Passed: true}},
+	)
+	if err == nil || !strings.Contains(err.Error(), "blocking reference issue count regressed") {
+		t.Fatalf("expected blocking reference regression, got %v", err)
+	}
+}
+
+func TestMarkdownIncludesReferenceSeveritySummary(t *testing.T) {
+	md := Markdown([]EvalResult{{
+		Name:   "a",
+		Passed: true,
+		ReferenceSummary: ReferenceSummary{
+			Advisory: 2,
+			Warning:  1,
+			Blocking: 0,
+		},
+	}})
+	if !strings.Contains(md, "Reference issues (A/W/B)") || !strings.Contains(md, "| `a` | pass |  | 0 |  |  | 2/1/0 |") {
+		t.Fatalf("markdown missing severity summary:\n%s", md)
 	}
 }
