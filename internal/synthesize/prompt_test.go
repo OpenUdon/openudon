@@ -81,7 +81,7 @@ func TestIntentPromptRendersExamplesAndProjectRequirements(t *testing.T) {
 		t.Fatalf("expected system and user messages, got %#v", messages)
 	}
 	system := messages[0].Content
-	for _, expected := range []string{"## Examples", "single_openapi", "two_step_bind", "runtime_fnct"} {
+	for _, expected := range []string{"## Examples", "single_openapi", "two_step_bind", "runtime_fnct", "structural_switch"} {
 		if !strings.Contains(system, expected) {
 			t.Fatalf("system prompt missing %q:\n%s", expected, system)
 		}

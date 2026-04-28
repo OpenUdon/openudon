@@ -27,10 +27,18 @@ type WorkflowPlan struct {
 type PlanStep struct {
 	Name           string        `json:"name"`
 	Type           string        `json:"type,omitempty"`
+	Parent         string        `json:"parent,omitempty"`
+	Branch         string        `json:"branch,omitempty"`
+	BranchWhen     string        `json:"branch_when,omitempty"`
 	Inferred       bool          `json:"inferred,omitempty"`
 	OpenAPI        string        `json:"openapi,omitempty"`
 	Operation      string        `json:"operation,omitempty"`
 	Runtime        string        `json:"runtime,omitempty"`
+	When           string        `json:"when,omitempty"`
+	ForEach        string        `json:"for_each,omitempty"`
+	Items          string        `json:"items,omitempty"`
+	Mode           string        `json:"mode,omitempty"`
+	BatchSize      string        `json:"batch_size,omitempty"`
 	DependsOn      []string      `json:"depends_on,omitempty"`
 	RequiredParams []string      `json:"required_params,omitempty"`
 	RequestParams  []PlanParam   `json:"request_params,omitempty"`
@@ -72,17 +80,38 @@ func buildWorkflowPlan(result Result, intent *rollout.Intent, candidates []opena
 	}
 	ops := openAPIOperationIndex(candidates)
 	inputs := intentInputNames(intent)
-	walkIntentSteps(intentSteps(intent), func(step *rollout.Step) {
+	addStepsToWorkflowPlan(plan, intent, intentSteps(intent), ops, inputs, policy, planStepContext{})
+	sortPlanGaps(plan.Gaps)
+	return plan
+}
+
+type planStepContext struct {
+	Parent     string
+	Branch     string
+	BranchWhen string
+}
+
+func addStepsToWorkflowPlan(plan *WorkflowPlan, intent *rollout.Intent, steps []*rollout.Step, ops map[string]*rollout.OperationInfo, inputs map[string]bool, policy projectPolicy, ctx planStepContext) {
+	for _, step := range steps {
 		if step == nil {
-			return
+			continue
 		}
+		name := strings.TrimSpace(step.Name)
 		planStep := PlanStep{
-			Name:      strings.TrimSpace(step.Name),
-			Type:      strings.TrimSpace(step.Type),
-			Runtime:   strings.TrimSpace(step.Type),
-			Operation: strings.TrimSpace(step.Operation),
-			DependsOn: sortedCopy(step.DependsOn),
-			Inferred:  true,
+			Name:       name,
+			Type:       strings.TrimSpace(step.Type),
+			Parent:     ctx.Parent,
+			Branch:     ctx.Branch,
+			BranchWhen: ctx.BranchWhen,
+			Runtime:    strings.TrimSpace(step.Type),
+			Operation:  strings.TrimSpace(step.Operation),
+			When:       strings.TrimSpace(step.When),
+			ForEach:    strings.TrimSpace(step.ForEach),
+			Items:      strings.TrimSpace(step.Items),
+			Mode:       strings.TrimSpace(step.Mode),
+			BatchSize:  strings.TrimSpace(step.BatchSize),
+			DependsOn:  sortedCopy(step.DependsOn),
+			Inferred:   true,
 		}
 		planStep.OpenAPI = strings.TrimSpace(step.OpenAPI)
 		if planStep.OpenAPI == "" && intent != nil {
@@ -178,9 +207,24 @@ func buildWorkflowPlan(result Result, intent *rollout.Intent, candidates []opena
 		planStep.Credentials = sortedUnique(planStep.Credentials)
 		sortPlanParams(planStep.RequestParams)
 		plan.Steps = append(plan.Steps, planStep)
-	})
-	sortPlanGaps(plan.Gaps)
-	return plan
+		addStepsToWorkflowPlan(plan, intent, step.Steps, ops, inputs, policy, planStepContext{Parent: name})
+		for _, branch := range step.Cases {
+			if branch == nil {
+				continue
+			}
+			addStepsToWorkflowPlan(plan, intent, branch.Steps, ops, inputs, policy, planStepContext{
+				Parent:     name,
+				Branch:     strings.TrimSpace(branch.Name),
+				BranchWhen: strings.TrimSpace(branch.When),
+			})
+		}
+		if step.Default != nil {
+			addStepsToWorkflowPlan(plan, intent, step.Default.Steps, ops, inputs, policy, planStepContext{
+				Parent: name,
+				Branch: "default",
+			})
+		}
+	}
 }
 
 func intentSteps(intent *rollout.Intent) []*rollout.Step {
@@ -242,6 +286,31 @@ func workflowPlanMarkdown(plan *WorkflowPlan) string {
 				fmt.Fprintf(&b, " operation `%s`", step.Operation)
 			}
 			b.WriteString("\n")
+			if step.Parent != "" {
+				fmt.Fprintf(&b, "  - parent: `%s`\n", step.Parent)
+			}
+			if step.Branch != "" {
+				fmt.Fprintf(&b, "  - branch: `%s`", step.Branch)
+				if step.BranchWhen != "" {
+					fmt.Fprintf(&b, " when `%s`", step.BranchWhen)
+				}
+				b.WriteString("\n")
+			}
+			if step.When != "" {
+				fmt.Fprintf(&b, "  - when: `%s`\n", step.When)
+			}
+			if step.ForEach != "" {
+				fmt.Fprintf(&b, "  - for_each: `%s`\n", step.ForEach)
+			}
+			if step.Items != "" {
+				fmt.Fprintf(&b, "  - items: `%s`\n", step.Items)
+			}
+			if step.Mode != "" {
+				fmt.Fprintf(&b, "  - mode: `%s`\n", step.Mode)
+			}
+			if step.BatchSize != "" {
+				fmt.Fprintf(&b, "  - batch_size: `%s`\n", step.BatchSize)
+			}
 			if len(step.DependsOn) > 0 {
 				fmt.Fprintf(&b, "  - depends_on: `%s`\n", strings.Join(step.DependsOn, "`, `"))
 			}

@@ -61,12 +61,12 @@
     "step": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["name", "do"],
+      "required": ["name"],
       "properties": {
         "name": { "type": "string", "minLength": 1 },
         "type": {
           "type": "string",
-          "enum": ["http", "openapi", "fnct", "cmd", "ssh"]
+          "enum": ["http", "openapi", "fnct", "cmd", "ssh", "sequence", "parallel", "switch", "merge", "loop", "await"]
         },
         "do": { "type": "string", "minLength": 1 },
         "using": { "type": "string" },

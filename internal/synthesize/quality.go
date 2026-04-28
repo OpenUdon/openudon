@@ -606,7 +606,7 @@ func validateWorkflowAgainstExpectedPlan(report *QualityReport, compiled *runtim
 		return true
 	}
 	ops := compiledOperationIndex(compiled)
-	var missing, runtimeMismatch, operationMismatch, dependsMismatch, requestMismatch, bindingSourceMismatch, credentialMismatch []string
+	var missing, runtimeMismatch, operationMismatch, dependsMismatch, controlMismatch, requestMismatch, bindingSourceMismatch, credentialMismatch []string
 	for _, step := range expected.Steps {
 		name := strings.TrimSpace(step.Name)
 		if name == "" {
@@ -632,6 +632,30 @@ func validateWorkflowAgainstExpectedPlan(report *QualityReport, compiled *runtim
 			if !containsString(op.DependsOn, dep) {
 				dependsMismatch = append(dependsMismatch, fmt.Sprintf("%s missing dependency %s", name, dep))
 			}
+		}
+		if strings.TrimSpace(step.Parent) != "" && strings.TrimSpace(op.Parent) != strings.TrimSpace(step.Parent) {
+			controlMismatch = append(controlMismatch, fmt.Sprintf("%s expected parent %s got %s", name, step.Parent, op.Parent))
+		}
+		if strings.TrimSpace(step.Branch) != "" && strings.TrimSpace(op.Branch) != strings.TrimSpace(step.Branch) {
+			controlMismatch = append(controlMismatch, fmt.Sprintf("%s expected branch %s got %s", name, step.Branch, op.Branch))
+		}
+		if strings.TrimSpace(step.BranchWhen) != "" && !planControlValuesEqual(op.BranchWhen, step.BranchWhen) {
+			controlMismatch = append(controlMismatch, fmt.Sprintf("%s expected branch condition %s got %s", name, step.BranchWhen, op.BranchWhen))
+		}
+		if strings.TrimSpace(step.When) != "" && !planControlValuesEqual(op.When, step.When) {
+			controlMismatch = append(controlMismatch, fmt.Sprintf("%s expected when %s got %s", name, step.When, op.When))
+		}
+		if strings.TrimSpace(step.ForEach) != "" && !planControlValuesEqual(op.ForEach, step.ForEach) {
+			controlMismatch = append(controlMismatch, fmt.Sprintf("%s expected for_each %s got %s", name, step.ForEach, op.ForEach))
+		}
+		if strings.TrimSpace(step.Items) != "" && !planControlValuesEqual(op.Items, step.Items) {
+			controlMismatch = append(controlMismatch, fmt.Sprintf("%s expected items %s got %s", name, step.Items, op.Items))
+		}
+		if strings.TrimSpace(step.Mode) != "" && !planControlValuesEqual(op.Mode, step.Mode) {
+			controlMismatch = append(controlMismatch, fmt.Sprintf("%s expected mode %s got %s", name, step.Mode, op.Mode))
+		}
+		if strings.TrimSpace(step.BatchSize) != "" && !planControlValuesEqual(op.BatchSize, step.BatchSize) {
+			controlMismatch = append(controlMismatch, fmt.Sprintf("%s expected batch_size %s got %s", name, step.BatchSize, op.BatchSize))
 		}
 		for _, param := range step.RequestParams {
 			if !param.Required {
@@ -727,11 +751,12 @@ func validateWorkflowAgainstExpectedPlan(report *QualityReport, compiled *runtim
 		return false
 	}
 	report.add("workflow.plan_coverage", "pass", "workflow.hcl includes every planned step", "")
-	if len(runtimeMismatch) > 0 || len(operationMismatch) > 0 || len(dependsMismatch) > 0 || len(requestMismatch) > 0 {
+	if len(runtimeMismatch) > 0 || len(operationMismatch) > 0 || len(dependsMismatch) > 0 || len(controlMismatch) > 0 || len(requestMismatch) > 0 {
 		var details []string
 		details = append(details, sortedCopy(runtimeMismatch)...)
 		details = append(details, sortedCopy(operationMismatch)...)
 		details = append(details, sortedCopy(dependsMismatch)...)
+		details = append(details, sortedCopy(controlMismatch)...)
 		details = append(details, sortedCopy(requestMismatch)...)
 		report.add("workflow.plan_match", "fail", "workflow.hcl diverges from the expected plan", strings.Join(details, "; "))
 		return false
@@ -754,30 +779,103 @@ func bindingRequestEvidenceRequired(step PlanStep) bool {
 	return !strings.EqualFold(strings.TrimSpace(step.Runtime), "fnct") && !strings.EqualFold(strings.TrimSpace(step.Type), "fnct")
 }
 
+func planControlValuesEqual(got, want string) bool {
+	return normalizeBindingExpression(got) == normalizeBindingExpression(want)
+}
+
 type compiledOperation struct {
 	ServiceType        string
 	OpenAPIOperationID string
 	DependsOn          []string
+	Parent             string
+	Branch             string
+	BranchWhen         string
+	When               string
+	ForEach            string
+	Items              string
+	Mode               string
+	BatchSize          string
 	Request            *light.Body
 }
 
 func compiledOperationIndex(plan *runtimeplan.Plan) map[string]*compiledOperation {
 	out := map[string]*compiledOperation{}
-	if plan == nil || plan.ExecCache() == nil {
+	if plan == nil {
+		return out
+	}
+	collectCompiledUWSSteps(plan.Document(), out)
+	if plan.ExecCache() == nil {
 		return out
 	}
 	for _, op := range plan.ExecCache().Operations {
 		if op == nil || strings.TrimSpace(op.Name) == "" {
 			continue
 		}
-		out[strings.TrimSpace(op.Name)] = &compiledOperation{
-			ServiceType:        op.ServiceType,
-			OpenAPIOperationID: op.OpenAPIOperationID,
-			DependsOn:          append([]string(nil), op.DependsOn...),
-			Request:            op.Request,
+		name := strings.TrimSpace(op.Name)
+		compiled := out[name]
+		if compiled == nil {
+			compiled = &compiledOperation{}
+			out[name] = compiled
 		}
+		compiled.ServiceType = op.ServiceType
+		compiled.OpenAPIOperationID = op.OpenAPIOperationID
+		compiled.DependsOn = append([]string(nil), op.DependsOn...)
+		compiled.Request = op.Request
 	}
 	return out
+}
+
+func collectCompiledUWSSteps(doc *uws1.Document, out map[string]*compiledOperation) {
+	if doc == nil {
+		return
+	}
+	for _, workflow := range doc.Workflows {
+		if workflow == nil {
+			continue
+		}
+		collectCompiledUWSStepList(workflow.Steps, out, "", "", "")
+		for _, branch := range workflow.Cases {
+			if branch != nil {
+				collectCompiledUWSStepList(branch.Steps, out, workflow.WorkflowID, strings.TrimSpace(branch.Name), strings.TrimSpace(branch.When))
+			}
+		}
+		collectCompiledUWSStepList(workflow.Default, out, workflow.WorkflowID, "default", "")
+	}
+}
+
+func collectCompiledUWSStepList(steps []*uws1.Step, out map[string]*compiledOperation, parent, branch, branchWhen string) {
+	for _, step := range steps {
+		if step == nil {
+			continue
+		}
+		name := strings.TrimSpace(step.StepID)
+		if name != "" {
+			out[name] = &compiledOperation{
+				ServiceType:        strings.TrimSpace(step.Type),
+				OpenAPIOperationID: strings.TrimSpace(step.OperationRef),
+				DependsOn:          append([]string(nil), step.DependsOn...),
+				Parent:             strings.TrimSpace(parent),
+				Branch:             strings.TrimSpace(branch),
+				BranchWhen:         strings.TrimSpace(branchWhen),
+				When:               strings.TrimSpace(step.When),
+				ForEach:            strings.TrimSpace(step.ForEach),
+				Items:              strings.TrimSpace(step.Items),
+				Mode:               strings.TrimSpace(step.Mode),
+				BatchSize:          strings.TrimSpace(step.BatchSize),
+			}
+		}
+		childParent := name
+		if childParent == "" {
+			childParent = parent
+		}
+		collectCompiledUWSStepList(step.Steps, out, childParent, "", "")
+		for _, nestedBranch := range step.Cases {
+			if nestedBranch != nil {
+				collectCompiledUWSStepList(nestedBranch.Steps, out, childParent, strings.TrimSpace(nestedBranch.Name), strings.TrimSpace(nestedBranch.When))
+			}
+		}
+		collectCompiledUWSStepList(step.Default, out, childParent, "default", "")
+	}
 }
 
 type requestAttribute struct {

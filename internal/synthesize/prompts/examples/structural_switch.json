@@ -1,0 +1,28 @@
+{
+  "openapi": "openapi/support.yaml",
+  "workflow": {"name": "support_priority_switch", "description": "Fetch a ticket and route the prepared handling result by severity."},
+  "inputs": [{"name": "ticketId", "type": "string", "required": true}],
+  "steps": [
+    {"name": "get_ticket", "type": "http", "do": "Fetch support ticket details.", "operation": "getTicket", "with": {"ticketId": "inputs.ticketId"}},
+    {
+      "name": "route_by_severity",
+      "type": "switch",
+      "depends_on": ["get_ticket"],
+      "cases": [
+        {
+          "name": "urgent",
+          "when": "get_ticket.received_body.severity == \"urgent\"",
+          "steps": [
+            {"name": "prepare_urgent_result", "type": "fnct", "do": "Prepare urgent internal handling result.", "bind": [{"from": "get_ticket", "fields": {"ticket": "received_body"}}]}
+          ]
+        }
+      ],
+      "default": {
+        "steps": [
+          {"name": "prepare_standard_result", "type": "fnct", "do": "Prepare standard internal handling result.", "bind": [{"from": "get_ticket", "fields": {"ticket": "received_body"}}]}
+        ]
+      }
+    }
+  ],
+  "outputs": [{"name": "routing_result", "from": "route_by_severity"}]
+}

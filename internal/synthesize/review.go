@@ -111,9 +111,22 @@ func writeIntentDataFlowReview(b *strings.Builder, intent *rollout.Intent) {
 		return
 	}
 	var wrote bool
-	walkIntentSteps(intent.Steps, func(step *rollout.Step) {
+	writeIntentStepReview(b, intent.Steps, reviewStepContext{}, &wrote)
+	if !wrote {
+		b.WriteString("- No leaf intent steps were available for review.\n")
+	}
+}
+
+type reviewStepContext struct {
+	Parent     string
+	Branch     string
+	BranchWhen string
+}
+
+func writeIntentStepReview(b *strings.Builder, steps []*rollout.Step, ctx reviewStepContext, wrote *bool) {
+	for _, step := range steps {
 		if step == nil {
-			return
+			continue
 		}
 		name := strings.TrimSpace(step.Name)
 		if name == "" {
@@ -131,7 +144,32 @@ func writeIntentDataFlowReview(b *strings.Builder, intent *rollout.Intent) {
 			fmt.Fprintf(b, ": %s", strings.Join(strings.Fields(step.Do), " "))
 		}
 		b.WriteString("\n")
-		wrote = true
+		*wrote = true
+		if ctx.Parent != "" {
+			fmt.Fprintf(b, "  - parent: `%s`\n", ctx.Parent)
+		}
+		if ctx.Branch != "" {
+			fmt.Fprintf(b, "  - branch: `%s`", ctx.Branch)
+			if ctx.BranchWhen != "" {
+				fmt.Fprintf(b, " when `%s`", ctx.BranchWhen)
+			}
+			b.WriteString("\n")
+		}
+		if step.When != "" {
+			fmt.Fprintf(b, "  - when: `%s`\n", step.When)
+		}
+		if step.ForEach != "" {
+			fmt.Fprintf(b, "  - for_each: `%s`\n", step.ForEach)
+		}
+		if step.Items != "" {
+			fmt.Fprintf(b, "  - items: `%s`\n", step.Items)
+		}
+		if step.Mode != "" {
+			fmt.Fprintf(b, "  - mode: `%s`\n", step.Mode)
+		}
+		if step.BatchSize != "" {
+			fmt.Fprintf(b, "  - batch_size: `%s`\n", step.BatchSize)
+		}
 		for _, bind := range step.Binds {
 			if bind == nil {
 				continue
@@ -151,8 +189,22 @@ func writeIntentDataFlowReview(b *strings.Builder, intent *rollout.Intent) {
 			}
 			b.WriteString("\n")
 		}
-	})
-	if !wrote {
-		b.WriteString("- No leaf intent steps were available for review.\n")
+		writeIntentStepReview(b, step.Steps, reviewStepContext{Parent: name}, wrote)
+		for _, branch := range step.Cases {
+			if branch == nil {
+				continue
+			}
+			writeIntentStepReview(b, branch.Steps, reviewStepContext{
+				Parent:     name,
+				Branch:     strings.TrimSpace(branch.Name),
+				BranchWhen: strings.TrimSpace(branch.When),
+			}, wrote)
+		}
+		if step.Default != nil {
+			writeIntentStepReview(b, step.Default.Steps, reviewStepContext{
+				Parent: name,
+				Branch: "default",
+			}, wrote)
+		}
 	}
 }

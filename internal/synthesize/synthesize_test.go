@@ -160,6 +160,86 @@ func (fakeWeatherChainClient) Generate(context.Context, string) (string, error) 
 }` + "\n```", nil
 }
 
+type fakeStructuralSwitchClient struct{}
+
+func (fakeStructuralSwitchClient) Chat(context.Context, []rollout.ChatMessage) (string, error) {
+	return `{
+  "openapi": "openapi/support.yaml",
+  "workflow": {"name": "support_priority_switch", "description": "Fetch a support ticket and route handling by severity."},
+  "inputs": [{"name": "ticketId", "type": "string", "required": true}],
+  "steps": [
+    {"name": "get_ticket", "type": "http", "do": "Fetch support ticket details.", "operation": "getTicket", "with": {"ticketId": "inputs.ticketId"}},
+    {
+      "name": "route_by_severity",
+      "type": "switch",
+      "depends_on": ["get_ticket"],
+      "cases": [
+        {
+          "name": "urgent",
+          "when": "get_ticket.received_body.severity == \"urgent\"",
+          "steps": [
+            {"name": "prepare_urgent_result", "type": "fnct", "do": "Prepare urgent handling result.", "bind": [{"from": "get_ticket", "fields": {"ticket": "received_body"}}]}
+          ]
+        }
+      ],
+      "default": {
+        "steps": [
+          {"name": "prepare_standard_result", "type": "fnct", "do": "Prepare standard handling result.", "bind": [{"from": "get_ticket", "fields": {"ticket": "received_body"}}]}
+        ]
+      }
+    }
+  ],
+  "outputs": [{"name": "routing_result", "from": "route_by_severity"}]
+}`, nil
+}
+
+func (fakeStructuralSwitchClient) Generate(context.Context, string) (string, error) {
+	return "```json\n" + `{
+  "body": {
+    "blocks": [
+      {"type": "provider", "body": {"attributes": {"openapi": "openapi/support.yaml"}}}
+    ]
+  },
+  "steps": [
+    {
+      "type": "http",
+      "name": "get_ticket",
+      "body": {
+        "attributes": {"operation": "getTicket"},
+        "blocks": [
+          {"type": "request", "body": {"attributes": {"ticketId": {"expr": "inputs.ticketId"}}}}
+        ]
+      }
+    },
+    {
+      "type": "switch",
+      "name": "route_by_severity",
+      "depends_on": ["get_ticket"],
+      "cases": [
+        {
+          "name": "urgent",
+          "when": {"expr": "get_ticket.received_body.severity == \"urgent\""},
+          "steps": [
+            {
+              "type": "fnct",
+              "name": "prepare_urgent_result",
+              "body": {"attributes": {"function": "identity", "arguments": [{"expr": "get_ticket.received_body"}]}}
+            }
+          ]
+        }
+      ],
+      "default": [
+        {
+          "type": "fnct",
+          "name": "prepare_standard_result",
+          "body": {"attributes": {"function": "identity", "arguments": [{"expr": "get_ticket.received_body"}]}}
+        }
+      ]
+    }
+  ]
+}` + "\n```", nil
+}
+
 func (fakeRuntimeOnlyClient) Generate(context.Context, string) (string, error) {
 	return "```json\n" + `{
   "steps": [
@@ -895,6 +975,117 @@ Search weather in Toronto, Canada.
 		if !strings.Contains(string(plan), expected) {
 			t.Fatalf("plan missing %q:\n%s", expected, plan)
 		}
+	}
+}
+
+func TestSynthesizePreservesStructuralSwitchArtifacts(t *testing.T) {
+	root := t.TempDir()
+	example := filepath.Join(root, "examples", "support-priority-switch")
+	if err := os.MkdirAll(filepath.Join(example, "openapi"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(example, "project.md"), []byte(`# Support Priority Switch
+
+## Goal
+
+Fetch a support ticket and route the internal handling result by severity.
+
+## Inputs
+
+- ticketId: required string.
+
+## Outputs
+
+- routing_result: selected internal handling result.
+
+## External Systems and OpenAPI
+
+- Use openapi/support.yaml for ticket lookup.
+
+## Data Flow
+
+- Pass inputs.ticketId to get_ticket.ticketId.
+- If get_ticket.received_body.severity is urgent, prepare an urgent handling result.
+- Otherwise prepare a standard handling result.
+
+## Function Contracts
+
+- prepare_urgent_result
+  - Inputs: ticket body from get_ticket.
+  - Outputs: urgent internal handling result.
+  - Side effects: none.
+- prepare_standard_result
+  - Inputs: ticket body from get_ticket.
+  - Outputs: standard internal handling result.
+  - Side effects: none.
+
+## Runtime Policy
+
+- openapi and http are allowed.
+- fnct is allowed for trusted local routing adapters.
+- cmd and ssh are not allowed.
+
+## Credentials and Secrets
+
+- No credentials are required.
+
+## Safety and Approval Boundary
+
+- Generate and validate artifacts only.
+
+## Fallback Behavior
+
+- Stop if the ticket cannot be fetched.
+`), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(example, "openapi", "support.yaml"), []byte(supportOpenAPI()), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	schemaPath, err := filepath.Abs(filepath.Join("..", "..", "..", "uws", "versions", "1.0.0.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	result, err := Synthesize(context.Background(), Options{
+		ExampleDir: example,
+		LLMClient:  fakeStructuralSwitchClient{},
+		ChatClient: fakeStructuralSwitchClient{},
+		SchemaPath: schemaPath,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	workflow, err := os.ReadFile(result.WorkflowPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, expected := range []string{`switch "route_by_severity"`, `case "urgent"`, `default`, `fnct "prepare_urgent_result"`, `fnct "prepare_standard_result"`} {
+		if !strings.Contains(string(workflow), expected) {
+			t.Fatalf("workflow missing %q:\n%s", expected, workflow)
+		}
+	}
+	plan, err := os.ReadFile(result.PlanJSONPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, expected := range []string{`"name": "route_by_severity"`, `"runtime": "switch"`, `"parent": "route_by_severity"`, `"branch": "urgent"`, `"branch": "default"`, `"branch_when": "get_ticket.received_body.severity == \"urgent\""`} {
+		if !strings.Contains(string(plan), expected) {
+			t.Fatalf("plan missing %q:\n%s", expected, plan)
+		}
+	}
+	review, err := os.ReadFile(result.ReviewPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(review), "branch: `urgent` when `get_ticket.received_body.severity == \"urgent\"`") {
+		t.Fatalf("review missing switch branch evidence:\n%s", review)
+	}
+	report, err := Assess(Options{ExampleDir: example, SchemaPath: schemaPath})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !report.Passed() {
+		t.Fatalf("quality did not pass: %#v", report.Checks)
 	}
 }
 
@@ -1857,6 +2048,8 @@ paths:
                 type: object
                 properties:
                   id:
+                    type: string
+                  severity:
                     type: string
 `
 }

@@ -129,7 +129,7 @@ now record side-effect summary, approval/trusted-runtime policy, sandbox/test pr
 unresolved risks, skipped execution, and trusted-runner handoff. Quality fails side-effectful
 workflows that lack approval or trusted-runtime policy.
 
-## [todo] Workflow Artifact Power
+## [in-progress] Workflow Artifact Power
 
 Goal: support richer workflow artifacts without moving generic semantics out of `../uws` or
 `../udon`.
@@ -147,6 +147,12 @@ compiler/runtime support.
 - Keep product-specific policy in Ramen while pushing generic workflow or execution improvements to
   `../uws` or `../udon`.
 - Add examples that prove generated artifacts remain readable and reviewable as workflows grow.
+
+Slice 1 adds explicit switch/branch artifact support in the Ramen integration layer. Structured
+intent now admits public UWS structural step types, the intent prompt includes a switch example, and
+plan/review/quality output preserves parent, branch, branch condition, and control-flow fields for
+nested steps. Quality coverage now indexes structural UWS steps as well as executable leaf
+operations, so a planned switch step can be validated without pretending it is a leaf operation.
 
 ## [todo] Observability And Eval Analytics
 
