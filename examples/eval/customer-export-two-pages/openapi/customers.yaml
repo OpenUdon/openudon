@@ -1,0 +1,41 @@
+openapi: 3.0.0
+info:
+  title: Customer API
+  version: 1.0.0
+servers:
+  - url: https://customers.example.test
+paths:
+  /customers:
+    get:
+      operationId: listCustomers
+      summary: List customer records by page.
+      parameters:
+        - name: page
+          in: query
+          required: true
+          schema:
+            type: integer
+        - name: limit
+          in: query
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: ok
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  customers:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        id:
+                          type: string
+                        email:
+                          type: string
+                  nextPage:
+                    type: integer

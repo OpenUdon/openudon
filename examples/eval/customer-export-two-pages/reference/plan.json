@@ -1,0 +1,9 @@
+{
+  "version": "ramen.workflow-plan.v1",
+  "workflow": "customer_export_two_pages",
+  "steps": [
+    {"name": "list_customers_page_1", "runtime": "http", "operation": "listCustomers"},
+    {"name": "list_customers_page_2", "runtime": "http", "operation": "listCustomers"},
+    {"name": "merge_customer_pages", "runtime": "fnct", "depends_on": ["list_customers_page_1", "list_customers_page_2"]}
+  ]
+}

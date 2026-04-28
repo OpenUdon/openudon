@@ -1,0 +1,9 @@
+{
+  "version": "ramen.workflow-plan.v1",
+  "workflow": "support_priority_routing",
+  "steps": [
+    {"name": "get_ticket", "runtime": "http", "operation": "getTicket"},
+    {"name": "classify_priority", "runtime": "fnct", "depends_on": ["get_ticket"]},
+    {"name": "prepare_routing_result", "runtime": "fnct", "depends_on": ["get_ticket", "classify_priority"]}
+  ]
+}

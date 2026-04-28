@@ -130,15 +130,19 @@ Last full real-LLM smoke: 2026-04-28, `gemini-2.5-flash`, prompt `intent.v3`.
 | Eval brief | Result | Attempts | Reference issues |
 | --- | --- | ---: | ---: |
 | `cmd-allowed-deploy` | pass | 1 | 4 |
-| `cmd-disallowed-deploy` | pass | 1 | 4 |
+| `cmd-disallowed-deploy` | pass | 2 | 4 |
+| `crm-note-write` | pass | 1 | 0 |
+| `customer-export-two-pages` | pass | 1 | 0 |
+| `inventory-api-key-binding` | pass | 1 | 0 |
 | `paginated-list` | pass | 1 | 0 |
 | `runtime-only-render` | pass | 1 | 0 |
 | `support-email` | pass | 1 | 2 |
+| `support-priority-routing` | pass | 3 | 4 |
 | `weather-toronto` | pass | 1 | 0 |
 
-Summary: all six examples passed deterministic quality gates on the first attempt. Reference issues
-are non-blocking structural comparison differences against illustrative reference artifacts; inspect
-them separately if the reference fixtures are meant to become exact golden outputs.
+Summary: all ten examples passed deterministic quality gates. Reference issues are non-blocking
+structural comparison differences against illustrative reference artifacts; inspect them separately
+if the reference fixtures are meant to become exact golden outputs.
 
 ### Model Selection
 

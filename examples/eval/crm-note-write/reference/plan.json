@@ -1,0 +1,7 @@
+{
+  "version": "ramen.workflow-plan.v1",
+  "workflow": "crm_note_write",
+  "steps": [
+    {"name": "create_contact_note", "runtime": "http", "operation": "createContactNote"}
+  ]
+}

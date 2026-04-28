@@ -13,12 +13,12 @@ implementation context; this file tracks current product-readiness work.
 
 ## Current State
 
-Ramen has moved beyond a pure proof of concept: the eval harness exists, six eval examples pass with
+Ramen has moved beyond a pure proof of concept: the eval harness exists, ten eval examples pass with
 a real LLM, deterministic quality gates validate generated artifacts, bounded refinement is recorded,
 and secret scanning has been hardened against workflow-reference false positives.
 
 The remaining gap is product readiness. The current evidence is still narrow, real-provider runs can
-vary, all six latest real-LLM evals used legacy JSON extraction, and reference drift is not yet
+vary, all ten latest real-LLM evals used legacy JSON extraction, and reference drift is not yet
 formally triaged.
 
 ## [done] Post-POC Baseline
@@ -31,8 +31,8 @@ works.
 Done when: the committed docs, eval reports, and quality checks describe the current system without
 overstating product readiness.
 
-- Eval harness covers six examples under `examples/eval`.
-- Real LLM smoke on 2026-04-28 passed all six examples with `gemini-2.5-flash`.
+- Eval harness covers ten examples under `examples/eval`.
+- Real LLM smoke on 2026-04-28 passed all ten examples with `gemini-2.5-flash`.
 - Refinement reports record prompt version, attempts, mode, failure class, and prompt snapshot.
 - Quality gates cover project policy, OpenAPI availability, intent validity, workflow compilation,
   expected-plan matching, UWS validation, review evidence, and secret scanning.
@@ -55,6 +55,12 @@ coverage.
 - Add runtime-only examples for `fnct`, approved `cmd`, denied `cmd`, and future profiles.
 - Record per-example purpose, expected quality gates, and whether reference comparison is strict or
   advisory.
+
+Slice 1 adds four high-signal pass fixtures before scaling further: `customer-export-two-pages`,
+`crm-note-write`, `inventory-api-key-binding`, and `support-priority-routing`. The routing fixture
+keeps branch selection inside an approved function adapter for now; later slices should add stricter
+condition/switch fixtures after the harness can classify those failures cleanly. Continue toward
+25-50 total briefs after these prove stable.
 
 ## [todo] Golden Reference Discipline
 

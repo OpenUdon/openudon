@@ -1,0 +1,7 @@
+{
+  "version": "ramen.workflow-plan.v1",
+  "workflow": "inventory_api_key_binding",
+  "steps": [
+    {"name": "get_inventory", "runtime": "http", "operation": "getInventory"}
+  ]
+}
