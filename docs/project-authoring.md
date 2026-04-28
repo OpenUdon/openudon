@@ -68,6 +68,10 @@ When you do not know the hidden API steps, describe the business goal and let Ra
 OpenAPI metadata. Ramen should expose inferred substeps and bindings in generated artifacts. See
 `docs/data-flow.md` for examples.
 
+Use structural steps when the project needs explicit branching or iteration. A loop project should
+name the item source, any batch-size policy, nested work, and the output that should become the
+named structural result.
+
 ## OpenAPI Policy
 
 If the project needs API calls, provide one of these:

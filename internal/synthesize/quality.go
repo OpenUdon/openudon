@@ -104,7 +104,7 @@ func AssessContext(ctx context.Context, opts Options) (*QualityReport, error) {
 	if err := ctx.Err(); err != nil {
 		return nil, err
 	}
-	assessUWS(report, result.UWSPath, opts.SchemaPath, exampleDir)
+	assessUWS(report, result.UWSPath, opts.SchemaPath, exampleDir, expectedPlan)
 	sideEffects := sideEffectProfileForOpenAPI(policy, intent, candidates, result.PrimaryOpenAPI)
 	assessSideEffectProfile(report, sideEffects)
 	assessReview(report, result.ReviewPath, sideEffects)
@@ -1185,6 +1185,7 @@ func unresolvedDataFlowReferences(source string, stepNames, inputs map[string]bo
 		lower := strings.ToLower(ref)
 		if stepNames[ref] || inputs[ref] ||
 			lower == "input" || lower == "inputs" || lower == "var" || lower == "vars" ||
+			lower == "each" ||
 			lower == "workflow" || lower == "trigger" || lower == "security" || lower == "credentials" ||
 			lower == "body" || lower == "received_body" || lower == "request" || lower == "response" {
 			continue
@@ -1905,7 +1906,7 @@ func containsString(values []string, want string) bool {
 	return false
 }
 
-func assessUWS(report *QualityReport, path, schemaPath, exampleDir string) {
+func assessUWS(report *QualityReport, path, schemaPath, exampleDir string, expectedPlan *WorkflowPlan) {
 	if _, err := os.Stat(path); err != nil {
 		report.add("uws.present", "fail", "workflow.uws.yaml is required", err.Error())
 		return
@@ -1929,6 +1930,53 @@ func assessUWS(report *QualityReport, path, schemaPath, exampleDir string) {
 		return
 	}
 	report.add("uws.execution_profile", "pass", "workflow.uws.yaml passes udon execution-profile validation", "")
+	if expectedPlan != nil && len(expectedPlan.Results) > 0 {
+		if err := validateUWSStructuralResults(doc, expectedPlan.Results); err != nil {
+			report.add("uws.structural_results", "fail", "workflow.uws.yaml does not preserve planned structural results", err.Error())
+			return
+		}
+		report.add("uws.structural_results", "pass", "workflow.uws.yaml preserves planned structural results", "")
+	}
+}
+
+func validateUWSStructuralResults(doc *uws1.Document, expected []PlanResult) error {
+	if len(expected) == 0 {
+		return nil
+	}
+	got := map[string]*uws1.StructuralResult{}
+	if doc != nil {
+		for _, result := range doc.Results {
+			if result != nil && strings.TrimSpace(result.Name) != "" {
+				got[strings.TrimSpace(result.Name)] = result
+			}
+		}
+	}
+	var missing, mismatched []string
+	for _, want := range expected {
+		name := strings.TrimSpace(want.Name)
+		if name == "" {
+			continue
+		}
+		result := got[name]
+		if result == nil {
+			missing = append(missing, name)
+			continue
+		}
+		if strings.TrimSpace(result.Kind) != strings.TrimSpace(want.Kind) ||
+			strings.TrimSpace(result.From) != strings.TrimSpace(want.From) ||
+			(strings.TrimSpace(want.Value) != "" && strings.TrimSpace(result.Value) != strings.TrimSpace(want.Value)) {
+			mismatched = append(mismatched, fmt.Sprintf("%s expected kind=%s from=%s value=%s got kind=%s from=%s value=%s", name, want.Kind, want.From, want.Value, result.Kind, result.From, result.Value))
+		}
+	}
+	if len(missing) == 0 && len(mismatched) == 0 {
+		return nil
+	}
+	var details []string
+	if len(missing) > 0 {
+		details = append(details, "missing "+strings.Join(sortedCopy(missing), ", "))
+	}
+	details = append(details, sortedCopy(mismatched)...)
+	return fmt.Errorf("%s", strings.Join(details, "; "))
 }
 
 func assessSideEffectPolicy(report *QualityReport, policy projectPolicy, intent *rollout.Intent) {

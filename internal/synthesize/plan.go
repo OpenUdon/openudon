@@ -11,17 +11,19 @@ import (
 
 	"github.com/genelet/ramen/internal/openapidisco"
 	"github.com/genelet/udon/pkg/rollout"
+	"github.com/tabilet/uws/uws1"
 )
 
 const workflowPlanVersion = "ramen.workflow-plan.v1"
 
 type WorkflowPlan struct {
-	Version  string     `json:"version"`
-	Example  string     `json:"example,omitempty"`
-	Workflow string     `json:"workflow,omitempty"`
-	Summary  string     `json:"summary,omitempty"`
-	Steps    []PlanStep `json:"steps"`
-	Gaps     []PlanGap  `json:"gaps,omitempty"`
+	Version  string       `json:"version"`
+	Example  string       `json:"example,omitempty"`
+	Workflow string       `json:"workflow,omitempty"`
+	Summary  string       `json:"summary,omitempty"`
+	Steps    []PlanStep   `json:"steps"`
+	Results  []PlanResult `json:"results,omitempty"`
+	Gaps     []PlanGap    `json:"gaps,omitempty"`
 }
 
 type PlanStep struct {
@@ -62,6 +64,13 @@ type PlanBinding struct {
 	Source string `json:"source"`
 }
 
+type PlanResult struct {
+	Name  string `json:"name"`
+	Kind  string `json:"kind"`
+	From  string `json:"from"`
+	Value string `json:"value,omitempty"`
+}
+
 type PlanGap struct {
 	Code   string `json:"code"`
 	Step   string `json:"step,omitempty"`
@@ -82,6 +91,7 @@ func buildWorkflowPlan(result Result, intent *rollout.Intent, candidates []opena
 	security := openAPISecurityIndex(candidates)
 	inputs := intentInputNames(intent)
 	addStepsToWorkflowPlan(plan, intent, intentSteps(intent), ops, security, inputs, policy, planStepContext{})
+	plan.Results = structuralPlanResults(intent)
 	sortPlanGaps(plan.Gaps)
 	return plan
 }
@@ -259,6 +269,67 @@ func intentSteps(intent *rollout.Intent) []*rollout.Step {
 	return intent.Steps
 }
 
+func structuralPlanResults(intent *rollout.Intent) []PlanResult {
+	if intent == nil || len(intent.Outputs) == 0 {
+		return nil
+	}
+	steps := structuralIntentStepIndex(intent)
+	var out []PlanResult
+	for _, output := range intent.Outputs {
+		if output == nil {
+			continue
+		}
+		name := strings.TrimSpace(output.Name)
+		from := strings.TrimSpace(output.From)
+		source := structuralResultSourceName(from)
+		if name == "" || source == "" {
+			continue
+		}
+		kind := steps[source]
+		if !uws1.IsStructuralResultKind(kind) {
+			continue
+		}
+		out = append(out, PlanResult{
+			Name:  name,
+			Kind:  kind,
+			From:  "main." + source,
+			Value: from,
+		})
+	}
+	sortPlanResults(out)
+	return out
+}
+
+func structuralIntentStepIndex(intent *rollout.Intent) map[string]string {
+	out := map[string]string{}
+	if intent == nil {
+		return out
+	}
+	walkIntentSteps(intent.Steps, func(step *rollout.Step) {
+		if step == nil {
+			return
+		}
+		name := strings.TrimSpace(step.Name)
+		kind := strings.ToLower(strings.TrimSpace(step.Type))
+		if name != "" && uws1.IsStructuralResultKind(kind) {
+			out[name] = kind
+		}
+	})
+	return out
+}
+
+func structuralResultSourceName(from string) string {
+	from = strings.TrimSpace(from)
+	if from == "" {
+		return ""
+	}
+	beforeDot, _, hasDot := strings.Cut(from, ".")
+	if hasDot {
+		return strings.TrimSpace(beforeDot)
+	}
+	return from
+}
+
 func writeWorkflowPlan(result Result, plan *WorkflowPlan) error {
 	if plan == nil {
 		return nil
@@ -367,6 +438,16 @@ func workflowPlanMarkdown(plan *WorkflowPlan) string {
 			if len(step.Credentials) > 0 {
 				fmt.Fprintf(&b, "  - credentials: `%s`\n", strings.Join(step.Credentials, "`, `"))
 			}
+		}
+	}
+	if len(plan.Results) > 0 {
+		b.WriteString("\n## Structural Results\n\n")
+		for _, result := range plan.Results {
+			fmt.Fprintf(&b, "- `%s` kind `%s` from `%s`", result.Name, result.Kind, result.From)
+			if result.Value != "" {
+				fmt.Fprintf(&b, " value `%s`", result.Value)
+			}
+			b.WriteString("\n")
 		}
 	}
 	if len(plan.Gaps) > 0 {
@@ -631,6 +712,12 @@ func sortPlanBindings(bindings []PlanBinding) {
 			return bindings[i].From < bindings[j].From
 		}
 		return bindings[i].Source < bindings[j].Source
+	})
+}
+
+func sortPlanResults(results []PlanResult) {
+	sort.SliceStable(results, func(i, j int) bool {
+		return results[i].Name < results[j].Name
 	})
 }
 

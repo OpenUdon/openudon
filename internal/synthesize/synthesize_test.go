@@ -10,7 +10,10 @@ import (
 
 	"github.com/genelet/hcllight/light"
 	"github.com/genelet/ramen/internal/openapidisco"
+	"github.com/genelet/ramen/internal/uwsvalidate"
 	"github.com/genelet/udon/pkg/rollout"
+	"github.com/genelet/udon/pkg/uwsprofile"
+	"github.com/tabilet/uws/uws1"
 )
 
 type fakeClient struct{}
@@ -36,6 +39,28 @@ func (fakeRuntimeOnlyClient) Chat(context.Context, []rollout.ChatMessage) (strin
     {"name": "render_report", "type": "fnct", "do": "Render the local report", "with": {"summary": "inputs.summary"}}
   ],
   "outputs": [{"name": "report", "from": "render_report.received_body"}]
+}`, nil
+}
+
+type fakeLoopClient struct{}
+
+func (fakeLoopClient) Chat(context.Context, []rollout.ChatMessage) (string, error) {
+	return `{
+  "workflow": {"name": "customer_summary_loop", "description": "Render a summary for each customer."},
+  "inputs": [{"name": "customers", "type": "array", "required": true}],
+  "steps": [
+    {
+      "name": "render_customer_summaries",
+      "type": "loop",
+      "do": "Render one summary for each customer.",
+      "items": "inputs.customers",
+      "batch_size": "2",
+      "steps": [
+        {"name": "render_customer_summary", "type": "fnct", "do": "Render one customer summary.", "with": {"customer": "each.value"}}
+      ]
+    }
+  ],
+  "outputs": [{"name": "customer_summaries", "from": "render_customer_summaries"}]
 }`, nil
 }
 
@@ -248,6 +273,31 @@ func (fakeRuntimeOnlyClient) Generate(context.Context, string) (string, error) {
       "type": "fnct",
       "name": "render_report",
       "body": {"attributes": {"function": "identity"}}
+    }
+  ]
+}` + "\n```", nil
+}
+
+func (fakeLoopClient) Generate(context.Context, string) (string, error) {
+	return "```json\n" + `{
+  "steps": [
+    {
+      "type": "loop",
+      "name": "render_customer_summaries",
+      "items": {"expr": "inputs.customers"},
+      "batch_size": "2",
+      "steps": [
+        {
+          "type": "fnct",
+          "name": "render_customer_summary",
+          "body": {
+            "attributes": {
+              "function": "identity",
+              "arguments": [{"expr": "each.value"}]
+            }
+          }
+        }
+      ]
     }
   ]
 }` + "\n```", nil
@@ -1247,6 +1297,182 @@ OpenAPI: none required
 	}
 	if !report.Passed() {
 		t.Fatalf("quality did not pass: %#v", report.Checks)
+	}
+}
+
+func TestSynthesizePreservesLoopAndStructuralResult(t *testing.T) {
+	root := t.TempDir()
+	example := filepath.Join(root, "examples", "customer-loop")
+	if err := os.MkdirAll(example, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(example, "project.md"), []byte(`# Customer Loop
+
+## Goal
+
+Render one summary for each customer in the runtime input list.
+
+## Inputs
+
+- customers: required array.
+
+## Outputs
+
+- customer_summaries: accumulated loop output.
+
+## External Systems and OpenAPI
+
+OpenAPI: none required
+
+## Runtime Policy
+
+- loop and fnct are allowed for trusted local rendering.
+- cmd and ssh are not allowed.
+
+## Function Contracts
+
+- render_customer_summary
+  - Inputs: customer.
+  - Outputs: one rendered customer summary.
+  - Side effects: none.
+
+## Credentials and Secrets
+
+- No credentials are required.
+
+## Safety and Approval Boundary
+
+- Generate and validate artifacts only.
+
+## Fallback Behavior
+
+- Stop if loop artifacts cannot be validated.
+`), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	schemaPath, err := filepath.Abs(filepath.Join("..", "..", "..", "uws", "versions", "1.0.0.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	result, err := Synthesize(context.Background(), Options{
+		ExampleDir: example,
+		LLMClient:  fakeLoopClient{},
+		ChatClient: fakeLoopClient{},
+		SchemaPath: schemaPath,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, artifact := range []struct {
+		path     string
+		contains []string
+	}{
+		{result.IntentPath, []string{`step "render_customer_summaries"`, `type       = "loop"`, `items      = "inputs.customers"`, `batch_size = "2"`}},
+		{result.WorkflowPath, []string{`loop "render_customer_summaries"`, `items = inputs.customers`, `batch_size = "2"`, `fnct "render_customer_summary"`}},
+		{result.PlanJSONPath, []string{`"name": "customer_summaries"`, `"kind": "loop"`, `"from": "main.render_customer_summaries"`}},
+		{result.ReviewPath, []string{`render_customer_summaries`, "items: `inputs.customers`", "batch_size: `2`"}},
+	} {
+		data, err := os.ReadFile(artifact.path)
+		if err != nil {
+			t.Fatal(err)
+		}
+		for _, expected := range artifact.contains {
+			if !strings.Contains(string(data), expected) {
+				t.Fatalf("%s missing %q:\n%s", artifact.path, expected, data)
+			}
+		}
+	}
+	doc, err := uwsprofile.LoadDocumentFile(result.UWSPath, uwsprofile.DocumentFormatYAML)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(doc.Results) != 1 || doc.Results[0].Name != "customer_summaries" || doc.Results[0].Kind != "loop" || doc.Results[0].From != "main.render_customer_summaries" {
+		t.Fatalf("unexpected structural results: %#v", doc.Results)
+	}
+	report, err := Assess(Options{ExampleDir: example, SchemaPath: schemaPath})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !report.Passed() {
+		t.Fatalf("quality did not pass: %#v", report.Checks)
+	}
+	if !hasCheck(report, "uws.structural_results", "pass") {
+		t.Fatalf("expected structural result quality pass, got %#v", report.Checks)
+	}
+}
+
+func TestUWSFailureActionsAndRetriesRemainCompatible(t *testing.T) {
+	doc := &uws1.Document{
+		UWS: "1.0.0",
+		Info: &uws1.Info{
+			Title:   "retry compatibility",
+			Version: "1.0.0",
+		},
+		SourceDescriptions: []*uws1.SourceDescription{{
+			Name: "support_api",
+			Type: "openapi",
+			URL:  "openapi/support.yaml",
+		}},
+		Operations: []*uws1.Operation{{
+			OperationID:        "fetch_ticket",
+			SourceDescription:  "support_api",
+			OpenAPIOperationID: "getTicket",
+			Request: map[string]any{
+				"path": map[string]any{"ticketId": "inputs.ticketId"},
+			},
+			SuccessCriteria: []*uws1.Criterion{{
+				Condition: "$response.statusCode == 200",
+			}},
+			OnFailure: []*uws1.FailureAction{
+				{Name: "retry_5xx", Type: "retry", RetryAfter: 2, RetryLimit: 3, Criteria: []*uws1.Criterion{{Condition: "$response.statusCode >= 500"}}},
+				{Name: "route_failure", Type: "goto", WorkflowID: "failure_handler"},
+			},
+		}},
+		Workflows: []*uws1.Workflow{
+			{
+				WorkflowID: "main",
+				Type:       uws1.WorkflowTypeSequence,
+				Steps:      []*uws1.Step{{StepID: "fetch_ticket", OperationRef: "fetch_ticket"}},
+			},
+			{
+				WorkflowID: "failure_handler",
+				Type:       uws1.WorkflowTypeSequence,
+			},
+		},
+	}
+	if err := uwsprofile.ValidateForExecution(doc); err != nil {
+		t.Fatalf("failure actions should be executable-profile compatible: %v", err)
+	}
+	data, err := uwsprofile.MarshalDocument(doc, uwsprofile.DocumentFormatYAML)
+	if err != nil {
+		t.Fatal(err)
+	}
+	data, err = pruneEmptyUWSStepTypes(data)
+	if err != nil {
+		t.Fatal(err)
+	}
+	path := filepath.Join(t.TempDir(), "workflow.uws.yaml")
+	if err := os.WriteFile(path, data, 0o644); err != nil {
+		t.Fatal(err)
+	}
+	schemaPath, err := filepath.Abs(filepath.Join("..", "..", "..", "uws", "versions", "1.0.0.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := uwsvalidate.ValidateFile(schemaPath, path); err != nil {
+		t.Fatalf("failure actions should validate against public UWS schema: %v\n%s", err, data)
+	}
+}
+
+func TestValidateUWSStructuralResultsReportsMissingResult(t *testing.T) {
+	err := validateUWSStructuralResults(&uws1.Document{}, []PlanResult{{
+		Name:  "customer_summaries",
+		Kind:  "loop",
+		From:  "main.render_customer_summaries",
+		Value: "render_customer_summaries",
+	}})
+	if err == nil || !strings.Contains(err.Error(), "customer_summaries") {
+		t.Fatalf("expected missing structural result error, got %v", err)
 	}
 }
 

@@ -70,6 +70,12 @@ properties. A path such as `get_ticket.received_body.requesterEmail` fails
 `intent.data_flow.response_paths` if the selected operation only documents `id` and `severity`.
 Opaque or missing response schemas produce a warning instead of a failure.
 
+## Structural Results
+
+When an intent output references a structural `switch`, `merge`, or `loop` step, Ramen exports a
+matching UWS `results[]` entry. The expected plan records the result name, kind, source, and value,
+and quality assessment fails if `workflow.uws.yaml` drops or changes that structural result.
+
 ## Missing Operations
 
 If the selected OpenAPI document only has a weather endpoint that requires `lat` and `lon`, Ramen

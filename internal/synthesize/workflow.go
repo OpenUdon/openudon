@@ -7,6 +7,7 @@ import (
 
 	"github.com/genelet/ramen/internal/uwsvalidate"
 	"github.com/genelet/udon/generator"
+	"github.com/genelet/udon/pkg/rollout"
 	"github.com/genelet/udon/pkg/uwsprofile"
 	"github.com/tabilet/uws/uws1"
 	"gopkg.in/yaml.v3"
@@ -19,6 +20,9 @@ func promoteWorkflow(result Result, schemaPath string) error {
 	}
 	doc := plan.Document()
 	normalizeUWSStepsForSchema(doc)
+	if intent, err := rollout.ParseIntentFile(result.IntentPath); err == nil {
+		addStructuralResultsFromIntent(doc, intent)
+	}
 	uwsBytes, err := uwsprofile.MarshalDocument(doc, uwsprofile.DocumentFormatYAML)
 	if err != nil {
 		return fmt.Errorf("marshal UWS: %w", err)
@@ -42,6 +46,33 @@ func promoteWorkflow(result Result, schemaPath string) error {
 		return fmt.Errorf("validate exported UWS: %w", err)
 	}
 	return nil
+}
+
+func addStructuralResultsFromIntent(doc *uws1.Document, intent *rollout.Intent) {
+	if doc == nil || intent == nil {
+		return
+	}
+	for _, result := range structuralPlanResults(intent) {
+		if structuralResultExists(doc.Results, result.Name) {
+			continue
+		}
+		doc.Results = append(doc.Results, &uws1.StructuralResult{
+			Name:  result.Name,
+			Kind:  result.Kind,
+			From:  result.From,
+			Value: result.Value,
+		})
+	}
+}
+
+func structuralResultExists(results []*uws1.StructuralResult, name string) bool {
+	name = strings.TrimSpace(name)
+	for _, result := range results {
+		if result != nil && strings.TrimSpace(result.Name) == name {
+			return true
+		}
+	}
+	return false
 }
 
 func pruneEmptyUWSStepTypes(data []byte) ([]byte, error) {
