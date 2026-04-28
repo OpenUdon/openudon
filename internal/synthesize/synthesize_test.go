@@ -845,6 +845,12 @@ step "send_email" {
 		"Side-Effect Summary",
 		"Side-effectful workflow: yes",
 		"Approval/trusted-runtime policy: present",
+		"Approval State Requirements",
+		"`review_required`",
+		"`approved_for_sandbox`",
+		"`approved_for_production`",
+		"Credential Binding Audit",
+		"No credential bindings declared or required.",
 		"Unresolved Risks",
 		"Minimum Review Package",
 		"Quality report",
@@ -852,6 +858,54 @@ step "send_email" {
 		"Direct production execution: not performed by Ramen synthesis",
 		"Trusted Execution Handoff",
 		"Trusted proof run",
+	} {
+		if !strings.Contains(md, expected) {
+			t.Fatalf("review missing %q:\n%s", expected, md)
+		}
+	}
+}
+
+func TestReviewEvidenceRecordsCredentialInventory(t *testing.T) {
+	example := filepath.Join(t.TempDir(), "examples", "credential-review")
+	if err := os.MkdirAll(filepath.Join(example, "expected"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	result := resultPaths(example)
+	if err := os.WriteFile(result.ProjectPath, []byte(`# Inventory
+
+## Credentials and Secrets
+
+- Use credential binding inventory_api_key.
+
+## Safety and Approval Boundary
+
+- Generate and validate artifacts only.
+`), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(result.PlanJSONPath, []byte(`{
+  "steps": [
+    {
+      "name": "get_inventory",
+      "credentials": ["inventory_api_key"],
+      "request_params": [
+        {
+          "name": "api_key",
+          "credential": true,
+          "source_kind": "credential",
+          "expected_credential": "inventory_api_key"
+        }
+      ]
+    }
+  ]
+}`), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	md := reviewMarkdown(result, "", "")
+	for _, expected := range []string{
+		"Declared credential bindings: `inventory_api_key`",
+		"Expected plan credential bindings: `inventory_api_key`",
+		"Credential values must stay outside prompts",
 	} {
 		if !strings.Contains(md, expected) {
 			t.Fatalf("review missing %q:\n%s", expected, md)
@@ -880,10 +934,109 @@ Trusted proof run:
 		t.Fatal(err)
 	}
 	report := &QualityReport{}
-	assessReview(report, path, sideEffectProfile{SideEffectful: true})
+	assessReview(report, path, sideEffectProfile{SideEffectful: true}, projectPolicy{}, nil)
 	if !hasCheck(report, "review.package", "fail") {
 		t.Fatalf("expected review.package failure, got %#v", report.Checks)
 	}
+}
+
+func TestAssessReviewRequiresApprovalStateEvidence(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "review.md")
+	if err := os.WriteFile(path, []byte(validReviewEvidenceText(false, false)), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	report := &QualityReport{}
+	assessReview(report, path, sideEffectProfile{SideEffectful: true}, projectPolicy{}, nil)
+	if !hasCheck(report, "review.approval_states", "fail") {
+		t.Fatalf("expected review.approval_states failure, got %#v", report.Checks)
+	}
+}
+
+func TestAssessReviewRequiresCredentialBindingInventory(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "review.md")
+	if err := os.WriteFile(path, []byte(validReviewEvidenceText(true, false)), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	report := &QualityReport{}
+	assessReview(report, path, sideEffectProfile{}, analyzeProject(`# Credentials
+
+## Credentials and Secrets
+
+- Use credential binding support_api_token.
+`), nil)
+	if !hasCheck(report, "review.credential_bindings", "fail") {
+		t.Fatalf("expected review.credential_bindings failure, got %#v", report.Checks)
+	}
+}
+
+func TestAssessReviewAcceptsNoCredentialAuditPath(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "review.md")
+	if err := os.WriteFile(path, []byte(validReviewEvidenceText(true, true)), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	report := &QualityReport{}
+	assessReview(report, path, sideEffectProfile{}, projectPolicy{}, nil)
+	for _, code := range []string{"review.approval_states", "review.sandbox_handoff", "review.credential_bindings"} {
+		if !hasCheck(report, code, "pass") {
+			t.Fatalf("expected %s pass, got %#v", code, report.Checks)
+		}
+	}
+}
+
+func validReviewEvidenceText(includeApprovalStates, includeCredentialInventory bool) string {
+	var b strings.Builder
+	b.WriteString(`# Ramen Review Evidence
+
+## Minimum Review Package
+
+- Project brief
+- Intent HCL
+- Workflow HCL
+- UWS artifact
+- Expected plan
+- Quality report
+- Refinement report
+- Review evidence
+
+## Side-Effect Summary
+
+- Side-effectful workflow: no side-effectful behavior inferred from project policy or intent steps.
+- Credential binding audit: runtime binding names only; literal secrets are prohibited in prompts, examples, and artifacts.
+- Direct production execution: not performed by Ramen synthesis.
+
+`)
+	if includeApprovalStates {
+		b.WriteString(`## Approval State Requirements
+
+- Ramen emitted state: ` + "`generated`" + `; no approval is implied by artifact generation.
+- ` + "`approved_for_sandbox`" + ` and ` + "`approved_for_production`" + ` are not required unless future changes add side effects.
+
+`)
+	}
+	b.WriteString(`## Credential Binding Audit
+
+`)
+	if includeCredentialInventory {
+		b.WriteString("- No credential bindings declared or required.\n")
+	}
+	b.WriteString(`
+## Unresolved Risks
+
+- No unresolved execution-boundary risks detected by deterministic review.
+
+## Validation
+
+- Side-effectful execution was skipped.
+
+## Trusted Execution Handoff
+
+- Direct production execution: not performed by Ramen synthesis.
+- Sandbox/test proof run is optional unless future changes add side effects.
+
+Trusted proof run:
+
+` + "```bash\n./scripts/run-udon.sh workflows/workflow.hcl example\n```\n")
+	return b.String()
 }
 
 func TestAssessReportsMissingOpenAPI(t *testing.T) {

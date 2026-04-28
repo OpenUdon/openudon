@@ -21,7 +21,9 @@ Use these sections for new projects:
 
 For side-effectful workflows, the Safety and Approval Boundary must name both the approval or
 trusted-runtime path and the sandbox/test proof-run policy. Ramen synthesis should not directly
-execute production workflows.
+execute production workflows. Review evidence treats generated artifacts as Symphony state
+`generated`; side-effectful proof runs require `approved_for_sandbox`, and production execution
+requires `approved_for_production`.
 
 ## Runtime Selection Rules
 
@@ -151,7 +153,9 @@ adapter inputs came from.
 - Generate and validate artifacts only.
 - Do not send any outbound customer message.
 - Use sandbox endpoints for proof runs before any production handoff.
-- Production execution requires human approval and trusted-runner handoff.
+- Sandbox proof runs require `approved_for_sandbox`.
+- Production execution requires `approved_for_production`, human approval, trusted-runner handoff,
+  and approved credential bindings.
 
 ## Fallback Behavior
 

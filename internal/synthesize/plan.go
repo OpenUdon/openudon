@@ -677,21 +677,63 @@ func credentialBindingNames(policy projectPolicy) []string {
 		return nil
 	}
 	var out []string
-	for _, token := range strings.FieldsFunc(section, func(r rune) bool {
+	for _, line := range strings.Split(section, "\n") {
+		line = strings.TrimSpace(strings.TrimPrefix(strings.TrimSpace(line), "-"))
+		if line == "" {
+			continue
+		}
+		tokens := credentialBindingTokens(line)
+		lower := strings.ToLower(line)
+		if strings.Contains(lower, "binding") {
+			afterBinding := false
+			for _, token := range tokens {
+				tokenLower := strings.ToLower(token)
+				if tokenLower == "binding" || tokenLower == "bindings" {
+					afterBinding = true
+					continue
+				}
+				if !afterBinding {
+					continue
+				}
+				if credentialBindingToken(token) {
+					out = append(out, token)
+				}
+			}
+			continue
+		}
+		if len(tokens) == 1 && credentialBindingToken(tokens[0]) {
+			out = append(out, tokens[0])
+		}
+	}
+	return sortedUnique(out)
+}
+
+func credentialBindingTokens(value string) []string {
+	var out []string
+	for _, token := range strings.FieldsFunc(value, func(r rune) bool {
 		return !((r >= 'a' && r <= 'z') || (r >= 'A' && r <= 'Z') || (r >= '0' && r <= '9') || r == '_' || r == '-' || r == '.')
 	}) {
 		token = strings.Trim(strings.TrimSpace(token), ".,;:")
-		if token == "" {
-			continue
+		if token != "" {
+			out = append(out, token)
 		}
-		lower := strings.ToLower(token)
-		if lower == "use" || lower == "credential" || lower == "credentials" || lower == "binding" ||
-			lower == "bindings" || lower == "only" || lower == "none" || lower == "required" {
-			continue
-		}
-		out = append(out, token)
 	}
-	return sortedUnique(out)
+	return out
+}
+
+func credentialBindingToken(token string) bool {
+	token = strings.Trim(strings.TrimSpace(token), ".,;:")
+	if token == "" {
+		return false
+	}
+	lower := strings.ToLower(token)
+	switch lower {
+	case "-", "use", "using", "credential", "credentials", "binding", "bindings", "name", "names",
+		"only", "none", "required", "value", "values", "secret", "secrets", "literal", "literals",
+		"do", "not", "include", "runtime", "declared", "approved", "artifact", "artifacts":
+		return false
+	}
+	return strings.Contains(token, "_") || strings.Contains(token, "-") || strings.Contains(token, ".")
 }
 
 func sortPlanParams(params []PlanParam) {

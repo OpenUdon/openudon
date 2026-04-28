@@ -215,7 +215,7 @@ ignored `eval/runs/` and `eval/artifacts/` outputs keep real-provider artifacts 
 Provider-reported token and cost fields are available when a provider path exposes usage data;
 Ramen records approximate prompt tokens today and does not hardcode provider pricing.
 
-## [in-progress] Safety And Trusted Execution
+## [done] Safety And Trusted Execution
 
 Goal: make the approved path from generated artifact to trusted execution explicit.
 
@@ -239,6 +239,14 @@ required for trusted execution, records credential binding audit requirements, s
 synthesis does not directly execute production workflows, and separates trusted-runner handoff notes
 from validation evidence. Deterministic quality now requires side-effectful workflows to declare both
 approval/trusted-runtime policy and sandbox/test proof-run policy before passing.
+
+Slice 2 completes Ramen-owned trusted-execution evidence. Review artifacts now state that Ramen
+emits only `generated` artifacts, side-effectful workflows require `review_required`,
+`approved_for_sandbox`, and `approved_for_production` before the matching execution tier, and the
+trusted-runner command is scoped to approved sandbox/proof execution. Review evidence also records
+declared and expected credential binding names, or explicitly states that no credential bindings are
+declared or required. Deterministic quality now fails missing approval-state, sandbox-handoff, or
+credential-binding review evidence without adding any Symphony-owned approval routing.
 
 ## [in-progress] Local Checks And Future Release Process
 

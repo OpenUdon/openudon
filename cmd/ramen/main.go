@@ -346,7 +346,9 @@ func nextActionForQualityCheck(code string) string {
 		return "Inspect workflows/workflow.hcl against expected/plan.md, then rerun build or synthesize."
 	case strings.HasPrefix(code, "uws."):
 		return "Inspect workflows/workflow.uws.yaml, then rerun promote or build after fixing workflow.hcl."
-	case strings.HasPrefix(code, "review."), code == "side_effects.policy":
+	case code == "review.credential_bindings":
+		return "Update Credentials and Secrets with binding names only, then regenerate review evidence with build/synthesize."
+	case code == "review.approval_states", code == "review.sandbox_handoff", strings.HasPrefix(code, "review."), code == "side_effects.policy":
 		return "Update Safety and Approval Boundary or regenerate review evidence with build/synthesize."
 	case code == "artifacts.no_secrets":
 		return "Remove literal secret-like values from artifacts; keep only credential binding names."

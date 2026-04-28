@@ -107,7 +107,7 @@ func AssessContext(ctx context.Context, opts Options) (*QualityReport, error) {
 	assessUWS(report, result.UWSPath, opts.SchemaPath, exampleDir, expectedPlan)
 	sideEffects := sideEffectProfileForOpenAPI(policy, intent, candidates, result.PrimaryOpenAPI)
 	assessSideEffectProfile(report, sideEffects)
-	assessReview(report, result.ReviewPath, sideEffects)
+	assessReview(report, result.ReviewPath, sideEffects, policy, expectedPlan)
 	assessSecrets(report, result)
 
 	if intentOK && planOK {
@@ -2009,7 +2009,7 @@ func assessSideEffectProfile(report *QualityReport, profile sideEffectProfile) {
 	report.add("side_effects.policy", "fail", "side-effectful workflow lacks required execution-boundary policy", "Add "+strings.Join(missing, " and ")+" to the Safety and Approval Boundary or Function Contracts section. Detected: "+strings.Join(profile.Reasons, "; "))
 }
 
-func assessReview(report *QualityReport, path string, profile sideEffectProfile) {
+func assessReview(report *QualityReport, path string, profile sideEffectProfile, policy projectPolicy, expectedPlan *WorkflowPlan) {
 	data, err := os.ReadFile(path)
 	if err != nil {
 		report.add("review.present", "fail", "review evidence is required", err.Error())
@@ -2041,6 +2041,21 @@ func assessReview(report *QualityReport, path string, profile sideEffectProfile)
 		return
 	}
 	report.add("review.credential_audit", "pass", "review evidence records credential binding audit requirements", "")
+	if !reviewContainsApprovalStates(text, profile) {
+		report.add("review.approval_states", "fail", "review evidence must state the generated, review, sandbox, and production approval states required before execution", "")
+		return
+	}
+	report.add("review.approval_states", "pass", "review evidence records approval-state requirements", "")
+	if !reviewContainsSandboxHandoff(text, profile) {
+		report.add("review.sandbox_handoff", "fail", "review evidence must scope trusted-runner handoff to approved sandbox proof runs before production", "")
+		return
+	}
+	report.add("review.sandbox_handoff", "pass", "review evidence scopes trusted-runner handoff to the approved execution state", "")
+	if !reviewContainsCredentialBindings(text, policy, expectedPlan) {
+		report.add("review.credential_bindings", "fail", "review evidence must list declared and expected credential bindings or explicitly state that none are required", "")
+		return
+	}
+	report.add("review.credential_bindings", "pass", "review evidence records credential-binding inventory", "")
 	if !strings.Contains(text, "## Side-Effect Summary") {
 		report.add("review.side_effect_summary", "fail", "review evidence must summarize inferred side effects", "")
 		return
@@ -2073,6 +2088,72 @@ func reviewContainsMinimumPackage(text string) bool {
 	}
 	for _, item := range required {
 		if !strings.Contains(text, item) {
+			return false
+		}
+	}
+	return true
+}
+
+func reviewContainsApprovalStates(text string, profile sideEffectProfile) bool {
+	if !strings.Contains(text, "## Approval State Requirements") || !strings.Contains(text, "`generated`") {
+		return false
+	}
+	if !profile.SideEffectful {
+		return strings.Contains(text, "not required unless future changes add side effects")
+	}
+	for _, state := range []string{"`review_required`", "`approved_for_sandbox`", "`approved_for_production`"} {
+		if !strings.Contains(text, state) {
+			return false
+		}
+	}
+	return true
+}
+
+func reviewContainsSandboxHandoff(text string, profile sideEffectProfile) bool {
+	if !strings.Contains(text, "## Trusted Execution Handoff") {
+		return false
+	}
+	if !profile.SideEffectful {
+		return strings.Contains(text, "Sandbox/test proof run is optional unless future changes add side effects")
+	}
+	return strings.Contains(text, "Trusted proof run command is for sandbox/test execution only after `approved_for_sandbox`") &&
+		strings.Contains(text, "Production execution requires `approved_for_production`")
+}
+
+func reviewContainsCredentialBindings(text string, policy projectPolicy, expectedPlan *WorkflowPlan) bool {
+	if !strings.Contains(text, "## Credential Binding Audit") {
+		return false
+	}
+	expected := map[string]bool{}
+	for _, credential := range credentialBindingNames(policy) {
+		expected[credential] = true
+	}
+	if expectedPlan != nil {
+		for _, step := range expectedPlan.Steps {
+			for _, credential := range step.Credentials {
+				credential = strings.TrimSpace(credential)
+				if credential != "" {
+					expected[credential] = true
+				}
+			}
+			for _, param := range step.RequestParams {
+				if !param.Credential {
+					continue
+				}
+				for _, credential := range []string{param.ExpectedCredential, param.ExpectedSource} {
+					credential = strings.TrimSpace(credential)
+					if credential != "" && param.SourceKind == "credential" {
+						expected[credential] = true
+					}
+				}
+			}
+		}
+	}
+	if len(expected) == 0 {
+		return strings.Contains(text, "No credential bindings declared or required.")
+	}
+	for credential := range expected {
+		if !strings.Contains(text, "`"+credential+"`") {
 			return false
 		}
 	}

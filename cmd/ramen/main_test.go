@@ -78,6 +78,10 @@ func TestNextActionForQualityCheck(t *testing.T) {
 	if !strings.Contains(got, "credential binding names") {
 		t.Fatalf("unexpected next action: %q", got)
 	}
+	got = nextActionForQualityCheck("review.credential_bindings")
+	if !strings.Contains(got, "Credentials and Secrets") {
+		t.Fatalf("unexpected credential review action: %q", got)
+	}
 }
 
 func helperCommand(args ...string) *exec.Cmd {

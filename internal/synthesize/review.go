@@ -1,6 +1,7 @@
 package synthesize
 
 import (
+	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -99,6 +100,29 @@ func reviewMarkdown(result Result, provider, model string) string {
 	}
 	b.WriteString("- Credential binding audit: runtime binding names only; literal secrets are prohibited in prompts, examples, and artifacts.\n")
 	b.WriteString("- Direct production execution: not performed by Ramen synthesis.\n")
+	b.WriteString("\n## Approval State Requirements\n\n")
+	b.WriteString("- Ramen emitted state: `generated`; no approval is implied by artifact generation.\n")
+	if profile.SideEffectful {
+		b.WriteString("- Required next state: `review_required` before any side-effectful execution.\n")
+		b.WriteString("- Sandbox proof run requires Symphony state `approved_for_sandbox`.\n")
+		b.WriteString("- Production execution requires Symphony state `approved_for_production` and trusted credentials.\n")
+	} else {
+		b.WriteString("- `approved_for_sandbox` and `approved_for_production` are not required unless future changes add side effects.\n")
+	}
+	b.WriteString("\n## Credential Binding Audit\n\n")
+	declaredCredentials := credentialBindingNames(policy)
+	expectedCredentials := expectedPlanCredentialNames(result.PlanJSONPath)
+	if len(declaredCredentials) == 0 && len(expectedCredentials) == 0 {
+		b.WriteString("- No credential bindings declared or required.\n")
+	} else {
+		if len(declaredCredentials) > 0 {
+			fmt.Fprintf(&b, "- Declared credential bindings: `%s`\n", strings.Join(declaredCredentials, "`, `"))
+		}
+		if len(expectedCredentials) > 0 {
+			fmt.Fprintf(&b, "- Expected plan credential bindings: `%s`\n", strings.Join(expectedCredentials, "`, `"))
+		}
+	}
+	b.WriteString("- Credential values must stay outside prompts, examples, generated artifacts, and logs.\n")
 	b.WriteString("\n## Unresolved Risks\n\n")
 	if profile.SideEffectful && !profile.HasApprovalPolicy {
 		b.WriteString("- Side-effectful workflow lacks explicit approval or trusted-runtime policy.\n")
@@ -117,7 +141,8 @@ func reviewMarkdown(result Result, provider, model string) string {
 	b.WriteString("- Direct production execution: not performed by Ramen synthesis.\n")
 	b.WriteString("- Human approval and trusted-runner invocation are required before operational side effects.\n")
 	if profile.SideEffectful {
-		b.WriteString("- Sandbox/test proof run is required before production side effects.\n")
+		b.WriteString("- Trusted proof run command is for sandbox/test execution only after `approved_for_sandbox`.\n")
+		b.WriteString("- Production execution requires `approved_for_production`; do not use this command as production approval.\n")
 	} else {
 		b.WriteString("- Sandbox/test proof run is optional unless future changes add side effects.\n")
 	}
@@ -125,6 +150,40 @@ func reviewMarkdown(result Result, provider, model string) string {
 	b.WriteString("Trusted proof run, only when explicitly approved:\n\n")
 	fmt.Fprintf(&b, "```bash\n./scripts/run-udon.sh %s %s\n```\n", relOrAbs(filepath.Dir(result.ExampleDir), result.WorkflowPath), result.ExampleDir)
 	return b.String()
+}
+
+func expectedPlanCredentialNames(path string) []string {
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return nil
+	}
+	var plan WorkflowPlan
+	if err := json.Unmarshal(data, &plan); err != nil {
+		return nil
+	}
+	seen := map[string]bool{}
+	for _, step := range plan.Steps {
+		for _, credential := range step.Credentials {
+			credential = strings.TrimSpace(credential)
+			if credential != "" {
+				seen[credential] = true
+			}
+		}
+		for _, param := range step.RequestParams {
+			for _, credential := range []string{param.ExpectedCredential, param.ExpectedSource} {
+				credential = strings.TrimSpace(credential)
+				if param.Credential && credential != "" && param.SourceKind == "credential" {
+					seen[credential] = true
+				}
+			}
+		}
+	}
+	var out []string
+	for credential := range seen {
+		out = append(out, credential)
+	}
+	sort.Strings(out)
+	return out
 }
 
 func writeIntentDataFlowReview(b *strings.Builder, intent *rollout.Intent) {
