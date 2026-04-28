@@ -37,6 +37,78 @@ jobs:
             exit 1
           fi
 
+      - name: Preflight private repository access
+        env:
+          RAMEN_CI_GENELET_TOKEN: ${{ secrets.RAMEN_CI_GENELET_TOKEN }}
+          RAMEN_CI_TABILET_TOKEN: ${{ secrets.RAMEN_CI_TABILET_TOKEN }}
+        run: |
+          failed=0
+
+          check_repo_access() {
+            token="$1"
+            secret_name="$2"
+            repo="$3"
+            response_file="$(mktemp)"
+            status="$(
+              curl --silent --show-error --output "${response_file}" --write-out "%{http_code}" \
+                --header "Accept: application/vnd.github+json" \
+                --header "Authorization: Bearer ${token}" \
+                --header "X-GitHub-Api-Version: 2022-11-28" \
+                "https://api.github.com/repos/${repo}"
+            )"
+
+            case "${status}" in
+              200)
+                echo "Verified ${repo}"
+                ;;
+              401)
+                echo "::error title=Bad ${secret_name}::${secret_name} was rejected by GitHub while checking ${repo}. Regenerate the token or update the repository secret value."
+                failed=1
+                ;;
+              403)
+                echo "::error title=Insufficient ${secret_name}::${secret_name} could not access ${repo}. Grant read-only contents access and approve the token for the organization if required."
+                failed=1
+                ;;
+              404)
+                echo "::error title=Missing private repo access::${secret_name} cannot see ${repo}. Add this repository to the token's repository access list or verify the repository name."
+                failed=1
+                ;;
+              *)
+                message="$(tr -d '\n' < "${response_file}" | cut -c 1-180)"
+                echo "::error title=Private repo preflight failed::GitHub returned HTTP ${status} while checking ${repo} with ${secret_name}: ${message}"
+                failed=1
+                ;;
+            esac
+
+            rm -f "${response_file}"
+          }
+
+          for repo in \
+            genelet/udon \
+            genelet/grand \
+            genelet/golet \
+            genelet/hcllight \
+            genelet/horizon \
+            genelet/molecule \
+            genelet/determined \
+            genelet/oas \
+            genelet/schema \
+            genelet/sqlmeta
+          do
+            check_repo_access "${RAMEN_CI_GENELET_TOKEN}" RAMEN_CI_GENELET_TOKEN "${repo}"
+          done
+
+          for repo in \
+            tabilet/uws \
+            tabilet/arazzo \
+            tabilet/oas \
+            tabilet/schema
+          do
+            check_repo_access "${RAMEN_CI_TABILET_TOKEN}" RAMEN_CI_TABILET_TOKEN "${repo}"
+          done
+
+          exit "${failed}"
+
       - name: Check out ramen
         uses: actions/checkout@v6
         with:

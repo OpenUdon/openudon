@@ -24,10 +24,10 @@ The tokens need read-only contents access to these private dependency repositori
 - `genelet/horizon`
 - `genelet/molecule`
 - private `genelet/*` modules imported transitively, including `genelet/determined` and
-  `genelet/oas`
+  `genelet/oas`, `genelet/schema`, and `genelet/sqlmeta`
 - `tabilet/uws`
 - `tabilet/arazzo`
-- private `tabilet/*` modules imported transitively, including `tabilet/schema`
+- private `tabilet/*` modules imported transitively, including `tabilet/oas` and `tabilet/schema`
 
 The workflow configures:
 
@@ -59,6 +59,9 @@ This matches the local `replace ../...` layout and lets `./scripts/check-sibling
 workspace before tests run.
 
 ## Common Failure
+
+Before checkout, the workflow calls the GitHub repository API for each required private repository.
+If this preflight fails, the annotation identifies the token name and repository that needs access.
 
 If a checkout step fails with:
 

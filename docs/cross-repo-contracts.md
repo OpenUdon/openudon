@@ -124,6 +124,7 @@ Prerequisites for deterministic CI:
 
 - `RAMEN_CI_GENELET_TOKEN` has read access to private `genelet/*` dependency repos.
 - `RAMEN_CI_TABILET_TOKEN` has read access to private `tabilet/*` dependency repos.
+- Private repository preflight passes for each required checkout and transitive private module repo.
 - Private sibling checkout works non-interactively for every required repo.
 - CI has no provider keys for deterministic checks.
 - `go test ./...`, `go vet ./...`, and `make check` pass on a clean private checkout.
