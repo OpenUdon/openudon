@@ -276,7 +276,7 @@ func TestDecodeIntentFoldsParameterSetterStep(t *testing.T) {
   "workflow": {"name": "demo", "description": "Demo"},
   "steps": [
     {"name": "list_customers", "type": "http", "do": "List customers.", "operation": "listCustomers"},
-    {"name": "set_page_and_limit", "type": "fnct", "do": "Set request parameters.", "set": "list_customers.with", "with": {"page": "1", "limit": "50"}}
+    {"name": "set_page_and_limit", "type": "fnct", "do": "Set request parameters.", "set": "list_customers.with.page = 1; list_customers.with.limit = 50"}
   ]
 }`, "", analyzeProject("OpenAPI: none required"))
 	if err != nil {

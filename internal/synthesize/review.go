@@ -19,6 +19,16 @@ func writeReview(result Result, provider, model string) error {
 
 func reviewMarkdown(result Result, provider, model string) string {
 	var b strings.Builder
+	projectText := ""
+	if data, err := os.ReadFile(result.ProjectPath); err == nil {
+		projectText = string(data)
+	}
+	policy := analyzeProject(projectText)
+	var intent *rollout.Intent
+	if parsed, err := rollout.ParseIntentFile(result.IntentPath); err == nil {
+		intent = parsed
+	}
+	profile := sideEffectProfileFor(policy, intent)
 	b.WriteString("# Ramen Review Evidence\n\n")
 	fmt.Fprintf(&b, "- Project brief: `%s`\n", relOrAbs(result.ExampleDir, result.ProjectPath))
 	fmt.Fprintf(&b, "- Intent HCL: `%s`\n", relOrAbs(result.ExampleDir, result.IntentPath))
@@ -55,9 +65,34 @@ func reviewMarkdown(result Result, provider, model string) string {
 			b.WriteString("\n")
 		}
 	}
-	if intent, err := rollout.ParseIntentFile(result.IntentPath); err == nil {
+	if intent != nil {
 		b.WriteString("\n## Inferred Steps And Data Flow\n\n")
 		writeIntentDataFlowReview(&b, intent)
+	}
+	b.WriteString("\n## Side-Effect Summary\n\n")
+	if profile.SideEffectful {
+		b.WriteString("- Side-effectful workflow: yes\n")
+		for _, reason := range profile.Reasons {
+			fmt.Fprintf(&b, "- Evidence: %s\n", reason)
+		}
+	} else {
+		b.WriteString("- Side-effectful workflow: no side-effectful behavior inferred from project policy or intent steps.\n")
+	}
+	if profile.HasApprovalPolicy {
+		b.WriteString("- Approval/trusted-runtime policy: present in project.md.\n")
+	} else {
+		b.WriteString("- Approval/trusted-runtime policy: not detected in project.md.\n")
+	}
+	if profile.HasSandboxPolicy {
+		b.WriteString("- Sandbox/test proof-run policy: present in project.md.\n")
+	} else {
+		b.WriteString("- Sandbox/test proof-run policy: not detected in project.md.\n")
+	}
+	b.WriteString("\n## Unresolved Risks\n\n")
+	if profile.SideEffectful && !profile.HasApprovalPolicy {
+		b.WriteString("- Side-effectful workflow lacks explicit approval or trusted-runtime policy.\n")
+	} else {
+		b.WriteString("- No unresolved execution-boundary risks detected by deterministic review.\n")
 	}
 	b.WriteString("\n## Validation\n\n")
 	b.WriteString("- Generated intent.hcl from project.md.\n")

@@ -278,12 +278,121 @@ paths:
 	if !strings.Contains(string(review), "Expected plan") {
 		t.Fatalf("review missing expected plan reference:\n%s", review)
 	}
+	if !strings.Contains(string(review), "Side-Effect Summary") || !strings.Contains(string(review), "Unresolved Risks") || !strings.Contains(string(review), "Trusted proof run") {
+		t.Fatalf("review missing hardened audit evidence:\n%s", review)
+	}
 	report, err := Assess(Options{ExampleDir: example, SchemaPath: schemaPath})
 	if err != nil {
 		t.Fatal(err)
 	}
 	if !report.Passed() {
 		t.Fatalf("quality did not pass: %#v", report.Checks)
+	}
+}
+
+func TestSideEffectPolicyRequiresApprovalOrTrustedRuntime(t *testing.T) {
+	policy := analyzeProject(`# Email
+
+## Function Contracts
+
+- send_email
+  - Inputs: to, subject, body
+  - Outputs: status
+  - Side effects: sends email
+
+## Safety and Approval Boundary
+
+- Generate and validate artifacts only.
+`)
+	report := &QualityReport{}
+	assessSideEffectPolicy(report, policy, &rollout.Intent{Steps: []*rollout.Step{{
+		Name: "send_email",
+		Type: "fnct",
+		Do:   "Send email.",
+	}}})
+	if !hasCheck(report, "side_effects.policy", "fail") {
+		t.Fatalf("expected side_effects.policy failure, got %#v", report.Checks)
+	}
+}
+
+func TestSideEffectPolicyIgnoresNoSideEffectsAndDeploymentStatusRead(t *testing.T) {
+	report := &QualityReport{}
+	policy := analyzeProject(`# Report
+
+## Function Contracts
+
+- render_report
+  - Inputs: summary
+  - Outputs: report
+  - Side effects: none.
+
+## Runtime Policy
+
+- fnct is allowed.
+
+## Safety and Approval Boundary
+
+- Generate and validate artifacts only.
+`)
+	assessSideEffectPolicy(report, policy, &rollout.Intent{Steps: []*rollout.Step{{
+		Name: "render_report",
+		Type: "fnct",
+		Do:   "Render deployment status report.",
+	}}})
+	if !hasCheck(report, "side_effects.policy", "pass") {
+		t.Fatalf("expected no side-effect policy pass, got %#v", report.Checks)
+	}
+}
+
+func TestWorkflowPlanAllowsFnctBindingsWithoutRequestBlock(t *testing.T) {
+	if bindingRequestEvidenceRequired(PlanStep{Type: "fnct", Runtime: "fnct"}) {
+		t.Fatal("fnct transform bindings should not require request-block evidence")
+	}
+}
+
+func TestReviewEvidenceRecordsSideEffectSummary(t *testing.T) {
+	example := filepath.Join(t.TempDir(), "examples", "side-effect-review")
+	if err := os.MkdirAll(filepath.Join(example, "workflows"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	result := resultPaths(example)
+	if err := os.WriteFile(result.ProjectPath, []byte(`# Email
+
+## Function Contracts
+
+- send_email
+  - Inputs: to, subject, body
+  - Outputs: status
+  - Side effects: sends email through approved trusted runtime path.
+
+## Safety and Approval Boundary
+
+- Generate and validate artifacts only.
+`), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(result.IntentPath, []byte(`workflow {
+  name = "email"
+}
+
+step "send_email" {
+  type = "fnct"
+  do   = "Send email."
+}
+`), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	md := reviewMarkdown(result, "fake", "model")
+	for _, expected := range []string{
+		"Side-Effect Summary",
+		"Side-effectful workflow: yes",
+		"Approval/trusted-runtime policy: present",
+		"Unresolved Risks",
+		"Trusted proof run",
+	} {
+		if !strings.Contains(md, expected) {
+			t.Fatalf("review missing %q:\n%s", expected, md)
+		}
 	}
 }
 
@@ -860,6 +969,20 @@ Search weather in Toronto, Canada.
 	}
 	if !hasCheck(report, "workflow.plan_match", "fail") {
 		t.Fatalf("expected workflow.plan_match failure, got %#v", report.Checks)
+	}
+}
+
+func TestValidateIntentOpenAPIOperationsRequiresOperationOnOpenAPIStep(t *testing.T) {
+	err := validateIntentOpenAPIOperations(&rollout.Intent{
+		OpenAPI: "openapi/weather.yaml",
+		Steps: []*rollout.Step{{
+			Name: "get_weather",
+			Type: "http",
+			Do:   "Fetch weather.",
+		}},
+	}, nil, "")
+	if err == nil || !strings.Contains(err.Error(), "missing operation") {
+		t.Fatalf("expected missing operation error, got %v", err)
 	}
 }
 

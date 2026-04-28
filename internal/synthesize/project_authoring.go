@@ -16,6 +16,7 @@ type projectPolicy struct {
 	DataFlowSection   string
 	FunctionSection   string
 	CredentialSection string
+	SafetySection     string
 	AllowedRuntime    map[string]bool
 	HasFunctionSteps  bool
 	Inputs            []InputDecl
@@ -38,6 +39,7 @@ func analyzeProject(text string) projectPolicy {
 		DataFlowSection:   dataFlowSection,
 		FunctionSection:   functionSection,
 		CredentialSection: markdownSection(text, "Credentials and Secrets"),
+		SafetySection:     markdownSection(text, "Safety and Approval Boundary"),
 		AllowedRuntime: map[string]bool{
 			"fnct":    true,
 			"http":    true,

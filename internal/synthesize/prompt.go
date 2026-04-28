@@ -256,11 +256,11 @@ func foldParameterSetterStepList(steps []*rollout.Step, stepsByName map[string]*
 }
 
 func foldedParameterSetterStep(step *rollout.Step, stepsByName map[string]*rollout.Step) bool {
-	if step == nil || len(step.With) == 0 {
+	if step == nil {
 		return false
 	}
-	targetName := strings.TrimSpace(strings.TrimSuffix(strings.TrimSpace(step.Set), ".with"))
-	if targetName == "" || targetName == strings.TrimSpace(step.Set) {
+	targetName, values := parameterSetterTargetAndValues(step)
+	if targetName == "" || len(values) == 0 {
 		return false
 	}
 	target := stepsByName[targetName]
@@ -270,7 +270,7 @@ func foldedParameterSetterStep(step *rollout.Step, stepsByName map[string]*rollo
 	if target.With == nil {
 		target.With = map[string]string{}
 	}
-	for key, value := range step.With {
+	for key, value := range values {
 		key = strings.TrimSpace(key)
 		if key == "" || strings.TrimSpace(target.With[key]) != "" {
 			continue
@@ -278,6 +278,40 @@ func foldedParameterSetterStep(step *rollout.Step, stepsByName map[string]*rollo
 		target.With[key] = strings.TrimSpace(value)
 	}
 	return true
+}
+
+func parameterSetterTargetAndValues(step *rollout.Step) (string, map[string]string) {
+	if step == nil {
+		return "", nil
+	}
+	set := strings.TrimSpace(step.Set)
+	targetName := strings.TrimSpace(strings.TrimSuffix(set, ".with"))
+	if targetName != "" && targetName != set && len(step.With) > 0 {
+		return targetName, step.With
+	}
+	assignments := map[string]string{}
+	var target string
+	for _, part := range strings.Split(set, ";") {
+		left, right, ok := strings.Cut(part, "=")
+		if !ok {
+			continue
+		}
+		left = strings.TrimSpace(left)
+		right = strings.Trim(strings.TrimSpace(right), `"`)
+		prefix, field, ok := strings.Cut(left, ".with.")
+		if !ok || strings.TrimSpace(prefix) == "" || strings.TrimSpace(field) == "" || right == "" {
+			continue
+		}
+		prefix = strings.TrimSpace(prefix)
+		if target == "" {
+			target = prefix
+		}
+		if target != prefix {
+			return "", nil
+		}
+		assignments[strings.TrimSpace(field)] = right
+	}
+	return target, assignments
 }
 
 func applyRuntimeInputHints(steps []*rollout.Step, inputs []InputDecl) {

@@ -104,7 +104,8 @@ func AssessContext(ctx context.Context, opts Options) (*QualityReport, error) {
 		return nil, err
 	}
 	assessUWS(report, result.UWSPath, opts.SchemaPath, exampleDir)
-	assessReview(report, result.ReviewPath)
+	assessSideEffectPolicy(report, policy, intent)
+	assessReview(report, result.ReviewPath, sideEffectProfileFor(policy, intent))
 	assessSecrets(report, result)
 
 	if intentOK && planOK {
@@ -331,15 +332,23 @@ func validateIntentOpenAPIOperations(intent *rollout.Intent, candidates []openap
 	}
 	ops := openAPIOperationIndex(candidates)
 	var missing []string
+	var omitted []string
 	walkIntentSteps(intent.Steps, func(step *rollout.Step) {
 		if step == nil {
 			return
 		}
 		operation := strings.TrimSpace(step.Operation)
+		specPath := intentStepOpenAPIPath(intent, step, primary)
 		if operation == "" {
+			if intentStepRequiresOpenAPIOperation(intent, step, primary) {
+				name := strings.TrimSpace(step.Name)
+				if name == "" {
+					name = "<unnamed>"
+				}
+				omitted = append(omitted, fmt.Sprintf("%s in %q", name, specPath))
+			}
 			return
 		}
-		specPath := intentStepOpenAPIPath(intent, step, primary)
 		if op := ops[operationKey(specPath, operation)]; op == nil {
 			name := strings.TrimSpace(step.Name)
 			if name == "" {
@@ -348,11 +357,30 @@ func validateIntentOpenAPIOperations(intent *rollout.Intent, candidates []openap
 			missing = append(missing, fmt.Sprintf("%s operation %q in %q", name, operation, specPath))
 		}
 	})
-	if len(missing) > 0 {
+	if len(omitted) > 0 || len(missing) > 0 {
+		sort.Strings(omitted)
 		sort.Strings(missing)
-		return fmt.Errorf("missing OpenAPI operations: %s", strings.Join(missing, "; "))
+		var details []string
+		for _, item := range omitted {
+			details = append(details, "missing operation for "+item)
+		}
+		for _, item := range missing {
+			details = append(details, "missing OpenAPI operation "+item)
+		}
+		return fmt.Errorf("%s", strings.Join(details, "; "))
 	}
 	return nil
+}
+
+func intentStepRequiresOpenAPIOperation(intent *rollout.Intent, step *rollout.Step, primary string) bool {
+	if step == nil {
+		return false
+	}
+	kind := strings.ToLower(strings.TrimSpace(step.Type))
+	if kind != "" && kind != "http" && kind != "openapi" {
+		return false
+	}
+	return strings.TrimSpace(intentStepOpenAPIPath(intent, step, primary)) != ""
 }
 
 func validateIntentRequiredParameters(intent *rollout.Intent, candidates []openapidisco.Candidate, primary string) error {
@@ -672,6 +700,9 @@ func validateWorkflowAgainstExpectedPlan(report *QualityReport, compiled *runtim
 			}
 			evidence, ok := requestAttributeEvidence(op.Request, paramCandidateNames(binding.Target))
 			if !ok {
+				if !bindingRequestEvidenceRequired(step) {
+					continue
+				}
 				if credentialLikeParam(binding.Target) {
 					credentialMismatch = append(credentialMismatch, fmt.Sprintf("%s missing credential request field %s", name, binding.Target))
 				} else {
@@ -717,6 +748,10 @@ func validateWorkflowAgainstExpectedPlan(report *QualityReport, compiled *runtim
 	}
 	report.add("workflow.credentials_bound", "pass", "workflow.hcl binds required credential-like parameters", "")
 	return true
+}
+
+func bindingRequestEvidenceRequired(step PlanStep) bool {
+	return !strings.EqualFold(strings.TrimSpace(step.Runtime), "fnct") && !strings.EqualFold(strings.TrimSpace(step.Type), "fnct")
 }
 
 type compiledOperation struct {
@@ -994,7 +1029,20 @@ func assessUWS(report *QualityReport, path, schemaPath, exampleDir string) {
 	report.add("uws.execution_profile", "pass", "workflow.uws.yaml passes udon execution-profile validation", "")
 }
 
-func assessReview(report *QualityReport, path string) {
+func assessSideEffectPolicy(report *QualityReport, policy projectPolicy, intent *rollout.Intent) {
+	profile := sideEffectProfileFor(policy, intent)
+	if !profile.SideEffectful {
+		report.add("side_effects.policy", "pass", "no side-effectful workflow behavior inferred", "")
+		return
+	}
+	if profile.HasApprovalPolicy {
+		report.add("side_effects.policy", "pass", "side-effectful workflow has approval or trusted-runtime policy", strings.Join(profile.Reasons, "; "))
+		return
+	}
+	report.add("side_effects.policy", "fail", "side-effectful workflow lacks approval or trusted-runtime policy", "Add approval, trusted runner, or trusted runtime path guidance to the Safety and Approval Boundary or Function Contracts section. Detected: "+strings.Join(profile.Reasons, "; "))
+}
+
+func assessReview(report *QualityReport, path string, profile sideEffectProfile) {
 	data, err := os.ReadFile(path)
 	if err != nil {
 		report.add("review.present", "fail", "review evidence is required", err.Error())
@@ -1006,6 +1054,25 @@ func assessReview(report *QualityReport, path string) {
 		return
 	}
 	report.add("review.execution_boundary", "pass", "review evidence records skipped side-effectful execution", "")
+	if !strings.Contains(text, "Trusted proof run") || !strings.Contains(text, "./scripts/run-udon.sh") {
+		report.add("review.trusted_runner", "fail", "review evidence must include trusted-runner handoff command", "")
+		return
+	}
+	report.add("review.trusted_runner", "pass", "review evidence includes trusted-runner handoff command", "")
+	if !strings.Contains(text, "## Side-Effect Summary") {
+		report.add("review.side_effect_summary", "fail", "review evidence must summarize inferred side effects", "")
+		return
+	}
+	if profile.SideEffectful && !strings.Contains(text, "Side-effectful workflow: yes") {
+		report.add("review.side_effect_summary", "fail", "review evidence must mark side-effectful workflows explicitly", "")
+		return
+	}
+	report.add("review.side_effect_summary", "pass", "review evidence summarizes inferred side effects", "")
+	if !strings.Contains(text, "## Unresolved Risks") {
+		report.add("review.unresolved_risks", "fail", "review evidence must record unresolved risks or lack of known risks", "")
+		return
+	}
+	report.add("review.unresolved_risks", "pass", "review evidence records unresolved risks", "")
 }
 
 func assessSecrets(report *QualityReport, result Result) {

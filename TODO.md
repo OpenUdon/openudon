@@ -105,7 +105,7 @@ detection to eval comparison, tightened structured-mode prompt and intent cleanu
 noise, and recovered the 2026-04-28 full `gemini-2.5-flash` run to 10/10 pass with `0` legacy
 fallbacks.
 
-## [todo] Quality Gate Hardening
+## [in-progress] Quality Gate Hardening
 
 Goal: strengthen deterministic validation so generated artifacts are auditable before execution.
 
@@ -123,6 +123,11 @@ guidance.
 - Improve review evidence so it records skipped execution, inferred technical steps, unresolved
   risks, and trusted-runner handoff requirements.
 - Keep scanner tests populated only with fake secret-shaped values and valid workflow references.
+
+Slice 1 adds deterministic side-effect policy checks and hardened review evidence. Review artifacts
+now record side-effect summary, approval/trusted-runtime policy, sandbox/test proof-run policy,
+unresolved risks, skipped execution, and trusted-runner handoff. Quality fails side-effectful
+workflows that lack approval or trusted-runtime policy.
 
 ## [todo] Workflow Artifact Power
 
