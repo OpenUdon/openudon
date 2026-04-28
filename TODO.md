@@ -112,7 +112,7 @@ detection to eval comparison, tightened structured-mode prompt and intent cleanu
 noise, and recovered the 2026-04-28 full `gemini-2.5-flash` run to 10/10 pass with `0` legacy
 fallbacks.
 
-## [in-progress] Quality Gate Hardening
+## [done] Quality Gate Hardening
 
 Goal: strengthen deterministic validation so generated artifacts are auditable before execution.
 
@@ -135,6 +135,18 @@ Slice 1 adds deterministic side-effect policy checks and hardened review evidenc
 now record side-effect summary, approval/trusted-runtime policy, sandbox/test proof-run policy,
 unresolved risks, skipped execution, and trusted-runner handoff. Quality fails side-effectful
 workflows that lack approval or trusted-runtime policy.
+
+Slice 2 adds deterministic function-contract checks. Any generated `fnct` step must have a matching
+project Function Contracts entry, projects that declare no function steps cannot generate `fnct`
+steps, declared function inputs need visible `with`, `bind`, or prior-step evidence, and simple
+contract input names reject undeclared adapter inputs.
+
+Slice 3 completes the remaining deterministic quality gates. Intent assessment now fails unresolved
+data-flow sources, definitely invalid OpenAPI response paths, missing OpenAPI security credential
+policy, and unbound security schemes. Expected plans record OpenAPI security credentials so compiled
+workflow checks catch misplaced auth fields. Side-effect assessment now detects write OpenAPI
+methods, customer communication terms, command/SSH runtimes, and explicit production endpoints that
+lack production handoff policy.
 
 ## [in-progress] Workflow Artifact Power
 

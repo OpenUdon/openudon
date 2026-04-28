@@ -61,6 +61,15 @@ technical step, the chosen runtime or OpenAPI operation, required parameters, de
 bindings. During assessment, Ramen compiles the final `workflow.hcl` through udon and verifies the
 compiled workflow still preserves those mappings.
 
+Quality assessment also validates intent provenance before execution. `depends_on`, `with`, `bind`,
+conditions, loop selectors, and outputs must reference declared inputs or known step names. A
+reference such as `missing_step.received_body.id` fails `intent.data_flow.sources`.
+
+When OpenAPI response schemas expose concrete object properties, response paths must match those
+properties. A path such as `get_ticket.received_body.requesterEmail` fails
+`intent.data_flow.response_paths` if the selected operation only documents `id` and `severity`.
+Opaque or missing response schemas produce a warning instead of a failure.
+
 ## Missing Operations
 
 If the selected OpenAPI document only has a weather endpoint that requires `lat` and `lon`, Ramen
@@ -81,3 +90,8 @@ For `fnct` steps, document the function contract in `project.md`:
 ```
 
 Ramen can then wire the function output into later API or runtime steps.
+
+Quality checks require every generated `fnct` step to have a matching Function Contracts entry.
+When the contract declares inputs, the intent must show visible input evidence through `with`, a
+`bind` block, or a prior-step reference. If a project expects no function steps, say so explicitly;
+any generated `fnct` step will fail review.

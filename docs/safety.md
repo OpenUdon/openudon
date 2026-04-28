@@ -18,6 +18,16 @@ AI may not directly execute operational actions.
 - Prefer sandbox or test endpoints for local proof runs.
 - Record validation evidence in the Symphony-managed work item before handoff.
 
+## Quality Gates
+
+Ramen fails `side_effects.policy` when generated artifacts imply writes, customer communications,
+command execution, SSH execution, or other side effects without approval/trusted-runtime and
+sandbox proof-run policy.
+
+Ramen fails `side_effects.environment` when an explicit production endpoint is used without
+production handoff approval language. Use sandbox, staging, localhost, `.test`, or documented
+example endpoints for proof runs.
+
 ## Runtime Profiles
 
 Extension-owned UWS operations, such as SMTP, SSH, SQL, command execution, or LLM calls, must name

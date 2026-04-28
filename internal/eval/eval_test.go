@@ -16,8 +16,9 @@ type fakeRuntimeClient struct{}
 func (fakeRuntimeClient) Chat(context.Context, []rollout.ChatMessage) (string, error) {
 	return `{
   "workflow": {"name": "runtime_only_render", "description": "Render a local summary report."},
+  "inputs": [{"name": "summary", "type": "string", "required": true}],
   "steps": [
-    {"name": "render_report", "type": "fnct", "do": "Render the summary report."}
+    {"name": "render_report", "type": "fnct", "do": "Render the summary report.", "with": {"summary": "inputs.summary"}}
   ],
   "outputs": [{"name": "report", "from": "render_report.received_body"}]
 }`, nil
@@ -170,6 +171,13 @@ OpenAPI: none required
 
 - fnct allowed.
 
+## Function Contracts
+
+- render_report
+  - Inputs: summary.
+  - Outputs: rendered report.
+  - Side effects: none.
+
 ## Credentials and Secrets
 
 - No credentials are required.
@@ -191,6 +199,9 @@ OpenAPI: none required
 step "render_report" {
   type = "fnct"
   do   = "Render the summary report."
+  with = {
+    summary = "inputs.summary"
+  }
 }
 
 output "report" {
@@ -249,6 +260,13 @@ OpenAPI: none required
 
 - fnct allowed.
 
+## Function Contracts
+
+- render_report
+  - Inputs: summary.
+  - Outputs: rendered report.
+  - Side effects: none.
+
 ## Credentials and Secrets
 
 - No credentials are required.
@@ -267,9 +285,17 @@ OpenAPI: none required
   name = "runtime_only_render"
 }
 
+input "summary" {
+  type     = "string"
+  required = true
+}
+
 step "render_report" {
   type = "fnct"
   do   = "Render the summary report."
+  with = {
+    summary = "inputs.summary"
+  }
 }
 
 output "report" {

@@ -31,8 +31,9 @@ type fakeRuntimeOnlyClient struct{}
 func (fakeRuntimeOnlyClient) Chat(context.Context, []rollout.ChatMessage) (string, error) {
 	return `{
   "workflow": {"name": "runtime_only", "description": "Render a local report."},
+  "inputs": [{"name": "summary", "type": "string", "required": true}],
   "steps": [
-    {"name": "render_report", "type": "fnct", "do": "Render the local report"}
+    {"name": "render_report", "type": "fnct", "do": "Render the local report", "with": {"summary": "inputs.summary"}}
   ],
   "outputs": [{"name": "report", "from": "render_report.received_body"}]
 }`, nil
@@ -475,6 +476,278 @@ func TestSideEffectPolicyIgnoresNoSideEffectsAndDeploymentStatusRead(t *testing.
 	}}})
 	if !hasCheck(report, "side_effects.policy", "pass") {
 		t.Fatalf("expected no side-effect policy pass, got %#v", report.Checks)
+	}
+}
+
+func TestSideEffectProfileDetectsOpenAPIWriteOperation(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "ticket-write.yaml")
+	if err := os.WriteFile(path, []byte(ticketWriteOpenAPI("https://support.example.test")), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	profile := sideEffectProfileForOpenAPI(analyzeProject(`# Tickets
+
+## Safety and Approval Boundary
+
+- Generate and validate artifacts only.
+`), &rollout.Intent{
+		OpenAPI: "openapi/ticket-write.yaml",
+		Steps: []*rollout.Step{{
+			Name:      "create_ticket",
+			Type:      "http",
+			Operation: "createTicket",
+		}},
+	}, []openapidisco.Candidate{{Path: path, RelativePath: "openapi/ticket-write.yaml"}}, "")
+	if !profile.SideEffectful || !strings.Contains(strings.Join(profile.Reasons, "; "), "POST") {
+		t.Fatalf("expected OpenAPI write side-effect profile, got %#v", profile)
+	}
+	report := &QualityReport{}
+	assessSideEffectProfile(report, profile)
+	if !hasCheck(report, "side_effects.policy", "fail") {
+		t.Fatalf("expected side-effect policy failure, got %#v", report.Checks)
+	}
+}
+
+func TestSideEffectProfileRequiresProductionHandoffForProductionEndpoint(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "ticket-prod.yaml")
+	if err := os.WriteFile(path, []byte(ticketWriteOpenAPI("https://prod.support.company.com")), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	profile := sideEffectProfileForOpenAPI(analyzeProject(`# Tickets
+
+## Safety and Approval Boundary
+
+- Generate and validate artifacts only.
+`), &rollout.Intent{
+		OpenAPI: "openapi/ticket-prod.yaml",
+		Steps: []*rollout.Step{{
+			Name:      "create_ticket",
+			Type:      "http",
+			Operation: "createTicket",
+		}},
+	}, []openapidisco.Candidate{{Path: path, RelativePath: "openapi/ticket-prod.yaml"}}, "")
+	report := &QualityReport{}
+	assessSideEffectProfile(report, profile)
+	if !hasCheck(report, "side_effects.environment", "fail") {
+		t.Fatalf("expected production environment failure, got %#v profile=%#v", report.Checks, profile)
+	}
+}
+
+func TestValidateIntentFunctionContractsRequiresDeclaredFnctStep(t *testing.T) {
+	policy := analyzeProject(`# Report
+
+## Function Contracts
+
+- render_report
+  - Inputs: summary
+  - Outputs: report
+  - Side effects: none.
+`)
+	err := validateIntentFunctionContracts(&rollout.Intent{Steps: []*rollout.Step{{
+		Name: "format_report",
+		Type: "fnct",
+		With: map[string]string{"summary": "inputs.summary"},
+	}}}, policy)
+	if err == nil || !strings.Contains(err.Error(), "missing Function Contracts entries") {
+		t.Fatalf("expected missing function contract error, got %v", err)
+	}
+}
+
+func TestValidateIntentFunctionContractsRejectsUnexpectedFnctStep(t *testing.T) {
+	policy := analyzeProject(`# List
+
+## Function Contracts
+
+- No function steps are expected.
+`)
+	err := validateIntentFunctionContracts(&rollout.Intent{Steps: []*rollout.Step{{
+		Name: "render_report",
+		Type: "fnct",
+	}}}, policy)
+	if err == nil || !strings.Contains(err.Error(), "no function steps are expected") {
+		t.Fatalf("expected no-function-steps error, got %v", err)
+	}
+}
+
+func TestValidateIntentFunctionContractsRejectsUndeclaredSimpleInput(t *testing.T) {
+	policy := analyzeProject(`# Email
+
+## Function Contracts
+
+- send_email
+  - Inputs: to, subject, body
+  - Outputs: status
+  - Side effects: sends email through approved runtime.
+`)
+	err := validateIntentFunctionContracts(&rollout.Intent{Steps: []*rollout.Step{{
+		Name: "send_email",
+		Type: "fnct",
+		With: map[string]string{
+			"to":      "get_ticket.received_body.email",
+			"subject": "get_ticket.received_body.subject",
+			"body":    "get_ticket.received_body.summary",
+			"bcc":     "audit@example.test",
+		},
+	}}}, policy)
+	if err == nil || !strings.Contains(err.Error(), "fnct inputs not declared by contract") {
+		t.Fatalf("expected undeclared fnct input error, got %v", err)
+	}
+}
+
+func TestValidateIntentFunctionContractsAcceptsNaturalLanguageInputsWithBindingEvidence(t *testing.T) {
+	policy := analyzeProject(`# Export
+
+## Function Contracts
+
+- merge_customer_pages
+  - Inputs: customer arrays from page 1 and page 2.
+  - Outputs: combined payload
+  - Side effects: none.
+`)
+	err := validateIntentFunctionContracts(&rollout.Intent{Steps: []*rollout.Step{{
+		Name:      "merge_customer_pages",
+		Type:      "fnct",
+		DependsOn: []string{"list_page_1", "list_page_2"},
+		Binds: []*rollout.StepBind{{
+			From:   "list_page_1",
+			Fields: map[string]string{"page_1": "received_body.customers"},
+		}},
+	}}}, policy)
+	if err != nil {
+		t.Fatalf("unexpected function contract error: %v", err)
+	}
+}
+
+func TestValidateIntentDataFlowSourcesRejectsUnknownReferences(t *testing.T) {
+	err := validateIntentDataFlowSources(&rollout.Intent{
+		Inputs: []*rollout.Input{{Name: "ticketId"}},
+		Steps: []*rollout.Step{{
+			Name:      "get_ticket",
+			Type:      "http",
+			DependsOn: []string{"missing_step"},
+			With:      map[string]string{"ticketId": "missing_step.received_body.id"},
+		}},
+		Outputs: []*rollout.Output{{Name: "ticket", From: "get_ticket.received_body"}},
+	})
+	if err == nil || !strings.Contains(err.Error(), "missing_step") {
+		t.Fatalf("expected unresolved data-flow source error, got %v", err)
+	}
+}
+
+func TestValidateIntentDataFlowSourcesAllowsLiteralDomains(t *testing.T) {
+	err := validateIntentDataFlowSources(&rollout.Intent{
+		Steps: []*rollout.Step{{
+			Name: "send_email",
+			Type: "fnct",
+			With: map[string]string{
+				"to":       "audit@example.test",
+				"callback": "https://api.example.test/callback",
+			},
+		}},
+	})
+	if err != nil {
+		t.Fatalf("literal domains should not be treated as step references: %v", err)
+	}
+}
+
+func TestValidateIntentResponsePathsRejectsAbsentSchemaField(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "support.yaml")
+	if err := os.WriteFile(path, []byte(supportOpenAPI()), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	result := validateIntentResponsePaths(&rollout.Intent{
+		OpenAPI: "openapi/support.yaml",
+		Steps: []*rollout.Step{
+			{Name: "get_ticket", Type: "http", Operation: "getTicket", With: map[string]string{"ticketId": "inputs.ticketId"}},
+			{Name: "render", Type: "fnct", With: map[string]string{"email": "get_ticket.received_body.requesterEmail"}},
+		},
+	}, []openapidisco.Candidate{{Path: path, RelativePath: "openapi/support.yaml"}}, "")
+	if len(result.Failures) == 0 || !strings.Contains(result.Failures[0], "requesterEmail") {
+		t.Fatalf("expected missing response path failure, got %#v", result)
+	}
+}
+
+func TestValidateIntentResponsePathsWarnsOnOpaqueSchema(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "weather.yaml")
+	if err := os.WriteFile(path, []byte(weatherOnlyOpenAPI()), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	result := validateIntentResponsePaths(&rollout.Intent{
+		OpenAPI: "openapi/weather.yaml",
+		Steps: []*rollout.Step{
+			{Name: "get_weather", Type: "http", Operation: "getWeatherData", With: map[string]string{"lat": "43.6532", "lon": "-79.3832", "appid": "weather_appid"}},
+			{Name: "render", Type: "fnct", With: map[string]string{"summary": "get_weather.received_body.summary"}},
+		},
+	}, []openapidisco.Candidate{{Path: path, RelativePath: "openapi/weather.yaml"}}, "")
+	if len(result.Failures) != 0 || len(result.Warnings) == 0 {
+		t.Fatalf("expected opaque schema warning without failure, got %#v", result)
+	}
+}
+
+func TestValidateIntentOpenAPISecurityRequiresCredentialPolicy(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "secure.yaml")
+	if err := os.WriteFile(path, []byte(secureOpenAPI()), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	intent := &rollout.Intent{
+		OpenAPI: "openapi/secure.yaml",
+		Steps: []*rollout.Step{{
+			Name:      "list_secure_tickets",
+			Type:      "http",
+			Operation: "listSecureTickets",
+			With: map[string]string{
+				"api_key": "support_api_key",
+			},
+		}},
+	}
+	candidates := []openapidisco.Candidate{{Path: path, RelativePath: "openapi/secure.yaml"}}
+	if err := validateIntentOpenAPISecurity(intent, candidates, "", analyzeProject("")); err == nil || !strings.Contains(err.Error(), "Credentials and Secrets") {
+		t.Fatalf("expected missing credential policy error, got %v", err)
+	}
+	policy := analyzeProject(`# Secure
+
+## Credentials and Secrets
+
+- Use credential binding support_api_key.
+`)
+	if err := validateIntentOpenAPISecurity(intent, candidates, "", policy); err != nil {
+		t.Fatalf("unexpected security credential error: %v", err)
+	}
+}
+
+func TestBuildWorkflowPlanRecordsOpenAPISecurityCredential(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "secure.yaml")
+	if err := os.WriteFile(path, []byte(secureOpenAPI()), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	plan := buildWorkflowPlan(Result{ExampleDir: t.TempDir()}, &rollout.Intent{
+		OpenAPI: "openapi/secure.yaml",
+		Steps: []*rollout.Step{{
+			Name:      "list_secure_tickets",
+			Type:      "http",
+			Operation: "listSecureTickets",
+			With:      map[string]string{"api_key": "support_api_key"},
+		}},
+	}, []openapidisco.Candidate{{Path: path, RelativePath: "openapi/secure.yaml"}}, analyzeProject(`## Credentials and Secrets
+
+- Use credential binding support_api_key.
+`))
+	if len(plan.Steps) != 1 || !containsString(plan.Steps[0].Credentials, "api_key") {
+		t.Fatalf("expected security credential in plan, got %#v", plan.Steps)
+	}
+	var found bool
+	for _, param := range plan.Steps[0].RequestParams {
+		if param.Name == "api_key" && param.Credential && param.ExpectedCredential == "support_api_key" {
+			found = true
+		}
+	}
+	if !found {
+		t.Fatalf("expected security request param with binding, got %#v", plan.Steps[0].RequestParams)
 	}
 }
 
@@ -930,6 +1203,13 @@ OpenAPI: none required
 
 - fnct allowed for trusted local report rendering.
 - cmd and ssh are not allowed.
+
+## Function Contracts
+
+- render_report
+  - Inputs: summary.
+  - Outputs: rendered report.
+  - Side effects: none.
 
 ## Credentials and Secrets
 
@@ -2239,6 +2519,62 @@ paths:
         "200":
           description: ok
 `
+}
+
+func secureOpenAPI() string {
+	return `openapi: 3.0.0
+info:
+  title: Secure Support API
+  version: 1.0.0
+servers:
+  - url: https://support.example.test
+components:
+  securitySchemes:
+    ApiKeyAuth:
+      type: apiKey
+      in: query
+      name: api_key
+paths:
+  /secure/tickets:
+    get:
+      operationId: listSecureTickets
+      security:
+        - ApiKeyAuth: []
+      responses:
+        "200":
+          description: ok
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  tickets:
+                    type: array
+`
+}
+
+func ticketWriteOpenAPI(server string) string {
+	return fmt.Sprintf(`openapi: 3.0.0
+info:
+  title: Ticket Write API
+  version: 1.0.0
+servers:
+  - url: %s
+paths:
+  /tickets:
+    post:
+      operationId: createTicket
+      responses:
+        "201":
+          description: created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  id:
+                    type: string
+`, server)
 }
 
 func manyOperationsOpenAPI(title string, count int) string {

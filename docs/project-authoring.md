@@ -130,10 +130,17 @@ When a ticket is created, fetch the ticket details, classify the request, and wr
   - Outputs: draft record.
   - Side effects: writes a draft only.
 
+Each generated `fnct` step must have a matching Function Contracts entry. Declared function inputs
+must be wired in intent through `with`, `bind`, or prior-step references so review can audit where
+adapter inputs came from.
+
 ## Credentials and Secrets
 
 - Use credential binding `support_api_token`.
 - Do not include credential values in generated artifacts.
+- OpenAPI `securitySchemes` and operation security requirements must map to named credential
+  bindings. If a secured operation requires `api_key`, declare a binding such as
+  `support_api_key` and wire the request field by binding name, never by secret value.
 
 ## Safety and Approval Boundary
 

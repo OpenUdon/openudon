@@ -79,8 +79,9 @@ func buildWorkflowPlan(result Result, intent *rollout.Intent, candidates []opena
 		plan.Summary = strings.TrimSpace(intent.Workflow.Description)
 	}
 	ops := openAPIOperationIndex(candidates)
+	security := openAPISecurityIndex(candidates)
 	inputs := intentInputNames(intent)
-	addStepsToWorkflowPlan(plan, intent, intentSteps(intent), ops, inputs, policy, planStepContext{})
+	addStepsToWorkflowPlan(plan, intent, intentSteps(intent), ops, security, inputs, policy, planStepContext{})
 	sortPlanGaps(plan.Gaps)
 	return plan
 }
@@ -91,7 +92,7 @@ type planStepContext struct {
 	BranchWhen string
 }
 
-func addStepsToWorkflowPlan(plan *WorkflowPlan, intent *rollout.Intent, steps []*rollout.Step, ops map[string]*rollout.OperationInfo, inputs map[string]bool, policy projectPolicy, ctx planStepContext) {
+func addStepsToWorkflowPlan(plan *WorkflowPlan, intent *rollout.Intent, steps []*rollout.Step, ops map[string]*rollout.OperationInfo, security map[string][]openAPISecurityRequirement, inputs map[string]bool, policy projectPolicy, ctx planStepContext) {
 	for _, step := range steps {
 		if step == nil {
 			continue
@@ -146,7 +147,8 @@ func addStepsToWorkflowPlan(plan *WorkflowPlan, intent *rollout.Intent, steps []
 		}
 		sortPlanBindings(planStep.Bindings)
 		if planStep.Operation != "" {
-			op := ops[operationKey(planStep.OpenAPI, planStep.Operation)]
+			key := operationKey(planStep.OpenAPI, planStep.Operation)
+			op := ops[key]
 			if op == nil {
 				plan.Gaps = append(plan.Gaps, PlanGap{
 					Code:   "openapi.missing_operation",
@@ -195,6 +197,29 @@ func addStepsToWorkflowPlan(plan *WorkflowPlan, intent *rollout.Intent, steps []
 					planStep.RequestParams = append(planStep.RequestParams, planParam)
 				}
 			}
+			for _, req := range security[key] {
+				planParam := PlanParam{
+					Name:               securityRequestFieldName(req),
+					In:                 strings.TrimSpace(req.In),
+					Required:           true,
+					Credential:         true,
+					SourceKind:         "credential",
+					ExpectedCredential: expectedCredentialForSecurity(step, req, policy),
+				}
+				if planParam.Name == "" {
+					planParam.Name = req.label()
+				}
+				planStep.Credentials = append(planStep.Credentials, planParam.Name)
+				planStep.RequestParams = append(planStep.RequestParams, planParam)
+				if planParam.ExpectedCredential == "" {
+					plan.Gaps = append(plan.Gaps, PlanGap{
+						Code:   "credentials.missing_binding",
+						Step:   planStep.Name,
+						Detail: fmt.Sprintf("operation %q requires OpenAPI security %q but no credential binding is auditable", planStep.Operation, req.label()),
+						Query:  req.label(),
+					})
+				}
+			}
 		}
 		if len(planStep.Credentials) > 0 && strings.TrimSpace(policy.CredentialSection) == "" {
 			plan.Gaps = append(plan.Gaps, PlanGap{
@@ -207,19 +232,19 @@ func addStepsToWorkflowPlan(plan *WorkflowPlan, intent *rollout.Intent, steps []
 		planStep.Credentials = sortedUnique(planStep.Credentials)
 		sortPlanParams(planStep.RequestParams)
 		plan.Steps = append(plan.Steps, planStep)
-		addStepsToWorkflowPlan(plan, intent, step.Steps, ops, inputs, policy, planStepContext{Parent: name})
+		addStepsToWorkflowPlan(plan, intent, step.Steps, ops, security, inputs, policy, planStepContext{Parent: name})
 		for _, branch := range step.Cases {
 			if branch == nil {
 				continue
 			}
-			addStepsToWorkflowPlan(plan, intent, branch.Steps, ops, inputs, policy, planStepContext{
+			addStepsToWorkflowPlan(plan, intent, branch.Steps, ops, security, inputs, policy, planStepContext{
 				Parent:     name,
 				Branch:     strings.TrimSpace(branch.Name),
 				BranchWhen: strings.TrimSpace(branch.When),
 			})
 		}
 		if step.Default != nil {
-			addStepsToWorkflowPlan(plan, intent, step.Default.Steps, ops, inputs, policy, planStepContext{
+			addStepsToWorkflowPlan(plan, intent, step.Default.Steps, ops, security, inputs, policy, planStepContext{
 				Parent: name,
 				Branch: "default",
 			})
@@ -494,6 +519,38 @@ func expectedCredentialForParam(step *rollout.Step, param *rollout.ParameterInfo
 		}
 	}
 	return ""
+}
+
+func expectedCredentialForSecurity(step *rollout.Step, req openAPISecurityRequirement, policy projectPolicy) string {
+	for _, name := range req.fieldNames() {
+		if source := strings.TrimSpace(step.With[name]); source != "" {
+			return source
+		}
+		for _, bind := range step.Binds {
+			if bind == nil {
+				continue
+			}
+			if source := strings.TrimSpace(bind.Fields[name]); source != "" {
+				return source
+			}
+		}
+	}
+	for _, binding := range credentialBindingNames(policy) {
+		if securityBindingMatches(binding, req) {
+			return binding
+		}
+	}
+	return ""
+}
+
+func securityRequestFieldName(req openAPISecurityRequirement) string {
+	if strings.EqualFold(req.Type, "http") || strings.EqualFold(req.Scheme, "bearer") || strings.Contains(strings.ToLower(req.Scheme), "bearer") {
+		return "Authorization"
+	}
+	if strings.TrimSpace(req.Name) != "" {
+		return strings.TrimSpace(req.Name)
+	}
+	return strings.TrimSpace(req.Scheme)
 }
 
 func sourceKindForValue(source, paramName string, inputs map[string]bool, step *rollout.Step) string {
