@@ -1,0 +1,7 @@
+{
+  "mode": "strict",
+  "notes": [
+    "The cursor-pagination fixture is stable; cursor extraction, bearer credential binding, and two-page fetch behavior are golden."
+  ],
+  "max_blocking": 0
+}

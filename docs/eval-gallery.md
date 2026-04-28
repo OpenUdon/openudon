@@ -8,8 +8,10 @@ specific workflow behavior or failure class rather than merely adding volume.
 | `cmd-allowed-deploy` | Approved `cmd` runtime for a sandbox deployment status command. |
 | `cmd-disallowed-deploy` | Negative runtime-policy coverage for disallowed command execution. |
 | `crm-note-write` | Side-effectful write operation with trusted-runner and sandbox policy. |
+| `cursor-pagination-report` | Cursor pagination, bearer security, response cursor extraction, and local report rendering. |
 | `customer-export-two-pages` | Multi-step pagination and merge-style function handling. |
 | `inventory-api-key-binding` | Credential binding names for API-key-style request parameters. |
+| `order-fulfillment-chain` | Multi-service OpenAPI chain with per-service credentials, response extraction, request-body construction, and a sandbox write. |
 | `paginated-list` | Simple OpenAPI list operation with bounded request parameters. |
 | `runtime-only-render` | No-OpenAPI runtime-only `fnct` rendering workflow. |
 | `support-email` | API lookup plus approved side-effectful email adapter and safety boundary. |

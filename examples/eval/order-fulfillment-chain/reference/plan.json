@@ -1,0 +1,9 @@
+{
+  "version": "ramen.workflow-plan.v1",
+  "workflow": "order_fulfillment_chain",
+  "steps": [
+    {"name": "get_customer", "runtime": "http", "openapi": "openapi/customers.yaml", "operation": "getCustomer"},
+    {"name": "check_inventory", "runtime": "http", "openapi": "openapi/inventory.yaml", "operation": "getInventory"},
+    {"name": "create_fulfillment_order", "runtime": "http", "openapi": "openapi/orders.yaml", "operation": "createFulfillmentOrder", "depends_on": ["check_inventory", "get_customer"]}
+  ]
+}

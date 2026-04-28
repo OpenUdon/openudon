@@ -19,8 +19,8 @@ artifacts, bounded refinement is recorded, and secret scanning has been hardened
 workflow-reference false positives.
 
 The remaining gap is product readiness. The current evidence is still narrow, real-provider runs can
-vary, Gemini structured-output smoke now reaches zero legacy fallback with the ten-example corpus,
-and reference drift still needs per-fixture release thresholds.
+vary, Gemini structured-output smoke reached zero legacy fallback with the original ten-example
+baseline corpus, and newer eval fixtures still need real-provider release evidence.
 
 ## [done] Post-POC Baseline
 
@@ -62,6 +62,12 @@ Slice 1 adds four high-signal pass fixtures before scaling further: `customer-ex
 keeps branch selection inside an approved function adapter for now; later slices should add stricter
 condition/switch fixtures after the harness can classify those failures cleanly. Continue toward
 25-50 total briefs after these prove stable.
+
+Slice 2 adds XRD-004 OpenAPI coverage fixtures: `cursor-pagination-report` for cursor pagination,
+bearer security, and response cursor extraction; and `order-fulfillment-chain` for per-step
+multi-service OpenAPI selection, request-body construction, response extraction, security schemes,
+and a sandbox write operation. The coverage plan is documented in
+`docs/xrd-004-openapi-eval-plan.md`.
 
 ## [done] Golden Reference Discipline
 
@@ -344,7 +350,7 @@ Dependency status markers:
 | XRD-001 | `[done]` | P0 | `../udon` | Provider-native structured output for Gemini intent generation. | Structured eval smoke on 2026-04-28 reached 10/10 with zero legacy fallback after udon request wiring was fixed. | udon | Closed capability; `docs/xrd-roadmap.md` keeps regression ownership only. |
 | XRD-002 | `[done]` | P0 | `../udon` | Preserve and lower public UWS structural constructs and failure actions from generated workflow drafts. | Workflow Artifact Power Slices 1-3 cover switch, loop, structural-result, success-criteria, failure-action, retry, and success-action artifact preservation through udon and Ramen compatibility checks. | udon | Closed capability; `docs/xrd-roadmap.md` keeps regression ownership only. |
 | XRD-003 | `[done]` | P0 | `../uws` | Portable serialized timeout and workflow-level idempotency semantics not already in UWS 1.0. | UWS 1.1.0 defines `timeout` on operations, workflows, and steps, plus workflow-level `idempotency` metadata. Ramen generation behavior is unchanged in this pass. | uws | Cross-repo public semantics are closed; use a Ramen-owned follow-up if prompt/schema/eval support should emit UWS 1.1 fields. |
-| XRD-004 | `[ready]` | P1 | `../ramen`, then `../udon` | Generic OpenAPI execution/compiler behavior for richer API workflows. | Eval Corpus Expansion needs pagination variants, request bodies, security schemes, write operations, response extraction, and multi-service chains beyond current smoke coverage. | Ramen eval owner / udon | Use `docs/xrd-roadmap.md` for the Ramen eval follow-up plan before proposing reusable udon fixes. |
+| XRD-004 | `[done]` | P1 | `../ramen`, then `../udon` | Generic OpenAPI execution/compiler behavior for richer API workflows. | Ramen now has a documented XRD-004 eval plan plus fixtures covering pagination variants, request bodies, security schemes, write operations, response extraction, and multi-service chains. | Ramen eval owner / udon | Keep `docs/xrd-004-openapi-eval-plan.md` and eval fixtures as the Ramen-owned coverage; propose reusable udon fixes only after concrete eval failures identify upstream gaps. |
 | XRD-005 | `[blocked]` | P1 | External `../symphony` owner | Review workflow, approval handoff, and agent workspace policy integration. | Safety And Trusted Execution emits a minimum handoff package, but approval routing is only documented in Ramen review evidence. | symphony owner | Use `docs/xrd-roadmap.md` for the owner handoff; contract details stay in `docs/cross-repo-contracts.md`. |
 | XRD-006 | `[watch]` | P1 | Provider APIs | Structured-output schema dialect compatibility, rate limits, transient errors, and model availability. | README documents real-provider eval variance; release gate is local/manual because provider runs can fail for external reasons. | provider owners | Use `docs/xrd-roadmap.md` for the watch plan; no implementation plan is open. |
 | XRD-007 | `[blocked]` | P1 | Repo access / secrets | Private sibling checkout and provider credential availability for future workflow automation. | GitHub CI was removed because private siblings and credentials made hosted checks noisy; real-LLM eval remains local/manual. | infra | Use `docs/xrd-roadmap.md` for the infra handoff; runbook details stay in `docs/cross-repo-contracts.md`. |

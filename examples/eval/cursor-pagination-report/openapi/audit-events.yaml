@@ -1,0 +1,55 @@
+openapi: 3.0.0
+info:
+  title: Audit Events API
+  version: 1.0.0
+servers:
+  - url: https://audit.example.test
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+paths:
+  /audit/events:
+    get:
+      operationId: listAuditEvents
+      summary: List audit events with cursor pagination.
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: limit
+          in: query
+          required: true
+          schema:
+            type: integer
+        - name: cursor
+          in: query
+          required: false
+          schema:
+            type: string
+      responses:
+        "200":
+          description: ok
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  events:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        id:
+                          type: string
+                        actor:
+                          type: string
+                        action:
+                          type: string
+                        createdAt:
+                          type: string
+                  page:
+                    type: object
+                    properties:
+                      nextCursor:
+                        type: string

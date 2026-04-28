@@ -1,0 +1,9 @@
+{
+  "version": "ramen.workflow-plan.v1",
+  "workflow": "cursor_pagination_report",
+  "steps": [
+    {"name": "list_events_first_page", "runtime": "http", "operation": "listAuditEvents"},
+    {"name": "list_events_second_page", "runtime": "http", "operation": "listAuditEvents", "depends_on": ["list_events_first_page"]},
+    {"name": "render_audit_report", "runtime": "fnct", "depends_on": ["list_events_first_page", "list_events_second_page"]}
+  ]
+}

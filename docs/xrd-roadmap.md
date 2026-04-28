@@ -16,7 +16,7 @@ handoff requirements, and XRD-007 private checkout and secrets prerequisites.
 | XRD-001 | Closed | udon / Ramen regression owner | `../udon` | Provider-native structured output for Gemini intent generation exists; Ramen structured eval smoke reached 10/10 with zero legacy fallback on 2026-04-28. | Regression report only if fallback behavior regresses. | None unless tests regress. |
 | XRD-002 | Closed | udon / Ramen regression owner | `../udon` | Public UWS structural constructs and failure actions are preserved across udon and Ramen compatibility checks. | Regression report only if artifact preservation regresses. | None unless tests regress. |
 | XRD-003 | Closed | uws owner | `../uws` | UWS 1.1.0 now defines portable `timeout` fields and workflow-level `idempotency` metadata in `../uws/versions/1.1.0.md` and `../uws/versions/1.1.0.json`. | Ramen follow-up only if prompt/schema/eval support should emit UWS 1.1 fields by default. | None for cross-repo public semantics. |
-| XRD-004 | Ready | Ramen eval owner, then udon owner for reusable gaps | `../ramen`, then `../udon` | Current OpenAPI coverage is smoke-level and does not prove richer compiler/runtime behavior. | Ramen eval fixture plan and fixtures. | XRD-004 richer OpenAPI eval coverage. |
+| XRD-004 | Closed | Ramen eval owner, then udon owner for reusable gaps | `../ramen`, then `../udon` | Ramen has `docs/xrd-004-openapi-eval-plan.md` plus fixtures covering pagination variants, request bodies, security schemes, write operations, response extraction, and multi-service chains. | Upstream udon issue only if future eval runs identify a reusable compiler/runtime gap. | None unless richer OpenAPI evals regress. |
 | XRD-005 | Blocked | External Symphony owner | `../symphony` | Ramen emits review evidence and handoff files, but approval routing is not implemented by Ramen. | Symphony handoff package using the documented files and approval states. | XRD-005 Symphony owner handoff. |
 | XRD-006 | Watch | Ramen release owner / provider owners | Provider APIs | Provider behavior can drift in schema dialect support, rate limits, transient failures, and model availability. | Provider drift watch report during release evaluation. | XRD-006 provider drift watch plan. |
 | XRD-007 | Blocked | Infra owner | Repo access / secrets | Hosted GitHub CI remains disabled because private siblings, credentials, and generated artifacts require private-runner controls. | Infra readiness package for private checkout, runner, and secret policy. | XRD-007 infra handoff. |
@@ -70,10 +70,10 @@ pass does not change Ramen generation behavior.
 
 ## XRD-004 Richer OpenAPI Eval Coverage
 
-Decision: first actionable Ramen follow-up plan.
+Decision: closed Ramen follow-up plan with regression ownership.
 
-Next artifact: a Ramen eval plan and fixture set that expands OpenAPI coverage before any upstream
-udon changes are requested.
+Next artifact: upstream udon issue only if future eval runs identify a reusable compiler/runtime
+gap.
 
 Acceptance criteria:
 
@@ -81,6 +81,7 @@ Acceptance criteria:
   extraction, and multi-service chains.
 - Fixtures identify concrete compiler/runtime gaps before generic fixes are proposed in `../udon`.
 - Product-specific behavior stays out of `../udon`.
+- The coverage matrix lives in `docs/xrd-004-openapi-eval-plan.md`.
 
 Implementation boundary: Ramen owns curated eval fixtures and policy evidence; `../udon` owns only
 reusable OpenAPI/UWS compiler or runtime fixes found by those evals.

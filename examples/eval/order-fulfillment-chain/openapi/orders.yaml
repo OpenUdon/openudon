@@ -1,0 +1,55 @@
+openapi: 3.0.0
+info:
+  title: Fulfillment Order API
+  version: 1.0.0
+servers:
+  - url: https://orders.example.test/sandbox
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+paths:
+  /fulfillment/orders:
+    post:
+      operationId: createFulfillmentOrder
+      summary: Create a sandbox fulfillment order.
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - customerEmail
+                - shippingAddressId
+                - sku
+                - quantity
+                - warehouseId
+              properties:
+                customerEmail:
+                  type: string
+                shippingAddressId:
+                  type: string
+                sku:
+                  type: string
+                quantity:
+                  type: integer
+                warehouseId:
+                  type: string
+      responses:
+        "201":
+          description: created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  orderId:
+                    type: string
+                  confirmationNumber:
+                    type: string
+                  status:
+                    type: string
