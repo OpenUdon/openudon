@@ -90,6 +90,8 @@ func runEvalCommand(args []string) {
 	fs.Usage = func() {
 		fmt.Fprintf(fs.Output(), "Usage: ramen eval [--root examples/eval] [--name support-email] [--out eval/runs/<ts>.json] [--release-gate] [--compare eval/runs/<previous>.json] [--no-compare] [--archive-dir eval/artifacts]\n")
 		fmt.Fprintf(fs.Output(), "\nRuns synthesis against temporary copies of eval briefs and writes JSON/Markdown reports with optional run comparison.\n")
+		fmt.Fprintf(fs.Output(), "Normal evals print comparison regressions for review but exit successfully when synthesis completes.\n")
+		fmt.Fprintf(fs.Output(), "With --release-gate, absolute release criteria and comparison regressions fail the command.\n")
 		fmt.Fprintf(fs.Output(), "\nExamples:\n")
 		fmt.Fprintf(fs.Output(), "  ramen eval --root examples/eval --provider gemini --model gemini-2.5-flash\n")
 		fmt.Fprintf(fs.Output(), "  ramen eval --root examples/eval --name support-email --provider gemini --model gemini-2.5-flash\n")
@@ -340,15 +342,29 @@ func nextActionForQualityCheck(code string) string {
 		return "Resolve missing operations, required parameters, or credential bindings in project.md or intent.hcl."
 	case strings.HasPrefix(code, "intent."):
 		return "Inspect workflows/intent.hcl and project.md; rerun synthesize when the brief needs regeneration."
+	case code == "credentials.security_schemes":
+		return "Declare credential binding names for required OpenAPI security schemes in project.md, then rerun synthesize or build."
 	case code == "credentials.bindings", code == "workflow.credentials_bound":
 		return "Name runtime credential bindings in project.md and ensure workflow request fields reference binding names, never secret values."
 	case strings.HasPrefix(code, "workflow."):
 		return "Inspect workflows/workflow.hcl against expected/plan.md, then rerun build or synthesize."
 	case strings.HasPrefix(code, "uws."):
 		return "Inspect workflows/workflow.uws.yaml, then rerun promote or build after fixing workflow.hcl."
+	case code == "side_effects.environment":
+		return "Use sandbox/test endpoints or add explicit production handoff approval language to Safety and Approval Boundary."
+	case code == "side_effects.policy":
+		return "Add approval, trusted-runtime, and sandbox proof-run policy to Safety and Approval Boundary."
 	case code == "review.credential_bindings":
 		return "Update Credentials and Secrets with binding names only, then regenerate review evidence with build/synthesize."
-	case code == "review.approval_states", code == "review.sandbox_handoff", strings.HasPrefix(code, "review."), code == "side_effects.policy":
+	case code == "review.approval_states":
+		return "State generated, review_required, approved_for_sandbox, and approved_for_production approval requirements in review evidence."
+	case code == "review.sandbox_handoff":
+		return "Scope trusted-runner handoff to approved sandbox or proof runs before production handoff."
+	case code == "review.trusted_runner":
+		return "Regenerate review evidence so expected/review.md includes the trusted-runner handoff command."
+	case code == "review.production_boundary":
+		return "Regenerate review evidence so it states Ramen synthesis does not directly execute production workflows."
+	case strings.HasPrefix(code, "review."):
 		return "Update Safety and Approval Boundary or regenerate review evidence with build/synthesize."
 	case code == "artifacts.no_secrets":
 		return "Remove literal secret-like values from artifacts; keep only credential binding names."

@@ -248,7 +248,7 @@ declared and expected credential binding names, or explicitly states that no cre
 declared or required. Deterministic quality now fails missing approval-state, sandbox-handoff, or
 credential-binding review evidence without adding any Symphony-owned approval routing.
 
-## [in-progress] Local Checks And Future Release Process
+## [done] Local Checks And Future Release Process
 
 Goal: separate cheap deterministic development gates from expensive real-provider smoke tests.
 
@@ -274,7 +274,15 @@ Slice 1 aligns `make eval` with the README-backed `gemini-2.5-flash` default, ad
 fallbacks, no brief above two attempts, zero blocking reference issues, and zero
 `artifacts.no_secrets` failures while keeping normal development checks deterministic and cheap.
 
-## [in-progress] Product Usability
+Slice 2 closes the local operator release path. `make vet` exposes explicit vet parity,
+`make release-check` runs deterministic release readiness (`go test ./...`, `go vet ./...`,
+`make check`, and `git diff --check`), and `make release-eval` runs the opt-in manual
+real-provider gate through `ramen eval --release-gate` using `RAMEN_PROVIDER` and `RAMEN_MODEL`.
+The release note template now records comparison baseline, eval JSON/Markdown paths, commit and
+dirty state, release-gate result, deterministic checks, and known external blockers while keeping
+real-provider evals local/manual and GitHub workflows disabled.
+
+## [done] Product Usability
 
 Goal: make Ramen easier for trusted internal users to apply correctly.
 
@@ -297,6 +305,12 @@ examples and artifact descriptions, `assess` output includes next-action hints f
 checks, `docs/onboarding.md` documents setup/credentials/eval policy, `docs/eval-gallery.md`
 explains the current eval samples, and the project template plus authoring docs now reflect the
 trusted-runner and sandbox proof-run safety requirements.
+
+Slice 2 aligns the operator path with current release and safety behavior. Eval help now explains
+normal comparison output versus release-gate failures, quality repair hints cover newer credential,
+side-effect, approval-state, sandbox-handoff, trusted-runner, and production-boundary failures, and
+`docs/operator-checklist.md` links project authoring, safety review, eval gallery, release notes,
+and trusted handoff expectations.
 
 ## [blocked] Cross-Repo Dependencies
 

@@ -28,6 +28,8 @@ make check
 
 New trusted operators should start with `docs/onboarding.md`, then use `templates/project.md` when
 authoring a new project brief.
+For the short operator path from authoring through release evidence, see
+`docs/operator-checklist.md`.
 
 The scaffold expects the following sibling directories:
 
@@ -47,7 +49,7 @@ siblings used by `../udon/go.mod`, including `../grand`, `../golet`, `../hclligh
 - `cmd/ramen` is a small Go CLI for local checks.
 - `examples/support-email` is the first natural-language-to-UWS example.
 - `scripts/` contains local validation and execution wrappers.
-- `docs/` records architecture, safety boundaries, and cross-repo contracts.
+- `docs/` records architecture, safety boundaries, operator checklist, and cross-repo contracts.
 - `templates/project.md` is the starting point for new project briefs.
 
 ## Execution Boundary
@@ -119,8 +121,14 @@ prefer deterministic checks:
 
 ```bash
 go test ./...
-go vet ./...
 make check
+```
+
+Use `make vet` when you need explicit vet parity with release documentation. For deterministic
+release readiness, run:
+
+```bash
+make release-check
 ```
 
 Run a real LLM eval when changing prompt templates, synthesis/refinement behavior, model defaults, or
@@ -148,12 +156,14 @@ usage or cost when a provider path exposes them. It does not hardcode provider p
 For a candidate release smoke, add the local release gate:
 
 ```bash
-go run ./cmd/ramen eval --root ./examples/eval --provider gemini --model gemini-2.5-flash --release-gate
+make release-eval
 ```
 
 The release gate requires a 100% pass rate, structured-mode usage with zero legacy extraction
 fallbacks, no brief above two refinement attempts, no blocking reference issues after each fixture's
 `reference/policy.json` is applied, and zero `artifacts.no_secrets` failures.
+`make release-eval` uses `RAMEN_PROVIDER` and `RAMEN_MODEL`, defaulting to `gemini` and
+`gemini-2.5-flash`.
 
 Last full passing real-LLM smoke: 2026-04-28, `gemini-2.5-flash`, prompt `intent.v3`, structured
 output path with `0` legacy extraction fallbacks.

@@ -1,17 +1,29 @@
-.PHONY: help test check siblings validate-uws eval synthesize-support build-support promote-support assess-support run-example
+.PHONY: help test vet check release-check release-eval siblings validate-uws eval synthesize-support build-support promote-support assess-support run-example
 
 GO ?= go
 RAMEN_PROVIDER ?= gemini
 RAMEN_MODEL ?= gemini-2.5-flash
 
 help:
-	@echo "Targets: test, check, siblings, validate-uws, eval, synthesize-support, build-support, promote-support, assess-support, run-example"
+	@echo "Targets: test, vet, check, release-check, release-eval, siblings, validate-uws, eval, synthesize-support, build-support, promote-support, assess-support, run-example"
 
 test:
 	$(GO) test ./...
 
+vet:
+	$(GO) vet ./...
+
 check: test siblings
 	$(GO) run ./cmd/ramen check
+
+release-check:
+	$(GO) test ./...
+	$(GO) vet ./...
+	$(MAKE) check
+	git diff --check
+
+release-eval:
+	$(GO) run ./cmd/ramen eval --root ./examples/eval --provider $(RAMEN_PROVIDER) --model $(RAMEN_MODEL) --release-gate
 
 siblings:
 	./scripts/check-siblings.sh

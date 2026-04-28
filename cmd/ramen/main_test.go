@@ -66,6 +66,8 @@ func TestCLIEvalHelpIncludesReleaseGate(t *testing.T) {
 		"--archive-dir",
 		"gemini-2.5-flash",
 		"writes JSON/Markdown reports",
+		"Normal evals print comparison regressions",
+		"With --release-gate, absolute release criteria and comparison regressions fail",
 	} {
 		if !strings.Contains(text, expected) {
 			t.Fatalf("eval help missing %q:\n%s", expected, text)
@@ -81,6 +83,20 @@ func TestNextActionForQualityCheck(t *testing.T) {
 	got = nextActionForQualityCheck("review.credential_bindings")
 	if !strings.Contains(got, "Credentials and Secrets") {
 		t.Fatalf("unexpected credential review action: %q", got)
+	}
+	cases := map[string]string{
+		"side_effects.environment":     "production handoff approval",
+		"credentials.security_schemes": "OpenAPI security schemes",
+		"review.approval_states":       "approved_for_sandbox",
+		"review.sandbox_handoff":       "sandbox or proof runs",
+		"review.trusted_runner":        "trusted-runner handoff command",
+		"review.production_boundary":   "does not directly execute production workflows",
+	}
+	for code, expected := range cases {
+		got := nextActionForQualityCheck(code)
+		if !strings.Contains(got, expected) {
+			t.Fatalf("next action for %s = %q, want substring %q", code, got, expected)
+		}
 	}
 }
 

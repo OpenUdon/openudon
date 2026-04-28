@@ -26,12 +26,22 @@ Check the local workspace:
 make check
 ```
 
-Normal development gates are:
+Daily deterministic gates are:
 
 ```bash
-go test ./...
-go vet ./...
 make check
+```
+
+Use explicit vet parity when preparing release evidence:
+
+```bash
+make vet
+```
+
+Deterministic release readiness is:
+
+```bash
+make release-check
 ```
 
 ## Provider Credentials
@@ -96,10 +106,17 @@ release-gated runs fail because of comparison regression.
 For release candidates:
 
 ```bash
-go run ./cmd/ramen eval --root ./examples/eval --provider gemini --model gemini-2.5-flash --release-gate
+make release-eval
 ```
 
 Release-gated evals require all briefs to pass, zero legacy extraction fallbacks, no brief above two
 attempts, zero blocking reference issues, zero secret-scan failures, and no regression against the
 selected comparison run. Treat a single real-provider pass as a smoke result, not proof of long-term
 stability.
+`make release-eval` remains local/manual, uses `RAMEN_PROVIDER` and `RAMEN_MODEL`, and may require
+provider credentials.
+
+## Operator Checklist
+
+Use `docs/operator-checklist.md` as the compact path for authoring, deterministic checks, manual
+release eval, release notes, and trusted handoff expectations.
