@@ -87,11 +87,11 @@ the upstream request with the Symphony owner.
 
 ## XRD-007 Private Checkout And Secrets Runbook
 
-Deterministic GitHub CI is available for this private workspace, but it must use private dependency
-checkout and private module authentication.
+GitHub CI has been removed during active development. The Ramen-owned XRD-007 contract now records
+the local/private checkout prerequisites and the safety rules that must be satisfied before any
+future automation is reintroduced.
 The concrete infrastructure handoff is
 [`docs/xrd-007-infra-handoff.md`](xrd-007-infra-handoff.md).
-Workflow setup details are in [`docs/ci.md`](ci.md).
 
 Current blockers:
 
@@ -108,35 +108,33 @@ Automation tiers:
 | --- | --- | --- | --- |
 | Local deterministic | `go test ./...`, `go vet ./...`, `make check` | Developer workstation with private siblings checked out. | Normal development gate. |
 | Local/manual real LLM | `go run ./cmd/ramen eval --root ./examples/eval --provider <provider> --model <model> --release-gate` | Trusted workstation with provider credentials in environment variables. | Release smoke gate; results are reviewed manually. |
-| CI deterministic | `go test ./...`, `go vet ./...`, `make check` | GitHub Actions private checkout with `RAMEN_CI_GENELET_TOKEN` and `RAMEN_CI_TABILET_TOKEN`. | No provider keys; no generated artifact uploads. |
-| Future manual/release real-provider workflow | Release-gated eval command with explicit provider/model. | Protected manual workflow or trusted release machine. | Requires secret store controls and log/artifact redaction policy. |
+| Future protected automation | Deterministic or release-gated commands after the private layout stabilizes. | Protected runner or trusted release machine. | Requires a fresh design for checkout, secret store controls, and log/artifact redaction policy. |
 
 Allowed secret handling:
 
-- Provider API keys may exist only in a CI secret store or trusted local environment variables.
+- Provider API keys may exist only in a protected secret store or trusted local environment
+  variables.
 - Prompts, examples, generated OpenAPI/UWS/HCL artifacts, review files, eval fixtures, and logs must
   not contain literal secrets.
 - Generated artifacts should refer to credential binding names only.
-- CI logs and uploaded artifacts must be redacted or disabled for any command that may include model
-  prompts, provider responses, or generated side-effect configuration.
+- Any future automation logs and uploaded artifacts must be redacted or disabled for commands that
+  may include model prompts, provider responses, or generated side-effect configuration.
 
-Prerequisites for deterministic CI:
+Current local readiness prerequisites:
 
-- `RAMEN_CI_GENELET_TOKEN` has read access to private `genelet/*` dependency repos.
-- `RAMEN_CI_TABILET_TOKEN` has read access to private `tabilet/*` dependency repos.
-- Private repository preflight passes for each required checkout and transitive private module repo.
 - Private sibling checkout works non-interactively for every required repo.
-- CI has no provider keys for deterministic checks.
-- `go test ./...`, `go vet ./...`, and `make check` pass on a clean private checkout.
-- Logs and artifacts exclude generated files that could contain prompt or credential-binding detail.
+- `go test ./...`, `go vet ./...`, and `make check` pass on a clean local private checkout.
+- Local logs and artifacts exclude generated files that could contain prompt or credential-binding
+  detail.
 
-Prerequisites to add a real-provider release workflow:
+Prerequisites to reintroduce automation:
 
 - Provider keys are stored only in the protected secret store.
-- The workflow is manual or release-only, never a routine PR gate.
+- Any future automation is manual or release-only, never a routine PR gate.
+- Private dependency checkout is stable enough to avoid repeated token/layout churn.
 - Eval output records provider, model, prompt version, generated directory, pass rate,
   attempts-to-pass, fallback count, and blocking reference issues.
 - Uploaded artifacts are reviewed for secret redaction before retention is enabled.
 
-Acceptance: infrastructure can maintain CI by checking these prerequisites without inferring private
-repo layout, secret rules, or which checks are allowed in each tier.
+Acceptance: infrastructure can maintain local readiness and any future automation design without
+inferring private repo layout, secret rules, or which checks are allowed in each tier.

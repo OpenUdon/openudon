@@ -169,8 +169,8 @@ fallbacks, no brief above two refinement attempts, no blocking reference issues 
 `gemini-2.5-flash`. It also passes the current eval corpus size as a minimum brief gate; see
 `docs/xrd-009-expanded-corpus-release-evidence.md`.
 
-Deterministic CI setup is documented in `docs/ci.md`; real-provider release automation remains
-local/manual through `make release-eval`.
+Development gates and real-provider release automation remain local/manual through `make check` and
+`make release-eval`.
 
 Last full passing real-LLM smoke: 2026-04-28, `gemini-2.5-flash`, prompt `intent.v3`, structured
 output path with `0` legacy extraction fallbacks.

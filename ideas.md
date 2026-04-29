@@ -9,7 +9,9 @@ Status markers:
 
 ## Context
 
-The user has hardened the pipeline (shared loop, ctx cancellation, externalized prompts, metadata-driven classifier, expanded secret detection, CI). They selected all three improvement blocks from the previous plan:
+The user has hardened the pipeline (shared loop, ctx cancellation, externalized prompts,
+metadata-driven classifier, and expanded secret detection). They selected all three improvement
+blocks from the previous plan:
 
 - **Block A** — Prompt + preprocessing (pure Ramen, fast)
 - **Block B** — Schema-guided generation (Ramen + udon, eliminates JSON parse failure class)
@@ -75,9 +77,11 @@ ramen eval --root examples/eval [--name <single>] [--concurrency 2] [--out eval/
 
 Writes a JSON file under `eval/runs/<ts>.json` with all results, plus a Markdown summary at `eval/runs/<ts>.md`. Exit non-zero if the *aggregate* pass-rate dropped below the previous run's pass-rate, OR if any specific brief that previously passed now fails.
 
-**C4. `make eval` and CI nightly**
+**C4. `make eval` local release evidence**
 
-`make eval` runs `ramen eval` with sensible defaults. Add a *manually-triggered* GitHub Actions workflow `.github/workflows/eval.yml` (workflow_dispatch only — LLM cost is real). Store results as a workflow artifact. Optional later: nightly schedule with break-glass quota.
+`make eval` runs `ramen eval` with sensible defaults. Keep eval runs local/manual while the private
+dependency layout is still changing and LLM cost is real. Store results under ignored `eval/runs/`
+for manual release review.
 
 **C5. Reference comparator**
 
@@ -97,13 +101,12 @@ This is *not* used to fail the eval (the deterministic `Assess` already does tha
 - `internal/eval/{eval.go, compare.go, report.go}` (new)
 - `cmd/ramen/main.go` — add `eval` subcommand
 - `Makefile` — add `eval` target
-- `.github/workflows/eval.yml` (new, workflow_dispatch)
 - `internal/eval/eval_test.go` (new) — covers the comparator and `RunOne` with a fake `ChatClient`
 
 ### Verification
 - `make eval` runs locally with `GEMINI_API_KEY` set, produces `eval/runs/<ts>.json` and `.md`.
 - Each of the 6 briefs reports a clear pass/fail and attempts-to-pass.
-- The CI workflow runs end-to-end on a manual dispatch.
+- Local release evidence includes JSON and Markdown reports.
 
 ### Estimated effort
 ~3 days. Most of it is curating the 5 new briefs and their reference outputs.
@@ -218,7 +221,8 @@ Create `internal/synthesize/schemas/intent.schema.json` — a strict JSON Schema
 - Conditional: if `type == "openapi"`, then `operation` is required
 - `additionalProperties: false` on all object types
 
-Validate the schema in CI by parsing it with `santhosh-tekuri/jsonschema` (already a dependency).
+Validate the schema in local deterministic tests by parsing it with `santhosh-tekuri/jsonschema`
+(already a dependency).
 
 **B2. Add `StructuredChat` interface in udon**
 
@@ -295,14 +299,16 @@ When structured mode is in use, the prompt no longer needs to say "Return only J
 ## Cross-cutting
 
 - **Documentation**: update `docs/architecture.md` to describe the eval harness; update `WORKFLOW.md` agent prompt to mention the `eval` subcommand.
-- **CI**: keep main `ci.yml` passing with `go test -race` after each block. The new `eval.yml` is workflow_dispatch only — never block PRs on eval cost.
+- **Automation**: keep development and eval gates local/manual until the private dependency layout
+  stabilizes.
 - **Backwards compatibility**: every change must be additive. Existing `synthesize`/`build`/`promote`/`assess` commands and their on-disk artifacts stay unchanged. New fields in `RefinementReport` are appended (JSON unmarshal tolerates extras).
 
 ---
 
 ## Recommended PR shape
 
-1. **PR 1 — eval harness** (Block C, ~3 days). Lands `internal/eval`, the corpus, `make eval`, the manual CI workflow. No behavior change to the pipeline.
+1. **PR 1 — eval harness** (Block C, ~3 days). Lands `internal/eval`, the corpus, and `make eval`.
+   No behavior change to the pipeline.
 2. **PR 2 — prompt v2 + preprocessing** (Block A, ~2 days + 0.5 day udon). Lands few-shot examples, project.md extractors, temperature, prompt snapshot, failure class. Eval shows the delta.
 3. **PR 3 — schema-guided generation** (Block B, ~3–5 days + udon). Lands `StructuredChat`, intent JSON Schema, structured path in `generateIntent`. Eval confirms parse-failure-class elimination.
 
@@ -324,7 +330,6 @@ Each PR is independently shippable and reverts cleanly.
 | `internal/eval/{eval,compare,report}.go` | C | New package |
 | `cmd/ramen/main.go` | A, C | `--temperature` flag, `eval` subcommand |
 | `Makefile` | C | `eval` target |
-| `.github/workflows/eval.yml` | C | New, workflow_dispatch |
 | `examples/eval/<name>/...` | C | 5 new briefs + references |
 | `udon/pkg/rollout/llm.go` | A, B | `withLLMTemperature`, `StructuredChat` interface + 3 impls |
 | `udon/pkg/runner/llm_env.go` | A | Accept temperature in `NewLLMClientFromEnv` |

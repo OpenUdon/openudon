@@ -1,20 +1,19 @@
 # XRD-007 Infra Handoff
 
-This is the Ramen-owned handoff package for infrastructure owners. It defines the prerequisites for
-deterministic CI and future real-provider release automation.
+This is the Ramen-owned handoff package for infrastructure owners. It defines the local readiness
+prerequisites and the conditions required before future automation is reintroduced.
 
 ## Current State
 
-- Deterministic GitHub CI is available in `.github/workflows/deterministic.yml`.
 - Deterministic checks run locally on a trusted workstation with private siblings checked out.
 - Real-provider evals remain local/manual because they need provider credentials and can produce
   generated artifacts, prompts, and model responses that require redaction review.
-- CI requires `RAMEN_CI_GENELET_TOKEN` and `RAMEN_CI_TABILET_TOKEN` with read access to private
-  dependency repositories.
+- GitHub CI has been removed during active development because the private dependency checkout
+  layout is still changing.
 
 ## Private Checkout Prerequisites
 
-The runner workspace must check out Ramen and every private sibling required for local builds:
+The local workspace must check out Ramen and every private sibling required for local builds:
 
 | Path | Purpose |
 | --- | --- |
@@ -34,10 +33,9 @@ Readiness check:
 ./scripts/check-siblings.sh
 ```
 
-## Deterministic Runner Gate
+## Local Deterministic Gate
 
-Deterministic CI is allowed only when the workflow can run these commands from a clean private
-checkout:
+Run these commands from a clean local private checkout:
 
 ```bash
 go test ./...
@@ -46,13 +44,12 @@ make check
 git diff --check
 ```
 
-Deterministic CI must not have provider API keys in its environment. It should not upload generated
-workflow artifacts, prompts, model responses, or eval archives. The workflow setup details are in
-[`docs/ci.md`](ci.md).
+These deterministic checks do not need provider API keys and should not upload generated workflow
+artifacts, prompts, model responses, or eval archives.
 
 ## Real-Provider Release Gate
 
-Real-provider release automation remains a future manual or protected workflow. It may be added only
+Real-provider release automation is not part of the current development setup. It may be added only
 after infra has a protected secret store and log/artifact redaction policy.
 
 Allowed command shape:
@@ -76,7 +73,6 @@ Required release evidence:
 ## Secret And Artifact Rules
 
 - Provider keys may exist only in a protected secret store or trusted local environment.
-- Deterministic CI must not receive provider keys.
 - Do not print environment variables or secret values in logs.
 - Generated OpenAPI, UWS, HCL, review evidence, eval archives, prompts, provider responses, and
   uploaded logs must not contain literal secrets.
@@ -85,6 +81,6 @@ Required release evidence:
 
 ## Re-enable Decision
 
-Infra owns the token, runner policy, and any future automation expansion. Ramen's deterministic CI
-readiness criteria are complete when the private checkout and secret controls above are satisfied.
+Infra owns any future runner policy and automation expansion. Ramen readiness criteria are local
+until the private checkout layout and secret controls are stable enough to reintroduce automation.
 Real-provider release evals stay local/manual.

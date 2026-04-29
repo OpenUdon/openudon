@@ -57,5 +57,5 @@ Ramen also includes an opt-in eval harness for prompt and pipeline changes. Eval
 reports under `eval/runs` so prompt versions, pass rates, attempts-to-pass, and reference intent
 drift can be compared without dirtying committed examples.
 
-Cross-repo blocker contracts for UWS semantics, Symphony approval handoff, and future CI/secrets
-automation are recorded in `docs/cross-repo-contracts.md`.
+Cross-repo blocker contracts for UWS semantics, Symphony approval handoff, and private
+checkout/secret boundaries are recorded in `docs/cross-repo-contracts.md`.

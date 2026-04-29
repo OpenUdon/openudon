@@ -48,8 +48,7 @@ Use `docs/release-note-template.md`. Record the comparison baseline, eval JSON/M
 commit and dirty state, release-gate result, deterministic checks, and known external blockers.
 For real-provider release evidence, copy the Provider Drift Watch section from the eval Markdown
 report and follow `docs/xrd-006-provider-drift-watch.md`.
-Deterministic CI setup is documented in `docs/ci.md`; real-provider release automation remains
-local/manual.
+Development gates and real-provider release automation remain local/manual.
 
 ## Trusted Handoff
 

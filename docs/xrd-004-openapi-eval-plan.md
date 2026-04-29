@@ -26,6 +26,7 @@ the curated eval corpus before any upstream `../udon` change is requested.
 - Ramen has eval fixtures for pagination, request bodies, security schemes, write operations,
   response extraction, and multi-service chains.
 - Fixtures stay under `examples/eval` and are documented in `docs/eval-gallery.md`.
-- Ramen does not change prompt behavior, UWS semantics, udon runtime behavior, or CI for this pass.
+- Ramen does not change prompt behavior, UWS semantics, udon runtime behavior, or automation for
+  this pass.
 - Any future eval failure that points to generic OpenAPI compilation or runtime behavior becomes a
   concrete upstream `../udon` follow-up.
