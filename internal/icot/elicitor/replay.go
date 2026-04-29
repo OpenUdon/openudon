@@ -112,7 +112,7 @@ func BuildReplayScript(exampleDir string, intent *rollout.Intent) (ReplayScript,
 	add("Credential binding names only (comma-separated; blank for none)", strings.Join(project.Credentials, ", "))
 	add("Safety and approval notes", project.Safety)
 	add("Fallback behavior", project.Fallback)
-	add("Type save, edit <slot>, or cancel", "save")
+	add("Type save, edit <slot>, explain <assumption-id>, regenerate, or cancel", "save")
 
 	var answers []string
 	for _, turn := range script.Turns {

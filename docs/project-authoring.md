@@ -16,6 +16,11 @@ interactive sessions from `.icot/session.yaml`, reconcile `project.md` from exis
 lint --example examples/<name>`). Drift findings are warnings unless a parse or existing fail check
 also fails.
 
+When provider credentials are available, `icot` uses AI assistance to draft operation choices,
+request mappings, outputs, credentials, and policy prose from the brief plus local OpenAPI metadata.
+The final review lists inferred assumptions; saving confirms them. Use `--no-llm` for the fully
+manual prompt flow.
+
 ## What To Include
 
 Use these sections for new projects:

@@ -111,6 +111,67 @@ func TestRunFillsOpenAPIRequiredParams(t *testing.T) {
 	}
 }
 
+func TestRunUsesAIDraftDefaults(t *testing.T) {
+	example := t.TempDir()
+	writeOpenAPI(t, example)
+	input := strings.Join([]string{
+		"Fetch a support ticket.",
+		"support_ticket_lookup",
+		"Fetch a support ticket by runtime id.",
+		"",
+		"",
+		"yes",
+		"1",
+		"sandbox-only",
+		"",
+		"",
+		"",
+		"save",
+	}, "\n") + "\n"
+	extractor := draftExtractor{session: Session{
+		Intent: rollout.Intent{
+			OpenAPI: "openapi/support.yaml",
+			Inputs:  []*rollout.Input{{Name: "ticketId", Type: "string", Required: true}},
+			Steps: []*rollout.Step{{
+				Name:      "get_ticket",
+				Type:      "http",
+				Do:        "Fetch the ticket.",
+				Operation: "getTicket",
+				With:      map[string]string{"ticketId": "inputs.ticketId"},
+			}},
+			Outputs: []*rollout.Output{{Name: "ticket", From: "get_ticket.received_body"}},
+		},
+		Assumptions: []Assumption{{
+			ID:                   "op_get_ticket",
+			Slot:                 "steps.get_ticket.operation",
+			Value:                "getTicket",
+			Reason:               "Only support ticket lookup operation matched the brief.",
+			Evidence:             "Support API getTicket",
+			Risk:                 "low",
+			RequiresConfirmation: true,
+		}},
+	}}
+	var out strings.Builder
+	artifacts, err := Run(context.Background(), strings.NewReader(input), &out, Session{}, Options{
+		ExampleDir: example,
+		NoLLM:      false,
+		Extractor:  extractor,
+	})
+	if err != nil {
+		t.Fatalf("Run failed: %v\n%s", err, out.String())
+	}
+	intent, err := rollout.ParseIntent([]byte(artifacts.IntentHCL), "intent.hcl")
+	if err != nil {
+		t.Fatalf("parse rendered intent: %v\n%s", err, artifacts.IntentHCL)
+	}
+	if len(intent.Steps) != 1 || intent.Steps[0].Operation != "getTicket" {
+		t.Fatalf("drafted step not preserved: %#v", intent.Steps)
+	}
+	if !strings.Contains(out.String(), "Assumptions to confirm") || !strings.Contains(out.String(), "op_get_ticket") {
+		t.Fatalf("final review missing assumptions:\n%s", out.String())
+	}
+}
+
 func TestRunCreatesStepBindFromPriorOutput(t *testing.T) {
 	example := t.TempDir()
 	input := strings.Join([]string{
@@ -216,6 +277,15 @@ func TestRunFillsTimeoutAndIdempotencyControls(t *testing.T) {
 	if len(intent.Steps) != 1 || intent.Steps[0].Timeout == nil || *intent.Steps[0].Timeout != 10 {
 		t.Fatalf("step timeout = %#v", intent.Steps)
 	}
+}
+
+type draftExtractor struct {
+	noopExtractor
+	session Session
+}
+
+func (e draftExtractor) Draft(context.Context, DraftRequest) (Session, error) {
+	return e.session, nil
 }
 
 func TestSessionNormalizeExplicitPolicyMarkersReplaceSeededProjectValues(t *testing.T) {

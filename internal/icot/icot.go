@@ -47,6 +47,7 @@ func runAuthor(args []string, in io.Reader, out, errOut io.Writer) int {
 	fromExample := fs.String("from-example", "", "Seed answers from an existing example directory")
 	answersFile := fs.String("answers", "", "Path to YAML or JSON session/answers file; suppresses interactive prompts when complete")
 	noLLM := fs.Bool("no-llm", false, "Disable optional LLM extraction assistance")
+	noTranscript := fs.Bool("no-transcript", false, "Do not save local .icot transcript history")
 	provider := fs.String("provider", "", "LLM provider for optional extraction: openai, anthropic, or gemini")
 	model := fs.String("model", "", "LLM model for optional extraction")
 	temperature := fs.Float64("temperature", 0.2, "LLM extraction temperature")
@@ -89,6 +90,10 @@ func runAuthor(args []string, in io.Reader, out, errOut io.Writer) int {
 	if *printOnly {
 		draftPath = ""
 	}
+	transcriptPath := ""
+	if !*printOnly && !*noTranscript {
+		transcriptPath = filepath.Join(exampleDir, ".icot", "transcript.json")
+	}
 	extractor, usingLLM := resolveExtractor(*noLLM, *provider, *model, *temperature, out)
 	if !usingLLM {
 		fmt.Fprintln(out, "icot: running without LLM extraction; continuing with manual slot filling")
@@ -99,11 +104,12 @@ func runAuthor(args []string, in io.Reader, out, errOut io.Writer) int {
 		artifacts, err = elicitor.RenderArtifacts(seed)
 	} else {
 		artifacts, err = elicitor.Run(context.Background(), input, out, seed, elicitor.Options{
-			ExampleDir: exampleDir,
-			NoLLM:      *noLLM || !usingLLM,
-			Extractor:  extractor,
-			DraftPath:  draftPath,
-			VerifyOnly: complete && source == seedSourceDraft,
+			ExampleDir:     exampleDir,
+			NoLLM:          *noLLM || !usingLLM,
+			Extractor:      extractor,
+			DraftPath:      draftPath,
+			TranscriptPath: transcriptPath,
+			VerifyOnly:     complete && source == seedSourceDraft,
 		})
 	}
 	if *printOnly {
@@ -135,6 +141,9 @@ func runAuthor(args []string, in io.Reader, out, errOut io.Writer) int {
 	}
 	fmt.Fprintf(out, "icot: wrote %s\n", projectPath)
 	fmt.Fprintf(out, "icot: wrote %s\n", intentPath)
+	if transcriptPath != "" {
+		fmt.Fprintf(out, "icot: wrote %s\n", transcriptPath)
+	}
 	fmt.Fprintf(out, "next: ramen build --example %s\n", exampleDir)
 	return 0
 }
@@ -418,9 +427,10 @@ func runReplayFixture(exampleDir, provider, model string, temperature float64, t
 	defer cancel()
 	var stdout strings.Builder
 	artifacts, err := elicitor.Run(ctx, strings.NewReader(script.Input), &stdout, elicitor.Session{}, elicitor.Options{
-		ExampleDir: exampleDir,
-		NoLLM:      false,
-		Extractor:  extractor,
+		ExampleDir:     exampleDir,
+		NoLLM:          false,
+		Extractor:      extractor,
+		DisableAIDraft: true,
 	})
 	result.Turns = script.Turns
 	result.LLMCalls = calls

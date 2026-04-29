@@ -22,13 +22,23 @@ var refinePrompt string
 //go:embed prompts/disambiguate.txt
 var disambiguatePrompt string
 
+//go:embed prompts/draft.txt
+var draftPrompt string
+
 // Extractor provides optional, bounded LLM assistance for the interactive
 // authoring loop. Implementations must return partial drafts only; the loop
 // still asks the user to confirm the final intent before saving.
 type Extractor interface {
 	Kickoff(context.Context, string) (Session, error)
+	Draft(context.Context, DraftRequest) (Session, error)
 	Refine(context.Context, Session) (Session, error)
 	Disambiguate(context.Context, string, []APIDocument) ([]string, error)
+}
+
+type DraftRequest struct {
+	Opening string        `json:"opening"`
+	Session Session       `json:"session"`
+	Docs    []APIDocument `json:"docs"`
 }
 
 type noopExtractor struct{}
@@ -38,6 +48,10 @@ func NewNoopExtractor() Extractor {
 }
 
 func (noopExtractor) Kickoff(context.Context, string) (Session, error) {
+	return Session{}, nil
+}
+
+func (noopExtractor) Draft(context.Context, DraftRequest) (Session, error) {
 	return Session{}, nil
 }
 
@@ -94,6 +108,40 @@ func (e *chatExtractor) Kickoff(ctx context.Context, opening string) (Session, e
 		})
 	}
 	return session, nil
+}
+
+func (e *chatExtractor) Draft(ctx context.Context, request DraftRequest) (Session, error) {
+	request.Opening = strings.TrimSpace(request.Opening)
+	currentDescription := ""
+	if request.Session.Intent.Workflow != nil {
+		currentDescription = request.Session.Intent.Workflow.Description
+	}
+	if request.Opening == "" && strings.TrimSpace(currentDescription) == "" {
+		return Session{}, nil
+	}
+	data, err := json.Marshal(draftPromptRequest(request))
+	if err != nil {
+		return Session{}, err
+	}
+	messages := []rollout.ChatMessage{
+		{
+			Role:    "system",
+			Content: draftPrompt,
+		},
+		{Role: "user", Content: string(data)},
+	}
+	raw, err := e.structured(ctx, messages, draftSchema)
+	if err != nil {
+		raw, err = e.client.Chat(ctx, messages)
+	}
+	if err != nil {
+		return Session{}, err
+	}
+	var session Session
+	if err := decodeJSONBlock(raw, &session); err != nil {
+		return Session{}, err
+	}
+	return sanitizeDraft(request, session), nil
 }
 
 func (e *chatExtractor) Refine(ctx context.Context, session Session) (Session, error) {
@@ -223,6 +271,96 @@ func sanitizeKickoff(session Session) Session {
 	return session
 }
 
+func draftPromptRequest(request DraftRequest) map[string]any {
+	docs := make([]map[string]any, 0, len(request.Docs))
+	for _, doc := range request.Docs {
+		ops := make([]map[string]any, 0, len(doc.Operations))
+		for _, op := range doc.Operations {
+			if op == nil {
+				continue
+			}
+			ops = append(ops, map[string]any{
+				"operationId":     op.OperationID,
+				"method":          op.Method,
+				"path":            op.Path,
+				"summary":         op.Summary,
+				"required_fields": requiredFields(op),
+				"security":        op.Security,
+			})
+		}
+		docs = append(docs, map[string]any{
+			"path":        doc.RelativePath,
+			"title":       doc.Title,
+			"description": doc.Description,
+			"operations":  ops,
+		})
+	}
+	return map[string]any{
+		"opening": request.Opening,
+		"session": request.Session,
+		"docs":    docs,
+	}
+}
+
+func sanitizeDraft(request DraftRequest, draft Session) Session {
+	allowedDocs := map[string]bool{}
+	allowedOps := map[string]bool{}
+	for _, doc := range request.Docs {
+		allowedDocs[doc.RelativePath] = true
+		for _, op := range doc.Operations {
+			if op != nil && op.OperationID != "" {
+				allowedOps[doc.RelativePath+"\x00"+op.OperationID] = true
+				allowedOps["\x00"+op.OperationID] = true
+			}
+		}
+	}
+	if draft.Intent.OpenAPI != "" && !allowedDocs[draft.Intent.OpenAPI] {
+		draft.Intent.OpenAPI = ""
+	}
+	walkSteps(draft.Intent.Steps, func(step *rollout.Step) {
+		docPath := firstNonEmpty(step.OpenAPI, draft.Intent.OpenAPI)
+		if step.OpenAPI != "" && !allowedDocs[step.OpenAPI] {
+			step.OpenAPI = ""
+			docPath = draft.Intent.OpenAPI
+		}
+		if step.Operation != "" && !allowedOps[docPath+"\x00"+step.Operation] && !allowedOps["\x00"+step.Operation] {
+			step.Operation = ""
+		}
+	})
+	draft.Credentials = credentialBindings(strings.Join(draft.Credentials, ","))
+	draft.Project.Credentials = credentialBindings(strings.Join(draft.Project.Credentials, ","))
+	draft.SideEffectScope = projectwizard.NormalizeSideEffectScope(draft.SideEffectScope)
+	if len(draft.Assumptions) == 0 && !emptySession(draft) {
+		draft.Assumptions = []Assumption{{
+			ID:                   "ai_draft",
+			Slot:                 "intent",
+			Value:                "AI-assisted draft",
+			Reason:               "Drafted from the workflow brief and available local OpenAPI metadata.",
+			Evidence:             draftEvidence(request),
+			Risk:                 "review",
+			RequiresConfirmation: true,
+		}}
+	}
+	if !emptySession(draft) {
+		draft.Annotations = append(draft.Annotations, SourceAnnotation{
+			Slot:          "draft",
+			Source:        "llm",
+			PromptVersion: PromptVersion,
+			Evidence:      draftEvidence(request),
+		})
+	}
+	draft.Normalize()
+	return draft
+}
+
+func draftEvidence(request DraftRequest) string {
+	description := ""
+	if request.Session.Intent.Workflow != nil {
+		description = request.Session.Intent.Workflow.Description
+	}
+	return firstLine(firstNonEmpty(request.Opening, description))
+}
+
 func sanitizeRefine(base, refined Session) Session {
 	out := base
 	out.Project = projectProse(base.Project, refined.Project)
@@ -268,5 +406,23 @@ const disambiguateSchema = `{
   "additionalProperties": false,
   "properties": {
     "paths": {"type": "array", "items": {"type": "string"}}
+  }
+}`
+
+const draftSchema = `{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "project": {"type": "object", "additionalProperties": true},
+    "intent": {"type": "object", "additionalProperties": true},
+    "credentials": {"type": "array", "items": {"type": "string"}},
+    "credentials_set": {"type": "boolean"},
+    "safety": {"type": "string"},
+    "safety_set": {"type": "boolean"},
+    "fallback": {"type": "string"},
+    "fallback_set": {"type": "boolean"},
+    "side_effect_scope": {"type": "string"},
+    "annotations": {"type": "array", "items": {"type": "object", "additionalProperties": true}},
+    "assumptions": {"type": "array", "items": {"type": "object", "additionalProperties": true}}
   }
 }`

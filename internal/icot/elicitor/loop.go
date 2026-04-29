@@ -17,11 +17,13 @@ import (
 )
 
 type Options struct {
-	ExampleDir string
-	NoLLM      bool
-	Extractor  Extractor
-	DraftPath  string
-	VerifyOnly bool
+	ExampleDir     string
+	NoLLM          bool
+	Extractor      Extractor
+	DraftPath      string
+	TranscriptPath string
+	DisableAIDraft bool
+	VerifyOnly     bool
 }
 
 type Artifacts struct {
@@ -42,13 +44,20 @@ func Run(ctx context.Context, in io.Reader, out io.Writer, seed Session, opts Op
 	session := seed
 	session.Normalize()
 	p := &prompter{reader: reader, out: out}
+	openingBrief := ""
 	if opts.VerifyOnly {
 		projectText := projectwizard.Render(session.Project)
 		docs, err := DiscoverLocalAPIs(opts.ExampleDir, projectText)
 		if err != nil {
 			return Artifacts{}, err
 		}
-		return finalVerificationLoop(out, p, &session, docs, opts.DraftPath)
+		artifacts, err := finalVerificationLoop(out, p, &session, docs, opts.DraftPath)
+		if err == nil {
+			if saveErr := SaveTranscript(opts.TranscriptPath, p.turns, artifacts.Session); saveErr != nil {
+				return artifacts, saveErr
+			}
+		}
+		return artifacts, err
 	}
 
 	if session.Intent.Workflow == nil || strings.TrimSpace(session.Intent.Workflow.Description) == "" {
@@ -57,6 +66,7 @@ func Run(ctx context.Context, in io.Reader, out io.Writer, seed Session, opts Op
 		if err != nil {
 			return Artifacts{}, err
 		}
+		openingBrief = strings.TrimSpace(opening)
 		if strings.TrimSpace(opening) != "" {
 			if !opts.NoLLM {
 				prefill, err := extractor.Kickoff(ctx, opening)
@@ -114,6 +124,24 @@ func Run(ctx context.Context, in io.Reader, out io.Writer, seed Session, opts Op
 			docs = rankDocuments(docs, ranked)
 		} else {
 			fmt.Fprintf(out, "icot: OpenAPI ranking skipped: %v\n", err)
+		}
+	}
+	if !opts.NoLLM && !opts.DisableAIDraft && len(session.Intent.Steps) == 0 {
+		draft, err := extractor.Draft(ctx, DraftRequest{
+			Opening: openingBrief,
+			Session: session,
+			Docs:    docs,
+		})
+		if err == nil && LooksLikeSession(draft) {
+			session = mergeSessions(session, draft)
+			fmt.Fprintln(out, "icot: drafted intent defaults from brief and local metadata; final save confirms listed assumptions")
+			session.Normalize()
+			if err := autosave(opts.DraftPath, session); err != nil {
+				return Artifacts{}, err
+			}
+			printSummary(out, session)
+		} else if err != nil {
+			fmt.Fprintf(out, "icot: AI draft skipped: %v\n", err)
 		}
 	}
 	usesAPIDefault := session.Intent.RequiresOpenAPI() || len(docs) > 0
@@ -275,7 +303,15 @@ func Run(ctx context.Context, in io.Reader, out io.Writer, seed Session, opts Op
 		return Artifacts{}, err
 	}
 
-	return finalVerificationLoop(out, p, &session, docs, opts.DraftPath)
+	artifacts, err := finalVerificationLoop(out, p, &session, docs, opts.DraftPath)
+	transcriptSession := session
+	if err == nil {
+		transcriptSession = artifacts.Session
+		if saveErr := SaveTranscript(opts.TranscriptPath, p.turns, transcriptSession); saveErr != nil {
+			return artifacts, saveErr
+		}
+	}
+	return artifacts, err
 }
 
 func finalVerificationLoop(out io.Writer, p *prompter, session *Session, docs []APIDocument, draftPath string) (Artifacts, error) {
@@ -297,10 +333,11 @@ func finalVerificationLoop(out io.Writer, p *prompter, session *Session, docs []
 		}
 		fmt.Fprintln(out, "\n----- current draft -----")
 		printSummary(out, artifacts.Session)
+		printAssumptions(out, artifacts.Session.Assumptions)
 		if len(artifacts.Session.Annotations) > 0 {
 			fmt.Fprintln(out, "LLM-prefilled values are marked in the session annotations and require this final confirmation.")
 		}
-		answer, err := p.askDefault("Type save, edit <slot>, or cancel", "save")
+		answer, err := p.askDefault("Type save, edit <slot>, explain <assumption-id>, regenerate, or cancel", "save")
 		if err != nil {
 			return Artifacts{}, err
 		}
@@ -324,8 +361,13 @@ func finalVerificationLoop(out io.Writer, p *prompter, session *Session, docs []
 			if err := autosave(draftPath, *session); err != nil {
 				return Artifacts{}, err
 			}
+		case strings.HasPrefix(answer, "explain"):
+			id := strings.TrimSpace(strings.TrimPrefix(answer, "explain"))
+			printAssumptionExplanation(out, session.Assumptions, id)
+		case answer == "regenerate":
+			fmt.Fprintln(out, "Regenerate is available by rerunning iCoT from the saved draft or editing a slot before save.")
 		default:
-			fmt.Fprintln(out, "Please type save, edit <slot>, or cancel.")
+			fmt.Fprintln(out, "Please type save, edit <slot>, explain <assumption-id>, regenerate, or cancel.")
 		}
 	}
 }
@@ -355,11 +397,14 @@ func RenderArtifacts(session Session) (Artifacts, error) {
 type prompter struct {
 	reader *bufio.Reader
 	out    io.Writer
+	turns  []ReplayTurn
 }
 
 func (p *prompter) ask(label string) (string, error) {
 	fmt.Fprintf(p.out, "%s: ", label)
-	return p.next()
+	value, err := p.next()
+	p.record(label, value, err)
+	return value, err
 }
 
 func (p *prompter) askDefault(label, current string) (string, error) {
@@ -371,11 +416,14 @@ func (p *prompter) askDefault(label, current string) (string, error) {
 	}
 	value, err := p.next()
 	if err != nil {
+		p.record(label, value, err)
 		return "", err
 	}
 	if strings.TrimSpace(value) == "" {
+		p.record(label, current, nil)
 		return current, nil
 	}
+	p.record(label, value, nil)
 	return value, nil
 }
 
@@ -388,21 +436,34 @@ func (p *prompter) askYesNo(label string, defaultYes bool) (bool, error) {
 		fmt.Fprintf(p.out, "%s [%s]: ", label, suffix)
 		value, err := p.next()
 		if err != nil {
+			p.record(label, value, err)
 			return false, err
 		}
+		raw := value
 		value = strings.ToLower(strings.TrimSpace(value))
 		if value == "" {
+			p.record(label, raw, nil)
 			return defaultYes, nil
 		}
 		switch value {
 		case "y", "yes", "true", "allow", "allowed", "approve", "approved":
+			p.record(label, raw, nil)
 			return true, nil
 		case "n", "no", "false", "deny", "denied":
+			p.record(label, raw, nil)
 			return false, nil
 		default:
+			p.record(label, raw, nil)
 			fmt.Fprintln(p.out, "Please answer yes or no.")
 		}
 	}
+}
+
+func (p *prompter) record(label, answer string, err error) {
+	if err != nil && strings.TrimSpace(answer) == "" {
+		return
+	}
+	p.turns = append(p.turns, ReplayTurn{Label: label, Answer: answer})
 }
 
 func (p *prompter) askSideEffectScope(current string) (string, error) {
@@ -832,6 +893,56 @@ func printSummary(out io.Writer, session Session) {
 		fmt.Fprintf(out, "- Side-effect scope: %s\n", session.SideEffectScope)
 	}
 	fmt.Fprintln(out)
+}
+
+func printAssumptions(out io.Writer, assumptions []Assumption) {
+	if len(assumptions) == 0 {
+		return
+	}
+	fmt.Fprintln(out, "Assumptions to confirm:")
+	for _, assumption := range assumptions {
+		id := firstNonEmpty(assumption.ID, "assumption")
+		slot := firstNonEmpty(assumption.Slot, "intent")
+		value := firstNonEmpty(assumption.Value, assumption.Reason, "inferred value")
+		risk := strings.TrimSpace(assumption.Risk)
+		if risk != "" {
+			fmt.Fprintf(out, "- %s [%s]: %s (risk: %s)\n", id, slot, value, risk)
+		} else {
+			fmt.Fprintf(out, "- %s [%s]: %s\n", id, slot, value)
+		}
+	}
+	fmt.Fprintln(out, "Saving confirms these assumptions.")
+	fmt.Fprintln(out)
+}
+
+func printAssumptionExplanation(out io.Writer, assumptions []Assumption, id string) {
+	id = strings.TrimSpace(id)
+	if id == "" {
+		fmt.Fprintln(out, "Use explain <assumption-id>.")
+		return
+	}
+	for _, assumption := range assumptions {
+		if strings.EqualFold(strings.TrimSpace(assumption.ID), id) {
+			fmt.Fprintf(out, "%s\n", assumption.ID)
+			if assumption.Slot != "" {
+				fmt.Fprintf(out, "- Slot: %s\n", assumption.Slot)
+			}
+			if assumption.Value != "" {
+				fmt.Fprintf(out, "- Value: %s\n", assumption.Value)
+			}
+			if assumption.Reason != "" {
+				fmt.Fprintf(out, "- Reason: %s\n", assumption.Reason)
+			}
+			if assumption.Evidence != "" {
+				fmt.Fprintf(out, "- Evidence: %s\n", assumption.Evidence)
+			}
+			if assumption.Risk != "" {
+				fmt.Fprintf(out, "- Risk: %s\n", assumption.Risk)
+			}
+			return
+		}
+	}
+	fmt.Fprintf(out, "No assumption found for %q.\n", id)
 }
 
 func autosave(path string, session Session) error {

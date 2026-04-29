@@ -24,6 +24,7 @@ type Session struct {
 	FallbackSet     bool                  `json:"fallback_set,omitempty" yaml:"fallback_set,omitempty"`
 	SideEffectScope string                `json:"side_effect_scope,omitempty" yaml:"side_effect_scope,omitempty"`
 	Annotations     []SourceAnnotation    `json:"annotations,omitempty" yaml:"annotations,omitempty"`
+	Assumptions     []Assumption          `json:"assumptions,omitempty" yaml:"assumptions,omitempty"`
 }
 
 type SourceAnnotation struct {
@@ -31,6 +32,16 @@ type SourceAnnotation struct {
 	Source        string `json:"source,omitempty" yaml:"source,omitempty"`
 	PromptVersion string `json:"prompt_version,omitempty" yaml:"prompt_version,omitempty"`
 	Evidence      string `json:"evidence,omitempty" yaml:"evidence,omitempty"`
+}
+
+type Assumption struct {
+	ID                   string `json:"id,omitempty" yaml:"id,omitempty"`
+	Slot                 string `json:"slot,omitempty" yaml:"slot,omitempty"`
+	Value                string `json:"value,omitempty" yaml:"value,omitempty"`
+	Reason               string `json:"reason,omitempty" yaml:"reason,omitempty"`
+	Evidence             string `json:"evidence,omitempty" yaml:"evidence,omitempty"`
+	Risk                 string `json:"risk,omitempty" yaml:"risk,omitempty"`
+	RequiresConfirmation bool   `json:"requires_confirmation,omitempty" yaml:"requires_confirmation,omitempty"`
 }
 
 func NewSessionFromAnswers(answers projectwizard.Answers) Session {
@@ -284,8 +295,31 @@ func mergeSessions(base, overlay Session) Session {
 	}
 	base.SideEffectScope = firstNonEmpty(base.SideEffectScope, overlay.SideEffectScope)
 	base.Annotations = append(base.Annotations, overlay.Annotations...)
+	base.Assumptions = mergeAssumptions(base.Assumptions, overlay.Assumptions)
 	base.Normalize()
 	return base
+}
+
+func mergeAssumptions(base, overlay []Assumption) []Assumption {
+	seen := map[string]bool{}
+	var out []Assumption
+	for _, assumption := range append(base, overlay...) {
+		assumption.ID = strings.TrimSpace(assumption.ID)
+		assumption.Slot = strings.TrimSpace(assumption.Slot)
+		if assumption.ID == "" {
+			assumption.ID = slugIdent(firstNonEmpty(assumption.Slot, assumption.Value, fmt.Sprintf("assumption_%d", len(out)+1)))
+		}
+		key := assumption.ID
+		if key == "" {
+			key = assumption.Slot + "\x00" + assumption.Value
+		}
+		if seen[key] {
+			continue
+		}
+		seen[key] = true
+		out = append(out, assumption)
+	}
+	return out
 }
 
 func mergeAnswers(base, overlay projectwizard.Answers) projectwizard.Answers {

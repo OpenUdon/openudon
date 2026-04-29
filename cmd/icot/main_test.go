@@ -26,6 +26,7 @@ func TestCLIHelpDocumentsFlags(t *testing.T) {
 		"--from-example",
 		"--answers",
 		"-no-llm",
+		"-no-transcript",
 		"-provider",
 		"-model",
 		"-temperature",
@@ -52,6 +53,9 @@ func TestCLICreatesProjectAndDirectories(t *testing.T) {
 		if _, err := os.Stat(filepath.Join(example, rel)); err != nil {
 			t.Fatalf("expected %s to exist: %v\n%s", rel, err, output)
 		}
+	}
+	if _, err := os.Stat(filepath.Join(example, ".icot", "transcript.json")); err != nil {
+		t.Fatalf("expected transcript to exist: %v\n%s", err, output)
 	}
 	project, err := os.ReadFile(filepath.Join(example, "project.md"))
 	if err != nil {

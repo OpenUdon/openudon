@@ -51,6 +51,12 @@ The timeout and idempotency questions default to blank. When left blank, iCoT em
 idempotency metadata. When provided, the values are written to `workflows/intent.hcl`; `project.md`
 remains the readable policy by-product.
 
+When LLM extraction is available, iCoT also asks the model for an AI-assisted draft after the
+opening brief and local OpenAPI discovery. The draft can fill inputs, steps, operation IDs, request
+field mappings, outputs, credential binding names, and policy prose. iCoT then validates and renders
+the draft through the same deterministic path as manual answers. Inferred values are listed as
+assumptions in the final review; saving confirms them. `--no-llm` keeps the fully manual flow.
+
 ## Side-Effect Scope
 
 iCoT asks for a structured side-effect scope after steps and before credentials:
@@ -83,6 +89,15 @@ Default behavior:
   files.
 
 `.gitignore` excludes `.icot/session.yaml` because it is local authoring state.
+
+iCoT also saves a local transcript by default after successful authoring:
+
+```text
+<example>/.icot/transcript.json
+```
+
+The transcript records prompt/answer turns and the final session, including AI assumptions. It is
+ignored by git. Use `--no-transcript` to skip transcript persistence.
 
 ## Reconcile
 

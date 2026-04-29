@@ -156,6 +156,18 @@ func TestCompleteDraftPrintWritesNoFilesAndPreservesDraft(t *testing.T) {
 	}
 }
 
+func TestNoTranscriptSkipsLocalTranscript(t *testing.T) {
+	example := filepath.Join(t.TempDir(), "guided")
+	var stdout, stderr bytes.Buffer
+	code := Main([]string{"--example", example, "--no-llm", "--no-transcript"}, strings.NewReader(testProjectInput(false)+"save\n"), &stdout, &stderr)
+	if code != 0 {
+		t.Fatalf("Main failed with code %d\nstdout:\n%s\nstderr:\n%s", code, stdout.String(), stderr.String())
+	}
+	if _, err := os.Stat(filepath.Join(example, ".icot", "transcript.json")); !os.IsNotExist(err) {
+		t.Fatalf("--no-transcript wrote transcript or unexpected stat error: %v", err)
+	}
+}
+
 func TestCompleteDraftEditsReplaceSeededPolicyFields(t *testing.T) {
 	example := filepath.Join(t.TempDir(), "guided")
 	writeCompleteDraftWithPolicy(t, example, []string{"old_token"}, "Old safety note", "Old fallback note")

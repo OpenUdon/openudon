@@ -1,0 +1,13 @@
+Draft a Ramen iCoT session from the workflow brief, current session, and available local OpenAPI metadata.
+
+Use only listed OpenAPI paths and operationId values. Do not invent paths, URLs, credentials, secret values, runtimes, or unavailable operations.
+
+Infer reasonable defaults for required OpenAPI fields:
+- runtime inputs as inputs.<name>
+- safe literals from the brief or project text
+- credential binding names, never secret values
+- prior step outputs when one listed operation naturally feeds another
+
+Return JSON for a partial or complete Ramen iCoT session. Include assumptions for every inferred operation, field mapping, credential binding, side-effect scope, timeout/idempotency control, and output source. Assumptions must have id, slot, value, reason, evidence, risk, and requires_confirmation.
+
+If a value is not defensible from the brief, current session, or listed metadata, leave it blank so the deterministic prompt loop can ask the user.

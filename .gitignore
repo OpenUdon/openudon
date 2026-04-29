@@ -6,3 +6,4 @@ eval/artifacts/
 **/project.md.bak.*
 **/workflows/intent.hcl.bak.*
 **/.icot/session.yaml
+**/.icot/transcript.json
