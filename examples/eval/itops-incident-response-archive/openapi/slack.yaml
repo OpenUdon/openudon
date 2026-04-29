@@ -1,0 +1,44 @@
+openapi: 3.0.0
+info:
+  title: Slack Incident API
+  version: 1.0.0
+servers:
+  - url: https://slack.example.test/api
+paths:
+  /chat.postMessage:
+    post:
+      operationId: postMessage
+      summary: Post an incident alert to Slack.
+      security:
+        - slackBearer: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - channel
+                - text
+              properties:
+                channel:
+                  type: string
+                text:
+                  type: string
+      responses:
+        "200":
+          description: post response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ok:
+                    type: boolean
+                  ts:
+                    type: string
+components:
+  securitySchemes:
+    slackBearer:
+      type: http
+      scheme: bearer

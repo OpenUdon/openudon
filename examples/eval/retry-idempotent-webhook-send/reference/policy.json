@@ -1,0 +1,5 @@
+{
+  "mode": "strict",
+  "notes": ["Idempotent side-effectful webhook fixture with timeout controls is golden behavior."],
+  "max_blocking": 0
+}

@@ -1,0 +1,36 @@
+openapi: 3.0.0
+info:
+  title: Compliance API
+  version: 1.0.0
+servers:
+  - url: https://compliance.example.test
+paths:
+  /reports/{reportId}:
+    get:
+      operationId: getComplianceReport
+      parameters:
+        - name: reportId
+          in: path
+          required: true
+          schema:
+            type: string
+      security:
+        - apiKeyAuth: []
+      responses:
+        "200":
+          description: report
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  id:
+                    type: string
+                  status:
+                    type: string
+components:
+  securitySchemes:
+    apiKeyAuth:
+      type: apiKey
+      in: header
+      name: api_key

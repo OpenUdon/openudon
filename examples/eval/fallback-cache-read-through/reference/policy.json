@@ -1,0 +1,5 @@
+{
+  "mode": "strict",
+  "notes": ["Fallback modeling with explicit local fallback preparation is golden behavior."],
+  "max_blocking": 0
+}

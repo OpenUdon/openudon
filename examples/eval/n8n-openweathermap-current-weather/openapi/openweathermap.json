@@ -1,0 +1,19 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "OpenWeatherMap Bounded",
+    "version": "1.0.0"
+  },
+  "paths": {
+    "/data/2.5/weather": {
+      "get": {
+        "operationId": "getOpenWeatherMapCurrentWeather"
+      }
+    },
+    "/data/2.5/forecast": {
+      "get": {
+        "operationId": "getOpenWeatherMap5DayForecast"
+      }
+    }
+  }
+}

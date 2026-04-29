@@ -1,0 +1,30 @@
+openapi: 3.0.0
+info:
+  title: Directory API
+  version: 1.0.0
+servers:
+  - url: https://directory.example.test
+paths:
+  /employees/{employeeId}:
+    get:
+      operationId: getEmployeeProfile
+      parameters:
+        - name: employeeId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: profile
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  email:
+                    type: string
+                  managerEmail:
+                    type: string
+                  department:
+                    type: string

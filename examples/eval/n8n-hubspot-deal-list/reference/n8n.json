@@ -1,0 +1,17 @@
+{
+  "source_workflow": "../n8n/packages/nodes-base/nodes/Hubspot/__test__/deals.workflow.json",
+  "provider": "HubSpot",
+  "node": {
+    "name": "HubSpot - Deal - Get Many",
+    "type": "n8n-nodes-base.hubspot",
+    "type_version": "2.1",
+    "resource": "deal",
+    "operation": "getAll"
+  },
+  "selected_openapi": "openapi/hubspot.json",
+  "operation_id": "listDeals",
+  "notes": [
+    "The fixture models only the HubSpot deal/getAll node as a single Ramen http step.",
+    "The copied w8m OpenAPI evidence is fixture-local and does not create a runtime dependency on w8m or n8n."
+  ]
+}

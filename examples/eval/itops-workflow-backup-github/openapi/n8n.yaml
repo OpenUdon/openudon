@@ -1,0 +1,43 @@
+openapi: 3.0.0
+info:
+  title: n8n Admin API
+  version: 1.0.0
+servers:
+  - url: https://n8n.example.test/api/v1
+paths:
+  /workflows/{workflowId}:
+    get:
+      operationId: getWorkflow
+      summary: Export one n8n workflow.
+      parameters:
+        - name: workflowId
+          in: path
+          required: true
+          schema:
+            type: string
+      security:
+        - n8nApiKey: []
+      responses:
+        "200":
+          description: workflow
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  id:
+                    type: string
+                  name:
+                    type: string
+                  nodes:
+                    type: array
+                    items:
+                      type: object
+                  connections:
+                    type: object
+components:
+  securitySchemes:
+    n8nApiKey:
+      type: apiKey
+      in: header
+      name: X-N8N-API-KEY

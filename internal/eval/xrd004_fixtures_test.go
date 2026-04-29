@@ -53,37 +53,98 @@ func TestXRD004OpenAPIFixtureCoverage(t *testing.T) {
 func TestN8nSlackReducibilityFixtureCoverage(t *testing.T) {
 	root := filepath.Join("..", "..", "examples", "eval")
 
-	intent := parseReferenceIntent(t, root, "n8n-slack-message-post")
-	if strings.TrimSpace(intent.OpenAPI) != "openapi/slack.json" {
-		t.Fatalf("n8n Slack fixture openapi = %q, want openapi/slack.json", intent.OpenAPI)
+	fixtures := []struct {
+		name          string
+		openapi       string
+		step          string
+		operationID   string
+		nodeType      string
+		nodeResource  string
+		nodeOperation string
+	}{
+		{"n8n-airtable-record-get", "openapi/airtable.json", "get_record", "getAirtableRecord", "n8n-nodes-base.airtable", "record", "get"},
+		{"n8n-gmail-message-send", "openapi/gmail.json", "send_message", "sendMessage", "n8n-nodes-base.gmail", "message", "send"},
+		{"n8n-google-drive-file-upload", "openapi/google_drive.json", "upload_file", "uploadFile", "n8n-nodes-base.googleDrive", "file", "upload"},
+		{"n8n-hubspot-deal-list", "openapi/hubspot.json", "list_deals", "listDeals", "n8n-nodes-base.hubspot", "deal", "getAll"},
+		{"n8n-jira-issue-get", "openapi/jira.json", "get_issue", "getIssue", "n8n-nodes-base.jira", "issue", "get"},
+		{"n8n-openweathermap-current-weather", "openapi/openweathermap.json", "get_current_weather", "getOpenWeatherMapCurrentWeather", "n8n-nodes-base.openWeatherMap", "weather", "currentWeather"},
+		{"n8n-pagerduty-user-get", "openapi/pagerduty.json", "get_user", "getUser", "n8n-nodes-base.pagerDuty", "user", "get"},
+		{"n8n-slack-message-post", "openapi/slack.json", "post_message", "postMessage", "n8n-nodes-base.slack", "message", "post"},
+		{"n8n-trello-list-get-all", "openapi/trello.json", "list_board_lists", "listTrelloBoardLists", "n8n-nodes-base.trello", "list", "getAll"},
 	}
-	step := findStep(intent, "post_message")
-	if step == nil {
-		t.Fatal("n8n Slack fixture missing post_message step")
-	}
-	if step.Type != "http" || step.Operation != "postMessage" {
-		t.Fatalf("post_message = type %q operation %q, want http postMessage", step.Type, step.Operation)
-	}
-	if got := step.With["channel"]; got != "inputs.channel" {
-		t.Fatalf("post_message.channel = %q, want inputs.channel", got)
-	}
-	if got := step.With["text"]; got != "inputs.text" {
-		t.Fatalf("post_message.text = %q, want inputs.text", got)
-	}
+	for _, fixture := range fixtures {
+		t.Run(fixture.name, func(t *testing.T) {
+			intent := parseReferenceIntent(t, root, fixture.name)
+			if strings.TrimSpace(intent.OpenAPI) != fixture.openapi {
+				t.Fatalf("%s openapi = %q, want %s", fixture.name, intent.OpenAPI, fixture.openapi)
+			}
+			step := findStep(intent, fixture.step)
+			if step == nil {
+				t.Fatalf("%s missing %s step", fixture.name, fixture.step)
+			}
+			if step.Type != "http" || step.Operation != fixture.operationID {
+				t.Fatalf("%s = type %q operation %q, want http %s", fixture.step, step.Type, step.Operation, fixture.operationID)
+			}
 
-	meta := readN8nFixtureMetadata(t, filepath.Join(root, "n8n-slack-message-post", "reference", "n8n.json"))
-	if meta.OperationID != "postMessage" {
-		t.Fatalf("n8n metadata operation_id = %q, want postMessage", meta.OperationID)
-	}
-	if meta.Node.Type != "n8n-nodes-base.slack" || meta.Node.Resource != "message" || meta.Node.Operation != "post" {
-		t.Fatalf("n8n node metadata = %#v, want Slack message/post", meta.Node)
+			meta := readN8nFixtureMetadata(t, filepath.Join(root, fixture.name, "reference", "n8n.json"))
+			if meta.SelectedOpenAPI != fixture.openapi {
+				t.Fatalf("%s metadata selected_openapi = %q, want %s", fixture.name, meta.SelectedOpenAPI, fixture.openapi)
+			}
+			if meta.OperationID != fixture.operationID {
+				t.Fatalf("%s metadata operation_id = %q, want %s", fixture.name, meta.OperationID, fixture.operationID)
+			}
+			if meta.Node.Type != fixture.nodeType || meta.Node.Resource != fixture.nodeResource || meta.Node.Operation != fixture.nodeOperation {
+				t.Fatalf("%s node metadata = %#v", fixture.name, meta.Node)
+			}
+			assertFixtureFileContains(t, root, fixture.name, fixture.openapi, `"`+fixture.operationID+`"`)
+		})
 	}
 	assertFixtureFileContains(t, root, "n8n-slack-message-post", filepath.Join("openapi", "slack.json"), `"operationId": "postMessage"`, `"channel"`, `"text"`)
 }
 
+func TestITOpsTemplateInspiredFixtureCoverage(t *testing.T) {
+	root := filepath.Join("..", "..", "examples", "eval")
+
+	backup := parseReferenceIntent(t, root, "itops-workflow-backup-github")
+	if findStep(backup, "get_workflow").Operation != "getWorkflow" ||
+		findStep(backup, "get_existing_backup").Operation != "getContent" ||
+		findStep(backup, "upsert_backup_file").Operation != "putContent" {
+		t.Fatalf("workflow backup operations did not match expected n8n/GitHub chain")
+	}
+	if step := findStep(backup, "render_backup_file"); step == nil || step.Type != "fnct" {
+		t.Fatalf("workflow backup render step = %#v, want fnct", step)
+	}
+	assertFixtureFileContains(t, root, "itops-workflow-backup-github", filepath.Join("reference", "source.json"), "1534-back-up-your-n8n-workflows-to-github")
+
+	intake := parseReferenceIntent(t, root, "itops-slack-jira-issue-intake")
+	if findStep(intake, "get_slack_message").Operation != "getSlackMessage" ||
+		findStep(intake, "create_jira_issue").Operation != "createIssue" ||
+		findStep(intake, "post_slack_confirmation").Operation != "postMessage" {
+		t.Fatalf("Slack Jira intake operations did not match expected Slack/Jira chain")
+	}
+	if step := findStep(intake, "parse_issue_report"); step == nil || step.Type != "fnct" {
+		t.Fatalf("Slack Jira intake parse step = %#v, want fnct", step)
+	}
+	assertFixtureFileContains(t, root, "itops-slack-jira-issue-intake", filepath.Join("reference", "source.json"), "8813-automated-slack-to-jira-issue-creation-with-attachments")
+
+	incident := parseReferenceIntent(t, root, "itops-incident-response-archive")
+	if findStep(incident, "create_jira_incident").Operation != "createIssue" ||
+		findStep(incident, "post_slack_alert").Operation != "postMessage" ||
+		findStep(incident, "upload_timeline_report").Operation != "uploadFile" {
+		t.Fatalf("incident response operations did not match expected Jira/Slack/Drive chain")
+	}
+	for _, name := range []string{"format_slack_alert", "render_timeline_report"} {
+		if step := findStep(incident, name); step == nil || step.Type != "fnct" {
+			t.Fatalf("incident response %s step = %#v, want fnct", name, step)
+		}
+	}
+	assertFixtureFileContains(t, root, "itops-incident-response-archive", filepath.Join("reference", "source.json"), "9826-automate-incident-response-with-jira-slack-google-sheets-and-drive")
+}
+
 type n8nFixtureMetadata struct {
-	OperationID string `json:"operation_id"`
-	Node        struct {
+	SelectedOpenAPI string `json:"selected_openapi"`
+	OperationID     string `json:"operation_id"`
+	Node            struct {
 		Type      string `json:"type"`
 		Resource  string `json:"resource"`
 		Operation string `json:"operation"`

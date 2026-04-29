@@ -1,0 +1,5 @@
+{
+  "mode": "strict",
+  "notes": ["Multi-step data-passing fixture: profile response fields feed local access-card rendering."],
+  "max_blocking": 0
+}

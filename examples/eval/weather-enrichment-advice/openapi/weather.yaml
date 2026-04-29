@@ -1,0 +1,30 @@
+openapi: 3.0.0
+info:
+  title: Weather API
+  version: 1.0.0
+servers:
+  - url: https://weather.example.test
+paths:
+  /weather:
+    get:
+      operationId: getWeather
+      parameters:
+        - name: city
+          in: query
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: weather
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  city:
+                    type: string
+                  tempC:
+                    type: number
+                  condition:
+                    type: string

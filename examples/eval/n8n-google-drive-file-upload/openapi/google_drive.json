@@ -1,0 +1,37 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "Google Drive Partial API",
+    "version": "1.0.0"
+  },
+  "paths": {
+    "/drive/v3/drives": {
+      "get": {
+        "operationId": "listDrives"
+      }
+    },
+    "/drive/v3/drives/{driveId}": {
+      "get": {
+        "operationId": "getDrive"
+      }
+    },
+    "/drive/v3/files": {
+      "get": {
+        "operationId": "searchFiles"
+      },
+      "post": {
+        "operationId": "createFolder"
+      }
+    },
+    "/drive/v3/files/{fileId}": {
+      "get": {
+        "operationId": "downloadFile"
+      }
+    },
+    "/upload/drive/v3/files": {
+      "post": {
+        "operationId": "uploadFile"
+      }
+    }
+  }
+}

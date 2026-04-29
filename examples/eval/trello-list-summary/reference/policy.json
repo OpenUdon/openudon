@@ -1,0 +1,5 @@
+{
+  "mode": "strict",
+  "notes": ["Multi-step data-passing fixture: array response feeds local list summarization."],
+  "max_blocking": 0
+}

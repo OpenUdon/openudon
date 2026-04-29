@@ -1,0 +1,185 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "HubSpot Bounded",
+    "version": "1.0.0"
+  },
+  "paths": {
+    "/crm-objects/v1/objects/tickets/{ticketId}": {
+      "get": {
+        "operationId": "getTicket"
+      },
+      "put": {
+        "operationId": "updateTicket"
+      },
+      "delete": {
+        "operationId": "deleteTicket"
+      }
+    },
+    "/crm-objects/v1/objects/tickets": {
+      "get": {
+        "operationId": "listTicketsLegacy"
+      },
+      "post": {
+        "operationId": "createTicket"
+      }
+    },
+    "/crm-objects/v1/objects/tickets/paged": {
+      "get": {
+        "operationId": "listTickets"
+      }
+    },
+    "/crm-associations/v1/associations/create-batch": {
+      "put": {
+        "operationId": "createTicketAssociations"
+      }
+    },
+    "/contacts/v1/lists/{listId}/add": {
+      "post": {
+        "operationId": "addContactsToList"
+      }
+    },
+    "/contacts/v1/lists/{listId}/remove": {
+      "post": {
+        "operationId": "removeContactsFromList"
+      }
+    },
+    "/forms/v2/fields/{formId}": {
+      "get": {
+        "operationId": "getFormFields"
+      }
+    },
+    "/forms/v2/forms": {
+      "get": {
+        "operationId": "listForms"
+      }
+    },
+    "/forms/v2/forms/{formId}": {
+      "get": {
+        "operationId": "getForm"
+      }
+    },
+    "/email/public/v1/subscriptions": {
+      "get": {
+        "operationId": "listSubscriptionTypes"
+      }
+    },
+    "/submissions/v3/integration/submit/{portalId}/{formId}": {
+      "post": {
+        "operationId": "submitForm"
+      }
+    },
+    "/companies/v2/companies/{companyId}": {
+      "get": {
+        "operationId": "getCompany"
+      },
+      "put": {
+        "operationId": "updateCompany"
+      }
+    },
+    "/companies/v2/companies": {
+      "post": {
+        "operationId": "createCompany"
+      }
+    },
+    "/companies/v2/companies/paged": {
+      "get": {
+        "operationId": "listCompanies"
+      }
+    },
+    "/companies/v2/companies/recent/modified": {
+      "get": {
+        "operationId": "listRecentlyModifiedCompanies"
+      }
+    },
+    "/companies/v2/domains/{domain}/companies": {
+      "post": {
+        "operationId": "searchCompaniesByDomain"
+      }
+    },
+    "/crm/v3/objects/companies/{companyId}": {
+      "delete": {
+        "operationId": "deleteCompany"
+      }
+    },
+    "/contacts/v1/contact/vid/{contactId}/profile": {
+      "get": {
+        "operationId": "getContact"
+      }
+    },
+    "/contacts/v1/contact/vid/{contactId}": {
+      "delete": {
+        "operationId": "deleteContact"
+      }
+    },
+    "/contacts/v1/contact/createOrUpdate/email/{email}": {
+      "post": {
+        "operationId": "upsertContact"
+      }
+    },
+    "/contacts/v1/lists/all/contacts/all": {
+      "get": {
+        "operationId": "listContacts"
+      }
+    },
+    "/contacts/v1/lists/recently_updated/contacts/recent": {
+      "get": {
+        "operationId": "listRecentlyUpdatedContacts"
+      }
+    },
+    "/crm/v3/objects/contacts/search": {
+      "post": {
+        "operationId": "searchContacts"
+      }
+    },
+    "/deals/v1/deal/{dealId}": {
+      "get": {
+        "operationId": "getDeal"
+      },
+      "put": {
+        "operationId": "updateDeal"
+      },
+      "delete": {
+        "operationId": "deleteDeal"
+      }
+    },
+    "/deals/v1/deal": {
+      "post": {
+        "operationId": "createDeal"
+      }
+    },
+    "/deals/v1/deal/paged": {
+      "get": {
+        "operationId": "listDeals"
+      }
+    },
+    "/deals/v1/deal/recent/created": {
+      "get": {
+        "operationId": "listRecentlyCreatedDeals"
+      }
+    },
+    "/crm/v3/objects/deals/search": {
+      "post": {
+        "operationId": "searchDeals"
+      }
+    },
+    "/engagements/v1/engagements/paged": {
+      "get": {
+        "operationId": "listEngagements"
+      }
+    },
+    "/engagements/v1/engagements": {
+      "post": {
+        "operationId": "createEngagement"
+      }
+    },
+    "/engagements/v1/engagements/{engagementId}": {
+      "get": {
+        "operationId": "getEngagement"
+      },
+      "delete": {
+        "operationId": "deleteEngagement"
+      }
+    }
+  }
+}

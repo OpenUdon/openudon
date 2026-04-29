@@ -1,0 +1,39 @@
+openapi: 3.0.0
+info:
+  title: Webhook Delivery API
+  version: 1.0.0
+servers:
+  - url: https://webhooks.example.test
+paths:
+  /deliveries:
+    post:
+      operationId: sendWebhook
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [idempotencyKey, payload]
+              properties:
+                idempotencyKey:
+                  type: string
+                payload:
+                  type: object
+      responses:
+        "202":
+          description: accepted
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  deliveryId:
+                    type: string
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer

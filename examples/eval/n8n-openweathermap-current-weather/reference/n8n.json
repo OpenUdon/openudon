@@ -1,0 +1,18 @@
+{
+  "source_workflow": "../n8n/packages/nodes-base/nodes/OpenWeatherMap/test/workflow.json",
+  "provider": "OpenWeatherMap",
+  "node": {
+    "name": "OpenWeatherMap",
+    "type": "n8n-nodes-base.openWeatherMap",
+    "type_version": "1",
+    "resource": "weather",
+    "operation": "currentWeather"
+  },
+  "selected_openapi": "openapi/openweathermap.json",
+  "operation_id": "getOpenWeatherMapCurrentWeather",
+  "notes": [
+    "The fixture models only the OpenWeatherMap current weather node as a single Ramen http step.",
+    "The source workflow also contains manual trigger, noOp, and error-path nodes outside this one-operation eval slice.",
+    "The copied w8m OpenAPI evidence is fixture-local and does not create a runtime dependency on w8m or n8n."
+  ]
+}

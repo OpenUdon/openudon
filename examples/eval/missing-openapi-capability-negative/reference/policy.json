@@ -1,0 +1,5 @@
+{
+  "mode": "strict",
+  "notes": ["Negative fixture: missing OpenAPI evidence must become a local gap report, not an invented API call."],
+  "max_blocking": 0
+}

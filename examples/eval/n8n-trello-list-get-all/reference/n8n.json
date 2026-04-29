@@ -1,0 +1,18 @@
+{
+  "source_workflow": "../n8n/packages/testing/playwright/tests/cli-workflows/workflows/56.json",
+  "provider": "Trello",
+  "node": {
+    "name": "Trello7",
+    "type": "n8n-nodes-base.trello",
+    "type_version": "1",
+    "resource": "list",
+    "operation": "getAll"
+  },
+  "selected_openapi": "openapi/trello.json",
+  "operation_id": "listTrelloBoardLists",
+  "notes": [
+    "The fixture models only the Trello list/getAll node as a single Ramen http step.",
+    "The source workflow contains many additional Trello nodes outside this one-operation eval slice.",
+    "The copied w8m OpenAPI evidence is fixture-local and does not create a runtime dependency on w8m or n8n."
+  ]
+}

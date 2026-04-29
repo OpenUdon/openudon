@@ -1,0 +1,5 @@
+{
+  "mode": "strict",
+  "notes": ["Runtime-only webhook validation fixture is golden behavior."],
+  "max_blocking": 0
+}

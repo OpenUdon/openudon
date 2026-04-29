@@ -1,0 +1,5 @@
+{
+  "mode": "strict",
+  "notes": ["Multi-step data-passing fixture: created user response feeds local welcome rendering."],
+  "max_blocking": 0
+}

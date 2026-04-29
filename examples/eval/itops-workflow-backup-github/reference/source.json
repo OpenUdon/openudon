@@ -1,0 +1,9 @@
+{
+  "source_url": "https://n8n.io/workflows/1534-back-up-your-n8n-workflows-to-github/",
+  "source_template": "Back up your n8n workflows to Github",
+  "adaptation_notes": [
+    "The public template exports n8n workflow data and writes it to GitHub.",
+    "This fixture models a single-workflow backup slice with explicit n8n and GitHub OpenAPI operations.",
+    "Looping over every workflow and ignore-if-unchanged behavior are left out of this first strict Ramen eval."
+  ]
+}

@@ -1,0 +1,30 @@
+openapi: 3.0.0
+info:
+  title: Inventory API
+  version: 1.0.0
+servers:
+  - url: https://inventory.example.test
+paths:
+  /inventory/{sku}:
+    get:
+      operationId: getInventory
+      parameters:
+        - name: sku
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: inventory
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  sku:
+                    type: string
+                  quantity:
+                    type: integer
+                  reorderThreshold:
+                    type: integer

@@ -37,19 +37,19 @@ Useful fixture locations:
 
 ## First Slice
 
-The first curated eval sample is `examples/eval/n8n-slack-message-post`:
+The first curated eval samples cover every OpenAPI evidence file under `../w8m/reducibility/specs/`:
 
-- n8n Slack `message/post`
-- Ramen operation `postMessage`
-- local OpenAPI evidence `openapi/slack.json`
-- advisory reference policy while the fixture shape settles
+- `n8n-airtable-record-get`: Airtable `record/get` -> `getAirtableRecord`
+- `n8n-gmail-message-send`: Gmail `message/send` -> `sendMessage`
+- `n8n-google-drive-file-upload`: Google Drive `file/upload` -> `uploadFile`
+- `n8n-hubspot-deal-list`: HubSpot `deal/getAll` -> `listDeals`
+- `n8n-jira-issue-get`: scanner-backed Jira `issue/get` -> `getIssue`
+- `n8n-openweathermap-current-weather`: OpenWeatherMap current weather -> `getOpenWeatherMapCurrentWeather`
+- `n8n-pagerduty-user-get`: PagerDuty `user/get` -> `getUser`
+- `n8n-slack-message-post`: Slack `message/post` -> `postMessage`
+- `n8n-trello-list-get-all`: Trello `list/getAll` -> `listTrelloBoardLists`
 
-Good next candidates:
-
-- Gmail `message/send` -> `sendMessage`
-- OpenWeatherMap `currentWeather` -> `getOpenWeatherMapCurrentWeather`
-- Google Drive `file/upload` -> `uploadFile`
-- Trello `list/getAll` -> `listTrelloBoardLists`
+All n8n reducibility fixtures start with advisory reference policy while the fixture shape settles.
 
 Avoid helper-heavy or n8n-specific behavior in the first pass, such as `sendAndWait`, trigger registration, binary follow-up downloads, UI lookup sidecars, or paired-item semantics.
 

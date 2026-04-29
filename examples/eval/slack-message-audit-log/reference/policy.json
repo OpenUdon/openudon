@@ -1,0 +1,5 @@
+{
+  "mode": "strict",
+  "notes": ["Multi-step data-passing fixture: post-message response feeds local audit-log rendering."],
+  "max_blocking": 0
+}

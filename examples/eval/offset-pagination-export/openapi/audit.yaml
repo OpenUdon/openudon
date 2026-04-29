@@ -1,0 +1,42 @@
+openapi: 3.0.0
+info:
+  title: Audit Offset API
+  version: 1.0.0
+servers:
+  - url: https://audit.example.test
+paths:
+  /records:
+    get:
+      operationId: listAuditRecords
+      parameters:
+        - name: offset
+          in: query
+          required: true
+          schema:
+            type: integer
+        - name: limit
+          in: query
+          required: true
+          schema:
+            type: integer
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: records
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  records:
+                    type: array
+                    items:
+                      type: object
+                  total:
+                    type: integer
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer

@@ -1,0 +1,33 @@
+openapi: 3.0.0
+info:
+  title: PagerDuty Users API
+  version: 1.0.0
+servers:
+  - url: https://pagerduty.example.test
+paths:
+  /users/{userId}:
+    get:
+      operationId: getUser
+      parameters:
+        - name: userId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: user
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  user:
+                    type: object
+                    properties:
+                      id:
+                        type: string
+                      name:
+                        type: string
+                      email:
+                        type: string

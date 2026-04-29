@@ -1,0 +1,5 @@
+{
+  "mode": "strict",
+  "notes": ["Multi-step data-passing fixture: send-message response feeds local audit receipt rendering."],
+  "max_blocking": 0
+}

@@ -1,0 +1,5 @@
+{
+  "mode": "strict",
+  "notes": ["Offset pagination and local merge fixture is golden behavior."],
+  "max_blocking": 0
+}

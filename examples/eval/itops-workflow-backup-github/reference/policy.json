@@ -1,0 +1,7 @@
+{
+  "mode": "strict",
+  "notes": [
+    "Ramen-native IT Ops fixture inspired by the n8n workflow-backup template; operation selection and side-effect policy are golden behavior."
+  ],
+  "max_blocking": 0
+}

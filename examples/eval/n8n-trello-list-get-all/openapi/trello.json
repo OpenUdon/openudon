@@ -1,0 +1,44 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "Trello Bounded",
+    "version": "1.0.0"
+  },
+  "paths": {
+    "/1/boards/{id}": {
+      "get": {
+        "operationId": "getTrelloBoard"
+      }
+    },
+    "/1/boards": {
+      "post": {
+        "operationId": "createTrelloBoard"
+      }
+    },
+    "/1/boards/{id}/lists": {
+      "get": {
+        "operationId": "listTrelloBoardLists"
+      }
+    },
+    "/1/lists/{id}": {
+      "get": {
+        "operationId": "getTrelloList"
+      }
+    },
+    "/1/lists": {
+      "post": {
+        "operationId": "createTrelloList"
+      }
+    },
+    "/1/cards/{id}": {
+      "get": {
+        "operationId": "getTrelloCard"
+      }
+    },
+    "/1/cards": {
+      "post": {
+        "operationId": "createTrelloCard"
+      }
+    }
+  }
+}

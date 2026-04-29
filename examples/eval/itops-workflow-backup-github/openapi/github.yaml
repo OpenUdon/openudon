@@ -1,0 +1,96 @@
+openapi: 3.0.0
+info:
+  title: GitHub Contents API
+  version: 1.0.0
+servers:
+  - url: https://api.github.example.test
+paths:
+  /repos/{owner}/{repo}/contents/{path}:
+    get:
+      operationId: getContent
+      summary: Get repository content metadata.
+      parameters:
+        - name: owner
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: repo
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: path
+          in: path
+          required: true
+          schema:
+            type: string
+      security:
+        - githubBearer: []
+      responses:
+        "200":
+          description: content metadata
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  path:
+                    type: string
+                  sha:
+                    type: string
+    put:
+      operationId: putContent
+      summary: Create or update repository content.
+      parameters:
+        - name: owner
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: repo
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: path
+          in: path
+          required: true
+          schema:
+            type: string
+      security:
+        - githubBearer: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - message
+                - content
+              properties:
+                message:
+                  type: string
+                content:
+                  type: string
+                sha:
+                  type: string
+      responses:
+        "200":
+          description: commit result
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  commit:
+                    type: object
+                    properties:
+                      sha:
+                        type: string
+components:
+  securitySchemes:
+    githubBearer:
+      type: http
+      scheme: bearer

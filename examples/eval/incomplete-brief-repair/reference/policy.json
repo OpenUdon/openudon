@@ -1,0 +1,5 @@
+{
+  "mode": "strict",
+  "notes": ["Negative fixture: incomplete briefs should produce clarification checklists rather than invented workflow behavior."],
+  "max_blocking": 0
+}

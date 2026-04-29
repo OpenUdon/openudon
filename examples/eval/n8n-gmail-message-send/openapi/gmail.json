@@ -1,0 +1,99 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "Gmail Partial API",
+    "version": "1.0.0"
+  },
+  "paths": {
+    "/gmail/v1/users/me/labels": {
+      "post": {
+        "operationId": "createLabel"
+      },
+      "get": {
+        "operationId": "listLabels"
+      }
+    },
+    "/gmail/v1/users/me/labels/{labelId}": {
+      "delete": {
+        "operationId": "deleteLabel"
+      },
+      "get": {
+        "operationId": "getLabel"
+      }
+    },
+    "/gmail/v1/users/me/messages": {
+      "get": {
+        "operationId": "listMessages"
+      }
+    },
+    "/gmail/v1/users/me/messages/send": {
+      "post": {
+        "operationId": "sendMessage"
+      }
+    },
+    "/gmail/v1/users/me/messages/{messageId}": {
+      "delete": {
+        "operationId": "deleteMessage"
+      },
+      "get": {
+        "operationId": "getMessage"
+      }
+    },
+    "/gmail/v1/users/me/messages/{messageId}/modify": {
+      "post": {
+        "operationId": "modifyMessage"
+      }
+    },
+    "/gmail/v1/users/me/messages/{messageId}/trash": {
+      "post": {
+        "operationId": "trashMessage"
+      }
+    },
+    "/gmail/v1/users/me/messages/{messageId}/untrash": {
+      "post": {
+        "operationId": "untrashMessage"
+      }
+    },
+    "/gmail/v1/users/me/threads": {
+      "get": {
+        "operationId": "listThreads"
+      }
+    },
+    "/gmail/v1/users/me/threads/{threadId}": {
+      "get": {
+        "operationId": "getThread"
+      }
+    },
+    "/gmail/v1/users/me/threads/{threadId}/modify": {
+      "post": {
+        "operationId": "modifyThread"
+      }
+    },
+    "/gmail/v1/users/me/threads/{threadId}/trash": {
+      "post": {
+        "operationId": "trashThread"
+      }
+    },
+    "/gmail/v1/users/me/threads/{threadId}/untrash": {
+      "post": {
+        "operationId": "untrashThread"
+      }
+    },
+    "/gmail/v1/users/me/drafts": {
+      "post": {
+        "operationId": "createDraft"
+      },
+      "get": {
+        "operationId": "listDrafts"
+      }
+    },
+    "/gmail/v1/users/me/drafts/{draftId}": {
+      "delete": {
+        "operationId": "deleteDraft"
+      },
+      "get": {
+        "operationId": "getDraft"
+      }
+    }
+  }
+}

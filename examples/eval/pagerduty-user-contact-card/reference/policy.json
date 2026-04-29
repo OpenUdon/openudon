@@ -1,0 +1,5 @@
+{
+  "mode": "strict",
+  "notes": ["Multi-step data-passing fixture: nested user response feeds local contact-card rendering."],
+  "max_blocking": 0
+}

@@ -1,0 +1,7 @@
+{
+  "mode": "strict",
+  "notes": [
+    "Ramen-native IT Ops fixture inspired by the Slack-to-Jira issue intake template; attachment handling is intentionally outside this first strict slice."
+  ],
+  "max_blocking": 0
+}

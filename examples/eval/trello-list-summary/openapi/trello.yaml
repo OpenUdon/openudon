@@ -1,0 +1,35 @@
+openapi: 3.0.0
+info:
+  title: Trello Lists API
+  version: 1.0.0
+servers:
+  - url: https://trello.example.test
+paths:
+  /boards/{boardId}/lists:
+    get:
+      operationId: listBoardLists
+      parameters:
+        - name: boardId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: board lists
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  lists:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        id:
+                          type: string
+                        name:
+                          type: string
+                        closed:
+                          type: boolean

@@ -1,0 +1,42 @@
+openapi: 3.0.0
+info:
+  title: Device Inventory API
+  version: 1.0.0
+servers:
+  - url: https://devices.example.test
+paths:
+  /devices:
+    get:
+      operationId: listDevices
+      parameters:
+        - name: pageSize
+          in: query
+          required: true
+          schema:
+            type: integer
+        - name: pageToken
+          in: query
+          required: false
+          schema:
+            type: string
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: devices
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  devices:
+                    type: array
+                    items:
+                      type: object
+                  nextPageToken:
+                    type: string
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer

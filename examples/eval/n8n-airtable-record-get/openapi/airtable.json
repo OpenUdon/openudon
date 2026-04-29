@@ -1,0 +1,38 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "Airtable Bounded",
+    "version": "1.0.0"
+  },
+  "paths": {
+    "/meta/bases": {
+      "get": {
+        "operationId": "listAirtableBases"
+      }
+    },
+    "/meta/bases/{baseId}/tables": {
+      "get": {
+        "operationId": "listAirtableBaseTables"
+      }
+    },
+    "/{baseId}/{tableId}": {
+      "get": {
+        "operationId": "listAirtableRecords"
+      },
+      "post": {
+        "operationId": "createAirtableRecords"
+      },
+      "patch": {
+        "operationId": "updateAirtableRecords"
+      }
+    },
+    "/{baseId}/{tableId}/{id}": {
+      "get": {
+        "operationId": "getAirtableRecord"
+      },
+      "delete": {
+        "operationId": "deleteAirtableRecord"
+      }
+    }
+  }
+}

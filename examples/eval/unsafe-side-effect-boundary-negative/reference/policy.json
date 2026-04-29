@@ -1,0 +1,5 @@
+{
+  "mode": "strict",
+  "notes": ["Negative fixture: unsafe production side effects must be converted into an approval package."],
+  "max_blocking": 0
+}

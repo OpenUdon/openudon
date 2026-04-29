@@ -1,0 +1,10 @@
+{
+  "mode": "advisory",
+  "notes": [
+    "This n8n reducibility fixture is advisory while Trello pagination and credential policy settle across eval runs."
+  ],
+  "issue_notes": {
+    "*": "n8n-derived references are diagnostic first until the fixture graduates to strict mode."
+  },
+  "max_blocking": 0
+}

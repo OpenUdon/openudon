@@ -1,0 +1,18 @@
+{
+  "source_workflow": "",
+  "provider": "Jira",
+  "node": {
+    "name": "Jira issue get",
+    "type": "n8n-nodes-base.jira",
+    "type_version": "1",
+    "resource": "issue",
+    "operation": "get"
+  },
+  "selected_openapi": "openapi/jira.json",
+  "operation_id": "getIssue",
+  "notes": [
+    "No upstream Jira workflow JSON fixture was found in the initial n8n scan.",
+    "This fixture records the scanner-backed Jira registry slice from w8m rather than an upstream workflow file.",
+    "The copied w8m OpenAPI evidence is fixture-local and does not create a runtime dependency on w8m or n8n."
+  ]
+}

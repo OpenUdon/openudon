@@ -1,0 +1,5 @@
+{
+  "mode": "strict",
+  "notes": ["Multi-step data-passing fixture: weather response feeds local advice rendering."],
+  "max_blocking": 0
+}

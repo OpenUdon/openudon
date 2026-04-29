@@ -1,0 +1,5 @@
+{
+  "mode": "strict",
+  "notes": ["Array response extraction into a local summary function is golden behavior."],
+  "max_blocking": 0
+}

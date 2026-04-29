@@ -1,0 +1,5 @@
+{
+  "mode": "strict",
+  "notes": ["Negative fixture: missing credential policy must become a local gap report, not an unaudited API call."],
+  "max_blocking": 0
+}

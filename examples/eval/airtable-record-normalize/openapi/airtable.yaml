@@ -1,0 +1,42 @@
+openapi: 3.0.0
+info:
+  title: Airtable Records API
+  version: 1.0.0
+servers:
+  - url: https://airtable.example.test
+paths:
+  /bases/{baseId}/tables/{tableId}/records/{recordId}:
+    get:
+      operationId: getAirtableRecord
+      parameters:
+        - name: baseId
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: tableId
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: recordId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: record
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  id:
+                    type: string
+                  fields:
+                    type: object
+                    additionalProperties: true
+                  createdTime:
+                    type: string
+                    format: date-time
