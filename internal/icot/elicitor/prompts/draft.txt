@@ -8,6 +8,13 @@ Infer reasonable defaults for required OpenAPI fields:
 - credential binding names, never secret values
 - prior step outputs when one listed operation naturally feeds another
 
+Prefer each operation's structured metadata when mapping user intent to request fields:
+- parameters list path, query, header, and cookie inputs with type, required flag, and description
+- request_body lists content type, flattened body field paths, required field paths, types, descriptions, defaults, examples, and enums when available
+- security lists raw scheme names and derived credential binding field names
+
+Use required_fields only as a compatibility summary when the richer parameter, request_body, or security context is absent or incomplete.
+
 Return JSON for a partial or complete Ramen iCoT session. Include assumptions for every inferred operation, field mapping, credential binding, side-effect scope, timeout/idempotency control, and output source. Assumptions must have id, slot, value, reason, evidence, risk, and requires_confirmation.
 
 If a value is not defensible from the brief, current session, transcript turns, readiness feedback, or listed metadata, leave it blank so the deterministic prompt loop can ask the user.

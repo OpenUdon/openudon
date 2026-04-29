@@ -276,19 +276,12 @@ func sanitizeKickoff(session Session) Session {
 func draftPromptRequest(request DraftRequest) map[string]any {
 	docs := make([]map[string]any, 0, len(request.Docs))
 	for _, doc := range request.Docs {
-		ops := make([]map[string]any, 0, len(doc.Operations))
+		ops := make([]operationPromptContext, 0, len(doc.Operations))
 		for _, op := range doc.Operations {
 			if op == nil {
 				continue
 			}
-			ops = append(ops, map[string]any{
-				"operationId":     op.OperationID,
-				"method":          op.Method,
-				"path":            op.Path,
-				"summary":         op.Summary,
-				"required_fields": requiredFields(op),
-				"security":        op.Security,
-			})
+			ops = append(ops, operationPrompt(op))
 		}
 		docs = append(docs, map[string]any{
 			"path":        doc.RelativePath,
