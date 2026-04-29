@@ -7,6 +7,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/genelet/ramen/internal/icot/elicitor"
 	"github.com/genelet/ramen/internal/projectwizard"
 	"github.com/genelet/udon/pkg/rollout"
 	"github.com/genelet/udon/pkg/runner"
@@ -81,7 +82,7 @@ func TestAutosaveResumesAndDeletesAfterSave(t *testing.T) {
 	}
 	stdout.Reset()
 	stderr.Reset()
-	code = Main([]string{"--example", example, "--no-llm"}, strings.NewReader(""), &stdout, &stderr)
+	code = Main([]string{"--example", example, "--no-llm"}, strings.NewReader("save\n"), &stdout, &stderr)
 	if code != 0 {
 		t.Fatalf("resume failed with code %d\nstdout:\n%s\nstderr:\n%s", code, stdout.String(), stderr.String())
 	}
@@ -93,6 +94,117 @@ func TestAutosaveResumesAndDeletesAfterSave(t *testing.T) {
 	}
 	if _, err := os.Stat(draftPath); !os.IsNotExist(err) {
 		t.Fatalf("draft not deleted after save: %v", err)
+	}
+}
+
+func TestCompleteDraftResumeCancelDeletesDraftWithoutWriting(t *testing.T) {
+	example := filepath.Join(t.TempDir(), "guided")
+	draftPath := writeCompleteDraft(t, example)
+	var stdout, stderr bytes.Buffer
+	code := Main([]string{"--example", example, "--no-llm"}, strings.NewReader("cancel\n"), &stdout, &stderr)
+	if code != 0 {
+		t.Fatalf("cancel failed with code %d\nstdout:\n%s\nstderr:\n%s", code, stdout.String(), stderr.String())
+	}
+	if _, err := os.Stat(filepath.Join(example, "project.md")); !os.IsNotExist(err) {
+		t.Fatalf("cancel wrote project.md or unexpected stat error: %v\nstdout:\n%s\nstderr:\n%s", err, stdout.String(), stderr.String())
+	}
+	if _, err := os.Stat(filepath.Join(example, "workflows", "intent.hcl")); !os.IsNotExist(err) {
+		t.Fatalf("cancel wrote intent.hcl or unexpected stat error: %v\nstdout:\n%s\nstderr:\n%s", err, stdout.String(), stderr.String())
+	}
+	if _, err := os.Stat(draftPath); !os.IsNotExist(err) {
+		t.Fatalf("draft not deleted after cancel: %v", err)
+	}
+}
+
+func TestCompleteDraftResumeSaveWritesAndDeletesDraft(t *testing.T) {
+	example := filepath.Join(t.TempDir(), "guided")
+	draftPath := writeCompleteDraft(t, example)
+	var stdout, stderr bytes.Buffer
+	code := Main([]string{"--example", example, "--no-llm"}, strings.NewReader("save\n"), &stdout, &stderr)
+	if code != 0 {
+		t.Fatalf("save failed with code %d\nstdout:\n%s\nstderr:\n%s", code, stdout.String(), stderr.String())
+	}
+	for _, rel := range []string{"project.md", "workflows/intent.hcl"} {
+		if _, err := os.Stat(filepath.Join(example, rel)); err != nil {
+			t.Fatalf("%s missing after save: %v\nstdout:\n%s\nstderr:\n%s", rel, err, stdout.String(), stderr.String())
+		}
+	}
+	if _, err := os.Stat(draftPath); !os.IsNotExist(err) {
+		t.Fatalf("draft not deleted after save: %v", err)
+	}
+}
+
+func TestCompleteDraftPrintWritesNoFilesAndPreservesDraft(t *testing.T) {
+	example := filepath.Join(t.TempDir(), "guided")
+	draftPath := writeCompleteDraft(t, example)
+	var stdout, stderr bytes.Buffer
+	code := Main([]string{"--example", example, "--print", "--no-llm"}, strings.NewReader(""), &stdout, &stderr)
+	if code != 0 {
+		t.Fatalf("print failed with code %d\nstdout:\n%s\nstderr:\n%s", code, stdout.String(), stderr.String())
+	}
+	if _, err := os.Stat(filepath.Join(example, "project.md")); !os.IsNotExist(err) {
+		t.Fatalf("--print wrote project.md or unexpected stat error: %v", err)
+	}
+	if _, err := os.Stat(filepath.Join(example, "workflows", "intent.hcl")); !os.IsNotExist(err) {
+		t.Fatalf("--print wrote intent.hcl or unexpected stat error: %v", err)
+	}
+	if _, err := os.Stat(draftPath); err != nil {
+		t.Fatalf("--print should preserve draft: %v", err)
+	}
+	if !strings.Contains(stdout.String(), "----- project.md -----") || !strings.Contains(stdout.String(), "----- workflows/intent.hcl -----") {
+		t.Fatalf("print output missing artifacts:\n%s", stdout.String())
+	}
+}
+
+func TestCompleteDraftEditsReplaceSeededPolicyFields(t *testing.T) {
+	example := filepath.Join(t.TempDir(), "guided")
+	writeCompleteDraftWithPolicy(t, example, []string{"old_token"}, "Old safety note", "Old fallback note")
+	input := strings.Join([]string{
+		"edit credentials",
+		"new_token",
+		"edit safety",
+		"New safety note",
+		"edit fallback",
+		"New fallback note",
+		"save",
+	}, "\n") + "\n"
+	var stdout, stderr bytes.Buffer
+	code := Main([]string{"--example", example, "--no-llm"}, strings.NewReader(input), &stdout, &stderr)
+	if code != 0 {
+		t.Fatalf("policy edit failed with code %d\nstdout:\n%s\nstderr:\n%s", code, stdout.String(), stderr.String())
+	}
+	project, err := os.ReadFile(filepath.Join(example, "project.md"))
+	if err != nil {
+		t.Fatalf("read project: %v", err)
+	}
+	text := string(project)
+	for _, unexpected := range []string{"old_token", "Old safety note", "Old fallback note"} {
+		if strings.Contains(text, unexpected) {
+			t.Fatalf("project retained stale policy value %q:\n%s", unexpected, text)
+		}
+	}
+	for _, expected := range []string{"new_token", "New safety note", "New fallback note"} {
+		if !strings.Contains(text, expected) {
+			t.Fatalf("project missing edited policy value %q:\n%s", expected, text)
+		}
+	}
+}
+
+func TestCompleteDraftCredentialsNoneClearsSeededBindings(t *testing.T) {
+	example := filepath.Join(t.TempDir(), "guided")
+	writeCompleteDraftWithPolicy(t, example, []string{"old_token"}, "Sandbox proof runs only", "Stop on errors")
+	var stdout, stderr bytes.Buffer
+	code := Main([]string{"--example", example, "--no-llm"}, strings.NewReader("edit credentials\nnone\nsave\n"), &stdout, &stderr)
+	if code != 0 {
+		t.Fatalf("credential clear failed with code %d\nstdout:\n%s\nstderr:\n%s", code, stdout.String(), stderr.String())
+	}
+	project, err := os.ReadFile(filepath.Join(example, "project.md"))
+	if err != nil {
+		t.Fatalf("read project: %v", err)
+	}
+	text := string(project)
+	if strings.Contains(text, "old_token") || !strings.Contains(text, "Credential bindings: none declared") {
+		t.Fatalf("credentials were not cleared:\n%s", text)
 	}
 }
 
@@ -146,6 +258,89 @@ func TestReconcileRegeneratesProjectOnlyAndPreservesPolicy(t *testing.T) {
 	intentBackups, err := filepath.Glob(filepath.Join(example, "workflows", "intent.hcl.bak.*"))
 	if err != nil || len(intentBackups) != 0 {
 		t.Fatalf("reconcile should not back up intent, got %v err %v", intentBackups, err)
+	}
+}
+
+func TestReconcileProjectIncludesNestedIntentDetails(t *testing.T) {
+	example := t.TempDir()
+	intent := nestedIntent()
+	intentHCL, err := runner.RenderIntentHCL(intent)
+	if err != nil {
+		t.Fatalf("render intent: %v", err)
+	}
+	if err := os.MkdirAll(filepath.Join(example, "workflows"), 0o755); err != nil {
+		t.Fatalf("mkdir workflows: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(example, "workflows", "intent.hcl"), []byte(intentHCL), 0o644); err != nil {
+		t.Fatalf("write intent: %v", err)
+	}
+	project := projectwizard.Render(projectwizard.Answers{
+		ProjectName:     "Nested",
+		Credentials:     []string{"support_api_token"},
+		SideEffectScope: projectwizard.SideEffectSandboxOnly,
+		Safety:          "Sandbox proof runs only",
+		Fallback:        "Stop on errors",
+	})
+	if err := os.WriteFile(filepath.Join(example, "project.md"), []byte(project), 0o644); err != nil {
+		t.Fatalf("write project: %v", err)
+	}
+	var stdout, stderr bytes.Buffer
+	code := Main([]string{"reconcile", "--example", example, "--print"}, strings.NewReader(""), &stdout, &stderr)
+	if code != 0 {
+		t.Fatalf("reconcile print failed with code %d\nstdout:\n%s\nstderr:\n%s", code, stdout.String(), stderr.String())
+	}
+	text := stdout.String()
+	for _, expected := range []string{
+		"openapi/nested.yaml",
+		"`nested_lookup.ticketId` comes from `get_ticket.received_body.id`",
+		"`prepare_default`: Prepare the default result",
+		"support_api_token",
+	} {
+		if !strings.Contains(text, expected) {
+			t.Fatalf("reconciled project missing nested detail %q:\n%s", expected, text)
+		}
+	}
+}
+
+func TestLintDriftWarnsForNestedIntentFieldsAndRuntimeApprovals(t *testing.T) {
+	example := t.TempDir()
+	project := projectwizard.Render(projectwizard.Answers{
+		ProjectName:     "Nested Drift",
+		Goal:            "Handle nested workflow",
+		UsesOpenAPI:     false,
+		SideEffectScope: projectwizard.SideEffectReadOnly,
+		Fallback:        "Stop on errors",
+	})
+	if err := os.WriteFile(filepath.Join(example, "project.md"), []byte(project), 0o644); err != nil {
+		t.Fatalf("write project: %v", err)
+	}
+	if err := os.MkdirAll(filepath.Join(example, "workflows"), 0o755); err != nil {
+		t.Fatalf("mkdir workflows: %v", err)
+	}
+	intentHCL, err := runner.RenderIntentHCL(nestedIntent())
+	if err != nil {
+		t.Fatalf("render intent: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(example, "workflows", "intent.hcl"), []byte(intentHCL), 0o644); err != nil {
+		t.Fatalf("write intent: %v", err)
+	}
+	var stdout, stderr bytes.Buffer
+	code := Main([]string{"lint", "--example", example}, strings.NewReader(""), &stdout, &stderr)
+	if code != 0 {
+		t.Fatalf("lint drift should exit zero, got %d\nstdout:\n%s\nstderr:\n%s", code, stdout.String(), stderr.String())
+	}
+	text := stdout.String()
+	for _, expected := range []string{
+		"icot.drift.openapi: warn",
+		"icot.drift.data_flow: warn",
+		"icot.drift.functions: warn",
+		"icot.drift.credentials: warn",
+		"icot.drift.runtime.cmd: warn",
+		"icot.drift.runtime.ssh: warn",
+	} {
+		if !strings.Contains(text, expected) {
+			t.Fatalf("lint output missing nested drift warning %q:\n%s", expected, text)
+		}
 	}
 }
 
@@ -220,6 +415,82 @@ func testIntent(name, goal, stepName string) *rollout.Intent {
 		}},
 		Outputs: []*rollout.Output{{Name: "ticket", From: stepName + ".received_body"}},
 	}
+}
+
+func nestedIntent() *rollout.Intent {
+	return &rollout.Intent{
+		OpenAPI:  "openapi/nested.yaml",
+		Workflow: &rollout.WorkflowMeta{Name: "nested_workflow", Description: "Handle nested workflow"},
+		Inputs:   []*rollout.Input{{Name: "ticketId", Type: "string", Required: true}},
+		Steps: []*rollout.Step{
+			{
+				Name:      "get_ticket",
+				Type:      "http",
+				Do:        "Fetch the ticket",
+				Operation: "getTicket",
+				With:      map[string]string{"ticketId": "inputs.ticketId", "api_key": "credentials.support_api_token"},
+			},
+			{
+				Name:      "route_ticket",
+				Type:      "switch",
+				DependsOn: []string{"get_ticket"},
+				Cases: []*rollout.StepCase{{
+					Name: "urgent",
+					When: "get_ticket.received_body.priority == \"urgent\"",
+					Steps: []*rollout.Step{
+						{
+							Name:      "nested_lookup",
+							Type:      "http",
+							Do:        "Look up nested context",
+							OpenAPI:   "openapi/nested.yaml",
+							Operation: "getNested",
+							Binds: []*rollout.StepBind{{
+								From:   "get_ticket",
+								Fields: map[string]string{"ticketId": "received_body.id"},
+							}},
+						},
+						{Name: "run_local_command", Type: "cmd", Do: "Run approved local command"},
+					},
+				}},
+				Default: &rollout.StepDefault{Steps: []*rollout.Step{
+					{
+						Name: "prepare_default",
+						Type: "fnct",
+						Do:   "Prepare the default result",
+						Binds: []*rollout.StepBind{{
+							From:   "get_ticket",
+							Fields: map[string]string{"ticket": "received_body"},
+						}},
+					},
+					{Name: "check_remote_host", Type: "ssh", Do: "Check remote host"},
+				}},
+			},
+		},
+		Outputs: []*rollout.Output{{Name: "result", From: "prepare_default.received_body"}},
+	}
+}
+
+func writeCompleteDraft(t *testing.T, example string) string {
+	t.Helper()
+	return writeCompleteDraftWithPolicy(t, example, nil, "Sandbox proof runs only", "Stop if inputs are missing")
+}
+
+func writeCompleteDraftWithPolicy(t *testing.T, example string, credentials []string, safety, fallback string) string {
+	t.Helper()
+	project := projectwizard.Answers{
+		ProjectName:     "Draft Project",
+		Goal:            "Render a draft report",
+		Credentials:     credentials,
+		SideEffectScope: projectwizard.SideEffectSandboxOnly,
+		Safety:          safety,
+		Fallback:        fallback,
+	}
+	session := elicitor.SessionFromIntent(testIntent("draft_project", "Render a draft report", "render_report"), project)
+	draftPath := elicitor.DraftPath(example)
+	if err := elicitor.SaveDraft(draftPath, session); err != nil {
+		t.Fatalf("save draft: %v", err)
+	}
+	return draftPath
 }
 
 func testProjectInput(withOpenAPI bool) string {

@@ -20,6 +20,7 @@ type Options struct {
 	NoLLM      bool
 	Extractor  Extractor
 	DraftPath  string
+	VerifyOnly bool
 }
 
 type Artifacts struct {
@@ -40,6 +41,14 @@ func Run(ctx context.Context, in io.Reader, out io.Writer, seed Session, opts Op
 	session := seed
 	session.Normalize()
 	p := &prompter{reader: reader, out: out}
+	if opts.VerifyOnly {
+		projectText := projectwizard.Render(session.Project)
+		docs, err := DiscoverLocalAPIs(opts.ExampleDir, projectText)
+		if err != nil {
+			return Artifacts{}, err
+		}
+		return finalVerificationLoop(out, p, &session, docs, opts.DraftPath)
+	}
 
 	if session.Intent.Workflow == nil || strings.TrimSpace(session.Intent.Workflow.Description) == "" {
 		fmt.Fprintln(out, "Describe the workflow in one or two sentences. Mention APIs/files if known. Do not paste secrets.")
@@ -216,6 +225,7 @@ func Run(ctx context.Context, in io.Reader, out io.Writer, seed Session, opts Op
 		return Artifacts{}, err
 	}
 	session.Credentials = credentialBindings(credentialAnswer)
+	session.CredentialsSet = true
 	session.Normalize()
 	if err := autosave(opts.DraftPath, session); err != nil {
 		return Artifacts{}, err
@@ -224,6 +234,8 @@ func Run(ctx context.Context, in io.Reader, out io.Writer, seed Session, opts Op
 	if err != nil {
 		return Artifacts{}, err
 	}
+	session.Safety = clearablePolicyAnswer(session.Safety)
+	session.SafetySet = true
 	session.Normalize()
 	if err := autosave(opts.DraftPath, session); err != nil {
 		return Artifacts{}, err
@@ -232,6 +244,8 @@ func Run(ctx context.Context, in io.Reader, out io.Writer, seed Session, opts Op
 	if err != nil {
 		return Artifacts{}, err
 	}
+	session.Fallback = clearablePolicyAnswer(session.Fallback)
+	session.FallbackSet = true
 	session.Normalize()
 	if !opts.NoLLM {
 		refined, err := extractor.Refine(ctx, session)
@@ -246,18 +260,22 @@ func Run(ctx context.Context, in io.Reader, out io.Writer, seed Session, opts Op
 		return Artifacts{}, err
 	}
 
+	return finalVerificationLoop(out, p, &session, docs, opts.DraftPath)
+}
+
+func finalVerificationLoop(out io.Writer, p *prompter, session *Session, docs []APIDocument, draftPath string) (Artifacts, error) {
 	for {
-		artifacts, err := RenderArtifacts(session)
+		artifacts, err := RenderArtifacts(*session)
 		if err != nil {
 			fmt.Fprintf(out, "Intent is incomplete: %v\n", err)
 			slot, slotErr := p.askDefault("Edit slot", "steps")
 			if slotErr != nil {
 				return Artifacts{}, slotErr
 			}
-			if err := editSlot(p, &session, strings.TrimSpace(slot), docs); err != nil {
+			if err := editSlot(p, session, strings.TrimSpace(slot), docs); err != nil {
 				return Artifacts{}, err
 			}
-			if err := autosave(opts.DraftPath, session); err != nil {
+			if err := autosave(draftPath, *session); err != nil {
 				return Artifacts{}, err
 			}
 			continue
@@ -273,9 +291,9 @@ func Run(ctx context.Context, in io.Reader, out io.Writer, seed Session, opts Op
 		}
 		answer = strings.TrimSpace(strings.ToLower(answer))
 		switch {
-		case answer == "" || answer == "save" || answer == "yes" || answer == "y":
+		case answer == "" || answer == "save":
 			return artifacts, nil
-		case answer == "cancel" || answer == "no" || answer == "n" || answer == "q" || answer == "quit":
+		case answer == "cancel":
 			return Artifacts{}, ErrCanceled
 		case strings.HasPrefix(answer, "edit"):
 			slot := strings.TrimSpace(strings.TrimPrefix(answer, "edit"))
@@ -285,10 +303,10 @@ func Run(ctx context.Context, in io.Reader, out io.Writer, seed Session, opts Op
 					return Artifacts{}, err
 				}
 			}
-			if err := editSlot(p, &session, slot, docs); err != nil {
+			if err := editSlot(p, session, slot, docs); err != nil {
 				return Artifacts{}, err
 			}
-			if err := autosave(opts.DraftPath, session); err != nil {
+			if err := autosave(draftPath, *session); err != nil {
 				return Artifacts{}, err
 			}
 		default:
@@ -640,6 +658,7 @@ func editSlot(p *prompter, session *Session, slot string, docs []APIDocument) er
 			return err
 		}
 		session.Credentials = credentialBindings(value)
+		session.CredentialsSet = true
 	case "side-effect", "side-effects", "scope", "side-effect-scope":
 		value, err := p.askSideEffectScope(session.SideEffectScope)
 		if err != nil {
@@ -651,13 +670,15 @@ func editSlot(p *prompter, session *Session, slot string, docs []APIDocument) er
 		if err != nil {
 			return err
 		}
-		session.Safety = value
+		session.Safety = clearablePolicyAnswer(value)
+		session.SafetySet = true
 	case "fallback":
 		value, err := p.askDefault("Fallback behavior", session.Fallback)
 		if err != nil {
 			return err
 		}
-		session.Fallback = value
+		session.Fallback = clearablePolicyAnswer(value)
+		session.FallbackSet = true
 	case "openapi", "api":
 		if len(docs) > 0 {
 			doc, err := p.chooseDocument("OpenAPI document", docs, session.Intent.OpenAPI)
@@ -747,7 +768,7 @@ func credentialBindings(value string) []string {
 	var out []string
 	for _, item := range splitList(value) {
 		item = strings.TrimSpace(strings.Trim(item, "`'\""))
-		if item == "" || strings.EqualFold(item, "none") {
+		if item == "" || strings.EqualFold(item, "none") || strings.EqualFold(item, "clear") {
 			continue
 		}
 		out = append(out, slugIdent(item))
@@ -755,15 +776,19 @@ func credentialBindings(value string) []string {
 	return dedupeStrings(out)
 }
 
+func clearablePolicyAnswer(value string) string {
+	value = strings.TrimSpace(value)
+	if strings.EqualFold(value, "none") || strings.EqualFold(value, "clear") {
+		return ""
+	}
+	return value
+}
+
 func clearAPISteps(steps []*rollout.Step) {
-	for _, step := range steps {
-		if step == nil {
-			continue
-		}
+	walkSteps(steps, func(step *rollout.Step) {
 		step.OpenAPI = ""
 		step.Operation = ""
-		clearAPISteps(step.Steps)
-	}
+	})
 }
 
 func lastStepName(steps []*rollout.Step) string {
@@ -783,15 +808,13 @@ func defaultOutputSource(stepName string) string {
 }
 
 func hasRuntime(steps []*rollout.Step, runtime string) bool {
-	for _, step := range steps {
-		if step == nil {
-			continue
+	found := false
+	walkSteps(steps, func(step *rollout.Step) {
+		if strings.EqualFold(strings.TrimSpace(step.Type), runtime) {
+			found = true
 		}
-		if step.Type == runtime || hasRuntime(step.Steps, runtime) {
-			return true
-		}
-	}
-	return false
+	})
+	return found
 }
 
 func inputNames(inputs []*rollout.Input) string {

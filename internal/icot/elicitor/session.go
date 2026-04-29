@@ -17,8 +17,11 @@ type Session struct {
 	Project         projectwizard.Answers `json:"project,omitempty" yaml:"project,omitempty"`
 	Intent          rollout.Intent        `json:"intent,omitempty" yaml:"intent,omitempty"`
 	Credentials     []string              `json:"credentials,omitempty" yaml:"credentials,omitempty"`
+	CredentialsSet  bool                  `json:"credentials_set,omitempty" yaml:"credentials_set,omitempty"`
 	Safety          string                `json:"safety,omitempty" yaml:"safety,omitempty"`
+	SafetySet       bool                  `json:"safety_set,omitempty" yaml:"safety_set,omitempty"`
 	Fallback        string                `json:"fallback,omitempty" yaml:"fallback,omitempty"`
+	FallbackSet     bool                  `json:"fallback_set,omitempty" yaml:"fallback_set,omitempty"`
 	SideEffectScope string                `json:"side_effect_scope,omitempty" yaml:"side_effect_scope,omitempty"`
 	Annotations     []SourceAnnotation    `json:"annotations,omitempty" yaml:"annotations,omitempty"`
 }
@@ -69,8 +72,11 @@ func NewSessionFromAnswers(answers projectwizard.Answers) Session {
 		Project:         answers,
 		Intent:          intent,
 		Credentials:     dedupeStrings(answers.Credentials),
+		CredentialsSet:  true,
 		Safety:          answers.Safety,
+		SafetySet:       true,
 		Fallback:        answers.Fallback,
+		FallbackSet:     true,
 		SideEffectScope: answers.SideEffectScope,
 	}
 }
@@ -92,8 +98,11 @@ func SessionFromIntent(intent *rollout.Intent, project projectwizard.Answers) Se
 	session.Project.DataFlow = dataFlowText(value.Steps)
 	session.Project.FunctionContracts = functionText(value.Steps)
 	session.Credentials = dedupeStrings(project.Credentials)
+	session.CredentialsSet = true
 	session.Safety = project.Safety
+	session.SafetySet = true
 	session.Fallback = project.Fallback
+	session.FallbackSet = true
 	session.SideEffectScope = project.SideEffectScope
 	if session.SideEffectScope == "" {
 		session.SideEffectScope = projectwizard.InferSideEffectScope(project.Safety)
@@ -122,17 +131,30 @@ func (s *Session) Normalize() {
 	s.Project.Outputs = outputsText(s.Intent.Outputs)
 	s.Project.DataFlow = dataFlowText(s.Intent.Steps)
 	s.Project.FunctionContracts = functionText(s.Intent.Steps)
-	s.Project.Credentials = dedupeStrings(append(s.Project.Credentials, s.Credentials...))
-	s.Credentials = s.Project.Credentials
-	s.Project.Safety = firstNonEmpty(s.Project.Safety, s.Safety)
-	s.Project.Fallback = firstNonEmpty(s.Project.Fallback, s.Fallback)
+	if s.CredentialsSet {
+		s.Credentials = dedupeStrings(s.Credentials)
+		s.Project.Credentials = s.Credentials
+	} else {
+		s.Project.Credentials = dedupeStrings(append(s.Project.Credentials, s.Credentials...))
+		s.Credentials = s.Project.Credentials
+	}
+	if s.SafetySet {
+		s.Project.Safety = strings.TrimSpace(s.Safety)
+	} else {
+		s.Project.Safety = firstNonEmpty(s.Project.Safety, s.Safety)
+		s.Safety = s.Project.Safety
+	}
+	if s.FallbackSet {
+		s.Project.Fallback = strings.TrimSpace(s.Fallback)
+	} else {
+		s.Project.Fallback = firstNonEmpty(s.Project.Fallback, s.Fallback)
+		s.Fallback = s.Project.Fallback
+	}
 	s.SideEffectScope = projectwizard.NormalizeSideEffectScope(firstNonEmpty(s.SideEffectScope, s.Project.SideEffectScope))
 	if s.SideEffectScope == "" {
 		s.SideEffectScope = projectwizard.InferSideEffectScope(s.Project.Safety)
 	}
 	s.Project.SideEffectScope = s.SideEffectScope
-	s.Safety = s.Project.Safety
-	s.Fallback = s.Project.Fallback
 	s.Intent.Inputs = dedupeInputs(s.Intent.Inputs)
 	s.Intent.Outputs = dedupeOutputs(s.Intent.Outputs)
 	normalizeSteps(s.Intent.Steps)
@@ -242,9 +264,24 @@ func mergeSessions(base, overlay Session) Session {
 		base.Intent.Security = overlay.Intent.Security
 	}
 	base.Project = mergeAnswers(base.Project, overlay.Project)
-	base.Credentials = dedupeStrings(append(base.Credentials, overlay.Credentials...))
-	base.Safety = firstNonEmpty(base.Safety, overlay.Safety)
-	base.Fallback = firstNonEmpty(base.Fallback, overlay.Fallback)
+	if overlay.CredentialsSet {
+		base.Credentials = overlay.Credentials
+		base.CredentialsSet = true
+	} else {
+		base.Credentials = dedupeStrings(append(base.Credentials, overlay.Credentials...))
+	}
+	if overlay.SafetySet {
+		base.Safety = overlay.Safety
+		base.SafetySet = true
+	} else {
+		base.Safety = firstNonEmpty(base.Safety, overlay.Safety)
+	}
+	if overlay.FallbackSet {
+		base.Fallback = overlay.Fallback
+		base.FallbackSet = true
+	} else {
+		base.Fallback = firstNonEmpty(base.Fallback, overlay.Fallback)
+	}
 	base.SideEffectScope = firstNonEmpty(base.SideEffectScope, overlay.SideEffectScope)
 	base.Annotations = append(base.Annotations, overlay.Annotations...)
 	base.Normalize()
@@ -412,9 +449,9 @@ func outputsText(outputs []*rollout.Output) string {
 
 func dataFlowText(steps []*rollout.Step) string {
 	var parts []string
-	for _, step := range steps {
+	walkSteps(steps, func(step *rollout.Step) {
 		if step == nil {
-			continue
+			return
 		}
 		for _, dep := range step.DependsOn {
 			parts = append(parts, fmt.Sprintf("`%s` depends on `%s`", step.Name, dep))
@@ -427,18 +464,18 @@ func dataFlowText(steps []*rollout.Step) string {
 				parts = append(parts, fmt.Sprintf("`%s.%s` comes from `%s.%s`", step.Name, field, bind.From, source))
 			}
 		}
-	}
+	})
 	return strings.Join(parts, "; ")
 }
 
 func functionText(steps []*rollout.Step) string {
 	var parts []string
-	for _, step := range steps {
+	walkSteps(steps, func(step *rollout.Step) {
 		if step == nil || strings.TrimSpace(step.Type) != "fnct" {
-			continue
+			return
 		}
 		parts = append(parts, fmt.Sprintf("`%s`: %s", step.Name, step.Do))
-	}
+	})
 	return strings.Join(parts, "; ")
 }
 
@@ -447,11 +484,11 @@ func openAPIText(intent rollout.Intent) string {
 	if strings.TrimSpace(intent.OpenAPI) != "" {
 		refs = append(refs, intent.OpenAPI)
 	}
-	for _, step := range intent.Steps {
-		if step != nil && strings.TrimSpace(step.OpenAPI) != "" {
+	walkSteps(intent.Steps, func(step *rollout.Step) {
+		if strings.TrimSpace(step.OpenAPI) != "" {
 			refs = append(refs, step.OpenAPI)
 		}
-	}
+	})
 	refs = dedupeStrings(refs)
 	if len(refs) == 0 {
 		return ""
@@ -482,6 +519,32 @@ func normalizeSteps(steps []*rollout.Step) {
 		}
 		step.DependsOn = dedupeStrings(step.DependsOn)
 		normalizeSteps(step.Steps)
+		for _, branch := range step.Cases {
+			if branch != nil {
+				normalizeSteps(branch.Steps)
+			}
+		}
+		if step.Default != nil {
+			normalizeSteps(step.Default.Steps)
+		}
+	}
+}
+
+func walkSteps(steps []*rollout.Step, visit func(*rollout.Step)) {
+	for _, step := range steps {
+		if step == nil {
+			continue
+		}
+		visit(step)
+		walkSteps(step.Steps, visit)
+		for _, branch := range step.Cases {
+			if branch != nil {
+				walkSteps(branch.Steps, visit)
+			}
+		}
+		if step.Default != nil {
+			walkSteps(step.Default.Steps, visit)
+		}
 	}
 }
 

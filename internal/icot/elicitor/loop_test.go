@@ -7,6 +7,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/genelet/ramen/internal/projectwizard"
 	"github.com/genelet/udon/pkg/rollout"
 )
 
@@ -149,6 +150,34 @@ func TestRunCreatesStepBindFromPriorOutput(t *testing.T) {
 	}
 	if len(step.Binds) != 1 || step.Binds[0].Fields["customerId"] != "received_body.id" {
 		t.Fatalf("binds = %#v", step.Binds)
+	}
+}
+
+func TestSessionNormalizeExplicitPolicyMarkersReplaceSeededProjectValues(t *testing.T) {
+	session := Session{
+		Project: projectwizard.Answers{
+			ProjectName: "Policy",
+			Credentials: []string{"old_token"},
+			Safety:      "Old safety note",
+			Fallback:    "Old fallback note",
+		},
+		Intent:         rollout.Intent{Workflow: &rollout.WorkflowMeta{Name: "policy", Description: "Test policy edits"}},
+		Credentials:    []string{"new_token"},
+		CredentialsSet: true,
+		Safety:         "",
+		SafetySet:      true,
+		Fallback:       "New fallback note",
+		FallbackSet:    true,
+	}
+	session.Normalize()
+	if len(session.Project.Credentials) != 1 || session.Project.Credentials[0] != "new_token" {
+		t.Fatalf("credentials were not replaced: %#v", session.Project.Credentials)
+	}
+	if session.Project.Safety != "" || session.Safety != "" {
+		t.Fatalf("safety was not cleared: project=%q top=%q", session.Project.Safety, session.Safety)
+	}
+	if session.Project.Fallback != "New fallback note" || session.Fallback != "New fallback note" {
+		t.Fatalf("fallback was not replaced: project=%q top=%q", session.Project.Fallback, session.Fallback)
 	}
 }
 

@@ -70,14 +70,14 @@ func runAuthor(args []string, in io.Reader, out, errOut io.Writer) int {
 
 	draftPath := ""
 	loadDraft := strings.TrimSpace(*answersFile) == "" && strings.TrimSpace(*fromExample) == ""
-	seed, err := authorSession(*answersFile, *fromExample, exampleDir, *force, loadDraft)
+	seed, source, err := authorSession(*answersFile, *fromExample, exampleDir, *force, loadDraft)
 	if err != nil {
 		fmt.Fprintln(errOut, err)
 		return 1
 	}
 	if loadDraft {
 		draftPath = elicitor.DraftPath(exampleDir)
-		if elicitor.LooksLikeSession(seed) {
+		if source == seedSourceDraft {
 			fmt.Fprintf(out, "icot: resumed draft %s\n", draftPath)
 		}
 	}
@@ -89,7 +89,8 @@ func runAuthor(args []string, in io.Reader, out, errOut io.Writer) int {
 		fmt.Fprintln(out, "icot: running without LLM extraction; continuing with manual slot filling")
 	}
 	var artifacts elicitor.Artifacts
-	if completeSession(seed) {
+	complete := completeSession(seed)
+	if complete && (source != seedSourceDraft || *printOnly) {
 		artifacts, err = elicitor.RenderArtifacts(seed)
 	} else {
 		artifacts, err = elicitor.Run(context.Background(), input, out, seed, elicitor.Options{
@@ -97,6 +98,7 @@ func runAuthor(args []string, in io.Reader, out, errOut io.Writer) int {
 			NoLLM:      *noLLM || !usingLLM,
 			Extractor:  extractor,
 			DraftPath:  draftPath,
+			VerifyOnly: complete && source == seedSourceDraft,
 		})
 	}
 	if *printOnly {
@@ -270,18 +272,33 @@ func authorAnswers(answersFile, fromExample, exampleDir string, force bool, in i
 	return projectwizard.PromptWithDefaults(in, out, seed)
 }
 
-func authorSession(answersFile, fromExample, exampleDir string, force bool, allowDraft bool) (elicitor.Session, error) {
+type seedSource string
+
+const (
+	seedSourceEmpty   seedSource = ""
+	seedSourceAnswers seedSource = "answers"
+	seedSourceSeed    seedSource = "seed"
+	seedSourceDraft   seedSource = "draft"
+)
+
+func authorSession(answersFile, fromExample, exampleDir string, force bool, allowDraft bool) (elicitor.Session, seedSource, error) {
 	if strings.TrimSpace(answersFile) != "" {
-		return loadSessionFile(answersFile)
+		session, err := loadSessionFile(answersFile)
+		return session, seedSourceAnswers, err
 	}
 	if allowDraft {
 		if session, ok, err := elicitor.LoadDraft(elicitor.DraftPath(exampleDir)); err != nil {
-			return elicitor.Session{}, err
+			return elicitor.Session{}, seedSourceEmpty, err
 		} else if ok {
-			return session, nil
+			return session, seedSourceDraft, nil
 		}
 	}
-	return loadSeedSession(fromExample, exampleDir, force)
+	session, err := loadSeedSession(fromExample, exampleDir, force)
+	source := seedSourceEmpty
+	if elicitor.LooksLikeSession(session) {
+		source = seedSourceSeed
+	}
+	return session, source, err
 }
 
 func loadSessionFile(path string) (elicitor.Session, error) {

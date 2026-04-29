@@ -157,28 +157,12 @@ func intentOpenAPIRefs(intent rollout.Intent) []string {
 	if strings.TrimSpace(intent.OpenAPI) != "" {
 		refs = append(refs, strings.TrimSpace(intent.OpenAPI))
 	}
-	walkOpenAPIRefs(intent.Steps, &refs)
-	return dedupeStrings(refs)
-}
-
-func walkOpenAPIRefs(steps []*rollout.Step, refs *[]string) {
-	for _, step := range steps {
-		if step == nil {
-			continue
-		}
+	walkSteps(intent.Steps, func(step *rollout.Step) {
 		if strings.TrimSpace(step.OpenAPI) != "" {
-			*refs = append(*refs, strings.TrimSpace(step.OpenAPI))
+			refs = append(refs, strings.TrimSpace(step.OpenAPI))
 		}
-		walkOpenAPIRefs(step.Steps, refs)
-		for _, branch := range step.Cases {
-			if branch != nil {
-				walkOpenAPIRefs(branch.Steps, refs)
-			}
-		}
-		if step.Default != nil {
-			walkOpenAPIRefs(step.Default.Steps, refs)
-		}
-	}
+	})
+	return dedupeStrings(refs)
 }
 
 func credentialCandidates(value string) []string {
@@ -201,10 +185,7 @@ func credentialCandidates(value string) []string {
 }
 
 func walkStepValues(steps []*rollout.Step, visit func(string)) {
-	for _, step := range steps {
-		if step == nil {
-			continue
-		}
+	walkSteps(steps, func(step *rollout.Step) {
 		for _, value := range step.With {
 			visit(value)
 		}
@@ -216,36 +197,17 @@ func walkStepValues(steps []*rollout.Step, visit func(string)) {
 				visit(value)
 			}
 		}
-		walkStepValues(step.Steps, visit)
-		for _, branch := range step.Cases {
-			if branch != nil {
-				walkStepValues(branch.Steps, visit)
-			}
-		}
-		if step.Default != nil {
-			walkStepValues(step.Default.Steps, visit)
-		}
-	}
+	})
 }
 
 func usesRuntime(steps []*rollout.Step, runtime string) bool {
-	for _, step := range steps {
-		if step == nil {
-			continue
+	found := false
+	walkSteps(steps, func(step *rollout.Step) {
+		if strings.EqualFold(strings.TrimSpace(step.Type), runtime) {
+			found = true
 		}
-		if strings.EqualFold(strings.TrimSpace(step.Type), runtime) || usesRuntime(step.Steps, runtime) {
-			return true
-		}
-		for _, branch := range step.Cases {
-			if branch != nil && usesRuntime(branch.Steps, runtime) {
-				return true
-			}
-		}
-		if step.Default != nil && usesRuntime(step.Default.Steps, runtime) {
-			return true
-		}
-	}
-	return false
+	})
+	return found
 }
 
 func stringSet(values []string) map[string]bool {
