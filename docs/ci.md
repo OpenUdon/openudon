@@ -23,11 +23,16 @@ The tokens need read-only contents access to these private dependency repositori
 - `genelet/hcllight`
 - `genelet/horizon`
 - `genelet/molecule`
-- private `genelet/*` modules imported transitively, including `genelet/determined` and
-  `genelet/oas`, `genelet/schema`, and `genelet/sqlmeta`
+- private `genelet/*` modules imported transitively, including `genelet/determined`
 - `tabilet/uws`
 - `tabilet/arazzo`
-- private `tabilet/*` modules imported transitively, including `tabilet/oas` and `tabilet/schema`
+- private `tabilet/*` modules imported transitively, including `tabilet/oas`, `tabilet/schema`, and
+  `tabilet/sqlmeta`
+
+Some older transitive module paths still reference `github.com/genelet/oas`,
+`github.com/genelet/schema`, or `github.com/genelet/sqlmeta`. Those repositories have moved under
+the `tabilet` owner, so CI checks the canonical `tabilet/*` repositories and rewrites those legacy
+Git fetches to use `RAMEN_CI_TABILET_TOKEN`.
 
 The workflow configures:
 

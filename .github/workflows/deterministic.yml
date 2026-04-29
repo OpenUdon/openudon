@@ -90,10 +90,7 @@ jobs:
             genelet/hcllight \
             genelet/horizon \
             genelet/molecule \
-            genelet/determined \
-            genelet/oas \
-            genelet/schema \
-            genelet/sqlmeta
+            genelet/determined
           do
             check_repo_access "${RAMEN_CI_GENELET_TOKEN}" RAMEN_CI_GENELET_TOKEN "${repo}"
           done
@@ -102,7 +99,8 @@ jobs:
             tabilet/uws \
             tabilet/arazzo \
             tabilet/oas \
-            tabilet/schema
+            tabilet/schema \
+            tabilet/sqlmeta
           do
             check_repo_access "${RAMEN_CI_TABILET_TOKEN}" RAMEN_CI_TABILET_TOKEN "${repo}"
           done
@@ -181,6 +179,9 @@ jobs:
           RAMEN_CI_GENELET_TOKEN: ${{ secrets.RAMEN_CI_GENELET_TOKEN }}
           RAMEN_CI_TABILET_TOKEN: ${{ secrets.RAMEN_CI_TABILET_TOKEN }}
         run: |
+          git config --global url."https://x-access-token:${RAMEN_CI_TABILET_TOKEN}@github.com/tabilet/oas".insteadOf "https://github.com/genelet/oas"
+          git config --global url."https://x-access-token:${RAMEN_CI_TABILET_TOKEN}@github.com/tabilet/schema".insteadOf "https://github.com/genelet/schema"
+          git config --global url."https://x-access-token:${RAMEN_CI_TABILET_TOKEN}@github.com/tabilet/sqlmeta".insteadOf "https://github.com/genelet/sqlmeta"
           git config --global url."https://x-access-token:${RAMEN_CI_GENELET_TOKEN}@github.com/genelet/".insteadOf "https://github.com/genelet/"
           git config --global url."https://x-access-token:${RAMEN_CI_TABILET_TOKEN}@github.com/tabilet/".insteadOf "https://github.com/tabilet/"
           go env -w GOPRIVATE="${GOPRIVATE}"
