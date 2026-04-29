@@ -63,6 +63,20 @@ func TestRenderEmptyOptionalAnswersAreExplicit(t *testing.T) {
 	}
 }
 
+func TestRenderSideEffectScopes(t *testing.T) {
+	cases := map[string]string{
+		SideEffectReadOnly:      "Do not execute workflows, call external systems",
+		SideEffectSandboxOnly:   "Production execution is not approved",
+		SideEffectAfterApproval: "approved_for_production",
+	}
+	for scope, expected := range cases {
+		doc := Render(Answers{ProjectName: "Scope", Goal: "Do the work", SideEffectScope: scope})
+		if !strings.Contains(doc, expected) {
+			t.Fatalf("scope %s missing %q:\n%s", scope, expected, doc)
+		}
+	}
+}
+
 func TestCredentialAnswersAreBindingNamesOnly(t *testing.T) {
 	doc := Render(Answers{
 		ProjectName: "Credentials",
@@ -108,6 +122,7 @@ func TestRunPromptsScriptedAnswers(t *testing.T) {
 		"`openapi/support.yaml`",
 		"",
 		"",
+		"sandbox-only",
 		"support_api_token",
 		"Sandbox proof runs only",
 		"Stop if ticket lookup is unavailable",
@@ -137,7 +152,7 @@ func TestPromptWithDefaultsKeepsCurrentOnEmptyInput(t *testing.T) {
 		Credentials: []string{"support_api_token"},
 		Fallback:    "Stop if unavailable",
 	}
-	input := strings.Repeat("\n", 12)
+	input := strings.Repeat("\n", 13)
 	var prompts strings.Builder
 	answers, err := PromptWithDefaults(strings.NewReader(input), &prompts, defaults)
 	if err != nil {
@@ -156,6 +171,7 @@ func TestPrompterReadsLongLines(t *testing.T) {
 	input := strings.Join([]string{
 		"Long Project",
 		longGoal,
+		"",
 		"",
 		"",
 		"",

@@ -18,6 +18,7 @@ func LoadAnswersFromMarkdown(text string) (Answers, error) {
 		OpenAPI:           openAPIAnswer(text),
 		CmdApproved:       runtimeApproved(text, "cmd"),
 		SSHApproved:       runtimeApproved(text, "ssh"),
+		SideEffectScope:   InferSideEffectScope(projectdoc.Section(text, "Safety and Approval Boundary")),
 		Credentials:       credentialBindings(projectdoc.Section(text, "Credentials and Secrets")),
 		Safety:            sectionAnswer(text, "Safety and Approval Boundary"),
 		Fallback:          sectionAnswer(text, "Fallback Behavior"),
@@ -77,7 +78,13 @@ func isGeneratedBoilerplate(line string) bool {
 		return true
 	case lower == "generate and validate artifacts only":
 		return true
+	case strings.Contains(lower, "do not execute workflows"):
+		return true
 	case lower == "do not directly execute production workflows":
+		return true
+	case strings.Contains(lower, "production execution is not approved"):
+		return true
+	case strings.Contains(lower, "call external systems"):
 		return true
 	case strings.Contains(lower, "approved_for_sandbox"):
 		return true

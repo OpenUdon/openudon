@@ -5,12 +5,16 @@ integration policy that tells Ramen when to use OpenAPI, when to use a non-HTTP 
 when to stop.
 
 `go run ./cmd/icot --example examples/<name>` is an optional guided authoring tool. It asks fixed
-questions and emits the same section structure as `templates/project.md`; it does not replace this
-manual contract and does not generate workflow artifacts.
+questions and writes both `project.md` and `workflows/intent.hcl`. `project.md` remains the Ramen
+policy/prose artifact, while `workflows/intent.hcl` is the structured saved contract that `ramen
+build` consumes next.
 
 `icot` is deterministic. It can print without writing (`--print`), seed prompts from another
-example (`--from-example`), render from YAML or JSON answers (`--answers`), and lint an existing
-brief (`icot lint --example examples/<name>`).
+example (`--from-example`), render from YAML or JSON answers (`--answers`), resume interrupted
+interactive sessions from `.icot/session.yaml`, reconcile `project.md` from existing intent
+(`icot reconcile --example examples/<name>`), and lint an existing brief plus intent drift (`icot
+lint --example examples/<name>`). Drift findings are warnings unless a parse or existing fail check
+also fails.
 
 ## What To Include
 
@@ -26,6 +30,13 @@ Use these sections for new projects:
 - Credentials and Secrets: credential binding names only; never secret values.
 - Safety and Approval Boundary: what may be generated, validated, or executed.
 - Fallback Behavior: when Ramen should stop instead of guessing.
+
+For guided authoring, choose one side-effect scope:
+
+- `read-only`: artifact generation and validation only; no workflow execution or external effects.
+- `sandbox-only`: sandbox proof runs only after `approved_for_sandbox` through a trusted runner.
+- `after-approval`: sandbox and production execution require the existing approval/trusted-runner
+  states and approved credential bindings.
 
 For side-effectful workflows, the Safety and Approval Boundary must name both the approval or
 trusted-runtime path and the sandbox/test proof-run policy. Ramen synthesis should not directly

@@ -46,7 +46,8 @@ make check
 ```
 
 New trusted operators should start with `docs/onboarding.md`, then either run
-`go run ./cmd/icot --example examples/<name>` for deterministic guided authoring or use
+`go run ./cmd/icot --example examples/<name>` for deterministic guided authoring of `project.md`
+and `workflows/intent.hcl`, or use
 `templates/project.md` when authoring a new project brief manually.
 For the short operator path from authoring through release evidence, see
 `docs/operator-checklist.md`.
@@ -285,12 +286,17 @@ Before writing a new `project.md`, read `docs/project-authoring.md`, `docs/inten
 go run ./cmd/icot --example ./examples/<name>
 ```
 
-The guided command asks fixed authoring questions, writes the same standard section structure, and
-creates `openapi/`, `workflows/`, and `expected/` if missing. It does not synthesize artifacts; run
-`ramen synthesize --example ./examples/<name>` after reviewing `project.md`. The brief should
-include runtime policy, data-flow hints, credential binding names, safety boundaries, and fallback
-behavior. For runtime-only projects that do not need API/OpenAPI integration, include
-`OpenAPI: none required`.
+The guided command asks fixed authoring questions, writes `project.md` plus
+`workflows/intent.hcl`, and creates `openapi/`, `workflows/`, and `expected/` if missing. It does
+not synthesize compiled artifacts; run `ramen build --example ./examples/<name>` after reviewing
+the project and intent. The brief should include runtime policy, data-flow hints, credential
+binding names, safety boundaries, side-effect scope, and fallback behavior. For runtime-only
+projects that do not need API/OpenAPI integration, include `OpenAPI: none required`.
+
+Interrupted interactive `icot` sessions are autosaved under `.icot/session.yaml` and resume by
+default on the next run for the same example. Use `icot reconcile --example ./examples/<name>` to
+regenerate only `project.md` from an existing `workflows/intent.hcl` while preserving local
+credentials, safety, fallback, and runtime approval policy.
 
 Useful deterministic authoring helpers:
 
@@ -298,5 +304,6 @@ Useful deterministic authoring helpers:
 go run ./cmd/icot --example ./examples/<name> --print
 go run ./cmd/icot --from-example ./examples/eval/runtime-only-render --example ./examples/<name>
 go run ./cmd/icot --answers ./answers.yaml --example ./examples/<name>
+go run ./cmd/icot reconcile --example ./examples/<name> --print
 go run ./cmd/icot lint --example ./examples/<name>
 ```

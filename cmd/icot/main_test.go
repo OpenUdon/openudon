@@ -25,9 +25,14 @@ func TestCLIHelpDocumentsFlags(t *testing.T) {
 		"--print",
 		"--from-example",
 		"--answers",
+		"-no-llm",
+		"-provider",
+		"-model",
+		"-temperature",
 		"project.md",
+		"intent.hcl",
 		"openapi/",
-		"ramen synthesize --example",
+		"ramen build --example",
 	} {
 		if !strings.Contains(text, expected) {
 			t.Fatalf("icot help missing %q:\n%s", expected, text)
@@ -37,13 +42,13 @@ func TestCLIHelpDocumentsFlags(t *testing.T) {
 
 func TestCLICreatesProjectAndDirectories(t *testing.T) {
 	example := filepath.Join(t.TempDir(), "guided")
-	cmd := helperCommand("--example", example)
-	cmd.Stdin = strings.NewReader(projectInput(false) + "y\n")
+	cmd := helperCommand("--example", example, "--no-llm")
+	cmd.Stdin = strings.NewReader(projectInput(false))
 	output, err := cmd.CombinedOutput()
 	if err != nil {
 		t.Fatalf("icot failed: %v\n%s", err, output)
 	}
-	for _, rel := range []string{"project.md", "openapi", "workflows", "expected"} {
+	for _, rel := range []string{"project.md", "workflows/intent.hcl", "openapi", "workflows", "expected"} {
 		if _, err := os.Stat(filepath.Join(example, rel)); err != nil {
 			t.Fatalf("expected %s to exist: %v\n%s", rel, err, output)
 		}
@@ -55,23 +60,30 @@ func TestCLICreatesProjectAndDirectories(t *testing.T) {
 	text := string(project)
 	for _, expected := range []string{
 		"# Guided Project",
+		"Render a local summary report",
 		"OpenAPI: none required",
 		"`cmd` is not allowed",
 		"`ssh` is not allowed",
-		"`support_api_token`",
 	} {
 		if !strings.Contains(text, expected) {
 			t.Fatalf("project.md missing %q:\n%s", expected, text)
 		}
 	}
-	if !strings.Contains(string(output), "project.md preview") {
-		t.Fatalf("output missing preview:\n%s", output)
+	intent, err := os.ReadFile(filepath.Join(example, "workflows", "intent.hcl"))
+	if err != nil {
+		t.Fatalf("read intent.hcl: %v", err)
+	}
+	if !strings.Contains(string(intent), `workflow`) || !strings.Contains(string(intent), `render_report`) {
+		t.Fatalf("intent.hcl missing expected content:\n%s", intent)
+	}
+	if !strings.Contains(string(output), "current draft") {
+		t.Fatalf("output missing final verification:\n%s", output)
 	}
 }
 
 func TestCLIPrintWritesNoFiles(t *testing.T) {
 	example := filepath.Join(t.TempDir(), "print")
-	cmd := helperCommand("--example", example, "--print")
+	cmd := helperCommand("--example", example, "--print", "--no-llm")
 	cmd.Stdin = strings.NewReader(projectInput(false))
 	output, err := cmd.CombinedOutput()
 	if err != nil {
@@ -83,12 +95,15 @@ func TestCLIPrintWritesNoFiles(t *testing.T) {
 	if !strings.Contains(string(output), "OpenAPI: none required") {
 		t.Fatalf("--print output missing rendered project:\n%s", output)
 	}
+	if !strings.Contains(string(output), "workflows/intent.hcl") || !strings.Contains(string(output), "render_report") {
+		t.Fatalf("--print output missing rendered intent:\n%s", output)
+	}
 }
 
-func TestCLIPreviewCancelWritesNoFiles(t *testing.T) {
+func TestCLICancelWritesNoFiles(t *testing.T) {
 	example := filepath.Join(t.TempDir(), "cancel")
-	cmd := helperCommand("--example", example)
-	cmd.Stdin = strings.NewReader(projectInput(false) + "cancel\n")
+	cmd := helperCommand("--example", example, "--no-llm")
+	cmd.Stdin = strings.NewReader(projectInputBeforeVerify(false) + "cancel\n")
 	output, err := cmd.CombinedOutput()
 	if err != nil {
 		t.Fatalf("icot cancel failed: %v\n%s", err, output)
@@ -120,7 +135,7 @@ func TestCLIRefusesExistingProjectWithoutForce(t *testing.T) {
 	}
 }
 
-func TestCLIForceYesCreatesBackupAndOverwritesOnlyProjectMD(t *testing.T) {
+func TestCLIForceYesCreatesBackupsAndOverwritesGeneratedFiles(t *testing.T) {
 	example := t.TempDir()
 	for _, rel := range []string{"openapi", "workflows", "expected"} {
 		if err := os.MkdirAll(filepath.Join(example, rel), 0o755); err != nil {
@@ -140,7 +155,7 @@ func TestCLIForceYesCreatesBackupAndOverwritesOnlyProjectMD(t *testing.T) {
 	if err := os.WriteFile(filepath.Join(example, "project.md"), []byte("old\n"), 0o644); err != nil {
 		t.Fatalf("write existing project.md: %v", err)
 	}
-	cmd := helperCommand("--example", example, "--force", "--yes", "--answers", writeAnswersFile(t, t.TempDir(), true))
+	cmd := helperCommand("--example", example, "--force", "--yes", "--answers", writeSessionFile(t, t.TempDir()))
 	output, err := cmd.CombinedOutput()
 	if err != nil {
 		t.Fatalf("icot --force --yes failed: %v\n%s", err, output)
@@ -152,18 +167,32 @@ func TestCLIForceYesCreatesBackupAndOverwritesOnlyProjectMD(t *testing.T) {
 	if !strings.Contains(string(project), "openapi/support.yaml") {
 		t.Fatalf("project.md was not overwritten with new content:\n%s", project)
 	}
-	backups, err := filepath.Glob(filepath.Join(example, "project.md.bak.*"))
-	if err != nil || len(backups) != 1 {
-		t.Fatalf("expected one backup, got %v, err %v", backups, err)
+	projectBackups, err := filepath.Glob(filepath.Join(example, "project.md.bak.*"))
+	if err != nil || len(projectBackups) != 1 {
+		t.Fatalf("expected one project backup, got %v, err %v", projectBackups, err)
 	}
-	backup, err := os.ReadFile(backups[0])
+	backup, err := os.ReadFile(projectBackups[0])
 	if err != nil {
 		t.Fatalf("read backup: %v", err)
 	}
 	if string(backup) != "old\n" {
 		t.Fatalf("backup content = %q", backup)
 	}
+	intentBackups, err := filepath.Glob(filepath.Join(example, "workflows", "intent.hcl.bak.*"))
+	if err != nil || len(intentBackups) != 1 {
+		t.Fatalf("expected one intent backup, got %v, err %v", intentBackups, err)
+	}
+	intent, err := os.ReadFile(filepath.Join(example, "workflows", "intent.hcl"))
+	if err != nil {
+		t.Fatalf("read overwritten intent: %v", err)
+	}
+	if !strings.Contains(string(intent), "openapi/support.yaml") {
+		t.Fatalf("intent.hcl was not overwritten with new content:\n%s", intent)
+	}
 	for rel, want := range preserved {
+		if rel == "workflows/intent.hcl" {
+			continue
+		}
 		got, err := os.ReadFile(filepath.Join(example, rel))
 		if err != nil {
 			t.Fatalf("read preserved %s: %v", rel, err)
@@ -177,7 +206,6 @@ func TestCLIForceYesCreatesBackupAndOverwritesOnlyProjectMD(t *testing.T) {
 func TestCLIFromExampleSeedsDefaults(t *testing.T) {
 	example := filepath.Join(t.TempDir(), "seeded")
 	cmd := helperCommand("--example", example, "--from-example", "examples/eval/runtime-only-render")
-	cmd.Stdin = strings.NewReader(strings.Repeat("\n", 12) + "y\n")
 	output, err := cmd.CombinedOutput()
 	if err != nil {
 		t.Fatalf("icot --from-example failed: %v\n%s", err, output)
@@ -214,10 +242,7 @@ func TestCLIAnswersYAMLNoPrompts(t *testing.T) {
 func TestCLIAnswersJSONPrintWritesNoFiles(t *testing.T) {
 	dir := t.TempDir()
 	answersPath := filepath.Join(dir, "answers.json")
-	data := `{"project_name":"JSON Project","goal":"Call an API","uses_openapi":true,"openapi":"Support API: use ` + "`openapi/support.yaml`" + `","credentials":["support_api_token"]}`
-	if err := os.WriteFile(answersPath, []byte(data), 0o644); err != nil {
-		t.Fatalf("write answers: %v", err)
-	}
+	writeSessionJSON(t, answersPath)
 	example := filepath.Join(dir, "out")
 	cmd := helperCommand("--example", example, "--answers", answersPath, "--print")
 	output, err := cmd.CombinedOutput()
@@ -260,28 +285,42 @@ func helperCommand(args ...string) *exec.Cmd {
 	cmdArgs := append([]string{"-test.run=TestCLIHelperProcess", "--"}, args...)
 	cmd := exec.Command(os.Args[0], cmdArgs...)
 	cmd.Dir = filepath.Join("..", "..")
-	cmd.Env = append(os.Environ(), "ICOT_CLI_HELPER=1")
+	cmd.Env = append(os.Environ(),
+		"ICOT_CLI_HELPER=1",
+		"GEMINI_API_KEY=",
+		"OPENAI_API_KEY=",
+		"ANTHROPIC_API_KEY=",
+	)
 	return cmd
 }
 
 func projectInput(withOpenAPI bool) string {
+	return projectInputBeforeVerify(withOpenAPI) + "save\n"
+}
+
+func projectInputBeforeVerify(withOpenAPI bool) string {
 	answers := []string{
-		"Guided Project",
-		"Fetch a ticket and prepare a draft",
-		"`ticket_id`: required string",
-		"Stored draft reply",
-		"Pass ticket body to draft writer",
-		"`write_draft`: inputs ticket body; outputs draft id",
+		"Render a local summary report from a runtime input",
+		"guided_project",
+		"Render a local summary report",
 	}
 	if withOpenAPI {
-		answers = append(answers, "yes", "Support API: use `openapi/support.yaml`")
+		answers = append(answers, "yes", "openapi/support.yaml")
 	} else {
-		answers = append(answers, "")
+		answers = append(answers, "no")
 	}
 	answers = append(answers,
+		"summary:string",
+		"render_report",
+		"fnct",
+		"Render the summary report",
+		"summary",
 		"",
 		"",
-		"support_api_token",
+		"report",
+		"render_report.received_body",
+		"sandbox-only",
+		"",
 		"Sandbox proof runs only",
 		"Stop if required services are unavailable",
 	)
@@ -313,6 +352,67 @@ func writeAnswersFile(t *testing.T, dir string, withOpenAPI bool) string {
 		t.Fatalf("write answers file: %v", err)
 	}
 	return path
+}
+
+func writeSessionFile(t *testing.T, dir string) string {
+	t.Helper()
+	path := filepath.Join(dir, "session.yaml")
+	data := "project:\n" +
+		"  project_name: Guided Project\n" +
+		"  goal: Call an API\n" +
+		"credentials:\n" +
+		"  - support_api_token\n" +
+		"safety: Sandbox proof runs only\n" +
+		"fallback: Stop if required services are unavailable\n" +
+		"side_effect_scope: sandbox-only\n" +
+		"intent:\n" +
+		"  openapi: openapi/support.yaml\n" +
+		"  workflow:\n" +
+		"    name: guided_project\n" +
+		"    description: Call an API\n" +
+		"  steps:\n" +
+		"    - name: call_support\n" +
+		"      type: http\n" +
+		"      do: Call the support API\n" +
+		"      operation: getTicket\n" +
+		"      with:\n" +
+		"        ticketId: inputs.ticketId\n" +
+		"  inputs:\n" +
+		"    - name: ticketId\n" +
+		"      type: string\n" +
+		"      required: true\n" +
+		"  outputs:\n" +
+		"    - name: ticket\n" +
+		"      from: call_support.received_body\n"
+	if err := os.WriteFile(path, []byte(data), 0o644); err != nil {
+		t.Fatalf("write session file: %v", err)
+	}
+	return path
+}
+
+func writeSessionJSON(t *testing.T, path string) {
+	t.Helper()
+	data := `{
+  "project": {"project_name": "JSON Project", "goal": "Call an API"},
+  "credentials": ["support_api_token"],
+  "side_effect_scope": "sandbox-only",
+  "intent": {
+    "openapi": "openapi/support.yaml",
+    "workflow": {"name": "json_project", "description": "Call an API"},
+    "inputs": [{"name": "ticketId", "type": "string", "required": true}],
+    "steps": [{
+      "name": "call_support",
+      "type": "http",
+      "do": "Call the support API",
+      "operation": "getTicket",
+      "with": {"ticketId": "inputs.ticketId"}
+    }],
+    "outputs": [{"name": "ticket", "from": "call_support.received_body"}]
+  }
+}`
+	if err := os.WriteFile(path, []byte(data), 0o644); err != nil {
+		t.Fatalf("write session JSON: %v", err)
+	}
 }
 
 func TestCLIHelperProcess(t *testing.T) {

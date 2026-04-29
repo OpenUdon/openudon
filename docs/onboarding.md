@@ -67,14 +67,20 @@ go run ./cmd/icot --example ./examples/<name>
 ```
 
 The wizard creates `project.md`, `openapi/`, `workflows/`, and `expected/`, then leaves synthesis to
-the normal `ramen synthesize --example ./examples/<name>` step.
+the normal `ramen build --example ./examples/<name>` step when `workflows/intent.hcl` is already
+authored.
 
 Useful deterministic options:
 
-- `--print` renders without writing files.
+- `--print` renders `project.md` and `workflows/intent.hcl` without writing files.
 - `--from-example ./examples/eval/<name>` seeds prompts from an existing brief.
 - `--answers ./answers.yaml` renders from YAML or JSON without prompts.
-- `lint --example ./examples/<name>` checks authoring sections and obvious secret-like content.
+- Interrupted interactive sessions resume from `.icot/session.yaml`; successful save or `cancel`
+  removes the draft.
+- `reconcile --example ./examples/<name>` regenerates only `project.md` from existing
+  `workflows/intent.hcl` while preserving local policy text.
+- `lint --example ./examples/<name>` checks authoring sections, obvious secret-like content,
+  intent parsing, and advisory project/intent drift.
 
 For manual authoring, start from `templates/project.md`, then read:
 
