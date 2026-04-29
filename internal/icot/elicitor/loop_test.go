@@ -468,6 +468,134 @@ func TestDeterministicPrefillAddsSingleStepOutput(t *testing.T) {
 	}
 }
 
+func TestReadinessFlagsUndeclaredCredentialReference(t *testing.T) {
+	session := supportTicketDraft(true)
+	session.Credentials = nil
+	session.Intent.Steps[0].With = map[string]string{
+		"ticketId":      "inputs.ticketId",
+		"Authorization": "credentials.missing_token",
+	}
+	docs := []APIDocument{{RelativePath: "openapi/support.yaml", Operations: []*rollout.OperationInfo{{
+		OperationID: "getTicket",
+		Parameters:  []*rollout.ParameterInfo{{Name: "ticketId", Required: true}},
+		Security:    []string{"BearerAuth"},
+	}}}}
+
+	issues := CheckReadiness(session, docs)
+	if !hasReadinessCode(issues, "undeclared_credential_reference") {
+		t.Fatalf("missing undeclared credential issue: %#v", issues)
+	}
+}
+
+func TestReadinessFlagsInventedRequestField(t *testing.T) {
+	session := supportTicketDraft(true)
+	session.Intent.Steps[0].With["extra"] = "inputs.ticketId"
+	issues := CheckReadiness(session, []APIDocument{{RelativePath: "openapi/support.yaml", Operations: []*rollout.OperationInfo{{
+		OperationID: "getTicket",
+		Parameters:  []*rollout.ParameterInfo{{Name: "ticketId", Required: true}},
+	}}}})
+	if !hasReadinessCode(issues, "invented_request_field") {
+		t.Fatalf("missing invented request field issue: %#v", issues)
+	}
+}
+
+func TestReadinessAcceptsKnownOpenAPIRequestFields(t *testing.T) {
+	session := supportTicketDraft(true)
+	session.Credentials = []string{"support_api_token"}
+	session.CredentialsSet = true
+	session.Intent.Steps[0].With = map[string]string{
+		"ticketId":      "inputs.ticketId",
+		"include":       "summary",
+		"X-Trace-ID":    "inputs.ticketId",
+		"Authorization": "credentials.support_api_token",
+	}
+	docs := []APIDocument{{RelativePath: "openapi/support.yaml", Operations: []*rollout.OperationInfo{{
+		OperationID: "getTicket",
+		Parameters: []*rollout.ParameterInfo{
+			{Name: "ticketId", In: "path", Required: true, Type: "string"},
+			{Name: "include", In: "query", Type: "string"},
+			{Name: "X-Trace-ID", In: "header", Type: "string"},
+		},
+		Security: []string{"BearerAuth"},
+	}}}}
+
+	issues := CheckReadiness(session, docs)
+	for _, code := range []string{"invented_request_field", "undeclared_credential_reference", "incompatible_request_value_type"} {
+		if hasReadinessCode(issues, code) {
+			t.Fatalf("unexpected %s issue: %#v", code, issues)
+		}
+	}
+}
+
+func TestReadinessValidatesRequestBodyPaths(t *testing.T) {
+	session := supportTicketDraft(true)
+	session.Intent.Steps[0].Operation = "createOrder"
+	session.Intent.Steps[0].With = map[string]string{
+		"customer.email": "inputs.ticketId",
+		"items[].sku":    "inputs.ticketId",
+		"customer.phone": "inputs.ticketId",
+	}
+	docs := []APIDocument{{RelativePath: "openapi/orders.yaml", Operations: []*rollout.OperationInfo{{
+		OperationID: "createOrder",
+		RequestBody: &rollout.RequestBodyInfo{
+			Required: true,
+			Schema: map[string]any{
+				"type":     "object",
+				"required": []any{"customer", "items"},
+				"properties": map[string]any{
+					"customer": map[string]any{
+						"type":     "object",
+						"required": []any{"email"},
+						"properties": map[string]any{
+							"email": map[string]any{"type": "string"},
+						},
+					},
+					"items": map[string]any{
+						"type": "array",
+						"items": map[string]any{
+							"type":     "object",
+							"required": []any{"sku"},
+							"properties": map[string]any{
+								"sku": map[string]any{"type": "string"},
+							},
+						},
+					},
+				},
+			},
+		},
+	}}}}
+
+	issues := CheckReadiness(session, docs)
+	if !hasReadinessCode(issues, "invalid_request_body_path") {
+		t.Fatalf("missing invalid body path issue: %#v", issues)
+	}
+	if hasReadinessCode(issues, "missing_required_request_values") {
+		t.Fatalf("valid required body paths were treated as missing: %#v", issues)
+	}
+}
+
+func TestReadinessFlagsIncompatibleLiteralTypes(t *testing.T) {
+	session := supportTicketDraft(true)
+	session.Intent.Steps[0].With = map[string]string{
+		"ticketId": "123",
+		"page":     "abc",
+		"active":   "yes",
+	}
+	docs := []APIDocument{{RelativePath: "openapi/support.yaml", Operations: []*rollout.OperationInfo{{
+		OperationID: "getTicket",
+		Parameters: []*rollout.ParameterInfo{
+			{Name: "ticketId", Required: true, Type: "string"},
+			{Name: "page", Type: "integer"},
+			{Name: "active", Type: "boolean"},
+		},
+	}}}}
+
+	issues := CheckReadiness(session, docs)
+	if !hasReadinessCode(issues, "incompatible_request_value_type") {
+		t.Fatalf("missing incompatible type issue: %#v", issues)
+	}
+}
+
 func hasAssumption(assumptions []Assumption, id string) bool {
 	for _, assumption := range assumptions {
 		if assumption.ID == id {

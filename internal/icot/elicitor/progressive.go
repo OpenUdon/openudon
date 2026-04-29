@@ -208,6 +208,9 @@ func CheckReadiness(session Session, docs []APIDocument) []ReadinessIssue {
 				if operationNeedsCredential(op) && len(session.Credentials) == 0 {
 					add("missing_credential_bindings", "credentials", readinessBlocking, "Name the credential binding to use for this API.", suggestedCredentialName(op))
 				}
+				for _, issue := range validateOpenAPIRequestMappings(session, step, op, slotPrefix) {
+					add(issue.Code, issue.Slot, issue.Severity, issue.Message, issue.SuggestedAnswer)
+				}
 			}
 		}
 	}
@@ -810,12 +813,245 @@ func missingRequiredFields(step *rollout.Step, op *rollout.OperationInfo) []stri
 		}
 	}
 	var missing []string
-	for _, field := range requiredFields(op) {
+	for _, field := range requiredMappingFields(op) {
 		if !available[field] {
 			missing = append(missing, field)
 		}
 	}
 	return missing
+}
+
+func requiredMappingFields(op *rollout.OperationInfo) []string {
+	if op == nil {
+		return nil
+	}
+	var out []string
+	for _, parameter := range op.Parameters {
+		if parameter != nil && parameter.Required {
+			out = append(out, parameter.Name)
+		}
+	}
+	if op.RequestBody != nil && op.RequestBody.Required {
+		bodyFields := requiredLeafBodyFields(op.RequestBody)
+		if len(bodyFields) == 0 {
+			out = append(out, "body")
+		} else {
+			out = append(out, bodyFields...)
+		}
+	}
+	for _, security := range op.Security {
+		if field := securityFieldName(security); field != "" {
+			out = append(out, field)
+		}
+	}
+	return dedupeStrings(out)
+}
+
+func requiredLeafBodyFields(body *rollout.RequestBodyInfo) []string {
+	var required []requestBodyFieldContext
+	for _, field := range flattenRequestBodyFields(body) {
+		if field.Required {
+			required = append(required, field)
+		}
+	}
+	var out []string
+	for _, field := range required {
+		if requestBodyFieldHasRequiredDescendant(field.Path, required) {
+			continue
+		}
+		out = append(out, field.Path)
+	}
+	sort.Strings(out)
+	return out
+}
+
+func requestBodyFieldHasRequiredDescendant(path string, fields []requestBodyFieldContext) bool {
+	prefix := path + "."
+	arrayPrefix := path + "[]."
+	for _, field := range fields {
+		if field.Path == path {
+			continue
+		}
+		if strings.HasPrefix(field.Path, prefix) || strings.HasPrefix(field.Path, arrayPrefix) {
+			return true
+		}
+	}
+	return false
+}
+
+func validateOpenAPIRequestMappings(session Session, step *rollout.Step, op *rollout.OperationInfo, slotPrefix string) []ReadinessIssue {
+	if step == nil || op == nil {
+		return nil
+	}
+	fields := openAPIRequestFieldTypes(op)
+	credentialSet := map[string]bool{}
+	for _, credential := range session.Credentials {
+		if credential != "" {
+			credentialSet[credential] = true
+		}
+	}
+	var issues []ReadinessIssue
+	add := func(code, slot, message string) {
+		issues = append(issues, ReadinessIssue{
+			Code:     code,
+			Slot:     slot,
+			Severity: readinessBlocking,
+			Message:  message,
+		})
+	}
+	validate := func(field, source, slot string) {
+		field = strings.TrimSpace(field)
+		source = strings.TrimSpace(source)
+		if field == "" || source == "" {
+			return
+		}
+		for _, credential := range credentialCandidates(source) {
+			if !credentialSet[credential] {
+				add("undeclared_credential_reference", slot, "Request field "+field+" references undeclared credential binding "+credential+".")
+			}
+		}
+		info, ok := fields[field]
+		if !ok {
+			if invalidBodyPath(field, fields) {
+				add("invalid_request_body_path", slot, "Request body path "+field+" is not present in the selected operation schema.")
+			} else {
+				add("invented_request_field", slot, "Request field "+field+" is not defined by the selected OpenAPI operation.")
+			}
+			return
+		}
+		if incompatibleLiteralType(source, info.Type) {
+			add("incompatible_request_value_type", slot, "Request field "+field+" expects "+info.Type+" but is mapped from incompatible literal "+source+".")
+		}
+	}
+	for field, source := range step.With {
+		validate(field, source, slotPrefix+".with."+field)
+	}
+	for i, bind := range step.Binds {
+		if bind == nil {
+			continue
+		}
+		for field, source := range bind.Fields {
+			validate(field, source, fmt.Sprintf("%s.bind.%d.%s", slotPrefix, i+1, field))
+		}
+	}
+	return issues
+}
+
+type openAPIRequestFieldInfo struct {
+	Type string
+	Body bool
+}
+
+func openAPIRequestFieldTypes(op *rollout.OperationInfo) map[string]openAPIRequestFieldInfo {
+	out := map[string]openAPIRequestFieldInfo{}
+	if op == nil {
+		return out
+	}
+	for _, parameter := range op.Parameters {
+		if parameter == nil || strings.TrimSpace(parameter.Name) == "" {
+			continue
+		}
+		out[parameter.Name] = openAPIRequestFieldInfo{Type: parameter.Type}
+	}
+	for _, security := range op.Security {
+		if field := securityFieldName(security); field != "" {
+			out[field] = openAPIRequestFieldInfo{Type: "string"}
+		}
+	}
+	if op.RequestBody != nil {
+		for _, field := range flattenRequestBodyFields(op.RequestBody) {
+			if strings.TrimSpace(field.Path) == "" {
+				continue
+			}
+			out[field.Path] = openAPIRequestFieldInfo{Type: field.Type, Body: true}
+		}
+	}
+	return out
+}
+
+func invalidBodyPath(field string, fields map[string]openAPIRequestFieldInfo) bool {
+	if !strings.Contains(field, ".") && !strings.Contains(field, "[]") && !strings.HasPrefix(field, "body") {
+		return false
+	}
+	for _, info := range fields {
+		if info.Body {
+			return true
+		}
+	}
+	return false
+}
+
+func incompatibleLiteralType(source, wantType string) bool {
+	source = strings.TrimSpace(source)
+	wantType = strings.ToLower(strings.TrimSpace(wantType))
+	if source == "" || wantType == "" || expressionLikeSource(source) {
+		return false
+	}
+	switch wantType {
+	case "string":
+		return isBoolLiteral(source) || isNumberLiteral(source)
+	case "integer", "int":
+		return !isIntegerLiteral(source)
+	case "number", "float", "double":
+		return !isNumberLiteral(source)
+	case "boolean", "bool":
+		return !isBoolLiteral(source)
+	default:
+		return false
+	}
+}
+
+func expressionLikeSource(source string) bool {
+	source = strings.TrimSpace(source)
+	return strings.HasPrefix(source, "inputs.") ||
+		strings.HasPrefix(source, "credentials.") ||
+		strings.HasPrefix(source, "credential.") ||
+		strings.Contains(source, ".received_") ||
+		strings.Contains(source, ".body") ||
+		strings.HasPrefix(source, "${")
+}
+
+func isBoolLiteral(value string) bool {
+	return strings.EqualFold(value, "true") || strings.EqualFold(value, "false")
+}
+
+func isIntegerLiteral(value string) bool {
+	if value == "" {
+		return false
+	}
+	value = strings.TrimPrefix(strings.TrimPrefix(value, "-"), "+")
+	if value == "" {
+		return false
+	}
+	for _, r := range value {
+		if r < '0' || r > '9' {
+			return false
+		}
+	}
+	return true
+}
+
+func isNumberLiteral(value string) bool {
+	if value == "" {
+		return false
+	}
+	seenDigit := false
+	seenDot := false
+	value = strings.TrimPrefix(strings.TrimPrefix(value, "-"), "+")
+	if value == "" {
+		return false
+	}
+	for _, r := range value {
+		switch {
+		case r >= '0' && r <= '9':
+			seenDigit = true
+		case r == '.' && !seenDot:
+			seenDot = true
+		default:
+			return false
+		}
+	}
+	return seenDigit
 }
 
 func operationNeedsCredential(op *rollout.OperationInfo) bool {
@@ -873,13 +1109,17 @@ func sortReadinessIssues(issues []ReadinessIssue) []ReadinessIssue {
 		"missing_goal":                          0,
 		"missing_api_doc":                       1,
 		"missing_operation":                     2,
-		"missing_required_request_values":       3,
-		"missing_credential_bindings":           4,
-		"missing_runtime_inputs":                5,
-		"missing_outputs":                       6,
-		"missing_side_effect_policy":            7,
-		"optional_timeout_idempotency_controls": 8,
-		"intent_render_invalid":                 9,
+		"undeclared_credential_reference":       3,
+		"invented_request_field":                4,
+		"invalid_request_body_path":             5,
+		"incompatible_request_value_type":       6,
+		"missing_required_request_values":       7,
+		"missing_credential_bindings":           8,
+		"missing_runtime_inputs":                9,
+		"missing_outputs":                       10,
+		"missing_side_effect_policy":            11,
+		"optional_timeout_idempotency_controls": 12,
+		"intent_render_invalid":                 13,
 	}
 	sort.SliceStable(issues, func(i, j int) bool {
 		return priority[issues[i].Code] < priority[issues[j].Code]

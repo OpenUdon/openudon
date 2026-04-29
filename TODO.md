@@ -44,7 +44,7 @@ values, and asks better grouped questions only when deterministic gaps remain.
 - `[done]` Prefill obvious mappings before LLM/user prompts: fill exact runtime-input matches,
   declared credential bindings, and default one-step outputs when the mapping is deterministic and
   auditable.
-- `[todo]` Strengthen deterministic readiness validation: flag undeclared credential references,
+- `[done]` Strengthen deterministic readiness validation: flag undeclared credential references,
   incompatible input/source types when OpenAPI type is known, invented request fields, and invalid
   request-body paths.
 - `[todo]` Add internal confidence/evidence classification: record whether each mapping came from a
