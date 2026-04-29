@@ -342,6 +342,7 @@ func TestProgressiveTwoQuestionPathUsesReadinessFeedback(t *testing.T) {
 	example := t.TempDir()
 	writeOpenAPI(t, example)
 	first := supportTicketDraft(false)
+	first.Intent.Inputs = nil
 	second := supportTicketDraft(true)
 	extractor := &sequenceDraftExtractor{drafts: []Session{first, second}}
 	input := strings.Join([]string{
@@ -364,6 +365,125 @@ func TestProgressiveTwoQuestionPathUsesReadinessFeedback(t *testing.T) {
 	if len(extractor.calls) < 2 || len(extractor.calls[1].ReadinessFeedback) == 0 {
 		t.Fatalf("second draft did not receive readiness feedback: %#v", extractor.calls)
 	}
+}
+
+func TestProgressiveDeterministicPrefillSkipsRequiredFieldQuestion(t *testing.T) {
+	example := t.TempDir()
+	writeOpenAPI(t, example)
+	extractor := &sequenceDraftExtractor{drafts: []Session{supportTicketDraft(false)}}
+	input := strings.Join([]string{
+		"Fetch a support ticket.",
+		"save",
+	}, "\n") + "\n"
+	var out strings.Builder
+	artifacts, err := Run(context.Background(), strings.NewReader(input), &out, Session{}, Options{
+		ExampleDir: example,
+		NoLLM:      false,
+		Extractor:  extractor,
+	})
+	if err != nil {
+		t.Fatalf("Run failed: %v\n%s", err, out.String())
+	}
+	if strings.Contains(out.String(), "What values should the required request fields use?") {
+		t.Fatalf("deterministic prefill still asked for required fields:\n%s", out.String())
+	}
+	intent, err := rollout.ParseIntent([]byte(artifacts.IntentHCL), "intent.hcl")
+	if err != nil {
+		t.Fatalf("parse rendered intent: %v\n%s", err, artifacts.IntentHCL)
+	}
+	if got := intent.Steps[0].With["ticketId"]; got != "inputs.ticketId" {
+		t.Fatalf("ticketId prefill = %q", got)
+	}
+	if !hasAssumption(artifacts.Session.Assumptions, "deterministic_prefill_steps_get_ticket_with_ticketId") {
+		t.Fatalf("missing deterministic prefill assumption: %#v", artifacts.Session.Assumptions)
+	}
+}
+
+func TestDeterministicPrefillUsesSingleCredentialBinding(t *testing.T) {
+	session := supportTicketDraft(true)
+	session.Credentials = []string{"support_api_token"}
+	session.CredentialsSet = true
+	session.Intent.Steps[0].With = map[string]string{"ticketId": "inputs.ticketId"}
+	docs := []APIDocument{{RelativePath: "openapi/support.yaml", Operations: []*rollout.OperationInfo{{
+		OperationID: "getTicket",
+		Parameters:  []*rollout.ParameterInfo{{Name: "ticketId", Required: true}},
+		Security:    []string{"BearerAuth"},
+	}}}}
+
+	if !deterministicPrefill(&session, docs) {
+		t.Fatalf("deterministic prefill did not change session")
+	}
+	if got := session.Intent.Steps[0].With["Authorization"]; got != "credentials.support_api_token" {
+		t.Fatalf("Authorization prefill = %q", got)
+	}
+}
+
+func TestDeterministicPrefillLeavesAmbiguousCredentialUnfilled(t *testing.T) {
+	session := supportTicketDraft(true)
+	session.Credentials = []string{"first_token", "second_token"}
+	session.CredentialsSet = true
+	session.Intent.Steps[0].With = map[string]string{"ticketId": "inputs.ticketId"}
+	docs := []APIDocument{{RelativePath: "openapi/support.yaml", Operations: []*rollout.OperationInfo{{
+		OperationID: "getTicket",
+		Parameters:  []*rollout.ParameterInfo{{Name: "ticketId", Required: true}},
+		Security:    []string{"BearerAuth"},
+	}}}}
+
+	deterministicPrefill(&session, docs)
+	if got := session.Intent.Steps[0].With["Authorization"]; got != "" {
+		t.Fatalf("ambiguous credential was prefilled: %q", got)
+	}
+	issues := CheckReadiness(session, docs)
+	if !hasReadinessCode(issues, "missing_required_request_values") {
+		t.Fatalf("missing credential field was not reported: %#v", issues)
+	}
+}
+
+func TestDeterministicPrefillLeavesNonMatchingInputUnfilled(t *testing.T) {
+	session := supportTicketDraft(false)
+	session.Intent.Inputs = []*rollout.Input{{Name: "requestId", Type: "string", Required: true}}
+	docs := []APIDocument{{RelativePath: "openapi/support.yaml", Operations: []*rollout.OperationInfo{{
+		OperationID: "getTicket",
+		Parameters:  []*rollout.ParameterInfo{{Name: "ticketId", Required: true}},
+	}}}}
+
+	deterministicPrefill(&session, docs)
+	if got := session.Intent.Steps[0].With["ticketId"]; got != "" {
+		t.Fatalf("non-matching input was prefilled: %q", got)
+	}
+	issues := CheckReadiness(session, docs)
+	if !hasReadinessCode(issues, "missing_required_request_values") {
+		t.Fatalf("missing input field was not reported: %#v", issues)
+	}
+}
+
+func TestDeterministicPrefillAddsSingleStepOutput(t *testing.T) {
+	session := supportTicketDraft(true)
+	session.Intent.Outputs = nil
+	if !deterministicPrefill(&session, []APIDocument{{RelativePath: "openapi/support.yaml", Operations: []*rollout.OperationInfo{{OperationID: "getTicket"}}}}) {
+		t.Fatalf("deterministic prefill did not change session")
+	}
+	if len(session.Intent.Outputs) != 1 || session.Intent.Outputs[0].Name != "result" || session.Intent.Outputs[0].From != "get_ticket.received_body" {
+		t.Fatalf("outputs = %#v", session.Intent.Outputs)
+	}
+}
+
+func hasAssumption(assumptions []Assumption, id string) bool {
+	for _, assumption := range assumptions {
+		if assumption.ID == id {
+			return true
+		}
+	}
+	return false
+}
+
+func hasReadinessCode(issues []ReadinessIssue, code string) bool {
+	for _, issue := range issues {
+		if issue.Code == code {
+			return true
+		}
+	}
+	return false
 }
 
 func TestProgressiveAmbiguousOperationAsksBeforeFieldMapping(t *testing.T) {

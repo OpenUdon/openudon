@@ -38,10 +38,10 @@ values, and asks better grouped questions only when deterministic gaps remain.
 - `[done]` Send richer OpenAPI parameter context to draft extraction: include parameter location,
   type, description, enum/defaults, request-body required paths, and security scheme details in the
   LLM draft payload.
-- `[todo]` Rank candidate operations before drafting: deterministically score operations from intent
+- `[done]` Rank candidate operations before drafting: deterministically score operations from intent
   text, current session state, tags, path segments, summaries, required fields, and selected OpenAPI
   document; send only top candidates plus any already-selected operations.
-- `[todo]` Prefill obvious mappings before LLM/user prompts: fill exact runtime-input matches,
+- `[done]` Prefill obvious mappings before LLM/user prompts: fill exact runtime-input matches,
   declared credential bindings, and default one-step outputs when the mapping is deterministic and
   auditable.
 - `[todo]` Strengthen deterministic readiness validation: flag undeclared credential references,

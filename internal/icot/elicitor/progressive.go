@@ -83,6 +83,9 @@ func runProgressive(ctx context.Context, in io.Reader, out io.Writer, seed Sessi
 
 	var issues []ReadinessIssue
 	for attempt := 0; attempt < 20; attempt++ {
+		if deterministicPrefill(&session, docs) {
+			session.Normalize()
+		}
 		request := DraftRequest{
 			Opening:           openingBrief,
 			Session:           session,
@@ -100,6 +103,9 @@ func runProgressive(ctx context.Context, in io.Reader, out io.Writer, seed Sessi
 			session = mergeProgressiveSessions(session, draft, docs)
 			defaultSingleOpenAPIDoc(&session, docs)
 			session.Normalize()
+			if deterministicPrefill(&session, docs) {
+				session.Normalize()
+			}
 			record("model_draft_result", map[string]any{
 				"steps":       len(session.Intent.Steps),
 				"inputs":      len(session.Intent.Inputs),
@@ -150,6 +156,9 @@ func runProgressive(ctx context.Context, in io.Reader, out io.Writer, seed Sessi
 		applyProgressiveAnswer(&session, plan, answer, docs)
 		defaultSingleOpenAPIDoc(&session, docs)
 		session.Normalize()
+		if deterministicPrefill(&session, docs) {
+			session.Normalize()
+		}
 		record("progressive_question", plan)
 		record("progressive_answer", ReplayTurn{Label: plan.Prompt, Answer: answer})
 		if err := autosave(opts.DraftPath, session); err != nil {
@@ -595,6 +604,149 @@ func applyProgressiveAnswer(session *Session, plan QuestionPlan, answer string, 
 		session.Safety = answer
 		session.SafetySet = true
 	}
+}
+
+func deterministicPrefill(session *Session, docs []APIDocument) bool {
+	if session == nil {
+		return false
+	}
+	changed := false
+	walkSteps(session.Intent.Steps, func(step *rollout.Step) {
+		if step == nil {
+			return
+		}
+		op, ok := operationForStep(*session, docs, step)
+		if !ok {
+			return
+		}
+		for _, field := range missingRequiredFields(step, op) {
+			if looksCredentialField(field, op) {
+				if len(session.Credentials) != 1 {
+					continue
+				}
+				source := "credentials." + session.Credentials[0]
+				if setStepWithIfEmpty(step, field, source) {
+					addDeterministicPrefillAssumption(session, step, field, source, "credential binding", "The selected operation security metadata identifies this request field as a credential field.")
+					changed = true
+				}
+				continue
+			}
+			inputName, ok := exactInputMatch(session.Intent.Inputs, field)
+			if !ok {
+				continue
+			}
+			source := "inputs." + inputName
+			if setStepWithIfEmpty(step, field, source) {
+				addDeterministicPrefillAssumption(session, step, field, source, "runtime input", "A declared runtime input exactly matches the required request field.")
+				changed = true
+			}
+		}
+	})
+	if len(session.Intent.Outputs) == 0 {
+		if output, ok := deterministicSingleStepOutput(session.Intent.Steps); ok {
+			session.Intent.Outputs = []*rollout.Output{output}
+			addDeterministicOutputAssumption(session, output)
+			changed = true
+		}
+	}
+	return changed
+}
+
+func setStepWithIfEmpty(step *rollout.Step, field, source string) bool {
+	field = strings.TrimSpace(field)
+	source = strings.TrimSpace(source)
+	if step == nil || field == "" || source == "" {
+		return false
+	}
+	if step.With == nil {
+		step.With = map[string]string{}
+	}
+	if strings.TrimSpace(step.With[field]) != "" {
+		return false
+	}
+	step.With[field] = source
+	return true
+}
+
+func exactInputMatch(inputs []*rollout.Input, field string) (string, bool) {
+	field = strings.TrimSpace(field)
+	slugged := slugIdent(field)
+	matches := map[string]bool{}
+	for _, input := range inputs {
+		if input == nil {
+			continue
+		}
+		name := strings.TrimSpace(input.Name)
+		if name == "" {
+			continue
+		}
+		if name == field || name == slugged {
+			matches[name] = true
+		}
+	}
+	if len(matches) != 1 {
+		return "", false
+	}
+	for name := range matches {
+		return name, true
+	}
+	return "", false
+}
+
+func deterministicSingleStepOutput(steps []*rollout.Step) (*rollout.Output, bool) {
+	if len(steps) != 1 || !prefillOutputStep(steps[0]) {
+		return nil, false
+	}
+	stepName := strings.TrimSpace(steps[0].Name)
+	if stepName == "" {
+		return nil, false
+	}
+	return &rollout.Output{Name: "result", From: stepName + ".received_body"}, true
+}
+
+func prefillOutputStep(step *rollout.Step) bool {
+	if step == nil {
+		return false
+	}
+	switch strings.ToLower(strings.TrimSpace(step.Type)) {
+	case "switch", "merge", "loop", "branch":
+		return false
+	case "http", "openapi":
+		return strings.TrimSpace(step.Operation) != ""
+	default:
+		return strings.TrimSpace(step.Name) != ""
+	}
+}
+
+func addDeterministicPrefillAssumption(session *Session, step *rollout.Step, field, source, sourceKind, reason string) {
+	stepName := firstNonEmpty(step.Name, "step")
+	slot := "steps." + stepName + ".with." + field
+	assumption := Assumption{
+		ID:                   "deterministic_prefill_" + slugIdent(slot),
+		Slot:                 slot,
+		Value:                field + "=" + source,
+		Reason:               reason,
+		Evidence:             sourceKind + " " + source,
+		Risk:                 "low",
+		RequiresConfirmation: true,
+	}
+	session.Assumptions = mergeAssumptions(session.Assumptions, []Assumption{assumption})
+}
+
+func addDeterministicOutputAssumption(session *Session, output *rollout.Output) {
+	if output == nil {
+		return
+	}
+	assumption := Assumption{
+		ID:                   "deterministic_prefill_output_" + slugIdent(output.Name),
+		Slot:                 "intent.outputs." + output.Name,
+		Value:                output.Name + "=" + output.From,
+		Reason:               "A single executable step can expose its received body as the workflow result.",
+		Evidence:             output.From,
+		Risk:                 "low",
+		RequiresConfirmation: true,
+	}
+	session.Assumptions = mergeAssumptions(session.Assumptions, []Assumption{assumption})
 }
 
 func needsAPIDoc(session Session, docs []APIDocument) bool {
