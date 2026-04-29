@@ -2,7 +2,8 @@
 
 Ramen deterministic CI needs private repository access because `go.mod` uses local sibling
 replacements for `../udon`, `../grand`, `../golet`, `../hcllight`, `../horizon`, `../molecule`,
-`../uws`, and `../arazzo`, and the imported dependency graph also contains private
+`../uws`, and `../arazzo`. The workspace check also requires `../symphony`. The imported dependency
+graph contains private
 `github.com/genelet/*` and `github.com/tabilet/*` modules.
 
 ## Required Secret
@@ -50,6 +51,7 @@ The workflow checks out Ramen and sibling repos into one parent workspace:
 
 ```text
 ramen/
+symphony/
 udon/
 grand/
 golet/

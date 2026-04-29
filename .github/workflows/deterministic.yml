@@ -118,6 +118,12 @@ jobs:
           go-version-file: ramen/go.mod
           cache-dependency-path: ramen/go.sum
 
+      - name: Check out symphony
+        uses: actions/checkout@v6
+        with:
+          repository: openai/symphony
+          path: symphony
+
       - name: Check out udon
         uses: actions/checkout@v6
         with:
