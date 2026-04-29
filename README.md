@@ -85,7 +85,8 @@ The command reads `project.md`, discovers or imports OpenAPI documents under `op
 `workflows/intent.hcl`, generates `workflows/workflow.hcl` through udon, exports
 `workflows/workflow.uws.yaml`, and writes `expected/plan.json`, `expected/plan.md`,
 `expected/discovery.json`, `expected/refinement.json`, `expected/refinement.md`,
-`expected/review.md`, `expected/quality.json`, and `expected/quality.md`.
+`expected/review.md`, `expected/symphony-handoff.json`, `expected/quality.json`, and
+`expected/quality.md`.
 
 The expected plan records inferred steps, OpenAPI operations, required request fields,
 step-to-step bindings, and credential-like parameters. `ramen assess` compiles the final
@@ -171,6 +172,31 @@ fallbacks, no brief above two refinement attempts, no blocking reference issues 
 
 Development gates and real-provider release automation remain local/manual through `make check` and
 `make release-eval`.
+
+## Trusted Execution Wrapper
+
+After artifacts pass review, generate approval JSON with the current handoff package digest:
+
+```bash
+go run ./cmd/ramen approval-template \
+  --example ./examples/support-email \
+  --state approved_for_sandbox \
+  --reviewer "Reviewer Name" \
+  > approvals/support-email-sandbox.json
+```
+
+Then validate approval, quality, handoff policy, package digest, and tier compatibility before udon
+execution:
+
+```bash
+go run ./cmd/ramen run \
+  --example ./examples/support-email \
+  --tier sandbox \
+  --approval approvals/support-email-sandbox.json
+```
+
+Use `--dry-run` to validate the gates without invoking udon. The full wrapper plan and approval
+schema are in `SYMPHONY_WRAPPER.md`.
 
 Last full passing real-LLM smoke: 2026-04-28, `gemini-2.5-flash`, prompt `intent.v3`, structured
 output path with `0` legacy extraction fallbacks.

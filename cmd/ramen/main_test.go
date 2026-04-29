@@ -43,6 +43,7 @@ func TestCLIArtifactHelpIncludesExamplesAndArtifacts(t *testing.T) {
 		"gemini-2.5-flash",
 		"Artifacts:",
 		"workflows/intent.hcl",
+		"expected/symphony-handoff.json",
 		"expected/quality.json",
 	} {
 		if !strings.Contains(text, expected) {
@@ -76,6 +77,48 @@ func TestCLIEvalHelpIncludesReleaseGate(t *testing.T) {
 	}
 }
 
+func TestCLIRunHelpIncludesApprovalGates(t *testing.T) {
+	cmd := helperCommand("run", "--help")
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		t.Fatalf("run help failed: %v\n%s", err, output)
+	}
+	text := string(output)
+	for _, expected := range []string{
+		"Usage: ramen run",
+		"--tier sandbox|production",
+		"--approval",
+		"--dry-run",
+		"approved_for_sandbox",
+		"approved_for_production",
+		"scripts/run-udon.sh",
+	} {
+		if !strings.Contains(text, expected) {
+			t.Fatalf("run help missing %q:\n%s", expected, text)
+		}
+	}
+}
+
+func TestCLIApprovalTemplateHelpIncludesSchema(t *testing.T) {
+	cmd := helperCommand("approval-template", "--help")
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		t.Fatalf("approval-template help failed: %v\n%s", err, output)
+	}
+	text := string(output)
+	for _, expected := range []string{
+		"Usage: ramen approval-template",
+		"approved_for_sandbox|approved_for_production",
+		"ramen.approval.v1",
+		"package_sha256",
+		"expires_at",
+	} {
+		if !strings.Contains(text, expected) {
+			t.Fatalf("approval-template help missing %q:\n%s", expected, text)
+		}
+	}
+}
+
 func TestNextActionForQualityCheck(t *testing.T) {
 	got := nextActionForQualityCheck("artifacts.no_secrets")
 	if !strings.Contains(got, "credential binding names") {
@@ -92,6 +135,7 @@ func TestNextActionForQualityCheck(t *testing.T) {
 		"review.sandbox_handoff":       "sandbox or proof runs",
 		"review.trusted_runner":        "trusted-runner handoff command",
 		"review.production_boundary":   "does not directly execute production workflows",
+		"symphony_handoff.contract":    "Symphony can consume",
 	}
 	for code, expected := range cases {
 		got := nextActionForQualityCheck(code)

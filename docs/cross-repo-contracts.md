@@ -38,7 +38,8 @@ blockers.
 
 Ramen emits an artifact package that Symphony can attach to a work item and route through review.
 The package is deterministic file output, not an approval workflow by itself.
-The concrete implementation request for the external owner is
+The local trusted execution wrapper is documented in `SYMPHONY_WRAPPER.md`. The optional managed
+workflow routing request for the external owner is
 [`docs/xrd-005-symphony-handoff.md`](xrd-005-symphony-handoff.md).
 
 Required handoff package:
@@ -53,6 +54,7 @@ Required handoff package:
 | `expected/quality.json` | Deterministic quality gate results. |
 | `expected/refinement.json` | Generation/refinement attempts, failed checks, and stop reason. |
 | `expected/review.md` | Human review evidence, unresolved risks, skipped execution notes, and trusted-runner command text. |
+| `expected/symphony-handoff.json` | Machine-readable XRD-005 handoff manifest with inputs, approval states, owner split, execution policy, credential bindings, and trusted-runner command. |
 
 Required approval states for the Symphony-owned work item:
 
@@ -71,6 +73,7 @@ Ramen remains responsible for:
 - Review evidence, including side-effect summary, unresolved risks, skipped execution, and sandbox
   proof-run requirements.
 - Trusted-runner command text that an approved operator can execute outside the agent session.
+- Approval-template generation and the `ramen run` local trusted execution gate.
 - Secret scanning and credential-binding evidence using names, not secret values.
 
 The external Symphony owner owns:
@@ -78,12 +81,12 @@ The external Symphony owner owns:
 - Approval routing, reviewer identity, and audit trail.
 - State transitions between the approval states above.
 - Workspace and work item linkage.
-- Enforcement that production execution cannot occur from an unapproved state.
+- Managed enforcement in Symphony work items when upstream routing is adopted.
 
 Acceptance: a Symphony implementer can consume the listed files, map them to the listed states, and
 build reviewer routing without guessing what Ramen emits or which approval state names are expected.
-Ramen must not modify `../symphony`; it only maintains this emitted-artifact contract and coordinates
-the upstream request with the Symphony owner.
+Ramen must not modify `../symphony`; it maintains this emitted-artifact contract, the local trusted
+execution wrapper, and any upstream coordination with the Symphony owner.
 
 ## XRD-007 Private Checkout And Secrets Runbook
 

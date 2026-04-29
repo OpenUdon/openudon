@@ -52,7 +52,30 @@ Development gates and real-provider release automation remain local/manual.
 
 ## Trusted Handoff
 
-Ramen emits generated artifacts only. Before any side-effectful execution, the Symphony-owned work
-item must move through review and the applicable approval state. The trusted handoff package and
-approval-state contract are defined in `docs/cross-repo-contracts.md`; the external Symphony owner
-handoff is in `docs/xrd-005-symphony-handoff.md`.
+Before any side-effectful execution, review the generated artifacts and create approval JSON from
+the current handoff package digest:
+
+```bash
+mkdir -p approvals
+go run ./cmd/ramen approval-template \
+  --example examples/support-email \
+  --state approved_for_sandbox \
+  --reviewer "Reviewer Name" \
+  > approvals/support-email-sandbox.json
+```
+
+Then run the trusted wrapper. Use `--dry-run` first when checking the handoff without invoking udon:
+
+```bash
+go run ./cmd/ramen run \
+  --example examples/support-email \
+  --tier sandbox \
+  --approval approvals/support-email-sandbox.json \
+  --dry-run
+```
+
+The wrapper validates `expected/symphony-handoff.json`, `expected/quality.json`, current in-memory
+quality gates, approval scope, approval expiry, package digest, and tier/state compatibility before
+calling `scripts/run-udon.sh`. The approval-state contract remains compatible with Symphony
+work-item routing, but Ramen owns this trusted local execution gate. See `SYMPHONY_WRAPPER.md` and
+`docs/xrd-005-symphony-handoff.md`.

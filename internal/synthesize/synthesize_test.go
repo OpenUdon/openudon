@@ -2,6 +2,7 @@ package synthesize
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -387,7 +388,7 @@ paths:
 	if err != nil {
 		t.Fatal(err)
 	}
-	for _, path := range []string{result.IntentPath, result.WorkflowPath, result.UWSPath, result.PlanJSONPath, result.PlanMDPath, result.RefinementJSONPath, result.RefinementMDPath, result.ReviewPath, result.QualityJSONPath, result.QualityMDPath} {
+	for _, path := range []string{result.IntentPath, result.WorkflowPath, result.UWSPath, result.PlanJSONPath, result.PlanMDPath, result.RefinementJSONPath, result.RefinementMDPath, result.ReviewPath, result.SymphonyHandoffPath, result.QualityJSONPath, result.QualityMDPath} {
 		if _, err := os.Stat(path); err != nil {
 			t.Fatalf("expected artifact %s: %v", path, err)
 		}
@@ -411,6 +412,20 @@ paths:
 	}
 	if !strings.Contains(string(review), "Side-Effect Summary") || !strings.Contains(string(review), "Unresolved Risks") || !strings.Contains(string(review), "Trusted proof run") {
 		t.Fatalf("review missing hardened audit evidence:\n%s", review)
+	}
+	handoffData, err := os.ReadFile(result.SymphonyHandoffPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var handoff SymphonyHandoff
+	if err := json.Unmarshal(handoffData, &handoff); err != nil {
+		t.Fatal(err)
+	}
+	if handoff.Version != symphonyHandoffVersion || handoff.GeneratedState != "generated" {
+		t.Fatalf("unexpected Symphony handoff metadata: %#v", handoff)
+	}
+	if !symphonyHandoffHasApprovalStates(handoff) || !symphonyHandoffHasRequiredInputs(handoff) {
+		t.Fatalf("Symphony handoff missing required contract: %#v", handoff)
 	}
 	report, err := Assess(Options{ExampleDir: example, SchemaPath: schemaPath})
 	if err != nil {
@@ -856,6 +871,7 @@ step "send_email" {
 		"Unresolved Risks",
 		"Minimum Review Package",
 		"Quality report",
+		"Symphony handoff manifest",
 		"Credential binding audit",
 		"Direct production execution: not performed by Ramen synthesis",
 		"Trusted Execution Handoff",
@@ -999,6 +1015,7 @@ func validReviewEvidenceText(includeApprovalStates, includeCredentialInventory b
 - Quality report
 - Refinement report
 - Review evidence
+- Symphony handoff manifest
 
 ## Side-Effect Summary
 

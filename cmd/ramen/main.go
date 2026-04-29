@@ -15,6 +15,7 @@ import (
 	"github.com/genelet/ramen/internal/config"
 	evalpkg "github.com/genelet/ramen/internal/eval"
 	"github.com/genelet/ramen/internal/synthesize"
+	"github.com/genelet/ramen/internal/trustedrunner"
 	"github.com/genelet/ramen/internal/uwsvalidate"
 )
 
@@ -26,9 +27,11 @@ func main() {
 		fmt.Fprintf(flag.CommandLine.Output(), "Commands:\n")
 		fmt.Fprintf(flag.CommandLine.Output(), "  check     verify required sibling repositories are present\n")
 		fmt.Fprintf(flag.CommandLine.Output(), "  assess    assess existing example artifacts and write quality reports\n")
+		fmt.Fprintf(flag.CommandLine.Output(), "  approval-template print approval JSON for a validated handoff package\n")
 		fmt.Fprintf(flag.CommandLine.Output(), "  build     regenerate workflow/UWS from an existing intent.hcl\n")
 		fmt.Fprintf(flag.CommandLine.Output(), "  eval      run synthesis eval briefs and write pass/fail reports\n")
 		fmt.Fprintf(flag.CommandLine.Output(), "  promote   export/validate UWS from an existing workflow.hcl\n")
+		fmt.Fprintf(flag.CommandLine.Output(), "  run       validate approval gates and run udon through trusted wrapper\n")
 		fmt.Fprintf(flag.CommandLine.Output(), "  synthesize generate intent, workflow, UWS, and review artifacts for an example\n")
 		fmt.Fprintf(flag.CommandLine.Output(), "  validate  validate one UWS JSON/YAML file against the sibling UWS schema\n")
 		fmt.Fprintf(flag.CommandLine.Output(), "  version   print version\n")
@@ -59,6 +62,10 @@ func main() {
 		fmt.Printf("ramen: %s is valid UWS\n", flag.Arg(1))
 	case "synthesize", "build", "promote", "assess":
 		runArtifactCommand(command, flag.Args()[1:])
+	case "run":
+		runTrustedCommand(flag.Args()[1:])
+	case "approval-template":
+		runApprovalTemplateCommand(flag.Args()[1:])
 	case "eval":
 		runEvalCommand(flag.Args()[1:])
 	case "version":
@@ -69,6 +76,85 @@ func main() {
 		fmt.Fprintf(os.Stderr, "unknown command %q\n", command)
 		flag.Usage()
 		os.Exit(2)
+	}
+}
+
+func runTrustedCommand(args []string) {
+	fs := flag.NewFlagSet("run", flag.ExitOnError)
+	example := fs.String("example", "", "Example directory containing generated Ramen artifacts")
+	tier := fs.String("tier", "", "Execution tier: sandbox or production")
+	approval := fs.String("approval", "", "Approval JSON file")
+	workdir := fs.String("workdir", "", "udon work directory; defaults to .ramen-run/<example>")
+	dryRun := fs.Bool("dry-run", false, "Validate gates without invoking udon")
+	fs.Usage = func() {
+		fmt.Fprintf(fs.Output(), "Usage: ramen run --example examples/<name> --tier sandbox|production --approval approvals/<name>.json [--workdir .ramen-run/<name>] [--dry-run]\n")
+		fmt.Fprintf(fs.Output(), "\nValidates the Ramen handoff package, current quality gates, approval scope, approval digest, and tier/state compatibility before invoking scripts/run-udon.sh.\n")
+		fmt.Fprintf(fs.Output(), "\nTier rules:\n")
+		fmt.Fprintf(fs.Output(), "  sandbox accepts approved_for_sandbox or approved_for_production\n")
+		fmt.Fprintf(fs.Output(), "  production accepts approved_for_production only\n\n")
+		fs.PrintDefaults()
+	}
+	if err := fs.Parse(args); err != nil {
+		os.Exit(2)
+	}
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer stop()
+	result, err := trustedrunner.Run(ctx, trustedrunner.Options{
+		RepoRoot:     ".",
+		ExampleDir:   *example,
+		Tier:         *tier,
+		ApprovalPath: *approval,
+		WorkDir:      *workdir,
+		DryRun:       *dryRun,
+		RunnerPath:   os.Getenv("RAMEN_UDON_RUNNER"),
+		Stdout:       os.Stdout,
+		Stderr:       os.Stderr,
+	})
+	if err != nil {
+		fmt.Fprintln(os.Stderr, err)
+		os.Exit(1)
+	}
+	if result.DryRun {
+		fmt.Printf("ramen: run dry-run passed for %s (%s)\n", result.Scope, result.Tier)
+	} else {
+		fmt.Printf("ramen: run completed for %s (%s)\n", result.Scope, result.Tier)
+	}
+	fmt.Printf("  workflow: %s\n", result.WorkflowPath)
+	fmt.Printf("  workdir:  %s\n", result.WorkDir)
+	fmt.Printf("  digest:   %s\n", result.PackageSHA256)
+}
+
+func runApprovalTemplateCommand(args []string) {
+	fs := flag.NewFlagSet("approval-template", flag.ExitOnError)
+	example := fs.String("example", "", "Example directory containing generated Ramen artifacts")
+	state := fs.String("state", "", "Approval state: approved_for_sandbox or approved_for_production")
+	reviewer := fs.String("reviewer", "", "Reviewer name recorded in the approval JSON")
+	notes := fs.String("notes", "", "Optional approval notes")
+	fs.Usage = func() {
+		fmt.Fprintf(fs.Output(), "Usage: ramen approval-template --example examples/<name> --state approved_for_sandbox|approved_for_production --reviewer <name> [--notes <text>]\n")
+		fmt.Fprintf(fs.Output(), "\nPrints %s JSON to stdout with the current handoff package SHA-256 digest.\n", trustedrunner.ApprovalVersion)
+		fmt.Fprintf(fs.Output(), "Schema fields: version, scope, state, reviewer, approved_at, expires_at, package_sha256, notes.\n\n")
+		fs.PrintDefaults()
+	}
+	if err := fs.Parse(args); err != nil {
+		os.Exit(2)
+	}
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer stop()
+	approval, err := trustedrunner.ApprovalTemplate(ctx, trustedrunner.TemplateOptions{
+		RepoRoot:   ".",
+		ExampleDir: *example,
+		State:      *state,
+		Reviewer:   *reviewer,
+		Notes:      *notes,
+	})
+	if err != nil {
+		fmt.Fprintln(os.Stderr, err)
+		os.Exit(1)
+	}
+	if err := trustedrunner.WriteApproval(os.Stdout, approval); err != nil {
+		fmt.Fprintln(os.Stderr, err)
+		os.Exit(1)
 	}
 }
 
@@ -236,6 +322,7 @@ func runArtifactCommand(command string, args []string) {
 		fmt.Fprintf(fs.Output(), "  workflows/workflow.uws.yaml exported UWS artifact\n")
 		fmt.Fprintf(fs.Output(), "  expected/plan.json          expected operations, bindings, credentials, and control flow\n")
 		fmt.Fprintf(fs.Output(), "  expected/review.md          trusted execution review evidence and handoff notes\n")
+		fmt.Fprintf(fs.Output(), "  expected/symphony-handoff.json machine-readable Symphony approval handoff\n")
 		fmt.Fprintf(fs.Output(), "  expected/quality.json       deterministic quality gate results\n\n")
 		fs.PrintDefaults()
 	}
@@ -369,6 +456,8 @@ func nextActionForQualityCheck(code string) string {
 		return "Regenerate review evidence so it states Ramen synthesis does not directly execute production workflows."
 	case strings.HasPrefix(code, "review."):
 		return "Update Safety and Approval Boundary or regenerate review evidence with build/synthesize."
+	case strings.HasPrefix(code, "symphony_handoff."):
+		return "Regenerate expected/symphony-handoff.json with build/synthesize so Symphony can consume the approval handoff contract."
 	case code == "artifacts.no_secrets":
 		return "Remove literal secret-like values from artifacts; keep only credential binding names."
 	default:

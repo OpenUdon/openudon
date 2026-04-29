@@ -46,6 +46,14 @@ func Assess(opts Options) (*QualityReport, error) {
 }
 
 func AssessContext(ctx context.Context, opts Options) (*QualityReport, error) {
+	return assessContext(ctx, opts, true)
+}
+
+func AssessCurrent(ctx context.Context, opts Options) (*QualityReport, error) {
+	return assessContext(ctx, opts, false)
+}
+
+func assessContext(ctx context.Context, opts Options, writeReport bool) (*QualityReport, error) {
 	if ctx == nil {
 		ctx = context.Background()
 	}
@@ -109,14 +117,17 @@ func AssessContext(ctx context.Context, opts Options) (*QualityReport, error) {
 	assessSideEffectProfile(report, sideEffects)
 	assessSideEffectRetryPolicy(report, sideEffects, policy, expectedPlan)
 	assessReview(report, result.ReviewPath, sideEffects, policy, expectedPlan)
+	assessSymphonyHandoff(report, result.SymphonyHandoffPath, sideEffects, policy, expectedPlan)
 	assessSecrets(report, result)
 
 	if intentOK && planOK {
 		report.add("quality.review", "pass", "workflow.hcl passed deterministic v1 quality gates", "")
 	}
 	report.finalize()
-	if err := writeQualityFiles(result, report); err != nil {
-		return nil, err
+	if writeReport {
+		if err := writeQualityFiles(result, report); err != nil {
+			return nil, err
+		}
 	}
 	return report, nil
 }
@@ -2225,9 +2236,149 @@ func reviewContainsMinimumPackage(text string) bool {
 		"Quality report",
 		"Refinement report",
 		"Review evidence",
+		"Symphony handoff manifest",
 	}
 	for _, item := range required {
 		if !strings.Contains(text, item) {
+			return false
+		}
+	}
+	return true
+}
+
+func assessSymphonyHandoff(report *QualityReport, path string, profile sideEffectProfile, policy projectPolicy, expectedPlan *WorkflowPlan) {
+	data, err := os.ReadFile(path)
+	if err != nil {
+		report.add("symphony_handoff.present", "fail", "Symphony handoff manifest is required", err.Error())
+		return
+	}
+	var manifest SymphonyHandoff
+	if err := json.Unmarshal(data, &manifest); err != nil {
+		report.add("symphony_handoff.present", "fail", "Symphony handoff manifest must be valid JSON", err.Error())
+		return
+	}
+	report.add("symphony_handoff.present", "pass", "Symphony handoff manifest is readable", "")
+	if manifest.Version != symphonyHandoffVersion || manifest.GeneratedState != "generated" {
+		report.add("symphony_handoff.contract", "fail", "Symphony handoff manifest must declare the expected version and generated state", "")
+		return
+	}
+	if !symphonyHandoffHasRequiredInputs(manifest) {
+		report.add("symphony_handoff.contract", "fail", "Symphony handoff manifest must list every required handoff input", "")
+		return
+	}
+	if !symphonyHandoffHasApprovalStates(manifest) {
+		report.add("symphony_handoff.contract", "fail", "Symphony handoff manifest must list the required approval states", "")
+		return
+	}
+	if !symphonyHandoffExecutionPolicyMatches(manifest, profile) {
+		report.add("symphony_handoff.contract", "fail", "Symphony handoff execution policy must match inferred side-effect requirements", "")
+		return
+	}
+	if !symphonyHandoffCredentialBindingsMatch(manifest, policy, expectedPlan) {
+		report.add("symphony_handoff.contract", "fail", "Symphony handoff credential bindings must match declared and expected binding names", "")
+		return
+	}
+	if manifest.CredentialBindings.ValuesAllowedInArtifacts || manifest.ExecutionPolicy.DirectProductionExecution {
+		report.add("symphony_handoff.contract", "fail", "Symphony handoff must prohibit credential values and direct production execution", "")
+		return
+	}
+	report.add("symphony_handoff.contract", "pass", "Symphony handoff manifest records package, state, execution, and credential contracts", "")
+}
+
+func symphonyHandoffHasRequiredInputs(manifest SymphonyHandoff) bool {
+	required := map[string]bool{
+		"project.md":                     false,
+		"workflows/intent.hcl":           false,
+		"workflows/workflow.hcl":         false,
+		"workflows/workflow.uws.yaml":    false,
+		"expected/plan.json":             false,
+		"expected/quality.json":          false,
+		"expected/refinement.json":       false,
+		"expected/review.md":             false,
+		"expected/symphony-handoff.json": false,
+	}
+	for _, input := range manifest.HandoffInputs {
+		if !input.Required {
+			continue
+		}
+		if _, ok := required[input.Path]; ok {
+			required[input.Path] = true
+		}
+	}
+	for _, found := range required {
+		if !found {
+			return false
+		}
+	}
+	return true
+}
+
+func symphonyHandoffHasApprovalStates(manifest SymphonyHandoff) bool {
+	states := map[string]bool{}
+	for _, state := range manifest.ApprovalStates {
+		states[state.Name] = true
+	}
+	for _, state := range []string{"generated", "validated", "review_required", "approved_for_sandbox", "approved_for_production", "rejected"} {
+		if !states[state] {
+			return false
+		}
+	}
+	return true
+}
+
+func symphonyHandoffExecutionPolicyMatches(manifest SymphonyHandoff, profile sideEffectProfile) bool {
+	policy := manifest.ExecutionPolicy
+	if policy.SideEffectful != profile.SideEffectful {
+		return false
+	}
+	if !profile.SideEffectful {
+		return policy.RequiredNextState == "" && policy.SandboxProofRunState == "" && policy.ProductionExecutionState == ""
+	}
+	return policy.RequiredNextState == "review_required" &&
+		policy.SandboxProofRunState == "approved_for_sandbox" &&
+		policy.ProductionExecutionState == "approved_for_production" &&
+		manifest.TrustedRunner.SandboxOnly
+}
+
+func symphonyHandoffCredentialBindingsMatch(manifest SymphonyHandoff, policy projectPolicy, expectedPlan *WorkflowPlan) bool {
+	declared := credentialBindingNames(policy)
+	expected := []string(nil)
+	if expectedPlan != nil {
+		seen := map[string]bool{}
+		for _, step := range expectedPlan.Steps {
+			for _, credential := range step.Credentials {
+				credential = strings.TrimSpace(credential)
+				if credential != "" {
+					seen[credential] = true
+				}
+			}
+			for _, param := range step.RequestParams {
+				if !param.Credential {
+					continue
+				}
+				for _, credential := range []string{param.ExpectedCredential, param.ExpectedSource} {
+					credential = strings.TrimSpace(credential)
+					if credential != "" && param.SourceKind == "credential" {
+						seen[credential] = true
+					}
+				}
+			}
+		}
+		for credential := range seen {
+			expected = append(expected, credential)
+		}
+		sort.Strings(expected)
+	}
+	return stringSlicesEqual(declared, manifest.CredentialBindings.Declared) &&
+		stringSlicesEqual(expected, manifest.CredentialBindings.ExpectedFromPlan)
+}
+
+func stringSlicesEqual(left, right []string) bool {
+	if len(left) != len(right) {
+		return false
+	}
+	for i := range left {
+		if left[i] != right[i] {
 			return false
 		}
 	}
@@ -2301,7 +2452,7 @@ func reviewContainsCredentialBindings(text string, policy projectPolicy, expecte
 }
 
 func assessSecrets(report *QualityReport, result Result) {
-	paths := []string{result.ProjectPath, result.IntentPath, result.WorkflowPath, result.UWSPath, result.PlanJSONPath, result.PlanMDPath, result.DiscoveryJSONPath, result.RefinementJSONPath, result.RefinementMDPath, result.ReviewPath}
+	paths := []string{result.ProjectPath, result.IntentPath, result.WorkflowPath, result.UWSPath, result.PlanJSONPath, result.PlanMDPath, result.DiscoveryJSONPath, result.RefinementJSONPath, result.RefinementMDPath, result.ReviewPath, result.SymphonyHandoffPath}
 	var hits []string
 	for _, path := range paths {
 		data, err := os.ReadFile(path)

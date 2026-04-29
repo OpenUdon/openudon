@@ -12,8 +12,8 @@ into an implementation request for Symphony work-item routing. Ramen does not mo
 | --- | --- |
 | Artifact generation and deterministic validation | Ramen |
 | Review evidence, side-effect summary, credential-binding inventory, and trusted-runner command text | Ramen |
-| Work-item routing, reviewer identity, audit trail, workspace linkage, and state transitions | Symphony |
-| Enforcement that production execution cannot occur before the approved state | Symphony |
+| Trusted local execution gate before udon invocation | Ramen |
+| Reviewer identity, audit trail, and managed-state routing | Symphony |
 
 ## Handoff Inputs
 
@@ -29,6 +29,7 @@ Symphony should attach or link these Ramen outputs on the managed work item:
 | `expected/quality.json` | Deterministic quality-gate result. |
 | `expected/refinement.json` | Generation attempts, failed checks, and stop reason. |
 | `expected/review.md` | Human review evidence and trusted-runner handoff text. |
+| `expected/symphony-handoff.json` | Machine-readable handoff inputs, approval states, owner split, execution policy, credential bindings, and trusted-runner command. |
 
 ## Approval States
 
@@ -50,8 +51,8 @@ compatible.
 - A Symphony workflow can route from `generated` through validation and review without implying
   execution approval.
 - Reviewer identity and state-transition history are recorded outside Ramen artifacts.
-- Side-effectful sandbox proof runs are blocked until `approved_for_sandbox`.
-- Production execution is blocked until `approved_for_production`.
+- Side-effectful sandbox proof runs use `approved_for_sandbox` approval JSON.
+- Production execution uses `approved_for_production` approval JSON.
 - Trusted-runner commands are copied from `expected/review.md`; Symphony does not ask agents to
   execute production workflows directly.
 - Credential values are never copied into Symphony prompts, review text, generated artifacts, or
@@ -59,6 +60,15 @@ compatible.
 
 ## Ramen Boundary
 
-Ramen will keep emitting deterministic artifacts, quality reports, review evidence, and trusted-runner
-command text. It will not implement Symphony reviewer assignment, audit logs, workspace policy, or
-state-transition enforcement in this repository.
+Ramen emits deterministic artifacts, quality reports, review evidence, and
+`expected/symphony-handoff.json` for machine-readable work-item routing. Ramen also owns the local
+trusted wrapper documented in `SYMPHONY_WRAPPER.md`:
+
+```bash
+go run ./cmd/ramen approval-template --example examples/support-email --state approved_for_sandbox --reviewer "Reviewer Name" > approvals/support-email-sandbox.json
+go run ./cmd/ramen run --example examples/support-email --tier sandbox --approval approvals/support-email-sandbox.json
+```
+
+The wrapper validates the handoff package, current quality gates, approval file, package digest, and
+tier/state compatibility before invoking `scripts/run-udon.sh`. It does not implement Symphony
+reviewer assignment, audit logs, workspace policy, or managed state transitions in this repository.

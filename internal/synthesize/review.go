@@ -15,6 +15,19 @@ func writeReview(result Result, provider, model string) error {
 	if err := ensureArtifactDirs(result); err != nil {
 		return err
 	}
+	projectText := ""
+	if data, err := os.ReadFile(result.ProjectPath); err == nil {
+		projectText = string(data)
+	}
+	policy := analyzeProject(projectText)
+	var intent *rollout.Intent
+	if parsed, err := rollout.ParseIntentFile(result.IntentPath); err == nil {
+		intent = parsed
+	}
+	profile := sideEffectProfileForOpenAPI(policy, intent, result.OpenAPICandidates, result.PrimaryOpenAPI)
+	if err := writeSymphonyHandoff(result, policy, profile); err != nil {
+		return err
+	}
 	return os.WriteFile(result.ReviewPath, []byte(reviewMarkdown(result, provider, model)), 0o644)
 }
 
@@ -29,7 +42,7 @@ func reviewMarkdown(result Result, provider, model string) string {
 	if parsed, err := rollout.ParseIntentFile(result.IntentPath); err == nil {
 		intent = parsed
 	}
-	profile := sideEffectProfileFor(policy, intent)
+	profile := sideEffectProfileForOpenAPI(policy, intent, result.OpenAPICandidates, result.PrimaryOpenAPI)
 	b.WriteString("# Ramen Review Evidence\n\n")
 	fmt.Fprintf(&b, "- Project brief: `%s`\n", relOrAbs(result.ExampleDir, result.ProjectPath))
 	fmt.Fprintf(&b, "- Intent HCL: `%s`\n", relOrAbs(result.ExampleDir, result.IntentPath))
@@ -51,6 +64,7 @@ func reviewMarkdown(result Result, provider, model string) string {
 	fmt.Fprintf(&b, "- Quality report: `%s`\n", relOrAbs(result.ExampleDir, result.QualityJSONPath))
 	fmt.Fprintf(&b, "- Refinement report: `%s`\n", relOrAbs(result.ExampleDir, result.RefinementJSONPath))
 	fmt.Fprintf(&b, "- Review evidence: `%s`\n", relOrAbs(result.ExampleDir, result.ReviewPath))
+	fmt.Fprintf(&b, "- Symphony handoff manifest: `%s`\n", relOrAbs(result.ExampleDir, result.SymphonyHandoffPath))
 	b.WriteString("\n## OpenAPI Candidates\n\n")
 	for _, candidate := range result.OpenAPICandidates {
 		fmt.Fprintf(&b, "- `%s`", candidate.RelativePath)

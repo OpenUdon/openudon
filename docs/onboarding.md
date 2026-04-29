@@ -82,6 +82,7 @@ Inspect:
 - `workflows/workflow.uws.yaml`
 - `expected/plan.md`
 - `expected/review.md`
+- `expected/symphony-handoff.json`
 - `expected/quality.md`
 
 For side-effectful workflows, do not execute production effects from synthesis. Use the trusted
