@@ -46,8 +46,9 @@ committed eval corpus; see `docs/xrd-009-expanded-corpus-release-evidence.md`.
 
 Use `docs/release-note-template.md`. Record the comparison baseline, eval JSON/Markdown paths,
 commit and dirty state, release-gate result, deterministic checks, and known external blockers.
-For real-provider release evidence, copy the Provider Drift Watch section from the eval Markdown
-report and follow `docs/xrd-006-provider-drift-watch.md`.
+For real-provider release evidence, copy the eval JSON `provider_drift_watch` status plus the
+Provider Drift Watch section from the eval Markdown report, then follow
+`docs/xrd-006-provider-drift-watch.md`.
 Development gates and real-provider release automation remain local/manual.
 
 ## Trusted Handoff

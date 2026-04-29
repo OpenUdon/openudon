@@ -568,6 +568,7 @@ func TestMarkdownIncludesProviderDriftWatch(t *testing.T) {
 	md := MarkdownReport(report)
 	for _, expected := range []string{
 		"## Provider Drift Watch",
+		"Status: `drift_detected`",
 		"Structured fallback count: `1`",
 		"Rate/transient/model failures: `rate-limit: api returned status 429 rate limit`",
 		"Model availability: provider `gemini`, model `gemini-2.5-flash`, models `gemini-2.5-flash`=2",
@@ -578,6 +579,61 @@ func TestMarkdownIncludesProviderDriftWatch(t *testing.T) {
 		if !strings.Contains(md, expected) {
 			t.Fatalf("provider drift watch missing %q:\n%s", expected, md)
 		}
+	}
+}
+
+func TestBuildRunReportIncludesStructuredProviderDriftWatch(t *testing.T) {
+	previous := []EvalResult{{
+		Name:         "brief",
+		Passed:       true,
+		Mode:         "structured",
+		AttemptCount: 1,
+	}}
+	current := []EvalResult{{
+		Name:              "brief",
+		Provider:          "gemini",
+		Model:             "gemini-2.5-flash",
+		Mode:              "legacy",
+		UsedLegacyExtract: true,
+		Passed:            true,
+		AttemptCount:      3,
+	}}
+	comparison := CompareRuns(current, previous, "previous.json")
+	report := BuildRunReport(current, ReportOptions{
+		Metadata: RunMetadata{
+			Provider:    "gemini",
+			Model:       "gemini-2.5-flash",
+			ReleaseGate: true,
+			MinBriefs:   2,
+		},
+		Comparison: &comparison,
+	})
+	if report.ProviderDriftWatch == nil {
+		t.Fatal("provider drift watch was not populated")
+	}
+	watch := report.ProviderDriftWatch
+	if watch.Status != "drift_detected" || watch.StructuredFallbacks != 1 || watch.StructuredFallbackDelta != 1 {
+		t.Fatalf("unexpected provider drift watch: %#v", watch)
+	}
+	if watch.MaxAttemptsToPass != 3 || len(watch.AttemptRegressions) != 1 {
+		t.Fatalf("attempt drift not recorded: %#v", watch)
+	}
+	joined := strings.Join(watch.ReleaseGateFailures, "; ")
+	for _, expected := range []string{
+		"eval corpus size 1 below required 2",
+		"legacy fallback count 1 exceeds allowed 0",
+		"attempt count exceeds 2: brief=3",
+	} {
+		if !strings.Contains(joined, expected) {
+			t.Fatalf("release-gate failures missing %q: %#v", expected, watch.ReleaseGateFailures)
+		}
+	}
+	data, err := json.Marshal(report)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(data), `"provider_drift_watch"`) || !strings.Contains(string(data), `"structured_fallback_delta":1`) {
+		t.Fatalf("json missing structured provider drift watch:\n%s", data)
 	}
 }
 

@@ -11,11 +11,12 @@ import (
 )
 
 type RunReport struct {
-	GeneratedAt string         `json:"generated_at"`
-	Metadata    RunMetadata    `json:"metadata,omitempty"`
-	Summary     RunSummary     `json:"summary"`
-	Comparison  *RunComparison `json:"comparison,omitempty"`
-	Results     []EvalResult   `json:"results"`
+	GeneratedAt        string              `json:"generated_at"`
+	Metadata           RunMetadata         `json:"metadata,omitempty"`
+	Summary            RunSummary          `json:"summary"`
+	ProviderDriftWatch *ProviderDriftWatch `json:"provider_drift_watch,omitempty"`
+	Comparison         *RunComparison      `json:"comparison,omitempty"`
+	Results            []EvalResult        `json:"results"`
 }
 
 type RunMetadata struct {
@@ -27,6 +28,7 @@ type RunMetadata struct {
 	Provider    string `json:"provider,omitempty"`
 	Model       string `json:"model,omitempty"`
 	ReleaseGate bool   `json:"release_gate,omitempty"`
+	MinBriefs   int    `json:"min_briefs,omitempty"`
 	ComparePath string `json:"compare_path,omitempty"`
 	ArchiveDir  string `json:"archive_dir,omitempty"`
 }
@@ -67,6 +69,26 @@ type SummaryRow struct {
 	Count int    `json:"count"`
 }
 
+type ProviderDriftWatch struct {
+	Status                  string                 `json:"status"`
+	StructuredFallbacks     int                    `json:"structured_fallbacks"`
+	StructuredFallbackDelta int                    `json:"structured_fallback_delta,omitempty"`
+	ProviderFailures        []ProviderDriftFailure `json:"provider_failures,omitempty"`
+	ModelAvailability       string                 `json:"model_availability"`
+	ModelAvailabilityDetail string                 `json:"model_availability_detail,omitempty"`
+	MaxAttemptsToPass       int                    `json:"max_attempts_to_pass"`
+	RepeatedRepairLoops     int                    `json:"repeated_repair_loops"`
+	AttemptRegressions      []BriefIntDelta        `json:"attempt_regressions,omitempty"`
+	ReleaseGateEvaluated    bool                   `json:"release_gate_evaluated"`
+	ReleaseGateFailures     []string               `json:"release_gate_failures,omitempty"`
+}
+
+type ProviderDriftFailure struct {
+	Brief  string `json:"brief"`
+	Signal string `json:"signal"`
+	Detail string `json:"detail"`
+}
+
 func DefaultOutputPath(now time.Time) string {
 	return filepath.Join("eval", "runs", now.UTC().Format("20060102T150405Z")+".json")
 }
@@ -76,13 +98,17 @@ func BuildRunReport(results []EvalResult, opts ReportOptions) RunReport {
 	if generatedAt.IsZero() {
 		generatedAt = time.Now().UTC()
 	}
-	return RunReport{
+	summary := BuildRunSummary(results)
+	report := RunReport{
 		GeneratedAt: generatedAt.UTC().Format(time.RFC3339),
 		Metadata:    opts.Metadata,
-		Summary:     BuildRunSummary(results),
+		Summary:     summary,
 		Comparison:  opts.Comparison,
 		Results:     results,
 	}
+	watch := BuildProviderDriftWatch(report, summary)
+	report.ProviderDriftWatch = &watch
+	return report
 }
 
 func WriteReports(outPath string, results []EvalResult) error {
@@ -98,6 +124,10 @@ func WriteReport(outPath string, report RunReport) error {
 	}
 	if report.Summary.Briefs == 0 && len(report.Results) > 0 {
 		report.Summary = BuildRunSummary(report.Results)
+	}
+	if report.ProviderDriftWatch == nil {
+		watch := BuildProviderDriftWatch(report, report.Summary)
+		report.ProviderDriftWatch = &watch
 	}
 	data, err := json.MarshalIndent(report, "", "  ")
 	if err != nil {
@@ -148,6 +178,11 @@ func MarkdownReport(report RunReport) string {
 	summary := report.Summary
 	if summary.Briefs == 0 && len(report.Results) > 0 {
 		summary = BuildRunSummary(report.Results)
+	}
+	watch := report.ProviderDriftWatch
+	if watch == nil {
+		built := BuildProviderDriftWatch(report, summary)
+		watch = &built
 	}
 	var b strings.Builder
 	fmt.Fprintf(&b, "# Ramen Eval Report\n\n")
@@ -206,7 +241,7 @@ func MarkdownReport(report RunReport) string {
 		fmt.Fprintf(&b, "- Repeated repair briefs: `%s`\n", strings.Join(summary.RepeatedRepairBriefs, "`, `"))
 	}
 	b.WriteString("\n## Provider Drift Watch\n\n")
-	b.WriteString(providerDriftWatchMarkdown(report, summary))
+	b.WriteString(providerDriftWatchMarkdown(report, summary, *watch))
 	if report.Comparison != nil {
 		b.WriteString("\n## Run Comparison\n\n")
 		b.WriteString(comparisonMarkdown(*report.Comparison))
@@ -250,15 +285,22 @@ func MarkdownReport(report RunReport) string {
 	return b.String()
 }
 
-func providerDriftWatchMarkdown(report RunReport, summary RunSummary) string {
+func providerDriftWatchMarkdown(report RunReport, summary RunSummary, watch ProviderDriftWatch) string {
 	var b strings.Builder
-	fmt.Fprintf(&b, "- Structured fallback count: `%d`\n", summary.LegacyFallbacks)
-	fmt.Fprintf(&b, "- Rate/transient/model failures: %s\n", providerFailureWatchText(report.Results))
-	fmt.Fprintf(&b, "- Model availability: %s\n", modelAvailabilityWatchText(report, summary))
-	fmt.Fprintf(&b, "- Attempts-to-pass: max `%d`, repeated repair loops `%d`\n", maxAttemptCount(report.Results), summary.RepeatedRepairLoops)
-	if report.Metadata.ReleaseGate {
-		if failures := releaseGateWatchFailures(report); len(failures) > 0 {
-			fmt.Fprintf(&b, "- Release-gate failures: `%s`\n", strings.Join(failures, "`; `"))
+	fmt.Fprintf(&b, "- Status: `%s`\n", watch.Status)
+	fmt.Fprintf(&b, "- Structured fallback count: `%d`\n", watch.StructuredFallbacks)
+	if watch.StructuredFallbackDelta != 0 {
+		fmt.Fprintf(&b, "- Structured fallback delta: `%+d`\n", watch.StructuredFallbackDelta)
+	}
+	fmt.Fprintf(&b, "- Rate/transient/model failures: %s\n", providerFailureWatchText(watch.ProviderFailures))
+	fmt.Fprintf(&b, "- Model availability: %s\n", modelAvailabilityWatchText(report, summary, watch))
+	fmt.Fprintf(&b, "- Attempts-to-pass: max `%d`, repeated repair loops `%d`\n", watch.MaxAttemptsToPass, watch.RepeatedRepairLoops)
+	if len(watch.AttemptRegressions) > 0 {
+		fmt.Fprintf(&b, "- Attempt regressions: %s\n", briefIntDeltasMarkdown(watch.AttemptRegressions))
+	}
+	if watch.ReleaseGateEvaluated {
+		if len(watch.ReleaseGateFailures) > 0 {
+			fmt.Fprintf(&b, "- Release-gate failures: `%s`\n", strings.Join(watch.ReleaseGateFailures, "`; `"))
 		} else {
 			b.WriteString("- Release-gate failures: none\n")
 		}
@@ -268,9 +310,52 @@ func providerDriftWatchMarkdown(report RunReport, summary RunSummary) string {
 	return b.String()
 }
 
+func BuildProviderDriftWatch(report RunReport, summary RunSummary) ProviderDriftWatch {
+	if summary.Briefs == 0 && len(report.Results) > 0 {
+		summary = BuildRunSummary(report.Results)
+	}
+	watch := ProviderDriftWatch{
+		Status:               "clear",
+		StructuredFallbacks:  summary.LegacyFallbacks,
+		ProviderFailures:     providerDriftFailures(report.Results),
+		ModelAvailability:    "recorded",
+		MaxAttemptsToPass:    maxAttemptCount(report.Results),
+		RepeatedRepairLoops:  summary.RepeatedRepairLoops,
+		ReleaseGateEvaluated: report.Metadata.ReleaseGate,
+	}
+	if report.Comparison != nil {
+		watch.StructuredFallbackDelta = report.Comparison.LegacyFallbackDelta
+		watch.AttemptRegressions = append(watch.AttemptRegressions, report.Comparison.AttemptRegressions...)
+	}
+	if modelUnavailableDetected(report.Results) {
+		watch.ModelAvailability = "error"
+		watch.ModelAvailabilityDetail = "model availability error detected"
+	} else if report.Metadata.Provider == "" && report.Metadata.Model == "" && len(summary.Providers) == 0 && len(summary.Models) == 0 {
+		watch.ModelAvailability = "not_recorded"
+		watch.ModelAvailabilityDetail = "provider/model not recorded"
+	} else {
+		watch.ModelAvailabilityDetail = modelAvailabilityDetail(report, summary)
+	}
+	if report.Metadata.ReleaseGate {
+		watch.ReleaseGateFailures = releaseGateWatchFailures(report)
+	}
+	if watch.StructuredFallbacks > 0 ||
+		watch.StructuredFallbackDelta > 0 ||
+		len(watch.ProviderFailures) > 0 ||
+		watch.ModelAvailability == "error" ||
+		watch.MaxAttemptsToPass > DefaultReleaseCriteria().MaxAttemptsPerBrief ||
+		len(watch.AttemptRegressions) > 0 ||
+		len(watch.ReleaseGateFailures) > 0 {
+		watch.Status = "drift_detected"
+	}
+	return watch
+}
+
 func releaseGateWatchFailures(report RunReport) []string {
 	var failures []string
-	if err := ReleaseCriteriaError(report.Results, DefaultReleaseCriteria()); err != nil {
+	criteria := DefaultReleaseCriteria()
+	criteria.MinBriefs = report.Metadata.MinBriefs
+	if err := ReleaseCriteriaError(report.Results, criteria); err != nil {
 		failures = append(failures, err.Error())
 	}
 	if err := ComparisonRegressionError(report.Comparison); err != nil {
@@ -279,8 +364,8 @@ func releaseGateWatchFailures(report RunReport) []string {
 	return failures
 }
 
-func providerFailureWatchText(results []EvalResult) string {
-	var failures []string
+func providerDriftFailures(results []EvalResult) []ProviderDriftFailure {
+	var failures []ProviderDriftFailure
 	for _, result := range results {
 		if result.Passed {
 			continue
@@ -297,20 +382,54 @@ func providerFailureWatchText(results []EvalResult) string {
 			if detail == "" {
 				detail = "provider/model failure"
 			}
-			failures = append(failures, fmt.Sprintf("%s: %s", name, detail))
+			failures = append(failures, ProviderDriftFailure{
+				Brief:  name,
+				Signal: providerDriftSignal(result),
+				Detail: detail,
+			})
 		}
 	}
+	sort.Slice(failures, func(i, j int) bool {
+		if failures[i].Brief != failures[j].Brief {
+			return failures[i].Brief < failures[j].Brief
+		}
+		return failures[i].Detail < failures[j].Detail
+	})
+	return failures
+}
+
+func providerFailureWatchText(failures []ProviderDriftFailure) string {
 	if len(failures) == 0 {
 		return "none detected"
 	}
-	sort.Strings(failures)
-	return "`" + strings.Join(failures, "`; `") + "`"
+	parts := make([]string, 0, len(failures))
+	for _, failure := range failures {
+		parts = append(parts, fmt.Sprintf("%s: %s", failure.Brief, failure.Detail))
+	}
+	return "`" + strings.Join(parts, "`; `") + "`"
 }
 
-func modelAvailabilityWatchText(report RunReport, summary RunSummary) string {
-	if modelUnavailableDetected(report.Results) {
-		return "model availability error detected"
+func providerDriftSignal(result EvalResult) string {
+	if modelUnavailableDetected([]EvalResult{result}) {
+		return "model_availability"
 	}
+	if providerErrorLooksTransient(result.Error) {
+		return "rate_or_transient"
+	}
+	if strings.EqualFold(strings.TrimSpace(result.FailureClass), "model") {
+		return "model"
+	}
+	return "provider"
+}
+
+func modelAvailabilityWatchText(report RunReport, summary RunSummary, watch ProviderDriftWatch) string {
+	if watch.ModelAvailabilityDetail != "" {
+		return watch.ModelAvailabilityDetail
+	}
+	return modelAvailabilityDetail(report, summary)
+}
+
+func modelAvailabilityDetail(report RunReport, summary RunSummary) string {
 	var parts []string
 	if report.Metadata.Provider != "" {
 		parts = append(parts, "provider `"+report.Metadata.Provider+"`")

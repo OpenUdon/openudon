@@ -226,6 +226,7 @@ func runEvalCommand(args []string) {
 		Provider:    strings.TrimSpace(*provider),
 		Model:       strings.TrimSpace(*model),
 		ReleaseGate: *releaseGate,
+		MinBriefs:   *minBriefs,
 		ArchiveDir:  strings.TrimSpace(*archiveDir),
 	}
 	var comparison *evalpkg.RunComparison

@@ -52,11 +52,15 @@ Comparison:
 
 ## Provider Drift Watch
 
+- Status:
 - Structured fallback count:
+- Structured fallback delta:
 - Rate/transient failures:
 - Model availability:
 - Maximum attempts-to-pass:
+- Attempt regressions:
 - Release-gate failures:
+- Eval JSON `provider_drift_watch`:
 - Rerun evidence, if provider drift was suspected:
 
 ## Known External Blockers

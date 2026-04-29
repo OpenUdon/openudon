@@ -18,7 +18,7 @@ handoff requirements, and XRD-007 local private checkout and secrets prerequisit
 | XRD-003 | Closed | uws owner | `../uws` | UWS 1.1.0 now defines portable `timeout` fields and workflow-level `idempotency` metadata in `../uws/versions/1.1.0.md` and `../uws/versions/1.1.0.json`. | Ramen follow-up only if prompt/schema/eval support should emit UWS 1.1 fields by default. | None for cross-repo public semantics. |
 | XRD-004 | Closed | Ramen eval owner, then udon owner for reusable gaps | `../ramen`, then `../udon` | Ramen has `docs/xrd-004-openapi-eval-plan.md` plus fixtures covering pagination variants, request bodies, security schemes, write operations, response extraction, and multi-service chains. | Upstream udon issue only if future eval runs identify a reusable compiler/runtime gap. | None unless richer OpenAPI evals regress. |
 | XRD-005 | Closed | Ramen trusted-wrapper owner / external Symphony owner | `../ramen`, optional `../symphony` | Ramen emits review evidence, `expected/symphony-handoff.json`, handoff files, approval templates, and `ramen run` trusted execution gates; Symphony routing remains optional external workflow integration. | Symphony owner implementation only if managed reviewer routing is needed upstream. | None in Ramen unless the wrapper or handoff contract changes. |
-| XRD-006 | Watch | Ramen release owner / provider owners | Provider APIs | Provider behavior can drift in schema dialect support, rate limits, transient failures, and model availability. | Eval Markdown reports now include a Provider Drift Watch section, with the runbook in `docs/xrd-006-provider-drift-watch.md`. | No implementation plan; keep watching during release evals. |
+| XRD-006 | Closed | Ramen release owner / provider owners | Provider APIs | Eval JSON reports include `provider_drift_watch`, and Markdown reports render the same structured fallback, transient failure, model availability, attempt, and release-gate findings. | Release notes copy the structured watch status and Markdown findings from real-provider eval evidence. | Keep watching provider behavior during release evals; no Ramen implementation plan remains open. |
 | XRD-007 | Watch | Infra owner / Ramen | Repo access / secrets | GitHub CI has been removed during active development; private sibling checkout, deterministic gates, and real-provider evals remain local/manual. | Local readiness report only if private sibling layout or provider-secret handling changes. | No automation follow-up until the private dependency layout stabilizes. |
 | XRD-008 | Closed | Ramen eval owner, then udon/uws owners for reusable semantics | `../ramen`, then `../udon` / `../uws` | Ramen has `docs/xrd-008-runtime-profile-eval-plan.md` plus runtime/profile fixtures for approved `fnct`, approved `cmd`, denied `cmd`/`ssh`, and future profile-boundary behavior. | Upstream udon/UWS issue only if future fixtures require reusable runtime/profile semantics. | None unless runtime/profile evals regress. |
 | XRD-009 | Closed | Ramen release owner | `../ramen` | Expanded eval corpus has a release-evidence gate beyond the original ten-example real-provider baseline. | `make release-eval` enforces a minimum brief count from the current eval corpus; evidence package lives in `docs/xrd-009-expanded-corpus-release-evidence.md`. | None unless release evidence is under-sampled or the corpus gate regresses. |
@@ -115,11 +115,13 @@ reviewer identity, audit trail, state transitions, and workspace linkage when th
 
 ## XRD-006 Provider Drift Watch
 
-Decision: watch plan, not an implementation plan.
+Decision: closed in Ramen as structured provider-drift reporting; provider behavior remains an
+ongoing release watch.
 
-Next artifact: a provider drift watch report attached to release evaluation evidence when real
-providers are used. The report source is the eval Markdown Provider Drift Watch section, documented
-in [`docs/xrd-006-provider-drift-watch.md`](xrd-006-provider-drift-watch.md).
+Next artifact: none in Ramen unless eval reporting stops recording drift signals. Real-provider
+release evidence should attach the eval JSON `provider_drift_watch` block and the eval Markdown
+Provider Drift Watch section, documented in
+[`docs/xrd-006-provider-drift-watch.md`](xrd-006-provider-drift-watch.md).
 
 Acceptance criteria:
 
@@ -128,12 +130,14 @@ Acceptance criteria:
 - Watch model availability.
 - Watch attempts-to-pass.
 - Watch release-gate failures.
+- Eval JSON includes a structured `provider_drift_watch` block.
+- Eval Markdown renders the same watch findings for release-note copy/paste.
 - Release notes include the provider drift watch findings when real-provider release evidence is
   used.
 
-Implementation boundary: deterministic checks stay local and stable. Provider drift evidence informs
-release decisions, but external provider variance is not treated as a Ramen-only implementation
-bug.
+Implementation boundary: deterministic checks stay local and stable. Ramen owns drift signal
+classification and reporting. Provider drift evidence informs release decisions, but external
+provider variance is not treated as a Ramen-only implementation bug.
 
 ## XRD-007 Infra Handoff
 
