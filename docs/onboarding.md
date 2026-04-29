@@ -29,13 +29,10 @@ make check
 Daily deterministic gates are:
 
 ```bash
+go test ./...
+go vet ./...
 make check
-```
-
-Use explicit vet parity when preparing release evidence:
-
-```bash
-make vet
+git diff --check
 ```
 
 Deterministic release readiness is:

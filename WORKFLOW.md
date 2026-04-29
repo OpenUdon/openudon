@@ -120,8 +120,11 @@ keys into prompts, issue descriptions, commands, or generated artifacts.
 Before handoff:
 
 1. Run `go test ./...`.
-2. Run `./scripts/check-siblings.sh`.
-3. Validate any generated UWS artifact with `./scripts/validate-uws.sh`.
-4. Run `go run ./cmd/ramen assess --example examples/<name>` and confirm quality status is `pass`.
-5. If safe and explicitly requested, run the artifact through `./scripts/run-udon.sh`.
-6. Report exactly what was validated and whether any side-effectful execution was skipped.
+2. Run `go vet ./...`.
+3. Run `make check`.
+4. Run `git diff --check`.
+5. Validate any generated UWS artifact with `./scripts/validate-uws.sh`.
+6. Run `go run ./cmd/ramen assess --example examples/<name>` and confirm quality status is `pass`.
+7. If side-effectful execution is explicitly requested, use `ramen run` with approval JSON. Do not
+   run production effects from synthesis, build, promote, or assess.
+8. Report exactly what was validated and whether any side-effectful execution was skipped.

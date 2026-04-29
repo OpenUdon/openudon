@@ -3,6 +3,7 @@ package synthesize
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -13,6 +14,7 @@ import (
 	"github.com/genelet/ramen/internal/openapidisco"
 	"github.com/genelet/ramen/internal/uwsvalidate"
 	"github.com/genelet/udon/pkg/rollout"
+	"github.com/genelet/udon/pkg/runner"
 	"github.com/genelet/udon/pkg/uwsprofile"
 	"github.com/tabilet/uws/uws1"
 )
@@ -44,6 +46,53 @@ func (fakeRuntimeOnlyClient) Chat(context.Context, []rollout.ChatMessage) (strin
 }
 
 type fakeLoopClient struct{}
+
+type cancelAfterChatClient struct {
+	cancel        context.CancelFunc
+	generateCalls int
+}
+
+func (c *cancelAfterChatClient) Chat(ctx context.Context, messages []rollout.ChatMessage) (string, error) {
+	if c.cancel != nil {
+		c.cancel()
+	}
+	return fakeRuntimeOnlyClient{}.Chat(ctx, messages)
+}
+
+func (c *cancelAfterChatClient) Generate(ctx context.Context, prompt string) (string, error) {
+	c.generateCalls++
+	return fakeRuntimeOnlyClient{}.Generate(ctx, prompt)
+}
+
+type countingRuntimeOnlyClient struct {
+	generateCalls int
+}
+
+func (c *countingRuntimeOnlyClient) Chat(ctx context.Context, messages []rollout.ChatMessage) (string, error) {
+	return fakeRuntimeOnlyClient{}.Chat(ctx, messages)
+}
+
+func (c *countingRuntimeOnlyClient) Generate(ctx context.Context, prompt string) (string, error) {
+	c.generateCalls++
+	return fakeRuntimeOnlyClient{}.Generate(ctx, prompt)
+}
+
+type scriptedCancelContext struct {
+	context.Context
+	errAfter int
+	errCalls int
+}
+
+func (c *scriptedCancelContext) Err() error {
+	c.errCalls++
+	if c.errAfter > 0 && c.errCalls >= c.errAfter {
+		return context.Canceled
+	}
+	if c.Context == nil {
+		return nil
+	}
+	return c.Context.Err()
+}
 
 func (fakeLoopClient) Chat(context.Context, []rollout.ChatMessage) (string, error) {
 	return `{
@@ -1405,53 +1454,7 @@ func TestDefaultSchemaPathUsesRepoSiblingSchema(t *testing.T) {
 func TestSynthesizeRuntimeOnlyProject(t *testing.T) {
 	root := t.TempDir()
 	example := filepath.Join(root, "examples", "runtime-only")
-	if err := os.MkdirAll(example, 0o755); err != nil {
-		t.Fatal(err)
-	}
-	if err := os.WriteFile(filepath.Join(example, "project.md"), []byte(`# Runtime Only
-
-## Goal
-
-Render a local report.
-
-## Inputs
-
-- summary: required string.
-
-## Outputs
-
-- Rendered report output.
-
-## External Systems and OpenAPI
-
-OpenAPI: none required
-
-## Runtime Policy
-
-- fnct allowed for trusted local report rendering.
-- cmd and ssh are not allowed.
-
-## Function Contracts
-
-- render_report
-  - Inputs: summary.
-  - Outputs: rendered report.
-  - Side effects: none.
-
-## Credentials and Secrets
-
-- No credentials are required.
-
-## Safety and Approval Boundary
-
-- Generate and validate artifacts only.
-
-## Fallback Behavior
-
-- Stop if no approved function runtime exists.
-`), 0o644); err != nil {
-		t.Fatal(err)
-	}
+	writeRuntimeOnlyExample(t, example)
 	schemaPath, err := filepath.Abs(filepath.Join("..", "..", "..", "uws", "versions", "1.0.0.json"))
 	if err != nil {
 		t.Fatal(err)
@@ -1474,6 +1477,92 @@ OpenAPI: none required
 	}
 	if !report.Passed() {
 		t.Fatalf("quality did not pass: %#v", report.Checks)
+	}
+}
+
+func TestSynthesizeReturnsRefinementReportWriteError(t *testing.T) {
+	root := t.TempDir()
+	example := filepath.Join(root, "examples", "refinement-write-error")
+	writeRuntimeOnlyExample(t, example)
+	if err := os.MkdirAll(filepath.Join(example, "expected", "refinement.md"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	schemaPath, err := filepath.Abs(filepath.Join("..", "..", "..", "uws", "versions", "1.0.0.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, err = Synthesize(context.Background(), Options{
+		ExampleDir: example,
+		LLMClient:  fakeRuntimeOnlyClient{},
+		ChatClient: fakeRuntimeOnlyClient{},
+		SchemaPath: schemaPath,
+	})
+	if err == nil || !strings.Contains(err.Error(), "write refinement report") {
+		t.Fatalf("expected write refinement report error, got %v", err)
+	}
+}
+
+func TestSynthesizeCanceledContextStopsBeforeWorkflowGeneration(t *testing.T) {
+	root := t.TempDir()
+	example := filepath.Join(root, "examples", "cancel-synthesize")
+	writeRuntimeOnlyExample(t, example)
+	schemaPath, err := filepath.Abs(filepath.Join("..", "..", "..", "uws", "versions", "1.0.0.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	ctx, cancel := context.WithCancel(context.Background())
+	client := &cancelAfterChatClient{cancel: cancel}
+	result, err := Synthesize(ctx, Options{
+		ExampleDir: example,
+		LLMClient:  client,
+		ChatClient: client,
+		SchemaPath: schemaPath,
+	})
+	if !errors.Is(err, context.Canceled) {
+		t.Fatalf("expected context canceled, got result=%#v err=%v", result, err)
+	}
+	if client.generateCalls != 0 {
+		t.Fatalf("workflow generation was called %d time(s)", client.generateCalls)
+	}
+	if _, statErr := os.Stat(filepath.Join(example, "workflows", "workflow.hcl")); !errors.Is(statErr, os.ErrNotExist) {
+		t.Fatalf("workflow.hcl should not be written after cancellation, stat err=%v", statErr)
+	}
+}
+
+func TestBuildCanceledContextStopsBeforeWorkflowGeneration(t *testing.T) {
+	root := t.TempDir()
+	example := filepath.Join(root, "examples", "cancel-build")
+	writeRuntimeOnlyExample(t, example)
+	intentHCL, err := runner.RenderIntentHCL(runtimeOnlyIntent())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.MkdirAll(filepath.Join(example, "workflows"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(example, "workflows", "intent.hcl"), []byte(intentHCL), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	schemaPath, err := filepath.Abs(filepath.Join("..", "..", "..", "uws", "versions", "1.0.0.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	ctx := &scriptedCancelContext{Context: context.Background(), errAfter: 3}
+	client := &countingRuntimeOnlyClient{}
+	result, err := Build(ctx, Options{
+		ExampleDir: example,
+		LLMClient:  client,
+		ChatClient: client,
+		SchemaPath: schemaPath,
+	})
+	if !errors.Is(err, context.Canceled) {
+		t.Fatalf("expected context canceled, got result=%#v err=%v", result, err)
+	}
+	if client.generateCalls != 0 {
+		t.Fatalf("workflow generation was called %d time(s)", client.generateCalls)
+	}
+	if _, statErr := os.Stat(filepath.Join(example, "workflows", "workflow.hcl")); !errors.Is(statErr, os.ErrNotExist) {
+		t.Fatalf("workflow.hcl should not be written after cancellation, stat err=%v", statErr)
 	}
 }
 
@@ -2931,6 +3020,81 @@ When a support ticket is created, fetch the ticket details.
 	}
 	if err := os.WriteFile(filepath.Join(example, "openapi", "support.yaml"), []byte(supportOpenAPI()), 0o644); err != nil {
 		t.Fatal(err)
+	}
+}
+
+func writeRuntimeOnlyExample(t *testing.T, example string) {
+	t.Helper()
+	if err := os.MkdirAll(example, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(example, "project.md"), []byte(`# Runtime Only
+
+## Goal
+
+Render a local report.
+
+## Inputs
+
+- summary: required string.
+
+## Outputs
+
+- Rendered report output.
+
+## External Systems and OpenAPI
+
+OpenAPI: none required
+
+## Runtime Policy
+
+- fnct allowed for trusted local report rendering.
+- cmd and ssh are not allowed.
+
+## Function Contracts
+
+- render_report
+  - Inputs: summary.
+  - Outputs: rendered report.
+  - Side effects: none.
+
+## Credentials and Secrets
+
+- No credentials are required.
+
+## Safety and Approval Boundary
+
+- Generate and validate artifacts only.
+
+## Fallback Behavior
+
+- Stop if no approved function runtime exists.
+`), 0o644); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func runtimeOnlyIntent() *rollout.Intent {
+	return &rollout.Intent{
+		Workflow: &rollout.WorkflowMeta{
+			Name:        "runtime_only",
+			Description: "Render a local report.",
+		},
+		Inputs: []*rollout.Input{{
+			Name:     "summary",
+			Type:     "string",
+			Required: true,
+		}},
+		Steps: []*rollout.Step{{
+			Name: "render_report",
+			Type: "fnct",
+			Do:   "Render the local report",
+			With: map[string]string{"summary": "inputs.summary"},
+		}},
+		Outputs: []*rollout.Output{{
+			Name: "report",
+			From: "render_report.received_body",
+		}},
 	}
 }
 

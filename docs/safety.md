@@ -7,6 +7,12 @@ AI may generate workflow artifacts.
 AI may not directly execute operational actions.
 ```
 
+`ramen synthesize`, `ramen build`, `ramen promote`, and `ramen assess` are supervised artifact
+generation and validation commands. They may compile, export, review, and assess artifacts, but they
+must not perform production side effects. `ramen run` is a separate trusted-runner wrapper for an
+already generated handoff package; it requires quality gates, approval JSON, package digest, and
+tier checks before invoking udon.
+
 ## Rules
 
 - Treat generated UWS, OpenAPI, and HCL files as untrusted until validated and reviewed.
@@ -20,6 +26,8 @@ AI may not directly execute operational actions.
 - Treat Ramen output as Symphony state `generated`; no approval is implied by generation.
 - Require `approved_for_sandbox` before a side-effectful proof run and `approved_for_production`
   before production execution.
+- Keep local verification explicit: `go test ./...`, `go vet ./...`, `make check`, and
+  `git diff --check`.
 
 ## Quality Gates
 

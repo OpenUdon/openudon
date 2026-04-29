@@ -16,13 +16,10 @@ Use this path when preparing generated artifacts or release evidence.
 Daily deterministic check:
 
 ```bash
+go test ./...
+go vet ./...
 make check
-```
-
-Explicit vet parity:
-
-```bash
-make vet
+git diff --check
 ```
 
 Deterministic release readiness:
@@ -58,7 +55,7 @@ known external blockers.
 For real-provider release evidence, copy the eval JSON `provider_drift_watch` status plus the
 Provider Drift Watch section from the eval Markdown report, then follow
 `docs/xrd-006-provider-drift-watch.md`.
-Development gates and real-provider release automation remain local/manual.
+Development gates and real-provider release checks remain local/manual.
 
 ## Trusted Handoff
 

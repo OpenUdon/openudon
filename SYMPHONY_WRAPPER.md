@@ -1,8 +1,10 @@
 # Ramen Symphony Wrapper Plan
 
 Ramen now owns a local trusted execution wrapper for Symphony-managed handoff packages. The wrapper
-validates generated artifacts, current quality gates, reviewer approval JSON, package digest, and
-execution tier before invoking udon through `scripts/run-udon.sh`.
+is separate from synthesis: `ramen synthesize`, `ramen build`, `ramen promote`, and `ramen assess`
+only generate, compile, validate, and report on artifacts. `ramen run` validates generated
+artifacts, current quality gates, reviewer approval JSON, package digest, and execution tier before
+invoking udon through `scripts/run-udon.sh`.
 
 This keeps `../symphony` untouched. Symphony may still own reviewer identity, audit history, and
 work-item routing, but Ramen no longer depends on an unactionable external enforcement hook before a

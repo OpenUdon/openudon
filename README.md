@@ -11,8 +11,8 @@ It connects three sibling projects:
 - `../udon` validates, lowers, and executes approved UWS/OpenAPI workflow artifacts.
 
 Ramen should stay thin. It owns project templates, Symphony workflow policy, example artifacts,
-and trusted execution glue. Generic workflow semantics belong in `../uws`; reusable execution
-capabilities belong in `../udon`.
+validation wrappers, and the gated trusted-runner handoff. Generic workflow semantics belong in
+`../uws`; reusable execution capabilities belong in `../udon`.
 
 ## Status
 
@@ -88,6 +88,13 @@ natural-language project brief
 Agents may generate and validate artifacts. Production side effects should happen only through an
 approved trusted runtime path.
 
+The generation commands are artifact commands: `ramen synthesize`, `ramen build`,
+`ramen promote`, and `ramen assess` generate, compile, validate, and report on artifacts. They do
+not directly execute production workflows. `ramen run` is separate: it is a trusted-runner wrapper
+that validates the handoff manifest, stored and current quality, approval JSON, package digest, and
+tier before invoking udon. That wrapper does not weaken the rule that synthesis never performs
+production side effects.
+
 ## Synthesize An Example
 
 Ramen can turn an example brief into reviewed artifacts:
@@ -142,11 +149,12 @@ prefer deterministic checks:
 
 ```bash
 go test ./...
+go vet ./...
 make check
+git diff --check
 ```
 
-Use `make vet` when you need explicit vet parity with release documentation. For deterministic
-release readiness, run:
+For deterministic release readiness, run:
 
 ```bash
 make release-check
@@ -200,8 +208,9 @@ fallbacks, no brief above two refinement attempts, no blocking reference issues 
 `gemini-2.5-flash`. It also passes the current eval corpus size as a minimum brief gate; see
 `docs/xrd-009-expanded-corpus-release-evidence.md`.
 
-Development gates and real-provider release automation remain local/manual through `make check` and
-`make release-eval`.
+Development gates and real-provider release checks remain local/manual. The deterministic local
+gate set is `go test ./...`, `go vet ./...`, `make check`, and `git diff --check`; real-provider
+release evidence is produced manually with `make release-eval`.
 
 ## Trusted Execution Wrapper
 

@@ -8,7 +8,7 @@ Ramen owns:
 
 - Symphony workflow templates for managing UWS/OpenAPI projects.
 - Example project briefs and expected artifact layouts.
-- Local validation and execution wrappers.
+- Local validation wrappers and the gated trusted-runner handoff.
 - Product-specific policy for when generated artifacts are safe to execute.
 
 Ramen does not own:
@@ -32,6 +32,10 @@ natural-language project brief
   -> approved UWS artifact
   -> udon execution by trusted runner
 ```
+
+`ramen synthesize`, `ramen build`, `ramen promote`, and `ramen assess` stop at artifact generation,
+compilation, validation, and evidence. `ramen run` is a separate trusted-runner wrapper that checks
+approval gates before invoking udon for a reviewed handoff package.
 
 ## Dependency Direction
 

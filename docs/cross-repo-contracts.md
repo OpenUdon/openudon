@@ -109,7 +109,7 @@ Automation tiers:
 
 | Tier | Gate | Where it runs | Notes |
 | --- | --- | --- | --- |
-| Local deterministic | `go test ./...`, `go vet ./...`, `make check` | Developer workstation with private siblings checked out. | Normal development gate. |
+| Local deterministic | `go test ./...`, `go vet ./...`, `make check`, `git diff --check` | Developer workstation with private siblings checked out. | Normal development gate. |
 | Local readiness report | `go run ./cmd/ramen readiness --run-gates --out eval/readiness/local.json` | Developer workstation with private siblings checked out. | Structured XRD-007 evidence; provider env presence is boolean only. |
 | Local/manual real LLM | `go run ./cmd/ramen eval --root ./examples/eval --provider <provider> --model <model> --release-gate` | Trusted workstation with provider credentials in environment variables. | Release smoke gate; results are reviewed manually. |
 | Future protected automation | Deterministic or release-gated commands after the private layout stabilizes. | Protected runner or trusted release machine. | Requires a fresh design for checkout, secret store controls, and log/artifact redaction policy. |
@@ -127,7 +127,8 @@ Allowed secret handling:
 Current local readiness prerequisites:
 
 - Private sibling checkout works non-interactively for every required repo.
-- `go test ./...`, `go vet ./...`, and `make check` pass on a clean local private checkout.
+- `go test ./...`, `go vet ./...`, `make check`, and `git diff --check` pass on a clean local
+  private checkout.
 - `ramen readiness --run-gates` emits `ramen.local-readiness.v1` JSON recording siblings,
   deterministic gates, git checks, ignored artifact paths, provider env presence booleans, and
   local/manual automation policy.
