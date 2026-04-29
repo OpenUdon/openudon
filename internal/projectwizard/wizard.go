@@ -9,19 +9,19 @@ import (
 )
 
 type Answers struct {
-	ProjectName       string
-	Goal              string
-	Inputs            string
-	Outputs           string
-	DataFlow          string
-	FunctionContracts string
-	UsesOpenAPI       bool
-	OpenAPI           string
-	CmdApproved       bool
-	SSHApproved       bool
-	Credentials       []string
-	Safety            string
-	Fallback          string
+	ProjectName       string   `json:"project_name" yaml:"project_name"`
+	Goal              string   `json:"goal" yaml:"goal"`
+	Inputs            string   `json:"inputs" yaml:"inputs"`
+	Outputs           string   `json:"outputs" yaml:"outputs"`
+	DataFlow          string   `json:"data_flow" yaml:"data_flow"`
+	FunctionContracts string   `json:"function_contracts" yaml:"function_contracts"`
+	UsesOpenAPI       bool     `json:"uses_openapi" yaml:"uses_openapi"`
+	OpenAPI           string   `json:"openapi" yaml:"openapi"`
+	CmdApproved       bool     `json:"cmd_approved" yaml:"cmd_approved"`
+	SSHApproved       bool     `json:"ssh_approved" yaml:"ssh_approved"`
+	Credentials       []string `json:"credentials" yaml:"credentials"`
+	Safety            string   `json:"safety" yaml:"safety"`
+	Fallback          string   `json:"fallback" yaml:"fallback"`
 }
 
 func Run(in io.Reader, out io.Writer) (string, error) {
@@ -33,53 +33,63 @@ func Run(in io.Reader, out io.Writer) (string, error) {
 }
 
 func Prompt(in io.Reader, out io.Writer) (Answers, error) {
+	return PromptWithDefaults(in, out, Answers{})
+}
+
+func PromptWithDefaults(in io.Reader, out io.Writer, defaults Answers) (Answers, error) {
+	reader, ok := in.(*bufio.Reader)
+	if !ok {
+		reader = bufio.NewReader(in)
+	}
 	p := prompter{
-		scanner: bufio.NewScanner(in),
-		out:     out,
+		reader: reader,
+		out:    out,
 	}
-	var answers Answers
+	answers := defaults
 	var err error
-	if answers.ProjectName, err = p.ask("Project name"); err != nil {
+	if answers.ProjectName, err = p.askWithDefault("Project name", answers.ProjectName); err != nil {
 		return answers, err
 	}
-	if answers.Goal, err = p.ask("Goal"); err != nil {
+	if answers.Goal, err = p.askWithDefault("Goal", answers.Goal); err != nil {
 		return answers, err
 	}
-	if answers.Inputs, err = p.ask("Inputs"); err != nil {
+	if answers.Inputs, err = p.askWithDefault("Inputs", answers.Inputs); err != nil {
 		return answers, err
 	}
-	if answers.Outputs, err = p.ask("Outputs"); err != nil {
+	if answers.Outputs, err = p.askWithDefault("Outputs", answers.Outputs); err != nil {
 		return answers, err
 	}
-	if answers.DataFlow, err = p.ask("Data flow"); err != nil {
+	if answers.DataFlow, err = p.askWithDefault("Data flow", answers.DataFlow); err != nil {
 		return answers, err
 	}
-	if answers.FunctionContracts, err = p.ask("Function contracts"); err != nil {
+	if answers.FunctionContracts, err = p.askWithDefault("Function contracts", answers.FunctionContracts); err != nil {
 		return answers, err
 	}
-	if answers.UsesOpenAPI, err = p.askYesNo("Does this project need API/OpenAPI integration?", false); err != nil {
+	if answers.UsesOpenAPI, err = p.askYesNo("Does this project need API/OpenAPI integration?", answers.UsesOpenAPI); err != nil {
 		return answers, err
 	}
 	if answers.UsesOpenAPI {
-		if answers.OpenAPI, err = p.ask("OpenAPI files, URLs, or service hints"); err != nil {
+		if answers.OpenAPI, err = p.askWithDefault("OpenAPI files, URLs, or service hints", answers.OpenAPI); err != nil {
 			return answers, err
 		}
+	} else {
+		answers.OpenAPI = ""
 	}
-	if answers.CmdApproved, err = p.askYesNo("Approve cmd runtime?", false); err != nil {
+	if answers.CmdApproved, err = p.askYesNo("Approve cmd runtime?", answers.CmdApproved); err != nil {
 		return answers, err
 	}
-	if answers.SSHApproved, err = p.askYesNo("Approve ssh runtime?", false); err != nil {
+	if answers.SSHApproved, err = p.askYesNo("Approve ssh runtime?", answers.SSHApproved); err != nil {
 		return answers, err
 	}
-	credentialAnswer, err := p.ask("Credential binding names only")
+	credentialAnswer, err := p.askWithDefault("Credential binding names only", strings.Join(answers.Credentials, ", "))
 	if err != nil {
 		return answers, err
 	}
 	answers.Credentials = credentialBindings(credentialAnswer)
-	if answers.Safety, err = p.ask("Safety and approval notes"); err != nil {
+	if answers.Safety, err = p.askWithDefault("Safety and approval notes", answers.Safety); err != nil {
 		return answers, err
 	}
-	if answers.Fallback, err = p.ask("Fallback behavior"); err != nil {
+	if answers.Fallback, err = p.askWithDefault("Fallback behavior", answers.Fallback); err != nil {
 		return answers, err
 	}
 	return answers, nil
@@ -154,8 +164,24 @@ func Render(answers Answers) string {
 }
 
 type prompter struct {
-	scanner *bufio.Scanner
-	out     io.Writer
+	reader *bufio.Reader
+	out    io.Writer
+}
+
+func (p *prompter) askWithDefault(label, current string) (string, error) {
+	if strings.TrimSpace(current) == "" {
+		fmt.Fprintf(p.out, "%s: ", label)
+	} else {
+		fmt.Fprintf(p.out, "%s [%s]: ", label, oneLine(current))
+	}
+	value, err := p.next()
+	if err != nil {
+		return "", err
+	}
+	if value == "" {
+		return current, nil
+	}
+	return value, nil
 }
 
 func (p *prompter) ask(label string) (string, error) {
@@ -181,13 +207,14 @@ func (p *prompter) askYesNo(label string, defaultYes bool) (bool, error) {
 }
 
 func (p *prompter) next() (string, error) {
-	if !p.scanner.Scan() {
-		if err := p.scanner.Err(); err != nil {
-			return "", err
-		}
+	line, err := p.reader.ReadString('\n')
+	if err != nil && err != io.EOF {
+		return "", err
+	}
+	if err == io.EOF && line == "" {
 		return "", io.ErrUnexpectedEOF
 	}
-	return strings.TrimSpace(p.scanner.Text()), nil
+	return strings.TrimRight(line, "\r\n"), nil
 }
 
 func writeSection(b *strings.Builder, heading, value, empty string) {
@@ -237,6 +264,15 @@ func splitAnswer(value string) []string {
 	return []string{value}
 }
 
+func oneLine(value string) string {
+	value = strings.Join(strings.Fields(value), " ")
+	const max = 80
+	if len(value) <= max {
+		return value
+	}
+	return value[:max-3] + "..."
+}
+
 var bindingTokenRE = regexp.MustCompile(`[A-Za-z][A-Za-z0-9_.-]*`)
 
 func credentialBindings(value string) []string {
@@ -279,12 +315,22 @@ func credentialBinding(value string) string {
 	var candidate string
 	for _, match := range matches {
 		lower := strings.ToLower(match)
-		if lower == "use" || lower == "uses" || lower == "binding" || lower == "bindings" || lower == "credential" || lower == "credentials" || lower == "secret" || lower == "secrets" {
+		if ignoredCredentialToken(lower) {
 			continue
 		}
 		candidate = match
 	}
 	return candidate
+}
+
+func ignoredCredentialToken(value string) bool {
+	value = strings.Trim(value, ".,:;")
+	switch value {
+	case "use", "uses", "binding", "bindings", "credential", "credentials", "secret", "secrets", "value", "values", "name", "names", "only", "none", "declared", "do", "not", "include", "required", "no", "are":
+		return true
+	default:
+		return false
+	}
 }
 
 func looksLikeBindingName(value string) bool {

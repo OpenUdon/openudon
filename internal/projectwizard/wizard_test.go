@@ -127,3 +127,74 @@ func TestRunPromptsScriptedAnswers(t *testing.T) {
 		t.Fatalf("rendered doc did not keep default runtime denies:\n%s", doc)
 	}
 }
+
+func TestPromptWithDefaultsKeepsCurrentOnEmptyInput(t *testing.T) {
+	defaults := Answers{
+		ProjectName: "Existing",
+		Goal:        "existing goal",
+		Inputs:      "`ticket_id`: required string",
+		Outputs:     "existing output",
+		Credentials: []string{"support_api_token"},
+		Fallback:    "Stop if unavailable",
+	}
+	input := strings.Repeat("\n", 12)
+	var prompts strings.Builder
+	answers, err := PromptWithDefaults(strings.NewReader(input), &prompts, defaults)
+	if err != nil {
+		t.Fatalf("PromptWithDefaults failed: %v", err)
+	}
+	if answers.Goal != defaults.Goal || answers.Inputs != defaults.Inputs || len(answers.Credentials) != 1 || answers.Credentials[0] != "support_api_token" {
+		t.Fatalf("defaults not preserved: %#v", answers)
+	}
+	if !strings.Contains(prompts.String(), "Goal [existing goal]:") {
+		t.Fatalf("prompt did not show default:\n%s", prompts.String())
+	}
+}
+
+func TestPrompterReadsLongLines(t *testing.T) {
+	longGoal := strings.Repeat("a", 16*1024)
+	input := strings.Join([]string{
+		"Long Project",
+		longGoal,
+		"",
+		"",
+		"",
+		"",
+		"",
+		"",
+		"",
+		"",
+		"",
+		"",
+	}, "\n") + "\n"
+	answers, err := Prompt(strings.NewReader(input), &strings.Builder{})
+	if err != nil {
+		t.Fatalf("Prompt failed: %v", err)
+	}
+	if answers.Goal != longGoal {
+		t.Fatalf("long goal length = %d, want %d", len(answers.Goal), len(longGoal))
+	}
+}
+
+func TestLoadAnswersFromMarkdownSeedsRuntimeOnlyProject(t *testing.T) {
+	doc := Render(Answers{
+		ProjectName: "Runtime Report",
+		Goal:        "Render a markdown report",
+		Inputs:      "`payload`: required object",
+		Outputs:     "A markdown report",
+		UsesOpenAPI: false,
+		Credentials: []string{"report_renderer_token"},
+		Safety:      "Sandbox proof runs only",
+		Fallback:    "Stop if the renderer is unavailable",
+	})
+	answers, err := LoadAnswersFromMarkdown(doc)
+	if err != nil {
+		t.Fatalf("LoadAnswersFromMarkdown failed: %v", err)
+	}
+	if answers.ProjectName != "Runtime Report" || answers.UsesOpenAPI {
+		t.Fatalf("unexpected loaded answers: %#v", answers)
+	}
+	if !strings.Contains(answers.Goal, "markdown report") || len(answers.Credentials) != 1 || answers.Credentials[0] != "report_renderer_token" {
+		t.Fatalf("loaded answers lost project content: %#v", answers)
+	}
+}

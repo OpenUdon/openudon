@@ -8,6 +8,10 @@ when to stop.
 questions and emits the same section structure as `templates/project.md`; it does not replace this
 manual contract and does not generate workflow artifacts.
 
+`icot` is deterministic. It can print without writing (`--print`), seed prompts from another
+example (`--from-example`), render from YAML or JSON answers (`--answers`), and lint an existing
+brief (`icot lint --example examples/<name>`).
+
 ## What To Include
 
 Use these sections for new projects:

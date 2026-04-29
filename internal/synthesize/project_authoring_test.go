@@ -1,6 +1,10 @@
 package synthesize
 
-import "testing"
+import (
+	"os"
+	"path/filepath"
+	"testing"
+)
 
 func TestAnalyzeProjectExtractsPromptRequirements(t *testing.T) {
 	policy := analyzeProject(`# Demo
@@ -57,4 +61,70 @@ func TestAnalyzeProjectExtractsLiteralRequestHints(t *testing.T) {
 	if len(want) != 0 {
 		t.Fatalf("missing literal hints: %#v from %#v", want, policy.BindingHints)
 	}
+}
+
+func TestLintProjectMarkdownPassesForEvalCorpus(t *testing.T) {
+	paths, err := filepath.Glob(filepath.Join("..", "..", "examples", "eval", "*", "project.md"))
+	if err != nil {
+		t.Fatalf("glob eval projects: %v", err)
+	}
+	if len(paths) == 0 {
+		t.Fatal("expected eval project fixtures")
+	}
+	for _, path := range paths {
+		t.Run(filepath.Base(filepath.Dir(path)), func(t *testing.T) {
+			data, err := os.ReadFile(path)
+			if err != nil {
+				t.Fatalf("read %s: %v", path, err)
+			}
+			for _, check := range LintProjectMarkdown(string(data)) {
+				if check.Status == "fail" {
+					t.Fatalf("lint failed %s: %#v", path, check)
+				}
+			}
+		})
+	}
+}
+
+func TestLintProjectMarkdownReportsMissingGoal(t *testing.T) {
+	checks := LintProjectMarkdown("# Missing Goal\n\n" +
+		"## External Systems and OpenAPI\n\n" +
+		"OpenAPI: none required\n\n" +
+		"## Runtime Policy\n\n" +
+		"- Allowed runtimes: `openapi`, `http`, `fnct`.\n\n" +
+		"## Safety and Approval Boundary\n\n" +
+		"- Generate and validate artifacts only.\n\n" +
+		"## Fallback Behavior\n\n" +
+		"- Stop if required runtime capabilities are missing.\n")
+	if !hasQualityCheck(checks, "project.authoring.goal", "warn") {
+		t.Fatalf("expected missing goal warning, got %#v", checks)
+	}
+}
+
+func TestLintProjectMarkdownFailsOnSecretLikeContent(t *testing.T) {
+	checks := LintProjectMarkdown("# Secret\n\n" +
+		"## Goal\n\n" +
+		"Call an API.\n\n" +
+		"## External Systems and OpenAPI\n\n" +
+		"- API: use `openapi/api.yaml`.\n\n" +
+		"## Runtime Policy\n\n" +
+		"- Allowed runtimes: `openapi`, `http`, `fnct`.\n\n" +
+		"## Credentials and Secrets\n\n" +
+		"- api_key = \"AKIA1234567890ABCDEF\"\n\n" +
+		"## Safety and Approval Boundary\n\n" +
+		"- Generate and validate artifacts only.\n\n" +
+		"## Fallback Behavior\n\n" +
+		"- Stop if credentials are missing.\n")
+	if !hasQualityCheck(checks, "project.no_secrets", "fail") {
+		t.Fatalf("expected secret lint failure, got %#v", checks)
+	}
+}
+
+func hasQualityCheck(checks []QualityCheck, code, status string) bool {
+	for _, check := range checks {
+		if check.Code == code && check.Status == status {
+			return true
+		}
+	}
+	return false
 }

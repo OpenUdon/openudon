@@ -3,3 +3,4 @@ approvals/
 eval/readiness/
 eval/runs/
 eval/artifacts/
+**/project.md.bak.*

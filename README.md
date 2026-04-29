@@ -46,7 +46,7 @@ make check
 ```
 
 New trusted operators should start with `docs/onboarding.md`, then either run
-`go run ./cmd/icot --example examples/<name>` for guided authoring or use
+`go run ./cmd/icot --example examples/<name>` for deterministic guided authoring or use
 `templates/project.md` when authoring a new project brief manually.
 For the short operator path from authoring through release evidence, see
 `docs/operator-checklist.md`.
@@ -280,3 +280,12 @@ creates `openapi/`, `workflows/`, and `expected/` if missing. It does not synthe
 include runtime policy, data-flow hints, credential binding names, safety boundaries, and fallback
 behavior. For runtime-only projects that do not need API/OpenAPI integration, include
 `OpenAPI: none required`.
+
+Useful deterministic authoring helpers:
+
+```bash
+go run ./cmd/icot --example ./examples/<name> --print
+go run ./cmd/icot --from-example ./examples/eval/runtime-only-render --example ./examples/<name>
+go run ./cmd/icot --answers ./answers.yaml --example ./examples/<name>
+go run ./cmd/icot lint --example ./examples/<name>
+```

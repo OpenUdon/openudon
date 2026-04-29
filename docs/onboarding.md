@@ -72,6 +72,13 @@ go run ./cmd/icot --example ./examples/<name>
 The wizard creates `project.md`, `openapi/`, `workflows/`, and `expected/`, then leaves synthesis to
 the normal `ramen synthesize --example ./examples/<name>` step.
 
+Useful deterministic options:
+
+- `--print` renders without writing files.
+- `--from-example ./examples/eval/<name>` seeds prompts from an existing brief.
+- `--answers ./answers.yaml` renders from YAML or JSON without prompts.
+- `lint --example ./examples/<name>` checks authoring sections and obvious secret-like content.
+
 For manual authoring, start from `templates/project.md`, then read:
 
 - `docs/project-authoring.md`

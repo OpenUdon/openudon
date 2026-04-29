@@ -441,6 +441,16 @@ func addProjectAuthoringChecks(report *QualityReport, text string) {
 	checkProjectSection(report, text, "Fallback Behavior", "project.authoring.fallback", "project.md declares fallback behavior")
 }
 
+func LintProjectMarkdown(text string) []QualityCheck {
+	report := &QualityReport{Status: "pass"}
+	addProjectAuthoringChecks(report, text)
+	if containsSecretLikeToken([]byte(text)) {
+		report.add("project.no_secrets", "fail", "project.md contains content matching a credential pattern", "")
+	}
+	report.finalize()
+	return report.Checks
+}
+
 func checkProjectSection(report *QualityReport, text, heading, code, message string) {
 	if hasMarkdownSection(text, heading) {
 		report.add(code, "pass", message, "")
