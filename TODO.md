@@ -47,7 +47,7 @@ values, and asks better grouped questions only when deterministic gaps remain.
 - `[done]` Strengthen deterministic readiness validation: flag undeclared credential references,
   incompatible input/source types when OpenAPI type is known, invented request fields, and invalid
   request-body paths.
-- `[todo]` Add internal confidence/evidence classification: record whether each mapping came from a
+- `[done]` Add internal confidence/evidence classification: record whether each mapping came from a
   deterministic match, LLM inference, user answer, or fallback default, and ask users only about
   low-confidence or conflicting mappings.
 - `[todo]` Improve grouped question defaults: generate suggested answers from OpenAPI descriptions

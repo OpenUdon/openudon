@@ -184,6 +184,9 @@ func CheckReadiness(session Session, docs []APIDocument) []ReadinessIssue {
 	if rawGoalMissing {
 		add("missing_goal", "workflow.description", readinessBlocking, "Describe the business goal for the workflow.", "")
 	}
+	for _, issue := range mappingClassificationIssues(session) {
+		add(issue.Code, issue.Slot, issue.Severity, issue.Message, issue.SuggestedAnswer)
+	}
 	if needsAPIDoc(session, docs) {
 		add("missing_api_doc", "intent.openapi", readinessBlocking, "Identify the OpenAPI document for API-backed steps.", suggestedDocAnswer(docs))
 	}
@@ -272,6 +275,12 @@ func PlanNextQuestion(session Session, docs []APIDocument, issues []ReadinessIss
 		plan.Prompt = "What side-effect and approval boundary should apply?"
 	case "optional_timeout_idempotency_controls":
 		plan.Prompt = "Should this workflow use timeout or idempotency controls?"
+	case "conflicting_mapping":
+		plan.Prompt = "Which mapping value should " + blocking.Slot + " use?"
+		plan.Grouped = strings.Contains(blocking.Slot, ".with.")
+	case "low_confidence_mapping":
+		plan.Prompt = "Confirm the mapping value for " + blocking.Slot + "."
+		plan.Grouped = strings.Contains(blocking.Slot, ".with.")
 	default:
 		plan.Prompt = blocking.Message
 	}
@@ -343,7 +352,7 @@ func finalProgressiveConfirmationLoop(out io.Writer, p *prompter, session *Sessi
 			}
 		case strings.HasPrefix(answer, "explain"):
 			id := strings.TrimSpace(strings.TrimPrefix(answer, "explain"))
-			printAssumptionExplanation(out, session.Assumptions, id)
+			printAssumptionExplanation(out, *session, id)
 		default:
 			fmt.Fprintln(out, "Please type save, edit <slot>, explain <assumption-id>, or cancel.")
 		}
@@ -369,6 +378,8 @@ func printReadinessWarnings(out io.Writer, issues []ReadinessIssue) {
 
 func mergeProgressiveSessions(base, overlay Session, docs []APIDocument) Session {
 	overlay = sanitizeDraft(DraftRequest{Session: base, Docs: docs}, overlay)
+	before := base
+	recordLLMOverlayClassifications(&base, before, overlay)
 	if base.Intent.Workflow == nil && overlay.Intent.Workflow != nil {
 		base.Intent.Workflow = overlay.Intent.Workflow
 	} else if base.Intent.Workflow != nil && overlay.Intent.Workflow != nil {
@@ -420,6 +431,15 @@ func defaultSingleOpenAPIDoc(session *Session, docs []APIDocument) {
 		return
 	}
 	session.Intent.OpenAPI = docs[0].RelativePath
+	addMappingClassification(session, MappingClassification{
+		Slot:                 "intent.openapi",
+		Value:                docs[0].RelativePath,
+		Source:               mappingSourceFallbackDefault,
+		Confidence:           mappingConfidenceReview,
+		Evidence:             docs[0].RelativePath,
+		Reason:               "Only one local OpenAPI document is available for API-backed steps.",
+		RequiresConfirmation: true,
+	})
 }
 
 func mergeInputsByName(base, overlay []*rollout.Input) []*rollout.Input {
@@ -552,6 +572,15 @@ func applyProgressiveAnswer(session *Session, plan QuestionPlan, answer string, 
 		} else {
 			session.Intent.OpenAPI = answer
 		}
+		addMappingClassification(session, MappingClassification{
+			Slot:                 "intent.openapi",
+			Value:                session.Intent.OpenAPI,
+			Source:               mappingSourceUser,
+			Confidence:           mappingConfidenceHigh,
+			Evidence:             answer,
+			Reason:               "User selected the OpenAPI document.",
+			RequiresConfirmation: false,
+		})
 	case strings.Contains(slotText, "operation") || strings.Contains(slotText, "intent.steps"):
 		if doc, op := matchOperationAnswer(answer, docs); op != nil {
 			session.Intent.OpenAPI = firstNonEmpty(session.Intent.OpenAPI, doc.RelativePath)
@@ -562,6 +591,15 @@ func applyProgressiveAnswer(session *Session, plan QuestionPlan, answer string, 
 				session.Intent.Steps[0].Do = firstNonEmpty(session.Intent.Steps[0].Do, op.Summary, operationLabel(op))
 				session.Intent.Steps[0].Operation = op.OperationID
 			}
+			addMappingClassification(session, MappingClassification{
+				Slot:                 stepOperationSlot(session.Intent.Steps[0]),
+				Value:                op.OperationID,
+				Source:               mappingSourceUser,
+				Confidence:           mappingConfidenceHigh,
+				Evidence:             answer,
+				Reason:               "User selected the API operation.",
+				RequiresConfirmation: false,
+			})
 		} else if len(session.Intent.Steps) == 0 {
 			stepType := "fnct"
 			operation := ""
@@ -575,9 +613,25 @@ func applyProgressiveAnswer(session *Session, plan QuestionPlan, answer string, 
 				Do:        answer,
 				Operation: operation,
 			}}
+			if operation != "" {
+				addMappingClassification(session, MappingClassification{
+					Slot:                 stepOperationSlot(session.Intent.Steps[0]),
+					Value:                operation,
+					Source:               mappingSourceUser,
+					Confidence:           mappingConfidenceHigh,
+					Evidence:             answer,
+					Reason:               "User provided the API operation.",
+					RequiresConfirmation: false,
+				})
+			}
 		}
 	case strings.Contains(slotText, ".with"):
 		assignments := parseAssignments(answer)
+		if len(assignments) == 0 && len(plan.Slots) == 1 && strings.Contains(plan.Slots[0], ".with.") {
+			if field := fieldFromWithSlot(plan.Slots[0]); field != "" {
+				assignments[field] = answer
+			}
+		}
 		for _, step := range session.Intent.Steps {
 			if step == nil {
 				continue
@@ -587,12 +641,32 @@ func applyProgressiveAnswer(session *Session, plan QuestionPlan, answer string, 
 			}
 			for field, source := range assignments {
 				step.With[field] = source
+				addMappingClassification(session, MappingClassification{
+					Slot:                 stepWithSlot(step, field),
+					Value:                source,
+					Source:               mappingSourceUser,
+					Confidence:           mappingConfidenceHigh,
+					Evidence:             answer,
+					Reason:               "User provided the request field mapping.",
+					RequiresConfirmation: false,
+				})
 			}
 		}
 		addInputsFromAssignments(session, assignments)
 	case strings.Contains(slotText, "credentials"):
 		session.Credentials = credentialBindings(answer)
 		session.CredentialsSet = true
+		for _, credential := range session.Credentials {
+			addMappingClassification(session, MappingClassification{
+				Slot:                 "credentials",
+				Value:                credential,
+				Source:               mappingSourceUser,
+				Confidence:           mappingConfidenceHigh,
+				Evidence:             answer,
+				Reason:               "User provided the credential binding name.",
+				RequiresConfirmation: false,
+			})
+		}
 		if len(session.Credentials) == 1 {
 			fillCredentialFields(session, docs, session.Credentials[0])
 		}
@@ -600,6 +674,20 @@ func applyProgressiveAnswer(session *Session, plan QuestionPlan, answer string, 
 		session.Intent.Inputs = mergeInputsByName(session.Intent.Inputs, parseInputs(answer))
 	case strings.Contains(slotText, "intent.outputs"):
 		session.Intent.Outputs = mergeOutputsByName(session.Intent.Outputs, parseOutputs(answer, lastStepName(session.Intent.Steps)))
+		for _, output := range session.Intent.Outputs {
+			if output == nil || strings.TrimSpace(output.Name) == "" || strings.TrimSpace(output.From) == "" {
+				continue
+			}
+			addMappingClassification(session, MappingClassification{
+				Slot:                 "intent.outputs." + output.Name,
+				Value:                output.Name + "=" + output.From,
+				Source:               mappingSourceUser,
+				Confidence:           mappingConfidenceHigh,
+				Evidence:             answer,
+				Reason:               "User provided the workflow output mapping.",
+				RequiresConfirmation: false,
+			})
+		}
 	case strings.Contains(slotText, "safety"):
 		if scope := projectwizard.NormalizeSideEffectScope(answer); scope != "" {
 			session.SideEffectScope = scope
@@ -630,6 +718,15 @@ func deterministicPrefill(session *Session, docs []APIDocument) bool {
 				source := "credentials." + session.Credentials[0]
 				if setStepWithIfEmpty(step, field, source) {
 					addDeterministicPrefillAssumption(session, step, field, source, "credential binding", "The selected operation security metadata identifies this request field as a credential field.")
+					addMappingClassification(session, MappingClassification{
+						Slot:                 stepWithSlot(step, field),
+						Value:                source,
+						Source:               mappingSourceDeterministic,
+						Confidence:           mappingConfidenceHigh,
+						Evidence:             "credential binding " + source,
+						Reason:               "The selected operation security metadata identifies this request field as a credential field.",
+						RequiresConfirmation: false,
+					})
 					changed = true
 				}
 				continue
@@ -641,6 +738,15 @@ func deterministicPrefill(session *Session, docs []APIDocument) bool {
 			source := "inputs." + inputName
 			if setStepWithIfEmpty(step, field, source) {
 				addDeterministicPrefillAssumption(session, step, field, source, "runtime input", "A declared runtime input exactly matches the required request field.")
+				addMappingClassification(session, MappingClassification{
+					Slot:                 stepWithSlot(step, field),
+					Value:                source,
+					Source:               mappingSourceDeterministic,
+					Confidence:           mappingConfidenceHigh,
+					Evidence:             "runtime input " + source,
+					Reason:               "A declared runtime input exactly matches the required request field.",
+					RequiresConfirmation: false,
+				})
 				changed = true
 			}
 		}
@@ -649,6 +755,15 @@ func deterministicPrefill(session *Session, docs []APIDocument) bool {
 		if output, ok := deterministicSingleStepOutput(session.Intent.Steps); ok {
 			session.Intent.Outputs = []*rollout.Output{output}
 			addDeterministicOutputAssumption(session, output)
+			addMappingClassification(session, MappingClassification{
+				Slot:                 "intent.outputs." + output.Name,
+				Value:                output.Name + "=" + output.From,
+				Source:               mappingSourceFallbackDefault,
+				Confidence:           mappingConfidenceReview,
+				Evidence:             output.From,
+				Reason:               "A single executable step can expose its received body as the workflow result.",
+				RequiresConfirmation: true,
+			})
 			changed = true
 		}
 	}
@@ -1107,19 +1222,21 @@ func firstBlockingIssue(issues []ReadinessIssue) ReadinessIssue {
 func sortReadinessIssues(issues []ReadinessIssue) []ReadinessIssue {
 	priority := map[string]int{
 		"missing_goal":                          0,
-		"missing_api_doc":                       1,
-		"missing_operation":                     2,
-		"undeclared_credential_reference":       3,
-		"invented_request_field":                4,
-		"invalid_request_body_path":             5,
-		"incompatible_request_value_type":       6,
-		"missing_required_request_values":       7,
-		"missing_credential_bindings":           8,
-		"missing_runtime_inputs":                9,
-		"missing_outputs":                       10,
-		"missing_side_effect_policy":            11,
-		"optional_timeout_idempotency_controls": 12,
-		"intent_render_invalid":                 13,
+		"conflicting_mapping":                   1,
+		"low_confidence_mapping":                2,
+		"missing_api_doc":                       3,
+		"missing_operation":                     4,
+		"undeclared_credential_reference":       5,
+		"invented_request_field":                6,
+		"invalid_request_body_path":             7,
+		"incompatible_request_value_type":       8,
+		"missing_required_request_values":       9,
+		"missing_credential_bindings":           10,
+		"missing_runtime_inputs":                11,
+		"missing_outputs":                       12,
+		"missing_side_effect_policy":            13,
+		"optional_timeout_idempotency_controls": 14,
+		"intent_render_invalid":                 15,
 	}
 	sort.SliceStable(issues, func(i, j int) bool {
 		return priority[issues[i].Code] < priority[issues[j].Code]
@@ -1213,6 +1330,14 @@ func parseAssignments(value string) map[string]string {
 	return out
 }
 
+func fieldFromWithSlot(slot string) string {
+	parts := strings.Split(strings.TrimSpace(slot), ".with.")
+	if len(parts) != 2 {
+		return ""
+	}
+	return strings.TrimSpace(parts[1])
+}
+
 func addInputsFromAssignments(session *Session, assignments map[string]string) {
 	for _, source := range assignments {
 		source = strings.TrimSpace(source)
@@ -1236,6 +1361,15 @@ func fillCredentialFields(session *Session, docs []APIDocument, credential strin
 		for _, field := range requiredFields(op) {
 			if step.With[field] == "" && looksCredentialField(field, op) {
 				step.With[field] = "credentials." + credential
+				addMappingClassification(session, MappingClassification{
+					Slot:                 stepWithSlot(step, field),
+					Value:                step.With[field],
+					Source:               mappingSourceUser,
+					Confidence:           mappingConfidenceHigh,
+					Evidence:             "credential binding " + credential,
+					Reason:               "User provided a single credential binding for the API credential field.",
+					RequiresConfirmation: false,
+				})
 			}
 		}
 	})

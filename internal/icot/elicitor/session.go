@@ -14,17 +14,18 @@ import (
 )
 
 type Session struct {
-	Project         projectwizard.Answers `json:"project,omitempty" yaml:"project,omitempty"`
-	Intent          rollout.Intent        `json:"intent,omitempty" yaml:"intent,omitempty"`
-	Credentials     []string              `json:"credentials,omitempty" yaml:"credentials,omitempty"`
-	CredentialsSet  bool                  `json:"credentials_set,omitempty" yaml:"credentials_set,omitempty"`
-	Safety          string                `json:"safety,omitempty" yaml:"safety,omitempty"`
-	SafetySet       bool                  `json:"safety_set,omitempty" yaml:"safety_set,omitempty"`
-	Fallback        string                `json:"fallback,omitempty" yaml:"fallback,omitempty"`
-	FallbackSet     bool                  `json:"fallback_set,omitempty" yaml:"fallback_set,omitempty"`
-	SideEffectScope string                `json:"side_effect_scope,omitempty" yaml:"side_effect_scope,omitempty"`
-	Annotations     []SourceAnnotation    `json:"annotations,omitempty" yaml:"annotations,omitempty"`
-	Assumptions     []Assumption          `json:"assumptions,omitempty" yaml:"assumptions,omitempty"`
+	Project         projectwizard.Answers   `json:"project,omitempty" yaml:"project,omitempty"`
+	Intent          rollout.Intent          `json:"intent,omitempty" yaml:"intent,omitempty"`
+	Credentials     []string                `json:"credentials,omitempty" yaml:"credentials,omitempty"`
+	CredentialsSet  bool                    `json:"credentials_set,omitempty" yaml:"credentials_set,omitempty"`
+	Safety          string                  `json:"safety,omitempty" yaml:"safety,omitempty"`
+	SafetySet       bool                    `json:"safety_set,omitempty" yaml:"safety_set,omitempty"`
+	Fallback        string                  `json:"fallback,omitempty" yaml:"fallback,omitempty"`
+	FallbackSet     bool                    `json:"fallback_set,omitempty" yaml:"fallback_set,omitempty"`
+	SideEffectScope string                  `json:"side_effect_scope,omitempty" yaml:"side_effect_scope,omitempty"`
+	Annotations     []SourceAnnotation      `json:"annotations,omitempty" yaml:"annotations,omitempty"`
+	Assumptions     []Assumption            `json:"assumptions,omitempty" yaml:"assumptions,omitempty"`
+	Classifications []MappingClassification `json:"classifications,omitempty" yaml:"classifications,omitempty"`
 }
 
 type SourceAnnotation struct {
@@ -168,6 +169,7 @@ func (s *Session) Normalize() {
 	s.Project.SideEffectScope = s.SideEffectScope
 	s.Intent.Inputs = dedupeInputs(s.Intent.Inputs)
 	s.Intent.Outputs = dedupeOutputs(s.Intent.Outputs)
+	s.Classifications = normalizeMappingClassifications(s.Classifications)
 	normalizeSteps(s.Intent.Steps)
 }
 
@@ -296,6 +298,7 @@ func mergeSessions(base, overlay Session) Session {
 	base.SideEffectScope = firstNonEmpty(base.SideEffectScope, overlay.SideEffectScope)
 	base.Annotations = append(base.Annotations, overlay.Annotations...)
 	base.Assumptions = mergeAssumptions(base.Assumptions, overlay.Assumptions)
+	base.Classifications = mergeClassifications(base.Classifications, overlay.Classifications)
 	base.Normalize()
 	return base
 }

@@ -370,7 +370,7 @@ func finalVerificationLoop(out io.Writer, p *prompter, session *Session, docs []
 			}
 		case strings.HasPrefix(answer, "explain"):
 			id := strings.TrimSpace(strings.TrimPrefix(answer, "explain"))
-			printAssumptionExplanation(out, session.Assumptions, id)
+			printAssumptionExplanation(out, *session, id)
 		case answer == "regenerate":
 			fmt.Fprintln(out, "Regenerate is available by rerunning iCoT from the saved draft or editing a slot before save.")
 		default:
@@ -922,13 +922,13 @@ func printAssumptions(out io.Writer, assumptions []Assumption) {
 	fmt.Fprintln(out)
 }
 
-func printAssumptionExplanation(out io.Writer, assumptions []Assumption, id string) {
+func printAssumptionExplanation(out io.Writer, session Session, id string) {
 	id = strings.TrimSpace(id)
 	if id == "" {
 		fmt.Fprintln(out, "Use explain <assumption-id>.")
 		return
 	}
-	for _, assumption := range assumptions {
+	for _, assumption := range session.Assumptions {
 		if strings.EqualFold(strings.TrimSpace(assumption.ID), id) {
 			fmt.Fprintf(out, "%s\n", assumption.ID)
 			if assumption.Slot != "" {
@@ -946,10 +946,38 @@ func printAssumptionExplanation(out io.Writer, assumptions []Assumption, id stri
 			if assumption.Risk != "" {
 				fmt.Fprintf(out, "- Risk: %s\n", assumption.Risk)
 			}
+			printClassificationExplanation(out, session.Classifications, assumption.Slot)
 			return
 		}
 	}
 	fmt.Fprintf(out, "No assumption found for %q.\n", id)
+}
+
+func printClassificationExplanation(out io.Writer, classifications []MappingClassification, slot string) {
+	slot = strings.TrimSpace(slot)
+	if slot == "" {
+		return
+	}
+	var matches []MappingClassification
+	for _, classification := range normalizeMappingClassifications(classifications) {
+		if classification.Slot == slot {
+			matches = append(matches, classification)
+		}
+	}
+	if len(matches) == 0 {
+		return
+	}
+	fmt.Fprintln(out, "- Classifications:")
+	for _, classification := range matches {
+		fmt.Fprintf(out, "  - %s/%s value=%s", classification.Source, classification.Confidence, classification.Value)
+		if classification.Evidence != "" {
+			fmt.Fprintf(out, " evidence=%s", classification.Evidence)
+		}
+		if classification.Reason != "" {
+			fmt.Fprintf(out, " reason=%s", classification.Reason)
+		}
+		fmt.Fprintln(out)
+	}
 }
 
 func autosave(path string, session Session) error {

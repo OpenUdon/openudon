@@ -397,6 +397,9 @@ func TestProgressiveDeterministicPrefillSkipsRequiredFieldQuestion(t *testing.T)
 	if !hasAssumption(artifacts.Session.Assumptions, "deterministic_prefill_steps_get_ticket_with_ticketId") {
 		t.Fatalf("missing deterministic prefill assumption: %#v", artifacts.Session.Assumptions)
 	}
+	if !hasClassification(artifacts.Session.Classifications, "steps.get_ticket.with.ticketId", "inputs.ticketId", mappingSourceDeterministic, mappingConfidenceHigh) {
+		t.Fatalf("missing deterministic prefill classification: %#v", artifacts.Session.Classifications)
+	}
 }
 
 func TestDeterministicPrefillUsesSingleCredentialBinding(t *testing.T) {
@@ -415,6 +418,9 @@ func TestDeterministicPrefillUsesSingleCredentialBinding(t *testing.T) {
 	}
 	if got := session.Intent.Steps[0].With["Authorization"]; got != "credentials.support_api_token" {
 		t.Fatalf("Authorization prefill = %q", got)
+	}
+	if !hasClassification(session.Classifications, "steps.get_ticket.with.Authorization", "credentials.support_api_token", mappingSourceDeterministic, mappingConfidenceHigh) {
+		t.Fatalf("missing credential classification: %#v", session.Classifications)
 	}
 }
 
@@ -465,6 +471,89 @@ func TestDeterministicPrefillAddsSingleStepOutput(t *testing.T) {
 	}
 	if len(session.Intent.Outputs) != 1 || session.Intent.Outputs[0].Name != "result" || session.Intent.Outputs[0].From != "get_ticket.received_body" {
 		t.Fatalf("outputs = %#v", session.Intent.Outputs)
+	}
+	if !hasClassification(session.Classifications, "intent.outputs.result", "result=get_ticket.received_body", mappingSourceFallbackDefault, mappingConfidenceReview) {
+		t.Fatalf("missing output fallback classification: %#v", session.Classifications)
+	}
+}
+
+func TestApplyProgressiveAnswerRecordsUserHighClassification(t *testing.T) {
+	session := supportTicketDraft(false)
+	docs := []APIDocument{{RelativePath: "openapi/support.yaml", Operations: []*rollout.OperationInfo{{
+		OperationID: "getTicket",
+		Parameters:  []*rollout.ParameterInfo{{Name: "ticketId", Required: true}},
+	}}}}
+
+	applyProgressiveAnswer(&session, QuestionPlan{Slots: []string{"steps.get_ticket.with.ticketId"}}, "ticketId=inputs.ticketId", docs)
+
+	if !hasClassification(session.Classifications, "steps.get_ticket.with.ticketId", "inputs.ticketId", mappingSourceUser, mappingConfidenceHigh) {
+		t.Fatalf("missing user classification: %#v", session.Classifications)
+	}
+	if hasReadinessCode(CheckReadiness(session, docs), "low_confidence_mapping") {
+		t.Fatalf("user high classification created low-confidence readiness issue: %#v", CheckReadiness(session, docs))
+	}
+}
+
+func TestMergeProgressiveSessionsRecordsLLMReviewClassifications(t *testing.T) {
+	base := supportTicketDraft(false)
+	base.Intent.Steps[0].Operation = ""
+	base.Intent.Outputs = nil
+	overlay := supportTicketDraft(true)
+	overlay.Credentials = []string{"support_api_token"}
+	overlay.CredentialsSet = true
+	docs := []APIDocument{{RelativePath: "openapi/support.yaml", Operations: []*rollout.OperationInfo{{
+		OperationID: "getTicket",
+		Parameters:  []*rollout.ParameterInfo{{Name: "ticketId", Required: true}},
+	}}}}
+
+	merged := mergeProgressiveSessions(base, overlay, docs)
+
+	for _, want := range []struct {
+		slot  string
+		value string
+	}{
+		{"steps.get_ticket.operation", "getTicket"},
+		{"steps.get_ticket.with.ticketId", "inputs.ticketId"},
+		{"credentials", "support_api_token"},
+		{"intent.outputs.ticket", "ticket=get_ticket.received_body"},
+	} {
+		if !hasClassification(merged.Classifications, want.slot, want.value, mappingSourceLLM, mappingConfidenceReview) {
+			t.Fatalf("missing llm classification %s=%s: %#v", want.slot, want.value, merged.Classifications)
+		}
+	}
+}
+
+func TestDefaultSingleOpenAPIDocRecordsFallbackReviewClassification(t *testing.T) {
+	session := supportTicketDraft(true)
+	session.Intent.OpenAPI = ""
+	defaultSingleOpenAPIDoc(&session, []APIDocument{{RelativePath: "openapi/support.yaml"}})
+
+	if !hasClassification(session.Classifications, "intent.openapi", "openapi/support.yaml", mappingSourceFallbackDefault, mappingConfidenceReview) {
+		t.Fatalf("missing openapi fallback classification: %#v", session.Classifications)
+	}
+}
+
+func TestReadinessFlagsConflictingMappingClassifications(t *testing.T) {
+	session := supportTicketDraft(true)
+	addMappingClassification(&session, MappingClassification{
+		Slot:       "steps.get_ticket.with.ticketId",
+		Value:      "inputs.ticketId",
+		Source:     mappingSourceDeterministic,
+		Confidence: mappingConfidenceHigh,
+	})
+	addMappingClassification(&session, MappingClassification{
+		Slot:       "steps.get_ticket.with.ticketId",
+		Value:      "literal-ticket",
+		Source:     mappingSourceLLM,
+		Confidence: mappingConfidenceReview,
+	})
+
+	issues := CheckReadiness(session, []APIDocument{{RelativePath: "openapi/support.yaml", Operations: []*rollout.OperationInfo{{
+		OperationID: "getTicket",
+		Parameters:  []*rollout.ParameterInfo{{Name: "ticketId", Required: true}},
+	}}}})
+	if !hasReadinessCode(issues, "conflicting_mapping") {
+		t.Fatalf("missing conflicting mapping issue: %#v", issues)
 	}
 }
 
@@ -608,6 +697,15 @@ func hasAssumption(assumptions []Assumption, id string) bool {
 func hasReadinessCode(issues []ReadinessIssue, code string) bool {
 	for _, issue := range issues {
 		if issue.Code == code {
+			return true
+		}
+	}
+	return false
+}
+
+func hasClassification(classifications []MappingClassification, slot, value, source, confidence string) bool {
+	for _, classification := range classifications {
+		if classification.Slot == slot && classification.Value == value && classification.Source == source && classification.Confidence == confidence {
 			return true
 		}
 	}
