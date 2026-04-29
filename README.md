@@ -118,6 +118,8 @@ The command reads `project.md`, discovers or imports OpenAPI documents under `op
 The expected plan records inferred steps, OpenAPI operations, required request fields,
 step-to-step bindings, and credential-like parameters. `ramen assess` compiles the final
 `workflow.hcl` through udon and checks it still matches that plan.
+`docs/intent.md` defines the internal `intent.hcl` contract and the high-fidelity authoring profile
+for near-lossless lowering into `workflow.hcl`.
 
 `synthesize` and `build` run a bounded refinement loop, defaulting to five attempts. The loop records
 which stage was retried, which checks failed, and why it stopped in `expected/refinement.json`.
@@ -276,8 +278,8 @@ LLM credentials must come from provider environment variables such as `GEMINI_AP
 `OPENAI_API_KEY`, or `ANTHROPIC_API_KEY`; do not place tokens in prompts, commands, examples, or
 workflow artifacts.
 
-Before writing a new `project.md`, read `docs/project-authoring.md` and `docs/data-flow.md`, then
-start from `templates/project.md` or run:
+Before writing a new `project.md`, read `docs/project-authoring.md`, `docs/intent.md`, and
+`docs/data-flow.md`, then start from `templates/project.md` or run:
 
 ```bash
 go run ./cmd/icot --example ./examples/<name>

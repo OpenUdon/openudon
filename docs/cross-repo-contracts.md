@@ -47,7 +47,7 @@ Required handoff package:
 | Path | Purpose |
 | --- | --- |
 | `project.md` | Source brief, integration policy, runtime policy, credentials policy, safety boundary, and fallback behavior. |
-| `workflows/intent.hcl` | Structured intent extracted from the project brief. |
+| `workflows/intent.hcl` | Ramen-owned structured intent extracted from the project brief; see [`docs/intent.md`](intent.md). |
 | `workflows/workflow.hcl` | udon workflow source produced from intent. |
 | `workflows/workflow.uws.yaml` | Exported UWS artifact validated against the public UWS schema and udon profile checks. |
 | `expected/plan.json` | Machine-readable expected steps, bindings, credentials, control flow, and side-effect hints. |

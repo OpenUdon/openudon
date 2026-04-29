@@ -7,7 +7,7 @@ Use this path when preparing generated artifacts or release evidence.
 - Optional guided path: run `go run ./cmd/icot --example ./examples/<name>`.
 - Optional deterministic lint: run `go run ./cmd/icot lint --example ./examples/<name>`.
 - Manual path: start from `templates/project.md`.
-- Follow `docs/project-authoring.md` and `docs/data-flow.md`.
+- Follow `docs/project-authoring.md`, `docs/intent.md`, and `docs/data-flow.md`.
 - For side-effectful work, follow `docs/safety.md` and name approval, sandbox proof-run, trusted-runner, and credential-binding policy.
 - Check the eval fixture patterns in `docs/eval-gallery.md` before adding or changing corpus samples.
 

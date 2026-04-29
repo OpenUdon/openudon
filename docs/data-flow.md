@@ -4,6 +4,9 @@ Ramen workflows pass data through explicit step outputs and request inputs. A us
 business action, but generated artifacts must expose the technical steps and field mappings needed
 to execute it.
 
+`docs/intent.md` is the internal `intent.hcl` contract. This page focuses on data-flow examples and
+quality expectations.
+
 ## How Data Moves
 
 - OpenAPI steps receive request fields from literals, workflow inputs, credential bindings, or prior

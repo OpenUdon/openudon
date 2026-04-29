@@ -79,6 +79,7 @@ Useful deterministic options:
 For manual authoring, start from `templates/project.md`, then read:
 
 - `docs/project-authoring.md`
+- `docs/intent.md`
 - `docs/data-flow.md`
 - `docs/safety.md`
 - `docs/cross-repo-contracts.md`
