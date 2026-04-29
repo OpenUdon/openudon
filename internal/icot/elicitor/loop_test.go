@@ -17,11 +17,14 @@ func TestRunFillsRuntimeOnlyIntent(t *testing.T) {
 		"Render a local summary report from a runtime input.",
 		"runtime_only_render",
 		"Render a local summary report.",
+		"",
+		"",
 		"no",
 		"summary:string",
 		"render_report",
 		"fnct",
 		"Render the summary report.",
+		"",
 		"summary",
 		"",
 		"",
@@ -61,14 +64,18 @@ func TestRunFillsOpenAPIRequiredParams(t *testing.T) {
 		"Fetch a support ticket.",
 		"support_ticket_lookup",
 		"Fetch a support ticket by runtime id.",
+		"",
+		"",
 		"yes",
 		"1",
 		"ticketId:string",
 		"get_ticket",
 		"http",
 		"Fetch the ticket.",
+		"",
 		"1",
 		"1",
+		"",
 		"",
 		"",
 		"ticket",
@@ -110,16 +117,20 @@ func TestRunCreatesStepBindFromPriorOutput(t *testing.T) {
 		"Fetch a customer and write a draft.",
 		"customer_draft",
 		"Fetch a customer and write a draft.",
+		"",
+		"",
 		"no",
 		"customerId:string",
 		"get_customer",
 		"fnct",
 		"Fetch the customer.",
+		"",
 		"customerId",
 		"",
 		"write_draft",
 		"fnct",
 		"Write the draft.",
+		"",
 		"customerId",
 		"get_customer.received_body.id",
 		"",
@@ -150,6 +161,60 @@ func TestRunCreatesStepBindFromPriorOutput(t *testing.T) {
 	}
 	if len(step.Binds) != 1 || step.Binds[0].Fields["customerId"] != "received_body.id" {
 		t.Fatalf("binds = %#v", step.Binds)
+	}
+}
+
+func TestRunFillsTimeoutAndIdempotencyControls(t *testing.T) {
+	example := t.TempDir()
+	input := strings.Join([]string{
+		"Submit one controlled local function call.",
+		"timeout_idempotency_controls",
+		"Submit one controlled local function call.",
+		"120",
+		"inputs.request_id",
+		"returnPrevious",
+		"86400",
+		"no",
+		"request_id:string, payload:string",
+		"call_api",
+		"fnct",
+		"Submit the payload through the approved local function.",
+		"10",
+		"payload",
+		"",
+		"",
+		"result",
+		"call_api.received_body",
+		"sandbox-only",
+		"",
+		"Sandbox proof runs only",
+		"Stop on missing payload",
+		"save",
+	}, "\n") + "\n"
+
+	artifacts, err := Run(context.Background(), strings.NewReader(input), &strings.Builder{}, Session{}, Options{
+		ExampleDir: example,
+		NoLLM:      true,
+		Extractor:  NewNoopExtractor(),
+	})
+	if err != nil {
+		t.Fatalf("Run failed: %v", err)
+	}
+	intent, err := rollout.ParseIntent([]byte(artifacts.IntentHCL), "intent.hcl")
+	if err != nil {
+		t.Fatalf("parse rendered intent: %v\n%s", err, artifacts.IntentHCL)
+	}
+	if intent.Workflow.Timeout == nil || *intent.Workflow.Timeout != 120 {
+		t.Fatalf("workflow timeout = %#v", intent.Workflow.Timeout)
+	}
+	if intent.Workflow.Idempotency == nil || intent.Workflow.Idempotency.Key != "inputs.request_id" || intent.Workflow.Idempotency.OnConflict != "returnPrevious" {
+		t.Fatalf("workflow idempotency = %#v", intent.Workflow.Idempotency)
+	}
+	if intent.Workflow.Idempotency.TTL == nil || *intent.Workflow.Idempotency.TTL != 86400 {
+		t.Fatalf("workflow idempotency ttl = %#v", intent.Workflow.Idempotency)
+	}
+	if len(intent.Steps) != 1 || intent.Steps[0].Timeout == nil || *intent.Steps[0].Timeout != 10 {
+		t.Fatalf("step timeout = %#v", intent.Steps)
 	}
 }
 

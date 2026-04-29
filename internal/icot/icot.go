@@ -10,9 +10,11 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 	"time"
 
+	evalpkg "github.com/genelet/ramen/internal/eval"
 	"github.com/genelet/ramen/internal/icot/elicitor"
 	"github.com/genelet/ramen/internal/projectwizard"
 	"github.com/genelet/ramen/internal/synthesize"
@@ -27,6 +29,9 @@ func Main(args []string, in io.Reader, out, errOut io.Writer) int {
 	}
 	if len(args) > 0 && args[0] == "reconcile" {
 		return runReconcile(args[1:], in, out, errOut)
+	}
+	if len(args) > 0 && args[0] == "replay-eval" {
+		return runReplayEval(args[1:], out, errOut)
 	}
 	return runAuthor(args, in, out, errOut)
 }
@@ -259,6 +264,265 @@ func runLint(args []string, out, errOut io.Writer) int {
 		return 1
 	}
 	return 0
+}
+
+type replayEvalReport struct {
+	Provider string             `json:"provider,omitempty"`
+	Model    string             `json:"model,omitempty"`
+	Root     string             `json:"root"`
+	OutDir   string             `json:"out_dir"`
+	Passed   bool               `json:"passed"`
+	Results  []replayEvalResult `json:"results"`
+}
+
+type replayEvalResult struct {
+	Name             string                 `json:"name"`
+	Passed           bool                   `json:"passed"`
+	Error            string                 `json:"error,omitempty"`
+	ReferenceIssues  []evalpkg.CompareIssue `json:"reference_issues,omitempty"`
+	Blocking         int                    `json:"blocking"`
+	Warning          int                    `json:"warning"`
+	Advisory         int                    `json:"advisory"`
+	TranscriptPath   string                 `json:"transcript_path,omitempty"`
+	StdoutPath       string                 `json:"stdout_path,omitempty"`
+	GeneratedIntent  string                 `json:"generated_intent,omitempty"`
+	GeneratedProject string                 `json:"generated_project,omitempty"`
+	LLMCalls         []replayLLMCall        `json:"llm_calls,omitempty"`
+	Turns            []elicitor.ReplayTurn  `json:"turns,omitempty"`
+}
+
+type replayLLMCall struct {
+	Kind     string                `json:"kind"`
+	Messages []rollout.ChatMessage `json:"messages"`
+	Response string                `json:"response,omitempty"`
+	Error    string                `json:"error,omitempty"`
+}
+
+func runReplayEval(args []string, out, errOut io.Writer) int {
+	fs := flag.NewFlagSet("icot replay-eval", flag.ContinueOnError)
+	fs.SetOutput(out)
+	root := fs.String("root", "examples/eval", "Directory containing eval example subdirectories")
+	name := fs.String("name", "", "Run a single eval fixture by directory name")
+	provider := fs.String("provider", "gemini", "LLM provider for iCoT extraction")
+	model := fs.String("model", "gemini-2.5-flash", "LLM model for iCoT extraction")
+	temperature := fs.Float64("temperature", 0.2, "LLM extraction temperature")
+	timeout := fs.Duration("timeout", 2*time.Minute, "Timeout per fixture replay")
+	outDir := fs.String("out-dir", filepath.Join("eval", "runs", "icot-replay-"+time.Now().UTC().Format("20060102T150405Z")), "Directory for replay transcripts and generated artifacts")
+	fs.Usage = func() {
+		fmt.Fprintf(fs.Output(), "Usage: icot replay-eval [--root examples/eval] [--provider gemini --model gemini-2.5-flash] [--out-dir eval/runs/icot-replay-<ts>]\n\n")
+		fmt.Fprintf(fs.Output(), "Replays eval reference intents through the real iCoT chat loop with LLM extraction enabled and writes transcripts.\n\n")
+		fs.PrintDefaults()
+	}
+	if err := fs.Parse(args); err != nil {
+		if errors.Is(err, flag.ErrHelp) {
+			return 0
+		}
+		return 2
+	}
+	fixtures := discoverReplayFixtures(*root, *name)
+	if len(fixtures) == 0 {
+		fmt.Fprintf(errOut, "no eval fixtures found under %s\n", *root)
+		return 1
+	}
+	if err := os.MkdirAll(*outDir, 0o755); err != nil {
+		fmt.Fprintln(errOut, err)
+		return 1
+	}
+	report := replayEvalReport{
+		Provider: strings.TrimSpace(*provider),
+		Model:    strings.TrimSpace(*model),
+		Root:     *root,
+		OutDir:   *outDir,
+		Passed:   true,
+	}
+	for _, exampleDir := range fixtures {
+		result := runReplayFixture(exampleDir, *provider, *model, *temperature, *timeout, *outDir)
+		report.Results = append(report.Results, result)
+		if !result.Passed {
+			report.Passed = false
+		}
+		status := "pass"
+		if !result.Passed {
+			status = "fail"
+		}
+		fmt.Fprintf(out, "icot replay-eval: %s %s", status, result.Name)
+		if result.Error != "" {
+			fmt.Fprintf(out, " - %s", result.Error)
+		}
+		fmt.Fprintln(out)
+	}
+	reportPath := filepath.Join(*outDir, "report.json")
+	if err := writeJSONFile(reportPath, report); err != nil {
+		fmt.Fprintln(errOut, err)
+		return 1
+	}
+	fmt.Fprintf(out, "icot replay-eval: wrote %s\n", reportPath)
+	if !report.Passed {
+		return 1
+	}
+	return 0
+}
+
+func discoverReplayFixtures(root, name string) []string {
+	if strings.TrimSpace(name) != "" {
+		path := filepath.Join(root, strings.TrimSpace(name))
+		if _, err := os.Stat(filepath.Join(path, "reference", "intent.hcl")); err == nil {
+			return []string{path}
+		}
+		return nil
+	}
+	entries, err := os.ReadDir(root)
+	if err != nil {
+		return nil
+	}
+	var out []string
+	for _, entry := range entries {
+		if !entry.IsDir() {
+			continue
+		}
+		path := filepath.Join(root, entry.Name())
+		if _, err := os.Stat(filepath.Join(path, "reference", "intent.hcl")); err == nil {
+			out = append(out, path)
+		}
+	}
+	sort.Strings(out)
+	return out
+}
+
+func runReplayFixture(exampleDir, provider, model string, temperature float64, timeout time.Duration, outDir string) replayEvalResult {
+	name := filepath.Base(filepath.Clean(exampleDir))
+	fixtureDir := filepath.Join(outDir, name)
+	result := replayEvalResult{Name: name}
+	if err := os.MkdirAll(fixtureDir, 0o755); err != nil {
+		result.Error = err.Error()
+		return result
+	}
+	referencePath := filepath.Join(exampleDir, "reference", "intent.hcl")
+	reference, err := rollout.ParseIntentFile(referencePath)
+	if err != nil {
+		result.Error = err.Error()
+		return result
+	}
+	script, err := elicitor.BuildReplayScript(exampleDir, reference)
+	if err != nil {
+		result.Error = err.Error()
+		return result
+	}
+	calls := []replayLLMCall{}
+	extractor, err := replayExtractor(provider, model, temperature, &calls)
+	if err != nil {
+		result.Error = err.Error()
+		return result
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), timeout)
+	defer cancel()
+	var stdout strings.Builder
+	artifacts, err := elicitor.Run(ctx, strings.NewReader(script.Input), &stdout, elicitor.Session{}, elicitor.Options{
+		ExampleDir: exampleDir,
+		NoLLM:      false,
+		Extractor:  extractor,
+	})
+	result.Turns = script.Turns
+	result.LLMCalls = calls
+	if writeErr := os.WriteFile(filepath.Join(fixtureDir, "stdout.txt"), []byte(stdout.String()), 0o644); writeErr == nil {
+		result.StdoutPath = filepath.Join(fixtureDir, "stdout.txt")
+	}
+	if err != nil {
+		result.Error = err.Error()
+		_ = writeJSONFile(filepath.Join(fixtureDir, "transcript.json"), result)
+		return result
+	}
+	if labelErr := elicitor.AssertReplayLabelsInOrder(stdout.String(), script.Turns); labelErr != nil {
+		result.Error = labelErr.Error()
+	}
+	generatedDir := filepath.Join(fixtureDir, "generated")
+	_ = os.MkdirAll(generatedDir, 0o755)
+	intentPath := filepath.Join(generatedDir, "intent.hcl")
+	projectPath := filepath.Join(generatedDir, "project.md")
+	if err := os.WriteFile(intentPath, []byte(artifacts.IntentHCL), 0o644); err == nil {
+		result.GeneratedIntent = intentPath
+	}
+	if err := os.WriteFile(projectPath, []byte(artifacts.ProjectMD), 0o644); err == nil {
+		result.GeneratedProject = projectPath
+	}
+	policy, _ := evalpkg.ReadReferencePolicy(filepath.Join(exampleDir, "reference", "policy.json"))
+	issues, compareErr := evalpkg.CompareIntentFiles(intentPath, referencePath, policy)
+	if compareErr != nil {
+		if result.Error == "" {
+			result.Error = compareErr.Error()
+		}
+	} else {
+		result.ReferenceIssues = issues
+		for _, issue := range issues {
+			switch issue.Severity {
+			case "blocking":
+				result.Blocking++
+			case "warning":
+				result.Warning++
+			case "advisory":
+				result.Advisory++
+			}
+		}
+	}
+	result.Passed = result.Error == "" && result.Blocking == 0
+	transcriptPath := filepath.Join(fixtureDir, "transcript.json")
+	if err := writeJSONFile(transcriptPath, result); err == nil {
+		result.TranscriptPath = transcriptPath
+		_ = writeJSONFile(transcriptPath, result)
+	}
+	return result
+}
+
+func replayExtractor(provider, model string, temperature float64, calls *[]replayLLMCall) (elicitor.Extractor, error) {
+	llm, actualProvider, _, err := runner.NewLLMClientFromEnvWithOptions(provider, model, runner.LLMOptions{
+		Temperature: &temperature,
+	})
+	if err != nil {
+		return nil, err
+	}
+	chat, ok := llm.(rollout.ChatClient)
+	if !ok {
+		return nil, fmt.Errorf("provider %s does not support chat", actualProvider)
+	}
+	return elicitor.NewChatExtractor(&recordingChatClient{base: chat, calls: calls}, &temperature), nil
+}
+
+type recordingChatClient struct {
+	base  rollout.ChatClient
+	calls *[]replayLLMCall
+}
+
+func (c *recordingChatClient) Chat(ctx context.Context, messages []rollout.ChatMessage) (string, error) {
+	response, err := c.base.Chat(ctx, messages)
+	call := replayLLMCall{Kind: "chat", Messages: append([]rollout.ChatMessage(nil), messages...), Response: response}
+	if err != nil {
+		call.Error = err.Error()
+	}
+	*c.calls = append(*c.calls, call)
+	return response, err
+}
+
+func (c *recordingChatClient) StructuredChat(ctx context.Context, messages []rollout.ChatMessage, schema json.RawMessage, opts rollout.StructuredOpts) (string, error) {
+	structured, ok := c.base.(rollout.StructuredChat)
+	if !ok {
+		return "", errors.New("structured chat unavailable")
+	}
+	response, err := structured.StructuredChat(ctx, messages, schema, opts)
+	call := replayLLMCall{Kind: "structured_chat", Messages: append([]rollout.ChatMessage(nil), messages...), Response: response}
+	if err != nil {
+		call.Error = err.Error()
+	}
+	*c.calls = append(*c.calls, call)
+	return response, err
+}
+
+func writeJSONFile(path string, value any) error {
+	data, err := json.MarshalIndent(value, "", "  ")
+	if err != nil {
+		return err
+	}
+	data = append(data, '\n')
+	return os.WriteFile(path, data, 0o644)
 }
 
 func authorAnswers(answersFile, fromExample, exampleDir string, force bool, in io.Reader, out io.Writer) (projectwizard.Answers, error) {

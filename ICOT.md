@@ -36,16 +36,20 @@ needed:
 The high-level loop is:
 
 1. Capture a short workflow brief.
-2. Fill workflow name and goal.
+2. Fill workflow name, goal, and optional workflow timeout/idempotency metadata.
 3. Select whether OpenAPI/API steps are needed.
 4. Capture runtime inputs.
-5. Capture steps, operations, request fields, and step-to-step binds.
+5. Capture steps, operations, request fields, optional step timeouts, and step-to-step binds.
 6. Capture outputs.
 7. Capture runtime approvals for `cmd` or `ssh` only if those runtimes appear.
 8. Capture side-effect scope.
 9. Capture credential binding names only.
 10. Capture safety notes and fallback behavior.
 11. Render and validate `intent.hcl`, then ask for final `save`, `edit <slot>`, or `cancel`.
+
+The timeout and idempotency questions default to blank. When left blank, iCoT emits no timeout or
+idempotency metadata. When provided, the values are written to `workflows/intent.hcl`; `project.md`
+remains the readable policy by-product.
 
 ## Side-Effect Scope
 
@@ -130,6 +134,20 @@ Warnings only:
 
 Drift warnings do not make lint exit nonzero unless another fail-level check exists.
 
+## Eval Replay
+
+`icot replay-eval` replays each eval fixture's `reference/intent.hcl` through the real iCoT
+question/answer loop. It can run with Gemini/OpenAI/Anthropic extraction enabled and writes the
+simulated turns, LLM calls, stdout, generated `intent.hcl`, generated `project.md`, and reference
+comparison result under an ignored `eval/runs/icot-replay-*` directory.
+
+```bash
+go run ./cmd/icot replay-eval --root ./examples/eval --provider gemini --model gemini-2.5-flash
+```
+
+This command is local evidence, not a committed fixture format. The eval references remain the
+source of truth for intent correctness.
+
 ## Atomic Artifact Writes
 
 iCoT treats final artifact writes as a small transaction:
@@ -189,6 +207,9 @@ go run ./cmd/icot reconcile --example ./examples/<name>
 
 # Check authoring quality, intent parseability, and advisory drift.
 go run ./cmd/icot lint --example ./examples/<name>
+
+# Replay eval references through iCoT and save transcripts.
+go run ./cmd/icot replay-eval --root ./examples/eval --provider gemini --model gemini-2.5-flash
 ```
 
 ## Boundaries

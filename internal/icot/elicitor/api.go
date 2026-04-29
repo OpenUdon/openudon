@@ -6,6 +6,7 @@ import (
 	"path/filepath"
 	"sort"
 	"strings"
+	"unicode"
 
 	"github.com/genelet/ramen/internal/openapidisco"
 	"github.com/genelet/udon/pkg/rollout"
@@ -82,9 +83,96 @@ func requiredFields(op *rollout.OperationInfo) []string {
 		out = append(out, parameter.Name)
 	}
 	if op.RequestBody != nil && op.RequestBody.Required {
-		out = append(out, "body")
+		bodyFields := requiredRequestBodyFields(op.RequestBody)
+		if len(bodyFields) == 0 {
+			out = append(out, "body")
+		} else {
+			out = append(out, bodyFields...)
+		}
+	}
+	for _, security := range op.Security {
+		if field := securityFieldName(security); field != "" {
+			out = append(out, field)
+		}
 	}
 	return dedupeStrings(out)
+}
+
+func requiredRequestBodyFields(body *rollout.RequestBodyInfo) []string {
+	if body == nil || len(body.Schema) == 0 {
+		return nil
+	}
+	required := stringSliceFromAny(body.Schema["required"])
+	properties, _ := body.Schema["properties"].(map[string]any)
+	if len(required) == 0 {
+		var fields []string
+		for field := range properties {
+			fields = append(fields, field)
+		}
+		sort.Strings(fields)
+		return fields
+	}
+	if len(properties) == 0 {
+		return required
+	}
+	var out []string
+	for _, field := range required {
+		if _, ok := properties[field]; ok {
+			out = append(out, field)
+		}
+	}
+	return out
+}
+
+func stringSliceFromAny(value any) []string {
+	switch typed := value.(type) {
+	case []string:
+		return typed
+	case []any:
+		out := make([]string, 0, len(typed))
+		for _, item := range typed {
+			if text := strings.TrimSpace(fmt.Sprint(item)); text != "" {
+				out = append(out, text)
+			}
+		}
+		return out
+	default:
+		return nil
+	}
+}
+
+func securityFieldName(name string) string {
+	name = strings.TrimSpace(name)
+	if name == "" {
+		return ""
+	}
+	lower := strings.ToLower(name)
+	if strings.Contains(lower, "api") && strings.Contains(lower, "key") {
+		return camelToSnake(name)
+	}
+	if strings.Contains(lower, "bearer") || strings.Contains(lower, "auth") || strings.Contains(lower, "token") {
+		return "Authorization"
+	}
+	return camelToSnake(name)
+}
+
+func camelToSnake(value string) string {
+	var out []rune
+	var prev rune
+	for i, r := range value {
+		if r == '-' || r == ' ' {
+			r = '_'
+		}
+		if unicode.IsUpper(r) {
+			if i > 0 && prev != '_' && (unicode.IsLower(prev) || unicode.IsDigit(prev)) {
+				out = append(out, '_')
+			}
+			r = unicode.ToLower(r)
+		}
+		out = append(out, r)
+		prev = r
+	}
+	return slugIdent(string(out))
 }
 
 func operationByID(docs []APIDocument, docPath, operationID string) (*rollout.OperationInfo, bool) {

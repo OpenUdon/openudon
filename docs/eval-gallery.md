@@ -17,6 +17,7 @@ specific workflow behavior or failure class rather than merely adding volume.
 | `runtime-only-render` | No-OpenAPI runtime-only `fnct` rendering workflow. |
 | `support-email` | API lookup plus approved side-effectful email adapter and safety boundary. |
 | `support-priority-routing` | Function-backed classification/routing with explicit contracts. |
+| `timeout-idempotency-controls` | Runtime-only workflow with explicit workflow timeout, step timeout, and workflow idempotency metadata. |
 | `weather-toronto` | Hidden technical step expansion from city lookup to weather lookup. |
 
 ## Adding Samples

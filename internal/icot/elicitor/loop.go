@@ -13,6 +13,7 @@ import (
 	"github.com/genelet/ramen/internal/projectwizard"
 	"github.com/genelet/udon/pkg/rollout"
 	"github.com/genelet/udon/pkg/runner"
+	"github.com/tabilet/uws/uws1"
 )
 
 type Options struct {
@@ -92,6 +93,9 @@ func Run(ctx context.Context, in io.Reader, out io.Writer, seed Session, opts Op
 	if err != nil {
 		return Artifacts{}, err
 	}
+	if err := p.collectWorkflowMetadata(session.Intent.Workflow); err != nil {
+		return Artifacts{}, err
+	}
 	session.Project.ProjectName = humanTitle(session.Intent.Workflow.Name)
 	session.Project.Goal = session.Intent.Workflow.Description
 	session.Normalize()
@@ -125,11 +129,22 @@ func Run(ctx context.Context, in io.Reader, out io.Writer, seed Session, opts Op
 			}
 			session.Intent.OpenAPI = strings.TrimSpace(apiPath)
 		} else {
-			doc, err := p.chooseDocument("OpenAPI document", docs, session.Intent.OpenAPI)
-			if err != nil {
-				return Artifacts{}, err
+			useDefaultDoc := true
+			if len(docs) > 1 {
+				useDefaultDoc, err = p.askYesNo("Use one default OpenAPI document for all API steps?", strings.TrimSpace(session.Intent.OpenAPI) != "")
+				if err != nil {
+					return Artifacts{}, err
+				}
 			}
-			session.Intent.OpenAPI = doc.RelativePath
+			if useDefaultDoc {
+				doc, err := p.chooseDocument("OpenAPI document", docs, session.Intent.OpenAPI)
+				if err != nil {
+					return Artifacts{}, err
+				}
+				session.Intent.OpenAPI = doc.RelativePath
+			} else {
+				session.Intent.OpenAPI = ""
+			}
 		}
 	} else {
 		session.Intent.OpenAPI = ""
@@ -500,6 +515,10 @@ func (p *prompter) collectSteps(usesAPI bool, defaultOpenAPI string, docs []APID
 		if err != nil {
 			return nil, err
 		}
+		step.Timeout, err = p.askOptionalSeconds("Step timeout seconds (blank for none)", step.Timeout)
+		if err != nil {
+			return nil, err
+		}
 		if step.Type == "http" || step.Type == "openapi" {
 			docPath := defaultOpenAPI
 			var doc APIDocument
@@ -517,7 +536,11 @@ func (p *prompter) collectSteps(usesAPI bool, defaultOpenAPI string, docs []APID
 					return nil, err
 				}
 				step.Operation = op.OperationID
-				step.With, step.Binds, step.DependsOn, err = p.collectFields(requiredFields(op), inputs, steps)
+				fields, err := p.stepFields(requiredFields(op))
+				if err != nil {
+					return nil, err
+				}
+				step.With, step.Binds, step.DependsOn, err = p.collectFields(fields, inputs, steps)
 				if err != nil {
 					return nil, err
 				}
@@ -537,7 +560,11 @@ func (p *prompter) collectSteps(usesAPI bool, defaultOpenAPI string, docs []APID
 				if err != nil {
 					return nil, err
 				}
-				step.With, step.Binds, step.DependsOn, err = p.collectFields(splitList(fields), inputs, steps)
+				selectedFields, err := p.stepFields(splitList(fields))
+				if err != nil {
+					return nil, err
+				}
+				step.With, step.Binds, step.DependsOn, err = p.collectFields(selectedFields, inputs, steps)
 				if err != nil {
 					return nil, err
 				}
@@ -555,6 +582,78 @@ func (p *prompter) collectSteps(usesAPI bool, defaultOpenAPI string, docs []APID
 		steps = append(steps, step)
 	}
 	return steps, nil
+}
+
+func (p *prompter) collectWorkflowMetadata(workflow *rollout.WorkflowMeta) error {
+	if workflow == nil {
+		return nil
+	}
+	timeout, err := p.askOptionalSeconds("Workflow timeout seconds (blank for none)", workflow.Timeout)
+	if err != nil {
+		return err
+	}
+	workflow.Timeout = timeout
+	currentKey := ""
+	if workflow.Idempotency != nil {
+		currentKey = workflow.Idempotency.Key
+	}
+	key, err := p.askDefault("Workflow idempotency key (blank for none)", currentKey)
+	if err != nil {
+		return err
+	}
+	key = strings.TrimSpace(key)
+	if key == "" || strings.EqualFold(key, "none") || strings.EqualFold(key, "clear") {
+		workflow.Idempotency = nil
+		return nil
+	}
+	currentConflict := ""
+	currentTTL := (*float64)(nil)
+	if workflow.Idempotency != nil {
+		currentConflict = workflow.Idempotency.OnConflict
+		currentTTL = workflow.Idempotency.TTL
+	}
+	conflict, err := p.askDefault("Workflow idempotency onConflict (blank/reject/returnPrevious)", currentConflict)
+	if err != nil {
+		return err
+	}
+	conflict = strings.TrimSpace(conflict)
+	if conflict != "" && conflict != "reject" && conflict != "returnPrevious" {
+		return fmt.Errorf("workflow idempotency onConflict must be blank, reject, or returnPrevious")
+	}
+	ttl, err := p.askOptionalSeconds("Workflow idempotency ttl seconds (blank for none)", currentTTL)
+	if err != nil {
+		return err
+	}
+	workflow.Idempotency = &uws1.Idempotency{Key: key, OnConflict: conflict, TTL: ttl}
+	return nil
+}
+
+func (p *prompter) askOptionalSeconds(label string, current *float64) (*float64, error) {
+	defaultValue := ""
+	if current != nil {
+		defaultValue = strconv.FormatFloat(*current, 'f', -1, 64)
+	}
+	value, err := p.askDefault(label, defaultValue)
+	if err != nil {
+		return nil, err
+	}
+	value = strings.TrimSpace(value)
+	if value == "" || strings.EqualFold(value, "none") || strings.EqualFold(value, "clear") {
+		return nil, nil
+	}
+	seconds, err := strconv.ParseFloat(value, 64)
+	if err != nil || seconds <= 0 {
+		return nil, fmt.Errorf("%s must be a positive number of seconds", label)
+	}
+	return &seconds, nil
+}
+
+func (p *prompter) stepFields(required []string) ([]string, error) {
+	extra, err := p.askDefault("Additional step fields (comma-separated; blank for none)", "")
+	if err != nil {
+		return nil, err
+	}
+	return dedupeStrings(append(required, splitList(extra)...)), nil
 }
 
 func (p *prompter) collectFields(fields []string, inputs []*rollout.Input, prior []*rollout.Step) (map[string]string, []*rollout.StepBind, []string, error) {

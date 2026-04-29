@@ -38,6 +38,9 @@ For guided authoring, choose one side-effect scope:
 - `after-approval`: sandbox and production execution require the existing approval/trusted-runner
   states and approved credential bindings.
 
+Guided authoring also accepts optional workflow timeout, workflow idempotency, and per-step timeout
+answers. Leave those prompts blank unless the project contract requires portable UWS 1.1 metadata.
+
 For side-effectful workflows, the Safety and Approval Boundary must name both the approval or
 trusted-runtime path and the sandbox/test proof-run policy. Ramen synthesis should not directly
 execute production workflows. Review evidence treats generated artifacts as Symphony state
@@ -68,6 +71,14 @@ runtimes:
   ssh: false
 credential_bindings:
   - support_api_token
+timeouts:
+  workflow: 120
+  steps:
+    call_api: 10
+idempotency:
+  key: inputs.request_id
+  onConflict: returnPrevious
+  ttl: 86400
 ```
 
 This complements the prose sections. Do not put credential values in the block.

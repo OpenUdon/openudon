@@ -498,6 +498,8 @@ func testProjectInput(withOpenAPI bool) string {
 		"Render a local summary report from a runtime input",
 		"guided_project",
 		"Render a local summary report",
+		"",
+		"",
 	}
 	if withOpenAPI {
 		answers = append(answers, "yes", "openapi/support.yaml")
@@ -509,6 +511,7 @@ func testProjectInput(withOpenAPI bool) string {
 		"render_report",
 		"fnct",
 		"Render the summary report",
+		"",
 		"summary",
 		"",
 		"",
