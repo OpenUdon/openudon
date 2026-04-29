@@ -1,6 +1,7 @@
 package eval
 
 import (
+	"encoding/json"
 	"os"
 	"path/filepath"
 	"strings"
@@ -47,6 +48,59 @@ func TestXRD004OpenAPIFixtureCoverage(t *testing.T) {
 
 	assertFixtureFileContains(t, root, "order-fulfillment-chain", filepath.Join("openapi", "orders.yaml"), "requestBody:", "post:", "securitySchemes:")
 	assertFixtureFileContains(t, root, "cursor-pagination-report", filepath.Join("openapi", "audit-events.yaml"), "securitySchemes:", "nextCursor:")
+}
+
+func TestN8nSlackReducibilityFixtureCoverage(t *testing.T) {
+	root := filepath.Join("..", "..", "examples", "eval")
+
+	intent := parseReferenceIntent(t, root, "n8n-slack-message-post")
+	if strings.TrimSpace(intent.OpenAPI) != "openapi/slack.json" {
+		t.Fatalf("n8n Slack fixture openapi = %q, want openapi/slack.json", intent.OpenAPI)
+	}
+	step := findStep(intent, "post_message")
+	if step == nil {
+		t.Fatal("n8n Slack fixture missing post_message step")
+	}
+	if step.Type != "http" || step.Operation != "postMessage" {
+		t.Fatalf("post_message = type %q operation %q, want http postMessage", step.Type, step.Operation)
+	}
+	if got := step.With["channel"]; got != "inputs.channel" {
+		t.Fatalf("post_message.channel = %q, want inputs.channel", got)
+	}
+	if got := step.With["text"]; got != "inputs.text" {
+		t.Fatalf("post_message.text = %q, want inputs.text", got)
+	}
+
+	meta := readN8nFixtureMetadata(t, filepath.Join(root, "n8n-slack-message-post", "reference", "n8n.json"))
+	if meta.OperationID != "postMessage" {
+		t.Fatalf("n8n metadata operation_id = %q, want postMessage", meta.OperationID)
+	}
+	if meta.Node.Type != "n8n-nodes-base.slack" || meta.Node.Resource != "message" || meta.Node.Operation != "post" {
+		t.Fatalf("n8n node metadata = %#v, want Slack message/post", meta.Node)
+	}
+	assertFixtureFileContains(t, root, "n8n-slack-message-post", filepath.Join("openapi", "slack.json"), `"operationId": "postMessage"`, `"channel"`, `"text"`)
+}
+
+type n8nFixtureMetadata struct {
+	OperationID string `json:"operation_id"`
+	Node        struct {
+		Type      string `json:"type"`
+		Resource  string `json:"resource"`
+		Operation string `json:"operation"`
+	} `json:"node"`
+}
+
+func readN8nFixtureMetadata(t *testing.T, path string) n8nFixtureMetadata {
+	t.Helper()
+	data, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatalf("read n8n fixture metadata: %v", err)
+	}
+	var meta n8nFixtureMetadata
+	if err := json.Unmarshal(data, &meta); err != nil {
+		t.Fatalf("parse n8n fixture metadata: %v", err)
+	}
+	return meta
 }
 
 func parseReferenceIntent(t *testing.T, root, name string) *rollout.Intent {

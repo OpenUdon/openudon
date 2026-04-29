@@ -1,0 +1,11 @@
+{
+  "mode": "advisory",
+  "notes": [
+    "This n8n reducibility fixture is advisory while operation selection, request binding shape, and credential policy settle across eval runs.",
+    "Deterministic quality gates must still pass before this sample is used as promotion evidence."
+  ],
+  "issue_notes": {
+    "*": "n8n-derived references are diagnostic first until the fixture graduates to strict mode."
+  },
+  "max_blocking": 0
+}

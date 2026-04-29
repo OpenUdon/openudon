@@ -275,9 +275,8 @@ Gemini Pro preview models were slower and more prone to timeout or temporary cap
 Escalate to a larger model such as `gemini-2.5-pro` only after Flash fails deterministic checks
 after one or two attempts. Prefer a fast validated retry over a slow preview model as the default.
 
-LLM credentials must come from provider environment variables such as `GEMINI_API_KEY`,
-`OPENAI_API_KEY`, or `ANTHROPIC_API_KEY`; do not place tokens in prompts, commands, examples, or
-workflow artifacts.
+LLM credentials must come from provider environment variables such as `GEMINI_API_KEY` or
+`OPENAI_API_KEY`; do not place tokens in prompts, commands, examples, or workflow artifacts.
 
 Before writing a new `project.md`, read `docs/project-authoring.md`, `docs/intent.md`, and
 `docs/data-flow.md`, then start from `templates/project.md` or run:

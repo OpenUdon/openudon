@@ -1,0 +1,252 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Slack Bounded",
+    "version": "1.0.0",
+    "description": "Bounded Slack OpenAPI evidence copied from w8m for n8n reducibility evaluation. The postMessage slice is enriched locally with request and response schema for Ramen quality checks."
+  },
+  "servers": [
+    {
+      "url": "https://slack.example.test/api"
+    }
+  ],
+  "paths": {
+    "/conversations.info": {
+      "post": {
+        "operationId": "getChannel"
+      }
+    },
+    "/conversations.list": {
+      "get": {
+        "operationId": "listChannels"
+      }
+    },
+    "/conversations.create": {
+      "post": {
+        "operationId": "createChannel"
+      }
+    },
+    "/conversations.history": {
+      "get": {
+        "operationId": "getChannelHistory"
+      }
+    },
+    "/conversations.archive": {
+      "post": {
+        "operationId": "archiveChannel"
+      }
+    },
+    "/conversations.rename": {
+      "post": {
+        "operationId": "renameChannel"
+      }
+    },
+    "/conversations.replies": {
+      "get": {
+        "operationId": "getChannelReplies"
+      }
+    },
+    "/conversations.setPurpose": {
+      "post": {
+        "operationId": "setChannelPurpose"
+      }
+    },
+    "/conversations.setTopic": {
+      "post": {
+        "operationId": "setChannelTopic"
+      }
+    },
+    "/users.info": {
+      "get": {
+        "operationId": "getUserInfo"
+      }
+    },
+    "/users.list": {
+      "get": {
+        "operationId": "listUsers"
+      }
+    },
+    "/users.getPresence": {
+      "get": {
+        "operationId": "getUserPresence"
+      }
+    },
+    "/users.profile.get": {
+      "get": {
+        "operationId": "getUserProfile"
+      }
+    },
+    "/users.profile.set": {
+      "post": {
+        "operationId": "setUserProfile"
+      }
+    },
+    "/chat.postMessage": {
+      "post": {
+        "operationId": "postMessage",
+        "summary": "Post a message to a Slack channel.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "channel",
+                  "text"
+                ],
+                "properties": {
+                  "channel": {
+                    "type": "string",
+                    "description": "Slack channel ID or channel name."
+                  },
+                  "text": {
+                    "type": "string",
+                    "description": "Message text."
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Slack message response.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean"
+                    },
+                    "channel": {
+                      "type": "string"
+                    },
+                    "ts": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "object",
+                      "properties": {
+                        "text": {
+                          "type": "string"
+                        },
+                        "user": {
+                          "type": "string"
+                        },
+                        "ts": {
+                          "type": "string"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/search.messages": {
+      "post": {
+        "operationId": "searchMessages"
+      }
+    },
+    "/chat.update": {
+      "post": {
+        "operationId": "updateMessage"
+      }
+    },
+    "/chat.delete": {
+      "post": {
+        "operationId": "deleteMessage"
+      }
+    },
+    "/chat.getPermalink": {
+      "get": {
+        "operationId": "getMessagePermalink"
+      }
+    },
+    "/reactions.add": {
+      "post": {
+        "operationId": "addReaction"
+      }
+    },
+    "/reactions.get": {
+      "get": {
+        "operationId": "getReaction"
+      }
+    },
+    "/reactions.remove": {
+      "post": {
+        "operationId": "removeReaction"
+      }
+    },
+    "/stars.add": {
+      "post": {
+        "operationId": "addStar"
+      }
+    },
+    "/stars.remove": {
+      "post": {
+        "operationId": "removeStar"
+      }
+    },
+    "/stars.list": {
+      "get": {
+        "operationId": "listStars"
+      }
+    },
+    "/files.info": {
+      "get": {
+        "operationId": "getFile"
+      }
+    },
+    "/files.upload": {
+      "post": {
+        "operationId": "uploadFile"
+      }
+    },
+    "/files.list": {
+      "get": {
+        "operationId": "listFiles"
+      }
+    },
+    "/usergroups.create": {
+      "post": {
+        "operationId": "createUserGroup"
+      }
+    },
+    "/usergroups.disable": {
+      "post": {
+        "operationId": "disableUserGroup"
+      }
+    },
+    "/usergroups.enable": {
+      "post": {
+        "operationId": "enableUserGroup"
+      }
+    },
+    "/usergroups.list": {
+      "get": {
+        "operationId": "listUserGroups"
+      }
+    },
+    "/usergroups.users.list": {
+      "get": {
+        "operationId": "getUserGroupUsers"
+      }
+    },
+    "/usergroups.update": {
+      "post": {
+        "operationId": "updateUserGroup"
+      }
+    },
+    "/usergroups.users.update": {
+      "post": {
+        "operationId": "updateUserGroupUsers"
+      }
+    }
+  }
+}

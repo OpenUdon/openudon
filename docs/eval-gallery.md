@@ -11,6 +11,7 @@ specific workflow behavior or failure class rather than merely adding volume.
 | `cursor-pagination-report` | Cursor pagination, bearer security, response cursor extraction, and local report rendering. |
 | `customer-export-two-pages` | Multi-step pagination and merge-style function handling. |
 | `inventory-api-key-binding` | Credential binding names for API-key-style request parameters. |
+| `n8n-slack-message-post` | Advisory n8n reducibility sample for Slack `message/post` mapped to Ramen `postMessage`. |
 | `order-fulfillment-chain` | Multi-service OpenAPI chain with per-service credentials, response extraction, request-body construction, and a sandbox write. |
 | `paginated-list` | Simple OpenAPI list operation with bounded request parameters. |
 | `profile-boundary-manifest` | Future runtime/profile boundary coverage: renders a local manifest with `fnct` instead of inventing SQL, SSH, or `x-udon-*` profile semantics. |
@@ -33,6 +34,8 @@ Add samples only when they strengthen coverage:
   default. They should help diagnose drift, but they are not release-blocking by themselves.
 - Treat wrong runtime type, wrong selected OpenAPI operation, and reference parse/compare failures
   as behavioral drift. These are blocking unless a fixture policy deliberately overrides them.
+- For n8n reducibility samples, keep upstream n8n and w8m inputs hermetic by copying OpenAPI
+  evidence into the fixture and recording provenance in `reference/n8n.json`.
 - Keep `max_blocking` at `0` unless the fixture is intentionally tracking a temporary known gap.
 - Keep secret-shaped values fake and avoid real provider data.
 - Document credential bindings by name only.
