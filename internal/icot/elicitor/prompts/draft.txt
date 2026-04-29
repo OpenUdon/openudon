@@ -2,6 +2,8 @@ Draft or revise a Ramen iCoT session from the workflow brief, current session, t
 
 Use only listed OpenAPI paths and operationId values. Do not invent paths, URLs, credentials, secret values, runtimes, or unavailable operations.
 
+The listed operations are deterministic top candidates from the available local OpenAPI documents. Earlier listed operations are more likely matches unless the current session already selected a different listed operation.
+
 Infer reasonable defaults for required OpenAPI fields:
 - runtime inputs as inputs.<name>
 - safe literals from the brief or project text

@@ -3,6 +3,7 @@ package elicitor
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"strings"
 	"testing"
 
@@ -98,6 +99,7 @@ func TestDraftPromptRequestIncludesStructuredParameters(t *testing.T) {
 			OperationID: "getTicket",
 			Method:      "GET",
 			Path:        "/tickets/{ticketId}",
+			Tags:        []string{"support"},
 			Parameters: []*rollout.ParameterInfo{
 				{Name: "ticketId", In: "path", Required: true, Type: "string", Description: "Ticket identifier"},
 				{Name: "include", In: "query", Type: "string", Description: "Related resources"},
@@ -109,6 +111,9 @@ func TestDraftPromptRequestIncludesStructuredParameters(t *testing.T) {
 	assertParameterContext(t, op.Parameters, "ticketId", "path", true, "string", "Ticket identifier")
 	assertParameterContext(t, op.Parameters, "include", "query", false, "string", "Related resources")
 	assertParameterContext(t, op.Parameters, "X-Trace-ID", "header", false, "string", "Trace header")
+	if !containsString(op.Tags, "support") {
+		t.Fatalf("tags = %#v", op.Tags)
+	}
 }
 
 func TestDraftPromptRequestFlattensNestedRequestBody(t *testing.T) {
@@ -204,18 +209,126 @@ func TestDraftPromptRequestIncludesSecurityCredentialFields(t *testing.T) {
 	}
 }
 
+func TestDraftPromptRequestRanksOperationTextMatches(t *testing.T) {
+	ops := promptOperations(t, DraftRequest{
+		Opening: "Search support tickets by query.",
+		Docs: []APIDocument{{
+			RelativePath: "openapi/support.yaml",
+			Operations: []*rollout.OperationInfo{
+				{OperationID: "getTicket", Method: "GET", Path: "/tickets/{ticketId}", Summary: "Get a support ticket"},
+				{OperationID: "searchTickets", Method: "GET", Path: "/tickets/search", Summary: "Search support tickets"},
+			},
+		}},
+	}, 0)
+
+	if got := operationPromptIDs(ops); strings.Join(got, ",") != "searchTickets,getTicket" {
+		t.Fatalf("ranked operations = %#v", got)
+	}
+}
+
+func TestOperationRankingBoostsSelectedDocument(t *testing.T) {
+	request := DraftRequest{
+		Opening: "List records.",
+		Session: Session{Intent: rollout.Intent{
+			OpenAPI: "openapi/b.yaml",
+		}},
+		Docs: []APIDocument{
+			{
+				RelativePath: "openapi/a.yaml",
+				Operations:   []*rollout.OperationInfo{{OperationID: "listRecordsA", Method: "GET", Path: "/records", Summary: "List records"}},
+			},
+			{
+				RelativePath: "openapi/b.yaml",
+				Operations:   []*rollout.OperationInfo{{OperationID: "listRecordsB", Method: "GET", Path: "/records", Summary: "List records"}},
+			},
+		},
+	}
+
+	ranked := rankOperationCandidates(request)
+	if len(ranked) == 0 || ranked[0].op.OperationID != "listRecordsB" {
+		t.Fatalf("ranked candidates = %#v", ranked)
+	}
+}
+
+func TestDraftPromptRequestCapsUnselectedOperations(t *testing.T) {
+	ops := promptOperations(t, DraftRequest{Docs: []APIDocument{{
+		RelativePath: "openapi/many.yaml",
+		Operations:   numberedOperations(15),
+	}}}, 0)
+
+	got := operationPromptIDs(ops)
+	if len(got) != maxDraftOperationCandidates {
+		t.Fatalf("operation count = %d, ids=%#v", len(got), got)
+	}
+	if containsString(got, "operation12") || containsString(got, "operation14") {
+		t.Fatalf("uncapped operations included: %#v", got)
+	}
+}
+
+func TestDraftPromptRequestPreservesSelectedOperationBeyondCap(t *testing.T) {
+	ops := promptOperations(t, DraftRequest{
+		Session: Session{Intent: rollout.Intent{
+			OpenAPI: "openapi/many.yaml",
+			Steps: []*rollout.Step{{
+				Name:      "selected",
+				Type:      "http",
+				Operation: "operation14",
+			}},
+		}},
+		Docs: []APIDocument{{
+			RelativePath: "openapi/many.yaml",
+			Operations:   numberedOperations(15),
+		}},
+	}, 0)
+
+	got := operationPromptIDs(ops)
+	if len(got) != maxDraftOperationCandidates+1 {
+		t.Fatalf("operation count = %d, ids=%#v", len(got), got)
+	}
+	if !containsString(got, "operation14") {
+		t.Fatalf("selected operation omitted: %#v", got)
+	}
+}
+
 func promptOperation(t *testing.T, request DraftRequest) operationPromptContext {
 	t.Helper()
-	payload := draftPromptRequest(request)
-	docs := payload["docs"].([]map[string]any)
-	if len(docs) != 1 {
-		t.Fatalf("docs = %#v", docs)
-	}
-	ops := docs[0]["operations"].([]operationPromptContext)
+	ops := promptOperations(t, request, 0)
 	if len(ops) != 1 {
 		t.Fatalf("operations = %#v", ops)
 	}
 	return ops[0]
+}
+
+func promptOperations(t *testing.T, request DraftRequest, docIndex int) []operationPromptContext {
+	t.Helper()
+	payload := draftPromptRequest(request)
+	docs := payload["docs"].([]map[string]any)
+	if len(docs) <= docIndex {
+		t.Fatalf("docs = %#v", docs)
+	}
+	return docs[docIndex]["operations"].([]operationPromptContext)
+}
+
+func numberedOperations(count int) []*rollout.OperationInfo {
+	ops := make([]*rollout.OperationInfo, 0, count)
+	for i := 0; i < count; i++ {
+		id := fmt.Sprintf("operation%02d", i)
+		ops = append(ops, &rollout.OperationInfo{
+			OperationID: id,
+			Method:      "GET",
+			Path:        "/resources/" + id,
+			Summary:     "Resource operation",
+		})
+	}
+	return ops
+}
+
+func operationPromptIDs(ops []operationPromptContext) []string {
+	out := make([]string, 0, len(ops))
+	for _, op := range ops {
+		out = append(out, op.OperationID)
+	}
+	return out
 }
 
 func assertParameterContext(t *testing.T, parameters []parameterPromptContext, name, location string, required bool, typ, description string) {

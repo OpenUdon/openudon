@@ -22,6 +22,41 @@ The remaining gap is product readiness. The current evidence is still narrow, re
 vary, Gemini structured-output smoke reached zero legacy fallback with the original ten-example
 baseline corpus, and expanded-corpus release evidence is tracked by XRD-009.
 
+## [todo] iCoT OpenAPI Inference Hardening
+
+Goal: improve AI-assisted iCoT OpenAPI parameter inference quality while reducing unnecessary LLM
+and user-question loops.
+
+Why it matters: broad natural-language briefs are useful for operators, but iCoT needs richer
+bounded API context and stricter deterministic checks to infer request mappings without asking users
+to understand OpenAPI parameter details.
+
+Done when: iCoT sends richer operation metadata, ranks likely operations before drafting, prefills
+safe mappings, validates mapped sources more strictly, records confidence/evidence for inferred
+values, and asks better grouped questions only when deterministic gaps remain.
+
+- `[done]` Send richer OpenAPI parameter context to draft extraction: include parameter location,
+  type, description, enum/defaults, request-body required paths, and security scheme details in the
+  LLM draft payload.
+- `[todo]` Rank candidate operations before drafting: deterministically score operations from intent
+  text, current session state, tags, path segments, summaries, required fields, and selected OpenAPI
+  document; send only top candidates plus any already-selected operations.
+- `[todo]` Prefill obvious mappings before LLM/user prompts: fill exact runtime-input matches,
+  declared credential bindings, and default one-step outputs when the mapping is deterministic and
+  auditable.
+- `[todo]` Strengthen deterministic readiness validation: flag undeclared credential references,
+  incompatible input/source types when OpenAPI type is known, invented request fields, and invalid
+  request-body paths.
+- `[todo]` Add internal confidence/evidence classification: record whether each mapping came from a
+  deterministic match, LLM inference, user answer, or fallback default, and ask users only about
+  low-confidence or conflicting mappings.
+- `[todo]` Improve grouped question defaults: generate suggested answers from OpenAPI descriptions
+  and known bindings, such as `ticketId=inputs.ticketId`,
+  `Authorization=credentials.support_api_token`, and safe literal defaults.
+
+Start with richer OpenAPI metadata plus candidate ranking because those reduce LLM cost and improve
+inference quality without changing the user workflow.
+
 ## [done] Post-POC Baseline
 
 Goal: preserve the known-good baseline before broadening capability.

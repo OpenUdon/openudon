@@ -274,8 +274,9 @@ func sanitizeKickoff(session Session) Session {
 }
 
 func draftPromptRequest(request DraftRequest) map[string]any {
-	docs := make([]map[string]any, 0, len(request.Docs))
-	for _, doc := range request.Docs {
+	rankedDocs := rankedDraftDocuments(request)
+	docs := make([]map[string]any, 0, len(rankedDocs))
+	for _, doc := range rankedDocs {
 		ops := make([]operationPromptContext, 0, len(doc.Operations))
 		for _, op := range doc.Operations {
 			if op == nil {

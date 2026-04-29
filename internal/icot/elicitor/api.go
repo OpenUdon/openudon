@@ -13,8 +13,9 @@ import (
 )
 
 const (
-	maxRequestBodyFieldDepth = 6
-	maxRequestBodyFields     = 60
+	maxDraftOperationCandidates = 12
+	maxRequestBodyFieldDepth    = 6
+	maxRequestBodyFields        = 60
 )
 
 type APIDocument struct {
@@ -31,6 +32,7 @@ type operationPromptContext struct {
 	Path           string                    `json:"path"`
 	Summary        string                    `json:"summary,omitempty"`
 	Description    string                    `json:"description,omitempty"`
+	Tags           []string                  `json:"tags,omitempty"`
 	RequiredFields []string                  `json:"required_fields,omitempty"`
 	Parameters     []parameterPromptContext  `json:"parameters,omitempty"`
 	RequestBody    *requestBodyPromptContext `json:"request_body,omitempty"`
@@ -133,11 +135,272 @@ func operationPrompt(op *rollout.OperationInfo) operationPromptContext {
 		Path:           op.Path,
 		Summary:        op.Summary,
 		Description:    op.Description,
+		Tags:           append([]string(nil), op.Tags...),
 		RequiredFields: requiredFields(op),
 		Parameters:     parameterPromptContexts(op.Parameters),
 		RequestBody:    requestBodyPrompt(op.RequestBody),
 		Security:       securityPrompt(op.Security),
 	}
+}
+
+func rankedDraftDocuments(request DraftRequest) []APIDocument {
+	ranked := rankOperationCandidates(request)
+	included := map[*rollout.OperationInfo]int{}
+	unselected := 0
+	for _, candidate := range ranked {
+		if candidate.selected {
+			included[candidate.op] = candidate.rank
+			continue
+		}
+		if unselected < maxDraftOperationCandidates {
+			included[candidate.op] = candidate.rank
+			unselected++
+		}
+	}
+
+	out := make([]APIDocument, 0, len(request.Docs))
+	for _, doc := range request.Docs {
+		copyDoc := doc
+		copyDoc.Operations = nil
+		for _, op := range doc.Operations {
+			if op == nil {
+				continue
+			}
+			if _, ok := included[op]; ok {
+				copyDoc.Operations = append(copyDoc.Operations, op)
+			}
+		}
+		sort.SliceStable(copyDoc.Operations, func(i, j int) bool {
+			return included[copyDoc.Operations[i]] < included[copyDoc.Operations[j]]
+		})
+		out = append(out, copyDoc)
+	}
+	return out
+}
+
+type operationRankCandidate struct {
+	docIndex int
+	opIndex  int
+	op       *rollout.OperationInfo
+	score    int
+	selected bool
+	rank     int
+}
+
+func rankOperationCandidates(request DraftRequest) []operationRankCandidate {
+	query := rankingTokenWeights(draftRankingText(request))
+	selected := selectedOperationKeys(request.Session)
+	var candidates []operationRankCandidate
+	for docIndex, doc := range request.Docs {
+		selectedDoc := selectedDocument(request.Session, doc)
+		for opIndex, op := range doc.Operations {
+			if op == nil {
+				continue
+			}
+			key := operationCandidateKey(doc.RelativePath, op.OperationID)
+			isSelected := selected[key] || selected["\x00"+op.OperationID]
+			candidates = append(candidates, operationRankCandidate{
+				docIndex: docIndex,
+				opIndex:  opIndex,
+				op:       op,
+				score:    operationRankScore(query, doc, op, selectedDoc),
+				selected: isSelected,
+			})
+		}
+	}
+	sort.SliceStable(candidates, func(i, j int) bool {
+		if candidates[i].score != candidates[j].score {
+			return candidates[i].score > candidates[j].score
+		}
+		if candidates[i].docIndex != candidates[j].docIndex {
+			return candidates[i].docIndex < candidates[j].docIndex
+		}
+		return candidates[i].opIndex < candidates[j].opIndex
+	})
+	for i := range candidates {
+		candidates[i].rank = i
+	}
+	return candidates
+}
+
+func operationRankScore(query map[string]int, doc APIDocument, op *rollout.OperationInfo, selectedDoc bool) int {
+	score := 0
+	if selectedDoc {
+		score += 20
+	}
+	score += rankingMatchScore(query, doc.RelativePath+" "+doc.Title+" "+doc.Description, 2)
+	score += rankingMatchScore(query, op.OperationID, 12)
+	score += rankingMatchScore(query, op.Summary, 8)
+	score += rankingMatchScore(query, op.Path, 7)
+	score += rankingMatchScore(query, strings.Join(op.Tags, " "), 6)
+	score += rankingMatchScore(query, op.Description, 5)
+	score += rankingMatchScore(query, strings.Join(requiredFields(op), " "), 4)
+	score += rankingMatchScore(query, operationMethodHints(op.Method), 3)
+	for _, parameter := range op.Parameters {
+		if parameter == nil {
+			continue
+		}
+		score += rankingMatchScore(query, parameter.Name+" "+parameter.In+" "+parameter.Type, 4)
+		score += rankingMatchScore(query, parameter.Description, 2)
+	}
+	if op.RequestBody != nil {
+		for _, field := range flattenRequestBodyFields(op.RequestBody) {
+			score += rankingMatchScore(query, field.Path+" "+field.Type, 3)
+			score += rankingMatchScore(query, field.Description, 2)
+		}
+	}
+	return score
+}
+
+func draftRankingText(request DraftRequest) string {
+	var parts []string
+	parts = append(parts, request.Opening)
+	if request.Session.Intent.Workflow != nil {
+		parts = append(parts, request.Session.Intent.Workflow.Name, request.Session.Intent.Workflow.Description)
+	}
+	parts = append(parts,
+		request.Session.Intent.OpenAPI,
+		request.Session.Project.ProjectName,
+		request.Session.Project.Goal,
+		request.Session.Project.Inputs,
+		request.Session.Project.Outputs,
+		request.Session.Project.DataFlow,
+		request.Session.Project.FunctionContracts,
+		request.Session.Project.OpenAPI,
+		request.Session.Project.Safety,
+		request.Session.Project.Fallback,
+		request.Session.Safety,
+		request.Session.Fallback,
+	)
+	for _, turn := range request.TranscriptTurns {
+		parts = append(parts, turn.Label, turn.Answer)
+	}
+	for _, issue := range request.ReadinessFeedback {
+		parts = append(parts, issue.Code, issue.Slot, issue.Message, issue.SuggestedAnswer)
+	}
+	for _, input := range request.Session.Intent.Inputs {
+		if input != nil {
+			parts = append(parts, input.Name, input.Type, input.Description)
+		}
+	}
+	for _, output := range request.Session.Intent.Outputs {
+		if output != nil {
+			parts = append(parts, output.Name, output.From, output.Description)
+		}
+	}
+	walkSteps(request.Session.Intent.Steps, func(step *rollout.Step) {
+		parts = append(parts, step.Name, step.Type, step.Do, step.OpenAPI, step.Operation)
+		for field, value := range step.With {
+			parts = append(parts, field, value)
+		}
+	})
+	return strings.Join(parts, " ")
+}
+
+func selectedOperationKeys(session Session) map[string]bool {
+	out := map[string]bool{}
+	walkSteps(session.Intent.Steps, func(step *rollout.Step) {
+		if step == nil || strings.TrimSpace(step.Operation) == "" {
+			return
+		}
+		docPath := firstNonEmpty(step.OpenAPI, session.Intent.OpenAPI)
+		out[operationCandidateKey(docPath, step.Operation)] = true
+		if docPath == "" {
+			out["\x00"+step.Operation] = true
+		}
+	})
+	return out
+}
+
+func selectedDocument(session Session, doc APIDocument) bool {
+	selected := strings.TrimSpace(session.Intent.OpenAPI)
+	if selected == "" {
+		selected = strings.TrimSpace(session.Project.OpenAPI)
+	}
+	if selected == "" {
+		return false
+	}
+	return selected == doc.RelativePath || strings.Contains(selected, doc.RelativePath)
+}
+
+func operationCandidateKey(docPath, operationID string) string {
+	return docPath + "\x00" + operationID
+}
+
+func rankingTokenWeights(text string) map[string]int {
+	out := map[string]int{}
+	for _, token := range rankingTokens(text) {
+		out[token]++
+	}
+	return out
+}
+
+func rankingMatchScore(query map[string]int, text string, weight int) int {
+	if len(query) == 0 || strings.TrimSpace(text) == "" {
+		return 0
+	}
+	score := 0
+	for _, token := range rankingTokens(text) {
+		score += query[token] * weight
+	}
+	return score
+}
+
+func rankingTokens(text string) []string {
+	var normalized []rune
+	var prev rune
+	for i, r := range text {
+		if unicode.IsUpper(r) && i > 0 && (unicode.IsLower(prev) || unicode.IsDigit(prev)) {
+			normalized = append(normalized, ' ')
+		}
+		if unicode.IsLetter(r) || unicode.IsDigit(r) {
+			normalized = append(normalized, unicode.ToLower(r))
+		} else {
+			normalized = append(normalized, ' ')
+		}
+		prev = r
+	}
+	seen := map[string]bool{}
+	var out []string
+	for _, token := range strings.Fields(string(normalized)) {
+		if rankingStopwords[token] {
+			continue
+		}
+		addRankingToken(&out, seen, token)
+		if len(token) > 3 && strings.HasSuffix(token, "s") {
+			addRankingToken(&out, seen, strings.TrimSuffix(token, "s"))
+		}
+	}
+	return out
+}
+
+func addRankingToken(out *[]string, seen map[string]bool, token string) {
+	if len(token) < 2 || rankingStopwords[token] || seen[token] {
+		return
+	}
+	seen[token] = true
+	*out = append(*out, token)
+}
+
+func operationMethodHints(method string) string {
+	switch strings.ToUpper(strings.TrimSpace(method)) {
+	case "GET":
+		return "get fetch list read search lookup"
+	case "POST":
+		return "post create add write submit send"
+	case "PUT", "PATCH":
+		return "update edit change replace write"
+	case "DELETE":
+		return "delete remove archive"
+	default:
+		return method
+	}
+}
+
+var rankingStopwords = map[string]bool{
+	"a": true, "an": true, "and": true, "api": true, "as": true, "by": true, "for": true,
+	"from": true, "in": true, "into": true, "of": true, "on": true, "or": true, "the": true,
+	"this": true, "to": true, "use": true, "with": true, "workflow": true,
 }
 
 func parameterPromptContexts(parameters []*rollout.ParameterInfo) []parameterPromptContext {
