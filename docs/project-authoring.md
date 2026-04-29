@@ -4,6 +4,10 @@
 integration policy that tells Ramen when to use OpenAPI, when to use a non-HTTP udon runtime, and
 when to stop.
 
+`go run ./cmd/icot --example examples/<name>` is an optional guided authoring tool. It asks fixed
+questions and emits the same section structure as `templates/project.md`; it does not replace this
+manual contract and does not generate workflow artifacts.
+
 ## What To Include
 
 Use these sections for new projects:

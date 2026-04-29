@@ -45,8 +45,9 @@ cd ../ramen
 make check
 ```
 
-New trusted operators should start with `docs/onboarding.md`, then use `templates/project.md` when
-authoring a new project brief.
+New trusted operators should start with `docs/onboarding.md`, then either run
+`go run ./cmd/icot --example examples/<name>` for guided authoring or use
+`templates/project.md` when authoring a new project brief manually.
 For the short operator path from authoring through release evidence, see
 `docs/operator-checklist.md`.
 
@@ -267,6 +268,15 @@ LLM credentials must come from provider environment variables such as `GEMINI_AP
 workflow artifacts.
 
 Before writing a new `project.md`, read `docs/project-authoring.md` and `docs/data-flow.md`, then
-start from `templates/project.md`. The brief should include runtime policy, data-flow hints,
-credential binding names, safety boundaries, and fallback behavior. For runtime-only projects that
-do not need API/OpenAPI integration, include `OpenAPI: none required`.
+start from `templates/project.md` or run:
+
+```bash
+go run ./cmd/icot --example ./examples/<name>
+```
+
+The guided command asks fixed authoring questions, writes the same standard section structure, and
+creates `openapi/`, `workflows/`, and `expected/` if missing. It does not synthesize artifacts; run
+`ramen synthesize --example ./examples/<name>` after reviewing `project.md`. The brief should
+include runtime policy, data-flow hints, credential binding names, safety boundaries, and fallback
+behavior. For runtime-only projects that do not need API/OpenAPI integration, include
+`OpenAPI: none required`.

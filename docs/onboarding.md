@@ -63,7 +63,16 @@ Do not put provider keys, API tokens, SMTP passwords, or other secret values in 
 
 ## Author A Project
 
-Start from `templates/project.md`, then read:
+For guided authoring, run:
+
+```bash
+go run ./cmd/icot --example ./examples/<name>
+```
+
+The wizard creates `project.md`, `openapi/`, `workflows/`, and `expected/`, then leaves synthesis to
+the normal `ramen synthesize --example ./examples/<name>` step.
+
+For manual authoring, start from `templates/project.md`, then read:
 
 - `docs/project-authoring.md`
 - `docs/data-flow.md`
