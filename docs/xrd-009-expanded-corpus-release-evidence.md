@@ -2,8 +2,8 @@
 
 XRD-009 closes the evidence gap left after expanding the eval corpus beyond the original ten-example
 real-provider baseline. Ramen owns the release evidence gate and release-note checklist. Provider
-behavior remains monitored through XRD-006, and automation remains disabled by XRD-007 during
-active development.
+behavior remains monitored through XRD-006, and XRD-007 readiness evidence remains local/manual
+during active development.
 
 ## Release Gate
 
@@ -21,6 +21,7 @@ and record that exception in the release note.
 ## Required Evidence
 
 - Eval JSON and Markdown report paths under ignored `eval/runs/`.
+- Local readiness JSON path under ignored `eval/readiness/`.
 - Provider and model.
 - Commit and dirty state.
 - Eval corpus size and `--min-briefs` value.
@@ -40,6 +41,6 @@ and record that exception in the release note.
 
 ## Boundary
 
-This does not enable automation, upload artifacts, relax provider drift handling, or commit
+This does not enable hosted automation, upload artifacts, relax provider drift handling, or commit
 real-provider outputs. It only makes expanded-corpus release evidence explicit and harder to
 under-sample by accident.

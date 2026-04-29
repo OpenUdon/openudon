@@ -91,8 +91,8 @@ execution wrapper, and any upstream coordination with the Symphony owner.
 ## XRD-007 Private Checkout And Secrets Runbook
 
 GitHub CI has been removed during active development. The Ramen-owned XRD-007 contract now records
-the local/private checkout prerequisites and the safety rules that must be satisfied before any
-future automation is reintroduced.
+the local/private checkout prerequisites, the structured local readiness report, and the safety
+rules that must be satisfied before any future automation is reintroduced.
 The concrete infrastructure handoff is
 [`docs/xrd-007-infra-handoff.md`](xrd-007-infra-handoff.md).
 
@@ -110,6 +110,7 @@ Automation tiers:
 | Tier | Gate | Where it runs | Notes |
 | --- | --- | --- | --- |
 | Local deterministic | `go test ./...`, `go vet ./...`, `make check` | Developer workstation with private siblings checked out. | Normal development gate. |
+| Local readiness report | `go run ./cmd/ramen readiness --run-gates --out eval/readiness/local.json` | Developer workstation with private siblings checked out. | Structured XRD-007 evidence; provider env presence is boolean only. |
 | Local/manual real LLM | `go run ./cmd/ramen eval --root ./examples/eval --provider <provider> --model <model> --release-gate` | Trusted workstation with provider credentials in environment variables. | Release smoke gate; results are reviewed manually. |
 | Future protected automation | Deterministic or release-gated commands after the private layout stabilizes. | Protected runner or trusted release machine. | Requires a fresh design for checkout, secret store controls, and log/artifact redaction policy. |
 
@@ -127,6 +128,9 @@ Current local readiness prerequisites:
 
 - Private sibling checkout works non-interactively for every required repo.
 - `go test ./...`, `go vet ./...`, and `make check` pass on a clean local private checkout.
+- `ramen readiness --run-gates` emits `ramen.local-readiness.v1` JSON recording siblings,
+  deterministic gates, git checks, ignored artifact paths, provider env presence booleans, and
+  local/manual automation policy.
 - Local logs and artifacts exclude generated files that could contain prompt or credential-binding
   detail.
 
@@ -137,6 +141,7 @@ Prerequisites to reintroduce automation:
 - Private dependency checkout is stable enough to avoid repeated token/layout churn.
 - Eval output records provider, model, prompt version, generated directory, pass rate,
   attempts-to-pass, fallback count, and blocking reference issues.
+- Readiness output records local gate status without printing provider secret values.
 - Uploaded artifacts are reviewed for secret redaction before retention is enabled.
 
 Acceptance: infrastructure can maintain local readiness and any future automation design without

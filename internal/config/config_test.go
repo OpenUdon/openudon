@@ -23,6 +23,17 @@ func TestCheckSiblingsPassesWhenRequiredDirsExist(t *testing.T) {
 	}
 }
 
+func TestRequiredSiblingsReturnsCopy(t *testing.T) {
+	got := RequiredSiblings()
+	if len(got) == 0 {
+		t.Fatal("RequiredSiblings returned no entries")
+	}
+	got[0] = "mutated"
+	if RequiredSiblings()[0] == "mutated" {
+		t.Fatal("RequiredSiblings exposed mutable backing slice")
+	}
+}
+
 func TestCheckSiblingsReportsMissingSibling(t *testing.T) {
 	parent := t.TempDir()
 	root := filepath.Join(parent, "ramen")

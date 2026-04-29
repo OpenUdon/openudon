@@ -44,6 +44,12 @@ Deterministic release readiness is:
 make release-check
 ```
 
+XRD-007 local/private checkout readiness evidence is:
+
+```bash
+go run ./cmd/ramen readiness --run-gates --out eval/readiness/local.json
+```
+
 ## Provider Credentials
 
 Real LLM synthesis and evals need provider credentials from environment variables:

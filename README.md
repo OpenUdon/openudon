@@ -132,6 +132,16 @@ release readiness, run:
 make release-check
 ```
 
+For XRD-007 local/private checkout evidence, write a structured readiness report:
+
+```bash
+go run ./cmd/ramen readiness --run-gates --out eval/readiness/local.json
+```
+
+The readiness report records sibling checkouts, deterministic gate results, git state, ignored local
+artifact paths, provider credential environment presence as booleans only, and the current
+local/manual automation policy.
+
 Run a real LLM eval when changing prompt templates, synthesis/refinement behavior, model defaults, or
 quality gates that could affect generated artifacts:
 

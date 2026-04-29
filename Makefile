@@ -1,4 +1,4 @@
-.PHONY: help test vet check release-check release-eval siblings validate-uws eval synthesize-support build-support promote-support assess-support run-example
+.PHONY: help test vet check readiness release-check release-eval siblings validate-uws eval synthesize-support build-support promote-support assess-support run-example
 
 GO ?= go
 RAMEN_PROVIDER ?= gemini
@@ -6,7 +6,7 @@ RAMEN_MODEL ?= gemini-2.5-flash
 RAMEN_RELEASE_MIN_BRIEFS ?= $(shell find ./examples/eval -mindepth 1 -maxdepth 1 -type d | wc -l | tr -d ' ')
 
 help:
-	@echo "Targets: test, vet, check, release-check, release-eval, siblings, validate-uws, eval, synthesize-support, build-support, promote-support, assess-support, run-example"
+	@echo "Targets: test, vet, check, readiness, release-check, release-eval, siblings, validate-uws, eval, synthesize-support, build-support, promote-support, assess-support, run-example"
 
 test:
 	$(GO) test ./...
@@ -16,6 +16,9 @@ vet:
 
 check: test siblings
 	$(GO) run ./cmd/ramen check
+
+readiness:
+	$(GO) run ./cmd/ramen readiness --run-gates --out eval/readiness/local.json
 
 release-check:
 	$(GO) test ./...

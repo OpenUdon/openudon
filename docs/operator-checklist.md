@@ -29,6 +29,12 @@ Deterministic release readiness:
 make release-check
 ```
 
+Structured local readiness evidence:
+
+```bash
+go run ./cmd/ramen readiness --run-gates --out eval/readiness/local.json
+```
+
 ## Manual Release Eval
 
 Real-provider evals stay local/manual. Set provider credentials in the environment and run:
@@ -45,7 +51,8 @@ committed eval corpus; see `docs/xrd-009-expanded-corpus-release-evidence.md`.
 ## Release Notes
 
 Use `docs/release-note-template.md`. Record the comparison baseline, eval JSON/Markdown paths,
-commit and dirty state, release-gate result, deterministic checks, and known external blockers.
+local readiness JSON path, commit and dirty state, release-gate result, deterministic checks, and
+known external blockers.
 For real-provider release evidence, copy the eval JSON `provider_drift_watch` status plus the
 Provider Drift Watch section from the eval Markdown report, then follow
 `docs/xrd-006-provider-drift-watch.md`.

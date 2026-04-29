@@ -27,6 +27,8 @@
 - `make check`:
 - `git diff --check`:
 - `make release-check`:
+- `ramen readiness --run-gates`:
+- Readiness JSON:
 
 ## Real-LLM Smoke
 

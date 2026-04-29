@@ -14,6 +14,7 @@ import (
 
 	"github.com/genelet/ramen/internal/config"
 	evalpkg "github.com/genelet/ramen/internal/eval"
+	"github.com/genelet/ramen/internal/readiness"
 	"github.com/genelet/ramen/internal/synthesize"
 	"github.com/genelet/ramen/internal/trustedrunner"
 	"github.com/genelet/ramen/internal/uwsvalidate"
@@ -31,6 +32,7 @@ func main() {
 		fmt.Fprintf(flag.CommandLine.Output(), "  build     regenerate workflow/UWS from an existing intent.hcl\n")
 		fmt.Fprintf(flag.CommandLine.Output(), "  eval      run synthesis eval briefs and write pass/fail reports\n")
 		fmt.Fprintf(flag.CommandLine.Output(), "  promote   export/validate UWS from an existing workflow.hcl\n")
+		fmt.Fprintf(flag.CommandLine.Output(), "  readiness write local private-checkout and deterministic-gate readiness report\n")
 		fmt.Fprintf(flag.CommandLine.Output(), "  run       validate approval gates and run udon through trusted wrapper\n")
 		fmt.Fprintf(flag.CommandLine.Output(), "  synthesize generate intent, workflow, UWS, and review artifacts for an example\n")
 		fmt.Fprintf(flag.CommandLine.Output(), "  validate  validate one UWS JSON/YAML file against the sibling UWS schema\n")
@@ -68,6 +70,8 @@ func main() {
 		runApprovalTemplateCommand(flag.Args()[1:])
 	case "eval":
 		runEvalCommand(flag.Args()[1:])
+	case "readiness":
+		runReadinessCommand(flag.Args()[1:])
 	case "version":
 		fmt.Println(version)
 	case "-h", "--help", "help":
@@ -76,6 +80,44 @@ func main() {
 		fmt.Fprintf(os.Stderr, "unknown command %q\n", command)
 		flag.Usage()
 		os.Exit(2)
+	}
+}
+
+func runReadinessCommand(args []string) {
+	fs := flag.NewFlagSet("readiness", flag.ExitOnError)
+	out := fs.String("out", "", "Write readiness JSON to this path instead of stdout")
+	runGates := fs.Bool("run-gates", false, "Run deterministic gates: go test ./..., go vet ./..., make check, and git diff --check")
+	fs.Usage = func() {
+		fmt.Fprintf(fs.Output(), "Usage: ramen readiness [--out eval/readiness/<name>.json] [--run-gates]\n")
+		fmt.Fprintf(fs.Output(), "\nWrites %s JSON for XRD-007 local/private checkout readiness without printing secret values.\n", readiness.ReportVersion)
+		fmt.Fprintf(fs.Output(), "By default, deterministic gates are marked skipped; pass --run-gates for release-readiness evidence.\n\n")
+		fs.PrintDefaults()
+	}
+	if err := fs.Parse(args); err != nil {
+		os.Exit(2)
+	}
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer stop()
+	report, err := readiness.Build(ctx, readiness.Options{
+		RepoRoot: ".",
+		RunGates: *runGates,
+	})
+	if err != nil {
+		fmt.Fprintln(os.Stderr, err)
+		os.Exit(1)
+	}
+	if strings.TrimSpace(*out) != "" {
+		if err := readiness.WriteFile(*out, report); err != nil {
+			fmt.Fprintln(os.Stderr, err)
+			os.Exit(1)
+		}
+		fmt.Printf("ramen: readiness %s wrote %s\n", report.Status, *out)
+	} else if err := readiness.Write(os.Stdout, report); err != nil {
+		fmt.Fprintln(os.Stderr, err)
+		os.Exit(1)
+	}
+	if report.Status == "fail" {
+		os.Exit(1)
 	}
 }
 

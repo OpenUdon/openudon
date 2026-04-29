@@ -1,2 +1,5 @@
+.ramen-run/
+approvals/
+eval/readiness/
 eval/runs/
 eval/artifacts/

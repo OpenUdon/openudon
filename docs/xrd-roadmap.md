@@ -19,7 +19,7 @@ handoff requirements, and XRD-007 local private checkout and secrets prerequisit
 | XRD-004 | Closed | Ramen eval owner, then udon owner for reusable gaps | `../ramen`, then `../udon` | Ramen has `docs/xrd-004-openapi-eval-plan.md` plus fixtures covering pagination variants, request bodies, security schemes, write operations, response extraction, and multi-service chains. | Upstream udon issue only if future eval runs identify a reusable compiler/runtime gap. | None unless richer OpenAPI evals regress. |
 | XRD-005 | Closed | Ramen trusted-wrapper owner / external Symphony owner | `../ramen`, optional `../symphony` | Ramen emits review evidence, `expected/symphony-handoff.json`, handoff files, approval templates, and `ramen run` trusted execution gates; Symphony routing remains optional external workflow integration. | Symphony owner implementation only if managed reviewer routing is needed upstream. | None in Ramen unless the wrapper or handoff contract changes. |
 | XRD-006 | Closed | Ramen release owner / provider owners | Provider APIs | Eval JSON reports include `provider_drift_watch`, and Markdown reports render the same structured fallback, transient failure, model availability, attempt, and release-gate findings. | Release notes copy the structured watch status and Markdown findings from real-provider eval evidence. | Keep watching provider behavior during release evals; no Ramen implementation plan remains open. |
-| XRD-007 | Watch | Infra owner / Ramen | Repo access / secrets | GitHub CI has been removed during active development; private sibling checkout, deterministic gates, and real-provider evals remain local/manual. | Local readiness report only if private sibling layout or provider-secret handling changes. | No automation follow-up until the private dependency layout stabilizes. |
+| XRD-007 | Closed | Infra owner / Ramen | Repo access / secrets | Ramen has `ramen readiness` for structured local/private checkout readiness evidence; hosted CI remains intentionally disabled and real-provider evals remain local/manual. | Future automation design only if private checkout layout and protected secret controls stabilize. | No Ramen implementation plan remains open. |
 | XRD-008 | Closed | Ramen eval owner, then udon/uws owners for reusable semantics | `../ramen`, then `../udon` / `../uws` | Ramen has `docs/xrd-008-runtime-profile-eval-plan.md` plus runtime/profile fixtures for approved `fnct`, approved `cmd`, denied `cmd`/`ssh`, and future profile-boundary behavior. | Upstream udon/UWS issue only if future fixtures require reusable runtime/profile semantics. | None unless runtime/profile evals regress. |
 | XRD-009 | Closed | Ramen release owner | `../ramen` | Expanded eval corpus has a release-evidence gate beyond the original ten-example real-provider baseline. | `make release-eval` enforces a minimum brief count from the current eval corpus; evidence package lives in `docs/xrd-009-expanded-corpus-release-evidence.md`. | None unless release evidence is under-sampled or the corpus gate regresses. |
 
@@ -141,10 +141,12 @@ provider variance is not treated as a Ramen-only implementation bug.
 
 ## XRD-007 Infra Handoff
 
-Decision: CI automation removed during active development.
+Decision: closed in Ramen as structured local readiness reporting; CI automation remains disabled
+during active development.
 
-Next artifact: local readiness report only if private sibling layout or provider-secret handling
-changes.
+Next artifact: none in Ramen unless private sibling layout or provider-secret handling changes.
+Local readiness evidence is emitted by
+`ramen readiness --run-gates --out eval/readiness/local.json`.
 
 Acceptance criteria:
 
@@ -154,11 +156,14 @@ Acceptance criteria:
   changing.
 - The handoff links the provider secret and artifact redaction prerequisites for trusted local or
   protected future automation.
+- `ramen readiness` emits `ramen.local-readiness.v1` JSON with sibling, deterministic gate, git,
+  ignored artifact path, provider-env-presence, and automation-policy checks.
+- Provider secret values are never printed in readiness output.
 - No GitHub Actions workflow or CI token contract is maintained in Ramen.
 
-Implementation boundary: Ramen owns local readiness checks and private checkout documentation.
-Infrastructure owns any future runner policy or provider-key automation if automation is
-reintroduced.
+Implementation boundary: Ramen owns local readiness checks, structured readiness reporting, and
+private checkout documentation. Infrastructure owns any future runner policy or provider-key
+automation if automation is reintroduced.
 
 ## XRD-008 Runtime/Profile Eval Coverage
 
@@ -192,4 +197,5 @@ Acceptance criteria:
 - Real-provider eval outputs remain ignored and uncommitted.
 
 Implementation boundary: Ramen owns release evidence, local checks, and ignored report paths.
-Provider drift remains XRD-006, and automation/secrets remain XRD-007.
+Provider drift reporting remains covered by XRD-006, and local readiness reporting remains covered
+by XRD-007.

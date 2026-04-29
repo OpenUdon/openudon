@@ -119,6 +119,26 @@ func TestCLIApprovalTemplateHelpIncludesSchema(t *testing.T) {
 	}
 }
 
+func TestCLIReadinessHelpIncludesXRD007Report(t *testing.T) {
+	cmd := helperCommand("readiness", "--help")
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		t.Fatalf("readiness help failed: %v\n%s", err, output)
+	}
+	text := string(output)
+	for _, expected := range []string{
+		"Usage: ramen readiness",
+		"--run-gates",
+		"--out",
+		"ramen.local-readiness.v1",
+		"without printing secret values",
+	} {
+		if !strings.Contains(text, expected) {
+			t.Fatalf("readiness help missing %q:\n%s", expected, text)
+		}
+	}
+}
+
 func TestNextActionForQualityCheck(t *testing.T) {
 	got := nextActionForQualityCheck("artifacts.no_secrets")
 	if !strings.Contains(got, "credential binding names") {
