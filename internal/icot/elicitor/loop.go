@@ -33,6 +33,13 @@ type Artifacts struct {
 }
 
 func Run(ctx context.Context, in io.Reader, out io.Writer, seed Session, opts Options) (Artifacts, error) {
+	if !opts.NoLLM && !opts.DisableAIDraft && !opts.VerifyOnly {
+		return runProgressive(ctx, in, out, seed, opts)
+	}
+	return runManual(ctx, in, out, seed, opts)
+}
+
+func runManual(ctx context.Context, in io.Reader, out io.Writer, seed Session, opts Options) (Artifacts, error) {
 	reader, ok := in.(*bufio.Reader)
 	if !ok {
 		reader = bufio.NewReader(in)

@@ -33,29 +33,30 @@ needed:
 - `workflows/`
 - `expected/`
 
-The high-level loop is:
+With LLM extraction available, the high-level loop is:
 
-1. Capture a short workflow brief.
-2. Fill workflow name, goal, and optional workflow timeout/idempotency metadata.
-3. Select whether OpenAPI/API steps are needed.
-4. Capture runtime inputs.
-5. Capture steps, operations, request fields, optional step timeouts, and step-to-step binds.
-6. Capture outputs.
-7. Capture runtime approvals for `cmd` or `ssh` only if those runtimes appear.
-8. Capture side-effect scope.
-9. Capture credential binding names only.
-10. Capture safety notes and fallback behavior.
-11. Render and validate `intent.hcl`, then ask for final `save`, `edit <slot>`, or `cancel`.
+1. Ask one broad workflow-goal question.
+2. Draft `intent.hcl` from that answer, the current session, transcript turns, readiness feedback,
+   and local OpenAPI metadata.
+3. Run deterministic readiness checks.
+4. Ask only the highest-priority blocking follow-up: goal, API document, operation, required
+   request values, credential bindings, runtime inputs, outputs, side-effect/safety policy, then
+   optional timeout/idempotency controls if those controls were mentioned.
+5. Group questions when they share one concept, such as all required fields for one operation.
+6. Jump to final confirmation as soon as `intent.hcl` renders, parses, and has no blocking
+   deterministic issues.
+
+With `--no-llm`, resumed drafts, and replay compatibility paths, iCoT keeps the fixed manual loop:
+workflow metadata, API selection, runtime inputs, steps, outputs, runtime approvals, side-effect
+scope, credentials, safety notes, fallback behavior, then final `save`, `edit <slot>`, or `cancel`.
 
 The timeout and idempotency questions default to blank. When left blank, iCoT emits no timeout or
 idempotency metadata. When provided, the values are written to `workflows/intent.hcl`; `project.md`
 remains the readable policy by-product.
 
-When LLM extraction is available, iCoT also asks the model for an AI-assisted draft after the
-opening brief and local OpenAPI discovery. The draft can fill inputs, steps, operation IDs, request
-field mappings, outputs, credential binding names, and policy prose. iCoT then validates and renders
-the draft through the same deterministic path as manual answers. Inferred values are listed as
-assumptions in the final review; saving confirms them. `--no-llm` keeps the fully manual flow.
+The draft can fill inputs, steps, operation IDs, request field mappings, outputs, credential binding
+names, side-effect scope, timeout/idempotency metadata, and policy prose. Inferred values are listed
+as assumptions in the final review; saving confirms them.
 
 ## Side-Effect Scope
 
@@ -96,8 +97,9 @@ iCoT also saves a local transcript by default after successful authoring:
 <example>/.icot/transcript.json
 ```
 
-The transcript records prompt/answer turns and the final session, including AI assumptions. It is
-ignored by git. Use `--no-transcript` to skip transcript persistence.
+The transcript records prompt/answer turns, progressive model draft calls, readiness decisions,
+next-question decisions, assumptions, and the final session. It is ignored by git. Use
+`--no-transcript` to skip transcript persistence.
 
 ## Reconcile
 

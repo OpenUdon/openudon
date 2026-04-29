@@ -36,9 +36,11 @@ type Extractor interface {
 }
 
 type DraftRequest struct {
-	Opening string        `json:"opening"`
-	Session Session       `json:"session"`
-	Docs    []APIDocument `json:"docs"`
+	Opening           string           `json:"opening"`
+	Session           Session          `json:"session"`
+	Docs              []APIDocument    `json:"docs"`
+	TranscriptTurns   []ReplayTurn     `json:"transcript_turns,omitempty"`
+	ReadinessFeedback []ReadinessIssue `json:"readiness_feedback,omitempty"`
 }
 
 type noopExtractor struct{}
@@ -296,9 +298,11 @@ func draftPromptRequest(request DraftRequest) map[string]any {
 		})
 	}
 	return map[string]any{
-		"opening": request.Opening,
-		"session": request.Session,
-		"docs":    docs,
+		"opening":            request.Opening,
+		"session":            request.Session,
+		"docs":               docs,
+		"transcript_turns":   request.TranscriptTurns,
+		"readiness_feedback": request.ReadinessFeedback,
 	}
 }
 

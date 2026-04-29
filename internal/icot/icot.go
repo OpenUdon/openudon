@@ -109,6 +109,7 @@ func runAuthor(args []string, in io.Reader, out, errOut io.Writer) int {
 			Extractor:      extractor,
 			DraftPath:      draftPath,
 			TranscriptPath: transcriptPath,
+			DisableAIDraft: source == seedSourceDraft,
 			VerifyOnly:     complete && source == seedSourceDraft,
 		})
 	}

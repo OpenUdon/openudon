@@ -288,6 +288,198 @@ func (e draftExtractor) Draft(context.Context, DraftRequest) (Session, error) {
 	return e.session, nil
 }
 
+type sequenceDraftExtractor struct {
+	noopExtractor
+	drafts []Session
+	calls  []DraftRequest
+}
+
+func (e *sequenceDraftExtractor) Draft(_ context.Context, request DraftRequest) (Session, error) {
+	e.calls = append(e.calls, request)
+	if len(e.drafts) == 0 {
+		return Session{}, nil
+	}
+	draft := e.drafts[0]
+	if len(e.drafts) > 1 {
+		e.drafts = e.drafts[1:]
+	}
+	return draft, nil
+}
+
+func TestProgressiveOneAnswerJumpsToConfirmation(t *testing.T) {
+	example := t.TempDir()
+	writeOpenAPI(t, example)
+	extractor := &sequenceDraftExtractor{drafts: []Session{supportTicketDraft(true)}}
+	input := strings.Join([]string{
+		"Fetch a support ticket by runtime id.",
+		"save",
+	}, "\n") + "\n"
+	var out strings.Builder
+	artifacts, err := Run(context.Background(), strings.NewReader(input), &out, Session{}, Options{
+		ExampleDir: example,
+		NoLLM:      false,
+		Extractor:  extractor,
+	})
+	if err != nil {
+		t.Fatalf("Run failed: %v\n%s", err, out.String())
+	}
+	if strings.Contains(out.String(), "Workflow name") || strings.Contains(out.String(), "Use OpenAPI/API steps?") {
+		t.Fatalf("progressive path fell back to manual prompts:\n%s", out.String())
+	}
+	intent, err := rollout.ParseIntent([]byte(artifacts.IntentHCL), "intent.hcl")
+	if err != nil {
+		t.Fatalf("parse rendered intent: %v\n%s", err, artifacts.IntentHCL)
+	}
+	if len(intent.Steps) != 1 || intent.Steps[0].Operation != "getTicket" {
+		t.Fatalf("operation = %#v", intent.Steps)
+	}
+	if len(extractor.calls) != 1 || len(extractor.calls[0].TranscriptTurns) == 0 {
+		t.Fatalf("draft request did not include transcript turns: %#v", extractor.calls)
+	}
+}
+
+func TestProgressiveTwoQuestionPathUsesReadinessFeedback(t *testing.T) {
+	example := t.TempDir()
+	writeOpenAPI(t, example)
+	first := supportTicketDraft(false)
+	second := supportTicketDraft(true)
+	extractor := &sequenceDraftExtractor{drafts: []Session{first, second}}
+	input := strings.Join([]string{
+		"Fetch a support ticket.",
+		"ticketId=inputs.ticketId",
+		"save",
+	}, "\n") + "\n"
+	var out strings.Builder
+	_, err := Run(context.Background(), strings.NewReader(input), &out, Session{}, Options{
+		ExampleDir: example,
+		NoLLM:      false,
+		Extractor:  extractor,
+	})
+	if err != nil {
+		t.Fatalf("Run failed: %v\n%s", err, out.String())
+	}
+	if !strings.Contains(out.String(), "What values should the required request fields use?") {
+		t.Fatalf("missing grouped required-field question:\n%s", out.String())
+	}
+	if len(extractor.calls) < 2 || len(extractor.calls[1].ReadinessFeedback) == 0 {
+		t.Fatalf("second draft did not receive readiness feedback: %#v", extractor.calls)
+	}
+}
+
+func TestProgressiveAmbiguousOperationAsksBeforeFieldMapping(t *testing.T) {
+	example := t.TempDir()
+	writeMultiOperationOpenAPI(t, example)
+	first := supportTicketDraft(false)
+	first.Intent.Steps[0].Operation = ""
+	second := supportTicketDraft(true)
+	extractor := &sequenceDraftExtractor{drafts: []Session{first, second}}
+	input := strings.Join([]string{
+		"Fetch a support ticket.",
+		"getTicket",
+		"save",
+	}, "\n") + "\n"
+	var out strings.Builder
+	_, err := Run(context.Background(), strings.NewReader(input), &out, Session{}, Options{
+		ExampleDir: example,
+		NoLLM:      false,
+		Extractor:  extractor,
+	})
+	if err != nil {
+		t.Fatalf("Run failed: %v\n%s", err, out.String())
+	}
+	operationPrompt := strings.Index(out.String(), "Which API action or workflow step should run first?")
+	fieldPrompt := strings.Index(out.String(), "What values should the required request fields use?")
+	if operationPrompt < 0 {
+		t.Fatalf("missing operation question:\n%s", out.String())
+	}
+	if fieldPrompt >= 0 && fieldPrompt < operationPrompt {
+		t.Fatalf("field mapping was asked before operation choice:\n%s", out.String())
+	}
+}
+
+func TestPlanNextQuestionPriorityAndGrouping(t *testing.T) {
+	session := supportTicketDraft(false)
+	session.Intent.Workflow.Description = ""
+	session.Project.Goal = ""
+	issues := CheckReadiness(session, []APIDocument{{RelativePath: "openapi/support.yaml", Operations: []*rollout.OperationInfo{{
+		OperationID: "getTicket",
+		Parameters:  []*rollout.ParameterInfo{{Name: "ticketId", Required: true}},
+	}}}})
+	plan := PlanNextQuestion(session, nil, issues)
+	if got := plan.Slots[0]; got != "workflow.description" {
+		t.Fatalf("first slot = %q, issues=%#v", got, issues)
+	}
+
+	session.Intent.Workflow.Description = "Fetch ticket"
+	issues = CheckReadiness(session, []APIDocument{{RelativePath: "openapi/support.yaml", Operations: []*rollout.OperationInfo{{
+		OperationID: "getTicket",
+		Parameters:  []*rollout.ParameterInfo{{Name: "ticketId", Required: true}},
+	}}}})
+	plan = PlanNextQuestion(session, nil, issues)
+	if !plan.Grouped || !strings.Contains(plan.Prompt, "required request fields") {
+		t.Fatalf("required fields were not grouped: %#v issues=%#v", plan, issues)
+	}
+}
+
+func TestProgressiveTranscriptIncludesEvents(t *testing.T) {
+	example := t.TempDir()
+	writeOpenAPI(t, example)
+	path := filepath.Join(example, ".icot", "transcript.json")
+	extractor := &sequenceDraftExtractor{drafts: []Session{supportTicketDraft(true)}}
+	input := "Fetch a support ticket.\nsave\n"
+	if _, err := Run(context.Background(), strings.NewReader(input), &strings.Builder{}, Session{}, Options{
+		ExampleDir:     example,
+		NoLLM:          false,
+		Extractor:      extractor,
+		TranscriptPath: path,
+	}); err != nil {
+		t.Fatalf("Run failed: %v", err)
+	}
+	data, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatalf("read transcript: %v", err)
+	}
+	text := string(data)
+	for _, expected := range []string{"model_draft_call", "readiness_decision", "next_question_decision", "final_generated_artifacts"} {
+		if !strings.Contains(text, expected) {
+			t.Fatalf("transcript missing %q:\n%s", expected, text)
+		}
+	}
+}
+
+func supportTicketDraft(withField bool) Session {
+	step := &rollout.Step{
+		Name:      "get_ticket",
+		Type:      "http",
+		Do:        "Fetch the ticket.",
+		Operation: "getTicket",
+	}
+	if withField {
+		step.With = map[string]string{"ticketId": "inputs.ticketId"}
+	}
+	return Session{
+		Intent: rollout.Intent{
+			OpenAPI:  "openapi/support.yaml",
+			Workflow: &rollout.WorkflowMeta{Name: "support_ticket_lookup", Description: "Fetch a support ticket by runtime id."},
+			Inputs:   []*rollout.Input{{Name: "ticketId", Type: "string", Required: true}},
+			Steps:    []*rollout.Step{step},
+			Outputs:  []*rollout.Output{{Name: "ticket", From: "get_ticket.received_body"}},
+		},
+		Safety:          "Sandbox proof runs only.",
+		SafetySet:       true,
+		SideEffectScope: projectwizard.SideEffectSandboxOnly,
+		Assumptions: []Assumption{{
+			ID:                   "op_get_ticket",
+			Slot:                 "steps.get_ticket.operation",
+			Value:                "getTicket",
+			Reason:               "The support ticket lookup operation matched the brief.",
+			Evidence:             "Support API getTicket",
+			Risk:                 "low",
+			RequiresConfirmation: true,
+		}},
+	}
+}
+
 func TestSessionNormalizeExplicitPolicyMarkersReplaceSeededProjectValues(t *testing.T) {
 	session := Session{
 		Project: projectwizard.Answers{
@@ -334,6 +526,49 @@ paths:
       parameters:
         - name: ticketId
           in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: ok
+`
+	if err := os.WriteFile(filepath.Join(dir, "support.yaml"), []byte(data), 0o644); err != nil {
+		t.Fatalf("write openapi: %v", err)
+	}
+}
+
+func writeMultiOperationOpenAPI(t *testing.T, example string) {
+	t.Helper()
+	dir := filepath.Join(example, "openapi")
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		t.Fatalf("mkdir openapi: %v", err)
+	}
+	data := `openapi: 3.0.0
+info:
+  title: Support API
+  version: "1.0"
+paths:
+  /tickets/{ticketId}:
+    get:
+      operationId: getTicket
+      summary: Get a support ticket
+      parameters:
+        - name: ticketId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: ok
+  /tickets/search:
+    get:
+      operationId: searchTickets
+      summary: Search support tickets
+      parameters:
+        - name: query
+          in: query
           required: true
           schema:
             type: string

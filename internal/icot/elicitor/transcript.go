@@ -8,13 +8,23 @@ import (
 )
 
 type Transcript struct {
-	Version string       `json:"version"`
-	TimeUTC string       `json:"time_utc"`
-	Turns   []ReplayTurn `json:"turns"`
-	Session Session      `json:"session,omitempty"`
+	Version string            `json:"version"`
+	TimeUTC string            `json:"time_utc"`
+	Turns   []ReplayTurn      `json:"turns"`
+	Events  []TranscriptEvent `json:"events,omitempty"`
+	Session Session           `json:"session,omitempty"`
+}
+
+type TranscriptEvent struct {
+	Kind string `json:"kind"`
+	Data any    `json:"data,omitempty"`
 }
 
 func SaveTranscript(path string, turns []ReplayTurn, session Session) error {
+	return SaveTranscriptWithEvents(path, turns, nil, session)
+}
+
+func SaveTranscriptWithEvents(path string, turns []ReplayTurn, events []TranscriptEvent, session Session) error {
 	if path == "" {
 		return nil
 	}
@@ -25,6 +35,7 @@ func SaveTranscript(path string, turns []ReplayTurn, session Session) error {
 		Version: "ramen.icot-transcript.v1",
 		TimeUTC: time.Now().UTC().Format(time.RFC3339),
 		Turns:   append([]ReplayTurn(nil), turns...),
+		Events:  append([]TranscriptEvent(nil), events...),
 		Session: session,
 	}
 	data, err := json.MarshalIndent(transcript, "", "  ")

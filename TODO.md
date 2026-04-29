@@ -343,17 +343,18 @@ side-effect, approval-state, sandbox-handoff, trusted-runner, and production-bou
 `docs/operator-checklist.md` links project authoring, safety review, eval gallery, release notes,
 and trusted handoff expectations.
 
-## [blocked] Cross-Repo Dependencies
+## [done] Cross-Repo Dependencies
 
 Goal: track hardening work that cannot be completed in Ramen alone.
 
 Why it matters: Ramen should stay thin; generic semantics and execution support belong in sibling
 projects.
 
-Done when: each cross-repo dependency has an owner, target repo, and compatibility plan.
+Done: each tracked cross-repo dependency has an owner, target repo, compatibility plan, and closed
+Ramen regression coverage where applicable.
 
-Execution sequencing, next artifacts, and follow-up plan ownership are tracked in
-`docs/xrd-roadmap.md`. Keep this section as the status summary only.
+Historical execution sequencing and follow-up plan ownership remain in `docs/xrd-roadmap.md`. Keep
+this section as the compact status summary only.
 
 Dependency status markers:
 
@@ -375,11 +376,10 @@ Dependency status markers:
 | XRD-008 | `[done]` | P2 | `../ramen`, then `../udon` / `../uws` | Runtime/profile coverage for approved non-HTTP execution beyond current `fnct`/`cmd` smoke paths. | Ramen has `docs/xrd-008-runtime-profile-eval-plan.md` plus fixtures covering approved `fnct`, approved `cmd`, denied `cmd`/`ssh`, and future profile-boundary behavior. | Ramen eval owner / udon/uws | Keep the Ramen coverage as regression evidence; open upstream udon/UWS work only when future fixtures need reusable runtime/profile semantics. |
 | XRD-009 | `[done]` | P1 | `../ramen` | Real-provider release evidence for the expanded eval corpus beyond the original ten-example baseline. | `make release-eval` now passes a minimum brief count for the current corpus, and `docs/xrd-009-expanded-corpus-release-evidence.md` defines the evidence package. | Ramen release owner | Run local/manual release evals with the expanded-corpus gate; real-provider artifacts remain uncommitted. |
 
-Next upstream actions:
+Standing notes:
 
-1. For XRD-003, keep timeout/idempotency generation opt-in only; runtime timeout enforcement and
-   idempotency record storage remain generic udon runtime work.
-2. For XRD-007, use `ramen readiness --run-gates` for local evidence, and keep hosted automation
-   disabled until private dependency checkout and provider-secret handling are stable enough to
-   justify automation.
-3. Use `docs/xrd-roadmap.md` for the full XRD execution sequence and follow-up plan boundaries.
+1. XRD-003 serialized timeout/idempotency support is closed in Ramen and udon. Runtime timeout
+   enforcement and idempotency record storage remain future generic udon runtime work.
+2. XRD-007 readiness reporting is closed in Ramen. Keep hosted automation disabled until private
+   dependency checkout and provider-secret handling are stable enough to justify automation.
+3. `docs/xrd-roadmap.md` is retained as historical XRD execution context and boundary guidance.

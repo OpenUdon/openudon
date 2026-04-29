@@ -286,7 +286,9 @@ Before writing a new `project.md`, read `docs/project-authoring.md`, `docs/inten
 go run ./cmd/icot --example ./examples/<name>
 ```
 
-The guided command asks fixed authoring questions, writes `project.md` plus
+With LLM extraction available, the guided command starts from one broad workflow goal, drafts
+`workflows/intent.hcl`, and asks only the next blocking follow-up needed to reach a valid intent.
+Use `--no-llm` for the fixed manual question flow. It writes `project.md` plus
 `workflows/intent.hcl`, and creates `openapi/`, `workflows/`, and `expected/` if missing. It does
 not synthesize compiled artifacts; run `ramen build --example ./examples/<name>` after reviewing
 the project and intent. The brief should include runtime policy, data-flow hints, credential

@@ -4,8 +4,10 @@
 integration policy that tells Ramen when to use OpenAPI, when to use a non-HTTP udon runtime, and
 when to stop.
 
-`go run ./cmd/icot --example examples/<name>` is an optional guided authoring tool. It asks fixed
-questions and writes both `project.md` and `workflows/intent.hcl`. `project.md` remains the Ramen
+`go run ./cmd/icot --example examples/<name>` is an optional guided authoring tool. With LLM
+assistance available, it starts from one plain-language goal, drafts `workflows/intent.hcl` from
+that answer plus local OpenAPI metadata, and asks only the next blocking question needed to reach a
+valid intent. With `--no-llm`, it uses the fixed manual prompt flow. `project.md` remains the Ramen
 policy/prose artifact, while `workflows/intent.hcl` is the structured saved contract that `ramen
 build` consumes next.
 
@@ -18,8 +20,10 @@ also fails.
 
 When provider credentials are available, `icot` uses AI assistance to draft operation choices,
 request mappings, outputs, credentials, and policy prose from the brief plus local OpenAPI metadata.
-The final review lists inferred assumptions; saving confirms them. Use `--no-llm` for the fully
-manual prompt flow.
+After each answer, deterministic readiness checks decide whether to ask about the goal, API
+document, operation, required request values, credential bindings, runtime inputs, outputs, or
+safety policy. The first valid intent jumps to final review; remaining warnings and inferred values
+are shown as assumptions, and saving confirms them.
 
 ## What To Include
 
