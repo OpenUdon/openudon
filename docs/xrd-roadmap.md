@@ -15,7 +15,7 @@ handoff requirements, and XRD-007 local private checkout and secrets prerequisit
 | --- | --- | --- | --- | --- | --- | --- |
 | XRD-001 | Closed | udon / Ramen regression owner | `../udon` | Provider-native structured output for Gemini intent generation exists; Ramen structured eval smoke reached 10/10 with zero legacy fallback on 2026-04-28. | Regression report only if fallback behavior regresses. | None unless tests regress. |
 | XRD-002 | Closed | udon / Ramen regression owner | `../udon` | Public UWS structural constructs and failure actions are preserved across udon and Ramen compatibility checks. | Regression report only if artifact preservation regresses. | None unless tests regress. |
-| XRD-003 | Closed | uws owner | `../uws` | UWS 1.1.0 now defines portable `timeout` fields and workflow-level `idempotency` metadata in `../uws/versions/1.1.0.md` and `../uws/versions/1.1.0.json`. | Ramen follow-up only if prompt/schema/eval support should emit UWS 1.1 fields by default. | None for cross-repo public semantics. |
+| XRD-003 | Closed | uws / udon / Ramen regression owners | `../uws`, `../udon`, `../ramen` | UWS 1.1.0 defines portable `timeout` fields and workflow-level `idempotency` metadata; udon and Ramen preserve explicit opt-in metadata through authoring, export, validation, and eval checks. | Regression report only if opt-in timeout/idempotency preservation regresses. | Runtime enforcement and idempotency record storage remain future generic udon runtime work. |
 | XRD-004 | Closed | Ramen eval owner, then udon owner for reusable gaps | `../ramen`, then `../udon` | Ramen has `docs/xrd-004-openapi-eval-plan.md` plus fixtures covering pagination variants, request bodies, security schemes, write operations, response extraction, and multi-service chains. | Upstream udon issue only if future eval runs identify a reusable compiler/runtime gap. | None unless richer OpenAPI evals regress. |
 | XRD-005 | Closed | Ramen trusted-wrapper owner / external Symphony owner | `../ramen`, optional `../symphony` | Ramen emits review evidence, `expected/symphony-handoff.json`, handoff files, approval templates, and `ramen run` trusted execution gates; Symphony routing remains optional external workflow integration. | Symphony owner implementation only if managed reviewer routing is needed upstream. | None in Ramen unless the wrapper or handoff contract changes. |
 | XRD-006 | Closed | Ramen release owner / provider owners | Provider APIs | Eval JSON reports include `provider_drift_watch`, and Markdown reports render the same structured fallback, transient failure, model availability, attempt, and release-gate findings. | Release notes copy the structured watch status and Markdown findings from real-provider eval evidence. | Keep watching provider behavior during release evals; no Ramen implementation plan remains open. |
@@ -55,8 +55,9 @@ quality and compatibility checks.
 
 Decision: closed upstream public-semantics handoff.
 
-Next artifact: a Ramen-owned follow-up only if Ramen should emit UWS 1.1 `timeout` or
-`idempotency` fields in generated artifacts.
+Ramen follow-up: complete for opt-in UWS 1.1 `timeout` and workflow-level `idempotency`
+metadata. Ramen emits these fields only when `project.md` fenced policy or `intent.hcl`
+explicitly requests them.
 
 Acceptance criteria:
 

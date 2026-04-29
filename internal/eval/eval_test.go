@@ -10,6 +10,7 @@ import (
 
 	"github.com/genelet/ramen/internal/synthesize"
 	"github.com/genelet/udon/pkg/rollout"
+	"github.com/tabilet/uws/uws1"
 )
 
 type fakeRuntimeClient struct{}
@@ -58,6 +59,38 @@ func TestCompareIntentsReportsStructuralIssues(t *testing.T) {
 	}
 	if issues[0].Severity != "blocking" {
 		t.Fatalf("severity = %q, want blocking", issues[0].Severity)
+	}
+}
+
+func TestCompareIntentsReportsTimeoutAndIdempotencyDrift(t *testing.T) {
+	workflowTimeout := 120.0
+	stepTimeout := 10.0
+	ttl := 86400.0
+	reference := &rollout.Intent{
+		Workflow: &rollout.WorkflowMeta{
+			Name:        "controls",
+			Description: "Controls",
+			Timeout:     &workflowTimeout,
+			Idempotency: &uws1.Idempotency{Key: "inputs.request_id", OnConflict: "returnPrevious", TTL: &ttl},
+		},
+		Steps: []*rollout.Step{{Name: "call_api", Type: "fnct", Timeout: &stepTimeout}},
+	}
+	generated := &rollout.Intent{
+		Workflow: &rollout.WorkflowMeta{Name: "controls", Description: "Controls"},
+		Steps:    []*rollout.Step{{Name: "call_api", Type: "fnct"}},
+	}
+	issues := CompareIntents(generated, reference)
+	codes := map[string]bool{}
+	for _, issue := range issues {
+		codes[issue.Code] = true
+		if issue.Code == "intent.workflow_timeout" && issue.Severity != "blocking" {
+			t.Fatalf("workflow timeout drift should be blocking: %#v", issue)
+		}
+	}
+	for _, code := range []string{"intent.workflow_timeout", "intent.workflow_idempotency", "intent.step_timeout"} {
+		if !codes[code] {
+			t.Fatalf("missing compare issue %s in %#v", code, issues)
+		}
 	}
 }
 

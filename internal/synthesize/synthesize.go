@@ -16,6 +16,7 @@ import (
 	"github.com/genelet/ramen/internal/openapidisco"
 	"github.com/genelet/udon/pkg/rollout"
 	"github.com/genelet/udon/pkg/runner"
+	"github.com/genelet/udon/pkg/uwsprofile"
 )
 
 type Options struct {
@@ -137,6 +138,7 @@ func Build(ctx context.Context, opts Options) (*Result, error) {
 	if err != nil {
 		return nil, fmt.Errorf("parse intent.hcl: %w", err)
 	}
+	applyProjectTimeoutAndIdempotency(intent, state.policy)
 	primary := strings.TrimSpace(intent.OpenAPI)
 	if primary == "" && !state.policy.NoOpenAPI {
 		selected, err := openapidisco.SelectPrimary(state.candidates)
@@ -205,6 +207,9 @@ func prepareRefinement(ctx context.Context, opts Options) (*refinementState, err
 	}
 	projectText := string(projectBytes)
 	policy := analyzeProject(projectText)
+	if err := validateStructuredProjectPolicy(policy); err != nil {
+		return nil, fmt.Errorf("project policy: %w", err)
+	}
 	discoverer := opts.Discoverer
 	if discoverer == nil {
 		discoverer = &openapidisco.Discoverer{}
@@ -439,6 +444,10 @@ func Promote(ctx context.Context, opts Options) (*Result, error) {
 	}
 	if intent, err := rollout.ParseIntentFile(result.IntentPath); err == nil {
 		policy := analyzeProject(string(projectBytes))
+		if err := validateStructuredProjectPolicy(policy); err != nil {
+			return nil, fmt.Errorf("project policy: %w", err)
+		}
+		applyProjectTimeoutAndIdempotency(intent, policy)
 		if err := writeWorkflowPlan(result, buildWorkflowPlan(result, intent, candidates, policy)); err != nil {
 			return nil, err
 		}
@@ -573,14 +582,30 @@ func ensureArtifactDirs(result Result) error {
 }
 
 func defaultSchemaPath(exampleDir string) string {
+	return defaultSchemaPathForVersion(exampleDir, "1.0.0")
+}
+
+func defaultSchemaPathForVersion(exampleDir, version string) string {
+	version = strings.TrimSpace(version)
+	if version == "" {
+		version = "1.0.0"
+	}
 	if _, file, _, ok := runtime.Caller(0); ok {
 		repoRoot := filepath.Clean(filepath.Join(filepath.Dir(file), "..", ".."))
-		schema := filepath.Join(repoRoot, "..", "uws", "versions", "1.0.0.json")
+		schema := filepath.Join(repoRoot, "..", "uws", "versions", version+".json")
 		if _, err := os.Stat(schema); err == nil {
 			return schema
 		}
 	}
-	return filepath.Join(exampleDir, "..", "..", "..", "uws", "versions", "1.0.0.json")
+	return filepath.Join(exampleDir, "..", "..", "..", "uws", "versions", version+".json")
+}
+
+func defaultSchemaPathForDocument(exampleDir, documentPath string) string {
+	doc, err := uwsprofile.LoadDocumentFile(documentPath, uwsprofile.DocumentFormatAuto)
+	if err != nil || doc == nil || strings.TrimSpace(doc.UWS) == "" {
+		return defaultSchemaPath(exampleDir)
+	}
+	return defaultSchemaPathForVersion(exampleDir, doc.UWS)
 }
 
 func resolveClients(opts Options) (rollout.LLMClient, rollout.ChatClient, string, string, error) {

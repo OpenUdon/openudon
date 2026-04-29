@@ -1,6 +1,7 @@
 package synthesize
 
 import (
+	"context"
 	"os"
 	"path/filepath"
 	"testing"
@@ -98,6 +99,96 @@ func TestLintProjectMarkdownReportsMissingGoal(t *testing.T) {
 		"- Stop if required runtime capabilities are missing.\n")
 	if !hasQualityCheck(checks, "project.authoring.goal", "warn") {
 		t.Fatalf("expected missing goal warning, got %#v", checks)
+	}
+}
+
+func TestStructuredProjectPolicyReportsInvalidTimeoutIdempotencyControls(t *testing.T) {
+	checks := LintProjectMarkdown(`# Invalid Policy
+
+## Goal
+
+Build a workflow.
+
+## External Systems and OpenAPI
+
+OpenAPI: none required
+
+## Runtime Policy
+
+	- Allowed runtimes: fnct.
+
+## Safety and Approval Boundary
+
+- Generate and validate artifacts only.
+
+## Fallback Behavior
+
+- Stop if required controls are invalid.
+
+` + "```ramen-policy\n" + `
+timeouts:
+  workflow: 0
+  steps:
+    call_api: -1
+idempotency:
+  key: ""
+  onConflict: replace
+  ttl: 0
+` + "```\n")
+	if !hasQualityCheck(checks, "project.authoring.structured_policy", "fail") {
+		t.Fatalf("expected structured policy failure, got %#v", checks)
+	}
+}
+
+func TestValidateStructuredProjectPolicyPassesValidControls(t *testing.T) {
+	policy := analyzeProject("```ramen-policy\n" + `
+timeouts:
+  workflow: 120
+  steps:
+    call_api: 10
+idempotency:
+  key: inputs.request_id
+  onConflict: returnPrevious
+  ttl: 86400
+` + "```\n")
+	if err := validateStructuredProjectPolicy(policy); err != nil {
+		t.Fatalf("expected valid structured policy: %v", err)
+	}
+}
+
+func TestPrepareRefinementRejectsInvalidStructuredProjectPolicy(t *testing.T) {
+	example := t.TempDir()
+	project := `# Invalid Policy
+
+## Goal
+
+Build a workflow.
+
+## External Systems and OpenAPI
+
+OpenAPI: none required
+
+## Runtime Policy
+
+- Allowed runtimes: ` + "`fnct`" + `.
+
+## Safety and Approval Boundary
+
+- Generate and validate artifacts only.
+
+## Fallback Behavior
+
+- Stop if required controls are invalid.
+
+` + "```ramen-policy\n" + `
+timeouts:
+  workflow: 0
+` + "```\n"
+	if err := os.WriteFile(filepath.Join(example, "project.md"), []byte(project), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := prepareRefinement(context.Background(), Options{ExampleDir: example}); err == nil {
+		t.Fatal("expected invalid structured policy to stop build preparation")
 	}
 }
 

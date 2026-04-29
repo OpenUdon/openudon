@@ -1,0 +1,23 @@
+{
+  "version": "ramen.workflow-plan.v1",
+  "workflow": "timeout_idempotency_controls",
+  "timeout": 120,
+  "idempotency": {
+    "key": "inputs.request_id",
+    "onConflict": "returnPrevious",
+    "ttl": 86400
+  },
+  "steps": [
+    {
+      "name": "call_api",
+      "runtime": "fnct",
+      "timeout": 10,
+      "bindings": [
+        {
+          "target": "payload",
+          "source": "inputs.payload"
+        }
+      ]
+    }
+  ]
+}

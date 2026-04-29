@@ -40,7 +40,7 @@ func promoteWorkflow(result Result, schemaPath string) error {
 
 	schemaPath = strings.TrimSpace(schemaPath)
 	if schemaPath == "" {
-		schemaPath = defaultSchemaPath(result.ExampleDir)
+		schemaPath = defaultSchemaPathForVersion(result.ExampleDir, doc.UWS)
 	}
 	if err := uwsvalidate.ValidateFile(schemaPath, result.UWSPath); err != nil {
 		return fmt.Errorf("validate exported UWS: %w", err)

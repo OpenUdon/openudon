@@ -3,10 +3,10 @@ set -euo pipefail
 
 root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 target="${1:-$root/examples}"
-schema="$root/../uws/versions/1.0.0.json"
+schema_dir="$root/../uws/versions"
 
-if [[ ! -f "$schema" ]]; then
-  printf 'missing UWS schema: %s\n' "$schema" >&2
+if [[ ! -d "$schema_dir" ]]; then
+  printf 'missing UWS schema directory: %s\n' "$schema_dir" >&2
   exit 1
 fi
 
@@ -28,7 +28,7 @@ if [[ "${#files[@]}" -eq 0 ]]; then
   exit 0
 fi
 
-printf 'found %d UWS artifact(s); schema: %s\n' "${#files[@]}" "$schema"
+printf 'found %d UWS artifact(s); schema selected from document version\n' "${#files[@]}"
 for file in "${files[@]}"; do
   go run ./cmd/ramen validate "$file"
 done

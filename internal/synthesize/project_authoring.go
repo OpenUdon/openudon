@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/genelet/ramen/internal/projectdoc"
+	"github.com/tabilet/uws/uws1"
 	"gopkg.in/yaml.v3"
 )
 
@@ -24,6 +25,10 @@ type projectPolicy struct {
 	Outputs           []OutputDecl
 	BindingHints      []BindingHint
 	FunctionContracts []FunctionContract
+	WorkflowTimeout   *float64
+	StepTimeouts      map[string]float64
+	Idempotency       *uws1.Idempotency
+	PolicyIssues      []string
 }
 
 func analyzeProject(text string) projectPolicy {
@@ -51,6 +56,10 @@ func analyzeProject(text string) projectPolicy {
 		Outputs:           extractOutputDecls(outputsSection),
 		BindingHints:      extractBindingHints(dataFlowSection),
 		FunctionContracts: extractFunctionContracts(functionSection),
+		WorkflowTimeout:   structured.WorkflowTimeout,
+		StepTimeouts:      structured.StepTimeouts,
+		Idempotency:       structured.Idempotency,
+		PolicyIssues:      structured.Issues,
 	}
 	if policy.CredentialSection == "" && len(structured.Credentials) > 0 {
 		policy.CredentialSection = strings.Join(structured.Credentials, "\n")
@@ -89,9 +98,13 @@ type FunctionContract struct {
 }
 
 type structuredProjectPolicy struct {
-	NoOpenAPI      bool
-	AllowedRuntime map[string]bool
-	Credentials    []string
+	NoOpenAPI       bool
+	AllowedRuntime  map[string]bool
+	Credentials     []string
+	WorkflowTimeout *float64
+	StepTimeouts    map[string]float64
+	Idempotency     *uws1.Idempotency
+	Issues          []string
 }
 
 type structuredProjectPolicyYAML struct {
@@ -101,6 +114,15 @@ type structuredProjectPolicyYAML struct {
 	Credentials         []string          `yaml:"credentials"`
 	CredentialBindings  []string          `yaml:"credential_bindings"`
 	CredentialsBySystem map[string]string `yaml:"credentials_by_system"`
+	Timeouts            struct {
+		Workflow *float64           `yaml:"workflow"`
+		Steps    map[string]float64 `yaml:"steps"`
+	} `yaml:"timeouts"`
+	Idempotency *struct {
+		Key        string   `yaml:"key"`
+		OnConflict string   `yaml:"onConflict"`
+		TTL        *float64 `yaml:"ttl"`
+	} `yaml:"idempotency"`
 }
 
 func parseStructuredProjectPolicy(text string) structuredProjectPolicy {
@@ -117,6 +139,48 @@ func parseStructuredProjectPolicy(text string) structuredProjectPolicy {
 		}
 		mergeStructuredRuntimes(out.AllowedRuntime, raw.Runtimes)
 		mergeStructuredRuntimes(out.AllowedRuntime, raw.RuntimePolicy)
+		if raw.Timeouts.Workflow != nil {
+			if *raw.Timeouts.Workflow <= 0 {
+				out.Issues = append(out.Issues, "ramen-policy timeouts.workflow must be greater than 0")
+			} else {
+				out.WorkflowTimeout = raw.Timeouts.Workflow
+			}
+		}
+		for step, timeout := range raw.Timeouts.Steps {
+			step = strings.TrimSpace(step)
+			if step == "" {
+				continue
+			}
+			if timeout <= 0 {
+				out.Issues = append(out.Issues, fmt.Sprintf("ramen-policy timeouts.steps.%s must be greater than 0", step))
+				continue
+			}
+			if out.StepTimeouts == nil {
+				out.StepTimeouts = map[string]float64{}
+			}
+			out.StepTimeouts[step] = timeout
+		}
+		if raw.Idempotency != nil {
+			key := strings.TrimSpace(raw.Idempotency.Key)
+			onConflict := strings.TrimSpace(raw.Idempotency.OnConflict)
+			if key == "" {
+				out.Issues = append(out.Issues, "ramen-policy idempotency.key is required")
+			}
+			if onConflict != "" && onConflict != "reject" && onConflict != "returnPrevious" {
+				out.Issues = append(out.Issues, "ramen-policy idempotency.onConflict must be reject or returnPrevious")
+			}
+			if raw.Idempotency.TTL != nil && *raw.Idempotency.TTL <= 0 {
+				out.Issues = append(out.Issues, "ramen-policy idempotency.ttl must be greater than 0")
+			}
+			if key == "" || (onConflict != "" && onConflict != "reject" && onConflict != "returnPrevious") || (raw.Idempotency.TTL != nil && *raw.Idempotency.TTL <= 0) {
+				continue
+			}
+			out.Idempotency = &uws1.Idempotency{
+				Key:        key,
+				OnConflict: onConflict,
+				TTL:        raw.Idempotency.TTL,
+			}
+		}
 		out.Credentials = append(out.Credentials, raw.Credentials...)
 		out.Credentials = append(out.Credentials, raw.CredentialBindings...)
 		for system, binding := range raw.CredentialsBySystem {
@@ -424,18 +488,31 @@ func splitCommaList(value string) []string {
 }
 
 func addProjectAuthoringChecks(report *QualityReport, text string) {
+	policy := analyzeProject(text)
+	if err := validateStructuredProjectPolicy(policy); err != nil {
+		report.add("project.authoring.structured_policy", "fail", "ramen-policy block has invalid controls", err.Error())
+	} else {
+		report.add("project.authoring.structured_policy", "pass", "ramen-policy block controls are valid", "")
+	}
 	checkProjectSection(report, text, "Goal", "project.authoring.goal", "project.md declares the workflow goal")
 	checkProjectSection(report, text, "External Systems and OpenAPI", "project.authoring.integration_policy", "project.md declares integration/OpenAPI policy")
 	checkOptionalProjectSection(report, text, "Data Flow", "project.authoring.data_flow", "project.md declares data-flow hints")
 	checkOptionalProjectSection(report, text, "Credentials and Secrets", "project.authoring.credentials", "project.md declares credential binding policy")
 	checkProjectSection(report, text, "Runtime Policy", "project.authoring.runtime_policy", "project.md declares runtime policy")
-	if analyzeProject(text).HasFunctionSteps {
+	if policy.HasFunctionSteps {
 		checkProjectSection(report, text, "Function Contracts", "project.authoring.function_contracts", "project.md declares function contracts")
 	} else {
 		checkOptionalProjectSection(report, text, "Function Contracts", "project.authoring.function_contracts", "project.md declares function contracts")
 	}
 	checkProjectSection(report, text, "Safety and Approval Boundary", "project.authoring.safety", "project.md declares safety and approval boundary")
 	checkProjectSection(report, text, "Fallback Behavior", "project.authoring.fallback", "project.md declares fallback behavior")
+}
+
+func validateStructuredProjectPolicy(policy projectPolicy) error {
+	if len(policy.PolicyIssues) == 0 {
+		return nil
+	}
+	return fmt.Errorf("%s", strings.Join(sortedCopy(policy.PolicyIssues), "; "))
 }
 
 func LintProjectMarkdown(text string) []QualityCheck {

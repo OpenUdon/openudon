@@ -199,6 +199,11 @@ func assessIntent(report *QualityReport, path string, candidates []openapidisco.
 		return intent, false
 	}
 	report.add("intent.runtime_policy", "pass", "intent.hcl respects project runtime policy", "")
+	if err := validateIntentProjectMetadataPolicy(intent, policy); err != nil {
+		report.add("intent.project_policy", "fail", "intent.hcl does not preserve required project controls", err.Error())
+		return intent, false
+	}
+	report.add("intent.project_policy", "pass", "intent.hcl preserves required project controls", "")
 	return intent, true
 }
 
@@ -212,6 +217,52 @@ func addIntentDataFlowWarning(report *QualityReport, intent *rollout.Intent) {
 		return
 	}
 	report.add("intent.data_flow.explicit", "warn", "multi-step intent has no explicit bind, with, or prior-step references", "Add Data Flow guidance to project.md or bind/with hints to intent.hcl.")
+}
+
+func validateIntentProjectMetadataPolicy(intent *rollout.Intent, policy projectPolicy) error {
+	var mismatches []string
+	if policy.WorkflowTimeout != nil {
+		var got *float64
+		if intent != nil && intent.Workflow != nil {
+			got = intent.Workflow.Timeout
+		}
+		if !floatPtrEqual(got, policy.WorkflowTimeout) {
+			mismatches = append(mismatches, fmt.Sprintf("workflow timeout expected %g got %s", *policy.WorkflowTimeout, formatFloatPtr(got)))
+		}
+	}
+	if policy.Idempotency != nil {
+		var got *uws1.Idempotency
+		if intent != nil && intent.Workflow != nil {
+			got = intent.Workflow.Idempotency
+		}
+		if !idempotencyEqual(got, policy.Idempotency) {
+			mismatches = append(mismatches, fmt.Sprintf("workflow idempotency expected %s got %s", idempotencySummary(policy.Idempotency), idempotencySummary(got)))
+		}
+	}
+	if len(policy.StepTimeouts) > 0 {
+		steps := map[string]*rollout.Step{}
+		if intent != nil {
+			walkIntentSteps(intent.Steps, func(step *rollout.Step) {
+				if step != nil && strings.TrimSpace(step.Name) != "" {
+					steps[strings.TrimSpace(step.Name)] = step
+				}
+			})
+		}
+		for _, name := range sortedStepTimeoutKeys(policy.StepTimeouts) {
+			expected := policy.StepTimeouts[name]
+			var got *float64
+			if step := steps[name]; step != nil {
+				got = step.Timeout
+			}
+			if got == nil || !floatPtrEqual(got, &expected) {
+				mismatches = append(mismatches, fmt.Sprintf("%s timeout expected %g got %s", name, expected, formatFloatPtr(got)))
+			}
+		}
+	}
+	if len(mismatches) > 0 {
+		return fmt.Errorf("%s", strings.Join(sortedCopy(mismatches), "; "))
+	}
+	return nil
 }
 
 func intentStepCount(intent *rollout.Intent) int {
@@ -1422,7 +1473,7 @@ func validateWorkflowAgainstExpectedPlan(report *QualityReport, compiled *runtim
 		return true
 	}
 	ops := compiledOperationIndex(compiled)
-	var missing, runtimeMismatch, operationMismatch, dependsMismatch, controlMismatch, actionMismatch, requestMismatch, bindingSourceMismatch, credentialMismatch []string
+	var missing, runtimeMismatch, operationMismatch, dependsMismatch, timeoutMismatch, controlMismatch, actionMismatch, requestMismatch, bindingSourceMismatch, credentialMismatch []string
 	for _, step := range expected.Steps {
 		name := strings.TrimSpace(step.Name)
 		if name == "" {
@@ -1443,6 +1494,9 @@ func validateWorkflowAgainstExpectedPlan(report *QualityReport, compiled *runtim
 		}
 		if strings.TrimSpace(step.Operation) != "" && strings.TrimSpace(op.OpenAPIOperationID) != strings.TrimSpace(step.Operation) {
 			operationMismatch = append(operationMismatch, fmt.Sprintf("%s expected %s got %s", name, step.Operation, op.OpenAPIOperationID))
+		}
+		if step.Timeout != nil && !floatPtrEqual(op.Timeout, step.Timeout) {
+			timeoutMismatch = append(timeoutMismatch, fmt.Sprintf("%s expected timeout %g got %s", name, *step.Timeout, formatFloatPtr(op.Timeout)))
 		}
 		for _, dep := range step.DependsOn {
 			if !containsString(op.DependsOn, dep) {
@@ -1570,11 +1624,12 @@ func validateWorkflowAgainstExpectedPlan(report *QualityReport, compiled *runtim
 		return false
 	}
 	report.add("workflow.plan_coverage", "pass", "workflow.hcl includes every planned step", "")
-	if len(runtimeMismatch) > 0 || len(operationMismatch) > 0 || len(dependsMismatch) > 0 || len(controlMismatch) > 0 || len(actionMismatch) > 0 || len(requestMismatch) > 0 {
+	if len(runtimeMismatch) > 0 || len(operationMismatch) > 0 || len(dependsMismatch) > 0 || len(timeoutMismatch) > 0 || len(controlMismatch) > 0 || len(actionMismatch) > 0 || len(requestMismatch) > 0 {
 		var details []string
 		details = append(details, sortedCopy(runtimeMismatch)...)
 		details = append(details, sortedCopy(operationMismatch)...)
 		details = append(details, sortedCopy(dependsMismatch)...)
+		details = append(details, sortedCopy(timeoutMismatch)...)
 		details = append(details, sortedCopy(controlMismatch)...)
 		details = append(details, sortedCopy(actionMismatch)...)
 		details = append(details, sortedCopy(requestMismatch)...)
@@ -1655,6 +1710,7 @@ type compiledOperation struct {
 	Items              string
 	Mode               string
 	BatchSize          string
+	Timeout            *float64
 	Request            *light.Body
 	SuccessCriteria    []*uws1.Criterion
 	OnFailure          []*uws1.FailureAction
@@ -1683,6 +1739,7 @@ func compiledOperationIndex(plan *runtimeplan.Plan) map[string]*compiledOperatio
 		compiled.ServiceType = op.ServiceType
 		compiled.OpenAPIOperationID = op.OpenAPIOperationID
 		compiled.DependsOn = append([]string(nil), op.DependsOn...)
+		compiled.Timeout = cloneFloat64Ptr(op.Timeout)
 		compiled.Request = op.Request
 		compiled.SuccessCriteria = cloneCriteria(op.SuccessCriteria)
 		compiled.OnFailure = cloneFailureActions(op.OnFailure)
@@ -1728,6 +1785,7 @@ func collectCompiledUWSStepList(steps []*uws1.Step, out map[string]*compiledOper
 				Items:              strings.TrimSpace(step.Items),
 				Mode:               strings.TrimSpace(step.Mode),
 				BatchSize:          strings.TrimSpace(step.BatchSize),
+				Timeout:            cloneFloat64Ptr(step.Timeout),
 			}
 		}
 		childParent := name
@@ -1974,7 +2032,7 @@ func assessUWS(report *QualityReport, path, schemaPath, exampleDir string, expec
 	}
 	report.add("uws.present", "pass", "workflow.uws.yaml is present", "")
 	if strings.TrimSpace(schemaPath) == "" {
-		schemaPath = defaultSchemaPath(exampleDir)
+		schemaPath = defaultSchemaPathForDocument(exampleDir, path)
 	}
 	if err := uwsvalidate.ValidateFile(schemaPath, path); err != nil {
 		report.add("uws.schema", "fail", "workflow.uws.yaml fails public UWS schema validation", err.Error())
@@ -2004,6 +2062,13 @@ func assessUWS(report *QualityReport, path, schemaPath, exampleDir string, expec
 			return
 		}
 		report.add("uws.operation_actions", "pass", "workflow.uws.yaml preserves planned operation actions", "")
+	}
+	if expectedPlan != nil && planHasTimeoutOrIdempotency(expectedPlan) {
+		if err := validateUWSTimeoutAndIdempotency(doc, expectedPlan); err != nil {
+			report.add("uws.timeout_idempotency", "fail", "workflow.uws.yaml does not preserve planned timeout/idempotency metadata", err.Error())
+			return
+		}
+		report.add("uws.timeout_idempotency", "pass", "workflow.uws.yaml preserves planned timeout/idempotency metadata", "")
 	}
 }
 
@@ -2095,6 +2160,157 @@ func planHasActions(plan *WorkflowPlan) bool {
 		}
 	}
 	return false
+}
+
+func planHasTimeoutOrIdempotency(plan *WorkflowPlan) bool {
+	if plan == nil {
+		return false
+	}
+	if plan.Timeout != nil || plan.Idempotency != nil {
+		return true
+	}
+	for _, step := range plan.Steps {
+		if step.Timeout != nil {
+			return true
+		}
+	}
+	return false
+}
+
+func validateUWSTimeoutAndIdempotency(doc *uws1.Document, expected *WorkflowPlan) error {
+	if expected == nil {
+		return nil
+	}
+	root := rootUWSWorkflow(doc)
+	var mismatches []string
+	if expected.Timeout != nil {
+		if root == nil || !floatPtrEqual(root.Timeout, expected.Timeout) {
+			mismatches = append(mismatches, fmt.Sprintf("workflow timeout expected %g got %s", *expected.Timeout, formatFloatPtr(workflowTimeout(root))))
+		}
+	}
+	if expected.Idempotency != nil {
+		if root == nil || !idempotencyEqual(root.Idempotency, expected.Idempotency) {
+			mismatches = append(mismatches, fmt.Sprintf("workflow idempotency expected %s got %s", idempotencySummary(expected.Idempotency), idempotencySummary(idempotencyFromWorkflow(root))))
+		}
+	}
+	ops := map[string]*uws1.Operation{}
+	stepIndex := map[string]*uws1.Step{}
+	if doc != nil {
+		for _, op := range doc.Operations {
+			if op != nil && strings.TrimSpace(op.OperationID) != "" {
+				ops[strings.TrimSpace(op.OperationID)] = op
+			}
+		}
+		for _, wf := range doc.Workflows {
+			if wf != nil {
+				indexUWSSteps(stepIndex, wf.Steps)
+				for _, branch := range wf.Cases {
+					if branch != nil {
+						indexUWSSteps(stepIndex, branch.Steps)
+					}
+				}
+				indexUWSSteps(stepIndex, wf.Default)
+			}
+		}
+	}
+	for _, step := range expected.Steps {
+		if step.Timeout == nil || strings.TrimSpace(step.Name) == "" {
+			continue
+		}
+		name := strings.TrimSpace(step.Name)
+		gotStep := stepIndex[name]
+		if gotStep != nil && strings.TrimSpace(gotStep.OperationRef) == "" {
+			if !floatPtrEqual(gotStep.Timeout, step.Timeout) {
+				mismatches = append(mismatches, fmt.Sprintf("%s step timeout expected %g got %s", name, *step.Timeout, formatFloatPtr(gotStep.Timeout)))
+			}
+			continue
+		}
+		op := ops[name]
+		if op == nil && gotStep != nil && strings.TrimSpace(gotStep.OperationRef) != "" {
+			op = ops[strings.TrimSpace(gotStep.OperationRef)]
+		}
+		if op == nil || !floatPtrEqual(op.Timeout, step.Timeout) {
+			var got *float64
+			if op != nil {
+				got = op.Timeout
+			}
+			mismatches = append(mismatches, fmt.Sprintf("%s operation timeout expected %g got %s", name, *step.Timeout, formatFloatPtr(got)))
+		}
+	}
+	if len(mismatches) > 0 {
+		return fmt.Errorf("%s", strings.Join(sortedCopy(mismatches), "; "))
+	}
+	return nil
+}
+
+func rootUWSWorkflow(doc *uws1.Document) *uws1.Workflow {
+	if doc == nil {
+		return nil
+	}
+	for _, wf := range doc.Workflows {
+		if wf != nil && strings.TrimSpace(wf.WorkflowID) == "main" {
+			return wf
+		}
+	}
+	if len(doc.Workflows) == 1 {
+		return doc.Workflows[0]
+	}
+	return nil
+}
+
+func workflowTimeout(wf *uws1.Workflow) *float64 {
+	if wf == nil {
+		return nil
+	}
+	return wf.Timeout
+}
+
+func idempotencyFromWorkflow(wf *uws1.Workflow) *uws1.Idempotency {
+	if wf == nil {
+		return nil
+	}
+	return wf.Idempotency
+}
+
+func indexUWSSteps(out map[string]*uws1.Step, steps []*uws1.Step) {
+	for _, step := range steps {
+		if step == nil {
+			continue
+		}
+		if name := strings.TrimSpace(step.StepID); name != "" {
+			out[name] = step
+		}
+		indexUWSSteps(out, step.Steps)
+		for _, branch := range step.Cases {
+			if branch != nil {
+				indexUWSSteps(out, branch.Steps)
+			}
+		}
+		indexUWSSteps(out, step.Default)
+	}
+}
+
+func idempotencyEqual(left, right *uws1.Idempotency) bool {
+	if left == nil || right == nil {
+		return left == right
+	}
+	return strings.TrimSpace(left.Key) == strings.TrimSpace(right.Key) &&
+		strings.TrimSpace(left.OnConflict) == strings.TrimSpace(right.OnConflict) &&
+		floatPtrEqual(left.TTL, right.TTL)
+}
+
+func idempotencySummary(value *uws1.Idempotency) string {
+	if value == nil {
+		return "missing"
+	}
+	parts := []string{"key=" + strings.TrimSpace(value.Key)}
+	if value.OnConflict != "" {
+		parts = append(parts, "onConflict="+strings.TrimSpace(value.OnConflict))
+	}
+	if value.TTL != nil {
+		parts = append(parts, fmt.Sprintf("ttl=%g", *value.TTL))
+	}
+	return strings.Join(parts, ",")
 }
 
 func assessSideEffectPolicy(report *QualityReport, policy projectPolicy, intent *rollout.Intent) {

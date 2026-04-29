@@ -18,6 +18,7 @@ import (
 	"github.com/genelet/ramen/internal/synthesize"
 	"github.com/genelet/ramen/internal/trustedrunner"
 	"github.com/genelet/ramen/internal/uwsvalidate"
+	"github.com/genelet/udon/pkg/uwsprofile"
 )
 
 const version = "0.1.0"
@@ -57,7 +58,7 @@ func main() {
 			fmt.Fprintln(os.Stderr, "usage: ramen validate <uws-file>")
 			os.Exit(2)
 		}
-		if err := uwsvalidate.ValidateFile("../uws/versions/1.0.0.json", flag.Arg(1)); err != nil {
+		if err := uwsvalidate.ValidateFile(defaultUWSSchemaForFile(flag.Arg(1)), flag.Arg(1)); err != nil {
 			fmt.Fprintln(os.Stderr, err)
 			os.Exit(1)
 		}
@@ -81,6 +82,14 @@ func main() {
 		flag.Usage()
 		os.Exit(2)
 	}
+}
+
+func defaultUWSSchemaForFile(path string) string {
+	version := "1.0.0"
+	if doc, err := uwsprofile.LoadDocumentFile(path, uwsprofile.DocumentFormatAuto); err == nil && doc != nil && strings.TrimSpace(doc.UWS) != "" {
+		version = strings.TrimSpace(doc.UWS)
+	}
+	return filepath.Join("..", "uws", "versions", version+".json")
 }
 
 func runReadinessCommand(args []string) {

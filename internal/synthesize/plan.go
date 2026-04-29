@@ -17,13 +17,15 @@ import (
 const workflowPlanVersion = "ramen.workflow-plan.v1"
 
 type WorkflowPlan struct {
-	Version  string       `json:"version"`
-	Example  string       `json:"example,omitempty"`
-	Workflow string       `json:"workflow,omitempty"`
-	Summary  string       `json:"summary,omitempty"`
-	Steps    []PlanStep   `json:"steps"`
-	Results  []PlanResult `json:"results,omitempty"`
-	Gaps     []PlanGap    `json:"gaps,omitempty"`
+	Version     string            `json:"version"`
+	Example     string            `json:"example,omitempty"`
+	Workflow    string            `json:"workflow,omitempty"`
+	Summary     string            `json:"summary,omitempty"`
+	Timeout     *float64          `json:"timeout,omitempty"`
+	Idempotency *uws1.Idempotency `json:"idempotency,omitempty"`
+	Steps       []PlanStep        `json:"steps"`
+	Results     []PlanResult      `json:"results,omitempty"`
+	Gaps        []PlanGap         `json:"gaps,omitempty"`
 }
 
 type PlanStep struct {
@@ -35,6 +37,7 @@ type PlanStep struct {
 	Inferred        bool                  `json:"inferred,omitempty"`
 	OpenAPI         string                `json:"openapi,omitempty"`
 	Operation       string                `json:"operation,omitempty"`
+	Timeout         *float64              `json:"timeout,omitempty"`
 	Runtime         string                `json:"runtime,omitempty"`
 	When            string                `json:"when,omitempty"`
 	ForEach         string                `json:"for_each,omitempty"`
@@ -89,6 +92,8 @@ func buildWorkflowPlan(result Result, intent *rollout.Intent, candidates []opena
 	if intent != nil && intent.Workflow != nil {
 		plan.Workflow = strings.TrimSpace(intent.Workflow.Name)
 		plan.Summary = strings.TrimSpace(intent.Workflow.Description)
+		plan.Timeout = cloneFloat64Ptr(intent.Workflow.Timeout)
+		plan.Idempotency = cloneIdempotency(intent.Workflow.Idempotency)
 	}
 	ops := openAPIOperationIndex(candidates)
 	security := openAPISecurityIndex(candidates)
@@ -119,6 +124,7 @@ func addStepsToWorkflowPlan(plan *WorkflowPlan, intent *rollout.Intent, steps []
 			BranchWhen:      ctx.BranchWhen,
 			Runtime:         strings.TrimSpace(step.Type),
 			Operation:       strings.TrimSpace(step.Operation),
+			Timeout:         cloneFloat64Ptr(step.Timeout),
 			When:            strings.TrimSpace(step.When),
 			ForEach:         strings.TrimSpace(step.ForEach),
 			Items:           strings.TrimSpace(step.Items),
@@ -374,6 +380,19 @@ func workflowPlanMarkdown(plan *WorkflowPlan) string {
 	if plan.Summary != "" {
 		fmt.Fprintf(&b, "- Summary: %s\n", plan.Summary)
 	}
+	if plan.Timeout != nil {
+		fmt.Fprintf(&b, "- Timeout: `%g` seconds\n", *plan.Timeout)
+	}
+	if plan.Idempotency != nil {
+		fmt.Fprintf(&b, "- Idempotency: key `%s`", plan.Idempotency.Key)
+		if plan.Idempotency.OnConflict != "" {
+			fmt.Fprintf(&b, " onConflict `%s`", plan.Idempotency.OnConflict)
+		}
+		if plan.Idempotency.TTL != nil {
+			fmt.Fprintf(&b, " ttl `%g` seconds", *plan.Idempotency.TTL)
+		}
+		b.WriteString("\n")
+	}
 	fmt.Fprintf(&b, "- Version: `%s`\n\n", plan.Version)
 	b.WriteString("## Steps\n\n")
 	if len(plan.Steps) == 0 {
@@ -386,6 +405,9 @@ func workflowPlanMarkdown(plan *WorkflowPlan) string {
 			}
 			if step.Operation != "" {
 				fmt.Fprintf(&b, " operation `%s`", step.Operation)
+			}
+			if step.Timeout != nil {
+				fmt.Fprintf(&b, " timeout `%g`s", *step.Timeout)
 			}
 			b.WriteString("\n")
 			if step.Parent != "" {

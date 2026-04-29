@@ -1,0 +1,7 @@
+{
+  "mode": "strict",
+  "notes": [
+    "Timeout and workflow idempotency metadata are opt-in and must be preserved when requested by ramen-policy."
+  ],
+  "max_blocking": 0
+}

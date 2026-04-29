@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/genelet/udon/pkg/rollout"
+	"github.com/tabilet/uws/uws1"
 )
 
 type CompareIssue struct {
@@ -33,6 +34,7 @@ func CompareIntentFiles(generatedPath, referencePath string, policies ...Referen
 
 func CompareIntents(generated, reference *rollout.Intent) []CompareIssue {
 	var issues []CompareIssue
+	issues = append(issues, compareWorkflowMetadata(generated, reference)...)
 	issues = append(issues, compareInputs(generated, reference)...)
 	issues = append(issues, compareOutputs(generated, reference)...)
 	issues = append(issues, compareSteps(generated, reference)...)
@@ -50,7 +52,7 @@ func CompareIntents(generated, reference *rollout.Intent) []CompareIssue {
 
 func referenceIssueSeverity(issue CompareIssue) string {
 	switch strings.TrimSpace(issue.Code) {
-	case "intent.step_type", "intent.step_operation":
+	case "intent.step_type", "intent.step_operation", "intent.workflow_timeout", "intent.workflow_idempotency", "intent.step_timeout":
 		return "blocking"
 	case "intent.inputs", "intent.steps":
 		return "warning"
@@ -61,6 +63,27 @@ func referenceIssueSeverity(issue CompareIssue) string {
 	default:
 		return "warning"
 	}
+}
+
+func compareWorkflowMetadata(generated, reference *rollout.Intent) []CompareIssue {
+	var issues []CompareIssue
+	var gotTimeout, wantTimeout *float64
+	var gotID, wantID *uws1.Idempotency
+	if generated != nil && generated.Workflow != nil {
+		gotTimeout = generated.Workflow.Timeout
+		gotID = generated.Workflow.Idempotency
+	}
+	if reference != nil && reference.Workflow != nil {
+		wantTimeout = reference.Workflow.Timeout
+		wantID = reference.Workflow.Idempotency
+	}
+	if !floatPtrEqual(gotTimeout, wantTimeout) {
+		issues = append(issues, CompareIssue{Code: "intent.workflow_timeout", Detail: fmt.Sprintf("expected %s got %s", formatFloatPtr(wantTimeout), formatFloatPtr(gotTimeout))})
+	}
+	if !idempotencyEqual(gotID, wantID) {
+		issues = append(issues, CompareIssue{Code: "intent.workflow_idempotency", Detail: fmt.Sprintf("expected %s got %s", idempotencySummary(wantID), idempotencySummary(gotID))})
+	}
+	return issues
 }
 
 func applyReferencePolicy(issues []CompareIssue, policy ReferencePolicy) []CompareIssue {
@@ -154,6 +177,9 @@ func compareSteps(generated, reference *rollout.Intent) []CompareIssue {
 		if strings.TrimSpace(gotStep.Operation) != strings.TrimSpace(wantStep.Operation) {
 			issues = append(issues, CompareIssue{Code: "intent.step_operation", Detail: fmt.Sprintf("%s expected %q got %q", name, wantStep.Operation, gotStep.Operation)})
 		}
+		if !floatPtrEqual(gotStep.Timeout, wantStep.Timeout) {
+			issues = append(issues, CompareIssue{Code: "intent.step_timeout", Detail: fmt.Sprintf("%s expected %s got %s", name, formatFloatPtr(wantStep.Timeout), formatFloatPtr(gotStep.Timeout))})
+		}
 		issues = append(issues, compareStringMaps("intent.step_with", gotStep.With, wantStep.With)...)
 		gotBinds := bindMap(gotStep)
 		wantBinds := bindMap(wantStep)
@@ -165,6 +191,44 @@ func compareSteps(generated, reference *rollout.Intent) []CompareIssue {
 		}
 	}
 	return issues
+}
+
+func floatPtrEqual(left, right *float64) bool {
+	if left == nil || right == nil {
+		return left == right
+	}
+	diff := *left - *right
+	return diff < 0.000001 && diff > -0.000001
+}
+
+func formatFloatPtr(value *float64) string {
+	if value == nil {
+		return "missing"
+	}
+	return fmt.Sprintf("%g", *value)
+}
+
+func idempotencyEqual(left, right *uws1.Idempotency) bool {
+	if left == nil || right == nil {
+		return left == right
+	}
+	return strings.TrimSpace(left.Key) == strings.TrimSpace(right.Key) &&
+		strings.TrimSpace(left.OnConflict) == strings.TrimSpace(right.OnConflict) &&
+		floatPtrEqual(left.TTL, right.TTL)
+}
+
+func idempotencySummary(value *uws1.Idempotency) string {
+	if value == nil {
+		return "missing"
+	}
+	parts := []string{"key=" + strings.TrimSpace(value.Key)}
+	if value.OnConflict != "" {
+		parts = append(parts, "onConflict="+strings.TrimSpace(value.OnConflict))
+	}
+	if value.TTL != nil {
+		parts = append(parts, fmt.Sprintf("ttl=%g", *value.TTL))
+	}
+	return strings.Join(parts, ",")
 }
 
 func intentSteps(intent *rollout.Intent) []*rollout.Step {

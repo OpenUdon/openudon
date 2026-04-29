@@ -2195,6 +2195,144 @@ func TestBuildWorkflowPlanSkipsCmdCommandHint(t *testing.T) {
 	}
 }
 
+func TestProjectPolicyTimeoutIdempotencyPromptAndPlan(t *testing.T) {
+	project := "```ramen-policy\n" + `
+timeouts:
+  workflow: 120
+  steps:
+    call_api: 10
+idempotency:
+  key: inputs.request_id
+  onConflict: returnPrevious
+  ttl: 86400
+` + "```\n"
+	policy := analyzeProject(project)
+	prompt := requiredByProjectPrompt(policy)
+	for _, want := range []string{"Workflow timeout: 120 seconds", "Step `call_api` timeout: 10 seconds", "Workflow idempotency: key `inputs.request_id`, onConflict `returnPrevious`, ttl `86400` seconds"} {
+		if !strings.Contains(prompt, want) {
+			t.Fatalf("prompt missing %q:\n%s", want, prompt)
+		}
+	}
+	generatedWorkflowTimeout := 60.0
+	generatedStepTimeout := 5.0
+	generatedTTL := 100.0
+	intent := &rollout.Intent{
+		Workflow: &rollout.WorkflowMeta{
+			Name:        "controls",
+			Description: "Controls",
+			Timeout:     &generatedWorkflowTimeout,
+			Idempotency: &uws1.Idempotency{Key: "inputs.other_id", OnConflict: "reject", TTL: &generatedTTL},
+		},
+		Steps: []*rollout.Step{{Name: "call_api", Type: "fnct", Do: "Call API", Timeout: &generatedStepTimeout}},
+	}
+	applyProjectTimeoutAndIdempotency(intent, policy)
+	plan := buildWorkflowPlan(Result{ExampleDir: t.TempDir()}, intent, nil, policy)
+	if plan.Timeout == nil || *plan.Timeout != 120 || plan.Idempotency == nil || plan.Idempotency.Key != "inputs.request_id" {
+		t.Fatalf("workflow timeout/idempotency policy did not override generated values: %#v", plan)
+	}
+	if len(plan.Steps) != 1 || plan.Steps[0].Timeout == nil || *plan.Steps[0].Timeout != 10 {
+		t.Fatalf("step timeout policy did not override generated values: %#v", plan.Steps)
+	}
+	md := workflowPlanMarkdown(plan)
+	if !strings.Contains(md, "Timeout: `120` seconds") || !strings.Contains(md, "timeout `10`s") {
+		t.Fatalf("plan markdown missing timeout evidence:\n%s", md)
+	}
+}
+
+func TestValidateIntentProjectMetadataPolicyRejectsDrift(t *testing.T) {
+	expectedWorkflowTimeout := 120.0
+	expectedStepTimeout := 10.0
+	expectedTTL := 86400.0
+	gotWorkflowTimeout := 60.0
+	gotStepTimeout := 5.0
+	gotTTL := 100.0
+	policy := projectPolicy{
+		WorkflowTimeout: &expectedWorkflowTimeout,
+		StepTimeouts:    map[string]float64{"call_api": expectedStepTimeout},
+		Idempotency:     &uws1.Idempotency{Key: "inputs.request_id", OnConflict: "returnPrevious", TTL: &expectedTTL},
+	}
+	intent := &rollout.Intent{
+		Workflow: &rollout.WorkflowMeta{
+			Timeout:     &gotWorkflowTimeout,
+			Idempotency: &uws1.Idempotency{Key: "inputs.other_id", OnConflict: "reject", TTL: &gotTTL},
+		},
+		Steps: []*rollout.Step{{Name: "call_api", Timeout: &gotStepTimeout}},
+	}
+	err := validateIntentProjectMetadataPolicy(intent, policy)
+	if err == nil || !strings.Contains(err.Error(), "workflow timeout") || !strings.Contains(err.Error(), "call_api timeout") || !strings.Contains(err.Error(), "workflow idempotency") {
+		t.Fatalf("expected timeout/idempotency drift, got %v", err)
+	}
+	applyProjectTimeoutAndIdempotency(intent, policy)
+	if err := validateIntentProjectMetadataPolicy(intent, policy); err != nil {
+		t.Fatalf("expected project metadata policy to pass after override: %v", err)
+	}
+}
+
+func TestValidateUWSTimeoutAndIdempotency(t *testing.T) {
+	workflowTimeout := 120.0
+	stepTimeout := 30.0
+	opTimeout := 10.0
+	ttl := 86400.0
+	doc := &uws1.Document{
+		UWS:  "1.1.0",
+		Info: &uws1.Info{Title: "Controls", Version: "1.0.0"},
+		Operations: []*uws1.Operation{{
+			OperationID:              "call_api",
+			OperationExecutionFields: uws1.OperationExecutionFields{Timeout: &opTimeout},
+		}},
+		Workflows: []*uws1.Workflow{{
+			WorkflowID:  "main",
+			Type:        uws1.WorkflowTypeSequence,
+			Idempotency: &uws1.Idempotency{Key: "inputs.request_id", OnConflict: "returnPrevious", TTL: &ttl},
+			Steps: []*uws1.Step{{
+				StepID:              "fanout",
+				Type:                uws1.WorkflowTypeLoop,
+				StepExecutionFields: uws1.StepExecutionFields{Timeout: &stepTimeout},
+				Steps: []*uws1.Step{{
+					StepID:       "call_api",
+					OperationRef: "call_api",
+				}},
+			}},
+		}},
+	}
+	doc.Workflows[0].Timeout = &workflowTimeout
+	plan := &WorkflowPlan{
+		Timeout:     &workflowTimeout,
+		Idempotency: &uws1.Idempotency{Key: "inputs.request_id", OnConflict: "returnPrevious", TTL: &ttl},
+		Steps: []PlanStep{
+			{Name: "fanout", Type: "loop", Runtime: "loop", Timeout: &stepTimeout},
+			{Name: "call_api", Type: "fnct", Runtime: "fnct", Timeout: &opTimeout},
+		},
+	}
+	if err := validateUWSTimeoutAndIdempotency(doc, plan); err != nil {
+		t.Fatalf("expected timeout/idempotency validation to pass: %v", err)
+	}
+	caseTimeout := 15.0
+	caseDoc := &uws1.Document{
+		UWS: "1.1.0",
+		Workflows: []*uws1.Workflow{{
+			WorkflowID: "main",
+			Type:       uws1.WorkflowTypeSwitch,
+			Cases: []*uws1.Case{{
+				CaseFields: uws1.CaseFields{Name: "matched"},
+				Steps: []*uws1.Step{{
+					StepID:              "case_step",
+					Type:                uws1.WorkflowTypeSequence,
+					StepExecutionFields: uws1.StepExecutionFields{Timeout: &caseTimeout},
+				}},
+			}},
+		}},
+	}
+	casePlan := &WorkflowPlan{Steps: []PlanStep{{Name: "case_step", Type: "sequence", Runtime: "sequence", Timeout: &caseTimeout}}}
+	if err := validateUWSTimeoutAndIdempotency(caseDoc, casePlan); err != nil {
+		t.Fatalf("expected top-level case timeout validation to pass: %v", err)
+	}
+	doc.Operations[0].Timeout = nil
+	if err := validateUWSTimeoutAndIdempotency(doc, plan); err == nil || !strings.Contains(err.Error(), "call_api operation timeout") {
+		t.Fatalf("expected operation timeout mismatch, got %v", err)
+	}
+}
+
 func TestDeterministicNoOpenAPICommandWorkflow(t *testing.T) {
 	hcl, ok := deterministicNoOpenAPICommandWorkflow(&rollout.Intent{
 		Steps: []*rollout.Step{{

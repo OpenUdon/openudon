@@ -136,6 +136,7 @@ func sanitizeGeneratedIntent(intent *rollout.Intent, policy projectPolicy) {
 	if intent == nil {
 		return
 	}
+	applyProjectTimeoutAndIdempotency(intent, policy)
 	intent.Steps = foldParameterSetterSteps(intent.Steps)
 	names := map[string]bool{}
 	var collect func([]*rollout.Step)
@@ -204,6 +205,48 @@ func sanitizeGeneratedIntent(intent *rollout.Intent, policy projectPolicy) {
 		}
 	}
 	clean(intent.Steps)
+}
+
+func applyProjectTimeoutAndIdempotency(intent *rollout.Intent, policy projectPolicy) {
+	if intent == nil {
+		return
+	}
+	if (policy.WorkflowTimeout != nil || policy.Idempotency != nil) && intent.Workflow == nil {
+		intent.Workflow = &rollout.WorkflowMeta{}
+	}
+	if intent.Workflow != nil {
+		if policy.WorkflowTimeout != nil {
+			intent.Workflow.Timeout = cloneFloat64Ptr(policy.WorkflowTimeout)
+		}
+		if policy.Idempotency != nil {
+			intent.Workflow.Idempotency = cloneIdempotency(policy.Idempotency)
+		}
+	}
+	if len(policy.StepTimeouts) == 0 {
+		return
+	}
+	var apply func([]*rollout.Step)
+	apply = func(steps []*rollout.Step) {
+		for _, step := range steps {
+			if step == nil {
+				continue
+			}
+			if timeout, ok := policy.StepTimeouts[strings.TrimSpace(step.Name)]; ok {
+				value := timeout
+				step.Timeout = &value
+			}
+			apply(step.Steps)
+			for _, branch := range step.Cases {
+				if branch != nil {
+					apply(branch.Steps)
+				}
+			}
+			if step.Default != nil {
+				apply(step.Default.Steps)
+			}
+		}
+	}
+	apply(intent.Steps)
 }
 
 func foldParameterSetterSteps(steps []*rollout.Step) []*rollout.Step {
@@ -808,6 +851,22 @@ func requiredByProjectPrompt(policy projectPolicy) string {
 			lines = append(lines, fmt.Sprintf("- Output: %s (%s)", output.Name, output.Description))
 		}
 	}
+	if policy.WorkflowTimeout != nil {
+		lines = append(lines, fmt.Sprintf("- Workflow timeout: %g seconds.", *policy.WorkflowTimeout))
+	}
+	for _, step := range sortedStepTimeoutKeys(policy.StepTimeouts) {
+		lines = append(lines, fmt.Sprintf("- Step `%s` timeout: %g seconds.", step, policy.StepTimeouts[step]))
+	}
+	if policy.Idempotency != nil {
+		parts := []string{fmt.Sprintf("key `%s`", policy.Idempotency.Key)}
+		if policy.Idempotency.OnConflict != "" {
+			parts = append(parts, fmt.Sprintf("onConflict `%s`", policy.Idempotency.OnConflict))
+		}
+		if policy.Idempotency.TTL != nil {
+			parts = append(parts, fmt.Sprintf("ttl `%g` seconds", *policy.Idempotency.TTL))
+		}
+		lines = append(lines, "- Workflow idempotency: "+strings.Join(parts, ", ")+".")
+	}
 	for _, hint := range policy.BindingHints {
 		lines = append(lines, fmt.Sprintf("- Step `%s` MUST receive `%s` as input `%s`.", hint.To, hint.From, hint.Field))
 	}
@@ -829,6 +888,17 @@ func requiredByProjectPrompt(policy projectPolicy) string {
 		return "Required by project.md:\n- No structured requirements were extracted.\n\n"
 	}
 	return "Required by project.md:\n" + strings.Join(lines, "\n") + "\n\n"
+}
+
+func sortedStepTimeoutKeys(values map[string]float64) []string {
+	keys := make([]string, 0, len(values))
+	for key := range values {
+		if strings.TrimSpace(key) != "" {
+			keys = append(keys, strings.TrimSpace(key))
+		}
+	}
+	sort.Strings(keys)
+	return keys
 }
 
 func specSummary(candidates []openapidisco.Candidate) string {

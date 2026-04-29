@@ -60,6 +60,51 @@ func TestIntentSchemaCompiles(t *testing.T) {
 	}
 }
 
+func TestIntentSchemaAcceptsTimeoutIdempotencyAndRejectsInvalidValues(t *testing.T) {
+	doc, err := jsonschema.UnmarshalJSON(bytes.NewReader(embeddedIntentSchema))
+	if err != nil {
+		t.Fatal(err)
+	}
+	compiler := jsonschema.NewCompiler()
+	if err := compiler.AddResource("intent.schema.json", doc); err != nil {
+		t.Fatal(err)
+	}
+	schema, err := compiler.Compile("intent.schema.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	valid, err := jsonschema.UnmarshalJSON(strings.NewReader(`{
+	  "workflow": {
+	    "name": "controls",
+	    "description": "Controls",
+	    "timeout": 120,
+	    "idempotency": {"key": "inputs.request_id", "onConflict": "returnPrevious", "ttl": 86400}
+	  },
+	  "steps": [{"name": "call_api", "type": "http", "do": "Call API", "timeout": 10}]
+	}`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := schema.Validate(valid); err != nil {
+		t.Fatalf("schema rejected valid timeout/idempotency intent: %v", err)
+	}
+	invalid, err := jsonschema.UnmarshalJSON(strings.NewReader(`{
+	  "workflow": {
+	    "name": "controls",
+	    "description": "Controls",
+	    "timeout": 0,
+	    "idempotency": {"key": "inputs.request_id", "onConflict": "replace"}
+	  },
+	  "steps": [{"name": "call_api", "type": "http", "do": "Call API", "timeout": 0}]
+	}`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := schema.Validate(invalid); err == nil {
+		t.Fatalf("schema accepted invalid timeout/idempotency intent")
+	}
+}
+
 func TestIntentPromptRendersExamplesAndProjectRequirements(t *testing.T) {
 	policy := projectPolicy{
 		Inputs:  []InputDecl{{Name: "ticket_id", Type: "string", Required: true}},
