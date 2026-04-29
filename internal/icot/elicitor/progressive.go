@@ -206,10 +206,10 @@ func CheckReadiness(session Session, docs []APIDocument) []ReadinessIssue {
 			if op, ok := operationForStep(session, docs, step); ok {
 				missingFields := missingRequiredFields(step, op)
 				if len(missingFields) > 0 {
-					add("missing_required_request_values", slotPrefix+".with", readinessBlocking, "Provide values for the required API request fields: "+strings.Join(missingFields, ", ")+".", suggestedFieldAssignments(missingFields))
+					add("missing_required_request_values", slotPrefix+".with", readinessBlocking, "Provide values for the required API request fields: "+strings.Join(missingFields, ", ")+".", suggestedFieldAssignments(session, docs, step, op, missingFields))
 				}
 				if operationNeedsCredential(op) && len(session.Credentials) == 0 {
-					add("missing_credential_bindings", "credentials", readinessBlocking, "Name the credential binding to use for this API.", suggestedCredentialName(op))
+					add("missing_credential_bindings", "credentials", readinessBlocking, "Name the credential binding to use for this API.", suggestedCredentialNameForOperation(session, docs, step, op))
 				}
 				for _, issue := range validateOpenAPIRequestMappings(session, step, op, slotPrefix) {
 					add(issue.Code, issue.Slot, issue.Severity, issue.Message, issue.SuggestedAnswer)
@@ -653,6 +653,7 @@ func applyProgressiveAnswer(session *Session, plan QuestionPlan, answer string, 
 			}
 		}
 		addInputsFromAssignments(session, assignments)
+		addCredentialsFromAssignments(session, assignments)
 	case strings.Contains(slotText, "credentials"):
 		session.Credentials = credentialBindings(answer)
 		session.CredentialsSet = true
@@ -1277,10 +1278,10 @@ func suggestedOperationAnswer(docs []APIDocument) string {
 	return "Describe the action in business terms."
 }
 
-func suggestedFieldAssignments(fields []string) string {
+func suggestedFieldAssignments(session Session, docs []APIDocument, step *rollout.Step, op *rollout.OperationInfo, fields []string) string {
 	var parts []string
 	for _, field := range fields {
-		parts = append(parts, field+"=inputs."+slugIdent(field))
+		parts = append(parts, field+"="+suggestedFieldSource(session, docs, step, op, field))
 	}
 	return strings.Join(parts, ", ")
 }
@@ -1290,6 +1291,236 @@ func suggestedCredentialName(op *rollout.OperationInfo) string {
 		return "api_token"
 	}
 	return slugIdent(op.Security[0])
+}
+
+func suggestedCredentialNameForOperation(session Session, docs []APIDocument, step *rollout.Step, op *rollout.OperationInfo) string {
+	if len(session.Credentials) == 1 {
+		return session.Credentials[0]
+	}
+	doc, ok := documentForStep(session, docs, step, op)
+	if ok {
+		if name := credentialNameFromDocument(doc); name != "" {
+			return name
+		}
+	}
+	return suggestedCredentialName(op)
+}
+
+func suggestedFieldSource(session Session, docs []APIDocument, step *rollout.Step, op *rollout.OperationInfo, field string) string {
+	field = strings.TrimSpace(field)
+	if field == "" {
+		return ""
+	}
+	if input, ok := exactInputMatch(session.Intent.Inputs, field); ok {
+		return "inputs." + input
+	}
+	if input, ok := inputMatchByLeafOrDescription(session.Intent.Inputs, field, op); ok {
+		return "inputs." + input
+	}
+	if suggestedCredentialField(field, op) {
+		if len(session.Credentials) == 1 {
+			return "credentials." + session.Credentials[0]
+		}
+		return "credentials." + suggestedCredentialNameForOperation(session, docs, step, op)
+	}
+	if value, ok := safeLiteralDefault(field, op); ok {
+		return value
+	}
+	return "inputs." + slugIdent(field)
+}
+
+func inputMatchByLeafOrDescription(inputs []*rollout.Input, field string, op *rollout.OperationInfo) (string, bool) {
+	leaf := slugIdent(fieldLeaf(field))
+	for _, input := range inputs {
+		if input == nil || strings.TrimSpace(input.Name) == "" {
+			continue
+		}
+		if slugIdent(input.Name) == leaf {
+			return input.Name, true
+		}
+	}
+	description := requestFieldDescription(op, field)
+	fieldTokens := rankingTokenWeights(strings.Join([]string{field, fieldLeaf(field), description}, " "))
+	bestName := ""
+	bestScore := 0
+	for _, input := range inputs {
+		if input == nil || strings.TrimSpace(input.Name) == "" {
+			continue
+		}
+		score := rankingMatchScore(fieldTokens, input.Name+" "+input.Description, 1)
+		if score > bestScore {
+			bestScore = score
+			bestName = input.Name
+		} else if score == bestScore {
+			bestName = ""
+		}
+	}
+	if bestScore > 0 && bestName != "" {
+		return bestName, true
+	}
+	return "", false
+}
+
+func fieldLeaf(field string) string {
+	field = strings.TrimSpace(strings.ReplaceAll(field, "[]", ""))
+	if idx := strings.LastIndex(field, "."); idx >= 0 {
+		return field[idx+1:]
+	}
+	return field
+}
+
+func requestFieldDescription(op *rollout.OperationInfo, field string) string {
+	if op == nil {
+		return ""
+	}
+	for _, parameter := range op.Parameters {
+		if parameter != nil && parameter.Name == field {
+			return parameter.Description
+		}
+	}
+	if op.RequestBody != nil {
+		for _, bodyField := range flattenRequestBodyFields(op.RequestBody) {
+			if bodyField.Path == field {
+				return bodyField.Description
+			}
+		}
+	}
+	return ""
+}
+
+func suggestedCredentialField(field string, op *rollout.OperationInfo) bool {
+	if op == nil || len(op.Security) == 0 {
+		return false
+	}
+	for _, security := range op.Security {
+		if field == securityFieldName(security) {
+			return true
+		}
+	}
+	return strings.EqualFold(field, "Authorization")
+}
+
+func safeLiteralDefault(field string, op *rollout.OperationInfo) (string, bool) {
+	if op == nil || op.RequestBody == nil || secretLikeField(field) {
+		return "", false
+	}
+	for _, bodyField := range flattenRequestBodyFields(op.RequestBody) {
+		if bodyField.Path != field || !safeScalarType(bodyField.Type) {
+			continue
+		}
+		for _, value := range []any{bodyField.Default, firstEnumValue(bodyField.Enum), bodyField.Example} {
+			if formatted, ok := formatSafeLiteral(value, bodyField.Type); ok {
+				return formatted, true
+			}
+		}
+	}
+	return "", false
+}
+
+func firstEnumValue(values []any) any {
+	if len(values) == 0 {
+		return nil
+	}
+	return values[0]
+}
+
+func safeScalarType(typ string) bool {
+	switch strings.ToLower(strings.TrimSpace(typ)) {
+	case "", "string", "integer", "int", "number", "float", "double", "boolean", "bool":
+		return true
+	default:
+		return false
+	}
+}
+
+func formatSafeLiteral(value any, typ string) (string, bool) {
+	if value == nil {
+		return "", false
+	}
+	text := strings.TrimSpace(fmt.Sprint(value))
+	if text == "" {
+		return "", false
+	}
+	switch strings.ToLower(strings.TrimSpace(typ)) {
+	case "integer", "int":
+		if !isIntegerLiteral(text) {
+			return "", false
+		}
+	case "number", "float", "double":
+		if !isNumberLiteral(text) {
+			return "", false
+		}
+	case "boolean", "bool":
+		if !isBoolLiteral(text) {
+			return "", false
+		}
+		text = strings.ToLower(text)
+	}
+	if expressionLikeSource(text) {
+		return "", false
+	}
+	return text, true
+}
+
+func secretLikeField(field string) bool {
+	normalized := strings.ToLower(field)
+	for _, token := range []string{"authorization", "auth", "token", "secret", "password", "passwd", "api_key", "apikey", "key"} {
+		if strings.Contains(normalized, token) {
+			return true
+		}
+	}
+	return false
+}
+
+func documentForStep(session Session, docs []APIDocument, step *rollout.Step, op *rollout.OperationInfo) (APIDocument, bool) {
+	if op == nil {
+		return APIDocument{}, false
+	}
+	docPath := session.Intent.OpenAPI
+	if step != nil {
+		docPath = firstNonEmpty(step.OpenAPI, docPath)
+	}
+	for _, doc := range docs {
+		if docPath != "" && doc.RelativePath != docPath {
+			continue
+		}
+		for _, candidate := range doc.Operations {
+			if candidate == op || (candidate != nil && candidate.OperationID == op.OperationID) {
+				return doc, true
+			}
+		}
+	}
+	if docPath == "" {
+		for _, doc := range docs {
+			for _, candidate := range doc.Operations {
+				if candidate == op || (candidate != nil && candidate.OperationID == op.OperationID) {
+					return doc, true
+				}
+			}
+		}
+	}
+	return APIDocument{}, false
+}
+
+func credentialNameFromDocument(doc APIDocument) string {
+	base := slug(strings.TrimSuffix(strings.TrimSpace(doc.Title), " API"))
+	if base == "" {
+		path := strings.TrimSpace(doc.RelativePath)
+		if idx := strings.LastIndex(path, "/"); idx >= 0 {
+			path = path[idx+1:]
+		}
+		for _, ext := range []string{".yaml", ".yml", ".json"} {
+			path = strings.TrimSuffix(path, ext)
+		}
+		base = slug(path)
+	}
+	if base == "" {
+		return ""
+	}
+	if strings.HasSuffix(base, "_api") {
+		return base + "_token"
+	}
+	return base + "_api_token"
 }
 
 func suggestedRuntimeInputs(inputs []string) string {
@@ -1346,6 +1577,27 @@ func addInputsFromAssignments(session *Session, assignments map[string]string) {
 		}
 		name := strings.TrimPrefix(source, "inputs.")
 		session.Intent.Inputs = mergeInputsByName(session.Intent.Inputs, []*rollout.Input{{Name: name, Type: "string", Required: true}})
+	}
+}
+
+func addCredentialsFromAssignments(session *Session, assignments map[string]string) {
+	for _, source := range assignments {
+		for _, credential := range credentialCandidates(source) {
+			if credential == "" {
+				continue
+			}
+			session.Credentials = dedupeStrings(append(session.Credentials, credential))
+			session.CredentialsSet = true
+			addMappingClassification(session, MappingClassification{
+				Slot:                 "credentials",
+				Value:                credential,
+				Source:               mappingSourceUser,
+				Confidence:           mappingConfidenceHigh,
+				Evidence:             source,
+				Reason:               "User accepted a request mapping that references this credential binding.",
+				RequiresConfirmation: false,
+			})
+		}
 	}
 }
 

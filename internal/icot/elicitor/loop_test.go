@@ -557,6 +557,135 @@ func TestReadinessFlagsConflictingMappingClassifications(t *testing.T) {
 	}
 }
 
+func TestGroupedDefaultsUseExactRuntimeInputMatch(t *testing.T) {
+	session := supportTicketDraft(false)
+	issues := CheckReadiness(session, []APIDocument{{RelativePath: "openapi/support.yaml", Operations: []*rollout.OperationInfo{{
+		OperationID: "getTicket",
+		Parameters:  []*rollout.ParameterInfo{{Name: "ticketId", Required: true}},
+	}}}})
+	issue := readinessIssue(issues, "missing_required_request_values")
+	if issue.SuggestedAnswer != "ticketId=inputs.ticketId" {
+		t.Fatalf("suggested answer = %q, issues=%#v", issue.SuggestedAnswer, issues)
+	}
+}
+
+func TestGroupedDefaultsUseLeafRuntimeInputMatch(t *testing.T) {
+	session := supportTicketDraft(true)
+	session.Intent.Steps[0].Operation = "createOrder"
+	session.Intent.Steps[0].With = nil
+	session.Intent.Inputs = []*rollout.Input{{Name: "email", Type: "string", Required: true}}
+	docs := []APIDocument{{RelativePath: "openapi/orders.yaml", Operations: []*rollout.OperationInfo{{
+		OperationID: "createOrder",
+		RequestBody: &rollout.RequestBodyInfo{Required: true, Schema: map[string]any{
+			"type":     "object",
+			"required": []any{"customer"},
+			"properties": map[string]any{
+				"customer": map[string]any{
+					"type":     "object",
+					"required": []any{"email"},
+					"properties": map[string]any{
+						"email": map[string]any{"type": "string", "description": "Customer email address"},
+					},
+				},
+			},
+		}},
+	}}}}
+
+	issue := readinessIssue(CheckReadiness(session, docs), "missing_required_request_values")
+	if issue.SuggestedAnswer != "customer.email=inputs.email" {
+		t.Fatalf("suggested answer = %q", issue.SuggestedAnswer)
+	}
+}
+
+func TestGroupedDefaultsUseKnownCredentialBinding(t *testing.T) {
+	session := supportTicketDraft(true)
+	session.Credentials = []string{"support_api_token"}
+	session.CredentialsSet = true
+	session.Intent.Steps[0].With = map[string]string{"ticketId": "inputs.ticketId"}
+	docs := []APIDocument{{RelativePath: "openapi/support.yaml", Title: "Support API", Operations: []*rollout.OperationInfo{{
+		OperationID: "getTicket",
+		Parameters:  []*rollout.ParameterInfo{{Name: "ticketId", Required: true}},
+		Security:    []string{"BearerAuth"},
+	}}}}
+
+	issue := readinessIssue(CheckReadiness(session, docs), "missing_required_request_values")
+	if issue.SuggestedAnswer != "Authorization=credentials.support_api_token" {
+		t.Fatalf("suggested answer = %q", issue.SuggestedAnswer)
+	}
+}
+
+func TestGroupedDefaultsDeriveCredentialBindingAndAcceptAddsIt(t *testing.T) {
+	session := supportTicketDraft(true)
+	session.Credentials = nil
+	session.CredentialsSet = false
+	session.Intent.Steps[0].With = map[string]string{"ticketId": "inputs.ticketId"}
+	docs := []APIDocument{{RelativePath: "openapi/support.yaml", Title: "Support API", Operations: []*rollout.OperationInfo{{
+		OperationID: "getTicket",
+		Parameters:  []*rollout.ParameterInfo{{Name: "ticketId", Required: true}},
+		Security:    []string{"BearerAuth"},
+	}}}}
+
+	issue := readinessIssue(CheckReadiness(session, docs), "missing_required_request_values")
+	if issue.SuggestedAnswer != "Authorization=credentials.support_api_token" {
+		t.Fatalf("suggested answer = %q", issue.SuggestedAnswer)
+	}
+	applyProgressiveAnswer(&session, QuestionPlan{Slots: []string{"steps.get_ticket.with"}}, issue.SuggestedAnswer, docs)
+	if len(session.Credentials) != 1 || session.Credentials[0] != "support_api_token" {
+		t.Fatalf("credentials not added from accepted mapping: %#v", session.Credentials)
+	}
+	if !hasClassification(session.Classifications, "credentials", "support_api_token", mappingSourceUser, mappingConfidenceHigh) {
+		t.Fatalf("missing credential classification: %#v", session.Classifications)
+	}
+}
+
+func TestGroupedDefaultsUseSafeRequestBodyLiterals(t *testing.T) {
+	session := supportTicketDraft(true)
+	session.Intent.Steps[0].Operation = "createOrder"
+	session.Intent.Steps[0].With = nil
+	session.Intent.Inputs = nil
+	docs := []APIDocument{{RelativePath: "openapi/orders.yaml", Operations: []*rollout.OperationInfo{{
+		OperationID: "createOrder",
+		RequestBody: &rollout.RequestBodyInfo{Required: true, Schema: map[string]any{
+			"type":     "object",
+			"required": []any{"active", "quantity", "status"},
+			"properties": map[string]any{
+				"active":   map[string]any{"type": "boolean", "default": true},
+				"quantity": map[string]any{"type": "integer", "default": 1},
+				"status":   map[string]any{"type": "string", "enum": []any{"draft", "submitted"}},
+			},
+		}},
+	}}}}
+
+	issue := readinessIssue(CheckReadiness(session, docs), "missing_required_request_values")
+	for _, expected := range []string{"active=true", "quantity=1", "status=draft"} {
+		if !strings.Contains(issue.SuggestedAnswer, expected) {
+			t.Fatalf("suggested answer missing %q: %q", expected, issue.SuggestedAnswer)
+		}
+	}
+}
+
+func TestGroupedDefaultsDoNotUseSecretLikeLiteralDefaults(t *testing.T) {
+	session := supportTicketDraft(true)
+	session.Intent.Steps[0].Operation = "createOrder"
+	session.Intent.Steps[0].With = nil
+	session.Intent.Inputs = nil
+	docs := []APIDocument{{RelativePath: "openapi/orders.yaml", Operations: []*rollout.OperationInfo{{
+		OperationID: "createOrder",
+		RequestBody: &rollout.RequestBodyInfo{Required: true, Schema: map[string]any{
+			"type":     "object",
+			"required": []any{"apiKey"},
+			"properties": map[string]any{
+				"apiKey": map[string]any{"type": "string", "default": "secret-value"},
+			},
+		}},
+	}}}}
+
+	issue := readinessIssue(CheckReadiness(session, docs), "missing_required_request_values")
+	if issue.SuggestedAnswer != "apiKey=inputs.apiKey" {
+		t.Fatalf("suggested answer = %q", issue.SuggestedAnswer)
+	}
+}
+
 func TestReadinessFlagsUndeclaredCredentialReference(t *testing.T) {
 	session := supportTicketDraft(true)
 	session.Credentials = nil
@@ -701,6 +830,15 @@ func hasReadinessCode(issues []ReadinessIssue, code string) bool {
 		}
 	}
 	return false
+}
+
+func readinessIssue(issues []ReadinessIssue, code string) ReadinessIssue {
+	for _, issue := range issues {
+		if issue.Code == code {
+			return issue
+		}
+	}
+	return ReadinessIssue{}
 }
 
 func hasClassification(classifications []MappingClassification, slot, value, source, confidence string) bool {

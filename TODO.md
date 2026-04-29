@@ -50,7 +50,7 @@ values, and asks better grouped questions only when deterministic gaps remain.
 - `[done]` Add internal confidence/evidence classification: record whether each mapping came from a
   deterministic match, LLM inference, user answer, or fallback default, and ask users only about
   low-confidence or conflicting mappings.
-- `[todo]` Improve grouped question defaults: generate suggested answers from OpenAPI descriptions
+- `[done]` Improve grouped question defaults: generate suggested answers from OpenAPI descriptions
   and known bindings, such as `ticketId=inputs.ticketId`,
   `Authorization=credentials.support_api_token`, and safe literal defaults.
 
