@@ -19,6 +19,25 @@ capabilities belong in `../udon`.
 Early private scaffold. Do not treat this repository as a public API yet.
 See `TODO.md` for the post-POC hardening roadmap and current product-readiness gaps.
 
+## Current Capabilities
+
+Ramen now includes the local release-readiness and trusted-execution features needed to review,
+validate, and hand off generated workflow artifacts:
+
+- Deterministic artifact generation from `project.md` into intent, workflow, UWS, plan, review,
+  handoff, refinement, and quality reports.
+- Deterministic quality gates for project policy, OpenAPI availability, intent validity, workflow
+  compilation, expected-plan matching, UWS validation, review evidence, and secret scanning.
+- Eval harness with reference comparison, run comparison, release-gate criteria, structured
+  provider drift reporting, and ignored JSON/Markdown evidence under `eval/runs/`.
+- Local readiness reporting with private sibling checks, deterministic gate evidence, git state,
+  ignored artifact paths, and provider environment presence without printing secret values.
+- Trusted execution wrapper with approval JSON templates, package digests, tier checks, current
+  quality validation, and argv-only udon invocation.
+
+See `docs/operator-checklist.md` for the operator workflow and `docs/xrd-roadmap.md` for cross-repo
+status.
+
 ## Quick Start
 
 ```bash

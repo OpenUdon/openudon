@@ -1,8 +1,8 @@
 # Ramen Product Hardening TODO
 
 This is the live post-POC hardening roadmap for making Ramen a stable internal product for
-generating, validating, reviewing, and handing off workflow artifacts. `ideas.md` remains historical
-implementation context; this file tracks current product-readiness work.
+generating, validating, reviewing, and handing off workflow artifacts. This file tracks current
+product-readiness work and replaces the older implementation-idea scratchpad.
 
 ## Status Markers
 
@@ -195,6 +195,23 @@ and compare those action policies. Retry actions remain opt-in: prompts only emi
 project brief or intent explicitly asks, and side-effectful workflows with retry actions must include
 explicit retry/idempotency policy in `project.md`.
 
+## [todo] UWS 1.1 Timeout And Idempotency Eval Coverage
+
+Goal: add Ramen eval coverage for UWS 1.1 `timeout` and workflow-level `idempotency` fields without
+reopening XRD-003 public-semantics work.
+
+Why it matters: UWS 1.1 now defines the public contract, but Ramen does not yet prove prompt,
+intent, artifact, quality, and reference behavior for those fields.
+
+Done when: Ramen has focused eval fixtures and deterministic checks showing when timeout and
+idempotency metadata may be emitted, preserved, exported, and reviewed.
+
+- Add focused eval fixtures for portable timeout metadata and workflow-level idempotency.
+- Keep generation opt-in until prompt/schema/eval support is explicit and stable.
+- Ensure quality and reference comparison can detect missing or incorrectly exported UWS 1.1 fields.
+- Keep generic timeout execution behavior and idempotency runtime enforcement in `../udon`, not
+  product-specific Ramen logic.
+
 ## [done] Observability And Eval Analytics
 
 Goal: make generation quality measurable over time.
@@ -350,7 +367,7 @@ Dependency status markers:
 | --- | --- | --- | --- | --- | --- | --- | --- |
 | XRD-001 | `[done]` | P0 | `../udon` | Provider-native structured output for Gemini intent generation. | Structured eval smoke on 2026-04-28 reached 10/10 with zero legacy fallback after udon request wiring was fixed. | udon | Closed capability; `docs/xrd-roadmap.md` keeps regression ownership only. |
 | XRD-002 | `[done]` | P0 | `../udon` | Preserve and lower public UWS structural constructs and failure actions from generated workflow drafts. | Workflow Artifact Power Slices 1-3 cover switch, loop, structural-result, success-criteria, failure-action, retry, and success-action artifact preservation through udon and Ramen compatibility checks. | udon | Closed capability; `docs/xrd-roadmap.md` keeps regression ownership only. |
-| XRD-003 | `[done]` | P0 | `../uws` | Portable serialized timeout and workflow-level idempotency semantics not already in UWS 1.0. | UWS 1.1.0 defines `timeout` on operations, workflows, and steps, plus workflow-level `idempotency` metadata. Ramen generation behavior is unchanged in this pass. | uws | Cross-repo public semantics are closed; use a Ramen-owned follow-up if prompt/schema/eval support should emit UWS 1.1 fields. |
+| XRD-003 | `[done]` | P0 | `../uws` | Portable serialized timeout and workflow-level idempotency semantics not already in UWS 1.0. | UWS 1.1.0 defines `timeout` on operations, workflows, and steps, plus workflow-level `idempotency` metadata. Ramen generation behavior is unchanged in this pass. | uws | Cross-repo public semantics are closed; Ramen follow-up is tracked by "UWS 1.1 Timeout And Idempotency Eval Coverage" above. |
 | XRD-004 | `[done]` | P1 | `../ramen`, then `../udon` | Generic OpenAPI execution/compiler behavior for richer API workflows. | Ramen now has a documented XRD-004 eval plan plus fixtures covering pagination variants, request bodies, security schemes, write operations, response extraction, and multi-service chains. | Ramen eval owner / udon | Keep `docs/xrd-004-openapi-eval-plan.md` and eval fixtures as the Ramen-owned coverage; propose reusable udon fixes only after concrete eval failures identify upstream gaps. |
 | XRD-005 | `[handoff]` | P1 | External `../symphony` owner | Review workflow, approval handoff, and agent workspace policy integration. | Ramen emits the minimum handoff package, full approval-state review evidence, machine-readable `expected/symphony-handoff.json`, and `docs/xrd-005-symphony-handoff.md` for Symphony implementation. | symphony owner | Hand `docs/xrd-005-symphony-handoff.md` and the generated manifest contract to the Symphony owner; contract details stay in `docs/cross-repo-contracts.md`. |
 | XRD-006 | `[done]` | P1 | Provider APIs | Structured-output schema dialect compatibility, rate limits, transient errors, and model availability. | Eval JSON reports include `provider_drift_watch`, and Markdown reports render the same Provider Drift Watch findings; `docs/xrd-006-provider-drift-watch.md` defines the release evidence path. | Ramen release owner / provider owners | Closed as Ramen reporting capability; keep watching provider behavior during release evals. |
@@ -361,7 +378,8 @@ Dependency status markers:
 Next upstream actions:
 
 1. For XRD-003, public UWS 1.1 contracts now exist; keep Ramen generation behavior unchanged until
-   a Ramen-owned follow-up adds prompt/schema/eval coverage for emitting those fields.
+   the "UWS 1.1 Timeout And Idempotency Eval Coverage" TODO adds prompt/schema/eval coverage for
+   emitting those fields.
 2. For XRD-005, hand `docs/xrd-005-symphony-handoff.md`,
    `expected/symphony-handoff.json`, and the `docs/cross-repo-contracts.md` approval contract to
    the Symphony owner; do not modify `../symphony` from Ramen.
