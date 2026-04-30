@@ -22,7 +22,7 @@ The remaining gap is product readiness. The current evidence is still narrow, re
 vary, Gemini structured-output smoke reached zero legacy fallback with the original ten-example
 baseline corpus, and expanded-corpus release evidence is tracked by XRD-009.
 
-## [todo] iCoT OpenAPI Inference Hardening
+## [done] iCoT OpenAPI Inference Hardening
 
 Goal: improve AI-assisted iCoT OpenAPI parameter inference quality while reducing unnecessary LLM
 and user-question loops.
