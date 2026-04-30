@@ -98,8 +98,9 @@ The concrete infrastructure handoff is
 
 Current blockers:
 
-- Ramen imports private udon packages, and local Go builds need private sibling repos:
-  `../udon`, `../grand`, `../golet`, `../hcllight`, `../horizon`, `../molecule`, and `../arazzo`.
+- Ramen imports private udon packages and shared OpenAPI discovery, and local Go builds need
+  sibling repos: `../udon`, `../grand`, `../golet`, `../hcllight`, `../horizon`, `../molecule`,
+  `../arazzo`, and `../openapisearch`.
 - Real synthesis and eval need provider credentials.
 - Real LLM results can vary by provider availability, model behavior, and transient failures.
 - Secret exposure risk is higher in hosted logs, prompts, generated artifacts, and uploaded eval

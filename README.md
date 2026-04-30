@@ -60,9 +60,9 @@ The scaffold expects the following sibling directories:
 ../udon
 ```
 
-Because Ramen imports udon packages directly, local builds also need udon's private build-time
-siblings used by `../udon/go.mod`, including `../grand`, `../golet`, `../hcllight`, `../horizon`,
-`../molecule`, and `../arazzo`.
+Because Ramen imports udon packages and shared OpenAPI discovery directly, local builds also need
+the sibling modules used by `go.mod`, including `../grand`, `../golet`, `../hcllight`, `../horizon`,
+`../molecule`, `../arazzo`, and `../openapisearch`.
 
 ## Layout
 

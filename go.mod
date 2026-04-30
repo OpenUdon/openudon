@@ -11,6 +11,12 @@ require (
 )
 
 require (
+	github.com/kr/text v0.2.0 // indirect
+	github.com/rogpeppe/go-internal v1.12.0 // indirect
+	github.com/tabilet/oas v0.0.0-20260413131549-b78ffd347d17 // indirect
+)
+
+require (
 	cloud.google.com/go/compute/metadata v0.9.0 // indirect
 	github.com/Azure/go-ntlmssp v0.0.0-20221128193559-754e69321358 // indirect
 	github.com/agext/levenshtein v1.2.3 // indirect

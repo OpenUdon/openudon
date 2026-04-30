@@ -16,6 +16,7 @@ var requiredSiblings = []string{
 	"horizon",
 	"molecule",
 	"arazzo",
+	"openapisearch",
 }
 
 func RequiredSiblings() []string {
