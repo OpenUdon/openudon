@@ -58,21 +58,6 @@ func TestSelectPrimarySortsByScore(t *testing.T) {
 	}
 }
 
-func TestRedirectSafeClientRejectsPrivateRedirectTarget(t *testing.T) {
-	client := (&Discoverer{}).redirectSafeClient()
-	req, err := http.NewRequest(http.MethodGet, "http://127.0.0.1/openapi.yaml", nil)
-	if err != nil {
-		t.Fatal(err)
-	}
-	via, err := http.NewRequest(http.MethodGet, "https://public.example.test/openapi.yaml", nil)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if err := client.CheckRedirect(req, []*http.Request{via}); err == nil {
-		t.Fatalf("expected private redirect target to be rejected")
-	}
-}
-
 func TestImportBestAPIsGuruMatchRejectsPrivateListURLBeforeRequest(t *testing.T) {
 	var called bool
 	client := &http.Client{Transport: roundTripFunc(func(*http.Request) (*http.Response, error) {
@@ -88,12 +73,6 @@ func TestImportBestAPIsGuruMatchRejectsPrivateListURLBeforeRequest(t *testing.T)
 	}
 	if called {
 		t.Fatalf("HTTP client was called before private host rejection")
-	}
-}
-
-func TestSafeDialContextRejectsPrivateAddress(t *testing.T) {
-	if _, err := safeDialContext(context.Background(), "tcp", "127.0.0.1:80"); err == nil {
-		t.Fatalf("expected private dial address to be rejected")
 	}
 }
 

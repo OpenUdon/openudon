@@ -27,6 +27,7 @@ require (
 	github.com/genelet/grand v0.0.0-20251204155631-c0db9360e797 // indirect
 	github.com/genelet/horizon v1.14.2 // indirect
 	github.com/genelet/oas v0.0.0-20251230202742-6861c891a9d1 // indirect
+	github.com/genelet/openapisearch v0.0.0
 	github.com/go-asn1-ber/asn1-ber v1.5.8-0.20250403174932-29230038a667 // indirect
 	github.com/go-ini/ini v1.67.0 // indirect
 	github.com/go-ldap/ldap/v3 v3.4.12 // indirect
@@ -60,7 +61,7 @@ require (
 	golang.org/x/net v0.48.0 // indirect
 	golang.org/x/oauth2 v0.34.0 // indirect
 	golang.org/x/sync v0.19.0 // indirect
-	golang.org/x/sys v0.39.0 // indirect
+	golang.org/x/sys v0.42.0 // indirect
 	golang.org/x/text v0.32.0 // indirect
 	golang.org/x/tools v0.39.0 // indirect
 	google.golang.org/protobuf v1.36.11 // indirect
@@ -81,3 +82,5 @@ replace github.com/genelet/horizon => ../horizon
 replace github.com/tabilet/uws => ../uws
 
 replace github.com/tabilet/arazzo => ../arazzo
+
+replace github.com/genelet/openapisearch => ../openapisearch

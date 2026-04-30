@@ -3,15 +3,10 @@ package openapidisco
 import (
 	"bytes"
 	"context"
-	"crypto/sha256"
-	"encoding/hex"
 	"encoding/json"
 	"fmt"
-	"io"
 	"io/fs"
-	"net"
 	"net/http"
-	"net/url"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -19,13 +14,13 @@ import (
 	"strings"
 	"time"
 
+	"github.com/genelet/openapisearch"
 	"gopkg.in/yaml.v3"
 )
 
 const (
-	defaultAPIsGuruListURL = "https://api.apis.guru/v2/list.json"
-	importMaxBytes         = 20 * 1024 * 1024
-	importTimeout          = 30 * time.Second
+	importMaxBytes = 20 * 1024 * 1024
+	importTimeout  = 30 * time.Second
 )
 
 type Candidate struct {
@@ -157,149 +152,59 @@ func LocalFiles(openAPIDir, baseDir, projectText string) ([]Candidate, error) {
 }
 
 func (d *Discoverer) ImportBestAPIsGuruMatch(ctx context.Context, openAPIDir, baseDir, projectText string) (Candidate, error) {
-	listURL := ""
-	if d != nil {
-		listURL = strings.TrimSpace(d.APIsGuruListURL)
-	}
-	if listURL == "" {
-		listURL = defaultAPIsGuruListURL
-	}
-	if ctx == nil {
-		ctx = context.Background()
-	}
-	parsed, err := url.Parse(listURL)
-	if err != nil || parsed.Scheme == "" || parsed.Host == "" {
-		return Candidate{}, fmt.Errorf("valid APIs.guru list URL is required")
-	}
-	if parsed.Scheme != "http" && parsed.Scheme != "https" {
-		return Candidate{}, fmt.Errorf("APIs.guru list URL scheme must be http or https")
-	}
-	if err := rejectPrivateHost(ctx, parsed.Hostname()); err != nil {
-		return Candidate{}, err
-	}
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, listURL, nil)
+	report, err := d.searchClient().Search(ctx, openapisearch.SearchOptions{
+		Query:  projectText,
+		Limit:  1,
+		Source: openapisearch.SourceAPIsGuru,
+	})
 	if err != nil {
 		return Candidate{}, err
 	}
-	resp, err := d.redirectSafeClient().Do(req)
-	if err != nil {
-		return Candidate{}, err
-	}
-	defer resp.Body.Close()
-	if resp.Request != nil && resp.Request.URL != nil {
-		if err := rejectPrivateHost(ctx, resp.Request.URL.Hostname()); err != nil {
-			return Candidate{}, err
-		}
-	}
-	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		return Candidate{}, fmt.Errorf("APIs.guru list returned %s", resp.Status)
-	}
-	body, err := io.ReadAll(io.LimitReader(resp.Body, importMaxBytes+1))
-	if err != nil {
-		return Candidate{}, err
-	}
-	if len(body) > importMaxBytes {
-		return Candidate{}, fmt.Errorf("APIs.guru list is larger than %d bytes", importMaxBytes)
-	}
-
-	var raw map[string]apisGuruAPI
-	if err := json.Unmarshal(body, &raw); err != nil {
-		return Candidate{}, fmt.Errorf("parse APIs.guru list: %w", err)
-	}
-
-	var best apisGuruVersion
-	var bestName string
-	bestScore := 0
-	for name, api := range raw {
-		version := api.preferred()
-		if version.URL == "" {
-			continue
-		}
-		score := scoreText(projectText, name+" "+version.Info.Title+" "+version.Info.Description)
-		if score > bestScore {
-			bestScore = score
-			bestName = name
-			best = version
-		}
-	}
-	if bestScore == 0 {
+	if len(report.Results) == 0 {
 		return Candidate{}, fmt.Errorf("no APIs.guru match found for project brief")
 	}
 
-	candidate, err := d.ImportURL(ctx, openAPIDir, baseDir, best.URL, bestName)
+	best := report.Results[0]
+	candidate, err := d.ImportURL(ctx, openAPIDir, baseDir, best.SpecURL, best.Provider)
 	if err != nil {
 		return Candidate{}, err
 	}
-	candidate.Source = "apis.guru:" + bestName
-	candidate.Score = bestScore
+	candidate.Source = "apis.guru:" + best.Provider
+	candidate.Score = best.Score
 	return candidate, nil
 }
 
 func (d *Discoverer) ImportURL(ctx context.Context, openAPIDir, baseDir, rawURL, suggestedName string) (Candidate, error) {
-	parsed, err := url.Parse(strings.TrimSpace(rawURL))
-	if err != nil || parsed.Scheme == "" || parsed.Host == "" {
-		return Candidate{}, fmt.Errorf("valid OpenAPI URL is required")
-	}
-	if parsed.Scheme != "http" && parsed.Scheme != "https" {
-		return Candidate{}, fmt.Errorf("OpenAPI URL scheme must be http or https")
-	}
-	if ctx == nil {
-		ctx = context.Background()
-	}
-	if err := rejectPrivateHost(ctx, parsed.Hostname()); err != nil {
-		return Candidate{}, err
-	}
-	if err := os.MkdirAll(openAPIDir, 0o755); err != nil {
-		return Candidate{}, err
-	}
-
-	ctx, cancel := context.WithTimeout(ctx, importTimeout)
-	defer cancel()
-
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, parsed.String(), nil)
+	imported, err := d.searchClient().Import(ctx, openapisearch.ImportOptions{
+		URL:  rawURL,
+		Dir:  openAPIDir,
+		Name: suggestedName,
+	})
 	if err != nil {
 		return Candidate{}, err
 	}
-	resp, err := d.redirectSafeClient().Do(req)
-	if err != nil {
-		return Candidate{}, err
-	}
-	defer resp.Body.Close()
-	if resp.Request != nil && resp.Request.URL != nil {
-		if err := rejectPrivateHost(ctx, resp.Request.URL.Hostname()); err != nil {
-			return Candidate{}, err
-		}
-	}
-	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		return Candidate{}, fmt.Errorf("download OpenAPI document: %s", resp.Status)
-	}
-	content, err := io.ReadAll(io.LimitReader(resp.Body, importMaxBytes+1))
-	if err != nil {
-		return Candidate{}, err
-	}
-	if len(content) > importMaxBytes {
-		return Candidate{}, fmt.Errorf("OpenAPI document is larger than %d bytes", importMaxBytes)
-	}
-	if !looksLikeOpenAPIContent(content) {
-		return Candidate{}, fmt.Errorf("downloaded document does not look like OpenAPI or Swagger")
-	}
-
-	name := uniqueFileName(openAPIDir, fileNameForImport(suggestedName, parsed, content))
-	path := filepath.Join(openAPIDir, name)
-	if err := os.WriteFile(path, content, 0o644); err != nil {
-		return Candidate{}, err
-	}
-	title, description := openAPIInfo(content)
-	rel, err := filepath.Rel(baseDir, path)
+	rel, err := filepath.Rel(baseDir, imported.Path)
 	if err != nil {
 		return Candidate{}, err
 	}
 	return Candidate{
-		Path:         path,
+		Path:         imported.Path,
 		RelativePath: filepath.ToSlash(rel),
-		Title:        title,
-		Description:  description,
+		Title:        imported.Title,
+		Description:  imported.Description,
 	}, nil
+}
+
+func (d *Discoverer) searchClient() *openapisearch.Client {
+	client := &openapisearch.Client{
+		Timeout:  importTimeout,
+		MaxBytes: importMaxBytes,
+	}
+	if d != nil {
+		client.HTTPClient = d.HTTPClient
+		client.APIsGuruListURL = d.APIsGuruListURL
+	}
+	return client
 }
 
 func SelectPrimary(candidates []Candidate) (Candidate, error) {
@@ -319,117 +224,6 @@ func sortCandidates(candidates []Candidate) {
 	})
 }
 
-type apisGuruAPI struct {
-	Versions  map[string]apisGuruVersion `json:"versions"`
-	Preferred string                     `json:"preferred"`
-}
-
-type apisGuruVersion struct {
-	URL  string `json:"swaggerUrl"`
-	Info struct {
-		Title       string `json:"title"`
-		Description string `json:"description"`
-	} `json:"info"`
-}
-
-func (a apisGuruAPI) preferred() apisGuruVersion {
-	if a.Preferred != "" {
-		if version, ok := a.Versions[a.Preferred]; ok {
-			return version
-		}
-	}
-	keys := make([]string, 0, len(a.Versions))
-	for key := range a.Versions {
-		keys = append(keys, key)
-	}
-	sort.Strings(keys)
-	if len(keys) == 0 {
-		return apisGuruVersion{}
-	}
-	return a.Versions[keys[len(keys)-1]]
-}
-
-func (d *Discoverer) client() *http.Client {
-	if d != nil && d.HTTPClient != nil {
-		return d.HTTPClient
-	}
-	return http.DefaultClient
-}
-
-func (d *Discoverer) redirectSafeClient() *http.Client {
-	base := d.client()
-	clone := *base
-	clone.Transport = safeTransport(base.Transport)
-	baseCheck := base.CheckRedirect
-	clone.CheckRedirect = func(req *http.Request, via []*http.Request) error {
-		if len(via) >= 5 {
-			return fmt.Errorf("too many OpenAPI URL redirects")
-		}
-		if req == nil || req.URL == nil {
-			return fmt.Errorf("redirect target is missing")
-		}
-		if req.URL.Scheme != "http" && req.URL.Scheme != "https" {
-			return fmt.Errorf("OpenAPI redirect URL scheme must be http or https")
-		}
-		if err := rejectPrivateHost(req.Context(), req.URL.Hostname()); err != nil {
-			return err
-		}
-		if baseCheck != nil {
-			return baseCheck(req, via)
-		}
-		return nil
-	}
-	return &clone
-}
-
-func safeTransport(roundTripper http.RoundTripper) http.RoundTripper {
-	var transport *http.Transport
-	if roundTripper == nil {
-		if base, ok := http.DefaultTransport.(*http.Transport); ok {
-			transport = base.Clone()
-		}
-	} else if base, ok := roundTripper.(*http.Transport); ok {
-		transport = base.Clone()
-	}
-	if transport == nil {
-		return roundTripper
-	}
-	transport.DialContext = safeDialContext
-	return transport
-}
-
-func safeDialContext(ctx context.Context, network, address string) (net.Conn, error) {
-	host, port, err := net.SplitHostPort(address)
-	if err != nil {
-		return nil, err
-	}
-	addrs, err := net.DefaultResolver.LookupIPAddr(ctx, host)
-	if err != nil {
-		return nil, err
-	}
-	var firstErr error
-	dialer := &net.Dialer{}
-	for _, addr := range addrs {
-		if isUnsafeIP(addr.IP) {
-			if firstErr == nil {
-				firstErr = fmt.Errorf("refusing private OpenAPI URL host %q", host)
-			}
-			continue
-		}
-		conn, err := dialer.DialContext(ctx, network, net.JoinHostPort(addr.IP.String(), port))
-		if err == nil {
-			return conn, nil
-		}
-		if firstErr == nil {
-			firstErr = err
-		}
-	}
-	if firstErr != nil {
-		return nil, firstErr
-	}
-	return nil, fmt.Errorf("no public IP addresses found for %q", host)
-}
-
 var urlPattern = regexp.MustCompile(`https?://[^\s<>"')]+`)
 
 func extractURLs(text string) []string {
@@ -439,37 +233,6 @@ func extractURLs(text string) []string {
 		out = append(out, strings.TrimRight(match, ".,;:"))
 	}
 	return out
-}
-
-func rejectPrivateHost(ctx context.Context, host string) error {
-	host = strings.TrimSpace(host)
-	if host == "" {
-		return fmt.Errorf("URL host is required")
-	}
-	if strings.EqualFold(host, "localhost") {
-		return fmt.Errorf("refusing localhost OpenAPI URL")
-	}
-	ip := net.ParseIP(host)
-	if ip != nil {
-		if isUnsafeIP(ip) {
-			return fmt.Errorf("refusing private OpenAPI URL host %q", host)
-		}
-		return nil
-	}
-	addrs, err := net.DefaultResolver.LookupIPAddr(ctx, host)
-	if err != nil {
-		return err
-	}
-	for _, addr := range addrs {
-		if isUnsafeIP(addr.IP) {
-			return fmt.Errorf("refusing private OpenAPI URL host %q", host)
-		}
-	}
-	return nil
-}
-
-func isUnsafeIP(ip net.IP) bool {
-	return ip.IsLoopback() || ip.IsPrivate() || ip.IsLinkLocalUnicast() || ip.IsLinkLocalMulticast() || ip.IsUnspecified() || ip.IsMulticast()
 }
 
 func hasOpenAPIExt(path string) bool {
@@ -533,50 +296,6 @@ func openAPIInfo(content []byte) (string, string) {
 		_ = yaml.Unmarshal(trimmed, &root)
 	}
 	return strings.TrimSpace(root.Info.Title), strings.TrimSpace(root.Info.Description)
-}
-
-func fileNameForImport(suggested string, parsed *url.URL, content []byte) string {
-	base := sanitizeFileBase(suggested)
-	if base == "" {
-		base = sanitizeFileBase(filepath.Base(parsed.Path))
-	}
-	if base == "" || base == "." || base == "/" {
-		sum := sha256.Sum256(content)
-		base = "openapi-" + hex.EncodeToString(sum[:])[:12]
-	}
-	ext := strings.ToLower(filepath.Ext(base))
-	if ext != ".json" && ext != ".yaml" && ext != ".yml" {
-		base += inferredExt(content)
-	}
-	return base
-}
-
-func sanitizeFileBase(value string) string {
-	value = strings.ToLower(strings.TrimSpace(value))
-	value = strings.ReplaceAll(value, "\\", "/")
-	value = filepath.Base(value)
-	value = regexp.MustCompile(`[^a-z0-9._-]+`).ReplaceAllString(value, "-")
-	value = strings.Trim(value, "-_.")
-	return value
-}
-
-func inferredExt(content []byte) string {
-	if bytes.HasPrefix(bytes.TrimSpace(content), []byte("{")) {
-		return ".json"
-	}
-	return ".yaml"
-}
-
-func uniqueFileName(dir, name string) string {
-	ext := filepath.Ext(name)
-	base := strings.TrimSuffix(name, ext)
-	candidate := name
-	for i := 2; ; i++ {
-		if _, err := os.Stat(filepath.Join(dir, candidate)); os.IsNotExist(err) {
-			return candidate
-		}
-		candidate = fmt.Sprintf("%s-%d%s", base, i, ext)
-	}
 }
 
 func scoreText(query, haystack string) int {
