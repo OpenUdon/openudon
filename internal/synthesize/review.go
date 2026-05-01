@@ -8,6 +8,7 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/genelet/openapisearch"
 	"github.com/genelet/udon/pkg/rollout"
 )
 
@@ -43,6 +44,10 @@ func reviewMarkdown(result Result, provider, model string) string {
 		intent = parsed
 	}
 	profile := sideEffectProfileForOpenAPI(policy, intent, result.OpenAPICandidates, result.PrimaryOpenAPI)
+	declaredCredentials := credentialBindingNames(policy)
+	expectedCredentials := expectedPlanCredentialNames(result.PlanJSONPath)
+	commonReview := reviewLeafAdapter(result, declaredCredentials, expectedCredentials)
+	commonPackage := commonReview.MinimumReviewPackage()
 	b.WriteString("# Ramen Review Evidence\n\n")
 	fmt.Fprintf(&b, "- Project brief: `%s`\n", relOrAbs(result.ExampleDir, result.ProjectPath))
 	fmt.Fprintf(&b, "- Intent HCL: `%s`\n", relOrAbs(result.ExampleDir, result.IntentPath))
@@ -65,6 +70,7 @@ func reviewMarkdown(result Result, provider, model string) string {
 	fmt.Fprintf(&b, "- Refinement report: `%s`\n", relOrAbs(result.ExampleDir, result.RefinementJSONPath))
 	fmt.Fprintf(&b, "- Review evidence: `%s`\n", relOrAbs(result.ExampleDir, result.ReviewPath))
 	fmt.Fprintf(&b, "- Symphony handoff manifest: `%s`\n", relOrAbs(result.ExampleDir, result.SymphonyHandoffPath))
+	fmt.Fprintf(&b, "- Shared leaf review package: `%d` artifact(s), `%d` symbolic binding(s), execution deferred to Ramen trusted-runtime policy.\n", len(commonPackage.Artifacts), len(commonPackage.BindingNames))
 	b.WriteString("\n## OpenAPI Candidates\n\n")
 	for _, candidate := range result.OpenAPICandidates {
 		fmt.Fprintf(&b, "- `%s`", candidate.RelativePath)
@@ -129,8 +135,6 @@ func reviewMarkdown(result Result, provider, model string) string {
 		b.WriteString("- `approved_for_sandbox` and `approved_for_production` are not required unless future changes add side effects.\n")
 	}
 	b.WriteString("\n## Credential Binding Audit\n\n")
-	declaredCredentials := credentialBindingNames(policy)
-	expectedCredentials := expectedPlanCredentialNames(result.PlanJSONPath)
 	if len(declaredCredentials) == 0 && len(expectedCredentials) == 0 {
 		b.WriteString("- No credential bindings declared or required.\n")
 	} else {
@@ -140,6 +144,10 @@ func reviewMarkdown(result Result, provider, model string) string {
 		if len(expectedCredentials) > 0 {
 			fmt.Fprintf(&b, "- Expected plan credential bindings: `%s`\n", strings.Join(expectedCredentials, "`, `"))
 		}
+	}
+	audit := commonReview.BindingAudit()
+	if len(audit.DeclaredSymbolicBindings) > 0 {
+		fmt.Fprintf(&b, "- Shared symbolic binding audit: `%s`\n", strings.Join(audit.DeclaredSymbolicBindings, "`, `"))
 	}
 	b.WriteString("- Credential values must stay outside prompts, examples, generated artifacts, and logs.\n")
 	b.WriteString("\n## Unresolved Risks\n\n")
@@ -203,6 +211,69 @@ func expectedPlanCredentialNames(path string) []string {
 	}
 	sort.Strings(out)
 	return out
+}
+
+func reviewLeafAdapter(result Result, declaredCredentials, expectedCredentials []string) openapisearch.LeafAdapter {
+	artifactPaths := []string{
+		result.ProjectPath,
+		result.IntentPath,
+		result.WorkflowPath,
+		result.UWSPath,
+		result.PlanJSONPath,
+		result.QualityJSONPath,
+		result.RefinementJSONPath,
+		result.ReviewPath,
+		result.SymphonyHandoffPath,
+	}
+	artifacts := make([]openapisearch.Artifact, 0, len(artifactPaths))
+	for _, path := range artifactPaths {
+		if strings.TrimSpace(path) == "" {
+			continue
+		}
+		content, _ := os.ReadFile(path)
+		artifacts = append(artifacts, openapisearch.Artifact{
+			Path:      relOrAbs(result.ExampleDir, path),
+			MediaType: reviewArtifactMediaType(path),
+			Content:   content,
+		})
+	}
+	seen := map[string]bool{}
+	var bindings []openapisearch.SymbolicBinding
+	for _, name := range append(append([]string(nil), declaredCredentials...), expectedCredentials...) {
+		name = strings.TrimSpace(name)
+		if name == "" || seen[name] {
+			continue
+		}
+		seen[name] = true
+		bindings = append(bindings, openapisearch.SymbolicBinding{
+			Name:        name,
+			Kind:        "credential",
+			Source:      "ramen.review",
+			Description: "Ramen runtime credential binding name; value is supplied outside generated artifacts.",
+		})
+	}
+	return openapisearch.NewLeafAdapter(openapisearch.ArtifactSet{
+		Artifacts:        artifacts,
+		SymbolicBindings: bindings,
+	}, openapisearch.LeafOptions{
+		Name:   "Ramen Review Evidence",
+		Source: "ramen.synthesize",
+	})
+}
+
+func reviewArtifactMediaType(path string) string {
+	switch strings.ToLower(filepath.Ext(path)) {
+	case ".md":
+		return "text/markdown"
+	case ".hcl":
+		return "text/hcl"
+	case ".json":
+		return "application/json"
+	case ".yaml", ".yml":
+		return "application/yaml"
+	default:
+		return "application/octet-stream"
+	}
 }
 
 func writeIntentDataFlowReview(b *strings.Builder, intent *rollout.Intent) {
