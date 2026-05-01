@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/genelet/ramen/internal/openapidisco"
+	"github.com/genelet/ramen/internal/openudonintent"
 	"github.com/genelet/udon/pkg/rollout"
 	"github.com/genelet/udon/pkg/runner"
 	"github.com/genelet/udon/pkg/uwsprofile"
@@ -134,7 +135,7 @@ func Build(ctx context.Context, opts Options) (*Result, error) {
 	if err != nil {
 		return nil, err
 	}
-	intent, err := rollout.ParseIntentFile(state.result.IntentPath)
+	intent, err := openudonintent.ParseFile(ctx, state.result.IntentPath)
 	if err != nil {
 		return nil, fmt.Errorf("parse intent.hcl: %w", err)
 	}
@@ -147,7 +148,7 @@ func Build(ctx context.Context, opts Options) (*Result, error) {
 		}
 		primary = selected.RelativePath
 		intent.OpenAPI = primary
-		intentHCL, err := runner.RenderIntentHCL(intent)
+		intentHCL, err := openudonintent.RenderHCL(ctx, intent)
 		if err != nil {
 			return nil, err
 		}
@@ -288,7 +289,7 @@ func runRefinement(ctx context.Context, opts Options, state *refinementState, ll
 			return &state.result, err
 		}
 		workflowPlan := buildWorkflowPlan(state.result, intent, state.candidates, state.policy)
-		intentHCL, err := runner.RenderIntentHCL(intent)
+		intentHCL, err := openudonintent.RenderHCL(ctx, intent)
 		if err != nil {
 			refinement.addAttempt(attempt, action, nil, fmt.Errorf("render intent HCL: %w", err), "intent rendering failed")
 			refinement.setLastAttemptMode(state.generationMode)
