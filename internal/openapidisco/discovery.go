@@ -6,15 +6,15 @@ import (
 	"github.com/tabilet/apitools"
 )
 
-type Candidate = openapisearch.DiscoveryCandidate
-type DiscoveryReport = openapisearch.DiscoveryReport
-type DiscoveryAttempt = openapisearch.DiscoveryAttempt
-type Discoverer = openapisearch.Discoverer
+type Candidate = apitools.DiscoveryCandidate
+type DiscoveryReport = apitools.DiscoveryReport
+type DiscoveryAttempt = apitools.DiscoveryAttempt
+type Discoverer = apitools.Discoverer
 
 func LocalFiles(openAPIDir, baseDir, projectText string) ([]Candidate, error) {
-	return openapisearch.DiscoverOpenAPI(context.Background(), openAPIDir, baseDir, projectText)
+	return apitools.DiscoverOpenAPI(context.Background(), openAPIDir, baseDir, projectText)
 }
 
 func SelectPrimary(candidates []Candidate) (Candidate, error) {
-	return openapisearch.SelectPrimaryDiscoveryCandidate(candidates)
+	return apitools.SelectPrimaryDiscoveryCandidate(candidates)
 }

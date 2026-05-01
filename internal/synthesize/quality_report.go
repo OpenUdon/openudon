@@ -16,7 +16,7 @@ import (
 
 func assessSecrets(report *QualityReport, result Result) {
 	var hits []string
-	for _, diagnostic := range openapisearch.ScanCredentialValues(reviewArtifactSet(result).Artifacts) {
+	for _, diagnostic := range apitools.ScanCredentialValues(reviewArtifactSet(result).Artifacts) {
 		hits = append(hits, diagnostic.Path)
 	}
 	if len(hits) > 0 {

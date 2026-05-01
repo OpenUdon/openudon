@@ -10,12 +10,12 @@ type Transcript struct {
 	Session Session           `json:"session,omitempty"`
 }
 
-type TranscriptEvent = openapisearch.PromptEvent
+type TranscriptEvent = apitools.PromptEvent
 
 func SaveTranscript(path string, turns []ReplayTurn, session Session) error {
 	return SaveTranscriptWithEvents(path, turns, nil, session)
 }
 
 func SaveTranscriptWithEvents(path string, turns []ReplayTurn, events []TranscriptEvent, session Session) error {
-	return openapisearch.SavePromptTranscript(path, "ramen.icot-transcript.v1", turns, events, session)
+	return apitools.SavePromptTranscript(path, "ramen.icot-transcript.v1", turns, events, session)
 }

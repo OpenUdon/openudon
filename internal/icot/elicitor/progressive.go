@@ -13,8 +13,8 @@ import (
 	"github.com/tabilet/apitools"
 )
 
-type ReadinessIssue = openapisearch.ReadinessIssue
-type QuestionPlan = openapisearch.InteractiveQuestion
+type ReadinessIssue = apitools.ReadinessIssue
+type QuestionPlan = apitools.InteractiveQuestion
 
 const (
 	readinessBlocking = "blocking"
@@ -38,7 +38,7 @@ func runProgressive(ctx context.Context, in io.Reader, out io.Writer, seed Sessi
 	if session.Intent.Workflow != nil {
 		openingBrief = strings.TrimSpace(session.Intent.Workflow.Description)
 	}
-	artifacts, err := openapisearch.RunProgressiveICOT(ctx, in, out, openapisearch.ProgressiveLoopHooks[Session, APIDocument, Artifacts]{
+	artifacts, err := apitools.RunProgressiveICOT(ctx, in, out, apitools.ProgressiveLoopHooks[Session, APIDocument, Artifacts]{
 		Session:       session,
 		Documents:     docs,
 		Opening:       openingBrief,
@@ -93,7 +93,7 @@ func runProgressive(ctx context.Context, in io.Reader, out io.Writer, seed Sessi
 			defaultSingleOpenAPIDoc(session, docs)
 			return nil
 		},
-		FinalConfirm: func(prompts *openapisearch.PromptSession, session *Session, docs []APIDocument, events *[]openapisearch.PromptEvent) (Artifacts, error) {
+		FinalConfirm: func(prompts *apitools.PromptSession, session *Session, docs []APIDocument, events *[]apitools.PromptEvent) (Artifacts, error) {
 			return finalProgressiveConfirmationLoop(out, &prompter{PromptSession: prompts, out: out}, session, docs, opts.DraftPath, events)
 		},
 		FinalResultSummary: func(artifacts Artifacts) any {
@@ -107,7 +107,7 @@ func runProgressive(ctx context.Context, in io.Reader, out io.Writer, seed Sessi
 			return SaveTranscriptWithEvents(opts.TranscriptPath, turns, events, artifacts.Session)
 		},
 	})
-	if errors.Is(err, openapisearch.ErrCanceled) {
+	if errors.Is(err, apitools.ErrCanceled) {
 		return artifacts, ErrCanceled
 	}
 	return artifacts, err
@@ -117,7 +117,7 @@ type progressiveExtractor struct {
 	Extractor
 }
 
-func (extractor progressiveExtractor) Draft(ctx context.Context, request openapisearch.InteractiveDraftRequest[Session, APIDocument]) (Session, error) {
+func (extractor progressiveExtractor) Draft(ctx context.Context, request apitools.InteractiveDraftRequest[Session, APIDocument]) (Session, error) {
 	return extractor.Extractor.Draft(ctx, DraftRequest{
 		Opening:           request.Opening,
 		Session:           request.Session,

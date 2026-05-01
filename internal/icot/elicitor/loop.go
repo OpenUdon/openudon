@@ -51,7 +51,7 @@ func runManual(ctx context.Context, in io.Reader, out io.Writer, seed Session, o
 	}
 	session := seed
 	session.Normalize()
-	p := &prompter{PromptSession: openapisearch.NewPromptSession(reader, out), out: out}
+	p := &prompter{PromptSession: apitools.NewPromptSession(reader, out), out: out}
 	openingBrief := ""
 	if opts.VerifyOnly {
 		projectText := projectwizard.Render(session.Project)
@@ -403,7 +403,7 @@ func RenderArtifacts(session Session) (Artifacts, error) {
 }
 
 type prompter struct {
-	*openapisearch.PromptSession
+	*apitools.PromptSession
 	out io.Writer
 }
 

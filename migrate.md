@@ -32,7 +32,7 @@ Recent relevant commits at the time of this note:
 
 - `../openudon`: `5eacffb Document public executor handoff`
 - `../w8m`: `3671fb7 Document executor packaging boundary`
-- `../ramen`: `ac3e7bc Require openapisearch sibling`
+- `../ramen`: `ac3e7bc Require apitools sibling`
 
 ## Proposed OpenUdon Intent Core
 

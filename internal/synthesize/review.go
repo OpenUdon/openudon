@@ -213,7 +213,7 @@ func expectedPlanCredentialNames(path string) []string {
 	return out
 }
 
-func reviewArtifactSet(result Result) openapisearch.ArtifactSet {
+func reviewArtifactSet(result Result) apitools.ArtifactSet {
 	artifactPaths := []string{
 		result.ProjectPath,
 		result.IntentPath,
@@ -229,31 +229,31 @@ func reviewArtifactSet(result Result) openapisearch.ArtifactSet {
 		result.ReviewPath,
 		result.SymphonyHandoffPath,
 	}
-	artifacts := make([]openapisearch.Artifact, 0, len(artifactPaths))
+	artifacts := make([]apitools.Artifact, 0, len(artifactPaths))
 	for _, path := range artifactPaths {
 		if strings.TrimSpace(path) == "" {
 			continue
 		}
 		content, _ := os.ReadFile(path)
-		artifacts = append(artifacts, openapisearch.Artifact{
+		artifacts = append(artifacts, apitools.Artifact{
 			Path:      relOrAbs(result.ExampleDir, path),
 			MediaType: reviewArtifactMediaType(path),
 			Content:   content,
 		})
 	}
-	return openapisearch.ArtifactSet{Artifacts: artifacts}
+	return apitools.ArtifactSet{Artifacts: artifacts}
 }
 
-func reviewLeafAdapter(set openapisearch.ArtifactSet, declaredCredentials, expectedCredentials []string) openapisearch.LeafAdapter {
+func reviewLeafAdapter(set apitools.ArtifactSet, declaredCredentials, expectedCredentials []string) apitools.LeafAdapter {
 	seen := map[string]bool{}
-	var bindings []openapisearch.SymbolicBinding
+	var bindings []apitools.SymbolicBinding
 	for _, name := range append(append([]string(nil), declaredCredentials...), expectedCredentials...) {
 		name = strings.TrimSpace(name)
 		if name == "" || seen[name] {
 			continue
 		}
 		seen[name] = true
-		bindings = append(bindings, openapisearch.SymbolicBinding{
+		bindings = append(bindings, apitools.SymbolicBinding{
 			Name:        name,
 			Kind:        "credential",
 			Source:      "ramen.review",
@@ -261,7 +261,7 @@ func reviewLeafAdapter(set openapisearch.ArtifactSet, declaredCredentials, expec
 		})
 	}
 	set.SymbolicBindings = bindings
-	return openapisearch.NewLeafAdapter(set, openapisearch.LeafOptions{
+	return apitools.NewLeafAdapter(set, apitools.LeafOptions{
 		Name:   "Ramen Review Evidence",
 		Source: "ramen.synthesize",
 	})

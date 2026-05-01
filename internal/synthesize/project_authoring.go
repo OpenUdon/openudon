@@ -519,7 +519,7 @@ func validateStructuredProjectPolicy(policy projectPolicy) error {
 func LintProjectMarkdown(text string) []QualityCheck {
 	report := &QualityReport{Status: "pass"}
 	addProjectAuthoringChecks(report, text)
-	if openapisearch.ContainsLikelyCredentialValue([]byte(text)) {
+	if apitools.ContainsLikelyCredentialValue([]byte(text)) {
 		report.add("project.no_secrets", "fail", "project.md contains content matching a credential pattern", "")
 	}
 	report.finalize()

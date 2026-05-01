@@ -13,7 +13,7 @@ import (
 	"github.com/tabilet/apitools"
 )
 
-type ReplayTurn = openapisearch.PromptTurn
+type ReplayTurn = apitools.PromptTurn
 
 type ReplayScript struct {
 	Turns []ReplayTurn `json:"turns"`
@@ -121,7 +121,7 @@ func BuildReplayScript(exampleDir string, intent *rollout.Intent) (ReplayScript,
 }
 
 func AssertReplayLabelsInOrder(output string, turns []ReplayTurn) error {
-	return openapisearch.AssertPromptLabelsInOrder(output, turns)
+	return apitools.AssertPromptLabelsInOrder(output, turns)
 }
 
 func addStepReplay(script *ReplayScript, step *rollout.Step, defaultOpenAPI string, docs []APIDocument, docByPath map[string]APIDocument) error {

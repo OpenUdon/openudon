@@ -76,7 +76,7 @@ func generateIntentFromMessages(ctx context.Context, chat rollout.ChatClient, me
 
 func generateIntentFromMessagesWithMode(ctx context.Context, chat rollout.ChatClient, messages []rollout.ChatMessage, primary string, policy projectPolicy, temperature *float64) (*rollout.Intent, string, error) {
 	var intent rollout.Intent
-	result, err := openapisearch.CompleteJSONWithFallback(ctx, workflowintent.ChatAdapter{Client: chat, Temperature: temperature}, workflowintent.MessagesToTranscript(messages), json.RawMessage(embeddedIntentSchema), &intent, openapisearch.JSONCompletionOptions{
+	result, err := apitools.CompleteJSONWithFallback(ctx, workflowintent.ChatAdapter{Client: chat, Temperature: temperature}, workflowintent.MessagesToTranscript(messages), json.RawMessage(embeddedIntentSchema), &intent, apitools.JSONCompletionOptions{
 		FallbackOnStructuredError: true,
 	})
 	if err != nil {
@@ -93,7 +93,7 @@ func generateIntentFromMessagesWithMode(ctx context.Context, chat rollout.ChatCl
 }
 
 func legacyJSONInstructionMessages(messages []rollout.ChatMessage) []rollout.ChatMessage {
-	return workflowintent.TranscriptToMessages(openapisearch.AppendLegacyJSONInstruction(workflowintent.MessagesToTranscript(messages), ""))
+	return workflowintent.TranscriptToMessages(apitools.AppendLegacyJSONInstruction(workflowintent.MessagesToTranscript(messages), ""))
 }
 
 func decodeIntentJSON(jsonText string, primary string, policy projectPolicy) (*rollout.Intent, error) {
@@ -809,7 +809,7 @@ func promptExamplesBlock() string {
 }
 
 func renderPromptSnapshot(messages []rollout.ChatMessage) string {
-	return openapisearch.RenderTranscriptSnapshot(workflowintent.MessagesToTranscript(messages))
+	return apitools.RenderTranscriptSnapshot(workflowintent.MessagesToTranscript(messages))
 }
 
 func requiredByProjectPrompt(policy projectPolicy) string {
@@ -1009,5 +1009,5 @@ func intentJSONShape() string {
 }
 
 func extractJSON(response string) (string, error) {
-	return openapisearch.ExtractJSONBlock(response)
+	return apitools.ExtractJSONBlock(response)
 }

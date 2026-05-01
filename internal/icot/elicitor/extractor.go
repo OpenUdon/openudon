@@ -236,7 +236,7 @@ func (e *chatExtractor) structured(ctx context.Context, messages []rollout.ChatM
 }
 
 func decodeJSONBlock(raw string, target any) error {
-	return openapisearch.DecodeJSONBlock(raw, target)
+	return apitools.DecodeJSONBlock(raw, target)
 }
 
 func firstLine(value string) string {

@@ -12,14 +12,14 @@ import (
 
 func TestWorkflowFlowParsesValidatesAndRendersIntent(t *testing.T) {
 	flow := WorkflowFlow()
-	draft, artifacts, diagnostics, err := flow.ParseValidateRender(context.Background(), openapisearch.Artifact{
+	draft, artifacts, diagnostics, err := flow.ParseValidateRender(context.Background(), apitools.Artifact{
 		Path:    IntentPath,
 		Content: []byte(validIntentHCL()),
 	})
 	if err != nil {
 		t.Fatal(err)
 	}
-	if openapisearch.HasErrors(diagnostics) {
+	if apitools.HasErrors(diagnostics) {
 		t.Fatalf("diagnostics = %#v", diagnostics)
 	}
 	if draft.Workflow == nil || draft.Workflow.Name != "runtime_only_render" {
@@ -59,7 +59,7 @@ func TestValidateCompleteReportsRamenMissingSlots(t *testing.T) {
 func TestChatAdapterConvertsTranscriptAndStructuredOutput(t *testing.T) {
 	fake := &fakeStructuredChat{}
 	adapter := ChatAdapter{Client: fake, MaxTokens: 42}
-	turns := []openapisearch.TranscriptTurn{{Role: "user", Content: "hello"}}
+	turns := []apitools.TranscriptTurn{{Role: "user", Content: "hello"}}
 
 	reply, err := adapter.Complete(context.Background(), turns)
 	if err != nil {
