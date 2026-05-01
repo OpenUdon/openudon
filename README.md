@@ -62,7 +62,7 @@ The scaffold expects the following sibling directories:
 
 Because Ramen imports udon packages and shared OpenAPI discovery directly, local builds also need
 the sibling modules used by `go.mod`, including `../grand`, `../golet`, `../hcllight`, `../horizon`,
-`../molecule`, `../arazzo`, and `../openapisearch`.
+`../molecule`, `../arazzo`, and `../apitools`.
 
 ## Layout
 

@@ -27,7 +27,7 @@ The local workspace must check out Ramen and every private sibling required for 
 | `../horizon` | Private udon build-time sibling. |
 | `../molecule` | Private udon build-time sibling. |
 | `../arazzo` | Private udon build-time sibling. |
-| `../openapisearch` | Shared OpenAPI discovery/import library used by Ramen and udon. |
+| `../apitools` | Shared API tools and OpenAPI discovery/import library used by Ramen and udon. |
 
 Readiness check:
 

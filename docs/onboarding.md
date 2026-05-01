@@ -18,7 +18,7 @@ Required repositories must sit next to `ramen`:
 ../horizon
 ../molecule
 ../arazzo
-../openapisearch
+../apitools
 ```
 
 Check the local workspace:

@@ -12,7 +12,7 @@ Ramen owns project templates, Symphony workflow policy, example artifacts, valid
 - `../udon` is the private UWS/OpenAPI compiler and runtime. Put generic execution/compiler capabilities there.
 - `../symphony` is the work orchestration service. Configure it through `WORKFLOW.md`; do not fork or modify it from Ramen unless explicitly requested.
 - Udon's private build-time siblings (`../grand`, `../golet`, `../hcllight`, `../horizon`,
-  `../molecule`, and `../arazzo`) and the shared `../openapisearch` module must be present for
+  `../molecule`, and `../arazzo`) and the shared `../apitools` module must be present for
   local Go builds.
 - `../ramen` owns only the integration layer above those projects.
 
