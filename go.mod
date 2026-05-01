@@ -33,7 +33,6 @@ require (
 	github.com/genelet/grand v0.0.0-20251204155631-c0db9360e797 // indirect
 	github.com/genelet/horizon v1.14.2 // indirect
 	github.com/genelet/oas v0.0.0-20251230202742-6861c891a9d1 // indirect
-	github.com/genelet/openapisearch v0.0.0
 	github.com/go-asn1-ber/asn1-ber v1.5.8-0.20250403174932-29230038a667 // indirect
 	github.com/go-ini/ini v1.67.0 // indirect
 	github.com/go-ldap/ldap/v3 v3.4.12 // indirect
@@ -56,6 +55,7 @@ require (
 	github.com/philhofer/fwd v1.2.0 // indirect
 	github.com/pkg/sftp v1.13.10 // indirect
 	github.com/rs/xid v1.6.0 // indirect
+	github.com/tabilet/apitools v0.0.0
 	github.com/tabilet/schema v0.0.0-20260413181549-3f8667c17b7f // indirect
 	github.com/tinylib/msgp v1.6.1 // indirect
 	github.com/zclconf/go-cty v1.17.0 // indirect
@@ -89,4 +89,4 @@ replace github.com/tabilet/uws => ../uws
 
 replace github.com/tabilet/arazzo => ../arazzo
 
-replace github.com/genelet/openapisearch => ../openapisearch
+replace github.com/tabilet/apitools => ../apitools

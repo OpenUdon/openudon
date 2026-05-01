@@ -5,8 +5,8 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/genelet/openapisearch"
 	"github.com/genelet/ramen/internal/projectdoc"
+	"github.com/tabilet/apitools"
 	"github.com/tabilet/uws/uws1"
 	"gopkg.in/yaml.v3"
 )

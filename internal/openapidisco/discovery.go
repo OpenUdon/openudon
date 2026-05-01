@@ -3,7 +3,7 @@ package openapidisco
 import (
 	"context"
 
-	"github.com/genelet/openapisearch"
+	"github.com/tabilet/apitools"
 )
 
 type Candidate = openapisearch.DiscoveryCandidate

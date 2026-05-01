@@ -7,9 +7,9 @@ import (
 	"errors"
 	"strings"
 
-	"github.com/genelet/openapisearch"
 	"github.com/genelet/ramen/internal/projectwizard"
 	"github.com/genelet/udon/pkg/rollout"
+	"github.com/tabilet/apitools"
 )
 
 const PromptVersion = "icot-extractor.v1"

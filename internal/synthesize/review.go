@@ -8,8 +8,8 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/genelet/openapisearch"
 	"github.com/genelet/udon/pkg/rollout"
+	"github.com/tabilet/apitools"
 )
 
 func writeReview(result Result, provider, model string) error {

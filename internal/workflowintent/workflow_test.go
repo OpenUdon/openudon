@@ -6,8 +6,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/genelet/openapisearch"
 	"github.com/genelet/udon/pkg/rollout"
+	"github.com/tabilet/apitools"
 )
 
 func TestWorkflowFlowParsesValidatesAndRendersIntent(t *testing.T) {

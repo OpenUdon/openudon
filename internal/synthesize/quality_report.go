@@ -8,9 +8,9 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/genelet/openapisearch"
 	"github.com/genelet/ramen/internal/openapidisco"
 	"github.com/genelet/udon/pkg/rollout"
+	"github.com/tabilet/apitools"
 	"github.com/tabilet/uws/uws1"
 )
 

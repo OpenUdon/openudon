@@ -9,11 +9,11 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/genelet/openapisearch"
 	"github.com/genelet/ramen/internal/openapidisco"
 	"github.com/genelet/ramen/internal/workflowintent"
 	"github.com/genelet/udon/pkg/rollout"
 	"github.com/genelet/udon/pkg/runner"
+	"github.com/tabilet/apitools"
 )
 
 const (

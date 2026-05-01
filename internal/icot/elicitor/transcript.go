@@ -1,6 +1,6 @@
 package elicitor
 
-import "github.com/genelet/openapisearch"
+import "github.com/tabilet/apitools"
 
 type Transcript struct {
 	Version string            `json:"version"`
