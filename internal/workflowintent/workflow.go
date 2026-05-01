@@ -187,7 +187,7 @@ func (adapter ChatAdapter) CompleteStructured(ctx context.Context, transcript []
 	if !ok {
 		return fmt.Errorf("structured chat unavailable")
 	}
-	rawSchema, err := rawSchema(schema)
+	rawSchema, err := openapisearch.RawSchema(schema)
 	if err != nil {
 		return err
 	}
@@ -236,23 +236,6 @@ func collectOperationSlots(missing *[]string, defaultOpenAPI string, steps []*ro
 		if step.Default != nil {
 			collectOperationSlots(missing, stepOpenAPI, step.Default.Steps)
 		}
-	}
-}
-
-func rawSchema(schema any) (json.RawMessage, error) {
-	switch typed := schema.(type) {
-	case json.RawMessage:
-		return append(json.RawMessage(nil), typed...), nil
-	case []byte:
-		return append(json.RawMessage(nil), typed...), nil
-	case string:
-		return json.RawMessage(typed), nil
-	default:
-		data, err := json.Marshal(typed)
-		if err != nil {
-			return nil, err
-		}
-		return json.RawMessage(data), nil
 	}
 }
 

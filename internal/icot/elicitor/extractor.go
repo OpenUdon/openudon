@@ -7,6 +7,7 @@ import (
 	"errors"
 	"strings"
 
+	"github.com/genelet/openapisearch"
 	"github.com/genelet/ramen/internal/projectwizard"
 	"github.com/genelet/udon/pkg/rollout"
 )
@@ -235,14 +236,7 @@ func (e *chatExtractor) structured(ctx context.Context, messages []rollout.ChatM
 }
 
 func decodeJSONBlock(raw string, target any) error {
-	raw = strings.TrimSpace(raw)
-	if strings.HasPrefix(raw, "```") {
-		raw = strings.TrimPrefix(raw, "```json")
-		raw = strings.TrimPrefix(raw, "```")
-		raw = strings.TrimSuffix(raw, "```")
-		raw = strings.TrimSpace(raw)
-	}
-	return json.Unmarshal([]byte(raw), target)
+	return openapisearch.DecodeJSONBlock(raw, target)
 }
 
 func firstLine(value string) string {

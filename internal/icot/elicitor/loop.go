@@ -10,6 +10,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/genelet/openapisearch"
 	"github.com/genelet/ramen/internal/projectwizard"
 	"github.com/genelet/ramen/internal/workflowintent"
 	"github.com/genelet/udon/pkg/rollout"
@@ -50,7 +51,7 @@ func runManual(ctx context.Context, in io.Reader, out io.Writer, seed Session, o
 	}
 	session := seed
 	session.Normalize()
-	p := &prompter{reader: reader, out: out}
+	p := &prompter{PromptSession: openapisearch.NewPromptSession(reader, out), out: out}
 	openingBrief := ""
 	if opts.VerifyOnly {
 		projectText := projectwizard.Render(session.Project)
@@ -60,7 +61,7 @@ func runManual(ctx context.Context, in io.Reader, out io.Writer, seed Session, o
 		}
 		artifacts, err := finalVerificationLoop(out, p, &session, docs, opts.DraftPath)
 		if err == nil {
-			if saveErr := SaveTranscript(opts.TranscriptPath, p.turns, artifacts.Session); saveErr != nil {
+			if saveErr := SaveTranscript(opts.TranscriptPath, p.turns(), artifacts.Session); saveErr != nil {
 				return artifacts, saveErr
 			}
 		}
@@ -314,7 +315,7 @@ func runManual(ctx context.Context, in io.Reader, out io.Writer, seed Session, o
 	transcriptSession := session
 	if err == nil {
 		transcriptSession = artifacts.Session
-		if saveErr := SaveTranscript(opts.TranscriptPath, p.turns, transcriptSession); saveErr != nil {
+		if saveErr := SaveTranscript(opts.TranscriptPath, p.turns(), transcriptSession); saveErr != nil {
 			return artifacts, saveErr
 		}
 	}
@@ -402,75 +403,20 @@ func RenderArtifacts(session Session) (Artifacts, error) {
 }
 
 type prompter struct {
-	reader *bufio.Reader
-	out    io.Writer
-	turns  []ReplayTurn
+	*openapisearch.PromptSession
+	out io.Writer
 }
 
 func (p *prompter) ask(label string) (string, error) {
-	fmt.Fprintf(p.out, "%s: ", label)
-	value, err := p.next()
-	p.record(label, value, err)
-	return value, err
+	return p.Ask(label)
 }
 
 func (p *prompter) askDefault(label, current string) (string, error) {
-	current = strings.TrimSpace(current)
-	if current == "" {
-		fmt.Fprintf(p.out, "%s: ", label)
-	} else {
-		fmt.Fprintf(p.out, "%s [%s]: ", label, oneLine(current))
-	}
-	value, err := p.next()
-	if err != nil {
-		p.record(label, value, err)
-		return "", err
-	}
-	if strings.TrimSpace(value) == "" {
-		p.record(label, current, nil)
-		return current, nil
-	}
-	p.record(label, value, nil)
-	return value, nil
+	return p.AskDefault(label, current)
 }
 
 func (p *prompter) askYesNo(label string, defaultYes bool) (bool, error) {
-	suffix := "y/N"
-	if defaultYes {
-		suffix = "Y/n"
-	}
-	for {
-		fmt.Fprintf(p.out, "%s [%s]: ", label, suffix)
-		value, err := p.next()
-		if err != nil {
-			p.record(label, value, err)
-			return false, err
-		}
-		raw := value
-		value = strings.ToLower(strings.TrimSpace(value))
-		if value == "" {
-			p.record(label, raw, nil)
-			return defaultYes, nil
-		}
-		switch value {
-		case "y", "yes", "true", "allow", "allowed", "approve", "approved":
-			p.record(label, raw, nil)
-			return true, nil
-		case "n", "no", "false", "deny", "denied":
-			p.record(label, raw, nil)
-			return false, nil
-		default:
-			p.record(label, raw, nil)
-			fmt.Fprintln(p.out, "Please answer yes or no.")
-		}
-	}
-}
-
-func (p *prompter) record(label, answer string, err error) {
-	if err != nil && strings.TrimSpace(answer) == "" {
-		return
-	}
-	p.turns = append(p.turns, ReplayTurn{Label: label, Answer: answer})
+	return p.AskYesNo(label, defaultYes)
 }
 
 func (p *prompter) askSideEffectScope(current string) (string, error) {
@@ -768,15 +714,8 @@ func (p *prompter) collectFields(fields []string, inputs []*rollout.Input, prior
 	return with, binds, dedupeStrings(deps), nil
 }
 
-func (p *prompter) next() (string, error) {
-	line, err := p.reader.ReadString('\n')
-	if err != nil && err != io.EOF {
-		return "", err
-	}
-	if err == io.EOF && line == "" {
-		return "", io.ErrUnexpectedEOF
-	}
-	return strings.TrimRight(line, "\r\n"), nil
+func (p *prompter) turns() []ReplayTurn {
+	return p.Turns()
 }
 
 func editSlot(p *prompter, session *Session, slot string, docs []APIDocument) error {

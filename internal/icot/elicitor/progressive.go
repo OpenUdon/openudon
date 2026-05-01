@@ -1,31 +1,20 @@
 package elicitor
 
 import (
-	"bufio"
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"sort"
 	"strings"
 
+	"github.com/genelet/openapisearch"
 	"github.com/genelet/ramen/internal/projectwizard"
 	"github.com/genelet/udon/pkg/rollout"
 )
 
-type ReadinessIssue struct {
-	Code            string `json:"code"`
-	Slot            string `json:"slot,omitempty"`
-	Severity        string `json:"severity"`
-	Message         string `json:"message"`
-	SuggestedAnswer string `json:"suggested_answer,omitempty"`
-}
-
-type QuestionPlan struct {
-	Prompt          string   `json:"prompt"`
-	SuggestedAnswer string   `json:"suggested_answer,omitempty"`
-	Slots           []string `json:"slots,omitempty"`
-	Grouped         bool     `json:"grouped,omitempty"`
-}
+type ReadinessIssue = openapisearch.ReadinessIssue
+type QuestionPlan = openapisearch.InteractiveQuestion
 
 const (
 	readinessBlocking = "blocking"
@@ -33,21 +22,12 @@ const (
 )
 
 func runProgressive(ctx context.Context, in io.Reader, out io.Writer, seed Session, opts Options) (Artifacts, error) {
-	reader, ok := in.(*bufio.Reader)
-	if !ok {
-		reader = bufio.NewReader(in)
-	}
 	extractor := opts.Extractor
 	if extractor == nil {
 		extractor = NewNoopExtractor()
 	}
 	session := seed
 	session.Normalize()
-	p := &prompter{reader: reader, out: out}
-	var events []TranscriptEvent
-	record := func(kind string, data any) {
-		events = append(events, TranscriptEvent{Kind: kind, Data: data})
-	}
 
 	projectText := projectwizard.Render(session.Project)
 	docs, err := DiscoverLocalAPIs(opts.ExampleDir, projectText)
@@ -58,114 +38,93 @@ func runProgressive(ctx context.Context, in io.Reader, out io.Writer, seed Sessi
 	if session.Intent.Workflow != nil {
 		openingBrief = strings.TrimSpace(session.Intent.Workflow.Description)
 	}
-	if openingBrief == "" {
-		fmt.Fprintln(out, "Tell me what you want this API/workflow to accomplish. Include inputs, API actions, outputs, and safety constraints if you know them. Do not paste secrets.")
-		answer, err := p.ask("Workflow goal")
-		if err != nil {
-			return Artifacts{}, err
-		}
-		openingBrief = strings.TrimSpace(answer)
-		applyProgressiveAnswer(&session, QuestionPlan{Slots: []string{"workflow.goal"}}, openingBrief, docs)
-		session.Normalize()
-		if err := autosave(opts.DraftPath, session); err != nil {
-			return Artifacts{}, err
-		}
-		record("progressive_question", QuestionPlan{Prompt: "Workflow goal", Slots: []string{"workflow.goal"}})
-		record("progressive_answer", ReplayTurn{Label: "Workflow goal", Answer: answer})
-	}
-	if !opts.NoLLM && len(docs) > 1 && openingBrief != "" {
-		if ranked, err := extractor.Disambiguate(ctx, openingBrief, docs); err == nil {
-			docs = rankDocuments(docs, ranked)
-		} else {
-			fmt.Fprintf(out, "icot: OpenAPI ranking skipped: %v\n", err)
-		}
-	}
-
-	var issues []ReadinessIssue
-	for attempt := 0; attempt < 20; attempt++ {
-		if deterministicPrefill(&session, docs) {
+	artifacts, err := openapisearch.RunProgressiveICOT(ctx, in, out, openapisearch.ProgressiveLoopHooks[Session, APIDocument, Artifacts]{
+		Session:       session,
+		Documents:     docs,
+		Opening:       openingBrief,
+		NoLLM:         opts.NoLLM,
+		MaxAttempts:   20,
+		OpeningPrompt: "Tell me what you want this API/workflow to accomplish. Include inputs, API actions, outputs, and safety constraints if you know them. Do not paste secrets.",
+		Extractor:     progressiveExtractor{Extractor: extractor},
+		Normalize: func(session *Session) {
 			session.Normalize()
-		}
-		request := DraftRequest{
-			Opening:           openingBrief,
-			Session:           session,
-			Docs:              docs,
-			TranscriptTurns:   append([]ReplayTurn(nil), p.turns...),
-			ReadinessFeedback: append([]ReadinessIssue(nil), issues...),
-		}
-		record("model_draft_call", map[string]any{
-			"opening":          request.Opening,
-			"turn_count":       len(request.TranscriptTurns),
-			"readiness_issues": request.ReadinessFeedback,
-		})
-		draft, draftErr := extractor.Draft(ctx, request)
-		if draftErr == nil && LooksLikeSession(draft) {
-			session = mergeProgressiveSessions(session, draft, docs)
-			defaultSingleOpenAPIDoc(&session, docs)
-			session.Normalize()
-			if deterministicPrefill(&session, docs) {
-				session.Normalize()
-			}
-			record("model_draft_result", map[string]any{
+		},
+		ApplyOpeningAnswer: func(session *Session, answer string, docs []APIDocument) error {
+			applyProgressiveAnswer(session, QuestionPlan{Slots: []string{"workflow.goal"}}, answer, docs)
+			return nil
+		},
+		Autosave: func(session Session) error {
+			return autosave(opts.DraftPath, session)
+		},
+		RankDocuments: rankDocuments,
+		DeterministicPrefill: func(session *Session, docs []APIDocument) bool {
+			return deterministicPrefill(session, docs)
+		},
+		LooksLikeSession: LooksLikeSession,
+		MergeDraft: func(base, draft Session, docs []APIDocument) Session {
+			merged := mergeProgressiveSessions(base, draft, docs)
+			defaultSingleOpenAPIDoc(&merged, docs)
+			return merged
+		},
+		DraftResultSummary: func(session Session) any {
+			return map[string]any{
 				"steps":       len(session.Intent.Steps),
 				"inputs":      len(session.Intent.Inputs),
 				"outputs":     len(session.Intent.Outputs),
 				"assumptions": session.Assumptions,
-			})
-			if err := autosave(opts.DraftPath, session); err != nil {
-				return Artifacts{}, err
 			}
+		},
+		AfterDraft: func(session Session) error {
 			printSummary(out, session)
-		} else if draftErr != nil {
-			record("model_draft_error", draftErr.Error())
-			fmt.Fprintf(out, "icot: AI draft skipped: %v\n", draftErr)
-		}
-
-		issues = CheckReadiness(session, docs)
-		record("readiness_decision", issues)
-		if progressiveReady(session, issues) {
-			record("next_question_decision", QuestionPlan{
-				Prompt:          "Confirm first valid intent",
-				SuggestedAnswer: "save",
-				Slots:           []string{"confirmation"},
-			})
-			artifacts, err := finalProgressiveConfirmationLoop(out, p, &session, docs, opts.DraftPath, &events)
-			if err == nil {
-				record("final_generated_artifacts", map[string]any{
-					"intent_hcl_bytes": len(artifacts.IntentHCL),
-					"project_md_bytes": len(artifacts.ProjectMD),
-					"assumptions":      artifacts.Session.Assumptions,
-				})
-				if saveErr := SaveTranscriptWithEvents(opts.TranscriptPath, p.turns, events, artifacts.Session); saveErr != nil {
-					return artifacts, saveErr
-				}
+			return nil
+		},
+		OnDraftError: func(err error) {
+			if strings.Contains(err.Error(), "OpenAPI ranking skipped") {
+				fmt.Fprintf(out, "icot: %v\n", err)
+				return
 			}
-			return artifacts, err
-		}
-
-		plan := PlanNextQuestion(session, docs, issues)
-		record("next_question_decision", plan)
-		answer, err := p.askDefault(plan.Prompt, plan.SuggestedAnswer)
-		if err != nil {
-			return Artifacts{}, err
-		}
-		trimmed := strings.TrimSpace(answer)
-		if strings.EqualFold(trimmed, "cancel") {
-			return Artifacts{}, ErrCanceled
-		}
-		applyProgressiveAnswer(&session, plan, answer, docs)
-		defaultSingleOpenAPIDoc(&session, docs)
-		session.Normalize()
-		if deterministicPrefill(&session, docs) {
-			session.Normalize()
-		}
-		record("progressive_question", plan)
-		record("progressive_answer", ReplayTurn{Label: plan.Prompt, Answer: answer})
-		if err := autosave(opts.DraftPath, session); err != nil {
-			return Artifacts{}, err
-		}
+			fmt.Fprintf(out, "icot: AI draft skipped: %v\n", err)
+		},
+		CheckReadiness: CheckReadiness,
+		Ready:          progressiveReady,
+		PlanQuestion:   PlanNextQuestion,
+		ApplyAnswer: func(session *Session, plan QuestionPlan, answer string, docs []APIDocument) error {
+			applyProgressiveAnswer(session, plan, answer, docs)
+			defaultSingleOpenAPIDoc(session, docs)
+			return nil
+		},
+		FinalConfirm: func(prompts *openapisearch.PromptSession, session *Session, docs []APIDocument, events *[]openapisearch.PromptEvent) (Artifacts, error) {
+			return finalProgressiveConfirmationLoop(out, &prompter{PromptSession: prompts, out: out}, session, docs, opts.DraftPath, events)
+		},
+		FinalResultSummary: func(artifacts Artifacts) any {
+			return map[string]any{
+				"intent_hcl_bytes": len(artifacts.IntentHCL),
+				"project_md_bytes": len(artifacts.ProjectMD),
+				"assumptions":      artifacts.Session.Assumptions,
+			}
+		},
+		SaveTranscript: func(turns []ReplayTurn, events []TranscriptEvent, artifacts Artifacts) error {
+			return SaveTranscriptWithEvents(opts.TranscriptPath, turns, events, artifacts.Session)
+		},
+	})
+	if errors.Is(err, openapisearch.ErrCanceled) {
+		return artifacts, ErrCanceled
 	}
-	return Artifacts{}, fmt.Errorf("progressive iCoT could not reach a valid intent after 20 draft attempts")
+	return artifacts, err
+}
+
+type progressiveExtractor struct {
+	Extractor
+}
+
+func (extractor progressiveExtractor) Draft(ctx context.Context, request openapisearch.InteractiveDraftRequest[Session, APIDocument]) (Session, error) {
+	return extractor.Extractor.Draft(ctx, DraftRequest{
+		Opening:           request.Opening,
+		Session:           request.Session,
+		Docs:              request.Docs,
+		TranscriptTurns:   request.TranscriptTurns,
+		ReadinessFeedback: request.ReadinessFeedback,
+	})
 }
 
 func CheckReadiness(session Session, docs []APIDocument) []ReadinessIssue {

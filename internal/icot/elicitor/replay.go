@@ -8,14 +8,12 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/genelet/openapisearch"
 	"github.com/genelet/ramen/internal/projectwizard"
 	"github.com/genelet/udon/pkg/rollout"
 )
 
-type ReplayTurn struct {
-	Label  string `json:"label"`
-	Answer string `json:"answer"`
-}
+type ReplayTurn = openapisearch.PromptTurn
 
 type ReplayScript struct {
 	Turns []ReplayTurn `json:"turns"`
@@ -123,15 +121,7 @@ func BuildReplayScript(exampleDir string, intent *rollout.Intent) (ReplayScript,
 }
 
 func AssertReplayLabelsInOrder(output string, turns []ReplayTurn) error {
-	offset := 0
-	for _, turn := range turns {
-		index := strings.Index(output[offset:], turn.Label)
-		if index < 0 {
-			return fmt.Errorf("prompt label %q not found after offset %d", turn.Label, offset)
-		}
-		offset += index + len(turn.Label)
-	}
-	return nil
+	return openapisearch.AssertPromptLabelsInOrder(output, turns)
 }
 
 func addStepReplay(script *ReplayScript, step *rollout.Step, defaultOpenAPI string, docs []APIDocument, docByPath map[string]APIDocument) error {

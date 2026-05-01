@@ -1,11 +1,6 @@
 package elicitor
 
-import (
-	"encoding/json"
-	"os"
-	"path/filepath"
-	"time"
-)
+import "github.com/genelet/openapisearch"
 
 type Transcript struct {
 	Version string            `json:"version"`
@@ -15,33 +10,12 @@ type Transcript struct {
 	Session Session           `json:"session,omitempty"`
 }
 
-type TranscriptEvent struct {
-	Kind string `json:"kind"`
-	Data any    `json:"data,omitempty"`
-}
+type TranscriptEvent = openapisearch.PromptEvent
 
 func SaveTranscript(path string, turns []ReplayTurn, session Session) error {
 	return SaveTranscriptWithEvents(path, turns, nil, session)
 }
 
 func SaveTranscriptWithEvents(path string, turns []ReplayTurn, events []TranscriptEvent, session Session) error {
-	if path == "" {
-		return nil
-	}
-	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
-		return err
-	}
-	transcript := Transcript{
-		Version: "ramen.icot-transcript.v1",
-		TimeUTC: time.Now().UTC().Format(time.RFC3339),
-		Turns:   append([]ReplayTurn(nil), turns...),
-		Events:  append([]TranscriptEvent(nil), events...),
-		Session: session,
-	}
-	data, err := json.MarshalIndent(transcript, "", "  ")
-	if err != nil {
-		return err
-	}
-	data = append(data, '\n')
-	return writeFileAtomic(path, data, 0o600)
+	return openapisearch.SavePromptTranscript(path, "ramen.icot-transcript.v1", turns, events, session)
 }

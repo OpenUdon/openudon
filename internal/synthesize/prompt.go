@@ -9,7 +9,9 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/genelet/openapisearch"
 	"github.com/genelet/ramen/internal/openapidisco"
+	"github.com/genelet/ramen/internal/workflowintent"
 	"github.com/genelet/udon/pkg/rollout"
 	"github.com/genelet/udon/pkg/runner"
 )
@@ -73,47 +75,25 @@ func generateIntentFromMessages(ctx context.Context, chat rollout.ChatClient, me
 }
 
 func generateIntentFromMessagesWithMode(ctx context.Context, chat rollout.ChatClient, messages []rollout.ChatMessage, primary string, policy projectPolicy, temperature *float64) (*rollout.Intent, string, error) {
-	if structured, ok := chat.(rollout.StructuredChat); ok {
-		raw, err := structured.StructuredChat(ctx, messages, json.RawMessage(embeddedIntentSchema), rollout.StructuredOpts{Temperature: temperature})
-		if err == nil {
-			intent, err := decodeIntentJSON(raw, primary, policy)
-			if err != nil {
-				return nil, intentGenerationModeStructured, err
-			}
-			return intent, intentGenerationModeStructured, nil
+	var intent rollout.Intent
+	result, err := openapisearch.CompleteJSONWithFallback(ctx, workflowintent.ChatAdapter{Client: chat, Temperature: temperature}, workflowintent.MessagesToTranscript(messages), json.RawMessage(embeddedIntentSchema), &intent, openapisearch.JSONCompletionOptions{
+		FallbackOnStructuredError: true,
+	})
+	if err != nil {
+		mode := result.Mode
+		if mode == "" {
+			mode = intentGenerationModeLegacy
 		}
-		messages = legacyJSONInstructionMessages(messages)
+		return nil, mode, err
 	}
-	response, err := chat.Chat(ctx, messages)
-	if err != nil {
-		return nil, intentGenerationModeLegacy, err
+	if err := finalizeGeneratedIntent(&intent, primary, policy); err != nil {
+		return nil, result.Mode, err
 	}
-	jsonText, err := extractJSON(response)
-	if err != nil {
-		return nil, intentGenerationModeLegacy, fmt.Errorf("extract intent JSON: %w", err)
-	}
-	intent, err := decodeIntentJSON(jsonText, primary, policy)
-	if err != nil {
-		return nil, intentGenerationModeLegacy, err
-	}
-	return intent, intentGenerationModeLegacy, nil
+	return &intent, result.Mode, nil
 }
 
 func legacyJSONInstructionMessages(messages []rollout.ChatMessage) []rollout.ChatMessage {
-	const instruction = "Return only JSON. Do not include Markdown."
-	out := append([]rollout.ChatMessage(nil), messages...)
-	for i := range out {
-		if strings.Contains(out[i].Content, instruction) {
-			return out
-		}
-	}
-	for i := len(out) - 1; i >= 0; i-- {
-		if strings.TrimSpace(out[i].Role) == "user" {
-			out[i].Content = strings.TrimSpace(out[i].Content) + "\n\n" + instruction
-			return out
-		}
-	}
-	return out
+	return workflowintent.TranscriptToMessages(openapisearch.AppendLegacyJSONInstruction(workflowintent.MessagesToTranscript(messages), ""))
 }
 
 func decodeIntentJSON(jsonText string, primary string, policy projectPolicy) (*rollout.Intent, error) {
@@ -121,15 +101,22 @@ func decodeIntentJSON(jsonText string, primary string, policy projectPolicy) (*r
 	if err := json.Unmarshal([]byte(jsonText), &intent); err != nil {
 		return nil, fmt.Errorf("decode intent JSON: %w", err)
 	}
-	if strings.TrimSpace(intent.OpenAPI) == "" && primary != "" && !policy.NoOpenAPI {
-		intent.OpenAPI = primary
-	}
-	sanitizeGeneratedIntent(&intent, policy)
-	intent.EnsureActionDescriptions()
-	if _, err := runner.RenderIntentHCL(&intent); err != nil {
+	if err := finalizeGeneratedIntent(&intent, primary, policy); err != nil {
 		return nil, err
 	}
 	return &intent, nil
+}
+
+func finalizeGeneratedIntent(intent *rollout.Intent, primary string, policy projectPolicy) error {
+	if strings.TrimSpace(intent.OpenAPI) == "" && primary != "" && !policy.NoOpenAPI {
+		intent.OpenAPI = primary
+	}
+	sanitizeGeneratedIntent(intent, policy)
+	intent.EnsureActionDescriptions()
+	if _, err := runner.RenderIntentHCL(intent); err != nil {
+		return err
+	}
+	return nil
 }
 
 func sanitizeGeneratedIntent(intent *rollout.Intent, policy projectPolicy) {
@@ -822,11 +809,7 @@ func promptExamplesBlock() string {
 }
 
 func renderPromptSnapshot(messages []rollout.ChatMessage) string {
-	var b strings.Builder
-	for _, message := range messages {
-		fmt.Fprintf(&b, "## %s\n\n%s\n\n", strings.ToUpper(strings.TrimSpace(message.Role)), strings.TrimSpace(message.Content))
-	}
-	return strings.TrimSpace(b.String())
+	return openapisearch.RenderTranscriptSnapshot(workflowintent.MessagesToTranscript(messages))
 }
 
 func requiredByProjectPrompt(policy projectPolicy) string {
@@ -1026,21 +1009,5 @@ func intentJSONShape() string {
 }
 
 func extractJSON(response string) (string, error) {
-	response = strings.TrimSpace(response)
-	if response == "" {
-		return "", fmt.Errorf("empty model response")
-	}
-	if strings.HasPrefix(response, "```") {
-		lines := strings.Split(response, "\n")
-		if len(lines) >= 3 {
-			lines = lines[1 : len(lines)-1]
-			return strings.TrimSpace(strings.Join(lines, "\n")), nil
-		}
-	}
-	start := strings.Index(response, "{")
-	end := strings.LastIndex(response, "}")
-	if start < 0 || end <= start {
-		return "", fmt.Errorf("no JSON object found in model response")
-	}
-	return response[start : end+1], nil
+	return openapisearch.ExtractJSONBlock(response)
 }
