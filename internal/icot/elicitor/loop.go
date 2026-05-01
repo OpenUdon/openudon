@@ -10,8 +10,8 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/genelet/ramen/internal/openudonintent"
 	"github.com/genelet/ramen/internal/projectwizard"
+	"github.com/genelet/ramen/internal/workflowintent"
 	"github.com/genelet/udon/pkg/rollout"
 	"github.com/tabilet/uws/uws1"
 )
@@ -387,7 +387,7 @@ func RenderArtifacts(session Session) (Artifacts, error) {
 	if len(missing) > 0 {
 		return Artifacts{}, fmt.Errorf("missing %s", strings.Join(missing, ", "))
 	}
-	intentHCL, err := openudonintent.RenderHCL(context.Background(), &session.Intent)
+	intentHCL, err := workflowintent.RenderHCL(context.Background(), &session.Intent)
 	if err != nil {
 		return Artifacts{}, err
 	}

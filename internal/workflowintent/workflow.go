@@ -1,4 +1,4 @@
-package openudonintent
+package workflowintent
 
 import (
 	"context"
@@ -7,7 +7,7 @@ import (
 	"os"
 	"strings"
 
-	"github.com/genelet/openudon/intent"
+	"github.com/genelet/openapisearch"
 	"github.com/genelet/udon/pkg/rollout"
 	"github.com/genelet/udon/pkg/runner"
 )
@@ -16,9 +16,9 @@ const IntentPath = "workflows/intent.hcl"
 
 type WorkflowAdapter struct{}
 
-func WorkflowFlow() intent.Flow[*rollout.Intent] {
+func WorkflowFlow() openapisearch.Flow[*rollout.Intent] {
 	adapter := WorkflowAdapter{}
-	return intent.Flow[*rollout.Intent]{
+	return openapisearch.Flow[*rollout.Intent]{
 		Parser:       adapter,
 		Renderer:     adapter,
 		Validator:    adapter,
@@ -27,11 +27,11 @@ func WorkflowFlow() intent.Flow[*rollout.Intent] {
 }
 
 func ParseFile(ctx context.Context, path string) (*rollout.Intent, error) {
-	draft, diagnostics, err := WorkflowAdapter{}.ParseIntent(ctx, intent.Artifact{Path: path})
+	draft, diagnostics, err := WorkflowAdapter{}.ParseIntent(ctx, openapisearch.Artifact{Path: path})
 	if err != nil {
 		return nil, err
 	}
-	if intent.HasErrors(diagnostics) {
+	if openapisearch.HasErrors(diagnostics) {
 		return nil, DiagnosticError{Diagnostics: diagnostics}
 	}
 	return draft, nil
@@ -43,7 +43,7 @@ func RenderHCL(ctx context.Context, draft *rollout.Intent) (string, error) {
 	}
 	flow := WorkflowFlow()
 	diagnostics := flow.Validator.ValidateIntent(ctx, draft)
-	if intent.HasErrors(diagnostics) {
+	if openapisearch.HasErrors(diagnostics) {
 		return "", DiagnosticError{Diagnostics: diagnostics}
 	}
 	set, renderDiagnostics, err := flow.Renderer.RenderIntent(ctx, draft)
@@ -51,7 +51,7 @@ func RenderHCL(ctx context.Context, draft *rollout.Intent) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	if intent.HasErrors(diagnostics) {
+	if openapisearch.HasErrors(diagnostics) {
 		return "", DiagnosticError{Diagnostics: diagnostics}
 	}
 	for _, artifact := range set.Artifacts {
@@ -62,14 +62,14 @@ func RenderHCL(ctx context.Context, draft *rollout.Intent) (string, error) {
 	return "", fmt.Errorf("rendered intent artifact %q not found", IntentPath)
 }
 
-func ValidateComplete(ctx context.Context, draft *rollout.Intent) []intent.Diagnostic {
+func ValidateComplete(ctx context.Context, draft *rollout.Intent) []openapisearch.Diagnostic {
 	adapter := WorkflowAdapter{}
 	diagnostics := adapter.ValidateIntent(ctx, draft)
 	for _, slot := range adapter.MissingSlots(ctx, draft) {
 		if !slot.Required {
 			continue
 		}
-		diagnostics = append(diagnostics, intent.Diagnostic{
+		diagnostics = append(diagnostics, openapisearch.Diagnostic{
 			Severity: "error",
 			Code:     "missing_slot",
 			Message:  fmt.Sprintf("required slot %q is missing", slot.Name),
@@ -79,7 +79,7 @@ func ValidateComplete(ctx context.Context, draft *rollout.Intent) []intent.Diagn
 	return diagnostics
 }
 
-func (WorkflowAdapter) ParseIntent(ctx context.Context, artifact intent.Artifact) (*rollout.Intent, []intent.Diagnostic, error) {
+func (WorkflowAdapter) ParseIntent(ctx context.Context, artifact openapisearch.Artifact) (*rollout.Intent, []openapisearch.Diagnostic, error) {
 	if err := ctx.Err(); err != nil {
 		return nil, nil, err
 	}
@@ -89,7 +89,7 @@ func (WorkflowAdapter) ParseIntent(ctx context.Context, artifact intent.Artifact
 		var err error
 		data, err = os.ReadFile(path)
 		if err != nil {
-			return nil, []intent.Diagnostic{diagnostic("error", "intent_read_failed", err.Error(), path)}, err
+			return nil, []openapisearch.Diagnostic{diagnostic("error", "intent_read_failed", err.Error(), path)}, err
 		}
 	}
 	if path == "" {
@@ -97,51 +97,51 @@ func (WorkflowAdapter) ParseIntent(ctx context.Context, artifact intent.Artifact
 	}
 	draft, err := rollout.ParseIntent(data, path)
 	if err != nil {
-		return nil, []intent.Diagnostic{diagnostic("error", "intent_parse_failed", err.Error(), path)}, err
+		return nil, []openapisearch.Diagnostic{diagnostic("error", "intent_parse_failed", err.Error(), path)}, err
 	}
 	return draft, nil, nil
 }
 
-func (WorkflowAdapter) RenderIntent(ctx context.Context, draft *rollout.Intent) (intent.ArtifactSet, []intent.Diagnostic, error) {
+func (WorkflowAdapter) RenderIntent(ctx context.Context, draft *rollout.Intent) (openapisearch.ArtifactSet, []openapisearch.Diagnostic, error) {
 	if err := ctx.Err(); err != nil {
-		return intent.ArtifactSet{}, nil, err
+		return openapisearch.ArtifactSet{}, nil, err
 	}
 	hcl, err := runner.RenderIntentHCL(draft)
 	if err != nil {
-		return intent.ArtifactSet{}, []intent.Diagnostic{diagnostic("error", "intent_render_failed", err.Error(), IntentPath)}, err
+		return openapisearch.ArtifactSet{}, []openapisearch.Diagnostic{diagnostic("error", "intent_render_failed", err.Error(), IntentPath)}, err
 	}
 	if _, err := rollout.ParseIntent([]byte(hcl), IntentPath); err != nil {
-		return intent.ArtifactSet{}, []intent.Diagnostic{diagnostic("error", "intent_render_invalid", err.Error(), IntentPath)}, err
+		return openapisearch.ArtifactSet{}, []openapisearch.Diagnostic{diagnostic("error", "intent_render_invalid", err.Error(), IntentPath)}, err
 	}
-	return intent.ArtifactSet{Artifacts: []intent.Artifact{{
+	return openapisearch.ArtifactSet{Artifacts: []openapisearch.Artifact{{
 		Path:      IntentPath,
 		MediaType: "text/hcl",
 		Content:   []byte(hcl),
 	}}}, nil, nil
 }
 
-func (WorkflowAdapter) ValidateIntent(ctx context.Context, draft *rollout.Intent) []intent.Diagnostic {
+func (WorkflowAdapter) ValidateIntent(ctx context.Context, draft *rollout.Intent) []openapisearch.Diagnostic {
 	if err := ctx.Err(); err != nil {
-		return []intent.Diagnostic{diagnostic("error", "intent_validation_cancelled", err.Error(), "")}
+		return []openapisearch.Diagnostic{diagnostic("error", "intent_validation_cancelled", err.Error(), "")}
 	}
 	if draft == nil {
-		return []intent.Diagnostic{diagnostic("error", "intent_required", "intent is required", "")}
+		return []openapisearch.Diagnostic{diagnostic("error", "intent_required", "intent is required", "")}
 	}
 	hcl, err := runner.RenderIntentHCL(draft)
 	if err != nil {
-		return []intent.Diagnostic{diagnostic("error", "intent_render_failed", err.Error(), IntentPath)}
+		return []openapisearch.Diagnostic{diagnostic("error", "intent_render_failed", err.Error(), IntentPath)}
 	}
 	if _, err := rollout.ParseIntent([]byte(hcl), IntentPath); err != nil {
-		return []intent.Diagnostic{diagnostic("error", "intent_parse_failed", err.Error(), IntentPath)}
+		return []openapisearch.Diagnostic{diagnostic("error", "intent_parse_failed", err.Error(), IntentPath)}
 	}
 	return nil
 }
 
-func (WorkflowAdapter) MissingSlots(ctx context.Context, draft *rollout.Intent) []intent.Slot {
+func (WorkflowAdapter) MissingSlots(ctx context.Context, draft *rollout.Intent) []openapisearch.Slot {
 	_ = ctx
 	var missing []string
 	if draft == nil {
-		return []intent.Slot{{Name: "intent", Required: true}}
+		return []openapisearch.Slot{{Name: "intent", Required: true}}
 	}
 	if draft.Workflow == nil || strings.TrimSpace(draft.Workflow.Name) == "" {
 		missing = append(missing, "workflow name")
@@ -155,9 +155,9 @@ func (WorkflowAdapter) MissingSlots(ctx context.Context, draft *rollout.Intent) 
 		missing = append(missing, "at least one output")
 	}
 	missing = dedupe(missing)
-	slots := make([]intent.Slot, 0, len(missing))
+	slots := make([]openapisearch.Slot, 0, len(missing))
 	for _, name := range missing {
-		slots = append(slots, intent.Slot{Name: name, Required: true})
+		slots = append(slots, openapisearch.Slot{Name: name, Required: true})
 	}
 	return slots
 }
@@ -168,18 +168,18 @@ type ChatAdapter struct {
 	MaxTokens   int
 }
 
-func (adapter ChatAdapter) Complete(ctx context.Context, transcript []intent.TranscriptTurn) (intent.TranscriptTurn, error) {
+func (adapter ChatAdapter) Complete(ctx context.Context, transcript []openapisearch.TranscriptTurn) (openapisearch.TranscriptTurn, error) {
 	if adapter.Client == nil {
-		return intent.TranscriptTurn{}, fmt.Errorf("rollout chat client is required")
+		return openapisearch.TranscriptTurn{}, fmt.Errorf("rollout chat client is required")
 	}
 	content, err := adapter.Client.Chat(ctx, TranscriptToMessages(transcript))
 	if err != nil {
-		return intent.TranscriptTurn{}, err
+		return openapisearch.TranscriptTurn{}, err
 	}
-	return intent.TranscriptTurn{Role: "assistant", Content: content}, nil
+	return openapisearch.TranscriptTurn{Role: "assistant", Content: content}, nil
 }
 
-func (adapter ChatAdapter) CompleteStructured(ctx context.Context, transcript []intent.TranscriptTurn, schema any, out any) error {
+func (adapter ChatAdapter) CompleteStructured(ctx context.Context, transcript []openapisearch.TranscriptTurn, schema any, out any) error {
 	if adapter.Client == nil {
 		return fmt.Errorf("rollout chat client is required")
 	}
@@ -201,7 +201,7 @@ func (adapter ChatAdapter) CompleteStructured(ctx context.Context, transcript []
 	return json.Unmarshal([]byte(raw), out)
 }
 
-func TranscriptToMessages(transcript []intent.TranscriptTurn) []rollout.ChatMessage {
+func TranscriptToMessages(transcript []openapisearch.TranscriptTurn) []rollout.ChatMessage {
 	messages := make([]rollout.ChatMessage, 0, len(transcript))
 	for _, turn := range transcript {
 		messages = append(messages, rollout.ChatMessage{Role: turn.Role, Content: turn.Content})
@@ -209,16 +209,16 @@ func TranscriptToMessages(transcript []intent.TranscriptTurn) []rollout.ChatMess
 	return messages
 }
 
-func MessagesToTranscript(messages []rollout.ChatMessage) []intent.TranscriptTurn {
-	transcript := make([]intent.TranscriptTurn, 0, len(messages))
+func MessagesToTranscript(messages []rollout.ChatMessage) []openapisearch.TranscriptTurn {
+	transcript := make([]openapisearch.TranscriptTurn, 0, len(messages))
 	for _, message := range messages {
-		transcript = append(transcript, intent.TranscriptTurn{Role: message.Role, Content: message.Content})
+		transcript = append(transcript, openapisearch.TranscriptTurn{Role: message.Role, Content: message.Content})
 	}
 	return transcript
 }
 
 type DiagnosticError struct {
-	Diagnostics []intent.Diagnostic
+	Diagnostics []openapisearch.Diagnostic
 }
 
 func (err DiagnosticError) Error() string {
@@ -276,8 +276,8 @@ func rawSchema(schema any) (json.RawMessage, error) {
 	}
 }
 
-func diagnostic(severity, code, message, path string) intent.Diagnostic {
-	return intent.Diagnostic{
+func diagnostic(severity, code, message, path string) openapisearch.Diagnostic {
+	return openapisearch.Diagnostic{
 		Severity: severity,
 		Code:     code,
 		Message:  strings.TrimSpace(message),

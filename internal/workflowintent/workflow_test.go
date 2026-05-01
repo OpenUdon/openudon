@@ -1,4 +1,4 @@
-package openudonintent
+package workflowintent
 
 import (
 	"context"
@@ -6,20 +6,20 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/genelet/openudon/intent"
+	"github.com/genelet/openapisearch"
 	"github.com/genelet/udon/pkg/rollout"
 )
 
 func TestWorkflowFlowParsesValidatesAndRendersIntent(t *testing.T) {
 	flow := WorkflowFlow()
-	draft, artifacts, diagnostics, err := flow.ParseValidateRender(context.Background(), intent.Artifact{
+	draft, artifacts, diagnostics, err := flow.ParseValidateRender(context.Background(), openapisearch.Artifact{
 		Path:    IntentPath,
 		Content: []byte(validIntentHCL()),
 	})
 	if err != nil {
 		t.Fatal(err)
 	}
-	if intent.HasErrors(diagnostics) {
+	if openapisearch.HasErrors(diagnostics) {
 		t.Fatalf("diagnostics = %#v", diagnostics)
 	}
 	if draft.Workflow == nil || draft.Workflow.Name != "runtime_only_render" {
@@ -59,7 +59,7 @@ func TestValidateCompleteReportsRamenMissingSlots(t *testing.T) {
 func TestChatAdapterConvertsTranscriptAndStructuredOutput(t *testing.T) {
 	fake := &fakeStructuredChat{}
 	adapter := ChatAdapter{Client: fake, MaxTokens: 42}
-	turns := []intent.TranscriptTurn{{Role: "user", Content: "hello"}}
+	turns := []openapisearch.TranscriptTurn{{Role: "user", Content: "hello"}}
 
 	reply, err := adapter.Complete(context.Background(), turns)
 	if err != nil {

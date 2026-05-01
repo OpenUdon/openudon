@@ -4,14 +4,17 @@ go 1.25.5
 
 require (
 	github.com/genelet/hcllight v0.3.3
-	github.com/genelet/openudon v0.0.0
 	github.com/genelet/udon v0.0.0
 	github.com/santhosh-tekuri/jsonschema/v6 v6.0.2
 	github.com/tabilet/uws v0.0.0-00010101000000-000000000000
 	gopkg.in/yaml.v3 v3.0.1
 )
 
-require github.com/tabilet/oas v0.0.0-20260413131549-b78ffd347d17 // indirect
+require (
+	github.com/kr/text v0.2.0 // indirect
+	github.com/rogpeppe/go-internal v1.14.1 // indirect
+	github.com/tabilet/oas v0.0.0-20260413131549-b78ffd347d17 // indirect
+)
 
 require (
 	cloud.google.com/go/compute/metadata v0.9.0 // indirect
@@ -87,5 +90,3 @@ replace github.com/tabilet/uws => ../uws
 replace github.com/tabilet/arazzo => ../arazzo
 
 replace github.com/genelet/openapisearch => ../openapisearch
-
-replace github.com/genelet/openudon => ../openudon
