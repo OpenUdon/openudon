@@ -32,7 +32,7 @@ func ParseFile(ctx context.Context, path string) (*rollout.Intent, error) {
 		return nil, err
 	}
 	if openapisearch.HasErrors(diagnostics) {
-		return nil, DiagnosticError{Diagnostics: diagnostics}
+		return nil, openapisearch.DiagnosticError{Diagnostics: diagnostics}
 	}
 	return draft, nil
 }
@@ -44,7 +44,7 @@ func RenderHCL(ctx context.Context, draft *rollout.Intent) (string, error) {
 	flow := WorkflowFlow()
 	diagnostics := flow.Validator.ValidateIntent(ctx, draft)
 	if openapisearch.HasErrors(diagnostics) {
-		return "", DiagnosticError{Diagnostics: diagnostics}
+		return "", openapisearch.DiagnosticError{Diagnostics: diagnostics}
 	}
 	set, renderDiagnostics, err := flow.Renderer.RenderIntent(ctx, draft)
 	diagnostics = append(diagnostics, renderDiagnostics...)
@@ -52,7 +52,7 @@ func RenderHCL(ctx context.Context, draft *rollout.Intent) (string, error) {
 		return "", err
 	}
 	if openapisearch.HasErrors(diagnostics) {
-		return "", DiagnosticError{Diagnostics: diagnostics}
+		return "", openapisearch.DiagnosticError{Diagnostics: diagnostics}
 	}
 	for _, artifact := range set.Artifacts {
 		if artifact.Path == IntentPath || artifact.MediaType == "text/hcl" {
@@ -215,26 +215,6 @@ func MessagesToTranscript(messages []rollout.ChatMessage) []openapisearch.Transc
 		transcript = append(transcript, openapisearch.TranscriptTurn{Role: message.Role, Content: message.Content})
 	}
 	return transcript
-}
-
-type DiagnosticError struct {
-	Diagnostics []openapisearch.Diagnostic
-}
-
-func (err DiagnosticError) Error() string {
-	if len(err.Diagnostics) == 0 {
-		return "intent diagnostics failed"
-	}
-	messages := make([]string, 0, len(err.Diagnostics))
-	for _, diagnostic := range err.Diagnostics {
-		if strings.TrimSpace(diagnostic.Message) != "" {
-			messages = append(messages, diagnostic.Message)
-		}
-	}
-	if len(messages) == 0 {
-		return "intent diagnostics failed"
-	}
-	return strings.Join(messages, "; ")
 }
 
 func collectOperationSlots(missing *[]string, defaultOpenAPI string, steps []*rollout.Step) {

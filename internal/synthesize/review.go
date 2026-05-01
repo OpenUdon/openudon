@@ -46,7 +46,7 @@ func reviewMarkdown(result Result, provider, model string) string {
 	profile := sideEffectProfileForOpenAPI(policy, intent, result.OpenAPICandidates, result.PrimaryOpenAPI)
 	declaredCredentials := credentialBindingNames(policy)
 	expectedCredentials := expectedPlanCredentialNames(result.PlanJSONPath)
-	commonReview := reviewLeafAdapter(result, declaredCredentials, expectedCredentials)
+	commonReview := reviewLeafAdapter(reviewArtifactSet(result), declaredCredentials, expectedCredentials)
 	commonPackage := commonReview.MinimumReviewPackage()
 	b.WriteString("# Ramen Review Evidence\n\n")
 	fmt.Fprintf(&b, "- Project brief: `%s`\n", relOrAbs(result.ExampleDir, result.ProjectPath))
@@ -213,15 +213,19 @@ func expectedPlanCredentialNames(path string) []string {
 	return out
 }
 
-func reviewLeafAdapter(result Result, declaredCredentials, expectedCredentials []string) openapisearch.LeafAdapter {
+func reviewArtifactSet(result Result) openapisearch.ArtifactSet {
 	artifactPaths := []string{
 		result.ProjectPath,
 		result.IntentPath,
 		result.WorkflowPath,
 		result.UWSPath,
 		result.PlanJSONPath,
+		result.PlanMDPath,
+		result.DiscoveryJSONPath,
 		result.QualityJSONPath,
+		result.QualityMDPath,
 		result.RefinementJSONPath,
+		result.RefinementMDPath,
 		result.ReviewPath,
 		result.SymphonyHandoffPath,
 	}
@@ -237,6 +241,10 @@ func reviewLeafAdapter(result Result, declaredCredentials, expectedCredentials [
 			Content:   content,
 		})
 	}
+	return openapisearch.ArtifactSet{Artifacts: artifacts}
+}
+
+func reviewLeafAdapter(set openapisearch.ArtifactSet, declaredCredentials, expectedCredentials []string) openapisearch.LeafAdapter {
 	seen := map[string]bool{}
 	var bindings []openapisearch.SymbolicBinding
 	for _, name := range append(append([]string(nil), declaredCredentials...), expectedCredentials...) {
@@ -252,10 +260,8 @@ func reviewLeafAdapter(result Result, declaredCredentials, expectedCredentials [
 			Description: "Ramen runtime credential binding name; value is supplied outside generated artifacts.",
 		})
 	}
-	return openapisearch.NewLeafAdapter(openapisearch.ArtifactSet{
-		Artifacts:        artifacts,
-		SymbolicBindings: bindings,
-	}, openapisearch.LeafOptions{
+	set.SymbolicBindings = bindings
+	return openapisearch.NewLeafAdapter(set, openapisearch.LeafOptions{
 		Name:   "Ramen Review Evidence",
 		Source: "ramen.synthesize",
 	})

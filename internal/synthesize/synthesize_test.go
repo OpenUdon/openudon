@@ -2990,8 +2990,9 @@ func TestSecretScannerFlagsCommonTokenFamilies(t *testing.T) {
 		`password = "abc123abc123abc123"`,
 	}
 	for _, value := range values {
-		if !containsSecretLikeToken([]byte(value)) {
-			t.Fatalf("secret scanner did not flag %q", value)
+		checks := LintProjectMarkdown("# Project\n\n" + value + "\n")
+		if !qualityChecksContain(checks, "project.no_secrets", "fail") {
+			t.Fatalf("project lint did not flag %q: %#v", value, checks)
 		}
 	}
 }
@@ -3012,8 +3013,9 @@ func TestSecretScannerAllowsWorkflowReferencesAndBindings(t *testing.T) {
 		`weather_appid`,
 	}
 	for _, value := range values {
-		if containsSecretLikeToken([]byte(value)) {
-			t.Fatalf("secret scanner flagged valid reference or binding %q", value)
+		checks := LintProjectMarkdown("# Project\n\n" + value + "\n")
+		if qualityChecksContain(checks, "project.no_secrets", "fail") {
+			t.Fatalf("project lint flagged valid reference or binding %q: %#v", value, checks)
 		}
 	}
 }
@@ -3108,6 +3110,15 @@ func hasCheck(report *QualityReport, code, status string) bool {
 		return false
 	}
 	for _, check := range report.Checks {
+		if check.Code == code && check.Status == status {
+			return true
+		}
+	}
+	return false
+}
+
+func qualityChecksContain(checks []QualityCheck, code, status string) bool {
+	for _, check := range checks {
 		if check.Code == code && check.Status == status {
 			return true
 		}

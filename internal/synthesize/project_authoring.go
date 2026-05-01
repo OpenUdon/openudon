@@ -5,6 +5,7 @@ import (
 	"regexp"
 	"strings"
 
+	"github.com/genelet/openapisearch"
 	"github.com/genelet/ramen/internal/projectdoc"
 	"github.com/tabilet/uws/uws1"
 	"gopkg.in/yaml.v3"
@@ -518,7 +519,7 @@ func validateStructuredProjectPolicy(policy projectPolicy) error {
 func LintProjectMarkdown(text string) []QualityCheck {
 	report := &QualityReport{Status: "pass"}
 	addProjectAuthoringChecks(report, text)
-	if containsSecretLikeToken([]byte(text)) {
+	if openapisearch.ContainsLikelyCredentialValue([]byte(text)) {
 		report.add("project.no_secrets", "fail", "project.md contains content matching a credential pattern", "")
 	}
 	report.finalize()
