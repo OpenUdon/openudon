@@ -1,11 +1,8 @@
 package openapidisco
 
 import (
-	"bytes"
 	"context"
-	"encoding/json"
 	"fmt"
-	"io/fs"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -15,7 +12,6 @@ import (
 	"time"
 
 	"github.com/genelet/openapisearch"
-	"gopkg.in/yaml.v3"
 )
 
 const (
@@ -113,7 +109,7 @@ func (d *Discoverer) ImportProjectURLsWithReport(ctx context.Context, openAPIDir
 			continue
 		}
 		candidate.Source = "url:" + rawURL
-		candidate.Score = scoreText(projectText, candidate.Title+" "+candidate.Description+" "+candidate.RelativePath)
+		candidate.Score = openapisearch.ScoreText(projectText, candidate.Title+" "+candidate.Description+" "+candidate.RelativePath)
 		attempts = append(attempts, DiscoveryAttempt{Kind: "url", Source: rawURL, Status: "pass", Detail: candidate.RelativePath})
 		out = append(out, candidate)
 	}
@@ -121,34 +117,26 @@ func (d *Discoverer) ImportProjectURLsWithReport(ctx context.Context, openAPIDir
 }
 
 func LocalFiles(openAPIDir, baseDir, projectText string) ([]Candidate, error) {
-	var candidates []Candidate
-	err := filepath.WalkDir(openAPIDir, func(path string, d fs.DirEntry, err error) error {
-		if err != nil {
-			return err
-		}
-		if d.IsDir() || !hasOpenAPIExt(path) {
-			return nil
-		}
-		ok, title, description, err := openAPIFileMetadata(path)
-		if err != nil || !ok {
-			return nil
-		}
-		rel, err := filepath.Rel(baseDir, path)
-		if err != nil {
-			return err
-		}
-		rel = filepath.ToSlash(rel)
-		candidates = append(candidates, Candidate{
-			Path:         path,
-			RelativePath: rel,
-			Title:        title,
-			Description:  description,
-			Source:       "local",
-			Score:        scoreText(projectText, title+" "+description+" "+rel),
-		})
-		return nil
+	results, err := openapisearch.LocalFiles(context.Background(), openapisearch.LocalOptions{
+		Dir:     openAPIDir,
+		BaseDir: baseDir,
+		Query:   projectText,
 	})
-	return candidates, err
+	if err != nil {
+		return nil, err
+	}
+	candidates := make([]Candidate, 0, len(results))
+	for _, result := range results {
+		candidates = append(candidates, Candidate{
+			Path:         result.Path,
+			RelativePath: result.RelativePath,
+			Title:        result.Title,
+			Description:  result.Description,
+			Source:       "local",
+			Score:        result.Score,
+		})
+	}
+	return candidates, nil
 }
 
 func (d *Discoverer) ImportBestAPIsGuruMatch(ctx context.Context, openAPIDir, baseDir, projectText string) (Candidate, error) {
@@ -233,101 +221,4 @@ func extractURLs(text string) []string {
 		out = append(out, strings.TrimRight(match, ".,;:"))
 	}
 	return out
-}
-
-func hasOpenAPIExt(path string) bool {
-	switch strings.ToLower(filepath.Ext(path)) {
-	case ".json", ".yaml", ".yml":
-		return true
-	default:
-		return false
-	}
-}
-
-func openAPIFileMetadata(path string) (bool, string, string, error) {
-	data, err := os.ReadFile(path)
-	if err != nil {
-		return false, "", "", err
-	}
-	if !looksLikeOpenAPIContent(data) {
-		return false, "", "", nil
-	}
-	title, description := openAPIInfo(data)
-	return true, title, description, nil
-}
-
-func looksLikeOpenAPIContent(content []byte) bool {
-	trimmed := bytes.TrimSpace(content)
-	if len(trimmed) == 0 {
-		return false
-	}
-	if trimmed[0] == '{' {
-		var root map[string]any
-		if err := json.Unmarshal(trimmed, &root); err != nil {
-			return false
-		}
-		_, hasOpenAPI := root["openapi"]
-		_, hasSwagger := root["swagger"]
-		return hasOpenAPI || hasSwagger
-	}
-	var root map[string]any
-	if err := yaml.Unmarshal(trimmed, &root); err != nil {
-		return false
-	}
-	_, hasOpenAPI := root["openapi"]
-	_, hasSwagger := root["swagger"]
-	return hasOpenAPI || hasSwagger
-}
-
-func openAPIInfo(content []byte) (string, string) {
-	var root struct {
-		Info struct {
-			Title       string `json:"title" yaml:"title"`
-			Description string `json:"description" yaml:"description"`
-		} `json:"info" yaml:"info"`
-	}
-	trimmed := bytes.TrimSpace(content)
-	if len(trimmed) == 0 {
-		return "", ""
-	}
-	if trimmed[0] == '{' {
-		_ = json.Unmarshal(trimmed, &root)
-	} else {
-		_ = yaml.Unmarshal(trimmed, &root)
-	}
-	return strings.TrimSpace(root.Info.Title), strings.TrimSpace(root.Info.Description)
-}
-
-func scoreText(query, haystack string) int {
-	terms := tokens(query)
-	if len(terms) == 0 {
-		return 0
-	}
-	hay := strings.ToLower(haystack)
-	score := 0
-	for _, term := range terms {
-		if strings.Contains(hay, term) {
-			score++
-		}
-	}
-	return score
-}
-
-func tokens(text string) []string {
-	seen := map[string]bool{}
-	var out []string
-	for _, field := range regexp.MustCompile(`[a-zA-Z0-9]+`).FindAllString(strings.ToLower(text), -1) {
-		if len(field) < 3 || stopWords[field] || seen[field] {
-			continue
-		}
-		seen[field] = true
-		out = append(out, field)
-	}
-	return out
-}
-
-var stopWords = map[string]bool{
-	"and": true, "are": true, "but": true, "can": true, "for": true, "from": true,
-	"has": true, "into": true, "the": true, "then": true, "this": true, "use": true,
-	"when": true, "with": true, "workflow": true, "openapi": true, "api": true,
 }

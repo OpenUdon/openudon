@@ -11,11 +11,7 @@ require (
 	gopkg.in/yaml.v3 v3.0.1
 )
 
-require (
-	github.com/kr/text v0.2.0 // indirect
-	github.com/rogpeppe/go-internal v1.12.0 // indirect
-	github.com/tabilet/oas v0.0.0-20260413131549-b78ffd347d17 // indirect
-)
+require github.com/tabilet/oas v0.0.0-20260413131549-b78ffd347d17 // indirect
 
 require (
 	cloud.google.com/go/compute/metadata v0.9.0 // indirect
