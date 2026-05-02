@@ -6,11 +6,25 @@ Ramen is a private Go integration layer for Symphony-managed UWS projects execut
 
 Ramen owns project templates, Symphony workflow policy, example artifacts, validation wrappers, and trusted execution glue.
 
+## Memory Bank First
+
+Before making substantial changes, read in this order:
+
+1. [memory-bank/product.md](memory-bank/product.md)
+2. [memory-bank/architecture.md](memory-bank/architecture.md)
+3. [memory-bank/tech-stack.md](memory-bank/tech-stack.md)
+4. [memory-bank/milestone.md](memory-bank/milestone.md)
+5. [memory-bank/status.md](memory-bank/status.md)
+
+Use the memory bank as the active project source of truth. Do not recreate
+duplicate root-level product, architecture, roadmap, or status documents.
+
 ## Boundaries
 
 - `../uws` is the public UWS specification and Go model. Put public workflow semantics there.
 - `../udon` is the private UWS/OpenAPI compiler and runtime. Put generic execution/compiler capabilities there.
-- `../symphony` is the work orchestration service. Configure it through `WORKFLOW.md`; do not fork or modify it from Ramen unless explicitly requested.
+- `../symphony` is the work orchestration service. Configure it through Ramen policy and README
+  operator guidance; do not fork or modify it from Ramen unless explicitly requested.
 - Udon's private build-time siblings (`../grand`, `../golet`, `../hcllight`, `../horizon`,
   `../molecule`, and `../arazzo`) and the shared `../apitools` module must be present for
   local Go builds.
@@ -57,3 +71,26 @@ Agents may generate and validate artifacts. Production side effects must only ha
 - Treat generated UWS/OpenAPI/HCL as untrusted until validated.
 - Do not execute side-effectful workflows unless explicitly requested.
 - Prefer sandbox/test endpoints for proof runs.
+
+## Documentation Rules
+
+- Update [memory-bank/status.md](memory-bank/status.md) after feature implementation changes
+  completion state.
+- Update [memory-bank/milestone.md](memory-bank/milestone.md) when sequencing, milestone scope,
+  acceptance criteria, or cross-repo contracts change.
+- Update [memory-bank/product.md](memory-bank/product.md) when product scope, users, workflows,
+  concepts, or non-goals change.
+- Update [memory-bank/architecture.md](memory-bank/architecture.md) when system boundaries, data
+  flow, artifact layout, or security boundaries change.
+- Update [memory-bank/tech-stack.md](memory-bank/tech-stack.md) when dependencies, commands,
+  runtime assumptions, artifact schemas, or tooling choices change.
+- Keep README focused on operator entry points and concise command guidance. Put durable project
+  memory in `memory-bank/`.
+
+## Evolution Rules
+
+- Check [evolution/](evolution/) after a major review, milestone, or boundary change.
+- Create the next `prompt-vN.md` and `result-vN.md` only when product direction, architecture
+  boundary, milestone target, or public/private contract direction materially changes.
+- Keep the current evolution version when implementation only advances the existing direction.
+- When adding a new evolution version, reconcile it with `memory-bank/` in the same change.

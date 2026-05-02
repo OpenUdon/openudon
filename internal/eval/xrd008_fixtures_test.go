@@ -45,7 +45,7 @@ func TestXRD008RuntimeProfileFixtureCoverage(t *testing.T) {
 	assertFixtureFileContains(t, root, "profile-boundary-manifest", "project.md", "direct SQL/profile execution are not allowed", "Do not emit `sql`, `smtp`, `llm`, `x-udon-*`")
 	assertFixtureFileContains(t, root, "profile-boundary-manifest", filepath.Join("reference", "policy.json"), "trusted fnct manifest", "SQL, SSH, or x-udon profile runtime semantics")
 
-	assertFixtureFileContains(t, filepath.Join("..", ".."), "docs", "xrd-008-runtime-profile-eval-plan.md", "Approved function runtime", "Approved command runtime", "Denied command runtime", "Future profile boundary")
+	assertFixtureFileContains(t, filepath.Join("..", ".."), "memory-bank", "milestone.md", "Approved function runtime", "Approved command runtime", "Denied command runtime", "Future profile boundary")
 }
 
 func referenceIntentUsesRuntime(intent *rollout.Intent, runtime string) bool {
@@ -61,14 +61,14 @@ func referenceIntentUsesRuntime(intent *rollout.Intent, runtime string) bool {
 }
 
 func TestXRD008PlanDoesNotDefineUpstreamRuntimeSemantics(t *testing.T) {
-	data, err := os.ReadFile(filepath.Join("..", "..", "docs", "xrd-008-runtime-profile-eval-plan.md"))
+	data, err := os.ReadFile(filepath.Join("..", "..", "memory-bank", "milestone.md"))
 	if err != nil {
 		t.Fatal(err)
 	}
 	text := string(data)
 	for _, expected := range []string{
-		"Runtime/profile semantics and generic execution remain\nupstream",
-		"must not define\nnew public UWS fields",
+		"Runtime/profile semantics and generic execution remain upstream",
+		"Ramen reference intents must not invent unsupported runtime types",
 		"profile-specific `x-udon-*` payloads",
 	} {
 		if !strings.Contains(text, expected) {

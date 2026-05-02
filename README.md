@@ -1,42 +1,25 @@
 # Ramen
 
-Ramen is a private integration layer for Symphony-managed UWS projects executed by the private
+Ramen is the private integration layer for Symphony-managed UWS projects executed by the private
 `udon` runtime.
 
-It connects three sibling projects:
+It owns project templates, Symphony workflow policy, example artifacts, deterministic validation,
+review handoff evidence, and trusted-runner glue. Public workflow semantics belong in `../uws`;
+generic OpenAPI/UWS compilation and execution belong in `../udon`; managed work orchestration
+belongs in `../symphony`.
 
-- `../symphony` manages work items, isolated agent workspaces, and Codex app-server sessions.
-- `../uws` defines the public UWS workflow document model, schema, validation, and execution
-  semantics.
-- `../udon` validates, lowers, and executes approved UWS/OpenAPI workflow artifacts.
+## Project Memory
 
-Ramen should stay thin. It owns project templates, Symphony workflow policy, example artifacts,
-validation wrappers, and the gated trusted-runner handoff. Generic workflow semantics belong in
-`../uws`; reusable execution capabilities belong in `../udon`.
+Use the memory bank as the current project source of truth:
 
-## Status
+- [Product](memory-bank/product.md): purpose, users, workflows, scope, and non-goals.
+- [Architecture](memory-bank/architecture.md): boundaries, data flow, artifact flow, and security.
+- [Tech Stack](memory-bank/tech-stack.md): dependencies, commands, formats, and tooling.
+- [Milestone](memory-bank/milestone.md): roadmap, sequencing, and acceptance criteria.
+- [Status](memory-bank/status.md): current completion state and operational notes.
 
-Early private scaffold. Do not treat this repository as a public API yet.
-See `TODO.md` for the post-POC hardening roadmap and current product-readiness gaps.
-
-## Current Capabilities
-
-Ramen now includes the local release-readiness and trusted-execution features needed to review,
-validate, and hand off generated workflow artifacts:
-
-- Deterministic artifact generation from `project.md` into intent, workflow, UWS, plan, review,
-  handoff, refinement, and quality reports.
-- Deterministic quality gates for project policy, OpenAPI availability, intent validity, workflow
-  compilation, expected-plan matching, UWS validation, review evidence, and secret scanning.
-- Eval harness with reference comparison, run comparison, release-gate criteria, structured
-  provider drift reporting, and ignored JSON/Markdown evidence under `eval/runs/`.
-- Local readiness reporting with private sibling checks, deterministic gate evidence, git state,
-  ignored artifact paths, and provider environment presence without printing secret values.
-- Trusted execution wrapper with approval JSON templates, package digests, tier checks, current
-  quality validation, and argv-only udon invocation.
-
-See `docs/operator-checklist.md` for the operator workflow and `docs/xrd-roadmap.md` for cross-repo
-status.
+Use [evolution/](evolution/) for versioned prompt/result snapshots when product direction or
+cross-repo boundaries materially change.
 
 ## Quick Start
 
@@ -45,33 +28,45 @@ cd ../ramen
 make check
 ```
 
-New trusted operators should start with `docs/onboarding.md`, then either run
-`go run ./cmd/icot --example examples/<name>` for deterministic guided authoring of `project.md`
-and `workflows/intent.hcl`, or use
-`templates/project.md` when authoring a new project brief manually.
-For the short operator path from authoring through release evidence, see
-`docs/operator-checklist.md`.
-
-The scaffold expects the following sibling directories:
+Required local siblings:
 
 ```text
 ../symphony
 ../uws
 ../udon
+../grand
+../golet
+../hcllight
+../horizon
+../molecule
+../arazzo
+../apitools
 ```
 
-Because Ramen imports udon packages and shared OpenAPI discovery directly, local builds also need
-the sibling modules used by `go.mod`, including `../grand`, `../golet`, `../hcllight`, `../horizon`,
-`../molecule`, `../arazzo`, and `../apitools`.
+Useful checks:
+
+```bash
+go test ./...
+go vet ./...
+go run ./cmd/ramen check
+./scripts/check-siblings.sh
+./scripts/validate-uws.sh ./examples
+make check
+make release-check
+git diff --check
+```
 
 ## Layout
 
-- `WORKFLOW.md` is the Symphony workflow prompt/config template for UWS/OpenAPI work.
-- `cmd/ramen` is a small Go CLI for local checks.
-- `examples/support-email` is the first natural-language-to-UWS example.
-- `scripts/` contains local validation and execution wrappers.
-- `docs/` records architecture, safety boundaries, operator checklist, and cross-repo contracts.
-- `templates/project.md` is the starting point for new project briefs.
+- `cmd/ramen`: local CLI for checks, synthesis, assessment, eval, readiness, approval templates,
+  and trusted execution.
+- `cmd/icot`: guided authoring CLI for `project.md` and `workflows/intent.hcl`.
+- `internal/`: reusable Ramen implementation.
+- `examples/`: committed examples and eval corpus.
+- `templates/project.md`: starter project brief.
+- `docs/`: detailed architecture, safety, operator, XRD, and release notes.
+- `memory-bank/`: living product memory.
+- `evolution/`: versioned product-direction snapshots.
 
 ## Execution Boundary
 
@@ -79,26 +74,68 @@ The intended lifecycle is:
 
 ```text
 natural-language project brief
-  -> Symphony-managed implementation issue
+  -> Symphony-managed implementation issue or local authoring session
   -> generated OpenAPI/UWS artifacts
-  -> validation and review
-  -> approved artifact
-  -> udon execution by a trusted runner
+  -> deterministic validation and review
+  -> approved handoff package
+  -> udon execution by trusted runner
 ```
 
-Agents may generate and validate artifacts. Production side effects should happen only through an
-approved trusted runtime path.
+`ramen synthesize`, `ramen build`, `ramen promote`, `ramen assess`, `cmd/icot`, and eval commands
+generate, compile, validate, and report on artifacts. They do not execute production workflows.
 
-The generation commands are artifact commands: `ramen synthesize`, `ramen build`,
-`ramen promote`, and `ramen assess` generate, compile, validate, and report on artifacts. They do
-not directly execute production workflows. `ramen run` is separate: it is a trusted-runner wrapper
-that validates the handoff manifest, stored and current quality, approval JSON, package digest, and
-tier before invoking udon. That wrapper does not weaken the rule that synthesis never performs
-production side effects.
+`ramen run` is separate. It validates the handoff manifest, stored and current quality, approval
+JSON, package digest, and tier before invoking `scripts/run-udon.sh`.
 
-## Synthesize An Example
+## Authoring With iCoT
 
-Ramen can turn an example brief into reviewed artifacts:
+iCoT turns a project idea into reviewed authoring artifacts. It writes `project.md` and
+`workflows/intent.hcl`; it does not synthesize compiled artifacts or execute workflows.
+
+```bash
+go run ./cmd/icot --example ./examples/<name>
+```
+
+Common modes:
+
+```bash
+# Print rendered project.md and intent.hcl without writing files.
+go run ./cmd/icot --example ./examples/<name> --print
+
+# Use the fixed manual flow without LLM extraction.
+go run ./cmd/icot --example ./examples/<name> --no-llm
+
+# Seed from an existing example.
+go run ./cmd/icot --from-example ./examples/eval/runtime-only-render --example ./examples/<name>
+
+# Use YAML or JSON session/legacy answers.
+go run ./cmd/icot --answers ./answers.yaml --example ./examples/<name>
+
+# Rebuild project.md from workflows/intent.hcl.
+go run ./cmd/icot reconcile --example ./examples/<name>
+
+# Check authoring quality, intent parseability, and advisory drift.
+go run ./cmd/icot lint --example ./examples/<name>
+
+# Replay eval references through iCoT and save ignored transcripts.
+go run ./cmd/icot replay-eval --root ./examples/eval --provider gemini --model gemini-2.5-flash
+```
+
+iCoT autosaves incomplete local sessions under `<example>/.icot/session.yaml` and resumes by
+default. Successful saves delete the autosave. Transcripts are written under
+`<example>/.icot/transcript.json` unless `--no-transcript` is used. These local files are ignored by
+git.
+
+Side-effect scope in iCoT:
+
+- `read-only`: generate and validate artifacts only.
+- `sandbox-only`: sandbox proof runs require `approved_for_sandbox`, approved bindings, and a
+  trusted runner.
+- `after-approval`: sandbox and production execution require the full Ramen/Symphony approval path.
+
+## Synthesize And Assess
+
+Generate all reviewed artifacts for an example:
 
 ```bash
 export GEMINI_API_KEY=...
@@ -110,45 +147,55 @@ go run ./cmd/ramen synthesize \
 ```
 
 The command reads `project.md`, discovers or imports OpenAPI documents under `openapi/`, writes
-`workflows/intent.hcl`, generates `workflows/workflow.hcl` through udon, exports
-`workflows/workflow.uws.yaml`, and writes `expected/plan.json`, `expected/plan.md`,
-`expected/discovery.json`, `expected/refinement.json`, `expected/refinement.md`,
-`expected/review.md`, `expected/symphony-handoff.json`, `expected/quality.json`, and
-`expected/quality.md`.
+`workflows/intent.hcl` when needed, generates `workflows/workflow.hcl` through udon, exports
+`workflows/workflow.uws.yaml`, and writes:
 
-The expected plan records inferred steps, OpenAPI operations, required request fields,
-step-to-step bindings, and credential-like parameters. `ramen assess` compiles the final
-`workflow.hcl` through udon and checks it still matches that plan.
-`docs/intent.md` defines the internal `intent.hcl` contract and the high-fidelity authoring profile
-for near-lossless lowering into `workflow.hcl`.
+```text
+expected/plan.json
+expected/plan.md
+expected/discovery.json
+expected/refinement.json
+expected/refinement.md
+expected/review.md
+expected/symphony-handoff.json
+expected/quality.json
+expected/quality.md
+```
 
-`synthesize` and `build` run a bounded refinement loop, defaulting to five attempts. The loop records
-which stage was retried, which checks failed, and why it stopped in `expected/refinement.json`.
 Use narrower stages after editing artifacts:
 
 ```bash
-go run ./cmd/ramen build --example ./examples/support-email --max-attempts 5  # intent.hcl -> workflow/UWS
-go run ./cmd/ramen promote --example ./examples/support-email  # workflow.hcl -> UWS
-go run ./cmd/ramen assess --example ./examples/support-email   # quality reports only
+# intent.hcl -> workflow/UWS/plan/review/quality
+go run ./cmd/ramen build --example ./examples/support-email --max-attempts 5
+
+# workflow.hcl -> UWS/review/quality
+go run ./cmd/ramen promote --example ./examples/support-email
+
+# quality reports only
+go run ./cmd/ramen assess --example ./examples/support-email
 ```
 
-Use the eval harness when changing prompts or synthesis behavior:
+The bounded refinement loop records retried stages, failed checks, and stop reason in
+`expected/refinement.json`.
 
-```bash
-go run ./cmd/ramen eval --root ./examples/eval --provider gemini --model gemini-2.5-flash
-```
+## Quality And Repair Loop
 
-Eval runs synthesize temporary copies of the eval briefs and write JSON/Markdown summaries under
-`eval/runs/`. Reports include run metadata, pass/fail summaries, provider/model/mode/prompt-version
-breakdowns, approximate prompt-token totals, generated workspace paths, and comparison against the
-previous report in the output directory when one exists.
+The pipeline is validation-first:
 
-### Real LLM Eval Smoke
+1. Run `synthesize` for a new or substantially changed `project.md`.
+2. If it fails, read `expected/refinement.json` and `expected/quality.json`.
+3. Repair the earliest failing stage.
+4. For `openapi.*`, add a valid local OpenAPI file or explicit OpenAPI URL.
+5. For `intent.*`, edit `project.md` or `workflows/intent.hcl`, then rerun `build`.
+6. For `workflow.*`, prefer improving intent and rerunning `build`; use `promote` and `assess` for
+   narrow workflow repairs.
+7. For `uws.*`, `review.*`, `symphony_handoff.*`, or `artifacts.*`, repair the generated artifact
+   or evidence, then run `promote` or `assess`.
+8. Stop after the configured attempt limit and report blocking checks if quality still fails.
 
-Real-provider evals are useful smoke tests for prompt, model, and refinement-loop changes, but they
-are not part of the normal development loop. They require provider credentials, spend external model
-quota, can vary run to run, and may fail for transient provider reasons. For routine code changes,
-prefer deterministic checks:
+## Eval And Release Evidence
+
+Use deterministic checks for routine development:
 
 ```bash
 go test ./...
@@ -157,69 +204,46 @@ make check
 git diff --check
 ```
 
-For deterministic release readiness, run:
-
-```bash
-make release-check
-```
-
-For XRD-007 local/private checkout evidence, write a structured readiness report:
-
-```bash
-go run ./cmd/ramen readiness --run-gates --out eval/readiness/local.json
-```
-
-The readiness report records sibling checkouts, deterministic gate results, git state, ignored local
-artifact paths, provider credential environment presence as booleans only, and the current
-local/manual automation policy.
-
-Run a real LLM eval when changing prompt templates, synthesis/refinement behavior, model defaults, or
+Use the eval harness when changing prompts, synthesis/refinement behavior, model defaults, or
 quality gates that could affect generated artifacts:
 
 ```bash
-export GEMINI_API_KEY=...
 go run ./cmd/ramen eval --root ./examples/eval --provider gemini --model gemini-2.5-flash
 ```
 
-Use `--compare eval/runs/<previous>.json` to compare against a specific run, or `--no-compare` for
-an isolated smoke. Normal evals print comparison regressions but do not fail the command for them.
-Release-gated evals fail on both absolute release criteria and comparison regressions.
+Eval reports are written under ignored `eval/runs/`. They include pass/fail summaries,
+provider/model/mode/prompt-version breakdowns, approximate prompt-token totals, generated workspace
+paths, provider drift watch data, and comparison against a previous report when available.
 
-Temporary generated workspaces are listed in the report for manual inspection. To preserve them
-under the repo-local ignored artifact directory, add:
-
-```bash
-go run ./cmd/ramen eval --root ./examples/eval --provider gemini --model gemini-2.5-flash --archive-dir eval/artifacts
-```
-
-Ramen records approximate prompt-token counts and has report fields for provider-reported token
-usage or cost when a provider path exposes them. It does not hardcode provider pricing tables.
-Eval JSON reports include a `provider_drift_watch` block, and Markdown reports render the same
-XRD-006 signals: structured fallback count, rate/transient failures, model availability,
-attempts-to-pass, and release-gate failures.
-
-For a candidate release smoke, add the local release gate:
+Use release gates only for candidate release evidence:
 
 ```bash
 make release-eval
 ```
 
-The release gate requires a 100% pass rate, structured-mode usage with zero legacy extraction
-fallbacks, no brief above two refinement attempts, no blocking reference issues after each fixture's
-`reference/policy.json` is applied, and zero `artifacts.no_secrets` failures.
 `make release-eval` uses `RAMEN_PROVIDER` and `RAMEN_MODEL`, defaulting to `gemini` and
-`gemini-2.5-flash`. It also passes the current eval corpus size as a minimum brief gate; see
-`docs/xrd-009-expanded-corpus-release-evidence.md`.
+`gemini-2.5-flash`, and requires the current eval corpus size as the minimum brief count.
 
-Development gates and real-provider release checks remain local/manual. The deterministic local
-gate set is `go test ./...`, `go vet ./...`, `make check`, and `git diff --check`; real-provider
-release evidence is produced manually with `make release-eval`.
+## Readiness
 
-## Trusted Execution Wrapper
-
-After artifacts pass review, generate approval JSON with the current handoff package digest:
+Local readiness reports record private sibling presence, deterministic gate results, git state,
+ignored local artifacts, provider credential environment presence as booleans only, and current
+local/manual automation policy.
 
 ```bash
+go run ./cmd/ramen readiness --out eval/readiness/local.json
+go run ./cmd/ramen readiness --run-gates --out eval/readiness/local.json
+```
+
+Hosted CI remains intentionally disabled during active private-sibling development. Real-provider
+release evidence remains local/manual.
+
+## Trusted Execution
+
+After artifacts pass review, generate approval JSON with the current package digest:
+
+```bash
+mkdir -p approvals
 go run ./cmd/ramen approval-template \
   --example ./examples/support-email \
   --state approved_for_sandbox \
@@ -227,7 +251,7 @@ go run ./cmd/ramen approval-template \
   > approvals/support-email-sandbox.json
 ```
 
-Then validate approval, quality, handoff policy, package digest, and tier compatibility before udon
+Validate approval, quality, handoff policy, package digest, and tier compatibility before udon
 execution:
 
 ```bash
@@ -237,74 +261,97 @@ go run ./cmd/ramen run \
   --approval approvals/support-email-sandbox.json
 ```
 
-Use `--dry-run` to validate the gates without invoking udon. The full wrapper plan and approval
-schema are in `SYMPHONY_WRAPPER.md`.
+Use `--dry-run` to validate all gates without invoking udon.
 
-Last full passing real-LLM smoke: 2026-04-28, `gemini-2.5-flash`, prompt `intent.v3`, structured
-output path with `0` legacy extraction fallbacks.
+Approval JSON shape:
 
-| Eval brief | Result | Mode | Attempts | Reference issues (A/W/B) |
-| --- | --- | --- | ---: | --- |
-| `cmd-allowed-deploy` | pass | structured | 1 | 2/2/0 |
-| `cmd-disallowed-deploy` | pass | structured | 1 | 2/2/0 |
-| `crm-note-write` | pass | structured | 1 | 1/0/0 |
-| `customer-export-two-pages` | pass | structured | 2 | 4/0/0 |
-| `inventory-api-key-binding` | pass | structured | 2 | 0/0/0 |
-| `paginated-list` | pass | structured | 1 | 0/0/0 |
-| `runtime-only-render` | pass | structured | 1 | 0/0/0 |
-| `support-email` | pass | structured | 1 | 5/0/0 |
-| `support-priority-routing` | pass | structured | 1 | 5/0/1 |
-| `weather-toronto` | pass | structured | 1 | 2/0/0 |
-
-Summary: all ten examples passed deterministic quality gates. Eval reports classify reference drift
-as advisory/warning/blocking and apply each fixture's `reference/policy.json`. Runtime type,
-selected OpenAPI operation, and parse/compare failures are behavioral drift; step names, output
-names, request literal names, and bind field names are semantic hints by default.
-
-Structured-output smoke on 2026-04-28 recovered the ten-example quality baseline with
-`gemini-2.5-flash`: 10/10 passed, all in structured mode, with `0` legacy fallbacks.
-
-### Model Selection
-
-Use `gemini-2.5-flash` as the default Gemini model for synthesis. Ramen's task is mostly structured
-extraction and artifact generation, and reliability comes from prompt preprocessing, structured
-output when available, deterministic quality gates, and bounded repair attempts. In local smoke
-runs, Flash was fast enough to complete the `runtime-only-render` eval after validation fixes, while
-Gemini Pro preview models were slower and more prone to timeout or temporary capacity errors.
-
-Escalate to a larger model such as `gemini-2.5-pro` only after Flash fails deterministic checks
-after one or two attempts. Prefer a fast validated retry over a slow preview model as the default.
-
-LLM credentials must come from provider environment variables such as `GEMINI_API_KEY` or
-`OPENAI_API_KEY`; do not place tokens in prompts, commands, examples, or workflow artifacts.
-
-Before writing a new `project.md`, read `docs/project-authoring.md`, `docs/intent.md`, and
-`docs/data-flow.md`, then start from `templates/project.md` or run:
-
-```bash
-go run ./cmd/icot --example ./examples/<name>
+```json
+{
+  "version": "ramen.approval.v1",
+  "scope": "examples/support-email",
+  "state": "approved_for_sandbox",
+  "reviewer": "Reviewer Name",
+  "approved_at": "2026-04-29T12:00:00Z",
+  "expires_at": "2026-05-06T12:00:00Z",
+  "package_sha256": "<current handoff package digest>",
+  "notes": "optional"
+}
 ```
 
-With LLM extraction available, the guided command starts from one broad workflow goal, drafts
-`workflows/intent.hcl`, and asks only the next blocking follow-up needed to reach a valid intent.
-Use `--no-llm` for the fixed manual question flow. It writes `project.md` plus
-`workflows/intent.hcl`, and creates `openapi/`, `workflows/`, and `expected/` if missing. It does
-not synthesize compiled artifacts; run `ramen build --example ./examples/<name>` after reviewing
-the project and intent. The brief should include runtime policy, data-flow hints, credential
-binding names, safety boundaries, side-effect scope, and fallback behavior. For runtime-only
-projects that do not need API/OpenAPI integration, include `OpenAPI: none required`.
+Tier rules:
 
-Interrupted interactive `icot` sessions are autosaved under `.icot/session.yaml` and resume by
-default on the next run for the same example. Use `icot reconcile --example ./examples/<name>` to
-regenerate only `project.md` from an existing `workflows/intent.hcl` while preserving local
-credentials, safety, fallback, and runtime approval policy.
+- `sandbox` accepts `approved_for_sandbox` or `approved_for_production`.
+- `production` accepts only `approved_for_production`.
+- Expired approvals fail.
+- Scope mismatch fails.
+- Package digest mismatch fails.
+- Stored or current quality failures fail.
+- Malformed handoff manifests fail.
+- Credential-value artifacts and direct production execution remain prohibited.
 
-Useful deterministic authoring helpers:
+## Symphony Agent Workflow
+
+Ramen issues may be run through Symphony-managed Codex sessions. Agents should follow this policy:
+
+- Use UWS as the workflow interchange format.
+- Use OpenAPI for HTTP method, path, schema, server, and security details.
+- Use extension-owned UWS operations for non-HTTP runtimes such as SMTP, command execution, SSH,
+  SQL, or LLM calls.
+- Use `../uws` for public schema/model validation.
+- Use `../udon` for private runtime validation, lowering, and local sandbox execution.
+- Use `../symphony` only as the work orchestration service.
+- Do not execute production side effects directly from an agent session.
+- If execution is requested, produce or update the approved artifact and document the trusted runner
+  command.
+
+Expected artifact locations:
+
+```text
+examples/<name>/project.md
+examples/<name>/openapi/
+examples/<name>/workflows/intent.hcl
+examples/<name>/workflows/workflow.hcl
+examples/<name>/workflows/workflow.uws.yaml
+examples/<name>/expected/plan.json
+examples/<name>/expected/plan.md
+examples/<name>/expected/discovery.json
+examples/<name>/expected/refinement.json
+examples/<name>/expected/refinement.md
+examples/<name>/expected/review.md
+examples/<name>/expected/symphony-handoff.json
+examples/<name>/expected/quality.json
+examples/<name>/expected/quality.md
+```
+
+Before handoff:
 
 ```bash
-go run ./cmd/icot --example ./examples/<name> --print
-go run ./cmd/icot --from-example ./examples/eval/runtime-only-render --example ./examples/<name>
-go run ./cmd/icot --answers ./answers.yaml --example ./examples/<name>
-go run ./cmd/icot reconcile --example ./examples/<name> --print
-go run ./cmd/icot lint --example ./examples/<name>
+go test ./...
+go vet ./...
+make check
+git diff --check
+./scripts/validate-uws.sh ./examples
+go run ./cmd/ramen assess --example examples/<name>
 ```
+
+If side-effectful execution is explicitly requested, use `ramen run` with approval JSON. Do not run
+production effects from synthesis, build, promote, assess, iCoT, or eval.
+
+## Model And Credential Guidance
+
+Use `gemini-2.5-flash` as the default Gemini model for synthesis. Ramen reliability comes mostly
+from prompt preprocessing, structured output when available, deterministic quality gates, and
+bounded repair attempts. Escalate to a larger model only after Flash fails deterministic checks.
+
+LLM credentials must come from provider environment variables such as `GEMINI_API_KEY`,
+`OPENAI_API_KEY`, or `ANTHROPIC_API_KEY`. Do not place tokens in prompts, commands, examples, or
+workflow artifacts.
+
+## More Documentation
+
+- [Project authoring](docs/project-authoring.md)
+- [Intent contract](docs/intent.md)
+- [Data flow](docs/data-flow.md)
+- [Safety](docs/safety.md)
+- [Eval gallery](docs/eval-gallery.md)
+- [Release note template](docs/release-note-template.md)

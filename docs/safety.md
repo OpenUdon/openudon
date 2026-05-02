@@ -51,4 +51,5 @@ an implementation profile with `x-uws-operation-profile`. Ramen project policy d
 profiles are allowed for a given environment.
 
 Symphony approval states, trusted-runner handoff package contents, and private checkout/secret
-boundaries are defined in `docs/cross-repo-contracts.md`.
+boundaries are summarized in `../memory-bank/architecture.md` and
+`../memory-bank/tech-stack.md`.
