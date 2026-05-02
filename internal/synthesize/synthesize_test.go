@@ -16,6 +16,7 @@ import (
 	"github.com/genelet/udon/pkg/rollout"
 	"github.com/genelet/udon/pkg/runner"
 	"github.com/genelet/udon/pkg/uwsprofile"
+	"github.com/tabilet/apitools"
 	"github.com/tabilet/uws/uws1"
 )
 
@@ -1138,6 +1139,43 @@ func TestAssessReportsMissingOpenAPI(t *testing.T) {
 	}
 	if _, err := os.Stat(filepath.Join(example, "expected", "quality.json")); err != nil {
 		t.Fatalf("quality.json not written: %v", err)
+	}
+}
+
+func TestAssessSymphonyHandoffAcceptsLegacyVersion(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "symphony-handoff.json")
+	manifest := SymphonyHandoff{
+		Version:        legacySymphonyHandoffVersion,
+		GeneratedState: string(apitools.ReviewStateGenerated),
+		HandoffInputs: []SymphonyHandoffInput{
+			{Path: "project.md", Required: true},
+			{Path: "workflows/intent.hcl", Required: true},
+			{Path: "workflows/workflow.hcl", Required: true},
+			{Path: "workflows/workflow.uws.yaml", Required: true},
+			{Path: "expected/plan.json", Required: true},
+			{Path: "expected/quality.json", Required: true},
+			{Path: "expected/refinement.json", Required: true},
+			{Path: "expected/review.md", Required: true},
+			{Path: "expected/symphony-handoff.json", Required: true},
+		},
+		ApprovalStates: apitools.DefaultReviewStateMachine(),
+		OwnerSplit: SymphonyOwnerSplit{
+			"ramen":    {"artifact validation"},
+			"symphony": {"approval routing"},
+		},
+	}
+	data, err := json.MarshalIndent(manifest, "", "  ")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(path, append(data, '\n'), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	report := &QualityReport{}
+	assessSymphonyHandoff(report, path, sideEffectProfile{}, projectPolicy{}, nil)
+	if !hasCheck(report, "symphony_handoff.contract", "pass") {
+		t.Fatalf("expected legacy handoff to pass, got %#v", report.Checks)
 	}
 }
 

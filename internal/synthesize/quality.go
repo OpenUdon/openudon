@@ -18,6 +18,7 @@ import (
 	"github.com/genelet/udon/pkg/rollout"
 	"github.com/genelet/udon/pkg/runtimeplan"
 	"github.com/genelet/udon/pkg/uwsprofile"
+	"github.com/tabilet/apitools"
 	"github.com/tabilet/uws/uws1"
 	"gopkg.in/yaml.v3"
 )
@@ -2473,8 +2474,9 @@ func assessSymphonyHandoff(report *QualityReport, path string, profile sideEffec
 		return
 	}
 	report.add("symphony_handoff.present", "pass", "Symphony handoff manifest is readable", "")
-	if manifest.Version != symphonyHandoffVersion || manifest.GeneratedState != "generated" {
-		report.add("symphony_handoff.contract", "fail", "Symphony handoff manifest must declare the expected version and generated state", "")
+	allowedVersions := []string{symphonyHandoffVersion, legacySymphonyHandoffVersion}
+	if diagnostics := apitools.ValidateReviewHandoff(manifest, apitools.ReviewHandoffValidationOptions{AllowedVersions: allowedVersions}); len(diagnostics) > 0 {
+		report.add("symphony_handoff.contract", "fail", "Symphony handoff manifest must satisfy the public apitools review handoff contract", diagnostics[0].Message)
 		return
 	}
 	if !symphonyHandoffHasRequiredInputs(manifest) {
@@ -2529,16 +2531,7 @@ func symphonyHandoffHasRequiredInputs(manifest SymphonyHandoff) bool {
 }
 
 func symphonyHandoffHasApprovalStates(manifest SymphonyHandoff) bool {
-	states := map[string]bool{}
-	for _, state := range manifest.ApprovalStates {
-		states[state.Name] = true
-	}
-	for _, state := range []string{"generated", "validated", "review_required", "approved_for_sandbox", "approved_for_production", "rejected"} {
-		if !states[state] {
-			return false
-		}
-	}
-	return true
+	return apitools.ReviewStateMachineHasRequiredStates(manifest.ApprovalStates)
 }
 
 func symphonyHandoffExecutionPolicyMatches(manifest SymphonyHandoff, profile sideEffectProfile) bool {
@@ -2549,9 +2542,9 @@ func symphonyHandoffExecutionPolicyMatches(manifest SymphonyHandoff, profile sid
 	if !profile.SideEffectful {
 		return policy.RequiredNextState == "" && policy.SandboxProofRunState == "" && policy.ProductionExecutionState == ""
 	}
-	return policy.RequiredNextState == "review_required" &&
-		policy.SandboxProofRunState == "approved_for_sandbox" &&
-		policy.ProductionExecutionState == "approved_for_production" &&
+	return policy.RequiredNextState == string(apitools.ReviewStateReviewRequired) &&
+		policy.SandboxProofRunState == string(apitools.ReviewStateApprovedForSandbox) &&
+		policy.ProductionExecutionState == string(apitools.ReviewStateApprovedForProduction) &&
 		manifest.TrustedRunner.SandboxOnly
 }
 

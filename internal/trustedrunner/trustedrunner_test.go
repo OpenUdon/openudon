@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/genelet/ramen/internal/synthesize"
+	"github.com/tabilet/apitools"
 )
 
 func TestRunValidSandboxApprovalPassesDryRun(t *testing.T) {
@@ -35,6 +36,24 @@ func TestRunValidSandboxApprovalPassesDryRun(t *testing.T) {
 	}
 	if !result.DryRun || result.Scope != "examples/support-email" || result.PackageSHA256 == "" {
 		t.Fatalf("unexpected result: %+v", result)
+	}
+}
+
+func TestRunLegacyHandoffVersionPassesDryRun(t *testing.T) {
+	root, example := writeFixture(t, fixtureOptions{handoffVersion: legacyHandoffVersion})
+	now := fixedNow()
+	approvalPath := writeApprovalTemplate(t, root, example, StateApprovedForSandbox, now)
+
+	if _, err := Run(context.Background(), Options{
+		RepoRoot:     root,
+		ExampleDir:   example,
+		Tier:         TierSandbox,
+		ApprovalPath: approvalPath,
+		DryRun:       true,
+		Now:          now,
+		Assess:       passAssess,
+	}); err != nil {
+		t.Fatalf("Run returned error: %v", err)
 	}
 }
 
@@ -274,6 +293,7 @@ type fixtureOptions struct {
 	malformedHandoff bool
 	valuesAllowed    bool
 	directProduction bool
+	handoffVersion   string
 }
 
 func writeFixture(t *testing.T, opts fixtureOptions) (string, string) {
@@ -309,9 +329,13 @@ func writeFixture(t *testing.T, opts fixtureOptions) (string, string) {
 		mustWriteFile(t, filepath.Join(example, "expected", "symphony-handoff.json"), []byte("{"))
 		return root, example
 	}
+	version := opts.handoffVersion
+	if version == "" {
+		version = SymphonyHandoffVersion
+	}
 	manifest := map[string]any{
-		"version":         SymphonyHandoffVersion,
-		"generated_state": "generated",
+		"version":         version,
+		"generated_state": string(apitools.ReviewStateGenerated),
 		"handoff_inputs": []map[string]any{
 			{"path": "project.md", "required": true},
 			{"path": "workflows/intent.hcl", "required": true},
@@ -322,6 +346,11 @@ func writeFixture(t *testing.T, opts fixtureOptions) (string, string) {
 			{"path": "expected/refinement.json", "required": true},
 			{"path": "expected/review.md", "required": true},
 			{"path": "expected/symphony-handoff.json", "required": true},
+		},
+		"approval_states": apitools.DefaultReviewStateMachine(),
+		"owner_split": map[string]any{
+			"ramen":    []string{"artifact validation"},
+			"symphony": []string{"approval routing"},
 		},
 		"execution_policy": map[string]any{
 			"direct_production_execution": opts.directProduction,
@@ -358,8 +387,12 @@ func writeApprovalTemplate(t *testing.T, root, example, state string, now func()
 
 func writeApprovalTemplateWithoutPolicyCheck(t *testing.T, root, example, state string, now func() time.Time) string {
 	t.Helper()
-	manifest, err := readHandoff(filepath.Join(example, "expected", "symphony-handoff.json"))
+	data, err := os.ReadFile(filepath.Join(example, "expected", "symphony-handoff.json"))
 	if err != nil {
+		t.Fatal(err)
+	}
+	var manifest handoffManifest
+	if err := json.Unmarshal(data, &manifest); err != nil {
 		t.Fatal(err)
 	}
 	p, err := resolvePaths(root, example)

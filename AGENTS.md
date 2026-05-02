@@ -14,13 +14,18 @@ Ramen owns project templates, Symphony workflow policy, example artifacts, valid
 - Udon's private build-time siblings (`../grand`, `../golet`, `../hcllight`, `../horizon`,
   `../molecule`, and `../arazzo`) and the shared `../apitools` module must be present for
   local Go builds.
+- `../apitools` owns the public review state machine, review-only leaf adapter,
+  and runtime-neutral handoff manifest schema. Ramen consumes that schema and
+  adds Symphony routing, Ramen package contents, approval templates, and local
+  trusted-runner enforcement.
 - `../ramen` owns only the integration layer above those projects.
 
 Rule of thumb:
 
 - If it changes public workflow semantics, it belongs in `../uws`.
 - If it improves generic UWS/OpenAPI execution, it belongs in `../udon`.
-- If it manages Symphony-driven project workflow, templates, examples, or trusted execution glue, it belongs in Ramen.
+- If it manages Symphony-driven project workflow, templates, examples, approval
+  routing, or trusted execution glue, it belongs in Ramen.
 
 ## Commands
 

@@ -37,7 +37,9 @@ blockers.
 ## XRD-005 Symphony Approval Handoff Contract
 
 Ramen emits an artifact package that Symphony can attach to a work item and route through review.
-The package is deterministic file output, not an approval workflow by itself.
+The package is deterministic file output, not an approval workflow by itself. Its state names,
+allowed transitions, execution-policy fields, credential-binding fields, and handoff manifest
+shape come from the public `github.com/tabilet/apitools` review handoff schema.
 The local trusted execution wrapper is documented in `SYMPHONY_WRAPPER.md`. The optional managed
 workflow routing request for the external owner is
 [`docs/xrd-005-symphony-handoff.md`](xrd-005-symphony-handoff.md).
@@ -54,7 +56,7 @@ Required handoff package:
 | `expected/quality.json` | Deterministic quality gate results. |
 | `expected/refinement.json` | Generation/refinement attempts, failed checks, and stop reason. |
 | `expected/review.md` | Human review evidence, unresolved risks, skipped execution notes, and trusted-runner command text. |
-| `expected/symphony-handoff.json` | Machine-readable XRD-005 handoff manifest with inputs, approval states, owner split, execution policy, credential bindings, and trusted-runner command. |
+| `expected/symphony-handoff.json` | Machine-readable apitools review handoff manifest with Ramen/Symphony inputs, approval states, owner split, execution policy, credential bindings, and trusted-runner command. |
 
 Required approval states for the Symphony-owned work item:
 

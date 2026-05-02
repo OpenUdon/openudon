@@ -1,7 +1,8 @@
 # XRD-005 Symphony Approval Handoff
 
-This is the Ramen-owned handoff package for the external Symphony owner. It turns the
-approval contract in
+This is the Ramen-owned handoff package for the external Symphony owner. It uses the public
+`github.com/tabilet/apitools` review state machine and handoff schema, then adds Ramen-specific
+artifact paths, Symphony owner split, and trusted-runner command text. It turns the approval contract in
 [`docs/cross-repo-contracts.md#xrd-005-symphony-approval-handoff-contract`](cross-repo-contracts.md#xrd-005-symphony-approval-handoff-contract)
 into an implementation request for Symphony work-item routing. Ramen does not modify
 `../symphony` from this repository.
@@ -29,7 +30,7 @@ Symphony should attach or link these Ramen outputs on the managed work item:
 | `expected/quality.json` | Deterministic quality-gate result. |
 | `expected/refinement.json` | Generation attempts, failed checks, and stop reason. |
 | `expected/review.md` | Human review evidence and trusted-runner handoff text. |
-| `expected/symphony-handoff.json` | Machine-readable handoff inputs, approval states, owner split, execution policy, credential bindings, and trusted-runner command. |
+| `expected/symphony-handoff.json` | Machine-readable apitools review handoff manifest with inputs, approval states, owner split, execution policy, credential bindings, and trusted-runner command. |
 
 ## Approval States
 

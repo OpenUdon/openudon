@@ -16,14 +16,16 @@ import (
 	"time"
 
 	"github.com/genelet/ramen/internal/synthesize"
+	"github.com/tabilet/apitools"
 )
 
 const (
 	ApprovalVersion        = "ramen.approval.v1"
-	SymphonyHandoffVersion = "ramen.symphony-handoff.v1"
+	SymphonyHandoffVersion = apitools.ReviewHandoffVersion
+	legacyHandoffVersion   = "ramen.symphony-handoff.v1"
 
-	StateApprovedForSandbox    = "approved_for_sandbox"
-	StateApprovedForProduction = "approved_for_production"
+	StateApprovedForSandbox    = string(apitools.ReviewStateApprovedForSandbox)
+	StateApprovedForProduction = string(apitools.ReviewStateApprovedForProduction)
 
 	TierSandbox    = "sandbox"
 	TierProduction = "production"
@@ -85,20 +87,7 @@ type paths struct {
 	defaultWorkDir string
 }
 
-type handoffManifest struct {
-	Version        string `json:"version"`
-	GeneratedState string `json:"generated_state"`
-	HandoffInputs  []struct {
-		Path     string `json:"path"`
-		Required bool   `json:"required"`
-	} `json:"handoff_inputs"`
-	ExecutionPolicy struct {
-		DirectProductionExecution bool `json:"direct_production_execution"`
-	} `json:"execution_policy"`
-	CredentialBindings struct {
-		ValuesAllowedInArtifacts bool `json:"values_allowed_in_artifacts"`
-	} `json:"credential_bindings"`
-}
+type handoffManifest = apitools.ReviewHandoff
 
 type packageFile struct {
 	Path   string `json:"path"`
@@ -302,8 +291,9 @@ func readHandoff(path string) (handoffManifest, error) {
 	if err := json.Unmarshal(data, &manifest); err != nil {
 		return handoffManifest{}, fmt.Errorf("handoff manifest must be valid JSON: %w", err)
 	}
-	if manifest.Version != SymphonyHandoffVersion || manifest.GeneratedState != "generated" {
-		return handoffManifest{}, fmt.Errorf("handoff manifest must use version %s and generated state", SymphonyHandoffVersion)
+	allowedVersions := []string{SymphonyHandoffVersion, legacyHandoffVersion}
+	if diagnostics := apitools.ValidateReviewHandoff(manifest, apitools.ReviewHandoffValidationOptions{AllowedVersions: allowedVersions}); len(diagnostics) > 0 {
+		return handoffManifest{}, fmt.Errorf("handoff manifest is invalid: %s", diagnostics[0].Message)
 	}
 	return manifest, nil
 }
