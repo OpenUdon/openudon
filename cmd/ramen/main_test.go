@@ -40,7 +40,7 @@ func TestCLIArtifactHelpIncludesExamplesAndArtifacts(t *testing.T) {
 	for _, expected := range []string{
 		"Usage: ramen synthesize",
 		"Examples:",
-		"gemini-2.5-flash",
+		"gpt-5.4-mini",
 		"Artifacts:",
 		"workflows/intent.hcl",
 		"expected/symphony-handoff.json",
@@ -66,7 +66,7 @@ func TestCLIEvalHelpIncludesReleaseGate(t *testing.T) {
 		"--compare",
 		"--no-compare",
 		"--archive-dir",
-		"gemini-2.5-flash",
+		"gpt-5.4-mini",
 		"writes JSON/Markdown reports",
 		"Normal evals print comparison regressions",
 		"With --release-gate, absolute release criteria and comparison regressions fail",

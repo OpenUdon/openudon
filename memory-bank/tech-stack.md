@@ -63,10 +63,12 @@ but should not import or fork Symphony implementation code.
 
 ## LLM And Provider Policy
 
-- Gemini-backed synthesis defaults to `gemini-2.5-flash`.
-- Escalate to a larger model such as `gemini-2.5-pro` only after Flash fails deterministic checks.
-- Provider credentials come from environment variables such as `GEMINI_API_KEY`, `OPENAI_API_KEY`,
-  or `ANTHROPIC_API_KEY`.
+- Local real-LLM synthesis defaults to the `copilot-api` OpenAI-compatible proxy at
+  `http://localhost:4141` with model `gpt-5.4-mini`.
+- Escalate to a larger model only after the default proxy model fails deterministic checks.
+- Provider credentials and proxy endpoints come from environment variables such as
+  `COPILOT_API_BASE_URL`, `COPILOT_API_KEY`, `GEMINI_API_KEY`, `OPENAI_API_KEY`, or
+  `ANTHROPIC_API_KEY`.
 - Never paste credentials into prompts, commands, examples, review evidence, or eval artifacts.
 - Real-provider evals are local/manual because they spend quota and may produce artifacts that need
   redaction review.

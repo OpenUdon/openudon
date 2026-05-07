@@ -1,8 +1,8 @@
 .PHONY: help test vet check doc-memory readiness release-check release-eval siblings validate-uws eval synthesize-support build-support promote-support assess-support run-example
 
 GO ?= go
-RAMEN_PROVIDER ?= gemini
-RAMEN_MODEL ?= gemini-2.5-flash
+RAMEN_PROVIDER ?= copilot-api
+RAMEN_MODEL ?= gpt-5.4-mini
 RAMEN_RELEASE_MIN_BRIEFS ?= $(shell find ./examples/eval -mindepth 1 -maxdepth 1 -type d | wc -l | tr -d ' ')
 
 help:

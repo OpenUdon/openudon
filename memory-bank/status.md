@@ -57,8 +57,9 @@
 
 ## Notes
 
-- Last recorded full real-LLM smoke baseline in README: 2026-04-28, `gemini-2.5-flash`, structured
-  output path, ten original examples passed with zero legacy extraction fallbacks.
+- Historical full real-LLM smoke baseline in README: 2026-04-28, `gemini-2.5-flash`, structured
+  output path, ten original examples passed with zero legacy extraction fallbacks. Current local
+  real-LLM defaults use `copilot-api` with `gpt-5.4-mini`.
 - Current release evidence should use the expanded eval corpus through `make release-eval`; real
   provider outputs remain ignored and local/manual.
 - Advisory n8n reducibility fixtures remain part of the eval corpus. They should not introduce

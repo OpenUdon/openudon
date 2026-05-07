@@ -213,7 +213,7 @@ func runEvalCommand(args []string) {
 	fs := flag.NewFlagSet("eval", flag.ExitOnError)
 	root := fs.String("root", "examples/eval", "Directory containing eval example subdirectories")
 	name := fs.String("name", "", "Run a single eval brief by directory name")
-	provider := fs.String("provider", "", "LLM provider: openai, anthropic, or gemini; defaults to udon runner env behavior")
+	provider := fs.String("provider", "", "LLM provider: copilot-api, openai, anthropic, or gemini; defaults to udon runner env behavior")
 	model := fs.String("model", "", "LLM model")
 	timeout := fs.Duration("timeout", 2*time.Minute, "LLM generation timeout")
 	maxAttempts := fs.Int("max-attempts", 5, "Maximum refinement attempts")
@@ -231,9 +231,9 @@ func runEvalCommand(args []string) {
 		fmt.Fprintf(fs.Output(), "Normal evals print comparison regressions for review but exit successfully when synthesis completes.\n")
 		fmt.Fprintf(fs.Output(), "With --release-gate, absolute release criteria and comparison regressions fail the command.\n")
 		fmt.Fprintf(fs.Output(), "\nExamples:\n")
-		fmt.Fprintf(fs.Output(), "  ramen eval --root examples/eval --provider gemini --model gemini-2.5-flash\n")
-		fmt.Fprintf(fs.Output(), "  ramen eval --root examples/eval --name support-email --provider gemini --model gemini-2.5-flash\n")
-		fmt.Fprintf(fs.Output(), "  ramen eval --root examples/eval --provider gemini --model gemini-2.5-flash --release-gate\n\n")
+		fmt.Fprintf(fs.Output(), "  ramen eval --root examples/eval --provider copilot-api --model gpt-5.4-mini\n")
+		fmt.Fprintf(fs.Output(), "  ramen eval --root examples/eval --name support-email --provider copilot-api --model gpt-5.4-mini\n")
+		fmt.Fprintf(fs.Output(), "  ramen eval --root examples/eval --provider copilot-api --model gpt-5.4-mini --release-gate\n\n")
 		fs.PrintDefaults()
 	}
 	if err := fs.Parse(args); err != nil {
@@ -349,20 +349,20 @@ func gitMetadata() (string, bool) {
 func runArtifactCommand(command string, args []string) {
 	fs := flag.NewFlagSet(command, flag.ExitOnError)
 	example := fs.String("example", "", "Example directory containing project.md and artifact subdirectories")
-	provider := fs.String("provider", "", "LLM provider: openai, anthropic, or gemini; defaults to udon runner env behavior")
+	provider := fs.String("provider", "", "LLM provider: copilot-api, openai, anthropic, or gemini; defaults to udon runner env behavior")
 	model := fs.String("model", "", "LLM model")
 	timeout := fs.Duration("timeout", 2*time.Minute, "LLM generation timeout")
 	maxAttempts := fs.Int("max-attempts", 5, "Maximum refinement attempts for synthesize/build")
 	temperature := fs.Float64("temperature", 0.2, "Intent generation temperature for synthesize")
 	fs.Usage = func() {
-		fmt.Fprintf(fs.Output(), "Usage: ramen %s --example examples/<name> [--provider gemini --model gemini-2.5-flash]\n", command)
+		fmt.Fprintf(fs.Output(), "Usage: ramen %s --example examples/<name> [--provider copilot-api --model gpt-5.4-mini]\n", command)
 		fmt.Fprintf(fs.Output(), "\n%s\n", artifactCommandDescription(command))
 		fmt.Fprintf(fs.Output(), "\nExamples:\n")
 		switch command {
 		case "synthesize":
-			fmt.Fprintf(fs.Output(), "  ramen synthesize --example examples/support-email --provider gemini --model gemini-2.5-flash --max-attempts 5\n")
+			fmt.Fprintf(fs.Output(), "  ramen synthesize --example examples/support-email --provider copilot-api --model gpt-5.4-mini --max-attempts 5\n")
 		case "build":
-			fmt.Fprintf(fs.Output(), "  ramen build --example examples/support-email --provider gemini --model gemini-2.5-flash\n")
+			fmt.Fprintf(fs.Output(), "  ramen build --example examples/support-email --provider copilot-api --model gpt-5.4-mini\n")
 		case "promote":
 			fmt.Fprintf(fs.Output(), "  ramen promote --example examples/support-email\n")
 		case "assess":

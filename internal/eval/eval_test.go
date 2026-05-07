@@ -8,9 +8,9 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/OpenUdon/uws/uws1"
 	"github.com/genelet/ramen/internal/synthesize"
 	"github.com/genelet/udon/pkg/rollout"
-	"github.com/OpenUdon/uws/uws1"
 )
 
 type fakeRuntimeClient struct{}
@@ -529,8 +529,8 @@ func TestMarkdownIncludesReferenceSeveritySummary(t *testing.T) {
 	policy := ReferencePolicy{Mode: "advisory"}
 	md := Markdown([]EvalResult{{
 		Name:               "a",
-		Provider:           "gemini",
-		Model:              "gemini-2.5-flash",
+		Provider:           "copilot-api",
+		Model:              "gpt-5.4-mini",
 		PromptVersion:      "ramen.prompt.v1",
 		Mode:               "structured",
 		Passed:             true,
@@ -557,13 +557,13 @@ func TestMarkdownIncludesReferenceSeveritySummary(t *testing.T) {
 		"Repeated repair loops: `1`",
 		"Prompt tokens approx total: `123`",
 		"Modes: `structured`=1",
-		"Providers: `gemini`=1",
-		"Models: `gemini-2.5-flash`=1",
+		"Providers: `copilot-api`=1",
+		"Models: `gpt-5.4-mini`=1",
 		"Prompt versions: `ramen.prompt.v1`=1",
 		"## Provider Drift Watch",
 		"Structured fallback count: `0`",
 		"Attempts-to-pass: max `2`, repeated repair loops `1`",
-		"| `a` | pass | gemini | gemini-2.5-flash | ramen.prompt.v1 | structured | 2 |  |  | 2/1/0 | advisory | 123 | 456ms |",
+		"| `a` | pass | copilot-api | gpt-5.4-mini | ramen.prompt.v1 | structured | 2 |  |  | 2/1/0 | advisory | 123 | 456ms |",
 		"## Reference Issue Details",
 		"- advisory `intent.outputs`: extra output (illustrative reference)",
 	} {
@@ -577,8 +577,8 @@ func TestMarkdownIncludesProviderDriftWatch(t *testing.T) {
 	report := BuildRunReport([]EvalResult{
 		{
 			Name:              "legacy",
-			Provider:          "gemini",
-			Model:             "gemini-2.5-flash",
+			Provider:          "copilot-api",
+			Model:             "gpt-5.4-mini",
 			Mode:              "legacy",
 			UsedLegacyExtract: true,
 			Passed:            true,
@@ -586,15 +586,15 @@ func TestMarkdownIncludesProviderDriftWatch(t *testing.T) {
 		},
 		{
 			Name:         "rate-limit",
-			Provider:     "gemini",
-			Model:        "gemini-2.5-flash",
+			Provider:     "copilot-api",
+			Model:        "gpt-5.4-mini",
 			FailureClass: "model",
 			Error:        "api returned status 429 rate limit",
 		},
 	}, ReportOptions{
 		Metadata: RunMetadata{
-			Provider:    "gemini",
-			Model:       "gemini-2.5-flash",
+			Provider:    "copilot-api",
+			Model:       "gpt-5.4-mini",
 			ReleaseGate: true,
 		},
 	})
@@ -604,7 +604,7 @@ func TestMarkdownIncludesProviderDriftWatch(t *testing.T) {
 		"Status: `drift_detected`",
 		"Structured fallback count: `1`",
 		"Rate/transient/model failures: `rate-limit: api returned status 429 rate limit`",
-		"Model availability: provider `gemini`, model `gemini-2.5-flash`, models `gemini-2.5-flash`=2",
+		"Model availability: provider `copilot-api`, model `gpt-5.4-mini`, models `gpt-5.4-mini`=2",
 		"Attempts-to-pass: max `3`, repeated repair loops `1`",
 		"Release-gate failures: `release criteria failed: pass rate",
 		"legacy fallback count 1 exceeds allowed 0",
@@ -624,8 +624,8 @@ func TestBuildRunReportIncludesStructuredProviderDriftWatch(t *testing.T) {
 	}}
 	current := []EvalResult{{
 		Name:              "brief",
-		Provider:          "gemini",
-		Model:             "gemini-2.5-flash",
+		Provider:          "copilot-api",
+		Model:             "gpt-5.4-mini",
 		Mode:              "legacy",
 		UsedLegacyExtract: true,
 		Passed:            true,
@@ -634,8 +634,8 @@ func TestBuildRunReportIncludesStructuredProviderDriftWatch(t *testing.T) {
 	comparison := CompareRuns(current, previous, "previous.json")
 	report := BuildRunReport(current, ReportOptions{
 		Metadata: RunMetadata{
-			Provider:    "gemini",
-			Model:       "gemini-2.5-flash",
+			Provider:    "copilot-api",
+			Model:       "gpt-5.4-mini",
 			ReleaseGate: true,
 			MinBriefs:   2,
 		},
@@ -674,8 +674,8 @@ func TestBuildRunSummaryAggregatesAnalytics(t *testing.T) {
 	summary := BuildRunSummary([]EvalResult{
 		{
 			Name:               "pass",
-			Provider:           "gemini",
-			Model:              "gemini-2.5-flash",
+			Provider:           "copilot-api",
+			Model:              "gpt-5.4-mini",
 			PromptVersion:      "prompt-a",
 			Mode:               "structured",
 			Passed:             true,
@@ -686,8 +686,8 @@ func TestBuildRunSummaryAggregatesAnalytics(t *testing.T) {
 		},
 		{
 			Name:               "repair",
-			Provider:           "gemini",
-			Model:              "gemini-2.5-flash",
+			Provider:           "copilot-api",
+			Model:              "gpt-5.4-mini",
 			PromptVersion:      "prompt-a",
 			Mode:               "legacy",
 			UsedLegacyExtract:  true,
@@ -715,7 +715,7 @@ func TestBuildRunSummaryAggregatesAnalytics(t *testing.T) {
 	if len(summary.FailureClasses) != 1 || summary.FailureClasses[0].Name != "workflow" {
 		t.Fatalf("unexpected failure classes: %#v", summary.FailureClasses)
 	}
-	if len(summary.Providers) != 1 || summary.Providers[0].Name != "gemini" || summary.Providers[0].Count != 2 {
+	if len(summary.Providers) != 1 || summary.Providers[0].Name != "copilot-api" || summary.Providers[0].Count != 2 {
 		t.Fatalf("unexpected providers: %#v", summary.Providers)
 	}
 	if len(summary.ReferencePolicies) != 1 || summary.ReferencePolicies[0].Name != "strict" {
@@ -727,7 +727,7 @@ func TestWriteReportsIncludesSummary(t *testing.T) {
 	out := filepath.Join(t.TempDir(), "run.json")
 	results := []EvalResult{{
 		Name:               "a",
-		Provider:           "gemini",
+		Provider:           "copilot-api",
 		Passed:             true,
 		PromptTokensApprox: 20,
 		DurationMs:         5,

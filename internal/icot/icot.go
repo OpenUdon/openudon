@@ -48,7 +48,7 @@ func runAuthor(args []string, in io.Reader, out, errOut io.Writer) int {
 	answersFile := fs.String("answers", "", "Path to YAML or JSON session/answers file; suppresses interactive prompts when complete")
 	noLLM := fs.Bool("no-llm", false, "Disable optional LLM extraction assistance")
 	noTranscript := fs.Bool("no-transcript", false, "Do not save local .icot transcript history")
-	provider := fs.String("provider", "", "LLM provider for optional extraction: openai, anthropic, or gemini")
+	provider := fs.String("provider", "", "LLM provider for optional extraction: copilot-api, openai, anthropic, or gemini")
 	model := fs.String("model", "", "LLM model for optional extraction")
 	temperature := fs.Float64("temperature", 0.2, "LLM extraction temperature")
 	fs.Usage = func() {
@@ -313,13 +313,13 @@ func runReplayEval(args []string, out, errOut io.Writer) int {
 	fs.SetOutput(out)
 	root := fs.String("root", "examples/eval", "Directory containing eval example subdirectories")
 	name := fs.String("name", "", "Run a single eval fixture by directory name")
-	provider := fs.String("provider", "gemini", "LLM provider for iCoT extraction")
-	model := fs.String("model", "gemini-2.5-flash", "LLM model for iCoT extraction")
+	provider := fs.String("provider", "copilot-api", "LLM provider for iCoT extraction")
+	model := fs.String("model", "gpt-5.4-mini", "LLM model for iCoT extraction")
 	temperature := fs.Float64("temperature", 0.2, "LLM extraction temperature")
 	timeout := fs.Duration("timeout", 2*time.Minute, "Timeout per fixture replay")
 	outDir := fs.String("out-dir", filepath.Join("eval", "runs", "icot-replay-"+time.Now().UTC().Format("20060102T150405Z")), "Directory for replay transcripts and generated artifacts")
 	fs.Usage = func() {
-		fmt.Fprintf(fs.Output(), "Usage: icot replay-eval [--root examples/eval] [--provider gemini --model gemini-2.5-flash] [--out-dir eval/runs/icot-replay-<ts>]\n\n")
+		fmt.Fprintf(fs.Output(), "Usage: icot replay-eval [--root examples/eval] [--provider copilot-api --model gpt-5.4-mini] [--out-dir eval/runs/icot-replay-<ts>]\n\n")
 		fmt.Fprintf(fs.Output(), "Replays eval reference intents through the real iCoT chat loop with LLM extraction enabled and writes transcripts.\n\n")
 		fs.PrintDefaults()
 	}
@@ -1071,6 +1071,8 @@ func resolveExtractor(noLLM bool, provider, model string, temperature float64, o
 
 func providerFromEnv() string {
 	switch {
+	case os.Getenv("COPILOT_API_BASE_URL") != "" || os.Getenv("COPILOT_API_KEY") != "":
+		return "copilot-api"
 	case os.Getenv("GEMINI_API_KEY") != "":
 		return "gemini"
 	case os.Getenv("OPENAI_API_KEY") != "":

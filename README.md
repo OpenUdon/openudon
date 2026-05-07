@@ -118,7 +118,7 @@ go run ./cmd/icot reconcile --example ./examples/<name>
 go run ./cmd/icot lint --example ./examples/<name>
 
 # Replay eval references through iCoT and save ignored transcripts.
-go run ./cmd/icot replay-eval --root ./examples/eval --provider gemini --model gemini-2.5-flash
+go run ./cmd/icot replay-eval --root ./examples/eval --provider copilot-api --model gpt-5.4-mini
 ```
 
 iCoT autosaves incomplete local sessions under `<example>/.icot/session.yaml` and resumes by
@@ -138,11 +138,11 @@ Side-effect scope in iCoT:
 Generate all reviewed artifacts for an example:
 
 ```bash
-export GEMINI_API_KEY=...
+export COPILOT_API_BASE_URL=http://localhost:4141
 go run ./cmd/ramen synthesize \
   --example ./examples/support-email \
-  --provider gemini \
-  --model gemini-2.5-flash \
+  --provider copilot-api \
+  --model gpt-5.4-mini \
   --max-attempts 5
 ```
 
@@ -208,7 +208,7 @@ Use the eval harness when changing prompts, synthesis/refinement behavior, model
 quality gates that could affect generated artifacts:
 
 ```bash
-go run ./cmd/ramen eval --root ./examples/eval --provider gemini --model gemini-2.5-flash
+go run ./cmd/ramen eval --root ./examples/eval --provider copilot-api --model gpt-5.4-mini
 ```
 
 Eval reports are written under ignored `eval/runs/`. They include pass/fail summaries,
@@ -221,8 +221,8 @@ Use release gates only for candidate release evidence:
 make release-eval
 ```
 
-`make release-eval` uses `RAMEN_PROVIDER` and `RAMEN_MODEL`, defaulting to `gemini` and
-`gemini-2.5-flash`, and requires the current eval corpus size as the minimum brief count.
+`make release-eval` uses `RAMEN_PROVIDER` and `RAMEN_MODEL`, defaulting to `copilot-api` and
+`gpt-5.4-mini`, and requires the current eval corpus size as the minimum brief count.
 
 ## Readiness
 
@@ -339,13 +339,14 @@ production effects from synthesis, build, promote, assess, iCoT, or eval.
 
 ## Model And Credential Guidance
 
-Use `gemini-2.5-flash` as the default Gemini model for synthesis. Ramen reliability comes mostly
-from prompt preprocessing, structured output when available, deterministic quality gates, and
-bounded repair attempts. Escalate to a larger model only after Flash fails deterministic checks.
+Use the local `copilot-api` proxy with `gpt-5.4-mini` as the default model for synthesis. Ramen
+reliability comes mostly from prompt preprocessing, structured output when available, deterministic
+quality gates, and bounded repair attempts. Escalate to a larger model only after the default model
+fails deterministic checks.
 
-LLM credentials must come from provider environment variables such as `GEMINI_API_KEY`,
-`OPENAI_API_KEY`, or `ANTHROPIC_API_KEY`. Do not place tokens in prompts, commands, examples, or
-workflow artifacts.
+LLM credentials must come from provider environment variables such as `COPILOT_API_BASE_URL`,
+`COPILOT_API_KEY`, `GEMINI_API_KEY`, `OPENAI_API_KEY`, or `ANTHROPIC_API_KEY`. Do not place tokens in
+prompts, commands, examples, or workflow artifacts.
 
 ## More Documentation
 

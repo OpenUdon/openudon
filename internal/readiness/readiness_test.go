@@ -113,6 +113,7 @@ func TestBuildReadinessFailsMissingSiblingAndIgnore(t *testing.T) {
 
 func TestWriteDoesNotExposeProviderSecretValues(t *testing.T) {
 	t.Setenv("GEMINI_API_KEY", "secret-value")
+	t.Setenv("COPILOT_API_BASE_URL", "http://localhost:4141")
 	root := writeReadinessFixture(t)
 	report, err := Build(context.Background(), Options{
 		RepoRoot: root,
@@ -131,7 +132,7 @@ func TestWriteDoesNotExposeProviderSecretValues(t *testing.T) {
 	if strings.Contains(b.String(), "secret-value") {
 		t.Fatalf("readiness report exposed secret value:\n%s", b.String())
 	}
-	if !strings.Contains(b.String(), `"name": "GEMINI_API_KEY"`) || !strings.Contains(b.String(), `"present": true`) {
+	if !strings.Contains(b.String(), `"name": "GEMINI_API_KEY"`) || !strings.Contains(b.String(), `"name": "COPILOT_API_BASE_URL"`) || !strings.Contains(b.String(), `"present": true`) {
 		t.Fatalf("readiness report did not record provider env presence:\n%s", b.String())
 	}
 	var decoded Report

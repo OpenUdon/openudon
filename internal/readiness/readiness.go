@@ -200,7 +200,7 @@ func gitignoreEntries(path string) map[string]bool {
 }
 
 func providerEnvironmentChecks() []ProviderEnvCheck {
-	names := []string{"GEMINI_API_KEY", "OPENAI_API_KEY", "ANTHROPIC_API_KEY"}
+	names := []string{"COPILOT_API_BASE_URL", "COPILOT_API_KEY", "GEMINI_API_KEY", "OPENAI_API_KEY", "ANTHROPIC_API_KEY"}
 	var checks []ProviderEnvCheck
 	for _, name := range names {
 		present := strings.TrimSpace(os.Getenv(name)) != ""
