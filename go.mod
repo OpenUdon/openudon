@@ -3,7 +3,7 @@ module github.com/genelet/ramen
 go 1.25.5
 
 require (
-	github.com/OpenUdon/apitools v0.0.0-20260507025114-0b52308a4d88
+	github.com/OpenUdon/apitools v0.0.0-20260507114952-44292c0a16ca
 	github.com/OpenUdon/uws v0.0.0-00010101000000-000000000000
 	github.com/genelet/hcllight v0.3.3
 	github.com/genelet/udon v0.0.0

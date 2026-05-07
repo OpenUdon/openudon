@@ -112,8 +112,13 @@ func TestCLICancelWritesNoFiles(t *testing.T) {
 	if err != nil {
 		t.Fatalf("icot cancel failed: %v\n%s", err, output)
 	}
-	if _, err := os.Stat(example); !os.IsNotExist(err) {
-		t.Fatalf("cancel created files or unexpected stat error: %v\n%s", err, output)
+	if _, err := os.Stat(filepath.Join(example, ".icot")); !os.IsNotExist(err) {
+		t.Fatalf("cancel left draft files or unexpected stat error: %v\n%s", err, output)
+	}
+	for _, name := range []string{"project.md", filepath.Join("workflows", "intent.hcl")} {
+		if _, err := os.Stat(filepath.Join(example, name)); !os.IsNotExist(err) {
+			t.Fatalf("cancel wrote %s or unexpected stat error: %v\n%s", name, err, output)
+		}
 	}
 }
 

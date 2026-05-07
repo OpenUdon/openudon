@@ -1,85 +1,39 @@
 package elicitor
 
 import (
-	"errors"
-	"os"
-	"path/filepath"
-
-	"gopkg.in/yaml.v3"
+	"github.com/OpenUdon/apitools/icot"
 )
 
+// DraftPath returns the canonical `.icot/session.yaml` path under exampleDir.
 func DraftPath(exampleDir string) string {
-	return filepath.Join(exampleDir, ".icot", "session.yaml")
+	return icot.DraftPath(exampleDir)
 }
 
+// LoadDraft reads a previously-saved Session from path. The boolean is
+// true when a session was found AND it looks like a real session (per
+// LooksLikeSession).
 func LoadDraft(path string) (Session, bool, error) {
-	data, err := os.ReadFile(path)
-	if errors.Is(err, os.ErrNotExist) {
-		return Session{}, false, nil
-	}
-	if err != nil {
-		return Session{}, false, err
-	}
-	session, err := DecodeSession(data, filepath.Ext(path))
-	if err != nil {
+	session, ok, err := icot.LoadDraft[Session](path)
+	if err != nil || !ok {
 		return Session{}, false, err
 	}
 	session.Normalize()
 	return session, LooksLikeSession(session), nil
 }
 
+// SaveDraft writes session to path atomically. A no-op when path is empty
+// or the session does not look real yet (avoids persisting empty drafts on
+// the first prompt).
 func SaveDraft(path string, session Session) error {
 	if path == "" || !LooksLikeSession(session) {
 		return nil
 	}
 	session.Normalize()
-	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
-		return err
-	}
-	data, err := yaml.Marshal(session)
-	if err != nil {
-		return err
-	}
-	return writeFileAtomic(path, data, 0o600)
+	return icot.SaveDraft(path, session)
 }
 
+// DeleteDraft removes the on-disk draft and prunes the enclosing `.icot/`
+// directory.
 func DeleteDraft(path string) error {
-	if path == "" {
-		return nil
-	}
-	err := os.Remove(path)
-	if errors.Is(err, os.ErrNotExist) {
-		err = nil
-	}
-	if err != nil {
-		return err
-	}
-	draftDir := filepath.Dir(path)
-	_ = os.Remove(draftDir)
-	if filepath.Base(draftDir) == ".icot" {
-		_ = os.Remove(filepath.Dir(draftDir))
-	}
-	return nil
-}
-
-func writeFileAtomic(path string, data []byte, perm os.FileMode) error {
-	dir := filepath.Dir(path)
-	tmp, err := os.CreateTemp(dir, "."+filepath.Base(path)+".tmp.")
-	if err != nil {
-		return err
-	}
-	tmpPath := tmp.Name()
-	defer os.Remove(tmpPath)
-	if _, err := tmp.Write(data); err != nil {
-		_ = tmp.Close()
-		return err
-	}
-	if err := tmp.Chmod(perm); err != nil {
-		_ = tmp.Close()
-		return err
-	}
-	if err := tmp.Close(); err != nil {
-		return err
-	}
-	return os.Rename(tmpPath, path)
+	return icot.DeleteDraft(path)
 }

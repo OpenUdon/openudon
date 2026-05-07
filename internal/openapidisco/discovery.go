@@ -1,20 +1,22 @@
+// Package openapidisco re-exports the apitools openapidisco helpers under
+// ramen's historical import path so existing call sites keep compiling.
+// New code should depend on `github.com/OpenUdon/apitools/openapidisco`
+// directly.
 package openapidisco
 
 import (
-	"context"
-
-	"github.com/OpenUdon/apitools"
+	"github.com/OpenUdon/apitools/openapidisco"
 )
 
-type Candidate = apitools.DiscoveryCandidate
-type DiscoveryReport = apitools.DiscoveryReport
-type DiscoveryAttempt = apitools.DiscoveryAttempt
-type Discoverer = apitools.Discoverer
+type Candidate = openapidisco.Candidate
+type DiscoveryReport = openapidisco.DiscoveryReport
+type DiscoveryAttempt = openapidisco.DiscoveryAttempt
+type Discoverer = openapidisco.Discoverer
 
 func LocalFiles(openAPIDir, baseDir, projectText string) ([]Candidate, error) {
-	return apitools.DiscoverOpenAPI(context.Background(), openAPIDir, baseDir, projectText)
+	return openapidisco.LocalFiles(openAPIDir, baseDir, projectText)
 }
 
 func SelectPrimary(candidates []Candidate) (Candidate, error) {
-	return apitools.SelectPrimaryDiscoveryCandidate(candidates)
+	return openapidisco.SelectPrimary(candidates)
 }

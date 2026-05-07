@@ -39,6 +39,13 @@
 - [x] Approval template generation and local trusted-runner validation implemented.
 - [x] Ramen adoption of shared `apitools` authoring core compatibility adapter completed without
   importing OpenUdon concrete IaC models.
+- [x] OpenAPI discovery + `.icot/session.yaml` draft persistence relocated to
+  `apitools/openapidisco` and `apitools/icot` (2026-05-07). Ramen keeps thin shims at
+  `internal/openapidisco` and `internal/icot/elicitor/draft.go` so existing call sites compile
+  unchanged. The conversation engine itself was NOT extracted: `apitools.RunProgressiveICOT[S, D, A]`
+  + `ProgressiveLoopHooks[S, D, A]` already implement the bound-runtime pattern, so `ramen`'s
+  rollout-shaped `Extractor`, `classification`, `progressive`, `loop`, `session`, `api` files
+  remain in `internal/icot/elicitor/` as the rollout binding of those generic hooks.
 - [x] Hosted CI intentionally disabled during active private-sibling development.
 - [x] Roadmap, XRD, onboarding, operator, and safety docs consolidated into memory-bank and README.
 

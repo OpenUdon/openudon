@@ -118,6 +118,16 @@ follow-up. The offline path uses the fixed manual loop. iCoT autosaves local ses
 ignored `.icot/session.yaml`, writes ignored transcripts when enabled, and treats final artifact
 writes as an atomic small transaction.
 
+The conversation engine is not Ramen-owned. `apitools.RunProgressiveICOT[S, D, A]` plus
+`ProgressiveLoopHooks[S, D, A]` are the bound-runtime layer (mirroring the
+`uws1.Document.Runtime` pattern): apitools owns the structural loop — opening, optional
+disambiguation, draft+question iterations, final confirmation, transcript persistence — and
+each engine binds its own domain-shaped hooks. Ramen's `internal/icot/elicitor/` files
+(`extractor`, `classification`, `progressive`, `loop`, `session`, `api`) are the rollout
+binding. `apitools/openapidisco` and `apitools/icot` (`LoadDraft[T]`/`SaveDraft[T]`)
+are the cross-engine helpers; OpenUdon will plug an IaC-shaped binding into the same
+generic loop.
+
 ## Symphony And Trusted Execution
 
 Ramen keeps `../symphony` untouched. The Ramen-owned handoff package gives Symphony or any reviewer
