@@ -35,20 +35,14 @@ func writeSymphonyHandoff(result Result, policy projectPolicy, profile sideEffec
 }
 
 func buildSymphonyHandoff(result Result, policy projectPolicy, profile sideEffectProfile) SymphonyHandoff {
+	bindingContract := apitools.BuildBindingContract(apitools.BindingContractOptions{
+		BindingNames:         credentialBindingNames(policy),
+		ExpectedBindingNames: expectedPlanCredentialNames(result.PlanJSONPath),
+	})
 	return apitools.NewReviewHandoff(apitools.ReviewHandoffOptions{
 		Version:        symphonyHandoffVersion,
 		GeneratedState: string(apitools.ReviewStateGenerated),
-		HandoffInputs: []SymphonyHandoffInput{
-			{Path: relOrAbs(result.ExampleDir, result.ProjectPath), Purpose: "Source brief, integration policy, runtime policy, credentials policy, safety boundary, and fallback behavior.", Required: true},
-			{Path: relOrAbs(result.ExampleDir, result.IntentPath), Purpose: "Structured intent extracted from the project brief.", Required: true},
-			{Path: relOrAbs(result.ExampleDir, result.WorkflowPath), Purpose: "udon workflow source produced from intent.", Required: true},
-			{Path: relOrAbs(result.ExampleDir, result.UWSPath), Purpose: "Exported UWS artifact validated against the public UWS schema and udon profile checks.", Required: true},
-			{Path: relOrAbs(result.ExampleDir, result.PlanJSONPath), Purpose: "Machine-readable expected steps, bindings, credentials, control flow, and side-effect hints.", Required: true},
-			{Path: relOrAbs(result.ExampleDir, result.QualityJSONPath), Purpose: "Deterministic quality gate result.", Required: true},
-			{Path: relOrAbs(result.ExampleDir, result.RefinementJSONPath), Purpose: "Generation/refinement attempts, failed checks, and stop reason.", Required: true},
-			{Path: relOrAbs(result.ExampleDir, result.ReviewPath), Purpose: "Human review evidence, unresolved risks, skipped execution notes, and trusted-runner command text.", Required: true},
-			{Path: relOrAbs(result.ExampleDir, result.SymphonyHandoffPath), Purpose: "Machine-readable XRD-005 handoff manifest for Symphony work-item routing.", Required: true},
-		},
+		HandoffInputs:  symphonyHandoffInputs(result),
 		ApprovalStates: apitools.DefaultReviewStateMachine(),
 		OwnerSplit: SymphonyOwnerSplit{
 			"ramen": {
@@ -67,15 +61,25 @@ func buildSymphonyHandoff(result Result, policy projectPolicy, profile sideEffec
 				"production-execution enforcement",
 			},
 		},
-		ExecutionPolicy: apitools.DefaultReviewExecutionPolicy(profile.SideEffectful),
-		CredentialBindings: SymphonyCredentialBindings{
-			Declared:                 credentialBindingNames(policy),
-			ExpectedFromPlan:         expectedPlanCredentialNames(result.PlanJSONPath),
-			ValuesAllowedInArtifacts: false,
-		},
+		ExecutionPolicy:    apitools.DefaultReviewExecutionPolicy(profile.SideEffectful),
+		CredentialBindings: bindingContract.ReviewCredentialBindings(),
 		TrustedRunner: SymphonyTrustedRunner{
 			Command:     fmt.Sprintf("./scripts/run-udon.sh %s %s", relOrAbs(filepath.Dir(result.ExampleDir), result.WorkflowPath), result.ExampleDir),
 			SandboxOnly: profile.SideEffectful,
 		},
+	})
+}
+
+func symphonyHandoffInputs(result Result) []SymphonyHandoffInput {
+	return apitools.ReviewHandoffInputsFromArtifacts([]apitools.ReviewArtifactInput{
+		{Path: relOrAbs(result.ExampleDir, result.ProjectPath), Purpose: "Source brief, integration policy, runtime policy, credentials policy, safety boundary, and fallback behavior.", Required: true},
+		{Path: relOrAbs(result.ExampleDir, result.IntentPath), Purpose: "Structured intent extracted from the project brief.", Required: true},
+		{Path: relOrAbs(result.ExampleDir, result.WorkflowPath), Purpose: "udon workflow source produced from intent.", Required: true},
+		{Path: relOrAbs(result.ExampleDir, result.UWSPath), Purpose: "Exported UWS artifact validated against the public UWS schema and udon profile checks.", Required: true},
+		{Path: relOrAbs(result.ExampleDir, result.PlanJSONPath), Purpose: "Machine-readable expected steps, bindings, credentials, control flow, and side-effect hints.", Required: true},
+		{Path: relOrAbs(result.ExampleDir, result.QualityJSONPath), Purpose: "Deterministic quality gate result.", Required: true},
+		{Path: relOrAbs(result.ExampleDir, result.RefinementJSONPath), Purpose: "Generation/refinement attempts, failed checks, and stop reason.", Required: true},
+		{Path: relOrAbs(result.ExampleDir, result.ReviewPath), Purpose: "Human review evidence, unresolved risks, skipped execution notes, and trusted-runner command text.", Required: true},
+		{Path: relOrAbs(result.ExampleDir, result.SymphonyHandoffPath), Purpose: "Machine-readable XRD-005 handoff manifest for Symphony work-item routing.", Required: true},
 	})
 }

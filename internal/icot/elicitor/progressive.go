@@ -8,9 +8,10 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/OpenUdon/apitools"
+	apicot "github.com/OpenUdon/apitools/icot"
 	"github.com/genelet/ramen/internal/projectwizard"
 	"github.com/genelet/udon/pkg/rollout"
-	"github.com/OpenUdon/apitools"
 )
 
 type ReadinessIssue = apitools.ReadinessIssue
@@ -38,23 +39,21 @@ func runProgressive(ctx context.Context, in io.Reader, out io.Writer, seed Sessi
 	if session.Intent.Workflow != nil {
 		openingBrief = strings.TrimSpace(session.Intent.Workflow.Description)
 	}
-	artifacts, err := apitools.RunProgressiveICOT(ctx, in, out, apitools.ProgressiveLoopHooks[Session, APIDocument, Artifacts]{
+	hooks := apitools.ProgressiveLoopHooks[Session, APIDocument, Artifacts]{
 		Session:       session,
 		Documents:     docs,
 		Opening:       openingBrief,
+		Brief:         projectText,
 		NoLLM:         opts.NoLLM,
 		MaxAttempts:   20,
 		OpeningPrompt: "Tell me what you want this API/workflow to accomplish. Include inputs, API actions, outputs, and safety constraints if you know them. Do not paste secrets.",
-		Extractor:     progressiveExtractor{Extractor: extractor},
+		Extractor:     extractor,
 		Normalize: func(session *Session) {
 			session.Normalize()
 		},
 		ApplyOpeningAnswer: func(session *Session, answer string, docs []APIDocument) error {
 			applyProgressiveAnswer(session, QuestionPlan{Slots: []string{"workflow.goal"}}, answer, docs)
 			return nil
-		},
-		Autosave: func(session Session) error {
-			return autosave(opts.DraftPath, session)
 		},
 		RankDocuments: rankDocuments,
 		DeterministicPrefill: func(session *Session, docs []APIDocument) bool {
@@ -103,28 +102,29 @@ func runProgressive(ctx context.Context, in io.Reader, out io.Writer, seed Sessi
 				"assumptions":      artifacts.Session.Assumptions,
 			}
 		},
-		SaveTranscript: func(turns []ReplayTurn, events []TranscriptEvent, artifacts Artifacts) error {
-			return SaveTranscriptWithEvents(opts.TranscriptPath, turns, events, artifacts.Session)
+	}
+	artifacts, err := apicot.RunProgressiveWithLifecycle(ctx, in, out, hooks, apicot.ProgressiveLifecycleOptions[Session, APIDocument, Artifacts]{
+		DraftPath:         opts.DraftPath,
+		TranscriptPath:    opts.TranscriptPath,
+		TranscriptVersion: "ramen.icot-transcript.v1",
+		Normalize: func(session *Session) {
+			session.Normalize()
+		},
+		LooksLikeSession: LooksLikeSession,
+		Opening: func(session Session) string {
+			if session.Intent.Workflow == nil {
+				return ""
+			}
+			return strings.TrimSpace(session.Intent.Workflow.Description)
+		},
+		TranscriptSession: func(artifacts Artifacts) any {
+			return artifacts.Session
 		},
 	})
 	if errors.Is(err, apitools.ErrCanceled) {
 		return artifacts, ErrCanceled
 	}
 	return artifacts, err
-}
-
-type progressiveExtractor struct {
-	Extractor
-}
-
-func (extractor progressiveExtractor) Draft(ctx context.Context, request apitools.InteractiveDraftRequest[Session, APIDocument]) (Session, error) {
-	return extractor.Extractor.Draft(ctx, DraftRequest{
-		Opening:           request.Opening,
-		Session:           request.Session,
-		Docs:              request.Docs,
-		TranscriptTurns:   request.TranscriptTurns,
-		ReadinessFeedback: request.ReadinessFeedback,
-	})
 }
 
 func CheckReadiness(session Session, docs []APIDocument) []ReadinessIssue {
@@ -547,7 +547,7 @@ func applyProgressiveAnswer(session *Session, plan QuestionPlan, answer string, 
 				session.Intent.Steps = []*rollout.Step{stepFromOperation(op)}
 			} else {
 				session.Intent.Steps[0].Type = firstNonEmpty(session.Intent.Steps[0].Type, "http")
-				session.Intent.Steps[0].Do = firstNonEmpty(session.Intent.Steps[0].Do, op.Summary, operationLabel(op))
+				session.Intent.Steps[0].Do = firstNonEmpty(session.Intent.Steps[0].Do, op.Summary, operationLabel(*op))
 				session.Intent.Steps[0].Operation = op.OperationID
 			}
 			addMappingClassification(session, MappingClassification{
@@ -849,7 +849,7 @@ func needsAPIDoc(session Session, docs []APIDocument) bool {
 	return false
 }
 
-func operationForStep(session Session, docs []APIDocument, step *rollout.Step) (*rollout.OperationInfo, bool) {
+func operationForStep(session Session, docs []APIDocument, step *rollout.Step) (*apitools.OperationSummary, bool) {
 	if step == nil || strings.TrimSpace(step.Operation) == "" {
 		return nil, false
 	}
@@ -861,16 +861,16 @@ func operationForStep(session Session, docs []APIDocument, step *rollout.Step) (
 		return op, true
 	}
 	for _, doc := range docs {
-		for _, op := range doc.Operations {
-			if op != nil && op.OperationID == step.Operation {
-				return op, true
+		for i := range doc.Operations {
+			if doc.Operations[i].OperationID == step.Operation {
+				return &doc.Operations[i], true
 			}
 		}
 	}
 	return nil, false
 }
 
-func missingRequiredFields(step *rollout.Step, op *rollout.OperationInfo) []string {
+func missingRequiredFields(step *rollout.Step, op *apitools.OperationSummary) []string {
 	available := map[string]bool{}
 	for field, value := range step.With {
 		if strings.TrimSpace(value) != "" {
@@ -896,65 +896,14 @@ func missingRequiredFields(step *rollout.Step, op *rollout.OperationInfo) []stri
 	return missing
 }
 
-func requiredMappingFields(op *rollout.OperationInfo) []string {
+func requiredMappingFields(op *apitools.OperationSummary) []string {
 	if op == nil {
 		return nil
 	}
-	var out []string
-	for _, parameter := range op.Parameters {
-		if parameter != nil && parameter.Required {
-			out = append(out, parameter.Name)
-		}
-	}
-	if op.RequestBody != nil && op.RequestBody.Required {
-		bodyFields := requiredLeafBodyFields(op.RequestBody)
-		if len(bodyFields) == 0 {
-			out = append(out, "body")
-		} else {
-			out = append(out, bodyFields...)
-		}
-	}
-	for _, security := range op.Security {
-		if field := securityFieldName(security); field != "" {
-			out = append(out, field)
-		}
-	}
-	return dedupeStrings(out)
+	return apitools.RequiredOperationFields(*op)
 }
 
-func requiredLeafBodyFields(body *rollout.RequestBodyInfo) []string {
-	var required []requestBodyFieldContext
-	for _, field := range flattenRequestBodyFields(body) {
-		if field.Required {
-			required = append(required, field)
-		}
-	}
-	var out []string
-	for _, field := range required {
-		if requestBodyFieldHasRequiredDescendant(field.Path, required) {
-			continue
-		}
-		out = append(out, field.Path)
-	}
-	sort.Strings(out)
-	return out
-}
-
-func requestBodyFieldHasRequiredDescendant(path string, fields []requestBodyFieldContext) bool {
-	prefix := path + "."
-	arrayPrefix := path + "[]."
-	for _, field := range fields {
-		if field.Path == path {
-			continue
-		}
-		if strings.HasPrefix(field.Path, prefix) || strings.HasPrefix(field.Path, arrayPrefix) {
-			return true
-		}
-	}
-	return false
-}
-
-func validateOpenAPIRequestMappings(session Session, step *rollout.Step, op *rollout.OperationInfo, slotPrefix string) []ReadinessIssue {
+func validateOpenAPIRequestMappings(session Session, step *rollout.Step, op *apitools.OperationSummary, slotPrefix string) []ReadinessIssue {
 	if step == nil || op == nil {
 		return nil
 	}
@@ -1017,29 +966,13 @@ type openAPIRequestFieldInfo struct {
 	Body bool
 }
 
-func openAPIRequestFieldTypes(op *rollout.OperationInfo) map[string]openAPIRequestFieldInfo {
+func openAPIRequestFieldTypes(op *apitools.OperationSummary) map[string]openAPIRequestFieldInfo {
 	out := map[string]openAPIRequestFieldInfo{}
 	if op == nil {
 		return out
 	}
-	for _, parameter := range op.Parameters {
-		if parameter == nil || strings.TrimSpace(parameter.Name) == "" {
-			continue
-		}
-		out[parameter.Name] = openAPIRequestFieldInfo{Type: parameter.Type}
-	}
-	for _, security := range op.Security {
-		if field := securityFieldName(security); field != "" {
-			out[field] = openAPIRequestFieldInfo{Type: "string"}
-		}
-	}
-	if op.RequestBody != nil {
-		for _, field := range flattenRequestBodyFields(op.RequestBody) {
-			if strings.TrimSpace(field.Path) == "" {
-				continue
-			}
-			out[field.Path] = openAPIRequestFieldInfo{Type: field.Type, Body: true}
-		}
+	for field, info := range apitools.OperationRequestFieldTypes(*op) {
+		out[field] = openAPIRequestFieldInfo{Type: info.Type, Body: info.Body}
 	}
 	return out
 }
@@ -1129,8 +1062,8 @@ func isNumberLiteral(value string) bool {
 	return seenDigit
 }
 
-func operationNeedsCredential(op *rollout.OperationInfo) bool {
-	return op != nil && len(op.Security) > 0
+func operationNeedsCredential(op *apitools.OperationSummary) bool {
+	return op != nil && apitools.OperationNeedsCredential(*op)
 }
 
 func missingRuntimeInputs(session Session) []string {
@@ -1229,7 +1162,7 @@ func suggestedDocAnswer(docs []APIDocument) string {
 func suggestedOperationAnswer(docs []APIDocument) string {
 	for _, doc := range docs {
 		for _, op := range doc.Operations {
-			if op != nil && op.OperationID != "" {
+			if op.OperationID != "" {
 				return op.OperationID
 			}
 		}
@@ -1237,7 +1170,7 @@ func suggestedOperationAnswer(docs []APIDocument) string {
 	return "Describe the action in business terms."
 }
 
-func suggestedFieldAssignments(session Session, docs []APIDocument, step *rollout.Step, op *rollout.OperationInfo, fields []string) string {
+func suggestedFieldAssignments(session Session, docs []APIDocument, step *rollout.Step, op *apitools.OperationSummary, fields []string) string {
 	var parts []string
 	for _, field := range fields {
 		parts = append(parts, field+"="+suggestedFieldSource(session, docs, step, op, field))
@@ -1245,14 +1178,14 @@ func suggestedFieldAssignments(session Session, docs []APIDocument, step *rollou
 	return strings.Join(parts, ", ")
 }
 
-func suggestedCredentialName(op *rollout.OperationInfo) string {
+func suggestedCredentialName(op *apitools.OperationSummary) string {
 	if op == nil || len(op.Security) == 0 {
 		return "api_token"
 	}
-	return slugIdent(op.Security[0])
+	return slugIdent(op.Security[0].Name)
 }
 
-func suggestedCredentialNameForOperation(session Session, docs []APIDocument, step *rollout.Step, op *rollout.OperationInfo) string {
+func suggestedCredentialNameForOperation(session Session, docs []APIDocument, step *rollout.Step, op *apitools.OperationSummary) string {
 	if len(session.Credentials) == 1 {
 		return session.Credentials[0]
 	}
@@ -1265,7 +1198,7 @@ func suggestedCredentialNameForOperation(session Session, docs []APIDocument, st
 	return suggestedCredentialName(op)
 }
 
-func suggestedFieldSource(session Session, docs []APIDocument, step *rollout.Step, op *rollout.OperationInfo, field string) string {
+func suggestedFieldSource(session Session, docs []APIDocument, step *rollout.Step, op *apitools.OperationSummary, field string) string {
 	field = strings.TrimSpace(field)
 	if field == "" {
 		return ""
@@ -1288,7 +1221,7 @@ func suggestedFieldSource(session Session, docs []APIDocument, step *rollout.Ste
 	return "inputs." + slugIdent(field)
 }
 
-func inputMatchByLeafOrDescription(inputs []*rollout.Input, field string, op *rollout.OperationInfo) (string, bool) {
+func inputMatchByLeafOrDescription(inputs []*rollout.Input, field string, op *apitools.OperationSummary) (string, bool) {
 	leaf := slugIdent(fieldLeaf(field))
 	for _, input := range inputs {
 		if input == nil || strings.TrimSpace(input.Name) == "" {
@@ -1328,17 +1261,17 @@ func fieldLeaf(field string) string {
 	return field
 }
 
-func requestFieldDescription(op *rollout.OperationInfo, field string) string {
+func requestFieldDescription(op *apitools.OperationSummary, field string) string {
 	if op == nil {
 		return ""
 	}
 	for _, parameter := range op.Parameters {
-		if parameter != nil && parameter.Name == field {
+		if parameter.Name == field {
 			return parameter.Description
 		}
 	}
 	if op.RequestBody != nil {
-		for _, bodyField := range flattenRequestBodyFields(op.RequestBody) {
+		for _, bodyField := range op.RequestBody.Fields {
 			if bodyField.Path == field {
 				return bodyField.Description
 			}
@@ -1347,32 +1280,19 @@ func requestFieldDescription(op *rollout.OperationInfo, field string) string {
 	return ""
 }
 
-func suggestedCredentialField(field string, op *rollout.OperationInfo) bool {
+func suggestedCredentialField(field string, op *apitools.OperationSummary) bool {
 	if op == nil || len(op.Security) == 0 {
 		return false
 	}
 	for _, security := range op.Security {
-		if field == securityFieldName(security) {
+		if field == apitools.SecurityCredentialFieldName(security) {
 			return true
 		}
 	}
 	return strings.EqualFold(field, "Authorization")
 }
 
-func safeLiteralDefault(field string, op *rollout.OperationInfo) (string, bool) {
-	if op == nil || op.RequestBody == nil || secretLikeField(field) {
-		return "", false
-	}
-	for _, bodyField := range flattenRequestBodyFields(op.RequestBody) {
-		if bodyField.Path != field || !safeScalarType(bodyField.Type) {
-			continue
-		}
-		for _, value := range []any{bodyField.Default, firstEnumValue(bodyField.Enum), bodyField.Example} {
-			if formatted, ok := formatSafeLiteral(value, bodyField.Type); ok {
-				return formatted, true
-			}
-		}
-	}
+func safeLiteralDefault(field string, op *apitools.OperationSummary) (string, bool) {
 	return "", false
 }
 
@@ -1431,7 +1351,7 @@ func secretLikeField(field string) bool {
 	return false
 }
 
-func documentForStep(session Session, docs []APIDocument, step *rollout.Step, op *rollout.OperationInfo) (APIDocument, bool) {
+func documentForStep(session Session, docs []APIDocument, step *rollout.Step, op *apitools.OperationSummary) (APIDocument, bool) {
 	if op == nil {
 		return APIDocument{}, false
 	}
@@ -1444,7 +1364,7 @@ func documentForStep(session Session, docs []APIDocument, step *rollout.Step, op
 			continue
 		}
 		for _, candidate := range doc.Operations {
-			if candidate == op || (candidate != nil && candidate.OperationID == op.OperationID) {
+			if candidate.OperationID == op.OperationID {
 				return doc, true
 			}
 		}
@@ -1452,7 +1372,7 @@ func documentForStep(session Session, docs []APIDocument, step *rollout.Step, op
 	if docPath == "" {
 		for _, doc := range docs {
 			for _, candidate := range doc.Operations {
-				if candidate == op || (candidate != nil && candidate.OperationID == op.OperationID) {
+				if candidate.OperationID == op.OperationID {
 					return doc, true
 				}
 			}
@@ -1569,7 +1489,7 @@ func fillCredentialFields(session *Session, docs []APIDocument, credential strin
 		if step.With == nil {
 			step.With = map[string]string{}
 		}
-		for _, field := range requiredFields(op) {
+		for _, field := range apitools.RequiredOperationFields(*op) {
 			if step.With[field] == "" && looksCredentialField(field, op) {
 				step.With[field] = "credentials." + credential
 				addMappingClassification(session, MappingClassification{
@@ -1586,13 +1506,13 @@ func fillCredentialFields(session *Session, docs []APIDocument, credential strin
 	})
 }
 
-func looksCredentialField(field string, op *rollout.OperationInfo) bool {
+func looksCredentialField(field string, op *apitools.OperationSummary) bool {
 	lowerField := strings.ToLower(field)
 	if strings.Contains(lowerField, "auth") || strings.Contains(lowerField, "token") || strings.Contains(lowerField, "key") {
 		return true
 	}
 	for _, security := range op.Security {
-		if field == securityFieldName(security) {
+		if field == apitools.SecurityCredentialFieldName(security) {
 			return true
 		}
 	}
@@ -1609,14 +1529,12 @@ func matchDocAnswer(answer string, docs []APIDocument) APIDocument {
 	return APIDocument{}
 }
 
-func matchOperationAnswer(answer string, docs []APIDocument) (APIDocument, *rollout.OperationInfo) {
+func matchOperationAnswer(answer string, docs []APIDocument) (APIDocument, *apitools.OperationSummary) {
 	answer = strings.TrimSpace(answer)
 	for _, doc := range docs {
-		for i, op := range doc.Operations {
-			if op == nil {
-				continue
-			}
-			if answer == op.OperationID || answer == fmt.Sprint(i+1) || strings.Contains(strings.ToLower(operationLabel(op)), strings.ToLower(answer)) {
+		for i := range doc.Operations {
+			op := &doc.Operations[i]
+			if answer == op.OperationID || answer == fmt.Sprint(i+1) || strings.Contains(strings.ToLower(operationLabel(*op)), strings.ToLower(answer)) {
 				return doc, op
 			}
 		}
@@ -1624,11 +1542,11 @@ func matchOperationAnswer(answer string, docs []APIDocument) (APIDocument, *roll
 	return APIDocument{}, nil
 }
 
-func stepFromOperation(op *rollout.OperationInfo) *rollout.Step {
+func stepFromOperation(op *apitools.OperationSummary) *rollout.Step {
 	return &rollout.Step{
 		Name:      actionName(firstNonEmpty(op.OperationID, op.Summary, op.Path)),
 		Type:      "http",
-		Do:        firstNonEmpty(op.Summary, operationLabel(op)),
+		Do:        firstNonEmpty(op.Summary, operationLabel(*op)),
 		Operation: op.OperationID,
 	}
 }

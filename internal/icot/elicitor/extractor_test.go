@@ -7,6 +7,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/OpenUdon/apitools"
 	"github.com/genelet/udon/pkg/rollout"
 )
 
@@ -95,12 +96,12 @@ func TestDisambiguateFiltersInventedPaths(t *testing.T) {
 func TestDraftPromptRequestIncludesStructuredParameters(t *testing.T) {
 	op := promptOperation(t, DraftRequest{Docs: []APIDocument{{
 		RelativePath: "openapi/support.yaml",
-		Operations: []*rollout.OperationInfo{{
+		Operations: []apitools.OperationSummary{{
 			OperationID: "getTicket",
 			Method:      "GET",
 			Path:        "/tickets/{ticketId}",
 			Tags:        []string{"support"},
-			Parameters: []*rollout.ParameterInfo{
+			Parameters: []apitools.ParameterSummary{
 				{Name: "ticketId", In: "path", Required: true, Type: "string", Description: "Ticket identifier"},
 				{Name: "include", In: "query", Type: "string", Description: "Related resources"},
 				{Name: "X-Trace-ID", In: "header", Type: "string", Description: "Trace header"},
@@ -119,39 +120,21 @@ func TestDraftPromptRequestIncludesStructuredParameters(t *testing.T) {
 func TestDraftPromptRequestFlattensNestedRequestBody(t *testing.T) {
 	op := promptOperation(t, DraftRequest{Docs: []APIDocument{{
 		RelativePath: "openapi/orders.yaml",
-		Operations: []*rollout.OperationInfo{{
+		Operations: []apitools.OperationSummary{{
 			OperationID: "createOrder",
 			Method:      "POST",
 			Path:        "/orders",
-			RequestBody: &rollout.RequestBodyInfo{
-				Required:    true,
-				ContentType: "application/json",
-				Schema: map[string]any{
-					"type":     "object",
-					"required": []any{"customer", "items"},
-					"properties": map[string]any{
-						"customer": map[string]any{
-							"type":     "object",
-							"required": []any{"email"},
-							"properties": map[string]any{
-								"email": map[string]any{"type": "string", "description": "Customer email", "example": "ada@example.com"},
-								"name":  map[string]any{"type": "string", "default": "Ada"},
-							},
-						},
-						"items": map[string]any{
-							"type": "array",
-							"items": map[string]any{
-								"type":     "object",
-								"required": []any{"sku"},
-								"properties": map[string]any{
-									"quantity": map[string]any{"type": "integer", "default": 1},
-									"sku":      map[string]any{"type": "string", "description": "Product SKU"},
-								},
-							},
-						},
-						"note": map[string]any{"type": "string"},
-					},
+			RequestBody: &apitools.RequestBodySummary{
+				Required:     true,
+				ContentTypes: []string{"application/json"},
+				Schema:       &apitools.SchemaSummary{Type: "object"},
+				Fields: []apitools.RequestFieldSummary{
+					{Path: "customer.email", Required: true, Type: "string", Description: "Customer email"},
+					{Path: "customer.name", Type: "string"},
+					{Path: "items[].sku", Required: true, Type: "string", Description: "Product SKU"},
+					{Path: "items[].quantity", Type: "integer"},
 				},
+				RequiredFieldPaths: []string{"customer.email", "items[].sku"},
 			},
 		}},
 	}}})
@@ -160,10 +143,10 @@ func TestDraftPromptRequestFlattensNestedRequestBody(t *testing.T) {
 	if !body.Required || body.ContentType != "application/json" || body.Type != "object" {
 		t.Fatalf("request body context = %#v", body)
 	}
-	assertBodyField(t, body.Fields, "customer.email", true, "string", "Customer email", "ada@example.com", nil)
-	assertBodyField(t, body.Fields, "customer.name", false, "string", "", nil, "Ada")
-	assertBodyField(t, body.Fields, "items[].sku", true, "string", "Product SKU", nil, nil)
-	assertBodyField(t, body.Fields, "items[].quantity", false, "integer", "", nil, 1)
+	assertBodyField(t, body.Fields, "customer.email", true, "string", "Customer email")
+	assertBodyField(t, body.Fields, "customer.name", false, "string", "")
+	assertBodyField(t, body.Fields, "items[].sku", true, "string", "Product SKU")
+	assertBodyField(t, body.Fields, "items[].quantity", false, "integer", "")
 	if !containsString(body.RequiredFieldPaths, "customer.email") || !containsString(body.RequiredFieldPaths, "items[].sku") {
 		t.Fatalf("required field paths = %#v", body.RequiredFieldPaths)
 	}
@@ -172,11 +155,15 @@ func TestDraftPromptRequestFlattensNestedRequestBody(t *testing.T) {
 func TestDraftPromptRequestFallsBackForUnknownRequestBodySchema(t *testing.T) {
 	op := promptOperation(t, DraftRequest{Docs: []APIDocument{{
 		RelativePath: "openapi/upload.yaml",
-		Operations: []*rollout.OperationInfo{{
+		Operations: []apitools.OperationSummary{{
 			OperationID: "upload",
 			Method:      "POST",
 			Path:        "/upload",
-			RequestBody: &rollout.RequestBodyInfo{Required: true, ContentType: "application/octet-stream"},
+			RequestBody: &apitools.RequestBodySummary{
+				Required:     true,
+				ContentTypes: []string{"application/octet-stream"},
+				Fields:       []apitools.RequestFieldSummary{{Path: "body", Required: true}},
+			},
 		}},
 	}}})
 
@@ -192,11 +179,11 @@ func TestDraftPromptRequestFallsBackForUnknownRequestBodySchema(t *testing.T) {
 func TestDraftPromptRequestIncludesSecurityCredentialFields(t *testing.T) {
 	op := promptOperation(t, DraftRequest{Docs: []APIDocument{{
 		RelativePath: "openapi/support.yaml",
-		Operations: []*rollout.OperationInfo{{
+		Operations: []apitools.OperationSummary{{
 			OperationID: "getTicket",
 			Method:      "GET",
 			Path:        "/tickets/{ticketId}",
-			Security:    []string{"BearerAuth", "ApiKeyAuth"},
+			Security:    securitySummaries("BearerAuth", "ApiKeyAuth"),
 		}},
 	}}})
 
@@ -214,7 +201,7 @@ func TestDraftPromptRequestRanksOperationTextMatches(t *testing.T) {
 		Opening: "Search support tickets by query.",
 		Docs: []APIDocument{{
 			RelativePath: "openapi/support.yaml",
-			Operations: []*rollout.OperationInfo{
+			Operations: []apitools.OperationSummary{
 				{OperationID: "getTicket", Method: "GET", Path: "/tickets/{ticketId}", Summary: "Get a support ticket"},
 				{OperationID: "searchTickets", Method: "GET", Path: "/tickets/search", Summary: "Search support tickets"},
 			},
@@ -235,11 +222,11 @@ func TestOperationRankingBoostsSelectedDocument(t *testing.T) {
 		Docs: []APIDocument{
 			{
 				RelativePath: "openapi/a.yaml",
-				Operations:   []*rollout.OperationInfo{{OperationID: "listRecordsA", Method: "GET", Path: "/records", Summary: "List records"}},
+				Operations:   []apitools.OperationSummary{{OperationID: "listRecordsA", Method: "GET", Path: "/records", Summary: "List records"}},
 			},
 			{
 				RelativePath: "openapi/b.yaml",
-				Operations:   []*rollout.OperationInfo{{OperationID: "listRecordsB", Method: "GET", Path: "/records", Summary: "List records"}},
+				Operations:   []apitools.OperationSummary{{OperationID: "listRecordsB", Method: "GET", Path: "/records", Summary: "List records"}},
 			},
 		},
 	}
@@ -309,11 +296,11 @@ func promptOperations(t *testing.T, request DraftRequest, docIndex int) []operat
 	return docs[docIndex]["operations"].([]operationPromptContext)
 }
 
-func numberedOperations(count int) []*rollout.OperationInfo {
-	ops := make([]*rollout.OperationInfo, 0, count)
+func numberedOperations(count int) []apitools.OperationSummary {
+	ops := make([]apitools.OperationSummary, 0, count)
 	for i := 0; i < count; i++ {
 		id := fmt.Sprintf("operation%02d", i)
-		ops = append(ops, &rollout.OperationInfo{
+		ops = append(ops, apitools.OperationSummary{
 			OperationID: id,
 			Method:      "GET",
 			Path:        "/resources/" + id,
@@ -345,13 +332,13 @@ func assertParameterContext(t *testing.T, parameters []parameterPromptContext, n
 	t.Fatalf("missing parameter %q in %#v", name, parameters)
 }
 
-func assertBodyField(t *testing.T, fields []requestBodyFieldContext, path string, required bool, typ, description string, example, defaultValue any) {
+func assertBodyField(t *testing.T, fields []requestBodyFieldContext, path string, required bool, typ, description string) {
 	t.Helper()
 	for _, field := range fields {
 		if field.Path != path {
 			continue
 		}
-		if field.Required != required || field.Type != typ || field.Description != description || field.Example != example || field.Default != defaultValue {
+		if field.Required != required || field.Type != typ || field.Description != description {
 			t.Fatalf("body field %q = %#v", path, field)
 		}
 		return
@@ -366,4 +353,12 @@ func containsString(values []string, want string) bool {
 		}
 	}
 	return false
+}
+
+func securitySummaries(names ...string) []apitools.SecuritySummary {
+	out := make([]apitools.SecuritySummary, 0, len(names))
+	for _, name := range names {
+		out = append(out, apitools.SecuritySummary{Name: name})
+	}
+	return out
 }

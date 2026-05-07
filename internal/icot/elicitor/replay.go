@@ -8,9 +8,9 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/OpenUdon/apitools"
 	"github.com/genelet/ramen/internal/projectwizard"
 	"github.com/genelet/udon/pkg/rollout"
-	"github.com/OpenUdon/apitools"
 )
 
 type ReplayTurn = apitools.PromptTurn
@@ -147,7 +147,9 @@ func addStepReplay(script *ReplayScript, step *rollout.Step, defaultOpenAPI stri
 			add("Choose operation number", step.Operation)
 			doc := docByPath[docPath]
 			op := replayOperationByID(doc, step.Operation)
-			required = requiredFields(op)
+			if op != nil {
+				required = apitools.RequiredOperationFields(*op)
+			}
 		} else {
 			add("Operation ID", step.Operation)
 			add("Required request fields (comma-separated; blank for none)", strings.Join(fields, ", "))
@@ -183,10 +185,10 @@ func loadReplayProjectAnswers(exampleDir string) (projectwizard.Answers, error) 
 	return projectwizard.LoadAnswersFromMarkdown(string(data))
 }
 
-func replayOperationByID(doc APIDocument, operationID string) *rollout.OperationInfo {
-	for _, op := range doc.Operations {
-		if op != nil && op.OperationID == operationID {
-			return op
+func replayOperationByID(doc APIDocument, operationID string) *apitools.OperationSummary {
+	for i := range doc.Operations {
+		if doc.Operations[i].OperationID == operationID {
+			return &doc.Operations[i]
 		}
 	}
 	return nil

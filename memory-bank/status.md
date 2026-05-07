@@ -46,6 +46,12 @@
   + `ProgressiveLoopHooks[S, D, A]` already implement the bound-runtime pattern, so `ramen`'s
   rollout-shaped `Extractor`, `classification`, `progressive`, `loop`, `session`, `api` files
   remain in `internal/icot/elicitor/` as the rollout binding of those generic hooks.
+- [x] Ramen progressive iCoT now inherits shared `apitools` authoring OpenAPI documents,
+  draft/transcript lifecycle, and JSON completion fallback while keeping rollout-specific prompts,
+  sanitization, readiness checks, final edit/explain confirmation, and artifact rendering local.
+- [x] Ramen Symphony handoff assembly and trusted-runner package digest now inherit shared `apitools`
+  handoff input, binding contract, and digest helpers while keeping Ramen owner split, approval
+  policy, quality gates, trusted-runner command text, and udon invocation local.
 - [x] Hosted CI intentionally disabled during active private-sibling development.
 - [x] Roadmap, XRD, onboarding, operator, and safety docs consolidated into memory-bank and README.
 

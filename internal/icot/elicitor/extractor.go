@@ -4,12 +4,11 @@ import (
 	"context"
 	_ "embed"
 	"encoding/json"
-	"errors"
 	"strings"
 
+	"github.com/OpenUdon/apitools"
 	"github.com/genelet/ramen/internal/projectwizard"
 	"github.com/genelet/udon/pkg/rollout"
-	"github.com/OpenUdon/apitools"
 )
 
 const PromptVersion = "icot-extractor.v1"
@@ -36,13 +35,7 @@ type Extractor interface {
 	Disambiguate(context.Context, string, []APIDocument) ([]string, error)
 }
 
-type DraftRequest struct {
-	Opening           string           `json:"opening"`
-	Session           Session          `json:"session"`
-	Docs              []APIDocument    `json:"docs"`
-	TranscriptTurns   []ReplayTurn     `json:"transcript_turns,omitempty"`
-	ReadinessFeedback []ReadinessIssue `json:"readiness_feedback,omitempty"`
-}
+type DraftRequest = apitools.InteractiveDraftRequest[Session, APIDocument]
 
 type noopExtractor struct{}
 
@@ -83,22 +76,8 @@ func (e *chatExtractor) Kickoff(ctx context.Context, opening string) (Session, e
 	if opening == "" {
 		return Session{}, nil
 	}
-	messages := []rollout.ChatMessage{
-		{
-			Role:    "system",
-			Content: kickoffPrompt,
-		},
-		{Role: "user", Content: opening},
-	}
-	raw, err := e.structured(ctx, messages, kickoffSchema)
-	if err != nil {
-		raw, err = e.client.Chat(ctx, messages)
-	}
-	if err != nil {
-		return Session{}, err
-	}
 	var session Session
-	if err := decodeJSONBlock(raw, &session); err != nil {
+	if err := e.completeJSON(ctx, kickoffPrompt, opening, kickoffSchema, &session, 1200); err != nil {
 		return Session{}, err
 	}
 	session = sanitizeKickoff(session)
@@ -126,22 +105,8 @@ func (e *chatExtractor) Draft(ctx context.Context, request DraftRequest) (Sessio
 	if err != nil {
 		return Session{}, err
 	}
-	messages := []rollout.ChatMessage{
-		{
-			Role:    "system",
-			Content: draftPrompt,
-		},
-		{Role: "user", Content: string(data)},
-	}
-	raw, err := e.structured(ctx, messages, draftSchema)
-	if err != nil {
-		raw, err = e.client.Chat(ctx, messages)
-	}
-	if err != nil {
-		return Session{}, err
-	}
 	var session Session
-	if err := decodeJSONBlock(raw, &session); err != nil {
+	if err := e.completeJSON(ctx, draftPrompt, string(data), draftSchema, &session, 1200); err != nil {
 		return Session{}, err
 	}
 	return sanitizeDraft(request, session), nil
@@ -152,22 +117,8 @@ func (e *chatExtractor) Refine(ctx context.Context, session Session) (Session, e
 	if err != nil {
 		return session, err
 	}
-	messages := []rollout.ChatMessage{
-		{
-			Role:    "system",
-			Content: refinePrompt,
-		},
-		{Role: "user", Content: string(data)},
-	}
-	raw, err := e.structured(ctx, messages, kickoffSchema)
-	if err != nil {
-		raw, err = e.client.Chat(ctx, messages)
-	}
-	if err != nil {
-		return session, err
-	}
 	var refined Session
-	if err := decodeJSONBlock(raw, &refined); err != nil {
+	if err := e.completeJSON(ctx, refinePrompt, string(data), kickoffSchema, &refined, 1200); err != nil {
 		return session, err
 	}
 	return sanitizeRefine(session, refined), nil
@@ -190,24 +141,10 @@ func (e *chatExtractor) Disambiguate(ctx context.Context, need string, docs []AP
 		}
 		b.WriteByte('\n')
 	}
-	messages := []rollout.ChatMessage{
-		{
-			Role:    "system",
-			Content: disambiguatePrompt,
-		},
-		{Role: "user", Content: b.String()},
-	}
-	raw, err := e.structured(ctx, messages, disambiguateSchema)
-	if err != nil {
-		raw, err = e.client.Chat(ctx, messages)
-	}
-	if err != nil {
-		return nil, err
-	}
 	var decoded struct {
 		Paths []string `json:"paths"`
 	}
-	if err := decodeJSONBlock(raw, &decoded); err != nil {
+	if err := e.completeJSON(ctx, disambiguatePrompt, b.String(), disambiguateSchema, &decoded, 1200); err != nil {
 		return nil, err
 	}
 	allowed := map[string]bool{}
@@ -224,19 +161,16 @@ func (e *chatExtractor) Disambiguate(ctx context.Context, need string, docs []AP
 	return out, nil
 }
 
-func (e *chatExtractor) structured(ctx context.Context, messages []rollout.ChatMessage, schema string) (string, error) {
-	structured, ok := e.client.(rollout.StructuredChat)
-	if !ok {
-		return "", errors.New("structured chat unavailable")
-	}
-	return structured.StructuredChat(ctx, messages, json.RawMessage(schema), rollout.StructuredOpts{
+func (e *chatExtractor) completeJSON(ctx context.Context, systemPrompt, userPayload, schema string, out any, maxTokens int) error {
+	_, err := apitools.CompleteJSONWithFallback(ctx, apitools.LLMChatAdapter{
+		Client:      e.client,
 		Temperature: e.temperature,
-		MaxTokens:   1200,
-	})
-}
-
-func decodeJSONBlock(raw string, target any) error {
-	return apitools.DecodeJSONBlock(raw, target)
+		MaxTokens:   maxTokens,
+	}, []apitools.TranscriptTurn{
+		{Role: "system", Content: systemPrompt},
+		{Role: "user", Content: userPayload},
+	}, json.RawMessage(schema), out, apitools.JSONCompletionOptions{FallbackOnStructuredError: true})
+	return err
 }
 
 func firstLine(value string) string {
@@ -273,9 +207,6 @@ func draftPromptRequest(request DraftRequest) map[string]any {
 	for _, doc := range rankedDocs {
 		ops := make([]operationPromptContext, 0, len(doc.Operations))
 		for _, op := range doc.Operations {
-			if op == nil {
-				continue
-			}
 			ops = append(ops, operationPrompt(op))
 		}
 		docs = append(docs, map[string]any{
@@ -300,7 +231,7 @@ func sanitizeDraft(request DraftRequest, draft Session) Session {
 	for _, doc := range request.Docs {
 		allowedDocs[doc.RelativePath] = true
 		for _, op := range doc.Operations {
-			if op != nil && op.OperationID != "" {
+			if op.OperationID != "" {
 				allowedOps[doc.RelativePath+"\x00"+op.OperationID] = true
 				allowedOps["\x00"+op.OperationID] = true
 			}

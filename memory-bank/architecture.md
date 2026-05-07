@@ -29,7 +29,8 @@ plans, OpenAPI discovery reports, refinement reports, review notes, quality repo
 - `../udon` owns generic UWS/OpenAPI compilation, lowering, execution, runtime profiles, and
   runtime-plan behavior.
 - `../apitools` owns domain-neutral authoring helpers, OpenAPI discovery/import helpers, review-only
-  leaf adapters, public review state machine, and runtime-neutral handoff schema.
+  leaf adapters, runtime-bound binding contracts, normalized issue structures, public review state
+  machine, handoff input/digest helpers, and runtime-neutral handoff schema.
 - `../openudon` owns public IaC authoring/planning, concrete IaC intent, `.tf` generation, graph,
   profile, state, drift, and `w8m`-facing public artifacts.
 - `../symphony` owns work orchestration, isolated workspaces, reviewer routing, identity, managed
@@ -118,15 +119,14 @@ follow-up. The offline path uses the fixed manual loop. iCoT autosaves local ses
 ignored `.icot/session.yaml`, writes ignored transcripts when enabled, and treats final artifact
 writes as an atomic small transaction.
 
-The conversation engine is not Ramen-owned. `apitools.RunProgressiveICOT[S, D, A]` plus
-`ProgressiveLoopHooks[S, D, A]` are the bound-runtime layer (mirroring the
-`uws1.Document.Runtime` pattern): apitools owns the structural loop — opening, optional
-disambiguation, draft+question iterations, final confirmation, transcript persistence — and
-each engine binds its own domain-shaped hooks. Ramen's `internal/icot/elicitor/` files
-(`extractor`, `classification`, `progressive`, `loop`, `session`, `api`) are the rollout
-binding. `apitools/openapidisco` and `apitools/icot` (`LoadDraft[T]`/`SaveDraft[T]`)
-are the cross-engine helpers; OpenUdon will plug an IaC-shaped binding into the same
-generic loop.
+The conversation engine is not Ramen-owned. `apitools.RunProgressiveICOT[S, D, A]`,
+`ProgressiveLoopHooks[S, D, A]`, `apitools.AuthoringAPIDocument`, and the `apitools/icot`
+lifecycle wrapper are the bound-runtime layer (mirroring the `uws1.Document.Runtime` pattern):
+apitools owns the structural loop, draft/transcript lifecycle, prompt-safe OpenAPI operation
+context, and JSON completion fallback plumbing. Each engine binds its own domain-shaped hooks.
+Ramen's `internal/icot/elicitor/` files (`extractor`, `classification`, `progressive`, `loop`,
+`session`, `api`) remain the rollout binding for prompts, sanitization, readiness, final
+edit/explain confirmation, and artifact rendering.
 
 ## Symphony And Trusted Execution
 
@@ -136,7 +136,8 @@ history.
 
 The local trusted runner is intentionally separate from synthesis. It validates
 `expected/symphony-handoff.json`, `expected/quality.json`, current in-memory quality, approval JSON,
-canonical package digest, and tier compatibility. It rejects credential values in artifacts and
+canonical package digest, and tier compatibility. The package digest uses the shared `apitools`
+handoff digest helper over Ramen's required input set. It rejects credential values in artifacts and
 direct production execution, then invokes udon only through `scripts/run-udon.sh`.
 
 Required handoff inputs are `project.md`, `workflows/intent.hcl`, `workflows/workflow.hcl`,

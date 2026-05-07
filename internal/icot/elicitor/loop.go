@@ -10,11 +10,11 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/OpenUdon/apitools"
+	"github.com/OpenUdon/uws/uws1"
 	"github.com/genelet/ramen/internal/projectwizard"
 	"github.com/genelet/ramen/internal/workflowintent"
 	"github.com/genelet/udon/pkg/rollout"
-	"github.com/OpenUdon/apitools"
-	"github.com/OpenUdon/uws/uws1"
 )
 
 type Options struct {
@@ -468,14 +468,14 @@ func (p *prompter) chooseDocument(label string, docs []APIDocument, current stri
 	}
 }
 
-func (p *prompter) chooseOperation(doc APIDocument, current string) (*rollout.OperationInfo, error) {
+func (p *prompter) chooseOperation(doc APIDocument, current string) (*apitools.OperationSummary, error) {
 	if len(doc.Operations) == 0 {
 		return nil, fmt.Errorf("%s has no operations", doc.RelativePath)
 	}
 	fmt.Fprintf(p.out, "Operations in %s:\n", doc.RelativePath)
 	defaultIndex := 0
 	for i, op := range doc.Operations {
-		if op != nil && op.OperationID == current {
+		if op.OperationID == current {
 			defaultIndex = i
 		}
 		fmt.Fprintf(p.out, "  %d. %s\n", i+1, operationLabel(op))
@@ -487,11 +487,11 @@ func (p *prompter) chooseOperation(doc APIDocument, current string) (*rollout.Op
 		}
 		index, err := strconv.Atoi(strings.TrimSpace(answer))
 		if err == nil && index >= 1 && index <= len(doc.Operations) {
-			return doc.Operations[index-1], nil
+			return &doc.Operations[index-1], nil
 		}
-		for _, op := range doc.Operations {
-			if op != nil && strings.TrimSpace(answer) == op.OperationID {
-				return op, nil
+		for i := range doc.Operations {
+			if strings.TrimSpace(answer) == doc.Operations[i].OperationID {
+				return &doc.Operations[i], nil
 			}
 		}
 		fmt.Fprintln(p.out, "Choose one of the listed operation numbers.")
@@ -550,7 +550,7 @@ func (p *prompter) collectSteps(usesAPI bool, defaultOpenAPI string, docs []APID
 					return nil, err
 				}
 				step.Operation = op.OperationID
-				fields, err := p.stepFields(requiredFields(op))
+				fields, err := p.stepFields(apitools.RequiredOperationFields(*op))
 				if err != nil {
 					return nil, err
 				}

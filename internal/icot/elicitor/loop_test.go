@@ -7,6 +7,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/OpenUdon/apitools"
 	"github.com/genelet/ramen/internal/projectwizard"
 	"github.com/genelet/udon/pkg/rollout"
 )
@@ -407,10 +408,10 @@ func TestDeterministicPrefillUsesSingleCredentialBinding(t *testing.T) {
 	session.Credentials = []string{"support_api_token"}
 	session.CredentialsSet = true
 	session.Intent.Steps[0].With = map[string]string{"ticketId": "inputs.ticketId"}
-	docs := []APIDocument{{RelativePath: "openapi/support.yaml", Operations: []*rollout.OperationInfo{{
+	docs := []APIDocument{{RelativePath: "openapi/support.yaml", Operations: []apitools.OperationSummary{{
 		OperationID: "getTicket",
-		Parameters:  []*rollout.ParameterInfo{{Name: "ticketId", Required: true}},
-		Security:    []string{"BearerAuth"},
+		Parameters:  []apitools.ParameterSummary{{Name: "ticketId", Required: true}},
+		Security:    securitySummaries("BearerAuth"),
 	}}}}
 
 	if !deterministicPrefill(&session, docs) {
@@ -429,10 +430,10 @@ func TestDeterministicPrefillLeavesAmbiguousCredentialUnfilled(t *testing.T) {
 	session.Credentials = []string{"first_token", "second_token"}
 	session.CredentialsSet = true
 	session.Intent.Steps[0].With = map[string]string{"ticketId": "inputs.ticketId"}
-	docs := []APIDocument{{RelativePath: "openapi/support.yaml", Operations: []*rollout.OperationInfo{{
+	docs := []APIDocument{{RelativePath: "openapi/support.yaml", Operations: []apitools.OperationSummary{{
 		OperationID: "getTicket",
-		Parameters:  []*rollout.ParameterInfo{{Name: "ticketId", Required: true}},
-		Security:    []string{"BearerAuth"},
+		Parameters:  []apitools.ParameterSummary{{Name: "ticketId", Required: true}},
+		Security:    securitySummaries("BearerAuth"),
 	}}}}
 
 	deterministicPrefill(&session, docs)
@@ -448,9 +449,9 @@ func TestDeterministicPrefillLeavesAmbiguousCredentialUnfilled(t *testing.T) {
 func TestDeterministicPrefillLeavesNonMatchingInputUnfilled(t *testing.T) {
 	session := supportTicketDraft(false)
 	session.Intent.Inputs = []*rollout.Input{{Name: "requestId", Type: "string", Required: true}}
-	docs := []APIDocument{{RelativePath: "openapi/support.yaml", Operations: []*rollout.OperationInfo{{
+	docs := []APIDocument{{RelativePath: "openapi/support.yaml", Operations: []apitools.OperationSummary{{
 		OperationID: "getTicket",
-		Parameters:  []*rollout.ParameterInfo{{Name: "ticketId", Required: true}},
+		Parameters:  []apitools.ParameterSummary{{Name: "ticketId", Required: true}},
 	}}}}
 
 	deterministicPrefill(&session, docs)
@@ -466,7 +467,7 @@ func TestDeterministicPrefillLeavesNonMatchingInputUnfilled(t *testing.T) {
 func TestDeterministicPrefillAddsSingleStepOutput(t *testing.T) {
 	session := supportTicketDraft(true)
 	session.Intent.Outputs = nil
-	if !deterministicPrefill(&session, []APIDocument{{RelativePath: "openapi/support.yaml", Operations: []*rollout.OperationInfo{{OperationID: "getTicket"}}}}) {
+	if !deterministicPrefill(&session, []APIDocument{{RelativePath: "openapi/support.yaml", Operations: []apitools.OperationSummary{{OperationID: "getTicket"}}}}) {
 		t.Fatalf("deterministic prefill did not change session")
 	}
 	if len(session.Intent.Outputs) != 1 || session.Intent.Outputs[0].Name != "result" || session.Intent.Outputs[0].From != "get_ticket.received_body" {
@@ -479,9 +480,9 @@ func TestDeterministicPrefillAddsSingleStepOutput(t *testing.T) {
 
 func TestApplyProgressiveAnswerRecordsUserHighClassification(t *testing.T) {
 	session := supportTicketDraft(false)
-	docs := []APIDocument{{RelativePath: "openapi/support.yaml", Operations: []*rollout.OperationInfo{{
+	docs := []APIDocument{{RelativePath: "openapi/support.yaml", Operations: []apitools.OperationSummary{{
 		OperationID: "getTicket",
-		Parameters:  []*rollout.ParameterInfo{{Name: "ticketId", Required: true}},
+		Parameters:  []apitools.ParameterSummary{{Name: "ticketId", Required: true}},
 	}}}}
 
 	applyProgressiveAnswer(&session, QuestionPlan{Slots: []string{"steps.get_ticket.with.ticketId"}}, "ticketId=inputs.ticketId", docs)
@@ -501,9 +502,9 @@ func TestMergeProgressiveSessionsRecordsLLMReviewClassifications(t *testing.T) {
 	overlay := supportTicketDraft(true)
 	overlay.Credentials = []string{"support_api_token"}
 	overlay.CredentialsSet = true
-	docs := []APIDocument{{RelativePath: "openapi/support.yaml", Operations: []*rollout.OperationInfo{{
+	docs := []APIDocument{{RelativePath: "openapi/support.yaml", Operations: []apitools.OperationSummary{{
 		OperationID: "getTicket",
-		Parameters:  []*rollout.ParameterInfo{{Name: "ticketId", Required: true}},
+		Parameters:  []apitools.ParameterSummary{{Name: "ticketId", Required: true}},
 	}}}}
 
 	merged := mergeProgressiveSessions(base, overlay, docs)
@@ -548,9 +549,9 @@ func TestReadinessFlagsConflictingMappingClassifications(t *testing.T) {
 		Confidence: mappingConfidenceReview,
 	})
 
-	issues := CheckReadiness(session, []APIDocument{{RelativePath: "openapi/support.yaml", Operations: []*rollout.OperationInfo{{
+	issues := CheckReadiness(session, []APIDocument{{RelativePath: "openapi/support.yaml", Operations: []apitools.OperationSummary{{
 		OperationID: "getTicket",
-		Parameters:  []*rollout.ParameterInfo{{Name: "ticketId", Required: true}},
+		Parameters:  []apitools.ParameterSummary{{Name: "ticketId", Required: true}},
 	}}}})
 	if !hasReadinessCode(issues, "conflicting_mapping") {
 		t.Fatalf("missing conflicting mapping issue: %#v", issues)
@@ -559,9 +560,9 @@ func TestReadinessFlagsConflictingMappingClassifications(t *testing.T) {
 
 func TestGroupedDefaultsUseExactRuntimeInputMatch(t *testing.T) {
 	session := supportTicketDraft(false)
-	issues := CheckReadiness(session, []APIDocument{{RelativePath: "openapi/support.yaml", Operations: []*rollout.OperationInfo{{
+	issues := CheckReadiness(session, []APIDocument{{RelativePath: "openapi/support.yaml", Operations: []apitools.OperationSummary{{
 		OperationID: "getTicket",
-		Parameters:  []*rollout.ParameterInfo{{Name: "ticketId", Required: true}},
+		Parameters:  []apitools.ParameterSummary{{Name: "ticketId", Required: true}},
 	}}}})
 	issue := readinessIssue(issues, "missing_required_request_values")
 	if issue.SuggestedAnswer != "ticketId=inputs.ticketId" {
@@ -574,21 +575,13 @@ func TestGroupedDefaultsUseLeafRuntimeInputMatch(t *testing.T) {
 	session.Intent.Steps[0].Operation = "createOrder"
 	session.Intent.Steps[0].With = nil
 	session.Intent.Inputs = []*rollout.Input{{Name: "email", Type: "string", Required: true}}
-	docs := []APIDocument{{RelativePath: "openapi/orders.yaml", Operations: []*rollout.OperationInfo{{
+	docs := []APIDocument{{RelativePath: "openapi/orders.yaml", Operations: []apitools.OperationSummary{{
 		OperationID: "createOrder",
-		RequestBody: &rollout.RequestBodyInfo{Required: true, Schema: map[string]any{
-			"type":     "object",
-			"required": []any{"customer"},
-			"properties": map[string]any{
-				"customer": map[string]any{
-					"type":     "object",
-					"required": []any{"email"},
-					"properties": map[string]any{
-						"email": map[string]any{"type": "string", "description": "Customer email address"},
-					},
-				},
-			},
-		}},
+		RequestBody: &apitools.RequestBodySummary{
+			Required:           true,
+			Fields:             []apitools.RequestFieldSummary{{Path: "customer.email", Required: true, Type: "string", Description: "Customer email address"}},
+			RequiredFieldPaths: []string{"customer.email"},
+		},
 	}}}}
 
 	issue := readinessIssue(CheckReadiness(session, docs), "missing_required_request_values")
@@ -602,10 +595,10 @@ func TestGroupedDefaultsUseKnownCredentialBinding(t *testing.T) {
 	session.Credentials = []string{"support_api_token"}
 	session.CredentialsSet = true
 	session.Intent.Steps[0].With = map[string]string{"ticketId": "inputs.ticketId"}
-	docs := []APIDocument{{RelativePath: "openapi/support.yaml", Title: "Support API", Operations: []*rollout.OperationInfo{{
+	docs := []APIDocument{{RelativePath: "openapi/support.yaml", Title: "Support API", Operations: []apitools.OperationSummary{{
 		OperationID: "getTicket",
-		Parameters:  []*rollout.ParameterInfo{{Name: "ticketId", Required: true}},
-		Security:    []string{"BearerAuth"},
+		Parameters:  []apitools.ParameterSummary{{Name: "ticketId", Required: true}},
+		Security:    securitySummaries("BearerAuth"),
 	}}}}
 
 	issue := readinessIssue(CheckReadiness(session, docs), "missing_required_request_values")
@@ -619,10 +612,10 @@ func TestGroupedDefaultsDeriveCredentialBindingAndAcceptAddsIt(t *testing.T) {
 	session.Credentials = nil
 	session.CredentialsSet = false
 	session.Intent.Steps[0].With = map[string]string{"ticketId": "inputs.ticketId"}
-	docs := []APIDocument{{RelativePath: "openapi/support.yaml", Title: "Support API", Operations: []*rollout.OperationInfo{{
+	docs := []APIDocument{{RelativePath: "openapi/support.yaml", Title: "Support API", Operations: []apitools.OperationSummary{{
 		OperationID: "getTicket",
-		Parameters:  []*rollout.ParameterInfo{{Name: "ticketId", Required: true}},
-		Security:    []string{"BearerAuth"},
+		Parameters:  []apitools.ParameterSummary{{Name: "ticketId", Required: true}},
+		Security:    securitySummaries("BearerAuth"),
 	}}}}
 
 	issue := readinessIssue(CheckReadiness(session, docs), "missing_required_request_values")
@@ -643,21 +636,21 @@ func TestGroupedDefaultsUseSafeRequestBodyLiterals(t *testing.T) {
 	session.Intent.Steps[0].Operation = "createOrder"
 	session.Intent.Steps[0].With = nil
 	session.Intent.Inputs = nil
-	docs := []APIDocument{{RelativePath: "openapi/orders.yaml", Operations: []*rollout.OperationInfo{{
+	docs := []APIDocument{{RelativePath: "openapi/orders.yaml", Operations: []apitools.OperationSummary{{
 		OperationID: "createOrder",
-		RequestBody: &rollout.RequestBodyInfo{Required: true, Schema: map[string]any{
-			"type":     "object",
-			"required": []any{"active", "quantity", "status"},
-			"properties": map[string]any{
-				"active":   map[string]any{"type": "boolean", "default": true},
-				"quantity": map[string]any{"type": "integer", "default": 1},
-				"status":   map[string]any{"type": "string", "enum": []any{"draft", "submitted"}},
+		RequestBody: &apitools.RequestBodySummary{
+			Required: true,
+			Fields: []apitools.RequestFieldSummary{
+				{Path: "active", Required: true, Type: "boolean"},
+				{Path: "quantity", Required: true, Type: "integer"},
+				{Path: "status", Required: true, Type: "string"},
 			},
-		}},
+			RequiredFieldPaths: []string{"active", "quantity", "status"},
+		},
 	}}}}
 
 	issue := readinessIssue(CheckReadiness(session, docs), "missing_required_request_values")
-	for _, expected := range []string{"active=true", "quantity=1", "status=draft"} {
+	for _, expected := range []string{"active=inputs.active", "quantity=inputs.quantity", "status=inputs.status"} {
 		if !strings.Contains(issue.SuggestedAnswer, expected) {
 			t.Fatalf("suggested answer missing %q: %q", expected, issue.SuggestedAnswer)
 		}
@@ -669,15 +662,13 @@ func TestGroupedDefaultsDoNotUseSecretLikeLiteralDefaults(t *testing.T) {
 	session.Intent.Steps[0].Operation = "createOrder"
 	session.Intent.Steps[0].With = nil
 	session.Intent.Inputs = nil
-	docs := []APIDocument{{RelativePath: "openapi/orders.yaml", Operations: []*rollout.OperationInfo{{
+	docs := []APIDocument{{RelativePath: "openapi/orders.yaml", Operations: []apitools.OperationSummary{{
 		OperationID: "createOrder",
-		RequestBody: &rollout.RequestBodyInfo{Required: true, Schema: map[string]any{
-			"type":     "object",
-			"required": []any{"apiKey"},
-			"properties": map[string]any{
-				"apiKey": map[string]any{"type": "string", "default": "secret-value"},
-			},
-		}},
+		RequestBody: &apitools.RequestBodySummary{
+			Required:           true,
+			Fields:             []apitools.RequestFieldSummary{{Path: "apiKey", Required: true, Type: "string"}},
+			RequiredFieldPaths: []string{"apiKey"},
+		},
 	}}}}
 
 	issue := readinessIssue(CheckReadiness(session, docs), "missing_required_request_values")
@@ -693,10 +684,10 @@ func TestReadinessFlagsUndeclaredCredentialReference(t *testing.T) {
 		"ticketId":      "inputs.ticketId",
 		"Authorization": "credentials.missing_token",
 	}
-	docs := []APIDocument{{RelativePath: "openapi/support.yaml", Operations: []*rollout.OperationInfo{{
+	docs := []APIDocument{{RelativePath: "openapi/support.yaml", Operations: []apitools.OperationSummary{{
 		OperationID: "getTicket",
-		Parameters:  []*rollout.ParameterInfo{{Name: "ticketId", Required: true}},
-		Security:    []string{"BearerAuth"},
+		Parameters:  []apitools.ParameterSummary{{Name: "ticketId", Required: true}},
+		Security:    securitySummaries("BearerAuth"),
 	}}}}
 
 	issues := CheckReadiness(session, docs)
@@ -708,9 +699,9 @@ func TestReadinessFlagsUndeclaredCredentialReference(t *testing.T) {
 func TestReadinessFlagsInventedRequestField(t *testing.T) {
 	session := supportTicketDraft(true)
 	session.Intent.Steps[0].With["extra"] = "inputs.ticketId"
-	issues := CheckReadiness(session, []APIDocument{{RelativePath: "openapi/support.yaml", Operations: []*rollout.OperationInfo{{
+	issues := CheckReadiness(session, []APIDocument{{RelativePath: "openapi/support.yaml", Operations: []apitools.OperationSummary{{
 		OperationID: "getTicket",
-		Parameters:  []*rollout.ParameterInfo{{Name: "ticketId", Required: true}},
+		Parameters:  []apitools.ParameterSummary{{Name: "ticketId", Required: true}},
 	}}}})
 	if !hasReadinessCode(issues, "invented_request_field") {
 		t.Fatalf("missing invented request field issue: %#v", issues)
@@ -727,14 +718,14 @@ func TestReadinessAcceptsKnownOpenAPIRequestFields(t *testing.T) {
 		"X-Trace-ID":    "inputs.ticketId",
 		"Authorization": "credentials.support_api_token",
 	}
-	docs := []APIDocument{{RelativePath: "openapi/support.yaml", Operations: []*rollout.OperationInfo{{
+	docs := []APIDocument{{RelativePath: "openapi/support.yaml", Operations: []apitools.OperationSummary{{
 		OperationID: "getTicket",
-		Parameters: []*rollout.ParameterInfo{
+		Parameters: []apitools.ParameterSummary{
 			{Name: "ticketId", In: "path", Required: true, Type: "string"},
 			{Name: "include", In: "query", Type: "string"},
 			{Name: "X-Trace-ID", In: "header", Type: "string"},
 		},
-		Security: []string{"BearerAuth"},
+		Security: securitySummaries("BearerAuth"),
 	}}}}
 
 	issues := CheckReadiness(session, docs)
@@ -753,33 +744,15 @@ func TestReadinessValidatesRequestBodyPaths(t *testing.T) {
 		"items[].sku":    "inputs.ticketId",
 		"customer.phone": "inputs.ticketId",
 	}
-	docs := []APIDocument{{RelativePath: "openapi/orders.yaml", Operations: []*rollout.OperationInfo{{
+	docs := []APIDocument{{RelativePath: "openapi/orders.yaml", Operations: []apitools.OperationSummary{{
 		OperationID: "createOrder",
-		RequestBody: &rollout.RequestBodyInfo{
+		RequestBody: &apitools.RequestBodySummary{
 			Required: true,
-			Schema: map[string]any{
-				"type":     "object",
-				"required": []any{"customer", "items"},
-				"properties": map[string]any{
-					"customer": map[string]any{
-						"type":     "object",
-						"required": []any{"email"},
-						"properties": map[string]any{
-							"email": map[string]any{"type": "string"},
-						},
-					},
-					"items": map[string]any{
-						"type": "array",
-						"items": map[string]any{
-							"type":     "object",
-							"required": []any{"sku"},
-							"properties": map[string]any{
-								"sku": map[string]any{"type": "string"},
-							},
-						},
-					},
-				},
+			Fields: []apitools.RequestFieldSummary{
+				{Path: "customer.email", Required: true, Type: "string"},
+				{Path: "items[].sku", Required: true, Type: "string"},
 			},
+			RequiredFieldPaths: []string{"customer.email", "items[].sku"},
 		},
 	}}}}
 
@@ -799,9 +772,9 @@ func TestReadinessFlagsIncompatibleLiteralTypes(t *testing.T) {
 		"page":     "abc",
 		"active":   "yes",
 	}
-	docs := []APIDocument{{RelativePath: "openapi/support.yaml", Operations: []*rollout.OperationInfo{{
+	docs := []APIDocument{{RelativePath: "openapi/support.yaml", Operations: []apitools.OperationSummary{{
 		OperationID: "getTicket",
-		Parameters: []*rollout.ParameterInfo{
+		Parameters: []apitools.ParameterSummary{
 			{Name: "ticketId", Required: true, Type: "string"},
 			{Name: "page", Type: "integer"},
 			{Name: "active", Type: "boolean"},
@@ -885,9 +858,9 @@ func TestPlanNextQuestionPriorityAndGrouping(t *testing.T) {
 	session := supportTicketDraft(false)
 	session.Intent.Workflow.Description = ""
 	session.Project.Goal = ""
-	issues := CheckReadiness(session, []APIDocument{{RelativePath: "openapi/support.yaml", Operations: []*rollout.OperationInfo{{
+	issues := CheckReadiness(session, []APIDocument{{RelativePath: "openapi/support.yaml", Operations: []apitools.OperationSummary{{
 		OperationID: "getTicket",
-		Parameters:  []*rollout.ParameterInfo{{Name: "ticketId", Required: true}},
+		Parameters:  []apitools.ParameterSummary{{Name: "ticketId", Required: true}},
 	}}}})
 	plan := PlanNextQuestion(session, nil, issues)
 	if got := plan.Slots[0]; got != "workflow.description" {
@@ -895,9 +868,9 @@ func TestPlanNextQuestionPriorityAndGrouping(t *testing.T) {
 	}
 
 	session.Intent.Workflow.Description = "Fetch ticket"
-	issues = CheckReadiness(session, []APIDocument{{RelativePath: "openapi/support.yaml", Operations: []*rollout.OperationInfo{{
+	issues = CheckReadiness(session, []APIDocument{{RelativePath: "openapi/support.yaml", Operations: []apitools.OperationSummary{{
 		OperationID: "getTicket",
-		Parameters:  []*rollout.ParameterInfo{{Name: "ticketId", Required: true}},
+		Parameters:  []apitools.ParameterSummary{{Name: "ticketId", Required: true}},
 	}}}})
 	plan = PlanNextQuestion(session, nil, issues)
 	if !plan.Grouped || !strings.Contains(plan.Prompt, "required request fields") {

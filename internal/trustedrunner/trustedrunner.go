@@ -3,8 +3,6 @@ package trustedrunner
 import (
 	"bytes"
 	"context"
-	"crypto/sha256"
-	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -15,8 +13,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/genelet/ramen/internal/synthesize"
 	"github.com/OpenUdon/apitools"
+	"github.com/genelet/ramen/internal/synthesize"
 )
 
 const (
@@ -88,17 +86,6 @@ type paths struct {
 }
 
 type handoffManifest = apitools.ReviewHandoff
-
-type packageFile struct {
-	Path   string `json:"path"`
-	SHA256 string `json:"sha256"`
-}
-
-type packageDigest struct {
-	Version string        `json:"version"`
-	Scope   string        `json:"scope"`
-	Files   []packageFile `json:"files"`
-}
 
 func Run(ctx context.Context, opts Options) (*RunResult, error) {
 	if ctx == nil {
@@ -367,7 +354,7 @@ func validateStoredQuality(path string) error {
 }
 
 func computePackageDigest(p paths, manifest handoffManifest) (string, error) {
-	fileSet := map[string]bool{}
+	fileSet := map[string]apitools.ReviewHandoffInput{}
 	for _, input := range manifest.HandoffInputs {
 		if !input.Required {
 			continue
@@ -376,35 +363,24 @@ func computePackageDigest(p paths, manifest handoffManifest) (string, error) {
 		if err != nil {
 			return "", err
 		}
-		fileSet[clean] = true
+		input.Path = clean
+		fileSet[clean] = input
 	}
 	var files []string
 	for path := range fileSet {
 		files = append(files, path)
 	}
 	sort.Strings(files)
-	digest := packageDigest{
-		Version: "ramen.handoff-package-digest.v1",
-		Scope:   p.scope,
-	}
+	inputs := make([]apitools.ReviewHandoffInput, 0, len(files))
 	for _, path := range files {
-		full := filepath.Join(p.exampleAbs, filepath.FromSlash(path))
-		data, err := os.ReadFile(full)
-		if err != nil {
-			return "", fmt.Errorf("read handoff input %s: %w", path, err)
-		}
-		sum := sha256.Sum256(data)
-		digest.Files = append(digest.Files, packageFile{
-			Path:   filepath.ToSlash(filepath.Join(p.scope, path)),
-			SHA256: hex.EncodeToString(sum[:]),
-		})
+		inputs = append(inputs, fileSet[path])
 	}
-	canonical, err := json.Marshal(digest)
-	if err != nil {
-		return "", err
-	}
-	sum := sha256.Sum256(canonical)
-	return hex.EncodeToString(sum[:]), nil
+	return apitools.ComputeReviewHandoffDigest(apitools.ReviewHandoffDigestOptions{
+		Root:    p.exampleAbs,
+		Scope:   p.scope,
+		Version: "ramen.handoff-package-digest.v1",
+		Inputs:  inputs,
+	})
 }
 
 func cleanManifestPath(path string) (string, error) {

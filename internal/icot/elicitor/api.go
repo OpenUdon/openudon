@@ -1,6 +1,7 @@
 package elicitor
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -8,6 +9,7 @@ import (
 	"strings"
 	"unicode"
 
+	"github.com/OpenUdon/apitools"
 	"github.com/genelet/ramen/internal/openapidisco"
 	"github.com/genelet/udon/pkg/rollout"
 )
@@ -18,13 +20,7 @@ const (
 	maxRequestBodyFields        = 60
 )
 
-type APIDocument struct {
-	Path         string
-	RelativePath string
-	Title        string
-	Description  string
-	Operations   []*rollout.OperationInfo
-}
+type APIDocument = apitools.AuthoringAPIDocument
 
 type operationPromptContext struct {
 	OperationID    string                    `json:"operationId"`
@@ -52,9 +48,6 @@ type requestBodyPromptContext struct {
 	ContentType        string                    `json:"content_type,omitempty"`
 	Type               string                    `json:"type,omitempty"`
 	Description        string                    `json:"description,omitempty"`
-	Default            any                       `json:"default,omitempty"`
-	Example            any                       `json:"example,omitempty"`
-	Enum               []any                     `json:"enum,omitempty"`
 	Fields             []requestBodyFieldContext `json:"fields,omitempty"`
 	RequiredFieldPaths []string                  `json:"required_field_paths,omitempty"`
 }
@@ -64,9 +57,6 @@ type requestBodyFieldContext struct {
 	Required    bool   `json:"required"`
 	Type        string `json:"type,omitempty"`
 	Description string `json:"description,omitempty"`
-	Default     any    `json:"default,omitempty"`
-	Example     any    `json:"example,omitempty"`
-	Enum        []any  `json:"enum,omitempty"`
 }
 
 type securityPromptContext struct {
@@ -86,23 +76,21 @@ func DiscoverLocalAPIs(exampleDir, projectText string) ([]APIDocument, error) {
 	if err != nil {
 		return nil, err
 	}
-	var docs []APIDocument
+	var inventoryDocs []apitools.InventoryDocument
 	for _, candidate := range candidates {
-		spec, err := rollout.LoadOpenAPISpec(candidate.Path)
-		if err != nil {
-			continue
-		}
-		doc := APIDocument{
+		inventoryDocs = append(inventoryDocs, apitools.InventoryDocument{
+			Name:         strings.TrimSuffix(filepath.Base(candidate.RelativePath), filepath.Ext(candidate.RelativePath)),
 			Path:         candidate.Path,
 			RelativePath: candidate.RelativePath,
-			Title:        firstNonEmpty(candidate.Title, spec.Title),
-			Description:  firstNonEmpty(candidate.Description, spec.Description),
-			Operations:   spec.Operations,
-		}
-		sort.Slice(doc.Operations, func(i, j int) bool {
-			return operationLabel(doc.Operations[i]) < operationLabel(doc.Operations[j])
 		})
-		docs = append(docs, doc)
+	}
+	docs, err := apitools.BuildAuthoringAPIDocuments(context.Background(), apitools.AuthoringAPIDocumentOptions{
+		Documents: inventoryDocs,
+		BaseDir:   exampleDir,
+		Query:     projectText,
+	})
+	if err != nil {
+		return nil, err
 	}
 	sort.Slice(docs, func(i, j int) bool {
 		return docs[i].RelativePath < docs[j].RelativePath
@@ -110,25 +98,11 @@ func DiscoverLocalAPIs(exampleDir, projectText string) ([]APIDocument, error) {
 	return docs, nil
 }
 
-func operationLabel(op *rollout.OperationInfo) string {
-	if op == nil {
-		return ""
-	}
-	id := op.OperationID
-	if id == "" {
-		id = strings.ToLower(op.Method) + "_" + strings.Trim(strings.ReplaceAll(op.Path, "/", "_"), "_")
-	}
-	text := fmt.Sprintf("%s %s %s", op.Method, op.Path, id)
-	if op.Summary != "" {
-		text += " - " + op.Summary
-	}
-	return text
+func operationLabel(op apitools.OperationSummary) string {
+	return apitools.OperationLabel(op)
 }
 
-func operationPrompt(op *rollout.OperationInfo) operationPromptContext {
-	if op == nil {
-		return operationPromptContext{}
-	}
+func operationPrompt(op apitools.OperationSummary) operationPromptContext {
 	return operationPromptContext{
 		OperationID:    op.OperationID,
 		Method:         op.Method,
@@ -136,7 +110,7 @@ func operationPrompt(op *rollout.OperationInfo) operationPromptContext {
 		Summary:        op.Summary,
 		Description:    op.Description,
 		Tags:           append([]string(nil), op.Tags...),
-		RequiredFields: requiredFields(op),
+		RequiredFields: apitools.RequiredOperationFields(op),
 		Parameters:     parameterPromptContexts(op.Parameters),
 		RequestBody:    requestBodyPrompt(op.RequestBody),
 		Security:       securityPrompt(op.Security),
@@ -144,44 +118,17 @@ func operationPrompt(op *rollout.OperationInfo) operationPromptContext {
 }
 
 func rankedDraftDocuments(request DraftRequest) []APIDocument {
-	ranked := rankOperationCandidates(request)
-	included := map[*rollout.OperationInfo]int{}
-	unselected := 0
-	for _, candidate := range ranked {
-		if candidate.selected {
-			included[candidate.op] = candidate.rank
-			continue
-		}
-		if unselected < maxDraftOperationCandidates {
-			included[candidate.op] = candidate.rank
-			unselected++
-		}
-	}
-
-	out := make([]APIDocument, 0, len(request.Docs))
-	for _, doc := range request.Docs {
-		copyDoc := doc
-		copyDoc.Operations = nil
-		for _, op := range doc.Operations {
-			if op == nil {
-				continue
-			}
-			if _, ok := included[op]; ok {
-				copyDoc.Operations = append(copyDoc.Operations, op)
-			}
-		}
-		sort.SliceStable(copyDoc.Operations, func(i, j int) bool {
-			return included[copyDoc.Operations[i]] < included[copyDoc.Operations[j]]
-		})
-		out = append(out, copyDoc)
-	}
-	return out
+	return apitools.RankAuthoringAPIDocuments(request.Docs, apitools.AuthoringOperationRankingOptions{
+		Query:              draftRankingText(request),
+		SelectedOperations: selectedOperationRefs(request.Session),
+		Limit:              maxDraftOperationCandidates,
+	})
 }
 
 type operationRankCandidate struct {
 	docIndex int
 	opIndex  int
-	op       *rollout.OperationInfo
+	op       apitools.OperationSummary
 	score    int
 	selected bool
 	rank     int
@@ -194,9 +141,6 @@ func rankOperationCandidates(request DraftRequest) []operationRankCandidate {
 	for docIndex, doc := range request.Docs {
 		selectedDoc := selectedDocument(request.Session, doc)
 		for opIndex, op := range doc.Operations {
-			if op == nil {
-				continue
-			}
 			key := operationCandidateKey(doc.RelativePath, op.OperationID)
 			isSelected := selected[key] || selected["\x00"+op.OperationID]
 			candidates = append(candidates, operationRankCandidate{
@@ -223,7 +167,7 @@ func rankOperationCandidates(request DraftRequest) []operationRankCandidate {
 	return candidates
 }
 
-func operationRankScore(query map[string]int, doc APIDocument, op *rollout.OperationInfo, selectedDoc bool) int {
+func operationRankScore(query map[string]int, doc APIDocument, op apitools.OperationSummary, selectedDoc bool) int {
 	score := 0
 	if selectedDoc {
 		score += 20
@@ -234,17 +178,14 @@ func operationRankScore(query map[string]int, doc APIDocument, op *rollout.Opera
 	score += rankingMatchScore(query, op.Path, 7)
 	score += rankingMatchScore(query, strings.Join(op.Tags, " "), 6)
 	score += rankingMatchScore(query, op.Description, 5)
-	score += rankingMatchScore(query, strings.Join(requiredFields(op), " "), 4)
+	score += rankingMatchScore(query, strings.Join(apitools.RequiredOperationFields(op), " "), 4)
 	score += rankingMatchScore(query, operationMethodHints(op.Method), 3)
 	for _, parameter := range op.Parameters {
-		if parameter == nil {
-			continue
-		}
 		score += rankingMatchScore(query, parameter.Name+" "+parameter.In+" "+parameter.Type, 4)
 		score += rankingMatchScore(query, parameter.Description, 2)
 	}
 	if op.RequestBody != nil {
-		for _, field := range flattenRequestBodyFields(op.RequestBody) {
+		for _, field := range op.RequestBody.Fields {
 			score += rankingMatchScore(query, field.Path+" "+field.Type, 3)
 			score += rankingMatchScore(query, field.Description, 2)
 		}
@@ -310,6 +251,20 @@ func selectedOperationKeys(session Session) map[string]bool {
 		}
 	})
 	return out
+}
+
+func selectedOperationRefs(session Session) []apitools.AuthoringOperationRef {
+	var refs []apitools.AuthoringOperationRef
+	walkSteps(session.Intent.Steps, func(step *rollout.Step) {
+		if step == nil || strings.TrimSpace(step.Operation) == "" {
+			return
+		}
+		refs = append(refs, apitools.AuthoringOperationRef{
+			DocumentPath: firstNonEmpty(step.OpenAPI, session.Intent.OpenAPI),
+			OperationID:  step.Operation,
+		})
+	})
+	return refs
 }
 
 func selectedDocument(session Session, doc APIDocument) bool {
@@ -403,15 +358,12 @@ var rankingStopwords = map[string]bool{
 	"this": true, "to": true, "use": true, "with": true, "workflow": true,
 }
 
-func parameterPromptContexts(parameters []*rollout.ParameterInfo) []parameterPromptContext {
+func parameterPromptContexts(parameters []apitools.ParameterSummary) []parameterPromptContext {
 	if len(parameters) == 0 {
 		return nil
 	}
 	out := make([]parameterPromptContext, 0, len(parameters))
 	for _, parameter := range parameters {
-		if parameter == nil {
-			continue
-		}
 		out = append(out, parameterPromptContext{
 			Name:        parameter.Name,
 			Location:    parameter.In,
@@ -423,187 +375,42 @@ func parameterPromptContexts(parameters []*rollout.ParameterInfo) []parameterPro
 	return out
 }
 
-func requestBodyPrompt(body *rollout.RequestBodyInfo) *requestBodyPromptContext {
+func requestBodyPrompt(body *apitools.RequestBodySummary) *requestBodyPromptContext {
 	if body == nil {
 		return nil
 	}
-	schema := asSchemaMap(body.Schema)
 	out := &requestBodyPromptContext{
-		Required:    body.Required,
-		ContentType: body.ContentType,
-		Type:        schemaType(schema),
-		Description: schemaString(schema, "description"),
-		Default:     schemaValue(schema, "default"),
-		Example:     schemaValue(schema, "example"),
-		Enum:        schemaEnum(schema),
-		Fields:      flattenRequestBodyFields(body),
+		Required:           body.Required,
+		ContentType:        firstNonEmpty(body.ContentTypes...),
+		Description:        body.Description,
+		RequiredFieldPaths: append([]string(nil), body.RequiredFieldPaths...),
 	}
-	for _, field := range out.Fields {
-		if field.Required {
-			out.RequiredFieldPaths = append(out.RequiredFieldPaths, field.Path)
+	if body.Schema != nil {
+		out.Type = body.Schema.Type
+		if out.Description == "" {
+			out.Description = body.Schema.Description
 		}
+	}
+	for _, field := range body.Fields {
+		out.Fields = append(out.Fields, requestBodyFieldContext{
+			Path:        field.Path,
+			Required:    field.Required,
+			Type:        field.Type,
+			Description: field.Description,
+		})
 	}
 	return out
 }
 
-func flattenRequestBodyFields(body *rollout.RequestBodyInfo) []requestBodyFieldContext {
-	if body == nil {
-		return nil
-	}
-	var out []requestBodyFieldContext
-	schema := asSchemaMap(body.Schema)
-	flattenSchemaFields(schema, "", body.Required, 0, &out)
-	if len(out) == 0 {
-		out = append(out, requestBodyField("body", body.Required, schema))
-	}
-	sort.SliceStable(out, func(i, j int) bool {
-		return out[i].Path < out[j].Path
-	})
-	if len(out) > maxRequestBodyFields {
-		out = out[:maxRequestBodyFields]
-	}
-	return out
-}
-
-func flattenSchemaFields(schema map[string]any, path string, required bool, depth int, out *[]requestBodyFieldContext) {
-	if len(*out) >= maxRequestBodyFields || depth > maxRequestBodyFieldDepth {
-		return
-	}
-	if len(schema) == 0 {
-		if path != "" {
-			*out = append(*out, requestBodyField(path, required, nil))
-		}
-		return
-	}
-	if path != "" {
-		*out = append(*out, requestBodyField(path, required, schema))
-		if len(*out) >= maxRequestBodyFields || depth == maxRequestBodyFieldDepth {
-			return
-		}
-	}
-	properties := schemaProperties(schema)
-	if len(properties) > 0 {
-		requiredNames := requiredNameSet(schema)
-		names := make([]string, 0, len(properties))
-		for name := range properties {
-			names = append(names, name)
-		}
-		sort.Strings(names)
-		for _, name := range names {
-			childPath := name
-			if path != "" {
-				childPath = path + "." + name
-			}
-			flattenSchemaFields(asSchemaMap(properties[name]), childPath, required && requiredNames[name], depth+1, out)
-			if len(*out) >= maxRequestBodyFields {
-				return
-			}
-		}
-		return
-	}
-	if items := asSchemaMap(schema["items"]); len(items) > 0 {
-		itemPath := "body[]"
-		if path != "" {
-			itemPath = path + "[]"
-		}
-		flattenSchemaFields(items, itemPath, required, depth+1, out)
-	}
-}
-
-func requestBodyField(path string, required bool, schema map[string]any) requestBodyFieldContext {
-	return requestBodyFieldContext{
-		Path:        path,
-		Required:    required,
-		Type:        schemaType(schema),
-		Description: schemaString(schema, "description"),
-		Default:     schemaValue(schema, "default"),
-		Example:     schemaValue(schema, "example"),
-		Enum:        schemaEnum(schema),
-	}
-}
-
-func schemaProperties(schema map[string]any) map[string]any {
-	properties, _ := schema["properties"].(map[string]any)
-	if len(properties) > 0 {
-		return properties
-	}
-	return nil
-}
-
-func requiredNameSet(schema map[string]any) map[string]bool {
-	out := map[string]bool{}
-	for _, name := range stringSliceFromAny(schema["required"]) {
-		out[name] = true
-	}
-	return out
-}
-
-func schemaType(schema map[string]any) string {
-	if value := schemaString(schema, "type"); value != "" {
-		return value
-	}
-	if len(schemaProperties(schema)) > 0 {
-		return "object"
-	}
-	if items := asSchemaMap(schema["items"]); len(items) > 0 {
-		return "array"
-	}
-	return ""
-}
-
-func schemaString(schema map[string]any, key string) string {
-	if schema == nil {
-		return ""
-	}
-	value, _ := schema[key].(string)
-	return strings.TrimSpace(value)
-}
-
-func schemaValue(schema map[string]any, key string) any {
-	if schema == nil {
-		return nil
-	}
-	return schema[key]
-}
-
-func schemaEnum(schema map[string]any) []any {
-	if schema == nil {
-		return nil
-	}
-	switch typed := schema["enum"].(type) {
-	case []any:
-		return typed
-	case []string:
-		out := make([]any, 0, len(typed))
-		for _, value := range typed {
-			out = append(out, value)
-		}
-		return out
-	default:
-		return nil
-	}
-}
-
-func asSchemaMap(value any) map[string]any {
-	switch typed := value.(type) {
-	case nil:
-		return nil
-	case map[string]any:
-		return typed
-	default:
-		return nil
-	}
-}
-
-func securityPrompt(security []string) securityPromptContext {
+func securityPrompt(security []apitools.SecuritySummary) securityPromptContext {
 	if len(security) == 0 {
 		return securityPromptContext{}
 	}
-	schemes := append([]string(nil), security...)
-	sort.Strings(schemes)
+	var schemes []string
 	var fields []string
-	for _, scheme := range schemes {
-		if field := securityFieldName(scheme); field != "" {
+	for _, scheme := range security {
+		schemes = append(schemes, scheme.Name)
+		if field := apitools.SecurityCredentialFieldName(scheme); field != "" {
 			fields = append(fields, field)
 		}
 	}
@@ -611,59 +418,6 @@ func securityPrompt(security []string) securityPromptContext {
 		Schemes:          dedupeStrings(schemes),
 		CredentialFields: dedupeStrings(fields),
 	}
-}
-
-func requiredFields(op *rollout.OperationInfo) []string {
-	if op == nil {
-		return nil
-	}
-	var out []string
-	for _, parameter := range op.Parameters {
-		if parameter == nil || !parameter.Required {
-			continue
-		}
-		out = append(out, parameter.Name)
-	}
-	if op.RequestBody != nil && op.RequestBody.Required {
-		bodyFields := requiredRequestBodyFields(op.RequestBody)
-		if len(bodyFields) == 0 {
-			out = append(out, "body")
-		} else {
-			out = append(out, bodyFields...)
-		}
-	}
-	for _, security := range op.Security {
-		if field := securityFieldName(security); field != "" {
-			out = append(out, field)
-		}
-	}
-	return dedupeStrings(out)
-}
-
-func requiredRequestBodyFields(body *rollout.RequestBodyInfo) []string {
-	if body == nil || len(body.Schema) == 0 {
-		return nil
-	}
-	required := stringSliceFromAny(body.Schema["required"])
-	properties, _ := body.Schema["properties"].(map[string]any)
-	if len(required) == 0 {
-		var fields []string
-		for field := range properties {
-			fields = append(fields, field)
-		}
-		sort.Strings(fields)
-		return fields
-	}
-	if len(properties) == 0 {
-		return required
-	}
-	var out []string
-	for _, field := range required {
-		if _, ok := properties[field]; ok {
-			out = append(out, field)
-		}
-	}
-	return out
 }
 
 func stringSliceFromAny(value any) []string {
@@ -717,14 +471,14 @@ func camelToSnake(value string) string {
 	return slugIdent(string(out))
 }
 
-func operationByID(docs []APIDocument, docPath, operationID string) (*rollout.OperationInfo, bool) {
+func operationByID(docs []APIDocument, docPath, operationID string) (*apitools.OperationSummary, bool) {
 	for _, doc := range docs {
 		if doc.RelativePath != docPath {
 			continue
 		}
-		for _, op := range doc.Operations {
-			if op != nil && op.OperationID == operationID {
-				return op, true
+		for i := range doc.Operations {
+			if doc.Operations[i].OperationID == operationID {
+				return &doc.Operations[i], true
 			}
 		}
 	}
