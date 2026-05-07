@@ -10,7 +10,7 @@ import (
 
 	"github.com/genelet/ramen/internal/synthesize"
 	"github.com/genelet/udon/pkg/rollout"
-	"github.com/tabilet/uws/uws1"
+	"github.com/OpenUdon/uws/uws1"
 )
 
 type fakeRuntimeClient struct{}

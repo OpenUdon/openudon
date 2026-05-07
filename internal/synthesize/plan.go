@@ -11,7 +11,7 @@ import (
 
 	"github.com/genelet/ramen/internal/openapidisco"
 	"github.com/genelet/udon/pkg/rollout"
-	"github.com/tabilet/uws/uws1"
+	"github.com/OpenUdon/uws/uws1"
 )
 
 const workflowPlanVersion = "ramen.workflow-plan.v1"

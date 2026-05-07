@@ -17,7 +17,7 @@ generation, quality evidence, approval handoff, and trusted runtime enforcement.
    and handoff artifacts from reviewed inputs.
 4. Validate generated artifacts deterministically before any execution path.
 5. Maintain an eval corpus and release evidence for prompt/model/pipeline changes.
-6. Use `github.com/tabilet/apitools` for shared authoring mechanics and public review handoff schema
+6. Use `github.com/OpenUdon/apitools` for shared authoring mechanics and public review handoff schema
    where those concepts stay domain-neutral.
 7. Keep side-effectful execution behind approval JSON, package digest validation, tier checks,
    current quality validation, and trusted udon invocation.

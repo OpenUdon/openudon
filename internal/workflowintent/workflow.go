@@ -9,7 +9,7 @@ import (
 
 	"github.com/genelet/udon/pkg/rollout"
 	"github.com/genelet/udon/pkg/runner"
-	"github.com/tabilet/apitools"
+	"github.com/OpenUdon/apitools"
 )
 
 const IntentPath = "workflows/intent.hcl"

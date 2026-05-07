@@ -1,6 +1,6 @@
 package synthesize
 
-import "github.com/tabilet/uws/uws1"
+import "github.com/OpenUdon/uws/uws1"
 
 func cloneCriteria(items []*uws1.Criterion) []*uws1.Criterion {
 	if len(items) == 0 {

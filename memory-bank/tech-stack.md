@@ -38,9 +38,9 @@ but should not import or fork Symphony implementation code.
 
 ## Preferred Dependency Direction
 
-- Use `github.com/tabilet/apitools` for domain-neutral OpenAPI discovery/import, shared authoring
+- Use `github.com/OpenUdon/apitools` for domain-neutral OpenAPI discovery/import, shared authoring
   mechanics, review state names, review handoff validation, and review-only leaf-adapter contracts.
-- Use `github.com/tabilet/uws` and sibling schemas for public UWS validation.
+- Use `github.com/OpenUdon/uws` and sibling schemas for public UWS validation.
 - Use `github.com/genelet/udon` packages for generic workflow compilation, UWS export, runtime-plan
   validation, and trusted execution invocation.
 - Keep public workflow semantics out of Ramen and put them in `../uws`.

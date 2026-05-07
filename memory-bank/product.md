@@ -76,7 +76,7 @@ validated trusted path, with clear evidence for every generated artifact and sid
   enforcement.
 - Cross-repo compatibility evidence for UWS semantics, udon lowering/runtime behavior, provider
   drift, release gates, and private checkout readiness.
-- Generic authoring reuse through `github.com/tabilet/apitools` only where it stays
+- Generic authoring reuse through `github.com/OpenUdon/apitools` only where it stays
   domain-neutral.
 
 ## Non-Goals

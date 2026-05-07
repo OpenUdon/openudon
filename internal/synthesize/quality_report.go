@@ -10,8 +10,8 @@ import (
 
 	"github.com/genelet/ramen/internal/openapidisco"
 	"github.com/genelet/udon/pkg/rollout"
-	"github.com/tabilet/apitools"
-	"github.com/tabilet/uws/uws1"
+	"github.com/OpenUdon/apitools"
+	"github.com/OpenUdon/uws/uws1"
 )
 
 func assessSecrets(report *QualityReport, result Result) {

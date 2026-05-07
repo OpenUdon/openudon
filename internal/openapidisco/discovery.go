@@ -3,7 +3,7 @@ package openapidisco
 import (
 	"context"
 
-	"github.com/tabilet/apitools"
+	"github.com/OpenUdon/apitools"
 )
 
 type Candidate = apitools.DiscoveryCandidate

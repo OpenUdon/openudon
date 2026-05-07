@@ -3,22 +3,24 @@ module github.com/genelet/ramen
 go 1.25.5
 
 require (
+	github.com/OpenUdon/apitools v0.0.0-20260507025114-0b52308a4d88
+	github.com/OpenUdon/uws v0.0.0-00010101000000-000000000000
 	github.com/genelet/hcllight v0.3.3
 	github.com/genelet/udon v0.0.0
 	github.com/santhosh-tekuri/jsonschema/v6 v6.0.2
-	github.com/tabilet/uws v0.0.0-00010101000000-000000000000
 	gopkg.in/yaml.v3 v3.0.1
 )
 
 require (
 	github.com/kr/text v0.2.0 // indirect
 	github.com/rogpeppe/go-internal v1.14.1 // indirect
-	github.com/tabilet/oas v0.0.0-20260413131549-b78ffd347d17 // indirect
 )
 
 require (
 	cloud.google.com/go/compute/metadata v0.9.0 // indirect
 	github.com/Azure/go-ntlmssp v0.0.0-20221128193559-754e69321358 // indirect
+	github.com/OpenUdon/oas v0.0.0-20260507023120-7fb319711323 // indirect
+	github.com/OpenUdon/schema v0.0.0-20260507023912-6ea3308bb955 // indirect
 	github.com/agext/levenshtein v1.2.3 // indirect
 	github.com/antchfx/xmlquery v1.5.1 // indirect
 	github.com/antchfx/xpath v1.3.6 // indirect
@@ -29,9 +31,9 @@ require (
 	github.com/bramvdbogaerde/go-scp v1.5.0 // indirect
 	github.com/cespare/xxhash/v2 v2.3.0 // indirect
 	github.com/dustin/go-humanize v1.0.1 // indirect
-	github.com/genelet/determined v1.13.5 // indirect
+	github.com/genelet/determined v1.13.6-0.20260507030526-45652b387d33 // indirect
 	github.com/genelet/grand v0.0.0-20251204155631-c0db9360e797 // indirect
-	github.com/genelet/horizon v1.14.2 // indirect
+	github.com/genelet/horizon v1.14.3 // indirect
 	github.com/genelet/oas v0.0.0-20251230202742-6861c891a9d1 // indirect
 	github.com/go-asn1-ber/asn1-ber v1.5.8-0.20250403174932-29230038a667 // indirect
 	github.com/go-ini/ini v1.67.0 // indirect
@@ -55,8 +57,6 @@ require (
 	github.com/philhofer/fwd v1.2.0 // indirect
 	github.com/pkg/sftp v1.13.10 // indirect
 	github.com/rs/xid v1.6.0 // indirect
-	github.com/tabilet/apitools v0.0.0
-	github.com/tabilet/schema v0.0.0-20260413181549-3f8667c17b7f // indirect
 	github.com/tinylib/msgp v1.6.1 // indirect
 	github.com/zclconf/go-cty v1.17.0 // indirect
 	github.com/zclconf/go-cty-yaml v1.1.0 // indirect
@@ -85,8 +85,8 @@ replace github.com/genelet/hcllight => ../hcllight
 
 replace github.com/genelet/horizon => ../horizon
 
-replace github.com/tabilet/uws => ../uws
+replace github.com/OpenUdon/uws => ../uws
 
-replace github.com/tabilet/arazzo => ../arazzo
+replace github.com/OpenUdon/arazzo => ../arazzo
 
-replace github.com/tabilet/apitools => ../apitools
+replace github.com/OpenUdon/apitools => ../apitools

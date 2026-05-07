@@ -9,7 +9,7 @@ import (
 
 	"github.com/genelet/ramen/internal/projectwizard"
 	"github.com/genelet/udon/pkg/rollout"
-	"github.com/tabilet/apitools"
+	"github.com/OpenUdon/apitools"
 )
 
 const PromptVersion = "icot-extractor.v1"

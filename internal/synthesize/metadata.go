@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"math"
 
-	"github.com/tabilet/uws/uws1"
+	"github.com/OpenUdon/uws/uws1"
 )
 
 func cloneFloat64Ptr(value *float64) *float64 {

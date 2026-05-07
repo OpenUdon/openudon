@@ -1,6 +1,6 @@
 package elicitor
 
-import "github.com/tabilet/apitools"
+import "github.com/OpenUdon/apitools"
 
 type Transcript struct {
 	Version string            `json:"version"`

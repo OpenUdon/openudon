@@ -6,7 +6,7 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/tabilet/apitools"
+	"github.com/OpenUdon/apitools"
 )
 
 const (

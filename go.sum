@@ -16,6 +16,10 @@ github.com/Azure/go-ntlmssp v0.0.0-20221128193559-754e69321358 h1:mFRzDkZVAjdal+
 github.com/Azure/go-ntlmssp v0.0.0-20221128193559-754e69321358/go.mod h1:chxPXzSsl7ZWRAuOIE23GDNzjWuZquvFlgA8xmpunjU=
 github.com/DATA-DOG/go-sqlmock v1.5.2 h1:OcvFkGmslmlZibjAjaHm3L//6LiuBgolP7OputlJIzU=
 github.com/DATA-DOG/go-sqlmock v1.5.2/go.mod h1:88MAG/4G7SMwSE3CeA0ZKzrT5CiOU3OJ+JlNzwDqpNU=
+github.com/OpenUdon/oas v0.0.0-20260507023120-7fb319711323 h1:IIS4CeB6dcbkAdcSInrBYcVUZum1fhVfInfB2+f0bxA=
+github.com/OpenUdon/oas v0.0.0-20260507023120-7fb319711323/go.mod h1:Q9qOlsluqLT/UmBD1TrwRn46fhNILwk+IIgtuNgyWXM=
+github.com/OpenUdon/schema v0.0.0-20260507023912-6ea3308bb955 h1:dwQPNJKFpa6ndPagc3bKvS8ITuVopArFVsE2JgVFJfY=
+github.com/OpenUdon/schema v0.0.0-20260507023912-6ea3308bb955/go.mod h1:Q0QXMOpiSZlXZpdnMV/FpUaZ85SJWi+h7E5vEU85Rik=
 github.com/agext/levenshtein v1.2.3 h1:YB2fHEn0UJagG8T1rrWknE3ZQzWM06O8AMAatNn7lmo=
 github.com/agext/levenshtein v1.2.3/go.mod h1:JEDfjyjHDjOF/1e4FlBE/PkbqA9OfWu2ki2W0IB5558=
 github.com/alexbrainman/sspi v0.0.0-20250919150558-7d374ff0d59e h1:4dAU9FXIyQktpoUAgOJK3OTFc/xug0PCXYCqU0FgDKI=
@@ -49,8 +53,8 @@ github.com/dustin/go-humanize v1.0.1 h1:GzkhY7T5VNhEkwH0PVJgjz+fX1rhBrR7pRT3mDkp
 github.com/dustin/go-humanize v1.0.1/go.mod h1:Mu1zIs6XwVuF/gI1OepvI0qD18qycQx+mFykh5fBlto=
 github.com/felixge/httpsnoop v1.0.4 h1:NFTV2Zj1bL4mc9sqWACXbQFVBBg2W3GPvqp8/ESS2Wg=
 github.com/felixge/httpsnoop v1.0.4/go.mod h1:m8KPJKqk1gH5J9DgRY2ASl2lWCfGKXixSwevea8zH2U=
-github.com/genelet/determined v1.13.5 h1:iSEjct/5IPEqwpYGz0l17BD6Ojxmrqz2NQzttpoowRs=
-github.com/genelet/determined v1.13.5/go.mod h1:JXfBrztvLamZtRobBy7gXEhUCA1y3ss4CdSBMdwV2f8=
+github.com/genelet/determined v1.13.6-0.20260507030526-45652b387d33 h1:ai9Xc+aMw8ruHsJTi9ZZnKeUDDel3H2AtR5WySaOhAE=
+github.com/genelet/determined v1.13.6-0.20260507030526-45652b387d33/go.mod h1:/Fl3/qc3Q5OG4hEurfEMO35PrrIubEc5GoQD8Ft/z3I=
 github.com/genelet/oas v0.0.0-20251230202742-6861c891a9d1 h1:Ei+xVK2fYgSiltLaUU3E2Z7p/+VjqWrVwNNp4EcBe0Q=
 github.com/genelet/oas v0.0.0-20251230202742-6861c891a9d1/go.mod h1:DnQIWAYjrckHkuYCdYa6nZ3HlQ9aUaK++CKZ0KbT6DM=
 github.com/genelet/sqlmeta v0.0.0-20260113154923-3159e1f923aa h1:MIfw8w7uIk8drZ4mztNsNoE+dopdb6EIPBQDDPfzBcU=
@@ -145,10 +149,6 @@ github.com/santhosh-tekuri/jsonschema/v6 v6.0.2 h1:KRzFb2m7YtdldCEkzs6KqmJw4nqEV
 github.com/santhosh-tekuri/jsonschema/v6 v6.0.2/go.mod h1:JXeL+ps8p7/KNMjDQk3TCwPpBy0wYklyWTfbkIzdIFU=
 github.com/stretchr/testify v1.11.1 h1:7s2iGBzp5EwR7/aIZr8ao5+dra3wiQyKjjFuvgVKu7U=
 github.com/stretchr/testify v1.11.1/go.mod h1:wZwfW3scLgRK+23gO65QZefKpKQRnfz6sD981Nm4B6U=
-github.com/tabilet/oas v0.0.0-20260413131549-b78ffd347d17 h1:OpQkp8JmhkFWlpv1RUivTs0fhlU5GTsB35ysZt+eJ9o=
-github.com/tabilet/oas v0.0.0-20260413131549-b78ffd347d17/go.mod h1:nGzx9NgME3UVZdCJWQmEe2pwcnbJ0uGWPhQRQyq6wgM=
-github.com/tabilet/schema v0.0.0-20260413181549-3f8667c17b7f h1:q4pwp5BU2EhYnXi/24rVA8mDpXljso1wMmuN+ARc6T8=
-github.com/tabilet/schema v0.0.0-20260413181549-3f8667c17b7f/go.mod h1:2HT1nrV9gT1otFgeOzZEa6N/AxWigumi4JS1i6vUQeI=
 github.com/tinylib/msgp v1.6.1 h1:ESRv8eL3u+DNHUoSAAQRE50Hm162zqAnBoGv9PzScPY=
 github.com/tinylib/msgp v1.6.1/go.mod h1:RSp0LW9oSxFut3KzESt5Voq4GVWyS+PSulT77roAqEA=
 github.com/yuin/goldmark v1.4.13/go.mod h1:6yULJ656Px+3vBD8DxQVa3kxgyrAnzto9xy5taEt/CY=

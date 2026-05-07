@@ -13,8 +13,8 @@ import (
 	"github.com/genelet/ramen/internal/projectwizard"
 	"github.com/genelet/ramen/internal/workflowintent"
 	"github.com/genelet/udon/pkg/rollout"
-	"github.com/tabilet/apitools"
-	"github.com/tabilet/uws/uws1"
+	"github.com/OpenUdon/apitools"
+	"github.com/OpenUdon/uws/uws1"
 )
 
 type Options struct {

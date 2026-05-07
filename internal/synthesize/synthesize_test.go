@@ -16,8 +16,8 @@ import (
 	"github.com/genelet/udon/pkg/rollout"
 	"github.com/genelet/udon/pkg/runner"
 	"github.com/genelet/udon/pkg/uwsprofile"
-	"github.com/tabilet/apitools"
-	"github.com/tabilet/uws/uws1"
+	"github.com/OpenUdon/apitools"
+	"github.com/OpenUdon/uws/uws1"
 )
 
 type fakeClient struct{}

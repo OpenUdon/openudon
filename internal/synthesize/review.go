@@ -9,7 +9,7 @@ import (
 	"strings"
 
 	"github.com/genelet/udon/pkg/rollout"
-	"github.com/tabilet/apitools"
+	"github.com/OpenUdon/apitools"
 )
 
 func writeReview(result Result, provider, model string) error {
