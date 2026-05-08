@@ -62,6 +62,18 @@ Current generation policy:
 | Idempotency | Allowed for explicit workflow-level UWS 1.1 metadata; Ramen does not inject API keys. |
 | Runtime profiles | Allowed only for existing validated udon profile shapes and project/environment policy. |
 
+The public UWS runtime supplement is a slim non-HTTP invocation selector for extension-owned
+execution only. Public `x-uws-runtime` carries only `type`, `command`, `workingDir`, `function`,
+`workflow`, and `arguments`. HTTP/OpenAPI operations must use core UWS OpenAPI binding fields plus
+referenced OpenAPI documents; `type: http` in public `x-uws-runtime` is rejected rather than treated
+as a runtime profile. Provider selection, credentials, client/security configuration, and
+request/response schemas belong in runtime-private configuration or product-owned profiles, not
+public `x-uws-*`. This is intentional because runtime auth/security shapes for `ssh`, `cmd`,
+`fnct`, `fileio`, `sql`, `s3`, `smtp`, `dns`, `ldaps`, `scp`, `sftp`, and `llm` are
+implementation-specific and usually appear as runtime-owned arguments or private runtime
+configuration rather than a portable public config object. Udon's legacy private `x-udon-runtime`
+remains a separate compatibility concern until udon migrates its public DTO/export surface.
+
 Closed cross-repo dependencies remain regression responsibilities:
 
 - Structured output and UWS artifact preservation regressions are watched in Ramen and udon tests.

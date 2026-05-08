@@ -32,6 +32,12 @@
 - [x] UWS 1.1 timeout and workflow idempotency opt-in preservation covered by Ramen eval/quality.
 - [x] Runtime/profile eval coverage implemented for approved `fnct`, approved `cmd`, denied
   command/SSH, and future profile-boundary behavior.
+- [x] Cross-repo runtime boundary clarified: public `x-uws-runtime` is a slim non-HTTP invocation
+  selector with no HTTP/OpenAPI metadata, provider/security configuration, or request/response
+  schemas; `type: http` is rejected while udon's legacy private `x-udon-runtime` HTTP projection
+  remains compatibility-only pending a separate migration. Runtime auth/security shapes for the
+  supported non-HTTP runtime types are implementation-specific and typically belong in arguments or
+  private runtime configuration, not a public runtime config object.
 - [x] Local readiness report implemented for sibling checkouts, deterministic gates, git state,
   ignored artifacts, provider env presence booleans, and local/manual automation policy.
 - [x] `expected/symphony-handoff.json` implemented on the public `apitools.review-handoff.v1`
@@ -56,6 +62,11 @@
   projected through `udon/pkg/runtimeplan` as plain recursive request maps with indexed expression
   precision, keeping `github.com/genelet/udon` as the only private Go module named by Ramen
   implementation imports.
+- [x] Udon HTTP credential binding resolution implemented upstream: OpenAPI security schemes carry
+  non-secret binding names from `x-udon-config.security[].binding` or default to the scheme name,
+  the default resolver reads `UDON_CREDENTIAL_<BINDING>` at execution time, literal secret fields in
+  `x-udon-config.security` are rejected, and resolved values stay out of Ramen artifacts and
+  persisted udon output.
 - [x] Hosted CI intentionally disabled during active private-sibling development.
 - [x] Roadmap, XRD, onboarding, operator, and safety docs consolidated into memory-bank and README.
 

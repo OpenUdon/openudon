@@ -163,6 +163,12 @@ regression only.
 Ramen reference intents must not invent unsupported runtime types such as `sql`, `smtp`, `llm`, or
 profile-specific `x-udon-*` payloads. Any future fixture that needs real profile semantics should
 open upstream work in `../udon` or `../uws` before Ramen prompt defaults emit those fields.
+HTTP is not a runtime-profile type in UWS extension payloads: HTTP/OpenAPI operations must bind
+through core UWS OpenAPI fields, and `type: http` in public `x-uws-runtime` payloads is rejected.
+The public runtime supplement is intentionally small: runtime selector fields only, with no
+provider/security configuration, HTTP metadata, or request/response schema projection. Udon's legacy
+private `x-udon-runtime` remains a compatibility surface until a separate udon DTO and export
+migration removes its raw HTTP projection.
 
 ## Documentation Maintenance
 
