@@ -8,8 +8,8 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/genelet/ramen/internal/authoring"
 	"github.com/genelet/udon/pkg/rollout"
-	"github.com/OpenUdon/apitools"
 )
 
 func writeReview(result Result, provider, model string) error {
@@ -70,7 +70,7 @@ func reviewMarkdown(result Result, provider, model string) string {
 	fmt.Fprintf(&b, "- Refinement report: `%s`\n", relOrAbs(result.ExampleDir, result.RefinementJSONPath))
 	fmt.Fprintf(&b, "- Review evidence: `%s`\n", relOrAbs(result.ExampleDir, result.ReviewPath))
 	fmt.Fprintf(&b, "- Symphony handoff manifest: `%s`\n", relOrAbs(result.ExampleDir, result.SymphonyHandoffPath))
-	fmt.Fprintf(&b, "- Shared leaf review package: `%d` artifact(s), `%d` symbolic binding(s), execution deferred to Ramen trusted-runtime policy.\n", len(commonPackage.Artifacts), len(commonPackage.BindingNames))
+	fmt.Fprintf(&b, "- Ramen review package: `%d` artifact(s), `%d` symbolic binding(s), execution deferred to Ramen trusted-runtime policy.\n", len(commonPackage.Artifacts), len(commonPackage.BindingNames))
 	b.WriteString("\n## OpenAPI Candidates\n\n")
 	for _, candidate := range result.OpenAPICandidates {
 		fmt.Fprintf(&b, "- `%s`", candidate.RelativePath)
@@ -147,7 +147,7 @@ func reviewMarkdown(result Result, provider, model string) string {
 	}
 	audit := commonReview.BindingAudit()
 	if len(audit.DeclaredSymbolicBindings) > 0 {
-		fmt.Fprintf(&b, "- Shared symbolic binding audit: `%s`\n", strings.Join(audit.DeclaredSymbolicBindings, "`, `"))
+		fmt.Fprintf(&b, "- Symbolic binding audit: `%s`\n", strings.Join(audit.DeclaredSymbolicBindings, "`, `"))
 	}
 	b.WriteString("- Credential values must stay outside prompts, examples, generated artifacts, and logs.\n")
 	b.WriteString("\n## Unresolved Risks\n\n")
@@ -213,7 +213,7 @@ func expectedPlanCredentialNames(path string) []string {
 	return out
 }
 
-func reviewArtifactSet(result Result) apitools.ArtifactSet {
+func reviewArtifactSet(result Result) authoring.ArtifactSet {
 	artifactPaths := []string{
 		result.ProjectPath,
 		result.IntentPath,
@@ -229,31 +229,31 @@ func reviewArtifactSet(result Result) apitools.ArtifactSet {
 		result.ReviewPath,
 		result.SymphonyHandoffPath,
 	}
-	artifacts := make([]apitools.Artifact, 0, len(artifactPaths))
+	artifacts := make([]authoring.Artifact, 0, len(artifactPaths))
 	for _, path := range artifactPaths {
 		if strings.TrimSpace(path) == "" {
 			continue
 		}
 		content, _ := os.ReadFile(path)
-		artifacts = append(artifacts, apitools.Artifact{
+		artifacts = append(artifacts, authoring.Artifact{
 			Path:      relOrAbs(result.ExampleDir, path),
 			MediaType: reviewArtifactMediaType(path),
 			Content:   content,
 		})
 	}
-	return apitools.ArtifactSet{Artifacts: artifacts}
+	return authoring.ArtifactSet{Artifacts: artifacts}
 }
 
-func reviewLeafAdapter(set apitools.ArtifactSet, declaredCredentials, expectedCredentials []string) apitools.LeafAdapter {
+func reviewLeafAdapter(set authoring.ArtifactSet, declaredCredentials, expectedCredentials []string) authoring.LeafAdapter {
 	seen := map[string]bool{}
-	var bindings []apitools.SymbolicBinding
+	var bindings []authoring.SymbolicBinding
 	for _, name := range append(append([]string(nil), declaredCredentials...), expectedCredentials...) {
 		name = strings.TrimSpace(name)
 		if name == "" || seen[name] {
 			continue
 		}
 		seen[name] = true
-		bindings = append(bindings, apitools.SymbolicBinding{
+		bindings = append(bindings, authoring.SymbolicBinding{
 			Name:        name,
 			Kind:        "credential",
 			Source:      "ramen.review",
@@ -261,7 +261,7 @@ func reviewLeafAdapter(set apitools.ArtifactSet, declaredCredentials, expectedCr
 		})
 	}
 	set.SymbolicBindings = bindings
-	return apitools.NewLeafAdapter(set, apitools.LeafOptions{
+	return authoring.NewLeafAdapter(set, authoring.LeafOptions{
 		Name:   "Ramen Review Evidence",
 		Source: "ramen.synthesize",
 	})

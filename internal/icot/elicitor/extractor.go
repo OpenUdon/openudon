@@ -4,9 +4,10 @@ import (
 	"context"
 	_ "embed"
 	"encoding/json"
+	"fmt"
 	"strings"
 
-	"github.com/OpenUdon/apitools"
+	"github.com/genelet/ramen/internal/authoring"
 	"github.com/genelet/ramen/internal/projectwizard"
 	"github.com/genelet/udon/pkg/rollout"
 )
@@ -35,7 +36,7 @@ type Extractor interface {
 	Disambiguate(context.Context, string, []APIDocument) ([]string, error)
 }
 
-type DraftRequest = apitools.InteractiveDraftRequest[Session, APIDocument]
+type DraftRequest = authoring.InteractiveDraftRequest[Session, APIDocument]
 
 type noopExtractor struct{}
 
@@ -162,15 +163,62 @@ func (e *chatExtractor) Disambiguate(ctx context.Context, need string, docs []AP
 }
 
 func (e *chatExtractor) completeJSON(ctx context.Context, systemPrompt, userPayload, schema string, out any, maxTokens int) error {
-	_, err := apitools.CompleteJSONWithFallback(ctx, apitools.LLMChatAdapter{
+	_, err := authoring.CompleteJSONWithFallback(ctx, rolloutChatAdapter{
 		Client:      e.client,
 		Temperature: e.temperature,
 		MaxTokens:   maxTokens,
-	}, []apitools.TranscriptTurn{
+	}, []authoring.TranscriptTurn{
 		{Role: "system", Content: systemPrompt},
 		{Role: "user", Content: userPayload},
-	}, json.RawMessage(schema), out, apitools.JSONCompletionOptions{FallbackOnStructuredError: true})
+	}, json.RawMessage(schema), out, authoring.JSONCompletionOptions{FallbackOnStructuredError: true})
 	return err
+}
+
+type rolloutChatAdapter struct {
+	Client      rollout.ChatClient
+	Temperature *float64
+	MaxTokens   int
+}
+
+func (adapter rolloutChatAdapter) Complete(ctx context.Context, transcript []authoring.TranscriptTurn) (authoring.TranscriptTurn, error) {
+	if adapter.Client == nil {
+		return authoring.TranscriptTurn{}, fmt.Errorf("rollout chat client is required")
+	}
+	messages := make([]rollout.ChatMessage, 0, len(transcript))
+	for _, turn := range transcript {
+		messages = append(messages, rollout.ChatMessage{Role: turn.Role, Content: turn.Content})
+	}
+	content, err := adapter.Client.Chat(ctx, messages)
+	if err != nil {
+		return authoring.TranscriptTurn{}, err
+	}
+	return authoring.TranscriptTurn{Role: "assistant", Content: content}, nil
+}
+
+func (adapter rolloutChatAdapter) CompleteStructured(ctx context.Context, transcript []authoring.TranscriptTurn, schema any, out any) error {
+	if adapter.Client == nil {
+		return fmt.Errorf("rollout chat client is required")
+	}
+	structured, ok := adapter.Client.(rollout.StructuredChat)
+	if !ok {
+		return fmt.Errorf("structured chat unavailable")
+	}
+	rawSchema, err := authoring.RawSchema(schema)
+	if err != nil {
+		return err
+	}
+	messages := make([]rollout.ChatMessage, 0, len(transcript))
+	for _, turn := range transcript {
+		messages = append(messages, rollout.ChatMessage{Role: turn.Role, Content: turn.Content})
+	}
+	raw, err := structured.StructuredChat(ctx, messages, rawSchema, rollout.StructuredOpts{
+		Temperature: adapter.Temperature,
+		MaxTokens:   adapter.MaxTokens,
+	})
+	if err != nil {
+		return err
+	}
+	return json.Unmarshal([]byte(raw), out)
 }
 
 func firstLine(value string) string {

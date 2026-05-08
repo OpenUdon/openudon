@@ -13,17 +13,17 @@ import (
 	"strings"
 	"time"
 
-	"github.com/OpenUdon/apitools"
+	"github.com/genelet/ramen/internal/authoring"
 	"github.com/genelet/ramen/internal/synthesize"
 )
 
 const (
 	ApprovalVersion        = "ramen.approval.v1"
-	SymphonyHandoffVersion = apitools.ReviewHandoffVersion
+	SymphonyHandoffVersion = authoring.ReviewHandoffVersion
 	legacyHandoffVersion   = "ramen.symphony-handoff.v1"
 
-	StateApprovedForSandbox    = string(apitools.ReviewStateApprovedForSandbox)
-	StateApprovedForProduction = string(apitools.ReviewStateApprovedForProduction)
+	StateApprovedForSandbox    = string(authoring.ReviewStateApprovedForSandbox)
+	StateApprovedForProduction = string(authoring.ReviewStateApprovedForProduction)
 
 	TierSandbox    = "sandbox"
 	TierProduction = "production"
@@ -85,7 +85,7 @@ type paths struct {
 	defaultWorkDir string
 }
 
-type handoffManifest = apitools.ReviewHandoff
+type handoffManifest = authoring.ReviewHandoff
 
 func Run(ctx context.Context, opts Options) (*RunResult, error) {
 	if ctx == nil {
@@ -279,7 +279,7 @@ func readHandoff(path string) (handoffManifest, error) {
 		return handoffManifest{}, fmt.Errorf("handoff manifest must be valid JSON: %w", err)
 	}
 	allowedVersions := []string{SymphonyHandoffVersion, legacyHandoffVersion}
-	if diagnostics := apitools.ValidateReviewHandoff(manifest, apitools.ReviewHandoffValidationOptions{AllowedVersions: allowedVersions}); len(diagnostics) > 0 {
+	if diagnostics := authoring.ValidateReviewHandoff(manifest, authoring.ReviewHandoffValidationOptions{AllowedVersions: allowedVersions}); len(diagnostics) > 0 {
 		return handoffManifest{}, fmt.Errorf("handoff manifest is invalid: %s", diagnostics[0].Message)
 	}
 	return manifest, nil
@@ -354,7 +354,7 @@ func validateStoredQuality(path string) error {
 }
 
 func computePackageDigest(p paths, manifest handoffManifest) (string, error) {
-	fileSet := map[string]apitools.ReviewHandoffInput{}
+	fileSet := map[string]authoring.ReviewHandoffInput{}
 	for _, input := range manifest.HandoffInputs {
 		if !input.Required {
 			continue
@@ -371,11 +371,11 @@ func computePackageDigest(p paths, manifest handoffManifest) (string, error) {
 		files = append(files, path)
 	}
 	sort.Strings(files)
-	inputs := make([]apitools.ReviewHandoffInput, 0, len(files))
+	inputs := make([]authoring.ReviewHandoffInput, 0, len(files))
 	for _, path := range files {
 		inputs = append(inputs, fileSet[path])
 	}
-	return apitools.ComputeReviewHandoffDigest(apitools.ReviewHandoffDigestOptions{
+	return authoring.ComputeReviewHandoffDigest(authoring.ReviewHandoffDigestOptions{
 		Root:    p.exampleAbs,
 		Scope:   p.scope,
 		Version: "ramen.handoff-package-digest.v1",

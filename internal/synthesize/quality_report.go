@@ -8,15 +8,15 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/OpenUdon/uws/uws1"
+	"github.com/genelet/ramen/internal/authoring"
 	"github.com/genelet/ramen/internal/openapidisco"
 	"github.com/genelet/udon/pkg/rollout"
-	"github.com/OpenUdon/apitools"
-	"github.com/OpenUdon/uws/uws1"
 )
 
 func assessSecrets(report *QualityReport, result Result) {
 	var hits []string
-	for _, diagnostic := range apitools.ScanCredentialValues(reviewArtifactSet(result).Artifacts) {
+	for _, diagnostic := range authoring.ScanCredentialValues(reviewArtifactSet(result).Artifacts) {
 		hits = append(hits, diagnostic.Path)
 	}
 	if len(hits) > 0 {

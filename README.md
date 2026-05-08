@@ -1,12 +1,14 @@
 # Ramen
 
-Ramen is the private integration layer for Symphony-managed UWS projects executed by the private
-`udon` runtime.
+Ramen is the public UWS workflow authoring, review, package, and executor-handoff tool. It can run
+directly or under optional Symphony-managed orchestration, and it hands approved packages to a
+trusted executor boundary such as the private `udon` runtime.
 
-It owns project templates, Symphony workflow policy, example artifacts, deterministic validation,
-review handoff evidence, and trusted-runner glue. Public workflow semantics belong in `../uws`;
-generic OpenAPI/UWS compilation and execution belong in `../udon`; managed work orchestration
-belongs in `../symphony`.
+It owns project templates, optional Symphony workflow policy, example artifacts, deterministic
+validation, review handoff evidence, package digests, credential policy, and trusted-runner glue.
+Public workflow semantics belong in `../uws`; OpenAPI search/discovery/import/indexing belongs in
+`../apitools`; generic private execution belongs in executor implementations such as `../udon`;
+managed work orchestration belongs in `../symphony`.
 
 ## Project Memory
 

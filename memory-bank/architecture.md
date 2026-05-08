@@ -8,9 +8,9 @@
 - Use [milestone.md](milestone.md) for milestones and acceptance criteria.
 - Use [status.md](status.md) for current completion state.
 
-Ramen is an integration layer above Symphony, UWS, udon, and shared `apitools`. It owns the
-Ramen-specific workflow package lifecycle from brief authoring through review handoff and trusted
-local execution. It composes sibling projects but should stay thin.
+Ramen is the public UWS authoring, review, package, and executor-handoff layer above UWS, narrowed
+OpenAPI tooling, optional Symphony orchestration, and private executor implementations. It owns the
+workflow package lifecycle from brief authoring through review handoff and trusted local execution.
 
 ## Current State
 
@@ -21,24 +21,32 @@ artifacts before any approved udon execution path.
 
 Generated packages now include project briefs, structured intent, workflow HCL, UWS YAML, expected
 plans, OpenAPI discovery reports, refinement reports, review notes, quality reports, and
-`expected/symphony-handoff.json` manifests built on the public `apitools` review handoff schema.
+`expected/symphony-handoff.json` manifests. The manifest wire version remains
+`apitools.review-handoff.v1` during migration.
 
 ## System Boundary
 
-- `../uws` owns public workflow semantics, UWS versions, schema, and Go model.
-- `../udon` owns generic UWS/OpenAPI compilation, lowering, execution, runtime profiles, and
-  runtime-plan behavior. It also hides private HCL body representations behind public runtime-plan
-  projection helpers so Ramen can validate compiled request evidence without importing `hcllight`.
-- `../apitools` owns domain-neutral authoring helpers, OpenAPI discovery/import helpers, review-only
-  leaf adapters, runtime-bound binding contracts, normalized issue structures, public review state
-  machine, handoff input/digest helpers, and runtime-neutral handoff schema.
+- `../uws` owns public workflow semantics, UWS versions, schema, parsing, validation, and Go model.
+- `../apitools` owns OpenAPI document search, discovery, import, download, local file scanning,
+  operation indexing, operation summaries, auth/security summaries, and operation ranking.
+- `../ramen` owns UWS authoring, iCoT/progressive loops, prompt transcripts/replay, artifact sets,
+  review evidence, approval state policy, package digests, credential-value scanning, symbolic
+  binding contracts, review handoff validation, package gates, and trusted executor handoff.
+- `../udon` owns private UWS/OpenAPI compilation, lowering, execution, runtime profiles, and
+  runtime-plan behavior. The target public Ramen boundary invokes udon through CLI/Docker-compatible
+  executor handoff rather than broad Go library coupling.
 - `../openudon` owns public IaC authoring/planning, concrete IaC intent, `.tf` generation, graph,
   profile, state, drift, and `w8m`-facing public artifacts.
-- `../symphony` owns work orchestration, isolated workspaces, reviewer routing, identity, managed
-  state transitions, and audit persistence.
-- Ramen owns only private workflow integration: project policy, examples, prompts, iCoT workflow
-  authoring, Symphony agent instructions, deterministic Ramen validation, review evidence, approval
-  templates, and local trusted-runner enforcement.
+- `../symphony` optionally owns work orchestration, isolated workspaces, reviewer routing, identity,
+  managed state transitions, and audit persistence.
+
+Transitional debt:
+
+- Ramen still imports `github.com/genelet/udon` directly for generation, export, validation, and run
+  wrappers while the executor handoff is being split.
+- Ramen imports `github.com/OpenUdon/apitools` only for narrowed OpenAPI tooling. Product lifecycle
+  helpers such as iCoT, transcript, review, handoff, credential scan, package digest, and approval
+  policy are Ramen-owned.
 
 ## Cross-Repo Contract Summary
 
@@ -132,14 +140,11 @@ follow-up. The offline path uses the fixed manual loop. iCoT autosaves local ses
 ignored `.icot/session.yaml`, writes ignored transcripts when enabled, and treats final artifact
 writes as an atomic small transaction.
 
-The conversation engine is not Ramen-owned. `apitools.RunProgressiveICOT[S, D, A]`,
-`ProgressiveLoopHooks[S, D, A]`, `apitools.AuthoringAPIDocument`, and the `apitools/icot`
-lifecycle wrapper are the bound-runtime layer (mirroring the `uws1.Document.Runtime` pattern):
-apitools owns the structural loop, draft/transcript lifecycle, prompt-safe OpenAPI operation
-context, and JSON completion fallback plumbing. Each engine binds its own domain-shaped hooks.
-Ramen's `internal/icot/elicitor/` files (`extractor`, `classification`, `progressive`, `loop`,
-`session`, `api`) remain the rollout binding for prompts, sanitization, readiness, final
-edit/explain confirmation, and artifact rendering.
+Ramen owns the structural progressive loop, draft/transcript lifecycle, prompt transcript/replay,
+and JSON completion fallback plumbing under `internal/authoring`. `apitools` still supplies
+prompt-safe OpenAPI operation context and ranking. Ramen's `internal/icot/elicitor/` files remain
+the rollout binding for prompts, sanitization, readiness, final edit/explain confirmation, and
+artifact rendering.
 
 ## Symphony And Trusted Execution
 
@@ -149,9 +154,9 @@ history.
 
 The local trusted runner is intentionally separate from synthesis. It validates
 `expected/symphony-handoff.json`, `expected/quality.json`, current in-memory quality, approval JSON,
-canonical package digest, and tier compatibility. The package digest uses the shared `apitools`
-handoff digest helper over Ramen's required input set. It rejects credential values in artifacts and
-direct production execution, then invokes udon only through `scripts/run-udon.sh`.
+canonical package digest, and tier compatibility. The package digest uses Ramen-local handoff digest
+helpers over Ramen's required input set. It rejects credential values in artifacts and direct
+production execution, then invokes udon only through `scripts/run-udon.sh`.
 
 Required handoff inputs are `project.md`, `workflows/intent.hcl`, `workflows/workflow.hcl`,
 `workflows/workflow.uws.yaml`, `expected/plan.json`, `expected/quality.json`,
@@ -182,7 +187,7 @@ Automation tiers:
 - `internal/trustedrunner/`: approval schema, package digest, handoff validation, tier checks, and
   udon invocation wrapper.
 - `internal/readiness/`: local private checkout readiness reports and deterministic gate execution.
-- `internal/workflowintent/`: Ramen compatibility adapter over shared generic authoring concepts.
+- `internal/workflowintent/`: Ramen compatibility adapter over local authoring concepts.
 - `examples/`: committed examples and eval corpus.
 - `templates/`: project brief starter templates.
 - `memory-bank/`: living project memory.

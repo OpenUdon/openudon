@@ -5,8 +5,8 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/genelet/udon/pkg/rollout"
 	"github.com/OpenUdon/uws/uws1"
+	"github.com/genelet/udon/pkg/rollout"
 )
 
 type CompareIssue struct {

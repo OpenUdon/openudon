@@ -9,11 +9,12 @@ import (
 	"strings"
 
 	"github.com/OpenUdon/apitools"
+	"github.com/genelet/ramen/internal/authoring"
 	"github.com/genelet/ramen/internal/projectwizard"
 	"github.com/genelet/udon/pkg/rollout"
 )
 
-type ReplayTurn = apitools.PromptTurn
+type ReplayTurn = authoring.PromptTurn
 
 type ReplayScript struct {
 	Turns []ReplayTurn `json:"turns"`
@@ -121,7 +122,7 @@ func BuildReplayScript(exampleDir string, intent *rollout.Intent) (ReplayScript,
 }
 
 func AssertReplayLabelsInOrder(output string, turns []ReplayTurn) error {
-	return apitools.AssertPromptLabelsInOrder(output, turns)
+	return authoring.AssertPromptLabelsInOrder(output, turns)
 }
 
 func addStepReplay(script *ReplayScript, step *rollout.Step, defaultOpenAPI string, docs []APIDocument, docByPath map[string]APIDocument) error {

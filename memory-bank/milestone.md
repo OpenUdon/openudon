@@ -10,11 +10,11 @@
 
 ## Delivery Strategy
 
-Keep Ramen as a thin private integration layer. Build in verifiable slices: authoring and examples,
-deterministic synthesis, quality gates, eval and release evidence, trusted handoff, readiness, and
-cross-repo compatibility. Push public workflow semantics to `../uws`, reusable execution to
-`../udon`, domain-neutral review/authoring helpers to `../apitools`, and Symphony orchestration to
-`../symphony`.
+Keep Ramen as the public UWS authoring, review, package, and executor-handoff tool. Build in
+verifiable slices: authoring and examples, deterministic synthesis, quality gates, eval and release
+evidence, trusted handoff, readiness, and cross-repo compatibility. Push public workflow semantics
+to `../uws`, OpenAPI search/discovery/import/indexing to `../apitools`, reusable execution to
+private executors such as `../udon`, and optional orchestration to `../symphony`.
 
 ## Milestones
 
@@ -93,7 +93,8 @@ implementation code.
 ### 7. Safety And Trusted Execution
 
 - Define the minimum review package for trusted execution.
-- Emit `expected/symphony-handoff.json` using the public apitools handoff schema.
+- Emit `expected/symphony-handoff.json` using the stable `apitools.review-handoff.v1` wire
+  version, with Ramen-owned validation and lifecycle behavior.
 - Generate approval JSON from the current package digest.
 - Validate handoff manifest, stored/current quality, approval scope, expiry, digest, and tier/state
   compatibility before udon invocation.
@@ -131,6 +132,46 @@ from documented commands.
   upstream gap is proven.
 
 Acceptance: Ramen remains thin and does not absorb sibling ownership.
+
+### 11. Public Ramen Package Boundary
+
+- Complete the Ramen lifecycle migration. Status: done. Ramen now owns iCoT/progressive loop,
+  prompt transcript/replay, JSON completion fallback, artifact sets, review handoff validation,
+  package digest, symbolic binding contracts, credential scanning, and review metadata locally.
+- Preserve the final `../apitools` keep boundary: OpenAPI search, discovery, import, download,
+  local scanning, validation, operation indexing, operation summaries, auth/security summaries,
+  operation ranking, CLI search/import, and cache support. Status: done.
+- Remove or move downstream all non-OpenAPI `../apitools` lifecycle APIs: generic authoring
+  structs/flows, iCoT loop/session/transcript helpers, JSON completion fallback, review
+  handoff/state machine, package digest, credential scans, binding contracts, leaf adapter/review
+  package helpers, LLM provider helpers, and Context7/documentation authoring context. Status: done.
+- `../openudon` is parked and is not a compatibility gate for this narrowing. It must move any
+  lifecycle dependencies into OpenUdon-owned packages before it resumes tracking current apitools.
+- Migrate `../udon` before deleting APIs. Udon must move runtime-plan leaf/review helpers and
+  `apitools/llm` usage into udon-owned code and keep only OpenAPI search/import/index usage.
+  Status: done.
+- Keep Ramen on local `internal/authoring` lifecycle helpers and add or keep a static guard that
+  Ramen production packages do not import non-OpenAPI `apitools` APIs. Status: done.
+- Hard-narrow `../apitools` only after downstream consumers compile without those APIs: delete or
+  move non-OpenAPI packages/files, rewrite README/docs around the OpenAPI-only boundary, and keep
+  authoring/review/handoff material only as historical migration notes when needed. Status: done.
+- Keep `apitools.review-handoff.v1` only as a wire compatibility string while downstream artifacts
+  still need it, not as active `../apitools` lifecycle ownership.
+- Split Ramen's remaining udon executor integration into a trusted executor handoff design based on
+  UWS Document, OpenAPI files, non-secret run config, and runtime credential resolution.
+
+Acceptance: Ramen owns lifecycle APIs locally, `../apitools` contains only OpenAPI tooling, `../udon`
+compiles without non-OpenAPI apitools APIs, `../openudon` is explicitly parked, static guards
+prevent regression, and Ramen's public build no longer relies on broad shared apitools product
+workflow APIs.
+
+Verification plan:
+
+- Ramen: `go test ./...`, `go vet ./...`, `make check`, and `git diff --check`.
+- `../apitools`: `go test ./...`, `go vet ./...`, `git diff --check`, plus CLI smoke coverage for
+  `search` and `import`.
+- Downstreams: `(cd ../udon && go test ./...)`. `../openudon` is parked and not a gate.
+- Static guards: `rg` for removed non-OpenAPI symbols in Ramen, udon, and apitools docs.
 
 ## Closed XRD Regression Matrix
 

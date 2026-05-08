@@ -5,11 +5,11 @@ import (
 	"os"
 	"strings"
 
+	"github.com/OpenUdon/uws/uws1"
 	"github.com/genelet/ramen/internal/uwsvalidate"
 	"github.com/genelet/udon/generator"
 	"github.com/genelet/udon/pkg/rollout"
 	"github.com/genelet/udon/pkg/uwsprofile"
-	"github.com/OpenUdon/uws/uws1"
 	"gopkg.in/yaml.v3"
 )
 

@@ -40,24 +40,20 @@
   private runtime configuration, not a public runtime config object.
 - [x] Local readiness report implemented for sibling checkouts, deterministic gates, git state,
   ignored artifacts, provider env presence booleans, and local/manual automation policy.
-- [x] `expected/symphony-handoff.json` implemented on the public `apitools.review-handoff.v1`
-  schema with legacy read compatibility.
+- [x] `expected/symphony-handoff.json` implemented with the stable `apitools.review-handoff.v1`
+  wire version and legacy read compatibility; Ramen owns validation and lifecycle behavior.
 - [x] Approval template generation and local trusted-runner validation implemented.
-- [x] Ramen adoption of shared `apitools` authoring core compatibility adapter completed without
-  importing OpenUdon concrete IaC models.
-- [x] OpenAPI discovery + `.icot/session.yaml` draft persistence relocated to
-  `apitools/openapidisco` and `apitools/icot` (2026-05-07). Ramen keeps thin shims at
-  `internal/openapidisco` and `internal/icot/elicitor/draft.go` so existing call sites compile
-  unchanged. The conversation engine itself was NOT extracted: `apitools.RunProgressiveICOT[S, D, A]`
-  + `ProgressiveLoopHooks[S, D, A]` already implement the bound-runtime pattern, so `ramen`'s
-  rollout-shaped `Extractor`, `classification`, `progressive`, `loop`, `session`, `api` files
-  remain in `internal/icot/elicitor/` as the rollout binding of those generic hooks.
-- [x] Ramen progressive iCoT now inherits shared `apitools` authoring OpenAPI documents,
-  draft/transcript lifecycle, and JSON completion fallback while keeping rollout-specific prompts,
-  sanitization, readiness checks, final edit/explain confirmation, and artifact rendering local.
-- [x] Ramen Symphony handoff assembly and trusted-runner package digest now inherit shared `apitools`
-  handoff input, binding contract, and digest helpers while keeping Ramen owner split, approval
-  policy, quality gates, trusted-runner command text, and udon invocation local.
+- [x] Ramen authoring compatibility adapter completed without importing OpenUdon concrete IaC
+  models.
+- [x] OpenAPI discovery remains available through `apitools/openapidisco`. Ramen now owns
+  `.icot/session.yaml` draft persistence, the progressive iCoT loop, transcript lifecycle, and JSON
+  completion fallback locally under `internal/authoring`.
+- [x] Ramen progressive iCoT uses `apitools` only for OpenAPI authoring documents, operation
+  summaries, and ranking while keeping rollout-specific prompts, sanitization, readiness checks,
+  final edit/explain confirmation, artifact rendering, and lifecycle plumbing local.
+- [x] Ramen Symphony handoff assembly and trusted-runner package digest now use local Ramen handoff
+  input, binding contract, validation, and digest helpers while keeping the
+  `apitools.review-handoff.v1` wire shape stable.
 - [x] Ramen quality checks no longer import `hcllight` directly. Compiled request evidence is
   projected through `udon/pkg/runtimeplan` as plain recursive request maps with indexed expression
   precision, keeping `github.com/genelet/udon` as the only private Go module named by Ramen
@@ -69,6 +65,29 @@
   persisted udon output.
 - [x] Hosted CI intentionally disabled during active private-sibling development.
 - [x] Roadmap, XRD, onboarding, operator, and safety docs consolidated into memory-bank and README.
+- [x] Direction change recorded: Ramen is now the public UWS authoring, review, package, and
+  executor-handoff tool; Symphony is optional orchestration; `apitools` is being narrowed back to
+  OpenAPI document tooling; udon remains a private executor boundary.
+- [x] First Ramen-local lifecycle migration implemented: progressive iCoT loop, draft/transcript
+  lifecycle, prompt replay types, JSON completion fallback, artifact/review metadata, handoff
+  validation, package digest, symbolic binding contract, and credential scanning now live under
+  `internal/authoring`.
+- [x] Ramen lifecycle migration split from the broader apitools narrowing blocker. Ramen now keeps
+  product lifecycle behavior local and should use `../apitools` only for OpenAPI discovery,
+  import/search, operation indexing, prompt-safe summaries, security/auth summaries, ranking, and
+  cache-backed CLI support.
+- [x] `../apitools` hard-narrowed to OpenAPI tooling: discovery, search/import/download, local file
+  scanning, validation, operation inventory/indexing/summaries, auth/security summaries, operation
+  ranking, CLI search/import, `openapidisco`, and `sqlitecache`. Old lifecycle APIs, LLM providers,
+  Context7, iCoT helpers, review handoff/state machine, package digest, credential scan, binding
+  contract, and leaf/review package helpers are removed.
+- [x] `../udon` migrated off non-OpenAPI apitools APIs. Udon now owns rollout LLM provider plumbing
+  and runtime-plan review/handoff helper types locally while keeping only OpenAPI search/import
+  usage from apitools.
+- [x] `../openudon` is parked and is not a compatibility gate for the apitools narrowing.
+- [ ] Split Ramen's remaining udon executor coupling into a CLI/Docker-compatible trusted executor
+  handoff based on UWS Document, OpenAPI files, non-secret run config, and runtime credential
+  resolution.
 
 ## Notes
 
@@ -88,8 +107,13 @@
   valid handoff package.
 - Symphony managed reviewer routing remains optional external integration. Ramen owns local package
   evidence and trusted-runner enforcement only.
-- OpenUdon remains the owner of concrete IaC behavior. Ramen uses generic `apitools` authoring
-  abstractions only for private workflow/iCoT reuse.
+- OpenUdon remains the owner of concrete IaC behavior. It is parked during this narrowing and is not
+  a release compatibility gate.
+- Udon consumer migration for the narrowed apitools boundary is complete.
+- Keep `apitools.review-handoff.v1` only as a stable wire compatibility string while downstream
+  artifacts still need it; do not treat it as active `../apitools` lifecycle ownership.
+- The next public-release blocker is splitting Ramen's udon integration into a CLI/Docker-compatible
+  trusted executor handoff.
 - Remaining detailed docs are intentionally narrow working references: intent contract, data-flow
   examples, project authoring guide, eval gallery, release-note template, and safety guide.
 - Update this file after feature implementation changes completion state.

@@ -9,13 +9,13 @@ import (
 	"strings"
 
 	"github.com/OpenUdon/apitools"
-	apicot "github.com/OpenUdon/apitools/icot"
+	"github.com/genelet/ramen/internal/authoring"
 	"github.com/genelet/ramen/internal/projectwizard"
 	"github.com/genelet/udon/pkg/rollout"
 )
 
-type ReadinessIssue = apitools.ReadinessIssue
-type QuestionPlan = apitools.InteractiveQuestion
+type ReadinessIssue = authoring.ReadinessIssue
+type QuestionPlan = authoring.InteractiveQuestion
 
 const (
 	readinessBlocking = "blocking"
@@ -39,7 +39,7 @@ func runProgressive(ctx context.Context, in io.Reader, out io.Writer, seed Sessi
 	if session.Intent.Workflow != nil {
 		openingBrief = strings.TrimSpace(session.Intent.Workflow.Description)
 	}
-	hooks := apitools.ProgressiveLoopHooks[Session, APIDocument, Artifacts]{
+	hooks := authoring.ProgressiveLoopHooks[Session, APIDocument, Artifacts]{
 		Session:       session,
 		Documents:     docs,
 		Opening:       openingBrief,
@@ -92,7 +92,7 @@ func runProgressive(ctx context.Context, in io.Reader, out io.Writer, seed Sessi
 			defaultSingleOpenAPIDoc(session, docs)
 			return nil
 		},
-		FinalConfirm: func(prompts *apitools.PromptSession, session *Session, docs []APIDocument, events *[]apitools.PromptEvent) (Artifacts, error) {
+		FinalConfirm: func(prompts *authoring.PromptSession, session *Session, docs []APIDocument, events *[]authoring.PromptEvent) (Artifacts, error) {
 			return finalProgressiveConfirmationLoop(out, &prompter{PromptSession: prompts, out: out}, session, docs, opts.DraftPath, events)
 		},
 		FinalResultSummary: func(artifacts Artifacts) any {
@@ -103,7 +103,7 @@ func runProgressive(ctx context.Context, in io.Reader, out io.Writer, seed Sessi
 			}
 		},
 	}
-	artifacts, err := apicot.RunProgressiveWithLifecycle(ctx, in, out, hooks, apicot.ProgressiveLifecycleOptions[Session, APIDocument, Artifacts]{
+	artifacts, err := authoring.RunProgressiveWithLifecycle(ctx, in, out, hooks, authoring.ProgressiveLifecycleOptions[Session, APIDocument, Artifacts]{
 		DraftPath:         opts.DraftPath,
 		TranscriptPath:    opts.TranscriptPath,
 		TranscriptVersion: "ramen.icot-transcript.v1",
@@ -121,7 +121,7 @@ func runProgressive(ctx context.Context, in io.Reader, out io.Writer, seed Sessi
 			return artifacts.Session
 		},
 	})
-	if errors.Is(err, apitools.ErrCanceled) {
+	if errors.Is(err, authoring.ErrCanceled) {
 		return artifacts, ErrCanceled
 	}
 	return artifacts, err

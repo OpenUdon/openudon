@@ -8,27 +8,30 @@
 - Use [milestone.md](milestone.md) for milestones, work sequencing, and acceptance criteria.
 - Use [status.md](status.md) for current completion state.
 
-Ramen is the private integration layer for Symphony-managed UWS projects executed by the private
-`udon` runtime.
+Ramen is the public-facing UWS workflow authoring, review, package, and executor-handoff tool. It
+can be used directly by operators or under optional Symphony-managed orchestration, and it hands
+approved packages to a trusted executor boundary such as the private `udon` runtime.
 
 Ramen turns reviewed project briefs into deterministic workflow artifacts: `project.md`,
 `workflows/intent.hcl`, `workflows/workflow.hcl`, exported UWS, expected plans, quality reports,
-review evidence, refinement reports, and machine-readable review handoff manifests. It does not own
-public workflow semantics or generic execution. Those remain in `../uws` and `../udon`.
+review evidence, refinement reports, package digests, credential policy, and machine-readable
+review handoff manifests. It does not own public workflow semantics or generic execution. Those
+remain in `../uws` and executor implementations such as `../udon`.
 
 ## Product Goal
 
-Make natural-language workflow projects authorable, reviewable, and executable only through a
-validated trusted path, with clear evidence for every generated artifact and side-effect boundary.
+Make UWS workflow projects authorable, reviewable, packageable, and executable only through a
+validated trusted handoff path, with clear evidence for every generated artifact and side-effect
+boundary.
 
 ## Primary Users
 
-- Trusted internal operators authoring or reviewing UWS/OpenAPI workflow projects.
-- Symphony-managed agents generating artifacts inside isolated workspaces.
+- Operators authoring or reviewing UWS/OpenAPI workflow projects.
+- Optional Symphony-managed agents generating artifacts inside isolated workspaces.
 - Reviewers checking side effects, credential bindings, generated plans, quality reports, and
   approval states before execution.
-- Runtime operators using `ramen run` to validate approval and package digests before invoking
-  `udon`.
+- Runtime operators using `ramen run` to validate approval and package digests before invoking a
+  trusted executor.
 - Ramen maintainers extending prompts, iCoT, eval fixtures, quality gates, and cross-repo glue.
 
 ## Core Workflows
@@ -42,7 +45,7 @@ validated trusted path, with clear evidence for every generated artifact and sid
 6. Generate local readiness evidence for private sibling checkout state and deterministic gates.
 7. Produce approval JSON from the current handoff package digest.
 8. Use `ramen run` to validate handoff, stored and current quality, approval state, package digest,
-   tier compatibility, and trusted runner invocation.
+   tier compatibility, and trusted executor invocation.
 
 ## Core Concepts
 
@@ -50,18 +53,18 @@ validated trusted path, with clear evidence for every generated artifact and sid
 - **Intent** is Ramen's structured `workflows/intent.hcl` contract for workflow metadata, inputs,
   steps, outputs, data-flow hints, credentials, runtime approvals, side-effect scope, timeouts, and
   idempotency metadata.
-- **Workflow HCL** is the udon-authored executable workflow source generated from intent.
-- **UWS artifact** is the public workflow interchange output validated against the sibling UWS
-  schema and udon execution profile.
+- **Workflow HCL** is one full UWS Document serialization generated from intent.
+- **UWS YAML** is an equivalent full UWS Document serialization of the same workflow. Ramen treats
+  `workflow.hcl` and `workflow.uws.yaml` as public UWS documents, not separate semantic layers.
 - **Expected plan** records inferred steps, runtimes, OpenAPI operations, dependencies, request
   inputs, bindings, credentials, structural results, side effects, and action policies.
 - **Quality report** is the deterministic release gate for current generated artifacts.
 - **Review evidence** is the human-readable side-effect, risk, credential, and trusted-runner
   package summary.
-- **Symphony handoff** is an `apitools.review-handoff.v1` manifest with Ramen package inputs,
+- **Review handoff** is an `apitools.review-handoff.v1` manifest with Ramen package inputs,
   approval states, owner split, execution policy, credential binding names, and trusted runner
-  metadata.
-- **Trusted runner** is the local `ramen run` gate that invokes `scripts/run-udon.sh` only after
+  metadata. The wire version remains stable during the migration.
+- **Trusted runner** is the local `ramen run` gate that invokes a private executor path only after
   approval and package validation pass.
 
 ## Scope
@@ -71,19 +74,20 @@ validated trusted path, with clear evidence for every generated artifact and sid
 - Deterministic artifact generation from project briefs and intent into workflow HCL, UWS, plan,
   quality, refinement, review, and handoff artifacts.
 - Quality gates and local validation wrappers for Ramen package correctness.
-- Symphony workflow prompt/config policy for Ramen-managed work items.
+- Optional Symphony workflow prompt/config policy for Ramen-managed work items.
 - Local trusted execution wrapper, approval template generation, package digest checks, and tier
   enforcement.
 - Cross-repo compatibility evidence for UWS semantics, udon lowering/runtime behavior, provider
   drift, release gates, and private checkout readiness.
-- Generic authoring reuse through `github.com/OpenUdon/apitools` only where it stays
-  domain-neutral.
+- Ramen-owned iCoT, review evidence, approval, package digest, credential policy, and trusted
+  executor handoff helpers.
+- OpenAPI discovery/search/import/indexing reuse through `github.com/OpenUdon/apitools`.
 
 ## Non-Goals
 
 - Public UWS schema or semantics; those belong in `../uws`.
 - Generic OpenAPI/UWS compilation, lowering, or runtime execution behavior; those belong in
-  `../udon`.
+  executor implementations such as `../udon`.
 - Symphony service implementation, reviewer identity storage, managed state transitions, or audit
   persistence; those belong in `../symphony`.
 - Concrete OpenUdon IaC intent models, `.tf` generation, graph/profile/planning/state/drift

@@ -12,8 +12,8 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/OpenUdon/apitools"
 	"github.com/OpenUdon/uws/uws1"
+	"github.com/genelet/ramen/internal/authoring"
 	"github.com/genelet/ramen/internal/openapidisco"
 	"github.com/genelet/ramen/internal/uwsvalidate"
 	"github.com/genelet/udon/generator"
@@ -2596,8 +2596,8 @@ func assessSymphonyHandoff(report *QualityReport, path string, profile sideEffec
 	}
 	report.add("symphony_handoff.present", "pass", "Symphony handoff manifest is readable", "")
 	allowedVersions := []string{symphonyHandoffVersion, legacySymphonyHandoffVersion}
-	if diagnostics := apitools.ValidateReviewHandoff(manifest, apitools.ReviewHandoffValidationOptions{AllowedVersions: allowedVersions}); len(diagnostics) > 0 {
-		report.add("symphony_handoff.contract", "fail", "Symphony handoff manifest must satisfy the public apitools review handoff contract", diagnostics[0].Message)
+	if diagnostics := authoring.ValidateReviewHandoff(manifest, authoring.ReviewHandoffValidationOptions{AllowedVersions: allowedVersions}); len(diagnostics) > 0 {
+		report.add("symphony_handoff.contract", "fail", "Symphony handoff manifest must satisfy the review handoff contract", diagnostics[0].Message)
 		return
 	}
 	if !symphonyHandoffHasRequiredInputs(manifest) {
@@ -2652,7 +2652,7 @@ func symphonyHandoffHasRequiredInputs(manifest SymphonyHandoff) bool {
 }
 
 func symphonyHandoffHasApprovalStates(manifest SymphonyHandoff) bool {
-	return apitools.ReviewStateMachineHasRequiredStates(manifest.ApprovalStates)
+	return authoring.ReviewStateMachineHasRequiredStates(manifest.ApprovalStates)
 }
 
 func symphonyHandoffExecutionPolicyMatches(manifest SymphonyHandoff, profile sideEffectProfile) bool {
@@ -2663,9 +2663,9 @@ func symphonyHandoffExecutionPolicyMatches(manifest SymphonyHandoff, profile sid
 	if !profile.SideEffectful {
 		return policy.RequiredNextState == "" && policy.SandboxProofRunState == "" && policy.ProductionExecutionState == ""
 	}
-	return policy.RequiredNextState == string(apitools.ReviewStateReviewRequired) &&
-		policy.SandboxProofRunState == string(apitools.ReviewStateApprovedForSandbox) &&
-		policy.ProductionExecutionState == string(apitools.ReviewStateApprovedForProduction) &&
+	return policy.RequiredNextState == string(authoring.ReviewStateReviewRequired) &&
+		policy.SandboxProofRunState == string(authoring.ReviewStateApprovedForSandbox) &&
+		policy.ProductionExecutionState == string(authoring.ReviewStateApprovedForProduction) &&
 		manifest.TrustedRunner.SandboxOnly
 }
 

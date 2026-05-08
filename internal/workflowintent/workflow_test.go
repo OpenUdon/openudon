@@ -6,20 +6,20 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/genelet/ramen/internal/authoring"
 	"github.com/genelet/udon/pkg/rollout"
-	"github.com/OpenUdon/apitools"
 )
 
 func TestWorkflowFlowParsesValidatesAndRendersIntent(t *testing.T) {
 	flow := WorkflowFlow()
-	draft, artifacts, diagnostics, err := flow.ParseValidateRender(context.Background(), apitools.Artifact{
+	draft, artifacts, diagnostics, err := flow.ParseValidateRender(context.Background(), authoring.Artifact{
 		Path:    IntentPath,
 		Content: []byte(validIntentHCL()),
 	})
 	if err != nil {
 		t.Fatal(err)
 	}
-	if apitools.HasErrors(diagnostics) {
+	if authoring.HasErrors(diagnostics) {
 		t.Fatalf("diagnostics = %#v", diagnostics)
 	}
 	if draft.Workflow == nil || draft.Workflow.Name != "runtime_only_render" {
@@ -59,7 +59,7 @@ func TestValidateCompleteReportsRamenMissingSlots(t *testing.T) {
 func TestChatAdapterConvertsTranscriptAndStructuredOutput(t *testing.T) {
 	fake := &fakeStructuredChat{}
 	adapter := ChatAdapter{Client: fake, MaxTokens: 42}
-	turns := []apitools.TranscriptTurn{{Role: "user", Content: "hello"}}
+	turns := []authoring.TranscriptTurn{{Role: "user", Content: "hello"}}
 
 	reply, err := adapter.Complete(context.Background(), turns)
 	if err != nil {

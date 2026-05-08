@@ -10,8 +10,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/OpenUdon/apitools"
 	"github.com/OpenUdon/uws/uws1"
+	"github.com/genelet/ramen/internal/authoring"
 	"github.com/genelet/ramen/internal/openapidisco"
 	"github.com/genelet/ramen/internal/uwsvalidate"
 	"github.com/genelet/udon/pkg/rollout"
@@ -1146,7 +1146,7 @@ func TestAssessSymphonyHandoffAcceptsLegacyVersion(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "symphony-handoff.json")
 	manifest := SymphonyHandoff{
 		Version:        legacySymphonyHandoffVersion,
-		GeneratedState: string(apitools.ReviewStateGenerated),
+		GeneratedState: string(authoring.ReviewStateGenerated),
 		HandoffInputs: []SymphonyHandoffInput{
 			{Path: "project.md", Required: true},
 			{Path: "workflows/intent.hcl", Required: true},
@@ -1158,7 +1158,7 @@ func TestAssessSymphonyHandoffAcceptsLegacyVersion(t *testing.T) {
 			{Path: "expected/review.md", Required: true},
 			{Path: "expected/symphony-handoff.json", Required: true},
 		},
-		ApprovalStates: apitools.DefaultReviewStateMachine(),
+		ApprovalStates: authoring.DefaultReviewStateMachine(),
 		OwnerSplit: SymphonyOwnerSplit{
 			"ramen":    {"artifact validation"},
 			"symphony": {"approval routing"},

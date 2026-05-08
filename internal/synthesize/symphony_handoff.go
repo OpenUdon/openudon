@@ -6,21 +6,21 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/OpenUdon/apitools"
+	"github.com/genelet/ramen/internal/authoring"
 )
 
 const (
-	symphonyHandoffVersion       = apitools.ReviewHandoffVersion
+	symphonyHandoffVersion       = authoring.ReviewHandoffVersion
 	legacySymphonyHandoffVersion = "ramen.symphony-handoff.v1"
 )
 
-type SymphonyHandoff = apitools.ReviewHandoff
-type SymphonyHandoffInput = apitools.ReviewHandoffInput
-type SymphonyApprovalState = apitools.ReviewApprovalState
-type SymphonyOwnerSplit = apitools.ReviewOwnerSplit
-type SymphonyExecutionPolicy = apitools.ReviewExecutionPolicy
-type SymphonyCredentialBindings = apitools.ReviewCredentialBindings
-type SymphonyTrustedRunner = apitools.ReviewTrustedRunner
+type SymphonyHandoff = authoring.ReviewHandoff
+type SymphonyHandoffInput = authoring.ReviewHandoffInput
+type SymphonyApprovalState = authoring.ReviewApprovalState
+type SymphonyOwnerSplit = authoring.ReviewOwnerSplit
+type SymphonyExecutionPolicy = authoring.ReviewExecutionPolicy
+type SymphonyCredentialBindings = authoring.ReviewCredentialBindings
+type SymphonyTrustedRunner = authoring.ReviewTrustedRunner
 
 func writeSymphonyHandoff(result Result, policy projectPolicy, profile sideEffectProfile) error {
 	if err := ensureArtifactDirs(result); err != nil {
@@ -35,15 +35,15 @@ func writeSymphonyHandoff(result Result, policy projectPolicy, profile sideEffec
 }
 
 func buildSymphonyHandoff(result Result, policy projectPolicy, profile sideEffectProfile) SymphonyHandoff {
-	bindingContract := apitools.BuildBindingContract(apitools.BindingContractOptions{
+	bindingContract := authoring.BuildBindingContract(authoring.BindingContractOptions{
 		BindingNames:         credentialBindingNames(policy),
 		ExpectedBindingNames: expectedPlanCredentialNames(result.PlanJSONPath),
 	})
-	return apitools.NewReviewHandoff(apitools.ReviewHandoffOptions{
+	return authoring.NewReviewHandoff(authoring.ReviewHandoffOptions{
 		Version:        symphonyHandoffVersion,
-		GeneratedState: string(apitools.ReviewStateGenerated),
+		GeneratedState: string(authoring.ReviewStateGenerated),
 		HandoffInputs:  symphonyHandoffInputs(result),
-		ApprovalStates: apitools.DefaultReviewStateMachine(),
+		ApprovalStates: authoring.DefaultReviewStateMachine(),
 		OwnerSplit: SymphonyOwnerSplit{
 			"ramen": {
 				"artifact generation",
@@ -61,7 +61,7 @@ func buildSymphonyHandoff(result Result, policy projectPolicy, profile sideEffec
 				"production-execution enforcement",
 			},
 		},
-		ExecutionPolicy:    apitools.DefaultReviewExecutionPolicy(profile.SideEffectful),
+		ExecutionPolicy:    authoring.DefaultReviewExecutionPolicy(profile.SideEffectful),
 		CredentialBindings: bindingContract.ReviewCredentialBindings(),
 		TrustedRunner: SymphonyTrustedRunner{
 			Command:     fmt.Sprintf("./scripts/run-udon.sh %s %s", relOrAbs(filepath.Dir(result.ExampleDir), result.WorkflowPath), result.ExampleDir),
@@ -71,7 +71,7 @@ func buildSymphonyHandoff(result Result, policy projectPolicy, profile sideEffec
 }
 
 func symphonyHandoffInputs(result Result) []SymphonyHandoffInput {
-	return apitools.ReviewHandoffInputsFromArtifacts([]apitools.ReviewArtifactInput{
+	return authoring.ReviewHandoffInputsFromArtifacts([]authoring.ReviewArtifactInput{
 		{Path: relOrAbs(result.ExampleDir, result.ProjectPath), Purpose: "Source brief, integration policy, runtime policy, credentials policy, safety boundary, and fallback behavior.", Required: true},
 		{Path: relOrAbs(result.ExampleDir, result.IntentPath), Purpose: "Structured intent extracted from the project brief.", Required: true},
 		{Path: relOrAbs(result.ExampleDir, result.WorkflowPath), Purpose: "udon workflow source produced from intent.", Required: true},

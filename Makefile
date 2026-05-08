@@ -1,4 +1,4 @@
-.PHONY: help test vet check doc-memory readiness release-check release-eval siblings validate-uws eval synthesize-support build-support promote-support assess-support run-example
+.PHONY: help test vet check doc-memory apitools-boundary readiness release-check release-eval siblings validate-uws eval synthesize-support build-support promote-support assess-support run-example
 
 GO ?= go
 RAMEN_PROVIDER ?= copilot-api
@@ -14,11 +14,14 @@ test:
 vet:
 	$(GO) vet ./...
 
-check: test siblings
+check: test siblings apitools-boundary
 	$(GO) run ./cmd/ramen check
 
 doc-memory:
 	./scripts/check-doc-memory.sh
+
+apitools-boundary:
+	./scripts/check-apitools-boundary.sh
 
 readiness:
 	$(GO) run ./cmd/ramen readiness --run-gates --out eval/readiness/local.json

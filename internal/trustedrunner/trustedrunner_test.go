@@ -9,8 +9,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/genelet/ramen/internal/authoring"
 	"github.com/genelet/ramen/internal/synthesize"
-	"github.com/OpenUdon/apitools"
 )
 
 func TestRunValidSandboxApprovalPassesDryRun(t *testing.T) {
@@ -335,7 +335,7 @@ func writeFixture(t *testing.T, opts fixtureOptions) (string, string) {
 	}
 	manifest := map[string]any{
 		"version":         version,
-		"generated_state": string(apitools.ReviewStateGenerated),
+		"generated_state": string(authoring.ReviewStateGenerated),
 		"handoff_inputs": []map[string]any{
 			{"path": "project.md", "required": true},
 			{"path": "workflows/intent.hcl", "required": true},
@@ -347,7 +347,7 @@ func writeFixture(t *testing.T, opts fixtureOptions) (string, string) {
 			{"path": "expected/review.md", "required": true},
 			{"path": "expected/symphony-handoff.json", "required": true},
 		},
-		"approval_states": apitools.DefaultReviewStateMachine(),
+		"approval_states": authoring.DefaultReviewStateMachine(),
 		"owner_split": map[string]any{
 			"ramen":    []string{"artifact validation"},
 			"symphony": []string{"approval routing"},

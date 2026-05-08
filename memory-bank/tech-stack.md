@@ -8,8 +8,8 @@
 - Use [milestone.md](milestone.md) for milestones.
 - Use [status.md](status.md) for current completion state.
 
-Ramen is a private Go integration package that composes sibling modules for UWS, udon runtime
-behavior, OpenAPI discovery, and shared review/authoring contracts.
+Ramen is a Go package and CLI that composes sibling modules for public UWS modeling, narrowed
+OpenAPI discovery/indexing, and private trusted executor handoff.
 
 ## Language And Runtime
 
@@ -17,7 +17,7 @@ behavior, OpenAPI discovery, and shared review/authoring contracts.
 - Module path: `github.com/genelet/ramen`.
 - CLI entrypoints: `cmd/ramen` and `cmd/icot`.
 - Internal implementation: reusable behavior under `internal/`.
-- Artifact formats: Markdown, HCL, JSON, YAML, UWS YAML, and apitools review handoff JSON.
+- Artifact formats: Markdown, HCL, JSON, YAML, UWS YAML, and review handoff JSON.
 - Normal verification: `go test ./...`, `go vet ./...`, `make check`, and `git diff --check`.
 - Release verification: `make release-check` for deterministic gates and `make release-eval` for
   opt-in real-provider eval gates.
@@ -27,11 +27,12 @@ behavior, OpenAPI discovery, and shared review/authoring contracts.
 Ramen expects sibling modules through local `replace` directives:
 
 - `../uws` for public UWS model/schema validation.
-- `../udon` for generic UWS/OpenAPI compilation and execution.
+- `../udon` for current private UWS/OpenAPI compilation and execution during the transitional
+  Go-library coupling.
 - `../grand`, `../golet`, `../hcllight`, `../horizon`, `../molecule`, and `../arazzo` as local
   replacements required by the current `../udon` module graph.
-- `../apitools` for OpenAPI discovery/import helpers, generic authoring primitives, review-only
-  leaf adapters, public review state machine, and handoff schema.
+- `../apitools` for OpenAPI discovery, import, search, indexing, auth/security summaries, and
+  operation ranking.
 
 `../symphony` is an operational sibling for work orchestration. Ramen configures the workflow policy
 but should not import or fork Symphony implementation code.
@@ -41,18 +42,24 @@ boundaries. `github.com/genelet/udon` is the only private Go module Ramen source
 
 ## Preferred Dependency Direction
 
-- Use `github.com/OpenUdon/apitools` for domain-neutral OpenAPI discovery/import, shared authoring
-  mechanics, review state names, review handoff validation, and review-only leaf-adapter contracts.
-- Use `github.com/OpenUdon/uws` and sibling schemas for public UWS validation.
-- Use `github.com/genelet/udon` packages for generic workflow compilation, UWS export, runtime-plan
-  validation, request-binding projection, and trusted execution invocation.
+- Use `github.com/OpenUdon/uws` and sibling schemas for public UWS parsing and validation.
+- Use narrowed `github.com/OpenUdon/apitools` APIs only for OpenAPI discovery/import/search,
+  indexing, summaries, and ranking.
+- Keep Ramen-owned authoring, iCoT, review evidence, approval, credential scanning, package digest,
+  and handoff helpers under `internal/`.
+- Non-OpenAPI `apitools` APIs have been removed from the active boundary. Do not add temporary
+  lifecycle compatibility shims back to apitools.
+- Current Ramen uses `github.com/genelet/udon` packages for workflow compilation, UWS export,
+  runtime-plan validation, request-binding projection, and trusted execution invocation. The target
+  public boundary is CLI/Docker-compatible executor invocation with UWS Document + OpenAPI files +
+  non-secret run config + runtime credential resolver.
 - Keep HCL body representations such as `hcllight/light.Body` behind udon APIs. Ramen may consume
   public maps, UWS documents, and udon runtime-plan helper methods, but should not inspect udon's
   private HCL AST types directly.
 - Keep public workflow semantics out of Ramen and put them in `../uws`.
 - Keep generic execution/compiler behavior out of Ramen and put it in `../udon`.
-- Keep OpenUdon concrete IaC models and `.tf` rendering out of Ramen; use shared `apitools`
-  authoring concepts only.
+- Keep OpenUdon concrete IaC models and `.tf` rendering out of Ramen; use `apitools` only for
+  OpenAPI tooling.
 
 ## Artifact Contracts
 

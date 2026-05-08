@@ -5,9 +5,9 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/genelet/ramen/internal/projectdoc"
-	"github.com/OpenUdon/apitools"
 	"github.com/OpenUdon/uws/uws1"
+	"github.com/genelet/ramen/internal/authoring"
+	"github.com/genelet/ramen/internal/projectdoc"
 	"gopkg.in/yaml.v3"
 )
 
@@ -519,7 +519,7 @@ func validateStructuredProjectPolicy(policy projectPolicy) error {
 func LintProjectMarkdown(text string) []QualityCheck {
 	report := &QualityReport{Status: "pass"}
 	addProjectAuthoringChecks(report, text)
-	if apitools.ContainsLikelyCredentialValue([]byte(text)) {
+	if authoring.ContainsLikelyCredentialValue([]byte(text)) {
 		report.add("project.no_secrets", "fail", "project.md contains content matching a credential pattern", "")
 	}
 	report.finalize()

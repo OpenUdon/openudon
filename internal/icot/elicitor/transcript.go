@@ -1,6 +1,6 @@
 package elicitor
 
-import "github.com/OpenUdon/apitools"
+import "github.com/genelet/ramen/internal/authoring"
 
 type Transcript struct {
 	Version string            `json:"version"`
@@ -10,12 +10,12 @@ type Transcript struct {
 	Session Session           `json:"session,omitempty"`
 }
 
-type TranscriptEvent = apitools.PromptEvent
+type TranscriptEvent = authoring.PromptEvent
 
 func SaveTranscript(path string, turns []ReplayTurn, session Session) error {
 	return SaveTranscriptWithEvents(path, turns, nil, session)
 }
 
 func SaveTranscriptWithEvents(path string, turns []ReplayTurn, events []TranscriptEvent, session Session) error {
-	return apitools.SavePromptTranscript(path, "ramen.icot-transcript.v1", turns, events, session)
+	return authoring.SavePromptTranscript(path, "ramen.icot-transcript.v1", turns, events, session)
 }

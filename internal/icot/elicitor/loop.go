@@ -12,6 +12,7 @@ import (
 
 	"github.com/OpenUdon/apitools"
 	"github.com/OpenUdon/uws/uws1"
+	"github.com/genelet/ramen/internal/authoring"
 	"github.com/genelet/ramen/internal/projectwizard"
 	"github.com/genelet/ramen/internal/workflowintent"
 	"github.com/genelet/udon/pkg/rollout"
@@ -51,7 +52,7 @@ func runManual(ctx context.Context, in io.Reader, out io.Writer, seed Session, o
 	}
 	session := seed
 	session.Normalize()
-	p := &prompter{PromptSession: apitools.NewPromptSession(reader, out), out: out}
+	p := &prompter{PromptSession: authoring.NewPromptSession(reader, out), out: out}
 	openingBrief := ""
 	if opts.VerifyOnly {
 		projectText := projectwizard.Render(session.Project)
@@ -403,7 +404,7 @@ func RenderArtifacts(session Session) (Artifacts, error) {
 }
 
 type prompter struct {
-	*apitools.PromptSession
+	*authoring.PromptSession
 	out io.Writer
 }
 

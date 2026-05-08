@@ -7,18 +7,18 @@ import (
 	"os"
 	"strings"
 
+	"github.com/genelet/ramen/internal/authoring"
 	"github.com/genelet/udon/pkg/rollout"
 	"github.com/genelet/udon/pkg/runner"
-	"github.com/OpenUdon/apitools"
 )
 
 const IntentPath = "workflows/intent.hcl"
 
 type WorkflowAdapter struct{}
 
-func WorkflowFlow() apitools.Flow[*rollout.Intent] {
+func WorkflowFlow() authoring.Flow[*rollout.Intent] {
 	adapter := WorkflowAdapter{}
-	return apitools.Flow[*rollout.Intent]{
+	return authoring.Flow[*rollout.Intent]{
 		Parser:       adapter,
 		Renderer:     adapter,
 		Validator:    adapter,
@@ -27,12 +27,12 @@ func WorkflowFlow() apitools.Flow[*rollout.Intent] {
 }
 
 func ParseFile(ctx context.Context, path string) (*rollout.Intent, error) {
-	draft, diagnostics, err := WorkflowAdapter{}.ParseIntent(ctx, apitools.Artifact{Path: path})
+	draft, diagnostics, err := WorkflowAdapter{}.ParseIntent(ctx, authoring.Artifact{Path: path})
 	if err != nil {
 		return nil, err
 	}
-	if apitools.HasErrors(diagnostics) {
-		return nil, apitools.DiagnosticError{Diagnostics: diagnostics}
+	if authoring.HasErrors(diagnostics) {
+		return nil, authoring.DiagnosticError{Diagnostics: diagnostics}
 	}
 	return draft, nil
 }
@@ -43,16 +43,16 @@ func RenderHCL(ctx context.Context, draft *rollout.Intent) (string, error) {
 	}
 	flow := WorkflowFlow()
 	diagnostics := flow.Validator.ValidateIntent(ctx, draft)
-	if apitools.HasErrors(diagnostics) {
-		return "", apitools.DiagnosticError{Diagnostics: diagnostics}
+	if authoring.HasErrors(diagnostics) {
+		return "", authoring.DiagnosticError{Diagnostics: diagnostics}
 	}
 	set, renderDiagnostics, err := flow.Renderer.RenderIntent(ctx, draft)
 	diagnostics = append(diagnostics, renderDiagnostics...)
 	if err != nil {
 		return "", err
 	}
-	if apitools.HasErrors(diagnostics) {
-		return "", apitools.DiagnosticError{Diagnostics: diagnostics}
+	if authoring.HasErrors(diagnostics) {
+		return "", authoring.DiagnosticError{Diagnostics: diagnostics}
 	}
 	for _, artifact := range set.Artifacts {
 		if artifact.Path == IntentPath || artifact.MediaType == "text/hcl" {
@@ -62,14 +62,14 @@ func RenderHCL(ctx context.Context, draft *rollout.Intent) (string, error) {
 	return "", fmt.Errorf("rendered intent artifact %q not found", IntentPath)
 }
 
-func ValidateComplete(ctx context.Context, draft *rollout.Intent) []apitools.Diagnostic {
+func ValidateComplete(ctx context.Context, draft *rollout.Intent) []authoring.Diagnostic {
 	adapter := WorkflowAdapter{}
 	diagnostics := adapter.ValidateIntent(ctx, draft)
 	for _, slot := range adapter.MissingSlots(ctx, draft) {
 		if !slot.Required {
 			continue
 		}
-		diagnostics = append(diagnostics, apitools.Diagnostic{
+		diagnostics = append(diagnostics, authoring.Diagnostic{
 			Severity: "error",
 			Code:     "missing_slot",
 			Message:  fmt.Sprintf("required slot %q is missing", slot.Name),
@@ -79,7 +79,7 @@ func ValidateComplete(ctx context.Context, draft *rollout.Intent) []apitools.Dia
 	return diagnostics
 }
 
-func (WorkflowAdapter) ParseIntent(ctx context.Context, artifact apitools.Artifact) (*rollout.Intent, []apitools.Diagnostic, error) {
+func (WorkflowAdapter) ParseIntent(ctx context.Context, artifact authoring.Artifact) (*rollout.Intent, []authoring.Diagnostic, error) {
 	if err := ctx.Err(); err != nil {
 		return nil, nil, err
 	}
@@ -89,7 +89,7 @@ func (WorkflowAdapter) ParseIntent(ctx context.Context, artifact apitools.Artifa
 		var err error
 		data, err = os.ReadFile(path)
 		if err != nil {
-			return nil, []apitools.Diagnostic{diagnostic("error", "intent_read_failed", err.Error(), path)}, err
+			return nil, []authoring.Diagnostic{diagnostic("error", "intent_read_failed", err.Error(), path)}, err
 		}
 	}
 	if path == "" {
@@ -97,51 +97,51 @@ func (WorkflowAdapter) ParseIntent(ctx context.Context, artifact apitools.Artifa
 	}
 	draft, err := rollout.ParseIntent(data, path)
 	if err != nil {
-		return nil, []apitools.Diagnostic{diagnostic("error", "intent_parse_failed", err.Error(), path)}, err
+		return nil, []authoring.Diagnostic{diagnostic("error", "intent_parse_failed", err.Error(), path)}, err
 	}
 	return draft, nil, nil
 }
 
-func (WorkflowAdapter) RenderIntent(ctx context.Context, draft *rollout.Intent) (apitools.ArtifactSet, []apitools.Diagnostic, error) {
+func (WorkflowAdapter) RenderIntent(ctx context.Context, draft *rollout.Intent) (authoring.ArtifactSet, []authoring.Diagnostic, error) {
 	if err := ctx.Err(); err != nil {
-		return apitools.ArtifactSet{}, nil, err
+		return authoring.ArtifactSet{}, nil, err
 	}
 	hcl, err := runner.RenderIntentHCL(draft)
 	if err != nil {
-		return apitools.ArtifactSet{}, []apitools.Diagnostic{diagnostic("error", "intent_render_failed", err.Error(), IntentPath)}, err
+		return authoring.ArtifactSet{}, []authoring.Diagnostic{diagnostic("error", "intent_render_failed", err.Error(), IntentPath)}, err
 	}
 	if _, err := rollout.ParseIntent([]byte(hcl), IntentPath); err != nil {
-		return apitools.ArtifactSet{}, []apitools.Diagnostic{diagnostic("error", "intent_render_invalid", err.Error(), IntentPath)}, err
+		return authoring.ArtifactSet{}, []authoring.Diagnostic{diagnostic("error", "intent_render_invalid", err.Error(), IntentPath)}, err
 	}
-	return apitools.ArtifactSet{Artifacts: []apitools.Artifact{{
+	return authoring.ArtifactSet{Artifacts: []authoring.Artifact{{
 		Path:      IntentPath,
 		MediaType: "text/hcl",
 		Content:   []byte(hcl),
 	}}}, nil, nil
 }
 
-func (WorkflowAdapter) ValidateIntent(ctx context.Context, draft *rollout.Intent) []apitools.Diagnostic {
+func (WorkflowAdapter) ValidateIntent(ctx context.Context, draft *rollout.Intent) []authoring.Diagnostic {
 	if err := ctx.Err(); err != nil {
-		return []apitools.Diagnostic{diagnostic("error", "intent_validation_cancelled", err.Error(), "")}
+		return []authoring.Diagnostic{diagnostic("error", "intent_validation_cancelled", err.Error(), "")}
 	}
 	if draft == nil {
-		return []apitools.Diagnostic{diagnostic("error", "intent_required", "intent is required", "")}
+		return []authoring.Diagnostic{diagnostic("error", "intent_required", "intent is required", "")}
 	}
 	hcl, err := runner.RenderIntentHCL(draft)
 	if err != nil {
-		return []apitools.Diagnostic{diagnostic("error", "intent_render_failed", err.Error(), IntentPath)}
+		return []authoring.Diagnostic{diagnostic("error", "intent_render_failed", err.Error(), IntentPath)}
 	}
 	if _, err := rollout.ParseIntent([]byte(hcl), IntentPath); err != nil {
-		return []apitools.Diagnostic{diagnostic("error", "intent_parse_failed", err.Error(), IntentPath)}
+		return []authoring.Diagnostic{diagnostic("error", "intent_parse_failed", err.Error(), IntentPath)}
 	}
 	return nil
 }
 
-func (WorkflowAdapter) MissingSlots(ctx context.Context, draft *rollout.Intent) []apitools.Slot {
+func (WorkflowAdapter) MissingSlots(ctx context.Context, draft *rollout.Intent) []authoring.Slot {
 	_ = ctx
 	var missing []string
 	if draft == nil {
-		return []apitools.Slot{{Name: "intent", Required: true}}
+		return []authoring.Slot{{Name: "intent", Required: true}}
 	}
 	if draft.Workflow == nil || strings.TrimSpace(draft.Workflow.Name) == "" {
 		missing = append(missing, "workflow name")
@@ -155,9 +155,9 @@ func (WorkflowAdapter) MissingSlots(ctx context.Context, draft *rollout.Intent) 
 		missing = append(missing, "at least one output")
 	}
 	missing = dedupe(missing)
-	slots := make([]apitools.Slot, 0, len(missing))
+	slots := make([]authoring.Slot, 0, len(missing))
 	for _, name := range missing {
-		slots = append(slots, apitools.Slot{Name: name, Required: true})
+		slots = append(slots, authoring.Slot{Name: name, Required: true})
 	}
 	return slots
 }
@@ -168,18 +168,18 @@ type ChatAdapter struct {
 	MaxTokens   int
 }
 
-func (adapter ChatAdapter) Complete(ctx context.Context, transcript []apitools.TranscriptTurn) (apitools.TranscriptTurn, error) {
+func (adapter ChatAdapter) Complete(ctx context.Context, transcript []authoring.TranscriptTurn) (authoring.TranscriptTurn, error) {
 	if adapter.Client == nil {
-		return apitools.TranscriptTurn{}, fmt.Errorf("rollout chat client is required")
+		return authoring.TranscriptTurn{}, fmt.Errorf("rollout chat client is required")
 	}
 	content, err := adapter.Client.Chat(ctx, TranscriptToMessages(transcript))
 	if err != nil {
-		return apitools.TranscriptTurn{}, err
+		return authoring.TranscriptTurn{}, err
 	}
-	return apitools.TranscriptTurn{Role: "assistant", Content: content}, nil
+	return authoring.TranscriptTurn{Role: "assistant", Content: content}, nil
 }
 
-func (adapter ChatAdapter) CompleteStructured(ctx context.Context, transcript []apitools.TranscriptTurn, schema any, out any) error {
+func (adapter ChatAdapter) CompleteStructured(ctx context.Context, transcript []authoring.TranscriptTurn, schema any, out any) error {
 	if adapter.Client == nil {
 		return fmt.Errorf("rollout chat client is required")
 	}
@@ -187,7 +187,7 @@ func (adapter ChatAdapter) CompleteStructured(ctx context.Context, transcript []
 	if !ok {
 		return fmt.Errorf("structured chat unavailable")
 	}
-	rawSchema, err := apitools.RawSchema(schema)
+	rawSchema, err := authoring.RawSchema(schema)
 	if err != nil {
 		return err
 	}
@@ -201,7 +201,7 @@ func (adapter ChatAdapter) CompleteStructured(ctx context.Context, transcript []
 	return json.Unmarshal([]byte(raw), out)
 }
 
-func TranscriptToMessages(transcript []apitools.TranscriptTurn) []rollout.ChatMessage {
+func TranscriptToMessages(transcript []authoring.TranscriptTurn) []rollout.ChatMessage {
 	messages := make([]rollout.ChatMessage, 0, len(transcript))
 	for _, turn := range transcript {
 		messages = append(messages, rollout.ChatMessage{Role: turn.Role, Content: turn.Content})
@@ -209,10 +209,10 @@ func TranscriptToMessages(transcript []apitools.TranscriptTurn) []rollout.ChatMe
 	return messages
 }
 
-func MessagesToTranscript(messages []rollout.ChatMessage) []apitools.TranscriptTurn {
-	transcript := make([]apitools.TranscriptTurn, 0, len(messages))
+func MessagesToTranscript(messages []rollout.ChatMessage) []authoring.TranscriptTurn {
+	transcript := make([]authoring.TranscriptTurn, 0, len(messages))
 	for _, message := range messages {
-		transcript = append(transcript, apitools.TranscriptTurn{Role: message.Role, Content: message.Content})
+		transcript = append(transcript, authoring.TranscriptTurn{Role: message.Role, Content: message.Content})
 	}
 	return transcript
 }
@@ -239,8 +239,8 @@ func collectOperationSlots(missing *[]string, defaultOpenAPI string, steps []*ro
 	}
 }
 
-func diagnostic(severity, code, message, path string) apitools.Diagnostic {
-	return apitools.Diagnostic{
+func diagnostic(severity, code, message, path string) authoring.Diagnostic {
+	return authoring.Diagnostic{
 		Severity: severity,
 		Code:     code,
 		Message:  strings.TrimSpace(message),
