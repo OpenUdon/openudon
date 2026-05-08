@@ -5,7 +5,6 @@ go 1.25.5
 require (
 	github.com/OpenUdon/apitools v0.0.0-20260507114952-44292c0a16ca
 	github.com/OpenUdon/uws v0.0.0-00010101000000-000000000000
-	github.com/genelet/hcllight v0.3.3
 	github.com/genelet/udon v0.0.0
 	github.com/santhosh-tekuri/jsonschema/v6 v6.0.2
 	gopkg.in/yaml.v3 v3.0.1
@@ -33,6 +32,7 @@ require (
 	github.com/dustin/go-humanize v1.0.1 // indirect
 	github.com/genelet/determined v1.13.6-0.20260507030526-45652b387d33 // indirect
 	github.com/genelet/grand v0.0.0-20251204155631-c0db9360e797 // indirect
+	github.com/genelet/hcllight v0.3.3 // indirect
 	github.com/genelet/horizon v1.14.3 // indirect
 	github.com/genelet/oas v0.0.0-20251230202742-6861c891a9d1 // indirect
 	github.com/go-asn1-ber/asn1-ber v1.5.8-0.20250403174932-29230038a667 // indirect

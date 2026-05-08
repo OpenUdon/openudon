@@ -26,8 +26,10 @@ duplicate root-level product, architecture, roadmap, or status documents.
 - `../symphony` is the work orchestration service. Configure it through Ramen policy and README
   operator guidance; do not fork or modify it from Ramen unless explicitly requested.
 - Udon's private build-time siblings (`../grand`, `../golet`, `../hcllight`, `../horizon`,
-  `../molecule`, and `../arazzo`) and the shared `../apitools` module must be present for
-  local Go builds.
+  `../molecule`, and `../arazzo`) and the shared `../apitools` module must be present for local Go
+  builds while the `../udon` replace is active. Ramen source code should not import those private
+  `genelet/*` siblings directly; `github.com/genelet/udon` is the only private Go module Ramen
+  implementation code should name.
 - `../apitools` owns the public review state machine, review-only leaf adapter,
   and runtime-neutral handoff manifest schema. Ramen consumes that schema and
   adds Symphony routing, Ramen package contents, approval templates, and local

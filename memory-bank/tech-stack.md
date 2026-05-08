@@ -28,13 +28,16 @@ Ramen expects sibling modules through local `replace` directives:
 
 - `../uws` for public UWS model/schema validation.
 - `../udon` for generic UWS/OpenAPI compilation and execution.
-- `../grand`, `../golet`, `../hcllight`, `../horizon`, `../molecule`, and `../arazzo` as udon
-  build-time siblings.
+- `../grand`, `../golet`, `../hcllight`, `../horizon`, `../molecule`, and `../arazzo` as local
+  replacements required by the current `../udon` module graph.
 - `../apitools` for OpenAPI discovery/import helpers, generic authoring primitives, review-only
   leaf adapters, public review state machine, and handoff schema.
 
 `../symphony` is an operational sibling for work orchestration. Ramen configures the workflow policy
 but should not import or fork Symphony implementation code.
+
+Those extra private `genelet/*` siblings are local build requirements of udon, not Ramen ownership
+boundaries. `github.com/genelet/udon` is the only private Go module Ramen source code should import.
 
 ## Preferred Dependency Direction
 
@@ -42,7 +45,10 @@ but should not import or fork Symphony implementation code.
   mechanics, review state names, review handoff validation, and review-only leaf-adapter contracts.
 - Use `github.com/OpenUdon/uws` and sibling schemas for public UWS validation.
 - Use `github.com/genelet/udon` packages for generic workflow compilation, UWS export, runtime-plan
-  validation, and trusted execution invocation.
+  validation, request-binding projection, and trusted execution invocation.
+- Keep HCL body representations such as `hcllight/light.Body` behind udon APIs. Ramen may consume
+  public maps, UWS documents, and udon runtime-plan helper methods, but should not inspect udon's
+  private HCL AST types directly.
 - Keep public workflow semantics out of Ramen and put them in `../uws`.
 - Keep generic execution/compiler behavior out of Ramen and put it in `../udon`.
 - Keep OpenUdon concrete IaC models and `.tf` rendering out of Ramen; use shared `apitools`

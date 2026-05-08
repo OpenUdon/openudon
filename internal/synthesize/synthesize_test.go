@@ -10,14 +10,14 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/genelet/hcllight/light"
+	"github.com/OpenUdon/apitools"
+	"github.com/OpenUdon/uws/uws1"
 	"github.com/genelet/ramen/internal/openapidisco"
 	"github.com/genelet/ramen/internal/uwsvalidate"
 	"github.com/genelet/udon/pkg/rollout"
 	"github.com/genelet/udon/pkg/runner"
+	"github.com/genelet/udon/pkg/runtimeplan"
 	"github.com/genelet/udon/pkg/uwsprofile"
-	"github.com/OpenUdon/apitools"
-	"github.com/OpenUdon/uws/uws1"
 )
 
 type fakeClient struct{}
@@ -2389,15 +2389,9 @@ func TestDeterministicNoOpenAPICommandWorkflow(t *testing.T) {
 }
 
 func TestRequestAttributeEvidenceFindsNestedParamMap(t *testing.T) {
-	expr, err := light.AnyToExpression(map[string]any{
-		"ticketId": map[string]any{"expr": "workflow.input.ticketId"},
-	})
-	if err != nil {
-		t.Fatal(err)
-	}
-	evidence, ok := requestAttributeEvidence(&light.Body{Attributes: map[string]*light.Attribute{
-		"path_pars": {Name: "path_pars", Expr: expr},
-	}}, []string{"path_pars.ticketId"})
+	evidence, ok := requestAttributeEvidence(requestEvidenceFromMap(map[string]any{
+		"path": map[string]any{"ticketId": "workflow.input.ticketId"},
+	}), []string{"path_pars.ticketId"})
 	if !ok {
 		t.Fatal("expected nested path_pars evidence")
 	}
@@ -2406,30 +2400,86 @@ func TestRequestAttributeEvidenceFindsNestedParamMap(t *testing.T) {
 	}
 }
 
-func TestRequestAttributeEvidenceMatchingCanPreferCorrectDuplicate(t *testing.T) {
-	expr, err := light.AnyToExpression("inputs.ticketId")
-	if err != nil {
-		t.Fatal(err)
-	}
-	wrongExpr, err := light.AnyToExpression("trigger.received_body.ticketId")
-	if err != nil {
-		t.Fatal(err)
-	}
-	evidence, ok := requestAttributeEvidenceMatching(&light.Body{
-		Attributes: map[string]*light.Attribute{
-			"ticketId": {Name: "ticketId", Expr: expr},
+func TestRequestAttributeEvidenceFindsRecursiveBodyAliasesAndLeafNames(t *testing.T) {
+	evidence := requestEvidenceFromMap(map[string]any{
+		"body": map[string]any{
+			"user": map[string]any{
+				"email": "lookup_user.received_body.user.email",
+			},
 		},
-		Blocks: []*light.Block{{
-			Type: "path_pars",
-			Bdy: &light.Body{Attributes: map[string]*light.Attribute{
-				"ticketId": {Name: "ticketId", Expr: wrongExpr},
-			}},
-		}},
+		"query": map[string]any{
+			"filter": map[string]any{
+				"status": "inputs.status",
+			},
+		},
+	})
+
+	for _, name := range []string{
+		"body.user.email",
+		"payload.user.email",
+		"payload_pars.user.email",
+		"email",
+		"query.filter.status",
+		"query_pars.filter.status",
+		"status",
+	} {
+		got, ok := requestAttributeEvidence(evidence, []string{name})
+		if !ok {
+			t.Fatalf("expected evidence for %s in %#v", name, evidence)
+		}
+		if got.Expression == "" {
+			t.Fatalf("expected expression for %s, got %#v", name, got)
+		}
+	}
+}
+
+func TestRequestAttributeEvidenceMatchingCanPreferCorrectDuplicate(t *testing.T) {
+	evidence, ok := requestAttributeEvidenceMatching(requestEvidence{
+		{Name: "ticketId", Expression: "inputs.ticketId"},
+		{Name: "path_pars.ticketId", Expression: "trigger.received_body.ticketId"},
 	}, []string{"path_pars.ticketId", "ticketId"}, func(candidate requestAttribute) bool {
 		return expressionReferencesInputSource(candidate.Expression, "inputs.ticketId")
 	})
 	if !ok || evidence.Name != "ticketId" {
 		t.Fatalf("expected top-level matching evidence, got %#v ok=%v", evidence, ok)
+	}
+}
+
+func TestNormalizeBindingExpressionPreservesIndexIdentity(t *testing.T) {
+	if expressionReferencesExpectedSource("records[0].id", "records[1].id") {
+		t.Fatal("records[0].id should not match records[1].id")
+	}
+	if !expressionReferencesExpectedSource("records[0].id", "records/0/id") {
+		t.Fatal("records[0].id should match records/0/id")
+	}
+}
+
+func TestRequestProjectionErrorsBecomeQualityFailures(t *testing.T) {
+	report := &QualityReport{}
+	ok := validateWorkflowAgainstExpectedPlanWithIndex(report, &WorkflowPlan{
+		Steps: []PlanStep{{Name: "create_ticket", Type: "http", Runtime: "http"}},
+	}, func() (map[string]*compiledOperation, error) {
+		return nil, errors.New("operation request projection failed")
+	})
+
+	if ok {
+		t.Fatal("expected validation to fail")
+	}
+	if !hasCheck(report, "workflow.request_evidence", "fail") {
+		t.Fatalf("expected workflow.request_evidence failure, got %#v", report.Checks)
+	}
+}
+
+func TestCompiledOperationIndexReturnsRequestProjectionErrors(t *testing.T) {
+	var plan runtimeplan.Plan
+	_, err := compiledOperationIndexWithRequestProjection(&plan, func(*runtimeplan.Plan) (map[string]map[string]any, error) {
+		return nil, errors.New("broken request projection")
+	})
+	if err == nil {
+		t.Fatal("expected request projection error")
+	}
+	if !strings.Contains(err.Error(), "broken request projection") {
+		t.Fatalf("unexpected error: %v", err)
 	}
 }
 

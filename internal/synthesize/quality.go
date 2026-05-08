@@ -9,17 +9,17 @@ import (
 	"path/filepath"
 	"regexp"
 	"sort"
+	"strconv"
 	"strings"
 
-	"github.com/genelet/hcllight/light"
+	"github.com/OpenUdon/apitools"
+	"github.com/OpenUdon/uws/uws1"
 	"github.com/genelet/ramen/internal/openapidisco"
 	"github.com/genelet/ramen/internal/uwsvalidate"
 	"github.com/genelet/udon/generator"
 	"github.com/genelet/udon/pkg/rollout"
 	"github.com/genelet/udon/pkg/runtimeplan"
 	"github.com/genelet/udon/pkg/uwsprofile"
-	"github.com/OpenUdon/apitools"
-	"github.com/OpenUdon/uws/uws1"
 	"gopkg.in/yaml.v3"
 )
 
@@ -1473,7 +1473,20 @@ func validateWorkflowAgainstExpectedPlan(report *QualityReport, compiled *runtim
 	if expected == nil {
 		return true
 	}
-	ops := compiledOperationIndex(compiled)
+	return validateWorkflowAgainstExpectedPlanWithIndex(report, expected, func() (map[string]*compiledOperation, error) {
+		return compiledOperationIndex(compiled)
+	})
+}
+
+func validateWorkflowAgainstExpectedPlanWithIndex(report *QualityReport, expected *WorkflowPlan, operationIndex func() (map[string]*compiledOperation, error)) bool {
+	if expected == nil {
+		return true
+	}
+	ops, err := operationIndex()
+	if err != nil {
+		report.add("workflow.request_evidence", "fail", "workflow.hcl request evidence could not be projected", err.Error())
+		return false
+	}
 	var missing, runtimeMismatch, operationMismatch, dependsMismatch, timeoutMismatch, controlMismatch, actionMismatch, requestMismatch, bindingSourceMismatch, credentialMismatch []string
 	for _, step := range expected.Steps {
 		name := strings.TrimSpace(step.Name)
@@ -1712,20 +1725,39 @@ type compiledOperation struct {
 	Mode               string
 	BatchSize          string
 	Timeout            *float64
-	Request            *light.Body
+	Request            requestEvidence
 	SuccessCriteria    []*uws1.Criterion
 	OnFailure          []*uws1.FailureAction
 	OnSuccess          []*uws1.SuccessAction
 }
 
-func compiledOperationIndex(plan *runtimeplan.Plan) map[string]*compiledOperation {
+func compiledOperationIndex(plan *runtimeplan.Plan) (map[string]*compiledOperation, error) {
+	return compiledOperationIndexWithRequestProjection(plan, func(plan *runtimeplan.Plan) (map[string]map[string]any, error) {
+		return plan.OperationRequests()
+	})
+}
+
+func compiledOperationIndexWithRequestProjection(plan *runtimeplan.Plan, projectRequests func(*runtimeplan.Plan) (map[string]map[string]any, error)) (map[string]*compiledOperation, error) {
 	out := map[string]*compiledOperation{}
 	if plan == nil {
-		return out
+		return out, nil
 	}
-	collectCompiledUWSSteps(plan.Document(), out)
+	operationEvidence := uwsOperationRequestEvidence(plan.Document())
+	if projectRequests != nil {
+		compiledRequests, err := projectRequests(plan)
+		if err != nil {
+			return nil, err
+		}
+		for name, request := range compiledRequests {
+			if strings.TrimSpace(name) == "" {
+				continue
+			}
+			operationEvidence[strings.TrimSpace(name)] = requestEvidenceFromMap(request)
+		}
+	}
+	collectCompiledUWSSteps(plan.Document(), out, operationEvidence)
 	if plan.ExecCache() == nil {
-		return out
+		return out, nil
 	}
 	for _, op := range plan.ExecCache().Operations {
 		if op == nil || strings.TrimSpace(op.Name) == "" {
@@ -1741,15 +1773,14 @@ func compiledOperationIndex(plan *runtimeplan.Plan) map[string]*compiledOperatio
 		compiled.OpenAPIOperationID = op.OpenAPIOperationID
 		compiled.DependsOn = append([]string(nil), op.DependsOn...)
 		compiled.Timeout = cloneFloat64Ptr(op.Timeout)
-		compiled.Request = op.Request
 		compiled.SuccessCriteria = cloneCriteria(op.SuccessCriteria)
 		compiled.OnFailure = cloneFailureActions(op.OnFailure)
 		compiled.OnSuccess = cloneSuccessActions(op.OnSuccess)
 	}
-	return out
+	return out, nil
 }
 
-func collectCompiledUWSSteps(doc *uws1.Document, out map[string]*compiledOperation) {
+func collectCompiledUWSSteps(doc *uws1.Document, out map[string]*compiledOperation, operationEvidence map[string]requestEvidence) {
 	if doc == nil {
 		return
 	}
@@ -1757,17 +1788,17 @@ func collectCompiledUWSSteps(doc *uws1.Document, out map[string]*compiledOperati
 		if workflow == nil {
 			continue
 		}
-		collectCompiledUWSStepList(workflow.Steps, out, "", "", "")
+		collectCompiledUWSStepList(workflow.Steps, out, operationEvidence, "", "", "")
 		for _, branch := range workflow.Cases {
 			if branch != nil {
-				collectCompiledUWSStepList(branch.Steps, out, workflow.WorkflowID, strings.TrimSpace(branch.Name), strings.TrimSpace(branch.When))
+				collectCompiledUWSStepList(branch.Steps, out, operationEvidence, workflow.WorkflowID, strings.TrimSpace(branch.Name), strings.TrimSpace(branch.When))
 			}
 		}
-		collectCompiledUWSStepList(workflow.Default, out, workflow.WorkflowID, "default", "")
+		collectCompiledUWSStepList(workflow.Default, out, operationEvidence, workflow.WorkflowID, "default", "")
 	}
 }
 
-func collectCompiledUWSStepList(steps []*uws1.Step, out map[string]*compiledOperation, parent, branch, branchWhen string) {
+func collectCompiledUWSStepList(steps []*uws1.Step, out map[string]*compiledOperation, operationEvidence map[string]requestEvidence, parent, branch, branchWhen string) {
 	for _, step := range steps {
 		if step == nil {
 			continue
@@ -1787,19 +1818,20 @@ func collectCompiledUWSStepList(steps []*uws1.Step, out map[string]*compiledOper
 				Mode:               strings.TrimSpace(step.Mode),
 				BatchSize:          strings.TrimSpace(step.BatchSize),
 				Timeout:            cloneFloat64Ptr(step.Timeout),
+				Request:            requestEvidenceForStep(step, operationEvidence),
 			}
 		}
 		childParent := name
 		if childParent == "" {
 			childParent = parent
 		}
-		collectCompiledUWSStepList(step.Steps, out, childParent, "", "")
+		collectCompiledUWSStepList(step.Steps, out, operationEvidence, childParent, "", "")
 		for _, nestedBranch := range step.Cases {
 			if nestedBranch != nil {
-				collectCompiledUWSStepList(nestedBranch.Steps, out, childParent, strings.TrimSpace(nestedBranch.Name), strings.TrimSpace(nestedBranch.When))
+				collectCompiledUWSStepList(nestedBranch.Steps, out, operationEvidence, childParent, strings.TrimSpace(nestedBranch.Name), strings.TrimSpace(nestedBranch.When))
 			}
 		}
-		collectCompiledUWSStepList(step.Default, out, childParent, "default", "")
+		collectCompiledUWSStepList(step.Default, out, operationEvidence, childParent, "default", "")
 	}
 }
 
@@ -1808,140 +1840,221 @@ type requestAttribute struct {
 	Expression string
 }
 
-func requestAttributeEvidence(body *light.Body, names []string) (requestAttribute, bool) {
-	if body == nil {
-		return requestAttribute{}, false
-	}
-	for _, name := range names {
-		if attr := body.Attributes[name]; attr != nil {
-			return requestAttribute{Name: name, Expression: attributeExpression(attr)}, true
-		}
-		if block, child, ok := strings.Cut(name, "."); ok {
-			if evidence, found := requestBlockAttributeEvidence(body, block, child); found {
-				return evidence, true
-			}
-		}
-		if evidence, found := requestNestedAttributeEvidence(body, name); found {
-			return evidence, true
-		}
-	}
-	return requestAttribute{}, false
-}
+type requestEvidence []requestAttribute
 
-func requestAttributeEvidenceMatching(body *light.Body, names []string, match func(requestAttribute) bool) (requestAttribute, bool) {
-	if body == nil || match == nil {
-		return requestAttribute{}, false
+func uwsOperationRequestEvidence(doc *uws1.Document) map[string]requestEvidence {
+	out := map[string]requestEvidence{}
+	if doc == nil {
+		return out
 	}
-	for _, name := range names {
-		for _, evidence := range requestAttributeEvidences(body, name) {
-			if match(evidence) {
-				return evidence, true
-			}
+	for _, op := range doc.Operations {
+		if op == nil || strings.TrimSpace(op.OperationID) == "" {
+			continue
 		}
+		out[strings.TrimSpace(op.OperationID)] = requestEvidenceFromMap(op.Request)
 	}
-	return requestAttribute{}, false
-}
-
-func requestAttributeEvidences(body *light.Body, name string) []requestAttribute {
-	if body == nil {
-		return nil
-	}
-	var out []requestAttribute
-	if attr := body.Attributes[name]; attr != nil {
-		out = append(out, requestAttribute{Name: name, Expression: attributeExpression(attr)})
-	}
-	if block, child, ok := strings.Cut(name, "."); ok {
-		out = append(out, requestBlockAttributeEvidences(body, block, child)...)
-	}
-	out = append(out, requestNestedAttributeEvidences(body, name)...)
 	return out
 }
 
-func requestBlockAttributeEvidence(body *light.Body, blockType, name string) (requestAttribute, bool) {
-	evidences := requestBlockAttributeEvidences(body, blockType, name)
-	if len(evidences) == 0 {
-		return requestAttribute{}, false
+func requestEvidenceForStep(step *uws1.Step, operationEvidence map[string]requestEvidence) requestEvidence {
+	if step == nil {
+		return nil
 	}
-	return evidences[0], true
-}
-
-func requestBlockAttributeEvidences(body *light.Body, blockType, name string) []requestAttribute {
-	var out []requestAttribute
-	if attr := body.Attributes[blockType]; attr != nil {
-		expression := attributeExpression(attr)
-		if requestMapExpressionContainsKey(expression, name) {
-			out = append(out, requestAttribute{Name: blockType + "." + name, Expression: expression})
-		}
-	}
-	for _, block := range body.Blocks {
-		if block == nil || block.Bdy == nil {
+	for _, key := range []string{step.OperationRef, step.StepID} {
+		key = strings.TrimSpace(key)
+		if key == "" {
 			continue
 		}
-		if block.Type == blockType {
-			if attr := block.Bdy.Attributes[name]; attr != nil {
-				out = append(out, requestAttribute{Name: blockType + "." + name, Expression: attributeExpression(attr)})
+		if evidence := operationEvidence[key]; len(evidence) > 0 {
+			return evidence
+		}
+	}
+	return nil
+}
+
+func requestEvidenceFromMap(request map[string]any) requestEvidence {
+	var out requestEvidence
+	for _, key := range sortedAnyKeys(request) {
+		collectRequestEvidence(&out, []string{key}, request[key])
+	}
+	return uniqueRequestEvidence(out)
+}
+
+func collectRequestEvidence(out *requestEvidence, path []string, value any) {
+	if len(path) == 0 {
+		return
+	}
+	if values, ok := anyStringMap(value); ok {
+		for _, key := range sortedAnyKeys(values) {
+			collectRequestEvidence(out, appendPath(path, key), values[key])
+		}
+		return
+	}
+	if values, ok := anySlice(value); ok {
+		for index, child := range values {
+			collectRequestEvidence(out, appendPath(path, strconv.Itoa(index)), child)
+		}
+		return
+	}
+	name := strings.Join(path, ".")
+	expression := requestValueExpression(value)
+	if strings.TrimSpace(name) == "" || expression == "" {
+		return
+	}
+	*out = append(*out, requestAttribute{Name: name, Expression: expression})
+	for _, alias := range requestPathAliases(path) {
+		*out = append(*out, requestAttribute{Name: strings.Join(alias, "."), Expression: expression})
+	}
+	leaf := strings.TrimSpace(path[len(path)-1])
+	if leaf != "" && leaf != name {
+		*out = append(*out, requestAttribute{Name: leaf, Expression: expression})
+	}
+}
+
+func appendPath(path []string, next string) []string {
+	out := append([]string(nil), path...)
+	return append(out, next)
+}
+
+func requestPathAliases(path []string) [][]string {
+	if len(path) == 0 {
+		return nil
+	}
+	var out [][]string
+	for _, alias := range requestSectionAliases(path[0]) {
+		if alias == path[0] {
+			continue
+		}
+		aliasPath := append([]string{alias}, path[1:]...)
+		out = append(out, aliasPath)
+	}
+	return out
+}
+
+func requestSectionAliases(section string) []string {
+	switch strings.TrimSpace(section) {
+	case "path", "path_pars":
+		return []string{"path", "path_pars"}
+	case "query", "query_pars":
+		return []string{"query", "query_pars"}
+	case "header", "header_pars":
+		return []string{"header", "header_pars"}
+	case "cookie", "cookie_pars":
+		return []string{"cookie", "cookie_pars"}
+	case "body", "payload", "payload_pars":
+		return []string{"body", "payload", "payload_pars"}
+	default:
+		return nil
+	}
+}
+
+func sortedAnyKeys(m map[string]any) []string {
+	keys := make([]string, 0, len(m))
+	for key := range m {
+		keys = append(keys, key)
+	}
+	sort.Strings(keys)
+	return keys
+}
+
+func anyStringMap(value any) (map[string]any, bool) {
+	switch typed := value.(type) {
+	case map[string]any:
+		return typed, true
+	case map[any]any:
+		out := make(map[string]any, len(typed))
+		for key, child := range typed {
+			out[strings.TrimSpace(fmt.Sprint(key))] = child
+		}
+		return out, true
+	default:
+		return nil, false
+	}
+}
+
+func anySlice(value any) ([]any, bool) {
+	switch typed := value.(type) {
+	case []any:
+		return typed, true
+	default:
+		return nil, false
+	}
+}
+
+func requestValueExpression(value any) string {
+	switch typed := value.(type) {
+	case nil:
+		return ""
+	case string:
+		return strings.TrimSpace(typed)
+	case fmt.Stringer:
+		return strings.TrimSpace(typed.String())
+	default:
+		data, err := json.Marshal(typed)
+		if err == nil && strings.TrimSpace(string(data)) != "" {
+			return strings.TrimSpace(string(data))
+		}
+		return strings.TrimSpace(fmt.Sprint(typed))
+	}
+}
+
+func uniqueRequestEvidence(values requestEvidence) requestEvidence {
+	if len(values) < 2 {
+		return values
+	}
+	seen := map[string]bool{}
+	out := values[:0]
+	for _, value := range values {
+		key := value.Name + "\x00" + value.Expression
+		if seen[key] {
+			continue
+		}
+		seen[key] = true
+		out = append(out, value)
+	}
+	return out
+}
+
+func requestAttributeEvidence(evidence requestEvidence, names []string) (requestAttribute, bool) {
+	if len(evidence) == 0 {
+		return requestAttribute{}, false
+	}
+	for _, name := range names {
+		for _, candidate := range evidence {
+			if candidate.Name == name {
+				return candidate, true
 			}
 		}
-		out = append(out, requestBlockAttributeEvidences(block.Bdy, blockType, name)...)
+	}
+	return requestAttribute{}, false
+}
+
+func requestAttributeEvidenceMatching(evidence requestEvidence, names []string, match func(requestAttribute) bool) (requestAttribute, bool) {
+	if len(evidence) == 0 || match == nil {
+		return requestAttribute{}, false
+	}
+	for _, name := range names {
+		for _, candidate := range requestAttributeEvidences(evidence, name) {
+			if match(candidate) {
+				return candidate, true
+			}
+		}
+	}
+	return requestAttribute{}, false
+}
+
+func requestAttributeEvidences(evidence requestEvidence, name string) []requestAttribute {
+	var out []requestAttribute
+	for _, candidate := range evidence {
+		if candidate.Name == name {
+			out = append(out, candidate)
+		}
 	}
 	return out
 }
 
 func equivalentWorkflowRuntime(want, got string) bool {
 	return want == "openapi" && got == "http"
-}
-
-func requestMapExpressionContainsKey(expression, key string) bool {
-	expression = strings.TrimSpace(expression)
-	key = strings.TrimSpace(key)
-	if expression == "" || key == "" {
-		return false
-	}
-	for _, pattern := range []string{
-		key + " =",
-		`"` + key + `"`,
-		key + ":",
-	} {
-		if strings.Contains(expression, pattern) {
-			return true
-		}
-	}
-	return false
-}
-
-func requestNestedAttributeEvidence(body *light.Body, name string) (requestAttribute, bool) {
-	evidences := requestNestedAttributeEvidences(body, name)
-	if len(evidences) == 0 {
-		return requestAttribute{}, false
-	}
-	return evidences[0], true
-}
-
-func requestNestedAttributeEvidences(body *light.Body, name string) []requestAttribute {
-	var out []requestAttribute
-	for _, block := range body.Blocks {
-		if block == nil || block.Bdy == nil {
-			continue
-		}
-		if attr := block.Bdy.Attributes[name]; attr != nil {
-			out = append(out, requestAttribute{Name: block.Type + "." + name, Expression: attributeExpression(attr)})
-		}
-		out = append(out, requestNestedAttributeEvidences(block.Bdy, name)...)
-	}
-	return out
-}
-
-func attributeExpression(attr *light.Attribute) string {
-	if attr == nil || attr.Expr == nil {
-		return ""
-	}
-	if hcl, err := attr.Expr.HclExpression(); err == nil && strings.TrimSpace(hcl) != "" {
-		return strings.TrimSpace(hcl)
-	}
-	if value := light.ExprToString(attr.Expr); value != "" {
-		return value
-	}
-	return strings.TrimSpace(fmt.Sprint(attr.Expr))
 }
 
 func bindingExpectedSource(binding PlanBinding) string {
@@ -1992,6 +2105,14 @@ func normalizeBindingExpression(value string) string {
 	value = strings.TrimPrefix(value, "${")
 	value = strings.TrimSuffix(value, "}")
 	value = strings.ReplaceAll(value, "received_body", "body")
+	value = regexp.MustCompile(`\[\s*([0-9]+)\s*\]`).ReplaceAllString(value, ".$1")
+	value = regexp.MustCompile(`\[\s*"([^"]+)"\s*\]`).ReplaceAllString(value, ".$1")
+	value = regexp.MustCompile(`\[\s*'([^']+)'\s*\]`).ReplaceAllString(value, ".$1")
+	value = strings.ReplaceAll(value, "/", ".")
+	for strings.Contains(value, "..") {
+		value = strings.ReplaceAll(value, "..", ".")
+	}
+	value = strings.Trim(value, ".")
 	return value
 }
 
@@ -2008,7 +2129,7 @@ func paramCandidateNames(name string) []string {
 			out = append(out, last)
 		}
 	}
-	for _, prefix := range []string{"query.", "path.", "header.", "cookie.", "payload.", "query_pars.", "path_pars.", "header_pars.", "cookie_pars.", "payload_pars."} {
+	for _, prefix := range []string{"query.", "path.", "header.", "cookie.", "body.", "payload.", "query_pars.", "path_pars.", "header_pars.", "cookie_pars.", "payload_pars."} {
 		if !strings.HasPrefix(name, prefix) {
 			out = append(out, prefix+name)
 		}

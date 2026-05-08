@@ -43,6 +43,10 @@ Required local siblings:
 ../apitools
 ```
 
+Ramen source code should only import `github.com/genelet/udon` from the private `genelet/*`
+modules. The other private siblings are present because the local `../udon` replace still needs
+them in the Go module graph.
+
 Useful checks:
 
 ```bash

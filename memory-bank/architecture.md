@@ -27,7 +27,8 @@ plans, OpenAPI discovery reports, refinement reports, review notes, quality repo
 
 - `../uws` owns public workflow semantics, UWS versions, schema, and Go model.
 - `../udon` owns generic UWS/OpenAPI compilation, lowering, execution, runtime profiles, and
-  runtime-plan behavior.
+  runtime-plan behavior. It also hides private HCL body representations behind public runtime-plan
+  projection helpers so Ramen can validate compiled request evidence without importing `hcllight`.
 - `../apitools` owns domain-neutral authoring helpers, OpenAPI discovery/import helpers, review-only
   leaf adapters, runtime-bound binding contracts, normalized issue structures, public review state
   machine, handoff input/digest helpers, and runtime-neutral handoff schema.

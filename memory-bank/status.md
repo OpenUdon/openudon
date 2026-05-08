@@ -52,6 +52,10 @@
 - [x] Ramen Symphony handoff assembly and trusted-runner package digest now inherit shared `apitools`
   handoff input, binding contract, and digest helpers while keeping Ramen owner split, approval
   policy, quality gates, trusted-runner command text, and udon invocation local.
+- [x] Ramen quality checks no longer import `hcllight` directly. Compiled request evidence is
+  projected through `udon/pkg/runtimeplan` as plain recursive request maps with indexed expression
+  precision, keeping `github.com/genelet/udon` as the only private Go module named by Ramen
+  implementation imports.
 - [x] Hosted CI intentionally disabled during active private-sibling development.
 - [x] Roadmap, XRD, onboarding, operator, and safety docs consolidated into memory-bank and README.
 

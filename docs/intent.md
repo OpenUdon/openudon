@@ -21,9 +21,9 @@ structured JSON schema embedded at `internal/synthesize/schemas/intent.schema.js
 parses an existing `workflows/intent.hcl`; `ramen synthesize` generates one from `project.md`,
 OpenAPI discovery, and project policy.
 
-The HCL parser is `github.com/genelet/horizon/dethcl`, invoked by `rollout.ParseIntent`. The
-canonical renderer is `runner.RenderIntentHCL`; generated workflow lowering uses
-`Intent.NormalizedForGeneration` before udon produces `workflow.hcl`.
+Intent HCL parsing is delegated to udon's `rollout.ParseIntent` API. The canonical renderer is
+`runner.RenderIntentHCL`; generated workflow lowering uses `Intent.NormalizedForGeneration` before
+udon produces `workflow.hcl`. Ramen does not import udon's private HCL parser packages directly.
 
 ## Accuracy Profile
 
