@@ -1,6 +1,10 @@
 package uwsschema
 
 import (
+	"bytes"
+	"crypto/sha256"
+	"embed"
+	"fmt"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -11,6 +15,9 @@ import (
 )
 
 const uwsModulePath = "github.com/OpenUdon/uws"
+
+//go:embed versions/*.json
+var embeddedSchemas embed.FS
 
 // PathForVersion returns the best local schema path for a UWS version.
 func PathForVersion(anchorDir, version string) string {
@@ -26,6 +33,9 @@ func PathForVersion(anchorDir, version string) string {
 		return path
 	}
 	if path, ok := moduleCacheSchemaPath(name); ok {
+		return path
+	}
+	if path, ok := embeddedSchemaPath(name); ok {
 		return path
 	}
 	return filepath.Join(anchorDir, "..", "..", "..", "uws", "versions", name)
@@ -109,4 +119,43 @@ func moduleCacheDir() string {
 		return ""
 	}
 	return filepath.Join(first, "pkg", "mod")
+}
+
+func embeddedSchemaPath(name string) (string, bool) {
+	data, err := embeddedSchemas.ReadFile(filepath.ToSlash(filepath.Join("versions", name)))
+	if err != nil {
+		return "", false
+	}
+	sum := sha256.Sum256(data)
+	dir := filepath.Join(os.TempDir(), "openudon-uws-schema", fmt.Sprintf("%x", sum[:8]))
+	path := filepath.Join(dir, name)
+	if existing, err := os.ReadFile(path); err == nil && bytes.Equal(existing, data) {
+		return path, true
+	}
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		return "", false
+	}
+	tmp, err := os.CreateTemp(dir, name+".*.tmp")
+	if err != nil {
+		return "", false
+	}
+	tmpName := tmp.Name()
+	if _, err := tmp.Write(data); err != nil {
+		tmp.Close()
+		os.Remove(tmpName)
+		return "", false
+	}
+	if err := tmp.Close(); err != nil {
+		os.Remove(tmpName)
+		return "", false
+	}
+	if err := os.Chmod(tmpName, 0o644); err != nil {
+		os.Remove(tmpName)
+		return "", false
+	}
+	if err := os.Rename(tmpName, path); err != nil {
+		os.Remove(tmpName)
+		return "", false
+	}
+	return path, true
 }

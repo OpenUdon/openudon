@@ -12,6 +12,18 @@ func TestPathForVersionFindsReadableSchema(t *testing.T) {
 	}
 }
 
+func TestEmbeddedSchemaPathFindsReadableSchema(t *testing.T) {
+	for _, name := range []string{"1.0.0.json", "1.1.0.json"} {
+		path, ok := embeddedSchemaPath(name)
+		if !ok {
+			t.Fatalf("embedded schema path %s not found", name)
+		}
+		if _, err := os.Stat(path); err != nil {
+			t.Fatalf("embedded schema path %s is not readable: %v", path, err)
+		}
+	}
+}
+
 func TestModuleCacheSchemaPathFindsDependencySchema(t *testing.T) {
 	if _, ok := uwsModuleVersion(); !ok {
 		t.Skip("uws module version is unavailable, likely because the dependency is workspace-replaced")
