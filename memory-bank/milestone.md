@@ -187,11 +187,12 @@ Verification plan:
   Python-side staging. Status: done; the shim now validates config JSON and stages workflow/OpenAPI
   inputs entirely in Python before execing the configured binary or Docker executor by argv.
 - Split `workflowintent` into intent model/HCL, provider clients, and OpenAPI adapter modules.
-  Status: todo.
+  Status: done; the package name and exported API remain unchanged while the deleted monolith is
+  replaced by focused `intent.go`, `provider_client.go`, `openapi.go`, and shared helpers.
 
 Acceptance: required handoff inputs cannot be symlinks, directories, special files, unsafe relative
 paths, or digest/staging bypasses; sibling-owned hardening remains tracked without moving ownership
-into Ramen.
+into Ramen; the review-follow-up hardening group is closed.
 
 ## Closed XRD Regression Matrix
 
