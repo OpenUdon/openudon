@@ -47,8 +47,9 @@ Useful checks:
 go test ./...
 go vet ./...
 go run ./cmd/ramen check
-./scripts/check-siblings.sh
-./scripts/validate-uws.sh ./examples
+go run ./cmd/ramen check-apitools-boundary
+go run ./cmd/ramen check-doc-memory
+go run ./cmd/ramen validate ./examples
 make check
 make release-check
 git diff --check
@@ -84,8 +85,9 @@ generate, compile, validate, and report on artifacts. They do not execute produc
 
 `ramen run` is separate. It validates the handoff manifest, stored and current quality, approval
 JSON, package digest, and tier before writing a non-secret `ramen.executor-run.v1` run config and
-invoking the configured trusted executor shim. The shim stages the reviewed UWS/OpenAPI files into
-the run workdir before calling the external executor.
+invoking the Go trusted executor runner. The runner stages the reviewed UWS/OpenAPI files into the
+run workdir before calling the external udon CLI or the configured `RAMEN_UDON_IMAGE` Docker image.
+The runner is also available directly as `go run ./cmd/ramen-udon-runner --config <run-config.json>`.
 
 ## Authoring With iCoT
 
@@ -330,7 +332,7 @@ go test ./...
 go vet ./...
 make check
 git diff --check
-./scripts/validate-uws.sh ./examples
+go run ./cmd/ramen validate ./examples
 go run ./cmd/ramen assess --example examples/<name>
 ```
 

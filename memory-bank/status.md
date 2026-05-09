@@ -92,10 +92,13 @@
 - [x] Review follow-up safety hardening is complete. The first Ramen-owned package artifact
   hardening pass is implemented for package roots and required handoff files, and `../apitools`
   local OpenAPI reads now fail closed on symlinked roots/paths/parents, directories, special files,
-  and oversized path-backed documents. `scripts/run-udon.sh` no longer uses line-delimited
-  run-config parsing; config validation and workflow/OpenAPI staging happen in Python before
-  executor argv handoff. The `workflowintent` package is split by responsibility into intent/HCL,
-  provider-client, OpenAPI, and helper files without changing its package boundary or exported API.
+  and oversized path-backed documents. The trusted executor runner now uses Go run-config parsing
+  and staging in `internal/udonrunner` plus `cmd/ramen-udon-runner`, before executor argv handoff.
+  The `workflowintent` package is split by responsibility into intent/HCL, provider-client,
+  OpenAPI, and helper files without changing its package boundary or exported API.
+- [x] Local repository guard scripts for sibling, apitools-boundary, and doc-memory checks have
+  been migrated to `cmd/ramen` subcommands, and `ramen validate` now validates either one UWS file
+  or every UWS artifact under a directory.
 
 ## Notes
 
@@ -111,7 +114,7 @@
   `git diff --check`.
 - Ramen synthesis commands generate and validate artifacts only. They do not execute production
   workflows.
-- `ramen run` is the only Ramen-owned path that invokes a trusted executor shim, and it requires
+- `ramen run` is the only Ramen-owned path that invokes a trusted executor runner, and it requires
   approval JSON plus a valid handoff package. It writes a non-secret `ramen.executor-run.v1` run
   config over UWS YAML, packaged OpenAPI files, package digest, tier, workdir, and credential
   binding names. Docker execution receives only the declared `UDON_CREDENTIAL_*` environment names.

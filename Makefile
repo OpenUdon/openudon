@@ -15,13 +15,12 @@ vet:
 	$(GO) vet ./...
 
 check: test siblings apitools-boundary
-	$(GO) run ./cmd/ramen check
 
 doc-memory:
-	./scripts/check-doc-memory.sh
+	$(GO) run ./cmd/ramen check-doc-memory
 
 apitools-boundary:
-	./scripts/check-apitools-boundary.sh
+	$(GO) run ./cmd/ramen check-apitools-boundary
 
 readiness:
 	$(GO) run ./cmd/ramen readiness --run-gates --out eval/readiness/local.json
@@ -36,10 +35,10 @@ release-eval:
 	$(GO) run ./cmd/ramen eval --root ./examples/eval --provider $(RAMEN_PROVIDER) --model $(RAMEN_MODEL) --release-gate --min-briefs $(RAMEN_RELEASE_MIN_BRIEFS)
 
 siblings:
-	./scripts/check-siblings.sh
+	$(GO) run ./cmd/ramen check
 
 validate-uws:
-	./scripts/validate-uws.sh ./examples/support-email/workflows
+	$(GO) run ./cmd/ramen validate ./examples/support-email/workflows
 
 eval:
 	$(GO) run ./cmd/ramen eval --root ./examples/eval --provider $(RAMEN_PROVIDER) --model $(RAMEN_MODEL)

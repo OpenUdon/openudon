@@ -4,16 +4,19 @@ import (
 	"context"
 	"flag"
 	"fmt"
+	"io"
 	"os"
 	"os/exec"
 	"os/signal"
 	"path/filepath"
+	"sort"
 	"strings"
 	"syscall"
 	"time"
 
 	"github.com/genelet/ramen/internal/config"
 	evalpkg "github.com/genelet/ramen/internal/eval"
+	"github.com/genelet/ramen/internal/localcheck"
 	"github.com/genelet/ramen/internal/readiness"
 	"github.com/genelet/ramen/internal/synthesize"
 	"github.com/genelet/ramen/internal/trustedrunner"
@@ -31,12 +34,14 @@ func main() {
 		fmt.Fprintf(flag.CommandLine.Output(), "  assess    assess existing example artifacts and write quality reports\n")
 		fmt.Fprintf(flag.CommandLine.Output(), "  approval-template print approval JSON for a validated handoff package\n")
 		fmt.Fprintf(flag.CommandLine.Output(), "  build     regenerate workflow/UWS from an existing intent.hcl\n")
+		fmt.Fprintf(flag.CommandLine.Output(), "  check-apitools-boundary verify Ramen only uses OpenAPI-owned apitools APIs\n")
+		fmt.Fprintf(flag.CommandLine.Output(), "  check-doc-memory verify memory-bank docs and removed-doc references\n")
 		fmt.Fprintf(flag.CommandLine.Output(), "  eval      run synthesis eval briefs and write pass/fail reports\n")
 		fmt.Fprintf(flag.CommandLine.Output(), "  promote   export/validate UWS from an existing workflow.hcl\n")
 		fmt.Fprintf(flag.CommandLine.Output(), "  readiness write local private-checkout and deterministic-gate readiness report\n")
 		fmt.Fprintf(flag.CommandLine.Output(), "  run       validate approval gates and invoke a trusted executor handoff\n")
 		fmt.Fprintf(flag.CommandLine.Output(), "  synthesize generate intent, workflow, UWS, and review artifacts for an example\n")
-		fmt.Fprintf(flag.CommandLine.Output(), "  validate  validate one UWS JSON/YAML file against the sibling UWS schema\n")
+		fmt.Fprintf(flag.CommandLine.Output(), "  validate  validate one UWS JSON/YAML file or a directory of UWS artifacts\n")
 		fmt.Fprintf(flag.CommandLine.Output(), "  version   print version\n")
 	}
 	flag.Parse()
@@ -53,16 +58,34 @@ func main() {
 			os.Exit(1)
 		}
 		fmt.Println("ramen: required sibling repositories found")
-	case "validate":
-		if flag.NArg() < 2 {
-			fmt.Fprintln(os.Stderr, "usage: ramen validate <uws-file>")
-			os.Exit(2)
-		}
-		if err := uwsvalidate.ValidateFile(defaultUWSSchemaForFile(flag.Arg(1)), flag.Arg(1)); err != nil {
+	case "check-apitools-boundary":
+		if err := localcheck.CheckAPIToolsBoundary("."); err != nil {
 			fmt.Fprintln(os.Stderr, err)
 			os.Exit(1)
 		}
-		fmt.Printf("ramen: %s is valid UWS\n", flag.Arg(1))
+		fmt.Println("ramen: apitools boundary check passed")
+	case "check-doc-memory":
+		result, err := localcheck.CheckDocMemory(".")
+		for _, file := range result.CheckedFiles {
+			fmt.Printf("ok: %s\n", file)
+		}
+		for _, warning := range result.Warnings {
+			fmt.Fprintf(os.Stderr, "warning: %s\n", warning)
+		}
+		if err != nil {
+			fmt.Fprintln(os.Stderr, err)
+			os.Exit(1)
+		}
+		fmt.Println("ok: no stale removed-doc references")
+	case "validate":
+		if flag.NArg() < 2 {
+			fmt.Fprintln(os.Stderr, "usage: ramen validate <uws-file-or-dir>")
+			os.Exit(2)
+		}
+		if err := validateUWSPath(flag.Arg(1), os.Stdout); err != nil {
+			fmt.Fprintln(os.Stderr, err)
+			os.Exit(1)
+		}
 	case "synthesize", "build", "promote", "assess":
 		runArtifactCommand(command, flag.Args()[1:])
 	case "run":
@@ -90,6 +113,69 @@ func defaultUWSSchemaForFile(path string) string {
 		version = strings.TrimSpace(doc.UWS)
 	}
 	return filepath.Join("..", "uws", "versions", version+".json")
+}
+
+func validateUWSPath(target string, out io.Writer) error {
+	return validateUWSPathWithSchema(target, out, defaultUWSSchemaForFile)
+}
+
+func validateUWSPathWithSchema(target string, out io.Writer, schemaForFile func(string) string) error {
+	info, err := os.Stat(target)
+	if err != nil {
+		return fmt.Errorf("target does not exist: %s", target)
+	}
+	if !info.IsDir() {
+		return validateUWSFile(target, out, schemaForFile)
+	}
+
+	files, err := collectUWSArtifactFiles(target)
+	if err != nil {
+		return err
+	}
+	if len(files) == 0 {
+		fmt.Fprintf(out, "no UWS artifacts found under %s\n", target)
+		return nil
+	}
+	fmt.Fprintf(out, "found %d UWS artifact(s); schema selected from document version\n", len(files))
+	for _, file := range files {
+		if err := validateUWSFile(file, out, schemaForFile); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func validateUWSFile(path string, out io.Writer, schemaForFile func(string) string) error {
+	if err := uwsvalidate.ValidateFile(schemaForFile(path), path); err != nil {
+		return err
+	}
+	fmt.Fprintf(out, "ramen: %s is valid UWS\n", path)
+	return nil
+}
+
+func collectUWSArtifactFiles(root string) ([]string, error) {
+	var files []string
+	if err := filepath.WalkDir(root, func(path string, entry os.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+		if entry.IsDir() {
+			return nil
+		}
+		if isUWSArtifactFile(path) {
+			files = append(files, path)
+		}
+		return nil
+	}); err != nil {
+		return nil, err
+	}
+	sort.Strings(files)
+	return files, nil
+}
+
+func isUWSArtifactFile(path string) bool {
+	lower := strings.ToLower(path)
+	return strings.HasSuffix(lower, ".uws.json") || strings.HasSuffix(lower, ".uws.yaml") || strings.HasSuffix(lower, ".uws.yml")
 }
 
 func runReadinessCommand(args []string) {
@@ -139,7 +225,7 @@ func runTrustedCommand(args []string) {
 	dryRun := fs.Bool("dry-run", false, "Validate gates and write run config without invoking the executor")
 	fs.Usage = func() {
 		fmt.Fprintf(fs.Output(), "Usage: ramen run --example examples/<name> --tier sandbox|production --approval approvals/<name>.json [--workdir .ramen-run/<name>] [--dry-run]\n")
-		fmt.Fprintf(fs.Output(), "\nValidates the Ramen handoff package, current quality gates, approval scope, approval digest, and tier/state compatibility before writing %s run config and invoking the trusted executor shim.\n", trustedrunner.RunConfigVersion)
+		fmt.Fprintf(fs.Output(), "\nValidates the Ramen handoff package, current quality gates, approval scope, approval digest, and tier/state compatibility before writing %s run config and invoking the trusted executor runner.\n", trustedrunner.RunConfigVersion)
 		fmt.Fprintf(fs.Output(), "\nTier rules:\n")
 		fmt.Fprintf(fs.Output(), "  sandbox accepts approved_for_sandbox or approved_for_production\n")
 		fmt.Fprintf(fs.Output(), "  production accepts approved_for_production only\n\n")

@@ -1,9 +1,11 @@
 package main
 
 import (
+	"bytes"
 	"flag"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"strings"
 	"testing"
 )
@@ -162,6 +164,47 @@ func TestNextActionForQualityCheck(t *testing.T) {
 		if !strings.Contains(got, expected) {
 			t.Fatalf("next action for %s = %q, want substring %q", code, got, expected)
 		}
+	}
+}
+
+func TestValidateUWSPathValidatesDirectoryArtifacts(t *testing.T) {
+	dir := t.TempDir()
+	schema := filepath.Join(dir, "schema.json")
+	mustWriteCLIFile(t, schema, []byte(`{"type":"object","required":["uws"]}`))
+	mustWriteCLIFile(t, filepath.Join(dir, "nested", "workflow.uws.yaml"), []byte("uws: 1.0.0\n"))
+	mustWriteCLIFile(t, filepath.Join(dir, "ignored.yaml"), []byte("uws: 1.0.0\n"))
+
+	var out bytes.Buffer
+	err := validateUWSPathWithSchema(dir, &out, func(string) string {
+		return schema
+	})
+	if err != nil {
+		t.Fatalf("validateUWSPath returned error: %v", err)
+	}
+	text := out.String()
+	if !strings.Contains(text, "found 1 UWS artifact") || !strings.Contains(text, "workflow.uws.yaml is valid UWS") {
+		t.Fatalf("unexpected validate output:\n%s", text)
+	}
+}
+
+func TestValidateUWSPathReportsDirectoryWithNoArtifacts(t *testing.T) {
+	var out bytes.Buffer
+	dir := t.TempDir()
+	if err := validateUWSPathWithSchema(dir, &out, func(string) string { return "" }); err != nil {
+		t.Fatalf("validateUWSPath returned error: %v", err)
+	}
+	if !strings.Contains(out.String(), "no UWS artifacts found") {
+		t.Fatalf("unexpected output: %s", out.String())
+	}
+}
+
+func mustWriteCLIFile(t *testing.T, path string, data []byte) {
+	t.Helper()
+	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(path, data, 0o644); err != nil {
+		t.Fatal(err)
 	}
 }
 

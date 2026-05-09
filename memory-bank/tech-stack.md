@@ -15,10 +15,12 @@ OpenAPI discovery/indexing, and portable trusted executor handoff.
 
 - Primary language: Go.
 - Module path: `github.com/genelet/ramen`.
-- CLI entrypoints: `cmd/ramen` and `cmd/icot`.
+- CLI entrypoints: `cmd/ramen`, `cmd/icot`, and `cmd/ramen-udon-runner`.
 - Internal implementation: reusable behavior under `internal/`.
 - Artifact formats: Markdown, HCL, JSON, YAML, UWS YAML, and review handoff JSON.
 - Normal verification: `go test ./...`, `go vet ./...`, `make check`, and `git diff --check`.
+  Local repository guard checks, UWS artifact validation, and trusted executor staging are Go CLI
+  commands/packages under `cmd/` and `internal/`.
 - Release verification: `make release-check` for deterministic gates and `make release-eval` for
   opt-in real-provider eval gates.
 
@@ -106,7 +108,8 @@ declared credential env names, not all host environment variables.
 ## Tooling Constraints
 
 - Keep `cmd/ramen` and `cmd/icot` thin.
-- Keep scripts small wrappers around Go behavior where practical.
+- Keep scripts small wrappers around Go behavior where practical. Prefer `cmd/ramen` subcommands
+  for local repository checks.
 - Do not add product-specific behavior to `../uws` or core `../udon`.
 - Prefer deterministic checks and synthetic fixtures over live-provider tests during development.
 - Keep generated eval outputs, readiness reports, approvals, transcripts, autosaves, and run

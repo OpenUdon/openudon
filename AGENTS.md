@@ -46,8 +46,9 @@ Rule of thumb:
 ```bash
 go test ./...
 go run ./cmd/ramen check
-./scripts/check-siblings.sh
-./scripts/validate-uws.sh ./examples
+go run ./cmd/ramen check-apitools-boundary
+go run ./cmd/ramen check-doc-memory
+go run ./cmd/ramen validate ./examples
 make check
 ```
 

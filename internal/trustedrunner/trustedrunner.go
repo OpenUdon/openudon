@@ -16,11 +16,12 @@ import (
 	"github.com/genelet/ramen/internal/authoring"
 	"github.com/genelet/ramen/internal/packageartifacts"
 	"github.com/genelet/ramen/internal/synthesize"
+	"github.com/genelet/ramen/internal/udonrunner"
 )
 
 const (
 	ApprovalVersion        = "ramen.approval.v1"
-	RunConfigVersion       = "ramen.executor-run.v1"
+	RunConfigVersion       = udonrunner.RunConfigVersion
 	SymphonyHandoffVersion = authoring.ReviewHandoffVersion
 	legacyHandoffVersion   = "ramen.symphony-handoff.v1"
 
@@ -77,19 +78,7 @@ type RunResult struct {
 	DryRun        bool
 }
 
-type RunConfig struct {
-	Version             string   `json:"version"`
-	Scope               string   `json:"scope"`
-	Tier                string   `json:"tier"`
-	PackageRoot         string   `json:"package_root"`
-	WorkDir             string   `json:"workdir"`
-	WorkflowPath        string   `json:"workflow_path"`
-	WorkflowFormat      string   `json:"workflow_format"`
-	OpenAPIPaths        []string `json:"openapi_paths,omitempty"`
-	PackageSHA256       string   `json:"package_sha256"`
-	CredentialBindings  []string `json:"credential_bindings,omitempty"`
-	DirectProductionRun bool     `json:"direct_production_run"`
-}
+type RunConfig = udonrunner.Config
 
 type paths struct {
 	repoRoot       string
@@ -153,21 +142,30 @@ func Run(ctx context.Context, opts Options) (*RunResult, error) {
 	}
 
 	runnerPath := strings.TrimSpace(opts.RunnerPath)
-	if runnerPath == "" {
-		runnerPath = filepath.Join(p.repoRoot, "scripts", "run-udon.sh")
-	}
-	args := []string{"--config", runConfigPath}
-	runCommand := opts.RunCommand
-	if runCommand == nil {
-		runCommand = func(ctx context.Context, name string, args ...string) error {
-			cmd := exec.CommandContext(ctx, name, args...)
-			cmd.Dir = p.repoRoot
-			cmd.Stdout = opts.Stdout
-			cmd.Stderr = opts.Stderr
-			return cmd.Run()
+	if runnerPath != "" {
+		args := []string{"--config", runConfigPath}
+		runCommand := opts.RunCommand
+		if runCommand == nil {
+			runCommand = func(ctx context.Context, name string, args ...string) error {
+				cmd := exec.CommandContext(ctx, name, args...)
+				cmd.Dir = p.repoRoot
+				cmd.Stdout = opts.Stdout
+				cmd.Stderr = opts.Stderr
+				return cmd.Run()
+			}
 		}
+		if err := runCommand(ctx, runnerPath, args...); err != nil {
+			return nil, fmt.Errorf("run trusted executor: %w", err)
+		}
+		return result, nil
 	}
-	if err := runCommand(ctx, runnerPath, args...); err != nil {
+	if _, err := udonrunner.RunConfig(ctx, udonrunner.Options{
+		ConfigPath: runConfigPath,
+		RepoRoot:   p.repoRoot,
+		Stdout:     opts.Stdout,
+		Stderr:     opts.Stderr,
+		RunCommand: opts.RunCommand,
+	}); err != nil {
 		return nil, fmt.Errorf("run trusted executor: %w", err)
 	}
 	return result, nil

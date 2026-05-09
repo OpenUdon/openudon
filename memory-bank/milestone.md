@@ -184,9 +184,9 @@ Verification plan:
   `LocalFiles`, `BuildOperationInventory`, and `LoadOperationIndex` now share bounded local file
   reads that reject symlinked roots/paths/parents, directories, special files, and oversized
   path-backed documents.
-- Replace line-delimited run-config parsing in `scripts/run-udon.sh` with robust framing or
-  Python-side staging. Status: done; the shim now validates config JSON and stages workflow/OpenAPI
-  inputs entirely in Python before execing the configured binary or Docker executor by argv.
+- Replace the trusted executor shell/Python runner with Go run-config parsing and staging. Status:
+  done; `internal/udonrunner` and `cmd/ramen-udon-runner` now validate config JSON, stage
+  workflow/OpenAPI inputs, and exec the configured binary or Docker executor by argv.
 - Split `workflowintent` into intent model/HCL, provider clients, and OpenAPI adapter modules.
   Status: done; the package name and exported API remain unchanged while the deleted monolith is
   replaced by focused `intent.go`, `provider_client.go`, `openapi.go`, and shared helpers.

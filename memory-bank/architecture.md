@@ -109,7 +109,7 @@ Closed cross-repo dependencies remain regression responsibilities:
 7. Reviewers inspect the minimum review package and, when appropriate, create approval JSON for
    sandbox or production tier.
 8. `ramen run` revalidates the package, current quality, approval JSON, digest, tier/state rules,
-   credential-value policy, and direct-production policy before writing run config and invoking the trusted executor shim by argv.
+   credential-value policy, and direct-production policy before writing run config and invoking the Go trusted executor runner by argv.
 
 ## Artifact Flow
 
