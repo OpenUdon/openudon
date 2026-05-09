@@ -22,6 +22,7 @@ import (
 	"github.com/OpenUdon/openudon/internal/tfconvert"
 	"github.com/OpenUdon/openudon/internal/trustedrunner"
 	uwsprofile "github.com/OpenUdon/openudon/internal/uwsexec"
+	"github.com/OpenUdon/openudon/internal/uwsschema"
 	"github.com/OpenUdon/openudon/internal/uwsvalidate"
 )
 
@@ -205,7 +206,7 @@ func defaultUWSSchemaForFile(path string) string {
 	if doc, err := uwsprofile.LoadDocumentFile(path, uwsprofile.DocumentFormatAuto); err == nil && doc != nil && strings.TrimSpace(doc.UWS) != "" {
 		version = strings.TrimSpace(doc.UWS)
 	}
-	return filepath.Join("..", "uws", "versions", version+".json")
+	return uwsschema.PathForVersion(".", version)
 }
 
 func validateUWSPath(target string, out io.Writer, allowEmpty bool) error {

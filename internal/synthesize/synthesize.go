@@ -7,13 +7,13 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"runtime"
 	"sort"
 	"strconv"
 	"strings"
 	"time"
 
 	"github.com/OpenUdon/openudon/internal/openapidisco"
+	"github.com/OpenUdon/openudon/internal/uwsschema"
 	"github.com/OpenUdon/openudon/internal/workflowintent"
 	rollout "github.com/OpenUdon/openudon/internal/workflowintent"
 	runner "github.com/OpenUdon/openudon/internal/workflowintent"
@@ -651,14 +651,7 @@ func defaultSchemaPathForVersion(exampleDir, version string) string {
 	if version == "" {
 		version = "1.0.0"
 	}
-	if _, file, _, ok := runtime.Caller(0); ok {
-		repoRoot := filepath.Clean(filepath.Join(filepath.Dir(file), "..", ".."))
-		schema := filepath.Join(repoRoot, "..", "uws", "versions", version+".json")
-		if _, err := os.Stat(schema); err == nil {
-			return schema
-		}
-	}
-	return filepath.Join(exampleDir, "..", "..", "..", "uws", "versions", version+".json")
+	return uwsschema.PathForVersion(exampleDir, version)
 }
 
 func defaultSchemaPathForDocument(exampleDir, documentPath string) string {

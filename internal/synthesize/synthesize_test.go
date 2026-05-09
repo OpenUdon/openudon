@@ -10,13 +10,13 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/OpenUdon/uws/uws1"
 	"github.com/OpenUdon/openudon/internal/authoring"
 	"github.com/OpenUdon/openudon/internal/openapidisco"
 	uwsprofile "github.com/OpenUdon/openudon/internal/uwsexec"
 	"github.com/OpenUdon/openudon/internal/uwsvalidate"
 	rollout "github.com/OpenUdon/openudon/internal/workflowintent"
 	runner "github.com/OpenUdon/openudon/internal/workflowintent"
+	"github.com/OpenUdon/uws/uws1"
 )
 
 type fakeClient struct{}
@@ -1166,7 +1166,7 @@ func TestAssessSymphonyHandoffAcceptsLegacyVersion(t *testing.T) {
 		},
 		ApprovalStates: authoring.DefaultReviewStateMachine(),
 		OwnerSplit: SymphonyOwnerSplit{
-			"openudon":    {"artifact validation"},
+			"openudon": {"artifact validation"},
 			"symphony": {"approval routing"},
 		},
 	}
@@ -1485,12 +1485,12 @@ OpenAPI: none required
 	}
 }
 
-func TestDefaultSchemaPathUsesRepoSiblingSchema(t *testing.T) {
+func TestDefaultSchemaPathUsesReadableSchema(t *testing.T) {
 	path := defaultSchemaPath(filepath.Join(t.TempDir(), "external", "example"))
 	if _, err := os.Stat(path); err != nil {
 		t.Fatalf("default schema path %s is not readable: %v", path, err)
 	}
-	if !strings.Contains(filepath.ToSlash(path), "/uws/versions/1.0.0.json") {
+	if !strings.HasSuffix(filepath.ToSlash(path), "/versions/1.0.0.json") {
 		t.Fatalf("unexpected schema path %s", path)
 	}
 }
