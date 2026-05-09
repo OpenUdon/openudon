@@ -561,11 +561,14 @@ type LLMOptions struct {
 func NewLLMClientFromEnvWithOptions(provider, model string, opts LLMOptions) (LLMClient, string, string, error) {
 	provider = strings.ToLower(strings.TrimSpace(provider))
 	if provider == "" {
+		provider = strings.ToLower(strings.TrimSpace(os.Getenv("OPENUDON_LLM_PROVIDER")))
+	}
+	if provider == "" {
 		provider = "copilot-api"
 	}
 	model = strings.TrimSpace(model)
 	if model == "" {
-		model = strings.TrimSpace(os.Getenv("ROLLOUT_MODEL"))
+		model = strings.TrimSpace(os.Getenv("OPENUDON_LLM_MODEL"))
 	}
 	switch provider {
 	case "anthropic":

@@ -16,6 +16,7 @@ import (
 )
 
 const RunConfigVersion = "openudon.executor-run.v1"
+const dockerExecutorPrefix = "docker://"
 
 type Config struct {
 	Version             string   `json:"version"`
@@ -482,20 +483,15 @@ func environmentMap(env []string) map[string]string {
 }
 
 func executorArgv(repoRoot, stage, stagedWorkflow, workflowFormat string, credentialNames []string, env map[string]string) ([]string, error) {
-	if image := strings.TrimSpace(env["OPENUDON_UDON_IMAGE"]); image != "" {
-		argv := []string{"docker", "run", "--rm", "-v", stage + ":/workspace", "-w", "/workspace"}
-		for _, name := range credentialNames {
-			argv = append(argv, "-e", name)
-		}
-		rel, err := filepath.Rel(stage, stagedWorkflow)
-		if err != nil {
-			return nil, err
-		}
-		argv = append(argv, image, "--workdir", "/workspace", "--workflow", "/workspace/"+filepath.ToSlash(rel), "--workflow-format", workflowFormat)
-		return argv, nil
-	}
 	if executor := strings.TrimSpace(env["OPENUDON_EXECUTOR"]); executor != "" {
+		if strings.HasPrefix(executor, dockerExecutorPrefix) {
+			image := strings.TrimPrefix(executor, dockerExecutorPrefix)
+			return dockerImageArgv("OPENUDON_EXECUTOR", image, stage, stagedWorkflow, workflowFormat, credentialNames)
+		}
 		return executorPathArgv("OPENUDON_EXECUTOR", executor, stage, stagedWorkflow, workflowFormat)
+	}
+	if image := strings.TrimSpace(env["OPENUDON_UDON_IMAGE"]); image != "" {
+		return dockerImageArgv("OPENUDON_UDON_IMAGE", image, stage, stagedWorkflow, workflowFormat, credentialNames)
 	}
 	if executor := strings.TrimSpace(env["OPENUDON_UDON_BIN"]); executor != "" {
 		return executorPathArgv("OPENUDON_UDON_BIN", executor, stage, stagedWorkflow, workflowFormat)
@@ -505,9 +501,38 @@ func executorArgv(repoRoot, stage, stagedWorkflow, workflowFormat string, creden
 		executor = filepath.Join(repoRoot, "..", "udon", "udon")
 	}
 	if !isExecutable(executor) {
-		return nil, fmt.Errorf("trusted executor not found. Set OPENUDON_EXECUTOR, OPENUDON_UDON_BIN, OPENUDON_UDON_IMAGE, or build ../udon")
+		return nil, fmt.Errorf("trusted executor not found. Set OPENUDON_EXECUTOR to an absolute binary path or docker://image, or build ../udon")
 	}
 	return []string{executor, "--workdir", stage, "--workflow", stagedWorkflow, "--workflow-format", workflowFormat}, nil
+}
+
+func dockerImageArgv(envName, image, stage, stagedWorkflow, workflowFormat string, credentialNames []string) ([]string, error) {
+	if err := validateDockerImage(envName, image); err != nil {
+		return nil, err
+	}
+	argv := []string{"docker", "run", "--rm", "-v", stage + ":/workspace", "-w", "/workspace"}
+	for _, name := range credentialNames {
+		argv = append(argv, "-e", name)
+	}
+	rel, err := filepath.Rel(stage, stagedWorkflow)
+	if err != nil {
+		return nil, err
+	}
+	argv = append(argv, image, "--workdir", "/workspace", "--workflow", "/workspace/"+filepath.ToSlash(rel), "--workflow-format", workflowFormat)
+	return argv, nil
+}
+
+func validateDockerImage(envName, image string) error {
+	if strings.TrimSpace(image) == "" {
+		return fmt.Errorf("%s docker image must be non-empty", envName)
+	}
+	if err := rejectControlChars(envName, image); err != nil {
+		return err
+	}
+	if strings.ContainsAny(image, " \t\r\n") {
+		return fmt.Errorf("%s docker image must not contain whitespace: %s", envName, image)
+	}
+	return nil
 }
 
 func executorPathArgv(envName, executor, stage, stagedWorkflow, workflowFormat string) ([]string, error) {

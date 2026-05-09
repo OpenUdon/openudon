@@ -296,6 +296,8 @@ func helperCommand(args ...string) *exec.Cmd {
 	cmd.Dir = filepath.Join("..", "..")
 	cmd.Env = append(os.Environ(),
 		"ICOT_CLI_HELPER=1",
+		"OPENUDON_LLM_PROVIDER=",
+		"OPENUDON_LLM_MODEL=",
 		"COPILOT_API_BASE_URL=",
 		"COPILOT_API_KEY=",
 		"GEMINI_API_KEY=",

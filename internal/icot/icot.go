@@ -1071,6 +1071,8 @@ func resolveExtractor(noLLM bool, provider, model string, temperature float64, o
 
 func providerFromEnv() string {
 	switch {
+	case os.Getenv("OPENUDON_LLM_PROVIDER") != "":
+		return strings.ToLower(strings.TrimSpace(os.Getenv("OPENUDON_LLM_PROVIDER")))
 	case os.Getenv("COPILOT_API_BASE_URL") != "" || os.Getenv("COPILOT_API_KEY") != "":
 		return "copilot-api"
 	case os.Getenv("GEMINI_API_KEY") != "":

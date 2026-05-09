@@ -121,6 +121,19 @@ func TestCopilotDefaultGPT5UsesResponsesEndpoint(t *testing.T) {
 	}
 }
 
+func TestLLMProviderAndModelCanComeFromOpenUdonEnv(t *testing.T) {
+	t.Setenv("OPENUDON_LLM_PROVIDER", "openai")
+	t.Setenv("OPENUDON_LLM_MODEL", "gpt-test")
+	t.Setenv("OPENAI_API_KEY", "test-key")
+	client, provider, model, err := NewLLMClientFromEnvWithOptions("", "", LLMOptions{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if client == nil || provider != "openai" || model != "gpt-test" {
+		t.Fatalf("client/provider/model = %T/%q/%q", client, provider, model)
+	}
+}
+
 func TestProviderStructuredChatSendsProviderNativeSchema(t *testing.T) {
 	schema := json.RawMessage(`{"type":"object","properties":{"ok":{"type":"boolean"}}}`)
 	t.Run("openai", func(t *testing.T) {

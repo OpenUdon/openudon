@@ -25,6 +25,11 @@ document, operation, required request values, credential bindings, runtime input
 safety policy. The first valid intent jumps to final review; remaining warnings and inferred values
 are shown as assumptions, and saving confirms them.
 
+For shell-level LLM defaults, use `OPENUDON_LLM_PROVIDER` and `OPENUDON_LLM_MODEL`, then pass them
+through `--provider "$OPENUDON_LLM_PROVIDER"` and `--model "$OPENUDON_LLM_MODEL"` when you want an
+explicit provider selection. Provider credentials stay in provider-native environment variables such
+as `COPILOT_API_KEY`, `OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, or `GEMINI_API_KEY`.
+
 ## What To Include
 
 Use these sections for new projects:

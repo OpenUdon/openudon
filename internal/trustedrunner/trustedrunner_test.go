@@ -1177,7 +1177,7 @@ func TestUdonRunnerCanInvokeDockerImage(t *testing.T) {
 	cmd := runnerCLICommand(t, repoRoot, configPath)
 	cmd.Env = append(os.Environ(),
 		"PATH="+binDir+string(os.PathListSeparator)+os.Getenv("PATH"),
-		"OPENUDON_UDON_IMAGE=udon:test",
+		"OPENUDON_EXECUTOR=docker://udon:test",
 		"CAPTURE_ARGS="+capture,
 		"UDON_CREDENTIAL_SUPPORT_API_TOKEN=super-secret",
 	)

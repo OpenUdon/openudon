@@ -19,6 +19,9 @@ tier checks before invoking udon.
 - Keep production credentials outside agent prompts and generated artifacts.
 - Keep LLM provider credentials in environment variables; do not pass tokens inline in commands that
   may be captured in shell history or issue logs.
+- Use `OPENUDON_LLM_PROVIDER` and `OPENUDON_LLM_MODEL` for local LLM selection defaults; keep API
+  keys in provider-native variables such as `COPILOT_API_KEY`, `OPENAI_API_KEY`,
+  `ANTHROPIC_API_KEY`, or `GEMINI_API_KEY`.
 - Use UWS/OpenAPI validation before any runtime execution.
 - Execute side-effectful workflows only through a trusted runner with approved credentials.
 - Prefer sandbox or test endpoints for local proof runs.
@@ -26,9 +29,8 @@ tier checks before invoking udon.
 - Treat OpenUdon output as Symphony state `generated`; no approval is implied by generation.
 - Require `approved_for_sandbox` before a side-effectful proof run and `approved_for_production`
   before production execution.
-- Treat `OPENUDON_EXECUTOR`, `OPENUDON_UDON_BIN`, `OPENUDON_UDON_RUNNER`, and `OPENUDON_UDON_IMAGE`
-  as trusted operator inputs. Binary selectors must be absolute paths to reviewed executables;
-  Docker image selectors must name an image the operator intentionally trusts.
+- Treat `OPENUDON_EXECUTOR` and `OPENUDON_UDON_RUNNER` as trusted operator inputs.
+  `OPENUDON_EXECUTOR` must be an absolute path to a reviewed executable or `docker://<trusted-image>`.
 - Keep local verification explicit: `go test ./...`, `go vet ./...`, `make check`, and
   `git diff --check`.
 
@@ -55,10 +57,11 @@ approval state, tier, credential policy, and package digest checks pass. New run
 into a fresh workdir and recomputes `package_sha256` from the staged copy before invoking a binary
 or Docker executor.
 
-`OPENUDON_EXECUTOR`, `OPENUDON_UDON_BIN`, and `OPENUDON_UDON_RUNNER` are rejected unless they are
-absolute paths to executable files. `OPENUDON_UDON_IMAGE` remains a Docker image reference and is not
-interpreted as a filesystem path. Docker mode passes only declared `UDON_CREDENTIAL_*` environment
-variable names into argv; non-Docker binary execution inherits the operator environment by design.
+`OPENUDON_EXECUTOR` is the canonical final executor selector. It accepts an absolute binary path or
+`docker://<image>`. `OPENUDON_UDON_RUNNER` is separate: it overrides the outer runner shim and must
+be an absolute path to an executable file. Docker mode passes only declared `UDON_CREDENTIAL_*`
+environment variable names into argv; non-Docker binary execution inherits the operator environment
+by design.
 
 ## Runtime Profiles
 

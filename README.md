@@ -40,9 +40,8 @@ make release-check
 git diff --check
 ```
 
-Execute
-through `openudon run` and the portable run-config handoff, either as a configured binary
-(`OPENUDON_EXECUTOR` / `OPENUDON_UDON_BIN`) or Docker image (`OPENUDON_UDON_IMAGE`).
+Execute through `openudon run` and the portable run-config handoff. Configure the final executor
+with `OPENUDON_EXECUTOR` as either an absolute binary path or `docker://<image>`.
 
 ## Layout
 
@@ -73,10 +72,10 @@ generate, compile, validate, and report on artifacts. They do not execute produc
 `openudon run` is separate. It validates the handoff manifest, stored and current quality, approval
 JSON, package digest, and tier before writing a non-secret `openudon.executor-run.v1` run config and
 invoking the Go trusted executor runner. The runner stages the reviewed UWS/OpenAPI files into the
-run workdir before calling the configured `OPENUDON_UDON_IMAGE` Docker image.
+run workdir before calling the configured executor.
 The runner is also available directly as `go run ./cmd/udon-runner --config <run-config.json>`.
-Binary overrides `OPENUDON_EXECUTOR`, `OPENUDON_UDON_BIN`, and `OPENUDON_UDON_RUNNER` must be
-absolute paths to executable files.
+`OPENUDON_EXECUTOR` accepts either an absolute path to an executable file or `docker://<image>`.
+The outer `OPENUDON_UDON_RUNNER` override must be an absolute path to an executable file.
 
 ## Authoring With iCoT
 
@@ -130,10 +129,13 @@ Generate all reviewed artifacts for an example:
 
 ```bash
 export COPILOT_API_BASE_URL=http://localhost:4141
+export OPENUDON_LLM_PROVIDER=copilot-api
+export OPENUDON_LLM_MODEL=gpt-5.4-mini
+
 go run ./cmd/openudon synthesize \
   --example ./examples/support-email \
-  --provider copilot-api \
-  --model gpt-5.4-mini \
+  --provider "$OPENUDON_LLM_PROVIDER" \
+  --model "$OPENUDON_LLM_MODEL" \
   --max-attempts 5
 ```
 
@@ -212,7 +214,7 @@ Use release gates only for candidate release evidence:
 make release-eval
 ```
 
-`make release-eval` uses `OPENUDON_PROVIDER` and `OPENUDON_MODEL`, defaulting to `copilot-api` and
+`make release-eval` uses `OPENUDON_LLM_PROVIDER` and `OPENUDON_LLM_MODEL`, defaulting to `copilot-api` and
 `gpt-5.4-mini`, and requires the current eval corpus size as the minimum brief count.
 
 ## Readiness
@@ -340,6 +342,9 @@ fails deterministic checks.
 LLM credentials must come from provider environment variables such as `COPILOT_API_BASE_URL`,
 `COPILOT_API_KEY`, `GEMINI_API_KEY`, `OPENAI_API_KEY`, or `ANTHROPIC_API_KEY`. Do not place tokens in
 prompts, commands, examples, or workflow artifacts.
+
+Use `OPENUDON_LLM_PROVIDER` and `OPENUDON_LLM_MODEL` when you want shell-level defaults for local
+LLM-assisted commands; explicit `--provider` and `--model` flags still take precedence.
 
 ## More Documentation
 
