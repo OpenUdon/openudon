@@ -372,6 +372,66 @@ func TestRunRejectsOpenAPISymlink(t *testing.T) {
 	}
 }
 
+func TestRunRejectsSymlinkedProjectBeforeApproval(t *testing.T) {
+	root, example := writeFixture(t, fixtureOptions{})
+	now := fixedNow()
+	approvalPath := writeApprovalTemplate(t, root, example, StateApprovedForSandbox, now)
+	projectPath := filepath.Join(example, "project.md")
+	target := filepath.Join(root, "outside-project.md")
+	mustWriteFile(t, target, []byte("# Outside\n"))
+	if err := os.Remove(projectPath); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink(target, projectPath); err != nil {
+		t.Fatal(err)
+	}
+
+	_, err := Run(context.Background(), Options{
+		RepoRoot:     root,
+		ExampleDir:   example,
+		Tier:         TierSandbox,
+		ApprovalPath: approvalPath,
+		DryRun:       true,
+		Now:          now,
+		Assess:       passAssess,
+	})
+	if err == nil || !strings.Contains(err.Error(), "symlink") {
+		t.Fatalf("expected project symlink rejection, got %v", err)
+	}
+}
+
+func TestRunRejectsSymlinkedWorkflowBeforeExecutorInvocation(t *testing.T) {
+	root, example := writeFixture(t, fixtureOptions{})
+	now := fixedNow()
+	approvalPath := writeApprovalTemplate(t, root, example, StateApprovedForSandbox, now)
+	workflowPath := filepath.Join(example, "workflows", "workflow.uws.yaml")
+	target := filepath.Join(root, "outside-workflow.yaml")
+	mustWriteFile(t, target, []byte("version: outside\n"))
+	if err := os.Remove(workflowPath); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink(target, workflowPath); err != nil {
+		t.Fatal(err)
+	}
+
+	_, err := Run(context.Background(), Options{
+		RepoRoot:     root,
+		ExampleDir:   example,
+		Tier:         TierSandbox,
+		ApprovalPath: approvalPath,
+		RunnerPath:   filepath.Join(root, "fake-runner"),
+		Now:          now,
+		Assess:       passAssess,
+		RunCommand: func(context.Context, string, ...string) error {
+			t.Fatal("runner should not be invoked for symlinked workflow")
+			return nil
+		},
+	})
+	if err == nil || !strings.Contains(err.Error(), "symlink") {
+		t.Fatalf("expected workflow symlink rejection, got %v", err)
+	}
+}
+
 func TestRunPackageDigestChangesWhenOpenAPIChanges(t *testing.T) {
 	root, example := writeFixture(t, fixtureOptions{extraRequiredInputs: []string{"openapi/support.yaml"}})
 	if err := os.MkdirAll(filepath.Join(example, "openapi"), 0o755); err != nil {
@@ -467,6 +527,44 @@ func TestRunUdonScriptStagesPackageAndUsesConfiguredWorkdir(t *testing.T) {
 	}
 	if _, err := os.Stat(filepath.Join(workdir, "workflows", "workflow.uws.yaml")); !os.IsNotExist(err) {
 		t.Fatalf("workflow was staged in persistent workdir root, err=%v", err)
+	}
+}
+
+func TestRunUdonScriptRejectsSymlinkedWorkflow(t *testing.T) {
+	wd, err := os.Getwd()
+	if err != nil {
+		t.Fatal(err)
+	}
+	repoRoot := filepath.Clean(filepath.Join(wd, "..", ".."))
+	script := filepath.Join(repoRoot, "scripts", "run-udon.sh")
+	tmp := t.TempDir()
+	packageRoot := filepath.Join(tmp, "package")
+	workdir := filepath.Join(tmp, "work")
+	if err := os.MkdirAll(filepath.Join(packageRoot, "workflows"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	target := filepath.Join(tmp, "outside-workflow.yaml")
+	mustWriteFile(t, target, []byte("uws: outside\n"))
+	if err := os.Symlink(target, filepath.Join(packageRoot, "workflows", "workflow.uws.yaml")); err != nil {
+		t.Fatal(err)
+	}
+	configPath := filepath.Join(tmp, "run-config.json")
+	data, err := json.Marshal(RunConfig{
+		Version:        RunConfigVersion,
+		PackageRoot:    packageRoot,
+		WorkDir:        workdir,
+		WorkflowPath:   "workflows/workflow.uws.yaml",
+		WorkflowFormat: "uws-yaml",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	mustWriteFile(t, configPath, data)
+	cmd := exec.Command(script, "--config", configPath)
+	cmd.Env = append(os.Environ(), "RAMEN_EXECUTOR=/bin/true")
+	out, err := cmd.CombinedOutput()
+	if err == nil || !strings.Contains(string(out), "workflow file must not be a symlink") {
+		t.Fatalf("expected workflow symlink rejection, err=%v out=%s", err, out)
 	}
 }
 

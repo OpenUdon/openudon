@@ -152,12 +152,15 @@ history.
 The local trusted runner is intentionally separate from synthesis. It validates
 `expected/symphony-handoff.json`, `expected/quality.json`, current in-memory quality, approval JSON,
 canonical package digest, and tier compatibility. The package digest uses Ramen-local handoff digest
-helpers over Ramen's required input set, including every regular file under `openapi/`; symlinked
-OpenAPI artifacts are rejected. It rejects credential values in artifacts and direct production
-execution, then writes a non-secret `ramen.executor-run.v1` config. The executor shim stages the
-reviewed UWS/OpenAPI files into the run workdir and invokes udon through a binary or Docker process
-boundary, never through Go imports. Docker execution passes only declared `UDON_CREDENTIAL_*`
-environment variable names into the container.
+helpers over Ramen's required input set, including every regular file under `openapi/`.
+`internal/packageartifacts` owns the required package inventory, safe relative path validation,
+manifest-required path normalization, regular-file checks, digest input construction, and staging
+input construction. Symlinked, directory, special-file, unsafe relative, and unstated required
+handoff inputs are rejected before approval can authorize execution. It rejects credential values
+in artifacts and direct production execution, then writes a non-secret `ramen.executor-run.v1`
+config. The executor shim stages the reviewed UWS/OpenAPI files into the run workdir and invokes
+udon through a binary or Docker process boundary, never through Go imports. Docker execution passes
+only declared `UDON_CREDENTIAL_*` environment variable names into the container.
 
 Required handoff inputs are `project.md`, `workflows/intent.hcl`, `workflows/workflow.hcl`,
 `workflows/workflow.uws.yaml`, `expected/plan.json`, `expected/quality.json`,

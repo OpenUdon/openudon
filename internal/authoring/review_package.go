@@ -9,6 +9,8 @@ import (
 	"path/filepath"
 	"sort"
 	"strings"
+
+	"github.com/genelet/ramen/internal/packageartifacts"
 )
 
 // ReviewArtifactInput is caller-bound artifact metadata used to assemble a
@@ -162,8 +164,8 @@ func ComputeReviewHandoffDigest(opts ReviewHandoffDigestOptions) (string, error)
 		if !input.Required {
 			continue
 		}
-		clean, ok := cleanReviewHandoffInputPath(input.Path)
-		if !ok {
+		clean, err := packageartifacts.CleanRelativePath(input.Path)
+		if err != nil {
 			return "", fmt.Errorf("handoff input path must be safe relative path: %q", input.Path)
 		}
 		fileSet[clean] = struct{}{}
@@ -173,6 +175,9 @@ func ComputeReviewHandoffDigest(opts ReviewHandoffDigestOptions) (string, error)
 		files = append(files, path)
 	}
 	sort.Strings(files)
+	if err := packageartifacts.ValidateRegularPackageFiles(root, files); err != nil {
+		return "", err
+	}
 	digest := reviewHandoffDigest{
 		Version: version,
 		Scope:   scope,

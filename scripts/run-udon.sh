@@ -123,8 +123,12 @@ credential_count="${values[$credential_count_index]}"
 credential_env_start=$((credential_count_index + 1))
 credential_env_names=("${values[@]:credential_env_start:credential_count}")
 
+if [[ -L "$workflow" ]]; then
+  printf 'workflow file must not be a symlink: %s\n' "$workflow" >&2
+  exit 1
+fi
 if [[ ! -f "$workflow" ]]; then
-  printf 'workflow file not found: %s\n' "$workflow" >&2
+  printf 'workflow file must be a regular file: %s\n' "$workflow" >&2
   exit 1
 fi
 

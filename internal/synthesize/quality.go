@@ -2692,38 +2692,25 @@ func assessSymphonyHandoff(report *QualityReport, path string, profile sideEffec
 }
 
 func symphonyHandoffHasRequiredInputs(exampleDir string, manifest SymphonyHandoff) (bool, error) {
-	required := map[string]bool{
-		"project.md":                     false,
-		"workflows/intent.hcl":           false,
-		"workflows/workflow.hcl":         false,
-		"workflows/workflow.uws.yaml":    false,
-		"expected/plan.json":             false,
-		"expected/quality.json":          false,
-		"expected/refinement.json":       false,
-		"expected/review.md":             false,
-		"expected/symphony-handoff.json": false,
-	}
-	openAPIPaths, err := packageartifacts.CollectOpenAPIPaths(exampleDir)
+	_, err := packageartifacts.RequiredManifestPaths(exampleDir, packageArtifactManifestInputs(manifest))
 	if err != nil {
-		return false, err
-	}
-	for _, path := range openAPIPaths {
-		required[path] = false
-	}
-	for _, input := range manifest.HandoffInputs {
-		if !input.Required {
-			continue
-		}
-		if _, ok := required[input.Path]; ok {
-			required[input.Path] = true
-		}
-	}
-	for _, found := range required {
-		if !found {
+		if strings.Contains(err.Error(), "missing required input") {
 			return false, nil
 		}
+		return false, err
 	}
 	return true, nil
+}
+
+func packageArtifactManifestInputs(manifest SymphonyHandoff) []packageartifacts.ManifestInput {
+	inputs := make([]packageartifacts.ManifestInput, 0, len(manifest.HandoffInputs))
+	for _, input := range manifest.HandoffInputs {
+		inputs = append(inputs, packageartifacts.ManifestInput{
+			Path:     input.Path,
+			Required: input.Required,
+		})
+	}
+	return inputs
 }
 
 func symphonyHandoffHasApprovalStates(manifest SymphonyHandoff) bool {

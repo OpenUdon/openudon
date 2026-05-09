@@ -385,53 +385,11 @@ func validateManifestPolicy(manifest handoffManifest) error {
 }
 
 func validateRequiredInputs(p paths, manifest handoffManifest) error {
-	required := map[string]bool{
-		"project.md":                     false,
-		"workflows/intent.hcl":           false,
-		"workflows/workflow.hcl":         false,
-		"workflows/workflow.uws.yaml":    false,
-		"expected/plan.json":             false,
-		"expected/quality.json":          false,
-		"expected/refinement.json":       false,
-		"expected/review.md":             false,
-		"expected/symphony-handoff.json": false,
-	}
-	openAPIPaths, err := packageartifacts.CollectOpenAPIPaths(p.exampleAbs)
+	paths, err := packageartifacts.RequiredManifestPaths(p.exampleAbs, packageManifestInputs(manifest))
 	if err != nil {
 		return err
 	}
-	for _, path := range openAPIPaths {
-		required[path] = false
-	}
-	for _, input := range manifest.HandoffInputs {
-		if !input.Required {
-			continue
-		}
-		clean, err := cleanManifestPath(input.Path)
-		if err != nil {
-			return err
-		}
-		if _, ok := required[clean]; ok {
-			required[clean] = true
-		}
-	}
-	var missing []string
-	for path, found := range required {
-		if !found {
-			missing = append(missing, path)
-		}
-	}
-	sort.Strings(missing)
-	if len(missing) > 0 {
-		return fmt.Errorf("handoff manifest missing required input(s): %s", strings.Join(missing, ", "))
-	}
-	for path := range required {
-		full := filepath.Join(p.exampleAbs, filepath.FromSlash(path))
-		if _, err := os.Stat(full); err != nil {
-			return fmt.Errorf("required handoff input %s: %w", path, err)
-		}
-	}
-	return nil
+	return packageartifacts.ValidateRegularPackageFiles(p.exampleAbs, paths)
 }
 
 func validateStoredQuality(path string) error {
@@ -450,26 +408,25 @@ func validateStoredQuality(path string) error {
 }
 
 func computePackageDigest(p paths, manifest handoffManifest) (string, error) {
-	fileSet := map[string]authoring.ReviewHandoffInput{}
+	manifestPaths, err := packageartifacts.RequiredManifestPaths(p.exampleAbs, packageManifestInputs(manifest))
+	if err != nil {
+		return "", err
+	}
+	manifestInputByPath := map[string]authoring.ReviewHandoffInput{}
 	for _, input := range manifest.HandoffInputs {
 		if !input.Required {
 			continue
 		}
-		clean, err := cleanManifestPath(input.Path)
+		clean, err := packageartifacts.CleanRelativePath(input.Path)
 		if err != nil {
-			return "", err
+			return "", fmt.Errorf("handoff input path must be safe relative path: %q", input.Path)
 		}
 		input.Path = clean
-		fileSet[clean] = input
+		manifestInputByPath[clean] = input
 	}
-	var files []string
-	for path := range fileSet {
-		files = append(files, path)
-	}
-	sort.Strings(files)
-	inputs := make([]authoring.ReviewHandoffInput, 0, len(files))
-	for _, path := range files {
-		inputs = append(inputs, fileSet[path])
+	inputs := make([]authoring.ReviewHandoffInput, 0, len(manifestPaths))
+	for _, path := range manifestPaths {
+		inputs = append(inputs, manifestInputByPath[path])
 	}
 	return authoring.ComputeReviewHandoffDigest(authoring.ReviewHandoffDigestOptions{
 		Root:    p.exampleAbs,
@@ -479,16 +436,15 @@ func computePackageDigest(p paths, manifest handoffManifest) (string, error) {
 	})
 }
 
-func cleanManifestPath(path string) (string, error) {
-	path = strings.TrimSpace(filepath.ToSlash(path))
-	if path == "" || strings.HasPrefix(path, "/") {
-		return "", fmt.Errorf("handoff input path must be repo-local: %q", path)
+func packageManifestInputs(manifest handoffManifest) []packageartifacts.ManifestInput {
+	inputs := make([]packageartifacts.ManifestInput, 0, len(manifest.HandoffInputs))
+	for _, input := range manifest.HandoffInputs {
+		inputs = append(inputs, packageartifacts.ManifestInput{
+			Path:     input.Path,
+			Required: input.Required,
+		})
 	}
-	clean := filepath.ToSlash(filepath.Clean(path))
-	if clean == "." || strings.HasPrefix(clean, "../") || clean == ".." {
-		return "", fmt.Errorf("handoff input path escapes example: %q", path)
-	}
-	return clean, nil
+	return inputs
 }
 
 func readApproval(path string) (Approval, error) {

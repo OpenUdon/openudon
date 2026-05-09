@@ -61,6 +61,27 @@ func TestComputeReviewHandoffDigestIsStable(t *testing.T) {
 	}
 }
 
+func TestComputeReviewHandoffDigestRejectsSymlinkInput(t *testing.T) {
+	root := t.TempDir()
+	target := filepath.Join(root, "target.md")
+	mustWrite(t, target, []byte("brief\n"))
+	if err := os.Symlink(target, filepath.Join(root, "project.md")); err != nil {
+		t.Fatal(err)
+	}
+
+	_, err := ComputeReviewHandoffDigest(ReviewHandoffDigestOptions{
+		Root:    root,
+		Scope:   "examples/demo",
+		Version: "ramen.handoff-package-digest.v1",
+		Inputs: []ReviewHandoffInput{
+			{Path: "project.md", Required: true},
+		},
+	})
+	if err == nil || !strings.Contains(err.Error(), "symlink") {
+		t.Fatalf("expected symlink digest input rejection, got %v", err)
+	}
+}
+
 func TestScanCredentialValuesFlagsLiteralSecrets(t *testing.T) {
 	diagnostics := ScanCredentialValues([]Artifact{{
 		Path:    "project.md",

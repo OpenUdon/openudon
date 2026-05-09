@@ -2,9 +2,10 @@ package authoring
 
 import (
 	"fmt"
-	"path"
 	"sort"
 	"strings"
+
+	"github.com/genelet/ramen/internal/packageartifacts"
 )
 
 // ReviewHandoffVersion is the public review handoff schema version.
@@ -307,32 +308,11 @@ func validateReviewHandoffInputs(inputs []ReviewHandoffInput) []Diagnostic {
 }
 
 func cleanReviewHandoffInputPath(inputPath string) (string, bool) {
-	inputPath = strings.TrimSpace(inputPath)
-	if inputPath == "" || strings.Contains(inputPath, `\`) || strings.HasPrefix(inputPath, "/") || hasWindowsVolumeName(inputPath) || hasDotDotPathSegment(inputPath) {
-		return "", false
-	}
-	clean := path.Clean(inputPath)
-	if clean == "." || clean == ".." || strings.HasPrefix(clean, "../") {
+	clean, err := packageartifacts.CleanRelativePath(inputPath)
+	if err != nil {
 		return "", false
 	}
 	return clean, true
-}
-
-func hasDotDotPathSegment(inputPath string) bool {
-	for _, segment := range strings.Split(inputPath, "/") {
-		if segment == ".." {
-			return true
-		}
-	}
-	return false
-}
-
-func hasWindowsVolumeName(inputPath string) bool {
-	if len(inputPath) < 2 || inputPath[1] != ':' {
-		return false
-	}
-	letter := inputPath[0]
-	return (letter >= 'A' && letter <= 'Z') || (letter >= 'a' && letter <= 'z')
 }
 
 func validateReviewOwnerSplit(split ReviewOwnerSplit) []Diagnostic {

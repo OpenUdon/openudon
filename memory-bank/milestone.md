@@ -174,6 +174,21 @@ Verification plan:
 - Downstreams: `(cd ../udon && go test ./...)`. The IaC sibling is parked and not a gate.
 - Static guards: `rg` for removed non-OpenAPI symbols in Ramen, udon, and apitools docs.
 
+### 12. Package Artifact And Local OpenAPI Safety Hardening
+
+- Harden Ramen package artifact validation and digest inputs for all required handoff files. Status:
+  done; required Ramen handoff inputs now share safe relative path validation, manifest inventory
+  checks, regular-file validation, digest input validation, and trusted-runner staging guards.
+- Harden `../apitools` local OpenAPI reads with symlink, type, and size checks. Status: todo.
+- Replace line-delimited run-config parsing in `scripts/run-udon.sh` with robust framing or
+  Python-side staging. Status: todo.
+- Split `workflowintent` into intent model/HCL, provider clients, and OpenAPI adapter modules.
+  Status: todo.
+
+Acceptance: required handoff inputs cannot be symlinks, directories, special files, unsafe relative
+paths, or digest/staging bypasses; sibling-owned hardening remains tracked without moving ownership
+into Ramen.
+
 ## Closed XRD Regression Matrix
 
 | ID | Status | Regression owner | Boundary |

@@ -89,6 +89,10 @@
   inputs covered by package digests, symlinked OpenAPI artifacts are rejected, execution uses a
   fresh staged workdir, Docker execution passes only declared `UDON_CREDENTIAL_*` names, and invalid
   OpenAPI operation IDs fail generation instead of dropping request bindings.
+- [ ] Review follow-up safety hardening remains open. The first Ramen-owned package artifact
+  hardening pass is implemented for required handoff files; later todos remain for `../apitools`
+  local OpenAPI file checks, robust run-config framing or Python-side staging, and a
+  `workflowintent` module split.
 
 ## Notes
 
