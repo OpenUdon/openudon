@@ -1,4 +1,4 @@
-# OpenUdon Safety
+# Safety And Trusted Execution
 
 OpenUdon follows the udon execution boundary:
 
@@ -70,4 +70,5 @@ an implementation profile with `x-uws-operation-profile`. OpenUdon project polic
 profiles are allowed for a given environment.
 
 Symphony approval states, trusted-runner handoff package contents, and optional sibling checkout plus
-secret boundaries are summarized in this guide and the project authoring documentation.
+secret boundaries are summarized in this guide, [Review Handoff](review-handoff.md), and the
+[project authoring documentation](project-authoring.md).

@@ -1,0 +1,40 @@
+site_name: OpenUdon
+site_description: Public UWS workflow authoring, review, package, and trusted executor handoff
+site_url: https://openudon.github.io/openudon/
+repo_url: https://github.com/OpenUdon/openudon
+repo_name: OpenUdon/openudon
+docs_dir: docs
+copyright: "Copyright 2026 OpenUdon/openudon - UWS workflow authoring and trusted executor handoff - Apache 2.0"
+
+theme:
+  name: material
+  features:
+    - navigation.tabs
+    - navigation.sections
+    - navigation.top
+    - search.highlight
+    - content.code.copy
+  palette:
+    - scheme: default
+      primary: teal
+      accent: deep orange
+
+nav:
+  - Home: index.md
+  - Authoring:
+    - Overview: authoring.md
+    - Project Briefs: project-authoring.md
+    - intent.hcl: intent.md
+    - Data Flow: data-flow.md
+    - iCoT: icot.md
+    - Synthesize: synthesize.md
+  - Tutorial:
+    - Weather: tutorial-weather.md
+    - Gmail Audit Receipt: tutorial-gmail.md
+    - Support Email: tutorial-support-email.md
+    - Eval Gallery: eval-gallery.md
+  - Handoff:
+    - Safety: safety.md
+    - Review Handoff: review-handoff.md
+    - Release Notes Template: release-note-template.md
+  - Related: related.md
