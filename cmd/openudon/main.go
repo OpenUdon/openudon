@@ -19,6 +19,7 @@ import (
 	"github.com/OpenUdon/openudon/internal/localcheck"
 	"github.com/OpenUdon/openudon/internal/readiness"
 	"github.com/OpenUdon/openudon/internal/synthesize"
+	"github.com/OpenUdon/openudon/internal/tfconvert"
 	"github.com/OpenUdon/openudon/internal/trustedrunner"
 	uwsprofile "github.com/OpenUdon/openudon/internal/uwsexec"
 	"github.com/OpenUdon/openudon/internal/uwsvalidate"
@@ -35,6 +36,7 @@ func main() {
 		fmt.Fprintf(flag.CommandLine.Output(), "  approval-template print approval JSON for a validated handoff package\n")
 		fmt.Fprintf(flag.CommandLine.Output(), "  build     regenerate workflow/UWS from an existing intent.hcl\n")
 		fmt.Fprintf(flag.CommandLine.Output(), "  check-apitools-boundary verify OpenUdon only uses OpenAPI-owned apitools APIs\n")
+		fmt.Fprintf(flag.CommandLine.Output(), "  convert   generate draft review scaffolding from supported source formats\n")
 		fmt.Fprintf(flag.CommandLine.Output(), "  eval      run synthesis eval briefs and write pass/fail reports\n")
 		fmt.Fprintf(flag.CommandLine.Output(), "  promote   export/validate UWS from an existing workflow.hcl\n")
 		fmt.Fprintf(flag.CommandLine.Output(), "  readiness write local private-checkout and deterministic-gate readiness report\n")
@@ -63,6 +65,8 @@ func main() {
 			os.Exit(1)
 		}
 		fmt.Println("openudon: apitools boundary check passed")
+	case "convert":
+		runConvertCommand(flag.Args()[1:])
 	case "validate":
 		if flag.NArg() < 2 {
 			fmt.Fprintln(os.Stderr, "usage: openudon validate [--allow-empty] <uws-file-or-dir>")
@@ -88,6 +92,87 @@ func main() {
 		flag.Usage()
 		os.Exit(2)
 	}
+}
+
+type repeatedStringFlag []string
+
+func (f *repeatedStringFlag) String() string {
+	return strings.Join(*f, ",")
+}
+
+func (f *repeatedStringFlag) Set(value string) error {
+	*f = append(*f, value)
+	return nil
+}
+
+func runConvertCommand(args []string) {
+	if len(args) == 0 || args[0] != "tf" {
+		fmt.Fprintln(os.Stderr, "usage: openudon convert tf [--config-dir DIR] --openapi ID=PATH [--action create|update|delete|replace] [--target ADDRESS] [--out DIR] [--strict]")
+		os.Exit(2)
+	}
+	runConvertTFCommand(args[1:])
+}
+
+func runConvertTFCommand(args []string) {
+	fs := flag.NewFlagSet("convert tf", flag.ExitOnError)
+	configDir := fs.String("config-dir", ".", "Terraform/OpenTofu configuration directory")
+	action := fs.String("action", "", "Managed resource action: create, update, delete, or replace")
+	outDir := fs.String("out", "./.openudon/convert", "Output directory for draft review artifacts")
+	strict := fs.Bool("strict", false, "Fail when strict-failure diagnostics remain")
+	var openAPIs repeatedStringFlag
+	var targets repeatedStringFlag
+	fs.Var(&openAPIs, "openapi", "Repeatable OpenAPI input as ID=PATH")
+	fs.Var(&targets, "target", "Repeatable Terraform address target")
+	fs.Usage = func() {
+		fmt.Fprintf(fs.Output(), "Usage: openudon convert tf [--config-dir DIR] --openapi ID=PATH [--action create|update|delete|replace] [--target ADDRESS] [--out DIR] [--strict]\n")
+		fmt.Fprintf(fs.Output(), "\nGenerates draft OpenUdon review scaffolding from static Terraform/OpenTofu configuration and local OpenAPI documents. It does not execute Terraform, providers, OpenAPI operations, or UWS workflows.\n\n")
+		fs.PrintDefaults()
+	}
+	if err := fs.Parse(args); err != nil {
+		os.Exit(2)
+	}
+	inputs, err := parseOpenAPIFlags(openAPIs)
+	if err != nil {
+		fmt.Fprintln(os.Stderr, err)
+		os.Exit(2)
+	}
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer stop()
+	result, err := tfconvert.Convert(ctx, tfconvert.Options{
+		ConfigDir: *configDir,
+		OpenAPIs:  inputs,
+		Action:    *action,
+		Targets:   []string(targets),
+		OutDir:    *outDir,
+		Strict:    *strict,
+	})
+	if err != nil {
+		fmt.Fprintln(os.Stderr, err)
+		if result != nil {
+			fmt.Fprintf(os.Stderr, "diagnostics: %s\n", result.DiagnosticsJSON)
+		}
+		if tfconvert.IsStrictFailure(err) {
+			os.Exit(1)
+		}
+		os.Exit(1)
+	}
+	fmt.Printf("openudon: convert tf wrote %s\n", result.OutDir)
+	fmt.Printf("  project:     %s\n", result.ProjectPath)
+	fmt.Printf("  intent:      %s\n", result.IntentPath)
+	fmt.Printf("  diagnostics: %s\n", result.DiagnosticsJSON)
+	fmt.Printf("  review:      %s\n", result.ReviewPath)
+}
+
+func parseOpenAPIFlags(values []string) ([]tfconvert.OpenAPIInput, error) {
+	inputs := make([]tfconvert.OpenAPIInput, 0, len(values))
+	for _, value := range values {
+		id, path, ok := strings.Cut(value, "=")
+		if !ok || strings.TrimSpace(id) == "" || strings.TrimSpace(path) == "" {
+			return nil, fmt.Errorf("--openapi must be ID=PATH, got %q", value)
+		}
+		inputs = append(inputs, tfconvert.OpenAPIInput{ID: strings.TrimSpace(id), Path: strings.TrimSpace(path)})
+	}
+	return inputs, nil
 }
 
 func runValidateCommand(args []string) {
