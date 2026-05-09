@@ -90,9 +90,10 @@
   fresh staged workdir, Docker execution passes only declared `UDON_CREDENTIAL_*` names, and invalid
   OpenAPI operation IDs fail generation instead of dropping request bindings.
 - [ ] Review follow-up safety hardening remains open. The first Ramen-owned package artifact
-  hardening pass is implemented for required handoff files; later todos remain for `../apitools`
-  local OpenAPI file checks, robust run-config framing or Python-side staging, and a
-  `workflowintent` module split.
+  hardening pass is implemented for required handoff files, and `../apitools` local OpenAPI reads
+  now fail closed on symlinked roots/paths/parents, directories, special files, and oversized
+  path-backed documents. Later todos remain for robust run-config framing or Python-side staging
+  and a `workflowintent` module split.
 
 ## Notes
 

@@ -179,7 +179,10 @@ Verification plan:
 - Harden Ramen package artifact validation and digest inputs for all required handoff files. Status:
   done; required Ramen handoff inputs now share safe relative path validation, manifest inventory
   checks, regular-file validation, digest input validation, and trusted-runner staging guards.
-- Harden `../apitools` local OpenAPI reads with symlink, type, and size checks. Status: todo.
+- Harden `../apitools` local OpenAPI reads with symlink, type, and size checks. Status: done;
+  `LocalFiles`, `BuildOperationInventory`, and `LoadOperationIndex` now share bounded local file
+  reads that reject symlinked roots/paths/parents, directories, special files, and oversized
+  path-backed documents.
 - Replace line-delimited run-config parsing in `scripts/run-udon.sh` with robust framing or
   Python-side staging. Status: todo.
 - Split `workflowintent` into intent model/HCL, provider clients, and OpenAPI adapter modules.
