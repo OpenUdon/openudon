@@ -35,7 +35,6 @@ func main() {
 		fmt.Fprintf(flag.CommandLine.Output(), "  approval-template print approval JSON for a validated handoff package\n")
 		fmt.Fprintf(flag.CommandLine.Output(), "  build     regenerate workflow/UWS from an existing intent.hcl\n")
 		fmt.Fprintf(flag.CommandLine.Output(), "  check-apitools-boundary verify OpenUdon only uses OpenAPI-owned apitools APIs\n")
-		fmt.Fprintf(flag.CommandLine.Output(), "  check-doc-memory verify memory-bank docs and removed-doc references\n")
 		fmt.Fprintf(flag.CommandLine.Output(), "  eval      run synthesis eval briefs and write pass/fail reports\n")
 		fmt.Fprintf(flag.CommandLine.Output(), "  promote   export/validate UWS from an existing workflow.hcl\n")
 		fmt.Fprintf(flag.CommandLine.Output(), "  readiness write local private-checkout and deterministic-gate readiness report\n")
@@ -64,19 +63,6 @@ func main() {
 			os.Exit(1)
 		}
 		fmt.Println("openudon: apitools boundary check passed")
-	case "check-doc-memory":
-		result, err := localcheck.CheckDocMemory(".")
-		for _, file := range result.CheckedFiles {
-			fmt.Printf("ok: %s\n", file)
-		}
-		for _, warning := range result.Warnings {
-			fmt.Fprintf(os.Stderr, "warning: %s\n", warning)
-		}
-		if err != nil {
-			fmt.Fprintln(os.Stderr, err)
-			os.Exit(1)
-		}
-		fmt.Println("ok: no stale removed-doc references")
 	case "validate":
 		if flag.NArg() < 2 {
 			fmt.Fprintln(os.Stderr, "usage: openudon validate [--allow-empty] <uws-file-or-dir>")

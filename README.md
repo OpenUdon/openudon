@@ -34,7 +34,6 @@ go test ./...
 go vet ./...
 go run ./cmd/openudon check
 go run ./cmd/openudon check-apitools-boundary
-go run ./cmd/openudon check-doc-memory
 go run ./cmd/openudon validate ./examples/uws-validation
 make check
 make release-check
@@ -54,8 +53,6 @@ through `openudon run` and the portable run-config handoff, either as a configur
 - `examples/`: committed examples and eval corpus.
 - `templates/project.md`: starter project brief.
 - `docs/`: detailed architecture, safety, operator, XRD, and release notes.
-- `memory-bank/`: internal design notes and active maintainer memory.
-- `evolution/`: internal direction-change snapshots for larger architecture shifts.
 
 ## Execution Boundary
 

@@ -1,4 +1,4 @@
-.PHONY: help test vet check doc-memory apitools-boundary readiness release-check release-eval siblings validate-uws eval synthesize-support build-support promote-support assess-support
+.PHONY: help test vet check apitools-boundary readiness release-check release-eval siblings validate-uws eval synthesize-support build-support promote-support assess-support
 
 GO ?= go
 OPENUDON_PROVIDER ?= copilot-api
@@ -6,7 +6,7 @@ OPENUDON_MODEL ?= gpt-5.4-mini
 OPENUDON_RELEASE_MIN_BRIEFS ?= $(shell find ./examples/eval -mindepth 1 -maxdepth 1 -type d | wc -l | tr -d ' ')
 
 help:
-	@echo "Targets: test, vet, check, doc-memory, readiness, release-check, release-eval, siblings, validate-uws, eval, synthesize-support, build-support, promote-support, assess-support"
+	@echo "Targets: test, vet, check, readiness, release-check, release-eval, siblings, validate-uws, eval, synthesize-support, build-support, promote-support, assess-support"
 
 test:
 	$(GO) test ./...
@@ -15,9 +15,6 @@ vet:
 	$(GO) vet ./...
 
 check: test siblings apitools-boundary
-
-doc-memory:
-	$(GO) run ./cmd/openudon check-doc-memory
 
 apitools-boundary:
 	$(GO) run ./cmd/openudon check-apitools-boundary

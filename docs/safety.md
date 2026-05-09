@@ -67,5 +67,4 @@ an implementation profile with `x-uws-operation-profile`. OpenUdon project polic
 profiles are allowed for a given environment.
 
 Symphony approval states, trusted-runner handoff package contents, and optional sibling checkout plus
-secret boundaries are summarized in `../memory-bank/architecture.md` and
-`../memory-bank/tech-stack.md`.
+secret boundaries are summarized in this guide and the project authoring documentation.
