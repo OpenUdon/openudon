@@ -86,6 +86,9 @@ func Run(ctx context.Context, config Config, opts Options) (Result, error) {
 	if ctx == nil {
 		ctx = context.Background()
 	}
+	if config.DirectProductionRun {
+		return Result{}, fmt.Errorf("run config direct_production_run must be false")
+	}
 	repoRoot := strings.TrimSpace(opts.RepoRoot)
 	if repoRoot == "" {
 		repoRoot = "."
@@ -129,11 +132,15 @@ func Run(ctx context.Context, config Config, opts Options) (Result, error) {
 	if err != nil {
 		return Result{}, err
 	}
-	packageFiles, err := validatePackagePaths(packageRoot, config.PackagePaths, config.PackageSHA256)
+	packageFiles, err := validatePackagePaths(packageRoot, config.PackagePaths)
 	if err != nil {
 		return Result{}, err
 	}
-	if err := validateDigestInventory(workflowRel, openAPIFiles, packageFiles, config.PackageSHA256); err != nil {
+	approvedDigest, err := requirePackageSHA256(config.PackageSHA256)
+	if err != nil {
+		return Result{}, err
+	}
+	if err := validateDigestInventory(workflowRel, openAPIFiles, packageFiles); err != nil {
 		return Result{}, err
 	}
 	credentialEnvNames, err := credentialEnvNames(config.CredentialBindings)
@@ -155,7 +162,7 @@ func Run(ctx context.Context, config Config, opts Options) (Result, error) {
 	if err != nil {
 		return Result{}, err
 	}
-	if err := verifyStagedPackageDigest(stage, config.Scope, config.PackageSHA256, packageFiles); err != nil {
+	if err := verifyStagedPackageDigest(stage, config.Scope, approvedDigest, packageFiles); err != nil {
 		return Result{}, err
 	}
 	argv, err := executorArgv(repoRootAbs, stage, stagedWorkflow, workflowFormat, credentialEnvNames, envByName)
@@ -303,9 +310,9 @@ func validateOpenAPIPaths(packageRoot string, paths []string) ([][2]string, erro
 	return out, nil
 }
 
-func validatePackagePaths(packageRoot string, paths []string, approvedDigest string) ([][2]string, error) {
-	if strings.TrimSpace(approvedDigest) != "" && len(paths) == 0 {
-		return nil, fmt.Errorf("run config requires package_paths when package_sha256 is set")
+func validatePackagePaths(packageRoot string, paths []string) ([][2]string, error) {
+	if len(paths) == 0 {
+		return nil, fmt.Errorf("run config requires package_paths")
 	}
 	out := make([][2]string, 0, len(paths))
 	seen := map[string]bool{}
@@ -331,10 +338,15 @@ func validatePackagePaths(packageRoot string, paths []string, approvedDigest str
 	return out, nil
 }
 
-func validateDigestInventory(workflowRel string, openAPIFiles, packageFiles [][2]string, approvedDigest string) error {
-	if strings.TrimSpace(approvedDigest) == "" {
-		return nil
+func requirePackageSHA256(value string) (string, error) {
+	value = strings.TrimSpace(value)
+	if value == "" {
+		return "", fmt.Errorf("run config requires package_sha256")
 	}
+	return value, nil
+}
+
+func validateDigestInventory(workflowRel string, openAPIFiles, packageFiles [][2]string) error {
 	covered := map[string]bool{}
 	for _, pair := range packageFiles {
 		covered[filepath.ToSlash(pair[0])] = true
@@ -383,9 +395,6 @@ func stagePackage(workdir, workflowRel, workflowPath string, openAPIFiles, packa
 
 func verifyStagedPackageDigest(stage, scope, approvedDigest string, packageFiles [][2]string) error {
 	approvedDigest = strings.TrimSpace(approvedDigest)
-	if approvedDigest == "" {
-		return nil
-	}
 	inputs := make([]authoring.ReviewHandoffInput, 0, len(packageFiles))
 	for _, pair := range packageFiles {
 		inputs = append(inputs, authoring.ReviewHandoffInput{

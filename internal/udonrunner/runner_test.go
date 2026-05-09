@@ -1,11 +1,14 @@
 package udonrunner
 
 import (
+	"context"
 	"os"
 	"path/filepath"
 	"runtime"
 	"strings"
 	"testing"
+
+	"github.com/OpenUdon/openudon/internal/authoring"
 )
 
 func TestPackageRelativePathRejectsEscapesAndUnsafeText(t *testing.T) {
@@ -128,6 +131,119 @@ func TestExecutorArgvPrecedenceAndValidation(t *testing.T) {
 	mustWriteRunnerTestFile(t, nonExecutable, []byte("#!/usr/bin/env bash\nexit 0\n"))
 	if _, err := executorArgv(root, stage, workflow, "uws-yaml", nil, map[string]string{"OPENUDON_EXECUTOR": nonExecutable}); err == nil || !strings.Contains(err.Error(), "executable file") {
 		t.Fatalf("expected non-executable rejection, got %v", err)
+	}
+}
+
+func TestRunRejectsEmptyPackageSHA256(t *testing.T) {
+	config := validRunnerConfig(t)
+	config.PackageSHA256 = ""
+	_, err := Run(context.Background(), config, Options{
+		RepoRoot: t.TempDir(),
+		Env:      []string{"OPENUDON_EXECUTOR=/bin/true"},
+		RunCommand: func(context.Context, string, ...string) error {
+			t.Fatal("executor should not be invoked")
+			return nil
+		},
+	})
+	if err == nil || !strings.Contains(err.Error(), "package_sha256") {
+		t.Fatalf("expected package_sha256 rejection, got %v", err)
+	}
+}
+
+func TestRunRejectsEmptyPackagePaths(t *testing.T) {
+	config := validRunnerConfig(t)
+	config.PackagePaths = nil
+	_, err := Run(context.Background(), config, Options{
+		RepoRoot: t.TempDir(),
+		Env:      []string{"OPENUDON_EXECUTOR=/bin/true"},
+		RunCommand: func(context.Context, string, ...string) error {
+			t.Fatal("executor should not be invoked")
+			return nil
+		},
+	})
+	if err == nil || !strings.Contains(err.Error(), "package_paths") {
+		t.Fatalf("expected package_paths rejection, got %v", err)
+	}
+}
+
+func TestRunRejectsDirectProductionRun(t *testing.T) {
+	config := Config{DirectProductionRun: true}
+	_, err := Run(context.Background(), config, Options{
+		RepoRoot: t.TempDir(),
+		Env:      []string{"OPENUDON_EXECUTOR=/bin/true"},
+		RunCommand: func(context.Context, string, ...string) error {
+			t.Fatal("executor should not be invoked")
+			return nil
+		},
+	})
+	if err == nil || !strings.Contains(err.Error(), "direct_production_run") {
+		t.Fatalf("expected direct_production_run rejection, got %v", err)
+	}
+}
+
+func TestRunAcceptsValidDigestCoveredConfigAndInvokesExecutor(t *testing.T) {
+	config := validRunnerConfig(t)
+	var gotName string
+	var gotArgs []string
+	result, err := Run(context.Background(), config, Options{
+		RepoRoot: t.TempDir(),
+		Env:      []string{"OPENUDON_EXECUTOR=/bin/true"},
+		RunCommand: func(_ context.Context, name string, args ...string) error {
+			gotName = name
+			gotArgs = append([]string(nil), args...)
+			return nil
+		},
+	})
+	if err != nil {
+		t.Fatalf("Run returned error: %v", err)
+	}
+	if gotName != "/bin/true" {
+		t.Fatalf("executor name = %q, want /bin/true", gotName)
+	}
+	if result.StagePath == "" || result.WorkflowPath == "" {
+		t.Fatalf("result missing staged paths: %#v", result)
+	}
+	if !containsArg(gotArgs, result.StagePath) || !containsArg(gotArgs, result.WorkflowPath) {
+		t.Fatalf("executor args do not reference staged paths: %#v result=%#v", gotArgs, result)
+	}
+	for _, rel := range []string{"workflows/workflow.uws.yaml", "openapi/support.yaml"} {
+		if _, err := os.Stat(filepath.Join(result.StagePath, filepath.FromSlash(rel))); err != nil {
+			t.Fatalf("staged file missing %s: %v", rel, err)
+		}
+	}
+}
+
+func validRunnerConfig(t *testing.T) Config {
+	t.Helper()
+	root := t.TempDir()
+	workdir := filepath.Join(t.TempDir(), "work")
+	workflowRel := "workflows/workflow.uws.yaml"
+	openAPIRel := "openapi/support.yaml"
+	mustWriteRunnerTestFile(t, filepath.Join(root, filepath.FromSlash(workflowRel)), []byte("uws: 1.0.0\n"))
+	mustWriteRunnerTestFile(t, filepath.Join(root, filepath.FromSlash(openAPIRel)), []byte("openapi: 3.0.0\n"))
+	scope := "examples/test"
+	digest, err := authoring.ComputeReviewHandoffDigest(authoring.ReviewHandoffDigestOptions{
+		Root:    root,
+		Scope:   scope,
+		Version: "openudon.handoff-package-digest.v1",
+		Inputs: []authoring.ReviewHandoffInput{
+			{Path: workflowRel, Required: true},
+			{Path: openAPIRel, Required: true},
+		},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	return Config{
+		Version:        RunConfigVersion,
+		Scope:          scope,
+		PackageRoot:    root,
+		WorkDir:        workdir,
+		WorkflowPath:   workflowRel,
+		WorkflowFormat: "uws-yaml",
+		OpenAPIPaths:   []string{openAPIRel},
+		PackagePaths:   []string{workflowRel, openAPIRel},
+		PackageSHA256:  digest,
 	}
 }
 

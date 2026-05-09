@@ -605,12 +605,14 @@ func TestUdonRunnerStagesPackageAndUsesConfiguredWorkdir(t *testing.T) {
 	configPath := filepath.Join(tmp, "run-config.json")
 	config := RunConfig{
 		Version:        RunConfigVersion,
+		Scope:          "examples/test",
 		PackageRoot:    packageRoot,
 		WorkDir:        workdir,
 		WorkflowPath:   "workflows/workflow.uws.yaml",
 		WorkflowFormat: "uws-yaml",
 		OpenAPIPaths:   []string{"openapi/nested/support.yaml"},
 	}
+	config = withRunnerPackageDigest(t, packageRoot, config)
 	data, err := json.Marshal(config)
 	if err != nil {
 		t.Fatal(err)
@@ -1034,14 +1036,17 @@ func TestUdonRunnerAcceptsAbsolutePathsInsidePackageRoot(t *testing.T) {
 	mustWriteFile(t, workflowPath, []byte("uws: 1.0.0\n"))
 	mustWriteFile(t, openAPIPath, []byte("openapi: 3.0.0\n"))
 	configPath := filepath.Join(tmp, "run-config.json")
-	data, err := json.Marshal(RunConfig{
+	config := RunConfig{
 		Version:        RunConfigVersion,
+		Scope:          "examples/test",
 		PackageRoot:    packageRoot,
 		WorkDir:        workdir,
 		WorkflowPath:   workflowPath,
 		WorkflowFormat: "uws-yaml",
 		OpenAPIPaths:   []string{openAPIPath},
-	})
+	}
+	config = withRunnerPackageDigest(t, packageRoot, config)
+	data, err := json.Marshal(config)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -1091,13 +1096,16 @@ func TestUdonRunnerFreshStageHidesPersistentStaleFiles(t *testing.T) {
 	mustWriteFile(t, filepath.Join(packageRoot, "workflows", "workflow.uws.yaml"), []byte("uws: 1.0.0\n"))
 	mustWriteFile(t, filepath.Join(workdir, "openapi", "stale.yaml"), []byte("openapi: 3.0.0\n"))
 	configPath := filepath.Join(tmp, "run-config.json")
-	data, err := json.Marshal(RunConfig{
+	config := RunConfig{
 		Version:        RunConfigVersion,
+		Scope:          "examples/test",
 		PackageRoot:    packageRoot,
 		WorkDir:        workdir,
 		WorkflowPath:   "workflows/workflow.uws.yaml",
 		WorkflowFormat: "uws-yaml",
-	})
+	}
+	config = withRunnerPackageDigest(t, packageRoot, config)
+	data, err := json.Marshal(config)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -1141,14 +1149,17 @@ func TestUdonRunnerCanInvokeDockerImage(t *testing.T) {
 	}
 	mustWriteFile(t, filepath.Join(packageRoot, "workflows", "workflow.uws.yaml"), []byte("uws: 1.0.0\n"))
 	configPath := filepath.Join(tmp, "run-config.json")
-	data, err := json.Marshal(RunConfig{
+	config := RunConfig{
 		Version:            RunConfigVersion,
+		Scope:              "examples/test",
 		PackageRoot:        packageRoot,
 		WorkDir:            workdir,
 		WorkflowPath:       "workflows/workflow.uws.yaml",
 		WorkflowFormat:     "uws-yaml",
 		CredentialBindings: []string{"support-api.token"},
-	})
+	}
+	config = withRunnerPackageDigest(t, packageRoot, config)
+	data, err := json.Marshal(config)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -1206,14 +1217,17 @@ func TestUdonRunnerFailsWhenCredentialEnvMissing(t *testing.T) {
 	}
 	mustWriteFile(t, filepath.Join(packageRoot, "workflows", "workflow.uws.yaml"), []byte("uws: 1.0.0\n"))
 	configPath := filepath.Join(tmp, "run-config.json")
-	data, err := json.Marshal(RunConfig{
+	config := RunConfig{
 		Version:            RunConfigVersion,
+		Scope:              "examples/test",
 		PackageRoot:        packageRoot,
 		WorkDir:            workdir,
 		WorkflowPath:       "workflows/workflow.uws.yaml",
 		WorkflowFormat:     "uws-yaml",
 		CredentialBindings: []string{"missing.plan.test"},
-	})
+	}
+	config = withRunnerPackageDigest(t, packageRoot, config)
+	data, err := json.Marshal(config)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -1252,13 +1266,16 @@ func TestUdonRunnerRejectsRelativeExecutorEnv(t *testing.T) {
 			workdir := filepath.Join(tmp, "work")
 			mustWriteFile(t, filepath.Join(packageRoot, "workflows", "workflow.uws.yaml"), []byte("uws: 1.0.0\n"))
 			configPath := filepath.Join(tmp, "run-config.json")
-			data, err := json.Marshal(RunConfig{
+			config := RunConfig{
 				Version:        RunConfigVersion,
+				Scope:          "examples/test",
 				PackageRoot:    packageRoot,
 				WorkDir:        workdir,
 				WorkflowPath:   "workflows/workflow.uws.yaml",
 				WorkflowFormat: "uws-yaml",
-			})
+			}
+			config = withRunnerPackageDigest(t, packageRoot, config)
+			data, err := json.Marshal(config)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -1335,6 +1352,42 @@ func capturedArgValue(t *testing.T, args, flag string) string {
 	}
 	t.Fatalf("args missing %s:\n%s", flag, args)
 	return ""
+}
+
+func withRunnerPackageDigest(t *testing.T, packageRoot string, config RunConfig) RunConfig {
+	t.Helper()
+	paths := []string{runnerPackageRel(t, packageRoot, config.WorkflowPath)}
+	for _, path := range config.OpenAPIPaths {
+		paths = append(paths, runnerPackageRel(t, packageRoot, path))
+	}
+	config.PackagePaths = paths
+	inputs := make([]authoring.ReviewHandoffInput, 0, len(paths))
+	for _, path := range paths {
+		inputs = append(inputs, authoring.ReviewHandoffInput{Path: path, Required: true})
+	}
+	digest, err := authoring.ComputeReviewHandoffDigest(authoring.ReviewHandoffDigestOptions{
+		Root:    packageRoot,
+		Scope:   config.Scope,
+		Version: "openudon.handoff-package-digest.v1",
+		Inputs:  inputs,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	config.PackageSHA256 = digest
+	return config
+}
+
+func runnerPackageRel(t *testing.T, packageRoot, path string) string {
+	t.Helper()
+	if filepath.IsAbs(path) {
+		rel, err := filepath.Rel(packageRoot, path)
+		if err != nil {
+			t.Fatal(err)
+		}
+		return filepath.ToSlash(rel)
+	}
+	return filepath.ToSlash(filepath.Clean(path))
 }
 
 func argValue(t *testing.T, args []string, flag string) string {
