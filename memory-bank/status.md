@@ -54,10 +54,7 @@
 - [x] Ramen Symphony handoff assembly and trusted-runner package digest now use local Ramen handoff
   input, binding contract, validation, and digest helpers while keeping the
   `apitools.review-handoff.v1` wire shape stable.
-- [x] Ramen quality checks no longer import `hcllight` directly. Compiled request evidence is
-  projected through `udon/pkg/runtimeplan` as plain recursive request maps with indexed expression
-  precision, keeping `github.com/genelet/udon` as the only private Go module named by Ramen
-  implementation imports.
+- [x] Ramen quality checks no longer depend on udon runtime plans. Request evidence is projected from public UWS operation request maps with indexed expression precision, and Ramen implementation imports no udon Go packages.
 - [x] Udon HTTP credential binding resolution implemented upstream: OpenAPI security schemes carry
   non-secret binding names from `x-udon-config.security[].binding` or default to the scheme name,
   the default resolver reads `UDON_CREDENTIAL_<BINDING>` at execution time, literal secret fields in
@@ -85,9 +82,13 @@
   and runtime-plan review/handoff helper types locally while keeping only OpenAPI search/import
   usage from apitools.
 - [x] `../openudon` is parked and is not a compatibility gate for the apitools narrowing.
-- [ ] Split Ramen's remaining udon executor coupling into a CLI/Docker-compatible trusted executor
+- [x] Split Ramen's remaining udon executor coupling into a CLI/Docker-compatible trusted executor
   handoff based on UWS Document, OpenAPI files, non-secret run config, and runtime credential
   resolution.
+- [x] Trusted-runner hardening added: OpenAPI files staged for execution are required handoff
+  inputs covered by package digests, symlinked OpenAPI artifacts are rejected, Docker execution
+  passes only declared `UDON_CREDENTIAL_*` names, and invalid OpenAPI operation IDs fail generation
+  instead of dropping request bindings.
 
 ## Notes
 
@@ -103,8 +104,10 @@
   `git diff --check`.
 - Ramen synthesis commands generate and validate artifacts only. They do not execute production
   workflows.
-- `ramen run` is the only Ramen-owned path that invokes udon, and it requires approval JSON plus a
-  valid handoff package.
+- `ramen run` is the only Ramen-owned path that invokes a trusted executor shim, and it requires
+  approval JSON plus a valid handoff package. It writes a non-secret `ramen.executor-run.v1` run
+  config over UWS YAML, packaged OpenAPI files, package digest, tier, workdir, and credential
+  binding names. Docker execution receives only the declared `UDON_CREDENTIAL_*` environment names.
 - Symphony managed reviewer routing remains optional external integration. Ramen owns local package
   evidence and trusted-runner enforcement only.
 - OpenUdon remains the owner of concrete IaC behavior. It is parked during this narrowing and is not
@@ -112,8 +115,13 @@
 - Udon consumer migration for the narrowed apitools boundary is complete.
 - Keep `apitools.review-handoff.v1` only as a stable wire compatibility string while downstream
   artifacts still need it; do not treat it as active `../apitools` lifecycle ownership.
-- The next public-release blocker is splitting Ramen's udon integration into a CLI/Docker-compatible
-  trusted executor handoff.
+- Ramen no longer imports udon as a Go module; udon is an optional external trusted executor behind
+  the run-config handoff.
+- Review regressions in the udon separation slice are closed locally: provider-native structured
+  output and copilot GPT-5 Responses routing are restored, OpenAPI request placement is inferred
+  from public `apitools` summaries and fails on missing operation IDs, trigger routes/options are
+  preserved, UWS 1.1 is selected for timeout/idempotency artifacts, and the trusted runner stages
+  digest-covered artifacts before CLI/Docker invocation.
 - Remaining detailed docs are intentionally narrow working references: intent contract, data-flow
   examples, project authoring guide, eval gallery, release-note template, and safety guide.
 - Update this file after feature implementation changes completion state.

@@ -1,29 +1,33 @@
 package synthesize
 
 import (
+	"errors"
 	"fmt"
 	"os"
+	"path/filepath"
+	"regexp"
+	"sort"
 	"strings"
 
+	"github.com/OpenUdon/apitools"
+	"github.com/OpenUdon/uws/convert"
+	"github.com/OpenUdon/uws/runtimes"
 	"github.com/OpenUdon/uws/uws1"
 	"github.com/genelet/ramen/internal/uwsvalidate"
-	"github.com/genelet/udon/generator"
-	"github.com/genelet/udon/pkg/rollout"
-	"github.com/genelet/udon/pkg/uwsprofile"
+	rollout "github.com/genelet/ramen/internal/workflowintent"
 	"gopkg.in/yaml.v3"
 )
 
 func promoteWorkflow(result Result, schemaPath string) error {
-	plan, err := generator.NewRuntimePlanFromWorkflowFile(result.WorkflowPath, result.ExampleDir)
+	doc, err := loadUWSDocumentFile(result.WorkflowPath)
 	if err != nil {
-		return fmt.Errorf("compile workflow through udon: %w", err)
+		return fmt.Errorf("load workflow UWS document: %w", err)
 	}
-	doc := plan.Document()
 	normalizeUWSStepsForSchema(doc)
 	if intent, err := rollout.ParseIntentFile(result.IntentPath); err == nil {
 		addStructuralResultsFromIntent(doc, intent)
 	}
-	uwsBytes, err := uwsprofile.MarshalDocument(doc, uwsprofile.DocumentFormatYAML)
+	uwsBytes, err := convert.MarshalYAML(doc)
 	if err != nil {
 		return fmt.Errorf("marshal UWS: %w", err)
 	}
@@ -46,6 +50,643 @@ func promoteWorkflow(result Result, schemaPath string) error {
 		return fmt.Errorf("validate exported UWS: %w", err)
 	}
 	return nil
+}
+
+func loadUWSDocumentFile(path string) (*uws1.Document, error) {
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return nil, err
+	}
+	var doc uws1.Document
+	switch strings.ToLower(filepath.Ext(path)) {
+	case ".hcl":
+		err = convert.UnmarshalHCL(data, &doc)
+	case ".json":
+		err = convert.UnmarshalJSON(data, &doc)
+	default:
+		err = convert.UnmarshalYAML(data, &doc)
+	}
+	if err != nil {
+		return nil, err
+	}
+	return &doc, nil
+}
+
+func generateWorkflowDocument(result Result, intent *rollout.Intent) (*uws1.Document, error) {
+	if intent == nil {
+		return nil, fmt.Errorf("intent is required")
+	}
+	normalized := intent.NormalizedForGeneration()
+	title := "Ramen workflow"
+	description := ""
+	timeout := (*float64)(nil)
+	var idempotency *uws1.Idempotency
+	if normalized.Workflow != nil {
+		if strings.TrimSpace(normalized.Workflow.Name) != "" {
+			title = normalized.Workflow.Name
+		}
+		description = normalized.Workflow.Description
+		timeout = normalized.Workflow.Timeout
+		idempotency = normalized.Workflow.Idempotency
+	}
+	doc := &uws1.Document{
+		UWS: uwsVersionForIntent(normalized),
+		Info: &uws1.Info{
+			Title:       title,
+			Description: description,
+			Version:     "1.0.0",
+		},
+		Operations: []*uws1.Operation{},
+		Workflows: []*uws1.Workflow{{
+			WorkflowID:       "main",
+			Type:             uws1.WorkflowTypeSequence,
+			Description:      description,
+			Idempotency:      idempotency,
+			Steps:            []*uws1.Step{},
+			Outputs:          workflowOutputs(normalized.Outputs),
+			StructuralFields: uws1.StructuralFields{},
+		}},
+	}
+	doc.Workflows[0].Timeout = timeout
+	sourceNames := map[string]string{}
+	requestMapper := newRequestBindingMapper(result.ExampleDir)
+	ensureSourceDescription := func(rel string) string {
+		rel = strings.TrimSpace(rel)
+		if rel == "" {
+			return ""
+		}
+		if name := sourceNames[rel]; name != "" {
+			return name
+		}
+		name := sourceDescriptionName(rel, sourceNames)
+		sourceNames[rel] = name
+		doc.SourceDescriptions = append(doc.SourceDescriptions, &uws1.SourceDescription{
+			Name: name,
+			URL:  filepath.ToSlash(rel),
+			Type: uws1.SourceDescriptionTypeOpenAPI,
+		})
+		return name
+	}
+	defaultOpenAPI := firstNonEmpty(normalized.OpenAPI, result.PrimaryOpenAPI)
+	steps, ops, err := buildUWSSteps(normalized.Steps, defaultOpenAPI, ensureSourceDescription, requestMapper)
+	if err != nil {
+		return nil, err
+	}
+	doc.Workflows[0].Steps = steps
+	doc.Operations = append(doc.Operations, ops...)
+	addTriggers(doc, normalized.Triggers)
+	addStructuralResultsFromIntent(doc, normalized)
+	if len(doc.Operations) == 0 && len(doc.Workflows[0].Steps) == 0 {
+		return nil, fmt.Errorf("intent produced no UWS operations or steps")
+	}
+	if err := doc.Validate(); err != nil {
+		return nil, err
+	}
+	return doc, nil
+}
+
+func buildUWSSteps(steps []*rollout.Step, defaultOpenAPI string, sourceFor func(string) string, requestMapper *requestBindingMapper) ([]*uws1.Step, []*uws1.Operation, error) {
+	var outSteps []*uws1.Step
+	var outOps []*uws1.Operation
+	for _, step := range steps {
+		if step == nil {
+			continue
+		}
+		uwsStep, ops, err := buildUWSStep(step, defaultOpenAPI, sourceFor, requestMapper)
+		if err != nil {
+			return nil, nil, err
+		}
+		if uwsStep != nil {
+			outSteps = append(outSteps, uwsStep)
+		}
+		outOps = append(outOps, ops...)
+	}
+	return outSteps, outOps, nil
+}
+
+func buildUWSStep(step *rollout.Step, defaultOpenAPI string, sourceFor func(string) string, requestMapper *requestBindingMapper) (*uws1.Step, []*uws1.Operation, error) {
+	name := sanitizeIdentifier(firstNonEmpty(step.Name, "step"))
+	kind := strings.ToLower(strings.TrimSpace(step.Type))
+	if kind == "" {
+		if strings.TrimSpace(step.Operation) != "" {
+			kind = "http"
+		} else {
+			kind = "fnct"
+		}
+	}
+	uwsStep := &uws1.Step{
+		StepID:      name,
+		Description: strings.TrimSpace(step.Do),
+		StepExecutionFields: uws1.StepExecutionFields{
+			DependsOn: uniqueStrings(step.DependsOn),
+			When:      strings.TrimSpace(step.When),
+			ForEach:   strings.TrimSpace(step.ForEach),
+			Timeout:   step.Timeout,
+		},
+		StructuralFields: uws1.StructuralFields{
+			Items:     strings.TrimSpace(step.Items),
+			Mode:      strings.TrimSpace(step.Mode),
+			BatchSize: strings.TrimSpace(step.BatchSize),
+		},
+	}
+	var ops []*uws1.Operation
+	if isIntentStructuralType(kind) {
+		uwsStep.Type = uwsWorkflowType(kind)
+		nested, nestedOps, err := buildUWSSteps(step.Steps, firstNonEmpty(step.OpenAPI, defaultOpenAPI), sourceFor, requestMapper)
+		if err != nil {
+			return nil, nil, err
+		}
+		uwsStep.Steps = nested
+		ops = append(ops, nestedOps...)
+		for _, branch := range step.Cases {
+			if branch == nil {
+				continue
+			}
+			caseSteps, caseOps, err := buildUWSSteps(branch.Steps, firstNonEmpty(step.OpenAPI, defaultOpenAPI), sourceFor, requestMapper)
+			if err != nil {
+				return nil, nil, err
+			}
+			uwsStep.Cases = append(uwsStep.Cases, &uws1.Case{
+				CaseFields: uws1.CaseFields{Name: branch.Name, When: branch.When},
+				Steps:      caseSteps,
+			})
+			ops = append(ops, caseOps...)
+		}
+		if step.Default != nil {
+			defaultSteps, defaultOps, err := buildUWSSteps(step.Default.Steps, firstNonEmpty(step.OpenAPI, defaultOpenAPI), sourceFor, requestMapper)
+			if err != nil {
+				return nil, nil, err
+			}
+			uwsStep.Default = defaultSteps
+			ops = append(ops, defaultOps...)
+		}
+		return uwsStep, ops, nil
+	}
+	openAPIPath := firstNonEmpty(step.OpenAPI, defaultOpenAPI)
+	request, err := intentRequestMap(step.With, kind, openAPIPath, step.Operation, requestMapper)
+	if err != nil {
+		return nil, nil, fmt.Errorf("step %s request bindings: %w", name, err)
+	}
+	op := &uws1.Operation{
+		OperationID:              name,
+		Description:              strings.TrimSpace(step.Do),
+		Request:                  request,
+		SuccessCriteria:          step.SuccessCriteria,
+		OnFailure:                step.OnFailure,
+		OnSuccess:                step.OnSuccess,
+		OperationExecutionFields: uws1.OperationExecutionFields{DependsOn: uniqueStrings(step.DependsOn), When: step.When, ForEach: step.ForEach, Timeout: step.Timeout},
+	}
+	switch kind {
+	case "http", "openapi":
+		source := sourceFor(openAPIPath)
+		if source == "" {
+			return nil, nil, fmt.Errorf("step %s references OpenAPI operation without source document", name)
+		}
+		op.SourceDescription = source
+		op.OpenAPIOperationID = strings.TrimSpace(step.Operation)
+	default:
+		if op.Extensions == nil {
+			op.Extensions = map[string]any{}
+		}
+		op.Extensions[uws1.ExtensionOperationProfile] = runtimes.ProfileName
+		runtime := &runtimes.OperationRuntime{Type: kind}
+		switch kind {
+		case "cmd":
+			runtime.Command = firstNonEmpty(step.With["command"], step.Do)
+		case "fnct":
+			runtime.Function = firstNonEmpty(step.Provider, step.Operation, name)
+		}
+		var args []any
+		for _, key := range sortedStringMapKeys(step.With) {
+			args = append(args, map[string]any{"name": key, "value": step.With[key]})
+		}
+		runtime.Arguments = args
+		if err := runtimes.SetOperationExtension(&op.Extensions, runtime); err != nil {
+			return nil, nil, err
+		}
+	}
+	uwsStep.OperationRef = op.OperationID
+	return uwsStep, []*uws1.Operation{op}, nil
+}
+
+func workflowOutputs(outputs []*rollout.Output) map[string]string {
+	out := map[string]string{}
+	for _, output := range outputs {
+		if output == nil || strings.TrimSpace(output.Name) == "" || strings.TrimSpace(output.From) == "" {
+			continue
+		}
+		out[output.Name] = output.From
+	}
+	if len(out) == 0 {
+		return nil
+	}
+	return out
+}
+
+func intentRequestMap(values map[string]string, kind, openAPIPath, operationID string, mapper *requestBindingMapper) (map[string]any, error) {
+	if len(values) == 0 {
+		return nil, nil
+	}
+	root := map[string]any{}
+	for key, value := range values {
+		key = strings.TrimSpace(key)
+		if key == "" || strings.TrimSpace(value) == "" {
+			continue
+		}
+		parts := strings.Split(key, ".")
+		if len(parts) == 1 && isStandardRequestSection(parts[0]) {
+			if parts[0] != "body" {
+				return nil, fmt.Errorf("request section %q requires a field name", parts[0])
+			}
+			root["body"] = value
+			continue
+		}
+		if len(parts) > 1 && isStandardRequestSection(parts[0]) {
+			if parts[0] == "body" {
+				assignNestedMap(root, parts, value)
+			} else {
+				child, _ := root[parts[0]].(map[string]any)
+				if child == nil {
+					child = map[string]any{}
+					root[parts[0]] = child
+				}
+				assignNested(child, parts[1:], value)
+			}
+			continue
+		}
+		placement := requestFieldPlacement{Section: "body", Name: key}
+		if kind == "http" || kind == "openapi" {
+			if mapper == nil {
+				return nil, fmt.Errorf("OpenAPI request metadata is unavailable for %q", key)
+			}
+			var err error
+			placement, err = mapper.lookup(openAPIPath, operationID, key)
+			if err != nil {
+				return nil, err
+			}
+		}
+		assignRequestPlacement(root, placement, value)
+	}
+	if len(root) == 0 {
+		return nil, nil
+	}
+	return root, nil
+}
+
+func isStandardRequestSection(section string) bool {
+	switch section {
+	case "path", "query", "header", "cookie", "body":
+		return true
+	default:
+		return false
+	}
+}
+
+func assignRequestPlacement(root map[string]any, placement requestFieldPlacement, value string) {
+	section := strings.TrimSpace(placement.Section)
+	if section == "" {
+		section = "body"
+	}
+	name := strings.TrimSpace(placement.Name)
+	if name == "" {
+		name = strings.TrimSpace(placement.Original)
+	}
+	if section == "body" {
+		parts := []string{"body"}
+		if name != "" && name != "body" {
+			parts = append(parts, strings.Split(name, ".")...)
+		}
+		assignNestedMap(root, parts, value)
+		return
+	}
+	child, _ := root[section].(map[string]any)
+	if child == nil {
+		child = map[string]any{}
+		root[section] = child
+	}
+	child[name] = value
+}
+
+func assignNestedMap(root map[string]any, parts []string, value string) {
+	if len(parts) == 0 {
+		return
+	}
+	if len(parts) == 1 {
+		root[parts[0]] = value
+		return
+	}
+	child, _ := root[parts[0]].(map[string]any)
+	if child == nil {
+		child = map[string]any{}
+		root[parts[0]] = child
+	}
+	assignNested(child, parts[1:], value)
+}
+
+func assignNested(root map[string]any, parts []string, value string) {
+	if len(parts) == 0 {
+		return
+	}
+	if len(parts) == 1 {
+		root[parts[0]] = value
+		return
+	}
+	child, _ := root[parts[0]].(map[string]any)
+	if child == nil {
+		child = map[string]any{}
+		root[parts[0]] = child
+	}
+	assignNested(child, parts[1:], value)
+}
+
+type requestFieldPlacement struct {
+	Original string
+	Section  string
+	Name     string
+}
+
+var errOpenAPIOperationNotFound = errors.New("openapi operation not found")
+
+type requestBindingMapper struct {
+	exampleDir string
+	cache      map[string]map[string]map[string]requestFieldPlacement
+}
+
+func newRequestBindingMapper(exampleDir string) *requestBindingMapper {
+	return &requestBindingMapper{
+		exampleDir: exampleDir,
+		cache:      map[string]map[string]map[string]requestFieldPlacement{},
+	}
+}
+
+func (mapper *requestBindingMapper) lookup(openAPIPath, operationID, field string) (requestFieldPlacement, error) {
+	openAPIPath = strings.TrimSpace(openAPIPath)
+	operationID = strings.TrimSpace(operationID)
+	field = strings.TrimSpace(field)
+	if openAPIPath == "" || operationID == "" {
+		return requestFieldPlacement{}, fmt.Errorf("cannot infer %q without OpenAPI source and operationId", field)
+	}
+	operations, err := mapper.load(openAPIPath)
+	if err != nil {
+		return requestFieldPlacement{}, err
+	}
+	fields, ok := operations[operationID]
+	if !ok {
+		return requestFieldPlacement{}, fmt.Errorf("%w: operationId %q was not found in %s", errOpenAPIOperationNotFound, operationID, openAPIPath)
+	}
+	placement, ok := fields[field]
+	if !ok {
+		return requestFieldPlacement{}, fmt.Errorf("field %q is not declared by OpenAPI operation %s", field, operationID)
+	}
+	return placement, nil
+}
+
+func (mapper *requestBindingMapper) load(openAPIPath string) (map[string]map[string]requestFieldPlacement, error) {
+	if mapper == nil {
+		return nil, fmt.Errorf("OpenAPI request metadata is unavailable")
+	}
+	key := filepath.ToSlash(strings.TrimSpace(openAPIPath))
+	if cached, ok := mapper.cache[key]; ok {
+		return cached, nil
+	}
+	path := key
+	if !filepath.IsAbs(path) {
+		path = filepath.Join(mapper.exampleDir, filepath.FromSlash(path))
+	}
+	index, err := apitools.LoadOperationIndex(path)
+	if err != nil {
+		return nil, fmt.Errorf("load OpenAPI request metadata %s: %w", openAPIPath, err)
+	}
+	operations := map[string]map[string]requestFieldPlacement{}
+	for _, operation := range index.OperationIDs {
+		fields, err := requestFieldPlacements(operation)
+		if err != nil {
+			return nil, fmt.Errorf("operation %s: %w", operation.OperationID, err)
+		}
+		operations[operation.OperationID] = fields
+	}
+	mapper.cache[key] = operations
+	return operations, nil
+}
+
+func requestFieldPlacements(operation apitools.OperationSummary) (map[string]requestFieldPlacement, error) {
+	out := map[string]requestFieldPlacement{}
+	add := func(key, section, name string) error {
+		key = strings.TrimSpace(key)
+		section = strings.TrimSpace(section)
+		name = strings.TrimSpace(name)
+		if key == "" || section == "" || name == "" {
+			return nil
+		}
+		placement := requestFieldPlacement{Original: key, Section: section, Name: name}
+		if existing, ok := out[key]; ok && (existing.Section != placement.Section || existing.Name != placement.Name) {
+			return fmt.Errorf("field %q is ambiguous between %s.%s and %s.%s", key, existing.Section, existing.Name, placement.Section, placement.Name)
+		}
+		out[key] = placement
+		if alias := camelToSnake(key); alias != key {
+			if existing, ok := out[alias]; ok && (existing.Section != placement.Section || existing.Name != placement.Name) {
+				return fmt.Errorf("field %q is ambiguous between %s.%s and %s.%s", alias, existing.Section, existing.Name, placement.Section, placement.Name)
+			}
+			out[alias] = requestFieldPlacement{Original: alias, Section: section, Name: name}
+		}
+		return nil
+	}
+	for _, parameter := range operation.Parameters {
+		section := strings.TrimSpace(parameter.In)
+		if !isStandardRequestSection(section) || section == "body" {
+			continue
+		}
+		if err := add(parameter.Name, section, parameter.Name); err != nil {
+			return nil, err
+		}
+	}
+	if operation.RequestBody != nil {
+		if err := add("body", "body", "body"); err != nil {
+			return nil, err
+		}
+		for _, field := range operation.RequestBody.Fields {
+			if err := add(field.Path, "body", field.Path); err != nil {
+				return nil, err
+			}
+		}
+	}
+	for _, security := range operation.Security {
+		section := strings.TrimSpace(security.In)
+		if !isStandardRequestSection(section) || section == "body" {
+			continue
+		}
+		target := firstNonEmpty(security.ParameterName, security.Name)
+		for _, alias := range []string{security.Name, security.ParameterName, apitools.SecurityCredentialFieldName(security)} {
+			if err := add(alias, section, target); err != nil {
+				return nil, err
+			}
+		}
+	}
+	return out, nil
+}
+
+func camelToSnake(value string) string {
+	var b strings.Builder
+	for i, r := range value {
+		if r >= 'A' && r <= 'Z' {
+			if i > 0 {
+				b.WriteByte('_')
+			}
+			b.WriteRune(r + ('a' - 'A'))
+			continue
+		}
+		b.WriteRune(r)
+	}
+	return b.String()
+}
+
+func addTriggers(doc *uws1.Document, triggers []*rollout.TriggerIntent) {
+	for _, trigger := range triggers {
+		if trigger == nil || strings.TrimSpace(trigger.Name) == "" {
+			continue
+		}
+		routes := make([]*uws1.TriggerRoute, 0, len(trigger.Routes))
+		for _, route := range trigger.Routes {
+			if route == nil {
+				continue
+			}
+			routes = append(routes, &uws1.TriggerRoute{
+				TriggerRouteFields: uws1.TriggerRouteFields{
+					Output: route.Output,
+					To:     uniqueStrings(route.To),
+				},
+			})
+		}
+		outputs := uniqueStrings(trigger.Outputs)
+		if len(outputs) == 0 && len(routes) > 0 {
+			for _, route := range routes {
+				outputs = append(outputs, route.Output)
+			}
+			outputs = uniqueStrings(outputs)
+		}
+		doc.Triggers = append(doc.Triggers, &uws1.Trigger{
+			TriggerID: trigger.Name,
+			TriggerFields: uws1.TriggerFields{
+				Path:           trigger.Path,
+				Authentication: trigger.Authentication,
+				Methods:        trigger.Methods,
+			},
+			Options: stringMapToAny(trigger.Options),
+			Outputs: outputs,
+			Routes:  routes,
+		})
+	}
+}
+
+func stringMapToAny(values map[string]string) map[string]any {
+	if len(values) == 0 {
+		return nil
+	}
+	out := make(map[string]any, len(values))
+	for _, key := range sortedStringMapKeys(values) {
+		if strings.TrimSpace(key) != "" {
+			out[key] = values[key]
+		}
+	}
+	return out
+}
+
+func uwsVersionForIntent(intent *rollout.Intent) string {
+	if intentRequiresUWS11(intent) {
+		return "1.1.0"
+	}
+	return "1.0.0"
+}
+
+func intentRequiresUWS11(intent *rollout.Intent) bool {
+	if intent == nil {
+		return false
+	}
+	if intent.Workflow != nil && (intent.Workflow.Timeout != nil || intent.Workflow.Idempotency != nil) {
+		return true
+	}
+	var walk func([]*rollout.Step) bool
+	walk = func(steps []*rollout.Step) bool {
+		for _, step := range steps {
+			if step == nil {
+				continue
+			}
+			if step.Timeout != nil {
+				return true
+			}
+			if walk(step.Steps) {
+				return true
+			}
+			for _, branch := range step.Cases {
+				if branch != nil && walk(branch.Steps) {
+					return true
+				}
+			}
+			if step.Default != nil && walk(step.Default.Steps) {
+				return true
+			}
+		}
+		return false
+	}
+	return walk(intent.Steps)
+}
+
+func writeWorkflowHCL(result Result, doc *uws1.Document, intent *rollout.Intent) error {
+	data, err := convert.MarshalHCL(doc)
+	if err != nil {
+		return err
+	}
+	compat := workflowCompatibilityComments(intent)
+	if len(compat) > 0 {
+		data = append(append(compat, '\n'), data...)
+	}
+	if err := ensureArtifactDirs(result); err != nil {
+		return err
+	}
+	return os.WriteFile(result.WorkflowPath, data, 0o644)
+}
+
+func workflowCompatibilityComments(intent *rollout.Intent) []byte {
+	if intent == nil {
+		return nil
+	}
+	var lines []string
+	if strings.TrimSpace(intent.OpenAPI) != "" {
+		lines = append(lines, fmt.Sprintf("# openapi = %q", intent.OpenAPI))
+	}
+	var walk func([]*rollout.Step)
+	walk = func(steps []*rollout.Step) {
+		for _, step := range steps {
+			if step == nil {
+				continue
+			}
+			kind := strings.ToLower(strings.TrimSpace(step.Type))
+			if kind == "" {
+				kind = "fnct"
+			}
+			lines = append(lines, fmt.Sprintf("# %s %q", kind, step.Name))
+			if step.Items != "" {
+				lines = append(lines, "# items = "+step.Items)
+			}
+			if step.BatchSize != "" {
+				lines = append(lines, fmt.Sprintf("# batch_size = %q", step.BatchSize))
+			}
+			walk(step.Steps)
+			for _, branch := range step.Cases {
+				if branch != nil {
+					walk(branch.Steps)
+				}
+			}
+			if step.Default != nil {
+				walk(step.Default.Steps)
+			}
+		}
+	}
+	walk(intent.Steps)
+	if len(lines) == 0 {
+		return nil
+	}
+	return []byte(strings.Join(lines, "\n") + "\n")
 }
 
 func addStructuralResultsFromIntent(doc *uws1.Document, intent *rollout.Intent) {
@@ -147,4 +788,97 @@ func isUWSStructuralStepType(value string) bool {
 	default:
 		return false
 	}
+}
+
+func isIntentStructuralType(kind string) bool {
+	switch strings.ToLower(strings.TrimSpace(kind)) {
+	case "sequence", "parallel", "switch", "merge", "loop", "await":
+		return true
+	default:
+		return false
+	}
+}
+
+func uwsWorkflowType(kind string) string {
+	switch strings.ToLower(strings.TrimSpace(kind)) {
+	case "parallel":
+		return uws1.WorkflowTypeParallel
+	case "switch":
+		return uws1.WorkflowTypeSwitch
+	case "merge":
+		return uws1.WorkflowTypeMerge
+	case "loop":
+		return uws1.WorkflowTypeLoop
+	case "await":
+		return uws1.WorkflowTypeAwait
+	default:
+		return uws1.WorkflowTypeSequence
+	}
+}
+
+func sourceDescriptionName(path string, existing map[string]string) string {
+	base := filepath.Base(path)
+	name := strings.TrimSuffix(base, filepath.Ext(base))
+	name = sanitizeIdentifier(name)
+	if name == "" {
+		name = "openapi"
+	}
+	used := map[string]bool{}
+	for _, value := range existing {
+		used[value] = true
+	}
+	if !used[name] {
+		return name
+	}
+	for i := 2; ; i++ {
+		candidate := fmt.Sprintf("%s_%d", name, i)
+		if !used[candidate] {
+			return candidate
+		}
+	}
+}
+
+func sanitizeIdentifier(value string) string {
+	value = strings.TrimSpace(value)
+	value = regexp.MustCompile(`[^A-Za-z0-9_]+`).ReplaceAllString(value, "_")
+	value = strings.Trim(value, "_")
+	if value == "" {
+		return ""
+	}
+	if value[0] >= '0' && value[0] <= '9' {
+		value = "_" + value
+	}
+	return value
+}
+
+func firstNonEmpty(values ...string) string {
+	for _, value := range values {
+		if strings.TrimSpace(value) != "" {
+			return strings.TrimSpace(value)
+		}
+	}
+	return ""
+}
+
+func uniqueStrings(values []string) []string {
+	seen := map[string]bool{}
+	var out []string
+	for _, value := range values {
+		value = strings.TrimSpace(value)
+		if value == "" || seen[value] {
+			continue
+		}
+		seen[value] = true
+		out = append(out, value)
+	}
+	return out
+}
+
+func sortedStringMapKeys(values map[string]string) []string {
+	keys := make([]string, 0, len(values))
+	for key := range values {
+		keys = append(keys, key)
+	}
+	sort.Strings(keys)
+	return keys
 }

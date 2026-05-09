@@ -91,7 +91,7 @@ func TestCLIRunHelpIncludesApprovalGates(t *testing.T) {
 		"--dry-run",
 		"approved_for_sandbox",
 		"approved_for_production",
-		"scripts/run-udon.sh",
+		"trusted executor",
 	} {
 		if !strings.Contains(text, expected) {
 			t.Fatalf("run help missing %q:\n%s", expected, text)

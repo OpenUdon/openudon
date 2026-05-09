@@ -11,7 +11,7 @@ import (
 
 	evalpkg "github.com/genelet/ramen/internal/eval"
 	"github.com/genelet/ramen/internal/synthesize"
-	"github.com/genelet/udon/pkg/rollout"
+	rollout "github.com/genelet/ramen/internal/workflowintent"
 )
 
 func TestReplayEvalReferencesThroughICOTChat(t *testing.T) {

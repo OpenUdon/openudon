@@ -11,7 +11,7 @@ import (
 	"github.com/OpenUdon/uws/uws1"
 	"github.com/genelet/ramen/internal/authoring"
 	"github.com/genelet/ramen/internal/openapidisco"
-	"github.com/genelet/udon/pkg/rollout"
+	rollout "github.com/genelet/ramen/internal/workflowintent"
 )
 
 func assessSecrets(report *QualityReport, result Result) {

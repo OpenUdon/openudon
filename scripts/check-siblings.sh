@@ -5,7 +5,7 @@ root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 parent="$(cd "$root/.." && pwd)"
 
 missing=0
-for name in uws udon symphony grand golet hcllight horizon molecule arazzo apitools; do
+for name in uws apitools; do
   path="$parent/$name"
   if [[ -d "$path" ]]; then
     printf 'ok: %s\n' "$path"

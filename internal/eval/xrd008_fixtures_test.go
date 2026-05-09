@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/genelet/udon/pkg/rollout"
+	rollout "github.com/genelet/ramen/internal/workflowintent"
 )
 
 func TestXRD008RuntimeProfileFixtureCoverage(t *testing.T) {

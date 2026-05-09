@@ -33,21 +33,13 @@ make check
 Required local siblings:
 
 ```text
-../symphony
 ../uws
-../udon
-../grand
-../golet
-../hcllight
-../horizon
-../molecule
-../arazzo
 ../apitools
 ```
 
-Ramen source code should only import `github.com/genelet/udon` from the private `genelet/*`
-modules. The other private siblings are present because the local `../udon` replace still needs
-them in the Go module graph.
+Ramen does not import udon as a Go package. Udon can still be used as an external trusted executor
+through `ramen run` and the portable run-config handoff, either as a configured binary
+(`RAMEN_EXECUTOR` / `RAMEN_UDON_BIN`) or Docker image (`RAMEN_UDON_IMAGE`).
 
 Useful checks:
 
@@ -84,14 +76,16 @@ natural-language project brief
   -> generated OpenAPI/UWS artifacts
   -> deterministic validation and review
   -> approved handoff package
-  -> udon execution by trusted runner
+  -> trusted executor handoff
 ```
 
 `ramen synthesize`, `ramen build`, `ramen promote`, `ramen assess`, `cmd/icot`, and eval commands
 generate, compile, validate, and report on artifacts. They do not execute production workflows.
 
 `ramen run` is separate. It validates the handoff manifest, stored and current quality, approval
-JSON, package digest, and tier before invoking `scripts/run-udon.sh`.
+JSON, package digest, and tier before writing a non-secret `ramen.executor-run.v1` run config and
+invoking the configured trusted executor shim. The shim stages the reviewed UWS/OpenAPI files into
+the run workdir before calling the external executor.
 
 ## Authoring With iCoT
 
@@ -153,8 +147,8 @@ go run ./cmd/ramen synthesize \
 ```
 
 The command reads `project.md`, discovers or imports OpenAPI documents under `openapi/`, writes
-`workflows/intent.hcl` when needed, generates `workflows/workflow.hcl` through udon, exports
-`workflows/workflow.uws.yaml`, and writes:
+`workflows/intent.hcl` when needed, and generates equivalent public UWS HCL/YAML workflow
+artifacts:
 
 ```text
 expected/plan.json
@@ -257,8 +251,8 @@ go run ./cmd/ramen approval-template \
   > approvals/support-email-sandbox.json
 ```
 
-Validate approval, quality, handoff policy, package digest, and tier compatibility before udon
-execution:
+Validate approval, quality, handoff policy, package digest, and tier compatibility before trusted
+executor handoff:
 
 ```bash
 go run ./cmd/ramen run \
@@ -267,7 +261,7 @@ go run ./cmd/ramen run \
   --approval approvals/support-email-sandbox.json
 ```
 
-Use `--dry-run` to validate all gates without invoking udon.
+Use `--dry-run` to validate all gates and write run config without invoking the executor.
 
 Approval JSON shape:
 
@@ -304,7 +298,7 @@ Ramen issues may be run through Symphony-managed Codex sessions. Agents should f
 - Use extension-owned UWS operations for non-HTTP runtimes such as SMTP, command execution, SSH,
   SQL, or LLM calls.
 - Use `../uws` for public schema/model validation.
-- Use `../udon` for private runtime validation, lowering, and local sandbox execution.
+- Use `ramen run` to hand approved UWS/OpenAPI packages to a trusted executor such as udon.
 - Use `../symphony` only as the work orchestration service.
 - Do not execute production side effects directly from an agent session.
 - If execution is requested, produce or update the approved artifact and document the trusted runner

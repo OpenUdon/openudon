@@ -7,7 +7,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/genelet/udon/pkg/rollout"
+	rollout "github.com/genelet/ramen/internal/workflowintent"
 )
 
 func TestXRD004OpenAPIFixtureCoverage(t *testing.T) {

@@ -9,7 +9,7 @@ import (
 	"strings"
 
 	"github.com/genelet/ramen/internal/projectwizard"
-	"github.com/genelet/udon/pkg/rollout"
+	rollout "github.com/genelet/ramen/internal/workflowintent"
 	"gopkg.in/yaml.v3"
 )
 

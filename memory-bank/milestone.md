@@ -157,13 +157,14 @@ Acceptance: Ramen remains thin and does not absorb sibling ownership.
   authoring/review/handoff material only as historical migration notes when needed. Status: done.
 - Keep `apitools.review-handoff.v1` only as a wire compatibility string while downstream artifacts
   still need it, not as active `../apitools` lifecycle ownership.
-- Split Ramen's remaining udon executor integration into a trusted executor handoff design based on
-  UWS Document, OpenAPI files, non-secret run config, and runtime credential resolution.
+- Split Ramen's remaining udon executor integration into a trusted executor handoff based on UWS Document, OpenAPI files, non-secret run config, and runtime credential resolution. Status: done; Ramen stages reviewed artifacts into the run workdir and invokes udon only as a CLI or Docker process.
+- Harden the trusted executor handoff so every staged OpenAPI file is digest-covered, symlinked
+  OpenAPI artifacts are rejected, Docker receives only declared credential env names, and bad
+  OpenAPI operation IDs fail generation instead of producing partial request maps. Status: done.
 
 Acceptance: Ramen owns lifecycle APIs locally, `../apitools` contains only OpenAPI tooling, `../udon`
 compiles without non-OpenAPI apitools APIs, `../openudon` is explicitly parked, static guards
-prevent regression, and Ramen's public build no longer relies on broad shared apitools product
-workflow APIs.
+prevent regression, and Ramen's public build no longer relies on broad shared apitools product workflow APIs or udon Go packages.
 
 Verification plan:
 

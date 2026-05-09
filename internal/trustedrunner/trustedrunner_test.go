@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -262,7 +263,7 @@ func TestRunNonDryRunInvokesRunner(t *testing.T) {
 	var gotName string
 	var gotArgs []string
 
-	_, err := Run(context.Background(), Options{
+	result, err := Run(context.Background(), Options{
 		RepoRoot:     root,
 		ExampleDir:   example,
 		Tier:         TierSandbox,
@@ -283,17 +284,289 @@ func TestRunNonDryRunInvokesRunner(t *testing.T) {
 	if gotName != filepath.Join(root, "fake-runner") {
 		t.Fatalf("runner path = %q", gotName)
 	}
-	if len(gotArgs) != 2 || !strings.HasSuffix(gotArgs[0], "workflows/workflow.hcl") || gotArgs[1] != filepath.Join(root, "work") {
+	if len(gotArgs) != 2 || gotArgs[0] != "--config" || gotArgs[1] != result.RunConfigPath {
 		t.Fatalf("runner args = %#v", gotArgs)
+	}
+	data, err := os.ReadFile(result.RunConfigPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(data), `"version": "ramen.executor-run.v1"`) || !strings.Contains(string(data), `"workflow_path": "workflows/workflow.uws.yaml"`) {
+		t.Fatalf("unexpected run config:\n%s", data)
+	}
+}
+
+func TestRunConfigIncludesNestedOpenAPIPaths(t *testing.T) {
+	root, example := writeFixture(t, fixtureOptions{extraRequiredInputs: []string{"openapi/nested/support.yaml"}})
+	if err := os.MkdirAll(filepath.Join(example, "openapi", "nested"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	mustWriteFile(t, filepath.Join(example, "openapi", "nested", "support.yaml"), []byte("openapi: 3.0.0\ninfo: {title: Support, version: 1.0.0}\npaths: {}\n"))
+	now := fixedNow()
+	approvalPath := writeApprovalTemplate(t, root, example, StateApprovedForSandbox, now)
+	result, err := Run(context.Background(), Options{
+		RepoRoot:     root,
+		ExampleDir:   example,
+		Tier:         TierSandbox,
+		ApprovalPath: approvalPath,
+		DryRun:       true,
+		WorkDir:      filepath.Join(root, "work"),
+		Now:          now,
+		Assess:       passAssess,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	data, err := os.ReadFile(result.RunConfigPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(data), `"openapi/nested/support.yaml"`) {
+		t.Fatalf("run config missing nested OpenAPI path:\n%s", data)
+	}
+}
+
+func TestRunRejectsOpenAPIFileMissingFromHandoffInputs(t *testing.T) {
+	root, example := writeFixture(t, fixtureOptions{})
+	if err := os.MkdirAll(filepath.Join(example, "openapi", "nested"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	mustWriteFile(t, filepath.Join(example, "openapi", "nested", "support.yaml"), []byte("openapi: 3.0.0\ninfo: {title: Support, version: 1.0.0}\npaths: {}\n"))
+
+	_, err := Run(context.Background(), Options{
+		RepoRoot:     root,
+		ExampleDir:   example,
+		Tier:         TierSandbox,
+		ApprovalPath: filepath.Join(root, "missing-approval.json"),
+		DryRun:       true,
+		Now:          fixedNow(),
+		Assess:       passAssess,
+	})
+	if err == nil || !strings.Contains(err.Error(), "openapi/nested/support.yaml") {
+		t.Fatalf("expected missing OpenAPI handoff input error, got %v", err)
+	}
+}
+
+func TestRunRejectsOpenAPISymlink(t *testing.T) {
+	root, example := writeFixture(t, fixtureOptions{extraRequiredInputs: []string{"openapi/support.yaml"}})
+	if err := os.MkdirAll(filepath.Join(example, "openapi"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	target := filepath.Join(root, "outside.yaml")
+	mustWriteFile(t, target, []byte("openapi: 3.0.0\n"))
+	if err := os.Symlink(target, filepath.Join(example, "openapi", "support.yaml")); err != nil {
+		t.Fatal(err)
+	}
+
+	_, err := Run(context.Background(), Options{
+		RepoRoot:     root,
+		ExampleDir:   example,
+		Tier:         TierSandbox,
+		ApprovalPath: filepath.Join(root, "missing-approval.json"),
+		DryRun:       true,
+		Now:          fixedNow(),
+		Assess:       passAssess,
+	})
+	if err == nil || !strings.Contains(err.Error(), "symlink") {
+		t.Fatalf("expected OpenAPI symlink error, got %v", err)
+	}
+}
+
+func TestRunPackageDigestChangesWhenOpenAPIChanges(t *testing.T) {
+	root, example := writeFixture(t, fixtureOptions{extraRequiredInputs: []string{"openapi/support.yaml"}})
+	if err := os.MkdirAll(filepath.Join(example, "openapi"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	openAPIPath := filepath.Join(example, "openapi", "support.yaml")
+	mustWriteFile(t, openAPIPath, []byte("openapi: 3.0.0\ninfo: {title: Support, version: 1.0.0}\npaths: {}\n"))
+	now := fixedNow()
+	approvalPath := writeApprovalTemplate(t, root, example, StateApprovedForSandbox, now)
+	mustWriteFile(t, openAPIPath, []byte("openapi: 3.0.0\ninfo: {title: Changed, version: 1.0.0}\npaths: {}\n"))
+
+	_, err := Run(context.Background(), Options{
+		RepoRoot:     root,
+		ExampleDir:   example,
+		Tier:         TierSandbox,
+		ApprovalPath: approvalPath,
+		DryRun:       true,
+		Now:          now,
+		Assess:       passAssess,
+	})
+	if err == nil || !strings.Contains(err.Error(), "package_sha256") {
+		t.Fatalf("expected package digest mismatch, got %v", err)
+	}
+}
+
+func TestRunUdonScriptStagesPackageAndUsesConfiguredWorkdir(t *testing.T) {
+	wd, err := os.Getwd()
+	if err != nil {
+		t.Fatal(err)
+	}
+	repoRoot := filepath.Clean(filepath.Join(wd, "..", ".."))
+	script := filepath.Join(repoRoot, "scripts", "run-udon.sh")
+	tmp := t.TempDir()
+	packageRoot := filepath.Join(tmp, "package")
+	workdir := filepath.Join(tmp, "work")
+	for _, dir := range []string{
+		filepath.Join(packageRoot, "workflows"),
+		filepath.Join(packageRoot, "openapi", "nested"),
+	} {
+		if err := os.MkdirAll(dir, 0o755); err != nil {
+			t.Fatal(err)
+		}
+	}
+	mustWriteFile(t, filepath.Join(packageRoot, "workflows", "workflow.uws.yaml"), []byte("uws: 1.0.0\n"))
+	mustWriteFile(t, filepath.Join(packageRoot, "openapi", "nested", "support.yaml"), []byte("openapi: 3.0.0\n"))
+	configPath := filepath.Join(tmp, "run-config.json")
+	config := RunConfig{
+		Version:        RunConfigVersion,
+		PackageRoot:    packageRoot,
+		WorkDir:        workdir,
+		WorkflowPath:   "workflows/workflow.uws.yaml",
+		WorkflowFormat: "uws-yaml",
+		OpenAPIPaths:   []string{"openapi/nested/support.yaml"},
+	}
+	data, err := json.Marshal(config)
+	if err != nil {
+		t.Fatal(err)
+	}
+	mustWriteFile(t, configPath, data)
+	fakeExecutor := filepath.Join(tmp, "fake-udon")
+	capture := filepath.Join(tmp, "args.txt")
+	mustWriteFile(t, fakeExecutor, []byte("#!/usr/bin/env bash\nprintf '%s\\n' \"$@\" > \"$CAPTURE_ARGS\"\n"))
+	if err := os.Chmod(fakeExecutor, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	cmd := exec.Command(script, "--config", configPath)
+	cmd.Env = append(os.Environ(), "RAMEN_EXECUTOR="+fakeExecutor, "CAPTURE_ARGS="+capture)
+	out, err := cmd.CombinedOutput()
+	if err != nil {
+		t.Fatalf("run-udon.sh failed: %v\n%s", err, out)
+	}
+	for _, path := range []string{
+		filepath.Join(workdir, "workflows", "workflow.uws.yaml"),
+		filepath.Join(workdir, "openapi", "nested", "support.yaml"),
+	} {
+		if _, err := os.Stat(path); err != nil {
+			t.Fatalf("staged path missing %s: %v", path, err)
+		}
+	}
+	args, err := os.ReadFile(capture)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(args), "--workdir\n"+workdir) || strings.Contains(string(args), "--workdir\n"+packageRoot) {
+		t.Fatalf("executor args did not use staged workdir:\n%s", args)
+	}
+}
+
+func TestRunUdonScriptCanInvokeDockerImage(t *testing.T) {
+	wd, err := os.Getwd()
+	if err != nil {
+		t.Fatal(err)
+	}
+	repoRoot := filepath.Clean(filepath.Join(wd, "..", ".."))
+	script := filepath.Join(repoRoot, "scripts", "run-udon.sh")
+	tmp := t.TempDir()
+	packageRoot := filepath.Join(tmp, "package")
+	workdir := filepath.Join(tmp, "work")
+	if err := os.MkdirAll(filepath.Join(packageRoot, "workflows"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	mustWriteFile(t, filepath.Join(packageRoot, "workflows", "workflow.uws.yaml"), []byte("uws: 1.0.0\n"))
+	configPath := filepath.Join(tmp, "run-config.json")
+	data, err := json.Marshal(RunConfig{
+		Version:            RunConfigVersion,
+		PackageRoot:        packageRoot,
+		WorkDir:            workdir,
+		WorkflowPath:       "workflows/workflow.uws.yaml",
+		WorkflowFormat:     "uws-yaml",
+		CredentialBindings: []string{"support-api.token"},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	mustWriteFile(t, configPath, data)
+	binDir := filepath.Join(tmp, "bin")
+	if err := os.MkdirAll(binDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	capture := filepath.Join(tmp, "docker-args.txt")
+	fakeDocker := filepath.Join(binDir, "docker")
+	mustWriteFile(t, fakeDocker, []byte("#!/usr/bin/env bash\nprintf '%s\\n' \"$@\" > \"$CAPTURE_ARGS\"\n"))
+	if err := os.Chmod(fakeDocker, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	cmd := exec.Command(script, "--config", configPath)
+	cmd.Env = append(os.Environ(),
+		"PATH="+binDir+string(os.PathListSeparator)+os.Getenv("PATH"),
+		"RAMEN_UDON_IMAGE=udon:test",
+		"CAPTURE_ARGS="+capture,
+		"UDON_CREDENTIAL_SUPPORT_API_TOKEN=super-secret",
+	)
+	out, err := cmd.CombinedOutput()
+	if err != nil {
+		t.Fatalf("run-udon.sh docker failed: %v\n%s", err, out)
+	}
+	args, err := os.ReadFile(capture)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, want := range []string{"run\n", "--rm\n", "-e\nUDON_CREDENTIAL_SUPPORT_API_TOKEN\n", "udon:test\n", "--workdir\n/workspace\n", "--workflow\n/workspace/workflows/workflow.uws.yaml\n"} {
+		if !strings.Contains(string(args), want) {
+			t.Fatalf("docker args missing %q:\n%s", want, args)
+		}
+	}
+	if strings.Contains(string(args), "super-secret") {
+		t.Fatalf("docker args leaked credential value:\n%s", args)
+	}
+}
+
+func TestRunUdonScriptFailsWhenCredentialEnvMissing(t *testing.T) {
+	wd, err := os.Getwd()
+	if err != nil {
+		t.Fatal(err)
+	}
+	repoRoot := filepath.Clean(filepath.Join(wd, "..", ".."))
+	script := filepath.Join(repoRoot, "scripts", "run-udon.sh")
+	tmp := t.TempDir()
+	packageRoot := filepath.Join(tmp, "package")
+	workdir := filepath.Join(tmp, "work")
+	if err := os.MkdirAll(filepath.Join(packageRoot, "workflows"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	mustWriteFile(t, filepath.Join(packageRoot, "workflows", "workflow.uws.yaml"), []byte("uws: 1.0.0\n"))
+	configPath := filepath.Join(tmp, "run-config.json")
+	data, err := json.Marshal(RunConfig{
+		Version:            RunConfigVersion,
+		PackageRoot:        packageRoot,
+		WorkDir:            workdir,
+		WorkflowPath:       "workflows/workflow.uws.yaml",
+		WorkflowFormat:     "uws-yaml",
+		CredentialBindings: []string{"missing.plan.test"},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	mustWriteFile(t, configPath, data)
+	cmd := exec.Command(script, "--config", configPath)
+	cmd.Env = []string{
+		"PATH=" + os.Getenv("PATH"),
+		"RAMEN_EXECUTOR=/bin/true",
+	}
+	out, err := cmd.CombinedOutput()
+	if err == nil || !strings.Contains(string(out), "UDON_CREDENTIAL_MISSING_PLAN_TEST") {
+		t.Fatalf("expected missing credential env failure, err=%v out=%s", err, out)
 	}
 }
 
 type fixtureOptions struct {
-	qualityStatus    string
-	malformedHandoff bool
-	valuesAllowed    bool
-	directProduction bool
-	handoffVersion   string
+	qualityStatus       string
+	malformedHandoff    bool
+	valuesAllowed       bool
+	directProduction    bool
+	handoffVersion      string
+	extraRequiredInputs []string
 }
 
 func writeFixture(t *testing.T, opts fixtureOptions) (string, string) {
@@ -359,6 +632,11 @@ func writeFixture(t *testing.T, opts fixtureOptions) (string, string) {
 			"values_allowed_in_artifacts": opts.valuesAllowed,
 		},
 	}
+	inputs := manifest["handoff_inputs"].([]map[string]any)
+	for _, path := range opts.extraRequiredInputs {
+		inputs = append(inputs, map[string]any{"path": path, "required": true})
+	}
+	manifest["handoff_inputs"] = inputs
 	data, err := json.MarshalIndent(manifest, "", "  ")
 	if err != nil {
 		t.Fatal(err)

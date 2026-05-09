@@ -4,7 +4,7 @@ import (
 	"strings"
 
 	"github.com/genelet/ramen/internal/openapidisco"
-	"github.com/genelet/udon/pkg/rollout"
+	rollout "github.com/genelet/ramen/internal/workflowintent"
 )
 
 type sideEffectProfile struct {

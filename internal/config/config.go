@@ -8,14 +8,6 @@ import (
 
 var requiredSiblings = []string{
 	"uws",
-	"udon",
-	"symphony",
-	"grand",
-	"golet",
-	"hcllight",
-	"horizon",
-	"molecule",
-	"arazzo",
 	"apitools",
 }
 

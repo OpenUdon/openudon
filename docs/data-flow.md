@@ -11,6 +11,9 @@ quality expectations.
 
 - OpenAPI steps receive request fields from literals, workflow inputs, credential bindings, or prior
   step outputs.
+- During UWS generation, unqualified OpenAPI request fields are placed using the selected
+  operation's public metadata. Ramen preserves explicit `path.`, `query.`, `header.`, `cookie.`, and
+  `body.` prefixes, and rejects unknown unqualified fields instead of guessing a query parameter.
 - Prior step outputs are referenced as `step_name.received_body...` in workflow HCL.
 - `intent.hcl` should use `bind` blocks when one step feeds another.
 - `fnct` steps are trusted adapters or transformations. Their input and output contract should be
@@ -61,8 +64,8 @@ quality reports. They should not remain implicit.
 
 Ramen also writes `expected/plan.json` and `expected/plan.md`. The plan records each inferred
 technical step, the chosen runtime or OpenAPI operation, required parameters, dependencies, and
-bindings. During assessment, Ramen compiles the final `workflow.hcl` through udon and verifies the
-compiled workflow still preserves those mappings.
+bindings. During assessment, Ramen parses the final public UWS `workflow.hcl` and verifies the
+workflow still preserves those mappings.
 
 Quality assessment also validates intent provenance before execution. `depends_on`, `with`, `bind`,
 conditions, loop selectors, and outputs must reference declared inputs or known step names. A

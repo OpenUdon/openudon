@@ -9,7 +9,7 @@
 - Use [status.md](status.md) for current completion state.
 
 Ramen is a Go package and CLI that composes sibling modules for public UWS modeling, narrowed
-OpenAPI discovery/indexing, and private trusted executor handoff.
+OpenAPI discovery/indexing, and portable trusted executor handoff.
 
 ## Language And Runtime
 
@@ -27,18 +27,13 @@ OpenAPI discovery/indexing, and private trusted executor handoff.
 Ramen expects sibling modules through local `replace` directives:
 
 - `../uws` for public UWS model/schema validation.
-- `../udon` for current private UWS/OpenAPI compilation and execution during the transitional
-  Go-library coupling.
-- `../grand`, `../golet`, `../hcllight`, `../horizon`, `../molecule`, and `../arazzo` as local
-  replacements required by the current `../udon` module graph.
 - `../apitools` for OpenAPI discovery, import, search, indexing, auth/security summaries, and
   operation ranking.
 
 `../symphony` is an operational sibling for work orchestration. Ramen configures the workflow policy
 but should not import or fork Symphony implementation code.
 
-Those extra private `genelet/*` siblings are local build requirements of udon, not Ramen ownership
-boundaries. `github.com/genelet/udon` is the only private Go module Ramen source code should import.
+Udon is not a Ramen Go dependency. When used, it is an external trusted executor selected at runtime by `RAMEN_EXECUTOR`, `RAMEN_UDON_BIN`, or `RAMEN_UDON_IMAGE`.
 
 ## Preferred Dependency Direction
 
@@ -49,10 +44,7 @@ boundaries. `github.com/genelet/udon` is the only private Go module Ramen source
   and handoff helpers under `internal/`.
 - Non-OpenAPI `apitools` APIs have been removed from the active boundary. Do not add temporary
   lifecycle compatibility shims back to apitools.
-- Current Ramen uses `github.com/genelet/udon` packages for workflow compilation, UWS export,
-  runtime-plan validation, request-binding projection, and trusted execution invocation. The target
-  public boundary is CLI/Docker-compatible executor invocation with UWS Document + OpenAPI files +
-  non-secret run config + runtime credential resolver.
+- Ramen generates public UWS documents directly and invokes executors only through UWS Document + OpenAPI files + non-secret run config + runtime credential resolver.
 - Keep HCL body representations such as `hcllight/light.Body` behind udon APIs. Ramen may consume
   public maps, UWS documents, and udon runtime-plan helper methods, but should not inspect udon's
   private HCL AST types directly.
@@ -65,8 +57,8 @@ boundaries. `github.com/genelet/udon` is the only private Go module Ramen source
 
 - Ramen examples use `project.md`, `openapi/`, `workflows/`, and `expected/`.
 - `workflows/intent.hcl` is Ramen's structured authoring contract.
-- `workflows/workflow.hcl` is udon workflow source.
-- `workflows/workflow.uws.yaml` is exported public UWS.
+- `workflows/workflow.hcl` is public UWS HCL.
+- `workflows/workflow.uws.yaml` is equivalent public UWS YAML.
 - `expected/plan.json` and `expected/plan.md` describe the expected workflow behavior.
 - `expected/refinement.json` and `expected/refinement.md` record bounded repair attempts.
 - `expected/review.md` records human review evidence and trusted-runner command text.
@@ -103,7 +95,12 @@ from a trusted workstation if the error looks external.
 
 `ramen run` validates approval, package digest, stored and current quality, manifest policy,
 credential-value prohibition, direct-production prohibition, and tier/state compatibility before
-invoking udon by argv.
+writing `ramen.executor-run.v1`. The digest covers the reviewed UWS artifacts and every regular
+OpenAPI file staged for execution. The shim stages the reviewed UWS/OpenAPI package into the
+configured run workdir, fails if a declared credential binding is missing from the local
+`UDON_CREDENTIAL_*` environment, then invokes either a trusted udon-compatible binary by argv or a
+Docker image via `RAMEN_UDON_IMAGE`. Docker mode passes only declared credential env names, not all
+host environment variables.
 
 ## Tooling Constraints
 

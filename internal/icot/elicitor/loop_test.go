@@ -9,7 +9,7 @@ import (
 
 	"github.com/OpenUdon/apitools"
 	"github.com/genelet/ramen/internal/projectwizard"
-	"github.com/genelet/udon/pkg/rollout"
+	rollout "github.com/genelet/ramen/internal/workflowintent"
 )
 
 func TestRunFillsRuntimeOnlyIntent(t *testing.T) {

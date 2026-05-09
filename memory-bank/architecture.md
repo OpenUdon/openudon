@@ -42,8 +42,7 @@ plans, OpenAPI discovery reports, refinement reports, review notes, quality repo
 
 Transitional debt:
 
-- Ramen still imports `github.com/genelet/udon` directly for generation, export, validation, and run
-  wrappers while the executor handoff is being split.
+- Ramen no longer imports `github.com/genelet/udon`; approved packages are handed to external executors through a portable run-config shim.
 - Ramen imports `github.com/OpenUdon/apitools` only for narrowed OpenAPI tooling. Product lifecycle
   helpers such as iCoT, transcript, review, handoff, credential scan, package digest, and approval
   policy are Ramen-owned.
@@ -68,7 +67,7 @@ Current generation policy:
 | Retries | Allowed only when explicitly requested; side-effectful retries need retry/idempotency policy. |
 | Timeouts | Allowed only when explicit `ramen-policy` or intent metadata requests them. |
 | Idempotency | Allowed for explicit workflow-level UWS 1.1 metadata; Ramen does not inject API keys. |
-| Runtime profiles | Allowed only for existing validated udon profile shapes and project/environment policy. |
+| Runtime profiles | Allowed only for existing validated UWS runtime supplement shapes and project/environment policy. |
 
 The public UWS runtime supplement is a slim non-HTTP invocation selector for extension-owned
 execution only. Public `x-uws-runtime` carries only `type`, `command`, `workingDir`, `function`,
@@ -101,8 +100,7 @@ Closed cross-repo dependencies remain regression responsibilities:
 2. iCoT may guide the user through goal, OpenAPI, operation, inputs, outputs, credential bindings,
    side-effect scope, safety, and fallback questions.
 3. Ramen saves `project.md` and `workflows/intent.hcl`.
-4. `ramen synthesize` discovers/imports local OpenAPI inputs, generates intent when needed, builds
-   workflow HCL through udon, exports UWS, and writes plan, refinement, review, handoff, and quality
+4. `ramen synthesize` discovers/imports local OpenAPI inputs, generates intent when needed, builds public UWS HCL/YAML artifacts directly from intent, and writes plan, refinement, review, handoff, and quality
    artifacts.
 5. `ramen build`, `ramen promote`, and `ramen assess` rerun narrower stages after edits.
 6. Quality gates validate project policy, OpenAPI availability, intent validity, data flow, workflow
@@ -111,8 +109,7 @@ Closed cross-repo dependencies remain regression responsibilities:
 7. Reviewers inspect the minimum review package and, when appropriate, create approval JSON for
    sandbox or production tier.
 8. `ramen run` revalidates the package, current quality, approval JSON, digest, tier/state rules,
-   credential-value policy, and direct-production policy before invoking `scripts/run-udon.sh` by
-   argv.
+   credential-value policy, and direct-production policy before writing run config and invoking the trusted executor shim by argv.
 
 ## Artifact Flow
 
@@ -155,21 +152,26 @@ history.
 The local trusted runner is intentionally separate from synthesis. It validates
 `expected/symphony-handoff.json`, `expected/quality.json`, current in-memory quality, approval JSON,
 canonical package digest, and tier compatibility. The package digest uses Ramen-local handoff digest
-helpers over Ramen's required input set. It rejects credential values in artifacts and direct
-production execution, then invokes udon only through `scripts/run-udon.sh`.
+helpers over Ramen's required input set, including every regular file under `openapi/`; symlinked
+OpenAPI artifacts are rejected. It rejects credential values in artifacts and direct production
+execution, then writes a non-secret `ramen.executor-run.v1` config. The executor shim stages the
+reviewed UWS/OpenAPI files into the run workdir and invokes udon through a binary or Docker process
+boundary, never through Go imports. Docker execution passes only declared `UDON_CREDENTIAL_*`
+environment variable names into the container.
 
 Required handoff inputs are `project.md`, `workflows/intent.hcl`, `workflows/workflow.hcl`,
 `workflows/workflow.uws.yaml`, `expected/plan.json`, `expected/quality.json`,
-`expected/refinement.json`, `expected/review.md`, and `expected/symphony-handoff.json`. Approval
-states are `generated`, `validated`, `review_required`, `approved_for_sandbox`,
+`expected/refinement.json`, `expected/review.md`, `expected/symphony-handoff.json`, and any
+`openapi/...` file staged for execution. Approval states are `generated`, `validated`,
+`review_required`, `approved_for_sandbox`,
 `approved_for_production`, and `rejected`.
 
 Automation tiers:
 
 | Tier | Gate | Location |
 | --- | --- | --- |
-| Local deterministic | `go test ./...`, `go vet ./...`, `make check`, `git diff --check` | Trusted workstation with private siblings. |
-| Local readiness report | `ramen readiness --run-gates --out eval/readiness/local.json` | Trusted workstation with private siblings. |
+| Local deterministic | `go test ./...`, `go vet ./...`, `make check`, `git diff --check` | Trusted workstation with public Ramen siblings. |
+| Local readiness report | `ramen readiness --run-gates --out eval/readiness/local.json` | Trusted workstation with public Ramen siblings. |
 | Local/manual real LLM | `ramen eval --release-gate` or `make release-eval` | Trusted workstation with provider env vars. |
 | Future protected automation | New design required | Protected runner only after checkout and redaction controls stabilize. |
 

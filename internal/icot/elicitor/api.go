@@ -11,7 +11,7 @@ import (
 
 	"github.com/OpenUdon/apitools"
 	"github.com/genelet/ramen/internal/openapidisco"
-	"github.com/genelet/udon/pkg/rollout"
+	rollout "github.com/genelet/ramen/internal/workflowintent"
 )
 
 const (

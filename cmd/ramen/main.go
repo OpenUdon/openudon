@@ -17,8 +17,8 @@ import (
 	"github.com/genelet/ramen/internal/readiness"
 	"github.com/genelet/ramen/internal/synthesize"
 	"github.com/genelet/ramen/internal/trustedrunner"
+	uwsprofile "github.com/genelet/ramen/internal/uwsexec"
 	"github.com/genelet/ramen/internal/uwsvalidate"
-	"github.com/genelet/udon/pkg/uwsprofile"
 )
 
 const version = "0.1.0"
@@ -34,7 +34,7 @@ func main() {
 		fmt.Fprintf(flag.CommandLine.Output(), "  eval      run synthesis eval briefs and write pass/fail reports\n")
 		fmt.Fprintf(flag.CommandLine.Output(), "  promote   export/validate UWS from an existing workflow.hcl\n")
 		fmt.Fprintf(flag.CommandLine.Output(), "  readiness write local private-checkout and deterministic-gate readiness report\n")
-		fmt.Fprintf(flag.CommandLine.Output(), "  run       validate approval gates and run udon through trusted wrapper\n")
+		fmt.Fprintf(flag.CommandLine.Output(), "  run       validate approval gates and invoke a trusted executor handoff\n")
 		fmt.Fprintf(flag.CommandLine.Output(), "  synthesize generate intent, workflow, UWS, and review artifacts for an example\n")
 		fmt.Fprintf(flag.CommandLine.Output(), "  validate  validate one UWS JSON/YAML file against the sibling UWS schema\n")
 		fmt.Fprintf(flag.CommandLine.Output(), "  version   print version\n")
@@ -135,11 +135,11 @@ func runTrustedCommand(args []string) {
 	example := fs.String("example", "", "Example directory containing generated Ramen artifacts")
 	tier := fs.String("tier", "", "Execution tier: sandbox or production")
 	approval := fs.String("approval", "", "Approval JSON file")
-	workdir := fs.String("workdir", "", "udon work directory; defaults to .ramen-run/<example>")
-	dryRun := fs.Bool("dry-run", false, "Validate gates without invoking udon")
+	workdir := fs.String("workdir", "", "executor work directory; defaults to .ramen-run/<example>")
+	dryRun := fs.Bool("dry-run", false, "Validate gates and write run config without invoking the executor")
 	fs.Usage = func() {
 		fmt.Fprintf(fs.Output(), "Usage: ramen run --example examples/<name> --tier sandbox|production --approval approvals/<name>.json [--workdir .ramen-run/<name>] [--dry-run]\n")
-		fmt.Fprintf(fs.Output(), "\nValidates the Ramen handoff package, current quality gates, approval scope, approval digest, and tier/state compatibility before invoking scripts/run-udon.sh.\n")
+		fmt.Fprintf(fs.Output(), "\nValidates the Ramen handoff package, current quality gates, approval scope, approval digest, and tier/state compatibility before writing %s run config and invoking the trusted executor shim.\n", trustedrunner.RunConfigVersion)
 		fmt.Fprintf(fs.Output(), "\nTier rules:\n")
 		fmt.Fprintf(fs.Output(), "  sandbox accepts approved_for_sandbox or approved_for_production\n")
 		fmt.Fprintf(fs.Output(), "  production accepts approved_for_production only\n\n")
@@ -171,6 +171,7 @@ func runTrustedCommand(args []string) {
 		fmt.Printf("ramen: run completed for %s (%s)\n", result.Scope, result.Tier)
 	}
 	fmt.Printf("  workflow: %s\n", result.WorkflowPath)
+	fmt.Printf("  config:   %s\n", result.RunConfigPath)
 	fmt.Printf("  workdir:  %s\n", result.WorkDir)
 	fmt.Printf("  digest:   %s\n", result.PackageSHA256)
 }
@@ -213,7 +214,7 @@ func runEvalCommand(args []string) {
 	fs := flag.NewFlagSet("eval", flag.ExitOnError)
 	root := fs.String("root", "examples/eval", "Directory containing eval example subdirectories")
 	name := fs.String("name", "", "Run a single eval brief by directory name")
-	provider := fs.String("provider", "", "LLM provider: copilot-api, openai, anthropic, or gemini; defaults to udon runner env behavior")
+	provider := fs.String("provider", "", "LLM provider: copilot-api, openai, anthropic, or gemini")
 	model := fs.String("model", "", "LLM model")
 	timeout := fs.Duration("timeout", 2*time.Minute, "LLM generation timeout")
 	maxAttempts := fs.Int("max-attempts", 5, "Maximum refinement attempts")
@@ -349,7 +350,7 @@ func gitMetadata() (string, bool) {
 func runArtifactCommand(command string, args []string) {
 	fs := flag.NewFlagSet(command, flag.ExitOnError)
 	example := fs.String("example", "", "Example directory containing project.md and artifact subdirectories")
-	provider := fs.String("provider", "", "LLM provider: copilot-api, openai, anthropic, or gemini; defaults to udon runner env behavior")
+	provider := fs.String("provider", "", "LLM provider: copilot-api, openai, anthropic, or gemini; defaults to Ramen provider env behavior")
 	model := fs.String("model", "", "LLM model")
 	timeout := fs.Duration("timeout", 2*time.Minute, "LLM generation timeout")
 	maxAttempts := fs.Int("max-attempts", 5, "Maximum refinement attempts for synthesize/build")
@@ -370,8 +371,8 @@ func runArtifactCommand(command string, args []string) {
 		}
 		fmt.Fprintf(fs.Output(), "\nArtifacts:\n")
 		fmt.Fprintf(fs.Output(), "  workflows/intent.hcl        structured intent generated from project.md\n")
-		fmt.Fprintf(fs.Output(), "  workflows/workflow.hcl      udon workflow artifact\n")
-		fmt.Fprintf(fs.Output(), "  workflows/workflow.uws.yaml exported UWS artifact\n")
+		fmt.Fprintf(fs.Output(), "  workflows/workflow.hcl      public UWS HCL artifact\n")
+		fmt.Fprintf(fs.Output(), "  workflows/workflow.uws.yaml public UWS YAML artifact\n")
 		fmt.Fprintf(fs.Output(), "  expected/plan.json          expected operations, bindings, credentials, and control flow\n")
 		fmt.Fprintf(fs.Output(), "  expected/review.md          trusted execution review evidence and handoff notes\n")
 		fmt.Fprintf(fs.Output(), "  expected/symphony-handoff.json machine-readable Symphony approval handoff\n")

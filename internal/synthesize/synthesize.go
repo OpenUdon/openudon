@@ -15,9 +15,8 @@ import (
 
 	"github.com/genelet/ramen/internal/openapidisco"
 	"github.com/genelet/ramen/internal/workflowintent"
-	"github.com/genelet/udon/pkg/rollout"
-	"github.com/genelet/udon/pkg/runner"
-	"github.com/genelet/udon/pkg/uwsprofile"
+	rollout "github.com/genelet/ramen/internal/workflowintent"
+	runner "github.com/genelet/ramen/internal/workflowintent"
 )
 
 type Options struct {
@@ -323,7 +322,7 @@ func runRefinement(ctx context.Context, opts Options, state *refinementState, ll
 			if stopReason != "" {
 				return &state.result, err
 			}
-			action = "regenerate_workflow"
+			action = "regenerate_intent"
 			feedback = err.Error()
 			continue
 		}
@@ -476,30 +475,15 @@ func Promote(ctx context.Context, opts Options) (*Result, error) {
 }
 
 func generateWorkflow(ctx context.Context, result Result, intent *rollout.Intent, llm rollout.LLMClient, provider, model string, timeout time.Duration) error {
-	if timeout == 0 {
-		timeout = 2 * time.Minute
-	}
-	if workflowHCL, ok := deterministicNoOpenAPICommandWorkflow(intent, result.PrimaryOpenAPI); ok {
-		if err := ensureArtifactDirs(result); err != nil {
-			return err
-		}
-		return os.WriteFile(result.WorkflowPath, []byte(workflowHCL), 0o644)
-	}
-	workflowHCL, err := runner.GenerateConfigFromIntentWithClient(ctx, intent, result.PrimaryOpenAPI, llm, runner.GenerateOptions{
-		Provider: provider,
-		Model:    model,
-		WorkDir:  result.ExampleDir,
-		Validate: true,
-		Format:   true,
-		Timeout:  timeout,
-	})
-	if err != nil {
-		return fmt.Errorf("generate workflow HCL: %w", err)
-	}
-	if err := ensureArtifactDirs(result); err != nil {
+	_, _, _, _ = llm, provider, model, timeout
+	if err := ctx.Err(); err != nil {
 		return err
 	}
-	return os.WriteFile(result.WorkflowPath, []byte(workflowHCL), 0o644)
+	doc, err := generateWorkflowDocument(result, intent)
+	if err != nil {
+		return fmt.Errorf("generate UWS workflow: %w", err)
+	}
+	return writeWorkflowHCL(result, doc, intent)
 }
 
 func deterministicNoOpenAPICommandWorkflow(intent *rollout.Intent, primaryOpenAPI string) (string, bool) {
@@ -602,7 +586,7 @@ func defaultSchemaPathForVersion(exampleDir, version string) string {
 }
 
 func defaultSchemaPathForDocument(exampleDir, documentPath string) string {
-	doc, err := uwsprofile.LoadDocumentFile(documentPath, uwsprofile.DocumentFormatAuto)
+	doc, err := loadUWSDocumentFile(documentPath)
 	if err != nil || doc == nil || strings.TrimSpace(doc.UWS) == "" {
 		return defaultSchemaPath(exampleDir)
 	}

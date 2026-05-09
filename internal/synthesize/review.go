@@ -9,7 +9,7 @@ import (
 	"strings"
 
 	"github.com/genelet/ramen/internal/authoring"
-	"github.com/genelet/udon/pkg/rollout"
+	rollout "github.com/genelet/ramen/internal/workflowintent"
 )
 
 func writeReview(result Result, provider, model string) error {
@@ -160,9 +160,8 @@ func reviewMarkdown(result Result, provider, model string) string {
 	}
 	b.WriteString("\n## Validation\n\n")
 	b.WriteString("- Generated intent.hcl from project.md.\n")
-	b.WriteString("- Generated workflow.hcl through udon rollout generation.\n")
-	b.WriteString("- Compiled workflow.hcl through udon runtime plan generation.\n")
-	b.WriteString("- Exported workflow.uws.yaml and validated it against the UWS schema.\n")
+	b.WriteString("- Generated workflow.hcl as a public UWS document from Ramen intent.\n")
+	b.WriteString("- Exported workflow.uws.yaml and validated it against the UWS schema and local execution-profile checks.\n")
 	b.WriteString("- Side-effectful execution was skipped.\n\n")
 	b.WriteString("## Trusted Execution Handoff\n\n")
 	b.WriteString("- Direct production execution: not performed by Ramen synthesis.\n")
@@ -175,7 +174,7 @@ func reviewMarkdown(result Result, provider, model string) string {
 	}
 	b.WriteString("- Credential binding audit must verify named runtime bindings and no literal secret values.\n\n")
 	b.WriteString("Trusted proof run, only when explicitly approved:\n\n")
-	fmt.Fprintf(&b, "```bash\n./scripts/run-udon.sh %s %s\n```\n", relOrAbs(filepath.Dir(result.ExampleDir), result.WorkflowPath), result.ExampleDir)
+	fmt.Fprintf(&b, "```bash\nramen run --example %s --tier sandbox --approval approvals/%s.json\n```\n", relOrAbs(filepath.Dir(result.ExampleDir), result.ExampleDir), filepath.Base(result.ExampleDir))
 	return b.String()
 }
 

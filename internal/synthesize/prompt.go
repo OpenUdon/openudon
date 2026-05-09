@@ -12,8 +12,8 @@ import (
 	"github.com/genelet/ramen/internal/authoring"
 	"github.com/genelet/ramen/internal/openapidisco"
 	"github.com/genelet/ramen/internal/workflowintent"
-	"github.com/genelet/udon/pkg/rollout"
-	"github.com/genelet/udon/pkg/runner"
+	rollout "github.com/genelet/ramen/internal/workflowintent"
+	runner "github.com/genelet/ramen/internal/workflowintent"
 )
 
 const (
@@ -384,11 +384,24 @@ func applyRuntimeInputHints(steps []*rollout.Step, inputs []InputDecl) {
 			if step.With == nil {
 				step.With = map[string]string{}
 			}
-			if strings.TrimSpace(step.With[name]) == "" {
+			if strings.TrimSpace(step.With[name]) == "" && !stepHasNormalizedWithKey(step, name) {
 				step.With[name] = "inputs." + name
 			}
 		}
 	}
+}
+
+func stepHasNormalizedWithKey(step *rollout.Step, name string) bool {
+	if step == nil || len(step.With) == 0 {
+		return false
+	}
+	want := normalizedIdentifier(name)
+	for key := range step.With {
+		if normalizedIdentifier(key) == want {
+			return true
+		}
+	}
+	return false
 }
 
 func stepLikelyConsumesInput(step *rollout.Step, inputName string) bool {

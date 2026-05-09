@@ -3,11 +3,12 @@ package workflowintent
 import (
 	"context"
 	"encoding/json"
+	"net/http"
+	"net/http/httptest"
 	"strings"
 	"testing"
 
 	"github.com/genelet/ramen/internal/authoring"
-	"github.com/genelet/udon/pkg/rollout"
 )
 
 func TestWorkflowFlowParsesValidatesAndRendersIntent(t *testing.T) {
@@ -28,16 +29,16 @@ func TestWorkflowFlowParsesValidatesAndRendersIntent(t *testing.T) {
 	if len(artifacts.Artifacts) != 1 || artifacts.Artifacts[0].Path != IntentPath {
 		t.Fatalf("artifacts = %#v", artifacts)
 	}
-	if _, err := rollout.ParseIntent(artifacts.Artifacts[0].Content, IntentPath); err != nil {
+	if _, err := ParseIntent(artifacts.Artifacts[0].Content, IntentPath); err != nil {
 		t.Fatalf("rendered intent did not parse: %v\n%s", err, artifacts.Artifacts[0].Content)
 	}
 }
 
 func TestValidateCompleteReportsRamenMissingSlots(t *testing.T) {
-	draft := &rollout.Intent{
+	draft := &Intent{
 		OpenAPI:  "openapi/support.yaml",
-		Workflow: &rollout.WorkflowMeta{Name: "support_lookup"},
-		Steps: []*rollout.Step{{
+		Workflow: &WorkflowMeta{Name: "support_lookup"},
+		Steps: []*Step{{
 			Name: "get_ticket",
 			Type: "http",
 			Do:   "Fetch the ticket.",
@@ -86,20 +87,123 @@ func TestChatAdapterConvertsTranscriptAndStructuredOutput(t *testing.T) {
 	}
 }
 
-type fakeStructuredChat struct {
-	chatMessages       []rollout.ChatMessage
-	structuredMessages []rollout.ChatMessage
-	schema             json.RawMessage
-	opts               rollout.StructuredOpts
+func TestCopilotDefaultGPT5UsesResponsesEndpoint(t *testing.T) {
+	var gotPath string
+	var gotBody map[string]any
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		gotPath = r.URL.Path
+		if err := json.NewDecoder(r.Body).Decode(&gotBody); err != nil {
+			t.Fatal(err)
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"output_text":"ok"}`))
+	}))
+	defer server.Close()
+	t.Setenv("COPILOT_API_BASE_URL", server.URL)
+
+	client, provider, model, err := NewLLMClientFromEnvWithOptions("", "", LLMOptions{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	chat, ok := client.(ChatClient)
+	if !ok {
+		t.Fatal("client does not implement ChatClient")
+	}
+	reply, err := chat.Chat(context.Background(), []ChatMessage{{Role: "user", Content: "hello"}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if reply != "ok" || provider != "copilot-api" || model != DefaultCopilotAPIModel {
+		t.Fatalf("reply/provider/model = %q/%q/%q", reply, provider, model)
+	}
+	if gotPath != "/v1/responses" || gotBody["model"] != DefaultCopilotAPIModel {
+		t.Fatalf("unexpected request path/body: %s %#v", gotPath, gotBody)
+	}
 }
 
-func (fake *fakeStructuredChat) Chat(_ context.Context, messages []rollout.ChatMessage) (string, error) {
-	fake.chatMessages = append([]rollout.ChatMessage(nil), messages...)
+func TestProviderStructuredChatSendsProviderNativeSchema(t *testing.T) {
+	schema := json.RawMessage(`{"type":"object","properties":{"ok":{"type":"boolean"}}}`)
+	t.Run("openai", func(t *testing.T) {
+		var got map[string]any
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			if r.URL.Path != "/v1/chat/completions" {
+				t.Fatalf("path = %s", r.URL.Path)
+			}
+			if err := json.NewDecoder(r.Body).Decode(&got); err != nil {
+				t.Fatal(err)
+			}
+			_, _ = w.Write([]byte(`{"choices":[{"message":{"content":"{\"ok\":true}"}}]}`))
+		}))
+		defer server.Close()
+		t.Setenv("OPENAI_BASE_URL", server.URL)
+		client := &providerLLMClient{provider: "openai", model: "gpt-4.1", apiKey: "key", client: server.Client(), timeout: defaultLLMTimeout}
+		if _, err := client.StructuredChat(context.Background(), []ChatMessage{{Role: "user", Content: "emit"}}, schema, StructuredOpts{MaxTokens: 123}); err != nil {
+			t.Fatal(err)
+		}
+		format := got["response_format"].(map[string]any)
+		if format["type"] != "json_schema" || got["max_tokens"].(float64) != 123 {
+			t.Fatalf("openai structured payload = %#v", got)
+		}
+	})
+	t.Run("anthropic", func(t *testing.T) {
+		var got map[string]any
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			if r.URL.Path != "/v1/messages" {
+				t.Fatalf("path = %s", r.URL.Path)
+			}
+			if err := json.NewDecoder(r.Body).Decode(&got); err != nil {
+				t.Fatal(err)
+			}
+			_, _ = w.Write([]byte(`{"content":[{"type":"tool_use","name":"emit_json","input":{"ok":true}}]}`))
+		}))
+		defer server.Close()
+		t.Setenv("ANTHROPIC_BASE_URL", server.URL)
+		client := &providerLLMClient{provider: "anthropic", model: "claude", apiKey: "key", client: server.Client(), timeout: defaultLLMTimeout}
+		if _, err := client.StructuredChat(context.Background(), []ChatMessage{{Role: "user", Content: "emit"}}, schema, StructuredOpts{}); err != nil {
+			t.Fatal(err)
+		}
+		if got["tool_choice"].(map[string]any)["name"] != structuredToolName || len(got["tools"].([]any)) != 1 {
+			t.Fatalf("anthropic structured payload = %#v", got)
+		}
+	})
+	t.Run("gemini", func(t *testing.T) {
+		var got map[string]any
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			if !strings.Contains(r.URL.Path, ":generateContent") {
+				t.Fatalf("path = %s", r.URL.Path)
+			}
+			if err := json.NewDecoder(r.Body).Decode(&got); err != nil {
+				t.Fatal(err)
+			}
+			_, _ = w.Write([]byte(`{"candidates":[{"content":{"parts":[{"text":"{\"ok\":true}"}]}}]}`))
+		}))
+		defer server.Close()
+		t.Setenv("GEMINI_BASE_URL", server.URL)
+		client := &providerLLMClient{provider: "gemini", model: "gemini-test", apiKey: "key", client: server.Client(), timeout: defaultLLMTimeout}
+		if _, err := client.StructuredChat(context.Background(), []ChatMessage{{Role: "user", Content: "emit"}}, schema, StructuredOpts{}); err != nil {
+			t.Fatal(err)
+		}
+		config := got["generationConfig"].(map[string]any)
+		if config["responseMimeType"] != "application/json" || config["responseJsonSchema"] == nil {
+			t.Fatalf("gemini structured payload = %#v", got)
+		}
+	})
+}
+
+type fakeStructuredChat struct {
+	chatMessages       []ChatMessage
+	structuredMessages []ChatMessage
+	schema             json.RawMessage
+	opts               StructuredOpts
+}
+
+func (fake *fakeStructuredChat) Chat(_ context.Context, messages []ChatMessage) (string, error) {
+	fake.chatMessages = append([]ChatMessage(nil), messages...)
 	return "plain reply", nil
 }
 
-func (fake *fakeStructuredChat) StructuredChat(_ context.Context, messages []rollout.ChatMessage, schema json.RawMessage, opts rollout.StructuredOpts) (string, error) {
-	fake.structuredMessages = append([]rollout.ChatMessage(nil), messages...)
+func (fake *fakeStructuredChat) StructuredChat(_ context.Context, messages []ChatMessage, schema json.RawMessage, opts StructuredOpts) (string, error) {
+	fake.structuredMessages = append([]ChatMessage(nil), messages...)
 	fake.schema = append(json.RawMessage(nil), schema...)
 	fake.opts = opts
 	return `{"ok":true}`, nil

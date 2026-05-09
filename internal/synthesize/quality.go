@@ -15,11 +15,10 @@ import (
 	"github.com/OpenUdon/uws/uws1"
 	"github.com/genelet/ramen/internal/authoring"
 	"github.com/genelet/ramen/internal/openapidisco"
+	"github.com/genelet/ramen/internal/packageartifacts"
+	uwsprofile "github.com/genelet/ramen/internal/uwsexec"
 	"github.com/genelet/ramen/internal/uwsvalidate"
-	"github.com/genelet/udon/generator"
-	"github.com/genelet/udon/pkg/rollout"
-	"github.com/genelet/udon/pkg/runtimeplan"
-	"github.com/genelet/udon/pkg/uwsprofile"
+	rollout "github.com/genelet/ramen/internal/workflowintent"
 	"gopkg.in/yaml.v3"
 )
 
@@ -568,21 +567,21 @@ func assessWorkflow(report *QualityReport, path, exampleDir string, intent *roll
 	if policy.NoOpenAPI {
 		report.add("workflow.openapi_refs", "pass", "workflow.hcl has no OpenAPI references", "")
 	}
-	compiledPlan, err := generator.NewRuntimePlanFromWorkflowFile(path, exampleDir)
+	doc, err := loadUWSDocumentFile(path)
 	if err != nil {
-		report.add("workflow.udon_compile", "fail", "workflow.hcl does not compile through udon", err.Error())
+		report.add("workflow.uws_parse", "fail", "workflow.hcl is not a valid public UWS document", err.Error())
 		return false
 	}
-	report.add("workflow.udon_compile", "pass", "workflow.hcl compiles through udon", "")
+	report.add("workflow.uws_parse", "pass", "workflow.hcl parses as a public UWS document", "")
 	if intent != nil {
-		missing := missingIntentSteps(intent, compiledPlan.Document().Workflows)
+		missing := missingIntentSteps(intent, doc.Workflows)
 		if len(missing) > 0 {
 			report.add("workflow.intent_coverage", "fail", "workflow.hcl does not represent every intent step", strings.Join(missing, ", "))
 			return false
 		}
 		report.add("workflow.intent_coverage", "pass", "workflow.hcl represents intent steps", "")
 	}
-	if expectedPlan != nil && !validateWorkflowAgainstExpectedPlan(report, compiledPlan, expectedPlan) {
+	if expectedPlan != nil && !validateWorkflowAgainstExpectedPlan(report, doc, expectedPlan) {
 		return false
 	}
 	return true
@@ -1469,7 +1468,7 @@ func workflowReferencesOpenAPI(source []byte) bool {
 	return regexp.MustCompile(`(?im)\bopenapi\s*=`).Match(source)
 }
 
-func validateWorkflowAgainstExpectedPlan(report *QualityReport, compiled *runtimeplan.Plan, expected *WorkflowPlan) bool {
+func validateWorkflowAgainstExpectedPlan(report *QualityReport, compiled *uws1.Document, expected *WorkflowPlan) bool {
 	if expected == nil {
 		return true
 	}
@@ -1731,20 +1730,18 @@ type compiledOperation struct {
 	OnSuccess          []*uws1.SuccessAction
 }
 
-func compiledOperationIndex(plan *runtimeplan.Plan) (map[string]*compiledOperation, error) {
-	return compiledOperationIndexWithRequestProjection(plan, func(plan *runtimeplan.Plan) (map[string]map[string]any, error) {
-		return plan.OperationRequests()
-	})
+func compiledOperationIndex(doc *uws1.Document) (map[string]*compiledOperation, error) {
+	return compiledOperationIndexWithRequestProjection(doc, nil)
 }
 
-func compiledOperationIndexWithRequestProjection(plan *runtimeplan.Plan, projectRequests func(*runtimeplan.Plan) (map[string]map[string]any, error)) (map[string]*compiledOperation, error) {
+func compiledOperationIndexWithRequestProjection(doc *uws1.Document, projectRequests func(*uws1.Document) (map[string]map[string]any, error)) (map[string]*compiledOperation, error) {
 	out := map[string]*compiledOperation{}
-	if plan == nil {
+	if doc == nil {
 		return out, nil
 	}
-	operationEvidence := uwsOperationRequestEvidence(plan.Document())
+	operationEvidence := uwsOperationRequestEvidence(doc)
 	if projectRequests != nil {
-		compiledRequests, err := projectRequests(plan)
+		compiledRequests, err := projectRequests(doc)
 		if err != nil {
 			return nil, err
 		}
@@ -1755,28 +1752,7 @@ func compiledOperationIndexWithRequestProjection(plan *runtimeplan.Plan, project
 			operationEvidence[strings.TrimSpace(name)] = requestEvidenceFromMap(request)
 		}
 	}
-	collectCompiledUWSSteps(plan.Document(), out, operationEvidence)
-	if plan.ExecCache() == nil {
-		return out, nil
-	}
-	for _, op := range plan.ExecCache().Operations {
-		if op == nil || strings.TrimSpace(op.Name) == "" {
-			continue
-		}
-		name := strings.TrimSpace(op.Name)
-		compiled := out[name]
-		if compiled == nil {
-			compiled = &compiledOperation{}
-			out[name] = compiled
-		}
-		compiled.ServiceType = op.ServiceType
-		compiled.OpenAPIOperationID = op.OpenAPIOperationID
-		compiled.DependsOn = append([]string(nil), op.DependsOn...)
-		compiled.Timeout = cloneFloat64Ptr(op.Timeout)
-		compiled.SuccessCriteria = cloneCriteria(op.SuccessCriteria)
-		compiled.OnFailure = cloneFailureActions(op.OnFailure)
-		compiled.OnSuccess = cloneSuccessActions(op.OnSuccess)
-	}
+	collectCompiledUWSSteps(doc, out, operationEvidence)
 	return out, nil
 }
 
@@ -1788,27 +1764,28 @@ func collectCompiledUWSSteps(doc *uws1.Document, out map[string]*compiledOperati
 		if workflow == nil {
 			continue
 		}
-		collectCompiledUWSStepList(workflow.Steps, out, operationEvidence, "", "", "")
+		collectCompiledUWSStepList(workflow.Steps, out, operationEvidence, operationIndexForDocument(doc), "", "", "")
 		for _, branch := range workflow.Cases {
 			if branch != nil {
-				collectCompiledUWSStepList(branch.Steps, out, operationEvidence, workflow.WorkflowID, strings.TrimSpace(branch.Name), strings.TrimSpace(branch.When))
+				collectCompiledUWSStepList(branch.Steps, out, operationEvidence, operationIndexForDocument(doc), workflow.WorkflowID, strings.TrimSpace(branch.Name), strings.TrimSpace(branch.When))
 			}
 		}
-		collectCompiledUWSStepList(workflow.Default, out, operationEvidence, workflow.WorkflowID, "default", "")
+		collectCompiledUWSStepList(workflow.Default, out, operationEvidence, operationIndexForDocument(doc), workflow.WorkflowID, "default", "")
 	}
 }
 
-func collectCompiledUWSStepList(steps []*uws1.Step, out map[string]*compiledOperation, operationEvidence map[string]requestEvidence, parent, branch, branchWhen string) {
+func collectCompiledUWSStepList(steps []*uws1.Step, out map[string]*compiledOperation, operationEvidence map[string]requestEvidence, operations map[string]*uws1.Operation, parent, branch, branchWhen string) {
 	for _, step := range steps {
 		if step == nil {
 			continue
 		}
 		name := strings.TrimSpace(step.StepID)
 		if name != "" {
+			op := operations[strings.TrimSpace(step.OperationRef)]
 			out[name] = &compiledOperation{
-				ServiceType:        strings.TrimSpace(step.Type),
-				OpenAPIOperationID: strings.TrimSpace(step.OperationRef),
-				DependsOn:          append([]string(nil), step.DependsOn...),
+				ServiceType:        compiledServiceType(step, op),
+				OpenAPIOperationID: compiledOpenAPIOperationID(step, op),
+				DependsOn:          compiledDependsOn(step, op),
 				Parent:             strings.TrimSpace(parent),
 				Branch:             strings.TrimSpace(branch),
 				BranchWhen:         strings.TrimSpace(branchWhen),
@@ -1817,22 +1794,108 @@ func collectCompiledUWSStepList(steps []*uws1.Step, out map[string]*compiledOper
 				Items:              strings.TrimSpace(step.Items),
 				Mode:               strings.TrimSpace(step.Mode),
 				BatchSize:          strings.TrimSpace(step.BatchSize),
-				Timeout:            cloneFloat64Ptr(step.Timeout),
+				Timeout:            compiledTimeout(step, op),
 				Request:            requestEvidenceForStep(step, operationEvidence),
+				SuccessCriteria:    compiledCriteria(op),
+				OnFailure:          compiledFailureActions(op),
+				OnSuccess:          compiledSuccessActions(op),
 			}
 		}
 		childParent := name
 		if childParent == "" {
 			childParent = parent
 		}
-		collectCompiledUWSStepList(step.Steps, out, operationEvidence, childParent, "", "")
+		collectCompiledUWSStepList(step.Steps, out, operationEvidence, operations, childParent, "", "")
 		for _, nestedBranch := range step.Cases {
 			if nestedBranch != nil {
-				collectCompiledUWSStepList(nestedBranch.Steps, out, operationEvidence, childParent, strings.TrimSpace(nestedBranch.Name), strings.TrimSpace(nestedBranch.When))
+				collectCompiledUWSStepList(nestedBranch.Steps, out, operationEvidence, operations, childParent, strings.TrimSpace(nestedBranch.Name), strings.TrimSpace(nestedBranch.When))
 			}
 		}
-		collectCompiledUWSStepList(step.Default, out, operationEvidence, childParent, "default", "")
+		collectCompiledUWSStepList(step.Default, out, operationEvidence, operations, childParent, "default", "")
 	}
+}
+
+func operationIndexForDocument(doc *uws1.Document) map[string]*uws1.Operation {
+	out := map[string]*uws1.Operation{}
+	if doc == nil {
+		return out
+	}
+	for _, op := range doc.Operations {
+		if op != nil && strings.TrimSpace(op.OperationID) != "" {
+			out[strings.TrimSpace(op.OperationID)] = op
+		}
+	}
+	return out
+}
+
+func compiledServiceType(step *uws1.Step, op *uws1.Operation) string {
+	if step != nil && strings.TrimSpace(step.Type) != "" {
+		return strings.TrimSpace(step.Type)
+	}
+	if op == nil {
+		return ""
+	}
+	if op.HasOpenAPIBinding() {
+		return "http"
+	}
+	if runtime, ok, err := uwsprofile.ReadOperationRuntime(op.Extensions); err == nil && ok {
+		return runtime.Type
+	}
+	if strings.TrimSpace(op.ExtensionProfile()) != "" {
+		return "fnct"
+	}
+	return ""
+}
+
+func compiledOpenAPIOperationID(step *uws1.Step, op *uws1.Operation) string {
+	if op != nil && strings.TrimSpace(op.OpenAPIOperationID) != "" {
+		return strings.TrimSpace(op.OpenAPIOperationID)
+	}
+	if step != nil {
+		return strings.TrimSpace(step.OperationRef)
+	}
+	return ""
+}
+
+func compiledDependsOn(step *uws1.Step, op *uws1.Operation) []string {
+	if op != nil && len(op.DependsOn) > 0 {
+		return append([]string(nil), op.DependsOn...)
+	}
+	if step != nil {
+		return append([]string(nil), step.DependsOn...)
+	}
+	return nil
+}
+
+func compiledTimeout(step *uws1.Step, op *uws1.Operation) *float64 {
+	if op != nil && op.Timeout != nil {
+		return cloneFloat64Ptr(op.Timeout)
+	}
+	if step != nil {
+		return cloneFloat64Ptr(step.Timeout)
+	}
+	return nil
+}
+
+func compiledCriteria(op *uws1.Operation) []*uws1.Criterion {
+	if op == nil {
+		return nil
+	}
+	return cloneCriteria(op.SuccessCriteria)
+}
+
+func compiledFailureActions(op *uws1.Operation) []*uws1.FailureAction {
+	if op == nil {
+		return nil
+	}
+	return cloneFailureActions(op.OnFailure)
+}
+
+func compiledSuccessActions(op *uws1.Operation) []*uws1.SuccessAction {
+	if op == nil {
+		return nil
+	}
+	return cloneSuccessActions(op.OnSuccess)
 }
 
 type requestAttribute struct {
@@ -2163,14 +2226,14 @@ func assessUWS(report *QualityReport, path, schemaPath, exampleDir string, expec
 	report.add("uws.schema", "pass", "workflow.uws.yaml validates against public UWS schema", "")
 	doc, err := uwsprofile.LoadDocumentFile(path, uwsprofile.DocumentFormatYAML)
 	if err != nil {
-		report.add("uws.execution_profile", "fail", "workflow.uws.yaml could not be loaded by udon profile helpers", err.Error())
+		report.add("uws.execution_profile", "fail", "workflow.uws.yaml could not be loaded by local execution-profile helpers", err.Error())
 		return
 	}
 	if err := uwsprofile.ValidateForExecution(doc); err != nil {
-		report.add("uws.execution_profile", "fail", "workflow.uws.yaml fails udon execution-profile validation", err.Error())
+		report.add("uws.execution_profile", "fail", "workflow.uws.yaml fails local execution-profile validation", err.Error())
 		return
 	}
-	report.add("uws.execution_profile", "pass", "workflow.uws.yaml passes udon execution-profile validation", "")
+	report.add("uws.execution_profile", "pass", "workflow.uws.yaml passes local execution-profile validation", "")
 	if expectedPlan != nil && len(expectedPlan.Results) > 0 {
 		if err := validateUWSStructuralResults(doc, expectedPlan.Results); err != nil {
 			report.add("uws.structural_results", "fail", "workflow.uws.yaml does not preserve planned structural results", err.Error())
@@ -2514,7 +2577,7 @@ func assessReview(report *QualityReport, path string, profile sideEffectProfile,
 		return
 	}
 	report.add("review.package", "pass", "review evidence lists the minimum trusted-execution review package", "")
-	if !strings.Contains(text, "Trusted proof run") || !strings.Contains(text, "./scripts/run-udon.sh") {
+	if !strings.Contains(text, "Trusted proof run") || !strings.Contains(text, "ramen run") {
 		report.add("review.trusted_runner", "fail", "review evidence must include trusted-runner handoff command", "")
 		return
 	}
@@ -2600,7 +2663,12 @@ func assessSymphonyHandoff(report *QualityReport, path string, profile sideEffec
 		report.add("symphony_handoff.contract", "fail", "Symphony handoff manifest must satisfy the review handoff contract", diagnostics[0].Message)
 		return
 	}
-	if !symphonyHandoffHasRequiredInputs(manifest) {
+	requiredOK, requiredErr := symphonyHandoffHasRequiredInputs(filepath.Dir(filepath.Dir(path)), manifest)
+	if requiredErr != nil {
+		report.add("symphony_handoff.contract", "fail", "Symphony handoff manifest required inputs could not be checked", requiredErr.Error())
+		return
+	}
+	if !requiredOK {
 		report.add("symphony_handoff.contract", "fail", "Symphony handoff manifest must list every required handoff input", "")
 		return
 	}
@@ -2623,7 +2691,7 @@ func assessSymphonyHandoff(report *QualityReport, path string, profile sideEffec
 	report.add("symphony_handoff.contract", "pass", "Symphony handoff manifest records package, state, execution, and credential contracts", "")
 }
 
-func symphonyHandoffHasRequiredInputs(manifest SymphonyHandoff) bool {
+func symphonyHandoffHasRequiredInputs(exampleDir string, manifest SymphonyHandoff) (bool, error) {
 	required := map[string]bool{
 		"project.md":                     false,
 		"workflows/intent.hcl":           false,
@@ -2635,6 +2703,13 @@ func symphonyHandoffHasRequiredInputs(manifest SymphonyHandoff) bool {
 		"expected/review.md":             false,
 		"expected/symphony-handoff.json": false,
 	}
+	openAPIPaths, err := packageartifacts.CollectOpenAPIPaths(exampleDir)
+	if err != nil {
+		return false, err
+	}
+	for _, path := range openAPIPaths {
+		required[path] = false
+	}
 	for _, input := range manifest.HandoffInputs {
 		if !input.Required {
 			continue
@@ -2645,10 +2720,10 @@ func symphonyHandoffHasRequiredInputs(manifest SymphonyHandoff) bool {
 	}
 	for _, found := range required {
 		if !found {
-			return false
+			return false, nil
 		}
 	}
-	return true
+	return true, nil
 }
 
 func symphonyHandoffHasApprovalStates(manifest SymphonyHandoff) bool {

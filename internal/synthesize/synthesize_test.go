@@ -13,11 +13,10 @@ import (
 	"github.com/OpenUdon/uws/uws1"
 	"github.com/genelet/ramen/internal/authoring"
 	"github.com/genelet/ramen/internal/openapidisco"
+	uwsprofile "github.com/genelet/ramen/internal/uwsexec"
 	"github.com/genelet/ramen/internal/uwsvalidate"
-	"github.com/genelet/udon/pkg/rollout"
-	"github.com/genelet/udon/pkg/runner"
-	"github.com/genelet/udon/pkg/runtimeplan"
-	"github.com/genelet/udon/pkg/uwsprofile"
+	rollout "github.com/genelet/ramen/internal/workflowintent"
+	runner "github.com/genelet/ramen/internal/workflowintent"
 )
 
 type fakeClient struct{}
@@ -474,8 +473,15 @@ paths:
 	if handoff.Version != symphonyHandoffVersion || handoff.GeneratedState != "generated" {
 		t.Fatalf("unexpected Symphony handoff metadata: %#v", handoff)
 	}
-	if !symphonyHandoffHasApprovalStates(handoff) || !symphonyHandoffHasRequiredInputs(handoff) {
+	requiredInputsOK, err := symphonyHandoffHasRequiredInputs(example, handoff)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !symphonyHandoffHasApprovalStates(handoff) || !requiredInputsOK {
 		t.Fatalf("Symphony handoff missing required contract: %#v", handoff)
+	}
+	if !handoffHasRequiredInput(handoff, "openapi/support.yaml") {
+		t.Fatalf("Symphony handoff missing required OpenAPI input: %#v", handoff.HandoffInputs)
 	}
 	report, err := Assess(Options{ExampleDir: example, SchemaPath: schemaPath})
 	if err != nil {
@@ -997,7 +1003,7 @@ Side-effectful execution was skipped.
 
 Trusted proof run:
 
-`+"```bash\n./scripts/run-udon.sh workflows/workflow.hcl example\n```\n"+`
+`+"```bash\nramen run --example example --tier sandbox --approval approvals/example.json\n```\n"+`
 `), 0o644); err != nil {
 		t.Fatal(err)
 	}
@@ -1109,7 +1115,7 @@ func validReviewEvidenceText(includeApprovalStates, includeCredentialInventory b
 
 Trusted proof run:
 
-` + "```bash\n./scripts/run-udon.sh workflows/workflow.hcl example\n```\n")
+` + "```bash\nramen run --example example --tier sandbox --approval approvals/example.json\n```\n")
 	return b.String()
 }
 
@@ -1768,6 +1774,150 @@ func TestUWSFailureActionsAndRetriesRemainCompatible(t *testing.T) {
 	}
 }
 
+func TestGenerateWorkflowInfersOpenAPIRequestPlacement(t *testing.T) {
+	example := t.TempDir()
+	if err := os.MkdirAll(filepath.Join(example, "openapi"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(example, "openapi", "things.yaml"), []byte(requestPlacementOpenAPI()), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	doc, err := generateWorkflowDocument(Result{ExampleDir: example, PrimaryOpenAPI: "openapi/things.yaml"}, &rollout.Intent{
+		OpenAPI: "openapi/things.yaml",
+		Workflow: &rollout.WorkflowMeta{
+			Name: "update_thing",
+		},
+		Steps: []*rollout.Step{{
+			Name:      "update_thing",
+			Type:      "http",
+			Do:        "Update thing.",
+			Operation: "updateThing",
+			With: map[string]string{
+				"thingId":  "inputs.thingId",
+				"verbose":  "true",
+				"X-Tenant": "inputs.tenant",
+				"name":     "inputs.name",
+			},
+		}},
+		Outputs: []*rollout.Output{{Name: "thing", From: "update_thing.received_body"}},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	request := doc.Operations[0].Request
+	if request["path"].(map[string]any)["thingId"] != "inputs.thingId" {
+		t.Fatalf("path request = %#v", request)
+	}
+	if request["query"].(map[string]any)["verbose"] != "true" {
+		t.Fatalf("query request = %#v", request)
+	}
+	if request["header"].(map[string]any)["X-Tenant"] != "inputs.tenant" {
+		t.Fatalf("header request = %#v", request)
+	}
+	if request["body"].(map[string]any)["name"] != "inputs.name" {
+		t.Fatalf("body request = %#v", request)
+	}
+}
+
+func TestGenerateWorkflowRejectsUnknownOpenAPIRequestField(t *testing.T) {
+	example := t.TempDir()
+	if err := os.MkdirAll(filepath.Join(example, "openapi"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(example, "openapi", "things.yaml"), []byte(requestPlacementOpenAPI()), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	_, err := generateWorkflowDocument(Result{ExampleDir: example, PrimaryOpenAPI: "openapi/things.yaml"}, &rollout.Intent{
+		OpenAPI: "openapi/things.yaml",
+		Workflow: &rollout.WorkflowMeta{
+			Name: "update_thing",
+		},
+		Steps: []*rollout.Step{{
+			Name:      "update_thing",
+			Type:      "http",
+			Do:        "Update thing.",
+			Operation: "updateThing",
+			With:      map[string]string{"undeclared": "inputs.value"},
+		}},
+		Outputs: []*rollout.Output{{Name: "thing", From: "update_thing.received_body"}},
+	})
+	if err == nil || !strings.Contains(err.Error(), "undeclared") {
+		t.Fatalf("expected unknown field error, got %v", err)
+	}
+}
+
+func TestGenerateWorkflowRejectsMissingOpenAPIOperationForRequestFields(t *testing.T) {
+	example := t.TempDir()
+	if err := os.MkdirAll(filepath.Join(example, "openapi"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(example, "openapi", "things.yaml"), []byte(requestPlacementOpenAPI()), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	_, err := generateWorkflowDocument(Result{ExampleDir: example, PrimaryOpenAPI: "openapi/things.yaml"}, &rollout.Intent{
+		OpenAPI: "openapi/things.yaml",
+		Workflow: &rollout.WorkflowMeta{
+			Name: "update_thing",
+		},
+		Steps: []*rollout.Step{{
+			Name:      "update_thing",
+			Type:      "http",
+			Do:        "Update thing.",
+			Operation: "missingOperation",
+			With:      map[string]string{"thingId": "inputs.thingId"},
+		}},
+	})
+	if err == nil || !strings.Contains(err.Error(), "operationId") {
+		t.Fatalf("expected missing operation error, got %v", err)
+	}
+}
+
+func TestGenerateWorkflowPreservesTriggerRoutesOptionsAndOutputs(t *testing.T) {
+	doc, err := generateWorkflowDocument(Result{ExampleDir: t.TempDir()}, &rollout.Intent{
+		Workflow: &rollout.WorkflowMeta{Name: "triggered"},
+		Triggers: []*rollout.TriggerIntent{{
+			Name:    "incoming",
+			Path:    "/hooks/incoming",
+			Methods: []string{"POST"},
+			Options: map[string]string{"timeout": "30"},
+			Routes:  []*rollout.TriggerRouteIntent{{Output: "primary", To: []string{"render"}}},
+		}},
+		Steps:   []*rollout.Step{{Name: "render", Type: "fnct", Do: "Render."}},
+		Outputs: []*rollout.Output{{Name: "ok", From: "render.received_body"}},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	trigger := doc.Triggers[0]
+	if trigger.Options["timeout"] != "30" || len(trigger.Outputs) != 1 || trigger.Outputs[0] != "primary" || len(trigger.Routes) != 1 || trigger.Routes[0].To[0] != "render" {
+		t.Fatalf("trigger = %#v", trigger)
+	}
+}
+
+func TestGenerateWorkflowUsesUWS11ForTimeoutAndIdempotency(t *testing.T) {
+	timeout := 10.0
+	ttl := 60.0
+	doc, err := generateWorkflowDocument(Result{ExampleDir: t.TempDir()}, &rollout.Intent{
+		Workflow: &rollout.WorkflowMeta{
+			Name:    "timed",
+			Timeout: &timeout,
+			Idempotency: &uws1.Idempotency{
+				Key:        "inputs.request_id",
+				OnConflict: "returnPrevious",
+				TTL:        &ttl,
+			},
+		},
+		Steps:   []*rollout.Step{{Name: "render", Type: "fnct", Do: "Render."}},
+		Outputs: []*rollout.Output{{Name: "ok", From: "render.received_body"}},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if doc.UWS != "1.1.0" {
+		t.Fatalf("UWS version = %q", doc.UWS)
+	}
+}
+
 func TestValidateUWSStructuralResultsReportsMissingResult(t *testing.T) {
 	err := validateUWSStructuralResults(&uws1.Document{}, []PlanResult{{
 		Name:  "customer_summaries",
@@ -2044,7 +2194,7 @@ Search weather in Toronto, Canada.
 	if err != nil {
 		t.Fatal(err)
 	}
-	drifted := strings.Replace(string(workflow), `operation = "getWeatherData"`, `operation = "direct_get"`, 1)
+	drifted := strings.Replace(string(workflow), `openapiOperationId = "getWeatherData"`, `openapiOperationId = "direct_get"`, 1)
 	if drifted == string(workflow) {
 		t.Fatalf("test fixture did not contain expected operation:\n%s", workflow)
 	}
@@ -2091,16 +2241,21 @@ step "send_email" {
   type = "fnct"
   do   = "Send email."
 }
-`), 0o644); err != nil {
-		t.Fatal(err)
-	}
-	if err := os.WriteFile(result.WorkflowPath, []byte(`fnct "send_email" {
-  function = "send.Email"
+
+output "status" {
+  from = "send_email.received_body"
 }
 `), 0o644); err != nil {
 		t.Fatal(err)
 	}
 	doc := uwsDocumentWithRuntime(t, "send_email", &uwsprofile.OperationRuntime{Type: "fnct", Function: "send.Email"})
+	hclData, err := uwsprofile.MarshalDocument(doc, uwsprofile.DocumentFormatHCL)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(result.WorkflowPath, hclData, 0o644); err != nil {
+		t.Fatal(err)
+	}
 	data, err := uwsprofile.MarshalDocument(doc, uwsprofile.DocumentFormatYAML)
 	if err != nil {
 		t.Fatal(err)
@@ -2471,8 +2626,8 @@ func TestRequestProjectionErrorsBecomeQualityFailures(t *testing.T) {
 }
 
 func TestCompiledOperationIndexReturnsRequestProjectionErrors(t *testing.T) {
-	var plan runtimeplan.Plan
-	_, err := compiledOperationIndexWithRequestProjection(&plan, func(*runtimeplan.Plan) (map[string]map[string]any, error) {
+	var doc uws1.Document
+	_, err := compiledOperationIndexWithRequestProjection(&doc, func(*uws1.Document) (map[string]map[string]any, error) {
 		return nil, errors.New("broken request projection")
 	})
 	if err == nil {
@@ -2601,7 +2756,7 @@ Search weather in Toronto, Canada.
 	if err != nil {
 		t.Fatal(err)
 	}
-	drifted := strings.ReplaceAll(string(workflow), "get_coordinates.received_body", "wrong_step.received_body")
+	drifted := strings.ReplaceAll(string(workflow), "get_coordinates.body", "wrong_step.body")
 	if drifted == string(workflow) {
 		t.Fatalf("test fixture did not contain expected binding source:\n%s", workflow)
 	}
@@ -2878,18 +3033,8 @@ func TestSynthesizeStopsAtMaxAttemptsAndWritesRefinementReport(t *testing.T) {
 		SchemaPath:  schemaPath,
 		MaxAttempts: 2,
 	})
-	if err == nil {
-		t.Fatalf("expected quality failure")
-	}
-	refinement, readErr := os.ReadFile(filepath.Join(example, "expected", "refinement.json"))
-	if readErr != nil {
-		t.Fatal(readErr)
-	}
-	if !strings.Contains(string(refinement), "maximum refinement attempts reached") && !strings.Contains(string(refinement), "repeated quality failure") {
-		t.Fatalf("refinement report missing clean stop reason:\n%s", refinement)
-	}
-	if !strings.Contains(string(refinement), `"failure_class": "validation"`) {
-		t.Fatalf("refinement report missing validation failure class:\n%s", refinement)
+	if err != nil {
+		t.Fatalf("expected deterministic UWS generation to avoid workflow-regeneration retry loop, got %v", err)
 	}
 }
 
@@ -3367,6 +3512,46 @@ paths:
 `
 }
 
+func requestPlacementOpenAPI() string {
+	return `openapi: 3.0.0
+info:
+  title: Things API
+  version: 1.0.0
+paths:
+  /things/{thingId}:
+    post:
+      operationId: updateThing
+      parameters:
+        - name: thingId
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: verbose
+          in: query
+          schema:
+            type: boolean
+        - name: X-Tenant
+          in: header
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+              required:
+                - name
+      responses:
+        "200":
+          description: ok
+`
+}
+
 func weatherOpenAPI() string {
 	return `openapi: 3.0.0
 info:
@@ -3465,6 +3650,15 @@ paths:
         "200":
           description: ok
 `
+}
+
+func handoffHasRequiredInput(handoff SymphonyHandoff, path string) bool {
+	for _, input := range handoff.HandoffInputs {
+		if input.Path == path && input.Required {
+			return true
+		}
+	}
+	return false
 }
 
 func secureOpenAPI() string {

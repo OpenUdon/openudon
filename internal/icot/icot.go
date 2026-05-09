@@ -18,8 +18,8 @@ import (
 	"github.com/genelet/ramen/internal/icot/elicitor"
 	"github.com/genelet/ramen/internal/projectwizard"
 	"github.com/genelet/ramen/internal/synthesize"
-	"github.com/genelet/udon/pkg/rollout"
-	"github.com/genelet/udon/pkg/runner"
+	rollout "github.com/genelet/ramen/internal/workflowintent"
+	runner "github.com/genelet/ramen/internal/workflowintent"
 	"gopkg.in/yaml.v3"
 )
 

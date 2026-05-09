@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 
 	"github.com/genelet/ramen/internal/authoring"
+	"github.com/genelet/ramen/internal/packageartifacts"
 )
 
 const (
@@ -26,7 +27,10 @@ func writeSymphonyHandoff(result Result, policy projectPolicy, profile sideEffec
 	if err := ensureArtifactDirs(result); err != nil {
 		return err
 	}
-	manifest := buildSymphonyHandoff(result, policy, profile)
+	manifest, err := buildSymphonyHandoff(result, policy, profile)
+	if err != nil {
+		return err
+	}
 	data, err := json.MarshalIndent(manifest, "", "  ")
 	if err != nil {
 		return fmt.Errorf("marshal Symphony handoff: %w", err)
@@ -34,15 +38,19 @@ func writeSymphonyHandoff(result Result, policy projectPolicy, profile sideEffec
 	return os.WriteFile(result.SymphonyHandoffPath, append(data, '\n'), 0o644)
 }
 
-func buildSymphonyHandoff(result Result, policy projectPolicy, profile sideEffectProfile) SymphonyHandoff {
+func buildSymphonyHandoff(result Result, policy projectPolicy, profile sideEffectProfile) (SymphonyHandoff, error) {
 	bindingContract := authoring.BuildBindingContract(authoring.BindingContractOptions{
 		BindingNames:         credentialBindingNames(policy),
 		ExpectedBindingNames: expectedPlanCredentialNames(result.PlanJSONPath),
 	})
+	inputs, err := symphonyHandoffInputs(result)
+	if err != nil {
+		return SymphonyHandoff{}, err
+	}
 	return authoring.NewReviewHandoff(authoring.ReviewHandoffOptions{
 		Version:        symphonyHandoffVersion,
 		GeneratedState: string(authoring.ReviewStateGenerated),
-		HandoffInputs:  symphonyHandoffInputs(result),
+		HandoffInputs:  inputs,
 		ApprovalStates: authoring.DefaultReviewStateMachine(),
 		OwnerSplit: SymphonyOwnerSplit{
 			"ramen": {
@@ -64,22 +72,34 @@ func buildSymphonyHandoff(result Result, policy projectPolicy, profile sideEffec
 		ExecutionPolicy:    authoring.DefaultReviewExecutionPolicy(profile.SideEffectful),
 		CredentialBindings: bindingContract.ReviewCredentialBindings(),
 		TrustedRunner: SymphonyTrustedRunner{
-			Command:     fmt.Sprintf("./scripts/run-udon.sh %s %s", relOrAbs(filepath.Dir(result.ExampleDir), result.WorkflowPath), result.ExampleDir),
+			Command:     fmt.Sprintf("ramen run --example %s --tier sandbox --approval approvals/%s.json", relOrAbs(filepath.Dir(result.ExampleDir), result.ExampleDir), filepath.Base(result.ExampleDir)),
 			SandboxOnly: profile.SideEffectful,
 		},
-	})
+	}), nil
 }
 
-func symphonyHandoffInputs(result Result) []SymphonyHandoffInput {
-	return authoring.ReviewHandoffInputsFromArtifacts([]authoring.ReviewArtifactInput{
+func symphonyHandoffInputs(result Result) ([]SymphonyHandoffInput, error) {
+	artifacts := []authoring.ReviewArtifactInput{
 		{Path: relOrAbs(result.ExampleDir, result.ProjectPath), Purpose: "Source brief, integration policy, runtime policy, credentials policy, safety boundary, and fallback behavior.", Required: true},
 		{Path: relOrAbs(result.ExampleDir, result.IntentPath), Purpose: "Structured intent extracted from the project brief.", Required: true},
-		{Path: relOrAbs(result.ExampleDir, result.WorkflowPath), Purpose: "udon workflow source produced from intent.", Required: true},
-		{Path: relOrAbs(result.ExampleDir, result.UWSPath), Purpose: "Exported UWS artifact validated against the public UWS schema and udon profile checks.", Required: true},
+		{Path: relOrAbs(result.ExampleDir, result.WorkflowPath), Purpose: "Public UWS HCL document produced from intent.", Required: true},
+		{Path: relOrAbs(result.ExampleDir, result.UWSPath), Purpose: "Public UWS YAML artifact validated against the public UWS schema and local execution-profile checks.", Required: true},
 		{Path: relOrAbs(result.ExampleDir, result.PlanJSONPath), Purpose: "Machine-readable expected steps, bindings, credentials, control flow, and side-effect hints.", Required: true},
 		{Path: relOrAbs(result.ExampleDir, result.QualityJSONPath), Purpose: "Deterministic quality gate result.", Required: true},
 		{Path: relOrAbs(result.ExampleDir, result.RefinementJSONPath), Purpose: "Generation/refinement attempts, failed checks, and stop reason.", Required: true},
 		{Path: relOrAbs(result.ExampleDir, result.ReviewPath), Purpose: "Human review evidence, unresolved risks, skipped execution notes, and trusted-runner command text.", Required: true},
 		{Path: relOrAbs(result.ExampleDir, result.SymphonyHandoffPath), Purpose: "Machine-readable XRD-005 handoff manifest for Symphony work-item routing.", Required: true},
-	})
+	}
+	openAPIPaths, err := packageartifacts.CollectOpenAPIPaths(result.ExampleDir)
+	if err != nil {
+		return nil, err
+	}
+	for _, path := range openAPIPaths {
+		artifacts = append(artifacts, authoring.ReviewArtifactInput{
+			Path:     path,
+			Purpose:  "Reviewed OpenAPI contract staged with the trusted executor package.",
+			Required: true,
+		})
+	}
+	return authoring.ReviewHandoffInputsFromArtifacts(artifacts), nil
 }

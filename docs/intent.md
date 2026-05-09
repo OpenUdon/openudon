@@ -16,14 +16,14 @@ runtime behavior remains in `../udon`.
 project.md -> workflows/intent.hcl -> workflows/workflow.hcl -> workflows/workflow.uws.yaml
 ```
 
-Ramen accepts intent through the `github.com/genelet/udon/pkg/rollout.Intent` model and the
+Ramen accepts intent through its local `internal/workflowintent.Intent` model and the
 structured JSON schema embedded at `internal/synthesize/schemas/intent.schema.json`. `ramen build`
 parses an existing `workflows/intent.hcl`; `ramen synthesize` generates one from `project.md`,
 OpenAPI discovery, and project policy.
 
 Intent HCL parsing is delegated to udon's `rollout.ParseIntent` API. The canonical renderer is
 `runner.RenderIntentHCL`; generated workflow lowering uses `Intent.NormalizedForGeneration` before
-udon produces `workflow.hcl`. Ramen does not import udon's private HCL parser packages directly.
+Ramen produces `workflow.hcl` as public UWS HCL. Ramen does not import udon packages.
 
 ## Accuracy Profile
 
@@ -354,15 +354,18 @@ trigger "<name>" {
   path           = "/hooks/example"
   authentication = "scheme_name"
   methods        = ["POST"]
+  options        = { timeout = "30" }
+  outputs        = ["received"]
 
-  route "<output>" {
+  route "received" {
     to = ["step_name"]
   }
 }
 ```
 
-Triggers are accepted by the intent model, but most Ramen examples are synchronously invoked
-workflows without triggers.
+Triggers are accepted by the intent model, including route dispatch. When a route is present without
+an explicit `outputs` list, synthesis infers trigger outputs from the route labels for compatibility.
+Most Ramen examples are synchronously invoked workflows without triggers.
 
 ## Reference Grammar
 
@@ -590,8 +593,8 @@ path documented in Ramen safety and handoff artifacts.
 
 ## Reference Implementation
 
-- Go model and parser: `github.com/genelet/udon/pkg/rollout.Intent` and `rollout.ParseIntent`.
-- Canonical renderer: `github.com/genelet/udon/pkg/runner.RenderIntentHCL`.
+- Go model and parser: `internal/workflowintent.Intent` and `workflowintent.ParseIntent`.
+- Canonical renderer: `workflowintent.RenderIntentHCL`.
 - Generation normalizer: `Intent.NormalizedForGeneration`.
 - Structured generation schema: `internal/synthesize/schemas/intent.schema.json`.
 - Ramen validation: `ramen assess` quality checks under `internal/synthesize`.

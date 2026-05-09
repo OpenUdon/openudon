@@ -5,7 +5,7 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/genelet/udon/pkg/rollout"
+	rollout "github.com/genelet/ramen/internal/workflowintent"
 )
 
 const (

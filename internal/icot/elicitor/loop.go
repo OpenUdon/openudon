@@ -15,7 +15,7 @@ import (
 	"github.com/genelet/ramen/internal/authoring"
 	"github.com/genelet/ramen/internal/projectwizard"
 	"github.com/genelet/ramen/internal/workflowintent"
-	"github.com/genelet/udon/pkg/rollout"
+	rollout "github.com/genelet/ramen/internal/workflowintent"
 )
 
 type Options struct {

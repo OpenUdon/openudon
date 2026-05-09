@@ -6,7 +6,7 @@ import (
 	"strings"
 
 	"github.com/OpenUdon/uws/uws1"
-	"github.com/genelet/udon/pkg/rollout"
+	rollout "github.com/genelet/ramen/internal/workflowintent"
 )
 
 type CompareIssue struct {

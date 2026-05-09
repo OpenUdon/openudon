@@ -14,11 +14,13 @@ import (
 	"time"
 
 	"github.com/genelet/ramen/internal/authoring"
+	"github.com/genelet/ramen/internal/packageartifacts"
 	"github.com/genelet/ramen/internal/synthesize"
 )
 
 const (
 	ApprovalVersion        = "ramen.approval.v1"
+	RunConfigVersion       = "ramen.executor-run.v1"
 	SymphonyHandoffVersion = authoring.ReviewHandoffVersion
 	legacyHandoffVersion   = "ramen.symphony-handoff.v1"
 
@@ -70,8 +72,23 @@ type RunResult struct {
 	Tier          string
 	PackageSHA256 string
 	WorkflowPath  string
+	RunConfigPath string
 	WorkDir       string
 	DryRun        bool
+}
+
+type RunConfig struct {
+	Version             string   `json:"version"`
+	Scope               string   `json:"scope"`
+	Tier                string   `json:"tier"`
+	PackageRoot         string   `json:"package_root"`
+	WorkDir             string   `json:"workdir"`
+	WorkflowPath        string   `json:"workflow_path"`
+	WorkflowFormat      string   `json:"workflow_format"`
+	OpenAPIPaths        []string `json:"openapi_paths,omitempty"`
+	PackageSHA256       string   `json:"package_sha256"`
+	CredentialBindings  []string `json:"credential_bindings,omitempty"`
+	DirectProductionRun bool     `json:"direct_production_run"`
 }
 
 type paths struct {
@@ -115,13 +132,22 @@ func Run(ctx context.Context, opts Options) (*RunResult, error) {
 		Scope:         p.scope,
 		Tier:          opts.Tier,
 		PackageSHA256: digest,
-		WorkflowPath:  p.workflow,
+		WorkflowPath:  filepath.Join(p.exampleAbs, "workflows", "workflow.uws.yaml"),
 		WorkDir:       strings.TrimSpace(opts.WorkDir),
 		DryRun:        opts.DryRun,
 	}
 	if result.WorkDir == "" {
 		result.WorkDir = p.defaultWorkDir
 	}
+	runConfig, err := buildRunConfig(p, manifest, digest, opts.Tier, result.WorkDir)
+	if err != nil {
+		return nil, err
+	}
+	runConfigPath, err := writeRunConfig(runConfig)
+	if err != nil {
+		return nil, err
+	}
+	result.RunConfigPath = runConfigPath
 	if opts.DryRun {
 		return result, nil
 	}
@@ -130,10 +156,7 @@ func Run(ctx context.Context, opts Options) (*RunResult, error) {
 	if runnerPath == "" {
 		runnerPath = filepath.Join(p.repoRoot, "scripts", "run-udon.sh")
 	}
-	args := []string{p.workflow}
-	if result.WorkDir != "" {
-		args = append(args, result.WorkDir)
-	}
+	args := []string{"--config", runConfigPath}
 	runCommand := opts.RunCommand
 	if runCommand == nil {
 		runCommand = func(ctx context.Context, name string, args ...string) error {
@@ -145,9 +168,75 @@ func Run(ctx context.Context, opts Options) (*RunResult, error) {
 		}
 	}
 	if err := runCommand(ctx, runnerPath, args...); err != nil {
-		return nil, fmt.Errorf("run udon: %w", err)
+		return nil, fmt.Errorf("run trusted executor: %w", err)
 	}
 	return result, nil
+}
+
+func buildRunConfig(p paths, manifest handoffManifest, digest, tier, workdir string) (RunConfig, error) {
+	relOpenAPI, err := packageartifacts.CollectOpenAPIPaths(p.exampleAbs)
+	if err != nil {
+		return RunConfig{}, err
+	}
+	config := RunConfig{
+		Version:             RunConfigVersion,
+		Scope:               p.scope,
+		Tier:                tier,
+		PackageRoot:         p.exampleAbs,
+		WorkDir:             workdir,
+		WorkflowPath:        filepath.ToSlash(filepath.Join("workflows", "workflow.uws.yaml")),
+		WorkflowFormat:      "uws-yaml",
+		OpenAPIPaths:        relOpenAPI,
+		PackageSHA256:       digest,
+		CredentialBindings:  sortedCredentialBindings(manifest),
+		DirectProductionRun: false,
+	}
+	if config.WorkDir == "" {
+		config.WorkDir = p.defaultWorkDir
+	}
+	return config, nil
+}
+
+func writeRunConfig(config RunConfig) (string, error) {
+	if strings.TrimSpace(config.WorkDir) == "" {
+		return "", fmt.Errorf("run config workdir is required")
+	}
+	if err := os.MkdirAll(config.WorkDir, 0o755); err != nil {
+		return "", err
+	}
+	path := filepath.Join(config.WorkDir, "run-config.json")
+	data, err := json.MarshalIndent(config, "", "  ")
+	if err != nil {
+		return "", err
+	}
+	if err := os.WriteFile(path, append(data, '\n'), 0o600); err != nil {
+		return "", err
+	}
+	return path, nil
+}
+
+func sortedCredentialBindings(manifest handoffManifest) []string {
+	seen := map[string]bool{}
+	for _, binding := range append(append([]string(nil), manifest.CredentialBindings.Declared...), manifest.CredentialBindings.ExpectedFromPlan...) {
+		name := strings.TrimSpace(binding)
+		if name != "" {
+			seen[name] = true
+		}
+	}
+	out := make([]string, 0, len(seen))
+	for name := range seen {
+		out = append(out, name)
+	}
+	sort.Strings(out)
+	return out
+}
+
+func relOrAbs(base, path string) string {
+	rel, err := filepath.Rel(base, path)
+	if err != nil {
+		return path
+	}
+	return rel
 }
 
 func ApprovalTemplate(ctx context.Context, opts TemplateOptions) (Approval, error) {
@@ -306,6 +395,13 @@ func validateRequiredInputs(p paths, manifest handoffManifest) error {
 		"expected/refinement.json":       false,
 		"expected/review.md":             false,
 		"expected/symphony-handoff.json": false,
+	}
+	openAPIPaths, err := packageartifacts.CollectOpenAPIPaths(p.exampleAbs)
+	if err != nil {
+		return err
+	}
+	for _, path := range openAPIPaths {
+		required[path] = false
 	}
 	for _, input := range manifest.HandoffInputs {
 		if !input.Required {
