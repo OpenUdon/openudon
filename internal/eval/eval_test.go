@@ -8,9 +8,9 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/OpenUdon/uws/uws1"
 	"github.com/OpenUdon/openudon/internal/synthesize"
 	rollout "github.com/OpenUdon/openudon/internal/workflowintent"
+	"github.com/OpenUdon/uws/uws1"
 )
 
 type fakeRuntimeClient struct{}
@@ -247,14 +247,9 @@ output "report" {
 	if err := os.WriteFile(filepath.Join(example, "reference", "policy.json"), []byte(`{`), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	schemaPath, err := filepath.Abs(filepath.Join("..", "..", "..", "uws", "versions", "1.0.0.json"))
-	if err != nil {
-		t.Fatal(err)
-	}
 	result := RunOne(context.Background(), example, synthesize.Options{
 		LLMClient:  fakeRuntimeClient{},
 		ChatClient: fakeRuntimeClient{},
-		SchemaPath: schemaPath,
 	})
 	var found bool
 	for _, issue := range result.ReferenceIssues {
@@ -338,14 +333,9 @@ output "report" {
 `), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	schemaPath, err := filepath.Abs(filepath.Join("..", "..", "..", "uws", "versions", "1.0.0.json"))
-	if err != nil {
-		t.Fatal(err)
-	}
 	result := RunOne(context.Background(), example, synthesize.Options{
 		LLMClient:  fakeRuntimeClient{},
 		ChatClient: fakeRuntimeClient{},
-		SchemaPath: schemaPath,
 	})
 	if !result.Passed {
 		t.Fatalf("expected eval to pass: %#v", result)
