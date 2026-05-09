@@ -35,7 +35,7 @@ func main() {
 		fmt.Fprintf(flag.CommandLine.Output(), "  assess    assess existing example artifacts and write quality reports\n")
 		fmt.Fprintf(flag.CommandLine.Output(), "  approval-template print approval JSON for a validated handoff package\n")
 		fmt.Fprintf(flag.CommandLine.Output(), "  build     regenerate workflow/UWS from an existing intent.hcl\n")
-		fmt.Fprintf(flag.CommandLine.Output(), "  check-apitools-boundary verify OpenUdon only uses OpenAPI-owned apitools APIs\n")
+		fmt.Fprintf(flag.CommandLine.Output(), "  check-apitools-boundary verify OpenUdon repository boundaries\n")
 		fmt.Fprintf(flag.CommandLine.Output(), "  convert   generate draft review scaffolding from supported source formats\n")
 		fmt.Fprintf(flag.CommandLine.Output(), "  eval      run synthesis eval briefs and write pass/fail reports\n")
 		fmt.Fprintf(flag.CommandLine.Output(), "  promote   export/validate UWS from an existing workflow.hcl\n")
@@ -64,7 +64,7 @@ func main() {
 			fmt.Fprintln(os.Stderr, err)
 			os.Exit(1)
 		}
-		fmt.Println("openudon: apitools boundary check passed")
+		fmt.Println("openudon: repository boundary check passed")
 	case "convert":
 		runConvertCommand(flag.Args()[1:])
 	case "validate":

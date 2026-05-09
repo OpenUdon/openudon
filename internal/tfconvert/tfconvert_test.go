@@ -90,7 +90,7 @@ paths:
 		}
 	}
 	intent := readFileForTest(t, result.IntentPath)
-	for _, expected := range []string{"createAwsInstance", "getAwsAmi", "openapi/aws.yaml", "aws_west", "terraform_conversion_draft"} {
+	for _, expected := range []string{"createAwsInstance", "getAwsAmi", "openapi/aws.yaml", "aws_west", "terraform_conversion_draft", "body.terraform.ami", "body.terraform.name", "body.terraform.owners"} {
 		if !strings.Contains(intent, expected) {
 			t.Fatalf("intent missing %q:\n%s", expected, intent)
 		}
@@ -335,6 +335,75 @@ paths:
 	}
 }
 
+func TestConvertPrunesStaleStagedOpenAPIs(t *testing.T) {
+	root := t.TempDir()
+	configDir := filepath.Join(root, "tf")
+	firstOpenAPI := filepath.Join(root, "first.yaml")
+	secondOpenAPI := filepath.Join(root, "second.yaml")
+	outDir := filepath.Join(root, "out")
+	writeFileForTest(t, filepath.Join(configDir, "main.tf"), `
+resource "aws_instance" "web" {
+  name = "web"
+}
+`)
+	writeFileForTest(t, firstOpenAPI, `openapi: 3.0.0
+info:
+  title: First
+  version: v1
+paths:
+  /instances:
+    post:
+      operationId: createAwsInstance
+      responses:
+        "200":
+          description: ok
+`)
+	writeFileForTest(t, secondOpenAPI, `openapi: 3.0.0
+info:
+  title: Second
+  version: v1
+paths:
+  /instances:
+    post:
+      operationId: createAwsInstance
+      responses:
+        "200":
+          description: ok
+`)
+
+	if _, err := Convert(context.Background(), Options{
+		ConfigDir: configDir,
+		OpenAPIs:  []OpenAPIInput{{ID: "first", Path: firstOpenAPI}},
+		Action:    "create",
+		OutDir:    outDir,
+	}); err != nil {
+		t.Fatalf("first Convert returned error: %v", err)
+	}
+	if _, err := os.Stat(filepath.Join(outDir, "openapi", "first.yaml")); err != nil {
+		t.Fatalf("first staged OpenAPI was not written: %v", err)
+	}
+
+	result, err := Convert(context.Background(), Options{
+		ConfigDir: configDir,
+		OpenAPIs:  []OpenAPIInput{{ID: "second", Path: secondOpenAPI}},
+		Action:    "create",
+		OutDir:    outDir,
+	})
+	if err != nil {
+		t.Fatalf("second Convert returned error: %v", err)
+	}
+	if _, err := os.Stat(filepath.Join(outDir, "openapi", "first.yaml")); !os.IsNotExist(err) {
+		t.Fatalf("stale staged OpenAPI should have been pruned, stat err=%v", err)
+	}
+	handoff := readHandoffForTest(t, result.HandoffPath)
+	if handoffHasInputForTest(handoff, "openapi/first.yaml") {
+		t.Fatalf("handoff retained stale OpenAPI input: %#v", handoff.HandoffInputs)
+	}
+	if !handoffHasInputForTest(handoff, "openapi/second.yaml") {
+		t.Fatalf("handoff missing current OpenAPI input: %#v", handoff.HandoffInputs)
+	}
+}
+
 func TestConvertNamespacesDuplicateOperationIDsAcrossOpenAPIs(t *testing.T) {
 	root := t.TempDir()
 	configDir := filepath.Join(root, "tf")
@@ -399,6 +468,15 @@ func readHandoffForTest(t *testing.T, path string) authoring.ReviewHandoff {
 		t.Fatal(err)
 	}
 	return handoff
+}
+
+func handoffHasInputForTest(handoff authoring.ReviewHandoff, path string) bool {
+	for _, input := range handoff.HandoffInputs {
+		if input.Path == path {
+			return true
+		}
+	}
+	return false
 }
 
 func qualityHasCheck(report qualityReportForTest, code, status string) bool {

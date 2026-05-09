@@ -612,6 +612,9 @@ func writeArtifacts(result *Result, c conversionState) error {
 	if err := os.MkdirAll(filepath.Join(result.OutDir, "expected"), 0o755); err != nil {
 		return err
 	}
+	if err := resetOpenAPIStagingDir(result.OutDir); err != nil {
+		return err
+	}
 	if err := copyOpenAPIDocuments(result.OutDir, c.openAPIs); err != nil {
 		return err
 	}
@@ -644,6 +647,14 @@ func writeFile(path, content string) error {
 		return err
 	}
 	return os.WriteFile(path, []byte(content), 0o644)
+}
+
+func resetOpenAPIStagingDir(outDir string) error {
+	openAPIDir := filepath.Join(outDir, "openapi")
+	if err := os.RemoveAll(openAPIDir); err != nil {
+		return fmt.Errorf("reset staged OpenAPI directory: %w", err)
+	}
+	return nil
 }
 
 func copyOpenAPIDocuments(outDir string, docs []apiDoc) error {
@@ -810,9 +821,6 @@ func renderIntent(c conversionState) (string, error) {
 		}
 		intent.Inputs = append(intent.Inputs, input)
 	}
-	if len(intent.Locals) == 0 {
-		intent.Locals = nil
-	}
 	for _, binding := range c.bindings {
 		intent.Security = append(intent.Security, &workflowintent.SecurityIntent{
 			Name:        binding.Name,
@@ -832,7 +840,21 @@ func renderIntent(c conversionState) (string, error) {
 		if step.Operation == "" {
 			step.Operation = mapping.TodoID
 		}
+		for _, attr := range mapping.Object.Config {
+			if strings.TrimSpace(attr.Path) == "" {
+				continue
+			}
+			localName := normalizeName(mapping.Object.Address + "_" + mapping.Purpose + "_" + attr.Path)
+			intent.Locals[localName] = attr.Value
+			if step.With == nil {
+				step.With = map[string]string{}
+			}
+			step.With[terraformAttributeReviewKey(attr.Path)] = localName
+		}
 		intent.Steps = append(intent.Steps, step)
+	}
+	if len(intent.Locals) == 0 {
+		intent.Locals = nil
 	}
 	sort.Slice(intent.Inputs, func(i, j int) bool { return intent.Inputs[i].Name < intent.Inputs[j].Name })
 	sort.Slice(intent.Security, func(i, j int) bool { return intent.Security[i].Name < intent.Security[j].Name })
@@ -991,6 +1013,14 @@ func sensitiveCandidatePath(value tfconfig.Value) string {
 
 func todoID(address, purpose, action string) string {
 	return "todo." + normalizeName(address) + "." + normalizeName(purpose) + "." + normalizeName(action)
+}
+
+func terraformAttributeReviewKey(path string) string {
+	path = strings.Trim(strings.TrimSpace(path), ".")
+	if path == "" {
+		return ""
+	}
+	return "body.terraform." + path
 }
 
 func validAction(action string) bool {

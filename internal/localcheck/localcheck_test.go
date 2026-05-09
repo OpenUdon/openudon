@@ -35,6 +35,35 @@ import "github.com/OpenUdon/apitools/llm"
 	}
 }
 
+func TestCheckAPIToolsBoundaryRejectsOpenTofuInternals(t *testing.T) {
+	root := t.TempDir()
+	writeFile(t, filepath.Join(root, "internal", "bad.go"), []byte(`package bad
+
+import "github.com/opentofu/opentofu/internal/configs"
+
+var _ configs.Config
+`))
+
+	err := CheckAPIToolsBoundary(root)
+	if err == nil || !strings.Contains(err.Error(), "opentofu/opentofu/internal/configs") {
+		t.Fatalf("expected blocked OpenTofu import failure, got %v", err)
+	}
+}
+
+func TestCheckAPIToolsBoundaryAllowsPublicTFConfigPackage(t *testing.T) {
+	root := t.TempDir()
+	writeFile(t, filepath.Join(root, "internal", "ok.go"), []byte(`package ok
+
+import "github.com/OpenUdon/tfconfig"
+
+var _ tfconfig.Document
+`))
+
+	if err := CheckAPIToolsBoundary(root); err != nil {
+		t.Fatalf("CheckAPIToolsBoundary returned error for public tfconfig import: %v", err)
+	}
+}
+
 func TestCheckAPIToolsBoundaryIgnoresGitIgnoredFiles(t *testing.T) {
 	root := t.TempDir()
 	runGit(t, root, "init")
