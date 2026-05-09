@@ -165,6 +165,94 @@ paths:
 	}
 }
 
+func TestConvertAWSProviderS3SingleOpenAPICorpus(t *testing.T) {
+	tests := []struct {
+		name                  string
+		config                string
+		expectedOperations    []string
+		unexpectedDiagnostics []string
+	}{
+		{
+			name: "bucket accelerate configuration",
+			config: `
+resource "aws_s3_bucket" "test" {
+  bucket = "tf-acc-openudon-bucket"
+}
+
+resource "aws_s3_bucket_accelerate_configuration" "test" {
+  bucket = aws_s3_bucket.test.bucket
+  status = "Enabled"
+}
+`,
+			expectedOperations: []string{"CreateBucket", "PutBucketAccelerateConfiguration"},
+			unexpectedDiagnostics: []string{
+				"operation.ambiguous",
+				"operation.unresolved",
+			},
+		},
+		{
+			name: "bucket data source",
+			config: `
+resource "aws_s3_bucket" "test" {
+  bucket = "tf-acc-openudon-bucket-ds"
+}
+
+data "aws_s3_bucket" "test" {
+  bucket = aws_s3_bucket.test.id
+}
+`,
+			expectedOperations: []string{"CreateBucket", "GetBucketLocation"},
+			unexpectedDiagnostics: []string{
+				"operation.ambiguous",
+				"operation.unresolved",
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			root := t.TempDir()
+			configDir := filepath.Join(root, "tf")
+			openAPIPath := filepath.Join(root, "s3.yaml")
+			writeFileForTest(t, filepath.Join(configDir, "main.tf"), tt.config)
+			writeFileForTest(t, openAPIPath, s3OpenAPIForTest())
+
+			result, err := Convert(context.Background(), Options{
+				ConfigDir: configDir,
+				OpenAPIs:  []OpenAPIInput{{ID: "s3", Path: openAPIPath}},
+				Action:    "create",
+				OutDir:    filepath.Join(root, "out"),
+			})
+			if err != nil {
+				t.Fatalf("Convert returned error: %v", err)
+			}
+			for _, code := range tt.unexpectedDiagnostics {
+				if hasDiagnostic(result.Diagnostics, code) {
+					t.Fatalf("diagnostics should not contain %s: %#v", code, result.Diagnostics)
+				}
+			}
+			intent := readFileForTest(t, result.IntentPath)
+			workflow := readFileForTest(t, result.WorkflowPath)
+			for _, operationID := range tt.expectedOperations {
+				if !strings.Contains(intent, operationID) || !strings.Contains(workflow, operationID) {
+					t.Fatalf("expected operation %q in intent and workflow\nintent:\n%s\nworkflow:\n%s", operationID, intent, workflow)
+				}
+			}
+			for _, text := range []string{intent, workflow, readFileForTest(t, result.ReviewPath)} {
+				if strings.Contains(text, "todo.") {
+					t.Fatalf("known S3 corpus case should not emit operation TODOs:\n%s", text)
+				}
+			}
+			quality := readQualityForTest(t, result.QualityJSONPath)
+			for _, code := range []string{"intent.openapi_operations", "conversion.diagnostics"} {
+				if qualityHasCheck(quality, code, "fail") {
+					t.Fatalf("quality should not fail %s after S3 operation mapping: %#v", code, quality.Checks)
+				}
+			}
+		})
+	}
+}
+
 func TestConvertRedactsSensitiveCandidate(t *testing.T) {
 	root := t.TempDir()
 	configDir := filepath.Join(root, "tf")
@@ -615,4 +703,77 @@ func readFileForTest(t *testing.T, path string) string {
 		t.Fatal(err)
 	}
 	return string(data)
+}
+
+func s3OpenAPIForTest() string {
+	return `openapi: 3.0.0
+info:
+  title: Amazon Simple Storage Service
+  version: "2006-03-01"
+paths:
+  /:
+    get:
+      operationId: ListBuckets
+      responses:
+        "200":
+          description: ok
+  /{Bucket}:
+    put:
+      operationId: CreateBucket
+      parameters:
+        - name: Bucket
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: ok
+    head:
+      operationId: HeadBucket
+      parameters:
+        - name: Bucket
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: ok
+  /{Bucket}#accelerate:
+    get:
+      operationId: GetBucketAccelerateConfiguration
+      parameters:
+        - name: Bucket
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: ok
+    put:
+      operationId: PutBucketAccelerateConfiguration
+      parameters:
+        - name: Bucket
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: ok
+  /{Bucket}#location:
+    get:
+      operationId: GetBucketLocation
+      parameters:
+        - name: Bucket
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: ok
+`
 }

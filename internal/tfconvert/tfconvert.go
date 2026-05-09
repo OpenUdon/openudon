@@ -481,8 +481,21 @@ func (c *conversionState) mapObjects() {
 
 func (c *conversionState) mapObjectPurpose(obj selectedObject, purpose, action string) bool {
 	candidates := c.operationCandidates()
+	provider := objectProviderLocalName(obj)
+	if operationID := awsOperationIDForObject(obj, purpose, action); operationID != "" {
+		if operation, ok := findOperationByID(candidates, operationID); ok {
+			mapping := objectMapping{Object: obj, Purpose: purpose, Action: action}
+			doc := openAPIForOperation(c.openAPIs, operation)
+			mapping.OpenAPIID = firstNonEmpty(operation.DocumentName, doc.ID)
+			mapping.OpenAPIPath = doc.PackagePath
+			mapping.OperationID = operation.OperationID
+			mapping.Auth = apitools.AuthRequirementsForOperation(provider, operation)
+			c.mappings = append(c.mappings, mapping)
+			return true
+		}
+	}
 	selection := apitools.SelectOperationByHints(apitools.OperationSelectionHints{
-		Provider: providerLocalName(obj.Provider),
+		Provider: provider,
 		Purpose:  purpose,
 		Target:   strings.Join([]string{obj.Address, obj.Type, obj.Name}, " "),
 	}, candidates)
@@ -493,7 +506,7 @@ func (c *conversionState) mapObjectPurpose(obj selectedObject, purpose, action s
 		mapping.OpenAPIID = firstNonEmpty(selection.Operation.DocumentName, doc.ID)
 		mapping.OpenAPIPath = doc.PackagePath
 		mapping.OperationID = selection.Operation.OperationID
-		mapping.Auth = apitools.AuthRequirementsForOperation(providerLocalName(obj.Provider), selection.Operation)
+		mapping.Auth = apitools.AuthRequirementsForOperation(provider, selection.Operation)
 		c.mappings = append(c.mappings, mapping)
 		return true
 	case selection.Ambiguous:
@@ -526,6 +539,15 @@ func (c *conversionState) mapObjectPurpose(obj selectedObject, purpose, action s
 	}
 	c.mappings = append(c.mappings, mapping)
 	return false
+}
+
+func findOperationByID(candidates []apitools.OperationSummary, operationID string) (apitools.OperationSummary, bool) {
+	for _, candidate := range candidates {
+		if candidate.OperationID == operationID {
+			return candidate, true
+		}
+	}
+	return apitools.OperationSummary{}, false
 }
 
 func (c *conversionState) operationCandidates() []apitools.OperationSummary {
@@ -996,6 +1018,41 @@ func providerLocalName(address string) string {
 		return head
 	}
 	return address
+}
+
+func objectProviderLocalName(obj selectedObject) string {
+	if provider := providerLocalName(obj.Provider); provider != "" {
+		return provider
+	}
+	if provider, _, ok := strings.Cut(strings.TrimSpace(obj.Type), "_"); ok {
+		return provider
+	}
+	return ""
+}
+
+func awsOperationIDForObject(obj selectedObject, purpose, action string) string {
+	if objectProviderLocalName(obj) != "aws" {
+		return ""
+	}
+	purpose = strings.ToLower(strings.TrimSpace(purpose))
+	action = strings.ToLower(strings.TrimSpace(action))
+	switch obj.Type {
+	case "aws_s3_bucket":
+		if obj.Kind == "resource" && purpose == "create" && (action == "create" || action == "replace") {
+			return "CreateBucket"
+		}
+		if obj.Kind == "data_source" && purpose == "read" {
+			return "GetBucketLocation"
+		}
+		if obj.Kind == "data_source" && purpose == "list" {
+			return "ListBuckets"
+		}
+	case "aws_s3_bucket_accelerate_configuration":
+		if obj.Kind == "resource" && purpose == "create" && (action == "create" || action == "replace") {
+			return "PutBucketAccelerateConfiguration"
+		}
+	}
+	return ""
 }
 
 func normalizeBindingName(address string) string {
