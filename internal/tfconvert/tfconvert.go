@@ -488,7 +488,7 @@ func isProviderLocalDataSource(obj selectedObject) bool {
 		return false
 	}
 	switch obj.Type {
-	case "aws_iam_policy_document", "aws_partition", "aws_region", "aws_caller_identity":
+	case "aws_iam_policy_document", "aws_partition", "aws_region":
 		return true
 	default:
 		return false
@@ -962,6 +962,14 @@ func renderIntent(c conversionState) (string, error) {
 				step.With[requestKey] = localName
 			}
 		}
+		for requestKey, value := range awsQueryProtocolStaticBindings(mapping) {
+			if step.With == nil {
+				step.With = map[string]string{}
+			}
+			if strings.TrimSpace(step.With[requestKey]) == "" {
+				step.With[requestKey] = value
+			}
+		}
 		for _, auth := range mapping.Auth {
 			bindingName := credentialBindingName(mapping.Object, auth)
 			if bindingName == "" {
@@ -1112,6 +1120,10 @@ func awsOperationIDForObject(obj selectedObject, purpose, action string) string 
 		if obj.Kind == "resource" && purpose == "create" && (action == "create" || action == "replace") {
 			return "PutBucketAccelerateConfiguration"
 		}
+	case "aws_caller_identity":
+		if obj.Kind == "data_source" && purpose == "read" {
+			return "POST_GetCallerIdentity"
+		}
 	case "aws_iam_role":
 		if obj.Kind == "resource" && purpose == "create" && (action == "create" || action == "replace") {
 			return "POST_CreateRole"
@@ -1147,6 +1159,43 @@ func awsOperationIDForObject(obj selectedObject, purpose, action string) string 
 	return ""
 }
 
+func awsQueryProtocolStaticBindings(mapping objectMapping) map[string]string {
+	if objectProviderLocalName(mapping.Object) != "aws" {
+		return nil
+	}
+	action := awsQueryProtocolAction(mapping.OperationID)
+	version := awsQueryProtocolVersion(mapping.OpenAPIID, mapping.OpenAPIPath)
+	if action == "" || version == "" {
+		return nil
+	}
+	return map[string]string{
+		"Action":  action,
+		"Version": version,
+	}
+}
+
+func awsQueryProtocolAction(operationID string) string {
+	operationID = strings.TrimSpace(operationID)
+	for _, prefix := range []string{"GET_", "POST_"} {
+		if strings.HasPrefix(operationID, prefix) {
+			return strings.TrimSpace(strings.TrimPrefix(operationID, prefix))
+		}
+	}
+	return ""
+}
+
+func awsQueryProtocolVersion(openAPIID, openAPIPath string) string {
+	normalized := strings.ToLower(strings.Join([]string{openAPIID, openAPIPath}, " "))
+	switch {
+	case strings.Contains(normalized, "iam"):
+		return "2010-05-08"
+	case strings.Contains(normalized, "sts"):
+		return "2011-06-15"
+	default:
+		return ""
+	}
+}
+
 func terraformOpenAPIRequestKeys(mapping objectMapping, attrPath string) []string {
 	attrPath = strings.TrimSpace(attrPath)
 	if attrPath == "" {
@@ -1168,15 +1217,22 @@ func credentialBindingName(obj selectedObject, auth apitools.AuthRequirementSumm
 	if auth.Kind != "aws_signature" {
 		return ""
 	}
-	provider := firstNonEmpty(objectProviderLocalName(obj), "aws")
+	provider := credentialProviderName(obj)
 	scheme := firstNonEmpty(auth.Scheme, "sigv4")
 	return normalizeName(provider + "_" + scheme)
 }
 
 func credentialBindingAddress(obj selectedObject, auth apitools.AuthRequirementSummary) string {
-	provider := firstNonEmpty(objectProviderLocalName(obj), "aws")
+	provider := strings.TrimPrefix(firstNonEmpty(strings.TrimSpace(obj.Provider), "provider."+credentialProviderName(obj)), "provider.")
 	scheme := firstNonEmpty(auth.Scheme, "sigv4")
 	return "provider." + provider + "." + scheme
+}
+
+func credentialProviderName(obj selectedObject) string {
+	if binding := strings.TrimSpace(obj.Binding); binding != "" && binding != "default" {
+		return binding
+	}
+	return firstNonEmpty(objectProviderLocalName(obj), "aws")
 }
 
 func credentialRequestKeys(auth apitools.AuthRequirementSummary) []string {

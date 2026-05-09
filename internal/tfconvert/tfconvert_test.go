@@ -342,6 +342,11 @@ resource "aws_lambda_function_url" "test" {
 		"openapi/iam.yaml",
 		"openapi/lambda.yaml",
 		"aws_hmac",
+		"Action",
+		"Version",
+		"CreateRole",
+		"PutRolePolicy",
+		"2010-05-08",
 	} {
 		if !strings.Contains(intent, expected) || !strings.Contains(workflow, expected) {
 			t.Fatalf("expected %q in intent and workflow\nintent:\n%s\nworkflow:\n%s", expected, intent, workflow)
@@ -363,6 +368,80 @@ resource "aws_lambda_function_url" "test" {
 		if qualityHasCheck(quality, code, "fail") {
 			t.Fatalf("quality should not fail %s after AWS multi-document mapping: %#v", code, quality.Checks)
 		}
+	}
+}
+
+func TestConvertAWSCredentialBindingPreservesProviderAlias(t *testing.T) {
+	root := t.TempDir()
+	configDir := filepath.Join(root, "tf")
+	openAPIPath := filepath.Join(root, "s3.yaml")
+	writeFileForTest(t, filepath.Join(configDir, "main.tf"), `
+provider "aws" {
+  alias  = "west"
+  region = "us-west-2"
+}
+
+resource "aws_s3_bucket" "test" {
+  provider = aws.west
+  bucket   = "tf-acc-openudon-alias"
+}
+`)
+	writeFileForTest(t, openAPIPath, s3OpenAPIWithHMACForTest())
+
+	result, err := Convert(context.Background(), Options{
+		ConfigDir: configDir,
+		OpenAPIs:  []OpenAPIInput{{ID: "s3", Path: openAPIPath}},
+		Action:    "create",
+		OutDir:    filepath.Join(root, "out"),
+		Strict:    true,
+	})
+	if err != nil {
+		t.Fatalf("Convert returned error: %v", err)
+	}
+	intent := readFileForTest(t, result.IntentPath)
+	workflow := readFileForTest(t, result.WorkflowPath)
+	project := readFileForTest(t, result.ProjectPath)
+	for _, expected := range []string{"aws_west_hmac", "aws_west"} {
+		if !strings.Contains(intent, expected) || !strings.Contains(workflow, expected) || !strings.Contains(project, expected) {
+			t.Fatalf("expected aliased credential binding %q\nintent:\n%s\nworkflow:\n%s\nproject:\n%s", expected, intent, workflow, project)
+		}
+	}
+	if strings.Contains(workflow, `Authorization = "aws_hmac"`) {
+		t.Fatalf("workflow collapsed aliased AWS credential to default aws_hmac:\n%s", workflow)
+	}
+}
+
+func TestConvertAWSCallerIdentityDataSourceUsesSTS(t *testing.T) {
+	root := t.TempDir()
+	configDir := filepath.Join(root, "tf")
+	stsOpenAPI := filepath.Join(root, "sts.yaml")
+	writeFileForTest(t, filepath.Join(configDir, "main.tf"), `
+data "aws_caller_identity" "current" {}
+`)
+	writeFileForTest(t, stsOpenAPI, stsOpenAPIForTest())
+
+	result, err := Convert(context.Background(), Options{
+		ConfigDir: configDir,
+		OpenAPIs:  []OpenAPIInput{{ID: "sts", Path: stsOpenAPI}},
+		OutDir:    filepath.Join(root, "out"),
+		Strict:    true,
+	})
+	if err != nil {
+		t.Fatalf("Convert returned error: %v", err)
+	}
+	if hasDiagnostic(result.Diagnostics, "operation.ambiguous") || hasDiagnostic(result.Diagnostics, "operation.unresolved") {
+		t.Fatalf("caller identity should map to STS without operation diagnostics: %#v", result.Diagnostics)
+	}
+	intent := readFileForTest(t, result.IntentPath)
+	workflow := readFileForTest(t, result.WorkflowPath)
+	for _, expected := range []string{"POST_GetCallerIdentity", "openapi/sts.yaml", "GetCallerIdentity", "2011-06-15", "aws_hmac"} {
+		if !strings.Contains(intent, expected) || !strings.Contains(workflow, expected) {
+			t.Fatalf("expected %q in caller identity intent and workflow\nintent:\n%s\nworkflow:\n%s", expected, intent, workflow)
+		}
+	}
+	project := readFileForTest(t, result.ProjectPath)
+	if strings.Contains(project, "data.aws_caller_identity.current` is provider-local metadata") {
+		t.Fatalf("caller identity should not be classified as provider-local metadata:\n%s", project)
 	}
 }
 
@@ -891,6 +970,19 @@ paths:
 `
 }
 
+func s3OpenAPIWithHMACForTest() string {
+	return strings.Replace(s3OpenAPIForTest(), "paths:\n", `security:
+  - hmac: []
+paths:
+`, 1) + `components:
+  securitySchemes:
+    hmac:
+      type: apiKey
+      name: Authorization
+      in: header
+`
+}
+
 func iamOpenAPIForTest() string {
 	return `openapi: 3.0.0
 info:
@@ -899,15 +991,41 @@ info:
 security:
   - hmac: []
 paths:
-  /create-role:
+  /#Action=CreateRole:
     post:
       operationId: POST_CreateRole
+      parameters:
+        - name: Action
+          in: query
+          required: true
+          schema:
+            type: string
+            enum: [CreateRole]
+        - name: Version
+          in: query
+          required: true
+          schema:
+            type: string
+            enum: ["2010-05-08"]
       responses:
         "200":
           description: ok
-  /put-role-policy:
+  /#Action=PutRolePolicy:
     post:
       operationId: POST_PutRolePolicy
+      parameters:
+        - name: Action
+          in: query
+          required: true
+          schema:
+            type: string
+            enum: [PutRolePolicy]
+        - name: Version
+          in: query
+          required: true
+          schema:
+            type: string
+            enum: ["2010-05-08"]
       responses:
         "200":
           description: ok
@@ -988,6 +1106,25 @@ paths:
   /assume-role:
     post:
       operationId: POST_AssumeRole
+      responses:
+        "200":
+          description: ok
+  /#Action=GetCallerIdentity:
+    post:
+      operationId: POST_GetCallerIdentity
+      parameters:
+        - name: Action
+          in: query
+          required: true
+          schema:
+            type: string
+            enum: [GetCallerIdentity]
+        - name: Version
+          in: query
+          required: true
+          schema:
+            type: string
+            enum: ["2011-06-15"]
       responses:
         "200":
           description: ok
