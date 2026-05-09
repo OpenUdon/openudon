@@ -172,6 +172,9 @@ func TestConvertRedactsSensitiveCandidate(t *testing.T) {
 	writeFileForTest(t, filepath.Join(configDir, "main.tf"), `
 resource "example_secret" "main" {
   api_token = "do-not-emit"
+  config = {
+    password = "nested-secret-do-not-emit"
+  }
 }
 `)
 	writeFileForTest(t, openAPIPath, `openapi: 3.0.0
@@ -197,12 +200,110 @@ paths:
 		t.Fatalf("Convert returned error: %v", err)
 	}
 	for _, path := range []string{result.ProjectPath, result.IntentPath, result.DiagnosticsJSON, result.DiagnosticsMD, result.ReviewPath} {
-		if text := readFileForTest(t, path); strings.Contains(text, "do-not-emit") {
-			t.Fatalf("%s leaked sensitive literal:\n%s", path, text)
+		text := readFileForTest(t, path)
+		for _, leaked := range []string{"do-not-emit", "nested-secret-do-not-emit"} {
+			if strings.Contains(text, leaked) {
+				t.Fatalf("%s leaked sensitive literal %q:\n%s", path, leaked, text)
+			}
 		}
 	}
 	if !hasDiagnostic(result.Diagnostics, "redaction.review_required") {
 		t.Fatalf("diagnostics missing redaction review: %#v", result.Diagnostics)
+	}
+}
+
+func TestConvertRejectsOpenAPIInputInsideStagingDir(t *testing.T) {
+	root := t.TempDir()
+	configDir := filepath.Join(root, "tf")
+	openAPIPath := filepath.Join(root, "openapi", "app.yaml")
+	writeFileForTest(t, filepath.Join(configDir, "main.tf"), `
+resource "example_resource" "main" {
+  name = "web"
+}
+`)
+	writeFileForTest(t, openAPIPath, `openapi: 3.0.0
+info:
+  title: Staging Safety
+  version: v1
+paths:
+  /resources:
+    post:
+      operationId: createExampleResource
+      responses:
+        "200":
+          description: ok
+`)
+
+	_, err := Convert(context.Background(), Options{
+		ConfigDir: configDir,
+		OpenAPIs:  []OpenAPIInput{{ID: "app", Path: openAPIPath}},
+		Action:    "create",
+		OutDir:    root,
+	})
+	if err == nil {
+		t.Fatal("Convert returned nil error for OpenAPI input inside staging directory")
+	}
+	if !strings.Contains(err.Error(), "staging directory") {
+		t.Fatalf("error did not describe staging overlap: %v", err)
+	}
+	if text := readFileForTest(t, openAPIPath); !strings.Contains(text, "Staging Safety") {
+		t.Fatalf("OpenAPI source was modified or deleted:\n%s", text)
+	}
+}
+
+func TestConvertDiagnosesOpenAPIPackagePathCollision(t *testing.T) {
+	root := t.TempDir()
+	configDir := filepath.Join(root, "tf")
+	firstOpenAPIPath := filepath.Join(root, "first.yaml")
+	secondOpenAPIPath := filepath.Join(root, "second.yaml")
+	writeFileForTest(t, filepath.Join(configDir, "main.tf"), `
+resource "example_resource" "main" {
+  name = "web"
+}
+`)
+	writeFileForTest(t, firstOpenAPIPath, `openapi: 3.0.0
+info:
+  title: First
+  version: v1
+paths:
+  /resources:
+    post:
+      operationId: createExampleResource
+      responses:
+        "200":
+          description: ok
+`)
+	writeFileForTest(t, secondOpenAPIPath, `openapi: 3.0.0
+info:
+  title: Second
+  version: v1
+paths:
+  /other:
+    post:
+      operationId: createOther
+      responses:
+        "200":
+          description: ok
+`)
+
+	result, err := Convert(context.Background(), Options{
+		ConfigDir: configDir,
+		OpenAPIs: []OpenAPIInput{
+			{ID: "a-b", Path: firstOpenAPIPath},
+			{ID: "a_b", Path: secondOpenAPIPath},
+		},
+		Action: "create",
+		OutDir: filepath.Join(root, "out"),
+		Strict: true,
+	})
+	if !IsStrictFailure(err) {
+		t.Fatalf("Convert error = %v, want strict failure", err)
+	}
+	if result == nil || !hasDiagnostic(result.Diagnostics, "openapi.package_path_collision") {
+		t.Fatalf("diagnostics missing package path collision: result=%#v", result)
+	}
+	if staged := readFileForTest(t, filepath.Join(result.OutDir, "openapi", "a_b.yaml")); !strings.Contains(staged, "First") || strings.Contains(staged, "Second") {
+		t.Fatalf("staged OpenAPI was overwritten:\n%s", staged)
 	}
 }
 

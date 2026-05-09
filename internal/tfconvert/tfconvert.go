@@ -270,6 +270,7 @@ func (c *conversionState) loadOpenAPIs(ctx context.Context) {
 		return
 	}
 	seen := map[string]bool{}
+	seenPackagePaths := map[string]string{}
 	for _, input := range c.opts.OpenAPIs {
 		switch {
 		case input.ID == "":
@@ -283,6 +284,17 @@ func (c *conversionState) loadOpenAPIs(ctx context.Context) {
 			continue
 		}
 		seen[input.ID] = true
+		packagePath := packageOpenAPIPath(input.ID, input.Path)
+		if previousID, ok := seenPackagePaths[packagePath]; ok {
+			c.addDiagnostic(Diagnostic{
+				Code:          "openapi.package_path_collision",
+				Severity:      "error",
+				Message:       fmt.Sprintf("OpenAPI IDs %q and %q both stage to %q", previousID, input.ID, packagePath),
+				StrictFailure: true,
+			})
+			continue
+		}
+		seenPackagePaths[packagePath] = input.ID
 		inventory, err := apitools.BuildOperationInventory(ctx, apitools.InventoryOptions{
 			Documents: []apitools.InventoryDocument{{Name: input.ID, Path: input.Path}},
 		})
@@ -304,7 +316,7 @@ func (c *conversionState) loadOpenAPIs(ctx context.Context) {
 			c.addDiagnostic(Diagnostic{Code: "openapi.index_error", Severity: "error", Message: fmt.Sprintf("%s: %v", input.ID, err), StrictFailure: true})
 			continue
 		}
-		c.openAPIs = append(c.openAPIs, apiDoc{ID: input.ID, Path: input.Path, PackagePath: packageOpenAPIPath(input.ID, input.Path), Index: index})
+		c.openAPIs = append(c.openAPIs, apiDoc{ID: input.ID, Path: input.Path, PackagePath: packagePath, Index: index})
 	}
 }
 
@@ -606,6 +618,9 @@ func (c *conversionState) sortAll() {
 }
 
 func writeArtifacts(result *Result, c conversionState) error {
+	if err := validateOpenAPIStagingSafety(result.OutDir, c.openAPIs); err != nil {
+		return err
+	}
 	if err := os.MkdirAll(filepath.Join(result.OutDir, "workflows"), 0o755); err != nil {
 		return err
 	}
@@ -655,6 +670,33 @@ func resetOpenAPIStagingDir(outDir string) error {
 		return fmt.Errorf("reset staged OpenAPI directory: %w", err)
 	}
 	return nil
+}
+
+func validateOpenAPIStagingSafety(outDir string, docs []apiDoc) error {
+	stagingDir, err := filepath.Abs(filepath.Join(outDir, "openapi"))
+	if err != nil {
+		return err
+	}
+	stagingDir = filepath.Clean(stagingDir)
+	for _, doc := range docs {
+		sourcePath, err := filepath.Abs(doc.Path)
+		if err != nil {
+			return fmt.Errorf("resolve OpenAPI %s source path: %w", doc.ID, err)
+		}
+		sourcePath = filepath.Clean(sourcePath)
+		if pathWithin(sourcePath, stagingDir) {
+			return fmt.Errorf("stage OpenAPI %s: source %s is inside generated OpenAPI staging directory %s; choose an --out directory outside OpenAPI inputs", doc.ID, sourcePath, stagingDir)
+		}
+	}
+	return nil
+}
+
+func pathWithin(path, dir string) bool {
+	rel, err := filepath.Rel(dir, path)
+	if err != nil {
+		return false
+	}
+	return rel == "." || (rel != ".." && !strings.HasPrefix(rel, ".."+string(filepath.Separator)))
 }
 
 func copyOpenAPIDocuments(outDir string, docs []apiDoc) error {

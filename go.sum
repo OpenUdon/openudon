@@ -4,8 +4,8 @@ github.com/OpenUdon/oas v0.0.0-20260507023120-7fb319711323 h1:IIS4CeB6dcbkAdcSIn
 github.com/OpenUdon/oas v0.0.0-20260507023120-7fb319711323/go.mod h1:Q9qOlsluqLT/UmBD1TrwRn46fhNILwk+IIgtuNgyWXM=
 github.com/OpenUdon/schema v0.0.0-20260507023912-6ea3308bb955 h1:dwQPNJKFpa6ndPagc3bKvS8ITuVopArFVsE2JgVFJfY=
 github.com/OpenUdon/schema v0.0.0-20260507023912-6ea3308bb955/go.mod h1:Q0QXMOpiSZlXZpdnMV/FpUaZ85SJWi+h7E5vEU85Rik=
-github.com/OpenUdon/tfconfig v0.0.0-20260509175738-221c967ea3b8 h1:p/SmHkAhHin/T2j1c/23An3t4jfXr2Dea4z9aCJ1Sas=
-github.com/OpenUdon/tfconfig v0.0.0-20260509175738-221c967ea3b8/go.mod h1:gB+Sw8dXdxA55wbZ1e2irup+WP6VisUxCchuPwPydWg=
+github.com/OpenUdon/tfconfig v0.0.0-20260509192333-e523c2b30f3e h1:6/q3YipBkZlW3gvmZ00YK/3tPJGY8d6KSBiW2KWxQNI=
+github.com/OpenUdon/tfconfig v0.0.0-20260509192333-e523c2b30f3e/go.mod h1:gB+Sw8dXdxA55wbZ1e2irup+WP6VisUxCchuPwPydWg=
 github.com/OpenUdon/uws v0.0.0-20260509015819-d0f74a8726fa h1:1jINHKDR6XSurEc74+MxUfuz4OVhy/2RYR1Gr5cqluc=
 github.com/OpenUdon/uws v0.0.0-20260509015819-d0f74a8726fa/go.mod h1:UT9/PfPzIpv1DZz7r0V46Mvg5wa+oSKQVxNxdGE8bC0=
 github.com/agext/levenshtein v1.2.3 h1:YB2fHEn0UJagG8T1rrWknE3ZQzWM06O8AMAatNn7lmo=
