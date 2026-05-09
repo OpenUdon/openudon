@@ -184,7 +184,8 @@ Verification plan:
   reads that reject symlinked roots/paths/parents, directories, special files, and oversized
   path-backed documents.
 - Replace line-delimited run-config parsing in `scripts/run-udon.sh` with robust framing or
-  Python-side staging. Status: todo.
+  Python-side staging. Status: done; the shim now validates config JSON and stages workflow/OpenAPI
+  inputs entirely in Python before execing the configured binary or Docker executor by argv.
 - Split `workflowintent` into intent model/HCL, provider clients, and OpenAPI adapter modules.
   Status: todo.
 

@@ -14,53 +14,93 @@ fi
 
 root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 
-read_config() {
-  python3 - "$config" <<'PY'
+exec python3 - "$config" "$root" <<'PY'
 import json
 import os
+import shutil
+import string
 import sys
-import pathlib
+import tempfile
 
-with open(sys.argv[1], "r", encoding="utf-8") as f:
-    cfg = json.load(f)
+RUN_CONFIG_VERSION = "ramen.executor-run.v1"
 
-if cfg.get("version") != "ramen.executor-run.v1":
-    raise SystemExit("unsupported run config version: %s" % cfg.get("version"))
 
-package_root = cfg.get("package_root") or ""
-workflow_path = cfg.get("workflow_path") or ""
-workflow_format = cfg.get("workflow_format") or "uws-yaml"
-workdir = cfg.get("workdir") or ""
-openapi_paths = cfg.get("openapi_paths") or []
-credential_bindings = cfg.get("credential_bindings") or []
+def fail(message):
+    raise SystemExit(message)
 
-if not package_root or not workflow_path or not workdir:
-    raise SystemExit("run config requires package_root, workflow_path, and workdir")
-if not isinstance(openapi_paths, list):
-    raise SystemExit("openapi_paths must be a list")
-if not isinstance(credential_bindings, list):
-    raise SystemExit("credential_bindings must be a list")
 
-package_root = os.path.abspath(package_root)
-workdir = os.path.abspath(workdir)
-workflow_rel = workflow_path
-if not os.path.isabs(workflow_path):
-    workflow_path = os.path.join(package_root, workflow_path)
-else:
+def require_string(cfg, key):
+    value = cfg.get(key) or ""
+    if not isinstance(value, str):
+        fail("run config field %s must be a string" % key)
+    if not value.strip():
+        fail("run config requires %s" % key)
+    reject_control_chars(key, value)
+    return value
+
+
+def reject_control_chars(name, value):
+    if any(ord(ch) < 0x20 or ord(ch) == 0x7F for ch in value):
+        fail("%s must not contain control characters" % name)
+
+
+def reject_backslash(name, value):
+    if "\\" in value:
+        fail("%s must use slash separators: %s" % (name, value))
+
+
+def path_inside(base, path):
     try:
-        workflow_rel = os.path.relpath(workflow_path, package_root)
+        return os.path.commonpath([base, path]) == base
     except ValueError:
-        workflow_rel = pathlib.Path(workflow_path).name
+        return False
 
-workflow_rel = os.path.normpath(workflow_rel)
-if workflow_rel.startswith(".."):
-    raise SystemExit("workflow_path must be inside package_root")
+
+def package_relative_path(package_root, name, value):
+    reject_control_chars(name, value)
+    reject_backslash(name, value)
+    if os.path.isabs(value):
+        absolute = os.path.abspath(value)
+        if not path_inside(package_root, absolute):
+            fail("%s escapes package_root: %s" % (name, value))
+        rel = os.path.relpath(absolute, package_root)
+    else:
+        rel = os.path.normpath(value)
+        absolute = os.path.abspath(os.path.join(package_root, rel))
+        if not path_inside(package_root, absolute):
+            fail("%s escapes package_root: %s" % (name, value))
+    if rel in ("", ".") or rel.startswith(".." + os.sep) or rel == "..":
+        fail("%s escapes package_root: %s" % (name, value))
+    return rel, absolute
+
+
+def validate_regular_package_file(package_root, rel, absolute, label):
+    current = package_root
+    for index, segment in enumerate(rel.split(os.sep)):
+        if segment in ("", "."):
+            fail("%s path is invalid: %s" % (label, rel))
+        if segment == "..":
+            fail("%s escapes package_root: %s" % (label, rel))
+        current = os.path.join(current, segment)
+        try:
+            info = os.lstat(current)
+        except OSError as err:
+            fail("%s file not found: %s: %s" % (label, absolute, err))
+        if os.path.islink(current):
+            fail("%s file must not be a symlink: %s" % (label, absolute))
+        last = index == len(rel.split(os.sep)) - 1
+        if last:
+            if not os.path.isfile(current):
+                fail("%s file must be a regular file: %s" % (label, absolute))
+        elif not os.path.isdir(current):
+            fail("%s parent must be a directory: %s" % (label, absolute))
+
 
 def env_name(binding):
     out = ["UDON_CREDENTIAL_"]
     last_underscore = False
     for ch in binding.strip():
-        if ch.isalnum():
+        if ch in string.ascii_letters or ch in string.digits:
             out.append(ch.upper())
             last_underscore = False
         elif not last_underscore:
@@ -68,120 +108,139 @@ def env_name(binding):
             last_underscore = True
     return "".join(out).rstrip("_")
 
-openapi_rel = []
-for path in openapi_paths:
-    if not path:
-        continue
-    if os.path.isabs(path):
-        try:
-            rel = os.path.relpath(path, package_root)
-        except ValueError:
-            raise SystemExit("openapi path escapes package_root: %s" % path)
-    else:
-        rel = os.path.normpath(path)
-    if rel.startswith(".."):
-        raise SystemExit("openapi path escapes package_root: %s" % path)
-    openapi_rel.append(rel)
 
-credential_env = []
-seen_env = set()
-for binding in credential_bindings:
-    binding = str(binding).strip()
-    if not binding:
-        continue
-    name = env_name(binding)
-    if name == "UDON_CREDENTIAL":
-        raise SystemExit("credential binding does not produce a valid env var: %s" % binding)
-    if name not in seen_env:
-        credential_env.append(name)
-        seen_env.add(name)
+def credential_env_names(bindings):
+    out = []
+    seen = set()
+    for binding in bindings:
+        binding = str(binding).strip()
+        if not binding:
+            continue
+        reject_control_chars("credential binding", binding)
+        name = env_name(binding)
+        if name == "UDON_CREDENTIAL":
+            fail("credential binding does not produce a valid env var: %s" % binding)
+        if name not in seen:
+            out.append(name)
+            seen.add(name)
+    return out
 
-print(package_root)
-print(workflow_path)
-print(workflow_format)
-print(workdir)
-print(workflow_rel)
-print(len(openapi_rel))
-for rel in openapi_rel:
-    print(rel)
-print(len(credential_env))
-for name in credential_env:
-    print(name)
+
+def load_config(path):
+    with open(path, "r", encoding="utf-8") as f:
+        cfg = json.load(f)
+    if cfg.get("version") != RUN_CONFIG_VERSION:
+        fail("unsupported run config version: %s" % cfg.get("version"))
+    openapi_paths = cfg.get("openapi_paths", [])
+    credential_bindings = cfg.get("credential_bindings", [])
+    if openapi_paths is None:
+        openapi_paths = []
+    if credential_bindings is None:
+        credential_bindings = []
+    if not isinstance(openapi_paths, list):
+        fail("openapi_paths must be a list")
+    if not isinstance(credential_bindings, list):
+        fail("credential_bindings must be a list")
+    return cfg, openapi_paths, credential_bindings
+
+
+def validate_openapi_paths(package_root, openapi_paths):
+    out = []
+    for raw in openapi_paths:
+        if not isinstance(raw, str):
+            fail("openapi path must be a string")
+        if not raw.strip():
+            fail("openapi path must be non-empty")
+        rel, src = package_relative_path(package_root, "openapi path", raw)
+        validate_regular_package_file(package_root, rel, src, "openapi")
+        out.append((rel, src))
+    return out
+
+
+def stage_package(workdir, workflow_rel, workflow_path, openapi_files):
+    os.makedirs(workdir, mode=0o755, exist_ok=True)
+    stage = tempfile.mkdtemp(prefix="stage.", dir=workdir)
+
+    staged_workflow = os.path.join(stage, workflow_rel)
+    os.makedirs(os.path.dirname(staged_workflow), mode=0o755, exist_ok=True)
+    shutil.copy2(workflow_path, staged_workflow)
+
+    for rel, src in openapi_files:
+        dst = os.path.join(stage, rel)
+        os.makedirs(os.path.dirname(dst), mode=0o755, exist_ok=True)
+        shutil.copy2(src, dst)
+
+    return stage, staged_workflow
+
+
+def executor_argv(root, stage, staged_workflow, workflow_format):
+    image = os.environ.get("RAMEN_UDON_IMAGE", "")
+    if image:
+        argv = [
+            "docker",
+            "run",
+            "--rm",
+            "-v",
+            stage + ":/workspace",
+            "-w",
+            "/workspace",
+        ]
+        for name in docker_env_names:
+            argv.extend(["-e", name])
+        argv.extend([
+            image,
+            "--workdir",
+            "/workspace",
+            "--workflow",
+            "/workspace/" + os.path.relpath(staged_workflow, stage),
+            "--workflow-format",
+            workflow_format,
+        ])
+        return argv
+
+    executor = os.environ.get("RAMEN_EXECUTOR") or os.environ.get("RAMEN_UDON_BIN") or ""
+    if not executor:
+        executor = os.path.join(root, "..", "udon", "dist", "udon-linux-amd64")
+    if not os.access(executor, os.X_OK):
+        executor = os.path.join(root, "..", "udon", "udon")
+    if not os.access(executor, os.X_OK):
+        fail("trusted executor not found. Set RAMEN_EXECUTOR, RAMEN_UDON_BIN, RAMEN_UDON_IMAGE, or build ../udon.")
+    return [
+        executor,
+        "--workdir",
+        stage,
+        "--workflow",
+        staged_workflow,
+        "--workflow-format",
+        workflow_format,
+    ]
+
+
+config_path = sys.argv[1]
+repo_root = sys.argv[2]
+cfg, openapi_paths, credential_bindings = load_config(config_path)
+
+package_root = os.path.abspath(require_string(cfg, "package_root"))
+workdir = os.path.abspath(require_string(cfg, "workdir"))
+workflow_format = cfg.get("workflow_format") or "uws-yaml"
+if not isinstance(workflow_format, str):
+    fail("run config field workflow_format must be a string")
+reject_control_chars("workflow_format", workflow_format)
+
+workflow_raw = require_string(cfg, "workflow_path")
+workflow_rel, workflow_path = package_relative_path(package_root, "workflow_path", workflow_raw)
+validate_regular_package_file(package_root, workflow_rel, workflow_path, "workflow")
+openapi_files = validate_openapi_paths(package_root, openapi_paths)
+
+docker_env_names = credential_env_names(credential_bindings)
+for name in docker_env_names:
+    if not os.environ.get(name):
+        fail("required credential env var is not set: %s" % name)
+
+stage, staged_workflow = stage_package(workdir, workflow_rel, workflow_path, openapi_files)
+argv = executor_argv(repo_root, stage, staged_workflow, workflow_format)
+try:
+    os.execvp(argv[0], argv)
+except OSError as err:
+    fail("invoke trusted executor: %s" % err)
 PY
-}
-
-mapfile -t values < <(read_config)
-package_root="${values[0]}"
-workflow="${values[1]}"
-workflow_format="${values[2]}"
-workdir="${values[3]}"
-workflow_rel="${values[4]}"
-openapi_count="${values[5]}"
-openapi_paths=("${values[@]:6:openapi_count}")
-credential_count_index=$((6 + openapi_count))
-credential_count="${values[$credential_count_index]}"
-credential_env_start=$((credential_count_index + 1))
-credential_env_names=("${values[@]:credential_env_start:credential_count}")
-
-if [[ -L "$workflow" ]]; then
-  printf 'workflow file must not be a symlink: %s\n' "$workflow" >&2
-  exit 1
-fi
-if [[ ! -f "$workflow" ]]; then
-  printf 'workflow file must be a regular file: %s\n' "$workflow" >&2
-  exit 1
-fi
-
-mkdir -p "$workdir"
-stage="$(mktemp -d "$workdir/stage.XXXXXX")"
-staged_workflow="$stage/$workflow_rel"
-mkdir -p "$(dirname "$staged_workflow")"
-cp "$workflow" "$staged_workflow"
-for rel in "${openapi_paths[@]}"; do
-  src="$package_root/$rel"
-  dst="$stage/$rel"
-  if [[ -L "$src" ]]; then
-    printf 'openapi file must not be a symlink: %s\n' "$src" >&2
-    exit 1
-  fi
-  if [[ ! -f "$src" ]]; then
-    printf 'openapi file not found: %s\n' "$src" >&2
-    exit 1
-  fi
-  mkdir -p "$(dirname "$dst")"
-  cp "$src" "$dst"
-done
-
-docker_env_args=()
-for env_name in "${credential_env_names[@]}"; do
-  if [[ -z "${!env_name:-}" ]]; then
-    printf 'required credential env var is not set: %s\n' "$env_name" >&2
-    exit 1
-  fi
-  docker_env_args+=("-e" "$env_name")
-done
-
-if [[ -n "${RAMEN_UDON_IMAGE:-}" ]]; then
-  exec docker run --rm \
-    -v "$stage:/workspace" \
-    -w /workspace \
-    "${docker_env_args[@]}" \
-    "$RAMEN_UDON_IMAGE" \
-    --workdir /workspace \
-    --workflow "/workspace/$workflow_rel" \
-    --workflow-format "$workflow_format"
-fi
-
-executor="${RAMEN_EXECUTOR:-${RAMEN_UDON_BIN:-}}"
-if [[ -z "$executor" ]]; then
-  executor="$root/../udon/dist/udon-linux-amd64"
-fi
-if [[ ! -x "$executor" ]]; then
-  executor="$root/../udon/udon"
-fi
-if [[ ! -x "$executor" ]]; then
-  printf 'trusted executor not found. Set RAMEN_EXECUTOR, RAMEN_UDON_BIN, RAMEN_UDON_IMAGE, or build ../udon.\n' >&2
-  exit 1
-fi
-
-exec "$executor" --workdir "$stage" --workflow "$staged_workflow" --workflow-format "$workflow_format"

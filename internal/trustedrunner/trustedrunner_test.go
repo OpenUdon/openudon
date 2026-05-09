@@ -6,7 +6,9 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"strings"
+	"syscall"
 	"testing"
 	"time"
 
@@ -565,6 +567,349 @@ func TestRunUdonScriptRejectsSymlinkedWorkflow(t *testing.T) {
 	out, err := cmd.CombinedOutput()
 	if err == nil || !strings.Contains(string(out), "workflow file must not be a symlink") {
 		t.Fatalf("expected workflow symlink rejection, err=%v out=%s", err, out)
+	}
+}
+
+func TestRunUdonScriptRejectsSymlinkedWorkflowParent(t *testing.T) {
+	wd, err := os.Getwd()
+	if err != nil {
+		t.Fatal(err)
+	}
+	repoRoot := filepath.Clean(filepath.Join(wd, "..", ".."))
+	script := filepath.Join(repoRoot, "scripts", "run-udon.sh")
+	tmp := t.TempDir()
+	packageRoot := filepath.Join(tmp, "package")
+	workdir := filepath.Join(tmp, "work")
+	realWorkflows := filepath.Join(tmp, "real-workflows")
+	if err := os.MkdirAll(realWorkflows, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	mustWriteFile(t, filepath.Join(realWorkflows, "workflow.uws.yaml"), []byte("uws: outside\n"))
+	if err := os.MkdirAll(packageRoot, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink(realWorkflows, filepath.Join(packageRoot, "workflows")); err != nil {
+		t.Fatal(err)
+	}
+	configPath := filepath.Join(tmp, "run-config.json")
+	data, err := json.Marshal(RunConfig{
+		Version:        RunConfigVersion,
+		PackageRoot:    packageRoot,
+		WorkDir:        workdir,
+		WorkflowPath:   "workflows/workflow.uws.yaml",
+		WorkflowFormat: "uws-yaml",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	mustWriteFile(t, configPath, data)
+	cmd := exec.Command(script, "--config", configPath)
+	cmd.Env = append(os.Environ(), "RAMEN_EXECUTOR=/bin/true")
+	out, err := cmd.CombinedOutput()
+	if err == nil || !strings.Contains(string(out), "workflow file must not be a symlink") {
+		t.Fatalf("expected workflow parent symlink rejection, err=%v out=%s", err, out)
+	}
+}
+
+func TestRunUdonScriptRejectsUnsafeWorkflowTypes(t *testing.T) {
+	for _, tc := range []struct {
+		name       string
+		setup      func(t *testing.T, path string)
+		wantOutput string
+	}{
+		{
+			name: "directory",
+			setup: func(t *testing.T, path string) {
+				t.Helper()
+				if err := os.MkdirAll(path, 0o755); err != nil {
+					t.Fatal(err)
+				}
+			},
+			wantOutput: "workflow file must be a regular file",
+		},
+		{
+			name: "non-regular",
+			setup: func(t *testing.T, path string) {
+				t.Helper()
+				if runtime.GOOS == "windows" {
+					t.Skip("fifo test requires Unix")
+				}
+				if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+					t.Fatal(err)
+				}
+				if err := syscall.Mkfifo(path, 0o600); err != nil {
+					t.Skipf("fifo unavailable: %v", err)
+				}
+			},
+			wantOutput: "workflow file must be a regular file",
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			wd, err := os.Getwd()
+			if err != nil {
+				t.Fatal(err)
+			}
+			repoRoot := filepath.Clean(filepath.Join(wd, "..", ".."))
+			script := filepath.Join(repoRoot, "scripts", "run-udon.sh")
+			tmp := t.TempDir()
+			packageRoot := filepath.Join(tmp, "package")
+			workdir := filepath.Join(tmp, "work")
+			workflowPath := filepath.Join(packageRoot, "workflows", "workflow.uws.yaml")
+			tc.setup(t, workflowPath)
+			configPath := filepath.Join(tmp, "run-config.json")
+			data, err := json.Marshal(RunConfig{
+				Version:        RunConfigVersion,
+				PackageRoot:    packageRoot,
+				WorkDir:        workdir,
+				WorkflowPath:   "workflows/workflow.uws.yaml",
+				WorkflowFormat: "uws-yaml",
+			})
+			if err != nil {
+				t.Fatal(err)
+			}
+			mustWriteFile(t, configPath, data)
+			cmd := exec.Command(script, "--config", configPath)
+			cmd.Env = append(os.Environ(), "RAMEN_EXECUTOR=/bin/true")
+			out, err := cmd.CombinedOutput()
+			if err == nil || !strings.Contains(string(out), tc.wantOutput) {
+				t.Fatalf("expected %q, err=%v out=%s", tc.wantOutput, err, out)
+			}
+		})
+	}
+}
+
+func TestRunUdonScriptRejectsUnsafeWorkflowPathFields(t *testing.T) {
+	for _, tc := range []struct {
+		name       string
+		path       string
+		wantOutput string
+	}{
+		{
+			name:       "control-character",
+			path:       "workflows/workflow.uws.yaml\n2",
+			wantOutput: "control characters",
+		},
+		{
+			name:       "absolute-outside-package",
+			path:       "",
+			wantOutput: "workflow_path escapes package_root",
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			wd, err := os.Getwd()
+			if err != nil {
+				t.Fatal(err)
+			}
+			repoRoot := filepath.Clean(filepath.Join(wd, "..", ".."))
+			script := filepath.Join(repoRoot, "scripts", "run-udon.sh")
+			tmp := t.TempDir()
+			packageRoot := filepath.Join(tmp, "package")
+			workdir := filepath.Join(tmp, "work")
+			mustWriteFile(t, filepath.Join(packageRoot, "workflows", "workflow.uws.yaml"), []byte("uws: 1.0.0\n"))
+			workflowPath := tc.path
+			if tc.name == "absolute-outside-package" {
+				outside := filepath.Join(tmp, "outside-workflow.yaml")
+				mustWriteFile(t, outside, []byte("uws: outside\n"))
+				workflowPath = outside
+			}
+			configPath := filepath.Join(tmp, "run-config.json")
+			data, err := json.Marshal(RunConfig{
+				Version:        RunConfigVersion,
+				PackageRoot:    packageRoot,
+				WorkDir:        workdir,
+				WorkflowPath:   workflowPath,
+				WorkflowFormat: "uws-yaml",
+			})
+			if err != nil {
+				t.Fatal(err)
+			}
+			mustWriteFile(t, configPath, data)
+			cmd := exec.Command(script, "--config", configPath)
+			cmd.Env = append(os.Environ(), "RAMEN_EXECUTOR=/bin/true")
+			out, err := cmd.CombinedOutput()
+			if err == nil || !strings.Contains(string(out), tc.wantOutput) {
+				t.Fatalf("expected %q, err=%v out=%s", tc.wantOutput, err, out)
+			}
+		})
+	}
+}
+
+func TestRunUdonScriptRejectsOpenAPIUnsafePaths(t *testing.T) {
+	for _, tc := range []struct {
+		name       string
+		path       string
+		setup      func(t *testing.T, packageRoot string)
+		wantOutput string
+	}{
+		{
+			name: "control-character",
+			path: "openapi/support.yaml\n2",
+			setup: func(t *testing.T, packageRoot string) {
+				t.Helper()
+				mustWriteFile(t, filepath.Join(packageRoot, "openapi", "support.yaml"), []byte("openapi: 3.0.0\n"))
+			},
+			wantOutput: "control characters",
+		},
+		{
+			name:       "absolute-outside-package",
+			path:       "",
+			setup:      func(t *testing.T, packageRoot string) {},
+			wantOutput: "openapi path escapes package_root",
+		},
+		{
+			name: "symlink",
+			path: "openapi/support.yaml",
+			setup: func(t *testing.T, packageRoot string) {
+				t.Helper()
+				target := filepath.Join(filepath.Dir(packageRoot), "outside.yaml")
+				mustWriteFile(t, target, []byte("openapi: 3.0.0\n"))
+				if err := os.MkdirAll(filepath.Join(packageRoot, "openapi"), 0o755); err != nil {
+					t.Fatal(err)
+				}
+				if err := os.Symlink(target, filepath.Join(packageRoot, "openapi", "support.yaml")); err != nil {
+					t.Fatal(err)
+				}
+			},
+			wantOutput: "openapi file must not be a symlink",
+		},
+		{
+			name: "symlinked-parent",
+			path: "openapi/support.yaml",
+			setup: func(t *testing.T, packageRoot string) {
+				t.Helper()
+				realOpenAPI := filepath.Join(filepath.Dir(packageRoot), "real-openapi")
+				if err := os.MkdirAll(realOpenAPI, 0o755); err != nil {
+					t.Fatal(err)
+				}
+				mustWriteFile(t, filepath.Join(realOpenAPI, "support.yaml"), []byte("openapi: 3.0.0\n"))
+				if err := os.Symlink(realOpenAPI, filepath.Join(packageRoot, "openapi")); err != nil {
+					t.Fatal(err)
+				}
+			},
+			wantOutput: "openapi file must not be a symlink",
+		},
+		{
+			name: "directory",
+			path: "openapi/support.yaml",
+			setup: func(t *testing.T, packageRoot string) {
+				t.Helper()
+				if err := os.MkdirAll(filepath.Join(packageRoot, "openapi", "support.yaml"), 0o755); err != nil {
+					t.Fatal(err)
+				}
+			},
+			wantOutput: "openapi file must be a regular file",
+		},
+		{
+			name: "non-regular",
+			path: "openapi/support.yaml",
+			setup: func(t *testing.T, packageRoot string) {
+				t.Helper()
+				if runtime.GOOS == "windows" {
+					t.Skip("fifo test requires Unix")
+				}
+				path := filepath.Join(packageRoot, "openapi", "support.yaml")
+				if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+					t.Fatal(err)
+				}
+				if err := syscall.Mkfifo(path, 0o600); err != nil {
+					t.Skipf("fifo unavailable: %v", err)
+				}
+			},
+			wantOutput: "openapi file must be a regular file",
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			wd, err := os.Getwd()
+			if err != nil {
+				t.Fatal(err)
+			}
+			repoRoot := filepath.Clean(filepath.Join(wd, "..", ".."))
+			script := filepath.Join(repoRoot, "scripts", "run-udon.sh")
+			tmp := t.TempDir()
+			packageRoot := filepath.Join(tmp, "package")
+			workdir := filepath.Join(tmp, "work")
+			mustWriteFile(t, filepath.Join(packageRoot, "workflows", "workflow.uws.yaml"), []byte("uws: 1.0.0\n"))
+			tc.setup(t, packageRoot)
+			openAPIPath := tc.path
+			if tc.name == "absolute-outside-package" {
+				outside := filepath.Join(tmp, "outside.yaml")
+				mustWriteFile(t, outside, []byte("openapi: 3.0.0\n"))
+				openAPIPath = outside
+			}
+			configPath := filepath.Join(tmp, "run-config.json")
+			data, err := json.Marshal(RunConfig{
+				Version:        RunConfigVersion,
+				PackageRoot:    packageRoot,
+				WorkDir:        workdir,
+				WorkflowPath:   "workflows/workflow.uws.yaml",
+				WorkflowFormat: "uws-yaml",
+				OpenAPIPaths:   []string{openAPIPath},
+			})
+			if err != nil {
+				t.Fatal(err)
+			}
+			mustWriteFile(t, configPath, data)
+			cmd := exec.Command(script, "--config", configPath)
+			cmd.Env = append(os.Environ(), "RAMEN_EXECUTOR=/bin/true")
+			out, err := cmd.CombinedOutput()
+			if err == nil || !strings.Contains(string(out), tc.wantOutput) {
+				t.Fatalf("expected %q, err=%v out=%s", tc.wantOutput, err, out)
+			}
+		})
+	}
+}
+
+func TestRunUdonScriptAcceptsAbsolutePathsInsidePackageRoot(t *testing.T) {
+	wd, err := os.Getwd()
+	if err != nil {
+		t.Fatal(err)
+	}
+	repoRoot := filepath.Clean(filepath.Join(wd, "..", ".."))
+	script := filepath.Join(repoRoot, "scripts", "run-udon.sh")
+	tmp := t.TempDir()
+	packageRoot := filepath.Join(tmp, "package")
+	workdir := filepath.Join(tmp, "work")
+	workflowPath := filepath.Join(packageRoot, "workflows", "workflow.uws.yaml")
+	openAPIPath := filepath.Join(packageRoot, "openapi", "nested", "support.yaml")
+	mustWriteFile(t, workflowPath, []byte("uws: 1.0.0\n"))
+	mustWriteFile(t, openAPIPath, []byte("openapi: 3.0.0\n"))
+	configPath := filepath.Join(tmp, "run-config.json")
+	data, err := json.Marshal(RunConfig{
+		Version:        RunConfigVersion,
+		PackageRoot:    packageRoot,
+		WorkDir:        workdir,
+		WorkflowPath:   workflowPath,
+		WorkflowFormat: "uws-yaml",
+		OpenAPIPaths:   []string{openAPIPath},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	mustWriteFile(t, configPath, data)
+	fakeExecutor := filepath.Join(tmp, "fake-udon")
+	capture := filepath.Join(tmp, "args.txt")
+	mustWriteFile(t, fakeExecutor, []byte("#!/usr/bin/env bash\nprintf '%s\\n' \"$@\" > \"$CAPTURE_ARGS\"\n"))
+	if err := os.Chmod(fakeExecutor, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	cmd := exec.Command(script, "--config", configPath)
+	cmd.Env = append(os.Environ(), "RAMEN_EXECUTOR="+fakeExecutor, "CAPTURE_ARGS="+capture)
+	out, err := cmd.CombinedOutput()
+	if err != nil {
+		t.Fatalf("run-udon.sh failed: %v\n%s", err, out)
+	}
+	args, err := os.ReadFile(capture)
+	if err != nil {
+		t.Fatal(err)
+	}
+	stagedWorkdir := capturedArgValue(t, string(args), "--workdir")
+	for _, path := range []string{
+		filepath.Join(stagedWorkdir, "workflows", "workflow.uws.yaml"),
+		filepath.Join(stagedWorkdir, "openapi", "nested", "support.yaml"),
+	} {
+		if _, err := os.Stat(path); err != nil {
+			t.Fatalf("staged path missing %s: %v", path, err)
+		}
 	}
 }
 
