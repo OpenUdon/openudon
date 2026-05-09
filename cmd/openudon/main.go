@@ -14,27 +14,27 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/genelet/ramen/internal/config"
-	evalpkg "github.com/genelet/ramen/internal/eval"
-	"github.com/genelet/ramen/internal/localcheck"
-	"github.com/genelet/ramen/internal/readiness"
-	"github.com/genelet/ramen/internal/synthesize"
-	"github.com/genelet/ramen/internal/trustedrunner"
-	uwsprofile "github.com/genelet/ramen/internal/uwsexec"
-	"github.com/genelet/ramen/internal/uwsvalidate"
+	"github.com/OpenUdon/openudon/internal/config"
+	evalpkg "github.com/OpenUdon/openudon/internal/eval"
+	"github.com/OpenUdon/openudon/internal/localcheck"
+	"github.com/OpenUdon/openudon/internal/readiness"
+	"github.com/OpenUdon/openudon/internal/synthesize"
+	"github.com/OpenUdon/openudon/internal/trustedrunner"
+	uwsprofile "github.com/OpenUdon/openudon/internal/uwsexec"
+	"github.com/OpenUdon/openudon/internal/uwsvalidate"
 )
 
 const version = "0.1.0"
 
 func main() {
 	flag.Usage = func() {
-		fmt.Fprintf(flag.CommandLine.Output(), "Usage: ramen <command>\n\n")
+		fmt.Fprintf(flag.CommandLine.Output(), "Usage: openudon <command>\n\n")
 		fmt.Fprintf(flag.CommandLine.Output(), "Commands:\n")
 		fmt.Fprintf(flag.CommandLine.Output(), "  check     verify required sibling repositories are present\n")
 		fmt.Fprintf(flag.CommandLine.Output(), "  assess    assess existing example artifacts and write quality reports\n")
 		fmt.Fprintf(flag.CommandLine.Output(), "  approval-template print approval JSON for a validated handoff package\n")
 		fmt.Fprintf(flag.CommandLine.Output(), "  build     regenerate workflow/UWS from an existing intent.hcl\n")
-		fmt.Fprintf(flag.CommandLine.Output(), "  check-apitools-boundary verify Ramen only uses OpenAPI-owned apitools APIs\n")
+		fmt.Fprintf(flag.CommandLine.Output(), "  check-apitools-boundary verify OpenUdon only uses OpenAPI-owned apitools APIs\n")
 		fmt.Fprintf(flag.CommandLine.Output(), "  check-doc-memory verify memory-bank docs and removed-doc references\n")
 		fmt.Fprintf(flag.CommandLine.Output(), "  eval      run synthesis eval briefs and write pass/fail reports\n")
 		fmt.Fprintf(flag.CommandLine.Output(), "  promote   export/validate UWS from an existing workflow.hcl\n")
@@ -57,13 +57,13 @@ func main() {
 			fmt.Fprintln(os.Stderr, err)
 			os.Exit(1)
 		}
-		fmt.Println("ramen: required sibling repositories found")
+		fmt.Println("openudon: required sibling repositories found")
 	case "check-apitools-boundary":
 		if err := localcheck.CheckAPIToolsBoundary("."); err != nil {
 			fmt.Fprintln(os.Stderr, err)
 			os.Exit(1)
 		}
-		fmt.Println("ramen: apitools boundary check passed")
+		fmt.Println("openudon: apitools boundary check passed")
 	case "check-doc-memory":
 		result, err := localcheck.CheckDocMemory(".")
 		for _, file := range result.CheckedFiles {
@@ -79,13 +79,10 @@ func main() {
 		fmt.Println("ok: no stale removed-doc references")
 	case "validate":
 		if flag.NArg() < 2 {
-			fmt.Fprintln(os.Stderr, "usage: ramen validate <uws-file-or-dir>")
+			fmt.Fprintln(os.Stderr, "usage: openudon validate [--allow-empty] <uws-file-or-dir>")
 			os.Exit(2)
 		}
-		if err := validateUWSPath(flag.Arg(1), os.Stdout); err != nil {
-			fmt.Fprintln(os.Stderr, err)
-			os.Exit(1)
-		}
+		runValidateCommand(flag.Args()[1:])
 	case "synthesize", "build", "promote", "assess":
 		runArtifactCommand(command, flag.Args()[1:])
 	case "run":
@@ -107,6 +104,27 @@ func main() {
 	}
 }
 
+func runValidateCommand(args []string) {
+	fs := flag.NewFlagSet("validate", flag.ExitOnError)
+	allowEmpty := fs.Bool("allow-empty", false, "Allow directory validation to pass when no UWS artifacts are found")
+	fs.Usage = func() {
+		fmt.Fprintf(fs.Output(), "Usage: openudon validate [--allow-empty] <uws-file-or-dir>\n")
+		fmt.Fprintf(fs.Output(), "\nValidates one UWS JSON/YAML file or every *.uws.json/*.uws.yaml/*.uws.yml artifact under a directory.\n\n")
+		fs.PrintDefaults()
+	}
+	if err := fs.Parse(args); err != nil {
+		os.Exit(2)
+	}
+	if fs.NArg() != 1 {
+		fs.Usage()
+		os.Exit(2)
+	}
+	if err := validateUWSPath(fs.Arg(0), os.Stdout, *allowEmpty); err != nil {
+		fmt.Fprintln(os.Stderr, err)
+		os.Exit(1)
+	}
+}
+
 func defaultUWSSchemaForFile(path string) string {
 	version := "1.0.0"
 	if doc, err := uwsprofile.LoadDocumentFile(path, uwsprofile.DocumentFormatAuto); err == nil && doc != nil && strings.TrimSpace(doc.UWS) != "" {
@@ -115,11 +133,11 @@ func defaultUWSSchemaForFile(path string) string {
 	return filepath.Join("..", "uws", "versions", version+".json")
 }
 
-func validateUWSPath(target string, out io.Writer) error {
-	return validateUWSPathWithSchema(target, out, defaultUWSSchemaForFile)
+func validateUWSPath(target string, out io.Writer, allowEmpty bool) error {
+	return validateUWSPathWithSchema(target, out, defaultUWSSchemaForFile, allowEmpty)
 }
 
-func validateUWSPathWithSchema(target string, out io.Writer, schemaForFile func(string) string) error {
+func validateUWSPathWithSchema(target string, out io.Writer, schemaForFile func(string) string, allowEmpty bool) error {
 	info, err := os.Stat(target)
 	if err != nil {
 		return fmt.Errorf("target does not exist: %s", target)
@@ -133,8 +151,11 @@ func validateUWSPathWithSchema(target string, out io.Writer, schemaForFile func(
 		return err
 	}
 	if len(files) == 0 {
-		fmt.Fprintf(out, "no UWS artifacts found under %s\n", target)
-		return nil
+		if allowEmpty {
+			fmt.Fprintf(out, "no UWS artifacts found under %s\n", target)
+			return nil
+		}
+		return fmt.Errorf("no UWS artifacts found under %s; pass --allow-empty to allow this", target)
 	}
 	fmt.Fprintf(out, "found %d UWS artifact(s); schema selected from document version\n", len(files))
 	for _, file := range files {
@@ -149,7 +170,7 @@ func validateUWSFile(path string, out io.Writer, schemaForFile func(string) stri
 	if err := uwsvalidate.ValidateFile(schemaForFile(path), path); err != nil {
 		return err
 	}
-	fmt.Fprintf(out, "ramen: %s is valid UWS\n", path)
+	fmt.Fprintf(out, "openudon: %s is valid UWS\n", path)
 	return nil
 }
 
@@ -183,7 +204,7 @@ func runReadinessCommand(args []string) {
 	out := fs.String("out", "", "Write readiness JSON to this path instead of stdout")
 	runGates := fs.Bool("run-gates", false, "Run deterministic gates: go test ./..., go vet ./..., make check, and git diff --check")
 	fs.Usage = func() {
-		fmt.Fprintf(fs.Output(), "Usage: ramen readiness [--out eval/readiness/<name>.json] [--run-gates]\n")
+		fmt.Fprintf(fs.Output(), "Usage: openudon readiness [--out eval/readiness/<name>.json] [--run-gates]\n")
 		fmt.Fprintf(fs.Output(), "\nWrites %s JSON for XRD-007 local/private checkout readiness without printing secret values.\n", readiness.ReportVersion)
 		fmt.Fprintf(fs.Output(), "By default, deterministic gates are marked skipped; pass --run-gates for release-readiness evidence.\n\n")
 		fs.PrintDefaults()
@@ -206,7 +227,7 @@ func runReadinessCommand(args []string) {
 			fmt.Fprintln(os.Stderr, err)
 			os.Exit(1)
 		}
-		fmt.Printf("ramen: readiness %s wrote %s\n", report.Status, *out)
+		fmt.Printf("openudon: readiness %s wrote %s\n", report.Status, *out)
 	} else if err := readiness.Write(os.Stdout, report); err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
@@ -218,14 +239,14 @@ func runReadinessCommand(args []string) {
 
 func runTrustedCommand(args []string) {
 	fs := flag.NewFlagSet("run", flag.ExitOnError)
-	example := fs.String("example", "", "Example directory containing generated Ramen artifacts")
+	example := fs.String("example", "", "Example directory containing generated OpenUdon artifacts")
 	tier := fs.String("tier", "", "Execution tier: sandbox or production")
 	approval := fs.String("approval", "", "Approval JSON file")
-	workdir := fs.String("workdir", "", "executor work directory; defaults to .ramen-run/<example>")
+	workdir := fs.String("workdir", "", "executor work directory; defaults to .openudon-run/<example>")
 	dryRun := fs.Bool("dry-run", false, "Validate gates and write run config without invoking the executor")
 	fs.Usage = func() {
-		fmt.Fprintf(fs.Output(), "Usage: ramen run --example examples/<name> --tier sandbox|production --approval approvals/<name>.json [--workdir .ramen-run/<name>] [--dry-run]\n")
-		fmt.Fprintf(fs.Output(), "\nValidates the Ramen handoff package, current quality gates, approval scope, approval digest, and tier/state compatibility before writing %s run config and invoking the trusted executor runner.\n", trustedrunner.RunConfigVersion)
+		fmt.Fprintf(fs.Output(), "Usage: openudon run --example examples/<name> --tier sandbox|production --approval approvals/<name>.json [--workdir .openudon-run/<name>] [--dry-run]\n")
+		fmt.Fprintf(fs.Output(), "\nValidates the OpenUdon handoff package, current quality gates, approval scope, approval digest, and tier/state compatibility before writing %s run config and invoking the trusted executor runner.\n", trustedrunner.RunConfigVersion)
 		fmt.Fprintf(fs.Output(), "\nTier rules:\n")
 		fmt.Fprintf(fs.Output(), "  sandbox accepts approved_for_sandbox or approved_for_production\n")
 		fmt.Fprintf(fs.Output(), "  production accepts approved_for_production only\n\n")
@@ -243,7 +264,7 @@ func runTrustedCommand(args []string) {
 		ApprovalPath: *approval,
 		WorkDir:      *workdir,
 		DryRun:       *dryRun,
-		RunnerPath:   os.Getenv("RAMEN_UDON_RUNNER"),
+		RunnerPath:   os.Getenv("OPENUDON_UDON_RUNNER"),
 		Stdout:       os.Stdout,
 		Stderr:       os.Stderr,
 	})
@@ -252,9 +273,9 @@ func runTrustedCommand(args []string) {
 		os.Exit(1)
 	}
 	if result.DryRun {
-		fmt.Printf("ramen: run dry-run passed for %s (%s)\n", result.Scope, result.Tier)
+		fmt.Printf("openudon: run dry-run passed for %s (%s)\n", result.Scope, result.Tier)
 	} else {
-		fmt.Printf("ramen: run completed for %s (%s)\n", result.Scope, result.Tier)
+		fmt.Printf("openudon: run completed for %s (%s)\n", result.Scope, result.Tier)
 	}
 	fmt.Printf("  workflow: %s\n", result.WorkflowPath)
 	fmt.Printf("  config:   %s\n", result.RunConfigPath)
@@ -264,12 +285,12 @@ func runTrustedCommand(args []string) {
 
 func runApprovalTemplateCommand(args []string) {
 	fs := flag.NewFlagSet("approval-template", flag.ExitOnError)
-	example := fs.String("example", "", "Example directory containing generated Ramen artifacts")
+	example := fs.String("example", "", "Example directory containing generated OpenUdon artifacts")
 	state := fs.String("state", "", "Approval state: approved_for_sandbox or approved_for_production")
 	reviewer := fs.String("reviewer", "", "Reviewer name recorded in the approval JSON")
 	notes := fs.String("notes", "", "Optional approval notes")
 	fs.Usage = func() {
-		fmt.Fprintf(fs.Output(), "Usage: ramen approval-template --example examples/<name> --state approved_for_sandbox|approved_for_production --reviewer <name> [--notes <text>]\n")
+		fmt.Fprintf(fs.Output(), "Usage: openudon approval-template --example examples/<name> --state approved_for_sandbox|approved_for_production --reviewer <name> [--notes <text>]\n")
 		fmt.Fprintf(fs.Output(), "\nPrints %s JSON to stdout with the current handoff package SHA-256 digest.\n", trustedrunner.ApprovalVersion)
 		fmt.Fprintf(fs.Output(), "Schema fields: version, scope, state, reviewer, approved_at, expires_at, package_sha256, notes.\n\n")
 		fs.PrintDefaults()
@@ -313,14 +334,14 @@ func runEvalCommand(args []string) {
 	archiveDir := fs.String("archive-dir", "", "Copy generated eval workspaces under this directory for manual inspection")
 	out := fs.String("out", evalpkg.DefaultOutputPath(time.Now()), "JSON report output path")
 	fs.Usage = func() {
-		fmt.Fprintf(fs.Output(), "Usage: ramen eval [--root examples/eval] [--name support-email] [--out eval/runs/<ts>.json] [--release-gate] [--min-briefs N] [--compare eval/runs/<previous>.json] [--no-compare] [--archive-dir eval/artifacts]\n")
+		fmt.Fprintf(fs.Output(), "Usage: openudon eval [--root examples/eval] [--name support-email] [--out eval/runs/<ts>.json] [--release-gate] [--min-briefs N] [--compare eval/runs/<previous>.json] [--no-compare] [--archive-dir eval/artifacts]\n")
 		fmt.Fprintf(fs.Output(), "\nRuns synthesis against temporary copies of eval briefs and writes JSON/Markdown reports with optional run comparison.\n")
 		fmt.Fprintf(fs.Output(), "Normal evals print comparison regressions for review but exit successfully when synthesis completes.\n")
 		fmt.Fprintf(fs.Output(), "With --release-gate, absolute release criteria and comparison regressions fail the command.\n")
 		fmt.Fprintf(fs.Output(), "\nExamples:\n")
-		fmt.Fprintf(fs.Output(), "  ramen eval --root examples/eval --provider copilot-api --model gpt-5.4-mini\n")
-		fmt.Fprintf(fs.Output(), "  ramen eval --root examples/eval --name support-email --provider copilot-api --model gpt-5.4-mini\n")
-		fmt.Fprintf(fs.Output(), "  ramen eval --root examples/eval --provider copilot-api --model gpt-5.4-mini --release-gate\n\n")
+		fmt.Fprintf(fs.Output(), "  openudon eval --root examples/eval --provider copilot-api --model gpt-5.4-mini\n")
+		fmt.Fprintf(fs.Output(), "  openudon eval --root examples/eval --name support-email --provider copilot-api --model gpt-5.4-mini\n")
+		fmt.Fprintf(fs.Output(), "  openudon eval --root examples/eval --provider copilot-api --model gpt-5.4-mini --release-gate\n\n")
 		fs.PrintDefaults()
 	}
 	if err := fs.Parse(args); err != nil {
@@ -397,7 +418,7 @@ func runEvalCommand(args []string) {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
 	}
-	fmt.Printf("ramen: eval wrote %s\n", *out)
+	fmt.Printf("openudon: eval wrote %s\n", *out)
 	fmt.Print(evalpkg.MarkdownReport(report))
 	if *releaseGate {
 		criteria := evalpkg.DefaultReleaseCriteria()
@@ -436,24 +457,24 @@ func gitMetadata() (string, bool) {
 func runArtifactCommand(command string, args []string) {
 	fs := flag.NewFlagSet(command, flag.ExitOnError)
 	example := fs.String("example", "", "Example directory containing project.md and artifact subdirectories")
-	provider := fs.String("provider", "", "LLM provider: copilot-api, openai, anthropic, or gemini; defaults to Ramen provider env behavior")
+	provider := fs.String("provider", "", "LLM provider: copilot-api, openai, anthropic, or gemini; defaults to OpenUdon provider env behavior")
 	model := fs.String("model", "", "LLM model")
 	timeout := fs.Duration("timeout", 2*time.Minute, "LLM generation timeout")
 	maxAttempts := fs.Int("max-attempts", 5, "Maximum refinement attempts for synthesize/build")
 	temperature := fs.Float64("temperature", 0.2, "Intent generation temperature for synthesize")
 	fs.Usage = func() {
-		fmt.Fprintf(fs.Output(), "Usage: ramen %s --example examples/<name> [--provider copilot-api --model gpt-5.4-mini]\n", command)
+		fmt.Fprintf(fs.Output(), "Usage: openudon %s --example examples/<name> [--provider copilot-api --model gpt-5.4-mini]\n", command)
 		fmt.Fprintf(fs.Output(), "\n%s\n", artifactCommandDescription(command))
 		fmt.Fprintf(fs.Output(), "\nExamples:\n")
 		switch command {
 		case "synthesize":
-			fmt.Fprintf(fs.Output(), "  ramen synthesize --example examples/support-email --provider copilot-api --model gpt-5.4-mini --max-attempts 5\n")
+			fmt.Fprintf(fs.Output(), "  openudon synthesize --example examples/support-email --provider copilot-api --model gpt-5.4-mini --max-attempts 5\n")
 		case "build":
-			fmt.Fprintf(fs.Output(), "  ramen build --example examples/support-email --provider copilot-api --model gpt-5.4-mini\n")
+			fmt.Fprintf(fs.Output(), "  openudon build --example examples/support-email --provider copilot-api --model gpt-5.4-mini\n")
 		case "promote":
-			fmt.Fprintf(fs.Output(), "  ramen promote --example examples/support-email\n")
+			fmt.Fprintf(fs.Output(), "  openudon promote --example examples/support-email\n")
 		case "assess":
-			fmt.Fprintf(fs.Output(), "  ramen assess --example examples/support-email\n")
+			fmt.Fprintf(fs.Output(), "  openudon assess --example examples/support-email\n")
 		}
 		fmt.Fprintf(fs.Output(), "\nArtifacts:\n")
 		fmt.Fprintf(fs.Output(), "  workflows/intent.hcl        structured intent generated from project.md\n")
@@ -512,7 +533,7 @@ func printResult(command string, result *synthesize.Result) {
 	if result == nil {
 		return
 	}
-	fmt.Printf("ramen: %s %s\n", command, result.ExampleDir)
+	fmt.Printf("openudon: %s %s\n", command, result.ExampleDir)
 	if result.PrimaryOpenAPI != "" {
 		fmt.Printf("  openapi:  %s\n", result.PrimaryOpenAPI)
 	}
@@ -536,7 +557,7 @@ func artifactCommandDescription(command string) string {
 	case "assess":
 		return "Run deterministic quality gates against existing artifacts and rewrite expected/quality.{json,md}."
 	default:
-		return "Run a Ramen artifact command."
+		return "Run a OpenUdon artifact command."
 	}
 }
 
@@ -544,7 +565,7 @@ func printQuality(report *synthesize.QualityReport) {
 	if report == nil {
 		return
 	}
-	fmt.Printf("ramen: quality %s\n", report.Status)
+	fmt.Printf("openudon: quality %s\n", report.Status)
 	fmt.Printf("  report: %s\n", report.Artifacts.QualityJSONPath)
 	for _, check := range report.Checks {
 		fmt.Printf("  %s: %s\n", check.Code, check.Status)
@@ -592,7 +613,7 @@ func nextActionForQualityCheck(code string) string {
 	case code == "review.trusted_runner":
 		return "Regenerate review evidence so expected/review.md includes the trusted-runner handoff command."
 	case code == "review.production_boundary":
-		return "Regenerate review evidence so it states Ramen synthesis does not directly execute production workflows."
+		return "Regenerate review evidence so it states OpenUdon synthesis does not directly execute production workflows."
 	case strings.HasPrefix(code, "review."):
 		return "Update Safety and Approval Boundary or regenerate review evidence with build/synthesize."
 	case strings.HasPrefix(code, "symphony_handoff."):

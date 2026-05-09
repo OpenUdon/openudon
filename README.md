@@ -1,71 +1,43 @@
-# Ramen
+# OpenUdon
 
-Ramen is the public UWS workflow authoring, review, package, and executor-handoff tool. It can run
+OpenUdon is the public UWS workflow authoring, review, package, and executor-handoff tool. It can run
 directly or under optional Symphony-managed orchestration, and it hands approved packages to a
-trusted executor boundary such as the private `udon` runtime.
+trusted executor boundary such as the `udon` runtime.
 
 It owns project templates, optional Symphony workflow policy, example artifacts, deterministic
 validation, review handoff evidence, package digests, credential policy, and trusted-runner glue.
-Public workflow semantics belong in `../uws`; OpenAPI search/discovery/import/indexing belongs in
-`../apitools`; generic private execution belongs in executor implementations such as `../udon`;
-managed work orchestration belongs in `../symphony`.
-
-## Project Memory
-
-Use the memory bank as the current project source of truth:
-
-- [Product](memory-bank/product.md): purpose, users, workflows, scope, and non-goals.
-- [Architecture](memory-bank/architecture.md): boundaries, data flow, artifact flow, and security.
-- [Tech Stack](memory-bank/tech-stack.md): dependencies, commands, formats, and tooling.
-- [Milestone](memory-bank/milestone.md): roadmap, sequencing, and acceptance criteria.
-- [Status](memory-bank/status.md): current completion state and operational notes.
-
-Use [evolution/](evolution/) for versioned prompt/result snapshots when product direction or
-cross-repo boundaries materially change.
+Public workflow semantics belong in `github.com/OpenUdon/uws`; OpenAPI search/discovery/import/indexing belongs in
+`github.com/OpenUdon/apitools`.
 
 ## Quick Start
-
-```bash
-cd ../ramen
-make check
-```
-
-Required local siblings:
-
-```text
-../uws
-../apitools
-```
-
-Ramen does not import udon as a Go package. Udon can still be used as an external trusted executor
-through `ramen run` and the portable run-config handoff, either as a configured binary
-(`RAMEN_EXECUTOR` / `RAMEN_UDON_BIN`) or Docker image (`RAMEN_UDON_IMAGE`).
 
 Useful checks:
 
 ```bash
 go test ./...
 go vet ./...
-go run ./cmd/ramen check
-go run ./cmd/ramen check-apitools-boundary
-go run ./cmd/ramen check-doc-memory
-go run ./cmd/ramen validate ./examples
+go run ./cmd/openudon check
+go run ./cmd/openudon check-apitools-boundary
+go run ./cmd/openudon check-doc-memory
+go run ./cmd/openudon validate ./examples/uws-validation
 make check
 make release-check
 git diff --check
 ```
 
+Execute
+through `openudon run` and the portable run-config handoff, either as a configured binary
+(`OPENUDON_EXECUTOR` / `OPENUDON_UDON_BIN`) or Docker image (`OPENUDON_UDON_IMAGE`).
+
 ## Layout
 
-- `cmd/ramen`: local CLI for checks, synthesis, assessment, eval, readiness, approval templates,
+- `cmd/openudon`: local CLI for checks, synthesis, assessment, eval, readiness, approval templates,
   and trusted execution.
 - `cmd/icot`: guided authoring CLI for `project.md` and `workflows/intent.hcl`.
-- `internal/`: reusable Ramen implementation.
+- `internal/`: reusable OpenUdon implementation.
 - `examples/`: committed examples and eval corpus.
 - `templates/project.md`: starter project brief.
 - `docs/`: detailed architecture, safety, operator, XRD, and release notes.
-- `memory-bank/`: living product memory.
-- `evolution/`: versioned product-direction snapshots.
 
 ## Execution Boundary
 
@@ -80,14 +52,16 @@ natural-language project brief
   -> trusted executor handoff
 ```
 
-`ramen synthesize`, `ramen build`, `ramen promote`, `ramen assess`, `cmd/icot`, and eval commands
+`openudon synthesize`, `openudon build`, `openudon promote`, `openudon assess`, `cmd/icot`, and eval commands
 generate, compile, validate, and report on artifacts. They do not execute production workflows.
 
-`ramen run` is separate. It validates the handoff manifest, stored and current quality, approval
-JSON, package digest, and tier before writing a non-secret `ramen.executor-run.v1` run config and
+`openudon run` is separate. It validates the handoff manifest, stored and current quality, approval
+JSON, package digest, and tier before writing a non-secret `openudon.executor-run.v1` run config and
 invoking the Go trusted executor runner. The runner stages the reviewed UWS/OpenAPI files into the
-run workdir before calling the external udon CLI or the configured `RAMEN_UDON_IMAGE` Docker image.
-The runner is also available directly as `go run ./cmd/ramen-udon-runner --config <run-config.json>`.
+run workdir before calling the configured `OPENUDON_UDON_IMAGE` Docker image.
+The runner is also available directly as `go run ./cmd/udon-runner --config <run-config.json>`.
+Binary overrides `OPENUDON_EXECUTOR`, `OPENUDON_UDON_BIN`, and `OPENUDON_UDON_RUNNER` must be
+absolute paths to executable files.
 
 ## Authoring With iCoT
 
@@ -133,7 +107,7 @@ Side-effect scope in iCoT:
 - `read-only`: generate and validate artifacts only.
 - `sandbox-only`: sandbox proof runs require `approved_for_sandbox`, approved bindings, and a
   trusted runner.
-- `after-approval`: sandbox and production execution require the full Ramen/Symphony approval path.
+- `after-approval`: sandbox and production execution require the full OpenUdon/Symphony approval path.
 
 ## Synthesize And Assess
 
@@ -141,7 +115,7 @@ Generate all reviewed artifacts for an example:
 
 ```bash
 export COPILOT_API_BASE_URL=http://localhost:4141
-go run ./cmd/ramen synthesize \
+go run ./cmd/openudon synthesize \
   --example ./examples/support-email \
   --provider copilot-api \
   --model gpt-5.4-mini \
@@ -168,13 +142,13 @@ Use narrower stages after editing artifacts:
 
 ```bash
 # intent.hcl -> workflow/UWS/plan/review/quality
-go run ./cmd/ramen build --example ./examples/support-email --max-attempts 5
+go run ./cmd/openudon build --example ./examples/support-email --max-attempts 5
 
 # workflow.hcl -> UWS/review/quality
-go run ./cmd/ramen promote --example ./examples/support-email
+go run ./cmd/openudon promote --example ./examples/support-email
 
 # quality reports only
-go run ./cmd/ramen assess --example ./examples/support-email
+go run ./cmd/openudon assess --example ./examples/support-email
 ```
 
 The bounded refinement loop records retried stages, failed checks, and stop reason in
@@ -210,7 +184,7 @@ Use the eval harness when changing prompts, synthesis/refinement behavior, model
 quality gates that could affect generated artifacts:
 
 ```bash
-go run ./cmd/ramen eval --root ./examples/eval --provider copilot-api --model gpt-5.4-mini
+go run ./cmd/openudon eval --root ./examples/eval --provider copilot-api --model gpt-5.4-mini
 ```
 
 Eval reports are written under ignored `eval/runs/`. They include pass/fail summaries,
@@ -223,7 +197,7 @@ Use release gates only for candidate release evidence:
 make release-eval
 ```
 
-`make release-eval` uses `RAMEN_PROVIDER` and `RAMEN_MODEL`, defaulting to `copilot-api` and
+`make release-eval` uses `OPENUDON_PROVIDER` and `OPENUDON_MODEL`, defaulting to `copilot-api` and
 `gpt-5.4-mini`, and requires the current eval corpus size as the minimum brief count.
 
 ## Readiness
@@ -233,8 +207,8 @@ ignored local artifacts, provider credential environment presence as booleans on
 local/manual automation policy.
 
 ```bash
-go run ./cmd/ramen readiness --out eval/readiness/local.json
-go run ./cmd/ramen readiness --run-gates --out eval/readiness/local.json
+go run ./cmd/openudon readiness --out eval/readiness/local.json
+go run ./cmd/openudon readiness --run-gates --out eval/readiness/local.json
 ```
 
 Hosted CI remains intentionally disabled during active private-sibling development. Real-provider
@@ -246,7 +220,7 @@ After artifacts pass review, generate approval JSON with the current package dig
 
 ```bash
 mkdir -p approvals
-go run ./cmd/ramen approval-template \
+go run ./cmd/openudon approval-template \
   --example ./examples/support-email \
   --state approved_for_sandbox \
   --reviewer "Reviewer Name" \
@@ -257,7 +231,7 @@ Validate approval, quality, handoff policy, package digest, and tier compatibili
 executor handoff:
 
 ```bash
-go run ./cmd/ramen run \
+go run ./cmd/openudon run \
   --example ./examples/support-email \
   --tier sandbox \
   --approval approvals/support-email-sandbox.json
@@ -269,7 +243,7 @@ Approval JSON shape:
 
 ```json
 {
-  "version": "ramen.approval.v1",
+  "version": "openudon.approval.v1",
   "scope": "examples/support-email",
   "state": "approved_for_sandbox",
   "reviewer": "Reviewer Name",
@@ -290,17 +264,19 @@ Tier rules:
 - Stored or current quality failures fail.
 - Malformed handoff manifests fail.
 - Credential-value artifacts and direct production execution remain prohibited.
+- Approval JSON and saved run configs from before the OpenUdon package rename should be regenerated
+  so scope, version, and package digest fields match the current artifact set.
 
 ## Symphony Agent Workflow
 
-Ramen issues may be run through Symphony-managed Codex sessions. Agents should follow this policy:
+OpenUdon issues may be run through Symphony-managed Codex sessions. Agents should follow this policy:
 
 - Use UWS as the workflow interchange format.
 - Use OpenAPI for HTTP method, path, schema, server, and security details.
 - Use extension-owned UWS operations for non-HTTP runtimes such as SMTP, command execution, SSH,
   SQL, or LLM calls.
 - Use `../uws` for public schema/model validation.
-- Use `ramen run` to hand approved UWS/OpenAPI packages to a trusted executor such as udon.
+- Use `openudon run` to hand approved UWS/OpenAPI packages to a trusted executor such as udon.
 - Use `../symphony` only as the work orchestration service.
 - Do not execute production side effects directly from an agent session.
 - If execution is requested, produce or update the approved artifact and document the trusted runner
@@ -332,16 +308,16 @@ go test ./...
 go vet ./...
 make check
 git diff --check
-go run ./cmd/ramen validate ./examples
-go run ./cmd/ramen assess --example examples/<name>
+go run ./cmd/openudon validate examples/uws-validation
+go run ./cmd/openudon assess --example examples/<name>
 ```
 
-If side-effectful execution is explicitly requested, use `ramen run` with approval JSON. Do not run
+If side-effectful execution is explicitly requested, use `openudon run` with approval JSON. Do not run
 production effects from synthesis, build, promote, assess, iCoT, or eval.
 
 ## Model And Credential Guidance
 
-Use the local `copilot-api` proxy with `gpt-5.4-mini` as the default model for synthesis. Ramen
+Use the local `copilot-api` proxy with `gpt-5.4-mini` as the default model for synthesis. OpenUdon
 reliability comes mostly from prompt preprocessing, structured output when available, deterministic
 quality gates, and bounded repair attempts. Escalate to a larger model only after the default model
 fails deterministic checks.

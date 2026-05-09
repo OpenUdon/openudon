@@ -1,0 +1,8 @@
+uws: 1.0.0
+info:
+  title: OpenUdon validation fixture
+  version: 1.0.0
+operations:
+  - operationId: render_summary
+    description: Render a local summary for validation smoke tests.
+    x-uws-operation-profile: fnct

@@ -12,8 +12,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/genelet/ramen/internal/authoring"
-	"github.com/genelet/ramen/internal/synthesize"
+	"github.com/OpenUdon/openudon/internal/authoring"
+	"github.com/OpenUdon/openudon/internal/synthesize"
 )
 
 func TestRunValidSandboxApprovalPassesDryRun(t *testing.T) {
@@ -181,7 +181,7 @@ func TestRunFailedQualityReportFails(t *testing.T) {
 	root, example := writeFixture(t, fixtureOptions{qualityStatus: "fail"})
 	now := fixedNow()
 	approvalPath := filepath.Join(root, "approval.json")
-	mustWriteFile(t, approvalPath, []byte(`{"version":"ramen.approval.v1"}`))
+	mustWriteFile(t, approvalPath, []byte(`{"version":"openudon.approval.v1"}`))
 
 	_, err := Run(context.Background(), Options{
 		RepoRoot:     root,
@@ -217,7 +217,7 @@ func TestRunFailedQualityReportFails(t *testing.T) {
 func TestRunMalformedHandoffManifestFails(t *testing.T) {
 	root, example := writeFixture(t, fixtureOptions{malformedHandoff: true})
 	approvalPath := filepath.Join(root, "approval.json")
-	mustWriteFile(t, approvalPath, []byte(`{"version":"ramen.approval.v1"}`))
+	mustWriteFile(t, approvalPath, []byte(`{"version":"openudon.approval.v1"}`))
 
 	_, err := Run(context.Background(), Options{
 		RepoRoot:     root,
@@ -262,6 +262,11 @@ func TestRunNonDryRunInvokesRunner(t *testing.T) {
 	root, example := writeFixture(t, fixtureOptions{})
 	now := fixedNow()
 	approvalPath := writeApprovalTemplate(t, root, example, StateApprovedForSandbox, now)
+	runnerPath := filepath.Join(root, "fake-runner")
+	mustWriteFile(t, runnerPath, []byte("#!/usr/bin/env bash\nexit 0\n"))
+	if err := os.Chmod(runnerPath, 0o755); err != nil {
+		t.Fatal(err)
+	}
 	var gotName string
 	var gotArgs []string
 
@@ -270,7 +275,7 @@ func TestRunNonDryRunInvokesRunner(t *testing.T) {
 		ExampleDir:   example,
 		Tier:         TierSandbox,
 		ApprovalPath: approvalPath,
-		RunnerPath:   filepath.Join(root, "fake-runner"),
+		RunnerPath:   runnerPath,
 		WorkDir:      filepath.Join(root, "work"),
 		Now:          now,
 		Assess:       passAssess,
@@ -283,7 +288,7 @@ func TestRunNonDryRunInvokesRunner(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Run returned error: %v", err)
 	}
-	if gotName != filepath.Join(root, "fake-runner") {
+	if gotName != runnerPath {
 		t.Fatalf("runner path = %q", gotName)
 	}
 	if len(gotArgs) != 2 || gotArgs[0] != "--config" || gotArgs[1] != result.RunConfigPath {
@@ -293,8 +298,42 @@ func TestRunNonDryRunInvokesRunner(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !strings.Contains(string(data), `"version": "ramen.executor-run.v1"`) || !strings.Contains(string(data), `"workflow_path": "workflows/workflow.uws.yaml"`) {
+	if !strings.Contains(string(data), `"version": "openudon.executor-run.v1"`) || !strings.Contains(string(data), `"workflow_path": "workflows/workflow.uws.yaml"`) {
 		t.Fatalf("unexpected run config:\n%s", data)
+	}
+}
+
+func TestRunRejectsUnsafeRunnerPathOverride(t *testing.T) {
+	for _, tc := range []struct {
+		name       string
+		runnerPath string
+		want       string
+	}{
+		{name: "relative", runnerPath: "fake-runner", want: "absolute path"},
+		{name: "missing", runnerPath: filepath.Join(t.TempDir(), "missing-runner"), want: "executable file"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			root, example := writeFixture(t, fixtureOptions{})
+			now := fixedNow()
+			approvalPath := writeApprovalTemplate(t, root, example, StateApprovedForSandbox, now)
+			_, err := Run(context.Background(), Options{
+				RepoRoot:     root,
+				ExampleDir:   example,
+				Tier:         TierSandbox,
+				ApprovalPath: approvalPath,
+				RunnerPath:   tc.runnerPath,
+				WorkDir:      filepath.Join(root, "work"),
+				Now:          now,
+				Assess:       passAssess,
+				RunCommand: func(context.Context, string, ...string) error {
+					t.Fatal("runner should not be invoked")
+					return nil
+				},
+			})
+			if err == nil || !strings.Contains(err.Error(), tc.want) {
+				t.Fatalf("expected %q error, got %v", tc.want, err)
+			}
+		})
 	}
 }
 
@@ -307,7 +346,7 @@ func TestRunNonDryRunUsesDefaultGoRunner(t *testing.T) {
 	if err := os.Chmod(fakeExecutor, 0o755); err != nil {
 		t.Fatal(err)
 	}
-	t.Setenv("RAMEN_EXECUTOR", fakeExecutor)
+	t.Setenv("OPENUDON_EXECUTOR", fakeExecutor)
 
 	var gotName string
 	var gotArgs []string
@@ -584,10 +623,10 @@ func TestUdonRunnerStagesPackageAndUsesConfiguredWorkdir(t *testing.T) {
 		t.Fatal(err)
 	}
 	cmd := runnerCLICommand(t, repoRoot, configPath)
-	cmd.Env = append(os.Environ(), "RAMEN_EXECUTOR="+fakeExecutor, "CAPTURE_ARGS="+capture)
+	cmd.Env = append(os.Environ(), "OPENUDON_EXECUTOR="+fakeExecutor, "CAPTURE_ARGS="+capture)
 	out, err := cmd.CombinedOutput()
 	if err != nil {
-		t.Fatalf("ramen-udon-runner failed: %v\n%s", err, out)
+		t.Fatalf("udon-runner failed: %v\n%s", err, out)
 	}
 	args, err := os.ReadFile(capture)
 	if err != nil {
@@ -649,7 +688,7 @@ func TestUdonRunnerRejectsSymlinkedPackageRoot(t *testing.T) {
 		t.Fatal(err)
 	}
 	cmd := runnerCLICommand(t, repoRoot, configPath)
-	cmd.Env = append(os.Environ(), "RAMEN_EXECUTOR="+fakeExecutor, "CAPTURE_ARGS="+capture)
+	cmd.Env = append(os.Environ(), "OPENUDON_EXECUTOR="+fakeExecutor, "CAPTURE_ARGS="+capture)
 	out, err := cmd.CombinedOutput()
 	if err == nil || !strings.Contains(string(out), "package root must not be a symlink") {
 		t.Fatalf("expected package root symlink rejection, err=%v out=%s", err, out)
@@ -689,7 +728,7 @@ func TestUdonRunnerRejectsSymlinkedWorkflow(t *testing.T) {
 	}
 	mustWriteFile(t, configPath, data)
 	cmd := runnerCLICommand(t, repoRoot, configPath)
-	cmd.Env = append(os.Environ(), "RAMEN_EXECUTOR=/bin/true")
+	cmd.Env = append(os.Environ(), "OPENUDON_EXECUTOR=/bin/true")
 	out, err := cmd.CombinedOutput()
 	if err == nil || !strings.Contains(string(out), "workflow file must not be a symlink") {
 		t.Fatalf("expected workflow symlink rejection, err=%v out=%s", err, out)
@@ -729,7 +768,7 @@ func TestUdonRunnerRejectsSymlinkedWorkflowParent(t *testing.T) {
 	}
 	mustWriteFile(t, configPath, data)
 	cmd := runnerCLICommand(t, repoRoot, configPath)
-	cmd.Env = append(os.Environ(), "RAMEN_EXECUTOR=/bin/true")
+	cmd.Env = append(os.Environ(), "OPENUDON_EXECUTOR=/bin/true")
 	out, err := cmd.CombinedOutput()
 	if err == nil || !strings.Contains(string(out), "workflow file must not be a symlink") {
 		t.Fatalf("expected workflow parent symlink rejection, err=%v out=%s", err, out)
@@ -793,7 +832,7 @@ func TestUdonRunnerRejectsUnsafeWorkflowTypes(t *testing.T) {
 			}
 			mustWriteFile(t, configPath, data)
 			cmd := runnerCLICommand(t, repoRoot, configPath)
-			cmd.Env = append(os.Environ(), "RAMEN_EXECUTOR=/bin/true")
+			cmd.Env = append(os.Environ(), "OPENUDON_EXECUTOR=/bin/true")
 			out, err := cmd.CombinedOutput()
 			if err == nil || !strings.Contains(string(out), tc.wantOutput) {
 				t.Fatalf("expected %q, err=%v out=%s", tc.wantOutput, err, out)
@@ -848,7 +887,7 @@ func TestUdonRunnerRejectsUnsafeWorkflowPathFields(t *testing.T) {
 			}
 			mustWriteFile(t, configPath, data)
 			cmd := runnerCLICommand(t, repoRoot, configPath)
-			cmd.Env = append(os.Environ(), "RAMEN_EXECUTOR=/bin/true")
+			cmd.Env = append(os.Environ(), "OPENUDON_EXECUTOR=/bin/true")
 			out, err := cmd.CombinedOutput()
 			if err == nil || !strings.Contains(string(out), tc.wantOutput) {
 				t.Fatalf("expected %q, err=%v out=%s", tc.wantOutput, err, out)
@@ -972,7 +1011,7 @@ func TestUdonRunnerRejectsOpenAPIUnsafePaths(t *testing.T) {
 			}
 			mustWriteFile(t, configPath, data)
 			cmd := runnerCLICommand(t, repoRoot, configPath)
-			cmd.Env = append(os.Environ(), "RAMEN_EXECUTOR=/bin/true")
+			cmd.Env = append(os.Environ(), "OPENUDON_EXECUTOR=/bin/true")
 			out, err := cmd.CombinedOutput()
 			if err == nil || !strings.Contains(string(out), tc.wantOutput) {
 				t.Fatalf("expected %q, err=%v out=%s", tc.wantOutput, err, out)
@@ -1014,10 +1053,10 @@ func TestUdonRunnerAcceptsAbsolutePathsInsidePackageRoot(t *testing.T) {
 		t.Fatal(err)
 	}
 	cmd := runnerCLICommand(t, repoRoot, configPath)
-	cmd.Env = append(os.Environ(), "RAMEN_EXECUTOR="+fakeExecutor, "CAPTURE_ARGS="+capture)
+	cmd.Env = append(os.Environ(), "OPENUDON_EXECUTOR="+fakeExecutor, "CAPTURE_ARGS="+capture)
 	out, err := cmd.CombinedOutput()
 	if err != nil {
-		t.Fatalf("ramen-udon-runner failed: %v\n%s", err, out)
+		t.Fatalf("udon-runner failed: %v\n%s", err, out)
 	}
 	args, err := os.ReadFile(capture)
 	if err != nil {
@@ -1070,10 +1109,10 @@ func TestUdonRunnerFreshStageHidesPersistentStaleFiles(t *testing.T) {
 		t.Fatal(err)
 	}
 	cmd := runnerCLICommand(t, repoRoot, configPath)
-	cmd.Env = append(os.Environ(), "RAMEN_EXECUTOR="+fakeExecutor, "CAPTURE_ARGS="+capture)
+	cmd.Env = append(os.Environ(), "OPENUDON_EXECUTOR="+fakeExecutor, "CAPTURE_ARGS="+capture)
 	out, err := cmd.CombinedOutput()
 	if err != nil {
-		t.Fatalf("ramen-udon-runner failed: %v\n%s", err, out)
+		t.Fatalf("udon-runner failed: %v\n%s", err, out)
 	}
 	args, err := os.ReadFile(capture)
 	if err != nil {
@@ -1127,13 +1166,13 @@ func TestUdonRunnerCanInvokeDockerImage(t *testing.T) {
 	cmd := runnerCLICommand(t, repoRoot, configPath)
 	cmd.Env = append(os.Environ(),
 		"PATH="+binDir+string(os.PathListSeparator)+os.Getenv("PATH"),
-		"RAMEN_UDON_IMAGE=udon:test",
+		"OPENUDON_UDON_IMAGE=udon:test",
 		"CAPTURE_ARGS="+capture,
 		"UDON_CREDENTIAL_SUPPORT_API_TOKEN=super-secret",
 	)
 	out, err := cmd.CombinedOutput()
 	if err != nil {
-		t.Fatalf("ramen-udon-runner docker failed: %v\n%s", err, out)
+		t.Fatalf("udon-runner docker failed: %v\n%s", err, out)
 	}
 	args, err := os.ReadFile(capture)
 	if err != nil {
@@ -1187,7 +1226,7 @@ func TestUdonRunnerFailsWhenCredentialEnvMissing(t *testing.T) {
 		}
 		cmd.Env = append(cmd.Env, item)
 	}
-	cmd.Env = append(cmd.Env, "RAMEN_EXECUTOR=/bin/true")
+	cmd.Env = append(cmd.Env, "OPENUDON_EXECUTOR=/bin/true")
 	out, err := cmd.CombinedOutput()
 	if err == nil || !strings.Contains(string(out), "UDON_CREDENTIAL_MISSING_PLAN_TEST") {
 		t.Fatalf("expected missing credential env failure, err=%v out=%s", err, out)
@@ -1199,8 +1238,8 @@ func TestUdonRunnerRejectsRelativeExecutorEnv(t *testing.T) {
 		name string
 		env  string
 	}{
-		{name: "ramen-executor", env: "RAMEN_EXECUTOR=relative-udon"},
-		{name: "ramen-udon-bin", env: "RAMEN_UDON_BIN=relative-udon"},
+		{name: "openudon-executor", env: "OPENUDON_EXECUTOR=relative-udon"},
+		{name: "openudon-udon-bin", env: "OPENUDON_UDON_BIN=relative-udon"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			wd, err := os.Getwd()
@@ -1248,7 +1287,7 @@ func TestUdonRunnerVerifiesStagedPackageDigestBeforeExecutor(t *testing.T) {
 	mustWriteFile(t, workflowPath, []byte("uws: 1.0.0\n"))
 	digest, err := authoring.ComputeReviewHandoffDigest(authoring.ReviewHandoffDigestOptions{
 		Root:    packageRoot,
-		Version: "ramen.handoff-package-digest.v1",
+		Version: "openudon.handoff-package-digest.v1",
 		Inputs:  []authoring.ReviewHandoffInput{{Path: workflowRel, Required: true}},
 	})
 	if err != nil {
@@ -1276,7 +1315,7 @@ func TestUdonRunnerVerifiesStagedPackageDigestBeforeExecutor(t *testing.T) {
 		t.Fatal(err)
 	}
 	cmd := runnerCLICommand(t, repoRoot, configPath)
-	cmd.Env = append(os.Environ(), "RAMEN_EXECUTOR="+fakeExecutor, "CAPTURE_ARGS="+capture)
+	cmd.Env = append(os.Environ(), "OPENUDON_EXECUTOR="+fakeExecutor, "CAPTURE_ARGS="+capture)
 	out, err := cmd.CombinedOutput()
 	if err == nil || !strings.Contains(string(out), "staged package_sha256") {
 		t.Fatalf("expected staged digest mismatch, err=%v out=%s", err, out)
@@ -1311,7 +1350,7 @@ func argValue(t *testing.T, args []string, flag string) string {
 
 func runnerCLICommand(t *testing.T, repoRoot, configPath string) *exec.Cmd {
 	t.Helper()
-	cmd := exec.Command("go", "run", "./cmd/ramen-udon-runner", "--config", configPath)
+	cmd := exec.Command("go", "run", "./cmd/udon-runner", "--config", configPath)
 	cmd.Dir = repoRoot
 	return cmd
 }
@@ -1378,7 +1417,7 @@ func writeFixture(t *testing.T, opts fixtureOptions) (string, string) {
 		},
 		"approval_states": authoring.DefaultReviewStateMachine(),
 		"owner_split": map[string]any{
-			"ramen":    []string{"artifact validation"},
+			"openudon": []string{"artifact validation"},
 			"symphony": []string{"approval routing"},
 		},
 		"execution_policy": map[string]any{

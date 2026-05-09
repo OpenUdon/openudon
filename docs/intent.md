@@ -1,10 +1,10 @@
 # Intent HCL
 
-`workflows/intent.hcl` is Ramen's internal structured authoring contract between
-`project.md` and `workflows/workflow.hcl`. It records what Ramen intends to build before udon
-lowers that intent into executable workflow source and exported UWS.
+`workflows/intent.hcl` is OpenUdon's internal structured authoring contract between
+`project.md` and `workflows/workflow.hcl`. It records what OpenUdon intends to build before
+OpenUdon renders public workflow source and exported UWS.
 
-This is a Ramen-owned document. It is not the public UWS specification and it is not a generic
+This is a OpenUdon-owned document. It is not the public UWS specification and it is not a generic
 udon runtime specification. Public workflow semantics remain in `../uws`; generic compiler and
 runtime behavior remains in `../udon`.
 
@@ -16,18 +16,19 @@ runtime behavior remains in `../udon`.
 project.md -> workflows/intent.hcl -> workflows/workflow.hcl -> workflows/workflow.uws.yaml
 ```
 
-Ramen accepts intent through its local `internal/workflowintent.Intent` model and the
-structured JSON schema embedded at `internal/synthesize/schemas/intent.schema.json`. `ramen build`
-parses an existing `workflows/intent.hcl`; `ramen synthesize` generates one from `project.md`,
+OpenUdon accepts intent through its local `internal/workflowintent.Intent` model and the
+structured JSON schema embedded at `internal/synthesize/schemas/intent.schema.json`. `openudon build`
+parses an existing `workflows/intent.hcl`; `openudon synthesize` generates one from `project.md`,
 OpenAPI discovery, and project policy.
 
-Intent HCL parsing is delegated to udon's `rollout.ParseIntent` API. The canonical renderer is
-`runner.RenderIntentHCL`; generated workflow lowering uses `Intent.NormalizedForGeneration` before
-Ramen produces `workflow.hcl` as public UWS HCL. Ramen does not import udon packages.
+Intent HCL parsing uses OpenUdon's local `workflowintent.ParseIntent` API. The canonical renderer is
+`workflowintent.RenderIntentHCL`; generated workflow lowering uses
+`Intent.NormalizedForGeneration` before OpenUdon produces `workflow.hcl` as public UWS HCL.
+OpenUdon does not import udon packages.
 
 ## Accuracy Profile
 
-Ramen accepts some incomplete or descriptive intent so the refinement loop can repair generated
+OpenUdon accepts some incomplete or descriptive intent so the refinement loop can repair generated
 artifacts. That looser mode is not the accuracy target.
 
 For near-100% conversion from `intent.hcl` to `workflow.hcl`, author the high-fidelity profile:
@@ -52,7 +53,7 @@ openapi    = "openapi/example.yaml"   # optional default OpenAPI document
 server_url = "https://sandbox.example.com" # optional default server URL
 locals     = { region = "us-east-1" } # optional string map
 
-workflow { ... }                      # required by Ramen-generated intent
+workflow { ... }                      # required by OpenUdon-generated intent
 input "<name>" { ... }                 # zero or more
 trigger "<name>" { ... }               # zero or more
 security "<name>" { ... }              # zero or more
@@ -60,7 +61,7 @@ step "<name>" { ... }                  # one or more for normal generation
 output "<name>" { ... }                # zero or more
 ```
 
-`rollout.ParseIntent` requires at least one `step` or `trigger`. Ramen-generated intent should
+`workflowintent.ParseIntent` requires at least one `step` or `trigger`. OpenUdon-generated intent should
 always include a `workflow` block with non-empty `name` and `description`, and at least one `step`.
 Block order is not significant to parsing. The renderer emits a stable order, and hand-authored
 intent should follow it for reviewability: top-level attributes, `workflow`, inputs, triggers,
@@ -154,11 +155,11 @@ Supported step attributes:
 Supported leaf step types are `http`, `openapi`, `fnct`, `cmd`, and `ssh`.
 Supported structural step types are `sequence`, `parallel`, `switch`, `merge`, `loop`, and `await`.
 
-Ramen policy allows `openapi`, `http`, and `fnct` by default. `cmd` and `ssh` require explicit
+OpenUdon policy allows `openapi`, `http`, and `fnct` by default. `cmd` and `ssh` require explicit
 approval in `project.md`; otherwise quality assessment fails the intent.
 
 Unsupported runtime names such as `sql`, `smtp`, `llm`, and profile-specific `x-udon-*` names must
-not appear in Ramen intent unless a later Ramen change adds explicit schema, policy, and fixture
+not appear in OpenUdon intent unless a later OpenUdon change adds explicit schema, policy, and fixture
 coverage.
 
 ## API Steps
@@ -278,7 +279,7 @@ bind {
 ```
 
 This means `targetField` on the current step comes from
-`source_step.received_body.path`, and the current step depends on `source_step`. Ramen quality gates
+`source_step.received_body.path`, and the current step depends on `source_step`. OpenUdon quality gates
 validate that referenced source steps exist and, when response schemas are available, that response
 paths are plausible.
 
@@ -310,7 +311,7 @@ function default during lowering, but authors should not depend on that default 
 
 ## Actions And Control Flow
 
-Leaf steps may carry explicit `successCriteria`, `onFailure`, and `onSuccess` blocks. Ramen should
+Leaf steps may carry explicit `successCriteria`, `onFailure`, and `onSuccess` blocks. OpenUdon should
 preserve them only when the project or intent explicitly asks for success checks, retry, failure
 routing, or success routing. Retry is never a default behavior, and side-effectful retry requires
 project-level retry or idempotency policy.
@@ -332,7 +333,7 @@ Allowed places for binding names:
 - `security "<name>" { token_from = "binding_name" }`.
 - Project-documented credential fields inferred into generated request bindings.
 
-Ramen quality gates compare credential-like OpenAPI parameters and security schemes against
+OpenUdon quality gates compare credential-like OpenAPI parameters and security schemes against
 declared project credential policy. Missing bindings fail validation.
 
 Security blocks use this shape:
@@ -365,7 +366,7 @@ trigger "<name>" {
 
 Triggers are accepted by the intent model, including route dispatch. When a route is present without
 an explicit `outputs` list, synthesis infers trigger outputs from the route labels for compatibility.
-Most Ramen examples are synchronously invoked workflows without triggers.
+Most OpenUdon examples are synchronously invoked workflows without triggers.
 
 ## Reference Grammar
 
@@ -447,17 +448,17 @@ possible.
 
 ## Validation
 
-Current validation is split across parser checks, structured generation schema, and Ramen quality
+Current validation is split across parser checks, structured generation schema, and OpenUdon quality
 gates:
 
-- `rollout.ParseIntent` requires valid HCL, at least one `step` or `trigger`, labels for labeled
+- `workflowintent.ParseIntent` requires valid HCL, at least one `step` or `trigger`, labels for labeled
   blocks, `do` on leaf steps, and non-empty `from` plus fields on leaf-step `bind` blocks.
 - `Intent.MissingSlots()` reports missing default OpenAPI context, missing steps, and missing leaf
   descriptions.
 - `internal/synthesize/schemas/intent.schema.json` rejects unknown generated JSON fields, restricts
   generated step types to the supported enum, and requires `operation` when generated
   `type = "openapi"`.
-- Ramen quality gates validate runtime policy, OpenAPI references and operations, required
+- OpenUdon quality gates validate runtime policy, OpenAPI references and operations, required
   parameters, credential bindings, function contracts, data-flow references, response paths, and
   side-effect policy.
 
@@ -589,7 +590,7 @@ credential binding policy, safety boundary, and fallback behavior.
 remain the artifacts compiled and reviewed before trusted execution.
 
 `intent.hcl` does not authorize execution. Production side effects require the approved trusted-runner
-path documented in Ramen safety and handoff artifacts.
+path documented in OpenUdon safety and handoff artifacts.
 
 ## Reference Implementation
 
@@ -597,5 +598,5 @@ path documented in Ramen safety and handoff artifacts.
 - Canonical renderer: `workflowintent.RenderIntentHCL`.
 - Generation normalizer: `Intent.NormalizedForGeneration`.
 - Structured generation schema: `internal/synthesize/schemas/intent.schema.json`.
-- Ramen validation: `ramen assess` quality checks under `internal/synthesize`.
+- OpenUdon validation: `openudon assess` quality checks under `internal/synthesize`.
 - Reference fixtures: `examples/eval/*/reference/intent.hcl`.

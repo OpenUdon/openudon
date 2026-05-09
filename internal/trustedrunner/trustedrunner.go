@@ -13,17 +13,17 @@ import (
 	"strings"
 	"time"
 
-	"github.com/genelet/ramen/internal/authoring"
-	"github.com/genelet/ramen/internal/packageartifacts"
-	"github.com/genelet/ramen/internal/synthesize"
-	"github.com/genelet/ramen/internal/udonrunner"
+	"github.com/OpenUdon/openudon/internal/authoring"
+	"github.com/OpenUdon/openudon/internal/packageartifacts"
+	"github.com/OpenUdon/openudon/internal/synthesize"
+	"github.com/OpenUdon/openudon/internal/udonrunner"
 )
 
 const (
-	ApprovalVersion        = "ramen.approval.v1"
+	ApprovalVersion        = "openudon.approval.v1"
 	RunConfigVersion       = udonrunner.RunConfigVersion
 	SymphonyHandoffVersion = authoring.ReviewHandoffVersion
-	legacyHandoffVersion   = "ramen.symphony-handoff.v1"
+	legacyHandoffVersion   = "openudon.symphony-handoff.v1"
 
 	StateApprovedForSandbox    = string(authoring.ReviewStateApprovedForSandbox)
 	StateApprovedForProduction = string(authoring.ReviewStateApprovedForProduction)
@@ -143,6 +143,9 @@ func Run(ctx context.Context, opts Options) (*RunResult, error) {
 
 	runnerPath := strings.TrimSpace(opts.RunnerPath)
 	if runnerPath != "" {
+		if err := validateRunnerPath("OPENUDON_UDON_RUNNER", runnerPath); err != nil {
+			return nil, err
+		}
 		args := []string{"--config", runConfigPath}
 		runCommand := opts.RunCommand
 		if runCommand == nil {
@@ -169,6 +172,20 @@ func Run(ctx context.Context, opts Options) (*RunResult, error) {
 		return nil, fmt.Errorf("run trusted executor: %w", err)
 	}
 	return result, nil
+}
+
+func validateRunnerPath(name, path string) error {
+	if !filepath.IsAbs(path) {
+		return fmt.Errorf("%s must be an absolute path: %s", name, path)
+	}
+	info, err := os.Stat(path)
+	if err != nil {
+		return fmt.Errorf("%s does not point to an executable file: %s", name, path)
+	}
+	if info.IsDir() || info.Mode()&0o111 == 0 {
+		return fmt.Errorf("%s does not point to an executable file: %s", name, path)
+	}
+	return nil
 }
 
 func buildRunConfig(p paths, manifest handoffManifest, digest, tier, workdir string) (RunConfig, error) {
@@ -368,7 +385,7 @@ func resolvePaths(repoRoot, example string) (paths, error) {
 		workflow:       filepath.Join(exampleAbs, "workflows", "workflow.hcl"),
 		quality:        filepath.Join(exampleAbs, "expected", "quality.json"),
 		handoff:        filepath.Join(exampleAbs, "expected", "symphony-handoff.json"),
-		defaultWorkDir: filepath.Join(repoAbs, ".ramen-run", strings.ReplaceAll(scope, "/", "-")),
+		defaultWorkDir: filepath.Join(repoAbs, ".openudon-run", strings.ReplaceAll(scope, "/", "-")),
 	}, nil
 }
 
@@ -445,7 +462,7 @@ func computePackageDigest(p paths, manifest handoffManifest) (string, error) {
 	return authoring.ComputeReviewHandoffDigest(authoring.ReviewHandoffDigestOptions{
 		Root:    p.exampleAbs,
 		Scope:   p.scope,
-		Version: "ramen.handoff-package-digest.v1",
+		Version: "openudon.handoff-package-digest.v1",
 		Inputs:  inputs,
 	})
 }

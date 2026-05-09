@@ -40,7 +40,7 @@ func TestCLIArtifactHelpIncludesExamplesAndArtifacts(t *testing.T) {
 	}
 	text := string(output)
 	for _, expected := range []string{
-		"Usage: ramen synthesize",
+		"Usage: openudon synthesize",
 		"Examples:",
 		"gpt-5.4-mini",
 		"Artifacts:",
@@ -62,7 +62,7 @@ func TestCLIEvalHelpIncludesReleaseGate(t *testing.T) {
 	}
 	text := string(output)
 	for _, expected := range []string{
-		"Usage: ramen eval",
+		"Usage: openudon eval",
 		"--release-gate",
 		"--min-briefs",
 		"--compare",
@@ -87,7 +87,7 @@ func TestCLIRunHelpIncludesApprovalGates(t *testing.T) {
 	}
 	text := string(output)
 	for _, expected := range []string{
-		"Usage: ramen run",
+		"Usage: openudon run",
 		"--tier sandbox|production",
 		"--approval",
 		"--dry-run",
@@ -109,9 +109,9 @@ func TestCLIApprovalTemplateHelpIncludesSchema(t *testing.T) {
 	}
 	text := string(output)
 	for _, expected := range []string{
-		"Usage: ramen approval-template",
+		"Usage: openudon approval-template",
 		"approved_for_sandbox|approved_for_production",
-		"ramen.approval.v1",
+		"openudon.approval.v1",
 		"package_sha256",
 		"expires_at",
 	} {
@@ -129,10 +129,10 @@ func TestCLIReadinessHelpIncludesXRD007Report(t *testing.T) {
 	}
 	text := string(output)
 	for _, expected := range []string{
-		"Usage: ramen readiness",
+		"Usage: openudon readiness",
 		"--run-gates",
 		"--out",
-		"ramen.local-readiness.v1",
+		"openudon.local-readiness.v1",
 		"without printing secret values",
 	} {
 		if !strings.Contains(text, expected) {
@@ -177,7 +177,7 @@ func TestValidateUWSPathValidatesDirectoryArtifacts(t *testing.T) {
 	var out bytes.Buffer
 	err := validateUWSPathWithSchema(dir, &out, func(string) string {
 		return schema
-	})
+	}, false)
 	if err != nil {
 		t.Fatalf("validateUWSPath returned error: %v", err)
 	}
@@ -190,7 +190,19 @@ func TestValidateUWSPathValidatesDirectoryArtifacts(t *testing.T) {
 func TestValidateUWSPathReportsDirectoryWithNoArtifacts(t *testing.T) {
 	var out bytes.Buffer
 	dir := t.TempDir()
-	if err := validateUWSPathWithSchema(dir, &out, func(string) string { return "" }); err != nil {
+	err := validateUWSPathWithSchema(dir, &out, func(string) string { return "" }, false)
+	if err == nil || !strings.Contains(err.Error(), "no UWS artifacts found") {
+		t.Fatalf("expected no-artifacts error, got %v", err)
+	}
+	if out.String() != "" {
+		t.Fatalf("unexpected output: %s", out.String())
+	}
+}
+
+func TestValidateUWSPathAllowsEmptyDirectoryWhenRequested(t *testing.T) {
+	var out bytes.Buffer
+	dir := t.TempDir()
+	if err := validateUWSPathWithSchema(dir, &out, func(string) string { return "" }, true); err != nil {
 		t.Fatalf("validateUWSPath returned error: %v", err)
 	}
 	if !strings.Contains(out.String(), "no UWS artifacts found") {
@@ -211,12 +223,12 @@ func mustWriteCLIFile(t *testing.T, path string, data []byte) {
 func helperCommand(args ...string) *exec.Cmd {
 	cmdArgs := append([]string{"-test.run=TestCLIHelperProcess", "--"}, args...)
 	cmd := exec.Command(os.Args[0], cmdArgs...)
-	cmd.Env = append(os.Environ(), "RAMEN_CLI_HELPER=1")
+	cmd.Env = append(os.Environ(), "OPENUDON_CLI_HELPER=1")
 	return cmd
 }
 
 func TestCLIHelperProcess(t *testing.T) {
-	if os.Getenv("RAMEN_CLI_HELPER") != "1" {
+	if os.Getenv("OPENUDON_CLI_HELPER") != "1" {
 		return
 	}
 	for i, arg := range os.Args {
