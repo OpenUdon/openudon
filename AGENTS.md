@@ -2,9 +2,9 @@
 
 ## Purpose
 
-Ramen is a private Go integration layer for Symphony-managed UWS projects executed by the private `udon` runtime.
+OpenUdon is a private Go integration layer for Symphony-managed UWS projects executed by the private `udon` runtime.
 
-Ramen owns project templates, Symphony workflow policy, example artifacts, validation wrappers, and trusted execution glue.
+OpenUdon owns project templates, Symphony workflow policy, example artifacts, validation wrappers, and trusted execution glue.
 
 ## Memory Bank First
 
@@ -23,32 +23,32 @@ duplicate root-level product, architecture, roadmap, or status documents.
 
 - `../uws` is the public UWS specification and Go model. Put public workflow semantics there.
 - `../udon` is the private UWS/OpenAPI compiler and runtime. Put generic execution/compiler capabilities there.
-- `../symphony` is the work orchestration service. Configure it through Ramen policy and README
-  operator guidance; do not fork or modify it from Ramen unless explicitly requested.
-- Ramen source code must not import `../udon`, udon's private build-time siblings, or any private
-  `genelet/*` executor module. Ramen invokes udon only as an external CLI or Docker executor through
+- `../symphony` is the work orchestration service. Configure it through OpenUdon policy and README
+  operator guidance; do not fork or modify it from OpenUdon unless explicitly requested.
+- OpenUdon source code must not import `../udon`, udon's private build-time siblings, or any private
+  `genelet/*` executor module. OpenUdon invokes udon only as an external CLI or Docker executor through
   the trusted run-config handoff.
-- `../apitools` owns narrowed OpenAPI tooling only. Ramen owns review state, handoff validation,
+- `../apitools` owns narrowed OpenAPI tooling only. OpenUdon owns review state, handoff validation,
   approval templates, package contents, and local trusted-runner enforcement.
-- `../openw8m` owns concrete IaC authoring/planning and is parked; it is not a Ramen compatibility
+- `../openw8m` owns concrete IaC authoring/planning and is parked; it is not a OpenUdon compatibility
   gate while the OpenAPI-only apitools boundary is active.
-- `../ramen` owns only the integration layer above those projects.
+- `../openudon` owns only the integration layer above those projects.
 
 Rule of thumb:
 
 - If it changes public workflow semantics, it belongs in `../uws`.
 - If it improves generic UWS/OpenAPI execution, it belongs in `../udon`.
 - If it manages Symphony-driven project workflow, templates, examples, approval
-  routing, or trusted execution glue, it belongs in Ramen.
+  routing, or trusted execution glue, it belongs in OpenUdon.
 
 ## Commands
 
 ```bash
 go test ./...
-go run ./cmd/ramen check
-go run ./cmd/ramen check-apitools-boundary
-go run ./cmd/ramen check-doc-memory
-go run ./cmd/ramen validate ./examples
+go run ./cmd/openudon check
+go run ./cmd/openudon check-apitools-boundary
+go run ./cmd/openudon check-doc-memory
+go run ./cmd/openudon validate ./examples
 make check
 ```
 
@@ -61,7 +61,7 @@ Agents may generate and validate artifacts. Production side effects must only ha
 ## Go Conventions
 
 - Primary language is Go.
-- Keep `cmd/ramen` thin.
+- Keep `cmd/openudon` thin.
 - Put reusable logic under `internal/`.
 - Keep scripts small wrappers around Go behavior when possible.
 - Do not add product-specific behavior to `../uws` or core `../udon`.
