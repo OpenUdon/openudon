@@ -63,6 +63,9 @@ func CleanRelativePath(inputPath string) (string, error) {
 // RequiredPackagePaths returns the fixed handoff inventory plus every regular
 // file under openapi/.
 func RequiredPackagePaths(packageRoot string) ([]string, error) {
+	if err := ValidatePackageRoot(packageRoot); err != nil {
+		return nil, err
+	}
 	paths := append([]string(nil), fixedRequiredPackagePaths...)
 	openAPIPaths, err := CollectOpenAPIPaths(packageRoot)
 	if err != nil {
@@ -118,6 +121,9 @@ func RequiredManifestPaths(packageRoot string, manifestInputs []ManifestInput) (
 // ValidateRegularPackageFiles rejects missing, symlinked, directory, and
 // special-file package inputs.
 func ValidateRegularPackageFiles(packageRoot string, paths []string) error {
+	if err := ValidatePackageRoot(packageRoot); err != nil {
+		return err
+	}
 	packageRoot = filepath.Clean(packageRoot)
 	for _, inputPath := range paths {
 		clean, err := CleanRelativePath(inputPath)
@@ -127,6 +133,25 @@ func ValidateRegularPackageFiles(packageRoot string, paths []string) error {
 		if err := validateRegularPackageFile(packageRoot, clean); err != nil {
 			return err
 		}
+	}
+	return nil
+}
+
+func ValidatePackageRoot(packageRoot string) error {
+	packageRoot = strings.TrimSpace(packageRoot)
+	if packageRoot == "" {
+		return fmt.Errorf("package root is required")
+	}
+	packageRoot = filepath.Clean(packageRoot)
+	info, err := os.Lstat(packageRoot)
+	if err != nil {
+		return fmt.Errorf("package root: %w", err)
+	}
+	if info.Mode()&os.ModeSymlink != 0 {
+		return fmt.Errorf("package root must not be a symlink: %s", packageRoot)
+	}
+	if !info.IsDir() {
+		return fmt.Errorf("package root must be a directory: %s", packageRoot)
 	}
 	return nil
 }
@@ -162,6 +187,9 @@ func validateRegularPackageFile(packageRoot, clean string) error {
 
 // CollectOpenAPIPaths returns package-relative OpenAPI artifact paths.
 func CollectOpenAPIPaths(packageRoot string) ([]string, error) {
+	if err := ValidatePackageRoot(packageRoot); err != nil {
+		return nil, err
+	}
 	packageRoot = filepath.Clean(packageRoot)
 	openAPIRoot := filepath.Join(packageRoot, "openapi")
 	info, err := os.Lstat(openAPIRoot)

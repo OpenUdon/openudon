@@ -69,6 +69,20 @@ func TestValidateRegularPackageFilesRejectsSymlink(t *testing.T) {
 	}
 }
 
+func TestValidateRegularPackageFilesRejectsSymlinkedPackageRoot(t *testing.T) {
+	realRoot := t.TempDir()
+	writeRequiredPackageFiles(t, realRoot)
+	linkRoot := filepath.Join(t.TempDir(), "package-link")
+	if err := os.Symlink(realRoot, linkRoot); err != nil {
+		t.Fatal(err)
+	}
+
+	err := ValidateRegularPackageFiles(linkRoot, []string{"project.md"})
+	if err == nil || !strings.Contains(err.Error(), "package root must not be a symlink") {
+		t.Fatalf("expected package root symlink rejection, got %v", err)
+	}
+}
+
 func TestValidateRegularPackageFilesRejectsSymlinkedParent(t *testing.T) {
 	root := t.TempDir()
 	outside := filepath.Join(t.TempDir(), "workflows")

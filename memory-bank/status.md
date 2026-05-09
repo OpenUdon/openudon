@@ -90,12 +90,12 @@
   fresh staged workdir, Docker execution passes only declared `UDON_CREDENTIAL_*` names, and invalid
   OpenAPI operation IDs fail generation instead of dropping request bindings.
 - [x] Review follow-up safety hardening is complete. The first Ramen-owned package artifact
-  hardening pass is implemented for required handoff files, and `../apitools` local OpenAPI reads
-  now fail closed on symlinked roots/paths/parents, directories, special files, and oversized
-  path-backed documents. `scripts/run-udon.sh` no longer uses line-delimited run-config parsing;
-  config validation and workflow/OpenAPI staging happen in Python before executor argv handoff. The
-  `workflowintent` package is split by responsibility into intent/HCL, provider-client, OpenAPI,
-  and helper files without changing its package boundary or exported API.
+  hardening pass is implemented for package roots and required handoff files, and `../apitools`
+  local OpenAPI reads now fail closed on symlinked roots/paths/parents, directories, special files,
+  and oversized path-backed documents. `scripts/run-udon.sh` no longer uses line-delimited
+  run-config parsing; config validation and workflow/OpenAPI staging happen in Python before
+  executor argv handoff. The `workflowintent` package is split by responsibility into intent/HCL,
+  provider-client, OpenAPI, and helper files without changing its package boundary or exported API.
 
 ## Notes
 

@@ -434,6 +434,27 @@ func TestRunRejectsSymlinkedWorkflowBeforeExecutorInvocation(t *testing.T) {
 	}
 }
 
+func TestRunRejectsSymlinkedExampleDirBeforeApproval(t *testing.T) {
+	root, realExample := writeFixture(t, fixtureOptions{})
+	linkExample := filepath.Join(root, "examples", "support-email-link")
+	if err := os.Symlink(realExample, linkExample); err != nil {
+		t.Fatal(err)
+	}
+
+	_, err := Run(context.Background(), Options{
+		RepoRoot:     root,
+		ExampleDir:   linkExample,
+		Tier:         TierSandbox,
+		ApprovalPath: filepath.Join(root, "missing-approval.json"),
+		DryRun:       true,
+		Now:          fixedNow(),
+		Assess:       passAssess,
+	})
+	if err == nil || !strings.Contains(err.Error(), "package root must not be a symlink") {
+		t.Fatalf("expected package root symlink rejection, got %v", err)
+	}
+}
+
 func TestRunPackageDigestChangesWhenOpenAPIChanges(t *testing.T) {
 	root, example := writeFixture(t, fixtureOptions{extraRequiredInputs: []string{"openapi/support.yaml"}})
 	if err := os.MkdirAll(filepath.Join(example, "openapi"), 0o755); err != nil {
@@ -529,6 +550,50 @@ func TestRunUdonScriptStagesPackageAndUsesConfiguredWorkdir(t *testing.T) {
 	}
 	if _, err := os.Stat(filepath.Join(workdir, "workflows", "workflow.uws.yaml")); !os.IsNotExist(err) {
 		t.Fatalf("workflow was staged in persistent workdir root, err=%v", err)
+	}
+}
+
+func TestRunUdonScriptRejectsSymlinkedPackageRoot(t *testing.T) {
+	wd, err := os.Getwd()
+	if err != nil {
+		t.Fatal(err)
+	}
+	repoRoot := filepath.Clean(filepath.Join(wd, "..", ".."))
+	script := filepath.Join(repoRoot, "scripts", "run-udon.sh")
+	tmp := t.TempDir()
+	realPackageRoot := filepath.Join(tmp, "real-package")
+	linkPackageRoot := filepath.Join(tmp, "package-link")
+	workdir := filepath.Join(tmp, "work")
+	mustWriteFile(t, filepath.Join(realPackageRoot, "workflows", "workflow.uws.yaml"), []byte("uws: 1.0.0\n"))
+	if err := os.Symlink(realPackageRoot, linkPackageRoot); err != nil {
+		t.Fatal(err)
+	}
+	configPath := filepath.Join(tmp, "run-config.json")
+	data, err := json.Marshal(RunConfig{
+		Version:        RunConfigVersion,
+		PackageRoot:    linkPackageRoot,
+		WorkDir:        workdir,
+		WorkflowPath:   "workflows/workflow.uws.yaml",
+		WorkflowFormat: "uws-yaml",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	mustWriteFile(t, configPath, data)
+	capture := filepath.Join(tmp, "args.txt")
+	fakeExecutor := filepath.Join(tmp, "fake-udon")
+	mustWriteFile(t, fakeExecutor, []byte("#!/usr/bin/env bash\nprintf '%s\\n' \"$@\" > \"$CAPTURE_ARGS\"\n"))
+	if err := os.Chmod(fakeExecutor, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	cmd := exec.Command(script, "--config", configPath)
+	cmd.Env = append(os.Environ(), "RAMEN_EXECUTOR="+fakeExecutor, "CAPTURE_ARGS="+capture)
+	out, err := cmd.CombinedOutput()
+	if err == nil || !strings.Contains(string(out), "package_root must not be a symlink") {
+		t.Fatalf("expected package root symlink rejection, err=%v out=%s", err, out)
+	}
+	if _, statErr := os.Stat(capture); !os.IsNotExist(statErr) {
+		t.Fatalf("executor was invoked for symlinked package root, stat err=%v", statErr)
 	}
 }
 

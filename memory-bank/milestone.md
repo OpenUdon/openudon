@@ -178,7 +178,8 @@ Verification plan:
 
 - Harden Ramen package artifact validation and digest inputs for all required handoff files. Status:
   done; required Ramen handoff inputs now share safe relative path validation, manifest inventory
-  checks, regular-file validation, digest input validation, and trusted-runner staging guards.
+  checks, package-root and regular-file validation, digest input validation, and trusted-runner
+  staging guards.
 - Harden `../apitools` local OpenAPI reads with symlink, type, and size checks. Status: done;
   `LocalFiles`, `BuildOperationInventory`, and `LoadOperationIndex` now share bounded local file
   reads that reject symlinked roots/paths/parents, directories, special files, and oversized
@@ -190,9 +191,9 @@ Verification plan:
   Status: done; the package name and exported API remain unchanged while the deleted monolith is
   replaced by focused `intent.go`, `provider_client.go`, `openapi.go`, and shared helpers.
 
-Acceptance: required handoff inputs cannot be symlinks, directories, special files, unsafe relative
-paths, or digest/staging bypasses; sibling-owned hardening remains tracked without moving ownership
-into Ramen; the review-follow-up hardening group is closed.
+Acceptance: package roots and required handoff inputs cannot be symlinks, directories, special
+files, unsafe relative paths, or digest/staging bypasses; sibling-owned hardening remains tracked
+without moving ownership into Ramen; the review-follow-up hardening group is closed.
 
 ## Closed XRD Regression Matrix
 

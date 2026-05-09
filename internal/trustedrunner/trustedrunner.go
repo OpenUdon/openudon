@@ -345,6 +345,9 @@ func resolvePaths(repoRoot, example string) (paths, error) {
 	if rel == "." || strings.HasPrefix(rel, ".."+string(filepath.Separator)) || rel == ".." || filepath.IsAbs(rel) {
 		return paths{}, fmt.Errorf("example must be inside repo root: %s", example)
 	}
+	if err := packageartifacts.ValidatePackageRoot(exampleAbs); err != nil {
+		return paths{}, err
+	}
 	scope := filepath.ToSlash(filepath.Clean(rel))
 	return paths{
 		repoRoot:       repoAbs,

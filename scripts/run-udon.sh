@@ -56,6 +56,18 @@ def path_inside(base, path):
         return False
 
 
+def validate_package_root(package_root):
+    try:
+        info = os.lstat(package_root)
+    except OSError as err:
+        fail("package_root not found: %s: %s" % (package_root, err))
+    if os.path.islink(package_root):
+        fail("package_root must not be a symlink: %s" % package_root)
+    if not os.path.isdir(package_root):
+        fail("package_root must be a directory: %s" % package_root)
+    return info
+
+
 def package_relative_path(package_root, name, value):
     reject_control_chars(name, value)
     reject_backslash(name, value)
@@ -221,6 +233,7 @@ repo_root = sys.argv[2]
 cfg, openapi_paths, credential_bindings = load_config(config_path)
 
 package_root = os.path.abspath(require_string(cfg, "package_root"))
+validate_package_root(package_root)
 workdir = os.path.abspath(require_string(cfg, "workdir"))
 workflow_format = cfg.get("workflow_format") or "uws-yaml"
 if not isinstance(workflow_format, str):
