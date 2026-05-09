@@ -2,10 +2,13 @@ package tfconvert
 
 import (
 	"context"
+	"encoding/json"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/OpenUdon/openudon/internal/authoring"
 )
 
 func TestConvertWritesDraftArtifacts(t *testing.T) {
@@ -65,13 +68,29 @@ paths:
 	if err != nil {
 		t.Fatalf("Convert returned error: %v", err)
 	}
-	for _, path := range []string{result.ProjectPath, result.IntentPath, result.DiagnosticsJSON, result.DiagnosticsMD, result.ReviewPath} {
+	for _, path := range []string{
+		result.ProjectPath,
+		result.IntentPath,
+		result.WorkflowPath,
+		result.UWSPath,
+		result.PlanJSONPath,
+		result.PlanMDPath,
+		result.DiscoveryPath,
+		result.DiagnosticsJSON,
+		result.DiagnosticsMD,
+		result.RefinementPath,
+		result.ReviewPath,
+		result.HandoffPath,
+		result.QualityJSONPath,
+		result.QualityMDPath,
+		filepath.Join(result.OutDir, "openapi", "aws.yaml"),
+	} {
 		if _, err := os.Stat(path); err != nil {
 			t.Fatalf("artifact %s was not written: %v", path, err)
 		}
 	}
 	intent := readFileForTest(t, result.IntentPath)
-	for _, expected := range []string{"createAwsInstance", "getAwsAmi", "aws_west", "terraform_conversion_draft"} {
+	for _, expected := range []string{"createAwsInstance", "getAwsAmi", "openapi/aws.yaml", "aws_west", "terraform_conversion_draft"} {
 		if !strings.Contains(intent, expected) {
 			t.Fatalf("intent missing %q:\n%s", expected, intent)
 		}
@@ -79,6 +98,25 @@ paths:
 	project := readFileForTest(t, result.ProjectPath)
 	if !strings.Contains(project, "unapproved review scaffolding") || !strings.Contains(project, "aws_instance.web") {
 		t.Fatalf("project did not summarize draft posture and resource:\n%s", project)
+	}
+	quality := readQualityForTest(t, result.QualityJSONPath)
+	if quality.Status != "pass" || !result.QualityPassed {
+		t.Fatalf("quality did not pass for resolved conversion: result=%t report=%#v", result.QualityPassed, quality)
+	}
+	handoff := readHandoffForTest(t, result.HandoffPath)
+	if handoff.GeneratedState != string(authoring.ReviewStateGenerated) {
+		t.Fatalf("handoff should remain generated, got %q", handoff.GeneratedState)
+	}
+	digest, err := authoring.ComputeReviewHandoffDigest(authoring.ReviewHandoffDigestOptions{
+		Root:   result.OutDir,
+		Scope:  "terraform-conversion",
+		Inputs: handoff.HandoffInputs,
+	})
+	if err != nil {
+		t.Fatalf("normal package digest did not compute: %v", err)
+	}
+	if digest == "" {
+		t.Fatal("normal package digest was empty")
 	}
 }
 
@@ -165,6 +203,48 @@ paths:
 	}
 	if !hasDiagnostic(result.Diagnostics, "redaction.review_required") {
 		t.Fatalf("diagnostics missing redaction review: %#v", result.Diagnostics)
+	}
+}
+
+func TestConvertWritesFailingQualityForUnresolvedTODOs(t *testing.T) {
+	root := t.TempDir()
+	configDir := filepath.Join(root, "tf")
+	openAPIPath := filepath.Join(root, "openapi.yaml")
+	writeFileForTest(t, filepath.Join(configDir, "main.tf"), `
+data "aws_ami" "base" {
+  owners = ["self"]
+}
+`)
+	writeFileForTest(t, openAPIPath, `openapi: 3.0.0
+info:
+  title: Unrelated
+  version: v1
+paths:
+  /users:
+    get:
+      operationId: getUser
+      responses:
+        "200":
+          description: ok
+`)
+
+	result, err := Convert(context.Background(), Options{
+		ConfigDir: configDir,
+		OpenAPIs:  []OpenAPIInput{{ID: "users", Path: openAPIPath}},
+		OutDir:    filepath.Join(root, "out"),
+	})
+	if err != nil {
+		t.Fatalf("Convert returned error outside strict mode: %v", err)
+	}
+	quality := readQualityForTest(t, result.QualityJSONPath)
+	if quality.Status != "fail" || result.QualityPassed {
+		t.Fatalf("unresolved TODO should fail package quality: result=%t report=%#v", result.QualityPassed, quality)
+	}
+	if !qualityHasCheck(quality, "conversion.diagnostics", "fail") {
+		t.Fatalf("quality missing conversion diagnostics failure: %#v", quality.Checks)
+	}
+	if _, err := os.Stat(result.WorkflowPath); err != nil {
+		t.Fatalf("workflow.hcl should still be generated for review: %v", err)
 	}
 }
 
@@ -291,6 +371,43 @@ paths:
 	if hasDiagnostic(result.Diagnostics, "openapi.index_error") {
 		t.Fatalf("cross-document duplicate operation IDs produced index error: %#v", result.Diagnostics)
 	}
+}
+
+type qualityReportForTest struct {
+	Status string                `json:"status"`
+	Checks []qualityCheckForTest `json:"checks"`
+}
+
+type qualityCheckForTest struct {
+	Code   string `json:"code"`
+	Status string `json:"status"`
+}
+
+func readQualityForTest(t *testing.T, path string) qualityReportForTest {
+	t.Helper()
+	var report qualityReportForTest
+	if err := json.Unmarshal([]byte(readFileForTest(t, path)), &report); err != nil {
+		t.Fatal(err)
+	}
+	return report
+}
+
+func readHandoffForTest(t *testing.T, path string) authoring.ReviewHandoff {
+	t.Helper()
+	var handoff authoring.ReviewHandoff
+	if err := json.Unmarshal([]byte(readFileForTest(t, path)), &handoff); err != nil {
+		t.Fatal(err)
+	}
+	return handoff
+}
+
+func qualityHasCheck(report qualityReportForTest, code, status string) bool {
+	for _, check := range report.Checks {
+		if check.Code == code && check.Status == status {
+			return true
+		}
+	}
+	return false
 }
 
 func hasDiagnostic(diags []Diagnostic, code string) bool {

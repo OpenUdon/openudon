@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -11,6 +12,7 @@ import (
 	"strings"
 
 	"github.com/OpenUdon/apitools"
+	"github.com/OpenUdon/openudon/internal/synthesize"
 	"github.com/OpenUdon/openudon/internal/workflowintent"
 	"github.com/OpenUdon/tfconfig"
 )
@@ -40,8 +42,18 @@ type Result struct {
 	DiagnosticsJSON string
 	DiagnosticsMD   string
 	ReviewPath      string
+	WorkflowPath    string
+	UWSPath         string
+	PlanJSONPath    string
+	PlanMDPath      string
+	DiscoveryPath   string
+	RefinementPath  string
+	HandoffPath     string
+	QualityJSONPath string
+	QualityMDPath   string
 	Diagnostics     []Diagnostic
 	StrictFailed    bool
+	QualityPassed   bool
 }
 
 type Diagnostic struct {
@@ -115,12 +127,35 @@ func Convert(ctx context.Context, opts Options) (*Result, error) {
 		DiagnosticsJSON: filepath.Join(opts.OutDir, "expected", "diagnostics.json"),
 		DiagnosticsMD:   filepath.Join(opts.OutDir, "expected", "diagnostics.md"),
 		ReviewPath:      filepath.Join(opts.OutDir, "expected", "review.md"),
+		WorkflowPath:    filepath.Join(opts.OutDir, "workflows", "workflow.hcl"),
+		UWSPath:         filepath.Join(opts.OutDir, "workflows", "workflow.uws.yaml"),
+		PlanJSONPath:    filepath.Join(opts.OutDir, "expected", "plan.json"),
+		PlanMDPath:      filepath.Join(opts.OutDir, "expected", "plan.md"),
+		DiscoveryPath:   filepath.Join(opts.OutDir, "expected", "discovery.json"),
+		RefinementPath:  filepath.Join(opts.OutDir, "expected", "refinement.json"),
+		HandoffPath:     filepath.Join(opts.OutDir, "expected", "symphony-handoff.json"),
+		QualityJSONPath: filepath.Join(opts.OutDir, "expected", "quality.json"),
+		QualityMDPath:   filepath.Join(opts.OutDir, "expected", "quality.md"),
 		Diagnostics:     conversion.diagnostics,
 		StrictFailed:    opts.Strict && hasStrictFailure(conversion.diagnostics),
 	}
 
 	if err := writeArtifacts(result, conversion); err != nil {
 		return result, err
+	}
+	if packageResult, quality, err := synthesize.PackageFromIntent(ctx, synthesize.Options{ExampleDir: opts.OutDir}); err != nil {
+		return result, err
+	} else {
+		result.WorkflowPath = packageResult.WorkflowPath
+		result.UWSPath = packageResult.UWSPath
+		result.PlanJSONPath = packageResult.PlanJSONPath
+		result.PlanMDPath = packageResult.PlanMDPath
+		result.DiscoveryPath = packageResult.DiscoveryJSONPath
+		result.RefinementPath = packageResult.RefinementJSONPath
+		result.HandoffPath = packageResult.SymphonyHandoffPath
+		result.QualityJSONPath = packageResult.QualityJSONPath
+		result.QualityMDPath = packageResult.QualityMDPath
+		result.QualityPassed = quality != nil && quality.Passed()
 	}
 	if result.StrictFailed {
 		return result, strictFailureError{diagnostics: strictDiagnostics(conversion.diagnostics)}
@@ -145,9 +180,10 @@ type conversionState struct {
 }
 
 type apiDoc struct {
-	ID    string
-	Path  string
-	Index apitools.OperationIndex
+	ID          string
+	Path        string
+	PackagePath string
+	Index       apitools.OperationIndex
 }
 
 type binding struct {
@@ -191,6 +227,7 @@ type objectMapping struct {
 	Purpose     string
 	Action      string
 	OpenAPIID   string
+	OpenAPIPath string
 	OperationID string
 	TodoID      string
 	Ambiguous   bool
@@ -267,7 +304,7 @@ func (c *conversionState) loadOpenAPIs(ctx context.Context) {
 			c.addDiagnostic(Diagnostic{Code: "openapi.index_error", Severity: "error", Message: fmt.Sprintf("%s: %v", input.ID, err), StrictFailure: true})
 			continue
 		}
-		c.openAPIs = append(c.openAPIs, apiDoc{ID: input.ID, Path: input.Path, Index: index})
+		c.openAPIs = append(c.openAPIs, apiDoc{ID: input.ID, Path: input.Path, PackagePath: packageOpenAPIPath(input.ID, input.Path), Index: index})
 	}
 }
 
@@ -440,7 +477,9 @@ func (c *conversionState) mapObjectPurpose(obj selectedObject, purpose, action s
 	mapping := objectMapping{Object: obj, Purpose: purpose, Action: action}
 	switch {
 	case selection.Found:
-		mapping.OpenAPIID = firstNonEmpty(selection.Operation.DocumentName, openAPIIDForPath(c.openAPIs, selection.Operation.DocumentPath))
+		doc := openAPIForOperation(c.openAPIs, selection.Operation)
+		mapping.OpenAPIID = firstNonEmpty(selection.Operation.DocumentName, doc.ID)
+		mapping.OpenAPIPath = doc.PackagePath
 		mapping.OperationID = selection.Operation.OperationID
 		mapping.Auth = apitools.AuthRequirementsForOperation(providerLocalName(obj.Provider), selection.Operation)
 		c.mappings = append(c.mappings, mapping)
@@ -448,6 +487,7 @@ func (c *conversionState) mapObjectPurpose(obj selectedObject, purpose, action s
 	case selection.Ambiguous:
 		mapping.Ambiguous = true
 		mapping.TodoID = todoID(obj.Address, purpose, action)
+		mapping.OpenAPIPath = defaultOpenAPIPath(c.openAPIs)
 		c.addDiagnostic(Diagnostic{
 			Code:          "operation.ambiguous",
 			Severity:      "warning",
@@ -460,6 +500,7 @@ func (c *conversionState) mapObjectPurpose(obj selectedObject, purpose, action s
 		})
 	default:
 		mapping.TodoID = todoID(obj.Address, purpose, action)
+		mapping.OpenAPIPath = defaultOpenAPIPath(c.openAPIs)
 		c.addDiagnostic(Diagnostic{
 			Code:          "operation.unresolved",
 			Severity:      "warning",
@@ -557,8 +598,8 @@ func (c *conversionState) sortAll() {
 	})
 	sort.Slice(c.selected, func(i, j int) bool { return c.selected[i].Address < c.selected[j].Address })
 	sort.Slice(c.mappings, func(i, j int) bool {
-		left := []string{c.mappings[i].Object.Address, c.mappings[i].Purpose, c.mappings[i].OpenAPIID, c.mappings[i].OperationID, c.mappings[i].TodoID}
-		right := []string{c.mappings[j].Object.Address, c.mappings[j].Purpose, c.mappings[j].OpenAPIID, c.mappings[j].OperationID, c.mappings[j].TodoID}
+		left := []string{c.mappings[i].Object.Address, c.mappings[i].Purpose, c.mappings[i].OpenAPIID, c.mappings[i].OpenAPIPath, c.mappings[i].OperationID, c.mappings[i].TodoID}
+		right := []string{c.mappings[j].Object.Address, c.mappings[j].Purpose, c.mappings[j].OpenAPIID, c.mappings[j].OpenAPIPath, c.mappings[j].OperationID, c.mappings[j].TodoID}
 		return strings.Join(left, "\x00") < strings.Join(right, "\x00")
 	})
 	sortDiagnostics(c.diagnostics)
@@ -569,6 +610,9 @@ func writeArtifacts(result *Result, c conversionState) error {
 		return err
 	}
 	if err := os.MkdirAll(filepath.Join(result.OutDir, "expected"), 0o755); err != nil {
+		return err
+	}
+	if err := copyOpenAPIDocuments(result.OutDir, c.openAPIs); err != nil {
 		return err
 	}
 	if err := writeFile(result.ProjectPath, renderProject(c)); err != nil {
@@ -602,27 +646,133 @@ func writeFile(path, content string) error {
 	return os.WriteFile(path, []byte(content), 0o644)
 }
 
+func copyOpenAPIDocuments(outDir string, docs []apiDoc) error {
+	for _, doc := range docs {
+		if strings.TrimSpace(doc.PackagePath) == "" {
+			continue
+		}
+		dst := filepath.Join(outDir, filepath.FromSlash(doc.PackagePath))
+		if err := os.MkdirAll(filepath.Dir(dst), 0o755); err != nil {
+			return err
+		}
+		if err := copyRegularFile(doc.Path, dst); err != nil {
+			return fmt.Errorf("stage OpenAPI %s: %w", doc.ID, err)
+		}
+	}
+	return nil
+}
+
+func copyRegularFile(src, dst string) error {
+	in, err := os.Open(src)
+	if err != nil {
+		return err
+	}
+	defer in.Close()
+	info, err := in.Stat()
+	if err != nil {
+		return err
+	}
+	if !info.Mode().IsRegular() {
+		return fmt.Errorf("source is not a regular file: %s", src)
+	}
+	tmp := dst + ".tmp"
+	out, err := os.OpenFile(tmp, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0o644)
+	if err != nil {
+		return err
+	}
+	_, copyErr := io.Copy(out, in)
+	closeErr := out.Close()
+	if copyErr != nil {
+		_ = os.Remove(tmp)
+		return copyErr
+	}
+	if closeErr != nil {
+		_ = os.Remove(tmp)
+		return closeErr
+	}
+	return os.Rename(tmp, dst)
+}
+
 func renderProject(c conversionState) string {
 	var b strings.Builder
 	b.WriteString("# OpenUdon Terraform Conversion Draft\n\n")
 	b.WriteString("This package is unapproved review scaffolding generated from static Terraform/OpenTofu facts. It does not execute Terraform, providers, OpenAPI operations, or UWS workflows.\n\n")
+	b.WriteString("```openudon-policy\n")
+	b.WriteString("runtimes:\n")
+	b.WriteString("  openapi: true\n")
+	b.WriteString("  http: true\n")
+	b.WriteString("  fnct: true\n")
+	b.WriteString("  cmd: false\n")
+	b.WriteString("  ssh: false\n")
+	b.WriteString("```\n\n")
+	b.WriteString("## Goal\n\n")
+	b.WriteString("Review static Terraform/OpenTofu configuration facts against local OpenAPI operation candidates and produce a normal OpenUdon package candidate for human review.\n\n")
 	fmt.Fprintf(&b, "- Config directory: `%s`\n", c.opts.ConfigDir)
 	fmt.Fprintf(&b, "- Action: `%s`\n", firstNonEmpty(c.opts.Action, "none"))
 	fmt.Fprintf(&b, "- Strict mode: `%t`\n", c.opts.Strict)
-	b.WriteString("\n## OpenAPI Inputs\n\n")
+	b.WriteString("\n## Inputs\n\n")
+	for _, sym := range c.symbols {
+		if sym.Kind != "variable" {
+			continue
+		}
+		required := "required"
+		if strings.TrimSpace(sym.Value) != "" {
+			required = "optional default preserved symbolically"
+		}
+		sensitive := ""
+		if sym.Sensitive {
+			sensitive = " sensitive"
+		}
+		fmt.Fprintf(&b, "- `%s`: string, %s%s Terraform variable.\n", normalizeName(fullAddress(sym.ModuleAddress, sym.Name)), required, sensitive)
+	}
+	if len(c.symbols) == 0 {
+		b.WriteString("- No Terraform variables were selected.\n")
+	}
+	b.WriteString("\n## Outputs\n\n")
+	b.WriteString("- `review_package`: generated OpenUdon package artifacts for review; no operational result is produced by conversion.\n")
+	b.WriteString("\n## External Systems and OpenAPI\n\n")
 	for _, doc := range c.openAPIs {
-		fmt.Fprintf(&b, "- `%s`: `%s`\n", doc.ID, doc.Path)
+		fmt.Fprintf(&b, "- `%s`: source `%s`, staged package path `%s`.\n", doc.ID, doc.Path, doc.PackagePath)
 	}
 	if len(c.openAPIs) == 0 {
 		b.WriteString("- none loaded\n")
 	}
-	b.WriteString("\n## Selected Objects\n\n")
+	b.WriteString("\n## Runtime Policy\n\n")
+	b.WriteString("- Only `openapi`, `http`, and `fnct` runtime artifacts are allowed in generated package output.\n")
+	b.WriteString("- `cmd` and `ssh` are not allowed by this conversion package.\n")
+	b.WriteString("\n## Data Flow\n\n")
 	for _, obj := range c.selected {
-		fmt.Fprintf(&b, "- `%s` %s provider `%s`\n", obj.Address, obj.Kind, firstNonEmpty(obj.Binding, "default"))
+		fmt.Fprintf(&b, "- Terraform `%s` `%s` maps to a symbolic OpenUdon review step using provider binding `%s`.\n", obj.Kind, obj.Address, firstNonEmpty(obj.Binding, "default"))
+		for _, attr := range obj.Config {
+			if attr.Sensitive {
+				fmt.Fprintf(&b, "- `%s.%s`: sensitive symbolic value, review TODO `%s`.\n", obj.Address, attr.Path, attr.TodoID)
+				continue
+			}
+			fmt.Fprintf(&b, "- `%s.%s`: symbolic Terraform expression `%s`.\n", obj.Address, attr.Path, attr.Value)
+		}
 	}
 	if len(c.selected) == 0 {
 		b.WriteString("- none\n")
 	}
+	b.WriteString("\n## Function Contracts\n\n")
+	b.WriteString("- No custom function adapters are generated by Terraform conversion.\n")
+	b.WriteString("\n## Credentials and Secrets\n\n")
+	if len(c.bindings) == 0 {
+		b.WriteString("- No provider credential bindings were declared in the selected Terraform configuration.\n")
+	} else {
+		for _, binding := range c.bindings {
+			fmt.Fprintf(&b, "- `%s`: symbolic provider credential binding for `%s`; credential values must be supplied outside generated artifacts.\n", binding.Name, binding.Address)
+		}
+	}
+	b.WriteString("- Sensitive or secret-like Terraform values are redacted into symbolic review inputs and must not appear as literals in generated artifacts.\n")
+	b.WriteString("\n## Safety and Approval Boundary\n\n")
+	b.WriteString("- Generated artifacts are unapproved by default and require human review before trusted-runner handoff.\n")
+	b.WriteString("- Side-effectful OpenAPI operations require review, sandbox proof-run approval, and trusted-runtime approval before production execution.\n")
+	b.WriteString("- Direct production execution is not performed by conversion or synthesis.\n")
+	b.WriteString("\n## Fallback Behavior\n\n")
+	b.WriteString("- Unmatched Terraform targets, missing OpenAPI inputs, ambiguous operation matches, unresolved operation TODOs, and sensitive redaction TODOs remain diagnostics.\n")
+	b.WriteString("- Strict mode fails when strict-failure diagnostics remain.\n")
+	b.WriteString("- Normal package quality fails unresolved conversion diagnostics so unsafe assumptions are visible to reviewers.\n")
 	b.WriteString("\n## Diagnostics\n\n")
 	if len(c.diagnostics) == 0 {
 		b.WriteString("- none\n")
@@ -636,6 +786,7 @@ func renderProject(c conversionState) string {
 
 func renderIntent(c conversionState) (string, error) {
 	intent := &workflowintent.Intent{
+		OpenAPI: defaultOpenAPIPath(c.openAPIs),
 		Workflow: &workflowintent.WorkflowMeta{
 			Name:        "terraform_conversion_draft",
 			Description: "Draft review scaffold generated from static Terraform/OpenTofu configuration.",
@@ -675,15 +826,11 @@ func renderIntent(c conversionState) (string, error) {
 			Type:      "openapi",
 			Do:        fmt.Sprintf("Review %s %s for Terraform %s %s", mapping.Purpose, mapping.Action, mapping.Object.Kind, mapping.Object.Address),
 			Provider:  mapping.Object.Binding,
-			OpenAPI:   mapping.OpenAPIID,
+			OpenAPI:   mapping.OpenAPIPath,
 			Operation: mapping.OperationID,
-			With:      map[string]string{},
 		}
 		if step.Operation == "" {
 			step.Operation = mapping.TodoID
-		}
-		for _, attr := range mapping.Object.Config {
-			step.With[attr.Path] = attr.Value
 		}
 		intent.Steps = append(intent.Steps, step)
 	}
@@ -728,7 +875,7 @@ func renderReview(c conversionState) string {
 	for _, mapping := range c.mappings {
 		ref := mapping.TodoID
 		if mapping.OperationID != "" {
-			ref = mapping.OpenAPIID + ":" + mapping.OperationID
+			ref = mapping.OpenAPIPath + ":" + mapping.OperationID
 		}
 		fmt.Fprintf(&b, "- `%s` %s/%s -> `%s`\n", mapping.Object.Address, mapping.Action, mapping.Purpose, ref)
 		for _, auth := range mapping.Auth {
@@ -894,13 +1041,33 @@ func firstNonEmpty(values ...string) string {
 	return ""
 }
 
-func openAPIIDForPath(docs []apiDoc, path string) string {
+func packageOpenAPIPath(id, sourcePath string) string {
+	ext := strings.ToLower(filepath.Ext(sourcePath))
+	switch ext {
+	case ".json", ".yaml", ".yml":
+	default:
+		ext = ".yaml"
+	}
+	return filepath.ToSlash(filepath.Join("openapi", normalizeName(id)+ext))
+}
+
+func defaultOpenAPIPath(docs []apiDoc) string {
+	if len(docs) == 0 {
+		return ""
+	}
+	return docs[0].PackagePath
+}
+
+func openAPIForOperation(docs []apiDoc, operation apitools.OperationSummary) apiDoc {
 	for _, doc := range docs {
-		if doc.Path == path {
-			return doc.ID
+		if operation.DocumentName != "" && doc.ID == operation.DocumentName {
+			return doc
+		}
+		if operation.DocumentPath != "" && doc.Path == operation.DocumentPath {
+			return doc
 		}
 	}
-	return ""
+	return apiDoc{}
 }
 
 func sortDiagnostics(diags []Diagnostic) {

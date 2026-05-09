@@ -176,6 +176,82 @@ func Build(ctx context.Context, opts Options) (*Result, error) {
 	})
 }
 
+// PackageFromIntent builds the normal OpenUdon review package artifacts from an
+// already-authored intent.hcl without resolving an LLM provider. It writes the
+// same workflow, UWS, plan, discovery, review, handoff, refinement, and quality
+// artifacts used by synthesize/build, but returns quality failures in the
+// report instead of treating them as infrastructure errors.
+func PackageFromIntent(ctx context.Context, opts Options) (*Result, *QualityReport, error) {
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	state, err := prepareRefinement(ctx, opts)
+	if err != nil {
+		return nil, nil, err
+	}
+	intent, err := workflowintent.ParseFile(ctx, state.result.IntentPath)
+	if err != nil {
+		return &state.result, nil, fmt.Errorf("parse intent.hcl: %w", err)
+	}
+	applyProjectTimeoutAndIdempotency(intent, state.policy)
+	primary := strings.TrimSpace(intent.OpenAPI)
+	if primary == "" && !state.policy.NoOpenAPI {
+		selected, err := openapidisco.SelectPrimary(state.candidates)
+		if err != nil {
+			return &state.result, nil, err
+		}
+		primary = selected.RelativePath
+		intent.OpenAPI = primary
+	}
+	if err := validateIntentOpenAPIRefs(intent, state.candidates, primary, state.policy.NoOpenAPI); err != nil {
+		return &state.result, nil, err
+	}
+	if err := validateIntentRuntimePolicy(intent, state.policy); err != nil {
+		return &state.result, nil, err
+	}
+	state.primaryPath = primary
+	state.result.PrimaryOpenAPI = primary
+	state.generationMode = "fixed_intent"
+	workflowPlan := buildWorkflowPlan(state.result, intent, state.candidates, state.policy)
+	intentHCL, err := workflowintent.RenderHCL(ctx, intent)
+	if err != nil {
+		return &state.result, nil, fmt.Errorf("render intent HCL: %w", err)
+	}
+	if err := ensureArtifactDirs(state.result); err != nil {
+		return &state.result, nil, err
+	}
+	if err := os.WriteFile(state.result.IntentPath, []byte(intentHCL), 0o644); err != nil {
+		return &state.result, nil, err
+	}
+	if err := writeWorkflowPlan(state.result, workflowPlan); err != nil {
+		return &state.result, nil, err
+	}
+	if err := generateWorkflow(ctx, state.result, intent, nil, opts.Provider, opts.Model, opts.Timeout); err != nil {
+		return &state.result, nil, err
+	}
+	if err := promoteWorkflow(state.result, opts.SchemaPath); err != nil {
+		return &state.result, nil, err
+	}
+	if err := writeReview(state.result, opts.Provider, opts.Model); err != nil {
+		return &state.result, nil, err
+	}
+	report, err := AssessContext(ctx, opts)
+	if err != nil {
+		return &state.result, nil, err
+	}
+	refinement := newRefinementReport(state.result, 1)
+	stopReason := "quality passed"
+	if !report.Passed() {
+		stopReason = "quality gate failed; review generated artifacts"
+	}
+	refinement.addAttempt(1, "package_from_intent", report, nil, stopReason)
+	refinement.setLastAttemptMode(state.generationMode)
+	if err := writeRefinementReport(state.result, refinement); err != nil {
+		return &state.result, report, fmt.Errorf("write refinement report: %w", err)
+	}
+	return &state.result, report, nil
+}
+
 type refinementState struct {
 	result            Result
 	projectText       string

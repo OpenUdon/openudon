@@ -2,10 +2,12 @@ package synthesize
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/OpenUdon/openudon/internal/openapidisco"
 )
@@ -107,6 +109,7 @@ func assessContext(ctx context.Context, opts Options, writeReport bool) (*Qualit
 	assessReview(report, result.ReviewPath, sideEffects, policy, expectedPlan)
 	assessSymphonyHandoff(report, result.SymphonyHandoffPath, sideEffects, policy, expectedPlan)
 	assessSecrets(report, result)
+	assessConversionDiagnostics(report, filepath.Join(exampleDir, "expected", "diagnostics.json"))
 
 	if intentOK && planOK {
 		report.add("quality.review", "pass", "workflow.hcl passed deterministic v1 quality gates", "")
@@ -118,4 +121,52 @@ func assessContext(ctx context.Context, opts Options, writeReport bool) (*Qualit
 		}
 	}
 	return report, nil
+}
+
+type conversionDiagnostic struct {
+	Code          string `json:"code"`
+	Severity      string `json:"severity"`
+	Message       string `json:"message"`
+	Address       string `json:"address"`
+	TodoID        string `json:"todo_id"`
+	StrictFailure bool   `json:"strict_failure"`
+}
+
+func assessConversionDiagnostics(report *QualityReport, path string) {
+	data, err := os.ReadFile(path)
+	if err != nil {
+		if errors.Is(err, os.ErrNotExist) {
+			report.add("conversion.diagnostics", "pass", "no conversion diagnostics artifact is present", "")
+			return
+		}
+		report.add("conversion.diagnostics", "fail", "conversion diagnostics could not be read", err.Error())
+		return
+	}
+	var diagnostics []conversionDiagnostic
+	if err := json.Unmarshal(data, &diagnostics); err != nil {
+		report.add("conversion.diagnostics", "fail", "conversion diagnostics must be valid JSON", err.Error())
+		return
+	}
+	var failures []string
+	for _, diagnostic := range diagnostics {
+		if !diagnostic.StrictFailure {
+			continue
+		}
+		parts := []string{strings.TrimSpace(diagnostic.Code)}
+		if strings.TrimSpace(diagnostic.Address) != "" {
+			parts = append(parts, strings.TrimSpace(diagnostic.Address))
+		}
+		if strings.TrimSpace(diagnostic.TodoID) != "" {
+			parts = append(parts, strings.TrimSpace(diagnostic.TodoID))
+		}
+		if strings.TrimSpace(diagnostic.Message) != "" {
+			parts = append(parts, strings.TrimSpace(diagnostic.Message))
+		}
+		failures = append(failures, strings.Join(parts, ": "))
+	}
+	if len(failures) > 0 {
+		report.add("conversion.diagnostics", "fail", "conversion diagnostics contain unresolved TODOs or unsafe assumptions", strings.Join(sortedCopy(failures), "; "))
+		return
+	}
+	report.add("conversion.diagnostics", "pass", "conversion diagnostics contain no strict failures", "")
 }

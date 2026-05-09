@@ -159,8 +159,12 @@ func runConvertTFCommand(args []string) {
 	fmt.Printf("openudon: convert tf wrote %s\n", result.OutDir)
 	fmt.Printf("  project:     %s\n", result.ProjectPath)
 	fmt.Printf("  intent:      %s\n", result.IntentPath)
+	fmt.Printf("  workflow:    %s\n", result.WorkflowPath)
+	fmt.Printf("  uws:         %s\n", result.UWSPath)
+	fmt.Printf("  plan:        %s\n", result.PlanJSONPath)
 	fmt.Printf("  diagnostics: %s\n", result.DiagnosticsJSON)
 	fmt.Printf("  review:      %s\n", result.ReviewPath)
+	fmt.Printf("  quality:     %s\n", result.QualityJSONPath)
 }
 
 func parseOpenAPIFlags(values []string) ([]tfconvert.OpenAPIInput, error) {

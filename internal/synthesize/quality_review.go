@@ -274,8 +274,13 @@ func symphonyHandoffCredentialBindingsMatch(manifest SymphonyHandoff, policy pro
 		}
 		sort.Strings(expected)
 	}
-	return stringSlicesEqual(declared, manifest.CredentialBindings.Declared) &&
-		stringSlicesEqual(expected, manifest.CredentialBindings.ExpectedFromPlan)
+	if !stringSlicesEqual(declared, manifest.CredentialBindings.Declared) {
+		return false
+	}
+	if len(expected) == 0 && stringSlicesEqual(declared, manifest.CredentialBindings.ExpectedFromPlan) {
+		return true
+	}
+	return stringSlicesEqual(expected, manifest.CredentialBindings.ExpectedFromPlan)
 }
 
 func stringSlicesEqual(left, right []string) bool {
