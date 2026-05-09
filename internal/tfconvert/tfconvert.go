@@ -118,6 +118,7 @@ func Convert(ctx context.Context, opts Options) (*Result, error) {
 	conversion.selectObjects()
 	conversion.validateAction()
 	conversion.mapObjects()
+	conversion.ensureCredentialBindings()
 	conversion.sortAll()
 
 	result := &Result{
@@ -460,6 +461,9 @@ func (c *conversionState) validateAction() {
 
 func (c *conversionState) mapObjects() {
 	for _, obj := range c.selected {
+		if isProviderLocalDataSource(obj) {
+			continue
+		}
 		switch obj.Kind {
 		case "data_source":
 			if !c.mapObjectPurpose(obj, "read", "read") {
@@ -476,6 +480,18 @@ func (c *conversionState) mapObjects() {
 			}
 			c.mapObjectPurpose(obj, c.opts.Action, c.opts.Action)
 		}
+	}
+}
+
+func isProviderLocalDataSource(obj selectedObject) bool {
+	if obj.Kind != "data_source" || objectProviderLocalName(obj) != "aws" {
+		return false
+	}
+	switch obj.Type {
+	case "aws_iam_policy_document", "aws_partition", "aws_region", "aws_caller_identity":
+		return true
+	default:
+		return false
 	}
 }
 
@@ -617,6 +633,27 @@ func (c *conversionState) addDiagnostic(diag Diagnostic) {
 	diag.Severity = normalizeSeverity(diag.Severity)
 	diag.Message = strings.TrimSpace(diag.Message)
 	c.diagnostics = append(c.diagnostics, diag)
+}
+
+func (c *conversionState) ensureCredentialBindings() {
+	existing := map[string]bool{}
+	for _, binding := range c.bindings {
+		existing[binding.Name] = true
+	}
+	for _, mapping := range c.mappings {
+		for _, auth := range mapping.Auth {
+			name := credentialBindingName(mapping.Object, auth)
+			if name == "" || existing[name] {
+				continue
+			}
+			c.bindings = append(c.bindings, binding{
+				Name:      name,
+				Address:   credentialBindingAddress(mapping.Object, auth),
+				LocalName: objectProviderLocalName(mapping.Object),
+			})
+			existing[name] = true
+		}
+	}
 }
 
 func (c *conversionState) sortAll() {
@@ -817,6 +854,13 @@ func renderProject(c conversionState) string {
 	b.WriteString("- `cmd` and `ssh` are not allowed by this conversion package.\n")
 	b.WriteString("\n## Data Flow\n\n")
 	for _, obj := range c.selected {
+		if isProviderLocalDataSource(obj) {
+			fmt.Fprintf(&b, "- Terraform `%s` `%s` is provider-local metadata preserved symbolically; no OpenAPI operation is generated.\n", obj.Kind, obj.Address)
+			for _, attr := range obj.Config {
+				fmt.Fprintf(&b, "- `%s.%s`: symbolic Terraform expression `%s`.\n", obj.Address, attr.Path, attr.Value)
+			}
+			continue
+		}
 		fmt.Fprintf(&b, "- Terraform `%s` `%s` maps to a symbolic OpenUdon review step using provider binding `%s`.\n", obj.Kind, obj.Address, firstNonEmpty(obj.Binding, "default"))
 		for _, attr := range obj.Config {
 			if attr.Sensitive {
@@ -914,6 +958,23 @@ func renderIntent(c conversionState) (string, error) {
 				step.With = map[string]string{}
 			}
 			step.With[terraformAttributeReviewKey(attr.Path)] = localName
+			for _, requestKey := range terraformOpenAPIRequestKeys(mapping, attr.Path) {
+				step.With[requestKey] = localName
+			}
+		}
+		for _, auth := range mapping.Auth {
+			bindingName := credentialBindingName(mapping.Object, auth)
+			if bindingName == "" {
+				continue
+			}
+			if step.With == nil {
+				step.With = map[string]string{}
+			}
+			for _, requestKey := range credentialRequestKeys(auth) {
+				if strings.TrimSpace(step.With[requestKey]) == "" {
+					step.With[requestKey] = bindingName
+				}
+			}
 		}
 		intent.Steps = append(intent.Steps, step)
 	}
@@ -1051,8 +1112,78 @@ func awsOperationIDForObject(obj selectedObject, purpose, action string) string 
 		if obj.Kind == "resource" && purpose == "create" && (action == "create" || action == "replace") {
 			return "PutBucketAccelerateConfiguration"
 		}
+	case "aws_iam_role":
+		if obj.Kind == "resource" && purpose == "create" && (action == "create" || action == "replace") {
+			return "POST_CreateRole"
+		}
+		if obj.Kind == "resource" && purpose == "delete" {
+			return "POST_DeleteRole"
+		}
+	case "aws_iam_role_policy":
+		if obj.Kind == "resource" && (purpose == "create" || purpose == "update") && (action == "create" || action == "update" || action == "replace") {
+			return "POST_PutRolePolicy"
+		}
+		if obj.Kind == "resource" && purpose == "delete" {
+			return "POST_DeleteRolePolicy"
+		}
+	case "aws_lambda_function":
+		if obj.Kind == "resource" && purpose == "create" && (action == "create" || action == "replace") {
+			return "CreateFunction"
+		}
+		if obj.Kind == "resource" && purpose == "delete" {
+			return "DeleteFunction"
+		}
+	case "aws_lambda_function_url":
+		if obj.Kind == "resource" && purpose == "create" && (action == "create" || action == "replace") {
+			return "CreateFunctionUrlConfig"
+		}
+		if obj.Kind == "resource" && purpose == "update" {
+			return "UpdateFunctionUrlConfig"
+		}
+		if obj.Kind == "resource" && purpose == "delete" {
+			return "DeleteFunctionUrlConfig"
+		}
 	}
 	return ""
+}
+
+func terraformOpenAPIRequestKeys(mapping objectMapping, attrPath string) []string {
+	attrPath = strings.TrimSpace(attrPath)
+	if attrPath == "" {
+		return nil
+	}
+	if objectProviderLocalName(mapping.Object) != "aws" {
+		return nil
+	}
+	switch mapping.OperationID {
+	case "CreateFunctionUrlConfig", "UpdateFunctionUrlConfig", "DeleteFunctionUrlConfig":
+		if attrPath == "function_name" {
+			return []string{"FunctionName"}
+		}
+	}
+	return nil
+}
+
+func credentialBindingName(obj selectedObject, auth apitools.AuthRequirementSummary) string {
+	if auth.Kind != "aws_signature" {
+		return ""
+	}
+	provider := firstNonEmpty(objectProviderLocalName(obj), "aws")
+	scheme := firstNonEmpty(auth.Scheme, "sigv4")
+	return normalizeName(provider + "_" + scheme)
+}
+
+func credentialBindingAddress(obj selectedObject, auth apitools.AuthRequirementSummary) string {
+	provider := firstNonEmpty(objectProviderLocalName(obj), "aws")
+	scheme := firstNonEmpty(auth.Scheme, "sigv4")
+	return "provider." + provider + "." + scheme
+}
+
+func credentialRequestKeys(auth apitools.AuthRequirementSummary) []string {
+	if auth.Kind != "aws_signature" {
+		return nil
+	}
+	return []string{firstNonEmpty(auth.ParameterName, auth.Scheme, "Authorization"), "Authorization"}
 }
 
 func normalizeBindingName(address string) string {

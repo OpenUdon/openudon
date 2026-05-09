@@ -253,6 +253,119 @@ data "aws_s3_bucket" "test" {
 	}
 }
 
+func TestConvertAWSProviderLambdaFunctionURLMultiOpenAPICorpus(t *testing.T) {
+	root := t.TempDir()
+	configDir := filepath.Join(root, "tf")
+	iamOpenAPI := filepath.Join(root, "iam.yaml")
+	lambdaOpenAPI := filepath.Join(root, "lambda.yaml")
+	stsOpenAPI := filepath.Join(root, "sts.yaml")
+	writeFileForTest(t, filepath.Join(configDir, "main.tf"), `
+data "aws_partition" "current" {}
+
+resource "aws_iam_role_policy" "iam_policy_for_lambda" {
+  name = "tf-acc-openudon-lambda-policy"
+  role = aws_iam_role.iam_for_lambda.id
+
+  policy = <<EOF
+{
+  "Version": "2012-10-17",
+  "Statement": [{
+    "Effect": "Allow",
+    "Action": ["logs:CreateLogGroup"],
+    "Resource": "arn:${data.aws_partition.current.partition}:logs:*:*:*"
+  }]
+}
+EOF
+}
+
+resource "aws_iam_role" "iam_for_lambda" {
+  name = "tf-acc-openudon-lambda-role"
+
+  assume_role_policy = <<EOF
+{
+  "Version": "2012-10-17",
+  "Statement": [{
+    "Action": "sts:AssumeRole",
+    "Principal": {"Service": "lambda.amazonaws.com"},
+    "Effect": "Allow"
+  }]
+}
+EOF
+}
+
+resource "aws_lambda_function" "test" {
+  filename      = "test-fixtures/lambdatest.zip"
+  function_name = "tf-acc-openudon-lambda"
+  role          = aws_iam_role.iam_for_lambda.arn
+  handler       = "exports.example"
+  runtime       = "nodejs24.x"
+}
+
+resource "aws_lambda_function_url" "test" {
+  function_name      = aws_lambda_function.test.function_name
+  authorization_type = "NONE"
+}
+`)
+	writeFileForTest(t, iamOpenAPI, iamOpenAPIForTest())
+	writeFileForTest(t, lambdaOpenAPI, lambdaOpenAPIForTest())
+	writeFileForTest(t, stsOpenAPI, stsOpenAPIForTest())
+
+	result, err := Convert(context.Background(), Options{
+		ConfigDir: configDir,
+		OpenAPIs: []OpenAPIInput{
+			{ID: "iam", Path: iamOpenAPI},
+			{ID: "lambda", Path: lambdaOpenAPI},
+			{ID: "sts", Path: stsOpenAPI},
+		},
+		Action: "create",
+		OutDir: filepath.Join(root, "out"),
+		Strict: true,
+	})
+	if err != nil {
+		t.Fatalf("Convert returned error: %v", err)
+	}
+	for _, code := range []string{"operation.ambiguous", "operation.unresolved"} {
+		if hasDiagnostic(result.Diagnostics, code) {
+			t.Fatalf("diagnostics should not contain %s: %#v", code, result.Diagnostics)
+		}
+	}
+
+	intent := readFileForTest(t, result.IntentPath)
+	workflow := readFileForTest(t, result.WorkflowPath)
+	review := readFileForTest(t, result.ReviewPath)
+	project := readFileForTest(t, result.ProjectPath)
+	for _, expected := range []string{
+		"POST_CreateRole",
+		"POST_PutRolePolicy",
+		"CreateFunction",
+		"CreateFunctionUrlConfig",
+		"openapi/iam.yaml",
+		"openapi/lambda.yaml",
+		"aws_hmac",
+	} {
+		if !strings.Contains(intent, expected) || !strings.Contains(workflow, expected) {
+			t.Fatalf("expected %q in intent and workflow\nintent:\n%s\nworkflow:\n%s", expected, intent, workflow)
+		}
+	}
+	if !strings.Contains(workflow, "FunctionName") || !strings.Contains(workflow, "aws_lambda_function_url_test_create_function_name") {
+		t.Fatalf("workflow should bind Lambda FunctionName path parameter from function_name:\n%s", workflow)
+	}
+	for _, text := range []string{intent, workflow, review} {
+		if strings.Contains(text, "todo.") || strings.Contains(text, "aws_partition.current_read") {
+			t.Fatalf("known Lambda/IAM corpus case should not emit operation TODOs or partition operations:\n%s", text)
+		}
+	}
+	if !strings.Contains(project, "data.aws_partition.current") || !strings.Contains(project, "provider-local metadata") {
+		t.Fatalf("project should classify aws_partition as provider-local metadata:\n%s", project)
+	}
+	quality := readQualityForTest(t, result.QualityJSONPath)
+	for _, code := range []string{"intent.openapi_operations", "conversion.diagnostics", "workflow.plan_match", "workflow.credentials_bound"} {
+		if qualityHasCheck(quality, code, "fail") {
+			t.Fatalf("quality should not fail %s after AWS multi-document mapping: %#v", code, quality.Checks)
+		}
+	}
+}
+
 func TestConvertRedactsSensitiveCandidate(t *testing.T) {
 	root := t.TempDir()
 	configDir := filepath.Join(root, "tf")
@@ -775,5 +888,114 @@ paths:
       responses:
         "200":
           description: ok
+`
+}
+
+func iamOpenAPIForTest() string {
+	return `openapi: 3.0.0
+info:
+  title: AWS Identity and Access Management
+  version: "2010-05-08"
+security:
+  - hmac: []
+paths:
+  /create-role:
+    post:
+      operationId: POST_CreateRole
+      responses:
+        "200":
+          description: ok
+  /put-role-policy:
+    post:
+      operationId: POST_PutRolePolicy
+      responses:
+        "200":
+          description: ok
+components:
+  securitySchemes:
+    hmac:
+      type: apiKey
+      name: Authorization
+      in: header
+`
+}
+
+func lambdaOpenAPIForTest() string {
+	return `openapi: 3.0.0
+info:
+  title: AWS Lambda
+  version: "2015-03-31"
+security:
+  - hmac: []
+paths:
+  /2015-03-31/functions:
+    post:
+      operationId: CreateFunction
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                FunctionName:
+                  type: string
+                Role:
+                  type: string
+                Runtime:
+                  type: string
+                Handler:
+                  type: string
+      responses:
+        "201":
+          description: ok
+  /2021-10-31/functions/{FunctionName}/url:
+    post:
+      operationId: CreateFunctionUrlConfig
+      parameters:
+        - name: FunctionName
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                authorization_type:
+                  type: string
+      responses:
+        "201":
+          description: ok
+components:
+  securitySchemes:
+    hmac:
+      type: apiKey
+      name: Authorization
+      in: header
+`
+}
+
+func stsOpenAPIForTest() string {
+	return `openapi: 3.0.0
+info:
+  title: AWS Security Token Service
+  version: "2011-06-15"
+security:
+  - hmac: []
+paths:
+  /assume-role:
+    post:
+      operationId: POST_AssumeRole
+      responses:
+        "200":
+          description: ok
+components:
+  securitySchemes:
+    hmac:
+      type: apiKey
+      name: Authorization
+      in: header
 `
 }
