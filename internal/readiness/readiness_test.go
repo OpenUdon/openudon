@@ -53,7 +53,7 @@ func TestBuildStaticReadinessReport(t *testing.T) {
 	if !hasCheck(report.Git, "git.status", "warn") {
 		t.Fatalf("expected dirty git warning: %#v", report.Git)
 	}
-	if report.AutomationPolicy.HostedCIEnabled || report.AutomationPolicy.RealProviderAutomation || report.AutomationPolicy.RequiredMode != "local_manual" {
+	if !report.AutomationPolicy.HostedCIEnabled || report.AutomationPolicy.RealProviderAutomation || report.AutomationPolicy.RequiredMode != "public_ci_and_local_manual" {
 		t.Fatalf("unexpected automation policy: %#v", report.AutomationPolicy)
 	}
 }

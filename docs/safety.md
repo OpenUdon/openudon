@@ -66,6 +66,6 @@ Extension-owned UWS operations, such as SMTP, SSH, SQL, command execution, or LL
 an implementation profile with `x-uws-operation-profile`. OpenUdon project policy decides which
 profiles are allowed for a given environment.
 
-Symphony approval states, trusted-runner handoff package contents, and private checkout/secret
-boundaries are summarized in `../memory-bank/architecture.md` and
+Symphony approval states, trusted-runner handoff package contents, and optional sibling checkout plus
+secret boundaries are summarized in `../memory-bank/architecture.md` and
 `../memory-bank/tech-stack.md`.

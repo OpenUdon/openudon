@@ -12,7 +12,7 @@
 - [x] Initial product direction documented.
 - [x] Memory bank scaffold created.
 - [x] Evolution v1 scaffold created.
-- [x] Go module and private sibling dependency layout established.
+- [x] Go module and optional sibling workspace layout established.
 - [x] Thin `cmd/openudon` CLI implemented for local checks, synthesis, build, promote, assess, eval,
   readiness, approval template, and trusted run commands.
 - [x] Guided `cmd/icot` authoring CLI implemented.
@@ -60,7 +60,7 @@
   the default resolver reads `UDON_CREDENTIAL_<BINDING>` at execution time, literal secret fields in
   `x-udon-config.security` are rejected, and resolved values stay out of OpenUdon artifacts and
   persisted udon output.
-- [x] Hosted CI intentionally disabled during active private-sibling development.
+- [x] Public-module GitHub Actions CI enabled for provider-free vet/test gates.
 - [x] Roadmap, XRD, onboarding, operator, and safety docs consolidated into memory-bank and README.
 - [x] Direction change recorded: OpenUdon is now the public UWS authoring, review, package, and
   executor-handoff tool; Symphony is optional orchestration; `apitools` is being narrowed back to
@@ -107,6 +107,10 @@
   no longer ignored, empty validation directories fail unless `--allow-empty` is passed, and
   `OPENUDON_UDON_RUNNER` now requires an absolute executable path. A committed UWS validation fixture
   keeps README and Makefile validation examples pointed at real artifacts.
+- [x] Public-readiness follow-up completed: Apache-2.0 licensing, limited contribution guidance,
+  public-module GitHub Actions gates, install documentation, public/private wording reconciliation,
+  direct `internal/udonrunner` and `internal/uwsexec` tests, and synthesize package documentation are
+  in place.
 
 ## Notes
 
@@ -119,7 +123,8 @@
   n8n-specific runtime behavior into OpenUdon or udon; use explicit intent, OpenAPI, and generic
   `fnct` or control-flow modeling.
 - Normal deterministic gates remain `go test ./...`, `go vet ./...`, `make check`, and
-  `git diff --check`.
+  `git diff --check`. GitHub Actions runs provider-free public module gates with `GOWORK=off`;
+  sibling readiness and real-provider release evidence remain local/manual.
 - OpenUdon synthesis commands generate and validate artifacts only. They do not execute production
   workflows.
 - `openudon run` is the only OpenUdon-owned path that invokes a trusted executor runner, and it requires

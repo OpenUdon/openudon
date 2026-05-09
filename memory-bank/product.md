@@ -42,7 +42,7 @@ boundary.
 4. Validate OpenAPI availability, intent shape, workflow compilation, UWS export, expected-plan
    matching, review evidence, credential policy, and secret scanning.
 5. Run eval fixtures to compare prompt/model/pipeline behavior across curated briefs.
-6. Generate local readiness evidence for private sibling checkout state and deterministic gates.
+6. Generate local readiness evidence for optional sibling checkout state and deterministic gates.
 7. Produce approval JSON from the current handoff package digest.
 8. Use `openudon run` to validate handoff, stored and current quality, approval state, package digest,
    tier compatibility, and trusted executor invocation.
@@ -78,7 +78,7 @@ boundary.
 - Local trusted execution wrapper, approval template generation, package digest checks, and tier
   enforcement.
 - Cross-repo compatibility evidence for UWS semantics, udon lowering/runtime behavior, provider
-  drift, release gates, and private checkout readiness.
+  drift, release gates, and optional sibling checkout readiness.
 - OpenUdon-owned iCoT, review evidence, approval, package digest, credential policy, and trusted
   executor handoff helpers.
 - OpenAPI discovery/search/import/indexing reuse through `github.com/OpenUdon/apitools`.

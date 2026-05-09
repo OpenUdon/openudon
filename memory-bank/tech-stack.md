@@ -21,6 +21,8 @@ OpenAPI discovery/indexing, and portable trusted executor handoff.
 - Normal verification: `go test ./...`, `go vet ./...`, `make check`, and `git diff --check`.
   Local repository guard checks, UWS artifact validation, and trusted executor staging are Go CLI
   commands/packages under `cmd/` and `internal/`.
+- Public CI verification: `GOWORK=off go vet ./...`, `GOWORK=off go test ./... -count=1 -timeout=5m`,
+  and `git diff --check` through GitHub Actions without sibling checkouts.
 - Release verification: `make release-check` for deterministic gates and `make release-eval` for
   opt-in real-provider eval gates.
 

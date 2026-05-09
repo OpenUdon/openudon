@@ -89,8 +89,8 @@ Closed cross-repo dependencies remain regression responsibilities:
 - Symphony approval handoff is closed in OpenUdon through emitted artifacts and the trusted wrapper;
   managed reviewer routing remains optional external Symphony work.
 - Provider drift is reported in eval JSON/Markdown and release notes.
-- Private checkout and secret automation remain local/manual through readiness reports until the
-  private dependency layout and redaction controls stabilize.
+- Optional sibling checkout readiness and secret-backed real-provider automation remain local/manual
+  through readiness reports; public CI runs only provider-free module gates.
 - Runtime/profile coverage stays as OpenUdon policy/eval evidence unless a reusable UWS/udon semantic
   gap is proven.
 
@@ -177,10 +177,11 @@ Automation tiers:
 
 | Tier | Gate | Location |
 | --- | --- | --- |
+| Public module CI | `GOWORK=off go vet ./...`, `GOWORK=off go test ./... -count=1 -timeout=5m`, `git diff --check` | GitHub Actions without local siblings or provider credentials. |
 | Local deterministic | `go test ./...`, `go vet ./...`, `make check`, `git diff --check` | Trusted workstation with public OpenUdon siblings. |
 | Local readiness report | `openudon readiness --run-gates --out eval/readiness/local.json` | Trusted workstation with public OpenUdon siblings. |
 | Local/manual real LLM | `openudon eval --release-gate` or `make release-eval` | Trusted workstation with provider env vars. |
-| Future protected automation | New design required | Protected runner only after checkout and redaction controls stabilize. |
+| Future protected real-provider automation | New design required | Protected runner only after checkout and redaction controls stabilize. |
 
 ## Planned File And Folder Structure
 
@@ -195,7 +196,7 @@ Automation tiers:
   and provider drift watch.
 - `internal/trustedrunner/`: approval schema, package digest, handoff validation, tier checks, and
   udon invocation wrapper.
-- `internal/readiness/`: local private checkout readiness reports and deterministic gate execution.
+- `internal/readiness/`: local optional sibling checkout readiness reports and deterministic gate execution.
 - `internal/workflowintent/`: OpenUdon compatibility adapter over local authoring concepts.
 - `examples/`: committed examples and eval corpus.
 - `templates/`: project brief starter templates.

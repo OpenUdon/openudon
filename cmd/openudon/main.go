@@ -205,7 +205,7 @@ func runReadinessCommand(args []string) {
 	runGates := fs.Bool("run-gates", false, "Run deterministic gates: go test ./..., go vet ./..., make check, and git diff --check")
 	fs.Usage = func() {
 		fmt.Fprintf(fs.Output(), "Usage: openudon readiness [--out eval/readiness/<name>.json] [--run-gates]\n")
-		fmt.Fprintf(fs.Output(), "\nWrites %s JSON for XRD-007 local/private checkout readiness without printing secret values.\n", readiness.ReportVersion)
+		fmt.Fprintf(fs.Output(), "\nWrites %s JSON for XRD-007 local optional-sibling checkout readiness without printing secret values.\n", readiness.ReportVersion)
 		fmt.Fprintf(fs.Output(), "By default, deterministic gates are marked skipped; pass --run-gates for release-readiness evidence.\n\n")
 		fs.PrintDefaults()
 	}

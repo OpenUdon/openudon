@@ -1,5 +1,8 @@
 # OpenUdon
 
+[![test](https://github.com/OpenUdon/openudon/actions/workflows/test.yml/badge.svg)](https://github.com/OpenUdon/openudon/actions/workflows/test.yml)
+[![License](https://img.shields.io/badge/License-Apache--2.0-blue.svg)](LICENSE)
+
 OpenUdon is the public UWS workflow authoring, review, package, and executor-handoff tool. It can run
 directly or under optional Symphony-managed orchestration, and it hands approved packages to a
 trusted executor boundary such as the `udon` runtime.
@@ -10,6 +13,19 @@ Public workflow semantics belong in `github.com/OpenUdon/uws`; OpenAPI search/di
 `github.com/OpenUdon/apitools`.
 
 ## Quick Start
+
+Install the main CLI:
+
+```bash
+go install github.com/OpenUdon/openudon/cmd/openudon@latest
+```
+
+Optional companion tools:
+
+```bash
+go install github.com/OpenUdon/openudon/cmd/icot@latest
+go install github.com/OpenUdon/openudon/cmd/udon-runner@latest
+```
 
 Useful checks:
 
@@ -38,6 +54,8 @@ through `openudon run` and the portable run-config handoff, either as a configur
 - `examples/`: committed examples and eval corpus.
 - `templates/project.md`: starter project brief.
 - `docs/`: detailed architecture, safety, operator, XRD, and release notes.
+- `memory-bank/`: internal design notes and active maintainer memory.
+- `evolution/`: internal direction-change snapshots for larger architecture shifts.
 
 ## Execution Boundary
 
@@ -202,16 +220,16 @@ make release-eval
 
 ## Readiness
 
-Local readiness reports record private sibling presence, deterministic gate results, git state,
-ignored local artifacts, provider credential environment presence as booleans only, and current
-local/manual automation policy.
+Local readiness reports record optional sibling checkout presence, deterministic gate results, git
+state, ignored local artifacts, provider credential environment presence as booleans only, and
+current maintainer automation policy.
 
 ```bash
 go run ./cmd/openudon readiness --out eval/readiness/local.json
 go run ./cmd/openudon readiness --run-gates --out eval/readiness/local.json
 ```
 
-Hosted CI remains intentionally disabled during active private-sibling development. Real-provider
+GitHub Actions runs public-module vet/test gates without local sibling checkouts. Real-provider
 release evidence remains local/manual.
 
 ## Trusted Execution
@@ -334,3 +352,5 @@ prompts, commands, examples, or workflow artifacts.
 - [Safety](docs/safety.md)
 - [Eval gallery](docs/eval-gallery.md)
 - [Release note template](docs/release-note-template.md)
+- [Contributing](CONTRIBUTING.md)
+- [License](LICENSE)

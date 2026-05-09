@@ -2,9 +2,12 @@
 
 ## Purpose
 
-OpenUdon is a private Go integration layer for Symphony-managed UWS projects executed by the private `udon` runtime.
+OpenUdon is the public UWS workflow authoring, review, package, and executor-handoff tool. It can be
+used directly or under optional Symphony-managed orchestration, and it hands approved packages to a
+trusted executor boundary such as the private `udon` runtime.
 
-OpenUdon owns project templates, Symphony workflow policy, example artifacts, validation wrappers, and trusted execution glue.
+OpenUdon owns project templates, optional Symphony workflow policy, example artifacts, validation
+wrappers, review evidence, package digests, and trusted execution glue.
 
 ## Memory Bank First
 
@@ -48,7 +51,7 @@ go test ./...
 go run ./cmd/openudon check
 go run ./cmd/openudon check-apitools-boundary
 go run ./cmd/openudon check-doc-memory
-go run ./cmd/openudon validate ./examples
+go run ./cmd/openudon validate ./examples/uws-validation
 make check
 ```
 

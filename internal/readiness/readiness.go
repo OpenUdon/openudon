@@ -108,10 +108,10 @@ func Build(ctx context.Context, opts Options) (Report, error) {
 		RepoRoot:    absRoot,
 		Status:      "pass",
 		AutomationPolicy: AutomationPolicy{
-			HostedCIEnabled:        false,
+			HostedCIEnabled:        true,
 			RealProviderAutomation: false,
-			RequiredMode:           "local_manual",
-			Notes:                  "Deterministic gates run on a trusted workstation with private siblings; real-provider evals remain local/manual until protected secrets and redaction policy exist.",
+			RequiredMode:           "public_ci_and_local_manual",
+			Notes:                  "Public CI runs provider-free module gates without sibling checkouts; optional sibling readiness and real-provider evals remain local/manual until protected secrets and redaction policy exist.",
 		},
 	}
 	report.Siblings = siblingChecks(absRoot)
