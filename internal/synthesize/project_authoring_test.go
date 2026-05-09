@@ -125,7 +125,7 @@ OpenAPI: none required
 
 - Stop if required controls are invalid.
 
-` + "```ramen-policy\n" + `
+` + "```openudon-policy\n" + `
 timeouts:
   workflow: 0
   steps:
@@ -141,7 +141,7 @@ idempotency:
 }
 
 func TestValidateStructuredProjectPolicyPassesValidControls(t *testing.T) {
-	policy := analyzeProject("```ramen-policy\n" + `
+	policy := analyzeProject("```openudon-policy\n" + `
 timeouts:
   workflow: 120
   steps:
@@ -180,7 +180,7 @@ OpenAPI: none required
 
 - Stop if required controls are invalid.
 
-` + "```ramen-policy\n" + `
+` + "```openudon-policy\n" + `
 timeouts:
   workflow: 0
 ` + "```\n"

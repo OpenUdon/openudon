@@ -7,8 +7,8 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/genelet/ramen/internal/openapidisco"
-	rollout "github.com/genelet/ramen/internal/workflowintent"
+	"github.com/OpenUdon/openudon/internal/openapidisco"
+	rollout "github.com/OpenUdon/openudon/internal/workflowintent"
 	"gopkg.in/yaml.v3"
 )
 

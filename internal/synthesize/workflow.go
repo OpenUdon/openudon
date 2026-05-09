@@ -13,8 +13,8 @@ import (
 	"github.com/OpenUdon/uws/convert"
 	"github.com/OpenUdon/uws/runtimes"
 	"github.com/OpenUdon/uws/uws1"
-	"github.com/genelet/ramen/internal/uwsvalidate"
-	rollout "github.com/genelet/ramen/internal/workflowintent"
+	"github.com/OpenUdon/openudon/internal/uwsvalidate"
+	rollout "github.com/OpenUdon/openudon/internal/workflowintent"
 	"gopkg.in/yaml.v3"
 )
 
@@ -77,7 +77,7 @@ func generateWorkflowDocument(result Result, intent *rollout.Intent) (*uws1.Docu
 		return nil, fmt.Errorf("intent is required")
 	}
 	normalized := intent.NormalizedForGeneration()
-	title := "Ramen workflow"
+	title := "OpenUdon workflow"
 	description := ""
 	timeout := (*float64)(nil)
 	var idempotency *uws1.Idempotency

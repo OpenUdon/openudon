@@ -8,7 +8,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/genelet/ramen/internal/authoring"
+	"github.com/OpenUdon/openudon/internal/authoring"
 )
 
 func TestWorkflowFlowParsesValidatesAndRendersIntent(t *testing.T) {
@@ -34,7 +34,7 @@ func TestWorkflowFlowParsesValidatesAndRendersIntent(t *testing.T) {
 	}
 }
 
-func TestValidateCompleteReportsRamenMissingSlots(t *testing.T) {
+func TestValidateCompleteReportsOpenUdonMissingSlots(t *testing.T) {
 	draft := &Intent{
 		OpenAPI:  "openapi/support.yaml",
 		Workflow: &WorkflowMeta{Name: "support_lookup"},

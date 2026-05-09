@@ -9,9 +9,9 @@ import (
 	"strings"
 
 	"github.com/OpenUdon/apitools"
-	"github.com/genelet/ramen/internal/authoring"
-	"github.com/genelet/ramen/internal/projectwizard"
-	rollout "github.com/genelet/ramen/internal/workflowintent"
+	"github.com/OpenUdon/openudon/internal/authoring"
+	"github.com/OpenUdon/openudon/internal/projectwizard"
+	rollout "github.com/OpenUdon/openudon/internal/workflowintent"
 )
 
 type ReadinessIssue = authoring.ReadinessIssue
@@ -106,7 +106,7 @@ func runProgressive(ctx context.Context, in io.Reader, out io.Writer, seed Sessi
 	artifacts, err := authoring.RunProgressiveWithLifecycle(ctx, in, out, hooks, authoring.ProgressiveLifecycleOptions[Session, APIDocument, Artifacts]{
 		DraftPath:         opts.DraftPath,
 		TranscriptPath:    opts.TranscriptPath,
-		TranscriptVersion: "ramen.icot-transcript.v1",
+		TranscriptVersion: "openudon.icot-transcript.v1",
 		Normalize: func(session *Session) {
 			session.Normalize()
 		},

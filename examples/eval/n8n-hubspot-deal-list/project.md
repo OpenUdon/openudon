@@ -2,7 +2,7 @@
 
 ## Goal
 
-Represent the n8n HubSpot deal get-many workflow as a Ramen intent workflow that lists deals.
+Represent the n8n HubSpot deal get-many workflow as a OpenUdon intent workflow that lists deals.
 
 ## Inputs
 

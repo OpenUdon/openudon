@@ -12,10 +12,10 @@ import (
 
 	"github.com/OpenUdon/apitools"
 	"github.com/OpenUdon/uws/uws1"
-	"github.com/genelet/ramen/internal/authoring"
-	"github.com/genelet/ramen/internal/projectwizard"
-	"github.com/genelet/ramen/internal/workflowintent"
-	rollout "github.com/genelet/ramen/internal/workflowintent"
+	"github.com/OpenUdon/openudon/internal/authoring"
+	"github.com/OpenUdon/openudon/internal/projectwizard"
+	"github.com/OpenUdon/openudon/internal/workflowintent"
+	rollout "github.com/OpenUdon/openudon/internal/workflowintent"
 )
 
 type Options struct {

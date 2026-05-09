@@ -2,7 +2,7 @@ openapi = "openapi/openweathermap.json"
 
 workflow {
   name        = "n8n_openweathermap_current_weather"
-  description = "Represent the n8n OpenWeatherMap current weather workflow as a Ramen intent workflow."
+  description = "Represent the n8n OpenWeatherMap current weather workflow as a OpenUdon intent workflow."
 }
 
 input "cityName" {

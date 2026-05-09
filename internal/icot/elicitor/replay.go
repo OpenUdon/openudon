@@ -9,9 +9,9 @@ import (
 	"strings"
 
 	"github.com/OpenUdon/apitools"
-	"github.com/genelet/ramen/internal/authoring"
-	"github.com/genelet/ramen/internal/projectwizard"
-	rollout "github.com/genelet/ramen/internal/workflowintent"
+	"github.com/OpenUdon/openudon/internal/authoring"
+	"github.com/OpenUdon/openudon/internal/projectwizard"
+	rollout "github.com/OpenUdon/openudon/internal/workflowintent"
 )
 
 type ReplayTurn = authoring.PromptTurn

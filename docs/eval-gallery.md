@@ -26,15 +26,15 @@ specific workflow behavior or failure class rather than merely adding volume.
 | `itops-workflow-backup-github` | n8n IT Ops-inspired workflow backup from n8n API to GitHub Contents API. |
 | `missing-credential-policy-negative` | Negative fixture that reports missing credential policy instead of issuing unaudited API calls. |
 | `missing-openapi-capability-negative` | Negative fixture that reports missing OpenAPI capability instead of inventing provider calls. |
-| `n8n-airtable-record-get` | Advisory n8n reducibility sample for Airtable `record/get` mapped to Ramen `getAirtableRecord`. |
-| `n8n-gmail-message-send` | Advisory n8n reducibility sample for Gmail `message/send` mapped to Ramen `sendMessage`. |
-| `n8n-google-drive-file-upload` | Advisory n8n reducibility sample for Google Drive `file/upload` mapped to Ramen `uploadFile`. |
-| `n8n-hubspot-deal-list` | Advisory n8n reducibility sample for HubSpot `deal/getAll` mapped to Ramen `listDeals`. |
-| `n8n-jira-issue-get` | Advisory n8n reducibility sample for scanner-backed Jira `issue/get` mapped to Ramen `getIssue`. |
-| `n8n-openweathermap-current-weather` | Advisory n8n reducibility sample for OpenWeatherMap current weather mapped to Ramen `getOpenWeatherMapCurrentWeather`. |
-| `n8n-pagerduty-user-get` | Advisory n8n reducibility sample for PagerDuty `user/get` mapped to Ramen `getUser`. |
-| `n8n-slack-message-post` | Advisory n8n reducibility sample for Slack `message/post` mapped to Ramen `postMessage`. |
-| `n8n-trello-list-get-all` | Advisory n8n reducibility sample for Trello `list/getAll` mapped to Ramen `listTrelloBoardLists`. |
+| `n8n-airtable-record-get` | Advisory n8n reducibility sample for Airtable `record/get` mapped to OpenUdon `getAirtableRecord`. |
+| `n8n-gmail-message-send` | Advisory n8n reducibility sample for Gmail `message/send` mapped to OpenUdon `sendMessage`. |
+| `n8n-google-drive-file-upload` | Advisory n8n reducibility sample for Google Drive `file/upload` mapped to OpenUdon `uploadFile`. |
+| `n8n-hubspot-deal-list` | Advisory n8n reducibility sample for HubSpot `deal/getAll` mapped to OpenUdon `listDeals`. |
+| `n8n-jira-issue-get` | Advisory n8n reducibility sample for scanner-backed Jira `issue/get` mapped to OpenUdon `getIssue`. |
+| `n8n-openweathermap-current-weather` | Advisory n8n reducibility sample for OpenWeatherMap current weather mapped to OpenUdon `getOpenWeatherMapCurrentWeather`. |
+| `n8n-pagerduty-user-get` | Advisory n8n reducibility sample for PagerDuty `user/get` mapped to OpenUdon `getUser`. |
+| `n8n-slack-message-post` | Advisory n8n reducibility sample for Slack `message/post` mapped to OpenUdon `postMessage`. |
+| `n8n-trello-list-get-all` | Advisory n8n reducibility sample for Trello `list/getAll` mapped to OpenUdon `listTrelloBoardLists`. |
 | `order-fulfillment-chain` | Multi-service OpenAPI chain with per-service credentials, response extraction, request-body construction, and a sandbox write. |
 | `offset-pagination-export` | Offset pagination with two fixed pages and a local merge step. |
 | `pagerduty-user-contact-card` | Multi-step data-passing fixture: nested user response feeds local contact-card rendering. |

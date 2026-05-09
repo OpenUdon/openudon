@@ -10,11 +10,11 @@ import (
 	"strings"
 
 	"github.com/OpenUdon/uws/uws1"
-	"github.com/genelet/ramen/internal/openapidisco"
-	rollout "github.com/genelet/ramen/internal/workflowintent"
+	"github.com/OpenUdon/openudon/internal/openapidisco"
+	rollout "github.com/OpenUdon/openudon/internal/workflowintent"
 )
 
-const workflowPlanVersion = "ramen.workflow-plan.v1"
+const workflowPlanVersion = "openudon.workflow-plan.v1"
 
 type WorkflowPlan struct {
 	Version     string            `json:"version"`
@@ -373,7 +373,7 @@ func loadWorkflowPlan(path string) (*WorkflowPlan, error) {
 
 func workflowPlanMarkdown(plan *WorkflowPlan) string {
 	var b strings.Builder
-	b.WriteString("# Ramen Workflow Plan\n\n")
+	b.WriteString("# OpenUdon Workflow Plan\n\n")
 	if plan.Workflow != "" {
 		fmt.Fprintf(&b, "- Workflow: `%s`\n", plan.Workflow)
 	}

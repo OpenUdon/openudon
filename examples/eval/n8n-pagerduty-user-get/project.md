@@ -2,7 +2,7 @@
 
 ## Goal
 
-Represent the n8n PagerDuty user get workflow as a Ramen intent workflow that fetches one PagerDuty user.
+Represent the n8n PagerDuty user get workflow as a OpenUdon intent workflow that fetches one PagerDuty user.
 
 ## Inputs
 

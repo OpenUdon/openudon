@@ -8,7 +8,7 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/genelet/ramen/internal/authoring/atomicfile"
+	"github.com/OpenUdon/openudon/internal/authoring/atomicfile"
 	"gopkg.in/yaml.v3"
 )
 

@@ -2,7 +2,7 @@
 
 ## Goal
 
-Represent the n8n Trello list get-all workflow as a Ramen intent workflow that lists board lists.
+Represent the n8n Trello list get-all workflow as a OpenUdon intent workflow that lists board lists.
 
 ## Inputs
 

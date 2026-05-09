@@ -28,7 +28,7 @@ Back up one n8n workflow definition into a GitHub repository path for audit and 
 
 - n8n API: use `openapi/n8n.yaml`.
 - GitHub Contents API: use `openapi/github.yaml`.
-- The fixture is inspired by the public n8n workflow-backup template and is modeled as a Ramen-native eval brief.
+- The fixture is inspired by the public n8n workflow-backup template and is modeled as a OpenUdon-native eval brief.
 
 ## Runtime Policy
 

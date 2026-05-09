@@ -1,4 +1,4 @@
-Refine prose only in this Ramen iCoT session JSON.
+Refine prose only in this OpenUdon iCoT session JSON.
 You may improve intent.workflow.description, project.goal, safety, and fallback.
 Preserve all names, operation IDs, bindings, credential binding names, paths, runtimes, inputs, outputs, and side_effect_scope exactly.
 Return the same JSON shape.

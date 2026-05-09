@@ -11,7 +11,7 @@
   "selected_openapi": "openapi/gmail.json",
   "operation_id": "sendMessage",
   "notes": [
-    "The fixture models only the Gmail message/send node as a single Ramen http step.",
+    "The fixture models only the Gmail message/send node as a single OpenUdon http step.",
     "Raw MIME assembly and attachment handling are intentionally out of scope for this first advisory slice.",
     "The copied w8m OpenAPI evidence is fixture-local and does not create a runtime dependency on w8m or n8n."
   ]

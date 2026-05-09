@@ -9,7 +9,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/genelet/ramen/internal/config"
+	"github.com/OpenUdon/openudon/internal/config"
 )
 
 type fakeRunner map[string]CommandResult
@@ -44,7 +44,7 @@ func TestBuildStaticReadinessReport(t *testing.T) {
 	if !hasCheck(report.Siblings, "uws", "pass") {
 		t.Fatalf("sibling checks missing uws pass: %#v", report.Siblings)
 	}
-	if !hasCheck(report.IgnoredArtifacts, ".ramen-run/", "pass") || !hasCheck(report.IgnoredArtifacts, "eval/readiness/", "pass") {
+	if !hasCheck(report.IgnoredArtifacts, ".openudon-run/", "pass") || !hasCheck(report.IgnoredArtifacts, "eval/readiness/", "pass") {
 		t.Fatalf("ignored artifact checks incomplete: %#v", report.IgnoredArtifacts)
 	}
 	if !hasCheck(report.DeterministicGates, "go.test", "skip") {
@@ -106,7 +106,7 @@ func TestBuildReadinessFailsMissingSiblingAndIgnore(t *testing.T) {
 	if report.Status != "fail" {
 		t.Fatalf("status = %q, want fail", report.Status)
 	}
-	if !hasCheck(report.Siblings, "uws", "fail") || !hasCheck(report.IgnoredArtifacts, ".ramen-run/", "fail") {
+	if !hasCheck(report.Siblings, "uws", "fail") || !hasCheck(report.IgnoredArtifacts, ".openudon-run/", "fail") {
 		t.Fatalf("expected missing sibling and ignore failures: %#v %#v", report.Siblings, report.IgnoredArtifacts)
 	}
 }
@@ -144,7 +144,7 @@ func TestWriteDoesNotExposeProviderSecretValues(t *testing.T) {
 func writeReadinessFixture(t *testing.T) string {
 	t.Helper()
 	parent := t.TempDir()
-	root := filepath.Join(parent, "ramen")
+	root := filepath.Join(parent, "openudon")
 	if err := os.Mkdir(root, 0o755); err != nil {
 		t.Fatal(err)
 	}
@@ -154,7 +154,7 @@ func writeReadinessFixture(t *testing.T) string {
 		}
 	}
 	gitignore := strings.Join([]string{
-		".ramen-run/",
+		".openudon-run/",
 		"approvals/",
 		"eval/artifacts/",
 		"eval/readiness/",

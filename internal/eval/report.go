@@ -185,7 +185,7 @@ func MarkdownReport(report RunReport) string {
 		watch = &built
 	}
 	var b strings.Builder
-	fmt.Fprintf(&b, "# Ramen Eval Report\n\n")
+	fmt.Fprintf(&b, "# OpenUdon Eval Report\n\n")
 	if report.Metadata.RunID != "" {
 		fmt.Fprintf(&b, "- Run ID: `%s`\n", report.Metadata.RunID)
 	}

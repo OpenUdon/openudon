@@ -8,8 +8,8 @@ import (
 	"testing"
 
 	"github.com/OpenUdon/apitools"
-	"github.com/genelet/ramen/internal/projectwizard"
-	rollout "github.com/genelet/ramen/internal/workflowintent"
+	"github.com/OpenUdon/openudon/internal/projectwizard"
+	rollout "github.com/OpenUdon/openudon/internal/workflowintent"
 )
 
 func TestRunFillsRuntimeOnlyIntent(t *testing.T) {

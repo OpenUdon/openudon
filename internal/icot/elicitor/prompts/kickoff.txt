@@ -1,4 +1,4 @@
 Extract only obvious workflow authoring facts into JSON.
 Do not invent filenames, URLs, operation IDs, credentials, inputs, outputs, or steps.
-Return a partial Ramen iCoT session with explicit values only:
+Return a partial OpenUdon iCoT session with explicit values only:
 intent.workflow.name, intent.workflow.description, project.goal, credentials, safety, fallback, side_effect_scope.

@@ -78,7 +78,7 @@ func RunProgressiveWithLifecycle[S, D, A any](ctx context.Context, in io.Reader,
 		}
 		version := opts.TranscriptVersion
 		if strings.TrimSpace(version) == "" {
-			version = "ramen.icot-transcript.v1"
+			version = "openudon.icot-transcript.v1"
 		}
 		var transcriptSession any = artifacts
 		if opts.TranscriptSession != nil {

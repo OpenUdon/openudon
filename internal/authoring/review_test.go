@@ -11,7 +11,7 @@ func TestValidateReviewHandoffRequiresSafePackage(t *testing.T) {
 	manifest := NewReviewHandoff(ReviewHandoffOptions{
 		HandoffInputs: []ReviewHandoffInput{{Path: "project.md", Purpose: "brief", Required: true}},
 		OwnerSplit: ReviewOwnerSplit{
-			"ramen": {"review package"},
+			"openudon": {"review package"},
 		},
 		ExecutionPolicy: ReviewExecutionPolicy{
 			SideEffectful:             true,
@@ -41,7 +41,7 @@ func TestComputeReviewHandoffDigestIsStable(t *testing.T) {
 	first, err := ComputeReviewHandoffDigest(ReviewHandoffDigestOptions{
 		Root:    root,
 		Scope:   "examples/demo",
-		Version: "ramen.handoff-package-digest.v1",
+		Version: "openudon.handoff-package-digest.v1",
 		Inputs:  inputs,
 	})
 	if err != nil {
@@ -50,7 +50,7 @@ func TestComputeReviewHandoffDigestIsStable(t *testing.T) {
 	second, err := ComputeReviewHandoffDigest(ReviewHandoffDigestOptions{
 		Root:    root,
 		Scope:   "examples/demo",
-		Version: "ramen.handoff-package-digest.v1",
+		Version: "openudon.handoff-package-digest.v1",
 		Inputs:  []ReviewHandoffInput{inputs[1], inputs[0]},
 	})
 	if err != nil {
@@ -72,7 +72,7 @@ func TestComputeReviewHandoffDigestRejectsSymlinkInput(t *testing.T) {
 	_, err := ComputeReviewHandoffDigest(ReviewHandoffDigestOptions{
 		Root:    root,
 		Scope:   "examples/demo",
-		Version: "ramen.handoff-package-digest.v1",
+		Version: "openudon.handoff-package-digest.v1",
 		Inputs: []ReviewHandoffInput{
 			{Path: "project.md", Required: true},
 		},

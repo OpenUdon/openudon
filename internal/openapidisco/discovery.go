@@ -1,5 +1,5 @@
 // Package openapidisco re-exports the apitools openapidisco helpers under
-// ramen's historical import path so existing call sites keep compiling.
+// openudon's historical import path so existing call sites keep compiling.
 // New code should depend on `github.com/OpenUdon/apitools/openapidisco`
 // directly.
 package openapidisco

@@ -14,14 +14,14 @@
     "source": "../w8m",
     "command": "go run ./cmd/w8mscan --workflow ../n8n/packages/nodes-base/nodes/Slack/test/v1/node/message/post.workflow.json --format json",
     "notes": [
-      "w8mscan is read-only scanner evidence; Ramen owns the eval fixture and does not depend on w8m or n8n at eval runtime."
+      "w8mscan is read-only scanner evidence; OpenUdon owns the eval fixture and does not depend on w8m or n8n at eval runtime."
     ]
   },
   "notes": [
-    "The fixture models only the Slack message/post node as a single Ramen http step.",
+    "The fixture models only the Slack message/post node as a single OpenUdon http step.",
     "The source workflow also contains manualTrigger and noOp nodes; those are n8n workflow-shell behavior outside this one-operation eval slice.",
     "The copied w8m OpenAPI evidence listed postMessage but did not include request body, response schema, server, or security detail.",
-    "This fixture enriches only the local postMessage request and response schema needed for Ramen quality assessment.",
+    "This fixture enriches only the local postMessage request and response schema needed for OpenUdon quality assessment.",
     "Slack authentication is documented as credential binding slack_bot_token in project.md, but OpenAPI security is not asserted in this fixture because the copied evidence does not contain a complete security scheme."
   ]
 }

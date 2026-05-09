@@ -6,7 +6,7 @@ import (
 	"os"
 	"strings"
 
-	"github.com/genelet/ramen/internal/authoring"
+	"github.com/OpenUdon/openudon/internal/authoring"
 )
 
 func WorkflowFlow() authoring.Flow[*Intent] {

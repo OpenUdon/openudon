@@ -2,7 +2,7 @@ openapi = "openapi/trello.json"
 
 workflow {
   name        = "n8n_trello_list_get_all"
-  description = "Represent the n8n Trello list get-all workflow as a Ramen intent workflow."
+  description = "Represent the n8n Trello list get-all workflow as a OpenUdon intent workflow."
 }
 
 input "boardId" {

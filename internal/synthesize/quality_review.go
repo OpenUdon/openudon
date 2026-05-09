@@ -7,9 +7,9 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/genelet/ramen/internal/authoring"
-	"github.com/genelet/ramen/internal/packageartifacts"
-	rollout "github.com/genelet/ramen/internal/workflowintent"
+	"github.com/OpenUdon/openudon/internal/authoring"
+	"github.com/OpenUdon/openudon/internal/packageartifacts"
+	rollout "github.com/OpenUdon/openudon/internal/workflowintent"
 )
 
 func assessSideEffectPolicy(report *QualityReport, policy projectPolicy, intent *rollout.Intent) {
@@ -91,12 +91,12 @@ func assessReview(report *QualityReport, path string, profile sideEffectProfile,
 		return
 	}
 	report.add("review.package", "pass", "review evidence lists the minimum trusted-execution review package", "")
-	if !strings.Contains(text, "Trusted proof run") || !strings.Contains(text, "ramen run") {
+	if !strings.Contains(text, "Trusted proof run") || !strings.Contains(text, "openudon run") {
 		report.add("review.trusted_runner", "fail", "review evidence must include trusted-runner handoff command", "")
 		return
 	}
 	report.add("review.trusted_runner", "pass", "review evidence includes trusted-runner handoff command", "")
-	if !strings.Contains(text, "Direct production execution: not performed by Ramen synthesis") {
+	if !strings.Contains(text, "Direct production execution: not performed by OpenUdon synthesis") {
 		report.add("review.production_boundary", "fail", "review evidence must state that synthesis does not directly execute production workflows", "")
 		return
 	}

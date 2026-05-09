@@ -7,10 +7,10 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/genelet/ramen/internal/icot/elicitor"
-	"github.com/genelet/ramen/internal/projectwizard"
-	rollout "github.com/genelet/ramen/internal/workflowintent"
-	runner "github.com/genelet/ramen/internal/workflowintent"
+	"github.com/OpenUdon/openudon/internal/icot/elicitor"
+	"github.com/OpenUdon/openudon/internal/projectwizard"
+	rollout "github.com/OpenUdon/openudon/internal/workflowintent"
+	runner "github.com/OpenUdon/openudon/internal/workflowintent"
 )
 
 func TestMainPreviewEOFCancelsWithoutWriting(t *testing.T) {

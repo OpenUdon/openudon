@@ -8,7 +8,7 @@ import (
 	"strings"
 	"testing"
 
-	rollout "github.com/genelet/ramen/internal/workflowintent"
+	rollout "github.com/OpenUdon/openudon/internal/workflowintent"
 	"github.com/santhosh-tekuri/jsonschema/v6"
 )
 

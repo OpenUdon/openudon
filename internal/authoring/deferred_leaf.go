@@ -93,7 +93,7 @@ func defaultDeferredExecutionPolicy() DeferredExecutionPolicy {
 		Notes: []string{
 			"Artifacts are review-only until a caller-specific renderer validates them.",
 			"Credential values must be supplied by a trusted runtime binding layer.",
-			"Ramen authoring does not execute APIs or workflows.",
+			"OpenUdon authoring does not execute APIs or workflows.",
 		},
 	}
 }

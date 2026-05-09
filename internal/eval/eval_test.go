@@ -9,8 +9,8 @@ import (
 	"testing"
 
 	"github.com/OpenUdon/uws/uws1"
-	"github.com/genelet/ramen/internal/synthesize"
-	rollout "github.com/genelet/ramen/internal/workflowintent"
+	"github.com/OpenUdon/openudon/internal/synthesize"
+	rollout "github.com/OpenUdon/openudon/internal/workflowintent"
 )
 
 type fakeRuntimeClient struct{}
@@ -531,7 +531,7 @@ func TestMarkdownIncludesReferenceSeveritySummary(t *testing.T) {
 		Name:               "a",
 		Provider:           "copilot-api",
 		Model:              "gpt-5.4-mini",
-		PromptVersion:      "ramen.prompt.v1",
+		PromptVersion:      "openudon.prompt.v1",
 		Mode:               "structured",
 		Passed:             true,
 		AttemptCount:       2,
@@ -559,11 +559,11 @@ func TestMarkdownIncludesReferenceSeveritySummary(t *testing.T) {
 		"Modes: `structured`=1",
 		"Providers: `copilot-api`=1",
 		"Models: `gpt-5.4-mini`=1",
-		"Prompt versions: `ramen.prompt.v1`=1",
+		"Prompt versions: `openudon.prompt.v1`=1",
 		"## Provider Drift Watch",
 		"Structured fallback count: `0`",
 		"Attempts-to-pass: max `2`, repeated repair loops `1`",
-		"| `a` | pass | copilot-api | gpt-5.4-mini | ramen.prompt.v1 | structured | 2 |  |  | 2/1/0 | advisory | 123 | 456ms |",
+		"| `a` | pass | copilot-api | gpt-5.4-mini | openudon.prompt.v1 | structured | 2 |  |  | 2/1/0 | advisory | 123 | 456ms |",
 		"## Reference Issue Details",
 		"- advisory `intent.outputs`: extra output (illustrative reference)",
 	} {

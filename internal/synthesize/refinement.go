@@ -259,7 +259,7 @@ func writeRefinementReport(result Result, report *RefinementReport) error {
 
 func refinementMarkdown(report *RefinementReport) string {
 	var b strings.Builder
-	b.WriteString("# Ramen Refinement Report\n\n")
+	b.WriteString("# OpenUdon Refinement Report\n\n")
 	fmt.Fprintf(&b, "Status: `%s`\n\n", report.Status)
 	fmt.Fprintf(&b, "Max attempts: `%d`\n\n", report.MaxAttempts)
 	if report.PromptVersion != "" {

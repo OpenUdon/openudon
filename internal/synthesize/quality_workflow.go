@@ -11,9 +11,9 @@ import (
 	"strings"
 
 	"github.com/OpenUdon/uws/uws1"
-	"github.com/genelet/ramen/internal/openapidisco"
-	uwsprofile "github.com/genelet/ramen/internal/uwsexec"
-	rollout "github.com/genelet/ramen/internal/workflowintent"
+	"github.com/OpenUdon/openudon/internal/openapidisco"
+	uwsprofile "github.com/OpenUdon/openudon/internal/uwsexec"
+	rollout "github.com/OpenUdon/openudon/internal/workflowintent"
 )
 
 func assessWorkflowPlan(report *QualityReport, result Result) *WorkflowPlan {
@@ -21,9 +21,9 @@ func assessWorkflowPlan(report *QualityReport, result Result) *WorkflowPlan {
 	if err != nil {
 		if errors.Is(err, os.ErrNotExist) {
 			if generatedArtifactsExist(result) {
-				report.add("plan.present", "fail", "expected workflow plan is missing", "Run `ramen synthesize` or `ramen build` to create expected/plan.json.")
+				report.add("plan.present", "fail", "expected workflow plan is missing", "Run `openudon synthesize` or `openudon build` to create expected/plan.json.")
 			} else {
-				report.add("plan.present", "warn", "expected workflow plan is missing", "Run `ramen synthesize` or `ramen build` to create expected/plan.json.")
+				report.add("plan.present", "warn", "expected workflow plan is missing", "Run `openudon synthesize` or `openudon build` to create expected/plan.json.")
 			}
 			return nil
 		}
@@ -60,7 +60,7 @@ func assessDiscoveryReport(report *QualityReport, path string) {
 	data, err := os.ReadFile(path)
 	if err != nil {
 		if errors.Is(err, os.ErrNotExist) {
-			report.add("openapi.discovery", "warn", "OpenAPI discovery report is missing", "Run `ramen synthesize` or `ramen build` to record OpenAPI discovery attempts.")
+			report.add("openapi.discovery", "warn", "OpenAPI discovery report is missing", "Run `openudon synthesize` or `openudon build` to record OpenAPI discovery attempts.")
 		} else {
 			report.add("openapi.discovery", "warn", "OpenAPI discovery report could not be read", err.Error())
 		}

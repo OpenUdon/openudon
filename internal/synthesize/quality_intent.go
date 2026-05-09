@@ -6,8 +6,8 @@ import (
 	"strings"
 
 	"github.com/OpenUdon/uws/uws1"
-	"github.com/genelet/ramen/internal/openapidisco"
-	rollout "github.com/genelet/ramen/internal/workflowintent"
+	"github.com/OpenUdon/openudon/internal/openapidisco"
+	rollout "github.com/OpenUdon/openudon/internal/workflowintent"
 )
 
 func assessIntent(report *QualityReport, path string, candidates []openapidisco.Candidate, primary string, policy projectPolicy) (*rollout.Intent, bool) {

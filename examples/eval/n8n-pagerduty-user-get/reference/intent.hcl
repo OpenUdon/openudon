@@ -2,7 +2,7 @@ openapi = "openapi/pagerduty.json"
 
 workflow {
   name        = "n8n_pagerduty_user_get"
-  description = "Represent the n8n PagerDuty user get workflow as a Ramen intent workflow."
+  description = "Represent the n8n PagerDuty user get workflow as a OpenUdon intent workflow."
 }
 
 input "userId" {

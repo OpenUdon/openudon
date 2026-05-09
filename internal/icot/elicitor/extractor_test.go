@@ -8,7 +8,7 @@ import (
 	"testing"
 
 	"github.com/OpenUdon/apitools"
-	rollout "github.com/genelet/ramen/internal/workflowintent"
+	rollout "github.com/OpenUdon/openudon/internal/workflowintent"
 )
 
 type fakeChat struct {

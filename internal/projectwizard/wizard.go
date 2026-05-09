@@ -6,7 +6,7 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/genelet/ramen/internal/authoring"
+	"github.com/OpenUdon/openudon/internal/authoring"
 )
 
 type Answers struct {

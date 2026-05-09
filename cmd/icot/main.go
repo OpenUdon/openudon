@@ -3,7 +3,7 @@ package main
 import (
 	"os"
 
-	"github.com/genelet/ramen/internal/icot"
+	"github.com/OpenUdon/openudon/internal/icot"
 )
 
 func main() {

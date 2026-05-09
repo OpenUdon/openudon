@@ -6,8 +6,8 @@ import (
 	"strings"
 
 	"github.com/OpenUdon/uws/uws1"
-	uwsprofile "github.com/genelet/ramen/internal/uwsexec"
-	"github.com/genelet/ramen/internal/uwsvalidate"
+	uwsprofile "github.com/OpenUdon/openudon/internal/uwsexec"
+	"github.com/OpenUdon/openudon/internal/uwsvalidate"
 )
 
 func assessUWS(report *QualityReport, path, schemaPath, exampleDir string, expectedPlan *WorkflowPlan) {

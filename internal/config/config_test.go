@@ -9,7 +9,7 @@ import (
 
 func TestCheckSiblingsPassesWhenRequiredDirsExist(t *testing.T) {
 	parent := t.TempDir()
-	root := filepath.Join(parent, "ramen")
+	root := filepath.Join(parent, "openudon")
 	if err := os.Mkdir(root, 0o755); err != nil {
 		t.Fatal(err)
 	}
@@ -36,7 +36,7 @@ func TestRequiredSiblingsReturnsCopy(t *testing.T) {
 
 func TestCheckSiblingsReportsMissingSibling(t *testing.T) {
 	parent := t.TempDir()
-	root := filepath.Join(parent, "ramen")
+	root := filepath.Join(parent, "openudon")
 	if err := os.Mkdir(root, 0o755); err != nil {
 		t.Fatal(err)
 	}
@@ -47,7 +47,7 @@ func TestCheckSiblingsReportsMissingSibling(t *testing.T) {
 
 func TestCheckSiblingsRejectsFile(t *testing.T) {
 	parent := t.TempDir()
-	root := filepath.Join(parent, "ramen")
+	root := filepath.Join(parent, "openudon")
 	if err := os.Mkdir(root, 0o755); err != nil {
 		t.Fatal(err)
 	}

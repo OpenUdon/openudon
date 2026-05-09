@@ -5,7 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"github.com/genelet/ramen/internal/authoring"
+	"github.com/OpenUdon/openudon/internal/authoring"
 )
 
 type ChatAdapter struct {

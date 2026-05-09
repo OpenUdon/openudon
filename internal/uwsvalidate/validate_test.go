@@ -19,11 +19,11 @@ func TestValidateFileAcceptsJSONAndYAML(t *testing.T) {
 		t.Fatal(err)
 	}
 	jsonDoc := filepath.Join(dir, "doc.json")
-	if err := os.WriteFile(jsonDoc, []byte(`{"name":"ramen"}`), 0o644); err != nil {
+	if err := os.WriteFile(jsonDoc, []byte(`{"name":"openudon"}`), 0o644); err != nil {
 		t.Fatal(err)
 	}
 	yamlDoc := filepath.Join(dir, "doc.yaml")
-	if err := os.WriteFile(yamlDoc, []byte("name: ramen\n"), 0o644); err != nil {
+	if err := os.WriteFile(yamlDoc, []byte("name: openudon\n"), 0o644); err != nil {
 		t.Fatal(err)
 	}
 	for _, doc := range []string{jsonDoc, yamlDoc} {
@@ -47,7 +47,7 @@ func TestValidateFileRejectsInvalidAndUnsupportedDocuments(t *testing.T) {
 		t.Fatalf("expected schema validation failure")
 	}
 	unsupported := filepath.Join(dir, "doc.txt")
-	if err := os.WriteFile(unsupported, []byte(`{"name":"ramen"}`), 0o644); err != nil {
+	if err := os.WriteFile(unsupported, []byte(`{"name":"openudon"}`), 0o644); err != nil {
 		t.Fatal(err)
 	}
 	if err := ValidateFile(schema, unsupported); err == nil || !strings.Contains(err.Error(), "unsupported document extension") {

@@ -2,7 +2,7 @@ openapi = "openapi/gmail.json"
 
 workflow {
   name        = "n8n_gmail_message_send"
-  description = "Represent the n8n Gmail message send workflow as a Ramen intent workflow."
+  description = "Represent the n8n Gmail message send workflow as a OpenUdon intent workflow."
 }
 
 input "sendTo" {

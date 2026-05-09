@@ -25,7 +25,7 @@ Convert one structured Slack issue report into a Jira issue and post a Slack con
 
 - Slack API: use `openapi/slack.yaml`.
 - Jira API: use `openapi/jira.yaml`.
-- The fixture is inspired by a public Slack-to-Jira n8n issue-intake template and omits attachment download/upload from the first Ramen eval slice.
+- The fixture is inspired by a public Slack-to-Jira n8n issue-intake template and omits attachment download/upload from the first OpenUdon eval slice.
 
 ## Runtime Policy
 

@@ -1,4 +1,4 @@
-# Ramen Release Note Template
+# OpenUdon Release Note Template
 
 ## Candidate
 
@@ -28,7 +28,7 @@
 - `git diff --check`:
 - `make release-check`:
 - Sibling checkout layout (`../uws`, `../apitools`, optional `../udon`, optional `../symphony`):
-- `ramen readiness --run-gates`:
+- `openudon readiness --run-gates`:
 - Readiness JSON:
 
 ## Real-LLM Smoke

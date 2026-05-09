@@ -1,6 +1,6 @@
-# Ramen Data Flow
+# OpenUdon Data Flow
 
-Ramen workflows pass data through explicit step outputs and request inputs. A user can describe one
+OpenUdon workflows pass data through explicit step outputs and request inputs. A user can describe one
 business action, but generated artifacts must expose the technical steps and field mappings needed
 to execute it.
 
@@ -12,7 +12,7 @@ quality expectations.
 - OpenAPI steps receive request fields from literals, workflow inputs, credential bindings, or prior
   step outputs.
 - During UWS generation, unqualified OpenAPI request fields are placed using the selected
-  operation's public metadata. Ramen preserves explicit `path.`, `query.`, `header.`, `cookie.`, and
+  operation's public metadata. OpenUdon preserves explicit `path.`, `query.`, `header.`, `cookie.`, and
   `body.` prefixes, and rejects unknown unqualified fields instead of guessing a query parameter.
 - Prior step outputs are referenced as `step_name.received_body...` in workflow HCL.
 - `intent.hcl` should use `bind` blocks when one step feeds another.
@@ -53,7 +53,7 @@ Users do not need to know every API endpoint. For example:
 Search weather in Toronto, Canada.
 ```
 
-If the available OpenAPI documents expose both geocoding and weather operations, Ramen should
+If the available OpenAPI documents expose both geocoding and weather operations, OpenUdon should
 expand that into:
 
 1. `get_coordinates`: call geocoding with city and country.
@@ -62,9 +62,9 @@ expand that into:
 Those hidden technical steps must appear in `intent.hcl`, `workflow.hcl`, review evidence, and
 quality reports. They should not remain implicit.
 
-Ramen also writes `expected/plan.json` and `expected/plan.md`. The plan records each inferred
+OpenUdon also writes `expected/plan.json` and `expected/plan.md`. The plan records each inferred
 technical step, the chosen runtime or OpenAPI operation, required parameters, dependencies, and
-bindings. During assessment, Ramen parses the final public UWS `workflow.hcl` and verifies the
+bindings. During assessment, OpenUdon parses the final public UWS `workflow.hcl` and verifies the
 workflow still preserves those mappings.
 
 Quality assessment also validates intent provenance before execution. `depends_on`, `with`, `bind`,
@@ -78,13 +78,13 @@ Opaque or missing response schemas produce a warning instead of a failure.
 
 ## Structural Results
 
-When an intent output references a structural `switch`, `merge`, or `loop` step, Ramen exports a
+When an intent output references a structural `switch`, `merge`, or `loop` step, OpenUdon exports a
 matching UWS `results[]` entry. The expected plan records the result name, kind, source, and value,
 and quality assessment fails if `workflow.uws.yaml` drops or changes that structural result.
 
 ## Missing Operations
 
-If the selected OpenAPI document only has a weather endpoint that requires `lat` and `lon`, Ramen
+If the selected OpenAPI document only has a weather endpoint that requires `lat` and `lon`, OpenUdon
 must not invent coordinates for a city. It should try approved OpenAPI discovery/import. If no
 geocoding operation is available, it should stop with a clear missing-capability report.
 
@@ -101,7 +101,7 @@ For `fnct` steps, document the function contract in `project.md`:
   - Side effects: none
 ```
 
-Ramen can then wire the function output into later API or runtime steps.
+OpenUdon can then wire the function output into later API or runtime steps.
 
 Quality checks require every generated `fnct` step to have a matching Function Contracts entry.
 When the contract declares inputs, the intent must show visible input evidence through `with`, a

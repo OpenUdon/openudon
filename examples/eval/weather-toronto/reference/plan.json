@@ -1,5 +1,5 @@
 {
-  "version": "ramen.workflow-plan.v1",
+  "version": "openudon.workflow-plan.v1",
   "workflow": "weather_toronto",
   "steps": [
     {"name": "get_coordinates", "runtime": "http", "operation": "direct_get"},

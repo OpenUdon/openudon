@@ -1,5 +1,5 @@
 {
-  "version": "ramen.workflow-plan.v1",
+  "version": "openudon.workflow-plan.v1",
   "workflow": "support_email",
   "steps": [
     {"name": "get_ticket", "runtime": "http", "operation": "getTicket"},

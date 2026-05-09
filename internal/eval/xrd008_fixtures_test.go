@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	rollout "github.com/genelet/ramen/internal/workflowintent"
+	rollout "github.com/OpenUdon/openudon/internal/workflowintent"
 )
 
 func TestXRD008RuntimeProfileFixtureCoverage(t *testing.T) {
@@ -68,7 +68,7 @@ func TestXRD008PlanDoesNotDefineUpstreamRuntimeSemantics(t *testing.T) {
 	text := string(data)
 	for _, expected := range []string{
 		"Runtime/profile semantics and generic execution remain upstream",
-		"Ramen reference intents must not invent unsupported runtime types",
+		"OpenUdon reference intents must not invent unsupported runtime types",
 		"profile-specific `x-udon-*` payloads",
 	} {
 		if !strings.Contains(text, expected) {

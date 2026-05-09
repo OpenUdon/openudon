@@ -2,7 +2,7 @@
 
 ## Goal
 
-Represent the n8n Airtable record get workflow as a Ramen intent workflow that fetches one Airtable record.
+Represent the n8n Airtable record get workflow as a OpenUdon intent workflow that fetches one Airtable record.
 
 ## Inputs
 

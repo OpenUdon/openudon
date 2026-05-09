@@ -11,7 +11,7 @@
   "selected_openapi": "openapi/hubspot.json",
   "operation_id": "listDeals",
   "notes": [
-    "The fixture models only the HubSpot deal/getAll node as a single Ramen http step.",
+    "The fixture models only the HubSpot deal/getAll node as a single OpenUdon http step.",
     "The copied w8m OpenAPI evidence is fixture-local and does not create a runtime dependency on w8m or n8n."
   ]
 }

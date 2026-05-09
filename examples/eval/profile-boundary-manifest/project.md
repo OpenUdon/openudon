@@ -22,7 +22,7 @@ OpenAPI: none required
 - `fnct` is allowed for trusted local manifest rendering.
 - `cmd`, `ssh`, and direct SQL/profile execution are not allowed.
 - Do not emit `sql`, `smtp`, `llm`, `x-udon-*`, or other profile-specific runtime payloads from
-  Ramen for this project.
+  OpenUdon for this project.
 
 ## Data Flow
 

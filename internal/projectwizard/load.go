@@ -3,7 +3,7 @@ package projectwizard
 import (
 	"strings"
 
-	"github.com/genelet/ramen/internal/projectdoc"
+	"github.com/OpenUdon/openudon/internal/projectdoc"
 )
 
 func LoadAnswersFromMarkdown(text string) (Answers, error) {

@@ -13,10 +13,10 @@ import (
 	"strings"
 	"time"
 
-	"github.com/genelet/ramen/internal/openapidisco"
-	"github.com/genelet/ramen/internal/workflowintent"
-	rollout "github.com/genelet/ramen/internal/workflowintent"
-	runner "github.com/genelet/ramen/internal/workflowintent"
+	"github.com/OpenUdon/openudon/internal/openapidisco"
+	"github.com/OpenUdon/openudon/internal/workflowintent"
+	rollout "github.com/OpenUdon/openudon/internal/workflowintent"
+	runner "github.com/OpenUdon/openudon/internal/workflowintent"
 )
 
 type Options struct {

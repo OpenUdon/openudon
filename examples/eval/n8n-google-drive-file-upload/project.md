@@ -2,7 +2,7 @@
 
 ## Goal
 
-Represent the n8n Google Drive file upload workflow as a Ramen intent workflow that uploads one file.
+Represent the n8n Google Drive file upload workflow as a OpenUdon intent workflow that uploads one file.
 
 ## Inputs
 

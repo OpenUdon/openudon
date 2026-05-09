@@ -42,11 +42,11 @@ Describe the workflow outcome in business terms.
 
 ## Safety and Approval Boundary
 
-- Describe what Ramen may generate, validate, or execute.
+- Describe what OpenUdon may generate, validate, or execute.
 - Side-effectful execution requires explicit approval, sandbox/test proof runs, and a trusted runner.
 - Side-effectful proof runs require Symphony state `approved_for_sandbox`.
 - Production execution requires Symphony state `approved_for_production` and approved credential bindings.
-- Ramen synthesis must not directly execute production workflows.
+- OpenUdon synthesis must not directly execute production workflows.
 
 ## Fallback Behavior
 

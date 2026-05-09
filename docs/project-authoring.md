@@ -1,14 +1,14 @@
-# Writing project.md for Ramen
+# Writing project.md for OpenUdon
 
-`project.md` is the user contract for Ramen synthesis. It should describe the business goal and the
-integration policy that tells Ramen when to use OpenAPI, when to use a non-HTTP udon runtime, and
+`project.md` is the user contract for OpenUdon synthesis. It should describe the business goal and the
+integration policy that tells OpenUdon when to use OpenAPI, when to use a non-HTTP udon runtime, and
 when to stop.
 
 `go run ./cmd/icot --example examples/<name>` is an optional guided authoring tool. With LLM
 assistance available, it starts from one plain-language goal, drafts `workflows/intent.hcl` from
 that answer plus local OpenAPI metadata, and asks only the next blocking question needed to reach a
-valid intent. With `--no-llm`, it uses the fixed manual prompt flow. `project.md` remains the Ramen
-policy/prose artifact, while `workflows/intent.hcl` is the structured saved contract that `ramen
+valid intent. With `--no-llm`, it uses the fixed manual prompt flow. `project.md` remains the OpenUdon
+policy/prose artifact, while `workflows/intent.hcl` is the structured saved contract that `openudon
 build` consumes next.
 
 `icot` is deterministic. It can print without writing (`--print`), seed prompts from another
@@ -38,7 +38,7 @@ Use these sections for new projects:
 - Runtime Policy: allowed runtimes such as `openapi`, `http`, `fnct`, `cmd`, or `ssh`.
 - Credentials and Secrets: credential binding names only; never secret values.
 - Safety and Approval Boundary: what may be generated, validated, or executed.
-- Fallback Behavior: when Ramen should stop instead of guessing.
+- Fallback Behavior: when OpenUdon should stop instead of guessing.
 
 For guided authoring, choose one side-effect scope:
 
@@ -51,29 +51,29 @@ Guided authoring also accepts optional workflow timeout, workflow idempotency, a
 answers. Leave those prompts blank unless the project contract requires portable UWS 1.1 metadata.
 
 For side-effectful workflows, the Safety and Approval Boundary must name both the approval or
-trusted-runtime path and the sandbox/test proof-run policy. Ramen synthesis should not directly
+trusted-runtime path and the sandbox/test proof-run policy. OpenUdon synthesis should not directly
 execute production workflows. Review evidence treats generated artifacts as Symphony state
 `generated`; side-effectful proof runs require `approved_for_sandbox`, and production execution
 requires `approved_for_production`.
 
 ## Runtime Selection Rules
 
-Ramen should use OpenAPI for API operations when a matching OpenAPI document and operation are
+OpenUdon should use OpenAPI for API operations when a matching OpenAPI document and operation are
 available. OpenAPI should provide method, path, schemas, server, and security metadata.
 
-Ramen should use non-OpenAPI runtimes only when the project explicitly allows them:
+OpenUdon should use non-OpenAPI runtimes only when the project explicitly allows them:
 
 - `fnct`: trusted local functions, transforms, renderers, adapters, or private glue.
 - `cmd`: approved local commands. Use only with an explicit allow policy.
 - `ssh`: approved remote host operations. Use only with an explicit allow policy.
 - `http`: direct HTTP behavior or OpenAPI-backed HTTP behavior, depending on the available metadata.
 
-Do not ask Ramen to invent native `smtp`, `sql`, or `llm` semantics unless the project maps that
+Do not ask OpenUdon to invent native `smtp`, `sql`, or `llm` semantics unless the project maps that
 behavior to an approved `fnct` or a runtime profile implemented by `udon`.
 
-For policy that should be machine-readable, add an optional fenced `ramen-policy` block:
+For policy that should be machine-readable, add an optional fenced `openudon-policy` block:
 
-```ramen-policy
+```openudon-policy
 openapi: none required
 runtimes:
   cmd: false
@@ -94,7 +94,7 @@ This complements the prose sections. Do not put credential values in the block.
 
 ## Data Flow
 
-Ramen may expand one business request into multiple technical steps. For example, "search weather
+OpenUdon may expand one business request into multiple technical steps. For example, "search weather
 in Toronto, Canada" may require one API call to resolve coordinates and another API call to fetch
 weather from `lat` and `lon`.
 
@@ -105,8 +105,8 @@ Pass `get_coordinates.body[0].lat` to `get_weather.lat`.
 Pass `get_coordinates.body[0].lon` to `get_weather.lon`.
 ```
 
-When you do not know the hidden API steps, describe the business goal and let Ramen infer them from
-OpenAPI metadata. Ramen should expose inferred substeps and bindings in generated artifacts. See
+When you do not know the hidden API steps, describe the business goal and let OpenUdon infer them from
+OpenAPI metadata. OpenUdon should expose inferred substeps and bindings in generated artifacts. See
 `docs/data-flow.md` for examples.
 
 Use structural steps when the project needs explicit branching or iteration. A loop project should
@@ -119,7 +119,7 @@ If the project needs API calls, provide one of these:
 
 - OpenAPI files under `openapi/`.
 - OpenAPI document URLs in `project.md`.
-- Search/discovery hints precise enough for Ramen to find the relevant API document.
+- Search/discovery hints precise enough for OpenUdon to find the relevant API document.
 
 If the project does not need API calls, write this exact policy:
 
@@ -127,7 +127,7 @@ If the project does not need API calls, write this exact policy:
 OpenAPI: none required
 ```
 
-When that phrase is present, Ramen should not fail only because `openapi/` is empty. It should also
+When that phrase is present, OpenUdon should not fail only because `openapi/` is empty. It should also
 reject generated artifacts that still reference OpenAPI.
 
 ## Example

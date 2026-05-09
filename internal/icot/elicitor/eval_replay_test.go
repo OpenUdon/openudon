@@ -9,9 +9,9 @@ import (
 	"strings"
 	"testing"
 
-	evalpkg "github.com/genelet/ramen/internal/eval"
-	"github.com/genelet/ramen/internal/synthesize"
-	rollout "github.com/genelet/ramen/internal/workflowintent"
+	evalpkg "github.com/OpenUdon/openudon/internal/eval"
+	"github.com/OpenUdon/openudon/internal/synthesize"
+	rollout "github.com/OpenUdon/openudon/internal/workflowintent"
 )
 
 func TestReplayEvalReferencesThroughICOTChat(t *testing.T) {

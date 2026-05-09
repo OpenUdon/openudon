@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://ramen.local/schemas/intent.schema.json",
-  "title": "Ramen rollout intent",
+  "$id": "https://openudon.local/schemas/intent.schema.json",
+  "title": "OpenUdon rollout intent",
   "type": "object",
   "additionalProperties": false,
   "required": ["workflow", "steps"],

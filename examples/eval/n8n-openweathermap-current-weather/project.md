@@ -2,7 +2,7 @@
 
 ## Goal
 
-Represent the n8n OpenWeatherMap current weather workflow as a Ramen intent workflow that fetches current weather for one city.
+Represent the n8n OpenWeatherMap current weather workflow as a OpenUdon intent workflow that fetches current weather for one city.
 
 ## Inputs
 

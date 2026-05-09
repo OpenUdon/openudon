@@ -2,7 +2,7 @@
 
 Build a runtime-only workflow that submits one controlled local function call.
 
-```ramen-policy
+```openudon-policy
 openapi: none required
 runtimes:
   fnct: allowed

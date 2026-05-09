@@ -2,7 +2,7 @@
 
 ## Goal
 
-Represent the n8n Gmail message send workflow as a Ramen intent workflow that sends one email message.
+Represent the n8n Gmail message send workflow as a OpenUdon intent workflow that sends one email message.
 
 ## Inputs
 

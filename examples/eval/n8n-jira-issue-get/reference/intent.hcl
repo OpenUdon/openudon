@@ -2,7 +2,7 @@ openapi = "openapi/jira.json"
 
 workflow {
   name        = "n8n_jira_issue_get"
-  description = "Represent the scanner-backed Jira issue get slice as a Ramen intent workflow."
+  description = "Represent the scanner-backed Jira issue get slice as a OpenUdon intent workflow."
 }
 
 input "issueKey" {

@@ -1,6 +1,6 @@
 package elicitor
 
-import "github.com/genelet/ramen/internal/authoring"
+import "github.com/OpenUdon/openudon/internal/authoring"
 
 // DraftPath returns the canonical `.icot/session.yaml` path under exampleDir.
 func DraftPath(exampleDir string) string {

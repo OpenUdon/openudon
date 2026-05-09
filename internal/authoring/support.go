@@ -11,7 +11,7 @@ import (
 type OperationInventory = apitools.OperationInventory
 type AuthRequirementSummary = apitools.AuthRequirementSummary
 
-// DocumentationContext is Ramen-owned advisory context attached to local
+// DocumentationContext is OpenUdon-owned advisory context attached to local
 // authoring artifacts. OpenAPI documents remain the authoritative API contract.
 type DocumentationContext struct {
 	Snippets    []DocumentationSnippet `json:"snippets,omitempty"`

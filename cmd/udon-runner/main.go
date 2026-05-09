@@ -8,13 +8,13 @@ import (
 	"os/signal"
 	"syscall"
 
-	"github.com/genelet/ramen/internal/udonrunner"
+	"github.com/OpenUdon/openudon/internal/udonrunner"
 )
 
 func main() {
-	configPath := flag.String("config", "", "Path to ramen.executor-run.v1 JSON")
+	configPath := flag.String("config", "", "Path to openudon.executor-run.v1 JSON")
 	flag.Usage = func() {
-		fmt.Fprintf(flag.CommandLine.Output(), "Usage: ramen-udon-runner --config <run-config.json>\n\n")
+		fmt.Fprintf(flag.CommandLine.Output(), "Usage: udon-runner --config <run-config.json>\n\n")
 		flag.PrintDefaults()
 	}
 	flag.Parse()

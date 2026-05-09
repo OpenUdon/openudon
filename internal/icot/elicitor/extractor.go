@@ -7,9 +7,9 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/genelet/ramen/internal/authoring"
-	"github.com/genelet/ramen/internal/projectwizard"
-	rollout "github.com/genelet/ramen/internal/workflowintent"
+	"github.com/OpenUdon/openudon/internal/authoring"
+	"github.com/OpenUdon/openudon/internal/projectwizard"
+	rollout "github.com/OpenUdon/openudon/internal/workflowintent"
 )
 
 const PromptVersion = "icot-extractor.v1"

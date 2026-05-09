@@ -17,7 +17,7 @@ func RequiredSiblings() []string {
 	return out
 }
 
-// CheckSiblings verifies that Ramen's required sibling repositories exist.
+// CheckSiblings verifies that OpenUdon's required sibling repositories exist.
 func CheckSiblings(root string) error {
 	absRoot, err := filepath.Abs(root)
 	if err != nil {

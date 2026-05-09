@@ -11,7 +11,7 @@
   "selected_openapi": "openapi/google_drive.json",
   "operation_id": "uploadFile",
   "notes": [
-    "The fixture models only the Google Drive file/upload node as a single Ramen http step.",
+    "The fixture models only the Google Drive file/upload node as a single OpenUdon http step.",
     "Binary stream handling is intentionally advisory in this first slice.",
     "The copied w8m OpenAPI evidence is fixture-local and does not create a runtime dependency on w8m or n8n."
   ]

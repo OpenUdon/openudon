@@ -2,7 +2,7 @@
 
 ## Goal
 
-Represent the scanner-backed Jira issue get slice as a Ramen intent workflow that fetches one Jira issue.
+Represent the scanner-backed Jira issue get slice as a OpenUdon intent workflow that fetches one Jira issue.
 
 ## Inputs
 

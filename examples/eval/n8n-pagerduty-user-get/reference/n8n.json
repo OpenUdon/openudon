@@ -11,7 +11,7 @@
   "selected_openapi": "openapi/pagerduty.json",
   "operation_id": "getUser",
   "notes": [
-    "The fixture models only the PagerDuty user/get node as a single Ramen http step.",
+    "The fixture models only the PagerDuty user/get node as a single OpenUdon http step.",
     "The source workflow contains additional PagerDuty incident and log-entry nodes outside this one-operation eval slice.",
     "The copied w8m OpenAPI evidence is fixture-local and does not create a runtime dependency on w8m or n8n."
   ]

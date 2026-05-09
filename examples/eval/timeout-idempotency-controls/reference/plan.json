@@ -1,5 +1,5 @@
 {
-  "version": "ramen.workflow-plan.v1",
+  "version": "openudon.workflow-plan.v1",
   "workflow": "timeout_idempotency_controls",
   "timeout": 120,
   "idempotency": {

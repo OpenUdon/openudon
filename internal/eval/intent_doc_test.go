@@ -6,8 +6,8 @@ import (
 	"strings"
 	"testing"
 
-	rollout "github.com/genelet/ramen/internal/workflowintent"
-	runner "github.com/genelet/ramen/internal/workflowintent"
+	rollout "github.com/OpenUdon/openudon/internal/workflowintent"
+	runner "github.com/OpenUdon/openudon/internal/workflowintent"
 )
 
 func TestIntentDocHCLExamplesParse(t *testing.T) {

@@ -8,8 +8,8 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/genelet/ramen/internal/authoring"
-	rollout "github.com/genelet/ramen/internal/workflowintent"
+	"github.com/OpenUdon/openudon/internal/authoring"
+	rollout "github.com/OpenUdon/openudon/internal/workflowintent"
 )
 
 func writeReview(result Result, provider, model string) error {
@@ -48,7 +48,7 @@ func reviewMarkdown(result Result, provider, model string) string {
 	expectedCredentials := expectedPlanCredentialNames(result.PlanJSONPath)
 	commonReview := reviewLeafAdapter(reviewArtifactSet(result), declaredCredentials, expectedCredentials)
 	commonPackage := commonReview.MinimumReviewPackage()
-	b.WriteString("# Ramen Review Evidence\n\n")
+	b.WriteString("# OpenUdon Review Evidence\n\n")
 	fmt.Fprintf(&b, "- Project brief: `%s`\n", relOrAbs(result.ExampleDir, result.ProjectPath))
 	fmt.Fprintf(&b, "- Intent HCL: `%s`\n", relOrAbs(result.ExampleDir, result.IntentPath))
 	fmt.Fprintf(&b, "- Workflow HCL: `%s`\n", relOrAbs(result.ExampleDir, result.WorkflowPath))
@@ -70,7 +70,7 @@ func reviewMarkdown(result Result, provider, model string) string {
 	fmt.Fprintf(&b, "- Refinement report: `%s`\n", relOrAbs(result.ExampleDir, result.RefinementJSONPath))
 	fmt.Fprintf(&b, "- Review evidence: `%s`\n", relOrAbs(result.ExampleDir, result.ReviewPath))
 	fmt.Fprintf(&b, "- Symphony handoff manifest: `%s`\n", relOrAbs(result.ExampleDir, result.SymphonyHandoffPath))
-	fmt.Fprintf(&b, "- Ramen review package: `%d` artifact(s), `%d` symbolic binding(s), execution deferred to Ramen trusted-runtime policy.\n", len(commonPackage.Artifacts), len(commonPackage.BindingNames))
+	fmt.Fprintf(&b, "- OpenUdon review package: `%d` artifact(s), `%d` symbolic binding(s), execution deferred to OpenUdon trusted-runtime policy.\n", len(commonPackage.Artifacts), len(commonPackage.BindingNames))
 	b.WriteString("\n## OpenAPI Candidates\n\n")
 	for _, candidate := range result.OpenAPICandidates {
 		fmt.Fprintf(&b, "- `%s`", candidate.RelativePath)
@@ -119,9 +119,9 @@ func reviewMarkdown(result Result, provider, model string) string {
 		b.WriteString("- Sandbox/test proof-run policy: not detected in project.md.\n")
 	}
 	b.WriteString("- Credential binding audit: runtime binding names only; literal secrets are prohibited in prompts, examples, and artifacts.\n")
-	b.WriteString("- Direct production execution: not performed by Ramen synthesis.\n")
+	b.WriteString("- Direct production execution: not performed by OpenUdon synthesis.\n")
 	b.WriteString("\n## Approval State Requirements\n\n")
-	b.WriteString("- Ramen emitted state: `generated`; no approval is implied by artifact generation.\n")
+	b.WriteString("- OpenUdon emitted state: `generated`; no approval is implied by artifact generation.\n")
 	b.WriteString("- `validated`: required validators and quality gates have passed or known warnings are attached.\n")
 	b.WriteString("- `review_required`: human review is required before side-effectful execution.\n")
 	b.WriteString("- `approved_for_sandbox`: sandbox or test-endpoint execution only.\n")
@@ -160,11 +160,11 @@ func reviewMarkdown(result Result, provider, model string) string {
 	}
 	b.WriteString("\n## Validation\n\n")
 	b.WriteString("- Generated intent.hcl from project.md.\n")
-	b.WriteString("- Generated workflow.hcl as a public UWS document from Ramen intent.\n")
+	b.WriteString("- Generated workflow.hcl as a public UWS document from OpenUdon intent.\n")
 	b.WriteString("- Exported workflow.uws.yaml and validated it against the UWS schema and local execution-profile checks.\n")
 	b.WriteString("- Side-effectful execution was skipped.\n\n")
 	b.WriteString("## Trusted Execution Handoff\n\n")
-	b.WriteString("- Direct production execution: not performed by Ramen synthesis.\n")
+	b.WriteString("- Direct production execution: not performed by OpenUdon synthesis.\n")
 	b.WriteString("- Human approval and trusted-runner invocation are required before operational side effects.\n")
 	if profile.SideEffectful {
 		b.WriteString("- Trusted proof run command is for sandbox/test execution only after `approved_for_sandbox`.\n")
@@ -174,7 +174,7 @@ func reviewMarkdown(result Result, provider, model string) string {
 	}
 	b.WriteString("- Credential binding audit must verify named runtime bindings and no literal secret values.\n\n")
 	b.WriteString("Trusted proof run, only when explicitly approved:\n\n")
-	fmt.Fprintf(&b, "```bash\nramen run --example %s --tier sandbox --approval approvals/%s.json\n```\n", relOrAbs(filepath.Dir(result.ExampleDir), result.ExampleDir), filepath.Base(result.ExampleDir))
+	fmt.Fprintf(&b, "```bash\nopenudon run --example %s --tier sandbox --approval approvals/%s.json\n```\n", relOrAbs(filepath.Dir(result.ExampleDir), result.ExampleDir), filepath.Base(result.ExampleDir))
 	return b.String()
 }
 
@@ -255,14 +255,14 @@ func reviewLeafAdapter(set authoring.ArtifactSet, declaredCredentials, expectedC
 		bindings = append(bindings, authoring.SymbolicBinding{
 			Name:        name,
 			Kind:        "credential",
-			Source:      "ramen.review",
-			Description: "Ramen runtime credential binding name; value is supplied outside generated artifacts.",
+			Source:      "openudon.review",
+			Description: "OpenUdon runtime credential binding name; value is supplied outside generated artifacts.",
 		})
 	}
 	set.SymbolicBindings = bindings
 	return authoring.NewLeafAdapter(set, authoring.LeafOptions{
-		Name:   "Ramen Review Evidence",
-		Source: "ramen.synthesize",
+		Name:   "OpenUdon Review Evidence",
+		Source: "openudon.synthesize",
 	})
 }
 

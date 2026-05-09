@@ -11,11 +11,11 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/genelet/ramen/internal/authoring"
-	"github.com/genelet/ramen/internal/packageartifacts"
+	"github.com/OpenUdon/openudon/internal/authoring"
+	"github.com/OpenUdon/openudon/internal/packageartifacts"
 )
 
-const RunConfigVersion = "ramen.executor-run.v1"
+const RunConfigVersion = "openudon.executor-run.v1"
 
 type Config struct {
 	Version             string   `json:"version"`
@@ -396,7 +396,7 @@ func verifyStagedPackageDigest(stage, scope, approvedDigest string, packageFiles
 	digest, err := authoring.ComputeReviewHandoffDigest(authoring.ReviewHandoffDigestOptions{
 		Root:    stage,
 		Scope:   scope,
-		Version: "ramen.handoff-package-digest.v1",
+		Version: "openudon.handoff-package-digest.v1",
 		Inputs:  inputs,
 	})
 	if err != nil {
@@ -473,7 +473,7 @@ func environmentMap(env []string) map[string]string {
 }
 
 func executorArgv(repoRoot, stage, stagedWorkflow, workflowFormat string, credentialNames []string, env map[string]string) ([]string, error) {
-	if image := strings.TrimSpace(env["RAMEN_UDON_IMAGE"]); image != "" {
+	if image := strings.TrimSpace(env["OPENUDON_UDON_IMAGE"]); image != "" {
 		argv := []string{"docker", "run", "--rm", "-v", stage + ":/workspace", "-w", "/workspace"}
 		for _, name := range credentialNames {
 			argv = append(argv, "-e", name)
@@ -485,18 +485,18 @@ func executorArgv(repoRoot, stage, stagedWorkflow, workflowFormat string, creden
 		argv = append(argv, image, "--workdir", "/workspace", "--workflow", "/workspace/"+filepath.ToSlash(rel), "--workflow-format", workflowFormat)
 		return argv, nil
 	}
-	if executor := strings.TrimSpace(env["RAMEN_EXECUTOR"]); executor != "" {
-		return executorPathArgv("RAMEN_EXECUTOR", executor, stage, stagedWorkflow, workflowFormat)
+	if executor := strings.TrimSpace(env["OPENUDON_EXECUTOR"]); executor != "" {
+		return executorPathArgv("OPENUDON_EXECUTOR", executor, stage, stagedWorkflow, workflowFormat)
 	}
-	if executor := strings.TrimSpace(env["RAMEN_UDON_BIN"]); executor != "" {
-		return executorPathArgv("RAMEN_UDON_BIN", executor, stage, stagedWorkflow, workflowFormat)
+	if executor := strings.TrimSpace(env["OPENUDON_UDON_BIN"]); executor != "" {
+		return executorPathArgv("OPENUDON_UDON_BIN", executor, stage, stagedWorkflow, workflowFormat)
 	}
 	executor := filepath.Join(repoRoot, "..", "udon", "dist", "udon-linux-amd64")
 	if !isExecutable(executor) {
 		executor = filepath.Join(repoRoot, "..", "udon", "udon")
 	}
 	if !isExecutable(executor) {
-		return nil, fmt.Errorf("trusted executor not found. Set RAMEN_EXECUTOR, RAMEN_UDON_BIN, RAMEN_UDON_IMAGE, or build ../udon")
+		return nil, fmt.Errorf("trusted executor not found. Set OPENUDON_EXECUTOR, OPENUDON_UDON_BIN, OPENUDON_UDON_IMAGE, or build ../udon")
 	}
 	return []string{executor, "--workdir", stage, "--workflow", stagedWorkflow, "--workflow-format", workflowFormat}, nil
 }

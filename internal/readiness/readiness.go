@@ -13,10 +13,10 @@ import (
 	"strings"
 	"time"
 
-	"github.com/genelet/ramen/internal/config"
+	"github.com/OpenUdon/openudon/internal/config"
 )
 
-const ReportVersion = "ramen.local-readiness.v1"
+const ReportVersion = "openudon.local-readiness.v1"
 
 type Options struct {
 	RepoRoot string
@@ -165,7 +165,7 @@ func siblingChecks(root string) []Check {
 
 func ignoredArtifactChecks(root string) []Check {
 	required := []string{
-		".ramen-run/",
+		".openudon-run/",
 		"approvals/",
 		"eval/artifacts/",
 		"eval/readiness/",

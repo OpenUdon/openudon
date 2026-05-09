@@ -6,8 +6,8 @@ import (
 	"strings"
 
 	"github.com/OpenUdon/uws/uws1"
-	"github.com/genelet/ramen/internal/authoring"
-	"github.com/genelet/ramen/internal/projectdoc"
+	"github.com/OpenUdon/openudon/internal/authoring"
+	"github.com/OpenUdon/openudon/internal/projectdoc"
 	"gopkg.in/yaml.v3"
 )
 
@@ -130,7 +130,7 @@ func parseStructuredProjectPolicy(text string) structuredProjectPolicy {
 	out := structuredProjectPolicy{
 		AllowedRuntime: map[string]bool{},
 	}
-	for _, block := range fencedBlocks(text, "ramen-policy") {
+	for _, block := range fencedBlocks(text, "openudon-policy") {
 		var raw structuredProjectPolicyYAML
 		if err := yaml.Unmarshal([]byte(block), &raw); err != nil {
 			continue
@@ -142,7 +142,7 @@ func parseStructuredProjectPolicy(text string) structuredProjectPolicy {
 		mergeStructuredRuntimes(out.AllowedRuntime, raw.RuntimePolicy)
 		if raw.Timeouts.Workflow != nil {
 			if *raw.Timeouts.Workflow <= 0 {
-				out.Issues = append(out.Issues, "ramen-policy timeouts.workflow must be greater than 0")
+				out.Issues = append(out.Issues, "openudon-policy timeouts.workflow must be greater than 0")
 			} else {
 				out.WorkflowTimeout = raw.Timeouts.Workflow
 			}
@@ -153,7 +153,7 @@ func parseStructuredProjectPolicy(text string) structuredProjectPolicy {
 				continue
 			}
 			if timeout <= 0 {
-				out.Issues = append(out.Issues, fmt.Sprintf("ramen-policy timeouts.steps.%s must be greater than 0", step))
+				out.Issues = append(out.Issues, fmt.Sprintf("openudon-policy timeouts.steps.%s must be greater than 0", step))
 				continue
 			}
 			if out.StepTimeouts == nil {
@@ -165,13 +165,13 @@ func parseStructuredProjectPolicy(text string) structuredProjectPolicy {
 			key := strings.TrimSpace(raw.Idempotency.Key)
 			onConflict := strings.TrimSpace(raw.Idempotency.OnConflict)
 			if key == "" {
-				out.Issues = append(out.Issues, "ramen-policy idempotency.key is required")
+				out.Issues = append(out.Issues, "openudon-policy idempotency.key is required")
 			}
 			if onConflict != "" && onConflict != "reject" && onConflict != "returnPrevious" {
-				out.Issues = append(out.Issues, "ramen-policy idempotency.onConflict must be reject or returnPrevious")
+				out.Issues = append(out.Issues, "openudon-policy idempotency.onConflict must be reject or returnPrevious")
 			}
 			if raw.Idempotency.TTL != nil && *raw.Idempotency.TTL <= 0 {
-				out.Issues = append(out.Issues, "ramen-policy idempotency.ttl must be greater than 0")
+				out.Issues = append(out.Issues, "openudon-policy idempotency.ttl must be greater than 0")
 			}
 			if key == "" || (onConflict != "" && onConflict != "reject" && onConflict != "returnPrevious") || (raw.Idempotency.TTL != nil && *raw.Idempotency.TTL <= 0) {
 				continue
@@ -491,9 +491,9 @@ func splitCommaList(value string) []string {
 func addProjectAuthoringChecks(report *QualityReport, text string) {
 	policy := analyzeProject(text)
 	if err := validateStructuredProjectPolicy(policy); err != nil {
-		report.add("project.authoring.structured_policy", "fail", "ramen-policy block has invalid controls", err.Error())
+		report.add("project.authoring.structured_policy", "fail", "openudon-policy block has invalid controls", err.Error())
 	} else {
-		report.add("project.authoring.structured_policy", "pass", "ramen-policy block controls are valid", "")
+		report.add("project.authoring.structured_policy", "pass", "openudon-policy block controls are valid", "")
 	}
 	checkProjectSection(report, text, "Goal", "project.authoring.goal", "project.md declares the workflow goal")
 	checkProjectSection(report, text, "External Systems and OpenAPI", "project.authoring.integration_policy", "project.md declares integration/OpenAPI policy")

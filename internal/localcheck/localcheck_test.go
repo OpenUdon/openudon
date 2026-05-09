@@ -38,8 +38,8 @@ import "github.com/OpenUdon/apitools/llm"
 func TestCheckAPIToolsBoundaryIgnoresGitIgnoredFiles(t *testing.T) {
 	root := t.TempDir()
 	runGit(t, root, "init")
-	writeFile(t, filepath.Join(root, ".gitignore"), []byte(".ramen-run/\n"))
-	writeFile(t, filepath.Join(root, ".ramen-run", "bad.go"), []byte(`package bad
+	writeFile(t, filepath.Join(root, ".gitignore"), []byte(".openudon-run/\n"))
+	writeFile(t, filepath.Join(root, ".openudon-run", "bad.go"), []byte(`package bad
 
 import "github.com/OpenUdon/apitools/llm"
 `))

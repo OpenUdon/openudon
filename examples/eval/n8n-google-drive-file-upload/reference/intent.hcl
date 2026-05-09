@@ -2,7 +2,7 @@ openapi = "openapi/google_drive.json"
 
 workflow {
   name        = "n8n_google_drive_file_upload"
-  description = "Represent the n8n Google Drive file upload workflow as a Ramen intent workflow."
+  description = "Represent the n8n Google Drive file upload workflow as a OpenUdon intent workflow."
 }
 
 input "name" {

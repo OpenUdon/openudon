@@ -5,7 +5,7 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/genelet/ramen/internal/packageartifacts"
+	"github.com/OpenUdon/openudon/internal/packageartifacts"
 )
 
 // ReviewHandoffVersion is the public review handoff schema version.

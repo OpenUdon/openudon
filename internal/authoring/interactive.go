@@ -11,7 +11,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/genelet/ramen/internal/authoring/atomicfile"
+	"github.com/OpenUdon/openudon/internal/authoring/atomicfile"
 )
 
 // PromptTurn records one local prompt and answer.
@@ -194,7 +194,7 @@ func SavePromptTranscript(path, version string, turns []PromptTurn, events []Pro
 		return nil
 	}
 	if strings.TrimSpace(version) == "" {
-		version = "ramen.prompt-transcript.v1"
+		version = "openudon.prompt-transcript.v1"
 	}
 	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
 		return err

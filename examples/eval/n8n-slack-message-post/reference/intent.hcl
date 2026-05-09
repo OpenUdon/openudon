@@ -2,7 +2,7 @@ openapi = "openapi/slack.json"
 
 workflow {
   name        = "n8n_slack_message_post"
-  description = "Represent the n8n Slack message post workflow as a Ramen intent workflow."
+  description = "Represent the n8n Slack message post workflow as a OpenUdon intent workflow."
 }
 
 input "channel" {

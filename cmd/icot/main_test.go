@@ -33,7 +33,7 @@ func TestCLIHelpDocumentsFlags(t *testing.T) {
 		"project.md",
 		"intent.hcl",
 		"openapi/",
-		"ramen build --example",
+		"openudon build --example",
 	} {
 		if !strings.Contains(text, expected) {
 			t.Fatalf("icot help missing %q:\n%s", expected, text)

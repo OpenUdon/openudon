@@ -1,5 +1,5 @@
 {
-  "version": "ramen.workflow-plan.v1",
+  "version": "openudon.workflow-plan.v1",
   "workflow": "cursor_pagination_report",
   "steps": [
     {"name": "list_events_first_page", "runtime": "http", "operation": "listAuditEvents"},

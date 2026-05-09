@@ -2,7 +2,7 @@ openapi: 3.0.0
 info:
   title: Support API
   version: 1.0.0
-  description: Sandbox support-ticket API used by the Ramen support email example.
+  description: Sandbox support-ticket API used by the OpenUdon support email example.
 servers:
   - url: https://support.example.test
 paths:

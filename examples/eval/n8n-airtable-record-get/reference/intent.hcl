@@ -2,7 +2,7 @@ openapi = "openapi/airtable.json"
 
 workflow {
   name        = "n8n_airtable_record_get"
-  description = "Represent the n8n Airtable record get workflow as a Ramen intent workflow."
+  description = "Represent the n8n Airtable record get workflow as a OpenUdon intent workflow."
 }
 
 input "baseId" {

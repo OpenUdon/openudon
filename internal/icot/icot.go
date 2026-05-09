@@ -14,12 +14,12 @@ import (
 	"strings"
 	"time"
 
-	evalpkg "github.com/genelet/ramen/internal/eval"
-	"github.com/genelet/ramen/internal/icot/elicitor"
-	"github.com/genelet/ramen/internal/projectwizard"
-	"github.com/genelet/ramen/internal/synthesize"
-	rollout "github.com/genelet/ramen/internal/workflowintent"
-	runner "github.com/genelet/ramen/internal/workflowintent"
+	evalpkg "github.com/OpenUdon/openudon/internal/eval"
+	"github.com/OpenUdon/openudon/internal/icot/elicitor"
+	"github.com/OpenUdon/openudon/internal/projectwizard"
+	"github.com/OpenUdon/openudon/internal/synthesize"
+	rollout "github.com/OpenUdon/openudon/internal/workflowintent"
+	runner "github.com/OpenUdon/openudon/internal/workflowintent"
 	"gopkg.in/yaml.v3"
 )
 
@@ -53,9 +53,9 @@ func runAuthor(args []string, in io.Reader, out, errOut io.Writer) int {
 	temperature := fs.Float64("temperature", 0.2, "LLM extraction temperature")
 	fs.Usage = func() {
 		fmt.Fprintf(fs.Output(), "Usage: icot --example examples/<name> [--dir examples/<name>] [--force] [--yes] [--print] [--from-example examples/<seed>] [--answers answers.yaml]\n")
-		fmt.Fprintf(fs.Output(), "\nInteractively writes project.md and workflows/intent.hcl with the standard Ramen authoring sections.\n")
+		fmt.Fprintf(fs.Output(), "\nInteractively writes project.md and workflows/intent.hcl with the standard OpenUdon authoring sections.\n")
 		fmt.Fprintf(fs.Output(), "It also creates openapi/, workflows/, and expected/ when missing.\n")
-		fmt.Fprintf(fs.Output(), "Next step: ramen build --example examples/<name>\n\n")
+		fmt.Fprintf(fs.Output(), "Next step: openudon build --example examples/<name>\n\n")
 		fs.PrintDefaults()
 	}
 	if err := fs.Parse(args); err != nil {
@@ -145,7 +145,7 @@ func runAuthor(args []string, in io.Reader, out, errOut io.Writer) int {
 	if transcriptPath != "" {
 		fmt.Fprintf(out, "icot: wrote %s\n", transcriptPath)
 	}
-	fmt.Fprintf(out, "next: ramen build --example %s\n", exampleDir)
+	fmt.Fprintf(out, "next: openudon build --example %s\n", exampleDir)
 	return 0
 }
 

@@ -9,9 +9,9 @@ import (
 	"strings"
 
 	"github.com/OpenUdon/uws/uws1"
-	"github.com/genelet/ramen/internal/authoring"
-	"github.com/genelet/ramen/internal/openapidisco"
-	rollout "github.com/genelet/ramen/internal/workflowintent"
+	"github.com/OpenUdon/openudon/internal/authoring"
+	"github.com/OpenUdon/openudon/internal/openapidisco"
+	rollout "github.com/OpenUdon/openudon/internal/workflowintent"
 )
 
 func assessSecrets(report *QualityReport, result Result) {
@@ -42,7 +42,7 @@ func writeQualityFiles(result Result, report *QualityReport) error {
 
 func qualityMarkdown(report *QualityReport) string {
 	var b strings.Builder
-	b.WriteString("# Ramen Quality Report\n\n")
+	b.WriteString("# OpenUdon Quality Report\n\n")
 	fmt.Fprintf(&b, "Status: `%s`\n\n", report.Status)
 	for _, check := range report.Checks {
 		fmt.Fprintf(&b, "- `%s` %s - %s\n", check.Code, check.Status, check.Message)

@@ -3,7 +3,7 @@
   "info": {
     "title": "Slack Bounded",
     "version": "1.0.0",
-    "description": "Bounded Slack OpenAPI evidence copied from w8m for n8n reducibility evaluation. The postMessage slice is enriched locally with request and response schema for Ramen quality checks."
+    "description": "Bounded Slack OpenAPI evidence copied from w8m for n8n reducibility evaluation. The postMessage slice is enriched locally with request and response schema for OpenUdon quality checks."
   },
   "servers": [
     {

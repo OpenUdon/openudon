@@ -13,7 +13,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/genelet/ramen/internal/synthesize"
+	"github.com/OpenUdon/openudon/internal/synthesize"
 )
 
 type EvalResult struct {
@@ -231,7 +231,7 @@ func failingCodes(report *synthesize.QualityReport) []string {
 
 func copyExampleToTemp(exampleDir string) (string, error) {
 	base := filepath.Base(filepath.Clean(exampleDir))
-	root, err := os.MkdirTemp("", "ramen-eval-"+base+"-")
+	root, err := os.MkdirTemp("", "openudon-eval-"+base+"-")
 	if err != nil {
 		return "", err
 	}

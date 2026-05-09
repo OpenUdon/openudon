@@ -10,7 +10,7 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/genelet/ramen/internal/packageartifacts"
+	"github.com/OpenUdon/openudon/internal/packageartifacts"
 )
 
 // ReviewArtifactInput is caller-bound artifact metadata used to assemble a
@@ -157,7 +157,7 @@ func ComputeReviewHandoffDigest(opts ReviewHandoffDigestOptions) (string, error)
 	scope := strings.Trim(strings.TrimSpace(filepath.ToSlash(opts.Scope)), "/")
 	version := strings.TrimSpace(opts.Version)
 	if version == "" {
-		version = "ramen.review-handoff-digest.v1"
+		version = "openudon.review-handoff-digest.v1"
 	}
 	fileSet := map[string]struct{}{}
 	for _, input := range opts.Inputs {

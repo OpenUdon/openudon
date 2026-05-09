@@ -2,7 +2,7 @@
 
 ## Goal
 
-Represent the n8n Slack message post workflow as a Ramen intent workflow that posts one message to one Slack channel.
+Represent the n8n Slack message post workflow as a OpenUdon intent workflow that posts one message to one Slack channel.
 
 ## Inputs
 

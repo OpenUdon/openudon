@@ -1,7 +1,7 @@
 {
   "mode": "strict",
   "notes": [
-    "Timeout and workflow idempotency metadata are opt-in and must be preserved when requested by ramen-policy."
+    "Timeout and workflow idempotency metadata are opt-in and must be preserved when requested by openudon-policy."
   ],
   "max_blocking": 0
 }

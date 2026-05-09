@@ -6,13 +6,13 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/genelet/ramen/internal/authoring"
-	"github.com/genelet/ramen/internal/packageartifacts"
+	"github.com/OpenUdon/openudon/internal/authoring"
+	"github.com/OpenUdon/openudon/internal/packageartifacts"
 )
 
 const (
 	symphonyHandoffVersion       = authoring.ReviewHandoffVersion
-	legacySymphonyHandoffVersion = "ramen.symphony-handoff.v1"
+	legacySymphonyHandoffVersion = "openudon.symphony-handoff.v1"
 )
 
 type SymphonyHandoff = authoring.ReviewHandoff
@@ -53,7 +53,7 @@ func buildSymphonyHandoff(result Result, policy projectPolicy, profile sideEffec
 		HandoffInputs:  inputs,
 		ApprovalStates: authoring.DefaultReviewStateMachine(),
 		OwnerSplit: SymphonyOwnerSplit{
-			"ramen": {
+			"openudon": {
 				"artifact generation",
 				"deterministic validation",
 				"review evidence",
@@ -72,7 +72,7 @@ func buildSymphonyHandoff(result Result, policy projectPolicy, profile sideEffec
 		ExecutionPolicy:    authoring.DefaultReviewExecutionPolicy(profile.SideEffectful),
 		CredentialBindings: bindingContract.ReviewCredentialBindings(),
 		TrustedRunner: SymphonyTrustedRunner{
-			Command:     fmt.Sprintf("ramen run --example %s --tier sandbox --approval approvals/%s.json", relOrAbs(filepath.Dir(result.ExampleDir), result.ExampleDir), filepath.Base(result.ExampleDir)),
+			Command:     fmt.Sprintf("openudon run --example %s --tier sandbox --approval approvals/%s.json", relOrAbs(filepath.Dir(result.ExampleDir), result.ExampleDir), filepath.Base(result.ExampleDir)),
 			SandboxOnly: profile.SideEffectful,
 		},
 	}), nil

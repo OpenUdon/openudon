@@ -7,7 +7,7 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/genelet/ramen/internal/openapidisco"
+	"github.com/OpenUdon/openudon/internal/openapidisco"
 )
 
 type QualityReport struct {

@@ -11,12 +11,12 @@ import (
 	"testing"
 
 	"github.com/OpenUdon/uws/uws1"
-	"github.com/genelet/ramen/internal/authoring"
-	"github.com/genelet/ramen/internal/openapidisco"
-	uwsprofile "github.com/genelet/ramen/internal/uwsexec"
-	"github.com/genelet/ramen/internal/uwsvalidate"
-	rollout "github.com/genelet/ramen/internal/workflowintent"
-	runner "github.com/genelet/ramen/internal/workflowintent"
+	"github.com/OpenUdon/openudon/internal/authoring"
+	"github.com/OpenUdon/openudon/internal/openapidisco"
+	uwsprofile "github.com/OpenUdon/openudon/internal/uwsexec"
+	"github.com/OpenUdon/openudon/internal/uwsvalidate"
+	rollout "github.com/OpenUdon/openudon/internal/workflowintent"
+	runner "github.com/OpenUdon/openudon/internal/workflowintent"
 )
 
 type fakeClient struct{}
@@ -929,7 +929,7 @@ step "send_email" {
 		"Quality report",
 		"Symphony handoff manifest",
 		"Credential binding audit",
-		"Direct production execution: not performed by Ramen synthesis",
+		"Direct production execution: not performed by OpenUdon synthesis",
 		"Trusted Execution Handoff",
 		"Trusted proof run",
 	} {
@@ -989,7 +989,7 @@ func TestReviewEvidenceRecordsCredentialInventory(t *testing.T) {
 
 func TestAssessReviewRequiresTrustedExecutionPackage(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "review.md")
-	if err := os.WriteFile(path, []byte(`# Ramen Review Evidence
+	if err := os.WriteFile(path, []byte(`# OpenUdon Review Evidence
 
 ## Side-Effect Summary
 
@@ -1003,7 +1003,7 @@ Side-effectful execution was skipped.
 
 Trusted proof run:
 
-`+"```bash\nramen run --example example --tier sandbox --approval approvals/example.json\n```\n"+`
+`+"```bash\nopenudon run --example example --tier sandbox --approval approvals/example.json\n```\n"+`
 `), 0o644); err != nil {
 		t.Fatal(err)
 	}
@@ -1059,7 +1059,7 @@ func TestAssessReviewAcceptsNoCredentialAuditPath(t *testing.T) {
 
 func validReviewEvidenceText(includeApprovalStates, includeCredentialInventory bool) string {
 	var b strings.Builder
-	b.WriteString(`# Ramen Review Evidence
+	b.WriteString(`# OpenUdon Review Evidence
 
 ## Minimum Review Package
 
@@ -1077,13 +1077,13 @@ func validReviewEvidenceText(includeApprovalStates, includeCredentialInventory b
 
 - Side-effectful workflow: no side-effectful behavior inferred from project policy or intent steps.
 - Credential binding audit: runtime binding names only; literal secrets are prohibited in prompts, examples, and artifacts.
-- Direct production execution: not performed by Ramen synthesis.
+- Direct production execution: not performed by OpenUdon synthesis.
 
 `)
 	if includeApprovalStates {
 		b.WriteString(`## Approval State Requirements
 
-- Ramen emitted state: ` + "`generated`" + `; no approval is implied by artifact generation.
+- OpenUdon emitted state: ` + "`generated`" + `; no approval is implied by artifact generation.
 - ` + "`validated`" + `: required validators and quality gates have passed or known warnings are attached.
 - ` + "`review_required`" + `: human review is required before side-effectful execution.
 - ` + "`approved_for_sandbox`" + `: sandbox or test-endpoint execution only.
@@ -1110,12 +1110,12 @@ func validReviewEvidenceText(includeApprovalStates, includeCredentialInventory b
 
 ## Trusted Execution Handoff
 
-- Direct production execution: not performed by Ramen synthesis.
+- Direct production execution: not performed by OpenUdon synthesis.
 - Sandbox/test proof run is optional unless future changes add side effects.
 
 Trusted proof run:
 
-` + "```bash\nramen run --example example --tier sandbox --approval approvals/example.json\n```\n")
+` + "```bash\nopenudon run --example example --tier sandbox --approval approvals/example.json\n```\n")
 	return b.String()
 }
 
@@ -1166,7 +1166,7 @@ func TestAssessSymphonyHandoffAcceptsLegacyVersion(t *testing.T) {
 		},
 		ApprovalStates: authoring.DefaultReviewStateMachine(),
 		OwnerSplit: SymphonyOwnerSplit{
-			"ramen":    {"artifact validation"},
+			"openudon":    {"artifact validation"},
 			"symphony": {"approval routing"},
 		},
 	}
@@ -1315,7 +1315,7 @@ func TestAssessReportsProjectAuthoringWarnings(t *testing.T) {
 func TestAnalyzeProjectReadsStructuredPolicyBlock(t *testing.T) {
 	policy := analyzeProject(`# Runtime Project
 
-` + "```ramen-policy" + `
+` + "```openudon-policy" + `
 openapi: none required
 runtimes:
   cmd: approved
@@ -2389,7 +2389,7 @@ func TestBuildWorkflowPlanSkipsCmdCommandHint(t *testing.T) {
 }
 
 func TestProjectPolicyTimeoutIdempotencyPromptAndPlan(t *testing.T) {
-	project := "```ramen-policy\n" + `
+	project := "```openudon-policy\n" + `
 timeouts:
   workflow: 120
   steps:

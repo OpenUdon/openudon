@@ -11,7 +11,7 @@
   "selected_openapi": "openapi/airtable.json",
   "operation_id": "getAirtableRecord",
   "notes": [
-    "The fixture models only the Airtable record/get node as a single Ramen http step.",
+    "The fixture models only the Airtable record/get node as a single OpenUdon http step.",
     "The source workflow also contains a manual trigger, which is n8n workflow-shell behavior outside this one-operation eval slice.",
     "The copied w8m OpenAPI evidence is fixture-local and does not create a runtime dependency on w8m or n8n."
   ]

@@ -1,5 +1,5 @@
 {
-  "version": "ramen.workflow-plan.v1",
+  "version": "openudon.workflow-plan.v1",
   "workflow": "order_fulfillment_chain",
   "steps": [
     {"name": "get_customer", "runtime": "http", "openapi": "openapi/customers.yaml", "operation": "getCustomer"},
