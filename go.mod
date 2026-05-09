@@ -1,10 +1,10 @@
-module github.com/genelet/ramen
+module github.com/OpenUdon/openudon
 
 go 1.25.5
 
 require (
-	github.com/OpenUdon/apitools v0.0.0-20260507114952-44292c0a16ca
-	github.com/OpenUdon/uws v0.0.0-00010101000000-000000000000
+	github.com/OpenUdon/apitools v0.0.0-20260509011657-3d9e27cf5e88
+	github.com/OpenUdon/uws v0.0.0-20260509015819-d0f74a8726fa
 	github.com/hashicorp/hcl/v2 v2.24.0
 	github.com/santhosh-tekuri/jsonschema/v6 v6.0.2
 	github.com/zclconf/go-cty v1.17.0
@@ -45,7 +45,3 @@ require (
 	golang.org/x/tools v0.42.0 // indirect
 	google.golang.org/protobuf v1.36.11 // indirect
 )
-
-replace github.com/OpenUdon/uws => ../uws
-
-replace github.com/OpenUdon/apitools => ../apitools
