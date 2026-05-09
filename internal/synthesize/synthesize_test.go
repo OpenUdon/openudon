@@ -21,6 +21,15 @@ import (
 
 type fakeClient struct{}
 
+func testUWSSchemaPath(t *testing.T) string {
+	t.Helper()
+	path := defaultSchemaPath(t.TempDir())
+	if _, err := os.Stat(path); err != nil {
+		t.Fatalf("test UWS schema path %s is not readable: %v", path, err)
+	}
+	return path
+}
+
 func (fakeClient) Chat(context.Context, []rollout.ChatMessage) (string, error) {
 	return `{
   "openapi": "openapi/support.yaml",
@@ -422,10 +431,7 @@ paths:
 `), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	schemaPath, err := filepath.Abs(filepath.Join("..", "..", "..", "uws", "versions", "1.0.0.json"))
-	if err != nil {
-		t.Fatal(err)
-	}
+	schemaPath := testUWSSchemaPath(t)
 
 	result, err := Run(context.Background(), Options{
 		ExampleDir: example,
@@ -1490,7 +1496,7 @@ func TestDefaultSchemaPathUsesReadableSchema(t *testing.T) {
 	if _, err := os.Stat(path); err != nil {
 		t.Fatalf("default schema path %s is not readable: %v", path, err)
 	}
-	if !strings.HasSuffix(filepath.ToSlash(path), "/versions/1.0.0.json") {
+	if filepath.Base(path) != "1.0.0.json" {
 		t.Fatalf("unexpected schema path %s", path)
 	}
 }
@@ -1499,10 +1505,7 @@ func TestSynthesizeRuntimeOnlyProject(t *testing.T) {
 	root := t.TempDir()
 	example := filepath.Join(root, "examples", "runtime-only")
 	writeRuntimeOnlyExample(t, example)
-	schemaPath, err := filepath.Abs(filepath.Join("..", "..", "..", "uws", "versions", "1.0.0.json"))
-	if err != nil {
-		t.Fatal(err)
-	}
+	schemaPath := testUWSSchemaPath(t)
 	result, err := Synthesize(context.Background(), Options{
 		ExampleDir: example,
 		LLMClient:  fakeRuntimeOnlyClient{},
@@ -1531,11 +1534,8 @@ func TestSynthesizeReturnsRefinementReportWriteError(t *testing.T) {
 	if err := os.MkdirAll(filepath.Join(example, "expected", "refinement.md"), 0o755); err != nil {
 		t.Fatal(err)
 	}
-	schemaPath, err := filepath.Abs(filepath.Join("..", "..", "..", "uws", "versions", "1.0.0.json"))
-	if err != nil {
-		t.Fatal(err)
-	}
-	_, err = Synthesize(context.Background(), Options{
+	schemaPath := testUWSSchemaPath(t)
+	_, err := Synthesize(context.Background(), Options{
 		ExampleDir: example,
 		LLMClient:  fakeRuntimeOnlyClient{},
 		ChatClient: fakeRuntimeOnlyClient{},
@@ -1550,10 +1550,7 @@ func TestSynthesizeCanceledContextStopsBeforeWorkflowGeneration(t *testing.T) {
 	root := t.TempDir()
 	example := filepath.Join(root, "examples", "cancel-synthesize")
 	writeRuntimeOnlyExample(t, example)
-	schemaPath, err := filepath.Abs(filepath.Join("..", "..", "..", "uws", "versions", "1.0.0.json"))
-	if err != nil {
-		t.Fatal(err)
-	}
+	schemaPath := testUWSSchemaPath(t)
 	ctx, cancel := context.WithCancel(context.Background())
 	client := &cancelAfterChatClient{cancel: cancel}
 	result, err := Synthesize(ctx, Options{
@@ -1587,10 +1584,7 @@ func TestBuildCanceledContextStopsBeforeWorkflowGeneration(t *testing.T) {
 	if err := os.WriteFile(filepath.Join(example, "workflows", "intent.hcl"), []byte(intentHCL), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	schemaPath, err := filepath.Abs(filepath.Join("..", "..", "..", "uws", "versions", "1.0.0.json"))
-	if err != nil {
-		t.Fatal(err)
-	}
+	schemaPath := testUWSSchemaPath(t)
 	ctx := &scriptedCancelContext{Context: context.Background(), errAfter: 3}
 	client := &countingRuntimeOnlyClient{}
 	result, err := Build(ctx, Options{
@@ -1660,10 +1654,7 @@ OpenAPI: none required
 `), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	schemaPath, err := filepath.Abs(filepath.Join("..", "..", "..", "uws", "versions", "1.0.0.json"))
-	if err != nil {
-		t.Fatal(err)
-	}
+	schemaPath := testUWSSchemaPath(t)
 	result, err := Synthesize(context.Background(), Options{
 		ExampleDir: example,
 		LLMClient:  fakeLoopClient{},
@@ -1765,10 +1756,7 @@ func TestUWSFailureActionsAndRetriesRemainCompatible(t *testing.T) {
 	if err := os.WriteFile(path, data, 0o644); err != nil {
 		t.Fatal(err)
 	}
-	schemaPath, err := filepath.Abs(filepath.Join("..", "..", "..", "uws", "versions", "1.0.0.json"))
-	if err != nil {
-		t.Fatal(err)
-	}
+	schemaPath := testUWSSchemaPath(t)
 	if err := uwsvalidate.ValidateFile(schemaPath, path); err != nil {
 		t.Fatalf("failure actions should validate against public UWS schema: %v\n%s", err, data)
 	}
@@ -1985,10 +1973,7 @@ Search weather in Toronto, Canada.
 	if err := os.WriteFile(filepath.Join(example, "openapi", "weather.yaml"), []byte(weatherOpenAPI()), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	schemaPath, err := filepath.Abs(filepath.Join("..", "..", "..", "uws", "versions", "1.0.0.json"))
-	if err != nil {
-		t.Fatal(err)
-	}
+	schemaPath := testUWSSchemaPath(t)
 	result, err := Synthesize(context.Background(), Options{
 		ExampleDir: example,
 		LLMClient:  fakeWeatherChainClient{},
@@ -2089,10 +2074,7 @@ Fetch a support ticket and route the internal handling result by severity.
 	if err := os.WriteFile(filepath.Join(example, "openapi", "support.yaml"), []byte(supportOpenAPI()), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	schemaPath, err := filepath.Abs(filepath.Join("..", "..", "..", "uws", "versions", "1.0.0.json"))
-	if err != nil {
-		t.Fatal(err)
-	}
+	schemaPath := testUWSSchemaPath(t)
 	result, err := Synthesize(context.Background(), Options{
 		ExampleDir: example,
 		LLMClient:  fakeStructuralSwitchClient{},
@@ -2177,10 +2159,7 @@ Search weather in Toronto, Canada.
 	if err := os.WriteFile(filepath.Join(example, "openapi", "weather.yaml"), []byte(weatherOpenAPI()), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	schemaPath, err := filepath.Abs(filepath.Join("..", "..", "..", "uws", "versions", "1.0.0.json"))
-	if err != nil {
-		t.Fatal(err)
-	}
+	schemaPath := testUWSSchemaPath(t)
 	result, err := Synthesize(context.Background(), Options{
 		ExampleDir: example,
 		LLMClient:  fakeWeatherChainClient{},
@@ -2672,10 +2651,7 @@ paths:
 `), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	schemaPath, err := filepath.Abs(filepath.Join("..", "..", "..", "uws", "versions", "1.0.0.json"))
-	if err != nil {
-		t.Fatal(err)
-	}
+	schemaPath := testUWSSchemaPath(t)
 	result, err := Synthesize(context.Background(), Options{
 		ExampleDir: example,
 		Discoverer: &openapidisco.Discoverer{},
@@ -2739,10 +2715,7 @@ Search weather in Toronto, Canada.
 	if err := os.WriteFile(filepath.Join(example, "openapi", "weather.yaml"), []byte(weatherOpenAPI()), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	schemaPath, err := filepath.Abs(filepath.Join("..", "..", "..", "uws", "versions", "1.0.0.json"))
-	if err != nil {
-		t.Fatal(err)
-	}
+	schemaPath := testUWSSchemaPath(t)
 	result, err := Synthesize(context.Background(), Options{
 		ExampleDir: example,
 		LLMClient:  fakeWeatherChainClient{},
@@ -2813,10 +2786,7 @@ Search weather in Toronto, Canada.
 	if err := os.WriteFile(filepath.Join(example, "openapi", "weather.yaml"), []byte(weatherOpenAPI()), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	schemaPath, err := filepath.Abs(filepath.Join("..", "..", "..", "uws", "versions", "1.0.0.json"))
-	if err != nil {
-		t.Fatal(err)
-	}
+	schemaPath := testUWSSchemaPath(t)
 	result, err := Synthesize(context.Background(), Options{
 		ExampleDir: example,
 		LLMClient:  fakeWeatherChainClient{},
@@ -2984,10 +2954,7 @@ func TestSynthesizeRetriesWorkflowGenerationAndWritesRefinementReport(t *testing
 	root := t.TempDir()
 	example := filepath.Join(root, "examples", "support-retry")
 	writeSupportExample(t, example, false)
-	schemaPath, err := filepath.Abs(filepath.Join("..", "..", "..", "uws", "versions", "1.0.0.json"))
-	if err != nil {
-		t.Fatal(err)
-	}
+	schemaPath := testUWSSchemaPath(t)
 	client := &retryWorkflowClient{}
 	result, err := Synthesize(context.Background(), Options{
 		ExampleDir:  example,
@@ -3022,11 +2989,8 @@ func TestSynthesizeStopsAtMaxAttemptsAndWritesRefinementReport(t *testing.T) {
 	root := t.TempDir()
 	example := filepath.Join(root, "examples", "support-max")
 	writeSupportExample(t, example, true)
-	schemaPath, err := filepath.Abs(filepath.Join("..", "..", "..", "uws", "versions", "1.0.0.json"))
-	if err != nil {
-		t.Fatal(err)
-	}
-	_, err = Synthesize(context.Background(), Options{
+	schemaPath := testUWSSchemaPath(t)
+	_, err := Synthesize(context.Background(), Options{
 		ExampleDir:  example,
 		LLMClient:   badInputSourceClient{},
 		ChatClient:  badInputSourceClient{},
