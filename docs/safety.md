@@ -26,6 +26,9 @@ tier checks before invoking udon.
 - Treat Ramen output as Symphony state `generated`; no approval is implied by generation.
 - Require `approved_for_sandbox` before a side-effectful proof run and `approved_for_production`
   before production execution.
+- Treat `RAMEN_EXECUTOR`, `RAMEN_UDON_BIN`, and `RAMEN_UDON_IMAGE` as trusted operator inputs.
+  Binary selectors must be absolute paths to reviewed executables; Docker image selectors must name
+  an image the operator intentionally trusts.
 - Keep local verification explicit: `go test ./...`, `go vet ./...`, `make check`, and
   `git diff --check`.
 
@@ -43,6 +46,19 @@ Ramen fails `review.approval_states`, `review.sandbox_handoff`, or `review.crede
 when review evidence lacks the Symphony approval-state requirements, sandbox/proof-run handoff
 scope, or a credential-binding inventory. The inventory must list binding names only or explicitly
 state that no credential bindings are declared or required.
+
+## Trusted Runner
+
+`ramen run` writes a non-secret `ramen.executor-run.v1` config only after stored/current quality,
+approval state, tier, credential policy, and package digest checks pass. New run configs include
+`package_paths`, the sorted digest-covered handoff inventory. The executor shim stages those files
+into a fresh workdir and recomputes `package_sha256` from the staged copy before invoking a binary
+or Docker executor.
+
+`RAMEN_EXECUTOR` and `RAMEN_UDON_BIN` are rejected unless they are absolute paths to executable
+files. `RAMEN_UDON_IMAGE` remains a Docker image reference and is not interpreted as a filesystem
+path. Docker mode passes only declared `UDON_CREDENTIAL_*` environment variable names into argv;
+non-Docker binary execution inherits the operator environment by design.
 
 ## Runtime Profiles
 

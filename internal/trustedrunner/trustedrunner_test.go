@@ -371,6 +371,25 @@ func TestRunConfigIncludesNestedOpenAPIPaths(t *testing.T) {
 	if !strings.Contains(string(data), `"openapi/nested/support.yaml"`) {
 		t.Fatalf("run config missing nested OpenAPI path:\n%s", data)
 	}
+	var config RunConfig
+	if err := json.Unmarshal(data, &config); err != nil {
+		t.Fatal(err)
+	}
+	want := []string{
+		"expected/plan.json",
+		"expected/quality.json",
+		"expected/refinement.json",
+		"expected/review.md",
+		"expected/symphony-handoff.json",
+		"openapi/nested/support.yaml",
+		"project.md",
+		"workflows/intent.hcl",
+		"workflows/workflow.hcl",
+		"workflows/workflow.uws.yaml",
+	}
+	if strings.Join(config.PackagePaths, "\n") != strings.Join(want, "\n") {
+		t.Fatalf("package paths = %#v, want %#v", config.PackagePaths, want)
+	}
 }
 
 func TestRunRejectsOpenAPIFileMissingFromHandoffInputs(t *testing.T) {
@@ -1172,6 +1191,98 @@ func TestUdonRunnerFailsWhenCredentialEnvMissing(t *testing.T) {
 	out, err := cmd.CombinedOutput()
 	if err == nil || !strings.Contains(string(out), "UDON_CREDENTIAL_MISSING_PLAN_TEST") {
 		t.Fatalf("expected missing credential env failure, err=%v out=%s", err, out)
+	}
+}
+
+func TestUdonRunnerRejectsRelativeExecutorEnv(t *testing.T) {
+	for _, tc := range []struct {
+		name string
+		env  string
+	}{
+		{name: "ramen-executor", env: "RAMEN_EXECUTOR=relative-udon"},
+		{name: "ramen-udon-bin", env: "RAMEN_UDON_BIN=relative-udon"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			wd, err := os.Getwd()
+			if err != nil {
+				t.Fatal(err)
+			}
+			repoRoot := filepath.Clean(filepath.Join(wd, "..", ".."))
+			tmp := t.TempDir()
+			packageRoot := filepath.Join(tmp, "package")
+			workdir := filepath.Join(tmp, "work")
+			mustWriteFile(t, filepath.Join(packageRoot, "workflows", "workflow.uws.yaml"), []byte("uws: 1.0.0\n"))
+			configPath := filepath.Join(tmp, "run-config.json")
+			data, err := json.Marshal(RunConfig{
+				Version:        RunConfigVersion,
+				PackageRoot:    packageRoot,
+				WorkDir:        workdir,
+				WorkflowPath:   "workflows/workflow.uws.yaml",
+				WorkflowFormat: "uws-yaml",
+			})
+			if err != nil {
+				t.Fatal(err)
+			}
+			mustWriteFile(t, configPath, data)
+			cmd := runnerCLICommand(t, repoRoot, configPath)
+			cmd.Env = append(os.Environ(), tc.env)
+			out, err := cmd.CombinedOutput()
+			if err == nil || !strings.Contains(string(out), "must be an absolute path") {
+				t.Fatalf("expected absolute-path rejection, err=%v out=%s", err, out)
+			}
+		})
+	}
+}
+
+func TestUdonRunnerVerifiesStagedPackageDigestBeforeExecutor(t *testing.T) {
+	wd, err := os.Getwd()
+	if err != nil {
+		t.Fatal(err)
+	}
+	repoRoot := filepath.Clean(filepath.Join(wd, "..", ".."))
+	tmp := t.TempDir()
+	packageRoot := filepath.Join(tmp, "package")
+	workdir := filepath.Join(tmp, "work")
+	workflowRel := "workflows/workflow.uws.yaml"
+	workflowPath := filepath.Join(packageRoot, filepath.FromSlash(workflowRel))
+	mustWriteFile(t, workflowPath, []byte("uws: 1.0.0\n"))
+	digest, err := authoring.ComputeReviewHandoffDigest(authoring.ReviewHandoffDigestOptions{
+		Root:    packageRoot,
+		Version: "ramen.handoff-package-digest.v1",
+		Inputs:  []authoring.ReviewHandoffInput{{Path: workflowRel, Required: true}},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	mustWriteFile(t, workflowPath, []byte("uws: changed\n"))
+	configPath := filepath.Join(tmp, "run-config.json")
+	data, err := json.Marshal(RunConfig{
+		Version:        RunConfigVersion,
+		PackageRoot:    packageRoot,
+		WorkDir:        workdir,
+		WorkflowPath:   workflowRel,
+		WorkflowFormat: "uws-yaml",
+		PackagePaths:   []string{workflowRel},
+		PackageSHA256:  digest,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	mustWriteFile(t, configPath, data)
+	capture := filepath.Join(tmp, "args.txt")
+	fakeExecutor := filepath.Join(tmp, "fake-udon")
+	mustWriteFile(t, fakeExecutor, []byte("#!/usr/bin/env bash\nprintf '%s\\n' \"$@\" > \"$CAPTURE_ARGS\"\n"))
+	if err := os.Chmod(fakeExecutor, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	cmd := runnerCLICommand(t, repoRoot, configPath)
+	cmd.Env = append(os.Environ(), "RAMEN_EXECUTOR="+fakeExecutor, "CAPTURE_ARGS="+capture)
+	out, err := cmd.CombinedOutput()
+	if err == nil || !strings.Contains(string(out), "staged package_sha256") {
+		t.Fatalf("expected staged digest mismatch, err=%v out=%s", err, out)
+	}
+	if _, statErr := os.Stat(capture); !os.IsNotExist(statErr) {
+		t.Fatalf("executor was invoked despite staged digest mismatch, stat err=%v", statErr)
 	}
 }
 

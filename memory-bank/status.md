@@ -93,9 +93,12 @@
   hardening pass is implemented for package roots and required handoff files, and `../apitools`
   local OpenAPI reads now fail closed on symlinked roots/paths/parents, directories, special files,
   and oversized path-backed documents. The trusted executor runner now uses Go run-config parsing
-  and staging in `internal/udonrunner` plus `cmd/ramen-udon-runner`, before executor argv handoff.
-  The `workflowintent` package is split by responsibility into intent/HCL, provider-client,
-  OpenAPI, and helper files without changing its package boundary or exported API.
+  and staging in `internal/udonrunner` plus `cmd/ramen-udon-runner`, requires absolute
+  `RAMEN_EXECUTOR`/`RAMEN_UDON_BIN` paths, emits sorted run-config `package_paths`, and verifies the
+  staged package digest before executor argv handoff. The `workflowintent` package is split by
+  responsibility into intent/HCL, authoring adapter, chat adapter, provider-client, OpenAPI, and
+  helper files without changing its package boundary or exported API. Synthesize quality checks now
+  carry `failure_kind` for artifact versus infrastructure failures.
 - [x] Local repository guard scripts for sibling, apitools-boundary, and doc-memory checks have
   been migrated to `cmd/ramen` subcommands, and `ramen validate` now validates either one UWS file
   or every UWS artifact under a directory.
@@ -116,8 +119,9 @@
   workflows.
 - `ramen run` is the only Ramen-owned path that invokes a trusted executor runner, and it requires
   approval JSON plus a valid handoff package. It writes a non-secret `ramen.executor-run.v1` run
-  config over UWS YAML, packaged OpenAPI files, package digest, tier, workdir, and credential
-  binding names. Docker execution receives only the declared `UDON_CREDENTIAL_*` environment names.
+  config over UWS YAML, packaged OpenAPI files, sorted package paths, package digest, tier, workdir,
+  and credential binding names. Docker execution receives only the declared `UDON_CREDENTIAL_*`
+  environment names.
 - Symphony managed reviewer routing remains optional external integration. Ramen owns local package
   evidence and trusted-runner enforcement only.
 - Concrete IaC behavior remains outside Ramen. That sibling is parked during this narrowing and is not

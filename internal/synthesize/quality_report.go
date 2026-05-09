@@ -121,11 +121,55 @@ func walkIntentSteps(steps []*rollout.Step, fn func(*rollout.Step)) {
 
 func (r *QualityReport) add(code, status, message, detail string) {
 	r.Checks = append(r.Checks, QualityCheck{
-		Code:    code,
-		Status:  status,
-		Message: message,
-		Detail:  detail,
+		Code:        code,
+		Status:      status,
+		Message:     message,
+		Detail:      detail,
+		FailureKind: classifyQualityFailureKind(code, status, detail),
 	})
+}
+
+const (
+	QualityFailureArtifact       = "artifact"
+	QualityFailureInfrastructure = "infrastructure"
+)
+
+func classifyQualityFailureKind(code, status, detail string) string {
+	if status != "fail" {
+		return ""
+	}
+	if qualityFailureLooksInfrastructure(code, detail) {
+		return QualityFailureInfrastructure
+	}
+	return QualityFailureArtifact
+}
+
+func qualityFailureLooksInfrastructure(code, detail string) bool {
+	lower := strings.ToLower(strings.TrimSpace(detail))
+	if lower == "" {
+		return false
+	}
+	for _, marker := range []string{
+		"permission denied",
+		"operation not permitted",
+		"read-only file system",
+		"input/output error",
+		"i/o error",
+		"too many open files",
+		"no space left on device",
+		"resource temporarily unavailable",
+		"stale file handle",
+	} {
+		if strings.Contains(lower, marker) {
+			return true
+		}
+	}
+	switch strings.TrimSpace(code) {
+	case "openapi.local", "symphony_handoff.contract":
+		return strings.Contains(lower, "could not be checked") || strings.Contains(lower, "could not be scanned")
+	default:
+		return false
+	}
 }
 
 func (r *QualityReport) finalize() {

@@ -27,6 +27,7 @@
 - `make check`:
 - `git diff --check`:
 - `make release-check`:
+- Sibling checkout layout (`../uws`, `../apitools`, optional `../udon`, optional `../symphony`):
 - `ramen readiness --run-gates`:
 - Readiness JSON:
 
@@ -37,6 +38,9 @@ Command:
 ```bash
 make release-eval
 ```
+
+`make release-eval` is opt-in real-provider evidence. Keep `make release-check` as the deterministic
+pre-tag gate and record provider credentials/model context separately from deterministic evidence.
 
 Report paths:
 

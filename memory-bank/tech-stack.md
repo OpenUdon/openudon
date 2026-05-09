@@ -36,6 +36,8 @@ Ramen expects sibling modules through local `replace` directives:
 but should not import or fork Symphony implementation code.
 
 Udon is not a Ramen Go dependency. When used, it is an external trusted executor selected at runtime by `RAMEN_EXECUTOR`, `RAMEN_UDON_BIN`, or `RAMEN_UDON_IMAGE`.
+`RAMEN_EXECUTOR` and `RAMEN_UDON_BIN` must be absolute executable paths. `RAMEN_UDON_IMAGE` remains
+a Docker image reference chosen by the operator.
 
 ## Preferred Dependency Direction
 
@@ -98,12 +100,14 @@ from a trusted workstation if the error looks external.
 
 `ramen run` validates approval, package digest, stored and current quality, manifest policy,
 credential-value prohibition, direct-production prohibition, and tier/state compatibility before
-writing `ramen.executor-run.v1`. The digest covers the reviewed UWS artifacts and every regular
-OpenAPI file staged for execution. The shim stages the reviewed UWS/OpenAPI package into a fresh
-executor-visible directory under the configured run workdir, fails if a declared credential binding
-is missing from the local `UDON_CREDENTIAL_*` environment, then invokes either a trusted
-udon-compatible binary by argv or a Docker image via `RAMEN_UDON_IMAGE`. Docker mode passes only
-declared credential env names, not all host environment variables.
+writing `ramen.executor-run.v1`. The run config includes sorted `package_paths` for every
+digest-covered required handoff input. The digest covers the reviewed UWS artifacts and every
+regular OpenAPI file staged for execution. The shim stages the reviewed package paths into a fresh
+executor-visible directory under the configured run workdir, recomputes the approved package digest
+from the staged copy, fails if it does not match `package_sha256`, fails if a declared credential
+binding is missing from the local `UDON_CREDENTIAL_*` environment, then invokes either a trusted
+absolute-path udon-compatible binary by argv or a Docker image via `RAMEN_UDON_IMAGE`. Docker mode
+passes only declared credential env names, not all host environment variables.
 
 ## Tooling Constraints
 

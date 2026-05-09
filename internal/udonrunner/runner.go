@@ -11,6 +11,7 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/genelet/ramen/internal/authoring"
 	"github.com/genelet/ramen/internal/packageartifacts"
 )
 
@@ -25,6 +26,7 @@ type Config struct {
 	WorkflowPath        string   `json:"workflow_path"`
 	WorkflowFormat      string   `json:"workflow_format"`
 	OpenAPIPaths        []string `json:"openapi_paths,omitempty"`
+	PackagePaths        []string `json:"package_paths"`
 	PackageSHA256       string   `json:"package_sha256"`
 	CredentialBindings  []string `json:"credential_bindings,omitempty"`
 	DirectProductionRun bool     `json:"direct_production_run"`
@@ -70,6 +72,9 @@ func LoadConfig(path string) (Config, error) {
 	}
 	if config.OpenAPIPaths == nil {
 		config.OpenAPIPaths = []string{}
+	}
+	if config.PackagePaths == nil {
+		config.PackagePaths = []string{}
 	}
 	if config.CredentialBindings == nil {
 		config.CredentialBindings = []string{}
@@ -124,6 +129,13 @@ func Run(ctx context.Context, config Config, opts Options) (Result, error) {
 	if err != nil {
 		return Result{}, err
 	}
+	packageFiles, err := validatePackagePaths(packageRoot, config.PackagePaths, config.PackageSHA256)
+	if err != nil {
+		return Result{}, err
+	}
+	if err := validateDigestInventory(workflowRel, openAPIFiles, packageFiles, config.PackageSHA256); err != nil {
+		return Result{}, err
+	}
 	credentialEnvNames, err := credentialEnvNames(config.CredentialBindings)
 	if err != nil {
 		return Result{}, err
@@ -139,8 +151,11 @@ func Run(ctx context.Context, config Config, opts Options) (Result, error) {
 		}
 	}
 
-	stage, stagedWorkflow, err := stagePackage(workdir, workflowRel, workflowPath, openAPIFiles)
+	stage, stagedWorkflow, err := stagePackage(workdir, workflowRel, workflowPath, openAPIFiles, packageFiles)
 	if err != nil {
+		return Result{}, err
+	}
+	if err := verifyStagedPackageDigest(stage, config.Scope, config.PackageSHA256, packageFiles); err != nil {
 		return Result{}, err
 	}
 	argv, err := executorArgv(repoRootAbs, stage, stagedWorkflow, workflowFormat, credentialEnvNames, envByName)
@@ -288,7 +303,60 @@ func validateOpenAPIPaths(packageRoot string, paths []string) ([][2]string, erro
 	return out, nil
 }
 
-func stagePackage(workdir, workflowRel, workflowPath string, openAPIFiles [][2]string) (string, string, error) {
+func validatePackagePaths(packageRoot string, paths []string, approvedDigest string) ([][2]string, error) {
+	if strings.TrimSpace(approvedDigest) != "" && len(paths) == 0 {
+		return nil, fmt.Errorf("run config requires package_paths when package_sha256 is set")
+	}
+	out := make([][2]string, 0, len(paths))
+	seen := map[string]bool{}
+	for _, raw := range paths {
+		if strings.TrimSpace(raw) == "" {
+			return nil, fmt.Errorf("package path must be non-empty")
+		}
+		rel, src, err := packageRelativePath(packageRoot, "package path", raw)
+		if err != nil {
+			return nil, err
+		}
+		rel = filepath.ToSlash(rel)
+		if seen[rel] {
+			continue
+		}
+		if err := validateRegularPackageFile(packageRoot, filepath.FromSlash(rel), src, "package"); err != nil {
+			return nil, err
+		}
+		seen[rel] = true
+		out = append(out, [2]string{rel, src})
+	}
+	sort.Slice(out, func(i, j int) bool { return out[i][0] < out[j][0] })
+	return out, nil
+}
+
+func validateDigestInventory(workflowRel string, openAPIFiles, packageFiles [][2]string, approvedDigest string) error {
+	if strings.TrimSpace(approvedDigest) == "" {
+		return nil
+	}
+	covered := map[string]bool{}
+	for _, pair := range packageFiles {
+		covered[filepath.ToSlash(pair[0])] = true
+	}
+	var missing []string
+	if !covered[filepath.ToSlash(workflowRel)] {
+		missing = append(missing, filepath.ToSlash(workflowRel))
+	}
+	for _, pair := range openAPIFiles {
+		rel := filepath.ToSlash(pair[0])
+		if !covered[rel] {
+			missing = append(missing, rel)
+		}
+	}
+	if len(missing) > 0 {
+		sort.Strings(missing)
+		return fmt.Errorf("package_paths must include digest-covered executor input(s): %s", strings.Join(missing, ", "))
+	}
+	return nil
+}
+
+func stagePackage(workdir, workflowRel, workflowPath string, openAPIFiles, packageFiles [][2]string) (string, string, error) {
 	if err := os.MkdirAll(workdir, 0o755); err != nil {
 		return "", "", err
 	}
@@ -305,7 +373,39 @@ func stagePackage(workdir, workflowRel, workflowPath string, openAPIFiles [][2]s
 			return "", "", err
 		}
 	}
+	for _, pair := range packageFiles {
+		if err := copyRegularFile(pair[1], filepath.Join(stage, filepath.FromSlash(pair[0]))); err != nil {
+			return "", "", err
+		}
+	}
 	return stage, stagedWorkflow, nil
+}
+
+func verifyStagedPackageDigest(stage, scope, approvedDigest string, packageFiles [][2]string) error {
+	approvedDigest = strings.TrimSpace(approvedDigest)
+	if approvedDigest == "" {
+		return nil
+	}
+	inputs := make([]authoring.ReviewHandoffInput, 0, len(packageFiles))
+	for _, pair := range packageFiles {
+		inputs = append(inputs, authoring.ReviewHandoffInput{
+			Path:     pair[0],
+			Required: true,
+		})
+	}
+	digest, err := authoring.ComputeReviewHandoffDigest(authoring.ReviewHandoffDigestOptions{
+		Root:    stage,
+		Scope:   scope,
+		Version: "ramen.handoff-package-digest.v1",
+		Inputs:  inputs,
+	})
+	if err != nil {
+		return fmt.Errorf("verify staged package digest: %w", err)
+	}
+	if digest != approvedDigest {
+		return fmt.Errorf("staged package_sha256 does not match approved handoff package")
+	}
+	return nil
 }
 
 func copyRegularFile(src, dst string) error {
@@ -385,18 +485,28 @@ func executorArgv(repoRoot, stage, stagedWorkflow, workflowFormat string, creden
 		argv = append(argv, image, "--workdir", "/workspace", "--workflow", "/workspace/"+filepath.ToSlash(rel), "--workflow-format", workflowFormat)
 		return argv, nil
 	}
-	executor := strings.TrimSpace(env["RAMEN_EXECUTOR"])
-	if executor == "" {
-		executor = strings.TrimSpace(env["RAMEN_UDON_BIN"])
+	if executor := strings.TrimSpace(env["RAMEN_EXECUTOR"]); executor != "" {
+		return executorPathArgv("RAMEN_EXECUTOR", executor, stage, stagedWorkflow, workflowFormat)
 	}
-	if executor == "" {
-		executor = filepath.Join(repoRoot, "..", "udon", "dist", "udon-linux-amd64")
+	if executor := strings.TrimSpace(env["RAMEN_UDON_BIN"]); executor != "" {
+		return executorPathArgv("RAMEN_UDON_BIN", executor, stage, stagedWorkflow, workflowFormat)
 	}
+	executor := filepath.Join(repoRoot, "..", "udon", "dist", "udon-linux-amd64")
 	if !isExecutable(executor) {
 		executor = filepath.Join(repoRoot, "..", "udon", "udon")
 	}
 	if !isExecutable(executor) {
 		return nil, fmt.Errorf("trusted executor not found. Set RAMEN_EXECUTOR, RAMEN_UDON_BIN, RAMEN_UDON_IMAGE, or build ../udon")
+	}
+	return []string{executor, "--workdir", stage, "--workflow", stagedWorkflow, "--workflow-format", workflowFormat}, nil
+}
+
+func executorPathArgv(envName, executor, stage, stagedWorkflow, workflowFormat string) ([]string, error) {
+	if !filepath.IsAbs(executor) {
+		return nil, fmt.Errorf("%s must be an absolute path: %s", envName, executor)
+	}
+	if !isExecutable(executor) {
+		return nil, fmt.Errorf("%s does not point to an executable file: %s", envName, executor)
 	}
 	return []string{executor, "--workdir", stage, "--workflow", stagedWorkflow, "--workflow-format", workflowFormat}, nil
 }

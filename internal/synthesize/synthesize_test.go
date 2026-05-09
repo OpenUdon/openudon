@@ -3188,6 +3188,88 @@ func TestQualityFailureSignatureUsesStableFamilies(t *testing.T) {
 	}
 }
 
+func TestQualityFailureKindClassification(t *testing.T) {
+	for _, tc := range []struct {
+		name   string
+		code   string
+		status string
+		detail string
+		want   string
+	}{
+		{name: "pass omitted", code: "workflow.present", status: "pass", want: ""},
+		{name: "artifact default", code: "workflow.hcl_syntax", status: "fail", detail: "invalid HCL syntax", want: QualityFailureArtifact},
+		{name: "permission infrastructure", code: "workflow.present", status: "fail", detail: "open workflow.hcl: permission denied", want: QualityFailureInfrastructure},
+		{name: "filesystem infrastructure", code: "openapi.local", status: "fail", detail: "openapi directory could not be scanned: input/output error", want: QualityFailureInfrastructure},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			if got := classifyQualityFailureKind(tc.code, tc.status, tc.detail); got != tc.want {
+				t.Fatalf("failure kind = %q, want %q", got, tc.want)
+			}
+		})
+	}
+}
+
+func TestQualityReportAddsFailureKind(t *testing.T) {
+	report := &QualityReport{}
+	report.add("intent.parse", "fail", "intent.hcl is missing or invalid", "decoding HCL: invalid syntax")
+	report.add("workflow.present", "fail", "workflow.hcl is required", "open workflow.hcl: permission denied")
+	if got := report.Checks[0].FailureKind; got != QualityFailureArtifact {
+		t.Fatalf("malformed artifact failure kind = %q", got)
+	}
+	if got := report.Checks[1].FailureKind; got != QualityFailureInfrastructure {
+		t.Fatalf("read failure kind = %q", got)
+	}
+}
+
+func TestAssessCurrentMarksMalformedArtifactFailure(t *testing.T) {
+	example := filepath.Join(t.TempDir(), "examples", "malformed-intent")
+	if err := os.MkdirAll(filepath.Join(example, "workflows"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(example, "project.md"), []byte(`# Malformed Intent
+
+## Goal
+
+Render a local report.
+
+## External Systems and OpenAPI
+
+OpenAPI: none required
+
+## Safety and Approval Boundary
+
+- Generate and validate artifacts only.
+`), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(example, "workflows", "intent.hcl"), []byte("intent {\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	report, err := AssessCurrent(context.Background(), Options{ExampleDir: example})
+	if err != nil {
+		t.Fatal(err)
+	}
+	check := qualityCheckByCode(report, "intent.parse")
+	if check == nil {
+		t.Fatalf("intent.parse check missing: %+v", report.Checks)
+	}
+	if check.Status != "fail" || check.FailureKind != QualityFailureArtifact {
+		t.Fatalf("intent.parse check = %+v, want artifact failure", *check)
+	}
+}
+
+func qualityCheckByCode(report *QualityReport, code string) *QualityCheck {
+	if report == nil {
+		return nil
+	}
+	for i := range report.Checks {
+		if report.Checks[i].Code == code {
+			return &report.Checks[i]
+		}
+	}
+	return nil
+}
+
 func TestSpecSummaryAppliesGlobalOperationBudget(t *testing.T) {
 	dir := t.TempDir()
 	first := filepath.Join(dir, "first.yaml")

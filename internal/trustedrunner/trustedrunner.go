@@ -176,6 +176,10 @@ func buildRunConfig(p paths, manifest handoffManifest, digest, tier, workdir str
 	if err != nil {
 		return RunConfig{}, err
 	}
+	packagePaths, err := packagePathsForRunConfig(p, manifest)
+	if err != nil {
+		return RunConfig{}, err
+	}
 	config := RunConfig{
 		Version:             RunConfigVersion,
 		Scope:               p.scope,
@@ -185,6 +189,7 @@ func buildRunConfig(p paths, manifest handoffManifest, digest, tier, workdir str
 		WorkflowPath:        filepath.ToSlash(filepath.Join("workflows", "workflow.uws.yaml")),
 		WorkflowFormat:      "uws-yaml",
 		OpenAPIPaths:        relOpenAPI,
+		PackagePaths:        packagePaths,
 		PackageSHA256:       digest,
 		CredentialBindings:  sortedCredentialBindings(manifest),
 		DirectProductionRun: false,
@@ -193,6 +198,14 @@ func buildRunConfig(p paths, manifest handoffManifest, digest, tier, workdir str
 		config.WorkDir = p.defaultWorkDir
 	}
 	return config, nil
+}
+
+func packagePathsForRunConfig(p paths, manifest handoffManifest) ([]string, error) {
+	paths, err := packageartifacts.RequiredManifestPaths(p.exampleAbs, packageManifestInputs(manifest))
+	if err != nil {
+		return nil, err
+	}
+	return append([]string(nil), paths...), nil
 }
 
 func writeRunConfig(config RunConfig) (string, error) {

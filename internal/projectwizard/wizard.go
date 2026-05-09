@@ -1,11 +1,12 @@
 package projectwizard
 
 import (
-	"bufio"
 	"fmt"
 	"io"
 	"regexp"
 	"strings"
+
+	"github.com/genelet/ramen/internal/authoring"
 )
 
 type Answers struct {
@@ -38,62 +39,55 @@ func Prompt(in io.Reader, out io.Writer) (Answers, error) {
 }
 
 func PromptWithDefaults(in io.Reader, out io.Writer, defaults Answers) (Answers, error) {
-	reader, ok := in.(*bufio.Reader)
-	if !ok {
-		reader = bufio.NewReader(in)
-	}
-	p := prompter{
-		reader: reader,
-		out:    out,
-	}
+	p := authoring.NewPromptSession(in, out)
 	answers := defaults
 	var err error
-	if answers.ProjectName, err = p.askWithDefault("Project name", answers.ProjectName); err != nil {
+	if answers.ProjectName, err = p.AskDefault("Project name", answers.ProjectName); err != nil {
 		return answers, err
 	}
-	if answers.Goal, err = p.askWithDefault("Goal", answers.Goal); err != nil {
+	if answers.Goal, err = p.AskDefault("Goal", answers.Goal); err != nil {
 		return answers, err
 	}
-	if answers.Inputs, err = p.askWithDefault("Inputs", answers.Inputs); err != nil {
+	if answers.Inputs, err = p.AskDefault("Inputs", answers.Inputs); err != nil {
 		return answers, err
 	}
-	if answers.Outputs, err = p.askWithDefault("Outputs", answers.Outputs); err != nil {
+	if answers.Outputs, err = p.AskDefault("Outputs", answers.Outputs); err != nil {
 		return answers, err
 	}
-	if answers.DataFlow, err = p.askWithDefault("Data flow", answers.DataFlow); err != nil {
+	if answers.DataFlow, err = p.AskDefault("Data flow", answers.DataFlow); err != nil {
 		return answers, err
 	}
-	if answers.FunctionContracts, err = p.askWithDefault("Function contracts", answers.FunctionContracts); err != nil {
+	if answers.FunctionContracts, err = p.AskDefault("Function contracts", answers.FunctionContracts); err != nil {
 		return answers, err
 	}
-	if answers.UsesOpenAPI, err = p.askYesNo("Does this project need API/OpenAPI integration?", answers.UsesOpenAPI); err != nil {
+	if answers.UsesOpenAPI, err = p.AskYesNo("Does this project need API/OpenAPI integration?", answers.UsesOpenAPI); err != nil {
 		return answers, err
 	}
 	if answers.UsesOpenAPI {
-		if answers.OpenAPI, err = p.askWithDefault("OpenAPI files, URLs, or service hints", answers.OpenAPI); err != nil {
+		if answers.OpenAPI, err = p.AskDefault("OpenAPI files, URLs, or service hints", answers.OpenAPI); err != nil {
 			return answers, err
 		}
 	} else {
 		answers.OpenAPI = ""
 	}
-	if answers.CmdApproved, err = p.askYesNo("Approve cmd runtime?", answers.CmdApproved); err != nil {
+	if answers.CmdApproved, err = p.AskYesNo("Approve cmd runtime?", answers.CmdApproved); err != nil {
 		return answers, err
 	}
-	if answers.SSHApproved, err = p.askYesNo("Approve ssh runtime?", answers.SSHApproved); err != nil {
+	if answers.SSHApproved, err = p.AskYesNo("Approve ssh runtime?", answers.SSHApproved); err != nil {
 		return answers, err
 	}
-	if answers.SideEffectScope, err = p.askSideEffectScope(answers.SideEffectScope); err != nil {
+	if answers.SideEffectScope, err = askSideEffectScope(p, out, answers.SideEffectScope); err != nil {
 		return answers, err
 	}
-	credentialAnswer, err := p.askWithDefault("Credential binding names only", strings.Join(answers.Credentials, ", "))
+	credentialAnswer, err := p.AskDefault("Credential binding names only", strings.Join(answers.Credentials, ", "))
 	if err != nil {
 		return answers, err
 	}
 	answers.Credentials = credentialBindings(credentialAnswer)
-	if answers.Safety, err = p.askWithDefault("Safety and approval notes", answers.Safety); err != nil {
+	if answers.Safety, err = p.AskDefault("Safety and approval notes", answers.Safety); err != nil {
 		return answers, err
 	}
-	if answers.Fallback, err = p.askWithDefault("Fallback behavior", answers.Fallback); err != nil {
+	if answers.Fallback, err = p.AskDefault("Fallback behavior", answers.Fallback); err != nil {
 		return answers, err
 	}
 	return answers, nil
@@ -162,56 +156,13 @@ func Render(answers Answers) string {
 	return b.String()
 }
 
-type prompter struct {
-	reader *bufio.Reader
-	out    io.Writer
-}
-
-func (p *prompter) askWithDefault(label, current string) (string, error) {
-	if strings.TrimSpace(current) == "" {
-		fmt.Fprintf(p.out, "%s: ", label)
-	} else {
-		fmt.Fprintf(p.out, "%s [%s]: ", label, oneLine(current))
-	}
-	value, err := p.next()
-	if err != nil {
-		return "", err
-	}
-	if value == "" {
-		return current, nil
-	}
-	return value, nil
-}
-
-func (p *prompter) ask(label string) (string, error) {
-	fmt.Fprintf(p.out, "%s: ", label)
-	return p.next()
-}
-
-func (p *prompter) askYesNo(label string, defaultYes bool) (bool, error) {
-	defaultText := "y/N"
-	if defaultYes {
-		defaultText = "Y/n"
-	}
-	fmt.Fprintf(p.out, "%s [%s]: ", label, defaultText)
-	value, err := p.next()
-	if err != nil {
-		return false, err
-	}
-	value = strings.ToLower(strings.TrimSpace(value))
-	if value == "" {
-		return defaultYes, nil
-	}
-	return value == "y" || value == "yes" || value == "true" || value == "approved" || value == "allow" || value == "allowed", nil
-}
-
-func (p *prompter) askSideEffectScope(current string) (string, error) {
+func askSideEffectScope(p *authoring.PromptSession, out io.Writer, current string) (string, error) {
 	current = NormalizeSideEffectScope(current)
 	if current == "" {
 		current = SideEffectAfterApproval
 	}
 	for {
-		value, err := p.askWithDefault("Side-effect scope (read-only/sandbox-only/after-approval)", current)
+		value, err := p.AskDefault("Side-effect scope (read-only/sandbox-only/after-approval)", current)
 		if err != nil {
 			return "", err
 		}
@@ -219,19 +170,8 @@ func (p *prompter) askSideEffectScope(current string) (string, error) {
 		if value != "" {
 			return value, nil
 		}
-		fmt.Fprintln(p.out, "Use read-only, sandbox-only, or after-approval.")
+		fmt.Fprintln(out, "Use read-only, sandbox-only, or after-approval.")
 	}
-}
-
-func (p *prompter) next() (string, error) {
-	line, err := p.reader.ReadString('\n')
-	if err != nil && err != io.EOF {
-		return "", err
-	}
-	if err == io.EOF && line == "" {
-		return "", io.ErrUnexpectedEOF
-	}
-	return strings.TrimRight(line, "\r\n"), nil
 }
 
 func writeSection(b *strings.Builder, heading, value, empty string) {
@@ -340,15 +280,6 @@ func splitAnswer(value string) []string {
 		return fields
 	}
 	return []string{value}
-}
-
-func oneLine(value string) string {
-	value = strings.Join(strings.Fields(value), " ")
-	const max = 80
-	if len(value) <= max {
-		return value
-	}
-	return value[:max-3] + "..."
 }
 
 var bindingTokenRE = regexp.MustCompile(`[A-Za-z][A-Za-z0-9_.-]*`)

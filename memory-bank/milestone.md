@@ -106,14 +106,14 @@ Acceptance: side-effectful execution happens only through approved local trusted
 
 - Keep `go test ./...`, `go vet ./...`, `make check`, and `git diff --check` as normal
   deterministic gates.
-- Keep `make release-check` as deterministic release readiness.
-- Keep `make release-eval` as opt-in real-provider release evidence with expanded-corpus minimum
-  brief count.
+- Keep `make release-check` as deterministic pre-tag release readiness.
+- Keep `make release-eval` separate as opt-in real-provider release evidence with expanded-corpus
+  minimum brief count.
 - Keep release notes recording model, prompt version, corpus size, pass rate, comparison baseline,
   provider drift, and known gaps.
 
-Acceptance: routine development is fast and deterministic, while release confidence can include
-manual provider evidence.
+Acceptance: routine development and deterministic release readiness stay fast and provider-free,
+while release confidence can include separately recorded manual provider evidence.
 
 ### 9. Product Usability
 

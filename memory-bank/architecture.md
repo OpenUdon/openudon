@@ -158,9 +158,13 @@ manifest-required path normalization, regular-file checks, digest input construc
 input construction. Symlinked, directory, special-file, unsafe relative, and unstated required
 handoff inputs are rejected before approval can authorize execution. It rejects credential values
 in artifacts and direct production execution, then writes a non-secret `ramen.executor-run.v1`
-config. The executor shim stages the reviewed UWS/OpenAPI files into the run workdir and invokes
-udon through a binary or Docker process boundary, never through Go imports. Docker execution passes
-only declared `UDON_CREDENTIAL_*` environment variable names into the container.
+config with sorted `package_paths` for the digest-covered inventory. The executor shim stages every
+declared package path into a fresh run workdir, recomputes `package_sha256` from the staged copy,
+and fails before executor invocation if the staged digest differs from the approval digest. It then
+invokes udon through an absolute-path binary selected by `RAMEN_EXECUTOR`/`RAMEN_UDON_BIN`, a
+trusted Docker image selected by `RAMEN_UDON_IMAGE`, or the default sibling udon path, never through
+Go imports. Docker execution passes only declared `UDON_CREDENTIAL_*` environment variable names
+into the container.
 
 Required handoff inputs are `project.md`, `workflows/intent.hcl`, `workflows/workflow.hcl`,
 `workflows/workflow.uws.yaml`, `expected/plan.json`, `expected/quality.json`,
