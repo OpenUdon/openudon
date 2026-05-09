@@ -25,15 +25,13 @@ duplicate root-level product, architecture, roadmap, or status documents.
 - `../udon` is the private UWS/OpenAPI compiler and runtime. Put generic execution/compiler capabilities there.
 - `../symphony` is the work orchestration service. Configure it through Ramen policy and README
   operator guidance; do not fork or modify it from Ramen unless explicitly requested.
-- Udon's private build-time siblings (`../grand`, `../golet`, `../hcllight`, `../horizon`,
-  `../molecule`, and `../arazzo`) and the shared `../apitools` module must be present for local Go
-  builds while the `../udon` replace is active. Ramen source code should not import those private
-  `genelet/*` siblings directly; `github.com/genelet/udon` is the only private Go module Ramen
-  implementation code should name.
-- `../apitools` owns the public review state machine, review-only leaf adapter,
-  and runtime-neutral handoff manifest schema. Ramen consumes that schema and
-  adds Symphony routing, Ramen package contents, approval templates, and local
-  trusted-runner enforcement.
+- Ramen source code must not import `../udon`, udon's private build-time siblings, or any private
+  `genelet/*` executor module. Ramen invokes udon only as an external CLI or Docker executor through
+  the trusted run-config handoff.
+- `../apitools` owns narrowed OpenAPI tooling only. Ramen owns review state, handoff validation,
+  approval templates, package contents, and local trusted-runner enforcement.
+- `../openw8m` owns concrete IaC authoring/planning and is parked; it is not a Ramen compatibility
+  gate while the OpenAPI-only apitools boundary is active.
 - `../ramen` owns only the integration layer above those projects.
 
 Rule of thumb:

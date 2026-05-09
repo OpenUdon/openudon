@@ -44,13 +44,14 @@ Udon is not a Ramen Go dependency. When used, it is an external trusted executor
   and handoff helpers under `internal/`.
 - Non-OpenAPI `apitools` APIs have been removed from the active boundary. Do not add temporary
   lifecycle compatibility shims back to apitools.
-- Ramen generates public UWS documents directly and invokes executors only through UWS Document + OpenAPI files + non-secret run config + runtime credential resolver.
-- Keep HCL body representations such as `hcllight/light.Body` behind udon APIs. Ramen may consume
-  public maps, UWS documents, and udon runtime-plan helper methods, but should not inspect udon's
-  private HCL AST types directly.
+- Ramen generates public UWS documents directly and invokes executors only through UWS Document +
+  OpenAPI files + non-secret run config + runtime credential resolver.
+- Keep udon runtime-plan helpers and private HCL body representations such as `hcllight/light.Body`
+  behind udon APIs. Ramen may consume public maps and UWS documents, but must not inspect udon's
+  private runtime-plan or HCL AST types directly.
 - Keep public workflow semantics out of Ramen and put them in `../uws`.
 - Keep generic execution/compiler behavior out of Ramen and put it in `../udon`.
-- Keep OpenUdon concrete IaC models and `.tf` rendering out of Ramen; use `apitools` only for
+- Keep concrete IaC models and `.tf` rendering out of Ramen; use `apitools` only for
   OpenAPI tooling.
 
 ## Artifact Contracts
@@ -96,11 +97,11 @@ from a trusted workstation if the error looks external.
 `ramen run` validates approval, package digest, stored and current quality, manifest policy,
 credential-value prohibition, direct-production prohibition, and tier/state compatibility before
 writing `ramen.executor-run.v1`. The digest covers the reviewed UWS artifacts and every regular
-OpenAPI file staged for execution. The shim stages the reviewed UWS/OpenAPI package into the
-configured run workdir, fails if a declared credential binding is missing from the local
-`UDON_CREDENTIAL_*` environment, then invokes either a trusted udon-compatible binary by argv or a
-Docker image via `RAMEN_UDON_IMAGE`. Docker mode passes only declared credential env names, not all
-host environment variables.
+OpenAPI file staged for execution. The shim stages the reviewed UWS/OpenAPI package into a fresh
+executor-visible directory under the configured run workdir, fails if a declared credential binding
+is missing from the local `UDON_CREDENTIAL_*` environment, then invokes either a trusted
+udon-compatible binary by argv or a Docker image via `RAMEN_UDON_IMAGE`. Docker mode passes only
+declared credential env names, not all host environment variables.
 
 ## Tooling Constraints
 

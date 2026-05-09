@@ -90,8 +90,8 @@ boundary.
   executor implementations such as `../udon`.
 - Symphony service implementation, reviewer identity storage, managed state transitions, or audit
   persistence; those belong in `../symphony`.
-- Concrete OpenUdon IaC intent models, `.tf` generation, graph/profile/planning/state/drift
-  behavior, or `w8m` executor contracts; those belong in `../openudon` and private executors.
+- Concrete IaC intent models, `.tf` generation, graph/profile/planning/state/drift behavior, or
+  `w8m` executor contracts; those belong outside Ramen.
 - Secret storage, credential resolution, account selection, endpoint selection, production
   execution policy, or provider SDK ownership.
 - Direct production side effects from synthesis, build, promote, assess, iCoT, or eval commands.

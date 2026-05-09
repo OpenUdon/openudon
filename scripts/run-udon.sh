@@ -129,12 +129,13 @@ if [[ ! -f "$workflow" ]]; then
 fi
 
 mkdir -p "$workdir"
-staged_workflow="$workdir/$workflow_rel"
+stage="$(mktemp -d "$workdir/stage.XXXXXX")"
+staged_workflow="$stage/$workflow_rel"
 mkdir -p "$(dirname "$staged_workflow")"
 cp "$workflow" "$staged_workflow"
 for rel in "${openapi_paths[@]}"; do
   src="$package_root/$rel"
-  dst="$workdir/$rel"
+  dst="$stage/$rel"
   if [[ -L "$src" ]]; then
     printf 'openapi file must not be a symlink: %s\n' "$src" >&2
     exit 1
@@ -158,7 +159,7 @@ done
 
 if [[ -n "${RAMEN_UDON_IMAGE:-}" ]]; then
   exec docker run --rm \
-    -v "$workdir:/workspace" \
+    -v "$stage:/workspace" \
     -w /workspace \
     "${docker_env_args[@]}" \
     "$RAMEN_UDON_IMAGE" \
@@ -179,4 +180,4 @@ if [[ ! -x "$executor" ]]; then
   exit 1
 fi
 
-exec "$executor" --workdir "$workdir" --workflow "$staged_workflow" --workflow-format "$workflow_format"
+exec "$executor" --workdir "$stage" --workflow "$staged_workflow" --workflow-format "$workflow_format"

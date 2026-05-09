@@ -443,20 +443,85 @@ func TestRunUdonScriptStagesPackageAndUsesConfiguredWorkdir(t *testing.T) {
 	if err != nil {
 		t.Fatalf("run-udon.sh failed: %v\n%s", err, out)
 	}
+	args, err := os.ReadFile(capture)
+	if err != nil {
+		t.Fatal(err)
+	}
+	stagedWorkdir := capturedArgValue(t, string(args), "--workdir")
+	if stagedWorkdir == workdir || !strings.HasPrefix(stagedWorkdir, workdir+string(os.PathSeparator)+"stage.") {
+		t.Fatalf("executor workdir = %q, want fresh stage under %q\nargs:\n%s", stagedWorkdir, workdir, args)
+	}
+	if gotWorkflow := capturedArgValue(t, string(args), "--workflow"); gotWorkflow != filepath.Join(stagedWorkdir, "workflows", "workflow.uws.yaml") {
+		t.Fatalf("executor workflow = %q, want staged workflow under %q\nargs:\n%s", gotWorkflow, stagedWorkdir, args)
+	}
+	if strings.Contains(string(args), "--workdir\n"+packageRoot) {
+		t.Fatalf("executor args did not use staged workdir:\n%s", args)
+	}
 	for _, path := range []string{
-		filepath.Join(workdir, "workflows", "workflow.uws.yaml"),
-		filepath.Join(workdir, "openapi", "nested", "support.yaml"),
+		filepath.Join(stagedWorkdir, "workflows", "workflow.uws.yaml"),
+		filepath.Join(stagedWorkdir, "openapi", "nested", "support.yaml"),
 	} {
 		if _, err := os.Stat(path); err != nil {
 			t.Fatalf("staged path missing %s: %v", path, err)
 		}
 	}
+	if _, err := os.Stat(filepath.Join(workdir, "workflows", "workflow.uws.yaml")); !os.IsNotExist(err) {
+		t.Fatalf("workflow was staged in persistent workdir root, err=%v", err)
+	}
+}
+
+func TestRunUdonScriptFreshStageHidesPersistentStaleFiles(t *testing.T) {
+	wd, err := os.Getwd()
+	if err != nil {
+		t.Fatal(err)
+	}
+	repoRoot := filepath.Clean(filepath.Join(wd, "..", ".."))
+	script := filepath.Join(repoRoot, "scripts", "run-udon.sh")
+	tmp := t.TempDir()
+	packageRoot := filepath.Join(tmp, "package")
+	workdir := filepath.Join(tmp, "work")
+	if err := os.MkdirAll(filepath.Join(packageRoot, "workflows"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.MkdirAll(filepath.Join(workdir, "openapi"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	mustWriteFile(t, filepath.Join(packageRoot, "workflows", "workflow.uws.yaml"), []byte("uws: 1.0.0\n"))
+	mustWriteFile(t, filepath.Join(workdir, "openapi", "stale.yaml"), []byte("openapi: 3.0.0\n"))
+	configPath := filepath.Join(tmp, "run-config.json")
+	data, err := json.Marshal(RunConfig{
+		Version:        RunConfigVersion,
+		PackageRoot:    packageRoot,
+		WorkDir:        workdir,
+		WorkflowPath:   "workflows/workflow.uws.yaml",
+		WorkflowFormat: "uws-yaml",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	mustWriteFile(t, configPath, data)
+	fakeExecutor := filepath.Join(tmp, "fake-udon")
+	capture := filepath.Join(tmp, "args.txt")
+	mustWriteFile(t, fakeExecutor, []byte("#!/usr/bin/env bash\nprintf '%s\\n' \"$@\" > \"$CAPTURE_ARGS\"\n"))
+	if err := os.Chmod(fakeExecutor, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	cmd := exec.Command(script, "--config", configPath)
+	cmd.Env = append(os.Environ(), "RAMEN_EXECUTOR="+fakeExecutor, "CAPTURE_ARGS="+capture)
+	out, err := cmd.CombinedOutput()
+	if err != nil {
+		t.Fatalf("run-udon.sh failed: %v\n%s", err, out)
+	}
 	args, err := os.ReadFile(capture)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !strings.Contains(string(args), "--workdir\n"+workdir) || strings.Contains(string(args), "--workdir\n"+packageRoot) {
-		t.Fatalf("executor args did not use staged workdir:\n%s", args)
+	stagedWorkdir := capturedArgValue(t, string(args), "--workdir")
+	if _, err := os.Stat(filepath.Join(stagedWorkdir, "openapi", "stale.yaml")); !os.IsNotExist(err) {
+		t.Fatalf("stale OpenAPI file visible in staged workdir, err=%v", err)
+	}
+	if _, err := os.Stat(filepath.Join(workdir, "openapi", "stale.yaml")); err != nil {
+		t.Fatalf("persistent stale file should not be deleted: %v", err)
 	}
 }
 
@@ -512,6 +577,10 @@ func TestRunUdonScriptCanInvokeDockerImage(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	mountPath := capturedArgValue(t, string(args), "-v")
+	if !strings.HasSuffix(mountPath, ":/workspace") || !strings.HasPrefix(mountPath, workdir+string(os.PathSeparator)+"stage.") {
+		t.Fatalf("docker mount = %q, want fresh stage under %q\nargs:\n%s", mountPath, workdir, args)
+	}
 	for _, want := range []string{"run\n", "--rm\n", "-e\nUDON_CREDENTIAL_SUPPORT_API_TOKEN\n", "udon:test\n", "--workdir\n/workspace\n", "--workflow\n/workspace/workflows/workflow.uws.yaml\n"} {
 		if !strings.Contains(string(args), want) {
 			t.Fatalf("docker args missing %q:\n%s", want, args)
@@ -558,6 +627,18 @@ func TestRunUdonScriptFailsWhenCredentialEnvMissing(t *testing.T) {
 	if err == nil || !strings.Contains(string(out), "UDON_CREDENTIAL_MISSING_PLAN_TEST") {
 		t.Fatalf("expected missing credential env failure, err=%v out=%s", err, out)
 	}
+}
+
+func capturedArgValue(t *testing.T, args, flag string) string {
+	t.Helper()
+	lines := strings.Split(strings.TrimRight(args, "\n"), "\n")
+	for i := 0; i < len(lines)-1; i++ {
+		if lines[i] == flag {
+			return lines[i+1]
+		}
+	}
+	t.Fatalf("args missing %s:\n%s", flag, args)
+	return ""
 }
 
 type fixtureOptions struct {

@@ -35,7 +35,7 @@ plans, OpenAPI discovery reports, refinement reports, review notes, quality repo
 - `../udon` owns private UWS/OpenAPI compilation, lowering, execution, runtime profiles, and
   runtime-plan behavior. The target public Ramen boundary invokes udon through CLI/Docker-compatible
   executor handoff rather than broad Go library coupling.
-- `../openudon` owns public IaC authoring/planning, concrete IaC intent, `.tf` generation, graph,
+- `../openw8m` owns public IaC authoring/planning, concrete IaC intent, `.tf` generation, graph,
   profile, state, drift, and `w8m`-facing public artifacts.
 - `../symphony` optionally owns work orchestration, isolated workspaces, reviewer routing, identity,
   managed state transitions, and audit persistence.

@@ -145,8 +145,8 @@ Acceptance: Ramen remains thin and does not absorb sibling ownership.
   structs/flows, iCoT loop/session/transcript helpers, JSON completion fallback, review
   handoff/state machine, package digest, credential scans, binding contracts, leaf adapter/review
   package helpers, LLM provider helpers, and Context7/documentation authoring context. Status: done.
-- `../openudon` is parked and is not a compatibility gate for this narrowing. It must move any
-  lifecycle dependencies into OpenUdon-owned packages before it resumes tracking current apitools.
+- The IaC sibling is parked and is not a compatibility gate for this narrowing. It must move any
+  lifecycle dependencies into its own packages before it resumes tracking current apitools.
 - Migrate `../udon` before deleting APIs. Udon must move runtime-plan leaf/review helpers and
   `apitools/llm` usage into udon-owned code and keep only OpenAPI search/import/index usage.
   Status: done.
@@ -157,13 +157,13 @@ Acceptance: Ramen remains thin and does not absorb sibling ownership.
   authoring/review/handoff material only as historical migration notes when needed. Status: done.
 - Keep `apitools.review-handoff.v1` only as a wire compatibility string while downstream artifacts
   still need it, not as active `../apitools` lifecycle ownership.
-- Split Ramen's remaining udon executor integration into a trusted executor handoff based on UWS Document, OpenAPI files, non-secret run config, and runtime credential resolution. Status: done; Ramen stages reviewed artifacts into the run workdir and invokes udon only as a CLI or Docker process.
+- Split Ramen's remaining udon executor integration into a trusted executor handoff based on UWS Document, OpenAPI files, non-secret run config, and runtime credential resolution. Status: done; Ramen stages reviewed artifacts into a fresh executor-visible directory under the run workdir and invokes udon only as a CLI or Docker process.
 - Harden the trusted executor handoff so every staged OpenAPI file is digest-covered, symlinked
   OpenAPI artifacts are rejected, Docker receives only declared credential env names, and bad
   OpenAPI operation IDs fail generation instead of producing partial request maps. Status: done.
 
 Acceptance: Ramen owns lifecycle APIs locally, `../apitools` contains only OpenAPI tooling, `../udon`
-compiles without non-OpenAPI apitools APIs, `../openudon` is explicitly parked, static guards
+compiles without non-OpenAPI apitools APIs, the IaC sibling is explicitly parked, static guards
 prevent regression, and Ramen's public build no longer relies on broad shared apitools product workflow APIs or udon Go packages.
 
 Verification plan:
@@ -171,7 +171,7 @@ Verification plan:
 - Ramen: `go test ./...`, `go vet ./...`, `make check`, and `git diff --check`.
 - `../apitools`: `go test ./...`, `go vet ./...`, `git diff --check`, plus CLI smoke coverage for
   `search` and `import`.
-- Downstreams: `(cd ../udon && go test ./...)`. `../openudon` is parked and not a gate.
+- Downstreams: `(cd ../udon && go test ./...)`. The IaC sibling is parked and not a gate.
 - Static guards: `rg` for removed non-OpenAPI symbols in Ramen, udon, and apitools docs.
 
 ## Closed XRD Regression Matrix

@@ -43,7 +43,7 @@
 - [x] `expected/symphony-handoff.json` implemented with the stable `apitools.review-handoff.v1`
   wire version and legacy read compatibility; Ramen owns validation and lifecycle behavior.
 - [x] Approval template generation and local trusted-runner validation implemented.
-- [x] Ramen authoring compatibility adapter completed without importing OpenUdon concrete IaC
+- [x] Ramen authoring compatibility adapter completed without importing concrete IaC
   models.
 - [x] OpenAPI discovery remains available through `apitools/openapidisco`. Ramen now owns
   `.icot/session.yaml` draft persistence, the progressive iCoT loop, transcript lifecycle, and JSON
@@ -81,14 +81,14 @@
 - [x] `../udon` migrated off non-OpenAPI apitools APIs. Udon now owns rollout LLM provider plumbing
   and runtime-plan review/handoff helper types locally while keeping only OpenAPI search/import
   usage from apitools.
-- [x] `../openudon` is parked and is not a compatibility gate for the apitools narrowing.
+- [x] The IaC sibling is parked and is not a compatibility gate for the apitools narrowing.
 - [x] Split Ramen's remaining udon executor coupling into a CLI/Docker-compatible trusted executor
   handoff based on UWS Document, OpenAPI files, non-secret run config, and runtime credential
   resolution.
 - [x] Trusted-runner hardening added: OpenAPI files staged for execution are required handoff
-  inputs covered by package digests, symlinked OpenAPI artifacts are rejected, Docker execution
-  passes only declared `UDON_CREDENTIAL_*` names, and invalid OpenAPI operation IDs fail generation
-  instead of dropping request bindings.
+  inputs covered by package digests, symlinked OpenAPI artifacts are rejected, execution uses a
+  fresh staged workdir, Docker execution passes only declared `UDON_CREDENTIAL_*` names, and invalid
+  OpenAPI operation IDs fail generation instead of dropping request bindings.
 
 ## Notes
 
@@ -110,7 +110,7 @@
   binding names. Docker execution receives only the declared `UDON_CREDENTIAL_*` environment names.
 - Symphony managed reviewer routing remains optional external integration. Ramen owns local package
   evidence and trusted-runner enforcement only.
-- OpenUdon remains the owner of concrete IaC behavior. It is parked during this narrowing and is not
+- Concrete IaC behavior remains outside Ramen. That sibling is parked during this narrowing and is not
   a release compatibility gate.
 - Udon consumer migration for the narrowed apitools boundary is complete.
 - Keep `apitools.review-handoff.v1` only as a stable wire compatibility string while downstream
@@ -121,7 +121,7 @@
   output and copilot GPT-5 Responses routing are restored, OpenAPI request placement is inferred
   from public `apitools` summaries and fails on missing operation IDs, trigger routes/options are
   preserved, UWS 1.1 is selected for timeout/idempotency artifacts, and the trusted runner stages
-  digest-covered artifacts before CLI/Docker invocation.
+  digest-covered artifacts into a fresh workdir before CLI/Docker invocation.
 - Remaining detailed docs are intentionally narrow working references: intent contract, data-flow
   examples, project authoring guide, eval gallery, release-note template, and safety guide.
 - Update this file after feature implementation changes completion state.

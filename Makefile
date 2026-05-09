@@ -1,4 +1,4 @@
-.PHONY: help test vet check doc-memory apitools-boundary readiness release-check release-eval siblings validate-uws eval synthesize-support build-support promote-support assess-support run-example
+.PHONY: help test vet check doc-memory apitools-boundary readiness release-check release-eval siblings validate-uws eval synthesize-support build-support promote-support assess-support
 
 GO ?= go
 RAMEN_PROVIDER ?= copilot-api
@@ -6,7 +6,7 @@ RAMEN_MODEL ?= gpt-5.4-mini
 RAMEN_RELEASE_MIN_BRIEFS ?= $(shell find ./examples/eval -mindepth 1 -maxdepth 1 -type d | wc -l | tr -d ' ')
 
 help:
-	@echo "Targets: test, vet, check, doc-memory, readiness, release-check, release-eval, siblings, validate-uws, eval, synthesize-support, build-support, promote-support, assess-support, run-example"
+	@echo "Targets: test, vet, check, doc-memory, readiness, release-check, release-eval, siblings, validate-uws, eval, synthesize-support, build-support, promote-support, assess-support"
 
 test:
 	$(GO) test ./...
@@ -55,6 +55,3 @@ promote-support:
 
 assess-support:
 	$(GO) run ./cmd/ramen assess --example ./examples/support-email
-
-run-example:
-	./scripts/run-udon.sh ./examples/support-email/workflows/workflow.uws.yaml ./examples/support-email
