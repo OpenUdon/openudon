@@ -937,6 +937,13 @@ step "send_email" {
 		"Credential binding audit",
 		"Direct production execution: not performed by OpenUdon synthesis",
 		"Trusted Execution Handoff",
+		"Side-Effect Risk Review",
+		"Approval Artifact Checklist",
+		"Credential Scope Matrix",
+		"Trusted dry run",
+		"`openudon.executor-run.v1`",
+		"`package_sha256`",
+		"`expires_at`",
 		"Trusted proof run",
 	} {
 		if !strings.Contains(md, expected) {
@@ -1063,6 +1070,27 @@ func TestAssessReviewAcceptsNoCredentialAuditPath(t *testing.T) {
 	}
 }
 
+func TestAssessReviewRequiresM19EvidenceSections(t *testing.T) {
+	base := validReviewEvidenceText(true, true)
+	cases := map[string]string{
+		"review.side_effect_risk":       strings.Replace(base, "## Side-Effect Risk Review", "## Side Effect Review", 1),
+		"review.approval_artifact":      strings.Replace(base, "## Approval Artifact Checklist", "## Approval Checklist", 1),
+		"review.credential_scope":       strings.Replace(base, "## Credential Scope Matrix", "## Credential Matrix", 1),
+		"review.trusted_runner_dry_run": strings.Replace(base, "--dry-run", "", 1),
+	}
+	for code, text := range cases {
+		path := filepath.Join(t.TempDir(), "review.md")
+		if err := os.WriteFile(path, []byte(text), 0o644); err != nil {
+			t.Fatal(err)
+		}
+		report := &QualityReport{}
+		assessReview(report, path, sideEffectProfile{}, projectPolicy{}, nil)
+		if !hasCheck(report, code, "fail") {
+			t.Fatalf("expected %s failure, got %#v", code, report.Checks)
+		}
+	}
+}
+
 func validReviewEvidenceText(includeApprovalStates, includeCredentialInventory bool) string {
 	var b strings.Builder
 	b.WriteString(`# OpenUdon Review Evidence
@@ -1085,6 +1113,10 @@ func validReviewEvidenceText(includeApprovalStates, includeCredentialInventory b
 - Credential binding audit: runtime binding names only; literal secrets are prohibited in prompts, examples, and artifacts.
 - Direct production execution: not performed by OpenUdon synthesis.
 
+## Side-Effect Risk Review
+
+- No side-effectful operations were inferred for this package.
+
 `)
 	if includeApprovalStates {
 		b.WriteString(`## Approval State Requirements
@@ -1096,6 +1128,16 @@ func validReviewEvidenceText(includeApprovalStates, includeCredentialInventory b
 - ` + "`approved_for_production`" + `: production execution through a trusted runner and approved credentials.
 - ` + "`rejected`" + `: artifact rejected or regeneration requested.
 - ` + "`approved_for_sandbox`" + ` and ` + "`approved_for_production`" + ` are not required unless future changes add side effects.
+- Approval artifact: create ` + "`openudon.approval.v1`" + ` JSON with ` + "`openudon approval-template`" + ` only after reviewing the current digest-covered package.
+
+## Approval Artifact Checklist
+
+- Approval JSON version: ` + "`openudon.approval.v1`" + `.
+- Required fields: ` + "`scope`" + `, ` + "`state`" + `, ` + "`reviewer`" + `, ` + "`approved_at`" + `, ` + "`package_sha256`" + `.
+- Optional fields: ` + "`expires_at`" + `, ` + "`notes`" + `.
+- Sandbox tier accepts ` + "`approved_for_sandbox`" + ` or ` + "`approved_for_production`" + `; production tier requires ` + "`approved_for_production`" + `.
+- ` + "`package_sha256`" + ` must match the current handoff package digest at ` + "`openudon run`" + ` time.
+- Regenerate approval JSON after any digest-covered package file changes.
 
 `)
 	}
@@ -1106,6 +1148,11 @@ func validReviewEvidenceText(includeApprovalStates, includeCredentialInventory b
 		b.WriteString("- No credential bindings declared or required.\n")
 	}
 	b.WriteString(`
+## Credential Scope Matrix
+
+- No credential bindings are declared or expected from the plan.
+- Credential values: not allowed in generated artifacts.
+
 ## Unresolved Risks
 
 - No unresolved execution-boundary risks detected by deterministic review.
@@ -1118,6 +1165,12 @@ func validReviewEvidenceText(includeApprovalStates, includeCredentialInventory b
 
 - Direct production execution: not performed by OpenUdon synthesis.
 - Sandbox/test proof run is optional unless future changes add side effects.
+- Dry-run handoff validates approval state, package digest, stored/current quality, tier compatibility, credential-value policy, and direct-production policy before executor invocation.
+- The generated run config is ` + "`openudon.executor-run.v1`" + `; it carries package paths, ` + "`package_sha256`" + `, tier, workdir, and credential binding names, not credential values.
+
+Trusted dry run:
+
+` + "```bash\nopenudon run --example example --tier sandbox --approval approvals/example.json --dry-run\n```\n" + `
 
 Trusted proof run:
 

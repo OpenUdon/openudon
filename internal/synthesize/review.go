@@ -45,7 +45,8 @@ func reviewMarkdown(result Result, provider, model string) string {
 	}
 	profile := sideEffectProfileForOpenAPI(policy, intent, result.OpenAPICandidates, result.PrimaryOpenAPI)
 	declaredCredentials := credentialBindingNames(policy)
-	expectedCredentials := expectedPlanCredentialNames(result.PlanJSONPath)
+	expectedPlan := readWorkflowPlan(result.PlanJSONPath)
+	expectedCredentials := credentialNamesFromPlan(expectedPlan)
 	commonReview := reviewLeafAdapter(reviewArtifactSet(result), declaredCredentials, expectedCredentials)
 	commonPackage := commonReview.MinimumReviewPackage()
 	b.WriteString("# OpenUdon Review Evidence\n\n")
@@ -120,6 +121,7 @@ func reviewMarkdown(result Result, provider, model string) string {
 	}
 	b.WriteString("- Credential binding audit: runtime binding names only; literal secrets are prohibited in prompts, examples, and artifacts.\n")
 	b.WriteString("- Direct production execution: not performed by OpenUdon synthesis.\n")
+	writeSideEffectRiskReview(&b, profile)
 	b.WriteString("\n## Approval State Requirements\n\n")
 	b.WriteString("- OpenUdon emitted state: `generated`; no approval is implied by artifact generation.\n")
 	b.WriteString("- `validated`: required validators and quality gates have passed or known warnings are attached.\n")
@@ -134,6 +136,14 @@ func reviewMarkdown(result Result, provider, model string) string {
 	} else {
 		b.WriteString("- `approved_for_sandbox` and `approved_for_production` are not required unless future changes add side effects.\n")
 	}
+	b.WriteString("- Approval artifact: create `openudon.approval.v1` JSON with `openudon approval-template` only after reviewing the current digest-covered package.\n")
+	b.WriteString("\n## Approval Artifact Checklist\n\n")
+	b.WriteString("- Approval JSON version: `openudon.approval.v1`.\n")
+	b.WriteString("- Required fields: `scope`, `state`, `reviewer`, `approved_at`, `package_sha256`.\n")
+	b.WriteString("- Optional fields: `expires_at`, `notes`.\n")
+	b.WriteString("- Sandbox tier accepts `approved_for_sandbox` or `approved_for_production`; production tier requires `approved_for_production`.\n")
+	b.WriteString("- `package_sha256` must match the current handoff package digest at `openudon run` time.\n")
+	b.WriteString("- Regenerate approval JSON after any digest-covered package file changes.\n")
 	b.WriteString("\n## Credential Binding Audit\n\n")
 	if len(declaredCredentials) == 0 && len(expectedCredentials) == 0 {
 		b.WriteString("- No credential bindings declared or required.\n")
@@ -150,6 +160,7 @@ func reviewMarkdown(result Result, provider, model string) string {
 		fmt.Fprintf(&b, "- Symbolic binding audit: `%s`\n", strings.Join(audit.DeclaredSymbolicBindings, "`, `"))
 	}
 	b.WriteString("- Credential values must stay outside prompts, examples, generated artifacts, and logs.\n")
+	writeCredentialScopeMatrix(&b, expectedPlan, declaredCredentials, expectedCredentials)
 	b.WriteString("\n## Unresolved Risks\n\n")
 	if profile.SideEffectful && !profile.HasApprovalPolicy {
 		b.WriteString("- Side-effectful workflow lacks explicit approval or trusted-runtime policy.\n")
@@ -172,19 +183,34 @@ func reviewMarkdown(result Result, provider, model string) string {
 	} else {
 		b.WriteString("- Sandbox/test proof run is optional unless future changes add side effects.\n")
 	}
-	b.WriteString("- Credential binding audit must verify named runtime bindings and no literal secret values.\n\n")
+	b.WriteString("- Credential binding audit must verify named runtime bindings and no literal secret values.\n")
+	b.WriteString("- Dry-run handoff validates approval state, package digest, stored/current quality, tier compatibility, credential-value policy, and direct-production policy before executor invocation.\n")
+	b.WriteString("- The generated run config is `openudon.executor-run.v1`; it carries package paths, `package_sha256`, tier, workdir, and credential binding names, not credential values.\n\n")
+	b.WriteString("Trusted dry run, before any executor invocation:\n\n")
+	fmt.Fprintf(&b, "```bash\nopenudon run --example %s --tier sandbox --approval approvals/%s.json --dry-run\n```\n\n", relOrAbs(filepath.Dir(result.ExampleDir), result.ExampleDir), filepath.Base(result.ExampleDir))
 	b.WriteString("Trusted proof run, only when explicitly approved:\n\n")
 	fmt.Fprintf(&b, "```bash\nopenudon run --example %s --tier sandbox --approval approvals/%s.json\n```\n", relOrAbs(filepath.Dir(result.ExampleDir), result.ExampleDir), filepath.Base(result.ExampleDir))
 	return b.String()
 }
 
 func expectedPlanCredentialNames(path string) []string {
+	return credentialNamesFromPlan(readWorkflowPlan(path))
+}
+
+func readWorkflowPlan(path string) *WorkflowPlan {
 	data, err := os.ReadFile(path)
 	if err != nil {
 		return nil
 	}
 	var plan WorkflowPlan
 	if err := json.Unmarshal(data, &plan); err != nil {
+		return nil
+	}
+	return &plan
+}
+
+func credentialNamesFromPlan(plan *WorkflowPlan) []string {
+	if plan == nil {
 		return nil
 	}
 	seen := map[string]bool{}
@@ -205,6 +231,90 @@ func expectedPlanCredentialNames(path string) []string {
 		}
 	}
 	var out []string
+	for credential := range seen {
+		out = append(out, credential)
+	}
+	sort.Strings(out)
+	return out
+}
+
+func writeSideEffectRiskReview(b *strings.Builder, profile sideEffectProfile) {
+	b.WriteString("\n## Side-Effect Risk Review\n\n")
+	if !profile.SideEffectful {
+		b.WriteString("- No side-effectful operations were inferred for this package.\n")
+		return
+	}
+	if len(profile.Effects) == 0 {
+		b.WriteString("- Side-effectful behavior was inferred, but no step-level effect details were available.\n")
+		b.WriteString("- Required approval path: `review_required` -> `approved_for_sandbox` for proof runs; `approved_for_production` for production.\n")
+		return
+	}
+	for _, effect := range profile.Effects {
+		step := firstNonEmpty(effect.Step, "<unknown>")
+		kind := firstNonEmpty(effect.Kind, "effect")
+		source := firstNonEmpty(effect.Source, "project/intent evidence")
+		fmt.Fprintf(b, "- `%s` %s", step, kind)
+		if effect.Operation != "" {
+			fmt.Fprintf(b, " operation `%s`", effect.Operation)
+		}
+		if effect.Method != "" || effect.Path != "" {
+			fmt.Fprintf(b, " `%s %s`", strings.TrimSpace(effect.Method), strings.TrimSpace(effect.Path))
+		}
+		fmt.Fprintf(b, " from `%s`: %s\n", source, firstNonEmpty(effect.Risk, "requires review before trusted-runner execution"))
+	}
+	b.WriteString("- Required approval path: `review_required` -> `approved_for_sandbox` for sandbox/test proof runs; `approved_for_production` for production.\n")
+}
+
+func writeCredentialScopeMatrix(b *strings.Builder, plan *WorkflowPlan, declaredCredentials, expectedCredentials []string) {
+	b.WriteString("\n## Credential Scope Matrix\n\n")
+	if len(declaredCredentials) == 0 && len(expectedCredentials) == 0 {
+		b.WriteString("- No credential bindings are declared or expected from the plan.\n")
+		b.WriteString("- Credential values: not allowed in generated artifacts.\n")
+		return
+	}
+	if plan == nil || len(plan.Steps) == 0 {
+		b.WriteString("- Plan step credential scope was unavailable; review declared and expected binding inventories above.\n")
+		b.WriteString("- Credential values: not allowed in generated artifacts.\n")
+		return
+	}
+	var wrote bool
+	for _, step := range plan.Steps {
+		bindings := credentialBindingsForPlanStep(step)
+		if len(bindings) == 0 {
+			continue
+		}
+		openapi := firstNonEmpty(step.OpenAPI, "local/runtime")
+		operation := firstNonEmpty(step.Operation, step.Type)
+		stepName := firstNonEmpty(step.Name, "<unnamed>")
+		fmt.Fprintf(b, "- `%s`: scope `%s %s`; bindings `%s`\n", stepName, openapi, operation, strings.Join(bindings, "`, `"))
+		wrote = true
+	}
+	if !wrote {
+		b.WriteString("- No step-level credential references were present; review declared binding inventory above.\n")
+	}
+	b.WriteString("- Credential values: not allowed in generated artifacts; the trusted runner resolves only named bindings at execution time.\n")
+}
+
+func credentialBindingsForPlanStep(step PlanStep) []string {
+	seen := map[string]bool{}
+	for _, credential := range step.Credentials {
+		credential = strings.TrimSpace(credential)
+		if credential != "" {
+			seen[credential] = true
+		}
+	}
+	for _, param := range step.RequestParams {
+		if !param.Credential || param.SourceKind != "credential" {
+			continue
+		}
+		for _, credential := range []string{param.ExpectedCredential, param.ExpectedSource} {
+			credential = strings.TrimSpace(credential)
+			if credential != "" {
+				seen[credential] = true
+			}
+		}
+	}
+	out := make([]string, 0, len(seen))
 	for credential := range seen {
 		out = append(out, credential)
 	}

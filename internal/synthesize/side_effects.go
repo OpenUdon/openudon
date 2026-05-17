@@ -1,6 +1,7 @@
 package synthesize
 
 import (
+	"sort"
 	"strings"
 
 	"github.com/OpenUdon/openudon/internal/openapidisco"
@@ -14,6 +15,17 @@ type sideEffectProfile struct {
 	HasProductionPolicy bool
 	ProductionEndpoint  bool
 	Reasons             []string
+	Effects             []sideEffectEvidence
+}
+
+type sideEffectEvidence struct {
+	Step      string
+	Kind      string
+	Source    string
+	Operation string
+	Method    string
+	Path      string
+	Risk      string
 }
 
 func sideEffectProfileFor(policy projectPolicy, intent *rollout.Intent) sideEffectProfile {
@@ -41,6 +53,12 @@ func sideEffectProfileFor(policy projectPolicy, intent *rollout.Intent) sideEffe
 			name = "fnct"
 		}
 		profile.Reasons = append(profile.Reasons, name+" side effects: "+sideEffects)
+		profile.Effects = append(profile.Effects, sideEffectEvidence{
+			Step:   name,
+			Kind:   "fnct",
+			Source: "function contract",
+			Risk:   sideEffects,
+		})
 	}
 	walkIntentSteps(intentSteps(intent), func(step *rollout.Step) {
 		if step == nil {
@@ -54,6 +72,12 @@ func sideEffectProfileFor(policy projectPolicy, intent *rollout.Intent) sideEffe
 		if kind == "cmd" || kind == "ssh" {
 			profile.SideEffectful = true
 			profile.Reasons = append(profile.Reasons, name+" uses "+kind+" runtime")
+			profile.Effects = append(profile.Effects, sideEffectEvidence{
+				Step:   name,
+				Kind:   kind,
+				Source: "intent runtime",
+				Risk:   kind + " runtime can affect local or remote systems",
+			})
 			if policy.AllowedRuntime[kind] {
 				profile.HasApprovalPolicy = true
 			}
@@ -63,10 +87,24 @@ func sideEffectProfileFor(policy projectPolicy, intent *rollout.Intent) sideEffe
 		if containsSideEffectVerb(text) {
 			profile.SideEffectful = true
 			profile.Reasons = append(profile.Reasons, name+" appears side-effectful")
+			profile.Effects = append(profile.Effects, sideEffectEvidence{
+				Step:      name,
+				Kind:      firstNonEmpty(kind, "intent"),
+				Source:    "intent language",
+				Operation: strings.TrimSpace(step.Operation),
+				Risk:      "intent text contains create/send/write/update/delete/post style behavior",
+			})
 		}
 		if containsCustomerCommunicationTerm(text) {
 			profile.SideEffectful = true
 			profile.Reasons = append(profile.Reasons, name+" sends customer communications")
+			profile.Effects = append(profile.Effects, sideEffectEvidence{
+				Step:      name,
+				Kind:      firstNonEmpty(kind, "intent"),
+				Source:    "intent language",
+				Operation: strings.TrimSpace(step.Operation),
+				Risk:      "customer communication or notification behavior requires approval",
+			})
 		}
 	})
 	if containsAny(policyText, []string{"side-effectful", "side effectful", "sends email", "send email", "deploy workflow"}) {
@@ -74,8 +112,15 @@ func sideEffectProfileFor(policy projectPolicy, intent *rollout.Intent) sideEffe
 		if len(profile.Reasons) == 0 {
 			profile.Reasons = append(profile.Reasons, "project policy mentions side effects")
 		}
+		profile.Effects = append(profile.Effects, sideEffectEvidence{
+			Step:   "project policy",
+			Kind:   "policy",
+			Source: "project.md",
+			Risk:   "project policy mentions side-effectful behavior",
+		})
 	}
 	profile.Reasons = sortedUnique(profile.Reasons)
+	profile.Effects = sortedUniqueSideEffectEvidence(profile.Effects)
 	return profile
 }
 
@@ -97,23 +142,54 @@ func sideEffectProfileForOpenAPI(policy projectPolicy, intent *rollout.Intent, c
 			if openAPIMethodIsSideEffectful(op.Method) {
 				profile.SideEffectful = true
 				profile.Reasons = append(profile.Reasons, name+" uses "+strings.ToUpper(op.Method)+" "+op.Path)
+				profile.Effects = append(profile.Effects, sideEffectEvidence{
+					Step:      name,
+					Kind:      "openapi",
+					Source:    specPath,
+					Operation: strings.TrimSpace(step.Operation),
+					Method:    strings.ToUpper(strings.TrimSpace(op.Method)),
+					Path:      strings.TrimSpace(op.Path),
+					Risk:      "write-class HTTP operation requires review and approved trusted-runner handoff",
+				})
 			}
 			text := strings.ToLower(strings.Join([]string{op.OperationID, op.Summary, op.Description, strings.Join(op.Tags, " ")}, " "))
 			if containsSideEffectVerb(text) || containsCustomerCommunicationTerm(text) {
 				profile.SideEffectful = true
 				profile.Reasons = append(profile.Reasons, name+" OpenAPI operation appears side-effectful")
+				profile.Effects = append(profile.Effects, sideEffectEvidence{
+					Step:      name,
+					Kind:      "openapi",
+					Source:    specPath,
+					Operation: strings.TrimSpace(step.Operation),
+					Method:    strings.ToUpper(strings.TrimSpace(op.Method)),
+					Path:      strings.TrimSpace(op.Path),
+					Risk:      "OpenAPI operation text indicates write, send, notification, or customer communication behavior",
+				})
 			}
 		}
 		if server := servers[specPath]; productionEndpointURL(server) {
 			profile.ProductionEndpoint = true
 			profile.Reasons = append(profile.Reasons, name+" uses production endpoint "+server)
+			profile.Effects = append(profile.Effects, sideEffectEvidence{
+				Step:   name,
+				Kind:   "endpoint",
+				Source: specPath,
+				Risk:   "production endpoint requires explicit production handoff approval",
+			})
 		}
 	})
 	if intent != nil && productionEndpointURL(intent.ServerURL) {
 		profile.ProductionEndpoint = true
 		profile.Reasons = append(profile.Reasons, "intent uses production endpoint "+intent.ServerURL)
+		profile.Effects = append(profile.Effects, sideEffectEvidence{
+			Step:   "workflow",
+			Kind:   "endpoint",
+			Source: "intent server",
+			Risk:   "production endpoint requires explicit production handoff approval",
+		})
 	}
 	profile.Reasons = sortedUnique(profile.Reasons)
+	profile.Effects = sortedUniqueSideEffectEvidence(profile.Effects)
 	return profile
 }
 
@@ -193,4 +269,30 @@ func containsAny(value string, needles []string) bool {
 		}
 	}
 	return false
+}
+
+func sortedUniqueSideEffectEvidence(effects []sideEffectEvidence) []sideEffectEvidence {
+	seen := map[string]bool{}
+	var out []sideEffectEvidence
+	for _, effect := range effects {
+		effect.Step = strings.TrimSpace(effect.Step)
+		effect.Kind = strings.TrimSpace(effect.Kind)
+		effect.Source = strings.TrimSpace(effect.Source)
+		effect.Operation = strings.TrimSpace(effect.Operation)
+		effect.Method = strings.TrimSpace(effect.Method)
+		effect.Path = strings.TrimSpace(effect.Path)
+		effect.Risk = strings.TrimSpace(effect.Risk)
+		key := strings.Join([]string{effect.Step, effect.Kind, effect.Source, effect.Operation, effect.Method, effect.Path, effect.Risk}, "\x00")
+		if key == "" || seen[key] {
+			continue
+		}
+		seen[key] = true
+		out = append(out, effect)
+	}
+	sort.SliceStable(out, func(i, j int) bool {
+		left := strings.Join([]string{out[i].Step, out[i].Kind, out[i].Source, out[i].Operation, out[i].Method, out[i].Path, out[i].Risk}, "\x00")
+		right := strings.Join([]string{out[j].Step, out[j].Kind, out[j].Source, out[j].Operation, out[j].Method, out[j].Path, out[j].Risk}, "\x00")
+		return left < right
+	})
+	return out
 }

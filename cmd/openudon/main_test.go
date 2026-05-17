@@ -245,7 +245,11 @@ func TestNextActionForQualityCheck(t *testing.T) {
 		"review.approval_states":           "approved_for_sandbox",
 		"review.sandbox_handoff":           "sandbox or proof runs",
 		"review.trusted_runner":            "trusted-runner handoff command",
+		"review.trusted_runner_dry_run":    "trusted-runner dry-run command",
 		"review.production_boundary":       "does not directly execute production workflows",
+		"review.approval_artifact":         "package_sha256",
+		"review.credential_scope":          "credential scope matrix",
+		"review.side_effect_risk":          "approved sandbox/production handoff states",
 		"symphony_handoff.contract":        "Symphony can consume",
 	}
 	for code, expected := range cases {

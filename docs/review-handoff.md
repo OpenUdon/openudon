@@ -3,6 +3,9 @@
 OpenUdon packages are reviewed through generated evidence and a machine-readable handoff manifest
 before `openudon run` can invoke a trusted executor.
 
+For SaaS-specific review evidence, credential scope, side-effect risk, approval
+JSON, and dry-run guidance, see [SaaS Review And Trusted Handoff](saas-review-handoff.md).
+
 ## Handoff Manifest
 
 `expected/symphony-handoff.json` uses the stable `apitools.review-handoff.v1` wire version. The

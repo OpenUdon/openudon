@@ -717,8 +717,16 @@ func nextActionForQualityCheck(code string) string {
 		return "Scope trusted-runner handoff to approved sandbox or proof runs before production handoff."
 	case code == "review.trusted_runner":
 		return "Regenerate review evidence so expected/review.md includes the trusted-runner handoff command."
+	case code == "review.trusted_runner_dry_run":
+		return "Regenerate review evidence so expected/review.md includes the trusted-runner dry-run command and run-config boundary."
 	case code == "review.production_boundary":
 		return "Regenerate review evidence so it states OpenUdon synthesis does not directly execute production workflows."
+	case code == "review.approval_artifact":
+		return "Regenerate review evidence so it describes approval JSON fields, tier state, expiry, and package_sha256 requirements."
+	case code == "review.credential_scope":
+		return "Regenerate review evidence so it includes the credential scope matrix for declared and expected bindings."
+	case code == "review.side_effect_risk":
+		return "Regenerate review evidence so it lists side-effect risk and approved sandbox/production handoff states."
 	case strings.HasPrefix(code, "review."):
 		return "Update Safety and Approval Boundary or regenerate review evidence with build/synthesize."
 	case strings.HasPrefix(code, "symphony_handoff."):

@@ -5,6 +5,9 @@ reviewable and deterministic. The goal is not to add new runtime semantics; it
 is to make cross-service bindings, credential scopes, side effects, and
 graduation policy explicit enough for authoring and review.
 
+M19 review posture for these patterns is covered in
+[SaaS Review And Trusted Handoff](saas-review-handoff.md).
+
 ## Pattern Inventory
 
 | Pattern | Strict Or Reference Fixture | What It Proves | Status |

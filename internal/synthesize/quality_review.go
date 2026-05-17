@@ -130,6 +130,26 @@ func assessReview(report *QualityReport, path string, profile sideEffectProfile,
 		return
 	}
 	report.add("review.side_effect_summary", "pass", "review evidence summarizes inferred side effects", "")
+	if !reviewContainsSideEffectRisk(text, profile) {
+		report.add("review.side_effect_risk", "fail", "review evidence must include side-effect risk review and approval path", "")
+		return
+	}
+	report.add("review.side_effect_risk", "pass", "review evidence includes side-effect risk review", "")
+	if !reviewContainsApprovalArtifactChecklist(text) {
+		report.add("review.approval_artifact", "fail", "review evidence must describe approval JSON, tier, expiry, and package digest requirements", "")
+		return
+	}
+	report.add("review.approval_artifact", "pass", "review evidence describes approval artifact requirements", "")
+	if !reviewContainsCredentialScopeMatrix(text, policy, expectedPlan) {
+		report.add("review.credential_scope", "fail", "review evidence must include a credential scope matrix for declared and expected bindings", "")
+		return
+	}
+	report.add("review.credential_scope", "pass", "review evidence includes credential scope matrix", "")
+	if !reviewContainsTrustedDryRun(text) {
+		report.add("review.trusted_runner_dry_run", "fail", "review evidence must include trusted-runner dry-run command and run-config boundary", "")
+		return
+	}
+	report.add("review.trusted_runner_dry_run", "pass", "review evidence includes trusted-runner dry-run evidence", "")
 	if !strings.Contains(text, "## Unresolved Risks") {
 		report.add("review.unresolved_risks", "fail", "review evidence must record unresolved risks or lack of known risks", "")
 		return
@@ -355,6 +375,75 @@ func reviewContainsCredentialBindings(text string, policy projectPolicy, expecte
 	}
 	for credential := range expected {
 		if !strings.Contains(text, "`"+credential+"`") {
+			return false
+		}
+	}
+	return true
+}
+
+func reviewContainsSideEffectRisk(text string, profile sideEffectProfile) bool {
+	if !strings.Contains(text, "## Side-Effect Risk Review") {
+		return false
+	}
+	if !profile.SideEffectful {
+		return strings.Contains(text, "No side-effectful operations were inferred")
+	}
+	return strings.Contains(text, "`review_required`") &&
+		strings.Contains(text, "`approved_for_sandbox`") &&
+		strings.Contains(text, "`approved_for_production`")
+}
+
+func reviewContainsApprovalArtifactChecklist(text string) bool {
+	for _, required := range []string{
+		"## Approval Artifact Checklist",
+		"`openudon.approval.v1`",
+		"`package_sha256`",
+		"`expires_at`",
+		"`approved_for_sandbox`",
+		"`approved_for_production`",
+	} {
+		if !strings.Contains(text, required) {
+			return false
+		}
+	}
+	return true
+}
+
+func reviewContainsCredentialScopeMatrix(text string, policy projectPolicy, expectedPlan *WorkflowPlan) bool {
+	if !strings.Contains(text, "## Credential Scope Matrix") {
+		return false
+	}
+	expected := map[string]bool{}
+	for _, credential := range credentialBindingNames(policy) {
+		expected[credential] = true
+	}
+	if expectedPlan != nil {
+		for _, step := range expectedPlan.Steps {
+			for _, credential := range credentialBindingsForPlanStep(step) {
+				expected[credential] = true
+			}
+		}
+	}
+	if len(expected) == 0 {
+		return strings.Contains(text, "No credential bindings are declared or expected from the plan.")
+	}
+	for credential := range expected {
+		if !strings.Contains(text, "`"+credential+"`") {
+			return false
+		}
+	}
+	return strings.Contains(text, "Credential values: not allowed")
+}
+
+func reviewContainsTrustedDryRun(text string) bool {
+	for _, required := range []string{
+		"Trusted dry run",
+		"--dry-run",
+		"`openudon.executor-run.v1`",
+		"`package_sha256`",
+		"credential binding names, not credential values",
+	} {
+		if !strings.Contains(text, required) {
 			return false
 		}
 	}
