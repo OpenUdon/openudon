@@ -45,7 +45,7 @@ specific workflow behavior or failure class rather than merely adding volume.
 | `response-field-ticket-alert` | Nested response-field extraction into an approved side-effectful alert adapter. |
 | `retry-idempotent-webhook-send` | Idempotent side-effectful webhook send with workflow timeout/idempotency controls. |
 | `runtime-only-render` | No-OpenAPI runtime-only `fnct` rendering workflow. |
-| `slack-message-audit-log` | Multi-step data-passing fixture: post-message response feeds local audit-log rendering. |
+| `slack-message-audit-log` | Initial OpenUdon-native SaaS authoring fixture: post-message response feeds local audit-log rendering. |
 | `support-email` | API lookup plus approved side-effectful email adapter and safety boundary. |
 | `support-priority-routing` | Function-backed classification/routing with explicit contracts. |
 | `timeout-idempotency-controls` | Runtime-only workflow with explicit workflow timeout, step timeout, and workflow idempotency metadata. |
@@ -70,7 +70,9 @@ Add samples only when they strengthen coverage:
 - Treat wrong runtime type, wrong selected OpenAPI operation, and reference parse/compare failures
   as behavioral drift. These are blocking unless a fixture policy deliberately overrides them.
 - For n8n reducibility samples, keep upstream n8n and w8m inputs hermetic by copying OpenAPI
-  evidence into the fixture and recording provenance in `reference/n8n.json`.
+  evidence into the fixture and recording provenance in `reference/n8n.json`. Treat them as
+  service-priority and mapping evidence for agentic SaaS authoring unless their fixture policy
+  explicitly graduates them to strict OpenUdon-native coverage.
 - Keep `max_blocking` at `0` unless the fixture is intentionally tracking a temporary known gap.
 - Keep secret-shaped values fake and avoid real provider data.
 - Document credential bindings by name only.

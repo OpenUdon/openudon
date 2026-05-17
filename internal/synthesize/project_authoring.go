@@ -5,9 +5,9 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/OpenUdon/uws/uws1"
 	"github.com/OpenUdon/openudon/internal/authoring"
 	"github.com/OpenUdon/openudon/internal/projectdoc"
+	"github.com/OpenUdon/uws/uws1"
 	"gopkg.in/yaml.v3"
 )
 
@@ -568,6 +568,7 @@ func runtimePolicyPrompt(policy projectPolicy) string {
 	if strings.TrimSpace(policy.DataFlowSection) != "" {
 		b.WriteString("- Treat the project Data Flow section as authoritative field mapping guidance.\n")
 	}
+	b.WriteString("- For common SaaS OpenAPI workflows, keep each API step auditable: name the operationId, credential binding, required request field sources, side-effect scope, and output source when present.\n")
 	if strings.TrimSpace(policy.FunctionSection) != "" {
 		b.WriteString("- Treat the project Function Contracts section as authoritative for fnct inputs, outputs, and side effects.\n")
 	}

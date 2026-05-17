@@ -17,6 +17,14 @@ Prefer each operation's structured metadata when mapping user intent to request 
 
 Use required_fields only as a compatibility summary when the richer parameter, request_body, or security context is absent or incomplete.
 
+For common SaaS workflows, produce OpenUdon-native authoring artifacts even when the service or operation was inspired by n8n or try-n8n evidence. Treat that evidence only as provider vocabulary and priority guidance. Do not emit n8n runtime concepts, node IDs, credentials, or import-specific semantics.
+
+For each SaaS API step, make the request mapping reviewable:
+- choose a listed operationId;
+- map each required path, query, header, or body field to an input, safe literal, prior step output, or symbolic credential binding name;
+- identify side-effect scope for send, create, update, delete, upload, and post actions;
+- record output paths only when they are visible in listed response metadata or defensible from project text.
+
 Return JSON for a partial or complete OpenUdon iCoT session. Include assumptions for every inferred operation, field mapping, credential binding, side-effect scope, timeout/idempotency control, and output source. Assumptions must have id, slot, value, reason, evidence, risk, and requires_confirmation.
 
 If a value is not defensible from the brief, current session, transcript turns, readiness feedback, or listed metadata, leave it blank so the deterministic prompt loop can ask the user.

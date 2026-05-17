@@ -43,6 +43,14 @@ intent, and writes the generated package artifacts. `build` regenerates from exi
 Use [Synthesize](synthesize.md), [intent.hcl](intent.md), and [Data Flow](data-flow.md) for the
 artifact contracts.
 
+## Agentic SaaS Authoring
+
+For common SaaS workflows, use [Agentic SaaS Authoring](agentic-saas-authoring.md) as the contract.
+The AI-assisted path can draft goals, operation choices, request mappings, credential binding names,
+and unresolved assumptions. n8n-derived examples are service-priority evidence only; the generated
+artifacts stay OpenUdon-native and continue through deterministic validation, review, packaging, and
+trusted handoff.
+
 ## Safety Rules
 
 - Put credential binding names in artifacts, never credential values.

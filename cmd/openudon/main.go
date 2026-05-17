@@ -684,13 +684,21 @@ func nextActionForQualityCheck(code string) string {
 	case strings.HasPrefix(code, "project.authoring."):
 		return "Fill the missing project.md section so synthesis decisions are auditable."
 	case strings.HasPrefix(code, "openapi."):
-		return "Add or fix OpenAPI documents under openapi/, or declare OpenAPI: none required when no API is needed."
+		return "Add or fix OpenAPI documents under openapi/ with operation IDs, request fields, response schemas, and security schemes; or declare OpenAPI: none required when no API is needed."
 	case code == "plan.gaps":
 		return "Resolve missing operations, required parameters, or credential bindings in project.md or intent.hcl."
+	case code == "intent.data_flow.required_params":
+		return "Map every required OpenAPI path, query, header, or body field to an input, safe literal, prior-step bind, or credential binding name; document SaaS request mappings in Data Flow."
+	case code == "intent.data_flow.response_paths":
+		return "Use response fields present in the OpenAPI schema or update Outputs and Data Flow; avoid guessing SaaS response paths."
+	case code == "intent.data_flow.explicit":
+		return "Add Data Flow guidance with request field sources, prior-step bindings, credential binding names, and final output sources."
+	case code == "intent.openapi_operations":
+		return "Select only operationId values listed in local OpenAPI documents and document unresolved SaaS capability gaps instead of inventing provider operations."
 	case strings.HasPrefix(code, "intent."):
 		return "Inspect workflows/intent.hcl and project.md; rerun synthesize when the brief needs regeneration."
 	case code == "credentials.security_schemes":
-		return "Declare credential binding names for required OpenAPI security schemes in project.md, then rerun synthesize or build."
+		return "Declare symbolic credential binding names for required OpenAPI security schemes in project.md, then rerun synthesize or build."
 	case code == "credentials.bindings", code == "workflow.credentials_bound":
 		return "Name runtime credential bindings in project.md and ensure workflow request fields reference binding names, never secret values."
 	case strings.HasPrefix(code, "workflow."):

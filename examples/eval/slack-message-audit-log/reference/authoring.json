@@ -1,0 +1,20 @@
+{
+  "contract": "openudon.agentic-saas-authoring.v1",
+  "service": "Slack",
+  "operation_id": "postMessage",
+  "credential_binding": "none-required-for-sandbox-fixture",
+  "request_mappings": {
+    "channel": "inputs.channel",
+    "text": "inputs.text"
+  },
+  "response_paths": [
+    "received_body.ok",
+    "received_body.channel",
+    "received_body.ts"
+  ],
+  "side_effect_scope": "sandbox message post; review required before trusted-runner execution",
+  "evidence": [
+    "OpenUdon-native strict fixture for agentic SaaS authoring",
+    "Slack message/post is also represented in n8n-derived advisory evidence under examples/eval/n8n-slack-message-post"
+  ]
+}

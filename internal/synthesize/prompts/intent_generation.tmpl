@@ -14,6 +14,8 @@ Use structural steps such as switch or loop when the brief requires branching or
 Use successCriteria, onFailure, and onSuccess only on leaf operation steps when the brief explicitly asks for success criteria, retry, failure routing, or success routing. Do not make retries a default behavior. Retry actions must include retryLimit and may include retryAfter.
 Treat the "Required by project.md" section in the user message as mandatory wiring guidance.
 Never include secrets or credential values. Use security/token_from names instead.
+For common SaaS services, keep the result OpenUdon-native even when the brief references n8n, try-n8n, or a known automation product. Use those references only as service, operation, and field vocabulary. Do not emit n8n node IDs, n8n credential objects, or n8n runtime behavior.
+For SaaS send/create/update/delete/upload/post steps, make the side effect auditable with explicit request field mappings, credential binding names, and review-required wording when the project brief includes policy guidance.
 
 ## Examples
 

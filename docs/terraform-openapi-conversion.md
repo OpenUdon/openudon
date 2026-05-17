@@ -14,6 +14,57 @@ M7 specified the adapter contract, M8 implemented the initial `openudon convert
 tf` path, M9 integrated package-local OpenAPI staging and handoff artifacts, and
 M10 keeps the path stewarded through release checks.
 
+## Current Status: Parked
+
+Terraform/OpenTofu conversion is parked as an implemented but non-primary
+product track. The existing `openudon convert tf` command, static parser
+boundary, diagnostics, package artifact generation, and selected AWS regression
+coverage should remain maintained by normal tests and release checks, but broad
+Terraform provider coverage is deferred.
+
+The near-term OpenUdon product focus is agentic UWS authoring for common SaaS
+workflows backed by local OpenAPI documents. n8n and `../try-n8n` are useful
+service-priority and workflow-pattern evidence for that path, but n8n workflow
+import is deferred. Terraform work should resume only when the project is ready
+to invest in a stable provider adapter architecture and a provider-family
+corpus.
+
+When resumed, the next Terraform milestone should not make `tfconfig` an
+AWS/GCP/Azure dialect engine. `tfconfig` should remain provider-neutral and
+continue to emit static Terraform/OpenTofu facts: resources, data sources,
+providers, aliases, modules, expressions, source ranges, diagnostics, and
+sensitive candidates. Provider semantics belong in an OpenUdon conversion
+adapter layer above `tfconfig`.
+
+Future provider support should use a provider-adapter shape:
+
+```text
+tfconfig static facts
+  -> provider-neutral OpenUdon conversion core
+  -> provider adapter: AWS, GCP, Azure, or another provider family
+  -> OpenAPI operation mapping, request bindings, credential binding names
+  -> normal OpenUdon review package artifacts
+```
+
+Planned provider-family direction:
+
+- **AWS**: continue the existing S3/IAM/Lambda/STS corpus; grow mappings from
+  selected `../terraform-provider-aws` acceptance-test snippets; keep SigV4,
+  query-protocol `Action`/`Version`, provider alias credential names, and
+  provider-local metadata in the adapter layer.
+- **GCP**: add a future adapter for Google provider resources and data sources
+  after identifying stable Google API/OpenAPI inputs, project/location/zone
+  conventions, service account credential bindings, and provider alias behavior.
+- **Azure**: add a future adapter for AzureRM-style resources and data sources
+  after identifying ARM OpenAPI operation IDs, API-version request bindings,
+  subscription/resource-group/location conventions, and tenant/subscription
+  credential binding names.
+
+Any future AWS/GCP/Azure adapter must stay review-first. It must not execute
+Terraform/OpenTofu, provider plugins, cloud SDKs, live cloud APIs, state, plan,
+apply, refresh, imports, or credential resolution. Unsupported or ambiguous
+provider behavior should remain deterministic diagnostics and review TODOs.
+
 Support a command shaped like:
 
 ```bash

@@ -54,6 +54,13 @@ with `OPENUDON_EXECUTOR` as either an absolute binary path or `docker://<image>`
 - `templates/project.md`: starter project brief.
 - `docs/`: detailed architecture, safety, operator, XRD, and release notes.
 
+Authoring details:
+
+- [Agentic SaaS authoring](docs/agentic-saas-authoring.md) describes the M15 path for common SaaS
+  workflows and the role of n8n-derived evidence.
+- [Project briefs](docs/project-authoring.md) and [Data Flow](docs/data-flow.md) describe the
+  reviewable artifact contracts.
+
 ## Execution Boundary
 
 The intended lifecycle is:

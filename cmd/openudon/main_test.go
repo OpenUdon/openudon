@@ -235,13 +235,18 @@ func TestNextActionForQualityCheck(t *testing.T) {
 		t.Fatalf("unexpected credential review action: %q", got)
 	}
 	cases := map[string]string{
-		"side_effects.environment":     "production handoff approval",
-		"credentials.security_schemes": "OpenAPI security schemes",
-		"review.approval_states":       "approved_for_sandbox",
-		"review.sandbox_handoff":       "sandbox or proof runs",
-		"review.trusted_runner":        "trusted-runner handoff command",
-		"review.production_boundary":   "does not directly execute production workflows",
-		"symphony_handoff.contract":    "Symphony can consume",
+		"side_effects.environment":         "production handoff approval",
+		"credentials.security_schemes":     "symbolic credential binding names",
+		"openapi.discovery":                "operation IDs",
+		"intent.data_flow.required_params": "required OpenAPI path",
+		"intent.data_flow.response_paths":  "avoid guessing SaaS response paths",
+		"intent.data_flow.explicit":        "request field sources",
+		"intent.openapi_operations":        "listed in local OpenAPI documents",
+		"review.approval_states":           "approved_for_sandbox",
+		"review.sandbox_handoff":           "sandbox or proof runs",
+		"review.trusted_runner":            "trusted-runner handoff command",
+		"review.production_boundary":       "does not directly execute production workflows",
+		"symphony_handoff.contract":        "Symphony can consume",
 	}
 	for code, expected := range cases {
 		got := nextActionForQualityCheck(code)

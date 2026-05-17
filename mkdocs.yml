@@ -23,6 +23,7 @@ nav:
   - Home: index.md
   - Authoring:
     - Overview: authoring.md
+    - Agentic SaaS Authoring: agentic-saas-authoring.md
     - Project Briefs: project-authoring.md
     - intent.hcl: intent.md
     - Data Flow: data-flow.md
