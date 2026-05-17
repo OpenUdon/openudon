@@ -1,7 +1,7 @@
 {
   "mode": "strict",
   "notes": [
-    "The order fulfillment fixture is stable; per-service OpenAPI selection, response extraction, request body construction, and write-policy evidence are golden."
+    "Strict multi-service SaaS pattern fixture; per-service OpenAPI selection, response extraction, request body construction, credential scopes, and write-policy evidence are golden."
   ],
   "max_blocking": 0
 }

@@ -1,0 +1,33 @@
+{
+  "contract": "openudon.agentic-saas-authoring.v1",
+  "fixture_policy": "strict-native-multi-service",
+  "pattern": "ticket-alert-archive",
+  "services": [
+    "Jira",
+    "Slack",
+    "Google Drive"
+  ],
+  "operation_ids": [
+    "createIssue",
+    "postMessage",
+    "uploadFile"
+  ],
+  "credential_bindings": {
+    "Jira": "jira_api_token",
+    "Slack": "slack_bot_token",
+    "Google Drive": "google_drive_oauth_token"
+  },
+  "cross_service_mappings": {
+    "format_slack_alert.issueKey": "create_jira_incident.received_body.key",
+    "format_slack_alert.issueURL": "create_jira_incident.received_body.self",
+    "post_slack_alert.text": "format_slack_alert.received_body.text",
+    "render_timeline_report.issueKey": "create_jira_incident.received_body.key",
+    "upload_timeline_report.name": "render_timeline_report.received_body.name",
+    "upload_timeline_report.content": "render_timeline_report.received_body.content"
+  },
+  "side_effect_scope": "Jira issue create, Slack alert post, and Drive upload; review required before trusted-runner execution",
+  "evidence": [
+    "Strict OpenUdon-native multi-service SaaS pattern fixture",
+    "The upstream n8n incident-response template is preserved only as source inspiration in reference/source.json"
+  ]
+}

@@ -1,7 +1,7 @@
 {
   "mode": "strict",
   "notes": [
-    "OpenUdon-native IT Ops fixture inspired by the incident-response template; Jira, Slack, and Drive side effects are the golden behavior."
+    "Strict multi-service SaaS pattern fixture inspired by the incident-response template; Jira, Slack, and Drive side effects are golden behavior."
   ],
   "max_blocking": 0
 }

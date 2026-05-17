@@ -3,7 +3,8 @@
 The eval corpus under `examples/eval` is intentionally curated. Each sample should demonstrate a
 specific workflow behavior or failure class rather than merely adding volume. For the M16 SaaS
 fixture policy, readiness matrix, and advisory-to-strict graduation criteria, see
-[SaaS Authoring Corpus](saas-authoring-corpus.md).
+[SaaS Authoring Corpus](saas-authoring-corpus.md). For M18 cross-service patterns, see
+[Multi-Service SaaS Patterns](multi-service-saas-patterns.md).
 
 | Sample | Purpose |
 | --- | --- |
@@ -23,7 +24,7 @@ fixture policy, readiness matrix, and advisory-to-strict graduation criteria, se
 | `incomplete-brief-repair` | Negative fixture that renders clarifying questions instead of inventing missing workflow behavior. |
 | `inventory-api-key-binding` | Credential binding names for API-key-style request parameters. |
 | `inventory-reorder-decision` | Multi-step data-passing fixture: inventory response feeds local reorder decision rendering. |
-| `itops-incident-response-archive` | n8n IT Ops-inspired incident workflow: create Jira issue, alert Slack, and archive a Drive timeline report. |
+| `itops-incident-response-archive` | Strict multi-service SaaS pattern: create Jira issue, alert Slack, and archive a Drive timeline report. |
 | `itops-slack-jira-issue-intake` | Initial multi-service SaaS authoring fixture: parses Slack report text, creates Jira, and confirms in Slack. |
 | `itops-workflow-backup-github` | n8n IT Ops-inspired workflow backup from n8n API to GitHub Contents API. |
 | `missing-credential-policy-negative` | Negative fixture that reports missing credential policy instead of issuing unaudited API calls. |
@@ -37,7 +38,7 @@ fixture policy, readiness matrix, and advisory-to-strict graduation criteria, se
 | `n8n-pagerduty-user-get` | Advisory n8n reducibility sample for PagerDuty `user/get` mapped to OpenUdon `getUser`. |
 | `n8n-slack-message-post` | Advisory n8n reducibility sample for Slack `message/post` mapped to OpenUdon `postMessage`. |
 | `n8n-trello-list-get-all` | Advisory n8n reducibility sample for Trello `list/getAll` mapped to OpenUdon `listTrelloBoardLists`. |
-| `order-fulfillment-chain` | Multi-service OpenAPI chain with per-service credentials, response extraction, request-body construction, and a sandbox write. |
+| `order-fulfillment-chain` | Strict multi-service SaaS pattern: customer and inventory lookups feed sandbox fulfillment order creation. |
 | `offset-pagination-export` | Offset pagination with two fixed pages and a local merge step. |
 | `pagerduty-user-contact-card` | Multi-step data-passing fixture: nested user response feeds local contact-card rendering. |
 | `paginated-list` | Simple OpenAPI list operation with bounded request parameters. |

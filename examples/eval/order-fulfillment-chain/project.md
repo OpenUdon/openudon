@@ -37,6 +37,11 @@ availability across separate APIs.
 - `openapi` and `http` are allowed for the Customer, Inventory, and Fulfillment Order APIs.
 - `cmd`, `ssh`, and non-HTTP runtimes are not allowed.
 
+## Function Contracts
+
+- No `fnct` steps are part of this fixture. Cross-service data flow is expressed with explicit
+  `bind` blocks from Customer and Inventory API responses into the Fulfillment Order API request.
+
 ## Credentials and Secrets
 
 - Use credential binding `customers_bearer_token` for the Customer API.

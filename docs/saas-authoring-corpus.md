@@ -26,6 +26,10 @@ Native fixtures may use sandbox-local OpenAPI slices instead of full public
 provider specifications. That keeps deterministic gates provider-free while
 still testing the OpenUdon authoring contract.
 
+M18 extends the strict set with multi-service pattern coverage. See
+[Multi-Service SaaS Patterns](multi-service-saas-patterns.md) for cross-service
+bindings, credential scopes, side-effect posture, and known gaps.
+
 ## Advisory Evidence
 
 Advisory fixtures stay useful because they show which provider operations users
