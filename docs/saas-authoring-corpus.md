@@ -30,6 +30,11 @@ M18 extends the strict set with multi-service pattern coverage. See
 [Multi-Service SaaS Patterns](multi-service-saas-patterns.md) for cross-service
 bindings, credential scopes, side-effect posture, and known gaps.
 
+M20 records end-to-end authoring/package trial evidence in
+[SaaS Authoring Trials](saas-authoring-trials.md). The trial matrix identifies
+which fixtures converge today and which need OpenAPI/request-field repair before
+strict promotion.
+
 ## Advisory Evidence
 
 Advisory fixtures stay useful because they show which provider operations users

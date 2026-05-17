@@ -32,7 +32,7 @@ Post a sandbox Slack-style message and render a local audit log from the post re
 ## Function Contracts
 
 - `render_audit_log`
-  - Inputs: ok, channel, and ts.
+  - Inputs: ok, channel, ts.
   - Outputs: audit log payload.
   - Side effects: none.
 

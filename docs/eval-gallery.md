@@ -4,7 +4,8 @@ The eval corpus under `examples/eval` is intentionally curated. Each sample shou
 specific workflow behavior or failure class rather than merely adding volume. For the M16 SaaS
 fixture policy, readiness matrix, and advisory-to-strict graduation criteria, see
 [SaaS Authoring Corpus](saas-authoring-corpus.md). For M18 cross-service patterns, see
-[Multi-Service SaaS Patterns](multi-service-saas-patterns.md).
+[Multi-Service SaaS Patterns](multi-service-saas-patterns.md). For M20 trial results, see
+[SaaS Authoring Trials](saas-authoring-trials.md).
 
 | Sample | Purpose |
 | --- | --- |

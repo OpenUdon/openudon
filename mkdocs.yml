@@ -25,6 +25,7 @@ nav:
     - Overview: authoring.md
     - Agentic SaaS Authoring: agentic-saas-authoring.md
     - SaaS Authoring Corpus: saas-authoring-corpus.md
+    - SaaS Authoring Trials: saas-authoring-trials.md
     - Multi-Service SaaS Patterns: multi-service-saas-patterns.md
     - Project Briefs: project-authoring.md
     - intent.hcl: intent.md
