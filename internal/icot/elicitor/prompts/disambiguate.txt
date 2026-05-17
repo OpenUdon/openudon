@@ -1,3 +1,4 @@
 Pick only matching existing OpenAPI document paths from the provided list.
+Prefer documents whose service name and operation vocabulary match the workflow brief.
 Return JSON like {"paths":["openapi/example.yaml"]}.
 Do not invent paths.

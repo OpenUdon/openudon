@@ -147,10 +147,10 @@ func CheckReadiness(session Session, docs []APIDocument) []ReadinessIssue {
 		add(issue.Code, issue.Slot, issue.Severity, issue.Message, issue.SuggestedAnswer)
 	}
 	if needsAPIDoc(session, docs) {
-		add("missing_api_doc", "intent.openapi", readinessBlocking, "Identify the OpenAPI document for API-backed steps.", suggestedDocAnswer(docs))
+		add("missing_api_doc", "intent.openapi", readinessBlocking, "Identify the local OpenAPI document for API-backed SaaS steps, or say none only when no API call is needed.", suggestedDocAnswer(docs))
 	}
 	if len(session.Intent.Steps) == 0 {
-		add("missing_operation", "intent.steps", readinessBlocking, "Choose the API operation or workflow action to run.", suggestedOperationAnswer(docs))
+		add("missing_operation", "intent.steps", readinessBlocking, missingOperationMessage(docs), suggestedOperationAnswer(docs))
 	} else {
 		for _, step := range session.Intent.Steps {
 			if step == nil {
@@ -159,16 +159,16 @@ func CheckReadiness(session Session, docs []APIDocument) []ReadinessIssue {
 			slotPrefix := "steps." + firstNonEmpty(step.Name, "step")
 			stepType := strings.ToLower(strings.TrimSpace(step.Type))
 			if (stepType == "http" || stepType == "openapi" || strings.TrimSpace(step.Operation) != "") && strings.TrimSpace(step.Operation) == "" {
-				add("missing_operation", slotPrefix+".operation", readinessBlocking, "Choose the API operation for "+firstNonEmpty(step.Name, "this step")+".", suggestedOperationAnswer(docs))
+				add("missing_operation", slotPrefix+".operation", readinessBlocking, "Choose the listed OpenAPI operationId for "+firstNonEmpty(step.Name, "this step")+"; leave the capability unresolved if no listed operation matches. "+operationChoiceHint(docs), suggestedOperationAnswer(docs))
 				continue
 			}
 			if op, ok := operationForStep(session, docs, step); ok {
 				missingFields := missingRequiredFields(step, op)
 				if len(missingFields) > 0 {
-					add("missing_required_request_values", slotPrefix+".with", readinessBlocking, "Provide values for the required API request fields: "+strings.Join(missingFields, ", ")+".", suggestedFieldAssignments(session, docs, step, op, missingFields))
+					add("missing_required_request_values", slotPrefix+".with", readinessBlocking, "Provide sources for the required path/query/header/body fields: "+strings.Join(missingFields, ", ")+". Use inputs.<name>, safe literals, prior-step outputs, or credentials.<binding>.", suggestedFieldAssignments(session, docs, step, op, missingFields))
 				}
 				if operationNeedsCredential(op) && len(session.Credentials) == 0 {
-					add("missing_credential_bindings", "credentials", readinessBlocking, "Name the credential binding to use for this API.", suggestedCredentialNameForOperation(session, docs, step, op))
+					add("missing_credential_bindings", "credentials", readinessBlocking, "Name the symbolic credential binding to use for this API; do not paste a secret value.", suggestedCredentialNameForOperation(session, docs, step, op))
 				}
 				for _, issue := range validateOpenAPIRequestMappings(session, step, op, slotPrefix) {
 					add(issue.Code, issue.Slot, issue.Severity, issue.Message, issue.SuggestedAnswer)
@@ -181,10 +181,10 @@ func CheckReadiness(session Session, docs []APIDocument) []ReadinessIssue {
 		add("missing_runtime_inputs", "intent.inputs", readinessBlocking, "Declare runtime inputs used by the workflow: "+strings.Join(missingInputs, ", ")+".", suggestedRuntimeInputs(missingInputs))
 	}
 	if len(session.Intent.Outputs) == 0 {
-		add("missing_outputs", "intent.outputs", readinessBlocking, "Name the workflow output and where it comes from.", suggestedOutputAnswer(session))
+		add("missing_outputs", "intent.outputs", readinessBlocking, "Name the workflow output and its response path or function output source; do not guess provider response fields.", suggestedOutputAnswer(session))
 	}
 	if strings.TrimSpace(session.Safety) == "" && strings.TrimSpace(session.Project.Safety) == "" {
-		add("missing_side_effect_policy", "safety", readinessWarning, "Confirm the side-effect and approval policy.", suggestedPolicyAnswer(session))
+		add("missing_side_effect_policy", "safety", readinessWarning, "Confirm whether this workflow is read-only, sandbox-only, or after-approval before any side-effectful execution.", suggestedPolicyAnswer(session))
 	}
 	if referencesOptionalControls(session) {
 		if session.Intent.Workflow == nil || (session.Intent.Workflow.Timeout == nil && session.Intent.Workflow.Idempotency == nil) {
@@ -216,22 +216,22 @@ func PlanNextQuestion(session Session, docs []APIDocument, issues []ReadinessIss
 	case "missing_goal":
 		plan.Prompt = "What should this workflow accomplish for the business?"
 	case "missing_api_doc":
-		plan.Prompt = "Which API document should this workflow use?"
+		plan.Prompt = "Which local OpenAPI document should this SaaS workflow use?"
 	case "missing_operation":
-		plan.Prompt = "Which API action or workflow step should run first?"
+		plan.Prompt = "Which API action or workflow step should run first? Choose a listed operationId when this is an API-backed SaaS step."
 	case "missing_required_request_values":
-		plan.Prompt = "What values should the required request fields use?"
+		plan.Prompt = "What values should the required request fields use? Map each field to inputs.<name>, a safe literal, a prior-step output, or credentials.<binding>."
 		plan.Grouped = true
 	case "missing_credential_bindings":
-		plan.Prompt = "What credential binding name should the workflow reference?"
+		plan.Prompt = "What credential binding name should the workflow reference? Use a symbolic name only."
 		plan.Grouped = true
 	case "missing_runtime_inputs":
 		plan.Prompt = "What runtime inputs should the operator provide?"
 		plan.Grouped = true
 	case "missing_outputs":
-		plan.Prompt = "What should the workflow return as its output?"
+		plan.Prompt = "What should the workflow return as its output? Use a known response path or function output."
 	case "missing_side_effect_policy":
-		plan.Prompt = "What side-effect and approval boundary should apply?"
+		plan.Prompt = "What side-effect and approval boundary should apply? Choose read-only, sandbox-only, or after-approval."
 	case "optional_timeout_idempotency_controls":
 		plan.Prompt = "Should this workflow use timeout or idempotency controls?"
 	case "conflicting_mapping":
@@ -1170,6 +1170,29 @@ func suggestedOperationAnswer(docs []APIDocument) string {
 	return "Describe the action in business terms."
 }
 
+func missingOperationMessage(docs []APIDocument) string {
+	return "Choose the API operationId or workflow action to run. " + operationChoiceHint(docs)
+}
+
+func operationChoiceHint(docs []APIDocument) string {
+	var choices []string
+	for _, doc := range docs {
+		for _, op := range doc.Operations {
+			if strings.TrimSpace(op.OperationID) == "" {
+				continue
+			}
+			choices = append(choices, op.OperationID)
+			if len(choices) >= 8 {
+				return "Available operationIds include: " + strings.Join(choices, ", ") + "."
+			}
+		}
+	}
+	if len(choices) == 0 {
+		return "Add local OpenAPI metadata when this is an API-backed SaaS step."
+	}
+	return "Available operationIds: " + strings.Join(choices, ", ") + "."
+}
+
 func suggestedFieldAssignments(session Session, docs []APIDocument, step *rollout.Step, op *apitools.OperationSummary, fields []string) string {
 	var parts []string
 	for _, field := range fields {
@@ -1421,9 +1444,68 @@ func suggestedOutputAnswer(session Session) string {
 func suggestedPolicyAnswer(session Session) string {
 	scope := session.SideEffectScope
 	if scope == "" {
+		if sessionAppearsReadOnly(session) {
+			return projectwizard.SideEffectReadOnly
+		}
 		scope = projectwizard.SideEffectSandboxOnly
 	}
 	return scope
+}
+
+func sessionAppearsReadOnly(session Session) bool {
+	foundExecutable := false
+	for _, step := range session.Intent.Steps {
+		if step == nil {
+			continue
+		}
+		stepType := strings.ToLower(strings.TrimSpace(step.Type))
+		operation := strings.ToLower(strings.TrimSpace(step.Operation))
+		text := strings.Join([]string{stepType, operation, strings.ToLower(step.Name), strings.ToLower(step.Do)}, " ")
+		switch stepType {
+		case "http", "openapi":
+			foundExecutable = true
+			if operation != "" && readOnlyOperationName(operation) {
+				continue
+			}
+			if containsMutationHint(text) {
+				return false
+			}
+			if operation == "" {
+				continue
+			}
+			return false
+		case "fnct", "":
+			if containsMutationHint(text) {
+				return false
+			}
+			if strings.TrimSpace(step.Name) != "" || strings.TrimSpace(step.Do) != "" {
+				foundExecutable = true
+			}
+		default:
+			foundExecutable = true
+			return false
+		}
+	}
+	return foundExecutable
+}
+
+func readOnlyOperationName(operation string) bool {
+	operation = strings.ToLower(strings.TrimSpace(operation))
+	for _, prefix := range []string{"get", "list", "read", "fetch", "search", "describe", "lookup"} {
+		if strings.HasPrefix(operation, prefix) {
+			return true
+		}
+	}
+	return false
+}
+
+func containsMutationHint(text string) bool {
+	for _, hint := range []string{"post", "send", "create", "update", "delete", "upload", "write", "archive", "notify", "approve", "deploy", "provision", "close", "modify"} {
+		if strings.Contains(text, hint) {
+			return true
+		}
+	}
+	return false
 }
 
 func parseAssignments(value string) map[string]string {

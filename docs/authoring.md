@@ -51,6 +51,10 @@ and unresolved assumptions. n8n-derived examples are service-priority evidence o
 artifacts stay OpenUdon-native and continue through deterministic validation, review, packaging, and
 trusted handoff.
 
+Use [iCoT](icot.md) when the brief is not precise yet. Its guided loop asks for listed OpenAPI
+operation IDs, symbolic credential binding names, request field sources, response/output sources,
+and the side-effect boundary before saving source artifacts.
+
 ## Safety Rules
 
 - Put credential binding names in artifacts, never credential values.

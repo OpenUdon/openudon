@@ -878,6 +878,51 @@ func TestPlanNextQuestionPriorityAndGrouping(t *testing.T) {
 	}
 }
 
+func TestGuidedSaaSOperationQuestionIncludesListedOperationIDs(t *testing.T) {
+	session := Session{
+		Intent: rollout.Intent{
+			Workflow: &rollout.WorkflowMeta{Name: "support", Description: "Work a support ticket."},
+		},
+	}
+	docs := []APIDocument{{RelativePath: "openapi/support.yaml", Operations: []apitools.OperationSummary{
+		{OperationID: "getTicket"},
+		{OperationID: "searchTickets"},
+	}}}
+	issues := CheckReadiness(session, docs)
+	issue := readinessIssue(issues, "missing_operation")
+	if !strings.Contains(issue.Message, "Available operationIds") || !strings.Contains(issue.Message, "getTicket") {
+		t.Fatalf("operation issue did not include operation choices: %#v", issue)
+	}
+	plan := PlanNextQuestion(session, docs, issues)
+	if !strings.Contains(plan.Prompt, "listed operationId") {
+		t.Fatalf("operation prompt missing listed operationId guidance: %#v", plan)
+	}
+}
+
+func TestSuggestedPolicyAnswerDistinguishesReadOnlyAndSideEffects(t *testing.T) {
+	readOnly := supportTicketDraft(true)
+	readOnly.Safety = ""
+	readOnly.SafetySet = false
+	readOnly.SideEffectScope = ""
+	if got := suggestedPolicyAnswer(readOnly); got != projectwizard.SideEffectReadOnly {
+		t.Fatalf("read-only policy suggestion = %q", got)
+	}
+
+	readBlogPost := readOnly
+	readBlogPost.Intent.Steps[0].Operation = "getPost"
+	readBlogPost.Intent.Steps[0].Do = "Fetch a blog post."
+	if got := suggestedPolicyAnswer(readBlogPost); got != projectwizard.SideEffectReadOnly {
+		t.Fatalf("read-only getPost policy suggestion = %q", got)
+	}
+
+	write := readOnly
+	write.Intent.Steps[0].Operation = "sendMessage"
+	write.Intent.Steps[0].Do = "Send a customer message."
+	if got := suggestedPolicyAnswer(write); got != projectwizard.SideEffectSandboxOnly {
+		t.Fatalf("write policy suggestion = %q", got)
+	}
+}
+
 func TestProgressiveTranscriptIncludesEvents(t *testing.T) {
 	example := t.TempDir()
 	writeOpenAPI(t, example)

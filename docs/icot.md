@@ -32,6 +32,24 @@ go run ./cmd/icot reconcile --example ./examples/<name>
 go run ./cmd/icot lint --example ./examples/<name>
 ```
 
+## Guided SaaS Authoring
+
+For common SaaS workflows, iCoT now keeps the guided loop focused on the
+reviewable OpenUdon contract:
+
+- choose a local OpenAPI document and listed `operationId` instead of inventing
+  provider calls;
+- map required path, query, header, and body fields to `inputs.<name>`, safe
+  literals, prior-step outputs, or `credentials.<binding>`;
+- name symbolic credential bindings only, never token values;
+- choose outputs from known response paths or declared function outputs;
+- classify execution posture as `read-only`, `sandbox-only`, or
+  `after-approval`.
+
+If a provider operation, request field, response path, or credential scheme is
+not visible in local metadata, leave it unresolved and repair the OpenAPI slice
+or project brief before trusted handoff.
+
 ## Provider Defaults
 
 Shell-level provider selection uses OpenUdon names:

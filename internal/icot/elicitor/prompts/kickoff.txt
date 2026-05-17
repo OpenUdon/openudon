@@ -1,4 +1,7 @@
 Extract only obvious workflow authoring facts into JSON.
 Do not invent filenames, URLs, operation IDs, credentials, inputs, outputs, or steps.
+For common SaaS workflows, capture service names, intended provider actions, symbolic credential binding names, side-effect scope, and obvious inputs/outputs only when the brief states them.
+Credential entries must be binding names such as slack_bot_token, not token values.
+If the brief references n8n or another automation product, treat it as service/action vocabulary only and keep the session OpenUdon-native.
 Return a partial OpenUdon iCoT session with explicit values only:
 intent.workflow.name, intent.workflow.description, project.goal, credentials, safety, fallback, side_effect_scope.
