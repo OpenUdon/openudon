@@ -1,7 +1,9 @@
 # Eval Sample Gallery
 
 The eval corpus under `examples/eval` is intentionally curated. Each sample should demonstrate a
-specific workflow behavior or failure class rather than merely adding volume.
+specific workflow behavior or failure class rather than merely adding volume. For the M16 SaaS
+fixture policy, readiness matrix, and advisory-to-strict graduation criteria, see
+[SaaS Authoring Corpus](saas-authoring-corpus.md).
 
 | Sample | Purpose |
 | --- | --- |
@@ -17,12 +19,12 @@ specific workflow behavior or failure class rather than merely adding volume.
 | `cursor-pagination-report` | Cursor pagination, bearer security, response cursor extraction, and local report rendering. |
 | `customer-export-two-pages` | Multi-step pagination and merge-style function handling. |
 | `fallback-cache-read-through` | Primary API read with explicit local cached-fallback preparation and selection. |
-| `gmail-send-audit-receipt` | Multi-step data-passing fixture: send-message response feeds local audit receipt rendering. |
+| `gmail-send-audit-receipt` | Initial OpenUdon-native SaaS authoring fixture: send-message response feeds local audit receipt rendering. |
 | `incomplete-brief-repair` | Negative fixture that renders clarifying questions instead of inventing missing workflow behavior. |
 | `inventory-api-key-binding` | Credential binding names for API-key-style request parameters. |
 | `inventory-reorder-decision` | Multi-step data-passing fixture: inventory response feeds local reorder decision rendering. |
 | `itops-incident-response-archive` | n8n IT Ops-inspired incident workflow: create Jira issue, alert Slack, and archive a Drive timeline report. |
-| `itops-slack-jira-issue-intake` | n8n IT Ops-inspired Slack issue intake that parses a report, creates Jira, and confirms in Slack. |
+| `itops-slack-jira-issue-intake` | Initial multi-service SaaS authoring fixture: parses Slack report text, creates Jira, and confirms in Slack. |
 | `itops-workflow-backup-github` | n8n IT Ops-inspired workflow backup from n8n API to GitHub Contents API. |
 | `missing-credential-policy-negative` | Negative fixture that reports missing credential policy instead of issuing unaudited API calls. |
 | `missing-openapi-capability-negative` | Negative fixture that reports missing OpenAPI capability instead of inventing provider calls. |

@@ -33,6 +33,8 @@ artifact.
 The first SaaS corpus is selected from existing OpenUdon evals plus
 `../try-n8n` reducibility evidence. These services are common enough to teach
 the authoring path without making n8n import the product interface.
+See [SaaS Authoring Corpus](saas-authoring-corpus.md) for the M16 fixture
+policy, readiness matrix, and graduation criteria.
 
 | Service | Starter Operation | Operation ID | Binding Name | Readiness Notes |
 | --- | --- | --- | --- | --- |
@@ -40,11 +42,11 @@ the authoring path without making n8n import the product interface.
 | Gmail | Send a message | `sendMessage` | `gmail_oauth_token` | Existing fixture covers generated send response and audit evidence. |
 | Jira | Create or fetch an issue | `createIssue`, `getIssue` | `jira_api_token` | Existing IT Ops fixtures cover Slack-to-Jira handoff. |
 | HubSpot | List CRM records | `listDeals`, `listTickets` | `hubspot_private_app_token` | n8n-derived fixtures supply provider vocabulary and OpenAPI slices. |
-| Google Drive | Upload a file | `uploadFile` | `google_drive_oauth_token` | Existing IT Ops archive fixture covers document handoff. |
+| Google Drive | Upload a file | `uploadFile` | `google_drive_oauth_token` | Existing IT Ops archive fixture covers document handoff; Drive-specific graduation is deferred. |
 | Airtable | Get a record | `getAirtableRecord` | `airtable_api_key` | Existing native and n8n-derived fixtures cover record lookup. |
 | PagerDuty | Fetch a user | `getUser` | `pagerduty_api_token` | Existing fixture covers nested response extraction. |
-| Trello | List board lists | `listTrelloBoardLists` | `trello_api_token` | Existing fixture covers array response summarization. |
-| OpenWeatherMap | Fetch current weather | `getOpenWeatherMapCurrentWeather` | `openweathermap_api_key` | Existing fixture covers read-only API enrichment. |
+| Trello | List board lists | `listTrelloBoardLists` | `trello_api_token` | Native fixture covers list summarization; n8n evidence owns the provider operation ID. |
+| OpenWeatherMap | Fetch current weather | `getOpenWeatherMapCurrentWeather` | `openweathermap_appid` | n8n evidence covers provider-specific weather; generic native fixture covers the read-only pattern. |
 
 ## OpenAPI Readiness
 
@@ -86,10 +88,12 @@ are complete enough for strict comparison.
 - `examples/eval/slack-message-audit-log` is the initial native SaaS authoring
   fixture. It documents an AI-authoring contract in
   `reference/authoring.json`.
-- `examples/eval/gmail-send-audit-receipt`,
-  `examples/eval/itops-slack-jira-issue-intake`,
-  `examples/eval/itops-incident-response-archive`, and related fixtures cover
-  follow-on service patterns.
+- `examples/eval/gmail-send-audit-receipt` and
+  `examples/eval/itops-slack-jira-issue-intake` join Slack as the M16 initial
+  strict SaaS golden set.
+- `examples/eval/itops-incident-response-archive` and related fixtures cover
+  follow-on service patterns before they graduate into strict provider-specific
+  coverage.
 - `examples/eval/n8n-*` fixtures preserve n8n provenance in
   `reference/n8n.json` and stay diagnostic unless their policy graduates them
   to strict mode.

@@ -24,6 +24,7 @@ nav:
   - Authoring:
     - Overview: authoring.md
     - Agentic SaaS Authoring: agentic-saas-authoring.md
+    - SaaS Authoring Corpus: saas-authoring-corpus.md
     - Project Briefs: project-authoring.md
     - intent.hcl: intent.md
     - Data Flow: data-flow.md

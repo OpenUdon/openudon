@@ -1,5 +1,6 @@
 {
   "contract": "openudon.agentic-saas-authoring.v1",
+  "fixture_policy": "strict-native",
   "service": "Slack",
   "operation_id": "postMessage",
   "credential_binding": "none-required-for-sandbox-fixture",

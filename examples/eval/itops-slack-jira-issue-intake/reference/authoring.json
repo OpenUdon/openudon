@@ -1,0 +1,42 @@
+{
+  "contract": "openudon.agentic-saas-authoring.v1",
+  "fixture_policy": "strict-native",
+  "services": [
+    "Slack",
+    "Jira"
+  ],
+  "operation_ids": [
+    "getSlackMessage",
+    "createIssue",
+    "postMessage"
+  ],
+  "credential_bindings": {
+    "Slack": "slack_bot_token",
+    "Jira": "jira_api_token"
+  },
+  "request_mappings": {
+    "getSlackMessage.channel": "inputs.channel",
+    "getSlackMessage.ts": "inputs.messageTs",
+    "createIssue.projectKey": "inputs.projectKey",
+    "createIssue.summary": "parse_issue_report.received_body.title",
+    "createIssue.description": "parse_issue_report.received_body.description",
+    "createIssue.priority": "parse_issue_report.received_body.priority",
+    "createIssue.issueType": "parse_issue_report.received_body.issueType",
+    "postMessage.channel": "inputs.channel",
+    "postMessage.text": "create_jira_issue.received_body.key"
+  },
+  "response_paths": [
+    "get_slack_message.received_body.message.text",
+    "parse_issue_report.received_body.title",
+    "parse_issue_report.received_body.description",
+    "parse_issue_report.received_body.priority",
+    "parse_issue_report.received_body.issueType",
+    "create_jira_issue.received_body.key",
+    "create_jira_issue.received_body.self"
+  ],
+  "side_effect_scope": "Jira issue create and Slack confirmation post; review required before trusted-runner execution",
+  "evidence": [
+    "OpenUdon-native strict fixture for multi-service SaaS authoring",
+    "The upstream n8n template is preserved only as source inspiration in reference/source.json"
+  ]
+}

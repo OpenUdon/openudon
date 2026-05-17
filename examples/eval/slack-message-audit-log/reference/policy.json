@@ -1,5 +1,5 @@
 {
   "mode": "strict",
-  "notes": ["Multi-step data-passing fixture: post-message response feeds local audit-log rendering."],
+  "notes": ["Initial strict SaaS authoring fixture: post-message response feeds local audit-log rendering."],
   "max_blocking": 0
 }
