@@ -37,6 +37,7 @@ func main() {
 		fmt.Fprintf(flag.CommandLine.Output(), "  approval-template print approval JSON for a validated handoff package\n")
 		fmt.Fprintf(flag.CommandLine.Output(), "  build     regenerate workflow/UWS from an existing intent.hcl\n")
 		fmt.Fprintf(flag.CommandLine.Output(), "  check-apitools-boundary verify OpenUdon repository boundaries\n")
+		fmt.Fprintf(flag.CommandLine.Output(), "  check-doc-memory verify local memory-bank and evolution harness files\n")
 		fmt.Fprintf(flag.CommandLine.Output(), "  convert   generate draft review scaffolding from supported source formats\n")
 		fmt.Fprintf(flag.CommandLine.Output(), "  eval      run synthesis eval briefs and write pass/fail reports\n")
 		fmt.Fprintf(flag.CommandLine.Output(), "  promote   export/validate UWS from an existing workflow.hcl\n")
@@ -66,6 +67,11 @@ func main() {
 			os.Exit(1)
 		}
 		fmt.Println("openudon: repository boundary check passed")
+	case "check-doc-memory":
+		if err := runCheckDocMemory(".", os.Stdout, os.Stderr); err != nil {
+			fmt.Fprintln(os.Stderr, err)
+			os.Exit(1)
+		}
 	case "convert":
 		runConvertCommand(flag.Args()[1:])
 	case "validate":
@@ -93,6 +99,21 @@ func main() {
 		flag.Usage()
 		os.Exit(2)
 	}
+}
+
+func runCheckDocMemory(root string, out, errOut io.Writer) error {
+	result, err := localcheck.CheckDocMemory(root)
+	if err != nil {
+		return err
+	}
+	fmt.Fprintln(out, "openudon: doc memory check passed")
+	for _, file := range result.CheckedFiles {
+		fmt.Fprintf(out, "openudon: checked %s\n", file)
+	}
+	for _, warning := range result.Warnings {
+		fmt.Fprintf(errOut, "openudon: warning: %s\n", warning)
+	}
+	return nil
 }
 
 type repeatedStringFlag []string

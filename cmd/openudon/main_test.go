@@ -8,6 +8,8 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/OpenUdon/openudon/internal/localcheck"
 )
 
 func TestCLIVersionSmoke(t *testing.T) {
@@ -196,6 +198,29 @@ func TestCLIReadinessHelpIncludesXRD007Report(t *testing.T) {
 	} {
 		if !strings.Contains(text, expected) {
 			t.Fatalf("readiness help missing %q:\n%s", expected, text)
+		}
+	}
+}
+
+func TestCLICheckDocMemorySmoke(t *testing.T) {
+	root := t.TempDir()
+	for _, rel := range localcheck.RequiredMemoryFiles {
+		mustWriteCLIFile(t, filepath.Join(root, filepath.FromSlash(rel)), []byte(rel+"\n"))
+	}
+	cmd := helperCommand("check-doc-memory")
+	cmd.Dir = root
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		t.Fatalf("check-doc-memory failed: %v\n%s", err, output)
+	}
+	text := string(output)
+	for _, expected := range []string{
+		"openudon: doc memory check passed",
+		"openudon: checked memory-bank/product.md",
+		"openudon: checked evolution/result-v1.md",
+	} {
+		if !strings.Contains(text, expected) {
+			t.Fatalf("check-doc-memory output missing %q:\n%s", expected, text)
 		}
 	}
 }

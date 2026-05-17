@@ -24,6 +24,8 @@ jobs:
       - name: Test public module
         run: GOWORK=off go test ./... -count=1 -timeout=5m
 
+      - name: Check repository boundary
+        run: GOWORK=off go run ./cmd/openudon check-apitools-boundary
+
       - name: Check whitespace
         run: git diff --check
-

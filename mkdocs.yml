@@ -36,5 +36,8 @@ nav:
   - Handoff:
     - Safety: safety.md
     - Review Handoff: review-handoff.md
+    - Terraform/OpenAPI Conversion: terraform-openapi-conversion.md
+    - Release Stewardship: release-stewardship.md
     - Release Notes Template: release-note-template.md
+    - AWS Provider Conversion Corpus: aws-provider-conversion-corpus.md
   - Related: related.md

@@ -1,7 +1,7 @@
 # OpenUdon
 
 <p align="center">
-  <img src="assets/uws3.png" alt="UWS logo" width="120">
+  <img src="assets/openudon.png" alt="OpenUdon logo" width=520>
 </p>
 
 OpenUdon is the public UWS workflow authoring, review, package, and executor-handoff tool. It turns

@@ -10,7 +10,8 @@ trusted executor boundary such as the `udon` runtime.
 It owns project templates, optional Symphony workflow policy, example artifacts, deterministic
 validation, review handoff evidence, package digests, credential policy, and trusted-runner glue.
 Public workflow semantics belong in `github.com/OpenUdon/uws`; OpenAPI search/discovery/import/indexing belongs in
-`github.com/OpenUdon/apitools`.
+`github.com/OpenUdon/apitools`; static Terraform/OpenTofu parsing for `openudon convert tf` belongs
+in `github.com/OpenUdon/tfconfig`.
 
 ## Quick Start
 
@@ -353,6 +354,8 @@ LLM-assisted commands; explicit `--provider` and `--model` flags still take prec
 - [Data flow](docs/data-flow.md)
 - [Safety](docs/safety.md)
 - [Eval gallery](docs/eval-gallery.md)
+- [Terraform/OpenAPI conversion](docs/terraform-openapi-conversion.md)
+- [Release stewardship](docs/release-stewardship.md)
 - [Release note template](docs/release-note-template.md)
 - [Contributing](CONTRIBUTING.md)
 - [License](LICENSE)

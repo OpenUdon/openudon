@@ -19,4 +19,5 @@ jobs:
         with:
           python-version: '3.x'
       - run: pip install mkdocs-material
+      - run: mkdocs build --strict --site-dir /tmp/openudon-mkdocs-review
       - run: mkdocs gh-deploy --force

@@ -50,6 +50,41 @@ var _ configs.Config
 	}
 }
 
+func TestCheckAPIToolsBoundaryRejectsPrivateExecutorImports(t *testing.T) {
+	root := t.TempDir()
+	writeFile(t, filepath.Join(root, "internal", "bad.go"), []byte(`package bad
+
+import "github.com/OpenUdon/udon/runtime"
+
+var _ = runtime.Executor{}
+`))
+	writeFile(t, filepath.Join(root, "internal", "also_bad.go"), []byte(`package bad
+
+import "github.com/genelet/udon/arazzo"
+
+var _ = arazzo.Flow{}
+`))
+
+	err := CheckAPIToolsBoundary(root)
+	if err == nil || !strings.Contains(err.Error(), "github.com/OpenUdon/udon/runtime") || !strings.Contains(err.Error(), "github.com/genelet/udon/arazzo") {
+		t.Fatalf("expected private executor import failure, got %v", err)
+	}
+}
+
+func TestCheckAPIToolsBoundaryAllowsPublicIndirectDependencyImports(t *testing.T) {
+	root := t.TempDir()
+	writeFile(t, filepath.Join(root, "internal", "ok.go"), []byte(`package ok
+
+import "github.com/genelet/horizon/dethcl"
+
+var _ = dethcl.Body{}
+`))
+
+	if err := CheckAPIToolsBoundary(root); err != nil {
+		t.Fatalf("CheckAPIToolsBoundary returned error for public indirect dependency import: %v", err)
+	}
+}
+
 func TestCheckAPIToolsBoundaryAllowsPublicTFConfigPackage(t *testing.T) {
 	root := t.TempDir()
 	writeFile(t, filepath.Join(root, "internal", "ok.go"), []byte(`package ok

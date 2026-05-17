@@ -4,8 +4,9 @@ This document is the durable long-form design reference for converting
 Terraform/OpenTofu configuration plus OpenAPI documents into reviewable OpenUdon
 UWS package artifacts.
 
-The original research note is [../ideas.md](../ideas.md). The active project
-source of truth is the [memory bank](../memory-bank/).
+This page is the public conversion contract. Maintainer-only planning files may
+exist in local checkouts, but the published behavior and release expectations
+are captured here and in [Release Stewardship](release-stewardship.md).
 
 ## Goal
 
