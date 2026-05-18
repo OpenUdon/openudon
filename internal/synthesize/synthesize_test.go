@@ -1000,6 +1000,57 @@ func TestReviewEvidenceRecordsCredentialInventory(t *testing.T) {
 	}
 }
 
+func TestReviewEvidenceIncludesCatalogAdvisory(t *testing.T) {
+	example := filepath.Join(t.TempDir(), "examples", "catalog-review")
+	if err := os.MkdirAll(filepath.Join(example, "workflows"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.MkdirAll(filepath.Join(example, "expected"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	result := resultPaths(example)
+	result.PrimaryOpenAPI = "openapi/github.yaml"
+	if err := os.WriteFile(result.ProjectPath, []byte(`# GitHub Review
+
+Fetch GitHub repository data.
+`), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(result.IntentPath, []byte(`openapi = "openapi/github.yaml"
+
+workflow {
+  name        = "github_review"
+  description = "Fetch GitHub repository data."
+}
+
+step "list_repos" {
+  type      = "http"
+  provider  = "github"
+  operation = "repos/list-for-authenticated-user"
+}
+
+output "repos" {
+  from = "list_repos.received_body"
+}
+`), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	md := reviewMarkdown(result, "", "")
+	for _, expected := range []string{
+		"## Catalog Advisory",
+		"Catalog metadata is advisory",
+		"Provider: `GitHub` (`github`)",
+		"Explicit OpenAPI input overrides built-in catalog spec",
+		"github-rest-api-openapi",
+		"github-rest-api-auth-overlay",
+	} {
+		if !strings.Contains(md, expected) {
+			t.Fatalf("review missing %q:\n%s", expected, md)
+		}
+	}
+}
+
 func TestCredentialInventoryUsesBindingNamesNotRequestTargets(t *testing.T) {
 	step := PlanStep{
 		Name:        "get_customer",

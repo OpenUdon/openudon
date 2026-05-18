@@ -3,7 +3,7 @@ module github.com/OpenUdon/openudon
 go 1.26.3
 
 require (
-	github.com/OpenUdon/apitools v0.0.0-20260509011657-3d9e27cf5e88
+	github.com/OpenUdon/apitools v0.0.0-20260518210532-f9d652b938fb
 	github.com/OpenUdon/tfconfig v0.0.0-20260509192333-e523c2b30f3e
 	github.com/OpenUdon/uws v0.0.0-20260509015819-d0f74a8726fa
 	github.com/hashicorp/hcl/v2 v2.24.0

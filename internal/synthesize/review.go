@@ -97,6 +97,17 @@ func reviewMarkdown(result Result, provider, model string) string {
 		}
 	}
 	if intent != nil {
+		advice, err := rollout.CatalogAdviceForIntent(intent, rollout.CatalogAdviceOptions{
+			ExplicitOpenAPIInputs: reviewExplicitOpenAPIInputs(result, intent),
+		})
+		if err == nil {
+			if markdown := rollout.RenderCatalogAdviceMarkdown(advice); markdown != "" {
+				b.WriteString("\n")
+				b.WriteString(markdown)
+			}
+		}
+	}
+	if intent != nil {
 		b.WriteString("\n## Inferred Steps And Data Flow\n\n")
 		writeIntentDataFlowReview(&b, intent)
 	}
@@ -195,6 +206,29 @@ func reviewMarkdown(result Result, provider, model string) string {
 
 func expectedPlanCredentialNames(path string) []string {
 	return credentialNamesFromPlan(readWorkflowPlan(path))
+}
+
+func reviewExplicitOpenAPIInputs(result Result, intent *rollout.Intent) []string {
+	seen := map[string]bool{}
+	add := func(value string) {
+		value = strings.TrimSpace(value)
+		if value != "" {
+			seen[value] = true
+		}
+	}
+	add(result.PrimaryOpenAPI)
+	if intent != nil {
+		add(intent.OpenAPI)
+		walkIntentSteps(intent.Steps, func(step *rollout.Step) {
+			add(step.OpenAPI)
+		})
+	}
+	out := make([]string, 0, len(seen))
+	for value := range seen {
+		out = append(out, value)
+	}
+	sort.Strings(out)
+	return out
 }
 
 func readWorkflowPlan(path string) *WorkflowPlan {
