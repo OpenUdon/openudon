@@ -15,6 +15,20 @@ Use these demos for release communication:
 Both fixtures are strict native SaaS examples. They use local OpenAPI slices and
 symbolic credential bindings only.
 
+## Provider-Free Release Gate
+
+Run the complete local SaaS release gate with:
+
+```bash
+make release-saas-check
+```
+
+The target runs the normal deterministic release check, UWS validation,
+doc-memory check, n8n bridge validation, strict MkDocs build, selected strict
+SaaS fixture lint, and the Gmail/order fulfillment trusted-runner dry-run demo
+below. It is local maintainer evidence, not public CI, and it does not require
+provider credentials.
+
 ## Provider-Free Demo Loop
 
 Run release demos in an ignored workdir so checked-in examples stay clean:
@@ -74,6 +88,7 @@ For a SaaS release candidate, collect deterministic evidence first:
 - `go vet ./...`;
 - `make check`;
 - `make release-check`;
+- `make release-saas-check`;
 - `go run ./cmd/openudon validate ./examples/uws-validation`;
 - `go run ./cmd/openudon check-doc-memory`;
 - `go run ./cmd/openudon n8n-bridge validate --root examples/eval`;

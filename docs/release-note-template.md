@@ -30,6 +30,7 @@
 - `make check`:
 - `git diff --check`:
 - `make release-check`:
+- `make release-saas-check`:
 - `mkdocs build --strict`:
 - `openudon validate ./examples/uws-validation`:
 - `openudon check-doc-memory`:

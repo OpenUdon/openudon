@@ -38,6 +38,7 @@ go run ./cmd/openudon check-apitools-boundary
 go run ./cmd/openudon validate ./examples/uws-validation
 make check
 make release-check
+make release-saas-check
 git diff --check
 ```
 
@@ -221,8 +222,13 @@ paths, provider drift watch data, and comparison against a previous report when 
 Use release gates only for candidate release evidence:
 
 ```bash
+make release-saas-check
 make release-eval
 ```
+
+`make release-saas-check` is the provider-free local SaaS release gate. It runs deterministic checks,
+docs validation, selected strict fixture lint, and trusted-runner dry-run demos without live provider
+credentials.
 
 `make release-eval` uses `OPENUDON_LLM_PROVIDER` and `OPENUDON_LLM_MODEL`, defaulting to `copilot-api` and
 `gpt-5.4-mini`, and requires the current eval corpus size as the minimum brief count.

@@ -27,23 +27,27 @@ modules, Terraform/OpenTofu internals, and `tfconfig/_upstream/...`.
 
 ## Local Maintainer Gates
 
-`make release-check` is the deterministic local pre-tag gate:
+`make release-check` is the fast deterministic local pre-tag gate:
 
 ```bash
 make release-check
-go run ./cmd/openudon validate ./examples/uws-validation
-go run ./cmd/openudon check-doc-memory
-go run ./cmd/openudon n8n-bridge validate --root examples/eval
-mkdocs build --strict --site-dir /tmp/openudon-mkdocs-release
 ```
 
 `check-doc-memory` is intentionally local. It verifies ignored memory-bank and
 evolution harness files in maintainer checkouts and warns when milestone changes
 may need a new evolution record. It is not a public CI gate.
 
-For the SaaS release story, also run the provider-free dry-run demo in
-[SaaS Operator Release Path](saas-operator-release.md). The selected examples
-are:
+For the SaaS release story, run the comprehensive provider-free local gate:
+
+```bash
+make release-saas-check
+```
+
+`release-saas-check` runs `release-check`, UWS validation, doc-memory,
+n8n bridge validation, strict MkDocs build, selected strict SaaS fixture lint,
+and the provider-free dry-run demo in
+[SaaS Operator Release Path](saas-operator-release.md). The selected demo
+examples are:
 
 - `gmail-send-audit-receipt` for a single-service side-effectful send-and-audit
   workflow;

@@ -11,6 +11,7 @@ func TestSaaSOperatorReleaseDocsNameDemoAndBoundaries(t *testing.T) {
 	root := filepath.Join("..", "..")
 	doc := readRepoFile(t, root, "docs", "saas-operator-release.md")
 	for _, want := range []string{
+		"make release-saas-check",
 		"gmail-send-audit-receipt",
 		"order-fulfillment-chain",
 		"go run ./cmd/openudon approval-template",
@@ -28,10 +29,27 @@ func TestSaaSOperatorReleaseDocsNameDemoAndBoundaries(t *testing.T) {
 	}
 }
 
+func TestReleaseSaaSCheckTargetIsDocumented(t *testing.T) {
+	root := filepath.Join("..", "..")
+	for _, path := range [][]string{
+		{"Makefile"},
+		{"README.md"},
+		{"docs", "release-stewardship.md"},
+		{"docs", "saas-operator-release.md"},
+		{"docs", "release-note-template.md"},
+	} {
+		text := readRepoFile(t, root, path...)
+		if !strings.Contains(text, "release-saas-check") {
+			t.Fatalf("%s missing release-saas-check", filepath.Join(path...))
+		}
+	}
+}
+
 func TestReleaseNoteTemplateCapturesSaaSOperatorEvidence(t *testing.T) {
 	root := filepath.Join("..", "..")
 	doc := readRepoFile(t, root, "docs", "release-note-template.md")
 	for _, want := range []string{
+		"make release-saas-check",
 		"SaaS operator demo fixtures",
 		"SaaS operator demo dry-run result",
 		"n8n bridge validation result",
