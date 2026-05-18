@@ -58,7 +58,7 @@ fixture policy, readiness matrix, and advisory-to-strict graduation criteria, se
 | `user-create-welcome-message` | Multi-step data-passing fixture: created user response feeds local welcome rendering. |
 | `webhook-validation-fnct` | Runtime-only webhook payload validation and normalization through an approved function. |
 | `weather-enrichment-advice` | Multi-step data-passing fixture: weather response feeds local advice rendering. |
-| `weather-toronto` | Hidden technical step expansion from city lookup to weather lookup. |
+| `weather-toronto` | Strict native SaaS authoring fixture: hidden technical step expansion from city lookup to weather lookup with credential binding. |
 
 ## Adding Samples
 

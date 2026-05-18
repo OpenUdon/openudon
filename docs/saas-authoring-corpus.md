@@ -12,15 +12,19 @@ corpus has two fixture classes:
 
 ## Strict Native Set
 
-The initial strict set is intentionally small. It covers write side effects,
-read-to-function data flow, service-to-service binding, and credential binding
-names without requiring real provider credentials.
+The strict set is intentionally curated. It covers write side effects,
+read-to-function data flow, chained read data flow, service-to-service binding,
+credential binding names, and trusted-handoff review without requiring real
+provider credentials.
 
 | Fixture | Services | Operations | Policy | Coverage |
 | --- | --- | --- | --- | --- |
 | `slack-message-audit-log` | Slack-like chat | `postMessage` | strict | Message post request fields, response binding, side-effect review. |
 | `gmail-send-audit-receipt` | Gmail-like messages | `sendMessage` | strict | Send-message request body, response binding, audit receipt rendering. |
+| `weather-toronto` | OpenWeatherMap-style weather | `direct_get`, `getWeatherData` | strict | Chained read flow, coordinate response binding, `appid` credential binding. |
 | `itops-slack-jira-issue-intake` | Slack and Jira | `getSlackMessage`, `createIssue`, `postMessage` | strict | Cross-service data flow, bearer binding names, create/post side effects. |
+| `itops-incident-response-archive` | Jira, Slack, Google Drive | `createIssue`, `postMessage`, `uploadFile` | strict | Ticket-alert-archive flow, per-service bearer bindings, create/post/upload side effects. |
+| `order-fulfillment-chain` | Customer, Inventory, Fulfillment Order | `getCustomer`, `getInventory`, `createFulfillmentOrder` | strict | Multi-service lookup-then-create flow, mixed bearer/API-key bindings, sandbox order create. |
 
 Native fixtures may use sandbox-local OpenAPI slices instead of full public
 provider specifications. That keeps deterministic gates provider-free while
@@ -34,6 +38,11 @@ M20 records end-to-end authoring/package trial evidence in
 [SaaS Authoring Trials](saas-authoring-trials.md). The trial matrix identifies
 which fixtures converge today and which need OpenAPI/request-field repair before
 strict promotion.
+
+M21 promotes trial-backed strict coverage for `weather-toronto` and repairs
+bearer security request-field placement so the strict multi-service fixtures can
+build, review, and pass trusted-runner dry-run gates from their reference
+intents.
 
 ## Advisory Evidence
 
@@ -65,7 +74,7 @@ OpenUdon.
 | Airtable | `airtable-record-normalize`, `n8n-airtable-record-get` | `baseId`, `tableId`, `recordId` | `id`, `fields`, `createdTime` | `airtable_api_key` convention; native sandbox slice has no auth scheme | native pattern ready; not in initial strict SaaS golden set. |
 | PagerDuty | `pagerduty-user-contact-card`, `n8n-pagerduty-user-get` | `userId` | `user.id`, `user.name`, `user.email` | `pagerduty_api_token` convention; native sandbox slice has no auth scheme | native pattern ready; not in initial strict SaaS golden set. |
 | Trello | `trello-list-summary`, `n8n-trello-list-get-all` | `boardId` | `lists[].id`, `lists[].name`, `lists[].closed` | `trello_api_token` convention; native sandbox slice has no auth scheme | native pattern ready; provider operation ID mismatch remains before graduation. |
-| OpenWeatherMap | `n8n-openweathermap-current-weather`, `weather-enrichment-advice` | `city` in generic native fixture; provider-specific query in n8n fixture | `city`, `tempC`, `condition` in generic native fixture | `openweathermap_appid` convention | advisory for provider-specific OpenWeatherMap; generic weather fixture remains pattern coverage. |
+| OpenWeatherMap | `weather-toronto`, `n8n-openweathermap-current-weather`, `weather-enrichment-advice` | `q`, `lat`, `lon`, `appid` in strict native fixture; provider-specific query in n8n fixture | coordinate `lat`/`lon` feeds weather lookup; weather response body is output | `weather_appid` in strict native fixture; `openweathermap_appid` advisory convention remains for n8n-derived evidence | strict native for chained read authoring; advisory provider-specific n8n evidence retained. |
 
 ## Graduation Criteria
 

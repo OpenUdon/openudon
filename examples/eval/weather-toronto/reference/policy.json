@@ -1,7 +1,7 @@
 {
   "mode": "strict",
   "notes": [
-    "The Toronto weather fixture is stable; geocoding before weather lookup is the golden behavior."
+    "Strict native SaaS authoring fixture; geocoding before weather lookup, appid credential binding, and response-to-request mapping are golden behavior."
   ],
   "max_blocking": 0
 }

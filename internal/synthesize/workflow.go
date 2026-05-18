@@ -10,11 +10,11 @@ import (
 	"strings"
 
 	"github.com/OpenUdon/apitools"
+	"github.com/OpenUdon/openudon/internal/uwsvalidate"
+	rollout "github.com/OpenUdon/openudon/internal/workflowintent"
 	"github.com/OpenUdon/uws/convert"
 	"github.com/OpenUdon/uws/runtimes"
 	"github.com/OpenUdon/uws/uws1"
-	"github.com/OpenUdon/openudon/internal/uwsvalidate"
-	rollout "github.com/OpenUdon/openudon/internal/workflowintent"
 	"gopkg.in/yaml.v3"
 )
 
@@ -511,11 +511,10 @@ func requestFieldPlacements(operation apitools.OperationSummary) (map[string]req
 		}
 	}
 	for _, security := range operation.Security {
-		section := strings.TrimSpace(security.In)
-		if !isStandardRequestSection(section) || section == "body" {
+		section, target, ok := securityRequestPlacement(security)
+		if !ok {
 			continue
 		}
-		target := firstNonEmpty(security.ParameterName, security.Name)
 		for _, alias := range []string{security.Name, security.ParameterName, apitools.SecurityCredentialFieldName(security)} {
 			if err := add(alias, section, target); err != nil {
 				return nil, err
@@ -523,6 +522,27 @@ func requestFieldPlacements(operation apitools.OperationSummary) (map[string]req
 		}
 	}
 	return out, nil
+}
+
+func securityRequestPlacement(security apitools.SecuritySummary) (string, string, bool) {
+	section := strings.TrimSpace(security.In)
+	target := firstNonEmpty(security.ParameterName, security.Name)
+	if isStandardRequestSection(section) && section != "body" && target != "" {
+		return section, target, true
+	}
+	if securitySummaryUsesBearerAuthorization(security) {
+		return "header", "Authorization", true
+	}
+	return "", "", false
+}
+
+func securitySummaryUsesBearerAuthorization(security apitools.SecuritySummary) bool {
+	if strings.EqualFold(strings.TrimSpace(security.Type), "http") {
+		return true
+	}
+	scheme := strings.ToLower(strings.TrimSpace(security.Scheme))
+	name := strings.ToLower(strings.TrimSpace(firstNonEmpty(security.Name, security.ParameterName)))
+	return scheme == "bearer" || strings.Contains(scheme, "bearer") || strings.Contains(name, "bearer")
 }
 
 func camelToSnake(value string) string {

@@ -84,3 +84,10 @@ Keep advisory until normalized:
 The main M21 implementation priority should be security/request-field
 normalization for strict multi-service packages before increasing fixture
 volume.
+
+## M21 Follow-Up
+
+M21 repaired bearer security request placement so the strict multi-service
+fixtures can build from their reference intents and pass sandbox dry-run gates.
+`weather-toronto` also gained strict native authoring metadata as the first
+trial-backed service-diversity promotion.

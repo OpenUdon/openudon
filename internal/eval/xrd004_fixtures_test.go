@@ -48,6 +48,22 @@ func TestXRD004OpenAPIFixtureCoverage(t *testing.T) {
 
 	assertFixtureFileContains(t, root, "order-fulfillment-chain", filepath.Join("openapi", "orders.yaml"), "requestBody:", "post:", "securitySchemes:")
 	assertFixtureFileContains(t, root, "cursor-pagination-report", filepath.Join("openapi", "audit-events.yaml"), "securitySchemes:", "nextCursor:")
+
+	weather := parseReferenceIntent(t, root, "weather-toronto")
+	weatherStep := findStep(weather, "get_weather")
+	if weatherStep == nil {
+		t.Fatal("weather fixture missing get_weather step")
+	}
+	if weatherStep.Operation != "getWeatherData" {
+		t.Fatalf("weather operation = %q, want getWeatherData", weatherStep.Operation)
+	}
+	if got := bindSource(weatherStep, "get_coordinates", "lat"); got != "received_body[0].lat" {
+		t.Fatalf("weather lat binding = %q, want received_body[0].lat", got)
+	}
+	if got := bindSource(weatherStep, "get_coordinates", "lon"); got != "received_body[0].lon" {
+		t.Fatalf("weather lon binding = %q, want received_body[0].lon", got)
+	}
+	assertFixtureFileContains(t, root, "weather-toronto", filepath.Join("reference", "authoring.json"), `"fixture_policy": "strict-native"`, `"credential_binding": "weather_appid"`)
 }
 
 func TestN8nSlackReducibilityFixtureCoverage(t *testing.T) {

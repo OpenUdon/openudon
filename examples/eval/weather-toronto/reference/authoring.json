@@ -1,0 +1,26 @@
+{
+  "contract": "openudon.agentic-saas-authoring.v1",
+  "fixture_policy": "strict-native",
+  "service": "OpenWeatherMap-style weather",
+  "operation_ids": [
+    "direct_get",
+    "getWeatherData"
+  ],
+  "credential_binding": "weather_appid",
+  "request_mappings": {
+    "direct_get.q": "Toronto,CA",
+    "getWeatherData.lat": "get_coordinates.received_body[0].lat",
+    "getWeatherData.lon": "get_coordinates.received_body[0].lon",
+    "getWeatherData.appid": "weather_appid"
+  },
+  "response_paths": [
+    "get_coordinates.received_body[0].lat",
+    "get_coordinates.received_body[0].lon",
+    "get_weather.received_body"
+  ],
+  "side_effect_scope": "read-only weather lookup; no trusted-runner side effect required unless future revisions add writes",
+  "evidence": [
+    "OpenUdon-native strict fixture for chained SaaS read authoring",
+    "The native fixture covers coordinate-to-weather data flow without live provider credentials"
+  ]
+}

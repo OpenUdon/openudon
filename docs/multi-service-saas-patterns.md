@@ -38,6 +38,9 @@ contracts:
 - local `fnct` steps are only deterministic transforms, renderers, or approved
   adapters.
 
+M21 confirms these fixtures build from reference intent and pass sandbox
+trusted-runner dry-run after bearer security request placement is normalized.
+
 ## Cross-Service Data Flow
 
 Cross-service data flow should be visible in both `project.md` and
