@@ -1000,6 +1000,27 @@ func TestReviewEvidenceRecordsCredentialInventory(t *testing.T) {
 	}
 }
 
+func TestCredentialInventoryUsesBindingNamesNotRequestTargets(t *testing.T) {
+	step := PlanStep{
+		Name:        "get_customer",
+		Credentials: []string{"Authorization"},
+		RequestParams: []PlanParam{{
+			Name:               "Authorization",
+			Credential:         true,
+			SourceKind:         "credential",
+			ExpectedCredential: "customers_bearer_token",
+		}},
+	}
+	plan := &WorkflowPlan{Steps: []PlanStep{step}}
+
+	if got := credentialNamesFromPlan(plan); !stringSlicesEqual(got, []string{"customers_bearer_token"}) {
+		t.Fatalf("credentialNamesFromPlan() = %#v, want only binding name", got)
+	}
+	if got := credentialBindingsForPlanStep(step); !stringSlicesEqual(got, []string{"customers_bearer_token"}) {
+		t.Fatalf("credentialBindingsForPlanStep() = %#v, want only binding name", got)
+	}
+}
+
 func TestAssessReviewRequiresTrustedExecutionPackage(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "review.md")
 	if err := os.WriteFile(path, []byte(`# OpenUdon Review Evidence

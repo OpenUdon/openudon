@@ -197,18 +197,50 @@ func validateCandidatePaths(summaryPath string, summary Summary) error {
 		if rel == "" {
 			continue
 		}
-		if filepath.IsAbs(rel) || strings.Contains(filepath.ToSlash(rel), "../") {
+		cleanRel, err := cleanFixtureRelativePath(fixtureRoot, rel)
+		if err != nil {
 			problems = append(problems, fmt.Sprintf("%s must stay inside the fixture: %s", label, rel))
 			continue
 		}
-		if _, err := os.Stat(filepath.Join(fixtureRoot, filepath.FromSlash(rel))); err != nil {
+		info, err := os.Lstat(filepath.Join(fixtureRoot, filepath.FromSlash(cleanRel)))
+		if err != nil {
 			problems = append(problems, fmt.Sprintf("%s does not exist: %s", label, rel))
+			continue
+		}
+		if !info.Mode().IsRegular() {
+			problems = append(problems, fmt.Sprintf("%s must be a regular file: %s", label, rel))
 		}
 	}
 	if len(problems) > 0 {
 		return errors.New(strings.Join(problems, "; "))
 	}
 	return nil
+}
+
+func cleanFixtureRelativePath(fixtureRoot, rel string) (string, error) {
+	if filepath.IsAbs(rel) {
+		return "", fmt.Errorf("absolute path")
+	}
+	cleanRel := filepath.Clean(filepath.FromSlash(rel))
+	if cleanRel == "." {
+		return "", fmt.Errorf("empty path")
+	}
+	rootAbs, err := filepath.Abs(fixtureRoot)
+	if err != nil {
+		return "", err
+	}
+	candidateAbs, err := filepath.Abs(filepath.Join(fixtureRoot, cleanRel))
+	if err != nil {
+		return "", err
+	}
+	inside, err := filepath.Rel(rootAbs, candidateAbs)
+	if err != nil {
+		return "", err
+	}
+	if inside == "." || inside == ".." || strings.HasPrefix(inside, ".."+string(filepath.Separator)) {
+		return "", fmt.Errorf("outside fixture")
+	}
+	return filepath.ToSlash(cleanRel), nil
 }
 
 func ValidateRoot(root string) ([]ValidationResult, error) {

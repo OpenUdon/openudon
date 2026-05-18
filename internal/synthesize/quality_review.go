@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
-	"sort"
 	"strings"
 
 	"github.com/OpenUdon/openudon/internal/authoring"
@@ -269,30 +268,7 @@ func symphonyHandoffCredentialBindingsMatch(manifest SymphonyHandoff, policy pro
 	declared := credentialBindingNames(policy)
 	expected := []string(nil)
 	if expectedPlan != nil {
-		seen := map[string]bool{}
-		for _, step := range expectedPlan.Steps {
-			for _, credential := range step.Credentials {
-				credential = strings.TrimSpace(credential)
-				if credential != "" {
-					seen[credential] = true
-				}
-			}
-			for _, param := range step.RequestParams {
-				if !param.Credential {
-					continue
-				}
-				for _, credential := range []string{param.ExpectedCredential, param.ExpectedSource} {
-					credential = strings.TrimSpace(credential)
-					if credential != "" && param.SourceKind == "credential" {
-						seen[credential] = true
-					}
-				}
-			}
-		}
-		for credential := range seen {
-			expected = append(expected, credential)
-		}
-		sort.Strings(expected)
+		expected = credentialNamesFromPlan(expectedPlan)
 	}
 	if !stringSlicesEqual(declared, manifest.CredentialBindings.Declared) {
 		return false
@@ -350,24 +326,8 @@ func reviewContainsCredentialBindings(text string, policy projectPolicy, expecte
 		expected[credential] = true
 	}
 	if expectedPlan != nil {
-		for _, step := range expectedPlan.Steps {
-			for _, credential := range step.Credentials {
-				credential = strings.TrimSpace(credential)
-				if credential != "" {
-					expected[credential] = true
-				}
-			}
-			for _, param := range step.RequestParams {
-				if !param.Credential {
-					continue
-				}
-				for _, credential := range []string{param.ExpectedCredential, param.ExpectedSource} {
-					credential = strings.TrimSpace(credential)
-					if credential != "" && param.SourceKind == "credential" {
-						expected[credential] = true
-					}
-				}
-			}
+		for _, credential := range credentialNamesFromPlan(expectedPlan) {
+			expected[credential] = true
 		}
 	}
 	if len(expected) == 0 {

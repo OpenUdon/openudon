@@ -215,18 +215,9 @@ func credentialNamesFromPlan(plan *WorkflowPlan) []string {
 	}
 	seen := map[string]bool{}
 	for _, step := range plan.Steps {
-		for _, credential := range step.Credentials {
-			credential = strings.TrimSpace(credential)
-			if credential != "" {
-				seen[credential] = true
-			}
-		}
 		for _, param := range step.RequestParams {
-			for _, credential := range []string{param.ExpectedCredential, param.ExpectedSource} {
-				credential = strings.TrimSpace(credential)
-				if param.Credential && credential != "" && param.SourceKind == "credential" {
-					seen[credential] = true
-				}
+			for _, credential := range credentialBindingsForPlanParam(param) {
+				seen[credential] = true
 			}
 		}
 	}
@@ -297,25 +288,31 @@ func writeCredentialScopeMatrix(b *strings.Builder, plan *WorkflowPlan, declared
 
 func credentialBindingsForPlanStep(step PlanStep) []string {
 	seen := map[string]bool{}
-	for _, credential := range step.Credentials {
-		credential = strings.TrimSpace(credential)
-		if credential != "" {
-			seen[credential] = true
-		}
-	}
 	for _, param := range step.RequestParams {
-		if !param.Credential || param.SourceKind != "credential" {
-			continue
-		}
-		for _, credential := range []string{param.ExpectedCredential, param.ExpectedSource} {
-			credential = strings.TrimSpace(credential)
-			if credential != "" {
-				seen[credential] = true
-			}
+		for _, credential := range credentialBindingsForPlanParam(param) {
+			seen[credential] = true
 		}
 	}
 	out := make([]string, 0, len(seen))
 	for credential := range seen {
+		out = append(out, credential)
+	}
+	sort.Strings(out)
+	return out
+}
+
+func credentialBindingsForPlanParam(param PlanParam) []string {
+	if !param.Credential || param.SourceKind != "credential" {
+		return nil
+	}
+	seen := map[string]bool{}
+	var out []string
+	for _, credential := range []string{param.ExpectedCredential, param.ExpectedSource} {
+		credential = strings.TrimSpace(credential)
+		if credential == "" || seen[credential] {
+			continue
+		}
+		seen[credential] = true
 		out = append(out, credential)
 	}
 	sort.Strings(out)

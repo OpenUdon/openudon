@@ -104,6 +104,45 @@ func TestValidateFileRejectsMissingCandidatePath(t *testing.T) {
 	}
 }
 
+func TestValidateFileRejectsEscapedCandidatePath(t *testing.T) {
+	root := t.TempDir()
+	path := filepath.Join(root, "one", "reference", "n8n-bridge.json")
+	writeSummaryFile(t, path, `{
+  "version": "openudon.n8n-pattern-summary.v1",
+  "fixture": "one",
+  "boundary": "authoring_assistance_only",
+  "source": {"kind": "n8n_workflow_fixture"},
+  "services": [{"name": "Slack"}],
+  "nodes": [{"name": "Slack", "type": "n8n-nodes-base.slack", "mapping_status": "advisory"}],
+  "generated_candidates": {"project_path": "..", "promoted": false},
+  "validation": {"status": "advisory"}
+}`)
+	_, err := ValidateFile(path)
+	if err == nil || !strings.Contains(err.Error(), "generated_candidates.project_path must stay inside the fixture") {
+		t.Fatalf("expected escaped candidate path failure, got %v", err)
+	}
+}
+
+func TestValidateFileRejectsCandidateDirectory(t *testing.T) {
+	root := t.TempDir()
+	path := filepath.Join(root, "one", "reference", "n8n-bridge.json")
+	writeSummaryFile(t, filepath.Join(root, "one", "project.md"), "# one\n")
+	writeSummaryFile(t, path, `{
+  "version": "openudon.n8n-pattern-summary.v1",
+  "fixture": "one",
+  "boundary": "authoring_assistance_only",
+  "source": {"kind": "n8n_workflow_fixture"},
+  "services": [{"name": "Slack"}],
+  "nodes": [{"name": "Slack", "type": "n8n-nodes-base.slack", "mapping_status": "advisory"}],
+  "generated_candidates": {"project_path": "reference", "promoted": false},
+  "validation": {"status": "advisory"}
+}`)
+	_, err := ValidateFile(path)
+	if err == nil || !strings.Contains(err.Error(), "generated_candidates.project_path must be a regular file") {
+		t.Fatalf("expected candidate directory failure, got %v", err)
+	}
+}
+
 func writeSummaryFile(t *testing.T, path, body string) {
 	t.Helper()
 	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
