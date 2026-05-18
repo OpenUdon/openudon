@@ -1,0 +1,2478 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="Public UWS workflow authoring, review, package, and trusted executor handoff">
+      
+      
+      
+        <link rel="canonical" href="https://openudon.github.io/openudon/intent/">
+      
+      
+        <link rel="prev" href="../project-authoring/">
+      
+      
+        <link rel="next" href="../data-flow/">
+      
+      
+        
+      
+      
+      <link rel="icon" href="../assets/images/favicon.png">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.6">
+    
+    
+      
+        <title>intent.hcl - OpenUdon</title>
+      
+    
+    
+      <link rel="stylesheet" href="../assets/stylesheets/main.484c7ddc.min.css">
+      
+        
+        <link rel="stylesheet" href="../assets/stylesheets/palette.ab4e12ef.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+    <script>__md_scope=new URL("..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="teal" data-md-color-accent="deep-orange">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#intent-hcl" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+<header class="md-header" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href=".." title="OpenUdon" class="md-header__button md-logo" aria-label="OpenUdon" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            OpenUdon
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              intent.hcl
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="" data-md-color-scheme="default" data-md-color-primary="teal" data-md-color-accent="deep-orange"  aria-hidden="true"  type="radio" name="__palette" id="__palette_0">
+    
+  
+</form>
+      
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+      <div class="md-header__source">
+        <a href="https://github.com/OpenUdon/openudon" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    OpenUdon/openudon
+  </div>
+</a>
+      </div>
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+            
+<nav class="md-tabs" aria-label="Tabs" data-md-component="tabs">
+  <div class="md-grid">
+    <ul class="md-tabs__list">
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href=".." class="md-tabs__link">
+        
+  
+  
+    
+  
+  Home
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+    
+  
+  
+    
+    
+      <li class="md-tabs__item md-tabs__item--active">
+        <a href="../authoring/" class="md-tabs__link">
+          
+  
+  
+  Authoring
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../tutorial-weather/" class="md-tabs__link">
+          
+  
+  
+  Tutorial
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../safety/" class="md-tabs__link">
+          
+  
+  
+  Handoff
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../related/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  Related
+
+      </a>
+    </li>
+  
+
+      
+    </ul>
+  </div>
+</nav>
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+  
+
+
+<nav class="md-nav md-nav--primary md-nav--lifted" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href=".." title="OpenUdon" class="md-nav__button md-logo" aria-label="OpenUdon" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    OpenUdon
+  </label>
+  
+    <div class="md-nav__source">
+      <a href="https://github.com/OpenUdon/openudon" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    OpenUdon/openudon
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href=".." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Home
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+    
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2" checked>
+        
+          
+          <label class="md-nav__link" for="__nav_2" id="__nav_2_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Authoring
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_2_label" aria-expanded="true">
+          <label class="md-nav__title" for="__nav_2">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Authoring
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../authoring/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../agentic-saas-authoring/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Agentic SaaS Authoring
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../saas-authoring-corpus/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    SaaS Authoring Corpus
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../saas-authoring-trials/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    SaaS Authoring Trials
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../multi-service-saas-patterns/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Multi-Service SaaS Patterns
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../n8n-pattern-bridge/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    n8n Pattern Bridge
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../project-authoring/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Project Briefs
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    intent.hcl
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    intent.hcl
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#purpose" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Purpose
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#accuracy-profile" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Accuracy Profile
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#file-shape" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        File Shape
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#workflow" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Workflow
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#inputs" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Inputs
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#steps" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Steps
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#api-steps" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        API Steps
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#data-flow" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Data Flow
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#function-steps" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Function Steps
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#actions-and-control-flow" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Actions And Control Flow
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#credentials-and-security" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Credentials And Security
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#reference-grammar" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Reference Grammar
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#lowering-contract" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Lowering Contract
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#validation" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Validation
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#authoring-style" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Authoring Style
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#more-patterns" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        More Patterns
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#non-goals" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Non-Goals
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#reference-implementation" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Reference Implementation
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../data-flow/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Data Flow
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../icot/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    iCoT
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../synthesize/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Synthesize
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3" >
+        
+          
+          <label class="md-nav__link" for="__nav_3" id="__nav_3_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Tutorial
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Tutorial
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../tutorial-weather/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Weather
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../tutorial-gmail/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Gmail Audit Receipt
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../tutorial-order-fulfillment/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Order Fulfillment Chain
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../tutorial-support-email/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Support Email
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../eval-gallery/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Eval Gallery
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4" >
+        
+          
+          <label class="md-nav__link" for="__nav_4" id="__nav_4_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Handoff
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_4_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_4">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Handoff
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../safety/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Safety
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../review-handoff/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Review Handoff
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../saas-review-handoff/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    SaaS Review Handoff
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../saas-operator-release/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    SaaS Operator Release Path
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../terraform-openapi-conversion/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Terraform/OpenAPI Conversion
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../release-stewardship/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Release Stewardship
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../release-note-template/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Release Notes Template
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../aws-provider-conversion-corpus/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AWS Provider Conversion Corpus
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../related/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Related
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#purpose" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Purpose
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#accuracy-profile" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Accuracy Profile
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#file-shape" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        File Shape
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#workflow" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Workflow
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#inputs" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Inputs
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#steps" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Steps
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#api-steps" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        API Steps
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#data-flow" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Data Flow
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#function-steps" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Function Steps
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#actions-and-control-flow" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Actions And Control Flow
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#credentials-and-security" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Credentials And Security
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#reference-grammar" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Reference Grammar
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#lowering-contract" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Lowering Contract
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#validation" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Validation
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#authoring-style" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Authoring Style
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#more-patterns" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        More Patterns
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#non-goals" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Non-Goals
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#reference-implementation" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Reference Implementation
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+  
+  
+
+
+<h1 id="intent-hcl">Intent HCL</h1>
+<p><code>workflows/intent.hcl</code> is OpenUdon's internal structured authoring contract between
+<code>project.md</code> and <code>workflows/workflow.hcl</code>. It records what OpenUdon intends to build before
+OpenUdon renders public workflow source and exported UWS.</p>
+<p>This is a OpenUdon-owned document. It is not the public UWS specification and it is not a generic
+udon runtime specification. Public workflow semantics remain in <code>../uws</code>; generic compiler and
+runtime behavior remains in <code>../udon</code>.</p>
+<h2 id="purpose">Purpose</h2>
+<p><code>intent.hcl</code> exists to make workflow generation auditable and repeatable:</p>
+<pre><code class="language-text">project.md -&gt; workflows/intent.hcl -&gt; workflows/workflow.hcl -&gt; workflows/workflow.uws.yaml
+</code></pre>
+<p>OpenUdon accepts intent through its local <code>internal/workflowintent.Intent</code> model and the
+structured JSON schema embedded at <code>internal/synthesize/schemas/intent.schema.json</code>. <code>openudon build</code>
+parses an existing <code>workflows/intent.hcl</code>; <code>openudon synthesize</code> generates one from <code>project.md</code>,
+OpenAPI discovery, and project policy.</p>
+<p>Intent HCL parsing uses OpenUdon's local <code>workflowintent.ParseIntent</code> API. The canonical renderer is
+<code>workflowintent.RenderIntentHCL</code>; generated workflow lowering uses
+<code>Intent.NormalizedForGeneration</code> before OpenUdon produces <code>workflow.hcl</code> as public UWS HCL.
+OpenUdon does not import udon packages.</p>
+<h2 id="accuracy-profile">Accuracy Profile</h2>
+<p>OpenUdon accepts some incomplete or descriptive intent so the refinement loop can repair generated
+artifacts. That looser mode is not the accuracy target.</p>
+<p>For near-100% conversion from <code>intent.hcl</code> to <code>workflow.hcl</code>, author the high-fidelity profile:</p>
+<ul>
+<li>Give every step an explicit <code>type</code>.</li>
+<li>For API steps, set <code>operation</code> and either top-level <code>openapi</code> or step-local <code>openapi</code>.</li>
+<li>Put every required request field in <code>with</code> or <code>bind</code>.</li>
+<li>Use <code>depends_on</code> and <code>bind</code> for every step-to-step data dependency.</li>
+<li>Use credential binding names only; never put credential values in intent.</li>
+<li>Treat <code>do</code>, <code>using</code>, and <code>set</code> as review or repair hints, not as the source of required wiring.</li>
+</ul>
+<p>An intent that follows this profile should lower to semantically equivalent <code>workflow.hcl</code>. Missing
+OpenAPI files, unknown operations, unresolved references, disallowed runtimes, absent credential
+bindings, or unverifiable response paths should fail validation instead of being guessed.</p>
+<h2 id="file-shape">File Shape</h2>
+<p>An intent file is HCL with these top-level fields and blocks:</p>
+<pre><code class="language-text">openapi    = &quot;openapi/example.yaml&quot;   # optional default OpenAPI document
+server_url = &quot;https://sandbox.example.com&quot; # optional default server URL
+locals     = { region = &quot;us-east-1&quot; } # optional string map
+
+workflow { ... }                      # required by OpenUdon-generated intent
+input &quot;&lt;name&gt;&quot; { ... }                 # zero or more
+trigger &quot;&lt;name&gt;&quot; { ... }               # zero or more
+security &quot;&lt;name&gt;&quot; { ... }              # zero or more
+step &quot;&lt;name&gt;&quot; { ... }                  # one or more for normal generation
+output &quot;&lt;name&gt;&quot; { ... }                # zero or more
+</code></pre>
+<p><code>workflowintent.ParseIntent</code> requires at least one <code>step</code> or <code>trigger</code>. OpenUdon-generated intent should
+always include a <code>workflow</code> block with non-empty <code>name</code> and <code>description</code>, and at least one <code>step</code>.
+Block order is not significant to parsing. The renderer emits a stable order, and hand-authored
+intent should follow it for reviewability: top-level attributes, <code>workflow</code>, inputs, triggers,
+security, steps, then outputs.</p>
+<p>Top-level <code>openapi</code> is the default OpenAPI document path for API steps that do not declare
+step-local <code>openapi</code>. <code>Intent.MissingSlots()</code> reports <code>"OpenAPI specification URL or content"</code> when
+a step names an <code>operation</code> but neither step-local nor top-level <code>openapi</code> is available.</p>
+<p>Top-level <code>server_url</code> is an optional server override for the selected OpenAPI documents, typically
+used to steer proof runs toward sandbox endpoints. Top-level <code>locals</code> is an optional string map for
+workflow constants referenced as <code>locals.&lt;name&gt;</code>.</p>
+<h2 id="workflow">Workflow</h2>
+<p>The <code>workflow</code> block names and describes the workflow.</p>
+<pre><code class="language-hcl">workflow {
+  name        = &quot;runtime_only_render&quot;
+  description = &quot;Render a local summary report.&quot;
+}
+
+input &quot;summary&quot; {
+  type     = &quot;string&quot;
+  required = true
+}
+
+step &quot;render_report&quot; {
+  type = &quot;fnct&quot;
+  do   = &quot;Render the summary report.&quot;
+  with = {
+    summary = &quot;inputs.summary&quot;
+  }
+}
+
+output &quot;report&quot; {
+  from = &quot;render_report.received_body&quot;
+}
+</code></pre>
+<p><code>workflow.name</code> becomes the workflow identity in generated artifacts. Use stable <code>snake_case</code>.
+<code>workflow.description</code> is human review context and should summarize the workflow goal.</p>
+<h2 id="inputs">Inputs</h2>
+<p><code>input</code> blocks declare values supplied by the caller at runtime. They are referenced as
+<code>inputs.&lt;name&gt;</code>.</p>
+<p>Supported attributes:</p>
+<table>
+<thead>
+<tr>
+<th>Attribute</th>
+<th>Type</th>
+<th>Meaning</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>label</td>
+<td>string</td>
+<td>Input name.</td>
+</tr>
+<tr>
+<td><code>type</code></td>
+<td>string</td>
+<td>Optional type hint such as <code>string</code>, <code>integer</code>, <code>boolean</code>, or <code>object</code>.</td>
+</tr>
+<tr>
+<td><code>description</code></td>
+<td>string</td>
+<td>Human-readable input purpose.</td>
+</tr>
+<tr>
+<td><code>required</code></td>
+<td>boolean</td>
+<td>Whether callers must provide the value.</td>
+</tr>
+<tr>
+<td><code>sensitive</code></td>
+<td>boolean</td>
+<td>Marks the value as sensitive review metadata. Prefer credential bindings for secrets.</td>
+</tr>
+<tr>
+<td><code>default</code></td>
+<td>string</td>
+<td>Optional literal default.</td>
+</tr>
+</tbody>
+</table>
+<p>High-fidelity API steps should reference runtime inputs explicitly in <code>with</code>:</p>
+<pre><code class="language-text">with = {
+  customerId = &quot;inputs.customerId&quot;
+}
+</code></pre>
+<h2 id="steps">Steps</h2>
+<p><code>step</code> blocks are the core units that lower into <code>workflow.hcl</code>.</p>
+<p>Supported step attributes:</p>
+<table>
+<thead>
+<tr>
+<th>Attribute</th>
+<th>Meaning</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>label</td>
+<td>Stable step name used by dependencies, binds, outputs, and review evidence.</td>
+</tr>
+<tr>
+<td><code>type</code></td>
+<td>Runtime or structural type.</td>
+</tr>
+<tr>
+<td><code>do</code></td>
+<td>Human action description for review and generation.</td>
+</tr>
+<tr>
+<td><code>using</code>, <code>set</code></td>
+<td>Legacy/descriptive hints. Prefer explicit <code>with</code> and <code>bind</code>.</td>
+</tr>
+<tr>
+<td><code>depends_on</code></td>
+<td>Earlier step names that must complete first.</td>
+</tr>
+<tr>
+<td><code>with</code></td>
+<td>Request fields, function inputs, literals, credential bindings, or references.</td>
+</tr>
+<tr>
+<td><code>openapi</code></td>
+<td>Step-local OpenAPI document path.</td>
+</tr>
+<tr>
+<td><code>operation</code></td>
+<td>OpenAPI <code>operationId</code>.</td>
+</tr>
+<tr>
+<td><code>provider</code></td>
+<td>Optional provider label for multi-provider workflows.</td>
+</tr>
+<tr>
+<td><code>bind</code></td>
+<td>Structured source-step-to-target-field wiring.</td>
+</tr>
+<tr>
+<td><code>when</code>, <code>for_each</code>, <code>items</code>, <code>mode</code>, <code>batch_size</code></td>
+<td>Structural control-flow hints.</td>
+</tr>
+<tr>
+<td><code>successCriteria</code>, <code>onFailure</code>, <code>onSuccess</code></td>
+<td>Explicit UWS operation actions for leaf steps.</td>
+</tr>
+<tr>
+<td>nested <code>step</code>, <code>case</code>, <code>default</code></td>
+<td>Structural child steps.</td>
+</tr>
+</tbody>
+</table>
+<p>Supported leaf step types are <code>http</code>, <code>openapi</code>, <code>fnct</code>, <code>cmd</code>, and <code>ssh</code>.
+Supported structural step types are <code>sequence</code>, <code>parallel</code>, <code>switch</code>, <code>merge</code>, <code>loop</code>, and <code>await</code>.</p>
+<p>OpenUdon policy allows <code>openapi</code>, <code>http</code>, and <code>fnct</code> by default. <code>cmd</code> and <code>ssh</code> require explicit
+approval in <code>project.md</code>; otherwise quality assessment fails the intent.</p>
+<p>Unsupported runtime names such as <code>sql</code>, <code>smtp</code>, <code>llm</code>, and profile-specific <code>x-udon-*</code> names must
+not appear in OpenUdon intent unless a later OpenUdon change adds explicit schema, policy, and fixture
+coverage.</p>
+<h2 id="api-steps">API Steps</h2>
+<p>API steps should be explicit enough that lowering does not need to infer the operation:</p>
+<pre><code class="language-hcl">openapi = &quot;openapi/weather.yaml&quot;
+
+workflow {
+  name        = &quot;weather_toronto&quot;
+  description = &quot;Resolve Toronto coordinates and fetch current weather.&quot;
+}
+
+step &quot;get_coordinates&quot; {
+  type      = &quot;http&quot;
+  do        = &quot;Resolve Toronto, Canada to coordinates.&quot;
+  operation = &quot;direct_get&quot;
+  with = {
+    q = &quot;Toronto,CA&quot;
+  }
+}
+
+step &quot;get_weather&quot; {
+  type       = &quot;http&quot;
+  do         = &quot;Fetch weather for the resolved coordinates.&quot;
+  operation  = &quot;getWeatherData&quot;
+  depends_on = [&quot;get_coordinates&quot;]
+  with = {
+    appid = &quot;weather_appid&quot;
+  }
+  bind {
+    from = &quot;get_coordinates&quot;
+    fields = {
+      lat = &quot;received_body[0].lat&quot;
+      lon = &quot;received_body[0].lon&quot;
+    }
+  }
+}
+
+output &quot;weather&quot; {
+  from = &quot;get_weather.received_body&quot;
+}
+</code></pre>
+<p>Lowering requirements:</p>
+<ul>
+<li>Top-level <code>openapi</code> is the default OpenAPI document for API steps.</li>
+<li>Step-local <code>openapi</code> overrides the default for that step.</li>
+<li><code>operation</code> must match an operationId in the selected OpenAPI document.</li>
+<li><code>with</code> keys become request fields or function inputs.</li>
+<li>Literal strings stay literal unless they are recognized references such as <code>inputs.name</code>,
+  <code>step_name.received_body.path</code>, or other generated HCL expressions.</li>
+<li>Credential binding names in <code>with</code> remain names only; secret values must not be emitted.</li>
+</ul>
+<p>For multi-API workflows, prefer step-local <code>openapi</code> on every API step:</p>
+<pre><code class="language-hcl">workflow {
+  name        = &quot;order_lookup&quot;
+  description = &quot;Fetch a customer and inventory record from separate APIs.&quot;
+}
+
+input &quot;customerId&quot; {
+  type     = &quot;string&quot;
+  required = true
+}
+
+input &quot;sku&quot; {
+  type     = &quot;string&quot;
+  required = true
+}
+
+step &quot;get_customer&quot; {
+  type      = &quot;http&quot;
+  do        = &quot;Fetch the customer profile.&quot;
+  openapi   = &quot;openapi/customers.yaml&quot;
+  operation = &quot;getCustomer&quot;
+  with = {
+    customerId    = &quot;inputs.customerId&quot;
+    Authorization = &quot;customers_bearer_token&quot;
+  }
+}
+
+step &quot;check_inventory&quot; {
+  type      = &quot;http&quot;
+  do        = &quot;Check inventory availability.&quot;
+  openapi   = &quot;openapi/inventory.yaml&quot;
+  operation = &quot;getInventory&quot;
+  with = {
+    sku               = &quot;inputs.sku&quot;
+    inventory_api_key = &quot;inventory_api_key&quot;
+  }
+}
+
+output &quot;customer&quot; {
+  from = &quot;get_customer.received_body&quot;
+}
+
+output &quot;availability&quot; {
+  from = &quot;check_inventory.received_body&quot;
+}
+</code></pre>
+<h2 id="data-flow">Data Flow</h2>
+<p>Use <code>depends_on</code> to express ordering and <code>bind</code> to express field-level data flow. A <code>bind</code> block is
+authoritative:</p>
+<pre><code class="language-text">bind {
+  from = &quot;source_step&quot;
+  fields = {
+    targetField = &quot;received_body.path&quot;
+  }
+}
+</code></pre>
+<p>This means <code>targetField</code> on the current step comes from
+<code>source_step.received_body.path</code>, and the current step depends on <code>source_step</code>. OpenUdon quality gates
+validate that referenced source steps exist and, when response schemas are available, that response
+paths are plausible.</p>
+<p>Use <code>with</code> for runtime inputs, literals, and credential bindings:</p>
+<pre><code class="language-text">with = {
+  page          = &quot;1&quot;
+  ticketId      = &quot;inputs.ticketId&quot;
+  Authorization = &quot;support_bearer_token&quot;
+}
+</code></pre>
+<p>Do not rely on prose such as "use the prior step's ID" when an exact <code>bind</code> can be written.</p>
+<h2 id="function-steps">Function Steps</h2>
+<p><code>fnct</code> steps represent approved local adapters, renderers, classifiers, or transformations. They are
+not OpenAPI calls and must not carry <code>operation</code>, <code>openapi</code>, HTTP method, or path semantics.</p>
+<p>For high-fidelity lowering:</p>
+<ul>
+<li>Declare the function contract in <code>project.md</code>.</li>
+<li>Use <code>with</code> and <code>bind</code> to show every input.</li>
+<li>Use <code>output</code> references to expose the result needed by later steps or reviewers.</li>
+</ul>
+<p>If a generated draft omits function implementation detail, udon may provide a deterministic
+function default during lowering, but authors should not depend on that default as business logic.</p>
+<h2 id="actions-and-control-flow">Actions And Control Flow</h2>
+<p>Leaf steps may carry explicit <code>successCriteria</code>, <code>onFailure</code>, and <code>onSuccess</code> blocks. OpenUdon should
+preserve them only when the project or intent explicitly asks for success checks, retry, failure
+routing, or success routing. Retry is never a default behavior, and side-effectful retry requires
+project-level retry or idempotency policy.</p>
+<p>Structural steps may use nested <code>step</code>, <code>case</code>, and <code>default</code> blocks. Structural output references
+may be exported as UWS structural <code>results[]</code> entries when they reference <code>switch</code>, <code>merge</code>, or
+<code>loop</code> steps.</p>
+<p><code>onFailure</code> retry actions must include <code>retryLimit</code>. <code>retryAfter</code> is optional. <code>goto</code> actions may
+name <code>workflowId</code> or <code>stepId</code>; criteria use <code>condition</code>, optional <code>type</code>, and optional <code>context</code>.</p>
+<h2 id="credentials-and-security">Credentials And Security</h2>
+<p>Intent may name credential bindings, but must never contain credential values.</p>
+<p>Allowed places for binding names:</p>
+<ul>
+<li>Request fields in <code>with</code>, such as <code>Authorization = "orders_bearer_token"</code>.</li>
+<li><code>security "&lt;name&gt;" { token_from = "binding_name" }</code>.</li>
+<li>Project-documented credential fields inferred into generated request bindings.</li>
+</ul>
+<p>OpenUdon quality gates compare credential-like OpenAPI parameters and security schemes against
+declared project credential policy. Missing bindings fail validation.</p>
+<p>Security blocks use this shape:</p>
+<pre><code class="language-text">security &quot;&lt;scheme_name&gt;&quot; {
+  description = &quot;Human review text.&quot;
+  token_from  = &quot;credential_binding_name&quot;
+}
+</code></pre>
+<p><code>token_from</code> is a binding name only. When it maps to an OpenAPI security scheme, quality checks
+verify that the project declares an appropriate credential binding.</p>
+<p>Trigger blocks use this shape:</p>
+<pre><code class="language-text">trigger &quot;&lt;name&gt;&quot; {
+  path           = &quot;/hooks/example&quot;
+  authentication = &quot;scheme_name&quot;
+  methods        = [&quot;POST&quot;]
+  options        = { timeout = &quot;30&quot; }
+  outputs        = [&quot;received&quot;]
+
+  route &quot;received&quot; {
+    to = [&quot;step_name&quot;]
+  }
+}
+</code></pre>
+<p>Triggers are accepted by the intent model, including route dispatch. When a route is present without
+an explicit <code>outputs</code> list, synthesis infers trigger outputs from the route labels for compatibility.
+Most OpenUdon examples are synchronously invoked workflows without triggers.</p>
+<h2 id="reference-grammar">Reference Grammar</h2>
+<p>Values inside <code>with</code>, <code>bind.fields</code>, <code>output.from</code>, and related string fields are parsed as strings
+first and interpreted during lowering. Common forms are:</p>
+<table>
+<thead>
+<tr>
+<th>Form</th>
+<th>Meaning</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>inputs.&lt;name&gt;</code></td>
+<td>Runtime input.</td>
+</tr>
+<tr>
+<td><code>inputs.&lt;name&gt;.&lt;path&gt;</code></td>
+<td>Nested field of an object input.</td>
+</tr>
+<tr>
+<td><code>&lt;step&gt;.received_body</code></td>
+<td>Full response body of a prior step.</td>
+</tr>
+<tr>
+<td><code>&lt;step&gt;.received_body.&lt;path&gt;</code></td>
+<td>Field of a prior response body.</td>
+</tr>
+<tr>
+<td><code>&lt;step&gt;.received_body[&lt;n&gt;]</code></td>
+<td>Array element of a prior response body.</td>
+</tr>
+<tr>
+<td><code>&lt;step&gt;.received_headers.&lt;header&gt;</code></td>
+<td>Response header.</td>
+</tr>
+<tr>
+<td><code>&lt;step&gt;.received_raw</code></td>
+<td>Raw response text.</td>
+</tr>
+<tr>
+<td><code>&lt;step&gt;.status_code</code></td>
+<td>HTTP status code.</td>
+</tr>
+<tr>
+<td><code>locals.&lt;name&gt;</code></td>
+<td>Workflow local value.</td>
+</tr>
+<tr>
+<td><code>${...}</code></td>
+<td>Full HCL expression escape hatch; use sparingly.</td>
+</tr>
+<tr>
+<td>bare credential binding name</td>
+<td>Runtime credential binding, never a literal secret.</td>
+</tr>
+<tr>
+<td>any other string</td>
+<td>Literal request or function input value.</td>
+</tr>
+</tbody>
+</table>
+<p>Inside <code>bind.fields</code>, source paths may use short forms. With <code>from = "get_coordinates"</code>,
+<code>received_body[0].lat</code>, <code>[0].lat</code>, and <code>lat</code> lower to references rooted at
+<code>get_coordinates.received_body</code>. Prefer the explicit <code>received_body...</code> form for clarity.</p>
+<p><code>bind.fields</code> target names may include request-location prefixes: <code>query.</code>, <code>path.</code>, <code>header.</code>,
+<code>cookie.</code>, <code>body.</code>, or <code>payload.</code>. Bare target names let the OpenAPI resolver choose the request
+location from metadata. If both <code>bind</code> and <code>with</code> provide the same target, the explicit <code>with</code> value
+wins.</p>
+<p>The parser also accepts label-bind syntax:</p>
+<pre><code class="language-text">bind &quot;get_coordinates&quot; {
+  fields = {
+    lat = &quot;received_body[0].lat&quot;
+  }
+}
+</code></pre>
+<p>The canonical renderer emits the attribute form:</p>
+<pre><code class="language-text">bind {
+  from = &quot;get_coordinates&quot;
+  fields = {
+    lat = &quot;received_body[0].lat&quot;
+  }
+}
+</code></pre>
+<h2 id="lowering-contract">Lowering Contract</h2>
+<p>Lowering from <code>intent.hcl</code> to <code>workflow.hcl</code> must preserve these semantics:</p>
+<table>
+<thead>
+<tr>
+<th>Intent construct</th>
+<th><code>workflow.hcl</code> expectation</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>workflow.name</code> and <code>workflow.description</code></td>
+<td>Workflow identity and review metadata.</td>
+</tr>
+<tr>
+<td>Top-level or step-local <code>openapi</code></td>
+<td>Provider/OpenAPI binding using only listed documents.</td>
+</tr>
+<tr>
+<td>API <code>operation</code></td>
+<td>Selected OpenAPI operationId.</td>
+</tr>
+<tr>
+<td>Step <code>type</code></td>
+<td>Canonical workflow step kind, preserving <code>fnct</code>, <code>cmd</code>, <code>ssh</code>, and structural kinds.</td>
+</tr>
+<tr>
+<td><code>depends_on</code></td>
+<td>Step dependency ordering.</td>
+</tr>
+<tr>
+<td><code>with</code></td>
+<td>Request fields, function inputs, literals, inputs, and credential binding names.</td>
+</tr>
+<tr>
+<td><code>bind</code></td>
+<td>Source-step dependencies and target request or function input fields.</td>
+</tr>
+<tr>
+<td><code>input</code></td>
+<td>Runtime input references available as <code>inputs.&lt;name&gt;</code>.</td>
+</tr>
+<tr>
+<td><code>output</code></td>
+<td>Workflow outputs or UWS structural results.</td>
+</tr>
+<tr>
+<td><code>successCriteria</code>, <code>onFailure</code>, <code>onSuccess</code></td>
+<td>Leaf operation actions when explicitly authored.</td>
+</tr>
+<tr>
+<td><code>trigger</code> and <code>security</code></td>
+<td>Trigger and security metadata when supported by the lowering path.</td>
+</tr>
+</tbody>
+</table>
+<p>The lowering path must not invent OpenAPI filenames, operation IDs, runtime types, credential
+values, production execution authority, or hidden side-effect policy. If required information is not
+present in the intent, project policy, or discovered OpenAPI metadata, validation should report the
+gap.</p>
+<p>For a fully formed intent, <code>bind</code> blocks are normalized before generation: each <code>bind.from</code> adds a
+deduplicated dependency, each target field is normalized, and each source path is rewritten into a
+canonical prior-step reference. API request location is then resolved from OpenAPI metadata where
+possible.</p>
+<h2 id="validation">Validation</h2>
+<p>Current validation is split across parser checks, structured generation schema, and OpenUdon quality
+gates:</p>
+<ul>
+<li><code>workflowintent.ParseIntent</code> requires valid HCL, at least one <code>step</code> or <code>trigger</code>, labels for labeled
+  blocks, <code>do</code> on leaf steps, and non-empty <code>from</code> plus fields on leaf-step <code>bind</code> blocks.</li>
+<li><code>Intent.MissingSlots()</code> reports missing default OpenAPI context, missing steps, and missing leaf
+  descriptions.</li>
+<li><code>internal/synthesize/schemas/intent.schema.json</code> rejects unknown generated JSON fields, restricts
+  generated step types to the supported enum, and requires <code>operation</code> when generated
+  <code>type = "openapi"</code>.</li>
+<li>OpenUdon quality gates validate runtime policy, OpenAPI references and operations, required
+  parameters, credential bindings, function contracts, data-flow references, response paths, and
+  side-effect policy.</li>
+</ul>
+<h2 id="authoring-style">Authoring Style</h2>
+<ul>
+<li>Use stable <code>snake_case</code> workflow and step names.</li>
+<li>Keep <code>do</code> text concise, present-tense, and review-oriented.</li>
+<li>Set explicit <code>type</code> on every step.</li>
+<li>Prefer explicit <code>depends_on</code> even when <code>bind</code> would imply it.</li>
+<li>Prefer <code>bind</code> for cross-step data flow; reserve <code>with</code> for literals, runtime inputs, and
+  credential binding names.</li>
+<li>Keep credential binding names symbolic and declare them in <code>project.md</code>.</li>
+<li>Do not add unknown top-level attributes such as <code>version</code>; <code>intent.hcl</code> currently has no explicit
+  version field.</li>
+</ul>
+<h2 id="more-patterns">More Patterns</h2>
+<p>API to function adapter:</p>
+<pre><code class="language-hcl">openapi = &quot;openapi/support.yaml&quot;
+
+workflow {
+  name        = &quot;support_priority_routing&quot;
+  description = &quot;Fetch a support ticket, classify priority, and prepare one internal routing result.&quot;
+}
+
+input &quot;ticketId&quot; {
+  type     = &quot;string&quot;
+  required = true
+}
+
+step &quot;get_ticket&quot; {
+  type      = &quot;http&quot;
+  do        = &quot;Fetch support ticket details.&quot;
+  operation = &quot;getTicket&quot;
+  with = {
+    ticketId = &quot;inputs.ticketId&quot;
+  }
+}
+
+step &quot;classify_priority&quot; {
+  type       = &quot;fnct&quot;
+  do         = &quot;Classify the support ticket priority.&quot;
+  depends_on = [&quot;get_ticket&quot;]
+  bind {
+    from = &quot;get_ticket&quot;
+    fields = {
+      ticket = &quot;received_body&quot;
+    }
+  }
+}
+
+output &quot;routing_result&quot; {
+  from = &quot;classify_priority.received_body&quot;
+}
+</code></pre>
+<p>Approved command runtime:</p>
+<pre><code class="language-hcl">workflow {
+  name        = &quot;cmd_allowed_deploy&quot;
+  description = &quot;Run the approved deployment status command.&quot;
+}
+
+step &quot;check_deploy_status&quot; {
+  type = &quot;cmd&quot;
+  do   = &quot;Run the sandbox deployment status command.&quot;
+}
+
+output &quot;status&quot; {
+  from = &quot;check_deploy_status.received_body&quot;
+}
+</code></pre>
+<p><code>cmd</code> and <code>ssh</code> are valid intent runtimes only when <code>project.md</code> explicitly approves them.</p>
+<p>Switch routing:</p>
+<pre><code class="language-hcl">workflow {
+  name        = &quot;priority_switch&quot;
+  description = &quot;Route a classified ticket by priority.&quot;
+}
+
+input &quot;ticketId&quot; {
+  type     = &quot;string&quot;
+  required = true
+}
+
+step &quot;route_by_priority&quot; {
+  type = &quot;switch&quot;
+
+  case &quot;high&quot; {
+    when = &quot;inputs.priority == 'high'&quot;
+
+    step &quot;page_oncall&quot; {
+      type = &quot;fnct&quot;
+      do   = &quot;Prepare an on-call paging request.&quot;
+      with = {
+        ticketId = &quot;inputs.ticketId&quot;
+      }
+    }
+  }
+
+  default {
+    step &quot;queue_for_triage&quot; {
+      type = &quot;fnct&quot;
+      do   = &quot;Queue the ticket for normal triage.&quot;
+      with = {
+        ticketId = &quot;inputs.ticketId&quot;
+      }
+    }
+  }
+}
+
+output &quot;route&quot; {
+  from = &quot;route_by_priority&quot;
+}
+</code></pre>
+<h2 id="non-goals">Non-Goals</h2>
+<p><code>intent.hcl</code> does not replace <code>project.md</code>; project policy remains the source of runtime approval,
+credential binding policy, safety boundary, and fallback behavior.</p>
+<p><code>intent.hcl</code> does not replace <code>workflow.hcl</code> or UWS. The generated <code>workflow.hcl</code> and exported UWS
+remain the artifacts compiled and reviewed before trusted execution.</p>
+<p><code>intent.hcl</code> does not authorize execution. Production side effects require the approved trusted-runner
+path documented in OpenUdon safety and handoff artifacts.</p>
+<h2 id="reference-implementation">Reference Implementation</h2>
+<ul>
+<li>Go model and parser: <code>internal/workflowintent.Intent</code> and <code>workflowintent.ParseIntent</code>.</li>
+<li>Canonical renderer: <code>workflowintent.RenderIntentHCL</code>.</li>
+<li>Generation normalizer: <code>Intent.NormalizedForGeneration</code>.</li>
+<li>Structured generation schema: <code>internal/synthesize/schemas/intent.schema.json</code>.</li>
+<li>OpenUdon validation: <code>openudon assess</code> quality checks under <code>internal/synthesize</code>.</li>
+<li>Reference fixtures: <code>examples/eval/*/reference/intent.hcl</code>.</li>
+</ul>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+          <button type="button" class="md-top md-icon" data-md-component="top" hidden>
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8z"/></svg>
+  Back to top
+</button>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+    <div class="md-copyright__highlight">
+      Copyright 2026 OpenUdon/openudon - UWS workflow authoring and trusted executor handoff - Apache 2.0
+    </div>
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "..", "features": ["navigation.tabs", "navigation.sections", "navigation.top", "search.highlight", "content.code.copy"], "search": "../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+    
+    
+      <script src="../assets/javascripts/bundle.79ae519e.min.js"></script>
+      
+    
+  </body>
+</html>

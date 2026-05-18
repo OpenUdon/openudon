@@ -1,0 +1,2298 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="Public UWS workflow authoring, review, package, and trusted executor handoff">
+      
+      
+      
+        <link rel="canonical" href="https://openudon.github.io/openudon/terraform-openapi-conversion/">
+      
+      
+        <link rel="prev" href="../saas-operator-release/">
+      
+      
+        <link rel="next" href="../release-stewardship/">
+      
+      
+        
+      
+      
+      <link rel="icon" href="../assets/images/favicon.png">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.6">
+    
+    
+      
+        <title>Terraform/OpenAPI Conversion - OpenUdon</title>
+      
+    
+    
+      <link rel="stylesheet" href="../assets/stylesheets/main.484c7ddc.min.css">
+      
+        
+        <link rel="stylesheet" href="../assets/stylesheets/palette.ab4e12ef.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+    <script>__md_scope=new URL("..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="teal" data-md-color-accent="deep-orange">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#terraformopenapi-conversion-design" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+<header class="md-header" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href=".." title="OpenUdon" class="md-header__button md-logo" aria-label="OpenUdon" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            OpenUdon
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              Terraform/OpenAPI Conversion
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="" data-md-color-scheme="default" data-md-color-primary="teal" data-md-color-accent="deep-orange"  aria-hidden="true"  type="radio" name="__palette" id="__palette_0">
+    
+  
+</form>
+      
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+      <div class="md-header__source">
+        <a href="https://github.com/OpenUdon/openudon" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    OpenUdon/openudon
+  </div>
+</a>
+      </div>
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+            
+<nav class="md-tabs" aria-label="Tabs" data-md-component="tabs">
+  <div class="md-grid">
+    <ul class="md-tabs__list">
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href=".." class="md-tabs__link">
+        
+  
+  
+    
+  
+  Home
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../authoring/" class="md-tabs__link">
+          
+  
+  
+  Authoring
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../tutorial-weather/" class="md-tabs__link">
+          
+  
+  
+  Tutorial
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+    
+  
+  
+    
+    
+      <li class="md-tabs__item md-tabs__item--active">
+        <a href="../safety/" class="md-tabs__link">
+          
+  
+  
+  Handoff
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../related/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  Related
+
+      </a>
+    </li>
+  
+
+      
+    </ul>
+  </div>
+</nav>
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+  
+
+
+<nav class="md-nav md-nav--primary md-nav--lifted" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href=".." title="OpenUdon" class="md-nav__button md-logo" aria-label="OpenUdon" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    OpenUdon
+  </label>
+  
+    <div class="md-nav__source">
+      <a href="https://github.com/OpenUdon/openudon" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    OpenUdon/openudon
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href=".." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Home
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2" >
+        
+          
+          <label class="md-nav__link" for="__nav_2" id="__nav_2_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Authoring
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_2_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_2">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Authoring
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../authoring/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../agentic-saas-authoring/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Agentic SaaS Authoring
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../saas-authoring-corpus/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    SaaS Authoring Corpus
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../saas-authoring-trials/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    SaaS Authoring Trials
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../multi-service-saas-patterns/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Multi-Service SaaS Patterns
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../n8n-pattern-bridge/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    n8n Pattern Bridge
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../project-authoring/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Project Briefs
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../intent/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    intent.hcl
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../data-flow/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Data Flow
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../icot/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    iCoT
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../synthesize/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Synthesize
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3" >
+        
+          
+          <label class="md-nav__link" for="__nav_3" id="__nav_3_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Tutorial
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Tutorial
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../tutorial-weather/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Weather
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../tutorial-gmail/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Gmail Audit Receipt
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../tutorial-order-fulfillment/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Order Fulfillment Chain
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../tutorial-support-email/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Support Email
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../eval-gallery/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Eval Gallery
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+    
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4" checked>
+        
+          
+          <label class="md-nav__link" for="__nav_4" id="__nav_4_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Handoff
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_4_label" aria-expanded="true">
+          <label class="md-nav__title" for="__nav_4">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Handoff
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../safety/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Safety
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../review-handoff/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Review Handoff
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../saas-review-handoff/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    SaaS Review Handoff
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../saas-operator-release/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    SaaS Operator Release Path
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Terraform/OpenAPI Conversion
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Terraform/OpenAPI Conversion
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#goal" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Goal
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#current-status-parked" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Current Status: Parked
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#command-integration" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Command Integration
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#static-parser-boundary" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Static Parser Boundary
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#multi-file-provider-and-module-support" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Multi-File, Provider, And Module Support
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#cli-contract" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        CLI Contract
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#openapi-input-boundary" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        OpenAPI Input Boundary
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#target-filtering" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Target Filtering
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#mapping-contract" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Mapping Contract
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Mapping Contract">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#managed-resources" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Managed Resources
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#data-sources" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Data Sources
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#provider-bindings" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Provider Bindings
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#symbolic-values" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Symbolic Values
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#openapi-operation-matching" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        OpenAPI Operation Matching
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#redaction-and-sensitive-inputs" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Redaction And Sensitive Inputs
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#diagnostics-and-strict-mode" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Diagnostics And Strict Mode
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#determinism" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Determinism
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#draft-output" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Draft Output
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#m8-implementation-notes" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        M8 Implementation Notes
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../release-stewardship/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Release Stewardship
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../release-note-template/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Release Notes Template
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../aws-provider-conversion-corpus/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AWS Provider Conversion Corpus
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../related/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Related
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#goal" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Goal
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#current-status-parked" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Current Status: Parked
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#command-integration" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Command Integration
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#static-parser-boundary" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Static Parser Boundary
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#multi-file-provider-and-module-support" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Multi-File, Provider, And Module Support
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#cli-contract" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        CLI Contract
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#openapi-input-boundary" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        OpenAPI Input Boundary
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#target-filtering" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Target Filtering
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#mapping-contract" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Mapping Contract
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Mapping Contract">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#managed-resources" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Managed Resources
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#data-sources" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Data Sources
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#provider-bindings" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Provider Bindings
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#symbolic-values" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Symbolic Values
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#openapi-operation-matching" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        OpenAPI Operation Matching
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#redaction-and-sensitive-inputs" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Redaction And Sensitive Inputs
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#diagnostics-and-strict-mode" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Diagnostics And Strict Mode
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#determinism" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Determinism
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#draft-output" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Draft Output
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#m8-implementation-notes" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        M8 Implementation Notes
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+  
+  
+
+
+<h1 id="terraformopenapi-conversion-design">Terraform/OpenAPI Conversion Design</h1>
+<p>This document is the durable long-form design reference for converting
+Terraform/OpenTofu configuration plus OpenAPI documents into reviewable OpenUdon
+UWS package artifacts.</p>
+<p>This page is the public conversion contract. Maintainer-only planning files may
+exist in local checkouts, but the published behavior and release expectations
+are captured here and in <a href="../release-stewardship/">Release Stewardship</a>.</p>
+<h2 id="goal">Goal</h2>
+<p>M7 specified the adapter contract, M8 implemented the initial <code>openudon convert
+tf</code> path, M9 integrated package-local OpenAPI staging and handoff artifacts, and
+M10 keeps the path stewarded through release checks.</p>
+<h2 id="current-status-parked">Current Status: Parked</h2>
+<p>Terraform/OpenTofu conversion is parked as an implemented but non-primary
+product track. The existing <code>openudon convert tf</code> command, static parser
+boundary, diagnostics, package artifact generation, and selected AWS regression
+coverage should remain maintained by normal tests and release checks, but broad
+Terraform provider coverage is deferred.</p>
+<p>The near-term OpenUdon product focus is agentic UWS authoring for common SaaS
+workflows backed by local OpenAPI documents. n8n and <code>../try-n8n</code> are useful
+service-priority and workflow-pattern evidence for that path, but n8n workflow
+import is deferred. Terraform work should resume only when the project is ready
+to invest in a stable provider adapter architecture and a provider-family
+corpus.</p>
+<p>When resumed, the next Terraform milestone should not make <code>tfconfig</code> an
+AWS/GCP/Azure dialect engine. <code>tfconfig</code> should remain provider-neutral and
+continue to emit static Terraform/OpenTofu facts: resources, data sources,
+providers, aliases, modules, expressions, source ranges, diagnostics, and
+sensitive candidates. Provider semantics belong in an OpenUdon conversion
+adapter layer above <code>tfconfig</code>.</p>
+<p>Future provider support should use a provider-adapter shape:</p>
+<pre><code class="language-text">tfconfig static facts
+  -&gt; provider-neutral OpenUdon conversion core
+  -&gt; provider adapter: AWS, GCP, Azure, or another provider family
+  -&gt; OpenAPI operation mapping, request bindings, credential binding names
+  -&gt; normal OpenUdon review package artifacts
+</code></pre>
+<p>Planned provider-family direction:</p>
+<ul>
+<li><strong>AWS</strong>: continue the existing S3/IAM/Lambda/STS corpus; grow mappings from
+  selected <code>../terraform-provider-aws</code> acceptance-test snippets; keep SigV4,
+  query-protocol <code>Action</code>/<code>Version</code>, provider alias credential names, and
+  provider-local metadata in the adapter layer.</li>
+<li><strong>GCP</strong>: add a future adapter for Google provider resources and data sources
+  after identifying stable Google API/OpenAPI inputs, project/location/zone
+  conventions, service account credential bindings, and provider alias behavior.</li>
+<li><strong>Azure</strong>: add a future adapter for AzureRM-style resources and data sources
+  after identifying ARM OpenAPI operation IDs, API-version request bindings,
+  subscription/resource-group/location conventions, and tenant/subscription
+  credential binding names.</li>
+</ul>
+<p>Any future AWS/GCP/Azure adapter must stay review-first. It must not execute
+Terraform/OpenTofu, provider plugins, cloud SDKs, live cloud APIs, state, plan,
+apply, refresh, imports, or credential resolution. Unsupported or ambiguous
+provider behavior should remain deterministic diagnostics and review TODOs.</p>
+<p>Support a command shaped like:</p>
+<pre><code class="language-bash">openudon convert tf \
+  --config-dir ./tf \
+  --openapi app=./openapi/app.yaml \
+  --action create \
+  --out ./.openudon/convert
+</code></pre>
+<p>The command should produce review scaffolding, not Terraform-compatible
+execution. Ambiguous or unsupported behavior must become diagnostics and TODOs.
+Release stewardship, unsupported behavior review, and regression coverage are
+tracked in <a href="../release-stewardship/">release-stewardship.md</a>.</p>
+<h2 id="command-integration">Command Integration</h2>
+<p>M8 should add an <code>openudon convert tf</code> command group in
+<code>../openudon/cmd/openudon/main.go</code>. The CLI entrypoint should only parse flags,
+format user-facing errors, and route to reusable adapter logic in a new
+<code>../openudon/internal/tfconvert</code> package.</p>
+<p><code>internal/tfconvert</code> should own the conversion contract:</p>
+<ul>
+<li>load Terraform/OpenTofu static facts through <code>tfconfig</code>;</li>
+<li>load OpenAPI operation indexes through <code>apitools</code>;</li>
+<li>apply target, action, mapping, diagnostic, redaction, and deterministic output
+  policy;</li>
+<li>write draft review artifacts.</li>
+</ul>
+<p>The package boundary matters because later OpenUdon package generation, tests,
+and quality gates should reuse the adapter without shelling out to the CLI.</p>
+<h2 id="static-parser-boundary">Static Parser Boundary</h2>
+<p>The parser belongs in <code>github.com/OpenUdon/tfconfig</code>.</p>
+<p><code>tfconfig</code> should:</p>
+<ul>
+<li>load Terraform/OpenTofu configuration directories;</li>
+<li>support <code>.tf</code>, <code>.tofu</code>, <code>.tf.json</code>, <code>.tofu.json</code>, and override files;</li>
+<li>support multiple files per module;</li>
+<li>preserve variables, locals, outputs, providers, provider aliases, required
+  providers, resources, data sources, lifecycle, dependencies, moved/import/
+  removed/check/test blocks;</li>
+<li>preserve <code>count</code>, <code>for_each</code>, expressions, references, source ranges, and
+  diagnostics;</li>
+<li>load local modules that are already present on disk;</li>
+<li>report missing or remote modules as diagnostics;</li>
+<li>mark likely secret literals as sensitive candidates and keep public JSON from
+  emitting raw likely-secret values;</li>
+<li>emit deterministic <code>tfconfig.static.v1</code> output.</li>
+</ul>
+<p><code>tfconfig</code> must not:</p>
+<ul>
+<li>run provider plugins;</li>
+<li>run <code>tofu init</code>;</li>
+<li>download modules;</li>
+<li>initialize backends;</li>
+<li>load state;</li>
+<li>refresh, plan, or apply;</li>
+<li>resolve credentials.</li>
+</ul>
+<p>OpenUdon must consume the <code>tfconfig.LoadDir</code> Go API from
+<code>github.com/OpenUdon/tfconfig</code>. The deterministic CLI JSON projection remains
+an export/debug boundary and must not be the M8 integration contract unless a
+later milestone explicitly promotes it.</p>
+<h2 id="multi-file-provider-and-module-support">Multi-File, Provider, And Module Support</h2>
+<p>Real Terraform/OpenTofu projects commonly split configuration across files such
+as <code>versions.tf</code>, <code>providers.tf</code>, <code>variables.tf</code>, <code>main.tf</code>, and <code>outputs.tf</code>.
+The converter must treat all eligible files in one directory as one module.</p>
+<p>Multiple providers and aliases must be preserved as symbolic review facts:</p>
+<ul>
+<li><code>terraform.required_providers</code>;</li>
+<li>provider local names;</li>
+<li>source addresses and version constraints;</li>
+<li>provider aliases;</li>
+<li>resource/data-source provider references;</li>
+<li>module <code>providers = { ... }</code> mappings.</li>
+</ul>
+<p>Local module support is v1 scope. Remote or unavailable modules are diagnostics.</p>
+<h2 id="cli-contract">CLI Contract</h2>
+<p>The M8 CLI contract is:</p>
+<pre><code class="language-bash">openudon convert tf \
+  [--config-dir DIR] \
+  --openapi ID=PATH \
+  [--openapi ID=PATH ...] \
+  [--action create|update|delete|replace] \
+  [--target ADDRESS ...] \
+  [--out DIR] \
+  [--strict]
+</code></pre>
+<p>Flag behavior:</p>
+<ul>
+<li><code>--config-dir</code> defaults to <code>.</code> and identifies the root Terraform/OpenTofu
+  configuration directory passed to <code>tfconfig.LoadDir</code>.</li>
+<li><code>--openapi</code> is repeatable. Each value must be <code>id=PATH</code>; IDs are required,
+  non-empty, unique, stable, and used in diagnostics and review output. Paths
+  are local OpenAPI or Swagger documents. Missing, unreadable, malformed, or
+  duplicate-ID inputs produce diagnostics.</li>
+<li><code>--action</code> accepts <code>create</code>, <code>update</code>, <code>delete</code>, or <code>replace</code>. It is required
+  whenever the selected Terraform facts include at least one managed resource.
+  It is not required when the selected facts contain only data sources. M8 may
+  reject a provided action outside the allowed set before conversion begins.</li>
+<li><code>--target</code> is repeatable. Without targets, all loaded managed resources and
+  data sources are selected. With targets, only exact address matches are
+  selected; unmatched targets are deterministic diagnostics.</li>
+<li><code>--out</code> defaults to <code>./.openudon/convert</code>.</li>
+<li><code>--strict</code> exits non-zero when any strict-failure diagnostic remains.</li>
+</ul>
+<h2 id="openapi-input-boundary">OpenAPI Input Boundary</h2>
+<p>The OpenUdon adapter must use only the narrowed OpenAPI-owned <code>apitools</code> APIs:</p>
+<ul>
+<li><code>BuildOperationInventory</code> to load local OpenAPI/Swagger inputs;</li>
+<li><code>NewOperationIndex</code> to validate and index operation IDs from an inventory;</li>
+<li><code>SortedOperationSummaries</code> to produce deterministic candidate lists;</li>
+<li><code>SelectOperationByHints</code> for prompt-safe operation selection;</li>
+<li><code>AuthRequirementsForOperation</code> and <code>AuthRequirementsForOperations</code> for
+  symbolic credential and configuration summaries.</li>
+</ul>
+<p>The adapter must not reintroduce old <code>apitools</code> lifecycle APIs, review package
+builders, LLM clients, binding contracts, or trusted-runner concepts. OpenUdon
+must keep passing <code>openudon check-apitools-boundary</code>, and <code>make check</code> should
+continue to include the apitools boundary target.</p>
+<p>OpenAPI documents are sorted by CLI ID before loading and before output. The
+provided ID becomes the stable document key in generated review notes,
+diagnostics, and operation references.</p>
+<p>The adapter loads and indexes each OpenAPI ID independently:</p>
+<ul>
+<li>call <code>BuildOperationInventory</code> with one <code>InventoryDocument</code> whose <code>Name</code> is
+  the CLI ID and whose <code>Path</code> is the local document path;</li>
+<li>call <code>NewOperationIndex</code> for that one-document inventory;</li>
+<li>keep indexes in a map keyed by OpenAPI ID.</li>
+</ul>
+<p>Duplicate operation IDs are fatal only within the same OpenAPI ID because
+<code>NewOperationIndex</code> indexes bare operation IDs. The same operation ID may appear
+in different OpenAPI documents. Generated operation references therefore use
+the namespaced shape <code>{openapi_id, operation_id}</code>. Candidate lists are built by
+iterating OpenAPI IDs in sorted order, then each document's
+<code>SortedOperationSummaries(index.OperationIDs)</code> output.</p>
+<p>If implementation needs package-local OpenAPI inputs, M8 may copy or reference
+them under <code>openapi/</code>; M7 does not require that artifact.</p>
+<h2 id="target-filtering">Target Filtering</h2>
+<p>Targets match exact adapter canonical addresses derived from <code>tfconfig</code> module
+and object addresses. <code>tfconfig</code> stores <code>Module.Address</code> separately from each
+resource or data source address, so the adapter constructs a full target address
+before matching:</p>
+<ul>
+<li>root managed resource: <code>resource.Address</code>;</li>
+<li>root data source: <code>dataSource.Address</code>;</li>
+<li>child module managed resource: <code>module.Address + "." + resource.Address</code>;</li>
+<li>child module data source: <code>module.Address + "." + dataSource.Address</code>.</li>
+</ul>
+<p>Examples:</p>
+<ul>
+<li>root managed resource: <code>aws_instance.web</code>;</li>
+<li>root data source: <code>data.aws_ami.base</code>;</li>
+<li>child module managed resource: <code>module.child.example_child.main</code>;</li>
+<li>nested child module data source:
+  <code>module.child.module.grandchild.data.example_item.selected</code>.</li>
+</ul>
+<p>Target matching is exact string equality after trimming surrounding whitespace.
+The adapter must not perform fuzzy matching, globbing, implied module expansion,
+or provider-type inference for targets. Targets select only managed resources
+and data sources, not module calls, provider configs, outputs, moved blocks, or
+imports.</p>
+<p>Unmatched targets produce diagnostics with the original target text. Matching
+targets, selected modules, resources, and data sources are emitted in
+<code>tfconfig</code> canonical order. Diagnostics for unmatched targets are sorted by
+target address.</p>
+<h2 id="mapping-contract">Mapping Contract</h2>
+<p>The OpenUdon adapter consumes <code>tfconfig.static.v1</code> through the <code>tfconfig</code> Go API
+plus OpenAPI operation indexes from <code>apitools</code>. CLI JSON remains an export/debug
+format unless a later milestone promotes it as an integration boundary.</p>
+<h3 id="managed-resources">Managed Resources</h3>
+<p>Managed resources represent potential side effects and require a global
+<code>--action</code> when any managed resource is selected. The adapter must not infer
+side effects from resource type names, OpenAPI methods, Terraform lifecycle
+blocks, provider defaults, or previous state.</p>
+<p>Action mapping:</p>
+<table>
+<thead>
+<tr>
+<th>Action</th>
+<th>Draft scaffold purpose</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>create</code></td>
+<td>Create a remote object from symbolic Terraform attributes.</td>
+</tr>
+<tr>
+<td><code>update</code></td>
+<td>Update an existing remote object using symbolic identity and attributes.</td>
+</tr>
+<tr>
+<td><code>delete</code></td>
+<td>Delete an existing remote object using symbolic identity.</td>
+</tr>
+<tr>
+<td><code>replace</code></td>
+<td>Composite review scaffold with separate delete and create operation slots.</td>
+</tr>
+</tbody>
+</table>
+<p>If no confident OpenAPI operation exists, the resource still appears in draft
+review scaffolding with a deterministic TODO operation ID. Missing or ambiguous
+matches are diagnostics, not hidden assumptions.</p>
+<p><code>replace</code> is not passed to <code>SelectOperationByHints</code> as an operation purpose
+because current <code>apitools</code> classifiers do not classify operations as <code>replace</code>.
+For <code>--action replace</code>, the adapter builds one delete-purpose candidate slot and
+one create-purpose candidate slot for the same Terraform resource. Each slot may
+resolve to a namespaced OpenAPI operation reference or produce its own
+deterministic TODO. Provider-specific single-operation replacement remains a
+review TODO unless a later milestone adds an explicit mapping input.</p>
+<h3 id="data-sources">Data Sources</h3>
+<p>Data sources map only to read/list candidate operations. They never require
+<code>--action</code> and must not produce create, update, delete, or replace scaffolds.</p>
+<p>If a data source cannot be mapped confidently to a read/list operation, it
+appears as review scaffolding with an unresolved operation TODO. The adapter
+must preserve the data source address, provider reference, symbolic arguments,
+and source range so a reviewer can decide whether to keep, rewrite, or remove
+the scaffold.</p>
+<h3 id="provider-bindings">Provider Bindings</h3>
+<p>Provider config addresses become symbolic OpenUdon binding names. The binding
+name is normalized from the <code>tfconfig</code> provider address:</p>
+<ul>
+<li><code>provider.aws</code> -&gt; <code>aws</code>;</li>
+<li><code>provider.aws.west</code> -&gt; <code>aws_west</code>;</li>
+<li>other provider local names and aliases use the same lower-case,
+  identifier-safe normalization.</li>
+</ul>
+<p>Aliased providers remain distinct. Provider requirements, source addresses,
+version constraints, resource/data-source provider references, and module
+provider mappings remain review facts. The adapter must not resolve provider
+credentials, endpoints, regions, accounts, tenants, or auth flows from the
+environment.</p>
+<h3 id="symbolic-values">Symbolic Values</h3>
+<p>The adapter preserves variables, locals, outputs, references, expressions,
+<code>count</code>, <code>for_each</code>, <code>depends_on</code>, lifecycle facts, module inputs, and module
+provider mappings as symbolic review text. Literal values may be carried only
+when they are not sensitive and do not look secret-like.</p>
+<p>The adapter must not invent runtime values. Unknowns, expressions, unresolved
+references, dynamic counts, and dynamic <code>for_each</code> values remain symbolic and
+may produce TODO diagnostics when they block confident OpenAPI request mapping.</p>
+<h3 id="openapi-operation-matching">OpenAPI Operation Matching</h3>
+<p>For each selected data source or managed-resource action, the adapter builds
+operation-selection hints from prompt-safe facts:</p>
+<ul>
+<li>provider local name or normalized provider binding;</li>
+<li>action purpose: <code>read</code>, <code>list</code>, <code>create</code>, <code>update</code>, or <code>delete</code>;</li>
+<li>Terraform address, type, name, and attribute names;</li>
+<li>OpenAPI ID.</li>
+</ul>
+<p>Candidates are sorted deterministically by OpenAPI ID and
+<code>SortedOperationSummaries</code>, then selected with <code>SelectOperationByHints</code>. A
+single confident match becomes a draft operation reference shaped as
+<code>{openapi_id, operation_id}</code>. No match produces an unresolved operation TODO. An
+ambiguous match produces an ambiguity TODO listing deterministic namespaced
+candidate operation references.</p>
+<p>TODO operation IDs are deterministic and derived from address, purpose, and
+action. They must not include timestamps, random suffixes, process IDs, or
+machine-specific paths. A conventional shape is:</p>
+<pre><code class="language-text">todo.&lt;normalized-address&gt;.&lt;purpose&gt;.&lt;action&gt;
+</code></pre>
+<p>For data sources, the action segment should be <code>read</code> or <code>list</code>. For
+<code>--action replace</code>, the adapter emits separate delete and create TODO IDs using
+the same target address.</p>
+<h2 id="redaction-and-sensitive-inputs">Redaction And Sensitive Inputs</h2>
+<p><code>tfconfig</code> sensitive values and sensitive candidates become sensitive OpenUdon
+inputs or review variables. Generated artifacts must never include raw
+secret-like literal values.</p>
+<p>Redaction behavior:</p>
+<ul>
+<li>preserve the source address, attribute path, and redaction reason;</li>
+<li>replace the literal with a symbolic sensitive variable name in generated
+  review scaffolding;</li>
+<li>emit a review TODO when a reviewer must confirm the redaction or binding;</li>
+<li>avoid writing secret-like literal defaults, examples, comments, or Markdown
+  prose.</li>
+</ul>
+<h2 id="diagnostics-and-strict-mode">Diagnostics And Strict Mode</h2>
+<p>Diagnostics are emitted to JSON and Markdown. JSON records use stable fields:</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Meaning</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>code</code></td>
+<td>Stable machine-readable code.</td>
+</tr>
+<tr>
+<td><code>severity</code></td>
+<td><code>info</code>, <code>warning</code>, or <code>error</code>.</td>
+</tr>
+<tr>
+<td><code>message</code></td>
+<td>Human-readable diagnostic text.</td>
+</tr>
+<tr>
+<td><code>address</code></td>
+<td>Terraform resource, data-source, provider, module-call, or target address when applicable.</td>
+</tr>
+<tr>
+<td><code>module_address</code></td>
+<td><code>tfconfig</code> module address when applicable.</td>
+</tr>
+<tr>
+<td><code>source_range</code></td>
+<td>Source path/range from <code>tfconfig</code> or OpenAPI input when available.</td>
+</tr>
+<tr>
+<td><code>todo_id</code></td>
+<td>Deterministic TODO identifier when the diagnostic creates reviewer work.</td>
+</tr>
+<tr>
+<td><code>strict_failure</code></td>
+<td>Boolean indicating whether <code>--strict</code> turns this diagnostic into command failure.</td>
+</tr>
+</tbody>
+</table>
+<p>Strict mode fails on:</p>
+<ul>
+<li>parser error diagnostics from <code>tfconfig</code>;</li>
+<li>missing, unreadable, malformed, or duplicate-ID OpenAPI documents;</li>
+<li>unmatched <code>--target</code> values;</li>
+<li>selected managed resources without a valid required <code>--action</code>;</li>
+<li>unresolved operation TODOs;</li>
+<li>ambiguous operation matches;</li>
+<li>unreviewed sensitive redaction TODOs.</li>
+</ul>
+<p>Non-strict mode still emits the same diagnostics and review TODOs but may exit
+successfully if artifact writing succeeds.</p>
+<p>Diagnostics and TODOs are sorted by <code>code</code>, <code>address</code>, <code>module_address</code>, and
+<code>todo_id</code>, with empty fields sorted before non-empty fields. Markdown mirrors
+the JSON order.</p>
+<h2 id="determinism">Determinism</h2>
+<p>Generated output must be stable for review:</p>
+<ul>
+<li>sort OpenAPI documents by ID;</li>
+<li>sort targets by exact address;</li>
+<li>preserve modules, resources, data sources, provider configs, variables,
+  locals, outputs, diagnostics, and source files in <code>tfconfig</code> canonical order;</li>
+<li>sort provider bindings by normalized binding name;</li>
+<li>sort operation candidates by OpenAPI ID then operation ID;</li>
+<li>sort diagnostics and TODOs by stable fields;</li>
+<li>use relative, normalized paths under the output directory where possible;</li>
+<li>avoid timestamps, random values, absolute temp paths, hostnames, usernames,
+  environment-derived credentials, and network fetches.</li>
+</ul>
+<p>The converter must be static and local. It must not run provider plugins,
+<code>tofu init</code>, module downloads, backend initialization, state loading, refresh,
+plan, apply, or OpenAPI operations.</p>
+<h2 id="draft-output">Draft Output</h2>
+<p>M8 should write the draft layout below by default under <code>./.openudon/convert</code>:</p>
+<pre><code class="language-text">.openudon/convert/
+  project.md
+  workflows/
+    intent.hcl
+  expected/
+    diagnostics.json
+    diagnostics.md
+    review.md
+</code></pre>
+<p>Artifact roles:</p>
+<ul>
+<li><code>project.md</code> summarizes selected modules, resources, data sources, provider
+  bindings, OpenAPI IDs, action policy, and unresolved review work.</li>
+<li><code>workflows/intent.hcl</code> contains symbolic draft intent suitable for later
+  OpenUdon package generation, clearly marked as unapproved review scaffolding.</li>
+<li><code>expected/diagnostics.json</code> contains the stable diagnostic records.</li>
+<li><code>expected/diagnostics.md</code> contains reviewer-friendly diagnostics in the same
+  deterministic order.</li>
+<li><code>expected/review.md</code> explains operation mappings, redactions, provider
+  bindings, symbolic values, and TODOs.</li>
+</ul>
+<p>M8 may copy or reference OpenAPI inputs under <code>openapi/</code> only if the
+implementation needs package-local inputs. The initial contract does not require
+embedding OpenAPI documents into the draft output.</p>
+<p>The target output converges on normal OpenUdon package artifacts:</p>
+<pre><code class="language-text">workflows/workflow.hcl
+workflows/workflow.uws.yaml
+expected/plan.json
+expected/plan.md
+expected/discovery.json
+expected/review.md
+expected/quality.json
+expected/quality.md
+expected/symphony-handoff.json
+</code></pre>
+<p>Generated artifacts remain unapproved until normal OpenUdon review, quality,
+approval, digest, and trusted-runner handoff checks pass.</p>
+<h2 id="m8-implementation-notes">M8 Implementation Notes</h2>
+<p>Implement M8 in <code>../openudon</code> as a thin CLI route plus reusable
+<code>internal/tfconvert</code> package. Keep package tests focused on deterministic
+conversion from in-memory <code>tfconfig</code> facts and <code>apitools</code> inventories, then add
+CLI tests for flag parsing, target errors, strict failures, and output paths.</p>
+<p>The implementation should keep OpenUdon free of direct OpenTofu internals and
+should rely on <code>openudon check-apitools-boundary</code> to prevent regressions to old
+<code>apitools</code> lifecycle APIs.</p>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+          <button type="button" class="md-top md-icon" data-md-component="top" hidden>
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8z"/></svg>
+  Back to top
+</button>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+    <div class="md-copyright__highlight">
+      Copyright 2026 OpenUdon/openudon - UWS workflow authoring and trusted executor handoff - Apache 2.0
+    </div>
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "..", "features": ["navigation.tabs", "navigation.sections", "navigation.top", "search.highlight", "content.code.copy"], "search": "../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+    
+    
+      <script src="../assets/javascripts/bundle.79ae519e.min.js"></script>
+      
+    
+  </body>
+</html>
