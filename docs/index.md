@@ -46,4 +46,5 @@ go run ./cmd/openudon run --example ./examples/<name> --tier sandbox --approval 
 ```
 
 Use [Authoring](authoring.md) for the two authoring paths, [Tutorial](tutorial-weather.md) for
-fixture-based walkthroughs, and [Handoff](safety.md) for the review and execution boundary.
+fixture-based walkthroughs, [SaaS Operator Release Path](saas-operator-release.md) for the
+provider-free release demo, and [Handoff](safety.md) for the review and execution boundary.

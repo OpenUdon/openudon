@@ -3,6 +3,9 @@
 This fixture models a sandbox Gmail-like send operation followed by a local audit receipt renderer.
 It is side-effectful by shape, so the tutorial keeps execution language at the review, approval, and
 sandbox handoff boundary.
+For release evidence, prefer the ignored-workdir loop in
+[SaaS Operator Release Path](saas-operator-release.md) so the demo stays
+provider-free and does not modify checked-in fixture artifacts.
 
 Fixture path:
 

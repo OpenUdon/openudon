@@ -36,12 +36,14 @@ nav:
   - Tutorial:
     - Weather: tutorial-weather.md
     - Gmail Audit Receipt: tutorial-gmail.md
+    - Order Fulfillment Chain: tutorial-order-fulfillment.md
     - Support Email: tutorial-support-email.md
     - Eval Gallery: eval-gallery.md
   - Handoff:
     - Safety: safety.md
     - Review Handoff: review-handoff.md
     - SaaS Review Handoff: saas-review-handoff.md
+    - SaaS Operator Release Path: saas-operator-release.md
     - Terraform/OpenAPI Conversion: terraform-openapi-conversion.md
     - Release Stewardship: release-stewardship.md
     - Release Notes Template: release-note-template.md

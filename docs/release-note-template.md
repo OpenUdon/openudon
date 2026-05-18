@@ -19,6 +19,9 @@
 - Secret-scan failures:
 - Release-gate result:
 - Expanded-corpus evidence exception:
+- SaaS operator demo fixtures:
+- SaaS operator demo dry-run result:
+- n8n bridge validation result:
 
 ## Local Checks
 
@@ -27,6 +30,12 @@
 - `make check`:
 - `git diff --check`:
 - `make release-check`:
+- `mkdocs build --strict`:
+- `openudon validate ./examples/uws-validation`:
+- `openudon check-doc-memory`:
+- `openudon n8n-bridge validate --root examples/eval`:
+- Selected SaaS fixture lint:
+- SaaS demo trusted dry-run:
 - Sibling checkout layout (`../uws`, `../apitools`, optional `../udon`, optional `../symphony`):
 - `openudon readiness --run-gates`:
 - Readiness JSON:
@@ -68,6 +77,27 @@ Comparison:
 - Release-gate failures:
 - Eval JSON `provider_drift_watch`:
 - Rerun evidence, if provider drift was suspected:
+
+## SaaS Operator Demo
+
+Demo fixtures:
+
+- Single-service:
+- Multi-service:
+
+Provider-free commands:
+
+```bash
+# See docs/saas-operator-release.md for the ignored-workdir script.
+```
+
+Evidence:
+
+- Quality Markdown paths:
+- Review Markdown paths:
+- Approval JSON paths kept local/ignored:
+- Dry-run config paths kept local/ignored:
+- Boundary notes:
 
 ## Known External Blockers
 

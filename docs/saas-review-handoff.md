@@ -4,6 +4,8 @@ Side-effectful SaaS packages are review artifacts until `openudon run` validates
 approval and writes a trusted-runner config. Synthesis, build, promote, assess,
 iCoT, and eval commands do not send messages, create records, upload files, or
 call production endpoints.
+For a provider-free release demo that exercises this boundary, see
+[SaaS Operator Release Path](saas-operator-release.md).
 
 ## Review Evidence
 

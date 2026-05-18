@@ -58,6 +58,8 @@ Authoring details:
 
 - [Agentic SaaS authoring](docs/agentic-saas-authoring.md) describes the M15 path for common SaaS
   workflows and the role of n8n-derived evidence.
+- [SaaS operator release path](docs/saas-operator-release.md) gives the provider-free demo from
+  strict SaaS fixtures to approval JSON and trusted-runner dry-run evidence.
 - [Project briefs](docs/project-authoring.md) and [Data Flow](docs/data-flow.md) describe the
   reviewable artifact contracts.
 
@@ -361,6 +363,7 @@ LLM-assisted commands; explicit `--provider` and `--model` flags still take prec
 - [Data flow](docs/data-flow.md)
 - [Safety](docs/safety.md)
 - [Eval gallery](docs/eval-gallery.md)
+- [SaaS operator release path](docs/saas-operator-release.md)
 - [Terraform/OpenAPI conversion](docs/terraform-openapi-conversion.md)
 - [Release stewardship](docs/release-stewardship.md)
 - [Release note template](docs/release-note-template.md)

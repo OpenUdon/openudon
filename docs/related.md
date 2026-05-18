@@ -10,6 +10,7 @@ the relevant behavior.
 | [tfconfig](https://github.com/OpenUdon/tfconfig) | Static Terraform/OpenTofu configuration parsing used by `openudon convert tf`. |
 | `udon` | Private UWS/OpenAPI compiler and runtime executor. OpenUdon invokes it only through the trusted run-config handoff. |
 | `symphony` | Optional work orchestration, isolated workspaces, reviewer routing, managed state transitions, identity, and audit persistence. |
+| n8n / `../try-n8n` | Service-priority and workflow-pattern evidence for SaaS authoring. OpenUdon does not import or execute n8n workflows. |
 | [OpenW8M](https://github.com/OpenUdon/openw8m) | Public OpenAPI-backed infrastructure authoring and planning. It is not an OpenUdon compatibility gate while the OpenAPI-only apitools boundary is active. |
 
 ## Rule Of Thumb
@@ -18,7 +19,11 @@ the relevant behavior.
 - Generic execution or compilation behavior belongs in executor implementations such as `udon`.
 - OpenAPI search, discovery, import, and operation metadata belong in apitools.
 - Static Terraform/OpenTofu parsing belongs in `github.com/OpenUdon/tfconfig`.
+- Terraform/OpenTofu provider execution, state, plan/apply, refresh, imports, and cloud SDK calls
+  stay outside OpenUdon.
+- n8n workflows are evidence for authoring, not an execution or compatibility target.
 - Symphony-owned workflow management stays in Symphony.
+- Live SaaS provider calls are outside build, assess, iCoT, eval, and dry-run release demos.
 - OpenUdon owns project templates, examples, review state, approval templates, package contents,
   package digests, and local trusted-runner enforcement.
 
