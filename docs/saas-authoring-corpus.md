@@ -49,6 +49,9 @@ intents.
 Advisory fixtures stay useful because they show which provider operations users
 are likely to ask for. They must not introduce n8n runtime concepts into UWS or
 OpenUdon.
+Selected M22 fixtures add `reference/n8n-bridge.json` summaries under the
+[n8n Pattern Bridge](n8n-pattern-bridge.md) contract so this evidence can be
+validated without importing or executing n8n workflows.
 
 | Fixture | Service | Operation | Binding Name | Current Role |
 | --- | --- | --- | --- | --- |
@@ -91,6 +94,8 @@ An advisory fixture can graduate to strict native coverage when it has:
 - `reference/policy.json` in strict mode with `max_blocking` set to `0`;
 - optional `reference/authoring.json` metadata documenting the authoring
   contract, mappings, response paths, credential binding, and fixture role.
+- optional `reference/n8n-bridge.json` metadata documenting n8n-derived
+  authoring evidence and unsupported semantics.
 
 If any of those inputs are incomplete, keep the fixture advisory and use it as
 service-priority evidence only.

@@ -27,6 +27,7 @@ nav:
     - SaaS Authoring Corpus: saas-authoring-corpus.md
     - SaaS Authoring Trials: saas-authoring-trials.md
     - Multi-Service SaaS Patterns: multi-service-saas-patterns.md
+    - n8n Pattern Bridge: n8n-pattern-bridge.md
     - Project Briefs: project-authoring.md
     - intent.hcl: intent.md
     - Data Flow: data-flow.md

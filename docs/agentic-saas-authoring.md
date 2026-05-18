@@ -10,6 +10,8 @@ n8n and `../try-n8n` are service-priority evidence for this track. They help
 identify useful services, common operations, and provider vocabulary. OpenUdon
 does not run n8n workflows, import n8n internals, or add n8n-specific UWS
 semantics for this milestone.
+The [n8n Pattern Bridge](n8n-pattern-bridge.md) formalizes that evidence as a
+small advisory summary format; it is not an executable importer.
 
 ## Authoring Contract
 
@@ -95,5 +97,7 @@ are complete enough for strict comparison.
   follow-on service patterns before they graduate into strict provider-specific
   coverage.
 - `examples/eval/n8n-*` fixtures preserve n8n provenance in
-  `reference/n8n.json` and stay diagnostic unless their policy graduates them
-  to strict mode.
+  `reference/n8n.json`. Selected M22 fixtures also include
+  `reference/n8n-bridge.json` summaries for service, operation, credential, and
+  unsupported-semantics evidence. They stay diagnostic unless their policy
+  graduates them to strict mode.

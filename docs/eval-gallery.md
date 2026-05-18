@@ -77,6 +77,9 @@ Add samples only when they strengthen coverage:
   evidence into the fixture and recording provenance in `reference/n8n.json`. Treat them as
   service-priority and mapping evidence for agentic SaaS authoring unless their fixture policy
   explicitly graduates them to strict OpenUdon-native coverage.
+- For M22 n8n bridge samples, keep `reference/n8n-bridge.json` as authoring-assistance evidence
+  only. It validates services, nodes, operation candidates, symbolic credentials, and unsupported
+  semantics, but it is not an executable import.
 - Keep `max_blocking` at `0` unless the fixture is intentionally tracking a temporary known gap.
 - Keep secret-shaped values fake and avoid real provider data.
 - Document credential bindings by name only.

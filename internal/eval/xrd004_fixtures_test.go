@@ -7,6 +7,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/OpenUdon/openudon/internal/n8nbridge"
 	rollout "github.com/OpenUdon/openudon/internal/workflowintent"
 )
 
@@ -116,6 +117,33 @@ func TestN8nSlackReducibilityFixtureCoverage(t *testing.T) {
 		})
 	}
 	assertFixtureFileContains(t, root, "n8n-slack-message-post", filepath.Join("openapi", "slack.json"), `"operationId": "postMessage"`, `"channel"`, `"text"`)
+}
+
+func TestN8nBridgeSummaryCoverage(t *testing.T) {
+	root := filepath.Join("..", "..", "examples", "eval")
+
+	fixtures := map[string]string{
+		"n8n-slack-message-post":       "advisory",
+		"n8n-google-drive-file-upload": "advisory",
+		"n8n-hubspot-deal-list":        "blocked",
+	}
+	for fixture, status := range fixtures {
+		t.Run(fixture, func(t *testing.T) {
+			result, err := n8nbridge.ValidateFile(filepath.Join(root, fixture, "reference", "n8n-bridge.json"))
+			if err != nil {
+				t.Fatalf("validate n8n bridge summary: %v", err)
+			}
+			if result.Summary.Boundary != "authoring_assistance_only" {
+				t.Fatalf("boundary = %q", result.Summary.Boundary)
+			}
+			if result.Summary.Validation.Status != status {
+				t.Fatalf("validation status = %q, want %q", result.Summary.Validation.Status, status)
+			}
+			if len(result.Summary.UnsupportedSemantics) == 0 {
+				t.Fatalf("expected unsupported-semantics diagnostics in %s", fixture)
+			}
+		})
+	}
 }
 
 func TestITOpsTemplateInspiredFixtureCoverage(t *testing.T) {

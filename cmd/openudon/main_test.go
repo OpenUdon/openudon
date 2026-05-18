@@ -125,6 +125,49 @@ func TestCLIConvertTFHelpIncludesContract(t *testing.T) {
 	}
 }
 
+func TestCLIN8nBridgeHelpIncludesBoundary(t *testing.T) {
+	cmd := helperCommand("n8n-bridge", "validate", "--help")
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		t.Fatalf("n8n-bridge help failed: %v\n%s", err, output)
+	}
+	text := string(output)
+	for _, expected := range []string{
+		"Usage: openudon n8n-bridge validate",
+		"--root",
+		"--file",
+		"openudon.n8n-pattern-summary.v1",
+		"does not import, execute, or emulate n8n workflows",
+	} {
+		if !strings.Contains(text, expected) {
+			t.Fatalf("n8n-bridge help missing %q:\n%s", expected, text)
+		}
+	}
+}
+
+func TestCLIN8nBridgeValidateSmoke(t *testing.T) {
+	root := t.TempDir()
+	mustWriteCLIFile(t, filepath.Join(root, "n8n-slack-message-post", "reference", "n8n-bridge.json"), []byte(`{
+  "version": "openudon.n8n-pattern-summary.v1",
+  "fixture": "n8n-slack-message-post",
+  "boundary": "authoring_assistance_only",
+  "source": {"kind": "n8n_workflow_fixture"},
+  "services": [{"name": "Slack"}],
+  "nodes": [{"name": "Slack", "type": "n8n-nodes-base.slack", "mapping_status": "advisory"}],
+  "generated_candidates": {"promoted": false},
+  "validation": {"status": "advisory"}
+}`))
+	cmd := helperCommand("n8n-bridge", "validate", "--root", root)
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		t.Fatalf("n8n-bridge validate failed: %v\n%s", err, output)
+	}
+	text := string(output)
+	if !strings.Contains(text, "openudon: n8n bridge validated 1 summary file") || !strings.Contains(text, "n8n-slack-message-post") {
+		t.Fatalf("unexpected n8n-bridge output:\n%s", text)
+	}
+}
+
 func TestCLIConvertTFWritesDraftArtifacts(t *testing.T) {
 	root := t.TempDir()
 	configDir := filepath.Join(root, "tf")

@@ -1,0 +1,87 @@
+{
+  "version": "openudon.n8n-pattern-summary.v1",
+  "fixture": "n8n-slack-message-post",
+  "boundary": "authoring_assistance_only",
+  "source": {
+    "kind": "n8n_workflow_fixture",
+    "paths": [
+      "reference/n8n.json",
+      "../try-n8n/NODE_MATRIX.md"
+    ],
+    "notes": [
+      "The upstream fixture is used as provider vocabulary and operation evidence only.",
+      "OpenUdon does not import the n8n workflow shell or execute the original workflow."
+    ]
+  },
+  "services": [
+    {
+      "name": "Slack",
+      "role": "chat message side effect",
+      "operations": [
+        "postMessage"
+      ]
+    }
+  ],
+  "nodes": [
+    {
+      "name": "Slack",
+      "type": "n8n-nodes-base.slack",
+      "resource": "message",
+      "operation": "post",
+      "openudon_step": "post_message",
+      "openapi_operation_id": "postMessage",
+      "mapping_status": "advisory",
+      "unsupported_semantics": [
+        "manual_trigger",
+        "noop"
+      ]
+    }
+  ],
+  "openapi_candidates": [
+    {
+      "path": "openapi/slack.json",
+      "operation_id": "postMessage",
+      "status": "fixture-local",
+      "notes": [
+        "The fixture-local OpenAPI slice is enriched enough for request and response shape review.",
+        "Credential security remains advisory because copied scanner evidence did not include a complete scheme."
+      ]
+    }
+  ],
+  "credential_bindings": [
+    {
+      "name": "slack_bot_token",
+      "service": "Slack",
+      "source": "project.md"
+    }
+  ],
+  "unsupported_semantics": [
+    {
+      "semantic": "manual_trigger",
+      "handling": "diagnostic",
+      "reason": "Manual trigger is n8n workflow-shell behavior, not a UWS/OpenAPI operation."
+    },
+    {
+      "semantic": "noop",
+      "handling": "diagnostic",
+      "reason": "The no-op node carries no OpenUdon workflow behavior."
+    }
+  ],
+  "generated_candidates": {
+    "project_path": "project.md",
+    "intent_path": "reference/intent.hcl",
+    "promoted": false
+  },
+  "validation": {
+    "status": "advisory",
+    "gates": [
+      "go run ./cmd/icot lint --example ./examples/eval/n8n-slack-message-post"
+    ],
+    "notes": [
+      "The candidate remains advisory until credential security evidence and strict policy are complete."
+    ]
+  },
+  "review_notes": [
+    "Use this summary to seed an OpenUdon-native Slack post brief; do not treat it as an executable import."
+  ]
+}

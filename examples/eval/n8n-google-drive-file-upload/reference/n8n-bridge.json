@@ -1,0 +1,87 @@
+{
+  "version": "openudon.n8n-pattern-summary.v1",
+  "fixture": "n8n-google-drive-file-upload",
+  "boundary": "authoring_assistance_only",
+  "source": {
+    "kind": "n8n_workflow_fixture",
+    "paths": [
+      "reference/n8n.json",
+      "../try-n8n/NODE_MATRIX.md"
+    ],
+    "notes": [
+      "The source evidence identifies the file/upload service vocabulary and operation candidate.",
+      "Binary stream behavior is intentionally preserved as a diagnostic rather than silently converted."
+    ]
+  },
+  "services": [
+    {
+      "name": "Google Drive",
+      "role": "file upload side effect",
+      "operations": [
+        "uploadFile"
+      ]
+    }
+  ],
+  "nodes": [
+    {
+      "name": "Upload Small File",
+      "type": "n8n-nodes-base.googleDrive",
+      "resource": "file",
+      "operation": "upload",
+      "openudon_step": "upload_file",
+      "openapi_operation_id": "uploadFile",
+      "mapping_status": "partial",
+      "unsupported_semantics": [
+        "binary_data"
+      ]
+    }
+  ],
+  "openapi_candidates": [
+    {
+      "path": "openapi/google_drive.json",
+      "operation_id": "uploadFile",
+      "status": "fixture-local",
+      "notes": [
+        "The copied OpenAPI slice names the upload operation but does not prove full binary upload handling."
+      ]
+    }
+  ],
+  "credential_bindings": [
+    {
+      "name": "google_drive_oauth_token",
+      "service": "Google Drive",
+      "source": "project.md"
+    }
+  ],
+  "data_flow_hints": [
+    {
+      "from": "inputs",
+      "to": "upload_file",
+      "fields": {
+        "name": "file name",
+        "content": "file content or approved binary adapter output"
+      }
+    }
+  ],
+  "unsupported_semantics": [
+    {
+      "semantic": "binary_data",
+      "handling": "manual_contract",
+      "reason": "OpenUdon must model binary payload preparation through an approved function or explicit OpenAPI request body, not n8n binary item storage."
+    }
+  ],
+  "generated_candidates": {
+    "project_path": "project.md",
+    "intent_path": "reference/intent.hcl",
+    "promoted": false
+  },
+  "validation": {
+    "status": "advisory",
+    "gates": [
+      "go run ./cmd/icot lint --example ./examples/eval/n8n-google-drive-file-upload"
+    ],
+    "notes": [
+      "The fixture remains advisory while binary upload mapping is represented as a TODO."
+    ]
+  }
+}

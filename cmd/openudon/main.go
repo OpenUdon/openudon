@@ -17,6 +17,7 @@ import (
 	"github.com/OpenUdon/openudon/internal/config"
 	evalpkg "github.com/OpenUdon/openudon/internal/eval"
 	"github.com/OpenUdon/openudon/internal/localcheck"
+	"github.com/OpenUdon/openudon/internal/n8nbridge"
 	"github.com/OpenUdon/openudon/internal/readiness"
 	"github.com/OpenUdon/openudon/internal/synthesize"
 	"github.com/OpenUdon/openudon/internal/tfconvert"
@@ -40,6 +41,7 @@ func main() {
 		fmt.Fprintf(flag.CommandLine.Output(), "  check-doc-memory verify local memory-bank and evolution harness files\n")
 		fmt.Fprintf(flag.CommandLine.Output(), "  convert   generate draft review scaffolding from supported source formats\n")
 		fmt.Fprintf(flag.CommandLine.Output(), "  eval      run synthesis eval briefs and write pass/fail reports\n")
+		fmt.Fprintf(flag.CommandLine.Output(), "  n8n-bridge validate review-first n8n pattern summary evidence\n")
 		fmt.Fprintf(flag.CommandLine.Output(), "  promote   export/validate UWS from an existing workflow.hcl\n")
 		fmt.Fprintf(flag.CommandLine.Output(), "  readiness write local private-checkout and deterministic-gate readiness report\n")
 		fmt.Fprintf(flag.CommandLine.Output(), "  run       validate approval gates and invoke a trusted executor handoff\n")
@@ -88,6 +90,8 @@ func main() {
 		runApprovalTemplateCommand(flag.Args()[1:])
 	case "eval":
 		runEvalCommand(flag.Args()[1:])
+	case "n8n-bridge":
+		runN8nBridgeCommand(flag.Args()[1:])
 	case "readiness":
 		runReadinessCommand(flag.Args()[1:])
 	case "version":
@@ -187,6 +191,51 @@ func runConvertTFCommand(args []string) {
 	fmt.Printf("  diagnostics: %s\n", result.DiagnosticsJSON)
 	fmt.Printf("  review:      %s\n", result.ReviewPath)
 	fmt.Printf("  quality:     %s\n", result.QualityJSONPath)
+}
+
+func runN8nBridgeCommand(args []string) {
+	if len(args) == 0 || args[0] != "validate" {
+		fmt.Fprintln(os.Stderr, "usage: openudon n8n-bridge validate [--root examples/eval] [--file examples/eval/<name>/reference/n8n-bridge.json]")
+		os.Exit(2)
+	}
+	runN8nBridgeValidateCommand(args[1:])
+}
+
+func runN8nBridgeValidateCommand(args []string) {
+	fs := flag.NewFlagSet("n8n-bridge validate", flag.ExitOnError)
+	root := fs.String("root", "examples/eval", "Eval fixture root to scan for reference/n8n-bridge.json summaries")
+	file := fs.String("file", "", "Validate one n8n bridge summary file instead of scanning --root")
+	fs.Usage = func() {
+		fmt.Fprintf(fs.Output(), "Usage: openudon n8n-bridge validate [--root examples/eval] [--file examples/eval/<name>/reference/n8n-bridge.json]\n")
+		fmt.Fprintf(fs.Output(), "\nValidates %s evidence. The bridge is authoring assistance only: it does not import, execute, or emulate n8n workflows.\n\n", n8nbridge.SummaryVersion)
+		fs.PrintDefaults()
+	}
+	if err := fs.Parse(args); err != nil {
+		os.Exit(2)
+	}
+	var (
+		results []n8nbridge.ValidationResult
+		err     error
+	)
+	if strings.TrimSpace(*file) != "" {
+		var result n8nbridge.ValidationResult
+		result, err = n8nbridge.ValidateFile(*file)
+		results = []n8nbridge.ValidationResult{result}
+	} else {
+		results, err = n8nbridge.ValidateRoot(*root)
+	}
+	if err != nil {
+		fmt.Fprintln(os.Stderr, err)
+		os.Exit(1)
+	}
+	if len(results) == 0 {
+		fmt.Fprintf(os.Stderr, "no n8n bridge summaries found under %s\n", *root)
+		os.Exit(1)
+	}
+	fmt.Printf("openudon: n8n bridge validated %d summary file(s)\n", len(results))
+	for _, result := range results {
+		fmt.Printf("openudon: checked %s (%s, %s)\n", result.Path, result.Summary.Fixture, result.Summary.Validation.Status)
+	}
 }
 
 func parseOpenAPIFlags(values []string) ([]tfconvert.OpenAPIInput, error) {

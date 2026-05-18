@@ -47,9 +47,9 @@ artifact contracts.
 
 For common SaaS workflows, use [Agentic SaaS Authoring](agentic-saas-authoring.md) as the contract.
 The AI-assisted path can draft goals, operation choices, request mappings, credential binding names,
-and unresolved assumptions. n8n-derived examples are service-priority evidence only; the generated
-artifacts stay OpenUdon-native and continue through deterministic validation, review, packaging, and
-trusted handoff.
+and unresolved assumptions. Use the [n8n Pattern Bridge](n8n-pattern-bridge.md) only as
+service-priority and mapping evidence; the generated artifacts stay OpenUdon-native and continue
+through deterministic validation, review, packaging, and trusted handoff.
 
 Use [iCoT](icot.md) when the brief is not precise yet. Its guided loop asks for listed OpenAPI
 operation IDs, symbolic credential binding names, request field sources, response/output sources,

@@ -1,0 +1,92 @@
+{
+  "version": "openudon.n8n-pattern-summary.v1",
+  "fixture": "n8n-hubspot-deal-list",
+  "boundary": "authoring_assistance_only",
+  "source": {
+    "kind": "n8n_workflow_fixture",
+    "paths": [
+      "reference/n8n.json",
+      "../try-n8n/NODE_MATRIX.md"
+    ],
+    "notes": [
+      "The source fixture and try-n8n matrix identify HubSpot CRM list-style operations as useful SaaS authoring targets.",
+      "The existing OpenUdon candidate intentionally remains advisory because request-field evidence is incomplete."
+    ]
+  },
+  "services": [
+    {
+      "name": "HubSpot",
+      "role": "CRM record listing",
+      "operations": [
+        "listDeals",
+        "listTickets"
+      ]
+    }
+  ],
+  "nodes": [
+    {
+      "name": "HubSpot - Deal - Get Many",
+      "type": "n8n-nodes-base.hubspot",
+      "resource": "deal",
+      "operation": "getAll",
+      "openudon_step": "list_deals",
+      "openapi_operation_id": "listDeals",
+      "mapping_status": "blocked",
+      "unsupported_semantics": [
+        "pagination",
+        "request_field_gap"
+      ]
+    }
+  ],
+  "openapi_candidates": [
+    {
+      "path": "openapi/hubspot.json",
+      "operation_id": "listDeals",
+      "status": "advisory-gap",
+      "notes": [
+        "M20 showed the copied OpenAPI/request mapping does not expose the `limit` field used by the candidate intent."
+      ]
+    },
+    {
+      "path": "../try-n8n/reducibility/specs/hubspot.json",
+      "operation_id": "listTickets",
+      "status": "try-n8n-evidence",
+      "notes": [
+        "The try-n8n scanner matrix has a ticket/getAll OpenAPI evidence row that can guide future native HubSpot coverage."
+      ]
+    }
+  ],
+  "credential_bindings": [
+    {
+      "name": "hubspot_private_app_token",
+      "service": "HubSpot",
+      "source": "project.md"
+    }
+  ],
+  "unsupported_semantics": [
+    {
+      "semantic": "pagination",
+      "handling": "todo",
+      "reason": "HubSpot list workflows need explicit pagination policy before strict promotion."
+    },
+    {
+      "semantic": "request_field_gap",
+      "handling": "todo",
+      "reason": "The candidate intent uses fields not declared by the copied OpenAPI slice."
+    }
+  ],
+  "generated_candidates": {
+    "project_path": "project.md",
+    "intent_path": "reference/intent.hcl",
+    "promoted": false
+  },
+  "validation": {
+    "status": "blocked",
+    "gates": [
+      "go run ./cmd/icot lint --example ./examples/eval/n8n-hubspot-deal-list"
+    ],
+    "notes": [
+      "Do not graduate until a native OpenAPI slice exposes the requested fields and pagination behavior."
+    ]
+  }
+}
