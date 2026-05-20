@@ -185,7 +185,7 @@ Flag behavior:
 
 ## OpenAPI Input Boundary
 
-The OpenUdon adapter must use only the narrowed OpenAPI-owned `apitools` APIs:
+The OpenUdon adapter must use only the OpenAPI-first API metadata `apitools` APIs:
 
 - `BuildOperationInventory` to load local OpenAPI/Swagger inputs;
 - `NewOperationIndex` to validate and index operation IDs from an inventory;

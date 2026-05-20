@@ -9,9 +9,11 @@ trusted executor boundary such as the `udon` runtime.
 
 It owns project templates, optional Symphony workflow policy, example artifacts, deterministic
 validation, review handoff evidence, package digests, credential policy, and trusted-runner glue.
-Public workflow semantics belong in `github.com/OpenUdon/uws`; OpenAPI search/discovery/import/indexing belongs in
-`github.com/OpenUdon/apitools`; static Terraform/OpenTofu parsing for `openudon convert tf` belongs
-in `github.com/OpenUdon/tfconfig`.
+Public workflow semantics belong in `github.com/OpenUdon/uws`; OpenAPI-first API metadata discovery,
+import, lowering, search, and indexing belong in `github.com/OpenUdon/apitools`; static
+Terraform/OpenTofu parsing for `openudon convert tf` belongs in `github.com/OpenUdon/tfconfig`.
+Discovery and Smithy source models are handled upstream and reach OpenUdon only after they are
+represented as OpenAPI-bound UWS operation metadata.
 
 ## Quick Start
 

@@ -36,8 +36,9 @@ go run ./cmd/openudon build --example ./examples/<name>
 go run ./cmd/openudon assess --example ./examples/<name>
 ```
 
-`synthesize` reads `project.md`, discovers or imports local OpenAPI documents, creates or updates
-intent, and writes the generated package artifacts. `build` regenerates from existing intent.
+`synthesize` reads `project.md`, discovers or imports local OpenAPI-bound API metadata, creates or
+updates intent, and writes the generated package artifacts. Native Discovery or Smithy inputs must be
+lowered upstream before OpenUdon consumes them. `build` regenerates from existing intent.
 `assess` reruns deterministic quality checks without synthesizing new intent.
 
 Use [Synthesize](synthesize.md), [intent.hcl](intent.md), and [Data Flow](data-flow.md) for the
