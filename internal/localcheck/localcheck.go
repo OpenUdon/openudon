@@ -25,7 +25,6 @@ var RequiredMemoryFiles = []string{
 	"memory-bank/architecture.md",
 	"memory-bank/tech-stack.md",
 	"memory-bank/milestone.md",
-	"memory-bank/status.md",
 	"evolution/prompt-v1.md",
 	"evolution/result-v1.md",
 }

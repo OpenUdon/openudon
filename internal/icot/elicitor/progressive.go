@@ -46,6 +46,7 @@ func runProgressive(ctx context.Context, in io.Reader, out io.Writer, seed Sessi
 	skipNextDraft := opts.DisableAIDraft
 	catalogRetrievalAttempted := false
 	reportedDraftEvents := 0
+	questionDrafted := map[string]bool{}
 	if openingBrief != "" && shouldRetrieveCatalogArtifacts(session, docs) {
 		catalogRetrievalAttempted = true
 		if err := retrieveCatalogArtifactsForSession(out, session, opts.ExampleDir, opts.CatalogHintOptions); err != nil {
@@ -115,6 +116,17 @@ func runProgressive(ctx context.Context, in io.Reader, out io.Writer, seed Sessi
 				skipNextDraft = false
 				return false
 			}
+			return readyForSelectedOperationDraft(session, docs, issues)
+		},
+		ShouldDraftQuestion: func(session Session, docs []APIDocument, issues []ReadinessIssue, question QuestionPlan) bool {
+			key := questionDraftKey(question)
+			if key == "" || questionDrafted[key] {
+				return false
+			}
+			if !questionTargetsRequestMappings(question) {
+				return false
+			}
+			questionDrafted[key] = true
 			return readyForSelectedOperationDraft(session, docs, issues)
 		},
 		RankDocuments: rankDocuments,
@@ -717,6 +729,26 @@ func questionTargetsOpenAPI(plan QuestionPlan) bool {
 		}
 	}
 	return false
+}
+
+func questionTargetsRequestMappings(plan QuestionPlan) bool {
+	for _, slot := range plan.Slots {
+		if strings.Contains(slot, ".with") {
+			return true
+		}
+	}
+	return false
+}
+
+func questionDraftKey(plan QuestionPlan) string {
+	var parts []string
+	parts = append(parts, plan.Slots...)
+	sort.Strings(parts)
+	key := strings.Join(parts, "|")
+	if key == "" {
+		key = strings.TrimSpace(plan.Prompt)
+	}
+	return key
 }
 
 func isAffirmativeAnswer(answer string) bool {

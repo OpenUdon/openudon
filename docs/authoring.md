@@ -71,9 +71,11 @@ and unresolved assumptions. Use the [n8n Pattern Bridge](n8n-pattern-bridge.md) 
 service-priority and mapping evidence; the generated artifacts stay OpenUdon-native and continue
 through deterministic validation, review, packaging, and trusted handoff.
 
-Use [iCoT](icot.md) when the brief is not precise yet. Its guided loop asks for listed OpenAPI
-operation IDs, symbolic credential binding names, request field sources, response/output sources,
-and the side-effect boundary before saving source artifacts.
+Use [iCoT](icot.md) when the brief is not precise yet. Its guided loop starts from provider/catalog
+metadata when available, asks for listed OpenAPI operation IDs, lets the LLM draft request field
+sources from selected operation details, and asks the operator only for unresolved credential
+bindings, mappings, response/output sources, or side-effect boundaries before saving source
+artifacts.
 
 ## Safety Rules
 

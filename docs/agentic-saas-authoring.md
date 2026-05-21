@@ -18,12 +18,15 @@ small advisory summary format; it is not an executable importer.
 The supported authoring flow is:
 
 1. Start from a natural-language goal or guided `cmd/icot` session.
-2. Select local OpenAPI documents and listed operation IDs only.
-3. Draft `project.md` with inputs, outputs, data flow, runtime policy,
+2. Select local or catalog-migrated API artifacts only after OpenUdon validates
+   provider and artifact keys against the deterministic shortlist.
+3. Select listed operation IDs only; concrete operations are not accepted from
+   early catalog planning.
+4. Draft `project.md` with inputs, outputs, data flow, runtime policy,
    credential binding names, safety, and fallback behavior.
-4. Draft `workflows/intent.hcl` with auditable `with` and `bind` mappings.
-5. Run deterministic build and assessment commands.
-6. Review generated evidence before any trusted-runner handoff.
+5. Draft `workflows/intent.hcl` with auditable `with` and `bind` mappings.
+6. Run deterministic build and assessment commands.
+7. Review generated evidence before any trusted-runner handoff.
 
 AI output is a draft, not an execution permission. Side-effectful calls such as
 send, create, update, delete, upload, or post remain review-required until a
@@ -68,6 +71,12 @@ When any of those inputs are missing, the authoring assistant should leave the
 field unresolved or explain the assumption instead of inventing unavailable
 provider behavior.
 
+iCoT may use a compact catalog plan immediately after the first workflow goal to
+pick relevant cached artifacts and provider-level steps. That plan is advisory:
+OpenUdon validates every selected artifact locally and rejects unknown paths.
+Operation IDs, schemas, request fields, response paths, and credentials still
+come later from local OpenAPI or Discovery-derived operation metadata.
+
 ## Mapping Rules
 
 For each SaaS API step, make review evidence easy to audit:
@@ -75,6 +84,8 @@ For each SaaS API step, make review evidence easy to audit:
 - name the OpenAPI file and operation ID;
 - map every required request field to an input, safe literal, prior-step output,
   or credential binding name;
+- let the LLM draft obvious mappings from selected operation metadata, but keep
+  unresolved or low-confidence mappings visible for operator review;
 - use `bind` for prior-step data flow and keep `depends_on` on the consumer
   step;
 - record response paths used by later steps or final outputs;

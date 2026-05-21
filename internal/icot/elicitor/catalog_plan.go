@@ -1,6 +1,7 @@
 package elicitor
 
 import (
+	"encoding/json"
 	"fmt"
 	"io"
 	"path/filepath"
@@ -51,12 +52,42 @@ type CatalogPlanArtifactSelection struct {
 }
 
 type CatalogPlanStep struct {
-	Name      string   `json:"name,omitempty"`
-	Type      string   `json:"type,omitempty"`
-	Provider  string   `json:"provider,omitempty"`
-	OpenAPI   string   `json:"openapi,omitempty"`
-	Do        string   `json:"do,omitempty"`
-	DependsOn []string `json:"depends_on,omitempty"`
+	Name      string             `json:"name,omitempty"`
+	Type      string             `json:"type,omitempty"`
+	Provider  string             `json:"provider,omitempty"`
+	OpenAPI   string             `json:"openapi,omitempty"`
+	Do        string             `json:"do,omitempty"`
+	DependsOn flexibleStringList `json:"depends_on,omitempty"`
+}
+
+type flexibleStringList []string
+
+func (list *flexibleStringList) UnmarshalJSON(data []byte) error {
+	var raw any
+	if err := json.Unmarshal(data, &raw); err != nil {
+		return err
+	}
+	var out []string
+	add := func(value any) {
+		switch v := value.(type) {
+		case string:
+			if strings.TrimSpace(v) != "" {
+				out = append(out, v)
+			}
+		case float64:
+			out = append(out, fmt.Sprintf("%.0f", v))
+		}
+	}
+	switch v := raw.(type) {
+	case []any:
+		for _, item := range v {
+			add(item)
+		}
+	default:
+		add(v)
+	}
+	*list = flexibleStringList(dedupeStrings(out))
+	return nil
 }
 
 type catalogPlanApplication struct {
@@ -228,7 +259,7 @@ func applyCatalogPlanSteps(session *Session, proposed []CatalogPlanStep, candida
 		if name == "" {
 			continue
 		}
-		dependsOn := safeCatalogPlanDependsOn(step.DependsOn, acceptedNames)
+		dependsOn := safeCatalogPlanDependsOn([]string(step.DependsOn), acceptedNames)
 		acceptedNames[name] = true
 		steps = append(steps, &rollout.Step{
 			Name:      name,

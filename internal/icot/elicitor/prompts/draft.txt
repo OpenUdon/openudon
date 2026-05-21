@@ -6,6 +6,8 @@ The docs field contains compact details only for operationIds the operator selec
 
 If the selected operations are only seeds and another listed operation appears necessary for a correct data pipeline, return requested_operation_ids with up to five operationId values from operation_catalog and detail_request_reason. Do this before drafting steps that use those operations. Unknown operationIds are rejected, and unavailable endpoint metadata must remain blank.
 
+If readiness_feedback asks for missing_required_request_values and the relevant operation details are present in docs, prefer returning a focused draft that fills only those step.with mappings plus any needed inputs, credentials, or assumptions. Leave a field blank only when the listed metadata and brief do not support a safe mapping.
+
 Infer reasonable defaults for required OpenAPI fields:
 - runtime inputs as inputs.<name>
 - safe literals from the brief or project text

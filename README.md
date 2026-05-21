@@ -129,6 +129,13 @@ default. Successful saves delete the autosave. Transcripts are written under
 `<example>/.icot/transcript.json` unless `--no-transcript` is used. These local files are ignored by
 git.
 
+For SaaS briefs, iCoT first checks the local and sibling `apitools` provider catalog. When cached
+OpenAPI, Google Discovery, or reviewed advisory OpenAPI overlay artifacts are available, it can use a
+bounded LLM catalog plan to select validated local artifacts and seed rough provider steps. Concrete
+operation IDs and request mappings still come from local operation metadata. After operation
+selection, iCoT gives the LLM a focused chance to fill required request fields from structured
+operation details before asking the operator for any unresolved mappings.
+
 Side-effect scope in iCoT:
 
 - `read-only`: generate and validate artifacts only.

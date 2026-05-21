@@ -431,7 +431,6 @@ func TestProgressiveTwoQuestionPathUsesReadinessFeedback(t *testing.T) {
 	input := strings.Join([]string{
 		"Fetch a support ticket.",
 		"getTicket",
-		"ticketId=inputs.ticketId",
 		"save",
 	}, "\n") + "\n"
 	var out strings.Builder
@@ -443,11 +442,46 @@ func TestProgressiveTwoQuestionPathUsesReadinessFeedback(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Run failed: %v\n%s", err, out.String())
 	}
-	if !strings.Contains(out.String(), "What values should the required request fields use?") {
-		t.Fatalf("missing grouped required-field question:\n%s", out.String())
+	if strings.Contains(out.String(), "What values should the required request fields use?") {
+		t.Fatalf("required-field question was shown before LLM mapping draft:\n%s", out.String())
 	}
-	if len(extractor.calls) == 0 || len(extractor.calls[0].ReadinessFeedback) == 0 {
+	if len(extractor.calls) < 2 || len(extractor.calls[1].ReadinessFeedback) == 0 {
 		t.Fatalf("operation-context draft did not receive readiness feedback: %#v", extractor.calls)
+	}
+}
+
+func TestProgressiveQuestionDraftFillsRequiredMappingsBeforePrompt(t *testing.T) {
+	example := t.TempDir()
+	writeOpenAPI(t, example)
+	first := Session{}
+	second := supportTicketDraft(true)
+	extractor := &sequenceDraftExtractor{drafts: []Session{first, second}}
+	input := strings.Join([]string{
+		"Fetch a support ticket.",
+		"getTicket",
+		"save",
+	}, "\n") + "\n"
+	var out strings.Builder
+	artifacts, err := Run(context.Background(), strings.NewReader(input), &out, Session{}, Options{
+		ExampleDir: example,
+		NoLLM:      false,
+		Extractor:  extractor,
+	})
+	if err != nil {
+		t.Fatalf("Run failed: %v\n%s", err, out.String())
+	}
+	if strings.Contains(out.String(), "What values should the required request fields use?") {
+		t.Fatalf("required-field prompt was shown despite question draft:\n%s", out.String())
+	}
+	intent, err := rollout.ParseIntent([]byte(artifacts.IntentHCL), "intent.hcl")
+	if err != nil {
+		t.Fatalf("parse rendered intent: %v\n%s", err, artifacts.IntentHCL)
+	}
+	if got := intent.Steps[0].With["ticketId"]; got != "inputs.ticketId" {
+		t.Fatalf("ticketId mapping = %q", got)
+	}
+	if len(extractor.calls) != 2 {
+		t.Fatalf("draft calls = %d, want initial plus question draft", len(extractor.calls))
 	}
 }
 

@@ -271,6 +271,22 @@ func TestApplyCatalogPlanResponseRejectsUnknownArtifact(t *testing.T) {
 	}
 }
 
+func TestCatalogPlanResponseToleratesNumericDependsOn(t *testing.T) {
+	var response CatalogPlanResponse
+	if err := json.Unmarshal([]byte(`{
+	  "selected_artifacts": [{"provider_id":"gmail","artifact_key":"gmail:discovery/gmail.json"}],
+	  "proposed_steps": [{"name":"send","provider":"gmail","depends_on":[1,"prepare"]}]
+	}`), &response); err != nil {
+		t.Fatalf("unmarshal catalog plan response: %v", err)
+	}
+	if len(response.ProposedSteps) != 1 {
+		t.Fatalf("proposed steps = %#v", response.ProposedSteps)
+	}
+	if got := []string(response.ProposedSteps[0].DependsOn); !slices.Contains(got, "1") || !slices.Contains(got, "prepare") {
+		t.Fatalf("depends_on = %#v", got)
+	}
+}
+
 func TestCatalogPlanErrorFallsBackToDeterministicMigration(t *testing.T) {
 	cacheRoot := t.TempDir()
 	example := t.TempDir()

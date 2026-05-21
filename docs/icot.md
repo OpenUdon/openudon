@@ -39,13 +39,15 @@ reviewable OpenUdon contract:
 
 - choose a local OpenAPI document and listed `operationId` instead of inventing
   provider calls;
-- inspect first-class provider metadata in sibling `../apitools` and retrieve
-  available cached API documents or reviewed advisory OpenAPI overlays into the
+- inspect first-class provider metadata in sibling `../apitools`, use a bounded
+  LLM catalog plan to choose only validated local artifacts when available, and
+  retrieve cached API documents or reviewed advisory OpenAPI overlays into the
   workflow before asking for operation choices;
 - confirm existing local API documents before using them for operation
   selection;
-- map required path, query, header, and body fields to `inputs.<name>`, safe
-  literals, prior-step outputs, or `credentials.<binding>`;
+- draft required path, query, header, and body field mappings from selected
+  operation details, then ask the operator only for mappings that remain
+  unresolved;
 - name symbolic credential bindings only, never token values;
 - choose outputs from known response paths or declared function outputs;
 - classify execution posture as `read-only`, `sandbox-only`, or
@@ -70,17 +72,26 @@ selection.
 iCoT is optimized to produce a useful starting `intent.hcl`, not a perfect final
 workflow. The guided SaaS path is:
 
-1. Resolve API artifacts from the brief. If required OpenAPI, Discovery, or
-   advisory overlay artifacts are missing locally, try `../apitools` first and
-   materialize available artifacts into the workflow.
-2. For each local API artifact or provider-backed step, ask which listed
+1. Resolve API artifacts from the brief. Immediately after `Workflow goal`, iCoT
+   builds a compact catalog shortlist and may ask the LLM to choose relevant
+   artifact keys and rough provider/capability steps. Every returned
+   provider/artifact tuple is validated against the deterministic shortlist
+   before any file is copied.
+2. If required OpenAPI, Discovery, or advisory overlay artifacts are missing
+   locally, try `../apitools` first and materialize available validated
+   artifacts into the workflow. Unknown catalog providers, invented paths, and
+   non-migratable artifacts are rejected and recorded in the transcript.
+3. For each local API artifact or provider-backed step, ask which listed
    `operationId` to use. iCoT should offer a ranked default; when multiple
    candidates remain plausible, the operator chooses one.
-3. Build compact per-operation API context from the selected operation IDs,
+4. Build compact per-operation API context from the selected operation IDs,
    including the single operation, relevant schemas, and security requirements.
-4. Send the original goal, selected operation contexts, and `intent.hcl`
-   guardrails to the LLM to draft the structured intent.
-5. Show the resulting draft, assumptions, and warnings for confirmation. If the
+5. Send the original goal, selected operation contexts, readiness feedback, and
+   `intent.hcl` guardrails to the LLM to draft the structured intent. If
+   deterministic readiness later finds missing required request values, iCoT
+   gives the LLM one focused mapping pass with the selected operation details
+   before asking the operator for field sources.
+6. Show the resulting draft, assumptions, and warnings for confirmation. If the
    operator confirms, iCoT writes `project.md` and `workflows/intent.hcl`; the
    operator can continue editing manually before build or review. If the draft
    is wrong, reject or edit it instead of treating iCoT as the final authority.
