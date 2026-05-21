@@ -25,10 +25,18 @@ document, operation, required request values, credential bindings, runtime input
 safety policy. The first valid intent jumps to final review; remaining warnings and inferred values
 are shown as assumptions, and saving confirms them.
 
-For shell-level LLM defaults, use `OPENUDON_LLM_PROVIDER` and `OPENUDON_LLM_MODEL`, then pass them
-through `--provider "$OPENUDON_LLM_PROVIDER"` and `--model "$OPENUDON_LLM_MODEL"` when you want an
-explicit provider selection. Provider credentials stay in provider-native environment variables such
-as `COPILOT_API_KEY`, `OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, or `GEMINI_API_KEY`.
+For catalog-backed SaaS briefs, iCoT first checks local `openapi/` and `discovery/` documents and
+the sibling `../apitools` first-class provider cache. It asks before migrating cached API documents
+into the workflow, asks before using already-local API documents, and only then lists operation IDs
+from those documents. Discovery or advisory metadata can guide operation selection, but synthesis
+still needs OpenAPI-bound metadata before trusted handoff.
+
+iCoT defaults to the local `copilot-api` gateway, using `COPILOT_API_BASE_URL` when set and
+`http://localhost:4141` otherwise. Use `OPENUDON_LLM_PROVIDER` and `OPENUDON_LLM_MODEL` for
+shell-level overrides, or pass `--provider` and `--model` when you want an explicit provider
+selection. Provider credentials stay in provider-native environment variables such as
+`COPILOT_API_KEY`, `OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, or `GEMINI_API_KEY`; those keys do not
+change the iCoT provider unless `OPENUDON_LLM_PROVIDER` or `--provider` selects them.
 
 ## What To Include
 

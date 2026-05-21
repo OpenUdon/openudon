@@ -5,6 +5,8 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"os"
+	"path/filepath"
 	"sort"
 	"strings"
 
@@ -39,6 +41,7 @@ func runProgressive(ctx context.Context, in io.Reader, out io.Writer, seed Sessi
 	if session.Intent.Workflow != nil {
 		openingBrief = strings.TrimSpace(session.Intent.Workflow.Description)
 	}
+	draftJSONErrorReported := false
 	hooks := authoring.ProgressiveLoopHooks[Session, APIDocument, Artifacts]{
 		Session:       session,
 		Documents:     docs,
@@ -53,7 +56,18 @@ func runProgressive(ctx context.Context, in io.Reader, out io.Writer, seed Sessi
 		},
 		ApplyOpeningAnswer: func(session *Session, answer string, docs []APIDocument) error {
 			applyProgressiveAnswer(session, QuestionPlan{Slots: []string{"workflow.goal"}}, answer, docs)
+			hints, err := BuildCatalogHints(answer, CatalogHintOptions{})
+			if err != nil {
+				fmt.Fprintf(out, "icot: apitools catalog advisory skipped: %v\n", err)
+			} else {
+				printCatalogHints(out, hints)
+				addCatalogPlanSteps(session, hints)
+			}
 			return nil
+		},
+		RefreshDocuments: func(session Session, docs []APIDocument) ([]APIDocument, error) {
+			projectText := projectwizard.Render(session.Project)
+			return DiscoverLocalAPIs(opts.ExampleDir, projectText)
 		},
 		RankDocuments: rankDocuments,
 		DeterministicPrefill: func(session *Session, docs []APIDocument) bool {
@@ -82,12 +96,26 @@ func runProgressive(ctx context.Context, in io.Reader, out io.Writer, seed Sessi
 				fmt.Fprintf(out, "icot: %v\n", err)
 				return
 			}
-			fmt.Fprintf(out, "icot: AI draft skipped: %v\n", err)
+			message, isJSON := progressiveDraftErrorMessage(err)
+			if isJSON {
+				if draftJSONErrorReported {
+					return
+				}
+				draftJSONErrorReported = true
+			}
+			fmt.Fprintf(out, "icot: AI draft skipped: %s\n", message)
 		},
 		CheckReadiness: CheckReadiness,
 		Ready:          progressiveReady,
 		PlanQuestion:   PlanNextQuestion,
 		ApplyAnswer: func(session *Session, plan QuestionPlan, answer string, docs []APIDocument) error {
+			handled, err := applyCatalogDocumentAnswer(out, session, plan, answer, docs, opts.ExampleDir)
+			if err != nil {
+				return err
+			}
+			if handled {
+				return nil
+			}
 			applyProgressiveAnswer(session, plan, answer, docs)
 			defaultSingleOpenAPIDoc(session, docs)
 			return nil
@@ -146,8 +174,10 @@ func CheckReadiness(session Session, docs []APIDocument) []ReadinessIssue {
 	for _, issue := range mappingClassificationIssues(session) {
 		add(issue.Code, issue.Slot, issue.Severity, issue.Message, issue.SuggestedAnswer)
 	}
-	if needsAPIDoc(session, docs) {
-		add("missing_api_doc", "intent.openapi", readinessBlocking, "Identify the local OpenAPI document for API-backed SaaS steps, or say none only when no API call is needed.", suggestedDocAnswer(docs))
+	if missingRefs := missingLocalAPIDocumentRefs(session, docs); len(missingRefs) > 0 {
+		add("missing_api_doc", "intent.openapi", readinessBlocking, "Local API document path is not available: "+strings.Join(missingRefs, ", ")+". Add the file under the workflow example before selecting operationIds.", suggestedMissingAPIDocPath(session, docs))
+	} else if needsAPIDoc(session, docs) {
+		add("missing_api_doc", "intent.openapi", readinessBlocking, missingAPIDocMessage(session, docs), suggestedAPIDocAnswer(session, docs))
 	}
 	if len(session.Intent.Steps) == 0 {
 		add("missing_operation", "intent.steps", readinessBlocking, missingOperationMessage(docs), suggestedOperationAnswer(docs))
@@ -159,7 +189,7 @@ func CheckReadiness(session Session, docs []APIDocument) []ReadinessIssue {
 			slotPrefix := "steps." + firstNonEmpty(step.Name, "step")
 			stepType := strings.ToLower(strings.TrimSpace(step.Type))
 			if (stepType == "http" || stepType == "openapi" || strings.TrimSpace(step.Operation) != "") && strings.TrimSpace(step.Operation) == "" {
-				add("missing_operation", slotPrefix+".operation", readinessBlocking, "Choose the listed OpenAPI operationId for "+firstNonEmpty(step.Name, "this step")+"; leave the capability unresolved if no listed operation matches. "+operationChoiceHint(docs), suggestedOperationAnswer(docs))
+				add("missing_operation", slotPrefix+".operation", readinessBlocking, "Choose the listed OpenAPI operationId for "+firstNonEmpty(step.Name, "this step")+"; leave the capability unresolved if no listed operation matches. "+operationChoiceHintForStep(session, docs, step), suggestedOperationAnswerForStep(session, docs, step))
 				continue
 			}
 			if op, ok := operationForStep(session, docs, step); ok {
@@ -173,6 +203,8 @@ func CheckReadiness(session Session, docs []APIDocument) []ReadinessIssue {
 				for _, issue := range validateOpenAPIRequestMappings(session, step, op, slotPrefix) {
 					add(issue.Code, issue.Slot, issue.Severity, issue.Message, issue.SuggestedAnswer)
 				}
+			} else if strings.TrimSpace(step.Operation) != "" && (stepType == "http" || stepType == "openapi") {
+				add("missing_operation", slotPrefix+".operation", readinessBlocking, "Selected operationId "+step.Operation+" is not available for "+firstNonEmpty(step.Provider, step.Name, "this step")+". "+operationChoiceHintForStep(session, docs, step), suggestedOperationAnswerForStep(session, docs, step))
 			}
 		}
 	}
@@ -216,9 +248,9 @@ func PlanNextQuestion(session Session, docs []APIDocument, issues []ReadinessIss
 	case "missing_goal":
 		plan.Prompt = "What should this workflow accomplish for the business?"
 	case "missing_api_doc":
-		plan.Prompt = "Which local OpenAPI document should this SaaS workflow use?"
+		plan.Prompt = missingAPIDocPrompt(session, docs)
 	case "missing_operation":
-		plan.Prompt = "Which API action or workflow step should run first? Choose a listed operationId when this is an API-backed SaaS step."
+		plan.Prompt = missingOperationPrompt(session, docs, blocking.Slot)
 	case "missing_required_request_values":
 		plan.Prompt = "What values should the required request fields use? Map each field to inputs.<name>, a safe literal, a prior-step output, or credentials.<binding>."
 		plan.Grouped = true
@@ -254,6 +286,19 @@ func progressiveReady(session Session, issues []ReadinessIssue) bool {
 		return false
 	}
 	return firstBlockingIssue(issues).Code == ""
+}
+
+func progressiveDraftErrorMessage(err error) (string, bool) {
+	if err == nil {
+		return "", false
+	}
+	text := err.Error()
+	switch {
+	case strings.Contains(text, "cannot unmarshal") || strings.Contains(text, "invalid character") || strings.Contains(text, "no JSON object found"):
+		return "model returned invalid draft JSON; continuing with deterministic questions", true
+	default:
+		return text, false
+	}
 }
 
 func finalProgressiveConfirmationLoop(out io.Writer, p *prompter, session *Session, docs []APIDocument, draftPath string, events *[]TranscriptEvent) (Artifacts, error) {
@@ -401,6 +446,180 @@ func defaultSingleOpenAPIDoc(session *Session, docs []APIDocument) {
 	})
 }
 
+func addCatalogPlanSteps(session *Session, hints []CatalogHint) {
+	if session == nil || len(hints) == 0 || len(session.Intent.Steps) > 0 {
+		return
+	}
+	for _, hint := range hints {
+		name := slugIdent(firstNonEmpty(hint.Provider.ID, hint.Provider.DisplayName))
+		if name == "" {
+			continue
+		}
+		session.Intent.Steps = append(session.Intent.Steps, &rollout.Step{
+			Name:     name,
+			Type:     "http",
+			Do:       firstNonEmpty(hint.Provider.DisplayName, hint.Provider.ID) + " API action for this workflow.",
+			Provider: hint.Provider.ID,
+		})
+	}
+	if len(session.Intent.Steps) == 0 {
+		return
+	}
+	session.Assumptions = mergeAssumptions(session.Assumptions, []Assumption{{
+		ID:                   "catalog_provider_order",
+		Slot:                 "intent.steps",
+		Value:                strings.Join(CatalogProviderPlan(hints), " -> "),
+		Reason:               "The workflow brief mentions first-class catalog providers in this order; iCoT will ask for a concrete operationId for each provider.",
+		Evidence:             strings.Join(CatalogProviderPlan(hints), " -> "),
+		Risk:                 "medium",
+		RequiresConfirmation: true,
+	}})
+}
+
+func applyCatalogDocumentAnswer(out io.Writer, session *Session, plan QuestionPlan, answer string, docs []APIDocument, exampleDir string) (bool, error) {
+	if session == nil || !questionTargetsOpenAPI(plan) {
+		return false, nil
+	}
+	answer = strings.TrimSpace(answer)
+	if answer == "" {
+		answer = strings.TrimSpace(plan.SuggestedAnswer)
+	}
+	if isLocalAPIDocumentRef(answer) {
+		if doc := matchDocAnswer(answer, docs); doc.RelativePath != "" {
+			if isOpenAPIDocument(doc) {
+				session.Intent.OpenAPI = doc.RelativePath
+			}
+			markAPIDocsAccepted(session, "local_api_docs_accepted", "User accepted local API documents for operation selection.")
+			return true, nil
+		}
+		path := filepath.Join(exampleDir, filepath.FromSlash(answer))
+		if _, err := os.Stat(path); err != nil {
+			clearUnavailableAPIDocumentRefs(session, docs)
+			clearMissingStepAPIDocumentRefs(session, answer)
+			if os.IsNotExist(err) {
+				fmt.Fprintf(out, "icot: local API document not found: %s. Create that file first, or enter an existing file under openapi/ or discovery/.\n", path)
+				return true, nil
+			}
+			return true, err
+		}
+		fmt.Fprintf(out, "icot: %s exists but is not in local API metadata yet. Check that it is valid OpenAPI/Discovery JSON or YAML, then answer with the same path again.\n", answer)
+		session.Intent.OpenAPI = filepath.ToSlash(answer)
+		return true, nil
+	}
+	if !isAffirmativeAnswer(answer) {
+		return false, nil
+	}
+	hints := CatalogHintsForSession(*session)
+	candidates := CatalogMigrationCandidates(hints, exampleDir)
+	if len(candidates) > 0 && len(docs) == 0 {
+		result, err := MigrateCatalogArtifactsForSession(*session, exampleDir)
+		if err != nil {
+			return true, err
+		}
+		for _, candidate := range result.Existing {
+			fmt.Fprintf(out, "icot: using existing catalog API document %s\n", candidate.RelativePath)
+		}
+		for _, candidate := range result.Copied {
+			fmt.Fprintf(out, "icot: migrated %s API document to %s\n", candidate.ProviderName, candidate.RelativePath)
+		}
+		for _, hint := range result.Missing {
+			fmt.Fprintf(out, "icot: no migratable first-class API document found for %s; provide a local OpenAPI file or lowering output before synthesis.\n", firstNonEmpty(hint.Provider.DisplayName, hint.Provider.ID))
+		}
+		markAPIDocsAccepted(session, "catalog_api_docs_migrated", "Migrated available first-class catalog API documents into this workflow.")
+		return true, nil
+	}
+	if len(docs) > 0 {
+		markAPIDocsAccepted(session, "local_api_docs_accepted", "User accepted local API documents for operation selection.")
+		if len(docs) == 1 && strings.TrimSpace(session.Intent.OpenAPI) == "" && isOpenAPIDocument(docs[0]) {
+			session.Intent.OpenAPI = docs[0].RelativePath
+		}
+		return true, nil
+	}
+	return false, nil
+}
+
+func questionTargetsOpenAPI(plan QuestionPlan) bool {
+	for _, slot := range plan.Slots {
+		if strings.Contains(slot, "intent.openapi") {
+			return true
+		}
+	}
+	return false
+}
+
+func isAffirmativeAnswer(answer string) bool {
+	switch strings.ToLower(strings.TrimSpace(answer)) {
+	case "y", "yes", "use", "use it", "use them", "migrate", "copy", "ok", "okay":
+		return true
+	default:
+		return false
+	}
+}
+
+func markAPIDocsAccepted(session *Session, id, reason string) {
+	if session == nil {
+		return
+	}
+	session.Assumptions = mergeAssumptions(session.Assumptions, []Assumption{{
+		ID:                   id,
+		Slot:                 "intent.openapi",
+		Value:                "accepted",
+		Reason:               reason,
+		Evidence:             "user confirmation",
+		Risk:                 "low",
+		RequiresConfirmation: true,
+	}})
+}
+
+func clearMissingStepAPIDocumentRefs(session *Session, ref string) {
+	if session == nil {
+		return
+	}
+	ref = filepath.ToSlash(strings.TrimSpace(ref))
+	walkSteps(session.Intent.Steps, func(step *rollout.Step) {
+		if step != nil && filepath.ToSlash(strings.TrimSpace(step.OpenAPI)) == ref {
+			step.OpenAPI = ""
+		}
+	})
+}
+
+func clearUnavailableAPIDocumentRefs(session *Session, docs []APIDocument) {
+	if session == nil {
+		return
+	}
+	available := map[string]bool{}
+	for _, doc := range docs {
+		if doc.RelativePath != "" {
+			available[filepath.ToSlash(doc.RelativePath)] = true
+		}
+	}
+	if ref := filepath.ToSlash(strings.TrimSpace(session.Intent.OpenAPI)); isLocalAPIDocumentRef(ref) && !available[ref] {
+		session.Intent.OpenAPI = ""
+	}
+	walkSteps(session.Intent.Steps, func(step *rollout.Step) {
+		if step == nil {
+			return
+		}
+		if ref := filepath.ToSlash(strings.TrimSpace(step.OpenAPI)); isLocalAPIDocumentRef(ref) && !available[ref] {
+			step.OpenAPI = ""
+		}
+	})
+}
+
+func apiDocsAccepted(session Session) bool {
+	for _, assumption := range session.Assumptions {
+		switch assumption.ID {
+		case "local_api_docs_accepted", "catalog_api_docs_migrated":
+			return true
+		}
+	}
+	return false
+}
+
+func isOpenAPIDocument(doc APIDocument) bool {
+	return strings.HasPrefix(filepath.ToSlash(doc.RelativePath), "openapi/")
+}
+
 func mergeInputsByName(base, overlay []*rollout.Input) []*rollout.Input {
 	out := append([]*rollout.Input(nil), base...)
 	index := map[string]int{}
@@ -541,17 +760,28 @@ func applyProgressiveAnswer(session *Session, plan QuestionPlan, answer string, 
 			RequiresConfirmation: false,
 		})
 	case strings.Contains(slotText, "operation") || strings.Contains(slotText, "intent.steps"):
-		if doc, op := matchOperationAnswer(answer, docs); op != nil {
-			session.Intent.OpenAPI = firstNonEmpty(session.Intent.OpenAPI, doc.RelativePath)
+		if doc, op := matchOperationAnswerForPlan(session, plan, answer, docs); op != nil {
+			if isOpenAPIDocument(doc) {
+				session.Intent.OpenAPI = firstNonEmpty(session.Intent.OpenAPI, doc.RelativePath)
+			}
+			target := targetStepForPlan(session, plan)
 			if len(session.Intent.Steps) == 0 {
 				session.Intent.Steps = []*rollout.Step{stepFromOperation(op)}
 			} else {
-				session.Intent.Steps[0].Type = firstNonEmpty(session.Intent.Steps[0].Type, "http")
-				session.Intent.Steps[0].Do = firstNonEmpty(session.Intent.Steps[0].Do, op.Summary, operationLabel(*op))
-				session.Intent.Steps[0].Operation = op.OperationID
+				if target == nil {
+					target = session.Intent.Steps[0]
+				}
+				target.Type = firstNonEmpty(target.Type, "http")
+				target.Do = firstNonEmpty(target.Do, op.Summary, operationLabel(*op))
+				target.Operation = op.OperationID
+				target.OpenAPI = firstNonEmpty(target.OpenAPI, doc.RelativePath)
+			}
+			selectedStep := target
+			if selectedStep == nil && len(session.Intent.Steps) > 0 {
+				selectedStep = session.Intent.Steps[0]
 			}
 			addMappingClassification(session, MappingClassification{
-				Slot:                 stepOperationSlot(session.Intent.Steps[0]),
+				Slot:                 stepOperationSlot(selectedStep),
 				Value:                op.OperationID,
 				Source:               mappingSourceUser,
 				Confidence:           mappingConfidenceHigh,
@@ -559,7 +789,7 @@ func applyProgressiveAnswer(session *Session, plan QuestionPlan, answer string, 
 				Reason:               "User selected the API operation.",
 				RequiresConfirmation: false,
 			})
-		} else if len(session.Intent.Steps) == 0 {
+		} else if len(session.Intent.Steps) == 0 || !questionTargetsExistingAPIStep(session, plan) {
 			stepType := "fnct"
 			operation := ""
 			if strings.TrimSpace(session.Intent.OpenAPI) != "" {
@@ -655,6 +885,90 @@ func applyProgressiveAnswer(session *Session, plan QuestionPlan, answer string, 
 		session.Safety = answer
 		session.SafetySet = true
 	}
+}
+
+func questionTargetsExistingAPIStep(session *Session, plan QuestionPlan) bool {
+	step := targetStepForPlan(session, plan)
+	if step == nil {
+		return false
+	}
+	stepType := strings.ToLower(strings.TrimSpace(step.Type))
+	return stepType == "http" || stepType == "openapi" || strings.TrimSpace(step.Provider) != ""
+}
+
+func targetStepForPlan(session *Session, plan QuestionPlan) *rollout.Step {
+	if session == nil {
+		return nil
+	}
+	for _, slot := range plan.Slots {
+		if !strings.HasPrefix(slot, "steps.") || !strings.HasSuffix(slot, ".operation") {
+			continue
+		}
+		name := strings.TrimSuffix(strings.TrimPrefix(slot, "steps."), ".operation")
+		for _, step := range session.Intent.Steps {
+			if step != nil && firstNonEmpty(step.Name, "step") == name {
+				return step
+			}
+		}
+	}
+	return nil
+}
+
+func matchOperationAnswerForPlan(session *Session, plan QuestionPlan, answer string, docs []APIDocument) (APIDocument, *apitools.OperationSummary) {
+	step := targetStepForPlan(session, plan)
+	if step == nil {
+		return matchOperationAnswer(answer, docs)
+	}
+	filtered := filterDocsForStep(session, docs, step)
+	if len(filtered) == 0 {
+		return APIDocument{}, nil
+	}
+	return matchOperationAnswer(answer, filtered)
+}
+
+func filterDocsForStep(session *Session, docs []APIDocument, step *rollout.Step) []APIDocument {
+	if step == nil {
+		return docs
+	}
+	docPath := strings.TrimSpace(step.OpenAPI)
+	if docPath == "" && session != nil {
+		docPath = strings.TrimSpace(session.Intent.OpenAPI)
+	}
+	if docPath != "" {
+		var filtered []APIDocument
+		for _, doc := range docs {
+			if doc.RelativePath == docPath {
+				filtered = append(filtered, doc)
+			}
+		}
+		if len(filtered) > 0 {
+			return filtered
+		}
+	}
+	provider := normalizeToken(firstNonEmpty(step.Provider, step.Name))
+	if provider == "" {
+		return docs
+	}
+	var filtered []APIDocument
+	for _, doc := range docs {
+		if docMatchesProvider(doc, provider) {
+			filtered = append(filtered, doc)
+		}
+	}
+	return filtered
+}
+
+func docMatchesProvider(doc APIDocument, provider string) bool {
+	provider = normalizeToken(provider)
+	if provider == "" {
+		return false
+	}
+	haystack := tokenSet(doc.RelativePath + " " + doc.Title + " " + doc.Description)
+	if haystack[provider] {
+		return true
+	}
+	normalizedPath := normalizeSearchText(doc.RelativePath + doc.Title + doc.Description)
+	return strings.Contains(normalizedPath, provider)
 }
 
 func deterministicPrefill(session *Session, docs []APIDocument) bool {
@@ -828,13 +1142,29 @@ func addDeterministicOutputAssumption(session *Session, output *rollout.Output) 
 }
 
 func needsAPIDoc(session Session, docs []APIDocument) bool {
+	if len(missingLocalAPIDocumentRefs(session, docs)) > 0 {
+		return true
+	}
 	if strings.TrimSpace(session.Intent.OpenAPI) != "" {
+		return false
+	}
+	hints := CatalogHintsForSession(session)
+	if len(catalogProvidersMissingLocalDocs(hints, docs)) > 0 {
+		return true
+	}
+	if len(hints) > 0 && len(docs) > 0 && !apiDocsAccepted(session) && strings.TrimSpace(session.Intent.OpenAPI) == "" {
+		return true
+	}
+	if apiDocsAccepted(session) && len(docs) > 0 {
 		return false
 	}
 	if len(docs) == 1 && session.Intent.RequiresOpenAPI() {
 		return false
 	}
 	if session.Intent.RequiresOpenAPI() {
+		return true
+	}
+	if len(docs) == 0 && len(hints) > 0 {
 		return true
 	}
 	for _, step := range session.Intent.Steps {
@@ -849,18 +1179,186 @@ func needsAPIDoc(session Session, docs []APIDocument) bool {
 	return false
 }
 
+func missingAPIDocMessage(session Session, docs []APIDocument) string {
+	if missingRefs := missingLocalAPIDocumentRefs(session, docs); len(missingRefs) > 0 {
+		return "Local API document path is not available: " + strings.Join(missingRefs, ", ") + ". Add the file under the workflow example before selecting operationIds."
+	}
+	if len(docs) > 0 {
+		if hints := CatalogHintsForSession(session); len(hints) > 0 {
+			if missing := catalogProvidersMissingLocalDocs(hints, docs); len(missing) > 0 {
+				return "Local API documents are available: " + strings.Join(apiDocumentLabels(docs), ", ") + "; still missing API documents for " + strings.Join(missing, ", ") + "."
+			}
+		}
+		return "Local API documents are available: " + strings.Join(apiDocumentLabels(docs), ", ") + ". Confirm whether to use them for operationId selection."
+	}
+	if hints := CatalogHintsForSession(session); len(hints) > 0 {
+		available := CatalogProvidersWithMigratableDocs(hints, "")
+		missing := CatalogProvidersMissingMigratableDocs(hints, "")
+		switch {
+		case len(available) > 0 && len(missing) == 0:
+			return "First-class API documents were found in ../apitools for " + strings.Join(available, " -> ") + ", but they are not local to this workflow yet."
+		case len(available) > 0:
+			return "First-class API documents were found in ../apitools for " + strings.Join(available, " -> ") + "; no migratable API document was found for " + strings.Join(missing, ", ") + "."
+		default:
+			return "First-class catalog metadata matched " + strings.Join(CatalogProviderPlan(hints), " -> ") + ", but no local OpenAPI document is available. Lower catalog machine metadata or provide a user OpenAPI file before selecting operationIds."
+		}
+	}
+	return "Identify the local OpenAPI document for API-backed SaaS steps, or say none only when no API call is needed."
+}
+
+func missingAPIDocPrompt(session Session, docs []APIDocument) string {
+	if missingRefs := missingLocalAPIDocumentRefs(session, docs); len(missingRefs) > 0 {
+		return "The local API document is missing: " + strings.Join(missingRefs, ", ") + ". Create it under this example, then enter its path."
+	}
+	if len(docs) > 0 {
+		if hints := CatalogHintsForSession(session); len(hints) > 0 {
+			if missing := catalogProvidersMissingLocalDocs(hints, docs); len(missing) > 0 {
+				return "Local API documents found: " + strings.Join(apiDocumentLabels(docs), ", ") + ". Create or copy an OpenAPI file for " + strings.Join(missing, ", ") + " under this example, then enter its path."
+			}
+		}
+		return "Local API documents found: " + strings.Join(apiDocumentLabels(docs), ", ") + ". Use these for operation selection?"
+	}
+	if hints := CatalogHintsForSession(session); len(hints) > 0 {
+		available := CatalogProvidersWithMigratableDocs(hints, "")
+		missing := CatalogProvidersMissingMigratableDocs(hints, "")
+		if len(available) > 0 && len(missing) == 0 {
+			return "All first-class API documents were found in ../apitools for " + strings.Join(available, " -> ") + ". Migrate them into this workflow?"
+		}
+		if len(available) > 0 {
+			return "First-class API documents were found in ../apitools for " + strings.Join(available, " -> ") + ", but " + strings.Join(missing, ", ") + " still needs a local OpenAPI file or lowering output. Migrate the available documents now?"
+		}
+		return "Catalog metadata suggests this is an API-backed workflow (" + strings.Join(CatalogProviderPlan(hints), " -> ") + "). Which local OpenAPI file or lowering output should be added under openapi/?"
+	}
+	return "Which local OpenAPI document should this SaaS workflow use?"
+}
+
+func missingLocalAPIDocumentRefs(session Session, docs []APIDocument) []string {
+	available := map[string]bool{}
+	for _, doc := range docs {
+		if doc.RelativePath != "" {
+			available[doc.RelativePath] = true
+		}
+	}
+	seen := map[string]bool{}
+	var missing []string
+	add := func(ref string) {
+		ref = filepath.ToSlash(strings.TrimSpace(ref))
+		if ref == "" || !isLocalAPIDocumentRef(ref) || available[ref] || seen[ref] {
+			return
+		}
+		seen[ref] = true
+		missing = append(missing, ref)
+	}
+	add(session.Intent.OpenAPI)
+	walkSteps(session.Intent.Steps, func(step *rollout.Step) {
+		if step != nil {
+			add(step.OpenAPI)
+		}
+	})
+	sort.Strings(missing)
+	return missing
+}
+
+func isLocalAPIDocumentRef(ref string) bool {
+	ref = filepath.ToSlash(strings.TrimSpace(ref))
+	if ref == "" {
+		return false
+	}
+	if strings.HasPrefix(ref, "http://") || strings.HasPrefix(ref, "https://") {
+		return false
+	}
+	return strings.HasPrefix(ref, "openapi/") || strings.HasPrefix(ref, "discovery/")
+}
+
+func catalogProvidersMissingLocalDocs(hints []CatalogHint, docs []APIDocument) []string {
+	var missing []string
+	for _, hint := range hints {
+		if catalogProviderHasLocalDoc(hint, docs) {
+			continue
+		}
+		if len(CatalogMigrationCandidates([]CatalogHint{hint}, "")) > 0 {
+			continue
+		}
+		missing = append(missing, firstNonEmpty(hint.Provider.DisplayName, hint.Provider.ID))
+	}
+	return missing
+}
+
+func catalogProviderIDsMissingLocalDocs(hints []CatalogHint, docs []APIDocument) []string {
+	var missing []string
+	for _, hint := range hints {
+		if catalogProviderHasLocalDoc(hint, docs) {
+			continue
+		}
+		if len(CatalogMigrationCandidates([]CatalogHint{hint}, "")) > 0 {
+			continue
+		}
+		missing = append(missing, hint.Provider.ID)
+	}
+	return missing
+}
+
+func suggestedMissingAPIDocPath(session Session, docs []APIDocument) string {
+	hints := CatalogHintsForSession(session)
+	for _, providerID := range catalogProviderIDsMissingLocalDocs(hints, docs) {
+		if providerID != "" {
+			return "openapi/" + slugIdent(providerID) + ".yaml"
+		}
+	}
+	return "openapi/api.yaml"
+}
+
+func catalogProviderHasLocalDoc(hint CatalogHint, docs []APIDocument) bool {
+	providerTerms := []string{hint.Provider.ID, hint.Provider.DisplayName}
+	providerTerms = append(providerTerms, hint.Provider.Aliases...)
+	for _, doc := range docs {
+		haystack := strings.ToLower(doc.RelativePath + " " + doc.Title + " " + doc.Description)
+		docTokens := tokenSet(haystack)
+		for _, term := range providerTerms {
+			if phraseTokensMatch(docTokens, term) {
+				return true
+			}
+		}
+		for _, artifact := range hint.SpecArtifacts {
+			if strings.TrimSpace(artifact.SpecRef.ID) != "" && strings.Contains(haystack, strings.ToLower(artifact.SpecRef.ID)) {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+func apiDocumentLabels(docs []APIDocument) []string {
+	var labels []string
+	for _, doc := range docs {
+		label := doc.RelativePath
+		if title := strings.TrimSpace(doc.Title); title != "" && title != label {
+			label += " (" + title + ")"
+		}
+		labels = append(labels, label)
+	}
+	return labels
+}
+
 func operationForStep(session Session, docs []APIDocument, step *rollout.Step) (*apitools.OperationSummary, bool) {
 	if step == nil || strings.TrimSpace(step.Operation) == "" {
 		return nil, false
 	}
 	docPath := firstNonEmpty(step.OpenAPI, session.Intent.OpenAPI)
-	if docPath == "" && len(docs) == 1 {
-		docPath = docs[0].RelativePath
+	searchDocs := docs
+	if strings.TrimSpace(step.Provider) != "" || strings.TrimSpace(step.OpenAPI) != "" {
+		searchDocs = filterDocsForStep(&session, docs, step)
+		if len(searchDocs) == 0 {
+			return nil, false
+		}
 	}
-	if op, ok := operationByID(docs, docPath, step.Operation); ok {
+	if docPath == "" && len(searchDocs) == 1 {
+		docPath = searchDocs[0].RelativePath
+	}
+	if op, ok := operationByID(searchDocs, docPath, step.Operation); ok {
 		return op, true
 	}
-	for _, doc := range docs {
+	for _, doc := range searchDocs {
 		for i := range doc.Operations {
 			if doc.Operations[i].OperationID == step.Operation {
 				return &doc.Operations[i], true
@@ -1140,7 +1638,7 @@ func sortReadinessIssues(issues []ReadinessIssue) []ReadinessIssue {
 func suggestedAnswerForCode(code string, session Session, docs []APIDocument) string {
 	switch code {
 	case "missing_api_doc":
-		return suggestedDocAnswer(docs)
+		return suggestedAPIDocAnswer(session, docs)
 	case "missing_operation":
 		return suggestedOperationAnswer(docs)
 	case "missing_outputs":
@@ -1152,9 +1650,27 @@ func suggestedAnswerForCode(code string, session Session, docs []APIDocument) st
 	}
 }
 
+func suggestedAPIDocAnswer(session Session, docs []APIDocument) string {
+	if len(missingLocalAPIDocumentRefs(session, docs)) > 0 {
+		return suggestedMissingAPIDocPath(session, docs)
+	}
+	if len(docs) > 0 {
+		if hints := CatalogHintsForSession(session); len(hints) > 0 {
+			if len(catalogProvidersMissingLocalDocs(hints, docs)) > 0 {
+				return suggestedMissingAPIDocPath(session, docs)
+			}
+		}
+		return "yes"
+	}
+	if hints := CatalogHintsForSession(session); len(CatalogProvidersWithMigratableDocs(hints, "")) > 0 {
+		return "yes"
+	}
+	return suggestedDocAnswer(docs)
+}
+
 func suggestedDocAnswer(docs []APIDocument) string {
 	if len(docs) == 0 {
-		return "openapi/<api>.yaml"
+		return "openapi/api.yaml"
 	}
 	return docs[0].RelativePath
 }
@@ -1170,27 +1686,89 @@ func suggestedOperationAnswer(docs []APIDocument) string {
 	return "Describe the action in business terms."
 }
 
+func suggestedOperationAnswerForStep(session Session, docs []APIDocument, step *rollout.Step) string {
+	filtered := filterDocsForStep(&session, docs, step)
+	if len(filtered) == 0 {
+		return "Describe the action in business terms."
+	}
+	return suggestedOperationAnswer(filtered)
+}
+
 func missingOperationMessage(docs []APIDocument) string {
 	return "Choose the API operationId or workflow action to run. " + operationChoiceHint(docs)
 }
 
+func missingOperationPrompt(session Session, docs []APIDocument, slot string) string {
+	step := stepForOperationSlot(session, slot)
+	if step == nil {
+		return "Which API action or workflow step should run first? Choose a listed operationId when this is an API-backed SaaS step."
+	}
+	return "Which operationId should " + firstNonEmpty(step.Name, "this step") + " use? Choose one listed for its API document or provider."
+}
+
+func stepForOperationSlot(session Session, slot string) *rollout.Step {
+	if !strings.HasPrefix(slot, "steps.") || !strings.HasSuffix(slot, ".operation") {
+		return nil
+	}
+	name := strings.TrimSuffix(strings.TrimPrefix(slot, "steps."), ".operation")
+	for _, step := range session.Intent.Steps {
+		if step != nil && firstNonEmpty(step.Name, "step") == name {
+			return step
+		}
+	}
+	return nil
+}
+
+func operationChoiceHintForStep(session Session, docs []APIDocument, step *rollout.Step) string {
+	filtered := filterDocsForStep(&session, docs, step)
+	if len(filtered) == 0 && step != nil {
+		provider := firstNonEmpty(step.Provider, step.Name)
+		if provider != "" {
+			return "No local API document with operations is available for " + provider + "."
+		}
+	}
+	return operationChoiceHint(filtered)
+}
+
 func operationChoiceHint(docs []APIDocument) string {
-	var choices []string
+	var groups []string
 	for _, doc := range docs {
+		var choices []string
 		for _, op := range doc.Operations {
 			if strings.TrimSpace(op.OperationID) == "" {
 				continue
 			}
-			choices = append(choices, op.OperationID)
-			if len(choices) >= 8 {
-				return "Available operationIds include: " + strings.Join(choices, ", ") + "."
+			label := op.OperationID
+			if desc := firstNonEmpty(op.Summary, op.Description); desc != "" {
+				label += " (" + truncateForPrompt(desc, 80) + ")"
+			}
+			choices = append(choices, label)
+			if len(choices) >= 6 {
+				break
 			}
 		}
+		if len(choices) > 0 {
+			groups = append(groups, doc.RelativePath+": "+strings.Join(choices, "; "))
+		}
+		if len(groups) >= 4 {
+			break
+		}
 	}
-	if len(choices) == 0 {
+	if len(groups) == 0 {
 		return "Add local OpenAPI metadata when this is an API-backed SaaS step."
 	}
-	return "Available operationIds: " + strings.Join(choices, ", ") + "."
+	return "Available operationIds by API document: " + strings.Join(groups, " | ") + "."
+}
+
+func truncateForPrompt(value string, max int) string {
+	value = strings.Join(strings.Fields(value), " ")
+	if len(value) <= max {
+		return value
+	}
+	if max <= 3 {
+		return value[:max]
+	}
+	return strings.TrimSpace(value[:max-3]) + "..."
 }
 
 func suggestedFieldAssignments(session Session, docs []APIDocument, step *rollout.Step, op *apitools.OperationSummary, fields []string) string {

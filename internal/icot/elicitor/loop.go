@@ -11,11 +11,11 @@ import (
 	"strings"
 
 	"github.com/OpenUdon/apitools"
-	"github.com/OpenUdon/uws/uws1"
 	"github.com/OpenUdon/openudon/internal/authoring"
 	"github.com/OpenUdon/openudon/internal/projectwizard"
 	"github.com/OpenUdon/openudon/internal/workflowintent"
 	rollout "github.com/OpenUdon/openudon/internal/workflowintent"
+	"github.com/OpenUdon/uws/uws1"
 )
 
 type Options struct {
@@ -96,6 +96,7 @@ func runManual(ctx context.Context, in io.Reader, out io.Writer, seed Session, o
 				return Artifacts{}, err
 			}
 			printSummary(out, session)
+			PrintCatalogHints(out, opening)
 		}
 	}
 
@@ -815,6 +816,8 @@ func printSummary(out io.Writer, session Session) {
 	}
 	if session.Intent.OpenAPI != "" {
 		fmt.Fprintf(out, "- OpenAPI: %s\n", session.Intent.OpenAPI)
+	} else if hints := CatalogHintsForSession(session); len(hints) > 0 {
+		fmt.Fprintf(out, "- API documents: not local yet; catalog providers matched %s\n", strings.Join(CatalogProviderPlan(hints), " -> "))
 	} else {
 		fmt.Fprintln(out, "- OpenAPI: none required")
 	}

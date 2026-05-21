@@ -1070,20 +1070,10 @@ func resolveExtractor(noLLM bool, provider, model string, temperature float64, o
 }
 
 func providerFromEnv() string {
-	switch {
-	case os.Getenv("OPENUDON_LLM_PROVIDER") != "":
+	if os.Getenv("OPENUDON_LLM_PROVIDER") != "" {
 		return strings.ToLower(strings.TrimSpace(os.Getenv("OPENUDON_LLM_PROVIDER")))
-	case os.Getenv("COPILOT_API_BASE_URL") != "" || os.Getenv("COPILOT_API_KEY") != "":
-		return "copilot-api"
-	case os.Getenv("GEMINI_API_KEY") != "":
-		return "gemini"
-	case os.Getenv("OPENAI_API_KEY") != "":
-		return "openai"
-	case os.Getenv("ANTHROPIC_API_KEY") != "":
-		return "anthropic"
-	default:
-		return ""
 	}
+	return "copilot-api"
 }
 
 func firstNonEmpty(values ...string) string {

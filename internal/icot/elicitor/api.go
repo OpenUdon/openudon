@@ -10,6 +10,7 @@ import (
 	"unicode"
 
 	"github.com/OpenUdon/apitools"
+	"github.com/OpenUdon/apitools/googlediscovery"
 	"github.com/OpenUdon/openudon/internal/openapidisco"
 	rollout "github.com/OpenUdon/openudon/internal/workflowintent"
 )
@@ -65,37 +66,144 @@ type securityPromptContext struct {
 }
 
 func DiscoverLocalAPIs(exampleDir, projectText string) ([]APIDocument, error) {
+	var docs []APIDocument
 	openAPIDir := filepath.Join(exampleDir, "openapi")
 	if _, err := os.Stat(openAPIDir); err != nil {
+		if !os.IsNotExist(err) {
+			return nil, err
+		}
+	} else {
+		candidates, err := openapidisco.LocalFiles(openAPIDir, exampleDir, projectText)
+		if err != nil {
+			return nil, err
+		}
+		var inventoryDocs []apitools.InventoryDocument
+		for _, candidate := range candidates {
+			inventoryDocs = append(inventoryDocs, apitools.InventoryDocument{
+				Name:         strings.TrimSuffix(filepath.Base(candidate.RelativePath), filepath.Ext(candidate.RelativePath)),
+				Path:         candidate.Path,
+				RelativePath: candidate.RelativePath,
+			})
+		}
+		openAPIDocs, err := apitools.BuildAuthoringAPIDocuments(context.Background(), apitools.AuthoringAPIDocumentOptions{
+			Documents: inventoryDocs,
+			BaseDir:   exampleDir,
+			Query:     projectText,
+		})
+		if err != nil {
+			return nil, err
+		}
+		docs = append(docs, openAPIDocs...)
+	}
+	discoveryDocs, err := discoverLocalGoogleDiscoveryAPIs(exampleDir)
+	if err != nil {
+		return nil, err
+	}
+	docs = append(docs, discoveryDocs...)
+	sort.Slice(docs, func(i, j int) bool {
+		return docs[i].RelativePath < docs[j].RelativePath
+	})
+	return docs, nil
+}
+
+func discoverLocalGoogleDiscoveryAPIs(exampleDir string) ([]APIDocument, error) {
+	discoveryDir := filepath.Join(exampleDir, "discovery")
+	if _, err := os.Stat(discoveryDir); err != nil {
 		if os.IsNotExist(err) {
 			return nil, nil
 		}
 		return nil, err
 	}
-	candidates, err := openapidisco.LocalFiles(openAPIDir, exampleDir, projectText)
+	matches, err := filepath.Glob(filepath.Join(discoveryDir, "*.json"))
 	if err != nil {
 		return nil, err
 	}
-	var inventoryDocs []apitools.InventoryDocument
-	for _, candidate := range candidates {
-		inventoryDocs = append(inventoryDocs, apitools.InventoryDocument{
-			Name:         strings.TrimSuffix(filepath.Base(candidate.RelativePath), filepath.Ext(candidate.RelativePath)),
-			Path:         candidate.Path,
-			RelativePath: candidate.RelativePath,
+	var docs []APIDocument
+	for _, path := range matches {
+		data, err := os.ReadFile(path)
+		if err != nil {
+			return nil, err
+		}
+		model, err := googlediscovery.Parse(data)
+		if err != nil {
+			return nil, fmt.Errorf("parse Google Discovery %s: %w", path, err)
+		}
+		rel, err := filepath.Rel(exampleDir, path)
+		if err != nil {
+			return nil, err
+		}
+		doc := APIDocument{
+			ID:           strings.TrimSuffix(filepath.Base(path), filepath.Ext(path)),
+			Path:         path,
+			RelativePath: filepath.ToSlash(rel),
+			Title:        firstNonEmpty(model.Title, model.Name),
+			Description:  model.Description,
+			Operations:   googleDiscoveryOperationSummaries(filepath.ToSlash(rel), model),
+		}
+		docs = append(docs, doc)
+	}
+	return docs, nil
+}
+
+func googleDiscoveryOperationSummaries(relativePath string, model *googlediscovery.Model) []apitools.OperationSummary {
+	if model == nil {
+		return nil
+	}
+	var operations []apitools.OperationSummary
+	for _, op := range model.Operations {
+		if op == nil || strings.TrimSpace(op.OperationID) == "" {
+			continue
+		}
+		summary := apitools.OperationSummary{
+			ID:                   op.ID,
+			DocumentName:         model.Name,
+			DocumentPath:         relativePath,
+			DocumentRelativePath: relativePath,
+			OperationID:          op.OperationID,
+			Method:               op.HTTPMethod,
+			Path:                 op.Path,
+			Summary:              op.Summary,
+			Description:          op.Description,
+			Tags:                 append([]string(nil), op.Tags...),
+			Parameters:           googleDiscoveryParameterSummaries(op.Parameters),
+			Provenance:           "google-discovery",
+		}
+		if op.RequestRef != "" || op.RequestMediaType != "" {
+			summary.RequestBody = &apitools.RequestBodySummary{
+				Ref:          op.RequestRef,
+				ContentTypes: []string{firstNonEmpty(op.RequestMediaType, "application/json")},
+			}
+		}
+		operations = append(operations, summary)
+	}
+	return operations
+}
+
+func googleDiscoveryParameterSummaries(params []*googlediscovery.Parameter) []apitools.ParameterSummary {
+	var out []apitools.ParameterSummary
+	for _, param := range params {
+		if param == nil {
+			continue
+		}
+		out = append(out, apitools.ParameterSummary{
+			Name:        param.Name,
+			In:          param.Location,
+			Description: param.Description,
+			Required:    param.Required,
+			Type:        stringFromMap(param.Schema, "type"),
+			Format:      stringFromMap(param.Schema, "format"),
+			Ref:         stringFromMap(param.Schema, "$ref"),
 		})
 	}
-	docs, err := apitools.BuildAuthoringAPIDocuments(context.Background(), apitools.AuthoringAPIDocumentOptions{
-		Documents: inventoryDocs,
-		BaseDir:   exampleDir,
-		Query:     projectText,
-	})
-	if err != nil {
-		return nil, err
+	return out
+}
+
+func stringFromMap(values map[string]any, key string) string {
+	if values == nil {
+		return ""
 	}
-	sort.Slice(docs, func(i, j int) bool {
-		return docs[i].RelativePath < docs[j].RelativePath
-	})
-	return docs, nil
+	value, _ := values[key].(string)
+	return value
 }
 
 func operationLabel(op apitools.OperationSummary) string {

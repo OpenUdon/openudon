@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"regexp"
 	"strings"
 	"time"
 )
@@ -76,6 +77,25 @@ type providerLLMClient struct {
 	timeout  time.Duration
 }
 
+type requestParameter string
+
+const (
+	requestParameterMaxOutputTokens requestParameter = "max_output_tokens"
+	requestParameterMaxTokens       requestParameter = "max_tokens"
+	requestParameterResponseFormat  requestParameter = "response_format"
+	requestParameterTemperature     requestParameter = "temperature"
+	requestParameterTextFormat      requestParameter = "text.format"
+	requestParameterToolChoice      requestParameter = "tool_choice"
+	requestParameterTools           requestParameter = "tools"
+)
+
+var unsupportedParameterPatterns = []*regexp.Regexp{
+	regexp.MustCompile(`(?i)unsupported parameter:\s*['"]([^'"]+)['"]`),
+	regexp.MustCompile(`(?i)unknown parameter:\s*['"]([^'"]+)['"]`),
+	regexp.MustCompile(`(?i)unsupported field:\s*['"]([^'"]+)['"]`),
+	regexp.MustCompile(`(?i)unknown field:\s*['"]([^'"]+)['"]`),
+}
+
 func (c *providerLLMClient) Generate(ctx context.Context, prompt string) (string, error) {
 	return c.Chat(ctx, []ChatMessage{{Role: "user", Content: prompt}})
 }
@@ -127,9 +147,7 @@ func (c *providerLLMClient) StructuredChat(ctx context.Context, messages []ChatM
 
 func (c *providerLLMClient) chatOpenAI(ctx context.Context, url string, messages []ChatMessage) (string, error) {
 	payload := map[string]any{"model": c.model, "messages": openAIChatMessages(messages)}
-	if c.temp != nil {
-		payload["temperature"] = *c.temp
-	}
+	c.addTemperature(payload, c.temp)
 	var out struct {
 		Choices []struct {
 			Message struct {
@@ -159,9 +177,7 @@ func (c *providerLLMClient) chatCompletionsStructuredChat(ctx context.Context, m
 			},
 		},
 	}
-	if temp := structuredTemperature(c.temp, opts); temp != nil {
-		payload["temperature"] = *temp
-	}
+	c.addTemperature(payload, structuredTemperature(c.temp, opts))
 	if opts.MaxTokens > 0 {
 		payload["max_tokens"] = opts.MaxTokens
 	}
@@ -214,9 +230,7 @@ func (c *providerLLMClient) chatAnthropic(ctx context.Context, url string, messa
 	if system != "" {
 		payload["system"] = system
 	}
-	if c.temp != nil {
-		payload["temperature"] = *c.temp
-	}
+	c.addTemperature(payload, c.temp)
 	var out struct {
 		Content []struct {
 			Text string `json:"text"`
@@ -262,9 +276,7 @@ func (c *providerLLMClient) anthropicStructuredChat(ctx context.Context, message
 	if system != "" {
 		payload["system"] = system
 	}
-	if temp := structuredTemperature(c.temp, opts); temp != nil {
-		payload["temperature"] = *temp
-	}
+	c.addTemperature(payload, structuredTemperature(c.temp, opts))
 	var out struct {
 		Content []struct {
 			Type  string          `json:"type"`
@@ -289,8 +301,8 @@ func (c *providerLLMClient) chatGemini(ctx context.Context, url string, messages
 		parts = append(parts, map[string]string{"text": strings.ToUpper(message.Role) + ": " + message.Content})
 	}
 	payload := map[string]any{"contents": []map[string]any{{"parts": parts}}}
-	if c.temp != nil {
-		payload["generationConfig"] = map[string]any{"temperature": *c.temp}
+	if c.supportsRequestParameter(requestParameterTemperature) && c.temp != nil {
+		payload["generationConfig"] = map[string]any{string(requestParameterTemperature): *c.temp}
 	}
 	var out struct {
 		Candidates []struct {
@@ -330,8 +342,8 @@ func (c *providerLLMClient) geminiStructuredChat(ctx context.Context, messages [
 			"responseJsonSchema": schema,
 		},
 	}
-	if temp := structuredTemperature(c.temp, opts); temp != nil {
-		payload["generationConfig"].(map[string]any)["temperature"] = *temp
+	if temp := structuredTemperature(c.temp, opts); temp != nil && c.supportsRequestParameter(requestParameterTemperature) {
+		payload["generationConfig"].(map[string]any)[string(requestParameterTemperature)] = *temp
 	}
 	if opts.MaxTokens > 0 {
 		payload["generationConfig"].(map[string]any)["maxOutputTokens"] = opts.MaxTokens
@@ -359,9 +371,7 @@ func (c *providerLLMClient) responsesChat(ctx context.Context, messages []ChatMe
 		"model": c.model,
 		"input": responsesInput(messages),
 	}
-	if c.temp != nil {
-		payload["temperature"] = *c.temp
-	}
+	c.addTemperature(payload, c.temp)
 	return c.doResponsesRequest(ctx, payload)
 }
 
@@ -378,9 +388,7 @@ func (c *providerLLMClient) responsesStructuredChat(ctx context.Context, message
 			},
 		},
 	}
-	if temp := structuredTemperature(c.temp, opts); temp != nil {
-		payload["temperature"] = *temp
-	}
+	c.addTemperature(payload, structuredTemperature(c.temp, opts))
 	if opts.MaxTokens > 0 {
 		payload["max_output_tokens"] = opts.MaxTokens
 	}
@@ -453,6 +461,26 @@ func (c *providerLLMClient) openAIBaseURL() string {
 	return base
 }
 
+func (c *providerLLMClient) addTemperature(payload map[string]any, value *float64) {
+	if value == nil || !c.supportsRequestParameter(requestParameterTemperature) {
+		return
+	}
+	payload[string(requestParameterTemperature)] = *value
+}
+
+func (c *providerLLMClient) supportsRequestParameter(parameter requestParameter) bool {
+	switch parameter {
+	case requestParameterTemperature:
+		return !c.usesFixedSamplingResponsesModel()
+	default:
+		return true
+	}
+}
+
+func (c *providerLLMClient) usesFixedSamplingResponsesModel() bool {
+	return c.provider == "copilot-api" && strings.HasPrefix(strings.ToLower(strings.TrimSpace(c.model)), "gpt-5")
+}
+
 func (c *providerLLMClient) openAIEndpoint() string {
 	if c.provider == "copilot-api" && strings.HasPrefix(strings.ToLower(strings.TrimSpace(c.model)), "gpt-5") {
 		return "responses"
@@ -461,15 +489,35 @@ func (c *providerLLMClient) openAIEndpoint() string {
 }
 
 func (c *providerLLMClient) postJSON(ctx context.Context, url string, headers map[string]string, payload any, out any) error {
+	currentPayload := payload
+	removedParameters := map[string]bool{}
+	for {
+		statusCode, status, body, err := c.postJSONOnce(ctx, url, headers, currentPayload, out)
+		if err != nil {
+			return err
+		}
+		if statusCode >= 200 && statusCode < 300 {
+			return nil
+		}
+		nextPayload, removed := retryPayloadWithoutUnsupportedParameter(currentPayload, body, removedParameters)
+		if removed == "" {
+			return fmt.Errorf("%s returned %s: %s", c.provider, status, strings.TrimSpace(string(body)))
+		}
+		removedParameters[removed] = true
+		currentPayload = nextPayload
+	}
+}
+
+func (c *providerLLMClient) postJSONOnce(ctx context.Context, url string, headers map[string]string, payload any, out any) (int, string, []byte, error) {
 	data, err := json.Marshal(payload)
 	if err != nil {
-		return err
+		return 0, "", nil, err
 	}
 	ctx, cancel := contextWithLLMDeadline(ctx, c.timeout)
 	defer cancel()
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, url, bytes.NewReader(data))
 	if err != nil {
-		return err
+		return 0, "", nil, err
 	}
 	req.Header.Set("Content-Type", "application/json")
 	for key, value := range headers {
@@ -481,17 +529,20 @@ func (c *providerLLMClient) postJSON(ctx context.Context, url string, headers ma
 	}
 	resp, err := client.Do(req)
 	if err != nil {
-		return redactedLLMTransportError(err)
+		return 0, "", nil, redactedLLMTransportError(err)
 	}
 	defer resp.Body.Close()
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
-		return err
+		return 0, "", nil, err
 	}
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		return fmt.Errorf("%s returned %s: %s", c.provider, resp.Status, strings.TrimSpace(string(body)))
+		return resp.StatusCode, resp.Status, body, nil
 	}
-	return json.Unmarshal(body, out)
+	if err := json.Unmarshal(body, out); err != nil {
+		return resp.StatusCode, resp.Status, body, err
+	}
+	return resp.StatusCode, resp.Status, body, nil
 }
 
 func contextWithLLMDeadline(ctx context.Context, timeout time.Duration) (context.Context, context.CancelFunc) {
@@ -519,6 +570,129 @@ func structuredMaxTokens(opts StructuredOpts, fallback int) int {
 		return opts.MaxTokens
 	}
 	return fallback
+}
+
+func retryPayloadWithoutUnsupportedParameter(payload any, body []byte, alreadyRemoved map[string]bool) (any, string) {
+	root, ok := payload.(map[string]any)
+	if !ok {
+		return nil, ""
+	}
+	for _, parameter := range unsupportedRequestParameters(string(body)) {
+		if alreadyRemoved[parameter] || !optionalRequestParameter(parameter) {
+			continue
+		}
+		next := clonePayloadMap(root)
+		if removeRequestParameter(next, parameter) {
+			return next, parameter
+		}
+	}
+	return nil, ""
+}
+
+func unsupportedRequestParameters(message string) []string {
+	seen := map[string]bool{}
+	var out []string
+	for _, pattern := range unsupportedParameterPatterns {
+		for _, match := range pattern.FindAllStringSubmatch(message, -1) {
+			if len(match) < 2 {
+				continue
+			}
+			parameter := strings.TrimSpace(match[1])
+			if parameter == "" || seen[parameter] {
+				continue
+			}
+			seen[parameter] = true
+			out = append(out, parameter)
+		}
+	}
+	return out
+}
+
+func optionalRequestParameter(parameter string) bool {
+	switch requestParameter(strings.TrimSpace(parameter)) {
+	case requestParameterMaxOutputTokens,
+		requestParameterMaxTokens,
+		requestParameterResponseFormat,
+		requestParameterTemperature,
+		requestParameterTextFormat,
+		requestParameterToolChoice,
+		requestParameterTools,
+		"generationConfig.maxOutputTokens",
+		"generationConfig.responseJsonSchema",
+		"generationConfig.responseMimeType",
+		"generationConfig.temperature":
+		return true
+	default:
+		return false
+	}
+}
+
+func removeRequestParameter(root map[string]any, parameter string) bool {
+	parameter = strings.TrimSpace(parameter)
+	if parameter == "" {
+		return false
+	}
+	if _, ok := root[parameter]; ok {
+		delete(root, parameter)
+		return true
+	}
+	parts := strings.Split(parameter, ".")
+	if len(parts) < 2 {
+		return false
+	}
+	current := root
+	for _, part := range parts[:len(parts)-1] {
+		next, ok := current[part].(map[string]any)
+		if !ok {
+			return false
+		}
+		current = next
+	}
+	leaf := parts[len(parts)-1]
+	if _, ok := current[leaf]; !ok {
+		return false
+	}
+	delete(current, leaf)
+	return true
+}
+
+func clonePayloadMap(in map[string]any) map[string]any {
+	out := make(map[string]any, len(in))
+	for key, value := range in {
+		out[key] = clonePayloadValue(value)
+	}
+	return out
+}
+
+func clonePayloadValue(value any) any {
+	switch typed := value.(type) {
+	case map[string]any:
+		return clonePayloadMap(typed)
+	case []map[string]string:
+		out := make([]map[string]string, len(typed))
+		for i, item := range typed {
+			copied := make(map[string]string, len(item))
+			for key, value := range item {
+				copied[key] = value
+			}
+			out[i] = copied
+		}
+		return out
+	case []map[string]any:
+		out := make([]map[string]any, len(typed))
+		for i, item := range typed {
+			out[i] = clonePayloadMap(item)
+		}
+		return out
+	case []any:
+		out := make([]any, len(typed))
+		for i, item := range typed {
+			out[i] = clonePayloadValue(item)
+		}
+		return out
+	default:
+		return value
+	}
 }
 
 func redactedLLMTransportError(err error) error {

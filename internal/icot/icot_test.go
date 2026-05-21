@@ -168,6 +168,27 @@ func TestNoTranscriptSkipsLocalTranscript(t *testing.T) {
 	}
 }
 
+func TestProviderFromEnvDefaultsToCopilotAPI(t *testing.T) {
+	t.Setenv("OPENUDON_LLM_PROVIDER", "")
+	t.Setenv("COPILOT_API_BASE_URL", "")
+	t.Setenv("COPILOT_API_KEY", "")
+	t.Setenv("GEMINI_API_KEY", "gemini-key")
+	t.Setenv("OPENAI_API_KEY", "openai-key")
+	t.Setenv("ANTHROPIC_API_KEY", "anthropic-key")
+
+	if got := providerFromEnv(); got != "copilot-api" {
+		t.Fatalf("providerFromEnv() = %q, want copilot-api", got)
+	}
+}
+
+func TestProviderFromEnvHonorsOpenUdonProviderOverride(t *testing.T) {
+	t.Setenv("OPENUDON_LLM_PROVIDER", "gemini")
+
+	if got := providerFromEnv(); got != "gemini" {
+		t.Fatalf("providerFromEnv() = %q, want gemini", got)
+	}
+}
+
 func TestCompleteDraftEditsReplaceSeededPolicyFields(t *testing.T) {
 	example := filepath.Join(t.TempDir(), "guided")
 	writeCompleteDraftWithPolicy(t, example, []string{"old_token"}, "Old safety note", "Old fallback note")

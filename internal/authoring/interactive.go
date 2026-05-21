@@ -279,6 +279,7 @@ type ProgressiveLoopHooks[S, D, A any] struct {
 	AfterDraft           func(S) error
 	DraftResultSummary   func(S) any
 	OnDraftError         func(error)
+	RefreshDocuments     func(S, []D) ([]D, error)
 	CheckReadiness       func(S, []D) []ReadinessIssue
 	Ready                func(S, []ReadinessIssue) bool
 	PlanQuestion         func(S, []D, []ReadinessIssue) InteractiveQuestion
@@ -325,6 +326,13 @@ func RunProgressiveICOT[S, D, A any](ctx context.Context, in io.Reader, out io.W
 			if err := hooks.ApplyOpeningAnswer(&session, opening, docs); err != nil {
 				return zero, err
 			}
+		}
+		if hooks.RefreshDocuments != nil {
+			refreshed, err := hooks.RefreshDocuments(session, docs)
+			if err != nil {
+				return zero, err
+			}
+			docs = refreshed
 		}
 		if hooks.Normalize != nil {
 			hooks.Normalize(&session)
@@ -443,6 +451,13 @@ func RunProgressiveICOT[S, D, A any](ctx context.Context, in io.Reader, out io.W
 		}
 		if err := hooks.ApplyAnswer(&session, question, answer, docs); err != nil {
 			return zero, err
+		}
+		if hooks.RefreshDocuments != nil {
+			refreshed, err := hooks.RefreshDocuments(session, docs)
+			if err != nil {
+				return zero, err
+			}
+			docs = refreshed
 		}
 		if hooks.Normalize != nil {
 			hooks.Normalize(&session)

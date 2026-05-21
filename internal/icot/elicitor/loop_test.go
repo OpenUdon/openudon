@@ -2,6 +2,7 @@ package elicitor
 
 import (
 	"context"
+	"errors"
 	"os"
 	"path/filepath"
 	"strings"
@@ -170,6 +171,68 @@ func TestRunUsesAIDraftDefaults(t *testing.T) {
 	}
 	if !strings.Contains(out.String(), "Assumptions to confirm") || !strings.Contains(out.String(), "op_get_ticket") {
 		t.Fatalf("final review missing assumptions:\n%s", out.String())
+	}
+}
+
+func TestDiscoverLocalAPIsIncludesGoogleDiscoveryOperations(t *testing.T) {
+	example := t.TempDir()
+	dir := filepath.Join(example, "discovery")
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		t.Fatalf("mkdir discovery: %v", err)
+	}
+	data := `{
+	  "kind": "discovery#restDescription",
+	  "name": "gmail",
+	  "title": "Gmail API",
+	  "version": "v1",
+	  "rootUrl": "https://gmail.googleapis.com/",
+	  "servicePath": "",
+	  "resources": {
+	    "users": {
+	      "resources": {
+	        "messages": {
+	          "methods": {
+	            "send": {
+	              "id": "gmail.users.messages.send",
+	              "path": "gmail/v1/users/{userId}/messages/send",
+	              "httpMethod": "POST",
+	              "description": "Sends the specified message to the recipients.",
+	              "parameters": {
+	                "userId": {
+	                  "type": "string",
+	                  "location": "path",
+	                  "required": true,
+	                  "description": "The user's email address."
+	                }
+	              },
+	              "request": {"$ref": "Message"}
+	            }
+	          }
+	        }
+	      }
+	    }
+	  }
+	}`
+	if err := os.WriteFile(filepath.Join(dir, "gmail.json"), []byte(data), 0o644); err != nil {
+		t.Fatalf("write discovery: %v", err)
+	}
+
+	docs, err := DiscoverLocalAPIs(example, "gmail send report")
+	if err != nil {
+		t.Fatalf("DiscoverLocalAPIs failed: %v", err)
+	}
+	if len(docs) != 1 {
+		t.Fatalf("docs = %#v, want one discovery doc", docs)
+	}
+	if docs[0].RelativePath != "discovery/gmail.json" || len(docs[0].Operations) != 1 {
+		t.Fatalf("unexpected discovery doc: %#v", docs[0])
+	}
+	op := docs[0].Operations[0]
+	if op.OperationID != "gmail_users_messages_send" || op.Description == "" {
+		t.Fatalf("operation = %#v", op)
+	}
+	if len(op.Parameters) != 1 || op.Parameters[0].Name != "userId" {
+		t.Fatalf("parameters = %#v", op.Parameters)
 	}
 }
 
@@ -492,6 +555,140 @@ func TestApplyProgressiveAnswerRecordsUserHighClassification(t *testing.T) {
 	}
 	if hasReadinessCode(CheckReadiness(session, docs), "low_confidence_mapping") {
 		t.Fatalf("user high classification created low-confidence readiness issue: %#v", CheckReadiness(session, docs))
+	}
+}
+
+func TestApplyProgressiveAnswerMapsOperationToSelectedStep(t *testing.T) {
+	session := Session{Intent: rollout.Intent{Steps: []*rollout.Step{
+		{Name: "openweathermap", Type: "http"},
+		{Name: "gmail", Type: "http"},
+	}}}
+	docs := []APIDocument{
+		{RelativePath: "openapi/weather.yaml", Operations: []apitools.OperationSummary{{OperationID: "getWeather", Summary: "Get current weather"}}},
+		{RelativePath: "openapi/gmail.yaml", Operations: []apitools.OperationSummary{{OperationID: "sendMessage", Summary: "Send mail"}}},
+	}
+
+	applyProgressiveAnswer(&session, QuestionPlan{Slots: []string{"steps.gmail.operation"}}, "sendMessage", docs)
+
+	if got := session.Intent.Steps[0].Operation; got != "" {
+		t.Fatalf("weather operation = %q, want unchanged", got)
+	}
+	if got := session.Intent.Steps[1].Operation; got != "sendMessage" {
+		t.Fatalf("gmail operation = %q, want sendMessage", got)
+	}
+	if got := session.Intent.Steps[1].OpenAPI; got != "openapi/gmail.yaml" {
+		t.Fatalf("gmail openapi = %q, want openapi/gmail.yaml", got)
+	}
+}
+
+func TestApplyProgressiveAnswerRejectsOperationFromWrongProvider(t *testing.T) {
+	session := Session{Intent: rollout.Intent{Steps: []*rollout.Step{
+		{Name: "openweathermap", Type: "http", Provider: "openweathermap"},
+		{Name: "gmail", Type: "http", Provider: "gmail"},
+	}}}
+	docs := []APIDocument{
+		{RelativePath: "discovery/gmail-discovery-v1.json", Title: "Gmail API", Operations: []apitools.OperationSummary{{OperationID: "gmail_users_getprofile", Summary: "Gets the user's Gmail profile."}}},
+	}
+
+	applyProgressiveAnswer(&session, QuestionPlan{Slots: []string{"steps.openweathermap.operation"}}, "gmail_users_getprofile", docs)
+
+	if got := session.Intent.Steps[0].Operation; got != "" {
+		t.Fatalf("openweathermap operation = %q, want unchanged", got)
+	}
+	if got := session.Intent.Steps[0].OpenAPI; got != "" {
+		t.Fatalf("openweathermap openapi = %q, want unchanged", got)
+	}
+}
+
+func TestMissingLocalOpenAPIPathBlocksReadiness(t *testing.T) {
+	session := supportTicketDraft(true)
+	session.Intent.OpenAPI = "openapi/missing.yaml"
+
+	issues := CheckReadiness(session, nil)
+
+	if !hasReadinessCode(issues, "missing_api_doc") {
+		t.Fatalf("missing local OpenAPI path was not reported: %#v", issues)
+	}
+	if got := firstBlockingIssue(issues).Message; !strings.Contains(got, "openapi/missing.yaml") {
+		t.Fatalf("missing API doc message = %q", got)
+	}
+}
+
+func TestApplyCatalogDocumentAnswerRejectsMissingPath(t *testing.T) {
+	session := supportTicketDraft(false)
+	session.Intent.OpenAPI = "openapi/missing.yaml"
+	var out strings.Builder
+
+	handled, err := applyCatalogDocumentAnswer(&out, &session, QuestionPlan{Slots: []string{"intent.openapi"}, SuggestedAnswer: "openapi/missing.yaml"}, "", nil, t.TempDir())
+
+	if err != nil {
+		t.Fatalf("applyCatalogDocumentAnswer returned error: %v", err)
+	}
+	if !handled {
+		t.Fatalf("missing path answer was not handled")
+	}
+	if session.Intent.OpenAPI != "" {
+		t.Fatalf("missing path was retained as OpenAPI: %q", session.Intent.OpenAPI)
+	}
+	if !strings.Contains(out.String(), "local API document not found") {
+		t.Fatalf("missing path message not printed:\n%s", out.String())
+	}
+}
+
+func TestApplyCatalogDocumentAnswerClearsStaleMissingPath(t *testing.T) {
+	session := supportTicketDraft(false)
+	session.Intent.OpenAPI = "openapi/stale.yaml"
+	var out strings.Builder
+
+	handled, err := applyCatalogDocumentAnswer(&out, &session, QuestionPlan{Slots: []string{"intent.openapi"}, SuggestedAnswer: "openapi/api.yaml"}, "", nil, t.TempDir())
+
+	if err != nil {
+		t.Fatalf("applyCatalogDocumentAnswer returned error: %v", err)
+	}
+	if !handled {
+		t.Fatalf("missing path answer was not handled")
+	}
+	if session.Intent.OpenAPI != "" {
+		t.Fatalf("stale missing path was retained as OpenAPI: %q", session.Intent.OpenAPI)
+	}
+}
+
+func TestSuggestedAPIDocAnswerUsesProviderPath(t *testing.T) {
+	session := Session{}
+	session.Project.Goal = "get weather and gmail me"
+	session.Intent.Workflow = &rollout.WorkflowMeta{Description: session.Project.Goal}
+	docs := []APIDocument{{RelativePath: "discovery/gmail-discovery-v1.json", Title: "Gmail API"}}
+
+	if got, want := suggestedAPIDocAnswer(session, docs), "openapi/openweathermap.yaml"; got != want {
+		t.Fatalf("suggested API doc answer = %q, want %q", got, want)
+	}
+}
+
+func TestOperationForStepRejectsWrongProviderOperation(t *testing.T) {
+	session := Session{Intent: rollout.Intent{Steps: []*rollout.Step{{
+		Name:      "openweathermap",
+		Type:      "http",
+		Provider:  "openweathermap",
+		Operation: "gmail_users_getprofile",
+	}}}}
+	docs := []APIDocument{{RelativePath: "discovery/gmail-discovery-v1.json", Title: "Gmail API", Operations: []apitools.OperationSummary{{OperationID: "gmail_users_getprofile"}}}}
+
+	if _, ok := operationForStep(session, docs, session.Intent.Steps[0]); ok {
+		t.Fatalf("gmail operation matched openweathermap step")
+	}
+	issues := CheckReadiness(session, docs)
+	if !hasReadinessCode(issues, "missing_operation") {
+		t.Fatalf("wrong-provider operation did not produce missing_operation: %#v", issues)
+	}
+}
+
+func TestProgressiveDraftErrorMessageHidesInvalidJSONDetails(t *testing.T) {
+	message, isJSON := progressiveDraftErrorMessage(errors.New("json: cannot unmarshal object into Go struct field Answers.project.openapi of type string"))
+	if !isJSON {
+		t.Fatalf("expected invalid JSON classification")
+	}
+	if strings.Contains(message, "Go struct field") {
+		t.Fatalf("message exposed decoder internals: %q", message)
 	}
 }
 
@@ -844,7 +1041,7 @@ func TestProgressiveAmbiguousOperationAsksBeforeFieldMapping(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Run failed: %v\n%s", err, out.String())
 	}
-	operationPrompt := strings.Index(out.String(), "Which API action or workflow step should run first?")
+	operationPrompt := strings.Index(out.String(), "Which operationId should get_ticket use?")
 	fieldPrompt := strings.Index(out.String(), "What values should the required request fields use?")
 	if operationPrompt < 0 {
 		t.Fatalf("missing operation question:\n%s", out.String())
@@ -896,6 +1093,34 @@ func TestGuidedSaaSOperationQuestionIncludesListedOperationIDs(t *testing.T) {
 	plan := PlanNextQuestion(session, docs, issues)
 	if !strings.Contains(plan.Prompt, "listed operationId") {
 		t.Fatalf("operation prompt missing listed operationId guidance: %#v", plan)
+	}
+}
+
+func TestCatalogMatchedWorkflowBlocksOnMissingOpenAPI(t *testing.T) {
+	session := Session{
+		Intent: rollout.Intent{
+			Workflow: &rollout.WorkflowMeta{
+				Name:        "weather_gmail",
+				Description: "get weather in Toronto, and gmail the report to me",
+			},
+		},
+	}
+	issues := CheckReadiness(session, nil)
+	issue := readinessIssue(issues, "missing_api_doc")
+	if issue.Code == "" {
+		t.Fatalf("missing_api_doc was not reported: %#v", issues)
+	}
+	if !strings.Contains(issue.Message, "OpenWeatherMap -> Gmail") || !strings.Contains(issue.Message, "no local OpenAPI document") {
+		t.Fatalf("missing_api_doc did not describe catalog blocker: %#v", issue)
+	}
+	plan := PlanNextQuestion(session, nil, issues)
+	if !strings.Contains(plan.Prompt, "OpenWeatherMap -> Gmail") || strings.Contains(plan.Prompt, "operationId") {
+		t.Fatalf("catalog blocker prompt = %#v", plan)
+	}
+	var out strings.Builder
+	printSummary(&out, session)
+	if !strings.Contains(out.String(), "API documents: not local yet; catalog providers matched OpenWeatherMap -> Gmail") {
+		t.Fatalf("summary did not report unresolved catalog OpenAPI:\n%s", out.String())
 	}
 }
 

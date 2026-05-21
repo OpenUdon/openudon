@@ -121,6 +121,86 @@ func TestCopilotDefaultGPT5UsesResponsesEndpoint(t *testing.T) {
 	}
 }
 
+func TestCopilotGPT5OmitsUnsupportedTemperature(t *testing.T) {
+	var bodies []map[string]any
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		var got map[string]any
+		if err := json.NewDecoder(r.Body).Decode(&got); err != nil {
+			t.Fatal(err)
+		}
+		bodies = append(bodies, got)
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"output_text":"{}"}`))
+	}))
+	defer server.Close()
+	t.Setenv("COPILOT_API_BASE_URL", server.URL)
+	temp := 0.2
+
+	client, _, _, err := NewLLMClientFromEnvWithOptions("", "", LLMOptions{Temperature: &temp})
+	if err != nil {
+		t.Fatal(err)
+	}
+	chat := client.(ChatClient)
+	if _, err := chat.Chat(context.Background(), []ChatMessage{{Role: "user", Content: "hello"}}); err != nil {
+		t.Fatal(err)
+	}
+	structured := client.(StructuredChat)
+	if _, err := structured.StructuredChat(context.Background(), []ChatMessage{{Role: "user", Content: "emit json"}}, json.RawMessage(`{"type":"object"}`), StructuredOpts{Temperature: &temp}); err != nil {
+		t.Fatal(err)
+	}
+
+	if len(bodies) != 2 {
+		t.Fatalf("request bodies = %d, want 2", len(bodies))
+	}
+	for _, body := range bodies {
+		if _, ok := body["temperature"]; ok {
+			t.Fatalf("copilot-api GPT-5 request included unsupported temperature: %#v", body)
+		}
+	}
+}
+
+func TestUnsupportedOptionalRequestParameterRetriesWithoutParameter(t *testing.T) {
+	var bodies []map[string]any
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		var got map[string]any
+		if err := json.NewDecoder(r.Body).Decode(&got); err != nil {
+			t.Fatal(err)
+		}
+		bodies = append(bodies, got)
+		w.Header().Set("Content-Type", "application/json")
+		if len(bodies) == 1 {
+			w.WriteHeader(http.StatusBadRequest)
+			_, _ = w.Write([]byte(`{"error":{"message":"Unsupported parameter: 'max_output_tokens' is not supported with this model."}}`))
+			return
+		}
+		_, _ = w.Write([]byte(`{"output_text":"{}"}`))
+	}))
+	defer server.Close()
+	t.Setenv("COPILOT_API_BASE_URL", server.URL)
+
+	client, _, _, err := NewLLMClientFromEnvWithOptions("", "", LLMOptions{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	structured := client.(StructuredChat)
+	if _, err := structured.StructuredChat(context.Background(), []ChatMessage{{Role: "user", Content: "emit json"}}, json.RawMessage(`{"type":"object"}`), StructuredOpts{MaxTokens: 123}); err != nil {
+		t.Fatal(err)
+	}
+
+	if len(bodies) != 2 {
+		t.Fatalf("request bodies = %d, want 2", len(bodies))
+	}
+	if _, ok := bodies[0]["max_output_tokens"]; !ok {
+		t.Fatalf("first request missing max_output_tokens: %#v", bodies[0])
+	}
+	if _, ok := bodies[1]["max_output_tokens"]; ok {
+		t.Fatalf("retry still included unsupported max_output_tokens: %#v", bodies[1])
+	}
+	if _, ok := bodies[1]["text"]; !ok {
+		t.Fatalf("retry dropped unrelated structured output config: %#v", bodies[1])
+	}
+}
+
 func TestLLMProviderAndModelCanComeFromOpenUdonEnv(t *testing.T) {
 	t.Setenv("OPENUDON_LLM_PROVIDER", "openai")
 	t.Setenv("OPENUDON_LLM_MODEL", "gpt-test")

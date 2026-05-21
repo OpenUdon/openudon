@@ -122,6 +122,20 @@ func SessionFromIntent(intent *rollout.Intent, project projectwizard.Answers) Se
 	return session
 }
 
+func (s Session) IntentName() string {
+	if s.Intent.Workflow == nil {
+		return ""
+	}
+	return strings.TrimSpace(s.Intent.Workflow.Name)
+}
+
+func (s Session) IntentDescription() string {
+	if s.Intent.Workflow == nil {
+		return ""
+	}
+	return strings.TrimSpace(s.Intent.Workflow.Description)
+}
+
 func (s *Session) Normalize() {
 	if emptySession(*s) {
 		return
