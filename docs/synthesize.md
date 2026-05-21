@@ -34,6 +34,27 @@ expected/quality.json
 expected/quality.md
 ```
 
+## Provider Catalog Inputs
+
+Before adding a hand-written OpenAPI slice or searching public catalogs, inspect the first-class
+provider catalog:
+
+```bash
+go run ./cmd/openudon catalog inspect stripe
+go run ./cmd/openudon catalog advisory --example ./examples/<name>
+```
+
+If the provider has a directly importable OpenAPI reference, import it into the package-local
+`openapi/` directory before running `synthesize`:
+
+```bash
+go run ./cmd/openudon catalog import-openapi --provider stripe --example ./examples/<name>
+```
+
+Catalog Discovery, Smithy, Stone, human-docs, and security-overlay metadata is advisory review
+context only. `synthesize` still consumes local OpenAPI files and listed operation IDs as the
+authoritative API inputs for generated UWS artifacts.
+
 ## Narrower Stages
 
 Use `build` after editing `workflows/intent.hcl`:

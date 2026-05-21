@@ -41,6 +41,25 @@ updates intent, and writes the generated package artifacts. Native Discovery or 
 lowered upstream before OpenUdon consumes them. `build` regenerates from existing intent.
 `assess` reruns deterministic quality checks without synthesizing new intent.
 
+Before searching public catalogs, inspect first-class provider metadata from `apitools`:
+
+```bash
+go run ./cmd/openudon catalog list
+go run ./cmd/openudon catalog inspect github
+go run ./cmd/openudon catalog advisory --example ./examples/<name>
+```
+
+When a provider has a directly importable OpenAPI reference, import it into the package-local
+`openapi/` directory:
+
+```bash
+go run ./cmd/openudon catalog import-openapi --provider stripe --example ./examples/<name>
+```
+
+Discovery, Smithy, Stone, and human-docs catalog entries are advisory metadata only. They are useful
+for review and provider selection, but they are not written as OpenAPI package inputs unless a
+validated OpenAPI document is supplied or generated.
+
 Use [Synthesize](synthesize.md), [intent.hcl](intent.md), and [Data Flow](data-flow.md) for the
 artifact contracts.
 

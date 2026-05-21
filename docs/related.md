@@ -17,7 +17,10 @@ the relevant behavior.
 
 - Public workflow semantics belong in UWS.
 - Generic execution or compilation behavior belongs in executor implementations such as `udon`.
-- OpenAPI-first API metadata search, discovery, import/lowering, and operation metadata belong in apitools.
+- OpenAPI-first API metadata search, discovery, import/lowering, first-class provider catalog
+  metadata, and operation metadata belong in apitools.
+- OpenUdon may expose thin `openudon catalog ...` wrappers for authoring and package-local OpenAPI
+  import, but catalog data stays advisory and does not change workflow semantics.
 - Static Terraform/OpenTofu parsing belongs in `github.com/OpenUdon/tfconfig`.
 - Terraform/OpenTofu provider execution, state, plan/apply, refresh, imports, and cloud SDK calls
   stay outside OpenUdon.

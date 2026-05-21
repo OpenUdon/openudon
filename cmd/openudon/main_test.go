@@ -125,6 +125,107 @@ func TestCLIConvertTFHelpIncludesContract(t *testing.T) {
 	}
 }
 
+func TestCLICatalogHelpIncludesProviderCommands(t *testing.T) {
+	cmd := helperCommand("catalog", "--help")
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		t.Fatalf("catalog help failed: %v\n%s", err, output)
+	}
+	text := string(output)
+	for _, expected := range []string{
+		"Usage: openudon catalog <command>",
+		"list",
+		"inspect",
+		"advisory",
+		"specs",
+		"security-report",
+		"import-openapi",
+	} {
+		if !strings.Contains(text, expected) {
+			t.Fatalf("catalog help missing %q:\n%s", expected, text)
+		}
+	}
+}
+
+func TestCLICatalogListJSONSmoke(t *testing.T) {
+	cmd := helperCommand("catalog", "list", "--json")
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		t.Fatalf("catalog list failed: %v\n%s", err, output)
+	}
+	text := string(output)
+	for _, expected := range []string{
+		`"id": "gmail"`,
+		`"machine_availability": "known"`,
+		`"id": "github"`,
+	} {
+		if !strings.Contains(text, expected) {
+			t.Fatalf("catalog list missing %q:\n%s", expected, text)
+		}
+	}
+}
+
+func TestCLICatalogInspectDiscoveryProvider(t *testing.T) {
+	cmd := helperCommand("catalog", "inspect", "gmail", "--json")
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		t.Fatalf("catalog inspect failed: %v\n%s", err, output)
+	}
+	text := string(output)
+	for _, expected := range []string{
+		`"id": "gmail"`,
+		`"kind": "google-discovery"`,
+		`"security_status": "overlay-required"`,
+		`"overlay_id": "gmail-discovery-auth-overlay"`,
+	} {
+		if !strings.Contains(text, expected) {
+			t.Fatalf("catalog inspect missing %q:\n%s", expected, text)
+		}
+	}
+}
+
+func TestCLICatalogAdvisoryExampleUsesIntentProviders(t *testing.T) {
+	example := t.TempDir()
+	mustWriteCLIFile(t, filepath.Join(example, "workflows", "intent.hcl"), []byte(`
+workflow {
+  name = "github_issue_triage"
+}
+
+step "create_issue" {
+  type     = "openapi"
+  provider = "github"
+  openapi  = "openapi/github.yaml"
+  operation = "issues/create"
+}
+`))
+	cmd := helperCommand("catalog", "advisory", "--example", example)
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		t.Fatalf("catalog advisory example failed: %v\n%s", err, output)
+	}
+	text := string(output)
+	for _, expected := range []string{
+		"## Catalog Advisory",
+		"Provider: `GitHub` (`github`)",
+		"Explicit OpenAPI input overrides built-in catalog spec",
+	} {
+		if !strings.Contains(text, expected) {
+			t.Fatalf("catalog advisory missing %q:\n%s", expected, text)
+		}
+	}
+}
+
+func TestCLICatalogImportOpenAPIRejectsDiscoveryOnlyProvider(t *testing.T) {
+	cmd := helperCommand("catalog", "import-openapi", "--provider", "gmail", "--example", t.TempDir())
+	output, err := cmd.CombinedOutput()
+	if err == nil {
+		t.Fatalf("catalog import-openapi unexpectedly succeeded:\n%s", output)
+	}
+	if !strings.Contains(string(output), "has no directly importable OpenAPI spec") {
+		t.Fatalf("catalog import-openapi error missing boundary:\n%s", output)
+	}
+}
+
 func TestCLIN8nBridgeHelpIncludesBoundary(t *testing.T) {
 	cmd := helperCommand("n8n-bridge", "validate", "--help")
 	output, err := cmd.CombinedOutput()

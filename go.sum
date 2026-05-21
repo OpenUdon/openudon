@@ -1,7 +1,5 @@
-github.com/OpenUdon/apitools v0.0.0-20260509011657-3d9e27cf5e88 h1:3/eWiIQ0z2MqS99Lt5yBHv3mp9cAyT2r3Ivu/ismkO0=
-github.com/OpenUdon/apitools v0.0.0-20260509011657-3d9e27cf5e88/go.mod h1:aGd1pxz1BP3CdrEP2kVAQN9I4DeujX8zt5spYNIZwBA=
-github.com/OpenUdon/apitools v0.0.0-20260518210532-f9d652b938fb h1:B2YZgc0Lu1dvEZXIxwz6MqJlucHmcyQoD1cVszyyJxA=
-github.com/OpenUdon/apitools v0.0.0-20260518210532-f9d652b938fb/go.mod h1:aGd1pxz1BP3CdrEP2kVAQN9I4DeujX8zt5spYNIZwBA=
+github.com/OpenUdon/apitools v0.1.0 h1:E5MUVWDLbW6SGCouTX170v2VM1RKSvMkChmEvDp1kwY=
+github.com/OpenUdon/apitools v0.1.0/go.mod h1:F6+AQJLXHaY8KmVSv+YDiiqJ30CUsmjGAxBIZbsvlXs=
 github.com/OpenUdon/oas v0.0.0-20260507023120-7fb319711323 h1:IIS4CeB6dcbkAdcSInrBYcVUZum1fhVfInfB2+f0bxA=
 github.com/OpenUdon/oas v0.0.0-20260507023120-7fb319711323/go.mod h1:Q9qOlsluqLT/UmBD1TrwRn46fhNILwk+IIgtuNgyWXM=
 github.com/OpenUdon/schema v0.0.0-20260507023912-6ea3308bb955 h1:dwQPNJKFpa6ndPagc3bKvS8ITuVopArFVsE2JgVFJfY=

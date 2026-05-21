@@ -184,6 +184,31 @@ go run ./cmd/openudon assess --example ./examples/support-email
 The bounded refinement loop records retried stages, failed checks, and stop reason in
 `expected/refinement.json`.
 
+## Provider Catalog
+
+OpenUdon can inspect first-class provider metadata from `github.com/OpenUdon/apitools/catalog`
+before falling back to public search. Catalog data is advisory: local `openapi/` files and explicit
+OpenAPI inputs remain authoritative for generated packages.
+
+```bash
+# List known first-class providers and auth/security status.
+go run ./cmd/openudon catalog list
+
+# Inspect a provider's official OpenAPI, Discovery, Smithy, docs, and security-overlay metadata.
+go run ./cmd/openudon catalog inspect github
+go run ./cmd/openudon catalog advisory gmail
+
+# Import a provider-owned OpenAPI document directly into an example.
+go run ./cmd/openudon catalog import-openapi \
+  --provider stripe \
+  --example ./examples/<name> \
+  --name stripe
+```
+
+`import-openapi` writes only actual OpenAPI references into `examples/<name>/openapi/`. Google
+Discovery, AWS Smithy, Dropbox Stone, and human-docs entries remain advisory until a user supplies
+or generates an OpenAPI document that OpenUdon can validate.
+
 ## Quality And Repair Loop
 
 The pipeline is validation-first:
@@ -308,6 +333,8 @@ OpenUdon issues may be run through Symphony-managed Codex sessions. Agents shoul
 
 - Use UWS as the workflow interchange format.
 - Use OpenAPI for HTTP method, path, schema, server, and security details.
+- Use `openudon catalog inspect` or `openudon catalog import-openapi` when a first-class
+  provider-owned OpenAPI source is available.
 - Use extension-owned UWS operations for non-HTTP runtimes such as SMTP, command execution, SSH,
   SQL, or LLM calls.
 - Use `../uws` for public schema/model validation.
