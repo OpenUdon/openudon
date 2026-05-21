@@ -35,7 +35,7 @@ type Artifacts struct {
 }
 
 func Run(ctx context.Context, in io.Reader, out io.Writer, seed Session, opts Options) (Artifacts, error) {
-	if !opts.NoLLM && !opts.DisableAIDraft && !opts.VerifyOnly {
+	if !opts.NoLLM && !opts.VerifyOnly {
 		return runProgressive(ctx, in, out, seed, opts)
 	}
 	return runManual(ctx, in, out, seed, opts)
@@ -59,6 +59,17 @@ func runManual(ctx context.Context, in io.Reader, out io.Writer, seed Session, o
 		docs, err := DiscoverLocalAPIs(opts.ExampleDir, projectText)
 		if err != nil {
 			return Artifacts{}, err
+		}
+		if shouldRetrieveCatalogArtifacts(session, docs) {
+			if err := retrieveCatalogArtifactsForSession(out, session, opts.ExampleDir, CatalogHintOptions{}); err != nil {
+				return Artifacts{}, err
+			}
+			projectText = projectwizard.Render(session.Project)
+			docs, err = DiscoverLocalAPIs(opts.ExampleDir, projectText)
+			if err != nil {
+				return Artifacts{}, err
+			}
+			clearUnavailableAPIDocumentRefs(&session, docs)
 		}
 		artifacts, err := finalVerificationLoop(out, p, &session, docs, opts.DraftPath)
 		if err == nil {
@@ -129,6 +140,21 @@ func runManual(ctx context.Context, in io.Reader, out io.Writer, seed Session, o
 	if err != nil {
 		return Artifacts{}, err
 	}
+	if shouldRetrieveCatalogArtifacts(session, docs) {
+		if err := retrieveCatalogArtifactsForSession(out, session, opts.ExampleDir, CatalogHintOptions{}); err != nil {
+			return Artifacts{}, err
+		}
+		projectText = projectwizard.Render(session.Project)
+		docs, err = DiscoverLocalAPIs(opts.ExampleDir, projectText)
+		if err != nil {
+			return Artifacts{}, err
+		}
+		clearUnavailableAPIDocumentRefs(&session, docs)
+		if issue := blockingAPIDocumentIssue(session, docs); issue.Code != "" {
+			fmt.Fprintf(out, "Intent is incomplete: %s\n", issue.Message)
+			return Artifacts{}, errors.New(issue.Message)
+		}
+	}
 	if !opts.NoLLM && len(docs) > 1 {
 		if ranked, err := extractor.Disambiguate(ctx, session.Intent.Workflow.Description, docs); err == nil {
 			docs = rankDocuments(docs, ranked)
@@ -161,6 +187,10 @@ func runManual(ctx context.Context, in io.Reader, out io.Writer, seed Session, o
 	}
 	if usesAPI {
 		if len(docs) == 0 {
+			if issue := blockingAPIDocumentIssue(session, docs); issue.Code != "" {
+				fmt.Fprintf(out, "Intent is incomplete: %s\n", issue.Message)
+				return Artifacts{}, errors.New(issue.Message)
+			}
 			apiPath, err := p.askDefault("OpenAPI document path or URL", session.Intent.OpenAPI)
 			if err != nil {
 				return Artifacts{}, err
@@ -208,7 +238,7 @@ func runManual(ctx context.Context, in io.Reader, out io.Writer, seed Session, o
 	}
 
 	if len(session.Intent.Steps) == 0 {
-		steps, err := p.collectSteps(usesAPI, session.Intent.OpenAPI, docs, session.Intent.Inputs)
+		steps, err := p.collectSteps(usesAPI, session.Intent.OpenAPI, docs, session.Intent.Inputs, nil)
 		if err != nil {
 			return Artifacts{}, err
 		}
@@ -328,6 +358,12 @@ func finalVerificationLoop(out io.Writer, p *prompter, session *Session, docs []
 	for {
 		artifacts, err := RenderArtifacts(*session)
 		if err != nil {
+			if handled, handleErr := answerFinalBlockingQuestion(out, p, session, docs, draftPath); handled || handleErr != nil {
+				if handleErr != nil {
+					return Artifacts{}, handleErr
+				}
+				continue
+			}
 			fmt.Fprintf(out, "Intent is incomplete: %v\n", err)
 			slot, slotErr := p.askDefault("Edit slot", "steps")
 			if slotErr != nil {
@@ -340,6 +376,14 @@ func finalVerificationLoop(out io.Writer, p *prompter, session *Session, docs []
 				return Artifacts{}, err
 			}
 			continue
+		}
+		if blocking := firstFinalRepairIssue(CheckReadiness(artifacts.Session, docs)); blocking.Code != "" {
+			if handled, handleErr := answerFinalBlockingQuestion(out, p, session, docs, draftPath); handled || handleErr != nil {
+				if handleErr != nil {
+					return Artifacts{}, handleErr
+				}
+				continue
+			}
 		}
 		fmt.Fprintln(out, "\n----- current draft -----")
 		printSummary(out, artifacts.Session)
@@ -380,6 +424,74 @@ func finalVerificationLoop(out io.Writer, p *prompter, session *Session, docs []
 			fmt.Fprintln(out, "Please type save, edit <slot>, explain <assumption-id>, regenerate, or cancel.")
 		}
 	}
+}
+
+func answerFinalBlockingQuestion(out io.Writer, p *prompter, session *Session, docs []APIDocument, draftPath string) (bool, error) {
+	issues := CheckReadiness(*session, docs)
+	blocking := firstFinalRepairIssue(issues)
+	if blocking.Code == "" {
+		return false, nil
+	}
+	if blocking.Code == "missing_api_doc" {
+		if len(docs) > 0 && len(missingLocalAPIDocumentRefs(*session, docs)) == 0 {
+			return false, nil
+		}
+		fmt.Fprintf(out, "Intent is incomplete: %s\n", blocking.Message)
+		return true, errors.New(blocking.Message)
+	}
+	plan := PlanNextQuestion(*session, docs, issues)
+	answer, err := p.askDefault(plan.Prompt, plan.SuggestedAnswer)
+	if err != nil {
+		return true, err
+	}
+	applyProgressiveAnswer(session, plan, answer, docs)
+	session.Normalize()
+	if err := autosave(draftPath, *session); err != nil {
+		return true, err
+	}
+	return true, nil
+}
+
+func firstFinalRepairIssue(issues []ReadinessIssue) ReadinessIssue {
+	for _, issue := range issues {
+		if issue.Severity != readinessBlocking {
+			continue
+		}
+		switch issue.Code {
+		case "missing_api_doc", "missing_operation":
+			return issue
+		}
+	}
+	return ReadinessIssue{}
+}
+
+func blockingAPIDocumentIssue(session Session, docs []APIDocument) ReadinessIssue {
+	missingRefs := missingLocalAPIDocumentRefs(session, docs)
+	if len(missingRefs) > 0 && len(CatalogHintsForSession(session)) > 0 {
+		clone := session
+		clearUnavailableAPIDocumentRefs(&clone, docs)
+		message := missingAPIDocMessage(clone, docs)
+		if strings.Contains(message, "No first-class OpenAPI is available") {
+			return ReadinessIssue{
+				Code:            "missing_api_doc",
+				Slot:            "intent.openapi",
+				Severity:        readinessBlocking,
+				Message:         message,
+				SuggestedAnswer: "Generate/provide the missing API artifact, then rerun iCoT.",
+			}
+		}
+	}
+	for _, issue := range CheckReadiness(session, docs) {
+		if issue.Code == "missing_api_doc" && issue.Severity == readinessBlocking {
+			if len(missingRefs) > 0 {
+				return issue
+			}
+			if len(docs) == 0 && len(CatalogHintsForSession(session)) > 0 {
+				return issue
+			}
+		}
+	}
+	return ReadinessIssue{}
 }
 
 var ErrCanceled = errors.New("authoring canceled")
@@ -445,6 +557,14 @@ func (p *prompter) chooseDocument(label string, docs []APIDocument, current stri
 	}
 	fmt.Fprintf(p.out, "%s:\n", label)
 	defaultIndex := 0
+	if strings.TrimSpace(current) == "" {
+		for i, doc := range docs {
+			if isAdvisoryAPIDocument(doc) {
+				defaultIndex = i
+				break
+			}
+		}
+	}
 	for i, doc := range docs {
 		if doc.RelativePath == current {
 			defaultIndex = i
@@ -470,17 +590,18 @@ func (p *prompter) chooseDocument(label string, docs []APIDocument, current stri
 	}
 }
 
-func (p *prompter) chooseOperation(doc APIDocument, current string) (*apitools.OperationSummary, error) {
+func (p *prompter) chooseOperation(doc APIDocument, current string, step *rollout.Step) (*apitools.OperationSummary, error) {
 	if len(doc.Operations) == 0 {
 		return nil, fmt.Errorf("%s has no operations", doc.RelativePath)
 	}
 	fmt.Fprintf(p.out, "Operations in %s:\n", doc.RelativePath)
-	defaultIndex := 0
+	defaultIndex := defaultOperationIndex(doc, current, step)
 	for i, op := range doc.Operations {
-		if op.OperationID == current {
-			defaultIndex = i
+		label := operationLabel(op)
+		if desc := firstNonEmpty(op.Summary, op.Description); desc != "" && !strings.Contains(label, desc) {
+			label += " - " + truncateForPrompt(desc, 120)
 		}
-		fmt.Fprintf(p.out, "  %d. %s\n", i+1, operationLabel(op))
+		fmt.Fprintf(p.out, "  %d. %s\n", i+1, label)
 	}
 	for {
 		answer, err := p.askDefault("Choose operation number", strconv.Itoa(defaultIndex+1))
@@ -500,12 +621,42 @@ func (p *prompter) chooseOperation(doc APIDocument, current string) (*apitools.O
 	}
 }
 
-func (p *prompter) collectSteps(usesAPI bool, defaultOpenAPI string, docs []APIDocument, inputs []*rollout.Input) ([]*rollout.Step, error) {
+func defaultOperationIndex(doc APIDocument, current string, step *rollout.Step) int {
+	current = strings.TrimSpace(current)
+	for i, op := range doc.Operations {
+		if op.OperationID == current {
+			return i
+		}
+	}
+	if step == nil {
+		return 0
+	}
+	query := rankingTokenWeights(strings.Join([]string{step.Name, step.Do, step.Provider, step.OpenAPI}, " "))
+	bestIndex := 0
+	bestScore := -1
+	for i, op := range doc.Operations {
+		score := operationRankScore(query, doc, op, false)
+		if score > bestScore {
+			bestScore = score
+			bestIndex = i
+		}
+	}
+	return bestIndex
+}
+
+func (p *prompter) collectSteps(usesAPI bool, defaultOpenAPI string, docs []APIDocument, inputs []*rollout.Input, currentSteps []*rollout.Step) ([]*rollout.Step, error) {
 	var steps []*rollout.Step
 	for {
 		defaultName := ""
+		var current *rollout.Step
+		if len(currentSteps) > len(steps) {
+			current = currentSteps[len(steps)]
+		}
+		if current != nil {
+			defaultName = current.Name
+		}
 		if len(steps) == 0 {
-			defaultName = "run_workflow"
+			defaultName = firstNonEmpty(defaultName, "run_workflow")
 		}
 		name, err := p.askDefault("Step name (blank when done)", defaultName)
 		if err != nil {
@@ -522,12 +673,21 @@ func (p *prompter) collectSteps(usesAPI bool, defaultOpenAPI string, docs []APID
 		if usesAPI {
 			stepTypeDefault = "http"
 		}
+		if current != nil && strings.TrimSpace(current.Type) != "" {
+			stepTypeDefault = current.Type
+		}
 		stepType, err := p.askDefault("Step type (http/openapi/fnct/cmd/ssh)", stepTypeDefault)
 		if err != nil {
 			return nil, err
 		}
 		step := &rollout.Step{Name: slugIdent(name), Type: strings.ToLower(strings.TrimSpace(stepType))}
-		step.Do, err = p.askDefault("Step action", humanTitle(step.Name))
+		if current != nil {
+			step.Provider = current.Provider
+			step.OpenAPI = current.OpenAPI
+			step.Operation = current.Operation
+			step.Timeout = current.Timeout
+		}
+		step.Do, err = p.askDefault("Step action", firstNonEmpty(step.Do, currentStepAction(current), humanTitle(step.Name)))
 		if err != nil {
 			return nil, err
 		}
@@ -537,21 +697,39 @@ func (p *prompter) collectSteps(usesAPI bool, defaultOpenAPI string, docs []APID
 		}
 		if step.Type == "http" || step.Type == "openapi" {
 			docPath := defaultOpenAPI
+			if current != nil {
+				docPath = firstNonEmpty(current.OpenAPI, docPath)
+			}
 			var doc APIDocument
-			if len(docs) > 0 {
-				doc, err = p.chooseDocument("OpenAPI document for step", docs, docPath)
+			candidateDocs := docs
+			if current != nil && strings.TrimSpace(firstNonEmpty(current.Provider, current.OpenAPI)) != "" {
+				currentForFilter := *current
+				currentForFilter.OpenAPI = firstNonEmpty(currentForFilter.OpenAPI, defaultOpenAPI)
+				filtered := filterDocsForStep(nil, docs, &currentForFilter)
+				if len(filtered) > 0 {
+					candidateDocs = filtered
+				} else if strings.TrimSpace(currentForFilter.OpenAPI) != "" {
+					candidateDocs = nil
+				}
+			}
+			if len(candidateDocs) > 0 {
+				doc, err = p.chooseDocument("OpenAPI document for step", candidateDocs, docPath)
 				if err != nil {
 					return nil, err
+				}
+				op, err := p.chooseOperation(doc, step.Operation, step)
+				if err != nil {
+					return nil, err
+				}
+				step.Operation = op.OperationID
+				op, ok := operationByID([]APIDocument{doc}, doc.RelativePath, step.Operation)
+				if !ok {
+					return nil, fmt.Errorf("operationId %s is not available in %s", step.Operation, doc.RelativePath)
 				}
 				docPath = doc.RelativePath
 				if docPath != defaultOpenAPI {
 					step.OpenAPI = docPath
 				}
-				op, err := p.chooseOperation(doc, step.Operation)
-				if err != nil {
-					return nil, err
-				}
-				step.Operation = op.OperationID
 				fields, err := p.stepFields(apitools.RequiredOperationFields(*op))
 				if err != nil {
 					return nil, err
@@ -598,6 +776,13 @@ func (p *prompter) collectSteps(usesAPI bool, defaultOpenAPI string, docs []APID
 		steps = append(steps, step)
 	}
 	return steps, nil
+}
+
+func currentStepAction(step *rollout.Step) string {
+	if step == nil {
+		return ""
+	}
+	return step.Do
 }
 
 func (p *prompter) collectWorkflowMetadata(workflow *rollout.WorkflowMeta) error {
@@ -744,7 +929,7 @@ func editSlot(p *prompter, session *Session, slot string, docs []APIDocument) er
 		}
 		session.Intent.Inputs = parseInputs(value)
 	case "steps":
-		steps, err := p.collectSteps(session.Intent.RequiresOpenAPI(), session.Intent.OpenAPI, docs, session.Intent.Inputs)
+		steps, err := p.collectSteps(session.Intent.RequiresOpenAPI(), session.Intent.OpenAPI, docs, session.Intent.Inputs, session.Intent.Steps)
 		if err != nil {
 			return err
 		}

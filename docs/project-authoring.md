@@ -23,13 +23,19 @@ request mappings, outputs, credentials, and policy prose from the brief plus loc
 After each answer, deterministic readiness checks decide whether to ask about the goal, API
 document, operation, required request values, credential bindings, runtime inputs, outputs, or
 safety policy. The first valid intent jumps to final review; remaining warnings and inferred values
-are shown as assumptions, and saving confirms them.
+are shown as assumptions, and saving confirms them. The saved `intent.hcl` is a useful starting
+draft for build/review, not a promise that iCoT found the perfect workflow; operators should reject
+bad drafts or confirm and continue editing manually.
 
 For catalog-backed SaaS briefs, iCoT first checks local `openapi/` and `discovery/` documents and
-the sibling `../apitools` first-class provider cache. It asks before migrating cached API documents
-into the workflow, asks before using already-local API documents, and only then lists operation IDs
-from those documents. Discovery or advisory metadata can guide operation selection, but synthesis
-still needs OpenAPI-bound metadata before trusted handoff.
+the sibling `../apitools` first-class provider cache. If a local API artifact is missing, iCoT tries
+to retrieve or materialize first-class apitools artifacts or reviewed advisory OpenAPI overlays into
+the workflow before asking for an API path. It only asks for a user-provided artifact after
+apitools reports that no first-class or advisory OpenAPI/lowering-ready artifact is available.
+Discovery metadata can guide operation review, but synthesis still needs OpenAPI-bound metadata
+before trusted handoff. When both an original provider OpenAPI document and a reviewed advisory
+OpenAPI overlay are available, iCoT defaults to the advisory overlay for operation selection because
+it carries OpenUdon-reviewed endpoint/security scope.
 
 iCoT defaults to the local `copilot-api` gateway, using `COPILOT_API_BASE_URL` when set and
 `http://localhost:4141` otherwise. Use `OPENUDON_LLM_PROVIDER` and `OPENUDON_LLM_MODEL` for

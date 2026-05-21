@@ -39,9 +39,9 @@ reviewable OpenUdon contract:
 
 - choose a local OpenAPI document and listed `operationId` instead of inventing
   provider calls;
-- inspect first-class provider metadata in sibling `../apitools` and, when
-  cached API documents are available, ask before migrating them into the
-  workflow;
+- inspect first-class provider metadata in sibling `../apitools` and retrieve
+  available cached API documents or reviewed advisory OpenAPI overlays into the
+  workflow before asking for operation choices;
 - confirm existing local API documents before using them for operation
   selection;
 - map required path, query, header, and body fields to `inputs.<name>`, safe
@@ -55,6 +55,35 @@ iCoT lists operation IDs grouped by API document with summaries or descriptions.
 If a provider operation, request field, response path, or credential scheme is
 not visible in local metadata, leave it unresolved and repair or lower the
 OpenAPI slice before trusted handoff.
+
+If a required provider is missing local OpenAPI, iCoT tries the first-class
+apitools catalog/cache automatically. It only asks for user-provided API
+artifacts after apitools reports that no first-class or advisory
+OpenAPI/lowering-ready artifact is available.
+
+When an original provider OpenAPI document and a reviewed advisory OpenAPI
+overlay are both available, iCoT defaults to the advisory overlay for operation
+selection.
+
+## Draft Pipeline
+
+iCoT is optimized to produce a useful starting `intent.hcl`, not a perfect final
+workflow. The guided SaaS path is:
+
+1. Resolve API artifacts from the brief. If required OpenAPI, Discovery, or
+   advisory overlay artifacts are missing locally, try `../apitools` first and
+   materialize available artifacts into the workflow.
+2. For each local API artifact or provider-backed step, ask which listed
+   `operationId` to use. iCoT should offer a ranked default; when multiple
+   candidates remain plausible, the operator chooses one.
+3. Build compact per-operation API context from the selected operation IDs,
+   including the single operation, relevant schemas, and security requirements.
+4. Send the original goal, selected operation contexts, and `intent.hcl`
+   guardrails to the LLM to draft the structured intent.
+5. Show the resulting draft, assumptions, and warnings for confirmation. If the
+   operator confirms, iCoT writes `project.md` and `workflows/intent.hcl`; the
+   operator can continue editing manually before build or review. If the draft
+   is wrong, reject or edit it instead of treating iCoT as the final authority.
 
 ## Provider Defaults
 

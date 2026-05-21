@@ -250,9 +250,12 @@ func sanitizeKickoff(session Session) Session {
 }
 
 func draftPromptRequest(request DraftRequest) map[string]any {
-	rankedDocs := rankedDraftDocuments(request)
-	docs := make([]map[string]any, 0, len(rankedDocs))
-	for _, doc := range rankedDocs {
+	draftDocs := selectedDraftDocuments(request)
+	if len(draftDocs) == 0 {
+		draftDocs = rankedDraftDocuments(request)
+	}
+	docs := make([]map[string]any, 0, len(draftDocs))
+	for _, doc := range draftDocs {
 		ops := make([]operationPromptContext, 0, len(doc.Operations))
 		for _, op := range doc.Operations {
 			ops = append(ops, operationPrompt(op))
@@ -271,6 +274,37 @@ func draftPromptRequest(request DraftRequest) map[string]any {
 		"transcript_turns":   request.TranscriptTurns,
 		"readiness_feedback": request.ReadinessFeedback,
 	}
+}
+
+func selectedDraftDocuments(request DraftRequest) []APIDocument {
+	var out []APIDocument
+	docIndex := map[string]int{}
+	seenOps := map[string]bool{}
+	walkSteps(request.Session.Intent.Steps, func(step *rollout.Step) {
+		op, ok := operationForStep(request.Session, request.Docs, step)
+		if !ok {
+			return
+		}
+		doc, ok := documentForStep(request.Session, request.Docs, step, op)
+		if !ok || doc.RelativePath == "" {
+			return
+		}
+		index, ok := docIndex[doc.RelativePath]
+		if !ok {
+			copyDoc := doc
+			copyDoc.Operations = nil
+			out = append(out, copyDoc)
+			index = len(out) - 1
+			docIndex[doc.RelativePath] = index
+		}
+		key := doc.RelativePath + "\x00" + op.OperationID
+		if seenOps[key] {
+			return
+		}
+		seenOps[key] = true
+		out[index].Operations = append(out[index].Operations, *op)
+	})
+	return out
 }
 
 func sanitizeDraft(request DraftRequest, draft Session) Session {

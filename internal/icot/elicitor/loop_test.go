@@ -9,6 +9,7 @@ import (
 	"testing"
 
 	"github.com/OpenUdon/apitools"
+	"github.com/OpenUdon/apitools/catalog"
 	"github.com/OpenUdon/openudon/internal/projectwizard"
 	rollout "github.com/OpenUdon/openudon/internal/workflowintent"
 )
@@ -118,16 +119,8 @@ func TestRunUsesAIDraftDefaults(t *testing.T) {
 	writeOpenAPI(t, example)
 	input := strings.Join([]string{
 		"Fetch a support ticket.",
-		"support_ticket_lookup",
-		"Fetch a support ticket by runtime id.",
-		"",
-		"",
-		"yes",
-		"1",
-		"sandbox-only",
-		"",
-		"",
-		"",
+		"getTicket",
+		"ticketId=inputs.ticketId",
 		"save",
 	}, "\n") + "\n"
 	extractor := draftExtractor{session: Session{
@@ -376,6 +369,7 @@ func TestProgressiveOneAnswerJumpsToConfirmation(t *testing.T) {
 	extractor := &sequenceDraftExtractor{drafts: []Session{supportTicketDraft(true)}}
 	input := strings.Join([]string{
 		"Fetch a support ticket by runtime id.",
+		"getTicket",
 		"save",
 	}, "\n") + "\n"
 	var out strings.Builder
@@ -411,6 +405,7 @@ func TestProgressiveTwoQuestionPathUsesReadinessFeedback(t *testing.T) {
 	extractor := &sequenceDraftExtractor{drafts: []Session{first, second}}
 	input := strings.Join([]string{
 		"Fetch a support ticket.",
+		"getTicket",
 		"ticketId=inputs.ticketId",
 		"save",
 	}, "\n") + "\n"
@@ -426,8 +421,8 @@ func TestProgressiveTwoQuestionPathUsesReadinessFeedback(t *testing.T) {
 	if !strings.Contains(out.String(), "What values should the required request fields use?") {
 		t.Fatalf("missing grouped required-field question:\n%s", out.String())
 	}
-	if len(extractor.calls) < 2 || len(extractor.calls[1].ReadinessFeedback) == 0 {
-		t.Fatalf("second draft did not receive readiness feedback: %#v", extractor.calls)
+	if len(extractor.calls) == 0 || len(extractor.calls[0].ReadinessFeedback) == 0 {
+		t.Fatalf("operation-context draft did not receive readiness feedback: %#v", extractor.calls)
 	}
 }
 
@@ -437,6 +432,7 @@ func TestProgressiveDeterministicPrefillSkipsRequiredFieldQuestion(t *testing.T)
 	extractor := &sequenceDraftExtractor{drafts: []Session{supportTicketDraft(false)}}
 	input := strings.Join([]string{
 		"Fetch a support ticket.",
+		"getTicket",
 		"save",
 	}, "\n") + "\n"
 	var out strings.Builder
@@ -581,6 +577,22 @@ func TestApplyProgressiveAnswerMapsOperationToSelectedStep(t *testing.T) {
 	}
 }
 
+func TestApplyProgressiveAnswerMapsRequestFieldsToSelectedStep(t *testing.T) {
+	session := Session{Intent: rollout.Intent{Steps: []*rollout.Step{
+		{Name: "openweathermap", Type: "http", Provider: "openweathermap", Operation: "getOpenWeatherMapOneCall3"},
+		{Name: "gmail", Type: "http", Provider: "gmail", Operation: "gmail_users_messages_send"},
+	}}}
+
+	applyProgressiveAnswer(&session, QuestionPlan{Slots: []string{"steps.openweathermap.with"}}, "appid=inputs.appid, lat=inputs.lat, lon=inputs.lon", nil)
+
+	if got := session.Intent.Steps[0].With["appid"]; got != "inputs.appid" {
+		t.Fatalf("openweathermap appid = %q, want inputs.appid", got)
+	}
+	if len(session.Intent.Steps[1].With) != 0 {
+		t.Fatalf("gmail fields were modified: %#v", session.Intent.Steps[1].With)
+	}
+}
+
 func TestApplyProgressiveAnswerRejectsOperationFromWrongProvider(t *testing.T) {
 	session := Session{Intent: rollout.Intent{Steps: []*rollout.Step{
 		{Name: "openweathermap", Type: "http", Provider: "openweathermap"},
@@ -653,14 +665,39 @@ func TestApplyCatalogDocumentAnswerClearsStaleMissingPath(t *testing.T) {
 	}
 }
 
-func TestSuggestedAPIDocAnswerUsesProviderPath(t *testing.T) {
+func TestShouldRetrieveCatalogArtifactsWhenProviderDocMissingButMigratable(t *testing.T) {
+	overlay := filepath.Join(t.TempDir(), "openweathermap-one-call-3-overlay.json")
+	if err := os.WriteFile(overlay, []byte("{}\n"), 0o644); err != nil {
+		t.Fatalf("write overlay: %v", err)
+	}
+	session := Session{Project: projectwizard.Answers{Goal: "get weather and gmail me"}}
+	docs := []APIDocument{{RelativePath: "discovery/gmail-discovery-v1.json", Title: "Gmail API"}}
+	hints := []CatalogHint{
+		{Provider: catalog.Provider{ID: "gmail", DisplayName: "Gmail"}},
+		{
+			Provider:         catalog.Provider{ID: "openweathermap", DisplayName: "OpenWeatherMap"},
+			OverlayArtifacts: []string{overlay},
+		},
+	}
+
+	if !shouldRetrieveCatalogArtifactsForHints(session, docs, hints) {
+		t.Fatalf("expected retrieval for missing OpenWeatherMap overlay when Gmail doc is already local")
+	}
+}
+
+func TestSuggestedAPIDocAnswerReportsArtifactBlocker(t *testing.T) {
 	session := Session{}
 	session.Project.Goal = "get weather and gmail me"
 	session.Intent.Workflow = &rollout.WorkflowMeta{Description: session.Project.Goal}
 	docs := []APIDocument{{RelativePath: "discovery/gmail-discovery-v1.json", Title: "Gmail API"}}
 
-	if got, want := suggestedAPIDocAnswer(session, docs), "openapi/openweathermap.yaml"; got != want {
+	if got, want := suggestedAPIDocAnswer(session, docs), "Generate/provide the missing API artifact, then rerun iCoT."; got != want {
 		t.Fatalf("suggested API doc answer = %q, want %q", got, want)
+	}
+	issues := CheckReadiness(session, docs)
+	issue := readinessIssue(issues, "missing_api_doc")
+	if !strings.Contains(issue.Message, "No first-class OpenAPI is available for OpenWeatherMap") {
+		t.Fatalf("missing API doc message = %q", issue.Message)
 	}
 }
 
@@ -679,6 +716,60 @@ func TestOperationForStepRejectsWrongProviderOperation(t *testing.T) {
 	issues := CheckReadiness(session, docs)
 	if !hasReadinessCode(issues, "missing_operation") {
 		t.Fatalf("wrong-provider operation did not produce missing_operation: %#v", issues)
+	}
+}
+
+func TestSuggestedOperationAnswerRanksStepCandidates(t *testing.T) {
+	session := Session{
+		Project: projectwizard.Answers{Goal: "get weather in Toronto and gmail me the report"},
+		Intent: rollout.Intent{
+			Workflow: &rollout.WorkflowMeta{Name: "weather_report", Description: "get weather in Toronto and gmail me the report"},
+			Steps: []*rollout.Step{{
+				Name:     "gmail",
+				Type:     "http",
+				Provider: "gmail",
+				Do:       "Send the weather report email.",
+			}},
+		},
+	}
+	docs := []APIDocument{{RelativePath: "discovery/gmail-discovery-v1.json", Title: "Gmail API", Operations: []apitools.OperationSummary{
+		{OperationID: "gmail_users_getprofile", Summary: "Gets the user's Gmail profile."},
+		{OperationID: "gmail_users_messages_send", Summary: "Sends the specified message to the recipients."},
+	}}}
+
+	if got, want := suggestedOperationAnswerForStep(session, docs, session.Intent.Steps[0]), "gmail_users_messages_send"; got != want {
+		t.Fatalf("suggested operation = %q, want %q", got, want)
+	}
+	hint := operationChoiceHintForStep(session, docs, session.Intent.Steps[0])
+	if !strings.Contains(hint, "gmail_users_messages_send") || !strings.Contains(hint, "gmail_users_getprofile") {
+		t.Fatalf("operation hint did not list all candidates: %q", hint)
+	}
+}
+
+func TestAdvisoryAPIDocumentTakesProviderPriority(t *testing.T) {
+	session := Session{
+		Project: projectwizard.Answers{Goal: "get weather in Toronto"},
+		Intent: rollout.Intent{
+			Workflow: &rollout.WorkflowMeta{Name: "weather", Description: "get weather in Toronto"},
+			Steps: []*rollout.Step{{
+				Name:     "openweathermap",
+				Type:     "http",
+				Provider: "openweathermap",
+				Do:       "Get current weather.",
+			}},
+		},
+	}
+	docs := []APIDocument{
+		{RelativePath: "openapi/openweathermap-original.json", Title: "OpenWeatherMap Original API", Operations: []apitools.OperationSummary{{OperationID: "getOriginalWeather", Summary: "Get weather from original API"}}},
+		{RelativePath: "openapi/openweathermap-one-call-3-overlay.json", Title: "OpenWeatherMap One Call 3.0 Advisory Overlay", Operations: []apitools.OperationSummary{{OperationID: "getOpenWeatherMapOneCall3", Summary: "Get One Call API 3.0 weather data"}}},
+	}
+
+	filtered := filterDocsForStep(&session, docs, session.Intent.Steps[0])
+	if len(filtered) != 2 || filtered[0].RelativePath != "openapi/openweathermap-one-call-3-overlay.json" {
+		t.Fatalf("filtered docs priority = %#v", filtered)
+	}
+	if got, want := suggestedOperationAnswerForStep(session, docs, session.Intent.Steps[0]), "getOpenWeatherMapOneCall3"; got != want {
+		t.Fatalf("suggested operation = %q, want %q", got, want)
 	}
 }
 
@@ -933,6 +1024,34 @@ func TestReadinessAcceptsKnownOpenAPIRequestFields(t *testing.T) {
 	}
 }
 
+func TestReadinessAcceptsRequiredSecurityCredentialField(t *testing.T) {
+	session := supportTicketDraft(true)
+	session.Credentials = []string{"openweathermap_one_call_3_0_advisory_overlay_api_token"}
+	session.CredentialsSet = true
+	session.Intent.Steps[0].Provider = "openweathermap"
+	session.Intent.Steps[0].Operation = "getOpenWeatherMapOneCall3"
+	session.Intent.Steps[0].With = map[string]string{
+		"appid":                  "inputs.appid",
+		"lat":                    "inputs.lat",
+		"lon":                    "inputs.lon",
+		"open_weather_a_p_i_key": "credentials.openweathermap_one_call_3_0_advisory_overlay_api_token",
+	}
+	docs := []APIDocument{{RelativePath: "openapi/openweathermap-one-call-3-overlay.json", Title: "OpenWeatherMap One Call 3.0 Advisory Overlay", Operations: []apitools.OperationSummary{{
+		OperationID: "getOpenWeatherMapOneCall3",
+		Parameters: []apitools.ParameterSummary{
+			{Name: "appid", In: "query", Required: true, Type: "string"},
+			{Name: "lat", In: "query", Required: true, Type: "number"},
+			{Name: "lon", In: "query", Required: true, Type: "number"},
+		},
+		Security: securitySummaries("OpenWeatherAPIKey"),
+	}}}}
+
+	issues := CheckReadiness(session, docs)
+	if hasReadinessCode(issues, "invented_request_field") {
+		t.Fatalf("security credential field was treated as invented: %#v", issues)
+	}
+}
+
 func TestReadinessValidatesRequestBodyPaths(t *testing.T) {
 	session := supportTicketDraft(true)
 	session.Intent.Steps[0].Operation = "createOrder"
@@ -1030,6 +1149,7 @@ func TestProgressiveAmbiguousOperationAsksBeforeFieldMapping(t *testing.T) {
 	input := strings.Join([]string{
 		"Fetch a support ticket.",
 		"getTicket",
+		"ticketId=inputs.ticketId",
 		"save",
 	}, "\n") + "\n"
 	var out strings.Builder
@@ -1041,13 +1161,45 @@ func TestProgressiveAmbiguousOperationAsksBeforeFieldMapping(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Run failed: %v\n%s", err, out.String())
 	}
-	operationPrompt := strings.Index(out.String(), "Which operationId should get_ticket use?")
+	operationPrompt := strings.Index(out.String(), "Which API action or workflow step should run first?")
 	fieldPrompt := strings.Index(out.String(), "What values should the required request fields use?")
 	if operationPrompt < 0 {
 		t.Fatalf("missing operation question:\n%s", out.String())
 	}
 	if fieldPrompt >= 0 && fieldPrompt < operationPrompt {
 		t.Fatalf("field mapping was asked before operation choice:\n%s", out.String())
+	}
+	if len(extractor.calls) == 0 || len(extractor.calls[0].Session.Intent.Steps) == 0 || extractor.calls[0].Session.Intent.Steps[0].Operation != "getTicket" {
+		t.Fatalf("draft ran before selected operation context: %#v", extractor.calls)
+	}
+}
+
+func TestProgressiveResumeStaysOnProgressivePipeline(t *testing.T) {
+	example := t.TempDir()
+	writeOpenAPI(t, example)
+	seed := supportTicketDraft(false)
+	seed.Intent.Steps[0].Operation = ""
+	seed.Intent.Steps[0].With = nil
+	extractor := &sequenceDraftExtractor{drafts: []Session{supportTicketDraft(true)}}
+	input := strings.Join([]string{
+		"save",
+	}, "\n") + "\n"
+	var out strings.Builder
+
+	_, err := Run(context.Background(), strings.NewReader(input), &out, seed, Options{
+		ExampleDir:     example,
+		NoLLM:          false,
+		Extractor:      extractor,
+		DisableAIDraft: true,
+	})
+	if err != nil {
+		t.Fatalf("Run failed: %v\n%s", err, out.String())
+	}
+	if strings.Contains(out.String(), "Workflow name") || strings.Contains(out.String(), "Use OpenAPI/API steps?") {
+		t.Fatalf("resume fell back to manual prompts:\n%s", out.String())
+	}
+	if !strings.Contains(out.String(), "op_get_ticket") {
+		t.Fatalf("resume did not repair operation through progressive readiness:\n%s", out.String())
 	}
 }
 
@@ -1110,7 +1262,7 @@ func TestCatalogMatchedWorkflowBlocksOnMissingOpenAPI(t *testing.T) {
 	if issue.Code == "" {
 		t.Fatalf("missing_api_doc was not reported: %#v", issues)
 	}
-	if !strings.Contains(issue.Message, "OpenWeatherMap -> Gmail") || !strings.Contains(issue.Message, "no local OpenAPI document") {
+	if !strings.Contains(issue.Message, "OpenWeatherMap -> Gmail") || !strings.Contains(issue.Message, "cannot continue to operation selection") {
 		t.Fatalf("missing_api_doc did not describe catalog blocker: %#v", issue)
 	}
 	plan := PlanNextQuestion(session, nil, issues)
@@ -1153,7 +1305,7 @@ func TestProgressiveTranscriptIncludesEvents(t *testing.T) {
 	writeOpenAPI(t, example)
 	path := filepath.Join(example, ".icot", "transcript.json")
 	extractor := &sequenceDraftExtractor{drafts: []Session{supportTicketDraft(true)}}
-	input := "Fetch a support ticket.\nsave\n"
+	input := "Fetch a support ticket.\ngetTicket\nsave\n"
 	if _, err := Run(context.Background(), strings.NewReader(input), &strings.Builder{}, Session{}, Options{
 		ExampleDir:     example,
 		NoLLM:          false,

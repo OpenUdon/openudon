@@ -179,6 +179,24 @@ func CatalogMigrationCandidates(hints []CatalogHint, exampleDir string) []Catalo
 				ExistingLocal: statErr == nil,
 			})
 		}
+		for _, sourcePath := range hint.OverlayArtifacts {
+			sourcePath = strings.TrimSpace(sourcePath)
+			if sourcePath == "" {
+				continue
+			}
+			rel := filepath.ToSlash(filepath.Join("openapi", filepath.Base(sourcePath)))
+			target := filepath.Join(exampleDir, filepath.FromSlash(rel))
+			_, statErr := os.Stat(target)
+			out = append(out, CatalogMigrationCandidate{
+				ProviderID:    hint.Provider.ID,
+				ProviderName:  firstNonEmpty(hint.Provider.DisplayName, hint.Provider.ID),
+				Kind:          catalog.SpecKind("advisory-overlay"),
+				SourcePath:    sourcePath,
+				TargetPath:    target,
+				RelativePath:  rel,
+				ExistingLocal: statErr == nil,
+			})
+		}
 	}
 	sort.SliceStable(out, func(i, j int) bool {
 		if out[i].ProviderID != out[j].ProviderID {
@@ -235,7 +253,7 @@ func materializedArtifactTargetRelativePath(artifact catalog.MaterializedArtifac
 		return filepath.ToSlash(filepath.Join("discovery", filepath.Base(artifact.TargetPath)))
 	default:
 		switch strings.TrimSpace(artifact.Kind) {
-		case "openapi", "openapi-index":
+		case "openapi", "openapi-index", "advisory-overlay":
 			return filepath.ToSlash(filepath.Join("openapi", filepath.Base(artifact.TargetPath)))
 		case "google-discovery":
 			return filepath.ToSlash(filepath.Join("discovery", filepath.Base(artifact.TargetPath)))
@@ -636,6 +654,7 @@ func catalogHintFollowUps(provider catalog.Provider, hint CatalogHint) []string 
 	var followUps []string
 	hasDirectOpenAPI := false
 	hasNonOpenAPIMachineArtifact := false
+	hasAdvisoryOverlay := len(hint.OverlayArtifacts) > 0
 	for _, artifact := range hint.SpecArtifacts {
 		if strings.TrimSpace(artifact.Path) == "" {
 			continue
@@ -652,13 +671,12 @@ func catalogHintFollowUps(provider catalog.Provider, hint CatalogHint) []string 
 	switch {
 	case hasDirectOpenAPI:
 		followUps = append(followUps, "Direct OpenAPI artifact is available from the sibling apitools cache; copy or import it into this example's openapi/ directory before synthesis.")
+	case hasAdvisoryOverlay:
+		followUps = append(followUps, "Reviewed advisory OpenAPI overlay is available from the sibling apitools cache; iCoT can materialize it for operation selection.")
 	case hasNonOpenAPIMachineArtifact:
 		followUps = append(followUps, "Machine-readable metadata exists, but it is not directly OpenAPI; OpenUdon synthesis needs lowering or a user-provided OpenAPI file.")
 	case provider.UserOpenAPINeed == catalog.UserOpenAPINeedLikely || provider.OfficialOpenAPIAvailability == catalog.SpecAvailabilityUnavailable:
 		followUps = append(followUps, "No direct OpenAPI artifact is recorded; provide or generate a local OpenAPI slice before synthesis.")
-	}
-	if len(hint.OverlayArtifacts) > 0 {
-		followUps = append(followUps, "Advisory endpoint/security overlays are metadata only and do not replace a local OpenAPI document.")
 	}
 	return dedupeStrings(followUps)
 }

@@ -101,9 +101,28 @@ func DiscoverLocalAPIs(exampleDir, projectText string) ([]APIDocument, error) {
 	}
 	docs = append(docs, discoveryDocs...)
 	sort.Slice(docs, func(i, j int) bool {
+		if apiDocumentPriority(docs[i]) != apiDocumentPriority(docs[j]) {
+			return apiDocumentPriority(docs[i]) < apiDocumentPriority(docs[j])
+		}
 		return docs[i].RelativePath < docs[j].RelativePath
 	})
 	return docs, nil
+}
+
+func apiDocumentPriority(doc APIDocument) int {
+	if isAdvisoryAPIDocument(doc) {
+		return 0
+	}
+	return 1
+}
+
+func isAdvisoryAPIDocument(doc APIDocument) bool {
+	text := strings.ToLower(strings.Join([]string{
+		doc.RelativePath,
+		doc.Title,
+		doc.Description,
+	}, " "))
+	return strings.Contains(text, "advisory") || strings.Contains(text, "overlay")
 }
 
 func discoverLocalGoogleDiscoveryAPIs(exampleDir string) ([]APIDocument, error) {
@@ -279,6 +298,9 @@ func operationRankScore(query map[string]int, doc APIDocument, op apitools.Opera
 	score := 0
 	if selectedDoc {
 		score += 20
+	}
+	if isAdvisoryAPIDocument(doc) {
+		score += 15
 	}
 	score += rankingMatchScore(query, doc.RelativePath+" "+doc.Title+" "+doc.Description, 2)
 	score += rankingMatchScore(query, op.OperationID, 12)

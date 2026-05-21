@@ -4,9 +4,11 @@ import (
 	"os"
 	"path/filepath"
 	"slices"
+	"strings"
 	"testing"
 
 	"github.com/OpenUdon/apitools/catalog"
+	rollout "github.com/OpenUdon/openudon/internal/workflowintent"
 )
 
 func TestBuildCatalogHintsMatchesWeatherAndGmail(t *testing.T) {
@@ -89,6 +91,53 @@ func TestMigrateCatalogArtifactsReportsMissingProviders(t *testing.T) {
 	}
 	if !slices.Contains(missing, "openweathermap") {
 		t.Fatalf("missing providers = %v, want openweathermap", missing)
+	}
+}
+
+func TestMigrateCatalogArtifactsCopiesAdvisoryOverlayIntoWorkflow(t *testing.T) {
+	cacheRoot := t.TempDir()
+	example := t.TempDir()
+	writeCatalogArtifact(t, cacheRoot, "advisory-overlays/openweathermap-one-call-3-overlay.json")
+
+	result, err := MigrateCatalogArtifacts("get weather", example, CatalogHintOptions{CacheRoot: cacheRoot})
+	if err != nil {
+		t.Fatalf("MigrateCatalogArtifacts failed: %v", err)
+	}
+	if len(result.Copied) != 1 {
+		t.Fatalf("copied = %#v, want one artifact", result.Copied)
+	}
+	if got, want := result.Copied[0].RelativePath, "openapi/openweathermap-one-call-3-overlay.json"; got != want {
+		t.Fatalf("relative path = %q, want %q", got, want)
+	}
+	if _, err := os.Stat(filepath.Join(example, "openapi", "openweathermap-one-call-3-overlay.json")); err != nil {
+		t.Fatalf("migrated advisory overlay missing: %v", err)
+	}
+}
+
+func TestRetrieveCatalogArtifactsCopiesWeatherOverlay(t *testing.T) {
+	cacheRoot := t.TempDir()
+	example := t.TempDir()
+	writeCatalogArtifact(t, cacheRoot, "google-discovery/gmail-discovery-v1.json")
+	writeCatalogArtifact(t, cacheRoot, "advisory-overlays/openweathermap-one-call-3-overlay.json")
+	session := Session{}
+	session.Project.Goal = "get weather and gmail me"
+	session.Intent.Workflow = &rollout.WorkflowMeta{Description: session.Project.Goal}
+	var out strings.Builder
+
+	if err := retrieveCatalogArtifactsForSession(&out, session, example, CatalogHintOptions{CacheRoot: cacheRoot}); err != nil {
+		t.Fatalf("retrieveCatalogArtifactsForSession failed: %v", err)
+	}
+	if _, err := os.Stat(filepath.Join(example, "discovery", "gmail-discovery-v1.json")); err != nil {
+		t.Fatalf("gmail discovery was not retrieved: %v", err)
+	}
+	if _, err := os.Stat(filepath.Join(example, "openapi", "openweathermap-one-call-3-overlay.json")); err != nil {
+		t.Fatalf("OpenWeatherMap overlay was not retrieved: %v", err)
+	}
+	if !strings.Contains(out.String(), "retrieved Gmail API document") {
+		t.Fatalf("retrieve output missing Gmail retrieval:\n%s", out.String())
+	}
+	if !strings.Contains(out.String(), "retrieved OpenWeatherMap advisory OpenAPI overlay") {
+		t.Fatalf("retrieve output missing OpenWeatherMap retrieval:\n%s", out.String())
 	}
 }
 

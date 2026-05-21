@@ -252,7 +252,7 @@ func TestDraftPromptRequestCapsUnselectedOperations(t *testing.T) {
 	}
 }
 
-func TestDraftPromptRequestPreservesSelectedOperationBeyondCap(t *testing.T) {
+func TestDraftPromptRequestUsesOnlySelectedOperationWhenAvailable(t *testing.T) {
 	ops := promptOperations(t, DraftRequest{
 		Session: Session{Intent: rollout.Intent{
 			OpenAPI: "openapi/many.yaml",
@@ -269,11 +269,11 @@ func TestDraftPromptRequestPreservesSelectedOperationBeyondCap(t *testing.T) {
 	}, 0)
 
 	got := operationPromptIDs(ops)
-	if len(got) != maxDraftOperationCandidates+1 {
+	if len(got) != 1 {
 		t.Fatalf("operation count = %d, ids=%#v", len(got), got)
 	}
-	if !containsString(got, "operation14") {
-		t.Fatalf("selected operation omitted: %#v", got)
+	if got[0] != "operation14" {
+		t.Fatalf("selected operation context = %#v, want operation14 only", got)
 	}
 }
 

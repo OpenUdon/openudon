@@ -280,6 +280,7 @@ type ProgressiveLoopHooks[S, D, A any] struct {
 	DraftResultSummary   func(S) any
 	OnDraftError         func(error)
 	RefreshDocuments     func(S, []D) ([]D, error)
+	ShouldDraft          func(S, []D, []ReadinessIssue) bool
 	CheckReadiness       func(S, []D) []ReadinessIssue
 	Ready                func(S, []ReadinessIssue) bool
 	PlanQuestion         func(S, []D, []ReadinessIssue) InteractiveQuestion
@@ -359,60 +360,62 @@ func RunProgressiveICOT[S, D, A any](ctx context.Context, in io.Reader, out io.W
 		if hooks.DeterministicPrefill != nil && hooks.DeterministicPrefill(&session, docs) && hooks.Normalize != nil {
 			hooks.Normalize(&session)
 		}
-		request := InteractiveDraftRequest[S, D]{
-			Opening:           opening,
-			Brief:             hooks.Brief,
-			Session:           session,
-			Docs:              docs,
-			TranscriptTurns:   prompts.Turns(),
-			ReadinessFeedback: append([]ReadinessIssue(nil), issues...),
-		}
-		record("model_draft_call", map[string]any{
-			"opening":          request.Opening,
-			"turn_count":       len(request.TranscriptTurns),
-			"readiness_issues": request.ReadinessFeedback,
-		})
-		var (
-			draft    S
-			draftErr error
-		)
-		if !noopExtractor {
-			draft, draftErr = extractor.Draft(ctx, request)
-		}
-		if !noopExtractor && draftErr == nil && (hooks.LooksLikeSession == nil || hooks.LooksLikeSession(draft)) {
-			if hooks.MergeDraft != nil {
-				session = hooks.MergeDraft(session, draft, docs)
-			} else {
-				session = draft
-			}
-			if hooks.Normalize != nil {
-				hooks.Normalize(&session)
-			}
-			if hooks.DeterministicPrefill != nil && hooks.DeterministicPrefill(&session, docs) && hooks.Normalize != nil {
-				hooks.Normalize(&session)
-			}
-			if hooks.DraftResultSummary != nil {
-				record("model_draft_result", hooks.DraftResultSummary(session))
-			}
-			if hooks.Autosave != nil {
-				if err := hooks.Autosave(session); err != nil {
-					return zero, err
-				}
-			}
-			if hooks.AfterDraft != nil {
-				if err := hooks.AfterDraft(session); err != nil {
-					return zero, err
-				}
-			}
-		} else if !noopExtractor && draftErr != nil {
-			record("model_draft_error", draftErr.Error())
-			if hooks.OnDraftError != nil {
-				hooks.OnDraftError(draftErr)
-			}
-		}
-
 		if hooks.CheckReadiness != nil {
 			issues = hooks.CheckReadiness(session, docs)
+		}
+		shouldDraft := !noopExtractor
+		if shouldDraft && hooks.ShouldDraft != nil {
+			shouldDraft = hooks.ShouldDraft(session, docs, issues)
+		}
+		if shouldDraft {
+			request := InteractiveDraftRequest[S, D]{
+				Opening:           opening,
+				Brief:             hooks.Brief,
+				Session:           session,
+				Docs:              docs,
+				TranscriptTurns:   prompts.Turns(),
+				ReadinessFeedback: append([]ReadinessIssue(nil), issues...),
+			}
+			record("model_draft_call", map[string]any{
+				"opening":          request.Opening,
+				"turn_count":       len(request.TranscriptTurns),
+				"readiness_issues": request.ReadinessFeedback,
+			})
+			draft, draftErr := extractor.Draft(ctx, request)
+			if draftErr == nil && (hooks.LooksLikeSession == nil || hooks.LooksLikeSession(draft)) {
+				if hooks.MergeDraft != nil {
+					session = hooks.MergeDraft(session, draft, docs)
+				} else {
+					session = draft
+				}
+				if hooks.Normalize != nil {
+					hooks.Normalize(&session)
+				}
+				if hooks.DeterministicPrefill != nil && hooks.DeterministicPrefill(&session, docs) && hooks.Normalize != nil {
+					hooks.Normalize(&session)
+				}
+				if hooks.CheckReadiness != nil {
+					issues = hooks.CheckReadiness(session, docs)
+				}
+				if hooks.DraftResultSummary != nil {
+					record("model_draft_result", hooks.DraftResultSummary(session))
+				}
+				if hooks.Autosave != nil {
+					if err := hooks.Autosave(session); err != nil {
+						return zero, err
+					}
+				}
+				if hooks.AfterDraft != nil {
+					if err := hooks.AfterDraft(session); err != nil {
+						return zero, err
+					}
+				}
+			} else if draftErr != nil {
+				record("model_draft_error", draftErr.Error())
+				if hooks.OnDraftError != nil {
+					hooks.OnDraftError(draftErr)
+				}
+			}
 		}
 		record("readiness_decision", issues)
 		if hooks.Ready != nil && hooks.Ready(session, issues) {
