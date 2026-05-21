@@ -19,13 +19,14 @@ import (
 )
 
 type Options struct {
-	ExampleDir     string
-	NoLLM          bool
-	Extractor      Extractor
-	DraftPath      string
-	TranscriptPath string
-	DisableAIDraft bool
-	VerifyOnly     bool
+	ExampleDir         string
+	NoLLM              bool
+	Extractor          Extractor
+	DraftPath          string
+	TranscriptPath     string
+	DisableAIDraft     bool
+	VerifyOnly         bool
+	CatalogHintOptions CatalogHintOptions
 }
 
 type Artifacts struct {
@@ -61,7 +62,7 @@ func runManual(ctx context.Context, in io.Reader, out io.Writer, seed Session, o
 			return Artifacts{}, err
 		}
 		if shouldRetrieveCatalogArtifacts(session, docs) {
-			if err := retrieveCatalogArtifactsForSession(out, session, opts.ExampleDir, CatalogHintOptions{}); err != nil {
+			if err := retrieveCatalogArtifactsForSession(out, session, opts.ExampleDir, opts.CatalogHintOptions); err != nil {
 				return Artifacts{}, err
 			}
 			projectText = projectwizard.Render(session.Project)
@@ -141,7 +142,7 @@ func runManual(ctx context.Context, in io.Reader, out io.Writer, seed Session, o
 		return Artifacts{}, err
 	}
 	if shouldRetrieveCatalogArtifacts(session, docs) {
-		if err := retrieveCatalogArtifactsForSession(out, session, opts.ExampleDir, CatalogHintOptions{}); err != nil {
+		if err := retrieveCatalogArtifactsForSession(out, session, opts.ExampleDir, opts.CatalogHintOptions); err != nil {
 			return Artifacts{}, err
 		}
 		projectText = projectwizard.Render(session.Project)

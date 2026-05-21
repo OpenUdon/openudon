@@ -1,0 +1,11 @@
+Plan early catalog artifact use for an OpenUdon iCoT workflow.
+
+You receive the user's workflow goal, a compact session summary, and a shortlist of locally migratable catalog candidates. Each candidate contains only provider metadata and artifact identifiers. You do not receive full OpenAPI, Google Discovery, advisory overlay, schemas, operation IDs, request fields, credentials, response paths, or secret values.
+
+Return JSON with:
+- selected_artifacts: provider_id and artifact_key values copied exactly from candidates.
+- proposed_steps: rough provider/capability steps only. Use type "http", provider from a selected provider, optional openapi copied from a selected candidate relative_path, a short do description, and depends_on only when one earlier rough step clearly feeds another.
+- blockers: concise reasons when the shortlist is insufficient.
+- assumptions: concise notes for human review.
+
+Do not invent provider IDs, artifact keys, paths, operation IDs, credential names, request mappings, response paths, schema fields, URLs, runtimes, or secret values. If no listed candidate is relevant, return no selected_artifacts and explain the blocker.

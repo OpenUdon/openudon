@@ -45,9 +45,10 @@ func runProgressive(ctx context.Context, in io.Reader, out io.Writer, seed Sessi
 	draftJSONErrorReported := false
 	skipNextDraft := opts.DisableAIDraft
 	catalogRetrievalAttempted := false
+	reportedDraftEvents := 0
 	if openingBrief != "" && shouldRetrieveCatalogArtifacts(session, docs) {
 		catalogRetrievalAttempted = true
-		if err := retrieveCatalogArtifactsForSession(out, session, opts.ExampleDir, CatalogHintOptions{}); err != nil {
+		if err := retrieveCatalogArtifactsForSession(out, session, opts.ExampleDir, opts.CatalogHintOptions); err != nil {
 			return Artifacts{}, err
 		}
 		projectText = projectwizard.Render(session.Project)
@@ -65,7 +66,10 @@ func runProgressive(ctx context.Context, in io.Reader, out io.Writer, seed Sessi
 			return nil
 		}
 		catalogRetrievalAttempted = true
-		return retrieveCatalogArtifactsForSession(out, session, opts.ExampleDir, CatalogHintOptions{})
+		return retrieveCatalogArtifactsForSession(out, session, opts.ExampleDir, opts.CatalogHintOptions)
+	}
+	nextSessionEvents := func(session Session) []authoring.PromptEvent {
+		return catalogPlanEvents(session, &reportedDraftEvents)
 	}
 	hooks := authoring.ProgressiveLoopHooks[Session, APIDocument, Artifacts]{
 		Session:       session,
@@ -81,15 +85,24 @@ func runProgressive(ctx context.Context, in io.Reader, out io.Writer, seed Sessi
 		},
 		ApplyOpeningAnswer: func(session *Session, answer string, docs []APIDocument) error {
 			applyProgressiveAnswer(session, QuestionPlan{Slots: []string{"workflow.goal"}}, answer, docs)
-			hints, err := BuildCatalogHints(answer, CatalogHintOptions{})
+			hints, err := BuildCatalogHints(answer, opts.CatalogHintOptions)
 			if err != nil {
 				fmt.Fprintf(out, "icot: apitools catalog advisory skipped: %v\n", err)
 			} else {
 				printCatalogHints(out, hints)
-				addCatalogPlanSteps(session, hints)
+				applied, err := planOpeningCatalogArtifacts(ctx, out, extractor, session, answer, hints, opts)
+				if err != nil {
+					return err
+				}
+				if applied {
+					catalogRetrievalAttempted = true
+				} else {
+					addCatalogPlanSteps(session, hints)
+				}
 			}
 			return nil
 		},
+		OpeningEvents: nextSessionEvents,
 		RefreshDocuments: func(session Session, docs []APIDocument) ([]APIDocument, error) {
 			if err := attemptCatalogRetrieval(session); err != nil {
 				return nil, err
@@ -123,7 +136,7 @@ func runProgressive(ctx context.Context, in io.Reader, out io.Writer, seed Sessi
 			}
 		},
 		DraftEvents: func(session Session) []authoring.PromptEvent {
-			return append([]authoring.PromptEvent(nil), session.DraftEvents...)
+			return nextSessionEvents(session)
 		},
 		AfterDraft: func(session Session) error {
 			printSummary(out, session)
@@ -548,6 +561,33 @@ func addCatalogPlanSteps(session *Session, hints []CatalogHint) {
 	}})
 }
 
+func planOpeningCatalogArtifacts(ctx context.Context, out io.Writer, extractor Extractor, session *Session, opening string, hints []CatalogHint, opts Options) (bool, error) {
+	if opts.NoLLM || extractor == nil || session == nil || len(hints) == 0 {
+		return false, nil
+	}
+	request := BuildCatalogPlanRequest(opening, *session, hints, opts.ExampleDir)
+	if len(request.Candidates) == 0 {
+		return false, nil
+	}
+	session.DraftEvents = append(session.DraftEvents, TranscriptEvent{Kind: "catalog_plan_call", Data: map[string]any{
+		"opening":    request.Opening,
+		"candidates": request.Candidates,
+	}})
+	response, err := extractor.CatalogPlan(ctx, request)
+	if err != nil {
+		fmt.Fprintf(out, "icot: catalog plan unavailable: %v\n", err)
+		session.DraftEvents = append(session.DraftEvents, TranscriptEvent{Kind: "catalog_plan_rejected", Data: map[string]any{
+			"error": err.Error(),
+		}})
+		return false, nil
+	}
+	application, err := applyCatalogPlanResponse(out, session, hints, opts.ExampleDir, response)
+	if err != nil {
+		return false, err
+	}
+	return application.Applied, nil
+}
+
 func retrieveCatalogArtifactsForSession(out io.Writer, session Session, exampleDir string, opts CatalogHintOptions) error {
 	result, err := MigrateCatalogArtifacts(catalogQueryForSession(session), exampleDir, opts)
 	if err != nil {
@@ -741,7 +781,7 @@ func clearUnavailableAPIDocumentRefs(session *Session, docs []APIDocument) {
 func apiDocsAccepted(session Session) bool {
 	for _, assumption := range session.Assumptions {
 		switch assumption.ID {
-		case "local_api_docs_accepted", "catalog_api_docs_migrated":
+		case "local_api_docs_accepted", "catalog_api_docs_migrated", "catalog_plan_api_docs_migrated":
 			return true
 		}
 	}

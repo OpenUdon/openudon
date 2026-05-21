@@ -363,6 +363,31 @@ func (e *sequenceDraftExtractor) Draft(_ context.Context, request DraftRequest) 
 	return draft, nil
 }
 
+type catalogPlanningExtractor struct {
+	noopExtractor
+}
+
+func (catalogPlanningExtractor) CatalogPlan(_ context.Context, request CatalogPlanRequest) (CatalogPlanResponse, error) {
+	for _, candidate := range request.Candidates {
+		if candidate.ProviderID == "gmail" {
+			return CatalogPlanResponse{
+				SelectedArtifacts: []CatalogPlanArtifactSelection{{
+					ProviderID:  candidate.ProviderID,
+					ArtifactKey: candidate.ArtifactKey,
+				}},
+				ProposedSteps: []CatalogPlanStep{{
+					Name:     "send_gmail",
+					Type:     "http",
+					Provider: "gmail",
+					OpenAPI:  candidate.RelativePath,
+					Do:       "Send the report through Gmail.",
+				}},
+			}, nil
+		}
+	}
+	return CatalogPlanResponse{Blockers: []string{"gmail artifact not listed"}}, nil
+}
+
 func TestProgressiveOneAnswerJumpsToConfirmation(t *testing.T) {
 	example := t.TempDir()
 	writeOpenAPI(t, example)
@@ -1412,6 +1437,80 @@ func TestProgressiveTranscriptIncludesOperationDetailEvents(t *testing.T) {
 		if !strings.Contains(text, expected) {
 			t.Fatalf("transcript missing %q:\n%s", expected, text)
 		}
+	}
+}
+
+func TestProgressiveTranscriptIncludesCatalogPlanEvents(t *testing.T) {
+	example := t.TempDir()
+	cacheRoot := t.TempDir()
+	writeGmailDiscoveryCatalogArtifact(t, cacheRoot)
+	path := filepath.Join(example, ".icot", "transcript.json")
+	input := strings.Join([]string{
+		"Email me a report with Gmail.",
+		"",
+		"userId=me, raw=inputs.raw",
+		"after-approval",
+		"save",
+	}, "\n") + "\n"
+
+	_, err := Run(context.Background(), strings.NewReader(input), &strings.Builder{}, Session{}, Options{
+		ExampleDir:         example,
+		NoLLM:              false,
+		Extractor:          catalogPlanningExtractor{},
+		TranscriptPath:     path,
+		CatalogHintOptions: CatalogHintOptions{CacheRoot: cacheRoot},
+	})
+	if err != nil {
+		t.Fatalf("Run failed: %v", err)
+	}
+	data, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatalf("read transcript: %v", err)
+	}
+	text := string(data)
+	for _, expected := range []string{"catalog_plan_call", "catalog_plan_result", "gmail:discovery/gmail-discovery-v1.json"} {
+		if !strings.Contains(text, expected) {
+			t.Fatalf("transcript missing %q:\n%s", expected, text)
+		}
+	}
+}
+
+func writeGmailDiscoveryCatalogArtifact(t *testing.T, root string) {
+	t.Helper()
+	path := filepath.Join(root, "google-discovery", "gmail-discovery-v1.json")
+	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+		t.Fatalf("mkdir discovery artifact dir: %v", err)
+	}
+	data := `{
+	  "kind": "discovery#restDescription",
+	  "name": "gmail",
+	  "title": "Gmail API",
+	  "version": "v1",
+	  "rootUrl": "https://gmail.googleapis.com/",
+	  "servicePath": "",
+	  "resources": {
+	    "users": {
+	      "resources": {
+	        "messages": {
+	          "methods": {
+	            "send": {
+	              "id": "gmail.users.messages.send",
+	              "path": "gmail/v1/users/{userId}/messages/send",
+	              "httpMethod": "POST",
+	              "description": "Sends the specified message to the recipients.",
+	              "parameters": {
+	                "userId": {"type": "string", "location": "path", "required": true}
+	              },
+	              "request": {"$ref": "Message"}
+	            }
+	          }
+	        }
+	      }
+	    }
+	  }
+	}`
+	if err := os.WriteFile(path, []byte(data), 0o644); err != nil {
+		t.Fatalf("write discovery artifact: %v", err)
 	}
 }
 

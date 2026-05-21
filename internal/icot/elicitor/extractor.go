@@ -28,11 +28,15 @@ var disambiguatePrompt string
 //go:embed prompts/draft.txt
 var draftPrompt string
 
+//go:embed prompts/catalog_plan.txt
+var catalogPlanPrompt string
+
 // Extractor provides optional, bounded LLM assistance for the interactive
 // authoring loop. Implementations must return partial drafts only; the loop
 // still asks the user to confirm the final intent before saving.
 type Extractor interface {
 	Kickoff(context.Context, string) (Session, error)
+	CatalogPlan(context.Context, CatalogPlanRequest) (CatalogPlanResponse, error)
 	Draft(context.Context, DraftRequest) (Session, error)
 	Refine(context.Context, Session) (Session, error)
 	Disambiguate(context.Context, string, []APIDocument) ([]string, error)
@@ -48,6 +52,10 @@ func NewNoopExtractor() Extractor {
 
 func (noopExtractor) Kickoff(context.Context, string) (Session, error) {
 	return Session{}, nil
+}
+
+func (noopExtractor) CatalogPlan(context.Context, CatalogPlanRequest) (CatalogPlanResponse, error) {
+	return CatalogPlanResponse{}, nil
 }
 
 func (noopExtractor) Draft(context.Context, DraftRequest) (Session, error) {
@@ -93,6 +101,22 @@ func (e *chatExtractor) Kickoff(ctx context.Context, opening string) (Session, e
 		})
 	}
 	return session, nil
+}
+
+func (e *chatExtractor) CatalogPlan(ctx context.Context, request CatalogPlanRequest) (CatalogPlanResponse, error) {
+	request.Opening = strings.TrimSpace(request.Opening)
+	if request.Opening == "" || len(request.Candidates) == 0 {
+		return CatalogPlanResponse{}, nil
+	}
+	data, err := json.Marshal(request)
+	if err != nil {
+		return CatalogPlanResponse{}, err
+	}
+	var response CatalogPlanResponse
+	if err := e.completeJSON(ctx, catalogPlanPrompt, string(data), catalogPlanSchema, &response, 1000); err != nil {
+		return CatalogPlanResponse{}, err
+	}
+	return response, nil
 }
 
 func (e *chatExtractor) Draft(ctx context.Context, request DraftRequest) (Session, error) {
@@ -636,6 +660,42 @@ const disambiguateSchema = `{
   "additionalProperties": false,
   "properties": {
     "paths": {"type": "array", "items": {"type": "string"}}
+  }
+}`
+
+const catalogPlanSchema = `{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "selected_artifacts": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "provider_id": {"type": "string"},
+          "artifact_key": {"type": "string"},
+          "reason": {"type": "string"}
+        }
+      }
+    },
+    "proposed_steps": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "name": {"type": "string"},
+          "type": {"type": "string"},
+          "provider": {"type": "string"},
+          "openapi": {"type": "string"},
+          "do": {"type": "string"},
+          "depends_on": {"type": "array", "items": {"type": "string"}}
+        }
+      }
+    },
+    "blockers": {"type": "array", "items": {"type": "string"}},
+    "assumptions": {"type": "array", "items": {"type": "string"}}
   }
 }`
 

@@ -271,6 +271,7 @@ type ProgressiveLoopHooks[S, D, A any] struct {
 
 	Normalize            func(*S)
 	ApplyOpeningAnswer   func(*S, string, []D) error
+	OpeningEvents        func(S) []PromptEvent
 	Autosave             func(S) error
 	RankDocuments        func([]D, []string) []D
 	DeterministicPrefill func(*S, []D) bool
@@ -327,6 +328,13 @@ func RunProgressiveICOT[S, D, A any](ctx context.Context, in io.Reader, out io.W
 		if hooks.ApplyOpeningAnswer != nil {
 			if err := hooks.ApplyOpeningAnswer(&session, opening, docs); err != nil {
 				return zero, err
+			}
+		}
+		if hooks.OpeningEvents != nil {
+			for _, event := range hooks.OpeningEvents(session) {
+				if strings.TrimSpace(event.Kind) != "" {
+					record(event.Kind, event.Data)
+				}
 			}
 		}
 		if hooks.RefreshDocuments != nil {

@@ -1,6 +1,9 @@
 package elicitor
 
 import (
+	"context"
+	"encoding/json"
+	"errors"
 	"os"
 	"path/filepath"
 	"slices"
@@ -139,6 +142,176 @@ func TestRetrieveCatalogArtifactsCopiesWeatherOverlay(t *testing.T) {
 	if !strings.Contains(out.String(), "retrieved OpenWeatherMap advisory OpenAPI overlay") {
 		t.Fatalf("retrieve output missing OpenWeatherMap retrieval:\n%s", out.String())
 	}
+}
+
+func TestBuildCatalogPlanRequestUsesCompactArtifactMetadata(t *testing.T) {
+	cacheRoot := t.TempDir()
+	example := t.TempDir()
+	sourceRel := "advisory-overlays/openweathermap-one-call-3-overlay.json"
+	sourcePath := filepath.Join(cacheRoot, filepath.FromSlash(sourceRel))
+	if err := os.MkdirAll(filepath.Dir(sourcePath), 0o755); err != nil {
+		t.Fatalf("mkdir artifact dir: %v", err)
+	}
+	fullContent := `{"openapi":"3.0.0","paths":{"/secret/full/content":{}}}`
+	if err := os.WriteFile(sourcePath, []byte(fullContent), 0o644); err != nil {
+		t.Fatalf("write artifact: %v", err)
+	}
+	hints, err := BuildCatalogHints("get weather", CatalogHintOptions{CacheRoot: cacheRoot})
+	if err != nil {
+		t.Fatalf("BuildCatalogHints failed: %v", err)
+	}
+
+	request := BuildCatalogPlanRequest("get weather", Session{}, hints, example)
+	encoded, err := json.Marshal(request)
+	if err != nil {
+		t.Fatalf("marshal request: %v", err)
+	}
+	text := string(encoded)
+	for _, want := range []string{"artifact_key", "relative_path", "provider_id", "openweathermap"} {
+		if !strings.Contains(text, want) {
+			t.Fatalf("catalog plan request missing %q: %s", want, text)
+		}
+	}
+	for _, forbidden := range []string{sourcePath, "/secret/full/content", `"paths"`} {
+		if strings.Contains(text, forbidden) {
+			t.Fatalf("catalog plan request leaked %q: %s", forbidden, text)
+		}
+	}
+}
+
+func TestApplyCatalogPlanResponseMigratesValidatedSelectionAndSeedsRoughSteps(t *testing.T) {
+	cacheRoot := t.TempDir()
+	example := t.TempDir()
+	writeCatalogArtifact(t, cacheRoot, "openapi/test-api.json")
+	writeCatalogArtifact(t, cacheRoot, "advisory-overlays/test-overlay.json")
+	hints := []CatalogHint{{
+		Provider: catalog.Provider{ID: "test", DisplayName: "Test API"},
+		SpecArtifacts: []CatalogSpecArtifactHint{{
+			SpecRef: catalog.SpecReference{ID: "test-api", Kind: catalog.SpecKindOpenAPI},
+			Path:    filepath.Join(cacheRoot, "openapi", "test-api.json"),
+		}},
+		OverlayArtifacts: []string{filepath.Join(cacheRoot, "advisory-overlays", "test-overlay.json")},
+	}}
+	request := BuildCatalogPlanRequest("use test api then notify", Session{}, hints, example)
+	key := request.Candidates[0].ArtifactKey
+	session := Session{}
+	var out strings.Builder
+
+	applied, err := applyCatalogPlanResponse(&out, &session, hints, example, CatalogPlanResponse{
+		SelectedArtifacts: []CatalogPlanArtifactSelection{{ProviderID: "test", ArtifactKey: key}},
+		ProposedSteps: []CatalogPlanStep{{
+			Name:     "test_lookup",
+			Type:     "http",
+			Provider: "test",
+			OpenAPI:  "openapi/test-api.json",
+			Do:       "Use Test API for the first capability.",
+		}},
+	})
+	if err != nil {
+		t.Fatalf("applyCatalogPlanResponse failed: %v", err)
+	}
+	if !applied.Applied {
+		t.Fatalf("catalog plan was not applied: %#v", applied)
+	}
+	for _, rel := range []string{"openapi/test-api.json", "openapi/test-overlay.json"} {
+		if _, err := os.Stat(filepath.Join(example, filepath.FromSlash(rel))); err != nil {
+			t.Fatalf("expected migrated artifact %s: %v", rel, err)
+		}
+	}
+	if len(session.Intent.Steps) != 1 {
+		t.Fatalf("steps = %#v", session.Intent.Steps)
+	}
+	step := session.Intent.Steps[0]
+	if step.Operation != "" || len(step.With) != 0 || step.Provider != "test" || step.OpenAPI != "openapi/test-api.json" {
+		t.Fatalf("unsafe or missing rough step fields: %#v", step)
+	}
+	if !hasAssumption(session.Assumptions, "catalog_plan_api_docs_migrated") {
+		t.Fatalf("missing catalog plan assumption: %#v", session.Assumptions)
+	}
+	if !strings.Contains(out.String(), "selected Test API API document from catalog plan") {
+		t.Fatalf("missing selected artifact output:\n%s", out.String())
+	}
+}
+
+func TestApplyCatalogPlanResponseRejectsUnknownArtifact(t *testing.T) {
+	cacheRoot := t.TempDir()
+	example := t.TempDir()
+	writeCatalogArtifact(t, cacheRoot, "openapi/test-api.json")
+	hints := []CatalogHint{{
+		Provider: catalog.Provider{ID: "test", DisplayName: "Test API"},
+		SpecArtifacts: []CatalogSpecArtifactHint{{
+			SpecRef: catalog.SpecReference{ID: "test-api", Kind: catalog.SpecKindOpenAPI},
+			Path:    filepath.Join(cacheRoot, "openapi", "test-api.json"),
+		}},
+	}}
+	session := Session{}
+	var out strings.Builder
+
+	applied, err := applyCatalogPlanResponse(&out, &session, hints, example, CatalogPlanResponse{
+		SelectedArtifacts: []CatalogPlanArtifactSelection{{ProviderID: "test", ArtifactKey: "test:openapi/invented.yaml"}},
+		ProposedSteps:     []CatalogPlanStep{{Name: "invented", Provider: "test", OpenAPI: "openapi/invented.yaml"}},
+	})
+	if err != nil {
+		t.Fatalf("applyCatalogPlanResponse failed: %v", err)
+	}
+	if applied.Applied {
+		t.Fatalf("invalid catalog plan was applied: %#v", applied)
+	}
+	if len(session.Intent.Steps) != 0 {
+		t.Fatalf("invalid catalog plan seeded steps: %#v", session.Intent.Steps)
+	}
+	if _, err := os.Stat(filepath.Join(example, "openapi", "invented.yaml")); !os.IsNotExist(err) {
+		t.Fatalf("invented artifact exists or stat failed unexpectedly: %v", err)
+	}
+	if !hasAssumption(session.Assumptions, "catalog_plan_rejected") {
+		t.Fatalf("missing rejection assumption: %#v", session.Assumptions)
+	}
+	if !strings.Contains(out.String(), "rejected unknown catalog artifact test:openapi/invented.yaml") {
+		t.Fatalf("missing rejection output:\n%s", out.String())
+	}
+}
+
+func TestCatalogPlanErrorFallsBackToDeterministicMigration(t *testing.T) {
+	cacheRoot := t.TempDir()
+	example := t.TempDir()
+	writeCatalogArtifact(t, cacheRoot, "google-discovery/gmail-discovery-v1.json")
+	hints, err := BuildCatalogHints("gmail me a report", CatalogHintOptions{CacheRoot: cacheRoot})
+	if err != nil {
+		t.Fatalf("BuildCatalogHints failed: %v", err)
+	}
+	session := Session{}
+	session.Project.Goal = "gmail me a report"
+	session.Intent.Workflow = &rollout.WorkflowMeta{Description: session.Project.Goal}
+	var out strings.Builder
+
+	applied, err := planOpeningCatalogArtifacts(context.Background(), &out, errorCatalogPlanExtractor{}, &session, "gmail me a report", hints, Options{
+		ExampleDir:         example,
+		CatalogHintOptions: CatalogHintOptions{CacheRoot: cacheRoot},
+	})
+	if err != nil {
+		t.Fatalf("planOpeningCatalogArtifacts returned error: %v", err)
+	}
+	if applied {
+		t.Fatalf("errored catalog plan was applied")
+	}
+	if _, err := os.Stat(filepath.Join(example, "discovery", "gmail-discovery-v1.json")); !os.IsNotExist(err) {
+		t.Fatalf("catalog plan error should not copy before fallback: %v", err)
+	}
+
+	if _, err := MigrateCatalogArtifacts(catalogQueryForSession(session), example, CatalogHintOptions{CacheRoot: cacheRoot}); err != nil {
+		t.Fatalf("deterministic fallback migration failed: %v", err)
+	}
+	if _, err := os.Stat(filepath.Join(example, "discovery", "gmail-discovery-v1.json")); err != nil {
+		t.Fatalf("fallback did not migrate discovery artifact: %v", err)
+	}
+}
+
+type errorCatalogPlanExtractor struct {
+	noopExtractor
+}
+
+func (errorCatalogPlanExtractor) CatalogPlan(context.Context, CatalogPlanRequest) (CatalogPlanResponse, error) {
+	return CatalogPlanResponse{}, errors.New("catalog planner unavailable")
 }
 
 func writeCatalogArtifact(t *testing.T, root, rel string) {

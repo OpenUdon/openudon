@@ -40,6 +40,7 @@ type CatalogMigrationCandidate struct {
 	ProviderID    string
 	ProviderName  string
 	Kind          catalog.SpecKind
+	Protocol      string
 	SourcePath    string
 	TargetPath    string
 	RelativePath  string
@@ -173,6 +174,7 @@ func CatalogMigrationCandidates(hints []CatalogHint, exampleDir string) []Catalo
 				ProviderID:    hint.Provider.ID,
 				ProviderName:  firstNonEmpty(hint.Provider.DisplayName, hint.Provider.ID),
 				Kind:          artifact.SpecRef.Kind,
+				Protocol:      string(artifact.SpecRef.ProtocolClassification().Protocol),
 				SourcePath:    sourcePath,
 				TargetPath:    target,
 				RelativePath:  rel,
@@ -191,6 +193,7 @@ func CatalogMigrationCandidates(hints []CatalogHint, exampleDir string) []Catalo
 				ProviderID:    hint.Provider.ID,
 				ProviderName:  firstNonEmpty(hint.Provider.DisplayName, hint.Provider.ID),
 				Kind:          catalog.SpecKind("advisory-overlay"),
+				Protocol:      string(catalog.SpecProtocolOpenAPI),
 				SourcePath:    sourcePath,
 				TargetPath:    target,
 				RelativePath:  rel,
@@ -221,6 +224,7 @@ func migrationResultFromExport(export catalog.ExportReport, hints []CatalogHint,
 				ProviderID:   provider.ProviderID,
 				ProviderName: firstNonEmpty(provider.DisplayName, provider.ProviderID),
 				Kind:         catalog.SpecKind(artifact.Kind),
+				Protocol:     string(artifact.Protocol),
 				SourcePath:   artifact.TargetPath,
 				TargetPath:   target,
 				RelativePath: rel,
