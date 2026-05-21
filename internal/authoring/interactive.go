@@ -278,6 +278,7 @@ type ProgressiveLoopHooks[S, D, A any] struct {
 	MergeDraft           func(S, S, []D) S
 	AfterDraft           func(S) error
 	DraftResultSummary   func(S) any
+	DraftEvents          func(S) []PromptEvent
 	OnDraftError         func(error)
 	RefreshDocuments     func(S, []D) ([]D, error)
 	ShouldDraft          func(S, []D, []ReadinessIssue) bool
@@ -399,6 +400,13 @@ func RunProgressiveICOT[S, D, A any](ctx context.Context, in io.Reader, out io.W
 				}
 				if hooks.DraftResultSummary != nil {
 					record("model_draft_result", hooks.DraftResultSummary(session))
+				}
+				if hooks.DraftEvents != nil {
+					for _, event := range hooks.DraftEvents(session) {
+						if strings.TrimSpace(event.Kind) != "" {
+							record(event.Kind, event.Data)
+						}
+					}
 				}
 				if hooks.Autosave != nil {
 					if err := hooks.Autosave(session); err != nil {

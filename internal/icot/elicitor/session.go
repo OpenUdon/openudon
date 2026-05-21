@@ -26,6 +26,8 @@ type Session struct {
 	Annotations     []SourceAnnotation      `json:"annotations,omitempty" yaml:"annotations,omitempty"`
 	Assumptions     []Assumption            `json:"assumptions,omitempty" yaml:"assumptions,omitempty"`
 	Classifications []MappingClassification `json:"classifications,omitempty" yaml:"classifications,omitempty"`
+	DraftOperations []OperationDetailRef    `json:"-" yaml:"-"`
+	DraftEvents     []TranscriptEvent       `json:"-" yaml:"-"`
 }
 
 type SourceAnnotation struct {
@@ -313,6 +315,8 @@ func mergeSessions(base, overlay Session) Session {
 	base.Annotations = append(base.Annotations, overlay.Annotations...)
 	base.Assumptions = mergeAssumptions(base.Assumptions, overlay.Assumptions)
 	base.Classifications = mergeClassifications(base.Classifications, overlay.Classifications)
+	base.DraftOperations = appendOperationDetailRefs(base.DraftOperations, overlay.DraftOperations)
+	base.DraftEvents = append(base.DraftEvents, overlay.DraftEvents...)
 	base.Normalize()
 	return base
 }

@@ -23,6 +23,25 @@ func (f fakeChat) StructuredChat(ctx context.Context, messages []rollout.ChatMes
 	return f.Chat(ctx, messages)
 }
 
+type sequenceChat struct {
+	responses []string
+	messages  [][]rollout.ChatMessage
+}
+
+func (f *sequenceChat) Chat(_ context.Context, messages []rollout.ChatMessage) (string, error) {
+	f.messages = append(f.messages, append([]rollout.ChatMessage(nil), messages...))
+	if len(f.responses) == 0 {
+		return `{}`, nil
+	}
+	response := f.responses[0]
+	f.responses = f.responses[1:]
+	return response, nil
+}
+
+func (f *sequenceChat) StructuredChat(ctx context.Context, messages []rollout.ChatMessage, _ json.RawMessage, _ rollout.StructuredOpts) (string, error) {
+	return f.Chat(ctx, messages)
+}
+
 func TestKickoffStripsInventedOpenAPIPaths(t *testing.T) {
 	extractor := NewChatExtractor(fakeChat{response: `{
   "intent": {
@@ -114,6 +133,113 @@ func TestDraftPromptRequestIncludesStructuredParameters(t *testing.T) {
 	assertParameterContext(t, op.Parameters, "X-Trace-ID", "header", false, "string", "Trace header")
 	if !containsString(op.Tags, "support") {
 		t.Fatalf("tags = %#v", op.Tags)
+	}
+}
+
+func TestDraftPromptRequestIncludesFullCatalogButOnlySelectedDetails(t *testing.T) {
+	request := DraftRequest{
+		Session: Session{Intent: rollout.Intent{
+			OpenAPI: "openapi/many.yaml",
+			Steps: []*rollout.Step{{
+				Name:      "selected",
+				Type:      "http",
+				Operation: "operation14",
+			}},
+		}},
+		Docs: []APIDocument{{
+			RelativePath: "openapi/many.yaml",
+			Title:        "Many API",
+			Operations:   numberedOperations(15),
+		}},
+	}
+	payload := draftPromptRequest(request)
+	ops := payload["docs"].([]map[string]any)[0]["operations"].([]operationPromptContext)
+	if got := operationPromptIDs(ops); len(got) != 1 || got[0] != "operation14" {
+		t.Fatalf("detailed operations = %#v, want operation14 only", got)
+	}
+	catalog := payload["operation_catalog"].([]operationCatalogDocumentContext)
+	if len(catalog) != 1 || len(catalog[0].Operations) != 15 {
+		t.Fatalf("catalog = %#v", catalog)
+	}
+	if catalog[0].Operations[14].OperationID != "operation14" {
+		t.Fatalf("catalog missing selected operation: %#v", catalog[0].Operations)
+	}
+	encoded, err := json.Marshal(catalog)
+	if err != nil {
+		t.Fatalf("marshal catalog: %v", err)
+	}
+	for _, forbidden := range []string{"required_fields", "parameters", "request_body", "security"} {
+		if strings.Contains(string(encoded), forbidden) {
+			t.Fatalf("catalog includes detailed field %q: %s", forbidden, encoded)
+		}
+	}
+}
+
+func TestDraftDetailLoopFetchesRequestedOperationBeforeDraft(t *testing.T) {
+	chat := &sequenceChat{responses: []string{
+		`{"requested_operation_ids":["geocodeCity"],"detail_request_reason":"Need coordinates before weather lookup."}`,
+		`{
+  "intent": {
+    "openapi": "openapi/weather.yaml",
+    "workflow": {"name": "weather_email", "description": "Resolve Toronto, fetch weather, and send a Gmail report."},
+    "inputs": [{"name":"city","type":"string","required":true}],
+    "steps": [
+      {"name":"geocode_city","type":"http","openapi":"openapi/weather.yaml","operation":"geocodeCity","with":{"q":"Toronto,CA"}},
+      {"name":"get_weather","type":"http","openapi":"openapi/weather.yaml","operation":"getWeatherByLatLon","with":{"lat":"geocode_city.received_body.lat","lon":"geocode_city.received_body.lon","appid":"credentials.weather_api_key"}},
+      {"name":"send_gmail","type":"http","openapi":"openapi/gmail.yaml","operation":"gmail_users_messages_send","with":{"userId":"me","raw":"get_weather.received_body"}}
+    ],
+    "outputs": [{"name":"sent_message","from":"send_gmail.received_body"}]
+  },
+  "credentials": ["weather_api_key","gmail_oauth_token"],
+  "side_effect_scope": "after-approval",
+  "assumptions": [{"id":"op_geocode_city","slot":"steps.geocode_city.operation","value":"geocodeCity","reason":"Toronto must be converted to coordinates before the selected weather operation can run.","evidence":"operation catalog listed geocodeCity and details were fetched","risk":"review","requires_confirmation":true}]
+}`,
+	}}
+	extractor := NewChatExtractor(chat, nil)
+	session, err := extractor.Draft(context.Background(), weatherGmailDraftRequest())
+	if err != nil {
+		t.Fatalf("Draft failed: %v", err)
+	}
+	if len(chat.messages) != 2 {
+		t.Fatalf("chat calls = %d, want 2", len(chat.messages))
+	}
+	secondPayload := chat.messages[1][1].Content
+	if !strings.Contains(secondPayload, `"operationId":"geocodeCity"`) || !strings.Contains(secondPayload, `"parameters"`) {
+		t.Fatalf("second prompt did not include geocode details:\n%s", secondPayload)
+	}
+	if len(session.Intent.Steps) != 3 || session.Intent.Steps[0].Operation != "geocodeCity" {
+		t.Fatalf("draft steps = %#v", session.Intent.Steps)
+	}
+	if len(session.DraftEvents) != 2 || session.DraftEvents[0].Kind != "operation_detail_request" || session.DraftEvents[1].Kind != "operation_detail_fulfilled" {
+		t.Fatalf("draft events = %#v", session.DraftEvents)
+	}
+}
+
+func TestDraftDetailLoopRejectsUnknownRequestedOperationIDs(t *testing.T) {
+	chat := &sequenceChat{responses: []string{`{
+  "requested_operation_ids":["inventedGeocode"],
+  "detail_request_reason":"Need a geocoder.",
+  "intent": {
+    "workflow": {"name":"bad_weather","description":"Fetch weather."},
+    "steps": [{"name":"invented","type":"http","openapi":"openapi/weather.yaml","operation":"inventedGeocode"}]
+  }
+}`}}
+	extractor := NewChatExtractor(chat, nil)
+	session, err := extractor.Draft(context.Background(), weatherGmailDraftRequest())
+	if err != nil {
+		t.Fatalf("Draft failed: %v", err)
+	}
+	if len(chat.messages) != 1 {
+		t.Fatalf("chat calls = %d, want 1", len(chat.messages))
+	}
+	if len(session.Intent.Steps) != 1 || session.Intent.Steps[0].Operation != "" {
+		t.Fatalf("unknown operation was accepted: %#v", session.Intent.Steps)
+	}
+	if !hasAssumption(session.Assumptions, "operation_detail_request_rejected") {
+		t.Fatalf("missing rejected detail warning: %#v", session.Assumptions)
+	}
+	if len(session.DraftEvents) != 1 || session.DraftEvents[0].Kind != "operation_detail_rejected" {
+		t.Fatalf("draft events = %#v", session.DraftEvents)
 	}
 }
 
@@ -308,6 +434,60 @@ func numberedOperations(count int) []apitools.OperationSummary {
 		})
 	}
 	return ops
+}
+
+func weatherGmailDraftRequest() DraftRequest {
+	return DraftRequest{
+		Opening: "Get weather for Toronto, Canada, and Gmail me the report.",
+		Session: Session{Intent: rollout.Intent{
+			OpenAPI: "openapi/weather.yaml",
+			Workflow: &rollout.WorkflowMeta{
+				Name:        "weather_email",
+				Description: "Get weather for Toronto, Canada, and Gmail me the report.",
+			},
+			Steps: []*rollout.Step{
+				{Name: "get_weather", Type: "http", OpenAPI: "openapi/weather.yaml", Operation: "getWeatherByLatLon"},
+				{Name: "send_gmail", Type: "http", OpenAPI: "openapi/gmail.yaml", Operation: "gmail_users_messages_send"},
+			},
+		}},
+		Docs: []APIDocument{
+			{RelativePath: "openapi/weather.yaml", Title: "Weather API", Operations: []apitools.OperationSummary{
+				{
+					OperationID: "getWeatherByLatLon",
+					Method:      "GET",
+					Path:        "/weather",
+					Summary:     "Get current weather by coordinates",
+					Parameters: []apitools.ParameterSummary{
+						{Name: "lat", In: "query", Required: true, Type: "number"},
+						{Name: "lon", In: "query", Required: true, Type: "number"},
+						{Name: "appid", In: "query", Required: true, Type: "string"},
+					},
+				},
+				{
+					OperationID: "geocodeCity",
+					Method:      "GET",
+					Path:        "/geo/1.0/direct",
+					Summary:     "Resolve a city name to latitude and longitude",
+					Parameters: []apitools.ParameterSummary{
+						{Name: "q", In: "query", Required: true, Type: "string"},
+					},
+				},
+			}},
+			{RelativePath: "openapi/gmail.yaml", Title: "Gmail API", Operations: []apitools.OperationSummary{
+				{
+					OperationID: "gmail_users_messages_send",
+					Method:      "POST",
+					Path:        "/gmail/v1/users/{userId}/messages/send",
+					Summary:     "Send a Gmail message",
+					Parameters:  []apitools.ParameterSummary{{Name: "userId", In: "path", Required: true, Type: "string"}},
+					RequestBody: &apitools.RequestBodySummary{
+						Required: true,
+						Fields:   []apitools.RequestFieldSummary{{Path: "raw", Required: true, Type: "string"}},
+					},
+				},
+			}},
+		},
+	}
 }
 
 func operationPromptIDs(ops []operationPromptContext) []string {

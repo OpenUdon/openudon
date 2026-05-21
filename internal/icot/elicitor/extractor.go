@@ -7,12 +7,14 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/OpenUdon/apitools"
 	"github.com/OpenUdon/openudon/internal/authoring"
 	"github.com/OpenUdon/openudon/internal/projectwizard"
 	rollout "github.com/OpenUdon/openudon/internal/workflowintent"
 )
 
 const PromptVersion = "icot-extractor.v1"
+const maxDraftDetailRounds = 2
 
 //go:embed prompts/kickoff.txt
 var kickoffPrompt string
@@ -102,15 +104,56 @@ func (e *chatExtractor) Draft(ctx context.Context, request DraftRequest) (Sessio
 	if request.Opening == "" && strings.TrimSpace(currentDescription) == "" {
 		return Session{}, nil
 	}
-	data, err := json.Marshal(draftPromptRequest(request))
-	if err != nil {
-		return Session{}, err
+	var requested []OperationDetailRef
+	var warnings []Assumption
+	var events []TranscriptEvent
+	for round := 0; round <= maxDraftDetailRounds; round++ {
+		detailRefs := draftDetailRefs(request, requested)
+		data, err := json.Marshal(draftPromptRequestWithDetails(request, detailRefs))
+		if err != nil {
+			return Session{}, err
+		}
+		var completion draftCompletion
+		if err := e.completeJSON(ctx, draftPrompt, string(data), draftSchema, &completion, 1200); err != nil {
+			return Session{}, err
+		}
+		valid, rejected, capped := resolveDraftDetailRequests(request.Docs, completion.RequestedOperationIDs, detailRefs)
+		if capped {
+			warnings = append(warnings, draftWarningAssumption("operation_detail_request_capped", "Only the first requested operationIds were considered for detail lookup."))
+		}
+		if len(rejected) > 0 {
+			warnings = append(warnings, draftWarningAssumption("operation_detail_request_rejected", "Rejected unknown or unavailable requested operationIds: "+strings.Join(rejected, ", ")+"."))
+			events = append(events, TranscriptEvent{Kind: "operation_detail_rejected", Data: map[string]any{
+				"operation_ids": rejected,
+			}})
+		}
+		if len(valid) > 0 {
+			events = append(events, TranscriptEvent{Kind: "operation_detail_request", Data: map[string]any{
+				"operation_ids":         operationRefIDs(valid),
+				"detail_request_reason": strings.TrimSpace(completion.DetailRequestReason),
+				"round":                 round + 1,
+			}})
+			if round == maxDraftDetailRounds {
+				warnings = append(warnings, draftWarningAssumption("operation_detail_round_limit", "Additional operation detail requests were ignored after the bounded draft detail loop."))
+				break
+			}
+			requested = appendOperationDetailRefs(requested, valid)
+			events = append(events, TranscriptEvent{Kind: "operation_detail_fulfilled", Data: map[string]any{
+				"operation_ids": operationRefIDs(valid),
+				"round":         round + 1,
+			}})
+			continue
+		}
+		session := sanitizeDraftWithDetails(request, completion.Session, detailRefs)
+		session.Assumptions = mergeAssumptions(session.Assumptions, warnings)
+		session.DraftOperations = detailRefs
+		session.DraftEvents = events
+		return session, nil
 	}
-	var session Session
-	if err := e.completeJSON(ctx, draftPrompt, string(data), draftSchema, &session, 1200); err != nil {
-		return Session{}, err
-	}
-	return sanitizeDraft(request, session), nil
+	session := sanitizeDraftWithDetails(request, Session{}, draftDetailRefs(request, requested))
+	session.Assumptions = mergeAssumptions(session.Assumptions, warnings)
+	session.DraftEvents = events
+	return session, nil
 }
 
 func (e *chatExtractor) Refine(ctx context.Context, session Session) (Session, error) {
@@ -249,8 +292,18 @@ func sanitizeKickoff(session Session) Session {
 	return session
 }
 
+type draftCompletion struct {
+	Session
+	RequestedOperationIDs []string `json:"requested_operation_ids,omitempty"`
+	DetailRequestReason   string   `json:"detail_request_reason,omitempty"`
+}
+
 func draftPromptRequest(request DraftRequest) map[string]any {
-	draftDocs := selectedDraftDocuments(request)
+	return draftPromptRequestWithDetails(request, draftDetailRefs(request, nil))
+}
+
+func draftPromptRequestWithDetails(request DraftRequest, detailRefs []OperationDetailRef) map[string]any {
+	draftDocs := detailDocuments(request, detailRefs)
 	if len(draftDocs) == 0 {
 		draftDocs = rankedDraftDocuments(request)
 	}
@@ -271,9 +324,149 @@ func draftPromptRequest(request DraftRequest) map[string]any {
 		"opening":            request.Opening,
 		"session":            request.Session,
 		"docs":               docs,
+		"operation_catalog":  operationCatalog(request.Docs),
 		"transcript_turns":   request.TranscriptTurns,
 		"readiness_feedback": request.ReadinessFeedback,
 	}
+}
+
+func draftDetailRefs(request DraftRequest, requested []OperationDetailRef) []OperationDetailRef {
+	refs := operationRefsFromDocuments(selectedDraftDocuments(request))
+	if len(refs) == 0 {
+		refs = operationRefsFromDocuments(rankedDraftDocuments(request))
+	}
+	return appendOperationDetailRefs(refs, requested)
+}
+
+func detailDocuments(request DraftRequest, refs []OperationDetailRef) []APIDocument {
+	if len(refs) == 0 {
+		return nil
+	}
+	docByPath := map[string]APIDocument{}
+	opByKey := map[string]apitoolsOperation{}
+	for docIndex, doc := range request.Docs {
+		docByPath[doc.RelativePath] = doc
+		for _, op := range doc.Operations {
+			opByKey[operationCandidateKey(doc.RelativePath, op.OperationID)] = apitoolsOperation{docIndex: docIndex, op: op}
+			if _, ok := opByKey["\x00"+op.OperationID]; !ok {
+				opByKey["\x00"+op.OperationID] = apitoolsOperation{docIndex: docIndex, op: op}
+			}
+		}
+	}
+	var out []APIDocument
+	docIndex := map[string]int{}
+	for _, ref := range refs {
+		found, ok := opByKey[operationCandidateKey(ref.DocumentPath, ref.OperationID)]
+		if !ok && strings.TrimSpace(ref.DocumentPath) == "" {
+			found, ok = opByKey["\x00"+ref.OperationID]
+		}
+		if !ok {
+			continue
+		}
+		doc := request.Docs[found.docIndex]
+		index, ok := docIndex[doc.RelativePath]
+		if !ok {
+			copyDoc := docByPath[doc.RelativePath]
+			copyDoc.Operations = nil
+			out = append(out, copyDoc)
+			index = len(out) - 1
+			docIndex[doc.RelativePath] = index
+		}
+		out[index].Operations = append(out[index].Operations, found.op)
+	}
+	return out
+}
+
+type apitoolsOperation struct {
+	docIndex int
+	op       apitools.OperationSummary
+}
+
+func operationRefsFromDocuments(docs []APIDocument) []OperationDetailRef {
+	var refs []OperationDetailRef
+	for _, doc := range docs {
+		for _, op := range doc.Operations {
+			if strings.TrimSpace(op.OperationID) == "" {
+				continue
+			}
+			refs = append(refs, OperationDetailRef{DocumentPath: doc.RelativePath, OperationID: op.OperationID})
+		}
+	}
+	return refs
+}
+
+func appendOperationDetailRefs(base []OperationDetailRef, refs []OperationDetailRef) []OperationDetailRef {
+	seen := map[string]bool{}
+	out := make([]OperationDetailRef, 0, len(base)+len(refs))
+	for _, ref := range append(append([]OperationDetailRef(nil), base...), refs...) {
+		ref.DocumentPath = strings.TrimSpace(ref.DocumentPath)
+		ref.OperationID = strings.TrimSpace(ref.OperationID)
+		if ref.OperationID == "" {
+			continue
+		}
+		key := operationCandidateKey(ref.DocumentPath, ref.OperationID)
+		if seen[key] {
+			continue
+		}
+		seen[key] = true
+		out = append(out, ref)
+	}
+	return out
+}
+
+func resolveDraftDetailRequests(docs []APIDocument, ids []string, existing []OperationDetailRef) ([]OperationDetailRef, []string, bool) {
+	existingKeys := map[string]bool{}
+	for _, ref := range existing {
+		existingKeys[operationCandidateKey(ref.DocumentPath, ref.OperationID)] = true
+	}
+	var requested []string
+	seenIDs := map[string]bool{}
+	capped := false
+	for _, id := range ids {
+		id = strings.TrimSpace(id)
+		if id == "" || seenIDs[id] {
+			continue
+		}
+		if len(requested) >= maxDraftRequestedOperations {
+			capped = true
+			continue
+		}
+		seenIDs[id] = true
+		requested = append(requested, id)
+	}
+	var valid []OperationDetailRef
+	var rejected []string
+	for _, id := range requested {
+		ref, ok := findOperationDetailRef(docs, id)
+		if !ok {
+			rejected = append(rejected, id)
+			continue
+		}
+		if existingKeys[operationCandidateKey(ref.DocumentPath, ref.OperationID)] {
+			continue
+		}
+		valid = append(valid, ref)
+	}
+	return valid, rejected, capped
+}
+
+func findOperationDetailRef(docs []APIDocument, operationID string) (OperationDetailRef, bool) {
+	for _, doc := range docs {
+		for _, op := range doc.Operations {
+			if op.OperationID == operationID {
+				return OperationDetailRef{DocumentPath: doc.RelativePath, OperationID: op.OperationID}, true
+			}
+		}
+	}
+	return OperationDetailRef{}, false
+}
+
+func operationRefIDs(refs []OperationDetailRef) []string {
+	out := make([]string, 0, len(refs))
+	for _, ref := range refs {
+		out = append(out, ref.OperationID)
+	}
+	return out
 }
 
 func selectedDraftDocuments(request DraftRequest) []APIDocument {
@@ -308,14 +501,34 @@ func selectedDraftDocuments(request DraftRequest) []APIDocument {
 }
 
 func sanitizeDraft(request DraftRequest, draft Session) Session {
+	return sanitizeDraftWithDetails(request, draft, draftDetailRefs(request, draft.DraftOperations))
+}
+
+func sanitizeDraftWithDetails(request DraftRequest, draft Session, detailRefs []OperationDetailRef) Session {
 	allowedDocs := map[string]bool{}
 	allowedOps := map[string]bool{}
 	for _, doc := range request.Docs {
 		allowedDocs[doc.RelativePath] = true
+	}
+	if len(detailRefs) == 0 {
+		detailRefs = draftDetailRefs(request, nil)
+	}
+	for _, ref := range detailRefs {
+		if strings.TrimSpace(ref.OperationID) == "" {
+			continue
+		}
+		if ref.DocumentPath != "" {
+			allowedOps[operationCandidateKey(ref.DocumentPath, ref.OperationID)] = true
+		}
+		allowedOps["\x00"+ref.OperationID] = true
+	}
+	for _, doc := range request.Docs {
 		for _, op := range doc.Operations {
-			if op.OperationID != "" {
-				allowedOps[doc.RelativePath+"\x00"+op.OperationID] = true
-				allowedOps["\x00"+op.OperationID] = true
+			if op.OperationID == "" {
+				continue
+			}
+			if allowedOps[operationCandidateKey(doc.RelativePath, op.OperationID)] || allowedOps["\x00"+op.OperationID] {
+				allowedOps[operationCandidateKey(doc.RelativePath, op.OperationID)] = true
 			}
 		}
 	}
@@ -356,6 +569,18 @@ func sanitizeDraft(request DraftRequest, draft Session) Session {
 	}
 	draft.Normalize()
 	return draft
+}
+
+func draftWarningAssumption(id, message string) Assumption {
+	return Assumption{
+		ID:                   id,
+		Slot:                 "draft.requested_operation_ids",
+		Value:                "operation detail request rejected",
+		Reason:               message,
+		Evidence:             "LLM requested operation details outside the allowed local catalog or loop budget.",
+		Risk:                 "warning",
+		RequiresConfirmation: true,
+	}
 }
 
 func draftEvidence(request DraftRequest) string {
@@ -428,6 +653,8 @@ const draftSchema = `{
     "fallback_set": {"type": "boolean"},
     "side_effect_scope": {"type": "string"},
     "annotations": {"type": "array", "items": {"type": "object", "additionalProperties": true}},
-    "assumptions": {"type": "array", "items": {"type": "object", "additionalProperties": true}}
+    "assumptions": {"type": "array", "items": {"type": "object", "additionalProperties": true}},
+    "requested_operation_ids": {"type": "array", "items": {"type": "string"}},
+    "detail_request_reason": {"type": "string"}
   }
 }`

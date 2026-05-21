@@ -1326,6 +1326,95 @@ func TestProgressiveTranscriptIncludesEvents(t *testing.T) {
 	}
 }
 
+func TestProgressiveWeatherGmailDraftAddsGeocodingOperation(t *testing.T) {
+	example := t.TempDir()
+	writeWeatherGmailOpenAPI(t, example)
+	path := filepath.Join(example, ".icot", "transcript.json")
+	chat := &sequenceChat{responses: []string{
+		`{"requested_operation_ids":["geocodeCity"],"detail_request_reason":"The selected weather operation requires latitude and longitude, but the user gave Toronto."}`,
+		`{
+  "intent": {
+    "openapi": "openapi/weather.yaml",
+    "workflow": {"name":"weather_toronto_gmail","description":"Get weather for Toronto, Canada, and Gmail me the report."},
+    "inputs": [],
+    "steps": [
+      {"name":"geocode_city","type":"http","openapi":"openapi/weather.yaml","operation":"geocodeCity","with":{"q":"Toronto,CA"}},
+      {"name":"get_weather","type":"http","openapi":"openapi/weather.yaml","operation":"getWeatherByLatLon","with":{"lat":"geocode_city.received_body.lat","lon":"geocode_city.received_body.lon","appid":"credentials.weather_api_key"}},
+      {"name":"send_gmail","type":"http","openapi":"openapi/gmail.yaml","operation":"gmail_users_messages_send","with":{"userId":"me","raw":"get_weather.received_body"}}
+    ],
+    "outputs": [{"name":"sent_message","from":"send_gmail.received_body"}]
+  },
+  "credentials": ["weather_api_key","gmail_oauth_token"],
+  "credentials_set": true,
+  "safety": "Send only after approval with reviewed recipients.",
+  "safety_set": true,
+  "side_effect_scope": "after-approval",
+  "assumptions": [
+    {"id":"op_geocode_city","slot":"steps.geocode_city.operation","value":"geocodeCity","reason":"Toronto needs coordinate resolution before weather-by-lat/lon.","evidence":"geocodeCity was listed in the local catalog and details were fetched.","risk":"review","requires_confirmation":true},
+    {"id":"op_send_gmail","slot":"steps.send_gmail.operation","value":"gmail_users_messages_send","reason":"The brief asks to Gmail the report.","evidence":"selected Gmail operation details.","risk":"review","requires_confirmation":true}
+  ]
+}`,
+	}}
+	seed := weatherGmailDraftRequest().Session
+	var out strings.Builder
+	artifacts, err := Run(context.Background(), strings.NewReader("geocodeCity\nsave\n"), &out, seed, Options{
+		ExampleDir:     example,
+		NoLLM:          false,
+		Extractor:      NewChatExtractor(chat, nil),
+		TranscriptPath: path,
+	})
+	if err != nil {
+		t.Fatalf("Run failed: %v\n%s", err, out.String())
+	}
+	if len(artifacts.Session.Intent.Steps) != 3 || !sessionHasOperation(artifacts.Session, "geocodeCity") {
+		t.Fatalf("draft did not add geocode step: %#v", artifacts.Session.Intent.Steps)
+	}
+	if !strings.Contains(artifacts.IntentHCL, `operation = "geocodeCity"`) || !strings.Contains(artifacts.IntentHCL, `operation = "gmail_users_messages_send"`) {
+		t.Fatalf("intent missing expected operations:\n%s", artifacts.IntentHCL)
+	}
+	data, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatalf("read transcript: %v", err)
+	}
+	text := string(data)
+	for _, expected := range []string{"geocodeCity", "gmail_users_messages_send"} {
+		if !strings.Contains(text, expected) {
+			t.Fatalf("transcript missing %q:\n%s", expected, text)
+		}
+	}
+}
+
+func TestProgressiveTranscriptIncludesOperationDetailEvents(t *testing.T) {
+	example := t.TempDir()
+	writeOpenAPI(t, example)
+	path := filepath.Join(example, ".icot", "transcript.json")
+	draft := supportTicketDraft(true)
+	draft.DraftEvents = []TranscriptEvent{
+		{Kind: "operation_detail_request", Data: map[string]any{"operation_ids": []string{"getTicket"}}},
+		{Kind: "operation_detail_fulfilled", Data: map[string]any{"operation_ids": []string{"getTicket"}}},
+	}
+	extractor := &sequenceDraftExtractor{drafts: []Session{draft}}
+	input := "Fetch a support ticket.\ngetTicket\nsave\n"
+	if _, err := Run(context.Background(), strings.NewReader(input), &strings.Builder{}, Session{}, Options{
+		ExampleDir:     example,
+		NoLLM:          false,
+		Extractor:      extractor,
+		TranscriptPath: path,
+	}); err != nil {
+		t.Fatalf("Run failed: %v", err)
+	}
+	data, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatalf("read transcript: %v", err)
+	}
+	text := string(data)
+	for _, expected := range []string{"operation_detail_request", "operation_detail_fulfilled", "getTicket"} {
+		if !strings.Contains(text, expected) {
+			t.Fatalf("transcript missing %q:\n%s", expected, text)
+		}
+	}
+}
+
 func supportTicketDraft(withField bool) Session {
 	step := &rollout.Step{
 		Name:      "get_ticket",
@@ -1357,6 +1446,16 @@ func supportTicketDraft(withField bool) Session {
 			RequiresConfirmation: true,
 		}},
 	}
+}
+
+func sessionHasOperation(session Session, operationID string) bool {
+	found := false
+	walkSteps(session.Intent.Steps, func(step *rollout.Step) {
+		if step != nil && step.Operation == operationID {
+			found = true
+		}
+	})
+	return found
 }
 
 func TestSessionNormalizeExplicitPolicyMarkersReplaceSeededProjectValues(t *testing.T) {
@@ -1457,5 +1556,85 @@ paths:
 `
 	if err := os.WriteFile(filepath.Join(dir, "support.yaml"), []byte(data), 0o644); err != nil {
 		t.Fatalf("write openapi: %v", err)
+	}
+}
+
+func writeWeatherGmailOpenAPI(t *testing.T, example string) {
+	t.Helper()
+	dir := filepath.Join(example, "openapi")
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		t.Fatalf("mkdir openapi: %v", err)
+	}
+	weather := `openapi: 3.0.0
+info:
+  title: Weather API
+  version: "1.0"
+paths:
+  /weather:
+    get:
+      operationId: getWeatherByLatLon
+      summary: Get current weather by coordinates
+      parameters:
+        - name: lat
+          in: query
+          required: true
+          schema: {type: number}
+        - name: lon
+          in: query
+          required: true
+          schema: {type: number}
+        - name: appid
+          in: query
+          required: true
+          schema: {type: string}
+      responses:
+        "200":
+          description: ok
+  /geo/1.0/direct:
+    get:
+      operationId: geocodeCity
+      summary: Resolve a city to coordinates
+      parameters:
+        - name: q
+          in: query
+          required: true
+          schema: {type: string}
+      responses:
+        "200":
+          description: ok
+`
+	if err := os.WriteFile(filepath.Join(dir, "weather.yaml"), []byte(weather), 0o644); err != nil {
+		t.Fatalf("write weather openapi: %v", err)
+	}
+	gmail := `openapi: 3.0.0
+info:
+  title: Gmail API
+  version: "1.0"
+paths:
+  /gmail/v1/users/{userId}/messages/send:
+    post:
+      operationId: gmail_users_messages_send
+      summary: Send a Gmail message
+      parameters:
+        - name: userId
+          in: path
+          required: true
+          schema: {type: string}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [raw]
+              properties:
+                raw:
+                  type: string
+      responses:
+        "200":
+          description: ok
+`
+	if err := os.WriteFile(filepath.Join(dir, "gmail.yaml"), []byte(gmail), 0o644); err != nil {
+		t.Fatalf("write gmail openapi: %v", err)
 	}
 }

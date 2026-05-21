@@ -122,6 +122,9 @@ func runProgressive(ctx context.Context, in io.Reader, out io.Writer, seed Sessi
 				"assumptions": session.Assumptions,
 			}
 		},
+		DraftEvents: func(session Session) []authoring.PromptEvent {
+			return append([]authoring.PromptEvent(nil), session.DraftEvents...)
+		},
 		AfterDraft: func(session Session) error {
 			printSummary(out, session)
 			return nil
@@ -493,6 +496,8 @@ func mergeProgressiveSessions(base, overlay Session, docs []APIDocument) Session
 	base.SideEffectScope = firstNonEmpty(base.SideEffectScope, overlay.SideEffectScope)
 	base.Annotations = append(base.Annotations, overlay.Annotations...)
 	base.Assumptions = mergeAssumptions(base.Assumptions, overlay.Assumptions)
+	base.DraftOperations = appendOperationDetailRefs(base.DraftOperations, overlay.DraftOperations)
+	base.DraftEvents = append(base.DraftEvents, overlay.DraftEvents...)
 	base.Normalize()
 	return base
 }

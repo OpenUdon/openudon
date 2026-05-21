@@ -17,11 +17,31 @@ import (
 
 const (
 	maxDraftOperationCandidates = 12
+	maxDraftRequestedOperations = 5
 	maxRequestBodyFieldDepth    = 6
 	maxRequestBodyFields        = 60
 )
 
 type APIDocument = apitools.AuthoringAPIDocument
+
+type OperationDetailRef struct {
+	DocumentPath string `json:"document_path"`
+	OperationID  string `json:"operationId"`
+}
+
+type operationCatalogDocumentContext struct {
+	DocumentPath string                         `json:"document_path"`
+	Title        string                         `json:"title,omitempty"`
+	Description  string                         `json:"description,omitempty"`
+	Operations   []operationCatalogEntryContext `json:"operations,omitempty"`
+}
+
+type operationCatalogEntryContext struct {
+	OperationID string `json:"operationId"`
+	Method      string `json:"method,omitempty"`
+	Path        string `json:"path,omitempty"`
+	Summary     string `json:"summary,omitempty"`
+}
 
 type operationPromptContext struct {
 	OperationID    string                    `json:"operationId"`
@@ -242,6 +262,30 @@ func operationPrompt(op apitools.OperationSummary) operationPromptContext {
 		RequestBody:    requestBodyPrompt(op.RequestBody),
 		Security:       securityPrompt(op.Security),
 	}
+}
+
+func operationCatalog(docs []APIDocument) []operationCatalogDocumentContext {
+	catalog := make([]operationCatalogDocumentContext, 0, len(docs))
+	for _, doc := range docs {
+		entry := operationCatalogDocumentContext{
+			DocumentPath: doc.RelativePath,
+			Title:        doc.Title,
+			Description:  firstLine(doc.Description),
+		}
+		for _, op := range doc.Operations {
+			if strings.TrimSpace(op.OperationID) == "" {
+				continue
+			}
+			entry.Operations = append(entry.Operations, operationCatalogEntryContext{
+				OperationID: op.OperationID,
+				Method:      op.Method,
+				Path:        op.Path,
+				Summary:     firstLine(op.Summary),
+			})
+		}
+		catalog = append(catalog, entry)
+	}
+	return catalog
 }
 
 func rankedDraftDocuments(request DraftRequest) []APIDocument {
