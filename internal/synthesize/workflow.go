@@ -10,6 +10,8 @@ import (
 	"strings"
 
 	"github.com/OpenUdon/apitools"
+	"github.com/OpenUdon/apitools/awssmithy"
+	"github.com/OpenUdon/apitools/googlediscovery"
 	"github.com/OpenUdon/openudon/internal/uwsvalidate"
 	rollout "github.com/OpenUdon/openudon/internal/workflowintent"
 	"github.com/OpenUdon/uws/convert"
@@ -123,7 +125,7 @@ func generateWorkflowDocument(result Result, intent *rollout.Intent) (*uws1.Docu
 		doc.SourceDescriptions = append(doc.SourceDescriptions, &uws1.SourceDescription{
 			Name: name,
 			URL:  filepath.ToSlash(rel),
-			Type: uws1.SourceDescriptionTypeOpenAPI,
+			Type: sourceDescriptionTypeForPath(rel),
 		})
 		return name
 	}
@@ -243,7 +245,11 @@ func buildUWSStep(step *rollout.Step, defaultOpenAPI string, sourceFor func(stri
 			return nil, nil, fmt.Errorf("step %s references OpenAPI operation without source document", name)
 		}
 		op.SourceDescription = source
-		op.OpenAPIOperationID = strings.TrimSpace(step.Operation)
+		if sourceDescriptionTypeForPath(openAPIPath) == uws1.SourceDescriptionTypeOpenAPI {
+			op.OpenAPIOperationID = strings.TrimSpace(step.Operation)
+		} else {
+			op.SourceOperationID = strings.TrimSpace(step.Operation)
+		}
 	default:
 		if op.Extensions == nil {
 			op.Extensions = map[string]any{}
@@ -317,7 +323,7 @@ func intentRequestMap(values map[string]string, kind, openAPIPath, operationID s
 		placement := requestFieldPlacement{Section: "body", Name: key}
 		if kind == "http" || kind == "openapi" {
 			if mapper == nil {
-				return nil, fmt.Errorf("OpenAPI request metadata is unavailable for %q", key)
+				return nil, fmt.Errorf("API source request metadata is unavailable for %q", key)
 			}
 			var err error
 			placement, err = mapper.lookup(openAPIPath, operationID, key)
@@ -405,7 +411,7 @@ type requestFieldPlacement struct {
 	Name     string
 }
 
-var errOpenAPIOperationNotFound = errors.New("openapi operation not found")
+var errAPISourceOperationNotFound = errors.New("api source operation not found")
 
 type requestBindingMapper struct {
 	exampleDir string
@@ -424,7 +430,7 @@ func (mapper *requestBindingMapper) lookup(openAPIPath, operationID, field strin
 	operationID = strings.TrimSpace(operationID)
 	field = strings.TrimSpace(field)
 	if openAPIPath == "" || operationID == "" {
-		return requestFieldPlacement{}, fmt.Errorf("cannot infer %q without OpenAPI source and operationId", field)
+		return requestFieldPlacement{}, fmt.Errorf("cannot infer %q without API source and operationId", field)
 	}
 	operations, err := mapper.load(openAPIPath)
 	if err != nil {
@@ -432,18 +438,18 @@ func (mapper *requestBindingMapper) lookup(openAPIPath, operationID, field strin
 	}
 	fields, ok := operations[operationID]
 	if !ok {
-		return requestFieldPlacement{}, fmt.Errorf("%w: operationId %q was not found in %s", errOpenAPIOperationNotFound, operationID, openAPIPath)
+		return requestFieldPlacement{}, fmt.Errorf("%w: operationId %q was not found in %s", errAPISourceOperationNotFound, operationID, openAPIPath)
 	}
 	placement, ok := fields[field]
 	if !ok {
-		return requestFieldPlacement{}, fmt.Errorf("field %q is not declared by OpenAPI operation %s", field, operationID)
+		return requestFieldPlacement{}, fmt.Errorf("field %q is not declared by API source operation %s", field, operationID)
 	}
 	return placement, nil
 }
 
 func (mapper *requestBindingMapper) load(openAPIPath string) (map[string]map[string]requestFieldPlacement, error) {
 	if mapper == nil {
-		return nil, fmt.Errorf("OpenAPI request metadata is unavailable")
+		return nil, fmt.Errorf("API source request metadata is unavailable")
 	}
 	key := filepath.ToSlash(strings.TrimSpace(openAPIPath))
 	if cached, ok := mapper.cache[key]; ok {
@@ -452,6 +458,14 @@ func (mapper *requestBindingMapper) load(openAPIPath string) (map[string]map[str
 	path := key
 	if !filepath.IsAbs(path) {
 		path = filepath.Join(mapper.exampleDir, filepath.FromSlash(path))
+	}
+	if sourceDescriptionTypeForPath(key) != uws1.SourceDescriptionTypeOpenAPI {
+		operations, err := mapper.loadNative(path, key, sourceDescriptionTypeForPath(key))
+		if err != nil {
+			return nil, err
+		}
+		mapper.cache[key] = operations
+		return operations, nil
 	}
 	index, err := apitools.LoadOperationIndex(path)
 	if err != nil {
@@ -467,6 +481,123 @@ func (mapper *requestBindingMapper) load(openAPIPath string) (map[string]map[str
 	}
 	mapper.cache[key] = operations
 	return operations, nil
+}
+
+func (mapper *requestBindingMapper) loadNative(path, sourceRef string, sourceType uws1.SourceDescriptionType) (map[string]map[string]requestFieldPlacement, error) {
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return nil, fmt.Errorf("load API source request metadata %s: %w", sourceRef, err)
+	}
+	operations := map[string]map[string]requestFieldPlacement{}
+	add := func(ids []string, operation apitools.OperationSummary) error {
+		fields, err := requestFieldPlacements(operation)
+		if err != nil {
+			return fmt.Errorf("operation %s: %w", operation.OperationID, err)
+		}
+		for _, id := range ids {
+			id = strings.TrimSpace(id)
+			if id != "" {
+				operations[id] = fields
+			}
+		}
+		return nil
+	}
+	switch sourceType {
+	case uws1.SourceDescriptionTypeGoogleDiscovery:
+		model, parseErr := googlediscovery.Parse(data)
+		if parseErr != nil {
+			return nil, fmt.Errorf("load Google Discovery request metadata %s: %w", sourceRef, parseErr)
+		}
+		for _, op := range model.Operations {
+			if op == nil {
+				continue
+			}
+			summary := apitools.OperationSummary{
+				OperationID: op.OperationID,
+				Parameters:  discoveryRequestParameters(op.Parameters),
+			}
+			if op.RequestRef != "" || op.RequestMediaType != "" {
+				summary.RequestBody = &apitools.RequestBodySummary{ContentTypes: []string{firstNonEmpty(op.RequestMediaType, "application/json")}, Ref: op.RequestRef}
+			}
+			if err := add([]string{op.OperationID, op.ID, op.Name}, summary); err != nil {
+				return nil, err
+			}
+		}
+	case uws1.SourceDescriptionTypeAWSSmithy:
+		model, parseErr := awssmithy.Parse(data)
+		if parseErr != nil {
+			return nil, fmt.Errorf("load AWS Smithy request metadata %s: %w", sourceRef, parseErr)
+		}
+		for _, op := range model.Operations {
+			if op == nil {
+				continue
+			}
+			summary := apitools.OperationSummary{
+				OperationID: op.Name,
+				Parameters:  smithyRequestParameters(op),
+			}
+			if op.Payload != nil || len(op.UnboundInput) > 0 || len(op.StaticPayload) > 0 {
+				summary.RequestBody = &apitools.RequestBodySummary{ContentTypes: []string{firstNonEmpty(op.RequestMediaType, "application/json")}, Ref: op.Input}
+			}
+			if err := add([]string{op.Name, op.ID}, summary); err != nil {
+				return nil, err
+			}
+		}
+	default:
+		return nil, fmt.Errorf("unsupported API source type %q for %s", sourceType, sourceRef)
+	}
+	return operations, nil
+}
+
+func discoveryRequestParameters(params []*googlediscovery.Parameter) []apitools.ParameterSummary {
+	var out []apitools.ParameterSummary
+	for _, param := range params {
+		if param == nil {
+			continue
+		}
+		out = append(out, apitools.ParameterSummary{
+			Name: param.Name,
+			In:   param.Location,
+			Type: stringFromAnyMap(param.Schema, "type"),
+		})
+	}
+	return out
+}
+
+func smithyRequestParameters(op *awssmithy.Operation) []apitools.ParameterSummary {
+	if op == nil {
+		return nil
+	}
+	var out []apitools.ParameterSummary
+	for _, binding := range op.InputBindings {
+		if binding == nil {
+			continue
+		}
+		location := binding.Location
+		switch location {
+		case "label":
+			location = "path"
+		case "queryParams":
+			location = "query"
+		case "prefixHeaders":
+			location = "header"
+		case "payload":
+			continue
+		}
+		out = append(out, apitools.ParameterSummary{
+			Name: firstNonEmpty(binding.WireName, binding.MemberName),
+			In:   location,
+		})
+	}
+	return out
+}
+
+func stringFromAnyMap(values map[string]any, key string) string {
+	if values == nil {
+		return ""
+	}
+	value, _ := values[key].(string)
+	return value
 }
 
 func requestFieldPlacements(operation apitools.OperationSummary) (map[string]requestFieldPlacement, error) {
@@ -612,10 +743,29 @@ func stringMapToAny(values map[string]string) map[string]any {
 }
 
 func uwsVersionForIntent(intent *rollout.Intent) string {
+	if intentRequiresUWS12(intent) {
+		return "1.2.0"
+	}
 	if intentRequiresUWS11(intent) {
 		return "1.1.0"
 	}
 	return "1.0.0"
+}
+
+func intentRequiresUWS12(intent *rollout.Intent) bool {
+	if intent == nil {
+		return false
+	}
+	if sourceDescriptionTypeForPath(firstNonEmpty(intent.Source, intent.OpenAPI)) != uws1.SourceDescriptionTypeOpenAPI {
+		return true
+	}
+	requires := false
+	walkIntentSteps(intent.Steps, func(step *rollout.Step) {
+		if step != nil && !requires && sourceDescriptionTypeForPath(firstNonEmpty(step.Source, step.OpenAPI)) != uws1.SourceDescriptionTypeOpenAPI {
+			requires = true
+		}
+	})
+	return requires
 }
 
 func intentRequiresUWS11(intent *rollout.Intent) bool {

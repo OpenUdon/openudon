@@ -103,9 +103,9 @@ func ValidateForExecution(doc *uws1.Document) error {
 				return fmt.Errorf("operation %s uses x-uws-runtime without %s profile", op.OperationID, ProfileName)
 			}
 		}
-		if op.HasOpenAPIBinding() {
+		if op.HasSourceBinding() {
 			if strings.TrimSpace(op.SourceDescription) == "" {
-				return fmt.Errorf("operation %s has OpenAPI binding without sourceDescription", op.OperationID)
+				return fmt.Errorf("operation %s has API source binding without sourceDescription", op.OperationID)
 			}
 			if len(sourceDescriptions) > 0 && !sourceDescriptions[strings.TrimSpace(op.SourceDescription)] {
 				return fmt.Errorf("operation %s references undeclared sourceDescription %q", op.OperationID, op.SourceDescription)

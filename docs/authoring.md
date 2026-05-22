@@ -36,9 +36,10 @@ go run ./cmd/openudon build --example ./examples/<name>
 go run ./cmd/openudon assess --example ./examples/<name>
 ```
 
-`synthesize` reads `project.md`, discovers or imports local OpenAPI-bound API metadata, creates or
-updates intent, and writes the generated package artifacts. Native Discovery or Smithy inputs must be
-lowered upstream before OpenUdon consumes them. `build` regenerates from existing intent.
+`synthesize` reads `project.md`, discovers or imports local API source metadata, creates or
+updates intent, and writes the generated package artifacts. OpenAPI, Google Discovery, and AWS Smithy
+JSON can be staged directly as UWS 1.2 source descriptions when the trusted executor supports them.
+`build` regenerates from existing intent.
 `assess` reruns deterministic quality checks without synthesizing new intent.
 
 Before searching public catalogs, inspect first-class provider metadata from `apitools`:
@@ -56,9 +57,9 @@ When a provider has a directly importable OpenAPI reference, import it into the 
 go run ./cmd/openudon catalog import-openapi --provider stripe --example ./examples/<name>
 ```
 
-Discovery, Smithy, Stone, and human-docs catalog entries are advisory metadata only. They are useful
-for review and provider selection, but they are not written as OpenAPI package inputs unless a
-validated OpenAPI document is supplied or generated.
+Discovery and Smithy catalog entries can be materialized as first-class API source inputs when a
+package needs them. Stone and human-docs catalog entries remain advisory metadata until lowered or
+reviewed separately.
 
 Use [Synthesize](synthesize.md), [intent.hcl](intent.md), and [Data Flow](data-flow.md) for the
 artifact contracts.

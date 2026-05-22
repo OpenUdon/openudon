@@ -228,8 +228,8 @@ func mappingClassificationIssues(session Session) []ReadinessIssue {
 func currentMappingAssignment(session Session, slot string) string {
 	slot = strings.TrimSpace(slot)
 	switch {
-	case slot == "intent.openapi":
-		return session.Intent.OpenAPI
+	case slot == "intent.openapi", slot == "intent.source":
+		return intentAPISourceRef(session.Intent)
 	case slot == "credentials":
 		return strings.Join(session.Credentials, ", ")
 	case strings.HasPrefix(slot, "intent.outputs."):

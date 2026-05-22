@@ -34,14 +34,14 @@ artifacts. That looser mode is not the accuracy target.
 For near-100% conversion from `intent.hcl` to `workflow.hcl`, author the high-fidelity profile:
 
 - Give every step an explicit `type`.
-- For API steps, set `operation` and either top-level `openapi` or step-local `openapi`.
+- For API steps, set `operation` and either top-level `source` or step-local `source`; `openapi` remains a legacy alias.
 - Put every required request field in `with` or `bind`.
 - Use `depends_on` and `bind` for every step-to-step data dependency.
 - Use credential binding names only; never put credential values in intent.
 - Treat `do`, `using`, and `set` as review or repair hints, not as the source of required wiring.
 
 An intent that follows this profile should lower to semantically equivalent `workflow.hcl`. Missing
-OpenAPI files, unknown operations, unresolved references, disallowed runtimes, absent credential
+API source files, unknown operations, unresolved references, disallowed runtimes, absent credential
 bindings, or unverifiable response paths should fail validation instead of being guessed.
 
 ## File Shape
@@ -49,7 +49,8 @@ bindings, or unverifiable response paths should fail validation instead of being
 An intent file is HCL with these top-level fields and blocks:
 
 ```text
-openapi    = "openapi/example.yaml"   # optional default OpenAPI document
+source     = "openapi/example.yaml"   # optional default API source document
+openapi    = "openapi/example.yaml"   # legacy alias for OpenAPI-only intent
 server_url = "https://sandbox.example.com" # optional default server URL
 locals     = { region = "us-east-1" } # optional string map
 
@@ -67,11 +68,12 @@ Block order is not significant to parsing. The renderer emits a stable order, an
 intent should follow it for reviewability: top-level attributes, `workflow`, inputs, triggers,
 security, steps, then outputs.
 
-Top-level `openapi` is the default OpenAPI document path for API steps that do not declare
-step-local `openapi`. `Intent.MissingSlots()` reports `"OpenAPI specification URL or content"` when
-a step names an `operation` but neither step-local nor top-level `openapi` is available.
+Top-level `source` is the default API source document path for API steps that do not declare
+step-local `source`. `openapi` is accepted as a backward-compatible alias for OpenAPI-only intent.
+`Intent.MissingSlots()` reports an API source requirement when a step names an `operation` but no
+step-local or top-level source is available.
 
-Top-level `server_url` is an optional server override for the selected OpenAPI documents, typically
+Top-level `server_url` is an optional server override for the selected API source documents, typically
 used to steer proof runs toward sandbox endpoints. Top-level `locals` is an optional string map for
 workflow constants referenced as `locals.<name>`.
 
@@ -144,8 +146,9 @@ Supported step attributes:
 | `using`, `set` | Legacy/descriptive hints. Prefer explicit `with` and `bind`. |
 | `depends_on` | Earlier step names that must complete first. |
 | `with` | Request fields, function inputs, literals, credential bindings, or references. |
-| `openapi` | Step-local OpenAPI document path. |
-| `operation` | OpenAPI `operationId`. |
+| `source` | Step-local API source document path. |
+| `openapi` | Legacy step-local OpenAPI document alias. |
+| `operation` | API source operation ID. |
 | `provider` | Optional provider label for multi-provider workflows. |
 | `bind` | Structured source-step-to-target-field wiring. |
 | `when`, `for_each`, `items`, `mode`, `batch_size` | Structural control-flow hints. |
@@ -167,7 +170,7 @@ coverage.
 API steps should be explicit enough that lowering does not need to infer the operation:
 
 ```hcl
-openapi = "openapi/weather.yaml"
+source = "openapi/weather.yaml"
 
 workflow {
   name        = "weather_toronto"
@@ -207,15 +210,15 @@ output "weather" {
 
 Lowering requirements:
 
-- Top-level `openapi` is the default OpenAPI document for API steps.
-- Step-local `openapi` overrides the default for that step.
-- `operation` must match an operationId in the selected OpenAPI document.
+- Top-level `source` is the default API source document for API steps.
+- Step-local `source` overrides the default for that step.
+- `operation` must match an operation ID in the selected API source document.
 - `with` keys become request fields or function inputs.
 - Literal strings stay literal unless they are recognized references such as `inputs.name`,
   `step_name.received_body.path`, or other generated HCL expressions.
 - Credential binding names in `with` remain names only; secret values must not be emitted.
 
-For multi-API workflows, prefer step-local `openapi` on every API step:
+For multi-API workflows, prefer step-local `source` on every API step:
 
 ```hcl
 workflow {
@@ -298,7 +301,7 @@ Do not rely on prose such as "use the prior step's ID" when an exact `bind` can 
 ## Function Steps
 
 `fnct` steps represent approved local adapters, renderers, classifiers, or transformations. They are
-not OpenAPI calls and must not carry `operation`, `openapi`, HTTP method, or path semantics.
+not API source calls and must not carry `operation`, `source`, `openapi`, HTTP method, or path semantics.
 
 For high-fidelity lowering:
 
@@ -393,7 +396,7 @@ Inside `bind.fields`, source paths may use short forms. With `from = "get_coordi
 `get_coordinates.received_body`. Prefer the explicit `received_body...` form for clarity.
 
 `bind.fields` target names may include request-location prefixes: `query.`, `path.`, `header.`,
-`cookie.`, `body.`, or `payload.`. Bare target names let the OpenAPI resolver choose the request
+`cookie.`, `body.`, or `payload.`. Bare target names let the API source resolver choose the request
 location from metadata. If both `bind` and `with` provide the same target, the explicit `with` value
 wins.
 
@@ -425,8 +428,8 @@ Lowering from `intent.hcl` to `workflow.hcl` must preserve these semantics:
 | Intent construct | `workflow.hcl` expectation |
 | --- | --- |
 | `workflow.name` and `workflow.description` | Workflow identity and review metadata. |
-| Top-level or step-local `openapi` | Provider/OpenAPI binding using only listed documents. |
-| API `operation` | Selected OpenAPI operationId. |
+| Top-level or step-local `source` | Provider/API source binding using only listed documents. |
+| API `operation` | Selected API source operation ID. |
 | Step `type` | Canonical workflow step kind, preserving `fnct`, `cmd`, `ssh`, and structural kinds. |
 | `depends_on` | Step dependency ordering. |
 | `with` | Request fields, function inputs, literals, inputs, and credential binding names. |
@@ -436,14 +439,14 @@ Lowering from `intent.hcl` to `workflow.hcl` must preserve these semantics:
 | `successCriteria`, `onFailure`, `onSuccess` | Leaf operation actions when explicitly authored. |
 | `trigger` and `security` | Trigger and security metadata when supported by the lowering path. |
 
-The lowering path must not invent OpenAPI filenames, operation IDs, runtime types, credential
+The lowering path must not invent API source filenames, operation IDs, runtime types, credential
 values, production execution authority, or hidden side-effect policy. If required information is not
-present in the intent, project policy, or discovered OpenAPI metadata, validation should report the
+present in the intent, project policy, or discovered API source metadata, validation should report the
 gap.
 
 For a fully formed intent, `bind` blocks are normalized before generation: each `bind.from` adds a
 deduplicated dependency, each target field is normalized, and each source path is rewritten into a
-canonical prior-step reference. API request location is then resolved from OpenAPI metadata where
+canonical prior-step reference. API request location is then resolved from API source metadata where
 possible.
 
 ## Validation
@@ -453,12 +456,12 @@ gates:
 
 - `workflowintent.ParseIntent` requires valid HCL, at least one `step` or `trigger`, labels for labeled
   blocks, `do` on leaf steps, and non-empty `from` plus fields on leaf-step `bind` blocks.
-- `Intent.MissingSlots()` reports missing default OpenAPI context, missing steps, and missing leaf
+- `Intent.MissingSlots()` reports missing default API source context, missing steps, and missing leaf
   descriptions.
 - `internal/synthesize/schemas/intent.schema.json` rejects unknown generated JSON fields, restricts
   generated step types to the supported enum, and requires `operation` when generated
   `type = "openapi"`.
-- OpenUdon quality gates validate runtime policy, OpenAPI references and operations, required
+- OpenUdon quality gates validate runtime policy, API source references and operations, required
   parameters, credential bindings, function contracts, data-flow references, response paths, and
   side-effect policy.
 

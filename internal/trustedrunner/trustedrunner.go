@@ -189,7 +189,7 @@ func validateRunnerPath(name, path string) error {
 }
 
 func buildRunConfig(p paths, manifest handoffManifest, digest, tier, workdir string) (RunConfig, error) {
-	relOpenAPI, err := packageartifacts.CollectOpenAPIPaths(p.exampleAbs)
+	relOpenAPI, err := packageartifacts.CollectAPISourcePaths(p.exampleAbs)
 	if err != nil {
 		return RunConfig{}, err
 	}

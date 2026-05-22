@@ -12,11 +12,15 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
-func validateIntentOpenAPIOperations(intent *rollout.Intent, candidates []openapidisco.Candidate, primary string) error {
+func validateIntentOpenAPIOperations(intent *rollout.Intent, exampleDir string, candidates []openapidisco.Candidate, primary string) error {
 	if intent == nil {
 		return nil
 	}
 	ops := openAPIOperationIndex(candidates)
+	sourceRegistry, registryErr := newLocalAPISourceRegistry(exampleDir, candidates)
+	if registryErr != nil && !os.IsNotExist(registryErr) {
+		return fmt.Errorf("local API source registry could not be scanned: %w", registryErr)
+	}
 	var missing []string
 	var omitted []string
 	walkIntentSteps(intent.Steps, func(step *rollout.Step) {
@@ -25,6 +29,30 @@ func validateIntentOpenAPIOperations(intent *rollout.Intent, candidates []openap
 		}
 		operation := strings.TrimSpace(step.Operation)
 		specPath := intentStepOpenAPIPath(intent, step, primary)
+		if sourceDescriptionTypeForPath(specPath) != "openapi" {
+			if operation == "" {
+				if intentStepRequiresOpenAPIOperation(intent, step, primary) {
+					name := strings.TrimSpace(step.Name)
+					if name == "" {
+						name = "<unnamed>"
+					}
+					omitted = append(omitted, fmt.Sprintf("%s in %q", name, specPath))
+				}
+				return
+			}
+			entry, ok := sourceRegistry.get(specPath)
+			if !ok || entry.Err != nil {
+				return
+			}
+			if len(entry.Operations) > 0 && !entry.Operations[operation] {
+				name := strings.TrimSpace(step.Name)
+				if name == "" {
+					name = "<unnamed>"
+				}
+				missing = append(missing, fmt.Sprintf("%s operation %q in %q", name, operation, specPath))
+			}
+			return
+		}
 		if operation == "" {
 			if intentStepRequiresOpenAPIOperation(intent, step, primary) {
 				name := strings.TrimSpace(step.Name)
@@ -51,7 +79,7 @@ func validateIntentOpenAPIOperations(intent *rollout.Intent, candidates []openap
 			details = append(details, "missing operation for "+item)
 		}
 		for _, item := range missing {
-			details = append(details, "missing OpenAPI operation "+item)
+			details = append(details, "missing API source operation "+item)
 		}
 		return fmt.Errorf("%s", strings.Join(details, "; "))
 	}
@@ -85,6 +113,9 @@ func validateIntentRequiredParameters(intent *rollout.Intent, candidates []opena
 			return
 		}
 		specPath := intentStepOpenAPIPath(intent, step, primary)
+		if sourceDescriptionTypeForPath(specPath) != "openapi" {
+			return
+		}
 		op := ops[operationKey(specPath, operation)]
 		if op == nil {
 			return

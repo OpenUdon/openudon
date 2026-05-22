@@ -308,7 +308,7 @@ func catalogPlanStepOpenAPI(value string, candidates []CatalogMigrationCandidate
 		}
 	}
 	for _, candidate := range candidates {
-		if strings.HasPrefix(candidate.RelativePath, "openapi/") || strings.HasPrefix(candidate.RelativePath, "discovery/") {
+		if isLocalAPIDocumentRef(candidate.RelativePath) {
 			return candidate.RelativePath
 		}
 	}

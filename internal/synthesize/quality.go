@@ -75,16 +75,23 @@ func assessContext(ctx context.Context, opts Options, writeReport bool) (*Qualit
 		return nil, err
 	}
 	candidates, err := openapidisco.LocalFiles(filepath.Join(exampleDir, "openapi"), exampleDir, projectText)
+	apiSourcePaths, sourceErr := collectLocalAPISourcePaths(exampleDir)
 	if err != nil && !(policy.NoOpenAPI && errors.Is(err, os.ErrNotExist)) {
 		report.add("openapi.local", "fail", "OpenAPI directory could not be scanned", err.Error())
+	} else if sourceErr != nil {
+		report.add("openapi.local", "fail", "API source documents could not be scanned", sourceErr.Error())
 	} else if policy.NoOpenAPI {
 		result.OpenAPICandidates = candidates
 		report.Artifacts = result
 		report.add("openapi.local", "pass", "project explicitly declares OpenAPI is not required", candidateList(candidates))
-	} else if len(candidates) == 0 {
-		report.add("openapi.local", "fail", "no local OpenAPI documents are available", "Add a valid .json, .yaml, or .yml OpenAPI document under openapi/, or rerun synthesize with an explicit URL in project.md.")
+	} else if len(candidates) == 0 && len(apiSourcePaths) == 0 {
+		report.add("openapi.local", "fail", "no local API source documents are available", "Add a valid OpenAPI document under openapi/ or a first-class source under google-discovery/ or aws-smithy/.")
 	} else {
-		report.add("openapi.local", "pass", fmt.Sprintf("%d OpenAPI document(s) available", len(candidates)), candidateList(candidates))
+		detail := candidateList(candidates)
+		if sourceErr == nil && len(apiSourcePaths) > 0 {
+			detail = strings.TrimSpace(detail + "\n" + strings.Join(apiSourcePaths, "\n"))
+		}
+		report.add("openapi.local", "pass", fmt.Sprintf("%d OpenAPI document(s), %d API source document(s) available", len(candidates), len(apiSourcePaths)), detail)
 		result.OpenAPICandidates = candidates
 		if primary, err := openapidisco.SelectPrimary(candidates); err == nil {
 			result.PrimaryOpenAPI = primary.RelativePath
@@ -94,7 +101,7 @@ func assessContext(ctx context.Context, opts Options, writeReport bool) (*Qualit
 
 	expectedPlan := assessWorkflowPlan(report, result)
 	assessDiscoveryReport(report, result.DiscoveryJSONPath)
-	intent, intentOK := assessIntent(report, result.IntentPath, candidates, result.PrimaryOpenAPI, policy)
+	intent, intentOK := assessIntent(report, result.IntentPath, exampleDir, candidates, result.PrimaryOpenAPI, policy)
 	if err := ctx.Err(); err != nil {
 		return nil, err
 	}
@@ -130,6 +137,20 @@ type conversionDiagnostic struct {
 	Address       string `json:"address"`
 	TodoID        string `json:"todo_id"`
 	StrictFailure bool   `json:"strict_failure"`
+}
+
+func collectLocalAPISourcePaths(exampleDir string) ([]string, error) {
+	registry, err := newLocalAPISourceRegistry(exampleDir, nil)
+	if err != nil {
+		return nil, err
+	}
+	paths := registry.nativePaths()
+	for _, path := range paths {
+		if strings.Contains(path, " invalid: ") {
+			return paths, fmt.Errorf("invalid API source document: %s", path)
+		}
+	}
+	return paths, nil
 }
 
 func assessConversionDiagnostics(report *QualityReport, path string) {

@@ -1,0 +1,20 @@
+Draft only missing request-field mappings for selected API steps.
+
+Return JSON only. Do not return a full iCoT session, HCL, markdown, operation IDs, credentials, response paths, or secret values.
+
+Use only the step names and missing_fields provided in the payload. For each step, fill only fields listed in missing_fields. Leave a field absent when the workflow brief and listed operation metadata do not support a defensible value.
+
+Allowed mapping values:
+- inputs.<name> for runtime inputs
+- safe literals from the workflow brief or obvious non-secret facts derived from it
+- prior step outputs using steps.<step_name>.<path> when the listed step order supports the dependency
+- credentials.<binding> for symbolic credential bindings, never actual secret values
+
+Prefer structured operation metadata:
+- parameters list path, query, header, and cookie inputs with type, required flag, and description
+- request_body lists flattened body field paths, required field paths, types, descriptions, defaults, examples, and enums when available
+- security lists raw scheme names and derived credential binding field names
+
+Use required_fields only as a compatibility summary when richer metadata is absent or incomplete.
+
+Include concise assumptions for inferred literals, credential binding names, prior-step outputs, and any field you intentionally leave blank.

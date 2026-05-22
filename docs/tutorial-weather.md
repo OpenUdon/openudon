@@ -58,10 +58,9 @@ metadata, iCoT asks the operator instead of inventing it.
 
 For this specific weather-to-Gmail workflow, current catalog metadata can migrate Gmail's official
 Google Discovery document when it is cached and can materialize an OpenWeatherMap advisory OpenAPI
-overlay when present. Discovery is still authoring metadata; if a final package needs executable
-OpenAPI-bound metadata for Gmail, lower or provide a local OpenAPI file before synthesis or trusted
-handoff. The committed weather eval fixture remains an example, not an implicit input to the new
-workflow.
+overlay when present. Gmail can remain a first-class `google-discovery` source in the final UWS 1.2
+package when the trusted executor supports typed sources. The committed weather eval fixture remains
+an example, not an implicit input to the new workflow.
 
 Use answers like these:
 
@@ -73,7 +72,7 @@ Outputs: `weather_report`: rendered report body; `gmail_result`: Gmail send resp
 Data flow: Resolve Toronto to coordinates; pass latitude and longitude to the weather step; render a report from the weather response; send the report to `inputs.recipient_email` with Gmail.
 Function contracts: `render_weather_report`: inputs weather response; outputs subject and body; side effects none.
 Does this project need API/OpenAPI integration? yes
-OpenAPI files, URLs, or service hints: let iCoT migrate cached OpenWeatherMap advisory OpenAPI and Gmail Discovery artifacts if prompted; lower or provide Gmail OpenAPI before synthesis if executable Gmail metadata is required.
+API source files, URLs, or service hints: let iCoT migrate cached OpenWeatherMap advisory OpenAPI and Gmail Discovery artifacts if prompted.
 Approve cmd runtime? no
 Approve ssh runtime? no
 Side-effect scope (read-only/sandbox-only/after-approval): sandbox-only
@@ -90,9 +89,8 @@ go run ./cmd/icot lint --example ./examples/weather-toronto-gmail
 
 iCoT writes `project.md` and `workflows/intent.hcl`. Review those files before synthesis, especially
 the selected API documents, operation IDs, request field mappings, symbolic credential names, and the
-Gmail approval boundary. If iCoT reports only Discovery, Smithy, docs, or advisory overlays for a
-provider and executable OpenAPI-bound metadata is required, first lower or provide a local OpenAPI
-file under `openapi/`; direct committed eval slices are not assumed.
+Gmail approval boundary. If iCoT reports only Stone, human-docs, or other non-first-class metadata for
+a provider, first lower or provide a reviewed local source file; direct committed eval slices are not assumed.
 
 ## Run The Artifact Loop
 

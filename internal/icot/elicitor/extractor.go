@@ -31,12 +31,16 @@ var draftPrompt string
 //go:embed prompts/catalog_plan.txt
 var catalogPlanPrompt string
 
+//go:embed prompts/request_mappings.txt
+var requestMappingsPrompt string
+
 // Extractor provides optional, bounded LLM assistance for the interactive
 // authoring loop. Implementations must return partial drafts only; the loop
 // still asks the user to confirm the final intent before saving.
 type Extractor interface {
 	Kickoff(context.Context, string) (Session, error)
 	CatalogPlan(context.Context, CatalogPlanRequest) (CatalogPlanResponse, error)
+	RequestMappings(context.Context, RequestMappingRequest) (RequestMappingResponse, error)
 	Draft(context.Context, DraftRequest) (Session, error)
 	Refine(context.Context, Session) (Session, error)
 	Disambiguate(context.Context, string, []APIDocument) ([]string, error)
@@ -56,6 +60,10 @@ func (noopExtractor) Kickoff(context.Context, string) (Session, error) {
 
 func (noopExtractor) CatalogPlan(context.Context, CatalogPlanRequest) (CatalogPlanResponse, error) {
 	return CatalogPlanResponse{}, nil
+}
+
+func (noopExtractor) RequestMappings(context.Context, RequestMappingRequest) (RequestMappingResponse, error) {
+	return RequestMappingResponse{}, nil
 }
 
 func (noopExtractor) Draft(context.Context, DraftRequest) (Session, error) {
@@ -115,6 +123,22 @@ func (e *chatExtractor) CatalogPlan(ctx context.Context, request CatalogPlanRequ
 	var response CatalogPlanResponse
 	if err := e.completeJSON(ctx, catalogPlanPrompt, string(data), catalogPlanSchema, &response, 1000); err != nil {
 		return CatalogPlanResponse{}, err
+	}
+	return response, nil
+}
+
+func (e *chatExtractor) RequestMappings(ctx context.Context, request RequestMappingRequest) (RequestMappingResponse, error) {
+	request.Opening = strings.TrimSpace(request.Opening)
+	if request.Opening == "" || len(request.Steps) == 0 {
+		return RequestMappingResponse{}, nil
+	}
+	data, err := json.Marshal(request)
+	if err != nil {
+		return RequestMappingResponse{}, err
+	}
+	var response RequestMappingResponse
+	if err := e.completeJSON(ctx, requestMappingsPrompt, string(data), requestMappingsSchema, &response, 900); err != nil {
+		return RequestMappingResponse{}, err
 	}
 	return response, nil
 }
@@ -556,14 +580,21 @@ func sanitizeDraftWithDetails(request DraftRequest, draft Session, detailRefs []
 			}
 		}
 	}
-	if draft.Intent.OpenAPI != "" && !allowedDocs[draft.Intent.OpenAPI] {
+	if len(allowedDocs) > 0 && draft.Intent.Source != "" && !allowedDocs[draft.Intent.Source] {
+		draft.Intent.Source = ""
+	}
+	if len(allowedDocs) > 0 && draft.Intent.OpenAPI != "" && !allowedDocs[draft.Intent.OpenAPI] {
 		draft.Intent.OpenAPI = ""
 	}
 	walkSteps(draft.Intent.Steps, func(step *rollout.Step) {
-		docPath := firstNonEmpty(step.OpenAPI, draft.Intent.OpenAPI)
-		if step.OpenAPI != "" && !allowedDocs[step.OpenAPI] {
+		docPath := firstNonEmpty(step.Source, step.OpenAPI, draft.Intent.Source, draft.Intent.OpenAPI)
+		if len(allowedDocs) > 0 && step.Source != "" && !allowedDocs[step.Source] {
+			step.Source = ""
+			docPath = firstNonEmpty(step.OpenAPI, draft.Intent.Source, draft.Intent.OpenAPI)
+		}
+		if len(allowedDocs) > 0 && step.OpenAPI != "" && !allowedDocs[step.OpenAPI] {
 			step.OpenAPI = ""
-			docPath = draft.Intent.OpenAPI
+			docPath = firstNonEmpty(step.Source, draft.Intent.Source, draft.Intent.OpenAPI)
 		}
 		if step.Operation != "" && !allowedOps[docPath+"\x00"+step.Operation] && !allowedOps["\x00"+step.Operation] {
 			step.Operation = ""
@@ -696,6 +727,26 @@ const catalogPlanSchema = `{
     },
     "blockers": {"type": "array", "items": {"type": "string"}},
     "assumptions": {"type": "array", "items": {"type": "string"}}
+  }
+}`
+
+const requestMappingsSchema = `{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "steps": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "name": {"type": "string"},
+          "with": {"type": "object", "additionalProperties": {"type": "string"}}
+        }
+      }
+    },
+    "assumptions": {"type": "array", "items": {"type": "string"}},
+    "blockers": {"type": "array", "items": {"type": "string"}}
   }
 }`
 

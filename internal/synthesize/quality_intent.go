@@ -5,12 +5,12 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/OpenUdon/uws/uws1"
 	"github.com/OpenUdon/openudon/internal/openapidisco"
 	rollout "github.com/OpenUdon/openudon/internal/workflowintent"
+	"github.com/OpenUdon/uws/uws1"
 )
 
-func assessIntent(report *QualityReport, path string, candidates []openapidisco.Candidate, primary string, policy projectPolicy) (*rollout.Intent, bool) {
+func assessIntent(report *QualityReport, path, exampleDir string, candidates []openapidisco.Candidate, primary string, policy projectPolicy) (*rollout.Intent, bool) {
 	intent, err := rollout.ParseIntentFile(path)
 	if err != nil {
 		report.add("intent.parse", "fail", "intent.hcl is missing or invalid", err.Error())
@@ -27,16 +27,16 @@ func assessIntent(report *QualityReport, path string, candidates []openapidisco.
 		return intent, false
 	}
 	report.add("intent.slots", "pass", "intent.hcl has required slots", "")
-	if err := validateIntentOpenAPIRefs(intent, candidates, primary, policy.NoOpenAPI); err != nil {
-		report.add("intent.openapi_refs", "fail", "intent.hcl references unavailable OpenAPI documents", err.Error())
+	if err := validateIntentOpenAPIRefs(intent, exampleDir, candidates, primary, policy.NoOpenAPI); err != nil {
+		report.add("intent.openapi_refs", "fail", "intent.hcl references unavailable API source documents", err.Error())
 		return intent, false
 	}
-	report.add("intent.openapi_refs", "pass", "intent.hcl OpenAPI references are available", "")
-	if err := validateIntentOpenAPIOperations(intent, candidates, primary); err != nil {
-		report.add("intent.openapi_operations", "fail", "intent.hcl references unavailable OpenAPI operations", err.Error())
+	report.add("intent.openapi_refs", "pass", "intent.hcl API source references are available", "")
+	if err := validateIntentOpenAPIOperations(intent, exampleDir, candidates, primary); err != nil {
+		report.add("intent.openapi_operations", "fail", "intent.hcl references unavailable API source operations", err.Error())
 		return intent, false
 	}
-	report.add("intent.openapi_operations", "pass", "intent.hcl OpenAPI operation references are available", "")
+	report.add("intent.openapi_operations", "pass", "intent.hcl API source operation references are available", "")
 	if err := validateIntentRequiredParameters(intent, candidates, primary); err != nil {
 		report.add("intent.data_flow.required_params", "fail", "required OpenAPI parameters are not satisfied", err.Error())
 		return intent, false

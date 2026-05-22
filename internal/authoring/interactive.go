@@ -284,6 +284,7 @@ type ProgressiveLoopHooks[S, D, A any] struct {
 	RefreshDocuments     func(S, []D) ([]D, error)
 	ShouldDraft          func(S, []D, []ReadinessIssue) bool
 	ShouldDraftQuestion  func(S, []D, []ReadinessIssue, InteractiveQuestion) bool
+	DraftQuestion        func(context.Context, *S, []D, []ReadinessIssue, InteractiveQuestion) (bool, error)
 	CheckReadiness       func(S, []D) []ReadinessIssue
 	Ready                func(S, []ReadinessIssue) bool
 	PlanQuestion         func(S, []D, []ReadinessIssue) InteractiveQuestion
@@ -471,6 +472,63 @@ func RunProgressiveICOT[S, D, A any](ctx context.Context, in io.Reader, out io.W
 			return zero, fmt.Errorf("question planning and answer hooks are required")
 		}
 		question := hooks.PlanQuestion(session, docs, issues)
+		if !noopExtractor && hooks.DraftQuestion != nil {
+			drafted, err := hooks.DraftQuestion(ctx, &session, docs, issues, question)
+			if err != nil {
+				return zero, err
+			}
+			if drafted {
+				if hooks.Normalize != nil {
+					hooks.Normalize(&session)
+				}
+				if hooks.DeterministicPrefill != nil && hooks.DeterministicPrefill(&session, docs) && hooks.Normalize != nil {
+					hooks.Normalize(&session)
+				}
+				if hooks.CheckReadiness != nil {
+					issues = hooks.CheckReadiness(session, docs)
+				}
+				record("question_draft_result", map[string]any{
+					"question":         question,
+					"readiness_issues": issues,
+				})
+				if hooks.DraftEvents != nil {
+					for _, event := range hooks.DraftEvents(session) {
+						if strings.TrimSpace(event.Kind) != "" {
+							record(event.Kind, event.Data)
+						}
+					}
+				}
+				if hooks.Autosave != nil {
+					if err := hooks.Autosave(session); err != nil {
+						return zero, err
+					}
+				}
+				record("readiness_decision", issues)
+				if hooks.Ready != nil && hooks.Ready(session, issues) {
+					record("next_question_decision", InteractiveQuestion{
+						Prompt:          "Confirm first valid intent",
+						SuggestedAnswer: "save",
+						Slots:           []string{"confirmation"},
+					})
+					if hooks.FinalConfirm == nil {
+						return zero, fmt.Errorf("final confirmation hook is required")
+					}
+					artifacts, err := hooks.FinalConfirm(prompts, &session, docs, &events)
+					if err == nil {
+						if hooks.FinalResultSummary != nil {
+							record("final_generated_artifacts", hooks.FinalResultSummary(artifacts))
+						}
+						if hooks.SaveTranscript != nil {
+							if saveErr := hooks.SaveTranscript(prompts.Turns(), events, artifacts); saveErr != nil {
+								return artifacts, saveErr
+							}
+						}
+					}
+					return artifacts, err
+				}
+				question = hooks.PlanQuestion(session, docs, issues)
+			}
+		}
 		if !noopExtractor && hooks.ShouldDraftQuestion != nil && hooks.ShouldDraftQuestion(session, docs, issues, question) {
 			draftedIssues, drafted, err := runDraft(&session, docs, issues, "model_question_draft_call")
 			if err != nil {

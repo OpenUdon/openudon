@@ -16,7 +16,7 @@ go run ./cmd/openudon synthesize \
   --max-attempts 5
 ```
 
-`synthesize` reads `project.md`, OpenAPI files under `openapi/`, and optional existing intent. It
+`synthesize` reads `project.md`, API source files under `openapi/`, `google-discovery/`, and `aws-smithy/` plus optional existing intent. It
 writes:
 
 ```text
@@ -44,16 +44,16 @@ go run ./cmd/openudon catalog inspect stripe
 go run ./cmd/openudon catalog advisory --example ./examples/<name>
 ```
 
-If the provider has a directly importable OpenAPI reference, import it into the package-local
-`openapi/` directory before running `synthesize`:
+If the provider has a directly importable API source reference, import or materialize it into the package-local
+source-aligned directory before running `synthesize`:
 
 ```bash
 go run ./cmd/openudon catalog import-openapi --provider stripe --example ./examples/<name>
 ```
 
-Catalog Discovery, Smithy, Stone, human-docs, and security-overlay metadata is advisory review
-context only. `synthesize` still consumes local OpenAPI files and listed operation IDs as the
-authoritative API inputs for generated UWS artifacts.
+Catalog OpenAPI/Swagger, Google Discovery, and AWS Smithy JSON artifacts are first-class API source
+inputs for generated UWS artifacts. Stone, human-docs, and unknown protocols remain advisory or
+lowering/review inputs until a later source type is defined.
 
 ## Narrower Stages
 

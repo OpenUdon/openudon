@@ -60,14 +60,16 @@ func CleanRelativePath(inputPath string) (string, error) {
 	return clean, nil
 }
 
+var apiSourceDirs = []string{"openapi", "google-discovery", "aws-smithy", "discovery"}
+
 // RequiredPackagePaths returns the fixed handoff inventory plus every regular
-// file under openapi/.
+// API source file staged for execution.
 func RequiredPackagePaths(packageRoot string) ([]string, error) {
 	if err := ValidatePackageRoot(packageRoot); err != nil {
 		return nil, err
 	}
 	paths := append([]string(nil), fixedRequiredPackagePaths...)
-	openAPIPaths, err := CollectOpenAPIPaths(packageRoot)
+	openAPIPaths, err := CollectAPISourcePaths(packageRoot)
 	if err != nil {
 		return nil, err
 	}
@@ -187,12 +189,36 @@ func validateRegularPackageFile(packageRoot, clean string) error {
 
 // CollectOpenAPIPaths returns package-relative OpenAPI artifact paths.
 func CollectOpenAPIPaths(packageRoot string) ([]string, error) {
+	return collectSourceDirPaths(packageRoot, "openapi")
+}
+
+// CollectAPISourcePaths returns package-relative API source artifact paths.
+func CollectAPISourcePaths(packageRoot string) ([]string, error) {
+	if err := ValidatePackageRoot(packageRoot); err != nil {
+		return nil, err
+	}
+	var paths []string
+	for _, dir := range apiSourceDirs {
+		dirPaths, err := collectSourceDirPaths(packageRoot, dir)
+		if err != nil {
+			return nil, err
+		}
+		paths = append(paths, dirPaths...)
+	}
+	sort.Strings(paths)
+	if err := ValidateRegularPackageFiles(packageRoot, paths); err != nil {
+		return nil, err
+	}
+	return paths, nil
+}
+
+func collectSourceDirPaths(packageRoot, dir string) ([]string, error) {
 	if err := ValidatePackageRoot(packageRoot); err != nil {
 		return nil, err
 	}
 	packageRoot = filepath.Clean(packageRoot)
-	openAPIRoot := filepath.Join(packageRoot, "openapi")
-	info, err := os.Lstat(openAPIRoot)
+	sourceRoot := filepath.Join(packageRoot, dir)
+	info, err := os.Lstat(sourceRoot)
 	if err != nil {
 		if os.IsNotExist(err) {
 			return nil, nil
@@ -200,19 +226,19 @@ func CollectOpenAPIPaths(packageRoot string) ([]string, error) {
 		return nil, err
 	}
 	if info.Mode()&os.ModeSymlink != 0 {
-		return nil, fmt.Errorf("openapi path must not be a symlink: %s", openAPIRoot)
+		return nil, fmt.Errorf("%s path must not be a symlink: %s", dir, sourceRoot)
 	}
 	if !info.IsDir() {
-		return nil, fmt.Errorf("openapi path must be a directory: %s", openAPIRoot)
+		return nil, fmt.Errorf("%s path must be a directory: %s", dir, sourceRoot)
 	}
 
 	var paths []string
-	if err := filepath.WalkDir(openAPIRoot, func(path string, entry os.DirEntry, err error) error {
+	if err := filepath.WalkDir(sourceRoot, func(path string, entry os.DirEntry, err error) error {
 		if err != nil {
 			return err
 		}
 		if entry.Type()&os.ModeSymlink != 0 {
-			return fmt.Errorf("openapi artifact must not be a symlink: %s", path)
+			return fmt.Errorf("%s artifact must not be a symlink: %s", dir, path)
 		}
 		info, err := entry.Info()
 		if err != nil {
@@ -222,7 +248,7 @@ func CollectOpenAPIPaths(packageRoot string) ([]string, error) {
 			return nil
 		}
 		if !info.Mode().IsRegular() {
-			return fmt.Errorf("openapi artifact must be a regular file: %s", path)
+			return fmt.Errorf("%s artifact must be a regular file: %s", dir, path)
 		}
 		rel, err := filepath.Rel(packageRoot, path)
 		if err != nil {
@@ -238,9 +264,6 @@ func CollectOpenAPIPaths(packageRoot string) ([]string, error) {
 		return nil, err
 	}
 	sort.Strings(paths)
-	if err := ValidateRegularPackageFiles(packageRoot, paths); err != nil {
-		return nil, err
-	}
 	return paths, nil
 }
 

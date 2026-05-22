@@ -5,6 +5,8 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/OpenUdon/openudon/internal/uwsschema"
 )
 
 func TestValidateFileAcceptsJSONAndYAML(t *testing.T) {
@@ -52,5 +54,29 @@ func TestValidateFileRejectsInvalidAndUnsupportedDocuments(t *testing.T) {
 	}
 	if err := ValidateFile(schema, unsupported); err == nil || !strings.Contains(err.Error(), "unsupported document extension") {
 		t.Fatalf("expected unsupported extension error, got %v", err)
+	}
+}
+
+func TestValidateFileAcceptsUWS12TypedSourceDocument(t *testing.T) {
+	dir := t.TempDir()
+	doc := filepath.Join(dir, "workflow.uws.json")
+	if err := os.WriteFile(doc, []byte(`{
+  "uws": "1.2.0",
+  "info": {"title": "typed source", "version": "1.0.0"},
+  "sourceDescriptions": [
+    {"name": "gmail", "url": "google-discovery/gmail.json", "type": "google-discovery"}
+  ],
+  "operations": [
+    {"operationId": "send", "sourceDescription": "gmail", "sourceOperationId": "gmail_users_messages_send"}
+  ],
+  "workflows": [
+    {"workflowId": "main", "type": "sequence", "steps": [{"stepId": "send", "operationRef": "send"}]}
+  ]
+}`), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	schema := uwsschema.PathForVersion(dir, "1.2.0")
+	if err := ValidateFile(schema, doc); err != nil {
+		t.Fatalf("ValidateFile returned error: %v", err)
 	}
 }

@@ -19,6 +19,7 @@ import (
 const IntentPath = "workflows/intent.hcl"
 
 type Intent struct {
+	Source    string            `hcl:"source,optional" json:"source,omitempty"`
 	OpenAPI   string            `hcl:"openapi,optional" json:"openapi,omitempty"`
 	ServerURL string            `hcl:"server_url,optional" json:"server_url,omitempty"`
 	Workflow  *WorkflowMeta     `hcl:"workflow,block" json:"workflow,omitempty"`
@@ -57,6 +58,7 @@ type Step struct {
 	DependsOn       []string              `hcl:"depends_on,optional" json:"depends_on,omitempty"`
 	With            map[string]string     `hcl:"with,optional" json:"with,omitempty"`
 	Provider        string                `hcl:"provider,optional" json:"provider,omitempty"`
+	Source          string                `hcl:"source,optional" json:"source,omitempty"`
 	OpenAPI         string                `hcl:"openapi,optional" json:"openapi,omitempty"`
 	Operation       string                `hcl:"operation,optional" json:"operation,omitempty"`
 	Timeout         *float64              `hcl:"timeout,optional" json:"timeout,omitempty"`
@@ -147,6 +149,7 @@ func ParseIntent(data []byte, path string) (*Intent, error) {
 }
 
 type hclIntent struct {
+	Source    string            `hcl:"source,optional" json:"source,omitempty"`
 	OpenAPI   string            `hcl:"openapi,optional" json:"openapi,omitempty"`
 	ServerURL string            `hcl:"server_url,optional" json:"server_url,omitempty"`
 	Workflow  *hclWorkflowMeta  `hcl:"workflow,block" json:"workflow,omitempty"`
@@ -183,6 +186,7 @@ type hclStep struct {
 	DependsOn       []string            `hcl:"depends_on,optional" json:"depends_on,omitempty"`
 	With            map[string]string   `hcl:"with,optional" json:"with,omitempty"`
 	Provider        string              `hcl:"provider,optional" json:"provider,omitempty"`
+	Source          string              `hcl:"source,optional" json:"source,omitempty"`
 	OpenAPI         string              `hcl:"openapi,optional" json:"openapi,omitempty"`
 	Operation       string              `hcl:"operation,optional" json:"operation,omitempty"`
 	Timeout         *float64            `hcl:"timeout,optional" json:"timeout,omitempty"`
@@ -380,7 +384,11 @@ func RenderIntentHCL(intent *Intent) (string, error) {
 	}
 	file := hclwrite.NewEmptyFile()
 	body := file.Body()
-	setAttrString(body, "openapi", intent.OpenAPI)
+	if strings.TrimSpace(intent.Source) != "" {
+		setAttrString(body, "source", intent.Source)
+	} else {
+		setAttrString(body, "openapi", intent.OpenAPI)
+	}
 	setAttrString(body, "server_url", intent.ServerURL)
 	if len(intent.Locals) > 0 {
 		setAttrMap(body, "locals", intent.Locals, true)
@@ -473,7 +481,11 @@ func addStepBlock(body *hclwrite.Body, step *Step) {
 	setAttrList(sb, "depends_on", step.DependsOn)
 	setAttrMap(sb, "with", step.With, false)
 	setAttrString(sb, "provider", step.Provider)
-	setAttrString(sb, "openapi", step.OpenAPI)
+	if strings.TrimSpace(step.Source) != "" {
+		setAttrString(sb, "source", step.Source)
+	} else {
+		setAttrString(sb, "openapi", step.OpenAPI)
+	}
 	setAttrString(sb, "operation", step.Operation)
 	setAttrFloatPtr(sb, "timeout", step.Timeout)
 	setAttrString(sb, "items", step.Items)
@@ -608,7 +620,7 @@ func FormatHCL(content string) (string, error) {
 func (intent *Intent) MissingSlots() []string {
 	var missing []string
 	if intent.missingDefaultOpenAPIContext() {
-		missing = append(missing, "OpenAPI specification URL or content")
+		missing = append(missing, "API source document URL or content")
 	}
 	if len(intent.Steps) == 0 && len(intent.Triggers) == 0 {
 		missing = append(missing, "At least one workflow step")
@@ -625,12 +637,12 @@ func (intent *Intent) RequiresOpenAPI() bool {
 	if intent == nil {
 		return false
 	}
-	if strings.TrimSpace(intent.OpenAPI) != "" {
+	if strings.TrimSpace(intent.Source) != "" || strings.TrimSpace(intent.OpenAPI) != "" {
 		return true
 	}
 	required := false
 	walkSteps(intent.Steps, func(step *Step) {
-		if step != nil && !required && (strings.TrimSpace(step.OpenAPI) != "" || strings.TrimSpace(step.Operation) != "") {
+		if step != nil && !required && (strings.TrimSpace(step.Source) != "" || strings.TrimSpace(step.OpenAPI) != "" || strings.TrimSpace(step.Operation) != "") {
 			required = true
 		}
 	})
@@ -638,12 +650,12 @@ func (intent *Intent) RequiresOpenAPI() bool {
 }
 
 func (intent *Intent) missingDefaultOpenAPIContext() bool {
-	if intent == nil || strings.TrimSpace(intent.OpenAPI) != "" {
+	if intent == nil || strings.TrimSpace(intent.Source) != "" || strings.TrimSpace(intent.OpenAPI) != "" {
 		return false
 	}
 	missing := false
 	walkSteps(intent.Steps, func(step *Step) {
-		if step != nil && !missing && strings.TrimSpace(step.Operation) != "" && strings.TrimSpace(step.OpenAPI) == "" {
+		if step != nil && !missing && strings.TrimSpace(step.Operation) != "" && strings.TrimSpace(step.Source) == "" && strings.TrimSpace(step.OpenAPI) == "" {
 			missing = true
 		}
 	})
@@ -684,6 +696,9 @@ func (intent *Intent) NormalizedForGeneration() *Intent {
 	clone := intent.Clone()
 	if clone == nil {
 		return nil
+	}
+	if strings.TrimSpace(clone.Source) != "" && strings.TrimSpace(clone.OpenAPI) == "" {
+		clone.OpenAPI = strings.TrimSpace(clone.Source)
 	}
 	for _, step := range clone.Steps {
 		normalizeStepForGeneration(step)
@@ -808,6 +823,9 @@ func normalizeStepForGeneration(step *Step) {
 		return
 	}
 	step.Type = normalizeIntentStepType(step.Type)
+	if strings.TrimSpace(step.Source) != "" && strings.TrimSpace(step.OpenAPI) == "" {
+		step.OpenAPI = strings.TrimSpace(step.Source)
+	}
 	applyStepBindHints(step)
 	for _, nested := range step.Steps {
 		normalizeStepForGeneration(nested)

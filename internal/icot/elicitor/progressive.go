@@ -118,16 +118,19 @@ func runProgressive(ctx context.Context, in io.Reader, out io.Writer, seed Sessi
 			}
 			return readyForSelectedOperationDraft(session, docs, issues)
 		},
-		ShouldDraftQuestion: func(session Session, docs []APIDocument, issues []ReadinessIssue, question QuestionPlan) bool {
+		DraftQuestion: func(ctx context.Context, session *Session, docs []APIDocument, issues []ReadinessIssue, question QuestionPlan) (bool, error) {
 			key := questionDraftKey(question)
 			if key == "" || questionDrafted[key] {
-				return false
+				return false, nil
 			}
 			if !questionTargetsRequestMappings(question) {
-				return false
+				return false, nil
 			}
 			questionDrafted[key] = true
-			return readyForSelectedOperationDraft(session, docs, issues)
+			if !readyForSelectedOperationDraft(*session, docs, issues) {
+				return false, nil
+			}
+			return draftRequestMappings(ctx, out, extractor, session, docs, issues, question)
 		},
 		RankDocuments: rankDocuments,
 		DeterministicPrefill: func(session *Session, docs []APIDocument) bool {
@@ -238,9 +241,9 @@ func CheckReadiness(session Session, docs []APIDocument) []ReadinessIssue {
 		add(issue.Code, issue.Slot, issue.Severity, issue.Message, issue.SuggestedAnswer)
 	}
 	if missingRefs := missingLocalAPIDocumentRefs(session, docs); len(missingRefs) > 0 {
-		add("missing_api_doc", "intent.openapi", readinessBlocking, "Local API document path is not available: "+strings.Join(missingRefs, ", ")+". Generate or provide that artifact before selecting operationIds.", "Generate/provide the missing API artifact, then rerun iCoT.")
+		add("missing_api_doc", "intent.source", readinessBlocking, "Local API document path is not available: "+strings.Join(missingRefs, ", ")+". Generate or provide that artifact before selecting operationIds.", "Generate/provide the missing API artifact, then rerun iCoT.")
 	} else if needsAPIDoc(session, docs) {
-		add("missing_api_doc", "intent.openapi", readinessBlocking, missingAPIDocMessage(session, docs), suggestedAPIDocAnswer(session, docs))
+		add("missing_api_doc", "intent.source", readinessBlocking, missingAPIDocMessage(session, docs), suggestedAPIDocAnswer(session, docs))
 	}
 	if len(session.Intent.Steps) == 0 {
 		add("missing_operation", "intent.steps", readinessBlocking, missingOperationMessage(docs), suggestedOperationAnswer(docs))
@@ -491,6 +494,7 @@ func mergeProgressiveSessions(base, overlay Session, docs []APIDocument) Session
 			base.Intent.Workflow.Idempotency = overlay.Intent.Workflow.Idempotency
 		}
 	}
+	base.Intent.Source = firstNonEmpty(base.Intent.Source, overlay.Intent.Source)
 	base.Intent.OpenAPI = firstNonEmpty(base.Intent.OpenAPI, overlay.Intent.OpenAPI)
 	base.Intent.ServerURL = firstNonEmpty(base.Intent.ServerURL, overlay.Intent.ServerURL)
 	base.Intent.Inputs = mergeInputsByName(base.Intent.Inputs, overlay.Intent.Inputs)
@@ -528,17 +532,17 @@ func mergeProgressiveSessions(base, overlay Session, docs []APIDocument) Session
 }
 
 func defaultSingleOpenAPIDoc(session *Session, docs []APIDocument) {
-	if session == nil || strings.TrimSpace(session.Intent.OpenAPI) != "" || len(docs) != 1 || !session.Intent.RequiresOpenAPI() {
+	if session == nil || intentAPISourceRef(session.Intent) != "" || len(docs) != 1 || !session.Intent.RequiresOpenAPI() {
 		return
 	}
-	session.Intent.OpenAPI = docs[0].RelativePath
+	setIntentAPISourceFromDoc(session, docs[0])
 	addMappingClassification(session, MappingClassification{
-		Slot:                 "intent.openapi",
+		Slot:                 "intent.source",
 		Value:                docs[0].RelativePath,
 		Source:               mappingSourceFallbackDefault,
 		Confidence:           mappingConfidenceReview,
 		Evidence:             docs[0].RelativePath,
-		Reason:               "Only one local OpenAPI document is available for API-backed steps.",
+		Reason:               "Only one local API source document is available for API-backed steps.",
 		RequiresConfirmation: true,
 	})
 }
@@ -660,6 +664,50 @@ func readyForSelectedOperationDraft(session Session, docs []APIDocument, issues 
 	return true
 }
 
+func draftRequestMappings(ctx context.Context, out io.Writer, extractor Extractor, session *Session, docs []APIDocument, issues []ReadinessIssue, question QuestionPlan) (bool, error) {
+	if session == nil || extractor == nil {
+		return false, nil
+	}
+	request := BuildRequestMappingRequest(draftSessionDescription(*session), *session, docs, issues, question)
+	if len(request.Steps) == 0 {
+		return false, nil
+	}
+	session.DraftEvents = append(session.DraftEvents, TranscriptEvent{Kind: "request_mapping_draft_call", Data: map[string]any{
+		"question": question.Prompt,
+		"steps":    requestMappingStepNames(request.Steps),
+	}})
+	response, err := extractor.RequestMappings(ctx, request)
+	if err != nil {
+		session.DraftEvents = append(session.DraftEvents, TranscriptEvent{Kind: "request_mapping_draft_error", Data: err.Error()})
+		if os.Getenv("OPENUDON_ICOT_DEBUG_JSON") != "" {
+			fmt.Fprintf(out, "icot: AI request mapping skipped: %v\n", err)
+		} else if message, report := progressiveDraftErrorMessage(err); report {
+			fmt.Fprintf(out, "icot: AI request mapping skipped: %s\n", message)
+		}
+		return false, nil
+	}
+	application := applyRequestMappingResponse(session, request, response)
+	for _, rejected := range application.Rejected {
+		fmt.Fprintf(out, "icot: rejected AI request mapping: %s\n", rejected)
+	}
+	if application.Applied == 0 {
+		return false, nil
+	}
+	fmt.Fprintf(out, "icot: drafted request mappings for %s from selected operation metadata\n", strings.Join(requestMappingStepNames(request.Steps), ", "))
+	return true, nil
+}
+
+func requestMappingStepNames(steps []RequestMappingStep) []string {
+	var names []string
+	for _, step := range steps {
+		name := strings.TrimSpace(step.Name)
+		if name != "" {
+			names = append(names, name)
+		}
+	}
+	return names
+}
+
 func applyCatalogDocumentAnswer(out io.Writer, session *Session, plan QuestionPlan, answer string, docs []APIDocument, exampleDir string) (bool, error) {
 	if session == nil || !questionTargetsOpenAPI(plan) {
 		return false, nil
@@ -670,9 +718,7 @@ func applyCatalogDocumentAnswer(out io.Writer, session *Session, plan QuestionPl
 	}
 	if isLocalAPIDocumentRef(answer) {
 		if doc := matchDocAnswer(answer, docs); doc.RelativePath != "" {
-			if isOpenAPIDocument(doc) {
-				session.Intent.OpenAPI = doc.RelativePath
-			}
+			setIntentAPISourceFromDoc(session, doc)
 			markAPIDocsAccepted(session, "local_api_docs_accepted", "User accepted local API documents for operation selection.")
 			return true, nil
 		}
@@ -681,13 +727,13 @@ func applyCatalogDocumentAnswer(out io.Writer, session *Session, plan QuestionPl
 			clearUnavailableAPIDocumentRefs(session, docs)
 			clearMissingStepAPIDocumentRefs(session, answer)
 			if os.IsNotExist(err) {
-				fmt.Fprintf(out, "icot: local API document not found: %s. Create that file first, or enter an existing file under openapi/ or discovery/.\n", path)
+				fmt.Fprintf(out, "icot: local API document not found: %s. Create that file first, or enter an existing file under openapi/, google-discovery/, aws-smithy/, or discovery/.\n", path)
 				return true, nil
 			}
 			return true, err
 		}
 		fmt.Fprintf(out, "icot: %s exists but is not in local API metadata yet. Check that it is valid OpenAPI/Discovery JSON or YAML, then answer with the same path again.\n", answer)
-		session.Intent.OpenAPI = filepath.ToSlash(answer)
+		session.Intent.Source = filepath.ToSlash(answer)
 		return true, nil
 	}
 	if !isAffirmativeAnswer(answer) {
@@ -714,8 +760,8 @@ func applyCatalogDocumentAnswer(out io.Writer, session *Session, plan QuestionPl
 	}
 	if len(docs) > 0 {
 		markAPIDocsAccepted(session, "local_api_docs_accepted", "User accepted local API documents for operation selection.")
-		if len(docs) == 1 && strings.TrimSpace(session.Intent.OpenAPI) == "" && isOpenAPIDocument(docs[0]) {
-			session.Intent.OpenAPI = docs[0].RelativePath
+		if len(docs) == 1 && intentAPISourceRef(session.Intent) == "" {
+			setIntentAPISourceFromDoc(session, docs[0])
 		}
 		return true, nil
 	}
@@ -724,7 +770,7 @@ func applyCatalogDocumentAnswer(out io.Writer, session *Session, plan QuestionPl
 
 func questionTargetsOpenAPI(plan QuestionPlan) bool {
 	for _, slot := range plan.Slots {
-		if strings.Contains(slot, "intent.openapi") {
+		if strings.Contains(slot, "intent.openapi") || strings.Contains(slot, "intent.source") {
 			return true
 		}
 	}
@@ -781,7 +827,13 @@ func clearMissingStepAPIDocumentRefs(session *Session, ref string) {
 	}
 	ref = filepath.ToSlash(strings.TrimSpace(ref))
 	walkSteps(session.Intent.Steps, func(step *rollout.Step) {
-		if step != nil && filepath.ToSlash(strings.TrimSpace(step.OpenAPI)) == ref {
+		if step == nil {
+			return
+		}
+		if filepath.ToSlash(strings.TrimSpace(step.Source)) == ref {
+			step.Source = ""
+		}
+		if filepath.ToSlash(strings.TrimSpace(step.OpenAPI)) == ref {
 			step.OpenAPI = ""
 		}
 	})
@@ -797,12 +849,18 @@ func clearUnavailableAPIDocumentRefs(session *Session, docs []APIDocument) {
 			available[filepath.ToSlash(doc.RelativePath)] = true
 		}
 	}
+	if ref := filepath.ToSlash(strings.TrimSpace(session.Intent.Source)); isLocalAPIDocumentRef(ref) && !available[ref] {
+		session.Intent.Source = ""
+	}
 	if ref := filepath.ToSlash(strings.TrimSpace(session.Intent.OpenAPI)); isLocalAPIDocumentRef(ref) && !available[ref] {
 		session.Intent.OpenAPI = ""
 	}
 	walkSteps(session.Intent.Steps, func(step *rollout.Step) {
 		if step == nil {
 			return
+		}
+		if ref := filepath.ToSlash(strings.TrimSpace(step.Source)); isLocalAPIDocumentRef(ref) && !available[ref] {
+			step.Source = ""
 		}
 		if ref := filepath.ToSlash(strings.TrimSpace(step.OpenAPI)); isLocalAPIDocumentRef(ref) && !available[ref] {
 			step.OpenAPI = ""
@@ -913,6 +971,7 @@ func mergeStep(base, overlay *rollout.Step) {
 	base.When = firstNonEmpty(base.When, overlay.When)
 	base.ForEach = firstNonEmpty(base.ForEach, overlay.ForEach)
 	base.Provider = firstNonEmpty(base.Provider, overlay.Provider)
+	base.Source = firstNonEmpty(base.Source, overlay.Source)
 	base.OpenAPI = firstNonEmpty(base.OpenAPI, overlay.OpenAPI)
 	base.Operation = firstNonEmpty(base.Operation, overlay.Operation)
 	if base.Timeout == nil {
@@ -948,29 +1007,31 @@ func applyProgressiveAnswer(session *Session, plan QuestionPlan, answer string, 
 		session.Intent.Workflow.Description = firstNonEmpty(session.Intent.Workflow.Description, answer)
 		session.Intent.Workflow.Name = firstNonEmpty(session.Intent.Workflow.Name, actionName(answer))
 		session.Project.Goal = firstNonEmpty(session.Project.Goal, answer)
-	case strings.Contains(slotText, "intent.openapi"):
+	case strings.Contains(slotText, "intent.openapi") || strings.Contains(slotText, "intent.source"):
 		if doc := matchDocAnswer(answer, docs); doc.RelativePath != "" {
-			session.Intent.OpenAPI = doc.RelativePath
+			setIntentAPISourceFromDoc(session, doc)
 		} else {
-			session.Intent.OpenAPI = answer
+			session.Intent.Source = answer
 		}
 		addMappingClassification(session, MappingClassification{
-			Slot:                 "intent.openapi",
-			Value:                session.Intent.OpenAPI,
+			Slot:                 "intent.source",
+			Value:                intentAPISourceRef(session.Intent),
 			Source:               mappingSourceUser,
 			Confidence:           mappingConfidenceHigh,
 			Evidence:             answer,
-			Reason:               "User selected the OpenAPI document.",
+			Reason:               "User selected the API source document.",
 			RequiresConfirmation: false,
 		})
 	case strings.Contains(slotText, "operation") || strings.Contains(slotText, "intent.steps"):
 		if doc, op := matchOperationAnswerForPlan(session, plan, answer, docs); op != nil {
-			if isOpenAPIDocument(doc) {
-				session.Intent.OpenAPI = firstNonEmpty(session.Intent.OpenAPI, doc.RelativePath)
+			if intentAPISourceRef(session.Intent) == "" {
+				setIntentAPISourceFromDoc(session, doc)
 			}
 			target := targetStepForPlan(session, plan)
 			if len(session.Intent.Steps) == 0 {
-				session.Intent.Steps = []*rollout.Step{stepFromOperation(op)}
+				step := stepFromOperation(op)
+				setStepAPISourceFromDoc(step, doc)
+				session.Intent.Steps = []*rollout.Step{step}
 			} else {
 				if target == nil {
 					target = session.Intent.Steps[0]
@@ -978,7 +1039,9 @@ func applyProgressiveAnswer(session *Session, plan QuestionPlan, answer string, 
 				target.Type = firstNonEmpty(target.Type, "http")
 				target.Do = firstNonEmpty(target.Do, op.Summary, operationLabel(*op))
 				target.Operation = op.OperationID
-				target.OpenAPI = firstNonEmpty(target.OpenAPI, doc.RelativePath)
+				if strings.TrimSpace(firstNonEmpty(target.Source, target.OpenAPI)) == "" {
+					setStepAPISourceFromDoc(target, doc)
+				}
 			}
 			selectedStep := target
 			if selectedStep == nil && len(session.Intent.Steps) > 0 {
@@ -996,7 +1059,7 @@ func applyProgressiveAnswer(session *Session, plan QuestionPlan, answer string, 
 		} else if len(session.Intent.Steps) == 0 || !questionTargetsExistingAPIStep(session, plan) {
 			stepType := "fnct"
 			operation := ""
-			if strings.TrimSpace(session.Intent.OpenAPI) != "" {
+			if intentAPISourceRef(session.Intent) != "" {
 				stepType = "http"
 				operation = slugIdent(answer)
 			}
@@ -1164,9 +1227,9 @@ func filterDocsForStep(session *Session, docs []APIDocument, step *rollout.Step)
 	if step == nil {
 		return docs
 	}
-	docPath := strings.TrimSpace(step.OpenAPI)
+	docPath := strings.TrimSpace(firstNonEmpty(step.Source, step.OpenAPI))
 	if docPath == "" && session != nil {
-		docPath = strings.TrimSpace(session.Intent.OpenAPI)
+		docPath = intentAPISourceRef(session.Intent)
 	}
 	if docPath != "" {
 		var filtered []APIDocument
@@ -1220,6 +1283,9 @@ func deterministicPrefill(session *Session, docs []APIDocument) bool {
 		return false
 	}
 	changed := false
+	if addDeterministicPreworkSteps(session, docs) {
+		changed = true
+	}
 	walkSteps(session.Intent.Steps, func(step *rollout.Step) {
 		if step == nil {
 			return
@@ -1228,8 +1294,8 @@ func deterministicPrefill(session *Session, docs []APIDocument) bool {
 			choices := rankedOperationChoicesForStep(*session, docs, step)
 			if len(choices) == 1 && strings.TrimSpace(choices[0].Op.OperationID) != "" {
 				step.Operation = choices[0].Op.OperationID
-				if strings.TrimSpace(step.OpenAPI) == "" && strings.TrimSpace(session.Intent.OpenAPI) == "" {
-					step.OpenAPI = choices[0].Doc.RelativePath
+				if stepAPISourceRef(*session, step) == "" {
+					setStepAPISourceFromDoc(step, choices[0].Doc)
 				}
 				addMappingClassification(session, MappingClassification{
 					Slot:                 "steps." + firstNonEmpty(step.Name, "step") + ".operation",
@@ -1305,6 +1371,262 @@ func deterministicPrefill(session *Session, docs []APIDocument) bool {
 		}
 	}
 	return changed
+}
+
+func addDeterministicPreworkSteps(session *Session, docs []APIDocument) bool {
+	if session == nil {
+		return false
+	}
+	changed := false
+	for _, step := range append([]*rollout.Step(nil), session.Intent.Steps...) {
+		if addOpenWeatherMapGeocodePrework(session, docs, step) {
+			changed = true
+		}
+	}
+	return changed
+}
+
+func addOpenWeatherMapGeocodePrework(session *Session, docs []APIDocument, weatherStep *rollout.Step) bool {
+	if session == nil || weatherStep == nil {
+		return false
+	}
+	if strings.TrimSpace(weatherStep.Operation) != "getOpenWeatherMapOneCall3" {
+		return false
+	}
+	weatherOp, ok := operationForStep(*session, docs, weatherStep)
+	if !ok {
+		return false
+	}
+	missing := map[string]bool{}
+	for _, field := range missingRequiredFields(weatherStep, weatherOp) {
+		missing[field] = true
+	}
+	if !missing["lat"] || !missing["lon"] {
+		return false
+	}
+	if hasDependencyForFields(weatherStep, "lat", "lon") {
+		return false
+	}
+	location := locationLiteralFromWorkflow(*session)
+	if location == "" {
+		return false
+	}
+	doc, ok := documentForStep(*session, docs, weatherStep, weatherOp)
+	if !ok {
+		return false
+	}
+	geocodeOp, ok := operationByID([]APIDocument{doc}, doc.RelativePath, "geocodeOpenWeatherMapLocationName")
+	if !ok {
+		return false
+	}
+	geocodeName := uniqueStepName(session.Intent.Steps, "geocode_openweathermap_location")
+	credential := ensureCredentialBinding(session, suggestedCredentialNameForOperation(*session, docs, weatherStep, weatherOp), mappingSourceDeterministic, "OpenWeatherMap geocoding and weather steps require the same symbolic API credential binding.")
+	geocodeStep := &rollout.Step{
+		Name:      geocodeName,
+		Type:      "http",
+		Do:        "Resolve " + location + " to OpenWeatherMap coordinates.",
+		Provider:  firstNonEmpty(weatherStep.Provider, "openweathermap"),
+		OpenAPI:   doc.RelativePath,
+		Operation: geocodeOp.OperationID,
+		With:      map[string]string{},
+	}
+	setStepWithIfEmpty(geocodeStep, "q", location)
+	addMappingClassification(session, MappingClassification{
+		Slot:                 stepWithSlot(geocodeStep, "q"),
+		Value:                location,
+		Source:               mappingSourceDeterministic,
+		Confidence:           mappingConfidenceReview,
+		Evidence:             draftSessionDescription(*session),
+		Reason:               "The workflow brief names a location and the local OpenWeatherMap overlay includes a geocoding operation.",
+		RequiresConfirmation: true,
+	})
+	addDeterministicCredentialMappings(session, docs, geocodeStep, geocodeOp, credential, "The geocoding prework step uses the same OpenWeatherMap credential binding as the weather step.")
+	addDeterministicCredentialMappings(session, docs, weatherStep, weatherOp, credential, "The selected weather operation requires the OpenWeatherMap credential binding.")
+	insertStepBefore(session, weatherStep, geocodeStep)
+	weatherStep.DependsOn = appendUniqueString(weatherStep.DependsOn, geocodeName)
+	weatherStep.Binds = append(weatherStep.Binds, &rollout.StepBind{
+		From: geocodeName,
+		Fields: map[string]string{
+			"lat": "received_body[0].lat",
+			"lon": "received_body[0].lon",
+		},
+	})
+	recordPreworkAssumption(session, geocodeStep, weatherStep, location)
+	return true
+}
+
+func hasDependencyForFields(step *rollout.Step, fields ...string) bool {
+	if step == nil {
+		return false
+	}
+	needed := map[string]bool{}
+	for _, field := range fields {
+		needed[field] = true
+	}
+	for _, bind := range step.Binds {
+		if bind == nil {
+			continue
+		}
+		for field, source := range bind.Fields {
+			if needed[field] && strings.TrimSpace(source) != "" {
+				delete(needed, field)
+			}
+		}
+	}
+	return len(needed) == 0
+}
+
+func locationLiteralFromWorkflow(session Session) string {
+	description := draftSessionDescription(session)
+	if description == "" {
+		return ""
+	}
+	lower := strings.ToLower(description)
+	for _, marker := range []string{"weather of ", "weather in ", "weather for "} {
+		idx := strings.Index(lower, marker)
+		if idx < 0 {
+			continue
+		}
+		start := idx + len(marker)
+		rest := description[start:]
+		restLower := lower[start:]
+		end := len(rest)
+		for _, stop := range []string{", and then", " and then", ", then", " then ", ". ", ";"} {
+			if stopIdx := strings.Index(restLower, stop); stopIdx >= 0 && stopIdx < end {
+				end = stopIdx
+			}
+		}
+		location := strings.Trim(rest[:end], " ,.;")
+		location = strings.TrimPrefix(location, "the ")
+		if location != "" && !strings.Contains(strings.ToLower(location), "lat") && !strings.Contains(strings.ToLower(location), "lon") {
+			return location
+		}
+	}
+	return ""
+}
+
+func ensureCredentialBinding(session *Session, credential, source, reason string) string {
+	credential = strings.TrimSpace(credential)
+	if session == nil || credential == "" {
+		return credential
+	}
+	session.Credentials = dedupeStrings(append(session.Credentials, credential))
+	session.CredentialsSet = true
+	addMappingClassification(session, MappingClassification{
+		Slot:                 "credentials",
+		Value:                credential,
+		Source:               source,
+		Confidence:           mappingConfidenceReview,
+		Evidence:             credential,
+		Reason:               reason,
+		RequiresConfirmation: true,
+	})
+	return credential
+}
+
+func addDeterministicCredentialMappings(session *Session, docs []APIDocument, step *rollout.Step, op *apitools.OperationSummary, credential, reason string) bool {
+	if session == nil || step == nil || op == nil || credential == "" {
+		return false
+	}
+	changed := false
+	source := "credentials." + credential
+	for _, field := range requiredMappingFields(op) {
+		if !suggestedCredentialField(field, op) && !apiKeyParameterField(field, op) {
+			continue
+		}
+		if setStepWithIfEmpty(step, field, source) {
+			addDeterministicPrefillAssumption(session, step, field, source, "credential binding", reason)
+			addMappingClassification(session, MappingClassification{
+				Slot:                 stepWithSlot(step, field),
+				Value:                source,
+				Source:               mappingSourceDeterministic,
+				Confidence:           mappingConfidenceReview,
+				Evidence:             "credential binding " + source,
+				Reason:               reason,
+				RequiresConfirmation: true,
+			})
+			changed = true
+		}
+	}
+	return changed
+}
+
+func apiKeyParameterField(field string, op *apitools.OperationSummary) bool {
+	if op == nil {
+		return false
+	}
+	for _, security := range op.Security {
+		if strings.EqualFold(security.Type, "apiKey") && strings.TrimSpace(security.ParameterName) != "" && field == security.ParameterName {
+			return true
+		}
+	}
+	return false
+}
+
+func insertStepBefore(session *Session, before, inserted *rollout.Step) {
+	if session == nil || before == nil || inserted == nil {
+		return
+	}
+	for i, step := range session.Intent.Steps {
+		if step == before {
+			next := append([]*rollout.Step{}, session.Intent.Steps[:i]...)
+			next = append(next, inserted)
+			next = append(next, session.Intent.Steps[i:]...)
+			session.Intent.Steps = next
+			return
+		}
+	}
+	session.Intent.Steps = append([]*rollout.Step{inserted}, session.Intent.Steps...)
+}
+
+func uniqueStepName(steps []*rollout.Step, base string) string {
+	base = slugIdent(base)
+	if base == "" {
+		base = "step"
+	}
+	used := map[string]bool{}
+	walkSteps(steps, func(step *rollout.Step) {
+		if step != nil && strings.TrimSpace(step.Name) != "" {
+			used[step.Name] = true
+		}
+	})
+	if !used[base] {
+		return base
+	}
+	for i := 2; ; i++ {
+		candidate := fmt.Sprintf("%s_%d", base, i)
+		if !used[candidate] {
+			return candidate
+		}
+	}
+}
+
+func appendUniqueString(values []string, value string) []string {
+	value = strings.TrimSpace(value)
+	if value == "" {
+		return values
+	}
+	for _, existing := range values {
+		if existing == value {
+			return values
+		}
+	}
+	return append(values, value)
+}
+
+func recordPreworkAssumption(session *Session, geocodeStep, weatherStep *rollout.Step, location string) {
+	if session == nil || geocodeStep == nil || weatherStep == nil {
+		return
+	}
+	session.Assumptions = mergeAssumptions(session.Assumptions, []Assumption{{
+		ID:                   "deterministic_prework_" + slugIdent(geocodeStep.Name),
+		Slot:                 "steps." + geocodeStep.Name,
+		Value:                geocodeStep.Name + " -> " + weatherStep.Name,
+		Reason:               "The workflow names a location, while the selected weather operation requires latitude and longitude. A local OpenWeatherMap geocoding operation can produce those values as a legal workflow step.",
+		Evidence:             location,
+		Risk:                 "review",
+		RequiresConfirmation: true,
+	}})
 }
 
 func setStepWithIfEmpty(step *rollout.Step, field, source string) bool {
@@ -1408,14 +1730,14 @@ func needsAPIDoc(session Session, docs []APIDocument) bool {
 	if len(missingLocalAPIDocumentRefs(session, docs)) > 0 {
 		return true
 	}
-	if strings.TrimSpace(session.Intent.OpenAPI) != "" {
+	if intentAPISourceRef(session.Intent) != "" {
 		return false
 	}
 	hints := CatalogHintsForSession(session)
 	if len(catalogProvidersMissingLocalDocs(hints, docs)) > 0 {
 		return true
 	}
-	if len(hints) > 0 && len(docs) > 0 && !apiDocsAccepted(session) && strings.TrimSpace(session.Intent.OpenAPI) == "" {
+	if len(hints) > 0 && len(docs) > 0 && !apiDocsAccepted(session) && intentAPISourceRef(session.Intent) == "" {
 		return true
 	}
 	if apiDocsAccepted(session) && len(docs) > 0 {
@@ -1435,7 +1757,7 @@ func needsAPIDoc(session Session, docs []APIDocument) bool {
 			continue
 		}
 		stepType := strings.ToLower(strings.TrimSpace(step.Type))
-		if (stepType == "http" || stepType == "openapi") && strings.TrimSpace(step.OpenAPI) == "" {
+		if (stepType == "http" || stepType == "openapi") && stepAPISourceRef(session, step) == "" {
 			return true
 		}
 	}
@@ -1512,9 +1834,11 @@ func missingLocalAPIDocumentRefs(session Session, docs []APIDocument) []string {
 		seen[ref] = true
 		missing = append(missing, ref)
 	}
+	add(session.Intent.Source)
 	add(session.Intent.OpenAPI)
 	walkSteps(session.Intent.Steps, func(step *rollout.Step) {
 		if step != nil {
+			add(step.Source)
 			add(step.OpenAPI)
 		}
 	})
@@ -1530,7 +1854,7 @@ func isLocalAPIDocumentRef(ref string) bool {
 	if strings.HasPrefix(ref, "http://") || strings.HasPrefix(ref, "https://") {
 		return false
 	}
-	return strings.HasPrefix(ref, "openapi/") || strings.HasPrefix(ref, "discovery/")
+	return strings.HasPrefix(ref, "openapi/") || strings.HasPrefix(ref, "google-discovery/") || strings.HasPrefix(ref, "aws-smithy/") || strings.HasPrefix(ref, "discovery/")
 }
 
 func catalogProvidersMissingLocalDocs(hints []CatalogHint, docs []APIDocument) []string {
@@ -1583,9 +1907,9 @@ func operationForStep(session Session, docs []APIDocument, step *rollout.Step) (
 	if step == nil || strings.TrimSpace(step.Operation) == "" {
 		return nil, false
 	}
-	docPath := firstNonEmpty(step.OpenAPI, session.Intent.OpenAPI)
+	docPath := stepAPISourceRef(session, step)
 	searchDocs := docs
-	if strings.TrimSpace(step.Provider) != "" || strings.TrimSpace(step.OpenAPI) != "" {
+	if strings.TrimSpace(step.Provider) != "" || strings.TrimSpace(firstNonEmpty(step.Source, step.OpenAPI)) != "" {
 		searchDocs = filterDocsForStep(&session, docs, step)
 		if len(searchDocs) == 0 {
 			return nil, false
@@ -1759,6 +2083,7 @@ func expressionLikeSource(source string) bool {
 	return strings.HasPrefix(source, "inputs.") ||
 		strings.HasPrefix(source, "credentials.") ||
 		strings.HasPrefix(source, "credential.") ||
+		strings.HasPrefix(source, "received_body") ||
 		strings.Contains(source, ".received_") ||
 		strings.Contains(source, ".body") ||
 		strings.HasPrefix(source, "${")
@@ -1997,7 +2322,7 @@ func rankedOperationChoicesForStep(session Session, docs []APIDocument, step *ro
 	query := rankingTokenWeights(operationSelectionRankingText(session, step))
 	var choices []rankedOperationChoice
 	for _, doc := range filtered {
-		selectedDoc := strings.TrimSpace(doc.RelativePath) != "" && doc.RelativePath == firstNonEmpty(step.OpenAPI, session.Intent.OpenAPI)
+		selectedDoc := strings.TrimSpace(doc.RelativePath) != "" && doc.RelativePath == stepAPISourceRef(session, step)
 		for _, op := range doc.Operations {
 			if strings.TrimSpace(op.OperationID) == "" {
 				continue
@@ -2030,10 +2355,10 @@ func operationSelectionRankingText(session Session, step *rollout.Step) string {
 		session.Project.Goal,
 		session.Project.DataFlow,
 		session.Project.Outputs,
-		session.Intent.OpenAPI,
+		intentAPISourceRef(session.Intent),
 	)
 	if step != nil {
-		parts = append(parts, step.Name, step.Do, step.Provider, step.OpenAPI)
+		parts = append(parts, step.Name, step.Do, step.Provider, firstNonEmpty(step.Source, step.OpenAPI))
 		for field, value := range step.With {
 			parts = append(parts, field, value)
 		}
@@ -2301,9 +2626,9 @@ func documentForStep(session Session, docs []APIDocument, step *rollout.Step, op
 	if op == nil {
 		return APIDocument{}, false
 	}
-	docPath := session.Intent.OpenAPI
+	docPath := intentAPISourceRef(session.Intent)
 	if step != nil {
-		docPath = firstNonEmpty(step.OpenAPI, docPath)
+		docPath = stepAPISourceRef(session, step)
 	}
 	for _, doc := range docs {
 		if docPath != "" && doc.RelativePath != docPath {

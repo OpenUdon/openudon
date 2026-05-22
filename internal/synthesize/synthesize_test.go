@@ -2469,7 +2469,7 @@ func TestValidateIntentOpenAPIOperationsRequiresOperationOnOpenAPIStep(t *testin
 			Type: "http",
 			Do:   "Fetch weather.",
 		}},
-	}, nil, "")
+	}, t.TempDir(), nil, "")
 	if err == nil || !strings.Contains(err.Error(), "missing operation") {
 		t.Fatalf("expected missing operation error, got %v", err)
 	}

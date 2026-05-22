@@ -229,6 +229,73 @@ func TestDiscoverLocalAPIsIncludesGoogleDiscoveryOperations(t *testing.T) {
 	}
 }
 
+func TestDiscoverLocalAPIsIncludesAWSSmithyOperations(t *testing.T) {
+	example := t.TempDir()
+	dir := filepath.Join(example, "aws-smithy")
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		t.Fatalf("mkdir aws-smithy: %v", err)
+	}
+	data := `{
+	  "smithy": "2.0",
+	  "shapes": {
+	    "com.amazonaws.lambda#Lambda": {
+	      "type": "service",
+	      "version": "2015-03-31",
+	      "operations": [{"target": "com.amazonaws.lambda#GetFunction"}],
+	      "traits": {
+	        "aws.api#service": {
+	          "sdkId": "Lambda",
+	          "arnNamespace": "lambda",
+	          "endpointPrefix": "lambda"
+	        },
+	        "aws.auth#sigv4": {"name": "lambda"},
+	        "aws.protocols#restJson1": {}
+	      }
+	    },
+	    "com.amazonaws.lambda#GetFunction": {
+	      "type": "operation",
+	      "input": {"target": "com.amazonaws.lambda#GetFunctionRequest"},
+	      "traits": {
+	        "smithy.api#http": {"method": "GET", "uri": "/2015-03-31/functions/{FunctionName}", "code": 200}
+	      }
+	    },
+	    "com.amazonaws.lambda#GetFunctionRequest": {
+	      "type": "structure",
+	      "members": {
+	        "FunctionName": {
+	          "target": "smithy.api#String",
+	          "traits": {
+	            "smithy.api#required": {},
+	            "smithy.api#httpLabel": {}
+	          }
+	        }
+	      }
+	    }
+	  }
+	}`
+	if err := os.WriteFile(filepath.Join(dir, "lambda.json"), []byte(data), 0o644); err != nil {
+		t.Fatalf("write smithy: %v", err)
+	}
+
+	docs, err := DiscoverLocalAPIs(example, "lambda get function")
+	if err != nil {
+		t.Fatalf("DiscoverLocalAPIs failed: %v", err)
+	}
+	if len(docs) != 1 {
+		t.Fatalf("docs = %#v, want one smithy doc", docs)
+	}
+	if docs[0].RelativePath != "aws-smithy/lambda.json" || len(docs[0].Operations) != 1 {
+		t.Fatalf("unexpected smithy doc: %#v", docs[0])
+	}
+	op := docs[0].Operations[0]
+	if op.OperationID != "GetFunction" || op.Method != "GET" {
+		t.Fatalf("operation = %#v", op)
+	}
+	if len(op.Parameters) != 1 || op.Parameters[0].Name != "FunctionName" || op.Parameters[0].In != "path" {
+		t.Fatalf("parameters = %#v", op.Parameters)
+	}
+}
+
 func TestRunCreatesStepBindFromPriorOutput(t *testing.T) {
 	example := t.TempDir()
 	input := strings.Join([]string{
@@ -347,8 +414,10 @@ func (e draftExtractor) Draft(context.Context, DraftRequest) (Session, error) {
 
 type sequenceDraftExtractor struct {
 	noopExtractor
-	drafts []Session
-	calls  []DraftRequest
+	drafts                 []Session
+	calls                  []DraftRequest
+	requestMappingResponse RequestMappingResponse
+	requestMappingRequests []RequestMappingRequest
 }
 
 func (e *sequenceDraftExtractor) Draft(_ context.Context, request DraftRequest) (Session, error) {
@@ -361,6 +430,11 @@ func (e *sequenceDraftExtractor) Draft(_ context.Context, request DraftRequest) 
 		e.drafts = e.drafts[1:]
 	}
 	return draft, nil
+}
+
+func (e *sequenceDraftExtractor) RequestMappings(_ context.Context, request RequestMappingRequest) (RequestMappingResponse, error) {
+	e.requestMappingRequests = append(e.requestMappingRequests, request)
+	return e.requestMappingResponse, nil
 }
 
 type catalogPlanningExtractor struct {
@@ -426,8 +500,13 @@ func TestProgressiveTwoQuestionPathUsesReadinessFeedback(t *testing.T) {
 	writeOpenAPI(t, example)
 	first := supportTicketDraft(false)
 	first.Intent.Inputs = nil
-	second := supportTicketDraft(true)
-	extractor := &sequenceDraftExtractor{drafts: []Session{first, second}}
+	extractor := &sequenceDraftExtractor{
+		drafts: []Session{first},
+		requestMappingResponse: RequestMappingResponse{Steps: []RequestMappingStepResponse{{
+			Name: "get_ticket",
+			With: map[string]string{"ticketId": "inputs.ticketId"},
+		}}},
+	}
 	input := strings.Join([]string{
 		"Fetch a support ticket.",
 		"getTicket",
@@ -445,8 +524,8 @@ func TestProgressiveTwoQuestionPathUsesReadinessFeedback(t *testing.T) {
 	if strings.Contains(out.String(), "What values should the required request fields use?") {
 		t.Fatalf("required-field question was shown before LLM mapping draft:\n%s", out.String())
 	}
-	if len(extractor.calls) < 2 || len(extractor.calls[1].ReadinessFeedback) == 0 {
-		t.Fatalf("operation-context draft did not receive readiness feedback: %#v", extractor.calls)
+	if len(extractor.requestMappingRequests) != 1 || len(extractor.requestMappingRequests[0].ReadinessIssues) == 0 {
+		t.Fatalf("request-mapping draft did not receive readiness feedback: %#v", extractor.requestMappingRequests)
 	}
 }
 
@@ -454,8 +533,13 @@ func TestProgressiveQuestionDraftFillsRequiredMappingsBeforePrompt(t *testing.T)
 	example := t.TempDir()
 	writeOpenAPI(t, example)
 	first := Session{}
-	second := supportTicketDraft(true)
-	extractor := &sequenceDraftExtractor{drafts: []Session{first, second}}
+	extractor := &sequenceDraftExtractor{
+		drafts: []Session{first},
+		requestMappingResponse: RequestMappingResponse{Steps: []RequestMappingStepResponse{{
+			Name: "get_ticket",
+			With: map[string]string{"ticketId": "inputs.ticketId"},
+		}}},
+	}
 	input := strings.Join([]string{
 		"Fetch a support ticket.",
 		"getTicket",
@@ -480,8 +564,11 @@ func TestProgressiveQuestionDraftFillsRequiredMappingsBeforePrompt(t *testing.T)
 	if got := intent.Steps[0].With["ticketId"]; got != "inputs.ticketId" {
 		t.Fatalf("ticketId mapping = %q", got)
 	}
-	if len(extractor.calls) != 2 {
-		t.Fatalf("draft calls = %d, want initial plus question draft", len(extractor.calls))
+	if len(extractor.calls) != 1 {
+		t.Fatalf("draft calls = %d, want initial draft only", len(extractor.calls))
+	}
+	if len(extractor.requestMappingRequests) != 1 {
+		t.Fatalf("request mapping calls = %d, want 1", len(extractor.requestMappingRequests))
 	}
 }
 
@@ -876,8 +963,34 @@ func TestDefaultSingleOpenAPIDocRecordsFallbackReviewClassification(t *testing.T
 	session.Intent.OpenAPI = ""
 	defaultSingleOpenAPIDoc(&session, []APIDocument{{RelativePath: "openapi/support.yaml"}})
 
-	if !hasClassification(session.Classifications, "intent.openapi", "openapi/support.yaml", mappingSourceFallbackDefault, mappingConfidenceReview) {
+	if !hasClassification(session.Classifications, "intent.source", "openapi/support.yaml", mappingSourceFallbackDefault, mappingConfidenceReview) {
 		t.Fatalf("missing openapi fallback classification: %#v", session.Classifications)
+	}
+}
+
+func TestMergeProgressiveSessionsPreservesSource(t *testing.T) {
+	base := Session{}
+	overlay := Session{Intent: rollout.Intent{Source: "google-discovery/gmail.json"}}
+
+	merged := mergeProgressiveSessions(base, overlay, nil)
+
+	if merged.Intent.Source != "google-discovery/gmail.json" {
+		t.Fatalf("source = %q", merged.Intent.Source)
+	}
+}
+
+func TestApplyCatalogDocumentAnswerSetsNativeSource(t *testing.T) {
+	session := Session{}
+	docs := []APIDocument{{RelativePath: "google-discovery/gmail.json"}}
+	ok, err := applyCatalogDocumentAnswer(&strings.Builder{}, &session, QuestionPlan{Slots: []string{"intent.source"}}, "google-discovery/gmail.json", docs, t.TempDir())
+	if err != nil || !ok {
+		t.Fatalf("applyCatalogDocumentAnswer ok=%v err=%v", ok, err)
+	}
+	if session.Intent.Source != "google-discovery/gmail.json" {
+		t.Fatalf("source = %q", session.Intent.Source)
+	}
+	if session.Intent.OpenAPI != "" {
+		t.Fatalf("openapi alias should be empty for native source, got %q", session.Intent.OpenAPI)
 	}
 }
 
@@ -1108,6 +1221,66 @@ func TestReadinessAcceptsRequiredSecurityCredentialField(t *testing.T) {
 	issues := CheckReadiness(session, docs)
 	if hasReadinessCode(issues, "invented_request_field") {
 		t.Fatalf("security credential field was treated as invented: %#v", issues)
+	}
+}
+
+func TestDeterministicPrefillAddsOpenWeatherMapGeocodePrework(t *testing.T) {
+	session := Session{Intent: rollout.Intent{
+		Workflow: &rollout.WorkflowMeta{Description: "get weather of Toronto, Canada, and then gmail me the report"},
+		Steps: []*rollout.Step{{
+			Name:      "openweathermap",
+			Type:      "http",
+			Provider:  "openweathermap",
+			OpenAPI:   "openapi/openweathermap-one-call-3-overlay.json",
+			Operation: "getOpenWeatherMapOneCall3",
+			With:      map[string]string{},
+		}},
+	}}
+	docs := []APIDocument{{RelativePath: "openapi/openweathermap-one-call-3-overlay.json", Title: "OpenWeatherMap One Call 3.0 and Geocoding Advisory Overlay", Operations: []apitools.OperationSummary{
+		{
+			OperationID: "getOpenWeatherMapOneCall3",
+			Parameters: []apitools.ParameterSummary{
+				{Name: "lat", In: "query", Required: true, Type: "number"},
+				{Name: "lon", In: "query", Required: true, Type: "number"},
+				{Name: "appid", In: "query", Required: true, Type: "string"},
+			},
+			Security: []apitools.SecuritySummary{{Name: "openWeatherAPIKey", Type: "apiKey", In: "query", ParameterName: "appid"}},
+		},
+		{
+			OperationID: "geocodeOpenWeatherMapLocationName",
+			Parameters: []apitools.ParameterSummary{
+				{Name: "q", In: "query", Required: true, Type: "string"},
+				{Name: "appid", In: "query", Required: true, Type: "string"},
+			},
+			Security: []apitools.SecuritySummary{{Name: "openWeatherAPIKey", Type: "apiKey", In: "query", ParameterName: "appid"}},
+		},
+	}}}
+
+	if !deterministicPrefill(&session, docs) {
+		t.Fatal("deterministic prefill did not add geocode prework")
+	}
+	if len(session.Intent.Steps) != 2 {
+		t.Fatalf("steps = %#v, want geocode plus weather", session.Intent.Steps)
+	}
+	geocode := session.Intent.Steps[0]
+	weather := session.Intent.Steps[1]
+	if geocode.Operation != "geocodeOpenWeatherMapLocationName" || geocode.With["q"] != "Toronto, Canada" {
+		t.Fatalf("geocode step = %#v", geocode)
+	}
+	if got := weather.DependsOn; len(got) != 1 || got[0] != geocode.Name {
+		t.Fatalf("weather depends_on = %#v, want %s", got, geocode.Name)
+	}
+	if len(weather.Binds) != 1 || weather.Binds[0].From != geocode.Name || weather.Binds[0].Fields["lat"] != "received_body[0].lat" || weather.Binds[0].Fields["lon"] != "received_body[0].lon" {
+		t.Fatalf("weather binds = %#v", weather.Binds)
+	}
+	if weather.With["appid"] == "" || geocode.With["appid"] == "" {
+		t.Fatalf("credential parameter mappings missing: geocode=%#v weather=%#v", geocode.With, weather.With)
+	}
+	issues := CheckReadiness(session, docs)
+	for _, issue := range issues {
+		if issue.Code == "missing_required_request_values" && strings.Contains(issue.Slot, "openweathermap") {
+			t.Fatalf("weather still missing request mappings: %#v", issues)
+		}
 	}
 }
 
@@ -1502,7 +1675,7 @@ func TestProgressiveTranscriptIncludesCatalogPlanEvents(t *testing.T) {
 		t.Fatalf("read transcript: %v", err)
 	}
 	text := string(data)
-	for _, expected := range []string{"catalog_plan_call", "catalog_plan_result", "gmail:discovery/gmail-discovery-v1.json"} {
+	for _, expected := range []string{"catalog_plan_call", "catalog_plan_result", "gmail:google-discovery/gmail-discovery-v1.json"} {
 		if !strings.Contains(text, expected) {
 			t.Fatalf("transcript missing %q:\n%s", expected, text)
 		}

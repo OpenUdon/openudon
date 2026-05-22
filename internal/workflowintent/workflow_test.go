@@ -57,6 +57,38 @@ func TestValidateCompleteReportsOpenUdonMissingSlots(t *testing.T) {
 	}
 }
 
+func TestIntentSourceAliasNormalizesForGeneration(t *testing.T) {
+	intent, err := ParseIntent([]byte(`source = "google-discovery/gmail.json"
+
+workflow {
+  name = "gmail_send"
+}
+
+step "send" {
+  type      = "http"
+  source    = "google-discovery/gmail.json"
+  operation = "gmail_users_messages_send"
+  with = {
+    "path.userId" = "me"
+  }
+}
+`), IntentPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	normalized := intent.NormalizedForGeneration()
+	if normalized.OpenAPI != "google-discovery/gmail.json" || normalized.Steps[0].OpenAPI != "google-discovery/gmail.json" {
+		t.Fatalf("source alias was not normalized: %#v", normalized)
+	}
+	rendered, err := RenderIntentHCL(intent)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(rendered, `source = "google-discovery/gmail.json"`) {
+		t.Fatalf("rendered intent missing source alias:\n%s", rendered)
+	}
+}
+
 func TestChatAdapterConvertsTranscriptAndStructuredOutput(t *testing.T) {
 	fake := &fakeStructuredChat{}
 	adapter := ChatAdapter{Client: fake, MaxTokens: 42}

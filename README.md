@@ -9,11 +9,11 @@ trusted executor boundary such as the `udon` runtime.
 
 It owns project templates, optional Symphony workflow policy, example artifacts, deterministic
 validation, review handoff evidence, package digests, credential policy, and trusted-runner glue.
-Public workflow semantics belong in `github.com/OpenUdon/uws`; OpenAPI-first API metadata discovery,
-import, lowering, search, and indexing belong in `github.com/OpenUdon/apitools`; static
+Public workflow semantics belong in `github.com/OpenUdon/uws`; API source metadata discovery,
+import, materialization, search, and indexing belong in `github.com/OpenUdon/apitools`; static
 Terraform/OpenTofu parsing for `openudon convert tf` belongs in `github.com/OpenUdon/tfconfig`.
-Discovery and Smithy source models are handled upstream and reach OpenUdon only after they are
-represented as OpenAPI-bound UWS operation metadata.
+OpenUdon can stage OpenAPI, Google Discovery, and AWS Smithy source documents as first-class UWS 1.2
+source descriptions when the trusted executor supports them.
 
 ## Quick Start
 
@@ -159,8 +159,8 @@ go run ./cmd/openudon synthesize \
   --max-attempts 5
 ```
 
-The command reads `project.md`, discovers or imports OpenAPI documents under `openapi/`, writes
-`workflows/intent.hcl` when needed, and generates equivalent public UWS HCL/YAML workflow
+The command reads `project.md`, discovers or imports API source documents under `openapi/`,
+`google-discovery/`, or `aws-smithy/`, writes `workflows/intent.hcl` when needed, and generates equivalent public UWS HCL/YAML workflow
 artifacts:
 
 ```text
@@ -194,8 +194,8 @@ The bounded refinement loop records retried stages, failed checks, and stop reas
 ## Provider Catalog
 
 OpenUdon can inspect first-class provider metadata from `github.com/OpenUdon/apitools/catalog`
-before falling back to public search. Catalog data is advisory: local `openapi/` files and explicit
-OpenAPI inputs remain authoritative for generated packages.
+before falling back to public search. Catalog data is advisory: local API source files and explicit
+source inputs remain authoritative for generated packages.
 
 ```bash
 # List known first-class providers and auth/security status.
@@ -212,9 +212,10 @@ go run ./cmd/openudon catalog import-openapi \
   --name stripe
 ```
 
-`import-openapi` writes only actual OpenAPI references into `examples/<name>/openapi/`. Google
-Discovery, AWS Smithy, Dropbox Stone, and human-docs entries remain advisory until a user supplies
-or generates an OpenAPI document that OpenUdon can validate.
+`import-openapi` writes only actual OpenAPI references into `examples/<name>/openapi/`. Catalog
+materialization and iCoT artifact migration may stage Google Discovery under `google-discovery/` and
+AWS Smithy JSON under `aws-smithy/`; Dropbox Stone and human-docs entries remain advisory until
+lowered or reviewed separately.
 
 ## Quality And Repair Loop
 

@@ -10,6 +10,7 @@ import (
 	"unicode"
 
 	"github.com/OpenUdon/apitools"
+	"github.com/OpenUdon/apitools/awssmithy"
 	"github.com/OpenUdon/apitools/googlediscovery"
 	"github.com/OpenUdon/openudon/internal/openapidisco"
 	rollout "github.com/OpenUdon/openudon/internal/workflowintent"
@@ -120,6 +121,11 @@ func DiscoverLocalAPIs(exampleDir, projectText string) ([]APIDocument, error) {
 		return nil, err
 	}
 	docs = append(docs, discoveryDocs...)
+	smithyDocs, err := discoverLocalAWSSmithyAPIs(exampleDir)
+	if err != nil {
+		return nil, err
+	}
+	docs = append(docs, smithyDocs...)
 	sort.Slice(docs, func(i, j int) bool {
 		if apiDocumentPriority(docs[i]) != apiDocumentPriority(docs[j]) {
 			return apiDocumentPriority(docs[i]) < apiDocumentPriority(docs[j])
@@ -145,41 +151,82 @@ func isAdvisoryAPIDocument(doc APIDocument) bool {
 	return strings.Contains(text, "advisory") || strings.Contains(text, "overlay")
 }
 
-func discoverLocalGoogleDiscoveryAPIs(exampleDir string) ([]APIDocument, error) {
-	discoveryDir := filepath.Join(exampleDir, "discovery")
-	if _, err := os.Stat(discoveryDir); err != nil {
+func discoverLocalAWSSmithyAPIs(exampleDir string) ([]APIDocument, error) {
+	var docs []APIDocument
+	smithyDir := filepath.Join(exampleDir, "aws-smithy")
+	if _, err := os.Stat(smithyDir); err != nil {
 		if os.IsNotExist(err) {
 			return nil, nil
 		}
 		return nil, err
 	}
-	matches, err := filepath.Glob(filepath.Join(discoveryDir, "*.json"))
+	matches, err := filepath.Glob(filepath.Join(smithyDir, "*.json"))
 	if err != nil {
 		return nil, err
 	}
-	var docs []APIDocument
 	for _, path := range matches {
 		data, err := os.ReadFile(path)
 		if err != nil {
 			return nil, err
 		}
-		model, err := googlediscovery.Parse(data)
+		model, err := awssmithy.Parse(data)
 		if err != nil {
-			return nil, fmt.Errorf("parse Google Discovery %s: %w", path, err)
+			return nil, fmt.Errorf("parse AWS Smithy %s: %w", path, err)
 		}
 		rel, err := filepath.Rel(exampleDir, path)
 		if err != nil {
 			return nil, err
 		}
-		doc := APIDocument{
+		rel = filepath.ToSlash(rel)
+		docs = append(docs, APIDocument{
 			ID:           strings.TrimSuffix(filepath.Base(path), filepath.Ext(path)),
 			Path:         path,
-			RelativePath: filepath.ToSlash(rel),
-			Title:        firstNonEmpty(model.Title, model.Name),
+			RelativePath: rel,
+			Title:        firstNonEmpty(model.Title, model.ServiceID, model.AWSServiceID),
 			Description:  model.Description,
-			Operations:   googleDiscoveryOperationSummaries(filepath.ToSlash(rel), model),
+			Operations:   awsSmithyOperationSummaries(rel, model),
+		})
+	}
+	return docs, nil
+}
+
+func discoverLocalGoogleDiscoveryAPIs(exampleDir string) ([]APIDocument, error) {
+	var docs []APIDocument
+	for _, dirName := range []string{"google-discovery", "discovery"} {
+		discoveryDir := filepath.Join(exampleDir, dirName)
+		if _, err := os.Stat(discoveryDir); err != nil {
+			if os.IsNotExist(err) {
+				continue
+			}
+			return nil, err
 		}
-		docs = append(docs, doc)
+		matches, err := filepath.Glob(filepath.Join(discoveryDir, "*.json"))
+		if err != nil {
+			return nil, err
+		}
+		for _, path := range matches {
+			data, err := os.ReadFile(path)
+			if err != nil {
+				return nil, err
+			}
+			model, err := googlediscovery.Parse(data)
+			if err != nil {
+				return nil, fmt.Errorf("parse Google Discovery %s: %w", path, err)
+			}
+			rel, err := filepath.Rel(exampleDir, path)
+			if err != nil {
+				return nil, err
+			}
+			doc := APIDocument{
+				ID:           strings.TrimSuffix(filepath.Base(path), filepath.Ext(path)),
+				Path:         path,
+				RelativePath: filepath.ToSlash(rel),
+				Title:        firstNonEmpty(model.Title, model.Name),
+				Description:  model.Description,
+				Operations:   googleDiscoveryOperationSummaries(filepath.ToSlash(rel), model),
+			}
+			docs = append(docs, doc)
+		}
 	}
 	return docs, nil
 }
@@ -235,6 +282,87 @@ func googleDiscoveryParameterSummaries(params []*googlediscovery.Parameter) []ap
 		})
 	}
 	return out
+}
+
+func awsSmithyOperationSummaries(relativePath string, model *awssmithy.Model) []apitools.OperationSummary {
+	if model == nil {
+		return nil
+	}
+	var operations []apitools.OperationSummary
+	for _, op := range model.Operations {
+		if op == nil || strings.TrimSpace(op.Name) == "" {
+			continue
+		}
+		summary := apitools.OperationSummary{
+			ID:                   op.ID,
+			DocumentName:         firstNonEmpty(model.ServiceID, model.AWSServiceID),
+			DocumentPath:         relativePath,
+			DocumentRelativePath: relativePath,
+			OperationID:          op.Name,
+			Method:               op.Method,
+			Path:                 firstNonEmpty(op.Path, op.URI),
+			Parameters:           awsSmithyParameterSummaries(op),
+			Provenance:           "aws-smithy",
+		}
+		if op.Payload != nil || len(op.UnboundInput) > 0 || len(op.StaticPayload) > 0 {
+			summary.RequestBody = &apitools.RequestBodySummary{
+				Ref:          op.Input,
+				ContentTypes: []string{firstNonEmpty(op.RequestMediaType, "application/json")},
+			}
+		}
+		operations = append(operations, summary)
+	}
+	return operations
+}
+
+func awsSmithyParameterSummaries(op *awssmithy.Operation) []apitools.ParameterSummary {
+	if op == nil {
+		return nil
+	}
+	var out []apitools.ParameterSummary
+	for _, binding := range op.InputBindings {
+		if binding == nil {
+			continue
+		}
+		location := binding.Location
+		switch location {
+		case "queryParams":
+			location = "query"
+		case "prefixHeaders":
+			location = "header"
+		}
+		if location == "payload" {
+			continue
+		}
+		out = append(out, apitools.ParameterSummary{
+			Name:     firstNonEmpty(binding.WireName, binding.MemberName),
+			In:       location,
+			Required: binding.Required,
+			Type:     smithyTargetType(binding.Target),
+		})
+	}
+	sort.Slice(out, func(i, j int) bool {
+		if out[i].In != out[j].In {
+			return out[i].In < out[j].In
+		}
+		return out[i].Name < out[j].Name
+	})
+	return out
+}
+
+func smithyTargetType(target string) string {
+	switch {
+	case strings.Contains(target, "#Boolean"):
+		return "boolean"
+	case strings.Contains(target, "#Byte"), strings.Contains(target, "#Short"), strings.Contains(target, "#Integer"), strings.Contains(target, "#Long"):
+		return "integer"
+	case strings.Contains(target, "#Float"), strings.Contains(target, "#Double"), strings.Contains(target, "#BigInteger"), strings.Contains(target, "#BigDecimal"):
+		return "number"
+	case strings.Contains(target, "#Blob"):
+		return "string"
+	default:
+		return "string"
+	}
 }
 
 func stringFromMap(values map[string]any, key string) string {
@@ -374,7 +502,7 @@ func draftRankingText(request DraftRequest) string {
 		parts = append(parts, request.Session.Intent.Workflow.Name, request.Session.Intent.Workflow.Description)
 	}
 	parts = append(parts,
-		request.Session.Intent.OpenAPI,
+		intentAPISourceRef(request.Session.Intent),
 		request.Session.Project.ProjectName,
 		request.Session.Project.Goal,
 		request.Session.Project.Inputs,
@@ -404,7 +532,7 @@ func draftRankingText(request DraftRequest) string {
 		}
 	}
 	walkSteps(request.Session.Intent.Steps, func(step *rollout.Step) {
-		parts = append(parts, step.Name, step.Type, step.Do, step.OpenAPI, step.Operation)
+		parts = append(parts, step.Name, step.Type, step.Do, firstNonEmpty(step.Source, step.OpenAPI), step.Operation)
 		for field, value := range step.With {
 			parts = append(parts, field, value)
 		}
@@ -418,7 +546,7 @@ func selectedOperationKeys(session Session) map[string]bool {
 		if step == nil || strings.TrimSpace(step.Operation) == "" {
 			return
 		}
-		docPath := firstNonEmpty(step.OpenAPI, session.Intent.OpenAPI)
+		docPath := stepAPISourceRef(session, step)
 		out[operationCandidateKey(docPath, step.Operation)] = true
 		if docPath == "" {
 			out["\x00"+step.Operation] = true
@@ -434,7 +562,7 @@ func selectedOperationRefs(session Session) []apitools.AuthoringOperationRef {
 			return
 		}
 		refs = append(refs, apitools.AuthoringOperationRef{
-			DocumentPath: firstNonEmpty(step.OpenAPI, session.Intent.OpenAPI),
+			DocumentPath: stepAPISourceRef(session, step),
 			OperationID:  step.Operation,
 		})
 	})
@@ -442,7 +570,7 @@ func selectedOperationRefs(session Session) []apitools.AuthoringOperationRef {
 }
 
 func selectedDocument(session Session, doc APIDocument) bool {
-	selected := strings.TrimSpace(session.Intent.OpenAPI)
+	selected := intentAPISourceRef(session.Intent)
 	if selected == "" {
 		selected = strings.TrimSpace(session.Project.OpenAPI)
 	}

@@ -36,6 +36,28 @@ func TestRequiredPackagePathsIncludesFixedAndNestedOpenAPI(t *testing.T) {
 	}
 }
 
+func TestRequiredPackagePathsIncludesFirstClassAPISources(t *testing.T) {
+	root := t.TempDir()
+	writeRequiredPackageFiles(t, root)
+	mustWrite(t, filepath.Join(root, "google-discovery", "gmail.json"), []byte(`{"discoveryVersion":"v1"}`))
+	mustWrite(t, filepath.Join(root, "aws-smithy", "lambda.json"), []byte(`{"smithy":"2.0"}`))
+	mustWrite(t, filepath.Join(root, "discovery", "legacy.json"), []byte(`{"discoveryVersion":"v1"}`))
+
+	paths, err := RequiredPackagePaths(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, want := range []string{
+		"google-discovery/gmail.json",
+		"aws-smithy/lambda.json",
+		"discovery/legacy.json",
+	} {
+		if !stringSliceContains(paths, want) {
+			t.Fatalf("RequiredPackagePaths missing %q in %#v", want, paths)
+		}
+	}
+}
+
 func TestCleanRelativePathRejectsUnsafePaths(t *testing.T) {
 	for _, input := range []string{
 		"",

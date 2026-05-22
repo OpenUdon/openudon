@@ -6,7 +6,7 @@ the relevant behavior.
 | Project | Ownership Boundary |
 | --- | --- |
 | [UWS](https://github.com/OpenUdon/uws) | Public workflow semantics, UWS versions, schema, parsing, validation, and Go model. |
-| [apitools](https://github.com/OpenUdon/apitools) | OpenAPI-first API metadata discovery, import/lowering, search, indexing, summaries, auth/security summaries, catalog metadata, and operation ranking. Discovery and Smithy are upstream source families lowered before OpenUdon consumes operation metadata. |
+| [apitools](https://github.com/OpenUdon/apitools) | API source metadata discovery, import/materialization, search, indexing, summaries, auth/security summaries, catalog metadata, protocol-to-UWS-source-type mapping, and operation ranking for OpenAPI, Google Discovery, and AWS Smithy sources. |
 | [tfconfig](https://github.com/OpenUdon/tfconfig) | Static Terraform/OpenTofu configuration parsing used by `openudon convert tf`. |
 | `udon` | Private UWS/OpenAPI compiler and runtime executor. OpenUdon invokes it only through the trusted run-config handoff. |
 | `symphony` | Optional work orchestration, isolated workspaces, reviewer routing, managed state transitions, identity, and audit persistence. |
@@ -17,7 +17,7 @@ the relevant behavior.
 
 - Public workflow semantics belong in UWS.
 - Generic execution or compilation behavior belongs in executor implementations such as `udon`.
-- OpenAPI-first API metadata search, discovery, import/lowering, first-class provider catalog
+- API source metadata search, discovery, import/materialization, first-class provider catalog
   metadata, and operation metadata belong in apitools.
 - OpenUdon may expose thin `openudon catalog ...` wrappers for authoring and package-local OpenAPI
   import, but catalog data stays advisory and does not change workflow semantics.

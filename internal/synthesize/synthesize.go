@@ -17,6 +17,7 @@ import (
 	"github.com/OpenUdon/openudon/internal/workflowintent"
 	rollout "github.com/OpenUdon/openudon/internal/workflowintent"
 	runner "github.com/OpenUdon/openudon/internal/workflowintent"
+	"github.com/OpenUdon/uws/uws1"
 )
 
 type Options struct {
@@ -158,7 +159,7 @@ func Build(ctx context.Context, opts Options) (*Result, error) {
 			return nil, err
 		}
 	}
-	if err := validateIntentOpenAPIRefs(intent, state.candidates, primary, state.policy.NoOpenAPI); err != nil {
+	if err := validateIntentOpenAPIRefs(intent, state.result.ExampleDir, state.candidates, primary, state.policy.NoOpenAPI); err != nil {
 		return nil, err
 	}
 	if err := validateIntentRuntimePolicy(intent, state.policy); err != nil {
@@ -203,7 +204,7 @@ func PackageFromIntent(ctx context.Context, opts Options) (*Result, *QualityRepo
 		primary = selected.RelativePath
 		intent.OpenAPI = primary
 	}
-	if err := validateIntentOpenAPIRefs(intent, state.candidates, primary, state.policy.NoOpenAPI); err != nil {
+	if err := validateIntentOpenAPIRefs(intent, state.result.ExampleDir, state.candidates, primary, state.policy.NoOpenAPI); err != nil {
 		return &state.result, nil, err
 	}
 	if err := validateIntentRuntimePolicy(intent, state.policy); err != nil {
@@ -347,7 +348,7 @@ func runRefinement(ctx context.Context, opts Options, state *refinementState, ll
 			}
 			return &state.result, err
 		}
-		if err := validateIntentOpenAPIRefs(intent, state.candidates, state.primaryPath, state.policy.NoOpenAPI); err != nil {
+		if err := validateIntentOpenAPIRefs(intent, state.result.ExampleDir, state.candidates, state.primaryPath, state.policy.NoOpenAPI); err != nil {
 			refinement.addAttempt(attempt, action, nil, err, "intent references unavailable OpenAPI metadata")
 			refinement.setLastAttemptMode(state.generationMode)
 			if writeErr := writeRefinementReport(state.result, refinement); writeErr != nil {
@@ -687,21 +688,21 @@ func intentTemperature(opts Options) float64 {
 	return *opts.IntentTemperature
 }
 
-func validateIntentOpenAPIRefs(intent *rollout.Intent, candidates []openapidisco.Candidate, primary string, noOpenAPI bool) error {
+func validateIntentOpenAPIRefs(intent *rollout.Intent, exampleDir string, candidates []openapidisco.Candidate, primary string, noOpenAPI bool) error {
 	if intent == nil {
 		return nil
 	}
 	if noOpenAPI {
 		var refs []string
-		if strings.TrimSpace(intent.OpenAPI) != "" {
-			refs = append(refs, "top-level openapi")
+		if strings.TrimSpace(intent.Source) != "" || strings.TrimSpace(intent.OpenAPI) != "" {
+			refs = append(refs, "top-level api source")
 		}
 		walkIntentSteps(intent.Steps, func(step *rollout.Step) {
 			if step == nil {
 				return
 			}
-			if strings.TrimSpace(step.OpenAPI) != "" {
-				refs = append(refs, fmt.Sprintf("%s.openapi", strings.TrimSpace(step.Name)))
+			if strings.TrimSpace(step.Source) != "" || strings.TrimSpace(step.OpenAPI) != "" {
+				refs = append(refs, fmt.Sprintf("%s.source", strings.TrimSpace(step.Name)))
 			}
 			if strings.TrimSpace(step.Operation) != "" {
 				refs = append(refs, fmt.Sprintf("%s.operation", strings.TrimSpace(step.Name)))
@@ -715,26 +716,71 @@ func validateIntentOpenAPIRefs(intent *rollout.Intent, candidates []openapidisco
 	}
 	allowed := map[string]bool{}
 	if strings.TrimSpace(primary) != "" {
-		allowed[primary] = true
+		allowed[normalizeAPISourceRef(primary)] = true
 	}
 	for _, candidate := range candidates {
-		allowed[candidate.RelativePath] = true
+		allowed[normalizeAPISourceRef(candidate.RelativePath)] = true
+	}
+	sourceRegistry, sourceRegistryErr := newLocalAPISourceRegistry(exampleDir, candidates)
+	if sourceRegistryErr != nil && !errors.Is(sourceRegistryErr, os.ErrNotExist) {
+		return fmt.Errorf("local API source registry could not be scanned: %w", sourceRegistryErr)
+	}
+	if strings.TrimSpace(intent.OpenAPI) == "" && strings.TrimSpace(intent.Source) != "" {
+		intent.OpenAPI = normalizeAPISourceRef(intent.Source)
+		intent.Source = intent.OpenAPI
 	}
 	if strings.TrimSpace(intent.OpenAPI) == "" && primary != "" {
-		intent.OpenAPI = primary
+		intent.OpenAPI = normalizeAPISourceRef(primary)
 	}
-	if strings.TrimSpace(intent.OpenAPI) != "" && !allowed[intent.OpenAPI] {
-		return fmt.Errorf("generated intent referenced unavailable OpenAPI document %q", intent.OpenAPI)
+	if ref := normalizeAPISourceRef(intent.OpenAPI); ref != "" {
+		if sourceDescriptionTypeForPath(ref) == uws1.SourceDescriptionTypeOpenAPI {
+			if !allowed[ref] {
+				return fmt.Errorf("generated intent referenced unavailable OpenAPI document %q", ref)
+			}
+		} else {
+			entry, ok := sourceRegistry.get(ref)
+			if !ok {
+				return fmt.Errorf("generated intent referenced unavailable API source document %q", ref)
+			}
+			if entry.Err != nil {
+				return fmt.Errorf("generated intent referenced invalid API source document %q: %w", ref, entry.Err)
+			}
+			intent.OpenAPI = entry.RelativePath
+			if strings.TrimSpace(intent.Source) != "" {
+				intent.Source = entry.RelativePath
+			}
+		}
 	}
 	var bad []string
+	var invalid []string
 	var walk func([]*rollout.Step)
 	walk = func(steps []*rollout.Step) {
 		for _, step := range steps {
 			if step == nil {
 				continue
 			}
-			if step.OpenAPI != "" && !allowed[step.OpenAPI] {
-				bad = append(bad, step.OpenAPI)
+			if strings.TrimSpace(step.OpenAPI) == "" && strings.TrimSpace(step.Source) != "" {
+				step.OpenAPI = normalizeAPISourceRef(step.Source)
+				step.Source = step.OpenAPI
+			}
+			if ref := normalizeAPISourceRef(step.OpenAPI); ref != "" {
+				if sourceDescriptionTypeForPath(ref) == uws1.SourceDescriptionTypeOpenAPI {
+					if !allowed[ref] {
+						bad = append(bad, ref)
+					}
+				} else {
+					entry, ok := sourceRegistry.get(ref)
+					if !ok {
+						bad = append(bad, ref)
+					} else if entry.Err != nil {
+						invalid = append(invalid, fmt.Sprintf("%s: %v", ref, entry.Err))
+					} else {
+						step.OpenAPI = entry.RelativePath
+						if strings.TrimSpace(step.Source) != "" {
+							step.Source = entry.RelativePath
+						}
+					}
+				}
 			}
 			walk(step.Steps)
 			for _, branch := range step.Cases {
@@ -750,7 +796,11 @@ func validateIntentOpenAPIRefs(intent *rollout.Intent, candidates []openapidisco
 	walk(intent.Steps)
 	if len(bad) > 0 {
 		sort.Strings(bad)
-		return fmt.Errorf("generated intent referenced unavailable step OpenAPI documents: %s", strings.Join(bad, ", "))
+		return fmt.Errorf("generated intent referenced unavailable step API source documents: %s", strings.Join(bad, ", "))
+	}
+	if len(invalid) > 0 {
+		sort.Strings(invalid)
+		return fmt.Errorf("generated intent referenced invalid step API source documents: %s", strings.Join(invalid, "; "))
 	}
 	return nil
 }

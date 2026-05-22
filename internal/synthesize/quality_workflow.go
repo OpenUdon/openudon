@@ -10,10 +10,10 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/OpenUdon/uws/uws1"
 	"github.com/OpenUdon/openudon/internal/openapidisco"
 	uwsprofile "github.com/OpenUdon/openudon/internal/uwsexec"
 	rollout "github.com/OpenUdon/openudon/internal/workflowintent"
+	"github.com/OpenUdon/uws/uws1"
 )
 
 func assessWorkflowPlan(report *QualityReport, result Result) *WorkflowPlan {
@@ -164,8 +164,8 @@ func validateWorkflowAgainstExpectedPlanWithIndex(report *QualityReport, expecte
 		if wantRuntime != "" && gotRuntime != "" && wantRuntime != gotRuntime && !equivalentWorkflowRuntime(wantRuntime, gotRuntime) {
 			runtimeMismatch = append(runtimeMismatch, fmt.Sprintf("%s expected %s got %s", name, wantRuntime, gotRuntime))
 		}
-		if strings.TrimSpace(step.Operation) != "" && strings.TrimSpace(op.OpenAPIOperationID) != strings.TrimSpace(step.Operation) {
-			operationMismatch = append(operationMismatch, fmt.Sprintf("%s expected %s got %s", name, step.Operation, op.OpenAPIOperationID))
+		if strings.TrimSpace(step.Operation) != "" && strings.TrimSpace(op.SourceOperationID) != strings.TrimSpace(step.Operation) {
+			operationMismatch = append(operationMismatch, fmt.Sprintf("%s expected %s got %s", name, step.Operation, op.SourceOperationID))
 		}
 		if step.Timeout != nil && !floatPtrEqual(op.Timeout, step.Timeout) {
 			timeoutMismatch = append(timeoutMismatch, fmt.Sprintf("%s expected timeout %g got %s", name, *step.Timeout, formatFloatPtr(op.Timeout)))
@@ -371,22 +371,22 @@ func canonicalActionJSON(criteria []*uws1.Criterion, failure []*uws1.FailureActi
 }
 
 type compiledOperation struct {
-	ServiceType        string
-	OpenAPIOperationID string
-	DependsOn          []string
-	Parent             string
-	Branch             string
-	BranchWhen         string
-	When               string
-	ForEach            string
-	Items              string
-	Mode               string
-	BatchSize          string
-	Timeout            *float64
-	Request            requestEvidence
-	SuccessCriteria    []*uws1.Criterion
-	OnFailure          []*uws1.FailureAction
-	OnSuccess          []*uws1.SuccessAction
+	ServiceType       string
+	SourceOperationID string
+	DependsOn         []string
+	Parent            string
+	Branch            string
+	BranchWhen        string
+	When              string
+	ForEach           string
+	Items             string
+	Mode              string
+	BatchSize         string
+	Timeout           *float64
+	Request           requestEvidence
+	SuccessCriteria   []*uws1.Criterion
+	OnFailure         []*uws1.FailureAction
+	OnSuccess         []*uws1.SuccessAction
 }
 
 func compiledOperationIndex(doc *uws1.Document) (map[string]*compiledOperation, error) {
@@ -442,22 +442,22 @@ func collectCompiledUWSStepList(steps []*uws1.Step, out map[string]*compiledOper
 		if name != "" {
 			op := operations[strings.TrimSpace(step.OperationRef)]
 			out[name] = &compiledOperation{
-				ServiceType:        compiledServiceType(step, op),
-				OpenAPIOperationID: compiledOpenAPIOperationID(step, op),
-				DependsOn:          compiledDependsOn(step, op),
-				Parent:             strings.TrimSpace(parent),
-				Branch:             strings.TrimSpace(branch),
-				BranchWhen:         strings.TrimSpace(branchWhen),
-				When:               strings.TrimSpace(step.When),
-				ForEach:            strings.TrimSpace(step.ForEach),
-				Items:              strings.TrimSpace(step.Items),
-				Mode:               strings.TrimSpace(step.Mode),
-				BatchSize:          strings.TrimSpace(step.BatchSize),
-				Timeout:            compiledTimeout(step, op),
-				Request:            requestEvidenceForStep(step, operationEvidence),
-				SuccessCriteria:    compiledCriteria(op),
-				OnFailure:          compiledFailureActions(op),
-				OnSuccess:          compiledSuccessActions(op),
+				ServiceType:       compiledServiceType(step, op),
+				SourceOperationID: compiledSourceOperationID(step, op),
+				DependsOn:         compiledDependsOn(step, op),
+				Parent:            strings.TrimSpace(parent),
+				Branch:            strings.TrimSpace(branch),
+				BranchWhen:        strings.TrimSpace(branchWhen),
+				When:              strings.TrimSpace(step.When),
+				ForEach:           strings.TrimSpace(step.ForEach),
+				Items:             strings.TrimSpace(step.Items),
+				Mode:              strings.TrimSpace(step.Mode),
+				BatchSize:         strings.TrimSpace(step.BatchSize),
+				Timeout:           compiledTimeout(step, op),
+				Request:           requestEvidenceForStep(step, operationEvidence),
+				SuccessCriteria:   compiledCriteria(op),
+				OnFailure:         compiledFailureActions(op),
+				OnSuccess:         compiledSuccessActions(op),
 			}
 		}
 		childParent := name
@@ -494,7 +494,7 @@ func compiledServiceType(step *uws1.Step, op *uws1.Operation) string {
 	if op == nil {
 		return ""
 	}
-	if op.HasOpenAPIBinding() {
+	if op.HasSourceBinding() {
 		return "http"
 	}
 	if runtime, ok, err := uwsprofile.ReadOperationRuntime(op.Extensions); err == nil && ok {
@@ -506,9 +506,13 @@ func compiledServiceType(step *uws1.Step, op *uws1.Operation) string {
 	return ""
 }
 
-func compiledOpenAPIOperationID(step *uws1.Step, op *uws1.Operation) string {
-	if op != nil && strings.TrimSpace(op.OpenAPIOperationID) != "" {
-		return strings.TrimSpace(op.OpenAPIOperationID)
+func compiledSourceOperationID(step *uws1.Step, op *uws1.Operation) string {
+	if op != nil {
+		for _, selector := range []string{op.SourceOperationID, op.OpenAPIOperationID, op.SourceOperationRef, op.OpenAPIOperationRef} {
+			if strings.TrimSpace(selector) != "" {
+				return strings.TrimSpace(selector)
+			}
+		}
 	}
 	if step != nil {
 		return strings.TrimSpace(step.OperationRef)

@@ -90,7 +90,7 @@ func symphonyHandoffInputs(result Result) ([]SymphonyHandoffInput, error) {
 		{Path: relOrAbs(result.ExampleDir, result.ReviewPath), Purpose: "Human review evidence, unresolved risks, skipped execution notes, and trusted-runner command text.", Required: true},
 		{Path: relOrAbs(result.ExampleDir, result.SymphonyHandoffPath), Purpose: "Machine-readable XRD-005 handoff manifest for Symphony work-item routing.", Required: true},
 	}
-	openAPIPaths, err := packageartifacts.CollectOpenAPIPaths(result.ExampleDir)
+	openAPIPaths, err := packageartifacts.CollectAPISourcePaths(result.ExampleDir)
 	if err != nil {
 		return nil, err
 	}

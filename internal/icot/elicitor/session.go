@@ -199,7 +199,7 @@ func (s Session) Missing() []string {
 	}
 	missing = append(missing, s.Intent.MissingSlots()...)
 	for _, step := range s.Intent.Steps {
-		collectStepMissing(&missing, s.Intent.OpenAPI, step)
+		collectStepMissing(&missing, intentAPISourceRef(s.Intent), step)
 	}
 	if len(s.Intent.Outputs) == 0 {
 		missing = append(missing, "at least one output")
@@ -207,29 +207,30 @@ func (s Session) Missing() []string {
 	return dedupeStrings(missing)
 }
 
-func collectStepMissing(missing *[]string, defaultOpenAPI string, step *rollout.Step) {
+func collectStepMissing(missing *[]string, defaultSource string, step *rollout.Step) {
 	if step == nil {
 		return
 	}
 	stepType := strings.ToLower(strings.TrimSpace(step.Type))
-	if (stepType == "http" || stepType == "openapi") && (strings.TrimSpace(defaultOpenAPI) != "" || strings.TrimSpace(step.OpenAPI) != "") && strings.TrimSpace(step.Operation) == "" {
+	stepSource := firstNonEmpty(step.Source, step.OpenAPI, defaultSource)
+	if (stepType == "http" || stepType == "openapi") && strings.TrimSpace(stepSource) != "" && strings.TrimSpace(step.Operation) == "" {
 		name := firstNonEmpty(step.Name, "unnamed")
 		*missing = append(*missing, "operation for step "+name)
 	}
 	for _, child := range step.Steps {
-		collectStepMissing(missing, firstNonEmpty(step.OpenAPI, defaultOpenAPI), child)
+		collectStepMissing(missing, stepSource, child)
 	}
 	for _, branch := range step.Cases {
 		if branch == nil {
 			continue
 		}
 		for _, child := range branch.Steps {
-			collectStepMissing(missing, firstNonEmpty(step.OpenAPI, defaultOpenAPI), child)
+			collectStepMissing(missing, stepSource, child)
 		}
 	}
 	if step.Default != nil {
 		for _, child := range step.Default.Steps {
-			collectStepMissing(missing, firstNonEmpty(step.OpenAPI, defaultOpenAPI), child)
+			collectStepMissing(missing, stepSource, child)
 		}
 	}
 }
@@ -266,6 +267,7 @@ func emptySession(s Session) bool {
 		len(s.Intent.Steps) == 0 &&
 		len(s.Intent.Inputs) == 0 &&
 		len(s.Intent.Outputs) == 0 &&
+		strings.TrimSpace(s.Intent.Source+s.Intent.OpenAPI) == "" &&
 		strings.TrimSpace(s.Project.ProjectName+s.Project.Goal) == "" &&
 		len(s.Credentials) == 0 &&
 		strings.TrimSpace(s.Safety+s.Fallback+s.SideEffectScope) == ""
@@ -278,6 +280,7 @@ func mergeSessions(base, overlay Session) Session {
 		base.Intent.Workflow.Name = firstNonEmpty(base.Intent.Workflow.Name, overlay.Intent.Workflow.Name)
 		base.Intent.Workflow.Description = firstNonEmpty(base.Intent.Workflow.Description, overlay.Intent.Workflow.Description)
 	}
+	base.Intent.Source = firstNonEmpty(base.Intent.Source, overlay.Intent.Source)
 	base.Intent.OpenAPI = firstNonEmpty(base.Intent.OpenAPI, overlay.Intent.OpenAPI)
 	base.Intent.ServerURL = firstNonEmpty(base.Intent.ServerURL, overlay.Intent.ServerURL)
 	if len(base.Intent.Inputs) == 0 {
@@ -463,7 +466,8 @@ func firstOpenAPIPath(value string) string {
 	for _, item := range splitList(value) {
 		for _, token := range strings.Fields(item) {
 			token = strings.Trim(token, "`'\".,")
-			if strings.HasPrefix(token, "openapi/") || strings.Contains(token, "/openapi/") {
+			if strings.HasPrefix(token, "openapi/") || strings.HasPrefix(token, "google-discovery/") || strings.HasPrefix(token, "aws-smithy/") || strings.HasPrefix(token, "discovery/") ||
+				strings.Contains(token, "/openapi/") || strings.Contains(token, "/google-discovery/") || strings.Contains(token, "/aws-smithy/") || strings.Contains(token, "/discovery/") {
 				return filepath.ToSlash(token)
 			}
 			ext := strings.ToLower(filepath.Ext(token))
@@ -536,10 +540,16 @@ func functionText(steps []*rollout.Step) string {
 
 func openAPIText(intent rollout.Intent) string {
 	var refs []string
+	if strings.TrimSpace(intent.Source) != "" {
+		refs = append(refs, intent.Source)
+	}
 	if strings.TrimSpace(intent.OpenAPI) != "" {
 		refs = append(refs, intent.OpenAPI)
 	}
 	walkSteps(intent.Steps, func(step *rollout.Step) {
+		if strings.TrimSpace(step.Source) != "" {
+			refs = append(refs, step.Source)
+		}
 		if strings.TrimSpace(step.OpenAPI) != "" {
 			refs = append(refs, step.OpenAPI)
 		}

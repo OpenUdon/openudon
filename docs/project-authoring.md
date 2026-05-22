@@ -6,7 +6,7 @@ when to stop.
 
 `go run ./cmd/icot --example examples/<name>` is an optional guided authoring tool. With LLM
 assistance available, it starts from one plain-language goal, drafts `workflows/intent.hcl` from
-that answer plus local OpenAPI metadata, and asks only the next blocking question needed to reach a
+that answer plus local API source metadata, and asks only the next blocking question needed to reach a
 valid intent. With `--no-llm`, it uses the fixed manual prompt flow. `project.md` remains the OpenUdon
 policy/prose artifact, while `workflows/intent.hcl` is the structured saved contract that `openudon
 build` consumes next.
@@ -19,7 +19,7 @@ lint --example examples/<name>`). Drift findings are warnings unless a parse or 
 also fails.
 
 When provider credentials are available, `icot` uses AI assistance to draft operation choices,
-request mappings, outputs, credentials, and policy prose from the brief plus local OpenAPI metadata.
+request mappings, outputs, credentials, and policy prose from the brief plus local API source metadata.
 After each answer, deterministic readiness checks decide whether to ask about the goal, API
 document, operation, required request values, credential bindings, runtime inputs, outputs, or
 safety policy. The first valid intent jumps to final review; remaining warnings and inferred values
@@ -27,15 +27,15 @@ are shown as assumptions, and saving confirms them. The saved `intent.hcl` is a 
 draft for build/review, not a promise that iCoT found the perfect workflow; operators should reject
 bad drafts or confirm and continue editing manually.
 
-For catalog-backed SaaS briefs, iCoT first checks local `openapi/` and `discovery/` documents and
-the sibling `../apitools` first-class provider cache. If a local API artifact is missing, iCoT tries
-to retrieve or materialize first-class apitools artifacts or reviewed advisory OpenAPI overlays into
-the workflow before asking for an API path. It only asks for a user-provided artifact after
-apitools reports that no first-class or advisory OpenAPI/lowering-ready artifact is available.
-Discovery metadata can guide operation review, but synthesis still needs OpenAPI-bound metadata
-before trusted handoff. When both an original provider OpenAPI document and a reviewed advisory
-OpenAPI overlay are available, iCoT defaults to the advisory overlay for operation selection because
-it carries OpenUdon-reviewed endpoint/security scope.
+For catalog-backed SaaS briefs, iCoT first checks local `openapi/`, `google-discovery/`,
+`aws-smithy/`, and legacy `discovery/` documents plus the sibling `../apitools` first-class provider
+cache. If a local API artifact is missing, iCoT tries to retrieve or materialize first-class
+apitools artifacts or reviewed advisory OpenAPI overlays into the workflow before asking for an API
+path. It only asks for a user-provided artifact after apitools reports that no first-class or
+advisory source artifact is available. Discovery and Smithy documents can drive operation review,
+synthesis, packaging, and trusted handoff directly. When both an original provider OpenAPI document
+and a reviewed advisory OpenAPI overlay are available, iCoT defaults to the advisory overlay for
+operation selection because it carries OpenUdon-reviewed endpoint/security scope.
 
 iCoT defaults to the local `copilot-api` gateway, using `COPILOT_API_BASE_URL` when set and
 `http://localhost:4141` otherwise. Use `OPENUDON_LLM_PROVIDER` and `OPENUDON_LLM_MODEL` for
@@ -51,7 +51,7 @@ Use these sections for new projects:
 - Goal: the workflow outcome in business terms.
 - Inputs: trigger payloads, user-provided values, files, or environment-provided bindings.
 - Outputs: generated artifacts, API writes, files, notifications, or reports.
-- External Systems and OpenAPI: APIs/services involved, OpenAPI files or URLs, or `OpenAPI: none required`.
+- External Systems and API Sources: APIs/services involved, API source files or URLs, or `OpenAPI: none required`.
 - Data Flow: important field mappings between steps, especially when one API call feeds another.
 - Function Contracts: `fnct` input/output contracts and side effects.
 - Runtime Policy: allowed runtimes such as `openapi`, `http`, `fnct`, `cmd`, or `ssh`.
@@ -77,8 +77,8 @@ requires `approved_for_production`.
 
 ## Runtime Selection Rules
 
-OpenUdon should use OpenAPI for API operations when a matching OpenAPI document and operation are
-available. OpenAPI should provide method, path, schemas, server, and security metadata.
+OpenUdon should use API source documents for API operations when a matching document and operation are
+available. The source should provide method, path, schemas, server, and security metadata.
 
 OpenUdon should use non-OpenAPI runtimes only when the project explicitly allows them:
 

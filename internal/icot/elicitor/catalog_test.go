@@ -72,10 +72,10 @@ func TestMigrateCatalogArtifactsCopiesDiscoveryIntoWorkflow(t *testing.T) {
 	if len(result.Copied) != 1 {
 		t.Fatalf("copied = %#v, want one artifact", result.Copied)
 	}
-	if got, want := result.Copied[0].RelativePath, "discovery/gmail-discovery-v1.json"; got != want {
+	if got, want := result.Copied[0].RelativePath, "google-discovery/gmail-discovery-v1.json"; got != want {
 		t.Fatalf("relative path = %q, want %q", got, want)
 	}
-	if _, err := os.Stat(filepath.Join(example, "discovery", "gmail-discovery-v1.json")); err != nil {
+	if _, err := os.Stat(filepath.Join(example, "google-discovery", "gmail-discovery-v1.json")); err != nil {
 		t.Fatalf("migrated discovery artifact missing: %v", err)
 	}
 }
@@ -130,7 +130,7 @@ func TestRetrieveCatalogArtifactsCopiesWeatherOverlay(t *testing.T) {
 	if err := retrieveCatalogArtifactsForSession(&out, session, example, CatalogHintOptions{CacheRoot: cacheRoot}); err != nil {
 		t.Fatalf("retrieveCatalogArtifactsForSession failed: %v", err)
 	}
-	if _, err := os.Stat(filepath.Join(example, "discovery", "gmail-discovery-v1.json")); err != nil {
+	if _, err := os.Stat(filepath.Join(example, "google-discovery", "gmail-discovery-v1.json")); err != nil {
 		t.Fatalf("gmail discovery was not retrieved: %v", err)
 	}
 	if _, err := os.Stat(filepath.Join(example, "openapi", "openweathermap-one-call-3-overlay.json")); err != nil {
@@ -310,14 +310,14 @@ func TestCatalogPlanErrorFallsBackToDeterministicMigration(t *testing.T) {
 	if applied {
 		t.Fatalf("errored catalog plan was applied")
 	}
-	if _, err := os.Stat(filepath.Join(example, "discovery", "gmail-discovery-v1.json")); !os.IsNotExist(err) {
+	if _, err := os.Stat(filepath.Join(example, "google-discovery", "gmail-discovery-v1.json")); !os.IsNotExist(err) {
 		t.Fatalf("catalog plan error should not copy before fallback: %v", err)
 	}
 
 	if _, err := MigrateCatalogArtifacts(catalogQueryForSession(session), example, CatalogHintOptions{CacheRoot: cacheRoot}); err != nil {
 		t.Fatalf("deterministic fallback migration failed: %v", err)
 	}
-	if _, err := os.Stat(filepath.Join(example, "discovery", "gmail-discovery-v1.json")); err != nil {
+	if _, err := os.Stat(filepath.Join(example, "google-discovery", "gmail-discovery-v1.json")); err != nil {
 		t.Fatalf("fallback did not migrate discovery artifact: %v", err)
 	}
 }

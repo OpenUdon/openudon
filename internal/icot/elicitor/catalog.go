@@ -254,13 +254,13 @@ func materializedArtifactTargetRelativePath(artifact catalog.MaterializedArtifac
 	case catalog.SpecProtocolOpenAPI, catalog.SpecProtocolSwagger:
 		return filepath.ToSlash(filepath.Join("openapi", filepath.Base(artifact.TargetPath)))
 	case catalog.SpecProtocolGoogleDiscovery:
-		return filepath.ToSlash(filepath.Join("discovery", filepath.Base(artifact.TargetPath)))
+		return filepath.ToSlash(filepath.Join("google-discovery", filepath.Base(artifact.TargetPath)))
 	default:
 		switch strings.TrimSpace(artifact.Kind) {
 		case "openapi", "openapi-index", "advisory-overlay":
 			return filepath.ToSlash(filepath.Join("openapi", filepath.Base(artifact.TargetPath)))
 		case "google-discovery":
-			return filepath.ToSlash(filepath.Join("discovery", filepath.Base(artifact.TargetPath)))
+			return filepath.ToSlash(filepath.Join("google-discovery", filepath.Base(artifact.TargetPath)))
 		default:
 			return ""
 		}
@@ -630,7 +630,7 @@ func catalogArtifactTargetRelativePath(ref catalog.SpecReference, sourcePath str
 	}
 	switch ref.Kind {
 	case catalog.SpecKindGoogleDiscovery:
-		return filepath.ToSlash(filepath.Join("discovery", base))
+		return filepath.ToSlash(filepath.Join("google-discovery", base))
 	case catalog.SpecKindOpenAPI:
 		return filepath.ToSlash(filepath.Join("openapi", base))
 	default:
