@@ -19,7 +19,7 @@ project.md -> workflows/intent.hcl -> workflows/workflow.hcl -> workflows/workfl
 OpenUdon accepts intent through its local `internal/workflowintent.Intent` model and the
 structured JSON schema embedded at `internal/synthesize/schemas/intent.schema.json`. `openudon build`
 parses an existing `workflows/intent.hcl`; `openudon synthesize` generates one from `project.md`,
-OpenAPI discovery, and project policy.
+API source discovery, and project policy.
 
 Intent HCL parsing uses OpenUdon's local `workflowintent.ParseIntent` API. The canonical renderer is
 `workflowintent.RenderIntentHCL`; generated workflow lowering uses

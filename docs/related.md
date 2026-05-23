@@ -11,7 +11,7 @@ the relevant behavior.
 | `udon` | Private UWS/OpenAPI compiler and runtime executor. OpenUdon invokes it only through the trusted run-config handoff. |
 | `symphony` | Optional work orchestration, isolated workspaces, reviewer routing, managed state transitions, identity, and audit persistence. |
 | n8n / `../try-n8n` | Service-priority and workflow-pattern evidence for SaaS authoring. OpenUdon does not import or execute n8n workflows. |
-| [OpenW8M](https://github.com/OpenUdon/openw8m) | Public OpenAPI-backed infrastructure authoring and planning. It is not an OpenUdon compatibility gate while the OpenAPI-first apitools boundary is active. |
+| [OpenW8M](https://github.com/OpenUdon/openw8m) | Public OpenAPI-backed infrastructure authoring and planning. It is not an OpenUdon compatibility gate while the API source metadata boundary is active. |
 
 ## Rule Of Thumb
 
@@ -19,8 +19,9 @@ the relevant behavior.
 - Generic execution or compilation behavior belongs in executor implementations such as `udon`.
 - API source metadata search, discovery, import/materialization, first-class provider catalog
   metadata, and operation metadata belong in apitools.
-- OpenUdon may expose thin `openudon catalog ...` wrappers for authoring and package-local OpenAPI
-  import, but catalog data stays advisory and does not change workflow semantics.
+- OpenUdon may expose thin `openudon catalog ...` wrappers for authoring and package-local API
+  source import or materialization, but catalog data stays advisory and does not change workflow
+  semantics.
 - Static Terraform/OpenTofu parsing belongs in `github.com/OpenUdon/tfconfig`.
 - Terraform/OpenTofu provider execution, state, plan/apply, refresh, imports, and cloud SDK calls
   stay outside OpenUdon.

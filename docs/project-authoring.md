@@ -85,7 +85,8 @@ OpenUdon should use non-OpenAPI runtimes only when the project explicitly allows
 - `fnct`: trusted local functions, transforms, renderers, adapters, or private glue.
 - `cmd`: approved local commands. Use only with an explicit allow policy.
 - `ssh`: approved remote host operations. Use only with an explicit allow policy.
-- `http`: direct HTTP behavior or OpenAPI-backed HTTP behavior, depending on the available metadata.
+- `http`: API-source-bound HTTP behavior when a reviewed OpenAPI, Google Discovery, or AWS Smithy
+  source is available.
 
 Do not ask OpenUdon to invent native `smtp`, `sql`, or `llm` semantics unless the project maps that
 behavior to an approved `fnct` or a runtime profile implemented by `udon`.

@@ -340,13 +340,14 @@ Tier rules:
 OpenUdon issues may be run through Symphony-managed Codex sessions. Agents should follow this policy:
 
 - Use UWS as the workflow interchange format.
-- Use OpenAPI for HTTP method, path, schema, server, and security details.
+- Use reviewed API source documents for HTTP method, path, schema, server, and security details.
 - Use `openudon catalog inspect` or `openudon catalog import-openapi` when a first-class
-  provider-owned OpenAPI source is available.
+  provider-owned OpenAPI source is available, and use first-class materialization for Google
+  Discovery or AWS Smithy sources when supported.
 - Use extension-owned UWS operations for non-HTTP runtimes such as SMTP, command execution, SSH,
   SQL, or LLM calls.
 - Use `../uws` for public schema/model validation.
-- Use `openudon run` to hand approved UWS/OpenAPI packages to a trusted executor such as udon.
+- Use `openudon run` to hand approved UWS/API-source packages to a trusted executor such as udon.
 - Use `../symphony` only as the work orchestration service.
 - Do not execute production side effects directly from an agent session.
 - If execution is requested, produce or update the approved artifact and document the trusted runner

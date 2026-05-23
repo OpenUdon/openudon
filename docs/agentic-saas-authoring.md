@@ -75,13 +75,13 @@ iCoT may use a compact catalog plan immediately after the first workflow goal to
 pick relevant cached artifacts and provider-level steps. That plan is advisory:
 OpenUdon validates every selected artifact locally and rejects unknown paths.
 Operation IDs, schemas, request fields, response paths, and credentials still
-come later from local OpenAPI or Discovery-derived operation metadata.
+come later from reviewed local API source metadata.
 
 ## Mapping Rules
 
 For each SaaS API step, make review evidence easy to audit:
 
-- name the OpenAPI file and operation ID;
+- name the API source file and operation ID;
 - map every required request field to an input, safe literal, prior-step output,
   or credential binding name;
 - let the LLM draft obvious mappings from selected operation metadata, but keep

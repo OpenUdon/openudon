@@ -1,3 +1,7 @@
+github.com/OpenUdon/apitools v0.0.0-20260523003429-09cea5aa5ae1 h1:MOQILZWVS1kOWGrOh0GMlCAhmuMywo9yHa++GPrFrEM=
+github.com/OpenUdon/apitools v0.0.0-20260523003429-09cea5aa5ae1/go.mod h1:F6+AQJLXHaY8KmVSv+YDiiqJ30CUsmjGAxBIZbsvlXs=
+github.com/OpenUdon/awssmithy v0.0.0-20260520213111-549a060a5e28 h1:Xrv5Ccw2QVXfuswbTLP98vt5vyMIVmnsfX43TUHBo+Y=
+github.com/OpenUdon/awssmithy v0.0.0-20260520213111-549a060a5e28/go.mod h1:Wkg6qE+XUwzDCpw6gKoUhPQ03K0RhGbxnYpDMmGFStQ=
 github.com/OpenUdon/googlediscovery v0.0.0-20260520203137-c02129a009fc h1:drM11+jXvEjjpuWisSFurkQXvqrWO1o4PDIwLv1HqLI=
 github.com/OpenUdon/googlediscovery v0.0.0-20260520203137-c02129a009fc/go.mod h1:73PcwHRzHo5zNjGv4pKZqQVZWDStRk0NWs01DfL/vRU=
 github.com/OpenUdon/oas v0.0.0-20260507023120-7fb319711323 h1:IIS4CeB6dcbkAdcSInrBYcVUZum1fhVfInfB2+f0bxA=
@@ -6,8 +10,8 @@ github.com/OpenUdon/schema v0.0.0-20260507023912-6ea3308bb955 h1:dwQPNJKFpa6ndPa
 github.com/OpenUdon/schema v0.0.0-20260507023912-6ea3308bb955/go.mod h1:Q0QXMOpiSZlXZpdnMV/FpUaZ85SJWi+h7E5vEU85Rik=
 github.com/OpenUdon/tfconfig v0.0.0-20260509192333-e523c2b30f3e h1:6/q3YipBkZlW3gvmZ00YK/3tPJGY8d6KSBiW2KWxQNI=
 github.com/OpenUdon/tfconfig v0.0.0-20260509192333-e523c2b30f3e/go.mod h1:gB+Sw8dXdxA55wbZ1e2irup+WP6VisUxCchuPwPydWg=
-github.com/OpenUdon/uws v0.0.0-20260509015819-d0f74a8726fa h1:1jINHKDR6XSurEc74+MxUfuz4OVhy/2RYR1Gr5cqluc=
-github.com/OpenUdon/uws v0.0.0-20260509015819-d0f74a8726fa/go.mod h1:UT9/PfPzIpv1DZz7r0V46Mvg5wa+oSKQVxNxdGE8bC0=
+github.com/OpenUdon/uws v0.0.0-20260523003429-d922781173ab h1:7XbGZ0kwxyNrp3jzAB9y39oJwDjeYpTAk623OQxgAAg=
+github.com/OpenUdon/uws v0.0.0-20260523003429-d922781173ab/go.mod h1:SPlgJhiOvj3jGOWWG8qKHWzXGjfpKaN0OrBL9HlzsFk=
 github.com/agext/levenshtein v1.2.3 h1:YB2fHEn0UJagG8T1rrWknE3ZQzWM06O8AMAatNn7lmo=
 github.com/agext/levenshtein v1.2.3/go.mod h1:JEDfjyjHDjOF/1e4FlBE/PkbqA9OfWu2ki2W0IB5558=
 github.com/antchfx/xmlquery v1.5.1 h1:T9I4Ns1EXiWHy0IqKupGhnfTQtJwlGrpXtauYOoNv78=
@@ -36,6 +40,8 @@ github.com/golang/groupcache v0.0.0-20210331224755-41bb18bfe9da/go.mod h1:cIg4er
 github.com/google/go-cmp v0.6.0/go.mod h1:17dUlkBOakJ0+DkrSSNjCkIjxS6bF9zb3elmeNGIjoY=
 github.com/google/go-cmp v0.7.0 h1:wk8382ETsv4JYUZwIsn6YpYiWiBsYLSJiTsyBybVuN8=
 github.com/google/go-cmp v0.7.0/go.mod h1:pXiqmnSA92OHEEa9HXL2W4E7lf9JzCmGVUdgjX3N/iU=
+github.com/google/jsonschema-go v0.4.3 h1:/DBOLZTfDow7pe2GmaJNhltueGTtDKICi8V8p+DQPd0=
+github.com/google/jsonschema-go v0.4.3/go.mod h1:r5quNTdLOYEz95Ru18zA0ydNbBuYoo9tgaYcxEYhJVE=
 github.com/google/pprof v0.0.0-20250317173921-a4b03ec1a45e h1:ijClszYn+mADRFY17kjQEVQ1XRhq2/JR1M3sGqeJoxs=
 github.com/google/pprof v0.0.0-20250317173921-a4b03ec1a45e/go.mod h1:boTsfXsheKC2y+lKOCMpSfarhxDeIzfZG1jqGcPl3cA=
 github.com/google/uuid v1.6.0 h1:NIvaJDMOsjHA8n1jAhLSgzrAzy1Hgr+hNrb57e+94F0=

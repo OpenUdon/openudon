@@ -3,9 +3,9 @@ module github.com/OpenUdon/openudon
 go 1.26.3
 
 require (
-	github.com/OpenUdon/apitools v0.1.0
+	github.com/OpenUdon/apitools v0.0.0-20260523003429-09cea5aa5ae1
 	github.com/OpenUdon/tfconfig v0.0.0-20260509192333-e523c2b30f3e
-	github.com/OpenUdon/uws v0.0.0-20260509015819-d0f74a8726fa
+	github.com/OpenUdon/uws v0.0.0-20260523003429-d922781173ab
 	github.com/hashicorp/hcl/v2 v2.24.0
 	github.com/santhosh-tekuri/jsonschema/v6 v6.0.2
 	github.com/zclconf/go-cty v1.18.1
@@ -19,6 +19,7 @@ require (
 )
 
 require (
+	github.com/OpenUdon/awssmithy v0.0.0-20260520213111-549a060a5e28 // indirect
 	github.com/OpenUdon/googlediscovery v0.0.0-20260520203137-c02129a009fc // indirect
 	github.com/OpenUdon/oas v0.0.0-20260507023120-7fb319711323 // indirect
 	github.com/OpenUdon/schema v0.0.0-20260507023912-6ea3308bb955 // indirect

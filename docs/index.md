@@ -15,8 +15,8 @@ checks pass.
 ## What OpenUdon Owns
 
 - Project briefs, templates, guided iCoT authoring, and eval fixtures.
-- OpenAPI-bound UWS artifact generation from reviewed inputs, including Discovery/Smithy sources
-  after upstream lowering.
+- API-source-bound UWS artifact generation from reviewed OpenAPI, Google Discovery, and AWS
+  Smithy inputs.
 - Review evidence, quality reports, approval templates, package digests, and handoff manifests.
 - Local trusted-runner enforcement before invoking an external executor.
 
