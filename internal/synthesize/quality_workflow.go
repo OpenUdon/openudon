@@ -137,12 +137,48 @@ func validateWorkflowAgainstExpectedPlan(report *QualityReport, compiled *uws1.D
 }
 
 func validateWorkflowAgainstExpectedPlanWithIndex(report *QualityReport, expected *WorkflowPlan, operationIndex func() (map[string]*compiledOperation, error)) bool {
+	return validateWorkflowAgainstExpectedPlanWithLabels(report, expected, workflowPlanValidationLabels{
+		requestEvidenceCode:    "workflow.request_evidence",
+		requestEvidenceMessage: "workflow.hcl request evidence could not be projected",
+		planCoverageCode:       "workflow.plan_coverage",
+		planCoverageFail:       "workflow.hcl does not include every planned step",
+		planCoveragePass:       "workflow.hcl includes every planned step",
+		planMatchCode:          "workflow.plan_match",
+		planMatchFail:          "workflow.hcl diverges from the expected plan",
+		planMatchPass:          "workflow.hcl preserves planned runtimes, operations, dependencies, actions, and request mappings",
+		bindingSourcesCode:     "workflow.binding_sources",
+		bindingSourcesFail:     "workflow.hcl request fields do not preserve planned data sources",
+		bindingSourcesPass:     "workflow.hcl request fields preserve planned data sources",
+		credentialsCode:        "workflow.credentials_bound",
+		credentialsFail:        "workflow.hcl does not bind required credential-like parameters",
+		credentialsPass:        "workflow.hcl binds required credential-like parameters",
+	}, operationIndex)
+}
+
+type workflowPlanValidationLabels struct {
+	requestEvidenceCode    string
+	requestEvidenceMessage string
+	planCoverageCode       string
+	planCoverageFail       string
+	planCoveragePass       string
+	planMatchCode          string
+	planMatchFail          string
+	planMatchPass          string
+	bindingSourcesCode     string
+	bindingSourcesFail     string
+	bindingSourcesPass     string
+	credentialsCode        string
+	credentialsFail        string
+	credentialsPass        string
+}
+
+func validateWorkflowAgainstExpectedPlanWithLabels(report *QualityReport, expected *WorkflowPlan, labels workflowPlanValidationLabels, operationIndex func() (map[string]*compiledOperation, error)) bool {
 	if expected == nil {
 		return true
 	}
 	ops, err := operationIndex()
 	if err != nil {
-		report.add("workflow.request_evidence", "fail", "workflow.hcl request evidence could not be projected", err.Error())
+		report.add(labels.requestEvidenceCode, "fail", labels.requestEvidenceMessage, err.Error())
 		return false
 	}
 	var missing, runtimeMismatch, operationMismatch, dependsMismatch, timeoutMismatch, controlMismatch, actionMismatch, requestMismatch, bindingSourceMismatch, credentialMismatch []string
@@ -292,10 +328,10 @@ func validateWorkflowAgainstExpectedPlanWithIndex(report *QualityReport, expecte
 	}
 	if len(missing) > 0 {
 		sort.Strings(missing)
-		report.add("workflow.plan_coverage", "fail", "workflow.hcl does not include every planned step", strings.Join(missing, ", "))
+		report.add(labels.planCoverageCode, "fail", labels.planCoverageFail, strings.Join(missing, ", "))
 		return false
 	}
-	report.add("workflow.plan_coverage", "pass", "workflow.hcl includes every planned step", "")
+	report.add(labels.planCoverageCode, "pass", labels.planCoveragePass, "")
 	if len(runtimeMismatch) > 0 || len(operationMismatch) > 0 || len(dependsMismatch) > 0 || len(timeoutMismatch) > 0 || len(controlMismatch) > 0 || len(actionMismatch) > 0 || len(requestMismatch) > 0 {
 		var details []string
 		details = append(details, sortedCopy(runtimeMismatch)...)
@@ -305,20 +341,20 @@ func validateWorkflowAgainstExpectedPlanWithIndex(report *QualityReport, expecte
 		details = append(details, sortedCopy(controlMismatch)...)
 		details = append(details, sortedCopy(actionMismatch)...)
 		details = append(details, sortedCopy(requestMismatch)...)
-		report.add("workflow.plan_match", "fail", "workflow.hcl diverges from the expected plan", strings.Join(details, "; "))
+		report.add(labels.planMatchCode, "fail", labels.planMatchFail, strings.Join(details, "; "))
 		return false
 	}
-	report.add("workflow.plan_match", "pass", "workflow.hcl preserves planned runtimes, operations, dependencies, actions, and request mappings", "")
+	report.add(labels.planMatchCode, "pass", labels.planMatchPass, "")
 	if len(bindingSourceMismatch) > 0 {
-		report.add("workflow.binding_sources", "fail", "workflow.hcl request fields do not preserve planned data sources", strings.Join(sortedCopy(bindingSourceMismatch), "; "))
+		report.add(labels.bindingSourcesCode, "fail", labels.bindingSourcesFail, strings.Join(sortedCopy(bindingSourceMismatch), "; "))
 		return false
 	}
-	report.add("workflow.binding_sources", "pass", "workflow.hcl request fields preserve planned data sources", "")
+	report.add(labels.bindingSourcesCode, "pass", labels.bindingSourcesPass, "")
 	if len(credentialMismatch) > 0 {
-		report.add("workflow.credentials_bound", "fail", "workflow.hcl does not bind required credential-like parameters", strings.Join(sortedCopy(credentialMismatch), "; "))
+		report.add(labels.credentialsCode, "fail", labels.credentialsFail, strings.Join(sortedCopy(credentialMismatch), "; "))
 		return false
 	}
-	report.add("workflow.credentials_bound", "pass", "workflow.hcl binds required credential-like parameters", "")
+	report.add(labels.credentialsCode, "pass", labels.credentialsPass, "")
 	return true
 }
 

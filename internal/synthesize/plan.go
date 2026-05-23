@@ -100,7 +100,14 @@ func buildWorkflowPlan(result Result, intent *rollout.Intent, candidates []opena
 		ops[key] = op
 	}
 	security := openAPISecurityIndex(candidates)
-	for key, reqs := range localAdvisorySecurityIndex(result.ExampleDir) {
+	advisorySecurity, advisoryErrs := localAdvisorySecurityIndex(result.ExampleDir)
+	for _, err := range advisoryErrs {
+		plan.Gaps = append(plan.Gaps, PlanGap{
+			Code:   "credentials.security_sidecar_invalid",
+			Detail: err.Error(),
+		})
+	}
+	for key, reqs := range advisorySecurity {
 		security[key] = append(security[key], reqs...)
 	}
 	inputs := intentInputNames(intent)

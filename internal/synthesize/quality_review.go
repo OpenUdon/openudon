@@ -225,14 +225,35 @@ func assessSymphonyHandoff(report *QualityReport, path string, profile sideEffec
 }
 
 func symphonyHandoffHasRequiredInputs(exampleDir string, manifest SymphonyHandoff) (bool, error) {
-	_, err := packageartifacts.RequiredManifestPaths(exampleDir, packageArtifactManifestInputs(manifest))
+	paths, err := packageartifacts.RequiredManifestPaths(exampleDir, packageArtifactManifestInputs(manifest))
 	if err != nil {
 		if strings.Contains(err.Error(), "missing required input") {
 			return false, nil
 		}
 		return false, err
 	}
+	paths = pathsExcludingSelfGeneratedArtifacts(exampleDir, paths)
+	if err := packageartifacts.ValidateRegularPackageFiles(exampleDir, paths); err != nil {
+		return false, err
+	}
 	return true, nil
+}
+
+func pathsExcludingSelfGeneratedArtifacts(exampleDir string, paths []string) []string {
+	out := make([]string, 0, len(paths))
+	selfGenerated := map[string]bool{
+		"expected/quality.json":    true,
+		"expected/refinement.json": true,
+	}
+	for _, rel := range paths {
+		if selfGenerated[rel] {
+			if _, err := os.Lstat(filepath.Join(exampleDir, filepath.FromSlash(rel))); os.IsNotExist(err) {
+				continue
+			}
+		}
+		out = append(out, rel)
+	}
+	return out
 }
 
 func packageArtifactManifestInputs(manifest SymphonyHandoff) []packageartifacts.ManifestInput {

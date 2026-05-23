@@ -694,6 +694,7 @@ func stringFromAnyMap(values map[string]any, key string) string {
 
 func requestFieldPlacements(operation apitools.OperationSummary) (map[string]requestFieldPlacement, error) {
 	out := map[string]requestFieldPlacement{}
+	blocked := map[string]bool{}
 	add := func(key, section, name string) error {
 		key = strings.TrimSpace(key)
 		section = strings.TrimSpace(section)
@@ -702,14 +703,22 @@ func requestFieldPlacements(operation apitools.OperationSummary) (map[string]req
 			return nil
 		}
 		placement := requestFieldPlacement{Original: key, Section: section, Name: name}
+		if blocked[key] {
+			return nil
+		}
 		if existing, ok := out[key]; ok && (existing.Section != placement.Section || existing.Name != placement.Name) {
 			delete(out, key)
+			blocked[key] = true
 			return nil
 		}
 		out[key] = placement
 		if alias := camelToSnake(key); alias != key {
+			if blocked[alias] {
+				return nil
+			}
 			if existing, ok := out[alias]; ok && (existing.Section != placement.Section || existing.Name != placement.Name) {
 				delete(out, alias)
+				blocked[alias] = true
 				return nil
 			}
 			out[alias] = requestFieldPlacement{Original: alias, Section: section, Name: name}

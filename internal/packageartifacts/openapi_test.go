@@ -58,6 +58,26 @@ func TestRequiredPackagePathsIncludesFirstClassAPISources(t *testing.T) {
 	}
 }
 
+func TestRequiredPackagePathsIncludesAdvisorySecuritySidecars(t *testing.T) {
+	root := t.TempDir()
+	writeRequiredPackageFiles(t, root)
+	mustWrite(t, filepath.Join(root, "google-discovery", "gmail.json"), []byte(`{"discoveryVersion":"v1"}`))
+	mustWrite(t, filepath.Join(root, "google-discovery", "gmail.security.json"), []byte(`{"security_schemes":[]}`))
+
+	paths, err := RequiredPackagePaths(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, want := range []string{
+		"google-discovery/gmail.json",
+		"google-discovery/gmail.security.json",
+	} {
+		if !stringSliceContains(paths, want) {
+			t.Fatalf("RequiredPackagePaths missing %q in %#v", want, paths)
+		}
+	}
+}
+
 func TestCollectAPISourcePathsSkipsAdvisorySecuritySidecars(t *testing.T) {
 	root := t.TempDir()
 	mustWrite(t, filepath.Join(root, "google-discovery", "gmail.json"), []byte(`{"discoveryVersion":"v1"}`))
@@ -80,6 +100,52 @@ func TestCollectAPISourcePathsSkipsAdvisorySecuritySidecars(t *testing.T) {
 		if stringSliceContains(paths, skipped) {
 			t.Fatalf("CollectAPISourcePaths included advisory sidecar %q in %#v", skipped, paths)
 		}
+	}
+}
+
+func TestCollectAdvisorySecuritySidecarPathsRequiresMainSource(t *testing.T) {
+	root := t.TempDir()
+	mustWrite(t, filepath.Join(root, "google-discovery", "gmail.json"), []byte(`{"discoveryVersion":"v1"}`))
+	mustWrite(t, filepath.Join(root, "google-discovery", "gmail.security.json"), []byte(`{"security_schemes":[]}`))
+	mustWrite(t, filepath.Join(root, "google-discovery", "orphan.security.json"), []byte(`{"security_schemes":[]}`))
+
+	paths, err := CollectAdvisorySecuritySidecarPaths(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !stringSliceContains(paths, "google-discovery/gmail.security.json") {
+		t.Fatalf("CollectAdvisorySecuritySidecarPaths missing associated sidecar in %#v", paths)
+	}
+	if stringSliceContains(paths, "google-discovery/orphan.security.json") {
+		t.Fatalf("CollectAdvisorySecuritySidecarPaths included orphan sidecar in %#v", paths)
+	}
+}
+
+func TestCollectAdvisorySecuritySidecarPathsRejectsSymlink(t *testing.T) {
+	root := t.TempDir()
+	mustWrite(t, filepath.Join(root, "google-discovery", "gmail.json"), []byte(`{"discoveryVersion":"v1"}`))
+	target := filepath.Join(root, "outside.security.json")
+	mustWrite(t, target, []byte(`{"security_schemes":[]}`))
+	if err := os.Symlink(target, filepath.Join(root, "google-discovery", "gmail.security.json")); err != nil {
+		t.Fatal(err)
+	}
+
+	_, err := CollectAdvisorySecuritySidecarPaths(root)
+	if err == nil || !strings.Contains(err.Error(), "symlink") {
+		t.Fatalf("expected sidecar symlink rejection, got %v", err)
+	}
+}
+
+func TestCollectAdvisorySecuritySidecarPathsRejectsDirectory(t *testing.T) {
+	root := t.TempDir()
+	mustWrite(t, filepath.Join(root, "google-discovery", "gmail.json"), []byte(`{"discoveryVersion":"v1"}`))
+	if err := os.MkdirAll(filepath.Join(root, "google-discovery", "gmail.security.json"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+
+	_, err := CollectAdvisorySecuritySidecarPaths(root)
+	if err == nil || !strings.Contains(err.Error(), "regular file") {
+		t.Fatalf("expected sidecar directory rejection, got %v", err)
 	}
 }
 

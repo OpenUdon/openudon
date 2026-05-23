@@ -210,7 +210,11 @@ func validateIntentOpenAPISecurity(intent *rollout.Intent, exampleDir string, ca
 		return nil
 	}
 	security := openAPISecurityIndex(candidates)
-	for key, reqs := range localAdvisorySecurityIndex(exampleDir) {
+	advisory, advisoryErrs := localAdvisorySecurityIndex(exampleDir)
+	if len(advisoryErrs) > 0 {
+		return fmt.Errorf("advisory security sidecar metadata is invalid: %s", joinErrorMessages(advisoryErrs))
+	}
+	for key, reqs := range advisory {
 		security[key] = append(security[key], reqs...)
 	}
 	var required, missing []string
@@ -621,15 +625,22 @@ func openAPISecurityIndex(candidates []openapidisco.Candidate) map[string][]open
 	return out
 }
 
-func localAdvisorySecurityIndex(exampleDir string) map[string][]openAPISecurityRequirement {
+func localAdvisorySecurityIndex(exampleDir string) (map[string][]openAPISecurityRequirement, []error) {
 	out := map[string][]openAPISecurityRequirement{}
+	if strings.TrimSpace(exampleDir) == "" {
+		return out, nil
+	}
 	paths, err := packageartifacts.CollectAPISourcePaths(exampleDir)
 	if err != nil {
-		return out
+		return out, []error{err}
 	}
+	var errs []error
 	for _, rel := range paths {
 		path := filepath.Join(exampleDir, filepath.FromSlash(rel))
-		overlay, ok := readSecuritySidecar(path)
+		overlay, ok, err := readSecuritySidecar(path)
+		if err != nil {
+			errs = append(errs, err)
+		}
 		if !ok {
 			continue
 		}
@@ -640,21 +651,24 @@ func localAdvisorySecurityIndex(exampleDir string) map[string][]openAPISecurityR
 	for key, reqs := range out {
 		out[key] = sortedSecurityRequirements(reqs)
 	}
-	return out
+	return out, errs
 }
 
-func readSecuritySidecar(sourcePath string) (catalog.SecurityMetadata, bool) {
-	for _, path := range securitySidecarPaths(sourcePath) {
+func readSecuritySidecar(sourcePath string) (catalog.SecurityMetadata, bool, error) {
+	for _, path := range packageartifacts.AdvisorySecuritySidecarPathCandidates(sourcePath) {
 		data, err := os.ReadFile(path)
 		if err != nil {
+			if !os.IsNotExist(err) {
+				return catalog.SecurityMetadata{}, true, fmt.Errorf("%s: %w", path, err)
+			}
 			continue
 		}
 		var metadata catalog.SecurityMetadata
 		if err := json.Unmarshal(data, &metadata); err == nil && securityMetadataPresent(metadata) {
-			return metadata, true
+			return metadata, true, nil
 		}
-		if err := yaml.Unmarshal(data, &metadata); err == nil && securityMetadataPresent(metadata) {
-			return metadata, true
+		if err := unmarshalYAMLThroughJSON(data, &metadata); err == nil && securityMetadataPresent(metadata) {
+			return metadata, true, nil
 		}
 		var overlay catalog.SecurityOverlay
 		if err := json.Unmarshal(data, &overlay); err == nil {
@@ -665,10 +679,10 @@ func readSecuritySidecar(sourcePath string) (catalog.SecurityMetadata, bool) {
 				OperationSecurity: overlay.OperationSecurity,
 			}
 			if securityMetadataPresent(metadata) {
-				return metadata, true
+				return metadata, true, nil
 			}
 		}
-		if err := yaml.Unmarshal(data, &overlay); err == nil {
+		if err := unmarshalYAMLThroughJSON(data, &overlay); err == nil {
 			metadata = catalog.SecurityMetadata{
 				SecuritySchemes:   overlay.SecuritySchemes,
 				RootSecurity:      overlay.RootSecurity,
@@ -676,28 +690,65 @@ func readSecuritySidecar(sourcePath string) (catalog.SecurityMetadata, bool) {
 				OperationSecurity: overlay.OperationSecurity,
 			}
 			if securityMetadataPresent(metadata) {
-				return metadata, true
+				return metadata, true, nil
 			}
 		}
+		return catalog.SecurityMetadata{}, true, fmt.Errorf("%s: invalid or empty security metadata; expected catalog.SecurityMetadata or catalog.SecurityOverlay with security schemes or requirements", path)
 	}
-	return catalog.SecurityMetadata{}, false
+	return catalog.SecurityMetadata{}, false, nil
 }
 
-func securitySidecarPaths(sourcePath string) []string {
-	ext := filepath.Ext(sourcePath)
-	base := strings.TrimSuffix(sourcePath, ext)
-	return []string{
-		sourcePath + ".security.json",
-		sourcePath + ".security.yaml",
-		base + ".security.json",
-		base + ".security.yaml",
-		base + ".security-overlay.json",
-		base + ".security-overlay.yaml",
+func unmarshalYAMLThroughJSON(data []byte, dst any) error {
+	var raw any
+	if err := yaml.Unmarshal(data, &raw); err != nil {
+		return err
+	}
+	compatible := yamlToJSONCompatible(raw)
+	jsonData, err := json.Marshal(compatible)
+	if err != nil {
+		return err
+	}
+	return json.Unmarshal(jsonData, dst)
+}
+
+func yamlToJSONCompatible(value any) any {
+	switch typed := value.(type) {
+	case map[string]any:
+		out := make(map[string]any, len(typed))
+		for key, child := range typed {
+			out[key] = yamlToJSONCompatible(child)
+		}
+		return out
+	case map[any]any:
+		out := make(map[string]any, len(typed))
+		for key, child := range typed {
+			out[strings.TrimSpace(fmt.Sprint(key))] = yamlToJSONCompatible(child)
+		}
+		return out
+	case []any:
+		out := make([]any, len(typed))
+		for i, child := range typed {
+			out[i] = yamlToJSONCompatible(child)
+		}
+		return out
+	default:
+		return value
 	}
 }
 
 func securityMetadataPresent(metadata catalog.SecurityMetadata) bool {
 	return len(metadata.SecuritySchemes) > 0 || len(metadata.RootSecurity) > 0 || len(metadata.RootSecuritySets) > 0 || len(metadata.OperationSecurity) > 0
+}
+
+func joinErrorMessages(errs []error) string {
+	messages := make([]string, 0, len(errs))
+	for _, err := range errs {
+		if err != nil && strings.TrimSpace(err.Error()) != "" {
+			messages = append(messages, err.Error())
+		}
+	}
+	sort.Strings(messages)
+	return strings.Join(messages, "; ")
 }
 
 func advisorySecurityForSource(rel, path string, metadata catalog.SecurityMetadata) map[string][]openAPISecurityRequirement {

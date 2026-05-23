@@ -97,7 +97,18 @@ func symphonyHandoffInputs(result Result) ([]SymphonyHandoffInput, error) {
 	for _, path := range openAPIPaths {
 		artifacts = append(artifacts, authoring.ReviewArtifactInput{
 			Path:     path,
-			Purpose:  "Reviewed OpenAPI contract staged with the trusted executor package.",
+			Purpose:  "Reviewed API source contract staged with the trusted executor package.",
+			Required: true,
+		})
+	}
+	securitySidecars, err := packageartifacts.CollectAdvisorySecuritySidecarPaths(result.ExampleDir)
+	if err != nil {
+		return nil, err
+	}
+	for _, path := range securitySidecars {
+		artifacts = append(artifacts, authoring.ReviewArtifactInput{
+			Path:     path,
+			Purpose:  "Advisory security metadata used for build credential review.",
 			Required: true,
 		})
 	}

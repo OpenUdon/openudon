@@ -3,11 +3,13 @@ package synthesize
 import (
 	"fmt"
 	"os"
+	"path/filepath"
 	"strings"
 
-	"github.com/OpenUdon/uws/uws1"
+	"github.com/OpenUdon/openudon/internal/packageartifacts"
 	uwsprofile "github.com/OpenUdon/openudon/internal/uwsexec"
 	"github.com/OpenUdon/openudon/internal/uwsvalidate"
+	"github.com/OpenUdon/uws/uws1"
 )
 
 func assessUWS(report *QualityReport, path, schemaPath, exampleDir string, expectedPlan *WorkflowPlan) {
@@ -34,6 +36,11 @@ func assessUWS(report *QualityReport, path, schemaPath, exampleDir string, expec
 		return
 	}
 	report.add("uws.execution_profile", "pass", "workflow.uws.yaml passes local execution-profile validation", "")
+	if err := validateUWSSourceDescriptions(exampleDir, doc); err != nil {
+		report.add("uws.source_descriptions", "fail", "workflow.uws.yaml source descriptions must reference package API source documents", err.Error())
+		return
+	}
+	report.add("uws.source_descriptions", "pass", "workflow.uws.yaml source descriptions reference package API source documents", "")
 	if expectedPlan != nil && len(expectedPlan.Results) > 0 {
 		if err := validateUWSStructuralResults(doc, expectedPlan.Results); err != nil {
 			report.add("uws.structural_results", "fail", "workflow.uws.yaml does not preserve planned structural results", err.Error())
@@ -55,6 +62,59 @@ func assessUWS(report *QualityReport, path, schemaPath, exampleDir string, expec
 		}
 		report.add("uws.timeout_idempotency", "pass", "workflow.uws.yaml preserves planned timeout/idempotency metadata", "")
 	}
+	if expectedPlan != nil && !validateWorkflowAgainstExpectedPlanWithLabels(report, expectedPlan, workflowPlanValidationLabels{
+		requestEvidenceCode:    "uws.request_evidence",
+		requestEvidenceMessage: "workflow.uws.yaml request evidence could not be projected",
+		planCoverageCode:       "uws.plan_coverage",
+		planCoverageFail:       "workflow.uws.yaml does not include every planned step",
+		planCoveragePass:       "workflow.uws.yaml includes every planned step",
+		planMatchCode:          "uws.plan_match",
+		planMatchFail:          "workflow.uws.yaml diverges from the expected plan",
+		planMatchPass:          "workflow.uws.yaml preserves planned runtimes, operations, dependencies, actions, and request mappings",
+		bindingSourcesCode:     "uws.binding_sources",
+		bindingSourcesFail:     "workflow.uws.yaml request fields do not preserve planned data sources",
+		bindingSourcesPass:     "workflow.uws.yaml request fields preserve planned data sources",
+		credentialsCode:        "uws.credentials_bound",
+		credentialsFail:        "workflow.uws.yaml does not bind required credential-like parameters",
+		credentialsPass:        "workflow.uws.yaml binds required credential-like parameters",
+	}, func() (map[string]*compiledOperation, error) {
+		return compiledOperationIndex(doc)
+	}) {
+		return
+	}
+}
+
+func validateUWSSourceDescriptions(exampleDir string, doc *uws1.Document) error {
+	if doc == nil || len(doc.SourceDescriptions) == 0 {
+		return nil
+	}
+	paths, err := packageartifacts.CollectAPISourcePaths(exampleDir)
+	if err != nil {
+		return err
+	}
+	allowed := make(map[string]struct{}, len(paths))
+	for _, path := range paths {
+		allowed[path] = struct{}{}
+	}
+	var invalid []string
+	for _, source := range doc.SourceDescriptions {
+		if source == nil {
+			continue
+		}
+		name := strings.TrimSpace(source.Name)
+		if name == "" {
+			name = "<unnamed>"
+		}
+		url := filepath.ToSlash(strings.TrimSpace(source.URL))
+		if _, ok := allowed[url]; ok {
+			continue
+		}
+		invalid = append(invalid, fmt.Sprintf("%s url %q", name, strings.TrimSpace(source.URL)))
+	}
+	if len(invalid) == 0 {
+		return nil
+	}
+	return fmt.Errorf("source description URL is not a package API source: %s", strings.Join(sortedCopy(invalid), "; "))
 }
 
 func validateUWSStructuralResults(doc *uws1.Document, expected []PlanResult) error {

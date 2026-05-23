@@ -858,6 +858,156 @@ func TestValidateIntentOpenAPISecurityRequiresCredentialPolicy(t *testing.T) {
 	}
 }
 
+func TestValidateIntentOpenAPISecurityRejectsMalformedSidecar(t *testing.T) {
+	example := t.TempDir()
+	apiPath := filepath.Join(example, "openapi", "support.yaml")
+	mustWriteSynthesizeTestFile(t, apiPath, []byte(openAPIWithoutSecurity()))
+	mustWriteSynthesizeTestFile(t, filepath.Join(example, "openapi", "support.security.json"), []byte(`{`))
+	intent := &rollout.Intent{
+		OpenAPI: "openapi/support.yaml",
+		Steps: []*rollout.Step{{
+			Name:      "list_tickets",
+			Type:      "http",
+			Operation: "listTickets",
+		}},
+	}
+
+	err := validateIntentOpenAPISecurity(intent, example, nil, "", analyzeProject(""))
+	if err == nil || !strings.Contains(err.Error(), "advisory security sidecar") || !strings.Contains(err.Error(), "invalid or empty security metadata") {
+		t.Fatalf("expected malformed sidecar security failure, got %v", err)
+	}
+}
+
+func TestValidateIntentOpenAPISecurityRejectsEmptySidecar(t *testing.T) {
+	example := t.TempDir()
+	apiPath := filepath.Join(example, "openapi", "support.yaml")
+	mustWriteSynthesizeTestFile(t, apiPath, []byte(openAPIWithoutSecurity()))
+	mustWriteSynthesizeTestFile(t, filepath.Join(example, "openapi", "support.security.json"), []byte(`{}`))
+	intent := &rollout.Intent{
+		OpenAPI: "openapi/support.yaml",
+		Steps: []*rollout.Step{{
+			Name:      "list_tickets",
+			Type:      "http",
+			Operation: "listTickets",
+		}},
+	}
+
+	err := validateIntentOpenAPISecurity(intent, example, nil, "", analyzeProject(""))
+	if err == nil || !strings.Contains(err.Error(), "invalid or empty security metadata") {
+		t.Fatalf("expected empty sidecar security failure, got %v", err)
+	}
+}
+
+func TestValidateIntentOpenAPISecurityUsesValidSidecar(t *testing.T) {
+	example := t.TempDir()
+	apiPath := filepath.Join(example, "openapi", "support.yaml")
+	mustWriteSynthesizeTestFile(t, apiPath, []byte(openAPIWithoutSecurity()))
+	mustWriteSynthesizeTestFile(t, filepath.Join(example, "openapi", "support.security.json"), []byte(`{
+  "security_schemes": [{"name":"ApiKeyAuth","type":"apiKey","in":"query","parameter_name":"api_key"}],
+  "root_security": [{"scheme":"ApiKeyAuth"}]
+}`))
+	intent := &rollout.Intent{
+		OpenAPI: "openapi/support.yaml",
+		Steps: []*rollout.Step{{
+			Name:      "list_tickets",
+			Type:      "http",
+			Operation: "listTickets",
+			With:      map[string]string{"api_key": "support_api_key"},
+		}},
+	}
+
+	if err := validateIntentOpenAPISecurity(intent, example, nil, "", analyzeProject("")); err == nil || !strings.Contains(err.Error(), "Credentials and Secrets") {
+		t.Fatalf("expected sidecar security policy failure, got %v", err)
+	}
+	policy := analyzeProject(`## Credentials and Secrets
+
+- Use credential binding support_api_key.
+`)
+	if err := validateIntentOpenAPISecurity(intent, example, nil, "", policy); err != nil {
+		t.Fatalf("expected valid sidecar to pass with policy, got %v", err)
+	}
+}
+
+func TestValidateIntentOpenAPISecurityUsesSnakeCaseYAMLSidecars(t *testing.T) {
+	for _, tc := range []struct {
+		name    string
+		relPath string
+		content string
+	}{
+		{
+			name:    "metadata",
+			relPath: "openapi/support.security.yaml",
+			content: `
+security_schemes:
+  - name: ApiKeyAuth
+    type: apiKey
+    in: query
+    parameter_name: api_key
+root_security:
+  - scheme: ApiKeyAuth
+`,
+		},
+		{
+			name:    "overlay",
+			relPath: "openapi/support.security-overlay.yaml",
+			content: `
+id: support_security
+provider_id: support
+status: present
+security_schemes:
+  - name: ApiKeyAuth
+    type: apiKey
+    in: query
+    parameter_name: api_key
+operation_security:
+  - match:
+      operation_id: listTickets
+    security:
+      - scheme: ApiKeyAuth
+`,
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			example := t.TempDir()
+			mustWriteSynthesizeTestFile(t, filepath.Join(example, "openapi", "support.yaml"), []byte(openAPIWithoutSecurity()))
+			mustWriteSynthesizeTestFile(t, filepath.Join(example, filepath.FromSlash(tc.relPath)), []byte(tc.content))
+			intent := &rollout.Intent{
+				OpenAPI: "openapi/support.yaml",
+				Steps: []*rollout.Step{{
+					Name:      "list_tickets",
+					Type:      "http",
+					Operation: "listTickets",
+					With:      map[string]string{"api_key": "support_api_key"},
+				}},
+			}
+			if err := validateIntentOpenAPISecurity(intent, example, nil, "", analyzeProject("")); err == nil || !strings.Contains(err.Error(), "Credentials and Secrets") {
+				t.Fatalf("expected YAML sidecar to enforce credential policy, got %v", err)
+			}
+			policy := analyzeProject("## Credentials and Secrets\n- Use credential binding support_api_key.\n")
+			if err := validateIntentOpenAPISecurity(intent, example, nil, "", policy); err != nil {
+				t.Fatalf("expected YAML sidecar to pass with policy, got %v", err)
+			}
+		})
+	}
+}
+
+func TestBuildWorkflowPlanRecordsInvalidSecuritySidecarGap(t *testing.T) {
+	example := t.TempDir()
+	mustWriteSynthesizeTestFile(t, filepath.Join(example, "openapi", "support.yaml"), []byte(openAPIWithoutSecurity()))
+	mustWriteSynthesizeTestFile(t, filepath.Join(example, "openapi", "support.security.json"), []byte(`{}`))
+	plan := buildWorkflowPlan(Result{ExampleDir: example}, &rollout.Intent{
+		OpenAPI: "openapi/support.yaml",
+		Steps: []*rollout.Step{{
+			Name:      "list_tickets",
+			Type:      "http",
+			Operation: "listTickets",
+		}},
+	}, nil, analyzeProject(""))
+	if !planHasGap(plan, "credentials.security_sidecar_invalid") {
+		t.Fatalf("expected invalid sidecar gap, got %#v", plan.Gaps)
+	}
+}
+
 func TestBuildWorkflowPlanRecordsOpenAPISecurityCredential(t *testing.T) {
 	dir := t.TempDir()
 	path := filepath.Join(dir, "secure.yaml")
@@ -1292,7 +1442,9 @@ func TestAssessReportsMissingOpenAPI(t *testing.T) {
 }
 
 func TestAssessSymphonyHandoffAcceptsLegacyVersion(t *testing.T) {
-	path := filepath.Join(t.TempDir(), "symphony-handoff.json")
+	example := t.TempDir()
+	writeSynthesizeRequiredPackageFiles(t, example)
+	path := filepath.Join(example, "expected", "symphony-handoff.json")
 	manifest := SymphonyHandoff{
 		Version:        legacySymphonyHandoffVersion,
 		GeneratedState: string(authoring.ReviewStateGenerated),
@@ -1325,6 +1477,76 @@ func TestAssessSymphonyHandoffAcceptsLegacyVersion(t *testing.T) {
 	assessSymphonyHandoff(report, path, sideEffectProfile{}, projectPolicy{}, nil)
 	if !hasCheck(report, "symphony_handoff.contract", "pass") {
 		t.Fatalf("expected legacy handoff to pass, got %#v", report.Checks)
+	}
+}
+
+func TestBuildSymphonyHandoffIncludesAdvisorySecuritySidecar(t *testing.T) {
+	example := t.TempDir()
+	mustWriteSynthesizeTestFile(t, filepath.Join(example, "google-discovery", "gmail.json"), []byte(`{"discoveryVersion":"v1"}`))
+	mustWriteSynthesizeTestFile(t, filepath.Join(example, "google-discovery", "gmail.security.json"), []byte(`{"security_schemes":[]}`))
+	result := Result{
+		ExampleDir:          example,
+		ProjectPath:         filepath.Join(example, "project.md"),
+		IntentPath:          filepath.Join(example, "workflows", "intent.hcl"),
+		WorkflowPath:        filepath.Join(example, "workflows", "workflow.hcl"),
+		UWSPath:             filepath.Join(example, "workflows", "workflow.uws.yaml"),
+		PlanJSONPath:        filepath.Join(example, "expected", "plan.json"),
+		QualityJSONPath:     filepath.Join(example, "expected", "quality.json"),
+		RefinementJSONPath:  filepath.Join(example, "expected", "refinement.json"),
+		ReviewPath:          filepath.Join(example, "expected", "review.md"),
+		SymphonyHandoffPath: filepath.Join(example, "expected", "symphony-handoff.json"),
+	}
+	manifest, err := buildSymphonyHandoff(result, projectPolicy{}, sideEffectProfile{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !handoffInputContains(manifest.HandoffInputs, "google-discovery/gmail.json") {
+		t.Fatalf("handoff inputs missing API source: %#v", manifest.HandoffInputs)
+	}
+	if !handoffInputContains(manifest.HandoffInputs, "google-discovery/gmail.security.json") {
+		t.Fatalf("handoff inputs missing advisory security sidecar: %#v", manifest.HandoffInputs)
+	}
+}
+
+func TestAssessSymphonyHandoffRejectsListedMissingSidecar(t *testing.T) {
+	example := t.TempDir()
+	writeSynthesizeRequiredPackageFiles(t, example)
+	mustWriteSynthesizeTestFile(t, filepath.Join(example, "google-discovery", "gmail.json"), []byte(`{"discoveryVersion":"v1"}`))
+	handoffPath := filepath.Join(example, "expected", "symphony-handoff.json")
+	manifest := SymphonyHandoff{
+		Version:        symphonyHandoffVersion,
+		GeneratedState: string(authoring.ReviewStateGenerated),
+		HandoffInputs: []SymphonyHandoffInput{
+			{Path: "project.md", Required: true},
+			{Path: "workflows/intent.hcl", Required: true},
+			{Path: "workflows/workflow.hcl", Required: true},
+			{Path: "workflows/workflow.uws.yaml", Required: true},
+			{Path: "expected/plan.json", Required: true},
+			{Path: "expected/quality.json", Required: true},
+			{Path: "expected/refinement.json", Required: true},
+			{Path: "expected/review.md", Required: true},
+			{Path: "expected/symphony-handoff.json", Required: true},
+			{Path: "google-discovery/gmail.json", Required: true},
+			{Path: "google-discovery/gmail.security.json", Required: true},
+		},
+		ApprovalStates: authoring.DefaultReviewStateMachine(),
+		OwnerSplit: SymphonyOwnerSplit{
+			"openudon": {"artifact validation"},
+			"symphony": {"approval routing"},
+		},
+	}
+	data, err := json.MarshalIndent(manifest, "", "  ")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(handoffPath, append(data, '\n'), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	report := &QualityReport{}
+	assessSymphonyHandoff(report, handoffPath, sideEffectProfile{}, projectPolicy{}, nil)
+	if !hasCheck(report, "symphony_handoff.contract", "fail") || !strings.Contains(report.Checks[len(report.Checks)-1].Detail, "google-discovery/gmail.security.json") {
+		t.Fatalf("expected missing listed sidecar failure, got %#v", report.Checks)
 	}
 }
 
@@ -2323,6 +2545,148 @@ Search weather in Toronto, Canada.
 	}
 	if !hasCheck(report, "workflow.plan_match", "fail") {
 		t.Fatalf("expected workflow.plan_match failure, got %#v", report.Checks)
+	}
+}
+
+func TestAssessFailsWhenUWSYAMLDivergesFromPlan(t *testing.T) {
+	root := t.TempDir()
+	example := filepath.Join(root, "examples", "weather-uws-drift")
+	if err := os.MkdirAll(filepath.Join(example, "openapi"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(example, "project.md"), []byte(`# Weather Lookup
+
+## Goal
+
+Search weather in Toronto, Canada.
+
+## External Systems and OpenAPI
+
+- Use the OpenWeather OpenAPI document under openapi/.
+
+## Data Flow
+
+- Resolve coordinates before weather lookup.
+
+## Runtime Policy
+
+- openapi and http are allowed.
+
+## Credentials and Secrets
+
+- Use runtime credential bindings only.
+
+## Safety and Approval Boundary
+
+- Generate only.
+
+## Fallback Behavior
+
+- Stop if required coordinates cannot be resolved.
+`), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(example, "openapi", "weather.yaml"), []byte(weatherOpenAPI()), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	schemaPath := testUWSSchemaPath(t)
+	result, err := Synthesize(context.Background(), Options{
+		ExampleDir: example,
+		LLMClient:  fakeWeatherChainClient{},
+		ChatClient: fakeWeatherChainClient{},
+		SchemaPath: schemaPath,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	uwsData, err := os.ReadFile(result.UWSPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	drifted := strings.Replace(string(uwsData), "getWeatherData", "direct_get", 1)
+	if drifted == string(uwsData) {
+		t.Fatalf("test fixture did not contain expected UWS operation:\n%s", uwsData)
+	}
+	if err := os.WriteFile(result.UWSPath, []byte(drifted), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	report, err := Assess(Options{ExampleDir: example, SchemaPath: schemaPath})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !hasCheck(report, "workflow.plan_match", "pass") {
+		t.Fatalf("expected workflow.hcl plan check to stay clean, got %#v", report.Checks)
+	}
+	if !hasCheck(report, "uws.plan_match", "fail") {
+		t.Fatalf("expected uws.plan_match failure, got %#v", report.Checks)
+	}
+}
+
+func TestAssessRejectsUWSSourceDescriptionSecuritySidecar(t *testing.T) {
+	root := t.TempDir()
+	example := filepath.Join(root, "examples", "weather-uws-sidecar-source")
+	if err := os.MkdirAll(filepath.Join(example, "openapi"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(example, "project.md"), []byte(`# Weather Lookup
+
+## Goal
+
+Search weather in Toronto, Canada.
+
+## External Systems and OpenAPI
+
+- Use the OpenWeather OpenAPI document under openapi/.
+
+## Runtime Policy
+
+- openapi and http are allowed.
+
+## Credentials and Secrets
+
+- Use runtime credential bindings only.
+
+## Safety and Approval Boundary
+
+- Generate only.
+
+## Fallback Behavior
+
+- Stop if required coordinates cannot be resolved.
+`), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(example, "openapi", "weather.yaml"), []byte(weatherOpenAPI()), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	schemaPath := testUWSSchemaPath(t)
+	result, err := Synthesize(context.Background(), Options{
+		ExampleDir: example,
+		LLMClient:  fakeWeatherChainClient{},
+		ChatClient: fakeWeatherChainClient{},
+		SchemaPath: schemaPath,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	mustWriteSynthesizeTestFile(t, filepath.Join(example, "openapi", "weather.security.json"), []byte(`{"security_schemes":[{"name":"ApiKeyAuth","type":"apiKey"}]}`))
+	uwsData, err := os.ReadFile(result.UWSPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	drifted := strings.Replace(string(uwsData), "openapi/weather.yaml", "openapi/weather.security.json", 1)
+	if drifted == string(uwsData) {
+		t.Fatalf("test fixture did not contain expected UWS source URL:\n%s", uwsData)
+	}
+	if err := os.WriteFile(result.UWSPath, []byte(drifted), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	report, err := Assess(Options{ExampleDir: example, SchemaPath: schemaPath})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !hasCheck(report, "uws.source_descriptions", "fail") {
+		t.Fatalf("expected UWS source description failure, got %#v", report.Checks)
 	}
 }
 
@@ -3445,6 +3809,7 @@ func TestNoSecretsQualityAllowsSupportEmailReferences(t *testing.T) {
 		t.Fatal(err)
 	}
 	result := resultPaths(example)
+	writeSynthesizeRequiredPackageFiles(t, example)
 	files := map[string]string{
 		result.ProjectPath: `# Support Email
 
@@ -3504,6 +3869,7 @@ func TestNoSecretsQualityReportsOnlyArtifactPaths(t *testing.T) {
 		t.Fatal(err)
 	}
 	result := resultPaths(example)
+	writeSynthesizeRequiredPackageFiles(t, example)
 	secret := "sk-proj-abcdefghijklmnopqrstuvwxyz1234567890"
 	if err := os.WriteFile(result.WorkflowPath, []byte(`api_key = "`+secret+`"`), 0o644); err != nil {
 		t.Fatal(err)
@@ -3521,6 +3887,45 @@ func TestNoSecretsQualityReportsOnlyArtifactPaths(t *testing.T) {
 	}
 }
 
+func TestNoSecretsQualityScansAdvisorySecuritySidecars(t *testing.T) {
+	example := filepath.Join(t.TempDir(), "examples", "sidecar-secret")
+	result := resultPaths(example)
+	writeSynthesizeRequiredPackageFiles(t, example)
+	mustWriteSynthesizeTestFile(t, filepath.Join(example, "google-discovery", "gmail.json"), []byte(`{"discoveryVersion":"v1"}`))
+	secret := "sk-proj-abcdefghijklmnopqrstuvwxyz1234567890"
+	mustWriteSynthesizeTestFile(t, filepath.Join(example, "google-discovery", "gmail.security.json"), []byte(`{"security_schemes":[{"name":"`+secret+`","type":"apiKey"}]}`))
+
+	report := &QualityReport{Example: example, Artifacts: result}
+	assessSecrets(report, result)
+	if !hasCheck(report, "artifacts.no_secrets", "fail") {
+		t.Fatalf("expected sidecar secret failure, got %#v", report.Checks)
+	}
+	if !strings.Contains(report.Checks[0].Detail, "google-discovery/gmail.security.json") {
+		t.Fatalf("expected sidecar path in detail, got %#v", report.Checks)
+	}
+	if strings.Contains(report.Checks[0].Detail, secret) {
+		t.Fatalf("secret value leaked in quality detail: %q", report.Checks[0].Detail)
+	}
+}
+
+func TestNoSecretsQualityFailsWhenRequiredPackageInputMissing(t *testing.T) {
+	example := filepath.Join(t.TempDir(), "examples", "missing-package-input")
+	result := resultPaths(example)
+	writeSynthesizeRequiredPackageFiles(t, example)
+	if err := os.Remove(result.PlanJSONPath); err != nil {
+		t.Fatal(err)
+	}
+
+	report := &QualityReport{Example: example, Artifacts: result}
+	assessSecrets(report, result)
+	if !hasCheck(report, "artifacts.no_secrets", "fail") {
+		t.Fatalf("expected missing package input secret-scan failure, got %#v", report.Checks)
+	}
+	if !strings.Contains(report.Checks[0].Detail, "expected/plan.json") {
+		t.Fatalf("expected missing path in detail, got %#v", report.Checks)
+	}
+}
+
 func hasCheck(report *QualityReport, code, status string) bool {
 	if report == nil {
 		return false
@@ -3531,6 +3936,55 @@ func hasCheck(report *QualityReport, code, status string) bool {
 		}
 	}
 	return false
+}
+
+func planHasGap(plan *WorkflowPlan, code string) bool {
+	if plan == nil {
+		return false
+	}
+	for _, gap := range plan.Gaps {
+		if gap.Code == code {
+			return true
+		}
+	}
+	return false
+}
+
+func handoffInputContains(inputs []SymphonyHandoffInput, want string) bool {
+	for _, input := range inputs {
+		if input.Path == want && input.Required {
+			return true
+		}
+	}
+	return false
+}
+
+func mustWriteSynthesizeTestFile(t *testing.T, path string, data []byte) {
+	t.Helper()
+	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(path, data, 0o644); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func writeSynthesizeRequiredPackageFiles(t *testing.T, example string) {
+	t.Helper()
+	files := map[string][]byte{
+		"project.md":                     []byte("# Project\n"),
+		"workflows/intent.hcl":           []byte("intent {}\n"),
+		"workflows/workflow.hcl":         []byte("workflow {}\n"),
+		"workflows/workflow.uws.yaml":    []byte("version: 1.0.0\n"),
+		"expected/plan.json":             []byte("{}\n"),
+		"expected/quality.json":          []byte(`{"status":"pass"}` + "\n"),
+		"expected/refinement.json":       []byte("{}\n"),
+		"expected/review.md":             []byte("# Review\n"),
+		"expected/symphony-handoff.json": []byte("{}\n"),
+	}
+	for rel, data := range files {
+		mustWriteSynthesizeTestFile(t, filepath.Join(example, filepath.FromSlash(rel)), data)
+	}
 }
 
 func qualityChecksContain(checks []QualityCheck, code, status string) bool {
@@ -3873,6 +4327,21 @@ paths:
                 properties:
                   tickets:
                     type: array
+`
+}
+
+func openAPIWithoutSecurity() string {
+	return `openapi: 3.0.0
+info:
+  title: Support API
+  version: 1.0.0
+paths:
+  /tickets:
+    get:
+      operationId: listTickets
+      responses:
+        "200":
+          description: ok
 `
 }
 

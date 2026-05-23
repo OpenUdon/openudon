@@ -62,8 +62,9 @@ func CleanRelativePath(inputPath string) (string, error) {
 
 var apiSourceDirs = []string{"openapi", "google-discovery", "aws-smithy", "discovery"}
 
-// RequiredPackagePaths returns the fixed handoff inventory plus every regular
-// API source file staged for execution.
+// RequiredPackagePaths returns the fixed handoff inventory, every regular API
+// source file staged for execution, and advisory evidence files tied to those
+// sources.
 func RequiredPackagePaths(packageRoot string) ([]string, error) {
 	if err := ValidatePackageRoot(packageRoot); err != nil {
 		return nil, err
@@ -74,6 +75,11 @@ func RequiredPackagePaths(packageRoot string) ([]string, error) {
 		return nil, err
 	}
 	paths = append(paths, openAPIPaths...)
+	securitySidecars, err := CollectAdvisorySecuritySidecarPaths(packageRoot)
+	if err != nil {
+		return nil, err
+	}
+	paths = append(paths, securitySidecars...)
 	return uniqueSorted(paths)
 }
 
@@ -212,6 +218,59 @@ func CollectAPISourcePaths(packageRoot string) ([]string, error) {
 	return paths, nil
 }
 
+// CollectAdvisorySecuritySidecarPaths returns package-relative security
+// sidecar paths that are associated with a real API source file.
+func CollectAdvisorySecuritySidecarPaths(packageRoot string) ([]string, error) {
+	if err := ValidatePackageRoot(packageRoot); err != nil {
+		return nil, err
+	}
+	sourcePaths, err := CollectAPISourcePaths(packageRoot)
+	if err != nil {
+		return nil, err
+	}
+	packageRoot = filepath.Clean(packageRoot)
+	var paths []string
+	for _, sourcePath := range sourcePaths {
+		for _, candidate := range AdvisorySecuritySidecarPathCandidates(sourcePath) {
+			clean, err := CleanRelativePath(filepath.ToSlash(candidate))
+			if err != nil {
+				return nil, err
+			}
+			abs := filepath.Join(packageRoot, filepath.FromSlash(clean))
+			if _, err := os.Lstat(abs); err != nil {
+				if os.IsNotExist(err) {
+					continue
+				}
+				return nil, err
+			}
+			paths = append(paths, clean)
+		}
+	}
+	paths, err = uniqueSorted(paths)
+	if err != nil {
+		return nil, err
+	}
+	if err := ValidateRegularPackageFiles(packageRoot, paths); err != nil {
+		return nil, err
+	}
+	return paths, nil
+}
+
+// AdvisorySecuritySidecarPathCandidates returns the supported sidecar filenames
+// next to a source path. The input may be package-relative or absolute.
+func AdvisorySecuritySidecarPathCandidates(sourcePath string) []string {
+	ext := filepath.Ext(sourcePath)
+	base := strings.TrimSuffix(sourcePath, ext)
+	return []string{
+		sourcePath + ".security.json",
+		sourcePath + ".security.yaml",
+		base + ".security.json",
+		base + ".security.yaml",
+		base + ".security-overlay.json",
+		base + ".security-overlay.yaml",
+	}
+}
+
 func collectSourceDirPaths(packageRoot, dir string) ([]string, error) {
 	if err := ValidatePackageRoot(packageRoot); err != nil {
 		return nil, err
@@ -236,6 +295,9 @@ func collectSourceDirPaths(packageRoot, dir string) ([]string, error) {
 	if err := filepath.WalkDir(sourceRoot, func(path string, entry os.DirEntry, err error) error {
 		if err != nil {
 			return err
+		}
+		if isAdvisorySecuritySidecarPath(path) {
+			return nil
 		}
 		if entry.Type()&os.ModeSymlink != 0 {
 			return fmt.Errorf("%s artifact must not be a symlink: %s", dir, path)

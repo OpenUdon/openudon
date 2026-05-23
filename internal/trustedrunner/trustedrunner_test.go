@@ -431,6 +431,47 @@ func TestRunConfigIncludesNestedOpenAPIPaths(t *testing.T) {
 	}
 }
 
+func TestRunConfigIncludesAdvisorySecuritySidecarPackagePath(t *testing.T) {
+	root, example := writeFixture(t, fixtureOptions{extraRequiredInputs: []string{
+		"google-discovery/gmail.json",
+		"google-discovery/gmail.security.json",
+	}})
+	mustWriteFile(t, filepath.Join(example, "google-discovery", "gmail.json"), []byte(`{"discoveryVersion":"v1"}`))
+	mustWriteFile(t, filepath.Join(example, "google-discovery", "gmail.security.json"), []byte(`{"security_schemes":[]}`))
+	now := fixedNow()
+	approvalPath := writeApprovalTemplate(t, root, example, StateApprovedForSandbox, now)
+	result, err := Run(context.Background(), Options{
+		RepoRoot:     root,
+		ExampleDir:   example,
+		Tier:         TierSandbox,
+		ApprovalPath: approvalPath,
+		DryRun:       true,
+		WorkDir:      filepath.Join(root, "work"),
+		Now:          now,
+		Assess:       passAssess,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	data, err := os.ReadFile(result.RunConfigPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var config RunConfig
+	if err := json.Unmarshal(data, &config); err != nil {
+		t.Fatal(err)
+	}
+	if !stringSliceContains(config.PackagePaths, "google-discovery/gmail.security.json") {
+		t.Fatalf("package paths missing advisory security sidecar: %#v", config.PackagePaths)
+	}
+	if !stringSliceContains(config.OpenAPIPaths, "google-discovery/gmail.json") {
+		t.Fatalf("API source paths missing source: %#v", config.OpenAPIPaths)
+	}
+	if stringSliceContains(config.OpenAPIPaths, "google-discovery/gmail.security.json") {
+		t.Fatalf("API source paths included advisory security sidecar: %#v", config.OpenAPIPaths)
+	}
+}
+
 func TestRunRejectsOpenAPIFileMissingFromHandoffInputs(t *testing.T) {
 	root, example := writeFixture(t, fixtureOptions{})
 	if err := os.MkdirAll(filepath.Join(example, "openapi", "nested"), 0o755); err != nil {
@@ -449,6 +490,46 @@ func TestRunRejectsOpenAPIFileMissingFromHandoffInputs(t *testing.T) {
 	})
 	if err == nil || !strings.Contains(err.Error(), "openapi/nested/support.yaml") {
 		t.Fatalf("expected missing OpenAPI handoff input error, got %v", err)
+	}
+}
+
+func TestRunRejectsAdvisorySecuritySidecarMissingFromHandoffInputs(t *testing.T) {
+	root, example := writeFixture(t, fixtureOptions{extraRequiredInputs: []string{"google-discovery/gmail.json"}})
+	mustWriteFile(t, filepath.Join(example, "google-discovery", "gmail.json"), []byte(`{"discoveryVersion":"v1"}`))
+	mustWriteFile(t, filepath.Join(example, "google-discovery", "gmail.security.json"), []byte(`{"security_schemes":[]}`))
+
+	_, err := Run(context.Background(), Options{
+		RepoRoot:     root,
+		ExampleDir:   example,
+		Tier:         TierSandbox,
+		ApprovalPath: filepath.Join(root, "missing-approval.json"),
+		DryRun:       true,
+		Now:          fixedNow(),
+		Assess:       passAssess,
+	})
+	if err == nil || !strings.Contains(err.Error(), "google-discovery/gmail.security.json") {
+		t.Fatalf("expected missing advisory security sidecar handoff input error, got %v", err)
+	}
+}
+
+func TestRunRejectsListedAdvisorySecuritySidecarMissingFromPackage(t *testing.T) {
+	root, example := writeFixture(t, fixtureOptions{extraRequiredInputs: []string{
+		"google-discovery/gmail.json",
+		"google-discovery/gmail.security.json",
+	}})
+	mustWriteFile(t, filepath.Join(example, "google-discovery", "gmail.json"), []byte(`{"discoveryVersion":"v1"}`))
+
+	_, err := Run(context.Background(), Options{
+		RepoRoot:     root,
+		ExampleDir:   example,
+		Tier:         TierSandbox,
+		ApprovalPath: filepath.Join(root, "missing-approval.json"),
+		DryRun:       true,
+		Now:          fixedNow(),
+		Assess:       passAssess,
+	})
+	if err == nil || !strings.Contains(err.Error(), "google-discovery/gmail.security.json") {
+		t.Fatalf("expected missing listed advisory security sidecar error, got %v", err)
 	}
 }
 
@@ -1582,4 +1663,13 @@ func mustWriteFile(t *testing.T, path string, data []byte) {
 	if err := os.WriteFile(path, data, 0o644); err != nil {
 		t.Fatal(err)
 	}
+}
+
+func stringSliceContains(values []string, want string) bool {
+	for _, value := range values {
+		if value == want {
+			return true
+		}
+	}
+	return false
 }

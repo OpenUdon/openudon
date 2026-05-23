@@ -438,7 +438,7 @@ func reviewFinalDraft(ctx context.Context, out io.Writer, extractor Extractor, s
 			*events = append(*events, TranscriptEvent{Kind: "draft_flow_review_error", Data: err.Error()})
 		}
 		fmt.Fprintf(out, "icot: draft flow review skipped: %v\n", err)
-		return nil
+		return localIssues
 	}
 	sanitized := sanitizeDraftReviewResponse(response)
 	sanitized.Issues = filterDraftReviewIssues(*session, mergeDraftReviewIssues(localIssues, sanitized.Issues))

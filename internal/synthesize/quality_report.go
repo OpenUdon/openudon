@@ -8,15 +8,21 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/OpenUdon/uws/uws1"
 	"github.com/OpenUdon/openudon/internal/authoring"
 	"github.com/OpenUdon/openudon/internal/openapidisco"
+	"github.com/OpenUdon/openudon/internal/packageartifacts"
 	rollout "github.com/OpenUdon/openudon/internal/workflowintent"
+	"github.com/OpenUdon/uws/uws1"
 )
 
 func assessSecrets(report *QualityReport, result Result) {
+	set, err := packageInputArtifactSet(result)
+	if err != nil {
+		report.add("artifacts.no_secrets", "fail", "package artifacts could not be scanned for secrets", err.Error())
+		return
+	}
 	var hits []string
-	for _, diagnostic := range authoring.ScanCredentialValues(reviewArtifactSet(result).Artifacts) {
+	for _, diagnostic := range authoring.ScanCredentialValues(set.Artifacts) {
 		hits = append(hits, diagnostic.Path)
 	}
 	if len(hits) > 0 {
@@ -24,6 +30,55 @@ func assessSecrets(report *QualityReport, result Result) {
 		return
 	}
 	report.add("artifacts.no_secrets", "pass", "no obvious secret-like tokens found in artifacts", "")
+}
+
+func packageInputArtifactSet(result Result) (authoring.ArtifactSet, error) {
+	paths, err := packageartifacts.RequiredPackagePaths(result.ExampleDir)
+	if err != nil {
+		return authoring.ArtifactSet{}, err
+	}
+	artifacts := make([]authoring.Artifact, 0, len(paths))
+	for _, rel := range paths {
+		path := filepath.Join(result.ExampleDir, filepath.FromSlash(rel))
+		info, err := os.Lstat(path)
+		if err != nil {
+			if os.IsNotExist(err) {
+				if missingPackageInputAllowedDuringAssessment(rel) {
+					continue
+				}
+				return authoring.ArtifactSet{}, fmt.Errorf("required handoff input is missing: %s", rel)
+			}
+			return authoring.ArtifactSet{}, fmt.Errorf("%s: %w", rel, err)
+		}
+		if info.Mode()&os.ModeSymlink != 0 {
+			return authoring.ArtifactSet{}, fmt.Errorf("required handoff input must not be a symlink: %s", rel)
+		}
+		if info.IsDir() {
+			return authoring.ArtifactSet{}, fmt.Errorf("required handoff input must be a regular file, not a directory: %s", rel)
+		}
+		if !info.Mode().IsRegular() {
+			return authoring.ArtifactSet{}, fmt.Errorf("required handoff input must be a regular file: %s", rel)
+		}
+		content, err := os.ReadFile(path)
+		if err != nil {
+			return authoring.ArtifactSet{}, fmt.Errorf("%s: %w", rel, err)
+		}
+		artifacts = append(artifacts, authoring.Artifact{
+			Path:      rel,
+			MediaType: reviewArtifactMediaType(path),
+			Content:   content,
+		})
+	}
+	return authoring.ArtifactSet{Artifacts: artifacts}, nil
+}
+
+func missingPackageInputAllowedDuringAssessment(rel string) bool {
+	switch strings.TrimSpace(filepath.ToSlash(rel)) {
+	case "expected/quality.json", "expected/refinement.json":
+		return true
+	default:
+		return false
+	}
 }
 
 func writeQualityFiles(result Result, report *QualityReport) error {

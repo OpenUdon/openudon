@@ -26,3 +26,26 @@ func TestRequestFieldPlacementsExposeBearerAuthorization(t *testing.T) {
 		t.Fatalf("Authorization placement = %#v", placement)
 	}
 }
+
+func TestRequestFieldPlacementsKeepAmbiguousAliasesBlocked(t *testing.T) {
+	fields, err := requestFieldPlacements(apitools.OperationSummary{
+		OperationID: "updateMessage",
+		Parameters: []apitools.ParameterSummary{
+			{Name: "id", In: "path"},
+			{Name: "id", In: "query"},
+		},
+		RequestBody: &apitools.RequestBodySummary{Fields: []apitools.RequestFieldSummary{{Path: "id"}}},
+		Security: []apitools.SecuritySummary{{
+			Name:          "id",
+			Type:          "apiKey",
+			In:            "header",
+			ParameterName: "id",
+		}},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if placement, ok := fields["id"]; ok {
+		t.Fatalf("ambiguous id alias was reintroduced as %#v in %#v", placement, fields)
+	}
+}

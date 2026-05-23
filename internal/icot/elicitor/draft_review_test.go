@@ -2,6 +2,7 @@ package elicitor
 
 import (
 	"context"
+	"errors"
 	"io"
 	"strings"
 	"testing"
@@ -350,4 +351,59 @@ func TestReviewFinalDraftAddsLocalMissingRenderedBodyIssueWithoutLLM(t *testing.
 	if issues[0].Slot != "steps.send_email.with.raw" || issues[0].RemediationAction != remediationProposeFnctStep {
 		t.Fatalf("issue = %#v", issues[0])
 	}
+}
+
+func TestReviewFinalDraftKeepsLocalIssuesWhenLLMReviewFails(t *testing.T) {
+	session := Session{
+		Project: projectwizard.Answers{Goal: "Fetch weather and email me a report."},
+		Intent: rollout.Intent{
+			Workflow: &rollout.WorkflowMeta{Name: "weather_email", Description: "Fetch weather and email me a report."},
+			Steps: []*rollout.Step{
+				{Name: "get_weather", Type: "http", OpenAPI: "openapi/weather.yaml", Operation: "getWeather"},
+				{Name: "send_email", Type: "http", OpenAPI: "openapi/email.yaml", Operation: "sendEmail", With: map[string]string{"userId": "me"}},
+			},
+		},
+	}
+	docs := []APIDocument{{
+		RelativePath: "openapi/email.yaml",
+		Operations: []apitools.OperationSummary{{
+			OperationID: "sendEmail",
+			RequestBody: &apitools.RequestBodySummary{
+				Required: true,
+				Fields:   []apitools.RequestFieldSummary{{Path: "raw", Required: true, Type: "string"}},
+			},
+		}},
+	}}
+	var out strings.Builder
+	var events []TranscriptEvent
+	issues := reviewFinalDraft(context.Background(), &out, failingDraftReviewExtractor{}, &session, docs, nil, &events)
+	if len(issues) != 1 || issues[0].Slot != "steps.send_email.with.raw" {
+		t.Fatalf("issues = %#v, want local missing raw issue", issues)
+	}
+	if len(session.DecisionEvidence) != 0 {
+		t.Fatalf("LLM decision evidence should not be added on review failure: %#v", session.DecisionEvidence)
+	}
+	if !strings.Contains(out.String(), "draft flow review skipped") {
+		t.Fatalf("missing review skipped message: %q", out.String())
+	}
+	if !hasDraftReviewErrorEvent(events) {
+		t.Fatalf("missing review error event: %#v", events)
+	}
+}
+
+type failingDraftReviewExtractor struct {
+	noopExtractor
+}
+
+func (failingDraftReviewExtractor) ReviewDraft(context.Context, DraftReviewRequest) (DraftReviewResponse, error) {
+	return DraftReviewResponse{}, errors.New("temporary review failure")
+}
+
+func hasDraftReviewErrorEvent(events []TranscriptEvent) bool {
+	for _, event := range events {
+		if event.Kind == "draft_flow_review_error" {
+			return true
+		}
+	}
+	return false
 }
