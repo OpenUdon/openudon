@@ -166,21 +166,58 @@ func candidateProducerSteps(session *Session, sink *rollout.Step) []*rollout.Ste
 		return nil
 	}
 	referenced := fnctRemediationReferencedSteps(session, sink)
-	var out []*rollout.Step
+	var prior []*rollout.Step
 	for _, step := range session.Intent.Steps {
 		if step == nil || step == sink {
 			break
 		}
-		if canProduceFnctRemediationInput(step, referenced) {
-			out = append(out, step)
-		}
+		prior = append(prior, step)
 	}
 	if sink == nil {
-		out = nil
+		prior = nil
 		for _, step := range session.Intent.Steps {
-			if canProduceFnctRemediationInput(step, referenced) {
-				out = append(out, step)
+			if step != nil {
+				prior = append(prior, step)
 			}
+		}
+	}
+	var candidates []*rollout.Step
+	for _, step := range prior {
+		if canProduceFnctRemediationInput(step, referenced) {
+			candidates = append(candidates, step)
+		}
+	}
+	terminal := terminalProducerSteps(candidates, prior)
+	if len(terminal) > 0 {
+		return terminal
+	}
+	return candidates
+}
+
+func terminalProducerSteps(candidates, prior []*rollout.Step) []*rollout.Step {
+	consumed := map[string]bool{}
+	for _, step := range prior {
+		if step == nil {
+			continue
+		}
+		for _, dep := range step.DependsOn {
+			if strings.TrimSpace(dep) != "" {
+				consumed[strings.TrimSpace(dep)] = true
+			}
+		}
+		for _, source := range step.With {
+			addSourceStepReference(consumed, source)
+		}
+		for _, bind := range step.Binds {
+			if bind != nil && strings.TrimSpace(bind.From) != "" {
+				consumed[strings.TrimSpace(bind.From)] = true
+			}
+		}
+	}
+	var out []*rollout.Step
+	for _, step := range candidates {
+		if step != nil && !consumed[strings.TrimSpace(step.Name)] {
+			out = append(out, step)
 		}
 	}
 	return out
@@ -250,6 +287,8 @@ func fnctRemediationStepBase(session Session, issue DraftReviewIssue) string {
 	switch {
 	case strings.Contains(text, "audit") && strings.Contains(text, "receipt"):
 		return "render_audit_receipt"
+	case strings.Contains(text, "email") || strings.Contains(text, "gmail") || strings.Contains(text, "message"):
+		return "render_message"
 	case strings.Contains(text, "incident") && (strings.Contains(text, "summary") || strings.Contains(text, "summar")):
 		return "summarize_incident"
 	case strings.Contains(text, "normalize") || strings.Contains(text, "normalise"):

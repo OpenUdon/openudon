@@ -8,6 +8,7 @@ import (
 	"io"
 	"strings"
 
+	"github.com/OpenUdon/apitools"
 	rollout "github.com/OpenUdon/openudon/internal/workflowintent"
 )
 
@@ -405,7 +406,7 @@ func reviewCommentText(value string) string {
 }
 
 func reviewFinalDraft(ctx context.Context, out io.Writer, extractor Extractor, session *Session, docs []APIDocument, issues []ReadinessIssue, events *[]TranscriptEvent) []DraftReviewIssue {
-	if session == nil || extractor == nil {
+	if session == nil {
 		return nil
 	}
 	if noSourceCapabilityGapFallbackSession(*session) {
@@ -417,9 +418,13 @@ func reviewFinalDraft(ctx context.Context, out io.Writer, extractor Extractor, s
 		}
 		return nil
 	}
+	localIssues := localDraftReviewIssues(*session, docs)
+	if extractor == nil {
+		return localIssues
+	}
 	request := BuildDraftReviewRequest(*session, docs, issues)
 	if len(request.Steps) == 0 {
-		return nil
+		return localIssues
 	}
 	if events != nil {
 		*events = append(*events, TranscriptEvent{Kind: "draft_flow_review_call", Data: map[string]any{
@@ -436,7 +441,7 @@ func reviewFinalDraft(ctx context.Context, out io.Writer, extractor Extractor, s
 		return nil
 	}
 	sanitized := sanitizeDraftReviewResponse(response)
-	sanitized.Issues = filterDraftReviewIssues(*session, sanitized.Issues)
+	sanitized.Issues = filterDraftReviewIssues(*session, mergeDraftReviewIssues(localIssues, sanitized.Issues))
 	for _, issue := range sanitized.Issues {
 		addDecisionEvidence(session, DecisionEvidence{
 			Stage:                decisionStageDraftReview,
@@ -455,6 +460,145 @@ func reviewFinalDraft(ctx context.Context, out io.Writer, extractor Extractor, s
 		}})
 	}
 	return sanitized.Issues
+}
+
+func localDraftReviewIssues(session Session, docs []APIDocument) []DraftReviewIssue {
+	if !goalAllowsLocalFnctRemediation(session) {
+		return nil
+	}
+	var issues []DraftReviewIssue
+	for _, step := range session.Intent.Steps {
+		if step == nil {
+			continue
+		}
+		op, ok := operationForStep(session, docs, step)
+		if !ok {
+			continue
+		}
+		field := missingRenderedRequestBodyField(step, op)
+		if field == "" || !deliverySinkStep(step, field) {
+			continue
+		}
+		issue := DraftReviewIssue{
+			Severity:          readinessWarning,
+			Code:              "llm_flow_review_missing_rendered_request_body",
+			Message:           fmt.Sprintf("%s requires rendered request body content for %q, but the current draft does not provide it.", firstNonEmpty(step.Name, "step"), field),
+			Slot:              "steps." + firstNonEmpty(step.Name, "step") + ".with." + field,
+			SuggestedAnswer:   field + "=<local render fnct output>",
+			Evidence:          "Selected operation request-body metadata requires downstream content.",
+			GapKind:           flowGapMissingTransformStep,
+			RemediationAction: remediationProposeFnctStep,
+		}
+		issues = append(issues, issue)
+	}
+	return issues
+}
+
+func missingRenderedRequestBodyField(step *rollout.Step, op *apitools.OperationSummary) string {
+	if step == nil || op == nil || op.RequestBody == nil {
+		return ""
+	}
+	for _, field := range renderedRequestBodyFields(op) {
+		if !stepHasRequestField(step, field) {
+			return field
+		}
+	}
+	return ""
+}
+
+func renderedRequestBodyFields(op *apitools.OperationSummary) []string {
+	if op == nil || op.RequestBody == nil {
+		return nil
+	}
+	var fields []string
+	for _, field := range op.RequestBody.Fields {
+		name := strings.TrimSpace(field.Path)
+		if name != "" && field.Required {
+			fields = append(fields, name)
+		}
+	}
+	if len(fields) > 0 {
+		return fields
+	}
+	preferred := []string{"raw", "message", "text", "body", "content", "html", "payload"}
+	for _, want := range preferred {
+		for _, field := range op.RequestBody.Fields {
+			name := strings.TrimSpace(field.Path)
+			if strings.EqualFold(name, want) {
+				return []string{name}
+			}
+		}
+	}
+	if op.RequestBody.Required || strings.TrimSpace(op.RequestBody.Ref) != "" {
+		return []string{"body"}
+	}
+	return nil
+}
+
+func stepHasRequestField(step *rollout.Step, field string) bool {
+	field = strings.TrimSpace(field)
+	if step == nil || field == "" {
+		return false
+	}
+	for _, key := range []string{field, "body." + field} {
+		if strings.TrimSpace(step.With[key]) != "" {
+			return true
+		}
+	}
+	if field == "body" && strings.TrimSpace(step.With["body"]) != "" {
+		return true
+	}
+	for _, bind := range step.Binds {
+		if bind == nil {
+			continue
+		}
+		for _, key := range []string{field, "body." + field} {
+			if strings.TrimSpace(bind.Fields[key]) != "" {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+func deliverySinkStep(step *rollout.Step, field string) bool {
+	text := strings.ToLower(strings.Join([]string{
+		step.Name,
+		step.Do,
+		step.Provider,
+		step.Operation,
+		field,
+	}, " "))
+	for _, token := range []string{"send", "email", "gmail", "message", "notification", "notify", "slack", "raw"} {
+		if strings.Contains(text, token) {
+			return true
+		}
+	}
+	return false
+}
+
+func mergeDraftReviewIssues(primary, secondary []DraftReviewIssue) []DraftReviewIssue {
+	if len(primary) == 0 {
+		return secondary
+	}
+	out := append([]DraftReviewIssue(nil), primary...)
+	seen := map[string]bool{}
+	for _, issue := range out {
+		seen[draftReviewIssueKey(issue)] = true
+	}
+	for _, issue := range secondary {
+		key := draftReviewIssueKey(issue)
+		if seen[key] {
+			continue
+		}
+		out = append(out, issue)
+		seen[key] = true
+	}
+	return out
+}
+
+func draftReviewIssueKey(issue DraftReviewIssue) string {
+	return strings.TrimSpace(issue.Slot) + "\x00" + strings.TrimSpace(issue.GapKind) + "\x00" + strings.TrimSpace(issue.RemediationAction)
 }
 
 func filterDraftReviewIssues(session Session, issues []DraftReviewIssue) []DraftReviewIssue {

@@ -1,13 +1,20 @@
 package synthesize
 
 import (
+	"encoding/json"
 	"fmt"
 	"os"
+	"path/filepath"
 	"regexp"
 	"sort"
 	"strings"
 
+	"github.com/OpenUdon/apitools"
+	"github.com/OpenUdon/apitools/awssmithy"
+	"github.com/OpenUdon/apitools/catalog"
+	"github.com/OpenUdon/apitools/googlediscovery"
 	"github.com/OpenUdon/openudon/internal/openapidisco"
+	"github.com/OpenUdon/openudon/internal/packageartifacts"
 	rollout "github.com/OpenUdon/openudon/internal/workflowintent"
 	"gopkg.in/yaml.v3"
 )
@@ -99,11 +106,14 @@ func intentStepRequiresOpenAPIOperation(intent *rollout.Intent, step *rollout.St
 	return strings.TrimSpace(intentStepOpenAPIPath(intent, step, primary)) != ""
 }
 
-func validateIntentRequiredParameters(intent *rollout.Intent, candidates []openapidisco.Candidate, primary string) error {
+func validateIntentRequiredParameters(intent *rollout.Intent, exampleDir string, candidates []openapidisco.Candidate, primary string) error {
 	if intent == nil {
 		return nil
 	}
 	ops := openAPIOperationIndex(candidates)
+	for key, op := range localNativeOperationIndex(exampleDir) {
+		ops[key] = op
+	}
 	inputs := intentInputNames(intent)
 	var missing []string
 	walkIntentSteps(intent.Steps, func(step *rollout.Step) {
@@ -115,9 +125,6 @@ func validateIntentRequiredParameters(intent *rollout.Intent, candidates []opena
 			return
 		}
 		specPath := intentStepOpenAPIPath(intent, step, primary)
-		if sourceDescriptionTypeForPath(specPath) != "openapi" {
-			return
-		}
 		op := ops[operationKey(specPath, operation)]
 		if op == nil {
 			return
@@ -143,11 +150,14 @@ func validateIntentRequiredParameters(intent *rollout.Intent, candidates []opena
 	return nil
 }
 
-func validateIntentCredentialPolicy(intent *rollout.Intent, candidates []openapidisco.Candidate, primary string, policy projectPolicy) error {
+func validateIntentCredentialPolicy(intent *rollout.Intent, exampleDir string, candidates []openapidisco.Candidate, primary string, policy projectPolicy) error {
 	if intent == nil {
 		return nil
 	}
 	ops := openAPIOperationIndex(candidates)
+	for key, op := range localNativeOperationIndex(exampleDir) {
+		ops[key] = op
+	}
 	inputs := intentInputNames(intent)
 	var required, missingBinding []string
 	walkIntentSteps(intent.Steps, func(step *rollout.Step) {
@@ -195,11 +205,14 @@ func validateIntentCredentialPolicy(intent *rollout.Intent, candidates []openapi
 	return nil
 }
 
-func validateIntentOpenAPISecurity(intent *rollout.Intent, candidates []openapidisco.Candidate, primary string, policy projectPolicy) error {
+func validateIntentOpenAPISecurity(intent *rollout.Intent, exampleDir string, candidates []openapidisco.Candidate, primary string, policy projectPolicy) error {
 	if intent == nil {
 		return nil
 	}
 	security := openAPISecurityIndex(candidates)
+	for key, reqs := range localAdvisorySecurityIndex(exampleDir) {
+		security[key] = append(security[key], reqs...)
+	}
 	var required, missing []string
 	walkIntentSteps(intent.Steps, func(step *rollout.Step) {
 		if step == nil || strings.TrimSpace(step.Operation) == "" {
@@ -309,11 +322,14 @@ func stepCoversSecurityRequirement(step *rollout.Step, req openAPISecurityRequir
 }
 
 func securityCredentialSourceAllowed(source string, req openAPISecurityRequirement, policy projectPolicy) bool {
+	source = strings.TrimSpace(source)
 	if securityBindingMatches(source, req) {
 		return true
 	}
+	credentialSource := strings.TrimPrefix(source, "credentials.")
 	for _, binding := range credentialBindingNames(policy) {
-		if strings.EqualFold(strings.TrimSpace(source), strings.TrimSpace(binding)) {
+		binding = strings.TrimSpace(binding)
+		if strings.EqualFold(source, binding) || strings.EqualFold(credentialSource, binding) {
 			return true
 		}
 	}
@@ -323,6 +339,13 @@ func securityCredentialSourceAllowed(source string, req openAPISecurityRequireme
 func openAPIOperationIndex(candidates []openapidisco.Candidate) map[string]*rollout.OperationInfo {
 	out := map[string]*rollout.OperationInfo{}
 	for _, candidate := range candidates {
+		sourceType := sourceDescriptionTypeForPath(candidate.RelativePath)
+		if sourceType != "openapi" {
+			for alias, op := range nativeOperationInfoIndex(candidate.Path, string(sourceType)) {
+				out[operationKey(candidate.RelativePath, alias)] = op
+			}
+			continue
+		}
 		spec, err := rollout.LoadOpenAPISpec(candidate.Path)
 		if err != nil {
 			continue
@@ -335,6 +358,181 @@ func openAPIOperationIndex(candidates []openapidisco.Candidate) map[string]*roll
 		}
 	}
 	return out
+}
+
+func localNativeOperationIndex(exampleDir string) map[string]*rollout.OperationInfo {
+	out := map[string]*rollout.OperationInfo{}
+	paths, err := packageartifacts.CollectAPISourcePaths(exampleDir)
+	if err != nil {
+		return out
+	}
+	for _, rel := range paths {
+		sourceType := sourceDescriptionTypeForPath(rel)
+		if sourceType == "openapi" {
+			continue
+		}
+		path := filepath.Join(exampleDir, filepath.FromSlash(rel))
+		for alias, op := range nativeOperationInfoIndex(path, string(sourceType)) {
+			out[operationKey(rel, alias)] = op
+		}
+	}
+	return out
+}
+
+func nativeOperationInfoIndex(path string, sourceType string) map[string]*rollout.OperationInfo {
+	out := map[string]*rollout.OperationInfo{}
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return out
+	}
+	switch sourceType {
+	case "google-discovery":
+		model, err := googlediscovery.Parse(data)
+		if err != nil {
+			return out
+		}
+		for _, op := range model.Operations {
+			if op == nil || strings.TrimSpace(op.OperationID) == "" {
+				continue
+			}
+			info := &rollout.OperationInfo{
+				OperationID: op.OperationID,
+				Method:      op.HTTPMethod,
+				Path:        op.Path,
+				Summary:     op.Summary,
+				Description: op.Description,
+				Tags:        append([]string(nil), op.Tags...),
+			}
+			for _, param := range op.Parameters {
+				if param == nil {
+					continue
+				}
+				info.Parameters = append(info.Parameters, &rollout.ParameterInfo{
+					Name:        param.Name,
+					In:          param.Location,
+					Required:    param.Required,
+					Description: param.Description,
+				})
+			}
+			if body := googleDiscoveryRequestBodySummary(model, op); body != nil && body.Required {
+				for _, field := range requiredRequestBodyParameterNames(body) {
+					info.Parameters = append(info.Parameters, &rollout.ParameterInfo{Name: field, In: "body", Required: true})
+				}
+			}
+			for _, alias := range operationIDAliases(op.OperationID, op.ID, op.Name) {
+				out[alias] = info
+			}
+		}
+		return out
+	case "aws-smithy":
+		model, err := awssmithy.Parse(data)
+		if err != nil {
+			return out
+		}
+		for _, op := range model.Operations {
+			if op == nil || strings.TrimSpace(op.Name) == "" {
+				continue
+			}
+			info := &rollout.OperationInfo{
+				OperationID: op.Name,
+				Method:      op.Method,
+				Path:        op.URI,
+			}
+			for _, param := range smithyOperationParameters(op) {
+				info.Parameters = append(info.Parameters, param)
+			}
+			for _, alias := range operationIDAliases(op.Name, op.ID) {
+				out[alias] = info
+			}
+		}
+		return out
+	default:
+		return out
+	}
+}
+
+func requiredRequestBodyParameterNames(body *apitools.RequestBodySummary) []string {
+	if body == nil || !body.Required {
+		return nil
+	}
+	var out []string
+	for _, field := range body.Fields {
+		if strings.TrimSpace(field.Path) != "" && field.Required {
+			out = append(out, strings.TrimSpace(field.Path))
+		}
+	}
+	if len(out) == 0 && len(body.Fields) > 0 {
+		for _, preferred := range []string{"raw", "message", "text", "body", "content", "html", "payload"} {
+			for _, field := range body.Fields {
+				if strings.EqualFold(strings.TrimSpace(field.Path), preferred) {
+					return []string{strings.TrimSpace(field.Path)}
+				}
+			}
+		}
+	}
+	if len(out) == 0 {
+		out = append(out, "body")
+	}
+	return sortedUnique(out)
+}
+
+func smithyOperationParameters(op *awssmithy.Operation) []*rollout.ParameterInfo {
+	if op == nil {
+		return nil
+	}
+	var out []*rollout.ParameterInfo
+	for _, binding := range op.InputBindings {
+		if binding == nil {
+			continue
+		}
+		name := firstNonEmpty(binding.WireName, binding.MemberName)
+		if name == "" {
+			continue
+		}
+		location := strings.TrimSpace(binding.Location)
+		switch location {
+		case "label":
+			location = "path"
+		case "":
+			location = "body"
+		}
+		out = append(out, &rollout.ParameterInfo{Name: name, In: location, Required: binding.Required})
+	}
+	return out
+}
+
+func operationIDAliases(ids ...string) []string {
+	var out []string
+	for _, id := range ids {
+		id = strings.TrimSpace(id)
+		if id == "" {
+			continue
+		}
+		out = append(out, id)
+		alias := operationIDAlias(id)
+		if alias != "" && alias != id {
+			out = append(out, alias)
+		}
+	}
+	return sortedUnique(out)
+}
+
+func operationIDAlias(id string) string {
+	var b strings.Builder
+	lastUnderscore := false
+	for _, r := range id {
+		switch {
+		case r >= 'a' && r <= 'z', r >= 'A' && r <= 'Z', r >= '0' && r <= '9':
+			b.WriteRune(r)
+			lastUnderscore = false
+		default:
+			if !lastUnderscore {
+				b.WriteByte('_')
+				lastUnderscore = true
+			}
+		}
+	}
+	return strings.Trim(b.String(), "_")
 }
 
 type openAPISecurityRequirement struct {
@@ -421,6 +619,270 @@ func openAPISecurityIndex(candidates []openapidisco.Candidate) map[string][]open
 		}
 	}
 	return out
+}
+
+func localAdvisorySecurityIndex(exampleDir string) map[string][]openAPISecurityRequirement {
+	out := map[string][]openAPISecurityRequirement{}
+	paths, err := packageartifacts.CollectAPISourcePaths(exampleDir)
+	if err != nil {
+		return out
+	}
+	for _, rel := range paths {
+		path := filepath.Join(exampleDir, filepath.FromSlash(rel))
+		overlay, ok := readSecuritySidecar(path)
+		if !ok {
+			continue
+		}
+		for key, reqs := range advisorySecurityForSource(rel, path, overlay) {
+			out[key] = append(out[key], reqs...)
+		}
+	}
+	for key, reqs := range out {
+		out[key] = sortedSecurityRequirements(reqs)
+	}
+	return out
+}
+
+func readSecuritySidecar(sourcePath string) (catalog.SecurityMetadata, bool) {
+	for _, path := range securitySidecarPaths(sourcePath) {
+		data, err := os.ReadFile(path)
+		if err != nil {
+			continue
+		}
+		var metadata catalog.SecurityMetadata
+		if err := json.Unmarshal(data, &metadata); err == nil && securityMetadataPresent(metadata) {
+			return metadata, true
+		}
+		if err := yaml.Unmarshal(data, &metadata); err == nil && securityMetadataPresent(metadata) {
+			return metadata, true
+		}
+		var overlay catalog.SecurityOverlay
+		if err := json.Unmarshal(data, &overlay); err == nil {
+			metadata = catalog.SecurityMetadata{
+				SecuritySchemes:   overlay.SecuritySchemes,
+				RootSecurity:      overlay.RootSecurity,
+				RootSecuritySets:  overlay.RootSecuritySets,
+				OperationSecurity: overlay.OperationSecurity,
+			}
+			if securityMetadataPresent(metadata) {
+				return metadata, true
+			}
+		}
+		if err := yaml.Unmarshal(data, &overlay); err == nil {
+			metadata = catalog.SecurityMetadata{
+				SecuritySchemes:   overlay.SecuritySchemes,
+				RootSecurity:      overlay.RootSecurity,
+				RootSecuritySets:  overlay.RootSecuritySets,
+				OperationSecurity: overlay.OperationSecurity,
+			}
+			if securityMetadataPresent(metadata) {
+				return metadata, true
+			}
+		}
+	}
+	return catalog.SecurityMetadata{}, false
+}
+
+func securitySidecarPaths(sourcePath string) []string {
+	ext := filepath.Ext(sourcePath)
+	base := strings.TrimSuffix(sourcePath, ext)
+	return []string{
+		sourcePath + ".security.json",
+		sourcePath + ".security.yaml",
+		base + ".security.json",
+		base + ".security.yaml",
+		base + ".security-overlay.json",
+		base + ".security-overlay.yaml",
+	}
+}
+
+func securityMetadataPresent(metadata catalog.SecurityMetadata) bool {
+	return len(metadata.SecuritySchemes) > 0 || len(metadata.RootSecurity) > 0 || len(metadata.RootSecuritySets) > 0 || len(metadata.OperationSecurity) > 0
+}
+
+func advisorySecurityForSource(rel, path string, metadata catalog.SecurityMetadata) map[string][]openAPISecurityRequirement {
+	out := map[string][]openAPISecurityRequirement{}
+	schemes := advisorySecuritySchemes(metadata.SecuritySchemes)
+	ops := operationRefsForSecuritySource(rel, path)
+	root := advisorySecurityRequirements(metadata.RootSecurity, metadata.RootSecuritySets, schemes)
+	if len(root) > 0 {
+		for _, op := range ops {
+			for _, alias := range op.Aliases {
+				out[operationKey(rel, alias)] = append(out[operationKey(rel, alias)], root...)
+			}
+		}
+	}
+	for _, opSecurity := range metadata.OperationSecurity {
+		reqs := advisorySecurityRequirements(opSecurity.Security, opSecurity.SecuritySets, schemes)
+		if len(reqs) == 0 {
+			continue
+		}
+		for _, aliases := range matchingOperationAliases(opSecurity.Match, ops) {
+			for _, alias := range aliases {
+				out[operationKey(rel, alias)] = append(out[operationKey(rel, alias)], reqs...)
+			}
+		}
+	}
+	return out
+}
+
+type securityOperationRef struct {
+	Aliases []string
+	Method  string
+	Path    string
+	Tags    []string
+}
+
+func operationRefsForSecuritySource(rel, path string) []securityOperationRef {
+	sourceType := sourceDescriptionTypeForPath(rel)
+	if sourceType != "openapi" {
+		return nativeOperationRefsForSecurity(path, string(sourceType))
+	}
+	spec, err := rollout.LoadOpenAPISpec(path)
+	if err != nil {
+		return nil
+	}
+	var out []securityOperationRef
+	for _, op := range spec.Operations {
+		if op == nil || strings.TrimSpace(op.OperationID) == "" {
+			continue
+		}
+		out = append(out, securityOperationRef{
+			Aliases: []string{strings.TrimSpace(op.OperationID)},
+			Method:  op.Method,
+			Path:    op.Path,
+			Tags:    append([]string(nil), op.Tags...),
+		})
+	}
+	return out
+}
+
+func nativeOperationRefsForSecurity(path string, sourceType string) []securityOperationRef {
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return nil
+	}
+	switch sourceType {
+	case "google-discovery":
+		model, err := googlediscovery.Parse(data)
+		if err != nil {
+			return nil
+		}
+		var out []securityOperationRef
+		for _, op := range model.Operations {
+			if op == nil || strings.TrimSpace(op.OperationID) == "" {
+				continue
+			}
+			out = append(out, securityOperationRef{
+				Aliases: operationIDAliases(op.OperationID, op.ID, op.Name),
+				Method:  op.HTTPMethod,
+				Path:    op.Path,
+				Tags:    append([]string(nil), op.Tags...),
+			})
+		}
+		return out
+	case "aws-smithy":
+		model, err := awssmithy.Parse(data)
+		if err != nil {
+			return nil
+		}
+		var out []securityOperationRef
+		for _, op := range model.Operations {
+			if op == nil || strings.TrimSpace(op.Name) == "" {
+				continue
+			}
+			out = append(out, securityOperationRef{
+				Aliases: operationIDAliases(op.Name, op.ID),
+				Method:  op.Method,
+				Path:    firstNonEmpty(op.Path, op.URI),
+			})
+		}
+		return out
+	default:
+		return nil
+	}
+}
+
+func matchingOperationAliases(match catalog.OperationMatch, ops []securityOperationRef) [][]string {
+	var out [][]string
+	for _, op := range ops {
+		if operationSecurityMatches(match, op) {
+			out = append(out, op.Aliases)
+		}
+	}
+	return out
+}
+
+func operationSecurityMatches(match catalog.OperationMatch, op securityOperationRef) bool {
+	if strings.TrimSpace(match.OperationID) != "" {
+		for _, alias := range op.Aliases {
+			if strings.EqualFold(strings.TrimSpace(match.OperationID), alias) {
+				return true
+			}
+		}
+		return false
+	}
+	if strings.TrimSpace(match.Method) != "" && !strings.EqualFold(strings.TrimSpace(match.Method), strings.TrimSpace(op.Method)) {
+		return false
+	}
+	if strings.TrimSpace(match.Path) != "" && strings.TrimSpace(match.Path) != strings.TrimSpace(op.Path) {
+		return false
+	}
+	if len(match.Tags) > 0 {
+		for _, want := range match.Tags {
+			if !containsFold(op.Tags, want) {
+				return false
+			}
+		}
+	}
+	return strings.TrimSpace(match.Method) != "" || strings.TrimSpace(match.Path) != "" || len(match.Tags) > 0
+}
+
+func containsFold(values []string, want string) bool {
+	for _, value := range values {
+		if strings.EqualFold(strings.TrimSpace(value), strings.TrimSpace(want)) {
+			return true
+		}
+	}
+	return false
+}
+
+func advisorySecuritySchemes(schemes []catalog.SecurityScheme) map[string]openAPISecurityRequirement {
+	out := map[string]openAPISecurityRequirement{}
+	for _, scheme := range schemes {
+		name := strings.TrimSpace(scheme.Name)
+		if name == "" {
+			continue
+		}
+		out[name] = openAPISecurityRequirement{
+			Scheme: name,
+			Name:   strings.TrimSpace(scheme.ParameterName),
+			In:     string(scheme.In),
+			Type:   string(scheme.Type),
+		}
+	}
+	return out
+}
+
+func advisorySecurityRequirements(requirements []catalog.SecurityRequirement, sets []catalog.SecurityRequirementSet, schemes map[string]openAPISecurityRequirement) []openAPISecurityRequirement {
+	var out []openAPISecurityRequirement
+	for _, req := range requirements {
+		out = append(out, advisorySecurityRequirement(req, schemes))
+	}
+	for _, set := range sets {
+		for _, req := range set.Requirements {
+			out = append(out, advisorySecurityRequirement(req, schemes))
+		}
+	}
+	return sortedSecurityRequirements(out)
+}
+
+func advisorySecurityRequirement(req catalog.SecurityRequirement, schemes map[string]openAPISecurityRequirement) openAPISecurityRequirement {
+	name := strings.TrimSpace(req.Scheme)
+	if scheme, ok := schemes[name]; ok {
+		return scheme
+	}
+	return openAPISecurityRequirement{Scheme: name}
 }
 
 func readOpenAPISecurityDocument(path string) (map[string]any, error) {
@@ -870,10 +1332,7 @@ func responsePathStatus(op *rollout.OperationInfo, path string) string {
 	if len(schema) == 0 {
 		return "opaque"
 	}
-	if schemaHasPath(schema, responsePathTokens(path)) {
-		return "present"
-	}
-	return "missing"
+	return schemaPathStatus(schema, responsePathTokens(path))
 }
 
 func preferredResponseSchema(op *rollout.OperationInfo) map[string]any {
@@ -912,22 +1371,29 @@ func responsePathTokens(path string) []string {
 }
 
 func schemaHasPath(schema map[string]any, tokens []string) bool {
+	return schemaPathStatus(schema, tokens) == "present"
+}
+
+func schemaPathStatus(schema map[string]any, tokens []string) string {
 	if len(tokens) == 0 {
-		return true
+		return "present"
 	}
 	if len(schema) == 0 {
-		return false
+		return "missing"
+	}
+	if strings.TrimSpace(asString(schema["$ref"])) != "" {
+		return "opaque"
 	}
 	if strings.EqualFold(asString(schema["type"]), "array") {
-		return schemaHasPath(asMap(schema["items"]), tokens)
+		return schemaPathStatus(asMap(schema["items"]), tokens)
 	}
 	props := asMap(schema["properties"])
 	if len(props) == 0 {
-		return false
+		return "missing"
 	}
 	next, ok := props[tokens[0]]
 	if !ok {
-		return false
+		return "missing"
 	}
-	return schemaHasPath(asMap(next), tokens[1:])
+	return schemaPathStatus(asMap(next), tokens[1:])
 }

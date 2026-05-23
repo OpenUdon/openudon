@@ -58,6 +58,31 @@ func TestRequiredPackagePathsIncludesFirstClassAPISources(t *testing.T) {
 	}
 }
 
+func TestCollectAPISourcePathsSkipsAdvisorySecuritySidecars(t *testing.T) {
+	root := t.TempDir()
+	mustWrite(t, filepath.Join(root, "google-discovery", "gmail.json"), []byte(`{"discoveryVersion":"v1"}`))
+	mustWrite(t, filepath.Join(root, "google-discovery", "gmail.security.json"), []byte(`{"security_schemes":[]}`))
+	mustWrite(t, filepath.Join(root, "google-discovery", "gmail.json.security.json"), []byte(`{"security_schemes":[]}`))
+	mustWrite(t, filepath.Join(root, "openapi", "support.security-overlay.yaml"), []byte("securitySchemes: []\n"))
+
+	paths, err := CollectAPISourcePaths(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !stringSliceContains(paths, "google-discovery/gmail.json") {
+		t.Fatalf("CollectAPISourcePaths missing main source in %#v", paths)
+	}
+	for _, skipped := range []string{
+		"google-discovery/gmail.security.json",
+		"google-discovery/gmail.json.security.json",
+		"openapi/support.security-overlay.yaml",
+	} {
+		if stringSliceContains(paths, skipped) {
+			t.Fatalf("CollectAPISourcePaths included advisory sidecar %q in %#v", skipped, paths)
+		}
+	}
+}
+
 func TestCleanRelativePathRejectsUnsafePaths(t *testing.T) {
 	for _, input := range []string{
 		"",

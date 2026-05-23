@@ -126,7 +126,7 @@ func nativeAPISourceOperations(path string, sourceType uws1.SourceDescriptionTyp
 			if op == nil {
 				continue
 			}
-			for _, id := range []string{op.OperationID, op.ID, op.Name} {
+			for _, id := range operationIDAliases(op.OperationID, op.ID, op.Name) {
 				if id = strings.TrimSpace(id); id != "" {
 					operations[id] = true
 				}
@@ -141,7 +141,7 @@ func nativeAPISourceOperations(path string, sourceType uws1.SourceDescriptionTyp
 			if op == nil {
 				continue
 			}
-			for _, id := range []string{op.Name, op.ID} {
+			for _, id := range operationIDAliases(op.Name, op.ID) {
 				if id = strings.TrimSpace(id); id != "" {
 					operations[id] = true
 				}

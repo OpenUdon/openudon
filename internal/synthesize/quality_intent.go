@@ -37,17 +37,17 @@ func assessIntent(report *QualityReport, path, exampleDir string, candidates []o
 		return intent, false
 	}
 	report.add("intent.openapi_operations", "pass", "intent.hcl API source operation references are available", "")
-	if err := validateIntentRequiredParameters(intent, candidates, primary); err != nil {
+	if err := validateIntentRequiredParameters(intent, exampleDir, candidates, primary); err != nil {
 		report.add("intent.data_flow.required_params", "fail", "required OpenAPI parameters are not satisfied", err.Error())
 		return intent, false
 	}
 	report.add("intent.data_flow.required_params", "pass", "required OpenAPI parameters are satisfied or credential-bound", "")
-	if err := validateIntentCredentialPolicy(intent, candidates, primary, policy); err != nil {
+	if err := validateIntentCredentialPolicy(intent, exampleDir, candidates, primary, policy); err != nil {
 		report.add("credentials.bindings", "fail", "credential-like parameters require declared credential policy", err.Error())
 		return intent, false
 	}
 	report.add("credentials.bindings", "pass", "credential-like parameters are covered by project credential policy or not required", "")
-	if err := validateIntentOpenAPISecurity(intent, candidates, primary, policy); err != nil {
+	if err := validateIntentOpenAPISecurity(intent, exampleDir, candidates, primary, policy); err != nil {
 		report.add("credentials.security_schemes", "fail", "OpenAPI security requirements need credential bindings", err.Error())
 		return intent, false
 	}

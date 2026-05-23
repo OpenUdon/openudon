@@ -2,9 +2,12 @@ package elicitor
 
 import (
 	"context"
+	"io"
 	"strings"
 	"testing"
 
+	"github.com/OpenUdon/apitools"
+	"github.com/OpenUdon/openudon/internal/projectwizard"
 	rollout "github.com/OpenUdon/openudon/internal/workflowintent"
 )
 
@@ -316,5 +319,35 @@ func TestReviewFinalDraftSuppressesLocalFnctTransportOutputFalsePositive(t *test
 	}
 	if len(session.DecisionEvidence) != 0 {
 		t.Fatalf("false-positive review issue added decision evidence: %#v", session.DecisionEvidence)
+	}
+}
+
+func TestReviewFinalDraftAddsLocalMissingRenderedBodyIssueWithoutLLM(t *testing.T) {
+	session := Session{
+		Project: projectwizard.Answers{Goal: "Fetch weather and email me a report."},
+		Intent: rollout.Intent{
+			Workflow: &rollout.WorkflowMeta{Name: "weather_email", Description: "Fetch weather and email me a report."},
+			Steps: []*rollout.Step{
+				{Name: "get_weather", Type: "http", OpenAPI: "openapi/weather.yaml", Operation: "getWeather"},
+				{Name: "send_email", Type: "http", OpenAPI: "openapi/email.yaml", Operation: "sendEmail", With: map[string]string{"userId": "me"}},
+			},
+		},
+	}
+	docs := []APIDocument{{
+		RelativePath: "openapi/email.yaml",
+		Operations: []apitools.OperationSummary{{
+			OperationID: "sendEmail",
+			RequestBody: &apitools.RequestBodySummary{
+				Required: true,
+				Fields:   []apitools.RequestFieldSummary{{Path: "raw", Required: true, Type: "string"}},
+			},
+		}},
+	}}
+	issues := reviewFinalDraft(context.Background(), io.Discard, nil, &session, docs, nil, nil)
+	if len(issues) != 1 {
+		t.Fatalf("issues = %#v, want one local issue", issues)
+	}
+	if issues[0].Slot != "steps.send_email.with.raw" || issues[0].RemediationAction != remediationProposeFnctStep {
+		t.Fatalf("issue = %#v", issues[0])
 	}
 }

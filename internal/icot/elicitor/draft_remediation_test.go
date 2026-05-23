@@ -82,6 +82,38 @@ func TestApplyDraftReviewRemediationsAsksOnMultipleFnctProducers(t *testing.T) {
 	}
 }
 
+func TestApplyDraftReviewRemediationsUsesTerminalProducerInLinearChain(t *testing.T) {
+	session := Session{
+		Project: projectwizard.Answers{Goal: "Fetch coordinates, fetch weather, and email a report."},
+		Intent: rollout.Intent{
+			Workflow: &rollout.WorkflowMeta{Name: "weather_email", Description: "Fetch coordinates, fetch weather, and email a report."},
+			Steps: []*rollout.Step{
+				{Name: "geocode", Type: "http", Operation: "geocode"},
+				{Name: "get_weather", Type: "http", Operation: "getWeather", DependsOn: []string{"geocode"}},
+				{Name: "send_email", Type: "http", Operation: "sendEmail", With: map[string]string{"userId": "me"}},
+			},
+		},
+	}
+	changed, rejected := applyDraftReviewRemediations(&session, []DraftReviewIssue{{
+		Code:              "missing_rendered_body",
+		Message:           "The send step needs a rendered email message.",
+		Slot:              "steps.send_email.with.raw",
+		GapKind:           flowGapMissingTransformStep,
+		RemediationAction: remediationProposeFnctStep,
+	}})
+	if !changed || len(rejected) != 0 {
+		t.Fatalf("changed=%v rejected=%v", changed, rejected)
+	}
+	fnct := stepByName(session.Intent.Steps, "render_message")
+	if fnct == nil || len(fnct.DependsOn) != 1 || fnct.DependsOn[0] != "get_weather" {
+		t.Fatalf("render fnct = %#v", fnct)
+	}
+	send := stepByName(session.Intent.Steps, "send_email")
+	if got := send.With["raw"]; got != "render_message.received_body" {
+		t.Fatalf("send raw = %q", got)
+	}
+}
+
 func TestApplyDraftReviewRemediationsRejectsAPIPrework(t *testing.T) {
 	session := Session{Intent: rollout.Intent{Steps: []*rollout.Step{{
 		Name:      "update_customer",

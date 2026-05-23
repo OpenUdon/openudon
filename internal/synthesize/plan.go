@@ -9,9 +9,9 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/OpenUdon/uws/uws1"
 	"github.com/OpenUdon/openudon/internal/openapidisco"
 	rollout "github.com/OpenUdon/openudon/internal/workflowintent"
+	"github.com/OpenUdon/uws/uws1"
 )
 
 const workflowPlanVersion = "openudon.workflow-plan.v1"
@@ -96,7 +96,13 @@ func buildWorkflowPlan(result Result, intent *rollout.Intent, candidates []opena
 		plan.Idempotency = cloneIdempotency(intent.Workflow.Idempotency)
 	}
 	ops := openAPIOperationIndex(candidates)
+	for key, op := range localNativeOperationIndex(result.ExampleDir) {
+		ops[key] = op
+	}
 	security := openAPISecurityIndex(candidates)
+	for key, reqs := range localAdvisorySecurityIndex(result.ExampleDir) {
+		security[key] = append(security[key], reqs...)
+	}
 	inputs := intentInputNames(intent)
 	addStepsToWorkflowPlan(plan, intent, intentSteps(intent), ops, security, inputs, policy, planStepContext{})
 	plan.Results = structuralPlanResults(intent)
@@ -220,6 +226,7 @@ func addStepsToWorkflowPlan(plan *WorkflowPlan, intent *rollout.Intent, steps []
 				}
 			}
 			for _, req := range security[key] {
+				credentialName := firstNonEmpty(securityRequestFieldName(req), req.label())
 				planParam := PlanParam{
 					Name:               securityRequestFieldName(req),
 					In:                 strings.TrimSpace(req.In),
@@ -228,11 +235,10 @@ func addStepsToWorkflowPlan(plan *WorkflowPlan, intent *rollout.Intent, steps []
 					SourceKind:         "credential",
 					ExpectedCredential: expectedCredentialForSecurity(step, req, policy),
 				}
-				if planParam.Name == "" {
-					planParam.Name = req.label()
+				planStep.Credentials = append(planStep.Credentials, credentialName)
+				if planParam.Name != "" {
+					planStep.RequestParams = append(planStep.RequestParams, planParam)
 				}
-				planStep.Credentials = append(planStep.Credentials, planParam.Name)
-				planStep.RequestParams = append(planStep.RequestParams, planParam)
 				if planParam.ExpectedCredential == "" {
 					plan.Gaps = append(plan.Gaps, PlanGap{
 						Code:   "credentials.missing_binding",
@@ -707,6 +713,9 @@ func expectedCredentialForSecurity(step *rollout.Step, req openAPISecurityRequir
 func securityRequestFieldName(req openAPISecurityRequirement) string {
 	if strings.EqualFold(req.Type, "http") || strings.EqualFold(req.Scheme, "bearer") || strings.Contains(strings.ToLower(req.Scheme), "bearer") {
 		return "Authorization"
+	}
+	if !strings.EqualFold(req.Type, "apiKey") && strings.TrimSpace(req.In) == "" {
+		return ""
 	}
 	if strings.TrimSpace(req.Name) != "" {
 		return strings.TrimSpace(req.Name)

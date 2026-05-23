@@ -197,9 +197,6 @@ func runProgressive(ctx context.Context, in io.Reader, out io.Writer, seed Sessi
 		},
 		FinalConfirm: func(prompts *authoring.PromptSession, session *Session, docs []APIDocument, events *[]authoring.PromptEvent) (Artifacts, error) {
 			review := func(ctx context.Context, session *Session, artifacts Artifacts, issues []ReadinessIssue) []DraftReviewIssue {
-				if opts.NoLLM || extractor == nil {
-					return nil
-				}
 				key := finalDraftReviewKey(artifacts)
 				if key == "" {
 					return nil
@@ -207,7 +204,11 @@ func runProgressive(ctx context.Context, in io.Reader, out io.Writer, seed Sessi
 				if cached, ok := reviewedFinalDrafts[key]; ok {
 					return cached
 				}
-				reviewIssues := reviewFinalDraft(ctx, statusOut, extractor, session, docs, issues, events)
+				var reviewExtractor Extractor
+				if !opts.NoLLM {
+					reviewExtractor = extractor
+				}
+				reviewIssues := reviewFinalDraft(ctx, statusOut, reviewExtractor, session, docs, issues, events)
 				reviewedFinalDrafts[key] = reviewIssues
 				return reviewIssues
 			}

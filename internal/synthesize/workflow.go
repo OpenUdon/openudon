@@ -517,9 +517,9 @@ func (mapper *requestBindingMapper) loadNative(path, sourceRef string, sourceTyp
 				Parameters:  discoveryRequestParameters(op.Parameters),
 			}
 			if op.RequestRef != "" || op.RequestMediaType != "" {
-				summary.RequestBody = &apitools.RequestBodySummary{ContentTypes: []string{firstNonEmpty(op.RequestMediaType, "application/json")}, Ref: op.RequestRef}
+				summary.RequestBody = googleDiscoveryRequestBodySummary(model, op)
 			}
-			if err := add([]string{op.OperationID, op.ID, op.Name}, summary); err != nil {
+			if err := add(operationIDAliases(op.OperationID, op.ID, op.Name), summary); err != nil {
 				return nil, err
 			}
 		}
@@ -539,7 +539,7 @@ func (mapper *requestBindingMapper) loadNative(path, sourceRef string, sourceTyp
 			if op.Payload != nil || len(op.UnboundInput) > 0 || len(op.StaticPayload) > 0 {
 				summary.RequestBody = &apitools.RequestBodySummary{ContentTypes: []string{firstNonEmpty(op.RequestMediaType, "application/json")}, Ref: op.Input}
 			}
-			if err := add([]string{op.Name, op.ID}, summary); err != nil {
+			if err := add(operationIDAliases(op.Name, op.ID), summary); err != nil {
 				return nil, err
 			}
 		}
@@ -560,6 +560,98 @@ func discoveryRequestParameters(params []*googlediscovery.Parameter) []apitools.
 			In:   param.Location,
 			Type: stringFromAnyMap(param.Schema, "type"),
 		})
+	}
+	return out
+}
+
+func googleDiscoveryRequestBodySummary(model *googlediscovery.Model, op *googlediscovery.Operation) *apitools.RequestBodySummary {
+	if op == nil {
+		return nil
+	}
+	body := &apitools.RequestBodySummary{
+		Required:     strings.TrimSpace(op.RequestRef) != "",
+		Ref:          op.RequestRef,
+		ContentTypes: []string{firstNonEmpty(op.RequestMediaType, "application/json")},
+	}
+	if model == nil || strings.TrimSpace(op.RequestRef) == "" {
+		return body
+	}
+	schema := model.Schemas[strings.TrimPrefix(op.RequestRef, "#/components/schemas/")]
+	if len(schema) == 0 {
+		return body
+	}
+	body.Description = asString(schema["description"])
+	body.Fields = googleDiscoveryRequestFields(schema, op.OperationID)
+	for _, field := range body.Fields {
+		if field.Required {
+			body.RequiredFieldPaths = append(body.RequiredFieldPaths, field.Path)
+		}
+	}
+	return body
+}
+
+func googleDiscoveryRequestFields(schema map[string]any, operationID string) []apitools.RequestFieldSummary {
+	props := asMap(schema["properties"])
+	if len(props) == 0 {
+		return nil
+	}
+	required := stringSet(asStringSlice(schema["required"]))
+	var out []apitools.RequestFieldSummary
+	for _, name := range sortedMapKeys(props) {
+		prop := asMap(props[name])
+		if len(prop) == 0 {
+			continue
+		}
+		out = append(out, apitools.RequestFieldSummary{
+			Path:        name,
+			Required:    required[name] || googleDiscoveryPropertyRequiredForOperation(prop, operationID),
+			Type:        asString(prop["type"]),
+			Format:      asString(prop["format"]),
+			Ref:         asString(prop["$ref"]),
+			Description: asString(prop["description"]),
+		})
+	}
+	return out
+}
+
+func googleDiscoveryPropertyRequiredForOperation(prop map[string]any, operationID string) bool {
+	annotations := asMap(prop["annotations"])
+	for _, required := range asStringSlice(annotations["required"]) {
+		if strings.TrimSpace(required) == strings.TrimSpace(operationID) {
+			return true
+		}
+	}
+	return false
+}
+
+func asStringSlice(value any) []string {
+	switch typed := value.(type) {
+	case []string:
+		return append([]string(nil), typed...)
+	case []any:
+		out := make([]string, 0, len(typed))
+		for _, item := range typed {
+			if text := strings.TrimSpace(asString(item)); text != "" {
+				out = append(out, text)
+			}
+		}
+		return out
+	case string:
+		if strings.TrimSpace(typed) == "" {
+			return nil
+		}
+		return []string{strings.TrimSpace(typed)}
+	default:
+		return nil
+	}
+}
+
+func stringSet(values []string) map[string]bool {
+	out := map[string]bool{}
+	for _, value := range values {
+		if strings.TrimSpace(value) != "" {
+			out[strings.TrimSpace(value)] = true
+		}
 	}
 	return out
 }
@@ -611,12 +703,14 @@ func requestFieldPlacements(operation apitools.OperationSummary) (map[string]req
 		}
 		placement := requestFieldPlacement{Original: key, Section: section, Name: name}
 		if existing, ok := out[key]; ok && (existing.Section != placement.Section || existing.Name != placement.Name) {
-			return fmt.Errorf("field %q is ambiguous between %s.%s and %s.%s", key, existing.Section, existing.Name, placement.Section, placement.Name)
+			delete(out, key)
+			return nil
 		}
 		out[key] = placement
 		if alias := camelToSnake(key); alias != key {
 			if existing, ok := out[alias]; ok && (existing.Section != placement.Section || existing.Name != placement.Name) {
-				return fmt.Errorf("field %q is ambiguous between %s.%s and %s.%s", alias, existing.Section, existing.Name, placement.Section, placement.Name)
+				delete(out, alias)
+				return nil
 			}
 			out[alias] = requestFieldPlacement{Original: alias, Section: section, Name: name}
 		}

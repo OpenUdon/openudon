@@ -54,6 +54,58 @@ func TestGenerateWorkflowDocumentEmitsUWS12TypedSource(t *testing.T) {
 	}
 }
 
+func TestLocalNativeOperationIndexIncludesDiscoveryAliases(t *testing.T) {
+	example := t.TempDir()
+	dir := filepath.Join(example, "google-discovery")
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, "gmail.json"), []byte(minimalDiscoveryDocument()), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	index := localNativeOperationIndex(example)
+	for _, operationID := range []string{"gmail.users.messages.send", "gmail_users_messages_send"} {
+		if index[operationKey("google-discovery/gmail.json", operationID)] == nil {
+			t.Fatalf("missing native operation alias %q in %#v", operationID, index)
+		}
+	}
+}
+
+func TestLocalAdvisorySecuritySidecarAppliesToDiscoveryOperation(t *testing.T) {
+	example := t.TempDir()
+	dir := filepath.Join(example, "google-discovery")
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, "gmail.json"), []byte(minimalDiscoveryDocument()), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	sidecar := `{
+	  "security_schemes": [{"name":"gmail_oauth_token","type":"oauth2"}],
+	  "operation_security": [{
+	    "match": {"operation_id":"gmail.users.messages.send"},
+	    "security": [{"scheme":"gmail_oauth_token"}]
+	  }]
+	}`
+	if err := os.WriteFile(filepath.Join(dir, "gmail.security.json"), []byte(sidecar), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	intent := &rollout.Intent{Steps: []*rollout.Step{{
+		Name:      "gmail",
+		Type:      "http",
+		Source:    "google-discovery/gmail.json",
+		Operation: "gmail.users.messages.send",
+		With:      map[string]string{"userId": "me", "raw": "render_message.received_body"},
+	}}}
+	if err := validateIntentOpenAPISecurity(intent, example, nil, "", analyzeProject("")); err == nil || !strings.Contains(err.Error(), "Credentials and Secrets") {
+		t.Fatalf("expected sidecar security failure without credential policy, got %v", err)
+	}
+	policy := analyzeProject("## Credentials and Secrets\n- Use credential binding `gmail_oauth_token`.\n")
+	if err := validateIntentOpenAPISecurity(intent, example, nil, "", policy); err != nil {
+		t.Fatalf("security sidecar should pass with credential policy: %v", err)
+	}
+}
+
 func TestGenerateWorkflowDocumentPrefersSourceOverLegacyOpenAPI(t *testing.T) {
 	example := t.TempDir()
 	discoveryDir := filepath.Join(example, "google-discovery")
@@ -258,6 +310,7 @@ func TestValidateIntentOpenAPIOperationsRejectsMisclassifiedAPISource(t *testing
 func minimalDiscoveryDocument() string {
 	return `{
 	  "kind": "discovery#restDescription",
+	  "discoveryVersion": "v1",
 	  "name": "gmail",
 	  "title": "Gmail API",
 	  "version": "v1",

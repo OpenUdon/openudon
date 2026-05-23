@@ -259,14 +259,82 @@ func googleDiscoveryOperationSummaries(relativePath string, model *googlediscove
 			Provenance:           "google-discovery",
 		}
 		if op.RequestRef != "" || op.RequestMediaType != "" {
-			summary.RequestBody = &apitools.RequestBodySummary{
-				Ref:          op.RequestRef,
-				ContentTypes: []string{firstNonEmpty(op.RequestMediaType, "application/json")},
-			}
+			summary.RequestBody = googleDiscoveryRequestBodySummary(model, op)
 		}
 		operations = append(operations, summary)
 	}
 	return operations
+}
+
+func googleDiscoveryRequestBodySummary(model *googlediscovery.Model, op *googlediscovery.Operation) *apitools.RequestBodySummary {
+	if op == nil {
+		return nil
+	}
+	body := &apitools.RequestBodySummary{
+		Required:     strings.TrimSpace(op.RequestRef) != "",
+		Ref:          op.RequestRef,
+		ContentTypes: []string{firstNonEmpty(op.RequestMediaType, "application/json")},
+	}
+	if model == nil || strings.TrimSpace(op.RequestRef) == "" {
+		return body
+	}
+	schema := model.Schemas[strings.TrimPrefix(op.RequestRef, "#/components/schemas/")]
+	if len(schema) == 0 {
+		return body
+	}
+	body.Description = stringFromMap(schema, "description")
+	body.Fields = discoveryRequestFields(schema, op.OperationID)
+	var required []string
+	for _, field := range body.Fields {
+		if field.Required {
+			required = append(required, field.Path)
+		}
+	}
+	body.RequiredFieldPaths = required
+	return body
+}
+
+func discoveryRequestFields(schema map[string]any, operationID string) []apitools.RequestFieldSummary {
+	props := anyMap(schema["properties"])
+	if len(props) == 0 {
+		return nil
+	}
+	required := stringSet(stringSliceFromAny(schema["required"]))
+	var out []apitools.RequestFieldSummary
+	for _, name := range sortedAnyMapKeys(props) {
+		prop := anyMap(props[name])
+		if len(prop) == 0 {
+			continue
+		}
+		out = append(out, apitools.RequestFieldSummary{
+			Path:        name,
+			Required:    required[name] || discoveryPropertyRequiredForOperation(prop, operationID),
+			Type:        stringFromMap(prop, "type"),
+			Format:      stringFromMap(prop, "format"),
+			Ref:         stringFromMap(prop, "$ref"),
+			Description: stringFromMap(prop, "description"),
+		})
+	}
+	return out
+}
+
+func discoveryPropertyRequiredForOperation(prop map[string]any, operationID string) bool {
+	annotations := anyMap(prop["annotations"])
+	for _, required := range stringSliceFromAny(annotations["required"]) {
+		if strings.TrimSpace(required) == strings.TrimSpace(operationID) {
+			return true
+		}
+	}
+	return false
+}
+
+func sortedAnyMapKeys(values map[string]any) []string {
+	keys := make([]string, 0, len(values))
+	for key := range values {
+		keys = append(keys, key)
+	}
+	sort.Strings(keys)
+	return keys
 }
 
 func googleDiscoveryParameterSummaries(params []*googlediscovery.Parameter) []apitools.ParameterSummary {

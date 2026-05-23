@@ -250,6 +250,9 @@ func collectSourceDirPaths(packageRoot, dir string) ([]string, error) {
 		if !info.Mode().IsRegular() {
 			return fmt.Errorf("%s artifact must be a regular file: %s", dir, path)
 		}
+		if isAdvisorySecuritySidecarPath(path) {
+			return nil
+		}
 		rel, err := filepath.Rel(packageRoot, path)
 		if err != nil {
 			return err
@@ -265,6 +268,11 @@ func collectSourceDirPaths(packageRoot, dir string) ([]string, error) {
 	}
 	sort.Strings(paths)
 	return paths, nil
+}
+
+func isAdvisorySecuritySidecarPath(filePath string) bool {
+	base := strings.TrimSuffix(filepath.Base(filePath), filepath.Ext(filePath))
+	return strings.HasSuffix(base, ".security") || strings.HasSuffix(base, ".security-overlay")
 }
 
 func uniqueSorted(paths []string) ([]string, error) {

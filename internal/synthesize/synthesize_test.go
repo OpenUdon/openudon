@@ -814,6 +814,18 @@ func TestValidateIntentResponsePathsWarnsOnOpaqueSchema(t *testing.T) {
 	}
 }
 
+func TestResponsePathStatusTreatsArrayRefAsOpaque(t *testing.T) {
+	op := &rollout.OperationInfo{Responses: map[string]*rollout.ResponseInfo{
+		"200": {Schema: map[string]any{
+			"type":  "array",
+			"items": map[string]any{"$ref": "#/components/schemas/Location"},
+		}},
+	}}
+	if got := responsePathStatus(op, "[0].lat"); got != "opaque" {
+		t.Fatalf("response path status = %q, want opaque", got)
+	}
+}
+
 func TestValidateIntentOpenAPISecurityRequiresCredentialPolicy(t *testing.T) {
 	dir := t.TempDir()
 	path := filepath.Join(dir, "secure.yaml")
@@ -832,7 +844,7 @@ func TestValidateIntentOpenAPISecurityRequiresCredentialPolicy(t *testing.T) {
 		}},
 	}
 	candidates := []openapidisco.Candidate{{Path: path, RelativePath: "openapi/secure.yaml"}}
-	if err := validateIntentOpenAPISecurity(intent, candidates, "", analyzeProject("")); err == nil || !strings.Contains(err.Error(), "Credentials and Secrets") {
+	if err := validateIntentOpenAPISecurity(intent, "", candidates, "", analyzeProject("")); err == nil || !strings.Contains(err.Error(), "Credentials and Secrets") {
 		t.Fatalf("expected missing credential policy error, got %v", err)
 	}
 	policy := analyzeProject(`# Secure
@@ -841,7 +853,7 @@ func TestValidateIntentOpenAPISecurityRequiresCredentialPolicy(t *testing.T) {
 
 - Use credential binding support_api_key.
 `)
-	if err := validateIntentOpenAPISecurity(intent, candidates, "", policy); err != nil {
+	if err := validateIntentOpenAPISecurity(intent, "", candidates, "", policy); err != nil {
 		t.Fatalf("unexpected security credential error: %v", err)
 	}
 }
