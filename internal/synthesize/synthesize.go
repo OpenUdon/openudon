@@ -725,17 +725,27 @@ func validateIntentOpenAPIRefs(intent *rollout.Intent, exampleDir string, candid
 	if sourceRegistryErr != nil && !errors.Is(sourceRegistryErr, os.ErrNotExist) {
 		return fmt.Errorf("local API source registry could not be scanned: %w", sourceRegistryErr)
 	}
-	if strings.TrimSpace(intent.OpenAPI) == "" && strings.TrimSpace(intent.Source) != "" {
-		intent.OpenAPI = normalizeAPISourceRef(intent.Source)
-		intent.Source = intent.OpenAPI
+	if strings.TrimSpace(intent.Source) != "" {
+		intent.Source = normalizeAPISourceRef(intent.Source)
+		if strings.TrimSpace(intent.OpenAPI) == "" {
+			intent.OpenAPI = intent.Source
+		}
 	}
-	if strings.TrimSpace(intent.OpenAPI) == "" && primary != "" {
+	if strings.TrimSpace(intent.Source) == "" && strings.TrimSpace(intent.OpenAPI) == "" && primary != "" {
 		intent.OpenAPI = normalizeAPISourceRef(primary)
 	}
-	if ref := normalizeAPISourceRef(intent.OpenAPI); ref != "" {
+	if ref := normalizeAPISourceRef(firstNonEmpty(intent.Source, intent.OpenAPI)); ref != "" {
+		if entry, ok := sourceRegistry.get(ref); ok && entry.Err != nil {
+			return fmt.Errorf("generated intent referenced invalid API source document %q: %w", ref, entry.Err)
+		}
 		if sourceDescriptionTypeForPath(ref) == uws1.SourceDescriptionTypeOpenAPI {
 			if !allowed[ref] {
 				return fmt.Errorf("generated intent referenced unavailable OpenAPI document %q", ref)
+			}
+			if strings.TrimSpace(intent.Source) != "" {
+				intent.Source = ref
+			} else {
+				intent.OpenAPI = ref
 			}
 		} else {
 			entry, ok := sourceRegistry.get(ref)
@@ -763,10 +773,18 @@ func validateIntentOpenAPIRefs(intent *rollout.Intent, exampleDir string, candid
 				step.OpenAPI = normalizeAPISourceRef(step.Source)
 				step.Source = step.OpenAPI
 			}
-			if ref := normalizeAPISourceRef(step.OpenAPI); ref != "" {
+			if ref := normalizeAPISourceRef(firstNonEmpty(step.Source, step.OpenAPI)); ref != "" {
+				if entry, ok := sourceRegistry.get(ref); ok && entry.Err != nil {
+					invalid = append(invalid, fmt.Sprintf("%s: %v", ref, entry.Err))
+					continue
+				}
 				if sourceDescriptionTypeForPath(ref) == uws1.SourceDescriptionTypeOpenAPI {
 					if !allowed[ref] {
 						bad = append(bad, ref)
+					} else if strings.TrimSpace(step.Source) != "" {
+						step.Source = ref
+					} else {
+						step.OpenAPI = ref
 					}
 				} else {
 					entry, ok := sourceRegistry.get(ref)

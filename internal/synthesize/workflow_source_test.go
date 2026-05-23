@@ -54,6 +54,45 @@ func TestGenerateWorkflowDocumentEmitsUWS12TypedSource(t *testing.T) {
 	}
 }
 
+func TestGenerateWorkflowDocumentPrefersSourceOverLegacyOpenAPI(t *testing.T) {
+	example := t.TempDir()
+	discoveryDir := filepath.Join(example, "google-discovery")
+	openAPIDir := filepath.Join(example, "openapi")
+	if err := os.MkdirAll(discoveryDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.MkdirAll(openAPIDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(discoveryDir, "gmail.json"), []byte(minimalDiscoveryDocument()), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(openAPIDir, "legacy.yaml"), []byte("openapi: 3.0.0\ninfo: {title: Legacy, version: '1.0'}\npaths: {}\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	intent := &rollout.Intent{
+		Source:   "google-discovery/gmail.json",
+		OpenAPI:  "openapi/legacy.yaml",
+		Workflow: &rollout.WorkflowMeta{Name: "gmail_send"},
+		Steps: []*rollout.Step{{
+			Name:      "send",
+			Type:      "http",
+			Operation: "gmail_users_messages_send",
+			With:      map[string]string{"userId": "me"},
+		}},
+	}
+	doc, err := generateWorkflowDocument(Result{ExampleDir: example}, intent)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(doc.SourceDescriptions) != 1 || doc.SourceDescriptions[0].URL != "google-discovery/gmail.json" {
+		t.Fatalf("sourceDescriptions = %#v, want google discovery source", doc.SourceDescriptions)
+	}
+	if doc.Operations[0].SourceOperationID != "gmail_users_messages_send" || doc.Operations[0].OpenAPIOperationID != "" {
+		t.Fatalf("operation selectors = source %q openapi %q", doc.Operations[0].SourceOperationID, doc.Operations[0].OpenAPIOperationID)
+	}
+}
+
 func TestGenerateWorkflowDocumentInfersSmithyRequestBindings(t *testing.T) {
 	example := t.TempDir()
 	dir := filepath.Join(example, "aws-smithy")
@@ -167,6 +206,52 @@ func TestValidateIntentOpenAPIOperationsRejectsMissingNativeOperation(t *testing
 	}, example, nil, "")
 	if err == nil || !strings.Contains(err.Error(), "gmail_users_messages_typo") {
 		t.Fatalf("expected missing native operation error, got %v", err)
+	}
+}
+
+func TestValidateIntentOpenAPIOperationsRejectsInvalidNativeSource(t *testing.T) {
+	example := t.TempDir()
+	dir := filepath.Join(example, "google-discovery")
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, "gmail.json"), []byte(`{"kind":"discovery#restDescription","name":"gmail"}`), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	err := validateIntentOpenAPIOperations(&rollout.Intent{
+		Source: "google-discovery/gmail.json",
+		Steps: []*rollout.Step{{
+			Name:      "send",
+			Type:      "http",
+			Source:    "google-discovery/gmail.json",
+			Operation: "gmail_users_messages_send",
+		}},
+	}, example, nil, "")
+	if err == nil || !strings.Contains(err.Error(), "no operations discovered") {
+		t.Fatalf("expected empty native operation registry error, got %v", err)
+	}
+}
+
+func TestValidateIntentOpenAPIOperationsRejectsMisclassifiedAPISource(t *testing.T) {
+	example := t.TempDir()
+	dir := filepath.Join(example, "openapi")
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, "gmail.json"), []byte(minimalDiscoveryDocument()), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	err := validateIntentOpenAPIOperations(&rollout.Intent{
+		Source: "openapi/gmail.json",
+		Steps: []*rollout.Step{{
+			Name:      "send",
+			Type:      "http",
+			Source:    "openapi/gmail.json",
+			Operation: "gmail_users_messages_send",
+		}},
+	}, example, nil, "")
+	if err == nil || !strings.Contains(err.Error(), "source path implies openapi but document looks like google-discovery") {
+		t.Fatalf("expected misclassified API source error, got %v", err)
 	}
 }
 

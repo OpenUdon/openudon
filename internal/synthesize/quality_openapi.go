@@ -23,58 +23,60 @@ func validateIntentOpenAPIOperations(intent *rollout.Intent, exampleDir string, 
 	}
 	var missing []string
 	var omitted []string
+	var invalid []string
 	walkIntentSteps(intent.Steps, func(step *rollout.Step) {
 		if step == nil {
 			return
 		}
 		operation := strings.TrimSpace(step.Operation)
 		specPath := intentStepOpenAPIPath(intent, step, primary)
+		name := strings.TrimSpace(step.Name)
+		if name == "" {
+			name = "<unnamed>"
+		}
+		if entry, ok := sourceRegistry.get(specPath); ok && entry.Err != nil {
+			invalid = append(invalid, fmt.Sprintf("%s in %q: %v", name, specPath, entry.Err))
+			return
+		}
 		if sourceDescriptionTypeForPath(specPath) != "openapi" {
 			if operation == "" {
 				if intentStepRequiresOpenAPIOperation(intent, step, primary) {
-					name := strings.TrimSpace(step.Name)
-					if name == "" {
-						name = "<unnamed>"
-					}
 					omitted = append(omitted, fmt.Sprintf("%s in %q", name, specPath))
 				}
 				return
 			}
 			entry, ok := sourceRegistry.get(specPath)
-			if !ok || entry.Err != nil {
+			if !ok {
+				missing = append(missing, fmt.Sprintf("%s operation %q in %q", name, operation, specPath))
 				return
 			}
-			if len(entry.Operations) > 0 && !entry.Operations[operation] {
-				name := strings.TrimSpace(step.Name)
-				if name == "" {
-					name = "<unnamed>"
-				}
+			if len(entry.Operations) == 0 {
+				omitted = append(omitted, fmt.Sprintf("%s in %q (no operations discovered)", name, specPath))
+				return
+			}
+			if !entry.Operations[operation] {
 				missing = append(missing, fmt.Sprintf("%s operation %q in %q", name, operation, specPath))
 			}
 			return
 		}
 		if operation == "" {
 			if intentStepRequiresOpenAPIOperation(intent, step, primary) {
-				name := strings.TrimSpace(step.Name)
-				if name == "" {
-					name = "<unnamed>"
-				}
 				omitted = append(omitted, fmt.Sprintf("%s in %q", name, specPath))
 			}
 			return
 		}
 		if op := ops[operationKey(specPath, operation)]; op == nil {
-			name := strings.TrimSpace(step.Name)
-			if name == "" {
-				name = "<unnamed>"
-			}
 			missing = append(missing, fmt.Sprintf("%s operation %q in %q", name, operation, specPath))
 		}
 	})
-	if len(omitted) > 0 || len(missing) > 0 {
+	if len(invalid) > 0 || len(omitted) > 0 || len(missing) > 0 {
+		sort.Strings(invalid)
 		sort.Strings(omitted)
 		sort.Strings(missing)
 		var details []string
+		for _, item := range invalid {
+			details = append(details, "invalid API source "+item)
+		}
 		for _, item := range omitted {
 			details = append(details, "missing operation for "+item)
 		}
@@ -542,11 +544,21 @@ func operationKey(specPath, operation string) string {
 }
 
 func intentStepOpenAPIPath(intent *rollout.Intent, step *rollout.Step, primary string) string {
-	if step != nil && strings.TrimSpace(step.OpenAPI) != "" {
-		return strings.TrimSpace(step.OpenAPI)
+	if step != nil {
+		if source := strings.TrimSpace(step.Source); source != "" {
+			return source
+		}
+		if openapi := strings.TrimSpace(step.OpenAPI); openapi != "" {
+			return openapi
+		}
 	}
-	if intent != nil && strings.TrimSpace(intent.OpenAPI) != "" {
-		return strings.TrimSpace(intent.OpenAPI)
+	if intent != nil {
+		if source := strings.TrimSpace(intent.Source); source != "" {
+			return source
+		}
+		if openapi := strings.TrimSpace(intent.OpenAPI); openapi != "" {
+			return openapi
+		}
 	}
 	return strings.TrimSpace(primary)
 }

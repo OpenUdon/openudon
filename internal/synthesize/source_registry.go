@@ -1,7 +1,9 @@
 package synthesize
 
 import (
+	"encoding/json"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"sort"
@@ -45,8 +47,14 @@ func newLocalAPISourceRegistry(exampleDir string, candidates []openapidisco.Cand
 		}
 		sourceType := sourceDescriptionTypeForPath(rel)
 		entry := localAPISource{RelativePath: rel, Type: sourceType}
-		if sourceType != uws1.SourceDescriptionTypeOpenAPI {
-			entry.Operations, entry.Err = nativeAPISourceOperations(filepath.Join(exampleDir, filepath.FromSlash(rel)), sourceType)
+		abs := filepath.Join(exampleDir, filepath.FromSlash(rel))
+		if sniffed, ok, sniffErr := sniffAPISourceType(abs); sniffErr != nil {
+			entry.Err = sniffErr
+		} else if ok && sniffed != sourceType {
+			entry.Err = fmt.Errorf("source path implies %s but document looks like %s", sourceType, sniffed)
+		}
+		if entry.Err == nil && sourceType != uws1.SourceDescriptionTypeOpenAPI {
+			entry.Operations, entry.Err = nativeAPISourceOperations(abs, sourceType)
 		}
 		registry.add(exampleDir, entry)
 	}
@@ -170,4 +178,59 @@ func sourceDescriptionTypeForPath(path string) uws1.SourceDescriptionType {
 		}
 	}
 	return uws1.SourceDescriptionTypeOpenAPI
+}
+
+func sniffAPISourceType(path string) (uws1.SourceDescriptionType, bool, error) {
+	file, err := os.Open(path)
+	if err != nil {
+		return "", false, err
+	}
+	defer file.Close()
+	data, err := io.ReadAll(io.LimitReader(file, 64*1024))
+	if err != nil {
+		return "", false, err
+	}
+	text := strings.TrimSpace(string(data))
+	if text == "" {
+		return "", false, nil
+	}
+	if strings.HasPrefix(text, "{") {
+		var root map[string]any
+		if err := json.Unmarshal(data, &root); err == nil {
+			if _, ok := root["smithy"]; ok {
+				return uws1.SourceDescriptionTypeAWSSmithy, true, nil
+			}
+			if _, ok := root["discoveryVersion"]; ok {
+				return uws1.SourceDescriptionTypeGoogleDiscovery, true, nil
+			}
+			if strings.EqualFold(strings.TrimSpace(stringValue(root["kind"])), "discovery#restDescription") {
+				return uws1.SourceDescriptionTypeGoogleDiscovery, true, nil
+			}
+			if _, ok := root["openapi"]; ok {
+				return uws1.SourceDescriptionTypeOpenAPI, true, nil
+			}
+			if _, ok := root["swagger"]; ok {
+				return uws1.SourceDescriptionTypeOpenAPI, true, nil
+			}
+		}
+	}
+	lower := strings.ToLower(text)
+	switch {
+	case strings.Contains(lower, `"smithy"`):
+		return uws1.SourceDescriptionTypeAWSSmithy, true, nil
+	case strings.Contains(lower, "discovery#restdescription") || strings.Contains(lower, `"discoveryversion"`):
+		return uws1.SourceDescriptionTypeGoogleDiscovery, true, nil
+	case strings.HasPrefix(lower, "openapi:") || strings.Contains(lower, "\nopenapi:") ||
+		strings.HasPrefix(lower, "swagger:") || strings.Contains(lower, "\nswagger:"):
+		return uws1.SourceDescriptionTypeOpenAPI, true, nil
+	default:
+		return "", false, nil
+	}
+}
+
+func stringValue(value any) string {
+	if s, ok := value.(string); ok {
+		return s
+	}
+	return ""
 }

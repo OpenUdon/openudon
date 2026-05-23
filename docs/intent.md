@@ -64,6 +64,8 @@ output "<name>" { ... }                # zero or more
 
 `workflowintent.ParseIntent` requires at least one `step` or `trigger`. OpenUdon-generated intent should
 always include a `workflow` block with non-empty `name` and `description`, and at least one `step`.
+When both `source` and legacy `openapi` are present at the same level, `source` is preferred and
+`openapi` is read only as a backward-compatible fallback.
 Block order is not significant to parsing. The renderer emits a stable order, and hand-authored
 intent should follow it for reviewability: top-level attributes, `workflow`, inputs, triggers,
 security, steps, then outputs.

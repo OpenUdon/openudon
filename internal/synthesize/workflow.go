@@ -129,7 +129,7 @@ func generateWorkflowDocument(result Result, intent *rollout.Intent) (*uws1.Docu
 		})
 		return name
 	}
-	defaultOpenAPI := firstNonEmpty(normalized.OpenAPI, result.PrimaryOpenAPI)
+	defaultOpenAPI := firstNonEmpty(normalized.Source, normalized.OpenAPI, result.PrimaryOpenAPI)
 	steps, ops, err := buildUWSSteps(normalized.Steps, defaultOpenAPI, ensureSourceDescription, requestMapper)
 	if err != nil {
 		return nil, err
@@ -194,7 +194,7 @@ func buildUWSStep(step *rollout.Step, defaultOpenAPI string, sourceFor func(stri
 	var ops []*uws1.Operation
 	if isIntentStructuralType(kind) {
 		uwsStep.Type = uwsWorkflowType(kind)
-		nested, nestedOps, err := buildUWSSteps(step.Steps, firstNonEmpty(step.OpenAPI, defaultOpenAPI), sourceFor, requestMapper)
+		nested, nestedOps, err := buildUWSSteps(step.Steps, firstNonEmpty(step.Source, step.OpenAPI, defaultOpenAPI), sourceFor, requestMapper)
 		if err != nil {
 			return nil, nil, err
 		}
@@ -204,7 +204,7 @@ func buildUWSStep(step *rollout.Step, defaultOpenAPI string, sourceFor func(stri
 			if branch == nil {
 				continue
 			}
-			caseSteps, caseOps, err := buildUWSSteps(branch.Steps, firstNonEmpty(step.OpenAPI, defaultOpenAPI), sourceFor, requestMapper)
+			caseSteps, caseOps, err := buildUWSSteps(branch.Steps, firstNonEmpty(step.Source, step.OpenAPI, defaultOpenAPI), sourceFor, requestMapper)
 			if err != nil {
 				return nil, nil, err
 			}
@@ -215,7 +215,7 @@ func buildUWSStep(step *rollout.Step, defaultOpenAPI string, sourceFor func(stri
 			ops = append(ops, caseOps...)
 		}
 		if step.Default != nil {
-			defaultSteps, defaultOps, err := buildUWSSteps(step.Default.Steps, firstNonEmpty(step.OpenAPI, defaultOpenAPI), sourceFor, requestMapper)
+			defaultSteps, defaultOps, err := buildUWSSteps(step.Default.Steps, firstNonEmpty(step.Source, step.OpenAPI, defaultOpenAPI), sourceFor, requestMapper)
 			if err != nil {
 				return nil, nil, err
 			}
@@ -224,7 +224,7 @@ func buildUWSStep(step *rollout.Step, defaultOpenAPI string, sourceFor func(stri
 		}
 		return uwsStep, ops, nil
 	}
-	openAPIPath := firstNonEmpty(step.OpenAPI, defaultOpenAPI)
+	openAPIPath := firstNonEmpty(step.Source, step.OpenAPI, defaultOpenAPI)
 	request, err := intentRequestMap(step.With, kind, openAPIPath, step.Operation, requestMapper)
 	if err != nil {
 		return nil, nil, fmt.Errorf("step %s request bindings: %w", name, err)
