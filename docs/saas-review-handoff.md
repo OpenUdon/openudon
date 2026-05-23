@@ -64,7 +64,10 @@ The dry run validates the handoff manifest, stored and current quality reports,
 approval scope, approval state, expiry, package digest, tier compatibility,
 credential-value policy, and direct-production policy. It writes a non-secret
 `openudon.executor-run.v1` config with package paths, `package_sha256`, tier,
-workdir, and credential binding names.
+workdir, and credential binding names, then stages the package and verifies the
+staged digest without requiring credential values. It also writes
+`openudon.run-evidence.v1` at `<workdir>/run-evidence.json` with gate outcomes,
+staged paths, and credential binding names only.
 
 Remove `--dry-run` only in a trusted operator environment with sandbox targets
 or a production approval, reviewed credential bindings, and a configured

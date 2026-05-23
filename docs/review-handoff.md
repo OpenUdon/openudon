@@ -30,6 +30,9 @@ expected/refinement.json
 expected/review.md
 expected/symphony-handoff.json
 openapi/... regular files used by the package
+google-discovery/... regular files used by the package
+aws-smithy/... regular files used by the package
+associated advisory security sidecars
 ```
 
 Unsafe relative paths, symlinks, directories, special files, missing files, and unstated required
@@ -64,7 +67,7 @@ notes
 The approved digest must match the package at run time. If any digest-covered file changes,
 generate a new approval after review.
 
-## Trusted Runner Config
+## Trusted Runner Config And Evidence
 
 Validate the package and write a non-secret run config without invoking the executor:
 
@@ -78,9 +81,11 @@ go run ./cmd/openudon run \
 
 `openudon run` checks the handoff manifest, stored and current quality, approval scope, approval
 state, expiry, package digest, tier compatibility, credential-value policy, and direct-production
-policy. The resulting `openudon.executor-run.v1` config includes the UWS artifact, OpenAPI files,
+policy. The resulting `openudon.executor-run.v1` config includes the UWS artifact, API source files,
 sorted package paths, package digest, tier, workdir, and credential binding names.
 
-The runner stages digest-covered files into a fresh workdir and recomputes the package digest before
-executor invocation. `OPENUDON_EXECUTOR` selects the final executor as an absolute binary path or
-`docker://<image>`.
+Dry runs stage digest-covered files into a fresh workdir and recompute the package digest without
+requiring credential values or invoking the executor. Both dry runs and real handoffs write
+`openudon.run-evidence.v1` at `<workdir>/run-evidence.json` with package paths, staged paths, gate
+outcomes, and credential binding names only. `OPENUDON_EXECUTOR` selects the final executor as an
+absolute binary path or `docker://<image>`.

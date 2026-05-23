@@ -116,6 +116,7 @@ func TestCLIRunHelpIncludesApprovalGates(t *testing.T) {
 		"approved_for_sandbox",
 		"approved_for_production",
 		"trusted executor",
+		"run evidence",
 	} {
 		if !strings.Contains(text, expected) {
 			t.Fatalf("run help missing %q:\n%s", expected, text)

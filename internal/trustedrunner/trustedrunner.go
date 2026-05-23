@@ -22,6 +22,7 @@ import (
 const (
 	ApprovalVersion        = "openudon.approval.v1"
 	RunConfigVersion       = udonrunner.RunConfigVersion
+	RunEvidenceVersion     = "openudon.run-evidence.v1"
 	SymphonyHandoffVersion = authoring.ReviewHandoffVersion
 	legacyHandoffVersion   = "openudon.symphony-handoff.v1"
 
@@ -69,16 +70,51 @@ type TemplateOptions struct {
 }
 
 type RunResult struct {
-	Scope         string
-	Tier          string
-	PackageSHA256 string
-	WorkflowPath  string
-	RunConfigPath string
-	WorkDir       string
-	DryRun        bool
+	Scope           string
+	Tier            string
+	PackageSHA256   string
+	WorkflowPath    string
+	RunConfigPath   string
+	RunEvidencePath string
+	WorkDir         string
+	StagePath       string
+	DryRun          bool
 }
 
 type RunConfig = udonrunner.Config
+
+type RunEvidence struct {
+	Version            string              `json:"version"`
+	CreatedAt          string              `json:"created_at"`
+	Scope              string              `json:"scope"`
+	Tier               string              `json:"tier"`
+	DryRun             bool                `json:"dry_run"`
+	ApprovalState      string              `json:"approval_state"`
+	PackageSHA256      string              `json:"package_sha256"`
+	RunConfigPath      string              `json:"run_config_path"`
+	PackageRoot        string              `json:"package_root"`
+	WorkDir            string              `json:"workdir"`
+	StagePath          string              `json:"stage_path"`
+	WorkflowPath       string              `json:"workflow_path"`
+	PackagePaths       []string            `json:"package_paths"`
+	APISourcePaths     []string            `json:"api_source_paths,omitempty"`
+	CredentialBindings []string            `json:"credential_bindings,omitempty"`
+	CredentialEnvNames []string            `json:"credential_env_names,omitempty"`
+	Gates              []RunEvidenceGate   `json:"gates"`
+	Executor           RunEvidenceExecutor `json:"executor"`
+}
+
+type RunEvidenceGate struct {
+	Name   string `json:"name"`
+	Status string `json:"status"`
+}
+
+type RunEvidenceExecutor struct {
+	Invoked    bool     `json:"invoked"`
+	Mode       string   `json:"mode"`
+	RunnerPath string   `json:"runner_path,omitempty"`
+	Argv       []string `json:"argv,omitempty"`
+}
 
 type paths struct {
 	repoRoot       string
@@ -117,16 +153,17 @@ func Run(ctx context.Context, opts Options) (*RunResult, error) {
 		return nil, err
 	}
 
+	workdir, err := resolveRunWorkDir(p, opts.WorkDir)
+	if err != nil {
+		return nil, err
+	}
 	result := &RunResult{
 		Scope:         p.scope,
 		Tier:          opts.Tier,
 		PackageSHA256: digest,
 		WorkflowPath:  filepath.Join(p.exampleAbs, "workflows", "workflow.uws.yaml"),
-		WorkDir:       strings.TrimSpace(opts.WorkDir),
+		WorkDir:       workdir,
 		DryRun:        opts.DryRun,
-	}
-	if result.WorkDir == "" {
-		result.WorkDir = p.defaultWorkDir
 	}
 	runConfig, err := buildRunConfig(p, manifest, digest, opts.Tier, result.WorkDir)
 	if err != nil {
@@ -138,6 +175,19 @@ func Run(ctx context.Context, opts Options) (*RunResult, error) {
 	}
 	result.RunConfigPath = runConfigPath
 	if opts.DryRun {
+		prepared, err := udonrunner.PrepareConfig(ctx, udonrunner.Options{
+			ConfigPath: runConfigPath,
+			RepoRoot:   p.repoRoot,
+		})
+		if err != nil {
+			return nil, fmt.Errorf("prepare trusted executor dry-run: %w", err)
+		}
+		result.StagePath = prepared.StagePath
+		evidencePath, err := writeRunEvidence(result.WorkDir, buildRunEvidence(runConfig, approval, prepared, result, false, "dry-run", "", now))
+		if err != nil {
+			return nil, err
+		}
+		result.RunEvidencePath = evidencePath
 		return result, nil
 	}
 
@@ -146,6 +196,15 @@ func Run(ctx context.Context, opts Options) (*RunResult, error) {
 		if err := validateRunnerPath("OPENUDON_UDON_RUNNER", runnerPath); err != nil {
 			return nil, err
 		}
+		prepared, err := udonrunner.PrepareConfig(ctx, udonrunner.Options{
+			ConfigPath:              runConfigPath,
+			RepoRoot:                p.repoRoot,
+			RequireCredentialValues: true,
+		})
+		if err != nil {
+			return nil, fmt.Errorf("prepare trusted executor: %w", err)
+		}
+		result.StagePath = prepared.StagePath
 		args := []string{"--config", runConfigPath}
 		runCommand := opts.RunCommand
 		if runCommand == nil {
@@ -160,17 +219,29 @@ func Run(ctx context.Context, opts Options) (*RunResult, error) {
 		if err := runCommand(ctx, runnerPath, args...); err != nil {
 			return nil, fmt.Errorf("run trusted executor: %w", err)
 		}
+		evidencePath, err := writeRunEvidence(result.WorkDir, buildRunEvidence(runConfig, approval, prepared, result, true, "external-runner", runnerPath, now))
+		if err != nil {
+			return nil, err
+		}
+		result.RunEvidencePath = evidencePath
 		return result, nil
 	}
-	if _, err := udonrunner.RunConfig(ctx, udonrunner.Options{
+	prepared, err := udonrunner.RunConfig(ctx, udonrunner.Options{
 		ConfigPath: runConfigPath,
 		RepoRoot:   p.repoRoot,
 		Stdout:     opts.Stdout,
 		Stderr:     opts.Stderr,
 		RunCommand: opts.RunCommand,
-	}); err != nil {
+	})
+	if err != nil {
 		return nil, fmt.Errorf("run trusted executor: %w", err)
 	}
+	result.StagePath = prepared.StagePath
+	evidencePath, err := writeRunEvidence(result.WorkDir, buildRunEvidence(runConfig, approval, prepared, result, true, "internal-runner", "", now))
+	if err != nil {
+		return nil, err
+	}
+	result.RunEvidencePath = evidencePath
 	return result, nil
 }
 
@@ -241,6 +312,83 @@ func writeRunConfig(config RunConfig) (string, error) {
 		return "", err
 	}
 	return path, nil
+}
+
+func writeRunEvidence(workdir string, evidence RunEvidence) (string, error) {
+	if strings.TrimSpace(workdir) == "" {
+		return "", fmt.Errorf("run evidence workdir is required")
+	}
+	if err := os.MkdirAll(workdir, 0o755); err != nil {
+		return "", err
+	}
+	path := filepath.Join(workdir, "run-evidence.json")
+	data, err := json.MarshalIndent(evidence, "", "  ")
+	if err != nil {
+		return "", err
+	}
+	if err := os.WriteFile(path, append(data, '\n'), 0o600); err != nil {
+		return "", err
+	}
+	return path, nil
+}
+
+func buildRunEvidence(config RunConfig, approval Approval, prepared udonrunner.Result, result *RunResult, invoked bool, mode, runnerPath string, now time.Time) RunEvidence {
+	gates := []RunEvidenceGate{
+		{Name: "handoff_package", Status: "pass"},
+		{Name: "manifest_policy", Status: "pass"},
+		{Name: "stored_quality", Status: "pass"},
+		{Name: "current_quality", Status: "pass"},
+		{Name: "approval", Status: "pass"},
+		{Name: "run_config", Status: "pass"},
+		{Name: "staged_digest", Status: "pass"},
+	}
+	if invoked {
+		gates = append(gates, RunEvidenceGate{Name: "executor_invocation", Status: "pass"})
+	}
+	return RunEvidence{
+		Version:            RunEvidenceVersion,
+		CreatedAt:          now.UTC().Format(time.RFC3339),
+		Scope:              result.Scope,
+		Tier:               result.Tier,
+		DryRun:             result.DryRun,
+		ApprovalState:      approval.State,
+		PackageSHA256:      result.PackageSHA256,
+		RunConfigPath:      result.RunConfigPath,
+		PackageRoot:        config.PackageRoot,
+		WorkDir:            result.WorkDir,
+		StagePath:          prepared.StagePath,
+		WorkflowPath:       prepared.WorkflowPath,
+		PackagePaths:       append([]string(nil), prepared.PackagePaths...),
+		APISourcePaths:     append([]string(nil), prepared.OpenAPIPaths...),
+		CredentialBindings: append([]string(nil), config.CredentialBindings...),
+		CredentialEnvNames: append([]string(nil), prepared.CredentialEnvNames...),
+		Gates:              gates,
+		Executor: RunEvidenceExecutor{
+			Invoked:    invoked,
+			Mode:       mode,
+			RunnerPath: runnerPath,
+			Argv:       append([]string(nil), prepared.Argv...),
+		},
+	}
+}
+
+func resolveRunWorkDir(p paths, input string) (string, error) {
+	input = strings.TrimSpace(input)
+	for _, ch := range input {
+		if ch < 0x20 || ch == 0x7f {
+			return "", fmt.Errorf("run workdir must not contain control characters")
+		}
+	}
+	if input == "" {
+		input = p.defaultWorkDir
+	} else if !filepath.IsAbs(input) {
+		input = filepath.Join(p.repoRoot, input)
+	}
+	workdir, err := filepath.Abs(input)
+	if err != nil {
+		return "", err
+	}
+	return filepath.Clean(workdir), nil
 }
 
 func sortedCredentialBindings(manifest handoffManifest) []string {
@@ -492,6 +640,10 @@ func readApproval(path string) (Approval, error) {
 	dec.DisallowUnknownFields()
 	if err := dec.Decode(&approval); err != nil {
 		return Approval{}, fmt.Errorf("approval must be valid JSON: %w", err)
+	}
+	var extra struct{}
+	if err := dec.Decode(&extra); err != io.EOF {
+		return Approval{}, fmt.Errorf("approval must contain a single JSON object")
 	}
 	return approval, nil
 }

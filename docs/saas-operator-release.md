@@ -72,8 +72,9 @@ done
 
 The dry run validates current quality, stored quality, approval state, approval
 scope, package digest, handoff manifest, credential-value policy, and tier
-compatibility. It writes a non-secret `openudon.executor-run.v1` config and does
-not invoke the executor.
+compatibility. It writes a non-secret `openudon.executor-run.v1` config, stages
+the package, verifies the staged digest, writes `openudon.run-evidence.v1`, and
+does not invoke the executor.
 
 Archive only reviewed, non-secret summaries such as command transcripts,
 quality Markdown, review Markdown, or release-note excerpts. Do not commit

@@ -40,6 +40,56 @@ func TestRunValidSandboxApprovalPassesDryRun(t *testing.T) {
 	if !result.DryRun || result.Scope != "examples/support-email" || result.PackageSHA256 == "" {
 		t.Fatalf("unexpected result: %+v", result)
 	}
+	if result.StagePath == "" || result.RunEvidencePath == "" {
+		t.Fatalf("dry-run did not stage package and write evidence: %+v", result)
+	}
+}
+
+func TestRunDryRunStagesAndWritesEvidenceWithoutCredentialEnv(t *testing.T) {
+	root, example := writeFixture(t, fixtureOptions{credentialBindings: []string{"support-api.token"}})
+	now := fixedNow()
+	approvalPath := writeApprovalTemplate(t, root, example, StateApprovedForSandbox, now)
+
+	result, err := Run(context.Background(), Options{
+		RepoRoot:     root,
+		ExampleDir:   example,
+		Tier:         TierSandbox,
+		ApprovalPath: approvalPath,
+		DryRun:       true,
+		WorkDir:      "relative-workdir",
+		Now:          now,
+		Assess:       passAssess,
+		RunCommand: func(context.Context, string, ...string) error {
+			t.Fatal("dry-run invoked runner")
+			return nil
+		},
+	})
+	if err != nil {
+		t.Fatalf("Run returned error: %v", err)
+	}
+	if !filepath.IsAbs(result.WorkDir) || result.WorkDir != filepath.Join(root, "relative-workdir") {
+		t.Fatalf("workdir = %q, want absolute path under repo root", result.WorkDir)
+	}
+	if _, err := os.Stat(filepath.Join(result.StagePath, "workflows", "workflow.uws.yaml")); err != nil {
+		t.Fatalf("dry-run did not stage workflow: %v", err)
+	}
+	evidence := readRunEvidenceFile(t, result.RunEvidencePath)
+	if evidence.Version != RunEvidenceVersion || !evidence.DryRun || evidence.Executor.Invoked {
+		t.Fatalf("unexpected evidence: %#v", evidence)
+	}
+	if evidence.StagePath != result.StagePath || evidence.PackageSHA256 != result.PackageSHA256 {
+		t.Fatalf("evidence does not match result: evidence=%#v result=%#v", evidence, result)
+	}
+	if !stringSliceContains(evidence.CredentialEnvNames, "UDON_CREDENTIAL_SUPPORT_API_TOKEN") {
+		t.Fatalf("evidence missing credential env name: %#v", evidence.CredentialEnvNames)
+	}
+	data, err := os.ReadFile(result.RunEvidencePath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(string(data), "super-secret") {
+		t.Fatalf("run evidence leaked credential value:\n%s", data)
+	}
 }
 
 func TestRunLegacyHandoffVersionPassesDryRun(t *testing.T) {
@@ -157,6 +207,30 @@ func TestRunScopeMismatchFails(t *testing.T) {
 	}
 }
 
+func TestRunApprovalTrailingJSONFails(t *testing.T) {
+	root, example := writeFixture(t, fixtureOptions{})
+	now := fixedNow()
+	approvalPath := writeApprovalTemplate(t, root, example, StateApprovedForSandbox, now)
+	data, err := os.ReadFile(approvalPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	mustWriteFile(t, approvalPath, append(data, []byte("{}")...))
+
+	_, err = Run(context.Background(), Options{
+		RepoRoot:     root,
+		ExampleDir:   example,
+		Tier:         TierSandbox,
+		ApprovalPath: approvalPath,
+		DryRun:       true,
+		Now:          now,
+		Assess:       passAssess,
+	})
+	if err == nil || !strings.Contains(err.Error(), "single JSON object") {
+		t.Fatalf("expected trailing approval JSON failure, got %v", err)
+	}
+}
+
 func TestRunDigestMismatchFails(t *testing.T) {
 	root, example := writeFixture(t, fixtureOptions{})
 	now := fixedNow()
@@ -174,6 +248,49 @@ func TestRunDigestMismatchFails(t *testing.T) {
 	})
 	if err == nil || !strings.Contains(err.Error(), "package_sha256") {
 		t.Fatalf("expected digest mismatch failure, got %v", err)
+	}
+}
+
+func TestRunNonDryRunWritesRunEvidence(t *testing.T) {
+	root, example := writeFixture(t, fixtureOptions{credentialBindings: []string{"support-api.token"}})
+	now := fixedNow()
+	approvalPath := writeApprovalTemplate(t, root, example, StateApprovedForSandbox, now)
+	fakeExecutor := filepath.Join(root, "fake-udon")
+	mustWriteFile(t, fakeExecutor, []byte("#!/usr/bin/env bash\nexit 0\n"))
+	if err := os.Chmod(fakeExecutor, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("OPENUDON_EXECUTOR", fakeExecutor)
+	t.Setenv("UDON_CREDENTIAL_SUPPORT_API_TOKEN", "super-secret")
+
+	result, err := Run(context.Background(), Options{
+		RepoRoot:     root,
+		ExampleDir:   example,
+		Tier:         TierSandbox,
+		ApprovalPath: approvalPath,
+		WorkDir:      filepath.Join(root, "work"),
+		Now:          now,
+		Assess:       passAssess,
+		RunCommand: func(context.Context, string, ...string) error {
+			return nil
+		},
+	})
+	if err != nil {
+		t.Fatalf("Run returned error: %v", err)
+	}
+	evidence := readRunEvidenceFile(t, result.RunEvidencePath)
+	if evidence.DryRun || !evidence.Executor.Invoked || evidence.Executor.Mode != "internal-runner" {
+		t.Fatalf("unexpected executor evidence: %#v", evidence.Executor)
+	}
+	if evidence.StagePath == "" || evidence.WorkflowPath == "" || len(evidence.PackagePaths) == 0 {
+		t.Fatalf("evidence missing package staging fields: %#v", evidence)
+	}
+	data, err := os.ReadFile(result.RunEvidencePath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(string(data), "super-secret") {
+		t.Fatalf("run evidence leaked credential value:\n%s", data)
 	}
 }
 
@@ -1496,6 +1613,7 @@ type fixtureOptions struct {
 	directProduction    bool
 	handoffVersion      string
 	extraRequiredInputs []string
+	credentialBindings  []string
 }
 
 func writeFixture(t *testing.T, opts fixtureOptions) (string, string) {
@@ -1560,6 +1678,10 @@ func writeFixture(t *testing.T, opts fixtureOptions) (string, string) {
 		"credential_bindings": map[string]any{
 			"values_allowed_in_artifacts": opts.valuesAllowed,
 		},
+	}
+	if len(opts.credentialBindings) > 0 {
+		manifest["credential_bindings"].(map[string]any)["declared"] = append([]string(nil), opts.credentialBindings...)
+		manifest["credential_bindings"].(map[string]any)["expected_from_plan"] = append([]string(nil), opts.credentialBindings...)
 	}
 	inputs := manifest["handoff_inputs"].([]map[string]any)
 	for _, path := range opts.extraRequiredInputs {
@@ -1644,6 +1766,19 @@ func readApprovalFile(t *testing.T, path string) Approval {
 		t.Fatal(err)
 	}
 	return approval
+}
+
+func readRunEvidenceFile(t *testing.T, path string) RunEvidence {
+	t.Helper()
+	data, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var evidence RunEvidence
+	if err := json.Unmarshal(data, &evidence); err != nil {
+		t.Fatal(err)
+	}
+	return evidence
 }
 
 func writeApprovalFile(t *testing.T, path string, approval Approval) {

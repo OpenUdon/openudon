@@ -1,6 +1,7 @@
 package udonrunner
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -34,18 +35,25 @@ type Config struct {
 }
 
 type Options struct {
-	ConfigPath string
-	RepoRoot   string
-	Env        []string
-	Stdout     io.Writer
-	Stderr     io.Writer
-	RunCommand func(context.Context, string, ...string) error
+	ConfigPath              string
+	RepoRoot                string
+	Env                     []string
+	RequireCredentialValues bool
+	Stdout                  io.Writer
+	Stderr                  io.Writer
+	RunCommand              func(context.Context, string, ...string) error
 }
 
 type Result struct {
-	StagePath    string
-	WorkflowPath string
-	Argv         []string
+	StagePath          string
+	WorkflowPath       string
+	Argv               []string
+	PackageRoot        string
+	WorkDir            string
+	OpenAPIPaths       []string
+	PackagePaths       []string
+	PackageSHA256      string
+	CredentialEnvNames []string
 }
 
 func RunConfig(ctx context.Context, opts Options) (Result, error) {
@@ -65,8 +73,14 @@ func LoadConfig(path string) (Config, error) {
 		return Config{}, fmt.Errorf("read run config: %w", err)
 	}
 	var config Config
-	if err := json.Unmarshal(data, &config); err != nil {
+	dec := json.NewDecoder(bytes.NewReader(data))
+	dec.DisallowUnknownFields()
+	if err := dec.Decode(&config); err != nil {
 		return Config{}, fmt.Errorf("run config must be valid JSON: %w", err)
+	}
+	var extra struct{}
+	if err := dec.Decode(&extra); err != io.EOF {
+		return Config{}, fmt.Errorf("run config must contain a single JSON object")
 	}
 	if config.Version != RunConfigVersion {
 		return Config{}, fmt.Errorf("unsupported run config version: %s", config.Version)
@@ -83,94 +97,24 @@ func LoadConfig(path string) (Config, error) {
 	return config, nil
 }
 
+func PrepareConfig(ctx context.Context, opts Options) (Result, error) {
+	config, err := LoadConfig(opts.ConfigPath)
+	if err != nil {
+		return Result{}, err
+	}
+	return Prepare(ctx, config, opts)
+}
+
+func Prepare(ctx context.Context, config Config, opts Options) (Result, error) {
+	result, _, _, err := prepare(ctx, config, opts, opts.RequireCredentialValues, false)
+	return result, err
+}
+
 func Run(ctx context.Context, config Config, opts Options) (Result, error) {
-	if ctx == nil {
-		ctx = context.Background()
-	}
-	if config.DirectProductionRun {
-		return Result{}, fmt.Errorf("run config direct_production_run must be false")
-	}
-	repoRoot := strings.TrimSpace(opts.RepoRoot)
-	if repoRoot == "" {
-		repoRoot = "."
-	}
-	repoRootAbs, err := filepath.Abs(repoRoot)
+	result, env, repoRootAbs, err := prepare(ctx, config, opts, true, true)
 	if err != nil {
-		return Result{}, fmt.Errorf("resolve repo root: %w", err)
+		return result, err
 	}
-
-	packageRoot, err := requireAbsDir(config.PackageRoot, "package_root")
-	if err != nil {
-		return Result{}, err
-	}
-	if err := packageartifacts.ValidatePackageRoot(packageRoot); err != nil {
-		return Result{}, err
-	}
-	workdir, err := requireAbsPath(config.WorkDir, "workdir")
-	if err != nil {
-		return Result{}, err
-	}
-	workflowFormat := strings.TrimSpace(config.WorkflowFormat)
-	if workflowFormat == "" {
-		workflowFormat = "uws-yaml"
-	}
-	if err := rejectControlChars("workflow_format", workflowFormat); err != nil {
-		return Result{}, err
-	}
-
-	workflowRaw, err := requireString(config.WorkflowPath, "workflow_path")
-	if err != nil {
-		return Result{}, err
-	}
-	workflowRel, workflowPath, err := packageRelativePath(packageRoot, "workflow_path", workflowRaw)
-	if err != nil {
-		return Result{}, err
-	}
-	if err := validateRegularPackageFile(packageRoot, workflowRel, workflowPath, "workflow"); err != nil {
-		return Result{}, err
-	}
-	openAPIFiles, err := validateOpenAPIPaths(packageRoot, config.OpenAPIPaths)
-	if err != nil {
-		return Result{}, err
-	}
-	packageFiles, err := validatePackagePaths(packageRoot, config.PackagePaths)
-	if err != nil {
-		return Result{}, err
-	}
-	approvedDigest, err := requirePackageSHA256(config.PackageSHA256)
-	if err != nil {
-		return Result{}, err
-	}
-	if err := validateDigestInventory(workflowRel, openAPIFiles, packageFiles); err != nil {
-		return Result{}, err
-	}
-	credentialEnvNames, err := credentialEnvNames(config.CredentialBindings)
-	if err != nil {
-		return Result{}, err
-	}
-	env := opts.Env
-	if env == nil {
-		env = os.Environ()
-	}
-	envByName := environmentMap(env)
-	for _, name := range credentialEnvNames {
-		if strings.TrimSpace(envByName[name]) == "" {
-			return Result{}, fmt.Errorf("required credential env var is not set: %s", name)
-		}
-	}
-
-	stage, stagedWorkflow, err := stagePackage(workdir, workflowRel, workflowPath, openAPIFiles, packageFiles)
-	if err != nil {
-		return Result{}, err
-	}
-	if err := verifyStagedPackageDigest(stage, config.Scope, approvedDigest, packageFiles); err != nil {
-		return Result{}, err
-	}
-	argv, err := executorArgv(repoRootAbs, stage, stagedWorkflow, workflowFormat, credentialEnvNames, envByName)
-	if err != nil {
-		return Result{}, err
-	}
-	result := Result{StagePath: stage, WorkflowPath: stagedWorkflow, Argv: append([]string(nil), argv...)}
 	runCommand := opts.RunCommand
 	if runCommand == nil {
 		runCommand = func(ctx context.Context, name string, args ...string) error {
@@ -182,10 +126,115 @@ func Run(ctx context.Context, config Config, opts Options) (Result, error) {
 			return cmd.Run()
 		}
 	}
-	if err := runCommand(ctx, argv[0], argv[1:]...); err != nil {
+	if err := runCommand(ctx, result.Argv[0], result.Argv[1:]...); err != nil {
 		return result, fmt.Errorf("invoke trusted executor: %w", err)
 	}
 	return result, nil
+}
+
+func prepare(ctx context.Context, config Config, opts Options, requireCredentialValues, buildExecutorArgv bool) (Result, []string, string, error) {
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	if config.DirectProductionRun {
+		return Result{}, nil, "", fmt.Errorf("run config direct_production_run must be false")
+	}
+	repoRoot := strings.TrimSpace(opts.RepoRoot)
+	if repoRoot == "" {
+		repoRoot = "."
+	}
+	repoRootAbs, err := filepath.Abs(repoRoot)
+	if err != nil {
+		return Result{}, nil, "", fmt.Errorf("resolve repo root: %w", err)
+	}
+
+	packageRoot, err := requireAbsDir(config.PackageRoot, "package_root")
+	if err != nil {
+		return Result{}, nil, "", err
+	}
+	if err := packageartifacts.ValidatePackageRoot(packageRoot); err != nil {
+		return Result{}, nil, "", err
+	}
+	workdir, err := requireAbsPath(config.WorkDir, "workdir")
+	if err != nil {
+		return Result{}, nil, "", err
+	}
+	workflowFormat := strings.TrimSpace(config.WorkflowFormat)
+	if workflowFormat == "" {
+		workflowFormat = "uws-yaml"
+	}
+	if err := rejectControlChars("workflow_format", workflowFormat); err != nil {
+		return Result{}, nil, "", err
+	}
+
+	workflowRaw, err := requireString(config.WorkflowPath, "workflow_path")
+	if err != nil {
+		return Result{}, nil, "", err
+	}
+	workflowRel, workflowPath, err := packageRelativePath(packageRoot, "workflow_path", workflowRaw)
+	if err != nil {
+		return Result{}, nil, "", err
+	}
+	if err := validateRegularPackageFile(packageRoot, workflowRel, workflowPath, "workflow"); err != nil {
+		return Result{}, nil, "", err
+	}
+	openAPIFiles, err := validateOpenAPIPaths(packageRoot, config.OpenAPIPaths)
+	if err != nil {
+		return Result{}, nil, "", err
+	}
+	packageFiles, err := validatePackagePaths(packageRoot, config.PackagePaths)
+	if err != nil {
+		return Result{}, nil, "", err
+	}
+	approvedDigest, err := requirePackageSHA256(config.PackageSHA256)
+	if err != nil {
+		return Result{}, nil, "", err
+	}
+	if err := validateDigestInventory(workflowRel, openAPIFiles, packageFiles); err != nil {
+		return Result{}, nil, "", err
+	}
+	credentialEnvNames, err := credentialEnvNames(config.CredentialBindings)
+	if err != nil {
+		return Result{}, nil, "", err
+	}
+	env := opts.Env
+	if env == nil {
+		env = os.Environ()
+	}
+	envByName := environmentMap(env)
+	if requireCredentialValues {
+		for _, name := range credentialEnvNames {
+			if strings.TrimSpace(envByName[name]) == "" {
+				return Result{}, nil, "", fmt.Errorf("required credential env var is not set: %s", name)
+			}
+		}
+	}
+
+	stage, stagedWorkflow, err := stagePackage(workdir, workflowRel, workflowPath, openAPIFiles, packageFiles)
+	if err != nil {
+		return Result{}, nil, "", err
+	}
+	if err := verifyStagedPackageDigest(stage, config.Scope, approvedDigest, packageFiles); err != nil {
+		return Result{}, nil, "", err
+	}
+	result := Result{
+		StagePath:          stage,
+		WorkflowPath:       stagedWorkflow,
+		PackageRoot:        packageRoot,
+		WorkDir:            workdir,
+		OpenAPIPaths:       relPaths(openAPIFiles),
+		PackagePaths:       relPaths(packageFiles),
+		PackageSHA256:      approvedDigest,
+		CredentialEnvNames: append([]string(nil), credentialEnvNames...),
+	}
+	if buildExecutorArgv {
+		argv, err := executorArgv(repoRootAbs, stage, stagedWorkflow, workflowFormat, credentialEnvNames, envByName)
+		if err != nil {
+			return result, nil, "", err
+		}
+		result.Argv = append([]string(nil), argv...)
+	}
+	return result, env, repoRootAbs, nil
 }
 
 func requireString(value, name string) (string, error) {
@@ -344,7 +393,24 @@ func requirePackageSHA256(value string) (string, error) {
 	if value == "" {
 		return "", fmt.Errorf("run config requires package_sha256")
 	}
+	if len(value) != 64 {
+		return "", fmt.Errorf("run config package_sha256 must be a 64-character hex SHA-256 digest")
+	}
+	for _, ch := range value {
+		if !((ch >= '0' && ch <= '9') || (ch >= 'a' && ch <= 'f') || (ch >= 'A' && ch <= 'F')) {
+			return "", fmt.Errorf("run config package_sha256 must be a 64-character hex SHA-256 digest")
+		}
+	}
 	return value, nil
+}
+
+func relPaths(files [][2]string) []string {
+	out := make([]string, 0, len(files))
+	for _, pair := range files {
+		out = append(out, filepath.ToSlash(pair[0]))
+	}
+	sort.Strings(out)
+	return out
 }
 
 func validateDigestInventory(workflowRel string, openAPIFiles, packageFiles [][2]string) error {
@@ -430,7 +496,7 @@ func copyRegularFile(src, dst string) error {
 }
 
 func credentialEnvNames(bindings []string) ([]string, error) {
-	seen := map[string]bool{}
+	seen := map[string]string{}
 	var out []string
 	for _, binding := range bindings {
 		binding = strings.TrimSpace(binding)
@@ -444,10 +510,14 @@ func credentialEnvNames(bindings []string) ([]string, error) {
 		if name == "UDON_CREDENTIAL" {
 			return nil, fmt.Errorf("credential binding does not produce a valid env var: %s", binding)
 		}
-		if !seen[name] {
-			seen[name] = true
-			out = append(out, name)
+		if previous, ok := seen[name]; ok {
+			if previous != binding {
+				return nil, fmt.Errorf("credential bindings %q and %q produce the same env var %s", previous, binding, name)
+			}
+			continue
 		}
+		seen[name] = binding
+		out = append(out, name)
 	}
 	sort.Strings(out)
 	return out, nil

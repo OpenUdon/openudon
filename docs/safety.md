@@ -53,9 +53,11 @@ state that no credential bindings are declared or required.
 
 `openudon run` writes a non-secret `openudon.executor-run.v1` config only after stored/current quality,
 approval state, tier, credential policy, and package digest checks pass. New run configs include
-`package_paths`, the sorted digest-covered handoff inventory. The executor shim stages those files
-into a fresh workdir and recomputes `package_sha256` from the staged copy before invoking a binary
-or Docker executor.
+`package_paths`, the sorted digest-covered handoff inventory. Dry runs and real handoffs stage those
+files into a fresh workdir and recompute `package_sha256` from the staged copy. Dry runs stop there
+and write `openudon.run-evidence.v1` at `<workdir>/run-evidence.json` without requiring credential
+values. Non-dry runs require the declared `UDON_CREDENTIAL_*` environment values before invoking a
+binary or Docker executor, then write the same non-secret evidence shape.
 
 `OPENUDON_EXECUTOR` is the canonical final executor selector. It accepts an absolute binary path or
 `docker://<image>`. `OPENUDON_UDON_RUNNER` is separate: it overrides the outer runner shim and must

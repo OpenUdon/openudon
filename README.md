@@ -84,8 +84,9 @@ generate, compile, validate, and report on artifacts. They do not execute produc
 
 `openudon run` is separate. It validates the handoff manifest, stored and current quality, approval
 JSON, package digest, and tier before writing a non-secret `openudon.executor-run.v1` run config and
-invoking the Go trusted executor runner. The runner stages the reviewed UWS/OpenAPI files into the
-run workdir before calling the configured executor.
+`openudon.run-evidence.v1` evidence. Dry runs stage the reviewed package into a fresh workdir and
+verify the staged digest without invoking the executor or requiring credential values. Non-dry runs
+perform the same staging and digest check before calling the configured executor.
 The runner is also available directly as `go run ./cmd/udon-runner --config <run-config.json>`.
 `OPENUDON_EXECUTOR` accepts either an absolute path to an executable file or `docker://<image>`.
 The outer `OPENUDON_UDON_RUNNER` override must be an absolute path to an executable file.
@@ -334,7 +335,8 @@ go run ./cmd/openudon run \
   --approval approvals/support-email-sandbox.json
 ```
 
-Use `--dry-run` to validate all gates and write run config without invoking the executor.
+Use `--dry-run` to validate all gates, stage the package, verify the staged digest, and write
+run evidence without invoking the executor.
 
 Approval JSON shape:
 
@@ -361,6 +363,8 @@ Tier rules:
 - Stored or current quality failures fail.
 - Malformed handoff manifests fail.
 - Credential-value artifacts and direct production execution remain prohibited.
+- `run-evidence.json` records gate outcomes, package paths, staged paths, and credential binding
+  names only; it must not contain credential values.
 - Approval JSON and saved run configs from before the OpenUdon package rename should be regenerated
   so scope, version, and package digest fields match the current artifact set.
 

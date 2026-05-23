@@ -160,9 +160,53 @@ func TestExecutorArgvPrecedenceAndValidation(t *testing.T) {
 	}
 }
 
+func TestLoadConfigRejectsUnknownFieldsAndTrailingJSON(t *testing.T) {
+	for _, tc := range []struct {
+		name string
+		data string
+		want string
+	}{
+		{
+			name: "unknown-field",
+			data: `{"version":"openudon.executor-run.v1","extra":true}`,
+			want: "unknown field",
+		},
+		{
+			name: "trailing-json",
+			data: `{"version":"openudon.executor-run.v1"}{}`,
+			want: "single JSON object",
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			path := filepath.Join(t.TempDir(), "run-config.json")
+			mustWriteRunnerTestFile(t, path, []byte(tc.data))
+			_, err := LoadConfig(path)
+			if err == nil || !strings.Contains(err.Error(), tc.want) {
+				t.Fatalf("expected %q error, got %v", tc.want, err)
+			}
+		})
+	}
+}
+
 func TestRunRejectsEmptyPackageSHA256(t *testing.T) {
 	config := validRunnerConfig(t)
 	config.PackageSHA256 = ""
+	_, err := Run(context.Background(), config, Options{
+		RepoRoot: t.TempDir(),
+		Env:      []string{"OPENUDON_EXECUTOR=/bin/true"},
+		RunCommand: func(context.Context, string, ...string) error {
+			t.Fatal("executor should not be invoked")
+			return nil
+		},
+	})
+	if err == nil || !strings.Contains(err.Error(), "package_sha256") {
+		t.Fatalf("expected package_sha256 rejection, got %v", err)
+	}
+}
+
+func TestRunRejectsInvalidPackageSHA256(t *testing.T) {
+	config := validRunnerConfig(t)
+	config.PackageSHA256 = "not-a-sha"
 	_, err := Run(context.Background(), config, Options{
 		RepoRoot: t.TempDir(),
 		Env:      []string{"OPENUDON_EXECUTOR=/bin/true"},
@@ -189,6 +233,52 @@ func TestRunRejectsEmptyPackagePaths(t *testing.T) {
 	})
 	if err == nil || !strings.Contains(err.Error(), "package_paths") {
 		t.Fatalf("expected package_paths rejection, got %v", err)
+	}
+}
+
+func TestPrepareStagesWithoutCredentialValues(t *testing.T) {
+	config := validRunnerConfig(t)
+	config.CredentialBindings = []string{"support-api.token"}
+	result, err := Prepare(context.Background(), config, Options{
+		RepoRoot: t.TempDir(),
+		Env:      []string{"OPENUDON_EXECUTOR=/bin/true"},
+	})
+	if err != nil {
+		t.Fatalf("Prepare returned error: %v", err)
+	}
+	if result.StagePath == "" || result.WorkflowPath == "" {
+		t.Fatalf("prepare result missing staged paths: %#v", result)
+	}
+	if len(result.Argv) != 0 {
+		t.Fatalf("dry preparation should not derive executor argv, got %#v", result.Argv)
+	}
+	if !containsArg(result.CredentialEnvNames, "UDON_CREDENTIAL_SUPPORT_API_TOKEN") {
+		t.Fatalf("credential env names = %#v", result.CredentialEnvNames)
+	}
+}
+
+func TestPrepareRequiresCredentialValuesWhenRequested(t *testing.T) {
+	config := validRunnerConfig(t)
+	config.CredentialBindings = []string{"support-api.token"}
+	_, err := Prepare(context.Background(), config, Options{
+		RepoRoot:                t.TempDir(),
+		Env:                     []string{"OPENUDON_EXECUTOR=/bin/true"},
+		RequireCredentialValues: true,
+	})
+	if err == nil || !strings.Contains(err.Error(), "UDON_CREDENTIAL_SUPPORT_API_TOKEN") {
+		t.Fatalf("expected missing credential env failure, got %v", err)
+	}
+}
+
+func TestPrepareRejectsCredentialEnvNameCollision(t *testing.T) {
+	config := validRunnerConfig(t)
+	config.CredentialBindings = []string{"api-key", "api_key"}
+	_, err := Prepare(context.Background(), config, Options{
+		RepoRoot: t.TempDir(),
+		Env:      []string{"OPENUDON_EXECUTOR=/bin/true"},
+	})
+	if err == nil || !strings.Contains(err.Error(), "same env var") {
+		t.Fatalf("expected credential env collision failure, got %v", err)
 	}
 }
 
