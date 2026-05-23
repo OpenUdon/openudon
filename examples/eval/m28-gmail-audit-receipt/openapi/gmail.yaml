@@ -1,0 +1,36 @@
+openapi: 3.0.0
+info:
+  title: Gmail Messages API
+  version: 1.0.0
+servers:
+  - url: https://gmail.example.test
+paths:
+  /messages/send:
+    post:
+      operationId: sendMessage
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [to, subject, message]
+              properties:
+                to:
+                  type: string
+                subject:
+                  type: string
+                message:
+                  type: string
+      responses:
+        "200":
+          description: sent message
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  id:
+                    type: string
+                  threadId:
+                    type: string

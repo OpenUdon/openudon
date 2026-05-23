@@ -1,0 +1,31 @@
+{
+  "contract": "openudon.agentic-saas-authoring.v1",
+  "fixture_policy": "strict-native-multi-service",
+  "pattern": "lookup-then-create",
+  "services": [
+    "Customer",
+    "Inventory",
+    "Fulfillment Order"
+  ],
+  "operation_ids": [
+    "getCustomer",
+    "getInventory",
+    "createFulfillmentOrder"
+  ],
+  "credential_bindings": {
+    "Customer": "customers_bearer_token",
+    "Inventory": "inventory_api_key",
+    "Fulfillment Order": "orders_bearer_token"
+  },
+  "cross_service_mappings": {
+    "create_fulfillment_order.customerEmail": "get_customer.received_body.email",
+    "create_fulfillment_order.shippingAddressId": "get_customer.received_body.defaultShippingAddress.id",
+    "create_fulfillment_order.sku": "check_inventory.received_body.sku",
+    "create_fulfillment_order.warehouseId": "check_inventory.received_body.preferredWarehouseId"
+  },
+  "side_effect_scope": "sandbox fulfillment order create; review required before trusted-runner execution",
+  "evidence": [
+    "Strict OpenUdon-native multi-service SaaS pattern fixture",
+    "Per-service credential bindings and response-to-request mappings are golden behavior"
+  ]
+}

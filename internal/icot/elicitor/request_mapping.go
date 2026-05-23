@@ -14,6 +14,7 @@ type RequestMappingRequest struct {
 	SessionSummary   RequestMappingSession     `json:"session_summary,omitempty"`
 	Question         string                    `json:"question,omitempty"`
 	ReadinessIssues  []ReadinessIssue          `json:"readiness_issues,omitempty"`
+	DecisionEvidence []DecisionEvidence        `json:"decision_evidence,omitempty"`
 	Steps            []RequestMappingStep      `json:"steps"`
 	AvailableInputs  []string                  `json:"available_inputs,omitempty"`
 	AvailableSecrets []string                  `json:"available_credentials,omitempty"`
@@ -164,12 +165,13 @@ func requestMappingValueString(value any) string {
 
 func BuildRequestMappingRequest(opening string, session Session, docs []APIDocument, issues []ReadinessIssue, question QuestionPlan) RequestMappingRequest {
 	request := RequestMappingRequest{
-		Opening:         strings.TrimSpace(opening),
-		SessionSummary:  requestMappingSessionSummary(session),
-		Question:        strings.TrimSpace(question.Prompt),
-		ReadinessIssues: requestMappingIssues(issues),
-		AvailableInputs: requestMappingInputNames(session.Intent.Inputs),
-		PriorSteps:      requestMappingPriorSteps(session.Intent.Steps),
+		Opening:          strings.TrimSpace(opening),
+		SessionSummary:   requestMappingSessionSummary(session),
+		Question:         strings.TrimSpace(question.Prompt),
+		ReadinessIssues:  requestMappingIssues(issues),
+		DecisionEvidence: compactDecisionEvidence(session.DecisionEvidence),
+		AvailableInputs:  requestMappingInputNames(session.Intent.Inputs),
+		PriorSteps:       requestMappingPriorSteps(session.Intent.Steps),
 	}
 	for _, credential := range session.Credentials {
 		credential = strings.TrimSpace(credential)

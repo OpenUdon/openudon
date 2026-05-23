@@ -1,0 +1,52 @@
+openapi: 3.0.0
+info:
+  title: Jira Issue Intake API
+  version: 1.0.0
+servers:
+  - url: https://jira.example.test
+paths:
+  /rest/api/3/issue:
+    post:
+      operationId: createIssue
+      summary: Create a Jira issue.
+      security:
+        - jiraBearer: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - projectKey
+                - summary
+                - description
+                - issueType
+              properties:
+                projectKey:
+                  type: string
+                summary:
+                  type: string
+                description:
+                  type: string
+                priority:
+                  type: string
+                issueType:
+                  type: string
+      responses:
+        "201":
+          description: issue created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  key:
+                    type: string
+                  self:
+                    type: string
+components:
+  securitySchemes:
+    jiraBearer:
+      type: http
+      scheme: bearer

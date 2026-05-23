@@ -50,8 +50,14 @@ Fields:
 - `turns`: local prompt labels and answers, including automatically accepted defaults in
   `normal` and `fast` mode.
 - `events`: structured stage observations such as catalog planning, request-mapping drafts,
-  operation-detail requests, confirmation edits, and advisory flow-review results.
+  operation-detail requests, confirmation edits, advisory flow-review results, and bounded
+  `--review-repair` attempts.
 - `session`: the final iCoT session snapshot used to render `project.md` and `intent.hcl`.
 
 Transcript events may include operation IDs, API document paths, symbolic credential binding names,
 and LLM warning evidence. They must not include credential values or pasted secrets.
+
+When present, `session.decision_evidence` records compact decision history with `stage`, `slot`,
+`value`, `source`, `confidence`, `reason`, and optional alternatives. This is public review context,
+not private model reasoning. Replay reports may also count `draft_repair_attempt`,
+`draft_repair_rejected`, and the final `draft_flow_review_result` issues for M28 evaluation.

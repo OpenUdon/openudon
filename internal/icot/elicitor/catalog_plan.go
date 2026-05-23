@@ -348,8 +348,13 @@ func recordCatalogPlanAssumptions(session *Session, response CatalogPlanResponse
 		return
 	}
 	var providerNames []string
+	var alternatives []DecisionAlternative
 	for _, candidate := range candidates {
 		providerNames = append(providerNames, firstNonEmpty(candidate.ProviderName, candidate.ProviderID))
+		alternatives = append(alternatives, DecisionAlternative{
+			Value:  catalogPlanArtifactKey(candidate),
+			Reason: firstNonEmpty(candidate.Protocol, string(candidate.Kind)),
+		})
 	}
 	providerNames = dedupeStrings(providerNames)
 	session.Assumptions = mergeAssumptions(session.Assumptions, []Assumption{{
@@ -361,6 +366,17 @@ func recordCatalogPlanAssumptions(session *Session, response CatalogPlanResponse
 		Risk:                 "review",
 		RequiresConfirmation: true,
 	}})
+	addDecisionEvidence(session, DecisionEvidence{
+		Stage:                decisionStageCatalogPlan,
+		Slot:                 "intent.source",
+		Value:                strings.Join(providerNames, " -> "),
+		Source:               mappingSourceLLM,
+		Confidence:           mappingConfidenceReview,
+		Reason:               "LLM catalog planning selected only locally validated catalog artifacts.",
+		Evidence:             strings.Join(providerNames, " -> "),
+		Alternatives:         alternatives,
+		RequiresConfirmation: true,
+	})
 	session.DraftEvents = append(session.DraftEvents, TranscriptEvent{Kind: "catalog_plan_result", Data: map[string]any{
 		"selected_artifacts": response.SelectedArtifacts,
 		"proposed_steps":     response.ProposedSteps,
@@ -383,6 +399,16 @@ func recordCatalogPlanRejections(session *Session, rejected []string) {
 		Risk:                 "warning",
 		RequiresConfirmation: true,
 	}})
+	addDecisionEvidence(session, DecisionEvidence{
+		Stage:                decisionStageCatalogPlan,
+		Slot:                 "catalog_plan.selected_artifacts",
+		Value:                strings.Join(rejected, ", "),
+		Source:               mappingSourceLLM,
+		Confidence:           mappingConfidenceReview,
+		Reason:               "Catalog planning proposed unknown, mismatched, or non-migratable artifacts.",
+		Evidence:             strings.Join(rejected, ", "),
+		RequiresConfirmation: true,
+	})
 	session.DraftEvents = append(session.DraftEvents, TranscriptEvent{Kind: "catalog_plan_rejected", Data: map[string]any{
 		"artifacts": rejected,
 	}})

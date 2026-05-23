@@ -2,6 +2,8 @@ Review the complete OpenUdon iCoT draft for cross-step flow mistakes only.
 
 Return JSON only. Do not rewrite the workflow, add API documents, invent operation IDs, create request mappings, choose credentials, or produce HCL/Markdown.
 
+The payload may include decision_evidence. Treat it as compact user-visible decision history, not hidden chain-of-thought. Use it only to spot contradictions between selected sources, operations, mappings, outputs, and cross-step data flow.
+
 Focus on mistakes deterministic field checks can miss:
 - a later step does not consume the data produced by an earlier required step
 - an email/message/report step appears disconnected from the data it should send
@@ -11,6 +13,17 @@ Focus on mistakes deterministic field checks can miss:
 
 Do not report missing request fields, missing operation IDs, missing API documents, missing credentials, or side-effect approval policy. Deterministic checks handle those.
 
-Use severity "warning" for every review-needed flow concern. This review is advisory and must not block saving by itself.
+Use severity "warning" for every review-needed flow concern. This review is advisory and must not block saving by itself. An explicit bounded repair mode may consider these warnings, but it still must not invent sources, operations, credentials, or secret values.
 
-Each issue must include code, message, slot, and concise evidence from the provided draft. If no cross-step flow issue is visible, return {"issues":[]}.
+Each issue must include code, message, slot, and concise evidence from the provided draft.
+
+If an issue can be safely repaired by changing only a request mapping, an output source, or a dependency list, include suggested_answer. Use only these repairable slot forms:
+- steps.<step>.with.<field>
+- steps.<step>.depends_on
+- intent.outputs.<output_name>
+
+For output-source repairs, use suggested_answer like "<output_name>=<step>.<path>". For dependency repairs, use "depends_on=<step_name>" or a comma-separated list. For request mappings, use "<field>=<source>".
+
+If the concern would require changing an API document, operation ID, credential, side-effect policy, or an unknown source path, leave suggested_answer blank.
+
+If no cross-step flow issue is visible, return {"issues":[]}.

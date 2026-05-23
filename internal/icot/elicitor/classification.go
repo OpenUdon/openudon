@@ -42,6 +42,7 @@ func addMappingClassification(session *Session, classification MappingClassifica
 		session.Classifications = pruneSupersededUserClassifications(session.Classifications, classification)
 	}
 	session.Classifications = normalizeMappingClassifications(append(session.Classifications, classification))
+	addDecisionEvidenceFromMapping(session, classification)
 }
 
 func mergeClassifications(base, overlay []MappingClassification) []MappingClassification {

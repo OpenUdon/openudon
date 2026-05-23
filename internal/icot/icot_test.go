@@ -7,6 +7,7 @@ import (
 	"strings"
 	"testing"
 
+	evalpkg "github.com/OpenUdon/openudon/internal/eval"
 	"github.com/OpenUdon/openudon/internal/icot/elicitor"
 	"github.com/OpenUdon/openudon/internal/projectwizard"
 	rollout "github.com/OpenUdon/openudon/internal/workflowintent"
@@ -214,6 +215,58 @@ func TestPromptModeRejectsUnknownValue(t *testing.T) {
 	}
 	if !strings.Contains(stderr.String(), "--prompt-mode must be full, normal, or fast") {
 		t.Fatalf("stderr missing prompt-mode error:\n%s", stderr.String())
+	}
+}
+
+func TestReplayTranscriptMetricsUsesActualTranscriptTurns(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "transcript.json")
+	data := `{
+  "turns": [
+    {"label": "Workflow goal", "answer": "fetch weather"},
+    {"label": "Type save, edit <slot>, explain <assumption-id>, or cancel", "answer": "save"}
+  ],
+  "events": [
+    {"kind": "draft_repair_attempt", "data": {"changed": true}},
+    {"kind": "draft_repair_rejected", "data": ["intent.outputs.result"]},
+    {"kind": "draft_flow_review_result", "data": {"issues": [{"code": "llm_flow_review_output"}]}}
+  ]
+}`
+	if err := os.WriteFile(path, []byte(data), 0o644); err != nil {
+		t.Fatalf("write transcript: %v", err)
+	}
+	metrics := replayTranscriptMetrics(path, "Workflow goal: fetch weather\n")
+	if metrics == nil {
+		t.Fatalf("metrics nil")
+	}
+	if metrics.RepairAttempts != 1 || metrics.RepairRejected != 1 || metrics.UnresolvedReview != 1 {
+		t.Fatalf("metrics = %#v", metrics)
+	}
+	if len(metrics.Turns) != 2 {
+		t.Fatalf("turns = %#v", metrics.Turns)
+	}
+	if metrics.AutoAccepted != 1 {
+		t.Fatalf("auto accepted = %d, want 1", metrics.AutoAccepted)
+	}
+}
+
+func TestReplayPassesPolicyHonorsWarningAndReviewLimits(t *testing.T) {
+	zero := 0
+	result := replayEvalResult{
+		Warning:          1,
+		UnresolvedReview: 1,
+	}
+	policy := evalpkg.ReferencePolicy{
+		MaxBlocking:         &zero,
+		MaxWarning:          &zero,
+		MaxUnresolvedReview: &zero,
+	}
+	if replayPassesPolicy(result, policy) {
+		t.Fatalf("policy passed result with warnings: %#v", result)
+	}
+	result.Warning = 0
+	result.UnresolvedReview = 0
+	if !replayPassesPolicy(result, policy) {
+		t.Fatalf("policy rejected clean result: %#v", result)
 	}
 }
 

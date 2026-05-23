@@ -27,6 +27,7 @@ type Options struct {
 	DisableAIDraft     bool
 	VerifyOnly         bool
 	DefaultMode        authoring.PromptDefaultMode
+	ReviewRepair       bool
 	CatalogHintOptions CatalogHintOptions
 }
 
@@ -450,7 +451,13 @@ func answerFinalBlockingQuestion(out io.Writer, p *prompter, session *Session, d
 		return true, errors.New(blocking.Message)
 	}
 	plan := PlanNextQuestion(*session, docs, issues)
-	answer, err := p.askDefault(plan.Prompt, plan.SuggestedAnswer)
+	var answer string
+	var err error
+	if plan.ForceAsk {
+		answer, err = p.askDefaultForced(plan.Prompt, plan.SuggestedAnswer)
+	} else {
+		answer, err = p.askDefault(plan.Prompt, plan.SuggestedAnswer)
+	}
 	if err != nil {
 		return true, err
 	}
@@ -536,6 +543,10 @@ func (p *prompter) ask(label string) (string, error) {
 
 func (p *prompter) askDefault(label, current string) (string, error) {
 	return p.AskDefault(label, current)
+}
+
+func (p *prompter) askDefaultForced(label, current string) (string, error) {
+	return p.AskDefaultForced(label, current)
 }
 
 func (p *prompter) askOptionalDefault(label, current string) (string, error) {

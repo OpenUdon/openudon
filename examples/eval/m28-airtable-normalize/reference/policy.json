@@ -1,0 +1,7 @@
+{
+  "mode": "strict",
+  "notes": ["Multi-step data-passing fixture: fetched record response feeds local normalization."],
+  "max_blocking": 0,
+  "max_warning": 0,
+  "max_unresolved_review": 0
+}

@@ -1,0 +1,41 @@
+openapi: 3.0.0
+info:
+  title: Inventory API
+  version: 1.0.0
+servers:
+  - url: https://inventory.example.test
+components:
+  securitySchemes:
+    InventoryApiKey:
+      type: apiKey
+      in: header
+      name: inventory_api_key
+paths:
+  /inventory/{sku}:
+    get:
+      operationId: getInventory
+      summary: Fetch inventory availability and preferred warehouse.
+      security:
+        - InventoryApiKey: []
+      parameters:
+        - name: sku
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: ok
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  sku:
+                    type: string
+                  available:
+                    type: boolean
+                  quantity:
+                    type: integer
+                  preferredWarehouseId:
+                    type: string

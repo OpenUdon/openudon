@@ -12,14 +12,15 @@ import (
 )
 
 type DraftReviewRequest struct {
-	Goal        string                    `json:"goal,omitempty"`
-	Workflow    string                    `json:"workflow,omitempty"`
-	Inputs      []string                  `json:"inputs,omitempty"`
-	Outputs     []DraftReviewOutput       `json:"outputs,omitempty"`
-	Credentials []string                  `json:"credentials,omitempty"`
-	Warnings    []ReadinessIssue          `json:"warnings,omitempty"`
-	Steps       []DraftReviewStep         `json:"steps"`
-	PriorSteps  []RequestMappingPriorStep `json:"prior_steps,omitempty"`
+	Goal             string                    `json:"goal,omitempty"`
+	Workflow         string                    `json:"workflow,omitempty"`
+	Inputs           []string                  `json:"inputs,omitempty"`
+	Outputs          []DraftReviewOutput       `json:"outputs,omitempty"`
+	Credentials      []string                  `json:"credentials,omitempty"`
+	Warnings         []ReadinessIssue          `json:"warnings,omitempty"`
+	DecisionEvidence []DecisionEvidence        `json:"decision_evidence,omitempty"`
+	Steps            []DraftReviewStep         `json:"steps"`
+	PriorSteps       []RequestMappingPriorStep `json:"prior_steps,omitempty"`
 }
 
 type DraftReviewStep struct {
@@ -56,12 +57,13 @@ type DraftReviewIssue struct {
 func BuildDraftReviewRequest(session Session, docs []APIDocument, issues []ReadinessIssue) DraftReviewRequest {
 	session.Normalize()
 	request := DraftReviewRequest{
-		Goal:        strings.TrimSpace(session.Project.Goal),
-		Workflow:    draftSessionDescription(session),
-		Inputs:      requestMappingInputNames(session.Intent.Inputs),
-		Credentials: append([]string(nil), session.Credentials...),
-		Warnings:    draftReviewWarnings(issues),
-		PriorSteps:  requestMappingPriorSteps(session.Intent.Steps),
+		Goal:             strings.TrimSpace(session.Project.Goal),
+		Workflow:         draftSessionDescription(session),
+		Inputs:           requestMappingInputNames(session.Intent.Inputs),
+		Credentials:      append([]string(nil), session.Credentials...),
+		Warnings:         draftReviewWarnings(issues),
+		DecisionEvidence: compactDecisionEvidence(session.DecisionEvidence),
+		PriorSteps:       requestMappingPriorSteps(session.Intent.Steps),
 	}
 	if request.Goal == "" && session.Intent.Workflow != nil {
 		request.Goal = strings.TrimSpace(session.Intent.Workflow.Description)
@@ -99,6 +101,14 @@ func BuildDraftReviewRequest(session Session, docs []APIDocument, issues []Readi
 	return request
 }
 
+func compactDecisionEvidence(in []DecisionEvidence) []DecisionEvidence {
+	normalized := normalizeDecisionEvidenceList(in)
+	if len(normalized) <= 12 {
+		return normalized
+	}
+	return normalized[len(normalized)-12:]
+}
+
 func draftReviewWarnings(issues []ReadinessIssue) []ReadinessIssue {
 	var out []ReadinessIssue
 	for _, issue := range issues {
@@ -112,14 +122,17 @@ func draftReviewWarnings(issues []ReadinessIssue) []ReadinessIssue {
 func sanitizeDraftReviewResponse(response DraftReviewResponse) DraftReviewResponse {
 	var out DraftReviewResponse
 	for _, issue := range response.Issues {
-		code := slugIdent(firstNonEmpty(issue.Code, "flow_review"))
+		code := strings.ToLower(slugIdent(firstNonEmpty(issue.Code, "flow_review")))
+		if !strings.HasPrefix(code, "llm_flow_review_") {
+			code = "llm_flow_review_" + code
+		}
 		message := strings.TrimSpace(issue.Message)
 		if code == "" || message == "" {
 			continue
 		}
 		out.Issues = append(out.Issues, DraftReviewIssue{
 			Severity:        readinessWarning,
-			Code:            "llm_flow_review_" + code,
+			Code:            code,
 			Message:         truncateForPrompt(message, 240),
 			Slot:            truncateForPrompt(strings.TrimSpace(issue.Slot), 120),
 			SuggestedAnswer: truncateForPrompt(strings.TrimSpace(issue.SuggestedAnswer), 240),
@@ -274,6 +287,18 @@ func reviewFinalDraft(ctx context.Context, out io.Writer, extractor Extractor, s
 		return nil
 	}
 	sanitized := sanitizeDraftReviewResponse(response)
+	for _, issue := range sanitized.Issues {
+		addDecisionEvidence(session, DecisionEvidence{
+			Stage:                decisionStageDraftReview,
+			Slot:                 firstNonEmpty(issue.Slot, "draft_review."+issue.Code),
+			Value:                issue.Message,
+			Source:               mappingSourceLLM,
+			Confidence:           mappingConfidenceReview,
+			Reason:               "Pre-final flow review reported a cross-step consistency issue.",
+			Evidence:             issue.Evidence,
+			RequiresConfirmation: true,
+		})
+	}
 	if events != nil {
 		*events = append(*events, TranscriptEvent{Kind: "draft_flow_review_result", Data: map[string]any{
 			"issues": sanitized.Issues,

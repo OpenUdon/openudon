@@ -196,7 +196,7 @@ func runProgressive(ctx context.Context, in io.Reader, out io.Writer, seed Sessi
 			return nil
 		},
 		FinalConfirm: func(prompts *authoring.PromptSession, session *Session, docs []APIDocument, events *[]authoring.PromptEvent) (Artifacts, error) {
-			review := func(ctx context.Context, artifacts Artifacts, issues []ReadinessIssue) []DraftReviewIssue {
+			review := func(ctx context.Context, session *Session, artifacts Artifacts, issues []ReadinessIssue) []DraftReviewIssue {
 				if opts.NoLLM || extractor == nil {
 					return nil
 				}
@@ -207,11 +207,11 @@ func runProgressive(ctx context.Context, in io.Reader, out io.Writer, seed Sessi
 				if cached, ok := reviewedFinalDrafts[key]; ok {
 					return cached
 				}
-				reviewIssues := reviewFinalDraft(ctx, statusOut, extractor, &artifacts.Session, docs, issues, events)
+				reviewIssues := reviewFinalDraft(ctx, statusOut, extractor, session, docs, issues, events)
 				reviewedFinalDrafts[key] = reviewIssues
 				return reviewIssues
 			}
-			return finalProgressiveConfirmationLoop(ctx, out, &prompter{PromptSession: prompts, out: out}, session, docs, opts.DraftPath, events, opts.DefaultMode != authoring.PromptDefaultsSilent, review)
+			return finalProgressiveConfirmationLoop(ctx, out, &prompter{PromptSession: prompts, out: out}, session, docs, opts.DraftPath, events, opts.DefaultMode != authoring.PromptDefaultsSilent, opts.ReviewRepair, review)
 		},
 		FinalResultSummary: func(artifacts Artifacts) any {
 			return map[string]any{
@@ -258,9 +258,10 @@ func progressiveDraftErrorMessage(err error) (string, bool) {
 	}
 }
 
-type finalDraftReviewer func(context.Context, Artifacts, []ReadinessIssue) []DraftReviewIssue
+type finalDraftReviewer func(context.Context, *Session, Artifacts, []ReadinessIssue) []DraftReviewIssue
 
-func finalProgressiveConfirmationLoop(ctx context.Context, out io.Writer, p *prompter, session *Session, docs []APIDocument, draftPath string, events *[]TranscriptEvent, showAssumptions bool, review finalDraftReviewer) (Artifacts, error) {
+func finalProgressiveConfirmationLoop(ctx context.Context, out io.Writer, p *prompter, session *Session, docs []APIDocument, draftPath string, events *[]TranscriptEvent, showAssumptions bool, reviewRepair bool, review finalDraftReviewer) (Artifacts, error) {
+	repairAttempts := 0
 	for {
 		artifacts, err := RenderArtifacts(*session)
 		if err != nil {
@@ -299,8 +300,33 @@ func finalProgressiveConfirmationLoop(ctx context.Context, out io.Writer, p *pro
 			}
 		}
 		if review != nil {
-			reviewIssues := review(ctx, artifacts, issues)
+			reviewIssues := review(ctx, session, artifacts, issues)
+			if reviewRepair && len(reviewIssues) > 0 && repairAttempts < 2 {
+				repairAttempts++
+				changed, rejected := applyDraftReviewRepairs(session, reviewIssues)
+				if events != nil {
+					*events = append(*events, TranscriptEvent{Kind: "draft_repair_attempt", Data: map[string]any{
+						"attempt":  repairAttempts,
+						"changed":  changed,
+						"rejected": rejected,
+					}})
+				}
+				if changed {
+					session.Normalize()
+					if err := autosave(draftPath, *session); err != nil {
+						return Artifacts{}, err
+					}
+					continue
+				}
+				if len(rejected) > 0 && events != nil {
+					*events = append(*events, TranscriptEvent{Kind: "draft_repair_rejected", Data: rejected})
+				}
+			}
+			if reviewRepair && len(reviewIssues) > 0 && repairAttempts >= 2 {
+				fmt.Fprintln(out, "icot: review repair still has unresolved flow warnings; refine the workflow goal or choose better API artifacts if these warnings are not acceptable.")
+			}
 			issues = sortReadinessIssues(append(issues, draftReviewIssuesToReadiness(reviewIssues)...))
+			artifacts.Session = *session
 			artifacts.IntentHCL = annotateIntentHCLWithFlowReviewWarnings(artifacts.IntentHCL, reviewIssues)
 		}
 		fmt.Fprintln(out, "\n----- current draft -----")
@@ -1036,9 +1062,32 @@ func applyProgressiveAnswer(session *Session, plan QuestionPlan, answer string, 
 	case strings.Contains(slotText, "safety"):
 		if scope := projectwizard.NormalizeSideEffectScope(answer); scope != "" {
 			session.SideEffectScope = scope
+			addDecisionEvidence(session, DecisionEvidence{
+				Stage:                decisionStageSideEffect,
+				Slot:                 "side_effect_scope",
+				Value:                scope,
+				Source:               mappingSourceUser,
+				Confidence:           mappingConfidenceHigh,
+				Reason:               "User confirmed the workflow side-effect boundary.",
+				Evidence:             answer,
+				RequiresConfirmation: false,
+			})
 		}
 		session.Safety = answer
 		session.SafetySet = true
+	default:
+		if len(plan.Slots) == 1 {
+			addDecisionEvidence(session, DecisionEvidence{
+				Stage:                decisionStageForSlot(plan.Slots[0]),
+				Slot:                 plan.Slots[0],
+				Value:                answer,
+				Source:               mappingSourceUser,
+				Confidence:           mappingConfidenceHigh,
+				Reason:               "User confirmed this authoring decision.",
+				Evidence:             answer,
+				RequiresConfirmation: false,
+			})
+		}
 	}
 }
 

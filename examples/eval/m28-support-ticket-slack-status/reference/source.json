@@ -1,0 +1,9 @@
+{
+  "source_url": "https://n8n.io/workflows/8813-automated-slack-to-jira-issue-creation-with-attachments/",
+  "source_template": "Automated Slack-to-Jira issue creation with attachments",
+  "adaptation_notes": [
+    "The public template parses Slack issue reports, creates Jira issues, handles attachments, and confirms in Slack.",
+    "This fixture keeps parsing, Jira creation, and Slack confirmation.",
+    "Attachment download, batching, and Jira attachment upload are deferred to a later helper-heavy eval slice."
+  ]
+}

@@ -1,0 +1,21 @@
+{
+  "contract": "openudon.agentic-saas-authoring.v1",
+  "fixture_policy": "strict-native",
+  "service": "Gmail",
+  "operation_id": "sendMessage",
+  "credential_binding": "none-required-for-sandbox-fixture",
+  "request_mappings": {
+    "to": "inputs.to",
+    "subject": "inputs.subject",
+    "message": "inputs.message"
+  },
+  "response_paths": [
+    "received_body.id",
+    "received_body.threadId"
+  ],
+  "side_effect_scope": "sandbox email send; review required before trusted-runner execution",
+  "evidence": [
+    "OpenUdon-native strict fixture for SaaS send-message authoring",
+    "Gmail message/send is also represented in n8n-derived advisory evidence under examples/eval/n8n-gmail-message-send"
+  ]
+}

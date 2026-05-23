@@ -1,0 +1,9 @@
+{
+  "mode": "strict",
+  "notes": [
+    "Strict multi-service SaaS pattern fixture; per-service OpenAPI selection, response extraction, request body construction, credential scopes, and write-policy evidence are golden."
+  ],
+  "max_blocking": 0,
+  "max_warning": 0,
+  "max_unresolved_review": 0
+}

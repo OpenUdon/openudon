@@ -630,6 +630,11 @@ func TestProgressivePreFinalReviewAddsCrossStepWarning(t *testing.T) {
 			t.Fatalf("transcript missing %q:\n%s", expected, text)
 		}
 	}
+	for _, expected := range []string{`"stage": "draft_review"`, "output_transport_response"} {
+		if !strings.Contains(text, expected) {
+			t.Fatalf("transcript session missing decision evidence %q:\n%s", expected, text)
+		}
+	}
 }
 
 func TestProgressivePreFinalReviewRunsAfterFinalBlockingRepair(t *testing.T) {
@@ -644,14 +649,14 @@ func TestProgressivePreFinalReviewRunsAfterFinalBlockingRepair(t *testing.T) {
 	var out strings.Builder
 	prompts := authoring.NewPromptSession(strings.NewReader("\nsave\n"), &out)
 	reviewCalls := 0
-	review := func(_ context.Context, artifacts Artifacts, _ []ReadinessIssue) []DraftReviewIssue {
+	review := func(_ context.Context, _ *Session, artifacts Artifacts, _ []ReadinessIssue) []DraftReviewIssue {
 		reviewCalls++
 		if got := artifacts.Session.Intent.Steps[0].Operation; got != "getTicket" {
 			t.Fatalf("review saw operation %q, want repaired getTicket", got)
 		}
 		return nil
 	}
-	if _, err := finalProgressiveConfirmationLoop(context.Background(), &out, &prompter{PromptSession: prompts, out: &out}, &session, docs, "", nil, true, review); err != nil {
+	if _, err := finalProgressiveConfirmationLoop(context.Background(), &out, &prompter{PromptSession: prompts, out: &out}, &session, docs, "", nil, true, false, review); err != nil {
 		t.Fatalf("final confirmation failed: %v\n%s", err, out.String())
 	}
 	if reviewCalls != 1 {

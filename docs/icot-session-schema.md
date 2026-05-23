@@ -67,6 +67,27 @@ The session fields mirror OpenUdon's authoring state:
 - `credentials_set`, `safety_set`, `fallback_set`: markers that preserve explicit user answers.
 - `side_effect_scope`: one of `read-only`, `sandbox-only`, or `after-approval`.
 - `annotations`, `assumptions`, `classifications`: optional review evidence produced by iCoT.
+- `decision_evidence`: compact user-visible rationale and confidence for selected sources,
+  operations, mappings, outputs, side-effect scope, and flow-review findings. It is not hidden
+  model chain-of-thought.
+
+Decision evidence entries use:
+
+```yaml
+decision_evidence:
+  - stage: request_mapping
+    slot: steps.gmail.with.raw
+    value: render_report.received_body.raw
+    source: deterministic
+    confidence: review
+    reason: Flow review suggested connecting Gmail raw to the rendered report.
+    evidence: Gmail send step must consume the report content.
+    requires_confirmation: true
+```
+
+Valid confidence values are `high`, `review`, `low`, and `conflict`. `normal` and `fast` prompt
+modes may auto-accept `high` and `review` defaults, but `low` and `conflict` evidence forces an
+operator question.
 
 Do not put credential values, API tokens, OAuth refresh tokens, or private endpoints in this file.
 

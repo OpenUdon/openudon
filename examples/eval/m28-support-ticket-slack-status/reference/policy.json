@@ -1,0 +1,9 @@
+{
+  "mode": "strict",
+  "notes": [
+    "Initial strict multi-service SaaS authoring fixture inspired by the Slack-to-Jira issue intake template; attachment handling is intentionally outside this first strict slice."
+  ],
+  "max_blocking": 0,
+  "max_warning": 0,
+  "max_unresolved_review": 0
+}

@@ -49,6 +49,7 @@ func runAuthor(args []string, in io.Reader, out, errOut io.Writer) int {
 	noLLM := fs.Bool("no-llm", false, "Disable optional LLM extraction assistance")
 	noTranscript := fs.Bool("no-transcript", false, "Do not save local .icot transcript history")
 	promptMode := fs.String("prompt-mode", "full", "Prompt mode: full, normal, or fast. full asks every question; normal accepts defaults visibly; fast skips defaulted questions")
+	reviewRepair := fs.Bool("review-repair", false, "Experimental: apply up to two bounded repairs from pre-final flow review suggestions")
 	provider := fs.String("provider", "", "LLM provider for optional extraction: copilot-api, openai, anthropic, or gemini")
 	model := fs.String("model", "", "LLM model for optional extraction")
 	temperature := fs.Float64("temperature", 0.2, "LLM extraction temperature")
@@ -128,6 +129,7 @@ func runAuthor(args []string, in io.Reader, out, errOut io.Writer) int {
 			DisableAIDraft: source == seedSourceDraft,
 			VerifyOnly:     complete && source == seedSourceDraft,
 			DefaultMode:    defaultMode,
+			ReviewRepair:   *reviewRepair,
 		})
 	}
 	if *printOnly {
@@ -264,19 +266,27 @@ type replayEvalReport struct {
 }
 
 type replayEvalResult struct {
-	Name             string                 `json:"name"`
-	Passed           bool                   `json:"passed"`
-	Error            string                 `json:"error,omitempty"`
-	ReferenceIssues  []evalpkg.CompareIssue `json:"reference_issues,omitempty"`
-	Blocking         int                    `json:"blocking"`
-	Warning          int                    `json:"warning"`
-	Advisory         int                    `json:"advisory"`
-	TranscriptPath   string                 `json:"transcript_path,omitempty"`
-	StdoutPath       string                 `json:"stdout_path,omitempty"`
-	GeneratedIntent  string                 `json:"generated_intent,omitempty"`
-	GeneratedProject string                 `json:"generated_project,omitempty"`
-	LLMCalls         []replayLLMCall        `json:"llm_calls,omitempty"`
-	Turns            []elicitor.ReplayTurn  `json:"turns,omitempty"`
+	Name               string                 `json:"name"`
+	Passed             bool                   `json:"passed"`
+	Error              string                 `json:"error,omitempty"`
+	ReferenceIssues    []evalpkg.CompareIssue `json:"reference_issues,omitempty"`
+	Blocking           int                    `json:"blocking"`
+	Warning            int                    `json:"warning"`
+	Advisory           int                    `json:"advisory"`
+	PromptMode         string                 `json:"prompt_mode,omitempty"`
+	PromptCount        int                    `json:"prompt_count,omitempty"`
+	AutoAccepted       int                    `json:"auto_accepted,omitempty"`
+	LLMCallCount       int                    `json:"llm_call_count,omitempty"`
+	RepairAttempts     int                    `json:"repair_attempts,omitempty"`
+	RepairRejected     int                    `json:"repair_rejected,omitempty"`
+	UnresolvedReview   int                    `json:"unresolved_review_warnings,omitempty"`
+	TranscriptPath     string                 `json:"transcript_path,omitempty"`
+	ICOTTranscriptPath string                 `json:"icot_transcript_path,omitempty"`
+	StdoutPath         string                 `json:"stdout_path,omitempty"`
+	GeneratedIntent    string                 `json:"generated_intent,omitempty"`
+	GeneratedProject   string                 `json:"generated_project,omitempty"`
+	LLMCalls           []replayLLMCall        `json:"llm_calls,omitempty"`
+	Turns              []elicitor.ReplayTurn  `json:"turns,omitempty"`
 }
 
 type replayLLMCall struct {
@@ -294,6 +304,8 @@ func runReplayEval(args []string, out, errOut io.Writer) int {
 	provider := fs.String("provider", "copilot-api", "LLM provider for iCoT extraction")
 	model := fs.String("model", "gpt-5.4-mini", "LLM model for iCoT extraction")
 	temperature := fs.Float64("temperature", 0.2, "LLM extraction temperature")
+	promptMode := fs.String("prompt-mode", "fast", "Prompt mode for replayed iCoT loop: full, normal, or fast")
+	reviewRepair := fs.Bool("review-repair", false, "Enable experimental bounded review repair during replay")
 	timeout := fs.Duration("timeout", 2*time.Minute, "Timeout per fixture replay")
 	outDir := fs.String("out-dir", filepath.Join("eval", "runs", "icot-replay-"+time.Now().UTC().Format("20060102T150405Z")), "Directory for replay transcripts and generated artifacts")
 	fs.Usage = func() {
@@ -305,6 +317,11 @@ func runReplayEval(args []string, out, errOut io.Writer) int {
 		if errors.Is(err, flag.ErrHelp) {
 			return 0
 		}
+		return 2
+	}
+	defaultMode, err := promptDefaultMode(*promptMode)
+	if err != nil {
+		fmt.Fprintln(errOut, err)
 		return 2
 	}
 	fixtures := discoverReplayFixtures(*root, *name)
@@ -324,7 +341,7 @@ func runReplayEval(args []string, out, errOut io.Writer) int {
 		Passed:   true,
 	}
 	for _, exampleDir := range fixtures {
-		result := runReplayFixture(exampleDir, *provider, *model, *temperature, *timeout, *outDir)
+		result := runReplayFixture(exampleDir, *provider, *model, *temperature, *timeout, *outDir, *promptMode, defaultMode, *reviewRepair)
 		report.Results = append(report.Results, result)
 		if !result.Passed {
 			report.Passed = false
@@ -377,10 +394,10 @@ func discoverReplayFixtures(root, name string) []string {
 	return out
 }
 
-func runReplayFixture(exampleDir, provider, model string, temperature float64, timeout time.Duration, outDir string) replayEvalResult {
+func runReplayFixture(exampleDir, provider, model string, temperature float64, timeout time.Duration, outDir, promptMode string, defaultMode authoring.PromptDefaultMode, reviewRepair bool) replayEvalResult {
 	name := filepath.Base(filepath.Clean(exampleDir))
 	fixtureDir := filepath.Join(outDir, name)
-	result := replayEvalResult{Name: name}
+	result := replayEvalResult{Name: name, PromptMode: promptMode}
 	if err := os.MkdirAll(fixtureDir, 0o755); err != nil {
 		result.Error = err.Error()
 		return result
@@ -391,7 +408,7 @@ func runReplayFixture(exampleDir, provider, model string, temperature float64, t
 		result.Error = err.Error()
 		return result
 	}
-	script, err := elicitor.BuildReplayScript(exampleDir, reference)
+	script, err := elicitor.BuildProgressiveReplayScript(exampleDir, reference)
 	if err != nil {
 		result.Error = err.Error()
 		return result
@@ -405,14 +422,28 @@ func runReplayFixture(exampleDir, provider, model string, temperature float64, t
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()
 	var stdout strings.Builder
+	icotTranscriptPath := filepath.Join(fixtureDir, "icot-transcript.json")
 	artifacts, err := elicitor.Run(ctx, strings.NewReader(script.Input), &stdout, elicitor.Session{}, elicitor.Options{
 		ExampleDir:     exampleDir,
 		NoLLM:          false,
 		Extractor:      extractor,
 		DisableAIDraft: true,
+		DefaultMode:    defaultMode,
+		ReviewRepair:   reviewRepair,
+		TranscriptPath: icotTranscriptPath,
 	})
 	result.Turns = script.Turns
 	result.LLMCalls = calls
+	result.LLMCallCount = len(calls)
+	result.ICOTTranscriptPath = icotTranscriptPath
+	if metrics := replayTranscriptMetrics(icotTranscriptPath, stdout.String()); metrics != nil {
+		result.Turns = metrics.Turns
+		result.PromptCount = len(metrics.Turns)
+		result.AutoAccepted = metrics.AutoAccepted
+		result.RepairAttempts = metrics.RepairAttempts
+		result.RepairRejected = metrics.RepairRejected
+		result.UnresolvedReview = metrics.UnresolvedReview
+	}
 	if writeErr := os.WriteFile(filepath.Join(fixtureDir, "stdout.txt"), []byte(stdout.String()), 0o644); writeErr == nil {
 		result.StdoutPath = filepath.Join(fixtureDir, "stdout.txt")
 	}
@@ -421,8 +452,10 @@ func runReplayFixture(exampleDir, provider, model string, temperature float64, t
 		_ = writeJSONFile(filepath.Join(fixtureDir, "transcript.json"), result)
 		return result
 	}
-	if labelErr := elicitor.AssertReplayLabelsInOrder(stdout.String(), script.Turns); labelErr != nil {
-		result.Error = labelErr.Error()
+	if defaultMode == authoring.PromptDefaultsAsk {
+		if labelErr := elicitor.AssertReplayLabelsInOrder(stdout.String(), result.Turns); labelErr != nil {
+			result.Error = labelErr.Error()
+		}
 	}
 	generatedDir := filepath.Join(fixtureDir, "generated")
 	_ = os.MkdirAll(generatedDir, 0o755)
@@ -453,13 +486,104 @@ func runReplayFixture(exampleDir, provider, model string, temperature float64, t
 			}
 		}
 	}
-	result.Passed = result.Error == "" && result.Blocking == 0
+	result.Passed = replayPassesPolicy(result, policy)
 	transcriptPath := filepath.Join(fixtureDir, "transcript.json")
 	if err := writeJSONFile(transcriptPath, result); err == nil {
 		result.TranscriptPath = transcriptPath
 		_ = writeJSONFile(transcriptPath, result)
 	}
 	return result
+}
+
+type replayMetrics struct {
+	RepairAttempts   int
+	RepairRejected   int
+	UnresolvedReview int
+	AutoAccepted     int
+	Turns            []elicitor.ReplayTurn
+}
+
+func replayTranscriptMetrics(path, stdout string) *replayMetrics {
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return nil
+	}
+	var transcript struct {
+		Turns  []elicitor.ReplayTurn `json:"turns,omitempty"`
+		Events []struct {
+			Kind string          `json:"kind"`
+			Data json.RawMessage `json:"data,omitempty"`
+		} `json:"events,omitempty"`
+	}
+	if err := json.Unmarshal(data, &transcript); err != nil {
+		return nil
+	}
+	metrics := &replayMetrics{Turns: append([]elicitor.ReplayTurn(nil), transcript.Turns...)}
+	metrics.AutoAccepted = countAutoAcceptedTurns(stdout, transcript.Turns)
+	for _, event := range transcript.Events {
+		switch event.Kind {
+		case "draft_repair_attempt":
+			metrics.RepairAttempts++
+		case "draft_repair_rejected":
+			metrics.RepairRejected++
+		case "draft_flow_review_result":
+			var payload struct {
+				Issues []any `json:"issues"`
+			}
+			if err := json.Unmarshal(event.Data, &payload); err == nil {
+				metrics.UnresolvedReview = len(payload.Issues)
+			}
+		}
+	}
+	return metrics
+}
+
+func countAutoAcceptedTurns(stdout string, turns []elicitor.ReplayTurn) int {
+	if len(turns) == 0 {
+		return 0
+	}
+	offset := 0
+	visible := 0
+	for _, turn := range turns {
+		label := strings.TrimSpace(turn.Label)
+		if label == "" {
+			continue
+		}
+		index := strings.Index(stdout[offset:], label)
+		if index < 0 {
+			continue
+		}
+		visible++
+		offset += index + len(label)
+	}
+	auto := len(turns) - visible
+	if auto < 0 {
+		return 0
+	}
+	return auto
+}
+
+func replayPassesPolicy(result replayEvalResult, policy evalpkg.ReferencePolicy) bool {
+	if result.Error != "" {
+		return false
+	}
+	if policy.MaxBlocking != nil {
+		if result.Blocking > *policy.MaxBlocking {
+			return false
+		}
+	} else if result.Blocking > 0 {
+		return false
+	}
+	if policy.MaxWarning != nil && result.Warning > *policy.MaxWarning {
+		return false
+	}
+	if policy.MaxAdvisory != nil && result.Advisory > *policy.MaxAdvisory {
+		return false
+	}
+	if policy.MaxUnresolvedReview != nil && result.UnresolvedReview > *policy.MaxUnresolvedReview {
+		return false
+	}
+	return true
 }
 
 func replayExtractor(provider, model string, temperature float64, calls *[]replayLLMCall) (elicitor.Extractor, error) {

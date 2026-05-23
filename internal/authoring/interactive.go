@@ -97,6 +97,17 @@ func (session *PromptSession) AskDefault(label, current string) (string, error) 
 	return session.askDefault(label, current, false)
 }
 
+// AskDefaultForced prints a defaulted prompt and waits for user input even when
+// the session default mode would normally auto-accept the default.
+func (session *PromptSession) AskDefaultForced(label, current string) (string, error) {
+	mode := session.defaultMode
+	session.defaultMode = PromptDefaultsAsk
+	defer func() {
+		session.defaultMode = mode
+	}()
+	return session.askDefault(label, current, false)
+}
+
 // AskOptionalDefault prompts for an optional value, allowing automatic default
 // acceptance even when the current value is blank.
 func (session *PromptSession) AskOptionalDefault(label, current string) (string, error) {
@@ -617,7 +628,13 @@ func RunProgressiveICOT[S, D, A any](ctx context.Context, in io.Reader, out io.W
 			}
 		}
 		record("next_question_decision", question)
-		answer, err := prompts.AskDefault(question.Prompt, question.SuggestedAnswer)
+		var answer string
+		var err error
+		if question.ForceAsk {
+			answer, err = prompts.AskDefaultForced(question.Prompt, question.SuggestedAnswer)
+		} else {
+			answer, err = prompts.AskDefault(question.Prompt, question.SuggestedAnswer)
+		}
 		if err != nil {
 			return zero, err
 		}

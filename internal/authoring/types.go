@@ -101,6 +101,7 @@ type InteractiveQuestion struct {
 	SuggestedAnswer string   `json:"suggested_answer,omitempty"`
 	Slots           []string `json:"slots,omitempty"`
 	Grouped         bool     `json:"grouped,omitempty"`
+	ForceAsk        bool     `json:"force_ask,omitempty"`
 }
 
 // Artifact is a generated draft file or metadata payload.

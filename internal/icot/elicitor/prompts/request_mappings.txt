@@ -4,6 +4,8 @@ Return JSON only. Do not return a full iCoT session, HCL, markdown, operation ID
 
 Use only the step names and missing_fields provided in the payload. For each step, fill only fields listed in missing_fields. Leave a field absent when the workflow brief and listed operation metadata do not support a defensible value.
 
+If decision_evidence is present, treat it as compact user-visible decision history. Do not override a high-confidence user or deterministic mapping unless the selected operation metadata contradicts it. Leave low-confidence or conflicting mappings for user confirmation when the evidence is insufficient.
+
 Allowed mapping values:
 - inputs.<name> for runtime inputs
 - safe literals from the workflow brief or obvious non-secret facts derived from it

@@ -7,11 +7,14 @@ import (
 )
 
 type ReferencePolicy struct {
-	Mode              string            `json:"mode,omitempty"`
-	Notes             []string          `json:"notes,omitempty"`
-	SeverityOverrides map[string]string `json:"severity_overrides,omitempty"`
-	IssueNotes        map[string]string `json:"issue_notes,omitempty"`
-	MaxBlocking       *int              `json:"max_blocking,omitempty"`
+	Mode                string            `json:"mode,omitempty"`
+	Notes               []string          `json:"notes,omitempty"`
+	SeverityOverrides   map[string]string `json:"severity_overrides,omitempty"`
+	IssueNotes          map[string]string `json:"issue_notes,omitempty"`
+	MaxBlocking         *int              `json:"max_blocking,omitempty"`
+	MaxWarning          *int              `json:"max_warning,omitempty"`
+	MaxAdvisory         *int              `json:"max_advisory,omitempty"`
+	MaxUnresolvedReview *int              `json:"max_unresolved_review,omitempty"`
 }
 
 func (p ReferencePolicy) IsZero() bool {
@@ -19,7 +22,10 @@ func (p ReferencePolicy) IsZero() bool {
 		len(p.Notes) == 0 &&
 		len(p.SeverityOverrides) == 0 &&
 		len(p.IssueNotes) == 0 &&
-		p.MaxBlocking == nil
+		p.MaxBlocking == nil &&
+		p.MaxWarning == nil &&
+		p.MaxAdvisory == nil &&
+		p.MaxUnresolvedReview == nil
 }
 
 func ReadReferencePolicy(path string) (ReferencePolicy, error) {

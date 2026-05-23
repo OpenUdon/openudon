@@ -30,9 +30,10 @@ build/review, not a promise that iCoT found the perfect workflow; operators shou
 or confirm and continue editing manually.
 
 Prompt volume is controlled by `--prompt-mode full|normal|fast`. Omitted mode is `full`, which asks
-every question and waits for confirmation. `normal` prints each defaulted question and accepts the
-default. `fast` silently accepts defaults and suppresses catalog/status chatter plus review-only
-assumption text while preserving transcript evidence.
+every question and waits for confirmation. `normal` prints high-confidence and review-level defaults
+and accepts them automatically, but still asks for missing, low-confidence, or conflicting answers.
+`fast` silently accepts safe defaults and suppresses catalog/status chatter plus review-only
+assumption text while preserving transcript and decision evidence.
 
 For catalog-backed SaaS briefs, iCoT first checks local `openapi/`, `google-discovery/`,
 `aws-smithy/`, and legacy `discovery/` documents plus the sibling `../apitools` first-class provider

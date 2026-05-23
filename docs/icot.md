@@ -25,8 +25,11 @@ go run ./cmd/icot --example ./examples/<name> --prompt-mode full
 # Print defaulted questions and accept their defaults automatically.
 go run ./cmd/icot --example ./examples/<name> --prompt-mode normal
 
-# Ask only when iCoT has no default or answer.
+# Ask only when iCoT has no safe default/answer, or confidence requires review.
 go run ./cmd/icot --example ./examples/<name> --prompt-mode fast
+
+# Experimental: let pre-final flow review apply bounded safe repairs.
+go run ./cmd/icot --example ./examples/<name> --review-repair
 
 # Seed from an existing fixture.
 go run ./cmd/icot --from-example ./examples/eval/weather-toronto --example ./examples/<name>
@@ -39,26 +42,35 @@ go run ./cmd/icot reconcile --example ./examples/<name>
 
 # Check brief quality, intent parseability, and drift.
 go run ./cmd/icot lint --example ./examples/<name>
+
+# Replay eval fixtures with prompt-mode and repair metrics.
+go run ./cmd/icot replay-eval --root examples/eval --prompt-mode fast --review-repair
 ```
 
 See [iCoT Session Files](icot-session-schema.md) for the accepted `--answers` shapes and
 [iCoT Transcripts](icot-transcript.md) for the ignored local transcript format.
 
 `--prompt-mode full` is the default when the flag is omitted; it prints every question and waits for
-you to confirm or replace defaults. `--prompt-mode normal` prints every question and automatically
-accepts defaults. `--prompt-mode fast` skips defaulted questions entirely, suppresses catalog/status
-chatter plus review-only fallback and assumption text, and asks only for required values without a
-safe default, such as the initial workflow goal. Automatically accepted defaults and assumptions are
-still recorded in the transcript.
+you to confirm or replace defaults. `--prompt-mode normal` prints high-confidence and review-level
+defaulted questions and automatically accepts them, but still asks when the default is missing,
+low-confidence, conflicting, or tied to a blocking review decision. `--prompt-mode fast` silently
+accepts high-confidence and review-level defaults, suppresses catalog/status chatter plus
+review-only fallback and assumption text, and asks only for required values without a safe default
+or with low/conflicting confidence. Automatically accepted defaults, assumptions, and decision
+evidence are still recorded in the transcript.
+
+For `icot replay-eval`, the omitted `--prompt-mode` default is `fast` so replay metrics measure the
+progressive loop's defaulted path instead of requiring a manual answer script for every prompt.
 
 With LLM extraction enabled, iCoT runs a bounded pre-final flow review before printing the current
 draft. The review is advisory and focuses only on cross-step data-flow mistakes that deterministic
 checks may miss, such as an email/report step not consuming the data it should send.
 
-The pre-final review is single-pass and does not mutate the draft. A possible future
-`--review-repair` mode could run a bounded repair loop and ask the operator to refine the workflow
-goal or choose better artifacts after repeated unresolved flow warnings; that mode is not available
-today.
+The pre-final review is single-pass and does not mutate the draft by default. `--review-repair` is
+an experimental opt-in mode that can make at most two bounded repair attempts from flow-review
+suggestions. It may repair request mappings, output sources, and `depends_on` only; it rejects
+source, operation, credential, and side-effect-scope mutations and records the repair attempt in the
+transcript.
 
 ## Guided SaaS Authoring
 
@@ -121,8 +133,8 @@ workflow. The guided SaaS path is:
    gives the LLM one focused mapping pass with the selected operation details
    before asking the operator for field sources.
 6. Run a bounded advisory flow review that looks only for cross-step data-flow
-   mistakes, then show the resulting draft, assumptions, and warnings for
-   confirmation. If the
+   mistakes, optionally apply bounded `--review-repair` fixes, then show the resulting draft,
+   assumptions, decision evidence, and warnings for confirmation. If the
    operator confirms, iCoT writes `project.md` and `workflows/intent.hcl`; the
    operator can continue editing manually before build or review. If the draft
    is wrong, reject or edit it instead of treating iCoT as the final authority.

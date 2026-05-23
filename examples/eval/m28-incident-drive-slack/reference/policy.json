@@ -1,0 +1,9 @@
+{
+  "mode": "strict",
+  "notes": [
+    "Strict multi-service SaaS pattern fixture inspired by the incident-response template; Jira, Slack, and Drive side effects are golden behavior."
+  ],
+  "max_blocking": 0,
+  "max_warning": 0,
+  "max_unresolved_review": 0
+}

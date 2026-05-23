@@ -21,6 +21,9 @@ func CheckReadiness(session Session, docs []APIDocument) []ReadinessIssue {
 	for _, issue := range mappingClassificationIssues(session) {
 		add(issue.Code, issue.Slot, issue.Severity, issue.Message, issue.SuggestedAnswer)
 	}
+	for _, issue := range decisionEvidenceIssues(session) {
+		add(issue.Code, issue.Slot, issue.Severity, issue.Message, issue.SuggestedAnswer)
+	}
 	if missingRefs := missingLocalAPIDocumentRefs(session, docs); len(missingRefs) > 0 {
 		add("missing_api_doc", "intent.source", readinessBlocking, "Local API document path is not available: "+strings.Join(missingRefs, ", ")+". Generate or provide that artifact before selecting operationIds.", "Generate/provide the missing API artifact, then rerun iCoT.")
 	} else if needsAPIDoc(session, docs) {
@@ -124,8 +127,17 @@ func PlanNextQuestion(session Session, docs []APIDocument, issues []ReadinessIss
 	case "low_confidence_mapping":
 		plan.Prompt = "Confirm the mapping value for " + blocking.Slot + "."
 		plan.Grouped = strings.Contains(blocking.Slot, ".with.")
+	case "conflicting_decision_evidence":
+		plan.Prompt = "Which value should " + blocking.Slot + " use?"
+		plan.ForceAsk = true
+	case "low_confidence_decision":
+		plan.Prompt = "Confirm the value for " + blocking.Slot + "."
+		plan.ForceAsk = true
 	default:
 		plan.Prompt = blocking.Message
+	}
+	if blocking.Code == "conflicting_mapping" || blocking.Code == "low_confidence_mapping" {
+		plan.ForceAsk = true
 	}
 	if plan.SuggestedAnswer == "" {
 		plan.SuggestedAnswer = suggestedAnswerForCode(blocking.Code, session, docs)

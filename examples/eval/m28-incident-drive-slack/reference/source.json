@@ -1,0 +1,9 @@
+{
+  "source_url": "https://n8n.io/workflows/9826-automate-incident-response-with-jira-slack-google-sheets-and-drive/",
+  "source_template": "Automate incident response with Jira, Slack, Google Sheets & Drive",
+  "adaptation_notes": [
+    "The public template creates Jira incidents, sends Slack alerts, generates timeline reports, archives to Drive, and logs status to Sheets.",
+    "This fixture keeps Jira creation, Slack alerting, and Drive archival.",
+    "Google Sheets status/error logging is deferred to a later branch/fallback eval slice."
+  ]
+}

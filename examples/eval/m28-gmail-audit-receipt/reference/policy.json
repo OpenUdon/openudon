@@ -1,0 +1,7 @@
+{
+  "mode": "strict",
+  "notes": ["Initial strict SaaS authoring fixture: send-message response feeds local audit receipt rendering."],
+  "max_blocking": 0,
+  "max_warning": 0,
+  "max_unresolved_review": 0
+}
