@@ -19,6 +19,15 @@ go run ./cmd/icot --example ./examples/<name> --print
 # Use the fixed manual flow without optional LLM extraction.
 go run ./cmd/icot --example ./examples/<name> --no-llm
 
+# Ask every question and let you confirm defaults. This is the default mode.
+go run ./cmd/icot --example ./examples/<name> --prompt-mode full
+
+# Print defaulted questions and accept their defaults automatically.
+go run ./cmd/icot --example ./examples/<name> --prompt-mode normal
+
+# Ask only when iCoT has no default or answer.
+go run ./cmd/icot --example ./examples/<name> --prompt-mode fast
+
 # Seed from an existing fixture.
 go run ./cmd/icot --from-example ./examples/eval/weather-toronto --example ./examples/<name>
 
@@ -32,17 +41,25 @@ go run ./cmd/icot reconcile --example ./examples/<name>
 go run ./cmd/icot lint --example ./examples/<name>
 ```
 
+`--prompt-mode full` is the default when the flag is omitted; it prints every question and waits for
+you to confirm or replace defaults. `--prompt-mode normal` prints every question and automatically
+accepts defaults. `--prompt-mode fast` skips defaulted questions entirely, suppresses catalog/status
+chatter plus review-only fallback and assumption text, and asks only for required values without a
+safe default, such as the initial workflow goal. Automatically accepted defaults and assumptions are
+still recorded in the transcript.
+
 ## Guided SaaS Authoring
 
 For common SaaS workflows, iCoT now keeps the guided loop focused on the
 reviewable OpenUdon contract:
 
-- choose a local OpenAPI document and listed `operationId` instead of inventing
-  provider calls;
+- choose a local API source document and listed operation ID instead of
+  inventing provider calls;
 - inspect first-class provider metadata in sibling `../apitools`, use a bounded
   LLM catalog plan to choose only validated local artifacts when available, and
-  retrieve cached API documents or reviewed advisory OpenAPI overlays into the
-  workflow before asking for operation choices;
+  retrieve cached OpenAPI, Google Discovery, AWS Smithy, or reviewed advisory
+  OpenAPI overlay artifacts into the workflow before asking for operation
+  choices;
 - confirm existing local API documents before using them for operation
   selection;
 - draft required path, query, header, and body field mappings from selected
@@ -55,13 +72,13 @@ reviewable OpenUdon contract:
 
 iCoT lists operation IDs grouped by API document with summaries or descriptions.
 If a provider operation, request field, response path, or credential scheme is
-not visible in local metadata, leave it unresolved and repair or lower the
-OpenAPI slice before trusted handoff.
+not visible in local metadata, leave it unresolved and repair or provide the
+API source before trusted handoff.
 
-If a required provider is missing local OpenAPI, iCoT tries the first-class
+If a required provider is missing a local API source, iCoT tries the first-class
 apitools catalog/cache automatically. It only asks for user-provided API
 artifacts after apitools reports that no first-class or advisory
-OpenAPI/lowering-ready artifact is available.
+source artifact is available.
 
 When an original provider OpenAPI document and a reviewed advisory OpenAPI
 overlay are both available, iCoT defaults to the advisory overlay for operation

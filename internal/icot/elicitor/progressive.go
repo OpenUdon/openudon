@@ -32,6 +32,10 @@ func runProgressive(ctx context.Context, in io.Reader, out io.Writer, seed Sessi
 	}
 	session := seed
 	session.Normalize()
+	statusOut := out
+	if opts.DefaultMode == authoring.PromptDefaultsSilent {
+		statusOut = io.Discard
+	}
 
 	projectText := projectwizard.Render(session.Project)
 	docs, err := DiscoverLocalAPIs(opts.ExampleDir, projectText)
@@ -49,7 +53,7 @@ func runProgressive(ctx context.Context, in io.Reader, out io.Writer, seed Sessi
 	questionDrafted := map[string]bool{}
 	if openingBrief != "" && shouldRetrieveCatalogArtifacts(session, docs) {
 		catalogRetrievalAttempted = true
-		if err := retrieveCatalogArtifactsForSession(out, session, opts.ExampleDir, opts.CatalogHintOptions); err != nil {
+		if err := retrieveCatalogArtifactsForSession(statusOut, session, opts.ExampleDir, opts.CatalogHintOptions); err != nil {
 			return Artifacts{}, err
 		}
 		projectText = projectwizard.Render(session.Project)
@@ -67,7 +71,7 @@ func runProgressive(ctx context.Context, in io.Reader, out io.Writer, seed Sessi
 			return nil
 		}
 		catalogRetrievalAttempted = true
-		return retrieveCatalogArtifactsForSession(out, session, opts.ExampleDir, opts.CatalogHintOptions)
+		return retrieveCatalogArtifactsForSession(statusOut, session, opts.ExampleDir, opts.CatalogHintOptions)
 	}
 	nextSessionEvents := func(session Session) []authoring.PromptEvent {
 		return catalogPlanEvents(session, &reportedDraftEvents)
@@ -78,6 +82,7 @@ func runProgressive(ctx context.Context, in io.Reader, out io.Writer, seed Sessi
 		Opening:       openingBrief,
 		Brief:         projectText,
 		NoLLM:         opts.NoLLM,
+		DefaultMode:   opts.DefaultMode,
 		MaxAttempts:   20,
 		OpeningPrompt: "Tell me what you want this API/workflow to accomplish. Include inputs, API actions, outputs, and safety constraints if you know them. Do not paste secrets.",
 		Extractor:     extractor,
@@ -88,10 +93,10 @@ func runProgressive(ctx context.Context, in io.Reader, out io.Writer, seed Sessi
 			applyProgressiveAnswer(session, QuestionPlan{Slots: []string{"workflow.goal"}}, answer, docs)
 			hints, err := BuildCatalogHints(answer, opts.CatalogHintOptions)
 			if err != nil {
-				fmt.Fprintf(out, "icot: apitools catalog advisory skipped: %v\n", err)
+				fmt.Fprintf(statusOut, "icot: apitools catalog advisory skipped: %v\n", err)
 			} else {
-				printCatalogHints(out, hints)
-				applied, err := planOpeningCatalogArtifacts(ctx, out, extractor, session, answer, hints, opts)
+				printCatalogHints(statusOut, hints)
+				applied, err := planOpeningCatalogArtifacts(ctx, statusOut, extractor, session, answer, hints, opts)
 				if err != nil {
 					return err
 				}
@@ -130,7 +135,7 @@ func runProgressive(ctx context.Context, in io.Reader, out io.Writer, seed Sessi
 			if !readyForSelectedOperationDraft(*session, docs, issues) {
 				return false, nil
 			}
-			return draftRequestMappings(ctx, out, extractor, session, docs, issues, question)
+			return draftRequestMappings(ctx, statusOut, extractor, session, docs, issues, question)
 		},
 		RankDocuments: rankDocuments,
 		DeterministicPrefill: func(session *Session, docs []APIDocument) bool {
@@ -158,6 +163,9 @@ func runProgressive(ctx context.Context, in io.Reader, out io.Writer, seed Sessi
 			return nil
 		},
 		OnDraftError: func(err error) {
+			if opts.DefaultMode == authoring.PromptDefaultsSilent {
+				return
+			}
 			if strings.Contains(err.Error(), "OpenAPI ranking skipped") {
 				fmt.Fprintf(out, "icot: %v\n", err)
 				return
@@ -175,7 +183,7 @@ func runProgressive(ctx context.Context, in io.Reader, out io.Writer, seed Sessi
 		Ready:          progressiveReady,
 		PlanQuestion:   PlanNextQuestion,
 		ApplyAnswer: func(session *Session, plan QuestionPlan, answer string, docs []APIDocument) error {
-			handled, err := applyCatalogDocumentAnswer(out, session, plan, answer, docs, opts.ExampleDir)
+			handled, err := applyCatalogDocumentAnswer(statusOut, session, plan, answer, docs, opts.ExampleDir)
 			if err != nil {
 				return err
 			}
@@ -187,7 +195,7 @@ func runProgressive(ctx context.Context, in io.Reader, out io.Writer, seed Sessi
 			return nil
 		},
 		FinalConfirm: func(prompts *authoring.PromptSession, session *Session, docs []APIDocument, events *[]authoring.PromptEvent) (Artifacts, error) {
-			return finalProgressiveConfirmationLoop(out, &prompter{PromptSession: prompts, out: out}, session, docs, opts.DraftPath, events)
+			return finalProgressiveConfirmationLoop(out, &prompter{PromptSession: prompts, out: out}, session, docs, opts.DraftPath, events, opts.DefaultMode != authoring.PromptDefaultsSilent)
 		},
 		FinalResultSummary: func(artifacts Artifacts) any {
 			return map[string]any{
@@ -379,7 +387,7 @@ func progressiveDraftErrorMessage(err error) (string, bool) {
 	}
 }
 
-func finalProgressiveConfirmationLoop(out io.Writer, p *prompter, session *Session, docs []APIDocument, draftPath string, events *[]TranscriptEvent) (Artifacts, error) {
+func finalProgressiveConfirmationLoop(out io.Writer, p *prompter, session *Session, docs []APIDocument, draftPath string, events *[]TranscriptEvent, showAssumptions bool) (Artifacts, error) {
 	for {
 		artifacts, err := RenderArtifacts(*session)
 		if err != nil {
@@ -420,7 +428,9 @@ func finalProgressiveConfirmationLoop(out io.Writer, p *prompter, session *Sessi
 		fmt.Fprintln(out, "\n----- current draft -----")
 		printSummary(out, artifacts.Session)
 		printReadinessWarnings(out, issues)
-		printAssumptions(out, artifacts.Session.Assumptions)
+		if showAssumptions {
+			printAssumptions(out, artifacts.Session.Assumptions)
+		}
 		if len(artifacts.Session.Annotations) > 0 {
 			fmt.Fprintln(out, "LLM-prefilled values are marked in the session annotations and require this final confirmation.")
 		}
@@ -2383,12 +2393,13 @@ func operationChoicesHint(choices []rankedOperationChoice) string {
 	if limit > 12 {
 		limit = 12
 	}
+	includeDocPath := multipleChoiceDocuments(choices[:limit])
 	for _, choice := range choices[:limit] {
 		label := choice.Op.OperationID
 		if desc := firstNonEmpty(choice.Op.Summary, choice.Op.Description); desc != "" {
 			label += " (" + truncateForPrompt(desc, 80) + ")"
 		}
-		if choice.Doc.RelativePath != "" {
+		if includeDocPath && choice.Doc.RelativePath != "" {
 			label += " [" + choice.Doc.RelativePath + "]"
 		}
 		labels = append(labels, label)
@@ -2398,6 +2409,24 @@ func operationChoicesHint(choices []rankedOperationChoice) string {
 		suffix = fmt.Sprintf("; and %d more in local API metadata.", len(choices)-limit)
 	}
 	return "Available candidate operationIds: " + strings.Join(labels, "; ") + suffix
+}
+
+func multipleChoiceDocuments(choices []rankedOperationChoice) bool {
+	var first string
+	for _, choice := range choices {
+		path := strings.TrimSpace(choice.Doc.RelativePath)
+		if path == "" {
+			continue
+		}
+		if first == "" {
+			first = path
+			continue
+		}
+		if path != first {
+			return true
+		}
+	}
+	return false
 }
 
 func operationChoiceHint(docs []APIDocument) string {

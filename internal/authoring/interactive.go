@@ -43,10 +43,23 @@ type ReplayScript struct {
 
 // PromptSession prompts on a reader/writer pair and records prompt turns.
 type PromptSession struct {
-	reader *bufio.Reader
-	out    io.Writer
-	turns  []PromptTurn
+	reader      *bufio.Reader
+	out         io.Writer
+	turns       []PromptTurn
+	defaultMode PromptDefaultMode
 }
+
+// PromptDefaultMode controls how prompt defaults are handled.
+type PromptDefaultMode int
+
+const (
+	// PromptDefaultsAsk prints defaulted prompts and waits for user input.
+	PromptDefaultsAsk PromptDefaultMode = iota
+	// PromptDefaultsShow prints defaulted prompts and accepts their defaults.
+	PromptDefaultsShow
+	// PromptDefaultsSilent accepts defaulted prompts without printing them.
+	PromptDefaultsSilent
+)
 
 // NewPromptSession creates a local prompt session.
 func NewPromptSession(in io.Reader, out io.Writer) *PromptSession {
@@ -62,6 +75,15 @@ func NewPromptSession(in io.Reader, out io.Writer) *PromptSession {
 	return &PromptSession{reader: bufio.NewReader(in), out: out}
 }
 
+// SetDefaultMode controls whether defaulted prompts ask, auto-accept visibly,
+// or auto-accept silently. Required free-form prompts still ask.
+func (session *PromptSession) SetDefaultMode(mode PromptDefaultMode) {
+	if session == nil {
+		return
+	}
+	session.defaultMode = mode
+}
+
 // Ask prompts for a required free-form value.
 func (session *PromptSession) Ask(label string) (string, error) {
 	fmt.Fprintf(session.out, "%s: ", label)
@@ -72,7 +94,28 @@ func (session *PromptSession) Ask(label string) (string, error) {
 
 // AskDefault prompts for a value, returning current when the answer is blank.
 func (session *PromptSession) AskDefault(label, current string) (string, error) {
+	return session.askDefault(label, current, false)
+}
+
+// AskOptionalDefault prompts for an optional value, allowing automatic default
+// acceptance even when the current value is blank.
+func (session *PromptSession) AskOptionalDefault(label, current string) (string, error) {
+	return session.askDefault(label, current, true)
+}
+
+func (session *PromptSession) askDefault(label, current string, autoBlank bool) (string, error) {
 	current = strings.TrimSpace(current)
+	if session.defaultMode != PromptDefaultsAsk && (current != "" || autoBlank) {
+		if session.defaultMode == PromptDefaultsShow {
+			if current == "" {
+				fmt.Fprintf(session.out, "%s:\n", label)
+			} else {
+				fmt.Fprintf(session.out, "%s [%s]: %s\n", label, OneLine(current), OneLine(current))
+			}
+		}
+		session.record(label, current, nil)
+		return current, nil
+	}
 	if current == "" {
 		fmt.Fprintf(session.out, "%s: ", label)
 	} else {
@@ -109,8 +152,17 @@ func (session *PromptSession) AskDefaultRequired(label, current string) (string,
 // AskYesNo prompts for a yes/no answer with a default.
 func (session *PromptSession) AskYesNo(label string, defaultYes bool) (bool, error) {
 	suffix := "y/N"
+	answer := "no"
 	if defaultYes {
 		suffix = "Y/n"
+		answer = "yes"
+	}
+	if session.defaultMode != PromptDefaultsAsk {
+		if session.defaultMode == PromptDefaultsShow {
+			fmt.Fprintf(session.out, "%s [%s]: %s\n", label, suffix, answer)
+		}
+		session.record(label, answer, nil)
+		return defaultYes, nil
 	}
 	for {
 		fmt.Fprintf(session.out, "%s [%s]: ", label, suffix)
@@ -264,6 +316,7 @@ type ProgressiveLoopHooks[S, D, A any] struct {
 	Opening       string
 	Brief         string
 	NoLLM         bool
+	DefaultMode   PromptDefaultMode
 	MaxAttempts   int
 	OpeningPrompt string
 
@@ -298,6 +351,7 @@ type ProgressiveLoopHooks[S, D, A any] struct {
 func RunProgressiveICOT[S, D, A any](ctx context.Context, in io.Reader, out io.Writer, hooks ProgressiveLoopHooks[S, D, A]) (A, error) {
 	var zero A
 	prompts := NewPromptSession(in, out)
+	prompts.SetDefaultMode(hooks.DefaultMode)
 	extractor := hooks.Extractor
 	if extractor == nil {
 		extractor = NoopInteractiveExtractor[S, D]{}

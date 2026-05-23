@@ -134,6 +134,89 @@ func TestCompleteDraftResumeSaveWritesAndDeletesDraft(t *testing.T) {
 	}
 }
 
+func TestPromptModeFastAcceptsCompleteDraftSaveDefaultSilently(t *testing.T) {
+	example := filepath.Join(t.TempDir(), "guided")
+	draftPath := writeCompleteDraft(t, example)
+	var stdout, stderr bytes.Buffer
+	code := Main([]string{"--example", example, "--no-llm", "--prompt-mode", "fast"}, strings.NewReader(""), &stdout, &stderr)
+	if code != 0 {
+		t.Fatalf("fast save failed with code %d\nstdout:\n%s\nstderr:\n%s", code, stdout.String(), stderr.String())
+	}
+	for _, rel := range []string{"project.md", "workflows/intent.hcl"} {
+		if _, err := os.Stat(filepath.Join(example, rel)); err != nil {
+			t.Fatalf("%s missing after fast save: %v\nstdout:\n%s\nstderr:\n%s", rel, err, stdout.String(), stderr.String())
+		}
+	}
+	if _, err := os.Stat(draftPath); !os.IsNotExist(err) {
+		t.Fatalf("draft not deleted after fast save: %v", err)
+	}
+	if strings.Contains(stdout.String(), "Type save, edit <slot>, explain <assumption-id>, regenerate, or cancel") {
+		t.Fatalf("stdout printed auto-accepted save prompt:\n%s", stdout.String())
+	}
+}
+
+func TestPromptModeNormalAcceptsCompleteDraftSaveDefaultVisibly(t *testing.T) {
+	example := filepath.Join(t.TempDir(), "guided")
+	draftPath := writeCompleteDraft(t, example)
+	var stdout, stderr bytes.Buffer
+	code := Main([]string{"--example", example, "--no-llm", "--prompt-mode", "normal"}, strings.NewReader(""), &stdout, &stderr)
+	if code != 0 {
+		t.Fatalf("normal save failed with code %d\nstdout:\n%s\nstderr:\n%s", code, stdout.String(), stderr.String())
+	}
+	for _, rel := range []string{"project.md", "workflows/intent.hcl"} {
+		if _, err := os.Stat(filepath.Join(example, rel)); err != nil {
+			t.Fatalf("%s missing after normal save: %v\nstdout:\n%s\nstderr:\n%s", rel, err, stdout.String(), stderr.String())
+		}
+	}
+	if _, err := os.Stat(draftPath); !os.IsNotExist(err) {
+		t.Fatalf("draft not deleted after normal save: %v", err)
+	}
+	if !strings.Contains(stdout.String(), "Type save, edit <slot>, explain <assumption-id>, regenerate, or cancel [save]: save") {
+		t.Fatalf("stdout missing visibly auto-accepted save prompt:\n%s", stdout.String())
+	}
+}
+
+func TestPromptModeFastWritesManualDraftFromOpeningOnly(t *testing.T) {
+	example := filepath.Join(t.TempDir(), "guided")
+	var stdout, stderr bytes.Buffer
+	input := "Render a local summary report from a runtime input\n"
+	code := Main([]string{"--example", example, "--no-llm", "--prompt-mode", "fast"}, strings.NewReader(input), &stdout, &stderr)
+	if code != 0 {
+		t.Fatalf("fast manual draft failed with code %d\nstdout:\n%s\nstderr:\n%s", code, stdout.String(), stderr.String())
+	}
+	for _, rel := range []string{"project.md", "workflows/intent.hcl"} {
+		if _, err := os.Stat(filepath.Join(example, rel)); err != nil {
+			t.Fatalf("%s missing after fast manual draft: %v\nstdout:\n%s\nstderr:\n%s", rel, err, stdout.String(), stderr.String())
+		}
+	}
+	for _, unexpected := range []string{
+		"icot: running without LLM extraction",
+		"Workflow timeout seconds (blank for none):",
+		"Workflow name [",
+		"Use OpenAPI/API steps?",
+		"Type save, edit <slot>, explain <assumption-id>, regenerate, or cancel",
+	} {
+		if strings.Contains(stdout.String(), unexpected) {
+			t.Fatalf("stdout printed auto-accepted prompt %q:\n%s", unexpected, stdout.String())
+		}
+	}
+	if !strings.Contains(stdout.String(), "Workflow brief:") {
+		t.Fatalf("stdout missing required no-default prompt:\n%s", stdout.String())
+	}
+}
+
+func TestPromptModeRejectsUnknownValue(t *testing.T) {
+	example := filepath.Join(t.TempDir(), "guided")
+	var stdout, stderr bytes.Buffer
+	code := Main([]string{"--example", example, "--prompt-mode", "turbo"}, strings.NewReader(""), &stdout, &stderr)
+	if code != 2 {
+		t.Fatalf("Main exit code = %d, want 2\nstdout:\n%s\nstderr:\n%s", code, stdout.String(), stderr.String())
+	}
+	if !strings.Contains(stderr.String(), "--prompt-mode must be full, normal, or fast") {
+		t.Fatalf("stderr missing prompt-mode error:\n%s", stderr.String())
+	}
+}
+
 func TestCompleteDraftPrintWritesNoFilesAndPreservesDraft(t *testing.T) {
 	example := filepath.Join(t.TempDir(), "guided")
 	draftPath := writeCompleteDraft(t, example)

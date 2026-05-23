@@ -108,6 +108,15 @@ go run ./cmd/icot --example ./examples/<name> --print
 # Use the fixed manual flow without LLM extraction.
 go run ./cmd/icot --example ./examples/<name> --no-llm
 
+# Ask every question and let you confirm defaults. This is the default mode.
+go run ./cmd/icot --example ./examples/<name> --prompt-mode full
+
+# Print defaulted questions and accept their defaults automatically.
+go run ./cmd/icot --example ./examples/<name> --prompt-mode normal
+
+# Ask only when iCoT has no default or answer.
+go run ./cmd/icot --example ./examples/<name> --prompt-mode fast
+
 # Seed from an existing example.
 go run ./cmd/icot --from-example ./examples/eval/runtime-only-render --example ./examples/<name>
 
@@ -128,6 +137,12 @@ iCoT autosaves incomplete local sessions under `<example>/.icot/session.yaml` an
 default. Successful saves delete the autosave. Transcripts are written under
 `<example>/.icot/transcript.json` unless `--no-transcript` is used. These local files are ignored by
 git.
+
+`--prompt-mode full` is the default when the flag is omitted; it prints every question and waits for
+you to confirm or replace defaults. `--prompt-mode normal` prints every question and automatically
+accepts defaults. `--prompt-mode fast` skips defaulted questions entirely, suppresses catalog/status
+chatter plus review-only fallback and assumption text, and asks only for required values without a
+safe default, such as the initial workflow goal.
 
 For SaaS briefs, iCoT first checks the local and sibling `apitools` provider catalog. When cached
 OpenAPI, Google Discovery, or reviewed advisory OpenAPI overlay artifacts are available, it can use a

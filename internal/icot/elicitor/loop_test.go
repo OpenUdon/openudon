@@ -10,6 +10,7 @@ import (
 
 	"github.com/OpenUdon/apitools"
 	"github.com/OpenUdon/apitools/catalog"
+	"github.com/OpenUdon/openudon/internal/authoring"
 	"github.com/OpenUdon/openudon/internal/projectwizard"
 	rollout "github.com/OpenUdon/openudon/internal/workflowintent"
 )
@@ -164,6 +165,38 @@ func TestRunUsesAIDraftDefaults(t *testing.T) {
 	}
 	if !strings.Contains(out.String(), "Assumptions to confirm") || !strings.Contains(out.String(), "op_get_ticket") {
 		t.Fatalf("final review missing assumptions:\n%s", out.String())
+	}
+}
+
+func TestFastPromptModeSuppressesDraftErrorAndAssumptions(t *testing.T) {
+	example := t.TempDir()
+	writeOpenAPI(t, example)
+	seed := supportTicketDraft(true)
+	var out strings.Builder
+	_, err := Run(context.Background(), strings.NewReader(""), &out, seed, Options{
+		ExampleDir:     example,
+		NoLLM:          false,
+		Extractor:      invalidJSONDraftExtractor{},
+		DefaultMode:    authoring.PromptDefaultsSilent,
+		DisableAIDraft: false,
+	})
+	if err != nil {
+		t.Fatalf("Run failed: %v\n%s", err, out.String())
+	}
+	text := out.String()
+	for _, unexpected := range []string{
+		"icot: AI draft skipped",
+		"model returned invalid draft JSON",
+		"Assumptions to confirm:",
+		"Saving confirms these assumptions.",
+		"op_get_ticket",
+	} {
+		if strings.Contains(text, unexpected) {
+			t.Fatalf("fast prompt output included %q:\n%s", unexpected, text)
+		}
+	}
+	if !strings.Contains(text, "----- current draft -----") {
+		t.Fatalf("fast prompt output should still show final draft summary:\n%s", text)
 	}
 }
 
@@ -412,6 +445,14 @@ func (e draftExtractor) Draft(context.Context, DraftRequest) (Session, error) {
 	return e.session, nil
 }
 
+type invalidJSONDraftExtractor struct {
+	noopExtractor
+}
+
+func (invalidJSONDraftExtractor) Draft(context.Context, DraftRequest) (Session, error) {
+	return Session{}, errors.New("invalid character 'x' looking for beginning of value")
+}
+
 type sequenceDraftExtractor struct {
 	noopExtractor
 	drafts                 []Session
@@ -526,6 +567,36 @@ func TestProgressiveTwoQuestionPathUsesReadinessFeedback(t *testing.T) {
 	}
 	if len(extractor.requestMappingRequests) != 1 || len(extractor.requestMappingRequests[0].ReadinessIssues) == 0 {
 		t.Fatalf("request-mapping draft did not receive readiness feedback: %#v", extractor.requestMappingRequests)
+	}
+}
+
+func TestFastPromptModeSuppressesRequestMappingStatus(t *testing.T) {
+	example := t.TempDir()
+	writeOpenAPI(t, example)
+	first := supportTicketDraft(false)
+	first.Intent.Inputs = nil
+	extractor := &sequenceDraftExtractor{
+		drafts: []Session{first},
+		requestMappingResponse: RequestMappingResponse{Steps: []RequestMappingStepResponse{{
+			Name: "get_ticket",
+			With: map[string]string{"ticketId": "inputs.ticketId"},
+		}}},
+	}
+	var out strings.Builder
+	_, err := Run(context.Background(), strings.NewReader("Fetch a support ticket.\n"), &out, Session{}, Options{
+		ExampleDir:  example,
+		NoLLM:       false,
+		Extractor:   extractor,
+		DefaultMode: authoring.PromptDefaultsSilent,
+	})
+	if err != nil {
+		t.Fatalf("Run failed: %v\n%s", err, out.String())
+	}
+	if strings.Contains(out.String(), "icot: drafted request mappings") {
+		t.Fatalf("fast prompt output included request-mapping status:\n%s", out.String())
+	}
+	if !strings.Contains(out.String(), "----- current draft -----") {
+		t.Fatalf("fast prompt output should still show final draft summary:\n%s", out.String())
 	}
 }
 
@@ -1477,6 +1548,49 @@ func TestGuidedSaaSOperationQuestionIncludesListedOperationIDs(t *testing.T) {
 	plan := PlanNextQuestion(session, docs, issues)
 	if !strings.Contains(plan.Prompt, "listed operationId") {
 		t.Fatalf("operation prompt missing listed operationId guidance: %#v", plan)
+	}
+}
+
+func TestOperationQuestionOmitsDocumentPathForSingleArtifact(t *testing.T) {
+	session := Session{
+		Intent: rollout.Intent{
+			Workflow: &rollout.WorkflowMeta{Name: "weather", Description: "Get weather in Toronto."},
+			Source:   "openapi/openweathermap-one-call-3-overlay.json",
+			Steps: []*rollout.Step{{
+				Name:     "openweathermap",
+				Type:     "http",
+				Provider: "openweathermap",
+				Source:   "openapi/openweathermap-one-call-3-overlay.json",
+			}},
+		},
+	}
+	docs := []APIDocument{{RelativePath: "openapi/openweathermap-one-call-3-overlay.json", Operations: []apitools.OperationSummary{
+		{OperationID: "getOpenWeatherMapOneCall3", Summary: "Get One Call API 3.0 weather data"},
+		{OperationID: "geocodeOpenWeatherMapLocationName", Summary: "Geocode location name"},
+	}}}
+	issues := CheckReadiness(session, docs)
+	plan := PlanNextQuestion(session, docs, issues)
+	if !strings.Contains(plan.Prompt, "getOpenWeatherMapOneCall3") {
+		t.Fatalf("operation prompt missing operationId: %#v", plan)
+	}
+	if strings.Contains(plan.Prompt, "[openapi/openweathermap-one-call-3-overlay.json]") {
+		t.Fatalf("operation prompt included redundant single-document path: %s", plan.Prompt)
+	}
+}
+
+func TestOperationQuestionKeepsDocumentPathForMultipleArtifacts(t *testing.T) {
+	hint := operationChoicesHint([]rankedOperationChoice{
+		{
+			Doc: APIDocument{RelativePath: "openapi/support.yaml"},
+			Op:  apitools.OperationSummary{OperationID: "getTicket"},
+		},
+		{
+			Doc: APIDocument{RelativePath: "openapi/tickets.yaml"},
+			Op:  apitools.OperationSummary{OperationID: "getTicket"},
+		},
+	})
+	if !strings.Contains(hint, "[openapi/support.yaml]") || !strings.Contains(hint, "[openapi/tickets.yaml]") {
+		t.Fatalf("operation hint should keep paths for multi-document choices: %s", hint)
 	}
 }
 

@@ -14,6 +14,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/OpenUdon/openudon/internal/authoring"
 	evalpkg "github.com/OpenUdon/openudon/internal/eval"
 	"github.com/OpenUdon/openudon/internal/icot/elicitor"
 	"github.com/OpenUdon/openudon/internal/projectwizard"
@@ -48,11 +49,12 @@ func runAuthor(args []string, in io.Reader, out, errOut io.Writer) int {
 	answersFile := fs.String("answers", "", "Path to YAML or JSON session/answers file; suppresses interactive prompts when complete")
 	noLLM := fs.Bool("no-llm", false, "Disable optional LLM extraction assistance")
 	noTranscript := fs.Bool("no-transcript", false, "Do not save local .icot transcript history")
+	promptMode := fs.String("prompt-mode", "full", "Prompt mode: full, normal, or fast. full asks every question; normal accepts defaults visibly; fast skips defaulted questions")
 	provider := fs.String("provider", "", "LLM provider for optional extraction: copilot-api, openai, anthropic, or gemini")
 	model := fs.String("model", "", "LLM model for optional extraction")
 	temperature := fs.Float64("temperature", 0.2, "LLM extraction temperature")
 	fs.Usage = func() {
-		fmt.Fprintf(fs.Output(), "Usage: icot --example examples/<name> [--dir examples/<name>] [--force] [--yes] [--print] [--from-example examples/<seed>] [--answers answers.yaml]\n")
+		fmt.Fprintf(fs.Output(), "Usage: icot --example examples/<name> [--dir examples/<name>] [--force] [--yes] [--print] [--from-example examples/<seed>] [--answers answers.yaml] [--prompt-mode full|normal|fast]\n")
 		fmt.Fprintf(fs.Output(), "\nInteractively writes project.md and workflows/intent.hcl with the standard OpenUdon authoring sections.\n")
 		fmt.Fprintf(fs.Output(), "It also creates openapi/, workflows/, and expected/ when missing.\n")
 		fmt.Fprintf(fs.Output(), "Next step: openudon build --example examples/<name>\n\n")
@@ -62,6 +64,11 @@ func runAuthor(args []string, in io.Reader, out, errOut io.Writer) int {
 		if errors.Is(err, flag.ErrHelp) {
 			return 0
 		}
+		return 2
+	}
+	defaultMode, err := promptDefaultMode(*promptMode)
+	if err != nil {
+		fmt.Fprintln(errOut, err)
 		return 2
 	}
 
@@ -94,9 +101,13 @@ func runAuthor(args []string, in io.Reader, out, errOut io.Writer) int {
 	if !*printOnly && !*noTranscript {
 		transcriptPath = filepath.Join(exampleDir, ".icot", "transcript.json")
 	}
-	extractor, usingLLM := resolveExtractor(*noLLM, *provider, *model, *temperature, out)
+	statusOut := out
+	if defaultMode == authoring.PromptDefaultsSilent {
+		statusOut = io.Discard
+	}
+	extractor, usingLLM := resolveExtractor(*noLLM, *provider, *model, *temperature, statusOut)
 	if !usingLLM {
-		fmt.Fprintln(out, "icot: running without LLM extraction; continuing with manual slot filling")
+		fmt.Fprintln(statusOut, "icot: running without LLM extraction; continuing with manual slot filling")
 	}
 	var artifacts elicitor.Artifacts
 	complete := completeSession(seed)
@@ -111,6 +122,7 @@ func runAuthor(args []string, in io.Reader, out, errOut io.Writer) int {
 			TranscriptPath: transcriptPath,
 			DisableAIDraft: source == seedSourceDraft,
 			VerifyOnly:     complete && source == seedSourceDraft,
+			DefaultMode:    defaultMode,
 		})
 	}
 	if *printOnly {
@@ -147,6 +159,19 @@ func runAuthor(args []string, in io.Reader, out, errOut io.Writer) int {
 	}
 	fmt.Fprintf(out, "next: openudon build --example %s\n", exampleDir)
 	return 0
+}
+
+func promptDefaultMode(mode string) (authoring.PromptDefaultMode, error) {
+	switch strings.ToLower(strings.TrimSpace(mode)) {
+	case "", "full":
+		return authoring.PromptDefaultsAsk, nil
+	case "normal":
+		return authoring.PromptDefaultsShow, nil
+	case "fast":
+		return authoring.PromptDefaultsSilent, nil
+	default:
+		return authoring.PromptDefaultsAsk, fmt.Errorf("--prompt-mode must be full, normal, or fast")
+	}
 }
 
 func runReconcile(args []string, in io.Reader, out, errOut io.Writer) int {

@@ -26,6 +26,7 @@ type Options struct {
 	TranscriptPath     string
 	DisableAIDraft     bool
 	VerifyOnly         bool
+	DefaultMode        authoring.PromptDefaultMode
 	CatalogHintOptions CatalogHintOptions
 }
 
@@ -53,7 +54,13 @@ func runManual(ctx context.Context, in io.Reader, out io.Writer, seed Session, o
 	}
 	session := seed
 	session.Normalize()
-	p := &prompter{PromptSession: authoring.NewPromptSession(reader, out), out: out}
+	promptSession := authoring.NewPromptSession(reader, out)
+	promptSession.SetDefaultMode(opts.DefaultMode)
+	p := &prompter{PromptSession: promptSession, out: out}
+	statusOut := out
+	if opts.DefaultMode == authoring.PromptDefaultsSilent {
+		statusOut = io.Discard
+	}
 	openingBrief := ""
 	if opts.VerifyOnly {
 		projectText := projectwizard.Render(session.Project)
@@ -72,7 +79,7 @@ func runManual(ctx context.Context, in io.Reader, out io.Writer, seed Session, o
 			}
 			clearUnavailableAPIDocumentRefs(&session, docs)
 		}
-		artifacts, err := finalVerificationLoop(out, p, &session, docs, opts.DraftPath)
+		artifacts, err := finalVerificationLoop(out, p, &session, docs, opts.DraftPath, opts.DefaultMode != authoring.PromptDefaultsSilent)
 		if err == nil {
 			if saveErr := SaveTranscript(opts.TranscriptPath, p.turns(), artifacts.Session); saveErr != nil {
 				return artifacts, saveErr
@@ -94,7 +101,7 @@ func runManual(ctx context.Context, in io.Reader, out io.Writer, seed Session, o
 				if err == nil {
 					session = mergeSessions(session, prefill)
 				} else {
-					fmt.Fprintf(out, "icot: LLM prefill skipped: %v\n", err)
+					fmt.Fprintf(statusOut, "icot: LLM prefill skipped: %v\n", err)
 				}
 			}
 			if session.Intent.Workflow == nil {
@@ -108,7 +115,7 @@ func runManual(ctx context.Context, in io.Reader, out io.Writer, seed Session, o
 				return Artifacts{}, err
 			}
 			printSummary(out, session)
-			PrintCatalogHints(out, opening)
+			PrintCatalogHints(statusOut, opening)
 		}
 	}
 
@@ -142,7 +149,7 @@ func runManual(ctx context.Context, in io.Reader, out io.Writer, seed Session, o
 		return Artifacts{}, err
 	}
 	if shouldRetrieveCatalogArtifacts(session, docs) {
-		if err := retrieveCatalogArtifactsForSession(out, session, opts.ExampleDir, opts.CatalogHintOptions); err != nil {
+		if err := retrieveCatalogArtifactsForSession(statusOut, session, opts.ExampleDir, opts.CatalogHintOptions); err != nil {
 			return Artifacts{}, err
 		}
 		projectText = projectwizard.Render(session.Project)
@@ -160,7 +167,7 @@ func runManual(ctx context.Context, in io.Reader, out io.Writer, seed Session, o
 		if ranked, err := extractor.Disambiguate(ctx, session.Intent.Workflow.Description, docs); err == nil {
 			docs = rankDocuments(docs, ranked)
 		} else {
-			fmt.Fprintf(out, "icot: OpenAPI ranking skipped: %v\n", err)
+			fmt.Fprintf(statusOut, "icot: OpenAPI ranking skipped: %v\n", err)
 		}
 	}
 	if !opts.NoLLM && !opts.DisableAIDraft && len(session.Intent.Steps) == 0 {
@@ -171,14 +178,14 @@ func runManual(ctx context.Context, in io.Reader, out io.Writer, seed Session, o
 		})
 		if err == nil && LooksLikeSession(draft) {
 			session = mergeSessions(session, draft)
-			fmt.Fprintln(out, "icot: drafted intent defaults from brief and local metadata; final save confirms listed assumptions")
+			fmt.Fprintln(statusOut, "icot: drafted intent defaults from brief and local metadata; final save confirms listed assumptions")
 			session.Normalize()
 			if err := autosave(opts.DraftPath, session); err != nil {
 				return Artifacts{}, err
 			}
 			printSummary(out, session)
 		} else if err != nil {
-			fmt.Fprintf(out, "icot: AI draft skipped: %v\n", err)
+			fmt.Fprintf(statusOut, "icot: AI draft skipped: %v\n", err)
 		}
 	}
 	usesAPIDefault := session.Intent.RequiresOpenAPI() || len(docs) > 0
@@ -226,7 +233,7 @@ func runManual(ctx context.Context, in io.Reader, out io.Writer, seed Session, o
 	printSummary(out, session)
 
 	if len(session.Intent.Inputs) == 0 {
-		value, err := p.askDefault("Runtime inputs (name:type, comma-separated; blank for none)", "")
+		value, err := p.askOptionalDefault("Runtime inputs (name:type, comma-separated; blank for none)", "")
 		if err != nil {
 			return Artifacts{}, err
 		}
@@ -304,7 +311,7 @@ func runManual(ctx context.Context, in io.Reader, out io.Writer, seed Session, o
 		return Artifacts{}, err
 	}
 
-	credentialAnswer, err := p.askDefault("Credential binding names only (comma-separated; blank for none)", strings.Join(session.Credentials, ", "))
+	credentialAnswer, err := p.askOptionalDefault("Credential binding names only (comma-separated; blank for none)", strings.Join(session.Credentials, ", "))
 	if err != nil {
 		return Artifacts{}, err
 	}
@@ -314,7 +321,7 @@ func runManual(ctx context.Context, in io.Reader, out io.Writer, seed Session, o
 	if err := autosave(opts.DraftPath, session); err != nil {
 		return Artifacts{}, err
 	}
-	session.Safety, err = p.askDefault("Safety and approval notes", session.Safety)
+	session.Safety, err = p.askOptionalDefault("Safety and approval notes", session.Safety)
 	if err != nil {
 		return Artifacts{}, err
 	}
@@ -324,7 +331,7 @@ func runManual(ctx context.Context, in io.Reader, out io.Writer, seed Session, o
 	if err := autosave(opts.DraftPath, session); err != nil {
 		return Artifacts{}, err
 	}
-	session.Fallback, err = p.askDefault("Fallback behavior", session.Fallback)
+	session.Fallback, err = p.askOptionalDefault("Fallback behavior", session.Fallback)
 	if err != nil {
 		return Artifacts{}, err
 	}
@@ -337,14 +344,14 @@ func runManual(ctx context.Context, in io.Reader, out io.Writer, seed Session, o
 			session = refined
 			session.Normalize()
 		} else {
-			fmt.Fprintf(out, "icot: LLM prose refinement skipped: %v\n", err)
+			fmt.Fprintf(statusOut, "icot: LLM prose refinement skipped: %v\n", err)
 		}
 	}
 	if err := autosave(opts.DraftPath, session); err != nil {
 		return Artifacts{}, err
 	}
 
-	artifacts, err := finalVerificationLoop(out, p, &session, docs, opts.DraftPath)
+	artifacts, err := finalVerificationLoop(out, p, &session, docs, opts.DraftPath, opts.DefaultMode != authoring.PromptDefaultsSilent)
 	transcriptSession := session
 	if err == nil {
 		transcriptSession = artifacts.Session
@@ -355,7 +362,7 @@ func runManual(ctx context.Context, in io.Reader, out io.Writer, seed Session, o
 	return artifacts, err
 }
 
-func finalVerificationLoop(out io.Writer, p *prompter, session *Session, docs []APIDocument, draftPath string) (Artifacts, error) {
+func finalVerificationLoop(out io.Writer, p *prompter, session *Session, docs []APIDocument, draftPath string, showAssumptions bool) (Artifacts, error) {
 	for {
 		artifacts, err := RenderArtifacts(*session)
 		if err != nil {
@@ -388,7 +395,9 @@ func finalVerificationLoop(out io.Writer, p *prompter, session *Session, docs []
 		}
 		fmt.Fprintln(out, "\n----- current draft -----")
 		printSummary(out, artifacts.Session)
-		printAssumptions(out, artifacts.Session.Assumptions)
+		if showAssumptions {
+			printAssumptions(out, artifacts.Session.Assumptions)
+		}
 		if len(artifacts.Session.Annotations) > 0 {
 			fmt.Fprintln(out, "LLM-prefilled values are marked in the session annotations and require this final confirmation.")
 		}
@@ -530,6 +539,10 @@ func (p *prompter) askDefault(label, current string) (string, error) {
 	return p.AskDefault(label, current)
 }
 
+func (p *prompter) askOptionalDefault(label, current string) (string, error) {
+	return p.AskOptionalDefault(label, current)
+}
+
 func (p *prompter) askYesNo(label string, defaultYes bool) (bool, error) {
 	return p.AskYesNo(label, defaultYes)
 }
@@ -659,7 +672,7 @@ func (p *prompter) collectSteps(usesAPI bool, defaultOpenAPI string, docs []APID
 		if len(steps) == 0 {
 			defaultName = firstNonEmpty(defaultName, "run_workflow")
 		}
-		name, err := p.askDefault("Step name (blank when done)", defaultName)
+		name, err := p.askOptionalDefault("Step name (blank when done)", defaultName)
 		if err != nil {
 			return nil, err
 		}
@@ -751,7 +764,7 @@ func (p *prompter) collectSteps(usesAPI bool, defaultOpenAPI string, docs []APID
 					}
 					fmt.Fprintln(p.out, "Operation ID is required for API steps.")
 				}
-				fields, err := p.askDefault("Required request fields (comma-separated; blank for none)", "")
+				fields, err := p.askOptionalDefault("Required request fields (comma-separated; blank for none)", "")
 				if err != nil {
 					return nil, err
 				}
@@ -765,7 +778,7 @@ func (p *prompter) collectSteps(usesAPI bool, defaultOpenAPI string, docs []APID
 				}
 			}
 		} else {
-			fields, err := p.askDefault("Step input fields (comma-separated; blank for none)", inputNames(inputs))
+			fields, err := p.askOptionalDefault("Step input fields (comma-separated; blank for none)", inputNames(inputs))
 			if err != nil {
 				return nil, err
 			}
@@ -799,7 +812,7 @@ func (p *prompter) collectWorkflowMetadata(workflow *rollout.WorkflowMeta) error
 	if workflow.Idempotency != nil {
 		currentKey = workflow.Idempotency.Key
 	}
-	key, err := p.askDefault("Workflow idempotency key (blank for none)", currentKey)
+	key, err := p.askOptionalDefault("Workflow idempotency key (blank for none)", currentKey)
 	if err != nil {
 		return err
 	}
@@ -814,7 +827,7 @@ func (p *prompter) collectWorkflowMetadata(workflow *rollout.WorkflowMeta) error
 		currentConflict = workflow.Idempotency.OnConflict
 		currentTTL = workflow.Idempotency.TTL
 	}
-	conflict, err := p.askDefault("Workflow idempotency onConflict (blank/reject/returnPrevious)", currentConflict)
+	conflict, err := p.askOptionalDefault("Workflow idempotency onConflict (blank/reject/returnPrevious)", currentConflict)
 	if err != nil {
 		return err
 	}
@@ -835,7 +848,7 @@ func (p *prompter) askOptionalSeconds(label string, current *float64) (*float64,
 	if current != nil {
 		defaultValue = strconv.FormatFloat(*current, 'f', -1, 64)
 	}
-	value, err := p.askDefault(label, defaultValue)
+	value, err := p.askOptionalDefault(label, defaultValue)
 	if err != nil {
 		return nil, err
 	}
@@ -851,7 +864,7 @@ func (p *prompter) askOptionalSeconds(label string, current *float64) (*float64,
 }
 
 func (p *prompter) stepFields(required []string) ([]string, error) {
-	extra, err := p.askDefault("Additional step fields (comma-separated; blank for none)", "")
+	extra, err := p.askOptionalDefault("Additional step fields (comma-separated; blank for none)", "")
 	if err != nil {
 		return nil, err
 	}
