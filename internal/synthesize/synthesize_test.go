@@ -826,6 +826,32 @@ func TestResponsePathStatusTreatsArrayRefAsOpaque(t *testing.T) {
 	}
 }
 
+func TestResponsePathStatusPrefersPropertiesOverAdditionalProperties(t *testing.T) {
+	op := &rollout.OperationInfo{Responses: map[string]*rollout.ResponseInfo{
+		"200": {Schema: map[string]any{
+			"type": "object",
+			"properties": map[string]any{
+				"known": map[string]any{
+					"type": "object",
+					"properties": map[string]any{
+						"id": map[string]any{"type": "string"},
+					},
+				},
+			},
+			"additionalProperties": map[string]any{"type": "string"},
+		}},
+	}}
+	if got := responsePathStatus(op, "known.id"); got != "present" {
+		t.Fatalf("declared property response path status = %q, want present", got)
+	}
+	if got := responsePathStatus(op, "dynamicKey"); got != "present" {
+		t.Fatalf("additionalProperties response path status = %q, want present", got)
+	}
+	if got := responsePathStatus(op, "known.missing"); got != "missing" {
+		t.Fatalf("missing declared property response path status = %q, want missing", got)
+	}
+}
+
 func TestValidateIntentOpenAPISecurityRequiresCredentialPolicy(t *testing.T) {
 	dir := t.TempDir()
 	path := filepath.Join(dir, "secure.yaml")

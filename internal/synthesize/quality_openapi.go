@@ -1729,16 +1729,14 @@ func schemaPathStatus(schema map[string]any, tokens []string) string {
 	if strings.EqualFold(asString(schema["type"]), "array") {
 		return schemaPathStatus(asMap(schema["items"]), tokens)
 	}
+	props := asMap(schema["properties"])
+	if len(props) > 0 {
+		if next, ok := props[tokens[0]]; ok {
+			return schemaPathStatus(asMap(next), tokens[1:])
+		}
+	}
 	if additional := asMap(schema["additionalProperties"]); len(additional) > 0 {
 		return schemaPathStatus(additional, tokens[1:])
 	}
-	props := asMap(schema["properties"])
-	if len(props) == 0 {
-		return "missing"
-	}
-	next, ok := props[tokens[0]]
-	if !ok {
-		return "missing"
-	}
-	return schemaPathStatus(asMap(next), tokens[1:])
+	return "missing"
 }
