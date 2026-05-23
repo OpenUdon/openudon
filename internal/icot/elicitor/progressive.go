@@ -2349,9 +2349,118 @@ func suggestedOperationAnswer(docs []APIDocument) string {
 func suggestedOperationAnswerForStep(session Session, docs []APIDocument, step *rollout.Step) string {
 	choices := rankedOperationChoicesForStep(session, docs, step)
 	if len(choices) != 1 {
+		if len(choices) > 1 && confidentOperationDefault(session, step, choices) {
+			return choices[0].Op.OperationID
+		}
 		return ""
 	}
 	return choices[0].Op.OperationID
+}
+
+func confidentOperationDefault(session Session, step *rollout.Step, choices []rankedOperationChoice) bool {
+	if len(choices) < 2 || strings.TrimSpace(choices[0].Op.OperationID) == "" || choices[0].Score <= 0 {
+		return false
+	}
+	intentText := operationSelectionRankingText(session, step)
+	if wantsEmailMessageSend(intentText) && uniqueEmailMessageSendChoice(choices) {
+		return true
+	}
+	if wantsWeatherLookup(intentText) && uniqueWeatherLookupChoice(choices) {
+		return true
+	}
+	return false
+}
+
+func wantsEmailMessageSend(text string) bool {
+	tokens := rankingTokenWeights(text)
+	if tokens["send"] == 0 && tokens["mail"] == 0 && tokens["email"] == 0 {
+		return false
+	}
+	return tokens["gmail"] > 0 || tokens["email"] > 0 || tokens["mail"] > 0 || tokens["message"] > 0
+}
+
+func uniqueEmailMessageSendChoice(choices []rankedOperationChoice) bool {
+	bestID := strings.TrimSpace(choices[0].Op.OperationID)
+	if bestID == "" || !operationLooksEmailMessageSend(choices[0].Op) {
+		return false
+	}
+	matches := 0
+	for _, choice := range choices {
+		if operationLooksEmailMessageSend(choice.Op) {
+			matches++
+			if strings.TrimSpace(choice.Op.OperationID) != bestID {
+				return false
+			}
+		}
+	}
+	return matches == 1
+}
+
+func wantsWeatherLookup(text string) bool {
+	tokens := rankingTokenWeights(text)
+	return tokens["weather"] > 0
+}
+
+func uniqueWeatherLookupChoice(choices []rankedOperationChoice) bool {
+	bestID := strings.TrimSpace(choices[0].Op.OperationID)
+	if bestID == "" || !operationLooksWeatherLookup(choices[0].Op) {
+		return false
+	}
+	matches := 0
+	for _, choice := range choices {
+		if operationLooksWeatherLookup(choice.Op) {
+			matches++
+			if strings.TrimSpace(choice.Op.OperationID) != bestID {
+				return false
+			}
+		}
+	}
+	return matches == 1
+}
+
+func operationLooksEmailMessageSend(op apitools.OperationSummary) bool {
+	text := strings.Join([]string{
+		op.OperationID,
+		op.Path,
+		op.Summary,
+		op.Description,
+		strings.Join(op.Tags, " "),
+	}, " ")
+	lower := strings.ToLower(text)
+	if strings.Contains(lower, "does not send") || strings.Contains(lower, "not send") {
+		return false
+	}
+	tokens := rankingTokenWeights(text)
+	if tokens["send"] == 0 || (tokens["message"] == 0 && tokens["mail"] == 0 && tokens["email"] == 0) {
+		return false
+	}
+	for _, token := range []string{"setting", "settings", "alias", "aliases", "verify", "smime", "cse", "identity", "identities", "draft", "drafts", "import", "insert"} {
+		if tokens[token] > 0 {
+			return false
+		}
+	}
+	return true
+}
+
+func operationLooksWeatherLookup(op apitools.OperationSummary) bool {
+	tokens := operationTextTokens(op)
+	if tokens["weather"] == 0 {
+		return false
+	}
+	if tokens["geocode"] > 0 || tokens["reverse"] > 0 || tokens["zip"] > 0 {
+		return false
+	}
+	return tokens["get"] > 0 || tokens["current"] > 0 || tokens["forecast"] > 0 || tokens["condition"] > 0 || tokens["conditions"] > 0 || tokens["data"] > 0
+}
+
+func operationTextTokens(op apitools.OperationSummary) map[string]int {
+	return rankingTokenWeights(strings.Join([]string{
+		op.OperationID,
+		op.Path,
+		op.Summary,
+		op.Description,
+		strings.Join(op.Tags, " "),
+	}, " "))
 }
 
 func missingOperationMessage(docs []APIDocument) string {

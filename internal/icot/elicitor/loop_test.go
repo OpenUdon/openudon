@@ -1189,12 +1189,86 @@ func TestSuggestedOperationAnswerRanksStepCandidates(t *testing.T) {
 		{OperationID: "gmail_users_messages_send", Summary: "Sends the specified message to the recipients."},
 	}}}
 
-	if got := suggestedOperationAnswerForStep(session, docs, session.Intent.Steps[0]); got != "" {
-		t.Fatalf("multi-operation step suggested unsafe default operation: %q", got)
+	if got := suggestedOperationAnswerForStep(session, docs, session.Intent.Steps[0]); got != "gmail_users_messages_send" {
+		t.Fatalf("multi-operation send-message step suggested %q, want gmail_users_messages_send", got)
 	}
 	hint := operationChoiceHintForStep(session, docs, session.Intent.Steps[0])
 	if !strings.Contains(hint, "gmail_users_messages_send") || !strings.Contains(hint, "gmail_users_getprofile") {
 		t.Fatalf("operation hint did not list all candidates: %q", hint)
+	}
+}
+
+func TestSuggestedOperationAnswerRejectsAmbiguousSendCandidates(t *testing.T) {
+	session := Session{
+		Project: projectwizard.Answers{Goal: "email me the report"},
+		Intent: rollout.Intent{
+			Workflow: &rollout.WorkflowMeta{Name: "email_report", Description: "email me the report"},
+			Steps: []*rollout.Step{{
+				Name:     "email",
+				Type:     "http",
+				Provider: "email",
+				Do:       "Send the report email.",
+			}},
+		},
+	}
+	docs := []APIDocument{{RelativePath: "openapi/email.yaml", Title: "Email API", Operations: []apitools.OperationSummary{
+		{OperationID: "sendEmailMessage", Summary: "Send an email message."},
+		{OperationID: "sendMailMessage", Summary: "Send a mail message."},
+		{OperationID: "getEmailProfile", Summary: "Get the email profile."},
+	}}}
+
+	if got := suggestedOperationAnswerForStep(session, docs, session.Intent.Steps[0]); got != "" {
+		t.Fatalf("ambiguous send-message step suggested unsafe default operation: %q", got)
+	}
+}
+
+func TestSuggestedOperationAnswerDefaultsClearWeatherLookup(t *testing.T) {
+	session := Session{
+		Project: projectwizard.Answers{Goal: "get weather in Toronto"},
+		Intent: rollout.Intent{
+			Workflow: &rollout.WorkflowMeta{Name: "weather", Description: "get weather in Toronto"},
+			Steps: []*rollout.Step{{
+				Name:     "openweathermap",
+				Type:     "http",
+				Provider: "openweathermap",
+				Do:       "Get current weather.",
+			}},
+		},
+	}
+	docs := []APIDocument{{RelativePath: "openapi/openweathermap-one-call-3-overlay.json", Title: "OpenWeatherMap One Call 3.0 Advisory Overlay", Operations: []apitools.OperationSummary{
+		{OperationID: "getOpenWeatherMapOneCall3", Summary: "Get One Call API 3.0 weather data"},
+		{OperationID: "geocodeOpenWeatherMapLocationName", Summary: "Geocode location name"},
+		{OperationID: "reverseGeocodeOpenWeatherMapCoordinates", Summary: "Reverse geocode coordinates"},
+	}}}
+
+	if got := suggestedOperationAnswerForStep(session, docs, session.Intent.Steps[0]); got != "getOpenWeatherMapOneCall3" {
+		t.Fatalf("weather step suggested %q, want getOpenWeatherMapOneCall3", got)
+	}
+}
+
+func TestSuggestedOperationAnswerDefaultsWeatherLookupWithCoordinateDescription(t *testing.T) {
+	session := Session{
+		Project: projectwizard.Answers{Goal: "get weather of toronto canada, and then gmail me the report"},
+		Intent: rollout.Intent{
+			Workflow: &rollout.WorkflowMeta{Name: "get_weather_of_toronto", Description: "get weather of toronto canada, and then gmail me the report"},
+			Steps: []*rollout.Step{{
+				Name:     "openweathermap",
+				Type:     "http",
+				Provider: "openweathermap",
+				Do:       "Use OpenWeatherMap for this workflow capability.",
+				OpenAPI:  "openapi/openweathermap-one-call-3-overlay.json",
+			}},
+		},
+	}
+	docs := []APIDocument{{RelativePath: "openapi/openweathermap-one-call-3-overlay.json", Title: "OpenWeatherMap One Call 3.0 and Geocoding Advisory Overlay", Operations: []apitools.OperationSummary{
+		{OperationID: "getOpenWeatherMapOneCall3", Summary: "Get One Call API 3.0 weather data", Description: "Latitude and longitude coordinates may come from the Geocoding API."},
+		{OperationID: "geocodeOpenWeatherMapLocationName", Summary: "Geocode location name", Description: "Direct geocoding converts a city or area name to geographical coordinates."},
+		{OperationID: "geocodeOpenWeatherMapZipCode", Summary: "Geocode zip or post code"},
+		{OperationID: "reverseGeocodeOpenWeatherMapCoordinates", Summary: "Reverse geocode coordinates"},
+	}}}
+
+	if got := suggestedOperationAnswerForStep(session, docs, session.Intent.Steps[0]); got != "getOpenWeatherMapOneCall3" {
+		t.Fatalf("weather step suggested %q, want getOpenWeatherMapOneCall3", got)
 	}
 }
 
