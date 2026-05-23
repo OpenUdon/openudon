@@ -51,7 +51,9 @@ Fields:
   `normal` and `fast` mode.
 - `events`: structured stage observations such as catalog planning, request-mapping drafts,
   operation-detail requests, confirmation edits, advisory flow-review results, and bounded
-  `--review-repair` attempts.
+  `--review-repair` attempts. Flow-review results may include `gap_kind`,
+  `remediation_action`, and `clarifying_question`; forced ambiguity prompts are recorded as
+  `draft_flow_review_question`.
 - `session`: the final iCoT session snapshot used to render `project.md` and `intent.hcl`.
 
 Transcript events may include operation IDs, API document paths, symbolic credential binding names,
@@ -61,3 +63,5 @@ When present, `session.decision_evidence` records compact decision history with 
 `value`, `source`, `confidence`, `reason`, and optional alternatives. This is public review context,
 not private model reasoning. Replay reports may also count `draft_repair_attempt`,
 `draft_repair_rejected`, and the final `draft_flow_review_result` issues for M28 evaluation.
+M29 flow-remediation evidence uses the same public decision history and does not include hidden
+chain-of-thought.

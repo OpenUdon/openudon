@@ -244,48 +244,25 @@ func applyCatalogPlanSteps(session *Session, proposed []CatalogPlanStep, candida
 		return
 	}
 	byProvider := selectedCatalogArtifactsByProvider(candidates)
-	providerAllowed := map[string]bool{}
-	for providerID := range byProvider {
-		providerAllowed[providerID] = true
-	}
 	var steps []*rollout.Step
 	acceptedNames := map[string]bool{}
-	for _, step := range proposed {
-		provider := strings.TrimSpace(step.Provider)
-		if provider == "" || !providerAllowed[provider] {
+	acceptedProviders := map[string]bool{}
+	_ = proposed
+	for _, candidate := range candidates {
+		provider := strings.TrimSpace(candidate.ProviderID)
+		if provider == "" || acceptedProviders[provider] {
 			continue
 		}
-		name := uniqueCatalogPlanStepName(slugIdent(firstNonEmpty(step.Name, provider)), acceptedNames)
-		if name == "" {
-			continue
-		}
-		dependsOn := safeCatalogPlanDependsOn([]string(step.DependsOn), acceptedNames)
+		name := uniqueCatalogPlanStepName(slugIdent(provider), acceptedNames)
 		acceptedNames[name] = true
+		acceptedProviders[provider] = true
 		steps = append(steps, &rollout.Step{
-			Name:      name,
-			Type:      "http",
-			Provider:  provider,
-			OpenAPI:   catalogPlanStepOpenAPI(step.OpenAPI, byProvider[provider]),
-			Do:        firstLine(firstNonEmpty(step.Do, "Use "+provider+" for this workflow capability.")),
-			DependsOn: dependsOn,
+			Name:     name,
+			Type:     "http",
+			Provider: provider,
+			OpenAPI:  catalogPlanStepOpenAPI("", byProvider[provider]),
+			Do:       "Use " + firstNonEmpty(candidate.ProviderName, provider) + " for this workflow capability.",
 		})
-	}
-	if len(steps) == 0 {
-		for _, candidate := range candidates {
-			provider := strings.TrimSpace(candidate.ProviderID)
-			if provider == "" || acceptedNames[provider] {
-				continue
-			}
-			name := uniqueCatalogPlanStepName(slugIdent(provider), acceptedNames)
-			acceptedNames[name] = true
-			steps = append(steps, &rollout.Step{
-				Name:     name,
-				Type:     "http",
-				Provider: provider,
-				OpenAPI:  catalogPlanStepOpenAPI("", byProvider[provider]),
-				Do:       "Use " + firstNonEmpty(candidate.ProviderName, provider) + " for this workflow capability.",
-			})
-		}
 	}
 	session.Intent.Steps = steps
 }

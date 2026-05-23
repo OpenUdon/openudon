@@ -262,6 +262,7 @@ type finalDraftReviewer func(context.Context, *Session, Artifacts, []ReadinessIs
 
 func finalProgressiveConfirmationLoop(ctx context.Context, out io.Writer, p *prompter, session *Session, docs []APIDocument, draftPath string, events *[]TranscriptEvent, showAssumptions bool, reviewRepair bool, review finalDraftReviewer) (Artifacts, error) {
 	repairAttempts := 0
+	askedReviewQuestions := map[string]bool{}
 	for {
 		artifacts, err := RenderArtifacts(*session)
 		if err != nil {
@@ -303,7 +304,7 @@ func finalProgressiveConfirmationLoop(ctx context.Context, out io.Writer, p *pro
 			reviewIssues := review(ctx, session, artifacts, issues)
 			if reviewRepair && len(reviewIssues) > 0 && repairAttempts < 2 {
 				repairAttempts++
-				changed, rejected := applyDraftReviewRepairs(session, reviewIssues)
+				changed, rejected := applyDraftReviewRemediations(session, reviewIssues, docs)
 				if events != nil {
 					*events = append(*events, TranscriptEvent{Kind: "draft_repair_attempt", Data: map[string]any{
 						"attempt":  repairAttempts,
@@ -321,6 +322,65 @@ func finalProgressiveConfirmationLoop(ctx context.Context, out io.Writer, p *pro
 				if len(rejected) > 0 && events != nil {
 					*events = append(*events, TranscriptEvent{Kind: "draft_repair_rejected", Data: rejected})
 				}
+			}
+			forcedAnswerChanged := false
+			for i := range reviewIssues {
+				issue := reviewIssues[i]
+				question := draftReviewForcedQuestion(issue)
+				if question == "" {
+					continue
+				}
+				key := issue.Code + "\x00" + issue.Slot + "\x00" + question
+				if askedReviewQuestions[key] {
+					continue
+				}
+				askedReviewQuestions[key] = true
+				answer, err := p.askDefaultForced(question, issue.SuggestedAnswer)
+				if err != nil {
+					return Artifacts{}, err
+				}
+				applied, clarification := applyForcedDraftReviewAnswer(session, issue, answer)
+				if applied {
+					forcedAnswerChanged = true
+				}
+				if clarification != "" {
+					reviewIssues[i].SuggestedAnswer = strings.TrimSpace(strings.Join([]string{reviewIssues[i].SuggestedAnswer, clarification}, " "))
+				}
+				addDecisionEvidence(session, DecisionEvidence{
+					Stage:                decisionStageDraftReview,
+					Slot:                 firstNonEmpty(issue.Slot, "draft_review."+issue.Code),
+					Value:                strings.TrimSpace(answer),
+					Source:               mappingSourceUser,
+					Confidence:           mappingConfidenceReview,
+					Reason:               forcedDraftReviewAnswerReason(applied),
+					Evidence:             question,
+					RequiresConfirmation: false,
+				})
+				if events != nil {
+					*events = append(*events, TranscriptEvent{Kind: "draft_flow_review_question", Data: map[string]any{
+						"code":     issue.Code,
+						"slot":     issue.Slot,
+						"question": question,
+					}})
+					*events = append(*events, TranscriptEvent{Kind: "draft_flow_review_answer", Data: map[string]any{
+						"code":    issue.Code,
+						"slot":    issue.Slot,
+						"answer":  strings.TrimSpace(answer),
+						"applied": applied,
+					}})
+				}
+			}
+			if forcedAnswerChanged {
+				session.Normalize()
+				if err := autosave(draftPath, *session); err != nil {
+					return Artifacts{}, err
+				}
+				var renderErr error
+				artifacts, renderErr = RenderArtifacts(*session)
+				if renderErr != nil {
+					return Artifacts{}, renderErr
+				}
+				issues = CheckReadiness(artifacts.Session, docs)
 			}
 			if reviewRepair && len(reviewIssues) > 0 && repairAttempts >= 2 {
 				fmt.Fprintln(out, "icot: review repair still has unresolved flow warnings; refine the workflow goal or choose better API artifacts if these warnings are not acceptable.")
@@ -1220,6 +1280,9 @@ func deterministicPrefill(session *Session, docs []APIDocument) bool {
 		return false
 	}
 	changed := false
+	if applyCapabilityGapFallback(session, docs) {
+		changed = true
+	}
 	if addDeterministicPreworkSteps(session, docs) {
 		changed = true
 	}
@@ -1308,6 +1371,79 @@ func deterministicPrefill(session *Session, docs []APIDocument) bool {
 		}
 	}
 	return changed
+}
+
+func applyCapabilityGapFallback(session *Session, docs []APIDocument) bool {
+	if session == nil || !capabilityGapFallbackGoal(*session) || usableOperationCount(docs) > 0 {
+		return false
+	}
+	if len(session.Intent.Steps) == 1 && session.Intent.Steps[0] != nil && session.Intent.Steps[0].Name == "render_capability_gap" {
+		return false
+	}
+	session.Intent.Source = ""
+	session.Intent.OpenAPI = ""
+	session.Intent.Inputs = mergeInputsByName(session.Intent.Inputs, []*rollout.Input{
+		{Name: "provider", Type: "string", Required: true, Description: "Provider or API source with missing capability evidence."},
+		{Name: "action", Type: "string", Required: true, Description: "Missing or ambiguous provider action."},
+	})
+	session.Intent.Steps = []*rollout.Step{{
+		Name: "render_capability_gap",
+		Type: "fnct",
+		Do:   "Render a capability gap report for the missing provider action.",
+		With: map[string]string{
+			"provider": "inputs.provider",
+			"action":   "inputs.action",
+		},
+	}}
+	session.Intent.Outputs = []*rollout.Output{{Name: "gap_report", From: "render_capability_gap.received_body"}}
+	session.Credentials = nil
+	session.CredentialsSet = true
+	if strings.TrimSpace(session.SideEffectScope) == "" {
+		session.SideEffectScope = projectwizard.SideEffectReadOnly
+	}
+	addDecisionEvidence(session, DecisionEvidence{
+		Stage:                decisionStageCatalogPlan,
+		Slot:                 "intent.steps.render_capability_gap",
+		Value:                "no-source capability gap fallback",
+		Source:               mappingSourceDeterministic,
+		Confidence:           mappingConfidenceHigh,
+		Reason:               "No usable local API operations are available and the goal explicitly asks to stop and render a missing or ambiguous provider capability gap report.",
+		Evidence:             draftSessionDescription(*session),
+		RequiresConfirmation: false,
+	})
+	return true
+}
+
+func capabilityGapFallbackGoal(session Session) bool {
+	text := strings.ToLower(strings.Join([]string{
+		session.Project.Goal,
+		session.Project.Outputs,
+		session.Project.DataFlow,
+		session.Project.FunctionContracts,
+		session.Project.OpenAPI,
+		session.Project.Fallback,
+		session.Fallback,
+		draftSessionDescription(session),
+	}, " "))
+	if !(strings.Contains(text, "gap report") || strings.Contains(text, "capability gap") || (strings.Contains(text, "render") && strings.Contains(text, "gap")) || (strings.Contains(text, "report") && strings.Contains(text, "gap"))) {
+		return false
+	}
+	if !(strings.Contains(text, "stop") || strings.Contains(text, "missing") || strings.Contains(text, "ambiguous") || strings.Contains(text, "no usable") || strings.Contains(text, "lacks usable") || strings.Contains(text, "without openapi") || strings.Contains(text, "without api") || strings.Contains(text, "no api")) {
+		return false
+	}
+	return strings.Contains(text, "provider") || strings.Contains(text, "api") || strings.Contains(text, "source") || strings.Contains(text, "openapi") || strings.Contains(text, "operation") || strings.Contains(text, "action")
+}
+
+func usableOperationCount(docs []APIDocument) int {
+	total := 0
+	for _, doc := range docs {
+		for _, op := range doc.Operations {
+			if strings.TrimSpace(op.OperationID) != "" {
+				total++
+			}
+		}
+	}
+	return total
 }
 
 func addDeterministicPreworkSteps(session *Session, docs []APIDocument) bool {
@@ -2193,20 +2329,24 @@ func suggestedDocAnswer(docs []APIDocument) string {
 }
 
 func suggestedOperationAnswer(docs []APIDocument) string {
+	var selected string
 	for _, doc := range docs {
 		for _, op := range doc.Operations {
 			if op.OperationID != "" {
-				return op.OperationID
+				if selected != "" {
+					return ""
+				}
+				selected = op.OperationID
 			}
 		}
 	}
-	return "Describe the action in business terms."
+	return selected
 }
 
 func suggestedOperationAnswerForStep(session Session, docs []APIDocument, step *rollout.Step) string {
 	choices := rankedOperationChoicesForStep(session, docs, step)
-	if len(choices) == 0 {
-		return "Describe the action in business terms."
+	if len(choices) != 1 {
+		return ""
 	}
 	return choices[0].Op.OperationID
 }

@@ -112,6 +112,102 @@ func TestDisambiguateFiltersInventedPaths(t *testing.T) {
 	}
 }
 
+func TestExtractorSchemasAreStrictStructuredOutputSchemas(t *testing.T) {
+	for name, schema := range map[string]string{
+		"kickoff":         kickoffSchema,
+		"disambiguate":    disambiguateSchema,
+		"catalog_plan":    catalogPlanSchema,
+		"request_mapping": requestMappingsSchema,
+		"draft_review":    draftReviewSchema,
+		"draft":           draftSchema,
+	} {
+		t.Run(name, func(t *testing.T) {
+			var raw map[string]any
+			if err := json.Unmarshal([]byte(schema), &raw); err != nil {
+				t.Fatalf("schema is invalid JSON: %v\n%s", err, schema)
+			}
+			assertStrictStructuredSchema(t, "$", raw)
+		})
+	}
+}
+
+func TestDraftSchemaIncludesStructuredStepMappings(t *testing.T) {
+	var raw map[string]any
+	if err := json.Unmarshal([]byte(draftSchema), &raw); err != nil {
+		t.Fatalf("schema is invalid JSON: %v", err)
+	}
+	step := raw["properties"].(map[string]any)["intent"].(map[string]any)["properties"].(map[string]any)["steps"].(map[string]any)["items"].(map[string]any)
+	props := step["properties"].(map[string]any)
+	if _, ok := props["with"]; !ok {
+		t.Fatalf("draft step schema missing with: %#v", props)
+	}
+	if _, ok := props["bind"]; !ok {
+		t.Fatalf("draft step schema missing bind: %#v", props)
+	}
+}
+
+func TestDraftStructuredMappingArraysPopulateIntentStep(t *testing.T) {
+	extractor := NewChatExtractor(fakeChat{response: `{
+  "intent": {
+    "workflow": {"name": "demo", "description": "Demo"},
+    "steps": [{
+      "name": "send",
+      "type": "http",
+      "with": [{"field":"body","source":"render.received_body"}],
+      "bind": [{"from":"render","fields":[{"field":"body","source":"received_body"}]}]
+    }],
+    "outputs": [{"name":"result","from":"send.received_body"}]
+  }
+}`}, nil)
+	session, err := extractor.Draft(context.Background(), DraftRequest{Opening: "Send rendered content"})
+	if err != nil {
+		t.Fatalf("Draft failed: %v", err)
+	}
+	if len(session.Intent.Steps) != 1 {
+		t.Fatalf("steps = %#v", session.Intent.Steps)
+	}
+	step := session.Intent.Steps[0]
+	if got := step.With["body"]; got != "render.received_body" {
+		t.Fatalf("with = %#v", step.With)
+	}
+	if len(step.Binds) != 1 || step.Binds[0].From != "render" || step.Binds[0].Fields["body"] != "received_body" {
+		t.Fatalf("binds = %#v", step.Binds)
+	}
+}
+
+func assertStrictStructuredSchema(t *testing.T, path string, schema map[string]any) {
+	t.Helper()
+	if schema["type"] == "object" {
+		if got, ok := schema["additionalProperties"].(bool); !ok || got {
+			t.Fatalf("%s additionalProperties = %#v, want false", path, schema["additionalProperties"])
+		}
+		props, _ := schema["properties"].(map[string]any)
+		requiredValues, _ := schema["required"].([]any)
+		required := map[string]bool{}
+		for _, value := range requiredValues {
+			required[fmt.Sprint(value)] = true
+		}
+		for name := range props {
+			if !required[name] {
+				t.Fatalf("%s property %q is not required", path, name)
+			}
+		}
+		if len(required) != len(props) {
+			t.Fatalf("%s required count = %d, properties = %d", path, len(required), len(props))
+		}
+		for name, value := range props {
+			if nested, ok := value.(map[string]any); ok {
+				assertStrictStructuredSchema(t, path+"."+name, nested)
+			}
+		}
+	}
+	if schema["type"] == "array" {
+		if item, ok := schema["items"].(map[string]any); ok {
+			assertStrictStructuredSchema(t, path+"[]", item)
+		}
+	}
+}
+
 func TestDraftPromptRequestIncludesStructuredParameters(t *testing.T) {
 	op := promptOperation(t, DraftRequest{Docs: []APIDocument{{
 		RelativePath: "openapi/support.yaml",

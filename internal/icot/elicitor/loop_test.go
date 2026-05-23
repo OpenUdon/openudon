@@ -664,6 +664,117 @@ func TestProgressivePreFinalReviewRunsAfterFinalBlockingRepair(t *testing.T) {
 	}
 }
 
+func TestProgressivePreFinalReviewForcedQuestionInFastMode(t *testing.T) {
+	example := t.TempDir()
+	writeOpenAPI(t, example)
+	docs, err := DiscoverLocalAPIs(example, "")
+	if err != nil {
+		t.Fatalf("discover APIs: %v", err)
+	}
+	session := supportTicketDraft(true)
+	var out strings.Builder
+	prompts := authoring.NewPromptSession(strings.NewReader("Return the rendered report body.\n"), &out)
+	prompts.SetDefaultMode(authoring.PromptDefaultsSilent)
+	review := func(_ context.Context, _ *Session, _ Artifacts, _ []ReadinessIssue) []DraftReviewIssue {
+		return sanitizeDraftReviewResponse(DraftReviewResponse{Issues: []DraftReviewIssue{{
+			Code:               "ambiguous_output",
+			Message:            "It is unclear which output should replace the ambiguous raw output.",
+			Slot:               "intent.outputs.ticket",
+			GapKind:            flowGapAmbiguousOutput,
+			RemediationAction:  remediationAskUser,
+			ClarifyingQuestion: "What exact output should this workflow return?",
+		}}}).Issues
+	}
+	artifacts, err := finalProgressiveConfirmationLoop(context.Background(), &out, &prompter{PromptSession: prompts, out: &out}, &session, docs, "", nil, false, false, review)
+	if err != nil {
+		t.Fatalf("final confirmation failed: %v\n%s", err, out.String())
+	}
+	if !strings.Contains(out.String(), "What exact output should this workflow return?") {
+		t.Fatalf("forced question not shown in fast mode:\n%s", out.String())
+	}
+	found := false
+	for _, evidence := range artifacts.Session.DecisionEvidence {
+		if evidence.Stage == decisionStageDraftReview && evidence.Value == "Return the rendered report body." {
+			found = true
+		}
+	}
+	if !found {
+		t.Fatalf("missing forced-question decision evidence: %#v", artifacts.Session.DecisionEvidence)
+	}
+}
+
+func TestProgressivePreFinalReviewForcedQuestionAppliesSafeOutputSource(t *testing.T) {
+	example := t.TempDir()
+	writeOpenAPI(t, example)
+	docs, err := DiscoverLocalAPIs(example, "")
+	if err != nil {
+		t.Fatalf("discover APIs: %v", err)
+	}
+	session := supportTicketDraft(true)
+	var out strings.Builder
+	prompts := authoring.NewPromptSession(strings.NewReader("ticket=get_ticket.received_body.id\nsave\n"), &out)
+	var events []TranscriptEvent
+	review := func(_ context.Context, _ *Session, _ Artifacts, _ []ReadinessIssue) []DraftReviewIssue {
+		return sanitizeDraftReviewResponse(DraftReviewResponse{Issues: []DraftReviewIssue{{
+			Code:               "ambiguous_output",
+			Message:            "It is unclear which output should replace the ambiguous raw output.",
+			Slot:               "intent.outputs.ticket",
+			GapKind:            flowGapAmbiguousOutput,
+			RemediationAction:  remediationAskUser,
+			ClarifyingQuestion: "What exact output should this workflow return?",
+		}}}).Issues
+	}
+	artifacts, err := finalProgressiveConfirmationLoop(context.Background(), &out, &prompter{PromptSession: prompts, out: &out}, &session, docs, "", &events, false, false, review)
+	if err != nil {
+		t.Fatalf("final confirmation failed: %v\n%s", err, out.String())
+	}
+	if got := artifacts.Session.Intent.Outputs[0].From; got != "get_ticket.received_body.id" {
+		t.Fatalf("output from = %q", got)
+	}
+	if !strings.Contains(artifacts.IntentHCL, `from = "get_ticket.received_body.id"`) {
+		t.Fatalf("intent HCL did not reflect applied answer:\n%s", artifacts.IntentHCL)
+	}
+	if !hasDraftReviewAnswerEvent(events, true) {
+		t.Fatalf("missing applied answer event: %#v", events)
+	}
+}
+
+func TestProgressivePreFinalReviewForcedQuestionKeepsUnsafeAnswerAsComment(t *testing.T) {
+	example := t.TempDir()
+	writeOpenAPI(t, example)
+	docs, err := DiscoverLocalAPIs(example, "")
+	if err != nil {
+		t.Fatalf("discover APIs: %v", err)
+	}
+	session := supportTicketDraft(true)
+	var out strings.Builder
+	prompts := authoring.NewPromptSession(strings.NewReader("Change the operation to listTickets first.\nsave\n"), &out)
+	var events []TranscriptEvent
+	review := func(_ context.Context, _ *Session, _ Artifacts, _ []ReadinessIssue) []DraftReviewIssue {
+		return sanitizeDraftReviewResponse(DraftReviewResponse{Issues: []DraftReviewIssue{{
+			Code:               "ambiguous_output",
+			Message:            "It is unclear which output should replace the ambiguous raw output.",
+			Slot:               "intent.outputs.ticket",
+			GapKind:            flowGapAmbiguousOutput,
+			RemediationAction:  remediationAskUser,
+			ClarifyingQuestion: "What exact output should this workflow return?",
+		}}}).Issues
+	}
+	artifacts, err := finalProgressiveConfirmationLoop(context.Background(), &out, &prompter{PromptSession: prompts, out: &out}, &session, docs, "", &events, false, false, review)
+	if err != nil {
+		t.Fatalf("final confirmation failed: %v\n%s", err, out.String())
+	}
+	if got := artifacts.Session.Intent.Outputs[0].From; got != "get_ticket.received_body" {
+		t.Fatalf("unsafe answer changed output to %q", got)
+	}
+	if !strings.Contains(artifacts.IntentHCL, "Operator clarification: Change the operation to listTickets first.") {
+		t.Fatalf("intent HCL missing unsafe clarification comment:\n%s", artifacts.IntentHCL)
+	}
+	if !hasDraftReviewAnswerEvent(events, false) {
+		t.Fatalf("missing comment-only answer event: %#v", events)
+	}
+}
+
 func TestProgressivePreFinalReviewRunsAgainAfterFinalEdit(t *testing.T) {
 	example := t.TempDir()
 	writeOpenAPI(t, example)
@@ -1078,8 +1189,8 @@ func TestSuggestedOperationAnswerRanksStepCandidates(t *testing.T) {
 		{OperationID: "gmail_users_messages_send", Summary: "Sends the specified message to the recipients."},
 	}}}
 
-	if got, want := suggestedOperationAnswerForStep(session, docs, session.Intent.Steps[0]), "gmail_users_messages_send"; got != want {
-		t.Fatalf("suggested operation = %q, want %q", got, want)
+	if got := suggestedOperationAnswerForStep(session, docs, session.Intent.Steps[0]); got != "" {
+		t.Fatalf("multi-operation step suggested unsafe default operation: %q", got)
 	}
 	hint := operationChoiceHintForStep(session, docs, session.Intent.Steps[0])
 	if !strings.Contains(hint, "gmail_users_messages_send") || !strings.Contains(hint, "gmail_users_getprofile") {
@@ -1109,8 +1220,8 @@ func TestAdvisoryAPIDocumentTakesProviderPriority(t *testing.T) {
 	if len(filtered) != 2 || filtered[0].RelativePath != "openapi/openweathermap-one-call-3-overlay.json" {
 		t.Fatalf("filtered docs priority = %#v", filtered)
 	}
-	if got, want := suggestedOperationAnswerForStep(session, docs, session.Intent.Steps[0]), "getOpenWeatherMapOneCall3"; got != want {
-		t.Fatalf("suggested operation = %q, want %q", got, want)
+	if got := suggestedOperationAnswerForStep(session, docs, session.Intent.Steps[0]); got != "" {
+		t.Fatalf("multi-document step suggested unsafe default operation: %q", got)
 	}
 }
 
@@ -1566,6 +1677,15 @@ func hasClassification(classifications []MappingClassification, slot, value, sou
 	return false
 }
 
+func hasDecisionEvidence(evidence []DecisionEvidence, slot, value string) bool {
+	for _, item := range evidence {
+		if item.Slot == slot && item.Value == value {
+			return true
+		}
+	}
+	return false
+}
+
 func TestProgressiveAmbiguousOperationAsksBeforeFieldMapping(t *testing.T) {
 	example := t.TempDir()
 	writeMultiOperationOpenAPI(t, example)
@@ -1672,6 +1792,57 @@ func TestGuidedSaaSOperationQuestionIncludesListedOperationIDs(t *testing.T) {
 	plan := PlanNextQuestion(session, docs, issues)
 	if !strings.Contains(plan.Prompt, "listed operationId") {
 		t.Fatalf("operation prompt missing listed operationId guidance: %#v", plan)
+	}
+	if plan.SuggestedAnswer != "" {
+		t.Fatalf("multi-operation prompt suggested unsafe default operation: %#v", plan)
+	}
+}
+
+func TestOperationQuestionSuggestsOnlySingleOperation(t *testing.T) {
+	session := Session{
+		Intent: rollout.Intent{
+			Workflow: &rollout.WorkflowMeta{Name: "support", Description: "Fetch a support ticket."},
+			Source:   "openapi/support.yaml",
+			Steps:    []*rollout.Step{{Name: "support", Type: "http", Provider: "support"}},
+		},
+	}
+	docs := []APIDocument{{RelativePath: "openapi/support.yaml", Operations: []apitools.OperationSummary{
+		{OperationID: "getTicket"},
+	}}}
+	issues := CheckReadiness(session, docs)
+	plan := PlanNextQuestion(session, docs, issues)
+	if plan.SuggestedAnswer != "getTicket" {
+		t.Fatalf("single-operation prompt suggested %q, want getTicket", plan.SuggestedAnswer)
+	}
+}
+
+func TestNoSourceCapabilityGapFallback(t *testing.T) {
+	session := Session{
+		Project: projectwizard.Answers{
+			Goal: "Stop and render a capability gap report when an ambiguous provider action lacks usable API source evidence.",
+		},
+		Intent: rollout.Intent{Workflow: &rollout.WorkflowMeta{
+			Name:        "m28_ambiguous_source_negative",
+			Description: "Stop and render a capability gap report when an ambiguous provider action lacks usable API source evidence.",
+		}},
+	}
+	if !deterministicPrefill(&session, nil) {
+		t.Fatal("gap fallback was not applied")
+	}
+	if len(session.Intent.Inputs) != 2 || session.Intent.Inputs[0].Name != "provider" || session.Intent.Inputs[1].Name != "action" {
+		t.Fatalf("inputs = %#v", session.Intent.Inputs)
+	}
+	if len(session.Intent.Steps) != 1 || session.Intent.Steps[0].Name != "render_capability_gap" || session.Intent.Steps[0].Type != "fnct" {
+		t.Fatalf("steps = %#v", session.Intent.Steps)
+	}
+	if got := session.Intent.Steps[0].With["provider"]; got != "inputs.provider" {
+		t.Fatalf("provider binding = %q", got)
+	}
+	if len(session.Intent.Outputs) != 1 || session.Intent.Outputs[0].Name != "gap_report" {
+		t.Fatalf("outputs = %#v", session.Intent.Outputs)
+	}
+	if !hasDecisionEvidence(session.DecisionEvidence, "intent.steps.render_capability_gap", "no-source capability gap fallback") {
+		t.Fatalf("missing no-source decision evidence: %#v", session.DecisionEvidence)
 	}
 }
 
@@ -1990,6 +2161,22 @@ func supportTicketDraft(withField bool) Session {
 			RequiresConfirmation: true,
 		}},
 	}
+}
+
+func hasDraftReviewAnswerEvent(events []TranscriptEvent, applied bool) bool {
+	for _, event := range events {
+		if event.Kind != "draft_flow_review_answer" {
+			continue
+		}
+		data, ok := event.Data.(map[string]any)
+		if !ok {
+			continue
+		}
+		if got, ok := data["applied"].(bool); ok && got == applied {
+			return true
+		}
+	}
+	return false
 }
 
 func sessionHasOperation(session Session, operationID string) bool {

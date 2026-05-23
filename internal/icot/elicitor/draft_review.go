@@ -46,13 +46,33 @@ type DraftReviewResponse struct {
 }
 
 type DraftReviewIssue struct {
-	Severity        string `json:"severity,omitempty"`
-	Code            string `json:"code,omitempty"`
-	Message         string `json:"message,omitempty"`
-	Slot            string `json:"slot,omitempty"`
-	SuggestedAnswer string `json:"suggested_answer,omitempty"`
-	Evidence        string `json:"evidence,omitempty"`
+	Severity           string `json:"severity,omitempty"`
+	Code               string `json:"code,omitempty"`
+	Message            string `json:"message,omitempty"`
+	Slot               string `json:"slot,omitempty"`
+	SuggestedAnswer    string `json:"suggested_answer,omitempty"`
+	Evidence           string `json:"evidence,omitempty"`
+	GapKind            string `json:"gap_kind,omitempty"`
+	RemediationAction  string `json:"remediation_action,omitempty"`
+	ClarifyingQuestion string `json:"clarifying_question,omitempty"`
 }
+
+const (
+	flowGapMissingTransformStep     = "missing_transform_step"
+	flowGapMissingAPIPrework        = "missing_api_prework"
+	flowGapDisconnectedNotification = "disconnected_notification"
+	flowGapAmbiguousOutput          = "ambiguous_output"
+	flowGapOperationMismatch        = "operation_mismatch"
+	flowGapUnavailableSource        = "unavailable_source"
+	flowGapUnclearIntent            = "unclear_intent"
+	flowGapNarrowRepair             = "narrow_repair"
+
+	remediationApplyNarrowRepair = "apply_narrow_repair"
+	remediationProposeFnctStep   = "propose_fnct_step"
+	remediationProposeAPIPrework = "propose_api_prework"
+	remediationAskUser           = "ask_user"
+	remediationCommentOnly       = "comment_only"
+)
 
 func BuildDraftReviewRequest(session Session, docs []APIDocument, issues []ReadinessIssue) DraftReviewRequest {
 	session.Normalize()
@@ -130,19 +150,130 @@ func sanitizeDraftReviewResponse(response DraftReviewResponse) DraftReviewRespon
 		if code == "" || message == "" {
 			continue
 		}
-		out.Issues = append(out.Issues, DraftReviewIssue{
-			Severity:        readinessWarning,
-			Code:            code,
-			Message:         truncateForPrompt(message, 240),
-			Slot:            truncateForPrompt(strings.TrimSpace(issue.Slot), 120),
-			SuggestedAnswer: truncateForPrompt(strings.TrimSpace(issue.SuggestedAnswer), 240),
-			Evidence:        truncateForPrompt(strings.TrimSpace(issue.Evidence), 240),
-		})
+		sanitized := DraftReviewIssue{
+			Severity:           readinessWarning,
+			Code:               code,
+			Message:            truncateForPrompt(message, 240),
+			Slot:               truncateForPrompt(strings.TrimSpace(issue.Slot), 120),
+			SuggestedAnswer:    truncateForPrompt(strings.TrimSpace(issue.SuggestedAnswer), 240),
+			Evidence:           truncateForPrompt(strings.TrimSpace(issue.Evidence), 240),
+			ClarifyingQuestion: truncateForPrompt(strings.TrimSpace(issue.ClarifyingQuestion), 220),
+		}
+		kind, action, ok := normalizeReviewRemediation(issue.GapKind, issue.RemediationAction)
+		if !ok {
+			kind, action = classifyDraftReviewIssue(sanitized)
+		}
+		sanitized.GapKind = kind
+		sanitized.RemediationAction = action
+		if sanitized.RemediationAction != remediationAskUser {
+			sanitized.ClarifyingQuestion = ""
+		}
+		out.Issues = append(out.Issues, sanitized)
 		if len(out.Issues) >= 5 {
 			break
 		}
 	}
 	return out
+}
+
+func normalizeReviewRemediation(kind, action string) (string, string, bool) {
+	kind = strings.TrimSpace(kind)
+	action = strings.TrimSpace(action)
+	if !validFlowGapKind(kind) || !validRemediationAction(action) {
+		return "", "", false
+	}
+	if !remediationActionAllowedForGap(kind, action) {
+		return "", "", false
+	}
+	return kind, action, true
+}
+
+func remediationActionAllowedForGap(kind, action string) bool {
+	switch kind {
+	case flowGapMissingTransformStep:
+		return action == remediationProposeFnctStep || action == remediationCommentOnly || action == remediationAskUser
+	case flowGapMissingAPIPrework:
+		return action == remediationProposeAPIPrework || action == remediationCommentOnly || action == remediationAskUser
+	case flowGapDisconnectedNotification:
+		return action == remediationCommentOnly || action == remediationApplyNarrowRepair || action == remediationAskUser
+	case flowGapAmbiguousOutput:
+		return action == remediationAskUser || action == remediationCommentOnly
+	case flowGapOperationMismatch:
+		return action == remediationCommentOnly || action == remediationAskUser
+	case flowGapUnavailableSource:
+		return action == remediationCommentOnly
+	case flowGapUnclearIntent:
+		return action == remediationCommentOnly || action == remediationAskUser
+	case flowGapNarrowRepair:
+		return action == remediationApplyNarrowRepair
+	default:
+		return false
+	}
+}
+
+func validFlowGapKind(kind string) bool {
+	switch kind {
+	case flowGapMissingTransformStep, flowGapMissingAPIPrework, flowGapDisconnectedNotification, flowGapAmbiguousOutput, flowGapOperationMismatch, flowGapUnavailableSource, flowGapUnclearIntent, flowGapNarrowRepair:
+		return true
+	default:
+		return false
+	}
+}
+
+func validRemediationAction(action string) bool {
+	switch action {
+	case remediationApplyNarrowRepair, remediationProposeFnctStep, remediationProposeAPIPrework, remediationAskUser, remediationCommentOnly:
+		return true
+	default:
+		return false
+	}
+}
+
+func classifyDraftReviewIssue(issue DraftReviewIssue) (string, string) {
+	text := strings.ToLower(strings.Join([]string{issue.Code, issue.Message, issue.Slot, issue.Evidence, issue.SuggestedAnswer}, " "))
+	switch {
+	case isNarrowDraftRepairIssue(issue):
+		return flowGapNarrowRepair, remediationApplyNarrowRepair
+	case strings.Contains(text, "operation") && (strings.Contains(text, "wrong") || strings.Contains(text, "mismatch") || strings.Contains(text, "incompatible") || strings.Contains(text, "does not match")):
+		return flowGapOperationMismatch, remediationCommentOnly
+	case strings.Contains(text, "unavailable") || strings.Contains(text, "missing api") || strings.Contains(text, "missing source") || strings.Contains(text, "missing artifact") || strings.Contains(text, "not available"):
+		return flowGapUnavailableSource, remediationCommentOnly
+	case strings.Contains(text, "prework") || strings.Contains(text, "lookup") || strings.Contains(text, "fetch before") || strings.Contains(text, "read before") || strings.Contains(text, "resolve before"):
+		return flowGapMissingAPIPrework, remediationProposeAPIPrework
+	case notificationFlowText(text):
+		return flowGapDisconnectedNotification, remediationCommentOnly
+	case transformFlowText(text):
+		return flowGapMissingTransformStep, remediationProposeFnctStep
+	case strings.Contains(text, "output") && (strings.Contains(text, "ambiguous") || strings.Contains(text, "which") || strings.Contains(text, "unclear") || strings.Contains(text, "raw") || strings.Contains(text, "transport")):
+		return flowGapAmbiguousOutput, remediationAskUser
+	case strings.Contains(text, "unclear") || strings.Contains(text, "ambiguous") || strings.Contains(text, "underspecified"):
+		return flowGapUnclearIntent, remediationCommentOnly
+	default:
+		return flowGapUnclearIntent, remediationCommentOnly
+	}
+}
+
+func isNarrowDraftRepairIssue(issue DraftReviewIssue) bool {
+	if strings.TrimSpace(issue.SuggestedAnswer) == "" {
+		return false
+	}
+	slot := strings.TrimSpace(issue.Slot)
+	return strings.Contains(slot, ".with.") || strings.HasSuffix(slot, ".depends_on") || strings.HasPrefix(slot, "intent.outputs.") || strings.HasPrefix(slot, "outputs[") || strings.HasPrefix(slot, "outputs.")
+}
+
+func notificationFlowText(text string) bool {
+	transport := strings.Contains(text, "email") || strings.Contains(text, "gmail") || strings.Contains(text, "slack") || strings.Contains(text, "message") || strings.Contains(text, "notification") || strings.Contains(text, "send")
+	disconnected := strings.Contains(text, "disconnect") || strings.Contains(text, "does not consume") || strings.Contains(text, "unrelated") || strings.Contains(text, "missing content")
+	return transport && disconnected
+}
+
+func transformFlowText(text string) bool {
+	for _, token := range []string{"report", "receipt", "summary", "summar", "render", "transform", "normalize", "normalise", "enrich", "produced content", "generated content"} {
+		if strings.Contains(text, token) {
+			return true
+		}
+	}
+	return false
 }
 
 func draftReviewReadinessIssues(response DraftReviewResponse) []ReadinessIssue {
@@ -198,6 +329,12 @@ func annotateIntentHCLWithFlowReviewWarnings(intentHCL string, issues []DraftRev
 
 func flowReviewComment(issue DraftReviewIssue) string {
 	lines := []string{fmt.Sprintf("# iCoT flow review warning (%s): %s", issue.Code, reviewCommentText(issue.Message))}
+	if strings.TrimSpace(issue.GapKind) != "" {
+		lines = append(lines, "# Gap kind: "+reviewCommentText(issue.GapKind))
+	}
+	if strings.TrimSpace(issue.RemediationAction) != "" {
+		lines = append(lines, "# Remediation: "+reviewCommentText(issue.RemediationAction))
+	}
 	if strings.TrimSpace(issue.Slot) != "" {
 		lines = append(lines, "# Slot: "+reviewCommentText(issue.Slot))
 	}
@@ -206,6 +343,9 @@ func flowReviewComment(issue DraftReviewIssue) string {
 	}
 	if strings.TrimSpace(issue.SuggestedAnswer) != "" {
 		lines = append(lines, "# Suggested review: "+reviewCommentText(issue.SuggestedAnswer))
+	}
+	if strings.TrimSpace(issue.ClarifyingQuestion) != "" {
+		lines = append(lines, "# Clarifying question: "+reviewCommentText(issue.ClarifyingQuestion))
 	}
 	return strings.Join(lines, "\n")
 }

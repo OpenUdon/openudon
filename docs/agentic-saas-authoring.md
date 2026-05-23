@@ -80,9 +80,15 @@ come later from reviewed local API source metadata.
 Before final confirmation, LLM-assisted iCoT may run one advisory flow review
 over the complete draft. That review is limited to cross-step data-flow
 mistakes that deterministic schema checks may miss; it reports warnings but
-does not rewrite the draft by default. Experimental `--review-repair` may make
-up to two bounded repairs to request mappings, output sources, or `depends_on`.
-It rejects source, operation, credential, and side-effect-scope mutations.
+does not rewrite the draft by default. Each warning is locally normalized into a
+flow-gap kind plus remediation action, and unresolved warnings are written back
+as non-executable `intent.hcl` comments. Experimental `--review-repair` may make
+up to two bounded repairs to request mappings, output sources, or `depends_on`;
+it may also add a local `fnct` transform/report/render step when the goal
+clearly asks for produced content and exactly one existing producer step can
+feed it. It rejects source, operation, credential, side-effect-scope, and
+ambiguous structural mutations. When the remaining issue is true user-intent
+ambiguity, iCoT asks one forced question even in `fast` mode.
 
 ## Mapping Rules
 

@@ -25,7 +25,11 @@ document, operation, required request values, credential bindings, runtime input
 safety policy. The first valid intent jumps to final review; remaining warnings and inferred values
 are shown as assumptions, and saving confirms them. When LLM extraction is enabled, iCoT also runs a
 single advisory pre-final flow review that looks for cross-step data-flow mistakes such as a report
-email step not consuming report content. The saved `intent.hcl` is a useful starting draft for
+email step not consuming report content. Flow warnings are classified into remediation actions and
+kept as visible `intent.hcl` comments when they are not automatically repaired. Experimental
+`--review-repair` can apply bounded wiring repairs or add a local `fnct` transform/report step when
+the existing draft has one defensible producer; it does not change API sources, operations,
+credentials, or side-effect scope. The saved `intent.hcl` is a useful starting draft for
 build/review, not a promise that iCoT found the perfect workflow; operators should reject bad drafts
 or confirm and continue editing manually.
 

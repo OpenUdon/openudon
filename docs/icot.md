@@ -66,11 +66,24 @@ With LLM extraction enabled, iCoT runs a bounded pre-final flow review before pr
 draft. The review is advisory and focuses only on cross-step data-flow mistakes that deterministic
 checks may miss, such as an email/report step not consuming the data it should send.
 
-The pre-final review is single-pass and does not mutate the draft by default. `--review-repair` is
-an experimental opt-in mode that can make at most two bounded repair attempts from flow-review
-suggestions. It may repair request mappings, output sources, and `depends_on` only; it rejects
-source, operation, credential, and side-effect-scope mutations and records the repair attempt in the
-transcript.
+The review classifies each warning with a flow-gap kind and remediation action. Gap kinds include
+missing local transform/report steps, missing API prework, disconnected notifications, ambiguous
+outputs, operation mismatches, unavailable sources, unclear intent, and narrow repairable wiring.
+Invalid or absent model classifications are reclassified locally before use.
+
+The pre-final review does not mutate the draft by default. Unresolved issues are preserved as
+non-executable `intent.hcl` comments with the gap kind, remediation action, slot, evidence, and any
+suggested review. `--review-repair` is an experimental opt-in mode that can make at most two bounded
+repair attempts from flow-review suggestions. It first applies narrow request-mapping,
+output-source, and `depends_on` repairs, then may add a local `fnct` transform/report/render step
+only when the goal clearly asks for produced content and exactly one existing producer step can feed
+it. It rejects source, operation, credential, side-effect-scope, and ambiguous structural mutations
+and records the repair attempt in the transcript.
+
+`fast` mode still stops for true ambiguity. If the flow review marks an issue as requiring user
+intent, iCoT asks one forced high-priority question even when defaulted prompts would normally be
+accepted silently. The answer is recorded as decision evidence; iCoT does not hide a workflow rewrite
+behind that answer.
 
 ## Guided SaaS Authoring
 

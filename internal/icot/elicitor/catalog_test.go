@@ -179,7 +179,7 @@ func TestBuildCatalogPlanRequestUsesCompactArtifactMetadata(t *testing.T) {
 	}
 }
 
-func TestApplyCatalogPlanResponseMigratesValidatedSelectionAndSeedsRoughSteps(t *testing.T) {
+func TestApplyCatalogPlanResponseMigratesValidatedSelectionAndKeepsProposedStepsAdvisory(t *testing.T) {
 	cacheRoot := t.TempDir()
 	example := t.TempDir()
 	writeCatalogArtifact(t, cacheRoot, "openapi/test-api.json")
@@ -200,11 +200,11 @@ func TestApplyCatalogPlanResponseMigratesValidatedSelectionAndSeedsRoughSteps(t 
 	applied, err := applyCatalogPlanResponse(&out, &session, hints, example, CatalogPlanResponse{
 		SelectedArtifacts: []CatalogPlanArtifactSelection{{ProviderID: "test", ArtifactKey: key}},
 		ProposedSteps: []CatalogPlanStep{{
-			Name:     "test_lookup",
+			Name:     "invented_capability_name",
 			Type:     "http",
 			Provider: "test",
 			OpenAPI:  "openapi/test-api.json",
-			Do:       "Use Test API for the first capability.",
+			Do:       "Perform a made-up catalog planning capability.",
 		}},
 	})
 	if err != nil {
@@ -222,8 +222,11 @@ func TestApplyCatalogPlanResponseMigratesValidatedSelectionAndSeedsRoughSteps(t 
 		t.Fatalf("steps = %#v", session.Intent.Steps)
 	}
 	step := session.Intent.Steps[0]
+	if step.Name != "test" || step.Do != "Use Test API for this workflow capability." {
+		t.Fatalf("rough proposed step leaked into intent: %#v", step)
+	}
 	if step.Operation != "" || len(step.With) != 0 || step.Provider != "test" || step.OpenAPI != "openapi/test-api.json" {
-		t.Fatalf("unsafe or missing rough step fields: %#v", step)
+		t.Fatalf("unsafe or missing provider placeholder fields: %#v", step)
 	}
 	if !hasAssumption(session.Assumptions, "catalog_plan_api_docs_migrated") {
 		t.Fatalf("missing catalog plan assumption: %#v", session.Assumptions)

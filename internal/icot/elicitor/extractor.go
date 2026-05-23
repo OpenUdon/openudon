@@ -5,6 +5,7 @@ import (
 	_ "embed"
 	"encoding/json"
 	"fmt"
+	"sort"
 	"strings"
 
 	"github.com/OpenUdon/apitools"
@@ -701,122 +702,238 @@ func projectProse(base, refined projectwizard.Answers) projectwizard.Answers {
 	return base
 }
 
-const kickoffSchema = `{
-  "type": "object",
-  "additionalProperties": false,
-  "properties": {
-    "project": {"type": "object", "additionalProperties": true},
-    "intent": {"type": "object", "additionalProperties": true},
-    "credentials": {"type": "array", "items": {"type": "string"}},
-    "safety": {"type": "string"},
-    "fallback": {"type": "string"},
-    "side_effect_scope": {"type": "string"},
-    "annotations": {"type": "array", "items": {"type": "object", "additionalProperties": true}}
-  }
-}`
+var (
+	kickoffSchema         = mustStructuredSchema(sessionCompletionSchema(false))
+	disambiguateSchema    = mustStructuredSchema(strictObjectSchema(map[string]any{"paths": stringArraySchema()}))
+	catalogPlanSchema     = mustStructuredSchema(catalogPlanCompletionSchema())
+	requestMappingsSchema = mustStructuredSchema(requestMappingsCompletionSchema())
+	draftReviewSchema     = mustStructuredSchema(draftReviewCompletionSchema())
+	draftSchema           = mustStructuredSchema(sessionCompletionSchema(true))
+)
 
-const disambiguateSchema = `{
-  "type": "object",
-  "additionalProperties": false,
-  "properties": {
-    "paths": {"type": "array", "items": {"type": "string"}}
-  }
-}`
+func mustStructuredSchema(schema map[string]any) string {
+	data, err := json.Marshal(schema)
+	if err != nil {
+		panic(err)
+	}
+	return string(data)
+}
 
-const catalogPlanSchema = `{
-  "type": "object",
-  "additionalProperties": false,
-  "properties": {
-    "selected_artifacts": {
-      "type": "array",
-      "items": {
-        "type": "object",
-        "additionalProperties": false,
-        "properties": {
-          "provider_id": {"type": "string"},
-          "artifact_key": {"type": "string"},
-          "reason": {"type": "string"}
-        }
-      }
-    },
-    "proposed_steps": {
-      "type": "array",
-      "items": {
-        "type": "object",
-        "additionalProperties": false,
-        "properties": {
-          "name": {"type": "string"},
-          "type": {"type": "string"},
-          "provider": {"type": "string"},
-          "openapi": {"type": "string"},
-          "do": {"type": "string"},
-          "depends_on": {"type": "array", "items": {"type": "string"}}
-        }
-      }
-    },
-    "blockers": {"type": "array", "items": {"type": "string"}},
-    "assumptions": {"type": "array", "items": {"type": "string"}}
-  }
-}`
+func strictObjectSchema(properties map[string]any) map[string]any {
+	required := make([]string, 0, len(properties))
+	for name := range properties {
+		required = append(required, name)
+	}
+	sort.Strings(required)
+	return map[string]any{
+		"type":                 "object",
+		"additionalProperties": false,
+		"required":             required,
+		"properties":           properties,
+	}
+}
 
-const requestMappingsSchema = `{
-  "type": "object",
-  "additionalProperties": false,
-  "properties": {
-    "steps": {
-      "type": "array",
-      "items": {
-        "type": "object",
-        "additionalProperties": false,
-        "properties": {
-          "name": {"type": "string"},
-          "with": {"type": "object", "additionalProperties": {"type": "string"}}
-        }
-      }
-    },
-    "assumptions": {"type": "array", "items": {"type": "string"}},
-    "blockers": {"type": "array", "items": {"type": "string"}}
-  }
-}`
+func stringSchema() map[string]any {
+	return map[string]any{"type": "string"}
+}
 
-const draftReviewSchema = `{
-  "type": "object",
-  "additionalProperties": false,
-  "properties": {
-    "issues": {
-      "type": "array",
-      "items": {
-        "type": "object",
-        "additionalProperties": false,
-        "properties": {
-          "severity": {"type": "string"},
-          "code": {"type": "string"},
-          "message": {"type": "string"},
-          "slot": {"type": "string"},
-          "suggested_answer": {"type": "string"},
-          "evidence": {"type": "string"}
-        }
-      }
-    }
-  }
-}`
+func boolSchema() map[string]any {
+	return map[string]any{"type": "boolean"}
+}
 
-const draftSchema = `{
-  "type": "object",
-  "additionalProperties": false,
-  "properties": {
-    "project": {"type": "object", "additionalProperties": true},
-    "intent": {"type": "object", "additionalProperties": true},
-    "credentials": {"type": "array", "items": {"type": "string"}},
-    "credentials_set": {"type": "boolean"},
-    "safety": {"type": "string"},
-    "safety_set": {"type": "boolean"},
-    "fallback": {"type": "string"},
-    "fallback_set": {"type": "boolean"},
-    "side_effect_scope": {"type": "string"},
-    "annotations": {"type": "array", "items": {"type": "object", "additionalProperties": true}},
-    "assumptions": {"type": "array", "items": {"type": "object", "additionalProperties": true}},
-    "requested_operation_ids": {"type": "array", "items": {"type": "string"}},
-    "detail_request_reason": {"type": "string"}
-  }
-}`
+func stringArraySchema() map[string]any {
+	return map[string]any{"type": "array", "items": stringSchema()}
+}
+
+func arraySchema(item map[string]any) map[string]any {
+	return map[string]any{"type": "array", "items": item}
+}
+
+func sessionCompletionSchema(includeDraftDetailFields bool) map[string]any {
+	properties := map[string]any{
+		"project":           projectSchema(),
+		"intent":            intentSchema(),
+		"credentials":       stringArraySchema(),
+		"credentials_set":   boolSchema(),
+		"safety":            stringSchema(),
+		"safety_set":        boolSchema(),
+		"fallback":          stringSchema(),
+		"fallback_set":      boolSchema(),
+		"side_effect_scope": stringSchema(),
+		"annotations":       arraySchema(sourceAnnotationSchema()),
+		"assumptions":       arraySchema(assumptionSchema()),
+	}
+	if includeDraftDetailFields {
+		properties["requested_operation_ids"] = stringArraySchema()
+		properties["detail_request_reason"] = stringSchema()
+	}
+	return strictObjectSchema(properties)
+}
+
+func projectSchema() map[string]any {
+	return strictObjectSchema(map[string]any{
+		"project_name":       stringSchema(),
+		"goal":               stringSchema(),
+		"inputs":             stringSchema(),
+		"outputs":            stringSchema(),
+		"data_flow":          stringSchema(),
+		"function_contracts": stringSchema(),
+		"uses_openapi":       boolSchema(),
+		"openapi":            stringSchema(),
+		"cmd_approved":       boolSchema(),
+		"ssh_approved":       boolSchema(),
+		"side_effect_scope":  stringSchema(),
+		"credentials":        stringArraySchema(),
+		"safety":             stringSchema(),
+		"fallback":           stringSchema(),
+	})
+}
+
+func intentSchema() map[string]any {
+	return strictObjectSchema(map[string]any{
+		"source":     stringSchema(),
+		"openapi":    stringSchema(),
+		"server_url": stringSchema(),
+		"workflow":   workflowSchema(),
+		"inputs":     arraySchema(inputSchema()),
+		"steps":      arraySchema(stepSchema()),
+		"security":   arraySchema(securitySchema()),
+		"outputs":    arraySchema(outputSchema()),
+	})
+}
+
+func workflowSchema() map[string]any {
+	return strictObjectSchema(map[string]any{
+		"name":        stringSchema(),
+		"description": stringSchema(),
+	})
+}
+
+func inputSchema() map[string]any {
+	return strictObjectSchema(map[string]any{
+		"name":        stringSchema(),
+		"type":        stringSchema(),
+		"description": stringSchema(),
+		"required":    boolSchema(),
+		"sensitive":   boolSchema(),
+		"default":     stringSchema(),
+	})
+}
+
+func stepSchema() map[string]any {
+	return strictObjectSchema(map[string]any{
+		"name":       stringSchema(),
+		"type":       stringSchema(),
+		"do":         stringSchema(),
+		"using":      stringSchema(),
+		"set":        stringSchema(),
+		"when":       stringSchema(),
+		"for_each":   stringSchema(),
+		"depends_on": stringArraySchema(),
+		"with": arraySchema(strictObjectSchema(map[string]any{
+			"field":  stringSchema(),
+			"source": stringSchema(),
+		})),
+		"provider":  stringSchema(),
+		"source":    stringSchema(),
+		"openapi":   stringSchema(),
+		"operation": stringSchema(),
+		"bind": arraySchema(strictObjectSchema(map[string]any{
+			"from": stringSchema(),
+			"fields": arraySchema(strictObjectSchema(map[string]any{
+				"field":  stringSchema(),
+				"source": stringSchema(),
+			})),
+		})),
+		"items":      stringSchema(),
+		"mode":       stringSchema(),
+		"batch_size": stringSchema(),
+	})
+}
+
+func securitySchema() map[string]any {
+	return strictObjectSchema(map[string]any{
+		"name":        stringSchema(),
+		"description": stringSchema(),
+		"token_from":  stringSchema(),
+	})
+}
+
+func outputSchema() map[string]any {
+	return strictObjectSchema(map[string]any{
+		"name":        stringSchema(),
+		"from":        stringSchema(),
+		"description": stringSchema(),
+	})
+}
+
+func sourceAnnotationSchema() map[string]any {
+	return strictObjectSchema(map[string]any{
+		"slot":           stringSchema(),
+		"source":         stringSchema(),
+		"prompt_version": stringSchema(),
+		"evidence":       stringSchema(),
+	})
+}
+
+func assumptionSchema() map[string]any {
+	return strictObjectSchema(map[string]any{
+		"id":                    stringSchema(),
+		"slot":                  stringSchema(),
+		"value":                 stringSchema(),
+		"reason":                stringSchema(),
+		"evidence":              stringSchema(),
+		"risk":                  stringSchema(),
+		"requires_confirmation": boolSchema(),
+	})
+}
+
+func catalogPlanCompletionSchema() map[string]any {
+	return strictObjectSchema(map[string]any{
+		"selected_artifacts": arraySchema(strictObjectSchema(map[string]any{
+			"provider_id":  stringSchema(),
+			"artifact_key": stringSchema(),
+			"reason":       stringSchema(),
+		})),
+		"proposed_steps": arraySchema(strictObjectSchema(map[string]any{
+			"name":       stringSchema(),
+			"type":       stringSchema(),
+			"provider":   stringSchema(),
+			"openapi":    stringSchema(),
+			"do":         stringSchema(),
+			"depends_on": stringArraySchema(),
+		})),
+		"blockers":    stringArraySchema(),
+		"assumptions": stringArraySchema(),
+	})
+}
+
+func requestMappingsCompletionSchema() map[string]any {
+	return strictObjectSchema(map[string]any{
+		"steps": arraySchema(strictObjectSchema(map[string]any{
+			"name": stringSchema(),
+			"with": arraySchema(strictObjectSchema(map[string]any{
+				"field":  stringSchema(),
+				"source": stringSchema(),
+			})),
+		})),
+		"assumptions": stringArraySchema(),
+		"blockers":    stringArraySchema(),
+	})
+}
+
+func draftReviewCompletionSchema() map[string]any {
+	return strictObjectSchema(map[string]any{
+		"issues": arraySchema(strictObjectSchema(map[string]any{
+			"severity":            stringSchema(),
+			"code":                stringSchema(),
+			"message":             stringSchema(),
+			"slot":                stringSchema(),
+			"suggested_answer":    stringSchema(),
+			"evidence":            stringSchema(),
+			"gap_kind":            stringSchema(),
+			"remediation_action":  stringSchema(),
+			"clarifying_question": stringSchema(),
+		})),
+	})
+}

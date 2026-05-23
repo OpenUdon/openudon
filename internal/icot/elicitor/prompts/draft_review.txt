@@ -17,6 +17,23 @@ Use severity "warning" for every review-needed flow concern. This review is advi
 
 Each issue must include code, message, slot, and concise evidence from the provided draft.
 
+Classify each issue with one gap_kind:
+- missing_transform_step
+- missing_api_prework
+- disconnected_notification
+- ambiguous_output
+- operation_mismatch
+- unavailable_source
+- unclear_intent
+- narrow_repair
+
+Classify each issue with one remediation_action:
+- apply_narrow_repair
+- propose_fnct_step
+- propose_api_prework
+- ask_user
+- comment_only
+
 If an issue can be safely repaired by changing only a request mapping, an output source, or a dependency list, include suggested_answer. Use only these repairable slot forms:
 - steps.<step>.with.<field>
 - steps.<step>.depends_on
@@ -25,5 +42,9 @@ If an issue can be safely repaired by changing only a request mapping, an output
 For output-source repairs, use suggested_answer like "<output_name>=<step>.<path>". For dependency repairs, use "depends_on=<step_name>" or a comma-separated list. For request mappings, use "<field>=<source>".
 
 If the concern would require changing an API document, operation ID, credential, side-effect policy, or an unknown source path, leave suggested_answer blank.
+
+Use propose_fnct_step only when the goal clearly asks for local produced content such as a transform, summary, normalization, report, rendered message, receipt, or enrichment, and the existing draft already has a plausible prior producer step. Do not name a new provider operation for this action.
+
+Use ask_user only for true user-intent ambiguity, and include clarifying_question as one precise operator question. Do not use ask_user when a comment-only warning is sufficient.
 
 If no cross-step flow issue is visible, return {"issues":[]}.

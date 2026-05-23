@@ -74,9 +74,82 @@ type Step struct {
 	Default         *StepDefault          `hcl:"default,block" json:"default,omitempty"`
 }
 
+func (s *Step) UnmarshalJSON(data []byte) error {
+	type stepAlias Step
+	var raw struct {
+		*stepAlias
+		With json.RawMessage `json:"with,omitempty"`
+	}
+	raw.stepAlias = (*stepAlias)(s)
+	if err := json.Unmarshal(data, &raw); err != nil {
+		return err
+	}
+	if len(raw.With) > 0 {
+		with, err := decodeStringMapOrPairs(raw.With, "with")
+		if err != nil {
+			return err
+		}
+		s.With = with
+	}
+	return nil
+}
+
 type StepBind struct {
 	From   string            `hcl:"from" json:"from,omitempty"`
 	Fields map[string]string `hcl:"fields,optional" json:"fields,omitempty"`
+}
+
+func (b *StepBind) UnmarshalJSON(data []byte) error {
+	type bindAlias StepBind
+	var raw struct {
+		*bindAlias
+		Fields json.RawMessage `json:"fields,omitempty"`
+	}
+	raw.bindAlias = (*bindAlias)(b)
+	if err := json.Unmarshal(data, &raw); err != nil {
+		return err
+	}
+	if len(raw.Fields) > 0 {
+		fields, err := decodeStringMapOrPairs(raw.Fields, "bind.fields")
+		if err != nil {
+			return err
+		}
+		b.Fields = fields
+	}
+	return nil
+}
+
+func decodeStringMapOrPairs(data []byte, fieldName string) (map[string]string, error) {
+	if len(data) == 0 || string(data) == "null" {
+		return nil, nil
+	}
+	var object map[string]string
+	if err := json.Unmarshal(data, &object); err == nil {
+		if len(object) == 0 {
+			return nil, nil
+		}
+		return object, nil
+	}
+	var pairs []struct {
+		Field  string `json:"field"`
+		Source string `json:"source"`
+	}
+	if err := json.Unmarshal(data, &pairs); err != nil {
+		return nil, fmt.Errorf("decoding %s: %w", fieldName, err)
+	}
+	out := map[string]string{}
+	for _, pair := range pairs {
+		field := strings.TrimSpace(pair.Field)
+		source := strings.TrimSpace(pair.Source)
+		if field == "" || source == "" {
+			continue
+		}
+		out[field] = source
+	}
+	if len(out) == 0 {
+		return nil, nil
+	}
+	return out, nil
 }
 
 type StepCase struct {

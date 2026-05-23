@@ -59,6 +59,136 @@ func TestSanitizeDraftReviewResponseFiltersPrefixesAndCaps(t *testing.T) {
 	}
 }
 
+func TestDraftReviewIssueClassificationFallbacks(t *testing.T) {
+	tests := []struct {
+		name   string
+		issue  DraftReviewIssue
+		kind   string
+		action string
+	}{
+		{
+			name:   "missing transform",
+			issue:  DraftReviewIssue{Code: "output_transport_response", Message: "The output returns raw transport data instead of the requested receipt report.", Slot: "intent.outputs.result"},
+			kind:   flowGapMissingTransformStep,
+			action: remediationProposeFnctStep,
+		},
+		{
+			name:   "api prework",
+			issue:  DraftReviewIssue{Code: "missing_lookup", Message: "Resolve the customer id before this request.", Slot: "steps.update.with.customerId"},
+			kind:   flowGapMissingAPIPrework,
+			action: remediationProposeAPIPrework,
+		},
+		{
+			name:   "notification",
+			issue:  DraftReviewIssue{Code: "slack_disconnected", Message: "Slack message does not consume the generated summary.", Slot: "steps.slack.with.text"},
+			kind:   flowGapDisconnectedNotification,
+			action: remediationCommentOnly,
+		},
+		{
+			name:   "ambiguous output",
+			issue:  DraftReviewIssue{Code: "ambiguous_output", Message: "It is unclear which output should replace the raw transport response.", Slot: "intent.outputs.result"},
+			kind:   flowGapAmbiguousOutput,
+			action: remediationAskUser,
+		},
+		{
+			name:   "operation mismatch",
+			issue:  DraftReviewIssue{Code: "wrong_operation", Message: "The selected operation does not match the goal.", Slot: "steps.send.operation"},
+			kind:   flowGapOperationMismatch,
+			action: remediationCommentOnly,
+		},
+		{
+			name:   "unavailable source",
+			issue:  DraftReviewIssue{Code: "missing_artifact", Message: "The required API artifact is not available locally.", Slot: "intent.source"},
+			kind:   flowGapUnavailableSource,
+			action: remediationCommentOnly,
+		},
+		{
+			name:   "unclear intent",
+			issue:  DraftReviewIssue{Code: "unclear", Message: "The user intent is underspecified.", Slot: "workflow.description"},
+			kind:   flowGapUnclearIntent,
+			action: remediationCommentOnly,
+		},
+		{
+			name:   "narrow repair",
+			issue:  DraftReviewIssue{Code: "missing_dep", Message: "Add dependency.", Slot: "steps.send.depends_on", SuggestedAnswer: "depends_on=render_report"},
+			kind:   flowGapNarrowRepair,
+			action: remediationApplyNarrowRepair,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := sanitizeDraftReviewResponse(DraftReviewResponse{Issues: []DraftReviewIssue{tt.issue}})
+			if len(got.Issues) != 1 {
+				t.Fatalf("issues = %#v", got.Issues)
+			}
+			if got.Issues[0].GapKind != tt.kind || got.Issues[0].RemediationAction != tt.action {
+				t.Fatalf("remediation = %s/%s, want %s/%s", got.Issues[0].GapKind, got.Issues[0].RemediationAction, tt.kind, tt.action)
+			}
+		})
+	}
+}
+
+func TestDraftReviewRejectsInvalidSuppliedRemediation(t *testing.T) {
+	got := sanitizeDraftReviewResponse(DraftReviewResponse{Issues: []DraftReviewIssue{{
+		Code:              "wrong_operation",
+		Message:           "The selected operation does not match the goal.",
+		Slot:              "steps.send.operation",
+		GapKind:           "missing_transform_step",
+		RemediationAction: "rewrite_operation",
+	}}})
+	if len(got.Issues) != 1 {
+		t.Fatalf("issues = %#v", got.Issues)
+	}
+	if got.Issues[0].GapKind != flowGapOperationMismatch || got.Issues[0].RemediationAction != remediationCommentOnly {
+		t.Fatalf("invalid remediation was not reclassified: %#v", got.Issues[0])
+	}
+}
+
+func TestDraftReviewRejectsInvalidGapActionPair(t *testing.T) {
+	tests := []struct {
+		name   string
+		issue  DraftReviewIssue
+		kind   string
+		action string
+	}{
+		{
+			name: "operation mismatch cannot narrow repair",
+			issue: DraftReviewIssue{
+				Code:              "wrong_operation",
+				Message:           "The selected operation does not match the goal.",
+				Slot:              "steps.send.operation",
+				GapKind:           flowGapOperationMismatch,
+				RemediationAction: remediationApplyNarrowRepair,
+			},
+			kind:   flowGapOperationMismatch,
+			action: remediationCommentOnly,
+		},
+		{
+			name: "unavailable source cannot fnct repair",
+			issue: DraftReviewIssue{
+				Code:              "missing_artifact",
+				Message:           "The required API source is not available locally.",
+				Slot:              "intent.source",
+				GapKind:           flowGapUnavailableSource,
+				RemediationAction: remediationProposeFnctStep,
+			},
+			kind:   flowGapUnavailableSource,
+			action: remediationCommentOnly,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := sanitizeDraftReviewResponse(DraftReviewResponse{Issues: []DraftReviewIssue{tt.issue}})
+			if len(got.Issues) != 1 {
+				t.Fatalf("issues = %#v", got.Issues)
+			}
+			if got.Issues[0].GapKind != tt.kind || got.Issues[0].RemediationAction != tt.action {
+				t.Fatalf("remediation = %s/%s, want %s/%s", got.Issues[0].GapKind, got.Issues[0].RemediationAction, tt.kind, tt.action)
+			}
+		})
+	}
+}
+
 func TestAnnotateIntentHCLWithFlowReviewWarningsAnchorsToSlots(t *testing.T) {
 	intent := rollout.Intent{
 		Workflow: &rollout.WorkflowMeta{Name: "report", Description: "Send a report."},
