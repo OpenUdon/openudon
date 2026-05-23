@@ -106,6 +106,76 @@ func TestLocalAdvisorySecuritySidecarAppliesToDiscoveryOperation(t *testing.T) {
 	}
 }
 
+func TestValidateIntentOpenAPISecurityUsesNativeDiscoveryOAuthScopes(t *testing.T) {
+	example := t.TempDir()
+	mustWriteSynthesizeTestFile(t, filepath.Join(example, "google-discovery", "gmail.json"), []byte(discoveryOAuthDocument()))
+	intent := &rollout.Intent{Steps: []*rollout.Step{{
+		Name:      "send",
+		Type:      "http",
+		Source:    "google-discovery/gmail.json",
+		Operation: "gmail.users.messages.send",
+		With:      map[string]string{"userId": "me", "raw": "render_message.received_body"},
+	}}}
+	err := validateIntentOpenAPISecurity(intent, example, nil, "", analyzeProject(""))
+	if err == nil || !strings.Contains(err.Error(), "Credentials and Secrets") || !strings.Contains(err.Error(), "gmail_oauth_token") {
+		t.Fatalf("expected native Discovery OAuth credential policy failure, got %v", err)
+	}
+	policy := analyzeProject("## Credentials and Secrets\n- Use credential binding `gmail_oauth_token`.\n")
+	if err := validateIntentOpenAPISecurity(intent, example, nil, "", policy); err != nil {
+		t.Fatalf("native Discovery OAuth security should pass with policy: %v", err)
+	}
+}
+
+func TestValidateIntentOpenAPISecurityIgnoresDiscoveryWithoutOperationScopes(t *testing.T) {
+	example := t.TempDir()
+	mustWriteSynthesizeTestFile(t, filepath.Join(example, "google-discovery", "gmail.json"), []byte(minimalDiscoveryDocument()))
+	intent := &rollout.Intent{Steps: []*rollout.Step{{
+		Name:      "send",
+		Type:      "http",
+		Source:    "google-discovery/gmail.json",
+		Operation: "gmail.users.messages.send",
+		With:      map[string]string{"userId": "me"},
+	}}}
+	if err := validateIntentOpenAPISecurity(intent, example, nil, "", analyzeProject("")); err != nil {
+		t.Fatalf("Discovery operation without scopes should not require native security: %v", err)
+	}
+}
+
+func TestValidateIntentOpenAPISecurityUsesNativeSmithySigV4(t *testing.T) {
+	example := t.TempDir()
+	writeSmithySourceForTest(t, example, "aws-smithy/lambda.json", minimalSmithyDocument())
+	intent := &rollout.Intent{Steps: []*rollout.Step{{
+		Name:      "get",
+		Type:      "http",
+		Source:    "aws-smithy/lambda.json",
+		Operation: "GetFunction",
+		With:      map[string]string{"FunctionName": "hello"},
+	}}}
+	err := validateIntentOpenAPISecurity(intent, example, nil, "", analyzeProject(""))
+	if err == nil || !strings.Contains(err.Error(), "Credentials and Secrets") || !strings.Contains(err.Error(), "lambda_sigv4") {
+		t.Fatalf("expected native Smithy SigV4 credential policy failure, got %v", err)
+	}
+	policy := analyzeProject("## Credentials and Secrets\n- Use credential binding `lambda_sigv4`.\n")
+	if err := validateIntentOpenAPISecurity(intent, example, nil, "", policy); err != nil {
+		t.Fatalf("native Smithy SigV4 security should pass with policy: %v", err)
+	}
+}
+
+func TestValidateIntentOpenAPISecurityIgnoresSmithyWithoutSigningName(t *testing.T) {
+	example := t.TempDir()
+	writeSmithySourceForTest(t, example, "aws-smithy/lambda.json", smithyWithoutSigV4Document())
+	intent := &rollout.Intent{Steps: []*rollout.Step{{
+		Name:      "get",
+		Type:      "http",
+		Source:    "aws-smithy/lambda.json",
+		Operation: "GetFunction",
+		With:      map[string]string{"FunctionName": "hello"},
+	}}}
+	if err := validateIntentOpenAPISecurity(intent, example, nil, "", analyzeProject("")); err != nil {
+		t.Fatalf("Smithy service without signing name should not require native security: %v", err)
+	}
+}
+
 func TestGenerateWorkflowDocumentPrefersSourceOverLegacyOpenAPI(t *testing.T) {
 	example := t.TempDir()
 	discoveryDir := filepath.Join(example, "google-discovery")
@@ -182,6 +252,101 @@ func TestGenerateWorkflowDocumentInfersSmithyRequestBindings(t *testing.T) {
 	query, ok := doc.Operations[0].Request["query"].(map[string]any)
 	if !ok || query["Qualifier"] != "$LATEST" {
 		t.Fatalf("request query binding = %#v", doc.Operations[0].Request)
+	}
+}
+
+func TestValidateIntentRequiredParametersUsesSmithyRequestMetadata(t *testing.T) {
+	example := t.TempDir()
+	writeSmithySourceForTest(t, example, "aws-smithy/thing.json", smithyRequiredParamsDocument())
+
+	baseIntent := func(with map[string]string) *rollout.Intent {
+		return &rollout.Intent{
+			Source:   "aws-smithy/thing.json",
+			Workflow: &rollout.WorkflowMeta{Name: "thing_put"},
+			Steps: []*rollout.Step{{
+				Name:      "put",
+				Type:      "http",
+				Source:    "aws-smithy/thing.json",
+				Operation: "PutThing",
+				With:      with,
+			}},
+		}
+	}
+
+	err := validateIntentRequiredParameters(baseIntent(nil), example, nil, "")
+	if err == nil {
+		t.Fatal("expected missing Smithy required parameters")
+	}
+	for _, want := range []string{`path parameter "ThingId"`, `query parameter "mode"`, `header parameter "If-Match"`, `body parameter "Description"`, `body parameter "Payload"`} {
+		if !strings.Contains(err.Error(), want) {
+			t.Fatalf("error missing %q: %v", want, err)
+		}
+	}
+
+	required := map[string]string{
+		"ThingId":     "thing-1",
+		"mode":        "replace",
+		"If-Match":    "etag",
+		"Description": "description",
+		"Payload":     "payload",
+	}
+	if err := validateIntentRequiredParameters(baseIntent(required), example, nil, ""); err != nil {
+		t.Fatalf("required Smithy mappings should pass without optional fields: %v", err)
+	}
+
+	withOptional := map[string]string{
+		"ThingId":     "thing-1",
+		"mode":        "replace",
+		"If-Match":    "etag",
+		"Description": "description",
+		"Payload":     "payload",
+		"filter":      "all",
+		"Note":        "operator note",
+	}
+	if err := validateIntentRequiredParameters(baseIntent(withOptional), example, nil, ""); err != nil {
+		t.Fatalf("Smithy mappings with optional query/body fields should pass: %v", err)
+	}
+}
+
+func TestGenerateWorkflowDocumentPlacesSmithyRequestMembers(t *testing.T) {
+	example := t.TempDir()
+	writeSmithySourceForTest(t, example, "aws-smithy/thing.json", smithyRequiredParamsDocument())
+	intent := &rollout.Intent{
+		Source:   "aws-smithy/thing.json",
+		Workflow: &rollout.WorkflowMeta{Name: "thing_put"},
+		Steps: []*rollout.Step{{
+			Name:      "put",
+			Type:      "http",
+			Source:    "aws-smithy/thing.json",
+			Operation: "PutThing",
+			With: map[string]string{
+				"ThingId":     "thing-1",
+				"mode":        "replace",
+				"If-Match":    "etag",
+				"Description": "description",
+				"Payload":     "payload",
+				"filter":      "all",
+				"Note":        "operator note",
+			},
+		}},
+	}
+	doc, err := generateWorkflowDocument(Result{ExampleDir: example}, intent)
+	if err != nil {
+		t.Fatal(err)
+	}
+	request := doc.Operations[0].Request
+	if path, ok := request["path"].(map[string]any); !ok || path["ThingId"] != "thing-1" {
+		t.Fatalf("request path binding = %#v", request)
+	}
+	if query, ok := request["query"].(map[string]any); !ok || query["mode"] != "replace" || query["filter"] != "all" {
+		t.Fatalf("request query binding = %#v", request)
+	}
+	if header, ok := request["header"].(map[string]any); !ok || header["If-Match"] != "etag" {
+		t.Fatalf("request header binding = %#v", request)
+	}
+	body, ok := request["body"].(map[string]any)
+	if !ok || body["Payload"] != "payload" || body["Description"] != "description" || body["Note"] != "operator note" {
+		t.Fatalf("request body binding = %#v", request)
 	}
 }
 
@@ -337,6 +502,44 @@ func minimalDiscoveryDocument() string {
 	}`
 }
 
+func discoveryOAuthDocument() string {
+	return `{
+	  "kind": "discovery#restDescription",
+	  "discoveryVersion": "v1",
+	  "name": "gmail",
+	  "title": "Gmail API",
+	  "version": "v1",
+	  "rootUrl": "https://gmail.googleapis.com/",
+	  "servicePath": "",
+	  "auth": {
+	    "oauth2": {
+	      "scopes": {
+	        "https://www.googleapis.com/auth/gmail.send": {"description": "Send mail"}
+	      }
+	    }
+	  },
+	  "resources": {
+	    "users": {
+	      "resources": {
+	        "messages": {
+	          "methods": {
+	            "send": {
+	              "id": "gmail.users.messages.send",
+	              "path": "gmail/v1/users/{userId}/messages/send",
+	              "httpMethod": "POST",
+	              "scopes": ["https://www.googleapis.com/auth/gmail.send"],
+	              "parameters": {
+	                "userId": {"type": "string", "location": "path", "required": true}
+	              }
+	            }
+	          }
+	        }
+	      }
+	    }
+	  }
+	}`
+}
+
 func minimalSmithyDocument() string {
 	return `{
 	  "smithy": "2.0",
@@ -369,4 +572,83 @@ func minimalSmithyDocument() string {
 	    "com.amazonaws.lambda#Qualifier": {"type": "string"}
 	  }
 	}`
+}
+
+func smithyWithoutSigV4Document() string {
+	return `{
+	  "smithy": "2.0",
+	  "shapes": {
+	    "com.amazonaws.lambda#Lambda": {
+	      "type": "service",
+	      "version": "2015-03-31",
+	      "operations": [{"target": "com.amazonaws.lambda#GetFunction"}],
+	      "traits": {
+	        "aws.api#service": {"sdkId": "Lambda", "endpointPrefix": "lambda"},
+	        "aws.protocols#restJson1": {}
+	      }
+	    },
+	    "com.amazonaws.lambda#GetFunction": {
+	      "type": "operation",
+	      "input": {"target": "com.amazonaws.lambda#GetFunctionRequest"},
+	      "traits": {
+	        "smithy.api#http": {"method": "GET", "uri": "/2015-03-31/functions/{FunctionName}", "code": 200}
+	      }
+	    },
+	    "com.amazonaws.lambda#GetFunctionRequest": {
+	      "type": "structure",
+	      "members": {
+	        "FunctionName": {"target": "com.amazonaws.lambda#FunctionName", "traits": {"smithy.api#httpLabel": {}, "smithy.api#required": {}}}
+	      }
+	    },
+	    "com.amazonaws.lambda#FunctionName": {"type": "string"}
+	  }
+	}`
+}
+
+func smithyRequiredParamsDocument() string {
+	return `{
+	  "smithy": "2.0",
+	  "shapes": {
+	    "com.example#Example": {
+	      "type": "service",
+	      "version": "2026-05-23",
+	      "operations": [{"target": "com.example#PutThing"}],
+	      "traits": {
+	        "aws.api#service": {"sdkId": "Example", "endpointPrefix": "example"},
+	        "aws.auth#sigv4": {"name": "example"},
+	        "aws.protocols#restJson1": {}
+	      }
+	    },
+	    "com.example#PutThing": {
+	      "type": "operation",
+	      "input": {"target": "com.example#PutThingRequest"},
+	      "traits": {
+	        "smithy.api#http": {"method": "PUT", "uri": "/things/{ThingId}", "code": 200}
+	      }
+	    },
+	    "com.example#PutThingRequest": {
+	      "type": "structure",
+	      "members": {
+	        "ThingId": {"target": "smithy.api#String", "traits": {"smithy.api#httpLabel": {}, "smithy.api#required": {}}},
+	        "Mode": {"target": "smithy.api#String", "traits": {"smithy.api#httpQuery": "mode", "smithy.api#required": {}}},
+	        "IfMatch": {"target": "smithy.api#String", "traits": {"smithy.api#httpHeader": "If-Match", "smithy.api#required": {}}},
+	        "Filter": {"target": "smithy.api#String", "traits": {"smithy.api#httpQuery": "filter"}},
+	        "Payload": {"target": "smithy.api#String", "traits": {"smithy.api#httpPayload": {}, "smithy.api#required": {}}},
+	        "Description": {"target": "smithy.api#String", "traits": {"smithy.api#required": {}}},
+	        "Note": {"target": "smithy.api#String"}
+	      }
+	    }
+	  }
+	}`
+}
+
+func writeSmithySourceForTest(t *testing.T, example, rel, content string) {
+	t.Helper()
+	path := filepath.Join(example, filepath.FromSlash(rel))
+	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(path, []byte(content), 0o644); err != nil {
+		t.Fatal(err)
+	}
 }

@@ -532,13 +532,7 @@ func (mapper *requestBindingMapper) loadNative(path, sourceRef string, sourceTyp
 			if op == nil {
 				continue
 			}
-			summary := apitools.OperationSummary{
-				OperationID: op.Name,
-				Parameters:  smithyRequestParameters(op),
-			}
-			if op.Payload != nil || len(op.UnboundInput) > 0 || len(op.StaticPayload) > 0 {
-				summary.RequestBody = &apitools.RequestBodySummary{ContentTypes: []string{firstNonEmpty(op.RequestMediaType, "application/json")}, Ref: op.Input}
-			}
+			summary := smithyOperationSummary(op)
 			if err := add(operationIDAliases(op.Name, op.ID), summary); err != nil {
 				return nil, err
 			}
@@ -652,34 +646,6 @@ func stringSet(values []string) map[string]bool {
 		if strings.TrimSpace(value) != "" {
 			out[strings.TrimSpace(value)] = true
 		}
-	}
-	return out
-}
-
-func smithyRequestParameters(op *awssmithy.Operation) []apitools.ParameterSummary {
-	if op == nil {
-		return nil
-	}
-	var out []apitools.ParameterSummary
-	for _, binding := range op.InputBindings {
-		if binding == nil {
-			continue
-		}
-		location := binding.Location
-		switch location {
-		case "label":
-			location = "path"
-		case "queryParams":
-			location = "query"
-		case "prefixHeaders":
-			location = "header"
-		case "payload":
-			continue
-		}
-		out = append(out, apitools.ParameterSummary{
-			Name: firstNonEmpty(binding.WireName, binding.MemberName),
-			In:   location,
-		})
 	}
 	return out
 }

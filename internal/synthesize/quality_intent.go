@@ -48,10 +48,10 @@ func assessIntent(report *QualityReport, path, exampleDir string, candidates []o
 	}
 	report.add("credentials.bindings", "pass", "credential-like parameters are covered by project credential policy or not required", "")
 	if err := validateIntentOpenAPISecurity(intent, exampleDir, candidates, primary, policy); err != nil {
-		report.add("credentials.security_schemes", "fail", "OpenAPI security requirements need credential bindings", err.Error())
+		report.add("credentials.security_schemes", "fail", "API source security requirements need credential bindings", err.Error())
 		return intent, false
 	}
-	report.add("credentials.security_schemes", "pass", "OpenAPI security requirements are covered by credential policy or not required", "")
+	report.add("credentials.security_schemes", "pass", "API source security requirements are covered by credential policy or not required", "")
 	if err := validateIntentDataFlowSources(intent); err != nil {
 		report.add("intent.data_flow.sources", "fail", "intent.hcl references unresolved data-flow sources", err.Error())
 		return intent, false

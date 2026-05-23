@@ -100,6 +100,12 @@ func buildWorkflowPlan(result Result, intent *rollout.Intent, candidates []opena
 		ops[key] = op
 	}
 	security := openAPISecurityIndex(candidates)
+	for key, reqs := range nativeSecurityIndex(candidates) {
+		security[key] = append(security[key], reqs...)
+	}
+	for key, reqs := range localNativeSecurityIndex(result.ExampleDir) {
+		security[key] = append(security[key], reqs...)
+	}
 	advisorySecurity, advisoryErrs := localAdvisorySecurityIndex(result.ExampleDir)
 	for _, err := range advisoryErrs {
 		plan.Gaps = append(plan.Gaps, PlanGap{
@@ -109,6 +115,9 @@ func buildWorkflowPlan(result Result, intent *rollout.Intent, candidates []opena
 	}
 	for key, reqs := range advisorySecurity {
 		security[key] = append(security[key], reqs...)
+	}
+	for key, reqs := range security {
+		security[key] = sortedSecurityRequirements(reqs)
 	}
 	inputs := intentInputNames(intent)
 	addStepsToWorkflowPlan(plan, intent, intentSteps(intent), ops, security, inputs, policy, planStepContext{})
@@ -150,8 +159,14 @@ func addStepsToWorkflowPlan(plan *WorkflowPlan, intent *rollout.Intent, steps []
 			OnSuccess:       cloneSuccessActions(step.OnSuccess),
 		}
 		planStep.OpenAPI = strings.TrimSpace(step.OpenAPI)
+		if planStep.OpenAPI == "" {
+			planStep.OpenAPI = strings.TrimSpace(step.Source)
+		}
 		if planStep.OpenAPI == "" && intent != nil {
 			planStep.OpenAPI = strings.TrimSpace(intent.OpenAPI)
+			if planStep.OpenAPI == "" {
+				planStep.OpenAPI = strings.TrimSpace(intent.Source)
+			}
 		}
 		for target, source := range step.With {
 			if strings.TrimSpace(target) == "" {
@@ -250,7 +265,7 @@ func addStepsToWorkflowPlan(plan *WorkflowPlan, intent *rollout.Intent, steps []
 					plan.Gaps = append(plan.Gaps, PlanGap{
 						Code:   "credentials.missing_binding",
 						Step:   planStep.Name,
-						Detail: fmt.Sprintf("operation %q requires OpenAPI security %q but no credential binding is auditable", planStep.Operation, req.label()),
+						Detail: fmt.Sprintf("operation %q requires API source security %q but no credential binding is auditable", planStep.Operation, req.label()),
 						Query:  req.label(),
 					})
 				}

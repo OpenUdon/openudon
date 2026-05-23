@@ -210,12 +210,21 @@ func validateIntentOpenAPISecurity(intent *rollout.Intent, exampleDir string, ca
 		return nil
 	}
 	security := openAPISecurityIndex(candidates)
+	for key, reqs := range nativeSecurityIndex(candidates) {
+		security[key] = append(security[key], reqs...)
+	}
+	for key, reqs := range localNativeSecurityIndex(exampleDir) {
+		security[key] = append(security[key], reqs...)
+	}
 	advisory, advisoryErrs := localAdvisorySecurityIndex(exampleDir)
 	if len(advisoryErrs) > 0 {
 		return fmt.Errorf("advisory security sidecar metadata is invalid: %s", joinErrorMessages(advisoryErrs))
 	}
 	for key, reqs := range advisory {
 		security[key] = append(security[key], reqs...)
+	}
+	for key, reqs := range security {
+		security[key] = sortedSecurityRequirements(reqs)
 	}
 	var required, missing []string
 	walkIntentSteps(intent.Steps, func(step *rollout.Step) {
@@ -232,11 +241,11 @@ func validateIntentOpenAPISecurity(intent *rollout.Intent, exampleDir string, ca
 		}
 		for _, req := range reqs {
 			label := req.label()
-			required = append(required, fmt.Sprintf("%s.%s requires OpenAPI security %q", name, step.Operation, label))
+			required = append(required, fmt.Sprintf("%s.%s requires API source security %q", name, step.Operation, label))
 			if intentSecurityCoversRequirement(intent, req) || stepCoversSecurityRequirement(step, req, policy) || credentialDeclaredForSecurity(policy, req) {
 				continue
 			}
-			missing = append(missing, fmt.Sprintf("%s.%s has no auditable credential binding for OpenAPI security %q", name, step.Operation, label))
+			missing = append(missing, fmt.Sprintf("%s.%s has no auditable credential binding for API source security %q", name, step.Operation, label))
 		}
 	})
 	if len(required) == 0 {
@@ -480,31 +489,6 @@ func requiredRequestBodyParameterNames(body *apitools.RequestBodySummary) []stri
 	return sortedUnique(out)
 }
 
-func smithyOperationParameters(op *awssmithy.Operation) []*rollout.ParameterInfo {
-	if op == nil {
-		return nil
-	}
-	var out []*rollout.ParameterInfo
-	for _, binding := range op.InputBindings {
-		if binding == nil {
-			continue
-		}
-		name := firstNonEmpty(binding.WireName, binding.MemberName)
-		if name == "" {
-			continue
-		}
-		location := strings.TrimSpace(binding.Location)
-		switch location {
-		case "label":
-			location = "path"
-		case "":
-			location = "body"
-		}
-		out = append(out, &rollout.ParameterInfo{Name: name, In: location, Required: binding.Required})
-	}
-	return out
-}
-
 func operationIDAliases(ids ...string) []string {
 	var out []string
 	for _, id := range ids {
@@ -623,6 +607,127 @@ func openAPISecurityIndex(candidates []openapidisco.Candidate) map[string][]open
 		}
 	}
 	return out
+}
+
+func nativeSecurityIndex(candidates []openapidisco.Candidate) map[string][]openAPISecurityRequirement {
+	out := map[string][]openAPISecurityRequirement{}
+	for _, candidate := range candidates {
+		sourceType := sourceDescriptionTypeForPath(candidate.RelativePath)
+		if sourceType == "openapi" {
+			continue
+		}
+		for key, reqs := range nativeSecurityForSource(candidate.RelativePath, candidate.Path, string(sourceType)) {
+			out[key] = append(out[key], reqs...)
+		}
+	}
+	for key, reqs := range out {
+		out[key] = sortedSecurityRequirements(reqs)
+	}
+	return out
+}
+
+func localNativeSecurityIndex(exampleDir string) map[string][]openAPISecurityRequirement {
+	out := map[string][]openAPISecurityRequirement{}
+	if strings.TrimSpace(exampleDir) == "" {
+		return out
+	}
+	paths, err := packageartifacts.CollectAPISourcePaths(exampleDir)
+	if err != nil {
+		return out
+	}
+	for _, rel := range paths {
+		sourceType := sourceDescriptionTypeForPath(rel)
+		if sourceType == "openapi" {
+			continue
+		}
+		path := filepath.Join(exampleDir, filepath.FromSlash(rel))
+		for key, reqs := range nativeSecurityForSource(rel, path, string(sourceType)) {
+			out[key] = append(out[key], reqs...)
+		}
+	}
+	for key, reqs := range out {
+		out[key] = sortedSecurityRequirements(reqs)
+	}
+	return out
+}
+
+func nativeSecurityForSource(rel, path string, sourceType string) map[string][]openAPISecurityRequirement {
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return nil
+	}
+	switch sourceType {
+	case "google-discovery":
+		model, err := googlediscovery.Parse(data)
+		if err != nil {
+			return nil
+		}
+		return googleDiscoverySecurityForSource(rel, model)
+	case "aws-smithy":
+		model, err := awssmithy.Parse(data)
+		if err != nil {
+			return nil
+		}
+		return smithySecurityForSource(rel, model)
+	default:
+		return nil
+	}
+}
+
+func googleDiscoverySecurityForSource(rel string, model *googlediscovery.Model) map[string][]openAPISecurityRequirement {
+	out := map[string][]openAPISecurityRequirement{}
+	if model == nil {
+		return out
+	}
+	scheme := nativeCredentialScheme(model.Name, "oauth_token")
+	if scheme == "" {
+		return out
+	}
+	req := openAPISecurityRequirement{Scheme: scheme, Type: "oauth2"}
+	for _, op := range model.Operations {
+		if op == nil || len(op.Scopes) == 0 {
+			continue
+		}
+		for _, alias := range operationIDAliases(op.OperationID, op.ID, op.Name) {
+			out[operationKey(rel, alias)] = append(out[operationKey(rel, alias)], req)
+		}
+	}
+	return out
+}
+
+func smithySecurityForSource(rel string, model *awssmithy.Model) map[string][]openAPISecurityRequirement {
+	out := map[string][]openAPISecurityRequirement{}
+	if model == nil {
+		return out
+	}
+	scheme := nativeCredentialScheme(model.SigningName, "sigv4")
+	if scheme == "" {
+		return out
+	}
+	req := openAPISecurityRequirement{
+		Scheme: scheme,
+		Name:   "Authorization",
+		In:     "header",
+		Type:   "http",
+	}
+	for _, op := range model.Operations {
+		if op == nil || strings.TrimSpace(op.Name) == "" {
+			continue
+		}
+		for _, alias := range operationIDAliases(op.Name, op.ID) {
+			out[operationKey(rel, alias)] = append(out[operationKey(rel, alias)], req)
+		}
+	}
+	return out
+}
+
+func nativeCredentialScheme(name, suffix string) string {
+	name = operationIDAlias(strings.TrimSpace(name))
+	suffix = strings.TrimSpace(suffix)
+	if name == "" || suffix == "" {
+		return ""
+	}
+	return name + "_" + suffix
 }
 
 func localAdvisorySecurityIndex(exampleDir string) (map[string][]openAPISecurityRequirement, []error) {
@@ -987,9 +1092,30 @@ func sortedSecurityRequirements(values []openAPISecurityRequirement) []openAPISe
 		if values[i].Scheme != values[j].Scheme {
 			return values[i].Scheme < values[j].Scheme
 		}
-		return values[i].Name < values[j].Name
+		if values[i].Name != values[j].Name {
+			return values[i].Name < values[j].Name
+		}
+		if values[i].In != values[j].In {
+			return values[i].In < values[j].In
+		}
+		return values[i].Type < values[j].Type
 	})
-	return values
+	out := values[:0]
+	seen := map[string]bool{}
+	for _, value := range values {
+		key := strings.Join([]string{
+			strings.TrimSpace(value.Scheme),
+			strings.TrimSpace(value.Name),
+			strings.TrimSpace(value.In),
+			strings.TrimSpace(value.Type),
+		}, "\x00")
+		if seen[key] {
+			continue
+		}
+		seen[key] = true
+		out = append(out, value)
+	}
+	return out
 }
 
 func asMap(value any) map[string]any {

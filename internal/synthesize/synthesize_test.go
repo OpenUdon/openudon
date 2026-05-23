@@ -1040,6 +1040,39 @@ func TestBuildWorkflowPlanRecordsOpenAPISecurityCredential(t *testing.T) {
 	}
 }
 
+func TestBuildWorkflowPlanRecordsNativeSmithySecurityCredential(t *testing.T) {
+	example := t.TempDir()
+	mustWriteSynthesizeTestFile(t, filepath.Join(example, "aws-smithy", "lambda.json"), []byte(minimalSmithyDocument()))
+	intent := &rollout.Intent{
+		Source: "aws-smithy/lambda.json",
+		Steps: []*rollout.Step{{
+			Name:      "get_function",
+			Type:      "http",
+			Source:    "aws-smithy/lambda.json",
+			Operation: "GetFunction",
+			With:      map[string]string{"FunctionName": "hello"},
+		}},
+	}
+	plan := buildWorkflowPlan(Result{ExampleDir: example}, intent, nil, analyzeProject(""))
+	if !planHasGap(plan, "credentials.missing_binding") {
+		t.Fatalf("expected native Smithy security missing-binding gap, got %#v", plan.Gaps)
+	}
+
+	plan = buildWorkflowPlan(Result{ExampleDir: example}, intent, nil, analyzeProject("## Credentials and Secrets\n- Use credential binding lambda_sigv4.\n"))
+	if len(plan.Steps) != 1 || !containsString(plan.Steps[0].Credentials, "Authorization") {
+		t.Fatalf("expected native Smithy security credential in plan, got %#v", plan.Steps)
+	}
+	var found bool
+	for _, param := range plan.Steps[0].RequestParams {
+		if param.Name == "Authorization" && param.Credential && param.ExpectedCredential == "lambda_sigv4" {
+			found = true
+		}
+	}
+	if !found {
+		t.Fatalf("expected native Smithy security request param with binding, got %#v", plan.Steps[0].RequestParams)
+	}
+}
+
 func TestWorkflowPlanAllowsFnctBindingsWithoutRequestBlock(t *testing.T) {
 	if bindingRequestEvidenceRequired(PlanStep{Type: "fnct", Runtime: "fnct"}) {
 		t.Fatal("fnct transform bindings should not require request-block evidence")
@@ -1960,6 +1993,231 @@ func TestBuildCanceledContextStopsBeforeWorkflowGeneration(t *testing.T) {
 	}
 	if _, statErr := os.Stat(filepath.Join(example, "workflows", "workflow.hcl")); !errors.Is(statErr, os.ErrNotExist) {
 		t.Fatalf("workflow.hcl should not be written after cancellation, stat err=%v", statErr)
+	}
+}
+
+func TestPackageFromIntentBuildRegressionMatrix(t *testing.T) {
+	for _, tc := range []struct {
+		name       string
+		project    string
+		intent     *rollout.Intent
+		sources    map[string]string
+		wantPass   bool
+		wantChecks []string
+		wantFiles  map[string][]string
+	}{
+		{
+			name:    "openapi",
+			project: buildMatrixProject("OpenAPI Ticket", "- Use openapi/support.yaml for support ticket reads.", "- openapi and http are allowed.", "- No function steps are expected.", "- No credentials are required."),
+			intent: &rollout.Intent{
+				OpenAPI:  "openapi/support.yaml",
+				Workflow: &rollout.WorkflowMeta{Name: "ticket_lookup"},
+				Inputs:   []*rollout.Input{{Name: "ticketId", Type: "string", Required: true}},
+				Steps: []*rollout.Step{{
+					Name:      "get_ticket",
+					Type:      "http",
+					Operation: "getTicket",
+					With:      map[string]string{"ticketId": "inputs.ticketId"},
+				}},
+				Outputs: []*rollout.Output{{Name: "ticket", From: "get_ticket.received_body"}},
+			},
+			sources:  map[string]string{"openapi/support.yaml": supportOpenAPI()},
+			wantPass: true,
+			wantChecks: []string{
+				"workflow.plan_match:pass",
+				"uws.plan_match:pass",
+			},
+			wantFiles: map[string][]string{
+				"workflows/workflow.hcl":      {`openapi = "openapi/support.yaml"`, `openapiOperationId = "getTicket"`},
+				"workflows/workflow.uws.yaml": {"openapi/support.yaml", "getTicket"},
+				"expected/plan.json":          {`"name": "get_ticket"`, `"operation": "getTicket"`},
+			},
+		},
+		{
+			name:    "google-discovery",
+			project: buildMatrixProject("Gmail Send", "- Use google-discovery/gmail.json for Gmail message send.", "- openapi and http are allowed.", "- No function steps are expected.", "- No credentials are required."),
+			intent: &rollout.Intent{
+				Source:   "google-discovery/gmail.json",
+				Workflow: &rollout.WorkflowMeta{Name: "gmail_send"},
+				Steps: []*rollout.Step{{
+					Name:      "gmail_message",
+					Type:      "http",
+					Source:    "google-discovery/gmail.json",
+					Operation: "gmail.users.messages.send",
+					With:      map[string]string{"userId": "me"},
+				}},
+				Outputs: []*rollout.Output{{Name: "send_result", From: "gmail_message.received_body"}},
+			},
+			sources: map[string]string{
+				"google-discovery/gmail.json": minimalDiscoveryDocument(),
+				"openapi/support.yaml":        supportOpenAPI(),
+			},
+			wantPass: true,
+			wantChecks: []string{
+				"workflow.plan_match:pass",
+				"uws.source_descriptions:pass",
+				"uws.plan_match:pass",
+			},
+			wantFiles: map[string][]string{
+				"workflows/workflow.uws.yaml": {"uws: 1.2.0", "google-discovery/gmail.json", "gmail.users.messages.send"},
+				"expected/plan.json":          {`"name": "gmail_message"`, `"operation": "gmail.users.messages.send"`},
+			},
+		},
+		{
+			name:    "aws-smithy",
+			project: buildMatrixProject("Thing Update", "- Use aws-smithy/thing.json for Smithy request placement coverage.", "- openapi and http are allowed.", "- No function steps are expected.", "- Use credential binding example_sigv4."),
+			intent: &rollout.Intent{
+				Source:   "aws-smithy/thing.json",
+				Workflow: &rollout.WorkflowMeta{Name: "thing_put"},
+				Steps: []*rollout.Step{{
+					Name:      "put_thing",
+					Type:      "http",
+					Source:    "aws-smithy/thing.json",
+					Operation: "PutThing",
+					With: map[string]string{
+						"ThingId":     "thing-1",
+						"mode":        "replace",
+						"If-Match":    "etag",
+						"Description": "description",
+						"Payload":     "payload",
+					},
+				}},
+				Outputs: []*rollout.Output{{Name: "thing", From: "put_thing.received_body"}},
+			},
+			sources: map[string]string{
+				"aws-smithy/thing.json": smithyRequiredParamsDocument(),
+				"openapi/support.yaml":  supportOpenAPI(),
+			},
+			wantPass: true,
+			wantChecks: []string{
+				"workflow.plan_match:pass",
+				"uws.source_descriptions:pass",
+				"uws.plan_match:pass",
+			},
+			wantFiles: map[string][]string{
+				"workflows/workflow.hcl":      {`body`, `Payload`, `Description`},
+				"workflows/workflow.uws.yaml": {"uws: 1.2.0", "aws-smithy/thing.json", "PutThing", "ThingId", "Payload", "Description"},
+				"expected/plan.json":          {`"name": "put_thing"`, `"operation": "PutThing"`, `"in": "body"`, `"name": "Payload"`, `"name": "Description"`, `"expected_credential": "example_sigv4"`},
+			},
+		},
+		{
+			name:    "multi-source",
+			project: buildMatrixProject("Support Lambda Chain", "- Use openapi/support.yaml for support reads and aws-smithy/lambda.json for Lambda reads.", "- openapi and http are allowed.", "- No function steps are expected.", "- Use credential binding lambda_sigv4."),
+			intent: &rollout.Intent{
+				Source:   "aws-smithy/lambda.json",
+				Workflow: &rollout.WorkflowMeta{Name: "support_lambda_chain"},
+				Inputs:   []*rollout.Input{{Name: "ticketId", Type: "string", Required: true}},
+				Steps: []*rollout.Step{
+					{
+						Name:      "get_ticket",
+						Type:      "http",
+						Source:    "openapi/support.yaml",
+						Operation: "getTicket",
+						With:      map[string]string{"ticketId": "inputs.ticketId"},
+					},
+					{
+						Name:      "get_function",
+						Type:      "http",
+						Source:    "aws-smithy/lambda.json",
+						Operation: "GetFunction",
+						DependsOn: []string{"get_ticket"},
+						With:      map[string]string{"FunctionName": "hello"},
+					},
+				},
+				Outputs: []*rollout.Output{{Name: "function", From: "get_function.received_body"}},
+			},
+			sources: map[string]string{
+				"openapi/support.yaml":   supportOpenAPI(),
+				"aws-smithy/lambda.json": minimalSmithyDocument(),
+			},
+			wantPass: true,
+			wantChecks: []string{
+				"workflow.plan_match:pass",
+				"uws.source_descriptions:pass",
+				"uws.plan_match:pass",
+			},
+			wantFiles: map[string][]string{
+				"workflows/workflow.uws.yaml": {"openapi/support.yaml", "aws-smithy/lambda.json", "getTicket", "GetFunction"},
+				"expected/plan.json":          {`"name": "get_ticket"`, `"name": "get_function"`, `"depends_on"`, `"expected_credential": "lambda_sigv4"`},
+			},
+		},
+		{
+			name:     "runtime-only-fnct",
+			project:  buildMatrixProject("Runtime Only", "OpenAPI: none required", "- fnct allowed for trusted local report rendering.\n- cmd and ssh are not allowed.", "- render_report\n  - Inputs: summary.\n  - Outputs: rendered report.\n  - Side effects: none.", "- No credentials are required."),
+			intent:   runtimeOnlyIntent(),
+			wantPass: true,
+			wantChecks: []string{
+				"openapi.local:pass",
+				"workflow.plan_match:pass",
+				"uws.plan_match:pass",
+			},
+			wantFiles: map[string][]string{
+				"workflows/workflow.hcl":      {`fnct "render_report"`},
+				"workflows/workflow.uws.yaml": {"render_report"},
+				"expected/plan.json":          {`"runtime": "fnct"`},
+			},
+		},
+		{
+			name:    "invalid-operation",
+			project: buildMatrixProject("Invalid Operation", "- Use openapi/support.yaml for support ticket reads.", "- openapi and http are allowed.", "- No function steps are expected.", "- No credentials are required."),
+			intent: &rollout.Intent{
+				OpenAPI:  "openapi/support.yaml",
+				Workflow: &rollout.WorkflowMeta{Name: "invalid_operation"},
+				Steps: []*rollout.Step{{
+					Name:      "get_ticket",
+					Type:      "http",
+					Operation: "missingOperation",
+				}},
+			},
+			sources:  map[string]string{"openapi/support.yaml": supportOpenAPI()},
+			wantPass: false,
+			wantChecks: []string{
+				"intent.openapi_operations:fail",
+			},
+			wantFiles: map[string][]string{
+				"expected/quality.json": {`"status": "fail"`, `"intent.openapi_operations"`},
+				"expected/review.md":    {"Minimum Review Package"},
+			},
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			example := filepath.Join(t.TempDir(), "examples", tc.name)
+			mustWriteSynthesizeTestFile(t, filepath.Join(example, "project.md"), []byte(tc.project))
+			for rel, content := range tc.sources {
+				mustWriteSynthesizeTestFile(t, filepath.Join(example, filepath.FromSlash(rel)), []byte(content))
+			}
+			intentHCL, err := runner.RenderIntentHCL(tc.intent)
+			if err != nil {
+				t.Fatal(err)
+			}
+			mustWriteSynthesizeTestFile(t, filepath.Join(example, "workflows", "intent.hcl"), []byte(intentHCL))
+
+			result, report, err := PackageFromIntent(context.Background(), Options{ExampleDir: example})
+			if err != nil {
+				t.Fatal(err)
+			}
+			if report == nil {
+				t.Fatal("expected quality report")
+			}
+			if report.Passed() != tc.wantPass {
+				t.Fatalf("quality pass = %t, want %t; checks=%#v", report.Passed(), tc.wantPass, report.Checks)
+			}
+			for _, want := range tc.wantChecks {
+				code, status, ok := strings.Cut(want, ":")
+				if !ok {
+					t.Fatalf("invalid want check %q", want)
+				}
+				if !hasCheck(report, code, status) {
+					t.Fatalf("missing quality check %s, got %#v", want, report.Checks)
+				}
+			}
+			if result == nil {
+				t.Fatal("expected package result")
+			}
+			for rel, snippets := range tc.wantFiles {
+				assertPackageFileContains(t, result.ExampleDir, rel, snippets...)
+			}
+		})
 	}
 }
 
@@ -3957,6 +4215,67 @@ func handoffInputContains(inputs []SymphonyHandoffInput, want string) bool {
 		}
 	}
 	return false
+}
+
+func buildMatrixProject(title, integration, runtimePolicy, functionContracts, credentials string) string {
+	return fmt.Sprintf(`# %s
+
+## Goal
+
+Build a deterministic package from reviewed intent.
+
+## Inputs
+
+- Inputs are declared in intent.hcl.
+
+## Outputs
+
+- Outputs are declared in intent.hcl.
+
+## External Systems and OpenAPI
+
+%s
+
+## Data Flow
+
+- Follow explicit intent.hcl step request mappings and dependencies.
+
+## Runtime Policy
+
+%s
+
+## Function Contracts
+
+%s
+
+## Credentials and Secrets
+
+%s
+
+## Safety and Approval Boundary
+
+- Generate and validate artifacts only.
+- Any side-effectful workflow requires approved trusted runner execution.
+- Use sandbox endpoints for proof runs before production handoff.
+
+## Fallback Behavior
+
+- Stop if required package artifacts cannot be generated or validated.
+`, title, integration, runtimePolicy, functionContracts, credentials)
+}
+
+func assertPackageFileContains(t *testing.T, example, rel string, snippets ...string) {
+	t.Helper()
+	data, err := os.ReadFile(filepath.Join(example, filepath.FromSlash(rel)))
+	if err != nil {
+		t.Fatalf("read %s: %v", rel, err)
+	}
+	text := string(data)
+	for _, snippet := range snippets {
+		if !strings.Contains(text, snippet) {
+			t.Fatalf("%s missing %q:\n%s", rel, snippet, text)
+		}
+	}
 }
 
 func mustWriteSynthesizeTestFile(t *testing.T, path string, data []byte) {

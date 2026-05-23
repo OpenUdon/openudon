@@ -245,6 +245,9 @@ func validateWorkflowAgainstExpectedPlanWithLabels(report *QualityReport, expect
 			evidence, ok := requestAttributeEvidence(op.Request, paramCandidateNames(param.Name))
 			if !ok {
 				if param.Credential {
+					if credentialRequestEvidenceOptional(param) {
+						continue
+					}
 					credentialMismatch = append(credentialMismatch, fmt.Sprintf("%s missing credential request field %s", name, param.Name))
 				} else {
 					requestMismatch = append(requestMismatch, fmt.Sprintf("%s missing required request field %s", name, param.Name))
@@ -360,6 +363,13 @@ func validateWorkflowAgainstExpectedPlanWithLabels(report *QualityReport, expect
 
 func bindingRequestEvidenceRequired(step PlanStep) bool {
 	return !strings.EqualFold(strings.TrimSpace(step.Runtime), "fnct") && !strings.EqualFold(strings.TrimSpace(step.Type), "fnct")
+}
+
+func credentialRequestEvidenceOptional(param PlanParam) bool {
+	return param.Credential &&
+		strings.EqualFold(strings.TrimSpace(param.Name), "Authorization") &&
+		strings.EqualFold(strings.TrimSpace(param.In), "header") &&
+		strings.HasSuffix(strings.ToLower(strings.TrimSpace(param.ExpectedCredential)), "_sigv4")
 }
 
 func planControlValuesEqual(got, want string) bool {
