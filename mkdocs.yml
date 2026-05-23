@@ -29,9 +29,12 @@ nav:
     - Multi-Service SaaS Patterns: multi-service-saas-patterns.md
     - n8n Pattern Bridge: n8n-pattern-bridge.md
     - Project Briefs: project-authoring.md
+    - project.md Schema: project-authoring-schema.md
     - intent.hcl: intent.md
     - Data Flow: data-flow.md
     - iCoT: icot.md
+    - iCoT Session Files: icot-session-schema.md
+    - iCoT Transcripts: icot-transcript.md
     - Synthesize: synthesize.md
   - Tutorial:
     - Weather: tutorial-weather.md

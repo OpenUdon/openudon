@@ -55,7 +55,7 @@ func (response *RequestMappingResponse) UnmarshalJSON(data []byte) error {
 		Blockers    []string        `json:"blockers,omitempty"`
 	}
 	if err := json.Unmarshal(data, &raw); err != nil {
-		return err
+		return fmt.Errorf("parse request-mapping response: %w", err)
 	}
 	response.Steps = decodeRequestMappingSteps(raw.Steps)
 	response.Assumptions = raw.Assumptions
@@ -103,7 +103,7 @@ func (step *RequestMappingStepResponse) UnmarshalJSON(data []byte) error {
 		With json.RawMessage `json:"with,omitempty"`
 	}
 	if err := json.Unmarshal(data, &raw); err != nil {
-		return err
+		return fmt.Errorf("parse request-mapping step: %w", err)
 	}
 	step.Name = raw.Name
 	step.With = decodeRequestMappingWith(raw.With)

@@ -1,7 +1,11 @@
 package elicitor
 
 import (
+	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"fmt"
+	"io"
 	"strings"
 
 	rollout "github.com/OpenUdon/openudon/internal/workflowintent"
@@ -245,6 +249,55 @@ func findHCLBlockLine(lines []string, blockType, label string) int {
 func reviewCommentText(value string) string {
 	value = strings.TrimSpace(truncateForPrompt(value, 220))
 	return strings.ReplaceAll(value, "\n", " ")
+}
+
+func reviewFinalDraft(ctx context.Context, out io.Writer, extractor Extractor, session *Session, docs []APIDocument, issues []ReadinessIssue, events *[]TranscriptEvent) []DraftReviewIssue {
+	if session == nil || extractor == nil {
+		return nil
+	}
+	request := BuildDraftReviewRequest(*session, docs, issues)
+	if len(request.Steps) == 0 {
+		return nil
+	}
+	if events != nil {
+		*events = append(*events, TranscriptEvent{Kind: "draft_flow_review_call", Data: map[string]any{
+			"steps":   draftReviewStepNames(request.Steps),
+			"outputs": request.Outputs,
+		}})
+	}
+	response, err := extractor.ReviewDraft(ctx, request)
+	if err != nil {
+		if events != nil {
+			*events = append(*events, TranscriptEvent{Kind: "draft_flow_review_error", Data: err.Error()})
+		}
+		fmt.Fprintf(out, "icot: draft flow review skipped: %v\n", err)
+		return nil
+	}
+	sanitized := sanitizeDraftReviewResponse(response)
+	if events != nil {
+		*events = append(*events, TranscriptEvent{Kind: "draft_flow_review_result", Data: map[string]any{
+			"issues": sanitized.Issues,
+		}})
+	}
+	return sanitized.Issues
+}
+
+func finalDraftReviewKey(artifacts Artifacts) string {
+	if artifacts.IntentHCL == "" && artifacts.ProjectMD == "" {
+		return ""
+	}
+	sum := sha256.Sum256([]byte(artifacts.IntentHCL + "\x00" + artifacts.ProjectMD))
+	return hex.EncodeToString(sum[:])
+}
+
+func draftReviewStepNames(steps []DraftReviewStep) []string {
+	names := make([]string, 0, len(steps))
+	for _, step := range steps {
+		if strings.TrimSpace(step.Name) != "" {
+			names = append(names, strings.TrimSpace(step.Name))
+		}
+	}
+	return names
 }
 
 func cloneStepBinds(in []*rollout.StepBind) []*rollout.StepBind {

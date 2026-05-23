@@ -33,6 +33,11 @@ func TestCLIHelpDocumentsFlags(t *testing.T) {
 		"project.md",
 		"intent.hcl",
 		"openapi/",
+		"Pipeline:",
+		"icot reconcile",
+		"icot lint",
+		"icot replay-eval",
+		"docs/icot-session-schema.md",
 		"openudon build --example",
 	} {
 		if !strings.Contains(text, expected) {

@@ -17,7 +17,11 @@ import (
 )
 
 const (
+	// Keep draft prompts compact enough for small models while still exposing a
+	// useful local operation shortlist.
 	maxDraftOperationCandidates = 12
+	// Bound LLM-requested detail expansion so one draft cannot pull the whole
+	// local API catalog into prompt context.
 	maxDraftRequestedOperations = 5
 	maxRequestBodyFieldDepth    = 6
 	maxRequestBodyFields        = 60

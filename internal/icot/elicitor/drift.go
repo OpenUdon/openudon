@@ -78,12 +78,17 @@ func CompareProjectIntentDrift(projectText string, intent *rollout.Intent) []Dri
 }
 
 func textMeaningfullyDiffers(a, b string) bool {
-	a = normalizeDriftText(a)
-	b = normalizeDriftText(b)
-	if a == "" || b == "" {
+	normalizedA := normalizeDriftText(a)
+	normalizedB := normalizeDriftText(b)
+	if normalizedA == "" || normalizedB == "" {
 		return false
 	}
-	return !strings.Contains(a, b) && !strings.Contains(b, a)
+	if normalizedA == normalizedB {
+		return false
+	}
+	aTokens := significantDriftTokens(normalizedA)
+	bTokens := significantDriftTokens(normalizedB)
+	return !driftTokenSubset(aTokens, bTokens) && !driftTokenSubset(bTokens, aTokens)
 }
 
 func sectionContainsToken(text, heading, token string) bool {
@@ -101,6 +106,38 @@ func normalizeDriftText(value string) string {
 	value = strings.ReplaceAll(value, "`", "")
 	value = driftTokenRE.ReplaceAllString(value, " ")
 	return strings.Join(strings.Fields(value), " ")
+}
+
+var driftStopwords = map[string]bool{
+	"a": true, "an": true, "and": true, "for": true, "from": true, "in": true,
+	"me": true, "of": true, "or": true, "the": true, "then": true, "to": true,
+}
+
+func significantDriftTokens(value string) []string {
+	var out []string
+	for _, token := range strings.Fields(normalizeDriftText(value)) {
+		if len(token) <= 2 || driftStopwords[token] {
+			continue
+		}
+		out = append(out, token)
+	}
+	return dedupeStrings(out)
+}
+
+func driftTokenSubset(needle, haystack []string) bool {
+	if len(needle) < 2 || len(haystack) == 0 {
+		return false
+	}
+	have := map[string]bool{}
+	for _, token := range haystack {
+		have[token] = true
+	}
+	for _, token := range needle {
+		if !have[token] {
+			return false
+		}
+	}
+	return true
 }
 
 func splitDriftPhrases(value string) []string {

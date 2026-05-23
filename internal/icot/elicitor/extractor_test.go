@@ -378,6 +378,31 @@ func TestDraftPromptRequestCapsUnselectedOperations(t *testing.T) {
 	}
 }
 
+func TestResolveDraftDetailRequestsCapsRequestedOperationIDs(t *testing.T) {
+	var ops []apitools.OperationSummary
+	for i := 0; i < maxDraftRequestedOperations+2; i++ {
+		ops = append(ops, apitools.OperationSummary{OperationID: fmt.Sprintf("operation%d", i)})
+	}
+	var requested []string
+	for _, op := range ops {
+		requested = append(requested, op.OperationID)
+	}
+
+	valid, rejected, capped := resolveDraftDetailRequests([]APIDocument{{
+		RelativePath: "openapi/many.yaml",
+		Operations:   ops,
+	}}, requested, nil)
+	if !capped {
+		t.Fatal("expected requested operation cap")
+	}
+	if len(valid) != maxDraftRequestedOperations {
+		t.Fatalf("valid requested operations = %d, want %d", len(valid), maxDraftRequestedOperations)
+	}
+	if len(rejected) != 0 {
+		t.Fatalf("rejected = %#v", rejected)
+	}
+}
+
 func TestDraftPromptRequestUsesOnlySelectedOperationWhenAvailable(t *testing.T) {
 	ops := promptOperations(t, DraftRequest{
 		Session: Session{Intent: rollout.Intent{

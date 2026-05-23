@@ -508,9 +508,8 @@ var ErrCanceled = errors.New("authoring canceled")
 
 func RenderArtifacts(session Session) (Artifacts, error) {
 	session.Normalize()
-	missing := session.Missing()
-	if len(missing) > 0 {
-		return Artifacts{}, fmt.Errorf("missing %s", strings.Join(missing, ", "))
+	if err := session.Validate(); err != nil {
+		return Artifacts{}, err
 	}
 	intentHCL, err := workflowintent.RenderHCL(context.Background(), &session.Intent)
 	if err != nil {

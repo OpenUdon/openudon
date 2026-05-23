@@ -207,6 +207,37 @@ func (s Session) Missing() []string {
 	return dedupeStrings(missing)
 }
 
+func (s Session) Validate() error {
+	if err := validateUniqueStepNames(s.Intent.Steps); err != nil {
+		return err
+	}
+	s.Normalize()
+	if missing := s.Missing(); len(missing) > 0 {
+		return fmt.Errorf("missing %s", strings.Join(missing, ", "))
+	}
+	return validateUniqueStepNames(s.Intent.Steps)
+}
+
+func validateUniqueStepNames(steps []*rollout.Step) error {
+	seenSteps := map[string]bool{}
+	var duplicateSteps []string
+	walkSteps(steps, func(step *rollout.Step) {
+		name := strings.TrimSpace(step.Name)
+		if name == "" {
+			return
+		}
+		if seenSteps[name] {
+			duplicateSteps = append(duplicateSteps, name)
+			return
+		}
+		seenSteps[name] = true
+	})
+	if len(duplicateSteps) > 0 {
+		return fmt.Errorf("duplicate step name %s", strings.Join(dedupeStrings(duplicateSteps), ", "))
+	}
+	return nil
+}
+
 func collectStepMissing(missing *[]string, defaultSource string, step *rollout.Step) {
 	if step == nil {
 		return

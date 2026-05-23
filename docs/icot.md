@@ -41,6 +41,9 @@ go run ./cmd/icot reconcile --example ./examples/<name>
 go run ./cmd/icot lint --example ./examples/<name>
 ```
 
+See [iCoT Session Files](icot-session-schema.md) for the accepted `--answers` shapes and
+[iCoT Transcripts](icot-transcript.md) for the ignored local transcript format.
+
 `--prompt-mode full` is the default when the flag is omitted; it prints every question and waits for
 you to confirm or replace defaults. `--prompt-mode normal` prints every question and automatically
 accepts defaults. `--prompt-mode fast` skips defaulted questions entirely, suppresses catalog/status

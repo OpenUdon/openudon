@@ -66,6 +66,8 @@ Use these sections for new projects:
 - Safety and Approval Boundary: what may be generated, validated, or executed.
 - Fallback Behavior: when OpenUdon should stop instead of guessing.
 
+For a concise field-level reference, see [project.md Schema](project-authoring-schema.md).
+
 For guided authoring, choose one side-effect scope:
 
 - `read-only`: artifact generation and validation only; no workflow execution or external effects.

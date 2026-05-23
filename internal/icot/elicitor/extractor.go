@@ -14,6 +14,9 @@ import (
 )
 
 const PromptVersion = "icot-extractor.v1"
+
+// Limit detail retries so the draft loop can ask for missing operation context
+// without turning into an unbounded catalog crawl.
 const maxDraftDetailRounds = 2
 
 //go:embed prompts/kickoff.txt
@@ -104,7 +107,7 @@ func (e *chatExtractor) Kickoff(ctx context.Context, opening string) (Session, e
 		return Session{}, nil
 	}
 	var session Session
-	if err := e.completeJSON(ctx, kickoffPrompt, opening, kickoffSchema, &session, 1200); err != nil {
+	if err := e.completeJSON(ctx, "kickoff extraction", kickoffPrompt, opening, kickoffSchema, &session, 1200); err != nil {
 		return Session{}, err
 	}
 	session = sanitizeKickoff(session)
@@ -129,7 +132,7 @@ func (e *chatExtractor) CatalogPlan(ctx context.Context, request CatalogPlanRequ
 		return CatalogPlanResponse{}, err
 	}
 	var response CatalogPlanResponse
-	if err := e.completeJSON(ctx, catalogPlanPrompt, string(data), catalogPlanSchema, &response, 1000); err != nil {
+	if err := e.completeJSON(ctx, "catalog planning", catalogPlanPrompt, string(data), catalogPlanSchema, &response, 1000); err != nil {
 		return CatalogPlanResponse{}, err
 	}
 	return response, nil
@@ -145,7 +148,7 @@ func (e *chatExtractor) RequestMappings(ctx context.Context, request RequestMapp
 		return RequestMappingResponse{}, err
 	}
 	var response RequestMappingResponse
-	if err := e.completeJSON(ctx, requestMappingsPrompt, string(data), requestMappingsSchema, &response, 900); err != nil {
+	if err := e.completeJSON(ctx, "request mapping draft", requestMappingsPrompt, string(data), requestMappingsSchema, &response, 900); err != nil {
 		return RequestMappingResponse{}, err
 	}
 	return response, nil
@@ -160,7 +163,7 @@ func (e *chatExtractor) ReviewDraft(ctx context.Context, request DraftReviewRequ
 		return DraftReviewResponse{}, err
 	}
 	var response DraftReviewResponse
-	if err := e.completeJSON(ctx, draftReviewPrompt, string(data), draftReviewSchema, &response, 800); err != nil {
+	if err := e.completeJSON(ctx, "draft flow review", draftReviewPrompt, string(data), draftReviewSchema, &response, 800); err != nil {
 		return DraftReviewResponse{}, err
 	}
 	return sanitizeDraftReviewResponse(response), nil
@@ -185,7 +188,7 @@ func (e *chatExtractor) Draft(ctx context.Context, request DraftRequest) (Sessio
 			return Session{}, err
 		}
 		var completion draftCompletion
-		if err := e.completeJSON(ctx, draftPrompt, string(data), draftSchema, &completion, 1200); err != nil {
+		if err := e.completeJSON(ctx, "workflow draft", draftPrompt, string(data), draftSchema, &completion, 1200); err != nil {
 			return Session{}, err
 		}
 		valid, rejected, capped := resolveDraftDetailRequests(request.Docs, completion.RequestedOperationIDs, detailRefs)
@@ -233,7 +236,7 @@ func (e *chatExtractor) Refine(ctx context.Context, session Session) (Session, e
 		return session, err
 	}
 	var refined Session
-	if err := e.completeJSON(ctx, refinePrompt, string(data), kickoffSchema, &refined, 1200); err != nil {
+	if err := e.completeJSON(ctx, "prose refinement", refinePrompt, string(data), kickoffSchema, &refined, 1200); err != nil {
 		return session, err
 	}
 	return sanitizeRefine(session, refined), nil
@@ -259,7 +262,7 @@ func (e *chatExtractor) Disambiguate(ctx context.Context, need string, docs []AP
 	var decoded struct {
 		Paths []string `json:"paths"`
 	}
-	if err := e.completeJSON(ctx, disambiguatePrompt, b.String(), disambiguateSchema, &decoded, 1200); err != nil {
+	if err := e.completeJSON(ctx, "operation disambiguation", disambiguatePrompt, b.String(), disambiguateSchema, &decoded, 1200); err != nil {
 		return nil, err
 	}
 	allowed := map[string]bool{}
@@ -276,7 +279,7 @@ func (e *chatExtractor) Disambiguate(ctx context.Context, need string, docs []AP
 	return out, nil
 }
 
-func (e *chatExtractor) completeJSON(ctx context.Context, systemPrompt, userPayload, schema string, out any, maxTokens int) error {
+func (e *chatExtractor) completeJSON(ctx context.Context, stage, systemPrompt, userPayload, schema string, out any, maxTokens int) error {
 	_, err := authoring.CompleteJSONWithFallback(ctx, rolloutChatAdapter{
 		Client:      e.client,
 		Temperature: e.temperature,
@@ -285,7 +288,10 @@ func (e *chatExtractor) completeJSON(ctx context.Context, systemPrompt, userPayl
 		{Role: "system", Content: systemPrompt},
 		{Role: "user", Content: userPayload},
 	}, json.RawMessage(schema), out, authoring.JSONCompletionOptions{FallbackOnStructuredError: true})
-	return err
+	if err != nil {
+		return fmt.Errorf("%s: %w", stage, err)
+	}
+	return nil
 }
 
 type rolloutChatAdapter struct {
