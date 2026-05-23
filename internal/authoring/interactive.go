@@ -641,6 +641,11 @@ func RunProgressiveICOT[S, D, A any](ctx context.Context, in io.Reader, out io.W
 		if strings.EqualFold(strings.TrimSpace(answer), "cancel") {
 			return zero, ErrCanceled
 		}
+		if strings.TrimSpace(answer) == "" && strings.TrimSpace(question.SuggestedAnswer) == "" {
+			record("progressive_question", question)
+			record("progressive_answer", PromptTurn{Label: question.Prompt, Answer: answer})
+			return zero, fmt.Errorf("progressive iCoT requires operator input for: %s", question.Prompt)
+		}
 		if err := hooks.ApplyAnswer(&session, question, answer, docs); err != nil {
 			return zero, err
 		}

@@ -117,6 +117,14 @@ apitools catalog/cache automatically. It only asks for user-provided API
 artifacts after apitools reports that no first-class or advisory
 source artifact is available.
 
+If the goal clearly asks to stop, render, or report a missing or ambiguous
+provider/API/source capability and no usable API source or operation exists,
+iCoT can emit a deterministic local gap-report draft instead of an API workflow.
+That fallback creates required `provider` and `action` inputs, a
+`render_capability_gap` `fnct` step wired from those inputs, and a `gap_report`
+output. Transcript decision evidence marks it as a no-source safety fallback,
+not an execution plan.
+
 When an original provider OpenAPI document and a reviewed advisory OpenAPI
 overlay are both available, iCoT defaults to the advisory overlay for operation
 selection.

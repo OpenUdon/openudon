@@ -1844,6 +1844,9 @@ func TestNoSourceCapabilityGapFallback(t *testing.T) {
 	if !hasDecisionEvidence(session.DecisionEvidence, "intent.steps.render_capability_gap", "no-source capability gap fallback") {
 		t.Fatalf("missing no-source decision evidence: %#v", session.DecisionEvidence)
 	}
+	if hasReadinessCode(CheckReadiness(session, nil), "missing_side_effect_policy") {
+		t.Fatalf("gap fallback should carry local no-side-effect safety policy")
+	}
 }
 
 func TestOperationQuestionOmitsDocumentPathForSingleArtifact(t *testing.T) {
@@ -2173,6 +2176,22 @@ func hasDraftReviewAnswerEvent(events []TranscriptEvent, applied bool) bool {
 			continue
 		}
 		if got, ok := data["applied"].(bool); ok && got == applied {
+			return true
+		}
+	}
+	return false
+}
+
+func hasDraftReviewSkippedEvent(events []TranscriptEvent) bool {
+	for _, event := range events {
+		if event.Kind != "draft_flow_review_result" {
+			continue
+		}
+		data, ok := event.Data.(map[string]any)
+		if !ok {
+			continue
+		}
+		if data["skipped"] == "no-source capability gap fallback" {
 			return true
 		}
 	}

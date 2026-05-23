@@ -408,6 +408,15 @@ func reviewFinalDraft(ctx context.Context, out io.Writer, extractor Extractor, s
 	if session == nil || extractor == nil {
 		return nil
 	}
+	if noSourceCapabilityGapFallbackSession(*session) {
+		if events != nil {
+			*events = append(*events, TranscriptEvent{Kind: "draft_flow_review_result", Data: map[string]any{
+				"issues":  []DraftReviewIssue{},
+				"skipped": "no-source capability gap fallback",
+			}})
+		}
+		return nil
+	}
 	request := BuildDraftReviewRequest(*session, docs, issues)
 	if len(request.Steps) == 0 {
 		return nil
@@ -427,6 +436,7 @@ func reviewFinalDraft(ctx context.Context, out io.Writer, extractor Extractor, s
 		return nil
 	}
 	sanitized := sanitizeDraftReviewResponse(response)
+	sanitized.Issues = filterDraftReviewIssues(*session, sanitized.Issues)
 	for _, issue := range sanitized.Issues {
 		addDecisionEvidence(session, DecisionEvidence{
 			Stage:                decisionStageDraftReview,
@@ -445,6 +455,86 @@ func reviewFinalDraft(ctx context.Context, out io.Writer, extractor Extractor, s
 		}})
 	}
 	return sanitized.Issues
+}
+
+func filterDraftReviewIssues(session Session, issues []DraftReviewIssue) []DraftReviewIssue {
+	if len(issues) == 0 {
+		return nil
+	}
+	out := make([]DraftReviewIssue, 0, len(issues))
+	for _, issue := range issues {
+		if localFnctTransportOutputFalsePositive(session, issue) {
+			continue
+		}
+		out = append(out, issue)
+	}
+	return out
+}
+
+func localFnctTransportOutputFalsePositive(session Session, issue DraftReviewIssue) bool {
+	if issue.GapKind != flowGapAmbiguousOutput && issue.GapKind != flowGapMissingTransformStep {
+		return false
+	}
+	text := strings.ToLower(strings.Join([]string{
+		issue.Code,
+		issue.Message,
+		issue.Evidence,
+		issue.SuggestedAnswer,
+	}, " "))
+	if !strings.Contains(text, "transport") && !strings.Contains(text, "raw") && !strings.Contains(text, "received_body") {
+		return false
+	}
+	outputName, _, ok := parseOutputSlot(&session, issue.Slot)
+	if !ok {
+		return false
+	}
+	for _, output := range session.Intent.Outputs {
+		if output == nil || output.Name != outputName {
+			continue
+		}
+		stepName := sourceStepName(output.From)
+		if stepName == "" {
+			return false
+		}
+		step := stepByName(session.Intent.Steps, stepName)
+		if step == nil || strings.ToLower(strings.TrimSpace(step.Type)) != "fnct" {
+			return false
+		}
+		if strings.TrimSpace(step.Operation) != "" || strings.TrimSpace(firstNonEmpty(step.Source, step.OpenAPI)) != "" {
+			return false
+		}
+		return strings.HasPrefix(strings.TrimSpace(output.From), step.Name+".received_body")
+	}
+	return false
+}
+
+func noSourceCapabilityGapFallbackSession(session Session) bool {
+	if len(session.Intent.Steps) != 1 || session.Intent.Steps[0] == nil {
+		return false
+	}
+	step := session.Intent.Steps[0]
+	if step.Name != "render_capability_gap" || strings.ToLower(strings.TrimSpace(step.Type)) != "fnct" {
+		return false
+	}
+	if strings.TrimSpace(step.Operation) != "" || strings.TrimSpace(firstNonEmpty(step.Source, step.OpenAPI)) != "" {
+		return false
+	}
+	hasOutput := false
+	for _, output := range session.Intent.Outputs {
+		if output != nil && output.Name == "gap_report" && output.From == "render_capability_gap.received_body" {
+			hasOutput = true
+			break
+		}
+	}
+	if !hasOutput {
+		return false
+	}
+	for _, evidence := range session.DecisionEvidence {
+		if evidence.Slot == "intent.steps.render_capability_gap" && evidence.Value == "no-source capability gap fallback" {
+			return true
+		}
+	}
+	return false
 }
 
 func finalDraftReviewKey(artifacts Artifacts) string {

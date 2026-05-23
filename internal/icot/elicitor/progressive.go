@@ -1398,8 +1398,10 @@ func applyCapabilityGapFallback(session *Session, docs []APIDocument) bool {
 	session.Intent.Outputs = []*rollout.Output{{Name: "gap_report", From: "render_capability_gap.received_body"}}
 	session.Credentials = nil
 	session.CredentialsSet = true
-	if strings.TrimSpace(session.SideEffectScope) == "" {
-		session.SideEffectScope = projectwizard.SideEffectReadOnly
+	session.SideEffectScope = projectwizard.SideEffectReadOnly
+	if strings.TrimSpace(session.Safety) == "" && strings.TrimSpace(session.Project.Safety) == "" {
+		session.Safety = "Generate a local capability gap report only; do not call external APIs or perform side effects."
+		session.SafetySet = true
 	}
 	addDecisionEvidence(session, DecisionEvidence{
 		Stage:                decisionStageCatalogPlan,

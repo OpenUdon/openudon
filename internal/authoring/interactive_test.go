@@ -1,6 +1,7 @@
 package authoring
 
 import (
+	"context"
 	"strings"
 	"testing"
 )
@@ -75,5 +76,37 @@ func TestPromptSessionHidesAutoAcceptedDefaultsInFastMode(t *testing.T) {
 	}
 	if !strings.Contains(output, "Workflow goal: ") {
 		t.Fatalf("required prompt was not printed:\n%s", output)
+	}
+}
+
+func TestProgressiveLoopStopsOnBlankRequiredAnswerWithoutDefault(t *testing.T) {
+	var out strings.Builder
+	applyCalled := false
+	_, err := RunProgressiveICOT[int, string, string](context.Background(), strings.NewReader("\n"), &out, ProgressiveLoopHooks[int, string, string]{
+		Opening:     "existing goal",
+		NoLLM:       true,
+		MaxAttempts: 3,
+		CheckReadiness: func(int, []string) []ReadinessIssue {
+			return []ReadinessIssue{{Severity: "blocking", Code: "missing_operation", Message: "Choose operation.", Slot: "steps.api.operation"}}
+		},
+		Ready: func(int, []ReadinessIssue) bool {
+			return false
+		},
+		PlanQuestion: func(int, []string, []ReadinessIssue) InteractiveQuestion {
+			return InteractiveQuestion{Prompt: "Which operationId should api use?", Slots: []string{"steps.api.operation"}}
+		},
+		ApplyAnswer: func(*int, InteractiveQuestion, string, []string) error {
+			applyCalled = true
+			return nil
+		},
+	})
+	if err == nil || !strings.Contains(err.Error(), "requires operator input") {
+		t.Fatalf("error = %v, want operator input error", err)
+	}
+	if applyCalled {
+		t.Fatal("blank required answer should not be applied")
+	}
+	if got := strings.Count(out.String(), "Which operationId should api use?"); got != 1 {
+		t.Fatalf("prompt count = %d, output:\n%s", got, out.String())
 	}
 }

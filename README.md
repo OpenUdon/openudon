@@ -149,8 +149,10 @@ current draft. That review is advisory: it looks for cross-step data-flow mistak
 email step not consuming the report content, and surfaces findings as warnings without rewriting the
 draft.
 
-Future work may add an explicit `--review-repair` mode that turns those warnings into a bounded
-repair loop. That mode is not implemented today; current iCoT review is single-pass and advisory.
+`--review-repair` turns selected warnings into a bounded repair loop. It can apply narrow wiring
+repairs or add a local `fnct` transform/report/render step when the goal clearly asks for produced
+content and one known producer step can feed it. It rejects operation, source, credential, and
+side-effect-scope mutations.
 
 For SaaS briefs, iCoT first checks the local and sibling `apitools` provider catalog. When cached
 OpenAPI, Google Discovery, or reviewed advisory OpenAPI overlay artifacts are available, it can use a
@@ -158,6 +160,10 @@ bounded LLM catalog plan to select validated local artifacts and seed rough prov
 operation IDs and request mappings still come from local operation metadata. After operation
 selection, iCoT gives the LLM a focused chance to fill required request fields from structured
 operation details before asking the operator for any unresolved mappings.
+
+When a goal explicitly asks to stop and report a missing or ambiguous provider/API/source capability,
+and no usable API source or operation is available, iCoT can produce a local `render_capability_gap`
+`fnct` workflow with `provider` and `action` inputs instead of inventing an API execution plan.
 
 Side-effect scope in iCoT:
 

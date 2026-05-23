@@ -436,7 +436,7 @@ func draftReviewForcedQuestion(issue DraftReviewIssue) string {
 	if issue.RemediationAction == remediationAskUser && strings.TrimSpace(issue.ClarifyingQuestion) != "" {
 		return strings.TrimSpace(issue.ClarifyingQuestion)
 	}
-	if issue.RemediationAction == remediationAskUser || issue.GapKind == flowGapAmbiguousOutput {
+	if issue.RemediationAction == remediationAskUser {
 		return "What exact workflow output or produced content should replace the ambiguous draft output?"
 	}
 	return ""

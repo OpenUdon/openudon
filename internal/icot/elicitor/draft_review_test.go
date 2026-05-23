@@ -1,6 +1,7 @@
 package elicitor
 
 import (
+	"context"
 	"strings"
 	"testing"
 
@@ -221,5 +222,99 @@ func TestAnnotateIntentHCLWithFlowReviewWarningsAnchorsToSlots(t *testing.T) {
 	}
 	if strings.Index(annotated, comment) > strings.Index(annotated, step) {
 		t.Fatalf("review comment not anchored before step:\n%s", annotated)
+	}
+}
+
+func TestReviewFinalDraftSkipsNoSourceCapabilityGapFallback(t *testing.T) {
+	session := Session{
+		Intent: rollout.Intent{
+			Workflow: &rollout.WorkflowMeta{Name: "gap", Description: "Stop and render a capability gap report."},
+			Inputs: []*rollout.Input{
+				{Name: "provider", Type: "string", Required: true},
+				{Name: "action", Type: "string", Required: true},
+			},
+			Steps: []*rollout.Step{{
+				Name: "render_capability_gap",
+				Type: "fnct",
+				Do:   "Render a capability gap report for the missing provider action.",
+				With: map[string]string{"provider": "inputs.provider", "action": "inputs.action"},
+			}},
+			Outputs: []*rollout.Output{{Name: "gap_report", From: "render_capability_gap.received_body"}},
+		},
+		DecisionEvidence: []DecisionEvidence{{
+			Stage:  decisionStageCatalogPlan,
+			Slot:   "intent.steps.render_capability_gap",
+			Value:  "no-source capability gap fallback",
+			Source: mappingSourceDeterministic,
+		}},
+	}
+	extractor := &sequenceDraftExtractor{draftReviewResponse: DraftReviewResponse{Issues: []DraftReviewIssue{{
+		Code:              "ambiguous_output",
+		Message:           "Do not surface this model false positive.",
+		Slot:              "intent.outputs.gap_report",
+		GapKind:           flowGapAmbiguousOutput,
+		RemediationAction: remediationAskUser,
+	}}}}
+	var out strings.Builder
+	var events []TranscriptEvent
+	issues := reviewFinalDraft(context.Background(), &out, extractor, &session, nil, nil, &events)
+	if len(issues) != 0 {
+		t.Fatalf("review issues = %#v", issues)
+	}
+	if len(extractor.draftReviewRequests) != 0 {
+		t.Fatalf("review extractor was called for deterministic fallback")
+	}
+	if !hasDraftReviewSkippedEvent(events) {
+		t.Fatalf("missing skipped review event: %#v", events)
+	}
+}
+
+func TestReviewFinalDraftSuppressesLocalFnctTransportOutputFalsePositive(t *testing.T) {
+	session := Session{
+		Intent: rollout.Intent{
+			Workflow: &rollout.WorkflowMeta{Name: "audit_receipt", Description: "Send a Gmail message and render an audit receipt."},
+			Steps: []*rollout.Step{
+				{
+					Name:      "send_message",
+					Type:      "http",
+					OpenAPI:   "openapi/gmail.yaml",
+					Operation: "sendMessage",
+				},
+				{
+					Name:      "render_audit_receipt",
+					Type:      "fnct",
+					Do:        "Locally render audit receipt from send_message output for review.",
+					DependsOn: []string{"send_message"},
+					Binds: []*rollout.StepBind{{
+						From: "send_message",
+						Fields: map[string]string{
+							"id":       "received_body.id",
+							"threadId": "received_body.threadId",
+						},
+					}},
+				},
+			},
+			Outputs: []*rollout.Output{{Name: "audit_receipt", From: "render_audit_receipt.received_body"}},
+		},
+	}
+	extractor := &sequenceDraftExtractor{draftReviewResponse: DraftReviewResponse{Issues: []DraftReviewIssue{{
+		Code:              "ambiguous_output",
+		Message:           "The workflow output is wired to render_audit_receipt.received_body, which looks like a transport-style body rather than the local audit receipt content requested by the goal.",
+		Slot:              "intent.outputs.audit_receipt",
+		Evidence:          "Goal asks to render a local audit receipt, but the declared output comes from the fnct step's received_body instead of an explicit rendered receipt result.",
+		GapKind:           flowGapAmbiguousOutput,
+		RemediationAction: remediationApplyNarrowRepair,
+	}}}}
+	var out strings.Builder
+	var events []TranscriptEvent
+	issues := reviewFinalDraft(context.Background(), &out, extractor, &session, nil, nil, &events)
+	if len(issues) != 0 {
+		t.Fatalf("review issues = %#v", issues)
+	}
+	if len(extractor.draftReviewRequests) != 1 {
+		t.Fatalf("review extractor calls = %d, want 1", len(extractor.draftReviewRequests))
+	}
+	if len(session.DecisionEvidence) != 0 {
+		t.Fatalf("false-positive review issue added decision evidence: %#v", session.DecisionEvidence)
 	}
 }
