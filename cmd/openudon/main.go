@@ -606,20 +606,20 @@ func gitMetadata() (string, bool) {
 func runArtifactCommand(command string, args []string) {
 	fs := flag.NewFlagSet(command, flag.ExitOnError)
 	example := fs.String("example", "", "Example directory containing project.md and artifact subdirectories")
-	provider := fs.String("provider", "", "LLM provider: copilot-api, openai, anthropic, or gemini; defaults to OpenUdon provider env behavior")
-	model := fs.String("model", "", "LLM model")
-	timeout := fs.Duration("timeout", 2*time.Minute, "LLM generation timeout")
-	maxAttempts := fs.Int("max-attempts", 5, "Maximum refinement attempts for synthesize/build")
+	provider := fs.String("provider", "", "LLM provider for synthesize; optional review-evidence label for build")
+	model := fs.String("model", "", "LLM model for synthesize; optional review-evidence label for build")
+	timeout := fs.Duration("timeout", 2*time.Minute, "LLM generation timeout for synthesize")
+	maxAttempts := fs.Int("max-attempts", 5, "Maximum refinement attempts for synthesize")
 	temperature := fs.Float64("temperature", 0.2, "Intent generation temperature for synthesize")
 	fs.Usage = func() {
-		fmt.Fprintf(fs.Output(), "Usage: openudon %s --example examples/<name> [--provider copilot-api --model gpt-5.4-mini]\n", command)
+		fmt.Fprintf(fs.Output(), "Usage: %s\n", artifactCommandUsage(command))
 		fmt.Fprintf(fs.Output(), "\n%s\n", artifactCommandDescription(command))
 		fmt.Fprintf(fs.Output(), "\nExamples:\n")
 		switch command {
 		case "synthesize":
 			fmt.Fprintf(fs.Output(), "  openudon synthesize --example examples/support-email --provider copilot-api --model gpt-5.4-mini --max-attempts 5\n")
 		case "build":
-			fmt.Fprintf(fs.Output(), "  openudon build --example examples/support-email --provider copilot-api --model gpt-5.4-mini\n")
+			fmt.Fprintf(fs.Output(), "  openudon build --example examples/support-email\n")
 		case "promote":
 			fmt.Fprintf(fs.Output(), "  openudon promote --example examples/support-email\n")
 		case "assess":
@@ -678,6 +678,21 @@ func runArtifactCommand(command string, args []string) {
 	printResult(command, result)
 }
 
+func artifactCommandUsage(command string) string {
+	switch command {
+	case "synthesize":
+		return "openudon synthesize --example examples/<name> [--provider copilot-api --model gpt-5.4-mini]"
+	case "build":
+		return "openudon build --example examples/<name> [--provider label --model label]"
+	case "promote":
+		return "openudon promote --example examples/<name>"
+	case "assess":
+		return "openudon assess --example examples/<name>"
+	default:
+		return "openudon " + command + " --example examples/<name>"
+	}
+}
+
 func printResult(command string, result *synthesize.Result) {
 	if result == nil {
 		return
@@ -700,7 +715,7 @@ func artifactCommandDescription(command string) string {
 	case "synthesize":
 		return "Generate intent, workflow, UWS, plan, review evidence, refinement report, and quality report from project.md."
 	case "build":
-		return "Regenerate workflow, UWS, review evidence, and quality reports from an existing workflows/intent.hcl."
+		return "Deterministically regenerate workflow, UWS, review evidence, and quality reports from an existing workflows/intent.hcl; no LLM is required."
 	case "promote":
 		return "Export and validate workflows/workflow.uws.yaml from an existing workflows/workflow.hcl."
 	case "assess":

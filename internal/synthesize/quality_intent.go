@@ -57,15 +57,15 @@ func assessIntent(report *QualityReport, path, exampleDir string, candidates []o
 		return intent, false
 	}
 	report.add("intent.data_flow.sources", "pass", "intent.hcl data-flow references resolve to known steps or inputs", "")
-	responsePathResult := validateIntentResponsePaths(intent, candidates, primary)
+	responsePathResult := validateIntentResponsePaths(intent, exampleDir, candidates, primary)
 	if len(responsePathResult.Failures) > 0 {
-		report.add("intent.data_flow.response_paths", "fail", "intent.hcl references response fields absent from OpenAPI schemas", strings.Join(sortedCopy(responsePathResult.Failures), "; "))
+		report.add("intent.data_flow.response_paths", "fail", "intent.hcl references response fields absent from API source schemas", strings.Join(sortedCopy(responsePathResult.Failures), "; "))
 		return intent, false
 	}
 	if len(responsePathResult.Warnings) > 0 {
-		report.add("intent.data_flow.response_paths", "warn", "some intent.hcl response paths could not be proven from OpenAPI schemas", strings.Join(sortedCopy(responsePathResult.Warnings), "; "))
+		report.add("intent.data_flow.response_paths", "warn", "some intent.hcl response paths could not be proven from API source schemas", strings.Join(sortedCopy(responsePathResult.Warnings), "; "))
 	} else {
-		report.add("intent.data_flow.response_paths", "pass", "intent.hcl response paths match available OpenAPI response schemas", "")
+		report.add("intent.data_flow.response_paths", "pass", "intent.hcl response paths match available API source response schemas", "")
 	}
 	addIntentDataFlowWarning(report, intent)
 	if err := validateIntentFunctionContracts(intent, policy); err != nil {

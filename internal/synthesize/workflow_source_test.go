@@ -71,6 +71,143 @@ func TestLocalNativeOperationIndexIncludesDiscoveryAliases(t *testing.T) {
 	}
 }
 
+func TestValidateIntentResponsePathsUsesDiscoveryResponseSchema(t *testing.T) {
+	example := t.TempDir()
+	mustWriteSynthesizeTestFile(t, filepath.Join(example, "google-discovery", "gmail.json"), []byte(discoveryResponseDocument()))
+	intent := &rollout.Intent{Steps: []*rollout.Step{
+		{
+			Name:      "send",
+			Type:      "http",
+			Source:    "google-discovery/gmail.json",
+			Operation: "gmail.users.messages.send",
+			With:      map[string]string{"userId": "me"},
+		},
+		{Name: "render", Type: "fnct", With: map[string]string{"message_id": "send.received_body.id"}},
+	}}
+	result := validateIntentResponsePaths(intent, example, nil, "")
+	if len(result.Failures) != 0 || len(result.Warnings) != 0 {
+		t.Fatalf("expected Discovery response path to pass, got %#v", result)
+	}
+}
+
+func TestValidateIntentResponsePathsRejectsAbsentDiscoveryResponseField(t *testing.T) {
+	example := t.TempDir()
+	mustWriteSynthesizeTestFile(t, filepath.Join(example, "google-discovery", "gmail.json"), []byte(discoveryResponseDocument()))
+	intent := &rollout.Intent{Steps: []*rollout.Step{
+		{
+			Name:      "send",
+			Type:      "http",
+			Source:    "google-discovery/gmail.json",
+			Operation: "gmail.users.messages.send",
+			With:      map[string]string{"userId": "me"},
+		},
+		{Name: "render", Type: "fnct", With: map[string]string{"missing": "send.received_body.notThere"}},
+	}}
+	result := validateIntentResponsePaths(intent, example, nil, "")
+	if len(result.Failures) == 0 || !strings.Contains(result.Failures[0], "notThere") {
+		t.Fatalf("expected missing Discovery response field failure, got %#v", result)
+	}
+}
+
+func TestValidateIntentResponsePathsWarnsOnOpaqueDiscoveryResponseSchema(t *testing.T) {
+	example := t.TempDir()
+	mustWriteSynthesizeTestFile(t, filepath.Join(example, "google-discovery", "gmail.json"), []byte(discoveryMissingResponseSchemaDocument()))
+	intent := &rollout.Intent{Steps: []*rollout.Step{
+		{
+			Name:      "send",
+			Type:      "http",
+			Source:    "google-discovery/gmail.json",
+			Operation: "gmail.users.messages.send",
+			With:      map[string]string{"userId": "me"},
+		},
+		{Name: "render", Type: "fnct", With: map[string]string{"message_id": "send.received_body.id"}},
+	}}
+	result := validateIntentResponsePaths(intent, example, nil, "")
+	if len(result.Failures) != 0 || len(result.Warnings) == 0 {
+		t.Fatalf("expected opaque Discovery response warning, got %#v", result)
+	}
+}
+
+func TestValidateIntentResponsePathsUsesSmithyBodyResponseSchema(t *testing.T) {
+	example := t.TempDir()
+	writeSmithySourceForTest(t, example, "aws-smithy/lambda.json", smithyResponseBodyDocument())
+	intent := &rollout.Intent{Steps: []*rollout.Step{
+		{
+			Name:      "get",
+			Type:      "http",
+			Source:    "aws-smithy/lambda.json",
+			Operation: "GetFunction",
+			With:      map[string]string{"FunctionName": "hello"},
+		},
+		{Name: "render", Type: "fnct", With: map[string]string{
+			"alias": "get.received_body.Configuration.Aliases.name",
+			"arn":   "get.received_body.Configuration.FunctionArn",
+			"tag":   "get.received_body.Configuration.Tags.environment",
+		}},
+	}}
+	result := validateIntentResponsePaths(intent, example, nil, "")
+	if len(result.Failures) != 0 || len(result.Warnings) != 0 {
+		t.Fatalf("expected Smithy response path to pass, got %#v", result)
+	}
+}
+
+func TestValidateIntentResponsePathsRejectsAbsentSmithyBodyField(t *testing.T) {
+	example := t.TempDir()
+	writeSmithySourceForTest(t, example, "aws-smithy/lambda.json", smithyResponseBodyDocument())
+	intent := &rollout.Intent{Steps: []*rollout.Step{
+		{
+			Name:      "get",
+			Type:      "http",
+			Source:    "aws-smithy/lambda.json",
+			Operation: "GetFunction",
+			With:      map[string]string{"FunctionName": "hello"},
+		},
+		{Name: "render", Type: "fnct", With: map[string]string{"missing": "get.received_body.Configuration.Missing"}},
+	}}
+	result := validateIntentResponsePaths(intent, example, nil, "")
+	if len(result.Failures) == 0 || !strings.Contains(result.Failures[0], "Missing") {
+		t.Fatalf("expected missing Smithy response field failure, got %#v", result)
+	}
+}
+
+func TestValidateIntentResponsePathsExcludesSmithyHeaderAndStatusOutputMetadata(t *testing.T) {
+	example := t.TempDir()
+	writeSmithySourceForTest(t, example, "aws-smithy/lambda.json", smithyResponseBodyDocument())
+	intent := &rollout.Intent{Steps: []*rollout.Step{
+		{
+			Name:      "get",
+			Type:      "http",
+			Source:    "aws-smithy/lambda.json",
+			Operation: "GetFunction",
+			With:      map[string]string{"FunctionName": "hello"},
+		},
+		{Name: "render", Type: "fnct", With: map[string]string{"status": "get.received_body.StatusCode"}},
+	}}
+	result := validateIntentResponsePaths(intent, example, nil, "")
+	if len(result.Failures) == 0 || !strings.Contains(result.Failures[0], "StatusCode") {
+		t.Fatalf("expected Smithy responseCode metadata to be absent from body schema, got %#v", result)
+	}
+}
+
+func TestValidateIntentResponsePathsWarnsOnMissingSmithyOutputMetadata(t *testing.T) {
+	example := t.TempDir()
+	writeSmithySourceForTest(t, example, "aws-smithy/lambda.json", minimalSmithyDocument())
+	intent := &rollout.Intent{Steps: []*rollout.Step{
+		{
+			Name:      "get",
+			Type:      "http",
+			Source:    "aws-smithy/lambda.json",
+			Operation: "GetFunction",
+			With:      map[string]string{"FunctionName": "hello"},
+		},
+		{Name: "render", Type: "fnct", With: map[string]string{"arn": "get.received_body.Configuration.FunctionArn"}},
+	}}
+	result := validateIntentResponsePaths(intent, example, nil, "")
+	if len(result.Failures) != 0 || len(result.Warnings) == 0 {
+		t.Fatalf("expected opaque Smithy response warning, got %#v", result)
+	}
+}
+
 func TestLocalAdvisorySecuritySidecarAppliesToDiscoveryOperation(t *testing.T) {
 	example := t.TempDir()
 	dir := filepath.Join(example, "google-discovery")
@@ -502,6 +639,51 @@ func minimalDiscoveryDocument() string {
 	}`
 }
 
+func discoveryResponseDocument() string {
+	return `{
+	  "kind": "discovery#restDescription",
+	  "discoveryVersion": "v1",
+	  "name": "gmail",
+	  "title": "Gmail API",
+	  "version": "v1",
+	  "rootUrl": "https://gmail.googleapis.com/",
+	  "servicePath": "",
+	  "schemas": {
+	    "Message": {
+	      "id": "Message",
+	      "type": "object",
+	      "properties": {
+	        "id": {"type": "string"},
+	        "labelIds": {"type": "array", "items": {"type": "string"}}
+	      }
+	    }
+	  },
+	  "resources": {
+	    "users": {
+	      "resources": {
+	        "messages": {
+	          "methods": {
+	            "send": {
+	              "id": "gmail.users.messages.send",
+	              "path": "gmail/v1/users/{userId}/messages/send",
+	              "httpMethod": "POST",
+	              "parameters": {
+	                "userId": {"type": "string", "location": "path", "required": true}
+	              },
+	              "response": {"$ref": "Message"}
+	            }
+	          }
+	        }
+	      }
+	    }
+	  }
+	}`
+}
+
+func discoveryMissingResponseSchemaDocument() string {
+	return strings.Replace(discoveryResponseDocument(), `"Message": {`, `"UnavailableMessage": {`, 1)
+}
+
 func discoveryOAuthDocument() string {
 	return `{
 	  "kind": "discovery#restDescription",
@@ -536,6 +718,71 @@ func discoveryOAuthDocument() string {
 	        }
 	      }
 	    }
+	  }
+	}`
+}
+
+func smithyResponseBodyDocument() string {
+	return `{
+	  "smithy": "2.0",
+	  "shapes": {
+	    "com.amazonaws.lambda#Lambda": {
+	      "type": "service",
+	      "version": "2015-03-31",
+	      "operations": [{"target": "com.amazonaws.lambda#GetFunction"}],
+	      "traits": {
+	        "aws.api#service": {"sdkId": "Lambda", "endpointPrefix": "lambda"},
+	        "aws.auth#sigv4": {"name": "lambda"},
+	        "aws.protocols#restJson1": {}
+	      }
+	    },
+	    "com.amazonaws.lambda#GetFunction": {
+	      "type": "operation",
+	      "input": {"target": "com.amazonaws.lambda#GetFunctionRequest"},
+	      "output": {"target": "com.amazonaws.lambda#GetFunctionResponse"},
+	      "traits": {
+	        "smithy.api#http": {"method": "GET", "uri": "/2015-03-31/functions/{FunctionName}", "code": 200}
+	      }
+	    },
+	    "com.amazonaws.lambda#GetFunctionRequest": {
+	      "type": "structure",
+	      "members": {
+	        "FunctionName": {"target": "com.amazonaws.lambda#FunctionName", "traits": {"smithy.api#httpLabel": {}, "smithy.api#required": {}}}
+	      }
+	    },
+	    "com.amazonaws.lambda#GetFunctionResponse": {
+	      "type": "structure",
+	      "members": {
+	        "Configuration": {"target": "com.amazonaws.lambda#FunctionConfiguration"},
+	        "Payload": {"target": "smithy.api#Blob", "traits": {"smithy.api#httpPayload": {}}},
+	        "RequestId": {"target": "smithy.api#String", "traits": {"smithy.api#httpHeader": "x-amzn-RequestId"}},
+	        "StatusCode": {"target": "smithy.api#Integer", "traits": {"smithy.api#httpResponseCode": {}}}
+	      }
+	    },
+	    "com.amazonaws.lambda#FunctionConfiguration": {
+	      "type": "structure",
+	      "members": {
+	        "FunctionArn": {"target": "smithy.api#String"},
+	        "Aliases": {"target": "com.amazonaws.lambda#AliasList"},
+	        "Tags": {"target": "com.amazonaws.lambda#TagMap"}
+	      }
+	    },
+	    "com.amazonaws.lambda#AliasList": {
+	      "type": "list",
+	      "member": {"target": "com.amazonaws.lambda#Alias"}
+	    },
+	    "com.amazonaws.lambda#Alias": {
+	      "type": "structure",
+	      "members": {
+	        "name": {"target": "smithy.api#String"}
+	      }
+	    },
+	    "com.amazonaws.lambda#TagMap": {
+	      "type": "map",
+	      "key": {"target": "smithy.api#String"},
+	      "value": {"target": "smithy.api#String"}
+	    },
+	    "com.amazonaws.lambda#FunctionName": {"type": "string"}
 	  }
 	}`
 }
@@ -622,6 +869,7 @@ func smithyRequiredParamsDocument() string {
 	    "com.example#PutThing": {
 	      "type": "operation",
 	      "input": {"target": "com.example#PutThingRequest"},
+	      "output": {"target": "com.example#PutThingResponse"},
 	      "traits": {
 	        "smithy.api#http": {"method": "PUT", "uri": "/things/{ThingId}", "code": 200}
 	      }
@@ -636,6 +884,19 @@ func smithyRequiredParamsDocument() string {
 	        "Payload": {"target": "smithy.api#String", "traits": {"smithy.api#httpPayload": {}, "smithy.api#required": {}}},
 	        "Description": {"target": "smithy.api#String", "traits": {"smithy.api#required": {}}},
 	        "Note": {"target": "smithy.api#String"}
+	      }
+	    },
+	    "com.example#PutThingResponse": {
+	      "type": "structure",
+	      "members": {
+	        "Thing": {"target": "com.example#Thing"}
+	      }
+	    },
+	    "com.example#Thing": {
+	      "type": "structure",
+	      "members": {
+	        "ThingId": {"target": "smithy.api#String"},
+	        "Status": {"target": "smithy.api#String"}
 	      }
 	    }
 	  }

@@ -56,6 +56,26 @@ func TestCLIArtifactHelpIncludesExamplesAndArtifacts(t *testing.T) {
 	}
 }
 
+func TestCLIBuildHelpStatesDeterministicIntentBuild(t *testing.T) {
+	cmd := helperCommand("build", "--help")
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		t.Fatalf("build help failed: %v\n%s", err, output)
+	}
+	text := string(output)
+	for _, expected := range []string{
+		"Usage: openudon build --example examples/<name> [--provider label --model label]",
+		"Deterministically regenerate workflow",
+		"no LLM is required",
+		"openudon build --example examples/support-email",
+		"optional review-evidence label for build",
+	} {
+		if !strings.Contains(text, expected) {
+			t.Fatalf("build help missing %q:\n%s", expected, text)
+		}
+	}
+}
+
 func TestCLIEvalHelpIncludesReleaseGate(t *testing.T) {
 	cmd := helperCommand("eval", "--help")
 	output, err := cmd.CombinedOutput()

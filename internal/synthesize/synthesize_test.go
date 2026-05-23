@@ -790,7 +790,7 @@ func TestValidateIntentResponsePathsRejectsAbsentSchemaField(t *testing.T) {
 			{Name: "get_ticket", Type: "http", Operation: "getTicket", With: map[string]string{"ticketId": "inputs.ticketId"}},
 			{Name: "render", Type: "fnct", With: map[string]string{"email": "get_ticket.received_body.requesterEmail"}},
 		},
-	}, []openapidisco.Candidate{{Path: path, RelativePath: "openapi/support.yaml"}}, "")
+	}, "", []openapidisco.Candidate{{Path: path, RelativePath: "openapi/support.yaml"}}, "")
 	if len(result.Failures) == 0 || !strings.Contains(result.Failures[0], "requesterEmail") {
 		t.Fatalf("expected missing response path failure, got %#v", result)
 	}
@@ -808,7 +808,7 @@ func TestValidateIntentResponsePathsWarnsOnOpaqueSchema(t *testing.T) {
 			{Name: "get_weather", Type: "http", Operation: "getWeatherData", With: map[string]string{"lat": "43.6532", "lon": "-79.3832", "appid": "weather_appid"}},
 			{Name: "render", Type: "fnct", With: map[string]string{"summary": "get_weather.received_body.summary"}},
 		},
-	}, []openapidisco.Candidate{{Path: path, RelativePath: "openapi/weather.yaml"}}, "")
+	}, "", []openapidisco.Candidate{{Path: path, RelativePath: "openapi/weather.yaml"}}, "")
 	if len(result.Failures) != 0 || len(result.Warnings) == 0 {
 		t.Fatalf("expected opaque schema warning without failure, got %#v", result)
 	}
@@ -1996,6 +1996,54 @@ func TestBuildCanceledContextStopsBeforeWorkflowGeneration(t *testing.T) {
 	}
 }
 
+func TestBuildDoesNotResolveLLMProvider(t *testing.T) {
+	t.Setenv("OPENUDON_LLM_PROVIDER", "not-a-provider")
+	root := t.TempDir()
+	example := filepath.Join(root, "examples", "offline-build")
+	writeRuntimeOnlyExample(t, example)
+	writeRuntimeOnlyIntentHCL(t, example)
+
+	result, err := Build(context.Background(), Options{
+		ExampleDir: example,
+		SchemaPath: testUWSSchemaPath(t),
+	})
+	if err != nil {
+		t.Fatalf("offline build should not resolve LLM provider: %v", err)
+	}
+	review, err := os.ReadFile(result.ReviewPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(string(review), "- LLM:") {
+		t.Fatalf("build without provider/model should not write default LLM review label:\n%s", review)
+	}
+}
+
+func TestBuildPreservesExplicitProviderModelAsReviewLabelsOnly(t *testing.T) {
+	t.Setenv("OPENUDON_LLM_PROVIDER", "not-a-provider")
+	root := t.TempDir()
+	example := filepath.Join(root, "examples", "offline-build-labels")
+	writeRuntimeOnlyExample(t, example)
+	writeRuntimeOnlyIntentHCL(t, example)
+
+	result, err := Build(context.Background(), Options{
+		ExampleDir: example,
+		Provider:   "review-label-provider",
+		Model:      "review-label-model",
+		SchemaPath: testUWSSchemaPath(t),
+	})
+	if err != nil {
+		t.Fatalf("explicit review labels should not trigger LLM resolution: %v", err)
+	}
+	review, err := os.ReadFile(result.ReviewPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(review), "- LLM: `review-label-provider` `review-label-model`") {
+		t.Fatalf("expected explicit provider/model review labels, got:\n%s", review)
+	}
+}
+
 func TestPackageFromIntentBuildRegressionMatrix(t *testing.T) {
 	for _, tc := range []struct {
 		name       string
@@ -2082,7 +2130,7 @@ func TestPackageFromIntentBuildRegressionMatrix(t *testing.T) {
 						"Payload":     "payload",
 					},
 				}},
-				Outputs: []*rollout.Output{{Name: "thing", From: "put_thing.received_body"}},
+				Outputs: []*rollout.Output{{Name: "thing_id", From: "put_thing.received_body.Thing.ThingId"}},
 			},
 			sources: map[string]string{
 				"aws-smithy/thing.json": smithyRequiredParamsDocument(),
@@ -4408,6 +4456,20 @@ OpenAPI: none required
 
 - Stop if no approved function runtime exists.
 `), 0o644); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func writeRuntimeOnlyIntentHCL(t *testing.T, example string) {
+	t.Helper()
+	intentHCL, err := runner.RenderIntentHCL(runtimeOnlyIntent())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.MkdirAll(filepath.Join(example, "workflows"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(example, "workflows", "intent.hcl"), []byte(intentHCL), 0o644); err != nil {
 		t.Fatal(err)
 	}
 }

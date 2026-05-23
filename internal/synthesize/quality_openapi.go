@@ -414,6 +414,7 @@ func nativeOperationInfoIndex(path string, sourceType string) map[string]*rollou
 				Path:        op.Path,
 				Summary:     op.Summary,
 				Description: op.Description,
+				Responses:   googleDiscoveryResponses(model, op),
 				Tags:        append([]string(nil), op.Tags...),
 			}
 			for _, param := range op.Parameters {
@@ -450,6 +451,7 @@ func nativeOperationInfoIndex(path string, sourceType string) map[string]*rollou
 				OperationID: op.Name,
 				Method:      op.Method,
 				Path:        op.URI,
+				Responses:   smithyResponses(model, op),
 			}
 			for _, param := range smithyOperationParameters(op) {
 				info.Parameters = append(info.Parameters, param)
@@ -461,6 +463,166 @@ func nativeOperationInfoIndex(path string, sourceType string) map[string]*rollou
 		return out
 	default:
 		return out
+	}
+}
+
+func googleDiscoveryResponses(model *googlediscovery.Model, op *googlediscovery.Operation) map[string]*rollout.ResponseInfo {
+	if model == nil || op == nil {
+		return nil
+	}
+	ref := nativeSchemaRefName(op.ResponseRef)
+	if ref == "" {
+		return nil
+	}
+	schema := model.Schemas[ref]
+	if len(schema) == 0 {
+		return nil
+	}
+	return map[string]*rollout.ResponseInfo{
+		"200": {
+			ContentType: firstNonEmpty(op.ResponseMediaType, "application/json"),
+			Schema:      schema,
+		},
+	}
+}
+
+func nativeSchemaRefName(ref string) string {
+	ref = strings.TrimSpace(ref)
+	for _, prefix := range []string{"#/components/schemas/", "#/schemas/", "#/definitions/"} {
+		if strings.HasPrefix(ref, prefix) {
+			return strings.TrimSpace(strings.TrimPrefix(ref, prefix))
+		}
+	}
+	return ref
+}
+
+func smithyResponses(model *awssmithy.Model, op *awssmithy.Operation) map[string]*rollout.ResponseInfo {
+	if model == nil || op == nil || len(op.OutputBindings) == 0 {
+		return nil
+	}
+	props := map[string]any{}
+	for _, binding := range op.OutputBindings {
+		if binding == nil {
+			continue
+		}
+		switch strings.TrimSpace(binding.Location) {
+		case "", "payload":
+		default:
+			continue
+		}
+		name := strings.TrimSpace(binding.MemberName)
+		if name == "" {
+			continue
+		}
+		props[name] = smithyShapeSchema(model, binding.Target, nil)
+	}
+	if len(props) == 0 {
+		return nil
+	}
+	return map[string]*rollout.ResponseInfo{
+		"200": {
+			ContentType: firstNonEmpty(op.ResponseMediaType, "application/json"),
+			Schema: map[string]any{
+				"type":       "object",
+				"properties": props,
+			},
+		},
+	}
+}
+
+func smithyShapeSchema(model *awssmithy.Model, target string, seen map[string]bool) map[string]any {
+	target = strings.TrimSpace(target)
+	if target == "" {
+		return map[string]any{"$ref": "smithy:unknown"}
+	}
+	if schema := smithyPrimitiveSchema(target); len(schema) > 0 {
+		return schema
+	}
+	if seen[target] {
+		return map[string]any{"$ref": target}
+	}
+	nextSeen := make(map[string]bool, len(seen)+1)
+	for key, value := range seen {
+		nextSeen[key] = value
+	}
+	nextSeen[target] = true
+	shape, ok := model.Shape(target)
+	if !ok || shape == nil {
+		return map[string]any{"$ref": target}
+	}
+	switch strings.TrimSpace(shape.Type) {
+	case "structure", "union":
+		members := asMap(shape.Raw["members"])
+		if len(members) == 0 {
+			return map[string]any{"type": "object"}
+		}
+		props := map[string]any{}
+		var required []string
+		for _, name := range sortedMapKeys(members) {
+			member := asMap(members[name])
+			if len(member) == 0 {
+				continue
+			}
+			props[name] = smithyShapeSchema(model, asString(member["target"]), nextSeen)
+			if _, ok := asMap(member["traits"])["smithy.api#required"]; ok {
+				required = append(required, name)
+			}
+		}
+		schema := map[string]any{
+			"type":       "object",
+			"properties": props,
+		}
+		if len(required) > 0 {
+			schema["required"] = required
+		}
+		return schema
+	case "list", "set":
+		member := asMap(shape.Raw["member"])
+		return map[string]any{
+			"type":  "array",
+			"items": smithyShapeSchema(model, asString(member["target"]), nextSeen),
+		}
+	case "map":
+		value := asMap(shape.Raw["value"])
+		return map[string]any{
+			"type":                 "object",
+			"additionalProperties": smithyShapeSchema(model, asString(value["target"]), nextSeen),
+		}
+	case "boolean":
+		return map[string]any{"type": "boolean"}
+	case "byte", "short", "integer", "long", "bigInteger":
+		return map[string]any{"type": "integer"}
+	case "float", "double", "bigDecimal":
+		return map[string]any{"type": "number"}
+	case "timestamp":
+		return map[string]any{"type": "string", "format": "date-time"}
+	case "blob":
+		return map[string]any{"type": "string", "format": "byte"}
+	case "document":
+		return map[string]any{"$ref": target}
+	default:
+		return map[string]any{"type": "string"}
+	}
+}
+
+func smithyPrimitiveSchema(target string) map[string]any {
+	switch strings.TrimPrefix(strings.TrimSpace(target), "smithy.api#") {
+	case "String", "PrimitiveString", "Enum", "IntEnum":
+		return map[string]any{"type": "string"}
+	case "Boolean", "PrimitiveBoolean":
+		return map[string]any{"type": "boolean"}
+	case "Byte", "Short", "Integer", "Long", "PrimitiveByte", "PrimitiveShort", "PrimitiveInteger", "PrimitiveLong", "BigInteger":
+		return map[string]any{"type": "integer"}
+	case "Float", "Double", "PrimitiveFloat", "PrimitiveDouble", "BigDecimal":
+		return map[string]any{"type": "number"}
+	case "Timestamp":
+		return map[string]any{"type": "string", "format": "date-time"}
+	case "Blob":
+		return map[string]any{"type": "string", "format": "byte"}
+	case "Document":
+		return map[string]any{"$ref": target}
+	default:
+		return nil
 	}
 }
 
@@ -1411,12 +1573,15 @@ type responsePathValidation struct {
 	Warnings []string
 }
 
-func validateIntentResponsePaths(intent *rollout.Intent, candidates []openapidisco.Candidate, primary string) responsePathValidation {
+func validateIntentResponsePaths(intent *rollout.Intent, exampleDir string, candidates []openapidisco.Candidate, primary string) responsePathValidation {
 	var result responsePathValidation
 	if intent == nil {
 		return result
 	}
 	ops := openAPIOperationIndex(candidates)
+	for key, op := range localNativeOperationIndex(exampleDir) {
+		ops[key] = op
+	}
 	stepOps := map[string]*rollout.OperationInfo{}
 	walkIntentSteps(intent.Steps, func(step *rollout.Step) {
 		if step == nil || strings.TrimSpace(step.Name) == "" || strings.TrimSpace(step.Operation) == "" {
@@ -1563,6 +1728,9 @@ func schemaPathStatus(schema map[string]any, tokens []string) string {
 	}
 	if strings.EqualFold(asString(schema["type"]), "array") {
 		return schemaPathStatus(asMap(schema["items"]), tokens)
+	}
+	if additional := asMap(schema["additionalProperties"]); len(additional) > 0 {
+		return schemaPathStatus(additional, tokens[1:])
 	}
 	props := asMap(schema["properties"])
 	if len(props) == 0 {

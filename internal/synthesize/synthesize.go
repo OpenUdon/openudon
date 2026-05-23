@@ -131,50 +131,14 @@ func Build(ctx context.Context, opts Options) (*Result, error) {
 	if ctx == nil {
 		ctx = context.Background()
 	}
-	state, err := prepareRefinement(ctx, opts)
+	result, report, err := PackageFromIntent(ctx, opts)
 	if err != nil {
-		return nil, err
+		return result, err
 	}
-	intent, err := workflowintent.ParseFile(ctx, state.result.IntentPath)
-	if err != nil {
-		return nil, fmt.Errorf("parse intent.hcl: %w", err)
+	if report != nil && !report.Passed() {
+		return result, fmt.Errorf("quality gate failed; see %s", result.QualityJSONPath)
 	}
-	applyProjectTimeoutAndIdempotency(intent, state.policy)
-	primary := strings.TrimSpace(intent.OpenAPI)
-	if primary == "" && !state.policy.NoOpenAPI {
-		selected, err := openapidisco.SelectPrimary(state.candidates)
-		if err != nil {
-			return nil, err
-		}
-		primary = selected.RelativePath
-		intent.OpenAPI = primary
-		intentHCL, err := workflowintent.RenderHCL(ctx, intent)
-		if err != nil {
-			return nil, err
-		}
-		if err := ensureArtifactDirs(state.result); err != nil {
-			return nil, err
-		}
-		if err := os.WriteFile(state.result.IntentPath, []byte(intentHCL), 0o644); err != nil {
-			return nil, err
-		}
-	}
-	if err := validateIntentOpenAPIRefs(intent, state.result.ExampleDir, state.candidates, primary, state.policy.NoOpenAPI); err != nil {
-		return nil, err
-	}
-	if err := validateIntentRuntimePolicy(intent, state.policy); err != nil {
-		return nil, err
-	}
-	state.primaryPath = primary
-	state.result.PrimaryOpenAPI = primary
-	state.generationMode = "fixed_intent"
-	llm, _, provider, model, err := resolveClients(opts)
-	if err != nil {
-		return nil, err
-	}
-	return runRefinement(ctx, opts, state, llm, provider, model, "regenerate_workflow", func(context.Context, int, string, string, *rollout.Intent, *refinementState) (*rollout.Intent, string, error) {
-		return intent, "regenerate_workflow", nil
-	})
+	return result, nil
 }
 
 // PackageFromIntent builds the normal OpenUdon review package artifacts from an
@@ -208,6 +172,9 @@ func PackageFromIntent(ctx context.Context, opts Options) (*Result, *QualityRepo
 		return &state.result, nil, err
 	}
 	if err := validateIntentRuntimePolicy(intent, state.policy); err != nil {
+		return &state.result, nil, err
+	}
+	if err := ctx.Err(); err != nil {
 		return &state.result, nil, err
 	}
 	state.primaryPath = primary
