@@ -144,6 +144,14 @@ accepts defaults. `--prompt-mode fast` skips defaulted questions entirely, suppr
 chatter plus review-only fallback and assumption text, and asks only for required values without a
 safe default, such as the initial workflow goal.
 
+When LLM extraction is enabled, iCoT also runs a bounded pre-final flow review before showing the
+current draft. That review is advisory: it looks for cross-step data-flow mistakes such as a report
+email step not consuming the report content, and surfaces findings as warnings without rewriting the
+draft.
+
+Future work may add an explicit `--review-repair` mode that turns those warnings into a bounded
+repair loop. That mode is not implemented today; current iCoT review is single-pass and advisory.
+
 For SaaS briefs, iCoT first checks the local and sibling `apitools` provider catalog. When cached
 OpenAPI, Google Discovery, or reviewed advisory OpenAPI overlay artifacts are available, it can use a
 bounded LLM catalog plan to select validated local artifacts and seed rough provider steps. Concrete

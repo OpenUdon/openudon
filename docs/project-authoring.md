@@ -23,9 +23,16 @@ request mappings, outputs, credentials, and policy prose from the brief plus loc
 After each answer, deterministic readiness checks decide whether to ask about the goal, API
 document, operation, required request values, credential bindings, runtime inputs, outputs, or
 safety policy. The first valid intent jumps to final review; remaining warnings and inferred values
-are shown as assumptions, and saving confirms them. The saved `intent.hcl` is a useful starting
-draft for build/review, not a promise that iCoT found the perfect workflow; operators should reject
-bad drafts or confirm and continue editing manually.
+are shown as assumptions, and saving confirms them. When LLM extraction is enabled, iCoT also runs a
+single advisory pre-final flow review that looks for cross-step data-flow mistakes such as a report
+email step not consuming report content. The saved `intent.hcl` is a useful starting draft for
+build/review, not a promise that iCoT found the perfect workflow; operators should reject bad drafts
+or confirm and continue editing manually.
+
+Prompt volume is controlled by `--prompt-mode full|normal|fast`. Omitted mode is `full`, which asks
+every question and waits for confirmation. `normal` prints each defaulted question and accepts the
+default. `fast` silently accepts defaults and suppresses catalog/status chatter plus review-only
+assumption text while preserving transcript evidence.
 
 For catalog-backed SaaS briefs, iCoT first checks local `openapi/`, `google-discovery/`,
 `aws-smithy/`, and legacy `discovery/` documents plus the sibling `../apitools` first-class provider

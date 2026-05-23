@@ -48,6 +48,15 @@ chatter plus review-only fallback and assumption text, and asks only for require
 safe default, such as the initial workflow goal. Automatically accepted defaults and assumptions are
 still recorded in the transcript.
 
+With LLM extraction enabled, iCoT runs a bounded pre-final flow review before printing the current
+draft. The review is advisory and focuses only on cross-step data-flow mistakes that deterministic
+checks may miss, such as an email/report step not consuming the data it should send.
+
+The pre-final review is single-pass and does not mutate the draft. A possible future
+`--review-repair` mode could run a bounded repair loop and ask the operator to refine the workflow
+goal or choose better artifacts after repeated unresolved flow warnings; that mode is not available
+today.
+
 ## Guided SaaS Authoring
 
 For common SaaS workflows, iCoT now keeps the guided loop focused on the
@@ -108,7 +117,9 @@ workflow. The guided SaaS path is:
    deterministic readiness later finds missing required request values, iCoT
    gives the LLM one focused mapping pass with the selected operation details
    before asking the operator for field sources.
-6. Show the resulting draft, assumptions, and warnings for confirmation. If the
+6. Run a bounded advisory flow review that looks only for cross-step data-flow
+   mistakes, then show the resulting draft, assumptions, and warnings for
+   confirmation. If the
    operator confirms, iCoT writes `project.md` and `workflows/intent.hcl`; the
    operator can continue editing manually before build or review. If the draft
    is wrong, reject or edit it instead of treating iCoT as the final authority.

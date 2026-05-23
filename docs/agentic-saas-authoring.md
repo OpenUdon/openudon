@@ -77,6 +77,13 @@ OpenUdon validates every selected artifact locally and rejects unknown paths.
 Operation IDs, schemas, request fields, response paths, and credentials still
 come later from reviewed local API source metadata.
 
+Before final confirmation, LLM-assisted iCoT may run one advisory flow review
+over the complete draft. That review is limited to cross-step data-flow
+mistakes that deterministic schema checks may miss; it reports warnings but
+does not rewrite the draft. A future `--review-repair` mode may add a bounded
+repair loop, but only with deterministic or operator-approved changes between
+review attempts.
+
 ## Mapping Rules
 
 For each SaaS API step, make review evidence easy to audit:
