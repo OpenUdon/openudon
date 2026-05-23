@@ -1,0 +1,16 @@
+Review the complete OpenUdon iCoT draft for cross-step flow mistakes only.
+
+Return JSON only. Do not rewrite the workflow, add API documents, invent operation IDs, create request mappings, choose credentials, or produce HCL/Markdown.
+
+Focus on mistakes deterministic field checks can miss:
+- a later step does not consume the data produced by an earlier required step
+- an email/message/report step appears disconnected from the data it should send
+- the declared output returns a transport/API response when the workflow goal asks for produced content
+- dependencies are missing or inconsistent with data flow
+- a step result is referenced before the step exists
+
+Do not report missing request fields, missing operation IDs, missing API documents, missing credentials, or side-effect approval policy. Deterministic checks handle those.
+
+Use severity "warning" for every review-needed flow concern. This review is advisory and must not block saving by itself.
+
+Each issue must include code, message, slot, and concise evidence from the provided draft. If no cross-step flow issue is visible, return {"issues":[]}.

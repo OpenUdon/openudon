@@ -34,6 +34,9 @@ var catalogPlanPrompt string
 //go:embed prompts/request_mappings.txt
 var requestMappingsPrompt string
 
+//go:embed prompts/draft_review.txt
+var draftReviewPrompt string
+
 // Extractor provides optional, bounded LLM assistance for the interactive
 // authoring loop. Implementations must return partial drafts only; the loop
 // still asks the user to confirm the final intent before saving.
@@ -41,6 +44,7 @@ type Extractor interface {
 	Kickoff(context.Context, string) (Session, error)
 	CatalogPlan(context.Context, CatalogPlanRequest) (CatalogPlanResponse, error)
 	RequestMappings(context.Context, RequestMappingRequest) (RequestMappingResponse, error)
+	ReviewDraft(context.Context, DraftReviewRequest) (DraftReviewResponse, error)
 	Draft(context.Context, DraftRequest) (Session, error)
 	Refine(context.Context, Session) (Session, error)
 	Disambiguate(context.Context, string, []APIDocument) ([]string, error)
@@ -64,6 +68,10 @@ func (noopExtractor) CatalogPlan(context.Context, CatalogPlanRequest) (CatalogPl
 
 func (noopExtractor) RequestMappings(context.Context, RequestMappingRequest) (RequestMappingResponse, error) {
 	return RequestMappingResponse{}, nil
+}
+
+func (noopExtractor) ReviewDraft(context.Context, DraftReviewRequest) (DraftReviewResponse, error) {
+	return DraftReviewResponse{}, nil
 }
 
 func (noopExtractor) Draft(context.Context, DraftRequest) (Session, error) {
@@ -141,6 +149,21 @@ func (e *chatExtractor) RequestMappings(ctx context.Context, request RequestMapp
 		return RequestMappingResponse{}, err
 	}
 	return response, nil
+}
+
+func (e *chatExtractor) ReviewDraft(ctx context.Context, request DraftReviewRequest) (DraftReviewResponse, error) {
+	if strings.TrimSpace(request.Goal) == "" || len(request.Steps) == 0 {
+		return DraftReviewResponse{}, nil
+	}
+	data, err := json.Marshal(request)
+	if err != nil {
+		return DraftReviewResponse{}, err
+	}
+	var response DraftReviewResponse
+	if err := e.completeJSON(ctx, draftReviewPrompt, string(data), draftReviewSchema, &response, 800); err != nil {
+		return DraftReviewResponse{}, err
+	}
+	return sanitizeDraftReviewResponse(response), nil
 }
 
 func (e *chatExtractor) Draft(ctx context.Context, request DraftRequest) (Session, error) {
@@ -747,6 +770,28 @@ const requestMappingsSchema = `{
     },
     "assumptions": {"type": "array", "items": {"type": "string"}},
     "blockers": {"type": "array", "items": {"type": "string"}}
+  }
+}`
+
+const draftReviewSchema = `{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "issues": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "severity": {"type": "string"},
+          "code": {"type": "string"},
+          "message": {"type": "string"},
+          "slot": {"type": "string"},
+          "suggested_answer": {"type": "string"},
+          "evidence": {"type": "string"}
+        }
+      }
+    }
   }
 }`
 

@@ -459,6 +459,8 @@ type sequenceDraftExtractor struct {
 	calls                  []DraftRequest
 	requestMappingResponse RequestMappingResponse
 	requestMappingRequests []RequestMappingRequest
+	draftReviewResponse    DraftReviewResponse
+	draftReviewRequests    []DraftReviewRequest
 }
 
 func (e *sequenceDraftExtractor) Draft(_ context.Context, request DraftRequest) (Session, error) {
@@ -476,6 +478,11 @@ func (e *sequenceDraftExtractor) Draft(_ context.Context, request DraftRequest) 
 func (e *sequenceDraftExtractor) RequestMappings(_ context.Context, request RequestMappingRequest) (RequestMappingResponse, error) {
 	e.requestMappingRequests = append(e.requestMappingRequests, request)
 	return e.requestMappingResponse, nil
+}
+
+func (e *sequenceDraftExtractor) ReviewDraft(_ context.Context, request DraftReviewRequest) (DraftReviewResponse, error) {
+	e.draftReviewRequests = append(e.draftReviewRequests, request)
+	return e.draftReviewResponse, nil
 }
 
 type catalogPlanningExtractor struct {
@@ -567,6 +574,118 @@ func TestProgressiveTwoQuestionPathUsesReadinessFeedback(t *testing.T) {
 	}
 	if len(extractor.requestMappingRequests) != 1 || len(extractor.requestMappingRequests[0].ReadinessIssues) == 0 {
 		t.Fatalf("request-mapping draft did not receive readiness feedback: %#v", extractor.requestMappingRequests)
+	}
+}
+
+func TestProgressivePreFinalReviewAddsCrossStepWarning(t *testing.T) {
+	example := t.TempDir()
+	writeOpenAPI(t, example)
+	transcriptPath := filepath.Join(example, ".icot", "transcript.json")
+	extractor := &sequenceDraftExtractor{
+		drafts: []Session{supportTicketDraft(true)},
+		draftReviewResponse: DraftReviewResponse{Issues: []DraftReviewIssue{{
+			Severity: "warning",
+			Code:     "output_transport_response",
+			Slot:     "intent.outputs.result",
+			Message:  "The output returns the API transport response instead of the report content requested by the goal.",
+			Evidence: "result=get_ticket.received_body",
+		}}},
+	}
+	var out strings.Builder
+	artifacts, err := Run(context.Background(), strings.NewReader("Fetch a support ticket by runtime id.\ngetTicket\nexplain op_get_ticket\nsave\n"), &out, Session{}, Options{
+		ExampleDir:     example,
+		NoLLM:          false,
+		Extractor:      extractor,
+		TranscriptPath: transcriptPath,
+	})
+	if err != nil {
+		t.Fatalf("Run failed: %v\n%s", err, out.String())
+	}
+	if len(extractor.draftReviewRequests) != 1 {
+		t.Fatalf("draft review requests = %d, want 1", len(extractor.draftReviewRequests))
+	}
+	if !strings.Contains(out.String(), "llm_flow_review_output_transport_response") ||
+		!strings.Contains(out.String(), "The output returns the API transport response") {
+		t.Fatalf("final review missing LLM flow warning:\n%s", out.String())
+	}
+	for _, expected := range []string{
+		"# iCoT flow review warning (llm_flow_review_output_transport_response)",
+		"# Evidence: result=get_ticket.received_body",
+		`output "ticket" {`,
+	} {
+		if !strings.Contains(artifacts.IntentHCL, expected) {
+			t.Fatalf("annotated intent missing %q:\n%s", expected, artifacts.IntentHCL)
+		}
+	}
+	if _, err := rollout.ParseIntent([]byte(artifacts.IntentHCL), "intent.hcl"); err != nil {
+		t.Fatalf("parse annotated intent: %v\n%s", err, artifacts.IntentHCL)
+	}
+	data, err := os.ReadFile(transcriptPath)
+	if err != nil {
+		t.Fatalf("read transcript: %v", err)
+	}
+	text := string(data)
+	for _, expected := range []string{"draft_flow_review_result", "result=get_ticket.received_body"} {
+		if !strings.Contains(text, expected) {
+			t.Fatalf("transcript missing %q:\n%s", expected, text)
+		}
+	}
+}
+
+func TestProgressivePreFinalReviewRunsAfterFinalBlockingRepair(t *testing.T) {
+	example := t.TempDir()
+	writeOpenAPI(t, example)
+	docs, err := DiscoverLocalAPIs(example, "")
+	if err != nil {
+		t.Fatalf("discover APIs: %v", err)
+	}
+	session := supportTicketDraft(true)
+	session.Intent.Steps[0].Operation = ""
+	var out strings.Builder
+	prompts := authoring.NewPromptSession(strings.NewReader("\nsave\n"), &out)
+	reviewCalls := 0
+	review := func(_ context.Context, artifacts Artifacts, _ []ReadinessIssue) []DraftReviewIssue {
+		reviewCalls++
+		if got := artifacts.Session.Intent.Steps[0].Operation; got != "getTicket" {
+			t.Fatalf("review saw operation %q, want repaired getTicket", got)
+		}
+		return nil
+	}
+	if _, err := finalProgressiveConfirmationLoop(context.Background(), &out, &prompter{PromptSession: prompts, out: &out}, &session, docs, "", nil, true, review); err != nil {
+		t.Fatalf("final confirmation failed: %v\n%s", err, out.String())
+	}
+	if reviewCalls != 1 {
+		t.Fatalf("review calls = %d, want 1", reviewCalls)
+	}
+}
+
+func TestProgressivePreFinalReviewRunsAgainAfterFinalEdit(t *testing.T) {
+	example := t.TempDir()
+	writeOpenAPI(t, example)
+	extractor := &sequenceDraftExtractor{
+		drafts: []Session{supportTicketDraft(true)},
+	}
+	input := strings.Join([]string{
+		"Fetch a support ticket by runtime id.",
+		"getTicket",
+		"edit goal",
+		"",
+		"Fetch a support ticket after final edit.",
+		"save",
+	}, "\n") + "\n"
+	var out strings.Builder
+	if _, err := Run(context.Background(), strings.NewReader(input), &out, Session{}, Options{
+		ExampleDir: example,
+		NoLLM:      false,
+		Extractor:  extractor,
+	}); err != nil {
+		t.Fatalf("Run failed: %v\n%s", err, out.String())
+	}
+	if len(extractor.draftReviewRequests) != 2 {
+		t.Fatalf("draft review requests = %d, want 2\n%s", len(extractor.draftReviewRequests), out.String())
+	}
+	if got := extractor.draftReviewRequests[1].Workflow; got != "Fetch a support ticket after final edit." {
+		t.Fatalf("second review workflow = %q", got)
 	}
 }
 

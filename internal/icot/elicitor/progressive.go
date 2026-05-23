@@ -2,6 +2,8 @@ package elicitor
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"io"
@@ -51,6 +53,7 @@ func runProgressive(ctx context.Context, in io.Reader, out io.Writer, seed Sessi
 	catalogRetrievalAttempted := false
 	reportedDraftEvents := 0
 	questionDrafted := map[string]bool{}
+	reviewedFinalDrafts := map[string][]DraftReviewIssue{}
 	if openingBrief != "" && shouldRetrieveCatalogArtifacts(session, docs) {
 		catalogRetrievalAttempted = true
 		if err := retrieveCatalogArtifactsForSession(statusOut, session, opts.ExampleDir, opts.CatalogHintOptions); err != nil {
@@ -195,7 +198,22 @@ func runProgressive(ctx context.Context, in io.Reader, out io.Writer, seed Sessi
 			return nil
 		},
 		FinalConfirm: func(prompts *authoring.PromptSession, session *Session, docs []APIDocument, events *[]authoring.PromptEvent) (Artifacts, error) {
-			return finalProgressiveConfirmationLoop(out, &prompter{PromptSession: prompts, out: out}, session, docs, opts.DraftPath, events, opts.DefaultMode != authoring.PromptDefaultsSilent)
+			review := func(ctx context.Context, artifacts Artifacts, issues []ReadinessIssue) []DraftReviewIssue {
+				if opts.NoLLM || extractor == nil {
+					return nil
+				}
+				key := finalDraftReviewKey(artifacts)
+				if key == "" {
+					return nil
+				}
+				if cached, ok := reviewedFinalDrafts[key]; ok {
+					return cached
+				}
+				reviewIssues := reviewFinalDraft(ctx, statusOut, extractor, &artifacts.Session, docs, issues, events)
+				reviewedFinalDrafts[key] = reviewIssues
+				return reviewIssues
+			}
+			return finalProgressiveConfirmationLoop(ctx, out, &prompter{PromptSession: prompts, out: out}, session, docs, opts.DraftPath, events, opts.DefaultMode != authoring.PromptDefaultsSilent, review)
 		},
 		FinalResultSummary: func(artifacts Artifacts) any {
 			return map[string]any{
@@ -387,7 +405,9 @@ func progressiveDraftErrorMessage(err error) (string, bool) {
 	}
 }
 
-func finalProgressiveConfirmationLoop(out io.Writer, p *prompter, session *Session, docs []APIDocument, draftPath string, events *[]TranscriptEvent, showAssumptions bool) (Artifacts, error) {
+type finalDraftReviewer func(context.Context, Artifacts, []ReadinessIssue) []DraftReviewIssue
+
+func finalProgressiveConfirmationLoop(ctx context.Context, out io.Writer, p *prompter, session *Session, docs []APIDocument, draftPath string, events *[]TranscriptEvent, showAssumptions bool, review finalDraftReviewer) (Artifacts, error) {
 	for {
 		artifacts, err := RenderArtifacts(*session)
 		if err != nil {
@@ -424,6 +444,11 @@ func finalProgressiveConfirmationLoop(out io.Writer, p *prompter, session *Sessi
 				}
 				continue
 			}
+		}
+		if review != nil {
+			reviewIssues := review(ctx, artifacts, issues)
+			issues = sortReadinessIssues(append(issues, draftReviewIssuesToReadiness(reviewIssues)...))
+			artifacts.IntentHCL = annotateIntentHCLWithFlowReviewWarnings(artifacts.IntentHCL, reviewIssues)
 		}
 		fmt.Fprintln(out, "\n----- current draft -----")
 		printSummary(out, artifacts.Session)
@@ -486,6 +511,55 @@ func printReadinessWarnings(out io.Writer, issues []ReadinessIssue) {
 		fmt.Fprintf(out, "- %s: %s\n", warning.Code, warning.Message)
 	}
 	fmt.Fprintln(out)
+}
+
+func reviewFinalDraft(ctx context.Context, out io.Writer, extractor Extractor, session *Session, docs []APIDocument, issues []ReadinessIssue, events *[]TranscriptEvent) []DraftReviewIssue {
+	if session == nil || extractor == nil {
+		return nil
+	}
+	request := BuildDraftReviewRequest(*session, docs, issues)
+	if len(request.Steps) == 0 {
+		return nil
+	}
+	if events != nil {
+		*events = append(*events, TranscriptEvent{Kind: "draft_flow_review_call", Data: map[string]any{
+			"steps":   draftReviewStepNames(request.Steps),
+			"outputs": request.Outputs,
+		}})
+	}
+	response, err := extractor.ReviewDraft(ctx, request)
+	if err != nil {
+		if events != nil {
+			*events = append(*events, TranscriptEvent{Kind: "draft_flow_review_error", Data: err.Error()})
+		}
+		fmt.Fprintf(out, "icot: draft flow review skipped: %v\n", err)
+		return nil
+	}
+	sanitized := sanitizeDraftReviewResponse(response)
+	if events != nil {
+		*events = append(*events, TranscriptEvent{Kind: "draft_flow_review_result", Data: map[string]any{
+			"issues": sanitized.Issues,
+		}})
+	}
+	return sanitized.Issues
+}
+
+func finalDraftReviewKey(artifacts Artifacts) string {
+	if artifacts.IntentHCL == "" && artifacts.ProjectMD == "" {
+		return ""
+	}
+	sum := sha256.Sum256([]byte(artifacts.IntentHCL + "\x00" + artifacts.ProjectMD))
+	return hex.EncodeToString(sum[:])
+}
+
+func draftReviewStepNames(steps []DraftReviewStep) []string {
+	names := make([]string, 0, len(steps))
+	for _, step := range steps {
+		if strings.TrimSpace(step.Name) != "" {
+			names = append(names, strings.TrimSpace(step.Name))
+		}
+	}
+	return names
 }
 
 func mergeProgressiveSessions(base, overlay Session, docs []APIDocument) Session {
@@ -2212,7 +2286,15 @@ func sortReadinessIssues(issues []ReadinessIssue) []ReadinessIssue {
 		"intent_render_invalid":                 15,
 	}
 	sort.SliceStable(issues, func(i, j int) bool {
-		return priority[issues[i].Code] < priority[issues[j].Code]
+		left, ok := priority[issues[i].Code]
+		if !ok {
+			left = len(priority)
+		}
+		right, ok := priority[issues[j].Code]
+		if !ok {
+			right = len(priority)
+		}
+		return left < right
 	})
 	return issues
 }
