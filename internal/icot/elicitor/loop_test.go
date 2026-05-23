@@ -1198,6 +1198,32 @@ func TestSuggestedOperationAnswerRanksStepCandidates(t *testing.T) {
 	}
 }
 
+func TestSuggestedOperationAnswerDefaultsUniqueGmailSendWhenImportRanksFirst(t *testing.T) {
+	session := Session{
+		Project: projectwizard.Answers{Goal: "get weather in Toronto, Canada, and then gmail me the report"},
+		Intent: rollout.Intent{
+			Workflow: &rollout.WorkflowMeta{Name: "weather_report", Description: "get weather in Toronto, Canada, and then gmail me the report"},
+			Steps: []*rollout.Step{{
+				Name:     "email_report",
+				Type:     "http",
+				Provider: "gmail",
+				Do:       "Email the weather report.",
+			}},
+		},
+	}
+	docs := []APIDocument{{RelativePath: "google-discovery/gmail.json", Title: "Gmail API", Operations: []apitools.OperationSummary{
+		{OperationID: "gmail_users_messages_import", Method: "POST", Path: "/gmail/v1/users/{userId}/messages/import", Summary: "Imports a message into only this user's mailbox, with standard email delivery scanning."},
+		{OperationID: "gmail_users_settings_sendas_create", Method: "POST", Path: "/gmail/v1/users/{userId}/settings/sendAs", Summary: "Creates a custom from send-as alias."},
+		{OperationID: "gmail_users_messages_send", Method: "POST", Path: "/gmail/v1/users/{userId}/messages/send", Summary: "Sends the specified message to the recipients in the To, Cc, and Bcc headers."},
+		{OperationID: "gmail_users_messages_insert", Method: "POST", Path: "/gmail/v1/users/{userId}/messages", Summary: "Directly inserts a message into only this user's mailbox similar to IMAP APPEND."},
+		{OperationID: "gmail_users_settings_sendas_verify", Method: "POST", Path: "/gmail/v1/users/{userId}/settings/sendAs/{sendAsEmail}/verify", Summary: "Sends a verification email to the specified send-as alias address."},
+	}}}
+
+	if got := suggestedOperationAnswerForStep(session, docs, session.Intent.Steps[0]); got != "gmail_users_messages_send" {
+		t.Fatalf("gmail send default = %q, want gmail_users_messages_send", got)
+	}
+}
+
 func TestSuggestedOperationAnswerRejectsAmbiguousSendCandidates(t *testing.T) {
 	session := Session{
 		Project: projectwizard.Answers{Goal: "email me the report"},
@@ -1601,6 +1627,24 @@ func TestReadinessAcceptsRequiredSecurityCredentialField(t *testing.T) {
 	issues := CheckReadiness(session, docs)
 	if hasReadinessCode(issues, "invented_request_field") {
 		t.Fatalf("security credential field was treated as invented: %#v", issues)
+	}
+}
+
+func TestRequiredMappingFieldsSkipsAPIKeySecurityAliasWhenParameterNamed(t *testing.T) {
+	op := &apitools.OperationSummary{
+		OperationID: "getOpenWeatherMapOneCall3",
+		Parameters: []apitools.ParameterSummary{
+			{Name: "appid", In: "query", Required: true, Type: "string"},
+		},
+		Security: []apitools.SecuritySummary{{Name: "openWeatherAPIKey", Type: "apiKey", In: "query", ParameterName: "appid"}},
+	}
+
+	got := requiredMappingFields(op)
+	if !containsString(got, "appid") {
+		t.Fatalf("required fields missing appid: %#v", got)
+	}
+	if containsString(got, "open_weather_a_p_i_key") {
+		t.Fatalf("required fields included non-request security alias: %#v", got)
 	}
 }
 
@@ -2084,11 +2128,14 @@ func TestProgressiveWeatherGmailDraftAddsGeocodingOperation(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Run failed: %v\n%s", err, out.String())
 	}
-	if len(artifacts.Session.Intent.Steps) != 3 || !sessionHasOperation(artifacts.Session, "geocodeCity") {
+	if len(artifacts.Session.Intent.Steps) != 4 || !sessionHasOperation(artifacts.Session, "geocodeCity") {
 		t.Fatalf("draft did not add geocode step: %#v", artifacts.Session.Intent.Steps)
 	}
 	if !strings.Contains(artifacts.IntentHCL, `operation = "geocodeCity"`) || !strings.Contains(artifacts.IntentHCL, `operation = "gmail_users_messages_send"`) {
 		t.Fatalf("intent missing expected operations:\n%s", artifacts.IntentHCL)
+	}
+	if !strings.Contains(artifacts.IntentHCL, `step "render_weather_report"`) || !strings.Contains(artifacts.IntentHCL, `render_weather_report.received_body`) {
+		t.Fatalf("intent missing weather report renderer:\n%s", artifacts.IntentHCL)
 	}
 	data, err := os.ReadFile(path)
 	if err != nil {

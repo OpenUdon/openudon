@@ -289,6 +289,7 @@ func finalProgressiveConfirmationLoop(ctx context.Context, out io.Writer, p *pro
 			}
 			continue
 		}
+		*session = artifacts.Session
 		issues := CheckReadiness(artifacts.Session, docs)
 		if firstFinalRepairIssue(issues).Code != "" {
 			if handled, handleErr := answerFinalBlockingQuestion(out, p, session, docs, draftPath); handled || handleErr != nil {
@@ -381,6 +382,7 @@ func finalProgressiveConfirmationLoop(ctx context.Context, out io.Writer, p *pro
 				if renderErr != nil {
 					return Artifacts{}, renderErr
 				}
+				*session = artifacts.Session
 				issues = CheckReadiness(artifacts.Session, docs)
 			}
 			if reviewRepair && len(reviewIssues) > 0 && repairAttempts >= 2 {
@@ -1639,6 +1641,22 @@ func apiKeyParameterField(field string, op *apitools.OperationSummary) bool {
 	return false
 }
 
+func skippableSecurityAliasField(field string, op *apitools.OperationSummary) bool {
+	if op == nil {
+		return false
+	}
+	for _, security := range op.Security {
+		parameterName := strings.TrimSpace(security.ParameterName)
+		if parameterName == "" {
+			continue
+		}
+		if field == apitools.SecurityCredentialFieldName(security) && field != parameterName {
+			return true
+		}
+	}
+	return false
+}
+
 func insertStepBefore(session *Session, before, inserted *rollout.Step) {
 	if session == nil || before == nil || inserted == nil {
 		return
@@ -2037,7 +2055,14 @@ func requiredMappingFields(op *apitools.OperationSummary) []string {
 	if op == nil {
 		return nil
 	}
-	return apitools.RequiredOperationFields(*op)
+	var out []string
+	for _, field := range apitools.RequiredOperationFields(*op) {
+		if skippableSecurityAliasField(field, op) {
+			continue
+		}
+		out = append(out, field)
+	}
+	return out
 }
 
 func validateOpenAPIRequestMappings(session Session, step *rollout.Step, op *apitools.OperationSummary, slotPrefix string) []ReadinessIssue {
@@ -2349,6 +2374,12 @@ func suggestedOperationAnswer(docs []APIDocument) string {
 func suggestedOperationAnswerForStep(session Session, docs []APIDocument, step *rollout.Step) string {
 	choices := rankedOperationChoicesForStep(session, docs, step)
 	if len(choices) != 1 {
+		intentText := operationSelectionRankingText(session, step)
+		if wantsEmailMessageSend(intentText) {
+			if operationID, ok := uniqueEmailMessageSendOperationID(choices); ok {
+				return operationID
+			}
+		}
 		if len(choices) > 1 && confidentOperationDefault(session, step, choices) {
 			return choices[0].Op.OperationID
 		}
@@ -2384,16 +2415,25 @@ func uniqueEmailMessageSendChoice(choices []rankedOperationChoice) bool {
 	if bestID == "" || !operationLooksEmailMessageSend(choices[0].Op) {
 		return false
 	}
+	operationID, ok := uniqueEmailMessageSendOperationID(choices)
+	return ok && operationID == bestID
+}
+
+func uniqueEmailMessageSendOperationID(choices []rankedOperationChoice) (string, bool) {
+	var selected string
 	matches := 0
 	for _, choice := range choices {
 		if operationLooksEmailMessageSend(choice.Op) {
 			matches++
-			if strings.TrimSpace(choice.Op.OperationID) != bestID {
-				return false
+			operationID := strings.TrimSpace(choice.Op.OperationID)
+			if selected == "" {
+				selected = operationID
+			} else if operationID != selected {
+				return "", false
 			}
 		}
 	}
-	return matches == 1
+	return selected, matches == 1 && selected != ""
 }
 
 func wantsWeatherLookup(text string) bool {

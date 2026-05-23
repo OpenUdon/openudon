@@ -179,7 +179,7 @@ func TestBuildCatalogPlanRequestUsesCompactArtifactMetadata(t *testing.T) {
 	}
 }
 
-func TestApplyCatalogPlanResponseMigratesValidatedSelectionAndKeepsProposedStepsAdvisory(t *testing.T) {
+func TestApplyCatalogPlanResponseMigratesValidatedSelectionAndUsesProposedSteps(t *testing.T) {
 	cacheRoot := t.TempDir()
 	example := t.TempDir()
 	writeCatalogArtifact(t, cacheRoot, "openapi/test-api.json")
@@ -200,11 +200,11 @@ func TestApplyCatalogPlanResponseMigratesValidatedSelectionAndKeepsProposedSteps
 	applied, err := applyCatalogPlanResponse(&out, &session, hints, example, CatalogPlanResponse{
 		SelectedArtifacts: []CatalogPlanArtifactSelection{{ProviderID: "test", ArtifactKey: key}},
 		ProposedSteps: []CatalogPlanStep{{
-			Name:     "invented_capability_name",
+			Name:     "call_test",
 			Type:     "http",
 			Provider: "test",
 			OpenAPI:  "openapi/test-api.json",
-			Do:       "Perform a made-up catalog planning capability.",
+			Do:       "Perform the catalog-planned test capability.",
 		}},
 	})
 	if err != nil {
@@ -222,8 +222,8 @@ func TestApplyCatalogPlanResponseMigratesValidatedSelectionAndKeepsProposedSteps
 		t.Fatalf("steps = %#v", session.Intent.Steps)
 	}
 	step := session.Intent.Steps[0]
-	if step.Name != "test" || step.Do != "Use Test API for this workflow capability." {
-		t.Fatalf("rough proposed step leaked into intent: %#v", step)
+	if step.Name != "call_test" || step.Do != "Perform the catalog-planned test capability." {
+		t.Fatalf("catalog proposed step was not preserved: %#v", step)
 	}
 	if step.Operation != "" || len(step.With) != 0 || step.Provider != "test" || step.OpenAPI != "openapi/test-api.json" {
 		t.Fatalf("unsafe or missing provider placeholder fields: %#v", step)
@@ -233,6 +233,87 @@ func TestApplyCatalogPlanResponseMigratesValidatedSelectionAndKeepsProposedSteps
 	}
 	if !strings.Contains(out.String(), "selected Test API API document from catalog plan") {
 		t.Fatalf("missing selected artifact output:\n%s", out.String())
+	}
+}
+
+func TestApplyCatalogPlanResponsePreservesProposedOrderAndDependsOn(t *testing.T) {
+	cacheRoot := t.TempDir()
+	example := t.TempDir()
+	writeCatalogArtifact(t, cacheRoot, "openapi/gmail.json")
+	writeCatalogArtifact(t, cacheRoot, "openapi/openweathermap.json")
+	hints := []CatalogHint{
+		{
+			Provider: catalog.Provider{ID: "gmail", DisplayName: "Gmail"},
+			SpecArtifacts: []CatalogSpecArtifactHint{{
+				SpecRef: catalog.SpecReference{ID: "gmail", Kind: catalog.SpecKindOpenAPI},
+				Path:    filepath.Join(cacheRoot, "openapi", "gmail.json"),
+			}},
+		},
+		{
+			Provider: catalog.Provider{ID: "openweathermap", DisplayName: "OpenWeatherMap"},
+			SpecArtifacts: []CatalogSpecArtifactHint{{
+				SpecRef: catalog.SpecReference{ID: "openweathermap", Kind: catalog.SpecKindOpenAPI},
+				Path:    filepath.Join(cacheRoot, "openapi", "openweathermap.json"),
+			}},
+		},
+	}
+	request := BuildCatalogPlanRequest("get weather and gmail the report", Session{}, hints, example)
+	keys := map[string]string{}
+	for _, candidate := range request.Candidates {
+		keys[candidate.ProviderID] = candidate.ArtifactKey
+	}
+	session := Session{}
+	var out strings.Builder
+
+	_, err := applyCatalogPlanResponse(&out, &session, hints, example, CatalogPlanResponse{
+		SelectedArtifacts: []CatalogPlanArtifactSelection{
+			{ProviderID: "gmail", ArtifactKey: keys["gmail"]},
+			{ProviderID: "openweathermap", ArtifactKey: keys["openweathermap"]},
+		},
+		ProposedSteps: []CatalogPlanStep{
+			{Name: "openweathermap", Type: "http", Provider: "openweathermap", OpenAPI: "openapi/openweathermap.json", Do: "Fetch weather."},
+			{Name: "gmail", Type: "http", Provider: "gmail", OpenAPI: "openapi/gmail.json", Do: "Send the weather report.", DependsOn: flexibleStringList{"openweathermap"}},
+		},
+	})
+	if err != nil {
+		t.Fatalf("applyCatalogPlanResponse failed: %v", err)
+	}
+	if got := stepNames(session.Intent.Steps); strings.Join(got, ",") != "openweathermap,gmail" {
+		t.Fatalf("step order = %v, want openweathermap,gmail", got)
+	}
+	gmail := stepByName(session.Intent.Steps, "gmail")
+	if gmail == nil || len(gmail.DependsOn) != 1 || gmail.DependsOn[0] != "openweathermap" {
+		t.Fatalf("gmail depends_on = %#v", gmail)
+	}
+}
+
+func TestApplyCatalogPlanResponseRejectsUnselectedProposedProvider(t *testing.T) {
+	cacheRoot := t.TempDir()
+	example := t.TempDir()
+	writeCatalogArtifact(t, cacheRoot, "openapi/gmail.json")
+	hints := []CatalogHint{{
+		Provider: catalog.Provider{ID: "gmail", DisplayName: "Gmail"},
+		SpecArtifacts: []CatalogSpecArtifactHint{{
+			SpecRef: catalog.SpecReference{ID: "gmail", Kind: catalog.SpecKindOpenAPI},
+			Path:    filepath.Join(cacheRoot, "openapi", "gmail.json"),
+		}},
+	}}
+	request := BuildCatalogPlanRequest("gmail the report", Session{}, hints, example)
+	session := Session{}
+	var out strings.Builder
+
+	_, err := applyCatalogPlanResponse(&out, &session, hints, example, CatalogPlanResponse{
+		SelectedArtifacts: []CatalogPlanArtifactSelection{{ProviderID: "gmail", ArtifactKey: request.Candidates[0].ArtifactKey}},
+		ProposedSteps: []CatalogPlanStep{
+			{Name: "openweathermap", Type: "http", Provider: "openweathermap", OpenAPI: "openapi/openweathermap.json"},
+			{Name: "gmail", Type: "http", Provider: "gmail", OpenAPI: "openapi/gmail.json"},
+		},
+	})
+	if err != nil {
+		t.Fatalf("applyCatalogPlanResponse failed: %v", err)
+	}
+	if got := stepNames(session.Intent.Steps); strings.Join(got, ",") != "gmail" {
+		t.Fatalf("accepted proposed steps = %v, want gmail only", got)
 	}
 }
 

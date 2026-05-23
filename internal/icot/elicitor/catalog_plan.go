@@ -157,6 +157,7 @@ func applyCatalogPlanResponse(out io.Writer, session *Session, hints []CatalogHi
 	}
 	selected := map[string]CatalogMigrationCandidate{}
 	selectedProviders := map[string]bool{}
+	var selectedCandidates []CatalogMigrationCandidate
 	var rejected []string
 	for _, selection := range response.SelectedArtifacts {
 		providerID := strings.TrimSpace(selection.ProviderID)
@@ -172,16 +173,23 @@ func applyCatalogPlanResponse(out io.Writer, session *Session, hints []CatalogHi
 		case !catalogPlanCandidateMigratable(candidate):
 			rejected = append(rejected, key)
 		default:
+			if _, exists := selected[key]; !exists {
+				selectedCandidates = append(selectedCandidates, candidate)
+			}
 			selected[key] = candidate
 			selectedProviders[candidate.ProviderID] = true
 		}
 	}
-	for providerID := range selectedProviders {
-		for _, candidate := range byProvider[providerID] {
-			if candidate.Kind == catalog.SpecKind("advisory-overlay") {
-				selected[catalogPlanArtifactKey(candidate)] = candidate
-			}
+	for _, candidate := range candidates {
+		if !selectedProviders[candidate.ProviderID] || candidate.Kind != catalog.SpecKind("advisory-overlay") {
+			continue
 		}
+		key := catalogPlanArtifactKey(candidate)
+		if _, exists := selected[key]; exists {
+			continue
+		}
+		selected[key] = candidate
+		selectedCandidates = append(selectedCandidates, candidate)
 	}
 	sort.Strings(rejected)
 	for _, item := range rejected {
@@ -198,18 +206,10 @@ func applyCatalogPlanResponse(out io.Writer, session *Session, hints []CatalogHi
 		recordCatalogPlanRejections(session, rejected)
 		return catalogPlanApplication{Rejected: rejected}, nil
 	}
-	selectedCandidates := make([]CatalogMigrationCandidate, 0, len(selected))
 	selectedKeys := make([]string, 0, len(selected))
-	for key, candidate := range selected {
+	for key := range selected {
 		selectedKeys = append(selectedKeys, key)
-		selectedCandidates = append(selectedCandidates, candidate)
 	}
-	sort.Slice(selectedCandidates, func(i, j int) bool {
-		if selectedCandidates[i].ProviderID != selectedCandidates[j].ProviderID {
-			return selectedCandidates[i].ProviderID < selectedCandidates[j].ProviderID
-		}
-		return selectedCandidates[i].RelativePath < selectedCandidates[j].RelativePath
-	})
 	sort.Strings(selectedKeys)
 	result, err := migrateSelectedCatalogCandidates(selectedCandidates)
 	if err != nil {
@@ -247,7 +247,52 @@ func applyCatalogPlanSteps(session *Session, proposed []CatalogPlanStep, candida
 	var steps []*rollout.Step
 	acceptedNames := map[string]bool{}
 	acceptedProviders := map[string]bool{}
-	_ = proposed
+	type acceptedProposedStep struct {
+		step      *rollout.Step
+		dependsOn []string
+	}
+	var accepted []acceptedProposedStep
+	proposedNameToAccepted := map[string]string{}
+	for _, proposedStep := range proposed {
+		provider := strings.TrimSpace(proposedStep.Provider)
+		if provider == "" || acceptedProviders[provider] || len(byProvider[provider]) == 0 {
+			continue
+		}
+		name := uniqueCatalogPlanStepName(firstNonEmpty(proposedStep.Name, provider), acceptedNames)
+		if name == "" {
+			continue
+		}
+		stepType := strings.ToLower(strings.TrimSpace(proposedStep.Type))
+		if stepType != "openapi" && stepType != "http" {
+			stepType = "http"
+		}
+		acceptedNames[name] = true
+		acceptedProviders[provider] = true
+		proposedNameToAccepted[slugIdent(firstNonEmpty(proposedStep.Name, provider))] = name
+		proposedNameToAccepted[slugIdent(provider)] = name
+		accepted = append(accepted, acceptedProposedStep{
+			step: &rollout.Step{
+				Name:     name,
+				Type:     stepType,
+				Provider: provider,
+				OpenAPI:  catalogPlanStepOpenAPI(proposedStep.OpenAPI, byProvider[provider]),
+				Do:       firstNonEmpty(proposedStep.Do, "Use "+firstNonEmpty(byProvider[provider][0].ProviderName, provider)+" for this workflow capability."),
+			},
+			dependsOn: append([]string(nil), proposedStep.DependsOn...),
+		})
+	}
+	if len(accepted) > 0 {
+		for _, item := range accepted {
+			for _, dep := range item.dependsOn {
+				if acceptedName := proposedNameToAccepted[slugIdent(dep)]; acceptedName != "" && acceptedName != item.step.Name {
+					item.step.DependsOn = appendUniqueString(item.step.DependsOn, acceptedName)
+				}
+			}
+			steps = append(steps, item.step)
+		}
+		session.Intent.Steps = steps
+		return
+	}
 	for _, candidate := range candidates {
 		provider := strings.TrimSpace(candidate.ProviderID)
 		if provider == "" || acceptedProviders[provider] {

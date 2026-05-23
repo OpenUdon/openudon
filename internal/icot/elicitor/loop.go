@@ -386,6 +386,7 @@ func finalVerificationLoop(out io.Writer, p *prompter, session *Session, docs []
 			}
 			continue
 		}
+		*session = artifacts.Session
 		if blocking := firstFinalRepairIssue(CheckReadiness(artifacts.Session, docs)); blocking.Code != "" {
 			if handled, handleErr := answerFinalBlockingQuestion(out, p, session, docs, draftPath); handled || handleErr != nil {
 				if handleErr != nil {
@@ -515,6 +516,8 @@ var ErrCanceled = errors.New("authoring canceled")
 
 func RenderArtifacts(session Session) (Artifacts, error) {
 	session.Normalize()
+	finalizeICoTIntent(&session)
+	session.Normalize()
 	if err := session.Validate(); err != nil {
 		return Artifacts{}, err
 	}
@@ -522,6 +525,7 @@ func RenderArtifacts(session Session) (Artifacts, error) {
 	if err != nil {
 		return Artifacts{}, err
 	}
+	intentHCL = annotateIntentHCLWithPlaceholderWarnings(intentHCL, session)
 	if _, err := rollout.ParseIntent([]byte(intentHCL), "intent.hcl"); err != nil {
 		return Artifacts{}, err
 	}
