@@ -90,6 +90,9 @@ perform the same staging and digest check before calling the configured executor
 The runner is also available directly as `go run ./cmd/udon-runner --config <run-config.json>`.
 `OPENUDON_EXECUTOR` accepts either an absolute path to an executable file or `docker://<image>`.
 The outer `OPENUDON_UDON_RUNNER` override must be an absolute path to an executable file.
+When that outer override is used, OpenUdon evidence marks its staged package as `stage_kind:
+preflight`; the external runner owns any final executor-visible staging and must fail closed on its
+own config checks.
 
 ## Authoring With iCoT
 
@@ -363,8 +366,8 @@ Tier rules:
 - Stored or current quality failures fail.
 - Malformed handoff manifests fail.
 - Credential-value artifacts and direct production execution remain prohibited.
-- `run-evidence.json` records gate outcomes, package paths, staged paths, and credential binding
-  names only; it must not contain credential values.
+- `run-evidence.json` records gate outcomes, package paths, staged paths, stage kind, executor
+  status, and credential binding names only; it must not contain credential values.
 - Approval JSON and saved run configs from before the OpenUdon package rename should be regenerated
   so scope, version, and package digest fields match the current artifact set.
 

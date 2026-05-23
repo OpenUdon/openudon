@@ -3,6 +3,7 @@ package trustedrunner
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -74,7 +75,7 @@ func TestRunDryRunStagesAndWritesEvidenceWithoutCredentialEnv(t *testing.T) {
 		t.Fatalf("dry-run did not stage workflow: %v", err)
 	}
 	evidence := readRunEvidenceFile(t, result.RunEvidencePath)
-	if evidence.Version != RunEvidenceVersion || !evidence.DryRun || evidence.Executor.Invoked {
+	if evidence.Version != RunEvidenceVersion || !evidence.DryRun || evidence.Executor.Invoked || evidence.StageKind != "dry-run" {
 		t.Fatalf("unexpected evidence: %#v", evidence)
 	}
 	if evidence.StagePath != result.StagePath || evidence.PackageSHA256 != result.PackageSHA256 {
@@ -282,6 +283,9 @@ func TestRunNonDryRunWritesRunEvidence(t *testing.T) {
 	if evidence.DryRun || !evidence.Executor.Invoked || evidence.Executor.Mode != "internal-runner" {
 		t.Fatalf("unexpected executor evidence: %#v", evidence.Executor)
 	}
+	if evidence.StageKind != "executor" || runEvidenceGateStatus(evidence, "executor_invocation") != "pass" {
+		t.Fatalf("unexpected handoff evidence: %#v", evidence)
+	}
 	if evidence.StagePath == "" || evidence.WorkflowPath == "" || len(evidence.PackagePaths) == 0 {
 		t.Fatalf("evidence missing package staging fields: %#v", evidence)
 	}
@@ -291,6 +295,42 @@ func TestRunNonDryRunWritesRunEvidence(t *testing.T) {
 	}
 	if strings.Contains(string(data), "super-secret") {
 		t.Fatalf("run evidence leaked credential value:\n%s", data)
+	}
+}
+
+func TestRunNonDryRunWritesFailureEvidence(t *testing.T) {
+	root, example := writeFixture(t, fixtureOptions{})
+	now := fixedNow()
+	approvalPath := writeApprovalTemplate(t, root, example, StateApprovedForSandbox, now)
+	fakeExecutor := filepath.Join(root, "fake-udon")
+	mustWriteFile(t, fakeExecutor, []byte("#!/usr/bin/env bash\nexit 0\n"))
+	if err := os.Chmod(fakeExecutor, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("OPENUDON_EXECUTOR", fakeExecutor)
+	invokeErr := errors.New("executor failed")
+
+	result, err := Run(context.Background(), Options{
+		RepoRoot:     root,
+		ExampleDir:   example,
+		Tier:         TierSandbox,
+		ApprovalPath: approvalPath,
+		WorkDir:      filepath.Join(root, "work"),
+		Now:          now,
+		Assess:       passAssess,
+		RunCommand: func(context.Context, string, ...string) error {
+			return invokeErr
+		},
+	})
+	if err == nil || !strings.Contains(err.Error(), "executor failed") {
+		t.Fatalf("expected executor failure, got result=%#v err=%v", result, err)
+	}
+	if result == nil || result.RunEvidencePath == "" {
+		t.Fatalf("expected partial result with run evidence, got %#v", result)
+	}
+	evidence := readRunEvidenceFile(t, result.RunEvidencePath)
+	if evidence.StageKind != "executor" || !evidence.Executor.Invoked || runEvidenceGateStatus(evidence, "executor_invocation") != "fail" {
+		t.Fatalf("unexpected failure evidence: %#v", evidence)
 	}
 }
 
@@ -417,6 +457,50 @@ func TestRunNonDryRunInvokesRunner(t *testing.T) {
 	}
 	if !strings.Contains(string(data), `"version": "openudon.executor-run.v1"`) || !strings.Contains(string(data), `"workflow_path": "workflows/workflow.uws.yaml"`) {
 		t.Fatalf("unexpected run config:\n%s", data)
+	}
+	evidence := readRunEvidenceFile(t, result.RunEvidencePath)
+	if evidence.Executor.Mode != "external-runner" || evidence.StageKind != "preflight" || runEvidenceGateStatus(evidence, "executor_invocation") != "pass" {
+		t.Fatalf("unexpected external runner evidence: %#v", evidence)
+	}
+	wantArgv := []string{runnerPath, "--config", result.RunConfigPath}
+	if strings.Join(evidence.Executor.Argv, "\n") != strings.Join(wantArgv, "\n") {
+		t.Fatalf("external runner evidence argv = %#v, want %#v", evidence.Executor.Argv, wantArgv)
+	}
+}
+
+func TestRunExternalRunnerWritesFailureEvidence(t *testing.T) {
+	root, example := writeFixture(t, fixtureOptions{})
+	now := fixedNow()
+	approvalPath := writeApprovalTemplate(t, root, example, StateApprovedForSandbox, now)
+	runnerPath := filepath.Join(root, "fake-runner")
+	mustWriteFile(t, runnerPath, []byte("#!/usr/bin/env bash\nexit 0\n"))
+	if err := os.Chmod(runnerPath, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	invokeErr := errors.New("outer runner failed")
+
+	result, err := Run(context.Background(), Options{
+		RepoRoot:     root,
+		ExampleDir:   example,
+		Tier:         TierSandbox,
+		ApprovalPath: approvalPath,
+		RunnerPath:   runnerPath,
+		WorkDir:      filepath.Join(root, "work"),
+		Now:          now,
+		Assess:       passAssess,
+		RunCommand: func(context.Context, string, ...string) error {
+			return invokeErr
+		},
+	})
+	if err == nil || !strings.Contains(err.Error(), "outer runner failed") {
+		t.Fatalf("expected external runner failure, got result=%#v err=%v", result, err)
+	}
+	if result == nil || result.RunEvidencePath == "" {
+		t.Fatalf("expected partial result with run evidence, got %#v", result)
+	}
+	evidence := readRunEvidenceFile(t, result.RunEvidencePath)
+	if evidence.Executor.Mode != "external-runner" || evidence.StageKind != "preflight" || runEvidenceGateStatus(evidence, "executor_invocation") != "fail" {
+		t.Fatalf("unexpected external failure evidence: %#v", evidence)
 	}
 }
 
@@ -1779,6 +1863,15 @@ func readRunEvidenceFile(t *testing.T, path string) RunEvidence {
 		t.Fatal(err)
 	}
 	return evidence
+}
+
+func runEvidenceGateStatus(evidence RunEvidence, name string) string {
+	for _, gate := range evidence.Gates {
+		if gate.Name == name {
+			return gate.Status
+		}
+	}
+	return ""
 }
 
 func writeApprovalFile(t *testing.T, path string, approval Approval) {

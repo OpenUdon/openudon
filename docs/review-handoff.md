@@ -89,3 +89,7 @@ requiring credential values or invoking the executor. Both dry runs and real han
 `openudon.run-evidence.v1` at `<workdir>/run-evidence.json` with package paths, staged paths, gate
 outcomes, and credential binding names only. `OPENUDON_EXECUTOR` selects the final executor as an
 absolute binary path or `docker://<image>`.
+
+If `OPENUDON_UDON_RUNNER` overrides the outer runner shim, OpenUdon evidence marks the staged path as
+`stage_kind: preflight`. That proves OpenUdon's package validation before handing the config to the
+external runner; the external runner still owns its final executor-visible stage and invocation.

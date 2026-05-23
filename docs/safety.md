@@ -65,6 +65,11 @@ be an absolute path to an executable file. Docker mode passes only declared `UDO
 environment variable names into argv; non-Docker binary execution inherits the operator environment
 by design.
 
+When `OPENUDON_UDON_RUNNER` is used, OpenUdon run evidence records `stage_kind: preflight` because
+the outer wrapper can validate and stage the package before handoff but cannot observe the external
+runner's final staging. The external runner must perform the same fail-closed config, credential,
+staging, and digest checks.
+
 ## Runtime Profiles
 
 Extension-owned UWS operations, such as SMTP, SSH, SQL, command execution, or LLM calls, must name

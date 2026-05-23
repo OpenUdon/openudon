@@ -94,6 +94,7 @@ type RunEvidence struct {
 	RunConfigPath      string              `json:"run_config_path"`
 	PackageRoot        string              `json:"package_root"`
 	WorkDir            string              `json:"workdir"`
+	StageKind          string              `json:"stage_kind"`
 	StagePath          string              `json:"stage_path"`
 	WorkflowPath       string              `json:"workflow_path"`
 	PackagePaths       []string            `json:"package_paths"`
@@ -183,7 +184,16 @@ func Run(ctx context.Context, opts Options) (*RunResult, error) {
 			return nil, fmt.Errorf("prepare trusted executor dry-run: %w", err)
 		}
 		result.StagePath = prepared.StagePath
-		evidencePath, err := writeRunEvidence(result.WorkDir, buildRunEvidence(runConfig, approval, prepared, result, false, "dry-run", "", now))
+		evidencePath, err := writeRunEvidence(result.WorkDir, buildRunEvidence(runEvidenceOptions{
+			Config:         runConfig,
+			Approval:       approval,
+			Prepared:       prepared,
+			Result:         result,
+			Mode:           "dry-run",
+			StageKind:      "dry-run",
+			ExecutorStatus: "",
+			Now:            now,
+		}))
 		if err != nil {
 			return nil, err
 		}
@@ -206,6 +216,7 @@ func Run(ctx context.Context, opts Options) (*RunResult, error) {
 		}
 		result.StagePath = prepared.StagePath
 		args := []string{"--config", runConfigPath}
+		executorArgv := append([]string{runnerPath}, args...)
 		runCommand := opts.RunCommand
 		if runCommand == nil {
 			runCommand = func(ctx context.Context, name string, args ...string) error {
@@ -217,9 +228,38 @@ func Run(ctx context.Context, opts Options) (*RunResult, error) {
 			}
 		}
 		if err := runCommand(ctx, runnerPath, args...); err != nil {
-			return nil, fmt.Errorf("run trusted executor: %w", err)
+			evidencePath, evidenceErr := writeRunEvidence(result.WorkDir, buildRunEvidence(runEvidenceOptions{
+				Config:         runConfig,
+				Approval:       approval,
+				Prepared:       prepared,
+				Result:         result,
+				Invoked:        true,
+				Mode:           "external-runner",
+				RunnerPath:     runnerPath,
+				ExecutorArgv:   executorArgv,
+				StageKind:      "preflight",
+				ExecutorStatus: "fail",
+				Now:            now,
+			}))
+			if evidenceErr != nil {
+				return result, fmt.Errorf("run trusted executor: %w; write run evidence: %v", err, evidenceErr)
+			}
+			result.RunEvidencePath = evidencePath
+			return result, fmt.Errorf("run trusted executor: %w", err)
 		}
-		evidencePath, err := writeRunEvidence(result.WorkDir, buildRunEvidence(runConfig, approval, prepared, result, true, "external-runner", runnerPath, now))
+		evidencePath, err := writeRunEvidence(result.WorkDir, buildRunEvidence(runEvidenceOptions{
+			Config:         runConfig,
+			Approval:       approval,
+			Prepared:       prepared,
+			Result:         result,
+			Invoked:        true,
+			Mode:           "external-runner",
+			RunnerPath:     runnerPath,
+			ExecutorArgv:   executorArgv,
+			StageKind:      "preflight",
+			ExecutorStatus: "pass",
+			Now:            now,
+		}))
 		if err != nil {
 			return nil, err
 		}
@@ -234,10 +274,36 @@ func Run(ctx context.Context, opts Options) (*RunResult, error) {
 		RunCommand: opts.RunCommand,
 	})
 	if err != nil {
-		return nil, fmt.Errorf("run trusted executor: %w", err)
+		result.StagePath = prepared.StagePath
+		evidencePath, evidenceErr := writeRunEvidence(result.WorkDir, buildRunEvidence(runEvidenceOptions{
+			Config:         runConfig,
+			Approval:       approval,
+			Prepared:       prepared,
+			Result:         result,
+			Invoked:        true,
+			Mode:           "internal-runner",
+			StageKind:      "executor",
+			ExecutorStatus: "fail",
+			Now:            now,
+		}))
+		if evidenceErr != nil {
+			return result, fmt.Errorf("run trusted executor: %w; write run evidence: %v", err, evidenceErr)
+		}
+		result.RunEvidencePath = evidencePath
+		return result, fmt.Errorf("run trusted executor: %w", err)
 	}
 	result.StagePath = prepared.StagePath
-	evidencePath, err := writeRunEvidence(result.WorkDir, buildRunEvidence(runConfig, approval, prepared, result, true, "internal-runner", "", now))
+	evidencePath, err := writeRunEvidence(result.WorkDir, buildRunEvidence(runEvidenceOptions{
+		Config:         runConfig,
+		Approval:       approval,
+		Prepared:       prepared,
+		Result:         result,
+		Invoked:        true,
+		Mode:           "internal-runner",
+		StageKind:      "executor",
+		ExecutorStatus: "pass",
+		Now:            now,
+	}))
 	if err != nil {
 		return nil, err
 	}
@@ -332,7 +398,21 @@ func writeRunEvidence(workdir string, evidence RunEvidence) (string, error) {
 	return path, nil
 }
 
-func buildRunEvidence(config RunConfig, approval Approval, prepared udonrunner.Result, result *RunResult, invoked bool, mode, runnerPath string, now time.Time) RunEvidence {
+type runEvidenceOptions struct {
+	Config         RunConfig
+	Approval       Approval
+	Prepared       udonrunner.Result
+	Result         *RunResult
+	Invoked        bool
+	Mode           string
+	RunnerPath     string
+	ExecutorArgv   []string
+	StageKind      string
+	ExecutorStatus string
+	Now            time.Time
+}
+
+func buildRunEvidence(opts runEvidenceOptions) RunEvidence {
 	gates := []RunEvidenceGate{
 		{Name: "handoff_package", Status: "pass"},
 		{Name: "manifest_policy", Status: "pass"},
@@ -342,32 +422,37 @@ func buildRunEvidence(config RunConfig, approval Approval, prepared udonrunner.R
 		{Name: "run_config", Status: "pass"},
 		{Name: "staged_digest", Status: "pass"},
 	}
-	if invoked {
-		gates = append(gates, RunEvidenceGate{Name: "executor_invocation", Status: "pass"})
+	if opts.ExecutorStatus != "" {
+		gates = append(gates, RunEvidenceGate{Name: "executor_invocation", Status: opts.ExecutorStatus})
+	}
+	executorArgv := append([]string(nil), opts.ExecutorArgv...)
+	if len(executorArgv) == 0 {
+		executorArgv = append(executorArgv, opts.Prepared.Argv...)
 	}
 	return RunEvidence{
 		Version:            RunEvidenceVersion,
-		CreatedAt:          now.UTC().Format(time.RFC3339),
-		Scope:              result.Scope,
-		Tier:               result.Tier,
-		DryRun:             result.DryRun,
-		ApprovalState:      approval.State,
-		PackageSHA256:      result.PackageSHA256,
-		RunConfigPath:      result.RunConfigPath,
-		PackageRoot:        config.PackageRoot,
-		WorkDir:            result.WorkDir,
-		StagePath:          prepared.StagePath,
-		WorkflowPath:       prepared.WorkflowPath,
-		PackagePaths:       append([]string(nil), prepared.PackagePaths...),
-		APISourcePaths:     append([]string(nil), prepared.OpenAPIPaths...),
-		CredentialBindings: append([]string(nil), config.CredentialBindings...),
-		CredentialEnvNames: append([]string(nil), prepared.CredentialEnvNames...),
+		CreatedAt:          opts.Now.UTC().Format(time.RFC3339),
+		Scope:              opts.Result.Scope,
+		Tier:               opts.Result.Tier,
+		DryRun:             opts.Result.DryRun,
+		ApprovalState:      opts.Approval.State,
+		PackageSHA256:      opts.Result.PackageSHA256,
+		RunConfigPath:      opts.Result.RunConfigPath,
+		PackageRoot:        opts.Config.PackageRoot,
+		WorkDir:            opts.Result.WorkDir,
+		StageKind:          opts.StageKind,
+		StagePath:          opts.Prepared.StagePath,
+		WorkflowPath:       opts.Prepared.WorkflowPath,
+		PackagePaths:       append([]string(nil), opts.Prepared.PackagePaths...),
+		APISourcePaths:     append([]string(nil), opts.Prepared.OpenAPIPaths...),
+		CredentialBindings: append([]string(nil), opts.Config.CredentialBindings...),
+		CredentialEnvNames: append([]string(nil), opts.Prepared.CredentialEnvNames...),
 		Gates:              gates,
 		Executor: RunEvidenceExecutor{
-			Invoked:    invoked,
-			Mode:       mode,
-			RunnerPath: runnerPath,
-			Argv:       append([]string(nil), prepared.Argv...),
+			Invoked:    opts.Invoked,
+			Mode:       opts.Mode,
+			RunnerPath: opts.RunnerPath,
+			Argv:       executorArgv,
 		},
 	}
 }
