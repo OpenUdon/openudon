@@ -2142,6 +2142,41 @@ func TestPackageFromIntentBuildRegressionMatrix(t *testing.T) {
 			},
 		},
 		{
+			name:    "google-discovery-security-sidecar-binding-passes",
+			project: buildMatrixProject("Gmail Send", "- Use google-discovery/gmail.json for Gmail message send.", "- openapi and http are allowed.", "- No function steps are expected.", "- Use credential binding `googleOAuth2`."),
+			intent: &rollout.Intent{
+				Source:   "google-discovery/gmail.json",
+				Workflow: &rollout.WorkflowMeta{Name: "gmail_send"},
+				Steps: []*rollout.Step{{
+					Name:      "gmail_message",
+					Type:      "http",
+					Source:    "google-discovery/gmail.json",
+					Operation: "gmail.users.messages.send",
+					With:      map[string]string{"userId": "me"},
+				}},
+				Outputs: []*rollout.Output{{Name: "send_result", From: "gmail_message.received_body"}},
+			},
+			sources: map[string]string{
+				"google-discovery/gmail.json": minimalDiscoveryDocument(),
+				"google-discovery/gmail.security-overlay.json": `{
+  "id": "gmail-discovery-auth-overlay",
+  "provider_id": "gmail",
+  "spec_ref_id": "gmail-discovery-v1",
+  "status": "overlay-required",
+  "security_schemes": [{"name":"googleOAuth2","type":"oauth2"}],
+  "root_security": [{"scheme":"googleOAuth2"}]
+}`,
+				"openapi/support.yaml": supportOpenAPI(),
+			},
+			wantPass: true,
+			wantChecks: []string{
+				"credentials.security_schemes:pass",
+			},
+			wantFiles: map[string][]string{
+				"expected/plan.json": {`"credentials"`, `"googleOAuth2"`},
+			},
+		},
+		{
 			name:    "aws-smithy",
 			project: buildMatrixProject("Thing Update", "- Use aws-smithy/thing.json for Smithy request placement coverage.", "- openapi and http are allowed.", "- No function steps are expected.", "- Use credential binding example_sigv4."),
 			intent: &rollout.Intent{

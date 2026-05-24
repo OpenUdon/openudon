@@ -113,9 +113,7 @@ func buildWorkflowPlan(result Result, intent *rollout.Intent, candidates []opena
 			Detail: err.Error(),
 		})
 	}
-	for key, reqs := range advisorySecurity {
-		security[key] = append(security[key], reqs...)
-	}
+	mergeAdvisorySecurityRequirements(security, advisorySecurity)
 	for key, reqs := range security {
 		security[key] = sortedSecurityRequirements(reqs)
 	}

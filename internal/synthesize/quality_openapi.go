@@ -220,9 +220,7 @@ func validateIntentOpenAPISecurity(intent *rollout.Intent, exampleDir string, ca
 	if len(advisoryErrs) > 0 {
 		return fmt.Errorf("advisory security sidecar metadata is invalid: %s", joinErrorMessages(advisoryErrs))
 	}
-	for key, reqs := range advisory {
-		security[key] = append(security[key], reqs...)
-	}
+	mergeAdvisorySecurityRequirements(security, advisory)
 	for key, reqs := range security {
 		security[key] = sortedSecurityRequirements(reqs)
 	}
@@ -919,6 +917,21 @@ func localAdvisorySecurityIndex(exampleDir string) (map[string][]openAPISecurity
 		out[key] = sortedSecurityRequirements(reqs)
 	}
 	return out, errs
+}
+
+func mergeAdvisorySecurityRequirements(base, advisory map[string][]openAPISecurityRequirement) {
+	for key, reqs := range advisory {
+		if advisoryOverridesNativeSecurity(key) {
+			base[key] = append([]openAPISecurityRequirement(nil), reqs...)
+			continue
+		}
+		base[key] = append(base[key], reqs...)
+	}
+}
+
+func advisoryOverridesNativeSecurity(key string) bool {
+	source, _, _ := strings.Cut(key, "\x00")
+	return sourceDescriptionTypeForPath(source) != "openapi"
 }
 
 func readSecuritySidecar(sourcePath string) (catalog.SecurityMetadata, bool, error) {
