@@ -900,9 +900,13 @@ func expressionReferencesInputSource(expression, expected string) bool {
 	if expected == "" {
 		return true
 	}
+	if expression == "variables."+expected || strings.Contains(expression, "variables."+expected) {
+		return true
+	}
 	return expression == expected ||
 		strings.Contains(expression, "input."+expected) ||
 		strings.Contains(expression, "inputs."+expected) ||
+		strings.Contains(expression, "variables.inputs."+expected) ||
 		strings.Contains(expression, "var."+expected)
 }
 
@@ -911,6 +915,7 @@ func normalizeBindingExpression(value string) string {
 	value = strings.Trim(value, `"`)
 	value = strings.TrimPrefix(value, "${")
 	value = strings.TrimSuffix(value, "}")
+	value = strings.TrimPrefix(value, "variables.")
 	value = strings.ReplaceAll(value, "received_body", "body")
 	value = regexp.MustCompile(`\[\s*([0-9]+)\s*\]`).ReplaceAllString(value, ".$1")
 	value = regexp.MustCompile(`\[\s*"([^"]+)"\s*\]`).ReplaceAllString(value, ".$1")

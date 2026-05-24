@@ -92,7 +92,7 @@ func TestGenerateWorkflowDocumentUsesRequestBodyForKnownFnctHelper(t *testing.T)
 	if !ok {
 		t.Fatalf("request body = %#v", op.Request)
 	}
-	if to, ok := body["to"].(map[string]any); !ok || to["$expr"] != "inputs.recipient_email" {
+	if to, ok := body["to"].(map[string]any); !ok || to["$expr"] != "variables.inputs.recipient_email" {
 		t.Fatalf("request to = %#v", body["to"])
 	}
 	if input, ok := body["input"].(map[string]any); !ok || input["$expr"] != "weather_lookup.received_body" {

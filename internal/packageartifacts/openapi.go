@@ -17,6 +17,7 @@ type ManifestInput struct {
 }
 
 const ReviewHandoffPath = "expected/review-handoff.json"
+const RuntimeDataPath = "expected/data.hcl"
 
 var fixedRequiredPackagePaths = []string{
 	"project.md",
@@ -72,6 +73,9 @@ func RequiredPackagePaths(packageRoot string) ([]string, error) {
 		return nil, err
 	}
 	paths := append([]string(nil), fixedRequiredPackagePaths...)
+	if runtimeDataFileExists(packageRoot) {
+		paths = append(paths, RuntimeDataPath)
+	}
 	openAPIPaths, err := CollectAPISourcePaths(packageRoot)
 	if err != nil {
 		return nil, err
@@ -83,6 +87,11 @@ func RequiredPackagePaths(packageRoot string) ([]string, error) {
 	}
 	paths = append(paths, securitySidecars...)
 	return uniqueSorted(paths)
+}
+
+func runtimeDataFileExists(packageRoot string) bool {
+	info, err := os.Lstat(filepath.Join(packageRoot, filepath.FromSlash(RuntimeDataPath)))
+	return err == nil && info.Mode().IsRegular()
 }
 
 // RequiredManifestPaths verifies that every required package path is listed in

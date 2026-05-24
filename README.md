@@ -200,6 +200,7 @@ artifacts:
 expected/plan.json
 expected/plan.md
 expected/discovery.json
+expected/data.hcl
 expected/refinement.json
 expected/refinement.md
 expected/review.md
@@ -207,6 +208,11 @@ expected/review-handoff.json
 expected/quality.json
 expected/quality.md
 ```
+
+`expected/data.hcl` is for reviewed runtime inputs and env references, not
+plaintext secrets. Udon resolves markers such as
+`client_secret = "ENVIRONMENT:GOOGLE_CLIENT_SECRET"` from the execution
+environment.
 
 Use narrower stages after editing artifacts:
 
@@ -399,6 +405,7 @@ examples/<name>/workflows/workflow.uws.yaml
 examples/<name>/expected/plan.json
 examples/<name>/expected/plan.md
 examples/<name>/expected/discovery.json
+examples/<name>/expected/data.hcl
 examples/<name>/expected/refinement.json
 examples/<name>/expected/refinement.md
 examples/<name>/expected/review.md

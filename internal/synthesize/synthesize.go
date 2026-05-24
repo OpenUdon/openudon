@@ -44,6 +44,7 @@ type Result struct {
 	PlanJSONPath       string
 	PlanMDPath         string
 	DiscoveryJSONPath  string
+	DataPath           string
 	RefinementJSONPath string
 	RefinementMDPath   string
 	ReviewPath         string
@@ -193,6 +194,9 @@ func PackageFromIntent(ctx context.Context, opts Options) (*Result, *QualityRepo
 		return &state.result, nil, err
 	}
 	if err := writeWorkflowPlan(state.result, workflowPlan); err != nil {
+		return &state.result, nil, err
+	}
+	if err := writeRuntimeDataFile(state.result, intent); err != nil {
 		return &state.result, nil, err
 	}
 	if err := generateWorkflow(ctx, state.result, intent, nil, opts.Provider, opts.Model, opts.Timeout); err != nil {
@@ -351,6 +355,9 @@ func runRefinement(ctx context.Context, opts Options, state *refinementState, ll
 		if err := writeWorkflowPlan(state.result, workflowPlan); err != nil {
 			return nil, err
 		}
+		if err := writeRuntimeDataFile(state.result, intent); err != nil {
+			return nil, err
+		}
 		if err := ctx.Err(); err != nil {
 			return &state.result, err
 		}
@@ -496,6 +503,9 @@ func Promote(ctx context.Context, opts Options) (*Result, error) {
 		if err := writeWorkflowPlan(result, buildWorkflowPlan(result, intent, candidates, policy)); err != nil {
 			return nil, err
 		}
+		if err := writeRuntimeDataFile(result, intent); err != nil {
+			return nil, err
+		}
 	}
 	if err := ctx.Err(); err != nil {
 		return nil, err
@@ -580,6 +590,7 @@ func resultPaths(exampleDir string) Result {
 		PlanJSONPath:       filepath.Join(expectedDir, "plan.json"),
 		PlanMDPath:         filepath.Join(expectedDir, "plan.md"),
 		DiscoveryJSONPath:  filepath.Join(expectedDir, "discovery.json"),
+		DataPath:           filepath.Join(expectedDir, "data.hcl"),
 		RefinementJSONPath: filepath.Join(expectedDir, "refinement.json"),
 		RefinementMDPath:   filepath.Join(expectedDir, "refinement.md"),
 		ReviewPath:         filepath.Join(expectedDir, "review.md"),

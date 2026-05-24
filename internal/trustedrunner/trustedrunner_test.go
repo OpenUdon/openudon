@@ -655,6 +655,40 @@ func TestRunConfigIncludesAdvisorySecuritySidecarPackagePath(t *testing.T) {
 	}
 }
 
+func TestRunConfigIncludesRuntimeDataFile(t *testing.T) {
+	root, example := writeFixture(t, fixtureOptions{extraRequiredInputs: []string{"expected/data.hcl"}})
+	mustWriteFile(t, filepath.Join(example, "expected", "data.hcl"), []byte("inputs { recipient_email = \"me@example.com\" }\n"))
+	now := fixedNow()
+	approvalPath := writeApprovalTemplate(t, root, example, StateApprovedForSandbox, now)
+	result, err := Run(context.Background(), Options{
+		RepoRoot:     root,
+		ExampleDir:   example,
+		Tier:         TierSandbox,
+		ApprovalPath: approvalPath,
+		DryRun:       true,
+		WorkDir:      filepath.Join(root, "work"),
+		Now:          now,
+		Assess:       passAssess,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	data, err := os.ReadFile(result.RunConfigPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var config RunConfig
+	if err := json.Unmarshal(data, &config); err != nil {
+		t.Fatal(err)
+	}
+	if !stringSliceContains(config.PackagePaths, "expected/data.hcl") {
+		t.Fatalf("package paths missing runtime data file: %#v", config.PackagePaths)
+	}
+	if !stringSliceContains(config.DataFiles, "expected/data.hcl") {
+		t.Fatalf("data files missing runtime data file: %#v", config.DataFiles)
+	}
+}
+
 func TestRunRejectsOpenAPIFileMissingFromHandoffInputs(t *testing.T) {
 	root, example := writeFixture(t, fixtureOptions{})
 	if err := os.MkdirAll(filepath.Join(example, "openapi", "nested"), 0o755); err != nil {

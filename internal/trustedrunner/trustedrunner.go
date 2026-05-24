@@ -341,6 +341,7 @@ func buildRunConfig(p paths, manifest handoffManifest, digest, tier, workdir str
 		WorkDir:             workdir,
 		WorkflowPath:        filepath.ToSlash(filepath.Join("workflows", "workflow.uws.yaml")),
 		WorkflowFormat:      "uws-yaml",
+		DataFiles:           runConfigDataFiles(p.exampleAbs),
 		OpenAPIPaths:        relOpenAPI,
 		PackagePaths:        packagePaths,
 		PackageSHA256:       digest,
@@ -351,6 +352,14 @@ func buildRunConfig(p paths, manifest handoffManifest, digest, tier, workdir str
 		config.WorkDir = p.defaultWorkDir
 	}
 	return config, nil
+}
+
+func runConfigDataFiles(exampleRoot string) []string {
+	info, err := os.Lstat(filepath.Join(exampleRoot, filepath.FromSlash(packageartifacts.RuntimeDataPath)))
+	if err != nil || !info.Mode().IsRegular() {
+		return nil
+	}
+	return []string{packageartifacts.RuntimeDataPath}
 }
 
 func packagePathsForRunConfig(p paths, manifest handoffManifest) ([]string, error) {

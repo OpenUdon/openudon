@@ -2399,7 +2399,7 @@ OpenAPI: none required
 		contains []string
 	}{
 		{result.IntentPath, []string{`step "render_customer_summaries"`, `type       = "loop"`, `items      = "inputs.customers"`, `batch_size = "2"`}},
-		{result.WorkflowPath, []string{`loop "render_customer_summaries"`, `items = inputs.customers`, `batch_size = "2"`, `fnct "render_customer_summary"`}},
+		{result.WorkflowPath, []string{`step "render_customer_summaries"`, `items       = "variables.inputs.customers"`, `batchSize   = "2"`, `operationRef = "render_customer_summary"`}},
 		{result.PlanJSONPath, []string{`"name": "customer_summaries"`, `"kind": "loop"`, `"from": "main.render_customer_summaries"`}},
 		{result.ReviewPath, []string{`render_customer_summaries`, "items: `inputs.customers`", "batch_size: `2`"}},
 	} {
@@ -2523,16 +2523,16 @@ func TestGenerateWorkflowInfersOpenAPIRequestPlacement(t *testing.T) {
 		t.Fatal(err)
 	}
 	request := doc.Operations[0].Request
-	if exprWrapperValue(request["path"].(map[string]any)["thingId"]) != "inputs.thingId" {
+	if exprWrapperValue(request["path"].(map[string]any)["thingId"]) != "variables.inputs.thingId" {
 		t.Fatalf("path request = %#v", request)
 	}
 	if request["query"].(map[string]any)["verbose"] != "true" {
 		t.Fatalf("query request = %#v", request)
 	}
-	if exprWrapperValue(request["header"].(map[string]any)["X-Tenant"]) != "inputs.tenant" {
+	if exprWrapperValue(request["header"].(map[string]any)["X-Tenant"]) != "variables.inputs.tenant" {
 		t.Fatalf("header request = %#v", request)
 	}
-	if exprWrapperValue(request["body"].(map[string]any)["name"]) != "inputs.name" {
+	if exprWrapperValue(request["body"].(map[string]any)["name"]) != "variables.inputs.name" {
 		t.Fatalf("body request = %#v", request)
 	}
 }
@@ -4030,6 +4030,63 @@ OpenAPI: none required
 	})
 	if err == nil || !strings.Contains(err.Error(), "write refinement report") {
 		t.Fatalf("expected refinement write failure, got %v", err)
+	}
+}
+
+func TestPackageFromIntentWritesReviewedRuntimeDataFile(t *testing.T) {
+	example := filepath.Join(t.TempDir(), "examples", "runtime-data")
+	writeRuntimeOnlyExample(t, example)
+	writeRuntimeOnlyIntentHCL(t, example)
+	if err := os.MkdirAll(filepath.Join(example, "expected"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(example, "expected", "data.hcl"), []byte(`inputs {
+  stale = "drop me"
+  summary = "operator value"
+}
+
+credentials {
+  googleOAuth2 {
+    client_secret = "ENVIRONMENT:GOOGLE_CLIENT_SECRET"
+  }
+}
+`), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	result, report, err := PackageFromIntent(context.Background(), Options{ExampleDir: example})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !report.Passed() {
+		t.Fatalf("quality pass = false: %#v", report.Checks)
+	}
+	data, err := os.ReadFile(result.DataPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	dataText := string(data)
+	for _, want := range []string{`inputs {`, `summary = "operator value"`, `credentials {`, `client_secret = "ENVIRONMENT:GOOGLE_CLIENT_SECRET"`} {
+		if !strings.Contains(dataText, want) {
+			t.Fatalf("data.hcl missing %q:\n%s", want, dataText)
+		}
+	}
+	if strings.Contains(dataText, "stale") {
+		t.Fatalf("data.hcl kept stale input:\n%s", dataText)
+	}
+	workflowData, err := os.ReadFile(result.UWSPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(workflowData), "variables.inputs.summary") {
+		t.Fatalf("workflow UWS missing executable runtime input expression:\n%s", workflowData)
+	}
+	handoffData, err := os.ReadFile(result.ReviewHandoffPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(handoffData), `"path": "expected/data.hcl"`) {
+		t.Fatalf("handoff missing runtime data file:\n%s", handoffData)
 	}
 }
 

@@ -1454,7 +1454,7 @@ func referencesInputName(value, name string) bool {
 	if name == "" {
 		return false
 	}
-	return value == name || strings.Contains(value, "inputs."+name) || strings.Contains(value, "input."+name)
+	return value == name || strings.Contains(value, "inputs."+name) || strings.Contains(value, "variables.inputs."+name) || strings.Contains(value, "input."+name)
 }
 
 func validateIntentDataFlowSources(intent *rollout.Intent) error {

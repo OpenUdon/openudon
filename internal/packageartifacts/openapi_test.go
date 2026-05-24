@@ -78,6 +78,20 @@ func TestRequiredPackagePathsIncludesAdvisorySecuritySidecars(t *testing.T) {
 	}
 }
 
+func TestRequiredPackagePathsIncludesRuntimeDataWhenPresent(t *testing.T) {
+	root := t.TempDir()
+	writeRequiredPackageFiles(t, root)
+	mustWrite(t, filepath.Join(root, filepath.FromSlash(RuntimeDataPath)), []byte("inputs {}\n"))
+
+	paths, err := RequiredPackagePaths(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !stringSliceContains(paths, RuntimeDataPath) {
+		t.Fatalf("RequiredPackagePaths missing runtime data file in %#v", paths)
+	}
+}
+
 func TestCollectAPISourcePathsSkipsAdvisorySecuritySidecars(t *testing.T) {
 	root := t.TempDir()
 	mustWrite(t, filepath.Join(root, "google-discovery", "gmail.json"), []byte(`{"discoveryVersion":"v1"}`))

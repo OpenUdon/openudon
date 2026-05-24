@@ -29,6 +29,7 @@ expected/quality.json
 expected/refinement.json
 expected/review.md
 expected/review-handoff.json
+expected/data.hcl when runtime inputs are declared
 openapi/... regular files used by the package
 google-discovery/... regular files used by the package
 aws-smithy/... regular files used by the package
@@ -37,6 +38,10 @@ associated advisory security sidecars
 
 Unsafe relative paths, symlinks, directories, special files, missing files, and unstated required
 inputs are rejected before execution.
+
+`expected/data.hcl` may include `ENVIRONMENT` markers for values owned by the
+operator environment. Review packages should contain the marker names, not
+plaintext credential values.
 
 ## Approval JSON
 

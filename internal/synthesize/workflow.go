@@ -183,12 +183,12 @@ func buildUWSStep(step *rollout.Step, defaultOpenAPI string, sourceFor func(stri
 		Description: strings.TrimSpace(step.Do),
 		StepExecutionFields: uws1.StepExecutionFields{
 			DependsOn: uniqueStrings(step.DependsOn),
-			When:      strings.TrimSpace(step.When),
-			ForEach:   strings.TrimSpace(step.ForEach),
+			When:      runtimeInputExecutionExpression(strings.TrimSpace(step.When)),
+			ForEach:   runtimeInputExecutionExpression(strings.TrimSpace(step.ForEach)),
 			Timeout:   step.Timeout,
 		},
 		StructuralFields: uws1.StructuralFields{
-			Items:     strings.TrimSpace(step.Items),
+			Items:     runtimeInputExecutionExpression(strings.TrimSpace(step.Items)),
 			Mode:      strings.TrimSpace(step.Mode),
 			BatchSize: strings.TrimSpace(step.BatchSize),
 		},
@@ -211,7 +211,7 @@ func buildUWSStep(step *rollout.Step, defaultOpenAPI string, sourceFor func(stri
 				return nil, nil, err
 			}
 			uwsStep.Cases = append(uwsStep.Cases, &uws1.Case{
-				CaseFields: uws1.CaseFields{Name: branch.Name, When: branch.When},
+				CaseFields: uws1.CaseFields{Name: branch.Name, When: runtimeInputExecutionExpression(branch.When)},
 				Steps:      caseSteps,
 			})
 			ops = append(ops, caseOps...)
@@ -238,7 +238,7 @@ func buildUWSStep(step *rollout.Step, defaultOpenAPI string, sourceFor func(stri
 		SuccessCriteria:          step.SuccessCriteria,
 		OnFailure:                step.OnFailure,
 		OnSuccess:                step.OnSuccess,
-		OperationExecutionFields: uws1.OperationExecutionFields{DependsOn: uniqueStrings(step.DependsOn), When: step.When, ForEach: step.ForEach, Timeout: step.Timeout},
+		OperationExecutionFields: uws1.OperationExecutionFields{DependsOn: uniqueStrings(step.DependsOn), When: runtimeInputExecutionExpression(step.When), ForEach: runtimeInputExecutionExpression(step.ForEach), Timeout: step.Timeout},
 	}
 	switch kind {
 	case "http", "openapi":
@@ -298,7 +298,7 @@ func workflowOutputs(outputs []*rollout.Output) map[string]string {
 		if output == nil || strings.TrimSpace(output.Name) == "" || strings.TrimSpace(output.From) == "" {
 			continue
 		}
-		out[output.Name] = output.From
+		out[output.Name] = runtimeInputExecutionExpression(output.From)
 	}
 	if len(out) == 0 {
 		return nil
@@ -428,6 +428,7 @@ func requestBindingValue(value string) any {
 	if value == "" || !looksLikeRuntimeExpression(value) {
 		return value
 	}
+	value = runtimeInputExecutionExpression(value)
 	return map[string]any{"$expr": value}
 }
 
@@ -438,6 +439,7 @@ func looksLikeRuntimeExpression(value string) bool {
 	}
 	for _, prefix := range []string{
 		"inputs.", "input.", "json.", "nodes.", "node_items.", "node_binaries.",
+		"variables.inputs.",
 		"current_ref.", "input_refs.", "current_lineage.", "lineage.",
 		"workflow.", "execution.", "env.", "input_item.",
 	} {

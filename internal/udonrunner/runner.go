@@ -27,6 +27,7 @@ type Config struct {
 	WorkDir             string   `json:"workdir"`
 	WorkflowPath        string   `json:"workflow_path"`
 	WorkflowFormat      string   `json:"workflow_format"`
+	DataFiles           []string `json:"data_files,omitempty"`
 	OpenAPIPaths        []string `json:"openapi_paths,omitempty"`
 	PackagePaths        []string `json:"package_paths"`
 	PackageSHA256       string   `json:"package_sha256"`
@@ -51,6 +52,7 @@ type Result struct {
 	PackageRoot        string
 	WorkDir            string
 	OpenAPIPaths       []string
+	DataFiles          []string
 	PackagePaths       []string
 	PackageSHA256      string
 	CredentialEnvNames []string
@@ -87,6 +89,9 @@ func LoadConfig(path string) (Config, error) {
 	}
 	if config.OpenAPIPaths == nil {
 		config.OpenAPIPaths = []string{}
+	}
+	if config.DataFiles == nil {
+		config.DataFiles = []string{}
 	}
 	if config.PackagePaths == nil {
 		config.PackagePaths = []string{}
@@ -182,8 +187,15 @@ func prepare(ctx context.Context, config Config, opts Options, requireCredential
 	if err != nil {
 		return Result{}, nil, "", err
 	}
+	dataFiles, err := validateDataFilePaths(packageRoot, config.DataFiles)
+	if err != nil {
+		return Result{}, nil, "", err
+	}
 	packageFiles, err := validatePackagePaths(packageRoot, config.PackagePaths)
 	if err != nil {
+		return Result{}, nil, "", err
+	}
+	if err := validateDataFilesInPackagePaths(dataFiles, packageFiles); err != nil {
 		return Result{}, nil, "", err
 	}
 	approvedDigest, err := requirePackageSHA256(config.PackageSHA256)
@@ -223,12 +235,13 @@ func prepare(ctx context.Context, config Config, opts Options, requireCredential
 		PackageRoot:        packageRoot,
 		WorkDir:            workdir,
 		OpenAPIPaths:       relPaths(openAPIFiles),
+		DataFiles:          relPaths(dataFiles),
 		PackagePaths:       relPaths(packageFiles),
 		PackageSHA256:      approvedDigest,
 		CredentialEnvNames: append([]string(nil), credentialEnvNames...),
 	}
 	if buildExecutorArgv {
-		argv, err := executorArgv(repoRootAbs, stage, stagedWorkflow, workflowFormat, credentialEnvNames, envByName)
+		argv, err := executorArgv(repoRootAbs, stage, stagedWorkflow, workflowFormat, stagedDataFilePaths(stage, dataFiles), credentialEnvNames, envByName)
 		if err != nil {
 			return result, nil, "", err
 		}
@@ -435,6 +448,46 @@ func validateDigestInventory(workflowRel string, openAPIFiles, packageFiles [][2
 	return nil
 }
 
+func validateDataFilesInPackagePaths(dataFiles, packageFiles [][2]string) error {
+	if len(dataFiles) == 0 {
+		return nil
+	}
+	packageSet := map[string]struct{}{}
+	for _, pair := range packageFiles {
+		packageSet[pair[0]] = struct{}{}
+	}
+	var missing []string
+	for _, pair := range dataFiles {
+		if _, ok := packageSet[pair[0]]; !ok {
+			missing = append(missing, pair[0])
+		}
+	}
+	if len(missing) > 0 {
+		sort.Strings(missing)
+		return fmt.Errorf("data_files must be included in package_paths: %s", strings.Join(missing, ", "))
+	}
+	return nil
+}
+
+func validateDataFilePaths(packageRoot string, paths []string) ([][2]string, error) {
+	if len(paths) == 0 {
+		return nil, nil
+	}
+	files, err := validatePackagePaths(packageRoot, paths)
+	if err != nil {
+		return nil, fmt.Errorf("data_files: %w", err)
+	}
+	return files, nil
+}
+
+func stagedDataFilePaths(stage string, dataFiles [][2]string) []string {
+	out := make([]string, 0, len(dataFiles))
+	for _, pair := range dataFiles {
+		out = append(out, filepath.Join(stage, filepath.FromSlash(pair[0])))
+	}
+	return out
+}
+
 func stagePackage(workdir, workflowRel, workflowPath string, openAPIFiles, packageFiles [][2]string) (string, string, error) {
 	if err := os.MkdirAll(workdir, 0o755); err != nil {
 		return "", "", err
@@ -552,19 +605,19 @@ func environmentMap(env []string) map[string]string {
 	return out
 }
 
-func executorArgv(repoRoot, stage, stagedWorkflow, workflowFormat string, credentialNames []string, env map[string]string) ([]string, error) {
+func executorArgv(repoRoot, stage, stagedWorkflow, workflowFormat string, dataFiles []string, credentialNames []string, env map[string]string) ([]string, error) {
 	if executor := strings.TrimSpace(env["OPENUDON_EXECUTOR"]); executor != "" {
 		if strings.HasPrefix(executor, dockerExecutorPrefix) {
 			image := strings.TrimPrefix(executor, dockerExecutorPrefix)
-			return dockerImageArgv("OPENUDON_EXECUTOR", image, stage, stagedWorkflow, workflowFormat, credentialNames)
+			return dockerImageArgv("OPENUDON_EXECUTOR", image, stage, stagedWorkflow, workflowFormat, dataFiles, credentialNames)
 		}
-		return executorPathArgv("OPENUDON_EXECUTOR", executor, stage, stagedWorkflow, workflowFormat)
+		return executorPathArgv("OPENUDON_EXECUTOR", executor, stage, stagedWorkflow, workflowFormat, dataFiles)
 	}
 	if image := strings.TrimSpace(env["OPENUDON_UDON_IMAGE"]); image != "" {
-		return dockerImageArgv("OPENUDON_UDON_IMAGE", image, stage, stagedWorkflow, workflowFormat, credentialNames)
+		return dockerImageArgv("OPENUDON_UDON_IMAGE", image, stage, stagedWorkflow, workflowFormat, dataFiles, credentialNames)
 	}
 	if executor := strings.TrimSpace(env["OPENUDON_UDON_BIN"]); executor != "" {
-		return executorPathArgv("OPENUDON_UDON_BIN", executor, stage, stagedWorkflow, workflowFormat)
+		return executorPathArgv("OPENUDON_UDON_BIN", executor, stage, stagedWorkflow, workflowFormat, dataFiles)
 	}
 	executor := filepath.Join(repoRoot, "..", "udon", "dist", "udon-linux-amd64")
 	if !isExecutable(executor) {
@@ -573,10 +626,10 @@ func executorArgv(repoRoot, stage, stagedWorkflow, workflowFormat string, creden
 	if !isExecutable(executor) {
 		return nil, fmt.Errorf("trusted executor not found. Set OPENUDON_EXECUTOR to an absolute binary path or docker://image, or build ../udon")
 	}
-	return []string{executor, "--workdir", stage, "--workflow", stagedWorkflow, "--workflow-format", workflowFormat}, nil
+	return appendDataFileArgs([]string{executor, "--workdir", stage, "--workflow", stagedWorkflow, "--workflow-format", workflowFormat}, dataFiles...), nil
 }
 
-func dockerImageArgv(envName, image, stage, stagedWorkflow, workflowFormat string, credentialNames []string) ([]string, error) {
+func dockerImageArgv(envName, image, stage, stagedWorkflow, workflowFormat string, dataFiles, credentialNames []string) ([]string, error) {
 	if err := validateDockerImage(envName, image); err != nil {
 		return nil, err
 	}
@@ -589,6 +642,13 @@ func dockerImageArgv(envName, image, stage, stagedWorkflow, workflowFormat strin
 		return nil, err
 	}
 	argv = append(argv, image, "--workdir", "/workspace", "--workflow", "/workspace/"+filepath.ToSlash(rel), "--workflow-format", workflowFormat)
+	for _, dataFile := range dataFiles {
+		relData, err := filepath.Rel(stage, dataFile)
+		if err != nil {
+			return nil, err
+		}
+		argv = append(argv, "--datafile", "/workspace/"+filepath.ToSlash(relData))
+	}
 	return argv, nil
 }
 
@@ -605,14 +665,25 @@ func validateDockerImage(envName, image string) error {
 	return nil
 }
 
-func executorPathArgv(envName, executor, stage, stagedWorkflow, workflowFormat string) ([]string, error) {
+func executorPathArgv(envName, executor, stage, stagedWorkflow, workflowFormat string, dataFiles []string) ([]string, error) {
 	if !filepath.IsAbs(executor) {
 		return nil, fmt.Errorf("%s must be an absolute path: %s", envName, executor)
 	}
 	if !isExecutable(executor) {
 		return nil, fmt.Errorf("%s does not point to an executable file: %s", envName, executor)
 	}
-	return []string{executor, "--workdir", stage, "--workflow", stagedWorkflow, "--workflow-format", workflowFormat}, nil
+	return appendDataFileArgs([]string{executor, "--workdir", stage, "--workflow", stagedWorkflow, "--workflow-format", workflowFormat}, dataFiles...), nil
+}
+
+func appendDataFileArgs(argv []string, dataFiles ...string) []string {
+	for _, dataFile := range dataFiles {
+		dataFile = strings.TrimSpace(dataFile)
+		if dataFile == "" {
+			continue
+		}
+		argv = append(argv, "--datafile", dataFile)
+	}
+	return argv
 }
 
 func isExecutable(path string) bool {

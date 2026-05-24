@@ -99,7 +99,7 @@ func TestExecutorArgvPrecedenceAndValidation(t *testing.T) {
 	mustWriteExecutable(t, executor)
 	mustWriteExecutable(t, udonBin)
 
-	argv, err := executorArgv(root, stage, workflow, "uws-yaml", []string{"UDON_CREDENTIAL_API_KEY"}, map[string]string{
+	argv, err := executorArgv(root, stage, workflow, "uws-yaml", nil, []string{"UDON_CREDENTIAL_API_KEY"}, map[string]string{
 		"OPENUDON_EXECUTOR": "docker://openudon/udon:test",
 	})
 	if err != nil {
@@ -108,8 +108,18 @@ func TestExecutorArgvPrecedenceAndValidation(t *testing.T) {
 	if argv[0] != "docker" || !containsArg(argv, "openudon/udon:test") || !containsArg(argv, "UDON_CREDENTIAL_API_KEY") {
 		t.Fatalf("unexpected docker argv: %#v", argv)
 	}
+	dataFile := filepath.Join(stage, "expected", "data.hcl")
+	argv, err = executorArgv(root, stage, workflow, "uws-yaml", []string{dataFile}, nil, map[string]string{
+		"OPENUDON_EXECUTOR": executor,
+	})
+	if err != nil {
+		t.Fatalf("binary executorArgv with datafile returned error: %v", err)
+	}
+	if !containsArg(argv, "--datafile") || !containsArg(argv, dataFile) {
+		t.Fatalf("binary argv missing datafile: %#v", argv)
+	}
 
-	argv, err = executorArgv(root, stage, workflow, "uws-yaml", nil, map[string]string{
+	argv, err = executorArgv(root, stage, workflow, "uws-yaml", nil, nil, map[string]string{
 		"OPENUDON_UDON_IMAGE": "openudon/udon:test",
 		"OPENUDON_EXECUTOR":   executor,
 	})
@@ -120,7 +130,7 @@ func TestExecutorArgvPrecedenceAndValidation(t *testing.T) {
 		t.Fatalf("OPENUDON_EXECUTOR should override compatibility aliases, got %#v", argv)
 	}
 
-	argv, err = executorArgv(root, stage, workflow, "uws-yaml", []string{"UDON_CREDENTIAL_API_KEY"}, map[string]string{
+	argv, err = executorArgv(root, stage, workflow, "uws-yaml", nil, []string{"UDON_CREDENTIAL_API_KEY"}, map[string]string{
 		"OPENUDON_UDON_IMAGE": "openudon/udon:test",
 	})
 	if err != nil {
@@ -130,7 +140,7 @@ func TestExecutorArgvPrecedenceAndValidation(t *testing.T) {
 		t.Fatalf("unexpected compat docker argv: %#v", argv)
 	}
 
-	argv, err = executorArgv(root, stage, workflow, "uws-yaml", nil, map[string]string{
+	argv, err = executorArgv(root, stage, workflow, "uws-yaml", nil, nil, map[string]string{
 		"OPENUDON_EXECUTOR": executor,
 		"OPENUDON_UDON_BIN": udonBin,
 	})
@@ -141,21 +151,21 @@ func TestExecutorArgvPrecedenceAndValidation(t *testing.T) {
 		t.Fatalf("executor precedence picked %q, want %q", argv[0], executor)
 	}
 
-	if _, err := executorArgv(root, stage, workflow, "uws-yaml", nil, map[string]string{"OPENUDON_EXECUTOR": "relative"}); err == nil || !strings.Contains(err.Error(), "absolute path") {
+	if _, err := executorArgv(root, stage, workflow, "uws-yaml", nil, nil, map[string]string{"OPENUDON_EXECUTOR": "relative"}); err == nil || !strings.Contains(err.Error(), "absolute path") {
 		t.Fatalf("expected relative executor rejection, got %v", err)
 	}
-	if _, err := executorArgv(root, stage, workflow, "uws-yaml", nil, map[string]string{"OPENUDON_EXECUTOR": "docker://"}); err == nil || !strings.Contains(err.Error(), "docker image") {
+	if _, err := executorArgv(root, stage, workflow, "uws-yaml", nil, nil, map[string]string{"OPENUDON_EXECUTOR": "docker://"}); err == nil || !strings.Contains(err.Error(), "docker image") {
 		t.Fatalf("expected empty docker image rejection, got %v", err)
 	}
-	if _, err := executorArgv(root, stage, workflow, "uws-yaml", nil, map[string]string{"OPENUDON_EXECUTOR": "docker://bad image"}); err == nil || !strings.Contains(err.Error(), "whitespace") {
+	if _, err := executorArgv(root, stage, workflow, "uws-yaml", nil, nil, map[string]string{"OPENUDON_EXECUTOR": "docker://bad image"}); err == nil || !strings.Contains(err.Error(), "whitespace") {
 		t.Fatalf("expected whitespace docker image rejection, got %v", err)
 	}
-	if _, err := executorArgv(root, stage, workflow, "uws-yaml", nil, map[string]string{"OPENUDON_EXECUTOR": filepath.Join(root, "missing")}); err == nil || !strings.Contains(err.Error(), "executable file") {
+	if _, err := executorArgv(root, stage, workflow, "uws-yaml", nil, nil, map[string]string{"OPENUDON_EXECUTOR": filepath.Join(root, "missing")}); err == nil || !strings.Contains(err.Error(), "executable file") {
 		t.Fatalf("expected missing executor rejection, got %v", err)
 	}
 	nonExecutable := filepath.Join(root, "not-executable")
 	mustWriteRunnerTestFile(t, nonExecutable, []byte("#!/usr/bin/env bash\nexit 0\n"))
-	if _, err := executorArgv(root, stage, workflow, "uws-yaml", nil, map[string]string{"OPENUDON_EXECUTOR": nonExecutable}); err == nil || !strings.Contains(err.Error(), "executable file") {
+	if _, err := executorArgv(root, stage, workflow, "uws-yaml", nil, nil, map[string]string{"OPENUDON_EXECUTOR": nonExecutable}); err == nil || !strings.Contains(err.Error(), "executable file") {
 		t.Fatalf("expected non-executable rejection, got %v", err)
 	}
 }

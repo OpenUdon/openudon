@@ -87,6 +87,13 @@ func reviewHandoffInputs(result Result) ([]ReviewHandoffInput, error) {
 		{Path: relOrAbs(result.ExampleDir, result.ReviewPath), Purpose: "Human review evidence, unresolved risks, skipped execution notes, and trusted-runner command text.", Required: true},
 		{Path: relOrAbs(result.ExampleDir, result.ReviewHandoffPath), Purpose: "Machine-readable review handoff manifest for reviewer or orchestrator routing.", Required: true},
 	}
+	if runtimeDataPathExists(result) {
+		artifacts = append(artifacts, authoring.ReviewArtifactInput{
+			Path:     packageartifacts.RuntimeDataPath,
+			Purpose:  "Reviewed non-secret runtime input values staged with the trusted executor package.",
+			Required: true,
+		})
+	}
 	openAPIPaths, err := packageartifacts.CollectAPISourcePaths(result.ExampleDir)
 	if err != nil {
 		return nil, err
