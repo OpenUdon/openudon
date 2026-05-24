@@ -75,9 +75,30 @@ func operationLooksSideEffectful(op apitools.OperationSummary) bool {
 	case "POST", "PUT", "PATCH", "DELETE":
 		return true
 	}
+	text := strings.ToLower(strings.Join([]string{op.OperationID, op.Path, op.Summary, op.Description, strings.Join(op.Tags, " ")}, " "))
 	tokens := operationTextTokens(op)
 	for _, token := range []string{"send", "sent", "email", "mail", "post", "create", "update", "delete", "upload", "notify", "notification", "invite", "share", "publish"} {
+		if token == "post" && operationPostTokenLooksPostalCode(text, tokens) {
+			continue
+		}
 		if tokens[token] > 0 {
+			return true
+		}
+	}
+	return false
+}
+
+func operationPostTokenLooksPostalCode(text string, tokens map[string]int) bool {
+	if tokens["post"] == 0 {
+		return false
+	}
+	for _, token := range []string{"message", "email", "mail", "notification", "invite", "share", "publish"} {
+		if tokens[token] > 0 {
+			return false
+		}
+	}
+	for _, phrase := range []string{"post code", "post-code", "postcode", "postal code", "zip/post code"} {
+		if strings.Contains(text, phrase) {
 			return true
 		}
 	}

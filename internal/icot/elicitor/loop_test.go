@@ -2155,6 +2155,71 @@ func TestOperationQuestionKeepsDocumentPathForMultipleArtifacts(t *testing.T) {
 	}
 }
 
+func TestSideEffectCommitmentPromptIncludesOperationPurpose(t *testing.T) {
+	session := Session{
+		Project: projectwizard.Answers{Goal: "gmail the report to me"},
+		Intent: rollout.Intent{
+			Workflow: &rollout.WorkflowMeta{Name: "gmail_report", Description: "gmail the report to me"},
+			Source:   "google-discovery/gmail.json",
+			Steps: []*rollout.Step{{
+				Name:     "send_report",
+				Type:     "http",
+				Provider: "gmail",
+				Source:   "google-discovery/gmail.json",
+			}},
+		},
+	}
+	docs := []APIDocument{{RelativePath: "google-discovery/gmail.json", Operations: []apitools.OperationSummary{{
+		OperationID: "gmail_users_messages_send",
+		Summary:     "Send a Gmail message",
+	}}}}
+	issues := CheckReadiness(session, docs)
+	plan := PlanNextQuestion(session, docs, issues)
+	if plan.SuggestedAnswer != "gmail_users_messages_send" || !plan.ForceAsk {
+		t.Fatalf("side-effect prompt = %#v issues=%#v", plan, issues)
+	}
+	if !strings.Contains(plan.Prompt, "gmail_users_messages_send (Send a Gmail message)") {
+		t.Fatalf("side-effect prompt missing operation purpose: %s", plan.Prompt)
+	}
+}
+
+func TestZipPostCodeOperationIsNotSideEffectful(t *testing.T) {
+	op := apitools.OperationSummary{
+		OperationID: "geocodeOpenWeatherMapZipCode",
+		Method:      "GET",
+		Summary:     "Geocode zip or post code",
+		Description: "Zip geocoding converts a zip/post code and country code to geographical coordinates.",
+	}
+	if operationLooksSideEffectful(op) {
+		t.Fatalf("zip/post code lookup was treated as side-effectful")
+	}
+}
+
+func TestExplicitGmailGoalDoesNotAskSideEffectConfirmationForWeatherLookup(t *testing.T) {
+	session := Session{
+		Project: projectwizard.Answers{Goal: "get weather in toronto, canada, and send the report using Google Gmail"},
+		Intent: rollout.Intent{
+			Workflow: &rollout.WorkflowMeta{Name: "weather_gmail", Description: "get weather in toronto, canada, and send the report using Google Gmail"},
+			Source:   "openapi/openweathermap-one-call-3-overlay.json",
+			Steps: []*rollout.Step{{
+				Name:     "geocode_openweathermap_location",
+				Type:     "http",
+				Provider: "openweathermap",
+				Source:   "openapi/openweathermap-one-call-3-overlay.json",
+			}},
+		},
+	}
+	docs := []APIDocument{{RelativePath: "openapi/openweathermap-one-call-3-overlay.json", Operations: []apitools.OperationSummary{
+		{OperationID: "geocodeOpenWeatherMapLocationName", Method: "GET", Summary: "Geocode location name"},
+		{OperationID: "geocodeOpenWeatherMapZipCode", Method: "GET", Summary: "Geocode zip or post code"},
+		{OperationID: "getOpenWeatherMapOneCall3", Method: "GET", Summary: "Get One Call API 3.0 weather data"},
+	}}}
+	issues := CheckReadiness(session, docs)
+	if hasReadinessCode(issues, readinessUnconfirmedSideEffectCommitment) {
+		t.Fatalf("weather lookup should not ask side-effect confirmation: %#v", issues)
+	}
+}
+
 func TestCatalogMatchedWorkflowBlocksOnMissingOpenAPI(t *testing.T) {
 	session := Session{
 		Intent: rollout.Intent{

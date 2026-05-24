@@ -110,7 +110,7 @@ func PlanNextQuestion(session Session, docs []APIDocument, issues []ReadinessIss
 	case "missing_operation":
 		plan.Prompt = missingOperationPrompt(session, docs, blocking.Slot)
 	case readinessUnconfirmedSideEffectCommitment:
-		plan.Prompt = "I understand this may require a side-effectful provider action, but the workflow goal is ambiguous. Confirm the exact provider and action by choosing a listed operationId, or revise the workflow goal to say the action explicitly."
+		plan.Prompt = unconfirmedSideEffectCommitmentPrompt(session, docs, blocking.Slot)
 		plan.ForceAsk = true
 	case "missing_required_request_values":
 		stepName := stepNameForQuestionSlot(blocking.Slot)
@@ -154,6 +154,14 @@ func PlanNextQuestion(session Session, docs []APIDocument, issues []ReadinessIss
 		plan.SuggestedAnswer = suggestedAnswerForCode(blocking.Code, session, docs)
 	}
 	return plan
+}
+
+func unconfirmedSideEffectCommitmentPrompt(session Session, docs []APIDocument, slot string) string {
+	prompt := "I understand this may require a side-effectful provider action, but the workflow goal is ambiguous. Confirm the exact provider and action by choosing a listed operationId, or revise the workflow goal to say the action explicitly."
+	if step := stepForOperationSlot(session, slot); step != nil {
+		prompt += " " + operationChoiceHintForStep(session, docs, step)
+	}
+	return prompt
 }
 
 func stepNameForQuestionSlot(slot string) string {
