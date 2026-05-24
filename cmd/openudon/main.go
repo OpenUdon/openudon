@@ -633,7 +633,7 @@ func runArtifactCommand(command string, args []string) {
 		fmt.Fprintf(fs.Output(), "  workflows/workflow.uws.yaml public UWS YAML artifact\n")
 		fmt.Fprintf(fs.Output(), "  expected/plan.json          expected operations, bindings, credentials, and control flow\n")
 		fmt.Fprintf(fs.Output(), "  expected/review.md          trusted execution review evidence and handoff notes\n")
-		fmt.Fprintf(fs.Output(), "  expected/symphony-handoff.json machine-readable Symphony approval handoff\n")
+		fmt.Fprintf(fs.Output(), "  expected/review-handoff.json machine-readable review approval handoff\n")
 		fmt.Fprintf(fs.Output(), "  expected/quality.json       deterministic quality gate results\n\n")
 		fs.PrintDefaults()
 	}
@@ -798,8 +798,8 @@ func nextActionForQualityCheck(code string) string {
 		return "Regenerate review evidence so it lists side-effect risk and approved sandbox/production handoff states."
 	case strings.HasPrefix(code, "review."):
 		return "Update Safety and Approval Boundary or regenerate review evidence with build/synthesize."
-	case strings.HasPrefix(code, "symphony_handoff."):
-		return "Regenerate expected/symphony-handoff.json with build/synthesize so Symphony can consume the approval handoff contract."
+	case strings.HasPrefix(code, "review_handoff."):
+		return "Regenerate expected/review-handoff.json with build/synthesize so the review handoff approval contract can be checked."
 	case code == "artifacts.no_secrets":
 		return "Remove literal secret-like values from artifacts; keep only credential binding names."
 	default:

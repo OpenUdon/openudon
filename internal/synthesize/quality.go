@@ -114,7 +114,7 @@ func assessContext(ctx context.Context, opts Options, writeReport bool) (*Qualit
 	assessSideEffectProfile(report, sideEffects)
 	assessSideEffectRetryPolicy(report, sideEffects, policy, expectedPlan)
 	assessReview(report, result.ReviewPath, sideEffects, policy, expectedPlan)
-	assessSymphonyHandoff(report, result.SymphonyHandoffPath, sideEffects, policy, expectedPlan)
+	assessReviewHandoff(report, result.ReviewHandoffPath, sideEffects, policy, expectedPlan)
 	assessSecrets(report, result)
 	assessConversionDiagnostics(report, filepath.Join(exampleDir, "expected", "diagnostics.json"))
 

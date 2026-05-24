@@ -16,6 +16,8 @@ type ManifestInput struct {
 	Required bool
 }
 
+const ReviewHandoffPath = "expected/review-handoff.json"
+
 var fixedRequiredPackagePaths = []string{
 	"project.md",
 	"workflows/intent.hcl",
@@ -25,7 +27,7 @@ var fixedRequiredPackagePaths = []string{
 	"expected/quality.json",
 	"expected/refinement.json",
 	"expected/review.md",
-	"expected/symphony-handoff.json",
+	ReviewHandoffPath,
 }
 
 // CleanRelativePath returns a canonical slash-separated package-relative path.

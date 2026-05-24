@@ -106,7 +106,7 @@ func assessReview(report *QualityReport, path string, profile sideEffectProfile,
 	}
 	report.add("review.credential_audit", "pass", "review evidence records credential binding audit requirements", "")
 	if !reviewContainsApprovalStates(text, profile) {
-		report.add("review.approval_states", "fail", "review evidence must state the Symphony approval states required before execution", "")
+		report.add("review.approval_states", "fail", "review evidence must state the review approval states required before execution", "")
 		return
 	}
 	report.add("review.approval_states", "pass", "review evidence records approval-state requirements", "")
@@ -160,6 +160,7 @@ func reviewContainsMinimumPackage(text string) bool {
 	if !strings.Contains(text, "## Minimum Review Package") {
 		return false
 	}
+	packageText := strings.ToLower(text)
 	required := []string{
 		"Project brief",
 		"Intent HCL",
@@ -169,62 +170,62 @@ func reviewContainsMinimumPackage(text string) bool {
 		"Quality report",
 		"Refinement report",
 		"Review evidence",
-		"Symphony handoff manifest",
+		"Review handoff manifest",
 	}
 	for _, item := range required {
-		if !strings.Contains(text, item) {
+		if !strings.Contains(packageText, strings.ToLower(item)) {
 			return false
 		}
 	}
 	return true
 }
 
-func assessSymphonyHandoff(report *QualityReport, path string, profile sideEffectProfile, policy projectPolicy, expectedPlan *WorkflowPlan) {
+func assessReviewHandoff(report *QualityReport, path string, profile sideEffectProfile, policy projectPolicy, expectedPlan *WorkflowPlan) {
 	data, err := os.ReadFile(path)
 	if err != nil {
-		report.add("symphony_handoff.present", "fail", "Symphony handoff manifest is required", err.Error())
+		report.add("review_handoff.present", "fail", "review handoff manifest is required", err.Error())
 		return
 	}
-	var manifest SymphonyHandoff
+	var manifest ReviewHandoff
 	if err := json.Unmarshal(data, &manifest); err != nil {
-		report.add("symphony_handoff.present", "fail", "Symphony handoff manifest must be valid JSON", err.Error())
+		report.add("review_handoff.present", "fail", "review handoff manifest must be valid JSON", err.Error())
 		return
 	}
-	report.add("symphony_handoff.present", "pass", "Symphony handoff manifest is readable", "")
-	allowedVersions := []string{symphonyHandoffVersion, legacySymphonyHandoffVersion}
+	report.add("review_handoff.present", "pass", "review handoff manifest is readable", "")
+	allowedVersions := []string{reviewHandoffVersion}
 	if diagnostics := authoring.ValidateReviewHandoff(manifest, authoring.ReviewHandoffValidationOptions{AllowedVersions: allowedVersions}); len(diagnostics) > 0 {
-		report.add("symphony_handoff.contract", "fail", "Symphony handoff manifest must satisfy the review handoff contract", diagnostics[0].Message)
+		report.add("review_handoff.contract", "fail", "review handoff manifest must satisfy the review handoff contract", diagnostics[0].Message)
 		return
 	}
-	requiredOK, requiredErr := symphonyHandoffHasRequiredInputs(filepath.Dir(filepath.Dir(path)), manifest)
+	requiredOK, requiredErr := reviewHandoffHasRequiredInputs(filepath.Dir(filepath.Dir(path)), manifest)
 	if requiredErr != nil {
-		report.add("symphony_handoff.contract", "fail", "Symphony handoff manifest required inputs could not be checked", requiredErr.Error())
+		report.add("review_handoff.contract", "fail", "review handoff manifest required inputs could not be checked", requiredErr.Error())
 		return
 	}
 	if !requiredOK {
-		report.add("symphony_handoff.contract", "fail", "Symphony handoff manifest must list every required handoff input", "")
+		report.add("review_handoff.contract", "fail", "review handoff manifest must list every required handoff input", "")
 		return
 	}
-	if !symphonyHandoffHasApprovalStates(manifest) {
-		report.add("symphony_handoff.contract", "fail", "Symphony handoff manifest must list the required approval states", "")
+	if !reviewHandoffHasApprovalStates(manifest) {
+		report.add("review_handoff.contract", "fail", "review handoff manifest must list the required approval states", "")
 		return
 	}
-	if !symphonyHandoffExecutionPolicyMatches(manifest, profile) {
-		report.add("symphony_handoff.contract", "fail", "Symphony handoff execution policy must match inferred side-effect requirements", "")
+	if !reviewHandoffExecutionPolicyMatches(manifest, profile) {
+		report.add("review_handoff.contract", "fail", "review handoff execution policy must match inferred side-effect requirements", "")
 		return
 	}
-	if !symphonyHandoffCredentialBindingsMatch(manifest, policy, expectedPlan) {
-		report.add("symphony_handoff.contract", "fail", "Symphony handoff credential bindings must match declared and expected binding names", "")
+	if !reviewHandoffCredentialBindingsMatch(manifest, policy, expectedPlan) {
+		report.add("review_handoff.contract", "fail", "review handoff credential bindings must match declared and expected binding names", "")
 		return
 	}
 	if manifest.CredentialBindings.ValuesAllowedInArtifacts || manifest.ExecutionPolicy.DirectProductionExecution {
-		report.add("symphony_handoff.contract", "fail", "Symphony handoff must prohibit credential values and direct production execution", "")
+		report.add("review_handoff.contract", "fail", "review handoff must prohibit credential values and direct production execution", "")
 		return
 	}
-	report.add("symphony_handoff.contract", "pass", "Symphony handoff manifest records package, state, execution, and credential contracts", "")
+	report.add("review_handoff.contract", "pass", "review handoff manifest records package, state, execution, and credential contracts", "")
 }
 
-func symphonyHandoffHasRequiredInputs(exampleDir string, manifest SymphonyHandoff) (bool, error) {
+func reviewHandoffHasRequiredInputs(exampleDir string, manifest ReviewHandoff) (bool, error) {
 	paths, err := packageartifacts.RequiredManifestPaths(exampleDir, packageArtifactManifestInputs(manifest))
 	if err != nil {
 		if strings.Contains(err.Error(), "missing required input") {
@@ -256,7 +257,7 @@ func pathsExcludingSelfGeneratedArtifacts(exampleDir string, paths []string) []s
 	return out
 }
 
-func packageArtifactManifestInputs(manifest SymphonyHandoff) []packageartifacts.ManifestInput {
+func packageArtifactManifestInputs(manifest ReviewHandoff) []packageartifacts.ManifestInput {
 	inputs := make([]packageartifacts.ManifestInput, 0, len(manifest.HandoffInputs))
 	for _, input := range manifest.HandoffInputs {
 		inputs = append(inputs, packageartifacts.ManifestInput{
@@ -267,11 +268,11 @@ func packageArtifactManifestInputs(manifest SymphonyHandoff) []packageartifacts.
 	return inputs
 }
 
-func symphonyHandoffHasApprovalStates(manifest SymphonyHandoff) bool {
+func reviewHandoffHasApprovalStates(manifest ReviewHandoff) bool {
 	return authoring.ReviewStateMachineHasRequiredStates(manifest.ApprovalStates)
 }
 
-func symphonyHandoffExecutionPolicyMatches(manifest SymphonyHandoff, profile sideEffectProfile) bool {
+func reviewHandoffExecutionPolicyMatches(manifest ReviewHandoff, profile sideEffectProfile) bool {
 	policy := manifest.ExecutionPolicy
 	if policy.SideEffectful != profile.SideEffectful {
 		return false
@@ -285,7 +286,7 @@ func symphonyHandoffExecutionPolicyMatches(manifest SymphonyHandoff, profile sid
 		manifest.TrustedRunner.SandboxOnly
 }
 
-func symphonyHandoffCredentialBindingsMatch(manifest SymphonyHandoff, policy projectPolicy, expectedPlan *WorkflowPlan) bool {
+func reviewHandoffCredentialBindingsMatch(manifest ReviewHandoff, policy projectPolicy, expectedPlan *WorkflowPlan) bool {
 	declared := credentialBindingNames(policy)
 	expected := []string(nil)
 	if expectedPlan != nil {

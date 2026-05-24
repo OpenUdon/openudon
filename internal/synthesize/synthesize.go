@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/OpenUdon/openudon/internal/openapidisco"
+	"github.com/OpenUdon/openudon/internal/packageartifacts"
 	"github.com/OpenUdon/openudon/internal/uwsschema"
 	"github.com/OpenUdon/openudon/internal/workflowintent"
 	rollout "github.com/OpenUdon/openudon/internal/workflowintent"
@@ -35,23 +36,23 @@ type Options struct {
 }
 
 type Result struct {
-	ExampleDir          string
-	ProjectPath         string
-	IntentPath          string
-	WorkflowPath        string
-	UWSPath             string
-	PlanJSONPath        string
-	PlanMDPath          string
-	DiscoveryJSONPath   string
-	RefinementJSONPath  string
-	RefinementMDPath    string
-	ReviewPath          string
-	SymphonyHandoffPath string
-	QualityJSONPath     string
-	QualityMDPath       string
-	PrimaryOpenAPI      string
-	OpenAPICandidates   []openapidisco.Candidate
-	DiscoveryReport     openapidisco.DiscoveryReport
+	ExampleDir         string
+	ProjectPath        string
+	IntentPath         string
+	WorkflowPath       string
+	UWSPath            string
+	PlanJSONPath       string
+	PlanMDPath         string
+	DiscoveryJSONPath  string
+	RefinementJSONPath string
+	RefinementMDPath   string
+	ReviewPath         string
+	ReviewHandoffPath  string
+	QualityJSONPath    string
+	QualityMDPath      string
+	PrimaryOpenAPI     string
+	OpenAPICandidates  []openapidisco.Candidate
+	DiscoveryReport    openapidisco.DiscoveryReport
 }
 
 func Run(ctx context.Context, opts Options) (*Result, error) {
@@ -571,21 +572,21 @@ func resultPaths(exampleDir string) Result {
 	workflowsDir := filepath.Join(exampleDir, "workflows")
 	expectedDir := filepath.Join(exampleDir, "expected")
 	return Result{
-		ExampleDir:          exampleDir,
-		ProjectPath:         filepath.Join(exampleDir, "project.md"),
-		IntentPath:          filepath.Join(workflowsDir, "intent.hcl"),
-		WorkflowPath:        filepath.Join(workflowsDir, "workflow.hcl"),
-		UWSPath:             filepath.Join(workflowsDir, "workflow.uws.yaml"),
-		PlanJSONPath:        filepath.Join(expectedDir, "plan.json"),
-		PlanMDPath:          filepath.Join(expectedDir, "plan.md"),
-		DiscoveryJSONPath:   filepath.Join(expectedDir, "discovery.json"),
-		RefinementJSONPath:  filepath.Join(expectedDir, "refinement.json"),
-		RefinementMDPath:    filepath.Join(expectedDir, "refinement.md"),
-		ReviewPath:          filepath.Join(expectedDir, "review.md"),
-		SymphonyHandoffPath: filepath.Join(expectedDir, "symphony-handoff.json"),
-		QualityJSONPath:     filepath.Join(expectedDir, "quality.json"),
-		QualityMDPath:       filepath.Join(expectedDir, "quality.md"),
-		OpenAPICandidates:   nil,
+		ExampleDir:         exampleDir,
+		ProjectPath:        filepath.Join(exampleDir, "project.md"),
+		IntentPath:         filepath.Join(workflowsDir, "intent.hcl"),
+		WorkflowPath:       filepath.Join(workflowsDir, "workflow.hcl"),
+		UWSPath:            filepath.Join(workflowsDir, "workflow.uws.yaml"),
+		PlanJSONPath:       filepath.Join(expectedDir, "plan.json"),
+		PlanMDPath:         filepath.Join(expectedDir, "plan.md"),
+		DiscoveryJSONPath:  filepath.Join(expectedDir, "discovery.json"),
+		RefinementJSONPath: filepath.Join(expectedDir, "refinement.json"),
+		RefinementMDPath:   filepath.Join(expectedDir, "refinement.md"),
+		ReviewPath:         filepath.Join(expectedDir, "review.md"),
+		ReviewHandoffPath:  filepath.Join(expectedDir, filepath.Base(packageartifacts.ReviewHandoffPath)),
+		QualityJSONPath:    filepath.Join(expectedDir, "quality.json"),
+		QualityMDPath:      filepath.Join(expectedDir, "quality.md"),
+		OpenAPICandidates:  nil,
 	}
 }
 

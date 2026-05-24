@@ -47,7 +47,7 @@ func TestCLIArtifactHelpIncludesExamplesAndArtifacts(t *testing.T) {
 		"gpt-5.4-mini",
 		"Artifacts:",
 		"workflows/intent.hcl",
-		"expected/symphony-handoff.json",
+		"expected/review-handoff.json",
 		"expected/quality.json",
 	} {
 		if !strings.Contains(text, expected) {
@@ -415,7 +415,7 @@ func TestNextActionForQualityCheck(t *testing.T) {
 		"review.approval_artifact":         "package_sha256",
 		"review.credential_scope":          "credential scope matrix",
 		"review.side_effect_risk":          "approved sandbox/production handoff states",
-		"symphony_handoff.contract":        "Symphony can consume",
+		"review_handoff.contract":          "review handoff",
 	}
 	for code, expected := range cases {
 		got := nextActionForQualityCheck(code)

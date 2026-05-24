@@ -27,7 +27,7 @@ func TestRequiredPackagePathsIncludesFixedAndNestedOpenAPI(t *testing.T) {
 		"expected/quality.json",
 		"expected/refinement.json",
 		"expected/review.md",
-		"expected/symphony-handoff.json",
+		ReviewHandoffPath,
 		"openapi/nested/support.yaml",
 	} {
 		if !stringSliceContains(paths, want) {
@@ -254,7 +254,7 @@ func TestRequiredManifestPathsRequiresEveryPackagePath(t *testing.T) {
 		{Path: "expected/quality.json", Required: true},
 		{Path: "expected/refinement.json", Required: true},
 		{Path: "expected/review.md", Required: true},
-		{Path: "expected/symphony-handoff.json", Required: true},
+		{Path: ReviewHandoffPath, Required: true},
 	}
 
 	_, err := RequiredManifestPaths(root, inputs)

@@ -26,7 +26,7 @@ func writeReview(result Result, provider, model string) error {
 		intent = parsed
 	}
 	profile := sideEffectProfileForOpenAPI(policy, intent, result.OpenAPICandidates, result.PrimaryOpenAPI)
-	if err := writeSymphonyHandoff(result, policy, profile); err != nil {
+	if err := writeReviewHandoff(result, policy, profile); err != nil {
 		return err
 	}
 	return os.WriteFile(result.ReviewPath, []byte(reviewMarkdown(result, provider, model)), 0o644)
@@ -70,7 +70,7 @@ func reviewMarkdown(result Result, provider, model string) string {
 	fmt.Fprintf(&b, "- Quality report: `%s`\n", relOrAbs(result.ExampleDir, result.QualityJSONPath))
 	fmt.Fprintf(&b, "- Refinement report: `%s`\n", relOrAbs(result.ExampleDir, result.RefinementJSONPath))
 	fmt.Fprintf(&b, "- Review evidence: `%s`\n", relOrAbs(result.ExampleDir, result.ReviewPath))
-	fmt.Fprintf(&b, "- Symphony handoff manifest: `%s`\n", relOrAbs(result.ExampleDir, result.SymphonyHandoffPath))
+	fmt.Fprintf(&b, "- Review handoff manifest: `%s`\n", relOrAbs(result.ExampleDir, result.ReviewHandoffPath))
 	fmt.Fprintf(&b, "- OpenUdon review package: `%d` artifact(s), `%d` symbolic binding(s), execution deferred to OpenUdon trusted-runtime policy.\n", len(commonPackage.Artifacts), len(commonPackage.BindingNames))
 	b.WriteString("\n## OpenAPI Candidates\n\n")
 	for _, candidate := range result.OpenAPICandidates {
@@ -142,8 +142,8 @@ func reviewMarkdown(result Result, provider, model string) string {
 	b.WriteString("- `rejected`: artifact rejected or regeneration requested.\n")
 	if profile.SideEffectful {
 		b.WriteString("- Required next state: `review_required` before any side-effectful execution.\n")
-		b.WriteString("- Sandbox proof run requires Symphony state `approved_for_sandbox`.\n")
-		b.WriteString("- Production execution requires Symphony state `approved_for_production` and trusted credentials.\n")
+		b.WriteString("- Sandbox proof run requires review state `approved_for_sandbox`.\n")
+		b.WriteString("- Production execution requires review state `approved_for_production` and trusted credentials.\n")
 	} else {
 		b.WriteString("- `approved_for_sandbox` and `approved_for_production` are not required unless future changes add side effects.\n")
 	}
@@ -367,7 +367,7 @@ func reviewArtifactSet(result Result) authoring.ArtifactSet {
 		result.RefinementJSONPath,
 		result.RefinementMDPath,
 		result.ReviewPath,
-		result.SymphonyHandoffPath,
+		result.ReviewHandoffPath,
 	}
 	artifacts := make([]authoring.Artifact, 0, len(artifactPaths))
 	for _, path := range artifactPaths {

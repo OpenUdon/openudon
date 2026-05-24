@@ -12,6 +12,7 @@ import (
 	"strings"
 
 	"github.com/OpenUdon/apitools"
+	"github.com/OpenUdon/openudon/internal/packageartifacts"
 	"github.com/OpenUdon/openudon/internal/synthesize"
 	"github.com/OpenUdon/openudon/internal/workflowintent"
 	"github.com/OpenUdon/tfconfig"
@@ -134,7 +135,7 @@ func Convert(ctx context.Context, opts Options) (*Result, error) {
 		PlanMDPath:      filepath.Join(opts.OutDir, "expected", "plan.md"),
 		DiscoveryPath:   filepath.Join(opts.OutDir, "expected", "discovery.json"),
 		RefinementPath:  filepath.Join(opts.OutDir, "expected", "refinement.json"),
-		HandoffPath:     filepath.Join(opts.OutDir, "expected", "symphony-handoff.json"),
+		HandoffPath:     filepath.Join(opts.OutDir, filepath.FromSlash(packageartifacts.ReviewHandoffPath)),
 		QualityJSONPath: filepath.Join(opts.OutDir, "expected", "quality.json"),
 		QualityMDPath:   filepath.Join(opts.OutDir, "expected", "quality.md"),
 		Diagnostics:     conversion.diagnostics,
@@ -153,7 +154,7 @@ func Convert(ctx context.Context, opts Options) (*Result, error) {
 		result.PlanMDPath = packageResult.PlanMDPath
 		result.DiscoveryPath = packageResult.DiscoveryJSONPath
 		result.RefinementPath = packageResult.RefinementJSONPath
-		result.HandoffPath = packageResult.SymphonyHandoffPath
+		result.HandoffPath = packageResult.ReviewHandoffPath
 		result.QualityJSONPath = packageResult.QualityJSONPath
 		result.QualityMDPath = packageResult.QualityMDPath
 		result.QualityPassed = quality != nil && quality.Passed()

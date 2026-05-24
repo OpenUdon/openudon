@@ -10,49 +10,46 @@ import (
 	"github.com/OpenUdon/openudon/internal/packageartifacts"
 )
 
-const (
-	symphonyHandoffVersion       = authoring.ReviewHandoffVersion
-	legacySymphonyHandoffVersion = "openudon.symphony-handoff.v1"
-)
+const reviewHandoffVersion = authoring.ReviewHandoffVersion
 
-type SymphonyHandoff = authoring.ReviewHandoff
-type SymphonyHandoffInput = authoring.ReviewHandoffInput
-type SymphonyApprovalState = authoring.ReviewApprovalState
-type SymphonyOwnerSplit = authoring.ReviewOwnerSplit
-type SymphonyExecutionPolicy = authoring.ReviewExecutionPolicy
-type SymphonyCredentialBindings = authoring.ReviewCredentialBindings
-type SymphonyTrustedRunner = authoring.ReviewTrustedRunner
+type ReviewHandoff = authoring.ReviewHandoff
+type ReviewHandoffInput = authoring.ReviewHandoffInput
+type ReviewApprovalState = authoring.ReviewApprovalState
+type ReviewOwnerSplit = authoring.ReviewOwnerSplit
+type ReviewExecutionPolicy = authoring.ReviewExecutionPolicy
+type ReviewCredentialBindings = authoring.ReviewCredentialBindings
+type ReviewTrustedRunner = authoring.ReviewTrustedRunner
 
-func writeSymphonyHandoff(result Result, policy projectPolicy, profile sideEffectProfile) error {
+func writeReviewHandoff(result Result, policy projectPolicy, profile sideEffectProfile) error {
 	if err := ensureArtifactDirs(result); err != nil {
 		return err
 	}
-	manifest, err := buildSymphonyHandoff(result, policy, profile)
+	manifest, err := buildReviewHandoff(result, policy, profile)
 	if err != nil {
 		return err
 	}
 	data, err := json.MarshalIndent(manifest, "", "  ")
 	if err != nil {
-		return fmt.Errorf("marshal Symphony handoff: %w", err)
+		return fmt.Errorf("marshal review handoff: %w", err)
 	}
-	return os.WriteFile(result.SymphonyHandoffPath, append(data, '\n'), 0o644)
+	return os.WriteFile(result.ReviewHandoffPath, append(data, '\n'), 0o644)
 }
 
-func buildSymphonyHandoff(result Result, policy projectPolicy, profile sideEffectProfile) (SymphonyHandoff, error) {
+func buildReviewHandoff(result Result, policy projectPolicy, profile sideEffectProfile) (ReviewHandoff, error) {
 	bindingContract := authoring.BuildBindingContract(authoring.BindingContractOptions{
 		BindingNames:         credentialBindingNames(policy),
 		ExpectedBindingNames: expectedPlanCredentialNames(result.PlanJSONPath),
 	})
-	inputs, err := symphonyHandoffInputs(result)
+	inputs, err := reviewHandoffInputs(result)
 	if err != nil {
-		return SymphonyHandoff{}, err
+		return ReviewHandoff{}, err
 	}
 	return authoring.NewReviewHandoff(authoring.ReviewHandoffOptions{
-		Version:        symphonyHandoffVersion,
+		Version:        reviewHandoffVersion,
 		GeneratedState: string(authoring.ReviewStateGenerated),
 		HandoffInputs:  inputs,
 		ApprovalStates: authoring.DefaultReviewStateMachine(),
-		OwnerSplit: SymphonyOwnerSplit{
+		OwnerSplit: ReviewOwnerSplit{
 			"openudon": {
 				"artifact generation",
 				"deterministic validation",
@@ -60,8 +57,8 @@ func buildSymphonyHandoff(result Result, policy projectPolicy, profile sideEffec
 				"credential-binding inventory",
 				"trusted-runner command text",
 			},
-			"symphony": {
-				"work-item routing",
+			"external_review_orchestration": {
+				"review routing",
 				"reviewer identity",
 				"audit trail",
 				"workspace linkage",
@@ -71,14 +68,14 @@ func buildSymphonyHandoff(result Result, policy projectPolicy, profile sideEffec
 		},
 		ExecutionPolicy:    authoring.DefaultReviewExecutionPolicy(profile.SideEffectful),
 		CredentialBindings: bindingContract.ReviewCredentialBindings(),
-		TrustedRunner: SymphonyTrustedRunner{
+		TrustedRunner: ReviewTrustedRunner{
 			Command:     fmt.Sprintf("openudon run --example %s --tier sandbox --approval approvals/%s.json", relOrAbs(filepath.Dir(result.ExampleDir), result.ExampleDir), filepath.Base(result.ExampleDir)),
 			SandboxOnly: profile.SideEffectful,
 		},
 	}), nil
 }
 
-func symphonyHandoffInputs(result Result) ([]SymphonyHandoffInput, error) {
+func reviewHandoffInputs(result Result) ([]ReviewHandoffInput, error) {
 	artifacts := []authoring.ReviewArtifactInput{
 		{Path: relOrAbs(result.ExampleDir, result.ProjectPath), Purpose: "Source brief, integration policy, runtime policy, credentials policy, safety boundary, and fallback behavior.", Required: true},
 		{Path: relOrAbs(result.ExampleDir, result.IntentPath), Purpose: "Structured intent extracted from the project brief.", Required: true},
@@ -88,7 +85,7 @@ func symphonyHandoffInputs(result Result) ([]SymphonyHandoffInput, error) {
 		{Path: relOrAbs(result.ExampleDir, result.QualityJSONPath), Purpose: "Deterministic quality gate result.", Required: true},
 		{Path: relOrAbs(result.ExampleDir, result.RefinementJSONPath), Purpose: "Generation/refinement attempts, failed checks, and stop reason.", Required: true},
 		{Path: relOrAbs(result.ExampleDir, result.ReviewPath), Purpose: "Human review evidence, unresolved risks, skipped execution notes, and trusted-runner command text.", Required: true},
-		{Path: relOrAbs(result.ExampleDir, result.SymphonyHandoffPath), Purpose: "Machine-readable XRD-005 handoff manifest for Symphony work-item routing.", Required: true},
+		{Path: relOrAbs(result.ExampleDir, result.ReviewHandoffPath), Purpose: "Machine-readable review handoff manifest for reviewer or orchestrator routing.", Required: true},
 	}
 	openAPIPaths, err := packageartifacts.CollectAPISourcePaths(result.ExampleDir)
 	if err != nil {

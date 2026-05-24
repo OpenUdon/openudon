@@ -220,7 +220,7 @@ func qualityFailureLooksInfrastructure(code, detail string) bool {
 		}
 	}
 	switch strings.TrimSpace(code) {
-	case "openapi.local", "symphony_handoff.contract":
+	case "openapi.local", "review_handoff.contract":
 		return strings.Contains(lower, "could not be checked") || strings.Contains(lower, "could not be scanned")
 	default:
 		return false

@@ -93,24 +93,6 @@ func TestRunDryRunStagesAndWritesEvidenceWithoutCredentialEnv(t *testing.T) {
 	}
 }
 
-func TestRunLegacyHandoffVersionPassesDryRun(t *testing.T) {
-	root, example := writeFixture(t, fixtureOptions{handoffVersion: legacyHandoffVersion})
-	now := fixedNow()
-	approvalPath := writeApprovalTemplate(t, root, example, StateApprovedForSandbox, now)
-
-	if _, err := Run(context.Background(), Options{
-		RepoRoot:     root,
-		ExampleDir:   example,
-		Tier:         TierSandbox,
-		ApprovalPath: approvalPath,
-		DryRun:       true,
-		Now:          now,
-		Assess:       passAssess,
-	}); err != nil {
-		t.Fatalf("Run returned error: %v", err)
-	}
-}
-
 func TestRunValidProductionApprovalPassesDryRun(t *testing.T) {
 	root, example := writeFixture(t, fixtureOptions{})
 	now := fixedNow()
@@ -619,8 +601,8 @@ func TestRunConfigIncludesNestedOpenAPIPaths(t *testing.T) {
 		"expected/plan.json",
 		"expected/quality.json",
 		"expected/refinement.json",
+		"expected/review-handoff.json",
 		"expected/review.md",
-		"expected/symphony-handoff.json",
 		"openapi/nested/support.yaml",
 		"project.md",
 		"workflows/intent.hcl",
@@ -1695,7 +1677,6 @@ type fixtureOptions struct {
 	malformedHandoff    bool
 	valuesAllowed       bool
 	directProduction    bool
-	handoffVersion      string
 	extraRequiredInputs []string
 	credentialBindings  []string
 }
@@ -1730,15 +1711,11 @@ func writeFixture(t *testing.T, opts fixtureOptions) (string, string) {
 		mustWriteFile(t, filepath.Join(example, filepath.FromSlash(rel)), data)
 	}
 	if opts.malformedHandoff {
-		mustWriteFile(t, filepath.Join(example, "expected", "symphony-handoff.json"), []byte("{"))
+		mustWriteFile(t, filepath.Join(example, "expected", "review-handoff.json"), []byte("{"))
 		return root, example
 	}
-	version := opts.handoffVersion
-	if version == "" {
-		version = SymphonyHandoffVersion
-	}
 	manifest := map[string]any{
-		"version":         version,
+		"version":         ReviewHandoffVersion,
 		"generated_state": string(authoring.ReviewStateGenerated),
 		"handoff_inputs": []map[string]any{
 			{"path": "project.md", "required": true},
@@ -1749,12 +1726,12 @@ func writeFixture(t *testing.T, opts fixtureOptions) (string, string) {
 			{"path": "expected/quality.json", "required": true},
 			{"path": "expected/refinement.json", "required": true},
 			{"path": "expected/review.md", "required": true},
-			{"path": "expected/symphony-handoff.json", "required": true},
+			{"path": "expected/review-handoff.json", "required": true},
 		},
 		"approval_states": authoring.DefaultReviewStateMachine(),
 		"owner_split": map[string]any{
-			"openudon": []string{"artifact validation"},
-			"symphony": []string{"approval routing"},
+			"openudon":                      []string{"artifact validation"},
+			"external_review_orchestration": []string{"approval routing"},
 		},
 		"execution_policy": map[string]any{
 			"direct_production_execution": opts.directProduction,
@@ -1776,7 +1753,7 @@ func writeFixture(t *testing.T, opts fixtureOptions) (string, string) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	mustWriteFile(t, filepath.Join(example, "expected", "symphony-handoff.json"), append(data, '\n'))
+	mustWriteFile(t, filepath.Join(example, "expected", "review-handoff.json"), append(data, '\n'))
 	return root, example
 }
 
@@ -1800,7 +1777,7 @@ func writeApprovalTemplate(t *testing.T, root, example, state string, now func()
 
 func writeApprovalTemplateWithoutPolicyCheck(t *testing.T, root, example, state string, now func() time.Time) string {
 	t.Helper()
-	data, err := os.ReadFile(filepath.Join(example, "expected", "symphony-handoff.json"))
+	data, err := os.ReadFile(filepath.Join(example, "expected", "review-handoff.json"))
 	if err != nil {
 		t.Fatal(err)
 	}

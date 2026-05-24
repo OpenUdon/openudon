@@ -443,7 +443,7 @@ paths:
 	if err != nil {
 		t.Fatal(err)
 	}
-	for _, path := range []string{result.IntentPath, result.WorkflowPath, result.UWSPath, result.PlanJSONPath, result.PlanMDPath, result.RefinementJSONPath, result.RefinementMDPath, result.ReviewPath, result.SymphonyHandoffPath, result.QualityJSONPath, result.QualityMDPath} {
+	for _, path := range []string{result.IntentPath, result.WorkflowPath, result.UWSPath, result.PlanJSONPath, result.PlanMDPath, result.RefinementJSONPath, result.RefinementMDPath, result.ReviewPath, result.ReviewHandoffPath, result.QualityJSONPath, result.QualityMDPath} {
 		if _, err := os.Stat(path); err != nil {
 			t.Fatalf("expected artifact %s: %v", path, err)
 		}
@@ -468,26 +468,26 @@ paths:
 	if !strings.Contains(string(review), "Side-Effect Summary") || !strings.Contains(string(review), "Unresolved Risks") || !strings.Contains(string(review), "Trusted proof run") {
 		t.Fatalf("review missing hardened audit evidence:\n%s", review)
 	}
-	handoffData, err := os.ReadFile(result.SymphonyHandoffPath)
+	handoffData, err := os.ReadFile(result.ReviewHandoffPath)
 	if err != nil {
 		t.Fatal(err)
 	}
-	var handoff SymphonyHandoff
+	var handoff ReviewHandoff
 	if err := json.Unmarshal(handoffData, &handoff); err != nil {
 		t.Fatal(err)
 	}
-	if handoff.Version != symphonyHandoffVersion || handoff.GeneratedState != "generated" {
-		t.Fatalf("unexpected Symphony handoff metadata: %#v", handoff)
+	if handoff.Version != reviewHandoffVersion || handoff.GeneratedState != "generated" {
+		t.Fatalf("unexpected review handoff metadata: %#v", handoff)
 	}
-	requiredInputsOK, err := symphonyHandoffHasRequiredInputs(example, handoff)
+	requiredInputsOK, err := reviewHandoffHasRequiredInputs(example, handoff)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !symphonyHandoffHasApprovalStates(handoff) || !requiredInputsOK {
-		t.Fatalf("Symphony handoff missing required contract: %#v", handoff)
+	if !reviewHandoffHasApprovalStates(handoff) || !requiredInputsOK {
+		t.Fatalf("review handoff missing required contract: %#v", handoff)
 	}
 	if !handoffHasRequiredInput(handoff, "openapi/support.yaml") {
-		t.Fatalf("Symphony handoff missing required OpenAPI input: %#v", handoff.HandoffInputs)
+		t.Fatalf("review handoff missing required OpenAPI input: %#v", handoff.HandoffInputs)
 	}
 	report, err := Assess(Options{ExampleDir: example, SchemaPath: schemaPath})
 	if err != nil {
@@ -1154,7 +1154,7 @@ step "send_email" {
 		"Unresolved Risks",
 		"Minimum Review Package",
 		"Quality report",
-		"Symphony handoff manifest",
+		"Review handoff manifest",
 		"Credential binding audit",
 		"Direct production execution: not performed by OpenUdon synthesis",
 		"Trusted Execution Handoff",
@@ -1398,7 +1398,7 @@ func validReviewEvidenceText(includeApprovalStates, includeCredentialInventory b
 - Quality report
 - Refinement report
 - Review evidence
-- Symphony handoff manifest
+- Review handoff manifest
 
 ## Side-Effect Summary
 
@@ -1500,62 +1500,23 @@ func TestAssessReportsMissingOpenAPI(t *testing.T) {
 	}
 }
 
-func TestAssessSymphonyHandoffAcceptsLegacyVersion(t *testing.T) {
-	example := t.TempDir()
-	writeSynthesizeRequiredPackageFiles(t, example)
-	path := filepath.Join(example, "expected", "symphony-handoff.json")
-	manifest := SymphonyHandoff{
-		Version:        legacySymphonyHandoffVersion,
-		GeneratedState: string(authoring.ReviewStateGenerated),
-		HandoffInputs: []SymphonyHandoffInput{
-			{Path: "project.md", Required: true},
-			{Path: "workflows/intent.hcl", Required: true},
-			{Path: "workflows/workflow.hcl", Required: true},
-			{Path: "workflows/workflow.uws.yaml", Required: true},
-			{Path: "expected/plan.json", Required: true},
-			{Path: "expected/quality.json", Required: true},
-			{Path: "expected/refinement.json", Required: true},
-			{Path: "expected/review.md", Required: true},
-			{Path: "expected/symphony-handoff.json", Required: true},
-		},
-		ApprovalStates: authoring.DefaultReviewStateMachine(),
-		OwnerSplit: SymphonyOwnerSplit{
-			"openudon": {"artifact validation"},
-			"symphony": {"approval routing"},
-		},
-	}
-	data, err := json.MarshalIndent(manifest, "", "  ")
-	if err != nil {
-		t.Fatal(err)
-	}
-	if err := os.WriteFile(path, append(data, '\n'), 0o644); err != nil {
-		t.Fatal(err)
-	}
-
-	report := &QualityReport{}
-	assessSymphonyHandoff(report, path, sideEffectProfile{}, projectPolicy{}, nil)
-	if !hasCheck(report, "symphony_handoff.contract", "pass") {
-		t.Fatalf("expected legacy handoff to pass, got %#v", report.Checks)
-	}
-}
-
-func TestBuildSymphonyHandoffIncludesAdvisorySecuritySidecar(t *testing.T) {
+func TestBuildReviewHandoffIncludesAdvisorySecuritySidecar(t *testing.T) {
 	example := t.TempDir()
 	mustWriteSynthesizeTestFile(t, filepath.Join(example, "google-discovery", "gmail.json"), []byte(`{"discoveryVersion":"v1"}`))
 	mustWriteSynthesizeTestFile(t, filepath.Join(example, "google-discovery", "gmail.security.json"), []byte(`{"security_schemes":[]}`))
 	result := Result{
-		ExampleDir:          example,
-		ProjectPath:         filepath.Join(example, "project.md"),
-		IntentPath:          filepath.Join(example, "workflows", "intent.hcl"),
-		WorkflowPath:        filepath.Join(example, "workflows", "workflow.hcl"),
-		UWSPath:             filepath.Join(example, "workflows", "workflow.uws.yaml"),
-		PlanJSONPath:        filepath.Join(example, "expected", "plan.json"),
-		QualityJSONPath:     filepath.Join(example, "expected", "quality.json"),
-		RefinementJSONPath:  filepath.Join(example, "expected", "refinement.json"),
-		ReviewPath:          filepath.Join(example, "expected", "review.md"),
-		SymphonyHandoffPath: filepath.Join(example, "expected", "symphony-handoff.json"),
+		ExampleDir:         example,
+		ProjectPath:        filepath.Join(example, "project.md"),
+		IntentPath:         filepath.Join(example, "workflows", "intent.hcl"),
+		WorkflowPath:       filepath.Join(example, "workflows", "workflow.hcl"),
+		UWSPath:            filepath.Join(example, "workflows", "workflow.uws.yaml"),
+		PlanJSONPath:       filepath.Join(example, "expected", "plan.json"),
+		QualityJSONPath:    filepath.Join(example, "expected", "quality.json"),
+		RefinementJSONPath: filepath.Join(example, "expected", "refinement.json"),
+		ReviewPath:         filepath.Join(example, "expected", "review.md"),
+		ReviewHandoffPath:  filepath.Join(example, "expected", "review-handoff.json"),
 	}
-	manifest, err := buildSymphonyHandoff(result, projectPolicy{}, sideEffectProfile{})
+	manifest, err := buildReviewHandoff(result, projectPolicy{}, sideEffectProfile{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -1567,15 +1528,15 @@ func TestBuildSymphonyHandoffIncludesAdvisorySecuritySidecar(t *testing.T) {
 	}
 }
 
-func TestAssessSymphonyHandoffRejectsListedMissingSidecar(t *testing.T) {
+func TestAssessReviewHandoffRejectsListedMissingSidecar(t *testing.T) {
 	example := t.TempDir()
 	writeSynthesizeRequiredPackageFiles(t, example)
 	mustWriteSynthesizeTestFile(t, filepath.Join(example, "google-discovery", "gmail.json"), []byte(`{"discoveryVersion":"v1"}`))
-	handoffPath := filepath.Join(example, "expected", "symphony-handoff.json")
-	manifest := SymphonyHandoff{
-		Version:        symphonyHandoffVersion,
+	handoffPath := filepath.Join(example, "expected", "review-handoff.json")
+	manifest := ReviewHandoff{
+		Version:        reviewHandoffVersion,
 		GeneratedState: string(authoring.ReviewStateGenerated),
-		HandoffInputs: []SymphonyHandoffInput{
+		HandoffInputs: []ReviewHandoffInput{
 			{Path: "project.md", Required: true},
 			{Path: "workflows/intent.hcl", Required: true},
 			{Path: "workflows/workflow.hcl", Required: true},
@@ -1584,14 +1545,14 @@ func TestAssessSymphonyHandoffRejectsListedMissingSidecar(t *testing.T) {
 			{Path: "expected/quality.json", Required: true},
 			{Path: "expected/refinement.json", Required: true},
 			{Path: "expected/review.md", Required: true},
-			{Path: "expected/symphony-handoff.json", Required: true},
+			{Path: "expected/review-handoff.json", Required: true},
 			{Path: "google-discovery/gmail.json", Required: true},
 			{Path: "google-discovery/gmail.security.json", Required: true},
 		},
 		ApprovalStates: authoring.DefaultReviewStateMachine(),
-		OwnerSplit: SymphonyOwnerSplit{
-			"openudon": {"artifact validation"},
-			"symphony": {"approval routing"},
+		OwnerSplit: ReviewOwnerSplit{
+			"openudon":                      {"artifact validation"},
+			"external_review_orchestration": {"approval routing"},
 		},
 	}
 	data, err := json.MarshalIndent(manifest, "", "  ")
@@ -1603,8 +1564,8 @@ func TestAssessSymphonyHandoffRejectsListedMissingSidecar(t *testing.T) {
 	}
 
 	report := &QualityReport{}
-	assessSymphonyHandoff(report, handoffPath, sideEffectProfile{}, projectPolicy{}, nil)
-	if !hasCheck(report, "symphony_handoff.contract", "fail") || !strings.Contains(report.Checks[len(report.Checks)-1].Detail, "google-discovery/gmail.security.json") {
+	assessReviewHandoff(report, handoffPath, sideEffectProfile{}, projectPolicy{}, nil)
+	if !hasCheck(report, "review_handoff.contract", "fail") || !strings.Contains(report.Checks[len(report.Checks)-1].Detail, "google-discovery/gmail.security.json") {
 		t.Fatalf("expected missing listed sidecar failure, got %#v", report.Checks)
 	}
 }
@@ -4282,7 +4243,7 @@ func planHasGap(plan *WorkflowPlan, code string) bool {
 	return false
 }
 
-func handoffInputContains(inputs []SymphonyHandoffInput, want string) bool {
+func handoffInputContains(inputs []ReviewHandoffInput, want string) bool {
 	for _, input := range inputs {
 		if input.Path == want && input.Required {
 			return true
@@ -4365,15 +4326,15 @@ func mustWriteSynthesizeTestFile(t *testing.T, path string, data []byte) {
 func writeSynthesizeRequiredPackageFiles(t *testing.T, example string) {
 	t.Helper()
 	files := map[string][]byte{
-		"project.md":                     []byte("# Project\n"),
-		"workflows/intent.hcl":           []byte("intent {}\n"),
-		"workflows/workflow.hcl":         []byte("workflow {}\n"),
-		"workflows/workflow.uws.yaml":    []byte("version: 1.0.0\n"),
-		"expected/plan.json":             []byte("{}\n"),
-		"expected/quality.json":          []byte(`{"status":"pass"}` + "\n"),
-		"expected/refinement.json":       []byte("{}\n"),
-		"expected/review.md":             []byte("# Review\n"),
-		"expected/symphony-handoff.json": []byte("{}\n"),
+		"project.md":                   []byte("# Project\n"),
+		"workflows/intent.hcl":         []byte("intent {}\n"),
+		"workflows/workflow.hcl":       []byte("workflow {}\n"),
+		"workflows/workflow.uws.yaml":  []byte("version: 1.0.0\n"),
+		"expected/plan.json":           []byte("{}\n"),
+		"expected/quality.json":        []byte(`{"status":"pass"}` + "\n"),
+		"expected/refinement.json":     []byte("{}\n"),
+		"expected/review.md":           []byte("# Review\n"),
+		"expected/review-handoff.json": []byte("{}\n"),
 	}
 	for rel, data := range files {
 		mustWriteSynthesizeTestFile(t, filepath.Join(example, filepath.FromSlash(rel)), data)
@@ -4696,7 +4657,7 @@ paths:
 `
 }
 
-func handoffHasRequiredInput(handoff SymphonyHandoff, path string) bool {
+func handoffHasRequiredInput(handoff ReviewHandoff, path string) bool {
 	for _, input := range handoff.HandoffInputs {
 		if input.Path == path && input.Required {
 			return true

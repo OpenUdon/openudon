@@ -20,11 +20,10 @@ import (
 )
 
 const (
-	ApprovalVersion        = "openudon.approval.v1"
-	RunConfigVersion       = udonrunner.RunConfigVersion
-	RunEvidenceVersion     = "openudon.run-evidence.v1"
-	SymphonyHandoffVersion = authoring.ReviewHandoffVersion
-	legacyHandoffVersion   = "openudon.symphony-handoff.v1"
+	ApprovalVersion      = "openudon.approval.v1"
+	RunConfigVersion     = udonrunner.RunConfigVersion
+	RunEvidenceVersion   = "openudon.run-evidence.v1"
+	ReviewHandoffVersion = authoring.ReviewHandoffVersion
 
 	StateApprovedForSandbox    = string(authoring.ReviewStateApprovedForSandbox)
 	StateApprovedForProduction = string(authoring.ReviewStateApprovedForProduction)
@@ -617,7 +616,7 @@ func resolvePaths(repoRoot, example string) (paths, error) {
 		project:        filepath.Join(exampleAbs, "project.md"),
 		workflow:       filepath.Join(exampleAbs, "workflows", "workflow.hcl"),
 		quality:        filepath.Join(exampleAbs, "expected", "quality.json"),
-		handoff:        filepath.Join(exampleAbs, "expected", "symphony-handoff.json"),
+		handoff:        filepath.Join(exampleAbs, filepath.FromSlash(packageartifacts.ReviewHandoffPath)),
 		defaultWorkDir: filepath.Join(repoAbs, ".openudon-run", strings.ReplaceAll(scope, "/", "-")),
 	}, nil
 }
@@ -631,7 +630,7 @@ func readHandoff(path string) (handoffManifest, error) {
 	if err := json.Unmarshal(data, &manifest); err != nil {
 		return handoffManifest{}, fmt.Errorf("handoff manifest must be valid JSON: %w", err)
 	}
-	allowedVersions := []string{SymphonyHandoffVersion, legacyHandoffVersion}
+	allowedVersions := []string{ReviewHandoffVersion}
 	if diagnostics := authoring.ValidateReviewHandoff(manifest, authoring.ReviewHandoffValidationOptions{AllowedVersions: allowedVersions}); len(diagnostics) > 0 {
 		return handoffManifest{}, fmt.Errorf("handoff manifest is invalid: %s", diagnostics[0].Message)
 	}
