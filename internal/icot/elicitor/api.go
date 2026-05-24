@@ -209,6 +209,9 @@ func discoverLocalGoogleDiscoveryAPIs(exampleDir string) ([]APIDocument, error) 
 			return nil, err
 		}
 		for _, path := range matches {
+			if isAdvisorySecuritySidecarPath(path) {
+				continue
+			}
 			data, err := os.ReadFile(path)
 			if err != nil {
 				return nil, err
@@ -321,11 +324,25 @@ func discoveryRequestFields(schema map[string]any, operationID string) []apitool
 func discoveryPropertyRequiredForOperation(prop map[string]any, operationID string) bool {
 	annotations := anyMap(prop["annotations"])
 	for _, required := range stringSliceFromAny(annotations["required"]) {
-		if strings.TrimSpace(required) == strings.TrimSpace(operationID) {
+		if discoveryOperationIDMatches(required, operationID) {
 			return true
 		}
 	}
 	return false
+}
+
+func discoveryOperationIDMatches(candidate, operationID string) bool {
+	candidate = strings.TrimSpace(candidate)
+	operationID = strings.TrimSpace(operationID)
+	if candidate == "" || operationID == "" {
+		return false
+	}
+	return candidate == operationID || slugIdent(candidate) == slugIdent(operationID)
+}
+
+func isAdvisorySecuritySidecarPath(path string) bool {
+	base := strings.TrimSuffix(filepath.Base(path), filepath.Ext(path))
+	return strings.HasSuffix(base, ".security") || strings.HasSuffix(base, ".security-overlay")
 }
 
 func sortedAnyMapKeys(values map[string]any) []string {

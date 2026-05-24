@@ -611,11 +611,20 @@ func googleDiscoveryRequestFields(schema map[string]any, operationID string) []a
 func googleDiscoveryPropertyRequiredForOperation(prop map[string]any, operationID string) bool {
 	annotations := asMap(prop["annotations"])
 	for _, required := range asStringSlice(annotations["required"]) {
-		if strings.TrimSpace(required) == strings.TrimSpace(operationID) {
+		if googleDiscoveryOperationIDMatches(required, operationID) {
 			return true
 		}
 	}
 	return false
+}
+
+func googleDiscoveryOperationIDMatches(candidate, operationID string) bool {
+	candidate = strings.TrimSpace(candidate)
+	operationID = strings.TrimSpace(operationID)
+	if candidate == "" || operationID == "" {
+		return false
+	}
+	return candidate == operationID || operationIDAlias(candidate) == operationIDAlias(operationID)
 }
 
 func asStringSlice(value any) []string {

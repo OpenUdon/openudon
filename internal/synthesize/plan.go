@@ -844,7 +844,24 @@ func credentialBindingToken(token string) bool {
 		"do", "not", "include", "runtime", "declared", "approved", "artifact", "artifacts":
 		return false
 	}
-	return strings.Contains(token, "_") || strings.Contains(token, "-") || strings.Contains(token, ".")
+	return strings.Contains(token, "_") || strings.Contains(token, "-") || strings.Contains(token, ".") || tokenHasMixedCaseOrDigit(token)
+}
+
+func tokenHasMixedCaseOrDigit(token string) bool {
+	hasLower := false
+	hasUpper := false
+	hasDigit := false
+	for _, r := range token {
+		switch {
+		case r >= 'a' && r <= 'z':
+			hasLower = true
+		case r >= 'A' && r <= 'Z':
+			hasUpper = true
+		case r >= '0' && r <= '9':
+			hasDigit = true
+		}
+	}
+	return hasLower && (hasUpper || hasDigit)
 }
 
 func sortPlanParams(params []PlanParam) {

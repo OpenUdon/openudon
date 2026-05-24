@@ -176,8 +176,11 @@ func isGmailDeliveryStep(step *rollout.Step) bool {
 		return false
 	}
 	text := stepSearchText(step)
-	return strings.Contains(text, "gmail") &&
-		(strings.Contains(text, "send") || strings.Contains(text, "message") || strings.Contains(text, "mail"))
+	tokens := rankingTokenWeights(text)
+	if tokens["gmail"] == 0 {
+		return false
+	}
+	return tokens["send"] > 0 || tokens["message"] > 0 || tokens["mail"] > 0 || tokens["email"] > 0
 }
 
 func gmailBodyField(step *rollout.Step) string {

@@ -559,12 +559,12 @@ func numberedOperations(count int) []apitools.OperationSummary {
 
 func weatherGmailDraftRequest() DraftRequest {
 	return DraftRequest{
-		Opening: "Get weather for Toronto, Canada, and Gmail me the report.",
+		Opening: "Get weather for Toronto, Canada, and send the report using Google Gmail.",
 		Session: Session{Intent: rollout.Intent{
 			OpenAPI: "openapi/weather.yaml",
 			Workflow: &rollout.WorkflowMeta{
 				Name:        "weather_email",
-				Description: "Get weather for Toronto, Canada, and Gmail me the report.",
+				Description: "Get weather for Toronto, Canada, and send the report using Google Gmail.",
 			},
 			Steps: []*rollout.Step{
 				{Name: "get_weather", Type: "http", OpenAPI: "openapi/weather.yaml", Operation: "getWeatherByLatLon"},

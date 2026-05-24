@@ -216,7 +216,14 @@ func applyCatalogPlanResponse(out io.Writer, session *Session, hints []CatalogHi
 		return catalogPlanApplication{Rejected: rejected, SelectedKeys: selectedKeys}, err
 	}
 	for _, candidate := range append(result.Existing, result.Copied...) {
+		if candidate.Kind == catalog.SpecKind("security-overlay") {
+			fmt.Fprintf(out, "icot: selected %s security overlay sidecar from catalog plan: %s\n", candidate.ProviderName, candidate.RelativePath)
+			continue
+		}
 		fmt.Fprintf(out, "icot: selected %s API document from catalog plan: %s\n", candidate.ProviderName, candidate.RelativePath)
+	}
+	for _, note := range result.Notes {
+		fmt.Fprintf(out, "icot: catalog retrieval note: %s\n", note)
 	}
 	applyCatalogPlanSteps(session, response.ProposedSteps, selectedCandidates)
 	recordCatalogPlanAssumptions(session, response, selectedCandidates, rejected)
@@ -226,7 +233,11 @@ func applyCatalogPlanResponse(out io.Writer, session *Session, hints []CatalogHi
 
 func migrateSelectedCatalogCandidates(candidates []CatalogMigrationCandidate) (CatalogMigrationResult, error) {
 	var result CatalogMigrationResult
+	var sourceCandidates []CatalogMigrationCandidate
 	for _, candidate := range candidates {
+		if catalogMigrationCandidateIsAPISource(candidate) {
+			sourceCandidates = append(sourceCandidates, candidate)
+		}
 		if candidate.ExistingLocal {
 			result.Existing = append(result.Existing, candidate)
 			continue
@@ -236,7 +247,27 @@ func migrateSelectedCatalogCandidates(candidates []CatalogMigrationCandidate) (C
 		}
 		result.Copied = append(result.Copied, candidate)
 	}
+	securityCandidates, notes, err := materializeBuiltInSecurityOverlaySidecars(sourceCandidates, candidateExampleDir(candidates))
+	if err != nil {
+		return result, err
+	}
+	result.Notes = append(result.Notes, notes...)
+	appendSecurityCandidates(&result, securityCandidates)
 	return result, nil
+}
+
+func candidateExampleDir(candidates []CatalogMigrationCandidate) string {
+	for _, candidate := range candidates {
+		if strings.TrimSpace(candidate.TargetPath) == "" || strings.TrimSpace(candidate.RelativePath) == "" {
+			continue
+		}
+		rel := filepath.FromSlash(candidate.RelativePath)
+		target := filepath.Clean(candidate.TargetPath)
+		if strings.HasSuffix(target, rel) {
+			return strings.TrimSuffix(strings.TrimSuffix(target, rel), string(filepath.Separator))
+		}
+	}
+	return ""
 }
 
 func applyCatalogPlanSteps(session *Session, proposed []CatalogPlanStep, candidates []CatalogMigrationCandidate) {

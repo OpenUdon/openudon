@@ -69,14 +69,65 @@ func TestMigrateCatalogArtifactsCopiesDiscoveryIntoWorkflow(t *testing.T) {
 	if err != nil {
 		t.Fatalf("MigrateCatalogArtifacts failed: %v", err)
 	}
-	if len(result.Copied) != 1 {
-		t.Fatalf("copied = %#v, want one artifact", result.Copied)
+	if len(result.Copied) != 2 {
+		t.Fatalf("copied = %#v, want source plus security overlay", result.Copied)
 	}
 	if got, want := result.Copied[0].RelativePath, "google-discovery/gmail-discovery-v1.json"; got != want {
 		t.Fatalf("relative path = %q, want %q", got, want)
 	}
 	if _, err := os.Stat(filepath.Join(example, "google-discovery", "gmail-discovery-v1.json")); err != nil {
 		t.Fatalf("migrated discovery artifact missing: %v", err)
+	}
+	if _, err := os.Stat(filepath.Join(example, "google-discovery", "gmail-discovery-v1.security-overlay.json")); err != nil {
+		t.Fatalf("migrated discovery security overlay missing: %v", err)
+	}
+}
+
+func TestMigrationResultFromExportCopiesSecurityOverlaySidecar(t *testing.T) {
+	example := t.TempDir()
+	exportRoot := t.TempDir()
+	sourcePath := filepath.Join(exportRoot, "gmail", "google-discovery", "gmail-discovery-v1.json")
+	overlayPath := filepath.Join(exportRoot, "gmail", "security-overlays", "gmail-discovery-auth-overlay.json")
+	mustWriteCatalogTestFile(t, sourcePath, []byte("{}\n"))
+	mustWriteCatalogTestFile(t, overlayPath, []byte(`{
+  "id": "gmail-discovery-auth-overlay",
+  "provider_id": "gmail",
+  "spec_ref_id": "gmail-discovery-v1",
+  "status": "overlay-required",
+  "security_schemes": [{"name":"googleOAuth2","type":"oauth2"}],
+  "root_security": [{"scheme":"googleOAuth2"}]
+}`))
+
+	result, err := migrationResultFromExport(catalog.ExportReport{
+		Providers: []catalog.MaterializationReport{{
+			ProviderID:  "gmail",
+			DisplayName: "Gmail",
+			Artifacts: []catalog.MaterializedArtifact{{
+				ArtifactID:    "gmail-discovery-v1",
+				SpecRefID:     "gmail-discovery-v1",
+				Kind:          "google-discovery",
+				Protocol:      catalog.SpecProtocolGoogleDiscovery,
+				UWSSourceType: "google-discovery",
+				SourcePath:    sourcePath,
+				TargetPath:    sourcePath,
+				SourceURL:     "https://gmail.googleapis.com/$discovery/rest?version=v1",
+			}},
+			SecurityOverlays: []catalog.MaterializedSecurityOverlay{{
+				OverlayID:  "gmail-discovery-auth-overlay",
+				SpecRefID:  "gmail-discovery-v1",
+				Status:     catalog.AuthStatusOverlayRequired,
+				TargetPath: overlayPath,
+			}},
+		}},
+	}, nil, example)
+	if err != nil {
+		t.Fatalf("migrationResultFromExport failed: %v", err)
+	}
+	if len(result.Copied) != 2 {
+		t.Fatalf("copied = %#v, want source and sidecar", result.Copied)
+	}
+	if _, err := os.Stat(filepath.Join(example, "google-discovery", "gmail-discovery-v1.security-overlay.json")); err != nil {
+		t.Fatalf("exported security overlay sidecar missing: %v", err)
 	}
 }
 
@@ -133,6 +184,9 @@ func TestRetrieveCatalogArtifactsCopiesWeatherOverlay(t *testing.T) {
 	if _, err := os.Stat(filepath.Join(example, "google-discovery", "gmail-discovery-v1.json")); err != nil {
 		t.Fatalf("gmail discovery was not retrieved: %v", err)
 	}
+	if _, err := os.Stat(filepath.Join(example, "google-discovery", "gmail-discovery-v1.security-overlay.json")); err != nil {
+		t.Fatalf("gmail discovery security overlay was not retrieved: %v", err)
+	}
 	if _, err := os.Stat(filepath.Join(example, "openapi", "openweathermap-one-call-3-overlay.json")); err != nil {
 		t.Fatalf("OpenWeatherMap overlay was not retrieved: %v", err)
 	}
@@ -141,6 +195,121 @@ func TestRetrieveCatalogArtifactsCopiesWeatherOverlay(t *testing.T) {
 	}
 	if !strings.Contains(out.String(), "retrieved OpenWeatherMap advisory OpenAPI overlay") {
 		t.Fatalf("retrieve output missing OpenWeatherMap retrieval:\n%s", out.String())
+	}
+}
+
+func TestCatalogSecurityOverlayTargetRelativePathSupportsSmithy(t *testing.T) {
+	got := catalogSecurityOverlayTargetRelativePath("aws-smithy/s3.json")
+	if want := "aws-smithy/s3.security-overlay.json"; got != want {
+		t.Fatalf("security overlay sidecar path = %q, want %q", got, want)
+	}
+	got = catalogArtifactTargetRelativePath(catalog.SpecReference{ID: "s3", Kind: catalog.SpecKindSmithyJSON}, filepath.Join(t.TempDir(), "s3.json"))
+	if want := "aws-smithy/s3.json"; got != want {
+		t.Fatalf("smithy target path = %q, want %q", got, want)
+	}
+}
+
+func TestMaterializeSecurityOverlaySidecarsMatchesSourceURL(t *testing.T) {
+	example := t.TempDir()
+	sourceA := CatalogMigrationCandidate{
+		ProviderID:   "demo",
+		ProviderName: "Demo",
+		SpecRefID:    "a",
+		SourceURL:    "https://example.test/a.json",
+		Kind:         catalog.SpecKindOpenAPI,
+		Protocol:     string(catalog.SpecProtocolOpenAPI),
+		RelativePath: "openapi/a.json",
+		TargetPath:   filepath.Join(example, "openapi", "a.json"),
+	}
+	sourceB := CatalogMigrationCandidate{
+		ProviderID:   "demo",
+		ProviderName: "Demo",
+		SpecRefID:    "b",
+		SourceURL:    "https://example.test/b.json",
+		Kind:         catalog.SpecKindGoogleDiscovery,
+		Protocol:     string(catalog.SpecProtocolGoogleDiscovery),
+		RelativePath: "google-discovery/b.json",
+		TargetPath:   filepath.Join(example, "google-discovery", "b.json"),
+	}
+	overlay := catalog.SecurityOverlay{
+		ID:              "demo-url-overlay",
+		ProviderID:      "demo",
+		Status:          catalog.AuthStatusOverlayRequired,
+		SecuritySchemes: []catalog.SecurityScheme{{Name: "DemoAuth", Type: "apiKey"}},
+		RootSecurity:    []catalog.SecurityRequirement{{Scheme: "DemoAuth"}},
+		SourceRefs:      []string{"https://example.test/b.json"},
+		SourceNote:      "test",
+	}
+
+	sidecars, notes, err := materializeSecurityOverlaySidecars([]catalogSecurityOverlayCandidate{{
+		ProviderID:   "demo",
+		ProviderName: "Demo",
+		OverlayID:    overlay.ID,
+		SourceRefs:   overlay.SourceRefs,
+		Overlay:      &overlay,
+	}}, []CatalogMigrationCandidate{sourceA, sourceB}, example)
+	if err != nil {
+		t.Fatalf("materializeSecurityOverlaySidecars failed: %v", err)
+	}
+	if len(notes) != 0 {
+		t.Fatalf("notes = %#v, want none", notes)
+	}
+	if len(sidecars) != 1 || sidecars[0].RelativePath != "google-discovery/b.security-overlay.json" {
+		t.Fatalf("sidecars = %#v, want b sidecar", sidecars)
+	}
+	if _, err := os.Stat(filepath.Join(example, "google-discovery", "b.security-overlay.json")); err != nil {
+		t.Fatalf("source URL matched sidecar missing: %v", err)
+	}
+}
+
+func TestMaterializeSecurityOverlaySidecarsDoesNotGuessAcrossMultipleSources(t *testing.T) {
+	example := t.TempDir()
+	sources := []CatalogMigrationCandidate{
+		{
+			ProviderID:   "demo",
+			ProviderName: "Demo",
+			SpecRefID:    "a",
+			Kind:         catalog.SpecKindOpenAPI,
+			Protocol:     string(catalog.SpecProtocolOpenAPI),
+			RelativePath: "openapi/a.json",
+			TargetPath:   filepath.Join(example, "openapi", "a.json"),
+		},
+		{
+			ProviderID:   "demo",
+			ProviderName: "Demo",
+			SpecRefID:    "b",
+			Kind:         catalog.SpecKindGoogleDiscovery,
+			Protocol:     string(catalog.SpecProtocolGoogleDiscovery),
+			RelativePath: "google-discovery/b.json",
+			TargetPath:   filepath.Join(example, "google-discovery", "b.json"),
+		},
+	}
+	overlay := catalog.SecurityOverlay{
+		ID:              "demo-provider-overlay",
+		ProviderID:      "demo",
+		Status:          catalog.AuthStatusOverlayRequired,
+		SecuritySchemes: []catalog.SecurityScheme{{Name: "DemoAuth", Type: "apiKey"}},
+		RootSecurity:    []catalog.SecurityRequirement{{Scheme: "DemoAuth"}},
+		SourceNote:      "test",
+	}
+
+	sidecars, notes, err := materializeSecurityOverlaySidecars([]catalogSecurityOverlayCandidate{{
+		ProviderID:   "demo",
+		ProviderName: "Demo",
+		OverlayID:    overlay.ID,
+		Overlay:      &overlay,
+	}}, sources, example)
+	if err != nil {
+		t.Fatalf("materializeSecurityOverlaySidecars failed: %v", err)
+	}
+	if len(sidecars) != 0 {
+		t.Fatalf("sidecars = %#v, want none", sidecars)
+	}
+	if len(notes) != 1 || !strings.Contains(notes[0], "no exact source match among multiple migrated demo sources") {
+		t.Fatalf("notes = %#v, want no-guess note", notes)
+	}
+	if _, err := os.Stat(filepath.Join(example, "openapi", "a.security-overlay.json")); !os.IsNotExist(err) {
+		t.Fatalf("unexpected guessed sidecar: %v", err)
 	}
 }
 
@@ -417,10 +586,15 @@ func (errorCatalogPlanExtractor) CatalogPlan(context.Context, CatalogPlanRequest
 func writeCatalogArtifact(t *testing.T, root, rel string) {
 	t.Helper()
 	path := filepath.Join(root, filepath.FromSlash(rel))
+	mustWriteCatalogTestFile(t, path, []byte("{}\n"))
+}
+
+func mustWriteCatalogTestFile(t *testing.T, path string, data []byte) {
+	t.Helper()
 	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
 		t.Fatalf("mkdir artifact dir: %v", err)
 	}
-	if err := os.WriteFile(path, []byte("{}\n"), 0o644); err != nil {
+	if err := os.WriteFile(path, data, 0o644); err != nil {
 		t.Fatalf("write artifact: %v", err)
 	}
 }

@@ -98,6 +98,65 @@ func TestRenderArtifactsWeatherGmailAddsReportPlaceholderAndOrdersChain(t *testi
 	}
 }
 
+func TestRenderArtifactsWeatherGmailDoesNotTreatGeocoderGoalTextAsGmailStep(t *testing.T) {
+	session := Session{
+		Project: projectwizard.Answers{Goal: "get weather in toronto, canada, and gmail the report to me"},
+		Intent: rollout.Intent{
+			Workflow: &rollout.WorkflowMeta{Name: "weather_toronto_gmail", Description: "get weather in toronto, canada, and gmail the report to me"},
+			Steps: []*rollout.Step{
+				{
+					Name:      "geocode_openweathermap_location",
+					Type:      "http",
+					Provider:  "openweathermap",
+					OpenAPI:   "openapi/openweathermap.yaml",
+					Operation: "geocodeOpenWeatherMapLocationName",
+					Do:        "Resolve toronto, canada, and gmail the report to me to OpenWeatherMap coordinates.",
+					With:      map[string]string{"q": "toronto, canada"},
+				},
+				{
+					Name:      "fetch_weather_toronto",
+					Type:      "http",
+					Provider:  "openweathermap",
+					OpenAPI:   "openapi/openweathermap.yaml",
+					Operation: "getOpenWeatherMapOneCall3",
+					DependsOn: []string{"geocode_openweathermap_location"},
+				},
+				{
+					Name:      "email_weather_report",
+					Type:      "http",
+					Provider:  "gmail",
+					OpenAPI:   "google-discovery/gmail-discovery-v1.json",
+					Operation: "gmail_users_messages_send",
+					Do:        "Send the weather summary to the user via Gmail as a report.",
+					DependsOn: []string{"fetch_weather_toronto"},
+				},
+			},
+			Outputs: []*rollout.Output{{Name: "weather_report", From: "fetch_weather_toronto.received_body"}},
+		},
+	}
+
+	artifacts, err := RenderArtifacts(session)
+	if err != nil {
+		t.Fatalf("RenderArtifacts failed: %v", err)
+	}
+	geocode := stepByName(artifacts.Session.Intent.Steps, "geocode_openweathermap_location")
+	if geocode == nil {
+		t.Fatalf("geocode step missing: %#v", artifacts.Session.Intent.Steps)
+	}
+	for _, field := range []string{"raw", "userId"} {
+		if _, ok := geocode.With[field]; ok {
+			t.Fatalf("geocode step was mutated with Gmail field %q: %#v", field, geocode)
+		}
+	}
+	if len(geocode.DependsOn) != 0 {
+		t.Fatalf("geocode should not depend on Gmail report renderer: %#v", geocode.DependsOn)
+	}
+	gmail := stepByName(artifacts.Session.Intent.Steps, "email_weather_report")
+	if gmail == nil || gmail.With["raw"] != "render_weather_report.received_body" || gmail.With["userId"] != "me" {
+		t.Fatalf("gmail step was not prepared for report delivery: %#v", gmail)
+	}
+}
+
 func TestRenderArtifactsWeatherGmailDoesNotInsertReportPlaceholderForMultipleProducers(t *testing.T) {
 	session := Session{
 		Project: projectwizard.Answers{Goal: "Get weather for Toronto, compare weather for Ottawa, and Gmail me the report."},

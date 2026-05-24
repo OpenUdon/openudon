@@ -85,7 +85,7 @@ func runProgressive(ctx context.Context, in io.Reader, out io.Writer, seed Sessi
 		NoLLM:         opts.NoLLM,
 		DefaultMode:   opts.DefaultMode,
 		MaxAttempts:   20,
-		OpeningPrompt: "Tell me what you want this API/workflow to accomplish. Include inputs, API actions, outputs, and safety constraints if you know them. Do not paste secrets.",
+		OpeningPrompt: "Tell me what you want this API/workflow to accomplish. Include inputs, API actions, outputs, and safety constraints if you know them. For send/create/update/delete/post/upload/notify actions, explicitly name the provider and action, for example \"send the report using Google Gmail\". Do not paste secrets.",
 		Extractor:     extractor,
 		Normalize: func(session *Session) {
 			session.Normalize()
@@ -587,14 +587,25 @@ func retrieveCatalogArtifactsForSession(out io.Writer, session Session, exampleD
 		return err
 	}
 	for _, candidate := range result.Existing {
+		if candidate.Kind == catalog.SpecKind("security-overlay") {
+			fmt.Fprintf(out, "icot: using existing %s security overlay sidecar %s\n", candidate.ProviderName, candidate.RelativePath)
+			continue
+		}
 		fmt.Fprintf(out, "icot: using existing apitools API document %s\n", candidate.RelativePath)
 	}
 	for _, candidate := range result.Copied {
+		if candidate.Kind == catalog.SpecKind("security-overlay") {
+			fmt.Fprintf(out, "icot: retrieved %s security overlay from apitools to %s\n", candidate.ProviderName, candidate.RelativePath)
+			continue
+		}
 		if candidate.Kind == catalog.SpecKind("advisory-overlay") {
 			fmt.Fprintf(out, "icot: retrieved %s advisory OpenAPI overlay from apitools to %s\n", candidate.ProviderName, candidate.RelativePath)
 			continue
 		}
 		fmt.Fprintf(out, "icot: retrieved %s API document from apitools to %s\n", candidate.ProviderName, candidate.RelativePath)
+	}
+	for _, note := range result.Notes {
+		fmt.Fprintf(out, "icot: catalog retrieval note: %s\n", note)
 	}
 	for _, hint := range result.Missing {
 		fmt.Fprintf(out, "icot: no first-class OpenAPI is available for %s; cannot continue to operation selection until an artifact is generated/provided.\n", firstNonEmpty(hint.Provider.DisplayName, hint.Provider.ID))
@@ -727,7 +738,14 @@ func applyCatalogDocumentAnswer(out io.Writer, session *Session, plan QuestionPl
 			fmt.Fprintf(out, "icot: using existing catalog API document %s\n", candidate.RelativePath)
 		}
 		for _, candidate := range result.Copied {
+			if candidate.Kind == catalog.SpecKind("security-overlay") {
+				fmt.Fprintf(out, "icot: migrated %s security overlay sidecar to %s\n", candidate.ProviderName, candidate.RelativePath)
+				continue
+			}
 			fmt.Fprintf(out, "icot: migrated %s API document to %s\n", candidate.ProviderName, candidate.RelativePath)
+		}
+		for _, note := range result.Notes {
+			fmt.Fprintf(out, "icot: catalog retrieval note: %s\n", note)
 		}
 		for _, hint := range result.Missing {
 			fmt.Fprintf(out, "icot: no migratable first-class API document found for %s; provide a local OpenAPI file or lowering output before synthesis.\n", firstNonEmpty(hint.Provider.DisplayName, hint.Provider.ID))
@@ -2285,22 +2303,23 @@ func firstBlockingIssue(issues []ReadinessIssue) ReadinessIssue {
 
 func sortReadinessIssues(issues []ReadinessIssue) []ReadinessIssue {
 	priority := map[string]int{
-		"missing_goal":                          0,
-		"conflicting_mapping":                   1,
-		"low_confidence_mapping":                2,
-		"missing_api_doc":                       3,
-		"missing_operation":                     4,
-		"undeclared_credential_reference":       5,
-		"invented_request_field":                6,
-		"invalid_request_body_path":             7,
-		"incompatible_request_value_type":       8,
-		"missing_required_request_values":       9,
-		"missing_credential_bindings":           10,
-		"missing_runtime_inputs":                11,
-		"missing_outputs":                       12,
-		"missing_side_effect_policy":            13,
-		"optional_timeout_idempotency_controls": 14,
-		"intent_render_invalid":                 15,
+		"missing_goal":                           0,
+		"conflicting_mapping":                    1,
+		"low_confidence_mapping":                 2,
+		"missing_api_doc":                        3,
+		readinessUnconfirmedSideEffectCommitment: 4,
+		"missing_operation":                      5,
+		"undeclared_credential_reference":        6,
+		"invented_request_field":                 7,
+		"invalid_request_body_path":              8,
+		"incompatible_request_value_type":        9,
+		"missing_required_request_values":        10,
+		"missing_credential_bindings":            11,
+		"missing_runtime_inputs":                 12,
+		"missing_outputs":                        13,
+		"missing_side_effect_policy":             14,
+		"optional_timeout_idempotency_controls":  15,
+		"intent_render_invalid":                  16,
 	}
 	sort.SliceStable(issues, func(i, j int) bool {
 		left, ok := priority[issues[i].Code]
@@ -2377,12 +2396,18 @@ func suggestedOperationAnswerForStep(session Session, docs []APIDocument, step *
 		intentText := operationSelectionRankingText(session, step)
 		if wantsEmailMessageSend(intentText) {
 			if operationID, ok := uniqueEmailMessageSendOperationID(choices); ok {
+				if !sideEffectCommitmentExplicit(session, step) {
+					return ""
+				}
 				return operationID
 			}
 		}
 		if len(choices) > 1 && confidentOperationDefault(session, step, choices) {
 			return choices[0].Op.OperationID
 		}
+		return ""
+	}
+	if operationLooksSideEffectful(choices[0].Op) && goalNeedsSideEffectCommitment(session, step) && !sideEffectCommitmentExplicit(session, step) {
 		return ""
 	}
 	return choices[0].Op.OperationID
@@ -2394,7 +2419,7 @@ func confidentOperationDefault(session Session, step *rollout.Step, choices []ra
 	}
 	intentText := operationSelectionRankingText(session, step)
 	if wantsEmailMessageSend(intentText) && uniqueEmailMessageSendChoice(choices) {
-		return true
+		return sideEffectCommitmentExplicit(session, step)
 	}
 	if wantsWeatherLookup(intentText) && uniqueWeatherLookupChoice(choices) {
 		return true

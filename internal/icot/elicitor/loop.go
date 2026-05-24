@@ -476,7 +476,7 @@ func firstFinalRepairIssue(issues []ReadinessIssue) ReadinessIssue {
 			continue
 		}
 		switch issue.Code {
-		case "missing_api_doc", "missing_operation":
+		case "missing_api_doc", "missing_operation", readinessUnconfirmedSideEffectCommitment:
 			return issue
 		}
 	}

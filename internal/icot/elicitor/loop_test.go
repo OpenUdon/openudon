@@ -213,6 +213,19 @@ func TestDiscoverLocalAPIsIncludesGoogleDiscoveryOperations(t *testing.T) {
 	  "version": "v1",
 	  "rootUrl": "https://gmail.googleapis.com/",
 	  "servicePath": "",
+	  "schemas": {
+	    "Message": {
+	      "id": "Message",
+	      "type": "object",
+	      "properties": {
+	        "raw": {
+	          "description": "The entire email message in an RFC 2822 formatted and base64url encoded string.",
+	          "annotations": {"required": ["gmail.users.messages.send"]},
+	          "type": "string"
+	        }
+	      }
+	    }
+	  },
 	  "resources": {
 	    "users": {
 	      "resources": {
@@ -242,6 +255,9 @@ func TestDiscoverLocalAPIsIncludesGoogleDiscoveryOperations(t *testing.T) {
 	if err := os.WriteFile(filepath.Join(dir, "gmail.json"), []byte(data), 0o644); err != nil {
 		t.Fatalf("write discovery: %v", err)
 	}
+	if err := os.WriteFile(filepath.Join(dir, "gmail.security-overlay.json"), []byte(`{"id":"gmail-security","provider_id":"gmail","status":"overlay-required"}`), 0o644); err != nil {
+		t.Fatalf("write discovery sidecar: %v", err)
+	}
 
 	docs, err := DiscoverLocalAPIs(example, "gmail send report")
 	if err != nil {
@@ -259,6 +275,15 @@ func TestDiscoverLocalAPIsIncludesGoogleDiscoveryOperations(t *testing.T) {
 	}
 	if len(op.Parameters) != 1 || op.Parameters[0].Name != "userId" {
 		t.Fatalf("parameters = %#v", op.Parameters)
+	}
+	if op.RequestBody == nil || len(op.RequestBody.Fields) != 1 || op.RequestBody.Fields[0].Path != "raw" {
+		t.Fatalf("request body = %#v", op.RequestBody)
+	}
+}
+
+func TestDiscoveryOperationIDMatchesSanitizedAnnotation(t *testing.T) {
+	if !discoveryOperationIDMatches("gmail.users.messages.send", "gmail_users_messages_send") {
+		t.Fatalf("Discovery operation ID annotation did not match sanitized operation ID")
 	}
 }
 
@@ -1171,7 +1196,7 @@ func TestOperationForStepRejectsWrongProviderOperation(t *testing.T) {
 	}
 }
 
-func TestSuggestedOperationAnswerRanksStepCandidates(t *testing.T) {
+func TestSuggestedOperationAnswerRejectsAmbiguousGmailVerb(t *testing.T) {
 	session := Session{
 		Project: projectwizard.Answers{Goal: "get weather in Toronto and gmail me the report"},
 		Intent: rollout.Intent{
@@ -1189,8 +1214,8 @@ func TestSuggestedOperationAnswerRanksStepCandidates(t *testing.T) {
 		{OperationID: "gmail_users_messages_send", Summary: "Sends the specified message to the recipients."},
 	}}}
 
-	if got := suggestedOperationAnswerForStep(session, docs, session.Intent.Steps[0]); got != "gmail_users_messages_send" {
-		t.Fatalf("multi-operation send-message step suggested %q, want gmail_users_messages_send", got)
+	if got := suggestedOperationAnswerForStep(session, docs, session.Intent.Steps[0]); got != "" {
+		t.Fatalf("ambiguous gmail-as-verb step suggested unsafe default operation: %q", got)
 	}
 	hint := operationChoiceHintForStep(session, docs, session.Intent.Steps[0])
 	if !strings.Contains(hint, "gmail_users_messages_send") || !strings.Contains(hint, "gmail_users_getprofile") {
@@ -1198,11 +1223,11 @@ func TestSuggestedOperationAnswerRanksStepCandidates(t *testing.T) {
 	}
 }
 
-func TestSuggestedOperationAnswerDefaultsUniqueGmailSendWhenImportRanksFirst(t *testing.T) {
+func TestSuggestedOperationAnswerDefaultsExplicitGmailSendWhenImportRanksFirst(t *testing.T) {
 	session := Session{
-		Project: projectwizard.Answers{Goal: "get weather in Toronto, Canada, and then gmail me the report"},
+		Project: projectwizard.Answers{Goal: "get weather in Toronto, Canada, and then send the report using Google Gmail"},
 		Intent: rollout.Intent{
-			Workflow: &rollout.WorkflowMeta{Name: "weather_report", Description: "get weather in Toronto, Canada, and then gmail me the report"},
+			Workflow: &rollout.WorkflowMeta{Name: "weather_report", Description: "get weather in Toronto, Canada, and then send the report using Google Gmail"},
 			Steps: []*rollout.Step{{
 				Name:     "email_report",
 				Type:     "http",
@@ -1221,6 +1246,116 @@ func TestSuggestedOperationAnswerDefaultsUniqueGmailSendWhenImportRanksFirst(t *
 
 	if got := suggestedOperationAnswerForStep(session, docs, session.Intent.Steps[0]); got != "gmail_users_messages_send" {
 		t.Fatalf("gmail send default = %q, want gmail_users_messages_send", got)
+	}
+}
+
+func TestReadinessForcesAmbiguousSideEffectCommitment(t *testing.T) {
+	session := Session{
+		Project: projectwizard.Answers{Goal: "prepare a report and gmail the report to me"},
+		Intent: rollout.Intent{
+			Workflow: &rollout.WorkflowMeta{Name: "email_report", Description: "prepare a report and gmail the report to me"},
+			Source:   "google-discovery/gmail.json",
+			Steps: []*rollout.Step{{
+				Name:     "gmail",
+				Type:     "http",
+				Provider: "gmail",
+				OpenAPI:  "google-discovery/gmail.json",
+				Do:       "Send the weather report.",
+			}},
+		},
+	}
+	docs := []APIDocument{{RelativePath: "google-discovery/gmail.json", Title: "Gmail API", Operations: []apitools.OperationSummary{
+		{OperationID: "gmail_users_getprofile", Summary: "Gets the user's Gmail profile."},
+		{OperationID: "gmail_users_messages_send", Method: "POST", Path: "/gmail/v1/users/{userId}/messages/send", Summary: "Sends the specified message to the recipients."},
+	}}}
+
+	issues := CheckReadiness(session, docs)
+	issue := readinessIssue(issues, readinessUnconfirmedSideEffectCommitment)
+	if issue.Code == "" {
+		t.Fatalf("missing side-effect commitment issue: %#v", issues)
+	}
+	plan := PlanNextQuestion(session, docs, issues)
+	if !plan.ForceAsk || plan.Slots[0] != "steps.gmail.operation" {
+		t.Fatalf("side-effect commitment should force operation confirmation: %#v", plan)
+	}
+	applyProgressiveAnswer(&session, plan, "gmail_users_messages_send", docs)
+	if hasReadinessCode(CheckReadiness(session, docs), readinessUnconfirmedSideEffectCommitment) {
+		t.Fatalf("user operation confirmation did not resolve side-effect commitment: %#v", CheckReadiness(session, docs))
+	}
+}
+
+func TestSuggestedOperationAnswerRejectsProviderAsVerbForOtherProviders(t *testing.T) {
+	tests := []struct {
+		name      string
+		goal      string
+		provider  string
+		operation string
+		summary   string
+	}{
+		{name: "slack", goal: "slack Bob the summary", provider: "slack", operation: "slack_chat_postMessage", summary: "Post a chat message."},
+		{name: "jira", goal: "jira the bug", provider: "jira", operation: "jira_issues_create", summary: "Create an issue."},
+		{name: "calendar", goal: "calendar it", provider: "calendar", operation: "calendar_events_insert", summary: "Create an event."},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			session := Session{
+				Project: projectwizard.Answers{Goal: tt.goal},
+				Intent: rollout.Intent{
+					Workflow: &rollout.WorkflowMeta{Name: tt.name, Description: tt.goal},
+					Steps: []*rollout.Step{{
+						Name:     tt.provider,
+						Type:     "http",
+						Provider: tt.provider,
+						Do:       "Use " + tt.provider + " for this workflow capability.",
+					}},
+				},
+			}
+			docs := []APIDocument{{RelativePath: "openapi/" + tt.provider + ".yaml", Title: tt.provider + " API", Operations: []apitools.OperationSummary{
+				{OperationID: tt.operation, Method: "POST", Summary: tt.summary},
+			}}}
+			if got := suggestedOperationAnswerForStep(session, docs, session.Intent.Steps[0]); got != "" {
+				t.Fatalf("provider-as-verb goal suggested unsafe default operation: %q", got)
+			}
+			if !hasReadinessCode(CheckReadiness(session, docs), readinessUnconfirmedSideEffectCommitment) {
+				t.Fatalf("missing forced clarification for %q", tt.goal)
+			}
+		})
+	}
+}
+
+func TestSuggestedOperationAnswerAllowsExplicitSideEffectProviders(t *testing.T) {
+	tests := []struct {
+		name      string
+		goal      string
+		provider  string
+		operation string
+		summary   string
+	}{
+		{name: "slack", goal: "post the summary to Slack", provider: "slack", operation: "slack_chat_postMessage", summary: "Post a chat message."},
+		{name: "jira", goal: "create a Jira issue", provider: "jira", operation: "jira_issues_create", summary: "Create an issue."},
+		{name: "calendar", goal: "create a Google Calendar event", provider: "calendar", operation: "calendar_events_insert", summary: "Create an event."},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			session := Session{
+				Project: projectwizard.Answers{Goal: tt.goal},
+				Intent: rollout.Intent{
+					Workflow: &rollout.WorkflowMeta{Name: tt.name, Description: tt.goal},
+					Steps: []*rollout.Step{{
+						Name:     tt.provider,
+						Type:     "http",
+						Provider: tt.provider,
+						Do:       "Use " + tt.provider + " for this workflow capability.",
+					}},
+				},
+			}
+			docs := []APIDocument{{RelativePath: "openapi/" + tt.provider + ".yaml", Title: tt.provider + " API", Operations: []apitools.OperationSummary{
+				{OperationID: tt.operation, Method: "POST", Summary: tt.summary},
+			}}}
+			if got := suggestedOperationAnswerForStep(session, docs, session.Intent.Steps[0]); got != tt.operation {
+				t.Fatalf("explicit side-effect goal suggested %q, want %q", got, tt.operation)
+			}
+		})
 	}
 }
 
@@ -2097,7 +2232,7 @@ func TestProgressiveWeatherGmailDraftAddsGeocodingOperation(t *testing.T) {
 		`{
   "intent": {
     "openapi": "openapi/weather.yaml",
-    "workflow": {"name":"weather_toronto_gmail","description":"Get weather for Toronto, Canada, and Gmail me the report."},
+    "workflow": {"name":"weather_toronto_gmail","description":"Get weather for Toronto, Canada, and send the report using Google Gmail."},
     "inputs": [],
     "steps": [
       {"name":"geocode_city","type":"http","openapi":"openapi/weather.yaml","operation":"geocodeCity","with":{"q":"Toronto,CA"}},
@@ -2113,7 +2248,7 @@ func TestProgressiveWeatherGmailDraftAddsGeocodingOperation(t *testing.T) {
   "side_effect_scope": "after-approval",
   "assumptions": [
     {"id":"op_geocode_city","slot":"steps.geocode_city.operation","value":"geocodeCity","reason":"Toronto needs coordinate resolution before weather-by-lat/lon.","evidence":"geocodeCity was listed in the local catalog and details were fetched.","risk":"review","requires_confirmation":true},
-    {"id":"op_send_gmail","slot":"steps.send_gmail.operation","value":"gmail_users_messages_send","reason":"The brief asks to Gmail the report.","evidence":"selected Gmail operation details.","risk":"review","requires_confirmation":true}
+    {"id":"op_send_gmail","slot":"steps.send_gmail.operation","value":"gmail_users_messages_send","reason":"The brief explicitly asks to send the report using Google Gmail.","evidence":"selected Gmail operation details.","risk":"review","requires_confirmation":true}
   ]
 }`,
 	}}

@@ -2,6 +2,7 @@ package elicitor
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -39,6 +40,8 @@ type CatalogSpecArtifactHint struct {
 type CatalogMigrationCandidate struct {
 	ProviderID    string
 	ProviderName  string
+	SpecRefID     string
+	SourceURL     string
 	Kind          catalog.SpecKind
 	Protocol      string
 	SourcePath    string
@@ -51,6 +54,7 @@ type CatalogMigrationResult struct {
 	Copied   []CatalogMigrationCandidate
 	Existing []CatalogMigrationCandidate
 	Missing  []CatalogHint
+	Notes    []string
 }
 
 func BuildCatalogHints(query string, opts CatalogHintOptions) ([]CatalogHint, error) {
@@ -137,8 +141,12 @@ func MigrateCatalogArtifacts(query, exampleDir string, opts CatalogHintOptions) 
 	candidates := CatalogMigrationCandidates(hints, exampleDir)
 	var result CatalogMigrationResult
 	availableByProvider := map[string]bool{}
+	var sourceCandidates []CatalogMigrationCandidate
 	for _, candidate := range candidates {
 		availableByProvider[candidate.ProviderID] = true
+		if catalogMigrationCandidateIsAPISource(candidate) {
+			sourceCandidates = append(sourceCandidates, candidate)
+		}
 		if candidate.ExistingLocal {
 			result.Existing = append(result.Existing, candidate)
 			continue
@@ -148,6 +156,12 @@ func MigrateCatalogArtifacts(query, exampleDir string, opts CatalogHintOptions) 
 		}
 		result.Copied = append(result.Copied, candidate)
 	}
+	securityCandidates, notes, err := materializeBuiltInSecurityOverlaySidecars(sourceCandidates, exampleDir)
+	if err != nil {
+		return result, err
+	}
+	result.Notes = append(result.Notes, notes...)
+	appendSecurityCandidates(&result, securityCandidates)
 	for _, hint := range hints {
 		if !availableByProvider[hint.Provider.ID] {
 			result.Missing = append(result.Missing, hint)
@@ -173,6 +187,8 @@ func CatalogMigrationCandidates(hints []CatalogHint, exampleDir string) []Catalo
 			out = append(out, CatalogMigrationCandidate{
 				ProviderID:    hint.Provider.ID,
 				ProviderName:  firstNonEmpty(hint.Provider.DisplayName, hint.Provider.ID),
+				SpecRefID:     artifact.SpecRef.ID,
+				SourceURL:     artifact.SpecRef.URL,
 				Kind:          artifact.SpecRef.Kind,
 				Protocol:      string(artifact.SpecRef.ProtocolClassification().Protocol),
 				SourcePath:    sourcePath,
@@ -214,6 +230,7 @@ func migrationResultFromExport(export catalog.ExportReport, hints []CatalogHint,
 	var result CatalogMigrationResult
 	availableByProvider := map[string]bool{}
 	for _, provider := range export.Providers {
+		var providerSources []CatalogMigrationCandidate
 		for _, artifact := range provider.Artifacts {
 			rel := materializedArtifactTargetRelativePath(artifact)
 			if rel == "" {
@@ -223,12 +240,15 @@ func migrationResultFromExport(export catalog.ExportReport, hints []CatalogHint,
 			candidate := CatalogMigrationCandidate{
 				ProviderID:   provider.ProviderID,
 				ProviderName: firstNonEmpty(provider.DisplayName, provider.ProviderID),
+				SpecRefID:    artifact.SpecRefID,
+				SourceURL:    firstNonEmpty(artifact.SourceURL, providerResolutionSpecRefURL(provider.Resolution, artifact.SpecRefID)),
 				Kind:         catalog.SpecKind(artifact.Kind),
 				Protocol:     string(artifact.Protocol),
 				SourcePath:   artifact.TargetPath,
 				TargetPath:   target,
 				RelativePath: rel,
 			}
+			providerSources = append(providerSources, candidate)
 			availableByProvider[provider.ProviderID] = true
 			if _, err := os.Stat(target); err == nil {
 				candidate.ExistingLocal = true
@@ -240,6 +260,12 @@ func migrationResultFromExport(export catalog.ExportReport, hints []CatalogHint,
 			}
 			result.Copied = append(result.Copied, candidate)
 		}
+		securityCandidates, notes, err := materializeExportedSecurityOverlaySidecars(provider, providerSources, exampleDir)
+		if err != nil {
+			return result, err
+		}
+		result.Notes = append(result.Notes, notes...)
+		appendSecurityCandidates(&result, securityCandidates)
 	}
 	for _, hint := range hints {
 		if !availableByProvider[hint.Provider.ID] {
@@ -250,20 +276,260 @@ func migrationResultFromExport(export catalog.ExportReport, hints []CatalogHint,
 }
 
 func materializedArtifactTargetRelativePath(artifact catalog.MaterializedArtifact) string {
+	if dir := uwsSourceTypeArtifactDir(artifact.UWSSourceType); dir != "" {
+		return filepath.ToSlash(filepath.Join(dir, filepath.Base(artifact.TargetPath)))
+	}
 	switch artifact.Protocol {
 	case catalog.SpecProtocolOpenAPI, catalog.SpecProtocolSwagger:
 		return filepath.ToSlash(filepath.Join("openapi", filepath.Base(artifact.TargetPath)))
 	case catalog.SpecProtocolGoogleDiscovery:
 		return filepath.ToSlash(filepath.Join("google-discovery", filepath.Base(artifact.TargetPath)))
+	case catalog.SpecProtocolSmithy:
+		return filepath.ToSlash(filepath.Join("aws-smithy", filepath.Base(artifact.TargetPath)))
 	default:
 		switch strings.TrimSpace(artifact.Kind) {
 		case "openapi", "openapi-index", "advisory-overlay":
 			return filepath.ToSlash(filepath.Join("openapi", filepath.Base(artifact.TargetPath)))
 		case "google-discovery":
 			return filepath.ToSlash(filepath.Join("google-discovery", filepath.Base(artifact.TargetPath)))
+		case "smithy-json":
+			return filepath.ToSlash(filepath.Join("aws-smithy", filepath.Base(artifact.TargetPath)))
 		default:
 			return ""
 		}
+	}
+}
+
+func providerResolutionSpecRefURL(resolution catalog.ProviderResolution, specRefID string) string {
+	specRefID = strings.TrimSpace(specRefID)
+	if specRefID == "" {
+		return ""
+	}
+	for _, ref := range resolution.SpecReferences {
+		if ref.ID == specRefID {
+			return strings.TrimSpace(ref.URL)
+		}
+	}
+	return ""
+}
+
+type catalogSecurityOverlayCandidate struct {
+	ProviderID    string
+	ProviderName  string
+	OverlayID     string
+	SpecRefID     string
+	SourceRefs    []string
+	SourcePath    string
+	Overlay       *catalog.SecurityOverlay
+	TargetSource  CatalogMigrationCandidate
+	TargetPath    string
+	RelativePath  string
+	ExistingLocal bool
+}
+
+func materializeExportedSecurityOverlaySidecars(provider catalog.MaterializationReport, sources []CatalogMigrationCandidate, exampleDir string) ([]catalogSecurityOverlayCandidate, []string, error) {
+	var overlays []catalogSecurityOverlayCandidate
+	for _, materialized := range provider.SecurityOverlays {
+		overlay := catalogSecurityOverlayCandidate{
+			ProviderID:   provider.ProviderID,
+			ProviderName: firstNonEmpty(provider.DisplayName, provider.ProviderID),
+			OverlayID:    materialized.OverlayID,
+			SpecRefID:    materialized.SpecRefID,
+			SourcePath:   materialized.TargetPath,
+		}
+		if data, err := os.ReadFile(materialized.TargetPath); err == nil {
+			var parsed catalog.SecurityOverlay
+			if err := json.Unmarshal(data, &parsed); err == nil {
+				overlay.SourceRefs = append([]string(nil), parsed.SourceRefs...)
+			}
+		}
+		overlays = append(overlays, overlay)
+	}
+	return materializeSecurityOverlaySidecars(overlays, sources, exampleDir)
+}
+
+func materializeBuiltInSecurityOverlaySidecars(sources []CatalogMigrationCandidate, exampleDir string) ([]catalogSecurityOverlayCandidate, []string, error) {
+	var overlays []catalogSecurityOverlayCandidate
+	seenProvider := map[string]bool{}
+	for _, source := range sources {
+		if source.ProviderID == "" || seenProvider[source.ProviderID] {
+			continue
+		}
+		seenProvider[source.ProviderID] = true
+		for _, overlay := range catalog.SecurityOverlaysForProvider(source.ProviderID) {
+			overlayCopy := overlay
+			overlays = append(overlays, catalogSecurityOverlayCandidate{
+				ProviderID:   source.ProviderID,
+				ProviderName: source.ProviderName,
+				OverlayID:    overlay.ID,
+				SpecRefID:    overlay.SpecRefID,
+				SourceRefs:   append([]string(nil), overlay.SourceRefs...),
+				Overlay:      &overlayCopy,
+			})
+		}
+	}
+	return materializeSecurityOverlaySidecars(overlays, sources, exampleDir)
+}
+
+func materializeSecurityOverlaySidecars(overlays []catalogSecurityOverlayCandidate, sources []CatalogMigrationCandidate, exampleDir string) ([]catalogSecurityOverlayCandidate, []string, error) {
+	var out []catalogSecurityOverlayCandidate
+	var notes []string
+	for _, overlay := range overlays {
+		source, ok, note := matchSecurityOverlaySource(overlay, sources)
+		if !ok {
+			if strings.TrimSpace(note) != "" {
+				notes = append(notes, note)
+			}
+			continue
+		}
+		overlay.TargetSource = source
+		overlay.RelativePath = catalogSecurityOverlayTargetRelativePath(source.RelativePath)
+		if overlay.RelativePath == "" {
+			notes = append(notes, fmt.Sprintf("skipped security overlay %s for %s: source target has no sidecar path", firstNonEmpty(overlay.OverlayID, "<unknown>"), firstNonEmpty(source.RelativePath, source.SpecRefID)))
+			continue
+		}
+		overlay.TargetPath = filepath.Join(exampleDir, filepath.FromSlash(overlay.RelativePath))
+		if _, err := os.Stat(overlay.TargetPath); err == nil {
+			overlay.ExistingLocal = true
+			out = append(out, overlay)
+			continue
+		}
+		if err := writeSecurityOverlaySidecar(overlay); err != nil {
+			return out, notes, err
+		}
+		out = append(out, overlay)
+	}
+	sort.SliceStable(out, func(i, j int) bool {
+		if out[i].ProviderID != out[j].ProviderID {
+			return out[i].ProviderID < out[j].ProviderID
+		}
+		return out[i].RelativePath < out[j].RelativePath
+	})
+	sort.Strings(notes)
+	return out, notes, nil
+}
+
+func matchSecurityOverlaySource(overlay catalogSecurityOverlayCandidate, sources []CatalogMigrationCandidate) (CatalogMigrationCandidate, bool, string) {
+	providerSources := migratedSourceCandidatesForProvider(sources, overlay.ProviderID)
+	overlayID := firstNonEmpty(overlay.OverlayID, "<unknown>")
+	if specRefID := strings.TrimSpace(overlay.SpecRefID); specRefID != "" {
+		var matches []CatalogMigrationCandidate
+		for _, source := range providerSources {
+			if strings.TrimSpace(source.SpecRefID) == specRefID {
+				matches = append(matches, source)
+			}
+		}
+		switch len(matches) {
+		case 1:
+			return matches[0], true, ""
+		case 0:
+		default:
+			return CatalogMigrationCandidate{}, false, fmt.Sprintf("skipped security overlay %s: spec ref %s matched multiple migrated sources", overlayID, specRefID)
+		}
+	}
+	sourceRefSet := map[string]bool{}
+	for _, ref := range overlay.SourceRefs {
+		if ref = strings.TrimSpace(ref); ref != "" {
+			sourceRefSet[ref] = true
+		}
+	}
+	if len(sourceRefSet) > 0 {
+		var matches []CatalogMigrationCandidate
+		for _, source := range providerSources {
+			if sourceURL := strings.TrimSpace(source.SourceURL); sourceURL != "" && sourceRefSet[sourceURL] {
+				matches = append(matches, source)
+			}
+		}
+		switch len(matches) {
+		case 1:
+			return matches[0], true, ""
+		case 0:
+		default:
+			return CatalogMigrationCandidate{}, false, fmt.Sprintf("skipped security overlay %s: source refs matched multiple migrated sources", overlayID)
+		}
+	}
+	if len(providerSources) > 1 {
+		return CatalogMigrationCandidate{}, false, fmt.Sprintf("skipped security overlay %s: no exact source match among multiple migrated %s sources", overlayID, overlay.ProviderID)
+	}
+	return CatalogMigrationCandidate{}, false, fmt.Sprintf("skipped security overlay %s: no exact source match", overlayID)
+}
+
+func migratedSourceCandidatesForProvider(sources []CatalogMigrationCandidate, providerID string) []CatalogMigrationCandidate {
+	var out []CatalogMigrationCandidate
+	for _, source := range sources {
+		if source.ProviderID != providerID || !catalogMigrationCandidateIsAPISource(source) {
+			continue
+		}
+		if strings.TrimSpace(source.RelativePath) == "" {
+			continue
+		}
+		out = append(out, source)
+	}
+	return out
+}
+
+func catalogMigrationCandidateIsAPISource(candidate CatalogMigrationCandidate) bool {
+	switch strings.TrimSpace(strings.Split(filepath.ToSlash(candidate.RelativePath), "/")[0]) {
+	case "openapi", "google-discovery", "aws-smithy":
+		return candidate.Kind != catalog.SpecKind("security-overlay")
+	default:
+		return false
+	}
+}
+
+func catalogSecurityOverlayTargetRelativePath(sourceRel string) string {
+	sourceRel = filepath.ToSlash(strings.TrimSpace(sourceRel))
+	if sourceRel == "" {
+		return ""
+	}
+	ext := pathExtSlash(sourceRel)
+	base := strings.TrimSuffix(sourceRel, ext)
+	if base == "" || base == sourceRel && ext == "" {
+		base = sourceRel
+	}
+	return base + ".security-overlay.json"
+}
+
+func pathExtSlash(path string) string {
+	return filepath.Ext(filepath.FromSlash(path))
+}
+
+func writeSecurityOverlaySidecar(candidate catalogSecurityOverlayCandidate) error {
+	if err := os.MkdirAll(filepath.Dir(candidate.TargetPath), 0o755); err != nil {
+		return err
+	}
+	if strings.TrimSpace(candidate.SourcePath) != "" {
+		return copyCatalogArtifact(candidate.SourcePath, candidate.TargetPath)
+	}
+	if candidate.Overlay == nil {
+		return fmt.Errorf("security overlay %s has no source metadata", firstNonEmpty(candidate.OverlayID, "<unknown>"))
+	}
+	data, err := json.MarshalIndent(candidate.Overlay, "", "  ")
+	if err != nil {
+		return err
+	}
+	data = append(data, '\n')
+	return os.WriteFile(candidate.TargetPath, data, 0o644)
+}
+
+func appendSecurityCandidates(result *CatalogMigrationResult, candidates []catalogSecurityOverlayCandidate) {
+	for _, candidate := range candidates {
+		migrated := CatalogMigrationCandidate{
+			ProviderID:    candidate.ProviderID,
+			ProviderName:  candidate.ProviderName,
+			SpecRefID:     candidate.SpecRefID,
+			Kind:          catalog.SpecKind("security-overlay"),
+			Protocol:      candidate.TargetSource.Protocol,
+			SourcePath:    firstNonEmpty(candidate.SourcePath, candidate.TargetSource.SourcePath),
+			TargetPath:    candidate.TargetPath,
+			RelativePath:  candidate.RelativePath,
+			ExistingLocal: candidate.ExistingLocal,
+		}
+		if candidate.ExistingLocal {
+			result.Existing = append(result.Existing, migrated)
+			continue
+		}
+		result.Copied = append(result.Copied, migrated)
 	}
 }
 
@@ -500,6 +766,8 @@ func siblingCatalogSpecArtifactCandidates(cacheRoot string, ref catalog.SpecRefe
 	switch ref.Kind {
 	case catalog.SpecKindGoogleDiscovery:
 		dirs = []string{"google-discovery"}
+	case catalog.SpecKindSmithyJSON:
+		dirs = []string{"aws-smithy"}
 	default:
 		dirs = []string{"openapi"}
 	}
@@ -616,7 +884,7 @@ func catalogSpecArtifactsFromSiblingCache(path string) ([]catalog.CatalogSpecArt
 
 func migratableSpecKind(kind catalog.SpecKind) bool {
 	switch kind {
-	case catalog.SpecKindOpenAPI, catalog.SpecKindGoogleDiscovery:
+	case catalog.SpecKindOpenAPI, catalog.SpecKindGoogleDiscovery, catalog.SpecKindSmithyJSON:
 		return true
 	default:
 		return false
@@ -628,11 +896,21 @@ func catalogArtifactTargetRelativePath(ref catalog.SpecReference, sourcePath str
 	if base == "." || base == string(filepath.Separator) || strings.TrimSpace(base) == "" {
 		return ""
 	}
-	switch ref.Kind {
-	case catalog.SpecKindGoogleDiscovery:
-		return filepath.ToSlash(filepath.Join("google-discovery", base))
-	case catalog.SpecKindOpenAPI:
-		return filepath.ToSlash(filepath.Join("openapi", base))
+	dir := ref.ProtocolClassification().SourceAlignedArtifactDir()
+	if dir == "" {
+		return ""
+	}
+	return filepath.ToSlash(filepath.Join(dir, base))
+}
+
+func uwsSourceTypeArtifactDir(sourceType string) string {
+	switch strings.TrimSpace(sourceType) {
+	case "openapi":
+		return "openapi"
+	case "google-discovery":
+		return "google-discovery"
+	case "aws-smithy":
+		return "aws-smithy"
 	default:
 		return ""
 	}

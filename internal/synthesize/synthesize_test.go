@@ -954,6 +954,13 @@ func TestValidateIntentOpenAPISecurityUsesValidSidecar(t *testing.T) {
 	}
 }
 
+func TestCredentialBindingNamesAcceptsCatalogOAuthSchemeNames(t *testing.T) {
+	policy := analyzeProject("## Credentials and Secrets\n- Use credential binding `googleOAuth2`.\n")
+	if got := credentialBindingNames(policy); !containsString(got, "googleOAuth2") {
+		t.Fatalf("credential bindings = %#v, want googleOAuth2", got)
+	}
+}
+
 func TestValidateIntentOpenAPISecurityUsesSnakeCaseYAMLSidecars(t *testing.T) {
 	for _, tc := range []struct {
 		name    string
@@ -2096,6 +2103,42 @@ func TestPackageFromIntentBuildRegressionMatrix(t *testing.T) {
 			wantFiles: map[string][]string{
 				"workflows/workflow.uws.yaml": {"uws: 1.2.0", "google-discovery/gmail.json", "gmail.users.messages.send"},
 				"expected/plan.json":          {`"name": "gmail_message"`, `"operation": "gmail.users.messages.send"`},
+			},
+		},
+		{
+			name:    "google-discovery-security-sidecar",
+			project: buildMatrixProject("Gmail Send", "- Use google-discovery/gmail.json for Gmail message send.", "- openapi and http are allowed.", "- No function steps are expected.", "- No credentials are required."),
+			intent: &rollout.Intent{
+				Source:   "google-discovery/gmail.json",
+				Workflow: &rollout.WorkflowMeta{Name: "gmail_send"},
+				Steps: []*rollout.Step{{
+					Name:      "gmail_message",
+					Type:      "http",
+					Source:    "google-discovery/gmail.json",
+					Operation: "gmail.users.messages.send",
+					With:      map[string]string{"userId": "me"},
+				}},
+				Outputs: []*rollout.Output{{Name: "send_result", From: "gmail_message.received_body"}},
+			},
+			sources: map[string]string{
+				"google-discovery/gmail.json": minimalDiscoveryDocument(),
+				"google-discovery/gmail.security-overlay.json": `{
+  "id": "gmail-discovery-auth-overlay",
+  "provider_id": "gmail",
+  "spec_ref_id": "gmail-discovery-v1",
+  "status": "overlay-required",
+  "security_schemes": [{"name":"googleOAuth2","type":"oauth2"}],
+  "root_security": [{"scheme":"googleOAuth2"}]
+}`,
+				"openapi/support.yaml": supportOpenAPI(),
+			},
+			wantPass: false,
+			wantChecks: []string{
+				"credentials.security_schemes:fail",
+			},
+			wantFiles: map[string][]string{
+				"expected/quality.json": {`"status": "fail"`, `"credentials.security_schemes"`},
+				"expected/plan.json":    {`"credentials"`, `"googleOAuth2"`, `"credentials.missing_binding"`},
 			},
 		},
 		{

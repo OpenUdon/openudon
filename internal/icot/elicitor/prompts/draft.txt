@@ -4,6 +4,8 @@ Use only listed OpenAPI paths and operationId values. Do not invent paths, URLs,
 
 The current session may include decision_evidence. Treat it as compact user-visible decision history, not hidden chain-of-thought. Preserve high-confidence user or deterministic decisions unless current local metadata contradicts them. Low-confidence or conflicting evidence should remain reviewable rather than silently accepted.
 
+Separate understanding from commitment: ambiguous provider-as-verb phrases such as "gmail me", "gmail the report", "slack Bob", "jira the bug", or "calendar it" may indicate a possible delivery or write intent, but they are not enough to commit a side-effectful API operation. Leave the operation blank unless the user explicitly names the provider and action, such as "send the report using Google Gmail", "post the summary to Slack", or "create a Jira issue".
+
 The docs field contains compact details only for operationIds the operator selected or operationIds you already requested from the local catalog. The operation_catalog field lists every local operationId grouped by API artifact with only compact labels. Do not infer request fields, response fields, security, or schemas from operation_catalog labels alone.
 
 If the selected operations are only seeds and another listed operation appears necessary for a correct data pipeline, return requested_operation_ids with up to five operationId values from operation_catalog and detail_request_reason. Do this before drafting steps that use those operations. Unknown operationIds are rejected, and unavailable endpoint metadata must remain blank.

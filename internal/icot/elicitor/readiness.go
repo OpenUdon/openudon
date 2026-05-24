@@ -39,10 +39,18 @@ func CheckReadiness(session Session, docs []APIDocument) []ReadinessIssue {
 			slotPrefix := "steps." + firstNonEmpty(step.Name, "step")
 			stepType := strings.ToLower(strings.TrimSpace(step.Type))
 			if (stepType == "http" || stepType == "openapi" || strings.TrimSpace(step.Operation) != "") && strings.TrimSpace(step.Operation) == "" {
+				if issue, ok := unconfirmedSideEffectCommitmentIssue(session, docs, step, nil); ok {
+					add(issue.Code, issue.Slot, issue.Severity, issue.Message, issue.SuggestedAnswer)
+					continue
+				}
 				add("missing_operation", slotPrefix+".operation", readinessBlocking, "Choose the listed OpenAPI operationId for "+firstNonEmpty(step.Name, "this step")+"; leave the capability unresolved if no listed operation matches. "+operationChoiceHintForStep(session, docs, step), suggestedOperationAnswerForStep(session, docs, step))
 				continue
 			}
 			if op, ok := operationForStep(session, docs, step); ok {
+				if issue, ok := unconfirmedSideEffectCommitmentIssue(session, docs, step, op); ok {
+					add(issue.Code, issue.Slot, issue.Severity, issue.Message, issue.SuggestedAnswer)
+					continue
+				}
 				missingFields := missingRequiredFields(step, op)
 				if len(missingFields) > 0 {
 					add("missing_required_request_values", slotPrefix+".with", readinessBlocking, "Provide sources for the required path/query/header/body fields: "+strings.Join(missingFields, ", ")+". Use inputs.<name>, safe literals, prior-step outputs, or credentials.<binding>.", suggestedFieldAssignments(session, docs, step, op, missingFields))
@@ -101,6 +109,9 @@ func PlanNextQuestion(session Session, docs []APIDocument, issues []ReadinessIss
 		plan.Prompt = missingAPIDocPrompt(session, docs)
 	case "missing_operation":
 		plan.Prompt = missingOperationPrompt(session, docs, blocking.Slot)
+	case readinessUnconfirmedSideEffectCommitment:
+		plan.Prompt = "I understand this may require a side-effectful provider action, but the workflow goal is ambiguous. Confirm the exact provider and action by choosing a listed operationId, or revise the workflow goal to say the action explicitly."
+		plan.ForceAsk = true
 	case "missing_required_request_values":
 		stepName := stepNameForQuestionSlot(blocking.Slot)
 		if stepName != "" {

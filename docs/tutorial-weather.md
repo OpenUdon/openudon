@@ -13,12 +13,16 @@ brief. Fast prompt mode skips defaulted questions and asks only when no safe ans
 go run ./cmd/icot --example ./examples/weather-toronto-gmail --prompt-mode fast
 ```
 
-For a brief such as "get weather in Toronto, and Gmail the report to me", iCoT reports matching
-provider metadata from the sibling `../apitools/catalog-openapi-cache` when it is present. Immediately
+For a brief such as "get weather in Toronto, and send the report using Google Gmail", iCoT reports
+matching provider metadata from the sibling `../apitools/catalog-openapi-cache` when it is present. Immediately
 after the first goal, it may ask the LLM to select relevant catalog artifact keys from a compact
 shortlist and propose rough provider-level steps. OpenUdon validates every selected provider and
 artifact key before copying anything. Unknown providers, invented paths, and non-migratable artifacts
 are rejected and recorded in the local transcript.
+
+Use explicit provider/action wording for side-effectful steps. Phrases such as "Gmail the report to
+me" are treated as possible intent only; iCoT asks for clarification before committing a send,
+create, update, delete, post, upload, or notify operation, even in fast prompt mode.
 
 After validated artifacts are local, iCoT lists operation IDs grouped by API document, using summaries
 and descriptions to make the choices reviewable. Once operations are selected, iCoT gives the LLM a

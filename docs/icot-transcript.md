@@ -11,7 +11,7 @@ or `--print` is used. The transcript is local review/debug evidence; it is not r
   "turns": [
     {
       "label": "Workflow goal",
-      "answer": "Get weather in Toronto and Gmail me the report."
+      "answer": "Get weather in Toronto and send the report using Google Gmail."
     }
   ],
   "events": [
