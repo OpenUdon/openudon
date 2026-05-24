@@ -32,7 +32,7 @@ Review the generated files before approval:
 ```text
 examples/eval/gmail-send-audit-receipt/expected/quality.md
 examples/eval/gmail-send-audit-receipt/expected/review.md
-examples/eval/gmail-send-audit-receipt/expected/symphony-handoff.json
+examples/eval/gmail-send-audit-receipt/expected/review-handoff.json
 ```
 
 ## Approval Dry Run

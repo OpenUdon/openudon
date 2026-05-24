@@ -8,11 +8,11 @@ JSON, and dry-run guidance, see [SaaS Review And Trusted Handoff](saas-review-ha
 
 ## Handoff Manifest
 
-`expected/symphony-handoff.json` uses the stable `apitools.review-handoff.v1` wire version. The
+`expected/review-handoff.json` uses the stable `apitools.review-handoff.v1` wire version. The
 manifest records package inputs, approval state, owner split, execution policy, credential binding
 names, and trusted-runner metadata.
 
-The manifest is evidence for Symphony or another reviewer. It does not grant approval by itself.
+The manifest is evidence for an external reviewer or orchestrator. It does not grant approval by itself.
 Generation normally leaves side-effectful packages in `generated` or review-required state.
 
 ## Required Package Inputs
@@ -28,7 +28,7 @@ expected/plan.json
 expected/quality.json
 expected/refinement.json
 expected/review.md
-expected/symphony-handoff.json
+expected/review-handoff.json
 openapi/... regular files used by the package
 google-discovery/... regular files used by the package
 aws-smithy/... regular files used by the package

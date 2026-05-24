@@ -44,8 +44,8 @@ Describe the workflow outcome in business terms.
 
 - Describe what OpenUdon may generate, validate, or execute.
 - Side-effectful execution requires explicit approval, sandbox/test proof runs, and a trusted runner.
-- Side-effectful proof runs require Symphony state `approved_for_sandbox`.
-- Production execution requires Symphony state `approved_for_production` and approved credential bindings.
+- Side-effectful proof runs require review state `approved_for_sandbox`.
+- Production execution requires review state `approved_for_production` and approved credential bindings.
 - OpenUdon synthesis must not directly execute production workflows.
 
 ## Fallback Behavior

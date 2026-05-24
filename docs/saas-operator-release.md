@@ -125,7 +125,7 @@ OpenUdon does not:
 - call live SaaS providers during build, assess, iCoT, eval, or dry-run demos;
 - execute Terraform/OpenTofu, provider plugins, state, plan, apply, or cloud
   SDK calls;
-- implement Symphony reviewer identity, routing, managed state, or audit
+- implement reviewer identity, routing, managed state, or audit
   persistence;
 - compile or execute generic UWS/OpenAPI workflows itself;
 - resolve secrets or credential values in committed artifacts.

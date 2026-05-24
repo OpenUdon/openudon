@@ -30,7 +30,7 @@ Inspect the side-effect evidence:
 examples/eval/support-email/expected/plan.md
 examples/eval/support-email/expected/quality.md
 examples/eval/support-email/expected/review.md
-examples/eval/support-email/expected/symphony-handoff.json
+examples/eval/support-email/expected/review-handoff.json
 ```
 
 The review evidence should describe the email side effect, credential bindings by name only, and

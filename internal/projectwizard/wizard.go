@@ -257,15 +257,15 @@ func writeSafetyScope(b *strings.Builder, scope string) {
 		b.WriteString("- Do not execute workflows, call external systems, write remote state, or perform other side effects.\n")
 	case SideEffectSandboxOnly:
 		b.WriteString("- Generate and validate artifacts only.\n")
-		b.WriteString("- Sandbox proof runs require Symphony state `approved_for_sandbox`, approved credential bindings, and a trusted runner.\n")
+		b.WriteString("- Sandbox proof runs require review state `approved_for_sandbox`, approved credential bindings, and a trusted runner.\n")
 		b.WriteString("- Production execution is not approved by this project contract.\n")
 	case SideEffectAfterApproval:
 		fallthrough
 	default:
 		b.WriteString("- Generate and validate artifacts only.\n")
 		b.WriteString("- Do not directly execute production workflows.\n")
-		b.WriteString("- Sandbox proof runs require Symphony state `approved_for_sandbox`.\n")
-		b.WriteString("- Production execution requires Symphony state `approved_for_production`.\n")
+		b.WriteString("- Sandbox proof runs require review state `approved_for_sandbox`.\n")
+		b.WriteString("- Production execution requires review state `approved_for_production`.\n")
 		b.WriteString("- Side-effectful execution requires explicit approval, approved credential bindings, and a trusted runner.\n")
 		b.WriteString("- Trusted runner required for approved sandbox or production execution.\n")
 	}

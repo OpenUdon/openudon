@@ -112,7 +112,7 @@ Inspect:
 examples/eval/weather-toronto/expected/plan.md
 examples/eval/weather-toronto/expected/quality.md
 examples/eval/weather-toronto/expected/review.md
-examples/eval/weather-toronto/expected/symphony-handoff.json
+examples/eval/weather-toronto/expected/review-handoff.json
 ```
 
 ## Approval Dry Run

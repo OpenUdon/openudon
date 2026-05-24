@@ -25,8 +25,8 @@ tier checks before invoking udon.
 - Use UWS/OpenAPI validation before any runtime execution.
 - Execute side-effectful workflows only through a trusted runner with approved credentials.
 - Prefer sandbox or test endpoints for local proof runs.
-- Record validation evidence in the Symphony-managed work item before handoff.
-- Treat OpenUdon output as Symphony state `generated`; no approval is implied by generation.
+- Record validation evidence in the review work item before handoff.
+- Treat OpenUdon output as review state `generated`; no approval is implied by generation.
 - Require `approved_for_sandbox` before a side-effectful proof run and `approved_for_production`
   before production execution.
 - Treat `OPENUDON_EXECUTOR` and `OPENUDON_UDON_RUNNER` as trusted operator inputs.
@@ -45,7 +45,7 @@ production handoff approval language. Use sandbox, staging, localhost, `.test`, 
 example endpoints for proof runs.
 
 OpenUdon fails `review.approval_states`, `review.sandbox_handoff`, or `review.credential_bindings`
-when review evidence lacks the Symphony approval-state requirements, sandbox/proof-run handoff
+when review evidence lacks the review approval-state requirements, sandbox/proof-run handoff
 scope, or a credential-binding inventory. The inventory must list binding names only or explicitly
 state that no credential bindings are declared or required.
 
@@ -76,6 +76,6 @@ Extension-owned UWS operations, such as SMTP, SSH, SQL, command execution, or LL
 an implementation profile with `x-uws-operation-profile`. OpenUdon project policy decides which
 profiles are allowed for a given environment.
 
-Symphony approval states, trusted-runner handoff package contents, and optional sibling checkout plus
+Review approval states, trusted-runner handoff package contents, and optional sibling checkout plus
 secret boundaries are summarized in this guide, [Review Handoff](review-handoff.md), and the
 [project authoring documentation](project-authoring.md).

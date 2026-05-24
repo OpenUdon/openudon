@@ -85,7 +85,7 @@ answers. Leave those prompts blank unless the project contract requires portable
 
 For side-effectful workflows, the Safety and Approval Boundary must name both the approval or
 trusted-runtime path and the sandbox/test proof-run policy. OpenUdon synthesis should not directly
-execute production workflows. Review evidence treats generated artifacts as Symphony state
+execute production workflows. Review evidence treats generated artifacts as review state
 `generated`; side-effectful proof runs require `approved_for_sandbox`, and production execution
 requires `approved_for_production`.
 

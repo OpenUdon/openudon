@@ -8,7 +8,7 @@ OpenUdon is the public UWS workflow authoring, review, package, and executor-han
 reviewed project briefs into deterministic workflow packages and hands approved packages to a trusted
 executor boundary.
 
-OpenUdon can be used directly by an operator or under optional Symphony-managed orchestration. In
+OpenUdon can be used directly by an operator or under optional external orchestration. In
 both modes, generated artifacts stay untrusted until validation, review, approval, and package digest
 checks pass.
 
@@ -20,7 +20,7 @@ checks pass.
 - Review evidence, quality reports, approval templates, package digests, and handoff manifests.
 - Local trusted-runner enforcement before invoking an external executor.
 
-OpenUdon does not own public workflow semantics, generic OpenAPI/UWS execution, Symphony workflow
+OpenUdon does not own public workflow semantics, generic OpenAPI/UWS execution, workflow
 state, or concrete infrastructure authoring. Those boundaries are summarized on the
 [Related](related.md) page.
 

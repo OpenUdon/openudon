@@ -40,7 +40,7 @@ Inspect:
 .openudon-run/order-fulfillment-tutorial/order-fulfillment-chain/expected/plan.md
 .openudon-run/order-fulfillment-tutorial/order-fulfillment-chain/expected/quality.md
 .openudon-run/order-fulfillment-tutorial/order-fulfillment-chain/expected/review.md
-.openudon-run/order-fulfillment-tutorial/order-fulfillment-chain/expected/symphony-handoff.json
+.openudon-run/order-fulfillment-tutorial/order-fulfillment-chain/expected/review-handoff.json
 ```
 
 The plan should show `get_customer` and `check_inventory` feeding
@@ -69,7 +69,7 @@ go run ./cmd/openudon run \
 
 The dry run checks approval, digest, quality, handoff policy, credential-value
 policy, and tier compatibility. It does not contact customers, inventory,
-fulfillment, n8n, Terraform/OpenTofu, Symphony, or udon.
+fulfillment, n8n, Terraform/OpenTofu, external orchestration, or udon.
 
 Remove `--dry-run` only in a trusted operator environment with sandbox targets,
 reviewed credential bindings, and a configured `OPENUDON_EXECUTOR`.

@@ -29,7 +29,7 @@ expected/discovery.json
 expected/refinement.json
 expected/refinement.md
 expected/review.md
-expected/symphony-handoff.json
+expected/review-handoff.json
 expected/quality.json
 expected/quality.md
 ```
@@ -78,5 +78,5 @@ go run ./cmd/openudon assess --example ./examples/<name>
 ## Review Next
 
 Generated artifacts are evidence, not approval. Reviewers should inspect `expected/quality.md`,
-`expected/review.md`, `expected/plan.md`, and `expected/symphony-handoff.json`, then generate
+`expected/review.md`, `expected/plan.md`, and `expected/review-handoff.json`, then generate
 approval JSON only when the package is acceptable for the intended tier.

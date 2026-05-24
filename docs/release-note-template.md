@@ -37,7 +37,7 @@
 - `openudon n8n-bridge validate --root examples/eval`:
 - Selected SaaS fixture lint:
 - SaaS demo trusted dry-run:
-- Sibling checkout layout (`../uws`, `../apitools`, optional `../udon`, optional `../symphony`):
+- Sibling checkout layout (`../uws`, `../apitools`, optional `../udon`):
 - `openudon readiness --run-gates`:
 - Readiness JSON:
 

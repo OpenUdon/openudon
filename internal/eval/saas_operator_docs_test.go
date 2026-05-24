@@ -20,7 +20,7 @@ func TestSaaSOperatorReleaseDocsNameDemoAndBoundaries(t *testing.T) {
 		"go run ./cmd/openudon n8n-bridge validate --root examples/eval",
 		"run n8n workflows",
 		"execute Terraform/OpenTofu",
-		"implement Symphony reviewer identity",
+		"implement reviewer identity",
 		"compile or execute generic UWS/OpenAPI workflows itself",
 	} {
 		if !strings.Contains(doc, want) {

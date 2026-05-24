@@ -4,10 +4,10 @@
 [![License](https://img.shields.io/badge/License-Apache--2.0-blue.svg)](LICENSE)
 
 OpenUdon is the public UWS workflow authoring, review, package, and executor-handoff tool. It can run
-directly or under optional Symphony-managed orchestration, and it hands approved packages to a
+directly or under optional external orchestration, and it hands approved packages to a
 trusted executor boundary such as the `udon` runtime.
 
-It owns project templates, optional Symphony workflow policy, example artifacts, deterministic
+It owns project templates, optional workflow orchestration policy, example artifacts, deterministic
 validation, review handoff evidence, package digests, credential policy, and trusted-runner glue.
 Public workflow semantics belong in `github.com/OpenUdon/uws`; API source metadata discovery,
 import, materialization, search, and indexing belong in `github.com/OpenUdon/apitools`; static
@@ -72,7 +72,7 @@ The intended lifecycle is:
 
 ```text
 natural-language project brief
-  -> Symphony-managed implementation issue or local authoring session
+  -> externally orchestrated task or local authoring session
   -> generated OpenAPI/UWS artifacts
   -> deterministic validation and review
   -> approved handoff package
@@ -174,7 +174,7 @@ Side-effect scope in iCoT:
 - `read-only`: generate and validate artifacts only.
 - `sandbox-only`: sandbox proof runs require `approved_for_sandbox`, approved bindings, and a
   trusted runner.
-- `after-approval`: sandbox and production execution require the full OpenUdon/Symphony approval path.
+- `after-approval`: sandbox and production execution require the full OpenUdon review approval path.
 
 ## Synthesize And Assess
 
@@ -203,7 +203,7 @@ expected/discovery.json
 expected/refinement.json
 expected/refinement.md
 expected/review.md
-expected/symphony-handoff.json
+expected/review-handoff.json
 expected/quality.json
 expected/quality.md
 ```
@@ -261,7 +261,7 @@ The pipeline is validation-first:
 5. For `intent.*`, edit `project.md` or `workflows/intent.hcl`, then rerun `build`.
 6. For `workflow.*`, prefer improving intent and rerunning `build`; use `promote` and `assess` for
    narrow workflow repairs.
-7. For `uws.*`, `review.*`, `symphony_handoff.*`, or `artifacts.*`, repair the generated artifact
+7. For `uws.*`, `review.*`, `review_handoff.*`, or `artifacts.*`, repair the generated artifact
    or evidence, then run `promote` or `assess`.
 8. Stop after the configured attempt limit and report blocking checks if quality still fails.
 
@@ -371,9 +371,9 @@ Tier rules:
 - Approval JSON and saved run configs from before the OpenUdon package rename should be regenerated
   so scope, version, and package digest fields match the current artifact set.
 
-## Symphony Agent Workflow
+## Agent Workflow
 
-OpenUdon issues may be run through Symphony-managed Codex sessions. Agents should follow this policy:
+OpenUdon issues may be run through externally orchestrated Codex sessions. Agents should follow this policy:
 
 - Use UWS as the workflow interchange format.
 - Use reviewed API source documents for HTTP method, path, schema, server, and security details.
@@ -384,7 +384,6 @@ OpenUdon issues may be run through Symphony-managed Codex sessions. Agents shoul
   SQL, or LLM calls.
 - Use `../uws` for public schema/model validation.
 - Use `openudon run` to hand approved UWS/API-source packages to a trusted executor such as udon.
-- Use `../symphony` only as the work orchestration service.
 - Do not execute production side effects directly from an agent session.
 - If execution is requested, produce or update the approved artifact and document the trusted runner
   command.
@@ -403,7 +402,7 @@ examples/<name>/expected/discovery.json
 examples/<name>/expected/refinement.json
 examples/<name>/expected/refinement.md
 examples/<name>/expected/review.md
-examples/<name>/expected/symphony-handoff.json
+examples/<name>/expected/review-handoff.json
 examples/<name>/expected/quality.json
 examples/<name>/expected/quality.md
 ```

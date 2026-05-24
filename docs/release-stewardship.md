@@ -89,7 +89,7 @@ OpenUdon's release evidence must keep these ownership boundaries clear:
   are not runtime dependencies or import targets.
 - Live SaaS providers are not contacted by build, assess, iCoT, eval, or
   trusted-runner dry-run demo commands.
-- Symphony may route review from OpenUdon evidence, but Symphony-managed
+- External review orchestration may route review from OpenUdon evidence, but
   identity, state transitions, and audit persistence stay outside OpenUdon.
 - Udon or another trusted executor receives a package only through
   `openudon run` after approval and digest validation.

@@ -460,7 +460,7 @@ expected/discovery.json
 expected/review.md
 expected/quality.json
 expected/quality.md
-expected/symphony-handoff.json
+expected/review-handoff.json
 ```
 
 Generated artifacts remain unapproved until normal OpenUdon review, quality,
