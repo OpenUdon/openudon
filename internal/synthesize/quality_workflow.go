@@ -554,6 +554,9 @@ func compiledServiceType(step *uws1.Step, op *uws1.Operation) string {
 
 func compiledSourceOperationID(step *uws1.Step, op *uws1.Operation) string {
 	if op != nil {
+		if runtime, ok, err := uwsprofile.ReadOperationRuntime(op.Extensions); err == nil && ok && strings.TrimSpace(runtime.Function) != "" {
+			return strings.TrimSpace(runtime.Function)
+		}
 		for _, selector := range []string{op.SourceOperationID, op.OpenAPIOperationID, op.SourceOperationRef, op.OpenAPIOperationRef} {
 			if strings.TrimSpace(selector) != "" {
 				return strings.TrimSpace(selector)
@@ -656,6 +659,21 @@ func collectRequestEvidence(out *requestEvidence, path []string, value any) {
 	if len(path) == 0 {
 		return
 	}
+	if expression, ok := requestExpressionWrapper(value); ok {
+		name := strings.Join(path, ".")
+		if strings.TrimSpace(name) == "" || expression == "" {
+			return
+		}
+		*out = append(*out, requestAttribute{Name: name, Expression: expression})
+		for _, alias := range requestPathAliases(path) {
+			*out = append(*out, requestAttribute{Name: strings.Join(alias, "."), Expression: expression})
+		}
+		leaf := strings.TrimSpace(path[len(path)-1])
+		if leaf != "" && leaf != name {
+			*out = append(*out, requestAttribute{Name: leaf, Expression: expression})
+		}
+		return
+	}
 	if values, ok := anyStringMap(value); ok {
 		for _, key := range sortedAnyKeys(values) {
 			collectRequestEvidence(out, appendPath(path, key), values[key])
@@ -754,6 +772,9 @@ func anySlice(value any) ([]any, bool) {
 }
 
 func requestValueExpression(value any) string {
+	if expression, ok := requestExpressionWrapper(value); ok {
+		return expression
+	}
 	switch typed := value.(type) {
 	case nil:
 		return ""
@@ -768,6 +789,20 @@ func requestValueExpression(value any) string {
 		}
 		return strings.TrimSpace(fmt.Sprint(typed))
 	}
+}
+
+func requestExpressionWrapper(value any) (string, bool) {
+	values, ok := anyStringMap(value)
+	if !ok || len(values) != 1 {
+		return "", false
+	}
+	for _, key := range []string{"$expr", "expr"} {
+		if raw, ok := values[key]; ok {
+			expression := strings.TrimSpace(fmt.Sprint(raw))
+			return expression, expression != ""
+		}
+	}
+	return "", false
 }
 
 func uniqueRequestEvidence(values requestEvidence) requestEvidence {

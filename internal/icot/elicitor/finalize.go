@@ -3,10 +3,12 @@ package elicitor
 import (
 	"strings"
 
+	"github.com/OpenUdon/apitools/helper/gmailmsg"
 	rollout "github.com/OpenUdon/openudon/internal/workflowintent"
 )
 
 const weatherReportPlaceholderName = "render_weather_report"
+const weatherReportRecipientInputName = "recipient_email"
 
 func finalizeICoTIntent(session *Session) {
 	if session == nil {
@@ -49,6 +51,10 @@ func addWeatherReportPlaceholder(session *Session) bool {
 		render.Type = "fnct"
 		changed = true
 	}
+	if render.Operation != gmailmsg.FunctionNameRenderRaw {
+		render.Operation = gmailmsg.FunctionNameRenderRaw
+		changed = true
+	}
 	if strings.TrimSpace(render.Do) == "" {
 		render.Do = "Render a reviewable local weather report from the weather response before Gmail delivery."
 		changed = true
@@ -62,6 +68,26 @@ func addWeatherReportPlaceholder(session *Session) bool {
 	}
 	if render.With["input"] != weather.Name+".received_body" {
 		render.With["input"] = weather.Name + ".received_body"
+		changed = true
+	}
+	if strings.TrimSpace(render.With["to"]) == "" {
+		render.With["to"] = "inputs." + weatherReportRecipientInputName
+		changed = true
+	}
+	if strings.TrimSpace(render.With["subject"]) == "" {
+		render.With["subject"] = "Weather report"
+		changed = true
+	}
+	if strings.TrimSpace(render.With["body_template"]) == "" {
+		render.With["body_template"] = "Weather report:\n\n{{.}}"
+		changed = true
+	}
+	if ensureInput(session, &rollout.Input{
+		Name:        weatherReportRecipientInputName,
+		Type:        "string",
+		Description: "Email address that should receive the Gmail weather report.",
+		Required:    true,
+	}) {
 		changed = true
 	}
 	for _, gmail := range gmailSteps {
@@ -100,8 +126,8 @@ func addWeatherReportPlaceholder(session *Session) bool {
 			Value:                render.Name + " consumes " + weather.Name + ".received_body",
 			Source:               mappingSourceDeterministic,
 			Confidence:           mappingConfidenceReview,
-			Reason:               "Inserted or reconciled a reviewable local fnct placeholder for the narrow weather report to Gmail workflow pattern.",
-			Evidence:             "Weather response content must be formatted before Gmail delivery.",
+			Reason:               "Inserted or reconciled the public gmail.render_raw fnct helper for the narrow weather report to Gmail workflow pattern.",
+			Evidence:             "Weather response content must be formatted into a Gmail raw message before Gmail delivery.",
 			RequiresConfirmation: true,
 		})
 		addMappingClassification(session, MappingClassification{
@@ -109,8 +135,8 @@ func addWeatherReportPlaceholder(session *Session) bool {
 			Value:                render.Name + " consumes " + weather.Name + ".received_body",
 			Source:               mappingSourceDeterministic,
 			Confidence:           mappingConfidenceReview,
-			Evidence:             "Weather report Gmail delivery requires a local formatter placeholder.",
-			Reason:               "The formatter is explicit review evidence and must be implemented before trusted execution.",
+			Evidence:             "Weather report Gmail delivery requires a local raw-message renderer.",
+			Reason:               "The renderer is a pure public helper selected by function name and reviewed through request-body bindings.",
 			RequiresConfirmation: true,
 		})
 	}
@@ -514,6 +540,35 @@ func removeUnusedBodyInput(session *Session) {
 	session.Intent.Inputs = out
 }
 
+func ensureInput(session *Session, input *rollout.Input) bool {
+	if session == nil || input == nil || strings.TrimSpace(input.Name) == "" {
+		return false
+	}
+	name := strings.TrimSpace(input.Name)
+	for _, existing := range session.Intent.Inputs {
+		if existing == nil || strings.TrimSpace(existing.Name) != name {
+			continue
+		}
+		changed := false
+		if strings.TrimSpace(existing.Type) == "" && strings.TrimSpace(input.Type) != "" {
+			existing.Type = input.Type
+			changed = true
+		}
+		if strings.TrimSpace(existing.Description) == "" && strings.TrimSpace(input.Description) != "" {
+			existing.Description = input.Description
+			changed = true
+		}
+		if !existing.Required && input.Required {
+			existing.Required = true
+			changed = true
+		}
+		return changed
+	}
+	copy := *input
+	session.Intent.Inputs = append(session.Intent.Inputs, &copy)
+	return true
+}
+
 func inputReferenced(session *Session, name string) bool {
 	if session == nil || strings.TrimSpace(name) == "" {
 		return false
@@ -594,8 +649,8 @@ func annotateIntentHCLWithPlaceholderWarnings(intentHCL string, session Session)
 	}
 	comments := []string{
 		"# iCoT review warning (reviewable_fnct_placeholder)",
-		"# render_weather_report is a local formatting placeholder, not an API operation.",
-		"# Review and implement this fnct contract before trusted execution.",
+		"# render_weather_report is a pure Gmail raw-message formatting helper, not an API operation.",
+		"# Review recipient, subject, and body_template before trusted execution.",
 		"# Decision evidence: weather report content is rendered from " + strings.Join(step.DependsOn, ", ") + ".received_body before Gmail delivery.",
 	}
 	out := make([]string, 0, len(lines)+len(comments))

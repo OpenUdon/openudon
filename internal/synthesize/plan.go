@@ -194,7 +194,7 @@ func addStepsToWorkflowPlan(plan *WorkflowPlan, intent *rollout.Intent, steps []
 			}
 		}
 		sortPlanBindings(planStep.Bindings)
-		if planStep.Operation != "" {
+		if planStep.Operation != "" && intentStepRequiresOpenAPIOperation(intent, step, planStep.OpenAPI) {
 			key := operationKey(planStep.OpenAPI, planStep.Operation)
 			op := ops[key]
 			if op == nil {

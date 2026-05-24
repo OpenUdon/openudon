@@ -12,6 +12,8 @@ import (
 	"github.com/OpenUdon/apitools"
 	"github.com/OpenUdon/apitools/awssmithy"
 	"github.com/OpenUdon/apitools/googlediscovery"
+	apitoolshelper "github.com/OpenUdon/apitools/helper"
+	"github.com/OpenUdon/apitools/helper/fnctspec"
 	"github.com/OpenUdon/openudon/internal/uwsvalidate"
 	rollout "github.com/OpenUdon/openudon/internal/workflowintent"
 	"github.com/OpenUdon/uws/convert"
@@ -262,17 +264,32 @@ func buildUWSStep(step *rollout.Step, defaultOpenAPI string, sourceFor func(stri
 		case "fnct":
 			runtime.Function = firstNonEmpty(step.Provider, step.Operation, name)
 		}
-		var args []any
-		for _, key := range sortedStringMapKeys(step.With) {
-			args = append(args, map[string]any{"name": key, "value": step.With[key]})
+		if !fnctUsesRequestBodyObject(runtime.Function) {
+			var args []any
+			for _, key := range sortedStringMapKeys(step.With) {
+				args = append(args, map[string]any{"name": key, "value": step.With[key]})
+			}
+			runtime.Arguments = args
 		}
-		runtime.Arguments = args
 		if err := runtimes.SetOperationExtension(&op.Extensions, runtime); err != nil {
 			return nil, nil, err
 		}
 	}
 	uwsStep.OperationRef = op.OperationID
 	return uwsStep, []*uws1.Operation{op}, nil
+}
+
+func fnctUsesRequestBodyObject(function string) bool {
+	function = strings.TrimSpace(function)
+	if function == "" {
+		return false
+	}
+	for _, spec := range apitoolshelper.FunctionSpecs() {
+		if spec.Name == function && spec.InvocationMode == fnctspec.InvocationRequestBodyObject {
+			return true
+		}
+	}
+	return false
 }
 
 func workflowOutputs(outputs []*rollout.Output) map[string]string {
@@ -299,24 +316,25 @@ func intentRequestMap(values map[string]string, kind, openAPIPath, operationID s
 		if key == "" || strings.TrimSpace(value) == "" {
 			continue
 		}
+		requestValue := requestBindingValue(value)
 		parts := strings.Split(key, ".")
 		if len(parts) == 1 && isStandardRequestSection(parts[0]) {
 			if parts[0] != "body" {
 				return nil, fmt.Errorf("request section %q requires a field name", parts[0])
 			}
-			root["body"] = value
+			root["body"] = requestValue
 			continue
 		}
 		if len(parts) > 1 && isStandardRequestSection(parts[0]) {
 			if parts[0] == "body" {
-				assignNestedMap(root, parts, value)
+				assignNestedMap(root, parts, requestValue)
 			} else {
 				child, _ := root[parts[0]].(map[string]any)
 				if child == nil {
 					child = map[string]any{}
 					root[parts[0]] = child
 				}
-				assignNested(child, parts[1:], value)
+				assignNested(child, parts[1:], requestValue)
 			}
 			continue
 		}
@@ -331,7 +349,7 @@ func intentRequestMap(values map[string]string, kind, openAPIPath, operationID s
 				return nil, err
 			}
 		}
-		assignRequestPlacement(root, placement, value)
+		assignRequestPlacement(root, placement, requestValue)
 	}
 	if len(root) == 0 {
 		return nil, nil
@@ -348,7 +366,7 @@ func isStandardRequestSection(section string) bool {
 	}
 }
 
-func assignRequestPlacement(root map[string]any, placement requestFieldPlacement, value string) {
+func assignRequestPlacement(root map[string]any, placement requestFieldPlacement, value any) {
 	section := strings.TrimSpace(placement.Section)
 	if section == "" {
 		section = "body"
@@ -373,7 +391,7 @@ func assignRequestPlacement(root map[string]any, placement requestFieldPlacement
 	child[name] = value
 }
 
-func assignNestedMap(root map[string]any, parts []string, value string) {
+func assignNestedMap(root map[string]any, parts []string, value any) {
 	if len(parts) == 0 {
 		return
 	}
@@ -389,7 +407,7 @@ func assignNestedMap(root map[string]any, parts []string, value string) {
 	assignNested(child, parts[1:], value)
 }
 
-func assignNested(root map[string]any, parts []string, value string) {
+func assignNested(root map[string]any, parts []string, value any) {
 	if len(parts) == 0 {
 		return
 	}
@@ -403,6 +421,37 @@ func assignNested(root map[string]any, parts []string, value string) {
 		root[parts[0]] = child
 	}
 	assignNested(child, parts[1:], value)
+}
+
+func requestBindingValue(value string) any {
+	value = strings.TrimSpace(value)
+	if value == "" || !looksLikeRuntimeExpression(value) {
+		return value
+	}
+	return map[string]any{"$expr": value}
+}
+
+func looksLikeRuntimeExpression(value string) bool {
+	value = strings.TrimSpace(value)
+	if value == "" {
+		return false
+	}
+	for _, prefix := range []string{
+		"inputs.", "input.", "json.", "nodes.", "node_items.", "node_binaries.",
+		"current_ref.", "input_refs.", "current_lineage.", "lineage.",
+		"workflow.", "execution.", "env.", "input_item.",
+	} {
+		if strings.HasPrefix(value, prefix) {
+			return true
+		}
+	}
+	if value == "run_index" {
+		return true
+	}
+	return strings.Contains(value, ".received_body") ||
+		strings.Contains(value, ".received_raw") ||
+		strings.Contains(value, ".received_status_code") ||
+		strings.Contains(value, ".received_response_header")
 }
 
 type requestFieldPlacement struct {

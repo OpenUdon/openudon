@@ -57,11 +57,17 @@ func TestRenderArtifactsWeatherGmailAddsReportPlaceholderAndOrdersChain(t *testi
 		t.Fatalf("step order = %v\n%s", got, artifacts.IntentHCL)
 	}
 	render := stepByName(artifacts.Session.Intent.Steps, "render_weather_report")
-	if render == nil || render.Type != "fnct" || len(render.DependsOn) != 1 || render.DependsOn[0] != "openweathermap" {
+	if render == nil || render.Type != "fnct" || render.Operation != "gmail.render_raw" || len(render.DependsOn) != 1 || render.DependsOn[0] != "openweathermap" {
 		t.Fatalf("render step = %#v", render)
 	}
 	if got := render.With["input"]; got != "openweathermap.received_body" {
 		t.Fatalf("render input = %q", got)
+	}
+	if got := render.With["to"]; got != "inputs.recipient_email" {
+		t.Fatalf("render recipient = %q", got)
+	}
+	if render.With["subject"] == "" || render.With["body_template"] == "" {
+		t.Fatalf("render message fields = %#v", render.With)
 	}
 	gmail := stepByName(artifacts.Session.Intent.Steps, "gmail")
 	if gmail == nil || gmail.With["userId"] != "me" || gmail.With["raw"] != "render_weather_report.received_body" {
@@ -76,17 +82,18 @@ func TestRenderArtifactsWeatherGmailAddsReportPlaceholderAndOrdersChain(t *testi
 	if !containsString(artifacts.Session.Credentials, "gmail_oauth_token") {
 		t.Fatalf("missing gmail credential binding: %#v", artifacts.Session.Credentials)
 	}
-	if len(artifacts.Session.Intent.Inputs) != 0 {
-		t.Fatalf("unused body input was not removed: %#v", artifacts.Session.Intent.Inputs)
+	if len(artifacts.Session.Intent.Inputs) != 1 || artifacts.Session.Intent.Inputs[0].Name != "recipient_email" {
+		t.Fatalf("input reconciliation = %#v", artifacts.Session.Intent.Inputs)
 	}
 	if got := artifacts.Session.Intent.Outputs[0].From; got != "render_weather_report.received_body" {
 		t.Fatalf("output source = %q", got)
 	}
 	for _, want := range []string{
 		"# iCoT review warning (reviewable_fnct_placeholder)",
-		"render_weather_report is a local formatting placeholder",
+		"render_weather_report is a pure Gmail raw-message formatting helper",
 		`step "render_weather_report"`,
-		"- `render_weather_report`\n  - Purpose: Render a reviewable local weather report from the weather response before Gmail delivery.\n  - Inputs: input.\n  - Outputs: received_body.\n  - Side effects: none.",
+		`operation = "gmail.render_raw"`,
+		"- `render_weather_report`\n  - Purpose: Render a reviewable local weather report from the weather response before Gmail delivery.\n  - Function: `gmail.render_raw`.\n  - Inputs: body_template, input, subject, to.\n  - Outputs: received_body.\n  - Side effects: none.",
 	} {
 		rendered := artifacts.IntentHCL + "\n" + artifacts.ProjectMD
 		if !strings.Contains(rendered, want) {

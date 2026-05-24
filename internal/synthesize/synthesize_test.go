@@ -2523,18 +2523,27 @@ func TestGenerateWorkflowInfersOpenAPIRequestPlacement(t *testing.T) {
 		t.Fatal(err)
 	}
 	request := doc.Operations[0].Request
-	if request["path"].(map[string]any)["thingId"] != "inputs.thingId" {
+	if exprWrapperValue(request["path"].(map[string]any)["thingId"]) != "inputs.thingId" {
 		t.Fatalf("path request = %#v", request)
 	}
 	if request["query"].(map[string]any)["verbose"] != "true" {
 		t.Fatalf("query request = %#v", request)
 	}
-	if request["header"].(map[string]any)["X-Tenant"] != "inputs.tenant" {
+	if exprWrapperValue(request["header"].(map[string]any)["X-Tenant"]) != "inputs.tenant" {
 		t.Fatalf("header request = %#v", request)
 	}
-	if request["body"].(map[string]any)["name"] != "inputs.name" {
+	if exprWrapperValue(request["body"].(map[string]any)["name"]) != "inputs.name" {
 		t.Fatalf("body request = %#v", request)
 	}
+}
+
+func exprWrapperValue(value any) string {
+	values, ok := value.(map[string]any)
+	if !ok {
+		return ""
+	}
+	raw, _ := values["$expr"].(string)
+	return raw
 }
 
 func TestGenerateWorkflowRejectsUnknownOpenAPIRequestField(t *testing.T) {
@@ -3222,6 +3231,21 @@ func TestValidateIntentOpenAPIOperationsRequiresOperationOnOpenAPIStep(t *testin
 	}
 }
 
+func TestValidateIntentOpenAPIOperationsSkipsFnctFunctionSelector(t *testing.T) {
+	err := validateIntentOpenAPIOperations(&rollout.Intent{
+		OpenAPI: "openapi/weather.yaml",
+		Steps: []*rollout.Step{{
+			Name:      "render_weather_report",
+			Type:      "fnct",
+			Operation: "gmail.render_raw",
+			With:      map[string]string{"input": "get_weather.received_body"},
+		}},
+	}, t.TempDir(), nil, "")
+	if err != nil {
+		t.Fatalf("fnct function selector should not require API operation metadata: %v", err)
+	}
+}
+
 func TestBuildWorkflowPlanSkipsCmdCommandHint(t *testing.T) {
 	plan := buildWorkflowPlan(Result{ExampleDir: t.TempDir()}, &rollout.Intent{
 		Steps: []*rollout.Step{{
@@ -3403,6 +3427,18 @@ func TestRequestAttributeEvidenceFindsNestedParamMap(t *testing.T) {
 	}
 	if !strings.Contains(evidence.Expression, "ticketId") {
 		t.Fatalf("unexpected evidence: %#v", evidence)
+	}
+}
+
+func TestRequestAttributeEvidenceTreatsExpressionWrapperAsLeaf(t *testing.T) {
+	evidence, ok := requestAttributeEvidence(requestEvidenceFromMap(map[string]any{
+		"body": map[string]any{"raw": map[string]any{"$expr": "render_message.received_body"}},
+	}), []string{"body.raw"})
+	if !ok {
+		t.Fatal("expected expression-wrapper evidence")
+	}
+	if evidence.Expression != "render_message.received_body" {
+		t.Fatalf("expression = %q", evidence.Expression)
 	}
 }
 

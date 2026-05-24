@@ -715,7 +715,7 @@ func (intent *Intent) RequiresOpenAPI() bool {
 	}
 	required := false
 	walkSteps(intent.Steps, func(step *Step) {
-		if step != nil && !required && (strings.TrimSpace(step.Source) != "" || strings.TrimSpace(step.OpenAPI) != "" || strings.TrimSpace(step.Operation) != "") {
+		if step != nil && !required && stepUsesAPISource(step) {
 			required = true
 		}
 	})
@@ -728,11 +728,22 @@ func (intent *Intent) missingDefaultOpenAPIContext() bool {
 	}
 	missing := false
 	walkSteps(intent.Steps, func(step *Step) {
-		if step != nil && !missing && strings.TrimSpace(step.Operation) != "" && strings.TrimSpace(step.Source) == "" && strings.TrimSpace(step.OpenAPI) == "" {
+		if step != nil && !missing && stepUsesAPISource(step) && strings.TrimSpace(step.Source) == "" && strings.TrimSpace(step.OpenAPI) == "" {
 			missing = true
 		}
 	})
 	return missing
+}
+
+func stepUsesAPISource(step *Step) bool {
+	if step == nil {
+		return false
+	}
+	kind := strings.ToLower(strings.TrimSpace(step.Type))
+	if kind != "" && kind != "http" && kind != "openapi" {
+		return false
+	}
+	return strings.TrimSpace(step.Source) != "" || strings.TrimSpace(step.OpenAPI) != "" || strings.TrimSpace(step.Operation) != ""
 }
 
 func stepRequiresDo(step *Step) bool {

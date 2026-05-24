@@ -41,6 +41,9 @@ func validateIntentOpenAPIOperations(intent *rollout.Intent, exampleDir string, 
 		if name == "" {
 			name = "<unnamed>"
 		}
+		if !intentStepRequiresOpenAPIOperation(intent, step, primary) {
+			return
+		}
 		if entry, ok := sourceRegistry.get(specPath); ok && entry.Err != nil {
 			invalid = append(invalid, fmt.Sprintf("%s in %q: %v", name, specPath, entry.Err))
 			return

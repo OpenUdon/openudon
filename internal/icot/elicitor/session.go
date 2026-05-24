@@ -581,6 +581,9 @@ func functionText(steps []*rollout.Step) string {
 		if purpose := strings.TrimSpace(step.Do); purpose != "" {
 			fmt.Fprintf(&b, "  - Purpose: %s\n", ensureSentence(purpose))
 		}
+		if function := strings.TrimSpace(firstNonEmpty(step.Operation, step.Provider)); function != "" {
+			fmt.Fprintf(&b, "  - Function: `%s`.\n", function)
+		}
 		fmt.Fprintf(&b, "  - Inputs: %s.\n", strings.Join(inputs, ", "))
 		fmt.Fprintf(&b, "  - Outputs: %s.\n", strings.Join(outputs, ", "))
 		fmt.Fprintf(&b, "  - Side effects: %s.\n", fnctContractSideEffects(step))

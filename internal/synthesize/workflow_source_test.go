@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	rollout "github.com/OpenUdon/openudon/internal/workflowintent"
+	"github.com/OpenUdon/uws/runtimes"
 	"github.com/OpenUdon/uws/uws1"
 )
 
@@ -51,6 +52,54 @@ func TestGenerateWorkflowDocumentEmitsUWS12TypedSource(t *testing.T) {
 	path, ok := doc.Operations[0].Request["path"].(map[string]any)
 	if !ok || path["userId"] != "me" {
 		t.Fatalf("request path binding = %#v", doc.Operations[0].Request)
+	}
+}
+
+func TestGenerateWorkflowDocumentUsesRequestBodyForKnownFnctHelper(t *testing.T) {
+	intent := &rollout.Intent{
+		Workflow: &rollout.WorkflowMeta{Name: "gmail_render"},
+		Steps: []*rollout.Step{{
+			Name:      "render_weather_report",
+			Type:      "fnct",
+			Operation: "gmail.render_raw",
+			With: map[string]string{
+				"to":            "inputs.recipient_email",
+				"subject":       "Weather report",
+				"body_template": "Weather report:\n\n{{.}}",
+				"input":         "weather_lookup.received_body",
+			},
+		}},
+	}
+	doc, err := generateWorkflowDocument(Result{ExampleDir: t.TempDir()}, intent)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(doc.Operations) != 1 {
+		t.Fatalf("operations = %#v", doc.Operations)
+	}
+	op := doc.Operations[0]
+	runtime, ok, err := runtimes.ReadOperationExtension(op.Extensions)
+	if err != nil || !ok {
+		t.Fatalf("runtime extension = %#v, %v, %v", runtime, ok, err)
+	}
+	if runtime.Function != "gmail.render_raw" {
+		t.Fatalf("runtime function = %q", runtime.Function)
+	}
+	if len(runtime.Arguments) != 0 {
+		t.Fatalf("known helper should use request body, got arguments %#v", runtime.Arguments)
+	}
+	body, ok := op.Request["body"].(map[string]any)
+	if !ok {
+		t.Fatalf("request body = %#v", op.Request)
+	}
+	if to, ok := body["to"].(map[string]any); !ok || to["$expr"] != "inputs.recipient_email" {
+		t.Fatalf("request to = %#v", body["to"])
+	}
+	if input, ok := body["input"].(map[string]any); !ok || input["$expr"] != "weather_lookup.received_body" {
+		t.Fatalf("request input = %#v", body["input"])
+	}
+	if body["subject"] != "Weather report" {
+		t.Fatalf("request subject = %#v", body["subject"])
 	}
 }
 
