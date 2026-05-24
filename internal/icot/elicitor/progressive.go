@@ -1587,7 +1587,7 @@ func locationLiteralFromWorkflow(session Session) string {
 		rest := description[start:]
 		restLower := lower[start:]
 		end := len(rest)
-		for _, stop := range []string{", and then", " and then", ", then", " then ", ". ", ";"} {
+		for _, stop := range []string{", and then", " and then", ", and send", " and send", ", then", " then ", ". ", ";"} {
 			if stopIdx := strings.Index(restLower, stop); stopIdx >= 0 && stopIdx < end {
 				end = stopIdx
 			}

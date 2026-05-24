@@ -1433,6 +1433,16 @@ func TestSuggestedOperationAnswerDefaultsWeatherLookupWithCoordinateDescription(
 	}
 }
 
+func TestLocationLiteralFromWorkflowStopsBeforeExplicitSendAction(t *testing.T) {
+	session := Session{Intent: rollout.Intent{Workflow: &rollout.WorkflowMeta{
+		Description: "get weather in toronto, canada, and send the report using Google Gmail",
+	}}}
+
+	if got := locationLiteralFromWorkflow(session); got != "toronto, canada" {
+		t.Fatalf("location = %q, want toronto, canada", got)
+	}
+}
+
 func TestAdvisoryAPIDocumentTakesProviderPriority(t *testing.T) {
 	session := Session{
 		Project: projectwizard.Answers{Goal: "get weather in Toronto"},

@@ -39,6 +39,20 @@ func TestRenderAPIBackedProjectIncludesOpenAPIAndHeadings(t *testing.T) {
 	}
 }
 
+func TestRenderPreservesStructuredFunctionContracts(t *testing.T) {
+	doc := Render(Answers{
+		ProjectName: "Weather Report",
+		FunctionContracts: "- `render_weather_report`\n" +
+			"  - Inputs: input.\n" +
+			"  - Outputs: received_body.\n" +
+			"  - Side effects: none.",
+	})
+	want := "## Function Contracts\n\n- `render_weather_report`\n  - Inputs: input.\n  - Outputs: received_body.\n  - Side effects: none.\n\n"
+	if !strings.Contains(doc, want) {
+		t.Fatalf("structured function contract was not preserved:\n%s", doc)
+	}
+}
+
 func TestRenderRuntimeOnlyProjectDeclaresNoOpenAPI(t *testing.T) {
 	doc := Render(Answers{
 		ProjectName: "Runtime Only",

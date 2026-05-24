@@ -567,9 +567,89 @@ func functionText(steps []*rollout.Step) string {
 		if step == nil || strings.TrimSpace(step.Type) != "fnct" {
 			return
 		}
-		parts = append(parts, fmt.Sprintf("`%s`: %s", step.Name, step.Do))
+		name := strings.TrimSpace(step.Name)
+		if name == "" {
+			return
+		}
+		inputs := fnctContractInputs(step)
+		if len(inputs) == 0 {
+			inputs = []string{"none"}
+		}
+		outputs := []string{"received_body"}
+		var b strings.Builder
+		fmt.Fprintf(&b, "- `%s`\n", name)
+		if purpose := strings.TrimSpace(step.Do); purpose != "" {
+			fmt.Fprintf(&b, "  - Purpose: %s\n", ensureSentence(purpose))
+		}
+		fmt.Fprintf(&b, "  - Inputs: %s.\n", strings.Join(inputs, ", "))
+		fmt.Fprintf(&b, "  - Outputs: %s.\n", strings.Join(outputs, ", "))
+		fmt.Fprintf(&b, "  - Side effects: %s.\n", fnctContractSideEffects(step))
+		parts = append(parts, strings.TrimRight(b.String(), "\n"))
 	})
-	return strings.Join(parts, "; ")
+	return strings.Join(parts, "\n")
+}
+
+func fnctContractInputs(step *rollout.Step) []string {
+	if step == nil {
+		return nil
+	}
+	seen := map[string]bool{}
+	var out []string
+	add := func(value string) {
+		value = strings.TrimSpace(value)
+		if value == "" || seen[value] {
+			return
+		}
+		seen[value] = true
+		out = append(out, value)
+	}
+	for _, key := range sortedStringKeys(step.With) {
+		add(key)
+	}
+	for _, bind := range step.Binds {
+		if bind == nil {
+			continue
+		}
+		for _, key := range sortedStringKeys(bind.Fields) {
+			add(key)
+		}
+	}
+	return out
+}
+
+func sortedStringKeys(values map[string]string) []string {
+	keys := make([]string, 0, len(values))
+	for key := range values {
+		keys = append(keys, key)
+	}
+	sort.Strings(keys)
+	return keys
+}
+
+func fnctContractSideEffects(step *rollout.Step) string {
+	if step == nil {
+		return "none"
+	}
+	tokens := rankingTokenWeights(stepSearchText(step))
+	for _, token := range []string{"send", "create", "update", "delete", "post", "upload", "notify", "write"} {
+		if tokens[token] > 0 {
+			return "declared by approved function adapter; execute only through trusted runner approval"
+		}
+	}
+	return "none"
+}
+
+func ensureSentence(value string) string {
+	value = strings.TrimSpace(value)
+	if value == "" {
+		return ""
+	}
+	switch value[len(value)-1] {
+	case '.', '!', '?':
+		return value
+	default:
+		return value + "."
+	}
 }
 
 func openAPIText(intent rollout.Intent) string {

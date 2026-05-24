@@ -55,9 +55,8 @@ func CompareProjectIntentDrift(projectText string, intent *rollout.Intent) []Dri
 			addMismatch("icot.drift.data_flow", "project.md data-flow hints differ from workflows/intent.hcl", fmt.Sprintf("missing data-flow hint %q", phrase))
 		}
 	}
-	for _, phrase := range splitDriftPhrases(functionText(intent.Steps)) {
-		name := functionNameFromPhrase(phrase)
-		if name != "" && !sectionContainsToken(projectText, "Function Contracts", name) {
+	for _, name := range intentFunctionNames(intent.Steps) {
+		if !sectionContainsToken(projectText, "Function Contracts", name) {
 			addMismatch("icot.drift.functions", "project.md function contracts differ from workflows/intent.hcl", fmt.Sprintf("missing function step %q", name))
 		}
 	}
@@ -151,19 +150,22 @@ func splitDriftPhrases(value string) []string {
 	return out
 }
 
-func functionNameFromPhrase(phrase string) string {
-	phrase = strings.TrimSpace(phrase)
-	if strings.HasPrefix(phrase, "`") {
-		rest := strings.TrimPrefix(phrase, "`")
-		if idx := strings.Index(rest, "`"); idx >= 0 {
-			return rest[:idx]
+func intentFunctionNames(steps []*rollout.Step) []string {
+	seen := map[string]bool{}
+	var out []string
+	walkSteps(steps, func(step *rollout.Step) {
+		if step == nil || !strings.EqualFold(strings.TrimSpace(step.Type), "fnct") {
+			return
 		}
-	}
-	fields := strings.Fields(phrase)
-	if len(fields) == 0 {
-		return ""
-	}
-	return strings.Trim(fields[0], "`:")
+		name := strings.TrimSpace(step.Name)
+		if name == "" || seen[name] {
+			return
+		}
+		seen[name] = true
+		out = append(out, name)
+	})
+	sort.Strings(out)
+	return out
 }
 
 func intentCredentialRefs(intent *rollout.Intent) map[string]bool {

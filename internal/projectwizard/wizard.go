@@ -105,7 +105,7 @@ func Render(answers Answers) string {
 	writeSection(&b, "Inputs", answers.Inputs, "none declared")
 	writeSection(&b, "Outputs", answers.Outputs, "none declared")
 	writeSection(&b, "Data Flow", answers.DataFlow, "none declared")
-	writeSection(&b, "Function Contracts", answers.FunctionContracts, "none declared")
+	writeFunctionContractsSection(&b, answers.FunctionContracts)
 
 	b.WriteString("## External Systems and OpenAPI\n\n")
 	if answers.UsesOpenAPI {
@@ -178,6 +178,28 @@ func writeSection(b *strings.Builder, heading, value, empty string) {
 	fmt.Fprintf(b, "## %s\n\n", heading)
 	writeListOrNone(b, value, empty)
 	b.WriteByte('\n')
+}
+
+func writeFunctionContractsSection(b *strings.Builder, value string) {
+	b.WriteString("## Function Contracts\n\n")
+	trimmed := strings.TrimSpace(value)
+	if looksLikeMarkdownList(trimmed) {
+		b.WriteString(trimmed)
+		b.WriteString("\n\n")
+		return
+	}
+	writeListOrNone(b, value, "none declared")
+	b.WriteByte('\n')
+}
+
+func looksLikeMarkdownList(value string) bool {
+	for _, line := range strings.Split(value, "\n") {
+		trimmed := strings.TrimSpace(line)
+		if strings.HasPrefix(trimmed, "- ") || strings.HasPrefix(trimmed, "* ") {
+			return true
+		}
+	}
+	return false
 }
 
 func writeListOrNone(b *strings.Builder, value, empty string) {

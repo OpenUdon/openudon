@@ -86,9 +86,11 @@ func TestRenderArtifactsWeatherGmailAddsReportPlaceholderAndOrdersChain(t *testi
 		"# iCoT review warning (reviewable_fnct_placeholder)",
 		"render_weather_report is a local formatting placeholder",
 		`step "render_weather_report"`,
+		"- `render_weather_report`\n  - Purpose: Render a reviewable local weather report from the weather response before Gmail delivery.\n  - Inputs: input.\n  - Outputs: received_body.\n  - Side effects: none.",
 	} {
-		if !strings.Contains(artifacts.IntentHCL, want) {
-			t.Fatalf("intent HCL missing %q:\n%s", want, artifacts.IntentHCL)
+		rendered := artifacts.IntentHCL + "\n" + artifacts.ProjectMD
+		if !strings.Contains(rendered, want) {
+			t.Fatalf("rendered artifacts missing %q:\nintent:\n%s\nproject:\n%s", want, artifacts.IntentHCL, artifacts.ProjectMD)
 		}
 	}
 	if strings.Index(artifacts.IntentHCL, `step "geocode_openweathermap_location"`) > strings.Index(artifacts.IntentHCL, `step "openweathermap"`) ||
@@ -100,9 +102,9 @@ func TestRenderArtifactsWeatherGmailAddsReportPlaceholderAndOrdersChain(t *testi
 
 func TestRenderArtifactsWeatherGmailDoesNotTreatGeocoderGoalTextAsGmailStep(t *testing.T) {
 	session := Session{
-		Project: projectwizard.Answers{Goal: "get weather in toronto, canada, and gmail the report to me"},
+		Project: projectwizard.Answers{Goal: "get weather in toronto, canada, and send the report using Google Gmail"},
 		Intent: rollout.Intent{
-			Workflow: &rollout.WorkflowMeta{Name: "weather_toronto_gmail", Description: "get weather in toronto, canada, and gmail the report to me"},
+			Workflow: &rollout.WorkflowMeta{Name: "weather_toronto_gmail", Description: "get weather in toronto, canada, and send the report using Google Gmail"},
 			Steps: []*rollout.Step{
 				{
 					Name:      "geocode_openweathermap_location",
@@ -110,8 +112,9 @@ func TestRenderArtifactsWeatherGmailDoesNotTreatGeocoderGoalTextAsGmailStep(t *t
 					Provider:  "openweathermap",
 					OpenAPI:   "openapi/openweathermap.yaml",
 					Operation: "geocodeOpenWeatherMapLocationName",
-					Do:        "Resolve toronto, canada, and gmail the report to me to OpenWeatherMap coordinates.",
-					With:      map[string]string{"q": "toronto, canada"},
+					Do:        "Resolve toronto, canada, and send the report using Google Gmail to OpenWeatherMap coordinates.",
+					DependsOn: []string{"render_weather_report"},
+					With:      map[string]string{"q": "toronto, canada", "raw": "render_weather_report.received_body", "userId": "me"},
 				},
 				{
 					Name:      "fetch_weather_toronto",
@@ -154,6 +157,9 @@ func TestRenderArtifactsWeatherGmailDoesNotTreatGeocoderGoalTextAsGmailStep(t *t
 	gmail := stepByName(artifacts.Session.Intent.Steps, "email_weather_report")
 	if gmail == nil || gmail.With["raw"] != "render_weather_report.received_body" || gmail.With["userId"] != "me" {
 		t.Fatalf("gmail step was not prepared for report delivery: %#v", gmail)
+	}
+	if !containsString(artifacts.Session.Credentials, "googleOAuth2") {
+		t.Fatalf("missing Google Discovery Gmail credential binding: %#v", artifacts.Session.Credentials)
 	}
 }
 

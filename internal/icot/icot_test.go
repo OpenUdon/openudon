@@ -462,7 +462,7 @@ func TestReconcileProjectIncludesNestedIntentDetails(t *testing.T) {
 	for _, expected := range []string{
 		"openapi/nested.yaml",
 		"`nested_lookup.ticketId` comes from `get_ticket.received_body.id`",
-		"`prepare_default`: Prepare the default result",
+		"- `prepare_default`\n  - Purpose: Prepare the default result.",
 		"support_api_token",
 	} {
 		if !strings.Contains(text, expected) {

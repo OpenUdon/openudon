@@ -12,6 +12,7 @@ func finalizeICoTIntent(session *Session) {
 	if session == nil {
 		return
 	}
+	cleanupMisappliedGmailDeliveryFields(session)
 	addWeatherReportPlaceholder(session)
 	ensureDeliverySinksFollowTerminalProducer(session)
 	cleanupTopLevelDependsOn(session.Intent.Steps)
@@ -180,7 +181,64 @@ func isGmailDeliveryStep(step *rollout.Step) bool {
 	if tokens["gmail"] == 0 {
 		return false
 	}
+	if !stepHasGmailSource(step) {
+		return false
+	}
 	return tokens["send"] > 0 || tokens["message"] > 0 || tokens["mail"] > 0 || tokens["email"] > 0
+}
+
+func stepHasGmailSource(step *rollout.Step) bool {
+	if step == nil {
+		return false
+	}
+	tokens := rankingTokenWeights(strings.Join([]string{
+		step.Name,
+		step.Provider,
+		step.Source,
+		step.OpenAPI,
+		step.Operation,
+	}, " "))
+	return tokens["gmail"] > 0
+}
+
+func cleanupMisappliedGmailDeliveryFields(session *Session) bool {
+	if session == nil || !weatherReportEmailWorkflow(*session) {
+		return false
+	}
+	changed := false
+	for _, step := range session.Intent.Steps {
+		if step == nil || isGmailDeliveryStep(step) || !looksOpenWeatherMapStep(step) {
+			continue
+		}
+		if step.With != nil {
+			for _, field := range []string{"raw", "userId"} {
+				if _, ok := step.With[field]; ok {
+					delete(step.With, field)
+					changed = true
+				}
+			}
+		}
+		nextDeps := removeStepDependency(step.DependsOn, weatherReportPlaceholderName)
+		if strings.Join(nextDeps, ",") != strings.Join(step.DependsOn, ",") {
+			step.DependsOn = nextDeps
+			changed = true
+		}
+	}
+	return changed
+}
+
+func looksOpenWeatherMapStep(step *rollout.Step) bool {
+	if step == nil {
+		return false
+	}
+	tokens := rankingTokenWeights(strings.Join([]string{
+		step.Name,
+		step.Provider,
+		step.Source,
+		step.OpenAPI,
+		step.Operation,
+	}, " "))
+	return tokens["open"] > 0 && tokens["weather"] > 0 && tokens["map"] > 0 || tokens["openweathermap"] > 0
 }
 
 func gmailBodyField(step *rollout.Step) string {
@@ -264,6 +322,18 @@ func replaceStepDependency(deps []string, oldName, newName string) []string {
 	return dedupeStrings(out)
 }
 
+func removeStepDependency(deps []string, name string) []string {
+	var out []string
+	for _, dep := range deps {
+		dep = strings.TrimSpace(dep)
+		if dep == "" || dep == name {
+			continue
+		}
+		out = append(out, dep)
+	}
+	return dedupeStrings(out)
+}
+
 func ensureGmailCredentialBinding(session *Session, gmailSteps []*rollout.Step) bool {
 	if session == nil || len(gmailSteps) == 0 {
 		return false
@@ -271,11 +341,19 @@ func ensureGmailCredentialBinding(session *Session, gmailSteps []*rollout.Step) 
 	for _, gmail := range gmailSteps {
 		if gmail != nil && strings.TrimSpace(gmail.Operation) == "gmail_users_messages_send" {
 			before := strings.Join(session.Credentials, ",")
-			ensureCredentialBinding(session, "gmail_oauth_token", mappingSourceDeterministic, "Gmail message send requires the Gmail OAuth credential binding.")
+			ensureCredentialBinding(session, gmailCredentialBindingName(gmail), mappingSourceDeterministic, "Gmail message send requires the Gmail OAuth credential binding.")
 			return strings.Join(session.Credentials, ",") != before
 		}
 	}
 	return false
+}
+
+func gmailCredentialBindingName(step *rollout.Step) string {
+	source := strings.ToLower(strings.TrimSpace(firstNonEmpty(step.Source, step.OpenAPI)))
+	if strings.HasPrefix(source, "google-discovery/") || strings.HasPrefix(source, "discovery/") {
+		return "googleOAuth2"
+	}
+	return "gmail_oauth_token"
 }
 
 func ensureDeliverySinksFollowTerminalProducer(session *Session) {
