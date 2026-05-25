@@ -24,10 +24,10 @@ make release-saas-check
 ```
 
 The target runs the normal deterministic release check, UWS validation,
-doc-memory check, n8n bridge validation, strict MkDocs build, selected strict
-SaaS fixture lint, and the Gmail/order fulfillment trusted-runner dry-run demo
-below. It is local maintainer evidence, not public CI, and it does not require
-provider credentials.
+the eval seed/build matrix, doc-memory check, n8n bridge validation, strict
+MkDocs build, selected strict SaaS fixture lint, and the Gmail/order
+fulfillment trusted-runner dry-run demo below. It is local maintainer evidence,
+not public CI, and it does not require provider credentials.
 
 ## Provider-Free Demo Loop
 
@@ -89,6 +89,7 @@ For a SaaS release candidate, collect deterministic evidence first:
 - `go vet ./...`;
 - `make check`;
 - `make release-check`;
+- `make eval-seed-build`;
 - `make release-saas-check`;
 - `go run ./cmd/openudon validate ./examples/uws-validation`;
 - `go run ./cmd/openudon check-doc-memory`;

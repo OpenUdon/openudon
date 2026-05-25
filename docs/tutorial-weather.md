@@ -141,3 +141,8 @@ go run ./cmd/openudon run \
 
 `--dry-run` validates the package, approval, digest, quality, and tier compatibility without
 invoking the trusted executor.
+
+Real weather-to-Gmail execution is manual evidence only. Credentials and credential environment are
+operator-owned, `expected/data.hcl` is reviewed package input rather than a secret store, and running
+without `--dry-run` can send email or call live provider APIs. Do not include real udon/provider
+execution in v0.1.2 release gates.

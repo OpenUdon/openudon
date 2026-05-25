@@ -43,9 +43,9 @@ For the SaaS release story, run the comprehensive provider-free local gate:
 make release-saas-check
 ```
 
-`release-saas-check` runs `release-check`, UWS validation, doc-memory,
-n8n bridge validation, strict MkDocs build, selected strict SaaS fixture lint,
-and the provider-free dry-run demo in
+`release-saas-check` runs `release-check`, `eval-seed-build`, UWS validation,
+doc-memory, n8n bridge validation, strict MkDocs build, selected strict SaaS
+fixture lint, and the provider-free dry-run demo in
 [SaaS Operator Release Path](saas-operator-release.md). The selected demo
 examples are:
 
@@ -56,6 +56,13 @@ examples are:
 The demo must use ignored `.openudon-run/...` output, sandbox approval JSON, and
 `openudon run --dry-run`. Do not commit approval JSON, run configs, transcripts,
 or real-provider outputs.
+
+Run the eval seed/build matrix directly when changing authoring fixtures or
+reference intents:
+
+```bash
+make eval-seed-build
+```
 
 Real-provider evals remain opt-in local evidence:
 

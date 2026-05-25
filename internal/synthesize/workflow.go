@@ -477,12 +477,14 @@ var errAPISourceOperationNotFound = errors.New("api source operation not found")
 type requestBindingMapper struct {
 	exampleDir string
 	cache      map[string]map[string]map[string]requestFieldPlacement
+	ambiguous  map[string]map[string]map[string]bool
 }
 
 func newRequestBindingMapper(exampleDir string) *requestBindingMapper {
 	return &requestBindingMapper{
 		exampleDir: exampleDir,
 		cache:      map[string]map[string]map[string]requestFieldPlacement{},
+		ambiguous:  map[string]map[string]map[string]bool{},
 	}
 }
 
@@ -499,13 +501,31 @@ func (mapper *requestBindingMapper) lookup(openAPIPath, operationID, field strin
 	}
 	fields, ok := operations[operationID]
 	if !ok {
-		return requestFieldPlacement{}, fmt.Errorf("%w: operationId %q was not found in %s", errAPISourceOperationNotFound, operationID, openAPIPath)
+		return requestFieldPlacement{}, fmt.Errorf("%w: source path %q does not declare operationId %q; available operationIds: %s", errAPISourceOperationNotFound, openAPIPath, operationID, formatKnownValues(sortedRequestOperationIDs(operations)))
 	}
 	placement, ok := fields[field]
 	if !ok {
-		return requestFieldPlacement{}, fmt.Errorf("field %q is not declared by API source operation %s", field, operationID)
+		if mapper.isAmbiguous(openAPIPath, operationID, field) {
+			return requestFieldPlacement{}, fmt.Errorf("ambiguous request field %q for source path %q operationId %q; qualify fields as path.<name>, query.<name>, header.<name>, or body.<name>; known request fields: %s", field, openAPIPath, operationID, formatKnownValues(knownRequestFields(fields)))
+		}
+		return requestFieldPlacement{}, fmt.Errorf("request field %q is not declared by source path %q operationId %q; known request fields: %s", field, openAPIPath, operationID, formatKnownValues(knownRequestFields(fields)))
 	}
 	return placement, nil
+}
+
+func (mapper *requestBindingMapper) isAmbiguous(openAPIPath, operationID, field string) bool {
+	if mapper == nil || mapper.ambiguous == nil {
+		return false
+	}
+	sourceAmbiguous := mapper.ambiguous[filepath.ToSlash(strings.TrimSpace(openAPIPath))]
+	if sourceAmbiguous == nil {
+		return false
+	}
+	operationAmbiguous := sourceAmbiguous[strings.TrimSpace(operationID)]
+	if operationAmbiguous == nil {
+		return false
+	}
+	return operationAmbiguous[strings.TrimSpace(field)]
 }
 
 func (mapper *requestBindingMapper) load(openAPIPath string) (map[string]map[string]requestFieldPlacement, error) {
@@ -533,14 +553,20 @@ func (mapper *requestBindingMapper) load(openAPIPath string) (map[string]map[str
 		return nil, fmt.Errorf("load OpenAPI request metadata %s: %w", openAPIPath, err)
 	}
 	operations := map[string]map[string]requestFieldPlacement{}
+	ambiguous := map[string]map[string]bool{}
 	for _, operation := range index.OperationIDs {
-		fields, err := requestFieldPlacements(operation)
+		fields, blocked, err := requestFieldPlacementMetadata(operation)
 		if err != nil {
 			return nil, fmt.Errorf("operation %s: %w", operation.OperationID, err)
 		}
 		operations[operation.OperationID] = fields
+		ambiguous[operation.OperationID] = blocked
 	}
 	mapper.cache[key] = operations
+	if mapper.ambiguous == nil {
+		mapper.ambiguous = map[string]map[string]map[string]bool{}
+	}
+	mapper.ambiguous[key] = ambiguous
 	return operations, nil
 }
 
@@ -550,8 +576,9 @@ func (mapper *requestBindingMapper) loadNative(path, sourceRef string, sourceTyp
 		return nil, fmt.Errorf("load API source request metadata %s: %w", sourceRef, err)
 	}
 	operations := map[string]map[string]requestFieldPlacement{}
+	ambiguous := map[string]map[string]bool{}
 	add := func(ids []string, operation apitools.OperationSummary) error {
-		fields, err := requestFieldPlacements(operation)
+		fields, blocked, err := requestFieldPlacementMetadata(operation)
 		if err != nil {
 			return fmt.Errorf("operation %s: %w", operation.OperationID, err)
 		}
@@ -559,6 +586,7 @@ func (mapper *requestBindingMapper) loadNative(path, sourceRef string, sourceTyp
 			id = strings.TrimSpace(id)
 			if id != "" {
 				operations[id] = fields
+				ambiguous[id] = blocked
 			}
 		}
 		return nil
@@ -601,6 +629,10 @@ func (mapper *requestBindingMapper) loadNative(path, sourceRef string, sourceTyp
 	default:
 		return nil, fmt.Errorf("unsupported API source type %q for %s", sourceType, sourceRef)
 	}
+	if mapper.ambiguous == nil {
+		mapper.ambiguous = map[string]map[string]map[string]bool{}
+	}
+	mapper.ambiguous[filepath.ToSlash(strings.TrimSpace(sourceRef))] = ambiguous
 	return operations, nil
 }
 
@@ -729,6 +761,11 @@ func stringFromAnyMap(values map[string]any, key string) string {
 }
 
 func requestFieldPlacements(operation apitools.OperationSummary) (map[string]requestFieldPlacement, error) {
+	fields, _, err := requestFieldPlacementMetadata(operation)
+	return fields, err
+}
+
+func requestFieldPlacementMetadata(operation apitools.OperationSummary) (map[string]requestFieldPlacement, map[string]bool, error) {
 	out := map[string]requestFieldPlacement{}
 	blocked := map[string]bool{}
 	add := func(key, section, name string) error {
@@ -739,6 +776,10 @@ func requestFieldPlacements(operation apitools.OperationSummary) (map[string]req
 			return nil
 		}
 		placement := requestFieldPlacement{Original: key, Section: section, Name: name}
+		qualified := section + "." + name
+		if qualified != "body.body" {
+			out[qualified] = requestFieldPlacement{Original: qualified, Section: section, Name: name}
+		}
 		if blocked[key] {
 			return nil
 		}
@@ -767,16 +808,16 @@ func requestFieldPlacements(operation apitools.OperationSummary) (map[string]req
 			continue
 		}
 		if err := add(parameter.Name, section, parameter.Name); err != nil {
-			return nil, err
+			return nil, nil, err
 		}
 	}
 	if operation.RequestBody != nil {
 		if err := add("body", "body", "body"); err != nil {
-			return nil, err
+			return nil, nil, err
 		}
 		for _, field := range operation.RequestBody.Fields {
 			if err := add(field.Path, "body", field.Path); err != nil {
-				return nil, err
+				return nil, nil, err
 			}
 		}
 	}
@@ -787,11 +828,43 @@ func requestFieldPlacements(operation apitools.OperationSummary) (map[string]req
 		}
 		for _, alias := range []string{security.Name, security.ParameterName, apitools.SecurityCredentialFieldName(security)} {
 			if err := add(alias, section, target); err != nil {
-				return nil, err
+				return nil, nil, err
 			}
 		}
 	}
-	return out, nil
+	return out, blocked, nil
+}
+
+func knownRequestFields(fields map[string]requestFieldPlacement) []string {
+	if len(fields) == 0 {
+		return nil
+	}
+	keys := make([]string, 0, len(fields))
+	for key := range fields {
+		keys = append(keys, key)
+	}
+	sort.Strings(keys)
+	return keys
+}
+
+func sortedRequestOperationIDs(operations map[string]map[string]requestFieldPlacement) []string {
+	if len(operations) == 0 {
+		return nil
+	}
+	keys := make([]string, 0, len(operations))
+	for key := range operations {
+		keys = append(keys, key)
+	}
+	sort.Strings(keys)
+	return keys
+}
+
+func formatKnownValues(values []string) string {
+	values = uniqueStrings(values)
+	if len(values) == 0 {
+		return "(none)"
+	}
+	return strings.Join(values, ", ")
 }
 
 func securityRequestPlacement(security apitools.SecuritySummary) (string, string, bool) {

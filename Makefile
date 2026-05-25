@@ -34,6 +34,7 @@ release-check:
 
 release-saas-check:
 	$(MAKE) release-check
+	$(MAKE) eval-seed-build
 	$(MAKE) validate-uws
 	$(GO) run ./cmd/openudon check-doc-memory
 	$(GO) run ./cmd/openudon n8n-bridge validate --root examples/eval

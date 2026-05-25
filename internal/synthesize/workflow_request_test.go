@@ -2,6 +2,7 @@ package synthesize
 
 import (
 	"reflect"
+	"strings"
 	"testing"
 
 	"github.com/OpenUdon/apitools"
@@ -70,5 +71,95 @@ func TestIntentRequestMapAllowsPathParameterNamedPath(t *testing.T) {
 	}
 	if !reflect.DeepEqual(got, want) {
 		t.Fatalf("request map = %#v, want %#v", got, want)
+	}
+}
+
+func TestRequestBindingLookupMissingFieldReportsKnownFields(t *testing.T) {
+	mapper := &requestBindingMapper{cache: map[string]map[string]map[string]requestFieldPlacement{
+		"openapi/things.yaml": {
+			"updateThing": {
+				"thingId":       {Original: "thingId", Section: "path", Name: "thingId"},
+				"path.thingId":  {Original: "path.thingId", Section: "path", Name: "thingId"},
+				"verbose":       {Original: "verbose", Section: "query", Name: "verbose"},
+				"query.verbose": {Original: "query.verbose", Section: "query", Name: "verbose"},
+			},
+		},
+	}}
+
+	_, err := mapper.lookup("openapi/things.yaml", "updateThing", "undeclared")
+	if err == nil {
+		t.Fatal("expected missing field error")
+	}
+	got := err.Error()
+	for _, want := range []string{
+		`source path "openapi/things.yaml"`,
+		`operationId "updateThing"`,
+		`request field "undeclared"`,
+		"known request fields: path.thingId",
+		"query.verbose",
+	} {
+		if !strings.Contains(got, want) {
+			t.Fatalf("missing %q in error:\n%s", want, got)
+		}
+	}
+}
+
+func TestRequestBindingLookupMissingOperationReportsAvailableOperationIDs(t *testing.T) {
+	mapper := &requestBindingMapper{cache: map[string]map[string]map[string]requestFieldPlacement{
+		"openapi/things.yaml": {
+			"createThing": {},
+			"updateThing": {},
+		},
+	}}
+
+	_, err := mapper.lookup("openapi/things.yaml", "missingThing", "thingId")
+	if err == nil {
+		t.Fatal("expected missing operation error")
+	}
+	got := err.Error()
+	for _, want := range []string{
+		`source path "openapi/things.yaml"`,
+		`operationId "missingThing"`,
+		"available operationIds: createThing, updateThing",
+	} {
+		if !strings.Contains(got, want) {
+			t.Fatalf("missing %q in error:\n%s", want, got)
+		}
+	}
+}
+
+func TestRequestBindingLookupAmbiguousAliasSuggestsQualifiedSections(t *testing.T) {
+	mapper := &requestBindingMapper{
+		cache: map[string]map[string]map[string]requestFieldPlacement{
+			"openapi/things.yaml": {
+				"updateThing": {
+					"path.id":  {Original: "path.id", Section: "path", Name: "id"},
+					"query.id": {Original: "query.id", Section: "query", Name: "id"},
+					"body.id":  {Original: "body.id", Section: "body", Name: "id"},
+				},
+			},
+		},
+		ambiguous: map[string]map[string]map[string]bool{
+			"openapi/things.yaml": {
+				"updateThing": {"id": true},
+			},
+		},
+	}
+
+	_, err := mapper.lookup("openapi/things.yaml", "updateThing", "id")
+	if err == nil {
+		t.Fatal("expected ambiguous alias error")
+	}
+	got := err.Error()
+	for _, want := range []string{
+		`ambiguous request field "id"`,
+		`source path "openapi/things.yaml"`,
+		`operationId "updateThing"`,
+		"qualify fields as path.<name>, query.<name>, header.<name>, or body.<name>",
+		"known request fields: body.id",
+	} {
+		if !strings.Contains(got, want) {
+			t.Fatalf("missing %q in error:\n%s", want, got)
+		}
 	}
 }
