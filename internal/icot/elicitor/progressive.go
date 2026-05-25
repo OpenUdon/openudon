@@ -2734,10 +2734,16 @@ func suggestedCredentialName(op *apitools.OperationSummary) string {
 	if op == nil || len(op.Security) == 0 {
 		return "api_token"
 	}
-	return slugIdent(op.Security[0].Name)
+	if name := strings.TrimSpace(op.Security[0].Name); name != "" {
+		return name
+	}
+	return "api_token"
 }
 
 func suggestedCredentialNameForOperation(session Session, docs []APIDocument, step *rollout.Step, op *apitools.OperationSummary) string {
+	if name := suggestedCredentialName(op); name != "" && name != "api_token" {
+		return name
+	}
 	if len(session.Credentials) == 1 {
 		return session.Credentials[0]
 	}
@@ -2762,9 +2768,6 @@ func suggestedFieldSource(session Session, docs []APIDocument, step *rollout.Ste
 		return "inputs." + input
 	}
 	if suggestedCredentialField(field, op) {
-		if len(session.Credentials) == 1 {
-			return "credentials." + session.Credentials[0]
-		}
 		return "credentials." + suggestedCredentialNameForOperation(session, docs, step, op)
 	}
 	if value, ok := safeLiteralDefault(field, op); ok {

@@ -342,7 +342,7 @@ func credentialBindingsForPlanParam(param PlanParam) []string {
 	seen := map[string]bool{}
 	var out []string
 	for _, credential := range []string{param.ExpectedCredential, param.ExpectedSource} {
-		credential = strings.TrimSpace(credential)
+		credential = planCredentialBindingName(credential)
 		if credential == "" || seen[credential] {
 			continue
 		}
@@ -351,6 +351,12 @@ func credentialBindingsForPlanParam(param PlanParam) []string {
 	}
 	sort.Strings(out)
 	return out
+}
+
+func planCredentialBindingName(value string) string {
+	value = strings.TrimSpace(value)
+	value = strings.TrimPrefix(value, "credentials.")
+	return strings.TrimSpace(value)
 }
 
 func reviewArtifactSet(result Result) authoring.ArtifactSet {

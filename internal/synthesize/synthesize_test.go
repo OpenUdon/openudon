@@ -4090,6 +4090,76 @@ credentials {
 	}
 }
 
+func TestRuntimeDataFileAddsGoogleOAuthEnvironmentPlaceholders(t *testing.T) {
+	example := t.TempDir()
+	result := Result{DataPath: filepath.Join(example, "expected", "data.hcl")}
+	intent := &rollout.Intent{
+		Inputs: []*rollout.Input{{
+			Name:        "recipient_email",
+			Type:        "string",
+			Description: "Report recipient email address.",
+		}},
+	}
+	policy := analyzeProject("## Credentials and Secrets\n- Use credential binding `googleOAuth2`.\n")
+	if err := writeRuntimeDataFile(result, intent, policy); err != nil {
+		t.Fatal(err)
+	}
+	data, err := os.ReadFile(result.DataPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	text := string(data)
+	for _, want := range []string{
+		`inputs {`,
+		`recipient_email = "me@example.com"`,
+		`credentials {`,
+		`googleOAuth2 {`,
+		`client_id          = "ENVIRONMENT:GOOGLE_CLIENT_ID"`,
+		`client_secret      = "ENVIRONMENT:GOOGLE_CLIENT_SECRET"`,
+		`oauth_redirect_url = "ENVIRONMENT:GOOGLE_OAUTH_REDIRECT_URL"`,
+		`refresh_token      = "ENVIRONMENT:GOOGLE_REFRESH_TOKEN"`,
+	} {
+		if !strings.Contains(text, want) {
+			t.Fatalf("data.hcl missing %q:\n%s", want, text)
+		}
+	}
+}
+
+func TestNormalizeIntentSecurityCredentialBindingsUsesSourceSchemeName(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "secure.yaml")
+	if err := os.WriteFile(path, []byte(secureOpenAPI()), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	intent := &rollout.Intent{
+		OpenAPI: "openapi/secure.yaml",
+		Steps: []*rollout.Step{{
+			Name:      "list_secure_tickets",
+			Type:      "http",
+			Operation: "listSecureTickets",
+			With:      map[string]string{"api_key": "credentials.support_api_key"},
+		}},
+	}
+	candidates := []openapidisco.Candidate{{Path: path, RelativePath: "openapi/secure.yaml"}}
+	normalizeIntentSecurityCredentialBindings(intent, candidates, "openapi/secure.yaml")
+	if got := intent.Steps[0].With["api_key"]; got != "credentials.ApiKeyAuth" {
+		t.Fatalf("api_key binding = %q, want source security scheme", got)
+	}
+	plan := buildWorkflowPlan(Result{ExampleDir: t.TempDir()}, intent, candidates, analyzeProject(`## Credentials and Secrets
+
+- Use credential binding support_api_key.
+`))
+	var found bool
+	for _, param := range plan.Steps[0].RequestParams {
+		if param.Name == "api_key" && param.Credential && param.ExpectedCredential == "credentials.ApiKeyAuth" {
+			found = true
+		}
+	}
+	if !found {
+		t.Fatalf("expected normalized source security binding in plan, got %#v", plan.Steps[0].RequestParams)
+	}
+}
+
 func TestClassifierUsesHighestPriorityFailingAction(t *testing.T) {
 	report := &QualityReport{Checks: []QualityCheck{
 		{Code: "workflow.plan_match", Status: "fail"},

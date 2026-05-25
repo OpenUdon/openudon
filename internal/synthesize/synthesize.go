@@ -176,6 +176,7 @@ func PackageFromIntent(ctx context.Context, opts Options) (*Result, *QualityRepo
 	if err := validateIntentRuntimePolicy(intent, state.policy); err != nil {
 		return &state.result, nil, err
 	}
+	normalizeIntentSecurityCredentialBindings(intent, state.candidates, primary)
 	if err := ctx.Err(); err != nil {
 		return &state.result, nil, err
 	}
@@ -196,7 +197,7 @@ func PackageFromIntent(ctx context.Context, opts Options) (*Result, *QualityRepo
 	if err := writeWorkflowPlan(state.result, workflowPlan); err != nil {
 		return &state.result, nil, err
 	}
-	if err := writeRuntimeDataFile(state.result, intent); err != nil {
+	if err := writeRuntimeDataFile(state.result, intent, state.policy); err != nil {
 		return &state.result, nil, err
 	}
 	if err := generateWorkflow(ctx, state.result, intent, nil, opts.Provider, opts.Model, opts.Timeout); err != nil {
@@ -336,6 +337,7 @@ func runRefinement(ctx context.Context, opts Options, state *refinementState, ll
 			}
 			return &state.result, err
 		}
+		normalizeIntentSecurityCredentialBindings(intent, state.candidates, state.primaryPath)
 		workflowPlan := buildWorkflowPlan(state.result, intent, state.candidates, state.policy)
 		intentHCL, err := workflowintent.RenderHCL(ctx, intent)
 		if err != nil {
@@ -355,7 +357,7 @@ func runRefinement(ctx context.Context, opts Options, state *refinementState, ll
 		if err := writeWorkflowPlan(state.result, workflowPlan); err != nil {
 			return nil, err
 		}
-		if err := writeRuntimeDataFile(state.result, intent); err != nil {
+		if err := writeRuntimeDataFile(state.result, intent, state.policy); err != nil {
 			return nil, err
 		}
 		if err := ctx.Err(); err != nil {
@@ -500,10 +502,11 @@ func Promote(ctx context.Context, opts Options) (*Result, error) {
 			return nil, fmt.Errorf("project policy: %w", err)
 		}
 		applyProjectTimeoutAndIdempotency(intent, policy)
+		normalizeIntentSecurityCredentialBindings(intent, candidates, result.PrimaryOpenAPI)
 		if err := writeWorkflowPlan(result, buildWorkflowPlan(result, intent, candidates, policy)); err != nil {
 			return nil, err
 		}
-		if err := writeRuntimeDataFile(result, intent); err != nil {
+		if err := writeRuntimeDataFile(result, intent, policy); err != nil {
 			return nil, err
 		}
 	}

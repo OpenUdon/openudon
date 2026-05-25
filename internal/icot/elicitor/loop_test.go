@@ -1613,7 +1613,7 @@ func TestGroupedDefaultsUseKnownCredentialBinding(t *testing.T) {
 	}}}}
 
 	issue := readinessIssue(CheckReadiness(session, docs), "missing_required_request_values")
-	if issue.SuggestedAnswer != "Authorization=credentials.support_api_token" {
+	if issue.SuggestedAnswer != "Authorization=credentials.BearerAuth" {
 		t.Fatalf("suggested answer = %q", issue.SuggestedAnswer)
 	}
 }
@@ -1630,14 +1630,14 @@ func TestGroupedDefaultsDeriveCredentialBindingAndAcceptAddsIt(t *testing.T) {
 	}}}}
 
 	issue := readinessIssue(CheckReadiness(session, docs), "missing_required_request_values")
-	if issue.SuggestedAnswer != "Authorization=credentials.support_api_token" {
+	if issue.SuggestedAnswer != "Authorization=credentials.BearerAuth" {
 		t.Fatalf("suggested answer = %q", issue.SuggestedAnswer)
 	}
 	applyProgressiveAnswer(&session, QuestionPlan{Slots: []string{"steps.get_ticket.with"}}, issue.SuggestedAnswer, docs)
-	if len(session.Credentials) != 1 || session.Credentials[0] != "support_api_token" {
+	if len(session.Credentials) != 1 || session.Credentials[0] != "BearerAuth" {
 		t.Fatalf("credentials not added from accepted mapping: %#v", session.Credentials)
 	}
-	if !hasClassification(session.Classifications, "credentials", "support_api_token", mappingSourceUser, mappingConfidenceHigh) {
+	if !hasClassification(session.Classifications, "credentials", "BearerAuth", mappingSourceUser, mappingConfidenceHigh) {
 		t.Fatalf("missing credential classification: %#v", session.Classifications)
 	}
 }
