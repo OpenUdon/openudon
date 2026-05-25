@@ -1486,7 +1486,9 @@ func addOpenWeatherMapGeocodePrework(session *Session, docs []APIDocument, weath
 	if session == nil || weatherStep == nil {
 		return false
 	}
-	if strings.TrimSpace(weatherStep.Operation) != "getOpenWeatherMapOneCall3" {
+	switch strings.TrimSpace(weatherStep.Operation) {
+	case "getOpenWeatherMapOneCall3", "getOpenWeatherMapCurrentWeather":
+	default:
 		return false
 	}
 	weatherOp, ok := operationForStep(*session, docs, weatherStep)
@@ -2421,8 +2423,8 @@ func confidentOperationDefault(session Session, step *rollout.Step, choices []ra
 	if wantsEmailMessageSend(intentText) && uniqueEmailMessageSendChoice(choices) {
 		return sideEffectCommitmentExplicit(session, step)
 	}
-	if wantsWeatherLookup(intentText) && uniqueWeatherLookupChoice(choices) {
-		return true
+	if wantsWeatherLookup(intentText) {
+		return uniqueWeatherLookupChoice(choices) || preferredCurrentWeatherLookupChoice(choices)
 	}
 	return false
 }
@@ -2483,6 +2485,18 @@ func uniqueWeatherLookupChoice(choices []rankedOperationChoice) bool {
 	return matches == 1
 }
 
+func preferredCurrentWeatherLookupChoice(choices []rankedOperationChoice) bool {
+	if len(choices) == 0 || !operationLooksCurrentWeatherLookup(choices[0].Op) {
+		return false
+	}
+	for _, choice := range choices[1:] {
+		if choice.Score >= choices[0].Score && operationLooksWeatherLookup(choice.Op) && !operationLooksCurrentWeatherLookup(choice.Op) {
+			return false
+		}
+	}
+	return true
+}
+
 func operationLooksEmailMessageSend(op apitools.OperationSummary) bool {
 	text := strings.Join([]string{
 		op.OperationID,
@@ -2516,6 +2530,11 @@ func operationLooksWeatherLookup(op apitools.OperationSummary) bool {
 		return false
 	}
 	return tokens["get"] > 0 || tokens["current"] > 0 || tokens["forecast"] > 0 || tokens["condition"] > 0 || tokens["conditions"] > 0 || tokens["data"] > 0
+}
+
+func operationLooksCurrentWeatherLookup(op apitools.OperationSummary) bool {
+	tokens := operationTextTokens(op)
+	return operationLooksWeatherLookup(op) && tokens["current"] > 0
 }
 
 func operationTextTokens(op apitools.OperationSummary) map[string]int {

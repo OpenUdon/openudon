@@ -563,6 +563,9 @@ func operationRankScore(query map[string]int, doc APIDocument, op apitools.Opera
 	if isAdvisoryAPIDocument(doc) {
 		score += 15
 	}
+	if query["weather"] > 0 && query["current"] > 0 && operationLooksCurrentWeatherLookup(op) {
+		score += 50
+	}
 	score += rankingMatchScore(query, doc.RelativePath+" "+doc.Title+" "+doc.Description, 2)
 	score += rankingMatchScore(query, op.OperationID, 12)
 	score += rankingMatchScore(query, op.Summary, 8)

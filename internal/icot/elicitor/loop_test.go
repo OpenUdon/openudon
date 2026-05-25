@@ -1396,14 +1396,15 @@ func TestSuggestedOperationAnswerDefaultsClearWeatherLookup(t *testing.T) {
 			}},
 		},
 	}
-	docs := []APIDocument{{RelativePath: "openapi/openweathermap-one-call-3-overlay.json", Title: "OpenWeatherMap One Call 3.0 Advisory Overlay", Operations: []apitools.OperationSummary{
+	docs := []APIDocument{{RelativePath: "openapi/openweathermap-one-call-3-overlay.json", Title: "OpenWeatherMap Weather and Geocoding Advisory Overlay", Operations: []apitools.OperationSummary{
+		{OperationID: "getOpenWeatherMapCurrentWeather", Summary: "Get current weather data"},
 		{OperationID: "getOpenWeatherMapOneCall3", Summary: "Get One Call API 3.0 weather data"},
 		{OperationID: "geocodeOpenWeatherMapLocationName", Summary: "Geocode location name"},
 		{OperationID: "reverseGeocodeOpenWeatherMapCoordinates", Summary: "Reverse geocode coordinates"},
 	}}}
 
-	if got := suggestedOperationAnswerForStep(session, docs, session.Intent.Steps[0]); got != "getOpenWeatherMapOneCall3" {
-		t.Fatalf("weather step suggested %q, want getOpenWeatherMapOneCall3", got)
+	if got := suggestedOperationAnswerForStep(session, docs, session.Intent.Steps[0]); got != "getOpenWeatherMapCurrentWeather" {
+		t.Fatalf("weather step suggested %q, want getOpenWeatherMapCurrentWeather", got)
 	}
 }
 
@@ -1421,15 +1422,16 @@ func TestSuggestedOperationAnswerDefaultsWeatherLookupWithCoordinateDescription(
 			}},
 		},
 	}
-	docs := []APIDocument{{RelativePath: "openapi/openweathermap-one-call-3-overlay.json", Title: "OpenWeatherMap One Call 3.0 and Geocoding Advisory Overlay", Operations: []apitools.OperationSummary{
+	docs := []APIDocument{{RelativePath: "openapi/openweathermap-one-call-3-overlay.json", Title: "OpenWeatherMap Weather and Geocoding Advisory Overlay", Operations: []apitools.OperationSummary{
+		{OperationID: "getOpenWeatherMapCurrentWeather", Summary: "Get current weather data", Description: "Latitude and longitude coordinates may come from the Geocoding API."},
 		{OperationID: "getOpenWeatherMapOneCall3", Summary: "Get One Call API 3.0 weather data", Description: "Latitude and longitude coordinates may come from the Geocoding API."},
 		{OperationID: "geocodeOpenWeatherMapLocationName", Summary: "Geocode location name", Description: "Direct geocoding converts a city or area name to geographical coordinates."},
 		{OperationID: "geocodeOpenWeatherMapZipCode", Summary: "Geocode zip or post code"},
 		{OperationID: "reverseGeocodeOpenWeatherMapCoordinates", Summary: "Reverse geocode coordinates"},
 	}}}
 
-	if got := suggestedOperationAnswerForStep(session, docs, session.Intent.Steps[0]); got != "getOpenWeatherMapOneCall3" {
-		t.Fatalf("weather step suggested %q, want getOpenWeatherMapOneCall3", got)
+	if got := suggestedOperationAnswerForStep(session, docs, session.Intent.Steps[0]); got != "getOpenWeatherMapCurrentWeather" {
+		t.Fatalf("weather step suggested %q, want getOpenWeatherMapCurrentWeather", got)
 	}
 }
 
