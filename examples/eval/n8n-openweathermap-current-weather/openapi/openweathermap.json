@@ -7,7 +7,24 @@
   "paths": {
     "/data/2.5/weather": {
       "get": {
-        "operationId": "getOpenWeatherMapCurrentWeather"
+        "operationId": "getOpenWeatherMapCurrentWeather",
+        "parameters": [
+          {
+            "name": "q",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "lang",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ]
       }
     },
     "/data/2.5/forecast": {

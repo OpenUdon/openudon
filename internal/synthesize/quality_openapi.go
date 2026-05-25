@@ -709,6 +709,9 @@ func (r openAPISecurityRequirement) fieldNames() []string {
 		name = strings.TrimSpace(name)
 		if name != "" {
 			out = append(out, name)
+			if alias := camelToSnake(name); alias != name {
+				out = append(out, alias)
+			}
 		}
 	}
 	if strings.EqualFold(r.Type, "http") || strings.EqualFold(r.Scheme, "bearer") || strings.Contains(strings.ToLower(r.Scheme), "bearer") {

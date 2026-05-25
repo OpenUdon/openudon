@@ -165,6 +165,45 @@ func TestRenderArtifactsDoesNotReverseDependOnAuditRenderer(t *testing.T) {
 	}
 }
 
+func TestRenderArtifactsDoesNotTreatFnctFormatterAsDeliverySink(t *testing.T) {
+	session := Session{
+		Project: projectwizard.Answers{
+			Goal:            "Create an incident ticket, render a Slack alert, post it, and render an archive report.",
+			SideEffectScope: projectwizard.SideEffectSandboxOnly,
+			Safety:          "Side-effectful execution requires human approval and a trusted runner.",
+			Fallback:        "Stop on failure.",
+		},
+		CredentialsSet: true,
+		SafetySet:      true,
+		FallbackSet:    true,
+		Intent: rollout.Intent{
+			OpenAPI:  "openapi/jira.yaml",
+			Workflow: &rollout.WorkflowMeta{Name: "incident_response", Description: "Create an incident ticket, post a Slack alert, and render an archive report."},
+			Steps: []*rollout.Step{
+				{Name: "create_jira_incident", Type: "http", Operation: "createIssue", Do: "Create the incident ticket."},
+				{Name: "format_slack_alert", Type: "fnct", Do: "Format a Slack alert.", DependsOn: []string{"create_jira_incident"}, With: map[string]string{"ticket": "create_jira_incident.received_body"}},
+				{Name: "post_slack_alert", Type: "http", Operation: "postMessage", Do: "Post the Slack alert.", DependsOn: []string{"format_slack_alert"}, With: map[string]string{"text": "format_slack_alert.received_body"}},
+				{Name: "render_timeline_report", Type: "fnct", Do: "Render the timeline report.", DependsOn: []string{"create_jira_incident"}, With: map[string]string{"ticket": "create_jira_incident.received_body"}},
+				{Name: "upload_timeline_report", Type: "http", Operation: "drive_files_create", Do: "Upload the timeline report.", DependsOn: []string{"render_timeline_report"}, With: map[string]string{"body": "render_timeline_report.received_body"}},
+			},
+			Outputs: []*rollout.Output{{Name: "archive_file", From: "upload_timeline_report.received_body"}},
+		},
+	}
+
+	artifacts, err := RenderArtifacts(session)
+	if err != nil {
+		t.Fatalf("RenderArtifacts failed: %v", err)
+	}
+	format := stepByName(artifacts.Session.Intent.Steps, "format_slack_alert")
+	if format == nil || containsString(format.DependsOn, "upload_timeline_report") {
+		t.Fatalf("format_slack_alert got reverse dependency on archive upload: %#v\n%s", format, artifacts.IntentHCL)
+	}
+	render := stepByName(artifacts.Session.Intent.Steps, "render_timeline_report")
+	if render == nil || containsString(render.DependsOn, "post_slack_alert") {
+		t.Fatalf("render_timeline_report got reverse dependency on Slack post: %#v\n%s", render, artifacts.IntentHCL)
+	}
+}
+
 func TestRenderArtifactsWeatherGmailDoesNotTreatGeocoderGoalTextAsGmailStep(t *testing.T) {
 	session := Session{
 		Project: projectwizard.Answers{Goal: "get weather in toronto, canada, and send the report using Google Gmail"},

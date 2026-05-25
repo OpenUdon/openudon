@@ -17,7 +17,24 @@
     },
     "/1/boards/{id}/lists": {
       "get": {
-        "operationId": "listTrelloBoardLists"
+        "operationId": "listTrelloBoardLists",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ]
       }
     },
     "/1/lists/{id}": {

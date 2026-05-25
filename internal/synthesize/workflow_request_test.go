@@ -1,6 +1,7 @@
 package synthesize
 
 import (
+	"reflect"
 	"testing"
 
 	"github.com/OpenUdon/apitools"
@@ -47,5 +48,27 @@ func TestRequestFieldPlacementsKeepAmbiguousAliasesBlocked(t *testing.T) {
 	}
 	if placement, ok := fields["id"]; ok {
 		t.Fatalf("ambiguous id alias was reintroduced as %#v in %#v", placement, fields)
+	}
+}
+
+func TestIntentRequestMapAllowsPathParameterNamedPath(t *testing.T) {
+	mapper := &requestBindingMapper{cache: map[string]map[string]map[string]requestFieldPlacement{
+		"openapi/github.yaml": {
+			"getContent": {
+				"path": {Original: "path", Section: "path", Name: "path"},
+			},
+		},
+	}}
+	got, err := intentRequestMap(map[string]string{"path": "render_backup_file.received_body.path"}, "http", "openapi/github.yaml", "getContent", mapper)
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := map[string]any{
+		"path": map[string]any{
+			"path": map[string]any{"$expr": "render_backup_file.received_body.path"},
+		},
+	}
+	if !reflect.DeepEqual(got, want) {
+		t.Fatalf("request map = %#v, want %#v", got, want)
 	}
 }

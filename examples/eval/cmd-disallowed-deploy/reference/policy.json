@@ -3,5 +3,13 @@
   "notes": [
     "The denied command fixture is stable; generated command usage must remain visible to runtime-policy checks."
   ],
-  "max_blocking": 0
+  "max_blocking": 0,
+  "seed_build": {
+    "expected": "build_fail",
+    "class": "expected-negative",
+    "reason": "Disallowed cmd runtime should be rejected by build policy.",
+    "allowed_failure_codes": [
+      "build:error"
+    ]
+  }
 }

@@ -28,7 +28,33 @@
     },
     "/{baseId}/{tableId}/{id}": {
       "get": {
-        "operationId": "getAirtableRecord"
+        "operationId": "getAirtableRecord",
+        "parameters": [
+          {
+            "name": "baseId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "tableId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ]
       },
       "delete": {
         "operationId": "deleteAirtableRecord"

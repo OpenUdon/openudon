@@ -1,5 +1,12 @@
 {
   "mode": "strict",
-  "notes": ["Multi-step data-passing fixture: fetched record response feeds local normalization."],
-  "max_blocking": 0
+  "notes": [
+    "Multi-step data-passing fixture: fetched record response feeds local normalization."
+  ],
+  "max_blocking": 0,
+  "seed_build": {
+    "expected": "pass",
+    "class": "strict-positive",
+    "reason": "Strict positive seed fixture must materialize and build successfully from its reference intent."
+  }
 }

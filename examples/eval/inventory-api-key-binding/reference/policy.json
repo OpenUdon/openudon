@@ -3,5 +3,10 @@
   "notes": [
     "The inventory credential-binding fixture is stable; operation selection and credential binding are the golden behavior."
   ],
-  "max_blocking": 0
+  "max_blocking": 0,
+  "seed_build": {
+    "expected": "pass",
+    "class": "strict-positive",
+    "reason": "Strict positive seed fixture must materialize and build successfully from its reference intent."
+  }
 }

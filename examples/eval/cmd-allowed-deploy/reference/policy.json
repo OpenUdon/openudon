@@ -3,5 +3,10 @@
   "notes": [
     "The approved command fixture is stable; runtime type drift is blocking while naming drift remains diagnostic."
   ],
-  "max_blocking": 0
+  "max_blocking": 0,
+  "seed_build": {
+    "expected": "pass",
+    "class": "strict-positive",
+    "reason": "Strict positive seed fixture must materialize and build successfully from its reference intent."
+  }
 }

@@ -6,5 +6,10 @@
   "issue_notes": {
     "*": "Intent naming and adapter boundaries may drift while the routing fixture remains illustrative."
   },
-  "max_blocking": 0
+  "max_blocking": 0,
+  "seed_build": {
+    "expected": "pass",
+    "class": "advisory",
+    "reason": "Advisory seed fixture is tracked for reducibility and currently builds successfully."
+  }
 }

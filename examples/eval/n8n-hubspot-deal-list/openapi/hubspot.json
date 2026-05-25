@@ -150,7 +150,17 @@
     },
     "/deals/v1/deal/paged": {
       "get": {
-        "operationId": "listDeals"
+        "operationId": "listDeals",
+        "parameters": [
+          {
+            "name": "limit",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ]
       }
     },
     "/deals/v1/deal/recent/created": {

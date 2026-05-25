@@ -635,6 +635,31 @@ func TestSideEffectProfileDetectsOpenAPIWriteOperation(t *testing.T) {
 	}
 }
 
+func TestSideEffectProfileDoesNotTreatWebhookValidationAsCommunication(t *testing.T) {
+	policy := analyzeProject(`# Webhook Validation
+
+## Function Contracts
+
+- validate_webhook
+  - Inputs: payload and signature.
+  - Outputs: validation status.
+  - Side effects: none.
+
+## Safety and Approval Boundary
+
+- Validation is local and read-only.
+`)
+	profile := sideEffectProfileFor(policy, &rollout.Intent{Steps: []*rollout.Step{{
+		Name: "validate_webhook",
+		Type: "fnct",
+		Do:   "Validate the webhook signature and normalize the payload.",
+		With: map[string]string{"payload": "inputs.payload", "signature": "inputs.signature"},
+	}}})
+	if profile.SideEffectful {
+		t.Fatalf("webhook validation should be read-only, got %#v", profile)
+	}
+}
+
 func TestSideEffectProfileRequiresProductionHandoffForProductionEndpoint(t *testing.T) {
 	dir := t.TempDir()
 	path := filepath.Join(dir, "ticket-prod.yaml")
@@ -4137,13 +4162,19 @@ func TestNormalizeIntentSecurityCredentialBindingsUsesSourceSchemeName(t *testin
 			Name:      "list_secure_tickets",
 			Type:      "http",
 			Operation: "listSecureTickets",
-			With:      map[string]string{"api_key": "credentials.support_api_key"},
+			With: map[string]string{
+				"api_key":      "credentials.support_api_key",
+				"api_key_auth": "support_api_key",
+			},
 		}},
 	}
 	candidates := []openapidisco.Candidate{{Path: path, RelativePath: "openapi/secure.yaml"}}
 	normalizeIntentSecurityCredentialBindings(intent, candidates, "openapi/secure.yaml")
 	if got := intent.Steps[0].With["api_key"]; got != "credentials.ApiKeyAuth" {
 		t.Fatalf("api_key binding = %q, want source security scheme", got)
+	}
+	if _, ok := intent.Steps[0].With["api_key_auth"]; ok {
+		t.Fatalf("secondary security alias was not removed: %#v", intent.Steps[0].With)
 	}
 	plan := buildWorkflowPlan(Result{ExampleDir: t.TempDir()}, intent, candidates, analyzeProject(`## Credentials and Secrets
 
@@ -4157,6 +4188,44 @@ func TestNormalizeIntentSecurityCredentialBindingsUsesSourceSchemeName(t *testin
 	}
 	if !found {
 		t.Fatalf("expected normalized source security binding in plan, got %#v", plan.Steps[0].RequestParams)
+	}
+}
+
+func TestNormalizeIntentSecurityCredentialBindingsReplacesPlainTokenAlias(t *testing.T) {
+	req := openAPISecurityRequirement{
+		Scheme: "githubBearer",
+		Type:   "http",
+	}
+	step := &rollout.Step{
+		Name: "get_existing_backup",
+		Type: "http",
+		With: map[string]string{
+			"Authorization": "github_token",
+		},
+	}
+	normalizeStepSecurityCredentialBinding(step, req, nil)
+	if got := step.With["Authorization"]; got != "credentials.githubBearer" {
+		t.Fatalf("Authorization binding = %q, want source security scheme", got)
+	}
+}
+
+func TestNormalizeIntentSecurityCredentialBindingsPreservesDeclaredSymbolicSecurity(t *testing.T) {
+	req := openAPISecurityRequirement{
+		Scheme: "hmac",
+		Type:   "apiKey",
+		In:     "header",
+		Name:   "Authorization",
+	}
+	step := &rollout.Step{
+		Name: "aws_s3_bucket_test_create",
+		Type: "openapi",
+		With: map[string]string{
+			"Authorization": "aws_west_hmac",
+		},
+	}
+	normalizeStepSecurityCredentialBinding(step, req, map[string]bool{"aws_west_hmac": true})
+	if got := step.With["Authorization"]; got != "aws_west_hmac" {
+		t.Fatalf("Authorization binding = %q, want declared symbolic provider binding", got)
 	}
 }
 

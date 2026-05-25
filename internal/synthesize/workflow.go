@@ -319,6 +319,16 @@ func intentRequestMap(values map[string]string, kind, openAPIPath, operationID s
 		requestValue := requestBindingValue(value)
 		parts := strings.Split(key, ".")
 		if len(parts) == 1 && isStandardRequestSection(parts[0]) {
+			if kind == "http" || kind == "openapi" {
+				if mapper == nil {
+					return nil, fmt.Errorf("API source request metadata is unavailable for %q", key)
+				}
+				placement, err := mapper.lookup(openAPIPath, operationID, key)
+				if err == nil {
+					assignRequestPlacement(root, placement, requestValue)
+					continue
+				}
+			}
 			if parts[0] != "body" {
 				return nil, fmt.Errorf("request section %q requires a field name", parts[0])
 			}

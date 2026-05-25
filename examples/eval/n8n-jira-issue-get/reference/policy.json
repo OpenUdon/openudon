@@ -6,5 +6,10 @@
   "issue_notes": {
     "*": "n8n-derived references are diagnostic first until the fixture graduates to strict mode."
   },
-  "max_blocking": 0
+  "max_blocking": 0,
+  "seed_build": {
+    "expected": "pass",
+    "class": "advisory",
+    "reason": "Advisory seed fixture is tracked for reducibility and currently builds successfully."
+  }
 }

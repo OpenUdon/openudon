@@ -224,7 +224,7 @@ func sideEffectTokens(value string) []string {
 }
 
 func containsCustomerCommunicationTerm(value string) bool {
-	return containsAny(value, []string{"email", "sms", "text message", "webhook", "customer message", "notify customer", "notification"})
+	return containsAny(value, []string{"email", "sms", "text message", "customer message", "notify customer", "notification"})
 }
 
 func openAPIMethodIsSideEffectful(method string) bool {

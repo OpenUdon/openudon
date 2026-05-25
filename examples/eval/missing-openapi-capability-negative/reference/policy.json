@@ -1,5 +1,12 @@
 {
   "mode": "strict",
-  "notes": ["Negative fixture: missing OpenAPI evidence must become a local gap report, not an invented API call."],
-  "max_blocking": 0
+  "notes": [
+    "Negative fixture: missing OpenAPI evidence must become a local gap report, not an invented API call."
+  ],
+  "max_blocking": 0,
+  "seed_build": {
+    "expected": "pass",
+    "class": "expected-negative",
+    "reason": "Negative or repair seed fixture should materialize a reviewable package without executing disallowed behavior."
+  }
 }

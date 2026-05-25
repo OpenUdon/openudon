@@ -1,5 +1,12 @@
 {
   "mode": "strict",
-  "notes": ["Negative fixture: unsafe production side effects must be converted into an approval package."],
-  "max_blocking": 0
+  "notes": [
+    "Negative fixture: unsafe production side effects must be converted into an approval package."
+  ],
+  "max_blocking": 0,
+  "seed_build": {
+    "expected": "pass",
+    "class": "expected-negative",
+    "reason": "Negative or repair seed fixture should materialize a reviewable package without executing disallowed behavior."
+  }
 }

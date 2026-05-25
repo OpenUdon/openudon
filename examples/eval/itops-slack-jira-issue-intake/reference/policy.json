@@ -3,5 +3,10 @@
   "notes": [
     "Initial strict multi-service SaaS authoring fixture inspired by the Slack-to-Jira issue intake template; attachment handling is intentionally outside this first strict slice."
   ],
-  "max_blocking": 0
+  "max_blocking": 0,
+  "seed_build": {
+    "expected": "pass",
+    "class": "strict-positive",
+    "reason": "Strict positive seed fixture must materialize and build successfully from its reference intent."
+  }
 }

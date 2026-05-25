@@ -28,7 +28,33 @@
     },
     "/gmail/v1/users/me/messages/send": {
       "post": {
-        "operationId": "sendMessage"
+        "operationId": "sendMessage",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "sendTo",
+                  "subject",
+                  "message"
+                ],
+                "properties": {
+                  "sendTo": {
+                    "type": "string"
+                  },
+                  "subject": {
+                    "type": "string"
+                  },
+                  "message": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        }
       }
     },
     "/gmail/v1/users/me/messages/{messageId}": {

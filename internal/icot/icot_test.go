@@ -2,6 +2,7 @@ package icot
 
 import (
 	"bytes"
+	"context"
 	"os"
 	"path/filepath"
 	"strings"
@@ -10,6 +11,7 @@ import (
 	evalpkg "github.com/OpenUdon/openudon/internal/eval"
 	"github.com/OpenUdon/openudon/internal/icot/elicitor"
 	"github.com/OpenUdon/openudon/internal/projectwizard"
+	"github.com/OpenUdon/openudon/internal/synthesize"
 	rollout "github.com/OpenUdon/openudon/internal/workflowintent"
 	runner "github.com/OpenUdon/openudon/internal/workflowintent"
 )
@@ -99,6 +101,98 @@ func TestLoadSeedSessionUsesReferenceIntent(t *testing.T) {
 	if len(session.Intent.Steps) == 0 || session.Intent.Steps[0].Operation != "postMessage" {
 		t.Fatalf("seed steps missing postMessage: %#v", session.Intent.Steps)
 	}
+}
+
+func TestEvalReferenceSeedBuildMatrix(t *testing.T) {
+	fixtureRoot, err := filepath.Abs(filepath.Join("..", "..", "examples", "eval"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	entries, err := os.ReadDir(fixtureRoot)
+	if err != nil {
+		t.Fatal(err)
+	}
+	outRoot := t.TempDir()
+	for _, entry := range entries {
+		if !entry.IsDir() {
+			continue
+		}
+		name := entry.Name()
+		t.Run(name, func(t *testing.T) {
+			seedDir := filepath.Join(fixtureRoot, name)
+			policy, err := evalpkg.ReadReferencePolicy(filepath.Join(seedDir, "reference", "policy.json"))
+			if err != nil {
+				t.Fatalf("read reference policy: %v", err)
+			}
+			if policy.SeedBuild == nil || policy.SeedBuild.Expected == "" || policy.SeedBuild.Class == "" {
+				t.Fatalf("reference policy must declare seed_build.expected and seed_build.class")
+			}
+			exampleDir := filepath.Join(outRoot, name)
+			var stdout, stderr bytes.Buffer
+			code := Main([]string{"--example", exampleDir, "--from-example", seedDir, "--no-llm", "--no-transcript"}, strings.NewReader(""), &stdout, &stderr)
+			if code != 0 {
+				assertSeedBuildOutcome(t, policy, "icot_fail", nil, strings.TrimSpace(stderr.String()))
+				return
+			}
+			_, report, err := synthesize.PackageFromIntent(context.Background(), synthesize.Options{ExampleDir: exampleDir})
+			if err != nil {
+				assertSeedBuildOutcome(t, policy, "build_fail", []string{"build:error"}, err.Error())
+				return
+			}
+			if report == nil || !report.Passed() {
+				assertSeedBuildOutcome(t, policy, "build_fail", failedQualityCodes(report), qualityFailureDetails(report))
+				return
+			}
+			assertSeedBuildOutcome(t, policy, "pass", nil, "")
+		})
+	}
+}
+
+func assertSeedBuildOutcome(t *testing.T, policy evalpkg.ReferencePolicy, got string, codes []string, detail string) {
+	t.Helper()
+	expected := policy.SeedBuild.Expected
+	if got != expected {
+		t.Fatalf("seed/build outcome = %s, want %s; codes=%v detail=%s", got, expected, codes, detail)
+	}
+	if expected == "pass" || len(policy.SeedBuild.AllowedFailureCodes) == 0 {
+		return
+	}
+	allowed := map[string]bool{}
+	for _, code := range policy.SeedBuild.AllowedFailureCodes {
+		allowed[code] = true
+	}
+	for _, code := range codes {
+		if allowed[code] {
+			return
+		}
+	}
+	t.Fatalf("seed/build failure codes = %v, want one of %v; detail=%s", codes, policy.SeedBuild.AllowedFailureCodes, detail)
+}
+
+func failedQualityCodes(report *synthesize.QualityReport) []string {
+	if report == nil {
+		return nil
+	}
+	var out []string
+	for _, check := range report.Checks {
+		if check.Status == "fail" {
+			out = append(out, check.Code)
+		}
+	}
+	return out
+}
+
+func qualityFailureDetails(report *synthesize.QualityReport) string {
+	if report == nil {
+		return ""
+	}
+	var out []string
+	for _, check := range report.Checks {
+		if check.Status == "fail" {
+			out = append(out, check.Code+": "+check.Detail)
+		}
+	}
+	return strings.Join(out, "; ")
 }
 
 func TestAutosaveResumesAndDeletesAfterSave(t *testing.T) {

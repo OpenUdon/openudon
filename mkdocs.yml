@@ -42,6 +42,7 @@ nav:
     - Order Fulfillment Chain: tutorial-order-fulfillment.md
     - Support Email: tutorial-support-email.md
     - Eval Gallery: eval-gallery.md
+    - Eval Seed/Build Matrix: eval-seed-build-matrix.md
   - Handoff:
     - Safety: safety.md
     - Review Handoff: review-handoff.md

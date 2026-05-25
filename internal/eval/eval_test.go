@@ -158,6 +158,11 @@ func TestReadReferencePolicyNormalizesModeAndSeverity(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "policy.json")
 	if err := os.WriteFile(path, []byte(`{
   "mode": "ADVISORY",
+  "seed_build": {
+    "expected": "FAIL",
+    "class": "strict_positive",
+    "allowed_failure_codes": [" workflow.present ", ""]
+  },
   "severity_overrides": {"intent.step_operation": "BLOCKING"},
   "max_blocking": 1
 }`), 0o644); err != nil {
@@ -175,6 +180,12 @@ func TestReadReferencePolicyNormalizesModeAndSeverity(t *testing.T) {
 	}
 	if policy.MaxBlocking == nil || *policy.MaxBlocking != 1 {
 		t.Fatalf("max blocking = %#v, want 1", policy.MaxBlocking)
+	}
+	if policy.SeedBuild == nil || policy.SeedBuild.Expected != "build_fail" || policy.SeedBuild.Class != "strict-positive" {
+		t.Fatalf("seed build policy = %#v", policy.SeedBuild)
+	}
+	if len(policy.SeedBuild.AllowedFailureCodes) != 1 || policy.SeedBuild.AllowedFailureCodes[0] != "workflow.present" {
+		t.Fatalf("seed build allowed codes = %#v", policy.SeedBuild.AllowedFailureCodes)
 	}
 }
 

@@ -390,6 +390,10 @@ func ensureDeliverySinksFollowTerminalProducer(session *Session) {
 		if sink == nil {
 			continue
 		}
+		sinkType := strings.ToLower(strings.TrimSpace(sink.Type))
+		if sinkType != "http" && sinkType != "openapi" {
+			continue
+		}
 		if !deliverySinkStep(sink, "") {
 			continue
 		}
@@ -412,6 +416,10 @@ func singleTerminalProducerForDelivery(steps []*rollout.Step, sink *rollout.Step
 			continue
 		}
 		if sourceReferencesStep(step, sink.Name) {
+			continue
+		}
+		stepType := strings.ToLower(strings.TrimSpace(step.Type))
+		if stepType != "fnct" {
 			continue
 		}
 		if canProduceFnctRemediationInput(step, nil) && !deliverySinkStep(step, "") {

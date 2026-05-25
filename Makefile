@@ -1,4 +1,4 @@
-.PHONY: help test vet check apitools-boundary readiness release-check release-saas-check release-eval siblings validate-uws eval synthesize-support build-support promote-support assess-support
+.PHONY: help test vet check apitools-boundary readiness release-check release-saas-check release-eval eval-seed-build siblings validate-uws eval synthesize-support build-support promote-support assess-support
 
 GO ?= go
 OPENUDON_LLM_PROVIDER ?= copilot-api
@@ -10,7 +10,7 @@ OPENUDON_RELEASE_SAAS_FIXTURES ?= slack-message-audit-log gmail-send-audit-recei
 OPENUDON_RELEASE_DEMO_FIXTURES ?= gmail-send-audit-receipt order-fulfillment-chain
 
 help:
-	@echo "Targets: test, vet, check, readiness, release-check, release-saas-check, release-eval, siblings, validate-uws, eval, synthesize-support, build-support, promote-support, assess-support"
+	@echo "Targets: test, vet, check, readiness, release-check, release-saas-check, release-eval, eval-seed-build, siblings, validate-uws, eval, synthesize-support, build-support, promote-support, assess-support"
 
 test:
 	$(GO) test ./...
@@ -55,6 +55,9 @@ release-saas-check:
 
 release-eval:
 	$(GO) run ./cmd/openudon eval --root ./examples/eval --provider $(OPENUDON_LLM_PROVIDER) --model $(OPENUDON_LLM_MODEL) --release-gate --min-briefs $(OPENUDON_RELEASE_MIN_BRIEFS)
+
+eval-seed-build:
+	$(GO) test ./internal/icot -run TestEvalReferenceSeedBuildMatrix -count=1
 
 siblings:
 	$(GO) run ./cmd/openudon check

@@ -5,7 +5,8 @@ specific workflow behavior or failure class rather than merely adding volume. Fo
 fixture policy, readiness matrix, and advisory-to-strict graduation criteria, see
 [SaaS Authoring Corpus](saas-authoring-corpus.md). For M18 cross-service patterns, see
 [Multi-Service SaaS Patterns](multi-service-saas-patterns.md). For M20 trial results, see
-[SaaS Authoring Trials](saas-authoring-trials.md).
+[SaaS Authoring Trials](saas-authoring-trials.md). For the deterministic iCoT seed/build contract,
+see [Eval Seed/Build Matrix](eval-seed-build-matrix.md).
 
 | Sample | Purpose |
 | --- | --- |
@@ -69,6 +70,8 @@ Add samples only when they strengthen coverage:
 - Add `reference/policy.json` when the reference is illustrative or needs per-fixture triage notes.
   Use `mode: "strict"` for golden references and `mode: "advisory"` when deterministic quality
   gates are authoritative but exact intent shape may drift.
+- Add `seed_build` to `reference/policy.json` so iCoT reference seeding and build behavior is
+  classified as strict-positive, expected-negative, or advisory evidence.
 - Treat step names, output names, request literal names, and bind field names as semantic hints by
   default. They should help diagnose drift, but they are not release-blocking by themselves.
 - Treat wrong runtime type, wrong selected OpenAPI operation, and reference parse/compare failures
