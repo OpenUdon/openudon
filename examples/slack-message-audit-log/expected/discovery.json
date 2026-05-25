@@ -1,0 +1,10 @@
+{
+  "attempts": [
+    {
+      "kind": "local",
+      "source": "/home/peter/Workspace/openudon/examples/slack-message-audit-log/openapi",
+      "status": "pass",
+      "detail": "1 local OpenAPI document(s)"
+    }
+  ]
+}

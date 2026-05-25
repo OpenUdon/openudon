@@ -1,0 +1,58 @@
+info:
+    description: Post a sandbox chat message and render a local audit log from the response.
+    title: slack_message_audit_log
+    version: 1.0.0
+operations:
+    - description: Post one sandbox chat message.
+      openapiOperationId: postMessage
+      operationId: post_message
+      request:
+        body:
+            channel:
+                $expr: variables.inputs.channel
+            text:
+                $expr: variables.inputs.text
+      sourceDescription: slack
+    - dependsOn:
+        - post_message
+      description: Render a local audit log from the post response.
+      operationId: render_audit_log
+      request:
+        body:
+            channel:
+                $expr: post_message.received_body.channel
+            ok:
+                $expr: post_message.received_body.ok
+            ts:
+                $expr: post_message.received_body.ts
+      x-uws-operation-profile: uws.runtime.1.0
+      x-uws-runtime:
+        arguments:
+            - name: channel
+              value: post_message.received_body.channel
+            - name: ok
+              value: post_message.received_body.ok
+            - name: ts
+              value: post_message.received_body.ts
+        function: render_audit_log
+        type: fnct
+sourceDescriptions:
+    - name: slack
+      type: openapi
+      url: openapi/slack.yaml
+uws: 1.0.0
+workflows:
+    - description: Post a sandbox chat message and render a local audit log from the response.
+      outputs:
+        audit_log: render_audit_log.received_body
+      steps:
+        - description: Post one sandbox chat message.
+          operationRef: post_message
+          stepId: post_message
+        - dependsOn:
+            - post_message
+          description: Render a local audit log from the post response.
+          operationRef: render_audit_log
+          stepId: render_audit_log
+      type: sequence
+      workflowId: main

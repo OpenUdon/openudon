@@ -155,6 +155,10 @@ func runAuthor(args []string, in io.Reader, out, errOut io.Writer) int {
 		fmt.Fprintln(errOut, err)
 		return 1
 	}
+	if err := copySeedSourceArtifacts(*fromExample, exampleDir, *force); err != nil {
+		fmt.Fprintln(errOut, err)
+		return 1
+	}
 	if err := elicitor.DeleteDraft(draftPath); err != nil {
 		fmt.Fprintln(errOut, err)
 		return 1
@@ -792,7 +796,7 @@ func loadSeedSession(fromExample, exampleDir string, force bool) (elicitor.Sessi
 	} else if !os.IsNotExist(projectErr) || strings.TrimSpace(fromExample) != "" {
 		return elicitor.Session{}, projectErr
 	}
-	intent, intentErr := rollout.ParseIntentFile(filepath.Join(seedDir, "workflows", "intent.hcl"))
+	intent, intentErr := parseSeedIntent(seedDir)
 	if intentErr == nil {
 		return elicitor.SessionFromIntent(intent, project), nil
 	}
@@ -803,6 +807,88 @@ func loadSeedSession(fromExample, exampleDir string, force bool) (elicitor.Sessi
 		return elicitor.Session{}, intentErr
 	}
 	return elicitor.Session{}, nil
+}
+
+func parseSeedIntent(seedDir string) (*rollout.Intent, error) {
+	workflowPath := filepath.Join(seedDir, "workflows", "intent.hcl")
+	intent, err := rollout.ParseIntentFile(workflowPath)
+	if err == nil {
+		return intent, nil
+	}
+	if !errors.Is(err, os.ErrNotExist) {
+		return nil, err
+	}
+	referencePath := filepath.Join(seedDir, "reference", "intent.hcl")
+	intent, referenceErr := rollout.ParseIntentFile(referencePath)
+	if referenceErr == nil {
+		return intent, nil
+	}
+	if errors.Is(referenceErr, os.ErrNotExist) {
+		return nil, err
+	}
+	return nil, referenceErr
+}
+
+func copySeedSourceArtifacts(fromExample, exampleDir string, force bool) error {
+	seedDir := strings.TrimSpace(fromExample)
+	if seedDir == "" || filepath.Clean(seedDir) == filepath.Clean(exampleDir) {
+		return nil
+	}
+	for _, dir := range []string{"openapi", "google-discovery", "aws-smithy"} {
+		if err := copySeedArtifactDir(filepath.Join(seedDir, dir), filepath.Join(exampleDir, dir), force); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func copySeedArtifactDir(srcDir, dstDir string, force bool) error {
+	info, err := os.Stat(srcDir)
+	if os.IsNotExist(err) {
+		return nil
+	}
+	if err != nil {
+		return err
+	}
+	if !info.IsDir() {
+		return fmt.Errorf("seed artifact path %s is not a directory", srcDir)
+	}
+	return filepath.WalkDir(srcDir, func(path string, d os.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+		rel, err := filepath.Rel(srcDir, path)
+		if err != nil {
+			return err
+		}
+		if rel == "." {
+			return os.MkdirAll(dstDir, 0o755)
+		}
+		target := filepath.Join(dstDir, rel)
+		if d.IsDir() {
+			return os.MkdirAll(target, 0o755)
+		}
+		info, err := d.Info()
+		if err != nil {
+			return err
+		}
+		if !info.Mode().IsRegular() {
+			return fmt.Errorf("seed artifact path %s is not a regular file", path)
+		}
+		if _, err := os.Stat(target); err == nil && !force {
+			return nil
+		} else if err != nil && !os.IsNotExist(err) {
+			return err
+		}
+		data, err := os.ReadFile(path)
+		if err != nil {
+			return err
+		}
+		if err := os.MkdirAll(filepath.Dir(target), 0o755); err != nil {
+			return err
+		}
+		return os.WriteFile(target, data, info.Mode().Perm())
+	})
 }
 
 func previewAndConfirm(in io.Reader, out io.Writer, rendered string) (bool, error) {

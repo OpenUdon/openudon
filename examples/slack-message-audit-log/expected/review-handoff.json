@@ -1,0 +1,142 @@
+{
+  "version": "apitools.review-handoff.v1",
+  "generated_state": "generated",
+  "handoff_inputs": [
+    {
+      "path": "expected/data.hcl",
+      "purpose": "Reviewed non-secret runtime input values staged with the trusted executor package.",
+      "required": true
+    },
+    {
+      "path": "expected/plan.json",
+      "purpose": "Machine-readable expected steps, bindings, credentials, control flow, and side-effect hints.",
+      "required": true
+    },
+    {
+      "path": "expected/quality.json",
+      "purpose": "Deterministic quality gate result.",
+      "required": true
+    },
+    {
+      "path": "expected/refinement.json",
+      "purpose": "Generation/refinement attempts, failed checks, and stop reason.",
+      "required": true
+    },
+    {
+      "path": "expected/review-handoff.json",
+      "purpose": "Machine-readable review handoff manifest for reviewer or orchestrator routing.",
+      "required": true
+    },
+    {
+      "path": "expected/review.md",
+      "purpose": "Human review evidence, unresolved risks, skipped execution notes, and trusted-runner command text.",
+      "required": true
+    },
+    {
+      "path": "openapi/slack.yaml",
+      "purpose": "Reviewed API source contract staged with the trusted executor package.",
+      "required": true
+    },
+    {
+      "path": "project.md",
+      "purpose": "Source brief, integration policy, runtime policy, credentials policy, safety boundary, and fallback behavior.",
+      "required": true
+    },
+    {
+      "path": "workflows/intent.hcl",
+      "purpose": "Structured intent extracted from the project brief.",
+      "required": true
+    },
+    {
+      "path": "workflows/workflow.hcl",
+      "purpose": "Public UWS HCL document produced from intent.",
+      "required": true
+    },
+    {
+      "path": "workflows/workflow.uws.yaml",
+      "purpose": "Public UWS YAML artifact validated against the public UWS schema and local execution-profile checks.",
+      "required": true
+    }
+  ],
+  "approval_states": [
+    {
+      "name": "generated",
+      "meaning": "Artifacts were emitted; no approval is implied.",
+      "allowed_next_states": [
+        "validated",
+        "rejected"
+      ]
+    },
+    {
+      "name": "validated",
+      "meaning": "Required validators and quality gates passed, or known warnings are attached.",
+      "allowed_next_states": [
+        "review_required",
+        "rejected"
+      ]
+    },
+    {
+      "name": "review_required",
+      "meaning": "Human review is required before side-effectful execution.",
+      "allowed_next_states": [
+        "approved_for_sandbox",
+        "approved_for_production",
+        "rejected"
+      ]
+    },
+    {
+      "name": "approved_for_sandbox",
+      "meaning": "A reviewer approved sandbox or test-endpoint execution only.",
+      "allowed_next_states": [
+        "review_required",
+        "approved_for_production",
+        "rejected"
+      ]
+    },
+    {
+      "name": "approved_for_production",
+      "meaning": "A reviewer approved production execution through a trusted runner and approved credentials.",
+      "allowed_next_states": [
+        "rejected"
+      ]
+    },
+    {
+      "name": "rejected",
+      "meaning": "A reviewer rejected the artifact or requested regeneration.",
+      "allowed_next_states": [
+        "generated"
+      ]
+    }
+  ],
+  "owner_split": {
+    "external_review_orchestration": [
+      "review routing",
+      "reviewer identity",
+      "audit trail",
+      "workspace linkage",
+      "state transitions",
+      "production-execution enforcement"
+    ],
+    "openudon": [
+      "artifact generation",
+      "deterministic validation",
+      "review evidence",
+      "credential-binding inventory",
+      "trusted-runner command text"
+    ]
+  },
+  "execution_policy": {
+    "side_effectful": true,
+    "required_next_state": "review_required",
+    "sandbox_proof_run_state": "approved_for_sandbox",
+    "production_execution_state": "approved_for_production",
+    "direct_production_execution": false
+  },
+  "credential_bindings": {
+    "values_allowed_in_artifacts": false
+  },
+  "trusted_runner": {
+    "command": "openudon run --example slack-message-audit-log --tier sandbox --approval approvals/slack-message-audit-log.json",
+    "sandbox_only": true
+  }
+}

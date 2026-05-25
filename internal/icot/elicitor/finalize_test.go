@@ -107,6 +107,64 @@ func TestRenderArtifactsWeatherGmailAddsReportPlaceholderAndOrdersChain(t *testi
 	}
 }
 
+func TestRenderArtifactsDoesNotReverseDependOnAuditRenderer(t *testing.T) {
+	session := Session{
+		Project: projectwizard.Answers{
+			Goal:            "Post a sandbox Slack-style message and render a local audit log from the post response.",
+			SideEffectScope: projectwizard.SideEffectSandboxOnly,
+			Safety:          "Posting a chat message is side-effectful and requires human approval plus trusted-runner execution.",
+			Fallback:        "Stop if the message cannot be posted.",
+		},
+		CredentialsSet: true,
+		SafetySet:      true,
+		FallbackSet:    true,
+		Intent: rollout.Intent{
+			OpenAPI:  "openapi/slack.yaml",
+			Workflow: &rollout.WorkflowMeta{Name: "slack_message_audit_log", Description: "Post a sandbox chat message and render a local audit log from the response."},
+			Inputs: []*rollout.Input{
+				{Name: "channel", Type: "string", Required: true},
+				{Name: "text", Type: "string", Required: true},
+			},
+			Steps: []*rollout.Step{
+				{
+					Name:      "post_message",
+					Type:      "http",
+					Do:        "Post one sandbox chat message.",
+					Operation: "postMessage",
+					With:      map[string]string{"channel": "inputs.channel", "text": "inputs.text"},
+				},
+				{
+					Name:      "render_audit_log",
+					Type:      "fnct",
+					Do:        "Render a local audit log from the post response.",
+					DependsOn: []string{"post_message"},
+					Binds: []*rollout.StepBind{{
+						From:   "post_message",
+						Fields: map[string]string{"ok": "received_body.ok", "channel": "received_body.channel", "ts": "received_body.ts"},
+					}},
+				},
+			},
+			Outputs: []*rollout.Output{{Name: "audit_log", From: "render_audit_log.received_body"}},
+		},
+	}
+
+	artifacts, err := RenderArtifacts(session)
+	if err != nil {
+		t.Fatalf("RenderArtifacts failed: %v", err)
+	}
+	post := stepByName(artifacts.Session.Intent.Steps, "post_message")
+	if post == nil {
+		t.Fatalf("post_message missing: %#v", artifacts.Session.Intent.Steps)
+	}
+	if containsString(post.DependsOn, "render_audit_log") {
+		t.Fatalf("post_message got reverse dependency on audit renderer: %#v\n%s", post.DependsOn, artifacts.IntentHCL)
+	}
+	render := stepByName(artifacts.Session.Intent.Steps, "render_audit_log")
+	if render == nil || !containsString(render.DependsOn, "post_message") {
+		t.Fatalf("render_audit_log dependency not preserved: %#v", render)
+	}
+}
+
 func TestRenderArtifactsWeatherGmailDoesNotTreatGeocoderGoalTextAsGmailStep(t *testing.T) {
 	session := Session{
 		Project: projectwizard.Answers{Goal: "get weather in toronto, canada, and send the report using Google Gmail"},

@@ -1,0 +1,36 @@
+openapi: 3.0.0
+info:
+  title: Slack Chat API
+  version: 1.0.0
+servers:
+  - url: https://slack.example.test
+paths:
+  /chat.postMessage:
+    post:
+      operationId: postMessage
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [channel, text]
+              properties:
+                channel:
+                  type: string
+                text:
+                  type: string
+      responses:
+        "200":
+          description: posted message
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ok:
+                    type: boolean
+                  channel:
+                    type: string
+                  ts:
+                    type: string

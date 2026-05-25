@@ -1,0 +1,53 @@
+{
+  "version": "openudon.workflow-plan.v1",
+  "example": "slack-message-audit-log",
+  "workflow": "slack_message_audit_log",
+  "summary": "Post a sandbox chat message and render a local audit log from the response.",
+  "steps": [
+    {
+      "name": "post_message",
+      "type": "http",
+      "inferred": true,
+      "openapi": "openapi/slack.yaml",
+      "operation": "postMessage",
+      "runtime": "http",
+      "bindings": [
+        {
+          "target": "channel",
+          "source": "inputs.channel"
+        },
+        {
+          "target": "text",
+          "source": "inputs.text"
+        }
+      ]
+    },
+    {
+      "name": "render_audit_log",
+      "type": "fnct",
+      "inferred": true,
+      "openapi": "openapi/slack.yaml",
+      "runtime": "fnct",
+      "depends_on": [
+        "post_message"
+      ],
+      "bindings": [
+        {
+          "from": "post_message",
+          "target": "channel",
+          "source": "received_body.channel"
+        },
+        {
+          "from": "post_message",
+          "target": "ok",
+          "source": "received_body.ok"
+        },
+        {
+          "from": "post_message",
+          "target": "ts",
+          "source": "received_body.ts"
+        }
+      ]
+    }
+  ]
+}

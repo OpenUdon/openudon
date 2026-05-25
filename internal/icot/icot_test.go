@@ -70,6 +70,37 @@ func TestBackupProjectCreatesDistinctBackups(t *testing.T) {
 	}
 }
 
+func TestLoadSeedSessionUsesReferenceIntent(t *testing.T) {
+	seedDir, err := filepath.Abs(filepath.Join("..", "..", "examples", "eval", "slack-message-audit-log"))
+	if err != nil {
+		t.Fatalf("resolve seed dir: %v", err)
+	}
+	intent, err := parseSeedIntent(seedDir)
+	if err != nil {
+		t.Fatalf("parseSeedIntent failed: %v", err)
+	}
+	if len(intent.Steps) == 0 || intent.Steps[0].Operation != "postMessage" {
+		t.Fatalf("parsed seed intent missing postMessage: %#v", intent.Steps)
+	}
+	session, source, err := authorSession("", seedDir, filepath.Join(t.TempDir(), "seeded"), false, false)
+	if err != nil {
+		t.Fatalf("authorSession failed: %v", err)
+	}
+	if source != seedSourceSeed {
+		t.Fatalf("source = %q, want %q", source, seedSourceSeed)
+	}
+	if !completeSession(session) {
+		_, err := elicitor.RenderArtifacts(session)
+		t.Fatalf("seed session is incomplete: %v", err)
+	}
+	if got := session.Intent.OpenAPI; got != "openapi/slack.yaml" {
+		t.Fatalf("intent openapi = %q, want openapi/slack.yaml", got)
+	}
+	if len(session.Intent.Steps) == 0 || session.Intent.Steps[0].Operation != "postMessage" {
+		t.Fatalf("seed steps missing postMessage: %#v", session.Intent.Steps)
+	}
+}
+
 func TestAutosaveResumesAndDeletesAfterSave(t *testing.T) {
 	example := filepath.Join(t.TempDir(), "guided")
 	var stdout, stderr bytes.Buffer

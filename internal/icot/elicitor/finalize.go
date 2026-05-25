@@ -411,6 +411,9 @@ func singleTerminalProducerForDelivery(steps []*rollout.Step, sink *rollout.Step
 		if step == nil || step == sink {
 			continue
 		}
+		if sourceReferencesStep(step, sink.Name) {
+			continue
+		}
 		if canProduceFnctRemediationInput(step, nil) && !deliverySinkStep(step, "") {
 			candidates = append(candidates, step)
 		}

@@ -253,6 +253,28 @@ func TestCLIAnswersYAMLNoPrompts(t *testing.T) {
 	}
 }
 
+func TestCLIFromExampleUsesReferenceIntentAndCopiesSources(t *testing.T) {
+	example := filepath.Join(t.TempDir(), "seeded-slack")
+	cmd := helperCommand("--example", example, "--from-example", "examples/eval/slack-message-audit-log")
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		t.Fatalf("icot --from-example slack failed: %v\n%s", err, output)
+	}
+	if strings.Contains(string(output), "Use these for operation selection?") {
+		t.Fatalf("seeded fixture unexpectedly prompted for API document selection:\n%s", output)
+	}
+	intent, err := os.ReadFile(filepath.Join(example, "workflows", "intent.hcl"))
+	if err != nil {
+		t.Fatalf("read seeded intent.hcl: %v", err)
+	}
+	if !strings.Contains(string(intent), `operation = "postMessage"`) {
+		t.Fatalf("seeded intent missing reference operation:\n%s", intent)
+	}
+	if _, err := os.Stat(filepath.Join(example, "openapi", "slack.yaml")); err != nil {
+		t.Fatalf("seeded source artifact was not copied: %v", err)
+	}
+}
+
 func TestCLIAnswersJSONPrintWritesNoFiles(t *testing.T) {
 	dir := t.TempDir()
 	answersPath := filepath.Join(dir, "answers.json")
