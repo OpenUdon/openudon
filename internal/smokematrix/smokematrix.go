@@ -30,6 +30,9 @@ const (
 	StatusDryRunOnly        = "dry_run_only"
 	StatusSkippedMissingEnv = "skipped_missing_env"
 	StatusSkippedManual     = "skipped_manual_provider"
+
+	maxScenarioDetailLength = 1600
+	truncatedDetailSuffix   = "... [truncated]"
 )
 
 type Options struct {
@@ -585,9 +588,9 @@ info:
   title: Slack Chat API
   version: 1.0.0
 servers:
-  - url: https://slack.com/api
+  - url: https://slack.com
 paths:
-  /chat.postMessage:
+  /api/chat.postMessage:
     post:
       operationId: postMessage
       security:
@@ -633,7 +636,37 @@ components:
 		if err := os.WriteFile(projectPath, []byte(projectText), 0o644); err != nil {
 			return err
 		}
-		return os.WriteFile(path, []byte(data), 0o644)
+		if err := os.WriteFile(path, []byte(data), 0o644); err != nil {
+			return err
+		}
+		intent := `openapi = "openapi/slack.yaml"
+workflow {
+  name        = "slack_message_audit_log"
+  description = "Post a sandbox chat message and return Slack response metadata."
+}
+input "channel" {
+  type     = "string"
+  required = true
+}
+input "text" {
+  type     = "string"
+  required = true
+}
+step "post_message" {
+  type = "http"
+  do   = "Post one sandbox chat message."
+  with = {
+    Authorization = "credentials.slackBearer"
+    channel       = "inputs.channel"
+    text          = "inputs.text"
+  }
+  operation = "postMessage"
+}
+output "slack_response" {
+  from = "post_message.received_body"
+}
+`
+		return os.WriteFile(filepath.Join(exampleDir, "workflows", "intent.hcl"), []byte(intent), 0o644)
 	case "weather-live":
 		if mode != ModeLive {
 			return nil
@@ -870,7 +903,18 @@ func sanitizeDetail(detail string, keys []string) string {
 			detail = strings.ReplaceAll(detail, value, "[redacted]")
 		}
 	}
-	return detail
+	return limitDetail(detail)
+}
+
+func limitDetail(detail string) string {
+	if len(detail) <= maxScenarioDetailLength {
+		return detail
+	}
+	cutoff := maxScenarioDetailLength - len(truncatedDetailSuffix)
+	if cutoff < 0 {
+		cutoff = 0
+	}
+	return strings.TrimSpace(detail[:cutoff]) + truncatedDetailSuffix
 }
 
 func writeReport(path string, report *Report) error {

@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -31,16 +32,16 @@ func TestDefaultScenariosCoverBroadSmokeMatrix(t *testing.T) {
 
 func TestRunDryRunWritesRedactedSummary(t *testing.T) {
 	repoRoot := repoRootForTest(t)
-	out := filepath.Join(repoRoot, ".openudon-run", "test-smoke-summary.json")
+	runRoot := filepath.Join(repoRoot, ".openudon-run", "test-smoke-dry-run-"+strconv.Itoa(os.Getpid()))
+	out := filepath.Join(runRoot, "summary.json")
 	t.Cleanup(func() {
-		_ = os.RemoveAll(filepath.Join(repoRoot, ".openudon-run", "test-smoke-dry-run"))
-		_ = os.Remove(out)
+		_ = os.RemoveAll(runRoot)
 	})
 	secret := "slack-secret-value-for-redaction"
 	t.Setenv("UDON_CREDENTIAL_SLACK_BOT_TOKEN", secret)
 	report, err := Run(context.Background(), Options{
 		RepoRoot: repoRoot,
-		WorkDir:  filepath.Join(repoRoot, ".openudon-run", "test-smoke-dry-run"),
+		WorkDir:  filepath.Join(runRoot, "work"),
 		OutPath:  out,
 		Mode:     ModeDryRun,
 		Now:      fixedNow,
@@ -58,7 +59,7 @@ func TestRunDryRunWritesRedactedSummary(t *testing.T) {
 		}},
 	})
 	if err != nil {
-		t.Fatalf("Run dry-run returned error: %v", err)
+		t.Fatalf("Run dry-run returned error: %v; report=%#v", err, report)
 	}
 	if report.Status != StatusPass {
 		t.Fatalf("status = %s, want pass", report.Status)
@@ -160,6 +161,46 @@ func TestSlackAliasesCoverDeclaredAndExecutorBindings(t *testing.T) {
 	}
 }
 
+func TestSlackLiveOverlayUsesExplicitAPIPostMessagePath(t *testing.T) {
+	dir := t.TempDir()
+	if err := os.MkdirAll(filepath.Join(dir, "openapi"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.MkdirAll(filepath.Join(dir, "workflows"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	projectPath := filepath.Join(dir, "project.md")
+	project := "## Safety and Approval Boundary\n\n- No credentials are required for this sandbox fixture.\n"
+	if err := os.WriteFile(projectPath, []byte(project), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	err := applyOverlay(dir, ModeLive, Scenario{Overlay: "slack-live"}, "")
+	if err != nil {
+		t.Fatalf("apply Slack overlay: %v", err)
+	}
+	data, err := os.ReadFile(filepath.Join(dir, "openapi", "slack.yaml"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	text := string(data)
+	if !strings.Contains(text, "url: https://slack.com\n") {
+		t.Fatalf("Slack overlay should keep server host-only:\n%s", text)
+	}
+	if !strings.Contains(text, "/api/chat.postMessage:") {
+		t.Fatalf("Slack overlay should use explicit API path:\n%s", text)
+	}
+	intent, err := os.ReadFile(filepath.Join(dir, "workflows", "intent.hcl"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(string(intent), "render_audit_log") {
+		t.Fatalf("Slack live overlay should not require a runtime render helper:\n%s", intent)
+	}
+	if !strings.Contains(string(intent), `from = "post_message.received_body"`) {
+		t.Fatalf("Slack live overlay should return provider response metadata:\n%s", intent)
+	}
+}
+
 func TestWeatherUsesOpenWeatherCredentialName(t *testing.T) {
 	var weather Scenario
 	for _, scenario := range DefaultScenarios() {
@@ -173,6 +214,24 @@ func TestWeatherUsesOpenWeatherCredentialName(t *testing.T) {
 	}
 	if weather.EnvAliases["UDON_CREDENTIAL_INPUTS_APPID"] != "UDON_CREDENTIAL_OPENWEATHERAPIKEY" {
 		t.Fatalf("weather compatibility alias = %#v", weather.EnvAliases)
+	}
+}
+
+func TestSanitizeDetailRedactsAndLimitsOutput(t *testing.T) {
+	t.Setenv("OPENUDON_TEST_SECRET", "secret-value")
+	detail := "prefix secret-value " + strings.Repeat("x", maxScenarioDetailLength*2)
+	got := sanitizeDetail(detail, []string{"OPENUDON_TEST_SECRET"})
+	if strings.Contains(got, "secret-value") {
+		t.Fatalf("sanitizeDetail leaked secret: %q", got)
+	}
+	if !strings.Contains(got, "[redacted]") {
+		t.Fatalf("sanitizeDetail did not include redaction marker: %q", got)
+	}
+	if len(got) > maxScenarioDetailLength {
+		t.Fatalf("sanitizeDetail length = %d, want <= %d", len(got), maxScenarioDetailLength)
+	}
+	if !strings.HasSuffix(got, truncatedDetailSuffix) {
+		t.Fatalf("sanitizeDetail suffix = %q, want truncation suffix", got)
 	}
 }
 

@@ -3,7 +3,7 @@ module github.com/OpenUdon/openudon
 go 1.26.3
 
 require (
-	github.com/OpenUdon/apitools v0.0.0-20260523003429-09cea5aa5ae1
+	github.com/OpenUdon/apitools v0.0.0-20260525034344-3df8f5e2a23d
 	github.com/OpenUdon/tfconfig v0.0.0-20260509192333-e523c2b30f3e
 	github.com/OpenUdon/uws v0.0.0-20260523003429-d922781173ab
 	github.com/hashicorp/hcl/v2 v2.24.0
@@ -46,6 +46,7 @@ require (
 	github.com/zclconf/go-cty-yaml v1.1.0 // indirect
 	golang.org/x/crypto v0.51.0 // indirect
 	golang.org/x/net v0.54.0 // indirect
+	golang.org/x/oauth2 v0.34.0 // indirect
 	golang.org/x/sync v0.20.0 // indirect
 	golang.org/x/sys v0.44.0 // indirect
 	golang.org/x/text v0.37.0 // indirect
