@@ -19,6 +19,7 @@ import (
 	"github.com/OpenUdon/openudon/internal/localcheck"
 	"github.com/OpenUdon/openudon/internal/n8nbridge"
 	"github.com/OpenUdon/openudon/internal/readiness"
+	"github.com/OpenUdon/openudon/internal/smokematrix"
 	"github.com/OpenUdon/openudon/internal/synthesize"
 	"github.com/OpenUdon/openudon/internal/tfconvert"
 	"github.com/OpenUdon/openudon/internal/trustedrunner"
@@ -46,6 +47,7 @@ func main() {
 		fmt.Fprintf(flag.CommandLine.Output(), "  promote   export/validate UWS from an existing workflow.hcl\n")
 		fmt.Fprintf(flag.CommandLine.Output(), "  readiness write local private-checkout and deterministic-gate readiness report\n")
 		fmt.Fprintf(flag.CommandLine.Output(), "  run       validate approval gates and invoke a trusted executor handoff\n")
+		fmt.Fprintf(flag.CommandLine.Output(), "  smoke-matrix run provider-free or opt-in live product smoke scenarios\n")
 		fmt.Fprintf(flag.CommandLine.Output(), "  synthesize generate intent, workflow, UWS, and review artifacts for an example\n")
 		fmt.Fprintf(flag.CommandLine.Output(), "  validate  validate one UWS JSON/YAML file or a directory of UWS artifacts\n")
 		fmt.Fprintf(flag.CommandLine.Output(), "  version   print version\n")
@@ -89,6 +91,8 @@ func main() {
 		runArtifactCommand(command, flag.Args()[1:])
 	case "run":
 		runTrustedCommand(flag.Args()[1:])
+	case "smoke-matrix":
+		runSmokeMatrixCommand(flag.Args()[1:])
 	case "approval-template":
 		runApprovalTemplateCommand(flag.Args()[1:])
 	case "eval":
@@ -432,6 +436,55 @@ func runTrustedCommand(args []string) {
 	fmt.Printf("  workdir:  %s\n", result.WorkDir)
 	fmt.Printf("  stage:    %s\n", result.StagePath)
 	fmt.Printf("  digest:   %s\n", result.PackageSHA256)
+}
+
+func runSmokeMatrixCommand(args []string) {
+	fs := flag.NewFlagSet("smoke-matrix", flag.ExitOnError)
+	mode := fs.String("mode", smokematrix.ModeDryRun, "Smoke mode: dry-run or live")
+	workdir := fs.String("workdir", ".openudon-run/product-smoke", "Ignored smoke work directory")
+	out := fs.String("out", ".openudon-run/product-smoke/summary.json", "Write product smoke summary JSON")
+	var scenarios repeatedStringFlag
+	fs.Var(&scenarios, "scenario", "Repeatable scenario ID to run instead of the full matrix")
+	fs.Usage = func() {
+		fmt.Fprintf(fs.Output(), "Usage: openudon smoke-matrix [--mode dry-run|live] [--scenario ID] [--workdir .openudon-run/product-smoke] [--out .openudon-run/product-smoke/summary.json]\n")
+		fmt.Fprintf(fs.Output(), "\nBuilds M37 product smoke packages from reviewed eval fixtures, runs trusted-runner dry-runs, and in live mode invokes only scenarios with explicit live policy and complete local environment. Live provider calls are local maintainer evidence, not CI gates.\n\n")
+		fs.PrintDefaults()
+	}
+	if err := fs.Parse(args); err != nil {
+		os.Exit(2)
+	}
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer stop()
+	report, err := smokematrix.Run(ctx, smokematrix.Options{
+		RepoRoot:    ".",
+		Mode:        *mode,
+		WorkDir:     *workdir,
+		OutPath:     *out,
+		ScenarioIDs: []string(scenarios),
+		Stdout:      os.Stdout,
+		Stderr:      os.Stderr,
+	})
+	if report != nil {
+		fmt.Printf("openudon: product smoke matrix %s (%s)\n", report.Status, report.Mode)
+		fmt.Printf("  summary: %s\n", *out)
+		for _, scenario := range report.Scenarios {
+			fmt.Printf("  - %s: %s", scenario.ID, scenario.Status)
+			if len(scenario.MissingEnv) > 0 {
+				fmt.Printf(" missing_env=%s", strings.Join(scenario.MissingEnv, ","))
+			}
+			if scenario.PackageSHA256 != "" {
+				fmt.Printf(" digest=%s", scenario.PackageSHA256)
+			}
+			if scenario.Detail != "" {
+				fmt.Printf(" detail=%s", scenario.Detail)
+			}
+			fmt.Println()
+		}
+	}
+	if err != nil {
+		fmt.Fprintln(os.Stderr, err)
+		os.Exit(1)
+	}
 }
 
 func runApprovalTemplateCommand(args []string) {

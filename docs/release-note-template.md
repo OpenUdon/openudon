@@ -21,6 +21,11 @@
 - Expanded-corpus evidence exception:
 - SaaS operator demo fixtures:
 - SaaS operator demo dry-run result:
+- Product smoke dry-run result:
+- Product smoke live result:
+- Product smoke summary JSON:
+- Required Slack live smoke result:
+- Optional provider live skips:
 - n8n bridge validation result:
 
 ## Local Checks
@@ -31,6 +36,8 @@
 - `git diff --check`:
 - `make release-check`:
 - `make release-saas-check`:
+- `make product-smoke-check`:
+- `make product-smoke-live`:
 - `mkdocs build --strict`:
 - `openudon validate ./examples/uws-validation`:
 - `openudon check-doc-memory`:
@@ -99,6 +106,24 @@ Evidence:
 - Approval JSON paths kept local/ignored:
 - Dry-run config paths kept local/ignored:
 - Boundary notes:
+
+## Product Smoke Matrix
+
+Commands:
+
+```bash
+make product-smoke-check
+OPENUDON_EXECUTOR=/absolute/path/to/udon make product-smoke-live
+```
+
+Evidence:
+
+- Summary JSON kept local/ignored:
+- Slack live message/channel confirmation:
+- Local stub-backed live scenarios:
+- Optional provider live scenarios run:
+- Optional provider live scenarios skipped for missing env:
+- Failed or blocked scenarios:
 
 ## Known External Blockers
 

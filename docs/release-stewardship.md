@@ -64,6 +64,21 @@ reference intents:
 make eval-seed-build
 ```
 
+For the improved `v0.1.2-a.1` candidate, run the product smoke matrix after the
+provider-free release gates:
+
+```bash
+make product-smoke-check
+OPENUDON_EXECUTOR=/absolute/path/to/udon make product-smoke-live
+```
+
+`product-smoke-check` is provider-free and builds ignored scratch packages from
+the reviewed eval fixtures. `product-smoke-live` is local maintainer evidence:
+Slack live smoke is required before tagging `v0.1.2-a.1`, local synthetic APIs
+run against a stub server, and optional providers such as weather run only when
+their complete credential env set is present. See
+[Product Smoke Matrix](product-smoke-matrix.md).
+
 Real-provider evals remain opt-in local evidence:
 
 ```bash

@@ -1579,13 +1579,26 @@ func TestUdonRunnerRejectsRelativeExecutorEnv(t *testing.T) {
 			}
 			mustWriteFile(t, configPath, data)
 			cmd := runnerCLICommand(t, repoRoot, configPath)
-			cmd.Env = append(os.Environ(), tc.env)
+			cmd.Env = append(filteredExecutorEnv(os.Environ()), tc.env)
 			out, err := cmd.CombinedOutput()
 			if err == nil || !strings.Contains(string(out), "must be an absolute path") {
 				t.Fatalf("expected absolute-path rejection, err=%v out=%s", err, out)
 			}
 		})
 	}
+}
+
+func filteredExecutorEnv(env []string) []string {
+	var out []string
+	for _, item := range env {
+		if strings.HasPrefix(item, "OPENUDON_EXECUTOR=") ||
+			strings.HasPrefix(item, "OPENUDON_UDON_BIN=") ||
+			strings.HasPrefix(item, "OPENUDON_UDON_IMAGE=") {
+			continue
+		}
+		out = append(out, item)
+	}
+	return out
 }
 
 func TestUdonRunnerVerifiesStagedPackageDigestBeforeExecutor(t *testing.T) {
