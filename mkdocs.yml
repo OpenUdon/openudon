@@ -33,6 +33,7 @@ nav:
     - intent.hcl: intent.md
     - Data Flow: data-flow.md
     - iCoT: icot.md
+    - iCoT Corpus And Provider Roadmap: icot-corpus-and-provider-roadmap.md
     - iCoT Session Files: icot-session-schema.md
     - iCoT Transcripts: icot-transcript.md
     - Synthesize: synthesize.md

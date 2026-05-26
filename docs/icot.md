@@ -43,6 +43,18 @@ go run ./cmd/icot reconcile --example ./examples/<name>
 # Check brief quality, intent parseability, and drift.
 go run ./cmd/icot lint --example ./examples/<name>
 
+# Noninteractive agent mode: write final artifacts when complete, or return needs_input.
+go run ./cmd/icot --example ./examples/<name> --agent --json
+
+# Structured lint report.
+go run ./cmd/icot lint --example ./examples/<name> --json
+
+# Provider-free reliability scorecard over the eval corpus.
+go run ./cmd/icot scorecard --root examples/eval --out eval/runs/icot-scorecard-local
+
+# Bounded deterministic repair for mappings, outputs, and depends_on only.
+go run ./cmd/icot repair --example ./examples/<name> --dry-run --json
+
 # Replay eval fixtures with prompt-mode and repair metrics.
 go run ./cmd/icot replay-eval --root examples/eval --prompt-mode fast --review-repair
 ```
@@ -61,6 +73,28 @@ evidence are still recorded in the transcript.
 
 For `icot replay-eval`, the omitted `--prompt-mode` default is `fast` so replay metrics measure the
 progressive loop's defaulted path instead of requiring a manual answer script for every prompt.
+
+## Agent And JSON Modes
+
+`--agent` is the noninteractive iCoT mode for local agents or scripts. It does not read blocking
+prompts. If the provided session, answers, draft, or seed fixture is complete, it writes
+`project.md` and `workflows/intent.hcl` using the normal atomic write path. If required authoring
+state is missing, it returns a structured `needs_input` report with the top readiness issue,
+suggested answer, failure family, and all readiness issues.
+
+`--json` writes an `openudon.icot-author-report.v1` report to stdout. `--report <path>` writes the
+same report to a file. `icot lint --json` writes `openudon.icot-lint-report.v1` with project checks,
+intent parse status, drift warnings, and the first failure family.
+
+`icot scorecard` runs the provider-free seed/build reliability path over eval fixtures. It writes
+`openudon.icot-scorecard.v1` under the requested output directory and records expected outcome,
+observed outcome, fixture class, first failure family, and failure codes. It does not call an LLM,
+retrieve remote provider metadata, or execute workflows.
+
+`icot repair` is a bounded deterministic repair command. It may edit request mappings, output
+sources, and `depends_on` only. It rejects source document, operation ID, credential binding,
+side-effect policy, and runtime/profile mutations. Use `--dry-run --json` to inspect proposed
+repairs before writing.
 
 With LLM extraction enabled, iCoT runs a bounded pre-final flow review before printing the current
 draft. The review is advisory and focuses only on cross-step data-flow mistakes that deterministic

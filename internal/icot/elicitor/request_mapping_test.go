@@ -29,6 +29,9 @@ func TestBuildRequestMappingRequestUsesSelectedOperationMetadata(t *testing.T) {
 	if len(step.Operation.Parameters) != 1 || step.Operation.Parameters[0].Name != "ticketId" {
 		t.Fatalf("parameters = %#v", step.Operation.Parameters)
 	}
+	if len(step.KnownFields) != 1 || step.KnownFields[0] != "path.ticketId" {
+		t.Fatalf("known fields = %#v", step.KnownFields)
+	}
 }
 
 func TestApplyRequestMappingResponseRejectsInventedFields(t *testing.T) {
@@ -61,6 +64,24 @@ func TestApplyRequestMappingResponseRejectsInventedFields(t *testing.T) {
 	}
 	if len(session.Intent.Inputs) != 1 || session.Intent.Inputs[0].Name != "ticketId" {
 		t.Fatalf("inputs = %#v", session.Intent.Inputs)
+	}
+}
+
+func TestApplyRequestMappingResponseAcceptsQualifiedFieldAlias(t *testing.T) {
+	session := requestMappingSession()
+	docs := requestMappingDocs()
+	request := BuildRequestMappingRequest("fetch a support ticket", session, docs, nil, QuestionPlan{Slots: []string{"steps.get_ticket.with"}})
+
+	applied := applyRequestMappingResponse(&session, request, RequestMappingResponse{Steps: []RequestMappingStepResponse{{
+		Name: "get_ticket",
+		With: map[string]string{"path.ticketId": "inputs.ticketId"},
+	}}})
+
+	if applied.Applied != 1 {
+		t.Fatalf("applied = %d, rejected=%#v", applied.Applied, applied.Rejected)
+	}
+	if got := session.Intent.Steps[0].With["ticketId"]; got != "inputs.ticketId" {
+		t.Fatalf("ticketId mapping = %q", got)
 	}
 }
 

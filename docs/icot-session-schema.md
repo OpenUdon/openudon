@@ -89,6 +89,9 @@ Valid confidence values are `high`, `review`, `low`, and `conflict`. `normal` an
 modes may auto-accept `high` and `review` defaults, but `low` and `conflict` evidence forces an
 operator question.
 
+In `--agent` mode, `low` and `conflict` evidence prevents final artifact writes and appears as a
+`needs_input` report instead of prompting interactively.
+
 Do not put credential values, API tokens, OAuth refresh tokens, or private endpoints in this file.
 
 ## Legacy Answers Shape

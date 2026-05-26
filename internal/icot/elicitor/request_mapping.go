@@ -6,6 +6,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/OpenUdon/apitools"
 	rollout "github.com/OpenUdon/openudon/internal/workflowintent"
 )
 
@@ -40,6 +41,7 @@ type RequestMappingStep struct {
 	OperationID   string                 `json:"operationId"`
 	Do            string                 `json:"do,omitempty"`
 	MissingFields []string               `json:"missing_fields"`
+	KnownFields   []string               `json:"known_fields,omitempty"`
 	Operation     operationPromptContext `json:"operation"`
 }
 
@@ -199,6 +201,7 @@ func BuildRequestMappingRequest(opening string, session Session, docs []APIDocum
 			OperationID:   strings.TrimSpace(step.Operation),
 			Do:            strings.TrimSpace(step.Do),
 			MissingFields: append([]string(nil), missing...),
+			KnownFields:   qualifiedRequestFieldsForPrompt(op),
 			Operation:     operationPrompt(*op),
 		})
 	}
@@ -243,18 +246,19 @@ func applyRequestMappingResponse(session *Session, request RequestMappingRequest
 			if field == "" || source == "" {
 				continue
 			}
-			if !fields[field] {
-				application.Rejected = append(application.Rejected, "unknown field "+name+"."+field)
+			normalizedField, ok := normalizeProposedRequestField(field, fields)
+			if !ok {
+				application.Rejected = append(application.Rejected, "unknown field "+name+"."+field+"; use declared fields such as path.<name>, query.<name>, header.<name>, or body.<name> when aliases are ambiguous")
 				continue
 			}
 			if !safeRequestMappingValue(source) {
-				application.Rejected = append(application.Rejected, "unsafe value "+name+"."+field)
+				application.Rejected = append(application.Rejected, "unsafe value "+name+"."+normalizedField)
 				continue
 			}
-			if setStepWithIfEmpty(step, field, source) {
+			if setStepWithIfEmpty(step, normalizedField, source) {
 				application.Applied++
-				addRequestMappingClassification(session, step, field, source)
-				addRequestMappingAssumption(session, step, field, source)
+				addRequestMappingClassification(session, step, normalizedField, source)
+				addRequestMappingAssumption(session, step, normalizedField, source)
 				addInputsAndCredentialsFromLLMMapping(session, source)
 			}
 		}
@@ -268,6 +272,65 @@ func applyRequestMappingResponse(session *Session, request RequestMappingRequest
 		}})
 	}
 	return application
+}
+
+// NormalizeRequestMappingField maps a proposed request field, including
+// qualified aliases such as path.id, to one of the declared allowed fields.
+func NormalizeRequestMappingField(field string, allowedFields []string) (string, bool) {
+	allowed := map[string]bool{}
+	for _, allowedField := range allowedFields {
+		allowedField = strings.TrimSpace(allowedField)
+		if allowedField != "" {
+			allowed[allowedField] = true
+		}
+	}
+	return normalizeProposedRequestField(field, allowed)
+}
+
+func normalizeProposedRequestField(field string, allowed map[string]bool) (string, bool) {
+	field = strings.TrimSpace(field)
+	if field == "" {
+		return "", false
+	}
+	if allowed[field] {
+		return field, true
+	}
+	for _, prefix := range []string{"path.", "query.", "header.", "body."} {
+		if strings.HasPrefix(field, prefix) {
+			unqualified := strings.TrimPrefix(field, prefix)
+			if allowed[unqualified] {
+				return unqualified, true
+			}
+		}
+	}
+	return "", false
+}
+
+func qualifiedRequestFieldsForPrompt(op *apitools.OperationSummary) []string {
+	if op == nil {
+		return nil
+	}
+	var out []string
+	for _, parameter := range op.Parameters {
+		name := strings.TrimSpace(parameter.Name)
+		if name == "" {
+			continue
+		}
+		location := strings.TrimSpace(parameter.In)
+		if location == "" {
+			location = "query"
+		}
+		out = append(out, location+"."+name)
+	}
+	if op.RequestBody != nil {
+		for _, field := range op.RequestBody.Fields {
+			path := strings.TrimSpace(field.Path)
+			if path != "" {
+				out = append(out, "body."+path)
+			}
+		}
+	}
+	return dedupeStrings(out)
 }
 
 type requestMappingApplication struct {

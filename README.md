@@ -134,6 +134,15 @@ go run ./cmd/icot reconcile --example ./examples/<name>
 # Check authoring quality, intent parseability, and advisory drift.
 go run ./cmd/icot lint --example ./examples/<name>
 
+# Noninteractive agent/JSON report surface.
+go run ./cmd/icot --example ./examples/<name> --agent --json
+
+# Provider-free iCoT reliability scorecard.
+go run ./cmd/icot scorecard --root ./examples/eval --out eval/runs/icot-scorecard-local
+
+# Bounded deterministic repair for mappings, outputs, and depends_on.
+go run ./cmd/icot repair --example ./examples/<name> --dry-run --json
+
 # Replay eval references through iCoT and save ignored transcripts.
 go run ./cmd/icot replay-eval --root ./examples/eval --provider copilot-api --model gpt-5.4-mini
 ```

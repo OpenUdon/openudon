@@ -33,6 +33,12 @@ func Main(args []string, in io.Reader, out, errOut io.Writer) int {
 	if len(args) > 0 && args[0] == "replay-eval" {
 		return runReplayEval(args[1:], out, errOut)
 	}
+	if len(args) > 0 && args[0] == "scorecard" {
+		return runScorecard(args[1:], out, errOut)
+	}
+	if len(args) > 0 && args[0] == "repair" {
+		return runRepair(args[1:], out, errOut)
+	}
 	return runAuthor(args, in, out, errOut)
 }
 
@@ -50,6 +56,9 @@ func runAuthor(args []string, in io.Reader, out, errOut io.Writer) int {
 	noTranscript := fs.Bool("no-transcript", false, "Do not save local .icot transcript history")
 	promptMode := fs.String("prompt-mode", "full", "Prompt mode: full, normal, or fast. full asks every question; normal accepts defaults visibly; fast skips defaulted questions")
 	reviewRepair := fs.Bool("review-repair", false, "Experimental: apply up to two bounded repairs from pre-final flow review suggestions")
+	agentMode := fs.Bool("agent", false, "Run noninteractively and return needs_input instead of prompting when authoring is incomplete")
+	jsonOutput := fs.Bool("json", false, "Write a structured JSON report to stdout")
+	reportPath := fs.String("report", "", "Write a structured JSON report to this path")
 	provider := fs.String("provider", "", "LLM provider for optional extraction: copilot-api, openai, anthropic, or gemini")
 	model := fs.String("model", "", "LLM model for optional extraction")
 	temperature := fs.Float64("temperature", 0.2, "LLM extraction temperature")
@@ -61,6 +70,8 @@ func runAuthor(args []string, in io.Reader, out, errOut io.Writer) int {
 		fmt.Fprintf(fs.Output(), "\nSubcommands:\n")
 		fmt.Fprintf(fs.Output(), "  icot reconcile --example examples/<name>  Regenerate project.md from workflows/intent.hcl.\n")
 		fmt.Fprintf(fs.Output(), "  icot lint --example examples/<name>       Check project.md quality, intent parseability, and drift.\n")
+		fmt.Fprintf(fs.Output(), "  icot scorecard --root examples/eval      Run the provider-free iCoT reliability scorecard.\n")
+		fmt.Fprintf(fs.Output(), "  icot repair --example examples/<name>    Apply bounded mapping/output/dependency repairs.\n")
 		fmt.Fprintf(fs.Output(), "  icot replay-eval --root examples/eval    Replay eval references through the iCoT chat loop.\n")
 		fmt.Fprintf(fs.Output(), "\nSee docs/icot.md, docs/icot-session-schema.md, and docs/icot-transcript.md for file formats.\n")
 		fmt.Fprintf(fs.Output(), "Next step: openudon build --example examples/<name>\n\n")
@@ -77,11 +88,36 @@ func runAuthor(args []string, in io.Reader, out, errOut io.Writer) int {
 		fmt.Fprintln(errOut, err)
 		return 2
 	}
+	if *agentMode {
+		defaultMode = authoring.PromptDefaultsSilent
+		*promptMode = "fast"
+	}
 
 	exampleDir := firstNonEmpty(*example, *dirAlias)
 	if exampleDir == "" {
 		fmt.Fprintln(errOut, "--example is required")
 		return 2
+	}
+	if *agentMode {
+		return runAgentAuthor(agentAuthorOptions{
+			ExampleDir:    exampleDir,
+			DirAlias:      *dirAlias,
+			Force:         *force,
+			Yes:           *yes,
+			FromExample:   *fromExample,
+			AnswersFile:   *answersFile,
+			NoTranscript:  *noTranscript,
+			JSONOutput:    *jsonOutput,
+			ReportPath:    *reportPath,
+			PromptMode:    *promptMode,
+			DefaultMode:   defaultMode,
+			ReviewRepair:  *reviewRepair,
+			NoLLM:         *noLLM,
+			Provider:      *provider,
+			Model:         *model,
+			Temperature:   *temperature,
+			OriginalInput: in,
+		}, out, errOut)
 	}
 	projectPath := filepath.Join(exampleDir, "project.md")
 	intentPath := filepath.Join(exampleDir, "workflows", "intent.hcl")
@@ -170,6 +206,169 @@ func runAuthor(args []string, in io.Reader, out, errOut io.Writer) int {
 	}
 	fmt.Fprintf(out, "next: openudon build --example %s\n", exampleDir)
 	return 0
+}
+
+type agentAuthorOptions struct {
+	ExampleDir    string
+	DirAlias      string
+	Force         bool
+	Yes           bool
+	FromExample   string
+	AnswersFile   string
+	NoTranscript  bool
+	JSONOutput    bool
+	ReportPath    string
+	PromptMode    string
+	DefaultMode   authoring.PromptDefaultMode
+	ReviewRepair  bool
+	NoLLM         bool
+	Provider      string
+	Model         string
+	Temperature   float64
+	OriginalInput io.Reader
+}
+
+func runAgentAuthor(opts agentAuthorOptions, out, errOut io.Writer) int {
+	exampleDir := strings.TrimSpace(opts.ExampleDir)
+	projectPath := filepath.Join(exampleDir, "project.md")
+	intentPath := filepath.Join(exampleDir, "workflows", "intent.hcl")
+	report := authorReport{
+		Version:     authorReportVersion,
+		Status:      statusNeedsInput,
+		Example:     exampleDir,
+		ProjectPath: projectPath,
+		IntentPath:  intentPath,
+	}
+	loadDraft := strings.TrimSpace(opts.AnswersFile) == "" && strings.TrimSpace(opts.FromExample) == ""
+	seed, source, err := authorSession(opts.AnswersFile, opts.FromExample, exampleDir, opts.Force, loadDraft)
+	if err != nil {
+		report.Status = statusFail
+		report.Error = err.Error()
+		report.FailureFamily = failureUnknown
+		if reportErr := writeAuthorReport(report, opts, out); reportErr != nil {
+			fmt.Fprintln(errOut, reportErr)
+		}
+		fmt.Fprintln(errOut, err)
+		return 1
+	}
+	projectText := agentProjectText(projectPath, seed)
+	docs := agentReadinessDocs(exampleDir, opts.FromExample, projectText)
+	issues := elicitor.CheckReadiness(seed, docs)
+	report.ReadinessIssues = issues
+	if top := topBlockingReadinessIssue(issues); top != nil {
+		report.TopIssue = top
+		report.SuggestedAnswer = top.SuggestedAnswer
+		report.FailureFamily = failureFamilyForReadiness(top.Code)
+		if err := writeAuthorReport(report, opts, out); err != nil {
+			fmt.Fprintln(errOut, err)
+			return 1
+		}
+		if !opts.JSONOutput {
+			fmt.Fprintf(out, "icot: needs input: %s\n", report.TopIssue.Message)
+			if report.SuggestedAnswer != "" {
+				fmt.Fprintf(out, "suggested answer: %s\n", report.SuggestedAnswer)
+			}
+		}
+		return 0
+	}
+	artifacts, err := elicitor.RenderArtifacts(seed)
+	if err != nil {
+		report.Status = statusFail
+		report.Error = err.Error()
+		report.FailureFamily = failureIntentParse
+		if err := writeAuthorReport(report, opts, out); err != nil {
+			fmt.Fprintln(errOut, err)
+		}
+		fmt.Fprintln(errOut, err)
+		return 1
+	}
+	if err := writeArtifacts(projectPath, intentPath, artifacts, opts.Force, true, strings.NewReader(""), io.Discard); err != nil {
+		report.Status = statusFail
+		report.Error = err.Error()
+		report.FailureFamily = failureIntentParse
+		if err := writeAuthorReport(report, opts, out); err != nil {
+			fmt.Fprintln(errOut, err)
+		}
+		fmt.Fprintln(errOut, err)
+		return 1
+	}
+	if err := copySeedSourceArtifacts(opts.FromExample, exampleDir, opts.Force); err != nil {
+		report.Status = statusFail
+		report.Error = err.Error()
+		report.FailureFamily = failureUnknown
+		if err := writeAuthorReport(report, opts, out); err != nil {
+			fmt.Fprintln(errOut, err)
+		}
+		fmt.Fprintln(errOut, err)
+		return 1
+	}
+	if source == seedSourceDraft {
+		if err := elicitor.DeleteDraft(elicitor.DraftPath(exampleDir)); err != nil {
+			report.Status = statusFail
+			report.Error = err.Error()
+			report.FailureFamily = failureUnknown
+			if reportErr := writeAuthorReport(report, opts, out); reportErr != nil {
+				fmt.Fprintln(errOut, reportErr)
+			}
+			fmt.Fprintln(errOut, err)
+			return 1
+		}
+	}
+	report.Status = statusPass
+	report.GeneratedProject = projectPath
+	report.GeneratedIntent = intentPath
+	if err := writeAuthorReport(report, opts, out); err != nil {
+		fmt.Fprintln(errOut, err)
+		return 1
+	}
+	if !opts.JSONOutput {
+		fmt.Fprintf(out, "icot: wrote %s\n", projectPath)
+		fmt.Fprintf(out, "icot: wrote %s\n", intentPath)
+	}
+	return 0
+}
+
+func agentProjectText(projectPath string, seed elicitor.Session) string {
+	if data, err := os.ReadFile(projectPath); err == nil {
+		return string(data)
+	}
+	if strings.TrimSpace(seed.Project.Goal) != "" || strings.TrimSpace(seed.Project.ProjectName) != "" {
+		return projectwizard.Render(seed.Project)
+	}
+	return ""
+}
+
+func agentReadinessDocs(exampleDir, fromExample, projectText string) []elicitor.APIDocument {
+	docs, _ := elicitor.DiscoverLocalAPIs(exampleDir, projectText)
+	seedDir := strings.TrimSpace(fromExample)
+	if seedDir == "" || filepath.Clean(seedDir) == filepath.Clean(exampleDir) {
+		return docs
+	}
+	seedDocs, _ := elicitor.DiscoverLocalAPIs(seedDir, projectText)
+	return append(docs, seedDocs...)
+}
+
+func topBlockingReadinessIssue(issues []elicitor.ReadinessIssue) *elicitor.ReadinessIssue {
+	for i := range issues {
+		if strings.EqualFold(issues[i].Severity, "blocking") {
+			return &issues[i]
+		}
+	}
+	return nil
+}
+
+func writeAuthorReport(report authorReport, opts agentAuthorOptions, out io.Writer) error {
+	if strings.TrimSpace(opts.ReportPath) != "" {
+		if err := writeJSONFile(opts.ReportPath, report); err != nil {
+			return err
+		}
+	}
+	if opts.JSONOutput {
+		if err := json.NewEncoder(out).Encode(report); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func promptDefaultMode(mode string) (authoring.PromptDefaultMode, error) {
@@ -639,6 +838,11 @@ func writeJSONFile(path string, value any) error {
 		return err
 	}
 	data = append(data, '\n')
+	if dir := filepath.Dir(path); dir != "." && dir != "" {
+		if err := os.MkdirAll(dir, 0o755); err != nil {
+			return err
+		}
+	}
 	return os.WriteFile(path, data, 0o644)
 }
 

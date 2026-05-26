@@ -20,6 +20,16 @@ Run the matrix directly with:
 make eval-seed-build
 ```
 
+For iCoT reliability reporting, run the provider-free scorecard:
+
+```bash
+go run ./cmd/icot scorecard --root examples/eval --out eval/runs/icot-scorecard-local
+```
+
+The scorecard writes `openudon.icot-scorecard.v1` JSON with the expected outcome, observed outcome,
+fixture class, first failure family, and failure codes for each fixture. It uses the same no-LLM,
+package-local seed/build path as the matrix.
+
 ## Policy Fields
 
 `seed_build.expected` declares the required outcome:

@@ -3,11 +3,13 @@ package icot
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
 
+	"github.com/OpenUdon/apitools"
 	evalpkg "github.com/OpenUdon/openudon/internal/eval"
 	"github.com/OpenUdon/openudon/internal/icot/elicitor"
 	"github.com/OpenUdon/openudon/internal/projectwizard"
@@ -103,6 +105,123 @@ func TestLoadSeedSessionUsesReferenceIntent(t *testing.T) {
 	}
 }
 
+func TestAgentJSONNeedsInputWithoutWriting(t *testing.T) {
+	example := filepath.Join(t.TempDir(), "agent")
+	var stdout, stderr bytes.Buffer
+	code := Main([]string{"--example", example, "--agent", "--json"}, strings.NewReader(""), &stdout, &stderr)
+	if code != 0 {
+		t.Fatalf("agent returned code %d\nstdout:\n%s\nstderr:\n%s", code, stdout.String(), stderr.String())
+	}
+	var report authorReport
+	if err := json.Unmarshal(stdout.Bytes(), &report); err != nil {
+		t.Fatalf("unmarshal report: %v\n%s", err, stdout.String())
+	}
+	if report.Status != statusNeedsInput || report.FailureFamily != failureAmbiguousUserIntent {
+		t.Fatalf("report = %#v", report)
+	}
+	if _, err := os.Stat(filepath.Join(example, "project.md")); !os.IsNotExist(err) {
+		t.Fatalf("agent wrote project.md unexpectedly: %v", err)
+	}
+}
+
+func TestAgentJSONCompleteSessionWritesArtifacts(t *testing.T) {
+	dir := t.TempDir()
+	example := filepath.Join(dir, "agent-complete")
+	sessionPath := writeCompleteRuntimeSession(t, dir)
+	var stdout, stderr bytes.Buffer
+	code := Main([]string{"--example", example, "--answers", sessionPath, "--agent", "--json"}, strings.NewReader(""), &stdout, &stderr)
+	if code != 0 {
+		t.Fatalf("agent complete returned code %d\nstdout:\n%s\nstderr:\n%s", code, stdout.String(), stderr.String())
+	}
+	var report authorReport
+	if err := json.Unmarshal(stdout.Bytes(), &report); err != nil {
+		t.Fatalf("unmarshal report: %v\n%s", err, stdout.String())
+	}
+	if report.Status != statusPass || report.GeneratedIntent == "" {
+		t.Fatalf("report = %#v", report)
+	}
+	if _, err := os.Stat(filepath.Join(example, "workflows", "intent.hcl")); err != nil {
+		t.Fatalf("intent not written: %v", err)
+	}
+}
+
+func TestAgentJSONBlocksRenderableLowDecisionEvidence(t *testing.T) {
+	dir := t.TempDir()
+	example := filepath.Join(dir, "agent-blocked")
+	project := projectwizard.Answers{
+		ProjectName:     "Blocked Agent",
+		Goal:            "Render a report",
+		SideEffectScope: projectwizard.SideEffectSandboxOnly,
+		Safety:          "Sandbox proof runs only",
+		Fallback:        "Stop if rendering fails",
+	}
+	session := elicitor.SessionFromIntent(testIntent("blocked_agent", "Render a report", "render_report"), project)
+	session.DecisionEvidence = []elicitor.DecisionEvidence{{
+		Stage:      "output_selection",
+		Slot:       "intent.outputs.ticket",
+		Value:      "ticket=render_report.received_body",
+		Source:     "llm",
+		Confidence: "low",
+	}}
+	sessionPath := writeSessionJSON(t, dir, session)
+	var stdout, stderr bytes.Buffer
+	code := Main([]string{"--example", example, "--answers", sessionPath, "--agent", "--json"}, strings.NewReader(""), &stdout, &stderr)
+	if code != 0 {
+		t.Fatalf("agent returned code %d\nstdout:\n%s\nstderr:\n%s", code, stdout.String(), stderr.String())
+	}
+	var report authorReport
+	if err := json.Unmarshal(stdout.Bytes(), &report); err != nil {
+		t.Fatalf("unmarshal report: %v\n%s", err, stdout.String())
+	}
+	if report.Status != statusNeedsInput || report.TopIssue == nil || report.TopIssue.Code != "low_confidence_decision" {
+		t.Fatalf("report = %#v", report)
+	}
+	if _, err := os.Stat(filepath.Join(example, "workflows", "intent.hcl")); !os.IsNotExist(err) {
+		t.Fatalf("agent wrote intent despite readiness blocker: %v", err)
+	}
+}
+
+func TestAgentJSONLoadsCompleteDraft(t *testing.T) {
+	example := filepath.Join(t.TempDir(), "agent-draft")
+	draftPath := writeCompleteDraft(t, example)
+	var stdout, stderr bytes.Buffer
+	code := Main([]string{"--example", example, "--agent", "--json"}, strings.NewReader(""), &stdout, &stderr)
+	if code != 0 {
+		t.Fatalf("agent draft returned code %d\nstdout:\n%s\nstderr:\n%s", code, stdout.String(), stderr.String())
+	}
+	var report authorReport
+	if err := json.Unmarshal(stdout.Bytes(), &report); err != nil {
+		t.Fatalf("unmarshal report: %v\n%s", err, stdout.String())
+	}
+	if report.Status != statusPass || report.GeneratedIntent == "" {
+		t.Fatalf("report = %#v", report)
+	}
+	if _, err := os.Stat(filepath.Join(example, "workflows", "intent.hcl")); err != nil {
+		t.Fatalf("intent not written from draft: %v", err)
+	}
+	if _, err := os.Stat(draftPath); !os.IsNotExist(err) {
+		t.Fatalf("draft not deleted after agent save: %v", err)
+	}
+}
+
+func TestAgentReportWriteFailureReturnsError(t *testing.T) {
+	dir := t.TempDir()
+	example := filepath.Join(dir, "agent-report-fail")
+	sessionPath := writeCompleteRuntimeSession(t, dir)
+	notDir := filepath.Join(dir, "not-dir")
+	if err := os.WriteFile(notDir, []byte("file\n"), 0o644); err != nil {
+		t.Fatalf("write not-dir file: %v", err)
+	}
+	var stdout, stderr bytes.Buffer
+	code := Main([]string{"--example", example, "--answers", sessionPath, "--agent", "--json", "--report", filepath.Join(notDir, "report.json")}, strings.NewReader(""), &stdout, &stderr)
+	if code != 1 {
+		t.Fatalf("agent code = %d, want 1\nstdout:\n%s\nstderr:\n%s", code, stdout.String(), stderr.String())
+	}
+	if strings.TrimSpace(stderr.String()) == "" {
+		t.Fatalf("stderr missing report write error")
+	}
+}
+
 func TestEvalReferenceSeedBuildMatrix(t *testing.T) {
 	fixtureRoot, err := filepath.Abs(filepath.Join("..", "..", "examples", "eval"))
 	if err != nil {
@@ -145,6 +264,139 @@ func TestEvalReferenceSeedBuildMatrix(t *testing.T) {
 			}
 			assertSeedBuildOutcome(t, policy, "pass", nil, "")
 		})
+	}
+}
+
+func TestLintJSONReport(t *testing.T) {
+	example, err := filepath.Abs(filepath.Join("..", "..", "examples", "eval", "runtime-only-render"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var stdout, stderr bytes.Buffer
+	code := Main([]string{"lint", "--example", example, "--json"}, strings.NewReader(""), &stdout, &stderr)
+	if code != 0 {
+		t.Fatalf("lint json returned code %d\nstdout:\n%s\nstderr:\n%s", code, stdout.String(), stderr.String())
+	}
+	var report lintReport
+	if err := json.Unmarshal(stdout.Bytes(), &report); err != nil {
+		t.Fatalf("unmarshal lint report: %v\n%s", err, stdout.String())
+	}
+	if report.Version != lintReportVersion || report.Status != statusPass || len(report.ProjectChecks) == 0 {
+		t.Fatalf("lint report = %#v", report)
+	}
+}
+
+func TestScorecardSingleFixture(t *testing.T) {
+	outDir := filepath.Join(t.TempDir(), "scorecard")
+	var stdout, stderr bytes.Buffer
+	code := Main([]string{"scorecard", "--root", filepath.Join("..", "..", "examples", "eval"), "--name", "runtime-only-render", "--out", outDir}, strings.NewReader(""), &stdout, &stderr)
+	if code != 0 {
+		t.Fatalf("scorecard returned code %d\nstdout:\n%s\nstderr:\n%s", code, stdout.String(), stderr.String())
+	}
+	data, err := os.ReadFile(filepath.Join(outDir, "scorecard.json"))
+	if err != nil {
+		t.Fatalf("read scorecard: %v", err)
+	}
+	var report scorecardReport
+	if err := json.Unmarshal(data, &report); err != nil {
+		t.Fatalf("unmarshal scorecard: %v\n%s", err, data)
+	}
+	if report.Status != statusPass || report.Summary.Total != 1 || report.Results[0].ObservedOutcome != "pass" {
+		t.Fatalf("scorecard report = %#v", report)
+	}
+}
+
+func TestRepairDryRunJSON(t *testing.T) {
+	example := filepath.Join(t.TempDir(), "repair")
+	var setupOut, setupErr bytes.Buffer
+	code := Main([]string{"--example", example, "--from-example", filepath.Join("..", "..", "examples", "eval", "runtime-only-render"), "--no-llm", "--no-transcript"}, strings.NewReader(""), &setupOut, &setupErr)
+	if code != 0 {
+		t.Fatalf("setup failed code %d\nstdout:\n%s\nstderr:\n%s", code, setupOut.String(), setupErr.String())
+	}
+	var stdout, stderr bytes.Buffer
+	code = Main([]string{"repair", "--example", example, "--dry-run", "--json"}, strings.NewReader(""), &stdout, &stderr)
+	if code != 0 {
+		t.Fatalf("repair dry-run returned code %d\nstdout:\n%s\nstderr:\n%s", code, stdout.String(), stderr.String())
+	}
+	var report repairReport
+	if err := json.Unmarshal(stdout.Bytes(), &report); err != nil {
+		t.Fatalf("unmarshal repair report: %v\n%s", err, stdout.String())
+	}
+	if report.Status != statusDryRun || !report.DryRun {
+		t.Fatalf("repair report = %#v", report)
+	}
+}
+
+func TestRepairAddsDependsOnFromStepReference(t *testing.T) {
+	example := filepath.Join(t.TempDir(), "repair-deps")
+	writeRepairDependencyExample(t, example)
+	before, err := rollout.ParseIntentFile(filepath.Join(example, "workflows", "intent.hcl"))
+	if err != nil {
+		t.Fatalf("parse initial intent: %v", err)
+	}
+	initialSend := findTestStep(before.Steps, "send_report")
+	if initialSend == nil || initialSend.With["body"] != "render_report.received_body" || len(initialSend.DependsOn) != 0 {
+		t.Fatalf("initial send_report = %#v", initialSend)
+	}
+	var stdout, stderr bytes.Buffer
+	code := Main([]string{"repair", "--example", example, "--json"}, strings.NewReader(""), &stdout, &stderr)
+	if code != 0 {
+		t.Fatalf("repair returned code %d\nstdout:\n%s\nstderr:\n%s", code, stdout.String(), stderr.String())
+	}
+	var report repairReport
+	if err := json.Unmarshal(stdout.Bytes(), &report); err != nil {
+		t.Fatalf("unmarshal repair report: %v\n%s", err, stdout.String())
+	}
+	if report.Status != statusPass || !repairReportHasSlot(report, "steps.send_report.depends_on") {
+		t.Fatalf("repair report = %#v", report)
+	}
+	intent, err := rollout.ParseIntentFile(filepath.Join(example, "workflows", "intent.hcl"))
+	if err != nil {
+		t.Fatalf("parse repaired intent: %v", err)
+	}
+	send := findTestStep(intent.Steps, "send_report")
+	if send == nil || len(send.DependsOn) != 1 || send.DependsOn[0] != "render_report" {
+		t.Fatalf("send_report depends_on = %#v", send)
+	}
+}
+
+func TestRepairRequestMappingRejectsInventedField(t *testing.T) {
+	session := elicitor.Session{Intent: rollout.Intent{
+		OpenAPI: "openapi/support.yaml",
+		Workflow: &rollout.WorkflowMeta{
+			Name:        "support_lookup",
+			Description: "Fetch a support ticket",
+		},
+		Steps: []*rollout.Step{{
+			Name:      "get_ticket",
+			Type:      "http",
+			OpenAPI:   "openapi/support.yaml",
+			Operation: "getTicket",
+			With:      map[string]string{},
+		}},
+		Outputs: []*rollout.Output{{Name: "ticket", From: "get_ticket.received_body"}},
+	}}
+	docs := []elicitor.APIDocument{{
+		RelativePath: "openapi/support.yaml",
+		Operations: []apitools.OperationSummary{{
+			OperationID: "getTicket",
+			Parameters: []apitools.ParameterSummary{{
+				Name:     "ticketId",
+				In:       "path",
+				Required: true,
+			}},
+		}},
+	}}
+	ok, reject := repairRequestMappingFromSuggestion(&session, docs, elicitor.ReadinessIssue{
+		Code:            "missing_required_request_values",
+		Slot:            "steps.get_ticket.with",
+		SuggestedAnswer: "ticketId=inputs.ticketId, invented=inputs.other",
+	})
+	if ok || !strings.Contains(reject, "unknown request field invented") {
+		t.Fatalf("repair result ok=%v reject=%q", ok, reject)
+	}
+	if len(session.Intent.Steps[0].With) != 0 {
+		t.Fatalf("invented repair mutated step: %#v", session.Intent.Steps[0].With)
 	}
 }
 
@@ -817,4 +1069,123 @@ func testProjectInput(withOpenAPI bool) string {
 		"Stop if required services are unavailable",
 	)
 	return strings.Join(answers, "\n") + "\n"
+}
+
+func writeSessionJSON(t *testing.T, dir string, session elicitor.Session) string {
+	t.Helper()
+	path := filepath.Join(dir, "session.json")
+	data, err := json.MarshalIndent(session, "", "  ")
+	if err != nil {
+		t.Fatalf("marshal session: %v", err)
+	}
+	if err := os.WriteFile(path, data, 0o644); err != nil {
+		t.Fatalf("write session: %v", err)
+	}
+	return path
+}
+
+func writeRepairDependencyExample(t *testing.T, example string) {
+	t.Helper()
+	if err := os.MkdirAll(filepath.Join(example, "workflows"), 0o755); err != nil {
+		t.Fatalf("mkdir example: %v", err)
+	}
+	project := projectwizard.Answers{
+		ProjectName:     "Repair Dependencies",
+		Goal:            "Render and send a report",
+		SideEffectScope: projectwizard.SideEffectSandboxOnly,
+		Safety:          "Sandbox proof runs only",
+		Fallback:        "Stop if rendering fails",
+	}
+	if err := os.WriteFile(filepath.Join(example, "project.md"), []byte(projectwizard.Render(project)), 0o644); err != nil {
+		t.Fatalf("write project: %v", err)
+	}
+	rendered := `workflow {
+  name        = "repair_dependencies"
+  description = "Render and send a report"
+}
+
+step "render_report" {
+  type = "fnct"
+  do   = "Render the report"
+}
+
+step "send_report" {
+  type = "fnct"
+  do   = "Send the report"
+  with = {
+    body = "render_report.received_body"
+  }
+}
+
+output "result" {
+  from = "send_report.received_body"
+}
+`
+	if _, err := runner.ParseIntent([]byte(rendered), "intent.hcl"); err != nil {
+		t.Fatalf("parse fixture intent: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(example, "workflows", "intent.hcl"), []byte(rendered), 0o644); err != nil {
+		t.Fatalf("write intent: %v", err)
+	}
+}
+
+func repairReportHasSlot(report repairReport, slot string) bool {
+	for _, change := range report.Applied {
+		if change.Slot == slot {
+			return true
+		}
+	}
+	return false
+}
+
+func findTestStep(steps []*rollout.Step, name string) *rollout.Step {
+	for _, step := range steps {
+		if step == nil {
+			continue
+		}
+		if step.Name == name {
+			return step
+		}
+		if found := findTestStep(step.Steps, name); found != nil {
+			return found
+		}
+	}
+	return nil
+}
+
+func writeCompleteRuntimeSession(t *testing.T, dir string) string {
+	t.Helper()
+	path := filepath.Join(dir, "session.yaml")
+	data := "project:\n" +
+		"  project_name: Runtime Report\n" +
+		"  goal: Render a local runtime report\n" +
+		"  inputs: '`summary`: required string'\n" +
+		"  outputs: '`report`: rendered report body'\n" +
+		"  uses_openapi: false\n" +
+		"  safety: Sandbox proof runs only\n" +
+		"  fallback: Stop if rendering fails\n" +
+		"safety: Sandbox proof runs only\n" +
+		"fallback: Stop if rendering fails\n" +
+		"side_effect_scope: sandbox-only\n" +
+		"intent:\n" +
+		"  workflow:\n" +
+		"    name: runtime_report\n" +
+		"    description: Render a local runtime report\n" +
+		"  inputs:\n" +
+		"    - name: summary\n" +
+		"      type: string\n" +
+		"      required: true\n" +
+		"  steps:\n" +
+		"    - name: render_report\n" +
+		"      type: fnct\n" +
+		"      do: Render the report body\n" +
+		"      with:\n" +
+		"        summary: inputs.summary\n" +
+		"  outputs:\n" +
+		"    - name: report\n" +
+		"      from: render_report.received_body\n"
+	if err := os.WriteFile(path, []byte(data), 0o644); err != nil {
+		t.Fatalf("write complete session: %v", err)
+	}
+	return path
 }

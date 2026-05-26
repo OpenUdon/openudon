@@ -11,6 +11,10 @@ quality expectations.
 
 - OpenAPI steps receive request fields from literals, workflow inputs, credential bindings, or prior
   step outputs.
+- iCoT request-mapping prompts show qualified request fields such as `path.ticketId`,
+  `query.limit`, `header.Authorization`, and `body.raw` when section context matters. The persisted
+  intent keeps the operation's field key after validation, while unknown or ambiguous model-suggested
+  fields are rejected instead of guessed.
 - During UWS generation, unqualified OpenAPI request fields are placed using the selected
   operation's public metadata. OpenUdon preserves explicit `path.`, `query.`, `header.`, `cookie.`, and
   `body.` prefixes, and rejects unknown unqualified fields instead of guessing a query parameter.
