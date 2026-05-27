@@ -43,6 +43,10 @@ updates intent, and writes the generated package artifacts. OpenAPI, Google Disc
 JSON, and AsyncAPI can be staged directly as UWS source descriptions when the trusted executor supports them.
 AsyncAPI source-bound workflows emit UWS 1.3 and remain review/package artifacts; OpenUdon does not
 execute AsyncAPI protocols.
+
+UWS 1.4 defines `graphql`, `openrpc`, `grpc-protobuf`, and `odata` source descriptions. OpenUdon
+does not generate those source bindings yet; generation remains gated on source-aware `apitools`
+metadata and trusted executor support for each family.
 `build` regenerates from existing intent.
 `assess` reruns deterministic quality checks without synthesizing new intent.
 
@@ -62,8 +66,9 @@ go run ./cmd/openudon catalog import-openapi --provider stripe --example ./examp
 ```
 
 Discovery, Smithy, and AsyncAPI catalog entries can be materialized as first-class API/event source inputs when a
-package needs them. Stone and human-docs catalog entries remain advisory metadata until lowered or
-reviewed separately.
+package needs them. GraphQL, OpenRPC, gRPC/protobuf, and OData remain gated UWS 1.4 source families
+for OpenUdon generation. Stone, Postman Collection, RAML, API Blueprint, and human-docs catalog
+entries remain advisory metadata until lowered or reviewed separately.
 
 Use [Synthesize](synthesize.md), [intent.hcl](intent.md), and [Data Flow](data-flow.md) for the
 artifact contracts.

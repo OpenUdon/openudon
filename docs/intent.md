@@ -79,6 +79,10 @@ AsyncAPI sources use paths under `asyncapi/`, emit UWS 1.3, and must use explici
 locations such as `body.invoice_id` or `header.trace_id` because OpenUdon treats AsyncAPI payload and
 header schemas as runtime-owned metadata.
 
+UWS 1.4 defines GraphQL, OpenRPC, gRPC/protobuf, and OData source descriptions, but OpenUdon intent
+does not yet author those source bindings. They remain gated on source-aware `apitools` metadata,
+package/quality support, and trusted executor compatibility.
+
 Top-level `server_url` is an optional server override for the selected API source documents, typically
 used to steer proof runs toward sandbox endpoints. Top-level `locals` is an optional string map for
 workflow constants referenced as `locals.<name>`.

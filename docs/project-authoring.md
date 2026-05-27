@@ -48,6 +48,9 @@ advisory source artifact is available. Discovery and Smithy documents can drive 
 synthesis, packaging, and trusted handoff directly. When both an original provider OpenAPI document
 and a reviewed advisory OpenAPI overlay are available, iCoT defaults to the advisory overlay for
 operation selection because it carries OpenUdon-reviewed endpoint/security scope.
+UWS 1.4 GraphQL, OpenRPC, gRPC/protobuf, and OData source descriptions are public UWS contracts, but
+OpenUdon authoring should not emit them until `../apitools` supplies source-aware metadata and the
+trusted executor supports the corresponding source family.
 
 iCoT defaults to the local `copilot-api` gateway, using `COPILOT_API_BASE_URL` when set and
 `http://localhost:4141` otherwise. Use `OPENUDON_LLM_PROVIDER` and `OPENUDON_LLM_MODEL` for

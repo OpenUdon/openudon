@@ -52,8 +52,10 @@ go run ./cmd/openudon catalog import-openapi --provider stripe --example ./examp
 ```
 
 Catalog OpenAPI/Swagger, Google Discovery, AWS Smithy JSON, and AsyncAPI artifacts are first-class
-API/event source inputs for generated UWS artifacts. Stone, human-docs, and unknown protocols remain advisory or
-lowering/review inputs until a later source type is defined.
+API/event source inputs for generated UWS artifacts. UWS 1.4 defines GraphQL, OpenRPC,
+gRPC/protobuf, and OData source types, but OpenUdon synthesis must not emit them until source-aware
+`apitools` metadata and trusted executor support are available. Stone, Postman Collection, RAML, API
+Blueprint, human-docs, and unknown protocols remain advisory or OpenAPI-lowering/review inputs.
 
 OpenUdon validates and packages AsyncAPI source-bound UWS 1.3 workflows. It does not implement
 AsyncAPI protocol serialization, broker subscription, message delivery, or credential resolution;
