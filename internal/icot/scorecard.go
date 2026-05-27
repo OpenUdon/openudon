@@ -382,7 +382,9 @@ func scorecardVariantSession(fixture, fixtureName string, variant evalpkg.Author
 		session.Fallback = project.Fallback
 		session.FallbackSet = true
 		session.SideEffectScope = project.SideEffectScope
-		clearVariantFields(&session, variant.ClearFields)
+		if err := clearVariantFields(&session, variant.ClearFields); err != nil {
+			return elicitor.Session{}, err
+		}
 		if err := clearVariantSlots(&session, variant.ClearSlots); err != nil {
 			return elicitor.Session{}, err
 		}
@@ -402,45 +404,69 @@ func scorecardVariantSession(fixture, fixtureName string, variant evalpkg.Author
 	return session, nil
 }
 
-func clearVariantFields(session *elicitor.Session, fields []string) {
+func clearVariantFields(session *elicitor.Session, fields []string) error {
 	for _, field := range fields {
 		field = strings.TrimSpace(field)
 		if field == "" {
 			continue
 		}
-		session.Intent.Inputs = removeIntentInput(session.Intent.Inputs, field)
+		cleared := false
+		if hasIntentInput(session.Intent.Inputs, field) {
+			session.Intent.Inputs = removeIntentInput(session.Intent.Inputs, field)
+			cleared = true
+		}
 		for _, step := range session.Intent.Steps {
-			clearStepField(step, field)
+			if clearStepField(step, field) {
+				cleared = true
+			}
+		}
+		if !cleared {
+			return fmt.Errorf("clear field %q did not match any input, request field, or bind field", field)
 		}
 	}
+	return nil
 }
 
-func clearStepField(step *rollout.Step, field string) {
+func clearStepField(step *rollout.Step, field string) bool {
 	if step == nil {
-		return
+		return false
 	}
-	delete(step.With, field)
+	cleared := false
+	if _, ok := step.With[field]; ok {
+		delete(step.With, field)
+		cleared = true
+	}
 	for _, bind := range step.Binds {
 		if bind != nil {
+			if _, ok := bind.Fields[field]; ok {
+				cleared = true
+			}
 			delete(bind.Fields, field)
 		}
 	}
 	for _, child := range step.Steps {
-		clearStepField(child, field)
+		if clearStepField(child, field) {
+			cleared = true
+		}
 	}
 	for _, c := range step.Cases {
 		if c == nil {
 			continue
 		}
 		for _, child := range c.Steps {
-			clearStepField(child, field)
+			if clearStepField(child, field) {
+				cleared = true
+			}
 		}
 	}
 	if step.Default != nil {
 		for _, child := range step.Default.Steps {
-			clearStepField(child, field)
+			if clearStepField(child, field) {
+				cleared = true
+			}
 		}
 	}
+	return cleared
 }
 
 func clearVariantSlots(session *elicitor.Session, slots []string) error {
@@ -451,6 +477,9 @@ func clearVariantSlots(session *elicitor.Session, slots []string) error {
 		}
 		if strings.HasPrefix(slot, "inputs.") {
 			name := strings.TrimPrefix(slot, "inputs.")
+			if !hasIntentInput(session.Intent.Inputs, name) {
+				return fmt.Errorf("clear slot %q references unknown input", slot)
+			}
 			session.Intent.Inputs = removeIntentInput(session.Intent.Inputs, name)
 			continue
 		}
@@ -465,9 +494,25 @@ func clearVariantSlots(session *elicitor.Session, slots []string) error {
 		if step == nil {
 			return fmt.Errorf("clear slot %q references unknown step", slot)
 		}
+		if _, ok := step.With[parts[3]]; !ok {
+			return fmt.Errorf("clear slot %q references unknown request field", slot)
+		}
 		delete(step.With, parts[3])
 	}
 	return nil
+}
+
+func hasIntentInput(inputs []*rollout.Input, name string) bool {
+	name = strings.TrimSpace(name)
+	if name == "" {
+		return false
+	}
+	for _, input := range inputs {
+		if input != nil && input.Name == name {
+			return true
+		}
+	}
+	return false
 }
 
 func removeIntentInput(inputs []*rollout.Input, name string) []*rollout.Input {

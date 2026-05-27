@@ -44,7 +44,7 @@ make release-saas-check
 ```
 
 `release-saas-check` runs `release-check`, `eval-seed-build`,
-`icot-authoring-scorecard`, UWS validation, doc-memory, n8n bridge validation,
+`icot-variants-validate`, `icot-authoring-scorecard`, UWS validation, doc-memory, n8n bridge validation,
 strict MkDocs build, selected strict SaaS fixture lint, and the provider-free dry-run demo in
 [SaaS Operator Release Path](saas-operator-release.md). The selected demo
 examples are:
@@ -62,6 +62,7 @@ reference intents:
 
 ```bash
 make eval-seed-build
+make icot-variants-validate
 ```
 
 For the improved `v0.1.2-a.1` candidate, run the product smoke matrix after the

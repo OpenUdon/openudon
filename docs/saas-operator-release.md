@@ -90,6 +90,7 @@ For a SaaS release candidate, collect deterministic evidence first:
 - `make check`;
 - `make release-check`;
 - `make eval-seed-build`;
+- `make icot-variants-validate`;
 - `make icot-authoring-scorecard`;
 - `make release-saas-check`;
 - `go run ./cmd/openudon validate ./examples/uws-validation`;

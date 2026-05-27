@@ -39,6 +39,7 @@
 - `git diff --check`:
 - `make release-check`:
 - `make release-saas-check`:
+- `make icot-variants-validate`:
 - `make icot-authoring-scorecard`:
 - `make product-smoke-check`:
 - `make product-smoke-live`:

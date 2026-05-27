@@ -36,6 +36,9 @@ func Main(args []string, in io.Reader, out, errOut io.Writer) int {
 	if len(args) > 0 && args[0] == "scorecard" {
 		return runScorecard(args[1:], out, errOut)
 	}
+	if len(args) > 0 && args[0] == "variants" {
+		return runVariants(args[1:], out, errOut)
+	}
 	if len(args) > 0 && args[0] == "authoring-eval" {
 		return runAuthoringEval(args[1:], out, errOut)
 	}
@@ -74,6 +77,7 @@ func runAuthor(args []string, in io.Reader, out, errOut io.Writer) int {
 		fmt.Fprintf(fs.Output(), "  icot reconcile --example examples/<name>  Regenerate project.md from workflows/intent.hcl.\n")
 		fmt.Fprintf(fs.Output(), "  icot lint --example examples/<name>       Check project.md quality, intent parseability, and drift.\n")
 		fmt.Fprintf(fs.Output(), "  icot scorecard --root examples/eval      Run the provider-free iCoT reliability scorecard.\n")
+		fmt.Fprintf(fs.Output(), "  icot variants validate --root examples/eval Validate authoring variant metadata.\n")
 		fmt.Fprintf(fs.Output(), "  icot repair --example examples/<name>    Apply bounded mapping/output/dependency repairs.\n")
 		fmt.Fprintf(fs.Output(), "  icot replay-eval --root examples/eval    Replay eval references through the iCoT chat loop.\n")
 		fmt.Fprintf(fs.Output(), "  icot authoring-eval --root examples/eval Run optional real-LLM natural-language authoring evidence.\n")

@@ -347,6 +347,123 @@ func TestScorecardIncludesAuthoringVariants(t *testing.T) {
 	}
 }
 
+func TestMissingDetailVariantTopIssues(t *testing.T) {
+	root := filepath.Join("..", "..", "examples", "eval")
+	cases := []struct {
+		fixture string
+		variant string
+		family  string
+		code    string
+		slot    string
+	}{
+		{
+			fixture: "slack-message-audit-log",
+			variant: "missing-channel",
+			family:  failureBadRequestMapping,
+			code:    "missing_required_request_values",
+			slot:    "steps.post_message.with",
+		},
+		{
+			fixture: "gmail-send-audit-receipt",
+			variant: "missing-recipient",
+			family:  failureBadRequestMapping,
+			code:    "missing_required_request_values",
+			slot:    "steps.send_message.with",
+		},
+		{
+			fixture: "weather-toronto",
+			variant: "missing-location",
+			family:  failureBadRequestMapping,
+			code:    "missing_required_request_values",
+			slot:    "steps.get_coordinates.with",
+		},
+		{
+			fixture: "weather-toronto-gmail",
+			variant: "missing-recipient",
+			family:  failureAmbiguousUserIntent,
+			code:    "missing_runtime_inputs",
+			slot:    "intent.inputs",
+		},
+	}
+	outRoot := t.TempDir()
+	for _, tc := range cases {
+		t.Run(tc.fixture+"/"+tc.variant, func(t *testing.T) {
+			fixture := filepath.Join(root, tc.fixture)
+			variants, err := evalpkg.ReadAuthoringVariants(filepath.Join(fixture, "reference", "authoring-variants.json"))
+			if err != nil {
+				t.Fatalf("read variants: %v", err)
+			}
+			var variant evalpkg.AuthoringVariant
+			for _, candidate := range variants.Variants {
+				if candidate.ID == tc.variant {
+					variant = candidate
+					break
+				}
+			}
+			if variant.ID == "" {
+				t.Fatalf("variant %q not found", tc.variant)
+			}
+			result := runNeedsInputVariant(fixture, tc.fixture, variant, filepath.Join(outRoot, safeScorecardName(tc.fixture+"_"+tc.variant)))
+			if result.ObservedOutcome != statusNeedsInput || result.FailureFamily != tc.family || result.TopIssueCode != tc.code || result.TopIssueSlot != tc.slot || result.SuggestedAnswer == "" {
+				t.Fatalf("missing-detail result = %#v", result)
+			}
+		})
+	}
+}
+
+func TestVariantsValidateCommand(t *testing.T) {
+	var stdout, stderr bytes.Buffer
+	code := Main([]string{"variants", "validate", "--root", filepath.Join("..", "..", "examples", "eval"), "--name", "slack-message-audit-log", "--json"}, strings.NewReader(""), &stdout, &stderr)
+	if code != 0 {
+		t.Fatalf("variants validate returned code %d\nstdout:\n%s\nstderr:\n%s", code, stdout.String(), stderr.String())
+	}
+	var report variantsValidationReport
+	if err := json.Unmarshal(stdout.Bytes(), &report); err != nil {
+		t.Fatalf("unmarshal variants report: %v\n%s", err, stdout.String())
+	}
+	if report.Version != variantsValidationReportVersion || report.Status != statusPass || len(report.Results) != 1 || report.Results[0].VariantCount == 0 {
+		t.Fatalf("variants report = %#v", report)
+	}
+}
+
+func TestVariantsValidateRejectsUnknownClearSlot(t *testing.T) {
+	root := t.TempDir()
+	fixture := filepath.Join(root, "bad")
+	if err := copyScorecardTree(filepath.Join("..", "..", "examples", "eval", "slack-message-audit-log"), fixture); err != nil {
+		t.Fatalf("copy fixture: %v", err)
+	}
+	path := filepath.Join(fixture, "reference", "authoring-variants.json")
+	data := `{
+  "version": "openudon.icot-authoring-variants.v1",
+  "variants": [
+    {
+      "id": "bad-clear",
+      "brief": "Send to Slack.",
+      "class": "missing-detail",
+      "expected_outcome": "needs_input",
+      "expected_failure_family": "bad_request_mapping",
+      "seed_from_reference": true,
+      "clear_slots": ["steps.post_message.with.not_a_field"]
+    }
+  ]
+}`
+	if err := os.WriteFile(path, []byte(data), 0o644); err != nil {
+		t.Fatalf("write variants: %v", err)
+	}
+	var stdout, stderr bytes.Buffer
+	code := Main([]string{"variants", "validate", "--root", root, "--json"}, strings.NewReader(""), &stdout, &stderr)
+	if code != 1 {
+		t.Fatalf("variants validate code = %d, want 1\nstdout:\n%s\nstderr:\n%s", code, stdout.String(), stderr.String())
+	}
+	var report variantsValidationReport
+	if err := json.Unmarshal(stdout.Bytes(), &report); err != nil {
+		t.Fatalf("unmarshal variants report: %v\n%s", err, stdout.String())
+	}
+	if report.Status != statusFail || len(report.Results) != 1 || !strings.Contains(strings.Join(report.Results[0].Errors, "\n"), "unknown request field") {
+		t.Fatalf("variants report = %#v", report)
+	}
+}
+
 func TestFailureFamilyClassifiesReadinessCodes(t *testing.T) {
 	cases := map[string]string{
 		"invented_request_field":          failureBadRequestMapping,

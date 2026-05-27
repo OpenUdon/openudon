@@ -143,6 +143,9 @@ go run ./cmd/icot scorecard --root ./examples/eval --out eval/runs/icot-scorecar
 # Include curated natural-language authoring variants.
 go run ./cmd/icot scorecard --root ./examples/eval --include-variants --out eval/runs/icot-authoring-scorecard-local
 
+# Validate variant metadata and reference-seeded clear slots.
+go run ./cmd/icot variants validate --root ./examples/eval
+
 # Optional real-LLM natural-language authoring evidence.
 go run ./cmd/icot authoring-eval --root ./examples/eval --include-variants --provider copilot-api --model gpt-5.4-mini --out eval/runs/icot-authoring-eval-local
 
@@ -318,11 +321,11 @@ make release-eval
 ```
 
 `make release-saas-check` is the provider-free local SaaS release gate. It runs deterministic checks,
-the eval seed/build matrix, `icot-authoring-scorecard`, UWS validation, doc-memory validation, n8n
-bridge validation, strict MkDocs, selected strict fixture lint, and trusted-runner dry-run demos
-without live provider credentials or live provider execution. `icot scorecard --include-variants`
-is deterministic reference/variant package evidence; use `icot authoring-eval` separately for
-optional real LLM natural-language authoring evidence.
+the eval seed/build matrix, `icot-variants-validate`, `icot-authoring-scorecard`, UWS validation,
+doc-memory validation, n8n bridge validation, strict MkDocs, selected strict fixture lint, and
+trusted-runner dry-run demos without live provider credentials or live provider execution. `icot
+scorecard --include-variants` is deterministic reference/variant package evidence; use `icot
+authoring-eval` separately for optional real LLM natural-language authoring evidence.
 
 `make release-eval` uses `OPENUDON_LLM_PROVIDER` and `OPENUDON_LLM_MODEL`, defaulting to `copilot-api` and
 `gpt-5.4-mini`, and requires the current eval corpus size as the minimum brief count.

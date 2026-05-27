@@ -55,6 +55,9 @@ go run ./cmd/icot scorecard --root examples/eval --out eval/runs/icot-scorecard-
 # Include curated natural-language authoring variants.
 go run ./cmd/icot scorecard --root examples/eval --include-variants --out eval/runs/icot-authoring-scorecard-local
 
+# Validate variant metadata and reference-seeded clear slots without running scorecard.
+go run ./cmd/icot variants validate --root examples/eval
+
 # Optional real-LLM natural-language authoring evidence.
 go run ./cmd/icot authoring-eval --root examples/eval --include-variants --provider copilot-api --model gpt-5.4-mini --out eval/runs/icot-authoring-eval-local
 
@@ -100,6 +103,11 @@ observed outcome, fixture class, first failure family, and failure codes. With
 failure family. This variant lane mutates reviewed reference packages and verifies deterministic
 package behavior; it is not proof that a live LLM generated the workflow from the alternate brief.
 It does not call an LLM, retrieve remote provider metadata, or execute workflows.
+
+`icot variants validate` checks `reference/authoring-variants.json` metadata without generating
+workspaces. It validates expected failure-family names, duplicate IDs, missing-detail expectations,
+and `seed_from_reference` `clear_fields` or `clear_slots` against the fixture reference intent.
+Use it before scorecard runs when editing variant metadata.
 
 `icot authoring-eval` is the optional real-LLM authoring lane. It runs selected fixture briefs or
 `--include-variants` entries through the iCoT progressive draft path with LLM extraction enabled,

@@ -36,6 +36,7 @@ func TestCLIHelpDocumentsFlags(t *testing.T) {
 		"Pipeline:",
 		"icot reconcile",
 		"icot lint",
+		"icot variants validate",
 		"icot replay-eval",
 		"icot authoring-eval",
 		"docs/icot-session-schema.md",

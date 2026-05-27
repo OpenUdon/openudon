@@ -33,6 +33,7 @@ package-local seed/build path as the matrix.
 For M40 natural-language authoring coverage, include checked-in variant metadata:
 
 ```bash
+go run ./cmd/icot variants validate --root examples/eval
 go run ./cmd/icot scorecard --root examples/eval --include-variants --out eval/runs/icot-authoring-scorecard-local
 ```
 
@@ -44,6 +45,10 @@ provider-family, variant-class, provider/failure-family, and top readiness issue
 changing the default seed/build contract. Missing-detail variants may set `seed_from_reference` plus
 `clear_fields` or `clear_slots` so the deterministic path preserves the reviewed source/operation
 and removes only the intended business/request detail.
+
+`icot variants validate` is a fast metadata check for the same files. It catches schema errors,
+unknown expected failure families, duplicate IDs, and reference-seeded clear slots that no longer
+match the reviewed reference intent.
 
 This scorecard remains provider-free reference/variant package evidence. It does not show that a
 live LLM generated the workflow from the variant brief. For optional real authoring evidence, run:
