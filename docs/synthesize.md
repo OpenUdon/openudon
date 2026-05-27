@@ -16,7 +16,7 @@ go run ./cmd/openudon synthesize \
   --max-attempts 5
 ```
 
-`synthesize` reads `project.md`, API source files under `openapi/`, `google-discovery/`, and `aws-smithy/` plus optional existing intent. It
+`synthesize` reads `project.md`, API/event source files under `openapi/`, `google-discovery/`, `aws-smithy/`, and `asyncapi/` plus optional existing intent. It
 writes:
 
 ```text
@@ -51,9 +51,13 @@ source-aligned directory before running `synthesize`:
 go run ./cmd/openudon catalog import-openapi --provider stripe --example ./examples/<name>
 ```
 
-Catalog OpenAPI/Swagger, Google Discovery, and AWS Smithy JSON artifacts are first-class API source
-inputs for generated UWS artifacts. Stone, human-docs, and unknown protocols remain advisory or
+Catalog OpenAPI/Swagger, Google Discovery, AWS Smithy JSON, and AsyncAPI artifacts are first-class
+API/event source inputs for generated UWS artifacts. Stone, human-docs, and unknown protocols remain advisory or
 lowering/review inputs until a later source type is defined.
+
+OpenUdon validates and packages AsyncAPI source-bound UWS 1.3 workflows. It does not implement
+AsyncAPI protocol serialization, broker subscription, message delivery, or credential resolution;
+those remain trusted-runtime responsibilities.
 
 ## Narrower Stages
 

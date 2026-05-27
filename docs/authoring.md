@@ -38,9 +38,11 @@ go run ./cmd/openudon build --example ./examples/<name>
 go run ./cmd/openudon assess --example ./examples/<name>
 ```
 
-`synthesize` reads `project.md`, discovers or imports local API source metadata, creates or
-updates intent, and writes the generated package artifacts. OpenAPI, Google Discovery, and AWS Smithy
-JSON can be staged directly as UWS 1.2 source descriptions when the trusted executor supports them.
+`synthesize` reads `project.md`, discovers or imports local API/event source metadata, creates or
+updates intent, and writes the generated package artifacts. OpenAPI, Google Discovery, AWS Smithy
+JSON, and AsyncAPI can be staged directly as UWS source descriptions when the trusted executor supports them.
+AsyncAPI source-bound workflows emit UWS 1.3 and remain review/package artifacts; OpenUdon does not
+execute AsyncAPI protocols.
 `build` regenerates from existing intent.
 `assess` reruns deterministic quality checks without synthesizing new intent.
 
@@ -59,7 +61,7 @@ When a provider has a directly importable OpenAPI reference, import it into the 
 go run ./cmd/openudon catalog import-openapi --provider stripe --example ./examples/<name>
 ```
 
-Discovery and Smithy catalog entries can be materialized as first-class API source inputs when a
+Discovery, Smithy, and AsyncAPI catalog entries can be materialized as first-class API/event source inputs when a
 package needs them. Stone and human-docs catalog entries remain advisory metadata until lowered or
 reviewed separately.
 

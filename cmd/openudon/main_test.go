@@ -445,6 +445,38 @@ func TestValidateUWSPathValidatesDirectoryArtifacts(t *testing.T) {
 	}
 }
 
+func TestValidateUWSPathAcceptsUWS13AsyncAPI(t *testing.T) {
+	dir := t.TempDir()
+	doc := filepath.Join(dir, "workflow.uws.yaml")
+	mustWriteCLIFile(t, doc, []byte(`uws: 1.3.0
+info:
+  title: async source
+  version: 1.0.0
+sourceDescriptions:
+  - name: billing_events
+    url: asyncapi/billing-events.yaml
+    type: asyncapi
+operations:
+  - operationId: publish_invoice
+    sourceDescription: billing_events
+    sourceOperationId: publishInvoice
+workflows:
+  - workflowId: main
+    type: sequence
+    steps:
+      - stepId: publish_invoice
+        operationRef: publish_invoice
+`))
+
+	var out bytes.Buffer
+	if err := validateUWSPath(doc, &out, false); err != nil {
+		t.Fatalf("validateUWSPath returned error: %v", err)
+	}
+	if !strings.Contains(out.String(), "is valid UWS") {
+		t.Fatalf("unexpected validate output:\n%s", out.String())
+	}
+}
+
 func TestValidateUWSPathReportsDirectoryWithNoArtifacts(t *testing.T) {
 	var out bytes.Buffer
 	dir := t.TempDir()

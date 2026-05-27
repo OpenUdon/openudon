@@ -55,6 +55,92 @@ func TestGenerateWorkflowDocumentEmitsUWS12TypedSource(t *testing.T) {
 	}
 }
 
+func TestGenerateWorkflowDocumentEmitsUWS13AsyncAPISource(t *testing.T) {
+	example := t.TempDir()
+	mustWriteSynthesizeTestFile(t, filepath.Join(example, "asyncapi", "events.yaml"), []byte(minimalAsyncAPIDocument()))
+	intent := &rollout.Intent{
+		Source:   "asyncapi/events.yaml",
+		Workflow: &rollout.WorkflowMeta{Name: "billing_events"},
+		Steps: []*rollout.Step{{
+			Name:      "publish_invoice",
+			Type:      "http",
+			Source:    "asyncapi/events.yaml",
+			Operation: "publishInvoice",
+			With: map[string]string{
+				"body.invoice_id": "inputs.invoice_id",
+				"header.trace_id": "inputs.trace_id",
+			},
+		}},
+	}
+	doc, err := generateWorkflowDocument(Result{ExampleDir: example}, intent)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if doc.UWS != "1.3.0" {
+		t.Fatalf("UWS version = %q, want 1.3.0", doc.UWS)
+	}
+	if len(doc.SourceDescriptions) != 1 || doc.SourceDescriptions[0].Type != sourceDescriptionTypeAsyncAPI {
+		t.Fatalf("sourceDescriptions = %#v", doc.SourceDescriptions)
+	}
+	if got := doc.Operations[0].SourceOperationID; got != "publishInvoice" {
+		t.Fatalf("sourceOperationId = %q", got)
+	}
+	body, ok := doc.Operations[0].Request["body"].(map[string]any)
+	if !ok || body["invoice_id"] == nil {
+		t.Fatalf("request body binding = %#v", doc.Operations[0].Request)
+	}
+	header, ok := doc.Operations[0].Request["header"].(map[string]any)
+	if !ok || header["trace_id"] == nil {
+		t.Fatalf("request header binding = %#v", doc.Operations[0].Request)
+	}
+}
+
+func TestGenerateWorkflowDocumentEmitsAsyncAPISourceOperationRef(t *testing.T) {
+	example := t.TempDir()
+	mustWriteSynthesizeTestFile(t, filepath.Join(example, "asyncapi", "events.yaml"), []byte(minimalAsyncAPIDocument()))
+	intent := &rollout.Intent{
+		Source:   "asyncapi/events.yaml",
+		Workflow: &rollout.WorkflowMeta{Name: "billing_events"},
+		Steps: []*rollout.Step{{
+			Name:      "publish_invoice",
+			Type:      "http",
+			Source:    "asyncapi/events.yaml",
+			Operation: "#/operations/publishInvoice",
+			With:      map[string]string{"body.invoice_id": "inputs.invoice_id"},
+		}},
+	}
+	doc, err := generateWorkflowDocument(Result{ExampleDir: example}, intent)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := doc.Operations[0].SourceOperationRef; got != "#/operations/publishInvoice" {
+		t.Fatalf("sourceOperationRef = %q", got)
+	}
+	if doc.Operations[0].SourceOperationID != "" {
+		t.Fatalf("sourceOperationId should be empty, got %q", doc.Operations[0].SourceOperationID)
+	}
+}
+
+func TestGenerateWorkflowDocumentRequiresExplicitAsyncAPIRequestPlacement(t *testing.T) {
+	example := t.TempDir()
+	mustWriteSynthesizeTestFile(t, filepath.Join(example, "asyncapi", "events.yaml"), []byte(minimalAsyncAPIDocument()))
+	intent := &rollout.Intent{
+		Source:   "asyncapi/events.yaml",
+		Workflow: &rollout.WorkflowMeta{Name: "billing_events"},
+		Steps: []*rollout.Step{{
+			Name:      "publish_invoice",
+			Type:      "http",
+			Source:    "asyncapi/events.yaml",
+			Operation: "publishInvoice",
+			With:      map[string]string{"invoice_id": "inputs.invoice_id"},
+		}},
+	}
+	_, err := generateWorkflowDocument(Result{ExampleDir: example}, intent)
+	if err == nil || !strings.Contains(err.Error(), "request field \"invoice_id\" is not declared") {
+		t.Fatalf("expected explicit AsyncAPI request placement error, got %v", err)
+	}
+}
+
 func TestGenerateWorkflowDocumentUsesRequestBodyForKnownFnctHelper(t *testing.T) {
 	intent := &rollout.Intent{
 		Workflow: &rollout.WorkflowMeta{Name: "gmail_render"},
@@ -697,6 +783,30 @@ func minimalDiscoveryDocument() string {
 	    }
 	  }
 	}`
+}
+
+func minimalAsyncAPIDocument() string {
+	return `asyncapi: 3.0.0
+info:
+  title: Billing Events
+  version: 1.0.0
+  description: Billing event bus.
+operations:
+  publishInvoice:
+    action: send
+    summary: Publish an invoice event.
+    channel:
+      $ref: '#/channels/invoices'
+    messages:
+      - $ref: '#/channels/invoices/messages/invoiceCreated'
+channels:
+  invoices:
+    address: invoices
+    messages:
+      invoiceCreated:
+        payload:
+          type: object
+`
 }
 
 func discoveryRequestBodyDocument() string {

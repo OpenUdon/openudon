@@ -470,7 +470,7 @@ func migratedSourceCandidatesForProvider(sources []CatalogMigrationCandidate, pr
 
 func catalogMigrationCandidateIsAPISource(candidate CatalogMigrationCandidate) bool {
 	switch strings.TrimSpace(strings.Split(filepath.ToSlash(candidate.RelativePath), "/")[0]) {
-	case "openapi", "google-discovery", "aws-smithy":
+	case "openapi", "google-discovery", "aws-smithy", "asyncapi":
 		return candidate.Kind != catalog.SpecKind("security-overlay")
 	default:
 		return false
@@ -911,6 +911,8 @@ func uwsSourceTypeArtifactDir(sourceType string) string {
 		return "google-discovery"
 	case "aws-smithy":
 		return "aws-smithy"
+	case "asyncapi":
+		return "asyncapi"
 	default:
 		return ""
 	}

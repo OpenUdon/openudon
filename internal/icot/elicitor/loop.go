@@ -890,7 +890,7 @@ func (p *prompter) collectFields(fields []string, inputs []*rollout.Input, prior
 	bindFields := map[string]map[string]string{}
 	deps := []string{}
 	for _, raw := range fields {
-		field := slugIdent(raw)
+		field := normalizeRequestPromptField(raw)
 		if field == "" {
 			continue
 		}
@@ -1229,12 +1229,46 @@ func inputNames(inputs []*rollout.Input) string {
 }
 
 func defaultFieldSource(field string, inputs []*rollout.Input) string {
+	leaf := field
+	if _, after, ok := strings.Cut(field, "."); ok {
+		leaf = after
+	}
 	for _, input := range inputs {
-		if input != nil && strings.EqualFold(input.Name, field) {
+		if input != nil && (strings.EqualFold(input.Name, field) || strings.EqualFold(input.Name, leaf)) {
 			return "inputs." + input.Name
 		}
 	}
 	return ""
+}
+
+func normalizeRequestPromptField(raw string) string {
+	raw = strings.TrimSpace(strings.Trim(raw, "`'\""))
+	if raw == "" {
+		return ""
+	}
+	section, rest, ok := strings.Cut(raw, ".")
+	if !ok {
+		return slugIdent(raw)
+	}
+	section = slugIdent(section)
+	if section == "" {
+		return slugIdent(raw)
+	}
+	switch section {
+	case "path", "query", "header", "cookie", "body":
+	default:
+		return slugIdent(raw)
+	}
+	var parts []string
+	for _, part := range strings.Split(rest, ".") {
+		if ident := slugIdent(part); ident != "" {
+			parts = append(parts, ident)
+		}
+	}
+	if len(parts) == 0 {
+		return section
+	}
+	return section + "." + strings.Join(parts, ".")
 }
 
 func parsePriorStepSource(source string, prior []*rollout.Step) (string, string, bool) {

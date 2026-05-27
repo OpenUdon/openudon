@@ -27,6 +27,8 @@ type localAPISource struct {
 	Err          error
 }
 
+const sourceDescriptionTypeAsyncAPI uws1.SourceDescriptionType = "asyncapi"
+
 func newLocalAPISourceRegistry(exampleDir string, candidates []openapidisco.Candidate) (*localAPISourceRegistry, error) {
 	registry := &localAPISourceRegistry{entries: map[string]localAPISource{}}
 	for _, candidate := range candidates {
@@ -147,6 +149,16 @@ func nativeAPISourceOperations(path string, sourceType uws1.SourceDescriptionTyp
 				}
 			}
 		}
+	case sourceDescriptionTypeAsyncAPI:
+		doc, parseErr := parseAsyncAPIDocument(data)
+		if parseErr != nil {
+			return nil, parseErr
+		}
+		for id := range doc.Operations {
+			if id = strings.TrimSpace(id); id != "" {
+				operations[id] = true
+			}
+		}
 	default:
 		return nil, nil
 	}
@@ -173,6 +185,8 @@ func sourceDescriptionTypeForPath(path string) uws1.SourceDescriptionType {
 			return uws1.SourceDescriptionTypeGoogleDiscovery
 		case "aws-smithy":
 			return uws1.SourceDescriptionTypeAWSSmithy
+		case "asyncapi":
+			return sourceDescriptionTypeAsyncAPI
 		case "openapi":
 			return uws1.SourceDescriptionTypeOpenAPI
 		}
@@ -212,6 +226,9 @@ func sniffAPISourceType(path string) (uws1.SourceDescriptionType, bool, error) {
 			if _, ok := root["swagger"]; ok {
 				return uws1.SourceDescriptionTypeOpenAPI, true, nil
 			}
+			if _, ok := root["asyncapi"]; ok {
+				return sourceDescriptionTypeAsyncAPI, true, nil
+			}
 		}
 	}
 	lower := strings.ToLower(text)
@@ -223,6 +240,8 @@ func sniffAPISourceType(path string) (uws1.SourceDescriptionType, bool, error) {
 	case strings.HasPrefix(lower, "openapi:") || strings.Contains(lower, "\nopenapi:") ||
 		strings.HasPrefix(lower, "swagger:") || strings.Contains(lower, "\nswagger:"):
 		return uws1.SourceDescriptionTypeOpenAPI, true, nil
+	case strings.HasPrefix(lower, "asyncapi:") || strings.Contains(lower, "\nasyncapi:"):
+		return sourceDescriptionTypeAsyncAPI, true, nil
 	default:
 		return "", false, nil
 	}

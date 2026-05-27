@@ -715,7 +715,7 @@ func applyCatalogDocumentAnswer(out io.Writer, session *Session, plan QuestionPl
 			clearUnavailableAPIDocumentRefs(session, docs)
 			clearMissingStepAPIDocumentRefs(session, answer)
 			if os.IsNotExist(err) {
-				fmt.Fprintf(out, "icot: local API document not found: %s. Create that file first, or enter an existing file under openapi/, google-discovery/, aws-smithy/, or discovery/.\n", path)
+				fmt.Fprintf(out, "icot: local API document not found: %s. Create that file first, or enter an existing file under openapi/, google-discovery/, aws-smithy/, asyncapi/, or discovery/.\n", path)
 				return true, nil
 			}
 			return true, err
@@ -1968,7 +1968,7 @@ func isLocalAPIDocumentRef(ref string) bool {
 	if strings.HasPrefix(ref, "http://") || strings.HasPrefix(ref, "https://") {
 		return false
 	}
-	return strings.HasPrefix(ref, "openapi/") || strings.HasPrefix(ref, "google-discovery/") || strings.HasPrefix(ref, "aws-smithy/") || strings.HasPrefix(ref, "discovery/")
+	return strings.HasPrefix(ref, "openapi/") || strings.HasPrefix(ref, "google-discovery/") || strings.HasPrefix(ref, "aws-smithy/") || strings.HasPrefix(ref, "asyncapi/") || strings.HasPrefix(ref, "discovery/")
 }
 
 func catalogProvidersMissingLocalDocs(hints []CatalogHint, docs []APIDocument) []string {
@@ -2115,6 +2115,9 @@ func validateOpenAPIRequestMappings(session Session, step *rollout.Step, op *api
 			if !credentialSet[credential] {
 				add("undeclared_credential_reference", slot, "Request field "+field+" references undeclared credential binding "+credential+".")
 			}
+		}
+		if strings.EqualFold(strings.TrimSpace(op.Provenance), "asyncapi") {
+			return
 		}
 		info, ok := fields[field]
 		if !ok {

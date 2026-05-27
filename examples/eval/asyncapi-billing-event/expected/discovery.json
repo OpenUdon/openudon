@@ -1,0 +1,10 @@
+{
+  "attempts": [
+    {
+      "kind": "local",
+      "source": "/home/peter/Workspace/openudon/examples/eval/asyncapi-billing-event/openapi",
+      "status": "pass",
+      "detail": "0 local OpenAPI document(s)"
+    }
+  ]
+}

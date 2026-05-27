@@ -1,0 +1,30 @@
+{
+  "version": "openudon.workflow-plan.v1",
+  "example": "asyncapi-billing-event",
+  "workflow": "asyncapi_billing_event",
+  "summary": "Publish a reviewed invoice-created event using a package-local AsyncAPI source.",
+  "steps": [
+    {
+      "name": "publish_invoice_created",
+      "type": "http",
+      "inferred": true,
+      "openapi": "asyncapi/events.yaml",
+      "operation": "publishInvoiceCreated",
+      "runtime": "http",
+      "bindings": [
+        {
+          "target": "body.customer_id",
+          "source": "inputs.customer_id"
+        },
+        {
+          "target": "body.invoice_id",
+          "source": "inputs.invoice_id"
+        },
+        {
+          "target": "header.trace_id",
+          "source": "inputs.trace_id"
+        }
+      ]
+    }
+  ]
+}

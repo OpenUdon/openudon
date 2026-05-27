@@ -41,6 +41,7 @@ func TestRequiredPackagePathsIncludesFirstClassAPISources(t *testing.T) {
 	writeRequiredPackageFiles(t, root)
 	mustWrite(t, filepath.Join(root, "google-discovery", "gmail.json"), []byte(`{"discoveryVersion":"v1"}`))
 	mustWrite(t, filepath.Join(root, "aws-smithy", "lambda.json"), []byte(`{"smithy":"2.0"}`))
+	mustWrite(t, filepath.Join(root, "asyncapi", "events.yaml"), []byte("asyncapi: 3.0.0\ninfo: {title: Events, version: 1.0.0}\noperations: {}\n"))
 	mustWrite(t, filepath.Join(root, "discovery", "legacy.json"), []byte(`{"discoveryVersion":"v1"}`))
 
 	paths, err := RequiredPackagePaths(root)
@@ -50,6 +51,7 @@ func TestRequiredPackagePathsIncludesFirstClassAPISources(t *testing.T) {
 	for _, want := range []string{
 		"google-discovery/gmail.json",
 		"aws-smithy/lambda.json",
+		"asyncapi/events.yaml",
 		"discovery/legacy.json",
 	} {
 		if !stringSliceContains(paths, want) {

@@ -49,7 +49,7 @@ bindings, or unverifiable response paths should fail validation instead of being
 An intent file is HCL with these top-level fields and blocks:
 
 ```text
-source     = "openapi/example.yaml"   # optional default API source document
+source     = "openapi/example.yaml"   # optional default API/event source document
 openapi    = "openapi/example.yaml"   # legacy alias for OpenAPI-only intent
 server_url = "https://sandbox.example.com" # optional default server URL
 locals     = { region = "us-east-1" } # optional string map
@@ -70,10 +70,14 @@ Block order is not significant to parsing. The renderer emits a stable order, an
 intent should follow it for reviewability: top-level attributes, `workflow`, inputs, triggers,
 security, steps, then outputs.
 
-Top-level `source` is the default API source document path for API steps that do not declare
+Top-level `source` is the default API/event source document path for API steps that do not declare
 step-local `source`. `openapi` is accepted as a backward-compatible alias for OpenAPI-only intent.
 `Intent.MissingSlots()` reports an API source requirement when a step names an `operation` but no
 step-local or top-level source is available.
+
+AsyncAPI sources use paths under `asyncapi/`, emit UWS 1.3, and must use explicit request mapping
+locations such as `body.invoice_id` or `header.trace_id` because OpenUdon treats AsyncAPI payload and
+header schemas as runtime-owned metadata.
 
 Top-level `server_url` is an optional server override for the selected API source documents, typically
 used to steer proof runs toward sandbox endpoints. Top-level `locals` is an optional string map for

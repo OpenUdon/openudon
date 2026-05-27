@@ -33,6 +33,8 @@ type Options struct {
 	LLMClient  rollout.LLMClient
 	ChatClient rollout.ChatClient
 	SchemaPath string
+
+	LocalOnlyDiscovery bool
 }
 
 type Result struct {
@@ -133,6 +135,7 @@ func Build(ctx context.Context, opts Options) (*Result, error) {
 	if ctx == nil {
 		ctx = context.Background()
 	}
+	opts.LocalOnlyDiscovery = true
 	result, report, err := PackageFromIntent(ctx, opts)
 	if err != nil {
 		return result, err
@@ -152,6 +155,7 @@ func PackageFromIntent(ctx context.Context, opts Options) (*Result, *QualityRepo
 	if ctx == nil {
 		ctx = context.Background()
 	}
+	opts.LocalOnlyDiscovery = true
 	state, err := prepareRefinement(ctx, opts)
 	if err != nil {
 		return nil, nil, err
@@ -162,7 +166,7 @@ func PackageFromIntent(ctx context.Context, opts Options) (*Result, *QualityRepo
 	}
 	applyProjectTimeoutAndIdempotency(intent, state.policy)
 	primary := strings.TrimSpace(intent.OpenAPI)
-	if primary == "" && !state.policy.NoOpenAPI {
+	if primary == "" && !state.policy.NoOpenAPI && len(state.candidates) > 0 {
 		selected, err := openapidisco.SelectPrimary(state.candidates)
 		if err != nil {
 			return &state.result, nil, err
@@ -274,7 +278,23 @@ func prepareRefinement(ctx context.Context, opts Options) (*refinementState, err
 		if err := ctx.Err(); err != nil {
 			return nil, err
 		}
-		candidates, discoveryReport, err := discoverer.DiscoverWithReport(ctx, exampleDir, projectText)
+		var candidates []openapidisco.Candidate
+		var discoveryReport openapidisco.DiscoveryReport
+		var err error
+		if opts.LocalOnlyDiscovery {
+			candidates, err = openapidisco.LocalFiles(filepath.Join(exampleDir, "openapi"), exampleDir, projectText)
+			if err != nil && !errors.Is(err, os.ErrNotExist) {
+				return nil, fmt.Errorf("scan local OpenAPI documents: %w", err)
+			}
+			discoveryReport = openapidisco.DiscoveryReport{Attempts: []openapidisco.DiscoveryAttempt{{
+				Kind:   "local",
+				Source: filepath.ToSlash(filepath.Join(exampleDir, "openapi")),
+				Status: "pass",
+				Detail: fmt.Sprintf("%d local OpenAPI document(s)", len(candidates)),
+			}}}
+		} else {
+			candidates, discoveryReport, err = discoverer.DiscoverWithReport(ctx, exampleDir, projectText)
+		}
 		state.candidates = candidates
 		state.discoveryReport = discoveryReport
 		state.result.DiscoveryReport = discoveryReport
@@ -284,11 +304,13 @@ func prepareRefinement(ctx context.Context, opts Options) (*refinementState, err
 		if err != nil {
 			return nil, fmt.Errorf("discover OpenAPI documents: %w", err)
 		}
-		primary, err := openapidisco.SelectPrimary(candidates)
-		if err != nil {
-			return nil, err
+		if len(candidates) > 0 {
+			primary, err := openapidisco.SelectPrimary(candidates)
+			if err != nil {
+				return nil, err
+			}
+			state.primaryPath = primary.RelativePath
 		}
-		state.primaryPath = primary.RelativePath
 	}
 	state.result.PrimaryOpenAPI = state.primaryPath
 	state.result.OpenAPICandidates = state.candidates

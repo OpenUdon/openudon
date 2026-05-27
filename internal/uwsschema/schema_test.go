@@ -13,7 +13,7 @@ func TestPathForVersionFindsReadableSchema(t *testing.T) {
 }
 
 func TestEmbeddedSchemaPathFindsReadableSchema(t *testing.T) {
-	for _, name := range []string{"1.0.0.json", "1.1.0.json", "1.1.1.json", "1.2.0.json"} {
+	for _, name := range []string{"1.0.0.json", "1.1.0.json", "1.1.1.json", "1.2.0.json", "1.3.0.json"} {
 		path, ok := embeddedSchemaPath(name)
 		if !ok {
 			t.Fatalf("embedded schema path %s not found", name)

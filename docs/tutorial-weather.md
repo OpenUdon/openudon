@@ -39,7 +39,7 @@ report content. Advisory `llm_flow_review_*` findings are also written as commen
 
 For this specific weather-to-Gmail workflow, current catalog metadata can migrate Gmail's official
 Google Discovery document when it is cached and can materialize an OpenWeatherMap advisory OpenAPI
-overlay when present. Gmail can remain a first-class `google-discovery` source in the final UWS 1.2
+overlay when present. Gmail can remain a first-class `google-discovery` source in the final UWS
 package when the trusted executor supports typed sources. The committed weather eval fixture remains
 an example, not an implicit input to the new workflow.
 

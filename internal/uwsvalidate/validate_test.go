@@ -80,3 +80,27 @@ func TestValidateFileAcceptsUWS12TypedSourceDocument(t *testing.T) {
 		t.Fatalf("ValidateFile returned error: %v", err)
 	}
 }
+
+func TestValidateFileAcceptsUWS13AsyncAPISourceDocument(t *testing.T) {
+	dir := t.TempDir()
+	doc := filepath.Join(dir, "workflow.uws.json")
+	if err := os.WriteFile(doc, []byte(`{
+  "uws": "1.3.0",
+  "info": {"title": "async source", "version": "1.0.0"},
+  "sourceDescriptions": [
+    {"name": "billing_events", "url": "asyncapi/billing-events.yaml", "type": "asyncapi"}
+  ],
+  "operations": [
+    {"operationId": "publish_invoice", "sourceDescription": "billing_events", "sourceOperationId": "publishInvoice"}
+  ],
+  "workflows": [
+    {"workflowId": "main", "type": "sequence", "steps": [{"stepId": "publish_invoice", "operationRef": "publish_invoice"}]}
+  ]
+}`), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	schema := uwsschema.PathForVersion(dir, "1.3.0")
+	if err := ValidateFile(schema, doc); err != nil {
+		t.Fatalf("ValidateFile returned error: %v", err)
+	}
+}

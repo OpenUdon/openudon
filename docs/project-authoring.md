@@ -152,6 +152,7 @@ named structural result.
 If the project needs API calls, provide one of these:
 
 - OpenAPI files under `openapi/`.
+- AsyncAPI files under `asyncapi/` when the workflow binds to event or message source operations.
 - OpenAPI document URLs in `project.md`.
 - Search/discovery hints precise enough for OpenUdon to find the relevant API document.
 

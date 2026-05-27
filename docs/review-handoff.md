@@ -33,6 +33,7 @@ expected/data.hcl when runtime inputs are declared
 openapi/... regular files used by the package
 google-discovery/... regular files used by the package
 aws-smithy/... regular files used by the package
+asyncapi/... regular files used by the package
 associated advisory security sidecars
 ```
 

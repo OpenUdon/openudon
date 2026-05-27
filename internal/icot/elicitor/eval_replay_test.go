@@ -20,8 +20,8 @@ func TestReplayEvalReferencesThroughICOTChat(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(fixtures) != 57 {
-		t.Fatalf("fixture count = %d, want 57", len(fixtures))
+	if len(fixtures) != 58 {
+		t.Fatalf("fixture count = %d, want 58", len(fixtures))
 	}
 	for _, referencePath := range fixtures {
 		exampleDir := filepath.Dir(filepath.Dir(referencePath))

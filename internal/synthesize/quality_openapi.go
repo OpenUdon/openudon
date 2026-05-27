@@ -55,6 +55,9 @@ func validateIntentOpenAPIOperations(intent *rollout.Intent, exampleDir string, 
 				}
 				return
 			}
+			if sourceDescriptionTypeForPath(specPath) == sourceDescriptionTypeAsyncAPI && strings.HasPrefix(operation, "#/") {
+				return
+			}
 			entry, ok := sourceRegistry.get(specPath)
 			if !ok {
 				missing = append(missing, fmt.Sprintf("%s operation %q in %q", name, operation, specPath))
@@ -400,6 +403,8 @@ func nativeOperationInfoIndex(path string, sourceType string) map[string]*rollou
 		return out
 	}
 	switch sourceType {
+	case "asyncapi":
+		return asyncAPIOperationInfoIndex(path)
 	case "google-discovery":
 		model, err := googlediscovery.Parse(data)
 		if err != nil {

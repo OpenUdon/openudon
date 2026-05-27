@@ -9,11 +9,11 @@ trusted executor boundary such as the `udon` runtime.
 
 It owns project templates, optional workflow orchestration policy, example artifacts, deterministic
 validation, review handoff evidence, package digests, credential policy, and trusted-runner glue.
-Public workflow semantics belong in `github.com/OpenUdon/uws`; API source metadata discovery,
+Public workflow semantics belong in `github.com/OpenUdon/uws`; API/event source metadata discovery,
 import, materialization, search, and indexing belong in `github.com/OpenUdon/apitools`; static
 Terraform/OpenTofu parsing for `openudon convert tf` belongs in `github.com/OpenUdon/tfconfig`.
-OpenUdon can stage OpenAPI, Google Discovery, and AWS Smithy source documents as first-class UWS 1.2
-source descriptions when the trusted executor supports them.
+OpenUdon can stage OpenAPI, Google Discovery, AWS Smithy, and AsyncAPI source documents as
+first-class UWS source descriptions when the trusted executor supports them.
 
 ## Quick Start
 
@@ -220,8 +220,8 @@ go run ./cmd/openudon synthesize \
   --max-attempts 5
 ```
 
-The command reads `project.md`, discovers or imports API source documents under `openapi/`,
-`google-discovery/`, or `aws-smithy/`, writes `workflows/intent.hcl` when needed, and generates equivalent public UWS HCL/YAML workflow
+The command reads `project.md`, discovers or imports API/event source documents under `openapi/`,
+`google-discovery/`, `aws-smithy/`, or `asyncapi/`, writes `workflows/intent.hcl` when needed, and generates equivalent public UWS HCL/YAML workflow
 artifacts:
 
 ```text
@@ -280,8 +280,8 @@ go run ./cmd/openudon catalog import-openapi \
 ```
 
 `import-openapi` writes only actual OpenAPI references into `examples/<name>/openapi/`. Catalog
-materialization and iCoT artifact migration may stage Google Discovery under `google-discovery/` and
-AWS Smithy JSON under `aws-smithy/`; Dropbox Stone and human-docs entries remain advisory until
+materialization and iCoT artifact migration may stage Google Discovery under `google-discovery/`,
+AWS Smithy JSON under `aws-smithy/`, and AsyncAPI source documents under `asyncapi/`; Dropbox Stone and human-docs entries remain advisory until
 lowered or reviewed separately.
 
 ## Quality And Repair Loop
@@ -414,10 +414,11 @@ Tier rules:
 OpenUdon issues may be run through externally orchestrated Codex sessions. Agents should follow this policy:
 
 - Use UWS as the workflow interchange format.
-- Use reviewed API source documents for HTTP method, path, schema, server, and security details.
+- Use reviewed API/event source documents for HTTP method, path, channel, message, schema, server,
+  and security details.
 - Use `openudon catalog inspect` or `openudon catalog import-openapi` when a first-class
   provider-owned OpenAPI source is available, and use first-class materialization for Google
-  Discovery or AWS Smithy sources when supported.
+  Discovery, AWS Smithy, or AsyncAPI sources when supported.
 - Use extension-owned UWS operations for non-HTTP runtimes such as SMTP, command execution, SSH,
   SQL, or LLM calls.
 - Use `../uws` for public schema/model validation.
@@ -431,6 +432,7 @@ Expected artifact locations:
 ```text
 examples/<name>/project.md
 examples/<name>/openapi/
+examples/<name>/asyncapi/
 examples/<name>/workflows/intent.hcl
 examples/<name>/workflows/workflow.hcl
 examples/<name>/workflows/workflow.uws.yaml

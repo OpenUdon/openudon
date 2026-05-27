@@ -531,7 +531,7 @@ func clearVariantSlots(session *elicitor.Session, slots []string) error {
 		if !strings.HasPrefix(slot, "steps.") {
 			return fmt.Errorf("unsupported clear slot %q", slot)
 		}
-		parts := strings.Split(slot, ".")
+		parts := strings.SplitN(slot, ".", 4)
 		if len(parts) != 4 || parts[0] != "steps" || parts[2] != "with" {
 			return fmt.Errorf("unsupported clear slot %q", slot)
 		}

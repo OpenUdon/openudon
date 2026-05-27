@@ -143,10 +143,22 @@ func generateWorkflowDocument(result Result, intent *rollout.Intent) (*uws1.Docu
 	if len(doc.Operations) == 0 && len(doc.Workflows[0].Steps) == 0 {
 		return nil, fmt.Errorf("intent produced no UWS operations or steps")
 	}
-	if err := doc.Validate(); err != nil {
+	if err := doc.Validate(); err != nil && !deferUWS13AsyncAPISchemaValidation(doc, err) {
 		return nil, err
 	}
 	return doc, nil
+}
+
+func deferUWS13AsyncAPISchemaValidation(doc *uws1.Document, err error) bool {
+	if doc == nil || err == nil || strings.TrimSpace(doc.UWS) != "1.3.0" {
+		return false
+	}
+	for _, source := range doc.SourceDescriptions {
+		if source != nil && source.EffectiveType() == sourceDescriptionTypeAsyncAPI {
+			return strings.Contains(err.Error(), "asyncapi") || strings.Contains(err.Error(), "sourceDescriptions")
+		}
+	}
+	return false
 }
 
 func buildUWSSteps(steps []*rollout.Step, defaultOpenAPI string, sourceFor func(string) string, requestMapper *requestBindingMapper) ([]*uws1.Step, []*uws1.Operation, error) {
@@ -247,8 +259,11 @@ func buildUWSStep(step *rollout.Step, defaultOpenAPI string, sourceFor func(stri
 			return nil, nil, fmt.Errorf("step %s references OpenAPI operation without source document", name)
 		}
 		op.SourceDescription = source
-		if sourceDescriptionTypeForPath(openAPIPath) == uws1.SourceDescriptionTypeOpenAPI {
+		sourceType := sourceDescriptionTypeForPath(openAPIPath)
+		if sourceType == uws1.SourceDescriptionTypeOpenAPI {
 			op.OpenAPIOperationID = strings.TrimSpace(step.Operation)
+		} else if strings.HasPrefix(strings.TrimSpace(step.Operation), "#/") {
+			op.SourceOperationRef = strings.TrimSpace(step.Operation)
 		} else {
 			op.SourceOperationID = strings.TrimSpace(step.Operation)
 		}
@@ -626,6 +641,16 @@ func (mapper *requestBindingMapper) loadNative(path, sourceRef string, sourceTyp
 				return nil, err
 			}
 		}
+	case sourceDescriptionTypeAsyncAPI:
+		doc, parseErr := parseAsyncAPIDocument(data)
+		if parseErr != nil {
+			return nil, fmt.Errorf("load AsyncAPI request metadata %s: %w", sourceRef, parseErr)
+		}
+		for _, op := range asyncAPIOperationSummaries(sourceRef, doc) {
+			if err := add([]string{op.OperationID}, op); err != nil {
+				return nil, err
+			}
+		}
 	default:
 		return nil, fmt.Errorf("unsupported API source type %q for %s", sourceType, sourceRef)
 	}
@@ -955,6 +980,9 @@ func stringMapToAny(values map[string]string) map[string]any {
 }
 
 func uwsVersionForIntent(intent *rollout.Intent) string {
+	if intentRequiresUWS13(intent) {
+		return "1.3.0"
+	}
 	if intentRequiresUWS12(intent) {
 		return "1.2.0"
 	}
@@ -962,6 +990,22 @@ func uwsVersionForIntent(intent *rollout.Intent) string {
 		return "1.1.0"
 	}
 	return "1.0.0"
+}
+
+func intentRequiresUWS13(intent *rollout.Intent) bool {
+	if intent == nil {
+		return false
+	}
+	if sourceDescriptionTypeForPath(firstNonEmpty(intent.Source, intent.OpenAPI)) == sourceDescriptionTypeAsyncAPI {
+		return true
+	}
+	requires := false
+	walkIntentSteps(intent.Steps, func(step *rollout.Step) {
+		if step != nil && !requires && sourceDescriptionTypeForPath(firstNonEmpty(step.Source, step.OpenAPI)) == sourceDescriptionTypeAsyncAPI {
+			requires = true
+		}
+	})
+	return requires
 }
 
 func intentRequiresUWS12(intent *rollout.Intent) bool {

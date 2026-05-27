@@ -500,8 +500,8 @@ func firstOpenAPIPath(value string) string {
 	for _, item := range splitList(value) {
 		for _, token := range strings.Fields(item) {
 			token = strings.Trim(token, "`'\".,")
-			if strings.HasPrefix(token, "openapi/") || strings.HasPrefix(token, "google-discovery/") || strings.HasPrefix(token, "aws-smithy/") || strings.HasPrefix(token, "discovery/") ||
-				strings.Contains(token, "/openapi/") || strings.Contains(token, "/google-discovery/") || strings.Contains(token, "/aws-smithy/") || strings.Contains(token, "/discovery/") {
+			if strings.HasPrefix(token, "openapi/") || strings.HasPrefix(token, "google-discovery/") || strings.HasPrefix(token, "aws-smithy/") || strings.HasPrefix(token, "asyncapi/") || strings.HasPrefix(token, "discovery/") ||
+				strings.Contains(token, "/openapi/") || strings.Contains(token, "/google-discovery/") || strings.Contains(token, "/aws-smithy/") || strings.Contains(token, "/asyncapi/") || strings.Contains(token, "/discovery/") {
 				return filepath.ToSlash(token)
 			}
 			ext := strings.ToLower(filepath.Ext(token))
