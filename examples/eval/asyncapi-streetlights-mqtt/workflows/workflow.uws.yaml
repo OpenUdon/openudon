@@ -1,0 +1,36 @@
+info:
+    description: Publish a reviewed Streetlights MQTT dim-light command using a package-local AsyncAPI source.
+    title: asyncapi_streetlights_mqtt
+    version: 1.0.0
+operations:
+    - description: Publish the Streetlights MQTT dim-light command.
+      operationId: dim_streetlight
+      request:
+        body:
+            percentage:
+                $expr: variables.inputs.dim_percentage
+            sentAt:
+                $expr: variables.inputs.sent_at
+        header:
+            my-app-header:
+                $expr: variables.inputs.app_header_value
+        path:
+            streetlightId:
+                $expr: variables.inputs.streetlight_id
+      sourceDescription: streetlights_mqtt
+      sourceOperationId: dimLight
+sourceDescriptions:
+    - name: streetlights_mqtt
+      type: asyncapi
+      url: asyncapi/streetlights-mqtt.yml
+uws: 1.3.0
+workflows:
+    - description: Publish a reviewed Streetlights MQTT dim-light command using a package-local AsyncAPI source.
+      outputs:
+        dim_result: dim_streetlight.received_body
+      steps:
+        - description: Publish the Streetlights MQTT dim-light command.
+          operationRef: dim_streetlight
+          stepId: dim_streetlight
+      type: sequence
+      workflowId: main

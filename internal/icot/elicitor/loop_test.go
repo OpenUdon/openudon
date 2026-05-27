@@ -602,6 +602,15 @@ func TestProgressiveTwoQuestionPathUsesReadinessFeedback(t *testing.T) {
 	}
 }
 
+func TestNormalizeRequestPromptFieldPreservesHeaderHyphen(t *testing.T) {
+	if got := normalizeRequestPromptField("header.my-app-header"); got != "header.my-app-header" {
+		t.Fatalf("header field = %q, want hyphen preserved", got)
+	}
+	if got := normalizeRequestPromptField("body.my-app-header"); got != "body.my_app_header" {
+		t.Fatalf("body field = %q, want identifier normalization", got)
+	}
+}
+
 func TestProgressivePreFinalReviewAddsCrossStepWarning(t *testing.T) {
 	example := t.TempDir()
 	writeOpenAPI(t, example)

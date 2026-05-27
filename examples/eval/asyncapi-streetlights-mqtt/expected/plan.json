@@ -1,0 +1,34 @@
+{
+  "version": "openudon.workflow-plan.v1",
+  "example": "asyncapi-streetlights-mqtt",
+  "workflow": "asyncapi_streetlights_mqtt",
+  "summary": "Publish a reviewed Streetlights MQTT dim-light command using a package-local AsyncAPI source.",
+  "steps": [
+    {
+      "name": "dim_streetlight",
+      "type": "http",
+      "inferred": true,
+      "openapi": "asyncapi/streetlights-mqtt.yml",
+      "operation": "dimLight",
+      "runtime": "http",
+      "bindings": [
+        {
+          "target": "body.percentage",
+          "source": "inputs.dim_percentage"
+        },
+        {
+          "target": "body.sentAt",
+          "source": "inputs.sent_at"
+        },
+        {
+          "target": "header.my-app-header",
+          "source": "inputs.app_header_value"
+        },
+        {
+          "target": "path.streetlightId",
+          "source": "inputs.streetlight_id"
+        }
+      ]
+    }
+  ]
+}

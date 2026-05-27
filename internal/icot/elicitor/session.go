@@ -800,6 +800,7 @@ func actionName(value string) string {
 }
 
 var nonIdentRE = regexp.MustCompile(`[^a-zA-Z0-9_]+`)
+var nonHeaderIdentRE = regexp.MustCompile(`[^a-zA-Z0-9_-]+`)
 
 func slug(value string) string {
 	return slugIdent(strings.ToLower(value))
@@ -810,6 +811,19 @@ func slugIdent(value string) string {
 	value = strings.ReplaceAll(value, "-", "_")
 	value = nonIdentRE.ReplaceAllString(value, "_")
 	value = strings.Trim(value, "_")
+	if value == "" {
+		return ""
+	}
+	if value[0] >= '0' && value[0] <= '9' {
+		value = "v_" + value
+	}
+	return value
+}
+
+func slugHeaderIdent(value string) string {
+	value = strings.TrimSpace(strings.Trim(value, "`'\""))
+	value = nonHeaderIdentRE.ReplaceAllString(value, "_")
+	value = strings.Trim(value, "_-")
 	if value == "" {
 		return ""
 	}

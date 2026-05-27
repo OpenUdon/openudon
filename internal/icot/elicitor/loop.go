@@ -1261,7 +1261,11 @@ func normalizeRequestPromptField(raw string) string {
 	}
 	var parts []string
 	for _, part := range strings.Split(rest, ".") {
-		if ident := slugIdent(part); ident != "" {
+		ident := slugIdent(part)
+		if section == "header" {
+			ident = slugHeaderIdent(part)
+		}
+		if ident != "" {
 			parts = append(parts, ident)
 		}
 	}

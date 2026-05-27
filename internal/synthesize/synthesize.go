@@ -295,6 +295,21 @@ func prepareRefinement(ctx context.Context, opts Options) (*refinementState, err
 		} else {
 			candidates, discoveryReport, err = discoverer.DiscoverWithReport(ctx, exampleDir, projectText)
 		}
+		if err != nil && errors.Is(err, os.ErrNotExist) {
+			apiSourcePaths, sourceErr := collectLocalAPISourcePaths(exampleDir)
+			if sourceErr != nil {
+				return nil, fmt.Errorf("scan local API source documents: %w", sourceErr)
+			}
+			if len(apiSourcePaths) > 0 {
+				err = nil
+				discoveryReport = openapidisco.DiscoveryReport{Attempts: []openapidisco.DiscoveryAttempt{{
+					Kind:   "local",
+					Source: filepath.ToSlash(filepath.Join(exampleDir, "openapi")),
+					Status: "pass",
+					Detail: "OpenAPI directory is absent; using package-local first-class API source documents.",
+				}}}
+			}
+		}
 		state.candidates = candidates
 		state.discoveryReport = discoveryReport
 		state.result.DiscoveryReport = discoveryReport

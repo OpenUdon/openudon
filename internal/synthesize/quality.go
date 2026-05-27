@@ -76,7 +76,8 @@ func assessContext(ctx context.Context, opts Options, writeReport bool) (*Qualit
 	}
 	candidates, err := openapidisco.LocalFiles(filepath.Join(exampleDir, "openapi"), exampleDir, projectText)
 	apiSourcePaths, sourceErr := collectLocalAPISourcePaths(exampleDir)
-	if err != nil && !(policy.NoOpenAPI && errors.Is(err, os.ErrNotExist)) {
+	hasFirstClassSources := sourceErr == nil && len(apiSourcePaths) > 0
+	if err != nil && !(errors.Is(err, os.ErrNotExist) && (policy.NoOpenAPI || hasFirstClassSources)) {
 		report.add("openapi.local", "fail", "OpenAPI directory could not be scanned", err.Error())
 	} else if sourceErr != nil {
 		report.add("openapi.local", "fail", "API source documents could not be scanned", sourceErr.Error())

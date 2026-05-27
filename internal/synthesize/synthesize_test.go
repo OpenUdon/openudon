@@ -2167,6 +2167,40 @@ func TestPackageFromIntentBuildRegressionMatrix(t *testing.T) {
 			},
 		},
 		{
+			name:    "asyncapi-without-openapi-dir",
+			project: buildMatrixProject("Billing Event", "- Use asyncapi/events.yaml for billing event publish.", "- openapi and http are allowed.", "- No function steps are expected.", "- No credentials are required."),
+			intent: &rollout.Intent{
+				Source:   "asyncapi/events.yaml",
+				Workflow: &rollout.WorkflowMeta{Name: "billing_events"},
+				Steps: []*rollout.Step{{
+					Name:      "publish_invoice",
+					Type:      "http",
+					Source:    "asyncapi/events.yaml",
+					Operation: "publishInvoice",
+					With: map[string]string{
+						"body.invoice_id": "inputs.invoice_id",
+						"header.trace_id": "inputs.trace_id",
+					},
+				}},
+				Outputs: []*rollout.Output{{Name: "send_result", From: "publish_invoice.received_body"}},
+			},
+			sources: map[string]string{
+				"asyncapi/events.yaml": minimalAsyncAPIDocument(),
+			},
+			wantPass: true,
+			wantChecks: []string{
+				"openapi.local:pass",
+				"workflow.plan_match:pass",
+				"uws.source_descriptions:pass",
+				"uws.plan_match:pass",
+			},
+			wantFiles: map[string][]string{
+				"workflows/workflow.uws.yaml": {"uws: 1.3.0", "asyncapi/events.yaml", "publishInvoice"},
+				"expected/discovery.json":     {"OpenAPI directory is absent", "first-class API source documents"},
+				"expected/plan.json":          {`"name": "publish_invoice"`, `"operation": "publishInvoice"`},
+			},
+		},
+		{
 			name:    "google-discovery-security-sidecar-binding-passes",
 			project: buildMatrixProject("Gmail Send", "- Use google-discovery/gmail.json for Gmail message send.", "- openapi and http are allowed.", "- No function steps are expected.", "- Use credential binding `googleOAuth2`."),
 			intent: &rollout.Intent{
