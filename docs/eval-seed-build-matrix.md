@@ -30,7 +30,9 @@ The scorecard writes `openudon.icot-scorecard.v1` JSON with the expected outcome
 fixture class, first failure family, and failure codes for each fixture. It uses the same no-LLM,
 package-local seed/build path as the matrix. Reports also include run ID, prompt version,
 readiness classifier version, generation time, git commit, and scorecard command provenance, and
-write a `scorecard.json.sha256` digest sidecar after report consistency validation.
+write a `scorecard.json.sha256` digest sidecar after report consistency validation. Scorecard
+retention metadata marks these reports as `release_evidence`, without provider output, safe to
+archive, and not requiring redaction before sharing.
 
 For M40 natural-language authoring coverage, include checked-in variant metadata:
 
@@ -76,8 +78,10 @@ drift counts, credential-scan status, and per-variant pass/fail. It also writes 
 `authoring-eval.json.sha256` digest sidecar. Failures include a structured failure category for
 provider availability, timeouts, malformed model JSON, model refusal, incomplete drafts,
 lint/build failures, credential scan failures, and reference drift. Generated project files,
-intents, transcripts, and the report JSON are checked for credential-like literals. Keep that
-report local/manual unless it has been reviewed for release-note evidence.
+intents, transcripts, and the report JSON are checked for credential-like literals. Retention
+metadata marks authoring-eval reports as `local_ephemeral`, containing provider output, not safe to
+archive, and requiring redaction review before sharing. Keep that report local/manual unless it has
+been reviewed for release-note evidence.
 
 The `make icot-authoring-scorecard` and `make release-saas-check` paths run scorecard verification
 automatically. Optional real authoring-eval evidence remains local/manual; after generating it,

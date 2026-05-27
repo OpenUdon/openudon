@@ -308,6 +308,9 @@ func TestScorecardSingleFixture(t *testing.T) {
 	if report.RunID == "" || report.GeneratedAt == "" || report.PromptVersion == "" || report.ReadinessClassifierVersion == "" || report.ScorecardCommand == "" {
 		t.Fatalf("scorecard provenance missing: %#v", report)
 	}
+	if report.RetentionClass != retentionReleaseEvidence || report.ContainsProviderOutput || !report.SafeToArchive || report.RedactionRequiredBeforeShare {
+		t.Fatalf("scorecard retention metadata = %#v", report)
+	}
 	if _, err := os.Stat(filepath.Join(outDir, "scorecard.json.sha256")); err != nil {
 		t.Fatalf("scorecard digest sidecar missing: %v", err)
 	}
@@ -425,6 +428,33 @@ func TestReportVerifyRejectsVariantTopIssueMismatch(t *testing.T) {
 	var stdout, stderr bytes.Buffer
 	code = Main([]string{"report", "verify", "--file", path}, strings.NewReader(""), &stdout, &stderr)
 	if code != 1 || !strings.Contains(stderr.String(), "does not match expected/observed outcome") {
+		t.Fatalf("report verify code=%d\nstdout:\n%s\nstderr:\n%s", code, stdout.String(), stderr.String())
+	}
+}
+
+func TestReportVerifyRejectsRetentionMismatch(t *testing.T) {
+	outDir := filepath.Join(t.TempDir(), "scorecard")
+	var scoreOut, scoreErr bytes.Buffer
+	code := Main([]string{"scorecard", "--root", filepath.Join("..", "..", "examples", "eval"), "--name", "runtime-only-render", "--out", outDir}, strings.NewReader(""), &scoreOut, &scoreErr)
+	if code != 0 {
+		t.Fatalf("scorecard returned code %d\nstdout:\n%s\nstderr:\n%s", code, scoreOut.String(), scoreErr.String())
+	}
+	path := filepath.Join(outDir, "scorecard.json")
+	data, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatalf("read scorecard: %v", err)
+	}
+	var report scorecardReport
+	if err := json.Unmarshal(data, &report); err != nil {
+		t.Fatalf("unmarshal scorecard: %v", err)
+	}
+	report.SafeToArchive = false
+	if err := writeJSONReportWithDigest(path, report); err != nil {
+		t.Fatalf("rewrite tampered scorecard: %v", err)
+	}
+	var stdout, stderr bytes.Buffer
+	code = Main([]string{"report", "verify", "--file", path}, strings.NewReader(""), &stdout, &stderr)
+	if code != 1 || !strings.Contains(stderr.String(), "retention metadata") {
 		t.Fatalf("report verify code=%d\nstdout:\n%s\nstderr:\n%s", code, stdout.String(), stderr.String())
 	}
 }
@@ -787,6 +817,9 @@ func TestAuthoringEvalWithFakeExtractor(t *testing.T) {
 	if report.RunID == "" || report.GeneratedAt == "" || report.PromptVersion == "" || report.ReadinessClassifierVersion == "" || report.AuthoringEvalCommand == "" {
 		t.Fatalf("authoring eval provenance missing: %#v", report)
 	}
+	if report.RetentionClass != retentionLocalEphemeral || !report.ContainsProviderOutput || report.SafeToArchive || !report.RedactionRequiredBeforeShare {
+		t.Fatalf("authoring eval retention metadata = %#v", report)
+	}
 	if _, err := os.Stat(filepath.Join(outDir, "authoring-eval.json.sha256")); err != nil {
 		t.Fatalf("authoring eval digest sidecar missing: %v", err)
 	}
@@ -798,6 +831,39 @@ func TestAuthoringEvalWithFakeExtractor(t *testing.T) {
 	code = Main([]string{"report", "verify", "--file", filepath.Join(outDir, "authoring-eval.json")}, strings.NewReader(""), &verifyOut, &verifyErr)
 	if code != 0 || !strings.Contains(verifyOut.String(), authoringEvalReportVersion) {
 		t.Fatalf("authoring eval report verify code=%d\nstdout:\n%s\nstderr:\n%s", code, verifyOut.String(), verifyErr.String())
+	}
+}
+
+func TestReportVerifyRejectsAuthoringEvalRetentionMismatch(t *testing.T) {
+	previous := newAuthoringEvalExtractor
+	newAuthoringEvalExtractor = func(provider, model string, temperature float64, calls *[]replayLLMCall) (elicitor.Extractor, string, string, error) {
+		return fakeAuthoringEvalExtractor{calls: calls}, "fake", "fake-model", nil
+	}
+	defer func() { newAuthoringEvalExtractor = previous }()
+
+	outDir := filepath.Join(t.TempDir(), "authoring-eval")
+	var authorOut, authorErr bytes.Buffer
+	code := Main([]string{"authoring-eval", "--root", filepath.Join("..", "..", "examples", "eval"), "--name", "runtime-only-render", "--provider", "fake", "--model", "fake-model", "--out", outDir}, strings.NewReader(""), &authorOut, &authorErr)
+	if code != 0 {
+		t.Fatalf("authoring-eval returned code %d\nstdout:\n%s\nstderr:\n%s", code, authorOut.String(), authorErr.String())
+	}
+	path := filepath.Join(outDir, "authoring-eval.json")
+	data, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatalf("read authoring eval report: %v", err)
+	}
+	var report authoringEvalReport
+	if err := json.Unmarshal(data, &report); err != nil {
+		t.Fatalf("unmarshal authoring eval report: %v", err)
+	}
+	report.SafeToArchive = true
+	if err := writeJSONReportWithDigest(path, report); err != nil {
+		t.Fatalf("rewrite tampered authoring eval report: %v", err)
+	}
+	var stdout, stderr bytes.Buffer
+	code = Main([]string{"report", "verify", "--file", path}, strings.NewReader(""), &stdout, &stderr)
+	if code != 1 || !strings.Contains(stderr.String(), "retention metadata") {
+		t.Fatalf("report verify code=%d\nstdout:\n%s\nstderr:\n%s", code, stdout.String(), stderr.String())
 	}
 }
 
@@ -860,16 +926,20 @@ func TestAuthoringEvalScansGeneratedArtifactsForCredentials(t *testing.T) {
 func TestAuthoringEvalReportRedactsCredentialLikeJSON(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "authoring-eval.json")
 	redacted, err := writeAuthoringEvalReportFile(path, authoringEvalReport{
-		Version:                    authoringEvalReportVersion,
-		Status:                     statusPass,
-		Root:                       "examples/eval",
-		OutDir:                     filepath.Dir(path),
-		RunID:                      "test-run",
-		GeneratedAt:                "2026-05-27T00:00:00Z",
-		PromptVersion:              elicitor.PromptVersion,
-		ReadinessClassifierVersion: readinessClassifierVersion,
-		AuthoringEvalCommand:       "icot authoring-eval --provider fake",
-		Summary:                    authoringEvalSummary{Total: 1, Passed: 1},
+		Version:                      authoringEvalReportVersion,
+		Status:                       statusPass,
+		Root:                         "examples/eval",
+		OutDir:                       filepath.Dir(path),
+		RunID:                        "test-run",
+		GeneratedAt:                  "2026-05-27T00:00:00Z",
+		PromptVersion:                elicitor.PromptVersion,
+		ReadinessClassifierVersion:   readinessClassifierVersion,
+		AuthoringEvalCommand:         "icot authoring-eval --provider fake",
+		RetentionClass:               retentionLocalEphemeral,
+		ContainsProviderOutput:       true,
+		SafeToArchive:                false,
+		RedactionRequiredBeforeShare: true,
+		Summary:                      authoringEvalSummary{Total: 1, Passed: 1},
 		Results: []authoringEvalResult{{
 			Name:            "bad-report",
 			ObservedOutcome: statusPass,

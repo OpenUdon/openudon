@@ -38,6 +38,9 @@ const (
 	failureUnknown              = icotreport.FailureUnknown
 
 	readinessClassifierVersion = "icot-readiness.v1"
+
+	retentionReleaseEvidence = "release_evidence"
+	retentionLocalEphemeral  = "local_ephemeral"
 )
 
 type authorReport struct {
@@ -68,18 +71,22 @@ type lintReport struct {
 }
 
 type scorecardReport struct {
-	Version                    string            `json:"version"`
-	Status                     string            `json:"status"`
-	Root                       string            `json:"root"`
-	OutDir                     string            `json:"out_dir"`
-	RunID                      string            `json:"run_id,omitempty"`
-	GeneratedAt                string            `json:"generated_at,omitempty"`
-	Commit                     string            `json:"commit,omitempty"`
-	PromptVersion              string            `json:"prompt_version,omitempty"`
-	ReadinessClassifierVersion string            `json:"readiness_classifier_version,omitempty"`
-	ScorecardCommand           string            `json:"scorecard_command,omitempty"`
-	Summary                    scorecardSummary  `json:"summary"`
-	Results                    []scorecardResult `json:"results"`
+	Version                      string            `json:"version"`
+	Status                       string            `json:"status"`
+	Root                         string            `json:"root"`
+	OutDir                       string            `json:"out_dir"`
+	RunID                        string            `json:"run_id,omitempty"`
+	GeneratedAt                  string            `json:"generated_at,omitempty"`
+	Commit                       string            `json:"commit,omitempty"`
+	PromptVersion                string            `json:"prompt_version,omitempty"`
+	ReadinessClassifierVersion   string            `json:"readiness_classifier_version,omitempty"`
+	ScorecardCommand             string            `json:"scorecard_command,omitempty"`
+	RetentionClass               string            `json:"retention_class,omitempty"`
+	ContainsProviderOutput       bool              `json:"contains_provider_output"`
+	SafeToArchive                bool              `json:"safe_to_archive"`
+	RedactionRequiredBeforeShare bool              `json:"redaction_required_before_share"`
+	Summary                      scorecardSummary  `json:"summary"`
+	Results                      []scorecardResult `json:"results"`
 }
 
 type scorecardSummary struct {
@@ -246,10 +253,14 @@ func validateScorecardReport(report scorecardReport) error {
 		"prompt_version":               report.PromptVersion,
 		"readiness_classifier_version": report.ReadinessClassifierVersion,
 		"scorecard_command":            report.ScorecardCommand,
+		"retention_class":              report.RetentionClass,
 	} {
 		if strings.TrimSpace(value) == "" {
 			return fmt.Errorf("scorecard report missing %s", name)
 		}
+	}
+	if err := validateReportRetention(report.RetentionClass, report.ContainsProviderOutput, report.SafeToArchive, report.RedactionRequiredBeforeShare, retentionReleaseEvidence); err != nil {
+		return fmt.Errorf("scorecard report retention metadata: %w", err)
 	}
 	if report.Summary.Total != len(report.Results) {
 		return fmt.Errorf("scorecard summary total = %d, results = %d", report.Summary.Total, len(report.Results))
@@ -298,10 +309,14 @@ func validateAuthoringEvalReport(report authoringEvalReport) error {
 		"prompt_version":               report.PromptVersion,
 		"readiness_classifier_version": report.ReadinessClassifierVersion,
 		"authoring_eval_command":       report.AuthoringEvalCommand,
+		"retention_class":              report.RetentionClass,
 	} {
 		if strings.TrimSpace(value) == "" {
 			return fmt.Errorf("authoring-eval report missing %s", name)
 		}
+	}
+	if err := validateReportRetention(report.RetentionClass, report.ContainsProviderOutput, report.SafeToArchive, report.RedactionRequiredBeforeShare, retentionLocalEphemeral); err != nil {
+		return fmt.Errorf("authoring-eval report retention metadata: %w", err)
 	}
 	if report.Summary.Total != len(report.Results) {
 		return fmt.Errorf("authoring-eval summary total = %d, results = %d", report.Summary.Total, len(report.Results))
@@ -328,6 +343,37 @@ func validateAuthoringEvalReport(report authoringEvalReport) error {
 	}
 	if report.Status == statusFail && failed == 0 {
 		return fmt.Errorf("authoring-eval status fail with no failed results")
+	}
+	return nil
+}
+
+func validateReportRetention(retentionClass string, containsProviderOutput, safeToArchive, redactionRequiredBeforeShare bool, expectedClass string) error {
+	if retentionClass != expectedClass {
+		return fmt.Errorf("retention_class = %q, want %q", retentionClass, expectedClass)
+	}
+	switch expectedClass {
+	case retentionReleaseEvidence:
+		if containsProviderOutput {
+			return fmt.Errorf("contains_provider_output = true, want false")
+		}
+		if !safeToArchive {
+			return fmt.Errorf("safe_to_archive = false, want true")
+		}
+		if redactionRequiredBeforeShare {
+			return fmt.Errorf("redaction_required_before_share = true, want false")
+		}
+	case retentionLocalEphemeral:
+		if !containsProviderOutput {
+			return fmt.Errorf("contains_provider_output = false, want true")
+		}
+		if safeToArchive {
+			return fmt.Errorf("safe_to_archive = true, want false")
+		}
+		if !redactionRequiredBeforeShare {
+			return fmt.Errorf("redaction_required_before_share = false, want true")
+		}
+	default:
+		return fmt.Errorf("unsupported retention_class %q", expectedClass)
 	}
 	return nil
 }

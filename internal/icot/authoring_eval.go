@@ -42,21 +42,25 @@ const (
 )
 
 type authoringEvalReport struct {
-	Version                    string                `json:"version"`
-	Status                     string                `json:"status"`
-	Root                       string                `json:"root"`
-	OutDir                     string                `json:"out_dir"`
-	RunID                      string                `json:"run_id,omitempty"`
-	GeneratedAt                string                `json:"generated_at,omitempty"`
-	Commit                     string                `json:"commit,omitempty"`
-	Provider                   string                `json:"provider,omitempty"`
-	Model                      string                `json:"model,omitempty"`
-	PromptVersion              string                `json:"prompt_version,omitempty"`
-	ReadinessClassifierVersion string                `json:"readiness_classifier_version,omitempty"`
-	AuthoringEvalCommand       string                `json:"authoring_eval_command,omitempty"`
-	IncludeVariants            bool                  `json:"include_variants,omitempty"`
-	Summary                    authoringEvalSummary  `json:"summary"`
-	Results                    []authoringEvalResult `json:"results"`
+	Version                      string                `json:"version"`
+	Status                       string                `json:"status"`
+	Root                         string                `json:"root"`
+	OutDir                       string                `json:"out_dir"`
+	RunID                        string                `json:"run_id,omitempty"`
+	GeneratedAt                  string                `json:"generated_at,omitempty"`
+	Commit                       string                `json:"commit,omitempty"`
+	Provider                     string                `json:"provider,omitempty"`
+	Model                        string                `json:"model,omitempty"`
+	PromptVersion                string                `json:"prompt_version,omitempty"`
+	ReadinessClassifierVersion   string                `json:"readiness_classifier_version,omitempty"`
+	AuthoringEvalCommand         string                `json:"authoring_eval_command,omitempty"`
+	RetentionClass               string                `json:"retention_class,omitempty"`
+	ContainsProviderOutput       bool                  `json:"contains_provider_output"`
+	SafeToArchive                bool                  `json:"safe_to_archive"`
+	RedactionRequiredBeforeShare bool                  `json:"redaction_required_before_share"`
+	IncludeVariants              bool                  `json:"include_variants,omitempty"`
+	Summary                      authoringEvalSummary  `json:"summary"`
+	Results                      []authoringEvalResult `json:"results"`
 }
 
 type authoringEvalSummary struct {
@@ -146,19 +150,23 @@ func runAuthoringEval(args []string, out, errOut io.Writer) int {
 	generatedAt := time.Now().UTC().Format(time.RFC3339)
 	commit := scorecardCommit()
 	report := authoringEvalReport{
-		Version:                    authoringEvalReportVersion,
-		Status:                     statusPass,
-		Root:                       *root,
-		OutDir:                     *outDir,
-		RunID:                      reportRunID("icot-authoring-eval", generatedAt, commit),
-		GeneratedAt:                generatedAt,
-		Commit:                     commit,
-		Provider:                   strings.TrimSpace(*provider),
-		Model:                      strings.TrimSpace(*model),
-		PromptVersion:              elicitor.PromptVersion,
-		ReadinessClassifierVersion: readinessClassifierVersion,
-		AuthoringEvalCommand:       authoringEvalCommand(args),
-		IncludeVariants:            *includeVariants,
+		Version:                      authoringEvalReportVersion,
+		Status:                       statusPass,
+		Root:                         *root,
+		OutDir:                       *outDir,
+		RunID:                        reportRunID("icot-authoring-eval", generatedAt, commit),
+		GeneratedAt:                  generatedAt,
+		Commit:                       commit,
+		Provider:                     strings.TrimSpace(*provider),
+		Model:                        strings.TrimSpace(*model),
+		PromptVersion:                elicitor.PromptVersion,
+		ReadinessClassifierVersion:   readinessClassifierVersion,
+		AuthoringEvalCommand:         authoringEvalCommand(args),
+		RetentionClass:               retentionLocalEphemeral,
+		ContainsProviderOutput:       true,
+		SafeToArchive:                false,
+		RedactionRequiredBeforeShare: true,
+		IncludeVariants:              *includeVariants,
 		Summary: authoringEvalSummary{
 			ByObservedOutcome: map[string]int{},
 			ByFailureFamily:   map[string]int{},
@@ -442,16 +450,20 @@ func writeAuthoringEvalReportFile(path string, report authoringEvalReport) (bool
 	if authoring.ContainsLikelyCredentialValue(data) {
 		redacted = true
 		safeReport := authoringEvalReport{
-			Version:                    report.Version,
-			Status:                     statusFail,
-			Root:                       report.Root,
-			OutDir:                     report.OutDir,
-			RunID:                      report.RunID,
-			GeneratedAt:                report.GeneratedAt,
-			Commit:                     report.Commit,
-			PromptVersion:              report.PromptVersion,
-			ReadinessClassifierVersion: report.ReadinessClassifierVersion,
-			AuthoringEvalCommand:       report.AuthoringEvalCommand,
+			Version:                      report.Version,
+			Status:                       statusFail,
+			Root:                         report.Root,
+			OutDir:                       report.OutDir,
+			RunID:                        report.RunID,
+			GeneratedAt:                  report.GeneratedAt,
+			Commit:                       report.Commit,
+			PromptVersion:                report.PromptVersion,
+			ReadinessClassifierVersion:   report.ReadinessClassifierVersion,
+			AuthoringEvalCommand:         report.AuthoringEvalCommand,
+			RetentionClass:               report.RetentionClass,
+			ContainsProviderOutput:       report.ContainsProviderOutput,
+			SafeToArchive:                report.SafeToArchive,
+			RedactionRequiredBeforeShare: report.RedactionRequiredBeforeShare,
 			Summary: authoringEvalSummary{
 				Total:             report.Summary.Total,
 				Passed:            0,

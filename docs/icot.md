@@ -109,7 +109,9 @@ intent parse status, drift warnings, and the first failure family.
 `openudon.icot-scorecard.v1` under the requested output directory and records expected outcome,
 observed outcome, fixture class, first failure family, failure codes, prompt/readiness provenance,
 run ID, commit, generation time, and the command used to produce the report. The command validates
-report consistency before write and emits a `scorecard.json.sha256` digest sidecar. With
+report consistency before write and emits a `scorecard.json.sha256` digest sidecar. Scorecards are
+marked `retention_class: release_evidence`, `contains_provider_output: false`, `safe_to_archive:
+true`, and `redaction_required_before_share: false`. With
 `--include-variants`, it also runs checked-in natural-language authoring variants from
 `reference/authoring-variants.json` and groups results by provider family, variant class, and
 failure family. It also counts missing-detail or unsafe-negative variants that unexpectedly observe
@@ -136,7 +138,9 @@ then runs lint/build-equivalent checks and compares the generated `intent.hcl` a
 reference. The report is `openudon.icot-authoring-eval.v1` and records provider/model, prompt
 version, readiness classifier version, run ID, commit, command, LLM call count, generated paths,
 failure family, drift counts, and per-variant pass/fail. The report is consistency-checked before
-write and emits an `authoring-eval.json.sha256` digest sidecar.
+write and emits an `authoring-eval.json.sha256` digest sidecar. Authoring-eval reports are marked
+`retention_class: local_ephemeral`, `contains_provider_output: true`, `safe_to_archive: false`,
+and `redaction_required_before_share: true`.
 Generated project files, intents, transcripts, and the final report JSON are scanned for
 credential-like literal values before the report is accepted. Failures include a structured
 `failure_category` such as `provider_unavailable`, `provider_timeout`, `malformed_model_json`,
@@ -147,7 +151,7 @@ spend model quota and is not part of `release-check` or `release-saas-check`.
 `icot report verify --file <report.json>` verifies archived `openudon.icot-scorecard.v1` and
 `openudon.icot-authoring-eval.v1` reports after generation. It checks the report version, summary
 counters, variant top-issue expectations, authoring-eval failure categories, pass/fail consistency,
-and the adjacent `.sha256` digest sidecar.
+retention/share-safety metadata, and the adjacent `.sha256` digest sidecar.
 
 `icot repair` is a bounded deterministic repair command. It may edit request mappings, output
 sources, and `depends_on` only. It rejects source document, operation ID, credential binding,

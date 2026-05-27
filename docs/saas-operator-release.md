@@ -93,7 +93,7 @@ For a SaaS release candidate, collect deterministic evidence first:
 - `make icot-variants-validate`;
 - `make icot-variants-coverage`;
 - `make icot-authoring-scorecard`, which also verifies the generated scorecard JSON and digest
-  sidecar with `icot report verify`;
+  sidecar, including retention/share-safety metadata, with `icot report verify`;
 - `make release-saas-check`;
 - `go run ./cmd/openudon validate ./examples/uws-validation`;
 - `go run ./cmd/openudon check-doc-memory`;

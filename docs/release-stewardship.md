@@ -49,7 +49,7 @@ doc-memory, n8n bridge validation, strict MkDocs build, selected strict SaaS fix
 provider-free dry-run demo in
 [SaaS Operator Release Path](saas-operator-release.md). `icot-authoring-scorecard` generates the
 provider-free scorecard and then runs `icot report verify` against `scorecard.json`, including the
-digest sidecar. The selected demo
+digest sidecar and retention/share-safety metadata. The selected demo
 examples are:
 
 - `gmail-send-audit-receipt` for a single-service side-effectful send-and-audit
@@ -92,8 +92,8 @@ go run ./cmd/icot report verify --file eval/runs/icot-authoring-eval-local/autho
 ```
 
 Record provider, model, corpus size, comparison baseline, provider drift status,
-optional authoring-eval report path, authoring-eval pass summary, and known gaps
-in the release notes.
+optional authoring-eval report path, authoring-eval pass summary, retention/share-safety metadata,
+and known gaps in the release notes.
 
 Provider/model drift is release evidence, not a deterministic gate by itself.
 Record transient provider failures and rerun once from a trusted workstation
