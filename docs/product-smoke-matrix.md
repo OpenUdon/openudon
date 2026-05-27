@@ -30,8 +30,8 @@ For targeted diagnosis, pass one or more `--scenario <id>` flags to
 | --- | --- | --- | --- |
 | Slack post | Post `OpenUdon v0.1.2-a.1 Slack smoke test` to my Slack sandbox channel and return the Slack response metadata. | `slack-message-audit-log` | Required live smoke for tagging. |
 | Weather read | Fetch the current weather for Toronto and prepare a short audit summary. | `weather-toronto` | Runs live only when the OpenWeatherMap credential env exists. |
-| Gmail audit receipt | Send an audit receipt email through Gmail with the approved package digest. | `gmail-send-audit-receipt` | Manual provider setup; matrix records dry-run evidence. |
-| Slack/Jira intake | Read a Slack incident report, create a Jira issue, and post a Slack confirmation. | `itops-slack-jira-issue-intake` | Manual multi-provider setup; matrix records dry-run evidence. |
+| Gmail audit receipt | Send an audit receipt email through Gmail with the approved package digest. | `gmail-send-audit-receipt` | Credential-backed examples exist; this matrix records dry-run evidence unless an operator runs a separate reviewed Gmail proof. |
+| Slack/Jira intake | Read a Slack incident report, create a Jira issue, and post a Slack confirmation. | `itops-slack-jira-issue-intake` | Jira has fixture/dry-run coverage but no recorded real-key proof; matrix records dry-run evidence. |
 | Order fulfillment | Look up a customer, check inventory, and create an order if stock is available. | `order-fulfillment-chain` | Local stub-backed live smoke. |
 | Header API key report | Fetch a compliance report using a header API key. | `api-header-key-report` | Local stub-backed live smoke. |
 | Bearer profile fetch | Fetch a directory profile using bearer authorization. | `api-oauth-profile-fetch` | Local stub-backed live smoke. |
@@ -70,6 +70,23 @@ only `UDON_CREDENTIAL_OPENWEATHERAPIKEY`.
 
 Local stub-backed scenarios set only synthetic child-process credential values
 needed by the trusted-runner preflight. They do not require real provider secrets.
+
+## Real-Provider Status
+
+OpenUdon keeps provider credentials operator-owned and out of committed
+artifacts. Current real-provider posture is:
+
+- Slack: required `product-smoke-live` provider proof for the v0.1.2-a.1 tag
+  gate, using `OPENUDON_SLACK_CHANNEL_ID` and
+  `UDON_CREDENTIAL_SLACK_BOT_TOKEN`.
+- OpenWeatherMap: optional `product-smoke-live` provider proof when
+  `UDON_CREDENTIAL_OPENWEATHERAPIKEY` is present.
+- Gmail: credential-backed Gmail/weather-to-Gmail examples use reviewed
+  environment markers such as `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`,
+  `GOOGLE_OAUTH_REDIRECT_URL`, and `GOOGLE_REFRESH_TOKEN`, but the product smoke
+  matrix does not claim committed live Gmail evidence.
+- Jira: strict fixtures cover Jira issue creation and Slack/Jira workflows, but
+  there is no recorded real-key Jira proof in this release evidence.
 
 ## Tag Gate
 

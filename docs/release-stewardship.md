@@ -79,8 +79,12 @@ OPENUDON_EXECUTOR=/absolute/path/to/udon make product-smoke-live
 `product-smoke-check` is provider-free and builds ignored scratch packages from
 the reviewed eval fixtures. `product-smoke-live` is local maintainer evidence:
 Slack live smoke is required before tagging `v0.1.2-a.1`, local synthetic APIs
-run against a stub server, and optional providers such as weather run only when
-their complete credential env set is present. See
+run against a stub server, and optional OpenWeatherMap live proof runs only when
+its complete credential env set is present. Gmail has credential-backed examples
+and manual proof-run support, but the product smoke matrix records dry-run
+evidence for Gmail unless an operator separately runs and records a reviewed
+Gmail proof. Jira currently has fixture/dry-run coverage but no recorded
+real-key proof. See
 [Product Smoke Matrix](product-smoke-matrix.md).
 
 Real-provider evals remain opt-in local evidence:
