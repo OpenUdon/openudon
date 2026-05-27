@@ -18,6 +18,9 @@ func CheckReadiness(session Session, docs []APIDocument) []ReadinessIssue {
 	if rawGoalMissing {
 		add("missing_goal", "workflow.description", readinessBlocking, "Describe the business goal for the workflow.", "")
 	}
+	for _, issue := range unsafePromptReadinessIssues(session) {
+		add(issue.Code, issue.Slot, issue.Severity, issue.Message, issue.SuggestedAnswer)
+	}
 	for _, issue := range mappingClassificationIssues(session) {
 		add(issue.Code, issue.Slot, issue.Severity, issue.Message, issue.SuggestedAnswer)
 	}
@@ -123,6 +126,12 @@ func PlanNextQuestion(session Session, docs []APIDocument, issues []ReadinessIss
 	case "missing_credential_bindings":
 		plan.Prompt = "What credential binding name should the workflow reference? Use a symbolic name only."
 		plan.Grouped = true
+	case "inline_secret_value":
+		plan.Prompt = "Replace the inline secret request with a symbolic credential binding name."
+		plan.Grouped = true
+	case "unsafe_review_bypass":
+		plan.Prompt = "Confirm the side-effect and approval boundary before this workflow can be authored."
+		plan.ForceAsk = true
 	case "missing_runtime_inputs":
 		plan.Prompt = "What runtime inputs should the operator provide?"
 		plan.Grouped = true
@@ -162,6 +171,66 @@ func unconfirmedSideEffectCommitmentPrompt(session Session, docs []APIDocument, 
 		prompt += " " + operationChoiceHintForStep(session, docs, step)
 	}
 	return prompt
+}
+
+func unsafePromptReadinessIssues(session Session) []ReadinessIssue {
+	text := strings.ToLower(strings.Join([]string{
+		session.Project.Goal,
+		session.Project.Safety,
+		session.Safety,
+		session.Fallback,
+		workflowDescription(session),
+	}, "\n"))
+	var issues []ReadinessIssue
+	if containsInlineSecretIntent(text) {
+		issues = append(issues, ReadinessIssue{
+			Code:            "inline_secret_value",
+			Slot:            "credentials",
+			Severity:        readinessBlocking,
+			Message:         "Do not paste or request inline credential values in the workflow brief; use a symbolic credential binding instead.",
+			SuggestedAnswer: "Name a symbolic credential binding such as credentials.<binding>; keep the secret value in the operator environment.",
+		})
+	}
+	if containsReviewBypassIntent(text) {
+		issues = append(issues, ReadinessIssue{
+			Code:            "unsafe_review_bypass",
+			Slot:            "safety",
+			Severity:        readinessBlocking,
+			Message:         "The brief asks to bypass review or execute a side effect without approval; confirm a sandbox-only or after-approval boundary.",
+			SuggestedAnswer: "Generate and validate artifacts only; side-effectful execution requires explicit approval and trusted-runner handoff.",
+		})
+	}
+	return issues
+}
+
+func workflowDescription(session Session) string {
+	if session.Intent.Workflow == nil {
+		return ""
+	}
+	return session.Intent.Workflow.Description
+}
+
+func containsInlineSecretIntent(text string) bool {
+	secretWords := []string{"token", "api key", "apikey", "secret", "password", "credential"}
+	pasteWords := []string{"use my", "here is", "from this prompt", "paste", "inline"}
+	return containsAny(text, secretWords) && containsAny(text, pasteWords)
+}
+
+func containsReviewBypassIntent(text string) bool {
+	return strings.Contains(text, "skip review") ||
+		strings.Contains(text, "bypass review") ||
+		strings.Contains(text, "without approval") ||
+		strings.Contains(text, "no approval") ||
+		strings.Contains(text, "do not ask for approval")
+}
+
+func containsAny(text string, values []string) bool {
+	for _, value := range values {
+		if strings.Contains(text, value) {
+			return true
+		}
+	}
+	return false
 }
 
 func stepNameForQuestionSlot(slot string) string {

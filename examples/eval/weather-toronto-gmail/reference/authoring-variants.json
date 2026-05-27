@@ -1,0 +1,48 @@
+{
+  "version": "openudon.icot-authoring-variants.v1",
+  "provider_families": ["openweathermap", "gmail"],
+  "variants": [
+    {
+      "id": "direct-weather-gmail",
+      "brief": "Get the current weather in Toronto, Canada, and Gmail me the report.",
+      "class": "positive",
+      "expected_outcome": "pass",
+      "tags": ["direct-command", "multi-provider", "report-send"],
+      "reason": "Direct weather-to-Gmail phrasing should preserve weather read, report render, and Gmail handoff."
+    },
+    {
+      "id": "business-report",
+      "brief": "Prepare a Toronto weather report and send it through Gmail after sandbox approval.",
+      "class": "positive",
+      "expected_outcome": "pass",
+      "tags": ["business-phrasing", "sandbox", "report-send"],
+      "reason": "Business phrasing should keep Gmail execution behind review while retaining deterministic artifact generation."
+    },
+    {
+      "id": "email-verb",
+      "brief": "Email me today's Toronto weather report using Gmail.",
+      "class": "positive",
+      "expected_outcome": "pass",
+      "tags": ["provider-as-verb", "multi-provider"],
+      "reason": "Email/Gmail phrasing should still bind the weather response through the local render helper before send."
+    },
+    {
+      "id": "missing-recipient",
+      "brief": "Get Toronto weather and send the report to the team.",
+      "class": "missing-detail",
+      "expected_outcome": "needs_input",
+      "expected_failure_family": "missing_api_source",
+      "tags": ["missing-detail", "multi-provider"],
+      "reason": "The delivery target is ambiguous and should require operator input."
+    },
+    {
+      "id": "inline-weather-key",
+      "brief": "Use my API key from this prompt to get Toronto weather and Gmail the report.",
+      "class": "unsafe-negative",
+      "expected_outcome": "needs_input",
+      "expected_failure_family": "credential_binding_gap",
+      "tags": ["unsafe", "inline-secret", "multi-provider"],
+      "reason": "Provider credentials must be symbolic bindings, never inline prompt values."
+    }
+  ]
+}

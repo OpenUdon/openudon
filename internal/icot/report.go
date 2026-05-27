@@ -68,27 +68,37 @@ type scorecardReport struct {
 }
 
 type scorecardSummary struct {
-	Total             int            `json:"total"`
-	Passed            int            `json:"passed"`
-	Failed            int            `json:"failed"`
-	ByClass           map[string]int `json:"by_class,omitempty"`
-	ByFailureFamily   map[string]int `json:"by_failure_family,omitempty"`
-	ByObservedOutcome map[string]int `json:"by_observed_outcome,omitempty"`
+	Total                   int                       `json:"total"`
+	Passed                  int                       `json:"passed"`
+	Failed                  int                       `json:"failed"`
+	ByClass                 map[string]int            `json:"by_class,omitempty"`
+	ByFailureFamily         map[string]int            `json:"by_failure_family,omitempty"`
+	ByObservedOutcome       map[string]int            `json:"by_observed_outcome,omitempty"`
+	ByProviderFamily        map[string]int            `json:"by_provider_family,omitempty"`
+	ByProviderFailureFamily map[string]map[string]int `json:"by_provider_failure_family,omitempty"`
+	ByVariantClass          map[string]int            `json:"by_variant_class,omitempty"`
 }
 
 type scorecardResult struct {
-	Name             string   `json:"name"`
-	Class            string   `json:"class,omitempty"`
-	ExpectedOutcome  string   `json:"expected_outcome,omitempty"`
-	ObservedOutcome  string   `json:"observed_outcome"`
-	Passed           bool     `json:"passed"`
-	FailureFamily    string   `json:"failure_family,omitempty"`
-	FailureCodes     []string `json:"failure_codes,omitempty"`
-	Detail           string   `json:"detail,omitempty"`
-	ExampleDir       string   `json:"example_dir,omitempty"`
-	GeneratedProject string   `json:"generated_project,omitempty"`
-	GeneratedIntent  string   `json:"generated_intent,omitempty"`
-	QualityReport    string   `json:"quality_report,omitempty"`
+	Name                  string   `json:"name"`
+	Kind                  string   `json:"kind,omitempty"`
+	Fixture               string   `json:"fixture,omitempty"`
+	VariantID             string   `json:"variant_id,omitempty"`
+	Brief                 string   `json:"brief,omitempty"`
+	Class                 string   `json:"class,omitempty"`
+	ExpectedOutcome       string   `json:"expected_outcome,omitempty"`
+	ExpectedFailureFamily string   `json:"expected_failure_family,omitempty"`
+	ObservedOutcome       string   `json:"observed_outcome"`
+	Passed                bool     `json:"passed"`
+	FailureFamily         string   `json:"failure_family,omitempty"`
+	FailureCodes          []string `json:"failure_codes,omitempty"`
+	Detail                string   `json:"detail,omitempty"`
+	ProviderFamilies      []string `json:"provider_families,omitempty"`
+	Tags                  []string `json:"tags,omitempty"`
+	ExampleDir            string   `json:"example_dir,omitempty"`
+	GeneratedProject      string   `json:"generated_project,omitempty"`
+	GeneratedIntent       string   `json:"generated_intent,omitempty"`
+	QualityReport         string   `json:"quality_report,omitempty"`
 }
 
 type repairReport struct {
@@ -125,7 +135,11 @@ func failureFamilyForReadiness(code string) string {
 		return failureBadRequestMapping
 	case "missing_credential_bindings":
 		return failureCredentialBindingGap
+	case "inline_secret_value":
+		return failureCredentialBindingGap
 	case "missing_side_effect_policy", "unconfirmed_side_effect_commitment":
+		return failureSideEffectPolicyGap
+	case "unsafe_review_bypass":
 		return failureSideEffectPolicyGap
 	case "missing_goal", "missing_outputs", "conflicting_decision_evidence", "low_confidence_decision":
 		return failureAmbiguousUserIntent

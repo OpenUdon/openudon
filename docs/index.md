@@ -48,8 +48,9 @@ go run ./cmd/openudon run --example ./examples/<name> --tier sandbox --approval 
 
 Use [Authoring](authoring.md) for the two authoring paths, [iCoT Corpus And Provider Roadmap](icot-corpus-and-provider-roadmap.md)
 for the next iCoT reliability direction, [Tutorial](tutorial-weather.md) for fixture-based
-walkthroughs, [SaaS Operator Release Path](saas-operator-release.md) for the provider-free release
-demo, and [Handoff](safety.md) for the review and execution boundary.
+walkthroughs, [Enterprise Authoring And Execution Boundary](enterprise-authoring-execution.md) for
+the LLM-authoring/deterministic-execution product boundary, [SaaS Operator Release Path](saas-operator-release.md)
+for the provider-free release demo, and [Handoff](safety.md) for the review and execution boundary.
 
 ## Documentation Index
 
@@ -69,6 +70,7 @@ demo, and [Handoff](safety.md) for the review and execution boundary.
 - [iCoT Corpus And Provider Roadmap](icot-corpus-and-provider-roadmap.md)
 - [iCoT Session Files](icot-session-schema.md)
 - [iCoT Transcripts](icot-transcript.md)
+- [Enterprise Authoring And Execution Boundary](enterprise-authoring-execution.md)
 - [Synthesize](synthesize.md)
 
 ### Tutorials And Eval

@@ -62,6 +62,62 @@ func TestCompareIntentsReportsStructuralIssues(t *testing.T) {
 	}
 }
 
+func TestReadAuthoringVariantsValidatesDuplicateIDs(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "authoring-variants.json")
+	data := `{
+  "version": "openudon.icot-authoring-variants.v1",
+  "provider_families": ["slack"],
+  "variants": [
+    {
+      "id": "direct",
+      "brief": "Post this message to Slack.",
+      "class": "positive",
+      "expected_outcome": "pass"
+    },
+    {
+      "id": "direct",
+      "brief": "Slack the sandbox channel.",
+      "class": "positive",
+      "expected_outcome": "pass"
+    }
+  ]
+}`
+	if err := os.WriteFile(path, []byte(data), 0o644); err != nil {
+		t.Fatalf("write variants: %v", err)
+	}
+	if _, err := ReadAuthoringVariants(path); err == nil || !strings.Contains(err.Error(), "duplicate authoring variant id") {
+		t.Fatalf("expected duplicate id error, got %v", err)
+	}
+}
+
+func TestReadAuthoringVariantsNormalizesValues(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "authoring-variants.json")
+	data := `{
+  "version": "openudon.icot-authoring-variants.v1",
+  "provider_families": [" Slack ", "", "gmail"],
+  "variants": [
+    {
+      "id": "missing-channel",
+      "brief": "Send the report to the team.",
+      "class": "missing_detail",
+      "expected_outcome": "needs-input",
+      "expected_failure_family": "missing_operation",
+      "tags": [" missing-detail ", ""]
+    }
+  ]
+}`
+	if err := os.WriteFile(path, []byte(data), 0o644); err != nil {
+		t.Fatalf("write variants: %v", err)
+	}
+	variants, err := ReadAuthoringVariants(path)
+	if err != nil {
+		t.Fatalf("ReadAuthoringVariants failed: %v", err)
+	}
+	if variants.ProviderFamilies[0] != "Slack" || variants.Variants[0].Class != "missing-detail" || variants.Variants[0].ExpectedOutcome != "needs_input" {
+		t.Fatalf("variants not normalized: %#v", variants)
+	}
+}
+
 func TestCompareIntentsReportsTimeoutAndIdempotencyDrift(t *testing.T) {
 	workflowTimeout := 120.0
 	stepTimeout := 10.0

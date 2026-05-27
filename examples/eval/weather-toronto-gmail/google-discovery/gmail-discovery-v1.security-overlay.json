@@ -1,0 +1,43 @@
+{
+  "id": "gmail-discovery-auth-overlay",
+  "provider_id": "gmail",
+  "spec_ref_id": "gmail-discovery-v1",
+  "status": "overlay-required",
+  "security_schemes": [
+    {
+      "name": "googleOAuth2",
+      "type": "oauth2",
+      "description": "Google OAuth 2.0 authorization code flow with provider-specific scopes.",
+      "flows": [
+        {
+          "type": "authorizationCode",
+          "authorization_url": "https://accounts.google.com/o/oauth2/v2/auth",
+          "token_url": "https://oauth2.googleapis.com/token",
+          "scopes": [
+            "https://www.googleapis.com/auth/gmail.modify",
+            "https://www.googleapis.com/auth/gmail.readonly",
+            "https://www.googleapis.com/auth/gmail.send"
+          ]
+        }
+      ],
+      "scopes": [
+        "https://www.googleapis.com/auth/gmail.modify",
+        "https://www.googleapis.com/auth/gmail.readonly",
+        "https://www.googleapis.com/auth/gmail.send"
+      ]
+    }
+  ],
+  "root_security": [
+    {
+      "scheme": "googleOAuth2",
+      "scopes": [
+        "https://www.googleapis.com/auth/gmail.readonly"
+      ]
+    }
+  ],
+  "source_refs": [
+    "https://gmail.googleapis.com/$discovery/rest?version=v1",
+    "https://developers.google.com/workspace/gmail/api/auth/scopes"
+  ],
+  "source_note": "Gmail publishes an official Google Discovery document rather than OpenAPI; Google documents OAuth scopes separately, so OpenAPI-only consumers need an advisory OAuth2 overlay."
+}

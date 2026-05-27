@@ -52,6 +52,9 @@ go run ./cmd/icot lint --example ./examples/<name> --json
 # Provider-free reliability scorecard over the eval corpus.
 go run ./cmd/icot scorecard --root examples/eval --out eval/runs/icot-scorecard-local
 
+# Include curated natural-language authoring variants.
+go run ./cmd/icot scorecard --root examples/eval --include-variants --out eval/runs/icot-authoring-scorecard-local
+
 # Bounded deterministic repair for mappings, outputs, and depends_on only.
 go run ./cmd/icot repair --example ./examples/<name> --dry-run --json
 
@@ -88,8 +91,10 @@ intent parse status, drift warnings, and the first failure family.
 
 `icot scorecard` runs the provider-free seed/build reliability path over eval fixtures. It writes
 `openudon.icot-scorecard.v1` under the requested output directory and records expected outcome,
-observed outcome, fixture class, first failure family, and failure codes. It does not call an LLM,
-retrieve remote provider metadata, or execute workflows.
+observed outcome, fixture class, first failure family, and failure codes. With
+`--include-variants`, it also runs checked-in natural-language authoring variants from
+`reference/authoring-variants.json` and groups results by provider family, variant class, and
+failure family. It does not call an LLM, retrieve remote provider metadata, or execute workflows.
 
 `icot repair` is a bounded deterministic repair command. It may edit request mappings, output
 sources, and `depends_on` only. It rejects source document, operation ID, credential binding,

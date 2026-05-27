@@ -306,6 +306,38 @@ func TestScorecardSingleFixture(t *testing.T) {
 	}
 }
 
+func TestScorecardIncludesAuthoringVariants(t *testing.T) {
+	outDir := filepath.Join(t.TempDir(), "scorecard-variants")
+	var stdout, stderr bytes.Buffer
+	code := Main([]string{"scorecard", "--root", filepath.Join("..", "..", "examples", "eval"), "--name", "slack-message-audit-log", "--include-variants", "--out", outDir}, strings.NewReader(""), &stdout, &stderr)
+	if code != 0 {
+		t.Fatalf("scorecard variants returned code %d\nstdout:\n%s\nstderr:\n%s", code, stdout.String(), stderr.String())
+	}
+	data, err := os.ReadFile(filepath.Join(outDir, "scorecard.json"))
+	if err != nil {
+		t.Fatalf("read scorecard: %v", err)
+	}
+	var report scorecardReport
+	if err := json.Unmarshal(data, &report); err != nil {
+		t.Fatalf("unmarshal scorecard: %v\n%s", err, data)
+	}
+	if report.Summary.ByProviderFamily["slack"] == 0 || report.Summary.ByVariantClass["unsafe-negative"] == 0 {
+		t.Fatalf("summary missing provider/variant grouping: %#v", report.Summary)
+	}
+	var sawInlineSecret bool
+	for _, result := range report.Results {
+		if result.VariantID == "inline-token" {
+			sawInlineSecret = true
+			if result.ObservedOutcome != statusNeedsInput || result.FailureFamily != failureCredentialBindingGap || result.GeneratedIntent != "" {
+				t.Fatalf("inline-token result = %#v", result)
+			}
+		}
+	}
+	if !sawInlineSecret {
+		t.Fatalf("inline-token variant missing from results: %#v", report.Results)
+	}
+}
+
 func TestRepairDryRunJSON(t *testing.T) {
 	example := filepath.Join(t.TempDir(), "repair")
 	var setupOut, setupErr bytes.Buffer

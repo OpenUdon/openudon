@@ -56,6 +56,14 @@ func TestCheckReadinessRepresentativeCodeTriggers(t *testing.T) {
 			session.Safety = session.Project.Safety
 			return session
 		}(), docs: supportDoc, code: "optional_timeout_idempotency_controls"},
+		{name: "inline secret value", session: Session{Intent: rollout.Intent{
+			Workflow: &rollout.WorkflowMeta{Name: "unsafe", Description: "Use my token from this prompt to post a Slack message."},
+			Outputs:  []*rollout.Output{{Name: "result", From: "steps.result"}},
+		}, Safety: "Review only."}, code: "inline_secret_value"},
+		{name: "unsafe review bypass", session: Session{Intent: rollout.Intent{
+			Workflow: &rollout.WorkflowMeta{Name: "unsafe", Description: "Skip review and send the message now."},
+			Outputs:  []*rollout.Output{{Name: "result", From: "steps.result"}},
+		}, Safety: "Review only."}, code: "unsafe_review_bypass"},
 	}
 
 	for _, tc := range cases {

@@ -1,9 +1,9 @@
 # iCoT Corpus And Provider Roadmap
 
-This note records the next iCoT reliability direction without assigning it to a
-milestone. The focus is iCoT itself: better natural-language coverage, broader
-provider evidence, and stronger provider catalog coupling before adding another
-agent integration surface.
+This note records the iCoT reliability direction. M40 starts the first active
+slice: checked-in natural-language authoring variants, broader Slack/Gmail/
+weather evidence, and provider/failure-family scorecard summaries before adding
+another agent integration surface.
 
 iCoT should continue to be described as a review-first authoring assistant. Its
 output is a candidate `project.md` and `workflows/intent.hcl`; executability is
@@ -48,6 +48,11 @@ Each variant should record:
 - required user clarification, if any;
 - whether `intent.hcl` should be buildable;
 - allowed failure family for intentionally incomplete or unsafe inputs.
+
+M40 stores these variants in `reference/authoring-variants.json` next to the
+fixture reference policy. The file is provider-free metadata; it must not
+contain secrets, channel IDs, email addresses, OAuth tokens, or live provider
+responses.
 
 ## Provider Coverage Priorities
 
@@ -128,10 +133,11 @@ A safe blocker is a good outcome when source metadata or user intent is
 insufficient. The dangerous failure is a generated intent that looks executable
 but binds the wrong operation, field, credential, or side effect.
 
-Use `icot scorecard` for the provider-free baseline. Use `icot --agent --json`
-and `icot lint --json` for per-example structured authoring and lint reports.
-Use `icot repair --dry-run --json` to inspect bounded repair candidates before
-allowing edits.
+Use `icot scorecard` for the provider-free baseline. Use
+`icot scorecard --include-variants` for M40 natural-language variant evidence.
+Use `icot --agent --json` and `icot lint --json` for per-example structured
+authoring and lint reports. Use `icot repair --dry-run --json` to inspect
+bounded repair candidates before allowing edits.
 
 ## Acceptance Shape
 

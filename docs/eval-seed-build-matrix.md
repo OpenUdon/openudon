@@ -30,6 +30,19 @@ The scorecard writes `openudon.icot-scorecard.v1` JSON with the expected outcome
 fixture class, first failure family, and failure codes for each fixture. It uses the same no-LLM,
 package-local seed/build path as the matrix.
 
+For M40 natural-language authoring coverage, include checked-in variant metadata:
+
+```bash
+go run ./cmd/icot scorecard --root examples/eval --include-variants --out eval/runs/icot-authoring-scorecard-local
+```
+
+Variant files live at `examples/eval/*/reference/authoring-variants.json`. Positive variants reuse
+the fixture's reviewed reference workflow with a different operator brief and must still build
+provider-free. Missing-detail and unsafe-negative variants must stop with the declared
+`needs_input`, `build_fail`, or `icot_fail` outcome and failure family. The variant scorecard adds
+provider-family, variant-class, and provider/failure-family summaries without changing the default
+seed/build contract.
+
 ## Policy Fields
 
 `seed_build.expected` declares the required outcome:
@@ -68,6 +81,9 @@ the project deliberately graduates them into strict OpenUdon-native coverage.
 When adding or changing an eval fixture:
 
 - Add `reference/policy.json` with `seed_build.expected`, `seed_build.class`, and a short reason.
+- Add `reference/authoring-variants.json` when the fixture is part of natural-language authoring
+  coverage; keep variants provider-free and free of secrets, channel IDs, email addresses, or live
+  provider outputs.
 - Keep strict positive fixtures buildable from package-local artifacts.
 - Use `advisory` only when a fixture is evidence for reducibility or upstream drift rather than a
   strict OpenUdon-native contract.

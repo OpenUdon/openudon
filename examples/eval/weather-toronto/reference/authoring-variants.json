@@ -1,0 +1,39 @@
+{
+  "version": "openudon.icot-authoring-variants.v1",
+  "provider_families": ["openweathermap"],
+  "variants": [
+    {
+      "id": "direct-weather",
+      "brief": "Return the current weather for Toronto, Canada.",
+      "class": "positive",
+      "expected_outcome": "pass",
+      "tags": ["direct-command", "read-only"],
+      "reason": "Direct weather lookup phrasing should preserve the geocode then weather data flow."
+    },
+    {
+      "id": "business-weather",
+      "brief": "Prepare current Toronto weather data for an operations status report.",
+      "class": "positive",
+      "expected_outcome": "pass",
+      "tags": ["business-phrasing", "read-only"],
+      "reason": "Business weather phrasing should still produce a reviewable read-only weather workflow."
+    },
+    {
+      "id": "coordinate-flow",
+      "brief": "Resolve Toronto to coordinates first, then fetch weather from those coordinates.",
+      "class": "positive",
+      "expected_outcome": "pass",
+      "tags": ["data-flow", "read-only"],
+      "reason": "Explicit data-flow phrasing should preserve geocode-to-weather bindings."
+    },
+    {
+      "id": "missing-location",
+      "brief": "Get the weather for the office.",
+      "class": "missing-detail",
+      "expected_outcome": "needs_input",
+      "expected_failure_family": "missing_api_source",
+      "tags": ["missing-detail"],
+      "reason": "The location is ambiguous and should not be guessed from natural language alone."
+    }
+  ]
+}

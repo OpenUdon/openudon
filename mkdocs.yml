@@ -36,6 +36,7 @@ nav:
     - iCoT Corpus And Provider Roadmap: icot-corpus-and-provider-roadmap.md
     - iCoT Session Files: icot-session-schema.md
     - iCoT Transcripts: icot-transcript.md
+    - Enterprise Authoring And Execution Boundary: enterprise-authoring-execution.md
     - Synthesize: synthesize.md
   - Tutorial:
     - Weather: tutorial-weather.md

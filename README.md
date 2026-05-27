@@ -140,6 +140,9 @@ go run ./cmd/icot --example ./examples/<name> --agent --json
 # Provider-free iCoT reliability scorecard.
 go run ./cmd/icot scorecard --root ./examples/eval --out eval/runs/icot-scorecard-local
 
+# Include curated natural-language authoring variants.
+go run ./cmd/icot scorecard --root ./examples/eval --include-variants --out eval/runs/icot-authoring-scorecard-local
+
 # Bounded deterministic repair for mappings, outputs, and depends_on.
 go run ./cmd/icot repair --example ./examples/<name> --dry-run --json
 
@@ -457,8 +460,11 @@ LLM-assisted commands; explicit `--provider` and `--model` flags still take prec
 ## More Documentation
 
 - [Project authoring](docs/project-authoring.md)
+- [iCoT](docs/icot.md)
+- [iCoT corpus and provider roadmap](docs/icot-corpus-and-provider-roadmap.md)
 - [Intent contract](docs/intent.md)
 - [Data flow](docs/data-flow.md)
+- [Enterprise authoring/execution boundary](docs/enterprise-authoring-execution.md)
 - [Safety](docs/safety.md)
 - [Eval gallery](docs/eval-gallery.md)
 - [SaaS operator release path](docs/saas-operator-release.md)

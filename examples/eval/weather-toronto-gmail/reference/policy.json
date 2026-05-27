@@ -1,0 +1,12 @@
+{
+  "mode": "strict",
+  "notes": [
+    "Strict weather-to-Gmail authoring pattern: OpenWeatherMap read data feeds a local Gmail raw-message render helper before Gmail send handoff."
+  ],
+  "max_blocking": 0,
+  "seed_build": {
+    "expected": "pass",
+    "class": "strict-positive",
+    "reason": "Strict positive weather-to-Gmail seed fixture must materialize and build successfully from its reference intent."
+  }
+}
