@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"sort"
 	"strings"
@@ -49,11 +50,19 @@ func runScorecard(args []string, out, errOut io.Writer) int {
 		fmt.Fprintln(errOut, err)
 		return 1
 	}
+	generatedAt := time.Now().UTC().Format(time.RFC3339)
+	commit := scorecardCommit()
 	report := scorecardReport{
-		Version: scorecardReportVersion,
-		Status:  statusPass,
-		Root:    *root,
-		OutDir:  *outDir,
+		Version:                    scorecardReportVersion,
+		Status:                     statusPass,
+		Root:                       *root,
+		OutDir:                     *outDir,
+		RunID:                      reportRunID("icot-scorecard", generatedAt, commit),
+		GeneratedAt:                generatedAt,
+		Commit:                     commit,
+		PromptVersion:              elicitor.PromptVersion,
+		ReadinessClassifierVersion: readinessClassifierVersion,
+		ScorecardCommand:           scorecardCommand(args),
 		Summary: scorecardSummary{
 			ByClass:                 map[string]int{},
 			ByFailureFamily:         map[string]int{},
@@ -73,7 +82,7 @@ func runScorecard(args []string, out, errOut io.Writer) int {
 		}
 	}
 	reportPath := filepath.Join(*outDir, "scorecard.json")
-	if err := writeJSONFile(reportPath, report); err != nil {
+	if err := writeScorecardReportFile(reportPath, report); err != nil {
 		fmt.Fprintln(errOut, err)
 		return 1
 	}
@@ -165,6 +174,12 @@ func runScorecardFixture(seedDir, outDir string) scorecardResult {
 }
 
 func appendScorecardResult(report *scorecardReport, result scorecardResult, out io.Writer) {
+	if result.Kind == "authoring_variant" && result.ObservedOutcome == statusNeedsInput {
+		if strings.TrimSpace(result.TopIssueCode) == "" || strings.TrimSpace(result.TopIssueMessage) == "" || strings.TrimSpace(result.SuggestedAnswer) == "" {
+			report.Summary.NeedsInputDiagnosticGap++
+			result.Passed = false
+		}
+	}
 	report.Results = append(report.Results, result)
 	report.Summary.Total++
 	if result.Class != "" {
@@ -172,6 +187,14 @@ func appendScorecardResult(report *scorecardReport, result scorecardResult, out 
 	}
 	if result.Kind == "authoring_variant" && result.Class != "" {
 		report.Summary.ByVariantClass[result.Class]++
+	}
+	if result.Kind == "authoring_variant" && result.ObservedOutcome == statusPass {
+		switch result.Class {
+		case "missing-detail":
+			report.Summary.MissingDetailFalsePass++
+		case "unsafe-negative":
+			report.Summary.UnsafeFalsePass++
+		}
 	}
 	report.Summary.ByObservedOutcome[result.ObservedOutcome]++
 	if result.FailureFamily != "" {
@@ -194,6 +217,22 @@ func appendScorecardResult(report *scorecardReport, result scorecardResult, out 
 	report.Summary.Failed++
 	report.Status = statusFail
 	fmt.Fprintf(out, "icot scorecard: fail %s - expected %s, observed %s\n", result.Name, result.ExpectedOutcome, result.ObservedOutcome)
+}
+
+func scorecardCommand(args []string) string {
+	if len(args) == 0 {
+		return "icot scorecard"
+	}
+	return "icot scorecard " + strings.Join(args, " ")
+}
+
+func scorecardCommit() string {
+	cmd := exec.Command("git", "rev-parse", "--short", "HEAD")
+	out, err := cmd.Output()
+	if err != nil {
+		return ""
+	}
+	return strings.TrimSpace(string(out))
 }
 
 func runScorecardVariants(fixture, outDir string) []scorecardResult {
@@ -232,6 +271,8 @@ func runScorecardVariant(fixture string, providers []string, variant evalpkg.Aut
 		Class:                 variant.Class,
 		ExpectedOutcome:       variant.ExpectedOutcome,
 		ExpectedFailureFamily: variant.ExpectedFailureFamily,
+		ExpectedTopIssueCode:  variant.ExpectedTopIssueCode,
+		ExpectedTopIssueSlot:  variant.ExpectedTopIssueSlot,
 		ProviderFamilies:      append([]string(nil), providers...),
 		Tags:                  append([]string(nil), variant.Tags...),
 	}
@@ -562,6 +603,14 @@ func scorecardVariantOutcomeMatches(result scorecardResult) bool {
 	}
 	if result.ExpectedFailureFamily != "" && result.FailureFamily != result.ExpectedFailureFamily {
 		return false
+	}
+	if result.ExpectedOutcome == statusNeedsInput {
+		if result.ExpectedTopIssueCode != "" && result.TopIssueCode != result.ExpectedTopIssueCode {
+			return false
+		}
+		if result.ExpectedTopIssueSlot != "" && result.TopIssueSlot != result.ExpectedTopIssueSlot {
+			return false
+		}
 	}
 	return true
 }

@@ -3,6 +3,8 @@ package icot
 import (
 	"bytes"
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"flag"
@@ -24,17 +26,37 @@ import (
 
 const authoringEvalReportVersion = "openudon.icot-authoring-eval.v1"
 
+const (
+	authoringEvalProviderUnavailable         = "provider_unavailable"
+	authoringEvalProviderTimeout             = "provider_timeout"
+	authoringEvalMalformedModelJSON          = "malformed_model_json"
+	authoringEvalStructuredOutputUnsupported = "structured_output_unsupported"
+	authoringEvalModelRefusal                = "model_refusal"
+	authoringEvalIncompleteDraft             = "incomplete_draft"
+	authoringEvalLintFail                    = "lint_fail"
+	authoringEvalCredentialScanFail          = "credential_scan_fail"
+	authoringEvalBuildFail                   = "build_fail"
+	authoringEvalReferenceDrift              = "reference_drift"
+	authoringEvalPolicyError                 = "policy_error"
+	authoringEvalUnknown                     = "unknown"
+)
+
 type authoringEvalReport struct {
-	Version         string                `json:"version"`
-	Status          string                `json:"status"`
-	Root            string                `json:"root"`
-	OutDir          string                `json:"out_dir"`
-	Provider        string                `json:"provider,omitempty"`
-	Model           string                `json:"model,omitempty"`
-	PromptVersion   string                `json:"prompt_version,omitempty"`
-	IncludeVariants bool                  `json:"include_variants,omitempty"`
-	Summary         authoringEvalSummary  `json:"summary"`
-	Results         []authoringEvalResult `json:"results"`
+	Version                    string                `json:"version"`
+	Status                     string                `json:"status"`
+	Root                       string                `json:"root"`
+	OutDir                     string                `json:"out_dir"`
+	RunID                      string                `json:"run_id,omitempty"`
+	GeneratedAt                string                `json:"generated_at,omitempty"`
+	Commit                     string                `json:"commit,omitempty"`
+	Provider                   string                `json:"provider,omitempty"`
+	Model                      string                `json:"model,omitempty"`
+	PromptVersion              string                `json:"prompt_version,omitempty"`
+	ReadinessClassifierVersion string                `json:"readiness_classifier_version,omitempty"`
+	AuthoringEvalCommand       string                `json:"authoring_eval_command,omitempty"`
+	IncludeVariants            bool                  `json:"include_variants,omitempty"`
+	Summary                    authoringEvalSummary  `json:"summary"`
+	Results                    []authoringEvalResult `json:"results"`
 }
 
 type authoringEvalSummary struct {
@@ -43,6 +65,7 @@ type authoringEvalSummary struct {
 	Failed            int            `json:"failed"`
 	ByObservedOutcome map[string]int `json:"by_observed_outcome,omitempty"`
 	ByFailureFamily   map[string]int `json:"by_failure_family,omitempty"`
+	ByFailureCategory map[string]int `json:"by_failure_category,omitempty"`
 }
 
 type authoringEvalResult struct {
@@ -64,6 +87,7 @@ type authoringEvalResult struct {
 	TranscriptPath        string                 `json:"transcript_path,omitempty"`
 	QualityReport         string                 `json:"quality_report,omitempty"`
 	FailureFamily         string                 `json:"failure_family,omitempty"`
+	FailureCategory       string                 `json:"failure_category,omitempty"`
 	FailureCodes          []string               `json:"failure_codes,omitempty"`
 	CredentialScanStatus  string                 `json:"credential_scan_status,omitempty"`
 	CredentialDiagnostics []authoring.Diagnostic `json:"credential_scan_diagnostics,omitempty"`
@@ -119,18 +143,26 @@ func runAuthoringEval(args []string, out, errOut io.Writer) int {
 		fmt.Fprintln(errOut, err)
 		return 1
 	}
+	generatedAt := time.Now().UTC().Format(time.RFC3339)
+	commit := scorecardCommit()
 	report := authoringEvalReport{
-		Version:         authoringEvalReportVersion,
-		Status:          statusPass,
-		Root:            *root,
-		OutDir:          *outDir,
-		Provider:        strings.TrimSpace(*provider),
-		Model:           strings.TrimSpace(*model),
-		PromptVersion:   elicitor.PromptVersion,
-		IncludeVariants: *includeVariants,
+		Version:                    authoringEvalReportVersion,
+		Status:                     statusPass,
+		Root:                       *root,
+		OutDir:                     *outDir,
+		RunID:                      reportRunID("icot-authoring-eval", generatedAt, commit),
+		GeneratedAt:                generatedAt,
+		Commit:                     commit,
+		Provider:                   strings.TrimSpace(*provider),
+		Model:                      strings.TrimSpace(*model),
+		PromptVersion:              elicitor.PromptVersion,
+		ReadinessClassifierVersion: readinessClassifierVersion,
+		AuthoringEvalCommand:       authoringEvalCommand(args),
+		IncludeVariants:            *includeVariants,
 		Summary: authoringEvalSummary{
 			ByObservedOutcome: map[string]int{},
 			ByFailureFamily:   map[string]int{},
+			ByFailureCategory: map[string]int{},
 		},
 	}
 	for _, fixture := range fixtures {
@@ -228,6 +260,7 @@ func runAuthoringEvalItem(item authoringEvalItem, provider, model string, temper
 		result.ObservedOutcome = "policy_error"
 		result.Error = item.Brief
 		result.FailureFamily = failureUnknown
+		result.FailureCategory = authoringEvalPolicyError
 		return result
 	}
 	workspace := filepath.Join(outDir, "workspaces", safeScorecardName(strings.ReplaceAll(name, "#", "__")))
@@ -236,6 +269,7 @@ func runAuthoringEvalItem(item authoringEvalItem, provider, model string, temper
 		result.ObservedOutcome = "icot_fail"
 		result.Error = err.Error()
 		result.FailureFamily = failureUnknown
+		result.FailureCategory = authoringEvalUnknown
 		return result
 	}
 	var calls []replayLLMCall
@@ -246,6 +280,7 @@ func runAuthoringEvalItem(item authoringEvalItem, provider, model string, temper
 		result.ObservedOutcome = "icot_fail"
 		result.Error = err.Error()
 		result.FailureFamily = failureUnknown
+		result.FailureCategory = classifyAuthoringEvalProviderError(err)
 		result.Passed = authoringEvalOutcomeMatches(result)
 		return result
 	}
@@ -261,6 +296,7 @@ func runAuthoringEvalItem(item authoringEvalItem, provider, model string, temper
 		result.ObservedOutcome = "icot_fail"
 		result.Error = draftErr.Error()
 		result.FailureFamily = failureFamilyForDetail(draftErr.Error())
+		result.FailureCategory = classifyAuthoringEvalDraftError(draftErr)
 		result.Passed = authoringEvalOutcomeMatches(result)
 		return result
 	}
@@ -283,6 +319,7 @@ func runAuthoringEvalItem(item authoringEvalItem, provider, model string, temper
 		result.ObservedOutcome = observedAuthoringEvalErrorOutcome(err)
 		result.Error = err.Error()
 		result.FailureFamily = failureFamilyForDetail(err.Error())
+		result.FailureCategory = classifyAuthoringEvalRunError(err)
 		result.Passed = authoringEvalOutcomeMatches(result)
 		return result
 	}
@@ -292,6 +329,7 @@ func runAuthoringEvalItem(item authoringEvalItem, provider, model string, temper
 		result.ObservedOutcome = "icot_fail"
 		result.Error = err.Error()
 		result.FailureFamily = failureIntentParse
+		result.FailureCategory = authoringEvalIncompleteDraft
 		result.Passed = authoringEvalOutcomeMatches(result)
 		return result
 	}
@@ -303,6 +341,7 @@ func runAuthoringEvalItem(item authoringEvalItem, provider, model string, temper
 		result.ObservedOutcome = "icot_fail"
 		result.Error = "authoring-eval output appears to contain a literal credential value"
 		result.FailureFamily = failureCredentialBindingGap
+		result.FailureCategory = authoringEvalCredentialScanFail
 		result.FailureCodes = []string{"authoring_eval.literal_credential"}
 		result.Passed = false
 		return result
@@ -313,6 +352,7 @@ func runAuthoringEvalItem(item authoringEvalItem, provider, model string, temper
 		result.ObservedOutcome = "icot_fail"
 		result.Error = lintErr
 		result.FailureFamily = firstNonEmpty(lintFamily, failureUnknown)
+		result.FailureCategory = authoringEvalLintFail
 		result.FailureCodes = lintCodes
 		result.Passed = authoringEvalOutcomeMatches(result)
 		return result
@@ -324,6 +364,7 @@ func runAuthoringEvalItem(item authoringEvalItem, provider, model string, temper
 		result.Error = err.Error()
 		result.FailureCodes = []string{"build:error"}
 		result.FailureFamily = failureFamilyForDetail(err.Error())
+		result.FailureCategory = authoringEvalBuildFail
 		result.Passed = authoringEvalOutcomeMatches(result)
 		return result
 	}
@@ -332,6 +373,7 @@ func runAuthoringEvalItem(item authoringEvalItem, provider, model string, temper
 		result.FailureCodes = scorecardFailedQualityCodes(quality)
 		result.Error = scorecardQualityFailureDetails(quality)
 		result.FailureFamily = failureFamilyForQualityCode(firstFailedQualityCode(quality))
+		result.FailureCategory = authoringEvalBuildFail
 		result.Passed = authoringEvalOutcomeMatches(result)
 		return result
 	}
@@ -341,6 +383,7 @@ func runAuthoringEvalItem(item authoringEvalItem, provider, model string, temper
 		result.ObservedOutcome = "build_fail"
 		result.Error = compareErr.Error()
 		result.FailureFamily = failureIntentParse
+		result.FailureCategory = authoringEvalReferenceDrift
 		result.Passed = authoringEvalOutcomeMatches(result)
 		return result
 	}
@@ -358,6 +401,7 @@ func runAuthoringEvalItem(item authoringEvalItem, provider, model string, temper
 	if !authoringEvalDriftPasses(result, policy) {
 		result.ObservedOutcome = "build_fail"
 		result.FailureFamily = failureBadRequestMapping
+		result.FailureCategory = authoringEvalReferenceDrift
 	} else {
 		result.ObservedOutcome = statusPass
 	}
@@ -386,6 +430,9 @@ func scanAuthoringEvalResultCredentials(result authoringEvalResult) []authoring.
 }
 
 func writeAuthoringEvalReportFile(path string, report authoringEvalReport) (bool, error) {
+	if err := validateAuthoringEvalReport(report); err != nil {
+		return false, err
+	}
 	data, err := json.MarshalIndent(report, "", "  ")
 	if err != nil {
 		return false, err
@@ -395,21 +442,29 @@ func writeAuthoringEvalReportFile(path string, report authoringEvalReport) (bool
 	if authoring.ContainsLikelyCredentialValue(data) {
 		redacted = true
 		safeReport := authoringEvalReport{
-			Version: report.Version,
-			Status:  statusFail,
-			Root:    report.Root,
-			OutDir:  report.OutDir,
+			Version:                    report.Version,
+			Status:                     statusFail,
+			Root:                       report.Root,
+			OutDir:                     report.OutDir,
+			RunID:                      report.RunID,
+			GeneratedAt:                report.GeneratedAt,
+			Commit:                     report.Commit,
+			PromptVersion:              report.PromptVersion,
+			ReadinessClassifierVersion: report.ReadinessClassifierVersion,
+			AuthoringEvalCommand:       report.AuthoringEvalCommand,
 			Summary: authoringEvalSummary{
 				Total:             report.Summary.Total,
 				Passed:            0,
 				Failed:            report.Summary.Total,
 				ByObservedOutcome: map[string]int{"icot_fail": report.Summary.Total},
 				ByFailureFamily:   map[string]int{failureCredentialBindingGap: report.Summary.Total},
+				ByFailureCategory: map[string]int{authoringEvalCredentialScanFail: report.Summary.Total},
 			},
 			Results: []authoringEvalResult{{
 				Name:                 "authoring-eval-redacted",
 				ObservedOutcome:      "icot_fail",
 				FailureFamily:        failureCredentialBindingGap,
+				FailureCategory:      authoringEvalCredentialScanFail,
 				FailureCodes:         []string{"authoring_eval.report_literal_credential"},
 				CredentialScanStatus: statusFail,
 				Error:                "authoring-eval report was not written because it appears to contain a literal credential value",
@@ -426,7 +481,12 @@ func writeAuthoringEvalReportFile(path string, report authoringEvalReport) (bool
 			return false, err
 		}
 	}
-	return redacted, os.WriteFile(path, data, 0o644)
+	if err := os.WriteFile(path, data, 0o644); err != nil {
+		return false, err
+	}
+	sum := sha256.Sum256(data)
+	digestLine := hex.EncodeToString(sum[:]) + "  " + filepath.Base(path) + "\n"
+	return redacted, os.WriteFile(path+".sha256", []byte(digestLine), 0o644)
 }
 
 func defaultAuthoringEvalExtractor(provider, model string, temperature float64, calls *[]replayLLMCall) (elicitor.Extractor, string, string, error) {
@@ -463,6 +523,70 @@ func runAuthoringEvalLint(example string) (int, string, []string, string) {
 		return code, report.FailureFamily, codes, strings.TrimSpace(firstNonEmpty(report.FailureFamily, stderr.String()))
 	}
 	return code, failureFamilyForDetail(stderr.String()), nil, strings.TrimSpace(stderr.String())
+}
+
+func classifyAuthoringEvalProviderError(err error) string {
+	if err == nil {
+		return ""
+	}
+	if errors.Is(err, context.DeadlineExceeded) {
+		return authoringEvalProviderTimeout
+	}
+	text := strings.ToLower(err.Error())
+	switch {
+	case strings.Contains(text, "timeout"), strings.Contains(text, "deadline exceeded"), strings.Contains(text, "context deadline"):
+		return authoringEvalProviderTimeout
+	case strings.Contains(text, "structured") && (strings.Contains(text, "unsupported") || strings.Contains(text, "unavailable")):
+		return authoringEvalStructuredOutputUnsupported
+	case strings.Contains(text, "refus"), strings.Contains(text, "safety"):
+		return authoringEvalModelRefusal
+	default:
+		return authoringEvalProviderUnavailable
+	}
+}
+
+func classifyAuthoringEvalDraftError(err error) string {
+	if err == nil {
+		return ""
+	}
+	if errors.Is(err, context.DeadlineExceeded) {
+		return authoringEvalProviderTimeout
+	}
+	text := strings.ToLower(err.Error())
+	switch {
+	case strings.Contains(text, "timeout"), strings.Contains(text, "deadline exceeded"), strings.Contains(text, "context deadline"):
+		return authoringEvalProviderTimeout
+	case strings.Contains(text, "structured") && (strings.Contains(text, "unsupported") || strings.Contains(text, "unavailable")):
+		return authoringEvalStructuredOutputUnsupported
+	case strings.Contains(text, "json"), strings.Contains(text, "parse"), strings.Contains(text, "unmarshal"), strings.Contains(text, "schema"):
+		return authoringEvalMalformedModelJSON
+	case strings.Contains(text, "refus"), strings.Contains(text, "safety"):
+		return authoringEvalModelRefusal
+	default:
+		return authoringEvalIncompleteDraft
+	}
+}
+
+func classifyAuthoringEvalRunError(err error) string {
+	if err == nil {
+		return ""
+	}
+	if errors.Is(err, context.DeadlineExceeded) {
+		return authoringEvalProviderTimeout
+	}
+	text := strings.ToLower(err.Error())
+	switch {
+	case strings.Contains(text, "timeout"), strings.Contains(text, "deadline exceeded"), strings.Contains(text, "context deadline"):
+		return authoringEvalProviderTimeout
+	case strings.Contains(text, "json"), strings.Contains(text, "parse"), strings.Contains(text, "unmarshal"), strings.Contains(text, "schema"):
+		return authoringEvalMalformedModelJSON
+	case strings.Contains(text, "refus"), strings.Contains(text, "safety"):
+		return authoringEvalModelRefusal
+	case strings.Contains(text, "unexpected eof"), strings.Contains(text, "missing"), strings.Contains(text, "needs input"):
+		return authoringEvalIncompleteDraft
+	default:
+		return authoringEvalUnknown
+	}
 }
 
 func observedAuthoringEvalErrorOutcome(err error) string {
@@ -511,6 +635,9 @@ func appendAuthoringEvalResult(report *authoringEvalReport, result authoringEval
 	if result.FailureFamily != "" {
 		report.Summary.ByFailureFamily[result.FailureFamily]++
 	}
+	if result.FailureCategory != "" {
+		report.Summary.ByFailureCategory[result.FailureCategory]++
+	}
 	if result.Passed {
 		report.Summary.Passed++
 		fmt.Fprintf(out, "icot authoring-eval: pass %s\n", result.Name)
@@ -519,4 +646,11 @@ func appendAuthoringEvalResult(report *authoringEvalReport, result authoringEval
 	report.Summary.Failed++
 	report.Status = statusFail
 	fmt.Fprintf(out, "icot authoring-eval: fail %s - expected %s, observed %s\n", result.Name, result.ExpectedOutcome, result.ObservedOutcome)
+}
+
+func authoringEvalCommand(args []string) string {
+	if len(args) == 0 {
+		return "icot authoring-eval"
+	}
+	return "icot authoring-eval " + strings.Join(args, " ")
 }

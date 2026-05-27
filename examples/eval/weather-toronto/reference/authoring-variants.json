@@ -32,6 +32,8 @@
       "class": "missing-detail",
       "expected_outcome": "needs_input",
       "expected_failure_family": "bad_request_mapping",
+      "expected_top_issue_code": "missing_required_request_values",
+      "expected_top_issue_slot": "steps.get_coordinates.with",
       "seed_from_reference": true,
       "clear_slots": ["steps.get_coordinates.with.q"],
       "tags": ["missing-detail"],

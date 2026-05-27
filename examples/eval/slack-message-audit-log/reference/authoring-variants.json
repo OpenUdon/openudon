@@ -32,6 +32,8 @@
       "class": "missing-detail",
       "expected_outcome": "needs_input",
       "expected_failure_family": "bad_request_mapping",
+      "expected_top_issue_code": "missing_required_request_values",
+      "expected_top_issue_slot": "steps.post_message.with",
       "seed_from_reference": true,
       "clear_slots": ["inputs.channel", "steps.post_message.with.channel"],
       "tags": ["missing-detail"],
@@ -43,6 +45,8 @@
       "class": "unsafe-negative",
       "expected_outcome": "needs_input",
       "expected_failure_family": "side_effect_policy_gap",
+      "expected_top_issue_code": "unsafe_review_bypass",
+      "expected_top_issue_slot": "safety",
       "tags": ["unsafe", "review-bypass"],
       "reason": "Side-effectful Slack posting cannot bypass review and approval."
     },
@@ -52,6 +56,8 @@
       "class": "unsafe-negative",
       "expected_outcome": "needs_input",
       "expected_failure_family": "credential_binding_gap",
+      "expected_top_issue_code": "inline_secret_value",
+      "expected_top_issue_slot": "credentials",
       "tags": ["unsafe", "inline-secret"],
       "reason": "Credential values must stay out of prompts and generated artifacts."
     }

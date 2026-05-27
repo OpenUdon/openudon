@@ -28,7 +28,9 @@ go run ./cmd/icot scorecard --root examples/eval --out eval/runs/icot-scorecard-
 
 The scorecard writes `openudon.icot-scorecard.v1` JSON with the expected outcome, observed outcome,
 fixture class, first failure family, and failure codes for each fixture. It uses the same no-LLM,
-package-local seed/build path as the matrix.
+package-local seed/build path as the matrix. Reports also include run ID, prompt version,
+readiness classifier version, generation time, git commit, and scorecard command provenance, and
+write a `scorecard.json.sha256` digest sidecar after report consistency validation.
 
 For M40 natural-language authoring coverage, include checked-in variant metadata:
 
@@ -40,15 +42,20 @@ go run ./cmd/icot scorecard --root examples/eval --include-variants --out eval/r
 Variant files live at `examples/eval/*/reference/authoring-variants.json`. Positive variants reuse
 the fixture's reviewed reference workflow with a different operator brief and must still build
 provider-free. Missing-detail and unsafe-negative variants must stop with the declared
-`needs_input`, `build_fail`, or `icot_fail` outcome and failure family. The variant scorecard adds
-provider-family, variant-class, provider/failure-family, and top readiness issue summaries without
-changing the default seed/build contract. Missing-detail variants may set `seed_from_reference` plus
-`clear_fields` or `clear_slots` so the deterministic path preserves the reviewed source/operation
-and removes only the intended business/request detail.
+`needs_input`, `build_fail`, or `icot_fail` outcome and failure family. `needs_input` variants must
+also declare `expected_top_issue_code` and `expected_top_issue_slot`; the scorecard compares those
+against the observed top readiness issue so a variant cannot pass by asking the wrong follow-up
+question. The variant scorecard adds provider-family, variant-class, provider/failure-family, and
+top readiness issue summaries without changing the default seed/build contract. It also records
+explicit counters for missing-detail or unsafe-negative variants that unexpectedly pass, plus a
+diagnostic-gap counter for `needs_input` variant results that lack top issue details.
+Missing-detail variants may set `seed_from_reference` plus `clear_fields` or `clear_slots` so the
+deterministic path preserves the reviewed source/operation and removes only the intended
+business/request detail.
 
 `icot variants validate` is a fast metadata check for the same files. It catches schema errors,
-unknown expected failure families, duplicate IDs, and reference-seeded clear slots that no longer
-match the reviewed reference intent.
+unknown expected failure families, missing or unknown expected top issue metadata, duplicate IDs,
+and reference-seeded clear slots that no longer match the reviewed reference intent.
 
 This scorecard remains provider-free reference/variant package evidence. It does not show that a
 live LLM generated the workflow from the variant brief. For optional real authoring evidence, run:
@@ -57,11 +64,14 @@ live LLM generated the workflow from the variant brief. For optional real author
 go run ./cmd/icot authoring-eval --root examples/eval --include-variants --provider copilot-api --model gpt-5.4-mini --out eval/runs/icot-authoring-eval-local
 ```
 
-`icot authoring-eval` writes `openudon.icot-authoring-eval.v1` with provider/model, prompt version,
-LLM call count, generated paths, first failure family, drift counts, credential-scan status, and
-per-variant pass/fail. Generated project files, intents, transcripts, and the report JSON are
-checked for credential-like literals. Keep that report local/manual unless it has been reviewed for
-release-note evidence.
+`icot authoring-eval` writes `openudon.icot-authoring-eval.v1` with provider/model, run ID,
+commit, command, prompt/readiness versions, LLM call count, generated paths, first failure family,
+drift counts, credential-scan status, and per-variant pass/fail. It also writes an
+`authoring-eval.json.sha256` digest sidecar. Failures include a structured failure category for provider availability,
+timeouts, malformed model JSON, model refusal, incomplete drafts, lint/build failures, credential
+scan failures, and reference drift. Generated project files, intents, transcripts, and the report
+JSON are checked for credential-like literals. Keep that report local/manual unless it has been
+reviewed for release-note evidence.
 
 ## Policy Fields
 
@@ -103,7 +113,8 @@ When adding or changing an eval fixture:
 - Add `reference/policy.json` with `seed_build.expected`, `seed_build.class`, and a short reason.
 - Add `reference/authoring-variants.json` when the fixture is part of natural-language authoring
   coverage; keep variants provider-free and free of secrets, channel IDs, email addresses, or live
-  provider outputs.
+  provider outputs. For `needs_input` variants, declare the exact expected top readiness issue code
+  and slot.
 - Keep strict positive fixtures buildable from package-local artifacts.
 - Use `advisory` only when a fixture is evidence for reducibility or upstream drift rather than a
   strict OpenUdon-native contract.

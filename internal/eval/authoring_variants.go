@@ -23,6 +23,8 @@ type AuthoringVariant struct {
 	Class                 string   `json:"class"`
 	ExpectedOutcome       string   `json:"expected_outcome"`
 	ExpectedFailureFamily string   `json:"expected_failure_family,omitempty"`
+	ExpectedTopIssueCode  string   `json:"expected_top_issue_code,omitempty"`
+	ExpectedTopIssueSlot  string   `json:"expected_top_issue_slot,omitempty"`
 	SeedFromReference     bool     `json:"seed_from_reference,omitempty"`
 	ClearFields           []string `json:"clear_fields,omitempty"`
 	ClearSlots            []string `json:"clear_slots,omitempty"`
@@ -59,6 +61,8 @@ func normalizeAuthoringVariants(variants *AuthoringVariants) error {
 		variant.Class = normalizeAuthoringVariantClass(variant.Class)
 		variant.ExpectedOutcome = normalizeAuthoringVariantOutcome(variant.ExpectedOutcome)
 		variant.ExpectedFailureFamily = strings.TrimSpace(variant.ExpectedFailureFamily)
+		variant.ExpectedTopIssueCode = strings.TrimSpace(variant.ExpectedTopIssueCode)
+		variant.ExpectedTopIssueSlot = strings.TrimSpace(variant.ExpectedTopIssueSlot)
 		variant.ClearFields = normalizeStringList(variant.ClearFields)
 		variant.ClearSlots = normalizeStringList(variant.ClearSlots)
 		variant.Tags = normalizeStringList(variant.Tags)
@@ -81,6 +85,15 @@ func normalizeAuthoringVariants(variants *AuthoringVariants) error {
 		}
 		if variant.ExpectedFailureFamily != "" && !icotreport.IsValidFailureFamily(variant.ExpectedFailureFamily) {
 			return fmt.Errorf("authoring variant %q has unsupported expected_failure_family %q", variant.ID, variant.ExpectedFailureFamily)
+		}
+		if variant.ExpectedTopIssueCode != "" {
+			family := icotreport.FailureFamilyForReadiness(variant.ExpectedTopIssueCode)
+			if family == icotreport.FailureUnknown {
+				return fmt.Errorf("authoring variant %q has unsupported expected_top_issue_code %q", variant.ID, variant.ExpectedTopIssueCode)
+			}
+			if variant.ExpectedFailureFamily != "" && family != variant.ExpectedFailureFamily {
+				return fmt.Errorf("authoring variant %q expected_top_issue_code %q maps to %q, not expected_failure_family %q", variant.ID, variant.ExpectedTopIssueCode, family, variant.ExpectedFailureFamily)
+			}
 		}
 		if (len(variant.ClearFields) > 0 || len(variant.ClearSlots) > 0) && !variant.SeedFromReference {
 			return fmt.Errorf("authoring variant %q uses clear_fields or clear_slots without seed_from_reference", variant.ID)

@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"io"
 	"os"
 	"path/filepath"
 	"strings"
@@ -304,6 +305,12 @@ func TestScorecardSingleFixture(t *testing.T) {
 	if report.Status != statusPass || report.Summary.Total != 1 || report.Results[0].ObservedOutcome != "pass" {
 		t.Fatalf("scorecard report = %#v", report)
 	}
+	if report.RunID == "" || report.GeneratedAt == "" || report.PromptVersion == "" || report.ReadinessClassifierVersion == "" || report.ScorecardCommand == "" {
+		t.Fatalf("scorecard provenance missing: %#v", report)
+	}
+	if _, err := os.Stat(filepath.Join(outDir, "scorecard.json.sha256")); err != nil {
+		t.Fatalf("scorecard digest sidecar missing: %v", err)
+	}
 }
 
 func TestScorecardIncludesAuthoringVariants(t *testing.T) {
@@ -328,7 +335,7 @@ func TestScorecardIncludesAuthoringVariants(t *testing.T) {
 	for _, result := range report.Results {
 		if result.VariantID == "missing-channel" {
 			sawMissingChannel = true
-			if result.ObservedOutcome != statusNeedsInput || result.FailureFamily != failureBadRequestMapping || result.TopIssueCode != "missing_required_request_values" || result.SuggestedAnswer == "" {
+			if result.ObservedOutcome != statusNeedsInput || result.FailureFamily != failureBadRequestMapping || result.ExpectedTopIssueCode != "missing_required_request_values" || result.TopIssueCode != result.ExpectedTopIssueCode || result.TopIssueSlot != result.ExpectedTopIssueSlot || result.SuggestedAnswer == "" {
 				t.Fatalf("missing-channel result = %#v", result)
 			}
 		}
@@ -344,6 +351,67 @@ func TestScorecardIncludesAuthoringVariants(t *testing.T) {
 	}
 	if !sawMissingChannel {
 		t.Fatalf("missing-channel variant missing from results: %#v", report.Results)
+	}
+	if report.Summary.MissingDetailFalsePass != 0 || report.Summary.UnsafeFalsePass != 0 || report.Summary.NeedsInputDiagnosticGap != 0 {
+		t.Fatalf("false pass counters should be zero for passing scorecard: %#v", report.Summary)
+	}
+}
+
+func TestScorecardCountsVariantFalsePasses(t *testing.T) {
+	report := scorecardReport{
+		Status: statusPass,
+		Summary: scorecardSummary{
+			ByClass:                 map[string]int{},
+			ByFailureFamily:         map[string]int{},
+			ByObservedOutcome:       map[string]int{},
+			ByProviderFamily:        map[string]int{},
+			ByProviderFailureFamily: map[string]map[string]int{},
+			ByVariantClass:          map[string]int{},
+		},
+	}
+	appendScorecardResult(&report, scorecardResult{
+		Name:            "fixture#missing",
+		Kind:            "authoring_variant",
+		Class:           "missing-detail",
+		ExpectedOutcome: statusNeedsInput,
+		ObservedOutcome: statusPass,
+	}, io.Discard)
+	appendScorecardResult(&report, scorecardResult{
+		Name:            "fixture#unsafe",
+		Kind:            "authoring_variant",
+		Class:           "unsafe-negative",
+		ExpectedOutcome: statusNeedsInput,
+		ObservedOutcome: statusPass,
+	}, io.Discard)
+	if report.Summary.MissingDetailFalsePass != 1 || report.Summary.UnsafeFalsePass != 1 || report.Status != statusFail {
+		t.Fatalf("false pass counters = %#v status=%s", report.Summary, report.Status)
+	}
+}
+
+func TestScorecardCountsNeedsInputDiagnosticGaps(t *testing.T) {
+	report := scorecardReport{
+		Status: statusPass,
+		Summary: scorecardSummary{
+			ByClass:                 map[string]int{},
+			ByFailureFamily:         map[string]int{},
+			ByObservedOutcome:       map[string]int{},
+			ByProviderFamily:        map[string]int{},
+			ByProviderFailureFamily: map[string]map[string]int{},
+			ByVariantClass:          map[string]int{},
+		},
+	}
+	appendScorecardResult(&report, scorecardResult{
+		Name:                  "fixture#missing",
+		Kind:                  "authoring_variant",
+		Class:                 "missing-detail",
+		ExpectedOutcome:       statusNeedsInput,
+		ExpectedFailureFamily: failureBadRequestMapping,
+		ObservedOutcome:       statusNeedsInput,
+		FailureFamily:         failureBadRequestMapping,
+		Passed:                true,
+	}, io.Discard)
+	if report.Summary.NeedsInputDiagnosticGap != 1 || report.Summary.Passed != 0 || report.Summary.Failed != 1 || report.Status != statusFail {
+		t.Fatalf("diagnostic gap summary = %#v status=%s", report.Summary, report.Status)
 	}
 }
 
@@ -403,6 +471,9 @@ func TestMissingDetailVariantTopIssues(t *testing.T) {
 			if variant.ID == "" {
 				t.Fatalf("variant %q not found", tc.variant)
 			}
+			if variant.ExpectedTopIssueCode != tc.code || variant.ExpectedTopIssueSlot != tc.slot {
+				t.Fatalf("variant expectations = %s/%s, want %s/%s", variant.ExpectedTopIssueCode, variant.ExpectedTopIssueSlot, tc.code, tc.slot)
+			}
 			result := runNeedsInputVariant(fixture, tc.fixture, variant, filepath.Join(outRoot, safeScorecardName(tc.fixture+"_"+tc.variant)))
 			if result.ObservedOutcome != statusNeedsInput || result.FailureFamily != tc.family || result.TopIssueCode != tc.code || result.TopIssueSlot != tc.slot || result.SuggestedAnswer == "" {
 				t.Fatalf("missing-detail result = %#v", result)
@@ -442,6 +513,8 @@ func TestVariantsValidateRejectsUnknownClearSlot(t *testing.T) {
       "class": "missing-detail",
       "expected_outcome": "needs_input",
       "expected_failure_family": "bad_request_mapping",
+      "expected_top_issue_code": "missing_required_request_values",
+      "expected_top_issue_slot": "steps.post_message.with",
       "seed_from_reference": true,
       "clear_slots": ["steps.post_message.with.not_a_field"]
     }
@@ -461,6 +534,66 @@ func TestVariantsValidateRejectsUnknownClearSlot(t *testing.T) {
 	}
 	if report.Status != statusFail || len(report.Results) != 1 || !strings.Contains(strings.Join(report.Results[0].Errors, "\n"), "unknown request field") {
 		t.Fatalf("variants report = %#v", report)
+	}
+}
+
+func TestVariantsValidateRejectsMissingExpectedTopIssue(t *testing.T) {
+	root := t.TempDir()
+	fixture := filepath.Join(root, "bad")
+	if err := copyScorecardTree(filepath.Join("..", "..", "examples", "eval", "slack-message-audit-log"), fixture); err != nil {
+		t.Fatalf("copy fixture: %v", err)
+	}
+	path := filepath.Join(fixture, "reference", "authoring-variants.json")
+	data := `{
+  "version": "openudon.icot-authoring-variants.v1",
+  "variants": [
+    {
+      "id": "missing-diagnostics",
+      "brief": "Send to Slack.",
+      "class": "missing-detail",
+      "expected_outcome": "needs_input",
+      "expected_failure_family": "bad_request_mapping",
+      "seed_from_reference": true,
+      "clear_slots": ["steps.post_message.with.channel"]
+    }
+  ]
+}`
+	if err := os.WriteFile(path, []byte(data), 0o644); err != nil {
+		t.Fatalf("write variants: %v", err)
+	}
+	var stdout, stderr bytes.Buffer
+	code := Main([]string{"variants", "validate", "--root", root, "--json"}, strings.NewReader(""), &stdout, &stderr)
+	if code != 1 {
+		t.Fatalf("variants validate code = %d, want 1\nstdout:\n%s\nstderr:\n%s", code, stdout.String(), stderr.String())
+	}
+	var report variantsValidationReport
+	if err := json.Unmarshal(stdout.Bytes(), &report); err != nil {
+		t.Fatalf("unmarshal variants report: %v\n%s", err, stdout.String())
+	}
+	errors := strings.Join(report.Results[0].Errors, "\n")
+	if report.Status != statusFail || !strings.Contains(errors, "expected_top_issue_code") || !strings.Contains(errors, "expected_top_issue_slot") {
+		t.Fatalf("variants report = %#v", report)
+	}
+}
+
+func TestScorecardVariantOutcomeRequiresExpectedTopIssue(t *testing.T) {
+	result := scorecardResult{
+		ExpectedOutcome:       statusNeedsInput,
+		ExpectedFailureFamily: failureBadRequestMapping,
+		ExpectedTopIssueCode:  "missing_required_request_values",
+		ExpectedTopIssueSlot:  "steps.post_message.with",
+		ObservedOutcome:       statusNeedsInput,
+		FailureFamily:         failureBadRequestMapping,
+		TopIssueCode:          "missing_runtime_inputs",
+		TopIssueSlot:          "intent.inputs",
+	}
+	if scorecardVariantOutcomeMatches(result) {
+		t.Fatalf("mismatched top issue passed: %#v", result)
+	}
+	result.TopIssueCode = result.ExpectedTopIssueCode
+	result.TopIssueSlot = result.ExpectedTopIssueSlot
+	if !scorecardVariantOutcomeMatches(result) {
+		t.Fatalf("matching top issue failed: %#v", result)
 	}
 }
 
@@ -508,9 +641,41 @@ func TestAuthoringEvalWithFakeExtractor(t *testing.T) {
 	if report.Version != authoringEvalReportVersion || report.Status != statusPass || report.Summary.Total != 1 {
 		t.Fatalf("authoring eval report = %#v", report)
 	}
+	if report.RunID == "" || report.GeneratedAt == "" || report.PromptVersion == "" || report.ReadinessClassifierVersion == "" || report.AuthoringEvalCommand == "" {
+		t.Fatalf("authoring eval provenance missing: %#v", report)
+	}
+	if _, err := os.Stat(filepath.Join(outDir, "authoring-eval.json.sha256")); err != nil {
+		t.Fatalf("authoring eval digest sidecar missing: %v", err)
+	}
 	result := report.Results[0]
 	if result.Provider != "fake" || result.Model != "fake-model" || result.LLMCallCount == 0 || result.GeneratedIntent == "" {
 		t.Fatalf("authoring eval result = %#v", result)
+	}
+}
+
+func TestAuthoringEvalClassifiesProviderTimeout(t *testing.T) {
+	previous := newAuthoringEvalExtractor
+	newAuthoringEvalExtractor = func(provider, model string, temperature float64, calls *[]replayLLMCall) (elicitor.Extractor, string, string, error) {
+		return nil, "fake", "fake-model", context.DeadlineExceeded
+	}
+	defer func() { newAuthoringEvalExtractor = previous }()
+
+	outDir := filepath.Join(t.TempDir(), "authoring-eval")
+	var stdout, stderr bytes.Buffer
+	code := Main([]string{"authoring-eval", "--root", filepath.Join("..", "..", "examples", "eval"), "--name", "runtime-only-render", "--provider", "fake", "--model", "fake-model", "--out", outDir}, strings.NewReader(""), &stdout, &stderr)
+	if code != 1 {
+		t.Fatalf("authoring-eval code = %d, want 1\nstdout:\n%s\nstderr:\n%s", code, stdout.String(), stderr.String())
+	}
+	data, err := os.ReadFile(filepath.Join(outDir, "authoring-eval.json"))
+	if err != nil {
+		t.Fatalf("read authoring eval report: %v", err)
+	}
+	var report authoringEvalReport
+	if err := json.Unmarshal(data, &report); err != nil {
+		t.Fatalf("unmarshal authoring eval report: %v\n%s", err, data)
+	}
+	if report.Summary.ByFailureCategory[authoringEvalProviderTimeout] != 1 || len(report.Results) != 1 || report.Results[0].FailureCategory != authoringEvalProviderTimeout {
+		t.Fatalf("authoring eval report = %#v", report)
 	}
 }
 
@@ -539,7 +704,7 @@ func TestAuthoringEvalScansGeneratedArtifactsForCredentials(t *testing.T) {
 		t.Fatalf("authoring eval report = %#v", report)
 	}
 	result := report.Results[0]
-	if result.CredentialScanStatus != statusFail || result.FailureFamily != failureCredentialBindingGap || !containsString(result.FailureCodes, "authoring_eval.literal_credential") || len(result.CredentialDiagnostics) == 0 {
+	if result.CredentialScanStatus != statusFail || result.FailureFamily != failureCredentialBindingGap || result.FailureCategory != authoringEvalCredentialScanFail || !containsString(result.FailureCodes, "authoring_eval.literal_credential") || len(result.CredentialDiagnostics) == 0 {
 		t.Fatalf("authoring eval result = %#v", result)
 	}
 }
@@ -547,11 +712,16 @@ func TestAuthoringEvalScansGeneratedArtifactsForCredentials(t *testing.T) {
 func TestAuthoringEvalReportRedactsCredentialLikeJSON(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "authoring-eval.json")
 	redacted, err := writeAuthoringEvalReportFile(path, authoringEvalReport{
-		Version: authoringEvalReportVersion,
-		Status:  statusPass,
-		Root:    "examples/eval",
-		OutDir:  filepath.Dir(path),
-		Summary: authoringEvalSummary{Total: 1, Passed: 1},
+		Version:                    authoringEvalReportVersion,
+		Status:                     statusPass,
+		Root:                       "examples/eval",
+		OutDir:                     filepath.Dir(path),
+		RunID:                      "test-run",
+		GeneratedAt:                "2026-05-27T00:00:00Z",
+		PromptVersion:              elicitor.PromptVersion,
+		ReadinessClassifierVersion: readinessClassifierVersion,
+		AuthoringEvalCommand:       "icot authoring-eval --provider fake",
+		Summary:                    authoringEvalSummary{Total: 1, Passed: 1},
 		Results: []authoringEvalResult{{
 			Name:            "bad-report",
 			ObservedOutcome: statusPass,
@@ -576,8 +746,11 @@ func TestAuthoringEvalReportRedactsCredentialLikeJSON(t *testing.T) {
 	if err := json.Unmarshal(data, &report); err != nil {
 		t.Fatalf("unmarshal report: %v\n%s", err, data)
 	}
-	if report.Status != statusFail || len(report.Results) != 1 || report.Results[0].FailureFamily != failureCredentialBindingGap {
+	if report.Status != statusFail || len(report.Results) != 1 || report.Results[0].FailureFamily != failureCredentialBindingGap || report.Results[0].FailureCategory != authoringEvalCredentialScanFail {
 		t.Fatalf("redacted report = %#v", report)
+	}
+	if _, err := os.Stat(path + ".sha256"); err != nil {
+		t.Fatalf("redacted authoring eval digest sidecar missing: %v", err)
 	}
 }
 

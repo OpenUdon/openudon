@@ -123,9 +123,19 @@ func validateAuthoringVariantsFixture(fixture string) variantsValidationResult {
 				result.Errors = append(result.Errors, fmt.Sprintf("%s: %v", variant.ID, err))
 			}
 		}
-		if variant.Class == "missing-detail" && variant.ExpectedOutcome == statusNeedsInput && variant.ExpectedFailureFamily == "" {
-			result.Status = statusFail
-			result.Errors = append(result.Errors, fmt.Sprintf("%s: missing-detail needs_input variants must declare expected_failure_family", variant.ID))
+		if variant.ExpectedOutcome == statusNeedsInput {
+			if variant.ExpectedFailureFamily == "" {
+				result.Status = statusFail
+				result.Errors = append(result.Errors, fmt.Sprintf("%s: needs_input variants must declare expected_failure_family", variant.ID))
+			}
+			if variant.ExpectedTopIssueCode == "" {
+				result.Status = statusFail
+				result.Errors = append(result.Errors, fmt.Sprintf("%s: needs_input variants must declare expected_top_issue_code", variant.ID))
+			}
+			if variant.ExpectedTopIssueSlot == "" {
+				result.Status = statusFail
+				result.Errors = append(result.Errors, fmt.Sprintf("%s: needs_input variants must declare expected_top_issue_slot", variant.ID))
+			}
 		}
 		if variant.SeedFromReference && len(variant.ClearFields) == 0 && len(variant.ClearSlots) == 0 {
 			result.Status = statusFail

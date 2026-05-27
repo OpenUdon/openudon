@@ -97,26 +97,38 @@ intent parse status, drift warnings, and the first failure family.
 
 `icot scorecard` runs the provider-free seed/build reliability path over eval fixtures. It writes
 `openudon.icot-scorecard.v1` under the requested output directory and records expected outcome,
-observed outcome, fixture class, first failure family, and failure codes. With
+observed outcome, fixture class, first failure family, failure codes, prompt/readiness provenance,
+run ID, commit, generation time, and the command used to produce the report. The command validates
+report consistency before write and emits a `scorecard.json.sha256` digest sidecar. With
 `--include-variants`, it also runs checked-in natural-language authoring variants from
 `reference/authoring-variants.json` and groups results by provider family, variant class, and
-failure family. This variant lane mutates reviewed reference packages and verifies deterministic
+failure family. It also counts missing-detail or unsafe-negative variants that unexpectedly observe
+`pass` as explicit false-pass counters, and fails variants that return `needs_input` without top
+issue diagnostics. This variant lane mutates reviewed reference packages and verifies deterministic
 package behavior; it is not proof that a live LLM generated the workflow from the alternate brief.
 It does not call an LLM, retrieve remote provider metadata, or execute workflows.
 
 `icot variants validate` checks `reference/authoring-variants.json` metadata without generating
 workspaces. It validates expected failure-family names, duplicate IDs, missing-detail expectations,
-and `seed_from_reference` `clear_fields` or `clear_slots` against the fixture reference intent.
-Use it before scorecard runs when editing variant metadata.
+required `expected_top_issue_code` and `expected_top_issue_slot` values for `needs_input`
+variants, and `seed_from_reference` `clear_fields` or `clear_slots` against the fixture reference
+intent. Use it before scorecard runs when editing variant metadata. The scorecard compares observed
+top issue code and slot to those expectations so a variant cannot pass by asking the wrong
+follow-up question.
 
 `icot authoring-eval` is the optional real-LLM authoring lane. It runs selected fixture briefs or
 `--include-variants` entries through the iCoT progressive draft path with LLM extraction enabled,
 then runs lint/build-equivalent checks and compares the generated `intent.hcl` against the reviewed
 reference. The report is `openudon.icot-authoring-eval.v1` and records provider/model, prompt
-version, LLM call count, generated paths, failure family, drift counts, and per-variant pass/fail.
+version, readiness classifier version, run ID, commit, command, LLM call count, generated paths,
+failure family, drift counts, and per-variant pass/fail. The report is consistency-checked before
+write and emits an `authoring-eval.json.sha256` digest sidecar.
 Generated project files, intents, transcripts, and the final report JSON are scanned for
-credential-like literal values before the report is accepted. Keep this evidence local/manual; it
-can spend model quota and is not part of `release-check` or `release-saas-check`.
+credential-like literal values before the report is accepted. Failures include a structured
+`failure_category` such as `provider_unavailable`, `provider_timeout`, `malformed_model_json`,
+`structured_output_unsupported`, `model_refusal`, `incomplete_draft`, `lint_fail`,
+`credential_scan_fail`, `build_fail`, or `reference_drift`. Keep this evidence local/manual; it can
+spend model quota and is not part of `release-check` or `release-saas-check`.
 
 `icot repair` is a bounded deterministic repair command. It may edit request mappings, output
 sources, and `depends_on` only. It rejects source document, operation ID, credential binding,

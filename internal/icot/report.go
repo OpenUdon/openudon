@@ -1,6 +1,14 @@
 package icot
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
+	"encoding/json"
+	"fmt"
+	"os"
+	"path/filepath"
+	"strings"
+
 	"github.com/OpenUdon/openudon/internal/icot/elicitor"
 	"github.com/OpenUdon/openudon/internal/icotreport"
 	"github.com/OpenUdon/openudon/internal/synthesize"
@@ -28,6 +36,8 @@ const (
 	failureIntentParse          = icotreport.FailureIntentParse
 	failureBuildError           = icotreport.FailureBuildError
 	failureUnknown              = icotreport.FailureUnknown
+
+	readinessClassifierVersion = "icot-readiness.v1"
 )
 
 type authorReport struct {
@@ -58,12 +68,18 @@ type lintReport struct {
 }
 
 type scorecardReport struct {
-	Version string            `json:"version"`
-	Status  string            `json:"status"`
-	Root    string            `json:"root"`
-	OutDir  string            `json:"out_dir"`
-	Summary scorecardSummary  `json:"summary"`
-	Results []scorecardResult `json:"results"`
+	Version                    string            `json:"version"`
+	Status                     string            `json:"status"`
+	Root                       string            `json:"root"`
+	OutDir                     string            `json:"out_dir"`
+	RunID                      string            `json:"run_id,omitempty"`
+	GeneratedAt                string            `json:"generated_at,omitempty"`
+	Commit                     string            `json:"commit,omitempty"`
+	PromptVersion              string            `json:"prompt_version,omitempty"`
+	ReadinessClassifierVersion string            `json:"readiness_classifier_version,omitempty"`
+	ScorecardCommand           string            `json:"scorecard_command,omitempty"`
+	Summary                    scorecardSummary  `json:"summary"`
+	Results                    []scorecardResult `json:"results"`
 }
 
 type scorecardSummary struct {
@@ -76,6 +92,9 @@ type scorecardSummary struct {
 	ByProviderFamily        map[string]int            `json:"by_provider_family,omitempty"`
 	ByProviderFailureFamily map[string]map[string]int `json:"by_provider_failure_family,omitempty"`
 	ByVariantClass          map[string]int            `json:"by_variant_class,omitempty"`
+	MissingDetailFalsePass  int                       `json:"missing_detail_false_pass"`
+	UnsafeFalsePass         int                       `json:"unsafe_false_pass"`
+	NeedsInputDiagnosticGap int                       `json:"needs_input_diagnostic_gap"`
 }
 
 type scorecardResult struct {
@@ -87,6 +106,8 @@ type scorecardResult struct {
 	Class                 string   `json:"class,omitempty"`
 	ExpectedOutcome       string   `json:"expected_outcome,omitempty"`
 	ExpectedFailureFamily string   `json:"expected_failure_family,omitempty"`
+	ExpectedTopIssueCode  string   `json:"expected_top_issue_code,omitempty"`
+	ExpectedTopIssueSlot  string   `json:"expected_top_issue_slot,omitempty"`
 	ObservedOutcome       string   `json:"observed_outcome"`
 	Passed                bool     `json:"passed"`
 	FailureFamily         string   `json:"failure_family,omitempty"`
@@ -146,4 +167,156 @@ func firstFailedQualityCode(report *synthesize.QualityReport) string {
 		}
 	}
 	return ""
+}
+
+func reportRunID(kind, generatedAt, commit string) string {
+	kind = safeScorecardName(kind)
+	generatedAt = strings.NewReplacer(":", "", "-", "", "T", "", "Z", "").Replace(strings.TrimSpace(generatedAt))
+	commit = safeScorecardName(commit)
+	if generatedAt == "" {
+		generatedAt = "unknown-time"
+	}
+	if commit == "" {
+		commit = "unknown-commit"
+	}
+	return kind + "-" + generatedAt + "-" + commit
+}
+
+func writeJSONReportWithDigest(path string, value any) error {
+	data, err := json.MarshalIndent(value, "", "  ")
+	if err != nil {
+		return err
+	}
+	data = append(data, '\n')
+	if dir := filepath.Dir(path); dir != "." && dir != "" {
+		if err := os.MkdirAll(dir, 0o755); err != nil {
+			return err
+		}
+	}
+	if err := os.WriteFile(path, data, 0o644); err != nil {
+		return err
+	}
+	sum := sha256.Sum256(data)
+	digestLine := hex.EncodeToString(sum[:]) + "  " + filepath.Base(path) + "\n"
+	return os.WriteFile(path+".sha256", []byte(digestLine), 0o644)
+}
+
+func writeScorecardReportFile(path string, report scorecardReport) error {
+	if err := validateScorecardReport(report); err != nil {
+		return err
+	}
+	return writeJSONReportWithDigest(path, report)
+}
+
+func validateScorecardReport(report scorecardReport) error {
+	if report.Version != scorecardReportVersion {
+		return fmt.Errorf("scorecard report version = %q, want %q", report.Version, scorecardReportVersion)
+	}
+	for name, value := range map[string]string{
+		"status":                       report.Status,
+		"root":                         report.Root,
+		"out_dir":                      report.OutDir,
+		"run_id":                       report.RunID,
+		"generated_at":                 report.GeneratedAt,
+		"prompt_version":               report.PromptVersion,
+		"readiness_classifier_version": report.ReadinessClassifierVersion,
+		"scorecard_command":            report.ScorecardCommand,
+	} {
+		if strings.TrimSpace(value) == "" {
+			return fmt.Errorf("scorecard report missing %s", name)
+		}
+	}
+	if report.Summary.Total != len(report.Results) {
+		return fmt.Errorf("scorecard summary total = %d, results = %d", report.Summary.Total, len(report.Results))
+	}
+	passed, failed, diagnosticGaps := 0, 0, 0
+	for _, result := range report.Results {
+		if result.Passed {
+			passed++
+		} else {
+			failed++
+		}
+		if result.Kind == "authoring_variant" && result.ObservedOutcome == statusNeedsInput {
+			if strings.TrimSpace(result.TopIssueCode) == "" || strings.TrimSpace(result.TopIssueMessage) == "" || strings.TrimSpace(result.SuggestedAnswer) == "" {
+				diagnosticGaps++
+			}
+		}
+	}
+	if report.Summary.Passed != passed || report.Summary.Failed != failed {
+		return fmt.Errorf("scorecard summary pass/fail = %d/%d, results = %d/%d", report.Summary.Passed, report.Summary.Failed, passed, failed)
+	}
+	if report.Summary.NeedsInputDiagnosticGap != diagnosticGaps {
+		return fmt.Errorf("scorecard needs_input diagnostic gap = %d, results = %d", report.Summary.NeedsInputDiagnosticGap, diagnosticGaps)
+	}
+	if report.Status == statusPass && failed != 0 {
+		return fmt.Errorf("scorecard status pass with %d failed result(s)", failed)
+	}
+	if report.Status == statusFail && failed == 0 {
+		return fmt.Errorf("scorecard status fail with no failed results")
+	}
+	return nil
+}
+
+func validateAuthoringEvalReport(report authoringEvalReport) error {
+	if report.Version != authoringEvalReportVersion {
+		return fmt.Errorf("authoring-eval report version = %q, want %q", report.Version, authoringEvalReportVersion)
+	}
+	for name, value := range map[string]string{
+		"status":                       report.Status,
+		"root":                         report.Root,
+		"out_dir":                      report.OutDir,
+		"run_id":                       report.RunID,
+		"generated_at":                 report.GeneratedAt,
+		"prompt_version":               report.PromptVersion,
+		"readiness_classifier_version": report.ReadinessClassifierVersion,
+		"authoring_eval_command":       report.AuthoringEvalCommand,
+	} {
+		if strings.TrimSpace(value) == "" {
+			return fmt.Errorf("authoring-eval report missing %s", name)
+		}
+	}
+	if report.Summary.Total != len(report.Results) {
+		return fmt.Errorf("authoring-eval summary total = %d, results = %d", report.Summary.Total, len(report.Results))
+	}
+	passed, failed := 0, 0
+	for _, result := range report.Results {
+		if result.Passed {
+			passed++
+		} else {
+			failed++
+		}
+		if result.FailureCategory != "" && !isValidAuthoringEvalFailureCategory(result.FailureCategory) {
+			return fmt.Errorf("authoring-eval result %s has unsupported failure_category %q", result.Name, result.FailureCategory)
+		}
+	}
+	if report.Summary.Passed != passed || report.Summary.Failed != failed {
+		return fmt.Errorf("authoring-eval summary pass/fail = %d/%d, results = %d/%d", report.Summary.Passed, report.Summary.Failed, passed, failed)
+	}
+	if report.Status == statusPass && failed != 0 {
+		return fmt.Errorf("authoring-eval status pass with %d failed result(s)", failed)
+	}
+	if report.Status == statusFail && failed == 0 {
+		return fmt.Errorf("authoring-eval status fail with no failed results")
+	}
+	return nil
+}
+
+func isValidAuthoringEvalFailureCategory(category string) bool {
+	switch category {
+	case authoringEvalProviderUnavailable,
+		authoringEvalProviderTimeout,
+		authoringEvalMalformedModelJSON,
+		authoringEvalStructuredOutputUnsupported,
+		authoringEvalModelRefusal,
+		authoringEvalIncompleteDraft,
+		authoringEvalLintFail,
+		authoringEvalCredentialScanFail,
+		authoringEvalBuildFail,
+		authoringEvalReferenceDrift,
+		authoringEvalPolicyError,
+		authoringEvalUnknown:
+		return true
+	default:
+		return false
+	}
 }
