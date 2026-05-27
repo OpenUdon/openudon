@@ -1,4 +1,4 @@
-.PHONY: help test vet check apitools-boundary readiness release-check release-saas-check release-eval eval-seed-build icot-authoring-scorecard icot-variants-validate product-smoke-check product-smoke-live siblings validate-uws eval synthesize-support build-support promote-support assess-support
+.PHONY: help test vet check apitools-boundary readiness release-check release-saas-check release-eval eval-seed-build icot-authoring-scorecard icot-variants-validate icot-variants-coverage product-smoke-check product-smoke-live siblings validate-uws eval synthesize-support build-support promote-support assess-support
 
 GO ?= go
 OPENUDON_LLM_PROVIDER ?= copilot-api
@@ -10,7 +10,7 @@ OPENUDON_RELEASE_SAAS_FIXTURES ?= slack-message-audit-log gmail-send-audit-recei
 OPENUDON_RELEASE_DEMO_FIXTURES ?= gmail-send-audit-receipt order-fulfillment-chain
 
 help:
-	@echo "Targets: test, vet, check, readiness, release-check, release-saas-check, release-eval, eval-seed-build, icot-authoring-scorecard, icot-variants-validate, product-smoke-check, product-smoke-live, siblings, validate-uws, eval, synthesize-support, build-support, promote-support, assess-support"
+	@echo "Targets: test, vet, check, readiness, release-check, release-saas-check, release-eval, eval-seed-build, icot-authoring-scorecard, icot-variants-validate, icot-variants-coverage, product-smoke-check, product-smoke-live, siblings, validate-uws, eval, synthesize-support, build-support, promote-support, assess-support"
 
 test:
 	$(GO) test ./...
@@ -36,6 +36,7 @@ release-saas-check:
 	$(MAKE) release-check
 	$(MAKE) eval-seed-build
 	$(MAKE) icot-variants-validate
+	$(MAKE) icot-variants-coverage
 	$(MAKE) icot-authoring-scorecard
 	$(MAKE) validate-uws
 	$(GO) run ./cmd/openudon check-doc-memory
@@ -64,9 +65,13 @@ eval-seed-build:
 
 icot-authoring-scorecard:
 	$(GO) run ./cmd/icot scorecard --root examples/eval --include-variants --out eval/runs/icot-authoring-scorecard-local
+	$(GO) run ./cmd/icot report verify --file eval/runs/icot-authoring-scorecard-local/scorecard.json
 
 icot-variants-validate:
 	$(GO) run ./cmd/icot variants validate --root examples/eval
+
+icot-variants-coverage:
+	$(GO) run ./cmd/icot variants coverage --root examples/eval
 
 product-smoke-check:
 	$(GO) run ./cmd/openudon smoke-matrix --mode dry-run --workdir .openudon-run/product-smoke --out .openudon-run/product-smoke/summary.json

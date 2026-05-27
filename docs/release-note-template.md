@@ -33,8 +33,11 @@
 - Optional iCoT authoring-eval credential-scan result:
 - Optional iCoT authoring-eval failure-category summary:
 - Optional iCoT authoring-eval run ID/digest:
+- iCoT variant provider-family coverage result:
 - iCoT scorecard provenance run ID/commit/prompt/readiness versions:
 - iCoT scorecard digest:
+- iCoT scorecard report verify result:
+- Optional iCoT authoring-eval report verify result:
 - iCoT scorecard missing-detail false-pass count:
 - iCoT scorecard unsafe false-pass count:
 - iCoT scorecard needs-input diagnostic-gap count:

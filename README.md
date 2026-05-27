@@ -143,11 +143,20 @@ go run ./cmd/icot scorecard --root ./examples/eval --out eval/runs/icot-scorecar
 # Include curated natural-language authoring variants.
 go run ./cmd/icot scorecard --root ./examples/eval --include-variants --out eval/runs/icot-authoring-scorecard-local
 
+# Verify scorecard report JSON plus digest sidecar.
+go run ./cmd/icot report verify --file eval/runs/icot-authoring-scorecard-local/scorecard.json
+
 # Validate variant metadata and reference-seeded clear slots.
 go run ./cmd/icot variants validate --root ./examples/eval
 
+# Check provider-family coverage across variant classes.
+go run ./cmd/icot variants coverage --root ./examples/eval
+
 # Optional real-LLM natural-language authoring evidence.
 go run ./cmd/icot authoring-eval --root ./examples/eval --include-variants --provider copilot-api --model gpt-5.4-mini --out eval/runs/icot-authoring-eval-local
+
+# Optional/manual verification for real-LLM authoring evidence.
+go run ./cmd/icot report verify --file eval/runs/icot-authoring-eval-local/authoring-eval.json
 
 # Bounded deterministic repair for mappings, outputs, and depends_on.
 go run ./cmd/icot repair --example ./examples/<name> --dry-run --json

@@ -55,11 +55,21 @@ go run ./cmd/icot scorecard --root examples/eval --out eval/runs/icot-scorecard-
 # Include curated natural-language authoring variants.
 go run ./cmd/icot scorecard --root examples/eval --include-variants --out eval/runs/icot-authoring-scorecard-local
 
+# Verify scorecard report JSON plus digest sidecar. `make icot-authoring-scorecard`
+# and `make release-saas-check` run this automatically for the provider-free scorecard.
+go run ./cmd/icot report verify --file eval/runs/icot-authoring-scorecard-local/scorecard.json
+
 # Validate variant metadata and reference-seeded clear slots without running scorecard.
 go run ./cmd/icot variants validate --root examples/eval
 
+# Check provider-family coverage across positive, missing-detail, and unsafe-negative variants.
+go run ./cmd/icot variants coverage --root examples/eval
+
 # Optional real-LLM natural-language authoring evidence.
 go run ./cmd/icot authoring-eval --root examples/eval --include-variants --provider copilot-api --model gpt-5.4-mini --out eval/runs/icot-authoring-eval-local
+
+# Optional/manual verification for real-LLM authoring evidence.
+go run ./cmd/icot report verify --file eval/runs/icot-authoring-eval-local/authoring-eval.json
 
 # Bounded deterministic repair for mappings, outputs, and depends_on only.
 go run ./cmd/icot repair --example ./examples/<name> --dry-run --json
@@ -116,6 +126,10 @@ intent. Use it before scorecard runs when editing variant metadata. The scorecar
 top issue code and slot to those expectations so a variant cannot pass by asking the wrong
 follow-up question.
 
+`icot variants coverage` aggregates checked-in authoring variants by provider family and fails if
+any provider family lacks at least one `positive`, `missing-detail`, or `unsafe-negative` variant.
+This keeps corpus breadth explicit before the scorecard runs.
+
 `icot authoring-eval` is the optional real-LLM authoring lane. It runs selected fixture briefs or
 `--include-variants` entries through the iCoT progressive draft path with LLM extraction enabled,
 then runs lint/build-equivalent checks and compares the generated `intent.hcl` against the reviewed
@@ -129,6 +143,11 @@ credential-like literal values before the report is accepted. Failures include a
 `structured_output_unsupported`, `model_refusal`, `incomplete_draft`, `lint_fail`,
 `credential_scan_fail`, `build_fail`, or `reference_drift`. Keep this evidence local/manual; it can
 spend model quota and is not part of `release-check` or `release-saas-check`.
+
+`icot report verify --file <report.json>` verifies archived `openudon.icot-scorecard.v1` and
+`openudon.icot-authoring-eval.v1` reports after generation. It checks the report version, summary
+counters, variant top-issue expectations, authoring-eval failure categories, pass/fail consistency,
+and the adjacent `.sha256` digest sidecar.
 
 `icot repair` is a bounded deterministic repair command. It may edit request mappings, output
 sources, and `depends_on` only. It rejects source document, operation ID, credential binding,

@@ -44,9 +44,12 @@ make release-saas-check
 ```
 
 `release-saas-check` runs `release-check`, `eval-seed-build`,
-`icot-variants-validate`, `icot-authoring-scorecard`, UWS validation, doc-memory, n8n bridge validation,
-strict MkDocs build, selected strict SaaS fixture lint, and the provider-free dry-run demo in
-[SaaS Operator Release Path](saas-operator-release.md). The selected demo
+`icot-variants-validate`, `icot-variants-coverage`, `icot-authoring-scorecard`, UWS validation,
+doc-memory, n8n bridge validation, strict MkDocs build, selected strict SaaS fixture lint, and the
+provider-free dry-run demo in
+[SaaS Operator Release Path](saas-operator-release.md). `icot-authoring-scorecard` generates the
+provider-free scorecard and then runs `icot report verify` against `scorecard.json`, including the
+digest sidecar. The selected demo
 examples are:
 
 - `gmail-send-audit-receipt` for a single-service side-effectful send-and-audit
@@ -85,6 +88,7 @@ Real-provider evals remain opt-in local evidence:
 ```bash
 make release-eval
 go run ./cmd/icot authoring-eval --root examples/eval --include-variants --provider copilot-api --model gpt-5.4-mini --out eval/runs/icot-authoring-eval-local
+go run ./cmd/icot report verify --file eval/runs/icot-authoring-eval-local/authoring-eval.json
 ```
 
 Record provider, model, corpus size, comparison baseline, provider drift status,

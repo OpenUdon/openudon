@@ -201,6 +201,31 @@ func writeJSONReportWithDigest(path string, value any) error {
 	return os.WriteFile(path+".sha256", []byte(digestLine), 0o644)
 }
 
+func verifyJSONReportDigest(path string) error {
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return err
+	}
+	digestData, err := os.ReadFile(path + ".sha256")
+	if err != nil {
+		return fmt.Errorf("read digest sidecar %s: %w", path+".sha256", err)
+	}
+	fields := strings.Fields(string(digestData))
+	if len(fields) == 0 {
+		return fmt.Errorf("digest sidecar %s is empty", path+".sha256")
+	}
+	want := strings.ToLower(strings.TrimSpace(fields[0]))
+	sum := sha256.Sum256(data)
+	got := hex.EncodeToString(sum[:])
+	if want != got {
+		return fmt.Errorf("digest mismatch for %s: sidecar %s, computed %s", path, want, got)
+	}
+	if len(fields) > 1 && fields[1] != filepath.Base(path) {
+		return fmt.Errorf("digest sidecar names %s, want %s", fields[1], filepath.Base(path))
+	}
+	return nil
+}
+
 func writeScorecardReportFile(path string, report scorecardReport) error {
 	if err := validateScorecardReport(report); err != nil {
 		return err
@@ -235,6 +260,9 @@ func validateScorecardReport(report scorecardReport) error {
 			passed++
 		} else {
 			failed++
+		}
+		if result.Kind == "authoring_variant" && result.Passed != scorecardVariantOutcomeMatches(result) {
+			return fmt.Errorf("scorecard result %s passed=%v does not match expected/observed outcome", result.Name, result.Passed)
 		}
 		if result.Kind == "authoring_variant" && result.ObservedOutcome == statusNeedsInput {
 			if strings.TrimSpace(result.TopIssueCode) == "" || strings.TrimSpace(result.TopIssueMessage) == "" || strings.TrimSpace(result.SuggestedAnswer) == "" {
@@ -284,6 +312,9 @@ func validateAuthoringEvalReport(report authoringEvalReport) error {
 			passed++
 		} else {
 			failed++
+		}
+		if result.Passed != authoringEvalOutcomeMatches(result) {
+			return fmt.Errorf("authoring-eval result %s passed=%v does not match expected/observed outcome", result.Name, result.Passed)
 		}
 		if result.FailureCategory != "" && !isValidAuthoringEvalFailureCategory(result.FailureCategory) {
 			return fmt.Errorf("authoring-eval result %s has unsupported failure_category %q", result.Name, result.FailureCategory)

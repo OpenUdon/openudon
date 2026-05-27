@@ -36,7 +36,9 @@ For M40 natural-language authoring coverage, include checked-in variant metadata
 
 ```bash
 go run ./cmd/icot variants validate --root examples/eval
+go run ./cmd/icot variants coverage --root examples/eval
 go run ./cmd/icot scorecard --root examples/eval --include-variants --out eval/runs/icot-authoring-scorecard-local
+go run ./cmd/icot report verify --file eval/runs/icot-authoring-scorecard-local/scorecard.json
 ```
 
 Variant files live at `examples/eval/*/reference/authoring-variants.json`. Positive variants reuse
@@ -57,6 +59,10 @@ business/request detail.
 unknown expected failure families, missing or unknown expected top issue metadata, duplicate IDs,
 and reference-seeded clear slots that no longer match the reviewed reference intent.
 
+`icot variants coverage` checks the same corpus by provider family and requires at least one
+positive, missing-detail, and unsafe-negative variant per provider family before the provider-free
+scorecard evidence is accepted.
+
 This scorecard remains provider-free reference/variant package evidence. It does not show that a
 live LLM generated the workflow from the variant brief. For optional real authoring evidence, run:
 
@@ -67,11 +73,19 @@ go run ./cmd/icot authoring-eval --root examples/eval --include-variants --provi
 `icot authoring-eval` writes `openudon.icot-authoring-eval.v1` with provider/model, run ID,
 commit, command, prompt/readiness versions, LLM call count, generated paths, first failure family,
 drift counts, credential-scan status, and per-variant pass/fail. It also writes an
-`authoring-eval.json.sha256` digest sidecar. Failures include a structured failure category for provider availability,
-timeouts, malformed model JSON, model refusal, incomplete drafts, lint/build failures, credential
-scan failures, and reference drift. Generated project files, intents, transcripts, and the report
-JSON are checked for credential-like literals. Keep that report local/manual unless it has been
-reviewed for release-note evidence.
+`authoring-eval.json.sha256` digest sidecar. Failures include a structured failure category for
+provider availability, timeouts, malformed model JSON, model refusal, incomplete drafts,
+lint/build failures, credential scan failures, and reference drift. Generated project files,
+intents, transcripts, and the report JSON are checked for credential-like literals. Keep that
+report local/manual unless it has been reviewed for release-note evidence.
+
+The `make icot-authoring-scorecard` and `make release-saas-check` paths run scorecard verification
+automatically. Optional real authoring-eval evidence remains local/manual; after generating it,
+verify the JSON and digest sidecar explicitly:
+
+```bash
+go run ./cmd/icot report verify --file eval/runs/icot-authoring-eval-local/authoring-eval.json
+```
 
 ## Policy Fields
 

@@ -357,6 +357,78 @@ func TestScorecardIncludesAuthoringVariants(t *testing.T) {
 	}
 }
 
+func TestReportVerifyScorecard(t *testing.T) {
+	outDir := filepath.Join(t.TempDir(), "scorecard")
+	var scoreOut, scoreErr bytes.Buffer
+	code := Main([]string{"scorecard", "--root", filepath.Join("..", "..", "examples", "eval"), "--name", "runtime-only-render", "--out", outDir}, strings.NewReader(""), &scoreOut, &scoreErr)
+	if code != 0 {
+		t.Fatalf("scorecard returned code %d\nstdout:\n%s\nstderr:\n%s", code, scoreOut.String(), scoreErr.String())
+	}
+	var stdout, stderr bytes.Buffer
+	code = Main([]string{"report", "verify", "--file", filepath.Join(outDir, "scorecard.json")}, strings.NewReader(""), &stdout, &stderr)
+	if code != 0 || !strings.Contains(stdout.String(), scorecardReportVersion) {
+		t.Fatalf("report verify code=%d\nstdout:\n%s\nstderr:\n%s", code, stdout.String(), stderr.String())
+	}
+}
+
+func TestReportVerifyRejectsDigestMismatch(t *testing.T) {
+	outDir := filepath.Join(t.TempDir(), "scorecard")
+	var scoreOut, scoreErr bytes.Buffer
+	code := Main([]string{"scorecard", "--root", filepath.Join("..", "..", "examples", "eval"), "--name", "runtime-only-render", "--out", outDir}, strings.NewReader(""), &scoreOut, &scoreErr)
+	if code != 0 {
+		t.Fatalf("scorecard returned code %d\nstdout:\n%s\nstderr:\n%s", code, scoreOut.String(), scoreErr.String())
+	}
+	path := filepath.Join(outDir, "scorecard.json")
+	f, err := os.OpenFile(path, os.O_APPEND|os.O_WRONLY, 0)
+	if err != nil {
+		t.Fatalf("open scorecard: %v", err)
+	}
+	if _, err := f.WriteString("\n"); err != nil {
+		_ = f.Close()
+		t.Fatalf("tamper scorecard: %v", err)
+	}
+	if err := f.Close(); err != nil {
+		t.Fatalf("close scorecard: %v", err)
+	}
+	var stdout, stderr bytes.Buffer
+	code = Main([]string{"report", "verify", "--file", path}, strings.NewReader(""), &stdout, &stderr)
+	if code != 1 || !strings.Contains(stderr.String(), "digest mismatch") {
+		t.Fatalf("report verify code=%d\nstdout:\n%s\nstderr:\n%s", code, stdout.String(), stderr.String())
+	}
+}
+
+func TestReportVerifyRejectsVariantTopIssueMismatch(t *testing.T) {
+	outDir := filepath.Join(t.TempDir(), "scorecard")
+	var scoreOut, scoreErr bytes.Buffer
+	code := Main([]string{"scorecard", "--root", filepath.Join("..", "..", "examples", "eval"), "--name", "slack-message-audit-log", "--include-variants", "--out", outDir}, strings.NewReader(""), &scoreOut, &scoreErr)
+	if code != 0 {
+		t.Fatalf("scorecard returned code %d\nstdout:\n%s\nstderr:\n%s", code, scoreOut.String(), scoreErr.String())
+	}
+	path := filepath.Join(outDir, "scorecard.json")
+	data, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatalf("read scorecard: %v", err)
+	}
+	var report scorecardReport
+	if err := json.Unmarshal(data, &report); err != nil {
+		t.Fatalf("unmarshal scorecard: %v", err)
+	}
+	for i := range report.Results {
+		if report.Results[i].VariantID == "missing-channel" {
+			report.Results[i].ExpectedTopIssueCode = "missing_runtime_inputs"
+			break
+		}
+	}
+	if err := writeJSONReportWithDigest(path, report); err != nil {
+		t.Fatalf("rewrite tampered scorecard: %v", err)
+	}
+	var stdout, stderr bytes.Buffer
+	code = Main([]string{"report", "verify", "--file", path}, strings.NewReader(""), &stdout, &stderr)
+	if code != 1 || !strings.Contains(stderr.String(), "does not match expected/observed outcome") {
+		t.Fatalf("report verify code=%d\nstdout:\n%s\nstderr:\n%s", code, stdout.String(), stderr.String())
+	}
+}
+
 func TestScorecardCountsVariantFalsePasses(t *testing.T) {
 	report := scorecardReport{
 		Status: statusPass,
@@ -494,6 +566,77 @@ func TestVariantsValidateCommand(t *testing.T) {
 	}
 	if report.Version != variantsValidationReportVersion || report.Status != statusPass || len(report.Results) != 1 || report.Results[0].VariantCount == 0 {
 		t.Fatalf("variants report = %#v", report)
+	}
+}
+
+func TestVariantsCoverageCommand(t *testing.T) {
+	var stdout, stderr bytes.Buffer
+	code := Main([]string{"variants", "coverage", "--root", filepath.Join("..", "..", "examples", "eval"), "--json"}, strings.NewReader(""), &stdout, &stderr)
+	if code != 0 {
+		t.Fatalf("variants coverage returned code %d\nstdout:\n%s\nstderr:\n%s", code, stdout.String(), stderr.String())
+	}
+	var report variantsCoverageReport
+	if err := json.Unmarshal(stdout.Bytes(), &report); err != nil {
+		t.Fatalf("unmarshal coverage report: %v\n%s", err, stdout.String())
+	}
+	if report.Version != variantsCoverageReportVersion || report.Status != statusPass || len(report.Results) == 0 {
+		t.Fatalf("coverage report = %#v", report)
+	}
+	for _, result := range report.Results {
+		if result.ProviderFamily == "slack" {
+			if result.Positive == 0 || result.MissingDetail == 0 || result.UnsafeNegative == 0 {
+				t.Fatalf("slack coverage = %#v", result)
+			}
+			return
+		}
+	}
+	t.Fatalf("slack coverage missing: %#v", report.Results)
+}
+
+func TestVariantsCoverageRejectsMissingClass(t *testing.T) {
+	root := t.TempDir()
+	fixture := filepath.Join(root, "partial")
+	if err := copyScorecardTree(filepath.Join("..", "..", "examples", "eval", "slack-message-audit-log"), fixture); err != nil {
+		t.Fatalf("copy fixture: %v", err)
+	}
+	path := filepath.Join(fixture, "reference", "authoring-variants.json")
+	data := `{
+  "version": "openudon.icot-authoring-variants.v1",
+  "provider_families": ["slack"],
+  "variants": [
+    {
+      "id": "direct-post",
+      "brief": "Post to Slack.",
+      "class": "positive",
+      "expected_outcome": "pass"
+    },
+    {
+      "id": "missing-channel",
+      "brief": "Post to the team in Slack.",
+      "class": "missing-detail",
+      "expected_outcome": "needs_input",
+      "expected_failure_family": "bad_request_mapping",
+      "expected_top_issue_code": "missing_required_request_values",
+      "expected_top_issue_slot": "steps.post_message.with",
+      "seed_from_reference": true,
+      "clear_slots": ["steps.post_message.with.channel"]
+    }
+  ]
+}`
+	if err := os.WriteFile(path, []byte(data), 0o644); err != nil {
+		t.Fatalf("write variants: %v", err)
+	}
+	var stdout, stderr bytes.Buffer
+	code := Main([]string{"variants", "coverage", "--root", root, "--json"}, strings.NewReader(""), &stdout, &stderr)
+	if code != 1 {
+		t.Fatalf("variants coverage code = %d, want 1\nstdout:\n%s\nstderr:\n%s", code, stdout.String(), stderr.String())
+	}
+	var report variantsCoverageReport
+	if err := json.Unmarshal(stdout.Bytes(), &report); err != nil {
+		t.Fatalf("unmarshal coverage report: %v\n%s", err, stdout.String())
+	}
+	if report.Status != statusFail || len(report.Results) != 1 || !strings.Contains(strings.Join(report.Results[0].Errors, "\n"), "missing unsafe-negative variant") {
+		t.Fatalf("coverage report = %#v", report)
 	}
 }
 
@@ -650,6 +793,11 @@ func TestAuthoringEvalWithFakeExtractor(t *testing.T) {
 	result := report.Results[0]
 	if result.Provider != "fake" || result.Model != "fake-model" || result.LLMCallCount == 0 || result.GeneratedIntent == "" {
 		t.Fatalf("authoring eval result = %#v", result)
+	}
+	var verifyOut, verifyErr bytes.Buffer
+	code = Main([]string{"report", "verify", "--file", filepath.Join(outDir, "authoring-eval.json")}, strings.NewReader(""), &verifyOut, &verifyErr)
+	if code != 0 || !strings.Contains(verifyOut.String(), authoringEvalReportVersion) {
+		t.Fatalf("authoring eval report verify code=%d\nstdout:\n%s\nstderr:\n%s", code, verifyOut.String(), verifyErr.String())
 	}
 }
 
