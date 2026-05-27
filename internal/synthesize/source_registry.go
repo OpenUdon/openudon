@@ -152,10 +152,8 @@ func nativeAPISourceOperations(path string, sourceType uws1.SourceDescriptionTyp
 		if parseErr != nil {
 			return nil, parseErr
 		}
-		for id := range doc.Operations {
-			if id = strings.TrimSpace(id); id != "" {
-				operations[id] = true
-			}
+		for selector := range asyncAPISelectorAliases(doc) {
+			operations[selector] = true
 		}
 	default:
 		return nil, nil

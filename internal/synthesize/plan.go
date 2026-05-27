@@ -198,14 +198,12 @@ func addStepsToWorkflowPlan(plan *WorkflowPlan, intent *rollout.Intent, steps []
 			key := operationKey(planStep.OpenAPI, planStep.Operation)
 			op := ops[key]
 			if op == nil {
-				if !(sourceDescriptionTypeForPath(planStep.OpenAPI) == uws1.SourceDescriptionTypeAsyncAPI && strings.HasPrefix(planStep.Operation, "#/")) {
-					plan.Gaps = append(plan.Gaps, PlanGap{
-						Code:   "openapi.missing_operation",
-						Step:   planStep.Name,
-						Detail: fmt.Sprintf("operation %q is not available in %q", planStep.Operation, planStep.OpenAPI),
-						Query:  planStep.Operation,
-					})
-				}
+				plan.Gaps = append(plan.Gaps, PlanGap{
+					Code:   "openapi.missing_operation",
+					Step:   planStep.Name,
+					Detail: fmt.Sprintf("operation %q is not available in %q", planStep.Operation, planStep.OpenAPI),
+					Query:  planStep.Operation,
+				})
 			} else {
 				for _, param := range op.Parameters {
 					if param == nil || !param.Required {

@@ -177,6 +177,9 @@ func discoverLocalAWSSmithyAPIs(exampleDir string) ([]APIDocument, error) {
 		return nil, err
 	}
 	for _, path := range matches {
+		if isAdvisorySecuritySidecarPath(path) {
+			continue
+		}
 		data, err := os.ReadFile(path)
 		if err != nil {
 			return nil, err
@@ -221,6 +224,9 @@ func discoverLocalAsyncAPIs(exampleDir string) ([]APIDocument, error) {
 		switch strings.ToLower(filepath.Ext(path)) {
 		case ".json", ".yaml", ".yml":
 		default:
+			return nil
+		}
+		if isAdvisorySecuritySidecarPath(path) {
 			return nil
 		}
 		data, err := os.ReadFile(path)

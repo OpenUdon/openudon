@@ -16,7 +16,6 @@ import (
 	"github.com/OpenUdon/openudon/internal/openapidisco"
 	"github.com/OpenUdon/openudon/internal/packageartifacts"
 	rollout "github.com/OpenUdon/openudon/internal/workflowintent"
-	"github.com/OpenUdon/uws/uws1"
 	"gopkg.in/yaml.v3"
 )
 
@@ -54,9 +53,6 @@ func validateIntentOpenAPIOperations(intent *rollout.Intent, exampleDir string, 
 				if intentStepRequiresOpenAPIOperation(intent, step, primary) {
 					omitted = append(omitted, fmt.Sprintf("%s in %q", name, specPath))
 				}
-				return
-			}
-			if sourceDescriptionTypeForPath(specPath) == uws1.SourceDescriptionTypeAsyncAPI && strings.HasPrefix(operation, "#/") {
 				return
 			}
 			entry, ok := sourceRegistry.get(specPath)

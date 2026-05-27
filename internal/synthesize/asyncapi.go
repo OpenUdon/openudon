@@ -15,6 +15,7 @@ type asyncAPIDocument struct {
 	Title       string
 	Description string
 	Operations  map[string]asyncAPIOperation
+	Channels    map[string]asyncAPIChannel
 }
 
 type asyncAPIOperation struct {
@@ -24,6 +25,10 @@ type asyncAPIOperation struct {
 	Action      string
 	ChannelRef  string
 	MessageRefs []string
+}
+
+type asyncAPIChannel struct {
+	Messages map[string]bool
 }
 
 func parseAsyncAPIDocument(data []byte) (*asyncAPIDocument, error) {
@@ -37,6 +42,7 @@ func parseAsyncAPIDocument(data []byte) (*asyncAPIDocument, error) {
 	doc := &asyncAPIDocument{
 		Version:    asString(root["asyncapi"]),
 		Operations: map[string]asyncAPIOperation{},
+		Channels:   map[string]asyncAPIChannel{},
 	}
 	if info := asMap(root["info"]); len(info) > 0 {
 		doc.Title = asString(info["title"])
@@ -61,6 +67,18 @@ func parseAsyncAPIDocument(data []byte) (*asyncAPIDocument, error) {
 		}
 		if op.OperationID != "" {
 			doc.Operations[op.OperationID] = op
+		}
+	}
+	for _, key := range sortedMapKeys(asMap(root["channels"])) {
+		chMap := asMap(asMap(root["channels"])[key])
+		channel := asyncAPIChannel{Messages: map[string]bool{}}
+		for _, messageID := range sortedMapKeys(asMap(chMap["messages"])) {
+			if strings.TrimSpace(messageID) != "" {
+				channel.Messages[messageID] = true
+			}
+		}
+		if strings.TrimSpace(key) != "" {
+			doc.Channels[key] = channel
 		}
 	}
 	return doc, nil
@@ -117,8 +135,58 @@ func asyncAPIOperationInfoIndex(path string) map[string]*rollout.OperationInfo {
 			Description: summary.Description,
 		}
 		out[summary.OperationID] = info
+		out[asyncAPIJSONPointer("operations", summary.OperationID)] = info
+	}
+	for channelID, channel := range doc.Channels {
+		selector := asyncAPIJSONPointer("channels", channelID)
+		out[selector] = &rollout.OperationInfo{
+			OperationID: selector,
+			Path:        selector,
+		}
+		for messageID := range channel.Messages {
+			selector := asyncAPIJSONPointer("channels", channelID, "messages", messageID)
+			out[selector] = &rollout.OperationInfo{
+				OperationID: selector,
+				Path:        selector,
+			}
+		}
 	}
 	return out
+}
+
+func asyncAPISelectorAliases(doc *asyncAPIDocument) map[string]bool {
+	aliases := map[string]bool{}
+	if doc == nil {
+		return aliases
+	}
+	for id := range doc.Operations {
+		if id = strings.TrimSpace(id); id != "" {
+			aliases[id] = true
+			aliases[asyncAPIJSONPointer("operations", id)] = true
+		}
+	}
+	for channelID, channel := range doc.Channels {
+		if strings.TrimSpace(channelID) == "" {
+			continue
+		}
+		aliases[asyncAPIJSONPointer("channels", channelID)] = true
+		for messageID := range channel.Messages {
+			if strings.TrimSpace(messageID) != "" {
+				aliases[asyncAPIJSONPointer("channels", channelID, "messages", messageID)] = true
+			}
+		}
+	}
+	return aliases
+}
+
+func asyncAPIJSONPointer(parts ...string) string {
+	escaped := make([]string, 0, len(parts))
+	for _, part := range parts {
+		part = strings.ReplaceAll(part, "~", "~0")
+		part = strings.ReplaceAll(part, "/", "~1")
+		escaped = append(escaped, part)
+	}
+	return "#/" + strings.Join(escaped, "/")
 }
 
 func asAnySlice(value any) []any {

@@ -40,10 +40,10 @@ and accepts them automatically, but still asks for missing, low-confidence, or c
 assumption text while preserving transcript and decision evidence.
 
 For catalog-backed SaaS briefs, iCoT first checks local `openapi/`, `google-discovery/`,
-`aws-smithy/`, and legacy `discovery/` documents plus the sibling `../apitools` first-class provider
-cache. If a local API artifact is missing, iCoT tries to retrieve or materialize first-class
-apitools artifacts or reviewed advisory OpenAPI overlays into the workflow before asking for an API
-path. It only asks for a user-provided artifact after apitools reports that no first-class or
+`aws-smithy/`, `asyncapi/`, and legacy `discovery/` documents plus the sibling `../apitools`
+first-class provider cache. If a local API artifact is missing, iCoT tries to retrieve or
+materialize first-class apitools artifacts or reviewed advisory OpenAPI overlays into the workflow
+before asking for an API path. It only asks for a user-provided artifact after apitools reports that no first-class or
 advisory source artifact is available. Discovery and Smithy documents can drive operation review,
 synthesis, packaging, and trusted handoff directly. When both an original provider OpenAPI document
 and a reviewed advisory OpenAPI overlay are available, iCoT defaults to the advisory overlay for
@@ -147,23 +147,26 @@ Use structural steps when the project needs explicit branching or iteration. A l
 name the item source, any batch-size policy, nested work, and the output that should become the
 named structural result.
 
-## OpenAPI Policy
+## API Source Policy
 
-If the project needs API calls, provide one of these:
+If the project needs API or event-source-bound calls, provide one of these:
 
 - OpenAPI files under `openapi/`.
+- Google Discovery files under `google-discovery/` or legacy `discovery/`.
+- AWS Smithy JSON files under `aws-smithy/`.
 - AsyncAPI files under `asyncapi/` when the workflow binds to event or message source operations.
 - OpenAPI document URLs in `project.md`.
 - Search/discovery hints precise enough for OpenUdon to find the relevant API document.
 
-If the project does not need API calls, write this exact policy:
+If the project does not need API or event-source-bound calls, write this legacy-compatible exact
+policy:
 
 ```md
 OpenAPI: none required
 ```
 
-When that phrase is present, OpenUdon should not fail only because `openapi/` is empty. It should also
-reject generated artifacts that still reference OpenAPI.
+When that phrase is present, OpenUdon should not fail only because API source directories are empty.
+It should also reject generated artifacts that still reference API or event source operations.
 
 ## Example
 

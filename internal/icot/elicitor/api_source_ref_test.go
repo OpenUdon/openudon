@@ -45,6 +45,12 @@ operations:
 `), 0o644); err != nil {
 		t.Fatal(err)
 	}
+	if err := os.WriteFile(filepath.Join(example, "asyncapi", "events.security.json"), []byte(`{"credentials":[{"name":"event_bus_token"}]}`), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(example, "asyncapi", "events.security-overlay.yaml"), []byte(`advisory: true`), 0o644); err != nil {
+		t.Fatal(err)
+	}
 
 	docs, err := DiscoverLocalAPIs(example, "publish invoice event")
 	if err != nil {

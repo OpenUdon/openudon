@@ -432,6 +432,9 @@ Expected artifact locations:
 ```text
 examples/<name>/project.md
 examples/<name>/openapi/
+examples/<name>/google-discovery/
+examples/<name>/aws-smithy/
+examples/<name>/discovery/
 examples/<name>/asyncapi/
 examples/<name>/workflows/intent.hcl
 examples/<name>/workflows/workflow.hcl

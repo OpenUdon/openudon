@@ -121,6 +121,53 @@ func TestGenerateWorkflowDocumentEmitsAsyncAPISourceOperationRef(t *testing.T) {
 	}
 }
 
+func TestValidateIntentOpenAPIOperationsResolvesAsyncAPIRefs(t *testing.T) {
+	example := t.TempDir()
+	mustWriteSynthesizeTestFile(t, filepath.Join(example, "asyncapi", "events.yaml"), []byte(minimalAsyncAPIDocument()))
+	intent := &rollout.Intent{
+		Source: "asyncapi/events.yaml",
+		Steps: []*rollout.Step{{
+			Name:      "publish_invoice",
+			Type:      "http",
+			Source:    "asyncapi/events.yaml",
+			Operation: "#/operations/publishInvoice",
+			With:      map[string]string{"body.invoice_id": "inputs.invoice_id"},
+		}},
+	}
+	if err := validateIntentOpenAPIOperations(intent, example, nil, ""); err != nil {
+		t.Fatalf("valid AsyncAPI operation ref was rejected: %v", err)
+	}
+	intent.Steps[0].Operation = "#/operations/doesNotExist"
+	err := validateIntentOpenAPIOperations(intent, example, nil, "")
+	if err == nil || !strings.Contains(err.Error(), `missing API source operation publish_invoice operation "#/operations/doesNotExist"`) {
+		t.Fatalf("expected invalid AsyncAPI operation ref error, got %v", err)
+	}
+}
+
+func TestBuildWorkflowPlanResolvesAsyncAPIRefs(t *testing.T) {
+	example := t.TempDir()
+	mustWriteSynthesizeTestFile(t, filepath.Join(example, "asyncapi", "events.yaml"), []byte(minimalAsyncAPIDocument()))
+	intent := &rollout.Intent{
+		Source: "asyncapi/events.yaml",
+		Steps: []*rollout.Step{{
+			Name:      "publish_invoice",
+			Type:      "http",
+			Source:    "asyncapi/events.yaml",
+			Operation: "#/channels/invoices/messages/invoiceCreated",
+			With:      map[string]string{"body.invoice_id": "inputs.invoice_id"},
+		}},
+	}
+	plan := buildWorkflowPlan(Result{ExampleDir: example}, intent, nil, projectPolicy{})
+	if len(plan.Gaps) != 0 {
+		t.Fatalf("valid AsyncAPI message ref produced gaps: %#v", plan.Gaps)
+	}
+	intent.Steps[0].Operation = "#/channels/invoices/messages/missing"
+	plan = buildWorkflowPlan(Result{ExampleDir: example}, intent, nil, projectPolicy{})
+	if len(plan.Gaps) == 0 || plan.Gaps[0].Code != "openapi.missing_operation" {
+		t.Fatalf("expected missing operation gap for invalid AsyncAPI ref, got %#v", plan.Gaps)
+	}
+}
+
 func TestGenerateWorkflowDocumentRequiresExplicitAsyncAPIRequestPlacement(t *testing.T) {
 	example := t.TempDir()
 	mustWriteSynthesizeTestFile(t, filepath.Join(example, "asyncapi", "events.yaml"), []byte(minimalAsyncAPIDocument()))
