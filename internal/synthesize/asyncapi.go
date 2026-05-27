@@ -1,6 +1,7 @@
 package synthesize
 
 import (
+	"fmt"
 	"os"
 	"strings"
 
@@ -9,15 +10,15 @@ import (
 	rollout "github.com/OpenUdon/openudon/internal/workflowintent"
 )
 
-func asyncAPIOperationInfoIndex(path string) map[string]*rollout.OperationInfo {
+func asyncAPIOperationInfoIndex(path string) (map[string]*rollout.OperationInfo, error) {
 	out := map[string]*rollout.OperationInfo{}
 	data, err := os.ReadFile(path)
 	if err != nil {
-		return out
+		return out, fmt.Errorf("read AsyncAPI %s: %w", path, err)
 	}
 	doc, err := asyncapi.Parse(data)
 	if err != nil {
-		return out
+		return out, fmt.Errorf("parse AsyncAPI %s: %w", path, err)
 	}
 	for _, summary := range apitools.AsyncAPIOperationSummaries("", doc) {
 		info := &rollout.OperationInfo{
@@ -41,7 +42,7 @@ func asyncAPIOperationInfoIndex(path string) map[string]*rollout.OperationInfo {
 			}
 		}
 	}
-	return out
+	return out, nil
 }
 
 func escapeAsyncAPIJSONPointerToken(token string) string {

@@ -96,7 +96,14 @@ func buildWorkflowPlan(result Result, intent *rollout.Intent, candidates []opena
 		plan.Idempotency = cloneIdempotency(intent.Workflow.Idempotency)
 	}
 	ops := openAPIOperationIndex(candidates)
-	for key, op := range localNativeOperationIndex(result.ExampleDir) {
+	localNativeOps, localNativeErrs := localNativeOperationIndexWithErrors(result.ExampleDir)
+	for _, err := range localNativeErrs {
+		plan.Gaps = append(plan.Gaps, PlanGap{
+			Code:   "openapi.source_parse",
+			Detail: err.Error(),
+		})
+	}
+	for key, op := range localNativeOps {
 		ops[key] = op
 	}
 	security := openAPISecurityIndex(candidates)

@@ -121,6 +121,58 @@ func TestGenerateWorkflowDocumentEmitsAsyncAPISourceOperationRef(t *testing.T) {
 	}
 }
 
+func TestAsyncAPIJSONPointerEscapingSelectors(t *testing.T) {
+	example := t.TempDir()
+	path := filepath.Join(example, "asyncapi", "events.yaml")
+	mustWriteSynthesizeTestFile(t, path, []byte(escapedAsyncAPIDocument()))
+	operationRef := "#/operations/publish~1a~0b"
+	messageRef := "#/channels/tenant~1a~0b/messages/created~1a~0b"
+	intent := &rollout.Intent{
+		Source:   "asyncapi/events.yaml",
+		Workflow: &rollout.WorkflowMeta{Name: "billing_events"},
+		Steps: []*rollout.Step{{
+			Name:      "publish_invoice",
+			Type:      "http",
+			Source:    "asyncapi/events.yaml",
+			Operation: operationRef,
+			With:      map[string]string{"body.invoice_id": "inputs.invoice_id"},
+		}},
+	}
+
+	doc, err := generateWorkflowDocument(Result{ExampleDir: example}, intent)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := doc.Operations[0].SourceOperationRef; got != operationRef {
+		t.Fatalf("sourceOperationRef = %q", got)
+	}
+	if doc.Operations[0].SourceOperationID != "" {
+		t.Fatalf("sourceOperationId should be empty, got %q", doc.Operations[0].SourceOperationID)
+	}
+	if err := validateIntentOpenAPIOperations(intent, example, nil, ""); err != nil {
+		t.Fatalf("valid escaped AsyncAPI operation ref was rejected: %v", err)
+	}
+
+	intent.Steps[0].Operation = messageRef
+	if err := validateIntentOpenAPIOperations(intent, example, nil, ""); err != nil {
+		t.Fatalf("valid escaped AsyncAPI message ref was rejected: %v", err)
+	}
+	index, err := asyncAPIOperationInfoIndex(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if index[operationRef] == nil {
+		t.Fatalf("missing escaped operation ref %q in %#v", operationRef, index)
+	}
+	if index[messageRef] == nil {
+		t.Fatalf("missing escaped message ref %q in %#v", messageRef, index)
+	}
+	plan := buildWorkflowPlan(Result{ExampleDir: example}, intent, nil, projectPolicy{})
+	if len(plan.Gaps) != 0 {
+		t.Fatalf("valid escaped AsyncAPI message ref produced gaps: %#v", plan.Gaps)
+	}
+}
+
 func TestValidateIntentOpenAPIOperationsResolvesAsyncAPIRefs(t *testing.T) {
 	example := t.TempDir()
 	mustWriteSynthesizeTestFile(t, filepath.Join(example, "asyncapi", "events.yaml"), []byte(minimalAsyncAPIDocument()))
@@ -165,6 +217,35 @@ func TestBuildWorkflowPlanResolvesAsyncAPIRefs(t *testing.T) {
 	plan = buildWorkflowPlan(Result{ExampleDir: example}, intent, nil, projectPolicy{})
 	if len(plan.Gaps) == 0 || plan.Gaps[0].Code != "openapi.missing_operation" {
 		t.Fatalf("expected missing operation gap for invalid AsyncAPI ref, got %#v", plan.Gaps)
+	}
+}
+
+func TestBuildWorkflowPlanReportsInvalidAsyncAPISource(t *testing.T) {
+	example := t.TempDir()
+	path := filepath.Join(example, "asyncapi", "events.yaml")
+	mustWriteSynthesizeTestFile(t, path, []byte("asyncapi: [\n"))
+	intent := &rollout.Intent{
+		Source: "asyncapi/events.yaml",
+		Steps: []*rollout.Step{{
+			Name:      "publish_invoice",
+			Type:      "http",
+			Source:    "asyncapi/events.yaml",
+			Operation: "publishInvoice",
+		}},
+	}
+	_, err := asyncAPIOperationInfoIndex(path)
+	if err == nil || !strings.Contains(err.Error(), "parse AsyncAPI") {
+		t.Fatalf("expected AsyncAPI parse error, got %v", err)
+	}
+	plan := buildWorkflowPlan(Result{ExampleDir: example}, intent, nil, projectPolicy{})
+	var sawParseGap bool
+	for _, gap := range plan.Gaps {
+		if gap.Code == "openapi.source_parse" && strings.Contains(gap.Detail, "parse AsyncAPI") {
+			sawParseGap = true
+		}
+	}
+	if !sawParseGap {
+		t.Fatalf("expected AsyncAPI parse gap, got %#v", plan.Gaps)
 	}
 }
 
@@ -802,6 +883,23 @@ func TestValidateIntentOpenAPIOperationsRejectsMisclassifiedAPISource(t *testing
 	}
 }
 
+func TestValidateIntentOpenAPIOperationsRejectsMisclassifiedAsyncAPISource(t *testing.T) {
+	example := t.TempDir()
+	mustWriteSynthesizeTestFile(t, filepath.Join(example, "openapi", "events.yaml"), []byte(minimalAsyncAPIDocument()))
+	err := validateIntentOpenAPIOperations(&rollout.Intent{
+		Source: "openapi/events.yaml",
+		Steps: []*rollout.Step{{
+			Name:      "publish_invoice",
+			Type:      "http",
+			Source:    "openapi/events.yaml",
+			Operation: "publishInvoice",
+		}},
+	}, example, nil, "")
+	if err == nil || !strings.Contains(err.Error(), "source path implies openapi but document looks like asyncapi") {
+		t.Fatalf("expected misclassified AsyncAPI source error, got %v", err)
+	}
+}
+
 func minimalDiscoveryDocument() string {
 	return `{
 	  "kind": "discovery#restDescription",
@@ -851,6 +949,28 @@ channels:
     address: invoices
     messages:
       invoiceCreated:
+        payload:
+          type: object
+`
+}
+
+func escapedAsyncAPIDocument() string {
+	return `asyncapi: 3.0.0
+info:
+  title: Escaped Billing Events
+  version: 1.0.0
+operations:
+  publish/a~b:
+    action: send
+    channel:
+      $ref: '#/channels/tenant~1a~0b'
+    messages:
+      - $ref: '#/channels/tenant~1a~0b/messages/created~1a~0b'
+channels:
+  tenant/a~b:
+    address: tenants/{tenantId}/events
+    messages:
+      created/a~b:
         payload:
           type: object
 `

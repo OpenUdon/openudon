@@ -355,7 +355,11 @@ func openAPIOperationIndex(candidates []openapidisco.Candidate) map[string]*roll
 	for _, candidate := range candidates {
 		sourceType := sourceDescriptionTypeForPath(candidate.RelativePath)
 		if sourceType != "openapi" {
-			for alias, op := range nativeOperationInfoIndex(candidate.Path, string(sourceType)) {
+			native, err := nativeOperationInfoIndex(candidate.Path, string(sourceType))
+			if err != nil {
+				continue
+			}
+			for alias, op := range native {
 				out[operationKey(candidate.RelativePath, alias)] = op
 			}
 			continue
@@ -375,10 +379,16 @@ func openAPIOperationIndex(candidates []openapidisco.Candidate) map[string]*roll
 }
 
 func localNativeOperationIndex(exampleDir string) map[string]*rollout.OperationInfo {
+	out, _ := localNativeOperationIndexWithErrors(exampleDir)
+	return out
+}
+
+func localNativeOperationIndexWithErrors(exampleDir string) (map[string]*rollout.OperationInfo, []error) {
 	out := map[string]*rollout.OperationInfo{}
+	var errs []error
 	paths, err := packageartifacts.CollectAPISourcePaths(exampleDir)
 	if err != nil {
-		return out
+		return out, []error{err}
 	}
 	for _, rel := range paths {
 		sourceType := sourceDescriptionTypeForPath(rel)
@@ -386,18 +396,23 @@ func localNativeOperationIndex(exampleDir string) map[string]*rollout.OperationI
 			continue
 		}
 		path := filepath.Join(exampleDir, filepath.FromSlash(rel))
-		for alias, op := range nativeOperationInfoIndex(path, string(sourceType)) {
+		native, err := nativeOperationInfoIndex(path, string(sourceType))
+		if err != nil {
+			errs = append(errs, fmt.Errorf("%s: %w", rel, err))
+			continue
+		}
+		for alias, op := range native {
 			out[operationKey(rel, alias)] = op
 		}
 	}
-	return out
+	return out, errs
 }
 
-func nativeOperationInfoIndex(path string, sourceType string) map[string]*rollout.OperationInfo {
+func nativeOperationInfoIndex(path string, sourceType string) (map[string]*rollout.OperationInfo, error) {
 	out := map[string]*rollout.OperationInfo{}
 	data, err := os.ReadFile(path)
 	if err != nil {
-		return out
+		return out, err
 	}
 	switch sourceType {
 	case "asyncapi":
@@ -405,7 +420,7 @@ func nativeOperationInfoIndex(path string, sourceType string) map[string]*rollou
 	case "google-discovery":
 		model, err := googlediscovery.Parse(data)
 		if err != nil {
-			return out
+			return out, fmt.Errorf("parse Google Discovery %s: %w", path, err)
 		}
 		for _, op := range model.Operations {
 			if op == nil || strings.TrimSpace(op.OperationID) == "" {
@@ -440,11 +455,11 @@ func nativeOperationInfoIndex(path string, sourceType string) map[string]*rollou
 				out[alias] = info
 			}
 		}
-		return out
+		return out, nil
 	case "aws-smithy":
 		model, err := awssmithy.Parse(data)
 		if err != nil {
-			return out
+			return out, fmt.Errorf("parse AWS Smithy %s: %w", path, err)
 		}
 		for _, op := range model.Operations {
 			if op == nil || strings.TrimSpace(op.Name) == "" {
@@ -463,9 +478,9 @@ func nativeOperationInfoIndex(path string, sourceType string) map[string]*rollou
 				out[alias] = info
 			}
 		}
-		return out
+		return out, nil
 	default:
-		return out
+		return out, nil
 	}
 }
 
