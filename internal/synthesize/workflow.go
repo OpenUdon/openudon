@@ -14,6 +14,7 @@ import (
 	"github.com/OpenUdon/apitools/googlediscovery"
 	apitoolshelper "github.com/OpenUdon/apitools/helper"
 	"github.com/OpenUdon/apitools/helper/fnctspec"
+	"github.com/OpenUdon/asyncapi"
 	"github.com/OpenUdon/openudon/internal/uwsvalidate"
 	rollout "github.com/OpenUdon/openudon/internal/workflowintent"
 	"github.com/OpenUdon/uws/convert"
@@ -630,11 +631,11 @@ func (mapper *requestBindingMapper) loadNative(path, sourceRef string, sourceTyp
 			}
 		}
 	case uws1.SourceDescriptionTypeAsyncAPI:
-		doc, parseErr := parseAsyncAPIDocument(data)
+		doc, parseErr := asyncapi.Parse(data)
 		if parseErr != nil {
 			return nil, fmt.Errorf("load AsyncAPI request metadata %s: %w", sourceRef, parseErr)
 		}
-		for _, op := range asyncAPIOperationSummaries(sourceRef, doc) {
+		for _, op := range apitools.AsyncAPIOperationSummaries(sourceRef, doc) {
 			if err := add([]string{op.OperationID}, op); err != nil {
 				return nil, err
 			}

@@ -11,6 +11,7 @@ import (
 
 	"github.com/OpenUdon/apitools/awssmithy"
 	"github.com/OpenUdon/apitools/googlediscovery"
+	"github.com/OpenUdon/asyncapi"
 	"github.com/OpenUdon/openudon/internal/openapidisco"
 	"github.com/OpenUdon/openudon/internal/packageartifacts"
 	"github.com/OpenUdon/uws/uws1"
@@ -148,11 +149,11 @@ func nativeAPISourceOperations(path string, sourceType uws1.SourceDescriptionTyp
 			}
 		}
 	case uws1.SourceDescriptionTypeAsyncAPI:
-		doc, parseErr := parseAsyncAPIDocument(data)
+		doc, parseErr := asyncapi.Parse(data)
 		if parseErr != nil {
 			return nil, parseErr
 		}
-		for selector := range asyncAPISelectorAliases(doc) {
+		for selector := range doc.SelectorAliases() {
 			operations[selector] = true
 		}
 	default:

@@ -14,7 +14,6 @@ import (
 	"github.com/OpenUdon/apitools/googlediscovery"
 	"github.com/OpenUdon/openudon/internal/openapidisco"
 	rollout "github.com/OpenUdon/openudon/internal/workflowintent"
-	"gopkg.in/yaml.v3"
 )
 
 const (
@@ -233,22 +232,21 @@ func discoverLocalAsyncAPIs(exampleDir string) ([]APIDocument, error) {
 		if err != nil {
 			return err
 		}
-		doc, err := parseAuthoringAsyncAPI(data)
-		if err != nil {
-			return fmt.Errorf("parse AsyncAPI %s: %w", path, err)
-		}
 		rel, err := filepath.Rel(exampleDir, path)
 		if err != nil {
 			return err
 		}
 		rel = filepath.ToSlash(rel)
+		operations, err := apitools.ParseAsyncAPIOperationSummaries(data, rel)
+		if err != nil {
+			return fmt.Errorf("parse AsyncAPI %s: %w", path, err)
+		}
 		docs = append(docs, APIDocument{
 			ID:           strings.TrimSuffix(filepath.Base(path), filepath.Ext(path)),
 			Path:         path,
 			RelativePath: rel,
-			Title:        doc.Title,
-			Description:  doc.Description,
-			Operations:   asyncAPIAuthoringOperations(rel, doc),
+			Title:        asyncAPIDocumentTitle(operations),
+			Operations:   operations,
 		})
 		return nil
 	}); err != nil {
@@ -257,86 +255,13 @@ func discoverLocalAsyncAPIs(exampleDir string) ([]APIDocument, error) {
 	return docs, nil
 }
 
-type authoringAsyncAPI struct {
-	Title       string
-	Description string
-	Operations  map[string]authoringAsyncAPIOperation
-}
-
-type authoringAsyncAPIOperation struct {
-	Summary     string
-	Description string
-	Action      string
-	ChannelRef  string
-	MessageRefs []string
-}
-
-func parseAuthoringAsyncAPI(data []byte) (*authoringAsyncAPI, error) {
-	var root map[string]any
-	if err := yaml.Unmarshal(data, &root); err != nil {
-		return nil, err
-	}
-	if strings.TrimSpace(stringFromMap(root, "asyncapi")) == "" {
-		return nil, fmt.Errorf("missing root asyncapi version")
-	}
-	doc := &authoringAsyncAPI{Operations: map[string]authoringAsyncAPIOperation{}}
-	if info := anyMap(root["info"]); len(info) > 0 {
-		doc.Title = stringFromMap(info, "title")
-		doc.Description = stringFromMap(info, "description")
-	}
-	ops := anyMap(root["operations"])
-	for _, id := range sortedAnyMapKeys(ops) {
-		opMap := anyMap(ops[id])
-		op := authoringAsyncAPIOperation{
-			Summary:     stringFromMap(opMap, "summary"),
-			Description: stringFromMap(opMap, "description"),
-			Action:      stringFromMap(opMap, "action"),
-		}
-		if channel := anyMap(opMap["channel"]); len(channel) > 0 {
-			op.ChannelRef = stringFromMap(channel, "$ref")
-		}
-		for _, message := range anySlice(opMap["messages"]) {
-			if ref := stringFromMap(anyMap(message), "$ref"); ref != "" {
-				op.MessageRefs = append(op.MessageRefs, ref)
-			}
-		}
-		if strings.TrimSpace(id) != "" {
-			doc.Operations[id] = op
+func asyncAPIDocumentTitle(operations []apitools.OperationSummary) string {
+	for _, op := range operations {
+		if title := strings.TrimSpace(op.DocumentName); title != "" {
+			return title
 		}
 	}
-	return doc, nil
-}
-
-func asyncAPIAuthoringOperations(relativePath string, doc *authoringAsyncAPI) []apitools.OperationSummary {
-	if doc == nil {
-		return nil
-	}
-	ids := make([]string, 0, len(doc.Operations))
-	for id := range doc.Operations {
-		ids = append(ids, id)
-	}
-	sort.Strings(ids)
-	var operations []apitools.OperationSummary
-	for _, id := range ids {
-		op := doc.Operations[id]
-		path := op.ChannelRef
-		if path == "" && len(op.MessageRefs) > 0 {
-			path = op.MessageRefs[0]
-		}
-		operations = append(operations, apitools.OperationSummary{
-			ID:                   id,
-			DocumentName:         doc.Title,
-			DocumentPath:         relativePath,
-			DocumentRelativePath: relativePath,
-			OperationID:          id,
-			Method:               op.Action,
-			Path:                 path,
-			Summary:              op.Summary,
-			Description:          op.Description,
-			Provenance:           "asyncapi",
-		})
-	}
-	return operations
+	return ""
 }
 
 func discoverLocalGoogleDiscoveryAPIs(exampleDir string) ([]APIDocument, error) {
