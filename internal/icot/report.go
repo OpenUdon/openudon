@@ -1,9 +1,8 @@
 package icot
 
 import (
-	"strings"
-
 	"github.com/OpenUdon/openudon/internal/icot/elicitor"
+	"github.com/OpenUdon/openudon/internal/icotreport"
 	"github.com/OpenUdon/openudon/internal/synthesize"
 )
 
@@ -18,17 +17,17 @@ const (
 	statusNeedsInput = "needs_input"
 	statusDryRun     = "dry_run"
 
-	failureMissingAPISource     = "missing_api_source"
-	failureMissingOperation     = "missing_operation"
-	failureBadRequestMapping    = "bad_request_mapping"
-	failureBadResponsePath      = "bad_response_path"
-	failureCredentialBindingGap = "credential_binding_gap"
-	failureSideEffectPolicyGap  = "side_effect_policy_gap"
-	failureAmbiguousUserIntent  = "ambiguous_user_intent"
-	failureRuntimeProfileGap    = "runtime_profile_gap"
-	failureIntentParse          = "intent_parse"
-	failureBuildError           = "build_error"
-	failureUnknown              = "unknown"
+	failureMissingAPISource     = icotreport.FailureMissingAPISource
+	failureMissingOperation     = icotreport.FailureMissingOperation
+	failureBadRequestMapping    = icotreport.FailureBadRequestMapping
+	failureBadResponsePath      = icotreport.FailureBadResponsePath
+	failureCredentialBindingGap = icotreport.FailureCredentialBindingGap
+	failureSideEffectPolicyGap  = icotreport.FailureSideEffectPolicyGap
+	failureAmbiguousUserIntent  = icotreport.FailureAmbiguousUserIntent
+	failureRuntimeProfileGap    = icotreport.FailureRuntimeProfileGap
+	failureIntentParse          = icotreport.FailureIntentParse
+	failureBuildError           = icotreport.FailureBuildError
+	failureUnknown              = icotreport.FailureUnknown
 )
 
 type authorReport struct {
@@ -92,6 +91,10 @@ type scorecardResult struct {
 	Passed                bool     `json:"passed"`
 	FailureFamily         string   `json:"failure_family,omitempty"`
 	FailureCodes          []string `json:"failure_codes,omitempty"`
+	TopIssueCode          string   `json:"top_issue_code,omitempty"`
+	TopIssueSlot          string   `json:"top_issue_slot,omitempty"`
+	TopIssueMessage       string   `json:"top_issue_message,omitempty"`
+	SuggestedAnswer       string   `json:"suggested_answer,omitempty"`
 	Detail                string   `json:"detail,omitempty"`
 	ProviderFamilies      []string `json:"provider_families,omitempty"`
 	Tags                  []string `json:"tags,omitempty"`
@@ -126,54 +129,11 @@ type repairChange struct {
 }
 
 func failureFamilyForReadiness(code string) string {
-	switch strings.TrimSpace(code) {
-	case "missing_api_doc":
-		return failureMissingAPISource
-	case "missing_operation":
-		return failureMissingOperation
-	case "missing_required_request_values", "conflicting_mapping", "low_confidence_mapping":
-		return failureBadRequestMapping
-	case "missing_credential_bindings":
-		return failureCredentialBindingGap
-	case "inline_secret_value":
-		return failureCredentialBindingGap
-	case "missing_side_effect_policy", "unconfirmed_side_effect_commitment":
-		return failureSideEffectPolicyGap
-	case "unsafe_review_bypass":
-		return failureSideEffectPolicyGap
-	case "missing_goal", "missing_outputs", "conflicting_decision_evidence", "low_confidence_decision":
-		return failureAmbiguousUserIntent
-	case "intent_render_invalid", "missing_runtime_inputs":
-		return failureIntentParse
-	default:
-		return failureUnknown
-	}
+	return icotreport.FailureFamilyForReadiness(code)
 }
 
 func failureFamilyForQualityCode(code string) string {
-	code = strings.TrimSpace(code)
-	switch {
-	case code == "":
-		return ""
-	case strings.Contains(code, "openapi_refs"), strings.Contains(code, "openapi.local"):
-		return failureMissingAPISource
-	case strings.Contains(code, "openapi_operations"):
-		return failureMissingOperation
-	case strings.Contains(code, "required_params"), strings.Contains(code, "binding_sources"), strings.Contains(code, "explicit"):
-		return failureBadRequestMapping
-	case strings.Contains(code, "response_paths"), strings.Contains(code, "sources"):
-		return failureBadResponsePath
-	case strings.Contains(code, "credential"):
-		return failureCredentialBindingGap
-	case strings.Contains(code, "side_effect"), strings.Contains(code, "runtime_policy"):
-		return failureSideEffectPolicyGap
-	case strings.Contains(code, "runtime"):
-		return failureRuntimeProfileGap
-	case strings.Contains(code, "intent.parse"), strings.Contains(code, "intent.slots"):
-		return failureIntentParse
-	default:
-		return failureUnknown
-	}
+	return icotreport.FailureFamilyForQualityCode(code)
 }
 
 func firstFailedQualityCode(report *synthesize.QualityReport) string {

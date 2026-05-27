@@ -31,7 +31,9 @@
       "brief": "Get the weather for the office.",
       "class": "missing-detail",
       "expected_outcome": "needs_input",
-      "expected_failure_family": "missing_api_source",
+      "expected_failure_family": "bad_request_mapping",
+      "seed_from_reference": true,
+      "clear_slots": ["steps.get_coordinates.with.q"],
       "tags": ["missing-detail"],
       "reason": "The location is ambiguous and should not be guessed from natural language alone."
     }

@@ -36,6 +36,9 @@ func Main(args []string, in io.Reader, out, errOut io.Writer) int {
 	if len(args) > 0 && args[0] == "scorecard" {
 		return runScorecard(args[1:], out, errOut)
 	}
+	if len(args) > 0 && args[0] == "authoring-eval" {
+		return runAuthoringEval(args[1:], out, errOut)
+	}
 	if len(args) > 0 && args[0] == "repair" {
 		return runRepair(args[1:], out, errOut)
 	}
@@ -73,6 +76,7 @@ func runAuthor(args []string, in io.Reader, out, errOut io.Writer) int {
 		fmt.Fprintf(fs.Output(), "  icot scorecard --root examples/eval      Run the provider-free iCoT reliability scorecard.\n")
 		fmt.Fprintf(fs.Output(), "  icot repair --example examples/<name>    Apply bounded mapping/output/dependency repairs.\n")
 		fmt.Fprintf(fs.Output(), "  icot replay-eval --root examples/eval    Replay eval references through the iCoT chat loop.\n")
+		fmt.Fprintf(fs.Output(), "  icot authoring-eval --root examples/eval Run optional real-LLM natural-language authoring evidence.\n")
 		fmt.Fprintf(fs.Output(), "\nSee docs/icot.md, docs/icot-session-schema.md, and docs/icot-transcript.md for file formats.\n")
 		fmt.Fprintf(fs.Output(), "Next step: openudon build --example examples/<name>\n\n")
 		fs.PrintDefaults()

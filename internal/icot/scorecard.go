@@ -16,6 +16,7 @@ import (
 
 	evalpkg "github.com/OpenUdon/openudon/internal/eval"
 	"github.com/OpenUdon/openudon/internal/icot/elicitor"
+	"github.com/OpenUdon/openudon/internal/icotreport"
 	"github.com/OpenUdon/openudon/internal/projectwizard"
 	"github.com/OpenUdon/openudon/internal/synthesize"
 	rollout "github.com/OpenUdon/openudon/internal/workflowintent"
@@ -258,6 +259,10 @@ func runScorecardVariant(fixture string, providers []string, variant evalpkg.Aut
 	result.ObservedOutcome = observed.ObservedOutcome
 	result.FailureFamily = observed.FailureFamily
 	result.FailureCodes = observed.FailureCodes
+	result.TopIssueCode = observed.TopIssueCode
+	result.TopIssueSlot = observed.TopIssueSlot
+	result.TopIssueMessage = observed.TopIssueMessage
+	result.SuggestedAnswer = observed.SuggestedAnswer
 	result.Detail = observed.Detail
 	result.ExampleDir = observed.ExampleDir
 	result.GeneratedProject = observed.GeneratedProject
@@ -292,30 +297,14 @@ func runNeedsInputVariant(fixture, fixtureName string, variant evalpkg.Authoring
 	workspace := filepath.Join(outDir, "variant-workspaces", safeScorecardName(fixtureName), safeScorecardName(variant.ID))
 	_ = os.RemoveAll(workspace)
 	sessionPath := filepath.Join(outDir, "variant-sessions", safeScorecardName(fixtureName), safeScorecardName(variant.ID)+".json")
-	project := projectwizard.Answers{
-		ProjectName:     fixtureName + " " + variant.ID,
-		Goal:            variant.Brief,
-		SideEffectScope: projectwizard.SideEffectAfterApproval,
-		Safety:          "Generate and validate artifacts only; side-effectful execution requires approval.",
-		Fallback:        "Stop until missing authoring details are provided.",
-	}
-	if data, err := os.ReadFile(filepath.Join(fixture, "project.md")); err == nil {
-		if loaded, loadErr := projectwizard.LoadAnswersFromMarkdown(string(data)); loadErr == nil {
-			project.UsesOpenAPI = loaded.UsesOpenAPI
-			project.OpenAPI = loaded.OpenAPI
-			project.Credentials = loaded.Credentials
-		}
-	}
-	session := elicitor.Session{
-		Project: project,
-		Intent: rollout.Intent{
-			Workflow: &rollout.WorkflowMeta{
-				Name:        safeScorecardName(fixtureName + "_" + variant.ID),
-				Description: variant.Brief,
-			},
-		},
-	}
 	result := scorecardResult{ExampleDir: workspace}
+	session, err := scorecardVariantSession(fixture, fixtureName, variant)
+	if err != nil {
+		result.ObservedOutcome = "icot_fail"
+		result.FailureFamily = failureUnknown
+		result.Detail = err.Error()
+		return result
+	}
 	if err := copySeedSourceArtifacts(fixture, workspace, true); err != nil {
 		result.ObservedOutcome = "icot_fail"
 		result.FailureFamily = failureUnknown
@@ -346,9 +335,180 @@ func runNeedsInputVariant(fixture, fixtureName string, variant evalpkg.Authoring
 	result.ObservedOutcome = report.Status
 	result.FailureFamily = report.FailureFamily
 	result.Detail = report.Error
+	if report.TopIssue != nil {
+		result.TopIssueCode = report.TopIssue.Code
+		result.TopIssueSlot = report.TopIssue.Slot
+		result.TopIssueMessage = report.TopIssue.Message
+	}
+	result.SuggestedAnswer = report.SuggestedAnswer
 	result.GeneratedProject = report.GeneratedProject
 	result.GeneratedIntent = report.GeneratedIntent
 	return result
+}
+
+func scorecardVariantSession(fixture, fixtureName string, variant evalpkg.AuthoringVariant) (elicitor.Session, error) {
+	project := projectwizard.Answers{
+		ProjectName:     fixtureName + " " + variant.ID,
+		Goal:            variant.Brief,
+		SideEffectScope: projectwizard.SideEffectAfterApproval,
+		Safety:          "Generate and validate artifacts only; side-effectful execution requires approval.",
+		Fallback:        "Stop until missing authoring details are provided.",
+	}
+	if data, err := os.ReadFile(filepath.Join(fixture, "project.md")); err == nil {
+		if loaded, loadErr := projectwizard.LoadAnswersFromMarkdown(string(data)); loadErr == nil {
+			project.UsesOpenAPI = loaded.UsesOpenAPI
+			project.OpenAPI = loaded.OpenAPI
+			project.Credentials = loaded.Credentials
+		}
+	}
+	if variant.SeedFromReference {
+		intent, err := rollout.ParseIntentFile(filepath.Join(fixture, "reference", "intent.hcl"))
+		if err != nil {
+			return elicitor.Session{}, err
+		}
+		session := elicitor.SessionFromIntent(intent, project)
+		if session.Intent.Workflow == nil {
+			session.Intent.Workflow = &rollout.WorkflowMeta{}
+		}
+		session.Intent.Workflow.Name = safeScorecardName(fixtureName + "_" + variant.ID)
+		session.Intent.Workflow.Description = variant.Brief
+		session.Project.ProjectName = project.ProjectName
+		session.Project.Goal = variant.Brief
+		session.Project.Safety = project.Safety
+		session.Project.Fallback = project.Fallback
+		session.Project.SideEffectScope = project.SideEffectScope
+		session.Safety = project.Safety
+		session.SafetySet = true
+		session.Fallback = project.Fallback
+		session.FallbackSet = true
+		session.SideEffectScope = project.SideEffectScope
+		clearVariantFields(&session, variant.ClearFields)
+		if err := clearVariantSlots(&session, variant.ClearSlots); err != nil {
+			return elicitor.Session{}, err
+		}
+		session.Normalize()
+		return session, nil
+	}
+	session := elicitor.Session{
+		Project: project,
+		Intent: rollout.Intent{
+			Workflow: &rollout.WorkflowMeta{
+				Name:        safeScorecardName(fixtureName + "_" + variant.ID),
+				Description: variant.Brief,
+			},
+		},
+	}
+	session.Normalize()
+	return session, nil
+}
+
+func clearVariantFields(session *elicitor.Session, fields []string) {
+	for _, field := range fields {
+		field = strings.TrimSpace(field)
+		if field == "" {
+			continue
+		}
+		session.Intent.Inputs = removeIntentInput(session.Intent.Inputs, field)
+		for _, step := range session.Intent.Steps {
+			clearStepField(step, field)
+		}
+	}
+}
+
+func clearStepField(step *rollout.Step, field string) {
+	if step == nil {
+		return
+	}
+	delete(step.With, field)
+	for _, bind := range step.Binds {
+		if bind != nil {
+			delete(bind.Fields, field)
+		}
+	}
+	for _, child := range step.Steps {
+		clearStepField(child, field)
+	}
+	for _, c := range step.Cases {
+		if c == nil {
+			continue
+		}
+		for _, child := range c.Steps {
+			clearStepField(child, field)
+		}
+	}
+	if step.Default != nil {
+		for _, child := range step.Default.Steps {
+			clearStepField(child, field)
+		}
+	}
+}
+
+func clearVariantSlots(session *elicitor.Session, slots []string) error {
+	for _, slot := range slots {
+		slot = strings.TrimSpace(slot)
+		if slot == "" {
+			continue
+		}
+		if strings.HasPrefix(slot, "inputs.") {
+			name := strings.TrimPrefix(slot, "inputs.")
+			session.Intent.Inputs = removeIntentInput(session.Intent.Inputs, name)
+			continue
+		}
+		if !strings.HasPrefix(slot, "steps.") {
+			return fmt.Errorf("unsupported clear slot %q", slot)
+		}
+		parts := strings.Split(slot, ".")
+		if len(parts) != 4 || parts[0] != "steps" || parts[2] != "with" {
+			return fmt.Errorf("unsupported clear slot %q", slot)
+		}
+		step := findIntentStep(session.Intent.Steps, parts[1])
+		if step == nil {
+			return fmt.Errorf("clear slot %q references unknown step", slot)
+		}
+		delete(step.With, parts[3])
+	}
+	return nil
+}
+
+func removeIntentInput(inputs []*rollout.Input, name string) []*rollout.Input {
+	name = strings.TrimSpace(name)
+	if name == "" {
+		return inputs
+	}
+	out := inputs[:0]
+	for _, input := range inputs {
+		if input == nil || input.Name != name {
+			out = append(out, input)
+		}
+	}
+	return out
+}
+
+func findIntentStep(steps []*rollout.Step, name string) *rollout.Step {
+	for _, step := range steps {
+		if step == nil {
+			continue
+		}
+		if step.Name == name {
+			return step
+		}
+		if found := findIntentStep(step.Steps, name); found != nil {
+			return found
+		}
+		for _, c := range step.Cases {
+			if c != nil {
+				if found := findIntentStep(c.Steps, name); found != nil {
+					return found
+				}
+			}
+		}
+		if step.Default != nil {
+			if found := findIntentStep(step.Default.Steps, name); found != nil {
+				return found
+			}
+		}
+	}
+	return nil
 }
 
 func scorecardVariantOutcomeMatches(result scorecardResult) bool {
@@ -467,19 +627,5 @@ func scorecardOutcomeMatches(result scorecardResult, policy evalpkg.ReferencePol
 }
 
 func failureFamilyForDetail(detail string) string {
-	lower := strings.ToLower(detail)
-	switch {
-	case strings.Contains(lower, "openapi"), strings.Contains(lower, "api document"), strings.Contains(lower, "source"):
-		return failureMissingAPISource
-	case strings.Contains(lower, "operation"):
-		return failureMissingOperation
-	case strings.Contains(lower, "credential"):
-		return failureCredentialBindingGap
-	case strings.Contains(lower, "runtime"):
-		return failureRuntimeProfileGap
-	case strings.Contains(lower, "intent"):
-		return failureIntentParse
-	default:
-		return failureBuildError
-	}
+	return icotreport.FailureFamilyForDetail(detail)
 }

@@ -37,6 +37,7 @@ func TestCLIHelpDocumentsFlags(t *testing.T) {
 		"icot reconcile",
 		"icot lint",
 		"icot replay-eval",
+		"icot authoring-eval",
 		"docs/icot-session-schema.md",
 		"openudon build --example",
 	} {

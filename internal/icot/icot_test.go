@@ -324,8 +324,14 @@ func TestScorecardIncludesAuthoringVariants(t *testing.T) {
 	if report.Summary.ByProviderFamily["slack"] == 0 || report.Summary.ByVariantClass["unsafe-negative"] == 0 {
 		t.Fatalf("summary missing provider/variant grouping: %#v", report.Summary)
 	}
-	var sawInlineSecret bool
+	var sawInlineSecret, sawMissingChannel bool
 	for _, result := range report.Results {
+		if result.VariantID == "missing-channel" {
+			sawMissingChannel = true
+			if result.ObservedOutcome != statusNeedsInput || result.FailureFamily != failureBadRequestMapping || result.TopIssueCode != "missing_required_request_values" || result.SuggestedAnswer == "" {
+				t.Fatalf("missing-channel result = %#v", result)
+			}
+		}
 		if result.VariantID == "inline-token" {
 			sawInlineSecret = true
 			if result.ObservedOutcome != statusNeedsInput || result.FailureFamily != failureCredentialBindingGap || result.GeneratedIntent != "" {
@@ -335,6 +341,59 @@ func TestScorecardIncludesAuthoringVariants(t *testing.T) {
 	}
 	if !sawInlineSecret {
 		t.Fatalf("inline-token variant missing from results: %#v", report.Results)
+	}
+	if !sawMissingChannel {
+		t.Fatalf("missing-channel variant missing from results: %#v", report.Results)
+	}
+}
+
+func TestFailureFamilyClassifiesReadinessCodes(t *testing.T) {
+	cases := map[string]string{
+		"invented_request_field":          failureBadRequestMapping,
+		"invalid_request_body_path":       failureBadRequestMapping,
+		"incompatible_request_value_type": failureBadRequestMapping,
+		"undeclared_credential_reference": failureCredentialBindingGap,
+		"missing_required_request_values": failureBadRequestMapping,
+		"missing_runtime_inputs":          failureAmbiguousUserIntent,
+		"missing_api_doc":                 failureMissingAPISource,
+		"missing_operation":               failureMissingOperation,
+		"missing_credential_bindings":     failureCredentialBindingGap,
+		"missing_side_effect_policy":      failureSideEffectPolicyGap,
+	}
+	for code, want := range cases {
+		if got := failureFamilyForReadiness(code); got != want {
+			t.Fatalf("failureFamilyForReadiness(%q) = %q, want %q", code, got, want)
+		}
+	}
+}
+
+func TestAuthoringEvalWithFakeExtractor(t *testing.T) {
+	previous := newAuthoringEvalExtractor
+	newAuthoringEvalExtractor = func(provider, model string, temperature float64, calls *[]replayLLMCall) (elicitor.Extractor, string, string, error) {
+		return fakeAuthoringEvalExtractor{calls: calls}, "fake", "fake-model", nil
+	}
+	defer func() { newAuthoringEvalExtractor = previous }()
+
+	outDir := filepath.Join(t.TempDir(), "authoring-eval")
+	var stdout, stderr bytes.Buffer
+	code := Main([]string{"authoring-eval", "--root", filepath.Join("..", "..", "examples", "eval"), "--name", "runtime-only-render", "--provider", "fake", "--model", "fake-model", "--out", outDir}, strings.NewReader(""), &stdout, &stderr)
+	if code != 0 {
+		t.Fatalf("authoring-eval returned code %d\nstdout:\n%s\nstderr:\n%s", code, stdout.String(), stderr.String())
+	}
+	data, err := os.ReadFile(filepath.Join(outDir, "authoring-eval.json"))
+	if err != nil {
+		t.Fatalf("read authoring eval report: %v", err)
+	}
+	var report authoringEvalReport
+	if err := json.Unmarshal(data, &report); err != nil {
+		t.Fatalf("unmarshal authoring eval report: %v\n%s", err, data)
+	}
+	if report.Version != authoringEvalReportVersion || report.Status != statusPass || report.Summary.Total != 1 {
+		t.Fatalf("authoring eval report = %#v", report)
+	}
+	result := report.Results[0]
+	if result.Provider != "fake" || result.Model != "fake-model" || result.LLMCallCount == 0 || result.GeneratedIntent == "" {
+		t.Fatalf("authoring eval result = %#v", result)
 	}
 }
 
@@ -390,6 +449,80 @@ func TestRepairAddsDependsOnFromStepReference(t *testing.T) {
 	if send == nil || len(send.DependsOn) != 1 || send.DependsOn[0] != "render_report" {
 		t.Fatalf("send_report depends_on = %#v", send)
 	}
+}
+
+type fakeAuthoringEvalExtractor struct {
+	calls *[]replayLLMCall
+}
+
+func (f fakeAuthoringEvalExtractor) Kickoff(context.Context, string) (elicitor.Session, error) {
+	if f.calls != nil {
+		*f.calls = append(*f.calls, replayLLMCall{Kind: "fake_kickoff", Response: "runtime_only_render"})
+	}
+	return runtimeOnlyRenderSession(), nil
+}
+
+func (fakeAuthoringEvalExtractor) CatalogPlan(context.Context, elicitor.CatalogPlanRequest) (elicitor.CatalogPlanResponse, error) {
+	return elicitor.CatalogPlanResponse{}, nil
+}
+
+func (fakeAuthoringEvalExtractor) RequestMappings(context.Context, elicitor.RequestMappingRequest) (elicitor.RequestMappingResponse, error) {
+	return elicitor.RequestMappingResponse{}, nil
+}
+
+func (fakeAuthoringEvalExtractor) ReviewDraft(context.Context, elicitor.DraftReviewRequest) (elicitor.DraftReviewResponse, error) {
+	return elicitor.DraftReviewResponse{}, nil
+}
+
+func (f fakeAuthoringEvalExtractor) Draft(context.Context, elicitor.DraftRequest) (elicitor.Session, error) {
+	if f.calls != nil {
+		*f.calls = append(*f.calls, replayLLMCall{Kind: "fake_draft", Response: "runtime_only_render"})
+	}
+	return runtimeOnlyRenderSession(), nil
+}
+
+func (fakeAuthoringEvalExtractor) Refine(_ context.Context, session elicitor.Session) (elicitor.Session, error) {
+	if !elicitor.LooksLikeSession(session) {
+		return runtimeOnlyRenderSession(), nil
+	}
+	return session, nil
+}
+
+func (fakeAuthoringEvalExtractor) Disambiguate(context.Context, string, []elicitor.APIDocument) ([]string, error) {
+	return nil, nil
+}
+
+func runtimeOnlyRenderSession() elicitor.Session {
+	project := projectwizard.Answers{
+		ProjectName:     "Runtime Only Render",
+		Goal:            "Render a local summary report.",
+		Inputs:          "summary: required string",
+		Outputs:         "Rendered report body.",
+		SideEffectScope: projectwizard.SideEffectReadOnly,
+		Safety:          "Generate and validate artifacts only.",
+		Fallback:        "Stop if no approved function runtime exists.",
+	}
+	return elicitor.SessionFromIntent(&rollout.Intent{
+		Workflow: &rollout.WorkflowMeta{
+			Name:        "runtime_only_render",
+			Description: "Render a local summary report.",
+		},
+		Inputs: []*rollout.Input{{
+			Name:     "summary",
+			Type:     "string",
+			Required: true,
+		}},
+		Steps: []*rollout.Step{{
+			Name: "render_report",
+			Type: "fnct",
+			Do:   "Render the summary report.",
+			With: map[string]string{"summary": "inputs.summary"},
+		}},
+		Outputs: []*rollout.Output{{
+			Name: "report",
+			From: "render_report.received_body",
+		}},
+	}, project)
 }
 
 func TestRepairRequestMappingRejectsInventedField(t *testing.T) {

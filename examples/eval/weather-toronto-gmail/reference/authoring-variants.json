@@ -31,7 +31,9 @@
       "brief": "Get Toronto weather and send the report to the team.",
       "class": "missing-detail",
       "expected_outcome": "needs_input",
-      "expected_failure_family": "missing_api_source",
+      "expected_failure_family": "ambiguous_user_intent",
+      "seed_from_reference": true,
+      "clear_slots": ["inputs.recipient_email"],
       "tags": ["missing-detail", "multi-provider"],
       "reason": "The delivery target is ambiguous and should require operator input."
     },

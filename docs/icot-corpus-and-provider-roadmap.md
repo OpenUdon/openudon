@@ -134,10 +134,13 @@ insufficient. The dangerous failure is a generated intent that looks executable
 but binds the wrong operation, field, credential, or side effect.
 
 Use `icot scorecard` for the provider-free baseline. Use
-`icot scorecard --include-variants` for M40 natural-language variant evidence.
-Use `icot --agent --json` and `icot lint --json` for per-example structured
-authoring and lint reports. Use `icot repair --dry-run --json` to inspect
-bounded repair candidates before allowing edits.
+`icot scorecard --include-variants` for deterministic reference/variant package
+evidence; it does not prove live LLM natural-language generation. Use
+`icot authoring-eval --include-variants --provider ... --model ...` for optional
+real-LLM authoring evidence when a maintainer wants provider/model-specific
+results. Use `icot --agent --json` and `icot lint --json` for per-example
+structured authoring and lint reports. Use `icot repair --dry-run --json` to
+inspect bounded repair candidates before allowing edits.
 
 ## Acceptance Shape
 

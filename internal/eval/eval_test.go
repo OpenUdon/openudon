@@ -118,6 +118,28 @@ func TestReadAuthoringVariantsNormalizesValues(t *testing.T) {
 	}
 }
 
+func TestReadAuthoringVariantsRejectsInvalidFailureFamily(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "authoring-variants.json")
+	data := `{
+  "version": "openudon.icot-authoring-variants.v1",
+  "variants": [
+    {
+      "id": "bad-family",
+      "brief": "Send the report.",
+      "class": "missing-detail",
+      "expected_outcome": "needs_input",
+      "expected_failure_family": "typo_family"
+    }
+  ]
+}`
+	if err := os.WriteFile(path, []byte(data), 0o644); err != nil {
+		t.Fatalf("write variants: %v", err)
+	}
+	if _, err := ReadAuthoringVariants(path); err == nil || !strings.Contains(err.Error(), "unsupported expected_failure_family") {
+		t.Fatalf("expected invalid failure-family error, got %v", err)
+	}
+}
+
 func TestCompareIntentsReportsTimeoutAndIdempotencyDrift(t *testing.T) {
 	workflowTimeout := 120.0
 	stepTimeout := 10.0

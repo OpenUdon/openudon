@@ -90,6 +90,7 @@ For a SaaS release candidate, collect deterministic evidence first:
 - `make check`;
 - `make release-check`;
 - `make eval-seed-build`;
+- `make icot-authoring-scorecard`;
 - `make release-saas-check`;
 - `go run ./cmd/openudon validate ./examples/uws-validation`;
 - `go run ./cmd/openudon check-doc-memory`;
@@ -101,6 +102,7 @@ For a SaaS release candidate, collect deterministic evidence first:
 Optional real-provider or real-LLM evidence stays local/manual:
 
 - `make release-eval`;
+- `go run ./cmd/icot authoring-eval --root examples/eval --include-variants --provider ... --model ... --out eval/runs/icot-authoring-eval-local`;
 - provider/model name;
 - comparison baseline;
 - provider drift watch status;

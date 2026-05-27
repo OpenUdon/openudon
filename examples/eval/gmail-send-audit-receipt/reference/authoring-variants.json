@@ -23,7 +23,9 @@
       "brief": "Email the report to the team.",
       "class": "missing-detail",
       "expected_outcome": "needs_input",
-      "expected_failure_family": "missing_api_source",
+      "expected_failure_family": "bad_request_mapping",
+      "seed_from_reference": true,
+      "clear_slots": ["inputs.to", "steps.send_message.with.to"],
       "tags": ["missing-detail"],
       "reason": "The recipient is not concrete enough to produce final artifacts from natural language alone."
     },

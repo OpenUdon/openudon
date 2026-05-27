@@ -55,6 +55,9 @@ go run ./cmd/icot scorecard --root examples/eval --out eval/runs/icot-scorecard-
 # Include curated natural-language authoring variants.
 go run ./cmd/icot scorecard --root examples/eval --include-variants --out eval/runs/icot-authoring-scorecard-local
 
+# Optional real-LLM natural-language authoring evidence.
+go run ./cmd/icot authoring-eval --root examples/eval --include-variants --provider copilot-api --model gpt-5.4-mini --out eval/runs/icot-authoring-eval-local
+
 # Bounded deterministic repair for mappings, outputs, and depends_on only.
 go run ./cmd/icot repair --example ./examples/<name> --dry-run --json
 
@@ -94,7 +97,17 @@ intent parse status, drift warnings, and the first failure family.
 observed outcome, fixture class, first failure family, and failure codes. With
 `--include-variants`, it also runs checked-in natural-language authoring variants from
 `reference/authoring-variants.json` and groups results by provider family, variant class, and
-failure family. It does not call an LLM, retrieve remote provider metadata, or execute workflows.
+failure family. This variant lane mutates reviewed reference packages and verifies deterministic
+package behavior; it is not proof that a live LLM generated the workflow from the alternate brief.
+It does not call an LLM, retrieve remote provider metadata, or execute workflows.
+
+`icot authoring-eval` is the optional real-LLM authoring lane. It runs selected fixture briefs or
+`--include-variants` entries through the iCoT progressive draft path with LLM extraction enabled,
+then runs lint/build-equivalent checks and compares the generated `intent.hcl` against the reviewed
+reference. The report is `openudon.icot-authoring-eval.v1` and records provider/model, prompt
+version, LLM call count, generated paths, failure family, drift counts, and per-variant pass/fail.
+Keep this evidence local/manual; it can spend model quota and is not part of `release-check` or
+`release-saas-check`.
 
 `icot repair` is a bounded deterministic repair command. It may edit request mappings, output
 sources, and `depends_on` only. It rejects source document, operation ID, credential binding,

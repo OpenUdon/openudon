@@ -43,9 +43,9 @@ For the SaaS release story, run the comprehensive provider-free local gate:
 make release-saas-check
 ```
 
-`release-saas-check` runs `release-check`, `eval-seed-build`, UWS validation,
-doc-memory, n8n bridge validation, strict MkDocs build, selected strict SaaS
-fixture lint, and the provider-free dry-run demo in
+`release-saas-check` runs `release-check`, `eval-seed-build`,
+`icot-authoring-scorecard`, UWS validation, doc-memory, n8n bridge validation,
+strict MkDocs build, selected strict SaaS fixture lint, and the provider-free dry-run demo in
 [SaaS Operator Release Path](saas-operator-release.md). The selected demo
 examples are:
 
@@ -83,10 +83,12 @@ Real-provider evals remain opt-in local evidence:
 
 ```bash
 make release-eval
+go run ./cmd/icot authoring-eval --root examples/eval --include-variants --provider copilot-api --model gpt-5.4-mini --out eval/runs/icot-authoring-eval-local
 ```
 
 Record provider, model, corpus size, comparison baseline, provider drift status,
-and known gaps in the release notes.
+optional authoring-eval report path, authoring-eval pass summary, and known gaps
+in the release notes.
 
 Provider/model drift is release evidence, not a deterministic gate by itself.
 Record transient provider failures and rerun once from a trusted workstation

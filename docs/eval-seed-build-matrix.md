@@ -40,8 +40,21 @@ Variant files live at `examples/eval/*/reference/authoring-variants.json`. Posit
 the fixture's reviewed reference workflow with a different operator brief and must still build
 provider-free. Missing-detail and unsafe-negative variants must stop with the declared
 `needs_input`, `build_fail`, or `icot_fail` outcome and failure family. The variant scorecard adds
-provider-family, variant-class, and provider/failure-family summaries without changing the default
-seed/build contract.
+provider-family, variant-class, provider/failure-family, and top readiness issue summaries without
+changing the default seed/build contract. Missing-detail variants may set `seed_from_reference` plus
+`clear_fields` or `clear_slots` so the deterministic path preserves the reviewed source/operation
+and removes only the intended business/request detail.
+
+This scorecard remains provider-free reference/variant package evidence. It does not show that a
+live LLM generated the workflow from the variant brief. For optional real authoring evidence, run:
+
+```bash
+go run ./cmd/icot authoring-eval --root examples/eval --include-variants --provider copilot-api --model gpt-5.4-mini --out eval/runs/icot-authoring-eval-local
+```
+
+`icot authoring-eval` writes `openudon.icot-authoring-eval.v1` with provider/model, prompt version,
+LLM call count, generated paths, first failure family, drift counts, and per-variant pass/fail. Keep
+that report local/manual unless it has been reviewed for release-note evidence.
 
 ## Policy Fields
 

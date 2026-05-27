@@ -27,6 +27,9 @@
 - Required Slack live smoke result:
 - Optional provider live skips:
 - n8n bridge validation result:
+- Optional iCoT authoring-eval report:
+- Optional iCoT authoring-eval provider/model:
+- Optional iCoT authoring-eval pass summary:
 
 ## Local Checks
 
@@ -36,6 +39,7 @@
 - `git diff --check`:
 - `make release-check`:
 - `make release-saas-check`:
+- `make icot-authoring-scorecard`:
 - `make product-smoke-check`:
 - `make product-smoke-live`:
 - `mkdocs build --strict`:
@@ -63,6 +67,7 @@ Report paths:
 
 - JSON:
 - Markdown:
+- Optional iCoT authoring-eval JSON:
 
 Comparison:
 
