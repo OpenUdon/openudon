@@ -3,8 +3,8 @@ module github.com/OpenUdon/openudon
 go 1.26.3
 
 require (
-	github.com/OpenUdon/apitools v0.0.0-20260527145122-c0690b37f4cc
-	github.com/OpenUdon/asyncapi v0.0.0-20260527144130-5311eff3cbe4
+	github.com/OpenUdon/apitools v0.0.0-20260527152837-fb1c2fe61c4b
+	github.com/OpenUdon/asyncapi v0.1.0
 	github.com/OpenUdon/tfconfig v0.0.0-20260509192333-e523c2b30f3e
 	github.com/OpenUdon/uws v0.0.0-20260527133156-68106ab5c011
 	github.com/hashicorp/hcl/v2 v2.24.0
