@@ -514,6 +514,73 @@ func TestAuthoringEvalWithFakeExtractor(t *testing.T) {
 	}
 }
 
+func TestAuthoringEvalScansGeneratedArtifactsForCredentials(t *testing.T) {
+	previous := newAuthoringEvalExtractor
+	newAuthoringEvalExtractor = func(provider, model string, temperature float64, calls *[]replayLLMCall) (elicitor.Extractor, string, string, error) {
+		return fakeSecretAuthoringEvalExtractor{calls: calls}, "fake", "fake-model", nil
+	}
+	defer func() { newAuthoringEvalExtractor = previous }()
+
+	outDir := filepath.Join(t.TempDir(), "authoring-eval")
+	var stdout, stderr bytes.Buffer
+	code := Main([]string{"authoring-eval", "--root", filepath.Join("..", "..", "examples", "eval"), "--name", "runtime-only-render", "--provider", "fake", "--model", "fake-model", "--out", outDir}, strings.NewReader(""), &stdout, &stderr)
+	if code != 1 {
+		t.Fatalf("authoring-eval code = %d, want 1\nstdout:\n%s\nstderr:\n%s", code, stdout.String(), stderr.String())
+	}
+	data, err := os.ReadFile(filepath.Join(outDir, "authoring-eval.json"))
+	if err != nil {
+		t.Fatalf("read authoring eval report: %v", err)
+	}
+	var report authoringEvalReport
+	if err := json.Unmarshal(data, &report); err != nil {
+		t.Fatalf("unmarshal authoring eval report: %v\n%s", err, data)
+	}
+	if report.Status != statusFail || len(report.Results) != 1 {
+		t.Fatalf("authoring eval report = %#v", report)
+	}
+	result := report.Results[0]
+	if result.CredentialScanStatus != statusFail || result.FailureFamily != failureCredentialBindingGap || !containsString(result.FailureCodes, "authoring_eval.literal_credential") || len(result.CredentialDiagnostics) == 0 {
+		t.Fatalf("authoring eval result = %#v", result)
+	}
+}
+
+func TestAuthoringEvalReportRedactsCredentialLikeJSON(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "authoring-eval.json")
+	redacted, err := writeAuthoringEvalReportFile(path, authoringEvalReport{
+		Version: authoringEvalReportVersion,
+		Status:  statusPass,
+		Root:    "examples/eval",
+		OutDir:  filepath.Dir(path),
+		Summary: authoringEvalSummary{Total: 1, Passed: 1},
+		Results: []authoringEvalResult{{
+			Name:            "bad-report",
+			ObservedOutcome: statusPass,
+			Brief:           `operator pasted api_key = "sk-proj-abcdefghijklmnopqrstuvwxyz1234567890"`,
+			Passed:          true,
+		}},
+	})
+	if err != nil {
+		t.Fatalf("write report: %v", err)
+	}
+	if !redacted {
+		t.Fatalf("report was not redacted")
+	}
+	data, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatalf("read report: %v", err)
+	}
+	if strings.Contains(string(data), "sk-proj-abcdefghijklmnopqrstuvwxyz1234567890") {
+		t.Fatalf("redacted report leaked credential-like value:\n%s", data)
+	}
+	var report authoringEvalReport
+	if err := json.Unmarshal(data, &report); err != nil {
+		t.Fatalf("unmarshal report: %v\n%s", err, data)
+	}
+	if report.Status != statusFail || len(report.Results) != 1 || report.Results[0].FailureFamily != failureCredentialBindingGap {
+		t.Fatalf("redacted report = %#v", report)
+	}
+}
+
 func TestRepairDryRunJSON(t *testing.T) {
 	example := filepath.Join(t.TempDir(), "repair")
 	var setupOut, setupErr bytes.Buffer
@@ -572,6 +639,10 @@ type fakeAuthoringEvalExtractor struct {
 	calls *[]replayLLMCall
 }
 
+type fakeSecretAuthoringEvalExtractor struct {
+	calls *[]replayLLMCall
+}
+
 func (f fakeAuthoringEvalExtractor) Kickoff(context.Context, string) (elicitor.Session, error) {
 	if f.calls != nil {
 		*f.calls = append(*f.calls, replayLLMCall{Kind: "fake_kickoff", Response: "runtime_only_render"})
@@ -609,6 +680,43 @@ func (fakeAuthoringEvalExtractor) Disambiguate(context.Context, string, []elicit
 	return nil, nil
 }
 
+func (f fakeSecretAuthoringEvalExtractor) Kickoff(context.Context, string) (elicitor.Session, error) {
+	if f.calls != nil {
+		*f.calls = append(*f.calls, replayLLMCall{Kind: "fake_kickoff", Response: "runtime_only_render_secret"})
+	}
+	return runtimeOnlyRenderSecretSession(), nil
+}
+
+func (fakeSecretAuthoringEvalExtractor) CatalogPlan(context.Context, elicitor.CatalogPlanRequest) (elicitor.CatalogPlanResponse, error) {
+	return elicitor.CatalogPlanResponse{}, nil
+}
+
+func (fakeSecretAuthoringEvalExtractor) RequestMappings(context.Context, elicitor.RequestMappingRequest) (elicitor.RequestMappingResponse, error) {
+	return elicitor.RequestMappingResponse{}, nil
+}
+
+func (fakeSecretAuthoringEvalExtractor) ReviewDraft(context.Context, elicitor.DraftReviewRequest) (elicitor.DraftReviewResponse, error) {
+	return elicitor.DraftReviewResponse{}, nil
+}
+
+func (f fakeSecretAuthoringEvalExtractor) Draft(context.Context, elicitor.DraftRequest) (elicitor.Session, error) {
+	if f.calls != nil {
+		*f.calls = append(*f.calls, replayLLMCall{Kind: "fake_draft", Response: "runtime_only_render_secret"})
+	}
+	return runtimeOnlyRenderSecretSession(), nil
+}
+
+func (fakeSecretAuthoringEvalExtractor) Refine(_ context.Context, session elicitor.Session) (elicitor.Session, error) {
+	if !elicitor.LooksLikeSession(session) {
+		return runtimeOnlyRenderSecretSession(), nil
+	}
+	return session, nil
+}
+
+func (fakeSecretAuthoringEvalExtractor) Disambiguate(context.Context, string, []elicitor.APIDocument) ([]string, error) {
+	return nil, nil
+}
+
 func runtimeOnlyRenderSession() elicitor.Session {
 	project := projectwizard.Answers{
 		ProjectName:     "Runtime Only Render",
@@ -640,6 +748,23 @@ func runtimeOnlyRenderSession() elicitor.Session {
 			From: "render_report.received_body",
 		}},
 	}, project)
+}
+
+func runtimeOnlyRenderSecretSession() elicitor.Session {
+	session := runtimeOnlyRenderSession()
+	session.Project.Fallback = `Stop if the model suggests api_key = "sk-proj-abcdefghijklmnopqrstuvwxyz1234567890".`
+	session.Fallback = session.Project.Fallback
+	session.FallbackSet = true
+	return session
+}
+
+func containsString(values []string, want string) bool {
+	for _, value := range values {
+		if value == want {
+			return true
+		}
+	}
+	return false
 }
 
 func TestRepairRequestMappingRejectsInventedField(t *testing.T) {

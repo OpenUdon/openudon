@@ -61,9 +61,12 @@ type authoringEvalResult struct {
 	LLMCallCount          int                    `json:"llm_call_count"`
 	GeneratedProject      string                 `json:"generated_project,omitempty"`
 	GeneratedIntent       string                 `json:"generated_intent,omitempty"`
+	TranscriptPath        string                 `json:"transcript_path,omitempty"`
 	QualityReport         string                 `json:"quality_report,omitempty"`
 	FailureFamily         string                 `json:"failure_family,omitempty"`
 	FailureCodes          []string               `json:"failure_codes,omitempty"`
+	CredentialScanStatus  string                 `json:"credential_scan_status,omitempty"`
+	CredentialDiagnostics []authoring.Diagnostic `json:"credential_scan_diagnostics,omitempty"`
 	Blocking              int                    `json:"blocking"`
 	Warning               int                    `json:"warning"`
 	Advisory              int                    `json:"advisory"`
@@ -141,12 +144,13 @@ func runAuthoringEval(args []string, out, errOut io.Writer) int {
 		}
 	}
 	reportPath := filepath.Join(*outDir, "authoring-eval.json")
-	if err := writeJSONFile(reportPath, report); err != nil {
+	redacted, err := writeAuthoringEvalReportFile(reportPath, report)
+	if err != nil {
 		fmt.Fprintln(errOut, err)
 		return 1
 	}
 	fmt.Fprintf(out, "icot authoring-eval: wrote %s\n", reportPath)
-	if report.Status != statusPass {
+	if redacted || report.Status != statusPass {
 		return 1
 	}
 	return 0
@@ -265,14 +269,16 @@ func runAuthoringEvalItem(item authoringEvalItem, provider, model string, temper
 		seed.Normalize()
 	}
 	var stdout bytes.Buffer
+	transcriptPath := filepath.Join(outDir, "transcripts", safeScorecardName(strings.ReplaceAll(name, "#", "__"))+".json")
 	artifacts, err := elicitor.Run(ctx, strings.NewReader(item.Brief+"\n"), &stdout, seed, elicitor.Options{
 		ExampleDir:     workspace,
 		NoLLM:          false,
 		Extractor:      extractor,
 		DefaultMode:    authoring.PromptDefaultsSilent,
-		TranscriptPath: filepath.Join(outDir, "transcripts", safeScorecardName(strings.ReplaceAll(name, "#", "__"))+".json"),
+		TranscriptPath: transcriptPath,
 	})
 	result.LLMCallCount = len(calls)
+	result.TranscriptPath = transcriptPath
 	if err != nil {
 		result.ObservedOutcome = observedAuthoringEvalErrorOutcome(err)
 		result.Error = err.Error()
@@ -291,6 +297,17 @@ func runAuthoringEvalItem(item authoringEvalItem, provider, model string, temper
 	}
 	result.GeneratedProject = projectPath
 	result.GeneratedIntent = intentPath
+	if scanned := scanAuthoringEvalResultCredentials(result); len(scanned) > 0 {
+		result.CredentialScanStatus = statusFail
+		result.CredentialDiagnostics = scanned
+		result.ObservedOutcome = "icot_fail"
+		result.Error = "authoring-eval output appears to contain a literal credential value"
+		result.FailureFamily = failureCredentialBindingGap
+		result.FailureCodes = []string{"authoring_eval.literal_credential"}
+		result.Passed = false
+		return result
+	}
+	result.CredentialScanStatus = statusPass
 	lintCode, lintFamily, lintCodes, lintErr := runAuthoringEvalLint(workspace)
 	if lintCode != 0 {
 		result.ObservedOutcome = "icot_fail"
@@ -346,6 +363,70 @@ func runAuthoringEvalItem(item authoringEvalItem, provider, model string, temper
 	}
 	result.Passed = authoringEvalOutcomeMatches(result)
 	return result
+}
+
+func scanAuthoringEvalResultCredentials(result authoringEvalResult) []authoring.Diagnostic {
+	var artifacts []authoring.Artifact
+	for _, path := range []string{result.GeneratedProject, result.GeneratedIntent, result.TranscriptPath} {
+		path = strings.TrimSpace(path)
+		if path == "" {
+			continue
+		}
+		data, err := os.ReadFile(path)
+		if err != nil {
+			continue
+		}
+		artifacts = append(artifacts, authoring.Artifact{
+			Path:      path,
+			MediaType: "text/plain",
+			Content:   data,
+		})
+	}
+	return authoring.ScanCredentialValues(artifacts)
+}
+
+func writeAuthoringEvalReportFile(path string, report authoringEvalReport) (bool, error) {
+	data, err := json.MarshalIndent(report, "", "  ")
+	if err != nil {
+		return false, err
+	}
+	data = append(data, '\n')
+	redacted := false
+	if authoring.ContainsLikelyCredentialValue(data) {
+		redacted = true
+		safeReport := authoringEvalReport{
+			Version: report.Version,
+			Status:  statusFail,
+			Root:    report.Root,
+			OutDir:  report.OutDir,
+			Summary: authoringEvalSummary{
+				Total:             report.Summary.Total,
+				Passed:            0,
+				Failed:            report.Summary.Total,
+				ByObservedOutcome: map[string]int{"icot_fail": report.Summary.Total},
+				ByFailureFamily:   map[string]int{failureCredentialBindingGap: report.Summary.Total},
+			},
+			Results: []authoringEvalResult{{
+				Name:                 "authoring-eval-redacted",
+				ObservedOutcome:      "icot_fail",
+				FailureFamily:        failureCredentialBindingGap,
+				FailureCodes:         []string{"authoring_eval.report_literal_credential"},
+				CredentialScanStatus: statusFail,
+				Error:                "authoring-eval report was not written because it appears to contain a literal credential value",
+			}},
+		}
+		data, err = json.MarshalIndent(safeReport, "", "  ")
+		if err != nil {
+			return false, err
+		}
+		data = append(data, '\n')
+	}
+	if dir := filepath.Dir(path); dir != "." && dir != "" {
+		if err := os.MkdirAll(dir, 0o755); err != nil {
+			return false, err
+		}
+	}
+	return redacted, os.WriteFile(path, data, 0o644)
 }
 
 func defaultAuthoringEvalExtractor(provider, model string, temperature float64, calls *[]replayLLMCall) (elicitor.Extractor, string, string, error) {

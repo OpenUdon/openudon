@@ -30,6 +30,7 @@
 - Optional iCoT authoring-eval report:
 - Optional iCoT authoring-eval provider/model:
 - Optional iCoT authoring-eval pass summary:
+- Optional iCoT authoring-eval credential-scan result:
 
 ## Local Checks
 

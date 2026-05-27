@@ -58,8 +58,10 @@ go run ./cmd/icot authoring-eval --root examples/eval --include-variants --provi
 ```
 
 `icot authoring-eval` writes `openudon.icot-authoring-eval.v1` with provider/model, prompt version,
-LLM call count, generated paths, first failure family, drift counts, and per-variant pass/fail. Keep
-that report local/manual unless it has been reviewed for release-note evidence.
+LLM call count, generated paths, first failure family, drift counts, credential-scan status, and
+per-variant pass/fail. Generated project files, intents, transcripts, and the report JSON are
+checked for credential-like literals. Keep that report local/manual unless it has been reviewed for
+release-note evidence.
 
 ## Policy Fields
 

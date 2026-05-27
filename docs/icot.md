@@ -114,8 +114,9 @@ Use it before scorecard runs when editing variant metadata.
 then runs lint/build-equivalent checks and compares the generated `intent.hcl` against the reviewed
 reference. The report is `openudon.icot-authoring-eval.v1` and records provider/model, prompt
 version, LLM call count, generated paths, failure family, drift counts, and per-variant pass/fail.
-Keep this evidence local/manual; it can spend model quota and is not part of `release-check` or
-`release-saas-check`.
+Generated project files, intents, transcripts, and the final report JSON are scanned for
+credential-like literal values before the report is accepted. Keep this evidence local/manual; it
+can spend model quota and is not part of `release-check` or `release-saas-check`.
 
 `icot repair` is a bounded deterministic repair command. It may edit request mappings, output
 sources, and `depends_on` only. It rejects source document, operation ID, credential binding,
