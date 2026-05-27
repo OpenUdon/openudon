@@ -27,8 +27,6 @@ type localAPISource struct {
 	Err          error
 }
 
-const sourceDescriptionTypeAsyncAPI uws1.SourceDescriptionType = "asyncapi"
-
 func newLocalAPISourceRegistry(exampleDir string, candidates []openapidisco.Candidate) (*localAPISourceRegistry, error) {
 	registry := &localAPISourceRegistry{entries: map[string]localAPISource{}}
 	for _, candidate := range candidates {
@@ -149,7 +147,7 @@ func nativeAPISourceOperations(path string, sourceType uws1.SourceDescriptionTyp
 				}
 			}
 		}
-	case sourceDescriptionTypeAsyncAPI:
+	case uws1.SourceDescriptionTypeAsyncAPI:
 		doc, parseErr := parseAsyncAPIDocument(data)
 		if parseErr != nil {
 			return nil, parseErr
@@ -186,7 +184,7 @@ func sourceDescriptionTypeForPath(path string) uws1.SourceDescriptionType {
 		case "aws-smithy":
 			return uws1.SourceDescriptionTypeAWSSmithy
 		case "asyncapi":
-			return sourceDescriptionTypeAsyncAPI
+			return uws1.SourceDescriptionTypeAsyncAPI
 		case "openapi":
 			return uws1.SourceDescriptionTypeOpenAPI
 		}
@@ -227,7 +225,7 @@ func sniffAPISourceType(path string) (uws1.SourceDescriptionType, bool, error) {
 				return uws1.SourceDescriptionTypeOpenAPI, true, nil
 			}
 			if _, ok := root["asyncapi"]; ok {
-				return sourceDescriptionTypeAsyncAPI, true, nil
+				return uws1.SourceDescriptionTypeAsyncAPI, true, nil
 			}
 		}
 	}
@@ -241,7 +239,7 @@ func sniffAPISourceType(path string) (uws1.SourceDescriptionType, bool, error) {
 		strings.HasPrefix(lower, "swagger:") || strings.Contains(lower, "\nswagger:"):
 		return uws1.SourceDescriptionTypeOpenAPI, true, nil
 	case strings.HasPrefix(lower, "asyncapi:") || strings.Contains(lower, "\nasyncapi:"):
-		return sourceDescriptionTypeAsyncAPI, true, nil
+		return uws1.SourceDescriptionTypeAsyncAPI, true, nil
 	default:
 		return "", false, nil
 	}

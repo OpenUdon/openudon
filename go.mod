@@ -3,9 +3,9 @@ module github.com/OpenUdon/openudon
 go 1.26.3
 
 require (
-	github.com/OpenUdon/apitools v0.0.0-20260525034344-3df8f5e2a23d
+	github.com/OpenUdon/apitools v0.0.0-20260527132405-1eba4cac7ae2
 	github.com/OpenUdon/tfconfig v0.0.0-20260509192333-e523c2b30f3e
-	github.com/OpenUdon/uws v0.0.0-20260523003429-d922781173ab
+	github.com/OpenUdon/uws v0.0.0-20260527133156-68106ab5c011
 	github.com/hashicorp/hcl/v2 v2.24.0
 	github.com/santhosh-tekuri/jsonschema/v6 v6.0.2
 	github.com/zclconf/go-cty v1.18.1

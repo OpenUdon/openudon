@@ -20,8 +20,6 @@ const (
 	ProfileName        = runtimes.ProfileName
 )
 
-const sourceDescriptionTypeAsyncAPI uws1.SourceDescriptionType = "asyncapi"
-
 type OperationRuntime = runtimes.OperationRuntime
 
 func SetOperationExtension(dst *map[string]any, value *OperationRuntime) error {
@@ -71,7 +69,7 @@ func ValidateForExecution(doc *uws1.Document) error {
 	if doc == nil {
 		return fmt.Errorf("UWS document is required")
 	}
-	if err := doc.Validate(); err != nil && !deferUWS13AsyncAPISchemaValidation(doc, err) {
+	if err := doc.Validate(); err != nil {
 		return err
 	}
 	sourceDescriptions := map[string]bool{}
@@ -115,18 +113,6 @@ func ValidateForExecution(doc *uws1.Document) error {
 		}
 	}
 	return nil
-}
-
-func deferUWS13AsyncAPISchemaValidation(doc *uws1.Document, err error) bool {
-	if doc == nil || err == nil || strings.TrimSpace(doc.UWS) != "1.3.0" {
-		return false
-	}
-	for _, source := range doc.SourceDescriptions {
-		if source != nil && source.EffectiveType() == sourceDescriptionTypeAsyncAPI {
-			return strings.Contains(err.Error(), "asyncapi") || strings.Contains(err.Error(), "sourceDescriptions")
-		}
-	}
-	return false
 }
 
 func resolveFormat(path, format string) string {

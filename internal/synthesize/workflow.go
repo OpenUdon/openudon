@@ -143,22 +143,10 @@ func generateWorkflowDocument(result Result, intent *rollout.Intent) (*uws1.Docu
 	if len(doc.Operations) == 0 && len(doc.Workflows[0].Steps) == 0 {
 		return nil, fmt.Errorf("intent produced no UWS operations or steps")
 	}
-	if err := doc.Validate(); err != nil && !deferUWS13AsyncAPISchemaValidation(doc, err) {
+	if err := doc.Validate(); err != nil {
 		return nil, err
 	}
 	return doc, nil
-}
-
-func deferUWS13AsyncAPISchemaValidation(doc *uws1.Document, err error) bool {
-	if doc == nil || err == nil || strings.TrimSpace(doc.UWS) != "1.3.0" {
-		return false
-	}
-	for _, source := range doc.SourceDescriptions {
-		if source != nil && source.EffectiveType() == sourceDescriptionTypeAsyncAPI {
-			return strings.Contains(err.Error(), "asyncapi") || strings.Contains(err.Error(), "sourceDescriptions")
-		}
-	}
-	return false
 }
 
 func buildUWSSteps(steps []*rollout.Step, defaultOpenAPI string, sourceFor func(string) string, requestMapper *requestBindingMapper) ([]*uws1.Step, []*uws1.Operation, error) {
@@ -641,7 +629,7 @@ func (mapper *requestBindingMapper) loadNative(path, sourceRef string, sourceTyp
 				return nil, err
 			}
 		}
-	case sourceDescriptionTypeAsyncAPI:
+	case uws1.SourceDescriptionTypeAsyncAPI:
 		doc, parseErr := parseAsyncAPIDocument(data)
 		if parseErr != nil {
 			return nil, fmt.Errorf("load AsyncAPI request metadata %s: %w", sourceRef, parseErr)
@@ -996,12 +984,12 @@ func intentRequiresUWS13(intent *rollout.Intent) bool {
 	if intent == nil {
 		return false
 	}
-	if sourceDescriptionTypeForPath(firstNonEmpty(intent.Source, intent.OpenAPI)) == sourceDescriptionTypeAsyncAPI {
+	if sourceDescriptionTypeForPath(firstNonEmpty(intent.Source, intent.OpenAPI)) == uws1.SourceDescriptionTypeAsyncAPI {
 		return true
 	}
 	requires := false
 	walkIntentSteps(intent.Steps, func(step *rollout.Step) {
-		if step != nil && !requires && sourceDescriptionTypeForPath(firstNonEmpty(step.Source, step.OpenAPI)) == sourceDescriptionTypeAsyncAPI {
+		if step != nil && !requires && sourceDescriptionTypeForPath(firstNonEmpty(step.Source, step.OpenAPI)) == uws1.SourceDescriptionTypeAsyncAPI {
 			requires = true
 		}
 	})

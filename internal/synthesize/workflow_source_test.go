@@ -79,7 +79,7 @@ func TestGenerateWorkflowDocumentEmitsUWS13AsyncAPISource(t *testing.T) {
 	if doc.UWS != "1.3.0" {
 		t.Fatalf("UWS version = %q, want 1.3.0", doc.UWS)
 	}
-	if len(doc.SourceDescriptions) != 1 || doc.SourceDescriptions[0].Type != sourceDescriptionTypeAsyncAPI {
+	if len(doc.SourceDescriptions) != 1 || doc.SourceDescriptions[0].Type != uws1.SourceDescriptionTypeAsyncAPI {
 		t.Fatalf("sourceDescriptions = %#v", doc.SourceDescriptions)
 	}
 	if got := doc.Operations[0].SourceOperationID; got != "publishInvoice" {

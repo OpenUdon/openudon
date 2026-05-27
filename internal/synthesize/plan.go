@@ -198,7 +198,7 @@ func addStepsToWorkflowPlan(plan *WorkflowPlan, intent *rollout.Intent, steps []
 			key := operationKey(planStep.OpenAPI, planStep.Operation)
 			op := ops[key]
 			if op == nil {
-				if !(sourceDescriptionTypeForPath(planStep.OpenAPI) == sourceDescriptionTypeAsyncAPI && strings.HasPrefix(planStep.Operation, "#/")) {
+				if !(sourceDescriptionTypeForPath(planStep.OpenAPI) == uws1.SourceDescriptionTypeAsyncAPI && strings.HasPrefix(planStep.Operation, "#/")) {
 					plan.Gaps = append(plan.Gaps, PlanGap{
 						Code:   "openapi.missing_operation",
 						Step:   planStep.Name,
