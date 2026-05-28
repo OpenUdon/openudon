@@ -108,7 +108,10 @@ when availability or rate limits look external.
 `openudon convert tf` release stewardship uses the same boundaries:
 
 - static Terraform/OpenTofu facts come from `github.com/OpenUdon/tfconfig`;
-- OpenAPI operation metadata comes from `github.com/OpenUdon/apitools`;
+- API source operation metadata comes from `github.com/OpenUdon/apitools`;
+- OpenAPI/Swagger remains supported, AWS should use official Smithy JSON as
+  its primary source family, and GCP/Google should use official Google
+  Discovery as its primary source family when provider-adapter work resumes;
 - generated workflow, review, quality, and handoff artifacts remain unapproved
   until normal OpenUdon review and trusted-runner checks pass;
 - Terraform/OpenTofu execution, provider plugins, state, plan/apply, and

@@ -445,6 +445,95 @@ data "aws_caller_identity" "current" {}
 	}
 }
 
+func TestConvertAWSIAMRoleUsesNativeSmithySource(t *testing.T) {
+	root := t.TempDir()
+	configDir := filepath.Join(root, "tf")
+	smithyPath := filepath.Join(root, "iam.json")
+	writeFileForTest(t, filepath.Join(configDir, "main.tf"), `
+resource "aws_iam_role" "role" {
+  name = "tf-acc-openudon-role"
+  assume_role_policy = "{}"
+}
+`)
+	writeFileForTest(t, smithyPath, minimalIAMSmithyForTest())
+
+	result, err := Convert(context.Background(), Options{
+		ConfigDir: configDir,
+		APISources: []APISourceInput{{
+			Kind: "aws-smithy",
+			ID:   "iam",
+			Path: smithyPath,
+		}},
+		Action: "create",
+		OutDir: filepath.Join(root, "out"),
+		Strict: true,
+	})
+	if err != nil {
+		t.Fatalf("Convert returned error: %v", err)
+	}
+	intent := readFileForTest(t, result.IntentPath)
+	workflow := readFileForTest(t, result.WorkflowPath)
+	for _, expected := range []string{"aws-smithy/iam.json", "CreateRole", "RoleName", "AssumeRolePolicyDocument"} {
+		if !strings.Contains(intent, expected) || !strings.Contains(workflow, expected) {
+			t.Fatalf("expected native Smithy mapping %q\nintent:\n%s\nworkflow:\n%s", expected, intent, workflow)
+		}
+	}
+	if !strings.Contains(intent, "aws_hmac") {
+		t.Fatalf("intent missing symbolic AWS credential binding:\n%s", intent)
+	}
+	if _, err := os.Stat(filepath.Join(result.OutDir, "openapi")); !os.IsNotExist(err) {
+		t.Fatalf("native Smithy conversion should not stage OpenAPI fallback, stat err=%v", err)
+	}
+	if _, err := os.Stat(filepath.Join(result.OutDir, "aws-smithy", "iam.json")); err != nil {
+		t.Fatalf("staged Smithy source missing: %v", err)
+	}
+}
+
+func TestConvertGoogleStorageBucketUsesNativeDiscoverySource(t *testing.T) {
+	root := t.TempDir()
+	configDir := filepath.Join(root, "tf")
+	discoveryPath := filepath.Join(root, "storage.json")
+	writeFileForTest(t, filepath.Join(configDir, "main.tf"), `
+resource "google_storage_bucket" "bucket" {
+  name     = "openudon-bucket"
+  location = "US"
+  project  = "review-project"
+}
+`)
+	writeFileForTest(t, discoveryPath, minimalStorageDiscoveryForTest())
+
+	result, err := Convert(context.Background(), Options{
+		ConfigDir: configDir,
+		APISources: []APISourceInput{{
+			Kind: "google-discovery",
+			ID:   "storage",
+			Path: discoveryPath,
+		}},
+		Action: "create",
+		OutDir: filepath.Join(root, "out"),
+		Strict: true,
+	})
+	if err != nil {
+		t.Fatalf("Convert returned error: %v", err)
+	}
+	intent := readFileForTest(t, result.IntentPath)
+	workflow := readFileForTest(t, result.WorkflowPath)
+	for _, expected := range []string{"google-discovery/storage.json", "storage.buckets.insert", "project", "location"} {
+		if !strings.Contains(intent, expected) || !strings.Contains(workflow, expected) {
+			t.Fatalf("expected native Discovery mapping %q\nintent:\n%s\nworkflow:\n%s", expected, intent, workflow)
+		}
+	}
+	if !strings.Contains(intent, "google_oauth2") {
+		t.Fatalf("intent missing symbolic Google credential binding:\n%s", intent)
+	}
+	if _, err := os.Stat(filepath.Join(result.OutDir, "openapi")); !os.IsNotExist(err) {
+		t.Fatalf("native Discovery conversion should not stage OpenAPI fallback, stat err=%v", err)
+	}
+	if _, err := os.Stat(filepath.Join(result.OutDir, "google-discovery", "storage.json")); err != nil {
+		t.Fatalf("staged Discovery source missing: %v", err)
+	}
+}
+
 func TestConvertRedactsSensitiveCandidate(t *testing.T) {
 	root := t.TempDir()
 	configDir := filepath.Join(root, "tf")
@@ -531,6 +620,35 @@ paths:
 	}
 }
 
+func TestConvertRejectsMalformedOpenAPIInputInsideStagingDirWithoutDeletingIt(t *testing.T) {
+	root := t.TempDir()
+	configDir := filepath.Join(root, "tf")
+	openAPIPath := filepath.Join(root, "openapi", "app.yaml")
+	writeFileForTest(t, filepath.Join(configDir, "main.tf"), `
+resource "example_resource" "main" {
+  name = "web"
+}
+`)
+	writeFileForTest(t, openAPIPath, `not: openapi
+`)
+
+	_, err := Convert(context.Background(), Options{
+		ConfigDir: configDir,
+		OpenAPIs:  []OpenAPIInput{{ID: "app", Path: openAPIPath}},
+		Action:    "create",
+		OutDir:    root,
+	})
+	if err == nil {
+		t.Fatal("Convert returned nil error for malformed OpenAPI input inside staging directory")
+	}
+	if !strings.Contains(err.Error(), "staging directory") {
+		t.Fatalf("error did not describe staging overlap: %v", err)
+	}
+	if text := readFileForTest(t, openAPIPath); !strings.Contains(text, "not: openapi") {
+		t.Fatalf("malformed OpenAPI source was modified or deleted:\n%s", text)
+	}
+}
+
 func TestConvertDiagnosesOpenAPIPackagePathCollision(t *testing.T) {
 	root := t.TempDir()
 	configDir := filepath.Join(root, "tf")
@@ -579,11 +697,37 @@ paths:
 	if !IsStrictFailure(err) {
 		t.Fatalf("Convert error = %v, want strict failure", err)
 	}
-	if result == nil || !hasDiagnostic(result.Diagnostics, "openapi.package_path_collision") {
+	if result == nil || !hasDiagnostic(result.Diagnostics, "api_source.package_path_collision") {
 		t.Fatalf("diagnostics missing package path collision: result=%#v", result)
 	}
 	if staged := readFileForTest(t, filepath.Join(result.OutDir, "openapi", "a_b.yaml")); !strings.Contains(staged, "First") || strings.Contains(staged, "Second") {
 		t.Fatalf("staged OpenAPI was overwritten:\n%s", staged)
+	}
+}
+
+func TestConvertStrictMissingAPISourceReturnsStrictFailureBeforeSynthesis(t *testing.T) {
+	root := t.TempDir()
+	configDir := filepath.Join(root, "tf")
+	writeFileForTest(t, filepath.Join(configDir, "main.tf"), `
+resource "aws_instance" "web" {
+  name = "web"
+}
+`)
+
+	result, err := Convert(context.Background(), Options{
+		ConfigDir: configDir,
+		Action:    "create",
+		OutDir:    filepath.Join(root, "out"),
+		Strict:    true,
+	})
+	if !IsStrictFailure(err) {
+		t.Fatalf("Convert error = %T %v, want strict failure", err, err)
+	}
+	if result == nil || !result.StrictFailed || !hasDiagnostic(result.Diagnostics, "api_source.missing") {
+		t.Fatalf("result missing strict api_source.missing diagnostic: %#v", result)
+	}
+	if _, statErr := os.Stat(result.DiagnosticsJSON); statErr != nil {
+		t.Fatalf("strict conversion did not write diagnostics: %v", statErr)
 	}
 }
 
@@ -820,6 +964,52 @@ paths:
 	}
 	if hasDiagnostic(result.Diagnostics, "openapi.index_error") {
 		t.Fatalf("cross-document duplicate operation IDs produced index error: %#v", result.Diagnostics)
+	}
+}
+
+func TestConvertAWSHardcodedMappingPrefersExpectedSourceID(t *testing.T) {
+	root := t.TempDir()
+	configDir := filepath.Join(root, "tf")
+	wrongOpenAPI := filepath.Join(root, "aaa.yaml")
+	iamOpenAPI := filepath.Join(root, "iam.yaml")
+	writeFileForTest(t, filepath.Join(configDir, "main.tf"), `
+resource "aws_iam_role" "role" {
+  name = "tf-acc-openudon-role"
+}
+`)
+	writeFileForTest(t, wrongOpenAPI, `openapi: 3.0.0
+info:
+  title: Wrong Service
+  version: v1
+paths:
+  /wrong:
+    post:
+      operationId: POST_CreateRole
+      responses:
+        "200":
+          description: ok
+`)
+	writeFileForTest(t, iamOpenAPI, iamOpenAPIForTest())
+
+	result, err := Convert(context.Background(), Options{
+		ConfigDir: configDir,
+		OpenAPIs: []OpenAPIInput{
+			{ID: "aaa", Path: wrongOpenAPI},
+			{ID: "iam", Path: iamOpenAPI},
+		},
+		Action: "create",
+		OutDir: filepath.Join(root, "out"),
+		Strict: true,
+	})
+	if err != nil {
+		t.Fatalf("Convert returned error: %v", err)
+	}
+	if hasDiagnostic(result.Diagnostics, "operation.ambiguous") || hasDiagnostic(result.Diagnostics, "operation.unresolved") {
+		t.Fatalf("expected IAM source ID to disambiguate duplicate operation ID: %#v", result.Diagnostics)
+	}
+	intent := readFileForTest(t, result.IntentPath)
+	if !strings.Contains(intent, `source    = "openapi/iam.yaml"`) {
+		t.Fatalf("IAM operation did not bind to iam source:\n%s", intent)
 	}
 }
 
@@ -1135,4 +1325,85 @@ components:
       name: Authorization
       in: header
 `
+}
+
+func minimalIAMSmithyForTest() string {
+	return `{
+  "smithy": "2.0",
+  "shapes": {
+    "com.amazonaws.iam#IAM": {
+      "type": "service",
+      "version": "2010-05-08",
+      "operations": [{"target": "com.amazonaws.iam#CreateRole"}],
+      "traits": {
+        "aws.api#service": {"sdkId": "IAM", "endpointPrefix": "iam"},
+        "aws.auth#sigv4": {"name": "iam"},
+        "aws.protocols#awsQuery": {}
+      }
+    },
+    "com.amazonaws.iam#CreateRole": {
+      "type": "operation",
+      "input": {"target": "com.amazonaws.iam#CreateRoleRequest"},
+      "output": {"target": "com.amazonaws.iam#CreateRoleResponse"}
+    },
+    "com.amazonaws.iam#CreateRoleRequest": {
+      "type": "structure",
+      "members": {
+        "RoleName": {
+          "target": "com.amazonaws.iam#roleNameType",
+          "traits": {"smithy.api#required": {}}
+        },
+        "AssumeRolePolicyDocument": {
+          "target": "com.amazonaws.iam#policyDocumentType",
+          "traits": {"smithy.api#required": {}}
+        }
+      },
+      "traits": {"smithy.api#input": {}}
+    },
+    "com.amazonaws.iam#CreateRoleResponse": {"type": "structure", "members": {}},
+    "com.amazonaws.iam#roleNameType": {"type": "string"},
+    "com.amazonaws.iam#policyDocumentType": {"type": "string"}
+  }
+}`
+}
+
+func minimalStorageDiscoveryForTest() string {
+	return `{
+  "discoveryVersion": "v1",
+  "name": "storage",
+  "version": "v1",
+  "rootUrl": "https://storage.googleapis.com/",
+  "servicePath": "storage/v1/",
+  "schemas": {
+    "Bucket": {
+      "id": "Bucket",
+      "type": "object",
+      "properties": {
+        "name": {"type": "string"},
+        "location": {"type": "string"}
+      }
+    }
+  },
+  "resources": {
+    "buckets": {
+      "methods": {
+        "insert": {
+          "id": "storage.buckets.insert",
+          "path": "b",
+          "httpMethod": "POST",
+          "parameters": {
+            "project": {
+              "type": "string",
+              "required": true,
+              "location": "query"
+            }
+          },
+          "request": {"$ref": "Bucket"},
+          "response": {"$ref": "Bucket"},
+          "scopes": ["https://www.googleapis.com/auth/devstorage.full_control"]
+        }
+      }
+    }
+  }
+}`
 }

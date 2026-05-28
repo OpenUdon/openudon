@@ -140,7 +140,7 @@ func (f *repeatedStringFlag) Set(value string) error {
 
 func runConvertCommand(args []string) {
 	if len(args) == 0 || args[0] != "tf" {
-		fmt.Fprintln(os.Stderr, "usage: openudon convert tf [--config-dir DIR] --openapi ID=PATH [--action create|update|delete|replace] [--target ADDRESS] [--out DIR] [--strict]")
+		fmt.Fprintln(os.Stderr, "usage: openudon convert tf [--config-dir DIR] --api-source KIND:ID=PATH [--openapi ID=PATH] [--action create|update|delete|replace] [--target ADDRESS] [--out DIR] [--strict]")
 		os.Exit(2)
 	}
 	runConvertTFCommand(args[1:])
@@ -153,12 +153,14 @@ func runConvertTFCommand(args []string) {
 	outDir := fs.String("out", "./.openudon/convert", "Output directory for draft review artifacts")
 	strict := fs.Bool("strict", false, "Fail when strict-failure diagnostics remain")
 	var openAPIs repeatedStringFlag
+	var apiSources repeatedStringFlag
 	var targets repeatedStringFlag
 	fs.Var(&openAPIs, "openapi", "Repeatable OpenAPI input as ID=PATH")
+	fs.Var(&apiSources, "api-source", "Repeatable API source input as KIND:ID=PATH; kind is openapi, aws-smithy, or google-discovery")
 	fs.Var(&targets, "target", "Repeatable Terraform address target")
 	fs.Usage = func() {
-		fmt.Fprintf(fs.Output(), "Usage: openudon convert tf [--config-dir DIR] --openapi ID=PATH [--action create|update|delete|replace] [--target ADDRESS] [--out DIR] [--strict]\n")
-		fmt.Fprintf(fs.Output(), "\nGenerates draft OpenUdon review scaffolding from static Terraform/OpenTofu configuration and local OpenAPI documents. It does not execute Terraform, providers, OpenAPI operations, or UWS workflows.\n\n")
+		fmt.Fprintf(fs.Output(), "Usage: openudon convert tf [--config-dir DIR] --api-source KIND:ID=PATH [--openapi ID=PATH] [--action create|update|delete|replace] [--target ADDRESS] [--out DIR] [--strict]\n")
+		fmt.Fprintf(fs.Output(), "\nGenerates draft OpenUdon review scaffolding from static Terraform/OpenTofu configuration and local API source documents. It does not execute Terraform, providers, API source operations, or UWS workflows.\n\n")
 		fs.PrintDefaults()
 	}
 	if err := fs.Parse(args); err != nil {
@@ -169,15 +171,21 @@ func runConvertTFCommand(args []string) {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(2)
 	}
+	sources, err := parseAPISourceFlags(apiSources)
+	if err != nil {
+		fmt.Fprintln(os.Stderr, err)
+		os.Exit(2)
+	}
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 	result, err := tfconvert.Convert(ctx, tfconvert.Options{
-		ConfigDir: *configDir,
-		OpenAPIs:  inputs,
-		Action:    *action,
-		Targets:   []string(targets),
-		OutDir:    *outDir,
-		Strict:    *strict,
+		ConfigDir:  *configDir,
+		OpenAPIs:   inputs,
+		APISources: sources,
+		Action:     *action,
+		Targets:    []string(targets),
+		OutDir:     *outDir,
+		Strict:     *strict,
 	})
 	if err != nil {
 		fmt.Fprintln(os.Stderr, err)
@@ -253,6 +261,22 @@ func parseOpenAPIFlags(values []string) ([]tfconvert.OpenAPIInput, error) {
 			return nil, fmt.Errorf("--openapi must be ID=PATH, got %q", value)
 		}
 		inputs = append(inputs, tfconvert.OpenAPIInput{ID: strings.TrimSpace(id), Path: strings.TrimSpace(path)})
+	}
+	return inputs, nil
+}
+
+func parseAPISourceFlags(values []string) ([]tfconvert.APISourceInput, error) {
+	inputs := make([]tfconvert.APISourceInput, 0, len(values))
+	for _, value := range values {
+		left, path, ok := strings.Cut(value, "=")
+		if !ok || strings.TrimSpace(left) == "" || strings.TrimSpace(path) == "" {
+			return nil, fmt.Errorf("--api-source must be KIND:ID=PATH, got %q", value)
+		}
+		kind, id, ok := strings.Cut(left, ":")
+		if !ok || strings.TrimSpace(kind) == "" || strings.TrimSpace(id) == "" {
+			return nil, fmt.Errorf("--api-source must be KIND:ID=PATH, got %q", value)
+		}
+		inputs = append(inputs, tfconvert.APISourceInput{Kind: strings.TrimSpace(kind), ID: strings.TrimSpace(id), Path: strings.TrimSpace(path)})
 	}
 	return inputs, nil
 }

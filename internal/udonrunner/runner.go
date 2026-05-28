@@ -28,6 +28,7 @@ type Config struct {
 	WorkflowPath        string   `json:"workflow_path"`
 	WorkflowFormat      string   `json:"workflow_format"`
 	DataFiles           []string `json:"data_files,omitempty"`
+	APISourcePaths      []string `json:"api_source_paths,omitempty"`
 	OpenAPIPaths        []string `json:"openapi_paths,omitempty"`
 	PackagePaths        []string `json:"package_paths"`
 	PackageSHA256       string   `json:"package_sha256"`
@@ -51,6 +52,7 @@ type Result struct {
 	Argv               []string
 	PackageRoot        string
 	WorkDir            string
+	APISourcePaths     []string
 	OpenAPIPaths       []string
 	DataFiles          []string
 	PackagePaths       []string
@@ -89,6 +91,9 @@ func LoadConfig(path string) (Config, error) {
 	}
 	if config.OpenAPIPaths == nil {
 		config.OpenAPIPaths = []string{}
+	}
+	if config.APISourcePaths == nil {
+		config.APISourcePaths = []string{}
 	}
 	if config.DataFiles == nil {
 		config.DataFiles = []string{}
@@ -183,7 +188,7 @@ func prepare(ctx context.Context, config Config, opts Options, requireCredential
 	if err := validateRegularPackageFile(packageRoot, workflowRel, workflowPath, "workflow"); err != nil {
 		return Result{}, nil, "", err
 	}
-	openAPIFiles, err := validateOpenAPIPaths(packageRoot, config.OpenAPIPaths)
+	apiSourceFiles, err := validateAPISourcePaths(packageRoot, runConfigAPISourcePaths(config))
 	if err != nil {
 		return Result{}, nil, "", err
 	}
@@ -202,7 +207,7 @@ func prepare(ctx context.Context, config Config, opts Options, requireCredential
 	if err != nil {
 		return Result{}, nil, "", err
 	}
-	if err := validateDigestInventory(workflowRel, openAPIFiles, packageFiles); err != nil {
+	if err := validateDigestInventory(workflowRel, apiSourceFiles, packageFiles); err != nil {
 		return Result{}, nil, "", err
 	}
 	credentialEnvNames, err := credentialEnvNames(config.CredentialBindings)
@@ -222,7 +227,7 @@ func prepare(ctx context.Context, config Config, opts Options, requireCredential
 		}
 	}
 
-	stage, stagedWorkflow, err := stagePackage(workdir, workflowRel, workflowPath, openAPIFiles, packageFiles)
+	stage, stagedWorkflow, err := stagePackage(workdir, workflowRel, workflowPath, apiSourceFiles, packageFiles)
 	if err != nil {
 		return Result{}, nil, "", err
 	}
@@ -234,7 +239,8 @@ func prepare(ctx context.Context, config Config, opts Options, requireCredential
 		WorkflowPath:       stagedWorkflow,
 		PackageRoot:        packageRoot,
 		WorkDir:            workdir,
-		OpenAPIPaths:       relPaths(openAPIFiles),
+		APISourcePaths:     relPaths(apiSourceFiles),
+		OpenAPIPaths:       relPaths(apiSourceFiles),
 		DataFiles:          relPaths(dataFiles),
 		PackagePaths:       relPaths(packageFiles),
 		PackageSHA256:      approvedDigest,
@@ -355,17 +361,36 @@ func validateRegularPackageFile(packageRoot, rel, absolute, label string) error 
 	return nil
 }
 
-func validateOpenAPIPaths(packageRoot string, paths []string) ([][2]string, error) {
+func runConfigAPISourcePaths(config Config) []string {
+	seen := map[string]bool{}
+	var out []string
+	for _, raw := range append(append([]string(nil), config.APISourcePaths...), config.OpenAPIPaths...) {
+		clean := filepath.ToSlash(strings.TrimSpace(raw))
+		if clean == "" {
+			out = append(out, raw)
+			continue
+		}
+		if seen[clean] {
+			continue
+		}
+		seen[clean] = true
+		out = append(out, raw)
+	}
+	sort.Strings(out)
+	return out
+}
+
+func validateAPISourcePaths(packageRoot string, paths []string) ([][2]string, error) {
 	out := make([][2]string, 0, len(paths))
 	for _, raw := range paths {
 		if strings.TrimSpace(raw) == "" {
-			return nil, fmt.Errorf("openapi path must be non-empty")
+			return nil, fmt.Errorf("api source path must be non-empty")
 		}
-		rel, src, err := packageRelativePath(packageRoot, "openapi path", raw)
+		rel, src, err := packageRelativePath(packageRoot, "api source path", raw)
 		if err != nil {
 			return nil, err
 		}
-		if err := validateRegularPackageFile(packageRoot, rel, src, "openapi"); err != nil {
+		if err := validateRegularPackageFile(packageRoot, rel, src, "api source"); err != nil {
 			return nil, err
 		}
 		out = append(out, [2]string{rel, src})

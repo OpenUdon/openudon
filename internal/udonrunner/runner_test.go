@@ -267,6 +267,25 @@ func TestPrepareStagesWithoutCredentialValues(t *testing.T) {
 	}
 }
 
+func TestPrepareAcceptsAPISourcePathsWithoutLegacyOpenAPIPaths(t *testing.T) {
+	config := validRunnerConfig(t)
+	config.APISourcePaths = append([]string(nil), config.OpenAPIPaths...)
+	config.OpenAPIPaths = nil
+	result, err := Prepare(context.Background(), config, Options{
+		RepoRoot: t.TempDir(),
+		Env:      []string{"OPENUDON_EXECUTOR=/bin/true"},
+	})
+	if err != nil {
+		t.Fatalf("Prepare returned error: %v", err)
+	}
+	if !containsArg(result.APISourcePaths, "openapi/support.yaml") || !containsArg(result.OpenAPIPaths, "openapi/support.yaml") {
+		t.Fatalf("result missing API source compatibility paths: %#v", result)
+	}
+	if _, err := os.Stat(filepath.Join(result.StagePath, "openapi", "support.yaml")); err != nil {
+		t.Fatalf("staged API source missing: %v", err)
+	}
+}
+
 func TestPrepareRequiresCredentialValuesWhenRequested(t *testing.T) {
 	config := validRunnerConfig(t)
 	config.CredentialBindings = []string{"support-api.token"}

@@ -23,15 +23,22 @@ const (
 )
 
 type Options struct {
-	ConfigDir string
-	OpenAPIs  []OpenAPIInput
-	Action    string
-	Targets   []string
-	OutDir    string
-	Strict    bool
+	ConfigDir  string
+	OpenAPIs   []OpenAPIInput
+	APISources []APISourceInput
+	Action     string
+	Targets    []string
+	OutDir     string
+	Strict     bool
 }
 
 type OpenAPIInput struct {
+	ID   string
+	Path string
+}
+
+type APISourceInput struct {
+	Kind string
 	ID   string
 	Path string
 }
@@ -63,6 +70,8 @@ type Diagnostic struct {
 	Message       string       `json:"message"`
 	Address       string       `json:"address,omitempty"`
 	ModuleAddress string       `json:"module_address,omitempty"`
+	APISourceKind string       `json:"api_source_kind,omitempty"`
+	APISourceID   string       `json:"api_source_id,omitempty"`
 	SourceRange   *SourceRange `json:"source_range,omitempty"`
 	TodoID        string       `json:"todo_id,omitempty"`
 	StrictFailure bool         `json:"strict_failure,omitempty"`
@@ -113,7 +122,7 @@ func Convert(ctx context.Context, opts Options) (*Result, error) {
 		conversion.addTFDiagnostics(mod.Diagnostics)
 	}
 
-	conversion.loadOpenAPIs(ctx)
+	conversion.loadAPISources(ctx)
 	conversion.collectBindings()
 	conversion.collectSymbols()
 	conversion.selectObjects()
@@ -145,6 +154,9 @@ func Convert(ctx context.Context, opts Options) (*Result, error) {
 	if err := writeArtifacts(result, conversion); err != nil {
 		return result, err
 	}
+	if result.StrictFailed && hasBlockingAPISourceDiagnostic(conversion.diagnostics) {
+		return result, strictFailureError{diagnostics: strictDiagnostics(conversion.diagnostics)}
+	}
 	if packageResult, quality, err := synthesize.PackageFromIntent(ctx, synthesize.Options{ExampleDir: opts.OutDir}); err != nil {
 		return result, err
 	} else {
@@ -173,7 +185,7 @@ func IsStrictFailure(err error) bool {
 type conversionState struct {
 	opts        Options
 	doc         tfconfig.Document
-	openAPIs    []apiDoc
+	apiSources  []apiDoc
 	bindings    []binding
 	symbols     []symbolFact
 	selected    []selectedObject
@@ -183,6 +195,7 @@ type conversionState struct {
 
 type apiDoc struct {
 	ID          string
+	Kind        string
 	Path        string
 	PackagePath string
 	Index       apitools.OperationIndex
@@ -228,12 +241,30 @@ type objectMapping struct {
 	Object      selectedObject
 	Purpose     string
 	Action      string
-	OpenAPIID   string
-	OpenAPIPath string
+	SourceKind  string
+	SourceID    string
+	SourcePath  string
 	OperationID string
 	TodoID      string
 	Ambiguous   bool
 	Auth        []apitools.AuthRequirementSummary
+}
+
+type operationTarget struct {
+	SourceKinds  []string
+	SourceIDs    []string
+	OperationIDs []string
+}
+
+type providerAdapter interface {
+	LocalName() string
+	IsProviderLocalDataSource(selectedObject) bool
+	OperationTarget(selectedObject, string, string) operationTarget
+}
+
+var providerAdapters = []providerAdapter{
+	awsProviderAdapter{},
+	googleProviderAdapter{},
 }
 
 func normalizeOptions(opts Options) Options {
@@ -248,11 +279,25 @@ func normalizeOptions(opts Options) Options {
 		opts.OpenAPIs[i].ID = strings.TrimSpace(opts.OpenAPIs[i].ID)
 		opts.OpenAPIs[i].Path = strings.TrimSpace(opts.OpenAPIs[i].Path)
 	}
+	for _, input := range opts.OpenAPIs {
+		opts.APISources = append(opts.APISources, APISourceInput{Kind: apitools.APISourceKindOpenAPI, ID: input.ID, Path: input.Path})
+	}
+	opts.OpenAPIs = nil
+	for i := range opts.APISources {
+		opts.APISources[i].Kind = normalizeAPISourceKind(opts.APISources[i].Kind)
+		opts.APISources[i].ID = strings.TrimSpace(opts.APISources[i].ID)
+		opts.APISources[i].Path = strings.TrimSpace(opts.APISources[i].Path)
+	}
 	sort.Slice(opts.OpenAPIs, func(i, j int) bool {
 		if opts.OpenAPIs[i].ID != opts.OpenAPIs[j].ID {
 			return opts.OpenAPIs[i].ID < opts.OpenAPIs[j].ID
 		}
 		return opts.OpenAPIs[i].Path < opts.OpenAPIs[j].Path
+	})
+	sort.Slice(opts.APISources, func(i, j int) bool {
+		left := []string{opts.APISources[i].Kind, opts.APISources[i].ID, opts.APISources[i].Path}
+		right := []string{opts.APISources[j].Kind, opts.APISources[j].ID, opts.APISources[j].Path}
+		return strings.Join(left, "\x00") < strings.Join(right, "\x00")
 	})
 	for i := range opts.Targets {
 		opts.Targets[i] = strings.TrimSpace(opts.Targets[i])
@@ -261,64 +306,71 @@ func normalizeOptions(opts Options) Options {
 	return opts
 }
 
-func (c *conversionState) loadOpenAPIs(ctx context.Context) {
-	if len(c.opts.OpenAPIs) == 0 {
+func (c *conversionState) loadAPISources(ctx context.Context) {
+	if len(c.opts.APISources) == 0 {
 		c.addDiagnostic(Diagnostic{
-			Code:          "openapi.missing",
+			Code:          "api_source.missing",
 			Severity:      "error",
-			Message:       "at least one --openapi id=PATH input is required",
+			Message:       "at least one --api-source kind:id=PATH or --openapi id=PATH input is required",
 			StrictFailure: true,
 		})
 		return
 	}
 	seen := map[string]bool{}
 	seenPackagePaths := map[string]string{}
-	for _, input := range c.opts.OpenAPIs {
+	for _, input := range c.opts.APISources {
 		switch {
+		case input.Kind == "":
+			c.addDiagnostic(Diagnostic{Code: "api_source.invalid", Severity: "error", Message: "--api-source kind is required and must be openapi, aws-smithy, or google-discovery", StrictFailure: true})
+			continue
 		case input.ID == "":
-			c.addDiagnostic(Diagnostic{Code: "openapi.invalid", Severity: "error", Message: "--openapi ID is required", StrictFailure: true})
+			c.addDiagnostic(Diagnostic{Code: "api_source.invalid", Severity: "error", Message: "--api-source ID is required", APISourceKind: input.Kind, StrictFailure: true})
 			continue
 		case input.Path == "":
-			c.addDiagnostic(Diagnostic{Code: "openapi.invalid", Severity: "error", Message: fmt.Sprintf("--openapi %s path is required", input.ID), StrictFailure: true})
+			c.addDiagnostic(Diagnostic{Code: "api_source.invalid", Severity: "error", Message: fmt.Sprintf("--api-source %s:%s path is required", input.Kind, input.ID), APISourceKind: input.Kind, APISourceID: input.ID, StrictFailure: true})
 			continue
 		case seen[input.ID]:
-			c.addDiagnostic(Diagnostic{Code: "openapi.duplicate_id", Severity: "error", Message: fmt.Sprintf("OpenAPI ID %q is duplicated", input.ID), StrictFailure: true})
+			c.addDiagnostic(Diagnostic{Code: "api_source.duplicate_id", Severity: "error", Message: fmt.Sprintf("API source ID %q is duplicated", input.ID), APISourceKind: input.Kind, APISourceID: input.ID, StrictFailure: true})
 			continue
 		}
 		seen[input.ID] = true
-		packagePath := packageOpenAPIPath(input.ID, input.Path)
+		packagePath := packageAPISourcePath(input.Kind, input.ID, input.Path)
 		if previousID, ok := seenPackagePaths[packagePath]; ok {
 			c.addDiagnostic(Diagnostic{
-				Code:          "openapi.package_path_collision",
+				Code:          "api_source.package_path_collision",
 				Severity:      "error",
-				Message:       fmt.Sprintf("OpenAPI IDs %q and %q both stage to %q", previousID, input.ID, packagePath),
+				Message:       fmt.Sprintf("API source IDs %q and %q both stage to %q", previousID, input.ID, packagePath),
+				APISourceKind: input.Kind,
+				APISourceID:   input.ID,
 				StrictFailure: true,
 			})
 			continue
 		}
 		seenPackagePaths[packagePath] = input.ID
-		inventory, err := apitools.BuildOperationInventory(ctx, apitools.InventoryOptions{
-			Documents: []apitools.InventoryDocument{{Name: input.ID, Path: input.Path}},
+		inventory, err := apitools.BuildAPISourceOperationInventory(ctx, apitools.APISourceInventoryOptions{
+			Documents: []apitools.APISourceDocument{{Kind: input.Kind, Name: input.ID, Path: input.Path}},
 		})
 		if err != nil {
-			c.addDiagnostic(Diagnostic{Code: "openapi.load_error", Severity: "error", Message: err.Error(), StrictFailure: true})
+			c.addDiagnostic(Diagnostic{Code: "api_source.load_error", Severity: "error", Message: err.Error(), APISourceKind: input.Kind, APISourceID: input.ID, StrictFailure: true})
 			continue
 		}
 		for _, diag := range inventory.Diagnostics {
 			c.addDiagnostic(Diagnostic{
-				Code:          "openapi." + strings.ReplaceAll(diag.Code, ".", "_"),
+				Code:          "api_source." + strings.ReplaceAll(diag.Code, ".", "_"),
 				Severity:      normalizeSeverity(diag.Severity),
 				Message:       diag.Message,
+				APISourceKind: input.Kind,
+				APISourceID:   input.ID,
 				SourceRange:   &SourceRange{Path: diag.Path},
 				StrictFailure: diag.Severity == "error",
 			})
 		}
 		index, err := apitools.NewOperationIndex(inventory)
 		if err != nil {
-			c.addDiagnostic(Diagnostic{Code: "openapi.index_error", Severity: "error", Message: fmt.Sprintf("%s: %v", input.ID, err), StrictFailure: true})
+			c.addDiagnostic(Diagnostic{Code: "api_source.index_error", Severity: "error", Message: fmt.Sprintf("%s:%s: %v", input.Kind, input.ID, err), APISourceKind: input.Kind, APISourceID: input.ID, StrictFailure: true})
 			continue
 		}
-		c.openAPIs = append(c.openAPIs, apiDoc{ID: input.ID, Path: input.Path, PackagePath: packagePath, Index: index})
+		c.apiSources = append(c.apiSources, apiDoc{ID: input.ID, Kind: input.Kind, Path: input.Path, PackagePath: packagePath, Index: index})
 	}
 }
 
@@ -485,30 +537,42 @@ func (c *conversionState) mapObjects() {
 }
 
 func isProviderLocalDataSource(obj selectedObject) bool {
-	if obj.Kind != "data_source" || objectProviderLocalName(obj) != "aws" {
-		return false
+	if adapter := providerAdapterForObject(obj); adapter != nil {
+		return adapter.IsProviderLocalDataSource(obj)
 	}
-	switch obj.Type {
-	case "aws_iam_policy_document", "aws_partition", "aws_region":
-		return true
-	default:
-		return false
-	}
+	return false
 }
 
 func (c *conversionState) mapObjectPurpose(obj selectedObject, purpose, action string) bool {
 	candidates := c.operationCandidates()
 	provider := objectProviderLocalName(obj)
-	if operationID := awsOperationIDForObject(obj, purpose, action); operationID != "" {
-		if operation, ok := findOperationByID(candidates, operationID); ok {
+	if target := providerOperationTargetForObject(obj, purpose, action); len(target.OperationIDs) > 0 {
+		if operation, ok, ambiguous := findOperationByTarget(candidates, target); ok {
 			mapping := objectMapping{Object: obj, Purpose: purpose, Action: action}
-			doc := openAPIForOperation(c.openAPIs, operation)
-			mapping.OpenAPIID = firstNonEmpty(operation.DocumentName, doc.ID)
-			mapping.OpenAPIPath = doc.PackagePath
+			doc := apiSourceForOperation(c.apiSources, operation)
+			mapping.SourceKind = doc.Kind
+			mapping.SourceID = firstNonEmpty(operation.DocumentName, doc.ID)
+			mapping.SourcePath = doc.PackagePath
 			mapping.OperationID = operation.OperationID
 			mapping.Auth = apitools.AuthRequirementsForOperation(provider, operation)
 			c.mappings = append(c.mappings, mapping)
 			return true
+		} else if ambiguous {
+			mapping := objectMapping{Object: obj, Purpose: purpose, Action: action, Ambiguous: true}
+			mapping.TodoID = todoID(obj.Address, purpose, action)
+			mapping.SourcePath = defaultAPISourcePath(c.apiSources)
+			c.addDiagnostic(Diagnostic{
+				Code:          "operation.ambiguous",
+				Severity:      "warning",
+				Message:       fmt.Sprintf("multiple API source operations named %s may match %s %s for %s; expected source ID %s", strings.Join(target.OperationIDs, ", "), purpose, obj.Kind, obj.Address, strings.Join(target.SourceIDs, ", ")),
+				Address:       obj.Address,
+				ModuleAddress: obj.ModuleAddress,
+				SourceRange:   convertRange(obj.Range),
+				TodoID:        mapping.TodoID,
+				StrictFailure: true,
+			})
+			c.mappings = append(c.mappings, mapping)
+			return false
 		}
 	}
 	selection := apitools.SelectOperationByHints(apitools.OperationSelectionHints{
@@ -519,9 +583,10 @@ func (c *conversionState) mapObjectPurpose(obj selectedObject, purpose, action s
 	mapping := objectMapping{Object: obj, Purpose: purpose, Action: action}
 	switch {
 	case selection.Found:
-		doc := openAPIForOperation(c.openAPIs, selection.Operation)
-		mapping.OpenAPIID = firstNonEmpty(selection.Operation.DocumentName, doc.ID)
-		mapping.OpenAPIPath = doc.PackagePath
+		doc := apiSourceForOperation(c.apiSources, selection.Operation)
+		mapping.SourceKind = doc.Kind
+		mapping.SourceID = firstNonEmpty(selection.Operation.DocumentName, doc.ID)
+		mapping.SourcePath = doc.PackagePath
 		mapping.OperationID = selection.Operation.OperationID
 		mapping.Auth = apitools.AuthRequirementsForOperation(provider, selection.Operation)
 		c.mappings = append(c.mappings, mapping)
@@ -529,11 +594,11 @@ func (c *conversionState) mapObjectPurpose(obj selectedObject, purpose, action s
 	case selection.Ambiguous:
 		mapping.Ambiguous = true
 		mapping.TodoID = todoID(obj.Address, purpose, action)
-		mapping.OpenAPIPath = defaultOpenAPIPath(c.openAPIs)
+		mapping.SourcePath = defaultAPISourcePath(c.apiSources)
 		c.addDiagnostic(Diagnostic{
 			Code:          "operation.ambiguous",
 			Severity:      "warning",
-			Message:       fmt.Sprintf("multiple OpenAPI operations may match %s %s for %s", purpose, obj.Kind, obj.Address),
+			Message:       fmt.Sprintf("multiple API source operations may match %s %s for %s", purpose, obj.Kind, obj.Address),
 			Address:       obj.Address,
 			ModuleAddress: obj.ModuleAddress,
 			SourceRange:   convertRange(obj.Range),
@@ -542,11 +607,11 @@ func (c *conversionState) mapObjectPurpose(obj selectedObject, purpose, action s
 		})
 	default:
 		mapping.TodoID = todoID(obj.Address, purpose, action)
-		mapping.OpenAPIPath = defaultOpenAPIPath(c.openAPIs)
+		mapping.SourcePath = defaultAPISourcePath(c.apiSources)
 		c.addDiagnostic(Diagnostic{
 			Code:          "operation.unresolved",
 			Severity:      "warning",
-			Message:       fmt.Sprintf("no confident OpenAPI operation match for %s %s %s", purpose, obj.Kind, obj.Address),
+			Message:       fmt.Sprintf("no confident API source operation match for %s %s %s", purpose, obj.Kind, obj.Address),
 			Address:       obj.Address,
 			ModuleAddress: obj.ModuleAddress,
 			SourceRange:   convertRange(obj.Range),
@@ -558,23 +623,91 @@ func (c *conversionState) mapObjectPurpose(obj selectedObject, purpose, action s
 	return false
 }
 
-func findOperationByID(candidates []apitools.OperationSummary, operationID string) (apitools.OperationSummary, bool) {
-	for _, candidate := range candidates {
-		if candidate.OperationID == operationID {
-			return candidate, true
+func findOperationByTarget(candidates []apitools.OperationSummary, target operationTarget) (apitools.OperationSummary, bool, bool) {
+	var fallback []apitools.OperationSummary
+	for _, kind := range append([]string(nil), target.SourceKinds...) {
+		for _, operationID := range target.OperationIDs {
+			var exact []apitools.OperationSummary
+			for _, candidate := range candidates {
+				if candidate.OperationID != operationID || !sourceKindMatches(candidate, kind) {
+					continue
+				}
+				if sourceIDMatches(candidate.DocumentName, target.SourceIDs) {
+					exact = append(exact, candidate)
+				}
+			}
+			if len(exact) == 1 {
+				return exact[0], true, false
+			}
+			if len(exact) > 1 {
+				return apitools.OperationSummary{}, false, true
+			}
 		}
 	}
-	return apitools.OperationSummary{}, false
+	for _, operationID := range target.OperationIDs {
+		for _, candidate := range candidates {
+			if candidate.OperationID != operationID {
+				continue
+			}
+			fallback = append(fallback, candidate)
+		}
+		if len(fallback) == 1 {
+			return fallback[0], true, false
+		}
+		if len(fallback) > 1 {
+			return apitools.OperationSummary{}, false, true
+		}
+	}
+	return apitools.OperationSummary{}, false, false
+}
+
+func sourceKindMatches(operation apitools.OperationSummary, kind string) bool {
+	kind = strings.TrimSpace(kind)
+	if kind == "" {
+		return true
+	}
+	if operation.Extensions != nil && strings.TrimSpace(operation.Extensions["x-uws-source-kind"]) == kind {
+		return true
+	}
+	if strings.TrimSpace(operation.DocumentRelativePath) != "" {
+		return strings.HasPrefix(filepath.ToSlash(operation.DocumentRelativePath), kind+"/")
+	}
+	if strings.TrimSpace(operation.DocumentPath) != "" {
+		parts := strings.Split(filepath.ToSlash(operation.DocumentPath), "/")
+		for _, part := range parts {
+			if part == kind {
+				return true
+			}
+		}
+	}
+	return kind == apitools.APISourceKindOpenAPI && operation.Extensions == nil
+}
+
+func sourceIDMatches(sourceID string, expected []string) bool {
+	sourceID = normalizeName(sourceID)
+	for _, candidate := range expected {
+		if sourceID == normalizeName(candidate) {
+			return true
+		}
+	}
+	return false
 }
 
 func (c *conversionState) operationCandidates() []apitools.OperationSummary {
 	var out []apitools.OperationSummary
-	for _, doc := range c.openAPIs {
+	for _, doc := range c.apiSources {
 		ops := apitools.SortedOperationSummaries(doc.Index.OperationIDs)
 		for _, op := range ops {
 			if op.DocumentName == "" {
 				op.DocumentName = doc.ID
 			}
+			if op.DocumentRelativePath == "" {
+				op.DocumentRelativePath = doc.PackagePath
+			}
+			if op.Extensions == nil {
+				op.Extensions = map[string]string{}
+			}
+			op.Extensions["x-uws-source-kind"] = doc.Kind
 			out = append(out, op)
 		}
 	}
@@ -670,15 +803,18 @@ func (c *conversionState) sortAll() {
 	})
 	sort.Slice(c.selected, func(i, j int) bool { return c.selected[i].Address < c.selected[j].Address })
 	sort.Slice(c.mappings, func(i, j int) bool {
-		left := []string{c.mappings[i].Object.Address, c.mappings[i].Purpose, c.mappings[i].OpenAPIID, c.mappings[i].OpenAPIPath, c.mappings[i].OperationID, c.mappings[i].TodoID}
-		right := []string{c.mappings[j].Object.Address, c.mappings[j].Purpose, c.mappings[j].OpenAPIID, c.mappings[j].OpenAPIPath, c.mappings[j].OperationID, c.mappings[j].TodoID}
+		left := []string{c.mappings[i].Object.Address, c.mappings[i].Purpose, c.mappings[i].SourceKind, c.mappings[i].SourceID, c.mappings[i].SourcePath, c.mappings[i].OperationID, c.mappings[i].TodoID}
+		right := []string{c.mappings[j].Object.Address, c.mappings[j].Purpose, c.mappings[j].SourceKind, c.mappings[j].SourceID, c.mappings[j].SourcePath, c.mappings[j].OperationID, c.mappings[j].TodoID}
 		return strings.Join(left, "\x00") < strings.Join(right, "\x00")
 	})
 	sortDiagnostics(c.diagnostics)
 }
 
 func writeArtifacts(result *Result, c conversionState) error {
-	if err := validateOpenAPIStagingSafety(result.OutDir, c.openAPIs); err != nil {
+	if err := validateAPISourceInputStagingSafety(result.OutDir, c.opts.APISources); err != nil {
+		return err
+	}
+	if err := validateAPISourceStagingSafety(result.OutDir, c.apiSources); err != nil {
 		return err
 	}
 	if err := os.MkdirAll(filepath.Join(result.OutDir, "workflows"), 0o755); err != nil {
@@ -687,10 +823,10 @@ func writeArtifacts(result *Result, c conversionState) error {
 	if err := os.MkdirAll(filepath.Join(result.OutDir, "expected"), 0o755); err != nil {
 		return err
 	}
-	if err := resetOpenAPIStagingDir(result.OutDir); err != nil {
+	if err := resetAPISourceStagingDirs(result.OutDir); err != nil {
 		return err
 	}
-	if err := copyOpenAPIDocuments(result.OutDir, c.openAPIs); err != nil {
+	if err := copyAPISourceDocuments(result.OutDir, c.apiSources); err != nil {
 		return err
 	}
 	if err := writeFile(result.ProjectPath, renderProject(c)); err != nil {
@@ -724,28 +860,29 @@ func writeFile(path, content string) error {
 	return os.WriteFile(path, []byte(content), 0o644)
 }
 
-func resetOpenAPIStagingDir(outDir string) error {
-	openAPIDir := filepath.Join(outDir, "openapi")
-	if err := os.RemoveAll(openAPIDir); err != nil {
-		return fmt.Errorf("reset staged OpenAPI directory: %w", err)
+func resetAPISourceStagingDirs(outDir string) error {
+	for _, dir := range []string{apitools.APISourceKindOpenAPI, apitools.APISourceKindAWSSmithy, apitools.APISourceKindGoogleDiscovery} {
+		if err := os.RemoveAll(filepath.Join(outDir, dir)); err != nil {
+			return fmt.Errorf("reset staged API source directory %s: %w", dir, err)
+		}
 	}
 	return nil
 }
 
-func validateOpenAPIStagingSafety(outDir string, docs []apiDoc) error {
-	stagingDir, err := filepath.Abs(filepath.Join(outDir, "openapi"))
-	if err != nil {
-		return err
-	}
-	stagingDir = filepath.Clean(stagingDir)
+func validateAPISourceStagingSafety(outDir string, docs []apiDoc) error {
 	for _, doc := range docs {
+		stagingDir, err := filepath.Abs(filepath.Join(outDir, doc.Kind))
+		if err != nil {
+			return err
+		}
+		stagingDir = filepath.Clean(stagingDir)
 		sourcePath, err := filepath.Abs(doc.Path)
 		if err != nil {
-			return fmt.Errorf("resolve OpenAPI %s source path: %w", doc.ID, err)
+			return fmt.Errorf("resolve API source %s:%s source path: %w", doc.Kind, doc.ID, err)
 		}
 		sourcePath = filepath.Clean(sourcePath)
 		if pathWithin(sourcePath, stagingDir) {
-			return fmt.Errorf("stage OpenAPI %s: source %s is inside generated OpenAPI staging directory %s; choose an --out directory outside OpenAPI inputs", doc.ID, sourcePath, stagingDir)
+			return fmt.Errorf("stage API source %s:%s: source %s is inside generated API source staging directory %s; choose an --out directory outside API source inputs", doc.Kind, doc.ID, sourcePath, stagingDir)
 		}
 	}
 	return nil
@@ -759,7 +896,7 @@ func pathWithin(path, dir string) bool {
 	return rel == "." || (rel != ".." && !strings.HasPrefix(rel, ".."+string(filepath.Separator)))
 }
 
-func copyOpenAPIDocuments(outDir string, docs []apiDoc) error {
+func copyAPISourceDocuments(outDir string, docs []apiDoc) error {
 	for _, doc := range docs {
 		if strings.TrimSpace(doc.PackagePath) == "" {
 			continue
@@ -769,7 +906,7 @@ func copyOpenAPIDocuments(outDir string, docs []apiDoc) error {
 			return err
 		}
 		if err := copyRegularFile(doc.Path, dst); err != nil {
-			return fmt.Errorf("stage OpenAPI %s: %w", doc.ID, err)
+			return fmt.Errorf("stage API source %s:%s: %w", doc.Kind, doc.ID, err)
 		}
 	}
 	return nil
@@ -806,10 +943,36 @@ func copyRegularFile(src, dst string) error {
 	return os.Rename(tmp, dst)
 }
 
+func validateAPISourceInputStagingSafety(outDir string, inputs []APISourceInput) error {
+	for _, input := range inputs {
+		if strings.TrimSpace(input.Path) == "" {
+			continue
+		}
+		kind := normalizeAPISourceKind(input.Kind)
+		if kind == "" {
+			continue
+		}
+		stagingDir, err := filepath.Abs(filepath.Join(outDir, kind))
+		if err != nil {
+			return err
+		}
+		stagingDir = filepath.Clean(stagingDir)
+		sourcePath, err := filepath.Abs(input.Path)
+		if err != nil {
+			return fmt.Errorf("resolve API source %s:%s source path: %w", kind, firstNonEmpty(input.ID, input.Path), err)
+		}
+		sourcePath = filepath.Clean(sourcePath)
+		if pathWithin(sourcePath, stagingDir) {
+			return fmt.Errorf("stage API source %s:%s: source %s is inside generated API source staging directory %s; choose an --out directory outside API source inputs", kind, firstNonEmpty(input.ID, input.Path), sourcePath, stagingDir)
+		}
+	}
+	return nil
+}
+
 func renderProject(c conversionState) string {
 	var b strings.Builder
 	b.WriteString("# OpenUdon Terraform Conversion Draft\n\n")
-	b.WriteString("This package is unapproved review scaffolding generated from static Terraform/OpenTofu facts. It does not execute Terraform, providers, OpenAPI operations, or UWS workflows.\n\n")
+	b.WriteString("This package is unapproved review scaffolding generated from static Terraform/OpenTofu facts. It does not execute Terraform, providers, API source operations, or UWS workflows.\n\n")
 	b.WriteString("```openudon-policy\n")
 	b.WriteString("runtimes:\n")
 	b.WriteString("  openapi: true\n")
@@ -819,7 +982,7 @@ func renderProject(c conversionState) string {
 	b.WriteString("  ssh: false\n")
 	b.WriteString("```\n\n")
 	b.WriteString("## Goal\n\n")
-	b.WriteString("Review static Terraform/OpenTofu configuration facts against local OpenAPI operation candidates and produce a normal OpenUdon package candidate for human review.\n\n")
+	b.WriteString("Review static Terraform/OpenTofu configuration facts against local API source operation candidates and produce a normal OpenUdon package candidate for human review.\n\n")
 	fmt.Fprintf(&b, "- Config directory: `%s`\n", c.opts.ConfigDir)
 	fmt.Fprintf(&b, "- Action: `%s`\n", firstNonEmpty(c.opts.Action, "none"))
 	fmt.Fprintf(&b, "- Strict mode: `%t`\n", c.opts.Strict)
@@ -843,11 +1006,11 @@ func renderProject(c conversionState) string {
 	}
 	b.WriteString("\n## Outputs\n\n")
 	b.WriteString("- `review_package`: generated OpenUdon package artifacts for review; no operational result is produced by conversion.\n")
-	b.WriteString("\n## External Systems and OpenAPI\n\n")
-	for _, doc := range c.openAPIs {
-		fmt.Fprintf(&b, "- `%s`: source `%s`, staged package path `%s`.\n", doc.ID, doc.Path, doc.PackagePath)
+	b.WriteString("\n## External Systems and API Sources\n\n")
+	for _, doc := range c.apiSources {
+		fmt.Fprintf(&b, "- `%s` `%s`: source `%s`, staged package path `%s`.\n", doc.Kind, doc.ID, doc.Path, doc.PackagePath)
 	}
-	if len(c.openAPIs) == 0 {
+	if len(c.apiSources) == 0 {
 		b.WriteString("- none loaded\n")
 	}
 	b.WriteString("\n## Runtime Policy\n\n")
@@ -856,7 +1019,7 @@ func renderProject(c conversionState) string {
 	b.WriteString("\n## Data Flow\n\n")
 	for _, obj := range c.selected {
 		if isProviderLocalDataSource(obj) {
-			fmt.Fprintf(&b, "- Terraform `%s` `%s` is provider-local metadata preserved symbolically; no OpenAPI operation is generated.\n", obj.Kind, obj.Address)
+			fmt.Fprintf(&b, "- Terraform `%s` `%s` is provider-local metadata preserved symbolically; no API source operation is generated.\n", obj.Kind, obj.Address)
 			for _, attr := range obj.Config {
 				fmt.Fprintf(&b, "- `%s.%s`: symbolic Terraform expression `%s`.\n", obj.Address, attr.Path, attr.Value)
 			}
@@ -887,10 +1050,10 @@ func renderProject(c conversionState) string {
 	b.WriteString("- Sensitive or secret-like Terraform values are redacted into symbolic review inputs and must not appear as literals in generated artifacts.\n")
 	b.WriteString("\n## Safety and Approval Boundary\n\n")
 	b.WriteString("- Generated artifacts are unapproved by default and require human review before trusted-runner handoff.\n")
-	b.WriteString("- Side-effectful OpenAPI operations require review, sandbox proof-run approval, and trusted-runtime approval before production execution.\n")
+	b.WriteString("- Side-effectful API source operations require review, sandbox proof-run approval, and trusted-runtime approval before production execution.\n")
 	b.WriteString("- Direct production execution is not performed by conversion or synthesis.\n")
 	b.WriteString("\n## Fallback Behavior\n\n")
-	b.WriteString("- Unmatched Terraform targets, missing OpenAPI inputs, ambiguous operation matches, unresolved operation TODOs, and sensitive redaction TODOs remain diagnostics.\n")
+	b.WriteString("- Unmatched Terraform targets, missing API source inputs, ambiguous operation matches, unresolved operation TODOs, and sensitive redaction TODOs remain diagnostics.\n")
 	b.WriteString("- Strict mode fails when strict-failure diagnostics remain.\n")
 	b.WriteString("- Normal package quality fails unresolved conversion diagnostics so unsafe assumptions are visible to reviewers.\n")
 	b.WriteString("\n## Diagnostics\n\n")
@@ -906,7 +1069,7 @@ func renderProject(c conversionState) string {
 
 func renderIntent(c conversionState) (string, error) {
 	intent := &workflowintent.Intent{
-		OpenAPI: defaultOpenAPIPath(c.openAPIs),
+		Source: defaultAPISourcePath(c.apiSources),
 		Workflow: &workflowintent.WorkflowMeta{
 			Name:        "terraform_conversion_draft",
 			Description: "Draft review scaffold generated from static Terraform/OpenTofu configuration.",
@@ -943,7 +1106,7 @@ func renderIntent(c conversionState) (string, error) {
 			Type:      "openapi",
 			Do:        fmt.Sprintf("Review %s %s for Terraform %s %s", mapping.Purpose, mapping.Action, mapping.Object.Kind, mapping.Object.Address),
 			Provider:  mapping.Object.Binding,
-			OpenAPI:   mapping.OpenAPIPath,
+			Source:    mapping.SourcePath,
 			Operation: mapping.OperationID,
 		}
 		if step.Operation == "" {
@@ -959,7 +1122,7 @@ func renderIntent(c conversionState) (string, error) {
 				step.With = map[string]string{}
 			}
 			step.With[terraformAttributeReviewKey(attr.Path)] = localName
-			for _, requestKey := range terraformOpenAPIRequestKeys(mapping, attr.Path) {
+			for _, requestKey := range terraformAPIRequestKeys(mapping, attr.Path) {
 				step.With[requestKey] = localName
 			}
 		}
@@ -974,6 +1137,9 @@ func renderIntent(c conversionState) (string, error) {
 		for _, auth := range mapping.Auth {
 			bindingName := credentialBindingName(mapping.Object, auth)
 			if bindingName == "" {
+				continue
+			}
+			if mapping.SourceKind != apitools.APISourceKindOpenAPI {
 				continue
 			}
 			if step.With == nil {
@@ -1031,7 +1197,7 @@ func renderReview(c conversionState) string {
 	for _, mapping := range c.mappings {
 		ref := mapping.TodoID
 		if mapping.OperationID != "" {
-			ref = mapping.OpenAPIPath + ":" + mapping.OperationID
+			ref = mapping.SourcePath + ":" + mapping.OperationID
 		}
 		fmt.Fprintf(&b, "- `%s` %s/%s -> `%s`\n", mapping.Object.Address, mapping.Action, mapping.Purpose, ref)
 		for _, auth := range mapping.Auth {
@@ -1100,64 +1266,141 @@ func objectProviderLocalName(obj selectedObject) string {
 	return ""
 }
 
-func awsOperationIDForObject(obj selectedObject, purpose, action string) string {
-	if objectProviderLocalName(obj) != "aws" {
-		return ""
+func providerOperationTargetForObject(obj selectedObject, purpose, action string) operationTarget {
+	if adapter := providerAdapterForObject(obj); adapter != nil {
+		return adapter.OperationTarget(obj, purpose, action)
 	}
+	return operationTarget{}
+}
+
+func providerAdapterForObject(obj selectedObject) providerAdapter {
+	localName := objectProviderLocalName(obj)
+	for _, adapter := range providerAdapters {
+		if adapter.LocalName() == localName {
+			return adapter
+		}
+	}
+	return nil
+}
+
+type awsProviderAdapter struct{}
+
+func (awsProviderAdapter) LocalName() string {
+	return "aws"
+}
+
+func (awsProviderAdapter) IsProviderLocalDataSource(obj selectedObject) bool {
+	if obj.Kind != "data_source" {
+		return false
+	}
+	switch obj.Type {
+	case "aws_iam_policy_document", "aws_partition", "aws_region":
+		return true
+	default:
+		return false
+	}
+}
+
+func (awsProviderAdapter) OperationTarget(obj selectedObject, purpose, action string) operationTarget {
 	purpose = strings.ToLower(strings.TrimSpace(purpose))
 	action = strings.ToLower(strings.TrimSpace(action))
 	switch obj.Type {
 	case "aws_s3_bucket":
 		if obj.Kind == "resource" && purpose == "create" && (action == "create" || action == "replace") {
-			return "CreateBucket"
+			return awsOperationTarget("s3", "CreateBucket")
 		}
 		if obj.Kind == "data_source" && purpose == "read" {
-			return "GetBucketLocation"
+			return awsOperationTarget("s3", "GetBucketLocation")
 		}
 		if obj.Kind == "data_source" && purpose == "list" {
-			return "ListBuckets"
+			return awsOperationTarget("s3", "ListBuckets")
 		}
 	case "aws_s3_bucket_accelerate_configuration":
 		if obj.Kind == "resource" && purpose == "create" && (action == "create" || action == "replace") {
-			return "PutBucketAccelerateConfiguration"
+			return awsOperationTarget("s3", "PutBucketAccelerateConfiguration")
 		}
 	case "aws_caller_identity":
 		if obj.Kind == "data_source" && purpose == "read" {
-			return "POST_GetCallerIdentity"
+			return awsOperationTarget("sts", "POST_GetCallerIdentity")
 		}
 	case "aws_iam_role":
 		if obj.Kind == "resource" && purpose == "create" && (action == "create" || action == "replace") {
-			return "POST_CreateRole"
+			return awsOperationTarget("iam", "POST_CreateRole")
 		}
 		if obj.Kind == "resource" && purpose == "delete" {
-			return "POST_DeleteRole"
+			return awsOperationTarget("iam", "POST_DeleteRole")
 		}
 	case "aws_iam_role_policy":
 		if obj.Kind == "resource" && (purpose == "create" || purpose == "update") && (action == "create" || action == "update" || action == "replace") {
-			return "POST_PutRolePolicy"
+			return awsOperationTarget("iam", "POST_PutRolePolicy")
 		}
 		if obj.Kind == "resource" && purpose == "delete" {
-			return "POST_DeleteRolePolicy"
+			return awsOperationTarget("iam", "POST_DeleteRolePolicy")
 		}
 	case "aws_lambda_function":
 		if obj.Kind == "resource" && purpose == "create" && (action == "create" || action == "replace") {
-			return "CreateFunction"
+			return awsOperationTarget("lambda", "CreateFunction")
 		}
 		if obj.Kind == "resource" && purpose == "delete" {
-			return "DeleteFunction"
+			return awsOperationTarget("lambda", "DeleteFunction")
 		}
 	case "aws_lambda_function_url":
 		if obj.Kind == "resource" && purpose == "create" && (action == "create" || action == "replace") {
-			return "CreateFunctionUrlConfig"
+			return awsOperationTarget("lambda", "CreateFunctionUrlConfig")
 		}
 		if obj.Kind == "resource" && purpose == "update" {
-			return "UpdateFunctionUrlConfig"
+			return awsOperationTarget("lambda", "UpdateFunctionUrlConfig")
 		}
 		if obj.Kind == "resource" && purpose == "delete" {
-			return "DeleteFunctionUrlConfig"
+			return awsOperationTarget("lambda", "DeleteFunctionUrlConfig")
 		}
 	}
-	return ""
+	return operationTarget{}
+}
+
+func awsOperationTarget(service, operationID string) operationTarget {
+	operationIDs := []string{operationID}
+	if strings.HasPrefix(operationID, "POST_") || strings.HasPrefix(operationID, "GET_") {
+		operationIDs = append(operationIDs, awsQueryProtocolAction(operationID))
+	}
+	return operationTarget{
+		SourceKinds:  []string{apitools.APISourceKindAWSSmithy, apitools.APISourceKindOpenAPI},
+		SourceIDs:    []string{service, "aws-" + service, "aws_" + service, "aws-" + service + "-smithy-model"},
+		OperationIDs: operationIDs,
+	}
+}
+
+type googleProviderAdapter struct{}
+
+func (googleProviderAdapter) LocalName() string {
+	return "google"
+}
+
+func (googleProviderAdapter) IsProviderLocalDataSource(selectedObject) bool {
+	return false
+}
+
+func (googleProviderAdapter) OperationTarget(obj selectedObject, purpose, action string) operationTarget {
+	purpose = strings.ToLower(strings.TrimSpace(purpose))
+	action = strings.ToLower(strings.TrimSpace(action))
+	switch obj.Type {
+	case "google_storage_bucket":
+		if obj.Kind == "resource" && purpose == "create" && (action == "create" || action == "replace") {
+			return googleOperationTarget("storage", "storage.buckets.insert")
+		}
+		if obj.Kind == "data_source" && purpose == "read" {
+			return googleOperationTarget("storage", "storage.buckets.get")
+		}
+	}
+	return operationTarget{}
+}
+
+func googleOperationTarget(service, operationID string) operationTarget {
+	return operationTarget{
+		SourceKinds:  []string{apitools.APISourceKindGoogleDiscovery, apitools.APISourceKindOpenAPI},
+		SourceIDs:    []string{service, "google-" + service, "google-cloud-" + service, "google-cloud-" + service + "-discovery-v1"},
+		OperationIDs: []string{operationID, normalizeName(operationID)},
+	}
 }
 
 func awsQueryProtocolStaticBindings(mapping objectMapping) map[string]string {
@@ -1165,7 +1408,7 @@ func awsQueryProtocolStaticBindings(mapping objectMapping) map[string]string {
 		return nil
 	}
 	action := awsQueryProtocolAction(mapping.OperationID)
-	version := awsQueryProtocolVersion(mapping.OpenAPIID, mapping.OpenAPIPath)
+	version := awsQueryProtocolVersion(mapping.SourceID, mapping.SourcePath)
 	if action == "" || version == "" {
 		return nil
 	}
@@ -1197,33 +1440,61 @@ func awsQueryProtocolVersion(openAPIID, openAPIPath string) string {
 	}
 }
 
-func terraformOpenAPIRequestKeys(mapping objectMapping, attrPath string) []string {
+func terraformAPIRequestKeys(mapping objectMapping, attrPath string) []string {
 	attrPath = strings.TrimSpace(attrPath)
 	if attrPath == "" {
 		return nil
 	}
-	if objectProviderLocalName(mapping.Object) != "aws" {
-		return nil
-	}
-	switch mapping.OperationID {
-	case "CreateFunctionUrlConfig", "UpdateFunctionUrlConfig", "DeleteFunctionUrlConfig":
-		if attrPath == "function_name" {
-			return []string{"FunctionName"}
+	switch objectProviderLocalName(mapping.Object) {
+	case "aws":
+		switch mapping.OperationID {
+		case "CreateFunctionUrlConfig", "UpdateFunctionUrlConfig", "DeleteFunctionUrlConfig":
+			if attrPath == "function_name" {
+				return []string{"FunctionName"}
+			}
+		case "CreateRole", "POST_CreateRole":
+			if mapping.SourceKind == apitools.APISourceKindAWSSmithy {
+				switch attrPath {
+				case "name":
+					return []string{"RoleName"}
+				case "assume_role_policy":
+					return []string{"AssumeRolePolicyDocument"}
+				}
+			}
+		}
+	case "google":
+		if mapping.SourceKind == apitools.APISourceKindGoogleDiscovery && mapping.OperationID == "storage.buckets.insert" {
+			switch attrPath {
+			case "project":
+				return []string{"project"}
+			case "name":
+				return []string{"name"}
+			case "location":
+				return []string{"location"}
+			}
 		}
 	}
 	return nil
 }
 
 func credentialBindingName(obj selectedObject, auth apitools.AuthRequirementSummary) string {
-	if auth.Kind != "aws_signature" {
-		return ""
+	switch auth.Kind {
+	case "aws_signature":
+		provider := credentialProviderName(obj)
+		scheme := firstNonEmpty(auth.Scheme, "sigv4")
+		return normalizeName(provider + "_" + scheme)
+	case "oauth2":
+		if auth.Dialect == "gcp" || objectProviderLocalName(obj) == "google" {
+			return normalizeName(firstNonEmpty(objectProviderLocalName(obj), "google") + "_oauth2")
+		}
 	}
-	provider := credentialProviderName(obj)
-	scheme := firstNonEmpty(auth.Scheme, "sigv4")
-	return normalizeName(provider + "_" + scheme)
+	return ""
 }
 
 func credentialBindingAddress(obj selectedObject, auth apitools.AuthRequirementSummary) string {
+	if auth.Kind == "oauth2" {
+		return "provider." + firstNonEmpty(objectProviderLocalName(obj), "google") + ".oauth2"
+	}
 	provider := strings.TrimPrefix(firstNonEmpty(strings.TrimSpace(obj.Provider), "provider."+credentialProviderName(obj)), "provider.")
 	scheme := firstNonEmpty(auth.Scheme, "sigv4")
 	return "provider." + provider + "." + scheme
@@ -1358,24 +1629,32 @@ func firstNonEmpty(values ...string) string {
 	return ""
 }
 
-func packageOpenAPIPath(id, sourcePath string) string {
+func packageAPISourcePath(kind, id, sourcePath string) string {
+	kind = normalizeAPISourceKind(kind)
+	if kind == "" {
+		kind = apitools.APISourceKindOpenAPI
+	}
 	ext := strings.ToLower(filepath.Ext(sourcePath))
 	switch ext {
 	case ".json", ".yaml", ".yml":
 	default:
-		ext = ".yaml"
+		if kind == apitools.APISourceKindOpenAPI {
+			ext = ".yaml"
+		} else {
+			ext = ".json"
+		}
 	}
-	return filepath.ToSlash(filepath.Join("openapi", normalizeName(id)+ext))
+	return filepath.ToSlash(filepath.Join(kind, normalizeName(id)+ext))
 }
 
-func defaultOpenAPIPath(docs []apiDoc) string {
+func defaultAPISourcePath(docs []apiDoc) string {
 	if len(docs) == 0 {
 		return ""
 	}
 	return docs[0].PackagePath
 }
 
-func openAPIForOperation(docs []apiDoc, operation apitools.OperationSummary) apiDoc {
+func apiSourceForOperation(docs []apiDoc, operation apitools.OperationSummary) apiDoc {
 	for _, doc := range docs {
 		if operation.DocumentName != "" && doc.ID == operation.DocumentName {
 			return doc
@@ -1385,6 +1664,22 @@ func openAPIForOperation(docs []apiDoc, operation apitools.OperationSummary) api
 		}
 	}
 	return apiDoc{}
+}
+
+func normalizeAPISourceKind(kind string) string {
+	switch strings.ToLower(strings.TrimSpace(kind)) {
+	case "", apitools.APISourceKindOpenAPI, "swagger":
+		if strings.TrimSpace(kind) == "" {
+			return ""
+		}
+		return apitools.APISourceKindOpenAPI
+	case apitools.APISourceKindAWSSmithy, "smithy", "smithy-json":
+		return apitools.APISourceKindAWSSmithy
+	case apitools.APISourceKindGoogleDiscovery, "discovery", "google":
+		return apitools.APISourceKindGoogleDiscovery
+	default:
+		return ""
+	}
 }
 
 func sortDiagnostics(diags []Diagnostic) {
@@ -1398,6 +1693,16 @@ func sortDiagnostics(diags []Diagnostic) {
 func hasStrictFailure(diags []Diagnostic) bool {
 	for _, diag := range diags {
 		if diag.StrictFailure {
+			return true
+		}
+	}
+	return false
+}
+
+func hasBlockingAPISourceDiagnostic(diags []Diagnostic) bool {
+	for _, diag := range diags {
+		switch diag.Code {
+		case "api_source.missing", "api_source.invalid", "api_source.duplicate_id", "api_source.package_path_collision", "api_source.load_error", "api_source.index_error", "api_source.document_read", "api_source.document_parse", "api_source.document_kind":
 			return true
 		}
 	}

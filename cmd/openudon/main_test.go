@@ -134,6 +134,7 @@ func TestCLIConvertTFHelpIncludesContract(t *testing.T) {
 	for _, expected := range []string{
 		"Usage: openudon convert tf",
 		"--config-dir",
+		"--api-source",
 		"--openapi",
 		"--action",
 		"--target",

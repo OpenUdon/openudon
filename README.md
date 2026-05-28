@@ -498,7 +498,7 @@ LLM-assisted commands; explicit `--provider` and `--model` flags still take prec
 - [Safety](docs/safety.md)
 - [Eval gallery](docs/eval-gallery.md)
 - [SaaS operator release path](docs/saas-operator-release.md)
-- [Terraform/OpenAPI conversion](docs/terraform-openapi-conversion.md)
+- [Terraform/API source conversion](docs/terraform-openapi-conversion.md)
 - [Release stewardship](docs/release-stewardship.md)
 - [Release note template](docs/release-note-template.md)
 - [Contributing](CONTRIBUTING.md)

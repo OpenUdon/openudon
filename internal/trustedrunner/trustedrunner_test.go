@@ -593,6 +593,9 @@ func TestRunConfigIncludesNestedOpenAPIPaths(t *testing.T) {
 	if !strings.Contains(string(data), `"openapi/nested/support.yaml"`) {
 		t.Fatalf("run config missing nested OpenAPI path:\n%s", data)
 	}
+	if !strings.Contains(string(data), `"api_source_paths"`) {
+		t.Fatalf("run config missing api_source_paths compatibility field:\n%s", data)
+	}
 	var config RunConfig
 	if err := json.Unmarshal(data, &config); err != nil {
 		t.Fatal(err)
@@ -647,11 +650,11 @@ func TestRunConfigIncludesAdvisorySecuritySidecarPackagePath(t *testing.T) {
 	if !stringSliceContains(config.PackagePaths, "google-discovery/gmail.security.json") {
 		t.Fatalf("package paths missing advisory security sidecar: %#v", config.PackagePaths)
 	}
-	if !stringSliceContains(config.OpenAPIPaths, "google-discovery/gmail.json") {
-		t.Fatalf("API source paths missing source: %#v", config.OpenAPIPaths)
+	if !stringSliceContains(config.APISourcePaths, "google-discovery/gmail.json") || !stringSliceContains(config.OpenAPIPaths, "google-discovery/gmail.json") {
+		t.Fatalf("API source paths missing source: api=%#v openapi=%#v", config.APISourcePaths, config.OpenAPIPaths)
 	}
-	if stringSliceContains(config.OpenAPIPaths, "google-discovery/gmail.security.json") {
-		t.Fatalf("API source paths included advisory security sidecar: %#v", config.OpenAPIPaths)
+	if stringSliceContains(config.APISourcePaths, "google-discovery/gmail.security.json") || stringSliceContains(config.OpenAPIPaths, "google-discovery/gmail.security.json") {
+		t.Fatalf("API source paths included advisory security sidecar: api=%#v openapi=%#v", config.APISourcePaths, config.OpenAPIPaths)
 	}
 }
 
@@ -1216,7 +1219,7 @@ func TestUdonRunnerRejectsOpenAPIUnsafePaths(t *testing.T) {
 			name:       "absolute-outside-package",
 			path:       "",
 			setup:      func(t *testing.T, packageRoot string) {},
-			wantOutput: "openapi path escapes package_root",
+			wantOutput: "api source path escapes package_root",
 		},
 		{
 			name: "symlink",
@@ -1232,7 +1235,7 @@ func TestUdonRunnerRejectsOpenAPIUnsafePaths(t *testing.T) {
 					t.Fatal(err)
 				}
 			},
-			wantOutput: "openapi file must not be a symlink",
+			wantOutput: "api source file must not be a symlink",
 		},
 		{
 			name: "symlinked-parent",
@@ -1248,7 +1251,7 @@ func TestUdonRunnerRejectsOpenAPIUnsafePaths(t *testing.T) {
 					t.Fatal(err)
 				}
 			},
-			wantOutput: "openapi file must not be a symlink",
+			wantOutput: "api source file must not be a symlink",
 		},
 		{
 			name: "directory",
@@ -1259,7 +1262,7 @@ func TestUdonRunnerRejectsOpenAPIUnsafePaths(t *testing.T) {
 					t.Fatal(err)
 				}
 			},
-			wantOutput: "openapi file must be a regular file",
+			wantOutput: "api source file must be a regular file",
 		},
 		{
 			name: "non-regular",
@@ -1277,7 +1280,7 @@ func TestUdonRunnerRejectsOpenAPIUnsafePaths(t *testing.T) {
 					t.Skipf("fifo unavailable: %v", err)
 				}
 			},
-			wantOutput: "openapi file must be a regular file",
+			wantOutput: "api source file must be a regular file",
 		},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
@@ -1668,7 +1671,7 @@ func capturedArgValue(t *testing.T, args, flag string) string {
 func withRunnerPackageDigest(t *testing.T, packageRoot string, config RunConfig) RunConfig {
 	t.Helper()
 	paths := []string{runnerPackageRel(t, packageRoot, config.WorkflowPath)}
-	for _, path := range config.OpenAPIPaths {
+	for _, path := range append(append([]string(nil), config.APISourcePaths...), config.OpenAPIPaths...) {
 		paths = append(paths, runnerPackageRel(t, packageRoot, path))
 	}
 	config.PackagePaths = paths
