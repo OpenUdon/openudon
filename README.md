@@ -11,7 +11,7 @@ It owns project templates, optional workflow orchestration policy, example artif
 validation, review handoff evidence, package digests, credential policy, and trusted-runner glue.
 Public workflow semantics belong in `github.com/OpenUdon/uws`; API/event source metadata discovery,
 import, materialization, search, and indexing belong in `github.com/OpenUdon/apitools`; static
-Terraform/OpenTofu parsing for `openudon convert tf` belongs in `github.com/OpenUdon/tfconfig`.
+Terraform/OpenTofu conversion now belongs in `github.com/OpenUdon/ramen`; OpenUdon no longer owns a Terraform conversion command or imports `tfconfig`.
 OpenUdon can stage OpenAPI, Google Discovery, AWS Smithy, AsyncAPI, GraphQL, OpenRPC,
 gRPC/protobuf, and OData source documents as first-class UWS source descriptions when the trusted
 executor supports them.
@@ -498,7 +498,7 @@ LLM-assisted commands; explicit `--provider` and `--model` flags still take prec
 - [Safety](docs/safety.md)
 - [Eval gallery](docs/eval-gallery.md)
 - [SaaS operator release path](docs/saas-operator-release.md)
-- [Terraform/API source conversion](docs/terraform-openapi-conversion.md)
+- [Terraform/API source conversion migration note](docs/terraform-openapi-conversion.md)
 - [Release stewardship](docs/release-stewardship.md)
 - [Release note template](docs/release-note-template.md)
 - [Contributing](CONTRIBUTING.md)

@@ -124,29 +124,6 @@ func TestCLIRunHelpIncludesApprovalGates(t *testing.T) {
 	}
 }
 
-func TestCLIConvertTFHelpIncludesContract(t *testing.T) {
-	cmd := helperCommand("convert", "tf", "--help")
-	output, err := cmd.CombinedOutput()
-	if err != nil {
-		t.Fatalf("convert tf help failed: %v\n%s", err, output)
-	}
-	text := string(output)
-	for _, expected := range []string{
-		"Usage: openudon convert tf",
-		"--config-dir",
-		"--api-source",
-		"--openapi",
-		"--action",
-		"--target",
-		"--strict",
-		"does not execute Terraform",
-	} {
-		if !strings.Contains(text, expected) {
-			t.Fatalf("convert tf help missing %q:\n%s", expected, text)
-		}
-	}
-}
-
 func TestCLICatalogHelpIncludesProviderCommands(t *testing.T) {
 	cmd := helperCommand("catalog", "--help")
 	output, err := cmd.CombinedOutput()
@@ -288,43 +265,6 @@ func TestCLIN8nBridgeValidateSmoke(t *testing.T) {
 	text := string(output)
 	if !strings.Contains(text, "openudon: n8n bridge validated 1 summary file") || !strings.Contains(text, "n8n-slack-message-post") {
 		t.Fatalf("unexpected n8n-bridge output:\n%s", text)
-	}
-}
-
-func TestCLIConvertTFWritesDraftArtifacts(t *testing.T) {
-	root := t.TempDir()
-	configDir := filepath.Join(root, "tf")
-	openAPIPath := filepath.Join(root, "openapi.yaml")
-	outDir := filepath.Join(root, "out")
-	mustWriteCLIFile(t, filepath.Join(configDir, "main.tf"), []byte(`
-resource "aws_instance" "web" {
-  name = "web"
-}
-`))
-	mustWriteCLIFile(t, openAPIPath, []byte(`openapi: 3.0.0
-info:
-  title: AWS Test
-  version: v1
-paths:
-  /instances:
-    post:
-      operationId: createAwsInstance
-      responses:
-        "200":
-          description: ok
-`))
-	cmd := helperCommand("convert", "tf", "--config-dir", configDir, "--openapi", "aws="+openAPIPath, "--action", "create", "--out", outDir)
-	output, err := cmd.CombinedOutput()
-	if err != nil {
-		t.Fatalf("convert tf failed: %v\n%s", err, output)
-	}
-	if !strings.Contains(string(output), "openudon: convert tf wrote") {
-		t.Fatalf("convert output missing summary:\n%s", output)
-	}
-	for _, rel := range []string{"project.md", "workflows/intent.hcl", "expected/diagnostics.json", "expected/diagnostics.md", "expected/review.md"} {
-		if _, err := os.Stat(filepath.Join(outDir, rel)); err != nil {
-			t.Fatalf("missing %s: %v", rel, err)
-		}
 	}
 }
 

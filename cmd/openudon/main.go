@@ -21,7 +21,6 @@ import (
 	"github.com/OpenUdon/openudon/internal/readiness"
 	"github.com/OpenUdon/openudon/internal/smokematrix"
 	"github.com/OpenUdon/openudon/internal/synthesize"
-	"github.com/OpenUdon/openudon/internal/tfconvert"
 	"github.com/OpenUdon/openudon/internal/trustedrunner"
 	uwsprofile "github.com/OpenUdon/openudon/internal/uwsexec"
 	"github.com/OpenUdon/openudon/internal/uwsschema"
@@ -41,7 +40,6 @@ func main() {
 		fmt.Fprintf(flag.CommandLine.Output(), "  catalog   inspect first-class provider catalog metadata\n")
 		fmt.Fprintf(flag.CommandLine.Output(), "  check-apitools-boundary verify OpenUdon repository boundaries\n")
 		fmt.Fprintf(flag.CommandLine.Output(), "  check-doc-memory verify local memory-bank and evolution harness files\n")
-		fmt.Fprintf(flag.CommandLine.Output(), "  convert   generate draft review scaffolding from supported source formats\n")
 		fmt.Fprintf(flag.CommandLine.Output(), "  eval      run synthesis eval briefs and write pass/fail reports\n")
 		fmt.Fprintf(flag.CommandLine.Output(), "  n8n-bridge validate review-first n8n pattern summary evidence\n")
 		fmt.Fprintf(flag.CommandLine.Output(), "  promote   export/validate UWS from an existing workflow.hcl\n")
@@ -77,8 +75,6 @@ func main() {
 			fmt.Fprintln(os.Stderr, err)
 			os.Exit(1)
 		}
-	case "convert":
-		runConvertCommand(flag.Args()[1:])
 	case "catalog":
 		runCatalogCommand(flag.Args()[1:])
 	case "validate":
@@ -138,76 +134,6 @@ func (f *repeatedStringFlag) Set(value string) error {
 	return nil
 }
 
-func runConvertCommand(args []string) {
-	if len(args) == 0 || args[0] != "tf" {
-		fmt.Fprintln(os.Stderr, "usage: openudon convert tf [--config-dir DIR] --api-source KIND:ID=PATH [--openapi ID=PATH] [--action create|update|delete|replace] [--target ADDRESS] [--out DIR] [--strict]")
-		os.Exit(2)
-	}
-	runConvertTFCommand(args[1:])
-}
-
-func runConvertTFCommand(args []string) {
-	fs := flag.NewFlagSet("convert tf", flag.ExitOnError)
-	configDir := fs.String("config-dir", ".", "Terraform/OpenTofu configuration directory")
-	action := fs.String("action", "", "Managed resource action: create, update, delete, or replace")
-	outDir := fs.String("out", "./.openudon/convert", "Output directory for draft review artifacts")
-	strict := fs.Bool("strict", false, "Fail when strict-failure diagnostics remain")
-	var openAPIs repeatedStringFlag
-	var apiSources repeatedStringFlag
-	var targets repeatedStringFlag
-	fs.Var(&openAPIs, "openapi", "Repeatable OpenAPI input as ID=PATH")
-	fs.Var(&apiSources, "api-source", "Repeatable API source input as KIND:ID=PATH; kind is openapi, aws-smithy, or google-discovery")
-	fs.Var(&targets, "target", "Repeatable Terraform address target")
-	fs.Usage = func() {
-		fmt.Fprintf(fs.Output(), "Usage: openudon convert tf [--config-dir DIR] --api-source KIND:ID=PATH [--openapi ID=PATH] [--action create|update|delete|replace] [--target ADDRESS] [--out DIR] [--strict]\n")
-		fmt.Fprintf(fs.Output(), "\nGenerates draft OpenUdon review scaffolding from static Terraform/OpenTofu configuration and local API source documents. It does not execute Terraform, providers, API source operations, or UWS workflows.\n\n")
-		fs.PrintDefaults()
-	}
-	if err := fs.Parse(args); err != nil {
-		os.Exit(2)
-	}
-	inputs, err := parseOpenAPIFlags(openAPIs)
-	if err != nil {
-		fmt.Fprintln(os.Stderr, err)
-		os.Exit(2)
-	}
-	sources, err := parseAPISourceFlags(apiSources)
-	if err != nil {
-		fmt.Fprintln(os.Stderr, err)
-		os.Exit(2)
-	}
-	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
-	defer stop()
-	result, err := tfconvert.Convert(ctx, tfconvert.Options{
-		ConfigDir:  *configDir,
-		OpenAPIs:   inputs,
-		APISources: sources,
-		Action:     *action,
-		Targets:    []string(targets),
-		OutDir:     *outDir,
-		Strict:     *strict,
-	})
-	if err != nil {
-		fmt.Fprintln(os.Stderr, err)
-		if result != nil {
-			fmt.Fprintf(os.Stderr, "diagnostics: %s\n", result.DiagnosticsJSON)
-		}
-		if tfconvert.IsStrictFailure(err) {
-			os.Exit(1)
-		}
-		os.Exit(1)
-	}
-	fmt.Printf("openudon: convert tf wrote %s\n", result.OutDir)
-	fmt.Printf("  project:     %s\n", result.ProjectPath)
-	fmt.Printf("  intent:      %s\n", result.IntentPath)
-	fmt.Printf("  workflow:    %s\n", result.WorkflowPath)
-	fmt.Printf("  uws:         %s\n", result.UWSPath)
-	fmt.Printf("  plan:        %s\n", result.PlanJSONPath)
-	fmt.Printf("  diagnostics: %s\n", result.DiagnosticsJSON)
-	fmt.Printf("  review:      %s\n", result.ReviewPath)
-	fmt.Printf("  quality:     %s\n", result.QualityJSONPath)
-}
-
 func runN8nBridgeCommand(args []string) {
 	if len(args) == 0 || args[0] != "validate" {
 		fmt.Fprintln(os.Stderr, "usage: openudon n8n-bridge validate [--root examples/eval] [--file examples/eval/<name>/reference/n8n-bridge.json]")
@@ -251,34 +177,6 @@ func runN8nBridgeValidateCommand(args []string) {
 	for _, result := range results {
 		fmt.Printf("openudon: checked %s (%s, %s)\n", result.Path, result.Summary.Fixture, result.Summary.Validation.Status)
 	}
-}
-
-func parseOpenAPIFlags(values []string) ([]tfconvert.OpenAPIInput, error) {
-	inputs := make([]tfconvert.OpenAPIInput, 0, len(values))
-	for _, value := range values {
-		id, path, ok := strings.Cut(value, "=")
-		if !ok || strings.TrimSpace(id) == "" || strings.TrimSpace(path) == "" {
-			return nil, fmt.Errorf("--openapi must be ID=PATH, got %q", value)
-		}
-		inputs = append(inputs, tfconvert.OpenAPIInput{ID: strings.TrimSpace(id), Path: strings.TrimSpace(path)})
-	}
-	return inputs, nil
-}
-
-func parseAPISourceFlags(values []string) ([]tfconvert.APISourceInput, error) {
-	inputs := make([]tfconvert.APISourceInput, 0, len(values))
-	for _, value := range values {
-		left, path, ok := strings.Cut(value, "=")
-		if !ok || strings.TrimSpace(left) == "" || strings.TrimSpace(path) == "" {
-			return nil, fmt.Errorf("--api-source must be KIND:ID=PATH, got %q", value)
-		}
-		kind, id, ok := strings.Cut(left, ":")
-		if !ok || strings.TrimSpace(kind) == "" || strings.TrimSpace(id) == "" {
-			return nil, fmt.Errorf("--api-source must be KIND:ID=PATH, got %q", value)
-		}
-		inputs = append(inputs, tfconvert.APISourceInput{Kind: strings.TrimSpace(kind), ID: strings.TrimSpace(id), Path: strings.TrimSpace(path)})
-	}
-	return inputs, nil
 }
 
 func runValidateCommand(args []string) {

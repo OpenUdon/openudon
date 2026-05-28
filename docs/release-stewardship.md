@@ -105,17 +105,11 @@ when availability or rate limits look external.
 
 ## Terraform/OpenTofu Conversion
 
-`openudon convert tf` release stewardship uses the same boundaries:
-
-- static Terraform/OpenTofu facts come from `github.com/OpenUdon/tfconfig`;
-- API source operation metadata comes from `github.com/OpenUdon/apitools`;
-- OpenAPI/Swagger remains supported, AWS should use official Smithy JSON as
-  its primary source family, and GCP/Google should use official Google
-  Discovery as its primary source family when provider-adapter work resumes;
-- generated workflow, review, quality, and handoff artifacts remain unapproved
-  until normal OpenUdon review and trusted-runner checks pass;
-- Terraform/OpenTofu execution, provider plugins, state, plan/apply, and
-  credential resolution stay outside OpenUdon.
+Compatibility with Ramen-generated Terraform conversion artifacts uses the
+same review-first boundaries. Terraform/OpenTofu parsing and conversion live in
+Ramen and `tfconfig`; OpenUdon does not import `tfconfig`. Terraform/OpenTofu
+execution, provider plugins, state, plan/apply, and credential resolution stay
+outside OpenUdon.
 
 ## Boundary Recap
 

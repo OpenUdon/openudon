@@ -16,7 +16,7 @@ var (
 	blockedAPIToolsImports   = regexp.MustCompile(`github\.com/OpenUdon/apitools/(llm|icot|context7)`)
 	blockedAPIToolsSymbols   = regexp.MustCompile(`apitools\.(Artifact(Set)?|Assumption|Binding(Contract|Field|Ref)|BuildBindingContract|BuildReviewPackage|ChatClient|CompleteJSONWithFallback|ComputeReviewHandoffDigest|ContainsLikelyCredentialValue|Documentation(Context|Snippet)|Draft|Flow|Interactive|JSONCompletion|Leaf(Adapter|Options)|NewLeafAdapter|Question(Plan)?|Review(Handoff|State|Package|OwnerSplit|ExecutionPolicy|CredentialBindings|TrustedRunner)|Slot|SymbolicBinding|Transcript|ValidateReviewHandoff)`)
 	blockedExecutorImports   = regexp.MustCompile(`github\.com/(OpenUdon/udon|genelet/(udon|cmd|dns|fileio|fnct|ldaps|llm|s3|scp|sftp|smtp|sql|ssh))(/[^"]*)?`)
-	blockedTerraformImports  = regexp.MustCompile(`github\.com/(opentofu/opentofu|hashicorp/terraform|OpenUdon/tfconfig/_upstream)(/[^"]*)?`)
+	blockedTerraformImports  = regexp.MustCompile(`github\.com/(opentofu/opentofu|hashicorp/terraform|OpenUdon/tfconfig)(/[^"]*)?`)
 	staleDocReferencePattern = regexp.MustCompile(`ICOT\.md|SYMPHONY_WRAPPER\.md|WORKFLOW\.md|openudon\.md|TODO\.md|migrate\.md`)
 )
 

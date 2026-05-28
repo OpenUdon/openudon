@@ -85,17 +85,18 @@ var _ = dethcl.Body{}
 	}
 }
 
-func TestCheckAPIToolsBoundaryAllowsPublicTFConfigPackage(t *testing.T) {
+func TestCheckAPIToolsBoundaryRejectsTFConfigPackage(t *testing.T) {
 	root := t.TempDir()
-	writeFile(t, filepath.Join(root, "internal", "ok.go"), []byte(`package ok
+	writeFile(t, filepath.Join(root, "internal", "bad.go"), []byte(`package bad
 
 import "github.com/OpenUdon/tfconfig"
 
 var _ tfconfig.Document
 `))
 
-	if err := CheckAPIToolsBoundary(root); err != nil {
-		t.Fatalf("CheckAPIToolsBoundary returned error for public tfconfig import: %v", err)
+	err := CheckAPIToolsBoundary(root)
+	if err == nil || !strings.Contains(err.Error(), "github.com/OpenUdon/tfconfig") {
+		t.Fatalf("expected tfconfig import failure, got %v", err)
 	}
 }
 
