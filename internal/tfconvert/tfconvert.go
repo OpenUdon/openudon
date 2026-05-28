@@ -19,7 +19,9 @@ import (
 )
 
 const (
-	defaultOutDir = "./.openudon/convert"
+	defaultOutDir                = "./.openudon/convert"
+	apiSourceStagingMarker       = ".openudon-tfconvert-api-source-staging.json"
+	apiSourceStagingMarkerFormat = "openudon.tfconvert.api-source-staging.v1"
 )
 
 type Options struct {
@@ -62,6 +64,11 @@ type Result struct {
 	Diagnostics     []Diagnostic
 	StrictFailed    bool
 	QualityPassed   bool
+}
+
+type apiSourceStagingOwnership struct {
+	Version string   `json:"version"`
+	Dirs    []string `json:"dirs"`
 }
 
 type Diagnostic struct {
@@ -829,6 +836,9 @@ func writeArtifacts(result *Result, c conversionState) error {
 	if err := copyAPISourceDocuments(result.OutDir, c.apiSources); err != nil {
 		return err
 	}
+	if err := writeAPISourceStagingMarker(result.OutDir, c.apiSources); err != nil {
+		return err
+	}
 	if err := writeFile(result.ProjectPath, renderProject(c)); err != nil {
 		return err
 	}
@@ -861,12 +871,77 @@ func writeFile(path, content string) error {
 }
 
 func resetAPISourceStagingDirs(outDir string) error {
+	ownedDirs, err := readAPISourceStagingMarker(outDir)
+	if err != nil {
+		return err
+	}
 	for _, dir := range []string{apitools.APISourceKindOpenAPI, apitools.APISourceKindAWSSmithy, apitools.APISourceKindGoogleDiscovery} {
-		if err := os.RemoveAll(filepath.Join(outDir, dir)); err != nil {
+		path := filepath.Join(outDir, dir)
+		info, err := os.Lstat(path)
+		if err != nil {
+			if os.IsNotExist(err) {
+				continue
+			}
+			return fmt.Errorf("inspect staged API source directory %s: %w", dir, err)
+		}
+		if !info.IsDir() {
+			return fmt.Errorf("refusing to reset API source staging path %s because it is not a directory", path)
+		}
+		if !ownedDirs[dir] {
+			return fmt.Errorf("refusing to reset API source staging directory %s because it is not marked as owned by openudon convert tf; choose a dedicated --out directory or remove/relocate the existing %s directory", path, dir)
+		}
+		if err := os.RemoveAll(path); err != nil {
 			return fmt.Errorf("reset staged API source directory %s: %w", dir, err)
 		}
 	}
 	return nil
+}
+
+func readAPISourceStagingMarker(outDir string) (map[string]bool, error) {
+	path := filepath.Join(outDir, apiSourceStagingMarker)
+	data, err := os.ReadFile(path)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return map[string]bool{}, nil
+		}
+		return nil, fmt.Errorf("read API source staging marker: %w", err)
+	}
+	var marker apiSourceStagingOwnership
+	if err := json.Unmarshal(data, &marker); err != nil {
+		return nil, fmt.Errorf("read API source staging marker: %w", err)
+	}
+	if marker.Version != apiSourceStagingMarkerFormat {
+		return nil, fmt.Errorf("read API source staging marker: unsupported version %q", marker.Version)
+	}
+	owned := map[string]bool{}
+	for _, dir := range marker.Dirs {
+		dir = normalizeAPISourceKind(dir)
+		if dir != "" {
+			owned[dir] = true
+		}
+	}
+	return owned, nil
+}
+
+func writeAPISourceStagingMarker(outDir string, docs []apiDoc) error {
+	seen := map[string]bool{}
+	var dirs []string
+	for _, doc := range docs {
+		dir := normalizeAPISourceKind(doc.Kind)
+		if dir == "" || strings.TrimSpace(doc.PackagePath) == "" || seen[dir] {
+			continue
+		}
+		seen[dir] = true
+		dirs = append(dirs, dir)
+	}
+	sort.Strings(dirs)
+	marker := apiSourceStagingOwnership{Version: apiSourceStagingMarkerFormat, Dirs: dirs}
+	data, err := json.MarshalIndent(marker, "", "  ")
+	if err != nil {
+		return err
+	}
+	data = append(data, '\n')
+	return os.WriteFile(filepath.Join(outDir, apiSourceStagingMarker), data, 0o644)
 }
 
 func validateAPISourceStagingSafety(outDir string, docs []apiDoc) error {

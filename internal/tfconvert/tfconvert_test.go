@@ -649,6 +649,48 @@ resource "example_resource" "main" {
 	}
 }
 
+func TestConvertRejectsUnownedPreexistingAPISourceStagingDir(t *testing.T) {
+	root := t.TempDir()
+	configDir := filepath.Join(root, "tf")
+	openAPIPath := filepath.Join(root, "source.yaml")
+	outDir := filepath.Join(root, "out")
+	unownedPath := filepath.Join(outDir, "openapi", "keep.yaml")
+	writeFileForTest(t, filepath.Join(configDir, "main.tf"), `
+resource "example_resource" "main" {
+  name = "web"
+}
+`)
+	writeFileForTest(t, openAPIPath, `openapi: 3.0.0
+info:
+  title: Source
+  version: v1
+paths:
+  /resources:
+    post:
+      operationId: createExampleResource
+      responses:
+        "200":
+          description: ok
+`)
+	writeFileForTest(t, unownedPath, "do not delete\n")
+
+	_, err := Convert(context.Background(), Options{
+		ConfigDir: configDir,
+		OpenAPIs:  []OpenAPIInput{{ID: "source", Path: openAPIPath}},
+		Action:    "create",
+		OutDir:    outDir,
+	})
+	if err == nil {
+		t.Fatal("Convert returned nil error for unowned pre-existing API source staging directory")
+	}
+	if !strings.Contains(err.Error(), "not marked as owned") {
+		t.Fatalf("error did not describe ownership marker failure: %v", err)
+	}
+	if got := readFileForTest(t, unownedPath); got != "do not delete\n" {
+		t.Fatalf("unowned API source staging content was modified or deleted: %q", got)
+	}
+}
+
 func TestConvertDiagnosesOpenAPIPackagePathCollision(t *testing.T) {
 	root := t.TempDir()
 	configDir := filepath.Join(root, "tf")

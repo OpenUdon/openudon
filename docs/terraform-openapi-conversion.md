@@ -171,7 +171,10 @@ openudon convert tf \
 - `--target` is repeatable. Without targets, all loaded managed resources and
   data sources are selected. With targets, only exact address matches are
   selected; unmatched targets are deterministic diagnostics.
-- `--out` defaults to `./.openudon/convert`.
+- `--out` defaults to `./.openudon/convert`. API source staging directories
+  under `--out` are pruned only when they carry the `openudon convert tf`
+  ownership marker; use a dedicated output directory or remove/relocate
+  pre-existing `openapi/`, `aws-smithy/`, or `google-discovery/` directories.
 - `--strict` exits non-zero when any strict-failure diagnostic remains.
 
 ## Static Parser Boundary
@@ -490,7 +493,9 @@ Artifact roles:
 
 Current implementation copies API source inputs under their package-local source
 directories (`openapi/`, `aws-smithy/`, or `google-discovery/`) when conversion
-loads them.
+loads them. The converter writes a root ownership marker so later reruns can
+prune stale staged source directories without deleting unrelated pre-existing
+content in user-selected output directories.
 
 The target output converges on normal OpenUdon package artifacts:
 
