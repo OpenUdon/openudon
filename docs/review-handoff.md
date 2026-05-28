@@ -34,6 +34,10 @@ openapi/... regular files used by the package
 google-discovery/... regular files used by the package
 aws-smithy/... regular files used by the package
 asyncapi/... regular files used by the package
+graphql/... regular files used by the package
+openrpc/... regular files used by the package
+grpc-protobuf/... regular files used by the package
+odata/... regular files used by the package
 associated advisory security sidecars
 ```
 

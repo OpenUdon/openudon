@@ -1,0 +1,28 @@
+info:
+    description: Read a reviewed Customers entity set query using a package-local OData CSDL artifact.
+    title: odata_customers_query
+    version: 1.0.0
+operations:
+    - description: Read the Customers entity set.
+      operationId: query_customers
+      request:
+        query:
+            $top:
+                $expr: variables.inputs.max_customers
+      sourceDescription: odata_operations_service
+      sourceOperationId: entitySet.Customers.query
+sourceDescriptions:
+    - name: odata_operations_service
+      type: odata
+      url: odata/odata-operations-service.xml
+uws: 1.4.0
+workflows:
+    - description: Read a reviewed Customers entity set query using a package-local OData CSDL artifact.
+      outputs:
+        customers_result: query_customers.received_body
+      steps:
+        - description: Read the Customers entity set.
+          operationRef: query_customers
+          stepId: query_customers
+      type: sequence
+      workflowId: main

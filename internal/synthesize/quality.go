@@ -86,7 +86,7 @@ func assessContext(ctx context.Context, opts Options, writeReport bool) (*Qualit
 		report.Artifacts = result
 		report.add("openapi.local", "pass", "project explicitly declares OpenAPI is not required", candidateList(candidates))
 	} else if len(candidates) == 0 && len(apiSourcePaths) == 0 {
-		report.add("openapi.local", "fail", "no local API source documents are available", "Add a valid OpenAPI document under openapi/ or a first-class source under google-discovery/ or aws-smithy/.")
+		report.add("openapi.local", "fail", "no local API source documents are available", "Add a valid OpenAPI document under openapi/ or a first-class source under google-discovery/, aws-smithy/, asyncapi/, graphql/, openrpc/, grpc-protobuf/, or odata/.")
 	} else {
 		detail := candidateList(candidates)
 		if sourceErr == nil && len(apiSourcePaths) > 0 {

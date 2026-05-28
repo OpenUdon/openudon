@@ -434,7 +434,7 @@ func writeIntentDataFlowReview(b *strings.Builder, intent *rollout.Intent) {
 		return
 	}
 	var wrote bool
-	writeIntentStepReview(b, intent.Steps, reviewStepContext{}, &wrote)
+	writeIntentStepReview(b, intent.Steps, reviewStepContext{Source: firstNonEmpty(intent.Source, intent.OpenAPI)}, &wrote)
 	if !wrote {
 		b.WriteString("- No leaf intent steps were available for review.\n")
 	}
@@ -444,6 +444,7 @@ type reviewStepContext struct {
 	Parent     string
 	Branch     string
 	BranchWhen string
+	Source     string
 }
 
 func writeIntentStepReview(b *strings.Builder, steps []*rollout.Step, ctx reviewStepContext, wrote *bool) {
@@ -461,7 +462,12 @@ func writeIntentStepReview(b *strings.Builder, steps []*rollout.Step, ctx review
 		}
 		fmt.Fprintf(b, "- `%s` (%s)", name, typ)
 		if step.Operation != "" {
-			fmt.Fprintf(b, " operation `%s`", step.Operation)
+			operation := step.Operation
+			source := firstNonEmpty(step.Source, step.OpenAPI, ctx.Source)
+			if !strings.HasPrefix(strings.TrimSpace(operation), "#/") {
+				operation = sourceOperationIDForUWS(sourceDescriptionTypeForPath(source), operation)
+			}
+			fmt.Fprintf(b, " operation `%s`", operation)
 		}
 		if step.Do != "" {
 			fmt.Fprintf(b, ": %s", strings.Join(strings.Fields(step.Do), " "))
@@ -513,7 +519,8 @@ func writeIntentStepReview(b *strings.Builder, steps []*rollout.Step, ctx review
 			b.WriteString("\n")
 		}
 		writeIntentActionReview(b, step)
-		writeIntentStepReview(b, step.Steps, reviewStepContext{Parent: name}, wrote)
+		childSource := firstNonEmpty(step.Source, step.OpenAPI, ctx.Source)
+		writeIntentStepReview(b, step.Steps, reviewStepContext{Parent: name, Source: childSource}, wrote)
 		for _, branch := range step.Cases {
 			if branch == nil {
 				continue
@@ -522,12 +529,14 @@ func writeIntentStepReview(b *strings.Builder, steps []*rollout.Step, ctx review
 				Parent:     name,
 				Branch:     strings.TrimSpace(branch.Name),
 				BranchWhen: strings.TrimSpace(branch.When),
+				Source:     childSource,
 			}, wrote)
 		}
 		if step.Default != nil {
 			writeIntentStepReview(b, step.Default.Steps, reviewStepContext{
 				Parent: name,
 				Branch: "default",
+				Source: childSource,
 			}, wrote)
 		}
 	}

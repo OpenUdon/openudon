@@ -1,0 +1,31 @@
+info:
+    description: Run the reviewed simple-math addition method using a package-local OpenRPC artifact.
+    title: openrpc_simple_math_addition
+    version: 1.0.0
+operations:
+    - description: Run the simple-math addition method.
+      operationId: add_numbers
+      request:
+        body:
+            params:
+                a:
+                    $expr: variables.inputs.left_number
+                b:
+                    $expr: variables.inputs.right_number
+      sourceDescription: openrpc_simple_math
+      sourceOperationId: addition
+sourceDescriptions:
+    - name: openrpc_simple_math
+      type: openrpc
+      url: openrpc/openrpc-simple-math.json
+uws: 1.4.0
+workflows:
+    - description: Run the reviewed simple-math addition method using a package-local OpenRPC artifact.
+      outputs:
+        addition_result: add_numbers.received_body
+      steps:
+        - description: Run the simple-math addition method.
+          operationRef: add_numbers
+          stepId: add_numbers
+      type: sequence
+      workflowId: main

@@ -1,0 +1,12 @@
+{
+  "mode": "strict",
+  "notes": [
+    "Strict GraphQL fixture: package-local Star Wars schema source binds to a reviewed query operation and remains provider-free."
+  ],
+  "max_blocking": 0,
+  "seed_build": {
+    "expected": "pass",
+    "class": "strict-positive",
+    "reason": "Strict positive GraphQL seed fixture must materialize and build successfully from its reference intent."
+  }
+}

@@ -1,0 +1,24 @@
+info:
+    description: Read the reviewed Star Wars hero field using a package-local GraphQL schema artifact.
+    title: graphql_starwars_hero
+    version: 1.0.0
+operations:
+    - description: Read the Star Wars hero field.
+      operationId: get_hero
+      sourceDescription: graphiql_starwars_schema
+      sourceOperationId: query.hero
+sourceDescriptions:
+    - name: graphiql_starwars_schema
+      type: graphql
+      url: graphql/graphiql-starwars-schema.graphql
+uws: 1.4.0
+workflows:
+    - description: Read the reviewed Star Wars hero field using a package-local GraphQL schema artifact.
+      outputs:
+        hero_result: get_hero.received_body
+      steps:
+        - description: Read the Star Wars hero field.
+          operationRef: get_hero
+          stepId: get_hero
+      type: sequence
+      workflowId: main

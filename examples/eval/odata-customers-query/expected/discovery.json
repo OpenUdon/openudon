@@ -1,0 +1,10 @@
+{
+  "attempts": [
+    {
+      "kind": "local",
+      "source": "/home/peter/Workspace/openudon/examples/eval/odata-customers-query/openapi",
+      "status": "pass",
+      "detail": "OpenAPI directory is absent; using package-local first-class API source documents."
+    }
+  ]
+}

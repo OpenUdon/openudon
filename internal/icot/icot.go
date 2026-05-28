@@ -1051,7 +1051,7 @@ func copySeedSourceArtifacts(fromExample, exampleDir string, force bool) error {
 	if seedDir == "" || filepath.Clean(seedDir) == filepath.Clean(exampleDir) {
 		return nil
 	}
-	for _, dir := range []string{"openapi", "google-discovery", "aws-smithy", "asyncapi"} {
+	for _, dir := range []string{"openapi", "google-discovery", "aws-smithy", "asyncapi", "graphql", "openrpc", "grpc-protobuf", "odata"} {
 		if err := copySeedArtifactDir(filepath.Join(seedDir, dir), filepath.Join(exampleDir, dir), force); err != nil {
 			return err
 		}

@@ -173,6 +173,9 @@ func addStepsToWorkflowPlan(plan *WorkflowPlan, intent *rollout.Intent, steps []
 				planStep.OpenAPI = strings.TrimSpace(intent.Source)
 			}
 		}
+		if !strings.HasPrefix(planStep.Operation, "#/") {
+			planStep.Operation = sourceOperationIDForUWS(sourceDescriptionTypeForPath(planStep.OpenAPI), planStep.Operation)
+		}
 		for target, source := range step.With {
 			if strings.TrimSpace(target) == "" {
 				continue

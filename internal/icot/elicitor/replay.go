@@ -183,7 +183,11 @@ func addStepReplay(script *ReplayScript, step *rollout.Step, defaultOpenAPI stri
 			if err != nil {
 				return err
 			}
-			add("Value for `"+field+"` (runtime input, literal, credential binding, or prior step output)", source)
+			promptField := normalizeRequestPromptField(field)
+			if promptField == "" {
+				promptField = field
+			}
+			add("Value for `"+promptField+"` (runtime input, literal, credential binding, or prior step output)", source)
 		}
 		return nil
 	}
@@ -193,7 +197,11 @@ func addStepReplay(script *ReplayScript, step *rollout.Step, defaultOpenAPI stri
 		if err != nil {
 			return err
 		}
-		add("Value for `"+field+"` (runtime input, literal, credential binding, or prior step output)", source)
+		promptField := normalizeRequestPromptField(field)
+		if promptField == "" {
+			promptField = field
+		}
+		add("Value for `"+promptField+"` (runtime input, literal, credential binding, or prior step output)", source)
 	}
 	return nil
 }

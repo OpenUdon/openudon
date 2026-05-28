@@ -9,6 +9,7 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/OpenUdon/apitools"
 	"github.com/OpenUdon/apitools/awssmithy"
 	"github.com/OpenUdon/apitools/googlediscovery"
 	"github.com/OpenUdon/asyncapi"
@@ -156,10 +157,39 @@ func nativeAPISourceOperations(path string, sourceType uws1.SourceDescriptionTyp
 		for selector := range doc.SelectorAliases() {
 			operations[selector] = true
 		}
+	case uws1.SourceDescriptionTypeGraphQL, uws1.SourceDescriptionTypeOpenRPC, uws1.SourceDescriptionTypeGRPCProtobuf, uws1.SourceDescriptionTypeOData:
+		summaries, parseErr := parseNativeOperationSummaries(data, path, sourceType)
+		if parseErr != nil {
+			return nil, parseErr
+		}
+		for _, op := range summaries {
+			for _, id := range nativeOperationIDAliases(sourceType, op) {
+				if id = strings.TrimSpace(id); id != "" {
+					operations[id] = true
+				}
+			}
+		}
 	default:
 		return nil, nil
 	}
 	return operations, nil
+}
+
+func parseNativeOperationSummaries(data []byte, relativePath string, sourceType uws1.SourceDescriptionType) ([]apitools.OperationSummary, error) {
+	switch sourceType {
+	case uws1.SourceDescriptionTypeGraphQL:
+		return apitools.ParseGraphQLOperationSummaries(data, relativePath)
+	case uws1.SourceDescriptionTypeOpenRPC:
+		return apitools.ParseOpenRPCOperationSummaries(data, relativePath)
+	case uws1.SourceDescriptionTypeGRPCProtobuf:
+		return apitools.ParseGRPCProtobufOperationSummaries(data, relativePath)
+	case uws1.SourceDescriptionTypeOData:
+		return apitools.ParseODataOperationSummaries(data, relativePath)
+	case uws1.SourceDescriptionTypeAsyncAPI:
+		return apitools.ParseAsyncAPIOperationSummaries(data, relativePath)
+	default:
+		return nil, fmt.Errorf("unsupported API source type %q", sourceType)
+	}
 }
 
 func normalizeAPISourceRef(ref string) string {
@@ -184,6 +214,14 @@ func sourceDescriptionTypeForPath(path string) uws1.SourceDescriptionType {
 			return uws1.SourceDescriptionTypeAWSSmithy
 		case "asyncapi":
 			return uws1.SourceDescriptionTypeAsyncAPI
+		case "graphql":
+			return uws1.SourceDescriptionTypeGraphQL
+		case "openrpc":
+			return uws1.SourceDescriptionTypeOpenRPC
+		case "grpc-protobuf":
+			return uws1.SourceDescriptionTypeGRPCProtobuf
+		case "odata":
+			return uws1.SourceDescriptionTypeOData
 		case "openapi":
 			return uws1.SourceDescriptionTypeOpenAPI
 		}
@@ -226,6 +264,15 @@ func sniffAPISourceType(path string) (uws1.SourceDescriptionType, bool, error) {
 			if _, ok := root["asyncapi"]; ok {
 				return uws1.SourceDescriptionTypeAsyncAPI, true, nil
 			}
+			if _, ok := root["openrpc"]; ok {
+				return uws1.SourceDescriptionTypeOpenRPC, true, nil
+			}
+			if _, ok := root["methods"]; ok && root["info"] != nil {
+				return uws1.SourceDescriptionTypeOpenRPC, true, nil
+			}
+			if _, ok := root["$Version"]; ok {
+				return uws1.SourceDescriptionTypeOData, true, nil
+			}
 		}
 	}
 	lower := strings.ToLower(text)
@@ -239,6 +286,14 @@ func sniffAPISourceType(path string) (uws1.SourceDescriptionType, bool, error) {
 		return uws1.SourceDescriptionTypeOpenAPI, true, nil
 	case strings.HasPrefix(lower, "asyncapi:") || strings.Contains(lower, "\nasyncapi:"):
 		return uws1.SourceDescriptionTypeAsyncAPI, true, nil
+	case strings.HasPrefix(lower, "syntax = \"proto") || strings.Contains(lower, "\nservice "):
+		return uws1.SourceDescriptionTypeGRPCProtobuf, true, nil
+	case strings.HasPrefix(lower, "schema ") || strings.HasPrefix(lower, "type query") ||
+		strings.Contains(lower, "\ntype query") || strings.Contains(lower, "\ntype mutation") ||
+		strings.Contains(lower, "\ntype subscription"):
+		return uws1.SourceDescriptionTypeGraphQL, true, nil
+	case strings.Contains(lower, "<edmx:edmx") || strings.Contains(lower, `"edmx"`) || strings.Contains(lower, "$metadata"):
+		return uws1.SourceDescriptionTypeOData, true, nil
 	default:
 		return "", false, nil
 	}

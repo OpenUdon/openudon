@@ -52,6 +52,41 @@ func TestRequestFieldPlacementsKeepAmbiguousAliasesBlocked(t *testing.T) {
 	}
 }
 
+func TestRequestFieldPlacementsMapUWS14SourceParameters(t *testing.T) {
+	fields, err := requestFieldPlacements(apitools.OperationSummary{
+		OperationID: "mixed",
+		Parameters: []apitools.ParameterSummary{
+			{Name: "episode", In: "graphql-variable"},
+			{Name: "a", In: "json-rpc"},
+			{Name: "$top", In: "odata-query-option"},
+			{Name: "customerId", In: "odata-parameter"},
+		},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	for field, want := range map[string]requestFieldPlacement{
+		"episode":               {Section: "body", Name: "variables.episode"},
+		"variables.episode":     {Section: "body", Name: "variables.episode"},
+		"a":                     {Section: "body", Name: "params.a"},
+		"params.a":              {Section: "body", Name: "params.a"},
+		"$top":                  {Section: "query", Name: "$top"},
+		"top":                   {Section: "query", Name: "$top"},
+		"query.$top":            {Section: "query", Name: "$top"},
+		"query.top":             {Section: "query", Name: "$top"},
+		"customerId":            {Section: "body", Name: "parameters.customerId"},
+		"parameters.customerId": {Section: "body", Name: "parameters.customerId"},
+	} {
+		got, ok := fields[field]
+		if !ok {
+			t.Fatalf("missing placement %q in %#v", field, fields)
+		}
+		if got.Section != want.Section || got.Name != want.Name {
+			t.Fatalf("placement %q = %#v, want %#v", field, got, want)
+		}
+	}
+}
+
 func TestIntentRequestMapAllowsPathParameterNamedPath(t *testing.T) {
 	mapper := &requestBindingMapper{cache: map[string]map[string]map[string]requestFieldPlacement{
 		"openapi/github.yaml": {

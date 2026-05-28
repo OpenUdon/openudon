@@ -1,0 +1,69 @@
+# OpenUdon Quality Report
+
+Status: `pass`
+
+- `project.present` pass - project.md is readable
+- `project.authoring.structured_policy` pass - openudon-policy block controls are valid
+- `project.authoring.goal` pass - project.md declares the workflow goal
+- `project.authoring.integration_policy` pass - project.md declares integration/OpenAPI policy
+- `project.authoring.data_flow` pass - project.md declares data-flow hints
+- `project.authoring.credentials` pass - project.md declares credential binding policy
+- `project.authoring.runtime_policy` pass - project.md declares runtime policy
+- `project.authoring.function_contracts` pass - project.md declares function contracts
+- `project.authoring.safety` pass - project.md declares safety and approval boundary
+- `project.authoring.fallback` pass - project.md declares fallback behavior
+- `openapi.local` pass - 0 OpenAPI document(s), 1 API source document(s) available
+  Detail: openrpc/openrpc-simple-math.json (openrpc)
+- `plan.version` pass - expected workflow plan version is supported
+- `plan.gaps` pass - expected workflow plan has no unresolved gaps
+- `openapi.discovery` pass - OpenAPI discovery attempts are recorded
+- `intent.parse` pass - intent.hcl parses
+- `intent.slots` pass - intent.hcl has required slots
+- `intent.openapi_refs` pass - intent.hcl API source references are available
+- `intent.openapi_operations` pass - intent.hcl API source operation references are available
+- `intent.data_flow.required_params` pass - required OpenAPI parameters are satisfied or credential-bound
+- `credentials.bindings` pass - credential-like parameters are covered by project credential policy or not required
+- `credentials.security_schemes` pass - API source security requirements are covered by credential policy or not required
+- `intent.data_flow.sources` pass - intent.hcl data-flow references resolve to known steps or inputs
+- `intent.data_flow.response_paths` pass - intent.hcl response paths match available API source response schemas
+- `intent.data_flow.explicit` pass - single-step intent does not require cross-step data-flow evidence
+- `intent.function_contracts` pass - fnct steps match declared project function contracts
+- `intent.runtime_policy` pass - intent.hcl respects project runtime policy
+- `intent.project_policy` pass - intent.hcl preserves required project controls
+- `workflow.present` pass - workflow.hcl is readable
+- `workflow.hcl_syntax` pass - workflow.hcl syntax is valid
+- `workflow.uws_parse` pass - workflow.hcl parses as a public UWS document
+- `workflow.intent_coverage` pass - workflow.hcl represents intent steps
+- `workflow.plan_coverage` pass - workflow.hcl includes every planned step
+- `workflow.plan_match` pass - workflow.hcl preserves planned runtimes, operations, dependencies, actions, and request mappings
+- `workflow.binding_sources` pass - workflow.hcl request fields preserve planned data sources
+- `workflow.credentials_bound` pass - workflow.hcl binds required credential-like parameters
+- `uws.present` pass - workflow.uws.yaml is present
+- `uws.schema` pass - workflow.uws.yaml validates against public UWS schema
+- `uws.execution_profile` pass - workflow.uws.yaml passes local execution-profile validation
+- `uws.source_descriptions` pass - workflow.uws.yaml source descriptions reference package API source documents
+- `uws.plan_coverage` pass - workflow.uws.yaml includes every planned step
+- `uws.plan_match` pass - workflow.uws.yaml preserves planned runtimes, operations, dependencies, actions, and request mappings
+- `uws.binding_sources` pass - workflow.uws.yaml request fields preserve planned data sources
+- `uws.credentials_bound` pass - workflow.uws.yaml binds required credential-like parameters
+- `side_effects.policy` pass - no side-effectful workflow behavior inferred
+- `side_effects.retry_policy` pass - retry action policy is not required
+- `review.execution_boundary` pass - review evidence records skipped side-effectful execution
+- `review.package` pass - review evidence lists the minimum trusted-execution review package
+- `review.trusted_runner` pass - review evidence includes trusted-runner handoff command
+- `review.production_boundary` pass - review evidence records the production execution boundary
+- `review.credential_audit` pass - review evidence records credential binding audit requirements
+- `review.approval_states` pass - review evidence records approval-state requirements
+- `review.sandbox_handoff` pass - review evidence scopes trusted-runner handoff to the approved execution state
+- `review.credential_bindings` pass - review evidence records credential-binding inventory
+- `review.side_effect_summary` pass - review evidence summarizes inferred side effects
+- `review.side_effect_risk` pass - review evidence includes side-effect risk review
+- `review.approval_artifact` pass - review evidence describes approval artifact requirements
+- `review.credential_scope` pass - review evidence includes credential scope matrix
+- `review.trusted_runner_dry_run` pass - review evidence includes trusted-runner dry-run evidence
+- `review.unresolved_risks` pass - review evidence records unresolved risks
+- `review_handoff.present` pass - review handoff manifest is readable
+- `review_handoff.contract` pass - review handoff manifest records package, state, execution, and credential contracts
+- `artifacts.no_secrets` pass - no obvious secret-like tokens found in artifacts
+- `conversion.diagnostics` pass - no conversion diagnostics artifact is present
+- `quality.review` pass - workflow.hcl passed deterministic v1 quality gates

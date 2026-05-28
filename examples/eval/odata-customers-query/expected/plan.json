@@ -1,0 +1,22 @@
+{
+  "version": "openudon.workflow-plan.v1",
+  "example": "odata-customers-query",
+  "workflow": "odata_customers_query",
+  "summary": "Read a reviewed Customers entity set query using a package-local OData CSDL artifact.",
+  "steps": [
+    {
+      "name": "query_customers",
+      "type": "http",
+      "inferred": true,
+      "openapi": "odata/odata-operations-service.xml",
+      "operation": "entitySet.Customers.query",
+      "runtime": "http",
+      "bindings": [
+        {
+          "target": "$top",
+          "source": "inputs.max_customers"
+        }
+      ]
+    }
+  ]
+}

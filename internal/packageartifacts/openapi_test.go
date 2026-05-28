@@ -42,6 +42,10 @@ func TestRequiredPackagePathsIncludesFirstClassAPISources(t *testing.T) {
 	mustWrite(t, filepath.Join(root, "google-discovery", "gmail.json"), []byte(`{"discoveryVersion":"v1"}`))
 	mustWrite(t, filepath.Join(root, "aws-smithy", "lambda.json"), []byte(`{"smithy":"2.0"}`))
 	mustWrite(t, filepath.Join(root, "asyncapi", "events.yaml"), []byte("asyncapi: 3.0.0\ninfo: {title: Events, version: 1.0.0}\noperations: {}\n"))
+	mustWrite(t, filepath.Join(root, "graphql", "schema.graphql"), []byte("type Query { hero: String }\n"))
+	mustWrite(t, filepath.Join(root, "openrpc", "math.json"), []byte(`{"openrpc":"1.2.6","info":{"title":"Math","version":"1.0.0"},"methods":[]}`))
+	mustWrite(t, filepath.Join(root, "grpc-protobuf", "trace.proto"), []byte(`syntax = "proto3"; service Trace { rpc Export (Req) returns (Resp); } message Req {} message Resp {}`))
+	mustWrite(t, filepath.Join(root, "odata", "service.xml"), []byte(`<edmx:Edmx xmlns:edmx="http://docs.oasis-open.org/odata/ns/edmx"><edmx:DataServices /></edmx:Edmx>`))
 	mustWrite(t, filepath.Join(root, "discovery", "legacy.json"), []byte(`{"discoveryVersion":"v1"}`))
 
 	paths, err := RequiredPackagePaths(root)
@@ -52,6 +56,10 @@ func TestRequiredPackagePathsIncludesFirstClassAPISources(t *testing.T) {
 		"google-discovery/gmail.json",
 		"aws-smithy/lambda.json",
 		"asyncapi/events.yaml",
+		"graphql/schema.graphql",
+		"openrpc/math.json",
+		"grpc-protobuf/trace.proto",
+		"odata/service.xml",
 		"discovery/legacy.json",
 	} {
 		if !stringSliceContains(paths, want) {

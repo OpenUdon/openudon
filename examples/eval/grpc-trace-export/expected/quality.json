@@ -1,0 +1,347 @@
+{
+  "status": "pass",
+  "example": "/home/peter/Workspace/openudon/examples/eval/grpc-trace-export",
+  "artifacts": {
+    "ExampleDir": "/home/peter/Workspace/openudon/examples/eval/grpc-trace-export",
+    "ProjectPath": "/home/peter/Workspace/openudon/examples/eval/grpc-trace-export/project.md",
+    "IntentPath": "/home/peter/Workspace/openudon/examples/eval/grpc-trace-export/workflows/intent.hcl",
+    "WorkflowPath": "/home/peter/Workspace/openudon/examples/eval/grpc-trace-export/workflows/workflow.hcl",
+    "UWSPath": "/home/peter/Workspace/openudon/examples/eval/grpc-trace-export/workflows/workflow.uws.yaml",
+    "PlanJSONPath": "/home/peter/Workspace/openudon/examples/eval/grpc-trace-export/expected/plan.json",
+    "PlanMDPath": "/home/peter/Workspace/openudon/examples/eval/grpc-trace-export/expected/plan.md",
+    "DiscoveryJSONPath": "/home/peter/Workspace/openudon/examples/eval/grpc-trace-export/expected/discovery.json",
+    "DataPath": "/home/peter/Workspace/openudon/examples/eval/grpc-trace-export/expected/data.hcl",
+    "RefinementJSONPath": "/home/peter/Workspace/openudon/examples/eval/grpc-trace-export/expected/refinement.json",
+    "RefinementMDPath": "/home/peter/Workspace/openudon/examples/eval/grpc-trace-export/expected/refinement.md",
+    "ReviewPath": "/home/peter/Workspace/openudon/examples/eval/grpc-trace-export/expected/review.md",
+    "ReviewHandoffPath": "/home/peter/Workspace/openudon/examples/eval/grpc-trace-export/expected/review-handoff.json",
+    "QualityJSONPath": "/home/peter/Workspace/openudon/examples/eval/grpc-trace-export/expected/quality.json",
+    "QualityMDPath": "/home/peter/Workspace/openudon/examples/eval/grpc-trace-export/expected/quality.md",
+    "PrimaryOpenAPI": "",
+    "OpenAPICandidates": null,
+    "DiscoveryReport": {}
+  },
+  "checks": [
+    {
+      "code": "project.present",
+      "status": "pass",
+      "message": "project.md is readable"
+    },
+    {
+      "code": "project.authoring.structured_policy",
+      "status": "pass",
+      "message": "openudon-policy block controls are valid"
+    },
+    {
+      "code": "project.authoring.goal",
+      "status": "pass",
+      "message": "project.md declares the workflow goal"
+    },
+    {
+      "code": "project.authoring.integration_policy",
+      "status": "pass",
+      "message": "project.md declares integration/OpenAPI policy"
+    },
+    {
+      "code": "project.authoring.data_flow",
+      "status": "pass",
+      "message": "project.md declares data-flow hints"
+    },
+    {
+      "code": "project.authoring.credentials",
+      "status": "pass",
+      "message": "project.md declares credential binding policy"
+    },
+    {
+      "code": "project.authoring.runtime_policy",
+      "status": "pass",
+      "message": "project.md declares runtime policy"
+    },
+    {
+      "code": "project.authoring.function_contracts",
+      "status": "pass",
+      "message": "project.md declares function contracts"
+    },
+    {
+      "code": "project.authoring.safety",
+      "status": "pass",
+      "message": "project.md declares safety and approval boundary"
+    },
+    {
+      "code": "project.authoring.fallback",
+      "status": "pass",
+      "message": "project.md declares fallback behavior"
+    },
+    {
+      "code": "openapi.local",
+      "status": "pass",
+      "message": "0 OpenAPI document(s), 1 API source document(s) available",
+      "detail": "grpc-protobuf/opentelemetry-trace-service-v1.proto (grpc-protobuf)"
+    },
+    {
+      "code": "plan.version",
+      "status": "pass",
+      "message": "expected workflow plan version is supported"
+    },
+    {
+      "code": "plan.gaps",
+      "status": "pass",
+      "message": "expected workflow plan has no unresolved gaps"
+    },
+    {
+      "code": "openapi.discovery",
+      "status": "pass",
+      "message": "OpenAPI discovery attempts are recorded"
+    },
+    {
+      "code": "intent.parse",
+      "status": "pass",
+      "message": "intent.hcl parses"
+    },
+    {
+      "code": "intent.slots",
+      "status": "pass",
+      "message": "intent.hcl has required slots"
+    },
+    {
+      "code": "intent.openapi_refs",
+      "status": "pass",
+      "message": "intent.hcl API source references are available"
+    },
+    {
+      "code": "intent.openapi_operations",
+      "status": "pass",
+      "message": "intent.hcl API source operation references are available"
+    },
+    {
+      "code": "intent.data_flow.required_params",
+      "status": "pass",
+      "message": "required OpenAPI parameters are satisfied or credential-bound"
+    },
+    {
+      "code": "credentials.bindings",
+      "status": "pass",
+      "message": "credential-like parameters are covered by project credential policy or not required"
+    },
+    {
+      "code": "credentials.security_schemes",
+      "status": "pass",
+      "message": "API source security requirements are covered by credential policy or not required"
+    },
+    {
+      "code": "intent.data_flow.sources",
+      "status": "pass",
+      "message": "intent.hcl data-flow references resolve to known steps or inputs"
+    },
+    {
+      "code": "intent.data_flow.response_paths",
+      "status": "pass",
+      "message": "intent.hcl response paths match available API source response schemas"
+    },
+    {
+      "code": "intent.data_flow.explicit",
+      "status": "pass",
+      "message": "single-step intent does not require cross-step data-flow evidence"
+    },
+    {
+      "code": "intent.function_contracts",
+      "status": "pass",
+      "message": "fnct steps match declared project function contracts"
+    },
+    {
+      "code": "intent.runtime_policy",
+      "status": "pass",
+      "message": "intent.hcl respects project runtime policy"
+    },
+    {
+      "code": "intent.project_policy",
+      "status": "pass",
+      "message": "intent.hcl preserves required project controls"
+    },
+    {
+      "code": "workflow.present",
+      "status": "pass",
+      "message": "workflow.hcl is readable"
+    },
+    {
+      "code": "workflow.hcl_syntax",
+      "status": "pass",
+      "message": "workflow.hcl syntax is valid"
+    },
+    {
+      "code": "workflow.uws_parse",
+      "status": "pass",
+      "message": "workflow.hcl parses as a public UWS document"
+    },
+    {
+      "code": "workflow.intent_coverage",
+      "status": "pass",
+      "message": "workflow.hcl represents intent steps"
+    },
+    {
+      "code": "workflow.plan_coverage",
+      "status": "pass",
+      "message": "workflow.hcl includes every planned step"
+    },
+    {
+      "code": "workflow.plan_match",
+      "status": "pass",
+      "message": "workflow.hcl preserves planned runtimes, operations, dependencies, actions, and request mappings"
+    },
+    {
+      "code": "workflow.binding_sources",
+      "status": "pass",
+      "message": "workflow.hcl request fields preserve planned data sources"
+    },
+    {
+      "code": "workflow.credentials_bound",
+      "status": "pass",
+      "message": "workflow.hcl binds required credential-like parameters"
+    },
+    {
+      "code": "uws.present",
+      "status": "pass",
+      "message": "workflow.uws.yaml is present"
+    },
+    {
+      "code": "uws.schema",
+      "status": "pass",
+      "message": "workflow.uws.yaml validates against public UWS schema"
+    },
+    {
+      "code": "uws.execution_profile",
+      "status": "pass",
+      "message": "workflow.uws.yaml passes local execution-profile validation"
+    },
+    {
+      "code": "uws.source_descriptions",
+      "status": "pass",
+      "message": "workflow.uws.yaml source descriptions reference package API source documents"
+    },
+    {
+      "code": "uws.plan_coverage",
+      "status": "pass",
+      "message": "workflow.uws.yaml includes every planned step"
+    },
+    {
+      "code": "uws.plan_match",
+      "status": "pass",
+      "message": "workflow.uws.yaml preserves planned runtimes, operations, dependencies, actions, and request mappings"
+    },
+    {
+      "code": "uws.binding_sources",
+      "status": "pass",
+      "message": "workflow.uws.yaml request fields preserve planned data sources"
+    },
+    {
+      "code": "uws.credentials_bound",
+      "status": "pass",
+      "message": "workflow.uws.yaml binds required credential-like parameters"
+    },
+    {
+      "code": "side_effects.policy",
+      "status": "pass",
+      "message": "no side-effectful workflow behavior inferred"
+    },
+    {
+      "code": "side_effects.retry_policy",
+      "status": "pass",
+      "message": "retry action policy is not required"
+    },
+    {
+      "code": "review.execution_boundary",
+      "status": "pass",
+      "message": "review evidence records skipped side-effectful execution"
+    },
+    {
+      "code": "review.package",
+      "status": "pass",
+      "message": "review evidence lists the minimum trusted-execution review package"
+    },
+    {
+      "code": "review.trusted_runner",
+      "status": "pass",
+      "message": "review evidence includes trusted-runner handoff command"
+    },
+    {
+      "code": "review.production_boundary",
+      "status": "pass",
+      "message": "review evidence records the production execution boundary"
+    },
+    {
+      "code": "review.credential_audit",
+      "status": "pass",
+      "message": "review evidence records credential binding audit requirements"
+    },
+    {
+      "code": "review.approval_states",
+      "status": "pass",
+      "message": "review evidence records approval-state requirements"
+    },
+    {
+      "code": "review.sandbox_handoff",
+      "status": "pass",
+      "message": "review evidence scopes trusted-runner handoff to the approved execution state"
+    },
+    {
+      "code": "review.credential_bindings",
+      "status": "pass",
+      "message": "review evidence records credential-binding inventory"
+    },
+    {
+      "code": "review.side_effect_summary",
+      "status": "pass",
+      "message": "review evidence summarizes inferred side effects"
+    },
+    {
+      "code": "review.side_effect_risk",
+      "status": "pass",
+      "message": "review evidence includes side-effect risk review"
+    },
+    {
+      "code": "review.approval_artifact",
+      "status": "pass",
+      "message": "review evidence describes approval artifact requirements"
+    },
+    {
+      "code": "review.credential_scope",
+      "status": "pass",
+      "message": "review evidence includes credential scope matrix"
+    },
+    {
+      "code": "review.trusted_runner_dry_run",
+      "status": "pass",
+      "message": "review evidence includes trusted-runner dry-run evidence"
+    },
+    {
+      "code": "review.unresolved_risks",
+      "status": "pass",
+      "message": "review evidence records unresolved risks"
+    },
+    {
+      "code": "review_handoff.present",
+      "status": "pass",
+      "message": "review handoff manifest is readable"
+    },
+    {
+      "code": "review_handoff.contract",
+      "status": "pass",
+      "message": "review handoff manifest records package, state, execution, and credential contracts"
+    },
+    {
+      "code": "artifacts.no_secrets",
+      "status": "pass",
+      "message": "no obvious secret-like tokens found in artifacts"
+    },
+    {
+      "code": "conversion.diagnostics",
+      "status": "pass",
+      "message": "no conversion diagnostics artifact is present"
+    },
+    {
+      "code": "quality.review",
+      "status": "pass",
+      "message": "workflow.hcl passed deterministic v1 quality gates"
+    }
+  ]
+}

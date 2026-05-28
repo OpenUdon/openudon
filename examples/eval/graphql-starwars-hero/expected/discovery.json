@@ -1,0 +1,10 @@
+{
+  "attempts": [
+    {
+      "kind": "local",
+      "source": "/home/peter/Workspace/openudon/examples/eval/graphql-starwars-hero/openapi",
+      "status": "pass",
+      "detail": "OpenAPI directory is absent; using package-local first-class API source documents."
+    }
+  ]
+}

@@ -16,6 +16,7 @@ import (
 	"github.com/OpenUdon/openudon/internal/openapidisco"
 	"github.com/OpenUdon/openudon/internal/packageartifacts"
 	rollout "github.com/OpenUdon/openudon/internal/workflowintent"
+	"github.com/OpenUdon/uws/uws1"
 	"gopkg.in/yaml.v3"
 )
 
@@ -479,9 +480,156 @@ func nativeOperationInfoIndex(path string, sourceType string) (map[string]*rollo
 			}
 		}
 		return out, nil
+	case "graphql", "openrpc", "grpc-protobuf", "odata":
+		uwsSourceType := uwsSourceTypeFromString(sourceType)
+		ops, err := parseNativeOperationSummaries(data, path, uwsSourceType)
+		if err != nil {
+			return out, fmt.Errorf("parse %s %s: %w", sourceType, path, err)
+		}
+		for _, op := range ops {
+			info := operationSummaryInfo(op)
+			for _, alias := range nativeOperationIDAliases(uwsSourceType, op) {
+				out[alias] = info
+			}
+		}
+		return out, nil
 	default:
 		return out, nil
 	}
+}
+
+func uwsSourceTypeFromString(sourceType string) uws1.SourceDescriptionType {
+	return uws1.SourceDescriptionType(strings.TrimSpace(sourceType))
+}
+
+func operationSummaryInfo(op apitools.OperationSummary) *rollout.OperationInfo {
+	info := &rollout.OperationInfo{
+		OperationID: op.OperationID,
+		Method:      op.Method,
+		Path:        op.Path,
+		Summary:     op.Summary,
+		Description: op.Description,
+		Tags:        append([]string(nil), op.Tags...),
+		RequestBody: operationSummaryRequestBodyInfo(op.RequestBody),
+		Responses:   map[string]*rollout.ResponseInfo{},
+		Security:    operationSummarySecurityNames(op.Security),
+	}
+	for _, param := range op.Parameters {
+		if strings.TrimSpace(param.Name) == "" {
+			continue
+		}
+		info.Parameters = append(info.Parameters, &rollout.ParameterInfo{
+			Name:        param.Name,
+			In:          operationSummaryParameterLocation(param.In),
+			Required:    param.Required,
+			Description: param.Description,
+			Type:        firstNonEmpty(param.Type, param.Ref),
+		})
+	}
+	if op.RequestBody != nil && op.RequestBody.Required {
+		for _, field := range requiredRequestBodyParameterNames(op.RequestBody) {
+			info.Parameters = append(info.Parameters, &rollout.ParameterInfo{Name: field, In: "body", Required: true})
+		}
+	}
+	if len(info.Responses) == 0 {
+		info.Responses = nil
+	}
+	return info
+}
+
+func operationSummaryParameterLocation(location string) string {
+	switch strings.TrimSpace(location) {
+	case "graphql-variable", "json-rpc", "odata-parameter":
+		return "body"
+	case "odata-query-option":
+		return "query"
+	default:
+		return strings.TrimSpace(location)
+	}
+}
+
+func operationSummaryRequestBodyInfo(body *apitools.RequestBodySummary) *rollout.RequestBodyInfo {
+	if body == nil {
+		return nil
+	}
+	info := &rollout.RequestBodyInfo{
+		Required:    body.Required,
+		ContentType: firstNonEmpty(body.ContentTypes...),
+	}
+	if body.Schema != nil {
+		info.Schema = schemaSummaryMap(body.Schema)
+		return info
+	}
+	if len(body.Fields) == 0 {
+		return info
+	}
+	properties := map[string]any{}
+	var required []string
+	for _, field := range body.Fields {
+		name := strings.TrimSpace(field.Path)
+		if name == "" {
+			continue
+		}
+		properties[name] = map[string]any{"type": firstNonEmpty(field.Type, "string")}
+		if field.Required {
+			required = append(required, name)
+		}
+	}
+	if len(properties) == 0 {
+		return info
+	}
+	schema := map[string]any{"type": "object", "properties": properties}
+	if len(required) > 0 {
+		schema["required"] = required
+	}
+	info.Schema = schema
+	return info
+}
+
+func schemaSummaryMap(summary *apitools.SchemaSummary) map[string]any {
+	if summary == nil {
+		return nil
+	}
+	schema := map[string]any{}
+	if strings.TrimSpace(summary.Type) != "" {
+		schema["type"] = strings.TrimSpace(summary.Type)
+	}
+	if strings.TrimSpace(summary.Format) != "" {
+		schema["format"] = strings.TrimSpace(summary.Format)
+	}
+	if strings.TrimSpace(summary.Ref) != "" {
+		schema["$ref"] = strings.TrimSpace(summary.Ref)
+	}
+	if len(summary.Required) > 0 {
+		schema["required"] = append([]string(nil), summary.Required...)
+	}
+	if len(summary.Properties) > 0 {
+		props := map[string]any{}
+		for _, prop := range summary.Properties {
+			if strings.TrimSpace(prop.Name) == "" {
+				continue
+			}
+			props[prop.Name] = map[string]any{"type": firstNonEmpty(prop.Type, "string")}
+		}
+		if len(props) > 0 {
+			schema["properties"] = props
+		}
+	}
+	if len(schema) == 0 {
+		return nil
+	}
+	return schema
+}
+
+func operationSummarySecurityNames(security []apitools.SecuritySummary) []string {
+	var names []string
+	for _, req := range security {
+		name := firstNonEmpty(req.Name, req.ParameterName, req.Scheme)
+		if strings.TrimSpace(name) != "" {
+			names = append(names, strings.TrimSpace(name))
+		}
+	}
+	return sortedUnique(names)
 }
 
 func googleDiscoveryResponses(model *googlediscovery.Model, op *googlediscovery.Operation) map[string]*rollout.ResponseInfo {
@@ -683,6 +831,45 @@ func operationIDAliases(ids ...string) []string {
 		}
 	}
 	return sortedUnique(out)
+}
+
+func nativeOperationIDAliases(sourceType uws1.SourceDescriptionType, op apitools.OperationSummary) []string {
+	ids := []string{op.OperationID, op.ID, op.Extensions["source_operation_id"]}
+	if sourceType == uws1.SourceDescriptionTypeOData {
+		for _, id := range append([]string(nil), ids...) {
+			if canonical := canonicalODataSourceOperationID(id); canonical != "" {
+				ids = append(ids, canonical)
+			}
+		}
+	}
+	return operationIDAliases(ids...)
+}
+
+func sourceOperationIDForUWS(sourceType uws1.SourceDescriptionType, operationID string) string {
+	operationID = strings.TrimSpace(operationID)
+	if sourceType == uws1.SourceDescriptionTypeOData {
+		if canonical := canonicalODataSourceOperationID(operationID); canonical != "" {
+			return canonical
+		}
+	}
+	return operationID
+}
+
+func canonicalODataSourceOperationID(operationID string) string {
+	operationID = strings.TrimSpace(operationID)
+	switch {
+	case strings.HasPrefix(operationID, "entityset."):
+		name := strings.TrimSpace(strings.TrimPrefix(operationID, "entityset."))
+		if name != "" {
+			return "entitySet." + name + ".query"
+		}
+	case strings.HasPrefix(operationID, "singleton.") && !strings.HasSuffix(operationID, ".read"):
+		name := strings.TrimSpace(strings.TrimPrefix(operationID, "singleton."))
+		if name != "" {
+			return "singleton." + name + ".read"
+		}
+	}
+	return operationID
 }
 
 func operationIDAlias(id string) string {

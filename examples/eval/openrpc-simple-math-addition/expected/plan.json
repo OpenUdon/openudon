@@ -1,0 +1,26 @@
+{
+  "version": "openudon.workflow-plan.v1",
+  "example": "openrpc-simple-math-addition",
+  "workflow": "openrpc_simple_math_addition",
+  "summary": "Run the reviewed simple-math addition method using a package-local OpenRPC artifact.",
+  "steps": [
+    {
+      "name": "add_numbers",
+      "type": "http",
+      "inferred": true,
+      "openapi": "openrpc/openrpc-simple-math.json",
+      "operation": "addition",
+      "runtime": "http",
+      "bindings": [
+        {
+          "target": "a",
+          "source": "inputs.left_number"
+        },
+        {
+          "target": "b",
+          "source": "inputs.right_number"
+        }
+      ]
+    }
+  ]
+}

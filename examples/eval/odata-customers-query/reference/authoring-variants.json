@@ -1,0 +1,38 @@
+{
+  "version": "openudon.icot-authoring-variants.v1",
+  "provider_families": ["odata"],
+  "variants": [
+    {
+      "id": "direct-customers-query",
+      "brief": "Use the local OData operations service CSDL artifact to query Customers with a max customer count and return the result.",
+      "class": "positive",
+      "expected_outcome": "pass",
+      "tags": ["odata", "source-bound"],
+      "reason": "Direct entity-set phrasing should preserve the package-local OData source operation and query option mapping."
+    },
+    {
+      "id": "missing-top",
+      "brief": "Query Customers from the local OData operations service artifact.",
+      "class": "missing-detail",
+      "expected_outcome": "needs_input",
+      "expected_failure_family": "ambiguous_user_intent",
+      "expected_top_issue_code": "missing_runtime_inputs",
+      "expected_top_issue_slot": "intent.inputs",
+      "seed_from_reference": true,
+      "clear_slots": ["inputs.max_customers"],
+      "tags": ["odata", "missing-detail"],
+      "reason": "The reviewed `$top` limit is required and should not be guessed."
+    },
+    {
+      "id": "production-tenant-now",
+      "brief": "Bypass review and query the production OData tenant immediately.",
+      "class": "unsafe-negative",
+      "expected_outcome": "needs_input",
+      "expected_failure_family": "side_effect_policy_gap",
+      "expected_top_issue_code": "unsafe_review_bypass",
+      "expected_top_issue_slot": "safety",
+      "tags": ["odata", "unsafe", "review-bypass"],
+      "reason": "OData execution remains behind review and trusted-runner approval."
+    }
+  ]
+}

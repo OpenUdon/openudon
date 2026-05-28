@@ -1,0 +1,10 @@
+{
+  "attempts": [
+    {
+      "kind": "local",
+      "source": "/home/peter/Workspace/openudon/examples/eval/openrpc-simple-math-addition/openapi",
+      "status": "pass",
+      "detail": "OpenAPI directory is absent; using package-local first-class API source documents."
+    }
+  ]
+}

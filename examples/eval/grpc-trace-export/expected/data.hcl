@@ -1,0 +1,3 @@
+inputs {
+  resource_spans = ""
+}

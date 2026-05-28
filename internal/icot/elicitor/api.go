@@ -137,6 +137,26 @@ func DiscoverLocalAPIs(exampleDir, projectText string) ([]APIDocument, error) {
 		return nil, err
 	}
 	docs = append(docs, asyncDocs...)
+	graphqlDocs, err := discoverLocalParsedSourceAPIs(exampleDir, "graphql", []string{".graphql", ".gql"}, apitools.ParseGraphQLOperationSummaries)
+	if err != nil {
+		return nil, err
+	}
+	docs = append(docs, graphqlDocs...)
+	openRPCDocs, err := discoverLocalParsedSourceAPIs(exampleDir, "openrpc", []string{".json"}, apitools.ParseOpenRPCOperationSummaries)
+	if err != nil {
+		return nil, err
+	}
+	docs = append(docs, openRPCDocs...)
+	grpcDocs, err := discoverLocalParsedSourceAPIs(exampleDir, "grpc-protobuf", []string{".proto"}, apitools.ParseGRPCProtobufOperationSummaries)
+	if err != nil {
+		return nil, err
+	}
+	docs = append(docs, grpcDocs...)
+	odataDocs, err := discoverLocalParsedSourceAPIs(exampleDir, "odata", []string{".xml", ".json"}, apitools.ParseODataOperationSummaries)
+	if err != nil {
+		return nil, err
+	}
+	docs = append(docs, odataDocs...)
 	sort.Slice(docs, func(i, j int) bool {
 		if apiDocumentPriority(docs[i]) != apiDocumentPriority(docs[j]) {
 			return apiDocumentPriority(docs[i]) < apiDocumentPriority(docs[j])
@@ -144,6 +164,67 @@ func DiscoverLocalAPIs(exampleDir, projectText string) ([]APIDocument, error) {
 		return docs[i].RelativePath < docs[j].RelativePath
 	})
 	return docs, nil
+}
+
+type operationSummaryParser func([]byte, string) ([]apitools.OperationSummary, error)
+
+func discoverLocalParsedSourceAPIs(exampleDir, dirName string, extensions []string, parse operationSummaryParser) ([]APIDocument, error) {
+	var docs []APIDocument
+	sourceDir := filepath.Join(exampleDir, dirName)
+	if _, err := os.Stat(sourceDir); err != nil {
+		if os.IsNotExist(err) {
+			return nil, nil
+		}
+		return nil, err
+	}
+	allowedExt := map[string]bool{}
+	for _, ext := range extensions {
+		allowedExt[strings.ToLower(ext)] = true
+	}
+	if err := filepath.WalkDir(sourceDir, func(path string, entry os.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+		if entry.IsDir() {
+			return nil
+		}
+		if isAdvisorySecuritySidecarPath(path) || !allowedExt[strings.ToLower(filepath.Ext(path))] {
+			return nil
+		}
+		data, err := os.ReadFile(path)
+		if err != nil {
+			return err
+		}
+		rel, err := filepath.Rel(exampleDir, path)
+		if err != nil {
+			return err
+		}
+		rel = filepath.ToSlash(rel)
+		operations, err := parse(data, rel)
+		if err != nil {
+			return fmt.Errorf("parse %s %s: %w", dirName, path, err)
+		}
+		docs = append(docs, APIDocument{
+			ID:           strings.TrimSuffix(filepath.Base(path), filepath.Ext(path)),
+			Path:         path,
+			RelativePath: rel,
+			Title:        parsedSourceDocumentTitle(dirName, operations),
+			Operations:   operations,
+		})
+		return nil
+	}); err != nil {
+		return nil, err
+	}
+	return docs, nil
+}
+
+func parsedSourceDocumentTitle(dirName string, operations []apitools.OperationSummary) string {
+	for _, op := range operations {
+		if title := strings.TrimSpace(op.DocumentName); title != "" {
+			return title
+		}
+	}
+	return dirName
 }
 
 func apiDocumentPriority(doc APIDocument) int {

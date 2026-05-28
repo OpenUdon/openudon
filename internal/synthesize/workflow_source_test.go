@@ -95,6 +95,91 @@ func TestGenerateWorkflowDocumentEmitsUWS13AsyncAPISource(t *testing.T) {
 	}
 }
 
+func TestGenerateWorkflowDocumentEmitsUWS14GraphQLSource(t *testing.T) {
+	example := t.TempDir()
+	mustWriteSynthesizeTestFile(t, filepath.Join(example, "graphql", "schema.graphql"), []byte(`type Query { hero(episode: String): String }`))
+	intent := &rollout.Intent{
+		Source:   "graphql/schema.graphql",
+		Workflow: &rollout.WorkflowMeta{Name: "starwars_hero"},
+		Steps: []*rollout.Step{{
+			Name:      "get_hero",
+			Type:      "http",
+			Source:    "graphql/schema.graphql",
+			Operation: "query.hero",
+		}},
+	}
+	doc, err := generateWorkflowDocument(Result{ExampleDir: example}, intent)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if doc.UWS != "1.4.0" {
+		t.Fatalf("UWS version = %q, want 1.4.0", doc.UWS)
+	}
+	if len(doc.SourceDescriptions) != 1 || doc.SourceDescriptions[0].Type != uws1.SourceDescriptionTypeGraphQL {
+		t.Fatalf("sourceDescriptions = %#v", doc.SourceDescriptions)
+	}
+	if got := doc.Operations[0].SourceOperationID; got != "query.hero" {
+		t.Fatalf("sourceOperationId = %q", got)
+	}
+}
+
+func TestGenerateWorkflowDocumentCanonicalizesODataSourceOperationID(t *testing.T) {
+	example := t.TempDir()
+	mustWriteSynthesizeTestFile(t, filepath.Join(example, "odata", "metadata.xml"), []byte(`<Schema Namespace="Demo" xmlns="http://docs.oasis-open.org/odata/ns/edm">
+  <EntityType Name="Customer"><Key><PropertyRef Name="ID"/></Key><Property Name="ID" Type="Edm.String"/></EntityType>
+  <EntityContainer Name="Container"><EntitySet Name="Customers" EntityType="Demo.Customer"/></EntityContainer>
+</Schema>`))
+	intent := &rollout.Intent{
+		Source:   "odata/metadata.xml",
+		Workflow: &rollout.WorkflowMeta{Name: "odata_customers"},
+		Steps: []*rollout.Step{{
+			Name:      "query_customers",
+			Type:      "http",
+			Source:    "odata/metadata.xml",
+			Operation: "entityset.Customers",
+			With:      map[string]string{"$top": "inputs.max_customers"},
+		}},
+	}
+	doc, err := generateWorkflowDocument(Result{ExampleDir: example}, intent)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if doc.UWS != "1.4.0" {
+		t.Fatalf("UWS version = %q, want 1.4.0", doc.UWS)
+	}
+	if len(doc.SourceDescriptions) != 1 || doc.SourceDescriptions[0].Type != uws1.SourceDescriptionTypeOData {
+		t.Fatalf("sourceDescriptions = %#v", doc.SourceDescriptions)
+	}
+	if got := doc.Operations[0].SourceOperationID; got != "entitySet.Customers.query" {
+		t.Fatalf("sourceOperationId = %q, want entitySet.Customers.query", got)
+	}
+	query, ok := doc.Operations[0].Request["query"].(map[string]any)
+	if !ok || query["$top"] == nil {
+		t.Fatalf("request query binding = %#v", doc.Operations[0].Request)
+	}
+}
+
+func TestWorkflowCompatibilityCommentsUseSourceForNativeAPISources(t *testing.T) {
+	got := string(workflowCompatibilityComments(&rollout.Intent{
+		Source: "graphql/schema.graphql",
+		Steps:  []*rollout.Step{{Name: "query_hero", Type: "http"}},
+	}))
+	if !strings.Contains(got, `# source = "graphql/schema.graphql"`) {
+		t.Fatalf("native source compatibility comments = %q", got)
+	}
+	if strings.Contains(got, `# openapi = "graphql/schema.graphql"`) {
+		t.Fatalf("native source compatibility comments used openapi alias: %q", got)
+	}
+
+	got = string(workflowCompatibilityComments(&rollout.Intent{
+		OpenAPI: "openapi/support.yaml",
+		Steps:   []*rollout.Step{{Name: "get_ticket", Type: "http"}},
+	}))
+	if !strings.Contains(got, `# openapi = "openapi/support.yaml"`) {
+		t.Fatalf("OpenAPI compatibility comments = %q", got)
+	}
+}
+
 func TestGenerateWorkflowDocumentEmitsAsyncAPISourceOperationRef(t *testing.T) {
 	example := t.TempDir()
 	mustWriteSynthesizeTestFile(t, filepath.Join(example, "asyncapi", "events.yaml"), []byte(minimalAsyncAPIDocument()))
@@ -769,6 +854,16 @@ func TestSourceDescriptionTypeForPathNormalizesRelativeForms(t *testing.T) {
 	}
 	if got := sourceDescriptionTypeForPath("./aws-smithy/lambda.json"); got != uws1.SourceDescriptionTypeAWSSmithy {
 		t.Fatalf("source type = %q, want aws-smithy", got)
+	}
+	for path, want := range map[string]uws1.SourceDescriptionType{
+		"graphql/schema.graphql":            uws1.SourceDescriptionTypeGraphQL,
+		"openrpc/math.json":                 uws1.SourceDescriptionTypeOpenRPC,
+		"grpc-protobuf/trace_service.proto": uws1.SourceDescriptionTypeGRPCProtobuf,
+		"odata/service.xml":                 uws1.SourceDescriptionTypeOData,
+	} {
+		if got := sourceDescriptionTypeForPath(path); got != want {
+			t.Fatalf("source type for %q = %q, want %q", path, got, want)
+		}
 	}
 }
 

@@ -254,7 +254,7 @@ func buildUWSStep(step *rollout.Step, defaultOpenAPI string, sourceFor func(stri
 		} else if strings.HasPrefix(strings.TrimSpace(step.Operation), "#/") {
 			op.SourceOperationRef = strings.TrimSpace(step.Operation)
 		} else {
-			op.SourceOperationID = strings.TrimSpace(step.Operation)
+			op.SourceOperationID = sourceOperationIDForUWS(sourceType, step.Operation)
 		}
 	default:
 		if op.Extensions == nil {
@@ -640,6 +640,17 @@ func (mapper *requestBindingMapper) loadNative(path, sourceRef string, sourceTyp
 				return nil, err
 			}
 		}
+	case uws1.SourceDescriptionTypeGraphQL, uws1.SourceDescriptionTypeOpenRPC, uws1.SourceDescriptionTypeGRPCProtobuf, uws1.SourceDescriptionTypeOData:
+		ops, parseErr := parseNativeOperationSummaries(data, sourceRef, sourceType)
+		if parseErr != nil {
+			return nil, fmt.Errorf("load %s request metadata %s: %w", sourceType, sourceRef, parseErr)
+		}
+		for _, op := range ops {
+			ids := nativeOperationIDAliases(sourceType, op)
+			if err := add(ids, op); err != nil {
+				return nil, err
+			}
+		}
 	default:
 		return nil, fmt.Errorf("unsupported API source type %q for %s", sourceType, sourceRef)
 	}
@@ -818,6 +829,51 @@ func requestFieldPlacementMetadata(operation apitools.OperationSummary) (map[str
 	}
 	for _, parameter := range operation.Parameters {
 		section := strings.TrimSpace(parameter.In)
+		switch section {
+		case "graphql-variable":
+			if err := add(parameter.Name, "body", "variables."+parameter.Name); err != nil {
+				return nil, nil, err
+			}
+			if err := add("variables."+parameter.Name, "body", "variables."+parameter.Name); err != nil {
+				return nil, nil, err
+			}
+			continue
+		case "json-rpc":
+			if strings.TrimSpace(parameter.Name) == "" {
+				continue
+			}
+			if err := add(parameter.Name, "body", "params."+parameter.Name); err != nil {
+				return nil, nil, err
+			}
+			if err := add("params."+parameter.Name, "body", "params."+parameter.Name); err != nil {
+				return nil, nil, err
+			}
+			continue
+		case "odata-query-option":
+			if err := add(parameter.Name, "query", parameter.Name); err != nil {
+				return nil, nil, err
+			}
+			if err := add("query."+parameter.Name, "query", parameter.Name); err != nil {
+				return nil, nil, err
+			}
+			if alias := strings.TrimPrefix(parameter.Name, "$"); alias != parameter.Name {
+				if err := add(alias, "query", parameter.Name); err != nil {
+					return nil, nil, err
+				}
+				if err := add("query."+alias, "query", parameter.Name); err != nil {
+					return nil, nil, err
+				}
+			}
+			continue
+		case "odata-parameter":
+			if err := add(parameter.Name, "body", "parameters."+parameter.Name); err != nil {
+				return nil, nil, err
+			}
+			if err := add("parameters."+parameter.Name, "body", "parameters."+parameter.Name); err != nil {
+				return nil, nil, err
+			}
+			continue
+		}
 		if !isStandardRequestSection(section) || section == "body" {
 			continue
 		}
@@ -969,6 +1025,9 @@ func stringMapToAny(values map[string]string) map[string]any {
 }
 
 func uwsVersionForIntent(intent *rollout.Intent) string {
+	if intentRequiresUWS14(intent) {
+		return "1.4.0"
+	}
 	if intentRequiresUWS13(intent) {
 		return "1.3.0"
 	}
@@ -979,6 +1038,31 @@ func uwsVersionForIntent(intent *rollout.Intent) string {
 		return "1.1.0"
 	}
 	return "1.0.0"
+}
+
+func intentRequiresUWS14(intent *rollout.Intent) bool {
+	if intent == nil {
+		return false
+	}
+	if sourceTypeRequiresUWS14(sourceDescriptionTypeForPath(firstNonEmpty(intent.Source, intent.OpenAPI))) {
+		return true
+	}
+	requires := false
+	walkIntentSteps(intent.Steps, func(step *rollout.Step) {
+		if step != nil && !requires && sourceTypeRequiresUWS14(sourceDescriptionTypeForPath(firstNonEmpty(step.Source, step.OpenAPI))) {
+			requires = true
+		}
+	})
+	return requires
+}
+
+func sourceTypeRequiresUWS14(sourceType uws1.SourceDescriptionType) bool {
+	switch sourceType {
+	case uws1.SourceDescriptionTypeGraphQL, uws1.SourceDescriptionTypeOpenRPC, uws1.SourceDescriptionTypeGRPCProtobuf, uws1.SourceDescriptionTypeOData:
+		return true
+	default:
+		return false
+	}
 }
 
 func intentRequiresUWS13(intent *rollout.Intent) bool {
@@ -1066,8 +1150,12 @@ func workflowCompatibilityComments(intent *rollout.Intent) []byte {
 		return nil
 	}
 	var lines []string
-	if strings.TrimSpace(intent.OpenAPI) != "" {
-		lines = append(lines, fmt.Sprintf("# openapi = %q", intent.OpenAPI))
+	if source := firstNonEmpty(intent.Source, intent.OpenAPI); strings.TrimSpace(source) != "" {
+		label := "openapi"
+		if sourceDescriptionTypeForPath(source) != uws1.SourceDescriptionTypeOpenAPI {
+			label = "source"
+		}
+		lines = append(lines, fmt.Sprintf("# %s = %q", label, source))
 	}
 	var walk func([]*rollout.Step)
 	walk = func(steps []*rollout.Step) {

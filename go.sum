@@ -1,5 +1,5 @@
-github.com/OpenUdon/apitools v0.0.0-20260527152837-fb1c2fe61c4b h1:9RA71ep5vPIhuDkkq6UAZWXVix3mPhsxDgpLCX47UdA=
-github.com/OpenUdon/apitools v0.0.0-20260527152837-fb1c2fe61c4b/go.mod h1:h63NNvVGj/O5j0hhvxa8mD36myLs9X0Ky4S7Zop8vW0=
+github.com/OpenUdon/apitools v0.0.0-20260527233218-38d3be1a361a h1:y0kP1dhWe/xh/UksMoqo7AIu+gGkMgWy5l1i9mgzQVc=
+github.com/OpenUdon/apitools v0.0.0-20260527233218-38d3be1a361a/go.mod h1:h63NNvVGj/O5j0hhvxa8mD36myLs9X0Ky4S7Zop8vW0=
 github.com/OpenUdon/asyncapi v0.1.0 h1:ZfGDJHknYUKfEZIC6VrhpdiwDVStMoZnyYmr3AVbQH4=
 github.com/OpenUdon/asyncapi v0.1.0/go.mod h1:RvOKMXItIe+XQu06yZQp839fTZpouX2dL9ngvhg/vOk=
 github.com/OpenUdon/awssmithy v0.0.0-20260520213111-549a060a5e28 h1:Xrv5Ccw2QVXfuswbTLP98vt5vyMIVmnsfX43TUHBo+Y=
@@ -12,8 +12,8 @@ github.com/OpenUdon/schema v0.0.0-20260507023912-6ea3308bb955 h1:dwQPNJKFpa6ndPa
 github.com/OpenUdon/schema v0.0.0-20260507023912-6ea3308bb955/go.mod h1:Q0QXMOpiSZlXZpdnMV/FpUaZ85SJWi+h7E5vEU85Rik=
 github.com/OpenUdon/tfconfig v0.0.0-20260509192333-e523c2b30f3e h1:6/q3YipBkZlW3gvmZ00YK/3tPJGY8d6KSBiW2KWxQNI=
 github.com/OpenUdon/tfconfig v0.0.0-20260509192333-e523c2b30f3e/go.mod h1:gB+Sw8dXdxA55wbZ1e2irup+WP6VisUxCchuPwPydWg=
-github.com/OpenUdon/uws v0.0.0-20260527133156-68106ab5c011 h1:/6hj72+tFhIvSdBD3wlScfLO5ZqEBtylvctWfG+8e9M=
-github.com/OpenUdon/uws v0.0.0-20260527133156-68106ab5c011/go.mod h1:SPlgJhiOvj3jGOWWG8qKHWzXGjfpKaN0OrBL9HlzsFk=
+github.com/OpenUdon/uws v0.0.0-20260527225623-7aa9eade0198 h1:nny//RGjgN3Ca1Qx9LoDKuDgwtE0s6JlVGqPCMNaYhQ=
+github.com/OpenUdon/uws v0.0.0-20260527225623-7aa9eade0198/go.mod h1:SPlgJhiOvj3jGOWWG8qKHWzXGjfpKaN0OrBL9HlzsFk=
 github.com/agext/levenshtein v1.2.3 h1:YB2fHEn0UJagG8T1rrWknE3ZQzWM06O8AMAatNn7lmo=
 github.com/agext/levenshtein v1.2.3/go.mod h1:JEDfjyjHDjOF/1e4FlBE/PkbqA9OfWu2ki2W0IB5558=
 github.com/antchfx/xmlquery v1.5.1 h1:T9I4Ns1EXiWHy0IqKupGhnfTQtJwlGrpXtauYOoNv78=

@@ -1,0 +1,16 @@
+{
+  "version": "openudon.workflow-plan.v1",
+  "example": "graphql-starwars-hero",
+  "workflow": "graphql_starwars_hero",
+  "summary": "Read the reviewed Star Wars hero field using a package-local GraphQL schema artifact.",
+  "steps": [
+    {
+      "name": "get_hero",
+      "type": "http",
+      "inferred": true,
+      "openapi": "graphql/graphiql-starwars-schema.graphql",
+      "operation": "query.hero",
+      "runtime": "http"
+    }
+  ]
+}

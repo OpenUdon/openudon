@@ -63,7 +63,17 @@ func CleanRelativePath(inputPath string) (string, error) {
 	return clean, nil
 }
 
-var apiSourceDirs = []string{"openapi", "google-discovery", "aws-smithy", "asyncapi", "discovery"}
+var apiSourceDirs = []string{
+	"openapi",
+	"google-discovery",
+	"aws-smithy",
+	"asyncapi",
+	"graphql",
+	"openrpc",
+	"grpc-protobuf",
+	"odata",
+	"discovery",
+}
 
 // RequiredPackagePaths returns the fixed handoff inventory, every regular API
 // source file staged for execution, and advisory evidence files tied to those

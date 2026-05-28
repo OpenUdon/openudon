@@ -16,7 +16,8 @@ go run ./cmd/openudon synthesize \
   --max-attempts 5
 ```
 
-`synthesize` reads `project.md`, API/event source files under `openapi/`, `google-discovery/`, `aws-smithy/`, and `asyncapi/` plus optional existing intent. It
+`synthesize` reads `project.md`, API/event source files under `openapi/`, `google-discovery/`,
+`aws-smithy/`, `asyncapi/`, `graphql/`, `openrpc/`, `grpc-protobuf/`, and `odata/` plus optional existing intent. It
 writes:
 
 ```text
@@ -51,15 +52,15 @@ source-aligned directory before running `synthesize`:
 go run ./cmd/openudon catalog import-openapi --provider stripe --example ./examples/<name>
 ```
 
-Catalog OpenAPI/Swagger, Google Discovery, AWS Smithy JSON, and AsyncAPI artifacts are first-class
-API/event source inputs for generated UWS artifacts. UWS 1.4 defines GraphQL, OpenRPC,
-gRPC/protobuf, and OData source types, but OpenUdon synthesis must not emit them until source-aware
-`apitools` metadata and trusted executor support are available. Stone, Postman Collection, RAML, API
+Catalog OpenAPI/Swagger, Google Discovery, AWS Smithy JSON, AsyncAPI, GraphQL, OpenRPC,
+gRPC/protobuf, and OData artifacts are first-class API/event source inputs for generated UWS
+artifacts. Stone, Postman Collection, RAML, API
 Blueprint, human-docs, and unknown protocols remain advisory or OpenAPI-lowering/review inputs.
 
-OpenUdon validates and packages AsyncAPI source-bound UWS 1.3 workflows. It does not implement
-AsyncAPI protocol serialization, broker subscription, message delivery, or credential resolution;
-those remain trusted-runtime responsibilities.
+OpenUdon validates and packages AsyncAPI source-bound UWS 1.3 workflows and GraphQL/OpenRPC/gRPC/OData
+source-bound UWS 1.4 workflows. It does not implement protocol serialization, broker subscription,
+message delivery, RPC transport, endpoint selection, or credential resolution; those remain
+trusted-runtime responsibilities.
 
 ## Narrower Stages
 

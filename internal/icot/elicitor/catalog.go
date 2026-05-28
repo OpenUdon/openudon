@@ -470,7 +470,7 @@ func migratedSourceCandidatesForProvider(sources []CatalogMigrationCandidate, pr
 
 func catalogMigrationCandidateIsAPISource(candidate CatalogMigrationCandidate) bool {
 	switch strings.TrimSpace(strings.Split(filepath.ToSlash(candidate.RelativePath), "/")[0]) {
-	case "openapi", "google-discovery", "aws-smithy", "asyncapi":
+	case "openapi", "google-discovery", "aws-smithy", "asyncapi", "graphql", "openrpc", "grpc-protobuf", "odata":
 		return candidate.Kind != catalog.SpecKind("security-overlay")
 	default:
 		return false
@@ -763,15 +763,33 @@ func siblingCatalogSpecArtifactPath(cacheRoot string, ref catalog.SpecReference)
 
 func siblingCatalogSpecArtifactCandidates(cacheRoot string, ref catalog.SpecReference) []string {
 	var dirs []string
+	var extensions []string
 	switch ref.Kind {
 	case catalog.SpecKindGoogleDiscovery:
 		dirs = []string{"google-discovery"}
+		extensions = []string{".json"}
 	case catalog.SpecKindSmithyJSON:
 		dirs = []string{"aws-smithy"}
+		extensions = []string{".json"}
+	case catalog.SpecKindAsyncAPI:
+		dirs = []string{"asyncapi"}
+		extensions = []string{".json", ".yaml", ".yml"}
+	case catalog.SpecKindGraphQL:
+		dirs = []string{"graphql"}
+		extensions = []string{".graphql", ".gql"}
+	case catalog.SpecKindOpenRPC:
+		dirs = []string{"openrpc"}
+		extensions = []string{".json"}
+	case catalog.SpecKindGRPCProtobuf:
+		dirs = []string{"grpc-protobuf"}
+		extensions = []string{".proto"}
+	case catalog.SpecKindOData:
+		dirs = []string{"odata"}
+		extensions = []string{".xml", ".json"}
 	default:
 		dirs = []string{"openapi"}
+		extensions = []string{".json", ".yaml", ".yml", ".tar.gz"}
 	}
-	extensions := []string{".json", ".yaml", ".yml", ".tar.gz"}
 	var out []string
 	for _, dir := range dirs {
 		for _, ext := range extensions {
@@ -884,7 +902,7 @@ func catalogSpecArtifactsFromSiblingCache(path string) ([]catalog.CatalogSpecArt
 
 func migratableSpecKind(kind catalog.SpecKind) bool {
 	switch kind {
-	case catalog.SpecKindOpenAPI, catalog.SpecKindGoogleDiscovery, catalog.SpecKindSmithyJSON:
+	case catalog.SpecKindOpenAPI, catalog.SpecKindOpenAPIIndex, catalog.SpecKindGoogleDiscovery, catalog.SpecKindSmithyJSON, catalog.SpecKindAsyncAPI, catalog.SpecKindOpenRPC, catalog.SpecKindGraphQL, catalog.SpecKindGRPCProtobuf, catalog.SpecKindOData:
 		return true
 	default:
 		return false
@@ -913,6 +931,14 @@ func uwsSourceTypeArtifactDir(sourceType string) string {
 		return "aws-smithy"
 	case "asyncapi":
 		return "asyncapi"
+	case "graphql":
+		return "graphql"
+	case "openrpc":
+		return "openrpc"
+	case "grpc-protobuf":
+		return "grpc-protobuf"
+	case "odata":
+		return "odata"
 	default:
 		return ""
 	}

@@ -12,10 +12,9 @@ validation, review handoff evidence, package digests, credential policy, and tru
 Public workflow semantics belong in `github.com/OpenUdon/uws`; API/event source metadata discovery,
 import, materialization, search, and indexing belong in `github.com/OpenUdon/apitools`; static
 Terraform/OpenTofu parsing for `openudon convert tf` belongs in `github.com/OpenUdon/tfconfig`.
-OpenUdon can stage OpenAPI, Google Discovery, AWS Smithy, and AsyncAPI source documents as
-first-class UWS source descriptions when the trusted executor supports them. UWS 1.4 defines
-`graphql`, `openrpc`, `grpc-protobuf`, and `odata` source description types, but OpenUdon generation
-for those families remains gated on source-aware `apitools` support and trusted executor support.
+OpenUdon can stage OpenAPI, Google Discovery, AWS Smithy, AsyncAPI, GraphQL, OpenRPC,
+gRPC/protobuf, and OData source documents as first-class UWS source descriptions when the trusted
+executor supports them.
 
 ## Quick Start
 
@@ -223,7 +222,8 @@ go run ./cmd/openudon synthesize \
 ```
 
 The command reads `project.md`, discovers or imports API/event source documents under `openapi/`,
-`google-discovery/`, `aws-smithy/`, or `asyncapi/`, writes `workflows/intent.hcl` when needed, and generates equivalent public UWS HCL/YAML workflow
+`google-discovery/`, `aws-smithy/`, `asyncapi/`, `graphql/`, `openrpc/`, `grpc-protobuf/`, or
+`odata/`, writes `workflows/intent.hcl` when needed, and generates equivalent public UWS HCL/YAML workflow
 artifacts:
 
 ```text
@@ -283,10 +283,9 @@ go run ./cmd/openudon catalog import-openapi \
 
 `import-openapi` writes only actual OpenAPI references into `examples/<name>/openapi/`. Catalog
 materialization and iCoT artifact migration may stage Google Discovery under `google-discovery/`,
-AWS Smithy JSON under `aws-smithy/`, and AsyncAPI source documents under `asyncapi/`. UWS 1.4
-GraphQL, OpenRPC, gRPC/protobuf, and OData source bindings are public contracts, but OpenUdon should
-not generate them until `apitools` and the trusted executor can preserve each source family's
-selector and runtime semantics. Dropbox Stone, Postman Collection, RAML, API Blueprint, and
+AWS Smithy JSON under `aws-smithy/`, AsyncAPI source documents under `asyncapi/`, GraphQL under
+`graphql/`, OpenRPC under `openrpc/`, gRPC/protobuf under `grpc-protobuf/`, and OData under
+`odata/`. Dropbox Stone, Postman Collection, RAML, API Blueprint, and
 human-docs entries remain advisory until lowered or reviewed separately.
 
 ## Quality And Repair Loop
@@ -423,9 +422,7 @@ OpenUdon issues may be run through externally orchestrated Codex sessions. Agent
   and security details.
 - Use `openudon catalog inspect` or `openudon catalog import-openapi` when a first-class
   provider-owned OpenAPI source is available, and use first-class materialization for Google
-  Discovery, AWS Smithy, or AsyncAPI sources when supported. Treat UWS 1.4 GraphQL, OpenRPC,
-  gRPC/protobuf, and OData generation as gated until source-aware tooling and trusted runtimes are
-  ready.
+  Discovery, AWS Smithy, AsyncAPI, GraphQL, OpenRPC, gRPC/protobuf, or OData sources when supported.
 - Use extension-owned UWS operations for non-HTTP runtimes such as SMTP, command execution, SSH,
   SQL, or LLM calls.
 - Use `../uws` for public schema/model validation.
@@ -443,6 +440,10 @@ examples/<name>/google-discovery/
 examples/<name>/aws-smithy/
 examples/<name>/discovery/
 examples/<name>/asyncapi/
+examples/<name>/graphql/
+examples/<name>/openrpc/
+examples/<name>/grpc-protobuf/
+examples/<name>/odata/
 examples/<name>/workflows/intent.hcl
 examples/<name>/workflows/workflow.hcl
 examples/<name>/workflows/workflow.uws.yaml

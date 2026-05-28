@@ -40,7 +40,7 @@ and accepts them automatically, but still asks for missing, low-confidence, or c
 assumption text while preserving transcript and decision evidence.
 
 For catalog-backed SaaS briefs, iCoT first checks local `openapi/`, `google-discovery/`,
-`aws-smithy/`, `asyncapi/`, and legacy `discovery/` documents plus the sibling `../apitools`
+`aws-smithy/`, `asyncapi/`, `graphql/`, `openrpc/`, `grpc-protobuf/`, `odata/`, and legacy `discovery/` documents plus the sibling `../apitools`
 first-class provider cache. If a local API artifact is missing, iCoT tries to retrieve or
 materialize first-class apitools artifacts or reviewed advisory OpenAPI overlays into the workflow
 before asking for an API path. It only asks for a user-provided artifact after apitools reports that no first-class or
@@ -48,9 +48,9 @@ advisory source artifact is available. Discovery and Smithy documents can drive 
 synthesis, packaging, and trusted handoff directly. When both an original provider OpenAPI document
 and a reviewed advisory OpenAPI overlay are available, iCoT defaults to the advisory overlay for
 operation selection because it carries OpenUdon-reviewed endpoint/security scope.
-UWS 1.4 GraphQL, OpenRPC, gRPC/protobuf, and OData source descriptions are public UWS contracts, but
-OpenUdon authoring should not emit them until `../apitools` supplies source-aware metadata and the
-trusted executor supports the corresponding source family.
+GraphQL, OpenRPC, gRPC/protobuf, and OData sources can drive UWS 1.4 review/package artifacts when
+source-aware `../apitools` metadata is available. The corresponding protocol execution stays in the
+trusted executor boundary.
 
 iCoT defaults to the local `copilot-api` gateway, using `COPILOT_API_BASE_URL` when set and
 `http://localhost:4141` otherwise. Use `OPENUDON_LLM_PROVIDER` and `OPENUDON_LLM_MODEL` for
@@ -158,6 +158,8 @@ If the project needs API or event-source-bound calls, provide one of these:
 - Google Discovery files under `google-discovery/` or legacy `discovery/`.
 - AWS Smithy JSON files under `aws-smithy/`.
 - AsyncAPI files under `asyncapi/` when the workflow binds to event or message source operations.
+- GraphQL, OpenRPC, gRPC/protobuf, and OData files under `graphql/`, `openrpc/`,
+  `grpc-protobuf/`, and `odata/` when the workflow binds to UWS 1.4 source operations.
 - OpenAPI document URLs in `project.md`.
 - Search/discovery hints precise enough for OpenUdon to find the relevant API document.
 

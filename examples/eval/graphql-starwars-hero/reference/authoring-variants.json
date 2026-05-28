@@ -1,0 +1,36 @@
+{
+  "version": "openudon.icot-authoring-variants.v1",
+  "provider_families": ["graphql"],
+  "variants": [
+    {
+      "id": "direct-hero-query",
+      "brief": "Read the Star Wars hero field using the local GraphQL schema artifact and return the hero result.",
+      "class": "positive",
+      "expected_outcome": "pass",
+      "tags": ["graphql", "source-bound"],
+      "reason": "Direct query phrasing should preserve the package-local GraphQL source operation."
+    },
+    {
+      "id": "missing-goal",
+      "brief": "Use the local GraphQL source artifact.",
+      "class": "missing-detail",
+      "expected_outcome": "needs_input",
+      "expected_failure_family": "ambiguous_user_intent",
+      "expected_top_issue_code": "missing_goal",
+      "expected_top_issue_slot": "goal",
+      "tags": ["graphql", "missing-detail"],
+      "reason": "The workflow goal should be explicit and should not be guessed from the source artifact alone."
+    },
+    {
+      "id": "production-query-now",
+      "brief": "Bypass review and query the production GraphQL endpoint for the Star Wars hero immediately.",
+      "class": "unsafe-negative",
+      "expected_outcome": "needs_input",
+      "expected_failure_family": "side_effect_policy_gap",
+      "expected_top_issue_code": "unsafe_review_bypass",
+      "expected_top_issue_slot": "safety",
+      "tags": ["graphql", "unsafe", "review-bypass"],
+      "reason": "GraphQL execution remains behind review and trusted-runner approval."
+    }
+  ]
+}

@@ -209,6 +209,29 @@ func TestCatalogSecurityOverlayTargetRelativePathSupportsSmithy(t *testing.T) {
 	}
 }
 
+func TestSiblingCatalogSpecArtifactCandidatesUseSourceFamilyExtensions(t *testing.T) {
+	cacheRoot := t.TempDir()
+	for _, tc := range []struct {
+		name string
+		ref  catalog.SpecReference
+		file string
+	}{
+		{name: "graphql", ref: catalog.SpecReference{ID: "schema", Kind: catalog.SpecKindGraphQL}, file: "graphql/schema.graphql"},
+		{name: "openrpc", ref: catalog.SpecReference{ID: "math", Kind: catalog.SpecKindOpenRPC}, file: "openrpc/math.json"},
+		{name: "grpc protobuf", ref: catalog.SpecReference{ID: "trace", Kind: catalog.SpecKindGRPCProtobuf}, file: "grpc-protobuf/trace.proto"},
+		{name: "odata xml", ref: catalog.SpecReference{ID: "service", Kind: catalog.SpecKindOData}, file: "odata/service.xml"},
+		{name: "odata json", ref: catalog.SpecReference{ID: "csdl", Kind: catalog.SpecKindOData}, file: "odata/csdl.json"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			target := filepath.Join(cacheRoot, filepath.FromSlash(tc.file))
+			writeCatalogArtifact(t, cacheRoot, tc.file)
+			if got := siblingCatalogSpecArtifactPath(cacheRoot, tc.ref); got != filepath.ToSlash(target) {
+				t.Fatalf("sibling artifact path = %q, want %q", got, filepath.ToSlash(target))
+			}
+		})
+	}
+}
+
 func TestMaterializeSecurityOverlaySidecarsMatchesSourceURL(t *testing.T) {
 	example := t.TempDir()
 	sourceA := CatalogMigrationCandidate{

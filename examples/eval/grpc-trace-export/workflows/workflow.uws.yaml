@@ -1,0 +1,28 @@
+info:
+    description: Submit a reviewed OpenTelemetry trace export request using a package-local gRPC/protobuf source artifact.
+    title: grpc_trace_export
+    version: 1.0.0
+operations:
+    - description: Submit the OpenTelemetry trace export request.
+      operationId: export_trace
+      request:
+        body:
+            resourceSpans:
+                $expr: variables.inputs.resource_spans
+      sourceDescription: opentelemetry_trace_service_v1
+      sourceOperationId: opentelemetry.proto.collector.trace.v1.TraceService/Export
+sourceDescriptions:
+    - name: opentelemetry_trace_service_v1
+      type: grpc-protobuf
+      url: grpc-protobuf/opentelemetry-trace-service-v1.proto
+uws: 1.4.0
+workflows:
+    - description: Submit a reviewed OpenTelemetry trace export request using a package-local gRPC/protobuf source artifact.
+      outputs:
+        export_result: export_trace.received_body
+      steps:
+        - description: Submit the OpenTelemetry trace export request.
+          operationRef: export_trace
+          stepId: export_trace
+      type: sequence
+      workflowId: main

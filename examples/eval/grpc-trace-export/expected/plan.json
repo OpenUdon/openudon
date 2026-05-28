@@ -1,0 +1,22 @@
+{
+  "version": "openudon.workflow-plan.v1",
+  "example": "grpc-trace-export",
+  "workflow": "grpc_trace_export",
+  "summary": "Submit a reviewed OpenTelemetry trace export request using a package-local gRPC/protobuf source artifact.",
+  "steps": [
+    {
+      "name": "export_trace",
+      "type": "http",
+      "inferred": true,
+      "openapi": "grpc-protobuf/opentelemetry-trace-service-v1.proto",
+      "operation": "opentelemetry.proto.collector.trace.v1.TraceService/Export",
+      "runtime": "http",
+      "bindings": [
+        {
+          "target": "resourceSpans",
+          "source": "inputs.resource_spans"
+        }
+      ]
+    }
+  ]
+}
