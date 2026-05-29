@@ -8,6 +8,7 @@ the relevant behavior.
 | [UWS](https://github.com/OpenUdon/uws) | Public workflow semantics, UWS versions, schema, parsing, validation, and Go model. |
 | [apitools](https://github.com/OpenUdon/apitools) | API source metadata discovery, import/materialization, search, indexing, summaries, auth/security summaries, catalog metadata, protocol-to-UWS-source-type mapping, and operation ranking for OpenAPI, Google Discovery, AWS Smithy, AsyncAPI, GraphQL, OpenRPC, gRPC/protobuf, and OData sources. |
 | [tfconfig](https://github.com/OpenUdon/tfconfig) | Static Terraform/OpenTofu configuration parsing used by Ramen. |
+| [Ramen](https://github.com/OpenUdon/ramen) | Public API-source desired-state reconciliation, state, graphing, planning, drift, import, apply/destroy, and Terraform/OpenTofu conversion into native UWS/Ramen project artifacts. |
 | `udon` | Private UWS/OpenAPI compiler and runtime executor. OpenUdon invokes it only through the trusted run-config handoff. |
 | n8n / `../try-n8n` | Service-priority and workflow-pattern evidence for SaaS authoring. OpenUdon does not import or execute n8n workflows. |
 | [OpenW8M](https://github.com/OpenUdon/openw8m) | Public OpenAPI-backed infrastructure authoring and planning. It is not an OpenUdon compatibility gate while the API source metadata boundary is active. |
@@ -22,6 +23,8 @@ the relevant behavior.
   source import or materialization, but catalog data stays advisory and does not change workflow
   semantics.
 - Static Terraform/OpenTofu parsing belongs in `github.com/OpenUdon/tfconfig`; Terraform conversion ownership now belongs in `github.com/OpenUdon/ramen`.
+- Ramen owns desired-state reconciliation and Ramen-specific run/audit behavior. OpenUdon may review
+  or package UWS-facing artifacts generated elsewhere, but it must not import Ramen.
 - Terraform/OpenTofu provider execution, state, plan/apply, refresh, imports, and cloud SDK calls
   stay outside OpenUdon.
 - n8n workflows are evidence for authoring, not an execution or compatibility target.
@@ -29,5 +32,7 @@ the relevant behavior.
 - Live SaaS provider calls are outside build, assess, iCoT, eval, and dry-run release demos.
 - OpenUdon owns project templates, examples, review state, approval templates, package contents,
   package digests, and local trusted-runner enforcement.
+- Command code remains in the product repo that owns the command. Shared helpers should be
+  extracted only after stable real overlap is proven.
 
 Concrete infrastructure authoring and `.tf` generation are outside OpenUdon's scope.
