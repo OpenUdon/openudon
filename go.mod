@@ -2,14 +2,11 @@ module github.com/OpenUdon/openudon
 
 go 1.26.3
 
-// Shared trust/evidence primitives. Local path until the module is published.
-replace github.com/OpenUdon/evidence => ../evidence
-
 require (
 	github.com/OpenUdon/apitools v0.0.0-20260527233218-38d3be1a361a
 	github.com/OpenUdon/asyncapi v0.1.0
-	github.com/OpenUdon/authoring v0.0.0-20260530174326-80e913657723
-	github.com/OpenUdon/evidence v0.0.0
+	github.com/OpenUdon/authoring v0.0.0-20260530230304-5080b9bac799
+	github.com/OpenUdon/evidence v0.0.0-20260530183120-bc9eae6ab43d
 	github.com/OpenUdon/uws v0.0.0-20260530135301-b9c9a4efac74
 	github.com/hashicorp/hcl/v2 v2.24.0
 	github.com/santhosh-tekuri/jsonschema/v6 v6.0.2
