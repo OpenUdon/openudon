@@ -12,6 +12,10 @@ validation, review handoff evidence, package digests, credential policy, and tru
 Public workflow semantics belong in `github.com/OpenUdon/uws`; API/event source metadata discovery,
 import, materialization, search, and indexing belong in `github.com/OpenUdon/apitools`; static
 Terraform/OpenTofu conversion now belongs in `github.com/OpenUdon/ramen`; OpenUdon no longer owns a Terraform conversion command or imports `tfconfig`.
+OpenUdon uses shared `github.com/OpenUdon/evidence/...` primitives for neutral digest, artifact,
+diagnostic, redaction, and approval evidence where the records are product-independent.
+OpenUdon-specific approval JSON, review handoff, package digest policy, run evidence, tier rules,
+and trusted-runner behavior remain OpenUdon-owned.
 OpenUdon can stage OpenAPI, Google Discovery, AWS Smithy, AsyncAPI, GraphQL, OpenRPC,
 gRPC/protobuf, and OData source documents as first-class UWS source descriptions when the trusted
 executor supports them.
@@ -397,6 +401,10 @@ Approval JSON shape:
   "notes": "optional"
 }
 ```
+
+The shared `github.com/OpenUdon/evidence/approval` package supplies neutral approval evidence
+primitives for cross-product reuse. The `openudon.approval.v1` JSON shape above remains the
+OpenUdon trusted-runner contract.
 
 Tier rules:
 
