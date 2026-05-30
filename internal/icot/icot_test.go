@@ -554,6 +554,20 @@ func TestMissingDetailVariantTopIssues(t *testing.T) {
 			code:    "missing_runtime_inputs",
 			slot:    "intent.inputs",
 		},
+		{
+			fixture: "graphql-starwars-hero",
+			variant: "missing-goal",
+			family:  failureAmbiguousUserIntent,
+			code:    "missing_goal",
+			slot:    "goal",
+		},
+		{
+			fixture: "grpc-trace-export",
+			variant: "missing-resource-spans",
+			family:  failureAmbiguousUserIntent,
+			code:    "missing_runtime_inputs",
+			slot:    "intent.inputs",
+		},
 	}
 	outRoot := t.TempDir()
 	for _, tc := range cases {

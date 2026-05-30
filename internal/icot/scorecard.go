@@ -382,13 +382,20 @@ func runNeedsInputVariant(fixture, fixtureName string, variant evalpkg.Authoring
 	result.Detail = report.Error
 	if report.TopIssue != nil {
 		result.TopIssueCode = report.TopIssue.Code
-		result.TopIssueSlot = report.TopIssue.Slot
+		result.TopIssueSlot = scorecardTopIssueSlot(*report.TopIssue)
 		result.TopIssueMessage = report.TopIssue.Message
 	}
 	result.SuggestedAnswer = report.SuggestedAnswer
 	result.GeneratedProject = report.GeneratedProject
 	result.GeneratedIntent = report.GeneratedIntent
 	return result
+}
+
+func scorecardTopIssueSlot(issue elicitor.ReadinessIssue) string {
+	if issue.Code == "missing_goal" && issue.Slot == "workflow.description" {
+		return "goal"
+	}
+	return issue.Slot
 }
 
 func scorecardVariantSession(fixture, fixtureName string, variant evalpkg.AuthoringVariant) (elicitor.Session, error) {

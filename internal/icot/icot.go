@@ -270,7 +270,7 @@ func runAgentAuthor(opts agentAuthorOptions, out, errOut io.Writer) int {
 	report.ReadinessIssues = issues
 	if top := topBlockingReadinessIssue(issues); top != nil {
 		report.TopIssue = top
-		report.SuggestedAnswer = top.SuggestedAnswer
+		report.SuggestedAnswer = agentSuggestedAnswer(top)
 		report.FailureFamily = failureFamilyForReadiness(top.Code)
 		if err := writeAuthorReport(report, opts, out); err != nil {
 			fmt.Fprintln(errOut, err)
@@ -339,6 +339,21 @@ func runAgentAuthor(opts agentAuthorOptions, out, errOut io.Writer) int {
 		fmt.Fprintf(out, "icot: wrote %s\n", intentPath)
 	}
 	return 0
+}
+
+func agentSuggestedAnswer(issue *elicitor.ReadinessIssue) string {
+	if issue == nil {
+		return ""
+	}
+	if strings.TrimSpace(issue.SuggestedAnswer) != "" {
+		return issue.SuggestedAnswer
+	}
+	switch issue.Code {
+	case "missing_goal":
+		return "Describe the workflow goal and expected output."
+	default:
+		return ""
+	}
 }
 
 func agentProjectText(projectPath string, seed elicitor.Session) string {

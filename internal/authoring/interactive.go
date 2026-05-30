@@ -1,7 +1,6 @@
 package authoring
 
 import (
-	"bufio"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -11,6 +10,8 @@ import (
 	"strings"
 	"time"
 
+	publicprompt "github.com/OpenUdon/authoring/prompt"
+	publicsession "github.com/OpenUdon/authoring/session"
 	"github.com/OpenUdon/openudon/internal/authoring/atomicfile"
 )
 
@@ -43,36 +44,24 @@ type ReplayScript struct {
 
 // PromptSession prompts on a reader/writer pair and records prompt turns.
 type PromptSession struct {
-	reader      *bufio.Reader
-	out         io.Writer
-	turns       []PromptTurn
-	defaultMode PromptDefaultMode
+	session *publicprompt.Session
 }
 
 // PromptDefaultMode controls how prompt defaults are handled.
-type PromptDefaultMode int
+type PromptDefaultMode = publicprompt.DefaultMode
 
 const (
 	// PromptDefaultsAsk prints defaulted prompts and waits for user input.
-	PromptDefaultsAsk PromptDefaultMode = iota
+	PromptDefaultsAsk = publicprompt.DefaultsAsk
 	// PromptDefaultsShow prints defaulted prompts and accepts their defaults.
-	PromptDefaultsShow
+	PromptDefaultsShow = publicprompt.DefaultsShow
 	// PromptDefaultsSilent accepts defaulted prompts without printing them.
-	PromptDefaultsSilent
+	PromptDefaultsSilent = publicprompt.DefaultsSilent
 )
 
 // NewPromptSession creates a local prompt session.
 func NewPromptSession(in io.Reader, out io.Writer) *PromptSession {
-	if in == nil {
-		in = strings.NewReader("")
-	}
-	if out == nil {
-		out = io.Discard
-	}
-	if reader, ok := in.(*bufio.Reader); ok {
-		return &PromptSession{reader: reader, out: out}
-	}
-	return &PromptSession{reader: bufio.NewReader(in), out: out}
+	return &PromptSession{session: publicprompt.NewSession(in, out)}
 }
 
 // SetDefaultMode controls whether defaulted prompts ask, auto-accept visibly,
@@ -81,125 +70,39 @@ func (session *PromptSession) SetDefaultMode(mode PromptDefaultMode) {
 	if session == nil {
 		return
 	}
-	session.defaultMode = mode
+	session.session.SetDefaultMode(mode)
 }
 
 // Ask prompts for a required free-form value.
 func (session *PromptSession) Ask(label string) (string, error) {
-	fmt.Fprintf(session.out, "%s: ", label)
-	value, err := session.next()
-	session.record(label, value, err)
-	return value, err
+	return session.session.Ask(label)
 }
 
 // AskDefault prompts for a value, returning current when the answer is blank.
 func (session *PromptSession) AskDefault(label, current string) (string, error) {
-	return session.askDefault(label, current, false)
+	return session.session.AskDefault(label, current)
 }
 
 // AskDefaultForced prints a defaulted prompt and waits for user input even when
 // the session default mode would normally auto-accept the default.
 func (session *PromptSession) AskDefaultForced(label, current string) (string, error) {
-	mode := session.defaultMode
-	session.defaultMode = PromptDefaultsAsk
-	defer func() {
-		session.defaultMode = mode
-	}()
-	return session.askDefault(label, current, false)
+	return session.session.AskDefaultForced(label, current)
 }
 
 // AskOptionalDefault prompts for an optional value, allowing automatic default
 // acceptance even when the current value is blank.
 func (session *PromptSession) AskOptionalDefault(label, current string) (string, error) {
-	return session.askDefault(label, current, true)
-}
-
-func (session *PromptSession) askDefault(label, current string, autoBlank bool) (string, error) {
-	current = strings.TrimSpace(current)
-	if session.defaultMode != PromptDefaultsAsk && (current != "" || autoBlank) {
-		if session.defaultMode == PromptDefaultsShow {
-			if current == "" {
-				fmt.Fprintf(session.out, "%s:\n", label)
-			} else {
-				fmt.Fprintf(session.out, "%s [%s]: %s\n", label, OneLine(current), OneLine(current))
-			}
-		}
-		session.record(label, current, nil)
-		return current, nil
-	}
-	if current == "" {
-		fmt.Fprintf(session.out, "%s: ", label)
-	} else {
-		fmt.Fprintf(session.out, "%s [%s]: ", label, OneLine(current))
-	}
-	value, err := session.next()
-	if err != nil {
-		session.record(label, value, err)
-		return "", err
-	}
-	if strings.TrimSpace(value) == "" {
-		session.record(label, current, nil)
-		return current, nil
-	}
-	session.record(label, value, nil)
-	return value, nil
+	return session.session.AskOptionalDefault(label, current)
 }
 
 // AskDefaultRequired prompts until a non-empty value is available.
 func (session *PromptSession) AskDefaultRequired(label, current string) (string, error) {
-	for {
-		value, err := session.AskDefault(label, current)
-		if err != nil {
-			return "", fmt.Errorf("%s: %w", label, err)
-		}
-		value = strings.TrimSpace(value)
-		if value != "" {
-			return value, nil
-		}
-		fmt.Fprintf(session.out, "%s is required.\n", label)
-	}
+	return session.session.AskDefaultRequired(label, current)
 }
 
 // AskYesNo prompts for a yes/no answer with a default.
 func (session *PromptSession) AskYesNo(label string, defaultYes bool) (bool, error) {
-	suffix := "y/N"
-	answer := "no"
-	if defaultYes {
-		suffix = "Y/n"
-		answer = "yes"
-	}
-	if session.defaultMode != PromptDefaultsAsk {
-		if session.defaultMode == PromptDefaultsShow {
-			fmt.Fprintf(session.out, "%s [%s]: %s\n", label, suffix, answer)
-		}
-		session.record(label, answer, nil)
-		return defaultYes, nil
-	}
-	for {
-		fmt.Fprintf(session.out, "%s [%s]: ", label, suffix)
-		value, err := session.next()
-		if err != nil {
-			session.record(label, value, err)
-			return false, err
-		}
-		raw := value
-		value = strings.ToLower(strings.TrimSpace(value))
-		if value == "" {
-			session.record(label, raw, nil)
-			return defaultYes, nil
-		}
-		switch value {
-		case "y", "yes", "true", "allow", "allowed", "approve", "approved":
-			session.record(label, raw, nil)
-			return true, nil
-		case "n", "no", "false", "deny", "denied":
-			session.record(label, raw, nil)
-			return false, nil
-		default:
-			session.record(label, raw, nil)
-			fmt.Fprintln(session.out, "Please answer yes or no.")
-		}
-	}
+	return session.session.AskYesNo(label, defaultYes)
 }
 
 // Turns returns a copy of recorded prompt turns.
@@ -207,33 +110,20 @@ func (session *PromptSession) Turns() []PromptTurn {
 	if session == nil {
 		return nil
 	}
-	return append([]PromptTurn(nil), session.turns...)
-}
-
-func (session *PromptSession) next() (string, error) {
-	line, err := session.reader.ReadString('\n')
-	if err == io.EOF && line != "" {
-		return strings.TrimRight(line, "\r\n"), nil
-	}
-	if err != nil {
-		if err == io.EOF {
-			return "", io.ErrUnexpectedEOF
-		}
-		return "", err
-	}
-	return strings.TrimRight(line, "\r\n"), nil
-}
-
-func (session *PromptSession) record(label, answer string, err error) {
-	if err != nil && strings.TrimSpace(answer) == "" {
-		return
-	}
-	session.turns = append(session.turns, PromptTurn{Label: label, Answer: answer})
+	return fromPublicPromptTurns(session.session.Turns())
 }
 
 // OneLine normalizes a prompt default for display.
 func OneLine(value string) string {
-	return strings.Join(strings.Fields(strings.TrimSpace(value)), " ")
+	return publicprompt.OneLine(value)
+}
+
+func fromPublicPromptTurns(turns []publicsession.PromptTurn) []PromptTurn {
+	out := make([]PromptTurn, 0, len(turns))
+	for _, turn := range turns {
+		out = append(out, PromptTurn{Label: turn.Label, Answer: turn.Answer})
+	}
+	return out
 }
 
 // AssertPromptLabelsInOrder verifies that prompt labels were emitted in replay

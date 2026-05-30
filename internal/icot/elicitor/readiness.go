@@ -3,7 +3,7 @@ package elicitor
 import "strings"
 
 func CheckReadiness(session Session, docs []APIDocument) []ReadinessIssue {
-	rawGoalMissing := session.Intent.Workflow == nil || strings.TrimSpace(firstNonEmpty(session.Intent.Workflow.Description, session.Project.Goal)) == ""
+	rawGoalMissing := session.Intent.Workflow == nil || missingGoalText(firstNonEmpty(session.Intent.Workflow.Description, session.Project.Goal))
 	session.Normalize()
 	var issues []ReadinessIssue
 	add := func(code, slot, severity, message, suggested string) {
@@ -163,6 +163,33 @@ func PlanNextQuestion(session Session, docs []APIDocument, issues []ReadinessIss
 		plan.SuggestedAnswer = suggestedAnswerForCode(blocking.Code, session, docs)
 	}
 	return plan
+}
+
+func missingGoalText(goal string) bool {
+	goal = strings.ToLower(strings.TrimSpace(goal))
+	if goal == "" {
+		return true
+	}
+	sourceTerms := []string{"api", "openapi", "graphql", "schema", "source", "artifact", "document"}
+	hasSourceTerm := false
+	for _, term := range sourceTerms {
+		if strings.Contains(goal, term) {
+			hasSourceTerm = true
+			break
+		}
+	}
+	if !hasSourceTerm {
+		return false
+	}
+	actionTerms := []string{
+		"create", "delete", "export", "fetch", "find", "get", "list", "post", "query", "read", "return", "send", "submit", "summarize", "update", "write",
+	}
+	for _, term := range actionTerms {
+		if strings.Contains(goal, term) {
+			return false
+		}
+	}
+	return strings.HasPrefix(goal, "use ") || strings.HasPrefix(goal, "using ") || strings.Contains(goal, "local")
 }
 
 func unconfirmedSideEffectCommitmentPrompt(session Session, docs []APIDocument, slot string) string {

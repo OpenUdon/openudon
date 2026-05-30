@@ -4,8 +4,10 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"reflect"
 	"strings"
+
+	"github.com/OpenUdon/authoring/structured"
+	publictranscript "github.com/OpenUdon/authoring/transcript"
 )
 
 const (
@@ -32,100 +34,32 @@ func CompleteJSONWithFallback(ctx context.Context, client ChatClient, transcript
 	if client == nil {
 		return JSONCompletionResult{}, fmt.Errorf("chat client is required")
 	}
-	target, err := jsonCompletionTarget(out)
+	result, err := structured.CompleteJSON(ctx, chatAdapter{client: client}, toPublicTurns(transcript), schema, out, structured.Options{
+		LegacyInstruction:           opts.LegacyInstruction,
+		FallbackOnStructuredError:   opts.FallbackOnStructuredError,
+		DisableStructuredCompletion: opts.DisableStructuredCompletion,
+	})
 	if err != nil {
-		return JSONCompletionResult{}, err
+		return JSONCompletionResult{Mode: result.Mode, Raw: result.Raw}, err
 	}
-	if !opts.DisableStructuredCompletion {
-		if structured, ok := client.(StructuredChatClient); ok {
-			scratch := reflect.New(target.Elem().Type())
-			err := structured.CompleteStructured(ctx, transcript, schema, scratch.Interface())
-			if err == nil {
-				target.Elem().Set(scratch.Elem())
-				return JSONCompletionResult{Mode: JSONCompletionModeStructured}, nil
-			}
-			if !opts.FallbackOnStructuredError {
-				return JSONCompletionResult{Mode: JSONCompletionModeStructured}, err
-			}
-		}
-	}
-	transcript = AppendLegacyJSONInstruction(transcript, opts.LegacyInstruction)
-	reply, err := client.Complete(ctx, transcript)
-	if err != nil {
-		return JSONCompletionResult{Mode: JSONCompletionModeLegacy}, err
-	}
-	jsonText, err := ExtractJSONBlock(reply.Content)
-	if err != nil {
-		return JSONCompletionResult{Mode: JSONCompletionModeLegacy, Raw: reply.Content}, err
-	}
-	scratch := reflect.New(target.Elem().Type())
-	if err := json.Unmarshal([]byte(jsonText), scratch.Interface()); err != nil {
-		return JSONCompletionResult{Mode: JSONCompletionModeLegacy, Raw: jsonText}, err
-	}
-	target.Elem().Set(scratch.Elem())
-	return JSONCompletionResult{Mode: JSONCompletionModeLegacy, Raw: jsonText}, nil
-}
-
-func jsonCompletionTarget(out any) (reflect.Value, error) {
-	if out == nil {
-		return reflect.Value{}, fmt.Errorf("completion output target is required")
-	}
-	target := reflect.ValueOf(out)
-	if target.Kind() != reflect.Pointer || target.IsNil() {
-		return reflect.Value{}, fmt.Errorf("completion output target must be a non-nil pointer")
-	}
-	return target, nil
+	return JSONCompletionResult{Mode: result.Mode, Raw: result.Raw}, nil
 }
 
 // ExtractJSONBlock extracts a JSON object from a raw model response.
 func ExtractJSONBlock(response string) (string, error) {
-	response = strings.TrimSpace(response)
-	if response == "" {
-		return "", fmt.Errorf("empty model response")
-	}
-	if strings.HasPrefix(response, "```") {
-		lines := strings.Split(response, "\n")
-		if len(lines) >= 3 {
-			lines = lines[1 : len(lines)-1]
-			return strings.TrimSpace(strings.Join(lines, "\n")), nil
-		}
-	}
-	start := strings.Index(response, "{")
-	end := strings.LastIndex(response, "}")
-	if start < 0 || end <= start {
-		return "", fmt.Errorf("no JSON object found in model response")
-	}
-	return response[start : end+1], nil
+	raw, err := structured.ExtractJSONBlock(response)
+	return string(raw), err
 }
 
 // DecodeJSONBlock extracts and decodes a JSON object from a model response.
 func DecodeJSONBlock(raw string, target any) error {
-	jsonText, err := ExtractJSONBlock(raw)
-	if err != nil {
-		return err
-	}
-	return json.Unmarshal([]byte(jsonText), target)
+	return structured.DecodeJSONBlock(raw, target)
 }
 
 // AppendLegacyJSONInstruction appends a JSON-only instruction to the last user
 // turn if one is not already present.
 func AppendLegacyJSONInstruction(transcript []TranscriptTurn, instruction string) []TranscriptTurn {
-	if instruction == "" {
-		instruction = "Return only JSON. Do not include Markdown."
-	}
-	out := append([]TranscriptTurn(nil), transcript...)
-	for i := range out {
-		if strings.Contains(out[i].Content, instruction) {
-			return out
-		}
-	}
-	for i := len(out) - 1; i >= 0; i-- {
-		if strings.TrimSpace(out[i].Role) == "user" {
-			out[i].Content = strings.TrimSpace(out[i].Content) + "\n\n" + instruction
-			return out
-		}
-	}
-	return out
+	return fromPublicTurns(structured.AppendLegacyJSONInstruction(toPublicTurns(transcript), instruction))
 }
 
 // RenderTranscriptSnapshot renders a markdown-ish transcript snapshot.
@@ -139,18 +73,47 @@ func RenderTranscriptSnapshot(transcript []TranscriptTurn) string {
 
 // RawSchema normalizes supported schema inputs to JSON bytes.
 func RawSchema(schema any) (json.RawMessage, error) {
-	switch typed := schema.(type) {
-	case json.RawMessage:
-		return append(json.RawMessage(nil), typed...), nil
-	case []byte:
-		return append(json.RawMessage(nil), typed...), nil
-	case string:
-		return json.RawMessage(typed), nil
-	default:
-		data, err := json.Marshal(typed)
-		if err != nil {
-			return nil, err
-		}
-		return json.RawMessage(data), nil
+	return structured.NormalizeSchema(schema)
+}
+
+type chatAdapter struct {
+	client ChatClient
+}
+
+func (adapter chatAdapter) Complete(ctx context.Context, turns []publictranscript.Turn) (publictranscript.Turn, error) {
+	reply, err := adapter.client.Complete(ctx, fromPublicTurns(turns))
+	if err != nil {
+		return publictranscript.Turn{}, err
 	}
+	return publictranscript.Turn{Role: reply.Role, Content: reply.Content}, nil
+}
+
+func (adapter chatAdapter) CompleteStructured(ctx context.Context, turns []publictranscript.Turn, schema json.RawMessage, out any) error {
+	structuredClient, ok := adapter.client.(StructuredChatClient)
+	if !ok {
+		return fmt.Errorf("structured chat client is not available")
+	}
+	return structuredClient.CompleteStructured(ctx, fromPublicTurns(turns), schema, out)
+}
+
+func toPublicTurns(turns []TranscriptTurn) []publictranscript.Turn {
+	out := make([]publictranscript.Turn, 0, len(turns))
+	for _, turn := range turns {
+		out = append(out, publictranscript.Turn{
+			Role:    turn.Role,
+			Content: turn.Content,
+		})
+	}
+	return out
+}
+
+func fromPublicTurns(turns []publictranscript.Turn) []TranscriptTurn {
+	out := make([]TranscriptTurn, 0, len(turns))
+	for _, turn := range turns {
+		out = append(out, TranscriptTurn{
+			Role:    turn.Role,
+			Content: turn.Content,
+		})
+	}
+	return out
 }

@@ -402,6 +402,7 @@ func draftPromptRequestWithDetails(request DraftRequest, detailRefs []OperationD
 		"opening":            request.Opening,
 		"session":            request.Session,
 		"docs":               docs,
+		"prompt_context":     PromptContextFromAPIDocuments(draftDocs),
 		"operation_catalog":  operationCatalog(request.Docs),
 		"transcript_turns":   request.TranscriptTurns,
 		"readiness_feedback": request.ReadinessFeedback,
