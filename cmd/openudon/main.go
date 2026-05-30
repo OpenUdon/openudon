@@ -9,7 +9,6 @@ import (
 	"os/exec"
 	"os/signal"
 	"path/filepath"
-	"sort"
 	"strings"
 	"syscall"
 	"time"
@@ -22,9 +21,8 @@ import (
 	"github.com/OpenUdon/openudon/internal/smokematrix"
 	"github.com/OpenUdon/openudon/internal/synthesize"
 	"github.com/OpenUdon/openudon/internal/trustedrunner"
-	uwsprofile "github.com/OpenUdon/openudon/internal/uwsexec"
-	"github.com/OpenUdon/openudon/internal/uwsschema"
-	"github.com/OpenUdon/openudon/internal/uwsvalidate"
+	"github.com/OpenUdon/uws/validation"
+	"github.com/OpenUdon/uws/versions"
 )
 
 const version = "0.1.0"
@@ -202,10 +200,10 @@ func runValidateCommand(args []string) {
 
 func defaultUWSSchemaForFile(path string) string {
 	version := "1.0.0"
-	if doc, err := uwsprofile.LoadDocumentFile(path, uwsprofile.DocumentFormatAuto); err == nil && doc != nil && strings.TrimSpace(doc.UWS) != "" {
+	if doc, err := validation.LoadDocumentFile(path); err == nil && doc != nil && strings.TrimSpace(doc.UWS) != "" {
 		version = strings.TrimSpace(doc.UWS)
 	}
-	return uwsschema.PathForVersion(".", version)
+	return versions.PathForVersion(".", version)
 }
 
 func validateUWSPath(target string, out io.Writer, allowEmpty bool) error {
@@ -242,7 +240,7 @@ func validateUWSPathWithSchema(target string, out io.Writer, schemaForFile func(
 }
 
 func validateUWSFile(path string, out io.Writer, schemaForFile func(string) string) error {
-	if err := uwsvalidate.ValidateFile(schemaForFile(path), path); err != nil {
+	if err := validation.ValidateFile(schemaForFile(path), path); err != nil {
 		return err
 	}
 	fmt.Fprintf(out, "openudon: %s is valid UWS\n", path)
@@ -250,28 +248,11 @@ func validateUWSFile(path string, out io.Writer, schemaForFile func(string) stri
 }
 
 func collectUWSArtifactFiles(root string) ([]string, error) {
-	var files []string
-	if err := filepath.WalkDir(root, func(path string, entry os.DirEntry, err error) error {
-		if err != nil {
-			return err
-		}
-		if entry.IsDir() {
-			return nil
-		}
-		if isUWSArtifactFile(path) {
-			files = append(files, path)
-		}
-		return nil
-	}); err != nil {
-		return nil, err
-	}
-	sort.Strings(files)
-	return files, nil
+	return validation.CollectArtifactFiles(root)
 }
 
 func isUWSArtifactFile(path string) bool {
-	lower := strings.ToLower(path)
-	return strings.HasSuffix(lower, ".uws.json") || strings.HasSuffix(lower, ".uws.yaml") || strings.HasSuffix(lower, ".uws.yml")
+	return validation.IsArtifactFile(path)
 }
 
 func runReadinessCommand(args []string) {

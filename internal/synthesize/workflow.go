@@ -15,11 +15,11 @@ import (
 	apitoolshelper "github.com/OpenUdon/apitools/helper"
 	"github.com/OpenUdon/apitools/helper/fnctspec"
 	"github.com/OpenUdon/asyncapi"
-	"github.com/OpenUdon/openudon/internal/uwsvalidate"
 	rollout "github.com/OpenUdon/openudon/internal/workflowintent"
 	"github.com/OpenUdon/uws/convert"
 	"github.com/OpenUdon/uws/runtimes"
 	"github.com/OpenUdon/uws/uws1"
+	"github.com/OpenUdon/uws/validation"
 	"gopkg.in/yaml.v3"
 )
 
@@ -51,7 +51,7 @@ func promoteWorkflow(result Result, schemaPath string) error {
 	if schemaPath == "" {
 		schemaPath = defaultSchemaPathForVersion(result.ExampleDir, doc.UWS)
 	}
-	if err := uwsvalidate.ValidateFile(schemaPath, result.UWSPath); err != nil {
+	if err := validation.ValidateFile(schemaPath, result.UWSPath); err != nil {
 		return fmt.Errorf("validate exported UWS: %w", err)
 	}
 	return nil

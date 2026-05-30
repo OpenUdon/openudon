@@ -5,11 +5,10 @@ go 1.26.3
 require (
 	github.com/OpenUdon/apitools v0.0.0-20260527233218-38d3be1a361a
 	github.com/OpenUdon/asyncapi v0.1.0
-	github.com/OpenUdon/uws v0.0.0-20260527225623-7aa9eade0198
+	github.com/OpenUdon/uws v0.0.0-20260530135301-b9c9a4efac74
 	github.com/hashicorp/hcl/v2 v2.24.0
 	github.com/santhosh-tekuri/jsonschema/v6 v6.0.2
 	github.com/zclconf/go-cty v1.18.1
-	golang.org/x/mod v0.35.0
 	gopkg.in/yaml.v3 v3.0.1
 )
 
@@ -45,6 +44,7 @@ require (
 	github.com/remyoudompheng/bigfft v0.0.0-20230129092748-24d4a6f8daec // indirect
 	github.com/zclconf/go-cty-yaml v1.1.0 // indirect
 	golang.org/x/crypto v0.51.0 // indirect
+	golang.org/x/mod v0.35.0 // indirect
 	golang.org/x/net v0.54.0 // indirect
 	golang.org/x/oauth2 v0.34.0 // indirect
 	golang.org/x/sync v0.20.0 // indirect

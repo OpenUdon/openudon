@@ -13,10 +13,10 @@ import (
 	"github.com/OpenUdon/openudon/internal/authoring"
 	"github.com/OpenUdon/openudon/internal/openapidisco"
 	uwsprofile "github.com/OpenUdon/openudon/internal/uwsexec"
-	"github.com/OpenUdon/openudon/internal/uwsvalidate"
 	rollout "github.com/OpenUdon/openudon/internal/workflowintent"
 	runner "github.com/OpenUdon/openudon/internal/workflowintent"
 	"github.com/OpenUdon/uws/uws1"
+	"github.com/OpenUdon/uws/validation"
 )
 
 type fakeClient struct{}
@@ -2546,7 +2546,7 @@ func TestUWSFailureActionsAndRetriesRemainCompatible(t *testing.T) {
 		t.Fatal(err)
 	}
 	schemaPath := testUWSSchemaPath(t)
-	if err := uwsvalidate.ValidateFile(schemaPath, path); err != nil {
+	if err := validation.ValidateFile(schemaPath, path); err != nil {
 		t.Fatalf("failure actions should validate against public UWS schema: %v\n%s", err, data)
 	}
 }

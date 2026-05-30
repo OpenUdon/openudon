@@ -14,11 +14,11 @@ import (
 
 	"github.com/OpenUdon/openudon/internal/openapidisco"
 	"github.com/OpenUdon/openudon/internal/packageartifacts"
-	"github.com/OpenUdon/openudon/internal/uwsschema"
 	"github.com/OpenUdon/openudon/internal/workflowintent"
 	rollout "github.com/OpenUdon/openudon/internal/workflowintent"
 	runner "github.com/OpenUdon/openudon/internal/workflowintent"
 	"github.com/OpenUdon/uws/uws1"
+	"github.com/OpenUdon/uws/versions"
 )
 
 type Options struct {
@@ -671,7 +671,7 @@ func defaultSchemaPathForVersion(exampleDir, version string) string {
 	if version == "" {
 		version = "1.0.0"
 	}
-	return uwsschema.PathForVersion(exampleDir, version)
+	return versions.PathForVersion(exampleDir, version)
 }
 
 func defaultSchemaPathForDocument(exampleDir, documentPath string) string {

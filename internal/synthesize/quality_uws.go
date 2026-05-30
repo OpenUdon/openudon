@@ -8,8 +8,8 @@ import (
 
 	"github.com/OpenUdon/openudon/internal/packageartifacts"
 	uwsprofile "github.com/OpenUdon/openudon/internal/uwsexec"
-	"github.com/OpenUdon/openudon/internal/uwsvalidate"
 	"github.com/OpenUdon/uws/uws1"
+	"github.com/OpenUdon/uws/validation"
 )
 
 func assessUWS(report *QualityReport, path, schemaPath, exampleDir string, expectedPlan *WorkflowPlan) {
@@ -21,7 +21,7 @@ func assessUWS(report *QualityReport, path, schemaPath, exampleDir string, expec
 	if strings.TrimSpace(schemaPath) == "" {
 		schemaPath = defaultSchemaPathForDocument(exampleDir, path)
 	}
-	if err := uwsvalidate.ValidateFile(schemaPath, path); err != nil {
+	if err := validation.ValidateFile(schemaPath, path); err != nil {
 		report.add("uws.schema", "fail", "workflow.uws.yaml fails public UWS schema validation", err.Error())
 		return
 	}
