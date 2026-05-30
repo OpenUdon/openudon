@@ -1,8 +1,6 @@
 package authoring
 
 import (
-	"crypto/sha256"
-	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -10,6 +8,7 @@ import (
 	"sort"
 	"strings"
 
+	evdigest "github.com/OpenUdon/evidence/digest"
 	"github.com/OpenUdon/openudon/internal/packageartifacts"
 )
 
@@ -188,22 +187,20 @@ func ComputeReviewHandoffDigest(opts ReviewHandoffDigestOptions) (string, error)
 		if err != nil {
 			return "", fmt.Errorf("read handoff input %s: %w", path, err)
 		}
-		sum := sha256.Sum256(data)
 		reportPath := path
 		if scope != "" {
 			reportPath = filepath.ToSlash(filepath.Join(scope, path))
 		}
 		digest.Files = append(digest.Files, reviewHandoffDigestFile{
 			Path:   reportPath,
-			SHA256: hex.EncodeToString(sum[:]),
+			SHA256: evdigest.SHA256Bytes(data).Value,
 		})
 	}
 	canonical, err := json.Marshal(digest)
 	if err != nil {
 		return "", err
 	}
-	sum := sha256.Sum256(canonical)
-	return hex.EncodeToString(sum[:]), nil
+	return evdigest.SHA256Bytes(canonical).Value, nil
 }
 
 func requiredReviewActionsForPackage(pkg ReviewPackage) []string {

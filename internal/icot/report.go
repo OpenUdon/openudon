@@ -1,8 +1,6 @@
 package icot
 
 import (
-	"crypto/sha256"
-	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -11,6 +9,7 @@ import (
 
 	publicreadiness "github.com/OpenUdon/authoring/readiness"
 	publicreport "github.com/OpenUdon/authoring/report"
+	"github.com/OpenUdon/evidence/digest"
 	"github.com/OpenUdon/openudon/internal/icot/elicitor"
 	"github.com/OpenUdon/openudon/internal/icotreport"
 	"github.com/OpenUdon/openudon/internal/synthesize"
@@ -205,8 +204,7 @@ func writeJSONReportWithDigest(path string, value any) error {
 	if err := os.WriteFile(path, data, 0o644); err != nil {
 		return err
 	}
-	sum := sha256.Sum256(data)
-	digestLine := hex.EncodeToString(sum[:]) + "  " + filepath.Base(path) + "\n"
+	digestLine := digest.SHA256Bytes(data).Value + "  " + filepath.Base(path) + "\n"
 	return os.WriteFile(path+".sha256", []byte(digestLine), 0o644)
 }
 
@@ -224,8 +222,7 @@ func verifyJSONReportDigest(path string) error {
 		return fmt.Errorf("digest sidecar %s is empty", path+".sha256")
 	}
 	want := strings.ToLower(strings.TrimSpace(fields[0]))
-	sum := sha256.Sum256(data)
-	got := hex.EncodeToString(sum[:])
+	got := digest.SHA256Bytes(data).Value
 	if want != got {
 		return fmt.Errorf("digest mismatch for %s: sidecar %s, computed %s", path, want, got)
 	}

@@ -3,11 +3,20 @@ package packageartifacts
 import (
 	"fmt"
 	"os"
-	"path"
 	"path/filepath"
 	"sort"
 	"strings"
+
+	"github.com/OpenUdon/evidence/artifact"
 )
+
+// artifactLabels surfaces OpenUdon package wording from the shared
+// evidence/artifact path-safety primitives.
+var artifactLabels = artifact.Options{
+	RootLabel:  "package root",
+	PathLabel:  "package path",
+	InputLabel: "required handoff input",
+}
 
 // ManifestInput is the subset of review handoff input metadata needed to
 // validate required package inventory.
@@ -33,34 +42,7 @@ var fixedRequiredPackagePaths = []string{
 
 // CleanRelativePath returns a canonical slash-separated package-relative path.
 func CleanRelativePath(inputPath string) (string, error) {
-	for _, r := range inputPath {
-		if r < 0x20 || r == 0x7f {
-			return "", fmt.Errorf("path must not contain control characters: %q", inputPath)
-		}
-	}
-	inputPath = strings.TrimSpace(inputPath)
-	if inputPath == "" {
-		return "", fmt.Errorf("path must be non-empty")
-	}
-	if strings.Contains(inputPath, `\`) {
-		return "", fmt.Errorf("path must use slash separators: %q", inputPath)
-	}
-	if path.IsAbs(inputPath) || strings.HasPrefix(inputPath, "/") {
-		return "", fmt.Errorf("path must be relative: %q", inputPath)
-	}
-	if hasWindowsVolumeName(inputPath) {
-		return "", fmt.Errorf("path must not include a volume prefix: %q", inputPath)
-	}
-	for _, segment := range strings.Split(inputPath, "/") {
-		if segment == ".." {
-			return "", fmt.Errorf("path must not contain '..' segments: %q", inputPath)
-		}
-	}
-	clean := path.Clean(inputPath)
-	if clean == "." || clean == ".." || strings.HasPrefix(clean, "../") {
-		return "", fmt.Errorf("path must stay inside package root: %q", inputPath)
-	}
-	return clean, nil
+	return artifact.CleanRelativePath(inputPath, artifactLabels)
 }
 
 var apiSourceDirs = []string{
@@ -150,68 +132,11 @@ func RequiredManifestPaths(packageRoot string, manifestInputs []ManifestInput) (
 // ValidateRegularPackageFiles rejects missing, symlinked, directory, and
 // special-file package inputs.
 func ValidateRegularPackageFiles(packageRoot string, paths []string) error {
-	if err := ValidatePackageRoot(packageRoot); err != nil {
-		return err
-	}
-	packageRoot = filepath.Clean(packageRoot)
-	for _, inputPath := range paths {
-		clean, err := CleanRelativePath(inputPath)
-		if err != nil {
-			return fmt.Errorf("package path %q is unsafe: %w", inputPath, err)
-		}
-		if err := validateRegularPackageFile(packageRoot, clean); err != nil {
-			return err
-		}
-	}
-	return nil
+	return artifact.ValidateRegularFiles(packageRoot, paths, artifactLabels)
 }
 
 func ValidatePackageRoot(packageRoot string) error {
-	packageRoot = strings.TrimSpace(packageRoot)
-	if packageRoot == "" {
-		return fmt.Errorf("package root is required")
-	}
-	packageRoot = filepath.Clean(packageRoot)
-	info, err := os.Lstat(packageRoot)
-	if err != nil {
-		return fmt.Errorf("package root: %w", err)
-	}
-	if info.Mode()&os.ModeSymlink != 0 {
-		return fmt.Errorf("package root must not be a symlink: %s", packageRoot)
-	}
-	if !info.IsDir() {
-		return fmt.Errorf("package root must be a directory: %s", packageRoot)
-	}
-	return nil
-}
-
-func validateRegularPackageFile(packageRoot, clean string) error {
-	segments := strings.Split(clean, "/")
-	current := packageRoot
-	for i, segment := range segments {
-		current = filepath.Join(current, segment)
-		info, err := os.Lstat(current)
-		if err != nil {
-			return fmt.Errorf("required handoff input %s: %w", clean, err)
-		}
-		if info.Mode()&os.ModeSymlink != 0 {
-			return fmt.Errorf("required handoff input must not be a symlink: %s", clean)
-		}
-		last := i == len(segments)-1
-		if !last {
-			if !info.IsDir() {
-				return fmt.Errorf("required handoff input parent must be a directory: %s", clean)
-			}
-			continue
-		}
-		if info.IsDir() {
-			return fmt.Errorf("required handoff input must be a regular file, not a directory: %s", clean)
-		}
-		if !info.Mode().IsRegular() {
-			return fmt.Errorf("required handoff input must be a regular file: %s", clean)
-		}
-	}
-	return nil
+	return artifact.ValidateRoot(packageRoot, artifactLabels)
 }
 
 // CollectOpenAPIPaths returns package-relative OpenAPI artifact paths.
@@ -374,12 +299,4 @@ func uniqueSorted(paths []string) ([]string, error) {
 	}
 	sort.Strings(out)
 	return out, nil
-}
-
-func hasWindowsVolumeName(inputPath string) bool {
-	if len(inputPath) < 2 || inputPath[1] != ':' {
-		return false
-	}
-	letter := inputPath[0]
-	return (letter >= 'A' && letter <= 'Z') || (letter >= 'a' && letter <= 'z')
 }

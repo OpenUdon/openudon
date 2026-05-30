@@ -3,8 +3,6 @@ package icot
 import (
 	"bytes"
 	"context"
-	"crypto/sha256"
-	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"flag"
@@ -15,6 +13,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/OpenUdon/evidence/digest"
 	"github.com/OpenUdon/openudon/internal/authoring"
 	evalpkg "github.com/OpenUdon/openudon/internal/eval"
 	"github.com/OpenUdon/openudon/internal/icot/elicitor"
@@ -496,8 +495,7 @@ func writeAuthoringEvalReportFile(path string, report authoringEvalReport) (bool
 	if err := os.WriteFile(path, data, 0o644); err != nil {
 		return false, err
 	}
-	sum := sha256.Sum256(data)
-	digestLine := hex.EncodeToString(sum[:]) + "  " + filepath.Base(path) + "\n"
+	digestLine := digest.SHA256Bytes(data).Value + "  " + filepath.Base(path) + "\n"
 	return redacted, os.WriteFile(path+".sha256", []byte(digestLine), 0o644)
 }
 

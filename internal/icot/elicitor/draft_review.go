@@ -2,13 +2,12 @@ package elicitor
 
 import (
 	"context"
-	"crypto/sha256"
-	"encoding/hex"
 	"fmt"
 	"io"
 	"strings"
 
 	"github.com/OpenUdon/apitools"
+	"github.com/OpenUdon/evidence/digest"
 	rollout "github.com/OpenUdon/openudon/internal/workflowintent"
 )
 
@@ -685,8 +684,7 @@ func finalDraftReviewKey(artifacts Artifacts) string {
 	if artifacts.IntentHCL == "" && artifacts.ProjectMD == "" {
 		return ""
 	}
-	sum := sha256.Sum256([]byte(artifacts.IntentHCL + "\x00" + artifacts.ProjectMD))
-	return hex.EncodeToString(sum[:])
+	return digest.SHA256Bytes([]byte(artifacts.IntentHCL + "\x00" + artifacts.ProjectMD)).Value
 }
 
 func draftReviewStepNames(steps []DraftReviewStep) []string {

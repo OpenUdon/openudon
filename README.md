@@ -13,9 +13,12 @@ Public workflow semantics belong in `github.com/OpenUdon/uws`; API/event source 
 import, materialization, search, and indexing belong in `github.com/OpenUdon/apitools`; static
 Terraform/OpenTofu conversion now belongs in `github.com/OpenUdon/ramen`; OpenUdon no longer owns a Terraform conversion command or imports `tfconfig`.
 OpenUdon uses shared `github.com/OpenUdon/evidence/...` primitives for neutral digest, artifact,
-diagnostic, redaction, and approval evidence where the records are product-independent.
+diagnostic, redaction, and approval evidence where the records are product-independent. Current
+shared use routes review/package hashing through `evidence/digest` and package artifact path-safety
+through `evidence/artifact` with OpenUdon labels for stable CLI wording.
 OpenUdon-specific approval JSON, review handoff, package digest policy, run evidence, tier rules,
-and trusted-runner behavior remain OpenUdon-owned.
+and trusted-runner behavior remain OpenUdon-owned; the tier-plus-digest approval model does not map
+onto `evidence/approval`.
 OpenUdon can stage OpenAPI, Google Discovery, AWS Smithy, AsyncAPI, GraphQL, OpenRPC,
 gRPC/protobuf, and OData source documents as first-class UWS source descriptions when the trusted
 executor supports them.
