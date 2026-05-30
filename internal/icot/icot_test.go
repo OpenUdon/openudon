@@ -11,6 +11,7 @@ import (
 	"testing"
 
 	"github.com/OpenUdon/apitools"
+	publicreport "github.com/OpenUdon/authoring/report"
 	evalpkg "github.com/OpenUdon/openudon/internal/eval"
 	"github.com/OpenUdon/openudon/internal/icot/elicitor"
 	"github.com/OpenUdon/openudon/internal/projectwizard"
@@ -456,6 +457,48 @@ func TestReportVerifyRejectsRetentionMismatch(t *testing.T) {
 	code = Main([]string{"report", "verify", "--file", path}, strings.NewReader(""), &stdout, &stderr)
 	if code != 1 || !strings.Contains(stderr.String(), "retention metadata") {
 		t.Fatalf("report verify code=%d\nstdout:\n%s\nstderr:\n%s", code, stdout.String(), stderr.String())
+	}
+}
+
+func TestAuthoringReportContractsNormalizeOpenUdonShapes(t *testing.T) {
+	agent := authoringAgentResultContract(authorReport{
+		Version: authorReportVersion,
+		Status:  statusNeedsInput,
+		Example: "examples/eval/support",
+		TopIssue: &elicitor.ReadinessIssue{
+			Code:     "missing_goal",
+			Severity: "blocking",
+			Slot:     "workflow.description",
+			Message:  "Describe the business goal.",
+		},
+		ReadinessIssues: []elicitor.ReadinessIssue{{
+			Code:     "missing_goal",
+			Severity: "blocking",
+			Slot:     "workflow.description",
+			Message:  "Describe the business goal.",
+		}},
+	})
+	if agent.Version != publicreport.Version || agent.Status != publicreport.StatusNeedsInput || agent.TopIssue == nil || agent.TopIssue.Code != "missing_goal" {
+		t.Fatalf("agent contract = %#v", agent)
+	}
+
+	scorecard := authoringScorecardContract(scorecardReport{
+		Version:        scorecardReportVersion,
+		RunID:          "run-1",
+		GeneratedAt:    "2026-05-30T00:00:00Z",
+		Commit:         "abc123",
+		RetentionClass: retentionReleaseEvidence,
+		SafeToArchive:  true,
+		Results: []scorecardResult{{
+			Name:            "fixture-a",
+			Fixture:         "fixture-a",
+			ExpectedOutcome: statusPass,
+			ObservedOutcome: statusPass,
+			Passed:          true,
+		}},
+	})
+	if scorecard.Version != publicreport.ScorecardVersion || scorecard.Summary.Total != 1 || scorecard.Summary.Complete != 1 || scorecard.Report == nil || scorecard.Report.RetentionClass != publicreport.RetentionArchive {
+		t.Fatalf("scorecard contract = %#v", scorecard)
 	}
 }
 

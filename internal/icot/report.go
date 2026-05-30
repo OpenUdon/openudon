@@ -9,6 +9,8 @@ import (
 	"path/filepath"
 	"strings"
 
+	publicreadiness "github.com/OpenUdon/authoring/readiness"
+	publicreport "github.com/OpenUdon/authoring/report"
 	"github.com/OpenUdon/openudon/internal/icot/elicitor"
 	"github.com/OpenUdon/openudon/internal/icotreport"
 	"github.com/OpenUdon/openudon/internal/synthesize"
@@ -240,9 +242,78 @@ func writeScorecardReportFile(path string, report scorecardReport) error {
 	return writeJSONReportWithDigest(path, report)
 }
 
+func validateAuthorReportContract(report authorReport) error {
+	result := authoringAgentResultContract(report)
+	if result.Version != publicreport.Version {
+		return fmt.Errorf("authoring result version = %q, want %q", result.Version, publicreport.Version)
+	}
+	if result.Status == "" {
+		return fmt.Errorf("authoring result status is empty")
+	}
+	if report.Status == statusNeedsInput && result.TopIssue == nil {
+		return fmt.Errorf("authoring needs_input result missing top issue")
+	}
+	return nil
+}
+
+func authoringAgentResultContract(report authorReport) publicreport.Result {
+	readiness := publicreadiness.Evaluate(authoringReadinessIssues(report.ReadinessIssues))
+	result := publicreport.Result{
+		Status:    authoringStatus(report.Status),
+		Summary:   firstNonEmpty(report.Error, report.FailureFamily),
+		Readiness: &readiness,
+		Metadata: map[string]string{
+			"openudon_version": authorReportVersion,
+			"example":          report.Example,
+		},
+	}
+	if len(report.ReadinessIssues) == 0 {
+		result.Readiness = nil
+	}
+	if report.TopIssue != nil {
+		issue := authoringReadinessIssue(*report.TopIssue)
+		result.TopIssue = &issue
+	}
+	return publicreport.Normalize(result)
+}
+
+func authoringStatus(status string) string {
+	switch status {
+	case statusPass:
+		return publicreport.StatusComplete
+	case statusNeedsInput:
+		return publicreport.StatusNeedsInput
+	case statusFail:
+		return publicreport.StatusFailed
+	default:
+		return publicreport.StatusForError(fmt.Errorf("openudon status %s", status))
+	}
+}
+
+func authoringReadinessIssues(issues []elicitor.ReadinessIssue) []publicreadiness.Issue {
+	out := make([]publicreadiness.Issue, 0, len(issues))
+	for _, issue := range issues {
+		out = append(out, authoringReadinessIssue(issue))
+	}
+	return out
+}
+
+func authoringReadinessIssue(issue elicitor.ReadinessIssue) publicreadiness.Issue {
+	return publicreadiness.Issue{
+		Code:            issue.Code,
+		Severity:        issue.Severity,
+		Slot:            issue.Slot,
+		Message:         issue.Message,
+		SuggestedAnswer: issue.SuggestedAnswer,
+	}
+}
+
 func validateScorecardReport(report scorecardReport) error {
 	if report.Version != scorecardReportVersion {
 		return fmt.Errorf("scorecard report version = %q, want %q", report.Version, scorecardReportVersion)
+	}
+	if diagnostics := publicreport.ValidateScorecard(authoringScorecardContract(report)); len(diagnostics) > 0 {
+		return fmt.Errorf("authoring scorecard contract: %s", diagnostics[0].Message)
 	}
 	for name, value := range map[string]string{
 		"status":                       report.Status,
@@ -294,6 +365,39 @@ func validateScorecardReport(report scorecardReport) error {
 		return fmt.Errorf("scorecard status fail with no failed results")
 	}
 	return nil
+}
+
+func authoringScorecardContract(report scorecardReport) publicreport.Scorecard {
+	var variants []publicreport.VariantResult
+	for _, result := range report.Results {
+		variants = append(variants, publicreport.VariantResult{
+			FixtureID:       firstNonEmpty(result.Fixture, result.Name),
+			VariantID:       result.VariantID,
+			Group:           firstNonEmpty(result.Kind, result.Class),
+			ExpectedOutcome: result.ExpectedOutcome,
+			ObservedOutcome: result.ObservedOutcome,
+			FailureFamily:   result.FailureFamily,
+			Message:         result.Detail,
+			Metadata: map[string]string{
+				"openudon_result": result.Name,
+				"openudon_class":  result.Class,
+			},
+		})
+	}
+	return publicreport.NormalizeScorecard(publicreport.Scorecard{
+		Name:     "openudon-icot",
+		Variants: variants,
+		Report: authoringReportMetadata(
+			report.RunID,
+			report.ScorecardCommand,
+			report.Commit,
+			report.GeneratedAt,
+			report.RetentionClass,
+			report.ContainsProviderOutput,
+			report.SafeToArchive,
+			report.RedactionRequiredBeforeShare,
+		),
+	})
 }
 
 func validateAuthoringEvalReport(report authoringEvalReport) error {
@@ -348,6 +452,10 @@ func validateAuthoringEvalReport(report authoringEvalReport) error {
 }
 
 func validateReportRetention(retentionClass string, containsProviderOutput, safeToArchive, redactionRequiredBeforeShare bool, expectedClass string) error {
+	metadata := authoringReportMetadata("", "", "", "", expectedClass, containsProviderOutput, safeToArchive, redactionRequiredBeforeShare)
+	if metadata == nil {
+		return fmt.Errorf("authoring report metadata is empty")
+	}
 	if retentionClass != expectedClass {
 		return fmt.Errorf("retention_class = %q, want %q", retentionClass, expectedClass)
 	}
@@ -376,6 +484,33 @@ func validateReportRetention(retentionClass string, containsProviderOutput, safe
 		return fmt.Errorf("unsupported retention_class %q", expectedClass)
 	}
 	return nil
+}
+
+func authoringReportMetadata(runID, command, commit, generatedAt, retentionClass string, containsProviderOutput, safeToArchive, redactionRequiredBeforeShare bool) *publicreport.ReportMetadata {
+	return publicreport.NormalizeReportMetadata(&publicreport.ReportMetadata{
+		RunID:             runID,
+		Command:           command,
+		Commit:            commit,
+		GeneratedUTC:      generatedAt,
+		RetentionClass:    authoringRetentionClass(retentionClass),
+		ProviderOutput:    containsProviderOutput,
+		ArchiveSafe:       safeToArchive,
+		RedactionRequired: redactionRequiredBeforeShare,
+		Metadata: map[string]string{
+			"openudon_retention_class": retentionClass,
+		},
+	})
+}
+
+func authoringRetentionClass(retentionClass string) string {
+	switch retentionClass {
+	case retentionReleaseEvidence:
+		return publicreport.RetentionArchive
+	case retentionLocalEphemeral:
+		return publicreport.RetentionEphemeral
+	default:
+		return publicreport.RetentionRun
+	}
 }
 
 func isValidAuthoringEvalFailureCategory(category string) bool {

@@ -386,6 +386,9 @@ func topBlockingReadinessIssue(issues []elicitor.ReadinessIssue) *elicitor.Readi
 }
 
 func writeAuthorReport(report authorReport, opts agentAuthorOptions, out io.Writer) error {
+	if err := validateAuthorReportContract(report); err != nil {
+		return err
+	}
 	if strings.TrimSpace(opts.ReportPath) != "" {
 		if err := writeJSONFile(opts.ReportPath, report); err != nil {
 			return err
