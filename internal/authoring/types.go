@@ -7,6 +7,8 @@ import (
 	"sort"
 	"strings"
 	"time"
+
+	sharedicot "github.com/OpenUdon/authoring/icot"
 )
 
 // Transcript records the authoring conversation and tool observations that led
@@ -70,16 +72,7 @@ type SymbolicBinding struct {
 
 // ReadinessIssue explains why an artifact or operation needs more review before
 // validation, rendering, or execution.
-type ReadinessIssue struct {
-	Severity        string `json:"severity"`
-	Code            string `json:"code,omitempty"`
-	Message         string `json:"message"`
-	OperationID     string `json:"operation_id,omitempty"`
-	Path            string `json:"path,omitempty"`
-	Slot            string `json:"slot,omitempty"`
-	SuggestedAnswer string `json:"suggested_answer,omitempty"`
-	Remediation     string `json:"remediation,omitempty"`
-}
+type ReadinessIssue = sharedicot.ReadinessIssue
 
 // QuestionPlan lists clarification questions that would reduce ambiguity.
 type QuestionPlan struct {
@@ -96,13 +89,7 @@ type Question struct {
 
 // InteractiveQuestion is one next-question decision in an interactive
 // authoring loop.
-type InteractiveQuestion struct {
-	Prompt          string   `json:"prompt"`
-	SuggestedAnswer string   `json:"suggested_answer,omitempty"`
-	Slots           []string `json:"slots,omitempty"`
-	Grouped         bool     `json:"grouped,omitempty"`
-	ForceAsk        bool     `json:"force_ask,omitempty"`
-}
+type InteractiveQuestion = sharedicot.InteractiveQuestion
 
 // Artifact is a generated draft file or metadata payload.
 type Artifact struct {

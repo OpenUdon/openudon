@@ -107,6 +107,9 @@ own config checks.
 
 iCoT turns a project idea into reviewed authoring artifacts. It writes `project.md` and
 `workflows/intent.hcl`; it does not synthesize compiled artifacts or execute workflows.
+The generic interactive loop mechanics are shared through
+`github.com/OpenUdon/authoring/icot`; OpenUdon still owns the prompts, intent
+schema, artifact layout, model/provider clients, reports, and package gates.
 
 ```bash
 go run ./cmd/icot --example ./examples/<name>

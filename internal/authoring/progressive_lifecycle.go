@@ -4,6 +4,8 @@ import (
 	"context"
 	"io"
 	"strings"
+
+	sharedicot "github.com/OpenUdon/authoring/icot"
 )
 
 // ProgressiveLifecycleOptions adds draft/transcript lifecycle behavior
@@ -27,69 +29,17 @@ func RunProgressiveWithLifecycle[S, D, A any](ctx context.Context, in io.Reader,
 	if draftPath == "" && strings.TrimSpace(opts.ExampleDir) != "" {
 		draftPath = DraftPath(opts.ExampleDir)
 	}
-
-	session := hooks.Session
-	if draftPath != "" {
-		loaded, ok, err := LoadDraft[S](draftPath)
-		if err != nil {
-			var zero A
-			return zero, err
-		}
-		if ok && (opts.LooksLikeSession == nil || opts.LooksLikeSession(loaded)) {
-			session = loaded
-		}
-	}
-	if opts.Normalize != nil {
-		opts.Normalize(&session)
-	}
-	hooks.Session = session
-	if strings.TrimSpace(hooks.Opening) == "" && opts.Opening != nil {
-		hooks.Opening = opts.Opening(session)
-	}
-
-	baseAutosave := hooks.Autosave
-	hooks.Autosave = func(session S) error {
-		if baseAutosave != nil {
-			if err := baseAutosave(session); err != nil {
-				return err
-			}
-		}
-		if draftPath == "" {
-			return nil
-		}
-		if opts.LooksLikeSession != nil && !opts.LooksLikeSession(session) {
-			return nil
-		}
-		if opts.Normalize != nil {
-			opts.Normalize(&session)
-		}
-		return SaveDraft(draftPath, session)
-	}
-
-	baseTranscript := hooks.SaveTranscript
-	hooks.SaveTranscript = func(turns []PromptTurn, events []PromptEvent, artifacts A) error {
-		if baseTranscript != nil {
-			if err := baseTranscript(turns, events, artifacts); err != nil {
-				return err
-			}
-		}
-		if strings.TrimSpace(opts.TranscriptPath) == "" {
-			return nil
-		}
-		version := opts.TranscriptVersion
-		if strings.TrimSpace(version) == "" {
-			version = "openudon.icot-transcript.v1"
-		}
-		var transcriptSession any = artifacts
-		if opts.TranscriptSession != nil {
-			transcriptSession = opts.TranscriptSession(artifacts)
-		}
-		return SavePromptTranscript(opts.TranscriptPath, version, turns, events, transcriptSession)
-	}
-
-	artifacts, err := RunProgressiveICOT(ctx, in, out, hooks)
-	if err == nil && opts.DeleteDraftOnSuccess {
-		err = DeleteDraft(draftPath)
-	}
-	return artifacts, err
+	return sharedicot.RunInteractiveWithLifecycle(ctx, in, out, hooks, sharedicot.InteractiveLifecycleOptions[S, D, A]{
+		DraftPath:            draftPath,
+		TranscriptPath:       opts.TranscriptPath,
+		TranscriptVersion:    firstNonEmpty(opts.TranscriptVersion, "openudon.icot-transcript.v1"),
+		DeleteDraftOnSuccess: opts.DeleteDraftOnSuccess,
+		Normalize:            opts.Normalize,
+		LooksLikeSession:     opts.LooksLikeSession,
+		Opening:              opts.Opening,
+		TranscriptSession:    opts.TranscriptSession,
+		LoadDraft:            LoadDraft[S],
+		SaveDraft:            SaveDraft[S],
+		DeleteDraft:          DeleteDraft,
+	})
 }
