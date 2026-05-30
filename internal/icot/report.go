@@ -72,22 +72,23 @@ type lintReport struct {
 }
 
 type scorecardReport struct {
-	Version                      string            `json:"version"`
-	Status                       string            `json:"status"`
-	Root                         string            `json:"root"`
-	OutDir                       string            `json:"out_dir"`
-	RunID                        string            `json:"run_id,omitempty"`
-	GeneratedAt                  string            `json:"generated_at,omitempty"`
-	Commit                       string            `json:"commit,omitempty"`
-	PromptVersion                string            `json:"prompt_version,omitempty"`
-	ReadinessClassifierVersion   string            `json:"readiness_classifier_version,omitempty"`
-	ScorecardCommand             string            `json:"scorecard_command,omitempty"`
-	RetentionClass               string            `json:"retention_class,omitempty"`
-	ContainsProviderOutput       bool              `json:"contains_provider_output"`
-	SafeToArchive                bool              `json:"safe_to_archive"`
-	RedactionRequiredBeforeShare bool              `json:"redaction_required_before_share"`
-	Summary                      scorecardSummary  `json:"summary"`
-	Results                      []scorecardResult `json:"results"`
+	Version                      string                  `json:"version"`
+	Status                       string                  `json:"status"`
+	Root                         string                  `json:"root"`
+	OutDir                       string                  `json:"out_dir"`
+	RunID                        string                  `json:"run_id,omitempty"`
+	GeneratedAt                  string                  `json:"generated_at,omitempty"`
+	Commit                       string                  `json:"commit,omitempty"`
+	PromptVersion                string                  `json:"prompt_version,omitempty"`
+	ReadinessClassifierVersion   string                  `json:"readiness_classifier_version,omitempty"`
+	ScorecardCommand             string                  `json:"scorecard_command,omitempty"`
+	RetentionClass               string                  `json:"retention_class,omitempty"`
+	ContainsProviderOutput       bool                    `json:"contains_provider_output"`
+	SafeToArchive                bool                    `json:"safe_to_archive"`
+	RedactionRequiredBeforeShare bool                    `json:"redaction_required_before_share"`
+	Summary                      scorecardSummary        `json:"summary"`
+	Results                      []scorecardResult       `json:"results"`
+	AuthoringScorecard           *publicreport.Scorecard `json:"authoring_scorecard,omitempty"`
 }
 
 type scorecardSummary struct {
@@ -233,6 +234,8 @@ func verifyJSONReportDigest(path string) error {
 }
 
 func writeScorecardReportFile(path string, report scorecardReport) error {
+	scorecard := authoringScorecardContract(report)
+	report.AuthoringScorecard = &scorecard
 	if err := validateScorecardReport(report); err != nil {
 		return err
 	}
@@ -311,6 +314,14 @@ func validateScorecardReport(report scorecardReport) error {
 	}
 	if diagnostics := publicreport.ValidateScorecard(authoringScorecardContract(report)); len(diagnostics) > 0 {
 		return fmt.Errorf("authoring scorecard contract: %s", diagnostics[0].Message)
+	}
+	if report.AuthoringScorecard != nil {
+		if diagnostics := publicreport.ValidateScorecard(*report.AuthoringScorecard); len(diagnostics) > 0 {
+			return fmt.Errorf("embedded authoring scorecard: %s", diagnostics[0].Message)
+		}
+		if report.AuthoringScorecard.Summary.Total != report.Summary.Total {
+			return fmt.Errorf("embedded authoring scorecard total = %d, want %d", report.AuthoringScorecard.Summary.Total, report.Summary.Total)
+		}
 	}
 	for name, value := range map[string]string{
 		"status":                       report.Status,

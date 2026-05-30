@@ -1,8 +1,9 @@
 package elicitor
 
 import (
-	"sort"
 	"strings"
+
+	publicdecision "github.com/OpenUdon/authoring/decision"
 )
 
 const (
@@ -63,33 +64,31 @@ func addDecisionEvidenceFromMapping(session *Session, classification MappingClas
 }
 
 func mergeDecisionEvidence(base, overlay []DecisionEvidence) []DecisionEvidence {
-	seen := map[string]int{}
-	out := make([]DecisionEvidence, 0, len(base)+len(overlay))
+	var records []publicdecision.Record
+	multiValueRecords := map[string][]publicdecision.Record{}
 	for _, evidence := range append(append([]DecisionEvidence(nil), base...), overlay...) {
-		evidence = normalizeDecisionEvidence(evidence)
+		if record := authoringDecisionRecord(evidence); record.Stage != "" || record.Slot != "" || record.Value != "" {
+			if decisionEvidenceAllowsMultipleValues(evidence) {
+				key := record.Stage + "\x00" + record.Slot + "\x00" + record.Value
+				multiValueRecords[key] = append(multiValueRecords[key], record)
+				continue
+			}
+			records = append(records, record)
+		}
+	}
+	merged := publicdecision.Merge(records)
+	for _, group := range multiValueRecords {
+		merged = append(merged, publicdecision.Merge(group)...)
+	}
+	merged = publicdecision.NormalizeAll(merged)
+	out := make([]DecisionEvidence, 0, len(merged))
+	for _, record := range merged {
+		evidence := decisionEvidenceFromAuthoring(record)
 		if evidence.Stage == "" || evidence.Slot == "" || evidence.Value == "" {
 			continue
 		}
-		key := evidence.Stage + "\x00" + evidence.Slot + "\x00" + evidence.Value + "\x00" + evidence.Source
-		if existing, ok := seen[key]; ok {
-			out[existing] = mergeDecisionEvidenceRecord(out[existing], evidence)
-			continue
-		}
-		seen[key] = len(out)
 		out = append(out, evidence)
 	}
-	sort.SliceStable(out, func(i, j int) bool {
-		if out[i].Stage == out[j].Stage {
-			if out[i].Slot == out[j].Slot {
-				if out[i].Value == out[j].Value {
-					return out[i].Source < out[j].Source
-				}
-				return out[i].Value < out[j].Value
-			}
-			return out[i].Slot < out[j].Slot
-		}
-		return out[i].Stage < out[j].Stage
-	})
 	return out
 }
 
@@ -124,21 +123,14 @@ func normalizeDecisionAlternatives(alternatives []DecisionAlternative) []Decisio
 }
 
 func mergeDecisionEvidenceRecord(base, overlay DecisionEvidence) DecisionEvidence {
-	if base.Confidence != mappingConfidenceConflict && overlay.Confidence == mappingConfidenceConflict {
-		base.Confidence = mappingConfidenceConflict
+	records := publicdecision.Merge([]publicdecision.Record{
+		authoringDecisionRecord(base),
+		authoringDecisionRecord(overlay),
+	})
+	if len(records) == 0 {
+		return DecisionEvidence{}
 	}
-	if base.Confidence == "" {
-		base.Confidence = overlay.Confidence
-	}
-	if base.Reason == "" {
-		base.Reason = overlay.Reason
-	}
-	if base.Evidence == "" {
-		base.Evidence = overlay.Evidence
-	}
-	base.Alternatives = normalizeDecisionAlternatives(append(base.Alternatives, overlay.Alternatives...))
-	base.RequiresConfirmation = base.RequiresConfirmation || overlay.RequiresConfirmation
-	return base
+	return decisionEvidenceFromAuthoring(records[0])
 }
 
 func pruneSupersededDecisionEvidence(evidence []DecisionEvidence, user DecisionEvidence) []DecisionEvidence {
@@ -208,4 +200,89 @@ func decisionEvidenceIssues(session Session) []ReadinessIssue {
 
 func normalizeDecisionEvidenceList(in []DecisionEvidence) []DecisionEvidence {
 	return mergeDecisionEvidence(in, nil)
+}
+
+func decisionEvidenceAllowsMultipleValues(evidence DecisionEvidence) bool {
+	evidence = normalizeDecisionEvidence(evidence)
+	return evidence.Slot == "credentials"
+}
+
+func authoringDecisionRecord(evidence DecisionEvidence) publicdecision.Record {
+	evidence = normalizeDecisionEvidence(evidence)
+	return publicdecision.Normalize(publicdecision.Record{
+		Stage:                evidence.Stage,
+		Slot:                 evidence.Slot,
+		Value:                evidence.Value,
+		Source:               evidence.Source,
+		Confidence:           authoringDecisionConfidence(evidence.Confidence),
+		Rationale:            evidence.Reason,
+		Evidence:             evidence.Evidence,
+		Alternatives:         authoringDecisionAlternatives(evidence.Alternatives),
+		RequiresConfirmation: evidence.RequiresConfirmation,
+	})
+}
+
+func decisionEvidenceFromAuthoring(record publicdecision.Record) DecisionEvidence {
+	record = publicdecision.Normalize(record)
+	return normalizeDecisionEvidence(DecisionEvidence{
+		Stage:                record.Stage,
+		Slot:                 record.Slot,
+		Value:                record.Value,
+		Source:               record.Source,
+		Confidence:           openUdonDecisionConfidence(record.Confidence),
+		Reason:               record.Rationale,
+		Evidence:             record.Evidence,
+		Alternatives:         openUdonDecisionAlternatives(record.Alternatives),
+		RequiresConfirmation: record.RequiresConfirmation,
+	})
+}
+
+func authoringDecisionAlternatives(alternatives []DecisionAlternative) []publicdecision.Alternative {
+	alternatives = normalizeDecisionAlternatives(alternatives)
+	out := make([]publicdecision.Alternative, 0, len(alternatives))
+	for _, alternative := range alternatives {
+		out = append(out, publicdecision.Alternative{
+			Value:     alternative.Value,
+			Rationale: alternative.Reason,
+		})
+	}
+	return out
+}
+
+func openUdonDecisionAlternatives(alternatives []publicdecision.Alternative) []DecisionAlternative {
+	alternatives = publicdecision.NormalizeAlternatives(alternatives)
+	out := make([]DecisionAlternative, 0, len(alternatives))
+	for _, alternative := range alternatives {
+		out = append(out, DecisionAlternative{
+			Value:  alternative.Value,
+			Reason: alternative.Rationale,
+		})
+	}
+	return normalizeDecisionAlternatives(out)
+}
+
+func authoringDecisionConfidence(confidence string) string {
+	switch normalizeMappingConfidence(confidence) {
+	case mappingConfidenceHigh:
+		return publicdecision.ConfidenceAutoAccept
+	case mappingConfidenceLow:
+		return publicdecision.ConfidenceLow
+	case mappingConfidenceConflict:
+		return publicdecision.ConfidenceConflict
+	default:
+		return publicdecision.ConfidenceReview
+	}
+}
+
+func openUdonDecisionConfidence(confidence string) string {
+	switch publicdecision.NormalizeConfidence(confidence) {
+	case publicdecision.ConfidenceAutoAccept:
+		return mappingConfidenceHigh
+	case publicdecision.ConfidenceLow:
+		return mappingConfidenceLow
+	case publicdecision.ConfidenceConflict:
+		return mappingConfidenceConflict
+	default:
+		return mappingConfidenceReview
+	}
 }

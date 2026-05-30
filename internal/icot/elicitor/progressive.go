@@ -181,8 +181,14 @@ func runProgressive(ctx context.Context, in io.Reader, out io.Writer, seed Sessi
 			fmt.Fprintf(out, "icot: AI draft skipped: %s\n", message)
 		},
 		CheckReadiness: CheckReadiness,
-		Ready:          progressiveReady,
-		PlanQuestion:   PlanNextQuestion,
+		Ready: func(session Session, issues []ReadinessIssue) bool {
+			if opts.VerifyOnly {
+				_, err := RenderArtifacts(session)
+				return err == nil
+			}
+			return progressiveReady(session, issues)
+		},
+		PlanQuestion: PlanNextQuestion,
 		ApplyAnswer: func(session *Session, plan QuestionPlan, answer string, docs []APIDocument) error {
 			handled, err := applyCatalogDocumentAnswer(statusOut, session, plan, answer, docs, opts.ExampleDir)
 			if err != nil {
@@ -196,23 +202,27 @@ func runProgressive(ctx context.Context, in io.Reader, out io.Writer, seed Sessi
 			return nil
 		},
 		FinalConfirm: func(prompts *authoring.PromptSession, session *Session, docs []APIDocument, events *[]authoring.PromptEvent) (Artifacts, error) {
-			review := func(ctx context.Context, session *Session, artifacts Artifacts, issues []ReadinessIssue) []DraftReviewIssue {
-				key := finalDraftReviewKey(artifacts)
-				if key == "" {
-					return nil
+			var review func(context.Context, *Session, Artifacts, []ReadinessIssue) []DraftReviewIssue
+			if !opts.VerifyOnly {
+				review = func(ctx context.Context, session *Session, artifacts Artifacts, issues []ReadinessIssue) []DraftReviewIssue {
+					key := finalDraftReviewKey(artifacts)
+					if key == "" {
+						return nil
+					}
+					if cached, ok := reviewedFinalDrafts[key]; ok {
+						return cached
+					}
+					var reviewExtractor Extractor
+					if !opts.NoLLM && !opts.VerifyOnly {
+						reviewExtractor = extractor
+					}
+					reviewIssues := reviewFinalDraft(ctx, statusOut, reviewExtractor, session, docs, issues, events)
+					reviewedFinalDrafts[key] = reviewIssues
+					return reviewIssues
 				}
-				if cached, ok := reviewedFinalDrafts[key]; ok {
-					return cached
-				}
-				var reviewExtractor Extractor
-				if !opts.NoLLM {
-					reviewExtractor = extractor
-				}
-				reviewIssues := reviewFinalDraft(ctx, statusOut, reviewExtractor, session, docs, issues, events)
-				reviewedFinalDrafts[key] = reviewIssues
-				return reviewIssues
 			}
-			return finalProgressiveConfirmationLoop(ctx, out, &prompter{PromptSession: prompts, out: out}, session, docs, opts.DraftPath, events, opts.DefaultMode != authoring.PromptDefaultsSilent, opts.ReviewRepair, review)
+			reviewRepair := opts.ReviewRepair && !opts.VerifyOnly
+			return finalProgressiveConfirmationLoop(ctx, out, &prompter{PromptSession: prompts, out: out}, session, docs, opts.DraftPath, events, opts.DefaultMode != authoring.PromptDefaultsSilent, reviewRepair, review, opts.VerifyOnly)
 		},
 		FinalResultSummary: func(artifacts Artifacts) any {
 			return map[string]any{
@@ -261,7 +271,7 @@ func progressiveDraftErrorMessage(err error) (string, bool) {
 
 type finalDraftReviewer func(context.Context, *Session, Artifacts, []ReadinessIssue) []DraftReviewIssue
 
-func finalProgressiveConfirmationLoop(ctx context.Context, out io.Writer, p *prompter, session *Session, docs []APIDocument, draftPath string, events *[]TranscriptEvent, showAssumptions bool, reviewRepair bool, review finalDraftReviewer) (Artifacts, error) {
+func finalProgressiveConfirmationLoop(ctx context.Context, out io.Writer, p *prompter, session *Session, docs []APIDocument, draftPath string, events *[]TranscriptEvent, showAssumptions bool, reviewRepair bool, review finalDraftReviewer, verifyOnly bool) (Artifacts, error) {
 	repairAttempts := 0
 	askedReviewQuestions := map[string]bool{}
 	for {
@@ -291,7 +301,7 @@ func finalProgressiveConfirmationLoop(ctx context.Context, out io.Writer, p *pro
 		}
 		*session = artifacts.Session
 		issues := CheckReadiness(artifacts.Session, docs)
-		if firstFinalRepairIssue(issues).Code != "" {
+		if !verifyOnly && firstFinalRepairIssue(issues).Code != "" {
 			if handled, handleErr := answerFinalBlockingQuestion(out, p, session, docs, draftPath); handled || handleErr != nil {
 				if handleErr != nil {
 					return Artifacts{}, handleErr
@@ -1311,7 +1321,7 @@ func deterministicPrefill(session *Session, docs []APIDocument) bool {
 		if step == nil {
 			return
 		}
-		if strings.TrimSpace(step.Operation) == "" {
+		if apiBackedStep(step) && strings.TrimSpace(step.Operation) == "" {
 			choices := rankedOperationChoicesForStep(*session, docs, step)
 			if len(choices) == 1 && strings.TrimSpace(choices[0].Op.OperationID) != "" {
 				step.Operation = choices[0].Op.OperationID
@@ -1392,6 +1402,14 @@ func deterministicPrefill(session *Session, docs []APIDocument) bool {
 		}
 	}
 	return changed
+}
+
+func apiBackedStep(step *rollout.Step) bool {
+	if step == nil {
+		return false
+	}
+	stepType := strings.ToLower(strings.TrimSpace(step.Type))
+	return stepType == "http" || stepType == "openapi"
 }
 
 func applyCapabilityGapFallback(session *Session, docs []APIDocument) bool {

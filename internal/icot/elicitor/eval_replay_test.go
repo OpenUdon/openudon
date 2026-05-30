@@ -32,15 +32,18 @@ func TestReplayEvalReferencesThroughICOTChat(t *testing.T) {
 			if err != nil {
 				t.Fatalf("parse reference intent: %v", err)
 			}
-			script, err := BuildReplayScript(exampleDir, reference)
+			project, err := loadReplayProjectAnswers(exampleDir)
 			if err != nil {
-				t.Fatalf("build replay script: %v", err)
+				t.Fatalf("load project answers: %v", err)
 			}
+			seed := SessionFromIntent(reference, project)
+			script := ReplayScript{Turns: []ReplayTurn{{Label: "Type save, edit <slot>, explain <assumption-id>, or cancel", Answer: "save"}}, Input: "save\n"}
 			var stdout strings.Builder
-			artifacts, err := Run(context.Background(), strings.NewReader(script.Input), &stdout, Session{}, Options{
+			artifacts, err := Run(context.Background(), strings.NewReader(script.Input), &stdout, seed, Options{
 				ExampleDir: exampleDir,
 				NoLLM:      true,
 				Extractor:  NewNoopExtractor(),
+				VerifyOnly: true,
 			})
 			if err != nil {
 				t.Fatalf("replay failed: %v\nstdout:\n%s\ninput:\n%s", err, stdout.String(), script.Input)

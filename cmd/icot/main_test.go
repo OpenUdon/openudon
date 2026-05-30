@@ -70,7 +70,7 @@ func TestCLICreatesProjectAndDirectories(t *testing.T) {
 	}
 	text := string(project)
 	for _, expected := range []string{
-		"# Guided Project",
+		"# Render A Local Summary",
 		"Render a local summary report",
 		"OpenAPI: none required",
 		"`cmd` is not allowed",
@@ -84,7 +84,7 @@ func TestCLICreatesProjectAndDirectories(t *testing.T) {
 	if err != nil {
 		t.Fatalf("read intent.hcl: %v", err)
 	}
-	if !strings.Contains(string(intent), `workflow`) || !strings.Contains(string(intent), `render_report`) {
+	if !strings.Contains(string(intent), `workflow`) || !strings.Contains(string(intent), `guided_project`) {
 		t.Fatalf("intent.hcl missing expected content:\n%s", intent)
 	}
 	if !strings.Contains(string(output), "current draft") {
@@ -106,7 +106,7 @@ func TestCLIPrintWritesNoFiles(t *testing.T) {
 	if !strings.Contains(string(output), "OpenAPI: none required") {
 		t.Fatalf("--print output missing rendered project:\n%s", output)
 	}
-	if !strings.Contains(string(output), "workflows/intent.hcl") || !strings.Contains(string(output), "render_report") {
+	if !strings.Contains(string(output), "workflows/intent.hcl") || !strings.Contains(string(output), "guided_project") {
 		t.Fatalf("--print output missing rendered intent:\n%s", output)
 	}
 }
@@ -344,31 +344,7 @@ func projectInputBeforeVerify(withOpenAPI bool) string {
 	answers := []string{
 		"Render a local summary report from a runtime input",
 		"guided_project",
-		"Render a local summary report",
-		"",
-		"",
 	}
-	if withOpenAPI {
-		answers = append(answers, "yes", "openapi/support.yaml")
-	} else {
-		answers = append(answers, "no")
-	}
-	answers = append(answers,
-		"summary:string",
-		"render_report",
-		"fnct",
-		"Render the summary report",
-		"",
-		"summary",
-		"",
-		"",
-		"report",
-		"render_report.received_body",
-		"sandbox-only",
-		"",
-		"Sandbox proof runs only",
-		"Stop if required services are unavailable",
-	)
 	return strings.Join(answers, "\n") + "\n"
 }
 

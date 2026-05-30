@@ -373,6 +373,17 @@ func TestReportVerifyScorecard(t *testing.T) {
 	if code != 0 || !strings.Contains(stdout.String(), scorecardReportVersion) {
 		t.Fatalf("report verify code=%d\nstdout:\n%s\nstderr:\n%s", code, stdout.String(), stderr.String())
 	}
+	data, err := os.ReadFile(filepath.Join(outDir, "scorecard.json"))
+	if err != nil {
+		t.Fatalf("read scorecard: %v", err)
+	}
+	var report scorecardReport
+	if err := json.Unmarshal(data, &report); err != nil {
+		t.Fatalf("decode scorecard: %v", err)
+	}
+	if report.AuthoringScorecard == nil || report.AuthoringScorecard.Version != publicreport.ScorecardVersion || report.AuthoringScorecard.Summary.Total != report.Summary.Total {
+		t.Fatalf("embedded authoring scorecard = %#v, report summary=%#v", report.AuthoringScorecard, report.Summary)
+	}
 }
 
 func TestReportVerifyRejectsDigestMismatch(t *testing.T) {
@@ -1383,7 +1394,7 @@ func TestPromptModeFastAcceptsCompleteDraftSaveDefaultSilently(t *testing.T) {
 	if _, err := os.Stat(draftPath); !os.IsNotExist(err) {
 		t.Fatalf("draft not deleted after fast save: %v", err)
 	}
-	if strings.Contains(stdout.String(), "Type save, edit <slot>, explain <assumption-id>, regenerate, or cancel") {
+	if strings.Contains(stdout.String(), "Type save, edit <slot>, explain <assumption-id>, or cancel") {
 		t.Fatalf("stdout printed auto-accepted save prompt:\n%s", stdout.String())
 	}
 }
@@ -1404,7 +1415,7 @@ func TestPromptModeNormalAcceptsCompleteDraftSaveDefaultVisibly(t *testing.T) {
 	if _, err := os.Stat(draftPath); !os.IsNotExist(err) {
 		t.Fatalf("draft not deleted after normal save: %v", err)
 	}
-	if !strings.Contains(stdout.String(), "Type save, edit <slot>, explain <assumption-id>, regenerate, or cancel [save]: save") {
+	if !strings.Contains(stdout.String(), "Type save, edit <slot>, explain <assumption-id>, or cancel [save]: save") {
 		t.Fatalf("stdout missing visibly auto-accepted save prompt:\n%s", stdout.String())
 	}
 }
@@ -1412,7 +1423,7 @@ func TestPromptModeNormalAcceptsCompleteDraftSaveDefaultVisibly(t *testing.T) {
 func TestPromptModeFastWritesManualDraftFromOpeningOnly(t *testing.T) {
 	example := filepath.Join(t.TempDir(), "guided")
 	var stdout, stderr bytes.Buffer
-	input := "Render a local summary report from a runtime input\n"
+	input := "Render a local summary report from a runtime input\nguided_project\n"
 	code := Main([]string{"--example", example, "--no-llm", "--prompt-mode", "fast"}, strings.NewReader(input), &stdout, &stderr)
 	if code != 0 {
 		t.Fatalf("fast manual draft failed with code %d\nstdout:\n%s\nstderr:\n%s", code, stdout.String(), stderr.String())
@@ -1433,7 +1444,7 @@ func TestPromptModeFastWritesManualDraftFromOpeningOnly(t *testing.T) {
 			t.Fatalf("stdout printed auto-accepted prompt %q:\n%s", unexpected, stdout.String())
 		}
 	}
-	if !strings.Contains(stdout.String(), "Workflow brief:") {
+	if !strings.Contains(stdout.String(), "Workflow goal:") {
 		t.Fatalf("stdout missing required no-default prompt:\n%s", stdout.String())
 	}
 }
@@ -1898,31 +1909,7 @@ func testProjectInput(withOpenAPI bool) string {
 	answers := []string{
 		"Render a local summary report from a runtime input",
 		"guided_project",
-		"Render a local summary report",
-		"",
-		"",
 	}
-	if withOpenAPI {
-		answers = append(answers, "yes", "openapi/support.yaml")
-	} else {
-		answers = append(answers, "no")
-	}
-	answers = append(answers,
-		"summary:string",
-		"render_report",
-		"fnct",
-		"Render the summary report",
-		"",
-		"summary",
-		"",
-		"",
-		"report",
-		"render_report.received_body",
-		"sandbox-only",
-		"",
-		"Sandbox proof runs only",
-		"Stop if required services are unavailable",
-	)
 	return strings.Join(answers, "\n") + "\n"
 }
 

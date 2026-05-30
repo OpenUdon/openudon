@@ -13,35 +13,30 @@ import (
 	"github.com/OpenUdon/openudon/internal/authoring"
 	"github.com/OpenUdon/openudon/internal/projectwizard"
 	rollout "github.com/OpenUdon/openudon/internal/workflowintent"
+	"github.com/OpenUdon/uws/uws1"
 )
 
 func TestRunFillsRuntimeOnlyIntent(t *testing.T) {
 	example := t.TempDir()
-	input := strings.Join([]string{
-		"Render a local summary report from a runtime input.",
-		"runtime_only_render",
-		"Render a local summary report.",
-		"",
-		"",
-		"no",
-		"summary:string",
-		"render_report",
-		"fnct",
-		"Render the summary report.",
-		"",
-		"summary",
-		"",
-		"",
-		"report",
-		"render_report.received_body",
-		"sandbox-only",
-		"",
-		"Sandbox proof runs only",
-		"Stop if the summary input is missing",
-		"save",
-	}, "\n") + "\n"
-
-	artifacts, err := Run(context.Background(), strings.NewReader(input), &strings.Builder{}, Session{}, Options{
+	seed := Session{
+		Intent: rollout.Intent{
+			Workflow: &rollout.WorkflowMeta{Name: "runtime_only_render", Description: "Render a local summary report."},
+			Inputs:   []*rollout.Input{{Name: "summary", Type: "string", Required: true}},
+			Steps: []*rollout.Step{{
+				Name: "render_report",
+				Type: "fnct",
+				Do:   "Render the summary report.",
+				With: map[string]string{"summary": "inputs.summary"},
+			}},
+			Outputs: []*rollout.Output{{Name: "report", From: "render_report.received_body"}},
+		},
+		Safety:          "Sandbox proof runs only",
+		SafetySet:       true,
+		Fallback:        "Stop if the summary input is missing",
+		FallbackSet:     true,
+		SideEffectScope: projectwizard.SideEffectSandboxOnly,
+	}
+	artifacts, err := Run(context.Background(), strings.NewReader("save\n"), &strings.Builder{}, seed, Options{
 		ExampleDir: example,
 		NoLLM:      true,
 		Extractor:  NewNoopExtractor(),
@@ -64,34 +59,12 @@ func TestRunFillsRuntimeOnlyIntent(t *testing.T) {
 func TestRunFillsOpenAPIRequiredParams(t *testing.T) {
 	example := t.TempDir()
 	writeOpenAPI(t, example)
-	input := strings.Join([]string{
-		"Fetch a support ticket.",
-		"support_ticket_lookup",
-		"Fetch a support ticket by runtime id.",
-		"",
-		"",
-		"yes",
-		"1",
-		"ticketId:string",
-		"get_ticket",
-		"http",
-		"Fetch the ticket.",
-		"",
-		"1",
-		"1",
-		"",
-		"",
-		"",
-		"ticket",
-		"get_ticket.received_body",
-		"sandbox-only",
-		"support_api_token",
-		"Sandbox proof runs only",
-		"Stop if the support API is unavailable",
-		"save",
-	}, "\n") + "\n"
-
-	artifacts, err := Run(context.Background(), strings.NewReader(input), &strings.Builder{}, Session{}, Options{
+	seed := supportTicketDraft(true)
+	seed.Credentials = []string{"support_api_token"}
+	seed.CredentialsSet = true
+	seed.Fallback = "Stop if the support API is unavailable"
+	seed.FallbackSet = true
+	artifacts, err := Run(context.Background(), strings.NewReader("save\n"), &strings.Builder{}, seed, Options{
 		ExampleDir: example,
 		NoLLM:      true,
 		Extractor:  NewNoopExtractor(),
@@ -356,37 +329,30 @@ func TestDiscoverLocalAPIsIncludesAWSSmithyOperations(t *testing.T) {
 
 func TestRunCreatesStepBindFromPriorOutput(t *testing.T) {
 	example := t.TempDir()
-	input := strings.Join([]string{
-		"Fetch a customer and write a draft.",
-		"customer_draft",
-		"Fetch a customer and write a draft.",
-		"",
-		"",
-		"no",
-		"customerId:string",
-		"get_customer",
-		"fnct",
-		"Fetch the customer.",
-		"",
-		"customerId",
-		"",
-		"write_draft",
-		"fnct",
-		"Write the draft.",
-		"",
-		"customerId",
-		"get_customer.received_body.id",
-		"",
-		"draft",
-		"write_draft.received_body",
-		"sandbox-only",
-		"",
-		"Sandbox proof runs only",
-		"Stop on missing customer data",
-		"save",
-	}, "\n") + "\n"
-
-	artifacts, err := Run(context.Background(), strings.NewReader(input), &strings.Builder{}, Session{}, Options{
+	seed := Session{
+		Intent: rollout.Intent{
+			Workflow: &rollout.WorkflowMeta{Name: "customer_draft", Description: "Fetch a customer and write a draft."},
+			Inputs:   []*rollout.Input{{Name: "customerId", Type: "string", Required: true}},
+			Steps: []*rollout.Step{
+				{Name: "get_customer", Type: "fnct", Do: "Fetch the customer.", With: map[string]string{"customerId": "inputs.customerId"}},
+				{
+					Name:      "write_draft",
+					Type:      "fnct",
+					Do:        "Write the draft.",
+					With:      map[string]string{"customerId": "get_customer.received_body.id"},
+					DependsOn: []string{"get_customer"},
+					Binds:     []*rollout.StepBind{{From: "get_customer", Fields: map[string]string{"customerId": "received_body.id"}}},
+				},
+			},
+			Outputs: []*rollout.Output{{Name: "draft", From: "write_draft.received_body"}},
+		},
+		Safety:          "Sandbox proof runs only",
+		SafetySet:       true,
+		Fallback:        "Stop on missing customer data",
+		FallbackSet:     true,
+		SideEffectScope: projectwizard.SideEffectSandboxOnly,
+	}
+	artifacts, err := Run(context.Background(), strings.NewReader("save\n"), &strings.Builder{}, seed, Options{
 		ExampleDir: example,
 		NoLLM:      true,
 		Extractor:  NewNoopExtractor(),
@@ -409,33 +375,38 @@ func TestRunCreatesStepBindFromPriorOutput(t *testing.T) {
 
 func TestRunFillsTimeoutAndIdempotencyControls(t *testing.T) {
 	example := t.TempDir()
-	input := strings.Join([]string{
-		"Submit one controlled local function call.",
-		"timeout_idempotency_controls",
-		"Submit one controlled local function call.",
-		"120",
-		"inputs.request_id",
-		"returnPrevious",
-		"86400",
-		"no",
-		"request_id:string, payload:string",
-		"call_api",
-		"fnct",
-		"Submit the payload through the approved local function.",
-		"10",
-		"payload",
-		"",
-		"",
-		"result",
-		"call_api.received_body",
-		"sandbox-only",
-		"",
-		"Sandbox proof runs only",
-		"Stop on missing payload",
-		"save",
-	}, "\n") + "\n"
-
-	artifacts, err := Run(context.Background(), strings.NewReader(input), &strings.Builder{}, Session{}, Options{
+	seed := Session{
+		Intent: rollout.Intent{
+			Workflow: &rollout.WorkflowMeta{
+				Name:        "timeout_idempotency_controls",
+				Description: "Submit one controlled local function call.",
+				Timeout:     ptrFloat(120),
+				Idempotency: &uws1.Idempotency{
+					Key:        "inputs.request_id",
+					OnConflict: "returnPrevious",
+					TTL:        ptrFloat(86400),
+				},
+			},
+			Inputs: []*rollout.Input{
+				{Name: "request_id", Type: "string", Required: true},
+				{Name: "payload", Type: "string", Required: true},
+			},
+			Steps: []*rollout.Step{{
+				Name:    "call_api",
+				Type:    "fnct",
+				Do:      "Submit the payload through the approved local function.",
+				Timeout: ptrFloat(10),
+				With:    map[string]string{"payload": "inputs.payload"},
+			}},
+			Outputs: []*rollout.Output{{Name: "result", From: "call_api.received_body"}},
+		},
+		Safety:          "Sandbox proof runs only",
+		SafetySet:       true,
+		Fallback:        "Stop on missing payload",
+		FallbackSet:     true,
+		SideEffectScope: projectwizard.SideEffectSandboxOnly,
+	}
+	artifacts, err := Run(context.Background(), strings.NewReader("save\n"), &strings.Builder{}, seed, Options{
 		ExampleDir: example,
 		NoLLM:      true,
 		Extractor:  NewNoopExtractor(),
@@ -464,6 +435,10 @@ func TestRunFillsTimeoutAndIdempotencyControls(t *testing.T) {
 type draftExtractor struct {
 	noopExtractor
 	session Session
+}
+
+func ptrFloat(value float64) *float64 {
+	return &value
 }
 
 func (e draftExtractor) Draft(context.Context, DraftRequest) (Session, error) {
@@ -690,7 +665,7 @@ func TestProgressivePreFinalReviewRunsAfterFinalBlockingRepair(t *testing.T) {
 		}
 		return nil
 	}
-	if _, err := finalProgressiveConfirmationLoop(context.Background(), &out, &prompter{PromptSession: prompts, out: &out}, &session, docs, "", nil, true, false, review); err != nil {
+	if _, err := finalProgressiveConfirmationLoop(context.Background(), &out, &prompter{PromptSession: prompts, out: &out}, &session, docs, "", nil, true, false, review, false); err != nil {
 		t.Fatalf("final confirmation failed: %v\n%s", err, out.String())
 	}
 	if reviewCalls != 1 {
@@ -719,7 +694,7 @@ func TestProgressivePreFinalReviewForcedQuestionInFastMode(t *testing.T) {
 			ClarifyingQuestion: "What exact output should this workflow return?",
 		}}}).Issues
 	}
-	artifacts, err := finalProgressiveConfirmationLoop(context.Background(), &out, &prompter{PromptSession: prompts, out: &out}, &session, docs, "", nil, false, false, review)
+	artifacts, err := finalProgressiveConfirmationLoop(context.Background(), &out, &prompter{PromptSession: prompts, out: &out}, &session, docs, "", nil, false, false, review, false)
 	if err != nil {
 		t.Fatalf("final confirmation failed: %v\n%s", err, out.String())
 	}
@@ -758,7 +733,7 @@ func TestProgressivePreFinalReviewForcedQuestionAppliesSafeOutputSource(t *testi
 			ClarifyingQuestion: "What exact output should this workflow return?",
 		}}}).Issues
 	}
-	artifacts, err := finalProgressiveConfirmationLoop(context.Background(), &out, &prompter{PromptSession: prompts, out: &out}, &session, docs, "", &events, false, false, review)
+	artifacts, err := finalProgressiveConfirmationLoop(context.Background(), &out, &prompter{PromptSession: prompts, out: &out}, &session, docs, "", &events, false, false, review, false)
 	if err != nil {
 		t.Fatalf("final confirmation failed: %v\n%s", err, out.String())
 	}
@@ -794,7 +769,7 @@ func TestProgressivePreFinalReviewForcedQuestionKeepsUnsafeAnswerAsComment(t *te
 			ClarifyingQuestion: "What exact output should this workflow return?",
 		}}}).Issues
 	}
-	artifacts, err := finalProgressiveConfirmationLoop(context.Background(), &out, &prompter{PromptSession: prompts, out: &out}, &session, docs, "", &events, false, false, review)
+	artifacts, err := finalProgressiveConfirmationLoop(context.Background(), &out, &prompter{PromptSession: prompts, out: &out}, &session, docs, "", &events, false, false, review, false)
 	if err != nil {
 		t.Fatalf("final confirmation failed: %v\n%s", err, out.String())
 	}

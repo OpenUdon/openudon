@@ -1,7 +1,6 @@
 package elicitor
 
 import (
-	"bufio"
 	"context"
 	"errors"
 	"fmt"
@@ -15,7 +14,6 @@ import (
 	"github.com/OpenUdon/openudon/internal/projectwizard"
 	"github.com/OpenUdon/openudon/internal/workflowintent"
 	rollout "github.com/OpenUdon/openudon/internal/workflowintent"
-	"github.com/OpenUdon/uws/uws1"
 )
 
 type Options struct {
@@ -38,404 +36,10 @@ type Artifacts struct {
 }
 
 func Run(ctx context.Context, in io.Reader, out io.Writer, seed Session, opts Options) (Artifacts, error) {
-	if !opts.NoLLM && !opts.VerifyOnly {
-		return runProgressive(ctx, in, out, seed, opts)
-	}
-	return runManual(ctx, in, out, seed, opts)
-}
-
-func runManual(ctx context.Context, in io.Reader, out io.Writer, seed Session, opts Options) (Artifacts, error) {
-	reader, ok := in.(*bufio.Reader)
-	if !ok {
-		reader = bufio.NewReader(in)
-	}
-	extractor := opts.Extractor
-	if extractor == nil {
-		extractor = NewNoopExtractor()
-	}
-	session := seed
-	session.Normalize()
-	promptSession := authoring.NewPromptSession(reader, out)
-	promptSession.SetDefaultMode(opts.DefaultMode)
-	p := &prompter{PromptSession: promptSession, out: out}
-	statusOut := out
-	if opts.DefaultMode == authoring.PromptDefaultsSilent {
-		statusOut = io.Discard
-	}
-	openingBrief := ""
 	if opts.VerifyOnly {
-		projectText := projectwizard.Render(session.Project)
-		docs, err := DiscoverLocalAPIs(opts.ExampleDir, projectText)
-		if err != nil {
-			return Artifacts{}, err
-		}
-		if shouldRetrieveCatalogArtifacts(session, docs) {
-			if err := retrieveCatalogArtifactsForSession(out, session, opts.ExampleDir, opts.CatalogHintOptions); err != nil {
-				return Artifacts{}, err
-			}
-			projectText = projectwizard.Render(session.Project)
-			docs, err = DiscoverLocalAPIs(opts.ExampleDir, projectText)
-			if err != nil {
-				return Artifacts{}, err
-			}
-			clearUnavailableAPIDocumentRefs(&session, docs)
-		}
-		artifacts, err := finalVerificationLoop(out, p, &session, docs, opts.DraftPath, opts.DefaultMode != authoring.PromptDefaultsSilent)
-		if err == nil {
-			if saveErr := SaveTranscript(opts.TranscriptPath, p.turns(), artifacts.Session); saveErr != nil {
-				return artifacts, saveErr
-			}
-		}
-		return artifacts, err
+		opts.DisableAIDraft = true
 	}
-
-	if session.Intent.Workflow == nil || strings.TrimSpace(session.Intent.Workflow.Description) == "" {
-		fmt.Fprintln(out, "Describe the workflow in one or two sentences. Mention APIs/files if known. Do not paste secrets.")
-		opening, err := p.ask("Workflow brief")
-		if err != nil {
-			return Artifacts{}, err
-		}
-		openingBrief = strings.TrimSpace(opening)
-		if strings.TrimSpace(opening) != "" {
-			if !opts.NoLLM {
-				prefill, err := extractor.Kickoff(ctx, opening)
-				if err == nil {
-					session = mergeSessions(session, prefill)
-				} else {
-					fmt.Fprintf(statusOut, "icot: LLM prefill skipped: %v\n", err)
-				}
-			}
-			if session.Intent.Workflow == nil {
-				session.Intent.Workflow = &rollout.WorkflowMeta{}
-			}
-			session.Intent.Workflow.Description = firstNonEmpty(session.Intent.Workflow.Description, opening)
-			session.Intent.Workflow.Name = firstNonEmpty(session.Intent.Workflow.Name, actionName(opening))
-			session.Project.Goal = firstNonEmpty(session.Project.Goal, opening)
-			session.Normalize()
-			if err := autosave(opts.DraftPath, session); err != nil {
-				return Artifacts{}, err
-			}
-			printSummary(out, session)
-			PrintCatalogHints(statusOut, opening)
-		}
-	}
-
-	var err error
-	if session.Intent.Workflow == nil {
-		session.Intent.Workflow = &rollout.WorkflowMeta{}
-	}
-	session.Intent.Workflow.Name, err = p.askDefault("Workflow name", firstNonEmpty(session.Intent.Workflow.Name, slug(session.Project.ProjectName)))
-	if err != nil {
-		return Artifacts{}, err
-	}
-	session.Intent.Workflow.Name = slug(session.Intent.Workflow.Name)
-	session.Intent.Workflow.Description, err = p.askDefault("Workflow goal", session.Intent.Workflow.Description)
-	if err != nil {
-		return Artifacts{}, err
-	}
-	if err := p.collectWorkflowMetadata(session.Intent.Workflow); err != nil {
-		return Artifacts{}, err
-	}
-	session.Project.ProjectName = humanTitle(session.Intent.Workflow.Name)
-	session.Project.Goal = session.Intent.Workflow.Description
-	session.Normalize()
-	if err := autosave(opts.DraftPath, session); err != nil {
-		return Artifacts{}, err
-	}
-	printSummary(out, session)
-
-	projectText := projectwizard.Render(session.Project)
-	docs, err := DiscoverLocalAPIs(opts.ExampleDir, projectText)
-	if err != nil {
-		return Artifacts{}, err
-	}
-	if shouldRetrieveCatalogArtifacts(session, docs) {
-		if err := retrieveCatalogArtifactsForSession(statusOut, session, opts.ExampleDir, opts.CatalogHintOptions); err != nil {
-			return Artifacts{}, err
-		}
-		projectText = projectwizard.Render(session.Project)
-		docs, err = DiscoverLocalAPIs(opts.ExampleDir, projectText)
-		if err != nil {
-			return Artifacts{}, err
-		}
-		clearUnavailableAPIDocumentRefs(&session, docs)
-		if issue := blockingAPIDocumentIssue(session, docs); issue.Code != "" {
-			fmt.Fprintf(out, "Intent is incomplete: %s\n", issue.Message)
-			return Artifacts{}, errors.New(issue.Message)
-		}
-	}
-	if !opts.NoLLM && len(docs) > 1 {
-		if ranked, err := extractor.Disambiguate(ctx, session.Intent.Workflow.Description, docs); err == nil {
-			docs = rankDocuments(docs, ranked)
-		} else {
-			fmt.Fprintf(statusOut, "icot: OpenAPI ranking skipped: %v\n", err)
-		}
-	}
-	if !opts.NoLLM && !opts.DisableAIDraft && len(session.Intent.Steps) == 0 {
-		draft, err := extractor.Draft(ctx, DraftRequest{
-			Opening: openingBrief,
-			Session: session,
-			Docs:    docs,
-		})
-		if err == nil && LooksLikeSession(draft) {
-			session = mergeSessions(session, draft)
-			fmt.Fprintln(statusOut, "icot: drafted intent defaults from brief and local metadata; final save confirms listed assumptions")
-			session.Normalize()
-			if err := autosave(opts.DraftPath, session); err != nil {
-				return Artifacts{}, err
-			}
-			printSummary(out, session)
-		} else if err != nil {
-			fmt.Fprintf(statusOut, "icot: AI draft skipped: %v\n", err)
-		}
-	}
-	usesAPIDefault := session.Intent.RequiresOpenAPI() || len(docs) > 0
-	usesAPI, err := p.askYesNo("Use OpenAPI/API steps?", usesAPIDefault)
-	if err != nil {
-		return Artifacts{}, err
-	}
-	if usesAPI {
-		if len(docs) == 0 {
-			if issue := blockingAPIDocumentIssue(session, docs); issue.Code != "" {
-				fmt.Fprintf(out, "Intent is incomplete: %s\n", issue.Message)
-				return Artifacts{}, errors.New(issue.Message)
-			}
-			apiPath, err := p.askDefault("OpenAPI document path or URL", session.Intent.OpenAPI)
-			if err != nil {
-				return Artifacts{}, err
-			}
-			session.Intent.OpenAPI = strings.TrimSpace(apiPath)
-		} else {
-			useDefaultDoc := true
-			if len(docs) > 1 {
-				useDefaultDoc, err = p.askYesNo("Use one default OpenAPI document for all API steps?", strings.TrimSpace(session.Intent.OpenAPI) != "")
-				if err != nil {
-					return Artifacts{}, err
-				}
-			}
-			if useDefaultDoc {
-				doc, err := p.chooseDocument("OpenAPI document", docs, session.Intent.OpenAPI)
-				if err != nil {
-					return Artifacts{}, err
-				}
-				session.Intent.OpenAPI = doc.RelativePath
-			} else {
-				session.Intent.OpenAPI = ""
-			}
-		}
-	} else {
-		session.Intent.OpenAPI = ""
-		clearAPISteps(session.Intent.Steps)
-	}
-	session.Normalize()
-	if err := autosave(opts.DraftPath, session); err != nil {
-		return Artifacts{}, err
-	}
-	printSummary(out, session)
-
-	if len(session.Intent.Inputs) == 0 {
-		value, err := p.askOptionalDefault("Runtime inputs (name:type, comma-separated; blank for none)", "")
-		if err != nil {
-			return Artifacts{}, err
-		}
-		session.Intent.Inputs = parseInputs(value)
-		session.Normalize()
-		if err := autosave(opts.DraftPath, session); err != nil {
-			return Artifacts{}, err
-		}
-		printSummary(out, session)
-	}
-
-	if len(session.Intent.Steps) == 0 {
-		steps, err := p.collectSteps(usesAPI, session.Intent.OpenAPI, docs, session.Intent.Inputs, nil)
-		if err != nil {
-			return Artifacts{}, err
-		}
-		session.Intent.Steps = steps
-		session.Normalize()
-		if err := autosave(opts.DraftPath, session); err != nil {
-			return Artifacts{}, err
-		}
-		printSummary(out, session)
-	}
-
-	if len(session.Intent.Outputs) == 0 {
-		last := lastStepName(session.Intent.Steps)
-		defaultSource := defaultOutputSource(last)
-		name, err := p.askDefault("Output name", "result")
-		if err != nil {
-			return Artifacts{}, err
-		}
-		source, err := p.askDefault("Output source", defaultSource)
-		if err != nil {
-			return Artifacts{}, err
-		}
-		session.Intent.Outputs = []*rollout.Output{{Name: slugIdent(name), From: source}}
-		session.Normalize()
-		if err := autosave(opts.DraftPath, session); err != nil {
-			return Artifacts{}, err
-		}
-		printSummary(out, session)
-	}
-
-	if hasRuntime(session.Intent.Steps, "cmd") {
-		session.Project.CmdApproved, err = p.askYesNo("Approve cmd runtime for this project?", session.Project.CmdApproved)
-		if err != nil {
-			return Artifacts{}, err
-		}
-		session.Normalize()
-		if err := autosave(opts.DraftPath, session); err != nil {
-			return Artifacts{}, err
-		}
-	}
-	if hasRuntime(session.Intent.Steps, "ssh") {
-		session.Project.SSHApproved, err = p.askYesNo("Approve ssh runtime for this project?", session.Project.SSHApproved)
-		if err != nil {
-			return Artifacts{}, err
-		}
-		session.Normalize()
-		if err := autosave(opts.DraftPath, session); err != nil {
-			return Artifacts{}, err
-		}
-	}
-
-	sideEffectDefault := session.SideEffectScope
-	if sideEffectDefault == "" {
-		sideEffectDefault = projectwizard.InferSideEffectScope(session.Safety)
-	}
-	session.SideEffectScope, err = p.askSideEffectScope(sideEffectDefault)
-	if err != nil {
-		return Artifacts{}, err
-	}
-	session.Normalize()
-	if err := autosave(opts.DraftPath, session); err != nil {
-		return Artifacts{}, err
-	}
-
-	credentialAnswer, err := p.askOptionalDefault("Credential binding names only (comma-separated; blank for none)", strings.Join(session.Credentials, ", "))
-	if err != nil {
-		return Artifacts{}, err
-	}
-	session.Credentials = credentialBindings(credentialAnswer)
-	session.CredentialsSet = true
-	session.Normalize()
-	if err := autosave(opts.DraftPath, session); err != nil {
-		return Artifacts{}, err
-	}
-	session.Safety, err = p.askOptionalDefault("Safety and approval notes", session.Safety)
-	if err != nil {
-		return Artifacts{}, err
-	}
-	session.Safety = clearablePolicyAnswer(session.Safety)
-	session.SafetySet = true
-	session.Normalize()
-	if err := autosave(opts.DraftPath, session); err != nil {
-		return Artifacts{}, err
-	}
-	session.Fallback, err = p.askOptionalDefault("Fallback behavior", session.Fallback)
-	if err != nil {
-		return Artifacts{}, err
-	}
-	session.Fallback = clearablePolicyAnswer(session.Fallback)
-	session.FallbackSet = true
-	session.Normalize()
-	if !opts.NoLLM {
-		refined, err := extractor.Refine(ctx, session)
-		if err == nil {
-			session = refined
-			session.Normalize()
-		} else {
-			fmt.Fprintf(statusOut, "icot: LLM prose refinement skipped: %v\n", err)
-		}
-	}
-	if err := autosave(opts.DraftPath, session); err != nil {
-		return Artifacts{}, err
-	}
-
-	artifacts, err := finalVerificationLoop(out, p, &session, docs, opts.DraftPath, opts.DefaultMode != authoring.PromptDefaultsSilent)
-	transcriptSession := session
-	if err == nil {
-		transcriptSession = artifacts.Session
-		if saveErr := SaveTranscript(opts.TranscriptPath, p.turns(), transcriptSession); saveErr != nil {
-			return artifacts, saveErr
-		}
-	}
-	return artifacts, err
-}
-
-func finalVerificationLoop(out io.Writer, p *prompter, session *Session, docs []APIDocument, draftPath string, showAssumptions bool) (Artifacts, error) {
-	for {
-		artifacts, err := RenderArtifacts(*session)
-		if err != nil {
-			if handled, handleErr := answerFinalBlockingQuestion(out, p, session, docs, draftPath); handled || handleErr != nil {
-				if handleErr != nil {
-					return Artifacts{}, handleErr
-				}
-				continue
-			}
-			fmt.Fprintf(out, "Intent is incomplete: %v\n", err)
-			slot, slotErr := p.askDefault("Edit slot", "steps")
-			if slotErr != nil {
-				return Artifacts{}, slotErr
-			}
-			if err := editSlot(p, session, strings.TrimSpace(slot), docs); err != nil {
-				return Artifacts{}, err
-			}
-			if err := autosave(draftPath, *session); err != nil {
-				return Artifacts{}, err
-			}
-			continue
-		}
-		*session = artifacts.Session
-		if blocking := firstFinalRepairIssue(CheckReadiness(artifacts.Session, docs)); blocking.Code != "" {
-			if handled, handleErr := answerFinalBlockingQuestion(out, p, session, docs, draftPath); handled || handleErr != nil {
-				if handleErr != nil {
-					return Artifacts{}, handleErr
-				}
-				continue
-			}
-		}
-		fmt.Fprintln(out, "\n----- current draft -----")
-		printSummary(out, artifacts.Session)
-		if showAssumptions {
-			printAssumptions(out, artifacts.Session.Assumptions)
-		}
-		if len(artifacts.Session.Annotations) > 0 {
-			fmt.Fprintln(out, "LLM-prefilled values are marked in the session annotations and require this final confirmation.")
-		}
-		answer, err := p.askDefault("Type save, edit <slot>, explain <assumption-id>, regenerate, or cancel", "save")
-		if err != nil {
-			return Artifacts{}, err
-		}
-		answer = strings.TrimSpace(strings.ToLower(answer))
-		switch {
-		case answer == "" || answer == "save":
-			return artifacts, nil
-		case answer == "cancel":
-			return Artifacts{}, ErrCanceled
-		case strings.HasPrefix(answer, "edit"):
-			slot := strings.TrimSpace(strings.TrimPrefix(answer, "edit"))
-			if slot == "" {
-				slot, err = p.askDefault("Edit slot", "steps")
-				if err != nil {
-					return Artifacts{}, err
-				}
-			}
-			if err := editSlot(p, session, slot, docs); err != nil {
-				return Artifacts{}, err
-			}
-			if err := autosave(draftPath, *session); err != nil {
-				return Artifacts{}, err
-			}
-		case strings.HasPrefix(answer, "explain"):
-			id := strings.TrimSpace(strings.TrimPrefix(answer, "explain"))
-			printAssumptionExplanation(out, *session, id)
-		case answer == "regenerate":
-			fmt.Fprintln(out, "Regenerate is available by rerunning iCoT from the saved draft or editing a slot before save.")
-		default:
-			fmt.Fprintln(out, "Please type save, edit <slot>, explain <assumption-id>, regenerate, or cancel.")
-		}
-	}
+	return runProgressive(ctx, in, out, seed, opts)
 }
 
 func answerFinalBlockingQuestion(out io.Writer, p *prompter, session *Session, docs []APIDocument, draftPath string) (bool, error) {
@@ -483,35 +87,6 @@ func firstFinalRepairIssue(issues []ReadinessIssue) ReadinessIssue {
 	return ReadinessIssue{}
 }
 
-func blockingAPIDocumentIssue(session Session, docs []APIDocument) ReadinessIssue {
-	missingRefs := missingLocalAPIDocumentRefs(session, docs)
-	if len(missingRefs) > 0 && len(CatalogHintsForSession(session)) > 0 {
-		clone := session
-		clearUnavailableAPIDocumentRefs(&clone, docs)
-		message := missingAPIDocMessage(clone, docs)
-		if strings.Contains(message, "No first-class OpenAPI is available") {
-			return ReadinessIssue{
-				Code:            "missing_api_doc",
-				Slot:            "intent.openapi",
-				Severity:        readinessBlocking,
-				Message:         message,
-				SuggestedAnswer: "Generate/provide the missing API artifact, then rerun iCoT.",
-			}
-		}
-	}
-	for _, issue := range CheckReadiness(session, docs) {
-		if issue.Code == "missing_api_doc" && issue.Severity == readinessBlocking {
-			if len(missingRefs) > 0 {
-				return issue
-			}
-			if len(docs) == 0 && len(CatalogHintsForSession(session)) > 0 {
-				return issue
-			}
-		}
-	}
-	return ReadinessIssue{}
-}
-
 var ErrCanceled = errors.New("authoring canceled")
 
 func RenderArtifacts(session Session) (Artifacts, error) {
@@ -541,10 +116,6 @@ type prompter struct {
 	out io.Writer
 }
 
-func (p *prompter) ask(label string) (string, error) {
-	return p.Ask(label)
-}
-
 func (p *prompter) askDefault(label, current string) (string, error) {
 	return p.AskDefault(label, current)
 }
@@ -555,10 +126,6 @@ func (p *prompter) askDefaultForced(label, current string) (string, error) {
 
 func (p *prompter) askOptionalDefault(label, current string) (string, error) {
 	return p.AskOptionalDefault(label, current)
-}
-
-func (p *prompter) askYesNo(label string, defaultYes bool) (bool, error) {
-	return p.AskYesNo(label, defaultYes)
 }
 
 func (p *prompter) askSideEffectScope(current string) (string, error) {
@@ -813,50 +380,6 @@ func currentStepAction(step *rollout.Step) string {
 	return step.Do
 }
 
-func (p *prompter) collectWorkflowMetadata(workflow *rollout.WorkflowMeta) error {
-	if workflow == nil {
-		return nil
-	}
-	timeout, err := p.askOptionalSeconds("Workflow timeout seconds (blank for none)", workflow.Timeout)
-	if err != nil {
-		return err
-	}
-	workflow.Timeout = timeout
-	currentKey := ""
-	if workflow.Idempotency != nil {
-		currentKey = workflow.Idempotency.Key
-	}
-	key, err := p.askOptionalDefault("Workflow idempotency key (blank for none)", currentKey)
-	if err != nil {
-		return err
-	}
-	key = strings.TrimSpace(key)
-	if key == "" || strings.EqualFold(key, "none") || strings.EqualFold(key, "clear") {
-		workflow.Idempotency = nil
-		return nil
-	}
-	currentConflict := ""
-	currentTTL := (*float64)(nil)
-	if workflow.Idempotency != nil {
-		currentConflict = workflow.Idempotency.OnConflict
-		currentTTL = workflow.Idempotency.TTL
-	}
-	conflict, err := p.askOptionalDefault("Workflow idempotency onConflict (blank/reject/returnPrevious)", currentConflict)
-	if err != nil {
-		return err
-	}
-	conflict = strings.TrimSpace(conflict)
-	if conflict != "" && conflict != "reject" && conflict != "returnPrevious" {
-		return fmt.Errorf("workflow idempotency onConflict must be blank, reject, or returnPrevious")
-	}
-	ttl, err := p.askOptionalSeconds("Workflow idempotency ttl seconds (blank for none)", currentTTL)
-	if err != nil {
-		return err
-	}
-	workflow.Idempotency = &uws1.Idempotency{Key: key, OnConflict: conflict, TTL: ttl}
-	return nil
-}
-
 func (p *prompter) askOptionalSeconds(label string, current *float64) (*float64, error) {
 	defaultValue := ""
 	if current != nil {
@@ -927,10 +450,6 @@ func (p *prompter) collectFields(fields []string, inputs []*rollout.Input, prior
 		binds = append(binds, &rollout.StepBind{From: from, Fields: fields})
 	}
 	return with, binds, dedupeStrings(deps), nil
-}
-
-func (p *prompter) turns() []ReplayTurn {
-	return p.Turns()
 }
 
 func editSlot(p *prompter, session *Session, slot string, docs []APIDocument) error {
@@ -1185,13 +704,6 @@ func clearablePolicyAnswer(value string) string {
 	return value
 }
 
-func clearAPISteps(steps []*rollout.Step) {
-	walkSteps(steps, func(step *rollout.Step) {
-		step.OpenAPI = ""
-		step.Operation = ""
-	})
-}
-
 func lastStepName(steps []*rollout.Step) string {
 	for i := len(steps) - 1; i >= 0; i-- {
 		if steps[i] != nil && steps[i].Name != "" {
@@ -1206,16 +718,6 @@ func defaultOutputSource(stepName string) string {
 		return "result"
 	}
 	return stepName + ".received_body"
-}
-
-func hasRuntime(steps []*rollout.Step, runtime string) bool {
-	found := false
-	walkSteps(steps, func(step *rollout.Step) {
-		if strings.EqualFold(strings.TrimSpace(step.Type), runtime) {
-			found = true
-		}
-	})
-	return found
 }
 
 func inputNames(inputs []*rollout.Input) string {
