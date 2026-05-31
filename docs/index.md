@@ -89,7 +89,6 @@ for the provider-free release demo, and [Handoff](safety.md) for the review and 
 - [SaaS Review Handoff](saas-review-handoff.md)
 - [SaaS Operator Release Path](saas-operator-release.md)
 - [Product Smoke Matrix](product-smoke-matrix.md)
-- [Terraform/API Source Conversion](terraform-openapi-conversion.md)
 - [Release Stewardship](release-stewardship.md)
 - [Release Notes Template](release-note-template.md)
 - [AWS Provider Conversion Corpus](aws-provider-conversion-corpus.md)
