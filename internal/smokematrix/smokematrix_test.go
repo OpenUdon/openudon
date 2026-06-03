@@ -80,6 +80,60 @@ func TestRunDryRunWritesRedactedSummary(t *testing.T) {
 	}
 }
 
+func TestRunLocalUdonSmokeUsesBuiltExecutorAndExpandsAsyncEvidence(t *testing.T) {
+	repoRoot := repoRootForTest(t)
+	runRoot := filepath.Join(repoRoot, ".openudon-run", "test-local-udon-smoke-"+strconv.Itoa(os.Getpid()))
+	t.Cleanup(func() {
+		_ = os.RemoveAll(runRoot)
+	})
+	report, err := RunLocalUdonSmoke(context.Background(), LocalUdonSmokeOptions{
+		RepoRoot: repoRoot,
+		UdonRepo: filepath.Join(runRoot, "fake-udon-repo"),
+		WorkDir:  runRoot,
+		OutPath:  filepath.Join(runRoot, "summary.json"),
+		Now:      fixedNow,
+		BuildCommand: func(_ context.Context, _ string, out string) error {
+			if err := os.MkdirAll(filepath.Dir(out), 0o755); err != nil {
+				return err
+			}
+			if err := os.WriteFile(out, []byte("#!/usr/bin/env bash\nexit 0\n"), 0o755); err != nil {
+				return err
+			}
+			return nil
+		},
+		RunCommand: func(_ context.Context, _ string, args ...string) error {
+			reportPath := smokeArgValue(args, "--execution-report")
+			data := `{"version":"udon.execution-report.v1","status":"success","started_at":"2026-04-29T12:00:00Z","finished_at":"2026-04-29T12:00:00Z","workflow_path":"workflow.uws.yaml","workflow_format":"uws-yaml","workdir":".","output_path":"output.hcl","output_digest":"sha256:` + strings.Repeat("a", 64) + `"}` + "\n"
+			if err := os.MkdirAll(filepath.Dir(reportPath), 0o755); err != nil {
+				return err
+			}
+			return os.WriteFile(reportPath, []byte(data), 0o600)
+		},
+	})
+	if err != nil {
+		t.Fatalf("RunLocalUdonSmoke returned error: %v; report=%#v", err, report)
+	}
+	if report.Status != StatusPass || len(report.Scenarios) != 1 {
+		t.Fatalf("unexpected report: %#v", report)
+	}
+	evidencePath := filepath.FromSlash(report.Scenarios[0].RunEvidencePath)
+	data, err := os.ReadFile(evidencePath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(data), `"mode": "internal-runner"`) || !strings.Contains(string(data), `executor-report.json`) {
+		t.Fatalf("run evidence missing executor proof:\n%s", data)
+	}
+	asyncPath := filepath.Join(filepath.Dir(evidencePath), "async-evidence.json")
+	asyncData, err := os.ReadFile(asyncPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(asyncData), "status_observation") || !strings.Contains(string(asyncData), "confirmation_read_observation") {
+		t.Fatalf("async evidence missing expanded observations:\n%s", asyncData)
+	}
+}
+
 func TestLiveRequiredMissingEnvFailsBeforeExecution(t *testing.T) {
 	repoRoot := repoRootForTest(t)
 	t.Cleanup(func() {
@@ -108,6 +162,15 @@ func TestLiveRequiredMissingEnvFailsBeforeExecution(t *testing.T) {
 	if got := report.Scenarios[0].MissingEnv; len(got) != 1 || got[0] != "OPENUDON_TEST_REQUIRED_ENV" {
 		t.Fatalf("missing env = %#v", got)
 	}
+}
+
+func smokeArgValue(args []string, name string) string {
+	for i, arg := range args {
+		if arg == name && i+1 < len(args) {
+			return args[i+1]
+		}
+	}
+	return ""
 }
 
 func TestLiveOptionalMissingEnvSkipsWithoutFailure(t *testing.T) {

@@ -40,10 +40,12 @@ func main() {
 		fmt.Fprintf(flag.CommandLine.Output(), "  check-doc-memory verify local memory-bank and evolution harness files\n")
 		fmt.Fprintf(flag.CommandLine.Output(), "  eval      run synthesis eval briefs and write pass/fail reports\n")
 		fmt.Fprintf(flag.CommandLine.Output(), "  n8n-bridge validate review-first n8n pattern summary evidence\n")
+		fmt.Fprintf(flag.CommandLine.Output(), "  local-udon-smoke build sibling udon and run provider-free executor smoke\n")
 		fmt.Fprintf(flag.CommandLine.Output(), "  promote   export/validate UWS from an existing workflow.hcl\n")
 		fmt.Fprintf(flag.CommandLine.Output(), "  readiness write local private-checkout and deterministic-gate readiness report\n")
+		fmt.Fprintf(flag.CommandLine.Output(), "  release-notes draft local release evidence notes from run evidence\n")
 		fmt.Fprintf(flag.CommandLine.Output(), "  run       validate approval gates and invoke a trusted executor handoff\n")
-		fmt.Fprintf(flag.CommandLine.Output(), "  run-evidence verify run evidence and async sidecar digests\n")
+		fmt.Fprintf(flag.CommandLine.Output(), "  run-evidence verify/archive run evidence and async sidecar digests\n")
 		fmt.Fprintf(flag.CommandLine.Output(), "  smoke-matrix run provider-free or opt-in live product smoke scenarios\n")
 		fmt.Fprintf(flag.CommandLine.Output(), "  synthesize generate intent, workflow, UWS, and review artifacts for an example\n")
 		fmt.Fprintf(flag.CommandLine.Output(), "  validate  validate one UWS JSON/YAML file or a directory of UWS artifacts\n")
@@ -88,6 +90,10 @@ func main() {
 		runTrustedCommand(flag.Args()[1:])
 	case "run-evidence":
 		runEvidenceCommand(flag.Args()[1:])
+	case "release-notes":
+		runReleaseNotesCommand(flag.Args()[1:])
+	case "local-udon-smoke":
+		runLocalUdonSmokeCommand(flag.Args()[1:])
 	case "smoke-matrix":
 		runSmokeMatrixCommand(flag.Args()[1:])
 	case "approval-template":
@@ -110,10 +116,24 @@ func main() {
 }
 
 func runEvidenceCommand(args []string) {
-	if len(args) == 0 || args[0] != "verify" {
+	if len(args) == 0 {
 		fmt.Fprintln(os.Stderr, "Usage: openudon run-evidence verify --file run-evidence.json")
+		fmt.Fprintln(os.Stderr, "       openudon run-evidence archive --file run-evidence.json --out archive/dir")
 		os.Exit(2)
 	}
+	switch args[0] {
+	case "verify":
+		runEvidenceVerifyCommand(args[1:])
+	case "archive":
+		runEvidenceArchiveCommand(args[1:])
+	default:
+		fmt.Fprintln(os.Stderr, "Usage: openudon run-evidence verify --file run-evidence.json")
+		fmt.Fprintln(os.Stderr, "       openudon run-evidence archive --file run-evidence.json --out archive/dir")
+		os.Exit(2)
+	}
+}
+
+func runEvidenceVerifyCommand(args []string) {
 	fs := flag.NewFlagSet("run-evidence verify", flag.ExitOnError)
 	file := fs.String("file", "", "run-evidence.json file to verify")
 	fs.Usage = func() {
@@ -121,7 +141,7 @@ func runEvidenceCommand(args []string) {
 		fmt.Fprintf(fs.Output(), "Verifies %s, async sidecar relative paths, sidecar SHA-256 digests, record counts, and neutral async record shapes.\n\n", trustedrunner.RunEvidenceVersion)
 		fs.PrintDefaults()
 	}
-	if err := fs.Parse(args[1:]); err != nil {
+	if err := fs.Parse(args); err != nil {
 		os.Exit(2)
 	}
 	result, err := trustedrunner.VerifyRunEvidenceFile(*file)
@@ -130,6 +150,100 @@ func runEvidenceCommand(args []string) {
 		os.Exit(1)
 	}
 	fmt.Printf("openudon run-evidence verify: pass %s (%d async sidecar file(s))\n", result.RunEvidencePath, len(result.AsyncEvidenceFiles))
+}
+
+func runEvidenceArchiveCommand(args []string) {
+	fs := flag.NewFlagSet("run-evidence archive", flag.ExitOnError)
+	file := fs.String("file", "", "run-evidence.json file to archive")
+	out := fs.String("out", "", "Archive directory")
+	fs.Usage = func() {
+		fmt.Fprintf(fs.Output(), "Usage: openudon run-evidence archive --file run-evidence.json --out archive/dir\n\n")
+		fmt.Fprintf(fs.Output(), "Copies run-evidence.json, referenced async sidecars, and the udon executor report when present, then verifies the archived run evidence.\n\n")
+		fs.PrintDefaults()
+	}
+	if err := fs.Parse(args); err != nil {
+		os.Exit(2)
+	}
+	result, err := trustedrunner.ArchiveRunEvidence(trustedrunner.ArchiveOptions{RunEvidencePath: *file, ArchiveDir: *out})
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "openudon run-evidence archive: fail - %v\n", err)
+		os.Exit(1)
+	}
+	fmt.Printf("openudon run-evidence archive: pass %s (%d async sidecar file(s))\n", result.ArchiveDir, result.VerifiedSidecars)
+	fmt.Printf("  evidence: %s\n", result.RunEvidencePath)
+	for _, path := range result.AsyncEvidence {
+		fmt.Printf("  async:    %s\n", path)
+	}
+	if strings.TrimSpace(result.ExecutorReport) != "" {
+		fmt.Printf("  report:   %s\n", result.ExecutorReport)
+	}
+}
+
+func runReleaseNotesCommand(args []string) {
+	if len(args) == 0 || args[0] != "draft" {
+		fmt.Fprintln(os.Stderr, "Usage: openudon release-notes draft --run-evidence run-evidence.json --out release-notes.md")
+		os.Exit(2)
+	}
+	fs := flag.NewFlagSet("release-notes draft", flag.ExitOnError)
+	runEvidence := fs.String("run-evidence", "", "Verified run-evidence.json file")
+	out := fs.String("out", "", "Release-note draft markdown output path")
+	verifierOutput := fs.String("verifier-output", "", "Optional file containing captured verifier output")
+	var gates repeatedStringFlag
+	fs.Var(&gates, "gate", "Repeatable gate result entry such as 'go test ./...=pass'")
+	fs.Usage = func() {
+		fmt.Fprintf(fs.Output(), "Usage: openudon release-notes draft --run-evidence run-evidence.json --out release-notes.md [--gate name=status] [--verifier-output verify.txt]\n\n")
+		fmt.Fprintf(fs.Output(), "Writes a local release-note evidence draft with current commit, gate results, verifier output, and sidecar/report paths.\n\n")
+		fs.PrintDefaults()
+	}
+	if err := fs.Parse(args[1:]); err != nil {
+		os.Exit(2)
+	}
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer stop()
+	result, err := trustedrunner.WriteReleaseNotesDraft(ctx, trustedrunner.ReleaseNotesOptions{
+		RepoRoot:           ".",
+		RunEvidencePath:    *runEvidence,
+		OutPath:            *out,
+		Gates:              []string(gates),
+		VerifierOutputPath: *verifierOutput,
+	})
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "openudon release-notes draft: fail - %v\n", err)
+		os.Exit(1)
+	}
+	fmt.Printf("openudon release-notes draft: wrote %s (commit %s)\n", result.Path, result.Commit)
+}
+
+func runLocalUdonSmokeCommand(args []string) {
+	fs := flag.NewFlagSet("local-udon-smoke", flag.ExitOnError)
+	udonRepo := fs.String("udon-repo", "../udon", "Sibling udon repository to build")
+	workdir := fs.String("workdir", ".openudon-run/local-udon-smoke", "Local smoke work directory")
+	out := fs.String("out", ".openudon-run/local-udon-smoke/summary.json", "Write smoke summary JSON")
+	fs.Usage = func() {
+		fmt.Fprintf(fs.Output(), "Usage: openudon local-udon-smoke [--udon-repo ../udon] [--workdir .openudon-run/local-udon-smoke] [--out .openudon-run/local-udon-smoke/summary.json]\n\n")
+		fmt.Fprintf(fs.Output(), "Builds the sibling udon CLI and runs a provider-free non-dry-run trusted executor proof that emits executor-report.json and expanded async observations.\n\n")
+		fs.PrintDefaults()
+	}
+	if err := fs.Parse(args); err != nil {
+		os.Exit(2)
+	}
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer stop()
+	report, err := smokematrix.RunLocalUdonSmoke(ctx, smokematrix.LocalUdonSmokeOptions{
+		RepoRoot: ".",
+		UdonRepo: *udonRepo,
+		WorkDir:  *workdir,
+		OutPath:  *out,
+	})
+	if report != nil && len(report.Scenarios) > 0 {
+		fmt.Printf("openudon local-udon-smoke: %s\n", report.Status)
+		fmt.Printf("  summary:  %s\n", *out)
+		fmt.Printf("  evidence: %s\n", report.Scenarios[0].RunEvidencePath)
+	}
+	if err != nil {
+		fmt.Fprintln(os.Stderr, err)
+		os.Exit(1)
+	}
 }
 
 func runCheckDocMemory(root string, out, errOut io.Writer) error {

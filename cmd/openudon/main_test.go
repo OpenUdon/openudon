@@ -43,8 +43,25 @@ func TestCLIHelpIncludesRunEvidenceCommand(t *testing.T) {
 	if err != nil {
 		t.Fatalf("help failed: %v\n%s", err, output)
 	}
-	if !strings.Contains(string(output), "run-evidence verify run evidence and async sidecar digests") {
+	if !strings.Contains(string(output), "run-evidence verify/archive run evidence and async sidecar digests") {
 		t.Fatalf("help missing run-evidence command:\n%s", output)
+	}
+}
+
+func TestCLIHelpIncludesReleaseAndLocalSmokeCommands(t *testing.T) {
+	cmd := helperCommand("help")
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		t.Fatalf("help failed: %v\n%s", err, output)
+	}
+	text := string(output)
+	for _, expected := range []string{
+		"release-notes draft local release evidence notes",
+		"local-udon-smoke build sibling udon",
+	} {
+		if !strings.Contains(text, expected) {
+			t.Fatalf("help missing %q:\n%s", expected, text)
+		}
 	}
 }
 
@@ -204,6 +221,37 @@ func TestCLIRunDryRunPrintsAsyncEvidencePath(t *testing.T) {
 	}
 	if !strings.Contains(string(verifyOutput), "openudon run-evidence verify: pass") {
 		t.Fatalf("unexpected run-evidence verify output:\n%s", verifyOutput)
+	}
+	archiveDir := filepath.Join(workdir, "archive")
+	archive := helperCommand("run-evidence", "archive", "--file", filepath.Join(workdir, "run-evidence.json"), "--out", archiveDir)
+	archive.Dir = repoRoot
+	archiveOutput, err := archive.CombinedOutput()
+	if err != nil {
+		t.Fatalf("run-evidence archive failed: %v\n%s", err, archiveOutput)
+	}
+	if !strings.Contains(string(archiveOutput), "openudon run-evidence archive: pass") {
+		t.Fatalf("unexpected archive output:\n%s", archiveOutput)
+	}
+	releaseNotes := filepath.Join(workdir, "release-notes.md")
+	draft := helperCommand("release-notes", "draft",
+		"--run-evidence", filepath.Join(archiveDir, "run-evidence.json"),
+		"--out", releaseNotes,
+		"--gate", "go test ./...=pass",
+	)
+	draft.Dir = repoRoot
+	draftOutput, err := draft.CombinedOutput()
+	if err != nil {
+		t.Fatalf("release-notes draft failed: %v\n%s", err, draftOutput)
+	}
+	if !strings.Contains(string(draftOutput), "openudon release-notes draft: wrote") {
+		t.Fatalf("unexpected release-notes output:\n%s", draftOutput)
+	}
+	notes, err := os.ReadFile(releaseNotes)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(notes), "go test ./...=pass") || !strings.Contains(string(notes), "async-evidence.json") {
+		t.Fatalf("release notes missing gate or sidecar path:\n%s", notes)
 	}
 }
 

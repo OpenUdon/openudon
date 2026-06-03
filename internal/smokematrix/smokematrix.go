@@ -578,6 +578,18 @@ func applyOverlay(exampleDir, mode string, scenario Scenario, stubURL string) er
 			"https://compliance.example.test":     stubURL,
 			"https://directory.example.test":      stubURL,
 		})
+	case "local-udon":
+		if err := ensureTrustedExecutionBoundary(exampleDir); err != nil {
+			return err
+		}
+		return replaceInFile(filepath.Join(exampleDir, "workflows", "intent.hcl"), `step "render_report" {
+  type = "fnct"
+  do   = "Render the summary report."
+  with = {`, `step "render_report" {
+  type     = "fnct"
+  provider = "identity"
+  do       = "Render the summary report."
+  with     = {`)
 	case "slack-live":
 		if mode != ModeLive {
 			return nil

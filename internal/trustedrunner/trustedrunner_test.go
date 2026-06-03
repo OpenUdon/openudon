@@ -17,6 +17,7 @@ import (
 	evdigest "github.com/OpenUdon/evidence/digest"
 	"github.com/OpenUdon/openudon/internal/authoring"
 	"github.com/OpenUdon/openudon/internal/synthesize"
+	"github.com/OpenUdon/uws/validation"
 )
 
 func TestRunValidSandboxApprovalPassesDryRun(t *testing.T) {
@@ -165,6 +166,81 @@ func TestVerifyRunEvidenceFileValidatesAsyncSidecar(t *testing.T) {
 	}
 	if verified.RunEvidencePath != result.RunEvidencePath || len(verified.AsyncEvidenceFiles) != 1 {
 		t.Fatalf("unexpected verify result: %#v", verified)
+	}
+}
+
+func TestAsyncEvidenceSidecarMatchesJSONSchema(t *testing.T) {
+	result := writeVerifiableRunEvidence(t)
+	schema := filepath.Join("..", "..", "docs", "schemas", "openudon.async-evidence-bundle.v1.schema.json")
+	if err := validation.ValidateFile(schema, result.AsyncEvidencePath); err != nil {
+		t.Fatalf("async evidence sidecar failed JSON schema validation: %v", err)
+	}
+}
+
+func TestArchiveRunEvidenceCopiesAndVerifiesEvidence(t *testing.T) {
+	result := writeVerifiableRunEvidence(t)
+	evidence := readRunEvidenceFile(t, result.RunEvidencePath)
+	reportPath := filepath.Join(result.WorkDir, "stage.fake", "executor-report.json")
+	mustWriteFile(t, reportPath, []byte(`{"version":"udon.execution-report.v1","status":"success","started_at":"2026-04-29T12:00:00Z","finished_at":"2026-04-29T12:00:00Z","workflow_path":"workflow.uws.yaml","workflow_format":"uws-yaml","workdir":"."}`+"\n"))
+	evidence.Executor.ReportPath = reportPath
+	writeRunEvidenceFileForTest(t, result.RunEvidencePath, evidence)
+
+	archiveDir := filepath.Join(result.WorkDir, "archive")
+	archived, err := ArchiveRunEvidence(ArchiveOptions{RunEvidencePath: result.RunEvidencePath, ArchiveDir: archiveDir})
+	if err != nil {
+		t.Fatalf("ArchiveRunEvidence returned error: %v", err)
+	}
+	for _, path := range []string{
+		filepath.Join(archiveDir, "run-evidence.json"),
+		filepath.Join(archiveDir, "async-evidence.json"),
+		filepath.Join(archiveDir, "executor-report.json"),
+	} {
+		if _, err := os.Stat(path); err != nil {
+			t.Fatalf("archive file missing %s: %v", path, err)
+		}
+	}
+	if archived.VerifiedSidecars != 1 || archived.ExecutorReport == "" {
+		t.Fatalf("unexpected archive result: %#v", archived)
+	}
+	if _, err := VerifyRunEvidenceFile(filepath.Join(archiveDir, "run-evidence.json")); err != nil {
+		t.Fatalf("archived evidence did not verify: %v", err)
+	}
+}
+
+func TestWriteReleaseNotesDraftIncludesEvidenceSummary(t *testing.T) {
+	result := writeVerifiableRunEvidence(t)
+	out := filepath.Join(result.WorkDir, "release-notes.md")
+	written, err := WriteReleaseNotesDraft(context.Background(), ReleaseNotesOptions{
+		RepoRoot:        result.WorkDir,
+		RunEvidencePath: result.RunEvidencePath,
+		OutPath:         out,
+		Gates:           []string{"go test ./...=pass", "go vet ./...=pass"},
+		Now:             fixedNow(),
+		RunCommand: func(context.Context, string, ...string) ([]byte, error) {
+			return []byte("abc1234\n"), nil
+		},
+	})
+	if err != nil {
+		t.Fatalf("WriteReleaseNotesDraft returned error: %v", err)
+	}
+	if written.Path != out || written.Commit != "abc1234" {
+		t.Fatalf("unexpected release notes result: %#v", written)
+	}
+	data, err := os.ReadFile(out)
+	if err != nil {
+		t.Fatal(err)
+	}
+	text := string(data)
+	for _, expected := range []string{
+		"Commit: abc1234",
+		"go test ./...=pass",
+		"openudon run-evidence verify: pass",
+		"async-evidence.json",
+		result.PackageSHA256,
+	} {
+		if !strings.Contains(text, expected) {
+			t.Fatalf("release notes missing %q:\n%s", expected, text)
+		}
 	}
 }
 
