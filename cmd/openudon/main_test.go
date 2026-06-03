@@ -2,14 +2,17 @@ package main
 
 import (
 	"bytes"
+	"context"
 	"flag"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/OpenUdon/openudon/internal/localcheck"
+	"github.com/OpenUdon/openudon/internal/trustedrunner"
 )
 
 func TestCLIVersionSmoke(t *testing.T) {
@@ -121,6 +124,65 @@ func TestCLIRunHelpIncludesApprovalGates(t *testing.T) {
 	} {
 		if !strings.Contains(text, expected) {
 			t.Fatalf("run help missing %q:\n%s", expected, text)
+		}
+	}
+}
+
+func TestCLIRunDryRunPrintsAsyncEvidencePath(t *testing.T) {
+	cwd, err := os.Getwd()
+	if err != nil {
+		t.Fatal(err)
+	}
+	repoRoot, err := filepath.Abs(filepath.Join(cwd, "..", ".."))
+	if err != nil {
+		t.Fatal(err)
+	}
+	example := filepath.Join(repoRoot, "examples", "eval", "openrpc-simple-math-addition")
+	approval, err := trustedrunner.ApprovalTemplate(context.Background(), trustedrunner.TemplateOptions{
+		RepoRoot:   repoRoot,
+		ExampleDir: example,
+		State:      trustedrunner.StateApprovedForSandbox,
+		Reviewer:   "CLI Smoke",
+		Now: func() time.Time {
+			return time.Date(2026, 6, 3, 12, 0, 0, 0, time.UTC)
+		},
+	})
+	if err != nil {
+		t.Fatalf("ApprovalTemplate returned error: %v", err)
+	}
+	approvalPath := filepath.Join(t.TempDir(), "approval.json")
+	file, err := os.Create(approvalPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := trustedrunner.WriteApproval(file, approval); err != nil {
+		_ = file.Close()
+		t.Fatal(err)
+	}
+	if err := file.Close(); err != nil {
+		t.Fatal(err)
+	}
+	workdir := filepath.Join(t.TempDir(), "run")
+	cmd := helperCommand("run",
+		"--example", example,
+		"--tier", trustedrunner.TierSandbox,
+		"--approval", approvalPath,
+		"--workdir", workdir,
+		"--dry-run",
+	)
+	cmd.Dir = repoRoot
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		t.Fatalf("run dry-run failed: %v\n%s", err, output)
+	}
+	text := string(output)
+	for _, expected := range []string{
+		"openudon: run dry-run passed",
+		"  evidence: " + filepath.Join(workdir, "run-evidence.json"),
+		"  async:    " + filepath.Join(workdir, "async-evidence.json"),
+	} {
+		if !strings.Contains(text, expected) {
+			t.Fatalf("run output missing %q:\n%s", expected, text)
 		}
 	}
 }

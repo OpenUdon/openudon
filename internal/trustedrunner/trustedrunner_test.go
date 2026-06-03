@@ -122,6 +122,41 @@ func TestRunDryRunStagesAndWritesEvidenceWithoutCredentialEnv(t *testing.T) {
 	}
 }
 
+func TestRunAsyncEvidenceReferenceSurvivesArchiveMove(t *testing.T) {
+	root, example := writeFixture(t, fixtureOptions{})
+	now := fixedNow()
+	approvalPath := writeApprovalTemplate(t, root, example, StateApprovedForSandbox, now)
+
+	result, err := Run(context.Background(), Options{
+		RepoRoot:     root,
+		ExampleDir:   example,
+		Tier:         TierSandbox,
+		ApprovalPath: approvalPath,
+		DryRun:       true,
+		WorkDir:      filepath.Join(root, "work"),
+		Now:          now,
+		Assess:       passAssess,
+	})
+	if err != nil {
+		t.Fatalf("Run returned error: %v", err)
+	}
+	original := readRunEvidenceFile(t, result.RunEvidencePath)
+	ref := original.AsyncEvidenceFiles[0]
+	archive := filepath.Join(root, "archive")
+	if err := os.MkdirAll(archive, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	copyFile(t, result.RunEvidencePath, filepath.Join(archive, "run-evidence.json"))
+	copyFile(t, filepath.Join(result.WorkDir, ref.Path), filepath.Join(archive, ref.Path))
+
+	archived := readRunEvidenceFile(t, filepath.Join(archive, "run-evidence.json"))
+	_, bundle := readReferencedAsyncEvidence(t, archive, archived)
+	request := asyncExecutionRequest(t, bundle)
+	if request.Operation.SubjectID != result.Scope || request.RequestID != result.PackageSHA256 {
+		t.Fatalf("archived async request does not match run: %#v result=%#v", request, result)
+	}
+}
+
 func TestRunValidProductionApprovalPassesDryRun(t *testing.T) {
 	root, example := writeFixture(t, fixtureOptions{})
 	now := fixedNow()
@@ -2033,6 +2068,15 @@ func mustWriteFile(t *testing.T, path string, data []byte) {
 	if err := os.WriteFile(path, data, 0o644); err != nil {
 		t.Fatal(err)
 	}
+}
+
+func copyFile(t *testing.T, from, to string) {
+	t.Helper()
+	data, err := os.ReadFile(from)
+	if err != nil {
+		t.Fatal(err)
+	}
+	mustWriteFile(t, to, data)
 }
 
 func stringSliceContains(values []string, want string) bool {
