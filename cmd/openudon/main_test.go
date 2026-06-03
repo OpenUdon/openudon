@@ -37,6 +37,17 @@ func TestCLIUnknownCommandSmoke(t *testing.T) {
 	}
 }
 
+func TestCLIHelpIncludesRunEvidenceCommand(t *testing.T) {
+	cmd := helperCommand("help")
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		t.Fatalf("help failed: %v\n%s", err, output)
+	}
+	if !strings.Contains(string(output), "run-evidence verify run evidence and async sidecar digests") {
+		t.Fatalf("help missing run-evidence command:\n%s", output)
+	}
+}
+
 func TestCLIArtifactHelpIncludesExamplesAndArtifacts(t *testing.T) {
 	cmd := helperCommand("synthesize", "--help")
 	output, err := cmd.CombinedOutput()
@@ -184,6 +195,15 @@ func TestCLIRunDryRunPrintsAsyncEvidencePath(t *testing.T) {
 		if !strings.Contains(text, expected) {
 			t.Fatalf("run output missing %q:\n%s", expected, text)
 		}
+	}
+	verify := helperCommand("run-evidence", "verify", "--file", filepath.Join(workdir, "run-evidence.json"))
+	verify.Dir = repoRoot
+	verifyOutput, err := verify.CombinedOutput()
+	if err != nil {
+		t.Fatalf("run-evidence verify failed: %v\n%s", err, verifyOutput)
+	}
+	if !strings.Contains(string(verifyOutput), "openudon run-evidence verify: pass") {
+		t.Fatalf("unexpected run-evidence verify output:\n%s", verifyOutput)
 	}
 }
 

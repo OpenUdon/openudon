@@ -43,6 +43,7 @@ func main() {
 		fmt.Fprintf(flag.CommandLine.Output(), "  promote   export/validate UWS from an existing workflow.hcl\n")
 		fmt.Fprintf(flag.CommandLine.Output(), "  readiness write local private-checkout and deterministic-gate readiness report\n")
 		fmt.Fprintf(flag.CommandLine.Output(), "  run       validate approval gates and invoke a trusted executor handoff\n")
+		fmt.Fprintf(flag.CommandLine.Output(), "  run-evidence verify run evidence and async sidecar digests\n")
 		fmt.Fprintf(flag.CommandLine.Output(), "  smoke-matrix run provider-free or opt-in live product smoke scenarios\n")
 		fmt.Fprintf(flag.CommandLine.Output(), "  synthesize generate intent, workflow, UWS, and review artifacts for an example\n")
 		fmt.Fprintf(flag.CommandLine.Output(), "  validate  validate one UWS JSON/YAML file or a directory of UWS artifacts\n")
@@ -85,6 +86,8 @@ func main() {
 		runArtifactCommand(command, flag.Args()[1:])
 	case "run":
 		runTrustedCommand(flag.Args()[1:])
+	case "run-evidence":
+		runEvidenceCommand(flag.Args()[1:])
 	case "smoke-matrix":
 		runSmokeMatrixCommand(flag.Args()[1:])
 	case "approval-template":
@@ -104,6 +107,29 @@ func main() {
 		flag.Usage()
 		os.Exit(2)
 	}
+}
+
+func runEvidenceCommand(args []string) {
+	if len(args) == 0 || args[0] != "verify" {
+		fmt.Fprintln(os.Stderr, "Usage: openudon run-evidence verify --file run-evidence.json")
+		os.Exit(2)
+	}
+	fs := flag.NewFlagSet("run-evidence verify", flag.ExitOnError)
+	file := fs.String("file", "", "run-evidence.json file to verify")
+	fs.Usage = func() {
+		fmt.Fprintf(fs.Output(), "Usage: openudon run-evidence verify --file run-evidence.json\n\n")
+		fmt.Fprintf(fs.Output(), "Verifies %s, async sidecar relative paths, sidecar SHA-256 digests, record counts, and neutral async record shapes.\n\n", trustedrunner.RunEvidenceVersion)
+		fs.PrintDefaults()
+	}
+	if err := fs.Parse(args[1:]); err != nil {
+		os.Exit(2)
+	}
+	result, err := trustedrunner.VerifyRunEvidenceFile(*file)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "openudon run-evidence verify: fail %s - %v\n", *file, err)
+		os.Exit(1)
+	}
+	fmt.Printf("openudon run-evidence verify: pass %s (%d async sidecar file(s))\n", result.RunEvidencePath, len(result.AsyncEvidenceFiles))
 }
 
 func runCheckDocMemory(root string, out, errOut io.Writer) error {

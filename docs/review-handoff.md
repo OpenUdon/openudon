@@ -119,7 +119,9 @@ without rewriting paths:
 }
 ```
 
-The sidecar bundle contains one execution request and one execution response:
+The sidecar bundle contains one execution request and one execution response. A machine-readable
+schema is available at
+[`docs/schemas/openudon.async-evidence-bundle.v1.schema.json`](schemas/openudon.async-evidence-bundle.v1.schema.json).
 
 ```json
 {
@@ -164,3 +166,10 @@ The sidecar bundle contains one execution request and one execution response:
 If `OPENUDON_UDON_RUNNER` overrides the outer runner shim, OpenUdon evidence marks the staged path as
 `stage_kind: preflight`. That proves OpenUdon's package validation before handing the config to the
 external runner; the external runner still owns its final executor-visible stage and invocation.
+
+Verify archived run evidence and sidecar integrity with:
+
+```bash
+go run ./cmd/openudon run-evidence verify \
+  --file .openudon-run/support-email/run-evidence.json
+```

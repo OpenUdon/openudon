@@ -84,6 +84,11 @@ type RunResult struct {
 	DryRun            bool
 }
 
+type VerifyRunEvidenceResult struct {
+	RunEvidencePath    string
+	AsyncEvidenceFiles []RunEvidenceAsyncFile
+}
+
 type RunConfig = udonrunner.Config
 
 type RunEvidence struct {
@@ -435,6 +440,97 @@ func writeRunEvidence(workdir string, evidence RunEvidence) (string, error) {
 	return path, nil
 }
 
+func VerifyRunEvidenceFile(path string) (VerifyRunEvidenceResult, error) {
+	path = strings.TrimSpace(path)
+	if path == "" {
+		return VerifyRunEvidenceResult{}, fmt.Errorf("--file is required")
+	}
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return VerifyRunEvidenceResult{}, fmt.Errorf("read run evidence: %w", err)
+	}
+	var evidence RunEvidence
+	dec := json.NewDecoder(bytes.NewReader(data))
+	dec.DisallowUnknownFields()
+	if err := dec.Decode(&evidence); err != nil {
+		return VerifyRunEvidenceResult{}, fmt.Errorf("run evidence must be valid JSON: %w", err)
+	}
+	var extra struct{}
+	if err := dec.Decode(&extra); err != io.EOF {
+		return VerifyRunEvidenceResult{}, fmt.Errorf("run evidence must contain a single JSON object")
+	}
+	if err := validateRunEvidenceForVerify(evidence); err != nil {
+		return VerifyRunEvidenceResult{}, err
+	}
+	workdir := filepath.Dir(path)
+	for _, ref := range evidence.AsyncEvidenceFiles {
+		if err := verifyAsyncEvidenceFile(workdir, ref); err != nil {
+			return VerifyRunEvidenceResult{}, err
+		}
+	}
+	return VerifyRunEvidenceResult{
+		RunEvidencePath:    path,
+		AsyncEvidenceFiles: append([]RunEvidenceAsyncFile(nil), evidence.AsyncEvidenceFiles...),
+	}, nil
+}
+
+func validateRunEvidenceForVerify(evidence RunEvidence) error {
+	if evidence.Version != RunEvidenceVersion {
+		return fmt.Errorf("run evidence version must be %s", RunEvidenceVersion)
+	}
+	if strings.TrimSpace(evidence.Scope) == "" {
+		return fmt.Errorf("run evidence scope is required")
+	}
+	if strings.TrimSpace(evidence.PackageSHA256) == "" {
+		return fmt.Errorf("run evidence package_sha256 is required")
+	}
+	if strings.TrimSpace(evidence.RunConfigPath) == "" {
+		return fmt.Errorf("run evidence run_config_path is required")
+	}
+	if strings.TrimSpace(evidence.WorkDir) == "" {
+		return fmt.Errorf("run evidence workdir is required")
+	}
+	return nil
+}
+
+func verifyAsyncEvidenceFile(workdir string, ref RunEvidenceAsyncFile) error {
+	clean, err := packageartifacts.CleanRelativePath(ref.Path)
+	if err != nil || clean != ref.Path {
+		return fmt.Errorf("async evidence path must be safe workdir-relative path: %q", ref.Path)
+	}
+	if ref.Records < 1 {
+		return fmt.Errorf("async evidence record count must be positive for %s", ref.Path)
+	}
+	if strings.TrimSpace(ref.Digest) == "" {
+		return fmt.Errorf("async evidence digest is required for %s", ref.Path)
+	}
+	path := filepath.Join(workdir, filepath.FromSlash(ref.Path))
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return fmt.Errorf("read async evidence %s: %w", ref.Path, err)
+	}
+	if got := evdigest.SHA256Bytes(data).String(); got != ref.Digest {
+		return fmt.Errorf("async evidence digest mismatch for %s: got %s want %s", ref.Path, got, ref.Digest)
+	}
+	var bundle AsyncEvidenceBundle
+	dec := json.NewDecoder(bytes.NewReader(data))
+	dec.DisallowUnknownFields()
+	if err := dec.Decode(&bundle); err != nil {
+		return fmt.Errorf("async evidence %s must be valid JSON: %w", ref.Path, err)
+	}
+	var extra struct{}
+	if err := dec.Decode(&extra); err != io.EOF {
+		return fmt.Errorf("async evidence %s must contain a single JSON object", ref.Path)
+	}
+	if len(bundle.Records) != ref.Records {
+		return fmt.Errorf("async evidence record count mismatch for %s: got %d want %d", ref.Path, len(bundle.Records), ref.Records)
+	}
+	if err := validateAsyncEvidenceBundle(bundle); err != nil {
+		return fmt.Errorf("async evidence %s is invalid: %w", ref.Path, err)
+	}
+	return nil
+}
+
 func writeRunEvidenceWithAsync(workdir string, opts runEvidenceOptions) (string, string, error) {
 	evidence := buildRunEvidence(opts)
 	bundle := buildAsyncEvidenceBundle(opts)
@@ -627,12 +723,18 @@ func validateAsyncEvidenceBundle(bundle AsyncEvidenceBundle) error {
 			if record.ExecutionRequest == nil {
 				return fmt.Errorf("async evidence record %d missing execution_request", i)
 			}
+			if record.ExecutionResponse != nil {
+				return fmt.Errorf("async evidence record %d has unexpected execution_response", i)
+			}
 			if diagnostics := asyncevidence.ValidateExecutionRequest(*record.ExecutionRequest); len(diagnostics) != 0 {
 				return fmt.Errorf("async evidence request record %d is invalid: %s", i, diagnostics[0].Code)
 			}
 		case "execution_response":
 			if record.ExecutionResponse == nil {
 				return fmt.Errorf("async evidence record %d missing execution_response", i)
+			}
+			if record.ExecutionRequest != nil {
+				return fmt.Errorf("async evidence record %d has unexpected execution_request", i)
 			}
 			if diagnostics := asyncevidence.ValidateExecutionResponse(*record.ExecutionResponse); len(diagnostics) != 0 {
 				return fmt.Errorf("async evidence response record %d is invalid: %s", i, diagnostics[0].Code)

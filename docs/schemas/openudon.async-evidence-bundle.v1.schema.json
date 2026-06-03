@@ -1,0 +1,133 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://openudon.dev/schemas/openudon.async-evidence-bundle.v1.schema.json",
+  "title": "OpenUdon Async Evidence Bundle",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["version", "records"],
+  "properties": {
+    "version": {
+      "const": "openudon.async-evidence-bundle.v1"
+    },
+    "records": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "oneOf": [
+          { "$ref": "#/$defs/executionRequestRecord" },
+          { "$ref": "#/$defs/executionResponseRecord" }
+        ]
+      }
+    }
+  },
+  "$defs": {
+    "attempt": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["evidence_id", "attempt_id"],
+      "properties": {
+        "evidence_id": { "type": "string", "minLength": 1 },
+        "attempt_id": { "type": "string", "minLength": 1 },
+        "sequence": { "type": "integer", "minimum": 0 },
+        "actor": { "type": "string" },
+        "source": { "type": "string" },
+        "recorded_at": { "type": "string", "format": "date-time" }
+      }
+    },
+    "operation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["operation_id"],
+      "properties": {
+        "subject_kind": { "type": "string" },
+        "subject_id": { "type": "string" },
+        "action": { "type": "string" },
+        "method": { "type": "string" },
+        "source_kind": { "type": "string" },
+        "source_id": { "type": "string" },
+        "source_path": { "type": "string" },
+        "operation_id": { "type": "string", "minLength": 1 }
+      }
+    },
+    "stringMap": {
+      "type": "object",
+      "additionalProperties": { "type": "string" }
+    },
+    "digest": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["algorithm", "value"],
+      "properties": {
+        "algorithm": { "type": "string", "minLength": 1 },
+        "value": { "type": "string", "minLength": 1 }
+      }
+    },
+    "executionRequest": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["version", "attempt", "operation"],
+      "properties": {
+        "version": { "const": "evidence.async.execution-request.v1" },
+        "attempt": { "$ref": "#/$defs/attempt" },
+        "request_id": { "type": "string" },
+        "operation": { "$ref": "#/$defs/operation" },
+        "runtime": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "retry": { "type": "object" },
+            "waiter": { "type": "object" },
+            "pagination": { "type": "object" }
+          }
+        },
+        "transport": { "$ref": "#/$defs/stringMap" },
+        "digests": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/digest" }
+        },
+        "metadata": { "$ref": "#/$defs/stringMap" }
+      }
+    },
+    "executionResponse": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["version", "attempt", "operation", "outcome"],
+      "properties": {
+        "version": { "const": "evidence.async.execution-response.v1" },
+        "attempt": { "$ref": "#/$defs/attempt" },
+        "request_evidence_id": { "type": "string" },
+        "response_id": { "type": "string" },
+        "operation": { "$ref": "#/$defs/operation" },
+        "outcome": { "type": "string", "minLength": 1 },
+        "status_code": { "type": "integer" },
+        "status_class": { "type": "string" },
+        "correlation_ids": { "$ref": "#/$defs/stringMap" },
+        "payload_digests": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/digest" }
+        },
+        "error_summary": { "type": "string" },
+        "started_at": { "type": "string", "format": "date-time" },
+        "finished_at": { "type": "string", "format": "date-time" }
+      }
+    },
+    "executionRequestRecord": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "execution_request"],
+      "properties": {
+        "kind": { "const": "execution_request" },
+        "execution_request": { "$ref": "#/$defs/executionRequest" }
+      }
+    },
+    "executionResponseRecord": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "execution_response"],
+      "properties": {
+        "kind": { "const": "execution_response" },
+        "execution_response": { "$ref": "#/$defs/executionResponse" }
+      }
+    }
+  }
+}

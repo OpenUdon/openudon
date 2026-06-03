@@ -157,6 +157,95 @@ func TestRunAsyncEvidenceReferenceSurvivesArchiveMove(t *testing.T) {
 	}
 }
 
+func TestVerifyRunEvidenceFileValidatesAsyncSidecar(t *testing.T) {
+	result := writeVerifiableRunEvidence(t)
+	verified, err := VerifyRunEvidenceFile(result.RunEvidencePath)
+	if err != nil {
+		t.Fatalf("VerifyRunEvidenceFile returned error: %v", err)
+	}
+	if verified.RunEvidencePath != result.RunEvidencePath || len(verified.AsyncEvidenceFiles) != 1 {
+		t.Fatalf("unexpected verify result: %#v", verified)
+	}
+}
+
+func TestVerifyRunEvidenceFileRejectsBadAsyncSidecars(t *testing.T) {
+	for _, tc := range []struct {
+		name   string
+		mutate func(t *testing.T, result *RunResult)
+		want   string
+	}{
+		{
+			name: "digest mismatch",
+			mutate: func(t *testing.T, result *RunResult) {
+				mustWriteFile(t, result.AsyncEvidencePath, []byte("{}\n"))
+			},
+			want: "digest mismatch",
+		},
+		{
+			name: "unsafe path",
+			mutate: func(t *testing.T, result *RunResult) {
+				evidence := readRunEvidenceFile(t, result.RunEvidencePath)
+				evidence.AsyncEvidenceFiles[0].Path = "../async-evidence.json"
+				writeRunEvidenceFileForTest(t, result.RunEvidencePath, evidence)
+			},
+			want: "safe workdir-relative",
+		},
+		{
+			name: "unknown kind",
+			mutate: func(t *testing.T, result *RunResult) {
+				evidence, bundle := readRunEvidenceAndBundle(t, result)
+				bundle.Records[0].Kind = "mystery"
+				writeBundleAndRefreshRef(t, result, evidence, bundle)
+			},
+			want: "unsupported async evidence record kind",
+		},
+		{
+			name: "missing request payload",
+			mutate: func(t *testing.T, result *RunResult) {
+				evidence, bundle := readRunEvidenceAndBundle(t, result)
+				bundle.Records[0].ExecutionRequest = nil
+				writeBundleAndRefreshRef(t, result, evidence, bundle)
+			},
+			want: "missing execution_request",
+		},
+		{
+			name: "unknown top-level field",
+			mutate: func(t *testing.T, result *RunResult) {
+				evidence := readRunEvidenceFile(t, result.RunEvidencePath)
+				data, err := os.ReadFile(result.AsyncEvidencePath)
+				if err != nil {
+					t.Fatal(err)
+				}
+				var raw map[string]any
+				if err := json.Unmarshal(data, &raw); err != nil {
+					t.Fatal(err)
+				}
+				raw["extra"] = true
+				writeRawBundleAndRefreshRef(t, result, evidence, raw)
+			},
+			want: "unknown field",
+		},
+		{
+			name: "record count mismatch",
+			mutate: func(t *testing.T, result *RunResult) {
+				evidence := readRunEvidenceFile(t, result.RunEvidencePath)
+				evidence.AsyncEvidenceFiles[0].Records++
+				writeRunEvidenceFileForTest(t, result.RunEvidencePath, evidence)
+			},
+			want: "record count mismatch",
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			result := writeVerifiableRunEvidence(t)
+			tc.mutate(t, result)
+			_, err := VerifyRunEvidenceFile(result.RunEvidencePath)
+			if err == nil || !strings.Contains(err.Error(), tc.want) {
+				t.Fatalf("expected %q error, got %v", tc.want, err)
+			}
+		})
+	}
+}
+
 func TestRunValidProductionApprovalPassesDryRun(t *testing.T) {
 	root, example := writeFixture(t, fixtureOptions{})
 	now := fixedNow()
@@ -1989,6 +2078,68 @@ func readRunEvidenceFile(t *testing.T, path string) RunEvidence {
 		t.Fatal(err)
 	}
 	return evidence
+}
+
+func writeVerifiableRunEvidence(t *testing.T) *RunResult {
+	t.Helper()
+	root, example := writeFixture(t, fixtureOptions{})
+	now := fixedNow()
+	approvalPath := writeApprovalTemplate(t, root, example, StateApprovedForSandbox, now)
+	result, err := Run(context.Background(), Options{
+		RepoRoot:     root,
+		ExampleDir:   example,
+		Tier:         TierSandbox,
+		ApprovalPath: approvalPath,
+		DryRun:       true,
+		WorkDir:      filepath.Join(root, "work"),
+		Now:          now,
+		Assess:       passAssess,
+	})
+	if err != nil {
+		t.Fatalf("Run returned error: %v", err)
+	}
+	return result
+}
+
+func readRunEvidenceAndBundle(t *testing.T, result *RunResult) (RunEvidence, AsyncEvidenceBundle) {
+	t.Helper()
+	evidence := readRunEvidenceFile(t, result.RunEvidencePath)
+	_, bundle := readReferencedAsyncEvidence(t, result.WorkDir, evidence)
+	return evidence, bundle
+}
+
+func writeBundleAndRefreshRef(t *testing.T, result *RunResult, evidence RunEvidence, bundle AsyncEvidenceBundle) {
+	t.Helper()
+	data, err := json.MarshalIndent(bundle, "", "  ")
+	if err != nil {
+		t.Fatal(err)
+	}
+	writeAsyncBytesAndRefreshRef(t, result, evidence, append(data, '\n'))
+}
+
+func writeRawBundleAndRefreshRef(t *testing.T, result *RunResult, evidence RunEvidence, raw map[string]any) {
+	t.Helper()
+	data, err := json.MarshalIndent(raw, "", "  ")
+	if err != nil {
+		t.Fatal(err)
+	}
+	writeAsyncBytesAndRefreshRef(t, result, evidence, append(data, '\n'))
+}
+
+func writeAsyncBytesAndRefreshRef(t *testing.T, result *RunResult, evidence RunEvidence, data []byte) {
+	t.Helper()
+	mustWriteFile(t, result.AsyncEvidencePath, data)
+	evidence.AsyncEvidenceFiles[0].Digest = evdigest.SHA256Bytes(data).String()
+	writeRunEvidenceFileForTest(t, result.RunEvidencePath, evidence)
+}
+
+func writeRunEvidenceFileForTest(t *testing.T, path string, evidence RunEvidence) {
+	t.Helper()
+	data, err := json.MarshalIndent(evidence, "", "  ")
+	if err != nil {
+		t.Fatal(err)
+	}
+	mustWriteFile(t, path, append(data, '\n'))
 }
 
 func readReferencedAsyncEvidence(t *testing.T, workdir string, evidence RunEvidence) (RunEvidenceAsyncFile, AsyncEvidenceBundle) {
