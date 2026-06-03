@@ -13,6 +13,8 @@ import (
 	"strings"
 	"time"
 
+	asyncevidence "github.com/OpenUdon/evidence/async"
+	evdigest "github.com/OpenUdon/evidence/digest"
 	"github.com/OpenUdon/openudon/internal/authoring"
 	"github.com/OpenUdon/openudon/internal/packageartifacts"
 	"github.com/OpenUdon/openudon/internal/synthesize"
@@ -21,6 +23,7 @@ import (
 
 const (
 	ApprovalVersion      = "openudon.approval.v1"
+	AsyncEvidenceVersion = "openudon.async-evidence-bundle.v1"
 	RunConfigVersion     = udonrunner.RunConfigVersion
 	RunEvidenceVersion   = "openudon.run-evidence.v1"
 	ReviewHandoffVersion = authoring.ReviewHandoffVersion
@@ -83,25 +86,26 @@ type RunResult struct {
 type RunConfig = udonrunner.Config
 
 type RunEvidence struct {
-	Version            string              `json:"version"`
-	CreatedAt          string              `json:"created_at"`
-	Scope              string              `json:"scope"`
-	Tier               string              `json:"tier"`
-	DryRun             bool                `json:"dry_run"`
-	ApprovalState      string              `json:"approval_state"`
-	PackageSHA256      string              `json:"package_sha256"`
-	RunConfigPath      string              `json:"run_config_path"`
-	PackageRoot        string              `json:"package_root"`
-	WorkDir            string              `json:"workdir"`
-	StageKind          string              `json:"stage_kind"`
-	StagePath          string              `json:"stage_path"`
-	WorkflowPath       string              `json:"workflow_path"`
-	PackagePaths       []string            `json:"package_paths"`
-	APISourcePaths     []string            `json:"api_source_paths,omitempty"`
-	CredentialBindings []string            `json:"credential_bindings,omitempty"`
-	CredentialEnvNames []string            `json:"credential_env_names,omitempty"`
-	Gates              []RunEvidenceGate   `json:"gates"`
-	Executor           RunEvidenceExecutor `json:"executor"`
+	Version            string                 `json:"version"`
+	CreatedAt          string                 `json:"created_at"`
+	Scope              string                 `json:"scope"`
+	Tier               string                 `json:"tier"`
+	DryRun             bool                   `json:"dry_run"`
+	ApprovalState      string                 `json:"approval_state"`
+	PackageSHA256      string                 `json:"package_sha256"`
+	RunConfigPath      string                 `json:"run_config_path"`
+	PackageRoot        string                 `json:"package_root"`
+	WorkDir            string                 `json:"workdir"`
+	StageKind          string                 `json:"stage_kind"`
+	StagePath          string                 `json:"stage_path"`
+	WorkflowPath       string                 `json:"workflow_path"`
+	PackagePaths       []string               `json:"package_paths"`
+	APISourcePaths     []string               `json:"api_source_paths,omitempty"`
+	CredentialBindings []string               `json:"credential_bindings,omitempty"`
+	CredentialEnvNames []string               `json:"credential_env_names,omitempty"`
+	Gates              []RunEvidenceGate      `json:"gates"`
+	Executor           RunEvidenceExecutor    `json:"executor"`
+	AsyncEvidenceFiles []RunEvidenceAsyncFile `json:"async_evidence_files,omitempty"`
 }
 
 type RunEvidenceGate struct {
@@ -114,6 +118,24 @@ type RunEvidenceExecutor struct {
 	Mode       string   `json:"mode"`
 	RunnerPath string   `json:"runner_path,omitempty"`
 	Argv       []string `json:"argv,omitempty"`
+}
+
+type RunEvidenceAsyncFile struct {
+	Path    string `json:"path"`
+	Digest  string `json:"digest"`
+	Records int    `json:"records"`
+	Purpose string `json:"purpose"`
+}
+
+type AsyncEvidenceBundle struct {
+	Version string                `json:"version"`
+	Records []AsyncEvidenceRecord `json:"records"`
+}
+
+type AsyncEvidenceRecord struct {
+	Kind              string                           `json:"kind"`
+	ExecutionRequest  *asyncevidence.ExecutionRequest  `json:"execution_request,omitempty"`
+	ExecutionResponse *asyncevidence.ExecutionResponse `json:"execution_response,omitempty"`
 }
 
 type paths struct {
@@ -183,7 +205,7 @@ func Run(ctx context.Context, opts Options) (*RunResult, error) {
 			return nil, fmt.Errorf("prepare trusted executor dry-run: %w", err)
 		}
 		result.StagePath = prepared.StagePath
-		evidencePath, err := writeRunEvidence(result.WorkDir, buildRunEvidence(runEvidenceOptions{
+		evidencePath, err := writeRunEvidenceWithAsync(result.WorkDir, runEvidenceOptions{
 			Config:         runConfig,
 			Approval:       approval,
 			Prepared:       prepared,
@@ -192,7 +214,7 @@ func Run(ctx context.Context, opts Options) (*RunResult, error) {
 			StageKind:      "dry-run",
 			ExecutorStatus: "",
 			Now:            now,
-		}))
+		})
 		if err != nil {
 			return nil, err
 		}
@@ -227,7 +249,7 @@ func Run(ctx context.Context, opts Options) (*RunResult, error) {
 			}
 		}
 		if err := runCommand(ctx, runnerPath, args...); err != nil {
-			evidencePath, evidenceErr := writeRunEvidence(result.WorkDir, buildRunEvidence(runEvidenceOptions{
+			evidencePath, evidenceErr := writeRunEvidenceWithAsync(result.WorkDir, runEvidenceOptions{
 				Config:         runConfig,
 				Approval:       approval,
 				Prepared:       prepared,
@@ -239,14 +261,14 @@ func Run(ctx context.Context, opts Options) (*RunResult, error) {
 				StageKind:      "preflight",
 				ExecutorStatus: "fail",
 				Now:            now,
-			}))
+			})
 			if evidenceErr != nil {
 				return result, fmt.Errorf("run trusted executor: %w; write run evidence: %v", err, evidenceErr)
 			}
 			result.RunEvidencePath = evidencePath
 			return result, fmt.Errorf("run trusted executor: %w", err)
 		}
-		evidencePath, err := writeRunEvidence(result.WorkDir, buildRunEvidence(runEvidenceOptions{
+		evidencePath, err := writeRunEvidenceWithAsync(result.WorkDir, runEvidenceOptions{
 			Config:         runConfig,
 			Approval:       approval,
 			Prepared:       prepared,
@@ -258,7 +280,7 @@ func Run(ctx context.Context, opts Options) (*RunResult, error) {
 			StageKind:      "preflight",
 			ExecutorStatus: "pass",
 			Now:            now,
-		}))
+		})
 		if err != nil {
 			return nil, err
 		}
@@ -274,7 +296,7 @@ func Run(ctx context.Context, opts Options) (*RunResult, error) {
 	})
 	if err != nil {
 		result.StagePath = prepared.StagePath
-		evidencePath, evidenceErr := writeRunEvidence(result.WorkDir, buildRunEvidence(runEvidenceOptions{
+		evidencePath, evidenceErr := writeRunEvidenceWithAsync(result.WorkDir, runEvidenceOptions{
 			Config:         runConfig,
 			Approval:       approval,
 			Prepared:       prepared,
@@ -284,7 +306,7 @@ func Run(ctx context.Context, opts Options) (*RunResult, error) {
 			StageKind:      "executor",
 			ExecutorStatus: "fail",
 			Now:            now,
-		}))
+		})
 		if evidenceErr != nil {
 			return result, fmt.Errorf("run trusted executor: %w; write run evidence: %v", err, evidenceErr)
 		}
@@ -292,7 +314,7 @@ func Run(ctx context.Context, opts Options) (*RunResult, error) {
 		return result, fmt.Errorf("run trusted executor: %w", err)
 	}
 	result.StagePath = prepared.StagePath
-	evidencePath, err := writeRunEvidence(result.WorkDir, buildRunEvidence(runEvidenceOptions{
+	evidencePath, err := writeRunEvidenceWithAsync(result.WorkDir, runEvidenceOptions{
 		Config:         runConfig,
 		Approval:       approval,
 		Prepared:       prepared,
@@ -302,7 +324,7 @@ func Run(ctx context.Context, opts Options) (*RunResult, error) {
 		StageKind:      "executor",
 		ExecutorStatus: "pass",
 		Now:            now,
-	}))
+	})
 	if err != nil {
 		return nil, err
 	}
@@ -407,6 +429,44 @@ func writeRunEvidence(workdir string, evidence RunEvidence) (string, error) {
 	return path, nil
 }
 
+func writeRunEvidenceWithAsync(workdir string, opts runEvidenceOptions) (string, error) {
+	evidence := buildRunEvidence(opts)
+	bundle := buildAsyncEvidenceBundle(opts)
+	ref, err := writeAsyncEvidenceBundle(workdir, bundle)
+	if err != nil {
+		return "", err
+	}
+	evidence.AsyncEvidenceFiles = []RunEvidenceAsyncFile{ref}
+	return writeRunEvidence(workdir, evidence)
+}
+
+func writeAsyncEvidenceBundle(workdir string, bundle AsyncEvidenceBundle) (RunEvidenceAsyncFile, error) {
+	if strings.TrimSpace(workdir) == "" {
+		return RunEvidenceAsyncFile{}, fmt.Errorf("async evidence workdir is required")
+	}
+	if err := validateAsyncEvidenceBundle(bundle); err != nil {
+		return RunEvidenceAsyncFile{}, err
+	}
+	if err := os.MkdirAll(workdir, 0o755); err != nil {
+		return RunEvidenceAsyncFile{}, err
+	}
+	path := filepath.Join(workdir, "async-evidence.json")
+	data, err := json.MarshalIndent(bundle, "", "  ")
+	if err != nil {
+		return RunEvidenceAsyncFile{}, err
+	}
+	data = append(data, '\n')
+	if err := os.WriteFile(path, data, 0o600); err != nil {
+		return RunEvidenceAsyncFile{}, err
+	}
+	return RunEvidenceAsyncFile{
+		Path:    path,
+		Digest:  evdigest.SHA256Bytes(data).String(),
+		Records: len(bundle.Records),
+		Purpose: "openudon_run_async_execution_forwarding",
+	}, nil
+}
+
 type runEvidenceOptions struct {
 	Config         RunConfig
 	Approval       Approval
@@ -464,6 +524,164 @@ func buildRunEvidence(opts runEvidenceOptions) RunEvidence {
 			Argv:       executorArgv,
 		},
 	}
+}
+
+func buildAsyncEvidenceBundle(opts runEvidenceOptions) AsyncEvidenceBundle {
+	requestEvidenceID := asyncEvidenceID(opts, "request")
+	responseEvidenceID := asyncEvidenceID(opts, "response")
+	attemptID := asyncAttemptID(opts)
+	operation := asyncOperationRef(opts)
+	argv := asyncExecutorArgv(opts)
+	metadata := map[string]string{
+		"approval_state":     opts.Approval.State,
+		"run_config_version": opts.Config.Version,
+	}
+	if len(argv) > 0 {
+		if data, err := json.Marshal(argv); err == nil {
+			metadata["argv_json"] = string(data)
+		}
+	}
+	if strings.TrimSpace(opts.RunnerPath) != "" {
+		metadata["runner_path"] = strings.TrimSpace(opts.RunnerPath)
+	}
+	if strings.TrimSpace(opts.Prepared.StagePath) != "" {
+		metadata["stage_path"] = strings.TrimSpace(opts.Prepared.StagePath)
+	}
+	outcome := "accepted"
+	errorSummary := ""
+	if opts.ExecutorStatus == "fail" {
+		outcome = "fatal_failure"
+		errorSummary = strings.TrimSpace(opts.Mode + " invocation failed")
+	}
+	recordedAt := opts.Now.UTC()
+	request := asyncevidence.NormalizeExecutionRequest(asyncevidence.ExecutionRequest{
+		Version: asyncevidence.ExecutionRequestVersion,
+		Attempt: asyncevidence.AttemptMetadata{
+			EvidenceID: requestEvidenceID,
+			AttemptID:  attemptID,
+			Sequence:   1,
+			Actor:      opts.Approval.Reviewer,
+			Source:     "openudon.trustedrunner",
+			RecordedAt: recordedAt,
+		},
+		RequestID: opts.Result.PackageSHA256,
+		Operation: operation,
+		Transport: map[string]string{
+			"runner_mode":     opts.Mode,
+			"stage_kind":      opts.StageKind,
+			"tier":            opts.Result.Tier,
+			"dry_run":         fmt.Sprint(opts.Result.DryRun),
+			"run_config_path": opts.Result.RunConfigPath,
+		},
+		Digests: []evdigest.Record{
+			{Algorithm: evdigest.AlgorithmSHA256, Value: opts.Result.PackageSHA256},
+		},
+		Metadata: metadata,
+	})
+	response := asyncevidence.NormalizeExecutionResponse(asyncevidence.ExecutionResponse{
+		Version: asyncevidence.ExecutionResponseVersion,
+		Attempt: asyncevidence.AttemptMetadata{
+			EvidenceID: responseEvidenceID,
+			AttemptID:  attemptID,
+			Sequence:   2,
+			Actor:      opts.Approval.Reviewer,
+			Source:     "openudon.trustedrunner",
+			RecordedAt: recordedAt,
+		},
+		RequestEvidenceID: requestEvidenceID,
+		ResponseID:        asyncEvidenceID(opts, "executor-result"),
+		Operation:         operation,
+		Outcome:           outcome,
+		ErrorSummary:      errorSummary,
+		FinishedAt:        recordedAt,
+	})
+	return AsyncEvidenceBundle{
+		Version: AsyncEvidenceVersion,
+		Records: []AsyncEvidenceRecord{
+			{Kind: "execution_request", ExecutionRequest: &request},
+			{Kind: "execution_response", ExecutionResponse: &response},
+		},
+	}
+}
+
+func validateAsyncEvidenceBundle(bundle AsyncEvidenceBundle) error {
+	if bundle.Version != AsyncEvidenceVersion {
+		return fmt.Errorf("async evidence bundle version must be %s", AsyncEvidenceVersion)
+	}
+	if len(bundle.Records) == 0 {
+		return fmt.Errorf("async evidence bundle requires records")
+	}
+	for i, record := range bundle.Records {
+		switch record.Kind {
+		case "execution_request":
+			if record.ExecutionRequest == nil {
+				return fmt.Errorf("async evidence record %d missing execution_request", i)
+			}
+			if diagnostics := asyncevidence.ValidateExecutionRequest(*record.ExecutionRequest); len(diagnostics) != 0 {
+				return fmt.Errorf("async evidence request record %d is invalid: %s", i, diagnostics[0].Code)
+			}
+		case "execution_response":
+			if record.ExecutionResponse == nil {
+				return fmt.Errorf("async evidence record %d missing execution_response", i)
+			}
+			if diagnostics := asyncevidence.ValidateExecutionResponse(*record.ExecutionResponse); len(diagnostics) != 0 {
+				return fmt.Errorf("async evidence response record %d is invalid: %s", i, diagnostics[0].Code)
+			}
+		default:
+			return fmt.Errorf("unsupported async evidence record kind %q", record.Kind)
+		}
+	}
+	return nil
+}
+
+func asyncOperationRef(opts runEvidenceOptions) asyncevidence.OperationRef {
+	sourcePath := strings.TrimSpace(opts.Prepared.WorkflowPath)
+	operationID := sourcePath
+	if operationID == "" {
+		operationID = strings.TrimSpace(opts.Config.WorkflowPath)
+	}
+	if operationID == "" && opts.Result != nil {
+		operationID = strings.TrimSpace(opts.Result.Scope)
+	}
+	subjectID := ""
+	if opts.Result != nil {
+		subjectID = opts.Result.Scope
+	}
+	return asyncevidence.NormalizeOperation(asyncevidence.OperationRef{
+		SubjectKind: "openudon_package",
+		SubjectID:   subjectID,
+		Action:      "run",
+		SourceKind:  "uws",
+		SourcePath:  sourcePath,
+		OperationID: operationID,
+	})
+}
+
+func asyncAttemptID(opts runEvidenceOptions) string {
+	scope := strings.ReplaceAll(strings.TrimSpace(opts.Result.Scope), "/", ".")
+	if scope == "" {
+		scope = "openudon_package"
+	}
+	suffix := strings.TrimSpace(opts.Result.PackageSHA256)
+	if len(suffix) > 12 {
+		suffix = suffix[:12]
+	}
+	if suffix == "" {
+		suffix = evdigest.SHA256Bytes([]byte(opts.Result.RunConfigPath)).Value[:12]
+	}
+	return scope + "." + suffix
+}
+
+func asyncEvidenceID(opts runEvidenceOptions, kind string) string {
+	return asyncAttemptID(opts) + "." + kind
+}
+
+func asyncExecutorArgv(opts runEvidenceOptions) []string {
+	argv := append([]string(nil), opts.ExecutorArgv...)
+	if len(argv) == 0 {
+		argv = append(argv, opts.Prepared.Argv...)
+	}
+	return argv
 }
 
 func resolveRunWorkDir(p paths, input string) (string, error) {

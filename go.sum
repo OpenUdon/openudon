@@ -6,8 +6,8 @@ github.com/OpenUdon/authoring v0.0.0-20260530230304-5080b9bac799 h1:5ogY/gkAUuBJ
 github.com/OpenUdon/authoring v0.0.0-20260530230304-5080b9bac799/go.mod h1:UZUPXJZ4zTGDpb7gE4DpFLhFsRf4j9028y0/muxf6V4=
 github.com/OpenUdon/awssmithy v0.0.0-20260520213111-549a060a5e28 h1:Xrv5Ccw2QVXfuswbTLP98vt5vyMIVmnsfX43TUHBo+Y=
 github.com/OpenUdon/awssmithy v0.0.0-20260520213111-549a060a5e28/go.mod h1:Wkg6qE+XUwzDCpw6gKoUhPQ03K0RhGbxnYpDMmGFStQ=
-github.com/OpenUdon/evidence v0.0.0-20260530183120-bc9eae6ab43d h1:TP1LUX0v+KdVZkntSJr+Fx/sX4ri5RaLyA/D9EOEZhs=
-github.com/OpenUdon/evidence v0.0.0-20260530183120-bc9eae6ab43d/go.mod h1:AUZKUpFNDa5j56Vpi64YR1PkcK8JYZJSEGjNkZNdMFI=
+github.com/OpenUdon/evidence v0.0.0-20260603102736-08a9c38b00b7 h1:ob/J0qX7B1u7YCiI1kY5EU2MTTpVkox9Bz8ogIP8IfU=
+github.com/OpenUdon/evidence v0.0.0-20260603102736-08a9c38b00b7/go.mod h1:AUZKUpFNDa5j56Vpi64YR1PkcK8JYZJSEGjNkZNdMFI=
 github.com/OpenUdon/googlediscovery v0.0.0-20260520203137-c02129a009fc h1:drM11+jXvEjjpuWisSFurkQXvqrWO1o4PDIwLv1HqLI=
 github.com/OpenUdon/googlediscovery v0.0.0-20260520203137-c02129a009fc/go.mod h1:73PcwHRzHo5zNjGv4pKZqQVZWDStRk0NWs01DfL/vRU=
 github.com/OpenUdon/oas v0.0.0-20260507023120-7fb319711323 h1:IIS4CeB6dcbkAdcSInrBYcVUZum1fhVfInfB2+f0bxA=

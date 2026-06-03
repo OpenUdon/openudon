@@ -97,7 +97,10 @@ sorted package paths, package digest, tier, workdir, and credential binding name
 Dry runs stage digest-covered files into a fresh workdir and recompute the package digest without
 requiring credential values or invoking the executor. Both dry runs and real handoffs write
 `openudon.run-evidence.v1` at `<workdir>/run-evidence.json` with package paths, staged paths, gate
-outcomes, and credential binding names only. `OPENUDON_EXECUTOR` selects the final executor as an
+outcomes, credential binding names, and a digest reference to `<workdir>/async-evidence.json`. The
+sidecar is an `openudon.async-evidence-bundle.v1` wrapper over neutral Evidence async request and
+response records for OpenUdon package handoff audit only; it does not interpret Ramen convergence or
+store credential values or raw executor output. `OPENUDON_EXECUTOR` selects the final executor as an
 absolute binary path or `docker://<image>`.
 
 If `OPENUDON_UDON_RUNNER` overrides the outer runner shim, OpenUdon evidence marks the staged path as
