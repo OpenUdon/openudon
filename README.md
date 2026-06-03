@@ -10,8 +10,8 @@ trusted executor boundary such as the `udon` runtime.
 It owns project templates, optional workflow orchestration policy, example artifacts, deterministic
 validation, review handoff evidence, package digests, credential policy, and trusted-runner glue.
 Public workflow semantics belong in `github.com/OpenUdon/uws`; API/event source metadata discovery,
-import, materialization, search, and indexing belong in `github.com/OpenUdon/apitools`; static
-Terraform/OpenTofu conversion now belongs in `github.com/OpenUdon/ramen`; OpenUdon no longer owns a Terraform conversion command or imports `tfconfig`.
+import, materialization, search, and indexing belong in `github.com/OpenUdon/apitools`; desired-state
+conversion, planning, reconciliation, and audit behavior belong in `github.com/OpenUdon/ramen`.
 OpenUdon uses shared `github.com/OpenUdon/evidence/...` primitives for neutral digest, artifact,
 diagnostic, redaction, and approval evidence where the records are product-independent. Current
 shared use routes review/package hashing through `evidence/digest` and package artifact path-safety

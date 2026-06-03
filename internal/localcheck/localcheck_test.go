@@ -35,7 +35,7 @@ import "github.com/OpenUdon/apitools/llm"
 	}
 }
 
-func TestCheckAPIToolsBoundaryRejectsOpenTofuInternals(t *testing.T) {
+func TestCheckAPIToolsBoundaryRejectsInfrastructureEngineInternals(t *testing.T) {
 	root := t.TempDir()
 	writeFile(t, filepath.Join(root, "internal", "bad.go"), []byte(`package bad
 
@@ -46,7 +46,7 @@ var _ configs.Config
 
 	err := CheckAPIToolsBoundary(root)
 	if err == nil || !strings.Contains(err.Error(), "opentofu/opentofu/internal/configs") {
-		t.Fatalf("expected blocked OpenTofu import failure, got %v", err)
+		t.Fatalf("expected blocked infrastructure engine import failure, got %v", err)
 	}
 }
 
@@ -85,7 +85,7 @@ var _ = dethcl.Body{}
 	}
 }
 
-func TestCheckAPIToolsBoundaryRejectsTFConfigPackage(t *testing.T) {
+func TestCheckAPIToolsBoundaryRejectsConversionParserPackage(t *testing.T) {
 	root := t.TempDir()
 	writeFile(t, filepath.Join(root, "internal", "bad.go"), []byte(`package bad
 
@@ -96,7 +96,7 @@ var _ tfconfig.Document
 
 	err := CheckAPIToolsBoundary(root)
 	if err == nil || !strings.Contains(err.Error(), "github.com/OpenUdon/tfconfig") {
-		t.Fatalf("expected tfconfig import failure, got %v", err)
+		t.Fatalf("expected conversion parser import failure, got %v", err)
 	}
 }
 

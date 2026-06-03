@@ -23,7 +23,7 @@ mkdocs build --strict
 
 The repository boundary check rejects direct OpenUdon imports of old lifecycle
 `apitools` APIs, private udon executor packages, private `genelet/*` executor
-modules, Terraform/OpenTofu internals, and `tfconfig/_upstream/...`.
+modules, infrastructure engine internals, and parser/conversion packages.
 
 ## Local Maintainer Gates
 
@@ -128,14 +128,6 @@ and known gaps in the release notes.
 Provider/model drift is release evidence, not a deterministic gate by itself.
 Record transient provider failures and rerun once from a trusted workstation
 when availability or rate limits look external.
-
-## Terraform/OpenTofu Conversion
-
-Compatibility with Ramen-generated Terraform conversion artifacts uses the
-same review-first boundaries. Terraform/OpenTofu parsing and conversion live in
-Ramen and `tfconfig`; OpenUdon does not import `tfconfig`. Terraform/OpenTofu
-execution, provider plugins, state, plan/apply, and credential resolution stay
-outside OpenUdon.
 
 ## Boundary Recap
 

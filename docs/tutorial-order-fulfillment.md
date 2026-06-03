@@ -69,7 +69,7 @@ go run ./cmd/openudon run \
 
 The dry run checks approval, digest, quality, handoff policy, credential-value
 policy, and tier compatibility. It does not contact customers, inventory,
-fulfillment, n8n, Terraform/OpenTofu, external orchestration, or udon.
+fulfillment, n8n, desired-state engines, external orchestration, or udon.
 
 Remove `--dry-run` only in a trusted operator environment with sandbox targets,
 reviewed credential bindings, and a configured `OPENUDON_EXECUTOR`.

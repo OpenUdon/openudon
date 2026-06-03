@@ -91,7 +91,6 @@ for the provider-free release demo, and [Handoff](safety.md) for the review and 
 - [Product Smoke Matrix](product-smoke-matrix.md)
 - [Release Stewardship](release-stewardship.md)
 - [Release Notes Template](release-note-template.md)
-- [AWS Provider Conversion Corpus](aws-provider-conversion-corpus.md)
 
 ### Related
 

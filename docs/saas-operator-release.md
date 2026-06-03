@@ -130,7 +130,7 @@ OpenUdon does not:
 
 - run n8n workflows or preserve n8n runtime behavior;
 - call live SaaS providers during build, assess, iCoT, eval, or dry-run demos;
-- execute Terraform/OpenTofu, provider plugins, state, plan, apply, or cloud
+- execute desired-state engines, provider plugins, state, plan, apply, or cloud
   SDK calls;
 - implement reviewer identity, routing, managed state, or audit
   persistence;

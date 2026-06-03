@@ -19,7 +19,7 @@ func TestSaaSOperatorReleaseDocsNameDemoAndBoundaries(t *testing.T) {
 		"--dry-run",
 		"go run ./cmd/openudon n8n-bridge validate --root examples/eval",
 		"run n8n workflows",
-		"execute Terraform/OpenTofu",
+		"execute desired-state engines",
 		"implement reviewer identity",
 		"compile or execute generic UWS/OpenAPI workflows itself",
 	} {
