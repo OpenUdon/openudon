@@ -49,6 +49,7 @@ type Options struct {
 type Result struct {
 	StagePath          string
 	WorkflowPath       string
+	ExecutorReportPath string
 	Argv               []string
 	PackageRoot        string
 	WorkDir            string
@@ -247,7 +248,8 @@ func prepare(ctx context.Context, config Config, opts Options, requireCredential
 		CredentialEnvNames: append([]string(nil), credentialEnvNames...),
 	}
 	if buildExecutorArgv {
-		argv, err := executorArgv(repoRootAbs, stage, stagedWorkflow, workflowFormat, stagedDataFilePaths(stage, dataFiles), credentialEnvNames, envByName)
+		result.ExecutorReportPath = filepath.Join(stage, "executor-report.json")
+		argv, err := executorArgv(repoRootAbs, stage, stagedWorkflow, workflowFormat, result.ExecutorReportPath, stagedDataFilePaths(stage, dataFiles), credentialEnvNames, envByName)
 		if err != nil {
 			return result, nil, "", err
 		}
@@ -630,19 +632,19 @@ func environmentMap(env []string) map[string]string {
 	return out
 }
 
-func executorArgv(repoRoot, stage, stagedWorkflow, workflowFormat string, dataFiles []string, credentialNames []string, env map[string]string) ([]string, error) {
+func executorArgv(repoRoot, stage, stagedWorkflow, workflowFormat, executorReportPath string, dataFiles []string, credentialNames []string, env map[string]string) ([]string, error) {
 	if executor := strings.TrimSpace(env["OPENUDON_EXECUTOR"]); executor != "" {
 		if strings.HasPrefix(executor, dockerExecutorPrefix) {
 			image := strings.TrimPrefix(executor, dockerExecutorPrefix)
-			return dockerImageArgv("OPENUDON_EXECUTOR", image, stage, stagedWorkflow, workflowFormat, dataFiles, credentialNames)
+			return dockerImageArgv("OPENUDON_EXECUTOR", image, stage, stagedWorkflow, workflowFormat, executorReportPath, dataFiles, credentialNames)
 		}
-		return executorPathArgv("OPENUDON_EXECUTOR", executor, stage, stagedWorkflow, workflowFormat, dataFiles)
+		return executorPathArgv("OPENUDON_EXECUTOR", executor, stage, stagedWorkflow, workflowFormat, executorReportPath, dataFiles)
 	}
 	if image := strings.TrimSpace(env["OPENUDON_UDON_IMAGE"]); image != "" {
-		return dockerImageArgv("OPENUDON_UDON_IMAGE", image, stage, stagedWorkflow, workflowFormat, dataFiles, credentialNames)
+		return dockerImageArgv("OPENUDON_UDON_IMAGE", image, stage, stagedWorkflow, workflowFormat, executorReportPath, dataFiles, credentialNames)
 	}
 	if executor := strings.TrimSpace(env["OPENUDON_UDON_BIN"]); executor != "" {
-		return executorPathArgv("OPENUDON_UDON_BIN", executor, stage, stagedWorkflow, workflowFormat, dataFiles)
+		return executorPathArgv("OPENUDON_UDON_BIN", executor, stage, stagedWorkflow, workflowFormat, executorReportPath, dataFiles)
 	}
 	executor := filepath.Join(repoRoot, "..", "udon", "dist", "udon-linux-amd64")
 	if !isExecutable(executor) {
@@ -651,10 +653,10 @@ func executorArgv(repoRoot, stage, stagedWorkflow, workflowFormat string, dataFi
 	if !isExecutable(executor) {
 		return nil, fmt.Errorf("trusted executor not found. Set OPENUDON_EXECUTOR to an absolute binary path or docker://image, or build ../udon")
 	}
-	return appendDataFileArgs([]string{executor, "--workdir", stage, "--workflow", stagedWorkflow, "--workflow-format", workflowFormat}, dataFiles...), nil
+	return appendDataFileArgs(appendExecutionReportArg([]string{executor, "--workdir", stage, "--workflow", stagedWorkflow, "--workflow-format", workflowFormat}, executorReportPath), dataFiles...), nil
 }
 
-func dockerImageArgv(envName, image, stage, stagedWorkflow, workflowFormat string, dataFiles, credentialNames []string) ([]string, error) {
+func dockerImageArgv(envName, image, stage, stagedWorkflow, workflowFormat, executorReportPath string, dataFiles, credentialNames []string) ([]string, error) {
 	if err := validateDockerImage(envName, image); err != nil {
 		return nil, err
 	}
@@ -667,6 +669,13 @@ func dockerImageArgv(envName, image, stage, stagedWorkflow, workflowFormat strin
 		return nil, err
 	}
 	argv = append(argv, image, "--workdir", "/workspace", "--workflow", "/workspace/"+filepath.ToSlash(rel), "--workflow-format", workflowFormat)
+	if strings.TrimSpace(executorReportPath) != "" {
+		relReport, err := filepath.Rel(stage, executorReportPath)
+		if err != nil {
+			return nil, err
+		}
+		argv = append(argv, "--execution-report", "/workspace/"+filepath.ToSlash(relReport))
+	}
 	for _, dataFile := range dataFiles {
 		relData, err := filepath.Rel(stage, dataFile)
 		if err != nil {
@@ -690,14 +699,22 @@ func validateDockerImage(envName, image string) error {
 	return nil
 }
 
-func executorPathArgv(envName, executor, stage, stagedWorkflow, workflowFormat string, dataFiles []string) ([]string, error) {
+func executorPathArgv(envName, executor, stage, stagedWorkflow, workflowFormat, executorReportPath string, dataFiles []string) ([]string, error) {
 	if !filepath.IsAbs(executor) {
 		return nil, fmt.Errorf("%s must be an absolute path: %s", envName, executor)
 	}
 	if !isExecutable(executor) {
 		return nil, fmt.Errorf("%s does not point to an executable file: %s", envName, executor)
 	}
-	return appendDataFileArgs([]string{executor, "--workdir", stage, "--workflow", stagedWorkflow, "--workflow-format", workflowFormat}, dataFiles...), nil
+	return appendDataFileArgs(appendExecutionReportArg([]string{executor, "--workdir", stage, "--workflow", stagedWorkflow, "--workflow-format", workflowFormat}, executorReportPath), dataFiles...), nil
+}
+
+func appendExecutionReportArg(argv []string, reportPath string) []string {
+	reportPath = strings.TrimSpace(reportPath)
+	if reportPath == "" {
+		return argv
+	}
+	return append(argv, "--execution-report", reportPath)
 }
 
 func appendDataFileArgs(argv []string, dataFiles ...string) []string {

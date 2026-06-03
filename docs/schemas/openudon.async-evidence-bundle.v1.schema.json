@@ -15,7 +15,9 @@
       "items": {
         "oneOf": [
           { "$ref": "#/$defs/executionRequestRecord" },
-          { "$ref": "#/$defs/executionResponseRecord" }
+          { "$ref": "#/$defs/executionResponseRecord" },
+          { "$ref": "#/$defs/statusObservationRecord" },
+          { "$ref": "#/$defs/confirmationReadObservationRecord" }
         ]
       }
     }
@@ -111,6 +113,43 @@
         "finished_at": { "type": "string", "format": "date-time" }
       }
     },
+    "statusObservation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["version", "attempt", "operation"],
+      "properties": {
+        "version": { "const": "evidence.async.status-observation.v1" },
+        "attempt": { "$ref": "#/$defs/attempt" },
+        "request_evidence_id": { "type": "string" },
+        "operation": { "$ref": "#/$defs/operation" },
+        "status": { "type": "string" },
+        "terminality_hint": { "type": "string" },
+        "correlation_ids": { "$ref": "#/$defs/stringMap" },
+        "payload_digests": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/digest" }
+        },
+        "observed_at": { "type": "string", "format": "date-time" }
+      }
+    },
+    "confirmationReadObservation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["version", "attempt", "operation", "outcome"],
+      "properties": {
+        "version": { "const": "evidence.async.confirmation-read-observation.v1" },
+        "attempt": { "$ref": "#/$defs/attempt" },
+        "request_evidence_id": { "type": "string" },
+        "operation": { "$ref": "#/$defs/operation" },
+        "outcome": { "type": "string", "minLength": 1 },
+        "projected_digests": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/digest" }
+        },
+        "correlation_ids": { "$ref": "#/$defs/stringMap" },
+        "observed_at": { "type": "string", "format": "date-time" }
+      }
+    },
     "executionRequestRecord": {
       "type": "object",
       "additionalProperties": false,
@@ -127,6 +166,24 @@
       "properties": {
         "kind": { "const": "execution_response" },
         "execution_response": { "$ref": "#/$defs/executionResponse" }
+      }
+    },
+    "statusObservationRecord": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "status_observation"],
+      "properties": {
+        "kind": { "const": "status_observation" },
+        "status_observation": { "$ref": "#/$defs/statusObservation" }
+      }
+    },
+    "confirmationReadObservationRecord": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "confirmation_read_observation"],
+      "properties": {
+        "kind": { "const": "confirmation_read_observation" },
+        "confirmation_read_observation": { "$ref": "#/$defs/confirmationReadObservation" }
       }
     }
   }

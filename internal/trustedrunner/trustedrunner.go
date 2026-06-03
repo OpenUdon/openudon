@@ -22,11 +22,12 @@ import (
 )
 
 const (
-	ApprovalVersion      = "openudon.approval.v1"
-	AsyncEvidenceVersion = "openudon.async-evidence-bundle.v1"
-	RunConfigVersion     = udonrunner.RunConfigVersion
-	RunEvidenceVersion   = "openudon.run-evidence.v1"
-	ReviewHandoffVersion = authoring.ReviewHandoffVersion
+	ApprovalVersion            = "openudon.approval.v1"
+	AsyncEvidenceVersion       = "openudon.async-evidence-bundle.v1"
+	RunConfigVersion           = udonrunner.RunConfigVersion
+	RunEvidenceVersion         = "openudon.run-evidence.v1"
+	UdonExecutionReportVersion = "udon.execution-report.v1"
+	ReviewHandoffVersion       = authoring.ReviewHandoffVersion
 
 	StateApprovedForSandbox    = string(authoring.ReviewStateApprovedForSandbox)
 	StateApprovedForProduction = string(authoring.ReviewStateApprovedForProduction)
@@ -124,6 +125,7 @@ type RunEvidenceExecutor struct {
 	Mode       string   `json:"mode"`
 	RunnerPath string   `json:"runner_path,omitempty"`
 	Argv       []string `json:"argv,omitempty"`
+	ReportPath string   `json:"report_path,omitempty"`
 }
 
 type RunEvidenceAsyncFile struct {
@@ -139,9 +141,24 @@ type AsyncEvidenceBundle struct {
 }
 
 type AsyncEvidenceRecord struct {
-	Kind              string                           `json:"kind"`
-	ExecutionRequest  *asyncevidence.ExecutionRequest  `json:"execution_request,omitempty"`
-	ExecutionResponse *asyncevidence.ExecutionResponse `json:"execution_response,omitempty"`
+	Kind                        string                                     `json:"kind"`
+	ExecutionRequest            *asyncevidence.ExecutionRequest            `json:"execution_request,omitempty"`
+	ExecutionResponse           *asyncevidence.ExecutionResponse           `json:"execution_response,omitempty"`
+	StatusObservation           *asyncevidence.StatusObservation           `json:"status_observation,omitempty"`
+	ConfirmationReadObservation *asyncevidence.ConfirmationReadObservation `json:"confirmation_read_observation,omitempty"`
+}
+
+type UdonExecutionReport struct {
+	Version        string `json:"version"`
+	Status         string `json:"status"`
+	StartedAt      string `json:"started_at"`
+	FinishedAt     string `json:"finished_at"`
+	WorkflowPath   string `json:"workflow_path"`
+	WorkflowFormat string `json:"workflow_format"`
+	WorkDir        string `json:"workdir"`
+	OutputPath     string `json:"output_path,omitempty"`
+	OutputDigest   string `json:"output_digest,omitempty"`
+	ErrorSummary   string `json:"error_summary,omitempty"`
 }
 
 type paths struct {
@@ -462,8 +479,13 @@ func VerifyRunEvidenceFile(path string) (VerifyRunEvidenceResult, error) {
 	if err := validateRunEvidenceForVerify(evidence); err != nil {
 		return VerifyRunEvidenceResult{}, err
 	}
+	seenAsyncPaths := map[string]bool{}
 	workdir := filepath.Dir(path)
 	for _, ref := range evidence.AsyncEvidenceFiles {
+		if seenAsyncPaths[ref.Path] {
+			return VerifyRunEvidenceResult{}, fmt.Errorf("duplicate async evidence path: %s", ref.Path)
+		}
+		seenAsyncPaths[ref.Path] = true
 		if err := verifyAsyncEvidenceFile(workdir, ref); err != nil {
 			return VerifyRunEvidenceResult{}, err
 		}
@@ -504,6 +526,9 @@ func verifyAsyncEvidenceFile(workdir string, ref RunEvidenceAsyncFile) error {
 	if strings.TrimSpace(ref.Digest) == "" {
 		return fmt.Errorf("async evidence digest is required for %s", ref.Path)
 	}
+	if strings.TrimSpace(ref.Purpose) != "openudon_run_async_execution_forwarding" {
+		return fmt.Errorf("async evidence purpose is invalid for %s", ref.Path)
+	}
 	path := filepath.Join(workdir, filepath.FromSlash(ref.Path))
 	data, err := os.ReadFile(path)
 	if err != nil {
@@ -533,7 +558,10 @@ func verifyAsyncEvidenceFile(workdir string, ref RunEvidenceAsyncFile) error {
 
 func writeRunEvidenceWithAsync(workdir string, opts runEvidenceOptions) (string, string, error) {
 	evidence := buildRunEvidence(opts)
-	bundle := buildAsyncEvidenceBundle(opts)
+	bundle, err := buildAsyncEvidenceBundle(opts)
+	if err != nil {
+		return "", "", err
+	}
 	ref, err := writeAsyncEvidenceBundle(workdir, bundle)
 	if err != nil {
 		return "", "", err
@@ -628,11 +656,12 @@ func buildRunEvidence(opts runEvidenceOptions) RunEvidence {
 			Mode:       opts.Mode,
 			RunnerPath: opts.RunnerPath,
 			Argv:       executorArgv,
+			ReportPath: opts.Prepared.ExecutorReportPath,
 		},
 	}
 }
 
-func buildAsyncEvidenceBundle(opts runEvidenceOptions) AsyncEvidenceBundle {
+func buildAsyncEvidenceBundle(opts runEvidenceOptions) (AsyncEvidenceBundle, error) {
 	requestEvidenceID := asyncEvidenceID(opts, "request")
 	responseEvidenceID := asyncEvidenceID(opts, "response")
 	attemptID := asyncAttemptID(opts)
@@ -701,13 +730,19 @@ func buildAsyncEvidenceBundle(opts runEvidenceOptions) AsyncEvidenceBundle {
 		ErrorSummary:      errorSummary,
 		FinishedAt:        recordedAt,
 	})
+	records := []AsyncEvidenceRecord{
+		{Kind: "execution_request", ExecutionRequest: &request},
+		{Kind: "execution_response", ExecutionResponse: &response},
+	}
+	observations, err := asyncExecutionReportRecords(opts, requestEvidenceID, attemptID, operation, len(records)+1)
+	if err != nil {
+		return AsyncEvidenceBundle{}, err
+	}
+	records = append(records, observations...)
 	return AsyncEvidenceBundle{
 		Version: AsyncEvidenceVersion,
-		Records: []AsyncEvidenceRecord{
-			{Kind: "execution_request", ExecutionRequest: &request},
-			{Kind: "execution_response", ExecutionResponse: &response},
-		},
-	}
+		Records: records,
+	}, nil
 }
 
 func validateAsyncEvidenceBundle(bundle AsyncEvidenceBundle) error {
@@ -723,8 +758,8 @@ func validateAsyncEvidenceBundle(bundle AsyncEvidenceBundle) error {
 			if record.ExecutionRequest == nil {
 				return fmt.Errorf("async evidence record %d missing execution_request", i)
 			}
-			if record.ExecutionResponse != nil {
-				return fmt.Errorf("async evidence record %d has unexpected execution_response", i)
+			if asyncRecordPayloadCount(record) != 1 {
+				return fmt.Errorf("async evidence record %d has unexpected payload for execution_request", i)
 			}
 			if diagnostics := asyncevidence.ValidateExecutionRequest(*record.ExecutionRequest); len(diagnostics) != 0 {
 				return fmt.Errorf("async evidence request record %d is invalid: %s", i, diagnostics[0].Code)
@@ -733,17 +768,162 @@ func validateAsyncEvidenceBundle(bundle AsyncEvidenceBundle) error {
 			if record.ExecutionResponse == nil {
 				return fmt.Errorf("async evidence record %d missing execution_response", i)
 			}
-			if record.ExecutionRequest != nil {
-				return fmt.Errorf("async evidence record %d has unexpected execution_request", i)
+			if asyncRecordPayloadCount(record) != 1 {
+				return fmt.Errorf("async evidence record %d has unexpected payload for execution_response", i)
 			}
 			if diagnostics := asyncevidence.ValidateExecutionResponse(*record.ExecutionResponse); len(diagnostics) != 0 {
 				return fmt.Errorf("async evidence response record %d is invalid: %s", i, diagnostics[0].Code)
+			}
+		case "status_observation":
+			if record.StatusObservation == nil {
+				return fmt.Errorf("async evidence record %d missing status_observation", i)
+			}
+			if asyncRecordPayloadCount(record) != 1 {
+				return fmt.Errorf("async evidence record %d has unexpected payload for status_observation", i)
+			}
+			if diagnostics := asyncevidence.ValidateStatusObservation(*record.StatusObservation); len(diagnostics) != 0 {
+				return fmt.Errorf("async evidence status record %d is invalid: %s", i, diagnostics[0].Code)
+			}
+		case "confirmation_read_observation":
+			if record.ConfirmationReadObservation == nil {
+				return fmt.Errorf("async evidence record %d missing confirmation_read_observation", i)
+			}
+			if asyncRecordPayloadCount(record) != 1 {
+				return fmt.Errorf("async evidence record %d has unexpected payload for confirmation_read_observation", i)
+			}
+			if diagnostics := asyncevidence.ValidateConfirmationReadObservation(*record.ConfirmationReadObservation); len(diagnostics) != 0 {
+				return fmt.Errorf("async evidence confirmation-read record %d is invalid: %s", i, diagnostics[0].Code)
 			}
 		default:
 			return fmt.Errorf("unsupported async evidence record kind %q", record.Kind)
 		}
 	}
 	return nil
+}
+
+func asyncRecordPayloadCount(record AsyncEvidenceRecord) int {
+	count := 0
+	if record.ExecutionRequest != nil {
+		count++
+	}
+	if record.ExecutionResponse != nil {
+		count++
+	}
+	if record.StatusObservation != nil {
+		count++
+	}
+	if record.ConfirmationReadObservation != nil {
+		count++
+	}
+	return count
+}
+
+func asyncExecutionReportRecords(opts runEvidenceOptions, requestEvidenceID, attemptID string, operation asyncevidence.OperationRef, sequenceStart int) ([]AsyncEvidenceRecord, error) {
+	report, err := readUdonExecutionReport(opts.Prepared.ExecutorReportPath)
+	if err != nil || report == nil {
+		return nil, err
+	}
+	observedAt, err := reportTime(report.FinishedAt, opts.Now)
+	if err != nil {
+		return nil, err
+	}
+	digests, err := reportOutputDigests(report.OutputDigest)
+	if err != nil {
+		return nil, err
+	}
+	status := asyncevidence.NormalizeStatusObservation(asyncevidence.StatusObservation{
+		Version: asyncevidence.StatusObservationVersion,
+		Attempt: asyncevidence.AttemptMetadata{
+			EvidenceID: asyncEvidenceID(opts, "executor-status"),
+			AttemptID:  attemptID,
+			Sequence:   int64(sequenceStart),
+			Actor:      opts.Approval.Reviewer,
+			Source:     "udon.execution-report",
+			RecordedAt: observedAt,
+		},
+		RequestEvidenceID: requestEvidenceID,
+		Operation:         operation,
+		Status:            report.Status,
+		TerminalityHint:   "terminal",
+		PayloadDigests:    digests,
+		ObservedAt:        observedAt,
+	})
+	records := []AsyncEvidenceRecord{{Kind: "status_observation", StatusObservation: &status}}
+	if strings.EqualFold(report.Status, "success") && len(digests) > 0 {
+		read := asyncevidence.NormalizeConfirmationReadObservation(asyncevidence.ConfirmationReadObservation{
+			Version: asyncevidence.ConfirmationReadObservationVersion,
+			Attempt: asyncevidence.AttemptMetadata{
+				EvidenceID: asyncEvidenceID(opts, "executor-confirmation-read"),
+				AttemptID:  attemptID,
+				Sequence:   int64(sequenceStart + 1),
+				Actor:      opts.Approval.Reviewer,
+				Source:     "udon.execution-report",
+				RecordedAt: observedAt,
+			},
+			RequestEvidenceID: requestEvidenceID,
+			Operation:         operation,
+			Outcome:           "confirmed",
+			ProjectedDigests:  digests,
+			ObservedAt:        observedAt,
+		})
+		records = append(records, AsyncEvidenceRecord{Kind: "confirmation_read_observation", ConfirmationReadObservation: &read})
+	}
+	return records, nil
+}
+
+func readUdonExecutionReport(path string) (*UdonExecutionReport, error) {
+	path = strings.TrimSpace(path)
+	if path == "" {
+		return nil, nil
+	}
+	data, err := os.ReadFile(path)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return nil, nil
+		}
+		return nil, fmt.Errorf("read udon execution report: %w", err)
+	}
+	var report UdonExecutionReport
+	dec := json.NewDecoder(bytes.NewReader(data))
+	dec.DisallowUnknownFields()
+	if err := dec.Decode(&report); err != nil {
+		return nil, fmt.Errorf("udon execution report must be valid JSON: %w", err)
+	}
+	var extra struct{}
+	if err := dec.Decode(&extra); err != io.EOF {
+		return nil, fmt.Errorf("udon execution report must contain a single JSON object")
+	}
+	if strings.TrimSpace(report.Version) != UdonExecutionReportVersion {
+		return nil, fmt.Errorf("udon execution report version must be %s", UdonExecutionReportVersion)
+	}
+	if strings.TrimSpace(report.Status) == "" {
+		return nil, fmt.Errorf("udon execution report status is required")
+	}
+	return &report, nil
+}
+
+func reportTime(value string, fallback time.Time) (time.Time, error) {
+	value = strings.TrimSpace(value)
+	if value == "" {
+		return fallback.UTC(), nil
+	}
+	t, err := time.Parse(time.RFC3339, value)
+	if err != nil {
+		return time.Time{}, fmt.Errorf("udon execution report finished_at must be RFC3339: %w", err)
+	}
+	return t.UTC(), nil
+}
+
+func reportOutputDigests(value string) ([]evdigest.Record, error) {
+	value = strings.TrimSpace(value)
+	if value == "" {
+		return nil, nil
+	}
+	algorithm, digestValue, ok := strings.Cut(value, ":")
+	if !ok || strings.ToLower(strings.TrimSpace(algorithm)) != string(evdigest.AlgorithmSHA256) || strings.TrimSpace(digestValue) == "" {
+		return nil, fmt.Errorf("udon execution report output_digest must be sha256:<hex>")
+	}
+	return []evdigest.Record{{Algorithm: evdigest.AlgorithmSHA256, Value: strings.TrimSpace(digestValue)}}, nil
 }
 
 func asyncOperationRef(opts runEvidenceOptions) asyncevidence.OperationRef {

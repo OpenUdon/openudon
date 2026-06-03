@@ -191,6 +191,33 @@ func TestVerifyRunEvidenceFileRejectsBadAsyncSidecars(t *testing.T) {
 			want: "safe workdir-relative",
 		},
 		{
+			name: "missing sidecar",
+			mutate: func(t *testing.T, result *RunResult) {
+				if err := os.Remove(result.AsyncEvidencePath); err != nil {
+					t.Fatal(err)
+				}
+			},
+			want: "read async evidence",
+		},
+		{
+			name: "duplicate sidecar ref",
+			mutate: func(t *testing.T, result *RunResult) {
+				evidence := readRunEvidenceFile(t, result.RunEvidencePath)
+				evidence.AsyncEvidenceFiles = append(evidence.AsyncEvidenceFiles, evidence.AsyncEvidenceFiles[0])
+				writeRunEvidenceFileForTest(t, result.RunEvidencePath, evidence)
+			},
+			want: "duplicate async evidence path",
+		},
+		{
+			name: "invalid purpose",
+			mutate: func(t *testing.T, result *RunResult) {
+				evidence := readRunEvidenceFile(t, result.RunEvidencePath)
+				evidence.AsyncEvidenceFiles[0].Purpose = "other"
+				writeRunEvidenceFileForTest(t, result.RunEvidencePath, evidence)
+			},
+			want: "purpose is invalid",
+		},
+		{
 			name: "unknown kind",
 			mutate: func(t *testing.T, result *RunResult) {
 				evidence, bundle := readRunEvidenceAndBundle(t, result)
@@ -207,6 +234,36 @@ func TestVerifyRunEvidenceFileRejectsBadAsyncSidecars(t *testing.T) {
 				writeBundleAndRefreshRef(t, result, evidence, bundle)
 			},
 			want: "missing execution_request",
+		},
+		{
+			name: "mismatched status payload",
+			mutate: func(t *testing.T, result *RunResult) {
+				evidence, bundle := readRunEvidenceAndBundle(t, result)
+				request := *bundle.Records[0].ExecutionRequest
+				status := asyncevidence.NormalizeStatusObservation(asyncevidence.StatusObservation{
+					Version:   asyncevidence.StatusObservationVersion,
+					Attempt:   request.Attempt,
+					Operation: request.Operation,
+				})
+				bundle.Records[0].StatusObservation = &status
+				writeBundleAndRefreshRef(t, result, evidence, bundle)
+			},
+			want: "unexpected payload for execution_request",
+		},
+		{
+			name: "bad status version",
+			mutate: func(t *testing.T, result *RunResult) {
+				evidence, bundle := readRunEvidenceAndBundle(t, result)
+				request := *bundle.Records[0].ExecutionRequest
+				status := asyncevidence.StatusObservation{
+					Version:   "bad",
+					Attempt:   request.Attempt,
+					Operation: request.Operation,
+				}
+				bundle.Records = append(bundle.Records, AsyncEvidenceRecord{Kind: "status_observation", StatusObservation: &status})
+				writeBundleAndRefreshRef(t, result, evidence, bundle)
+			},
+			want: "async.version_invalid",
 		},
 		{
 			name: "unknown top-level field",
@@ -407,7 +464,9 @@ func TestRunNonDryRunWritesRunEvidence(t *testing.T) {
 		WorkDir:      filepath.Join(root, "work"),
 		Now:          now,
 		Assess:       passAssess,
-		RunCommand: func(context.Context, string, ...string) error {
+		RunCommand: func(_ context.Context, _ string, args ...string) error {
+			reportPath := argValue(t, args, "--execution-report")
+			writeUdonExecutionReport(t, reportPath, "success", now(), "sha256:"+strings.Repeat("a", 64))
 			return nil
 		},
 	})
@@ -421,8 +480,14 @@ func TestRunNonDryRunWritesRunEvidence(t *testing.T) {
 	if evidence.StageKind != "executor" || runEvidenceGateStatus(evidence, "executor_invocation") != "pass" {
 		t.Fatalf("unexpected handoff evidence: %#v", evidence)
 	}
+	if evidence.Executor.ReportPath == "" {
+		t.Fatalf("executor report path missing: %#v", evidence.Executor)
+	}
 	if evidence.StagePath == "" || evidence.WorkflowPath == "" || len(evidence.PackagePaths) == 0 {
 		t.Fatalf("evidence missing package staging fields: %#v", evidence)
+	}
+	if _, err := VerifyRunEvidenceFile(result.RunEvidencePath); err != nil {
+		t.Fatalf("VerifyRunEvidenceFile rejected report-backed sidecar: %v", err)
 	}
 	_, bundle := readReferencedAsyncEvidence(t, result.WorkDir, evidence)
 	request := asyncExecutionRequest(t, bundle)
@@ -432,6 +497,14 @@ func TestRunNonDryRunWritesRunEvidence(t *testing.T) {
 	}
 	if response.Outcome != "accepted" || response.ErrorSummary != "" {
 		t.Fatalf("unexpected async response: %#v", response)
+	}
+	status := asyncStatusObservation(t, bundle)
+	if status.Status != "success" || status.TerminalityHint != "terminal" || len(status.PayloadDigests) != 1 {
+		t.Fatalf("unexpected async status observation: %#v", status)
+	}
+	read := asyncConfirmationReadObservation(t, bundle)
+	if read.Outcome != "confirmed" || len(read.ProjectedDigests) != 1 {
+		t.Fatalf("unexpected async confirmation-read observation: %#v", read)
 	}
 	data, err := os.ReadFile(result.RunEvidencePath)
 	if err != nil {
@@ -462,7 +535,9 @@ func TestRunNonDryRunWritesFailureEvidence(t *testing.T) {
 		WorkDir:      filepath.Join(root, "work"),
 		Now:          now,
 		Assess:       passAssess,
-		RunCommand: func(context.Context, string, ...string) error {
+		RunCommand: func(_ context.Context, _ string, args ...string) error {
+			reportPath := argValue(t, args, "--execution-report")
+			writeUdonExecutionReport(t, reportPath, "error", now(), "")
 			return invokeErr
 		},
 	})
@@ -480,6 +555,13 @@ func TestRunNonDryRunWritesFailureEvidence(t *testing.T) {
 	response := asyncExecutionResponse(t, bundle)
 	if response.Outcome != "fatal_failure" || response.ErrorSummary == "" {
 		t.Fatalf("unexpected async failure response: %#v", response)
+	}
+	status := asyncStatusObservation(t, bundle)
+	if status.Status != "error" || len(status.PayloadDigests) != 0 {
+		t.Fatalf("unexpected async failure status observation: %#v", status)
+	}
+	if hasConfirmationReadObservation(bundle) {
+		t.Fatalf("failure bundle should not include confirmation-read observation: %#v", bundle)
 	}
 }
 
@@ -2114,6 +2196,7 @@ func writeBundleAndRefreshRef(t *testing.T, result *RunResult, evidence RunEvide
 	if err != nil {
 		t.Fatal(err)
 	}
+	evidence.AsyncEvidenceFiles[0].Records = len(bundle.Records)
 	writeAsyncBytesAndRefreshRef(t, result, evidence, append(data, '\n'))
 }
 
@@ -2191,6 +2274,62 @@ func asyncExecutionResponse(t *testing.T, bundle AsyncEvidenceBundle) asyncevide
 	}
 	t.Fatalf("missing execution_response record: %#v", bundle)
 	return asyncevidence.ExecutionResponse{}
+}
+
+func asyncStatusObservation(t *testing.T, bundle AsyncEvidenceBundle) asyncevidence.StatusObservation {
+	t.Helper()
+	for _, record := range bundle.Records {
+		if record.Kind == "status_observation" && record.StatusObservation != nil {
+			return *record.StatusObservation
+		}
+	}
+	t.Fatalf("missing status_observation record: %#v", bundle)
+	return asyncevidence.StatusObservation{}
+}
+
+func asyncConfirmationReadObservation(t *testing.T, bundle AsyncEvidenceBundle) asyncevidence.ConfirmationReadObservation {
+	t.Helper()
+	for _, record := range bundle.Records {
+		if record.Kind == "confirmation_read_observation" && record.ConfirmationReadObservation != nil {
+			return *record.ConfirmationReadObservation
+		}
+	}
+	t.Fatalf("missing confirmation_read_observation record: %#v", bundle)
+	return asyncevidence.ConfirmationReadObservation{}
+}
+
+func hasConfirmationReadObservation(bundle AsyncEvidenceBundle) bool {
+	for _, record := range bundle.Records {
+		if record.Kind == "confirmation_read_observation" && record.ConfirmationReadObservation != nil {
+			return true
+		}
+	}
+	return false
+}
+
+func writeUdonExecutionReport(t *testing.T, path, status string, now time.Time, outputDigest string) {
+	t.Helper()
+	if path == "" {
+		t.Fatal("missing --execution-report argument")
+	}
+	report := UdonExecutionReport{
+		Version:        UdonExecutionReportVersion,
+		Status:         status,
+		StartedAt:      now.UTC().Format(time.RFC3339),
+		FinishedAt:     now.UTC().Format(time.RFC3339),
+		WorkflowPath:   "workflows/workflow.uws.yaml",
+		WorkflowFormat: "uws-yaml",
+		WorkDir:        filepath.Dir(path),
+		OutputPath:     filepath.Join(filepath.Dir(path), "output", "udon.hcl"),
+		OutputDigest:   outputDigest,
+	}
+	data, err := json.MarshalIndent(report, "", "  ")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(path, append(data, '\n'), 0o600); err != nil {
+		t.Fatal(err)
+	}
 }
 
 func runEvidenceGateStatus(evidence RunEvidence, name string) string {

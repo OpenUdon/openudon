@@ -99,9 +99,11 @@ requiring credential values or invoking the executor. Both dry runs and real han
 `openudon.run-evidence.v1` at `<workdir>/run-evidence.json` with package paths, staged paths, gate
 outcomes, credential binding names, and a digest reference to `<workdir>/async-evidence.json`. The
 sidecar is an `openudon.async-evidence-bundle.v1` wrapper over neutral Evidence async request and
-response records for OpenUdon package handoff audit only; it does not interpret Ramen convergence or
-store credential values or raw executor output. `OPENUDON_EXECUTOR` selects the final executor as an
-absolute binary path or `docker://<image>`.
+response records for OpenUdon package handoff audit only. When a compatible udon executor writes a
+`udon.execution-report.v1` file, OpenUdon also forwards status and confirmation-read observations
+from that report. OpenUdon does not interpret Ramen convergence or store credential values or raw
+executor output. `OPENUDON_EXECUTOR` selects the final executor as an absolute binary path or
+`docker://<image>`.
 
 The run evidence sidecar reference is workdir-relative so ignored run directories can be archived
 without rewriting paths:
@@ -119,8 +121,9 @@ without rewriting paths:
 }
 ```
 
-The sidecar bundle contains one execution request and one execution response. A machine-readable
-schema is available at
+Dry-runs and executor invocations without a report contain one execution request and one execution
+response. Compatible udon executions can add one status observation and, when the report includes an
+output digest, one confirmation-read observation. A machine-readable schema is available at
 [`docs/schemas/openudon.async-evidence-bundle.v1.schema.json`](schemas/openudon.async-evidence-bundle.v1.schema.json).
 
 ```json

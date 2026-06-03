@@ -21,6 +21,9 @@
 - Expanded-corpus evidence exception:
 - SaaS operator demo fixtures:
 - SaaS operator demo dry-run result:
+- Trusted executor report paths:
+- Async evidence sidecar paths:
+- Run evidence verifier result:
 - Product smoke dry-run result:
 - Product smoke live result:
 - Product smoke summary JSON:

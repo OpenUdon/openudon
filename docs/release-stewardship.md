@@ -60,6 +60,17 @@ The demo must use ignored `.openudon-run/...` output, sandbox approval JSON, and
 `openudon run --dry-run`. Do not commit approval JSON, run configs, transcripts,
 or real-provider outputs.
 
+For trusted executor proof runs with a compatible udon binary, archive the local
+`run-evidence.json`, `async-evidence.json`, and the udon `executor-report.json`
+from the staged executor workdir. Verify the archived bundle with:
+
+```bash
+go run ./cmd/openudon run-evidence verify --file <archive>/run-evidence.json
+```
+
+The executor report is non-secret status metadata. Do not archive credential
+values or raw executor stdout/stderr as release evidence.
+
 Run the eval seed/build matrix directly when changing authoring fixtures or
 reference intents:
 
