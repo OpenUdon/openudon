@@ -72,15 +72,16 @@ type TemplateOptions struct {
 }
 
 type RunResult struct {
-	Scope           string
-	Tier            string
-	PackageSHA256   string
-	WorkflowPath    string
-	RunConfigPath   string
-	RunEvidencePath string
-	WorkDir         string
-	StagePath       string
-	DryRun          bool
+	Scope             string
+	Tier              string
+	PackageSHA256     string
+	WorkflowPath      string
+	RunConfigPath     string
+	RunEvidencePath   string
+	AsyncEvidencePath string
+	WorkDir           string
+	StagePath         string
+	DryRun            bool
 }
 
 type RunConfig = udonrunner.Config
@@ -205,7 +206,7 @@ func Run(ctx context.Context, opts Options) (*RunResult, error) {
 			return nil, fmt.Errorf("prepare trusted executor dry-run: %w", err)
 		}
 		result.StagePath = prepared.StagePath
-		evidencePath, err := writeRunEvidenceWithAsync(result.WorkDir, runEvidenceOptions{
+		evidencePath, asyncEvidencePath, err := writeRunEvidenceWithAsync(result.WorkDir, runEvidenceOptions{
 			Config:         runConfig,
 			Approval:       approval,
 			Prepared:       prepared,
@@ -219,6 +220,7 @@ func Run(ctx context.Context, opts Options) (*RunResult, error) {
 			return nil, err
 		}
 		result.RunEvidencePath = evidencePath
+		result.AsyncEvidencePath = asyncEvidencePath
 		return result, nil
 	}
 
@@ -249,7 +251,7 @@ func Run(ctx context.Context, opts Options) (*RunResult, error) {
 			}
 		}
 		if err := runCommand(ctx, runnerPath, args...); err != nil {
-			evidencePath, evidenceErr := writeRunEvidenceWithAsync(result.WorkDir, runEvidenceOptions{
+			evidencePath, asyncEvidencePath, evidenceErr := writeRunEvidenceWithAsync(result.WorkDir, runEvidenceOptions{
 				Config:         runConfig,
 				Approval:       approval,
 				Prepared:       prepared,
@@ -266,9 +268,10 @@ func Run(ctx context.Context, opts Options) (*RunResult, error) {
 				return result, fmt.Errorf("run trusted executor: %w; write run evidence: %v", err, evidenceErr)
 			}
 			result.RunEvidencePath = evidencePath
+			result.AsyncEvidencePath = asyncEvidencePath
 			return result, fmt.Errorf("run trusted executor: %w", err)
 		}
-		evidencePath, err := writeRunEvidenceWithAsync(result.WorkDir, runEvidenceOptions{
+		evidencePath, asyncEvidencePath, err := writeRunEvidenceWithAsync(result.WorkDir, runEvidenceOptions{
 			Config:         runConfig,
 			Approval:       approval,
 			Prepared:       prepared,
@@ -285,6 +288,7 @@ func Run(ctx context.Context, opts Options) (*RunResult, error) {
 			return nil, err
 		}
 		result.RunEvidencePath = evidencePath
+		result.AsyncEvidencePath = asyncEvidencePath
 		return result, nil
 	}
 	prepared, err := udonrunner.RunConfig(ctx, udonrunner.Options{
@@ -296,7 +300,7 @@ func Run(ctx context.Context, opts Options) (*RunResult, error) {
 	})
 	if err != nil {
 		result.StagePath = prepared.StagePath
-		evidencePath, evidenceErr := writeRunEvidenceWithAsync(result.WorkDir, runEvidenceOptions{
+		evidencePath, asyncEvidencePath, evidenceErr := writeRunEvidenceWithAsync(result.WorkDir, runEvidenceOptions{
 			Config:         runConfig,
 			Approval:       approval,
 			Prepared:       prepared,
@@ -311,10 +315,11 @@ func Run(ctx context.Context, opts Options) (*RunResult, error) {
 			return result, fmt.Errorf("run trusted executor: %w; write run evidence: %v", err, evidenceErr)
 		}
 		result.RunEvidencePath = evidencePath
+		result.AsyncEvidencePath = asyncEvidencePath
 		return result, fmt.Errorf("run trusted executor: %w", err)
 	}
 	result.StagePath = prepared.StagePath
-	evidencePath, err := writeRunEvidenceWithAsync(result.WorkDir, runEvidenceOptions{
+	evidencePath, asyncEvidencePath, err := writeRunEvidenceWithAsync(result.WorkDir, runEvidenceOptions{
 		Config:         runConfig,
 		Approval:       approval,
 		Prepared:       prepared,
@@ -329,6 +334,7 @@ func Run(ctx context.Context, opts Options) (*RunResult, error) {
 		return nil, err
 	}
 	result.RunEvidencePath = evidencePath
+	result.AsyncEvidencePath = asyncEvidencePath
 	return result, nil
 }
 
@@ -429,15 +435,19 @@ func writeRunEvidence(workdir string, evidence RunEvidence) (string, error) {
 	return path, nil
 }
 
-func writeRunEvidenceWithAsync(workdir string, opts runEvidenceOptions) (string, error) {
+func writeRunEvidenceWithAsync(workdir string, opts runEvidenceOptions) (string, string, error) {
 	evidence := buildRunEvidence(opts)
 	bundle := buildAsyncEvidenceBundle(opts)
 	ref, err := writeAsyncEvidenceBundle(workdir, bundle)
 	if err != nil {
-		return "", err
+		return "", "", err
 	}
 	evidence.AsyncEvidenceFiles = []RunEvidenceAsyncFile{ref}
-	return writeRunEvidence(workdir, evidence)
+	evidencePath, err := writeRunEvidence(workdir, evidence)
+	if err != nil {
+		return "", "", err
+	}
+	return evidencePath, filepath.Join(workdir, ref.Path), nil
 }
 
 func writeAsyncEvidenceBundle(workdir string, bundle AsyncEvidenceBundle) (RunEvidenceAsyncFile, error) {
@@ -460,7 +470,7 @@ func writeAsyncEvidenceBundle(workdir string, bundle AsyncEvidenceBundle) (RunEv
 		return RunEvidenceAsyncFile{}, err
 	}
 	return RunEvidenceAsyncFile{
-		Path:    path,
+		Path:    filepath.Base(path),
 		Digest:  evdigest.SHA256Bytes(data).String(),
 		Records: len(bundle.Records),
 		Purpose: "openudon_run_async_execution_forwarding",

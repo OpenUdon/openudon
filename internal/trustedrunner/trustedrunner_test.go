@@ -43,7 +43,7 @@ func TestRunValidSandboxApprovalPassesDryRun(t *testing.T) {
 	if !result.DryRun || result.Scope != "examples/support-email" || result.PackageSHA256 == "" {
 		t.Fatalf("unexpected result: %+v", result)
 	}
-	if result.StagePath == "" || result.RunEvidencePath == "" {
+	if result.StagePath == "" || result.RunEvidencePath == "" || result.AsyncEvidencePath == "" {
 		t.Fatalf("dry-run did not stage package and write evidence: %+v", result)
 	}
 }
@@ -86,9 +86,12 @@ func TestRunDryRunStagesAndWritesEvidenceWithoutCredentialEnv(t *testing.T) {
 	if !stringSliceContains(evidence.CredentialEnvNames, "UDON_CREDENTIAL_SUPPORT_API_TOKEN") {
 		t.Fatalf("evidence missing credential env name: %#v", evidence.CredentialEnvNames)
 	}
-	ref, bundle := readReferencedAsyncEvidence(t, evidence)
-	if ref.Path != filepath.Join(result.WorkDir, "async-evidence.json") || ref.Records != 2 {
+	ref, bundle := readReferencedAsyncEvidence(t, result.WorkDir, evidence)
+	if ref.Path != "async-evidence.json" || ref.Records != 2 {
 		t.Fatalf("unexpected async evidence ref: %#v", ref)
+	}
+	if result.AsyncEvidencePath != filepath.Join(result.WorkDir, ref.Path) {
+		t.Fatalf("result async evidence path = %q, want workdir-relative ref %q", result.AsyncEvidencePath, ref.Path)
 	}
 	request := asyncExecutionRequest(t, bundle)
 	response := asyncExecutionResponse(t, bundle)
@@ -297,7 +300,7 @@ func TestRunNonDryRunWritesRunEvidence(t *testing.T) {
 	if evidence.StagePath == "" || evidence.WorkflowPath == "" || len(evidence.PackagePaths) == 0 {
 		t.Fatalf("evidence missing package staging fields: %#v", evidence)
 	}
-	_, bundle := readReferencedAsyncEvidence(t, evidence)
+	_, bundle := readReferencedAsyncEvidence(t, result.WorkDir, evidence)
 	request := asyncExecutionRequest(t, bundle)
 	response := asyncExecutionResponse(t, bundle)
 	if request.Transport["runner_mode"] != "internal-runner" || request.Transport["stage_kind"] != "executor" || request.Transport["dry_run"] != "false" {
@@ -349,7 +352,7 @@ func TestRunNonDryRunWritesFailureEvidence(t *testing.T) {
 	if evidence.StageKind != "executor" || !evidence.Executor.Invoked || runEvidenceGateStatus(evidence, "executor_invocation") != "fail" {
 		t.Fatalf("unexpected failure evidence: %#v", evidence)
 	}
-	_, bundle := readReferencedAsyncEvidence(t, evidence)
+	_, bundle := readReferencedAsyncEvidence(t, result.WorkDir, evidence)
 	response := asyncExecutionResponse(t, bundle)
 	if response.Outcome != "fatal_failure" || response.ErrorSummary == "" {
 		t.Fatalf("unexpected async failure response: %#v", response)
@@ -488,7 +491,7 @@ func TestRunNonDryRunInvokesRunner(t *testing.T) {
 	if strings.Join(evidence.Executor.Argv, "\n") != strings.Join(wantArgv, "\n") {
 		t.Fatalf("external runner evidence argv = %#v, want %#v", evidence.Executor.Argv, wantArgv)
 	}
-	_, bundle := readReferencedAsyncEvidence(t, evidence)
+	_, bundle := readReferencedAsyncEvidence(t, result.WorkDir, evidence)
 	request := asyncExecutionRequest(t, bundle)
 	if request.Transport["runner_mode"] != "external-runner" || request.Transport["stage_kind"] != "preflight" {
 		t.Fatalf("unexpected external async transport: %#v", request.Transport)
@@ -535,6 +538,15 @@ func TestRunExternalRunnerWritesFailureEvidence(t *testing.T) {
 	evidence := readRunEvidenceFile(t, result.RunEvidencePath)
 	if evidence.Executor.Mode != "external-runner" || evidence.StageKind != "preflight" || runEvidenceGateStatus(evidence, "executor_invocation") != "fail" {
 		t.Fatalf("unexpected external failure evidence: %#v", evidence)
+	}
+	_, bundle := readReferencedAsyncEvidence(t, result.WorkDir, evidence)
+	request := asyncExecutionRequest(t, bundle)
+	response := asyncExecutionResponse(t, bundle)
+	if request.Transport["runner_mode"] != "external-runner" || request.Transport["stage_kind"] != "preflight" {
+		t.Fatalf("unexpected external failure async transport: %#v", request.Transport)
+	}
+	if response.Outcome != "fatal_failure" || response.ErrorSummary == "" {
+		t.Fatalf("unexpected external failure async response: %#v", response)
 	}
 }
 
@@ -1944,7 +1956,7 @@ func readRunEvidenceFile(t *testing.T, path string) RunEvidence {
 	return evidence
 }
 
-func readReferencedAsyncEvidence(t *testing.T, evidence RunEvidence) (RunEvidenceAsyncFile, AsyncEvidenceBundle) {
+func readReferencedAsyncEvidence(t *testing.T, workdir string, evidence RunEvidence) (RunEvidenceAsyncFile, AsyncEvidenceBundle) {
 	t.Helper()
 	if len(evidence.AsyncEvidenceFiles) != 1 {
 		t.Fatalf("async evidence refs = %#v, want one", evidence.AsyncEvidenceFiles)
@@ -1953,7 +1965,7 @@ func readReferencedAsyncEvidence(t *testing.T, evidence RunEvidence) (RunEvidenc
 	if ref.Purpose != "openudon_run_async_execution_forwarding" {
 		t.Fatalf("unexpected async evidence purpose: %#v", ref)
 	}
-	data, err := os.ReadFile(ref.Path)
+	data, err := os.ReadFile(filepath.Join(workdir, ref.Path))
 	if err != nil {
 		t.Fatal(err)
 	}

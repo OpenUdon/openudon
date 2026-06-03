@@ -302,7 +302,7 @@ func runTrustedCommand(args []string) {
 	dryRun := fs.Bool("dry-run", false, "Validate gates, stage the package, verify the staged digest, and write run evidence without invoking the executor")
 	fs.Usage = func() {
 		fmt.Fprintf(fs.Output(), "Usage: openudon run --example examples/<name> --tier sandbox|production --approval approvals/<name>.json [--workdir .openudon-run/<name>] [--dry-run]\n")
-		fmt.Fprintf(fs.Output(), "\nValidates the OpenUdon handoff package, current quality gates, approval scope, approval digest, tier/state compatibility, runner config, package staging, and staged digest before writing %s run evidence and invoking the trusted executor runner.\n", trustedrunner.RunEvidenceVersion)
+		fmt.Fprintf(fs.Output(), "\nValidates the OpenUdon handoff package, current quality gates, approval scope, approval digest, tier/state compatibility, runner config, package staging, and staged digest before writing %s run evidence, an async evidence sidecar, and invoking the trusted executor runner.\n", trustedrunner.RunEvidenceVersion)
 		fmt.Fprintf(fs.Output(), "\nTier rules:\n")
 		fmt.Fprintf(fs.Output(), "  sandbox accepts approved_for_sandbox or approved_for_production\n")
 		fmt.Fprintf(fs.Output(), "  production accepts approved_for_production only\n\n")
@@ -336,6 +336,9 @@ func runTrustedCommand(args []string) {
 	fmt.Printf("  workflow: %s\n", result.WorkflowPath)
 	fmt.Printf("  config:   %s\n", result.RunConfigPath)
 	fmt.Printf("  evidence: %s\n", result.RunEvidencePath)
+	if strings.TrimSpace(result.AsyncEvidencePath) != "" {
+		fmt.Printf("  async:    %s\n", result.AsyncEvidencePath)
+	}
 	fmt.Printf("  workdir:  %s\n", result.WorkDir)
 	fmt.Printf("  stage:    %s\n", result.StagePath)
 	fmt.Printf("  digest:   %s\n", result.PackageSHA256)

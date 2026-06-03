@@ -103,6 +103,64 @@ response records for OpenUdon package handoff audit only; it does not interpret 
 store credential values or raw executor output. `OPENUDON_EXECUTOR` selects the final executor as an
 absolute binary path or `docker://<image>`.
 
+The run evidence sidecar reference is workdir-relative so ignored run directories can be archived
+without rewriting paths:
+
+```json
+{
+  "async_evidence_files": [
+    {
+      "path": "async-evidence.json",
+      "digest": "sha256:...",
+      "records": 2,
+      "purpose": "openudon_run_async_execution_forwarding"
+    }
+  ]
+}
+```
+
+The sidecar bundle contains one execution request and one execution response:
+
+```json
+{
+  "version": "openudon.async-evidence-bundle.v1",
+  "records": [
+    {
+      "kind": "execution_request",
+      "execution_request": {
+        "version": "evidence.async.execution-request.v1",
+        "attempt": {
+          "evidence_id": "examples.support-email.abc123.request",
+          "attempt_id": "examples.support-email.abc123",
+          "source": "openudon.trustedrunner"
+        },
+        "operation": {
+          "subject_kind": "openudon_package",
+          "subject_id": "examples/support-email",
+          "action": "run",
+          "source_kind": "uws",
+          "operation_id": "workflows/workflow.uws.yaml"
+        },
+        "transport": {
+          "runner_mode": "dry-run",
+          "stage_kind": "dry-run",
+          "tier": "sandbox",
+          "dry_run": "true"
+        }
+      }
+    },
+    {
+      "kind": "execution_response",
+      "execution_response": {
+        "version": "evidence.async.execution-response.v1",
+        "request_evidence_id": "examples.support-email.abc123.request",
+        "outcome": "accepted"
+      }
+    }
+  ]
+}
+```
+
 If `OPENUDON_UDON_RUNNER` overrides the outer runner shim, OpenUdon evidence marks the staged path as
 `stage_kind: preflight`. That proves OpenUdon's package validation before handing the config to the
 external runner; the external runner still owns its final executor-visible stage and invocation.
