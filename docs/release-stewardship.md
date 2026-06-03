@@ -71,6 +71,21 @@ go run ./cmd/openudon run-evidence verify --file <archive>/run-evidence.json
 The executor report is non-secret status metadata. Do not archive credential
 values or raw executor stdout/stderr as release evidence.
 
+To run the consolidated provider-free evidence flow, use:
+
+```bash
+go run ./cmd/openudon release-evidence
+# or
+make release-evidence
+```
+
+This builds the sibling udon CLI, runs the local runtime-only smoke, archives
+and verifies the emitted evidence bundle, drafts release-note evidence, and
+writes JSON/Markdown summaries under ignored `.openudon-run/release-evidence/`.
+It does not tag, publish, commit artifacts, or run live providers. Add
+repeatable gate notes with `--gate "go test ./...=pass"` when capturing a
+specific release candidate.
+
 Run the eval seed/build matrix directly when changing authoring fixtures or
 reference intents:
 

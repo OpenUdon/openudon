@@ -340,6 +340,7 @@ Use release gates only for candidate release evidence:
 ```bash
 make eval-seed-build
 make release-saas-check
+make release-evidence
 make release-eval
 ```
 
@@ -352,6 +353,11 @@ authoring-eval` separately for optional real LLM natural-language authoring evid
 
 `make release-eval` uses `OPENUDON_LLM_PROVIDER` and `OPENUDON_LLM_MODEL`, defaulting to `copilot-api` and
 `gpt-5.4-mini`, and requires the current eval corpus size as the minimum brief count.
+
+`make release-evidence` runs the local udon smoke, archives and verifies
+`run-evidence.json` plus async/executor report sidecars, drafts local release
+notes, and writes compact summaries under ignored `.openudon-run/release-evidence/`.
+It does not tag, publish, commit artifacts, or contact live providers.
 
 ## Readiness
 

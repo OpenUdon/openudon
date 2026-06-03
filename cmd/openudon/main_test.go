@@ -56,11 +56,32 @@ func TestCLIHelpIncludesReleaseAndLocalSmokeCommands(t *testing.T) {
 	}
 	text := string(output)
 	for _, expected := range []string{
+		"release-evidence run local udon smoke",
 		"release-notes draft local release evidence notes",
 		"local-udon-smoke build sibling udon",
 	} {
 		if !strings.Contains(text, expected) {
 			t.Fatalf("help missing %q:\n%s", expected, text)
+		}
+	}
+}
+
+func TestCLIReleaseEvidenceHelp(t *testing.T) {
+	cmd := helperCommand("release-evidence", "--help")
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		t.Fatalf("release-evidence help failed: %v\n%s", err, output)
+	}
+	text := string(output)
+	for _, expected := range []string{
+		"Usage: openudon release-evidence",
+		"--udon-repo",
+		"--workdir",
+		"--gate",
+		"does not tag, publish, or commit",
+	} {
+		if !strings.Contains(text, expected) {
+			t.Fatalf("release-evidence help missing %q:\n%s", expected, text)
 		}
 	}
 }

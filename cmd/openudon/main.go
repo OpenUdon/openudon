@@ -18,6 +18,7 @@ import (
 	"github.com/OpenUdon/openudon/internal/localcheck"
 	"github.com/OpenUdon/openudon/internal/n8nbridge"
 	"github.com/OpenUdon/openudon/internal/readiness"
+	"github.com/OpenUdon/openudon/internal/releaseevidence"
 	"github.com/OpenUdon/openudon/internal/smokematrix"
 	"github.com/OpenUdon/openudon/internal/synthesize"
 	"github.com/OpenUdon/openudon/internal/trustedrunner"
@@ -43,6 +44,7 @@ func main() {
 		fmt.Fprintf(flag.CommandLine.Output(), "  local-udon-smoke build sibling udon and run provider-free executor smoke\n")
 		fmt.Fprintf(flag.CommandLine.Output(), "  promote   export/validate UWS from an existing workflow.hcl\n")
 		fmt.Fprintf(flag.CommandLine.Output(), "  readiness write local private-checkout and deterministic-gate readiness report\n")
+		fmt.Fprintf(flag.CommandLine.Output(), "  release-evidence run local udon smoke, archive, and release-note evidence flow\n")
 		fmt.Fprintf(flag.CommandLine.Output(), "  release-notes draft local release evidence notes from run evidence\n")
 		fmt.Fprintf(flag.CommandLine.Output(), "  run       validate approval gates and invoke a trusted executor handoff\n")
 		fmt.Fprintf(flag.CommandLine.Output(), "  run-evidence verify/archive run evidence and async sidecar digests\n")
@@ -104,6 +106,8 @@ func main() {
 		runN8nBridgeCommand(flag.Args()[1:])
 	case "readiness":
 		runReadinessCommand(flag.Args()[1:])
+	case "release-evidence":
+		runReleaseEvidenceCommand(flag.Args()[1:])
 	case "version":
 		fmt.Println(version)
 	case "-h", "--help", "help":
@@ -112,6 +116,53 @@ func main() {
 		fmt.Fprintf(os.Stderr, "unknown command %q\n", command)
 		flag.Usage()
 		os.Exit(2)
+	}
+}
+
+func runReleaseEvidenceCommand(args []string) {
+	fs := flag.NewFlagSet("release-evidence", flag.ExitOnError)
+	udonRepo := fs.String("udon-repo", "../udon", "Sibling udon repository to build")
+	workdir := fs.String("workdir", ".openudon-run/release-evidence", "Local release evidence work directory")
+	archiveDir := fs.String("archive-dir", "", "Archive directory, default <workdir>/archive")
+	releaseNotes := fs.String("release-notes", "", "Release-note draft path, default <workdir>/release-notes.md")
+	summaryJSON := fs.String("summary-json", "", "Summary JSON path, default <workdir>/summary.json")
+	summaryMD := fs.String("summary-md", "", "Summary Markdown path, default <workdir>/summary.md")
+	var gates repeatedStringFlag
+	fs.Var(&gates, "gate", "Repeatable gate result entry such as 'go test ./...=pass'")
+	fs.Usage = func() {
+		fmt.Fprintf(fs.Output(), "Usage: openudon release-evidence [--udon-repo ../udon] [--workdir .openudon-run/release-evidence] [--gate name=status]\n\n")
+		fmt.Fprintf(fs.Output(), "Runs the provider-free local udon smoke, archives and verifies run evidence, drafts release notes, and writes local JSON/Markdown release-evidence summaries. It does not tag, publish, or commit artifacts.\n\n")
+		fs.PrintDefaults()
+	}
+	if err := fs.Parse(args); err != nil {
+		os.Exit(2)
+	}
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer stop()
+	summary, err := releaseevidence.Run(ctx, releaseevidence.Options{
+		RepoRoot:     ".",
+		UdonRepo:     *udonRepo,
+		WorkDir:      *workdir,
+		ArchiveDir:   *archiveDir,
+		ReleaseNotes: *releaseNotes,
+		SummaryJSON:  *summaryJSON,
+		SummaryMD:    *summaryMD,
+		Gates:        []string(gates),
+	})
+	if summary != nil {
+		fmt.Printf("openudon release-evidence: %s\n", summary.Status)
+		fmt.Printf("  summary:  %s\n", summary.SummaryJSON)
+		fmt.Printf("  markdown: %s\n", summary.SummaryMD)
+		if strings.TrimSpace(summary.ReleaseNotes) != "" {
+			fmt.Printf("  notes:    %s\n", summary.ReleaseNotes)
+		}
+		if strings.TrimSpace(summary.ArchivedRun) != "" {
+			fmt.Printf("  evidence: %s\n", summary.ArchivedRun)
+		}
+	}
+	if err != nil {
+		fmt.Fprintln(os.Stderr, err)
+		os.Exit(1)
 	}
 }
 
