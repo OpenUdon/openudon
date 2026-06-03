@@ -76,6 +76,9 @@ go run ./cmd/icot repair --example ./examples/<name> --dry-run --json
 
 # Replay eval fixtures with prompt-mode and repair metrics.
 go run ./cmd/icot replay-eval --root examples/eval --prompt-mode fast --review-repair
+
+# Run the focused local replay repair gate.
+make icot-replay-repair-check
 ```
 
 See [iCoT Session Files](icot-session-schema.md) for the accepted `--answers` shapes and

@@ -1,6 +1,8 @@
 package elicitor
 
 import (
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -127,7 +129,133 @@ func TestApplyDraftReviewRemediationsRejectsAPIPrework(t *testing.T) {
 		GapKind:           flowGapMissingAPIPrework,
 		RemediationAction: remediationProposeAPIPrework,
 	}})
-	if changed || len(rejected) != 1 || !strings.Contains(rejected[0], "api prework remediation is not implemented") {
+	if changed || len(rejected) != 1 || !strings.Contains(rejected[0], "no safe read-only producer operation") {
+		t.Fatalf("changed=%v rejected=%v", changed, rejected)
+	}
+}
+
+func TestApplyDraftReviewRemediationsAddsSafeAPIPrework(t *testing.T) {
+	root := t.TempDir()
+	openAPIPath := filepath.Join(root, "support.yaml")
+	if err := os.WriteFile(openAPIPath, []byte(`openapi: 3.0.0
+paths:
+  /customers/current:
+    get:
+      operationId: getCurrentCustomer
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  customerId:
+                    type: string
+  /tickets:
+    post:
+      operationId: updateTicket
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  id:
+                    type: string
+`), 0o644); err != nil {
+		t.Fatalf("write openapi: %v", err)
+	}
+	session := Session{Intent: rollout.Intent{Steps: []*rollout.Step{{
+		Name:      "update_ticket",
+		Type:      "http",
+		Source:    "openapi/support.yaml",
+		OpenAPI:   "openapi/support.yaml",
+		Operation: "updateTicket",
+	}}}}
+	docs := []APIDocument{{
+		Path:         openAPIPath,
+		RelativePath: "openapi/support.yaml",
+		Operations: []apitools.OperationSummary{{
+			OperationID: "getCurrentCustomer",
+			Method:      "GET",
+			Path:        "/customers/current",
+		}, {
+			OperationID: "updateTicket",
+			Method:      "POST",
+			Path:        "/tickets",
+		}},
+	}}
+
+	changed, rejected := applyDraftReviewRemediations(&session, []DraftReviewIssue{{
+		Code:              "missing_lookup",
+		Message:           "Resolve the customer id with an API lookup before update.",
+		Slot:              "steps.update_ticket.with.customerId",
+		GapKind:           flowGapMissingAPIPrework,
+		RemediationAction: remediationProposeAPIPrework,
+	}}, docs)
+	if !changed || len(rejected) != 0 {
+		t.Fatalf("changed=%v rejected=%v", changed, rejected)
+	}
+	if len(session.Intent.Steps) != 2 || session.Intent.Steps[0].Operation != "getCurrentCustomer" {
+		t.Fatalf("steps = %#v", session.Intent.Steps)
+	}
+	update := session.Intent.Steps[1]
+	if update.With["customerId"] != "lookup_customerId.received_body.customerId" || len(update.DependsOn) != 1 || update.DependsOn[0] != "lookup_customerId" {
+		t.Fatalf("update step = %#v", update)
+	}
+}
+
+func TestApplyDraftReviewRemediationsRejectsCredentialedAPIPrework(t *testing.T) {
+	root := t.TempDir()
+	openAPIPath := filepath.Join(root, "support.yaml")
+	if err := os.WriteFile(openAPIPath, []byte(`openapi: 3.0.0
+paths:
+  /customers/current:
+    get:
+      operationId: getCurrentCustomer
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  customerId:
+                    type: string
+`), 0o644); err != nil {
+		t.Fatalf("write openapi: %v", err)
+	}
+	session := Session{Intent: rollout.Intent{Steps: []*rollout.Step{{
+		Name:      "update_ticket",
+		Type:      "http",
+		Source:    "openapi/support.yaml",
+		OpenAPI:   "openapi/support.yaml",
+		Operation: "updateTicket",
+	}}}}
+	docs := []APIDocument{{
+		Path:         openAPIPath,
+		RelativePath: "openapi/support.yaml",
+		Operations: []apitools.OperationSummary{{
+			OperationID: "getCurrentCustomer",
+			Method:      "GET",
+			Path:        "/customers/current",
+			Security: []apitools.SecuritySummary{{
+				Name: "support_api_key",
+				Type: "apiKey",
+				In:   "header",
+			}},
+		}},
+	}}
+
+	changed, rejected := applyDraftReviewRemediations(&session, []DraftReviewIssue{{
+		Code:              "missing_lookup",
+		Message:           "Resolve the customer id with an API lookup before update.",
+		Slot:              "steps.update_ticket.with.customerId",
+		GapKind:           flowGapMissingAPIPrework,
+		RemediationAction: remediationProposeAPIPrework,
+	}}, docs)
+	if changed || len(rejected) != 1 || !strings.Contains(rejected[0], "no safe read-only producer operation") {
 		t.Fatalf("changed=%v rejected=%v", changed, rejected)
 	}
 }
@@ -204,5 +332,80 @@ func TestApplyDraftReviewRemediationsUsesResponseFieldsWhenAvailable(t *testing.
 	}
 	if got := session.Intent.Outputs[0].Name; got != "audit_receipt" {
 		t.Fatalf("output name = %q", got)
+	}
+}
+
+func TestApplyDraftReviewRemediationsUsesNestedRefResponseFields(t *testing.T) {
+	root := t.TempDir()
+	openAPIPath := filepath.Join(root, "pagerduty.yaml")
+	if err := os.WriteFile(openAPIPath, []byte(`openapi: 3.0.0
+paths:
+  /users/current:
+    get:
+      operationId: getUser
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserEnvelope'
+components:
+  schemas:
+    UserEnvelope:
+      type: object
+      properties:
+        user:
+          type: object
+          properties:
+            id:
+              type: string
+            email:
+              type: string
+            teams:
+              type: array
+              items:
+                type: object
+                properties:
+                  name:
+                    type: string
+`), 0o644); err != nil {
+		t.Fatalf("write openapi: %v", err)
+	}
+	session := Session{
+		Project: projectwizard.Answers{Goal: "Fetch one user and render a contact card."},
+		Intent: rollout.Intent{
+			Source:   "openapi/pagerduty.yaml",
+			Workflow: &rollout.WorkflowMeta{Name: "contact_card", Description: "Fetch one user and render a contact card."},
+			Steps: []*rollout.Step{{
+				Name:      "get_user",
+				Type:      "http",
+				Source:    "openapi/pagerduty.yaml",
+				Operation: "getUser",
+			}},
+			Outputs: []*rollout.Output{{Name: "result", From: "get_user.received_body"}},
+		},
+	}
+	docs := []APIDocument{{
+		Path:         openAPIPath,
+		RelativePath: "openapi/pagerduty.yaml",
+		Operations: []apitools.OperationSummary{{
+			OperationID: "getUser",
+			Method:      "GET",
+			Path:        "/users/current",
+		}},
+	}}
+	changed, rejected := applyDraftReviewRemediations(&session, []DraftReviewIssue{{
+		Code:              "output_transport_response",
+		Message:           "The output returns the raw transport response instead of the requested contact card.",
+		Slot:              "intent.outputs.result",
+		GapKind:           flowGapMissingTransformStep,
+		RemediationAction: remediationProposeFnctStep,
+	}}, docs)
+	if !changed || len(rejected) != 0 {
+		t.Fatalf("changed=%v rejected=%v", changed, rejected)
+	}
+	fnct := session.Intent.Steps[1]
+	if len(fnct.Binds) != 1 || fnct.Binds[0].Fields["user_id"] != "received_body.user.id" || fnct.Binds[0].Fields["user_email"] != "received_body.user.email" || fnct.Binds[0].Fields["user_teams_name"] != "received_body.user.teams.name" {
+		t.Fatalf("fnct binds = %#v", fnct.Binds)
 	}
 }

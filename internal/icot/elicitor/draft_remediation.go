@@ -22,7 +22,15 @@ func applyDraftReviewRemediations(session *Session, issues []DraftReviewIssue, d
 	changed, rejected := applyDraftReviewRepairs(session, repairableDraftReviewIssues(sanitized))
 	for _, issue := range sanitized {
 		if issue.RemediationAction == remediationProposeAPIPrework {
-			rejected = append(rejected, firstNonEmpty(issue.Slot, issue.Code)+" (api prework remediation is not implemented for review repair yet)")
+			applied, reason := applyDraftReviewAPIPreworkRemediation(session, issue, apiDocs)
+			if applied {
+				changed = true
+				continue
+			}
+			if reason == "" {
+				reason = "api prework remediation requires one safe read-only local operation"
+			}
+			rejected = append(rejected, firstNonEmpty(issue.Slot, issue.Code)+" ("+reason+")")
 			continue
 		}
 		if issue.RemediationAction != remediationProposeFnctStep {
@@ -106,6 +114,121 @@ func applyDraftReviewFnctRemediation(session *Session, issue DraftReviewIssue, d
 		RequiresConfirmation: true,
 	})
 	return true, ""
+}
+
+func applyDraftReviewAPIPreworkRemediation(session *Session, issue DraftReviewIssue, docs []APIDocument) (bool, string) {
+	if session == nil {
+		return false, "missing session"
+	}
+	sink, field := sinkStepAndFieldForIssue(session, issue)
+	if sink == nil || strings.TrimSpace(field) == "" {
+		return false, "missing target step or request field"
+	}
+	candidates := apiPreworkCandidates(docs, sink, field)
+	if len(candidates) != 1 {
+		if len(candidates) == 0 {
+			return false, "no safe read-only producer operation"
+		}
+		return false, "ambiguous read-only producer operation"
+	}
+	candidate := candidates[0]
+	name := uniqueStepName(session.Intent.Steps, "lookup_"+slugIdent(field))
+	prework := &rollout.Step{
+		Name:      name,
+		Type:      "http",
+		Source:    candidate.docRef,
+		OpenAPI:   openAPIAliasForDocRef(candidate.docRef),
+		Operation: candidate.op.OperationID,
+		Do:        fmt.Sprintf("Read %s before %s so %s can be request-bound from local API metadata.", candidate.op.OperationID, sink.Name, field),
+	}
+	insertStepBefore(session, sink, prework)
+	sink.DependsOn = appendUniqueString(sink.DependsOn, prework.Name)
+	if sink.With == nil {
+		sink.With = map[string]string{}
+	}
+	sink.With[field] = prework.Name + ".received_body." + candidate.fieldPath
+	addDecisionEvidence(session, DecisionEvidence{
+		Stage:                decisionStageDraftReview,
+		Slot:                 "steps." + prework.Name,
+		Value:                prework.Operation,
+		Source:               mappingSourceDeterministic,
+		Confidence:           mappingConfidenceReview,
+		Reason:               "Added a read-only API prework step because the pre-final flow review found a missing request field and exactly one local operation could produce it without required inputs.",
+		Evidence:             issue.Message,
+		RequiresConfirmation: true,
+	})
+	return true, ""
+}
+
+type apiPreworkCandidate struct {
+	docRef    string
+	op        apitools.OperationSummary
+	fieldPath string
+}
+
+func apiPreworkCandidates(docs []APIDocument, sink *rollout.Step, field string) []apiPreworkCandidate {
+	var out []apiPreworkCandidate
+	for _, doc := range docs {
+		docRef := firstNonEmpty(doc.RelativePath, doc.Path)
+		for _, op := range doc.Operations {
+			if strings.TrimSpace(op.OperationID) == "" || strings.EqualFold(op.OperationID, sink.Operation) {
+				continue
+			}
+			if !readOnlyOperation(op) || operationHasRequiredInputs(op) || operationRequiresSecurity(op) {
+				continue
+			}
+			for _, responseField := range responseFieldPathsForOperation(doc, op) {
+				if responseFieldMatchesRequestField(responseField, field) {
+					out = append(out, apiPreworkCandidate{docRef: docRef, op: op, fieldPath: responseField})
+					break
+				}
+			}
+		}
+	}
+	return out
+}
+
+func readOnlyOperation(op apitools.OperationSummary) bool {
+	switch strings.ToUpper(strings.TrimSpace(op.Method)) {
+	case "GET", "HEAD":
+		return true
+	default:
+		return false
+	}
+}
+
+func operationHasRequiredInputs(op apitools.OperationSummary) bool {
+	for _, param := range op.Parameters {
+		if param.Required {
+			return true
+		}
+	}
+	return op.RequestBody != nil && op.RequestBody.Required
+}
+
+func operationRequiresSecurity(op apitools.OperationSummary) bool {
+	return len(op.Security) > 0
+}
+
+func responseFieldMatchesRequestField(responseField, requestField string) bool {
+	left := slugIdent(lastPathPart(responseField))
+	right := slugIdent(lastPathPart(requestField))
+	return left != "" && left == right
+}
+
+func lastPathPart(path string) string {
+	parts := strings.Split(strings.TrimSpace(path), ".")
+	if len(parts) == 0 {
+		return ""
+	}
+	return parts[len(parts)-1]
+}
+
+func openAPIAliasForDocRef(ref string) string {
+	if strings.HasPrefix(strings.TrimSpace(ref), "openapi/") {
+		return ref
+	}
+	return ""
 }
 
 func fnctRemediationInputBindings(session Session, docs []APIDocument, producer *rollout.Step) (map[string]string, []*rollout.StepBind) {
@@ -367,7 +490,14 @@ func responseFieldPathsForStep(session Session, docs []APIDocument, step *rollou
 	if !ok || strings.TrimSpace(doc.Path) == "" {
 		return nil
 	}
-	return openAPIResponseFieldPaths(doc.Path, *op)
+	return responseFieldPathsForOperation(doc, *op)
+}
+
+func responseFieldPathsForOperation(doc APIDocument, op apitools.OperationSummary) []string {
+	if strings.TrimSpace(doc.Path) == "" {
+		return nil
+	}
+	return openAPIResponseFieldPaths(doc.Path, op)
 }
 
 func openAPIResponseFieldPaths(path string, op apitools.OperationSummary) []string {
@@ -386,45 +516,62 @@ func openAPIResponseFieldPaths(path string, op apitools.OperationSummary) []stri
 		return nil
 	}
 	responses := anyMap(operation["responses"])
+	components := anyMap(root["components"])
+	definitions := anyMap(root["definitions"])
 	for _, code := range []string{"200", "201", "202", "default"} {
 		response := anyMap(responses[code])
 		if len(response) == 0 {
 			continue
 		}
-		if fields := responseFieldsFromResponse(response); len(fields) > 0 {
+		if fields := responseFieldsFromResponse(response, components, definitions); len(fields) > 0 {
 			return fields
 		}
 	}
 	return nil
 }
 
-func responseFieldsFromResponse(response map[string]any) []string {
+func responseFieldsFromResponse(response, components, definitions map[string]any) []string {
 	content := anyMap(response["content"])
 	for _, contentType := range []string{"application/json", "application/*+json"} {
 		mediaType := anyMap(content[contentType])
 		if len(mediaType) == 0 {
 			continue
 		}
-		if fields := responseFieldsFromSchema(anyMap(mediaType["schema"])); len(fields) > 0 {
+		if fields := responseFieldsFromSchema(anyMap(mediaType["schema"]), components, definitions, "", 0); len(fields) > 0 {
 			return fields
 		}
 	}
 	for _, raw := range content {
 		mediaType := anyMap(raw)
-		if fields := responseFieldsFromSchema(anyMap(mediaType["schema"])); len(fields) > 0 {
+		if fields := responseFieldsFromSchema(anyMap(mediaType["schema"]), components, definitions, "", 0); len(fields) > 0 {
 			return fields
 		}
+	}
+	if fields := responseFieldsFromSchema(anyMap(response["schema"]), components, definitions, "", 0); len(fields) > 0 {
+		return fields
 	}
 	return nil
 }
 
-func responseFieldsFromSchema(schema map[string]any) []string {
+func responseFieldsFromSchema(schema, components, definitions map[string]any, prefix string, depth int) []string {
+	if depth > 4 {
+		return nil
+	}
+	if ref := strings.TrimSpace(fmt.Sprint(schema["$ref"])); ref != "" {
+		if resolved := resolveLocalResponseSchemaRef(ref, components, definitions); len(resolved) > 0 {
+			return responseFieldsFromSchema(resolved, components, definitions, prefix, depth+1)
+		}
+	}
+	if items := anyMap(schema["items"]); len(items) > 0 {
+		return responseFieldsFromSchema(items, components, definitions, prefix, depth+1)
+	}
 	properties := anyMap(schema["properties"])
 	if len(properties) == 0 {
 		return nil
 	}
 	var fields []string
-	for name, raw := range properties {
+	for _, name := range sortedAnyMapKeys(properties) {
+		raw := properties[name]
 		if len(fields) >= 8 {
 			break
 		}
@@ -432,12 +579,42 @@ func responseFieldsFromSchema(schema map[string]any) []string {
 			continue
 		}
 		fieldSchema := anyMap(raw)
+		path := joinResponsePath(prefix, name)
+		if nested := responseFieldsFromSchema(fieldSchema, components, definitions, path, depth+1); len(nested) > 0 {
+			fields = append(fields, nested...)
+			continue
+		}
 		if typ := strings.TrimSpace(fmt.Sprint(fieldSchema["type"])); typ != "" && !safeScalarType(typ) {
 			continue
 		}
-		fields = append(fields, name)
+		fields = append(fields, path)
 	}
 	return dedupeStrings(fields)
+}
+
+func resolveLocalResponseSchemaRef(ref string, components, definitions map[string]any) map[string]any {
+	switch {
+	case strings.HasPrefix(ref, "#/components/schemas/"):
+		name := strings.TrimPrefix(ref, "#/components/schemas/")
+		return anyMap(anyMap(components["schemas"])[name])
+	case strings.HasPrefix(ref, "#/definitions/"):
+		name := strings.TrimPrefix(ref, "#/definitions/")
+		return anyMap(definitions[name])
+	default:
+		return nil
+	}
+}
+
+func joinResponsePath(prefix, name string) string {
+	prefix = strings.TrimSpace(prefix)
+	name = strings.TrimSpace(name)
+	if prefix == "" {
+		return name
+	}
+	if name == "" {
+		return prefix
+	}
+	return prefix + "." + name
 }
 
 func anyMap(value any) map[string]any {

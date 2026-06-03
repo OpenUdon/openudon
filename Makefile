@@ -1,4 +1,4 @@
-.PHONY: help test vet check apitools-boundary readiness release-check release-saas-check release-evidence release-eval eval-seed-build icot-authoring-scorecard icot-variants-validate icot-variants-coverage product-smoke-check product-smoke-live siblings validate-uws eval synthesize-support build-support promote-support assess-support
+.PHONY: help test vet check apitools-boundary readiness release-check release-saas-check release-evidence release-eval eval-seed-build icot-authoring-scorecard icot-replay-repair-check icot-variants-validate icot-variants-coverage product-smoke-check product-smoke-live siblings validate-uws eval synthesize-support build-support promote-support assess-support
 
 GO ?= go
 OPENUDON_LLM_PROVIDER ?= copilot-api
@@ -8,9 +8,11 @@ OPENUDON_RELEASE_SITE_DIR ?= /tmp/openudon-mkdocs-release
 OPENUDON_RELEASE_DEMO_ROOT ?= .openudon-run/release-saas-check
 OPENUDON_RELEASE_SAAS_FIXTURES ?= slack-message-audit-log gmail-send-audit-receipt itops-slack-jira-issue-intake itops-incident-response-archive order-fulfillment-chain weather-toronto
 OPENUDON_RELEASE_DEMO_FIXTURES ?= gmail-send-audit-receipt order-fulfillment-chain
+OPENUDON_ICOT_REPLAY_REPAIR_FIXTURES ?= m28-gmail-audit-receipt m28-ambiguous-source-negative
+OPENUDON_ICOT_REPLAY_REPAIR_OUT_DIR ?= eval/runs/icot-replay-repair-local
 
 help:
-	@echo "Targets: test, vet, check, readiness, release-check, release-saas-check, release-evidence, release-eval, eval-seed-build, icot-authoring-scorecard, icot-variants-validate, icot-variants-coverage, product-smoke-check, product-smoke-live, siblings, validate-uws, eval, synthesize-support, build-support, promote-support, assess-support"
+	@echo "Targets: test, vet, check, readiness, release-check, release-saas-check, release-evidence, release-eval, eval-seed-build, icot-authoring-scorecard, icot-replay-repair-check, icot-variants-validate, icot-variants-coverage, product-smoke-check, product-smoke-live, siblings, validate-uws, eval, synthesize-support, build-support, promote-support, assess-support"
 
 test:
 	$(GO) test ./...
@@ -69,6 +71,13 @@ eval-seed-build:
 icot-authoring-scorecard:
 	$(GO) run ./cmd/icot scorecard --root examples/eval --include-variants --out eval/runs/icot-authoring-scorecard-local
 	$(GO) run ./cmd/icot report verify --file eval/runs/icot-authoring-scorecard-local/scorecard.json
+
+icot-replay-repair-check:
+	rm -rf "$(OPENUDON_ICOT_REPLAY_REPAIR_OUT_DIR)"
+	mkdir -p "$(OPENUDON_ICOT_REPLAY_REPAIR_OUT_DIR)"
+	set -e; for fixture in $(OPENUDON_ICOT_REPLAY_REPAIR_FIXTURES); do \
+		$(GO) run ./cmd/icot replay-eval --root examples/eval --name "$$fixture" --provider $(OPENUDON_LLM_PROVIDER) --model $(OPENUDON_LLM_MODEL) --prompt-mode fast --review-repair --out-dir "$(OPENUDON_ICOT_REPLAY_REPAIR_OUT_DIR)/$$fixture"; \
+	done
 
 icot-variants-validate:
 	$(GO) run ./cmd/icot variants validate --root examples/eval
