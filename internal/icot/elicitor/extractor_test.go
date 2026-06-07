@@ -271,6 +271,25 @@ func TestDraftPromptRequestIncludesFullCatalogButOnlySelectedDetails(t *testing.
 	}
 }
 
+func TestDraftPromptRequestIncludesLifecycleHints(t *testing.T) {
+	request := lifecycleDraftRequest()
+	payload := draftPromptRequest(request)
+	hints := payload["lifecycle_hints"].([]operationLifecyclePromptHint)
+	if got := lifecycleHintRoleIDs(hints); strings.Join(got, ",") != "create:createWidget,read:getWidget,update:patchWidget,delete:deleteWidget" {
+		t.Fatalf("lifecycle hints = %#v", hints)
+	}
+	if len(request.Session.Intent.Steps) != 1 || request.Session.Intent.Steps[0].Operation != "createWidget" {
+		t.Fatalf("draft request mutated workflow steps: %#v", request.Session.Intent.Steps)
+	}
+}
+
+func TestDraftDetailRefsPrefetchLifecycleSiblings(t *testing.T) {
+	refs := draftDetailRefs(lifecycleDraftRequest(), nil)
+	if got := operationRefIDs(refs); strings.Join(got, ",") != "createWidget,getWidget,patchWidget,deleteWidget" {
+		t.Fatalf("detail refs = %#v", got)
+	}
+}
+
 func TestDraftDetailLoopFetchesRequestedOperationBeforeDraft(t *testing.T) {
 	chat := &sequenceChat{responses: []string{
 		`{"requested_operation_ids":["geocodeCity"],"detail_request_reason":"Need coordinates before weather lookup."}`,
@@ -309,6 +328,40 @@ func TestDraftDetailLoopFetchesRequestedOperationBeforeDraft(t *testing.T) {
 	if len(session.DraftEvents) != 2 || session.DraftEvents[0].Kind != "operation_detail_request" || session.DraftEvents[1].Kind != "operation_detail_fulfilled" {
 		t.Fatalf("draft events = %#v", session.DraftEvents)
 	}
+}
+
+func lifecycleDraftRequest() DraftRequest {
+	return DraftRequest{
+		Opening: "Create, read, update, and delete a widget.",
+		Session: Session{Intent: rollout.Intent{
+			OpenAPI: "openapi/widgets.yaml",
+			Steps: []*rollout.Step{{
+				Name:      "create_widget",
+				Type:      "http",
+				OpenAPI:   "openapi/widgets.yaml",
+				Operation: "createWidget",
+			}},
+		}},
+		Docs: []APIDocument{{
+			ID:           "widgets",
+			RelativePath: "openapi/widgets.yaml",
+			Title:        "Widget API",
+			Operations: []apitools.OperationSummary{
+				{OperationID: "createWidget", Method: "POST", Path: "/widgets"},
+				{OperationID: "getWidget", Method: "GET", Path: "/widgets/{id}"},
+				{OperationID: "patchWidget", Method: "PATCH", Path: "/widgets/{id}"},
+				{OperationID: "deleteWidget", Method: "DELETE", Path: "/widgets/{id}"},
+			},
+		}},
+	}
+}
+
+func lifecycleHintRoleIDs(hints []operationLifecyclePromptHint) []string {
+	var out []string
+	for _, hint := range hints {
+		out = append(out, hint.Role+":"+hint.OperationID)
+	}
+	return out
 }
 
 func TestDraftDetailLoopRejectsUnknownRequestedOperationIDs(t *testing.T) {
