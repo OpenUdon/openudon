@@ -244,6 +244,42 @@ func TestWriteReleaseNotesDraftIncludesEvidenceSummary(t *testing.T) {
 	}
 }
 
+func TestWriteReleaseNotesDraftAcceptsExplicitCommit(t *testing.T) {
+	result := writeVerifiableRunEvidence(t)
+	out := filepath.Join(result.WorkDir, "release-notes-explicit.md")
+	written, err := WriteReleaseNotesDraft(context.Background(), ReleaseNotesOptions{
+		RepoRoot:        result.WorkDir,
+		RunEvidencePath: result.RunEvidencePath,
+		OutPath:         out,
+		Commit:          "0123456789abcdef",
+		Now:             fixedNow(),
+		RunCommand: func(context.Context, string, ...string) ([]byte, error) {
+			t.Fatal("Git command called for explicit commit")
+			return nil, nil
+		},
+	})
+	if err != nil {
+		t.Fatalf("WriteReleaseNotesDraft returned error: %v", err)
+	}
+	if written.Commit != "0123456789abcdef" {
+		t.Fatalf("commit = %q, want explicit revision", written.Commit)
+	}
+}
+
+func TestWriteReleaseNotesDraftRejectsInvalidExplicitCommit(t *testing.T) {
+	result := writeVerifiableRunEvidence(t)
+	_, err := WriteReleaseNotesDraft(context.Background(), ReleaseNotesOptions{
+		RepoRoot:        result.WorkDir,
+		RunEvidencePath: result.RunEvidencePath,
+		OutPath:         filepath.Join(result.WorkDir, "release-notes-invalid.md"),
+		Commit:          "not-a-revision",
+		Now:             fixedNow(),
+	})
+	if err == nil || !strings.Contains(err.Error(), "hexadecimal") {
+		t.Fatalf("error = %v, want hexadecimal revision failure", err)
+	}
+}
+
 func TestVerifyRunEvidenceFileRejectsBadAsyncSidecars(t *testing.T) {
 	for _, tc := range []struct {
 		name   string

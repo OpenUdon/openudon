@@ -1,7 +1,8 @@
 # Product Smoke Matrix
 
-M37 adds a product smoke matrix for the improved `v0.1.2-a.1` release candidate.
-It is release evidence, not a new workflow feature. The matrix starts from reviewed
+M37 added this product smoke matrix for an unpublished `v0.1.2-a.1` candidate.
+It is historical optional provider evidence, not the v0.1.0 tag gate and not a
+new workflow feature. The matrix starts from reviewed
 eval fixtures and natural-language requests, builds ignored scratch packages, and
 uses the normal approval plus trusted-runner handoff path.
 
@@ -88,9 +89,9 @@ artifacts. Current real-provider posture is:
 - Jira: strict fixtures cover Jira issue creation and Slack/Jira workflows, but
   there is no recorded real-key Jira proof in this release evidence.
 
-## Tag Gate
+## Historical M37 Tag Gate
 
-Tag `v0.1.2-a.1` only after:
+The unpublished M37 candidate required:
 
 - `make product-smoke-check` passes;
 - `make product-smoke-live` passes with Slack live evidence;

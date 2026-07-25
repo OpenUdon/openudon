@@ -12,6 +12,10 @@ OpenUdon can be used directly by an operator or under optional external orchestr
 both modes, generated artifacts stay untrusted until validation, review, approval, and package digest
 checks pass.
 
+OpenUdon v0.1 is a CLI-first public beta. See the
+[compatibility contract](compatibility.md) for the supported deterministic
+package and trusted-handoff boundary.
+
 ## What OpenUdon Owns
 
 - Project briefs, templates, guided iCoT authoring, and eval fixtures.
@@ -95,3 +99,4 @@ for the provider-free release demo, and [Handoff](safety.md) for the review and 
 ### Related
 
 - [Related Projects](related.md)
+- [v0.1 Compatibility Contract](compatibility.md)

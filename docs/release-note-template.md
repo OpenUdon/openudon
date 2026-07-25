@@ -2,6 +2,7 @@
 
 ## Candidate
 
+- Version:
 - Date:
 - Commit:
 - Dirty worktree state:
@@ -49,6 +50,10 @@
 
 ## Local Checks
 
+- `GOWORK=off go mod download`:
+- `GOWORK=off go test ./... -count=1 -timeout=10m`:
+- `GOWORK=off go vet ./...`:
+- clean source-archive standalone test/vet:
 - `go test ./...`:
 - `go vet ./...`:
 - `make check`:
@@ -59,6 +64,9 @@
 - `make icot-authoring-scorecard`:
 - `make product-smoke-check`:
 - `make product-smoke-live`:
+- `make release-evidence` provider-free local udon smoke:
+- six-platform three-binary cross-build:
+- `actionlint`:
 - `mkdocs build --strict`:
 - `openudon validate ./examples/uws-validation`:
 - `openudon check-doc-memory`:
@@ -68,6 +76,17 @@
 - Sibling checkout layout (`../uws`, `../apitools`, optional `../udon`):
 - `openudon readiness --run-gates`:
 - Readiness JSON:
+
+## Publication
+
+- Annotated tag:
+- GitHub Actions test run:
+- GitHub Actions release run:
+- Published platform archives:
+- `SHA256SUMS` verification:
+- Linux amd64 `openudon version --json`:
+- Isolated `go install ...@v0.1.0`:
+- Installed-binary credential-free golden path:
 
 ## Real-LLM Smoke
 

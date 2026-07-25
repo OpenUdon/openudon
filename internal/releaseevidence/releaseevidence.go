@@ -24,6 +24,7 @@ type Options struct {
 	ReleaseNotes string
 	SummaryJSON  string
 	SummaryMD    string
+	Commit       string
 	Gates        []string
 	Now          func() time.Time
 
@@ -113,6 +114,7 @@ func Run(ctx context.Context, opts Options) (*Summary, error) {
 		RepoRoot:        repoRoot,
 		RunEvidencePath: archive.RunEvidencePath,
 		OutPath:         notesPath,
+		Commit:          opts.Commit,
 		Gates:           gates,
 		Now:             opts.Now,
 		RunCommand:      opts.GitCommand,

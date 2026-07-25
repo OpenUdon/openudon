@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"flag"
 	"fmt"
 	"io"
@@ -9,6 +10,7 @@ import (
 	"os/exec"
 	"os/signal"
 	"path/filepath"
+	"runtime/debug"
 	"strings"
 	"syscall"
 	"time"
@@ -26,7 +28,9 @@ import (
 	"github.com/OpenUdon/uws/versions"
 )
 
-const version = "0.1.0"
+// version is replaced in release archives with -ldflags. Module-installed
+// binaries fall back to debug.BuildInfo's main module version.
+var version = "devel"
 
 func main() {
 	flag.Usage = func() {
@@ -109,7 +113,7 @@ func main() {
 	case "release-evidence":
 		runReleaseEvidenceCommand(flag.Args()[1:])
 	case "version":
-		fmt.Println(version)
+		runVersionCommand(flag.Args()[1:])
 	case "-h", "--help", "help":
 		flag.Usage()
 	default:
@@ -117,6 +121,94 @@ func main() {
 		flag.Usage()
 		os.Exit(2)
 	}
+}
+
+type versionInfo struct {
+	Version   string            `json:"version"`
+	Module    string            `json:"module"`
+	MainPath  string            `json:"main_path,omitempty"`
+	GoVersion string            `json:"go_version,omitempty"`
+	Revision  string            `json:"revision,omitempty"`
+	BuildTags []string          `json:"build_tags,omitempty"`
+	Settings  map[string]string `json:"settings,omitempty"`
+}
+
+func runVersionCommand(args []string) {
+	fs := flag.NewFlagSet("version", flag.ExitOnError)
+	jsonOutput := fs.Bool("json", false, "Print version and local build metadata as JSON")
+	fs.Usage = func() {
+		fmt.Fprintf(fs.Output(), "Usage: openudon version [--json]\n")
+		fmt.Fprintf(fs.Output(), "\nPrints the OpenUdon CLI version. With --json, prints local build metadata only; it does not check networks, releases, updates, or telemetry.\n\n")
+		fs.PrintDefaults()
+	}
+	if err := fs.Parse(args); err != nil {
+		os.Exit(2)
+	}
+	if fs.NArg() != 0 {
+		fs.Usage()
+		os.Exit(2)
+	}
+	info := collectVersionInfo()
+	if *jsonOutput {
+		data, err := json.MarshalIndent(info, "", "  ")
+		if err != nil {
+			fmt.Fprintln(os.Stderr, err)
+			os.Exit(1)
+		}
+		fmt.Println(string(data))
+		return
+	}
+	fmt.Println(info.Version)
+}
+
+func collectVersionInfo() versionInfo {
+	info := versionInfo{
+		Version: strings.TrimSpace(version),
+		Module:  "github.com/OpenUdon/openudon",
+	}
+	if build, ok := debug.ReadBuildInfo(); ok {
+		info.GoVersion = build.GoVersion
+		if build.Main.Path != "" {
+			info.MainPath = build.Main.Path
+		}
+		if (info.Version == "" || info.Version == "devel") &&
+			build.Main.Version != "" && build.Main.Version != "(devel)" {
+			info.Version = strings.TrimPrefix(build.Main.Version, "v")
+		}
+		settings := make(map[string]string)
+		for _, setting := range build.Settings {
+			switch setting.Key {
+			case "vcs.revision":
+				info.Revision = setting.Value
+			case "-tags":
+				if strings.TrimSpace(setting.Value) != "" {
+					info.BuildTags = splitBuildTags(setting.Value)
+				}
+			case "vcs.modified", "vcs.time", "vcs":
+				settings[setting.Key] = setting.Value
+			}
+		}
+		if len(settings) > 0 {
+			info.Settings = settings
+		}
+	}
+	if info.Version == "" {
+		info.Version = "devel"
+	}
+	return info
+}
+
+func splitBuildTags(value string) []string {
+	fields := strings.FieldsFunc(value, func(r rune) bool {
+		return r == ',' || r == ' '
+	})
+	tags := make([]string, 0, len(fields))
+	for _, field := range fields {
+		if trimmed := strings.TrimSpace(field); trimmed != "" {
+			tags = append(tags, trimmed)
+		}
+	}
+	return tags
 }
 
 func runReleaseEvidenceCommand(args []string) {
@@ -127,10 +219,11 @@ func runReleaseEvidenceCommand(args []string) {
 	releaseNotes := fs.String("release-notes", "", "Release-note draft path, default <workdir>/release-notes.md")
 	summaryJSON := fs.String("summary-json", "", "Summary JSON path, default <workdir>/summary.json")
 	summaryMD := fs.String("summary-md", "", "Summary Markdown path, default <workdir>/summary.md")
+	commit := fs.String("commit", "", "Release commit revision; defaults to the current Git commit")
 	var gates repeatedStringFlag
 	fs.Var(&gates, "gate", "Repeatable gate result entry such as 'go test ./...=pass'")
 	fs.Usage = func() {
-		fmt.Fprintf(fs.Output(), "Usage: openudon release-evidence [--udon-repo ../udon] [--workdir .openudon-run/release-evidence] [--gate name=status]\n\n")
+		fmt.Fprintf(fs.Output(), "Usage: openudon release-evidence [--udon-repo ../udon] [--workdir .openudon-run/release-evidence] [--commit REVISION] [--gate name=status]\n\n")
 		fmt.Fprintf(fs.Output(), "Runs the provider-free local udon smoke, archives and verifies run evidence, drafts release notes, and writes local JSON/Markdown release-evidence summaries. It does not tag, publish, or commit artifacts.\n\n")
 		fs.PrintDefaults()
 	}
@@ -147,6 +240,7 @@ func runReleaseEvidenceCommand(args []string) {
 		ReleaseNotes: *releaseNotes,
 		SummaryJSON:  *summaryJSON,
 		SummaryMD:    *summaryMD,
+		Commit:       *commit,
 		Gates:        []string(gates),
 	})
 	if summary != nil {
@@ -239,10 +333,11 @@ func runReleaseNotesCommand(args []string) {
 	runEvidence := fs.String("run-evidence", "", "Verified run-evidence.json file")
 	out := fs.String("out", "", "Release-note draft markdown output path")
 	verifierOutput := fs.String("verifier-output", "", "Optional file containing captured verifier output")
+	commit := fs.String("commit", "", "Release commit revision; defaults to the current Git commit")
 	var gates repeatedStringFlag
 	fs.Var(&gates, "gate", "Repeatable gate result entry such as 'go test ./...=pass'")
 	fs.Usage = func() {
-		fmt.Fprintf(fs.Output(), "Usage: openudon release-notes draft --run-evidence run-evidence.json --out release-notes.md [--gate name=status] [--verifier-output verify.txt]\n\n")
+		fmt.Fprintf(fs.Output(), "Usage: openudon release-notes draft --run-evidence run-evidence.json --out release-notes.md [--commit REVISION] [--gate name=status] [--verifier-output verify.txt]\n\n")
 		fmt.Fprintf(fs.Output(), "Writes a local release-note evidence draft with current commit, gate results, verifier output, and sidecar/report paths.\n\n")
 		fs.PrintDefaults()
 	}
@@ -255,6 +350,7 @@ func runReleaseNotesCommand(args []string) {
 		RepoRoot:           ".",
 		RunEvidencePath:    *runEvidence,
 		OutPath:            *out,
+		Commit:             *commit,
 		Gates:              []string(gates),
 		VerifierOutputPath: *verifierOutput,
 	})

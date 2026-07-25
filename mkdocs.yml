@@ -21,6 +21,7 @@ theme:
 
 nav:
   - Home: index.md
+  - Compatibility: compatibility.md
   - Authoring:
     - Overview: authoring.md
     - Agentic SaaS Authoring: agentic-saas-authoring.md

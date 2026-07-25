@@ -3,6 +3,7 @@ package main
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"flag"
 	"os"
 	"os/exec"
@@ -15,14 +16,58 @@ import (
 	"github.com/OpenUdon/openudon/internal/trustedrunner"
 )
 
-func TestCLIVersionSmoke(t *testing.T) {
+func TestCLIVersionOutputsPlainTextJSONAndHelp(t *testing.T) {
 	cmd := helperCommand("version")
 	output, err := cmd.CombinedOutput()
 	if err != nil {
 		t.Fatalf("version failed: %v\n%s", err, output)
 	}
-	if strings.TrimSpace(string(output)) != version {
-		t.Fatalf("version output = %q, want %q", output, version)
+	if got := strings.TrimSpace(string(output)); got != version {
+		t.Fatalf("version output = %q, want %q", got, version)
+	}
+
+	cmd = helperCommand("version", "--json")
+	output, err = cmd.CombinedOutput()
+	if err != nil {
+		t.Fatalf("version --json failed: %v\n%s", err, output)
+	}
+	var info versionInfo
+	if err := json.Unmarshal(output, &info); err != nil {
+		t.Fatalf("version JSON is not parseable: %v\n%s", err, output)
+	}
+	if info.Version != version {
+		t.Fatalf("version JSON version = %q, want %q", info.Version, version)
+	}
+	if info.Module != "github.com/OpenUdon/openudon" {
+		t.Fatalf("module = %q, want github.com/OpenUdon/openudon", info.Module)
+	}
+
+	cmd = helperCommand("version", "--help")
+	output, err = cmd.CombinedOutput()
+	if err != nil {
+		t.Fatalf("version --help failed: %v\n%s", err, output)
+	}
+	text := string(output)
+	for _, expected := range []string{"Usage: openudon version", "--json", "does not check networks"} {
+		if !strings.Contains(text, expected) {
+			t.Fatalf("version help missing %q:\n%s", expected, text)
+		}
+	}
+}
+
+func TestCollectVersionInfoUsesInjectedReleaseVersion(t *testing.T) {
+	previous := version
+	version = "0.1.0"
+	t.Cleanup(func() {
+		version = previous
+	})
+
+	info := collectVersionInfo()
+	if info.Version != "0.1.0" {
+		t.Fatalf("version = %q, want 0.1.0", info.Version)
+	}
+	if info.Module != "github.com/OpenUdon/openudon" {
+		t.Fatalf("module = %q, want github.com/OpenUdon/openudon", info.Module)
 	}
 }
 
@@ -77,6 +122,7 @@ func TestCLIReleaseEvidenceHelp(t *testing.T) {
 		"Usage: openudon release-evidence",
 		"--udon-repo",
 		"--workdir",
+		"--commit",
 		"--gate",
 		"does not tag, publish, or commit",
 	} {
@@ -257,6 +303,7 @@ func TestCLIRunDryRunPrintsAsyncEvidencePath(t *testing.T) {
 	draft := helperCommand("release-notes", "draft",
 		"--run-evidence", filepath.Join(archiveDir, "run-evidence.json"),
 		"--out", releaseNotes,
+		"--commit", "abc1234",
 		"--gate", "go test ./...=pass",
 	)
 	draft.Dir = repoRoot

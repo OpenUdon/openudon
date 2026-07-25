@@ -23,19 +23,63 @@ OpenUdon can stage OpenAPI, Google Discovery, AWS Smithy, AsyncAPI, GraphQL, Ope
 gRPC/protobuf, and OData source documents as first-class UWS source descriptions when the trusted
 executor supports them.
 
+## v0.1 Public Beta
+
+The supported v0.1 core is the deterministic package lifecycle
+(`validate`, `build`, `promote`, and `assess`), digest-bound approval and
+trusted handoff (`approval-template` and `run`), run-evidence
+verification/archive, and the existing versioned handoff artifacts. iCoT,
+LLM/provider behavior, eval/catalog/smoke helpers, and exact generated prose
+remain experimental before v1. OpenUdon does not yet expose a supported
+Go-library API.
+
+See [SUPPORT.md](SUPPORT.md) and the
+[v0.1 compatibility contract](docs/compatibility.md) for the exact boundary.
+
 ## Quick Start
 
 Install the main CLI:
 
 ```bash
-go install github.com/OpenUdon/openudon/cmd/openudon@latest
+go install github.com/OpenUdon/openudon/cmd/openudon@v0.1.0
+openudon version --json
 ```
 
 Optional companion tools:
 
 ```bash
-go install github.com/OpenUdon/openudon/cmd/icot@latest
-go install github.com/OpenUdon/openudon/cmd/udon-runner@latest
+go install github.com/OpenUdon/openudon/cmd/icot@v0.1.0
+go install github.com/OpenUdon/openudon/cmd/udon-runner@v0.1.0
+```
+
+Linux, macOS, and Windows archives for amd64 and arm64 are attached to the
+GitHub v0.1.0 release. Every archive contains `openudon`, `icot`, and
+`udon-runner`; verify it against the published `SHA256SUMS` file.
+
+From a source checkout, the credential-free release path authors a local
+function-only project, builds and assesses it, then stages an approved sandbox
+dry run without invoking an executor:
+
+```bash
+DEMO_ROOT=.openudon-run/v0.1.0-quick-start
+icot \
+  --from-example ./examples/eval/runtime-only-render \
+  --example "$DEMO_ROOT/package" \
+  --no-llm \
+  --yes
+openudon build --example "$DEMO_ROOT/package"
+openudon assess --example "$DEMO_ROOT/package"
+openudon approval-template \
+  --example "$DEMO_ROOT/package" \
+  --state approved_for_sandbox \
+  --reviewer "Local Reviewer" \
+  > "$DEMO_ROOT/approval.json"
+openudon run \
+  --example "$DEMO_ROOT/package" \
+  --tier sandbox \
+  --approval "$DEMO_ROOT/approval.json" \
+  --workdir "$DEMO_ROOT/run" \
+  --dry-run
 ```
 
 Useful checks:
@@ -520,5 +564,8 @@ LLM-assisted commands; explicit `--provider` and `--model` flags still take prec
 - [SaaS operator release path](docs/saas-operator-release.md)
 - [Release stewardship](docs/release-stewardship.md)
 - [Release note template](docs/release-note-template.md)
+- [v0.1 compatibility contract](docs/compatibility.md)
+- [Support policy](SUPPORT.md)
+- [Security policy](SECURITY.md)
 - [Contributing](CONTRIBUTING.md)
 - [License](LICENSE)

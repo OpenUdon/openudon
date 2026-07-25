@@ -32,6 +32,7 @@ type ReleaseNotesOptions struct {
 	RepoRoot           string
 	RunEvidencePath    string
 	OutPath            string
+	Commit             string
 	Gates              []string
 	VerifierOutputPath string
 	Now                func() time.Time
@@ -128,8 +129,14 @@ func WriteReleaseNotesDraft(ctx context.Context, opts ReleaseNotesOptions) (Rele
 	if repoRoot == "" {
 		repoRoot = "."
 	}
-	commit, err := currentCommit(ctx, repoRoot, opts.RunCommand)
-	if err != nil {
+	commit := strings.TrimSpace(opts.Commit)
+	if commit == "" {
+		commit, err = currentCommit(ctx, repoRoot, opts.RunCommand)
+		if err != nil {
+			return ReleaseNotesResult{}, err
+		}
+	}
+	if err := validateCommitRevision(commit); err != nil {
 		return ReleaseNotesResult{}, err
 	}
 	verifierOutput := strings.TrimSpace(opts.VerifierOutputPath)
@@ -216,6 +223,18 @@ func currentCommit(ctx context.Context, repoRoot string, run func(context.Contex
 		return "", fmt.Errorf("resolve current commit: empty output")
 	}
 	return commit, nil
+}
+
+func validateCommitRevision(commit string) error {
+	if len(commit) < 7 || len(commit) > 64 {
+		return fmt.Errorf("commit revision must contain 7 to 64 hexadecimal characters")
+	}
+	for _, r := range commit {
+		if !((r >= '0' && r <= '9') || (r >= 'a' && r <= 'f') || (r >= 'A' && r <= 'F')) {
+			return fmt.Errorf("commit revision must contain only hexadecimal characters")
+		}
+	}
+	return nil
 }
 
 func releaseNoteGates(input []string) []string {

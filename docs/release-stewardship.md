@@ -9,11 +9,16 @@ evolution, readiness, eval, approval, or run-workdir files.
 GitHub Actions runs the public Go module with workspace mode disabled:
 
 ```bash
+test -z "$(grep -E '^[[:space:]]*replace[[:space:]]' go.mod)"
+GOWORK=off go mod download
 GOWORK=off go vet ./...
-GOWORK=off go test ./... -count=1 -timeout=5m
+GOWORK=off go test ./... -count=1 -timeout=10m
 GOWORK=off go run ./cmd/openudon check-apitools-boundary
 git diff --check
 ```
+
+Pull-request and main-branch CI also cross-builds `openudon`, `icot`, and
+`udon-runner` for Linux, macOS, and Windows on amd64 and arm64.
 
 Documentation publishing builds the MkDocs site in strict mode before deploy:
 
@@ -94,8 +99,19 @@ make eval-seed-build
 make icot-variants-validate
 ```
 
-For the improved `v0.1.2-a.1` candidate, run the product smoke matrix after the
-provider-free release gates:
+The v0.1.0 tag gate requires the provider-free release gates plus the local
+trusted-executor evidence flow:
+
+```bash
+make release-saas-check
+make release-evidence
+```
+
+`make release-evidence` may build and invoke a reviewed sibling udon binary
+against the runtime-only fixture. It does not call a live SaaS provider and
+does not make udon a public Go dependency.
+
+The product smoke matrix remains optional historical/provider evidence:
 
 ```bash
 make product-smoke-check
@@ -104,14 +120,27 @@ OPENUDON_EXECUTOR=/absolute/path/to/udon make product-smoke-live
 
 `product-smoke-check` is provider-free and builds ignored scratch packages from
 the reviewed eval fixtures. `product-smoke-live` is local maintainer evidence:
-Slack live smoke is required before tagging `v0.1.2-a.1`, local synthetic APIs
-run against a stub server, and optional OpenWeatherMap live proof runs only when
-its complete credential env set is present. Gmail has credential-backed examples
+local synthetic APIs run against a stub server, and optional Slack or
+OpenWeatherMap proof runs require explicit operator-owned credentials. Gmail has credential-backed examples
 and manual proof-run support, but the product smoke matrix records dry-run
 evidence for Gmail unless an operator separately runs and records a reviewed
 Gmail proof. Jira currently has fixture/dry-run coverage but no recorded
 real-key proof. See
 [Product Smoke Matrix](product-smoke-matrix.md).
+
+## Publishing v0.1.0
+
+Only tag a clean commit after standalone CI and the selected local release
+evidence pass. Push an annotated `v0.1.0` tag; the release workflow reruns
+standalone gates, builds six platform archives, verifies the Linux amd64
+credential-free author/build/assess/approval/dry-run path, writes
+`SHA256SUMS`, and publishes the GitHub release.
+
+Each archive contains `openudon`, `icot`, `udon-runner`, `README.md`, and
+`LICENSE`. Release binaries inject the tag into `openudon version --json`;
+`go install ...@v0.1.0` derives the same version from Go build information.
+After publication, download every asset, verify all checksums, and repeat the
+installed-binary golden path before recording the release complete.
 
 Real-provider evals remain opt-in local evidence:
 
