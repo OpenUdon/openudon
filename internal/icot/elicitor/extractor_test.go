@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"slices"
 	"strings"
 	"testing"
 
@@ -287,6 +288,88 @@ func TestDraftDetailRefsPrefetchLifecycleSiblings(t *testing.T) {
 	refs := draftDetailRefs(lifecycleDraftRequest(), nil)
 	if got := operationRefIDs(refs); strings.Join(got, ",") != "createWidget,getWidget,patchWidget,deleteWidget" {
 		t.Fatalf("detail refs = %#v", got)
+	}
+}
+
+func TestFirstDraftLifecycleHintsAndDetailsUseSamePlan(t *testing.T) {
+	request := lifecycleDraftRequest()
+	request.Session.Intent.Steps = nil
+	payload := draftPromptRequest(request)
+	hints := payload["lifecycle_hints"].([]operationLifecyclePromptHint)
+	if len(hints) == 0 {
+		t.Fatal("first draft lifecycle hints are empty")
+	}
+	detailed := map[string]bool{}
+	for _, doc := range payload["docs"].([]map[string]any) {
+		for _, op := range doc["operations"].([]operationPromptContext) {
+			detailed[op.OperationID] = true
+		}
+	}
+	for _, hint := range hints {
+		if !detailed[hint.OperationID] {
+			t.Fatalf("lifecycle hint %s:%s has no matching detail document: hints=%#v details=%#v", hint.Role, hint.OperationID, hints, detailed)
+		}
+	}
+}
+
+func TestLifecycleSiblingDetailRefsRemainSourceCorrectWithDuplicateOperationIDs(t *testing.T) {
+	request := lifecycleDraftRequest()
+	alpha := request.Docs[0]
+	alpha.ID = "alpha"
+	alpha.RelativePath = "openapi/alpha.yaml"
+	alpha.Title = "Alpha Widget API"
+	beta := request.Docs[0]
+	beta.ID = "beta"
+	beta.RelativePath = "openapi/beta.yaml"
+	beta.Title = "Beta Widget API"
+	request.Docs = []APIDocument{alpha, beta}
+	request.Session.Intent.OpenAPI = beta.RelativePath
+	request.Session.Intent.Steps[0].OpenAPI = beta.RelativePath
+
+	plan := buildOperationLifecyclePlan(request)
+	refs := draftDetailRefsWithLifecyclePlan(plan, nil)
+	if len(refs) != 4 {
+		t.Fatalf("detail refs = %#v, want four beta lifecycle operations", refs)
+	}
+	for _, ref := range refs {
+		if ref.DocumentPath != beta.RelativePath {
+			t.Fatalf("duplicate operation ID attached detail from %q, want %q: %#v", ref.DocumentPath, beta.RelativePath, refs)
+		}
+	}
+	docs := detailDocuments(request, refs)
+	if len(docs) != 1 || docs[0].RelativePath != beta.RelativePath || len(docs[0].Operations) != 4 {
+		t.Fatalf("detailed documents are not source-correct: %#v", docs)
+	}
+}
+
+func TestRequestedDetailRefsDoNotBecomeLifecycleSeeds(t *testing.T) {
+	request := lifecycleDraftRequest()
+	request.Docs = append(request.Docs, APIDocument{
+		ID:           "reports",
+		RelativePath: "openapi/reports.yaml",
+		Title:        "Reports API",
+		Operations: []apitools.OperationSummary{
+			{OperationID: "createReport", Method: "POST", Path: "/reports"},
+			{OperationID: "getReport", Method: "GET", Path: "/reports/{id}"},
+			{OperationID: "deleteReport", Method: "DELETE", Path: "/reports/{id}"},
+		},
+	})
+	requested := OperationDetailRef{DocumentPath: "openapi/reports.yaml", OperationID: "createReport"}
+	plan := buildOperationLifecyclePlan(request)
+	refs := draftDetailRefsWithLifecyclePlan(plan, []OperationDetailRef{requested})
+
+	if len(plan.SeedRefs) != 1 || plan.SeedRefs[0].OperationID != "createWidget" {
+		t.Fatalf("lifecycle seeds changed by requested details: %#v", plan.SeedRefs)
+	}
+	for _, hint := range plan.Hints {
+		if hint.SeedOperationID == "createReport" {
+			t.Fatalf("requested detail became a lifecycle seed: %#v", plan.Hints)
+		}
+	}
+	if !slices.ContainsFunc(refs, func(ref OperationDetailRef) bool {
+		return ref.DocumentPath == requested.DocumentPath && ref.OperationID == requested.OperationID
+	}) {
+		t.Fatalf("requested detail was not retained as an additional ref: %#v", refs)
 	}
 }
 

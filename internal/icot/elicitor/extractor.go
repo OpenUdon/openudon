@@ -185,8 +185,9 @@ func (e *chatExtractor) Draft(ctx context.Context, request DraftRequest) (Sessio
 	var warnings []Assumption
 	var events []TranscriptEvent
 	for round := 0; round <= maxDraftDetailRounds; round++ {
-		detailRefs := draftDetailRefs(request, requested)
-		data, err := json.Marshal(draftPromptRequestWithDetails(request, detailRefs))
+		lifecyclePlan := buildOperationLifecyclePlan(request)
+		detailRefs := draftDetailRefsWithLifecyclePlan(lifecyclePlan, requested)
+		data, err := json.Marshal(draftPromptRequestWithDetails(request, detailRefs, lifecyclePlan.Hints))
 		if err != nil {
 			return Session{}, err
 		}
@@ -388,10 +389,11 @@ type operationLifecyclePromptHint struct {
 }
 
 func draftPromptRequest(request DraftRequest) map[string]any {
-	return draftPromptRequestWithDetails(request, draftDetailRefs(request, nil))
+	lifecyclePlan := buildOperationLifecyclePlan(request)
+	return draftPromptRequestWithDetails(request, draftDetailRefsWithLifecyclePlan(lifecyclePlan, nil), lifecyclePlan.Hints)
 }
 
-func draftPromptRequestWithDetails(request DraftRequest, detailRefs []OperationDetailRef) map[string]any {
+func draftPromptRequestWithDetails(request DraftRequest, detailRefs []OperationDetailRef, lifecycleHints []operationLifecyclePromptHint) map[string]any {
 	draftDocs := detailDocuments(request, detailRefs)
 	if len(draftDocs) == 0 {
 		draftDocs = rankedDraftDocuments(request)
@@ -414,7 +416,7 @@ func draftPromptRequestWithDetails(request DraftRequest, detailRefs []OperationD
 		"session":            request.Session,
 		"docs":               docs,
 		"prompt_context":     PromptContextFromAPIDocuments(draftDocs),
-		"lifecycle_hints":    operationLifecycleHints(request, detailRefs),
+		"lifecycle_hints":    lifecycleHints,
 		"operation_catalog":  operationCatalog(request.Docs),
 		"transcript_turns":   request.TranscriptTurns,
 		"readiness_feedback": request.ReadinessFeedback,
@@ -422,21 +424,25 @@ func draftPromptRequestWithDetails(request DraftRequest, detailRefs []OperationD
 }
 
 func draftDetailRefs(request DraftRequest, requested []OperationDetailRef) []OperationDetailRef {
-	refs := operationRefsFromDocuments(selectedDraftDocuments(request))
-	if len(refs) == 0 {
-		refs = operationRefsFromDocuments(rankedDraftDocuments(request))
-	}
-	refs = appendOperationDetailRefs(refs, operationLifecycleDetailRefs(request, refs))
-	return appendOperationDetailRefs(refs, requested)
+	return draftDetailRefsWithLifecyclePlan(buildOperationLifecyclePlan(request), requested)
 }
 
-func operationLifecycleHints(request DraftRequest, _ []OperationDetailRef) []operationLifecyclePromptHint {
+type operationLifecyclePlan struct {
+	SeedRefs          []OperationDetailRef
+	Hints             []operationLifecyclePromptHint
+	SiblingDetailRefs []OperationDetailRef
+}
+
+func buildOperationLifecyclePlan(request DraftRequest) operationLifecyclePlan {
 	seedRefs := operationRefsFromDocuments(selectedDraftDocuments(request))
 	if len(seedRefs) == 0 {
-		return nil
+		seedRefs = operationRefsFromDocuments(rankedDraftDocuments(request))
+	}
+	plan := operationLifecyclePlan{SeedRefs: seedRefs}
+	if len(seedRefs) == 0 {
+		return plan
 	}
 	ctx := PromptContextFromAPIDocuments(request.Docs)
-	var hints []operationLifecyclePromptHint
 	for _, seedRef := range seedRefs {
 		seed, ok := promptOperationCandidateForRef(ctx, seedRef)
 		if !ok {
@@ -447,7 +453,7 @@ func operationLifecycleHints(request DraftRequest, _ []OperationDetailRef) []ope
 			continue
 		}
 		for _, role := range expanded.Roles {
-			hints = append(hints, operationLifecyclePromptHint{
+			plan.Hints = append(plan.Hints, operationLifecyclePromptHint{
 				SeedOperationID: expanded.SeedOperationID,
 				FamilyKey:       expanded.FamilyKey,
 				Role:            role.Role,
@@ -455,36 +461,47 @@ func operationLifecycleHints(request DraftRequest, _ []OperationDetailRef) []ope
 				Confidence:      role.Confidence,
 				Reason:          role.Reason,
 			})
-		}
-	}
-	return dedupeOperationLifecycleHints(hints)
-}
-
-func operationLifecycleDetailRefs(request DraftRequest, seedRefs []OperationDetailRef) []OperationDetailRef {
-	if len(seedRefs) == 0 {
-		return nil
-	}
-	ctx := PromptContextFromAPIDocuments(request.Docs)
-	var refs []OperationDetailRef
-	for _, seedRef := range seedRefs {
-		seed, ok := promptOperationCandidateForRef(ctx, seedRef)
-		if !ok {
-			continue
-		}
-		expanded := operationlifecycle.Expand(ctx, seed, operationlifecycle.Options{Goal: draftRankingText(request), DesiredState: true})
-		if len(expanded.Roles) <= 1 {
-			continue
-		}
-		for _, role := range expanded.Roles {
-			if firstNonEmpty(role.Operation.OperationID, role.Operation.ID) == firstNonEmpty(seed.OperationID, seed.ID) {
+			if samePromptOperation(role.Operation, seed) {
 				continue
 			}
-			if ref, ok := findOperationDetailRef(request.Docs, firstNonEmpty(role.Operation.OperationID, role.Operation.ID)); ok {
-				refs = append(refs, ref)
+			if ref, ok := operationDetailRefForCandidate(request.Docs, role.Operation); ok {
+				plan.SiblingDetailRefs = append(plan.SiblingDetailRefs, ref)
 			}
 		}
 	}
-	return appendOperationDetailRefs(nil, refs)
+	plan.Hints = dedupeOperationLifecycleHints(plan.Hints)
+	plan.SiblingDetailRefs = appendOperationDetailRefs(nil, plan.SiblingDetailRefs)
+	return plan
+}
+
+func draftDetailRefsWithLifecyclePlan(plan operationLifecyclePlan, requested []OperationDetailRef) []OperationDetailRef {
+	refs := appendOperationDetailRefs(plan.SeedRefs, plan.SiblingDetailRefs)
+	return appendOperationDetailRefs(refs, requested)
+}
+
+func samePromptOperation(a, b promptcontext.OperationCandidate) bool {
+	return strings.TrimSpace(a.SourceID) != "" &&
+		strings.TrimSpace(a.SourceID) == strings.TrimSpace(b.SourceID) &&
+		firstNonEmpty(a.OperationID, a.ID) == firstNonEmpty(b.OperationID, b.ID)
+}
+
+func operationDetailRefForCandidate(docs []APIDocument, candidate promptcontext.OperationCandidate) (OperationDetailRef, bool) {
+	sourceID := strings.TrimSpace(candidate.SourceID)
+	operationID := strings.TrimSpace(firstNonEmpty(candidate.OperationID, candidate.ID))
+	if sourceID == "" || operationID == "" {
+		return OperationDetailRef{}, false
+	}
+	for _, doc := range docs {
+		if sourceDocumentID(doc) != sourceID {
+			continue
+		}
+		for _, op := range doc.Operations {
+			if op.OperationID == operationID {
+				return OperationDetailRef{DocumentPath: doc.RelativePath, OperationID: operationID}, true
+			}
+		}
+	}
+	return OperationDetailRef{}, false
 }
 
 func promptOperationCandidateForRef(ctx promptcontext.Context, ref OperationDetailRef) (promptcontext.OperationCandidate, bool) {
