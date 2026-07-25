@@ -1,0 +1,162 @@
+name: release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out
+        uses: actions/checkout@v7
+
+      - name: Set up Go
+        uses: actions/setup-go@v7
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: Verify public module
+        run: |
+          if grep -Eq '^[[:space:]]*replace[[:space:]]' go.mod; then
+            echo "public go.mod must not contain replace directives" >&2
+            exit 1
+          fi
+          GOWORK=off go mod download
+          GOWORK=off go vet ./...
+          GOWORK=off go test ./... -count=1 -timeout=10m
+          GOWORK=off go run ./cmd/openudon check-apitools-boundary
+          git diff --check
+
+  build:
+    needs: verify
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - goos: linux
+            goarch: amd64
+            archive: tar.gz
+            extension: ""
+          - goos: linux
+            goarch: arm64
+            archive: tar.gz
+            extension: ""
+          - goos: darwin
+            goarch: amd64
+            archive: tar.gz
+            extension: ""
+          - goos: darwin
+            goarch: arm64
+            archive: tar.gz
+            extension: ""
+          - goos: windows
+            goarch: amd64
+            archive: zip
+            extension: ".exe"
+          - goos: windows
+            goarch: arm64
+            archive: zip
+            extension: ".exe"
+
+    steps:
+      - name: Check out
+        uses: actions/checkout@v7
+
+      - name: Set up Go
+        uses: actions/setup-go@v7
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: Build archive
+        env:
+          GOOS: ${{ matrix.goos }}
+          GOARCH: ${{ matrix.goarch }}
+          ARCHIVE: ${{ matrix.archive }}
+          EXTENSION: ${{ matrix.extension }}
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          NAME="openudon_${VERSION}_${GOOS}_${GOARCH}"
+          DEST="dist/${NAME}"
+          mkdir -p "$DEST"
+          GOWORK=off CGO_ENABLED=0 go build \
+            -trimpath \
+            -ldflags="-s -w -X main.version=${VERSION}" \
+            -o "${DEST}/openudon${EXTENSION}" \
+            ./cmd/openudon
+          for COMMAND in icot udon-runner; do
+            GOWORK=off CGO_ENABLED=0 go build \
+              -trimpath \
+              -ldflags="-s -w" \
+              -o "${DEST}/${COMMAND}${EXTENSION}" \
+              "./cmd/${COMMAND}"
+          done
+          cp LICENSE README.md "$DEST/"
+          if [ "$GOOS" = "linux" ] && [ "$GOARCH" = "amd64" ]; then
+            "${DEST}/openudon" version --json |
+              grep -F "\"version\": \"${VERSION}\""
+            DEMO_ROOT="${GITHUB_WORKSPACE}/.openudon-run/release-archive-smoke"
+            "${DEST}/icot" \
+              --from-example ./examples/eval/runtime-only-render \
+              --example "${DEMO_ROOT}/package" \
+              --no-llm \
+              --yes
+            "${DEST}/openudon" build --example "${DEMO_ROOT}/package"
+            "${DEST}/openudon" assess --example "${DEMO_ROOT}/package"
+            "${DEST}/openudon" approval-template \
+              --example "${DEMO_ROOT}/package" \
+              --state approved_for_sandbox \
+              --reviewer "v0.1.0 archive smoke" \
+              > "${DEMO_ROOT}/approval.json"
+            "${DEST}/openudon" run \
+              --example "${DEMO_ROOT}/package" \
+              --tier sandbox \
+              --approval "${DEMO_ROOT}/approval.json" \
+              --workdir "${DEMO_ROOT}/run" \
+              --dry-run
+            "${DEST}/udon-runner" --help
+          fi
+          if [ "$ARCHIVE" = "zip" ]; then
+            (cd dist && zip -qr "${NAME}.zip" "${NAME}")
+          else
+            tar -C dist -czf "dist/${NAME}.tar.gz" "${NAME}"
+          fi
+
+      - name: Upload archive
+        uses: actions/upload-artifact@v7
+        with:
+          name: openudon-${{ matrix.goos }}-${{ matrix.goarch }}
+          path: dist/openudon_*.${{ matrix.archive }}
+          if-no-files-found: error
+
+  publish:
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Download archives
+        uses: actions/download-artifact@v8
+        with:
+          path: dist
+          merge-multiple: true
+
+      - name: Write checksums
+        run: |
+          cd dist
+          sha256sum openudon_* > SHA256SUMS
+
+      - name: Publish GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: gh release create "$GITHUB_REF_NAME" dist/* --generate-notes --verify-tag
