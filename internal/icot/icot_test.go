@@ -229,18 +229,14 @@ func TestEvalReferenceSeedBuildMatrix(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	entries, err := os.ReadDir(fixtureRoot)
-	if err != nil {
-		t.Fatal(err)
+	fixtures := discoverReferencePolicyFixtures(fixtureRoot)
+	if len(fixtures) == 0 {
+		t.Fatalf("no eval fixtures with reference/policy.json found under %s", fixtureRoot)
 	}
 	outRoot := t.TempDir()
-	for _, entry := range entries {
-		if !entry.IsDir() {
-			continue
-		}
-		name := entry.Name()
+	for _, seedDir := range fixtures {
+		name := filepath.Base(filepath.Clean(seedDir))
 		t.Run(name, func(t *testing.T) {
-			seedDir := filepath.Join(fixtureRoot, name)
 			policy, err := evalpkg.ReadReferencePolicy(filepath.Join(seedDir, "reference", "policy.json"))
 			if err != nil {
 				t.Fatalf("read reference policy: %v", err)
@@ -266,6 +262,28 @@ func TestEvalReferenceSeedBuildMatrix(t *testing.T) {
 			}
 			assertSeedBuildOutcome(t, policy, "pass", nil, "")
 		})
+	}
+}
+
+func TestDiscoverReferencePolicyFixturesIgnoresBareDirectories(t *testing.T) {
+	root := t.TempDir()
+	valid := filepath.Join(root, "valid")
+	if err := os.MkdirAll(filepath.Join(valid, "reference"), 0o755); err != nil {
+		t.Fatalf("create valid fixture: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(valid, "reference", "policy.json"), []byte("{}\n"), 0o644); err != nil {
+		t.Fatalf("write reference policy: %v", err)
+	}
+	if err := os.MkdirAll(filepath.Join(root, "bare-sketch"), 0o755); err != nil {
+		t.Fatalf("create bare fixture: %v", err)
+	}
+
+	fixtures := discoverReferencePolicyFixtures(root)
+	if len(fixtures) != 1 || fixtures[0] != valid {
+		t.Fatalf("fixtures = %v, want only %s", fixtures, valid)
+	}
+	if fixtures := discoverReferencePolicyFixtures(filepath.Join(root, "empty")); len(fixtures) != 0 {
+		t.Fatalf("missing root fixtures = %v, want none", fixtures)
 	}
 }
 

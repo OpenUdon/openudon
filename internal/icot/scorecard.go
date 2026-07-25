@@ -98,13 +98,20 @@ func runScorecard(args []string, out, errOut io.Writer) int {
 }
 
 func discoverScorecardFixtures(root, name string) []string {
+	fixtures := discoverReferencePolicyFixtures(root)
 	if strings.TrimSpace(name) != "" {
-		path := filepath.Join(root, strings.TrimSpace(name))
-		if _, err := os.Stat(filepath.Join(path, "reference", "policy.json")); err == nil {
-			return []string{path}
+		selected := strings.TrimSpace(name)
+		for _, fixture := range fixtures {
+			if filepath.Base(filepath.Clean(fixture)) == selected {
+				return []string{fixture}
+			}
 		}
 		return nil
 	}
+	return fixtures
+}
+
+func discoverReferencePolicyFixtures(root string) []string {
 	entries, err := os.ReadDir(root)
 	if err != nil {
 		return nil
@@ -115,7 +122,8 @@ func discoverScorecardFixtures(root, name string) []string {
 			continue
 		}
 		path := filepath.Join(root, entry.Name())
-		if _, err := os.Stat(filepath.Join(path, "reference", "policy.json")); err == nil {
+		info, err := os.Stat(filepath.Join(path, "reference", "policy.json"))
+		if err == nil && info.Mode().IsRegular() {
 			out = append(out, path)
 		}
 	}
