@@ -327,11 +327,42 @@ func credentialBindingsForPlanStep(step PlanStep) []string {
 			seen[credential] = true
 		}
 	}
+	for _, credential := range fieldlessStepCredentials(step) {
+		seen[credential] = true
+	}
 	out := make([]string, 0, len(seen))
 	for credential := range seen {
 		out = append(out, credential)
 	}
 	sort.Strings(out)
+	return out
+}
+
+// fieldlessStepCredentials returns credentials the step requires that never
+// surface as a request parameter. OAuth2 security requirements are the common
+// case: they carry no single header or query field, so plan building records
+// them on PlanStep.Credentials without a matching PlanParam. Without this the
+// scope matrix silently omits the step. Credentials that do name a request
+// parameter are skipped, because credentialBindingsForPlanParam already reports
+// them under their resolved binding name.
+func fieldlessStepCredentials(step PlanStep) []string {
+	if len(step.Credentials) == 0 {
+		return nil
+	}
+	paramNames := make(map[string]bool, len(step.RequestParams))
+	for _, param := range step.RequestParams {
+		if name := strings.TrimSpace(param.Name); name != "" {
+			paramNames[name] = true
+		}
+	}
+	var out []string
+	for _, credential := range step.Credentials {
+		credential = planCredentialBindingName(credential)
+		if credential == "" || paramNames[credential] {
+			continue
+		}
+		out = append(out, credential)
+	}
 	return out
 }
 

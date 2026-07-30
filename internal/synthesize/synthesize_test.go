@@ -1325,6 +1325,35 @@ func TestCredentialInventoryUsesBindingNamesNotRequestTargets(t *testing.T) {
 	}
 }
 
+func TestCredentialScopeMatrixIncludesFieldlessSecurityBindings(t *testing.T) {
+	// OAuth2 security requirements carry no single request field, so plan
+	// building records them on PlanStep.Credentials without a PlanParam. The
+	// scope matrix must still report the step; otherwise a reviewer reading the
+	// matrix never sees the operation that holds the OAuth grant.
+	step := PlanStep{
+		Name:        "email_report",
+		OpenAPI:     "google-discovery/gmail-discovery-v1.json",
+		Operation:   "gmail_users_messages_send",
+		Credentials: []string{"googleOAuth2"},
+		RequestParams: []PlanParam{
+			{Name: "raw", In: "body", SourceKind: "binding", ExpectedSource: "render_weather_report.received_body"},
+			{Name: "userId", In: "path", SourceKind: "literal", ExpectedSource: "me"},
+		},
+	}
+
+	if got := credentialBindingsForPlanStep(step); !stringSlicesEqual(got, []string{"googleOAuth2"}) {
+		t.Fatalf("credentialBindingsForPlanStep() = %#v, want [googleOAuth2]", got)
+	}
+
+	var b strings.Builder
+	writeCredentialScopeMatrix(&b, &WorkflowPlan{Steps: []PlanStep{step}}, []string{"googleOAuth2"}, []string{"googleOAuth2"})
+	matrix := b.String()
+	want := "- `email_report`: scope `google-discovery/gmail-discovery-v1.json gmail_users_messages_send`; bindings `googleOAuth2`"
+	if !strings.Contains(matrix, want) {
+		t.Fatalf("credential scope matrix missing OAuth2 step:\nwant line: %s\ngot:\n%s", want, matrix)
+	}
+}
+
 func TestAssessReviewRequiresTrustedExecutionPackage(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "review.md")
 	if err := os.WriteFile(path, []byte(`# OpenUdon Review Evidence

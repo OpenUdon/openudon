@@ -9,6 +9,8 @@ evolution
 evolution/
 .openudon-run/
 approvals/
+articles/
+scripts/
 eval/readiness/
 eval/runs/
 eval/artifacts/
