@@ -10,7 +10,7 @@ evolution/
 .openudon-run/
 approvals/
 articles/
-scripts/
+scripts/mint-google-token.py
 eval/readiness/
 eval/runs/
 eval/artifacts/
