@@ -39,6 +39,8 @@ interview:
       summary: The operator selected the weather-report workflow.
       value: Resolve Toronto weather and prepare a reviewed report.
       source: operator
+      attributes:
+        confidence: high
   deferrals:
     - id: deferral.source
       node_id: source.selection
@@ -83,7 +85,9 @@ candidate_workflows:
 - `interview.evidence` is the only durable decision ledger. Evidence kinds are
   `observed_fact`, `user_decision`, `recommendation`, `assumption`,
   `open_decision`, `deferral`, and `inapplicable_branch`. It contains concise
-  public rationale, never hidden chain-of-thought.
+  public rationale, never hidden chain-of-thought. Optional string-valued
+  `attributes` retain machine-readable confidence and confirmation qualifiers
+  required to reproduce readiness and safety checks after resume.
 - A technical deferral must name its owner, impact, unblock condition, and next
   action. Source, operation, mapping, and output leaves may be deferred.
 - `candidate_workflows` are unnumbered future directions. Each has a title,
@@ -91,7 +95,9 @@ candidate_workflows:
   operations, mappings, or implementation steps.
 - `source_plan` entries, when present, include kind, stable ID, inspected source
   path, package target, SHA-256 digest, title/operation count, and provenance.
-  Sources are not copied until the proposal is approved.
+  Sources are not copied until the proposal is approved. Identical entries for
+  one target are reused; conflicting selected digests for one target are
+  rejected before transaction staging.
 - `intent`, symbolic credential bindings, `fallback`, and `side_effect_scope`
   retain their existing OpenUdon meanings. Never store credential values.
 

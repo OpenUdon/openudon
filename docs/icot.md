@@ -103,6 +103,11 @@ explicit kind for ambiguous JSON or XML. Default bounds are 10,000 visited
 entries, 100 accepted candidates, and 20 MiB per file. Reaching a bound is a
 visible blocker with narrowing guidance.
 
+Ambiguity or a traversal/candidate bound makes discovery incomplete in every
+mode. Interactive authoring stops before using any partial candidate set;
+complete-session and agent paths expose the same blocker and narrowing
+guidance.
+
 Local and remote discovery are separate. After local evidence is exhausted,
 `--network ask` requires approval. The remote lookup consults only curated
 apitools catalog references and one APIs.guru list request—never a general web

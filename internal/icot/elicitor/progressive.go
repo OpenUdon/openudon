@@ -34,10 +34,6 @@ func runProgressive(ctx context.Context, in io.Reader, out io.Writer, seed Sessi
 	}
 	session := seed
 	session.Normalize()
-	if session.Interview.Metadata == nil {
-		session.Interview.Metadata = map[string]string{}
-	}
-	session.Interview.Metadata["network_policy"] = firstNonEmpty(opts.NetworkPolicy, "ask")
 	statusOut := out
 	if opts.DefaultMode == authoring.PromptDefaultsSilent {
 		statusOut = io.Discard
@@ -48,10 +44,11 @@ func runProgressive(ctx context.Context, in io.Reader, out io.Writer, seed Sessi
 	if err != nil {
 		return Artifacts{}, err
 	}
+	if err := localSourceDiscoveryBlocker(discovery.Report); err != nil {
+		return Artifacts{}, err
+	}
 	docs := discovery.Docs
-	seed.SourcePlan = mergeSelectedSourcePlans(seed, discovery.Plans, opts.LocalSources)
-	session = seed
-	session.Normalize()
+	session = progressiveSessionAfterDiscovery(session, discovery.Plans, opts.LocalSources, opts.NetworkPolicy)
 	openingBrief := ""
 	if session.Intent.Workflow != nil {
 		openingBrief = strings.TrimSpace(session.Intent.Workflow.Description)
@@ -117,6 +114,9 @@ func runProgressive(ctx context.Context, in io.Reader, out io.Writer, seed Sessi
 			projectText := projectwizard.Render(session.Project)
 			refreshed, err := DiscoverAuthoringSources(ctx, opts.ExampleDir, projectText, opts.LocalSources, opts.SourceRoots)
 			if err != nil {
+				return nil, err
+			}
+			if err := localSourceDiscoveryBlocker(refreshed.Report); err != nil {
 				return nil, err
 			}
 			discovery = refreshed
@@ -262,6 +262,16 @@ func runProgressive(ctx context.Context, in io.Reader, out io.Writer, seed Sessi
 		return artifacts, ErrCanceled
 	}
 	return artifacts, err
+}
+
+func progressiveSessionAfterDiscovery(session Session, plans []SourceMaterialization, explicit []apitools.LocalSource, networkPolicy string) Session {
+	session.SourcePlan = mergeSelectedSourcePlans(session, plans, explicit)
+	session.Normalize()
+	if session.Interview.Metadata == nil {
+		session.Interview.Metadata = map[string]string{}
+	}
+	session.Interview.Metadata["network_policy"] = firstNonEmpty(networkPolicy, "ask")
+	return session
 }
 
 func progressiveDraftErrorMessage(err error) (string, bool) {

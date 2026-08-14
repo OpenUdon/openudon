@@ -1368,6 +1368,15 @@ func writeArtifacts(projectPath, intentPath string, artifacts elicitor.Artifacts
 }
 
 func writeApprovedArtifacts(exampleDir string, artifacts elicitor.Artifacts, force, yes bool, in io.Reader, out io.Writer) error {
+	artifacts.Session.Normalize()
+	selectedTargets := map[string]string{}
+	for _, source := range artifacts.Session.SourcePlan {
+		target := filepath.ToSlash(strings.TrimSpace(source.TargetPath))
+		if prior, ok := selectedTargets[target]; ok && prior != source.SHA256 {
+			return fmt.Errorf("source target %s is selected with different content digests %s and %s; choose one explicit source", target, prior, source.SHA256)
+		}
+		selectedTargets[target] = source.SHA256
+	}
 	projectPath := filepath.Join(exampleDir, "project.md")
 	intentPath := filepath.Join(exampleDir, "workflows", "intent.hcl")
 	if artifacts.Incomplete {

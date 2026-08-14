@@ -3,9 +3,9 @@ module github.com/OpenUdon/openudon
 go 1.26.3
 
 require (
-	github.com/OpenUdon/apitools v0.0.0-20260814145830-9d3c05f3bef4
+	github.com/OpenUdon/apitools v0.0.0-20260814155857-ef32163caeca
 	github.com/OpenUdon/asyncapi v0.1.0
-	github.com/OpenUdon/authoring v0.0.0-20260814151113-284c32e883f9
+	github.com/OpenUdon/authoring v0.0.0-20260814160241-18ba8068d49c
 	github.com/OpenUdon/evidence v0.0.0-20260603102736-08a9c38b00b7
 	github.com/OpenUdon/uws v0.0.0-20260725145128-d428f54e728c
 	github.com/hashicorp/hcl/v2 v2.24.0

@@ -3,9 +3,11 @@ package elicitor
 import (
 	"crypto/sha256"
 	"encoding/hex"
+	"encoding/json"
 	"fmt"
 	"path/filepath"
 	"sort"
+	"strconv"
 	"strings"
 
 	publicinterview "github.com/OpenUdon/authoring/interview"
@@ -16,6 +18,22 @@ import (
 const (
 	SessionVersion    = "openudon.icot-session.v2"
 	TranscriptVersion = "openudon.icot-transcript.v2"
+
+	evidenceAttrRecord               = "openudon.record"
+	evidenceRecordSourceAnnotation   = "source_annotation"
+	evidenceRecordAssumption         = "assumption"
+	evidenceRecordMapping            = "mapping_classification"
+	evidenceRecordDecision           = "decision_evidence"
+	evidenceAttrSlot                 = "slot"
+	evidenceAttrStage                = "stage"
+	evidenceAttrConfidence           = "confidence"
+	evidenceAttrReason               = "reason"
+	evidenceAttrEvidence             = "evidence"
+	evidenceAttrRequiresConfirmation = "requires_confirmation"
+	evidenceAttrAlternatives         = "alternatives_json"
+	evidenceAttrRisk                 = "risk"
+	evidenceAttrLegacyID             = "legacy_id"
+	evidenceAttrPromptVersion        = "prompt_version"
 )
 
 // WorkflowBoundary is the confirmed delivery boundary for the one active
@@ -69,13 +87,19 @@ func normalizeV2Session(session *Session) {
 	session.Boundary.NonGoals = dedupeStrings(session.Boundary.NonGoals)
 	session.CandidateWorkflows = projectdoc.NormalizeCandidateWorkflows(append(session.CandidateWorkflows, session.Project.CandidateWorkflows...))
 	session.Project.CandidateWorkflows = append([]projectdoc.CandidateWorkflow(nil), session.CandidateWorkflows...)
+	session.Interview = publicinterview.Normalize(session.Interview)
+	restoreLegacyEvidenceFromLedger(session)
+	session.Annotations = normalizeSourceAnnotations(session.Annotations)
+	session.Assumptions = mergeAssumptions(nil, session.Assumptions)
+	session.Classifications = normalizeMappingClassifications(session.Classifications)
+	session.DecisionEvidence = normalizeDecisionEvidenceList(session.DecisionEvidence)
 	session.SourcePlan = normalizeSourcePlan(session.SourcePlan)
 	syncLegacyEvidenceLedger(session)
 	session.Interview = publicinterview.Normalize(session.Interview)
 }
 
 func normalizeSourcePlan(sources []SourceMaterialization) []SourceMaterialization {
-	byKey := map[string]SourceMaterialization{}
+	normalized := make([]SourceMaterialization, 0, len(sources))
 	for _, source := range sources {
 		source.Kind = strings.ToLower(strings.TrimSpace(source.Kind))
 		source.ID = strings.TrimSpace(source.ID)
@@ -87,22 +111,33 @@ func normalizeSourcePlan(sources []SourceMaterialization) []SourceMaterializatio
 		if source.SourcePath == "." || source.TargetPath == "." {
 			continue
 		}
-		key := source.Kind + "\x00" + source.ID + "\x00" + source.SHA256
-		byKey[key] = source
+		normalized = append(normalized, source)
 	}
-	out := make([]SourceMaterialization, 0, len(byKey))
-	for _, source := range byKey {
+	sort.SliceStable(normalized, func(i, j int) bool {
+		if normalized[i].TargetPath != normalized[j].TargetPath {
+			return normalized[i].TargetPath < normalized[j].TargetPath
+		}
+		if normalized[i].SHA256 != normalized[j].SHA256 {
+			return normalized[i].SHA256 < normalized[j].SHA256
+		}
+		if normalized[i].Kind != normalized[j].Kind {
+			return normalized[i].Kind < normalized[j].Kind
+		}
+		if normalized[i].ID != normalized[j].ID {
+			return normalized[i].ID < normalized[j].ID
+		}
+		return normalized[i].SourcePath < normalized[j].SourcePath
+	})
+	out := make([]SourceMaterialization, 0, len(normalized))
+	seenContent := map[string]bool{}
+	for _, source := range normalized {
+		key := source.TargetPath + "\x00" + source.SHA256
+		if seenContent[key] {
+			continue
+		}
+		seenContent[key] = true
 		out = append(out, source)
 	}
-	sort.SliceStable(out, func(i, j int) bool {
-		if out[i].TargetPath != out[j].TargetPath {
-			return out[i].TargetPath < out[j].TargetPath
-		}
-		if out[i].Kind != out[j].Kind {
-			return out[i].Kind < out[j].Kind
-		}
-		return out[i].ID < out[j].ID
-	})
 	return out
 }
 
@@ -110,41 +145,56 @@ func syncLegacyEvidenceLedger(session *Session) {
 	if session == nil {
 		return
 	}
-	existing := map[string]bool{}
+	ledger := make([]publicinterview.Evidence, 0, len(session.Interview.Evidence)+len(session.Annotations)+len(session.Assumptions)+len(session.Classifications)+len(session.DecisionEvidence))
 	for _, evidence := range session.Interview.Evidence {
-		existing[evidence.ID] = true
+		if evidence.Attributes[evidenceAttrRecord] == "" {
+			ledger = append(ledger, evidence)
+		}
 	}
-	appendEvidence := func(kind, summary, value, source string, refs ...string) {
+	appendEvidence := func(recordType, kind, summary, value, source string, attributes map[string]string, refs ...string) {
 		summary = strings.TrimSpace(summary)
 		value = strings.TrimSpace(value)
 		if summary == "" {
 			summary = value
 		}
 		if summary == "" {
-			return
+			summary = recordType
 		}
-		digest := sha256.Sum256([]byte(strings.Join([]string{kind, summary, value, source}, "\x00")))
-		id := "evidence." + hex.EncodeToString(digest[:6])
-		if existing[id] {
-			return
+		if attributes == nil {
+			attributes = map[string]string{}
 		}
-		existing[id] = true
-		session.Interview.Evidence = append(session.Interview.Evidence, publicinterview.Evidence{
-			ID: id, Kind: kind, Summary: summary, Value: value, Source: strings.TrimSpace(source), References: dedupeStrings(refs),
+		attributes[evidenceAttrRecord] = recordType
+		identity := []string{recordType, attributes[evidenceAttrStage], attributes[evidenceAttrSlot], value, strings.TrimSpace(source), attributes[evidenceAttrLegacyID]}
+		digest := sha256.Sum256([]byte(strings.Join(identity, "\x00")))
+		ledger = append(ledger, publicinterview.Evidence{
+			ID: "evidence." + hex.EncodeToString(digest[:8]), Kind: kind, Summary: summary, Value: value,
+			Source: strings.TrimSpace(source), References: dedupeStrings(refs), Attributes: attributes,
 		})
 	}
 	for _, annotation := range session.Annotations {
-		appendEvidence(publicinterview.EvidenceObservedFact, annotation.Evidence, annotation.Slot, annotation.Source, annotation.PromptVersion)
+		appendEvidence(evidenceRecordSourceAnnotation, publicinterview.EvidenceObservedFact, annotation.Evidence, annotation.Slot, annotation.Source, map[string]string{
+			evidenceAttrSlot: annotation.Slot, evidenceAttrEvidence: annotation.Evidence, evidenceAttrPromptVersion: annotation.PromptVersion,
+		}, annotation.PromptVersion)
 	}
 	for _, assumption := range session.Assumptions {
-		appendEvidence(publicinterview.EvidenceAssumption, firstNonEmpty(assumption.Reason, assumption.Evidence), assumption.Value, "legacy-assumption", assumption.Slot)
+		appendEvidence(evidenceRecordAssumption, publicinterview.EvidenceAssumption, firstNonEmpty(assumption.Reason, assumption.Evidence), assumption.Value, "", map[string]string{
+			evidenceAttrLegacyID: assumption.ID, evidenceAttrSlot: assumption.Slot, evidenceAttrReason: assumption.Reason,
+			evidenceAttrEvidence: assumption.Evidence, evidenceAttrRisk: assumption.Risk,
+			evidenceAttrRequiresConfirmation: strconv.FormatBool(assumption.RequiresConfirmation),
+		}, assumption.Slot)
 	}
 	for _, classification := range session.Classifications {
 		kind := publicinterview.EvidenceRecommendation
 		if classification.Source == mappingSourceUser {
 			kind = publicinterview.EvidenceUserDecision
+		} else if classification.RequiresConfirmation {
+			kind = publicinterview.EvidenceOpenDecision
 		}
-		appendEvidence(kind, firstNonEmpty(classification.Reason, classification.Evidence), classification.Value, classification.Source, classification.Slot)
+		appendEvidence(evidenceRecordMapping, kind, firstNonEmpty(classification.Reason, classification.Evidence), classification.Value, classification.Source, map[string]string{
+			evidenceAttrSlot: classification.Slot, evidenceAttrConfidence: classification.Confidence,
+			evidenceAttrReason: classification.Reason, evidenceAttrEvidence: classification.Evidence,
+			evidenceAttrRequiresConfirmation: strconv.FormatBool(classification.RequiresConfirmation),
+		}, classification.Slot)
 	}
 	for _, decision := range session.DecisionEvidence {
 		kind := publicinterview.EvidenceRecommendation
@@ -154,8 +204,92 @@ func syncLegacyEvidenceLedger(session *Session) {
 		if decision.RequiresConfirmation {
 			kind = publicinterview.EvidenceOpenDecision
 		}
-		appendEvidence(kind, firstNonEmpty(decision.Reason, decision.Evidence), decision.Value, decision.Source, decision.Stage, decision.Slot)
+		alternatives, _ := json.Marshal(decision.Alternatives)
+		appendEvidence(evidenceRecordDecision, kind, firstNonEmpty(decision.Reason, decision.Evidence), decision.Value, decision.Source, map[string]string{
+			evidenceAttrStage: decision.Stage, evidenceAttrSlot: decision.Slot, evidenceAttrConfidence: decision.Confidence,
+			evidenceAttrReason: decision.Reason, evidenceAttrEvidence: decision.Evidence,
+			evidenceAttrRequiresConfirmation: strconv.FormatBool(decision.RequiresConfirmation),
+			evidenceAttrAlternatives:         string(alternatives),
+		}, decision.Stage, decision.Slot)
 	}
+	session.Interview.Evidence = ledger
+}
+
+func restoreLegacyEvidenceFromLedger(session *Session) {
+	if session == nil {
+		return
+	}
+	restoreAnnotations := len(session.Annotations) == 0
+	restoreAssumptions := len(session.Assumptions) == 0
+	restoreMappings := len(session.Classifications) == 0
+	restoreDecisions := len(session.DecisionEvidence) == 0
+	for _, evidence := range session.Interview.Evidence {
+		attributes := evidence.Attributes
+		switch attributes[evidenceAttrRecord] {
+		case evidenceRecordSourceAnnotation:
+			if !restoreAnnotations {
+				continue
+			}
+			session.Annotations = append(session.Annotations, SourceAnnotation{
+				Slot: attributes[evidenceAttrSlot], Source: evidence.Source,
+				PromptVersion: attributes[evidenceAttrPromptVersion], Evidence: attributes[evidenceAttrEvidence],
+			})
+		case evidenceRecordAssumption:
+			if !restoreAssumptions {
+				continue
+			}
+			session.Assumptions = append(session.Assumptions, Assumption{
+				ID: attributes[evidenceAttrLegacyID], Slot: attributes[evidenceAttrSlot], Value: evidence.Value,
+				Reason: attributes[evidenceAttrReason], Evidence: attributes[evidenceAttrEvidence], Risk: attributes[evidenceAttrRisk],
+				RequiresConfirmation: attributes[evidenceAttrRequiresConfirmation] == "true",
+			})
+		case evidenceRecordMapping:
+			if !restoreMappings {
+				continue
+			}
+			session.Classifications = append(session.Classifications, MappingClassification{
+				Slot: attributes[evidenceAttrSlot], Value: evidence.Value, Source: evidence.Source,
+				Confidence: attributes[evidenceAttrConfidence], Reason: attributes[evidenceAttrReason],
+				Evidence: attributes[evidenceAttrEvidence], RequiresConfirmation: attributes[evidenceAttrRequiresConfirmation] == "true",
+			})
+		case evidenceRecordDecision:
+			if !restoreDecisions {
+				continue
+			}
+			var alternatives []DecisionAlternative
+			_ = json.Unmarshal([]byte(attributes[evidenceAttrAlternatives]), &alternatives)
+			session.DecisionEvidence = append(session.DecisionEvidence, DecisionEvidence{
+				Stage: attributes[evidenceAttrStage], Slot: attributes[evidenceAttrSlot], Value: evidence.Value, Source: evidence.Source,
+				Confidence: attributes[evidenceAttrConfidence], Reason: attributes[evidenceAttrReason],
+				Evidence: attributes[evidenceAttrEvidence], Alternatives: alternatives,
+				RequiresConfirmation: attributes[evidenceAttrRequiresConfirmation] == "true",
+			})
+		}
+	}
+}
+
+func normalizeSourceAnnotations(annotations []SourceAnnotation) []SourceAnnotation {
+	seen := map[string]bool{}
+	out := make([]SourceAnnotation, 0, len(annotations))
+	for _, annotation := range annotations {
+		annotation.Slot = strings.TrimSpace(annotation.Slot)
+		annotation.Source = strings.TrimSpace(annotation.Source)
+		annotation.PromptVersion = strings.TrimSpace(annotation.PromptVersion)
+		annotation.Evidence = strings.TrimSpace(annotation.Evidence)
+		key := strings.Join([]string{annotation.Slot, annotation.Source, annotation.PromptVersion, annotation.Evidence}, "\x00")
+		if key == "\x00\x00\x00" || seen[key] {
+			continue
+		}
+		seen[key] = true
+		out = append(out, annotation)
+	}
+	sort.SliceStable(out, func(i, j int) bool {
+		if out[i].Slot != out[j].Slot {
+			return out[i].Slot < out[j].Slot
+		}
+		return out[i].Source < out[j].Source
+	})
+	return out
 }
 
 func validateV2Session(session Session) error {
@@ -184,6 +318,9 @@ func validateV2State(session Session) error {
 	if err := publicinterview.Validate(session.Interview); err != nil {
 		return err
 	}
+	if err := validateSourcePlanTargets(session.SourcePlan); err != nil {
+		return err
+	}
 	for _, source := range session.SourcePlan {
 		if source.Kind == "" || source.ID == "" || source.SourcePath == "" || source.TargetPath == "" || len(source.SHA256) != 64 || source.Provenance == "" {
 			return fmt.Errorf("source materialization %q must include kind, id, source path, target path, SHA-256, and provenance", source.ID)
@@ -193,6 +330,21 @@ func validateV2State(session Session) error {
 		if candidate.Title == "" || candidate.Outcome == "" || candidate.DeferralReason == "" || candidate.PromotionTrigger == "" {
 			return fmt.Errorf("candidate workflow %q must include title, outcome, deferral reason, and promotion trigger", candidate.Title)
 		}
+	}
+	return nil
+}
+
+func validateSourcePlanTargets(sources []SourceMaterialization) error {
+	digests := map[string]string{}
+	for _, source := range normalizeSourcePlan(sources) {
+		target := filepath.ToSlash(strings.TrimSpace(source.TargetPath))
+		if target == "" || target == "." {
+			continue
+		}
+		if prior, ok := digests[target]; ok && prior != source.SHA256 {
+			return fmt.Errorf("source materialization target %q has conflicting SHA-256 digests %s and %s", target, prior, source.SHA256)
+		}
+		digests[target] = source.SHA256
 	}
 	return nil
 }

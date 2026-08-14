@@ -1,9 +1,9 @@
-github.com/OpenUdon/apitools v0.0.0-20260814145830-9d3c05f3bef4 h1:pJJvxZi3Iy593P07+lUmBZLCYQsB6mXHV0VDCCIcvxA=
-github.com/OpenUdon/apitools v0.0.0-20260814145830-9d3c05f3bef4/go.mod h1:h63NNvVGj/O5j0hhvxa8mD36myLs9X0Ky4S7Zop8vW0=
+github.com/OpenUdon/apitools v0.0.0-20260814155857-ef32163caeca h1:hokrvAtSLRBR2Cp0ETAFdsqVlGtDDuCORBenISm6jew=
+github.com/OpenUdon/apitools v0.0.0-20260814155857-ef32163caeca/go.mod h1:h63NNvVGj/O5j0hhvxa8mD36myLs9X0Ky4S7Zop8vW0=
 github.com/OpenUdon/asyncapi v0.1.0 h1:ZfGDJHknYUKfEZIC6VrhpdiwDVStMoZnyYmr3AVbQH4=
 github.com/OpenUdon/asyncapi v0.1.0/go.mod h1:RvOKMXItIe+XQu06yZQp839fTZpouX2dL9ngvhg/vOk=
-github.com/OpenUdon/authoring v0.0.0-20260814151113-284c32e883f9 h1:W0cJAvWISNMNwBebKuIMQIGBEa+lT34767o7+r/ek+4=
-github.com/OpenUdon/authoring v0.0.0-20260814151113-284c32e883f9/go.mod h1:UZUPXJZ4zTGDpb7gE4DpFLhFsRf4j9028y0/muxf6V4=
+github.com/OpenUdon/authoring v0.0.0-20260814160241-18ba8068d49c h1:A4Qxvbacwj8QD6yauxiAkKgorAm8Fk5IQFPBeJ8brJk=
+github.com/OpenUdon/authoring v0.0.0-20260814160241-18ba8068d49c/go.mod h1:UZUPXJZ4zTGDpb7gE4DpFLhFsRf4j9028y0/muxf6V4=
 github.com/OpenUdon/awssmithy v0.0.0-20260520213111-549a060a5e28 h1:Xrv5Ccw2QVXfuswbTLP98vt5vyMIVmnsfX43TUHBo+Y=
 github.com/OpenUdon/awssmithy v0.0.0-20260520213111-549a060a5e28/go.mod h1:Wkg6qE+XUwzDCpw6gKoUhPQ03K0RhGbxnYpDMmGFStQ=
 github.com/OpenUdon/evidence v0.0.0-20260603102736-08a9c38b00b7 h1:ob/J0qX7B1u7YCiI1kY5EU2MTTpVkox9Bz8ogIP8IfU=

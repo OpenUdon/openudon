@@ -25,6 +25,16 @@ type LocalSourceDiscovery struct {
 	Plans  []SourceMaterialization             `json:"materialization_plans,omitempty"`
 }
 
+func localSourceDiscoveryBlocker(report apitools.LocalSourceDiscoveryReport) error {
+	if !report.Truncated && len(report.Ambiguous) == 0 {
+		return nil
+	}
+	return fmt.Errorf(
+		"local source discovery is incomplete (%d ambiguous document(s), truncated=%t); narrow source roots or declare ambiguous files with --api-source KIND:ID=PATH",
+		len(report.Ambiguous), report.Truncated,
+	)
+}
+
 var sourceIDSanitizer = regexp.MustCompile(`[^a-zA-Z0-9._-]+`)
 
 const (

@@ -1946,6 +1946,33 @@ func TestApprovedArtifactTransactionBlocksDifferingSourceCollision(t *testing.T)
 	}
 }
 
+func TestApprovedArtifactTransactionRejectsConflictingSelectedTargets(t *testing.T) {
+	example := filepath.Join(t.TempDir(), "package")
+	firstPath := filepath.Join(t.TempDir(), "first.json")
+	secondPath := filepath.Join(t.TempDir(), "second.json")
+	firstContent := []byte("first\n")
+	secondContent := []byte("second\n")
+	if err := os.WriteFile(firstPath, firstContent, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(secondPath, secondContent, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	firstDigest := sha256.Sum256(firstContent)
+	secondDigest := sha256.Sum256(secondContent)
+	artifacts := elicitor.Artifacts{Session: elicitor.Session{SourcePlan: []elicitor.SourceMaterialization{
+		{Kind: "openapi", ID: "first", SourcePath: firstPath, TargetPath: "openapi/service.json", SHA256: hex.EncodeToString(firstDigest[:]), Provenance: "local:" + firstPath},
+		{Kind: "openapi", ID: "second", SourcePath: secondPath, TargetPath: "openapi/service.json", SHA256: hex.EncodeToString(secondDigest[:]), Provenance: "local:" + secondPath},
+	}}}
+	err := writeApprovedArtifacts(example, artifacts, true, true, strings.NewReader(""), io.Discard)
+	if err == nil || !strings.Contains(err.Error(), "selected with different content") {
+		t.Fatalf("writeApprovedArtifacts error = %v", err)
+	}
+	if _, err := os.Stat(filepath.Join(example, "project.md")); !os.IsNotExist(err) {
+		t.Fatalf("conflicting selected targets partially wrote project.md: %v", err)
+	}
+}
+
 func testIntent(name, goal, stepName string) *rollout.Intent {
 	return &rollout.Intent{
 		Workflow: &rollout.WorkflowMeta{Name: name, Description: goal},
