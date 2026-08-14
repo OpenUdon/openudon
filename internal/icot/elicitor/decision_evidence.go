@@ -195,6 +195,24 @@ func decisionEvidenceIssues(session Session) []ReadinessIssue {
 			})
 		}
 	}
+	for _, evidence := range session.Interview.Evidence {
+		source := strings.ToLower(strings.TrimSpace(evidence.Source))
+		slot := evidence.NodeID
+		if slot == "" && len(evidence.References) > 0 {
+			slot = evidence.References[0]
+		}
+		code, qualifier := "", ""
+		switch {
+		case strings.Contains(source, "conflict"):
+			code, qualifier = "conflicting_decision_evidence", "conflicting evidence"
+		case strings.Contains(source, "low-confidence") || strings.Contains(source, "low_confidence"):
+			code, qualifier = "low_confidence_decision", "low confidence"
+		}
+		if code == "" {
+			continue
+		}
+		issues = append(issues, ReadinessIssue{Code: code, Slot: firstNonEmpty(slot, "interview.evidence."+evidence.ID), Severity: readinessBlocking, Message: "Decision evidence needs confirmation because it is " + qualifier + ".", SuggestedAnswer: evidence.Value})
+	}
 	return issues
 }
 

@@ -165,23 +165,29 @@ Common modes:
 # Print rendered project.md and intent.hcl without writing files.
 go run ./cmd/icot --example ./examples/<name> --print
 
-# Use the fixed manual flow without LLM extraction.
+# Use the adaptive interview without LLM extraction.
 go run ./cmd/icot --example ./examples/<name> --no-llm
 
 # Ask every question and let you confirm defaults. This is the default mode.
 go run ./cmd/icot --example ./examples/<name> --prompt-mode full
 
-# Print defaulted questions and accept their defaults automatically.
+# Show the whole frontier and accept safe defaults visibly.
 go run ./cmd/icot --example ./examples/<name> --prompt-mode normal
 
-# Ask only when iCoT has no default or answer.
+# Silently accept safe defaults; still show missing/conflicting/forced decisions.
 go run ./cmd/icot --example ./examples/<name> --prompt-mode fast
 
 # Seed from an existing example.
-go run ./cmd/icot --from-example ./examples/eval/runtime-only-render --example ./examples/<name>
+go run ./cmd/icot --from-example ./examples/eval/runtime-only-render --example ./examples/<name> --yes
 
-# Use YAML or JSON session/legacy answers.
-go run ./cmd/icot --answers ./answers.yaml --example ./examples/<name>
+# Use an openudon.icot-session.v2 YAML or JSON session.
+go run ./cmd/icot --answers ./session.yaml --example ./examples/<name> --yes
+
+# Add reviewed sources or bounded discovery roots; flags are repeatable.
+go run ./cmd/icot --example ./examples/<name> \
+  --api-source graphql:catalog=./schema.graphql \
+  --openapi weather=./openapi/weather.yaml \
+  --source-root ./provider-metadata --network ask
 
 # Rebuild project.md from workflows/intent.hcl.
 go run ./cmd/icot reconcile --example ./examples/<name>
@@ -220,16 +226,21 @@ go run ./cmd/icot repair --example ./examples/<name> --dry-run --json
 go run ./cmd/icot replay-eval --root ./examples/eval --provider copilot-api --model gpt-5.4-mini
 ```
 
-iCoT autosaves incomplete local sessions under `<example>/.icot/session.yaml` and resumes by
-default. Successful saves delete the autosave. Transcripts are written under
+iCoT maps broad requests into one active workflow boundary plus unnumbered candidate workflows. It
+shows every dependency-ready decision as one frontier round before collecting answers, and has no
+fixed question ceiling. Candidate workflows receive a deferral reason and promotion trigger but no
+sources, operations, mappings, or implementation steps.
+
+iCoT autosaves only resumable local state under `<example>/.icot/session.yaml` and resumes by
+default. Successful promotion deletes obsolete draft/readiness state. Transcripts are written under
 `<example>/.icot/transcript.json` unless `--no-transcript` is used. These local files are ignored by
 git.
 
 `--prompt-mode full` is the default when the flag is omitted; it prints every question and waits for
-you to confirm or replace defaults. `--prompt-mode normal` prints every question and automatically
-accepts defaults. `--prompt-mode fast` skips defaulted questions entirely, suppresses catalog/status
-chatter plus review-only fallback and assumption text, and asks only for required values without a
-safe default, such as the initial workflow goal.
+you to confirm or replace defaults. `--prompt-mode normal` prints the full frontier and visibly
+accepts safe defaults. `--prompt-mode fast` silently accepts safe defaults but shows missing,
+low-confidence, conflicting, and forced decisions. Final proposal approval is forced in every mode;
+`--yes` is its explicit noninteractive equivalent.
 
 When LLM extraction is enabled, iCoT also runs a bounded pre-final flow review before showing the
 current draft. That review is advisory: it looks for cross-step data-flow mistakes such as a report
@@ -241,16 +252,16 @@ repairs or add a local `fnct` transform/report/render step when the goal clearly
 content and one known producer step can feed it. It rejects operation, source, credential, and
 side-effect-scope mutations.
 
-For SaaS briefs, iCoT first checks the local and sibling `apitools` provider catalog. When cached
-OpenAPI, Google Discovery, or reviewed advisory OpenAPI overlay artifacts are available, it can use a
-bounded LLM catalog plan to select validated local artifacts and seed rough provider steps. Concrete
-operation IDs and request mappings still come from local operation metadata. After operation
-selection, iCoT gives the LLM a focused chance to fill required request fields from structured
-operation details before asking the operator for any unresolved mappings.
+Before questioning, iCoT inspects existing sources, explicit documents, and explicit roots through
+apitools' bounded multi-family discovery. It supports OpenAPI/Swagger, Google Discovery, AWS Smithy,
+AsyncAPI, GraphQL, OpenRPC, gRPC/protobuf, and OData; rejects symlinks and ambiguous documents;
+deduplicates by SHA-256; and never copies a source before proposal approval. If local evidence is
+exhausted, approved remote lookup is limited to curated apitools references plus one APIs.guru lookup
+with an eight-second deadline and at most three metadata candidates.
 
-When a goal explicitly asks to stop and report a missing or ambiguous provider/API/source capability,
-and no usable API source or operation is available, iCoT can produce a local `render_capability_gap`
-`fnct` workflow with `provider` and `action` inputs instead of inventing an API execution plan.
+`--agent` returns the entire frontier, candidate workflows, source evidence, blockers, and proposed
+file actions. It never prompts or writes deliverables, including when the session is otherwise
+complete.
 
 Side-effect scope in iCoT:
 

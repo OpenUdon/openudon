@@ -1,6 +1,11 @@
 package elicitor
 
-import "github.com/OpenUdon/openudon/internal/authoring"
+import (
+	"os"
+	"path/filepath"
+
+	"github.com/OpenUdon/openudon/internal/authoring"
+)
 
 // DraftPath returns the canonical `.icot/session.yaml` path under exampleDir.
 func DraftPath(exampleDir string) string {
@@ -11,11 +16,17 @@ func DraftPath(exampleDir string) string {
 // true when a session was found AND it looks like a real session (per
 // LooksLikeSession).
 func LoadDraft(path string) (Session, bool, error) {
-	session, ok, err := authoring.LoadDraft[Session](path)
-	if err != nil || !ok {
+	data, err := os.ReadFile(path)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return Session{}, false, nil
+		}
 		return Session{}, false, err
 	}
-	session.Normalize()
+	session, err := DecodeSession(data, filepath.Ext(path))
+	if err != nil {
+		return Session{}, false, err
+	}
 	return session, LooksLikeSession(session), nil
 }
 

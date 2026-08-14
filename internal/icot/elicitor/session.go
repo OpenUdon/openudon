@@ -8,27 +8,33 @@ import (
 	"sort"
 	"strings"
 
+	publicinterview "github.com/OpenUdon/authoring/interview"
 	"github.com/OpenUdon/openudon/internal/projectwizard"
 	rollout "github.com/OpenUdon/openudon/internal/workflowintent"
 	"gopkg.in/yaml.v3"
 )
 
 type Session struct {
-	Project          projectwizard.Answers   `json:"project,omitempty" yaml:"project,omitempty"`
-	Intent           rollout.Intent          `json:"intent,omitempty" yaml:"intent,omitempty"`
-	Credentials      []string                `json:"credentials,omitempty" yaml:"credentials,omitempty"`
-	CredentialsSet   bool                    `json:"credentials_set,omitempty" yaml:"credentials_set,omitempty"`
-	Safety           string                  `json:"safety,omitempty" yaml:"safety,omitempty"`
-	SafetySet        bool                    `json:"safety_set,omitempty" yaml:"safety_set,omitempty"`
-	Fallback         string                  `json:"fallback,omitempty" yaml:"fallback,omitempty"`
-	FallbackSet      bool                    `json:"fallback_set,omitempty" yaml:"fallback_set,omitempty"`
-	SideEffectScope  string                  `json:"side_effect_scope,omitempty" yaml:"side_effect_scope,omitempty"`
-	Annotations      []SourceAnnotation      `json:"annotations,omitempty" yaml:"annotations,omitempty"`
-	Assumptions      []Assumption            `json:"assumptions,omitempty" yaml:"assumptions,omitempty"`
-	Classifications  []MappingClassification `json:"classifications,omitempty" yaml:"classifications,omitempty"`
-	DecisionEvidence []DecisionEvidence      `json:"decision_evidence,omitempty" yaml:"decision_evidence,omitempty"`
-	DraftOperations  []OperationDetailRef    `json:"-" yaml:"-"`
-	DraftEvents      []TranscriptEvent       `json:"-" yaml:"-"`
+	Version            string                  `json:"version" yaml:"version"`
+	Boundary           WorkflowBoundary        `json:"boundary" yaml:"boundary"`
+	Interview          publicinterview.State   `json:"interview" yaml:"interview"`
+	Project            projectwizard.Answers   `json:"project,omitempty" yaml:"project,omitempty"`
+	Intent             rollout.Intent          `json:"intent,omitempty" yaml:"intent,omitempty"`
+	SourcePlan         []SourceMaterialization `json:"source_plan,omitempty" yaml:"source_plan,omitempty"`
+	CandidateWorkflows []CandidateWorkflow     `json:"candidate_workflows,omitempty" yaml:"candidate_workflows,omitempty"`
+	Credentials        []string                `json:"credentials,omitempty" yaml:"credentials,omitempty"`
+	CredentialsSet     bool                    `json:"credentials_set,omitempty" yaml:"credentials_set,omitempty"`
+	Safety             string                  `json:"safety,omitempty" yaml:"safety,omitempty"`
+	SafetySet          bool                    `json:"safety_set,omitempty" yaml:"safety_set,omitempty"`
+	Fallback           string                  `json:"fallback,omitempty" yaml:"fallback,omitempty"`
+	FallbackSet        bool                    `json:"fallback_set,omitempty" yaml:"fallback_set,omitempty"`
+	SideEffectScope    string                  `json:"side_effect_scope,omitempty" yaml:"side_effect_scope,omitempty"`
+	Annotations        []SourceAnnotation      `json:"-" yaml:"-"`
+	Assumptions        []Assumption            `json:"-" yaml:"-"`
+	Classifications    []MappingClassification `json:"-" yaml:"-"`
+	DecisionEvidence   []DecisionEvidence      `json:"-" yaml:"-"`
+	DraftOperations    []OperationDetailRef    `json:"-" yaml:"-"`
+	DraftEvents        []TranscriptEvent       `json:"-" yaml:"-"`
 }
 
 type SourceAnnotation struct {
@@ -122,6 +128,24 @@ func SessionFromIntent(intent *rollout.Intent, project projectwizard.Answers) Se
 	if session.SideEffectScope == "" {
 		session.SideEffectScope = projectwizard.InferSideEffectScope(project.Safety)
 	}
+	session.Boundary.Outcome = strings.TrimSpace(session.Project.Goal)
+	session.Boundary.Actor = "operator"
+	session.Boundary.Trigger = "on demand"
+	session.Boundary.Confirmed = true
+	for _, output := range value.Outputs {
+		if output != nil && strings.TrimSpace(output.Name) != "" {
+			session.Boundary.SuccessEvidence = append(session.Boundary.SuccessEvidence, "output "+output.Name+" is produced from "+output.From)
+		}
+	}
+	if len(session.Boundary.SuccessEvidence) == 0 {
+		session.Boundary.SuccessEvidence = []string{"the imported, reviewed workflow completes without an unapproved side effect"}
+	}
+	session.Interview.Evidence = []publicinterview.Evidence{{
+		ID: "evidence.imported-intent", Kind: publicinterview.EvidenceObservedFact,
+		Summary: "The active boundary was derived from an existing reviewed project and intent.",
+		Source:  "existing project.md and workflows/intent.hcl",
+	}}
+	session.Normalize()
 	return session
 }
 
@@ -141,6 +165,7 @@ func (s Session) IntentDescription() string {
 
 func (s *Session) Normalize() {
 	if emptySession(*s) {
+		normalizeV2Session(s)
 		return
 	}
 	if s.Intent.Workflow == nil {
@@ -189,6 +214,7 @@ func (s *Session) Normalize() {
 	s.Classifications = normalizeMappingClassifications(s.Classifications)
 	s.DecisionEvidence = normalizeDecisionEvidenceList(s.DecisionEvidence)
 	normalizeSteps(s.Intent.Steps)
+	normalizeV2Session(s)
 }
 
 func (s Session) Missing() []string {
@@ -216,6 +242,9 @@ func (s Session) Validate() error {
 	s.Normalize()
 	if missing := s.Missing(); len(missing) > 0 {
 		return fmt.Errorf("missing %s", strings.Join(missing, ", "))
+	}
+	if err := validateV2Session(s); err != nil {
+		return err
 	}
 	return validateUniqueStepNames(s.Intent.Steps)
 }
@@ -269,23 +298,39 @@ func collectStepMissing(missing *[]string, defaultSource string, step *rollout.S
 }
 
 func DecodeSession(data []byte, ext string) (Session, error) {
-	var session Session
+	var raw map[string]any
 	if strings.EqualFold(ext, ".json") {
-		if err := json.Unmarshal(data, &session); err != nil {
+		if err := json.Unmarshal(data, &raw); err != nil {
 			return Session{}, err
 		}
-		return session, nil
+	} else {
+		var generic any
+		if err := yaml.Unmarshal(data, &generic); err != nil {
+			return Session{}, err
+		}
+		jsonReady := yamlToJSONReady(generic)
+		encoded, err := json.Marshal(jsonReady)
+		if err != nil {
+			return Session{}, err
+		}
+		if err := json.Unmarshal(encoded, &raw); err != nil {
+			return Session{}, err
+		}
 	}
-	var generic any
-	if err := yaml.Unmarshal(data, &generic); err != nil {
-		return Session{}, err
+	version, _ := raw["version"].(string)
+	if strings.TrimSpace(version) != SessionVersion {
+		return Session{}, fmt.Errorf("unsupported iCoT session version %q; want %q (v1 inputs are not accepted)", strings.TrimSpace(version), SessionVersion)
 	}
-	jsonReady := yamlToJSONReady(generic)
-	encoded, err := json.Marshal(jsonReady)
+	encoded, err := json.Marshal(raw)
 	if err != nil {
 		return Session{}, err
 	}
+	var session Session
 	if err := json.Unmarshal(encoded, &session); err != nil {
+		return Session{}, err
+	}
+	session.Normalize()
+	if err := validateV2State(session); err != nil {
 		return Session{}, err
 	}
 	return session, nil

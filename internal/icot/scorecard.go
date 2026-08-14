@@ -152,7 +152,7 @@ func runScorecardFixture(seedDir, outDir string) scorecardResult {
 	_ = os.RemoveAll(workspace)
 	result.ExampleDir = workspace
 	var stdout, stderr bytes.Buffer
-	code := Main([]string{"--example", workspace, "--from-example", seedDir, "--no-llm", "--no-transcript"}, strings.NewReader(""), &stdout, &stderr)
+	code := Main([]string{"--example", workspace, "--from-example", seedDir, "--no-llm", "--no-transcript", "--prompt-mode", "fast", "--yes"}, strings.NewReader(""), &stdout, &stderr)
 	if code != 0 {
 		result.ObservedOutcome = "icot_fail"
 		result.Detail = strings.TrimSpace(stderr.String())

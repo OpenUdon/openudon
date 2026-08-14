@@ -65,7 +65,7 @@ func TestCompareIntentsReportsStructuralIssues(t *testing.T) {
 func TestReadAuthoringVariantsValidatesDuplicateIDs(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "authoring-variants.json")
 	data := `{
-  "version": "openudon.icot-authoring-variants.v1",
+  "version": "openudon.icot-authoring-variants.v2",
   "provider_families": ["slack"],
   "variants": [
     {
@@ -93,7 +93,7 @@ func TestReadAuthoringVariantsValidatesDuplicateIDs(t *testing.T) {
 func TestReadAuthoringVariantsNormalizesValues(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "authoring-variants.json")
 	data := `{
-  "version": "openudon.icot-authoring-variants.v1",
+  "version": "openudon.icot-authoring-variants.v2",
   "provider_families": [" Slack ", "", "gmail"],
   "variants": [
     {
@@ -121,7 +121,7 @@ func TestReadAuthoringVariantsNormalizesValues(t *testing.T) {
 func TestReadAuthoringVariantsRejectsInvalidFailureFamily(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "authoring-variants.json")
 	data := `{
-  "version": "openudon.icot-authoring-variants.v1",
+  "version": "openudon.icot-authoring-variants.v2",
   "variants": [
     {
       "id": "bad-family",

@@ -1,292 +1,210 @@
-# iCoT
+# iCoT v2
 
-iCoT is OpenUdon's guided authoring CLI. It helps an operator turn a workflow idea into
-`project.md` and `workflows/intent.hcl`.
+iCoT is OpenUdon's adaptive guided-authoring CLI. It turns a broad workflow
+request into one reviewed active boundary, a dependency-aware decision graph,
+and either a complete `workflows/intent.hcl` or an explicitly incomplete draft.
+It does not execute workflows.
 
 ```bash
 go run ./cmd/icot --example ./examples/<name>
 ```
 
-The command creates the example directories when needed and writes the standard OpenUdon authoring
-sections. It does not synthesize compiled artifacts and it does not execute workflows.
-
-## Common Modes
+## Inputs And Modes
 
 ```bash
-# Print rendered project.md and intent.hcl without writing files.
+# Preview only; writes no deliverables, source copies, transcript, or autosave.
 go run ./cmd/icot --example ./examples/<name> --print
 
-# Use the fixed manual flow without optional LLM extraction.
+# Disable optional LLM extraction while retaining the adaptive interview.
 go run ./cmd/icot --example ./examples/<name> --no-llm
 
-# Ask every question and let you confirm defaults. This is the default mode.
-go run ./cmd/icot --example ./examples/<name> --prompt-mode full
+# Load a v2 session. Add --yes for explicit noninteractive proposal approval.
+go run ./cmd/icot --example ./examples/<name> \
+  --answers ./session.yaml --yes
 
-# Print defaulted questions and accept their defaults automatically.
-go run ./cmd/icot --example ./examples/<name> --prompt-mode normal
+# Inspect an existing example before asking questions.
+go run ./cmd/icot --example ./examples/<name> \
+  --from-example ./examples/eval/weather-toronto --yes
 
-# Ask only when iCoT has no safe default/answer, or confidence requires review.
-go run ./cmd/icot --example ./examples/<name> --prompt-mode fast
+# Declare reviewed API documents or bounded roots. Flags are repeatable.
+go run ./cmd/icot --example ./examples/<name> \
+  --api-source graphql:catalog=./schema.graphql \
+  --openapi weather=./openapi/weather.yaml \
+  --source-root ./provider-metadata
 
-# Experimental: let pre-final flow review apply bounded safe repairs.
-go run ./cmd/icot --example ./examples/<name> --review-repair
-
-# Seed from an existing fixture.
-go run ./cmd/icot --from-example ./examples/eval/weather-toronto --example ./examples/<name>
-
-# Use YAML or JSON answers.
-go run ./cmd/icot --answers ./answers.yaml --example ./examples/<name>
-
-# Rebuild project.md from workflows/intent.hcl.
-go run ./cmd/icot reconcile --example ./examples/<name>
-
-# Check brief quality, intent parseability, and drift.
-go run ./cmd/icot lint --example ./examples/<name>
-
-# Noninteractive agent mode: write final artifacts when complete, or return needs_input.
-go run ./cmd/icot --example ./examples/<name> --agent --json
-
-# Structured lint report.
-go run ./cmd/icot lint --example ./examples/<name> --json
-
-# Provider-free reliability scorecard over the eval corpus.
-go run ./cmd/icot scorecard --root examples/eval --out eval/runs/icot-scorecard-local
-
-# Include curated natural-language authoring variants.
-go run ./cmd/icot scorecard --root examples/eval --include-variants --out eval/runs/icot-authoring-scorecard-local
-
-# Verify scorecard report JSON plus digest sidecar. `make icot-authoring-scorecard`
-# and `make release-saas-check` run this automatically for the provider-free scorecard.
-go run ./cmd/icot report verify --file eval/runs/icot-authoring-scorecard-local/scorecard.json
-
-# Validate variant metadata and reference-seeded clear slots without running scorecard.
-go run ./cmd/icot variants validate --root examples/eval
-
-# Check provider-family coverage across positive, missing-detail, and unsafe-negative variants.
-go run ./cmd/icot variants coverage --root examples/eval
-
-# Optional real-LLM natural-language authoring evidence.
-go run ./cmd/icot authoring-eval --root examples/eval --include-variants --provider copilot-api --model gpt-5.4-mini --out eval/runs/icot-authoring-eval-local
-
-# Optional/manual verification for real-LLM authoring evidence.
-go run ./cmd/icot report verify --file eval/runs/icot-authoring-eval-local/authoring-eval.json
-
-# Bounded deterministic repair for mappings, outputs, and depends_on only.
-go run ./cmd/icot repair --example ./examples/<name> --dry-run --json
-
-# Replay eval fixtures with prompt-mode and repair metrics.
-go run ./cmd/icot replay-eval --root examples/eval --prompt-mode fast --review-repair
-
-# Run the focused local replay repair gate.
-make icot-replay-repair-check
+# Control the bounded remote metadata lookup.
+go run ./cmd/icot --example ./examples/<name> --network never
 ```
 
-See [iCoT Session Files](icot-session-schema.md) for the accepted `--answers` shapes and
-[iCoT Transcripts](icot-transcript.md) for the ignored local transcript format.
+`--api-source` uses `KIND:ID=PATH`; `--openapi ID=PATH` is shorthand for an
+OpenAPI source. `--network` accepts `never`, `ask`, or `allow`. Interactive runs
+default to `ask`. Agent mode is effectively `never` unless `allow` is explicit.
 
-`--prompt-mode full` is the default when the flag is omitted; it prints every question and waits for
-you to confirm or replace defaults. `--prompt-mode normal` prints high-confidence and review-level
-defaulted questions and automatically accepts them, but still asks when the default is missing,
-low-confidence, conflicting, or tied to a blocking review decision. `--prompt-mode fast` silently
-accepts high-confidence and review-level defaults, suppresses catalog/status chatter plus
-review-only fallback and assumption text, and asks only for required values without a safe default
-or with low/conflicting confidence. Automatically accepted defaults, assumptions, and decision
-evidence are still recorded in the transcript.
+Prompt modes preserve the public v1 names with v2 behavior:
 
-For `icot replay-eval`, the omitted `--prompt-mode` default is `fast` so replay metrics measure the
-progressive loop's defaulted path instead of requiring a manual answer script for every prompt.
+- `full` shows and asks every question in the current frontier.
+- `normal` shows the entire frontier and visibly accepts safe defaults.
+- `fast` silently accepts safe defaults but shows missing, low-confidence,
+  conflicting, or forced decisions.
 
-## Agent And JSON Modes
+Every round is displayed in full before answers are collected. All answers in
+the round are applied together, followed by one normalization and autosave.
+There is no fixed question ceiling. The interview ends on completion,
+cancellation, approved draft deferral, or three consecutive no-progress rounds.
+Final proposal approval is forced in every prompt mode; `--yes` is the explicit
+noninteractive equivalent.
 
-`--agent` is the noninteractive iCoT mode for local agents or scripts. It does not read blocking
-prompts. If the provided session, answers, draft, or seed fixture is complete, it writes
-`project.md` and `workflows/intent.hcl` using the normal atomic write path. If required authoring
-state is missing, it returns a structured `needs_input` report with the top readiness issue,
-suggested answer, failure family, and all readiness issues.
+## Workflow Boundary And Frontier
 
-`--json` writes an `openudon.icot-author-report.v1` report to stdout. `--report <path>` writes the
-same report to a file. `icot lint --json` writes `openudon.icot-lint-report.v1` with project checks,
-intent parse status, drift warnings, and the first failure family.
+iCoT first confirms one active outcome with its actor, trigger, observable
+success evidence, non-goals, and side-effect/approval posture. If a request
+contains multiple workflows, the operator must select the active workflow even
+in fast mode. Other workflows remain unnumbered candidates with a deferral
+reason and promotion trigger; iCoT does not assign them sources, operations,
+mappings, or steps.
 
-`icot scorecard` runs the provider-free seed/build reliability path over eval fixtures. It writes
-`openudon.icot-scorecard.v1` under the requested output directory and records expected outcome,
-observed outcome, fixture class, first failure family, failure codes, prompt/readiness provenance,
-run ID, commit, generation time, and the command used to produce the report. The command validates
-report consistency before write and emits a `scorecard.json.sha256` digest sidecar. Scorecards are
-marked `retention_class: release_evidence`, `contains_provider_output: false`, `safe_to_archive:
-true`, and `redaction_required_before_share: false`. With
-`--include-variants`, it also runs checked-in natural-language authoring variants from
-`reference/authoring-variants.json` and groups results by provider family, variant class, and
-failure family. It also counts missing-detail or unsafe-negative variants that unexpectedly observe
-`pass` as explicit false-pass counters, and fails variants that return `needs_input` without top
-issue diagnostics. This variant lane mutates reviewed reference packages and verifies deterministic
-package behavior; it is not proof that a live LLM generated the workflow from the alternate brief.
-It does not call an LLM, retrieve remote provider metadata, or execute workflows.
+The decision graph adds only applicable nodes. Its main dependency order is:
 
-`icot variants validate` checks `reference/authoring-variants.json` metadata without generating
-workspaces. It validates expected failure-family names, duplicate IDs, missing-detail expectations,
-required `expected_top_issue_code` and `expected_top_issue_slot` values for `needs_input`
-variants, and `seed_from_reference` `clear_fields` or `clear_slots` against the fixture reference
-intent. Use it before scorecard runs when editing variant metadata. The scorecard compares observed
-top issue code and slot to those expectations so a variant cannot pass by asking the wrong
-follow-up question.
+1. active boundary and outcome;
+2. actor/trigger and expected result;
+3. provider capabilities and workflow steps;
+4. source selection;
+5. operation selection;
+6. mappings/data flow, credentials, and side-effect posture;
+7. outputs, fallback behavior, and verification;
+8. complete proposal approval.
 
-`icot variants coverage` aggregates checked-in authoring variants by provider family and fails if
-any provider family lacks at least one `positive`, `missing-detail`, or `unsafe-negative` variant.
-This keeps corpus breadth explicit before the scorecard runs.
+Source, operation, mapping, and output leaves may be deferred. Each deferral
+must identify an owner, impact, unblock condition, and suggested next action.
+The workflow boundary and side-effect/approval posture cannot be deferred.
 
-`icot authoring-eval` is the optional real-LLM authoring lane. It runs selected fixture briefs or
-`--include-variants` entries through the iCoT progressive draft path with LLM extraction enabled,
-then runs lint/build-equivalent checks and compares the generated `intent.hcl` against the reviewed
-reference. The report is `openudon.icot-authoring-eval.v1` and records provider/model, prompt
-version, readiness classifier version, run ID, commit, command, LLM call count, generated paths,
-failure family, drift counts, and per-variant pass/fail. The report is consistency-checked before
-write and emits an `authoring-eval.json.sha256` digest sidecar. Authoring-eval reports are marked
-`retention_class: local_ephemeral`, `contains_provider_output: true`, `safe_to_archive: false`,
-and `redaction_required_before_share: true`.
-Generated project files, intents, transcripts, and the final report JSON are scanned for
-credential-like literal values before the report is accepted. Failures include a structured
-`failure_category` such as `provider_unavailable`, `provider_timeout`, `malformed_model_json`,
-`structured_output_unsupported`, `model_refusal`, `incomplete_draft`, `lint_fail`,
-`credential_scan_fail`, `build_fail`, or `reference_drift`. Keep this evidence local/manual; it can
-spend model quota and is not part of `release-check` or `release-saas-check`.
+The durable session uses `openudon.icot-session.v2` with generic
+`authoring.interview.v1` graph state and one unified evidence ledger. v1 inputs
+are rejected rather than decoded compatibly. See
+[iCoT v2 Session Files](icot-session-schema.md).
 
-`icot report verify --file <report.json>` verifies archived `openudon.icot-scorecard.v1` and
-`openudon.icot-authoring-eval.v1` reports after generation. It checks the report version, summary
-counters, variant top-issue expectations, authoring-eval failure categories, pass/fail consistency,
-retention/share-safety metadata, and the adjacent `.sha256` digest sidecar.
+## Source Discovery
 
-`icot repair` is a bounded deterministic repair command. It may edit request mappings, output
-sources, and `depends_on` only. It rejects source document, operation ID, credential binding,
-side-effect policy, and runtime/profile mutations. Use `--dry-run --json` to inspect proposed
-repairs before writing.
+Before questioning, iCoT inspects existing example sources, explicit documents,
+and explicit roots. Local discovery recognizes and validates:
 
-With LLM extraction enabled, iCoT runs a bounded pre-final flow review before printing the current
-draft. The review is advisory and focuses only on cross-step data-flow mistakes that deterministic
-checks may miss, such as an email/report step not consuming the data it should send.
+- OpenAPI/Swagger;
+- Google Discovery;
+- AWS Smithy;
+- AsyncAPI;
+- GraphQL;
+- OpenRPC;
+- gRPC/protobuf;
+- OData.
 
-The review classifies each warning with a flow-gap kind and remediation action. Gap kinds include
-missing local transform/report steps, missing API prework, disconnected notifications, ambiguous
-outputs, operation mismatches, unavailable sources, unclear intent, and narrow repairable wiring.
-Invalid or absent model classifications are reclassified locally before use.
+Directory names are hints, never proof. Discovery rejects symlinks and
+non-regular paths, deduplicates identical content by SHA-256, and requires an
+explicit kind for ambiguous JSON or XML. Default bounds are 10,000 visited
+entries, 100 accepted candidates, and 20 MiB per file. Reaching a bound is a
+visible blocker with narrowing guidance.
 
-The pre-final review does not mutate the draft by default. Unresolved issues are preserved as
-non-executable `intent.hcl` comments with the gap kind, remediation action, slot, evidence, and any
-suggested review. `--review-repair` is an experimental opt-in mode that can make at most two bounded
-repair attempts from flow-review suggestions. It first applies narrow request-mapping,
-output-source, and `depends_on` repairs, then may add a local `fnct` transform/report/render step
-only when the goal clearly asks for produced content and exactly one existing producer step can feed
-it. It rejects source, operation, credential, side-effect-scope, and ambiguous structural mutations
-and records the repair attempt in the transcript.
+Local and remote discovery are separate. After local evidence is exhausted,
+`--network ask` requires approval. The remote lookup consults only curated
+apitools catalog references and one APIs.guru list request—never a general web
+crawler. It has an eight-second total deadline, returns at most three metadata
+candidates, applies unsafe-host protections, and does not copy a document.
+Denial, timeout, unsafe results, or an empty lookup becomes a deferrable source
+blocker with provider/source hints.
 
-`fast` mode still stops for true ambiguity. If the flow review marks an issue as requiring user
-intent, iCoT asks one forced high-priority question even when defaulted prompts would normally be
-accepted silently. The answer is recorded as decision evidence; iCoT does not hide a workflow rewrite
-behind that answer.
+## Proposal And File Lifecycle
 
-## Guided SaaS Authoring
+Before writing, iCoT shows one proposal containing the active boundary,
+candidate workflows, workflow steps, source origins/digests/targets, mappings,
+safety policy, deferrals, and exact file actions.
 
-For common SaaS workflows, iCoT now keeps the guided loop focused on the
-reviewable OpenUdon contract:
+During the interview, only resumable `.icot/` state may be autosaved. Catalog or
+external sources and deliverable files are not copied before proposal approval.
 
-- choose a local API source document and listed operation ID instead of
-  inventing provider calls;
-- inspect first-class provider metadata in sibling `../apitools`, use a bounded
-  LLM catalog plan to choose only validated local artifacts when available, and
-  retrieve cached OpenAPI, Google Discovery, AWS Smithy, or reviewed advisory
-  OpenAPI overlay artifacts into the workflow before asking for operation
-  choices;
-- confirm existing local API documents before using them for operation
-  selection;
-- draft required path, query, header, and body field mappings from selected
-  operation details, then ask the operator only for mappings that remain
-  unresolved;
-- name symbolic credential bindings only, never token values;
-- choose outputs from known response paths or declared function outputs;
-- classify execution posture as `read-only`, `sandbox-only`, or
-  `after-approval`.
-
-iCoT lists operation IDs grouped by API document with summaries or descriptions.
-If a provider operation, request field, response path, or credential scheme is
-not visible in local metadata, leave it unresolved and repair or provide the
-API source before trusted handoff.
-
-If a required provider is missing a local API source, iCoT tries the first-class
-apitools catalog/cache automatically. It only asks for user-provided API
-artifacts after apitools reports that no first-class or advisory
-source artifact is available.
-
-If the goal clearly asks to stop, render, or report a missing or ambiguous
-provider/API/source capability and no usable API source or operation exists,
-iCoT can emit a deterministic local gap-report draft instead of an API workflow.
-That fallback creates required `provider` and `action` inputs, a
-`render_capability_gap` `fnct` step wired from those inputs, and a `gap_report`
-output. Transcript decision evidence marks it as a no-source safety fallback,
-not an execution plan.
-
-When an original provider OpenAPI document and a reviewed advisory OpenAPI
-overlay are both available, iCoT defaults to the advisory overlay for operation
-selection.
-
-## Draft Pipeline
-
-iCoT is optimized to produce a useful starting `intent.hcl`, not a perfect final
-workflow. The guided SaaS path is:
-
-1. Resolve API artifacts from the brief. Immediately after `Workflow goal`, iCoT
-   builds a compact catalog shortlist and may ask the LLM to choose relevant
-   artifact keys and rough provider/capability steps. Every returned
-   provider/artifact tuple is validated against the deterministic shortlist
-   before any file is copied.
-2. If required OpenAPI, Discovery, or advisory overlay artifacts are missing
-   locally, try `../apitools` first and materialize available validated
-   artifacts into the workflow. Unknown catalog providers, invented paths, and
-   non-migratable artifacts are rejected and recorded in the transcript.
-3. For each local API artifact or provider-backed step, ask which listed
-   `operationId` to use. iCoT should offer a ranked default; when multiple
-   candidates remain plausible, the operator chooses one.
-4. Build compact per-operation API context from the selected operation IDs,
-   including the single operation, relevant schemas, and security requirements.
-5. Send the original goal, selected operation contexts, readiness feedback, and
-   `intent.hcl` guardrails to the LLM to draft the structured intent. If
-   deterministic readiness later finds missing required request values, iCoT
-   gives the LLM one focused mapping pass with the selected operation details
-   before asking the operator for field sources.
-6. Run a bounded advisory flow review that looks only for cross-step data-flow
-   mistakes, optionally apply bounded `--review-repair` fixes, then show the resulting draft,
-   assumptions, decision evidence, and warnings for confirmation. If the
-   operator confirms, iCoT writes `project.md` and `workflows/intent.hcl`; the
-   operator can continue editing manually before build or review. If the draft
-   is wrong, reject or edit it instead of treating iCoT as the final authority.
-
-## Provider Defaults
-
-iCoT defaults to the local `copilot-api` gateway and `gpt-5.4-mini`, matching synthesis. If
-`~/.config/systemd/user/copilot-api.service` owns the gateway, keep it running and point OpenUdon at
-that local endpoint:
-
-```bash
-systemctl --user status copilot-api.service
-export COPILOT_API_BASE_URL=http://localhost:4141
-export OPENUDON_LLM_PROVIDER=copilot-api
-export OPENUDON_LLM_MODEL=gpt-5.4-mini
-```
-
-Set `OPENUDON_LLM_PROVIDER=gemini` or pass `--provider gemini` only when you explicitly want Gemini.
-Provider-specific API keys no longer make iCoT choose that provider implicitly.
-
-Provider API keys stay in provider-native environment variables such as `COPILOT_API_KEY`,
-`OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, or `GEMINI_API_KEY`. Do not paste credentials into prompts,
-examples, generated artifacts, or approval files.
-
-## Output
-
-iCoT saves the source artifacts:
+A complete approval atomically writes:
 
 ```text
 project.md
+<selected source documents and reviewed security sidecars>
 workflows/intent.hcl
 ```
 
-Then use `openudon build` or `openudon synthesize` to produce generated UWS, plan, quality, review,
-and handoff artifacts.
+An approved incomplete technical draft atomically writes:
+
+```text
+project.md
+<selected confirmed source documents>
+workflows/intent.draft.hcl
+.icot/session.yaml
+.icot/readiness.json
+```
+
+It never creates `workflows/intent.hcl`. Resuming, completing, and approving the
+draft promotes it atomically and removes obsolete generated draft/readiness
+files. Source targets reuse identical content, reject differing content unless
+`--force` is supplied, and participate in the same backup/rollback transaction
+as project and intent files.
+
+`project.md` may include a deterministic, non-executable `Candidate Workflows`
+section. Reconcile preserves it, lint validates its shape, and build ignores it.
+
+`cancel` and `--print` leave no deliverable or copied source files. Transcripts
+use `openudon.icot-transcript.v2`; see
+[iCoT v2 Transcript Format](icot-transcript.md).
+
+## Agent And Structured Reports
+
+`--agent` never prompts and never writes deliverables. It returns the complete
+frontier, candidate workflows, validated/rejected/ambiguous source evidence,
+remote blocker/candidates when applicable, readiness blockers, and proposed file
+actions. A complete session still returns `proposal_approval_required` so an
+interactive run or explicit `--yes` can authorize the transaction.
+
+```bash
+go run ./cmd/icot --example ./examples/<name> --agent --json
+go run ./cmd/icot lint --example ./examples/<name> --json
+```
+
+Current structured versions are:
+
+- `openudon.icot-author-report.v2`;
+- `openudon.icot-lint-report.v2`;
+- `openudon.icot-repair-report.v2`;
+- `openudon.icot-scorecard.v2`;
+- `openudon.icot-authoring-eval.v2`;
+- `openudon.icot-variants-validation.v2`;
+- `openudon.icot-variants-coverage.v2`;
+- `openudon.icot-authoring-variants.v2`;
+- `openudon.icot-replay.v2`.
+
+Support commands retain their names:
+
+```bash
+go run ./cmd/icot reconcile --example ./examples/<name>
+go run ./cmd/icot lint --example ./examples/<name>
+go run ./cmd/icot repair --example ./examples/<name> --dry-run --json
+go run ./cmd/icot replay-eval --root examples/eval --prompt-mode fast
+go run ./cmd/icot variants validate --root examples/eval
+go run ./cmd/icot variants coverage --root examples/eval
+go run ./cmd/icot scorecard --root examples/eval --out eval/runs/icot-scorecard-local
+go run ./cmd/icot authoring-eval --root examples/eval --provider copilot-api \
+  --model gpt-5.4-mini --out eval/runs/icot-authoring-eval-local
+go run ./cmd/icot report verify --file eval/runs/icot-scorecard-local/scorecard.json
+```
+
+Scorecard verification checks version, counters, variant expectations,
+retention/share-safety metadata, and the adjacent SHA-256 sidecar. Provider-free
+scorecards remain release evidence; real-model authoring-eval output remains
+local, ephemeral, and subject to credential scanning.
+
+## Optional LLM Review
+
+LLM extraction may propose a draft and a bounded pre-final flow review, but
+operation IDs, request fields, response paths, and credential schemes must come
+from inspected evidence. Inline secrets, review bypasses, unconfirmed mutations,
+invented operations, and unsafe placeholder promotion remain blockers.
+
+`--review-repair` may apply at most two narrow mapping, output-source,
+dependency, or clearly local transform repairs. It cannot silently change a
+source, operation, credential binding, side-effect posture, or active boundary.
+All public rationale is concise evidence; hidden model chain-of-thought is never
+stored or requested.

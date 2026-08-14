@@ -16,7 +16,7 @@ import (
 	rollout "github.com/OpenUdon/openudon/internal/workflowintent"
 )
 
-const PromptVersion = "icot-extractor.v1"
+const PromptVersion = "icot-extractor.v2"
 
 // Limit detail retries so the draft loop can ask for missing operation context
 // without turning into an unbounded catalog crawl.
@@ -878,23 +878,47 @@ func arraySchema(item map[string]any) map[string]any {
 
 func sessionCompletionSchema(includeDraftDetailFields bool) map[string]any {
 	properties := map[string]any{
-		"project":           projectSchema(),
-		"intent":            intentSchema(),
-		"credentials":       stringArraySchema(),
-		"credentials_set":   boolSchema(),
-		"safety":            stringSchema(),
-		"safety_set":        boolSchema(),
-		"fallback":          stringSchema(),
-		"fallback_set":      boolSchema(),
-		"side_effect_scope": stringSchema(),
-		"annotations":       arraySchema(sourceAnnotationSchema()),
-		"assumptions":       arraySchema(assumptionSchema()),
+		"version":             map[string]any{"type": "string", "const": SessionVersion},
+		"boundary":            workflowBoundarySchema(),
+		"interview":           interviewEvidenceSchema(),
+		"candidate_workflows": arraySchema(candidateWorkflowSchema()),
+		"project":             projectSchema(),
+		"intent":              intentSchema(),
+		"credentials":         stringArraySchema(),
+		"credentials_set":     boolSchema(),
+		"safety":              stringSchema(),
+		"safety_set":          boolSchema(),
+		"fallback":            stringSchema(),
+		"fallback_set":        boolSchema(),
+		"side_effect_scope":   stringSchema(),
 	}
 	if includeDraftDetailFields {
 		properties["requested_operation_ids"] = stringArraySchema()
 		properties["detail_request_reason"] = stringSchema()
 	}
 	return strictObjectSchema(properties)
+}
+
+func workflowBoundarySchema() map[string]any {
+	return strictObjectSchema(map[string]any{
+		"outcome": stringSchema(), "actor": stringSchema(), "trigger": stringSchema(),
+		"success_evidence": stringArraySchema(), "non_goals": stringArraySchema(), "confirmed": boolSchema(),
+	})
+}
+
+func interviewEvidenceSchema() map[string]any {
+	return strictObjectSchema(map[string]any{
+		"evidence": arraySchema(strictObjectSchema(map[string]any{
+			"id": stringSchema(), "kind": stringSchema(), "node_id": stringSchema(), "summary": stringSchema(),
+			"value": stringSchema(), "source": stringSchema(), "references": stringArraySchema(),
+		})),
+	})
+}
+
+func candidateWorkflowSchema() map[string]any {
+	return strictObjectSchema(map[string]any{
+		"title": stringSchema(), "outcome": stringSchema(), "deferral_reason": stringSchema(), "promotion_trigger": stringSchema(),
+	})
 }
 
 func projectSchema() map[string]any {

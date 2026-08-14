@@ -49,6 +49,7 @@ func TestRenderArtifactsWeatherGmailAddsReportPlaceholderAndOrdersChain(t *testi
 		},
 	}
 
+	session = completeV2FinalizeSession(session)
 	artifacts, err := RenderArtifacts(session)
 	if err != nil {
 		t.Fatalf("RenderArtifacts failed: %v", err)
@@ -148,6 +149,7 @@ func TestRenderArtifactsDoesNotReverseDependOnAuditRenderer(t *testing.T) {
 		},
 	}
 
+	session = completeV2FinalizeSession(session)
 	artifacts, err := RenderArtifacts(session)
 	if err != nil {
 		t.Fatalf("RenderArtifacts failed: %v", err)
@@ -190,6 +192,7 @@ func TestRenderArtifactsDoesNotTreatFnctFormatterAsDeliverySink(t *testing.T) {
 		},
 	}
 
+	session = completeV2FinalizeSession(session)
 	artifacts, err := RenderArtifacts(session)
 	if err != nil {
 		t.Fatalf("RenderArtifacts failed: %v", err)
@@ -242,6 +245,7 @@ func TestRenderArtifactsWeatherGmailDoesNotTreatGeocoderGoalTextAsGmailStep(t *t
 		},
 	}
 
+	session = completeV2FinalizeSession(session)
 	artifacts, err := RenderArtifacts(session)
 	if err != nil {
 		t.Fatalf("RenderArtifacts failed: %v", err)
@@ -282,6 +286,7 @@ func TestRenderArtifactsWeatherGmailDoesNotInsertReportPlaceholderForMultiplePro
 		},
 	}
 
+	session = completeV2FinalizeSession(session)
 	artifacts, err := RenderArtifacts(session)
 	if err != nil {
 		t.Fatalf("RenderArtifacts failed: %v", err)
@@ -305,6 +310,7 @@ func TestRenderArtifactsWeatherGmailUsesWorkflowDescriptionWhenProjectGoalEmpty(
 		Outputs: []*rollout.Output{{Name: "sent_message", From: "send_gmail.received_body"}},
 	}}
 
+	session = completeV2FinalizeSession(session)
 	artifacts, err := RenderArtifacts(session)
 	if err != nil {
 		t.Fatalf("RenderArtifacts failed: %v", err)
@@ -322,4 +328,26 @@ func stepNames(steps []*rollout.Step) []string {
 		}
 	}
 	return names
+}
+
+func completeV2FinalizeSession(session Session) Session {
+	session.Version = SessionVersion
+	session.Normalize()
+	session.Boundary.Actor = "operator"
+	session.Boundary.Trigger = "on demand"
+	session.Boundary.Confirmed = true
+	if len(session.Boundary.SuccessEvidence) == 0 {
+		evidence := "the reviewed workflow output is produced"
+		if len(session.Intent.Outputs) > 0 && session.Intent.Outputs[0] != nil {
+			evidence = "output " + session.Intent.Outputs[0].Name + " is produced from " + session.Intent.Outputs[0].From
+		}
+		session.Boundary.SuccessEvidence = []string{evidence}
+	}
+	if session.Fallback == "" {
+		session.Fallback, session.FallbackSet = "stop cleanly and report the failed step", true
+	}
+	if session.SideEffectScope == "" {
+		session.SideEffectScope = projectwizard.SideEffectAfterApproval
+	}
+	return session
 }

@@ -1,121 +1,105 @@
-# iCoT Session And Answers Files
+# iCoT v2 Session Files
 
-`cmd/icot --answers <file>` accepts YAML or JSON. The preferred shape is an iCoT session because it
-can carry both the human project brief and the structured `workflows/intent.hcl` contract. The legacy
-answers shape is still accepted for older scripts, but it cannot fully describe operation IDs,
-request mappings, step bindings, or typed API source documents.
+`icot --answers <file>` accepts YAML or JSON using the durable
+`openudon.icot-session.v2` contract. v1 sessions and the old brief-only answers
+shape are rejected with a version error; there is no compatibility decoder.
 
-## Preferred Session Shape
-
-Use this shape when you want `icot` to resume or render a mostly complete workflow without asking for
-details that are already known:
+The session records one confirmed active workflow, the generic dependency graph
+used by the interview, a unified evidence ledger, reviewed source plans, and
+future candidate workflows that are deliberately not implemented.
 
 ```yaml
-project:
-  project_name: Weather Toronto Gmail
-  goal: Resolve Toronto weather and send a reviewed Gmail report.
-  side_effect_scope: sandbox-only
-  credentials:
-    - weather_appid
-    - gmail_oauth_token
-  safety: Generate and validate artifacts only; Gmail send requires approved sandbox credentials.
-  fallback: Stop if geocoding, weather lookup, report rendering, or Gmail send fails.
-intent:
-  source: openapi/openweathermap-one-call-3-overlay.json
-  workflow:
-    name: weather_toronto_gmail
-    description: Resolve Toronto weather and send a reviewed Gmail report.
-  input:
-    - name: recipient_email
-      type: string
+version: openudon.icot-session.v2
+boundary:
+  outcome: Resolve Toronto weather and prepare a reviewed report.
+  actor: operator
+  trigger: on demand
+  success_evidence:
+    - output report is produced from render_report.received_body
+  non_goals:
+    - sending email
+  confirmed: true
+interview:
+  version: authoring.interview.v1
+  round: 2
+  nodes:
+    - id: boundary.outcome
+      title: Active outcome
+      status: settled
       required: true
-  step:
-    - name: openweathermap
-      type: http
-      source: openapi/openweathermap-one-call-3-overlay.json
-      operation: getOpenWeatherMapOneCall3
-      with:
-        lat: geocode.received_body[0].lat
-        lon: geocode.received_body[0].lon
-        appid: credentials.weather_appid
-    - name: gmail
-      type: http
-      source: google-discovery/gmail-discovery-v1.json
-      operation: gmail_users_messages_send
-      with:
-        userId: me
-        raw: render_report.received_body.raw
-  output:
-    - name: result
-      from: gmail.received_body
-credentials:
-  - weather_appid
-  - gmail_oauth_token
-credentials_set: true
-safety: Generate and validate artifacts only; Gmail send requires approved sandbox credentials.
-safety_set: true
-fallback: Stop if any API step fails.
+    - id: source.selection
+      title: API source
+      status: deferred
+      dependencies: [boundary.outcome]
+      deferrable: true
+  evidence:
+    - id: evidence.boundary
+      kind: user_decision
+      node_id: boundary.outcome
+      summary: The operator selected the weather-report workflow.
+      value: Resolve Toronto weather and prepare a reviewed report.
+      source: operator
+  deferrals:
+    - id: deferral.source
+      node_id: source.selection
+      owner: API maintainer
+      impact: Provider operation selection cannot be verified.
+      unblock_condition: A reviewed API document is available.
+      suggested_next_action: Rerun with --api-source or --source-root.
+project:
+  project_name: Toronto Weather Report
+  goal: Resolve Toronto weather and prepare a reviewed report.
+  side_effect_scope: read-only
+  safety: Generate and validate artifacts only.
+  fallback: Stop if geocoding or weather lookup fails.
+intent:
+  workflow:
+    name: toronto_weather_report
+    description: Resolve Toronto weather and prepare a reviewed report.
+  steps:
+    - name: render_report
+      type: fnct
+      do: Render the reviewed weather report.
+  outputs:
+    - name: report
+      from: render_report.received_body
+fallback: Stop if geocoding or weather lookup fails.
 fallback_set: true
-side_effect_scope: sandbox-only
+side_effect_scope: read-only
+candidate_workflows:
+  - title: Email Weather Report
+    outcome: Send the reviewed report through Gmail.
+    deferral_reason: Delivery is outside the active workflow boundary.
+    promotion_trigger: The reporting workflow and Gmail approval posture are approved.
 ```
 
-The session fields mirror OpenUdon's authoring state:
+## Contract
 
-- `project`: human-facing `project.md` values.
-- `intent`: structured workflow intent rendered to `workflows/intent.hcl`.
-- `credentials`: symbolic credential binding names only.
-- `credentials_set`, `safety_set`, `fallback_set`: markers that preserve explicit user answers.
-- `side_effect_scope`: one of `read-only`, `sandbox-only`, or `after-approval`.
-- `annotations`, `assumptions`, `classifications`: optional review evidence produced by iCoT.
-- `decision_evidence`: compact user-visible rationale and confidence for selected sources,
-  operations, mappings, outputs, side-effect scope, and flow-review findings. It is not hidden
-  model chain-of-thought.
+- `boundary` must contain the active outcome, actor, trigger, success evidence,
+  non-goals, and confirmation state. Boundary and side-effect posture cannot be
+  deferred.
+- `interview` uses `authoring.interview.v1`. Node states are `open`, `settled`,
+  `deferred`, and `inapplicable`. Dependencies must exist and be acyclic.
+- `interview.evidence` is the only durable decision ledger. Evidence kinds are
+  `observed_fact`, `user_decision`, `recommendation`, `assumption`,
+  `open_decision`, `deferral`, and `inapplicable_branch`. It contains concise
+  public rationale, never hidden chain-of-thought.
+- A technical deferral must name its owner, impact, unblock condition, and next
+  action. Source, operation, mapping, and output leaves may be deferred.
+- `candidate_workflows` are unnumbered future directions. Each has a title,
+  outcome, deferral reason, and promotion trigger, and must not contain sources,
+  operations, mappings, or implementation steps.
+- `source_plan` entries, when present, include kind, stable ID, inspected source
+  path, package target, SHA-256 digest, title/operation count, and provenance.
+  Sources are not copied until the proposal is approved.
+- `intent`, symbolic credential bindings, `fallback`, and `side_effect_scope`
+  retain their existing OpenUdon meanings. Never store credential values.
 
-Decision evidence entries use:
+Incomplete approved work is saved as `workflows/intent.draft.hcl` plus
+`.icot/session.yaml` and `.icot/readiness.json`; it never creates
+`workflows/intent.hcl`. Completing and approving that draft promotes it
+atomically and removes the obsolete generated draft/readiness files.
 
-```yaml
-decision_evidence:
-  - stage: request_mapping
-    slot: steps.gmail.with.raw
-    value: render_report.received_body.raw
-    source: deterministic
-    confidence: review
-    reason: Flow review suggested connecting Gmail raw to the rendered report.
-    evidence: Gmail send step must consume the report content.
-    requires_confirmation: true
-```
-
-Valid confidence values are `high`, `review`, `low`, and `conflict`. `normal` and `fast` prompt
-modes may auto-accept `high` and `review` defaults, but `low` and `conflict` evidence forces an
-operator question.
-
-In `--agent` mode, `low` and `conflict` evidence prevents final artifact writes and appears as a
-`needs_input` report instead of prompting interactively.
-
-Do not put credential values, API tokens, OAuth refresh tokens, or private endpoints in this file.
-
-## Legacy Answers Shape
-
-Legacy answer files seed only the human project brief:
-
-```yaml
-project_name: Weather Toronto Gmail
-goal: Resolve Toronto weather and send a reviewed Gmail report.
-inputs: "recipient_email:string"
-outputs: "result from gmail.received_body"
-data_flow: "Resolve Toronto coordinates; use them for weather; send report through Gmail."
-function_contracts: "render_report: inputs weather response; outputs Gmail raw message."
-uses_openapi: true
-openapi: openapi/openweathermap-one-call-3-overlay.json
-cmd_approved: false
-ssh_approved: false
-side_effect_scope: sandbox-only
-credentials:
-  - weather_appid
-  - gmail_oauth_token
-safety: Generate and validate artifacts only; Gmail send requires approved sandbox credentials.
-fallback: Stop if any API step fails.
-```
-
-When `uses_openapi` is true, a legacy file normally still needs interactive completion because it has
-no native place for operation IDs, typed API source refs, request mappings, or step dependencies.
+`--yes` is the explicit noninteractive proposal approval for a complete v2
+session. Without it, interactive runs show the full proposal and require
+`approve`; agent mode never writes deliverables.

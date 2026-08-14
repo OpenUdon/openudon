@@ -17,5 +17,5 @@ func SaveTranscript(path string, turns []ReplayTurn, session Session) error {
 }
 
 func SaveTranscriptWithEvents(path string, turns []ReplayTurn, events []TranscriptEvent, session Session) error {
-	return authoring.SavePromptTranscript(path, "openudon.icot-transcript.v1", turns, events, session)
+	return authoring.SavePromptTranscript(path, TranscriptVersion, turns, events, session)
 }

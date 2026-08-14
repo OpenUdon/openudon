@@ -15,8 +15,8 @@ import (
 )
 
 const (
-	variantsValidationReportVersion = "openudon.icot-variants-validation.v1"
-	variantsCoverageReportVersion   = "openudon.icot-variants-coverage.v1"
+	variantsValidationReportVersion = "openudon.icot-variants-validation.v2"
+	variantsCoverageReportVersion   = "openudon.icot-variants-coverage.v2"
 )
 
 type variantsValidationReport struct {
@@ -73,7 +73,7 @@ func runVariantsValidate(args []string, out, errOut io.Writer) int {
 	fs.SetOutput(out)
 	root := fs.String("root", "examples/eval", "Directory containing eval example subdirectories")
 	name := fs.String("name", "", "Validate one eval fixture by directory name")
-	jsonOutput := fs.Bool("json", false, "Write openudon.icot-variants-validation.v1 JSON to stdout")
+	jsonOutput := fs.Bool("json", false, "Write openudon.icot-variants-validation.v2 JSON to stdout")
 	fs.Usage = func() {
 		fmt.Fprintf(fs.Output(), "Usage: icot variants validate [--root examples/eval] [--name fixture] [--json]\n\n")
 		fmt.Fprintf(fs.Output(), "Validates authoring variant metadata, expected failure families, and reference-seeded clear slots without running the scorecard.\n\n")
@@ -133,7 +133,7 @@ func runVariantsCoverage(args []string, out, errOut io.Writer) int {
 	fs.SetOutput(out)
 	root := fs.String("root", "examples/eval", "Directory containing eval example subdirectories")
 	name := fs.String("name", "", "Check one eval fixture by directory name")
-	jsonOutput := fs.Bool("json", false, "Write openudon.icot-variants-coverage.v1 JSON to stdout")
+	jsonOutput := fs.Bool("json", false, "Write openudon.icot-variants-coverage.v2 JSON to stdout")
 	fs.Usage = func() {
 		fmt.Fprintf(fs.Output(), "Usage: icot variants coverage [--root examples/eval] [--name fixture] [--json]\n\n")
 		fmt.Fprintf(fs.Output(), "Checks provider-family coverage for positive, missing-detail, and unsafe-negative authoring variants.\n\n")

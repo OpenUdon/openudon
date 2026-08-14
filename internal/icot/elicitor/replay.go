@@ -13,8 +13,9 @@ import (
 type ReplayTurn = authoring.PromptTurn
 
 type ReplayScript struct {
-	Turns []ReplayTurn `json:"turns"`
-	Input string       `json:"input"`
+	Version string       `json:"version"`
+	Turns   []ReplayTurn `json:"turns"`
+	Input   string       `json:"input"`
 }
 
 func BuildProgressiveReplayScript(exampleDir string, intent *rollout.Intent) (ReplayScript, error) {
@@ -34,7 +35,7 @@ func BuildProgressiveReplayScript(exampleDir string, intent *rollout.Intent) (Re
 	for i := 0; i < 128; i++ {
 		answers = append(answers, "")
 	}
-	return ReplayScript{Turns: turns, Input: strings.Join(answers, "\n") + "\n"}, nil
+	return ReplayScript{Version: "openudon.icot-replay.v2", Turns: turns, Input: strings.Join(answers, "\n") + "\n"}, nil
 }
 
 func BuildReplayScript(exampleDir string, intent *rollout.Intent) (ReplayScript, error) {

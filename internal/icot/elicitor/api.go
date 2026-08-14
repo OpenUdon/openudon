@@ -92,7 +92,7 @@ type securityPromptContext struct {
 	CredentialFields []string `json:"credential_fields,omitempty"`
 }
 
-func DiscoverLocalAPIs(exampleDir, projectText string) ([]APIDocument, error) {
+func discoverLocalAPIsLegacy(exampleDir, projectText string) ([]APIDocument, error) {
 	var docs []APIDocument
 	openAPIDir := filepath.Join(exampleDir, "openapi")
 	if _, err := os.Stat(openAPIDir); err != nil {

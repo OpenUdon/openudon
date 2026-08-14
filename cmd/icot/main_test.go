@@ -25,6 +25,10 @@ func TestCLIHelpDocumentsFlags(t *testing.T) {
 		"--print",
 		"--from-example",
 		"--answers",
+		"-api-source",
+		"-openapi",
+		"-source-root",
+		"-network",
 		"-no-llm",
 		"-no-transcript",
 		"-provider",
@@ -50,7 +54,7 @@ func TestCLIHelpDocumentsFlags(t *testing.T) {
 
 func TestCLICreatesProjectAndDirectories(t *testing.T) {
 	example := filepath.Join(t.TempDir(), "guided")
-	cmd := helperCommand("--example", example, "--no-llm")
+	cmd := helperCommand("--example", example, "--no-llm", "--prompt-mode", "fast")
 	cmd.Stdin = strings.NewReader(projectInput(false))
 	output, err := cmd.CombinedOutput()
 	if err != nil {
@@ -84,17 +88,17 @@ func TestCLICreatesProjectAndDirectories(t *testing.T) {
 	if err != nil {
 		t.Fatalf("read intent.hcl: %v", err)
 	}
-	if !strings.Contains(string(intent), `workflow`) || !strings.Contains(string(intent), `guided_project`) {
+	if !strings.Contains(string(intent), `workflow`) || !strings.Contains(string(intent), `render_a_local_summary`) {
 		t.Fatalf("intent.hcl missing expected content:\n%s", intent)
 	}
-	if !strings.Contains(string(output), "current draft") {
+	if !strings.Contains(string(output), "complete authoring proposal") {
 		t.Fatalf("output missing final verification:\n%s", output)
 	}
 }
 
 func TestCLIPrintWritesNoFiles(t *testing.T) {
 	example := filepath.Join(t.TempDir(), "print")
-	cmd := helperCommand("--example", example, "--print", "--no-llm")
+	cmd := helperCommand("--example", example, "--print", "--no-llm", "--prompt-mode", "fast")
 	cmd.Stdin = strings.NewReader(projectInput(false))
 	output, err := cmd.CombinedOutput()
 	if err != nil {
@@ -106,14 +110,14 @@ func TestCLIPrintWritesNoFiles(t *testing.T) {
 	if !strings.Contains(string(output), "OpenAPI: none required") {
 		t.Fatalf("--print output missing rendered project:\n%s", output)
 	}
-	if !strings.Contains(string(output), "workflows/intent.hcl") || !strings.Contains(string(output), "guided_project") {
+	if !strings.Contains(string(output), "workflows/intent.hcl") || !strings.Contains(string(output), "render_a_local_summary") {
 		t.Fatalf("--print output missing rendered intent:\n%s", output)
 	}
 }
 
 func TestCLICancelWritesNoFiles(t *testing.T) {
 	example := filepath.Join(t.TempDir(), "cancel")
-	cmd := helperCommand("--example", example, "--no-llm")
+	cmd := helperCommand("--example", example, "--no-llm", "--prompt-mode", "fast")
 	cmd.Stdin = strings.NewReader(projectInputBeforeVerify(false) + "cancel\n")
 	output, err := cmd.CombinedOutput()
 	if err != nil {
@@ -134,7 +138,7 @@ func TestCLIRefusesExistingProjectWithoutForce(t *testing.T) {
 	if err := os.WriteFile(filepath.Join(example, "project.md"), []byte("old\n"), 0o644); err != nil {
 		t.Fatalf("write existing project.md: %v", err)
 	}
-	cmd := helperCommand("--example", example, "--answers", writeAnswersFile(t, t.TempDir(), false))
+	cmd := helperCommand("--example", example, "--answers", writeAnswersFile(t, t.TempDir(), false), "--yes")
 	output, err := cmd.CombinedOutput()
 	if err == nil {
 		t.Fatalf("icot unexpectedly overwrote existing project.md:\n%s", output)
@@ -221,7 +225,7 @@ func TestCLIForceYesCreatesBackupsAndOverwritesGeneratedFiles(t *testing.T) {
 
 func TestCLIFromExampleSeedsDefaults(t *testing.T) {
 	example := filepath.Join(t.TempDir(), "seeded")
-	cmd := helperCommand("--example", example, "--from-example", "examples/eval/runtime-only-render")
+	cmd := helperCommand("--example", example, "--from-example", "examples/eval/runtime-only-render", "--yes")
 	output, err := cmd.CombinedOutput()
 	if err != nil {
 		t.Fatalf("icot --from-example failed: %v\n%s", err, output)
@@ -238,7 +242,7 @@ func TestCLIFromExampleSeedsDefaults(t *testing.T) {
 
 func TestCLIAnswersYAMLNoPrompts(t *testing.T) {
 	example := filepath.Join(t.TempDir(), "answers")
-	cmd := helperCommand("--example", example, "--answers", writeAnswersFile(t, t.TempDir(), false))
+	cmd := helperCommand("--example", example, "--answers", writeAnswersFile(t, t.TempDir(), false), "--yes")
 	output, err := cmd.CombinedOutput()
 	if err != nil {
 		t.Fatalf("icot --answers failed: %v\n%s", err, output)
@@ -257,7 +261,7 @@ func TestCLIAnswersYAMLNoPrompts(t *testing.T) {
 
 func TestCLIFromExampleUsesReferenceIntentAndCopiesSources(t *testing.T) {
 	example := filepath.Join(t.TempDir(), "seeded-slack")
-	cmd := helperCommand("--example", example, "--from-example", "examples/eval/slack-message-audit-log")
+	cmd := helperCommand("--example", example, "--from-example", "examples/eval/slack-message-audit-log", "--yes")
 	output, err := cmd.CombinedOutput()
 	if err != nil {
 		t.Fatalf("icot --from-example slack failed: %v\n%s", err, output)
@@ -337,13 +341,13 @@ func helperCommand(args ...string) *exec.Cmd {
 }
 
 func projectInput(withOpenAPI bool) string {
-	return projectInputBeforeVerify(withOpenAPI) + "save\n"
+	return projectInputBeforeVerify(withOpenAPI) + "approve\n"
 }
 
 func projectInputBeforeVerify(withOpenAPI bool) string {
 	answers := []string{
 		"Render a local summary report from a runtime input",
-		"guided_project",
+		"render_report",
 	}
 	return strings.Join(answers, "\n") + "\n"
 }
@@ -355,20 +359,42 @@ func writeAnswersFile(t *testing.T, dir string, withOpenAPI bool) string {
 	openapiText := ""
 	if withOpenAPI {
 		openapi = "true"
-		openapiText = "openapi: 'Support API: use `openapi/support.yaml`'\n"
+		openapiText = "  openapi: 'Support API: use `openapi/support.yaml`'\n"
 	}
-	data := "project_name: Guided Project\n" +
-		"goal: Fetch a ticket and prepare a draft\n" +
-		"inputs: '`ticket_id`: required string'\n" +
-		"outputs: Stored draft reply\n" +
-		"data_flow: Pass ticket body to draft writer\n" +
-		"function_contracts: '`write_draft`: inputs ticket body; outputs draft id'\n" +
-		"uses_openapi: " + openapi + "\n" +
+	data := "version: openudon.icot-session.v2\n" +
+		"boundary:\n" +
+		"  outcome: Fetch a ticket and prepare a draft\n" +
+		"  actor: operator\n" +
+		"  trigger: on demand\n" +
+		"  success_evidence: [draft output is produced]\n" +
+		"  confirmed: true\n" +
+		"interview:\n" +
+		"  version: authoring.interview.v1\n" +
+		"project:\n" +
+		"  project_name: Guided Project\n" +
+		"  goal: Fetch a ticket and prepare a draft\n" +
+		"  inputs: '`ticket_id`: required string'\n" +
+		"  outputs: Stored draft reply\n" +
+		"  data_flow: Pass ticket body to draft writer\n" +
+		"  function_contracts: '`write_draft`: inputs ticket body; outputs draft id'\n" +
+		"  uses_openapi: " + openapi + "\n" +
 		openapiText +
+		"intent:\n" +
+		"  workflow:\n" +
+		"    name: guided_project\n" +
+		"    description: Fetch a ticket and prepare a draft\n" +
+		"  steps:\n" +
+		"    - name: write_draft\n" +
+		"      type: fnct\n" +
+		"      do: Prepare a local draft\n" +
+		"  outputs:\n" +
+		"    - name: draft\n" +
+		"      from: write_draft.received_body\n" +
 		"credentials:\n" +
 		"  - support_api_token\n" +
 		"safety: Sandbox proof runs only\n" +
 		"fallback: Stop if required services are unavailable\n"
+	data += "side_effect_scope: sandbox-only\n"
 	if err := os.WriteFile(path, []byte(data), 0o644); err != nil {
 		t.Fatalf("write answers file: %v", err)
 	}
@@ -378,7 +404,16 @@ func writeAnswersFile(t *testing.T, dir string, withOpenAPI bool) string {
 func writeSessionFile(t *testing.T, dir string) string {
 	t.Helper()
 	path := filepath.Join(dir, "session.yaml")
-	data := "project:\n" +
+	data := "version: openudon.icot-session.v2\n" +
+		"boundary:\n" +
+		"  outcome: Call an API\n" +
+		"  actor: operator\n" +
+		"  trigger: on demand\n" +
+		"  success_evidence: [ticket output is produced]\n" +
+		"  confirmed: true\n" +
+		"interview:\n" +
+		"  version: authoring.interview.v1\n" +
+		"project:\n" +
 		"  project_name: Guided Project\n" +
 		"  goal: Call an API\n" +
 		"credentials:\n" +
@@ -414,8 +449,19 @@ func writeSessionFile(t *testing.T, dir string) string {
 func writeSessionJSON(t *testing.T, path string) {
 	t.Helper()
 	data := `{
+  "version": "openudon.icot-session.v2",
+  "boundary": {
+    "outcome": "Call an API",
+    "actor": "operator",
+    "trigger": "on demand",
+    "success_evidence": ["ticket output is produced"],
+    "confirmed": true
+  },
+  "interview": {"version": "authoring.interview.v1"},
   "project": {"project_name": "JSON Project", "goal": "Call an API"},
   "credentials": ["support_api_token"],
+  "safety": "Sandbox proof runs only",
+  "fallback": "Stop if required services are unavailable",
   "side_effect_scope": "sandbox-only",
   "intent": {
     "openapi": "openapi/support.yaml",

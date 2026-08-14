@@ -32,7 +32,7 @@ func RunProgressiveWithLifecycle[S, D, A any](ctx context.Context, in io.Reader,
 	return sharedicot.RunInteractiveWithLifecycle(ctx, in, out, hooks, sharedicot.InteractiveLifecycleOptions[S, D, A]{
 		DraftPath:            draftPath,
 		TranscriptPath:       opts.TranscriptPath,
-		TranscriptVersion:    firstNonEmpty(opts.TranscriptVersion, "openudon.icot-transcript.v1"),
+		TranscriptVersion:    firstNonEmpty(opts.TranscriptVersion, "openudon.icot-transcript.v2"),
 		DeleteDraftOnSuccess: opts.DeleteDraftOnSuccess,
 		Normalize:            opts.Normalize,
 		LooksLikeSession:     opts.LooksLikeSession,

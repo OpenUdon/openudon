@@ -18,10 +18,10 @@ small advisory summary format; it is not an executable importer.
 The supported authoring flow is:
 
 1. Start from a natural-language goal or guided `cmd/icot` session.
-2. Select local or catalog-migrated API artifacts only after OpenUdon validates
-   provider and artifact keys against the deterministic shortlist.
-3. Select listed operation IDs only; concrete operations are not accepted from
-   early catalog planning.
+2. Inspect existing sources, explicit documents, and explicit bounded roots
+   before asking source questions.
+3. Select listed operation IDs only after the selected source has been locally
+   validated and recorded with its SHA-256 provenance.
 4. Draft `project.md` with inputs, outputs, data flow, runtime policy,
    credential binding names, safety, and fallback behavior.
 5. Draft `workflows/intent.hcl` with auditable `with` and `bind` mappings.
@@ -71,11 +71,13 @@ When any of those inputs are missing, the authoring assistant should leave the
 field unresolved or explain the assumption instead of inventing unavailable
 provider behavior.
 
-iCoT may use a compact catalog plan immediately after the first workflow goal to
-pick relevant cached artifacts and provider-level steps. That plan is advisory:
-OpenUdon validates every selected artifact locally and rejects unknown paths.
+iCoT discovers OpenAPI/Swagger, Google Discovery, AWS Smithy, AsyncAPI,
+GraphQL, OpenRPC, gRPC/protobuf, and OData from caller-scoped roots. Directory
+names are hints rather than proof; ambiguous JSON/XML requires an explicit
+`--api-source KIND:ID=PATH`. If local evidence is exhausted, an approved remote
+lookup is limited to curated apitools references and one APIs.guru request.
 Operation IDs, schemas, request fields, response paths, and credentials still
-come later from reviewed local API source metadata.
+come from reviewed source metadata rather than early model guesses.
 
 Before final confirmation, LLM-assisted iCoT may run one advisory flow review
 over the complete draft. That review is limited to cross-step data-flow

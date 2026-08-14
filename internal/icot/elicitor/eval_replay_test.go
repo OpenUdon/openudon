@@ -37,7 +37,7 @@ func TestReplayEvalReferencesThroughICOTChat(t *testing.T) {
 				t.Fatalf("load project answers: %v", err)
 			}
 			seed := SessionFromIntent(reference, project)
-			script := ReplayScript{Turns: []ReplayTurn{{Label: "Type save, edit <slot>, explain <assumption-id>, or cancel", Answer: "save"}}, Input: "save\n"}
+			script := ReplayScript{Version: "openudon.icot-replay.v2", Turns: []ReplayTurn{{Label: "Type approve, edit <slot>, explain <assumption-id>, or cancel"}}, Input: strings.Repeat("\n", 128)}
 			var stdout strings.Builder
 			artifacts, err := Run(context.Background(), strings.NewReader(script.Input), &stdout, seed, Options{
 				ExampleDir: exampleDir,

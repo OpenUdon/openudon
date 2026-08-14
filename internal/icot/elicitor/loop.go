@@ -27,12 +27,17 @@ type Options struct {
 	DefaultMode        authoring.PromptDefaultMode
 	ReviewRepair       bool
 	CatalogHintOptions CatalogHintOptions
+	LocalSources       []apitools.LocalSource
+	SourceRoots        []string
+	NetworkPolicy      string
+	AutoApprove        bool
 }
 
 type Artifacts struct {
-	ProjectMD string
-	IntentHCL string
-	Session   Session
+	ProjectMD  string
+	IntentHCL  string
+	Session    Session
+	Incomplete bool
 }
 
 func Run(ctx context.Context, in io.Reader, out io.Writer, seed Session, opts Options) (Artifacts, error) {
@@ -109,6 +114,28 @@ func RenderArtifacts(session Session) (Artifacts, error) {
 		IntentHCL: intentHCL,
 		Session:   session,
 	}, nil
+}
+
+// RenderDraftArtifacts renders an explicitly incomplete, non-promotable
+// intent for sessions whose remaining technical leaves have complete deferral
+// records. It never creates the final intent contract.
+func RenderDraftArtifacts(session Session) (Artifacts, error) {
+	session.Normalize()
+	if len(session.Interview.Deferrals) == 0 {
+		return Artifacts{}, errors.New("incomplete draft requires at least one structured technical deferral")
+	}
+	if err := validateV2Session(session); err != nil {
+		return Artifacts{}, err
+	}
+	if session.Intent.Workflow == nil || strings.TrimSpace(session.Intent.Workflow.Name) == "" || strings.TrimSpace(session.Intent.Workflow.Description) == "" {
+		return Artifacts{}, errors.New("incomplete draft still requires a confirmed workflow boundary")
+	}
+	intentHCL, err := workflowintent.RenderHCL(context.Background(), &session.Intent)
+	if err != nil {
+		return Artifacts{}, err
+	}
+	intentHCL = "# INCOMPLETE ICOT DRAFT - not executable and not approved for promotion\n" + intentHCL
+	return Artifacts{ProjectMD: projectwizard.Render(session.Project), IntentHCL: intentHCL, Session: session, Incomplete: true}, nil
 }
 
 type prompter struct {

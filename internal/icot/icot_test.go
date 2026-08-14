@@ -3,6 +3,8 @@ package icot
 import (
 	"bytes"
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"io"
 	"os"
@@ -11,6 +13,7 @@ import (
 	"testing"
 
 	"github.com/OpenUdon/apitools"
+	publicinterview "github.com/OpenUdon/authoring/interview"
 	publicreport "github.com/OpenUdon/authoring/report"
 	evalpkg "github.com/OpenUdon/openudon/internal/eval"
 	"github.com/OpenUdon/openudon/internal/icot/elicitor"
@@ -36,8 +39,8 @@ func TestMainPreviewEOFCancelsWithoutWriting(t *testing.T) {
 	if _, err := os.Stat(filepath.Join(example, ".icot", "session.yaml")); err != nil {
 		t.Fatalf("EOF should preserve draft session: %v\nstdout:\n%s\nstderr:\n%s", err, stdout.String(), stderr.String())
 	}
-	if !strings.Contains(stderr.String(), "unexpected EOF") {
-		t.Fatalf("stderr missing unexpected EOF:\n%s", stderr.String())
+	if !strings.Contains(stderr.String(), "needs input") {
+		t.Fatalf("stderr missing needs-input diagnostic:\n%s", stderr.String())
 	}
 }
 
@@ -139,11 +142,11 @@ func TestAgentJSONCompleteSessionWritesArtifacts(t *testing.T) {
 	if err := json.Unmarshal(stdout.Bytes(), &report); err != nil {
 		t.Fatalf("unmarshal report: %v\n%s", err, stdout.String())
 	}
-	if report.Status != statusPass || report.GeneratedIntent == "" {
+	if report.Status != statusNeedsInput || report.TopIssue == nil || report.TopIssue.Code != "proposal_approval_required" || report.GeneratedIntent != "" {
 		t.Fatalf("report = %#v", report)
 	}
-	if _, err := os.Stat(filepath.Join(example, "workflows", "intent.hcl")); err != nil {
-		t.Fatalf("intent not written: %v", err)
+	if _, err := os.Stat(filepath.Join(example, "workflows", "intent.hcl")); !os.IsNotExist(err) {
+		t.Fatalf("agent wrote intent without proposal approval: %v", err)
 	}
 }
 
@@ -158,13 +161,7 @@ func TestAgentJSONBlocksRenderableLowDecisionEvidence(t *testing.T) {
 		Fallback:        "Stop if rendering fails",
 	}
 	session := elicitor.SessionFromIntent(testIntent("blocked_agent", "Render a report", "render_report"), project)
-	session.DecisionEvidence = []elicitor.DecisionEvidence{{
-		Stage:      "output_selection",
-		Slot:       "intent.outputs.ticket",
-		Value:      "ticket=render_report.received_body",
-		Source:     "llm",
-		Confidence: "low",
-	}}
+	session.Interview.Evidence = append(session.Interview.Evidence, publicinterview.Evidence{ID: "evidence.low-output", Kind: publicinterview.EvidenceRecommendation, Summary: "The output mapping was inferred with low confidence.", Value: "ticket=render_report.received_body", Source: "llm:low-confidence", References: []string{"intent.outputs.ticket"}})
 	sessionPath := writeSessionJSON(t, dir, session)
 	var stdout, stderr bytes.Buffer
 	code := Main([]string{"--example", example, "--answers", sessionPath, "--agent", "--json"}, strings.NewReader(""), &stdout, &stderr)
@@ -195,14 +192,14 @@ func TestAgentJSONLoadsCompleteDraft(t *testing.T) {
 	if err := json.Unmarshal(stdout.Bytes(), &report); err != nil {
 		t.Fatalf("unmarshal report: %v\n%s", err, stdout.String())
 	}
-	if report.Status != statusPass || report.GeneratedIntent == "" {
+	if report.Status != statusNeedsInput || report.TopIssue == nil || report.TopIssue.Code != "proposal_approval_required" || report.GeneratedIntent != "" {
 		t.Fatalf("report = %#v", report)
 	}
-	if _, err := os.Stat(filepath.Join(example, "workflows", "intent.hcl")); err != nil {
-		t.Fatalf("intent not written from draft: %v", err)
+	if _, err := os.Stat(filepath.Join(example, "workflows", "intent.hcl")); !os.IsNotExist(err) {
+		t.Fatalf("agent wrote intent from draft without approval: %v", err)
 	}
-	if _, err := os.Stat(draftPath); !os.IsNotExist(err) {
-		t.Fatalf("draft not deleted after agent save: %v", err)
+	if _, err := os.Stat(draftPath); err != nil {
+		t.Fatalf("agent should preserve resumable draft: %v", err)
 	}
 }
 
@@ -246,7 +243,7 @@ func TestEvalReferenceSeedBuildMatrix(t *testing.T) {
 			}
 			exampleDir := filepath.Join(outRoot, name)
 			var stdout, stderr bytes.Buffer
-			code := Main([]string{"--example", exampleDir, "--from-example", seedDir, "--no-llm", "--no-transcript"}, strings.NewReader(""), &stdout, &stderr)
+			code := Main([]string{"--example", exampleDir, "--from-example", seedDir, "--no-llm", "--no-transcript", "--prompt-mode", "fast", "--yes"}, strings.NewReader(""), &stdout, &stderr)
 			if code != 0 {
 				assertSeedBuildOutcome(t, policy, "icot_fail", nil, strings.TrimSpace(stderr.String()))
 				return
@@ -717,7 +714,7 @@ func TestVariantsCoverageRejectsMissingClass(t *testing.T) {
 	}
 	path := filepath.Join(fixture, "reference", "authoring-variants.json")
 	data := `{
-  "version": "openudon.icot-authoring-variants.v1",
+  "version": "openudon.icot-authoring-variants.v2",
   "provider_families": ["slack"],
   "variants": [
     {
@@ -764,7 +761,7 @@ func TestVariantsValidateRejectsUnknownClearSlot(t *testing.T) {
 	}
 	path := filepath.Join(fixture, "reference", "authoring-variants.json")
 	data := `{
-  "version": "openudon.icot-authoring-variants.v1",
+  "version": "openudon.icot-authoring-variants.v2",
   "variants": [
     {
       "id": "bad-clear",
@@ -804,7 +801,7 @@ func TestVariantsValidateRejectsMissingExpectedTopIssue(t *testing.T) {
 	}
 	path := filepath.Join(fixture, "reference", "authoring-variants.json")
 	data := `{
-  "version": "openudon.icot-authoring-variants.v1",
+  "version": "openudon.icot-authoring-variants.v2",
   "variants": [
     {
       "id": "missing-diagnostics",
@@ -1061,7 +1058,7 @@ func TestAuthoringEvalReportRedactsCredentialLikeJSON(t *testing.T) {
 func TestRepairDryRunJSON(t *testing.T) {
 	example := filepath.Join(t.TempDir(), "repair")
 	var setupOut, setupErr bytes.Buffer
-	code := Main([]string{"--example", example, "--from-example", filepath.Join("..", "..", "examples", "eval", "runtime-only-render"), "--no-llm", "--no-transcript"}, strings.NewReader(""), &setupOut, &setupErr)
+	code := Main([]string{"--example", example, "--from-example", filepath.Join("..", "..", "examples", "eval", "runtime-only-render"), "--no-llm", "--no-transcript", "--yes"}, strings.NewReader(""), &setupOut, &setupErr)
 	if code != 0 {
 		t.Fatalf("setup failed code %d\nstdout:\n%s\nstderr:\n%s", code, setupOut.String(), setupErr.String())
 	}
@@ -1334,7 +1331,7 @@ func qualityFailureDetails(report *synthesize.QualityReport) string {
 func TestAutosaveResumesAndDeletesAfterSave(t *testing.T) {
 	example := filepath.Join(t.TempDir(), "guided")
 	var stdout, stderr bytes.Buffer
-	code := Main([]string{"--example", example, "--no-llm"}, strings.NewReader(testProjectInput(false)), &stdout, &stderr)
+	code := Main([]string{"--example", example, "--no-llm", "--prompt-mode", "normal"}, strings.NewReader("Render a local summary report from a runtime input\n"), &stdout, &stderr)
 	if code == 0 {
 		t.Fatalf("first Main unexpectedly succeeded\nstdout:\n%s\nstderr:\n%s", stdout.String(), stderr.String())
 	}
@@ -1344,7 +1341,7 @@ func TestAutosaveResumesAndDeletesAfterSave(t *testing.T) {
 	}
 	stdout.Reset()
 	stderr.Reset()
-	code = Main([]string{"--example", example, "--no-llm"}, strings.NewReader("save\n"), &stdout, &stderr)
+	code = Main([]string{"--example", example, "--no-llm", "--prompt-mode", "normal"}, strings.NewReader("render_report\napprove\n"), &stdout, &stderr)
 	if code != 0 {
 		t.Fatalf("resume failed with code %d\nstdout:\n%s\nstderr:\n%s", code, stdout.String(), stderr.String())
 	}
@@ -1396,11 +1393,11 @@ func TestCompleteDraftResumeSaveWritesAndDeletesDraft(t *testing.T) {
 	}
 }
 
-func TestPromptModeFastAcceptsCompleteDraftSaveDefaultSilently(t *testing.T) {
+func TestPromptModeFastRequiresCompleteDraftApproval(t *testing.T) {
 	example := filepath.Join(t.TempDir(), "guided")
 	draftPath := writeCompleteDraft(t, example)
 	var stdout, stderr bytes.Buffer
-	code := Main([]string{"--example", example, "--no-llm", "--prompt-mode", "fast"}, strings.NewReader(""), &stdout, &stderr)
+	code := Main([]string{"--example", example, "--no-llm", "--prompt-mode", "fast"}, strings.NewReader("approve\n"), &stdout, &stderr)
 	if code != 0 {
 		t.Fatalf("fast save failed with code %d\nstdout:\n%s\nstderr:\n%s", code, stdout.String(), stderr.String())
 	}
@@ -1412,8 +1409,8 @@ func TestPromptModeFastAcceptsCompleteDraftSaveDefaultSilently(t *testing.T) {
 	if _, err := os.Stat(draftPath); !os.IsNotExist(err) {
 		t.Fatalf("draft not deleted after fast save: %v", err)
 	}
-	if strings.Contains(stdout.String(), "Type save, edit <slot>, explain <assumption-id>, or cancel") {
-		t.Fatalf("stdout printed auto-accepted save prompt:\n%s", stdout.String())
+	if !strings.Contains(stdout.String(), "Type approve, edit <slot>, explain <assumption-id>, or cancel") {
+		t.Fatalf("stdout omitted forced proposal approval:\n%s", stdout.String())
 	}
 }
 
@@ -1421,7 +1418,7 @@ func TestPromptModeNormalAcceptsCompleteDraftSaveDefaultVisibly(t *testing.T) {
 	example := filepath.Join(t.TempDir(), "guided")
 	draftPath := writeCompleteDraft(t, example)
 	var stdout, stderr bytes.Buffer
-	code := Main([]string{"--example", example, "--no-llm", "--prompt-mode", "normal"}, strings.NewReader(""), &stdout, &stderr)
+	code := Main([]string{"--example", example, "--no-llm", "--prompt-mode", "normal"}, strings.NewReader("approve\n"), &stdout, &stderr)
 	if code != 0 {
 		t.Fatalf("normal save failed with code %d\nstdout:\n%s\nstderr:\n%s", code, stdout.String(), stderr.String())
 	}
@@ -1433,15 +1430,15 @@ func TestPromptModeNormalAcceptsCompleteDraftSaveDefaultVisibly(t *testing.T) {
 	if _, err := os.Stat(draftPath); !os.IsNotExist(err) {
 		t.Fatalf("draft not deleted after normal save: %v", err)
 	}
-	if !strings.Contains(stdout.String(), "Type save, edit <slot>, explain <assumption-id>, or cancel [save]: save") {
-		t.Fatalf("stdout missing visibly auto-accepted save prompt:\n%s", stdout.String())
+	if !strings.Contains(stdout.String(), "Type approve, edit <slot>, explain <assumption-id>, or cancel [approve]:") {
+		t.Fatalf("stdout missing forced proposal approval prompt:\n%s", stdout.String())
 	}
 }
 
 func TestPromptModeFastWritesManualDraftFromOpeningOnly(t *testing.T) {
 	example := filepath.Join(t.TempDir(), "guided")
 	var stdout, stderr bytes.Buffer
-	input := "Render a local summary report from a runtime input\nguided_project\n"
+	input := "Render a local summary report from a runtime input\nguided_project\napprove\n"
 	code := Main([]string{"--example", example, "--no-llm", "--prompt-mode", "fast"}, strings.NewReader(input), &stdout, &stderr)
 	if code != 0 {
 		t.Fatalf("fast manual draft failed with code %d\nstdout:\n%s\nstderr:\n%s", code, stdout.String(), stderr.String())
@@ -1479,12 +1476,46 @@ func TestPromptModeRejectsUnknownValue(t *testing.T) {
 	}
 }
 
+func TestLocalSourceFlagsAndNetworkPolicy(t *testing.T) {
+	sources, err := parseLocalSourceFlags(
+		[]string{"graphql:catalog=/tmp/schema.graphql", "graphql:catalog=/tmp/schema.graphql"},
+		[]string{"weather=/tmp/weather.yaml"},
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(sources) != 2 || sources[0].Kind != apitools.APISourceKindGraphQL || sources[1].Kind != apitools.APISourceKindOpenAPI {
+		t.Fatalf("sources = %#v", sources)
+	}
+	for _, invalid := range []string{"openapi", "openapi:=/tmp/spec.json", "openapi:id="} {
+		if _, err := parseLocalSourceFlags([]string{invalid}, nil); err == nil {
+			t.Fatalf("parseLocalSourceFlags(%q) succeeded", invalid)
+		}
+	}
+	if got, err := resolveNetworkPolicy("", false); err != nil || got != "ask" {
+		t.Fatalf("interactive default = %q, %v", got, err)
+	}
+	if got, err := resolveNetworkPolicy("ask", true); err != nil || got != "never" {
+		t.Fatalf("agent ask policy = %q, %v", got, err)
+	}
+	if got, err := resolveNetworkPolicy("allow", true); err != nil || got != "allow" {
+		t.Fatalf("agent allow policy = %q, %v", got, err)
+	}
+}
+
+func TestV1SessionIsRejectedWithoutCompatibilityDecode(t *testing.T) {
+	_, err := elicitor.DecodeSession([]byte("version: openudon.icot-session.v1\n"), ".yaml")
+	if err == nil || !strings.Contains(err.Error(), "v1 inputs are not accepted") {
+		t.Fatalf("DecodeSession error = %v", err)
+	}
+}
+
 func TestReplayTranscriptMetricsUsesActualTranscriptTurns(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "transcript.json")
 	data := `{
   "turns": [
     {"label": "Workflow goal", "answer": "fetch weather"},
-    {"label": "Type save, edit <slot>, explain <assumption-id>, or cancel", "answer": "save"}
+    {"label": "Type approve, edit <slot>, explain <assumption-id>, or cancel", "answer": "save"}
   ],
   "events": [
     {"kind": "draft_repair_attempt", "data": {"changed": true}},
@@ -1556,7 +1587,7 @@ func TestCompleteDraftPrintWritesNoFilesAndPreservesDraft(t *testing.T) {
 func TestNoTranscriptSkipsLocalTranscript(t *testing.T) {
 	example := filepath.Join(t.TempDir(), "guided")
 	var stdout, stderr bytes.Buffer
-	code := Main([]string{"--example", example, "--no-llm", "--no-transcript"}, strings.NewReader(testProjectInput(false)+"save\n"), &stdout, &stderr)
+	code := Main([]string{"--example", example, "--no-llm", "--no-transcript", "--prompt-mode", "fast"}, strings.NewReader(testProjectInput(false)+"approve\n"), &stdout, &stderr)
 	if code != 0 {
 		t.Fatalf("Main failed with code %d\nstdout:\n%s\nstderr:\n%s", code, stdout.String(), stderr.String())
 	}
@@ -1833,6 +1864,88 @@ func TestAtomicWriterDoesNotModifyFinalFilesWhenValidationFails(t *testing.T) {
 	}
 }
 
+func TestApprovedArtifactTransactionStagesSourcesAndPromotesDraft(t *testing.T) {
+	example := filepath.Join(t.TempDir(), "package")
+	sourceDir := t.TempDir()
+	sourcePath := filepath.Join(sourceDir, "support.yaml")
+	sourceContent := []byte("openapi: 3.0.3\ninfo:\n  title: Support\n  version: '1'\npaths: {}\n")
+	if err := os.WriteFile(sourcePath, sourceContent, 0o644); err != nil {
+		t.Fatal(err)
+	}
+	digest := sha256.Sum256(sourceContent)
+	intentHCL, err := runner.RenderIntentHCL(testIntent("staged_source", "Stage a reviewed source", "render"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	session := elicitor.Session{
+		Version: elicitor.SessionVersion,
+		SourcePlan: []elicitor.SourceMaterialization{{
+			Kind: "openapi", ID: "support", SourcePath: sourcePath, TargetPath: "openapi/support.yaml",
+			SHA256: hex.EncodeToString(digest[:]), Provenance: "local:" + sourcePath,
+		}},
+	}
+	draft := elicitor.Artifacts{ProjectMD: "# Draft\n", IntentHCL: "# INCOMPLETE\n" + intentHCL, Session: session, Incomplete: true}
+	if err := writeApprovedArtifacts(example, draft, false, true, strings.NewReader(""), io.Discard); err != nil {
+		t.Fatal(err)
+	}
+	for _, rel := range []string{"project.md", "workflows/intent.draft.hcl", ".icot/session.yaml", ".icot/readiness.json", "openapi/support.yaml"} {
+		if _, err := os.Stat(filepath.Join(example, rel)); err != nil {
+			t.Fatalf("draft artifact %s missing: %v", rel, err)
+		}
+	}
+	if _, err := os.Stat(filepath.Join(example, "workflows", "intent.hcl")); !os.IsNotExist(err) {
+		t.Fatalf("incomplete approval created final intent: %v", err)
+	}
+
+	complete := elicitor.Artifacts{ProjectMD: "# Complete\n", IntentHCL: intentHCL, Session: session}
+	if err := writeApprovedArtifacts(example, complete, true, true, strings.NewReader(""), io.Discard); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Stat(filepath.Join(example, "workflows", "intent.hcl")); err != nil {
+		t.Fatalf("promoted intent missing: %v", err)
+	}
+	for _, rel := range []string{"workflows/intent.draft.hcl", ".icot/session.yaml", ".icot/readiness.json"} {
+		if _, err := os.Stat(filepath.Join(example, rel)); !os.IsNotExist(err) {
+			t.Fatalf("obsolete promotion artifact %s remains: %v", rel, err)
+		}
+	}
+}
+
+func TestApprovedArtifactTransactionBlocksDifferingSourceCollision(t *testing.T) {
+	example := filepath.Join(t.TempDir(), "package")
+	if err := os.MkdirAll(filepath.Join(example, "openapi"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	target := filepath.Join(example, "openapi", "support.yaml")
+	if err := os.WriteFile(target, []byte("existing\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	sourcePath := filepath.Join(t.TempDir(), "support.yaml")
+	content := []byte("replacement\n")
+	if err := os.WriteFile(sourcePath, content, 0o644); err != nil {
+		t.Fatal(err)
+	}
+	digest := sha256.Sum256(content)
+	intentHCL, err := runner.RenderIntentHCL(testIntent("collision", "Check collision", "render"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	artifacts := elicitor.Artifacts{ProjectMD: "# Collision\n", IntentHCL: intentHCL, Session: elicitor.Session{
+		SourcePlan: []elicitor.SourceMaterialization{{Kind: "openapi", ID: "support", SourcePath: sourcePath, TargetPath: "openapi/support.yaml", SHA256: hex.EncodeToString(digest[:]), Provenance: "local:" + sourcePath}},
+	}}
+	err = writeApprovedArtifacts(example, artifacts, false, true, strings.NewReader(""), io.Discard)
+	if err == nil || !strings.Contains(err.Error(), "contains different content") || !strings.Contains(err.Error(), "--force") {
+		t.Fatalf("writeApprovedArtifacts error = %v", err)
+	}
+	got, readErr := os.ReadFile(target)
+	if readErr != nil || string(got) != "existing\n" {
+		t.Fatalf("collision target changed: %q, %v", got, readErr)
+	}
+	if _, err := os.Stat(filepath.Join(example, "project.md")); !os.IsNotExist(err) {
+		t.Fatalf("collision partially wrote project.md: %v", err)
+	}
+}
+
 func testIntent(name, goal, stepName string) *rollout.Intent {
 	return &rollout.Intent{
 		Workflow: &rollout.WorkflowMeta{Name: name, Description: goal},
@@ -1933,6 +2046,7 @@ func testProjectInput(withOpenAPI bool) string {
 
 func writeSessionJSON(t *testing.T, dir string, session elicitor.Session) string {
 	t.Helper()
+	session.Normalize()
 	path := filepath.Join(dir, "session.json")
 	data, err := json.MarshalIndent(session, "", "  ")
 	if err != nil {
@@ -2016,7 +2130,16 @@ func findTestStep(steps []*rollout.Step, name string) *rollout.Step {
 func writeCompleteRuntimeSession(t *testing.T, dir string) string {
 	t.Helper()
 	path := filepath.Join(dir, "session.yaml")
-	data := "project:\n" +
+	data := "version: openudon.icot-session.v2\n" +
+		"boundary:\n" +
+		"  outcome: Render a local runtime report\n" +
+		"  actor: operator\n" +
+		"  trigger: on demand\n" +
+		"  success_evidence: [report is rendered]\n" +
+		"  confirmed: true\n" +
+		"interview:\n" +
+		"  version: authoring.interview.v1\n" +
+		"project:\n" +
 		"  project_name: Runtime Report\n" +
 		"  goal: Render a local runtime report\n" +
 		"  inputs: '`summary`: required string'\n" +

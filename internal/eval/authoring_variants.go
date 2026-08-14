@@ -9,7 +9,7 @@ import (
 	"github.com/OpenUdon/openudon/internal/icotreport"
 )
 
-const AuthoringVariantsVersion = "openudon.icot-authoring-variants.v1"
+const AuthoringVariantsVersion = "openudon.icot-authoring-variants.v2"
 
 type AuthoringVariants struct {
 	Version          string             `json:"version"`

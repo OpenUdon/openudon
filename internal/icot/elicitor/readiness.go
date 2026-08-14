@@ -101,6 +101,10 @@ func PlanNextQuestion(session Session, docs []APIDocument, issues []ReadinessIss
 			Slots:           []string{"warnings"},
 		}
 	}
+	return planQuestionForIssue(session, docs, blocking)
+}
+
+func planQuestionForIssue(session Session, docs []APIDocument, blocking ReadinessIssue) QuestionPlan {
 	plan := QuestionPlan{
 		SuggestedAnswer: blocking.SuggestedAnswer,
 		Slots:           []string{blocking.Slot},
@@ -269,7 +273,39 @@ func stepNameForQuestionSlot(slot string) string {
 
 func progressiveReady(session Session, issues []ReadinessIssue) bool {
 	if _, err := RenderArtifacts(session); err != nil {
-		return false
+		if _, draftErr := RenderDraftArtifacts(session); draftErr != nil {
+			return false
+		}
 	}
-	return firstBlockingIssue(issues).Code == ""
+	for _, issue := range issues {
+		if issue.Severity != readinessBlocking {
+			continue
+		}
+		if !interviewIssueDeferred(session, issue) {
+			return false
+		}
+	}
+	return true
+}
+
+func interviewIssueDeferred(session Session, issue ReadinessIssue) bool {
+	id := nodeIDForIssue(issue)
+	switch issue.Code {
+	case "missing_api_doc":
+		id = nodeSourceSelection
+	case "missing_credential_bindings":
+		id = nodeCredentials
+	case "missing_outputs":
+		id = nodeOutputs
+	case "missing_operation":
+		if issue.Slot == "intent.steps" {
+			id = nodeWorkflowSteps
+		}
+	}
+	for _, node := range session.Interview.Nodes {
+		if node.ID == id {
+			return node.Status == "deferred"
+		}
+	}
+	return false
 }

@@ -2,7 +2,7 @@ Draft or revise a OpenUdon iCoT session from the workflow brief, current session
 
 Use only listed OpenAPI paths and operationId values. Do not invent paths, URLs, credentials, secret values, runtimes, or unavailable operations.
 
-The current session may include decision_evidence. Treat it as compact user-visible decision history, not hidden chain-of-thought. Preserve high-confidence user or deterministic decisions unless current local metadata contradicts them. Low-confidence or conflicting evidence should remain reviewable rather than silently accepted.
+The current v2 session includes a generic interview graph and unified interview.evidence ledger. Treat the ledger as concise user-visible evidence, never hidden chain-of-thought. Preserve confirmed user or observed decisions unless current local metadata contradicts them. Keep low-confidence or conflicting evidence reviewable rather than silently accepting it.
 
 Separate understanding from commitment: ambiguous provider-as-verb phrases such as "gmail me", "gmail the report", "slack Bob", "jira the bug", or "calendar it" may indicate a possible delivery or write intent, but they are not enough to commit a side-effectful API operation. Leave the operation blank unless the user explicitly names the provider and action, such as "send the report using Google Gmail", "post the summary to Slack", or "create a Jira issue".
 
@@ -34,6 +34,6 @@ For each SaaS API step, make the request mapping reviewable:
 - identify side-effect scope for send, create, update, delete, upload, and post actions;
 - record output paths only when they are visible in listed response metadata or defensible from project text.
 
-Return JSON for either an operation-detail request or a partial/complete OpenUdon iCoT session. Include assumptions for every inferred operation, field mapping, credential binding, side-effect scope, timeout/idempotency control, and output source. Assumptions must have id, slot, value, reason, evidence, risk, and requires_confirmation.
+Return JSON for either an operation-detail request or a partial/complete openudon.icot-session.v2 session. Record every inferred operation, field mapping, credential binding, side-effect scope, timeout/idempotency control, and output source as concise recommendation or assumption entries in interview.evidence. Candidate workflows remain boundary-only and receive no technical breakdown.
 
 If a value is not defensible from the brief, current session, transcript turns, readiness feedback, or listed metadata, leave it blank so the deterministic prompt loop can ask the user.

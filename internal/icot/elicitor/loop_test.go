@@ -36,6 +36,7 @@ func TestRunFillsRuntimeOnlyIntent(t *testing.T) {
 		FallbackSet:     true,
 		SideEffectScope: projectwizard.SideEffectSandboxOnly,
 	}
+	seed = completeV2FinalizeSession(seed)
 	artifacts, err := Run(context.Background(), strings.NewReader("save\n"), &strings.Builder{}, seed, Options{
 		ExampleDir: example,
 		NoLLM:      true,
@@ -146,7 +147,7 @@ func TestFastPromptModeSuppressesDraftErrorAndAssumptions(t *testing.T) {
 	writeOpenAPI(t, example)
 	seed := supportTicketDraft(true)
 	var out strings.Builder
-	_, err := Run(context.Background(), strings.NewReader(""), &out, seed, Options{
+	_, err := Run(context.Background(), strings.NewReader("approve\n"), &out, seed, Options{
 		ExampleDir:     example,
 		NoLLM:          false,
 		Extractor:      invalidJSONDraftExtractor{},
@@ -168,7 +169,7 @@ func TestFastPromptModeSuppressesDraftErrorAndAssumptions(t *testing.T) {
 			t.Fatalf("fast prompt output included %q:\n%s", unexpected, text)
 		}
 	}
-	if !strings.Contains(text, "----- current draft -----") {
+	if !strings.Contains(text, "----- complete authoring proposal -----") {
 		t.Fatalf("fast prompt output should still show final draft summary:\n%s", text)
 	}
 }
@@ -352,6 +353,7 @@ func TestRunCreatesStepBindFromPriorOutput(t *testing.T) {
 		FallbackSet:     true,
 		SideEffectScope: projectwizard.SideEffectSandboxOnly,
 	}
+	seed = completeV2FinalizeSession(seed)
 	artifacts, err := Run(context.Background(), strings.NewReader("save\n"), &strings.Builder{}, seed, Options{
 		ExampleDir: example,
 		NoLLM:      true,
@@ -406,6 +408,7 @@ func TestRunFillsTimeoutAndIdempotencyControls(t *testing.T) {
 		FallbackSet:     true,
 		SideEffectScope: projectwizard.SideEffectSandboxOnly,
 	}
+	seed = completeV2FinalizeSession(seed)
 	artifacts, err := Run(context.Background(), strings.NewReader("save\n"), &strings.Builder{}, seed, Options{
 		ExampleDir: example,
 		NoLLM:      true,
@@ -445,6 +448,10 @@ func (e draftExtractor) Draft(context.Context, DraftRequest) (Session, error) {
 	return e.session, nil
 }
 
+func (e draftExtractor) Kickoff(_ context.Context, opening string) (Session, error) {
+	return v2TestKickoff(opening, e.session), nil
+}
+
 type invalidJSONDraftExtractor struct {
 	noopExtractor
 }
@@ -461,6 +468,13 @@ type sequenceDraftExtractor struct {
 	requestMappingRequests []RequestMappingRequest
 	draftReviewResponse    DraftReviewResponse
 	draftReviewRequests    []DraftReviewRequest
+}
+
+func (e *sequenceDraftExtractor) Kickoff(_ context.Context, opening string) (Session, error) {
+	if len(e.drafts) == 0 {
+		return v2TestKickoff(opening, Session{}), nil
+	}
+	return v2TestKickoff(opening, e.drafts[0]), nil
 }
 
 func (e *sequenceDraftExtractor) Draft(_ context.Context, request DraftRequest) (Session, error) {
@@ -639,7 +653,7 @@ func TestProgressivePreFinalReviewAddsCrossStepWarning(t *testing.T) {
 			t.Fatalf("transcript missing %q:\n%s", expected, text)
 		}
 	}
-	for _, expected := range []string{`"stage": "draft_review"`, "output_transport_response"} {
+	for _, expected := range []string{`"kind": "open_decision"`, `"draft_review"`, "output_transport_response"} {
 		if !strings.Contains(text, expected) {
 			t.Fatalf("transcript session missing decision evidence %q:\n%s", expected, text)
 		}
@@ -665,7 +679,7 @@ func TestProgressivePreFinalReviewRunsAfterFinalBlockingRepair(t *testing.T) {
 		}
 		return nil
 	}
-	if _, err := finalProgressiveConfirmationLoop(context.Background(), &out, &prompter{PromptSession: prompts, out: &out}, &session, docs, "", nil, true, false, review, false); err != nil {
+	if _, err := finalProgressiveConfirmationLoop(context.Background(), &out, &prompter{PromptSession: prompts, out: &out}, &session, docs, "", nil, true, false, review, false, false); err != nil {
 		t.Fatalf("final confirmation failed: %v\n%s", err, out.String())
 	}
 	if reviewCalls != 1 {
@@ -682,7 +696,7 @@ func TestProgressivePreFinalReviewForcedQuestionInFastMode(t *testing.T) {
 	}
 	session := supportTicketDraft(true)
 	var out strings.Builder
-	prompts := authoring.NewPromptSession(strings.NewReader("Return the rendered report body.\n"), &out)
+	prompts := authoring.NewPromptSession(strings.NewReader("Return the rendered report body.\napprove\n"), &out)
 	prompts.SetDefaultMode(authoring.PromptDefaultsSilent)
 	review := func(_ context.Context, _ *Session, _ Artifacts, _ []ReadinessIssue) []DraftReviewIssue {
 		return sanitizeDraftReviewResponse(DraftReviewResponse{Issues: []DraftReviewIssue{{
@@ -694,7 +708,7 @@ func TestProgressivePreFinalReviewForcedQuestionInFastMode(t *testing.T) {
 			ClarifyingQuestion: "What exact output should this workflow return?",
 		}}}).Issues
 	}
-	artifacts, err := finalProgressiveConfirmationLoop(context.Background(), &out, &prompter{PromptSession: prompts, out: &out}, &session, docs, "", nil, false, false, review, false)
+	artifacts, err := finalProgressiveConfirmationLoop(context.Background(), &out, &prompter{PromptSession: prompts, out: &out}, &session, docs, "", nil, false, false, review, false, false)
 	if err != nil {
 		t.Fatalf("final confirmation failed: %v\n%s", err, out.String())
 	}
@@ -733,7 +747,7 @@ func TestProgressivePreFinalReviewForcedQuestionAppliesSafeOutputSource(t *testi
 			ClarifyingQuestion: "What exact output should this workflow return?",
 		}}}).Issues
 	}
-	artifacts, err := finalProgressiveConfirmationLoop(context.Background(), &out, &prompter{PromptSession: prompts, out: &out}, &session, docs, "", &events, false, false, review, false)
+	artifacts, err := finalProgressiveConfirmationLoop(context.Background(), &out, &prompter{PromptSession: prompts, out: &out}, &session, docs, "", &events, false, false, review, false, false)
 	if err != nil {
 		t.Fatalf("final confirmation failed: %v\n%s", err, out.String())
 	}
@@ -769,7 +783,7 @@ func TestProgressivePreFinalReviewForcedQuestionKeepsUnsafeAnswerAsComment(t *te
 			ClarifyingQuestion: "What exact output should this workflow return?",
 		}}}).Issues
 	}
-	artifacts, err := finalProgressiveConfirmationLoop(context.Background(), &out, &prompter{PromptSession: prompts, out: &out}, &session, docs, "", &events, false, false, review, false)
+	artifacts, err := finalProgressiveConfirmationLoop(context.Background(), &out, &prompter{PromptSession: prompts, out: &out}, &session, docs, "", &events, false, false, review, false, false)
 	if err != nil {
 		t.Fatalf("final confirmation failed: %v\n%s", err, out.String())
 	}
@@ -827,7 +841,7 @@ func TestFastPromptModeSuppressesRequestMappingStatus(t *testing.T) {
 		}}},
 	}
 	var out strings.Builder
-	_, err := Run(context.Background(), strings.NewReader("Fetch a support ticket.\n"), &out, Session{}, Options{
+	_, err := Run(context.Background(), strings.NewReader("Fetch a support ticket.\napprove\n"), &out, Session{}, Options{
 		ExampleDir:  example,
 		NoLLM:       false,
 		Extractor:   extractor,
@@ -839,7 +853,7 @@ func TestFastPromptModeSuppressesRequestMappingStatus(t *testing.T) {
 	if strings.Contains(out.String(), "icot: drafted request mappings") {
 		t.Fatalf("fast prompt output included request-mapping status:\n%s", out.String())
 	}
-	if !strings.Contains(out.String(), "----- current draft -----") {
+	if !strings.Contains(out.String(), "----- complete authoring proposal -----") {
 		t.Fatalf("fast prompt output should still show final draft summary:\n%s", out.String())
 	}
 }
@@ -2314,6 +2328,7 @@ func TestProgressiveWeatherGmailDraftAddsGeocodingOperation(t *testing.T) {
 }`,
 	}}
 	seed := weatherGmailDraftRequest().Session
+	seed = completeV2FinalizeSession(seed)
 	var out strings.Builder
 	artifacts, err := Run(context.Background(), strings.NewReader("geocodeCity\nsave\n"), &out, seed, Options{
 		ExampleDir:     example,
@@ -2376,38 +2391,29 @@ func TestProgressiveTranscriptIncludesOperationDetailEvents(t *testing.T) {
 	}
 }
 
-func TestProgressiveTranscriptIncludesCatalogPlanEvents(t *testing.T) {
+func TestProgressiveCatalogHintsDoNotMaterializeBeforeApproval(t *testing.T) {
 	example := t.TempDir()
 	cacheRoot := t.TempDir()
 	writeGmailDiscoveryCatalogArtifact(t, cacheRoot)
-	path := filepath.Join(example, ".icot", "transcript.json")
 	input := strings.Join([]string{
 		"Email me a report with Gmail.",
 		"",
-		"userId=me, raw=inputs.raw",
-		"after-approval",
-		"save",
+		"",
+		"",
+		"cancel",
 	}, "\n") + "\n"
 
 	_, err := Run(context.Background(), strings.NewReader(input), &strings.Builder{}, Session{}, Options{
 		ExampleDir:         example,
 		NoLLM:              false,
 		Extractor:          catalogPlanningExtractor{},
-		TranscriptPath:     path,
 		CatalogHintOptions: CatalogHintOptions{CacheRoot: cacheRoot},
 	})
-	if err != nil {
-		t.Fatalf("Run failed: %v", err)
+	if !errors.Is(err, ErrCanceled) {
+		t.Fatalf("Run error = %v, want canceled", err)
 	}
-	data, err := os.ReadFile(path)
-	if err != nil {
-		t.Fatalf("read transcript: %v", err)
-	}
-	text := string(data)
-	for _, expected := range []string{"catalog_plan_call", "catalog_plan_result", "gmail:google-discovery/gmail-discovery-v1.json"} {
-		if !strings.Contains(text, expected) {
-			t.Fatalf("transcript missing %q:\n%s", expected, text)
-		}
+	if _, statErr := os.Stat(filepath.Join(example, "google-discovery", "gmail-discovery-v1.json")); !os.IsNotExist(statErr) {
+		t.Fatalf("catalog source was materialized before approval: %v", statErr)
 	}
 }
 
@@ -2461,6 +2467,8 @@ func supportTicketDraft(withField bool) Session {
 		step.With = map[string]string{"ticketId": "inputs.ticketId"}
 	}
 	return Session{
+		Version:  SessionVersion,
+		Boundary: WorkflowBoundary{Outcome: "Fetch a support ticket by runtime id.", Actor: "operator", Trigger: "on demand", SuccessEvidence: []string{"output ticket is produced from get_ticket.received_body"}, Confirmed: true},
 		Intent: rollout.Intent{
 			OpenAPI:  "openapi/support.yaml",
 			Workflow: &rollout.WorkflowMeta{Name: "support_ticket_lookup", Description: "Fetch a support ticket by runtime id."},
@@ -2470,6 +2478,8 @@ func supportTicketDraft(withField bool) Session {
 		},
 		Safety:          "Sandbox proof runs only.",
 		SafetySet:       true,
+		Fallback:        "stop cleanly and report the failed support lookup",
+		FallbackSet:     true,
 		SideEffectScope: projectwizard.SideEffectSandboxOnly,
 		Assumptions: []Assumption{{
 			ID:                   "op_get_ticket",
@@ -2480,6 +2490,26 @@ func supportTicketDraft(withField bool) Session {
 			Risk:                 "low",
 			RequiresConfirmation: true,
 		}},
+	}
+}
+
+func v2TestKickoff(opening string, draft Session) Session {
+	workflowName := "workflow"
+	if draft.Intent.Workflow != nil && draft.Intent.Workflow.Name != "" {
+		workflowName = draft.Intent.Workflow.Name
+	}
+	success := "the reviewed workflow output is produced"
+	if len(draft.Intent.Outputs) > 0 && draft.Intent.Outputs[0] != nil {
+		success = "output " + draft.Intent.Outputs[0].Name + " is produced from " + draft.Intent.Outputs[0].From
+	}
+	fallback := firstNonEmpty(draft.Fallback, "stop cleanly and report the failed step")
+	scope := firstNonEmpty(draft.SideEffectScope, projectwizard.SideEffectAfterApproval)
+	return Session{
+		Version:  SessionVersion,
+		Boundary: WorkflowBoundary{Outcome: opening, Actor: "operator", Trigger: "on demand", SuccessEvidence: []string{success}, Confirmed: true},
+		Intent:   rollout.Intent{Workflow: &rollout.WorkflowMeta{Name: workflowName, Description: opening}},
+		Fallback: fallback, FallbackSet: true, SideEffectScope: scope,
+		Safety: firstNonEmpty(draft.Safety, "Execution follows the reviewed side-effect posture."), SafetySet: true,
 	}
 }
 

@@ -3,6 +3,7 @@ package icot
 import (
 	"bufio"
 	"context"
+	"crypto/sha256"
 	"encoding/json"
 	"errors"
 	"flag"
@@ -14,6 +15,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/OpenUdon/apitools"
 	"github.com/OpenUdon/openudon/internal/authoring"
 	evalpkg "github.com/OpenUdon/openudon/internal/eval"
 	"github.com/OpenUdon/openudon/internal/icot/elicitor"
@@ -57,25 +59,32 @@ func runAuthor(args []string, in io.Reader, out, errOut io.Writer) int {
 	example := fs.String("example", "", "Example directory where project.md will be created")
 	dirAlias := fs.String("dir", "", "Alias for --example")
 	force := fs.Bool("force", false, "Overwrite an existing project.md")
-	yes := fs.Bool("yes", false, "Accept overwrite prompts without asking")
+	yes := fs.Bool("yes", false, "Explicitly approve the complete proposal and accept overwrite prompts")
 	printOnly := fs.Bool("print", false, "Render project.md and workflows/intent.hcl to stdout without writing files")
 	fromExample := fs.String("from-example", "", "Seed answers from an existing example directory")
-	answersFile := fs.String("answers", "", "Path to YAML or JSON session/answers file; suppresses interactive prompts when complete")
+	answersFile := fs.String("answers", "", "Path to an openudon.icot-session.v2 YAML or JSON file")
 	noLLM := fs.Bool("no-llm", false, "Disable optional LLM extraction assistance")
 	noTranscript := fs.Bool("no-transcript", false, "Do not save local .icot transcript history")
 	promptMode := fs.String("prompt-mode", "full", "Prompt mode: full, normal, or fast. full asks every question; normal accepts defaults visibly; fast skips defaulted questions")
 	reviewRepair := fs.Bool("review-repair", false, "Experimental: apply up to two bounded repairs from pre-final flow review suggestions")
-	agentMode := fs.Bool("agent", false, "Run noninteractively and return needs_input instead of prompting when authoring is incomplete")
+	agentMode := fs.Bool("agent", false, "Return the noninteractive frontier/source/file-action report without writing deliverables")
 	jsonOutput := fs.Bool("json", false, "Write a structured JSON report to stdout")
 	reportPath := fs.String("report", "", "Write a structured JSON report to this path")
 	provider := fs.String("provider", "", "LLM provider for optional extraction: copilot-api, openai, anthropic, or gemini")
 	model := fs.String("model", "", "LLM model for optional extraction")
 	temperature := fs.Float64("temperature", 0.2, "LLM extraction temperature")
+	var apiSourceFlags repeatedFlag
+	var openAPIFlags repeatedFlag
+	var sourceRootFlags repeatedFlag
+	fs.Var(&apiSourceFlags, "api-source", "Explicit API document KIND:ID=PATH; repeat for multiple sources")
+	fs.Var(&openAPIFlags, "openapi", "OpenAPI shorthand ID=PATH; repeat for multiple sources")
+	fs.Var(&sourceRootFlags, "source-root", "Explicit bounded local source root; repeat for multiple roots")
+	network := fs.String("network", "", "Remote lookup policy: never, ask, or allow")
 	fs.Usage = func() {
-		fmt.Fprintf(fs.Output(), "Usage: icot --example examples/<name> [--dir examples/<name>] [--force] [--yes] [--print] [--from-example examples/<seed>] [--answers answers.yaml] [--prompt-mode full|normal|fast]\n")
+		fmt.Fprintf(fs.Output(), "Usage: icot --example examples/<name> [--dir examples/<name>] [--force] [--yes] [--print] [--from-example examples/<seed>] [--answers session.yaml] [--api-source KIND:ID=PATH] [--source-root PATH] [--network never|ask|allow] [--prompt-mode full|normal|fast]\n")
 		fmt.Fprintf(fs.Output(), "\nInteractively writes project.md and workflows/intent.hcl with the standard OpenUdon authoring sections.\n")
 		fmt.Fprintf(fs.Output(), "It also creates openapi/, workflows/, and expected/ when missing.\n")
-		fmt.Fprintf(fs.Output(), "\nPipeline: goal -> catalog plan -> API source retrieval -> operation selection -> request mappings -> draft -> advisory flow review -> final confirmation.\n")
+		fmt.Fprintf(fs.Output(), "\nPipeline: local source inspection -> active workflow boundary -> dependency frontier rounds -> complete proposal -> explicit approval.\n")
 		fmt.Fprintf(fs.Output(), "\nSubcommands:\n")
 		fmt.Fprintf(fs.Output(), "  icot reconcile --example examples/<name>  Regenerate project.md from workflows/intent.hcl.\n")
 		fmt.Fprintf(fs.Output(), "  icot lint --example examples/<name>       Check project.md quality, intent parseability, and drift.\n")
@@ -105,6 +114,16 @@ func runAuthor(args []string, in io.Reader, out, errOut io.Writer) int {
 		defaultMode = authoring.PromptDefaultsSilent
 		*promptMode = "fast"
 	}
+	localSources, err := parseLocalSourceFlags(apiSourceFlags, openAPIFlags)
+	if err != nil {
+		fmt.Fprintln(errOut, err)
+		return 2
+	}
+	networkPolicy, err := resolveNetworkPolicy(*network, *agentMode)
+	if err != nil {
+		fmt.Fprintln(errOut, err)
+		return 2
+	}
 
 	exampleDir := firstNonEmpty(*example, *dirAlias)
 	if exampleDir == "" {
@@ -130,6 +149,9 @@ func runAuthor(args []string, in io.Reader, out, errOut io.Writer) int {
 			Model:         *model,
 			Temperature:   *temperature,
 			OriginalInput: in,
+			LocalSources:  localSources,
+			SourceRoots:   append([]string(nil), sourceRootFlags...),
+			NetworkPolicy: networkPolicy,
 		}, out, errOut)
 	}
 	projectPath := filepath.Join(exampleDir, "project.md")
@@ -164,8 +186,24 @@ func runAuthor(args []string, in io.Reader, out, errOut io.Writer) int {
 	if !usingLLM {
 		fmt.Fprintln(statusOut, "icot: running without LLM extraction; continuing with manual slot filling")
 	}
+	authorSourceRoots := append([]string(nil), sourceRootFlags...)
+	if strings.TrimSpace(*fromExample) != "" && filepath.Clean(*fromExample) != filepath.Clean(exampleDir) {
+		authorSourceRoots = appendSeedSourceRoots(authorSourceRoots, *fromExample)
+	}
 	var artifacts elicitor.Artifacts
 	complete := completeSession(seed)
+	if complete {
+		discovery, discoveryErr := elicitor.DiscoverAuthoringSources(context.Background(), exampleDir, projectwizard.Render(seed.Project), localSources, authorSourceRoots)
+		if discoveryErr != nil {
+			fmt.Fprintln(errOut, discoveryErr)
+			return 1
+		}
+		if discovery.Report.Truncated || len(discovery.Report.Ambiguous) > 0 {
+			fmt.Fprintln(errOut, "local source discovery is incomplete; narrow --source-root or declare ambiguous files with --api-source KIND:ID=PATH")
+			return 1
+		}
+		seed.SourcePlan = elicitor.SyncSelectedSourcePlans(seed, discovery.Plans, localSources)
+	}
 	if complete && (source != seedSourceDraft || *printOnly) {
 		artifacts, err = elicitor.RenderArtifacts(seed)
 	} else {
@@ -179,6 +217,10 @@ func runAuthor(args []string, in io.Reader, out, errOut io.Writer) int {
 			VerifyOnly:     complete && source == seedSourceDraft,
 			DefaultMode:    defaultMode,
 			ReviewRepair:   *reviewRepair,
+			LocalSources:   localSources,
+			SourceRoots:    authorSourceRoots,
+			NetworkPolicy:  networkPolicy,
+			AutoApprove:    *yes,
 		})
 	}
 	if *printOnly {
@@ -188,6 +230,20 @@ func runAuthor(args []string, in io.Reader, out, errOut io.Writer) int {
 		}
 		printArtifacts(out, artifacts)
 		return 0
+	}
+	if err == nil && complete && source != seedSourceDraft {
+		fmt.Fprintln(out, "\n----- complete authoring proposal -----")
+		elicitor.PrintProposal(out, artifacts)
+		if !*yes {
+			approved, approvalErr := confirmProposalApproval(input, out)
+			if approvalErr != nil {
+				fmt.Fprintln(errOut, approvalErr)
+				return 1
+			}
+			if !approved {
+				return 0
+			}
+		}
 	}
 	if errors.Is(err, elicitor.ErrCanceled) {
 		if deleteErr := elicitor.DeleteDraft(draftPath); deleteErr != nil {
@@ -200,25 +256,53 @@ func runAuthor(args []string, in io.Reader, out, errOut io.Writer) int {
 		fmt.Fprintln(errOut, err)
 		return 1
 	}
-	if err := writeArtifacts(projectPath, intentPath, artifacts, *force, *yes, input, out); err != nil {
+	artifacts.Session.Boundary.Confirmed = true
+	if err := writeApprovedArtifacts(exampleDir, artifacts, *force, *yes, input, out); err != nil {
 		fmt.Fprintln(errOut, err)
 		return 1
 	}
-	if err := copySeedSourceArtifacts(*fromExample, exampleDir, *force); err != nil {
-		fmt.Fprintln(errOut, err)
-		return 1
-	}
-	if err := elicitor.DeleteDraft(draftPath); err != nil {
-		fmt.Fprintln(errOut, err)
-		return 1
+	if !artifacts.Incomplete {
+		if err := elicitor.DeleteDraft(draftPath); err != nil {
+			fmt.Fprintln(errOut, err)
+			return 1
+		}
 	}
 	fmt.Fprintf(out, "icot: wrote %s\n", projectPath)
-	fmt.Fprintf(out, "icot: wrote %s\n", intentPath)
+	if artifacts.Incomplete {
+		fmt.Fprintf(out, "icot: wrote %s\n", filepath.Join(exampleDir, "workflows", "intent.draft.hcl"))
+	} else {
+		fmt.Fprintf(out, "icot: wrote %s\n", intentPath)
+	}
 	if transcriptPath != "" {
 		fmt.Fprintf(out, "icot: wrote %s\n", transcriptPath)
 	}
 	fmt.Fprintf(out, "next: openudon build --example %s\n", exampleDir)
 	return 0
+}
+
+func confirmProposalApproval(in io.Reader, out io.Writer) (bool, error) {
+	reader, ok := in.(*bufio.Reader)
+	if !ok {
+		reader = bufio.NewReader(in)
+	}
+	for {
+		fmt.Fprint(out, "Type approve to write the proposal, or cancel: ")
+		value, err := reader.ReadString('\n')
+		value = strings.ToLower(strings.TrimSpace(value))
+		switch value {
+		case "approve":
+			return true, nil
+		case "cancel", "q", "quit":
+			return false, nil
+		}
+		if err != nil {
+			if errors.Is(err, io.EOF) {
+				return false, io.ErrUnexpectedEOF
+			}
+			return false, err
+		}
+		fmt.Fprintln(out, "Please type approve or cancel.")
+	}
 }
 
 type agentAuthorOptions struct {
@@ -239,6 +323,9 @@ type agentAuthorOptions struct {
 	Model         string
 	Temperature   float64
 	OriginalInput io.Reader
+	LocalSources  []apitools.LocalSource
+	SourceRoots   []string
+	NetworkPolicy string
 }
 
 func runAgentAuthor(opts agentAuthorOptions, out, errOut io.Writer) int {
@@ -265,9 +352,65 @@ func runAgentAuthor(opts agentAuthorOptions, out, errOut io.Writer) int {
 		return 1
 	}
 	projectText := agentProjectText(projectPath, seed)
-	docs := agentReadinessDocs(exampleDir, opts.FromExample, projectText)
+	discoveryRoots := append([]string(nil), opts.SourceRoots...)
+	if strings.TrimSpace(opts.FromExample) != "" && filepath.Clean(opts.FromExample) != filepath.Clean(exampleDir) {
+		discoveryRoots = appendSeedSourceRoots(discoveryRoots, opts.FromExample)
+	}
+	discovery, discoveryErr := elicitor.DiscoverAuthoringSources(context.Background(), exampleDir, projectText, opts.LocalSources, discoveryRoots)
+	if discoveryErr != nil {
+		report.Status = statusFail
+		report.Error = discoveryErr.Error()
+		report.FailureFamily = failureMissingAPISource
+		_ = writeAuthorReport(report, opts, out)
+		fmt.Fprintln(errOut, discoveryErr)
+		return 1
+	}
+	docs := discovery.Docs
+	seed.SourcePlan = elicitor.SyncSelectedSourcePlans(seed, discovery.Plans, opts.LocalSources)
+	if len(docs) == 0 && seed.Intent.RequiresOpenAPI() {
+		remote, remoteErr := elicitor.DiscoverRemoteSourceHints(context.Background(), seed.Boundary.Outcome, elicitor.RemoteSourceLookupOptions{Policy: opts.NetworkPolicy, Approved: opts.NetworkPolicy == "allow"})
+		if remoteErr != nil {
+			report.Status = statusFail
+			report.Error = remoteErr.Error()
+			report.FailureFamily = failureMissingAPISource
+			_ = writeAuthorReport(report, opts, out)
+			fmt.Fprintln(errOut, remoteErr)
+			return 1
+		}
+		report.RemoteCandidates = remote.Candidates
+		report.RemoteBlocker = remote.Blocker
+	}
 	issues := elicitor.CheckReadiness(seed, docs)
+	frontier, frontierErr := elicitor.PlanFrontier(&seed, docs, issues)
+	if frontierErr != nil {
+		report.Status = statusFail
+		report.Error = frontierErr.Error()
+		report.FailureFamily = failureAmbiguousUserIntent
+		_ = writeAuthorReport(report, opts, out)
+		fmt.Fprintln(errOut, frontierErr)
+		return 1
+	}
 	report.ReadinessIssues = issues
+	report.Boundary = seed.Boundary
+	report.InterviewVersion = seed.Interview.Version
+	report.Frontier = frontier
+	report.CandidateWorkflows = append([]elicitor.CandidateWorkflow(nil), seed.CandidateWorkflows...)
+	report.SourceCandidates = discovery.Report.Candidates
+	report.SourceRejected = discovery.Report.Rejected
+	report.SourceAmbiguous = discovery.Report.Ambiguous
+	report.SourceDiagnostics = discovery.Report.Diagnostics
+	report.ProposedFileActions = proposedAuthorFileActions(exampleDir, seed, topBlockingReadinessIssue(issues) == nil)
+	if discovery.Report.Truncated || len(discovery.Report.Ambiguous) > 0 {
+		issue := elicitor.ReadinessIssue{Code: "source_discovery_blocked", Severity: "blocking", Slot: "source.selection", Message: "Local source discovery is incomplete; narrow roots or declare ambiguous documents with --api-source KIND:ID=PATH."}
+		report.ReadinessIssues = append([]elicitor.ReadinessIssue{issue}, report.ReadinessIssues...)
+		report.TopIssue = &issue
+		report.FailureFamily = failureMissingAPISource
+		if err := writeAuthorReport(report, opts, out); err != nil {
+			fmt.Fprintln(errOut, err)
+			return 1
+		}
+		return 0
+	}
 	if top := topBlockingReadinessIssue(issues); top != nil {
 		report.TopIssue = top
 		report.SuggestedAnswer = agentSuggestedAnswer(top)
@@ -284,7 +427,7 @@ func runAgentAuthor(opts agentAuthorOptions, out, errOut io.Writer) int {
 		}
 		return 0
 	}
-	artifacts, err := elicitor.RenderArtifacts(seed)
+	_, err = elicitor.RenderArtifacts(seed)
 	if err != nil {
 		report.Status = statusFail
 		report.Error = err.Error()
@@ -295,48 +438,18 @@ func runAgentAuthor(opts agentAuthorOptions, out, errOut io.Writer) int {
 		fmt.Fprintln(errOut, err)
 		return 1
 	}
-	if err := writeArtifacts(projectPath, intentPath, artifacts, opts.Force, true, strings.NewReader(""), io.Discard); err != nil {
-		report.Status = statusFail
-		report.Error = err.Error()
-		report.FailureFamily = failureIntentParse
-		if err := writeAuthorReport(report, opts, out); err != nil {
-			fmt.Fprintln(errOut, err)
-		}
-		fmt.Fprintln(errOut, err)
-		return 1
-	}
-	if err := copySeedSourceArtifacts(opts.FromExample, exampleDir, opts.Force); err != nil {
-		report.Status = statusFail
-		report.Error = err.Error()
-		report.FailureFamily = failureUnknown
-		if err := writeAuthorReport(report, opts, out); err != nil {
-			fmt.Fprintln(errOut, err)
-		}
-		fmt.Fprintln(errOut, err)
-		return 1
-	}
-	if source == seedSourceDraft {
-		if err := elicitor.DeleteDraft(elicitor.DraftPath(exampleDir)); err != nil {
-			report.Status = statusFail
-			report.Error = err.Error()
-			report.FailureFamily = failureUnknown
-			if reportErr := writeAuthorReport(report, opts, out); reportErr != nil {
-				fmt.Fprintln(errOut, reportErr)
-			}
-			fmt.Fprintln(errOut, err)
-			return 1
-		}
-	}
-	report.Status = statusPass
-	report.GeneratedProject = projectPath
-	report.GeneratedIntent = intentPath
+	_ = source
+	report.Status = statusNeedsInput
+	report.SuggestedAnswer = "Approve the complete proposal in an interactive run before writing deliverables."
+	approvalIssue := elicitor.ReadinessIssue{Code: "proposal_approval_required", Severity: "blocking", Slot: elicitor.FinalApprovalNodeID(), Message: report.SuggestedAnswer, SuggestedAnswer: "approve"}
+	report.ReadinessIssues = append(report.ReadinessIssues, approvalIssue)
+	report.TopIssue = &approvalIssue
 	if err := writeAuthorReport(report, opts, out); err != nil {
 		fmt.Fprintln(errOut, err)
 		return 1
 	}
 	if !opts.JSONOutput {
-		fmt.Fprintf(out, "icot: wrote %s\n", projectPath)
-		fmt.Fprintf(out, "icot: wrote %s\n", intentPath)
+		fmt.Fprintln(out, "icot: complete proposal ready for approval; agent mode did not write deliverables")
 	}
 	return 0
 }
@@ -376,6 +489,34 @@ func agentReadinessDocs(exampleDir, fromExample, projectText string) []elicitor.
 	return append(docs, seedDocs...)
 }
 
+func proposedAuthorFileActions(exampleDir string, session elicitor.Session, complete bool) []elicitor.FileAction {
+	intentName := "workflows/intent.draft.hcl"
+	if complete {
+		intentName = "workflows/intent.hcl"
+	}
+	actions := []elicitor.FileAction{
+		{Action: "write", Path: filepath.Join(exampleDir, "project.md"), Reason: "render the reviewed active boundary and candidate workflows"},
+		{Action: "write", Path: filepath.Join(exampleDir, filepath.FromSlash(intentName)), Reason: "render the active workflow intent"},
+	}
+	for _, source := range session.SourcePlan {
+		actions = append(actions, elicitor.FileAction{Action: "copy", Path: filepath.Join(exampleDir, filepath.FromSlash(source.TargetPath)), Reason: source.Kind + " source " + source.ID + " with SHA-256 " + source.SHA256})
+	}
+	if complete {
+		actions = append(actions,
+			elicitor.FileAction{Action: "remove_if_present", Path: filepath.Join(exampleDir, "workflows", "intent.draft.hcl"), Reason: "promote the completed draft"},
+			elicitor.FileAction{Action: "remove_if_present", Path: filepath.Join(exampleDir, ".icot", "session.yaml"), Reason: "remove obsolete resumable draft state"},
+			elicitor.FileAction{Action: "remove_if_present", Path: filepath.Join(exampleDir, ".icot", "readiness.json"), Reason: "remove obsolete generated draft readiness"},
+		)
+	}
+	sort.SliceStable(actions, func(i, j int) bool {
+		if actions[i].Path != actions[j].Path {
+			return actions[i].Path < actions[j].Path
+		}
+		return actions[i].Action < actions[j].Action
+	})
+	return actions
+}
+
 func topBlockingReadinessIssue(issues []elicitor.ReadinessIssue) *elicitor.ReadinessIssue {
 	for i := range issues {
 		if strings.EqualFold(issues[i].Severity, "blocking") {
@@ -413,6 +554,76 @@ func promptDefaultMode(mode string) (authoring.PromptDefaultMode, error) {
 	default:
 		return authoring.PromptDefaultsAsk, fmt.Errorf("--prompt-mode must be full, normal, or fast")
 	}
+}
+
+type repeatedFlag []string
+
+func (values *repeatedFlag) String() string { return strings.Join(*values, ",") }
+
+func (values *repeatedFlag) Set(value string) error {
+	value = strings.TrimSpace(value)
+	if value == "" {
+		return errors.New("flag value may not be empty")
+	}
+	*values = append(*values, value)
+	return nil
+}
+
+func parseLocalSourceFlags(apiSources, openAPIs []string) ([]apitools.LocalSource, error) {
+	values := make([]string, 0, len(apiSources)+len(openAPIs))
+	values = append(values, apiSources...)
+	for _, value := range openAPIs {
+		values = append(values, "openapi:"+value)
+	}
+	out := make([]apitools.LocalSource, 0, len(values))
+	seen := map[string]bool{}
+	for _, value := range values {
+		kindAndRest := strings.SplitN(value, ":", 2)
+		if len(kindAndRest) != 2 || strings.TrimSpace(kindAndRest[0]) == "" {
+			return nil, fmt.Errorf("invalid --api-source %q; use KIND:ID=PATH", value)
+		}
+		idAndPath := strings.SplitN(kindAndRest[1], "=", 2)
+		if len(idAndPath) != 2 || strings.TrimSpace(idAndPath[0]) == "" || strings.TrimSpace(idAndPath[1]) == "" {
+			return nil, fmt.Errorf("invalid API source %q; use KIND:ID=PATH", value)
+		}
+		source := apitools.LocalSource{Kind: strings.TrimSpace(kindAndRest[0]), ID: strings.TrimSpace(idAndPath[0]), Path: strings.TrimSpace(idAndPath[1])}
+		key := strings.ToLower(source.Kind) + "\x00" + source.ID + "\x00" + filepath.Clean(source.Path)
+		if seen[key] {
+			continue
+		}
+		seen[key] = true
+		out = append(out, source)
+	}
+	return out, nil
+}
+
+func resolveNetworkPolicy(value string, agent bool) (string, error) {
+	value = strings.ToLower(strings.TrimSpace(value))
+	if value == "" {
+		if agent {
+			return "never", nil
+		}
+		return "ask", nil
+	}
+	switch value {
+	case "never", "ask", "allow":
+		if agent && value != "allow" {
+			return "never", nil
+		}
+		return value, nil
+	default:
+		return "", fmt.Errorf("--network must be never, ask, or allow")
+	}
+}
+
+func appendSeedSourceRoots(roots []string, seedDir string) []string {
+	for _, dir := range []string{"openapi", "google-discovery", "discovery", "aws-smithy", "asyncapi", "graphql", "openrpc", "grpc-protobuf", "odata"} {
+		path := filepath.Join(seedDir, dir)
+		if info, err := os.Lstat(path); err == nil && info.IsDir() && info.Mode()&os.ModeSymlink == 0 {
+			roots = append(roots, path)
+		}
+	}
+	return roots
 }
 
 func runReconcile(args []string, in io.Reader, out, errOut io.Writer) int {
@@ -922,32 +1133,12 @@ func loadSessionFile(path string) (elicitor.Session, error) {
 	if err != nil {
 		return elicitor.Session{}, err
 	}
-	if looksLikeLegacyAnswers(data, strings.ToLower(filepath.Ext(path))) {
-		answers, err := loadAnswersFile(path)
-		if err != nil {
-			return elicitor.Session{}, err
-		}
-		session := elicitor.NewSessionFromAnswers(answers)
-		if answers.UsesOpenAPI {
-			fmt.Fprintln(os.Stderr, "icot: legacy answers file does not include intent operation details; fill missing intent slots interactively or provide the new session shape")
-		}
-		return session, nil
+	session, err := elicitor.DecodeSession(data, strings.ToLower(filepath.Ext(path)))
+	if err != nil {
+		return elicitor.Session{}, fmt.Errorf("parse v2 session: %w", err)
 	}
-	session, sessionErr := elicitor.DecodeSession(data, strings.ToLower(filepath.Ext(path)))
-	if sessionErr == nil && elicitor.LooksLikeSession(session) {
-		session.Normalize()
-		return session, nil
-	}
-	answers, answerErr := loadAnswersFile(path)
-	if answerErr != nil {
-		if sessionErr != nil {
-			return elicitor.Session{}, fmt.Errorf("parse session: %w", sessionErr)
-		}
-		return elicitor.Session{}, answerErr
-	}
-	session = elicitor.NewSessionFromAnswers(answers)
-	if len(session.Intent.Steps) == 1 && session.Intent.Steps[0] != nil && strings.TrimSpace(session.Intent.Steps[0].Operation) == "" && answers.UsesOpenAPI {
-		fmt.Fprintf(os.Stderr, "icot: legacy answers file did not include intent operation details; fill missing intent slots interactively or provide the new session shape\n")
+	if !elicitor.LooksLikeSession(session) {
+		return elicitor.Session{}, errors.New("v2 session has no workflow state")
 	}
 	return session, nil
 }
@@ -1176,6 +1367,94 @@ func writeArtifacts(projectPath, intentPath string, artifacts elicitor.Artifacts
 	}, force)
 }
 
+func writeApprovedArtifacts(exampleDir string, artifacts elicitor.Artifacts, force, yes bool, in io.Reader, out io.Writer) error {
+	projectPath := filepath.Join(exampleDir, "project.md")
+	intentPath := filepath.Join(exampleDir, "workflows", "intent.hcl")
+	if artifacts.Incomplete {
+		intentPath = filepath.Join(exampleDir, "workflows", "intent.draft.hcl")
+	}
+	files := []generatedFile{{Path: projectPath, Content: artifacts.ProjectMD}, {Path: intentPath, Content: artifacts.IntentHCL}}
+	if artifacts.Incomplete {
+		sessionData, err := json.MarshalIndent(artifacts.Session, "", "  ")
+		if err != nil {
+			return err
+		}
+		readinessData, err := json.MarshalIndent(struct {
+			Version   string `json:"version"`
+			Interview any    `json:"interview"`
+			Deferrals any    `json:"deferrals"`
+		}{Version: "openudon.icot-readiness.v2", Interview: artifacts.Session.Interview, Deferrals: artifacts.Session.Interview.Deferrals}, "", "  ")
+		if err != nil {
+			return err
+		}
+		files = append(files,
+			generatedFile{Path: filepath.Join(exampleDir, ".icot", "session.yaml"), Content: string(sessionData) + "\n", AllowOverwrite: true},
+			generatedFile{Path: filepath.Join(exampleDir, ".icot", "readiness.json"), Content: string(readinessData) + "\n", AllowOverwrite: true},
+		)
+	} else {
+		files = append(files,
+			generatedFile{Path: filepath.Join(exampleDir, "workflows", "intent.draft.hcl"), Remove: true, AllowOverwrite: true},
+			generatedFile{Path: filepath.Join(exampleDir, ".icot", "session.yaml"), Remove: true, AllowOverwrite: true},
+			generatedFile{Path: filepath.Join(exampleDir, ".icot", "readiness.json"), Remove: true, AllowOverwrite: true},
+		)
+	}
+	for _, source := range artifacts.Session.SourcePlan {
+		target, err := safeExampleTarget(exampleDir, source.TargetPath)
+		if err != nil {
+			return err
+		}
+		data, err := os.ReadFile(source.SourcePath)
+		if err != nil {
+			return fmt.Errorf("read selected source %s: %w", source.SourcePath, err)
+		}
+		digest := fmt.Sprintf("%x", sha256.Sum256(data))
+		if digest != strings.ToLower(source.SHA256) {
+			return fmt.Errorf("selected source %s changed after discovery: digest %s, want %s", source.SourcePath, digest, source.SHA256)
+		}
+		if existing, err := os.ReadFile(target); err == nil {
+			if fmt.Sprintf("%x", sha256.Sum256(existing)) == digest {
+				continue
+			}
+			if !force {
+				return fmt.Errorf("source target %s contains different content; pass --force to replace it", target)
+			}
+		} else if !os.IsNotExist(err) {
+			return err
+		}
+		files = append(files, generatedFile{Path: target, Content: string(data)})
+	}
+	paths := make([]string, 0, len(files))
+	for _, file := range files {
+		paths = append(paths, file.Path)
+	}
+	if err := confirmOverwrites(paths, force, yes, in, out); err != nil {
+		return err
+	}
+	if err := writeGeneratedFilesAtomic(files, force); err != nil {
+		return err
+	}
+	return nil
+}
+
+func safeExampleTarget(exampleDir, relative string) (string, error) {
+	if strings.TrimSpace(relative) == "" || filepath.IsAbs(relative) {
+		return "", fmt.Errorf("source target %q must be a relative package path", relative)
+	}
+	base, err := filepath.Abs(exampleDir)
+	if err != nil {
+		return "", err
+	}
+	target, err := filepath.Abs(filepath.Join(base, filepath.FromSlash(relative)))
+	if err != nil {
+		return "", err
+	}
+	rel, err := filepath.Rel(base, target)
+	if err != nil || rel == ".." || strings.HasPrefix(rel, ".."+string(filepath.Separator)) {
+		return "", fmt.Errorf("source target %q escapes example directory", relative)
+	}
+	return target, nil
+}
+
 func writeGeneratedFile(path, rendered string, force, yes bool, in io.Reader, out io.Writer) error {
 	if _, err := os.Stat(path); err == nil && !force {
 		return fmt.Errorf("%s already exists; pass --force to overwrite it", path)
@@ -1209,8 +1488,10 @@ func confirmOverwrites(paths []string, force, yes bool, in io.Reader, out io.Wri
 }
 
 type generatedFile struct {
-	Path    string
-	Content string
+	Path           string
+	Content        string
+	AllowOverwrite bool
+	Remove         bool
 }
 
 type fileBackup struct {
@@ -1224,10 +1505,12 @@ func writeGeneratedFilesAtomic(files []generatedFile, force bool) error {
 		if err := validateGeneratedFile(file); err != nil {
 			return err
 		}
-		if err := scaffoldDirs(exampleDirForGenerated(file.Path)); err != nil {
-			return err
+		if !file.Remove {
+			if err := scaffoldDirs(exampleDirForGenerated(file.Path)); err != nil {
+				return err
+			}
 		}
-		if _, err := os.Stat(file.Path); err == nil && !force {
+		if _, err := os.Stat(file.Path); err == nil && !force && !file.AllowOverwrite {
 			return fmt.Errorf("%s already exists; pass --force to overwrite it", file.Path)
 		} else if err != nil && !os.IsNotExist(err) {
 			return err
@@ -1235,6 +1518,9 @@ func writeGeneratedFilesAtomic(files []generatedFile, force bool) error {
 	}
 	tmpPaths := map[string]string{}
 	for _, file := range files {
+		if file.Remove {
+			continue
+		}
 		tmp, err := os.CreateTemp(filepath.Dir(file.Path), "."+filepath.Base(file.Path)+".tmp.")
 		if err != nil {
 			cleanupTemps(tmpPaths)
@@ -1269,7 +1555,16 @@ func writeGeneratedFilesAtomic(files []generatedFile, force bool) error {
 	}
 	var renamed []string
 	for _, file := range files {
-		if err := os.Rename(tmpPaths[file.Path], file.Path); err != nil {
+		var err error
+		if file.Remove {
+			err = os.Remove(file.Path)
+			if os.IsNotExist(err) {
+				err = nil
+			}
+		} else {
+			err = os.Rename(tmpPaths[file.Path], file.Path)
+		}
+		if err != nil {
 			restoreBackups(backups, renamed)
 			cleanupTemps(tmpPaths)
 			return err

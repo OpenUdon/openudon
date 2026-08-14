@@ -7,21 +7,26 @@ import (
 )
 
 func LoadAnswersFromMarkdown(text string) (Answers, error) {
+	candidates, err := projectdoc.ParseCandidateWorkflows(text)
+	if err != nil {
+		return Answers{}, err
+	}
 	return Answers{
-		ProjectName:       projectdoc.Title(text),
-		Goal:              sectionAnswer(text, "Goal"),
-		Inputs:            sectionAnswer(text, "Inputs"),
-		Outputs:           sectionAnswer(text, "Outputs"),
-		DataFlow:          sectionAnswer(text, "Data Flow"),
-		FunctionContracts: sectionAnswer(text, "Function Contracts"),
-		UsesOpenAPI:       !projectdoc.NoOpenAPIRequired(text),
-		OpenAPI:           openAPIAnswer(text),
-		CmdApproved:       runtimeApproved(text, "cmd"),
-		SSHApproved:       runtimeApproved(text, "ssh"),
-		SideEffectScope:   InferSideEffectScope(projectdoc.Section(text, "Safety and Approval Boundary")),
-		Credentials:       credentialBindings(projectdoc.Section(text, "Credentials and Secrets")),
-		Safety:            sectionAnswer(text, "Safety and Approval Boundary"),
-		Fallback:          sectionAnswer(text, "Fallback Behavior"),
+		ProjectName:        projectdoc.Title(text),
+		Goal:               sectionAnswer(text, "Goal"),
+		Inputs:             sectionAnswer(text, "Inputs"),
+		Outputs:            sectionAnswer(text, "Outputs"),
+		DataFlow:           sectionAnswer(text, "Data Flow"),
+		FunctionContracts:  sectionAnswer(text, "Function Contracts"),
+		UsesOpenAPI:        !projectdoc.NoOpenAPIRequired(text),
+		OpenAPI:            openAPIAnswer(text),
+		CmdApproved:        runtimeApproved(text, "cmd"),
+		SSHApproved:        runtimeApproved(text, "ssh"),
+		SideEffectScope:    InferSideEffectScope(projectdoc.Section(text, "Safety and Approval Boundary")),
+		Credentials:        credentialBindings(projectdoc.Section(text, "Credentials and Secrets")),
+		Safety:             sectionAnswer(text, "Safety and Approval Boundary"),
+		Fallback:           sectionAnswer(text, "Fallback Behavior"),
+		CandidateWorkflows: candidates,
 	}, nil
 }
 

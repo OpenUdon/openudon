@@ -4,15 +4,15 @@
 integration policy that tells OpenUdon when to use OpenAPI, when to use a non-HTTP udon runtime, and
 when to stop.
 
-`go run ./cmd/icot --example examples/<name>` is an optional guided authoring tool. With LLM
-assistance available, it starts from one plain-language goal, drafts `workflows/intent.hcl` from
-that answer plus local API source metadata, and asks only the next blocking question needed to reach a
-valid intent. With `--no-llm`, it uses the fixed manual prompt flow. `project.md` remains the OpenUdon
-policy/prose artifact, while `workflows/intent.hcl` is the structured saved contract that `openudon
-build` consumes next.
+`go run ./cmd/icot --example examples/<name>` is an optional adaptive authoring tool. It maps a broad
+request into one active workflow boundary, keeps later workflows as unnumbered candidates, inspects
+caller-scoped local API source metadata, and asks the full dependency-ready frontier each round.
+`--no-llm` disables extraction without replacing that interview with a fixed prompt sequence.
+`project.md` remains the OpenUdon policy/prose artifact, while an approved
+`workflows/intent.hcl` is the structured saved contract that `openudon build` consumes next.
 
 `icot` is deterministic. It can print without writing (`--print`), seed prompts from another
-example (`--from-example`), render from YAML or JSON answers (`--answers`), resume interrupted
+example (`--from-example`), render from a v2 YAML or JSON session (`--answers`), resume interrupted
 interactive sessions from `.icot/session.yaml`, reconcile `project.md` from existing intent
 (`icot reconcile --example examples/<name>`), and lint an existing brief plus intent drift (`icot
 lint --example examples/<name>`). Drift findings are warnings unless a parse or existing fail check
@@ -20,10 +20,9 @@ also fails.
 
 When provider credentials are available, `icot` uses AI assistance to draft operation choices,
 request mappings, outputs, credentials, and policy prose from the brief plus local API source metadata.
-After each answer, deterministic readiness checks decide whether to ask about the goal, API
-document, operation, required request values, credential bindings, runtime inputs, outputs, or
-safety policy. The first valid intent jumps to final review; remaining warnings and inferred values
-are shown as assumptions, and saving confirms them. When LLM extraction is enabled, iCoT also runs a
+After each frontier round, deterministic readiness checks recompute which boundary, source,
+operation, mapping, credential, output, fallback, or verification decisions are dependency-ready.
+When LLM extraction is enabled, iCoT also runs a
 single advisory pre-final flow review that looks for cross-step data-flow mistakes such as a report
 email step not consuming report content. Flow warnings are classified into remediation actions and
 kept as visible `intent.hcl` comments when they are not automatically repaired. Experimental
@@ -35,21 +34,17 @@ or confirm and continue editing manually.
 
 Prompt volume is controlled by `--prompt-mode full|normal|fast`. Omitted mode is `full`, which asks
 every question and waits for confirmation. `normal` prints high-confidence and review-level defaults
-and accepts them automatically, but still asks for missing, low-confidence, or conflicting answers.
-`fast` silently accepts safe defaults and suppresses catalog/status chatter plus review-only
-assumption text while preserving transcript and decision evidence.
+and accepts them automatically, but still asks for missing, low-confidence, conflicting, or forced
+answers. `fast` silently accepts safe defaults while preserving transcript and unified evidence.
+The final proposal approval is forced in all modes; `--yes` is the explicit noninteractive approval.
 
-For catalog-backed SaaS briefs, iCoT first checks local `openapi/`, `google-discovery/`,
-`aws-smithy/`, `asyncapi/`, `graphql/`, `openrpc/`, `grpc-protobuf/`, `odata/`, and legacy `discovery/` documents plus the sibling `../apitools`
-first-class provider cache. If a local API artifact is missing, iCoT tries to retrieve or
-materialize first-class apitools artifacts or reviewed advisory OpenAPI overlays into the workflow
-before asking for an API path. It only asks for a user-provided artifact after apitools reports that no first-class or
-advisory source artifact is available. Discovery and Smithy documents can drive operation review,
-synthesis, packaging, and trusted handoff directly. When both an original provider OpenAPI document
-and a reviewed advisory OpenAPI overlay are available, iCoT defaults to the advisory overlay for
-operation selection because it carries OpenUdon-reviewed endpoint/security scope.
-GraphQL, OpenRPC, gRPC/protobuf, and OData sources can drive UWS 1.4 review/package artifacts when
-source-aware `../apitools` metadata is available. The corresponding protocol execution stays in the
+For SaaS briefs, iCoT checks existing sources, explicit `--api-source`/`--openapi` documents, and
+explicit `--source-root` paths before questioning. Bounded apitools discovery validates
+OpenAPI/Swagger, Google Discovery, AWS Smithy, AsyncAPI, GraphQL, OpenRPC, gRPC/protobuf, and OData;
+rejects symlinks; deduplicates by digest; and treats ambiguous JSON/XML as a blocker until its kind is
+declared. It never copies a source before proposal approval. If local evidence is exhausted, an
+approved remote lookup is limited to curated apitools references plus one APIs.guru request and
+returns metadata candidates rather than materializing files. Protocol execution remains in the
 trusted executor boundary.
 
 iCoT defaults to the local `copilot-api` gateway, using `COPILOT_API_BASE_URL` when set and

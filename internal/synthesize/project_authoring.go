@@ -519,6 +519,15 @@ func validateStructuredProjectPolicy(policy projectPolicy) error {
 func LintProjectMarkdown(text string) []QualityCheck {
 	report := &QualityReport{Status: "pass"}
 	addProjectAuthoringChecks(report, text)
+	if projectdoc.HasSection(text, projectdoc.CandidateWorkflowsHeading) {
+		if candidates, err := projectdoc.ParseCandidateWorkflows(text); err != nil {
+			report.add("project.candidate_workflows", "fail", "Candidate Workflows section is malformed", err.Error())
+		} else if len(candidates) == 0 {
+			report.add("project.candidate_workflows", "fail", "Candidate Workflows section has no complete candidates", "Remove the empty section or add title, outcome, deferral reason, and promotion trigger.")
+		} else {
+			report.add("project.candidate_workflows", "pass", "Candidate Workflows section is deterministic and non-executable", "")
+		}
+	}
 	if authoring.ContainsLikelyCredentialValue([]byte(text)) {
 		report.add("project.no_secrets", "fail", "project.md contains content matching a credential pattern", "")
 	}

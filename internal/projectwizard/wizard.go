@@ -7,23 +7,25 @@ import (
 	"strings"
 
 	"github.com/OpenUdon/openudon/internal/authoring"
+	"github.com/OpenUdon/openudon/internal/projectdoc"
 )
 
 type Answers struct {
-	ProjectName       string   `json:"project_name" yaml:"project_name"`
-	Goal              string   `json:"goal" yaml:"goal"`
-	Inputs            string   `json:"inputs" yaml:"inputs"`
-	Outputs           string   `json:"outputs" yaml:"outputs"`
-	DataFlow          string   `json:"data_flow" yaml:"data_flow"`
-	FunctionContracts string   `json:"function_contracts" yaml:"function_contracts"`
-	UsesOpenAPI       bool     `json:"uses_openapi" yaml:"uses_openapi"`
-	OpenAPI           string   `json:"openapi" yaml:"openapi"`
-	CmdApproved       bool     `json:"cmd_approved" yaml:"cmd_approved"`
-	SSHApproved       bool     `json:"ssh_approved" yaml:"ssh_approved"`
-	SideEffectScope   string   `json:"side_effect_scope" yaml:"side_effect_scope"`
-	Credentials       []string `json:"credentials" yaml:"credentials"`
-	Safety            string   `json:"safety" yaml:"safety"`
-	Fallback          string   `json:"fallback" yaml:"fallback"`
+	ProjectName        string                         `json:"project_name" yaml:"project_name"`
+	Goal               string                         `json:"goal" yaml:"goal"`
+	Inputs             string                         `json:"inputs" yaml:"inputs"`
+	Outputs            string                         `json:"outputs" yaml:"outputs"`
+	DataFlow           string                         `json:"data_flow" yaml:"data_flow"`
+	FunctionContracts  string                         `json:"function_contracts" yaml:"function_contracts"`
+	UsesOpenAPI        bool                           `json:"uses_openapi" yaml:"uses_openapi"`
+	OpenAPI            string                         `json:"openapi" yaml:"openapi"`
+	CmdApproved        bool                           `json:"cmd_approved" yaml:"cmd_approved"`
+	SSHApproved        bool                           `json:"ssh_approved" yaml:"ssh_approved"`
+	SideEffectScope    string                         `json:"side_effect_scope" yaml:"side_effect_scope"`
+	Credentials        []string                       `json:"credentials" yaml:"credentials"`
+	Safety             string                         `json:"safety" yaml:"safety"`
+	Fallback           string                         `json:"fallback" yaml:"fallback"`
+	CandidateWorkflows []projectdoc.CandidateWorkflow `json:"candidate_workflows,omitempty" yaml:"candidate_workflows,omitempty"`
 }
 
 func Run(in io.Reader, out io.Writer) (string, error) {
@@ -102,6 +104,7 @@ func Render(answers Answers) string {
 	fmt.Fprintf(&b, "# %s\n\n", title)
 
 	writeSection(&b, "Goal", answers.Goal, "none declared")
+	b.WriteString(projectdoc.RenderCandidateWorkflows(answers.CandidateWorkflows))
 	writeSection(&b, "Inputs", answers.Inputs, "none declared")
 	writeSection(&b, "Outputs", answers.Outputs, "none declared")
 	writeSection(&b, "Data Flow", answers.DataFlow, "none declared")

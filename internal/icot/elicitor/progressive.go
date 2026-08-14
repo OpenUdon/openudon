@@ -12,7 +12,9 @@ import (
 
 	"github.com/OpenUdon/apitools"
 	"github.com/OpenUdon/apitools/catalog"
+	publicinterview "github.com/OpenUdon/authoring/interview"
 	"github.com/OpenUdon/openudon/internal/authoring"
+	"github.com/OpenUdon/openudon/internal/projectdoc"
 	"github.com/OpenUdon/openudon/internal/projectwizard"
 	rollout "github.com/OpenUdon/openudon/internal/workflowintent"
 )
@@ -32,48 +34,57 @@ func runProgressive(ctx context.Context, in io.Reader, out io.Writer, seed Sessi
 	}
 	session := seed
 	session.Normalize()
+	if session.Interview.Metadata == nil {
+		session.Interview.Metadata = map[string]string{}
+	}
+	session.Interview.Metadata["network_policy"] = firstNonEmpty(opts.NetworkPolicy, "ask")
 	statusOut := out
 	if opts.DefaultMode == authoring.PromptDefaultsSilent {
 		statusOut = io.Discard
 	}
 
 	projectText := projectwizard.Render(session.Project)
-	docs, err := DiscoverLocalAPIs(opts.ExampleDir, projectText)
+	discovery, err := DiscoverAuthoringSources(ctx, opts.ExampleDir, projectText, opts.LocalSources, opts.SourceRoots)
 	if err != nil {
 		return Artifacts{}, err
 	}
+	docs := discovery.Docs
+	seed.SourcePlan = mergeSelectedSourcePlans(seed, discovery.Plans, opts.LocalSources)
+	session = seed
+	session.Normalize()
 	openingBrief := ""
 	if session.Intent.Workflow != nil {
 		openingBrief = strings.TrimSpace(session.Intent.Workflow.Description)
 	}
 	draftJSONErrorReported := false
 	skipNextDraft := opts.DisableAIDraft
-	catalogRetrievalAttempted := false
 	reportedDraftEvents := 0
 	questionDrafted := map[string]bool{}
 	reviewedFinalDrafts := map[string][]DraftReviewIssue{}
-	if openingBrief != "" && shouldRetrieveCatalogArtifacts(session, docs) {
-		catalogRetrievalAttempted = true
-		if err := retrieveCatalogArtifactsForSession(statusOut, session, opts.ExampleDir, opts.CatalogHintOptions); err != nil {
-			return Artifacts{}, err
+	remoteLookupAttempted := false
+	attemptRemoteLookup := func(session Session) {
+		if remoteLookupAttempted || len(docs) > 0 {
+			return
 		}
-		projectText = projectwizard.Render(session.Project)
-		docs, err = DiscoverLocalAPIs(opts.ExampleDir, projectText)
-		if err != nil {
-			return Artifacts{}, err
+		policy := firstNonEmpty(opts.NetworkPolicy, "ask")
+		approved := policy == "allow" || session.Interview.Metadata["remote_lookup_decision"] == "allow"
+		if policy == "ask" && !approved {
+			return
 		}
-		clearUnavailableAPIDocumentRefs(&session, docs)
+		remoteLookupAttempted = true
+		report, lookupErr := DiscoverRemoteSourceHints(ctx, firstNonEmpty(session.Boundary.Outcome, openingBrief), RemoteSourceLookupOptions{Policy: policy, Approved: approved})
+		if lookupErr != nil {
+			fmt.Fprintf(statusOut, "icot: bounded remote source lookup failed: %v\n", lookupErr)
+			return
+		}
+		for _, candidate := range report.Candidates {
+			fmt.Fprintf(statusOut, "icot: remote source candidate %s:%s %s (%s)\n", candidate.Kind, candidate.ID, candidate.URL, candidate.Provenance)
+		}
+		if report.Blocker != nil {
+			fmt.Fprintf(statusOut, "icot: deferable source blocker: %s\n", report.Blocker.Message)
+		}
 	}
-	attemptCatalogRetrieval := func(session Session) error {
-		if catalogRetrievalAttempted {
-			return nil
-		}
-		if !shouldRetrieveCatalogArtifacts(session, docs) {
-			return nil
-		}
-		catalogRetrievalAttempted = true
-		return retrieveCatalogArtifactsForSession(statusOut, session, opts.ExampleDir, opts.CatalogHintOptions)
-	}
+	attemptRemoteLookup(session)
 	nextSessionEvents := func(session Session) []authoring.PromptEvent {
 		return catalogPlanEvents(session, &reportedDraftEvents)
 	}
@@ -84,7 +95,6 @@ func runProgressive(ctx context.Context, in io.Reader, out io.Writer, seed Sessi
 		Brief:         projectText,
 		NoLLM:         opts.NoLLM,
 		DefaultMode:   opts.DefaultMode,
-		MaxAttempts:   20,
 		OpeningPrompt: "Tell me what you want this API/workflow to accomplish. Include inputs, API actions, outputs, and safety constraints if you know them. For send/create/update/delete/post/upload/notify actions, explicitly name the provider and action, for example \"send the report using Google Gmail\". Do not paste secrets.",
 		Extractor:     extractor,
 		Normalize: func(session *Session) {
@@ -97,25 +107,20 @@ func runProgressive(ctx context.Context, in io.Reader, out io.Writer, seed Sessi
 				fmt.Fprintf(statusOut, "icot: apitools catalog advisory skipped: %v\n", err)
 			} else {
 				printCatalogHints(statusOut, hints)
-				applied, err := planOpeningCatalogArtifacts(ctx, statusOut, extractor, session, answer, hints, opts)
-				if err != nil {
-					return err
-				}
-				if applied {
-					catalogRetrievalAttempted = true
-				} else {
-					addCatalogPlanSteps(session, hints)
-				}
+				addCatalogPlanSteps(session, hints)
 			}
 			return nil
 		},
 		OpeningEvents: nextSessionEvents,
 		RefreshDocuments: func(session Session, docs []APIDocument) ([]APIDocument, error) {
-			if err := attemptCatalogRetrieval(session); err != nil {
+			attemptRemoteLookup(session)
+			projectText := projectwizard.Render(session.Project)
+			refreshed, err := DiscoverAuthoringSources(ctx, opts.ExampleDir, projectText, opts.LocalSources, opts.SourceRoots)
+			if err != nil {
 				return nil, err
 			}
-			projectText := projectwizard.Render(session.Project)
-			return DiscoverLocalAPIs(opts.ExampleDir, projectText)
+			discovery = refreshed
+			return refreshed.Docs, nil
 		},
 		ShouldDraft: func(session Session, docs []APIDocument, issues []ReadinessIssue) bool {
 			if skipNextDraft {
@@ -188,17 +193,20 @@ func runProgressive(ctx context.Context, in io.Reader, out io.Writer, seed Sessi
 			}
 			return progressiveReady(session, issues)
 		},
-		PlanQuestion: PlanNextQuestion,
-		ApplyAnswer: func(session *Session, plan QuestionPlan, answer string, docs []APIDocument) error {
-			handled, err := applyCatalogDocumentAnswer(statusOut, session, plan, answer, docs, opts.ExampleDir)
+		PlanFrontier: func(session Session, docs []APIDocument, issues []ReadinessIssue) []QuestionPlan {
+			frontier, err := PlanFrontier(&session, docs, issues)
 			if err != nil {
-				return err
-			}
-			if handled {
+				fmt.Fprintf(statusOut, "icot: interview graph invalid: %v\n", err)
 				return nil
 			}
-			applyProgressiveAnswer(session, plan, answer, docs)
+			return frontier
+		},
+		ApplyRound: func(session *Session, answers []authoring.RoundAnswer, docs []APIDocument) error {
+			if err := ApplyFrontierRound(session, answers, docs); err != nil {
+				return err
+			}
 			defaultSingleOpenAPIDoc(session, docs)
+			session.SourcePlan = syncSelectedSourcePlans(*session, discovery.Plans, opts.LocalSources)
 			return nil
 		},
 		FinalConfirm: func(prompts *authoring.PromptSession, session *Session, docs []APIDocument, events *[]authoring.PromptEvent) (Artifacts, error) {
@@ -222,7 +230,7 @@ func runProgressive(ctx context.Context, in io.Reader, out io.Writer, seed Sessi
 				}
 			}
 			reviewRepair := opts.ReviewRepair && !opts.VerifyOnly
-			return finalProgressiveConfirmationLoop(ctx, out, &prompter{PromptSession: prompts, out: out}, session, docs, opts.DraftPath, events, opts.DefaultMode != authoring.PromptDefaultsSilent, reviewRepair, review, opts.VerifyOnly)
+			return finalProgressiveConfirmationLoop(ctx, out, &prompter{PromptSession: prompts, out: out}, session, docs, opts.DraftPath, events, opts.DefaultMode != authoring.PromptDefaultsSilent, reviewRepair, review, opts.VerifyOnly, opts.AutoApprove)
 		},
 		FinalResultSummary: func(artifacts Artifacts) any {
 			return map[string]any{
@@ -235,7 +243,7 @@ func runProgressive(ctx context.Context, in io.Reader, out io.Writer, seed Sessi
 	artifacts, err := authoring.RunProgressiveWithLifecycle(ctx, in, out, hooks, authoring.ProgressiveLifecycleOptions[Session, APIDocument, Artifacts]{
 		DraftPath:         opts.DraftPath,
 		TranscriptPath:    opts.TranscriptPath,
-		TranscriptVersion: "openudon.icot-transcript.v1",
+		TranscriptVersion: TranscriptVersion,
 		Normalize: func(session *Session) {
 			session.Normalize()
 		},
@@ -271,11 +279,14 @@ func progressiveDraftErrorMessage(err error) (string, bool) {
 
 type finalDraftReviewer func(context.Context, *Session, Artifacts, []ReadinessIssue) []DraftReviewIssue
 
-func finalProgressiveConfirmationLoop(ctx context.Context, out io.Writer, p *prompter, session *Session, docs []APIDocument, draftPath string, events *[]TranscriptEvent, showAssumptions bool, reviewRepair bool, review finalDraftReviewer, verifyOnly bool) (Artifacts, error) {
+func finalProgressiveConfirmationLoop(ctx context.Context, out io.Writer, p *prompter, session *Session, docs []APIDocument, draftPath string, events *[]TranscriptEvent, showAssumptions bool, reviewRepair bool, review finalDraftReviewer, verifyOnly bool, autoApprove bool) (Artifacts, error) {
 	repairAttempts := 0
 	askedReviewQuestions := map[string]bool{}
 	for {
 		artifacts, err := RenderArtifacts(*session)
+		if err != nil && len(session.Interview.Deferrals) > 0 {
+			artifacts, err = RenderDraftArtifacts(*session)
+		}
 		if err != nil {
 			if handled, handleErr := answerFinalBlockingQuestion(out, p, session, docs, draftPath); handled || handleErr != nil {
 				if handleErr != nil {
@@ -301,7 +312,7 @@ func finalProgressiveConfirmationLoop(ctx context.Context, out io.Writer, p *pro
 		}
 		*session = artifacts.Session
 		issues := CheckReadiness(artifacts.Session, docs)
-		if !verifyOnly && firstFinalRepairIssue(issues).Code != "" {
+		if !verifyOnly && !artifacts.Incomplete && firstFinalRepairIssue(issues).Code != "" {
 			if handled, handleErr := answerFinalBlockingQuestion(out, p, session, docs, draftPath); handled || handleErr != nil {
 				if handleErr != nil {
 					return Artifacts{}, handleErr
@@ -312,7 +323,7 @@ func finalProgressiveConfirmationLoop(ctx context.Context, out io.Writer, p *pro
 				continue
 			}
 		}
-		if review != nil {
+		if review != nil && !artifacts.Incomplete {
 			reviewIssues := review(ctx, session, artifacts, issues)
 			if reviewRepair && len(reviewIssues) > 0 && repairAttempts < 2 {
 				repairAttempts++
@@ -402,22 +413,25 @@ func finalProgressiveConfirmationLoop(ctx context.Context, out io.Writer, p *pro
 			artifacts.Session = *session
 			artifacts.IntentHCL = annotateIntentHCLWithFlowReviewWarnings(artifacts.IntentHCL, reviewIssues)
 		}
-		fmt.Fprintln(out, "\n----- current draft -----")
-		printSummary(out, artifacts.Session)
+		fmt.Fprintln(out, "\n----- complete authoring proposal -----")
+		printProposal(out, artifacts)
 		printReadinessWarnings(out, issues)
 		if showAssumptions {
 			printAssumptions(out, artifacts.Session.Assumptions)
 		}
 		if len(artifacts.Session.Annotations) > 0 {
-			fmt.Fprintln(out, "LLM-prefilled values are marked in the session annotations and require this final confirmation.")
+			fmt.Fprintln(out, "LLM-prefilled values are recorded in the interview evidence ledger and require this final confirmation.")
 		}
-		answer, err := p.askDefault("Type save, edit <slot>, explain <assumption-id>, or cancel", "save")
+		if autoApprove {
+			return artifacts, nil
+		}
+		answer, err := p.askDefaultForced("Type approve, edit <slot>, explain <assumption-id>, or cancel", "approve")
 		if err != nil {
 			return Artifacts{}, err
 		}
 		answer = strings.TrimSpace(strings.ToLower(answer))
 		switch {
-		case answer == "" || answer == "save":
+		case answer == "" || answer == "approve" || answer == "save":
 			return artifacts, nil
 		case answer == "cancel":
 			return Artifacts{}, ErrCanceled
@@ -443,9 +457,55 @@ func finalProgressiveConfirmationLoop(ctx context.Context, out io.Writer, p *pro
 			id := strings.TrimSpace(strings.TrimPrefix(answer, "explain"))
 			printAssumptionExplanation(out, *session, id)
 		default:
-			fmt.Fprintln(out, "Please type save, edit <slot>, explain <assumption-id>, or cancel.")
+			fmt.Fprintln(out, "Please type approve, edit <slot>, explain <assumption-id>, or cancel.")
 		}
 	}
+}
+
+func printProposal(out io.Writer, artifacts Artifacts) {
+	session := artifacts.Session
+	printSummary(out, session)
+	fmt.Fprintln(out, "\nActive boundary:")
+	fmt.Fprintf(out, "- Outcome: %s\n", session.Boundary.Outcome)
+	fmt.Fprintf(out, "- Actor/trigger: %s / %s\n", session.Boundary.Actor, session.Boundary.Trigger)
+	fmt.Fprintf(out, "- Success evidence: %s\n", strings.Join(session.Boundary.SuccessEvidence, "; "))
+	fmt.Fprintf(out, "- Non-goals: %s\n", firstNonEmpty(strings.Join(session.Boundary.NonGoals, "; "), "none declared"))
+	if len(session.CandidateWorkflows) > 0 {
+		fmt.Fprintln(out, "Candidate workflows (not implemented):")
+		for _, candidate := range session.CandidateWorkflows {
+			fmt.Fprintf(out, "- %s: %s; deferred because %s; promote when %s\n", candidate.Title, candidate.Outcome, candidate.DeferralReason, candidate.PromotionTrigger)
+		}
+	}
+	if len(session.SourcePlan) > 0 {
+		fmt.Fprintln(out, "Selected sources:")
+		for _, source := range session.SourcePlan {
+			fmt.Fprintf(out, "- %s:%s %s -> %s sha256:%s (%s)\n", source.Kind, source.ID, source.SourcePath, source.TargetPath, source.SHA256, source.Provenance)
+		}
+	}
+	if len(session.Interview.Deferrals) > 0 {
+		fmt.Fprintln(out, "Unresolved technical deferrals:")
+		for _, deferral := range session.Interview.Deferrals {
+			fmt.Fprintf(out, "- %s owner=%s impact=%s unblock=%s next=%s\n", deferral.NodeID, deferral.Owner, deferral.Impact, deferral.UnblockCondition, deferral.SuggestedNextAction)
+		}
+	}
+	fmt.Fprintln(out, "Exact file actions:")
+	fmt.Fprintln(out, "- write project.md")
+	if artifacts.Incomplete {
+		fmt.Fprintln(out, "- write workflows/intent.draft.hcl (never workflows/intent.hcl)")
+		fmt.Fprintln(out, "- write .icot/session.yaml and .icot/readiness.json")
+	} else {
+		fmt.Fprintln(out, "- write workflows/intent.hcl")
+		fmt.Fprintln(out, "- remove obsolete generated draft/readiness files after promotion")
+	}
+	for _, source := range session.SourcePlan {
+		fmt.Fprintf(out, "- materialize %s\n", source.TargetPath)
+	}
+}
+
+// PrintProposal renders the complete reviewed boundary and exact file actions
+// before a caller requests approval to write a pre-completed session.
+func PrintProposal(out io.Writer, artifacts Artifacts) {
+	printProposal(out, artifacts)
 }
 
 func printReadinessWarnings(out io.Writer, issues []ReadinessIssue) {
@@ -510,12 +570,37 @@ func mergeProgressiveSessions(base, overlay Session, docs []APIDocument) Session
 		base.Fallback = firstNonEmpty(base.Fallback, overlay.Fallback)
 	}
 	base.SideEffectScope = firstNonEmpty(base.SideEffectScope, overlay.SideEffectScope)
+	base.Boundary.Outcome = firstNonEmpty(base.Boundary.Outcome, overlay.Boundary.Outcome)
+	base.Boundary.Actor = firstNonEmpty(base.Boundary.Actor, overlay.Boundary.Actor)
+	base.Boundary.Trigger = firstNonEmpty(base.Boundary.Trigger, overlay.Boundary.Trigger)
+	base.Boundary.SuccessEvidence = dedupeStrings(append(base.Boundary.SuccessEvidence, overlay.Boundary.SuccessEvidence...))
+	base.Boundary.NonGoals = dedupeStrings(append(base.Boundary.NonGoals, overlay.Boundary.NonGoals...))
+	base.Boundary.Confirmed = base.Boundary.Confirmed || overlay.Boundary.Confirmed
+	base.CandidateWorkflows = projectdoc.NormalizeCandidateWorkflows(append(base.CandidateWorkflows, overlay.CandidateWorkflows...))
+	base.Interview.Evidence = mergeInterviewEvidence(base.Interview.Evidence, overlay.Interview.Evidence)
 	base.Annotations = append(base.Annotations, overlay.Annotations...)
 	base.Assumptions = mergeAssumptions(base.Assumptions, overlay.Assumptions)
 	base.DraftOperations = appendOperationDetailRefs(base.DraftOperations, overlay.DraftOperations)
 	base.DraftEvents = append(base.DraftEvents, overlay.DraftEvents...)
 	base.Normalize()
 	return base
+}
+
+func mergeInterviewEvidence(base, overlay []publicinterview.Evidence) []publicinterview.Evidence {
+	out := append([]publicinterview.Evidence(nil), base...)
+	seen := make(map[string]bool, len(out))
+	for _, evidence := range out {
+		seen[strings.TrimSpace(evidence.ID)] = true
+	}
+	for _, evidence := range overlay {
+		if id := strings.TrimSpace(evidence.ID); id == "" || seen[id] {
+			continue
+		} else {
+			seen[id] = true
+		}
+		out = append(out, evidence)
+	}
+	return out
 }
 
 func defaultSingleOpenAPIDoc(session *Session, docs []APIDocument) {
@@ -2334,13 +2419,13 @@ func sortReadinessIssues(issues []ReadinessIssue) []ReadinessIssue {
 		"missing_api_doc":                        5,
 		readinessUnconfirmedSideEffectCommitment: 6,
 		"missing_operation":                      7,
-		"undeclared_credential_reference":        8,
-		"invented_request_field":                 9,
-		"invalid_request_body_path":              10,
-		"incompatible_request_value_type":        11,
-		"missing_required_request_values":        12,
-		"missing_credential_bindings":            13,
-		"missing_runtime_inputs":                 14,
+		"missing_runtime_inputs":                 8,
+		"undeclared_credential_reference":        9,
+		"invented_request_field":                 10,
+		"invalid_request_body_path":              11,
+		"incompatible_request_value_type":        12,
+		"missing_required_request_values":        13,
+		"missing_credential_bindings":            14,
 		"missing_outputs":                        15,
 		"missing_side_effect_policy":             16,
 		"optional_timeout_idempotency_controls":  17,

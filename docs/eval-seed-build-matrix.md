@@ -26,7 +26,7 @@ For iCoT reliability reporting, run the provider-free scorecard:
 go run ./cmd/icot scorecard --root examples/eval --out eval/runs/icot-scorecard-local
 ```
 
-The scorecard writes `openudon.icot-scorecard.v1` JSON with the expected outcome, observed outcome,
+The scorecard writes `openudon.icot-scorecard.v2` JSON with the expected outcome, observed outcome,
 fixture class, first failure family, and failure codes for each fixture. It uses the same no-LLM,
 package-local seed/build path as the matrix. Reports also include run ID, prompt version,
 readiness classifier version, generation time, git commit, and scorecard command provenance, and
@@ -72,7 +72,7 @@ live LLM generated the workflow from the variant brief. For optional real author
 go run ./cmd/icot authoring-eval --root examples/eval --include-variants --provider copilot-api --model gpt-5.4-mini --out eval/runs/icot-authoring-eval-local
 ```
 
-`icot authoring-eval` writes `openudon.icot-authoring-eval.v1` with provider/model, run ID,
+`icot authoring-eval` writes `openudon.icot-authoring-eval.v2` with provider/model, run ID,
 commit, command, prompt/readiness versions, LLM call count, generated paths, first failure family,
 drift counts, credential-scan status, and per-variant pass/fail. It also writes an
 `authoring-eval.json.sha256` digest sidecar. Failures include a structured failure category for

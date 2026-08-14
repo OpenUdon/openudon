@@ -106,7 +106,7 @@ func TestProgressiveLoopStopsOnBlankRequiredAnswerWithoutDefault(t *testing.T) {
 	if applyCalled {
 		t.Fatal("blank required answer should not be applied")
 	}
-	if got := strings.Count(out.String(), "Which operationId should api use?"); got != 1 {
+	if got := strings.Count(out.String(), "Which operationId should api use?"); got != 2 {
 		t.Fatalf("prompt count = %d, output:\n%s", got, out.String())
 	}
 }

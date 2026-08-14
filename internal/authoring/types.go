@@ -91,6 +91,9 @@ type Question struct {
 // authoring loop.
 type InteractiveQuestion = sharedicot.InteractiveQuestion
 
+// RoundAnswer is one answer applied with the rest of a dependency frontier.
+type RoundAnswer = sharedicot.RoundAnswer
+
 // Artifact is a generated draft file or metadata payload.
 type Artifact struct {
 	Path      string `json:"path"`

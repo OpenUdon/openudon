@@ -23,7 +23,7 @@ import (
 	runner "github.com/OpenUdon/openudon/internal/workflowintent"
 )
 
-const authoringEvalReportVersion = "openudon.icot-authoring-eval.v1"
+const authoringEvalReportVersion = "openudon.icot-authoring-eval.v2"
 
 const (
 	authoringEvalProviderUnavailable         = "provider_unavailable"
@@ -319,6 +319,7 @@ func runAuthoringEvalItem(item authoringEvalItem, provider, model string, temper
 		Extractor:      extractor,
 		DefaultMode:    authoring.PromptDefaultsSilent,
 		TranscriptPath: transcriptPath,
+		AutoApprove:    true,
 	})
 	result.LLMCallCount = len(calls)
 	result.TranscriptPath = transcriptPath

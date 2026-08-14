@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/OpenUdon/apitools"
 	publicreadiness "github.com/OpenUdon/authoring/readiness"
 	publicreport "github.com/OpenUdon/authoring/report"
 	"github.com/OpenUdon/evidence/digest"
@@ -16,10 +17,10 @@ import (
 )
 
 const (
-	authorReportVersion    = "openudon.icot-author-report.v1"
-	lintReportVersion      = "openudon.icot-lint-report.v1"
-	scorecardReportVersion = "openudon.icot-scorecard.v1"
-	repairReportVersion    = "openudon.icot-repair-report.v1"
+	authorReportVersion    = "openudon.icot-author-report.v2"
+	lintReportVersion      = "openudon.icot-lint-report.v2"
+	scorecardReportVersion = "openudon.icot-scorecard.v2"
+	repairReportVersion    = "openudon.icot-repair-report.v2"
 
 	statusPass       = "pass"
 	statusFail       = "fail"
@@ -38,26 +39,37 @@ const (
 	failureBuildError           = icotreport.FailureBuildError
 	failureUnknown              = icotreport.FailureUnknown
 
-	readinessClassifierVersion = "icot-readiness.v1"
+	readinessClassifierVersion = "icot-readiness.v2"
 
 	retentionReleaseEvidence = "release_evidence"
 	retentionLocalEphemeral  = "local_ephemeral"
 )
 
 type authorReport struct {
-	Version          string                    `json:"version"`
-	Status           string                    `json:"status"`
-	Example          string                    `json:"example"`
-	ProjectPath      string                    `json:"project_path,omitempty"`
-	IntentPath       string                    `json:"intent_path,omitempty"`
-	TranscriptPath   string                    `json:"transcript_path,omitempty"`
-	FailureFamily    string                    `json:"failure_family,omitempty"`
-	TopIssue         *elicitor.ReadinessIssue  `json:"top_issue,omitempty"`
-	ReadinessIssues  []elicitor.ReadinessIssue `json:"readiness_issues,omitempty"`
-	SuggestedAnswer  string                    `json:"suggested_answer,omitempty"`
-	GeneratedProject string                    `json:"generated_project,omitempty"`
-	GeneratedIntent  string                    `json:"generated_intent,omitempty"`
-	Error            string                    `json:"error,omitempty"`
+	Version             string                           `json:"version"`
+	Status              string                           `json:"status"`
+	Example             string                           `json:"example"`
+	ProjectPath         string                           `json:"project_path,omitempty"`
+	IntentPath          string                           `json:"intent_path,omitempty"`
+	TranscriptPath      string                           `json:"transcript_path,omitempty"`
+	FailureFamily       string                           `json:"failure_family,omitempty"`
+	TopIssue            *elicitor.ReadinessIssue         `json:"top_issue,omitempty"`
+	ReadinessIssues     []elicitor.ReadinessIssue        `json:"readiness_issues,omitempty"`
+	SuggestedAnswer     string                           `json:"suggested_answer,omitempty"`
+	GeneratedProject    string                           `json:"generated_project,omitempty"`
+	GeneratedIntent     string                           `json:"generated_intent,omitempty"`
+	Error               string                           `json:"error,omitempty"`
+	Boundary            elicitor.WorkflowBoundary        `json:"boundary,omitempty"`
+	InterviewVersion    string                           `json:"interview_version,omitempty"`
+	Frontier            []elicitor.QuestionPlan          `json:"frontier,omitempty"`
+	CandidateWorkflows  []elicitor.CandidateWorkflow     `json:"candidate_workflows,omitempty"`
+	SourceCandidates    []apitools.LocalSourceCandidate  `json:"source_candidates,omitempty"`
+	SourceRejected      []apitools.LocalSourceRejection  `json:"source_rejected,omitempty"`
+	SourceAmbiguous     []apitools.LocalSourceAmbiguity  `json:"source_ambiguous,omitempty"`
+	SourceDiagnostics   []apitools.Diagnostic            `json:"source_diagnostics,omitempty"`
+	RemoteCandidates    []elicitor.RemoteSourceCandidate `json:"remote_candidates,omitempty"`
+	RemoteBlocker       *elicitor.RemoteSourceBlocker    `json:"remote_blocker,omitempty"`
+	ProposedFileActions []elicitor.FileAction            `json:"proposed_file_actions,omitempty"`
 }
 
 type lintReport struct {

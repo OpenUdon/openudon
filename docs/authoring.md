@@ -13,10 +13,13 @@ brief plus intent.
 go run ./cmd/icot --example ./examples/<name>
 ```
 
-iCoT writes `project.md` and `workflows/intent.hcl`; it does not execute workflows. It can run with
-LLM assistance, with the fixed manual flow, from an existing example, or from YAML/JSON answers. Use
-`--prompt-mode full|normal|fast` to choose between full confirmation, visible default acceptance, or
-minimal prompting.
+iCoT writes an approved `project.md` plus either `workflows/intent.hcl` or an explicitly incomplete
+`workflows/intent.draft.hcl`; it does not execute workflows. It can run with optional LLM assistance,
+without LLM extraction, from an existing example, or from an `openudon.icot-session.v2` YAML/JSON
+session. The adaptive interview shows every dependency-ready decision in a frontier round and keeps
+later workflows as unnumbered candidates. Use `--prompt-mode full|normal|fast` to choose between full
+questioning, visible safe defaults, or silent safe defaults; final proposal approval is always
+explicit unless `--yes` is supplied.
 
 After iCoT saves artifacts, continue with:
 

@@ -1,5 +1,5 @@
 {
-  "version": "openudon.icot-authoring-variants.v1",
+  "version": "openudon.icot-authoring-variants.v2",
   "provider_families": ["graphql"],
   "variants": [
     {
