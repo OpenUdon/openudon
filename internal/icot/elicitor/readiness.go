@@ -41,6 +41,12 @@ func CheckReadiness(session Session, docs []APIDocument) []ReadinessIssue {
 			}
 			slotPrefix := "steps." + firstNonEmpty(step.Name, "step")
 			stepType := strings.ToLower(strings.TrimSpace(step.Type))
+			if stepType == "browser_authentication" {
+				for _, issue := range browserAuthenticationReadinessIssues(session, docs, step) {
+					add(issue.Code, issue.Slot, issue.Severity, issue.Message, issue.SuggestedAnswer)
+				}
+				continue
+			}
 			if (stepType == "http" || stepType == "openapi" || stepType == "browser" || strings.TrimSpace(step.Operation) != "") && strings.TrimSpace(step.Operation) == "" {
 				if issue, ok := unconfirmedSideEffectCommitmentIssue(session, docs, step, nil); ok {
 					add(issue.Code, issue.Slot, issue.Severity, issue.Message, issue.SuggestedAnswer)
@@ -51,9 +57,12 @@ func CheckReadiness(session Session, docs []APIDocument) []ReadinessIssue {
 			}
 			if op, ok := operationForStep(session, docs, step); ok {
 				if isBrowserOperationSummary(op) {
-					if strings.TrimSpace(session.BrowserSession) == "" {
+					loginRequired := op.Extensions["openudon.browser.login_state_required"] == "true"
+					if loginRequired && !browserActionHasEstablishedSession(session, step) && browserAuthenticationAvailable(docs) {
+						add(readinessMissingBrowserAuthenticationFlow, slotPrefix+".authentication_flow", readinessBlocking, "This reviewed browser action requires login state. Select a reviewed authentication flow to establish an execution-local named session before the action.", suggestedBrowserAuthenticationFlow(docs))
+					} else if strings.TrimSpace(session.BrowserSession) == "" && !browserActionHasEstablishedSession(session, step) {
 						recommendation := "none"
-						if op.Extensions["openudon.browser.login_state_required"] == "true" {
+						if loginRequired {
 							recommendation = "opaque-runtime-binding-required"
 						}
 						add("missing_browser_session_posture", slotPrefix+".browser_session", readinessBlocking, "Confirm whether this browser action requires an operator-owned opaque runtime session binding. Never place cookies, tokens, passwords, or session values in the workflow.", recommendation)
@@ -133,6 +142,19 @@ func planQuestionForIssue(session Session, docs []APIDocument, blocking Readines
 		plan.ForceAsk = blocking.SuggestedAnswer != "none"
 	case "unconfirmed_browser_mutation":
 		plan.Prompt = "Confirm this exact browser mutation for authoring by answering approve <operation-step-name>. This does not approve runtime execution."
+		plan.ForceAsk = true
+	case readinessMissingBrowserAuthenticationFlow:
+		plan.Prompt = "Which reviewed browser authentication flow should establish the session? Use browser-authentication/<profile>#<flow>."
+		plan.ForceAsk = true
+	case readinessMissingBrowserAuthenticationSession:
+		plan.Prompt = "What execution-local name should identify the browser session established by this authentication step?"
+	case readinessMissingBrowserCredentialBindings:
+		plan.Prompt = "Map each authentication profile credential slot to a symbolic runtime binding, for example username=member_username. Never enter credential values."
+		plan.Grouped = true
+	case readinessMissingBrowserAuthenticationTimeout:
+		plan.Prompt = "How many seconds may this browser authentication and MFA flow wait? Use a value from 1 through 600."
+	case readinessUnconfirmedBrowserAuthentication:
+		plan.Prompt = "Confirm this exact browser authentication step for authoring by answering approve <authentication-step-name>. Runtime execution requires a separate approval."
 		plan.ForceAsk = true
 	case readinessUnconfirmedSideEffectCommitment:
 		plan.Prompt = unconfirmedSideEffectCommitmentPrompt(session, docs, blocking.Slot)

@@ -201,7 +201,20 @@ func sideEffectProfileForSources(policy projectPolicy, intent *rollout.Intent, c
 		return result
 	}
 	walkIntentSteps(intentSteps(intent), func(step *rollout.Step) {
-		if step == nil || !strings.EqualFold(strings.TrimSpace(step.Type), "browser") {
+		if step == nil {
+			return
+		}
+		if strings.EqualFold(strings.TrimSpace(step.Type), "browser_authentication") {
+			name := firstNonEmpty(strings.TrimSpace(step.Name), "<unnamed>")
+			result.SideEffectful = true
+			result.Reasons = append(result.Reasons, name+" establishes an authenticated browser session and may send an MFA challenge")
+			result.Effects = append(result.Effects, sideEffectEvidence{
+				Step: name, Kind: "browser_authentication", Source: firstNonEmpty(step.Source, step.OpenAPI), Operation: step.AuthenticationFlow,
+				Risk: "browser authentication requires separate authoring and runtime approval",
+			})
+			return
+		}
+		if !strings.EqualFold(strings.TrimSpace(step.Type), "browser") {
 			return
 		}
 		ref := intentStepOpenAPIPath(intent, step, primary)

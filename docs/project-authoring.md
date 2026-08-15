@@ -56,6 +56,14 @@ network approval, separate from API discovery. The selected action, origin, dige
 runtime session posture, and any operation-specific mutation approval are shown before writing.
 OpenUdon never stores browser sessions, drivers, credentials, or raw captures.
 
+The same `--browser-profile ID=PATH` input and bounded roots also accept
+secret-free `uws.browser-authentication.1.0` profiles. When a reviewed browser
+action requires login state, iCoT can author one explicit sign-in/MFA flow that
+establishes an execution-local named session, then bind the protected action to
+that session. It records only symbolic credential bindings and safe review
+metadata. Udon resolves credential values, brokers challenges, owns the live
+session, and requires separate runtime approval.
+
 iCoT defaults to the local `copilot-api` gateway, using `COPILOT_API_BASE_URL` when set and
 `http://localhost:4141` otherwise. Use `OPENUDON_LLM_PROVIDER` and `OPENUDON_LLM_MODEL` for
 shell-level overrides, or pass `--provider` and `--model` when you want an explicit provider

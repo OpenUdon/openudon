@@ -123,6 +123,21 @@ func reviewHandoffInputs(result Result) ([]ReviewHandoffInput, error) {
 			Required: true,
 		})
 	}
+	authenticationPaths, err := packageartifacts.CollectBrowserAuthenticationProfilePaths(result.ExampleDir)
+	if err != nil {
+		return nil, err
+	}
+	for _, path := range authenticationPaths {
+		artifacts = append(artifacts, authoring.ReviewArtifactInput{
+			Path: path, Purpose: "Portable secret-free browser authentication profile staged for the trusted Udon runtime.", Required: true,
+		})
+	}
+	if len(authenticationPaths) > 0 {
+		artifacts = append(artifacts, authoring.ReviewArtifactInput{
+			Path:    packageartifacts.BrowserAuthenticationReviewPath,
+			Purpose: "Authentication profile digest, flow, named-session, symbolic-credential, and authoring-approval review evidence.", Required: true,
+		})
+	}
 	securitySidecars, err := packageartifacts.CollectAdvisorySecuritySidecarPaths(result.ExampleDir)
 	if err != nil {
 		return nil, err

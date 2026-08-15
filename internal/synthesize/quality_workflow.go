@@ -13,6 +13,7 @@ import (
 	"github.com/OpenUdon/openudon/internal/openapidisco"
 	uwsprofile "github.com/OpenUdon/openudon/internal/uwsexec"
 	rollout "github.com/OpenUdon/openudon/internal/workflowintent"
+	"github.com/OpenUdon/uws/browserauthentication"
 	"github.com/OpenUdon/uws/uws1"
 )
 
@@ -545,6 +546,9 @@ func compiledServiceType(step *uws1.Step, op *uws1.Operation) string {
 	}
 	if runtime, ok, err := uwsprofile.ReadOperationRuntime(op.Extensions); err == nil && ok {
 		return runtime.Type
+	}
+	if op.ExtensionProfile() == browserauthentication.CallProfileName {
+		return "browser_authentication"
 	}
 	if strings.TrimSpace(op.ExtensionProfile()) != "" {
 		return "fnct"

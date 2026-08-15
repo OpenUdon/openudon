@@ -32,9 +32,10 @@ go run ./cmd/icot --example ./examples/<name> \
   --openapi weather=./openapi/weather.yaml \
   --source-root ./provider-metadata
 
-# Declare a verified UI-only profile or service-free static registry.
+# Declare verified UI-only capability/authentication profiles or a service-free static registry.
 go run ./cmd/icot --example ./examples/<name> \
   --browser-profile status=./reviewed/status.browser.json \
+  --browser-profile member-auth=./reviewed/member-auth.yaml \
   --browser-registry ./browser-registry \
   --browser-registry https://profiles.example.org/catalog/ \
   --network ask
@@ -45,7 +46,8 @@ go run ./cmd/icot --example ./examples/<name> --network never
 
 `--api-source` uses `KIND:ID=PATH`; `--openapi ID=PATH` is shorthand for an
 OpenAPI source. `--browser-profile ID=PATH` supplies a reviewed
-`uws.browser.1.5` profile or capability bundle. `--browser-registry` accepts a
+`uws.browser.1.5` capability profile, a capability bundle, or a secret-free
+`uws.browser-authentication.1.0` sign-in profile. `--browser-registry` accepts a
 local static-registry directory or HTTPS base URL; it is not an account or
 membership service. `--network` accepts `never`, `ask`, or `allow`. Interactive
 runs default to `ask`. Agent mode is effectively `never` unless `allow` is
@@ -109,7 +111,7 @@ and explicit roots. Local discovery recognizes and validates:
 - OData.
 
 The same explicit roots are also inspected by Browsertools for verified
-browser profiles and capability bundles. Browser ambiguity, inactive lifecycle
+browser capability profiles, authentication profiles, and capability bundles. Browser ambiguity, inactive lifecycle
 state, or a traversal bound blocks the run just like incomplete API discovery.
 iCoT prefers an API operation that covers the active capability. It offers a
 browser action only for an API capability gap or an explicitly reviewed browser
@@ -148,6 +150,17 @@ outputs. Session posture records only `none` or
 `opaque-runtime-binding-required`; it never contains cookies or login values.
 A mutating profile action requires exact authoring approval for its workflow
 step, while Udon still requires a separate exact runtime operation approval.
+
+When a selected browser action requires login state and a reviewed
+`uws.browser-authentication.1.0` profile is available, iCoT can place an
+explicit `browser_authentication` step before the protected action. It asks for
+the exact flow, an execution-local named session, symbolic credential-slot
+bindings, a timeout of at most 600 seconds, and separate authoring approval.
+The protected action references the same named session. MFA alternatives remain
+separate profile flows, so neither iCoT nor the runtime guesses between push,
+number matching, OTP, or WebAuthn. Enrollment, recovery, password changes,
+consent, logout, account creation, and CAPTCHA handling remain outside this
+sign-in contract.
 
 ## Proposal And File Lifecycle
 
@@ -189,6 +202,14 @@ registry coordinate, login-state requirement, session posture, and authoring
 approvals—never a driver, browser session, credential, raw DOM/HTML, screenshot,
 or private cache content. Build and assess revalidate the profile and metadata,
 emit UWS 1.5, and include both files in the review handoff digest.
+
+Selected authentication profiles are staged under `browser-authentication/`,
+with safe digest/flow/origin/expiry/session-name/approval evidence under
+`.icot/browser-authentication.json`. Intent lowers authentication to
+`uws.browser-authentication-call.1.0`, protected actions retain
+`uws.browser.1.5` and add the named-session supplement, and the exported
+workflow uses UWS 1.7. Credential values, OTP values, cookies, storage state,
+and live browser handles are never written to the package.
 
 `project.md` may include a deterministic, non-executable `Candidate Workflows`
 section. Reconcile preserves it, lint validates its shape, and build ignores it.

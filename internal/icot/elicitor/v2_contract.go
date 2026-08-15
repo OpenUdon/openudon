@@ -51,25 +51,27 @@ type WorkflowBoundary struct {
 // target. SourcePath is inspected during the interview; TargetPath is not
 // written until the complete proposal or incomplete draft is approved.
 type SourceMaterialization struct {
-	Kind                string   `json:"kind" yaml:"kind"`
-	SourceKind          string   `json:"source_kind,omitempty" yaml:"source_kind,omitempty"`
-	ID                  string   `json:"id" yaml:"id"`
-	Release             string   `json:"release,omitempty" yaml:"release,omitempty"`
-	SourcePath          string   `json:"source_path" yaml:"source_path"`
-	TargetPath          string   `json:"target_path" yaml:"target_path"`
-	SHA256              string   `json:"sha256" yaml:"sha256"`
-	SourceSHA256        string   `json:"source_sha256,omitempty" yaml:"source_sha256,omitempty"`
-	Title               string   `json:"title,omitempty" yaml:"title,omitempty"`
-	OperationCount      int      `json:"operation_count" yaml:"operation_count"`
-	Actions             []string `json:"actions,omitempty" yaml:"actions,omitempty"`
-	Origins             []string `json:"origins,omitempty" yaml:"origins,omitempty"`
-	Lifecycle           string   `json:"lifecycle,omitempty" yaml:"lifecycle,omitempty"`
-	ExpiresAt           string   `json:"expires_at,omitempty" yaml:"expires_at,omitempty"`
-	LoginStateRequired  bool     `json:"login_state_required,omitempty" yaml:"login_state_required,omitempty"`
-	Provenance          string   `json:"provenance" yaml:"provenance"`
-	Registry            string   `json:"registry,omitempty" yaml:"registry,omitempty"`
-	RegistryCoordinate  string   `json:"registry_coordinate,omitempty" yaml:"registry_coordinate,omitempty"`
-	MaterializedContent []byte   `json:"-" yaml:"-"`
+	Kind                string              `json:"kind" yaml:"kind"`
+	SourceKind          string              `json:"source_kind,omitempty" yaml:"source_kind,omitempty"`
+	ID                  string              `json:"id" yaml:"id"`
+	Release             string              `json:"release,omitempty" yaml:"release,omitempty"`
+	SourcePath          string              `json:"source_path" yaml:"source_path"`
+	TargetPath          string              `json:"target_path" yaml:"target_path"`
+	SHA256              string              `json:"sha256" yaml:"sha256"`
+	SourceSHA256        string              `json:"source_sha256,omitempty" yaml:"source_sha256,omitempty"`
+	Title               string              `json:"title,omitempty" yaml:"title,omitempty"`
+	OperationCount      int                 `json:"operation_count" yaml:"operation_count"`
+	Actions             []string            `json:"actions,omitempty" yaml:"actions,omitempty"`
+	Flows               []string            `json:"flows,omitempty" yaml:"flows,omitempty"`
+	FlowCredentialSlots map[string][]string `json:"flow_credential_slots,omitempty" yaml:"flow_credential_slots,omitempty"`
+	Origins             []string            `json:"origins,omitempty" yaml:"origins,omitempty"`
+	Lifecycle           string              `json:"lifecycle,omitempty" yaml:"lifecycle,omitempty"`
+	ExpiresAt           string              `json:"expires_at,omitempty" yaml:"expires_at,omitempty"`
+	LoginStateRequired  bool                `json:"login_state_required,omitempty" yaml:"login_state_required,omitempty"`
+	Provenance          string              `json:"provenance" yaml:"provenance"`
+	Registry            string              `json:"registry,omitempty" yaml:"registry,omitempty"`
+	RegistryCoordinate  string              `json:"registry_coordinate,omitempty" yaml:"registry_coordinate,omitempty"`
+	MaterializedContent []byte              `json:"-" yaml:"-"`
 }
 
 // CandidateWorkflow is an unnumbered future direction with no source,
@@ -101,6 +103,7 @@ func normalizeV2Session(session *Session) {
 	session.BrowserRoute = strings.ToLower(strings.TrimSpace(session.BrowserRoute))
 	session.BrowserSession = strings.ToLower(strings.TrimSpace(session.BrowserSession))
 	session.BrowserApprovals = dedupeStrings(session.BrowserApprovals)
+	session.BrowserAuthenticationApprovals = dedupeStrings(session.BrowserAuthenticationApprovals)
 	session.Interview = publicinterview.Normalize(session.Interview)
 	restoreLegacyEvidenceFromLedger(session)
 	session.Annotations = normalizeSourceAnnotations(session.Annotations)
@@ -129,6 +132,18 @@ func normalizeSourcePlan(sources []SourceMaterialization) []SourceMaterializatio
 		source.SourceSHA256 = strings.ToLower(strings.TrimSpace(source.SourceSHA256))
 		source.Title = strings.TrimSpace(source.Title)
 		source.Actions = dedupeStrings(source.Actions)
+		source.Flows = dedupeStrings(source.Flows)
+		for flow, slots := range source.FlowCredentialSlots {
+			cleanFlow := strings.TrimSpace(flow)
+			if cleanFlow == "" {
+				delete(source.FlowCredentialSlots, flow)
+				continue
+			}
+			if cleanFlow != flow {
+				delete(source.FlowCredentialSlots, flow)
+			}
+			source.FlowCredentialSlots[cleanFlow] = dedupeStrings(slots)
+		}
 		source.Origins = dedupeStrings(source.Origins)
 		source.Lifecycle = strings.ToLower(strings.TrimSpace(source.Lifecycle))
 		source.ExpiresAt = strings.TrimSpace(source.ExpiresAt)
@@ -364,6 +379,19 @@ func validateV2State(session Session) error {
 			}
 			if len(source.Actions) == 0 || len(source.Origins) == 0 {
 				return fmt.Errorf("browser source %q must include reviewed actions and origins", source.ID)
+			}
+		}
+		if source.Kind == "browser-authentication" {
+			if source.Lifecycle != "active" {
+				return fmt.Errorf("browser authentication source %q lifecycle must be active, got %q", source.ID, source.Lifecycle)
+			}
+			if len(source.Flows) == 0 || len(source.Origins) == 0 {
+				return fmt.Errorf("browser authentication source %q must include reviewed flows and origins", source.ID)
+			}
+			for _, flow := range source.Flows {
+				if _, ok := source.FlowCredentialSlots[flow]; !ok {
+					return fmt.Errorf("browser authentication source %q is missing credential-slot evidence for flow %q", source.ID, flow)
+				}
 			}
 		}
 	}

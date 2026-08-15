@@ -83,9 +83,25 @@ source_plan:
     provenance: reviewed registry contribution
     registry: https://profiles.example.org/
     registry_coordinate: example/status@1.0.0
+  - kind: browser-authentication
+    source_kind: browser_authentication_profile
+    id: member-auth
+    source_path: /reviewed/member-auth.yaml
+    target_path: browser-authentication/member-auth.yaml
+    sha256: 123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0
+    title: Reviewed Member Sign-In
+    operation_count: 1
+    flows: [member_login_push]
+    flow_credential_slots:
+      member_login_push: [username, password]
+    origins: [https://members.example.org, https://login.example.org]
+    lifecycle: active
+    expires_at: 2026-09-14T00:00:00Z
+    provenance: reviewed local observation
 browser_route: browser
 browser_session_posture: none
 browser_mutation_approvals: []
+browser_authentication_approvals: [authenticate_member]
 fallback: Stop if geocoding or weather lookup fails.
 fallback_set: true
 side_effect_scope: read-only
@@ -124,6 +140,12 @@ candidate_workflows:
   requirement, provenance, and optional immutable registry coordinate. The
   source bundle digest and materialized profile digest are distinct when a
   capability bundle is used.
+- Browser authentication entries bind a secret-free
+  `uws.browser-authentication.1.0` profile to its reviewed flows, exact
+  per-flow credential-slot names, origins, active lifecycle/expiry, digest,
+  and provenance. `browser_authentication_approvals` contains exact
+  authentication step names. Credential values, MFA responses, cookies,
+  storage state, and live browser handles are prohibited.
 - `browser_route` is `browser` only after an explicit or fallback route
   selection. `browser_session_posture` is `none` or
   `opaque-runtime-binding-required`; it never stores a browser session value.

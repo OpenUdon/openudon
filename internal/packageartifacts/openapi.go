@@ -28,6 +28,7 @@ type ManifestInput struct {
 const ReviewHandoffPath = "expected/review-handoff.json"
 const RuntimeDataPath = "expected/data.hcl"
 const BrowserSourceReviewPath = ".icot/browser-sources.json"
+const BrowserAuthenticationReviewPath = ".icot/browser-authentication.json"
 
 var fixedRequiredPackagePaths = []string{
 	"project.md",
@@ -81,6 +82,14 @@ func RequiredPackagePaths(packageRoot string) ([]string, error) {
 	paths = append(paths, browserPaths...)
 	if len(browserPaths) > 0 {
 		paths = append(paths, BrowserSourceReviewPath)
+	}
+	authenticationPaths, err := CollectBrowserAuthenticationProfilePaths(packageRoot)
+	if err != nil {
+		return nil, err
+	}
+	paths = append(paths, authenticationPaths...)
+	if len(authenticationPaths) > 0 {
+		paths = append(paths, BrowserAuthenticationReviewPath)
 	}
 	securitySidecars, err := CollectAdvisorySecuritySidecarPaths(packageRoot)
 	if err != nil {
@@ -185,6 +194,23 @@ func CollectBrowserProfilePaths(packageRoot string) ([]string, error) {
 		case ".json", ".yaml", ".yml":
 		default:
 			return nil, fmt.Errorf("browser profile must use .json, .yaml, or .yml: %s", path)
+		}
+	}
+	return paths, nil
+}
+
+// CollectBrowserAuthenticationProfilePaths returns portable, secret-free
+// browser sign-in profiles staged for Udon's private runtime driver.
+func CollectBrowserAuthenticationProfilePaths(packageRoot string) ([]string, error) {
+	paths, err := collectSourceDirPaths(packageRoot, "browser-authentication")
+	if err != nil {
+		return nil, err
+	}
+	for _, path := range paths {
+		switch strings.ToLower(filepath.Ext(path)) {
+		case ".json", ".yaml", ".yml":
+		default:
+			return nil, fmt.Errorf("browser authentication profile must use .json, .yaml, or .yml: %s", path)
 		}
 	}
 	return paths, nil

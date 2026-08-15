@@ -16,6 +16,7 @@ import (
 	"github.com/OpenUdon/apitools/helper/fnctspec"
 	"github.com/OpenUdon/asyncapi"
 	rollout "github.com/OpenUdon/openudon/internal/workflowintent"
+	"github.com/OpenUdon/uws/browserauthentication"
 	"github.com/OpenUdon/uws/convert"
 	"github.com/OpenUdon/uws/runtimes"
 	"github.com/OpenUdon/uws/uws1"
@@ -242,6 +243,20 @@ func buildUWSStep(step *rollout.Step, defaultOpenAPI string, sourceFor func(stri
 		OperationExecutionFields: uws1.OperationExecutionFields{DependsOn: uniqueStrings(step.DependsOn), When: runtimeInputExecutionExpression(step.When), ForEach: runtimeInputExecutionExpression(step.ForEach), Timeout: step.Timeout},
 	}
 	switch kind {
+	case "browser_authentication":
+		if strings.TrimSpace(openAPIPath) == "" {
+			return nil, nil, fmt.Errorf("step %s references browser authentication without a profile document", name)
+		}
+		op.Request = nil
+		op.Extensions = map[string]any{uws1.ExtensionOperationProfile: browserauthentication.CallProfileName}
+		if err := browserauthentication.SetAuthenticationExtension(&op.Extensions, &browserauthentication.OperationAuthentication{
+			Profile:            filepath.ToSlash(openAPIPath),
+			Flow:               strings.TrimSpace(step.AuthenticationFlow),
+			Session:            strings.TrimSpace(step.BrowserSession),
+			CredentialBindings: step.CredentialBindings,
+		}); err != nil {
+			return nil, nil, err
+		}
 	case "http", "openapi", "browser":
 		source := sourceFor(openAPIPath)
 		if source == "" {
@@ -255,6 +270,11 @@ func buildUWSStep(step *rollout.Step, defaultOpenAPI string, sourceFor func(stri
 			op.SourceOperationRef = strings.TrimSpace(step.Operation)
 		} else {
 			op.SourceOperationID = sourceOperationIDForUWS(sourceType, step.Operation)
+		}
+		if kind == "browser" && strings.TrimSpace(step.BrowserSession) != "" {
+			if err := browserauthentication.SetSessionExtension(&op.Extensions, &browserauthentication.OperationSession{Session: strings.TrimSpace(step.BrowserSession)}); err != nil {
+				return nil, nil, err
+			}
 		}
 	default:
 		if op.Extensions == nil {
@@ -1025,6 +1045,9 @@ func stringMapToAny(values map[string]string) map[string]any {
 }
 
 func uwsVersionForIntent(intent *rollout.Intent) string {
+	if intentRequiresUWS17(intent) {
+		return "1.7.0"
+	}
 	if intentRequiresUWS15(intent) {
 		return "1.5.0"
 	}
@@ -1041,6 +1064,20 @@ func uwsVersionForIntent(intent *rollout.Intent) string {
 		return "1.1.0"
 	}
 	return "1.0.0"
+}
+
+func intentRequiresUWS17(intent *rollout.Intent) bool {
+	if intent == nil {
+		return false
+	}
+	requires := false
+	walkIntentSteps(intent.Steps, func(step *rollout.Step) {
+		if step == nil || requires {
+			return
+		}
+		requires = strings.EqualFold(strings.TrimSpace(step.Type), "browser_authentication") || strings.TrimSpace(step.BrowserSession) != ""
+	})
+	return requires
 }
 
 func intentRequiresUWS15(intent *rollout.Intent) bool {

@@ -67,6 +67,14 @@ func reviewMarkdown(result Result, provider, model string) string {
 			fmt.Fprintf(&b, "- Browser source review: `%s`\n", packageartifacts.BrowserSourceReviewPath)
 		}
 	}
+	if authenticationPaths, err := packageartifacts.CollectBrowserAuthenticationProfilePaths(result.ExampleDir); err == nil {
+		for _, path := range authenticationPaths {
+			fmt.Fprintf(&b, "- Browser authentication profile: `%s`\n", path)
+		}
+		if len(authenticationPaths) > 0 {
+			fmt.Fprintf(&b, "- Browser authentication review: `%s`\n", packageartifacts.BrowserAuthenticationReviewPath)
+		}
+	}
 	if provider != "" || model != "" {
 		fmt.Fprintf(&b, "- LLM: `%s` `%s`\n", provider, model)
 	}
@@ -106,6 +114,7 @@ func reviewMarkdown(result Result, provider, model string) string {
 		}
 	}
 	writeBrowserSourceReview(&b, result.ExampleDir)
+	writeBrowserAuthenticationReview(&b, result.ExampleDir)
 	if intent != nil {
 		advice, err := rollout.CatalogAdviceForIntent(intent, rollout.CatalogAdviceOptions{
 			ExplicitOpenAPIInputs: reviewExplicitOpenAPIInputs(result, intent),
@@ -259,6 +268,36 @@ func writeBrowserSourceReview(b *strings.Builder, exampleDir string) {
 		if source.Registry != "" {
 			fmt.Fprintf(b, "  - Static registry: `%s` coordinate `%s`.\n", source.Registry, source.Coordinate)
 		}
+	}
+}
+
+func writeBrowserAuthenticationReview(b *strings.Builder, exampleDir string) {
+	paths, err := packageartifacts.CollectBrowserAuthenticationProfilePaths(exampleDir)
+	if err != nil || len(paths) == 0 {
+		return
+	}
+	b.WriteString("\n## Browser Authentication\n\n")
+	data, err := os.ReadFile(filepath.Join(exampleDir, filepath.FromSlash(packageartifacts.BrowserAuthenticationReviewPath)))
+	if err != nil {
+		fmt.Fprintf(b, "- Browser authentication review evidence could not be read: %s\n", err)
+		return
+	}
+	var review browserAuthenticationReview
+	if err := json.Unmarshal(data, &review); err != nil {
+		fmt.Fprintf(b, "- Browser authentication review evidence is invalid: %s\n", err)
+		return
+	}
+	if len(review.Approvals) == 0 {
+		b.WriteString("- Operation-specific authentication authoring approvals: none.\n")
+	} else {
+		fmt.Fprintf(b, "- Operation-specific authentication authoring approvals: `%s`\n", strings.Join(sortedCopy(review.Approvals), "`, `"))
+	}
+	sort.SliceStable(review.Sources, func(i, j int) bool { return review.Sources[i].TargetPath < review.Sources[j].TargetPath })
+	for _, source := range review.Sources {
+		fmt.Fprintf(b, "- `%s` (`%s`): SHA-256 `%s`; flows `%s`; expires `%s`; origins `%s`.\n", source.TargetPath, source.ID, source.SHA256, strings.Join(sortedCopy(source.Flows), "`, `"), source.ExpiresAt, strings.Join(sortedCopy(source.Origins), "`, `"))
+	}
+	for _, binding := range review.Sessions {
+		fmt.Fprintf(b, "- Step `%s` uses execution-local named session `%s`; no session value is stored.\n", binding.Step, binding.Session)
 	}
 }
 

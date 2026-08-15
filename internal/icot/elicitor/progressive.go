@@ -8,6 +8,7 @@ import (
 	"os"
 	"path/filepath"
 	"sort"
+	"strconv"
 	"strings"
 	"time"
 
@@ -527,10 +528,14 @@ func printProposal(out io.Writer, artifacts Artifacts) {
 			if source.Kind == browserSourceFamily {
 				fmt.Fprintf(out, "  actions=%s origins=%s lifecycle=%s expires=%s login-session-required=%t\n", strings.Join(source.Actions, ","), strings.Join(source.Origins, ","), source.Lifecycle, source.ExpiresAt, source.LoginStateRequired)
 			}
+			if source.Kind == browserAuthenticationSourceFamily {
+				fmt.Fprintf(out, "  authentication-flows=%s origins=%s lifecycle=%s expires=%s credential-slots=%s\n", strings.Join(source.Flows, ","), strings.Join(source.Origins, ","), source.Lifecycle, source.ExpiresAt, formatBrowserFlowSlots(source.FlowCredentialSlots))
+			}
 		}
 	}
 	if session.BrowserRoute == "browser" {
 		fmt.Fprintf(out, "Browser route: session posture=%s; authoring mutation approvals=%s (runtime approval remains separate)\n", firstNonEmpty(session.BrowserSession, "unresolved"), firstNonEmpty(strings.Join(session.BrowserApprovals, ","), "none"))
+		fmt.Fprintf(out, "Browser authentication authoring approvals=%s (credentials and live sessions remain runtime-private)\n", firstNonEmpty(strings.Join(session.BrowserAuthenticationApprovals, ","), "none"))
 	}
 	if len(session.Interview.Deferrals) > 0 {
 		fmt.Fprintln(out, "Unresolved technical deferrals:")
@@ -549,6 +554,18 @@ func printProposal(out io.Writer, artifacts Artifacts) {
 	}
 	for _, source := range session.SourcePlan {
 		fmt.Fprintf(out, "- materialize %s\n", source.TargetPath)
+	}
+	for _, source := range session.SourcePlan {
+		if source.Kind == browserSourceFamily {
+			fmt.Fprintln(out, "- write .icot/browser-sources.json")
+			break
+		}
+	}
+	for _, source := range session.SourcePlan {
+		if source.Kind == browserAuthenticationSourceFamily {
+			fmt.Fprintln(out, "- write .icot/browser-authentication.json")
+			break
+		}
 	}
 }
 
@@ -1170,7 +1187,52 @@ func applyProgressiveAnswer(session *Session, plan QuestionPlan, answer string, 
 			Reason:               "User selected the API source document.",
 			RequiresConfirmation: false,
 		})
+	case strings.Contains(slotText, "authentication_flow"):
+		doc, operation := selectBrowserAuthenticationFlow(answer, docs)
+		if operation == nil {
+			return
+		}
+		target := targetStepForPlan(session, plan)
+		if target != nil && strings.EqualFold(strings.TrimSpace(target.Type), "browser_authentication") {
+			target.Source = doc.RelativePath
+			target.OpenAPI = ""
+			target.AuthenticationFlow = operation.OperationID
+		} else {
+			insertBrowserAuthenticationStep(session, target, doc, operation)
+		}
+	case strings.Contains(slotText, "credential_bindings"):
+		bindings := parseAssignments(answer)
+		if target := targetStepForPlan(session, plan); target != nil && strings.EqualFold(strings.TrimSpace(target.Type), "browser_authentication") {
+			target.CredentialBindings = bindings
+		}
+	case strings.Contains(slotText, "authentication_approval"):
+		if !strings.HasPrefix(strings.ToLower(answer), "approve ") {
+			return
+		}
+		name := strings.TrimSpace(answer[len("approve "):])
+		if target := targetStepForPlan(session, plan); target != nil && strings.EqualFold(strings.TrimSpace(target.Type), "browser_authentication") && name == target.Name {
+			session.BrowserAuthenticationApprovals = dedupeStrings(append(session.BrowserAuthenticationApprovals, target.Name))
+		}
+	case strings.HasSuffix(slotText, ".timeout") && strings.Contains(slotText, "steps."):
+		seconds, err := strconv.ParseFloat(answer, 64)
+		if err != nil || seconds <= 0 || seconds > 600 {
+			return
+		}
+		if target := targetStepForPlan(session, plan); target != nil && strings.EqualFold(strings.TrimSpace(target.Type), "browser_authentication") {
+			target.Timeout = &seconds
+		}
 	case strings.Contains(slotText, "browser_session"):
+		if target := targetStepForPlan(session, plan); target != nil && strings.EqualFold(strings.TrimSpace(target.Type), "browser_authentication") {
+			if browserBindingNamePattern.MatchString(answer) {
+				target.BrowserSession = answer
+				for _, candidate := range session.Intent.Steps {
+					if candidate != nil && strings.EqualFold(strings.TrimSpace(candidate.Type), "browser") && strings.TrimSpace(candidate.BrowserSession) == "" {
+						candidate.BrowserSession = answer
+					}
+				}
+			}
+			return
+		}
 		posture := strings.ToLower(strings.TrimSpace(answer))
 		switch posture {
 		case "none", "opaque-runtime-binding-required":
@@ -1192,6 +1254,12 @@ func applyProgressiveAnswer(session *Session, plan QuestionPlan, answer string, 
 			if intentAPISourceRef(session.Intent) == "" {
 				setIntentAPISourceFromDoc(session, doc)
 			}
+			if isBrowserDocument(doc) {
+				session.BrowserRoute = "browser"
+				if isBrowserAuthenticationOperationSummary(op) {
+					session.BrowserSession = "none"
+				}
+			}
 			target := targetStepForPlan(session, plan)
 			if len(session.Intent.Steps) == 0 {
 				step := stepFromOperation(doc, op)
@@ -1201,7 +1269,13 @@ func applyProgressiveAnswer(session *Session, plan QuestionPlan, answer string, 
 				if target == nil {
 					target = session.Intent.Steps[0]
 				}
-				if isBrowserDocument(doc) {
+				if isBrowserAuthenticationOperationSummary(op) {
+					target.Type = "browser_authentication"
+					target.AuthenticationFlow = op.OperationID
+					target.Operation = ""
+					session.BrowserRoute = "browser"
+					session.BrowserSession = "none"
+				} else if isBrowserDocument(doc) {
 					target.Type = "browser"
 					session.BrowserRoute = "browser"
 				} else {
@@ -1209,7 +1283,9 @@ func applyProgressiveAnswer(session *Session, plan QuestionPlan, answer string, 
 					session.BrowserRoute = "api"
 				}
 				target.Do = firstNonEmpty(target.Do, op.Summary, operationLabel(*op))
-				target.Operation = op.OperationID
+				if !isBrowserAuthenticationOperationSummary(op) {
+					target.Operation = op.OperationID
+				}
 				if strings.TrimSpace(firstNonEmpty(target.Source, target.OpenAPI)) == "" {
 					setStepAPISourceFromDoc(target, doc)
 				}
@@ -1392,10 +1468,15 @@ func targetStepForPlan(session *Session, plan QuestionPlan) *rollout.Step {
 		return nil
 	}
 	for _, slot := range plan.Slots {
-		if !strings.HasPrefix(slot, "steps.") || !strings.HasSuffix(slot, ".operation") {
+		if !strings.HasPrefix(slot, "steps.") {
 			continue
 		}
-		name := strings.TrimSuffix(strings.TrimPrefix(slot, "steps."), ".operation")
+		rest := strings.TrimPrefix(slot, "steps.")
+		separator := strings.Index(rest, ".")
+		if separator <= 0 {
+			continue
+		}
+		name := rest[:separator]
 		for _, step := range session.Intent.Steps {
 			if step != nil && firstNonEmpty(step.Name, "step") == name {
 				return step
@@ -2152,7 +2233,7 @@ func isLocalAPIDocumentRef(ref string) bool {
 	if strings.HasPrefix(ref, "http://") || strings.HasPrefix(ref, "https://") {
 		return false
 	}
-	for _, prefix := range []string{"openapi/", "google-discovery/", "aws-smithy/", "asyncapi/", "graphql/", "openrpc/", "grpc-protobuf/", "odata/", "discovery/", "browser-profiles/"} {
+	for _, prefix := range []string{"openapi/", "google-discovery/", "aws-smithy/", "asyncapi/", "graphql/", "openrpc/", "grpc-protobuf/", "odata/", "discovery/", "browser-profiles/", "browser-authentication/"} {
 		if strings.HasPrefix(ref, prefix) {
 			return true
 		}
@@ -3417,6 +3498,13 @@ func matchOperationAnswer(answer string, docs []APIDocument) (APIDocument, *apit
 
 func stepFromOperation(doc APIDocument, op *apitools.OperationSummary) *rollout.Step {
 	stepType := "http"
+	if isBrowserAuthenticationOperationSummary(op) {
+		return &rollout.Step{
+			Name: camelToSnake(firstNonEmpty("authenticate_"+doc.ID, op.OperationID)),
+			Type: "browser_authentication", Do: firstNonEmpty(op.Summary, "Establish the browser session."),
+			AuthenticationFlow: op.OperationID,
+		}
+	}
 	if isBrowserDocument(doc) {
 		stepType = "browser"
 	}

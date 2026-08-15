@@ -80,14 +80,14 @@ func runAuthor(args []string, in io.Reader, out, errOut io.Writer) int {
 	var sourceRootFlags repeatedFlag
 	fs.Var(&apiSourceFlags, "api-source", "Explicit API document KIND:ID=PATH; repeat for multiple sources")
 	fs.Var(&openAPIFlags, "openapi", "OpenAPI shorthand ID=PATH; repeat for multiple sources")
-	fs.Var(&browserProfileFlags, "browser-profile", "Verified browser profile ID=PATH; repeat for multiple sources")
+	fs.Var(&browserProfileFlags, "browser-profile", "Verified browser capability/authentication profile ID=PATH; repeat for multiple sources")
 	fs.Var(&browserRegistryFlags, "browser-registry", "Static Browsertools registry directory or HTTPS URL; repeat for multiple registries")
 	fs.Var(&sourceRootFlags, "source-root", "Explicit bounded local source root; repeat for multiple roots")
 	network := fs.String("network", "", "Remote lookup policy: never, ask, or allow")
 	fs.Usage = func() {
 		fmt.Fprintf(fs.Output(), "Usage: icot --example examples/<name> [--dir examples/<name>] [--force] [--yes] [--print] [--from-example examples/<seed>] [--answers session.yaml] [--api-source KIND:ID=PATH] [--browser-profile ID=PATH] [--browser-registry URL] [--source-root PATH] [--network never|ask|allow] [--prompt-mode full|normal|fast]\n")
 		fmt.Fprintf(fs.Output(), "\nInteractively writes project.md and workflows/intent.hcl with the standard OpenUdon authoring sections.\n")
-		fmt.Fprintf(fs.Output(), "It also creates selected source directories such as openapi/ and browser-profiles/, plus workflows/ and expected/, when missing.\n")
+		fmt.Fprintf(fs.Output(), "It also creates selected source directories such as openapi/, browser-profiles/, and browser-authentication/, plus workflows/ and expected/, when missing.\n")
 		fmt.Fprintf(fs.Output(), "\nPipeline: local source inspection -> active workflow boundary -> dependency frontier rounds -> complete proposal -> explicit approval.\n")
 		fmt.Fprintf(fs.Output(), "\nSubcommands:\n")
 		fmt.Fprintf(fs.Output(), "  icot reconcile --example examples/<name>  Regenerate project.md from workflows/intent.hcl.\n")
@@ -1499,6 +1499,15 @@ func writeApprovedArtifacts(exampleDir string, artifacts elicitor.Artifacts, for
 	} else if !artifacts.Incomplete {
 		files = append(files, generatedFile{Path: filepath.Join(exampleDir, ".icot", "browser-sources.json"), Remove: true, AllowOverwrite: true})
 	}
+	authenticationMetadata, hasAuthenticationSources, err := browserAuthenticationMetadataJSON(artifacts.Session)
+	if err != nil {
+		return err
+	}
+	if hasAuthenticationSources {
+		files = append(files, generatedFile{Path: filepath.Join(exampleDir, ".icot", "browser-authentication.json"), Content: authenticationMetadata, AllowOverwrite: true})
+	} else if !artifacts.Incomplete {
+		files = append(files, generatedFile{Path: filepath.Join(exampleDir, ".icot", "browser-authentication.json"), Remove: true, AllowOverwrite: true})
+	}
 	if artifacts.Incomplete {
 		sessionData, err := json.MarshalIndent(artifacts.Session, "", "  ")
 		if err != nil {
@@ -1603,6 +1612,59 @@ func browserSourceMetadataJSON(session elicitor.Session) (string, bool, error) {
 	}{
 		Version: "openudon.browser-source-review.v1", Route: session.BrowserRoute,
 		SessionPosture: session.BrowserSession, MutationApprovals: append([]string(nil), session.BrowserApprovals...), Sources: sources,
+	}, "", "  ")
+	if err != nil {
+		return "", false, err
+	}
+	return string(append(data, '\n')), true, nil
+}
+
+func browserAuthenticationMetadataJSON(session elicitor.Session) (string, bool, error) {
+	type reviewedSource struct {
+		ID                  string              `json:"id"`
+		TargetPath          string              `json:"target_path"`
+		SHA256              string              `json:"sha256"`
+		SourceSHA256        string              `json:"source_sha256,omitempty"`
+		Title               string              `json:"title,omitempty"`
+		Flows               []string            `json:"flows"`
+		FlowCredentialSlots map[string][]string `json:"flow_credential_slots"`
+		Origins             []string            `json:"origins"`
+		Lifecycle           string              `json:"lifecycle"`
+		ExpiresAt           string              `json:"expires_at"`
+		Provenance          string              `json:"provenance"`
+	}
+	type sessionBinding struct {
+		Step    string `json:"step"`
+		Session string `json:"session"`
+	}
+	var sources []reviewedSource
+	for _, source := range session.SourcePlan {
+		if source.Kind != "browser-authentication" {
+			continue
+		}
+		sources = append(sources, reviewedSource{
+			ID: source.ID, TargetPath: source.TargetPath, SHA256: source.SHA256, SourceSHA256: source.SourceSHA256,
+			Title: source.Title, Flows: append([]string(nil), source.Flows...), FlowCredentialSlots: source.FlowCredentialSlots,
+			Origins: append([]string(nil), source.Origins...), Lifecycle: source.Lifecycle, ExpiresAt: source.ExpiresAt, Provenance: source.Provenance,
+		})
+	}
+	if len(sources) == 0 {
+		return "", false, nil
+	}
+	var sessions []sessionBinding
+	for _, step := range session.Intent.Steps {
+		if step == nil || strings.TrimSpace(step.BrowserSession) == "" {
+			continue
+		}
+		sessions = append(sessions, sessionBinding{Step: step.Name, Session: step.BrowserSession})
+	}
+	data, err := json.MarshalIndent(struct {
+		Version   string           `json:"version"`
+		Approvals []string         `json:"authentication_approvals"`
+		Sessions  []sessionBinding `json:"session_bindings"`
+		Sources   []reviewedSource `json:"sources"`
+	}{
+		Version: "openudon.browser-authentication-review.v1", Approvals: append([]string(nil), session.BrowserAuthenticationApprovals...), Sessions: sessions, Sources: sources,
 	}, "", "  ")
 	if err != nil {
 		return "", false, err

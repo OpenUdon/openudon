@@ -160,16 +160,23 @@ Supported step attributes:
 | `source` | Step-local API source document path. |
 | `openapi` | Legacy step-local OpenAPI document alias. |
 | `operation` | API source operation ID. |
+| `authentication_flow` | Reviewed flow name from a browser authentication profile. |
+| `browser_session` | Execution-local named browser session; never a cookie or session value. |
+| `credential_bindings` | Authentication profile slots mapped to symbolic runtime binding names. |
 | `provider` | Optional provider label for multi-provider workflows. |
 | `bind` | Structured source-step-to-target-field wiring. |
 | `when`, `for_each`, `items`, `mode`, `batch_size` | Structural control-flow hints. |
 | `successCriteria`, `onFailure`, `onSuccess` | Explicit UWS operation actions for leaf steps. |
 | nested `step`, `case`, `default` | Structural child steps. |
 
-Supported leaf step types are `http`, `openapi`, `fnct`, `cmd`, and `ssh`.
+Supported leaf step types are `http`, `openapi`, `browser`,
+`browser_authentication`, `fnct`, `cmd`, and `ssh`.
 Supported structural step types are `sequence`, `parallel`, `switch`, `merge`, `loop`, and `await`.
 
-OpenUdon policy allows `openapi`, `http`, and `fnct` by default. `cmd` and `ssh` require explicit
+OpenUdon policy allows `openapi`, `http`, `browser`,
+`browser_authentication`, and `fnct` by default. Browser authentication and
+mutating browser actions still require their operation-specific authoring and
+runtime approvals. `cmd` and `ssh` require explicit
 approval in `project.md`; otherwise quality assessment fails the intent.
 
 Unsupported runtime names such as `sql`, `smtp`, `llm`, and profile-specific `x-udon-*` names must
@@ -277,6 +284,45 @@ output "availability" {
   from = "check_inventory.received_body"
 }
 ```
+
+## Browser Authentication Steps
+
+`browser_authentication` is a package-local authoring type for the additive
+`uws.browser-authentication-call.1.0` operation supplement. It references a
+reviewed, secret-free `uws.browser-authentication.1.0` profile and establishes
+an execution-local named session for a later `browser` step:
+
+```hcl
+step "authenticate_member" {
+  type                = "browser_authentication"
+  source              = "browser-authentication/member.yaml"
+  authentication_flow = "member_login_push"
+  browser_session     = "member_portal"
+  credential_bindings = {
+    username = "member_username"
+    password = "member_password"
+  }
+  timeout = 120
+}
+
+step "open_member_link" {
+  type            = "browser"
+  source          = "browser-profiles/member.yaml"
+  operation       = "open_member_link"
+  browser_session = "member_portal"
+}
+```
+
+The credential-binding keys must exactly match the slots used by the selected
+flow. Values are symbolic binding names resolved by the trusted runtime; they
+are not usernames, passwords, OTPs, tokens, or environment values. Timeout is
+required and cannot exceed 600 seconds. The authentication step must precede
+the protected browser action and both must use the same session name.
+
+OpenUdon packages the portable profiles and safe review evidence, then lowers
+the intent to UWS 1.7 with typed authentication and named-session extensions.
+It does not launch a browser, resolve credentials, broker MFA, or store live
+sessions. Those behaviors remain in Udon and its private persistent driver.
 
 ## Data Flow
 

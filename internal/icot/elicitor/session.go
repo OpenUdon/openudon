@@ -15,29 +15,30 @@ import (
 )
 
 type Session struct {
-	Version            string                  `json:"version" yaml:"version"`
-	Boundary           WorkflowBoundary        `json:"boundary" yaml:"boundary"`
-	Interview          publicinterview.State   `json:"interview" yaml:"interview"`
-	Project            projectwizard.Answers   `json:"project,omitempty" yaml:"project,omitempty"`
-	Intent             rollout.Intent          `json:"intent,omitempty" yaml:"intent,omitempty"`
-	SourcePlan         []SourceMaterialization `json:"source_plan,omitempty" yaml:"source_plan,omitempty"`
-	CandidateWorkflows []CandidateWorkflow     `json:"candidate_workflows,omitempty" yaml:"candidate_workflows,omitempty"`
-	Credentials        []string                `json:"credentials,omitempty" yaml:"credentials,omitempty"`
-	CredentialsSet     bool                    `json:"credentials_set,omitempty" yaml:"credentials_set,omitempty"`
-	Safety             string                  `json:"safety,omitempty" yaml:"safety,omitempty"`
-	SafetySet          bool                    `json:"safety_set,omitempty" yaml:"safety_set,omitempty"`
-	Fallback           string                  `json:"fallback,omitempty" yaml:"fallback,omitempty"`
-	FallbackSet        bool                    `json:"fallback_set,omitempty" yaml:"fallback_set,omitempty"`
-	SideEffectScope    string                  `json:"side_effect_scope,omitempty" yaml:"side_effect_scope,omitempty"`
-	BrowserRoute       string                  `json:"browser_route,omitempty" yaml:"browser_route,omitempty"`
-	BrowserSession     string                  `json:"browser_session_posture,omitempty" yaml:"browser_session_posture,omitempty"`
-	BrowserApprovals   []string                `json:"browser_mutation_approvals,omitempty" yaml:"browser_mutation_approvals,omitempty"`
-	Annotations        []SourceAnnotation      `json:"-" yaml:"-"`
-	Assumptions        []Assumption            `json:"-" yaml:"-"`
-	Classifications    []MappingClassification `json:"-" yaml:"-"`
-	DecisionEvidence   []DecisionEvidence      `json:"-" yaml:"-"`
-	DraftOperations    []OperationDetailRef    `json:"-" yaml:"-"`
-	DraftEvents        []TranscriptEvent       `json:"-" yaml:"-"`
+	Version                        string                  `json:"version" yaml:"version"`
+	Boundary                       WorkflowBoundary        `json:"boundary" yaml:"boundary"`
+	Interview                      publicinterview.State   `json:"interview" yaml:"interview"`
+	Project                        projectwizard.Answers   `json:"project,omitempty" yaml:"project,omitempty"`
+	Intent                         rollout.Intent          `json:"intent,omitempty" yaml:"intent,omitempty"`
+	SourcePlan                     []SourceMaterialization `json:"source_plan,omitempty" yaml:"source_plan,omitempty"`
+	CandidateWorkflows             []CandidateWorkflow     `json:"candidate_workflows,omitempty" yaml:"candidate_workflows,omitempty"`
+	Credentials                    []string                `json:"credentials,omitempty" yaml:"credentials,omitempty"`
+	CredentialsSet                 bool                    `json:"credentials_set,omitempty" yaml:"credentials_set,omitempty"`
+	Safety                         string                  `json:"safety,omitempty" yaml:"safety,omitempty"`
+	SafetySet                      bool                    `json:"safety_set,omitempty" yaml:"safety_set,omitempty"`
+	Fallback                       string                  `json:"fallback,omitempty" yaml:"fallback,omitempty"`
+	FallbackSet                    bool                    `json:"fallback_set,omitempty" yaml:"fallback_set,omitempty"`
+	SideEffectScope                string                  `json:"side_effect_scope,omitempty" yaml:"side_effect_scope,omitempty"`
+	BrowserRoute                   string                  `json:"browser_route,omitempty" yaml:"browser_route,omitempty"`
+	BrowserSession                 string                  `json:"browser_session_posture,omitempty" yaml:"browser_session_posture,omitempty"`
+	BrowserApprovals               []string                `json:"browser_mutation_approvals,omitempty" yaml:"browser_mutation_approvals,omitempty"`
+	BrowserAuthenticationApprovals []string                `json:"browser_authentication_approvals,omitempty" yaml:"browser_authentication_approvals,omitempty"`
+	Annotations                    []SourceAnnotation      `json:"-" yaml:"-"`
+	Assumptions                    []Assumption            `json:"-" yaml:"-"`
+	Classifications                []MappingClassification `json:"-" yaml:"-"`
+	DecisionEvidence               []DecisionEvidence      `json:"-" yaml:"-"`
+	DraftOperations                []OperationDetailRef    `json:"-" yaml:"-"`
+	DraftEvents                    []TranscriptEvent       `json:"-" yaml:"-"`
 }
 
 type SourceAnnotation struct {
@@ -404,6 +405,7 @@ func mergeSessions(base, overlay Session) Session {
 	base.BrowserRoute = firstNonEmpty(base.BrowserRoute, overlay.BrowserRoute)
 	base.BrowserSession = firstNonEmpty(base.BrowserSession, overlay.BrowserSession)
 	base.BrowserApprovals = dedupeStrings(append(base.BrowserApprovals, overlay.BrowserApprovals...))
+	base.BrowserAuthenticationApprovals = dedupeStrings(append(base.BrowserAuthenticationApprovals, overlay.BrowserAuthenticationApprovals...))
 	base.Annotations = append(base.Annotations, overlay.Annotations...)
 	base.Assumptions = mergeAssumptions(base.Assumptions, overlay.Assumptions)
 	base.Classifications = mergeClassifications(base.Classifications, overlay.Classifications)

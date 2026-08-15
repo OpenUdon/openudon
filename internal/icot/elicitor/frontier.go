@@ -255,6 +255,10 @@ func issueDependencies(issue ReadinessIssue, boundaryRoot string, missingSource,
 			return nil, 0, false
 		}
 		return []string{boundaryRoot}, 60, true
+	case readinessMissingBrowserAuthenticationFlow, readinessMissingBrowserAuthenticationSession, readinessMissingBrowserCredentialBindings, readinessMissingBrowserAuthenticationTimeout:
+		return []string{boundaryRoot}, 65, true
+	case readinessUnconfirmedBrowserAuthentication:
+		return []string{boundaryRoot}, 64, false
 	case "missing_outputs":
 		if missingOperation {
 			return nil, 0, false

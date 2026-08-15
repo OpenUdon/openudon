@@ -178,7 +178,7 @@ func validateBrowserSourceReview(exampleDir string, paths []string, intent *roll
 		if mutating && !approvals[strings.TrimSpace(step.Name)] {
 			stepErrors = append(stepErrors, fmt.Sprintf("step %s mutates browser state without operation-specific authoring approval", firstNonEmpty(step.Name, "<unnamed>")))
 		}
-		if value.Info.LoginStateRequired && review.SessionPosture != "opaque-runtime-binding-required" {
+		if value.Info.LoginStateRequired && !intentHasPrecedingAuthenticationSession(intent, step) && review.SessionPosture != "opaque-runtime-binding-required" {
 			stepErrors = append(stepErrors, fmt.Sprintf("step %s requires an opaque operator-owned runtime session binding", firstNonEmpty(step.Name, "<unnamed>")))
 		}
 	})
@@ -187,6 +187,21 @@ func validateBrowserSourceReview(exampleDir string, paths []string, intent *roll
 		return fmt.Errorf("%s", strings.Join(stepErrors, "; "))
 	}
 	return nil
+}
+
+func intentHasPrecedingAuthenticationSession(intent *rollout.Intent, action *rollout.Step) bool {
+	if intent == nil || action == nil || strings.TrimSpace(action.BrowserSession) == "" {
+		return false
+	}
+	for _, step := range intent.Steps {
+		if step == action {
+			return false
+		}
+		if step != nil && strings.EqualFold(strings.TrimSpace(step.Type), "browser_authentication") && step.BrowserSession == action.BrowserSession {
+			return true
+		}
+	}
+	return false
 }
 
 func validatePackagedBrowserProfile(value *profile.Profile) error {

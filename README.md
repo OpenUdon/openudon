@@ -189,9 +189,10 @@ go run ./cmd/icot --example ./examples/<name> \
   --openapi weather=./openapi/weather.yaml \
   --source-root ./provider-metadata --network ask
 
-# Use a reviewed browser profile only when no adequate API capability exists.
+# Use reviewed browser capability/authentication profiles only when no adequate API capability exists.
 go run ./cmd/icot --example ./examples/<name> \
   --browser-profile status=./reviewed/status.browser.json \
+  --browser-profile member-auth=./reviewed/member-auth.yaml \
   --browser-registry https://profiles.example.org/catalog/ \
   --network ask
 
@@ -264,6 +265,13 @@ AsyncAPI, GraphQL, OpenRPC, gRPC/protobuf, and OData; rejects symlinks and ambig
 deduplicates by SHA-256; and never copies a source before proposal approval. If local evidence is
 exhausted, approved remote lookup is limited to curated apitools references plus one APIs.guru lookup
 with an eight-second deadline and at most three metadata candidates.
+
+For a UI action that requires login state, iCoT can pair a reviewed,
+secret-free `uws.browser-authentication.1.0` profile with a
+`uws.browser.1.5` capability profile. It authors an explicit sign-in flow,
+execution-local named session, symbolic credential bindings, bounded timeout,
+and separate authoring approval; Udon still requires separate runtime approval
+and keeps credentials, MFA responses, and live session state private.
 
 `--agent` returns the entire frontier, candidate workflows, source evidence, blockers, and proposed
 file actions. It never prompts or writes deliverables, including when the session is otherwise

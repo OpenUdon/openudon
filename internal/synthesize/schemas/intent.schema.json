@@ -81,7 +81,7 @@
         "name": { "type": "string", "minLength": 1 },
         "type": {
           "type": "string",
-          "enum": ["http", "openapi", "fnct", "cmd", "ssh", "sequence", "parallel", "switch", "merge", "loop", "await"]
+          "enum": ["http", "openapi", "browser", "browser_authentication", "fnct", "cmd", "ssh", "sequence", "parallel", "switch", "merge", "loop", "await"]
         },
         "do": { "type": "string", "minLength": 1 },
         "using": { "type": "string" },
@@ -97,8 +97,16 @@
           "additionalProperties": { "type": "string" }
         },
         "provider": { "type": "string" },
+        "source": { "type": "string" },
         "openapi": { "type": "string" },
         "operation": { "type": "string" },
+        "authentication_flow": { "type": "string" },
+        "browser_session": { "type": "string" },
+        "credential_bindings": {
+          "type": "object",
+          "minProperties": 1,
+          "additionalProperties": { "type": "string", "minLength": 1 }
+        },
         "timeout": { "type": "number", "exclusiveMinimum": 0 },
         "bind": {
           "type": "array",
@@ -136,6 +144,16 @@
             "required": ["type"]
           },
           "then": { "required": ["operation"] }
+        },
+        {
+          "if": {
+            "properties": { "type": { "const": "browser_authentication" } },
+            "required": ["type"]
+          },
+          "then": {
+            "required": ["source", "authentication_flow", "browser_session", "credential_bindings", "timeout"],
+            "properties": { "timeout": { "type": "number", "exclusiveMinimum": 0, "maximum": 600 } }
+          }
         }
       ]
     },

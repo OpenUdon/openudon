@@ -14,12 +14,17 @@ import (
 
 	"github.com/OpenUdon/apitools"
 	"github.com/OpenUdon/browsertools"
+	"github.com/OpenUdon/browsertools/authprofile"
 	"github.com/OpenUdon/browsertools/bundle"
 	"github.com/OpenUdon/browsertools/profile"
 	rollout "github.com/OpenUdon/openudon/internal/workflowintent"
+	"github.com/OpenUdon/uws/browserauthentication"
 )
 
-const browserSourceFamily = "browser-profile"
+const (
+	browserSourceFamily               = "browser-profile"
+	browserAuthenticationSourceFamily = "browser-authentication"
+)
 
 type browserAuthoringDiscovery struct {
 	Report browsertools.LocalSourceDiscoveryReport
@@ -32,7 +37,7 @@ func discoverBrowserAuthoringSources(ctx context.Context, exampleDir string, exp
 		at = time.Now().UTC()
 	}
 	browserRoots := append([]string(nil), roots...)
-	for _, dir := range []string{"browser-profiles", "capability-bundles"} {
+	for _, dir := range []string{"browser-profiles", "browser-authentication", "capability-bundles"} {
 		path := filepath.Join(exampleDir, dir)
 		if _, err := os.Lstat(path); err == nil {
 			browserRoots = append(browserRoots, path)
@@ -104,6 +109,9 @@ func browserMaterializationForCandidate(exampleDir string, candidate browsertool
 	data, err := readStableBrowserCandidate(absSource, candidate.Digest)
 	if err != nil {
 		return SourceMaterialization{}, APIDocument{}, err
+	}
+	if candidate.Kind == browsertools.LocalSourceAuthenticationProfile {
+		return browserAuthenticationMaterialization(exampleDir, absSource, data, candidate, explicitIDs, at)
 	}
 	var value *profile.Profile
 	materialized := data
@@ -178,6 +186,91 @@ func browserMaterializationForCandidate(exampleDir string, candidate browsertool
 	return plan, doc, nil
 }
 
+func browserAuthenticationMaterialization(exampleDir, absSource string, data []byte, candidate browsertools.LocalSourceCandidate, explicitIDs map[string]string, at time.Time) (SourceMaterialization, APIDocument, error) {
+	value, err := authprofile.Parse(data)
+	if err != nil {
+		return SourceMaterialization{}, APIDocument{}, err
+	}
+	if err := authprofile.ValidateAt(value, at); err != nil {
+		return SourceMaterialization{}, APIDocument{}, err
+	}
+	id := strings.TrimSpace(explicitIDs[filepath.Clean(absSource)])
+	if id == "" {
+		id = strings.TrimSpace(candidate.ID)
+	}
+	if id == "" {
+		id = strings.TrimSuffix(filepath.Base(absSource), filepath.Ext(absSource))
+	}
+	id = strings.Trim(sourceIDSanitizer.ReplaceAllString(id, "-"), ".-")
+	if id == "" {
+		return SourceMaterialization{}, APIDocument{}, fmt.Errorf("cannot derive a stable browser authentication source ID for %s", absSource)
+	}
+	ext := strings.ToLower(filepath.Ext(absSource))
+	if ext == "" {
+		ext = ".yaml"
+	}
+	target := filepath.ToSlash(filepath.Join("browser-authentication", id+ext))
+	if rel, relErr := filepath.Rel(exampleDir, absSource); relErr == nil && rel != "." && !strings.HasPrefix(rel, ".."+string(filepath.Separator)) && rel != ".." && strings.HasPrefix(filepath.ToSlash(rel), "browser-authentication/") {
+		target = filepath.ToSlash(rel)
+	}
+	digest := sha256.Sum256(data)
+	expiresAt, err := authprofile.ExpiresAt(value)
+	if err != nil {
+		return SourceMaterialization{}, APIDocument{}, err
+	}
+	flowSlots := map[string][]string{}
+	for _, flowName := range authprofile.SortedFlowNames(value) {
+		flowSlots[flowName] = browserAuthenticationFlowSlots(value.Flows[flowName])
+	}
+	plan := SourceMaterialization{
+		Kind: browserAuthenticationSourceFamily, SourceKind: string(candidate.Kind), ID: id,
+		SourcePath: absSource, TargetPath: target, SHA256: hex.EncodeToString(digest[:]),
+		SourceSHA256: strings.TrimPrefix(strings.ToLower(candidate.Digest), "sha256:"),
+		Title:        value.Info.Title, OperationCount: len(value.Flows), Flows: authprofile.SortedFlowNames(value),
+		FlowCredentialSlots: flowSlots, Origins: authprofile.Origins(value), Lifecycle: "active",
+		ExpiresAt: expiresAt.Format(time.RFC3339), Provenance: firstNonEmpty(candidate.Provenance, "local:"+filepath.ToSlash(absSource)),
+		MaterializedContent: append([]byte(nil), data...),
+	}
+	return plan, browserAuthenticationDocument(plan, value), nil
+}
+
+func browserAuthenticationFlowSlots(flow browserauthentication.Flow) []string {
+	var slots []string
+	for _, step := range flow.Sequence {
+		if step.TypeCredential != nil {
+			slots = append(slots, step.TypeCredential.Slot)
+		}
+		if step.Challenge != nil && strings.TrimSpace(step.Challenge.Slot) != "" {
+			slots = append(slots, step.Challenge.Slot)
+		}
+	}
+	return dedupeStrings(slots)
+}
+
+func browserAuthenticationDocument(plan SourceMaterialization, value *authprofile.Profile) APIDocument {
+	doc := APIDocument{
+		ID: plan.ID, Path: plan.SourcePath, RelativePath: plan.TargetPath, Title: plan.Title,
+		Description: "Verified, secret-free browser sign-in profile. Authentication requires separate authoring and runtime approval.",
+	}
+	for _, flowName := range authprofile.SortedFlowNames(value) {
+		flow := value.Flows[flowName]
+		effects := append([]string(nil), flow.Effects...)
+		sort.Strings(effects)
+		doc.Operations = append(doc.Operations, apitools.OperationSummary{
+			ID: flowName, OperationID: flowName, Method: "BROWSER_AUTHENTICATION", Path: "#/flows/" + flowName,
+			Summary: firstNonEmpty(flow.Description, "Establish a reviewed browser session."), DocumentName: plan.ID,
+			DocumentPath: plan.SourcePath, DocumentRelativePath: plan.TargetPath, Provenance: plan.Provenance,
+			Extensions: map[string]string{
+				"openudon.source_family":                           browserAuthenticationSourceFamily,
+				"openudon.browser_authentication.credential_slots": strings.Join(plan.FlowCredentialSlots[flowName], ","),
+				"openudon.browser_authentication.effects":          strings.Join(effects, ","),
+				"openudon.browser.expires_at":                      plan.ExpiresAt,
+			},
+		})
+	}
+	return doc
+}
+
 func parseBrowserProfile(path string, data []byte) (*profile.Profile, error) {
 	switch strings.ToLower(filepath.Ext(path)) {
 	case ".json":
@@ -225,7 +318,7 @@ func SourceMaterializationContent(source SourceMaterialization, at time.Time) ([
 		}
 		return data, nil
 	}
-	if source.Kind != browserSourceFamily {
+	if source.Kind != browserSourceFamily && source.Kind != browserAuthenticationSourceFamily {
 		data, err := os.ReadFile(source.SourcePath)
 		if err != nil {
 			return nil, err
@@ -241,6 +334,18 @@ func SourceMaterializationContent(source SourceMaterialization, at time.Time) ([
 		return nil, err
 	}
 	materialized := data
+	if source.Kind == browserAuthenticationSourceFamily {
+		value, parseErr := authprofile.Parse(data)
+		if parseErr != nil {
+			return nil, parseErr
+		}
+		if at.IsZero() {
+			at = time.Now().UTC()
+		}
+		if validateErr := authprofile.ValidateAt(value, at); validateErr != nil {
+			return nil, validateErr
+		}
+	}
 	if source.SourceKind == string(browsertools.LocalSourceBundle) {
 		value, parseErr := bundle.Parse(data)
 		if parseErr != nil {
@@ -265,7 +370,7 @@ func SourceMaterializationContent(source SourceMaterialization, at time.Time) ([
 }
 
 func validateBrowserMaterializationFreshness(source SourceMaterialization, at time.Time) error {
-	if source.Kind != browserSourceFamily {
+	if source.Kind != browserSourceFamily && source.Kind != browserAuthenticationSourceFamily {
 		return nil
 	}
 	if at.IsZero() {
@@ -439,11 +544,12 @@ func sortedBrowserOutputKeys(values map[string]profile.Output) []string {
 }
 
 func isBrowserDocument(doc APIDocument) bool {
-	if strings.HasPrefix(filepath.ToSlash(strings.TrimSpace(doc.RelativePath)), "browser-profiles/") {
+	path := filepath.ToSlash(strings.TrimSpace(doc.RelativePath))
+	if strings.HasPrefix(path, "browser-profiles/") || strings.HasPrefix(path, "browser-authentication/") {
 		return true
 	}
 	for _, operation := range doc.Operations {
-		if operation.Extensions["openudon.source_family"] == browserSourceFamily {
+		if operation.Extensions["openudon.source_family"] == browserSourceFamily || operation.Extensions["openudon.source_family"] == browserAuthenticationSourceFamily {
 			return true
 		}
 	}
@@ -460,7 +566,7 @@ func selectedBrowserOperation(session Session, docs []APIDocument) (*rollout.Ste
 		}
 		ref := stepAPISourceRef(session, step)
 		for _, doc := range docs {
-			if !isBrowserDocument(doc) || doc.RelativePath != ref {
+			if !isBrowserActionDocument(doc) || doc.RelativePath != ref {
 				continue
 			}
 			selectedStep = step
@@ -489,6 +595,28 @@ func browserOperationMutates(operation *apitools.OperationSummary) bool {
 
 func isBrowserOperationSummary(operation *apitools.OperationSummary) bool {
 	return operation != nil && operation.Extensions["openudon.source_family"] == browserSourceFamily
+}
+
+func isBrowserAuthenticationOperationSummary(operation *apitools.OperationSummary) bool {
+	return operation != nil && operation.Extensions["openudon.source_family"] == browserAuthenticationSourceFamily
+}
+
+func isBrowserActionDocument(doc APIDocument) bool {
+	for i := range doc.Operations {
+		if isBrowserOperationSummary(&doc.Operations[i]) {
+			return true
+		}
+	}
+	return false
+}
+
+func isBrowserAuthenticationDocument(doc APIDocument) bool {
+	for i := range doc.Operations {
+		if isBrowserAuthenticationOperationSummary(&doc.Operations[i]) {
+			return true
+		}
+	}
+	return false
 }
 
 func stringSliceContains(values []string, wanted string) bool {

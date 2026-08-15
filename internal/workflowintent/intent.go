@@ -48,30 +48,33 @@ type Input struct {
 }
 
 type Step struct {
-	Name            string                `hcl:"name,label" json:"name,omitempty"`
-	Type            string                `hcl:"type,optional" json:"type,omitempty"`
-	Do              string                `hcl:"do,optional" json:"do,omitempty"`
-	Using           string                `hcl:"using,optional" json:"using,omitempty"`
-	Set             string                `hcl:"set,optional" json:"set,omitempty"`
-	When            string                `hcl:"when,optional" json:"when,omitempty"`
-	ForEach         string                `hcl:"for_each,optional" json:"for_each,omitempty"`
-	DependsOn       []string              `hcl:"depends_on,optional" json:"depends_on,omitempty"`
-	With            map[string]string     `hcl:"with,optional" json:"with,omitempty"`
-	Provider        string                `hcl:"provider,optional" json:"provider,omitempty"`
-	Source          string                `hcl:"source,optional" json:"source,omitempty"`
-	OpenAPI         string                `hcl:"openapi,optional" json:"openapi,omitempty"`
-	Operation       string                `hcl:"operation,optional" json:"operation,omitempty"`
-	Timeout         *float64              `hcl:"timeout,optional" json:"timeout,omitempty"`
-	Binds           []*StepBind           `hcl:"bind,block" json:"bind,omitempty"`
-	Items           string                `hcl:"items,optional" json:"items,omitempty"`
-	Mode            string                `hcl:"mode,optional" json:"mode,omitempty"`
-	BatchSize       string                `hcl:"batch_size,optional" json:"batch_size,omitempty"`
-	SuccessCriteria []*uws1.Criterion     `hcl:"successCriteria,block" json:"successCriteria,omitempty"`
-	OnFailure       []*uws1.FailureAction `hcl:"onFailure,block" json:"onFailure,omitempty"`
-	OnSuccess       []*uws1.SuccessAction `hcl:"onSuccess,block" json:"onSuccess,omitempty"`
-	Steps           []*Step               `hcl:"step,block" json:"steps,omitempty"`
-	Cases           []*StepCase           `hcl:"case,block" json:"cases,omitempty"`
-	Default         *StepDefault          `hcl:"default,block" json:"default,omitempty"`
+	Name               string                `hcl:"name,label" json:"name,omitempty"`
+	Type               string                `hcl:"type,optional" json:"type,omitempty"`
+	Do                 string                `hcl:"do,optional" json:"do,omitempty"`
+	Using              string                `hcl:"using,optional" json:"using,omitempty"`
+	Set                string                `hcl:"set,optional" json:"set,omitempty"`
+	When               string                `hcl:"when,optional" json:"when,omitempty"`
+	ForEach            string                `hcl:"for_each,optional" json:"for_each,omitempty"`
+	DependsOn          []string              `hcl:"depends_on,optional" json:"depends_on,omitempty"`
+	With               map[string]string     `hcl:"with,optional" json:"with,omitempty"`
+	Provider           string                `hcl:"provider,optional" json:"provider,omitempty"`
+	Source             string                `hcl:"source,optional" json:"source,omitempty"`
+	OpenAPI            string                `hcl:"openapi,optional" json:"openapi,omitempty"`
+	Operation          string                `hcl:"operation,optional" json:"operation,omitempty"`
+	AuthenticationFlow string                `hcl:"authentication_flow,optional" json:"authentication_flow,omitempty"`
+	BrowserSession     string                `hcl:"browser_session,optional" json:"browser_session,omitempty"`
+	CredentialBindings map[string]string     `hcl:"credential_bindings,optional" json:"credential_bindings,omitempty"`
+	Timeout            *float64              `hcl:"timeout,optional" json:"timeout,omitempty"`
+	Binds              []*StepBind           `hcl:"bind,block" json:"bind,omitempty"`
+	Items              string                `hcl:"items,optional" json:"items,omitempty"`
+	Mode               string                `hcl:"mode,optional" json:"mode,omitempty"`
+	BatchSize          string                `hcl:"batch_size,optional" json:"batch_size,omitempty"`
+	SuccessCriteria    []*uws1.Criterion     `hcl:"successCriteria,block" json:"successCriteria,omitempty"`
+	OnFailure          []*uws1.FailureAction `hcl:"onFailure,block" json:"onFailure,omitempty"`
+	OnSuccess          []*uws1.SuccessAction `hcl:"onSuccess,block" json:"onSuccess,omitempty"`
+	Steps              []*Step               `hcl:"step,block" json:"steps,omitempty"`
+	Cases              []*StepCase           `hcl:"case,block" json:"cases,omitempty"`
+	Default            *StepDefault          `hcl:"default,block" json:"default,omitempty"`
 }
 
 func (s *Step) UnmarshalJSON(data []byte) error {
@@ -249,31 +252,34 @@ type hclIdempotency struct {
 }
 
 type hclStep struct {
-	Name            string              `hcl:"name,label" json:"name,omitempty"`
-	Type            string              `hcl:"type,optional" json:"type,omitempty"`
-	Do              string              `hcl:"do,optional" json:"do,omitempty"`
-	Using           string              `hcl:"using,optional" json:"using,omitempty"`
-	Set             string              `hcl:"set,optional" json:"set,omitempty"`
-	When            string              `hcl:"when,optional" json:"when,omitempty"`
-	ForEach         string              `hcl:"for_each,optional" json:"for_each,omitempty"`
-	DependsOn       []string            `hcl:"depends_on,optional" json:"depends_on,omitempty"`
-	With            map[string]string   `hcl:"with,optional" json:"with,omitempty"`
-	Provider        string              `hcl:"provider,optional" json:"provider,omitempty"`
-	Source          string              `hcl:"source,optional" json:"source,omitempty"`
-	OpenAPI         string              `hcl:"openapi,optional" json:"openapi,omitempty"`
-	Operation       string              `hcl:"operation,optional" json:"operation,omitempty"`
-	Timeout         *float64            `hcl:"timeout,optional" json:"timeout,omitempty"`
-	Binds           []*StepBind         `hcl:"bind,block" json:"bind,omitempty"`
-	Items           string              `hcl:"items,optional" json:"items,omitempty"`
-	Mode            string              `hcl:"mode,optional" json:"mode,omitempty"`
-	BatchSize       string              `hcl:"batch_size,optional" json:"batch_size,omitempty"`
-	SuccessCriteria []*hclCriterion     `hcl:"successCriteria,block" json:"successCriteria,omitempty"`
-	OnFailure       []*hclFailureAction `hcl:"onFailure,block" json:"onFailure,omitempty"`
-	OnSuccess       []*hclSuccessAction `hcl:"onSuccess,block" json:"onSuccess,omitempty"`
-	Steps           []*hclStep          `hcl:"step,block" json:"steps,omitempty"`
-	Cases           []*hclStepCase      `hcl:"case,block" json:"cases,omitempty"`
-	Default         *hclStepDefault     `hcl:"default,block" json:"default,omitempty"`
-	Remain          hcl.Body            `hcl:",remain" json:"-"`
+	Name               string              `hcl:"name,label" json:"name,omitempty"`
+	Type               string              `hcl:"type,optional" json:"type,omitempty"`
+	Do                 string              `hcl:"do,optional" json:"do,omitempty"`
+	Using              string              `hcl:"using,optional" json:"using,omitempty"`
+	Set                string              `hcl:"set,optional" json:"set,omitempty"`
+	When               string              `hcl:"when,optional" json:"when,omitempty"`
+	ForEach            string              `hcl:"for_each,optional" json:"for_each,omitempty"`
+	DependsOn          []string            `hcl:"depends_on,optional" json:"depends_on,omitempty"`
+	With               map[string]string   `hcl:"with,optional" json:"with,omitempty"`
+	Provider           string              `hcl:"provider,optional" json:"provider,omitempty"`
+	Source             string              `hcl:"source,optional" json:"source,omitempty"`
+	OpenAPI            string              `hcl:"openapi,optional" json:"openapi,omitempty"`
+	Operation          string              `hcl:"operation,optional" json:"operation,omitempty"`
+	AuthenticationFlow string              `hcl:"authentication_flow,optional" json:"authentication_flow,omitempty"`
+	BrowserSession     string              `hcl:"browser_session,optional" json:"browser_session,omitempty"`
+	CredentialBindings map[string]string   `hcl:"credential_bindings,optional" json:"credential_bindings,omitempty"`
+	Timeout            *float64            `hcl:"timeout,optional" json:"timeout,omitempty"`
+	Binds              []*StepBind         `hcl:"bind,block" json:"bind,omitempty"`
+	Items              string              `hcl:"items,optional" json:"items,omitempty"`
+	Mode               string              `hcl:"mode,optional" json:"mode,omitempty"`
+	BatchSize          string              `hcl:"batch_size,optional" json:"batch_size,omitempty"`
+	SuccessCriteria    []*hclCriterion     `hcl:"successCriteria,block" json:"successCriteria,omitempty"`
+	OnFailure          []*hclFailureAction `hcl:"onFailure,block" json:"onFailure,omitempty"`
+	OnSuccess          []*hclSuccessAction `hcl:"onSuccess,block" json:"onSuccess,omitempty"`
+	Steps              []*hclStep          `hcl:"step,block" json:"steps,omitempty"`
+	Cases              []*hclStepCase      `hcl:"case,block" json:"cases,omitempty"`
+	Default            *hclStepDefault     `hcl:"default,block" json:"default,omitempty"`
+	Remain             hcl.Body            `hcl:",remain" json:"-"`
 }
 
 type hclStepCase struct {
@@ -377,6 +383,23 @@ func validateStep(step *Step, label string) error {
 	}
 	if err := validateTimeout(step.Timeout, label+".timeout"); err != nil {
 		return err
+	}
+	if strings.EqualFold(strings.TrimSpace(step.Type), "browser_authentication") {
+		if strings.TrimSpace(firstNonEmpty(step.Source, step.OpenAPI)) == "" {
+			return fmt.Errorf("%s.source is required for browser authentication", label)
+		}
+		if strings.TrimSpace(step.AuthenticationFlow) == "" {
+			return fmt.Errorf("%s.authentication_flow is required for browser authentication", label)
+		}
+		if strings.TrimSpace(step.BrowserSession) == "" {
+			return fmt.Errorf("%s.browser_session is required for browser authentication", label)
+		}
+		if step.Timeout == nil || *step.Timeout > 600 {
+			return fmt.Errorf("%s.timeout must be set and no greater than 600 seconds for browser authentication", label)
+		}
+		if len(step.CredentialBindings) == 0 {
+			return fmt.Errorf("%s.credential_bindings are required for browser authentication", label)
+		}
 	}
 	for i, nested := range step.Steps {
 		if err := validateStep(nested, fmt.Sprintf("%s.step %d", label, i)); err != nil {
@@ -560,6 +583,9 @@ func addStepBlock(body *hclwrite.Body, step *Step) {
 		setAttrString(sb, "openapi", step.OpenAPI)
 	}
 	setAttrString(sb, "operation", step.Operation)
+	setAttrString(sb, "authentication_flow", step.AuthenticationFlow)
+	setAttrString(sb, "browser_session", step.BrowserSession)
+	setAttrMap(sb, "credential_bindings", step.CredentialBindings, false)
 	setAttrFloatPtr(sb, "timeout", step.Timeout)
 	setAttrString(sb, "items", step.Items)
 	setAttrString(sb, "mode", step.Mode)
@@ -740,7 +766,7 @@ func stepUsesAPISource(step *Step) bool {
 		return false
 	}
 	kind := strings.ToLower(strings.TrimSpace(step.Type))
-	if kind != "" && kind != "http" && kind != "openapi" && kind != "browser" {
+	if kind != "" && kind != "http" && kind != "openapi" && kind != "browser" && kind != "browser_authentication" {
 		return false
 	}
 	return strings.TrimSpace(step.Source) != "" || strings.TrimSpace(step.OpenAPI) != "" || strings.TrimSpace(step.Operation) != ""

@@ -713,17 +713,18 @@ func validateIntentOpenAPIRefs(intent *rollout.Intent, exampleDir string, candid
 	}
 	if noOpenAPI {
 		var refs []string
-		if strings.TrimSpace(intent.Source) != "" || strings.TrimSpace(intent.OpenAPI) != "" {
+		if top := normalizeAPISourceRef(firstNonEmpty(intent.Source, intent.OpenAPI)); top != "" && !isBrowserPackageSourceRef(top) {
 			refs = append(refs, "top-level api source")
 		}
 		walkIntentSteps(intent.Steps, func(step *rollout.Step) {
 			if step == nil {
 				return
 			}
-			if strings.TrimSpace(step.Source) != "" || strings.TrimSpace(step.OpenAPI) != "" {
+			ref := normalizeAPISourceRef(firstNonEmpty(step.Source, step.OpenAPI))
+			if ref != "" && !isBrowserPackageSourceRef(ref) {
 				refs = append(refs, fmt.Sprintf("%s.source", strings.TrimSpace(step.Name)))
 			}
-			if strings.TrimSpace(step.Operation) != "" {
+			if strings.TrimSpace(step.Operation) != "" && !strings.EqualFold(strings.TrimSpace(step.Type), "browser") {
 				refs = append(refs, fmt.Sprintf("%s.operation", strings.TrimSpace(step.Name)))
 			}
 		})
@@ -740,6 +741,14 @@ func validateIntentOpenAPIRefs(intent *rollout.Intent, exampleDir string, candid
 	for _, candidate := range candidates {
 		allowed[normalizeAPISourceRef(candidate.RelativePath)] = true
 	}
+	authenticationSources := map[string]bool{}
+	authenticationPaths, authenticationErr := packageartifacts.CollectBrowserAuthenticationProfilePaths(exampleDir)
+	if authenticationErr != nil {
+		return fmt.Errorf("browser authentication sources could not be scanned: %w", authenticationErr)
+	}
+	for _, path := range authenticationPaths {
+		authenticationSources[normalizeAPISourceRef(path)] = true
+	}
 	sourceRegistry, sourceRegistryErr := newLocalAPISourceRegistry(exampleDir, candidates)
 	if sourceRegistryErr != nil && !errors.Is(sourceRegistryErr, os.ErrNotExist) {
 		return fmt.Errorf("local API source registry could not be scanned: %w", sourceRegistryErr)
@@ -754,29 +763,36 @@ func validateIntentOpenAPIRefs(intent *rollout.Intent, exampleDir string, candid
 		intent.OpenAPI = normalizeAPISourceRef(primary)
 	}
 	if ref := normalizeAPISourceRef(firstNonEmpty(intent.Source, intent.OpenAPI)); ref != "" {
-		if entry, ok := sourceRegistry.get(ref); ok && entry.Err != nil {
-			return fmt.Errorf("generated intent referenced invalid API source document %q: %w", ref, entry.Err)
-		}
-		if sourceDescriptionTypeForPath(ref) == uws1.SourceDescriptionTypeOpenAPI {
-			if !allowed[ref] {
-				return fmt.Errorf("generated intent referenced unavailable OpenAPI document %q", ref)
+		if isBrowserAuthenticationSourceRef(ref) {
+			if !authenticationSources[ref] {
+				return fmt.Errorf("generated intent referenced unavailable browser authentication profile %q", ref)
 			}
-			if strings.TrimSpace(intent.Source) != "" {
-				intent.Source = ref
-			} else {
-				intent.OpenAPI = ref
-			}
+			intent.Source, intent.OpenAPI = ref, ""
 		} else {
-			entry, ok := sourceRegistry.get(ref)
-			if !ok {
-				return fmt.Errorf("generated intent referenced unavailable API source document %q", ref)
-			}
-			if entry.Err != nil {
+			if entry, ok := sourceRegistry.get(ref); ok && entry.Err != nil {
 				return fmt.Errorf("generated intent referenced invalid API source document %q: %w", ref, entry.Err)
 			}
-			intent.OpenAPI = entry.RelativePath
-			if strings.TrimSpace(intent.Source) != "" {
-				intent.Source = entry.RelativePath
+			if sourceDescriptionTypeForPath(ref) == uws1.SourceDescriptionTypeOpenAPI {
+				if !allowed[ref] {
+					return fmt.Errorf("generated intent referenced unavailable OpenAPI document %q", ref)
+				}
+				if strings.TrimSpace(intent.Source) != "" {
+					intent.Source = ref
+				} else {
+					intent.OpenAPI = ref
+				}
+			} else {
+				entry, ok := sourceRegistry.get(ref)
+				if !ok {
+					return fmt.Errorf("generated intent referenced unavailable API source document %q", ref)
+				}
+				if entry.Err != nil {
+					return fmt.Errorf("generated intent referenced invalid API source document %q: %w", ref, entry.Err)
+				}
+				intent.OpenAPI = entry.RelativePath
+				if strings.TrimSpace(intent.Source) != "" {
+					intent.Source = entry.RelativePath
+				}
 			}
 		}
 	}
@@ -793,6 +809,14 @@ func validateIntentOpenAPIRefs(intent *rollout.Intent, exampleDir string, candid
 				step.Source = step.OpenAPI
 			}
 			if ref := normalizeAPISourceRef(firstNonEmpty(step.Source, step.OpenAPI)); ref != "" {
+				if isBrowserAuthenticationSourceRef(ref) {
+					if !authenticationSources[ref] {
+						bad = append(bad, ref)
+					} else {
+						step.Source, step.OpenAPI = ref, ""
+					}
+					continue
+				}
 				if entry, ok := sourceRegistry.get(ref); ok && entry.Err != nil {
 					invalid = append(invalid, fmt.Sprintf("%s: %v", ref, entry.Err))
 					continue
@@ -842,6 +866,15 @@ func validateIntentOpenAPIRefs(intent *rollout.Intent, exampleDir string, candid
 	return nil
 }
 
+func isBrowserAuthenticationSourceRef(ref string) bool {
+	return strings.HasPrefix(normalizeAPISourceRef(ref), "browser-authentication/")
+}
+
+func isBrowserPackageSourceRef(ref string) bool {
+	ref = normalizeAPISourceRef(ref)
+	return strings.HasPrefix(ref, "browser-profiles/") || strings.HasPrefix(ref, "browser-authentication/")
+}
+
 func validateIntentRuntimePolicy(intent *rollout.Intent, policy projectPolicy) error {
 	if intent == nil {
 		return nil
@@ -877,7 +910,7 @@ func validateIntentRuntimePolicy(intent *rollout.Intent, policy projectPolicy) e
 
 func allowedIntentRuntimeType(typ string) bool {
 	switch strings.ToLower(strings.TrimSpace(typ)) {
-	case "", "http", "openapi", "browser", "fnct", "cmd", "ssh",
+	case "", "http", "openapi", "browser", "browser_authentication", "fnct", "cmd", "ssh",
 		"sequence", "parallel", "switch", "merge", "loop", "await":
 		return true
 	default:
