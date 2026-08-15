@@ -82,6 +82,18 @@ func hasBrowserAuthenticationReadinessCode(issues []ReadinessIssue, code string)
 	return false
 }
 
+func TestBrowserAuthenticationBindingsUsePortableUWSIdentifiers(t *testing.T) {
+	required := []string{"username"}
+	if !exactBrowserCredentialBindings(map[string]string{"username": "member_username"}, required) {
+		t.Fatal("portable binding was rejected")
+	}
+	for _, binding := range []string{"member.username", "_member", "member username"} {
+		if exactBrowserCredentialBindings(map[string]string{"username": binding}, required) {
+			t.Fatalf("non-portable binding %q was accepted", binding)
+		}
+	}
+}
+
 func browserAuthenticationFixture() []byte {
 	return []byte(`profile: uws.browser-authentication.1.0
 info:

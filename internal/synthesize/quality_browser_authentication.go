@@ -46,7 +46,7 @@ type browserAuthenticationReviewedSource struct {
 	Provenance          string              `json:"provenance"`
 }
 
-var browserAuthenticationBindingPattern = regexp.MustCompile(`^[A-Za-z][A-Za-z0-9_.-]*$`)
+var browserAuthenticationBindingPattern = regexp.MustCompile(`^[A-Za-z][A-Za-z0-9_-]*$`)
 
 func assessBrowserAuthenticationSources(report *QualityReport, exampleDir string, intent *rollout.Intent) {
 	paths, err := packageartifacts.CollectBrowserAuthenticationProfilePaths(exampleDir)

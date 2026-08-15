@@ -57,6 +57,11 @@ func TestValidateBrowserAuthenticationReview(t *testing.T) {
 	if err := validateBrowserAuthenticationReview(example, []string{relative}, invalid, review, at); err == nil || !strings.Contains(err.Error(), "invents authentication flow") {
 		t.Fatalf("invented flow error = %v", err)
 	}
+	invalid = intent.Clone()
+	invalid.Steps[0].CredentialBindings["username"] = "member.username"
+	if err := validateBrowserAuthenticationReview(example, []string{relative}, invalid, review, at); err == nil || !strings.Contains(err.Error(), "credential bindings") {
+		t.Fatalf("non-portable binding error = %v", err)
+	}
 }
 
 func TestPackageFromIntentBuildsBrowserAuthenticationWorkflow(t *testing.T) {

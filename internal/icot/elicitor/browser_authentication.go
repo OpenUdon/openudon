@@ -18,7 +18,7 @@ const (
 	readinessUnconfirmedBrowserAuthentication    = "unconfirmed_browser_authentication"
 )
 
-var browserBindingNamePattern = regexp.MustCompile(`^[A-Za-z][A-Za-z0-9_.-]*$`)
+var browserBindingNamePattern = regexp.MustCompile(`^[A-Za-z][A-Za-z0-9_-]*$`)
 
 func browserAuthenticationReadinessIssues(session Session, docs []APIDocument, step *rollout.Step) []ReadinessIssue {
 	if step == nil {
