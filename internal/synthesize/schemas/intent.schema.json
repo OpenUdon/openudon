@@ -104,7 +104,6 @@
         "browser_session": { "type": "string" },
         "credential_bindings": {
           "type": "object",
-          "minProperties": 1,
           "additionalProperties": { "type": "string", "minLength": 1 }
         },
         "timeout": { "type": "number", "exclusiveMinimum": 0 },

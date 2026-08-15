@@ -64,6 +64,33 @@ func TestValidateBrowserAuthenticationReview(t *testing.T) {
 	}
 }
 
+func TestValidateBrowserAuthenticationReviewAcceptsCredentiallessFlow(t *testing.T) {
+	example := t.TempDir()
+	relative := "browser-authentication/member-passkey.yaml"
+	absolute := filepath.Join(example, filepath.FromSlash(relative))
+	data := synthesizeCredentiallessBrowserAuthenticationFixture()
+	mustWriteSynthesizeTestFile(t, absolute, data)
+	digest := sha256.Sum256(data)
+	timeout := 120.0
+	intent := &rollout.Intent{Steps: []*rollout.Step{{
+		Name: "authenticate", Type: "browser_authentication", Source: relative,
+		AuthenticationFlow: "member_passkey", BrowserSession: "member_portal", Timeout: &timeout,
+	}}}
+	review := browserAuthenticationReview{
+		Version: browserAuthenticationReviewVersion, Approvals: []string{"authenticate"},
+		Sessions: []browserAuthenticationSessionBinding{{Step: "authenticate", Session: "member_portal"}},
+		Sources: []browserAuthenticationReviewedSource{{
+			ID: "member-passkey", TargetPath: relative, SHA256: hex.EncodeToString(digest[:]), Title: "Member passkey",
+			Flows: []string{"member_passkey"}, FlowCredentialSlots: map[string][]string{"member_passkey": {}},
+			Origins: []string{"https://example.test", "https://login.example.test"}, Lifecycle: "active",
+			ExpiresAt: "2026-09-14T00:00:00Z", Provenance: "synthetic_fixture",
+		}},
+	}
+	if err := validateBrowserAuthenticationReview(example, []string{relative}, intent, review, time.Date(2026, 8, 16, 0, 0, 0, 0, time.UTC)); err != nil {
+		t.Fatalf("credential-less review rejected: %v", err)
+	}
+}
+
 func TestPackageFromIntentBuildsBrowserAuthenticationWorkflow(t *testing.T) {
 	example := t.TempDir()
 	authRel := "browser-authentication/member.yaml"
@@ -135,6 +162,29 @@ flows:
       - type_credential: {locator: {role: textbox, name: Username}, slot: username}
       - type_credential: {locator: {role: textbox, name: Password}, slot: password}
       - challenge: {kind: push}
+      - wait_for: {locator: {role: heading, name: Member dashboard}}
+    effects: [establishes_session, sends_mfa_challenge]
+    success: {origin: https://example.test, locator: {role: heading, name: Member dashboard}}
+`)
+}
+
+func synthesizeCredentiallessBrowserAuthenticationFixture() []byte {
+	return []byte(`profile: uws.browser-authentication.1.0
+info:
+  title: Member passkey
+  applicationOrigins: [https://example.test]
+  authenticationOrigins: [https://login.example.test]
+observationKind: accessibility_snapshot
+evidence: {learnedAt: "2026-08-15T00:00:00Z", source: synthetic_fixture}
+confidence: high
+expiresAfter: P30D
+verification: {lastVerifiedAt: "2026-08-15T00:00:00Z", successfulRuns: 1}
+credentialSlots: {}
+flows:
+  member_passkey:
+    sequence:
+      - navigate: https://login.example.test/
+      - challenge: {kind: passkey}
       - wait_for: {locator: {role: heading, name: Member dashboard}}
     effects: [establishes_session, sends_mfa_challenge]
     success: {origin: https://example.test, locator: {role: heading, name: Member dashboard}}

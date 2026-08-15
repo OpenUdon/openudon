@@ -249,11 +249,15 @@ func buildUWSStep(step *rollout.Step, defaultOpenAPI string, sourceFor func(stri
 		}
 		op.Request = nil
 		op.Extensions = map[string]any{uws1.ExtensionOperationProfile: browserauthentication.CallProfileName}
+		credentialBindings := step.CredentialBindings
+		if credentialBindings == nil {
+			credentialBindings = map[string]string{}
+		}
 		if err := browserauthentication.SetAuthenticationExtension(&op.Extensions, &browserauthentication.OperationAuthentication{
 			Profile:            filepath.ToSlash(openAPIPath),
 			Flow:               strings.TrimSpace(step.AuthenticationFlow),
 			Session:            strings.TrimSpace(step.BrowserSession),
-			CredentialBindings: step.CredentialBindings,
+			CredentialBindings: credentialBindings,
 		}); err != nil {
 			return nil, nil, err
 		}

@@ -397,9 +397,6 @@ func validateStep(step *Step, label string) error {
 		if step.Timeout == nil || *step.Timeout > 600 {
 			return fmt.Errorf("%s.timeout must be set and no greater than 600 seconds for browser authentication", label)
 		}
-		if len(step.CredentialBindings) == 0 {
-			return fmt.Errorf("%s.credential_bindings are required for browser authentication", label)
-		}
 	}
 	for i, nested := range step.Steps {
 		if err := validateStep(nested, fmt.Sprintf("%s.step %d", label, i)); err != nil {

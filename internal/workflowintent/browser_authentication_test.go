@@ -41,3 +41,25 @@ func TestBrowserAuthenticationIntentRequiresBoundedTimeout(t *testing.T) {
 		t.Fatalf("RenderIntentHCL error = %v", err)
 	}
 }
+
+func TestBrowserAuthenticationIntentPermitsCredentiallessFlow(t *testing.T) {
+	timeout := 120.0
+	intent := &Intent{
+		Workflow: &WorkflowMeta{Name: "member_passkey", Description: "Sign in with a passkey."},
+		Steps: []*Step{{
+			Name: "authenticate", Type: "browser_authentication", Source: "browser-authentication/member.yaml",
+			AuthenticationFlow: "member_passkey", BrowserSession: "member", Timeout: &timeout,
+		}},
+	}
+	hcl, err := RenderIntentHCL(intent)
+	if err != nil {
+		t.Fatal(err)
+	}
+	parsed, err := ParseIntent([]byte(hcl), "intent.hcl")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(parsed.Steps) != 1 || len(parsed.Steps[0].CredentialBindings) != 0 {
+		t.Fatalf("credential-less authentication step = %#v", parsed.Steps)
+	}
+}

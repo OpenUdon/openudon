@@ -1652,12 +1652,12 @@ func browserAuthenticationMetadataJSON(session elicitor.Session) (string, bool, 
 		return "", false, nil
 	}
 	var sessions []sessionBinding
-	for _, step := range session.Intent.Steps {
+	walkBrowserAuthenticationSessionSteps(session.Intent.Steps, func(step *rollout.Step) {
 		if step == nil || strings.TrimSpace(step.BrowserSession) == "" {
-			continue
+			return
 		}
 		sessions = append(sessions, sessionBinding{Step: step.Name, Session: step.BrowserSession})
-	}
+	})
 	data, err := json.MarshalIndent(struct {
 		Version   string           `json:"version"`
 		Approvals []string         `json:"authentication_approvals"`
@@ -1670,6 +1670,24 @@ func browserAuthenticationMetadataJSON(session elicitor.Session) (string, bool, 
 		return "", false, err
 	}
 	return string(append(data, '\n')), true, nil
+}
+
+func walkBrowserAuthenticationSessionSteps(steps []*rollout.Step, visit func(*rollout.Step)) {
+	for _, step := range steps {
+		if step == nil {
+			continue
+		}
+		visit(step)
+		walkBrowserAuthenticationSessionSteps(step.Steps, visit)
+		for _, branch := range step.Cases {
+			if branch != nil {
+				walkBrowserAuthenticationSessionSteps(branch.Steps, visit)
+			}
+		}
+		if step.Default != nil {
+			walkBrowserAuthenticationSessionSteps(step.Default.Steps, visit)
+		}
+	}
 }
 
 func safeExampleTarget(exampleDir, relative string) (string, error) {

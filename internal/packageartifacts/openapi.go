@@ -206,14 +206,19 @@ func CollectBrowserAuthenticationProfilePaths(packageRoot string) ([]string, err
 	if err != nil {
 		return nil, err
 	}
+	profiles := make([]string, 0, len(paths))
 	for _, path := range paths {
+		if strings.HasSuffix(strings.ToLower(path), ".review.json") {
+			continue
+		}
 		switch strings.ToLower(filepath.Ext(path)) {
 		case ".json", ".yaml", ".yml":
 		default:
 			return nil, fmt.Errorf("browser authentication profile must use .json, .yaml, or .yml: %s", path)
 		}
+		profiles = append(profiles, path)
 	}
-	return paths, nil
+	return profiles, nil
 }
 
 // CollectExecutionSourcePaths returns every UWS source document staged in a

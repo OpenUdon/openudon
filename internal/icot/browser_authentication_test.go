@@ -38,3 +38,31 @@ func TestBrowserAuthenticationMetadataContainsOnlySafeReviewState(t *testing.T) 
 		}
 	}
 }
+
+func TestBrowserAuthenticationMetadataRecursesThroughStructuralSteps(t *testing.T) {
+	session := elicitor.Session{
+		SourcePlan: []elicitor.SourceMaterialization{{
+			Kind: "browser-authentication", ID: "member", TargetPath: "browser-authentication/member.yaml",
+			SHA256: strings.Repeat("a", 64), Flows: []string{"member_passkey"},
+			FlowCredentialSlots: map[string][]string{"member_passkey": {}},
+			Origins:             []string{"https://members.example.test"}, Lifecycle: "active",
+			ExpiresAt: "2026-09-14T00:00:00Z", Provenance: "reviewed local observation",
+		}},
+		Intent: rollout.Intent{Steps: []*rollout.Step{{
+			Name: "sign_in_sequence", Type: "sequence", Steps: []*rollout.Step{
+				{Name: "authenticate_nested", Type: "browser_authentication", BrowserSession: "member_portal"},
+				{Name: "open_nested", Type: "browser", BrowserSession: "member_portal"},
+			},
+		}}},
+		BrowserAuthenticationApprovals: []string{"authenticate_nested"},
+	}
+	data, ok, err := browserAuthenticationMetadataJSON(session)
+	if err != nil || !ok {
+		t.Fatalf("metadata: ok=%t err=%v", ok, err)
+	}
+	for _, step := range []string{"authenticate_nested", "open_nested"} {
+		if !strings.Contains(data, `"step": "`+step+`"`) {
+			t.Fatalf("metadata missing nested session step %q:\n%s", step, data)
+		}
+	}
+}

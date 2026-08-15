@@ -127,6 +127,20 @@ func TestCollectAPISourcePathsSkipsAdvisorySecuritySidecars(t *testing.T) {
 	}
 }
 
+func TestCollectBrowserAuthenticationProfilePathsSkipsReviewBundles(t *testing.T) {
+	root := t.TempDir()
+	mustWrite(t, filepath.Join(root, "browser-authentication", "member.yaml"), []byte("profile: uws.browser-authentication.1.0\n"))
+	mustWrite(t, filepath.Join(root, "browser-authentication", "member.review.json"), []byte(`{"version":"browsertools.authentication-review.v1"}`))
+
+	paths, err := CollectBrowserAuthenticationProfilePaths(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(paths) != 1 || paths[0] != "browser-authentication/member.yaml" {
+		t.Fatalf("authentication profile paths = %#v", paths)
+	}
+}
+
 func TestCollectAdvisorySecuritySidecarPathsRequiresMainSource(t *testing.T) {
 	root := t.TempDir()
 	mustWrite(t, filepath.Join(root, "google-discovery", "gmail.json"), []byte(`{"discoveryVersion":"v1"}`))

@@ -105,6 +105,35 @@ func TestIntentSchemaAcceptsTimeoutIdempotencyAndRejectsInvalidValues(t *testing
 	}
 }
 
+func TestIntentSchemaAcceptsCredentiallessBrowserAuthentication(t *testing.T) {
+	doc, err := jsonschema.UnmarshalJSON(bytes.NewReader(embeddedIntentSchema))
+	if err != nil {
+		t.Fatal(err)
+	}
+	compiler := jsonschema.NewCompiler()
+	if err := compiler.AddResource("intent.schema.json", doc); err != nil {
+		t.Fatal(err)
+	}
+	schema, err := compiler.Compile("intent.schema.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	intent, err := jsonschema.UnmarshalJSON(strings.NewReader(`{
+	  "workflow": {"name": "member_passkey", "description": "Sign in with a passkey."},
+	  "steps": [{
+	    "name": "authenticate", "type": "browser_authentication",
+	    "source": "browser-authentication/member.yaml", "authentication_flow": "member_passkey",
+	    "browser_session": "member", "credential_bindings": {}, "timeout": 120
+	  }]
+	}`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := schema.Validate(intent); err != nil {
+		t.Fatalf("schema rejected credential-less browser authentication: %v", err)
+	}
+}
+
 func TestIntentPromptRendersExamplesAndProjectRequirements(t *testing.T) {
 	policy := projectPolicy{
 		Inputs:  []InputDecl{{Name: "ticket_id", Type: "string", Required: true}},
