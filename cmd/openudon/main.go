@@ -24,8 +24,8 @@ import (
 	"github.com/OpenUdon/openudon/internal/smokematrix"
 	"github.com/OpenUdon/openudon/internal/synthesize"
 	"github.com/OpenUdon/openudon/internal/trustedrunner"
+	"github.com/OpenUdon/uws/schemas"
 	"github.com/OpenUdon/uws/validation"
-	"github.com/OpenUdon/uws/versions"
 )
 
 // version is replaced in release archives with -ldflags. Module-installed
@@ -490,7 +490,7 @@ func defaultUWSSchemaForFile(path string) string {
 	if doc, err := validation.LoadDocumentFile(path); err == nil && doc != nil && strings.TrimSpace(doc.UWS) != "" {
 		version = strings.TrimSpace(doc.UWS)
 	}
-	return versions.PathForVersion(".", version)
+	return schemas.PathForVersion(".", version)
 }
 
 func validateUWSPath(target string, out io.Writer, allowEmpty bool) error {

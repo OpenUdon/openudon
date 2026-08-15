@@ -6,7 +6,7 @@ import (
 
 	rollout "github.com/OpenUdon/openudon/internal/workflowintent"
 	"github.com/OpenUdon/uws/browserauthentication"
-	"github.com/OpenUdon/uws/versions"
+	"github.com/OpenUdon/uws/schemas"
 )
 
 func TestGenerateWorkflowLowersBrowserAuthenticationAndNamedSession(t *testing.T) {
@@ -61,7 +61,7 @@ func TestGenerateWorkflowLowersCredentiallessBrowserAuthentication(t *testing.T)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := versions.ValidateBrowserAuthenticationCallSupplement(data); err != nil {
+	if err := schemas.ValidateBrowserAuthenticationCallSupplement(data); err != nil {
 		t.Fatalf("credential-less authentication call is invalid: %v", err)
 	}
 }

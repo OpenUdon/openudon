@@ -17,8 +17,8 @@ import (
 	"github.com/OpenUdon/openudon/internal/workflowintent"
 	rollout "github.com/OpenUdon/openudon/internal/workflowintent"
 	runner "github.com/OpenUdon/openudon/internal/workflowintent"
+	"github.com/OpenUdon/uws/schemas"
 	"github.com/OpenUdon/uws/uws1"
-	"github.com/OpenUdon/uws/versions"
 )
 
 type Options struct {
@@ -671,7 +671,7 @@ func defaultSchemaPathForVersion(exampleDir, version string) string {
 	if version == "" {
 		version = "1.0.0"
 	}
-	return versions.PathForVersion(exampleDir, version)
+	return schemas.PathForVersion(exampleDir, version)
 }
 
 func defaultSchemaPathForDocument(exampleDir, documentPath string) string {
