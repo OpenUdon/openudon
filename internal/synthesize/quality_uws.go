@@ -37,10 +37,10 @@ func assessUWS(report *QualityReport, path, schemaPath, exampleDir string, expec
 	}
 	report.add("uws.execution_profile", "pass", "workflow.uws.yaml passes local execution-profile validation", "")
 	if err := validateUWSSourceDescriptions(exampleDir, doc); err != nil {
-		report.add("uws.source_descriptions", "fail", "workflow.uws.yaml source descriptions must reference package API source documents", err.Error())
+		report.add("uws.source_descriptions", "fail", "workflow.uws.yaml source descriptions must reference package execution source documents", err.Error())
 		return
 	}
-	report.add("uws.source_descriptions", "pass", "workflow.uws.yaml source descriptions reference package API source documents", "")
+	report.add("uws.source_descriptions", "pass", "workflow.uws.yaml source descriptions reference package execution source documents", "")
 	if expectedPlan != nil && len(expectedPlan.Results) > 0 {
 		if err := validateUWSStructuralResults(doc, expectedPlan.Results); err != nil {
 			report.add("uws.structural_results", "fail", "workflow.uws.yaml does not preserve planned structural results", err.Error())
@@ -88,7 +88,7 @@ func validateUWSSourceDescriptions(exampleDir string, doc *uws1.Document) error 
 	if doc == nil || len(doc.SourceDescriptions) == 0 {
 		return nil
 	}
-	paths, err := packageartifacts.CollectAPISourcePaths(exampleDir)
+	paths, err := packageartifacts.CollectExecutionSourcePaths(exampleDir)
 	if err != nil {
 		return err
 	}
@@ -114,7 +114,7 @@ func validateUWSSourceDescriptions(exampleDir string, doc *uws1.Document) error 
 	if len(invalid) == 0 {
 		return nil
 	}
-	return fmt.Errorf("source description URL is not a package API source: %s", strings.Join(sortedCopy(invalid), "; "))
+	return fmt.Errorf("source description URL is not a package execution source: %s", strings.Join(sortedCopy(invalid), "; "))
 }
 
 func validateUWSStructuralResults(doc *uws1.Document, expected []PlanResult) error {

@@ -19,8 +19,8 @@ package and trusted-handoff boundary.
 ## What OpenUdon Owns
 
 - Project briefs, templates, guided iCoT authoring, and eval fixtures.
-- API-source-bound UWS artifact generation from reviewed OpenAPI, Google Discovery, and AWS
-  Smithy inputs.
+- API-first UWS artifact generation from reviewed API sources, with verified Browsertools profiles
+  as an explicit fallback for UI-only capabilities.
 - Review evidence, quality reports, approval templates, package digests, and handoff manifests.
 - Local trusted-runner enforcement before invoking an external executor.
 
@@ -32,6 +32,7 @@ state, or concrete infrastructure authoring. Those boundaries are summarized on 
 
 ```text
 project.md
+  -> reviewed API source or Browsertools profile selection
   -> workflows/intent.hcl
   -> workflows/workflow.hcl and workflows/workflow.uws.yaml
   -> expected plan, quality, review, and handoff artifacts

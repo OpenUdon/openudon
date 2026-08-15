@@ -17,6 +17,7 @@ see [Eval Seed/Build Matrix](eval-seed-build-matrix.md).
 | `api-oauth-profile-fetch` | Bearer/OAuth-style credential binding for a path-parameter read. |
 | `airtable-record-normalize` | Multi-step data-passing fixture: fetched record response feeds local normalization. |
 | `array-response-summary` | Array response extraction into an approved local summary function. |
+| `browser-status-read` | Strict UI-only fallback fixture that packages a verified read-only Browsertools profile and emits UWS 1.5. |
 | `compliance-report-summary` | Multi-step data-passing fixture: fetched compliance report feeds local summary rendering. |
 | `crm-note-write` | Side-effectful write operation with trusted-runner and sandbox policy. |
 | `cursor-pagination-report` | Cursor pagination, bearer security, response cursor extraction, and local report rendering. |

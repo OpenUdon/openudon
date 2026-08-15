@@ -1,0 +1,12 @@
+{
+  "version": "openudon.workflow-plan.v1",
+  "workflow": "browser_status_read",
+  "steps": [
+    {
+      "name": "read",
+      "runtime": "browser",
+      "operation": "read_status",
+      "source": "browser-profiles/status.json"
+    }
+  ]
+}

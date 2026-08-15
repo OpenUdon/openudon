@@ -740,7 +740,7 @@ func stepUsesAPISource(step *Step) bool {
 		return false
 	}
 	kind := strings.ToLower(strings.TrimSpace(step.Type))
-	if kind != "" && kind != "http" && kind != "openapi" {
+	if kind != "" && kind != "http" && kind != "openapi" && kind != "browser" {
 		return false
 	}
 	return strings.TrimSpace(step.Source) != "" || strings.TrimSpace(step.OpenAPI) != "" || strings.TrimSpace(step.Operation) != ""

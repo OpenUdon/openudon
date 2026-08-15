@@ -877,7 +877,7 @@ func validateIntentRuntimePolicy(intent *rollout.Intent, policy projectPolicy) e
 
 func allowedIntentRuntimeType(typ string) bool {
 	switch strings.ToLower(strings.TrimSpace(typ)) {
-	case "", "http", "openapi", "fnct", "cmd", "ssh",
+	case "", "http", "openapi", "browser", "fnct", "cmd", "ssh",
 		"sequence", "parallel", "switch", "merge", "loop", "await":
 		return true
 	default:

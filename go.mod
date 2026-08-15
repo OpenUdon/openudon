@@ -6,8 +6,9 @@ require (
 	github.com/OpenUdon/apitools v0.0.0-20260814155857-ef32163caeca
 	github.com/OpenUdon/asyncapi v0.1.0
 	github.com/OpenUdon/authoring v0.0.0-20260814160241-18ba8068d49c
-	github.com/OpenUdon/evidence v0.0.0-20260603102736-08a9c38b00b7
-	github.com/OpenUdon/uws v0.0.0-20260725145128-d428f54e728c
+	github.com/OpenUdon/browsertools v0.0.0-20260815090206-bf8624366691
+	github.com/OpenUdon/evidence v0.0.0-20260815084845-0c17258b9736
+	github.com/OpenUdon/uws v0.0.0-20260815085002-8192f06ffb2f
 	github.com/hashicorp/hcl/v2 v2.24.0
 	github.com/santhosh-tekuri/jsonschema/v6 v6.0.2
 	github.com/zclconf/go-cty v1.18.1
@@ -32,7 +33,7 @@ require (
 	github.com/bmatcuk/doublestar v1.3.4 // indirect
 	github.com/davecgh/go-spew v1.1.2-0.20180830191138-d8f796af33cc // indirect
 	github.com/dustin/go-humanize v1.0.1 // indirect
-	github.com/genelet/horizon v1.14.3 // indirect
+	github.com/genelet/horizon v1.14.5 // indirect
 	github.com/go-test/deep v1.1.1 // indirect
 	github.com/golang/groupcache v0.0.0-20210331224755-41bb18bfe9da // indirect
 	github.com/google/go-cmp v0.7.0 // indirect

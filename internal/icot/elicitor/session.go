@@ -29,6 +29,9 @@ type Session struct {
 	Fallback           string                  `json:"fallback,omitempty" yaml:"fallback,omitempty"`
 	FallbackSet        bool                    `json:"fallback_set,omitempty" yaml:"fallback_set,omitempty"`
 	SideEffectScope    string                  `json:"side_effect_scope,omitempty" yaml:"side_effect_scope,omitempty"`
+	BrowserRoute       string                  `json:"browser_route,omitempty" yaml:"browser_route,omitempty"`
+	BrowserSession     string                  `json:"browser_session_posture,omitempty" yaml:"browser_session_posture,omitempty"`
+	BrowserApprovals   []string                `json:"browser_mutation_approvals,omitempty" yaml:"browser_mutation_approvals,omitempty"`
 	Annotations        []SourceAnnotation      `json:"-" yaml:"-"`
 	Assumptions        []Assumption            `json:"-" yaml:"-"`
 	Classifications    []MappingClassification `json:"-" yaml:"-"`
@@ -125,6 +128,11 @@ func SessionFromIntent(intent *rollout.Intent, project projectwizard.Answers) Se
 	session.Fallback = project.Fallback
 	session.FallbackSet = true
 	session.SideEffectScope = project.SideEffectScope
+	walkSteps(value.Steps, func(step *rollout.Step) {
+		if step != nil && strings.EqualFold(strings.TrimSpace(step.Type), "browser") {
+			session.BrowserRoute = "browser"
+		}
+	})
 	if session.SideEffectScope == "" {
 		session.SideEffectScope = projectwizard.InferSideEffectScope(project.Safety)
 	}
@@ -275,7 +283,7 @@ func collectStepMissing(missing *[]string, defaultSource string, step *rollout.S
 	}
 	stepType := strings.ToLower(strings.TrimSpace(step.Type))
 	stepSource := firstNonEmpty(step.Source, step.OpenAPI, defaultSource)
-	if (stepType == "http" || stepType == "openapi") && strings.TrimSpace(stepSource) != "" && strings.TrimSpace(step.Operation) == "" {
+	if (stepType == "http" || stepType == "openapi" || stepType == "browser") && strings.TrimSpace(stepSource) != "" && strings.TrimSpace(step.Operation) == "" {
 		name := firstNonEmpty(step.Name, "unnamed")
 		*missing = append(*missing, "operation for step "+name)
 	}
@@ -393,6 +401,9 @@ func mergeSessions(base, overlay Session) Session {
 		base.Fallback = firstNonEmpty(base.Fallback, overlay.Fallback)
 	}
 	base.SideEffectScope = firstNonEmpty(base.SideEffectScope, overlay.SideEffectScope)
+	base.BrowserRoute = firstNonEmpty(base.BrowserRoute, overlay.BrowserRoute)
+	base.BrowserSession = firstNonEmpty(base.BrowserSession, overlay.BrowserSession)
+	base.BrowserApprovals = dedupeStrings(append(base.BrowserApprovals, overlay.BrowserApprovals...))
 	base.Annotations = append(base.Annotations, overlay.Annotations...)
 	base.Assumptions = mergeAssumptions(base.Assumptions, overlay.Assumptions)
 	base.Classifications = mergeClassifications(base.Classifications, overlay.Classifications)

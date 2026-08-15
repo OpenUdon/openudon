@@ -161,7 +161,7 @@ func collectOperationSlots(missing *[]string, defaultOpenAPI string, steps []*St
 		}
 		stepOpenAPI := firstNonEmpty(step.OpenAPI, defaultOpenAPI)
 		stepType := strings.ToLower(strings.TrimSpace(step.Type))
-		if (stepType == "http" || stepType == "openapi") && strings.TrimSpace(stepOpenAPI) != "" && strings.TrimSpace(step.Operation) == "" {
+		if (stepType == "http" || stepType == "openapi" || stepType == "browser") && strings.TrimSpace(stepOpenAPI) != "" && strings.TrimSpace(step.Operation) == "" {
 			*missing = append(*missing, "operation for step "+firstNonEmpty(step.Name, "unnamed"))
 		}
 		collectOperationSlots(missing, stepOpenAPI, step.Steps)

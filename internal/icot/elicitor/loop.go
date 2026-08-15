@@ -28,6 +28,8 @@ type Options struct {
 	ReviewRepair       bool
 	CatalogHintOptions CatalogHintOptions
 	LocalSources       []apitools.LocalSource
+	BrowserSources     []BrowserSourceInput
+	BrowserRegistries  []string
 	SourceRoots        []string
 	NetworkPolicy      string
 	AutoApprove        bool
@@ -175,7 +177,7 @@ func (p *prompter) askSideEffectScope(current string) (string, error) {
 
 func (p *prompter) chooseDocument(label string, docs []APIDocument, current string) (APIDocument, error) {
 	if len(docs) == 0 {
-		return APIDocument{}, errors.New("no OpenAPI documents available")
+		return APIDocument{}, errors.New("no validated source documents available")
 	}
 	fmt.Fprintf(p.out, "%s:\n", label)
 	defaultIndex := 0
@@ -298,7 +300,7 @@ func (p *prompter) collectSteps(usesAPI bool, defaultOpenAPI string, docs []APID
 		if current != nil && strings.TrimSpace(current.Type) != "" {
 			stepTypeDefault = current.Type
 		}
-		stepType, err := p.askDefault("Step type (http/openapi/fnct/cmd/ssh)", stepTypeDefault)
+		stepType, err := p.askDefault("Step type (http/openapi/browser/fnct/cmd/ssh)", stepTypeDefault)
 		if err != nil {
 			return nil, err
 		}
@@ -317,7 +319,7 @@ func (p *prompter) collectSteps(usesAPI bool, defaultOpenAPI string, docs []APID
 		if err != nil {
 			return nil, err
 		}
-		if step.Type == "http" || step.Type == "openapi" {
+		if step.Type == "http" || step.Type == "openapi" || step.Type == "browser" {
 			docPath := defaultOpenAPI
 			if current != nil {
 				docPath = firstNonEmpty(current.OpenAPI, docPath)
@@ -335,7 +337,7 @@ func (p *prompter) collectSteps(usesAPI bool, defaultOpenAPI string, docs []APID
 				}
 			}
 			if len(candidateDocs) > 0 {
-				doc, err = p.chooseDocument("OpenAPI document for step", candidateDocs, docPath)
+				doc, err = p.chooseDocument("Source document for step", candidateDocs, docPath)
 				if err != nil {
 					return nil, err
 				}
@@ -344,6 +346,9 @@ func (p *prompter) collectSteps(usesAPI bool, defaultOpenAPI string, docs []APID
 					return nil, err
 				}
 				step.Operation = op.OperationID
+				if isBrowserDocument(doc) {
+					step.Type = "browser"
+				}
 				op, ok := operationByID([]APIDocument{doc}, doc.RelativePath, step.Operation)
 				if !ok {
 					return nil, fmt.Errorf("operationId %s is not available in %s", step.Operation, doc.RelativePath)
@@ -548,11 +553,16 @@ func editSlot(p *prompter, session *Session, slot string, docs []APIDocument) er
 		session.FallbackSet = true
 	case "openapi", "api":
 		if len(docs) > 0 {
-			doc, err := p.chooseDocument("OpenAPI document", docs, session.Intent.OpenAPI)
+			doc, err := p.chooseDocument("Source document", docs, intentAPISourceRef(session.Intent))
 			if err != nil {
 				return err
 			}
-			session.Intent.OpenAPI = doc.RelativePath
+			setIntentAPISourceFromDoc(session, doc)
+			if isBrowserDocument(doc) {
+				session.BrowserRoute = "browser"
+			} else {
+				session.BrowserRoute = "api"
+			}
 		} else {
 			value, err := p.askDefault("OpenAPI document path or URL", session.Intent.OpenAPI)
 			if err != nil {

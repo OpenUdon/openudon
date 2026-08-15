@@ -32,13 +32,24 @@ go run ./cmd/icot --example ./examples/<name> \
   --openapi weather=./openapi/weather.yaml \
   --source-root ./provider-metadata
 
+# Declare a verified UI-only profile or service-free static registry.
+go run ./cmd/icot --example ./examples/<name> \
+  --browser-profile status=./reviewed/status.browser.json \
+  --browser-registry ./browser-registry \
+  --browser-registry https://profiles.example.org/catalog/ \
+  --network ask
+
 # Control the bounded remote metadata lookup.
 go run ./cmd/icot --example ./examples/<name> --network never
 ```
 
 `--api-source` uses `KIND:ID=PATH`; `--openapi ID=PATH` is shorthand for an
-OpenAPI source. `--network` accepts `never`, `ask`, or `allow`. Interactive runs
-default to `ask`. Agent mode is effectively `never` unless `allow` is explicit.
+OpenAPI source. `--browser-profile ID=PATH` supplies a reviewed
+`uws.browser.1.5` profile or capability bundle. `--browser-registry` accepts a
+local static-registry directory or HTTPS base URL; it is not an account or
+membership service. `--network` accepts `never`, `ask`, or `allow`. Interactive
+runs default to `ask`. Agent mode is effectively `never` unless `allow` is
+explicit. Local registries remain usable with `--network never`.
 
 Prompt modes preserve the public v1 names with v2 behavior:
 
@@ -97,6 +108,13 @@ and explicit roots. Local discovery recognizes and validates:
 - gRPC/protobuf;
 - OData.
 
+The same explicit roots are also inspected by Browsertools for verified
+browser profiles and capability bundles. Browser ambiguity, inactive lifecycle
+state, or a traversal bound blocks the run just like incomplete API discovery.
+iCoT prefers an API operation that covers the active capability. It offers a
+browser action only for an API capability gap or an explicitly reviewed browser
+route; future candidate workflows receive neither kind of source.
+
 Directory names are hints, never proof. Discovery rejects symlinks and
 non-regular paths, deduplicates identical content by SHA-256, and requires an
 explicit kind for ambiguous JSON or XML. Default bounds are 10,000 visited
@@ -115,6 +133,21 @@ crawler. It has an eight-second total deadline, returns at most three metadata
 candidates, applies unsafe-host protections, and does not copy a document.
 Denial, timeout, unsafe results, or an empty lookup becomes a deferrable source
 blocker with provider/source hints.
+
+Configured static Browsertools registries are separate evidence sources. Local
+registries need no network permission. Each HTTPS registry gets its own forced
+`allow`/`never` decision, separate from APIs.guru/catalog lookup. Browsertools
+searches only `index.json`, returns at most three active matches, and pulls and
+verifies immutable bundles within the eight-second/20 MiB bounds. Denial,
+timeout, unsafe host, empty search, invalid bundle, stale, superseded, or revoked
+content is a visible deferrable blocker. No placeholder profile is generated.
+
+Once a browser profile is selected, the frontier orders profile before action,
+then request mappings, opaque runtime-session posture, mutation approval, and
+outputs. Session posture records only `none` or
+`opaque-runtime-binding-required`; it never contains cookies or login values.
+A mutating profile action requires exact authoring approval for its workflow
+step, while Udon still requires a separate exact runtime operation approval.
 
 ## Proposal And File Lifecycle
 
@@ -149,6 +182,14 @@ files. Source targets reuse identical content, reject differing content unless
 `--force` is supplied, and participate in the same backup/rollback transaction
 as project and intent files.
 
+For a browser route, the selected profile is staged under `browser-profiles/`
+and safe review metadata is staged under `.icot/browser-sources.json`. The
+metadata contains IDs, actions, origins, digests, lifecycle/expiry, provenance,
+registry coordinate, login-state requirement, session posture, and authoring
+approvals—never a driver, browser session, credential, raw DOM/HTML, screenshot,
+or private cache content. Build and assess revalidate the profile and metadata,
+emit UWS 1.5, and include both files in the review handoff digest.
+
 `project.md` may include a deterministic, non-executable `Candidate Workflows`
 section. Reconcile preserves it, lint validates its shape, and build ignores it.
 
@@ -160,9 +201,10 @@ use `openudon.icot-transcript.v2`; see
 
 `--agent` never prompts and never writes deliverables. It returns the complete
 frontier, candidate workflows, validated/rejected/ambiguous source evidence,
-remote blocker/candidates when applicable, readiness blockers, and proposed file
-actions. A complete session still returns `proposal_approval_required` so an
-interactive run or explicit `--yes` can authorize the transaction.
+API and browser-registry blocker/candidates when applicable, readiness blockers,
+and proposed file actions. A complete session still returns
+`proposal_approval_required` so an interactive run or explicit `--yes` can
+authorize the transaction.
 
 ```bash
 go run ./cmd/icot --example ./examples/<name> --agent --json

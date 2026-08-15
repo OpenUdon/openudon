@@ -41,7 +41,7 @@ func CheckReadiness(session Session, docs []APIDocument) []ReadinessIssue {
 			}
 			slotPrefix := "steps." + firstNonEmpty(step.Name, "step")
 			stepType := strings.ToLower(strings.TrimSpace(step.Type))
-			if (stepType == "http" || stepType == "openapi" || strings.TrimSpace(step.Operation) != "") && strings.TrimSpace(step.Operation) == "" {
+			if (stepType == "http" || stepType == "openapi" || stepType == "browser" || strings.TrimSpace(step.Operation) != "") && strings.TrimSpace(step.Operation) == "" {
 				if issue, ok := unconfirmedSideEffectCommitmentIssue(session, docs, step, nil); ok {
 					add(issue.Code, issue.Slot, issue.Severity, issue.Message, issue.SuggestedAnswer)
 					continue
@@ -50,6 +50,18 @@ func CheckReadiness(session Session, docs []APIDocument) []ReadinessIssue {
 				continue
 			}
 			if op, ok := operationForStep(session, docs, step); ok {
+				if isBrowserOperationSummary(op) {
+					if strings.TrimSpace(session.BrowserSession) == "" {
+						recommendation := "none"
+						if op.Extensions["openudon.browser.login_state_required"] == "true" {
+							recommendation = "opaque-runtime-binding-required"
+						}
+						add("missing_browser_session_posture", slotPrefix+".browser_session", readinessBlocking, "Confirm whether this browser action requires an operator-owned opaque runtime session binding. Never place cookies, tokens, passwords, or session values in the workflow.", recommendation)
+					}
+					if browserOperationMutates(op) && !stringSliceContains(session.BrowserApprovals, step.Name) {
+						add("unconfirmed_browser_mutation", slotPrefix+".browser_approval", readinessBlocking, "The selected browser action mutates state and requires explicit operation-specific authoring approval. Runtime execution will still require a separate exact Udon operation approval.", "approve "+step.Name)
+					}
+				}
 				if issue, ok := unconfirmedSideEffectCommitmentIssue(session, docs, step, op); ok {
 					add(issue.Code, issue.Slot, issue.Severity, issue.Message, issue.SuggestedAnswer)
 					continue
@@ -64,7 +76,7 @@ func CheckReadiness(session Session, docs []APIDocument) []ReadinessIssue {
 				for _, issue := range validateOpenAPIRequestMappings(session, step, op, slotPrefix) {
 					add(issue.Code, issue.Slot, issue.Severity, issue.Message, issue.SuggestedAnswer)
 				}
-			} else if strings.TrimSpace(step.Operation) != "" && (stepType == "http" || stepType == "openapi") {
+			} else if strings.TrimSpace(step.Operation) != "" && (stepType == "http" || stepType == "openapi" || stepType == "browser") {
 				add("missing_operation", slotPrefix+".operation", readinessBlocking, "Selected operationId "+step.Operation+" is not available for "+firstNonEmpty(step.Provider, step.Name, "this step")+". "+operationChoiceHintForStep(session, docs, step), suggestedOperationAnswerForStep(session, docs, step))
 			}
 		}
@@ -116,6 +128,12 @@ func planQuestionForIssue(session Session, docs []APIDocument, blocking Readines
 		plan.Prompt = missingAPIDocPrompt(session, docs)
 	case "missing_operation":
 		plan.Prompt = missingOperationPrompt(session, docs, blocking.Slot)
+	case "missing_browser_session_posture":
+		plan.Prompt = "Should the selected browser action use no session or require an opaque operator-owned runtime binding? Answer none or opaque-runtime-binding-required."
+		plan.ForceAsk = blocking.SuggestedAnswer != "none"
+	case "unconfirmed_browser_mutation":
+		plan.Prompt = "Confirm this exact browser mutation for authoring by answering approve <operation-step-name>. This does not approve runtime execution."
+		plan.ForceAsk = true
 	case readinessUnconfirmedSideEffectCommitment:
 		plan.Prompt = unconfirmedSideEffectCommitmentPrompt(session, docs, blocking.Slot)
 		plan.ForceAsk = true

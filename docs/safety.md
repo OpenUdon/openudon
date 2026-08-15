@@ -15,7 +15,7 @@ tier checks before invoking udon.
 
 ## Rules
 
-- Treat generated UWS, OpenAPI, and HCL files as untrusted until validated and reviewed.
+- Treat generated UWS, API source, browser-profile, and HCL files as untrusted until validated and reviewed.
 - Keep production credentials outside agent prompts and generated artifacts.
 - Keep LLM provider credentials in environment variables; do not pass tokens inline in commands that
   may be captured in shell history or issue logs.
@@ -23,6 +23,12 @@ tier checks before invoking udon.
   keys in provider-native variables such as `COPILOT_API_KEY`, `OPENAI_API_KEY`,
   `ANTHROPIC_API_KEY`, or `GEMINI_API_KEY`.
 - Use UWS/OpenAPI validation before any runtime execution.
+- For browser workflows, require an active non-expired `uws.browser.1.5`
+  profile, matching `.icot/browser-sources.json` digest/action/origin evidence,
+  an operator-owned opaque runtime session binding when login is required, and
+  exact per-operation approval for every mutation. Never package cookies,
+  passwords, driver configuration, raw DOM/HTML, screenshots, or private cache
+  content.
 - Execute side-effectful workflows only through a trusted runner with approved credentials.
 - Prefer sandbox or test endpoints for local proof runs.
 - Record validation evidence in the review work item before handoff.

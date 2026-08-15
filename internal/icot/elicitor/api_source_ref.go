@@ -24,6 +24,8 @@ func setIntentAPISourceFromDoc(session *Session, doc APIDocument) {
 	session.Intent.Source = doc.RelativePath
 	if isOpenAPIDocument(doc) {
 		session.Intent.OpenAPI = doc.RelativePath
+	} else if isBrowserDocument(doc) {
+		session.Intent.OpenAPI = ""
 	}
 }
 
@@ -34,5 +36,7 @@ func setStepAPISourceFromDoc(step *rollout.Step, doc APIDocument) {
 	step.Source = doc.RelativePath
 	if isOpenAPIDocument(doc) {
 		step.OpenAPI = doc.RelativePath
+	} else if isBrowserDocument(doc) {
+		step.OpenAPI = ""
 	}
 }

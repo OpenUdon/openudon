@@ -105,6 +105,24 @@ func reviewHandoffInputs(result Result) ([]ReviewHandoffInput, error) {
 			Required: true,
 		})
 	}
+	browserPaths, err := packageartifacts.CollectBrowserProfilePaths(result.ExampleDir)
+	if err != nil {
+		return nil, err
+	}
+	for _, path := range browserPaths {
+		artifacts = append(artifacts, authoring.ReviewArtifactInput{
+			Path:     path,
+			Purpose:  "Verified browser capability profile staged with the trusted Udon package.",
+			Required: true,
+		})
+	}
+	if len(browserPaths) > 0 {
+		artifacts = append(artifacts, authoring.ReviewArtifactInput{
+			Path:     packageartifacts.BrowserSourceReviewPath,
+			Purpose:  "Browser source digest, origin, lifecycle, session-posture, and mutation-approval review evidence.",
+			Required: true,
+		})
+	}
 	securitySidecars, err := packageartifacts.CollectAdvisorySecuritySidecarPaths(result.ExampleDir)
 	if err != nil {
 		return nil, err

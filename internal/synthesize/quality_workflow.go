@@ -861,7 +861,7 @@ func requestAttributeEvidences(evidence requestEvidence, name string) []requestA
 }
 
 func equivalentWorkflowRuntime(want, got string) bool {
-	return want == "openapi" && got == "http"
+	return (want == "openapi" || want == "browser") && got == "http"
 }
 
 func bindingExpectedSource(binding PlanBinding) string {

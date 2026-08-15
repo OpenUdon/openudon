@@ -75,15 +75,19 @@ func runAuthor(args []string, in io.Reader, out, errOut io.Writer) int {
 	temperature := fs.Float64("temperature", 0.2, "LLM extraction temperature")
 	var apiSourceFlags repeatedFlag
 	var openAPIFlags repeatedFlag
+	var browserProfileFlags repeatedFlag
+	var browserRegistryFlags repeatedFlag
 	var sourceRootFlags repeatedFlag
 	fs.Var(&apiSourceFlags, "api-source", "Explicit API document KIND:ID=PATH; repeat for multiple sources")
 	fs.Var(&openAPIFlags, "openapi", "OpenAPI shorthand ID=PATH; repeat for multiple sources")
+	fs.Var(&browserProfileFlags, "browser-profile", "Verified browser profile ID=PATH; repeat for multiple sources")
+	fs.Var(&browserRegistryFlags, "browser-registry", "Static Browsertools registry directory or HTTPS URL; repeat for multiple registries")
 	fs.Var(&sourceRootFlags, "source-root", "Explicit bounded local source root; repeat for multiple roots")
 	network := fs.String("network", "", "Remote lookup policy: never, ask, or allow")
 	fs.Usage = func() {
-		fmt.Fprintf(fs.Output(), "Usage: icot --example examples/<name> [--dir examples/<name>] [--force] [--yes] [--print] [--from-example examples/<seed>] [--answers session.yaml] [--api-source KIND:ID=PATH] [--source-root PATH] [--network never|ask|allow] [--prompt-mode full|normal|fast]\n")
+		fmt.Fprintf(fs.Output(), "Usage: icot --example examples/<name> [--dir examples/<name>] [--force] [--yes] [--print] [--from-example examples/<seed>] [--answers session.yaml] [--api-source KIND:ID=PATH] [--browser-profile ID=PATH] [--browser-registry URL] [--source-root PATH] [--network never|ask|allow] [--prompt-mode full|normal|fast]\n")
 		fmt.Fprintf(fs.Output(), "\nInteractively writes project.md and workflows/intent.hcl with the standard OpenUdon authoring sections.\n")
-		fmt.Fprintf(fs.Output(), "It also creates openapi/, workflows/, and expected/ when missing.\n")
+		fmt.Fprintf(fs.Output(), "It also creates selected source directories such as openapi/ and browser-profiles/, plus workflows/ and expected/, when missing.\n")
 		fmt.Fprintf(fs.Output(), "\nPipeline: local source inspection -> active workflow boundary -> dependency frontier rounds -> complete proposal -> explicit approval.\n")
 		fmt.Fprintf(fs.Output(), "\nSubcommands:\n")
 		fmt.Fprintf(fs.Output(), "  icot reconcile --example examples/<name>  Regenerate project.md from workflows/intent.hcl.\n")
@@ -119,6 +123,11 @@ func runAuthor(args []string, in io.Reader, out, errOut io.Writer) int {
 		fmt.Fprintln(errOut, err)
 		return 2
 	}
+	browserSources, err := parseBrowserSourceFlags(browserProfileFlags)
+	if err != nil {
+		fmt.Fprintln(errOut, err)
+		return 2
+	}
 	networkPolicy, err := resolveNetworkPolicy(*network, *agentMode)
 	if err != nil {
 		fmt.Fprintln(errOut, err)
@@ -132,26 +141,28 @@ func runAuthor(args []string, in io.Reader, out, errOut io.Writer) int {
 	}
 	if *agentMode {
 		return runAgentAuthor(agentAuthorOptions{
-			ExampleDir:    exampleDir,
-			DirAlias:      *dirAlias,
-			Force:         *force,
-			Yes:           *yes,
-			FromExample:   *fromExample,
-			AnswersFile:   *answersFile,
-			NoTranscript:  *noTranscript,
-			JSONOutput:    *jsonOutput,
-			ReportPath:    *reportPath,
-			PromptMode:    *promptMode,
-			DefaultMode:   defaultMode,
-			ReviewRepair:  *reviewRepair,
-			NoLLM:         *noLLM,
-			Provider:      *provider,
-			Model:         *model,
-			Temperature:   *temperature,
-			OriginalInput: in,
-			LocalSources:  localSources,
-			SourceRoots:   append([]string(nil), sourceRootFlags...),
-			NetworkPolicy: networkPolicy,
+			ExampleDir:        exampleDir,
+			DirAlias:          *dirAlias,
+			Force:             *force,
+			Yes:               *yes,
+			FromExample:       *fromExample,
+			AnswersFile:       *answersFile,
+			NoTranscript:      *noTranscript,
+			JSONOutput:        *jsonOutput,
+			ReportPath:        *reportPath,
+			PromptMode:        *promptMode,
+			DefaultMode:       defaultMode,
+			ReviewRepair:      *reviewRepair,
+			NoLLM:             *noLLM,
+			Provider:          *provider,
+			Model:             *model,
+			Temperature:       *temperature,
+			OriginalInput:     in,
+			LocalSources:      localSources,
+			BrowserSources:    browserSources,
+			BrowserRegistries: append([]string(nil), browserRegistryFlags...),
+			SourceRoots:       append([]string(nil), sourceRootFlags...),
+			NetworkPolicy:     networkPolicy,
 		}, out, errOut)
 	}
 	projectPath := filepath.Join(exampleDir, "project.md")
@@ -193,7 +204,7 @@ func runAuthor(args []string, in io.Reader, out, errOut io.Writer) int {
 	var artifacts elicitor.Artifacts
 	complete := completeSession(seed)
 	if complete {
-		discovery, discoveryErr := elicitor.DiscoverAuthoringSources(context.Background(), exampleDir, projectwizard.Render(seed.Project), localSources, authorSourceRoots)
+		discovery, discoveryErr := elicitor.DiscoverAuthoringSourcesWithBrowser(context.Background(), exampleDir, projectwizard.Render(seed.Project), localSources, authorSourceRoots, browserSources, time.Now().UTC())
 		if discoveryErr != nil {
 			fmt.Fprintln(errOut, discoveryErr)
 			return 1
@@ -202,25 +213,43 @@ func runAuthor(args []string, in io.Reader, out, errOut io.Writer) int {
 			fmt.Fprintln(errOut, "local source discovery is incomplete; narrow --source-root or declare ambiguous files with --api-source KIND:ID=PATH")
 			return 1
 		}
-		seed.SourcePlan = elicitor.SyncSelectedSourcePlans(seed, discovery.Plans, localSources)
+		if len(discovery.BrowserReport.Truncated) > 0 || len(discovery.BrowserReport.Ambiguous) > 0 {
+			fmt.Fprintln(errOut, "browser source discovery is incomplete; narrow --source-root or declare the profile with --browser-profile ID=PATH")
+			return 1
+		}
+		if len(browserRegistryFlags) > 0 && (len(discovery.Docs) == 0 || seed.BrowserRoute == "browser" || sessionUsesBrowserRegistry(seed)) {
+			registryDiscovery, registryErr := elicitor.DiscoverBrowserRegistrySources(context.Background(), browserRegistryFlags, seed.Boundary.Outcome, networkPolicy, browserRegistryLookupApproved(seed, networkPolicy), time.Now().UTC())
+			if registryErr != nil {
+				fmt.Fprintln(errOut, registryErr)
+				return 1
+			}
+			discovery = elicitor.MergeBrowserRegistrySources(discovery, registryDiscovery)
+			if sessionUsesBrowserRegistry(seed) && len(registryDiscovery.Plans) == 0 {
+				fmt.Fprintln(errOut, "selected browser registry profile could not be revalidated; use --network allow for HTTPS registries or provide the profile with --browser-profile")
+				return 1
+			}
+		}
+		seed.SourcePlan = elicitor.SyncSelectedSourcePlansWithBrowser(seed, discovery.Plans, localSources, browserSources)
 	}
 	if complete && (source != seedSourceDraft || *printOnly) {
 		artifacts, err = elicitor.RenderArtifacts(seed)
 	} else {
 		artifacts, err = elicitor.Run(context.Background(), input, out, seed, elicitor.Options{
-			ExampleDir:     exampleDir,
-			NoLLM:          *noLLM || !usingLLM,
-			Extractor:      extractor,
-			DraftPath:      draftPath,
-			TranscriptPath: transcriptPath,
-			DisableAIDraft: source == seedSourceDraft,
-			VerifyOnly:     complete && source == seedSourceDraft,
-			DefaultMode:    defaultMode,
-			ReviewRepair:   *reviewRepair,
-			LocalSources:   localSources,
-			SourceRoots:    authorSourceRoots,
-			NetworkPolicy:  networkPolicy,
-			AutoApprove:    *yes,
+			ExampleDir:        exampleDir,
+			NoLLM:             *noLLM || !usingLLM,
+			Extractor:         extractor,
+			DraftPath:         draftPath,
+			TranscriptPath:    transcriptPath,
+			DisableAIDraft:    source == seedSourceDraft,
+			VerifyOnly:        complete && source == seedSourceDraft,
+			DefaultMode:       defaultMode,
+			ReviewRepair:      *reviewRepair,
+			LocalSources:      localSources,
+			BrowserSources:    browserSources,
+			BrowserRegistries: append([]string(nil), browserRegistryFlags...),
+			SourceRoots:       authorSourceRoots,
+			NetworkPolicy:     networkPolicy,
+			AutoApprove:       *yes,
 		})
 	}
 	if *printOnly {
@@ -306,26 +335,28 @@ func confirmProposalApproval(in io.Reader, out io.Writer) (bool, error) {
 }
 
 type agentAuthorOptions struct {
-	ExampleDir    string
-	DirAlias      string
-	Force         bool
-	Yes           bool
-	FromExample   string
-	AnswersFile   string
-	NoTranscript  bool
-	JSONOutput    bool
-	ReportPath    string
-	PromptMode    string
-	DefaultMode   authoring.PromptDefaultMode
-	ReviewRepair  bool
-	NoLLM         bool
-	Provider      string
-	Model         string
-	Temperature   float64
-	OriginalInput io.Reader
-	LocalSources  []apitools.LocalSource
-	SourceRoots   []string
-	NetworkPolicy string
+	ExampleDir        string
+	DirAlias          string
+	Force             bool
+	Yes               bool
+	FromExample       string
+	AnswersFile       string
+	NoTranscript      bool
+	JSONOutput        bool
+	ReportPath        string
+	PromptMode        string
+	DefaultMode       authoring.PromptDefaultMode
+	ReviewRepair      bool
+	NoLLM             bool
+	Provider          string
+	Model             string
+	Temperature       float64
+	OriginalInput     io.Reader
+	LocalSources      []apitools.LocalSource
+	BrowserSources    []elicitor.BrowserSourceInput
+	BrowserRegistries []string
+	SourceRoots       []string
+	NetworkPolicy     string
 }
 
 func runAgentAuthor(opts agentAuthorOptions, out, errOut io.Writer) int {
@@ -356,7 +387,7 @@ func runAgentAuthor(opts agentAuthorOptions, out, errOut io.Writer) int {
 	if strings.TrimSpace(opts.FromExample) != "" && filepath.Clean(opts.FromExample) != filepath.Clean(exampleDir) {
 		discoveryRoots = appendSeedSourceRoots(discoveryRoots, opts.FromExample)
 	}
-	discovery, discoveryErr := elicitor.DiscoverAuthoringSources(context.Background(), exampleDir, projectText, opts.LocalSources, discoveryRoots)
+	discovery, discoveryErr := elicitor.DiscoverAuthoringSourcesWithBrowser(context.Background(), exampleDir, projectText, opts.LocalSources, discoveryRoots, opts.BrowserSources, time.Now().UTC())
 	if discoveryErr != nil {
 		report.Status = statusFail
 		report.Error = discoveryErr.Error()
@@ -365,8 +396,28 @@ func runAgentAuthor(opts agentAuthorOptions, out, errOut io.Writer) int {
 		fmt.Fprintln(errOut, discoveryErr)
 		return 1
 	}
+	registryDiscovery := elicitor.BrowserRegistryDiscovery{Candidates: []elicitor.BrowserRegistryCandidate{}, Blockers: []elicitor.BrowserRegistryBlocker{}}
+	if len(opts.BrowserRegistries) > 0 && (len(discovery.Docs) == 0 || seed.BrowserRoute == "browser") {
+		registryDiscovery, err = elicitor.DiscoverBrowserRegistrySources(context.Background(), opts.BrowserRegistries, firstNonEmpty(seed.Boundary.Outcome, projectText), opts.NetworkPolicy, opts.NetworkPolicy == "allow", time.Now().UTC())
+		if err != nil {
+			report.Status = statusFail
+			report.Error = err.Error()
+			report.FailureFamily = failureMissingAPISource
+			_ = writeAuthorReport(report, opts, out)
+			fmt.Fprintln(errOut, err)
+			return 1
+		}
+		discovery = elicitor.MergeBrowserRegistrySources(discovery, registryDiscovery)
+	}
 	docs := discovery.Docs
-	seed.SourcePlan = elicitor.SyncSelectedSourcePlans(seed, discovery.Plans, opts.LocalSources)
+	seed.SourcePlan = elicitor.SyncSelectedSourcePlansWithBrowser(seed, discovery.Plans, opts.LocalSources, opts.BrowserSources)
+	if seed.Interview.Metadata == nil {
+		seed.Interview.Metadata = map[string]string{}
+	}
+	seed.Interview.Metadata["network_policy"] = opts.NetworkPolicy
+	if len(opts.BrowserRegistries) > 0 {
+		seed.Interview.Metadata["browser_registry_configured"] = "true"
+	}
 	if len(docs) == 0 && seed.Intent.RequiresOpenAPI() {
 		remote, remoteErr := elicitor.DiscoverRemoteSourceHints(context.Background(), seed.Boundary.Outcome, elicitor.RemoteSourceLookupOptions{Policy: opts.NetworkPolicy, Approved: opts.NetworkPolicy == "allow"})
 		if remoteErr != nil {
@@ -399,9 +450,26 @@ func runAgentAuthor(opts agentAuthorOptions, out, errOut io.Writer) int {
 	report.SourceRejected = discovery.Report.Rejected
 	report.SourceAmbiguous = discovery.Report.Ambiguous
 	report.SourceDiagnostics = discovery.Report.Diagnostics
+	report.BrowserSourceCandidates = discovery.BrowserReport.Candidates
+	report.BrowserSourceRejected = discovery.BrowserReport.Rejected
+	report.BrowserSourceAmbiguous = discovery.BrowserReport.Ambiguous
+	report.BrowserSourceTruncated = discovery.BrowserReport.Truncated
+	report.BrowserRegistryCandidates = registryDiscovery.Candidates
+	report.BrowserRegistryBlockers = registryDiscovery.Blockers
 	report.ProposedFileActions = proposedAuthorFileActions(exampleDir, seed, topBlockingReadinessIssue(issues) == nil)
 	if discovery.Report.Truncated || len(discovery.Report.Ambiguous) > 0 {
 		issue := elicitor.ReadinessIssue{Code: "source_discovery_blocked", Severity: "blocking", Slot: "source.selection", Message: "Local source discovery is incomplete; narrow roots or declare ambiguous documents with --api-source KIND:ID=PATH."}
+		report.ReadinessIssues = append([]elicitor.ReadinessIssue{issue}, report.ReadinessIssues...)
+		report.TopIssue = &issue
+		report.FailureFamily = failureMissingAPISource
+		if err := writeAuthorReport(report, opts, out); err != nil {
+			fmt.Fprintln(errOut, err)
+			return 1
+		}
+		return 0
+	}
+	if len(discovery.BrowserReport.Truncated) > 0 || len(discovery.BrowserReport.Ambiguous) > 0 {
+		issue := elicitor.ReadinessIssue{Code: "browser_source_discovery_blocked", Severity: "blocking", Slot: "source.browser", Message: "Browser source discovery is incomplete; narrow roots or declare a verified profile with --browser-profile ID=PATH."}
 		report.ReadinessIssues = append([]elicitor.ReadinessIssue{issue}, report.ReadinessIssues...)
 		report.TopIssue = &issue
 		report.FailureFamily = failureMissingAPISource
@@ -501,6 +569,12 @@ func proposedAuthorFileActions(exampleDir string, session elicitor.Session, comp
 	for _, source := range session.SourcePlan {
 		actions = append(actions, elicitor.FileAction{Action: "copy", Path: filepath.Join(exampleDir, filepath.FromSlash(source.TargetPath)), Reason: source.Kind + " source " + source.ID + " with SHA-256 " + source.SHA256})
 	}
+	for _, source := range session.SourcePlan {
+		if source.Kind == "browser-profile" {
+			actions = append(actions, elicitor.FileAction{Action: "write", Path: filepath.Join(exampleDir, ".icot", "browser-sources.json"), Reason: "record safe browser origin, action, digest, lifecycle, session-posture, and approval evidence"})
+			break
+		}
+	}
 	if complete {
 		actions = append(actions,
 			elicitor.FileAction{Action: "remove_if_present", Path: filepath.Join(exampleDir, "workflows", "intent.draft.hcl"), Reason: "promote the completed draft"},
@@ -597,6 +671,25 @@ func parseLocalSourceFlags(apiSources, openAPIs []string) ([]apitools.LocalSourc
 	return out, nil
 }
 
+func parseBrowserSourceFlags(values []string) ([]elicitor.BrowserSourceInput, error) {
+	out := make([]elicitor.BrowserSourceInput, 0, len(values))
+	seen := map[string]bool{}
+	for _, value := range values {
+		idAndPath := strings.SplitN(value, "=", 2)
+		if len(idAndPath) != 2 || strings.TrimSpace(idAndPath[0]) == "" || strings.TrimSpace(idAndPath[1]) == "" {
+			return nil, fmt.Errorf("invalid --browser-profile %q; use ID=PATH", value)
+		}
+		source := elicitor.BrowserSourceInput{ID: strings.TrimSpace(idAndPath[0]), Path: strings.TrimSpace(idAndPath[1])}
+		key := source.ID + "\x00" + filepath.Clean(source.Path)
+		if seen[key] {
+			continue
+		}
+		seen[key] = true
+		out = append(out, source)
+	}
+	return out, nil
+}
+
 func resolveNetworkPolicy(value string, agent bool) (string, error) {
 	value = strings.ToLower(strings.TrimSpace(value))
 	if value == "" {
@@ -617,13 +710,27 @@ func resolveNetworkPolicy(value string, agent bool) (string, error) {
 }
 
 func appendSeedSourceRoots(roots []string, seedDir string) []string {
-	for _, dir := range []string{"openapi", "google-discovery", "discovery", "aws-smithy", "asyncapi", "graphql", "openrpc", "grpc-protobuf", "odata"} {
+	for _, dir := range []string{"openapi", "google-discovery", "discovery", "aws-smithy", "asyncapi", "graphql", "openrpc", "grpc-protobuf", "odata", "browser-profiles", "capability-bundles"} {
 		path := filepath.Join(seedDir, dir)
 		if info, err := os.Lstat(path); err == nil && info.IsDir() && info.Mode()&os.ModeSymlink == 0 {
 			roots = append(roots, path)
 		}
 	}
 	return roots
+}
+
+func sessionUsesBrowserRegistry(session elicitor.Session) bool {
+	for _, source := range session.SourcePlan {
+		if source.Kind == "browser-profile" && strings.TrimSpace(source.Registry) != "" {
+			return true
+		}
+	}
+	return false
+}
+
+func browserRegistryLookupApproved(session elicitor.Session, networkPolicy string) bool {
+	return strings.EqualFold(strings.TrimSpace(networkPolicy), "allow") ||
+		strings.EqualFold(strings.TrimSpace(session.Interview.Metadata["browser_registry_lookup_decision"]), "allow")
 }
 
 func runReconcile(args []string, in io.Reader, out, errOut io.Writer) int {
@@ -1260,7 +1367,7 @@ func copySeedSourceArtifacts(fromExample, exampleDir string, force bool) error {
 	if seedDir == "" || filepath.Clean(seedDir) == filepath.Clean(exampleDir) {
 		return nil
 	}
-	for _, dir := range []string{"openapi", "google-discovery", "aws-smithy", "asyncapi", "graphql", "openrpc", "grpc-protobuf", "odata"} {
+	for _, dir := range []string{"openapi", "google-discovery", "aws-smithy", "asyncapi", "graphql", "openrpc", "grpc-protobuf", "odata", "browser-profiles", "capability-bundles"} {
 		if err := copySeedArtifactDir(filepath.Join(seedDir, dir), filepath.Join(exampleDir, dir), force); err != nil {
 			return err
 		}
@@ -1383,6 +1490,15 @@ func writeApprovedArtifacts(exampleDir string, artifacts elicitor.Artifacts, for
 		intentPath = filepath.Join(exampleDir, "workflows", "intent.draft.hcl")
 	}
 	files := []generatedFile{{Path: projectPath, Content: artifacts.ProjectMD}, {Path: intentPath, Content: artifacts.IntentHCL}}
+	browserMetadata, hasBrowserSources, err := browserSourceMetadataJSON(artifacts.Session)
+	if err != nil {
+		return err
+	}
+	if hasBrowserSources {
+		files = append(files, generatedFile{Path: filepath.Join(exampleDir, ".icot", "browser-sources.json"), Content: browserMetadata, AllowOverwrite: true})
+	} else if !artifacts.Incomplete {
+		files = append(files, generatedFile{Path: filepath.Join(exampleDir, ".icot", "browser-sources.json"), Remove: true, AllowOverwrite: true})
+	}
 	if artifacts.Incomplete {
 		sessionData, err := json.MarshalIndent(artifacts.Session, "", "  ")
 		if err != nil {
@@ -1412,7 +1528,7 @@ func writeApprovedArtifacts(exampleDir string, artifacts elicitor.Artifacts, for
 		if err != nil {
 			return err
 		}
-		data, err := os.ReadFile(source.SourcePath)
+		data, err := elicitor.SourceMaterializationContent(source, time.Now().UTC())
 		if err != nil {
 			return fmt.Errorf("read selected source %s: %w", source.SourcePath, err)
 		}
@@ -1443,6 +1559,55 @@ func writeApprovedArtifacts(exampleDir string, artifacts elicitor.Artifacts, for
 		return err
 	}
 	return nil
+}
+
+func browserSourceMetadataJSON(session elicitor.Session) (string, bool, error) {
+	type reviewedSource struct {
+		ID                 string   `json:"id"`
+		Release            string   `json:"release,omitempty"`
+		TargetPath         string   `json:"target_path"`
+		SHA256             string   `json:"sha256"`
+		SourceSHA256       string   `json:"source_sha256,omitempty"`
+		Title              string   `json:"title,omitempty"`
+		Actions            []string `json:"actions"`
+		Origins            []string `json:"origins"`
+		Lifecycle          string   `json:"lifecycle"`
+		ExpiresAt          string   `json:"expires_at,omitempty"`
+		LoginStateRequired bool     `json:"login_state_required,omitempty"`
+		Provenance         string   `json:"provenance"`
+		Registry           string   `json:"registry,omitempty"`
+		Coordinate         string   `json:"coordinate,omitempty"`
+	}
+	var sources []reviewedSource
+	for _, source := range session.SourcePlan {
+		if source.Kind != "browser-profile" {
+			continue
+		}
+		sources = append(sources, reviewedSource{
+			ID: source.ID, Release: source.Release, TargetPath: source.TargetPath, SHA256: source.SHA256,
+			SourceSHA256: source.SourceSHA256, Title: source.Title, Actions: append([]string(nil), source.Actions...),
+			Origins: append([]string(nil), source.Origins...), Lifecycle: source.Lifecycle, ExpiresAt: source.ExpiresAt,
+			LoginStateRequired: source.LoginStateRequired, Provenance: source.Provenance,
+			Registry: source.Registry, Coordinate: source.RegistryCoordinate,
+		})
+	}
+	if len(sources) == 0 {
+		return "", false, nil
+	}
+	data, err := json.MarshalIndent(struct {
+		Version           string           `json:"version"`
+		Route             string           `json:"route"`
+		SessionPosture    string           `json:"session_posture"`
+		MutationApprovals []string         `json:"mutation_approvals,omitempty"`
+		Sources           []reviewedSource `json:"sources"`
+	}{
+		Version: "openudon.browser-source-review.v1", Route: session.BrowserRoute,
+		SessionPosture: session.BrowserSession, MutationApprovals: append([]string(nil), session.BrowserApprovals...), Sources: sources,
+	}, "", "  ")
+	if err != nil {
+		return "", false, err
+	}
+	return string(append(data, '\n')), true, nil
 }
 
 func safeExampleTarget(exampleDir, relative string) (string, error) {

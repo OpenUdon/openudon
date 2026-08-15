@@ -65,6 +65,27 @@ intent:
   outputs:
     - name: report
       from: render_report.received_body
+source_plan:
+  - kind: browser-profile
+    source_kind: capability_bundle
+    id: status
+    release: 1.0.0
+    source_path: https://profiles.example.org/blobs/sha256/...
+    target_path: browser-profiles/status.json
+    sha256: 0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef
+    source_sha256: abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789
+    title: Reviewed Status UI
+    operation_count: 1
+    actions: [read_status]
+    origins: [https://status.example.org]
+    lifecycle: active
+    expires_at: 2026-09-14T00:00:00Z
+    provenance: reviewed registry contribution
+    registry: https://profiles.example.org/
+    registry_coordinate: example/status@1.0.0
+browser_route: browser
+browser_session_posture: none
+browser_mutation_approvals: []
 fallback: Stop if geocoding or weather lookup fails.
 fallback_set: true
 side_effect_scope: read-only
@@ -98,6 +119,17 @@ candidate_workflows:
   Sources are not copied until the proposal is approved. Identical entries for
   one target are reused; conflicting selected digests for one target are
   rejected before transaction staging.
+- Browser source entries additionally bind the package-local profile digest to
+  reviewed action names, origins, active lifecycle/expiry, login-state
+  requirement, provenance, and optional immutable registry coordinate. The
+  source bundle digest and materialized profile digest are distinct when a
+  capability bundle is used.
+- `browser_route` is `browser` only after an explicit or fallback route
+  selection. `browser_session_posture` is `none` or
+  `opaque-runtime-binding-required`; it never stores a browser session value.
+  `browser_mutation_approvals` contains exact workflow step names, not a global
+  bypass. Separate interview metadata records API remote-lookup and static
+  browser-registry lookup decisions.
 - `intent`, symbolic credential bindings, `fallback`, and `side_effect_scope`
   retain their existing OpenUdon meanings. Never store credential values.
 

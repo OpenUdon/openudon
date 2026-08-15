@@ -110,6 +110,20 @@ func TestLoadSeedSessionUsesReferenceIntent(t *testing.T) {
 	}
 }
 
+func TestBrowserRegistryLookupApprovalUsesSavedDecision(t *testing.T) {
+	session := elicitor.Session{}
+	session.Interview.Metadata = map[string]string{"browser_registry_lookup_decision": "allow"}
+	if !browserRegistryLookupApproved(session, "ask") {
+		t.Fatal("saved browser registry approval was ignored under ask policy")
+	}
+	if browserRegistryLookupApproved(elicitor.Session{}, "ask") {
+		t.Fatal("ask policy without a saved decision was approved")
+	}
+	if !browserRegistryLookupApproved(elicitor.Session{}, "allow") {
+		t.Fatal("allow policy was not approved")
+	}
+}
+
 func TestAgentJSONNeedsInputWithoutWriting(t *testing.T) {
 	example := filepath.Join(t.TempDir(), "agent")
 	var stdout, stderr bytes.Buffer
@@ -1492,6 +1506,15 @@ func TestLocalSourceFlagsAndNetworkPolicy(t *testing.T) {
 			t.Fatalf("parseLocalSourceFlags(%q) succeeded", invalid)
 		}
 	}
+	browserSources, err := parseBrowserSourceFlags([]string{"status=/tmp/status.json", "status=/tmp/status.json"})
+	if err != nil || len(browserSources) != 1 || browserSources[0].ID != "status" || browserSources[0].Path != "/tmp/status.json" {
+		t.Fatalf("browser sources = %#v, %v", browserSources, err)
+	}
+	for _, invalid := range []string{"status", "=/tmp/status.json", "status="} {
+		if _, err := parseBrowserSourceFlags([]string{invalid}); err == nil {
+			t.Fatalf("parseBrowserSourceFlags(%q) succeeded", invalid)
+		}
+	}
 	if got, err := resolveNetworkPolicy("", false); err != nil || got != "ask" {
 		t.Fatalf("interactive default = %q, %v", got, err)
 	}
@@ -1500,6 +1523,48 @@ func TestLocalSourceFlagsAndNetworkPolicy(t *testing.T) {
 	}
 	if got, err := resolveNetworkPolicy("allow", true); err != nil || got != "allow" {
 		t.Fatalf("agent allow policy = %q, %v", got, err)
+	}
+}
+
+func TestApprovedBrowserSourceStagesProfileAndReviewMetadata(t *testing.T) {
+	example := filepath.Join(t.TempDir(), "browser-package")
+	profileData := []byte(`{"profile":"uws.browser.1.5","info":{"title":"Status UI","origin":"https://example.test"},"observationKind":"accessibility_snapshot","evidence":{"learnedAt":"2026-08-15T00:00:00Z","source":"reviewed_fixture"},"confidence":"high","expiresAfter":"P100Y","verification":{"lastVerifiedAt":"2026-08-15T00:00:00Z","successfulRuns":2},"actions":{"read_status":{"sequence":[{"navigate":"/status"}],"outputs":{"status":{"type":"string","source":"a11y","locator":{"role":"status","name":"Ready"}}},"sideEffects":["read_only"],"confirmationPolicy":{"required":false}}}}`)
+	digest := sha256.Sum256(profileData)
+	intent := &rollout.Intent{
+		Source: "browser-profiles/status.json", Workflow: &rollout.WorkflowMeta{Name: "browser_status", Description: "Read browser status"},
+		Steps:   []*rollout.Step{{Name: "read", Type: "browser", Source: "browser-profiles/status.json", Operation: "read_status"}},
+		Outputs: []*rollout.Output{{Name: "status", From: "read.received_body.status"}},
+	}
+	intentHCL, err := runner.RenderIntentHCL(intent)
+	if err != nil {
+		t.Fatal(err)
+	}
+	session := elicitor.Session{
+		Version: elicitor.SessionVersion, Intent: *intent, BrowserRoute: "browser", BrowserSession: "none",
+		SourcePlan: []elicitor.SourceMaterialization{{
+			Kind: "browser-profile", SourceKind: "capability_bundle", ID: "status", SourcePath: "https://registry.example.test/blobs/status",
+			TargetPath: "browser-profiles/status.json", SHA256: hex.EncodeToString(digest[:]), SourceSHA256: strings.Repeat("a", 64),
+			Title: "Status UI", OperationCount: 1, Actions: []string{"read_status"}, Origins: []string{"https://example.test"}, Lifecycle: "active",
+			ExpiresAt: "2126-08-15T00:00:00Z", Provenance: "static registry fixture", Registry: "https://registry.example.test", RegistryCoordinate: "example/status@1.0.0",
+			MaterializedContent: profileData,
+		}},
+	}
+	artifacts := elicitor.Artifacts{ProjectMD: "# Browser Status\n", IntentHCL: intentHCL, Session: session}
+	if err := writeApprovedArtifacts(example, artifacts, false, true, strings.NewReader(""), io.Discard); err != nil {
+		t.Fatal(err)
+	}
+	gotProfile, err := os.ReadFile(filepath.Join(example, "browser-profiles", "status.json"))
+	if err != nil || !bytes.Equal(gotProfile, profileData) {
+		t.Fatalf("staged browser profile = %q, %v", gotProfile, err)
+	}
+	metadata, err := os.ReadFile(filepath.Join(example, ".icot", "browser-sources.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, want := range []string{`"version": "openudon.browser-source-review.v1"`, `"route": "browser"`, `"coordinate": "example/status@1.0.0"`, `"read_status"`} {
+		if !strings.Contains(string(metadata), want) {
+			t.Fatalf("browser review metadata missing %q:\n%s", want, metadata)
+		}
 	}
 }
 

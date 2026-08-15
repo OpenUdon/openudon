@@ -6,7 +6,8 @@ when to stop.
 
 `go run ./cmd/icot --example examples/<name>` is an optional adaptive authoring tool. It maps a broad
 request into one active workflow boundary, keeps later workflows as unnumbered candidates, inspects
-caller-scoped local API source metadata, and asks the full dependency-ready frontier each round.
+caller-scoped local API and Browsertools source metadata, and asks the full dependency-ready frontier
+each round.
 `--no-llm` disables extraction without replacing that interview with a fixed prompt sequence.
 `project.md` remains the OpenUdon policy/prose artifact, while an approved
 `workflows/intent.hcl` is the structured saved contract that `openudon build` consumes next.
@@ -38,14 +39,22 @@ and accepts them automatically, but still asks for missing, low-confidence, conf
 answers. `fast` silently accepts safe defaults while preserving transcript and unified evidence.
 The final proposal approval is forced in all modes; `--yes` is the explicit noninteractive approval.
 
-For SaaS briefs, iCoT checks existing sources, explicit `--api-source`/`--openapi` documents, and
-explicit `--source-root` paths before questioning. Bounded apitools discovery validates
+For SaaS briefs, iCoT checks existing sources, explicit `--api-source`/`--openapi` documents,
+explicit `--browser-profile ID=PATH` inputs, and explicit `--source-root` paths before questioning.
+Bounded apitools discovery validates
 OpenAPI/Swagger, Google Discovery, AWS Smithy, AsyncAPI, GraphQL, OpenRPC, gRPC/protobuf, and OData;
 rejects symlinks; deduplicates by digest; and treats ambiguous JSON/XML as a blocker until its kind is
 declared. It never copies a source before proposal approval. If local evidence is exhausted, an
 approved remote lookup is limited to curated apitools references plus one APIs.guru request and
 returns metadata candidates rather than materializing files. Protocol execution remains in the
 trusted executor boundary.
+
+When no adequate API operation covers the active outcome, iCoT can select a verified
+`uws.browser.1.5` profile from Browsertools. `--browser-registry PATH|HTTPS_URL` searches a static,
+read-only catalog; local catalogs work with `--network never`, while HTTPS catalogs require their own
+network approval, separate from API discovery. The selected action, origin, digest, lifecycle,
+runtime session posture, and any operation-specific mutation approval are shown before writing.
+OpenUdon never stores browser sessions, drivers, credentials, or raw captures.
 
 iCoT defaults to the local `copilot-api` gateway, using `COPILOT_API_BASE_URL` when set and
 `http://localhost:4141` otherwise. Use `OPENUDON_LLM_PROVIDER` and `OPENUDON_LLM_MODEL` for
@@ -64,7 +73,7 @@ Use these sections for new projects:
 - External Systems and API Sources: APIs/services involved, API source files or URLs, or `OpenAPI: none required`.
 - Data Flow: important field mappings between steps, especially when one API call feeds another.
 - Function Contracts: `fnct` input/output contracts and side effects.
-- Runtime Policy: allowed runtimes such as `openapi`, `http`, `fnct`, `cmd`, or `ssh`.
+- Runtime Policy: allowed runtimes such as `openapi`, `http`, `browser`, `fnct`, `cmd`, or `ssh`.
 - Credentials and Secrets: credential binding names only; never secret values.
 - Safety and Approval Boundary: what may be generated, validated, or executed.
 - Fallback Behavior: when OpenUdon should stop instead of guessing.
@@ -92,6 +101,11 @@ requires `approved_for_production`.
 OpenUdon should use API source documents for API operations when a matching document and operation are
 available. The source should provide method, path, schemas, server, and security metadata.
 
+OpenUdon should use the `browser` runtime only as an explicit fallback when no adequate reviewed API
+operation covers the active capability. A browser step must name an action declared by a packaged,
+active Browsertools profile, map all required parameters, and expose its session and side-effect
+approval posture. Udon resolves the operator-owned session binding and executes the action.
+
 OpenUdon should use non-OpenAPI runtimes only when the project explicitly allows them:
 
 - `fnct`: trusted local functions, transforms, renderers, adapters, or private glue.
@@ -99,6 +113,7 @@ OpenUdon should use non-OpenAPI runtimes only when the project explicitly allows
 - `ssh`: approved remote host operations. Use only with an explicit allow policy.
 - `http`: API-source-bound HTTP behavior when a reviewed OpenAPI, Google Discovery, or AWS Smithy
   source is available.
+- `browser`: a Browsertools-profile-bound UI action used only after the API-first capability check.
 
 Do not ask OpenUdon to invent native `smtp`, `sql`, or `llm` semantics unless the project maps that
 behavior to an approved `fnct` or a runtime profile implemented by `udon`.

@@ -11,6 +11,9 @@ quality expectations.
 
 - OpenAPI steps receive request fields from literals, workflow inputs, credential bindings, or prior
   step outputs.
+- Browser steps receive action parameters from workflow inputs or prior step outputs. Every required
+  field must exist in the selected Browsertools profile; OpenUdon writes these mappings as the UWS
+  browser request body and never invents an action or output.
 - iCoT request-mapping prompts show qualified request fields such as `path.ticketId`,
   `query.limit`, `header.Authorization`, and `body.raw` when section context matters. The persisted
   intent keeps the operation's field key after validation, while unknown or ambiguous model-suggested
@@ -79,6 +82,11 @@ When OpenAPI response schemas expose concrete object properties, response paths 
 properties. A path such as `get_ticket.received_body.requesterEmail` fails
 `intent.data_flow.response_paths` if the selected operation only documents `id` and `severity`.
 Opaque or missing response schemas produce a warning instead of a failure.
+
+Browser profile output declarations provide the equivalent response evidence for browser actions.
+For example, `read_status.received_body.status` is valid only when the selected profile's
+`read_status` action declares the `status` output. The same response-path quality gate rejects
+invented browser output fields.
 
 ## Structural Results
 

@@ -1,0 +1,12 @@
+{
+  "mode": "strict",
+  "notes": [
+    "The browser fallback is allowed only because no adequate API capability exists and the checked-in profile is verified and read-only."
+  ],
+  "max_blocking": 0,
+  "seed_build": {
+    "expected": "pass",
+    "class": "strict-positive",
+    "reason": "A verified UI-only profile must seed, author, package, and build as UWS 1.5 without browser session or driver artifacts."
+  }
+}

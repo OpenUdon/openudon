@@ -3,6 +3,7 @@ package projectwizard
 import (
 	"fmt"
 	"io"
+	"path/filepath"
 	"regexp"
 	"strings"
 
@@ -119,7 +120,11 @@ func Render(answers Answers) string {
 	b.WriteByte('\n')
 
 	b.WriteString("## Runtime Policy\n\n")
-	b.WriteString("- Allowed runtimes: `openapi`, `http`, `fnct`.\n")
+	allowedRuntimes := "`openapi`, `http`, `fnct`"
+	if strings.Contains(filepath.ToSlash(answers.OpenAPI), "browser-profiles/") {
+		allowedRuntimes += ", `browser`"
+	}
+	b.WriteString("- Allowed runtimes: " + allowedRuntimes + ".\n")
 	if answers.CmdApproved {
 		b.WriteString("- `cmd` is explicitly approved for this project.\n")
 	} else {

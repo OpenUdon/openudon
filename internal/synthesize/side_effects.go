@@ -4,6 +4,7 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/OpenUdon/browsertools/profile"
 	"github.com/OpenUdon/openudon/internal/openapidisco"
 	rollout "github.com/OpenUdon/openudon/internal/workflowintent"
 )
@@ -191,6 +192,43 @@ func sideEffectProfileForOpenAPI(policy projectPolicy, intent *rollout.Intent, c
 	profile.Reasons = sortedUnique(profile.Reasons)
 	profile.Effects = sortedUniqueSideEffectEvidence(profile.Effects)
 	return profile
+}
+
+func sideEffectProfileForSources(policy projectPolicy, intent *rollout.Intent, candidates []openapidisco.Candidate, primary, exampleDir string) sideEffectProfile {
+	result := sideEffectProfileForOpenAPI(policy, intent, candidates, primary)
+	registry, err := newLocalAPISourceRegistry(exampleDir, candidates)
+	if err != nil {
+		return result
+	}
+	walkIntentSteps(intentSteps(intent), func(step *rollout.Step) {
+		if step == nil || !strings.EqualFold(strings.TrimSpace(step.Type), "browser") {
+			return
+		}
+		ref := intentStepOpenAPIPath(intent, step, primary)
+		entry, ok := registry.get(ref)
+		if !ok || entry.Err != nil || entry.Type != "browser-profile" {
+			return
+		}
+		action, ok := entry.BrowserActions[strings.TrimSpace(step.Operation)]
+		if !ok {
+			return
+		}
+		name := firstNonEmpty(strings.TrimSpace(step.Name), "<unnamed>")
+		for _, effect := range action.SideEffects {
+			if effect == profile.SideEffectReadOnly {
+				continue
+			}
+			result.SideEffectful = true
+			risk := "browser action declares " + string(effect)
+			result.Reasons = append(result.Reasons, name+" "+risk)
+			result.Effects = append(result.Effects, sideEffectEvidence{
+				Step: name, Kind: "browser", Source: ref, Operation: strings.TrimSpace(step.Operation), Risk: risk,
+			})
+		}
+	})
+	result.Reasons = sortedUnique(result.Reasons)
+	result.Effects = sortedUniqueSideEffectEvidence(result.Effects)
+	return result
 }
 
 func sideEffectsNone(value string) bool {

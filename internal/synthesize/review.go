@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"github.com/OpenUdon/openudon/internal/authoring"
+	"github.com/OpenUdon/openudon/internal/packageartifacts"
 	rollout "github.com/OpenUdon/openudon/internal/workflowintent"
 )
 
@@ -25,7 +26,7 @@ func writeReview(result Result, provider, model string) error {
 	if parsed, err := rollout.ParseIntentFile(result.IntentPath); err == nil {
 		intent = parsed
 	}
-	profile := sideEffectProfileForOpenAPI(policy, intent, result.OpenAPICandidates, result.PrimaryOpenAPI)
+	profile := sideEffectProfileForSources(policy, intent, result.OpenAPICandidates, result.PrimaryOpenAPI, result.ExampleDir)
 	if err := writeReviewHandoff(result, policy, profile); err != nil {
 		return err
 	}
@@ -43,7 +44,7 @@ func reviewMarkdown(result Result, provider, model string) string {
 	if parsed, err := rollout.ParseIntentFile(result.IntentPath); err == nil {
 		intent = parsed
 	}
-	profile := sideEffectProfileForOpenAPI(policy, intent, result.OpenAPICandidates, result.PrimaryOpenAPI)
+	profile := sideEffectProfileForSources(policy, intent, result.OpenAPICandidates, result.PrimaryOpenAPI, result.ExampleDir)
 	declaredCredentials := credentialBindingNames(policy)
 	expectedPlan := readWorkflowPlan(result.PlanJSONPath)
 	expectedCredentials := credentialNamesFromPlan(expectedPlan)
@@ -58,6 +59,14 @@ func reviewMarkdown(result Result, provider, model string) string {
 	fmt.Fprintf(&b, "- Discovery report: `%s`\n", relOrAbs(result.ExampleDir, result.DiscoveryJSONPath))
 	fmt.Fprintf(&b, "- Refinement report: `%s`\n", relOrAbs(result.ExampleDir, result.RefinementJSONPath))
 	fmt.Fprintf(&b, "- Primary OpenAPI: `%s`\n", result.PrimaryOpenAPI)
+	if browserPaths, err := packageartifacts.CollectBrowserProfilePaths(result.ExampleDir); err == nil {
+		for _, path := range browserPaths {
+			fmt.Fprintf(&b, "- Browser profile: `%s`\n", path)
+		}
+		if len(browserPaths) > 0 {
+			fmt.Fprintf(&b, "- Browser source review: `%s`\n", packageartifacts.BrowserSourceReviewPath)
+		}
+	}
 	if provider != "" || model != "" {
 		fmt.Fprintf(&b, "- LLM: `%s` `%s`\n", provider, model)
 	}
@@ -96,6 +105,7 @@ func reviewMarkdown(result Result, provider, model string) string {
 			b.WriteString("\n")
 		}
 	}
+	writeBrowserSourceReview(&b, result.ExampleDir)
 	if intent != nil {
 		advice, err := rollout.CatalogAdviceForIntent(intent, rollout.CatalogAdviceOptions{
 			ExplicitOpenAPIInputs: reviewExplicitOpenAPIInputs(result, intent),
@@ -202,6 +212,54 @@ func reviewMarkdown(result Result, provider, model string) string {
 	b.WriteString("Trusted proof run, only when explicitly approved:\n\n")
 	fmt.Fprintf(&b, "```bash\nopenudon run --example %s --tier sandbox --approval approvals/%s.json\n```\n", relOrAbs(filepath.Dir(result.ExampleDir), result.ExampleDir), filepath.Base(result.ExampleDir))
 	return b.String()
+}
+
+func writeBrowserSourceReview(b *strings.Builder, exampleDir string) {
+	paths, err := packageartifacts.CollectBrowserProfilePaths(exampleDir)
+	if err != nil || len(paths) == 0 {
+		return
+	}
+	b.WriteString("\n## Browser Sources\n\n")
+	metadataPath := filepath.Join(exampleDir, filepath.FromSlash(packageartifacts.BrowserSourceReviewPath))
+	data, err := os.ReadFile(metadataPath)
+	if err != nil {
+		fmt.Fprintf(b, "- Browser source review evidence could not be read: %s\n", err)
+		return
+	}
+	var review browserSourceReview
+	if err := json.Unmarshal(data, &review); err != nil {
+		fmt.Fprintf(b, "- Browser source review evidence is invalid: %s\n", err)
+		return
+	}
+	fmt.Fprintf(b, "- Route: `%s`\n", review.Route)
+	fmt.Fprintf(b, "- Runtime session posture: `%s`\n", review.SessionPosture)
+	if len(review.MutationApprovals) == 0 {
+		b.WriteString("- Operation-specific authoring mutation approvals: none.\n")
+	} else {
+		fmt.Fprintf(b, "- Operation-specific authoring mutation approvals: `%s`\n", strings.Join(sortedCopy(review.MutationApprovals), "`, `"))
+	}
+	sort.SliceStable(review.Sources, func(i, j int) bool { return review.Sources[i].TargetPath < review.Sources[j].TargetPath })
+	for _, source := range review.Sources {
+		fmt.Fprintf(b, "- `%s` (`%s`): SHA-256 `%s`; lifecycle `%s`", source.TargetPath, source.ID, source.SHA256, source.Lifecycle)
+		if source.ExpiresAt != "" {
+			fmt.Fprintf(b, "; expires `%s`", source.ExpiresAt)
+		}
+		b.WriteString(".\n")
+		if len(source.Origins) > 0 {
+			fmt.Fprintf(b, "  - Reviewed origins: `%s`\n", strings.Join(sortedCopy(source.Origins), "`, `"))
+		}
+		if len(source.Actions) > 0 {
+			fmt.Fprintf(b, "  - Reviewed actions: `%s`\n", strings.Join(sortedCopy(source.Actions), "`, `"))
+		}
+		if source.LoginStateRequired {
+			b.WriteString("  - Login state: opaque operator-owned runtime binding required.\n")
+		} else {
+			b.WriteString("  - Login state: not required by the profile.\n")
+		}
+		if source.Registry != "" {
+			fmt.Fprintf(b, "  - Static registry: `%s` coordinate `%s`.\n", source.Registry, source.Coordinate)
+		}
+	}
 }
 
 func expectedPlanCredentialNames(path string) []string {

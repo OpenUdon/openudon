@@ -51,14 +51,25 @@ type WorkflowBoundary struct {
 // target. SourcePath is inspected during the interview; TargetPath is not
 // written until the complete proposal or incomplete draft is approved.
 type SourceMaterialization struct {
-	Kind           string `json:"kind" yaml:"kind"`
-	ID             string `json:"id" yaml:"id"`
-	SourcePath     string `json:"source_path" yaml:"source_path"`
-	TargetPath     string `json:"target_path" yaml:"target_path"`
-	SHA256         string `json:"sha256" yaml:"sha256"`
-	Title          string `json:"title,omitempty" yaml:"title,omitempty"`
-	OperationCount int    `json:"operation_count" yaml:"operation_count"`
-	Provenance     string `json:"provenance" yaml:"provenance"`
+	Kind                string   `json:"kind" yaml:"kind"`
+	SourceKind          string   `json:"source_kind,omitempty" yaml:"source_kind,omitempty"`
+	ID                  string   `json:"id" yaml:"id"`
+	Release             string   `json:"release,omitempty" yaml:"release,omitempty"`
+	SourcePath          string   `json:"source_path" yaml:"source_path"`
+	TargetPath          string   `json:"target_path" yaml:"target_path"`
+	SHA256              string   `json:"sha256" yaml:"sha256"`
+	SourceSHA256        string   `json:"source_sha256,omitempty" yaml:"source_sha256,omitempty"`
+	Title               string   `json:"title,omitempty" yaml:"title,omitempty"`
+	OperationCount      int      `json:"operation_count" yaml:"operation_count"`
+	Actions             []string `json:"actions,omitempty" yaml:"actions,omitempty"`
+	Origins             []string `json:"origins,omitempty" yaml:"origins,omitempty"`
+	Lifecycle           string   `json:"lifecycle,omitempty" yaml:"lifecycle,omitempty"`
+	ExpiresAt           string   `json:"expires_at,omitempty" yaml:"expires_at,omitempty"`
+	LoginStateRequired  bool     `json:"login_state_required,omitempty" yaml:"login_state_required,omitempty"`
+	Provenance          string   `json:"provenance" yaml:"provenance"`
+	Registry            string   `json:"registry,omitempty" yaml:"registry,omitempty"`
+	RegistryCoordinate  string   `json:"registry_coordinate,omitempty" yaml:"registry_coordinate,omitempty"`
+	MaterializedContent []byte   `json:"-" yaml:"-"`
 }
 
 // CandidateWorkflow is an unnumbered future direction with no source,
@@ -87,6 +98,9 @@ func normalizeV2Session(session *Session) {
 	session.Boundary.NonGoals = dedupeStrings(session.Boundary.NonGoals)
 	session.CandidateWorkflows = projectdoc.NormalizeCandidateWorkflows(append(session.CandidateWorkflows, session.Project.CandidateWorkflows...))
 	session.Project.CandidateWorkflows = append([]projectdoc.CandidateWorkflow(nil), session.CandidateWorkflows...)
+	session.BrowserRoute = strings.ToLower(strings.TrimSpace(session.BrowserRoute))
+	session.BrowserSession = strings.ToLower(strings.TrimSpace(session.BrowserSession))
+	session.BrowserApprovals = dedupeStrings(session.BrowserApprovals)
 	session.Interview = publicinterview.Normalize(session.Interview)
 	restoreLegacyEvidenceFromLedger(session)
 	session.Annotations = normalizeSourceAnnotations(session.Annotations)
@@ -102,12 +116,24 @@ func normalizeSourcePlan(sources []SourceMaterialization) []SourceMaterializatio
 	normalized := make([]SourceMaterialization, 0, len(sources))
 	for _, source := range sources {
 		source.Kind = strings.ToLower(strings.TrimSpace(source.Kind))
+		source.SourceKind = strings.ToLower(strings.TrimSpace(source.SourceKind))
 		source.ID = strings.TrimSpace(source.ID)
-		source.SourcePath = filepath.Clean(strings.TrimSpace(source.SourcePath))
+		source.Release = strings.TrimSpace(source.Release)
+		source.Registry = strings.TrimSpace(source.Registry)
+		source.SourcePath = strings.TrimSpace(source.SourcePath)
+		if source.Registry == "" || !strings.Contains(source.SourcePath, "://") {
+			source.SourcePath = filepath.Clean(source.SourcePath)
+		}
 		source.TargetPath = filepath.ToSlash(filepath.Clean(strings.TrimSpace(source.TargetPath)))
 		source.SHA256 = strings.ToLower(strings.TrimSpace(source.SHA256))
+		source.SourceSHA256 = strings.ToLower(strings.TrimSpace(source.SourceSHA256))
 		source.Title = strings.TrimSpace(source.Title)
+		source.Actions = dedupeStrings(source.Actions)
+		source.Origins = dedupeStrings(source.Origins)
+		source.Lifecycle = strings.ToLower(strings.TrimSpace(source.Lifecycle))
+		source.ExpiresAt = strings.TrimSpace(source.ExpiresAt)
 		source.Provenance = strings.TrimSpace(source.Provenance)
+		source.RegistryCoordinate = strings.TrimSpace(source.RegistryCoordinate)
 		if source.SourcePath == "." || source.TargetPath == "." {
 			continue
 		}
@@ -129,13 +155,20 @@ func normalizeSourcePlan(sources []SourceMaterialization) []SourceMaterializatio
 		return normalized[i].SourcePath < normalized[j].SourcePath
 	})
 	out := make([]SourceMaterialization, 0, len(normalized))
-	seenContent := map[string]bool{}
+	seenContent := map[string]int{}
 	for _, source := range normalized {
 		key := source.TargetPath + "\x00" + source.SHA256
-		if seenContent[key] {
+		if index, ok := seenContent[key]; ok {
+			// A resumed registry session intentionally does not serialize fetched
+			// document bytes. When rediscovery yields the identical reviewed
+			// target, retain those freshly fetched bytes instead of the otherwise
+			// equivalent durable record selected by deterministic sorting.
+			if len(out[index].MaterializedContent) == 0 && len(source.MaterializedContent) > 0 {
+				out[index].MaterializedContent = append([]byte(nil), source.MaterializedContent...)
+			}
 			continue
 		}
-		seenContent[key] = true
+		seenContent[key] = len(out)
 		out = append(out, source)
 	}
 	return out
@@ -325,11 +358,32 @@ func validateV2State(session Session) error {
 		if source.Kind == "" || source.ID == "" || source.SourcePath == "" || source.TargetPath == "" || len(source.SHA256) != 64 || source.Provenance == "" {
 			return fmt.Errorf("source materialization %q must include kind, id, source path, target path, SHA-256, and provenance", source.ID)
 		}
+		if source.Kind == "browser-profile" {
+			if source.Lifecycle != "active" {
+				return fmt.Errorf("browser source %q lifecycle must be active, got %q", source.ID, source.Lifecycle)
+			}
+			if len(source.Actions) == 0 || len(source.Origins) == 0 {
+				return fmt.Errorf("browser source %q must include reviewed actions and origins", source.ID)
+			}
+		}
 	}
 	for _, candidate := range session.CandidateWorkflows {
 		if candidate.Title == "" || candidate.Outcome == "" || candidate.DeferralReason == "" || candidate.PromotionTrigger == "" {
 			return fmt.Errorf("candidate workflow %q must include title, outcome, deferral reason, and promotion trigger", candidate.Title)
 		}
+	}
+	switch session.BrowserRoute {
+	case "", "api", "browser":
+	default:
+		return fmt.Errorf("browser route must be api or browser")
+	}
+	switch session.BrowserSession {
+	case "", "none", "opaque-runtime-binding-required":
+	default:
+		return fmt.Errorf("browser session posture must be none or opaque-runtime-binding-required")
+	}
+	if session.BrowserRoute == "browser" && session.BrowserSession == "" {
+		return fmt.Errorf("browser workflow requires an explicit runtime session posture")
 	}
 	return nil
 }

@@ -123,6 +123,51 @@ func TestGenerateWorkflowDocumentEmitsUWS14GraphQLSource(t *testing.T) {
 	}
 }
 
+func TestGenerateWorkflowDocumentEmitsUWS15BrowserProfileSource(t *testing.T) {
+	example := t.TempDir()
+	path := "browser-profiles/editor.json"
+	mustWriteSynthesizeTestFile(t, filepath.Join(example, filepath.FromSlash(path)), synthesizeBrowserProfileFixture(true, false, "note"))
+	intent := &rollout.Intent{
+		Source: path, Workflow: &rollout.WorkflowMeta{Name: "browser_editor"},
+		Inputs: []*rollout.Input{{Name: "note", Type: "string", Required: true}},
+		Steps: []*rollout.Step{{
+			Name: "update", Type: "browser", Source: path, Operation: "update_record",
+			With: map[string]string{"note": "inputs.note"},
+		}},
+		Outputs: []*rollout.Output{{Name: "status", From: "update.received_body.status"}},
+	}
+	doc, err := generateWorkflowDocument(Result{ExampleDir: example}, intent)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if doc.UWS != "1.5.0" {
+		t.Fatalf("UWS version = %q, want 1.5.0", doc.UWS)
+	}
+	if len(doc.SourceDescriptions) != 1 || doc.SourceDescriptions[0].Type != uws1.SourceDescriptionTypeBrowserProfile || doc.SourceDescriptions[0].URL != path {
+		t.Fatalf("browser sourceDescriptions = %#v", doc.SourceDescriptions)
+	}
+	if len(doc.Operations) != 1 || doc.Operations[0].SourceOperationID != "update_record" {
+		t.Fatalf("browser operations = %#v", doc.Operations)
+	}
+	body, ok := doc.Operations[0].Request["body"].(map[string]any)
+	if !ok {
+		t.Fatalf("browser request body = %#v", doc.Operations[0].Request)
+	}
+	if note, ok := body["note"].(map[string]any); !ok || note["$expr"] != "variables.inputs.note" {
+		t.Fatalf("browser note binding = %#v", body["note"])
+	}
+	if err := validateIntentOpenAPIOperations(intent, example, nil, ""); err != nil {
+		t.Fatalf("reviewed browser action was rejected: %v", err)
+	}
+	if err := validateIntentRequiredParameters(intent, example, nil, ""); err != nil {
+		t.Fatalf("browser action mapping was rejected: %v", err)
+	}
+	intent.Steps[0].Operation = "invented_action"
+	if err := validateIntentOpenAPIOperations(intent, example, nil, ""); err == nil || !strings.Contains(err.Error(), "missing API source operation") {
+		t.Fatalf("expected invented browser action rejection, got %v", err)
+	}
+}
+
 func TestGenerateWorkflowDocumentCanonicalizesODataSourceOperationID(t *testing.T) {
 	example := t.TempDir()
 	mustWriteSynthesizeTestFile(t, filepath.Join(example, "odata", "metadata.xml"), []byte(`<Schema Namespace="Demo" xmlns="http://docs.oasis-open.org/odata/ns/edm">

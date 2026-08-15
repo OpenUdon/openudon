@@ -105,6 +105,14 @@ func TestSourcePlanReusesIdenticalTargetsAndRejectsConflicts(t *testing.T) {
 	if len(identical.SourcePlan) != 1 {
 		t.Fatalf("identical target plan = %#v", identical.SourcePlan)
 	}
+	resumed := Session{SourcePlan: []SourceMaterialization{
+		{Kind: "browser-profile", ID: "registry", SourcePath: "https://registry.example/profiles/service.json", TargetPath: "browser-profiles/service.json", SHA256: digestA, Provenance: "registry:https://registry.example", Registry: "https://registry.example"},
+		{Kind: "browser-profile", ID: "registry", SourcePath: "https://registry.example/profiles/service.json", TargetPath: "browser-profiles/service.json", SHA256: digestA, Provenance: "registry:https://registry.example", Registry: "https://registry.example", MaterializedContent: []byte("freshly revalidated")},
+	}}
+	resumed.Normalize()
+	if len(resumed.SourcePlan) != 1 || string(resumed.SourcePlan[0].MaterializedContent) != "freshly revalidated" {
+		t.Fatalf("resumed source plan lost revalidated content: %#v", resumed.SourcePlan)
+	}
 	conflicting := Session{SourcePlan: []SourceMaterialization{
 		{Kind: "openapi", ID: "one", SourcePath: "/tmp/one.json", TargetPath: "openapi/service.json", SHA256: digestA, Provenance: "local:one"},
 		{Kind: "openapi", ID: "two", SourcePath: "/tmp/two.json", TargetPath: "openapi/service.json", SHA256: digestB, Provenance: "local:two"},

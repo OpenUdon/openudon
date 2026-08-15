@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 	"sort"
 	"strings"
+	"time"
 
 	"github.com/OpenUdon/apitools"
 	"github.com/OpenUdon/apitools/catalog"
@@ -40,15 +41,30 @@ func runProgressive(ctx context.Context, in io.Reader, out io.Writer, seed Sessi
 	}
 
 	projectText := projectwizard.Render(session.Project)
-	discovery, err := DiscoverAuthoringSources(ctx, opts.ExampleDir, projectText, opts.LocalSources, opts.SourceRoots)
+	discovery, err := DiscoverAuthoringSourcesWithBrowser(ctx, opts.ExampleDir, projectText, opts.LocalSources, opts.SourceRoots, opts.BrowserSources, time.Now().UTC())
 	if err != nil {
 		return Artifacts{}, err
 	}
 	if err := localSourceDiscoveryBlocker(discovery.Report); err != nil {
 		return Artifacts{}, err
 	}
+	if err := browserSourceDiscoveryBlocker(discovery.BrowserReport); err != nil {
+		return Artifacts{}, err
+	}
+	registryReport := BrowserRegistryDiscovery{Candidates: []BrowserRegistryCandidate{}, Blockers: []BrowserRegistryBlocker{}}
+	if len(opts.BrowserRegistries) > 0 && (len(discovery.Docs) == 0 || session.BrowserRoute == "browser") {
+		approved := strings.EqualFold(opts.NetworkPolicy, "allow") || session.Interview.Metadata["browser_registry_lookup_decision"] == "allow"
+		registryReport, err = DiscoverBrowserRegistrySources(ctx, opts.BrowserRegistries, firstNonEmpty(session.Boundary.Outcome, projectText), opts.NetworkPolicy, approved, time.Now().UTC())
+		if err != nil {
+			return Artifacts{}, err
+		}
+		discovery = MergeBrowserRegistrySources(discovery, registryReport)
+	}
 	docs := discovery.Docs
-	session = progressiveSessionAfterDiscovery(session, discovery.Plans, opts.LocalSources, opts.NetworkPolicy)
+	session = progressiveSessionAfterDiscoveryV2(session, discovery.Plans, opts.LocalSources, opts.BrowserSources, opts.NetworkPolicy)
+	if len(opts.BrowserRegistries) > 0 {
+		session.Interview.Metadata["browser_registry_configured"] = "true"
+	}
 	openingBrief := ""
 	if session.Intent.Workflow != nil {
 		openingBrief = strings.TrimSpace(session.Intent.Workflow.Description)
@@ -82,6 +98,9 @@ func runProgressive(ctx context.Context, in io.Reader, out io.Writer, seed Sessi
 		}
 	}
 	attemptRemoteLookup(session)
+	for _, blocker := range registryReport.Blockers {
+		fmt.Fprintf(statusOut, "icot: deferable browser registry blocker: %s\n", blocker.Message)
+	}
 	nextSessionEvents := func(session Session) []authoring.PromptEvent {
 		return catalogPlanEvents(session, &reportedDraftEvents)
 	}
@@ -112,12 +131,23 @@ func runProgressive(ctx context.Context, in io.Reader, out io.Writer, seed Sessi
 		RefreshDocuments: func(session Session, docs []APIDocument) ([]APIDocument, error) {
 			attemptRemoteLookup(session)
 			projectText := projectwizard.Render(session.Project)
-			refreshed, err := DiscoverAuthoringSources(ctx, opts.ExampleDir, projectText, opts.LocalSources, opts.SourceRoots)
+			refreshed, err := DiscoverAuthoringSourcesWithBrowser(ctx, opts.ExampleDir, projectText, opts.LocalSources, opts.SourceRoots, opts.BrowserSources, time.Now().UTC())
 			if err != nil {
 				return nil, err
 			}
 			if err := localSourceDiscoveryBlocker(refreshed.Report); err != nil {
 				return nil, err
+			}
+			if err := browserSourceDiscoveryBlocker(refreshed.BrowserReport); err != nil {
+				return nil, err
+			}
+			if len(opts.BrowserRegistries) > 0 && (len(refreshed.Docs) == 0 || session.BrowserRoute == "browser") {
+				approved := strings.EqualFold(opts.NetworkPolicy, "allow") || session.Interview.Metadata["browser_registry_lookup_decision"] == "allow"
+				registryReport, err = DiscoverBrowserRegistrySources(ctx, opts.BrowserRegistries, firstNonEmpty(session.Boundary.Outcome, projectText), opts.NetworkPolicy, approved, time.Now().UTC())
+				if err != nil {
+					return nil, err
+				}
+				refreshed = MergeBrowserRegistrySources(refreshed, registryReport)
 			}
 			discovery = refreshed
 			return refreshed.Docs, nil
@@ -206,7 +236,7 @@ func runProgressive(ctx context.Context, in io.Reader, out io.Writer, seed Sessi
 				return err
 			}
 			defaultSingleOpenAPIDoc(session, docs)
-			session.SourcePlan = syncSelectedSourcePlans(*session, discovery.Plans, opts.LocalSources)
+			session.SourcePlan = syncSelectedSourcePlansWithBrowser(*session, discovery.Plans, opts.LocalSources, opts.BrowserSources)
 			return nil
 		},
 		FinalConfirm: func(prompts *authoring.PromptSession, session *Session, docs []APIDocument, events *[]authoring.PromptEvent) (Artifacts, error) {
@@ -265,7 +295,11 @@ func runProgressive(ctx context.Context, in io.Reader, out io.Writer, seed Sessi
 }
 
 func progressiveSessionAfterDiscovery(session Session, plans []SourceMaterialization, explicit []apitools.LocalSource, networkPolicy string) Session {
-	session.SourcePlan = mergeSelectedSourcePlans(session, plans, explicit)
+	return progressiveSessionAfterDiscoveryV2(session, plans, explicit, nil, networkPolicy)
+}
+
+func progressiveSessionAfterDiscoveryV2(session Session, plans []SourceMaterialization, explicit []apitools.LocalSource, browserExplicit []BrowserSourceInput, networkPolicy string) Session {
+	session.SourcePlan = mergeSelectedSourcePlansWithBrowser(session, plans, explicit, browserExplicit)
 	session.Normalize()
 	if session.Interview.Metadata == nil {
 		session.Interview.Metadata = map[string]string{}
@@ -490,7 +524,13 @@ func printProposal(out io.Writer, artifacts Artifacts) {
 		fmt.Fprintln(out, "Selected sources:")
 		for _, source := range session.SourcePlan {
 			fmt.Fprintf(out, "- %s:%s %s -> %s sha256:%s (%s)\n", source.Kind, source.ID, source.SourcePath, source.TargetPath, source.SHA256, source.Provenance)
+			if source.Kind == browserSourceFamily {
+				fmt.Fprintf(out, "  actions=%s origins=%s lifecycle=%s expires=%s login-session-required=%t\n", strings.Join(source.Actions, ","), strings.Join(source.Origins, ","), source.Lifecycle, source.ExpiresAt, source.LoginStateRequired)
+			}
 		}
+	}
+	if session.BrowserRoute == "browser" {
+		fmt.Fprintf(out, "Browser route: session posture=%s; authoring mutation approvals=%s (runtime approval remains separate)\n", firstNonEmpty(session.BrowserSession, "unresolved"), firstNonEmpty(strings.Join(session.BrowserApprovals, ","), "none"))
 	}
 	if len(session.Interview.Deferrals) > 0 {
 		fmt.Fprintln(out, "Unresolved technical deferrals:")
@@ -618,13 +658,16 @@ func defaultSingleOpenAPIDoc(session *Session, docs []APIDocument) {
 		return
 	}
 	setIntentAPISourceFromDoc(session, docs[0])
+	if isBrowserDocument(docs[0]) {
+		session.BrowserRoute = "browser"
+	}
 	addMappingClassification(session, MappingClassification{
 		Slot:                 "intent.source",
 		Value:                docs[0].RelativePath,
 		Source:               mappingSourceFallbackDefault,
 		Confidence:           mappingConfidenceReview,
 		Evidence:             docs[0].RelativePath,
-		Reason:               "Only one local API source document is available for API-backed steps.",
+		Reason:               "Only one validated local source document is available for source-backed steps.",
 		RequiresConfirmation: true,
 	})
 }
@@ -1110,6 +1153,11 @@ func applyProgressiveAnswer(session *Session, plan QuestionPlan, answer string, 
 	case strings.Contains(slotText, "intent.openapi") || strings.Contains(slotText, "intent.source"):
 		if doc := matchDocAnswer(answer, docs); doc.RelativePath != "" {
 			setIntentAPISourceFromDoc(session, doc)
+			if isBrowserDocument(doc) {
+				session.BrowserRoute = "browser"
+			} else {
+				session.BrowserRoute = "api"
+			}
 		} else {
 			session.Intent.Source = answer
 		}
@@ -1122,6 +1170,23 @@ func applyProgressiveAnswer(session *Session, plan QuestionPlan, answer string, 
 			Reason:               "User selected the API source document.",
 			RequiresConfirmation: false,
 		})
+	case strings.Contains(slotText, "browser_session"):
+		posture := strings.ToLower(strings.TrimSpace(answer))
+		switch posture {
+		case "none", "opaque-runtime-binding-required":
+			session.BrowserSession = posture
+		default:
+			return
+		}
+	case strings.Contains(slotText, "browser_approval"):
+		value := strings.TrimSpace(answer)
+		if !strings.HasPrefix(strings.ToLower(value), "approve ") {
+			return
+		}
+		name := strings.TrimSpace(value[len("approve "):])
+		if step := targetStepForPlan(session, plan); step != nil && name == step.Name {
+			session.BrowserApprovals = dedupeStrings(append(session.BrowserApprovals, step.Name))
+		}
 	case strings.Contains(slotText, "operation") || strings.Contains(slotText, "intent.steps"):
 		if doc, op := matchOperationAnswerForPlan(session, plan, answer, docs); op != nil {
 			if intentAPISourceRef(session.Intent) == "" {
@@ -1129,14 +1194,20 @@ func applyProgressiveAnswer(session *Session, plan QuestionPlan, answer string, 
 			}
 			target := targetStepForPlan(session, plan)
 			if len(session.Intent.Steps) == 0 {
-				step := stepFromOperation(op)
+				step := stepFromOperation(doc, op)
 				setStepAPISourceFromDoc(step, doc)
 				session.Intent.Steps = []*rollout.Step{step}
 			} else {
 				if target == nil {
 					target = session.Intent.Steps[0]
 				}
-				target.Type = firstNonEmpty(target.Type, "http")
+				if isBrowserDocument(doc) {
+					target.Type = "browser"
+					session.BrowserRoute = "browser"
+				} else {
+					target.Type = firstNonEmpty(target.Type, "http")
+					session.BrowserRoute = "api"
+				}
 				target.Do = firstNonEmpty(target.Do, op.Summary, operationLabel(*op))
 				target.Operation = op.OperationID
 				if strings.TrimSpace(firstNonEmpty(target.Source, target.OpenAPI)) == "" {
@@ -1313,7 +1384,7 @@ func questionTargetsExistingAPIStep(session *Session, plan QuestionPlan) bool {
 		return false
 	}
 	stepType := strings.ToLower(strings.TrimSpace(step.Type))
-	return stepType == "http" || stepType == "openapi" || strings.TrimSpace(step.Provider) != ""
+	return stepType == "http" || stepType == "openapi" || stepType == "browser" || strings.TrimSpace(step.Provider) != ""
 }
 
 func targetStepForPlan(session *Session, plan QuestionPlan) *rollout.Step {
@@ -1504,7 +1575,7 @@ func apiBackedStep(step *rollout.Step) bool {
 		return false
 	}
 	stepType := strings.ToLower(strings.TrimSpace(step.Type))
-	return stepType == "http" || stepType == "openapi"
+	return stepType == "http" || stepType == "openapi" || stepType == "browser"
 }
 
 func applyCapabilityGapFallback(session *Session, docs []APIDocument) bool {
@@ -1915,7 +1986,7 @@ func prefillOutputStep(step *rollout.Step) bool {
 	switch strings.ToLower(strings.TrimSpace(step.Type)) {
 	case "switch", "merge", "loop", "branch":
 		return false
-	case "http", "openapi":
+	case "http", "openapi", "browser":
 		return strings.TrimSpace(step.Operation) != ""
 	default:
 		return strings.TrimSpace(step.Name) != ""
@@ -1984,7 +2055,7 @@ func needsAPIDoc(session Session, docs []APIDocument) bool {
 			continue
 		}
 		stepType := strings.ToLower(strings.TrimSpace(step.Type))
-		if (stepType == "http" || stepType == "openapi") && stepAPISourceRef(session, step) == "" {
+		if (stepType == "http" || stepType == "openapi" || stepType == "browser") && stepAPISourceRef(session, step) == "" {
 			return true
 		}
 	}
@@ -2001,7 +2072,7 @@ func missingAPIDocMessage(session Session, docs []APIDocument) string {
 				return "No first-class OpenAPI is available for " + strings.Join(missing, ", ") + "; cannot continue to operation selection until an artifact is generated/provided. Local API documents already available: " + strings.Join(apiDocumentLabels(docs), ", ") + "."
 			}
 		}
-		return "Local API documents are available: " + strings.Join(apiDocumentLabels(docs), ", ") + ". Confirm whether to use them for operationId selection."
+		return "Validated source documents are available: " + strings.Join(apiDocumentLabels(docs), ", ") + ". API-family sources are preferred when they cover the active capability; choose a browser profile only for an uncovered UI-only capability or an explicit reviewed browser route."
 	}
 	if hints := CatalogHintsForSession(session); len(hints) > 0 {
 		available := CatalogProvidersWithMigratableDocs(hints, "")
@@ -2028,7 +2099,7 @@ func missingAPIDocPrompt(session Session, docs []APIDocument) string {
 				return "No first-class OpenAPI is available for " + strings.Join(missing, ", ") + "; cannot continue to operation selection until an artifact is generated/provided."
 			}
 		}
-		return "Local API documents found: " + strings.Join(apiDocumentLabels(docs), ", ") + ". Use these for operation selection?"
+		return "Validated source documents found: " + strings.Join(apiDocumentLabels(docs), ", ") + ". Choose the source for operation/action selection; API-family sources are preferred when adequate."
 	}
 	if hints := CatalogHintsForSession(session); len(hints) > 0 {
 		available := CatalogProvidersWithMigratableDocs(hints, "")
@@ -2081,7 +2152,12 @@ func isLocalAPIDocumentRef(ref string) bool {
 	if strings.HasPrefix(ref, "http://") || strings.HasPrefix(ref, "https://") {
 		return false
 	}
-	return strings.HasPrefix(ref, "openapi/") || strings.HasPrefix(ref, "google-discovery/") || strings.HasPrefix(ref, "aws-smithy/") || strings.HasPrefix(ref, "asyncapi/") || strings.HasPrefix(ref, "discovery/")
+	for _, prefix := range []string{"openapi/", "google-discovery/", "aws-smithy/", "asyncapi/", "graphql/", "openrpc/", "grpc-protobuf/", "odata/", "discovery/", "browser-profiles/"} {
+		if strings.HasPrefix(ref, prefix) {
+			return true
+		}
+	}
+	return false
 }
 
 func catalogProvidersMissingLocalDocs(hints []CatalogHint, docs []APIDocument) []string {
@@ -2429,17 +2505,19 @@ func sortReadinessIssues(issues []ReadinessIssue) []ReadinessIssue {
 		"missing_api_doc":                        5,
 		readinessUnconfirmedSideEffectCommitment: 6,
 		"missing_operation":                      7,
-		"missing_runtime_inputs":                 8,
-		"undeclared_credential_reference":        9,
-		"invented_request_field":                 10,
-		"invalid_request_body_path":              11,
-		"incompatible_request_value_type":        12,
-		"missing_required_request_values":        13,
-		"missing_credential_bindings":            14,
-		"missing_outputs":                        15,
-		"missing_side_effect_policy":             16,
-		"optional_timeout_idempotency_controls":  17,
-		"intent_render_invalid":                  18,
+		"missing_browser_session_posture":        8,
+		"unconfirmed_browser_mutation":           9,
+		"missing_runtime_inputs":                 10,
+		"undeclared_credential_reference":        11,
+		"invented_request_field":                 12,
+		"invalid_request_body_path":              13,
+		"incompatible_request_value_type":        14,
+		"missing_required_request_values":        15,
+		"missing_credential_bindings":            16,
+		"missing_outputs":                        17,
+		"missing_side_effect_policy":             18,
+		"optional_timeout_idempotency_controls":  19,
+		"intent_render_invalid":                  20,
 	}
 	sort.SliceStable(issues, func(i, j int) bool {
 		left, ok := priority[issues[i].Code]
@@ -2480,7 +2558,7 @@ func suggestedAPIDocAnswer(session Session, docs []APIDocument) string {
 				return "Generate/provide the missing API artifact, then rerun iCoT."
 			}
 		}
-		return "yes"
+		return preferredSourceDocument(session, docs).RelativePath
 	}
 	if hints := CatalogHintsForSession(session); len(CatalogProvidersWithMigratableDocs(hints, "")) > 0 {
 		return "yes"
@@ -2493,6 +2571,41 @@ func suggestedDocAnswer(docs []APIDocument) string {
 		return "openapi/api.yaml"
 	}
 	return docs[0].RelativePath
+}
+
+func preferredSourceDocument(session Session, docs []APIDocument) APIDocument {
+	if len(docs) == 0 {
+		return APIDocument{}
+	}
+	query := rankingTokenWeights(strings.Join([]string{session.Boundary.Outcome, session.Project.Goal, workflowDescription(session)}, " "))
+	bestAPI, bestBrowser := -1, -1
+	var apiDoc, browserDoc APIDocument
+	for _, doc := range docs {
+		score := 0
+		for _, operation := range doc.Operations {
+			candidate := rankingMatchScore(query, strings.Join([]string{operation.OperationID, operation.Summary, operation.Description, operation.Path, operationMethodHints(operation.Method)}, " "), 1)
+			if candidate > score {
+				score = candidate
+			}
+		}
+		if isBrowserDocument(doc) {
+			if score > bestBrowser {
+				bestBrowser, browserDoc = score, doc
+			}
+		} else if score > bestAPI {
+			bestAPI, apiDoc = score, doc
+		}
+	}
+	if apiDoc.RelativePath != "" && bestAPI > 0 {
+		return apiDoc
+	}
+	if browserDoc.RelativePath != "" && bestBrowser > 0 && bestAPI <= 0 {
+		return browserDoc
+	}
+	if apiDoc.RelativePath != "" {
+		return apiDoc
+	}
+	return browserDoc
 }
 
 func suggestedOperationAnswer(docs []APIDocument) string {
@@ -3143,6 +3256,12 @@ func sessionAppearsReadOnly(session Session) bool {
 				continue
 			}
 			return false
+		case "browser":
+			foundExecutable = true
+			// Browser safety is defined by the selected profile action, not by
+			// operation-name heuristics. Keep the automatic policy conservative;
+			// readiness asks the author to confirm the actual posture.
+			return false
 		case "fnct", "":
 			if containsMutationHint(text) {
 				return false
@@ -3272,6 +3391,9 @@ func looksCredentialField(field string, op *apitools.OperationSummary) bool {
 
 func matchDocAnswer(answer string, docs []APIDocument) APIDocument {
 	answer = strings.TrimSpace(answer)
+	if strings.EqualFold(answer, "yes") && len(docs) > 0 {
+		return docs[0]
+	}
 	for i, doc := range docs {
 		if answer == doc.RelativePath || answer == fmt.Sprint(i+1) || strings.EqualFold(answer, doc.Title) {
 			return doc
@@ -3293,10 +3415,14 @@ func matchOperationAnswer(answer string, docs []APIDocument) (APIDocument, *apit
 	return APIDocument{}, nil
 }
 
-func stepFromOperation(op *apitools.OperationSummary) *rollout.Step {
+func stepFromOperation(doc APIDocument, op *apitools.OperationSummary) *rollout.Step {
+	stepType := "http"
+	if isBrowserDocument(doc) {
+		stepType = "browser"
+	}
 	return &rollout.Step{
 		Name:      camelToSnake(firstNonEmpty(op.OperationID, op.Summary, op.Path)),
-		Type:      "http",
+		Type:      stepType,
 		Do:        firstNonEmpty(op.Summary, operationLabel(*op)),
 		Operation: op.OperationID,
 	}

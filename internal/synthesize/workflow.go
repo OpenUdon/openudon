@@ -242,10 +242,10 @@ func buildUWSStep(step *rollout.Step, defaultOpenAPI string, sourceFor func(stri
 		OperationExecutionFields: uws1.OperationExecutionFields{DependsOn: uniqueStrings(step.DependsOn), When: runtimeInputExecutionExpression(step.When), ForEach: runtimeInputExecutionExpression(step.ForEach), Timeout: step.Timeout},
 	}
 	switch kind {
-	case "http", "openapi":
+	case "http", "openapi", "browser":
 		source := sourceFor(openAPIPath)
 		if source == "" {
-			return nil, nil, fmt.Errorf("step %s references OpenAPI operation without source document", name)
+			return nil, nil, fmt.Errorf("step %s references a source operation without a source document", name)
 		}
 		op.SourceDescription = source
 		sourceType := sourceDescriptionTypeForPath(openAPIPath)
@@ -1025,6 +1025,9 @@ func stringMapToAny(values map[string]string) map[string]any {
 }
 
 func uwsVersionForIntent(intent *rollout.Intent) string {
+	if intentRequiresUWS15(intent) {
+		return "1.5.0"
+	}
 	if intentRequiresUWS14(intent) {
 		return "1.4.0"
 	}
@@ -1038,6 +1041,22 @@ func uwsVersionForIntent(intent *rollout.Intent) string {
 		return "1.1.0"
 	}
 	return "1.0.0"
+}
+
+func intentRequiresUWS15(intent *rollout.Intent) bool {
+	if intent == nil {
+		return false
+	}
+	if sourceDescriptionTypeForPath(firstNonEmpty(intent.Source, intent.OpenAPI)) == uws1.SourceDescriptionTypeBrowserProfile {
+		return true
+	}
+	requires := false
+	walkIntentSteps(intent.Steps, func(step *rollout.Step) {
+		if step != nil && !requires && sourceDescriptionTypeForPath(firstNonEmpty(step.Source, step.OpenAPI)) == uws1.SourceDescriptionTypeBrowserProfile {
+			requires = true
+		}
+	})
+	return requires
 }
 
 func intentRequiresUWS14(intent *rollout.Intent) bool {

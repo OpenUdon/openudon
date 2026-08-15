@@ -10,8 +10,10 @@ import (
 	"regexp"
 	"sort"
 	"strings"
+	"time"
 
 	"github.com/OpenUdon/apitools"
+	"github.com/OpenUdon/browsertools"
 	"github.com/OpenUdon/openudon/internal/packageartifacts"
 	rollout "github.com/OpenUdon/openudon/internal/workflowintent"
 )
@@ -20,9 +22,17 @@ import (
 // interview question. Candidate documents remain external until proposal
 // approval.
 type LocalSourceDiscovery struct {
-	Report apitools.LocalSourceDiscoveryReport `json:"report"`
-	Docs   []APIDocument                       `json:"documents,omitempty"`
-	Plans  []SourceMaterialization             `json:"materialization_plans,omitempty"`
+	Report        apitools.LocalSourceDiscoveryReport     `json:"report"`
+	BrowserReport browsertools.LocalSourceDiscoveryReport `json:"browser_report"`
+	Docs          []APIDocument                           `json:"documents,omitempty"`
+	Plans         []SourceMaterialization                 `json:"materialization_plans,omitempty"`
+}
+
+// BrowserSourceInput is one caller-identified browser profile. Discovery still
+// validates the content and the ID is used only as the package-local identity.
+type BrowserSourceInput struct {
+	ID   string `json:"id" yaml:"id"`
+	Path string `json:"path" yaml:"path"`
 }
 
 func localSourceDiscoveryBlocker(report apitools.LocalSourceDiscoveryReport) error {
@@ -32,6 +42,22 @@ func localSourceDiscoveryBlocker(report apitools.LocalSourceDiscoveryReport) err
 	return fmt.Errorf(
 		"local source discovery is incomplete (%d ambiguous document(s), truncated=%t); narrow source roots or declare ambiguous files with --api-source KIND:ID=PATH",
 		len(report.Ambiguous), report.Truncated,
+	)
+}
+
+func browserSourceDiscoveryBlocker(report browsertools.LocalSourceDiscoveryReport) error {
+	var inactive []string
+	for _, candidate := range report.Candidates {
+		if candidate.Status != "active" {
+			inactive = append(inactive, candidate.Path+" ("+string(candidate.Status)+")")
+		}
+	}
+	if len(report.Truncated) == 0 && len(report.Ambiguous) == 0 && len(inactive) == 0 {
+		return nil
+	}
+	return fmt.Errorf(
+		"browser source discovery is incomplete (%d ambiguous document(s), %d truncation diagnostic(s), %d inactive candidate(s)); narrow --source-root, pass --browser-profile ID=PATH, or revalidate the profile/bundle: %s",
+		len(report.Ambiguous), len(report.Truncated), len(inactive), strings.Join(inactive, ", "),
 	)
 }
 
@@ -55,6 +81,37 @@ func DiscoverLocalAPIs(exampleDir, projectText string) ([]APIDocument, error) {
 // DiscoverAuthoringSources inspects existing example sources, explicit source
 // files, and explicit roots without copying or modifying any deliverables.
 func DiscoverAuthoringSources(ctx context.Context, exampleDir, query string, explicit []apitools.LocalSource, roots []string) (LocalSourceDiscovery, error) {
+	return DiscoverAuthoringSourcesWithBrowser(ctx, exampleDir, query, explicit, roots, nil, time.Now().UTC())
+}
+
+// DiscoverAuthoringSourcesWithBrowser composes Apitools API-family discovery
+// with Browsertools browser-profile discovery. Each sibling owns validation of
+// its own family; cross-family ambiguity from a mixed root is removed only
+// after the other sibling has positively validated the exact same file.
+func DiscoverAuthoringSourcesWithBrowser(ctx context.Context, exampleDir, query string, explicit []apitools.LocalSource, roots []string, browserExplicit []BrowserSourceInput, at time.Time) (LocalSourceDiscovery, error) {
+	discovery, err := discoverAPIAuthoringSources(ctx, exampleDir, query, explicit, roots)
+	if err != nil {
+		return discovery, err
+	}
+	browser, err := discoverBrowserAuthoringSources(ctx, exampleDir, browserExplicit, roots, at)
+	if err != nil {
+		discovery.BrowserReport = browser.Report
+		return discovery, err
+	}
+	discovery.BrowserReport = browser.Report
+	filterCrossFamilyDiagnostics(&discovery.Report, &discovery.BrowserReport)
+	discovery.Docs = append(discovery.Docs, browser.Docs...)
+	sort.SliceStable(discovery.Docs, func(i, j int) bool {
+		if apiDocumentPriority(discovery.Docs[i]) != apiDocumentPriority(discovery.Docs[j]) {
+			return apiDocumentPriority(discovery.Docs[i]) < apiDocumentPriority(discovery.Docs[j])
+		}
+		return discovery.Docs[i].RelativePath < discovery.Docs[j].RelativePath
+	})
+	discovery.Plans = normalizeSourcePlan(append(discovery.Plans, browser.Plans...))
+	return discovery, nil
+}
+
+func discoverAPIAuthoringSources(ctx context.Context, exampleDir, query string, explicit []apitools.LocalSource, roots []string) (LocalSourceDiscovery, error) {
 	allRoots := append([]string(nil), roots...)
 	for _, dir := range []string{"openapi", "google-discovery", "discovery", "aws-smithy", "asyncapi", "graphql", "openrpc", "grpc-protobuf", "odata"} {
 		path := filepath.Join(exampleDir, dir)
@@ -234,9 +291,18 @@ func defaultSourceExtension(kind string) string {
 }
 
 func mergeSelectedSourcePlans(session Session, available []SourceMaterialization, explicit []apitools.LocalSource) []SourceMaterialization {
+	return mergeSelectedSourcePlansWithBrowser(session, available, explicit, nil)
+}
+
+func mergeSelectedSourcePlansWithBrowser(session Session, available []SourceMaterialization, explicit []apitools.LocalSource, browserExplicit []BrowserSourceInput) []SourceMaterialization {
 	selected := append([]SourceMaterialization(nil), session.SourcePlan...)
 	explicitPaths := map[string]bool{}
 	for _, source := range explicit {
+		if abs, err := filepath.Abs(source.Path); err == nil {
+			explicitPaths[filepath.Clean(abs)] = true
+		}
+	}
+	for _, source := range browserExplicit {
 		if abs, err := filepath.Abs(source.Path); err == nil {
 			explicitPaths[filepath.Clean(abs)] = true
 		}
@@ -250,7 +316,11 @@ func mergeSelectedSourcePlans(session Session, available []SourceMaterialization
 }
 
 func syncSelectedSourcePlans(session Session, available []SourceMaterialization, explicit []apitools.LocalSource) []SourceMaterialization {
-	selected := mergeSelectedSourcePlans(session, available, explicit)
+	return syncSelectedSourcePlansWithBrowser(session, available, explicit, nil)
+}
+
+func syncSelectedSourcePlansWithBrowser(session Session, available []SourceMaterialization, explicit []apitools.LocalSource, browserExplicit []BrowserSourceInput) []SourceMaterialization {
+	selected := mergeSelectedSourcePlansWithBrowser(session, available, explicit, browserExplicit)
 	refs := map[string]bool{}
 	if ref := filepath.ToSlash(strings.TrimSpace(firstNonEmpty(session.Intent.Source, session.Intent.OpenAPI))); ref != "" {
 		refs[ref] = true
@@ -293,4 +363,10 @@ func sidecarSourceTarget(provenance string) string {
 // the non-interactive adapter without duplicating selection rules.
 func SyncSelectedSourcePlans(session Session, available []SourceMaterialization, explicit []apitools.LocalSource) []SourceMaterialization {
 	return syncSelectedSourcePlans(session, available, explicit)
+}
+
+// SyncSelectedSourcePlansWithBrowser selects explicitly supplied API/browser
+// sources and every source referenced by the active intent.
+func SyncSelectedSourcePlansWithBrowser(session Session, available []SourceMaterialization, explicit []apitools.LocalSource, browserExplicit []BrowserSourceInput) []SourceMaterialization {
+	return syncSelectedSourcePlansWithBrowser(session, available, explicit, browserExplicit)
 }

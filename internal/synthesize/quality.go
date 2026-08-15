@@ -111,7 +111,8 @@ func assessContext(ctx context.Context, opts Options, writeReport bool) (*Qualit
 		return nil, err
 	}
 	assessUWS(report, result.UWSPath, opts.SchemaPath, exampleDir, expectedPlan)
-	sideEffects := sideEffectProfileForOpenAPI(policy, intent, candidates, result.PrimaryOpenAPI)
+	assessBrowserSources(report, exampleDir, intent)
+	sideEffects := sideEffectProfileForSources(policy, intent, candidates, result.PrimaryOpenAPI, exampleDir)
 	assessSideEffectProfile(report, sideEffects)
 	assessSideEffectRetryPolicy(report, sideEffects, policy, expectedPlan)
 	assessReview(report, result.ReviewPath, sideEffects, policy, expectedPlan)

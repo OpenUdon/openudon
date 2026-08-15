@@ -13,6 +13,7 @@ import (
 	"github.com/OpenUdon/apitools/awssmithy"
 	"github.com/OpenUdon/apitools/catalog"
 	"github.com/OpenUdon/apitools/googlediscovery"
+	"github.com/OpenUdon/browsertools/profile"
 	"github.com/OpenUdon/openudon/internal/openapidisco"
 	"github.com/OpenUdon/openudon/internal/packageartifacts"
 	rollout "github.com/OpenUdon/openudon/internal/workflowintent"
@@ -104,7 +105,7 @@ func intentStepRequiresOpenAPIOperation(intent *rollout.Intent, step *rollout.St
 		return false
 	}
 	kind := strings.ToLower(strings.TrimSpace(step.Type))
-	if kind != "" && kind != "http" && kind != "openapi" {
+	if kind != "" && kind != "http" && kind != "openapi" && kind != "browser" {
 		return false
 	}
 	return strings.TrimSpace(intentStepOpenAPIPath(intent, step, primary)) != ""
@@ -387,7 +388,7 @@ func localNativeOperationIndex(exampleDir string) map[string]*rollout.OperationI
 func localNativeOperationIndexWithErrors(exampleDir string) (map[string]*rollout.OperationInfo, []error) {
 	out := map[string]*rollout.OperationInfo{}
 	var errs []error
-	paths, err := packageartifacts.CollectAPISourcePaths(exampleDir)
+	paths, err := packageartifacts.CollectExecutionSourcePaths(exampleDir)
 	if err != nil {
 		return out, []error{err}
 	}
@@ -493,9 +494,60 @@ func nativeOperationInfoIndex(path string, sourceType string) (map[string]*rollo
 			}
 		}
 		return out, nil
+	case "browser-profile":
+		value, err := loadBrowserProfile(path)
+		if err != nil {
+			return out, fmt.Errorf("parse browser profile %s: %w", path, err)
+		}
+		for name, action := range value.Actions {
+			info := &rollout.OperationInfo{
+				OperationID: name,
+				Method:      "BROWSER",
+				Path:        "#/actions/" + name,
+				Summary:     action.Description,
+				Responses:   browserActionResponses(action),
+			}
+			for _, field := range browserRequiredParameterNames(action.Parameters) {
+				info.Parameters = append(info.Parameters, &rollout.ParameterInfo{Name: field, In: "body", Required: true})
+			}
+			out[name] = info
+		}
+		return out, nil
 	default:
 		return out, nil
 	}
+}
+
+func browserActionResponses(action profile.Action) map[string]*rollout.ResponseInfo {
+	if len(action.Outputs) == 0 {
+		return nil
+	}
+	properties := make(map[string]any, len(action.Outputs))
+	for name, output := range action.Outputs {
+		schema := map[string]any{"type": string(output.Type)}
+		for key, value := range output.Validation {
+			schema[key] = value
+		}
+		properties[name] = schema
+	}
+	return map[string]*rollout.ResponseInfo{
+		"200": {Description: "Verified browser action outputs.", Schema: map[string]any{"type": "object", "properties": properties}},
+	}
+}
+
+func browserRequiredParameterNames(schema profile.JSONSchema) []string {
+	var names []string
+	switch values := schema["required"].(type) {
+	case []any:
+		for _, value := range values {
+			if name := strings.TrimSpace(fmt.Sprint(value)); name != "" {
+				names = append(names, name)
+			}
+		}
+	case []string:
+		names = append(names, values...)
+	}
+	return sortedUnique(names)
 }
 
 func uwsSourceTypeFromString(sourceType string) uws1.SourceDescriptionType {

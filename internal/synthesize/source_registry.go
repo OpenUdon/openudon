@@ -13,6 +13,7 @@ import (
 	"github.com/OpenUdon/apitools/awssmithy"
 	"github.com/OpenUdon/apitools/googlediscovery"
 	"github.com/OpenUdon/asyncapi"
+	"github.com/OpenUdon/browsertools/profile"
 	"github.com/OpenUdon/openudon/internal/openapidisco"
 	"github.com/OpenUdon/openudon/internal/packageartifacts"
 	"github.com/OpenUdon/uws/uws1"
@@ -23,10 +24,12 @@ type localAPISourceRegistry struct {
 }
 
 type localAPISource struct {
-	RelativePath string
-	Type         uws1.SourceDescriptionType
-	Operations   map[string]bool
-	Err          error
+	RelativePath   string
+	Type           uws1.SourceDescriptionType
+	Operations     map[string]bool
+	BrowserActions map[string]profile.Action
+	BrowserProfile *profile.Profile
+	Err            error
 }
 
 func newLocalAPISourceRegistry(exampleDir string, candidates []openapidisco.Candidate) (*localAPISourceRegistry, error) {
@@ -38,7 +41,7 @@ func newLocalAPISourceRegistry(exampleDir string, candidates []openapidisco.Cand
 		}
 		registry.add(exampleDir, localAPISource{RelativePath: rel, Type: uws1.SourceDescriptionTypeOpenAPI})
 	}
-	paths, err := packageartifacts.CollectAPISourcePaths(exampleDir)
+	paths, err := packageartifacts.CollectExecutionSourcePaths(exampleDir)
 	if err != nil {
 		return registry, err
 	}
@@ -57,6 +60,12 @@ func newLocalAPISourceRegistry(exampleDir string, candidates []openapidisco.Cand
 		}
 		if entry.Err == nil && sourceType != uws1.SourceDescriptionTypeOpenAPI {
 			entry.Operations, entry.Err = nativeAPISourceOperations(abs, sourceType)
+			if entry.Err == nil && sourceType == uws1.SourceDescriptionTypeBrowserProfile {
+				entry.BrowserProfile, entry.Err = loadBrowserProfile(abs)
+				if entry.Err == nil {
+					entry.BrowserActions = entry.BrowserProfile.Actions
+				}
+			}
 		}
 		registry.add(exampleDir, entry)
 	}
@@ -169,6 +178,14 @@ func nativeAPISourceOperations(path string, sourceType uws1.SourceDescriptionTyp
 				}
 			}
 		}
+	case uws1.SourceDescriptionTypeBrowserProfile:
+		value, parseErr := loadBrowserProfile(path)
+		if parseErr != nil {
+			return nil, parseErr
+		}
+		for name := range value.Actions {
+			operations[name] = true
+		}
 	default:
 		return nil, nil
 	}
@@ -224,6 +241,8 @@ func sourceDescriptionTypeForPath(path string) uws1.SourceDescriptionType {
 			return uws1.SourceDescriptionTypeOData
 		case "openapi":
 			return uws1.SourceDescriptionTypeOpenAPI
+		case "browser-profiles":
+			return uws1.SourceDescriptionTypeBrowserProfile
 		}
 	}
 	return uws1.SourceDescriptionTypeOpenAPI
@@ -267,6 +286,9 @@ func sniffAPISourceType(path string) (uws1.SourceDescriptionType, bool, error) {
 			if _, ok := root["openrpc"]; ok {
 				return uws1.SourceDescriptionTypeOpenRPC, true, nil
 			}
+			if discriminator, _ := root["profile"].(string); strings.HasPrefix(discriminator, "uws.browser.") {
+				return uws1.SourceDescriptionTypeBrowserProfile, true, nil
+			}
 			if _, ok := root["methods"]; ok && root["info"] != nil {
 				return uws1.SourceDescriptionTypeOpenRPC, true, nil
 			}
@@ -294,8 +316,25 @@ func sniffAPISourceType(path string) (uws1.SourceDescriptionType, bool, error) {
 		return uws1.SourceDescriptionTypeGraphQL, true, nil
 	case strings.Contains(lower, "<edmx:edmx") || strings.Contains(lower, `"edmx"`) || strings.Contains(lower, "$metadata"):
 		return uws1.SourceDescriptionTypeOData, true, nil
+	case strings.HasPrefix(lower, "profile: uws.browser.") || strings.Contains(lower, "\nprofile: uws.browser."):
+		return uws1.SourceDescriptionTypeBrowserProfile, true, nil
 	default:
 		return "", false, nil
+	}
+}
+
+func loadBrowserProfile(path string) (*profile.Profile, error) {
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return nil, err
+	}
+	switch strings.ToLower(filepath.Ext(path)) {
+	case ".json":
+		return profile.ParseJSON(data)
+	case ".yaml", ".yml":
+		return profile.ParseYAML(data)
+	default:
+		return nil, fmt.Errorf("browser profile must use .json, .yaml, or .yml")
 	}
 }
 

@@ -189,6 +189,12 @@ go run ./cmd/icot --example ./examples/<name> \
   --openapi weather=./openapi/weather.yaml \
   --source-root ./provider-metadata --network ask
 
+# Use a reviewed browser profile only when no adequate API capability exists.
+go run ./cmd/icot --example ./examples/<name> \
+  --browser-profile status=./reviewed/status.browser.json \
+  --browser-registry https://profiles.example.org/catalog/ \
+  --network ask
+
 # Rebuild project.md from workflows/intent.hcl.
 go run ./cmd/icot reconcile --example ./examples/<name>
 

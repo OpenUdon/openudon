@@ -18,9 +18,12 @@ const (
 	nodeActorTrigger        = "boundary.actor_trigger"
 	nodeSuccessEvidence     = "boundary.success_evidence"
 	nodeRemoteLookup        = "source.remote_lookup"
+	nodeBrowserRegistry     = "source.browser_registry_lookup"
 	nodeSideEffectPosture   = "safety.side_effect_posture"
 	nodeWorkflowSteps       = "workflow.steps"
 	nodeSourceSelection     = "source.selection"
+	nodeBrowserSession      = "browser.session_posture"
+	nodeBrowserApproval     = "browser.mutation_approval"
 	nodeCredentials         = "security.credentials"
 	nodeOutputs             = "workflow.outputs"
 	nodeFallback            = "workflow.fallback"
@@ -103,6 +106,14 @@ func buildInterviewState(session Session, docs []APIDocument, issues []Readiness
 	}
 	add(publicinterview.Node{ID: nodeSuccessEvidence, Title: "Success evidence", Dependencies: []string{boundaryRoot}, Required: true, Priority: 89, Recommendation: successRecommendation, Rationale: "Observable evidence makes completion verifiable."}, QuestionPlan{Prompt: "What evidence proves this workflow succeeded?", Slots: []string{"boundary.success_evidence"}}, len(session.Boundary.SuccessEvidence) > 0)
 
+	browserStep, browserDoc, browserOperation := selectedBrowserOperation(session, docs)
+	browserActionNode := ""
+	if browserStep != nil {
+		add(publicinterview.Node{ID: nodeSourceSelection, Title: "Browser source", Dependencies: []string{boundaryRoot}, Required: true, Priority: 75, Rationale: "A verified browser profile is required before selecting one of its reviewed actions."}, QuestionPlan{Prompt: "Select the verified browser profile for the active capability.", Slots: []string{"intent.source"}}, browserDoc.RelativePath != "")
+		browserActionNode = "browser.action." + slugIdent(browserStep.Name)
+		add(publicinterview.Node{ID: browserActionNode, Title: "Browser action", Dependencies: []string{nodeSourceSelection}, Required: true, Priority: 70, Rationale: "The action must exist in the selected verified profile."}, QuestionPlan{Prompt: "Select a reviewed browser action from the verified profile.", Slots: []string{"steps." + browserStep.Name + ".operation"}}, browserOperation != nil)
+	}
+
 	issueMap := map[string]ReadinessIssue{}
 	for _, issue := range issues {
 		if issue.Severity != readinessBlocking && issue.Code != "missing_side_effect_policy" {
@@ -117,10 +128,14 @@ func buildInterviewState(session Session, docs []APIDocument, issues []Readiness
 	}
 	missingSource := hasIssueCode(issueMap, "missing_api_doc")
 	missingOperation := hasIssueCode(issueMap, "missing_operation") || hasIssueCode(issueMap, readinessUnconfirmedSideEffectCommitment)
-	remoteLookupDependency := ""
+	var remoteLookupDependencies []string
 	if missingSource && len(docs) == 0 && strings.EqualFold(prior.Metadata["network_policy"], "ask") && prior.Metadata["remote_lookup_decision"] == "" {
-		add(publicinterview.Node{ID: nodeRemoteLookup, Title: "Remote source lookup", Dependencies: []string{boundaryRoot}, Required: true, Priority: 76, Recommendation: "never", Rationale: "Local evidence is exhausted, so network access requires an explicit decision."}, QuestionPlan{Prompt: "Allow one bounded lookup of curated apitools references and APIs.guru? Answer allow or never.", Slots: []string{"source.remote_lookup"}, Forced: true}, false)
-		remoteLookupDependency = nodeRemoteLookup
+		add(publicinterview.Node{ID: nodeRemoteLookup, Title: "Remote API source lookup", Dependencies: []string{boundaryRoot}, Required: true, Priority: 76, Recommendation: "never", Rationale: "Local API evidence is exhausted, so network access requires an explicit decision."}, QuestionPlan{Prompt: "Allow one bounded lookup of curated apitools references and APIs.guru? Answer allow or never.", Slots: []string{"source.remote_lookup"}, Forced: true}, false)
+		remoteLookupDependencies = append(remoteLookupDependencies, nodeRemoteLookup)
+	}
+	if missingSource && len(docs) == 0 && strings.EqualFold(prior.Metadata["network_policy"], "ask") && prior.Metadata["browser_registry_configured"] == "true" && prior.Metadata["browser_registry_lookup_decision"] == "" {
+		add(publicinterview.Node{ID: nodeBrowserRegistry, Title: "Static browser registry lookup", Dependencies: []string{boundaryRoot}, Required: true, Priority: 75, Recommendation: "never", Rationale: "A configured static Browsertools registry is a separate remote evidence source and requires its own approval."}, QuestionPlan{Prompt: "Allow one bounded lookup of the configured static Browsertools registries? Answer allow or never.", Slots: []string{"source.browser_registry_lookup"}, Forced: true}, false)
+		remoteLookupDependencies = append(remoteLookupDependencies, nodeBrowserRegistry)
 	}
 	keys := make([]string, 0, len(issueMap))
 	for key := range issueMap {
@@ -140,16 +155,35 @@ func buildInterviewState(session Session, docs []APIDocument, issues []Readiness
 			id, deferrable = nodeSideEffectPosture, false
 		case "missing_api_doc":
 			id = nodeSourceSelection
-			if remoteLookupDependency != "" {
-				deps = append(deps, remoteLookupDependency)
+			if len(remoteLookupDependencies) > 0 {
+				deps = append(deps, remoteLookupDependencies...)
 			}
 		case "missing_credential_bindings", "inline_secret_value":
 			id = nodeCredentials
+		case "missing_browser_session_posture":
+			id, deferrable = nodeBrowserSession, false
+			if browserActionNode != "" {
+				deps = []string{browserActionNode}
+			}
+		case "unconfirmed_browser_mutation":
+			id, deferrable = nodeBrowserApproval, false
+			if browserActionNode != "" {
+				deps = []string{browserActionNode}
+			}
 		case "missing_outputs":
 			id = nodeOutputs
+			if browserActionNode != "" {
+				deps = existingDependencies(nodes, nodeBrowserSession, nodeBrowserApproval, browserActionNode)
+			}
 		case "missing_operation":
 			if issue.Slot == "intent.steps" {
 				id = nodeWorkflowSteps
+			}
+		}
+		if browserActionNode != "" && browserStep != nil && strings.Contains(issue.Slot, "steps."+browserStep.Name+".") {
+			switch issue.Code {
+			case "missing_required_request_values", "conflicting_mapping", "low_confidence_mapping":
+				deps = []string{browserActionNode}
 			}
 		}
 		add(publicinterview.Node{ID: id, Title: issue.Code, Dependencies: deps, Required: issue.Severity == readinessBlocking, Deferrable: deferrable, Priority: priority, Rationale: issue.Message, Recommendation: issue.SuggestedAnswer}, plan, false)
@@ -165,10 +199,21 @@ func buildInterviewState(session Session, docs []APIDocument, issues []Readiness
 	case hasNode(nodes, nodeWorkflowSteps):
 		outputDep = nodeWorkflowSteps
 	}
+	if browserActionNode != "" {
+		browserDeps := existingDependencies(nodes, nodeBrowserSession, nodeBrowserApproval, browserActionNode)
+		if len(browserDeps) > 0 {
+			outputDep = ""
+		}
+		deps := browserDeps
+		add(publicinterview.Node{ID: nodeFallback, Title: "Fallback behavior", Dependencies: deps, Deferrable: true, Priority: 20, Recommendation: "stop cleanly and report the failed browser action", Rationale: "Fallback behavior prevents silent partial success."}, QuestionPlan{Prompt: "What should happen when a required browser action fails?", Slots: []string{"fallback"}}, strings.TrimSpace(firstNonEmpty(session.Fallback, session.Project.Fallback)) != "")
+		add(publicinterview.Node{ID: nodeVerification, Title: "Verification", Dependencies: deps, Deferrable: true, Priority: 19, Recommendation: successRecommendation, Rationale: "Verification turns the expected result into a reviewable check."}, QuestionPlan{Prompt: "How should the browser result be verified?", Slots: []string{"boundary.success_evidence"}}, len(session.Boundary.SuccessEvidence) > 0)
+	}
 	if !missingOperation || outputDep != "" {
 		deps := existingDependencies(nodes, outputDep)
-		add(publicinterview.Node{ID: nodeFallback, Title: "Fallback behavior", Dependencies: deps, Deferrable: true, Priority: 20, Recommendation: "stop cleanly and report the failed step", Rationale: "Fallback behavior prevents silent partial success."}, QuestionPlan{Prompt: "What should happen when a required step fails?", Slots: []string{"fallback"}}, strings.TrimSpace(firstNonEmpty(session.Fallback, session.Project.Fallback)) != "")
-		add(publicinterview.Node{ID: nodeVerification, Title: "Verification", Dependencies: deps, Deferrable: true, Priority: 19, Recommendation: successRecommendation, Rationale: "Verification turns the expected result into a reviewable check."}, QuestionPlan{Prompt: "How should the result be verified?", Slots: []string{"boundary.success_evidence"}}, len(session.Boundary.SuccessEvidence) > 0)
+		if browserActionNode == "" {
+			add(publicinterview.Node{ID: nodeFallback, Title: "Fallback behavior", Dependencies: deps, Deferrable: true, Priority: 20, Recommendation: "stop cleanly and report the failed step", Rationale: "Fallback behavior prevents silent partial success."}, QuestionPlan{Prompt: "What should happen when a required step fails?", Slots: []string{"fallback"}}, strings.TrimSpace(firstNonEmpty(session.Fallback, session.Project.Fallback)) != "")
+			add(publicinterview.Node{ID: nodeVerification, Title: "Verification", Dependencies: deps, Deferrable: true, Priority: 19, Recommendation: successRecommendation, Rationale: "Verification turns the expected result into a reviewable check."}, QuestionPlan{Prompt: "How should the result be verified?", Slots: []string{"boundary.success_evidence"}}, len(session.Boundary.SuccessEvidence) > 0)
+		}
 	}
 
 	currentIDs := map[string]bool{}
@@ -425,6 +470,31 @@ func applyFrontierValue(session *Session, nodeID string, answer authoring.RoundA
 			session.Interview.Metadata = map[string]string{}
 		}
 		session.Interview.Metadata["remote_lookup_decision"] = decision
+	case nodeBrowserRegistry:
+		decision := strings.ToLower(value)
+		if decision != "allow" && decision != "never" {
+			return fmt.Errorf("browser registry lookup decision must be allow or never")
+		}
+		if session.Interview.Metadata == nil {
+			session.Interview.Metadata = map[string]string{}
+		}
+		session.Interview.Metadata["browser_registry_lookup_decision"] = decision
+	case nodeBrowserSession:
+		posture := strings.ToLower(value)
+		if posture != "none" && posture != "opaque-runtime-binding-required" {
+			return fmt.Errorf("browser session posture must be none or opaque-runtime-binding-required")
+		}
+		session.BrowserSession = posture
+	case nodeBrowserApproval:
+		if !strings.HasPrefix(strings.ToLower(value), "approve ") {
+			return fmt.Errorf("browser mutation approval must use approve <operation-step-name>")
+		}
+		name := strings.TrimSpace(value[len("approve "):])
+		step, _, operation := selectedBrowserOperation(*session, docs)
+		if step == nil || operation == nil || !browserOperationMutates(operation) || name != step.Name {
+			return fmt.Errorf("browser mutation approval %q does not match the selected mutating operation step", value)
+		}
+		session.BrowserApprovals = dedupeStrings(append(session.BrowserApprovals, step.Name))
 	case nodeSuccessEvidence, nodeVerification:
 		session.Boundary.SuccessEvidence = dedupeStrings(append(session.Boundary.SuccessEvidence, splitFrontierList(value)...))
 	case nodeFallback:
@@ -459,6 +529,18 @@ func cloneSession(session Session) (Session, error) {
 	clone.Assumptions = append([]Assumption(nil), session.Assumptions...)
 	clone.Classifications = append([]MappingClassification(nil), session.Classifications...)
 	clone.DecisionEvidence = append([]DecisionEvidence(nil), session.DecisionEvidence...)
+	contentBySource := map[string][]byte{}
+	for _, source := range session.SourcePlan {
+		if len(source.MaterializedContent) == 0 {
+			continue
+		}
+		key := source.TargetPath + "\x00" + source.SHA256
+		contentBySource[key] = append([]byte(nil), source.MaterializedContent...)
+	}
+	for index := range clone.SourcePlan {
+		key := clone.SourcePlan[index].TargetPath + "\x00" + clone.SourcePlan[index].SHA256
+		clone.SourcePlan[index].MaterializedContent = append([]byte(nil), contentBySource[key]...)
+	}
 	return clone, nil
 }
 

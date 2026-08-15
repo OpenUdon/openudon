@@ -228,6 +228,11 @@ func parsedSourceDocumentTitle(dirName string, operations []apitools.OperationSu
 }
 
 func apiDocumentPriority(doc APIDocument) int {
+	if isBrowserDocument(doc) {
+		// Browser profiles are a reviewed fallback. Any validated API-family
+		// document remains ahead of them for automatic/default selection.
+		return 10
+	}
 	if isAdvisoryAPIDocument(doc) {
 		return 0
 	}

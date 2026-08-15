@@ -27,6 +27,7 @@ type ManifestInput struct {
 
 const ReviewHandoffPath = "expected/review-handoff.json"
 const RuntimeDataPath = "expected/data.hcl"
+const BrowserSourceReviewPath = ".icot/browser-sources.json"
 
 var fixedRequiredPackagePaths = []string{
 	"project.md",
@@ -73,6 +74,14 @@ func RequiredPackagePaths(packageRoot string) ([]string, error) {
 		return nil, err
 	}
 	paths = append(paths, openAPIPaths...)
+	browserPaths, err := CollectBrowserProfilePaths(packageRoot)
+	if err != nil {
+		return nil, err
+	}
+	paths = append(paths, browserPaths...)
+	if len(browserPaths) > 0 {
+		paths = append(paths, BrowserSourceReviewPath)
+	}
 	securitySidecars, err := CollectAdvisorySecuritySidecarPaths(packageRoot)
 	if err != nil {
 		return nil, err
@@ -162,6 +171,37 @@ func CollectAPISourcePaths(packageRoot string) ([]string, error) {
 		return nil, err
 	}
 	return paths, nil
+}
+
+// CollectBrowserProfilePaths returns reviewed browser-profile inputs without
+// mixing them into the legacy api_source_paths executor field.
+func CollectBrowserProfilePaths(packageRoot string) ([]string, error) {
+	paths, err := collectSourceDirPaths(packageRoot, "browser-profiles")
+	if err != nil {
+		return nil, err
+	}
+	for _, path := range paths {
+		switch strings.ToLower(filepath.Ext(path)) {
+		case ".json", ".yaml", ".yml":
+		default:
+			return nil, fmt.Errorf("browser profile must use .json, .yaml, or .yml: %s", path)
+		}
+	}
+	return paths, nil
+}
+
+// CollectExecutionSourcePaths returns every UWS source document staged in a
+// package while preserving API/browser-specific collection APIs.
+func CollectExecutionSourcePaths(packageRoot string) ([]string, error) {
+	apiPaths, err := CollectAPISourcePaths(packageRoot)
+	if err != nil {
+		return nil, err
+	}
+	browserPaths, err := CollectBrowserProfilePaths(packageRoot)
+	if err != nil {
+		return nil, err
+	}
+	return uniqueSorted(append(apiPaths, browserPaths...))
 }
 
 // CollectAdvisorySecuritySidecarPaths returns package-relative security
