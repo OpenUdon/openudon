@@ -17,6 +17,7 @@ import (
 
 	"github.com/OpenUdon/apitools"
 	"github.com/OpenUdon/openudon/internal/authoring"
+	"github.com/OpenUdon/openudon/internal/browserverify"
 	evalpkg "github.com/OpenUdon/openudon/internal/eval"
 	"github.com/OpenUdon/openudon/internal/icot/elicitor"
 	"github.com/OpenUdon/openudon/internal/projectwizard"
@@ -79,12 +80,14 @@ func runAuthor(args []string, in io.Reader, out, errOut io.Writer) int {
 	var apiSourceFlags repeatedFlag
 	var openAPIFlags repeatedFlag
 	var browserProfileFlags repeatedFlag
+	var browserVerificationFlags repeatedFlag
 	var browserRegistryFlags repeatedFlag
 	var browserAuthoringOriginFlags repeatedFlag
 	var sourceRootFlags repeatedFlag
 	fs.Var(&apiSourceFlags, "api-source", "Explicit API document KIND:ID=PATH; repeat for multiple sources")
 	fs.Var(&openAPIFlags, "openapi", "OpenAPI shorthand ID=PATH; repeat for multiple sources")
 	fs.Var(&browserProfileFlags, "browser-profile", "Verified browser capability/authentication profile, capability bundle, or guided-authoring result ID=PATH; repeat for multiple sources")
+	fs.Var(&browserVerificationFlags, "browser-verification", "Value-free Browsertools live-check or portability report path; repeat for multiple reports")
 	fs.Var(&browserRegistryFlags, "browser-registry", "Static Browsertools registry directory or HTTPS URL; repeat for multiple registries")
 	browserAuthoringURL := fs.String("browser-authoring-url", "", "Explicit clean HTTPS or loopback URL for a non-executing Browsertools authoring handoff")
 	browserAuthoringID := fs.String("browser-authoring-id", "", "Stable profile ID for the Browsertools authoring handoff")
@@ -95,7 +98,7 @@ func runAuthor(args []string, in io.Reader, out, errOut io.Writer) int {
 	fs.Var(&sourceRootFlags, "source-root", "Explicit bounded local source root; repeat for multiple roots")
 	network := fs.String("network", "", "Remote lookup policy: never, ask, or allow")
 	fs.Usage = func() {
-		fmt.Fprintf(fs.Output(), "Usage: icot --example examples/<name> [--dir examples/<name>] [--force] [--yes] [--print] [--from-example examples/<seed>] [--answers session.yaml] [--api-source KIND:ID=PATH] [--browser-profile ID=PATH] [--browser-registry URL] [--source-root PATH] [--network never|ask|allow] [--prompt-mode full|normal|fast]\n")
+		fmt.Fprintf(fs.Output(), "Usage: icot --example examples/<name> [--dir examples/<name>] [--force] [--yes] [--print] [--from-example examples/<seed>] [--answers session.yaml] [--api-source KIND:ID=PATH] [--browser-profile ID=PATH] [--browser-verification PATH] [--browser-registry URL] [--source-root PATH] [--network never|ask|allow] [--prompt-mode full|normal|fast]\n")
 		fmt.Fprintf(fs.Output(), "\nInteractively writes project.md and workflows/intent.hcl with the standard OpenUdon authoring sections.\n")
 		fmt.Fprintf(fs.Output(), "It also creates selected source directories such as openapi/, browser-profiles/, and browser-authentication/, plus workflows/ and expected/, when missing.\n")
 		fmt.Fprintf(fs.Output(), "\nPipeline: local source inspection -> active workflow boundary -> dependency frontier rounds -> complete proposal -> explicit approval.\n")
@@ -167,29 +170,30 @@ func runAuthor(args []string, in io.Reader, out, errOut io.Writer) int {
 	}
 	if *agentMode {
 		return runAgentAuthor(agentAuthorOptions{
-			ExampleDir:        exampleDir,
-			DirAlias:          *dirAlias,
-			Force:             *force,
-			Yes:               *yes,
-			FromExample:       *fromExample,
-			AnswersFile:       *answersFile,
-			NoTranscript:      *noTranscript,
-			JSONOutput:        *jsonOutput,
-			ReportPath:        *reportPath,
-			PromptMode:        *promptMode,
-			DefaultMode:       defaultMode,
-			ReviewRepair:      *reviewRepair,
-			NoLLM:             *noLLM,
-			Provider:          *provider,
-			Model:             *model,
-			Temperature:       *temperature,
-			OriginalInput:     in,
-			LocalSources:      localSources,
-			BrowserSources:    browserSources,
-			BrowserRegistries: append([]string(nil), browserRegistryFlags...),
-			SourceRoots:       append([]string(nil), sourceRootFlags...),
-			NetworkPolicy:     networkPolicy,
-			BrowserAuthoring:  browserAuthoring,
+			ExampleDir:           exampleDir,
+			DirAlias:             *dirAlias,
+			Force:                *force,
+			Yes:                  *yes,
+			FromExample:          *fromExample,
+			AnswersFile:          *answersFile,
+			NoTranscript:         *noTranscript,
+			JSONOutput:           *jsonOutput,
+			ReportPath:           *reportPath,
+			PromptMode:           *promptMode,
+			DefaultMode:          defaultMode,
+			ReviewRepair:         *reviewRepair,
+			NoLLM:                *noLLM,
+			Provider:             *provider,
+			Model:                *model,
+			Temperature:          *temperature,
+			OriginalInput:        in,
+			LocalSources:         localSources,
+			BrowserSources:       browserSources,
+			BrowserVerifications: append([]string(nil), browserVerificationFlags...),
+			BrowserRegistries:    append([]string(nil), browserRegistryFlags...),
+			SourceRoots:          append([]string(nil), sourceRootFlags...),
+			NetworkPolicy:        networkPolicy,
+			BrowserAuthoring:     browserAuthoring,
 		}, out, errOut)
 	}
 	projectPath := filepath.Join(exampleDir, "project.md")
@@ -257,26 +261,32 @@ func runAuthor(args []string, in io.Reader, out, errOut io.Writer) int {
 			}
 		}
 		seed.SourcePlan = elicitor.SyncSelectedSourcePlansWithBrowser(seed, discovery.Plans, localSources, browserSources)
+		seed.SourcePlan, err = elicitor.AttachBrowserVerifications(seed.SourcePlan, browserVerificationFlags, time.Now().UTC())
+		if err != nil {
+			fmt.Fprintln(errOut, err)
+			return 1
+		}
 	}
 	if complete && (source != seedSourceDraft || *printOnly) {
 		artifacts, err = elicitor.RenderArtifacts(seed)
 	} else {
 		artifacts, err = elicitor.Run(context.Background(), input, out, seed, elicitor.Options{
-			ExampleDir:        exampleDir,
-			NoLLM:             *noLLM || !usingLLM,
-			Extractor:         extractor,
-			DraftPath:         draftPath,
-			TranscriptPath:    transcriptPath,
-			DisableAIDraft:    source == seedSourceDraft,
-			VerifyOnly:        complete && source == seedSourceDraft,
-			DefaultMode:       defaultMode,
-			ReviewRepair:      *reviewRepair,
-			LocalSources:      localSources,
-			BrowserSources:    browserSources,
-			BrowserRegistries: append([]string(nil), browserRegistryFlags...),
-			SourceRoots:       authorSourceRoots,
-			NetworkPolicy:     networkPolicy,
-			AutoApprove:       *yes,
+			ExampleDir:           exampleDir,
+			NoLLM:                *noLLM || !usingLLM,
+			Extractor:            extractor,
+			DraftPath:            draftPath,
+			TranscriptPath:       transcriptPath,
+			DisableAIDraft:       source == seedSourceDraft,
+			VerifyOnly:           complete && source == seedSourceDraft,
+			DefaultMode:          defaultMode,
+			ReviewRepair:         *reviewRepair,
+			LocalSources:         localSources,
+			BrowserSources:       browserSources,
+			BrowserVerifications: append([]string(nil), browserVerificationFlags...),
+			BrowserRegistries:    append([]string(nil), browserRegistryFlags...),
+			SourceRoots:          authorSourceRoots,
+			NetworkPolicy:        networkPolicy,
+			AutoApprove:          *yes,
 		})
 	}
 	if *printOnly {
@@ -362,29 +372,30 @@ func confirmProposalApproval(in io.Reader, out io.Writer) (bool, error) {
 }
 
 type agentAuthorOptions struct {
-	ExampleDir        string
-	DirAlias          string
-	Force             bool
-	Yes               bool
-	FromExample       string
-	AnswersFile       string
-	NoTranscript      bool
-	JSONOutput        bool
-	ReportPath        string
-	PromptMode        string
-	DefaultMode       authoring.PromptDefaultMode
-	ReviewRepair      bool
-	NoLLM             bool
-	Provider          string
-	Model             string
-	Temperature       float64
-	OriginalInput     io.Reader
-	LocalSources      []apitools.LocalSource
-	BrowserSources    []elicitor.BrowserSourceInput
-	BrowserRegistries []string
-	SourceRoots       []string
-	NetworkPolicy     string
-	BrowserAuthoring  *browserAuthoringPlan
+	ExampleDir           string
+	DirAlias             string
+	Force                bool
+	Yes                  bool
+	FromExample          string
+	AnswersFile          string
+	NoTranscript         bool
+	JSONOutput           bool
+	ReportPath           string
+	PromptMode           string
+	DefaultMode          authoring.PromptDefaultMode
+	ReviewRepair         bool
+	NoLLM                bool
+	Provider             string
+	Model                string
+	Temperature          float64
+	OriginalInput        io.Reader
+	LocalSources         []apitools.LocalSource
+	BrowserSources       []elicitor.BrowserSourceInput
+	BrowserVerifications []string
+	BrowserRegistries    []string
+	SourceRoots          []string
+	NetworkPolicy        string
+	BrowserAuthoring     *browserAuthoringPlan
 }
 
 func runAgentAuthor(opts agentAuthorOptions, out, errOut io.Writer) int {
@@ -439,6 +450,15 @@ func runAgentAuthor(opts agentAuthorOptions, out, errOut io.Writer) int {
 	}
 	docs := discovery.Docs
 	seed.SourcePlan = elicitor.SyncSelectedSourcePlansWithBrowser(seed, discovery.Plans, opts.LocalSources, opts.BrowserSources)
+	seed.SourcePlan, err = elicitor.AttachBrowserVerifications(seed.SourcePlan, opts.BrowserVerifications, time.Now().UTC())
+	if err != nil {
+		report.Status = statusFail
+		report.Error = err.Error()
+		report.FailureFamily = failureMissingAPISource
+		_ = writeAuthorReport(report, opts, out)
+		fmt.Fprintln(errOut, err)
+		return 1
+	}
 	if seed.Interview.Metadata == nil {
 		seed.Interview.Metadata = map[string]string{}
 	}
@@ -611,7 +631,7 @@ func proposedAuthorFileActions(exampleDir string, session elicitor.Session, comp
 	}
 	for _, source := range session.SourcePlan {
 		if source.Kind == "browser-profile" {
-			actions = append(actions, elicitor.FileAction{Action: "write", Path: filepath.Join(exampleDir, ".icot", "browser-sources.json"), Reason: "record safe browser origin, action, digest, lifecycle, session-posture, and approval evidence"})
+			actions = append(actions, elicitor.FileAction{Action: "write", Path: filepath.Join(exampleDir, ".icot", "browser-sources.json"), Reason: "record safe browser origin, action, digest, lifecycle, optional value-free verification, session-posture, and approval evidence"})
 			break
 		}
 	}
@@ -1516,6 +1536,14 @@ func writeArtifacts(projectPath, intentPath string, artifacts elicitor.Artifacts
 
 func writeApprovedArtifacts(exampleDir string, artifacts elicitor.Artifacts, force, yes bool, in io.Reader, out io.Writer) error {
 	artifacts.Session.Normalize()
+	revalidatedSources, err := elicitor.RevalidateBrowserVerifications(artifacts.Session.SourcePlan, time.Now().UTC())
+	if err != nil {
+		return fmt.Errorf("revalidate browser verification evidence: %w", err)
+	}
+	artifacts.Session.SourcePlan = revalidatedSources
+	if err := elicitor.ValidateBrowserVerificationCoverage(artifacts.Session); err != nil {
+		return fmt.Errorf("validate browser verification evidence: %w", err)
+	}
 	selectedTargets := map[string]string{}
 	for _, source := range artifacts.Session.SourcePlan {
 		target := filepath.ToSlash(strings.TrimSpace(source.TargetPath))
@@ -1612,20 +1640,21 @@ func writeApprovedArtifacts(exampleDir string, artifacts elicitor.Artifacts, for
 
 func browserSourceMetadataJSON(session elicitor.Session) (string, bool, error) {
 	type reviewedSource struct {
-		ID                 string   `json:"id"`
-		Release            string   `json:"release,omitempty"`
-		TargetPath         string   `json:"target_path"`
-		SHA256             string   `json:"sha256"`
-		SourceSHA256       string   `json:"source_sha256,omitempty"`
-		Title              string   `json:"title,omitempty"`
-		Actions            []string `json:"actions"`
-		Origins            []string `json:"origins"`
-		Lifecycle          string   `json:"lifecycle"`
-		ExpiresAt          string   `json:"expires_at,omitempty"`
-		LoginStateRequired bool     `json:"login_state_required,omitempty"`
-		Provenance         string   `json:"provenance"`
-		Registry           string   `json:"registry,omitempty"`
-		Coordinate         string   `json:"coordinate,omitempty"`
+		ID                 string                  `json:"id"`
+		Release            string                  `json:"release,omitempty"`
+		TargetPath         string                  `json:"target_path"`
+		SHA256             string                  `json:"sha256"`
+		SourceSHA256       string                  `json:"source_sha256,omitempty"`
+		Title              string                  `json:"title,omitempty"`
+		Actions            []string                `json:"actions"`
+		Origins            []string                `json:"origins"`
+		Lifecycle          string                  `json:"lifecycle"`
+		ExpiresAt          string                  `json:"expires_at,omitempty"`
+		LoginStateRequired bool                    `json:"login_state_required,omitempty"`
+		Provenance         string                  `json:"provenance"`
+		Registry           string                  `json:"registry,omitempty"`
+		Coordinate         string                  `json:"coordinate,omitempty"`
+		Verifications      []browserverify.Summary `json:"verifications,omitempty"`
 	}
 	var sources []reviewedSource
 	for _, source := range session.SourcePlan {
@@ -1638,6 +1667,7 @@ func browserSourceMetadataJSON(session elicitor.Session) (string, bool, error) {
 			Origins: append([]string(nil), source.Origins...), Lifecycle: source.Lifecycle, ExpiresAt: source.ExpiresAt,
 			LoginStateRequired: source.LoginStateRequired, Provenance: source.Provenance,
 			Registry: source.Registry, Coordinate: source.RegistryCoordinate,
+			Verifications: browserVerificationSummaries(source.BrowserVerifications),
 		})
 	}
 	if len(sources) == 0 {
@@ -1656,7 +1686,18 @@ func browserSourceMetadataJSON(session elicitor.Session) (string, bool, error) {
 	if err != nil {
 		return "", false, err
 	}
+	if len(data)+1 > browserverify.MaxReviewBytes {
+		return "", false, fmt.Errorf("browser source review exceeds %d bytes", browserverify.MaxReviewBytes)
+	}
 	return string(append(data, '\n')), true, nil
+}
+
+func browserVerificationSummaries(values []browserverify.Attachment) []browserverify.Summary {
+	result := make([]browserverify.Summary, 0, len(values))
+	for _, value := range values {
+		result = append(result, value.Summary)
+	}
+	return result
 }
 
 func browserAuthenticationMetadataJSON(session elicitor.Session) (string, bool, error) {

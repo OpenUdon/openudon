@@ -3,8 +3,8 @@ package synthesize
 import (
 	"crypto/sha256"
 	"encoding/hex"
-	"encoding/json"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"sort"
@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/OpenUdon/browsertools/profile"
+	"github.com/OpenUdon/openudon/internal/browserverify"
 	"github.com/OpenUdon/openudon/internal/packageartifacts"
 	rollout "github.com/OpenUdon/openudon/internal/workflowintent"
 )
@@ -27,20 +28,21 @@ type browserSourceReview struct {
 }
 
 type browserReviewedSource struct {
-	ID                 string   `json:"id"`
-	Release            string   `json:"release,omitempty"`
-	TargetPath         string   `json:"target_path"`
-	SHA256             string   `json:"sha256"`
-	SourceSHA256       string   `json:"source_sha256,omitempty"`
-	Title              string   `json:"title,omitempty"`
-	Actions            []string `json:"actions"`
-	Origins            []string `json:"origins"`
-	Lifecycle          string   `json:"lifecycle"`
-	ExpiresAt          string   `json:"expires_at,omitempty"`
-	LoginStateRequired bool     `json:"login_state_required,omitempty"`
-	Provenance         string   `json:"provenance"`
-	Registry           string   `json:"registry,omitempty"`
-	Coordinate         string   `json:"coordinate,omitempty"`
+	ID                 string                  `json:"id"`
+	Release            string                  `json:"release,omitempty"`
+	TargetPath         string                  `json:"target_path"`
+	SHA256             string                  `json:"sha256"`
+	SourceSHA256       string                  `json:"source_sha256,omitempty"`
+	Title              string                  `json:"title,omitempty"`
+	Actions            []string                `json:"actions"`
+	Origins            []string                `json:"origins"`
+	Lifecycle          string                  `json:"lifecycle"`
+	ExpiresAt          string                  `json:"expires_at,omitempty"`
+	LoginStateRequired bool                    `json:"login_state_required,omitempty"`
+	Provenance         string                  `json:"provenance"`
+	Registry           string                  `json:"registry,omitempty"`
+	Coordinate         string                  `json:"coordinate,omitempty"`
+	Verifications      []browserverify.Summary `json:"verifications,omitempty"`
 }
 
 func assessBrowserSources(report *QualityReport, exampleDir string, intent *rollout.Intent) {
@@ -58,13 +60,13 @@ func assessBrowserSources(report *QualityReport, exampleDir string, intent *roll
 		return
 	}
 	metadataPath := filepath.Join(exampleDir, filepath.FromSlash(packageartifacts.BrowserSourceReviewPath))
-	metadataBytes, err := os.ReadFile(metadataPath)
+	metadataBytes, err := readBrowserSourceReviewFile(metadataPath)
 	if err != nil {
 		report.add("browser.review", "fail", "browser source review evidence is required", err.Error())
 		return
 	}
 	var review browserSourceReview
-	if err := json.Unmarshal(metadataBytes, &review); err != nil {
+	if err := decodeBrowserSourceReview(metadataBytes, &review); err != nil {
 		report.add("browser.review", "fail", "browser source review evidence must be valid JSON", err.Error())
 		return
 	}
@@ -74,6 +76,15 @@ func assessBrowserSources(report *QualityReport, exampleDir string, intent *roll
 	}
 	report.add("browser.sources", "pass", fmt.Sprintf("%d verified active browser profile(s) are packaged", len(paths)), strings.Join(paths, ", "))
 	report.add("browser.review", "pass", "browser digests, origins, actions, lifecycle, session posture, and mutation approvals agree", "")
+	verificationCount := 0
+	for _, source := range review.Sources {
+		verificationCount += len(source.Verifications)
+	}
+	if verificationCount == 0 {
+		report.add("browser.verification", "pass", "optional value-free browser verification is not attached", "Portability is review confidence, not a universal runtime requirement.")
+	} else {
+		report.add("browser.verification", "pass", fmt.Sprintf("%d value-free browser verification report(s) are profile-bound and successful", verificationCount), "Current-page and portability facts were independently revalidated from declared profile paths and fixed diagnostics.")
+	}
 }
 
 func validateBrowserSourceReview(exampleDir string, paths []string, intent *rollout.Intent, review browserSourceReview, at time.Time) error {
@@ -102,6 +113,8 @@ func validateBrowserSourceReview(exampleDir string, paths []string, intent *roll
 		return fmt.Errorf("browser review inventory has %d source(s), package has %d", len(metadata), len(paths))
 	}
 	profiles := map[string]*profile.Profile{}
+	verificationByPath := map[string][]browserverify.Summary{}
+	totalVerifications := 0
 	for _, path := range paths {
 		source, ok := metadata[path]
 		if !ok {
@@ -148,8 +161,31 @@ func validateBrowserSourceReview(exampleDir string, paths []string, intent *roll
 			return fmt.Errorf("browser source %s action, origin, or login-state evidence does not match", path)
 		}
 		profiles[path] = value
+		if len(source.Verifications) > browserverify.MaxReportsPerProfile {
+			return fmt.Errorf("browser source %s has more than %d verification reports", path, browserverify.MaxReportsPerProfile)
+		}
+		totalVerifications += len(source.Verifications)
+		if totalVerifications > browserverify.MaxReports {
+			return fmt.Errorf("browser source review has more than %d verification reports", browserverify.MaxReports)
+		}
+		logicalReports := map[string]bool{}
+		for index, summary := range source.Verifications {
+			if err := browserverify.ValidateSummary(value, summary, at); err != nil {
+				return fmt.Errorf("browser source %s verification[%d]: %w", path, index, err)
+			}
+			if !summary.OK {
+				return fmt.Errorf("browser source %s verification[%d] records a failed check", path, index)
+			}
+			key := browserverify.LogicalKey(summary)
+			if logicalReports[key] {
+				return fmt.Errorf("browser source %s verification action set is duplicated", path)
+			}
+			logicalReports[key] = true
+			verificationByPath[path] = append(verificationByPath[path], summary)
+		}
 	}
 	approvals := stringSet(review.MutationApprovals)
+	usedActions := map[string]map[string]bool{}
 	var stepErrors []string
 	walkIntentSteps(intentSteps(intent), func(step *rollout.Step) {
 		if step == nil || !strings.EqualFold(strings.TrimSpace(step.Type), "browser") {
@@ -166,6 +202,10 @@ func validateBrowserSourceReview(exampleDir string, paths []string, intent *roll
 			stepErrors = append(stepErrors, fmt.Sprintf("step %s invents browser action %q", firstNonEmpty(step.Name, "<unnamed>"), step.Operation))
 			return
 		}
+		if usedActions[ref] == nil {
+			usedActions[ref] = map[string]bool{}
+		}
+		usedActions[ref][strings.TrimSpace(step.Operation)] = true
 		mutating := false
 		for _, effect := range action.SideEffects {
 			if effect != profile.SideEffectReadOnly {
@@ -186,7 +226,58 @@ func validateBrowserSourceReview(exampleDir string, paths []string, intent *roll
 		sort.Strings(stepErrors)
 		return fmt.Errorf("%s", strings.Join(stepErrors, "; "))
 	}
+	for path, summaries := range verificationByPath {
+		covered := map[string]bool{}
+		for _, summary := range summaries {
+			for _, action := range summary.Actions {
+				covered[action] = true
+			}
+		}
+		for action := range usedActions[path] {
+			if !covered[action] {
+				return fmt.Errorf("browser source %s verification does not cover selected action %q", path, action)
+			}
+		}
+	}
 	return nil
+}
+
+func decodeBrowserSourceReview(data []byte, target *browserSourceReview) error {
+	return browserverify.DecodeStrictJSON(data, target)
+}
+
+func readBrowserSourceReviewFile(path string) ([]byte, error) {
+	before, err := os.Lstat(path)
+	if err != nil {
+		return nil, err
+	}
+	if before.Mode()&os.ModeSymlink != 0 || !before.Mode().IsRegular() {
+		return nil, fmt.Errorf("browser source review must be a non-symlink regular file")
+	}
+	if before.Size() <= 0 || before.Size() > browserverify.MaxReviewBytes {
+		return nil, fmt.Errorf("browser source review size must be between 1 and %d bytes", browserverify.MaxReviewBytes)
+	}
+	file, err := os.Open(path)
+	if err != nil {
+		return nil, err
+	}
+	defer file.Close()
+	opened, err := file.Stat()
+	if err != nil || !opened.Mode().IsRegular() || !os.SameFile(before, opened) {
+		return nil, fmt.Errorf("browser source review changed while opening")
+	}
+	data, err := io.ReadAll(io.LimitReader(file, browserverify.MaxReviewBytes+1))
+	if err != nil {
+		return nil, err
+	}
+	if len(data) == 0 || len(data) > browserverify.MaxReviewBytes {
+		return nil, fmt.Errorf("browser source review size must be between 1 and %d bytes", browserverify.MaxReviewBytes)
+	}
+	after, err := file.Stat()
+	if err != nil || after.Size() != opened.Size() || !after.ModTime().Equal(opened.ModTime()) {
+		return nil, fmt.Errorf("browser source review changed while reading")
+	}
+	return data, nil
 }
 
 func intentHasPrecedingAuthenticationSession(intent *rollout.Intent, action *rollout.Step) bool {

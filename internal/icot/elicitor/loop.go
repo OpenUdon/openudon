@@ -17,22 +17,23 @@ import (
 )
 
 type Options struct {
-	ExampleDir         string
-	NoLLM              bool
-	Extractor          Extractor
-	DraftPath          string
-	TranscriptPath     string
-	DisableAIDraft     bool
-	VerifyOnly         bool
-	DefaultMode        authoring.PromptDefaultMode
-	ReviewRepair       bool
-	CatalogHintOptions CatalogHintOptions
-	LocalSources       []apitools.LocalSource
-	BrowserSources     []BrowserSourceInput
-	BrowserRegistries  []string
-	SourceRoots        []string
-	NetworkPolicy      string
-	AutoApprove        bool
+	ExampleDir           string
+	NoLLM                bool
+	Extractor            Extractor
+	DraftPath            string
+	TranscriptPath       string
+	DisableAIDraft       bool
+	VerifyOnly           bool
+	DefaultMode          authoring.PromptDefaultMode
+	ReviewRepair         bool
+	CatalogHintOptions   CatalogHintOptions
+	LocalSources         []apitools.LocalSource
+	BrowserSources       []BrowserSourceInput
+	BrowserVerifications []string
+	BrowserRegistries    []string
+	SourceRoots          []string
+	NetworkPolicy        string
+	AutoApprove          bool
 }
 
 type Artifacts struct {

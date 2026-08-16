@@ -11,10 +11,13 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/OpenUdon/apitools"
 	publicinterview "github.com/OpenUdon/authoring/interview"
 	publicreport "github.com/OpenUdon/authoring/report"
+	"github.com/OpenUdon/browsertools/profile"
+	"github.com/OpenUdon/openudon/internal/browserverify"
 	evalpkg "github.com/OpenUdon/openudon/internal/eval"
 	"github.com/OpenUdon/openudon/internal/icot/elicitor"
 	"github.com/OpenUdon/openudon/internal/projectwizard"
@@ -1565,6 +1568,144 @@ func TestApprovedBrowserSourceStagesProfileAndReviewMetadata(t *testing.T) {
 		if !strings.Contains(string(metadata), want) {
 			t.Fatalf("browser review metadata missing %q:\n%s", want, metadata)
 		}
+	}
+}
+
+func TestApprovedBrowserVerificationStagesOnlySafeSummaryAndRevalidatesSource(t *testing.T) {
+	example := filepath.Join(t.TempDir(), "browser-verification-package")
+	profileData := []byte(`{"profile":"uws.browser.1.5","info":{"title":"Status UI","origin":"https://example.test"},"observationKind":"accessibility_snapshot","evidence":{"learnedAt":"2026-08-15T00:00:00Z","source":"reviewed_fixture"},"confidence":"high","expiresAfter":"P100Y","verification":{"lastVerifiedAt":"2026-08-15T00:00:00Z","successfulRuns":2},"actions":{"read_status":{"sequence":[{"navigate":"/status"}],"outputs":{"status":{"type":"string","source":"a11y","locator":{"role":"status","name":"Ready"}}},"sideEffects":["read_only"],"confirmationPolicy":{"required":false}}}}`)
+	value, err := profile.ParseJSON(profileData)
+	if err != nil {
+		t.Fatal(err)
+	}
+	profileDigest, err := browserverify.ProfileDigest(value)
+	if err != nil {
+		t.Fatal(err)
+	}
+	checkedAt := time.Now().UTC().Add(-time.Minute).Format(time.RFC3339Nano)
+	report := map[string]any{
+		"version": browserverify.LiveCheckVersion, "profileDigest": profileDigest, "checkedAt": checkedAt,
+		"origin": "https://example.test", "actions": []string{"read_status"}, "ok": true,
+		"checks": []map[string]any{{
+			"kind": "output", "path": "actions.read_status.outputs.status", "ok": true, "matches": 1,
+			"expectedType": "string", "observedType": "string", "message": "declared output source and JSON type matched",
+		}},
+	}
+	reportData, err := json.MarshalIndent(report, "", "  ")
+	if err != nil {
+		t.Fatal(err)
+	}
+	reportPath := filepath.Join(t.TempDir(), "live-check.json")
+	if err := os.WriteFile(reportPath, append(reportData, '\n'), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	profileSHA := sha256.Sum256(profileData)
+	source := elicitor.SourceMaterialization{
+		Kind: "browser-profile", SourceKind: "profile", ID: "status", SourcePath: "/operator/status.json",
+		TargetPath: "browser-profiles/status.json", SHA256: hex.EncodeToString(profileSHA[:]), Title: "Status UI",
+		OperationCount: 1, Actions: []string{"read_status"}, Origins: []string{"https://example.test"},
+		Lifecycle: "active", ExpiresAt: "2126-08-15T00:00:00Z", Provenance: "reviewed fixture", MaterializedContent: profileData,
+	}
+	sources, err := elicitor.AttachBrowserVerifications([]elicitor.SourceMaterialization{source}, []string{reportPath}, time.Now().UTC())
+	if err != nil {
+		t.Fatal(err)
+	}
+	intent := rollout.Intent{
+		Source: "browser-profiles/status.json", Workflow: &rollout.WorkflowMeta{Name: "browser_status", Description: "Read browser status"},
+		Steps:   []*rollout.Step{{Name: "read", Type: "browser", Source: "browser-profiles/status.json", Operation: "read_status"}},
+		Outputs: []*rollout.Output{{Name: "status", From: "read.received_body.status"}},
+	}
+	intentHCL, err := runner.RenderIntentHCL(&intent)
+	if err != nil {
+		t.Fatal(err)
+	}
+	artifacts := elicitor.Artifacts{ProjectMD: "# Browser Status\n", IntentHCL: intentHCL, Session: elicitor.Session{
+		Version: elicitor.SessionVersion, Intent: intent, BrowserRoute: "browser", BrowserSession: "none", SourcePlan: sources,
+	}}
+	if err := writeApprovedArtifacts(example, artifacts, false, true, strings.NewReader(""), io.Discard); err != nil {
+		t.Fatal(err)
+	}
+	metadata, err := os.ReadFile(filepath.Join(example, ".icot", "browser-sources.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, want := range []string{`"report_version": "browsertools.live-check.v1"`, `"engine": "chromium"`, `"source_sha256": "sha256:`} {
+		if !strings.Contains(string(metadata), want) {
+			t.Fatalf("browser verification metadata missing %q:\n%s", want, metadata)
+		}
+	}
+	if strings.Contains(string(metadata), reportPath) || strings.Contains(string(metadata), "source_path") {
+		t.Fatalf("browser metadata leaked external report path:\n%s", metadata)
+	}
+	if _, err := os.Stat(filepath.Join(example, filepath.Base(reportPath))); !os.IsNotExist(err) {
+		t.Fatalf("raw report was staged: %v", err)
+	}
+
+	report["checkedAt"] = time.Now().UTC().Format(time.RFC3339Nano)
+	tampered, _ := json.Marshal(report)
+	if err := os.WriteFile(reportPath, tampered, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := writeApprovedArtifacts(filepath.Join(t.TempDir(), "tampered"), artifacts, false, true, strings.NewReader(""), io.Discard); err == nil || !strings.Contains(err.Error(), "changed after review") {
+		t.Fatalf("tampered approval error = %v", err)
+	}
+}
+
+func TestMainAttachesExplicitBrowserVerificationReport(t *testing.T) {
+	example := filepath.Join(t.TempDir(), "browser-cli")
+	profilePath := filepath.Join(t.TempDir(), "status.json")
+	profileData := []byte(`{"profile":"uws.browser.1.5","info":{"title":"Status UI","origin":"https://example.test"},"observationKind":"accessibility_snapshot","evidence":{"learnedAt":"2026-08-15T00:00:00Z","source":"reviewed_fixture"},"confidence":"high","expiresAfter":"P100Y","verification":{"lastVerifiedAt":"2026-08-15T00:00:00Z","successfulRuns":2},"actions":{"read_status":{"sequence":[{"navigate":"/status"}],"outputs":{"status":{"type":"string","source":"a11y","locator":{"role":"status","name":"Ready"}}},"sideEffects":["read_only"],"confirmationPolicy":{"required":false}}}}`)
+	if err := os.WriteFile(profilePath, profileData, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	value, err := profile.ParseJSON(profileData)
+	if err != nil {
+		t.Fatal(err)
+	}
+	profileDigest, err := browserverify.ProfileDigest(value)
+	if err != nil {
+		t.Fatal(err)
+	}
+	reportData, err := json.Marshal(map[string]any{
+		"version": browserverify.LiveCheckVersion, "profileDigest": profileDigest,
+		"checkedAt": time.Now().UTC().Add(-time.Minute).Format(time.RFC3339Nano), "origin": "https://example.test",
+		"actions": []string{"read_status"}, "ok": true,
+		"checks": []map[string]any{{"kind": "output", "path": "actions.read_status.outputs.status", "ok": true, "matches": 1, "expectedType": "string", "observedType": "string", "message": "declared output source and JSON type matched"}},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	reportPath := filepath.Join(t.TempDir(), "live-check.json")
+	if err := os.WriteFile(reportPath, reportData, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	intent := &rollout.Intent{
+		Source: "browser-profiles/status.json", Workflow: &rollout.WorkflowMeta{Name: "browser_status", Description: "Read browser status"},
+		Steps:   []*rollout.Step{{Name: "read", Type: "browser", Source: "browser-profiles/status.json", Operation: "read_status"}},
+		Outputs: []*rollout.Output{{Name: "status", From: "read.received_body.status"}},
+	}
+	project := projectwizard.Answers{
+		ProjectName: "Browser Status", Goal: "Read browser status", SideEffectScope: projectwizard.SideEffectReadOnly,
+		Safety: "Read-only browser observation through a reviewed profile.", Fallback: "Stop if the current page cannot be read.",
+	}
+	session := elicitor.SessionFromIntent(intent, project)
+	session.BrowserRoute = "browser"
+	session.BrowserSession = "none"
+	sessionPath := writeSessionJSON(t, t.TempDir(), session)
+	var stdout, stderr bytes.Buffer
+	code := Main([]string{
+		"--example", example, "--answers", sessionPath, "--browser-profile", "status=" + profilePath,
+		"--browser-verification", reportPath, "--yes", "--no-llm", "--no-transcript",
+	}, strings.NewReader(""), &stdout, &stderr)
+	if code != 0 {
+		t.Fatalf("Main code=%d\nstdout:\n%s\nstderr:\n%s", code, stdout.String(), stderr.String())
+	}
+	metadata, err := os.ReadFile(filepath.Join(example, ".icot", "browser-sources.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(metadata), browserverify.LiveCheckVersion) || strings.Contains(string(metadata), reportPath) {
+		t.Fatalf("browser verification metadata =\n%s", metadata)
 	}
 }
 

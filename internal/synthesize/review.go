@@ -7,8 +7,10 @@ import (
 	"path/filepath"
 	"sort"
 	"strings"
+	"time"
 
 	"github.com/OpenUdon/openudon/internal/authoring"
+	"github.com/OpenUdon/openudon/internal/browserverify"
 	"github.com/OpenUdon/openudon/internal/packageartifacts"
 	rollout "github.com/OpenUdon/openudon/internal/workflowintent"
 )
@@ -113,7 +115,7 @@ func reviewMarkdown(result Result, provider, model string) string {
 			b.WriteString("\n")
 		}
 	}
-	writeBrowserSourceReview(&b, result.ExampleDir)
+	writeBrowserSourceReview(&b, result.ExampleDir, intent)
 	writeBrowserAuthenticationReview(&b, result.ExampleDir)
 	if intent != nil {
 		advice, err := rollout.CatalogAdviceForIntent(intent, rollout.CatalogAdviceOptions{
@@ -223,20 +225,24 @@ func reviewMarkdown(result Result, provider, model string) string {
 	return b.String()
 }
 
-func writeBrowserSourceReview(b *strings.Builder, exampleDir string) {
+func writeBrowserSourceReview(b *strings.Builder, exampleDir string, intent *rollout.Intent) {
 	paths, err := packageartifacts.CollectBrowserProfilePaths(exampleDir)
 	if err != nil || len(paths) == 0 {
 		return
 	}
 	b.WriteString("\n## Browser Sources\n\n")
 	metadataPath := filepath.Join(exampleDir, filepath.FromSlash(packageartifacts.BrowserSourceReviewPath))
-	data, err := os.ReadFile(metadataPath)
+	data, err := readBrowserSourceReviewFile(metadataPath)
 	if err != nil {
 		fmt.Fprintf(b, "- Browser source review evidence could not be read: %s\n", err)
 		return
 	}
 	var review browserSourceReview
-	if err := json.Unmarshal(data, &review); err != nil {
+	if err := decodeBrowserSourceReview(data, &review); err != nil {
+		fmt.Fprintf(b, "- Browser source review evidence is invalid: %s\n", err)
+		return
+	}
+	if err := validateBrowserSourceReview(exampleDir, paths, intent, review, time.Now().UTC()); err != nil {
 		fmt.Fprintf(b, "- Browser source review evidence is invalid: %s\n", err)
 		return
 	}
@@ -268,7 +274,29 @@ func writeBrowserSourceReview(b *strings.Builder, exampleDir string) {
 		if source.Registry != "" {
 			fmt.Fprintf(b, "  - Static registry: `%s` coordinate `%s`.\n", source.Registry, source.Coordinate)
 		}
+		for _, verification := range source.Verifications {
+			if verification.ReportVersion == browserverify.LiveCheckVersion {
+				fmt.Fprintf(b, "  - Current-page verification: `%s` on Chromium at `%s`; actions `%s`; %d value-free check(s); report SHA-256 `%s`.\n", browserVerificationState(verification.OK), verification.CheckedAt, strings.Join(verification.Actions, "`, `"), len(verification.Checks), verification.SourceSHA256)
+				continue
+			}
+			engines := make([]string, 0, len(verification.Engines))
+			for _, engine := range verification.Engines {
+				state := engine.Engine + ":" + engine.Status
+				if engine.Diagnostic != "" {
+					state += ":" + engine.Diagnostic
+				}
+				engines = append(engines, state)
+			}
+			fmt.Fprintf(b, "  - Portability verification: `%s` at `%s`; actions `%s`; engines `%s`; report SHA-256 `%s`. This is optional review confidence, not a runtime requirement.\n", browserVerificationState(verification.OK), verification.CheckedAt, strings.Join(verification.Actions, "`, `"), strings.Join(engines, "`, `"), verification.SourceSHA256)
+		}
 	}
+}
+
+func browserVerificationState(ok bool) string {
+	if ok {
+		return "passed"
+	}
+	return "failed"
 }
 
 func writeBrowserAuthenticationReview(b *strings.Builder, exampleDir string) {

@@ -6,11 +6,13 @@ import (
 	"encoding/json"
 	"fmt"
 	"path/filepath"
+	"reflect"
 	"sort"
 	"strconv"
 	"strings"
 
 	publicinterview "github.com/OpenUdon/authoring/interview"
+	"github.com/OpenUdon/openudon/internal/browserverify"
 	"github.com/OpenUdon/openudon/internal/projectdoc"
 	"github.com/OpenUdon/openudon/internal/projectwizard"
 )
@@ -51,27 +53,28 @@ type WorkflowBoundary struct {
 // target. SourcePath is inspected during the interview; TargetPath is not
 // written until the complete proposal or incomplete draft is approved.
 type SourceMaterialization struct {
-	Kind                string              `json:"kind" yaml:"kind"`
-	SourceKind          string              `json:"source_kind,omitempty" yaml:"source_kind,omitempty"`
-	ID                  string              `json:"id" yaml:"id"`
-	Release             string              `json:"release,omitempty" yaml:"release,omitempty"`
-	SourcePath          string              `json:"source_path" yaml:"source_path"`
-	TargetPath          string              `json:"target_path" yaml:"target_path"`
-	SHA256              string              `json:"sha256" yaml:"sha256"`
-	SourceSHA256        string              `json:"source_sha256,omitempty" yaml:"source_sha256,omitempty"`
-	Title               string              `json:"title,omitempty" yaml:"title,omitempty"`
-	OperationCount      int                 `json:"operation_count" yaml:"operation_count"`
-	Actions             []string            `json:"actions,omitempty" yaml:"actions,omitempty"`
-	Flows               []string            `json:"flows,omitempty" yaml:"flows,omitempty"`
-	FlowCredentialSlots map[string][]string `json:"flow_credential_slots,omitempty" yaml:"flow_credential_slots,omitempty"`
-	Origins             []string            `json:"origins,omitempty" yaml:"origins,omitempty"`
-	Lifecycle           string              `json:"lifecycle,omitempty" yaml:"lifecycle,omitempty"`
-	ExpiresAt           string              `json:"expires_at,omitempty" yaml:"expires_at,omitempty"`
-	LoginStateRequired  bool                `json:"login_state_required,omitempty" yaml:"login_state_required,omitempty"`
-	Provenance          string              `json:"provenance" yaml:"provenance"`
-	Registry            string              `json:"registry,omitempty" yaml:"registry,omitempty"`
-	RegistryCoordinate  string              `json:"registry_coordinate,omitempty" yaml:"registry_coordinate,omitempty"`
-	MaterializedContent []byte              `json:"-" yaml:"-"`
+	Kind                 string                     `json:"kind" yaml:"kind"`
+	SourceKind           string                     `json:"source_kind,omitempty" yaml:"source_kind,omitempty"`
+	ID                   string                     `json:"id" yaml:"id"`
+	Release              string                     `json:"release,omitempty" yaml:"release,omitempty"`
+	SourcePath           string                     `json:"source_path" yaml:"source_path"`
+	TargetPath           string                     `json:"target_path" yaml:"target_path"`
+	SHA256               string                     `json:"sha256" yaml:"sha256"`
+	SourceSHA256         string                     `json:"source_sha256,omitempty" yaml:"source_sha256,omitempty"`
+	Title                string                     `json:"title,omitempty" yaml:"title,omitempty"`
+	OperationCount       int                        `json:"operation_count" yaml:"operation_count"`
+	Actions              []string                   `json:"actions,omitempty" yaml:"actions,omitempty"`
+	Flows                []string                   `json:"flows,omitempty" yaml:"flows,omitempty"`
+	FlowCredentialSlots  map[string][]string        `json:"flow_credential_slots,omitempty" yaml:"flow_credential_slots,omitempty"`
+	Origins              []string                   `json:"origins,omitempty" yaml:"origins,omitempty"`
+	Lifecycle            string                     `json:"lifecycle,omitempty" yaml:"lifecycle,omitempty"`
+	ExpiresAt            string                     `json:"expires_at,omitempty" yaml:"expires_at,omitempty"`
+	LoginStateRequired   bool                       `json:"login_state_required,omitempty" yaml:"login_state_required,omitempty"`
+	Provenance           string                     `json:"provenance" yaml:"provenance"`
+	Registry             string                     `json:"registry,omitempty" yaml:"registry,omitempty"`
+	RegistryCoordinate   string                     `json:"registry_coordinate,omitempty" yaml:"registry_coordinate,omitempty"`
+	BrowserVerifications []browserverify.Attachment `json:"browser_verifications,omitempty" yaml:"browser_verifications,omitempty"`
+	MaterializedContent  []byte                     `json:"-" yaml:"-"`
 }
 
 // CandidateWorkflow is an unnumbered future direction with no source,
@@ -149,6 +152,7 @@ func normalizeSourcePlan(sources []SourceMaterialization) []SourceMaterializatio
 		source.ExpiresAt = strings.TrimSpace(source.ExpiresAt)
 		source.Provenance = strings.TrimSpace(source.Provenance)
 		source.RegistryCoordinate = strings.TrimSpace(source.RegistryCoordinate)
+		source.BrowserVerifications = normalizeBrowserVerificationAttachments(source.BrowserVerifications)
 		if source.SourcePath == "." || source.TargetPath == "." {
 			continue
 		}
@@ -181,10 +185,47 @@ func normalizeSourcePlan(sources []SourceMaterialization) []SourceMaterializatio
 			if len(out[index].MaterializedContent) == 0 && len(source.MaterializedContent) > 0 {
 				out[index].MaterializedContent = append([]byte(nil), source.MaterializedContent...)
 			}
+			out[index].BrowserVerifications = normalizeBrowserVerificationAttachments(append(out[index].BrowserVerifications, source.BrowserVerifications...))
 			continue
 		}
 		seenContent[key] = len(out)
 		out = append(out, source)
+	}
+	return out
+}
+
+func normalizeBrowserVerificationAttachments(values []browserverify.Attachment) []browserverify.Attachment {
+	result := append([]browserverify.Attachment(nil), values...)
+	for index := range result {
+		result[index].SourcePath = strings.TrimSpace(result[index].SourcePath)
+		if result[index].SourcePath != "" {
+			result[index].SourcePath = filepath.Clean(result[index].SourcePath)
+		}
+	}
+	sort.SliceStable(result, func(i, j int) bool {
+		left, right := result[i], result[j]
+		if left.Summary.ReportVersion != right.Summary.ReportVersion {
+			return left.Summary.ReportVersion < right.Summary.ReportVersion
+		}
+		if left.Summary.Origin != right.Summary.Origin {
+			return left.Summary.Origin < right.Summary.Origin
+		}
+		if joinedLeft, joinedRight := strings.Join(left.Summary.Actions, "\x00"), strings.Join(right.Summary.Actions, "\x00"); joinedLeft != joinedRight {
+			return joinedLeft < joinedRight
+		}
+		if left.Summary.SourceSHA256 != right.Summary.SourceSHA256 {
+			return left.Summary.SourceSHA256 < right.Summary.SourceSHA256
+		}
+		return left.SourcePath < right.SourcePath
+	})
+	out := result[:0]
+	var prior *browserverify.Attachment
+	for _, value := range result {
+		if prior != nil && reflect.DeepEqual(*prior, value) {
+			continue
+		}
+		out = append(out, value)
+		prior = &out[len(out)-1]
 	}
 	return out
 }

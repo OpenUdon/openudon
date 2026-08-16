@@ -192,9 +192,14 @@ go run ./cmd/icot --example ./examples/<name> \
 # Use reviewed browser capability/authentication profiles only when no adequate API capability exists.
 go run ./cmd/icot --example ./examples/<name> \
   --browser-profile status=./reviewed/status.browser.json \
+  --browser-verification ./reviewed/status.live-check.json \
+  --browser-verification ./reviewed/status.portability.json \
   --browser-profile member-auth=./reviewed/member-auth.yaml \
   --browser-registry https://profiles.example.org/catalog/ \
   --network ask
+
+# Verification reports are optional value-free review evidence. OpenUdon
+# revalidates them against the exact profile/actions and stages only summaries.
 
 # When no reviewed profile exists, emit a non-executing Browsertools handoff.
 install -d -m 0700 /private/operator/browsertools-status

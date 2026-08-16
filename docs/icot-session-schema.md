@@ -83,6 +83,25 @@ source_plan:
     provenance: reviewed registry contribution
     registry: https://profiles.example.org/
     registry_coordinate: example/status@1.0.0
+    browser_verifications:
+      - source_path: /reviewed/status.live-check.json
+        summary:
+          report_version: browsertools.live-check.v1
+          source_sha256: sha256:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef
+          profile_digest: sha256:abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789
+          checked_at: 2026-08-16T12:00:00Z
+          origin: https://status.example.org
+          actions: [read_status]
+          ok: true
+          engine: chromium
+          checks:
+            - kind: output
+              path: actions.read_status.outputs.status
+              ok: true
+              matches: 1
+              expectedType: string
+              observedType: string
+              message: declared output source and JSON type matched
   - kind: browser-authentication
     source_kind: browser_authentication_profile
     id: member-auth
@@ -140,6 +159,13 @@ candidate_workflows:
   requirement, provenance, and optional immutable registry coordinate. The
   source bundle digest and materialized profile digest are distinct when a
   capability bundle is used.
+- `browser_verifications` is optional resumable local state for explicit
+  value-free Browsertools live/portability reports. `source_path` is reopened
+  at approval but is not copied into package review metadata. Its `summary` is
+  strict, bounded, profile/action/origin/lifecycle-bound, and contains only
+  declared paths, match/type/reachability facts, fixed diagnostics, and the raw
+  report SHA-256. Conflicting or changed sources fail closed. Package metadata
+  retains the summary without `source_path`; portability remains optional.
 - Browser authentication entries bind a secret-free
   `uws.browser-authentication.1.0` profile to its reviewed flows, exact
   per-flow credential-slot names, origins, active lifecycle/expiry, digest,

@@ -16,6 +16,7 @@ import (
 	"github.com/OpenUdon/apitools/catalog"
 	publicinterview "github.com/OpenUdon/authoring/interview"
 	"github.com/OpenUdon/openudon/internal/authoring"
+	"github.com/OpenUdon/openudon/internal/browserverify"
 	"github.com/OpenUdon/openudon/internal/projectdoc"
 	"github.com/OpenUdon/openudon/internal/projectwizard"
 	rollout "github.com/OpenUdon/openudon/internal/workflowintent"
@@ -63,6 +64,10 @@ func runProgressive(ctx context.Context, in io.Reader, out io.Writer, seed Sessi
 	}
 	docs := discovery.Docs
 	session = progressiveSessionAfterDiscoveryV2(session, discovery.Plans, opts.LocalSources, opts.BrowserSources, opts.NetworkPolicy)
+	session.SourcePlan, err = AttachBrowserVerifications(session.SourcePlan, opts.BrowserVerifications, time.Now().UTC())
+	if err != nil {
+		return Artifacts{}, err
+	}
 	if len(opts.BrowserRegistries) > 0 {
 		session.Interview.Metadata["browser_registry_configured"] = "true"
 	}
@@ -238,7 +243,9 @@ func runProgressive(ctx context.Context, in io.Reader, out io.Writer, seed Sessi
 			}
 			defaultSingleOpenAPIDoc(session, docs)
 			session.SourcePlan = syncSelectedSourcePlansWithBrowser(*session, discovery.Plans, opts.LocalSources, opts.BrowserSources)
-			return nil
+			var err error
+			session.SourcePlan, err = AttachBrowserVerifications(session.SourcePlan, opts.BrowserVerifications, time.Now().UTC())
+			return err
 		},
 		FinalConfirm: func(prompts *authoring.PromptSession, session *Session, docs []APIDocument, events *[]authoring.PromptEvent) (Artifacts, error) {
 			var review func(context.Context, *Session, Artifacts, []ReadinessIssue) []DraftReviewIssue
@@ -527,6 +534,17 @@ func printProposal(out io.Writer, artifacts Artifacts) {
 			fmt.Fprintf(out, "- %s:%s %s -> %s sha256:%s (%s)\n", source.Kind, source.ID, source.SourcePath, source.TargetPath, source.SHA256, source.Provenance)
 			if source.Kind == browserSourceFamily {
 				fmt.Fprintf(out, "  actions=%s origins=%s lifecycle=%s expires=%s login-session-required=%t\n", strings.Join(source.Actions, ","), strings.Join(source.Origins, ","), source.Lifecycle, source.ExpiresAt, source.LoginStateRequired)
+				for _, verification := range source.BrowserVerifications {
+					if verification.Summary.ReportVersion == browserverify.LiveCheckVersion {
+						fmt.Fprintf(out, "  current-page-verification engine=chromium ok=%t checked=%s actions=%s report=%s\n", verification.Summary.OK, verification.Summary.CheckedAt, strings.Join(verification.Summary.Actions, ","), verification.Summary.SourceSHA256)
+						continue
+					}
+					engines := make([]string, 0, len(verification.Summary.Engines))
+					for _, engine := range verification.Summary.Engines {
+						engines = append(engines, engine.Engine+":"+engine.Status)
+					}
+					fmt.Fprintf(out, "  portability-verification ok=%t checked=%s actions=%s engines=%s report=%s (optional confidence only)\n", verification.Summary.OK, verification.Summary.CheckedAt, strings.Join(verification.Summary.Actions, ","), strings.Join(engines, ","), verification.Summary.SourceSHA256)
+				}
 			}
 			if source.Kind == browserAuthenticationSourceFamily {
 				fmt.Fprintf(out, "  authentication-flows=%s origins=%s lifecycle=%s expires=%s credential-slots=%s\n", strings.Join(source.Flows, ","), strings.Join(source.Origins, ","), source.Lifecycle, source.ExpiresAt, formatBrowserFlowSlots(source.FlowCredentialSlots))

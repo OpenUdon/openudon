@@ -35,6 +35,8 @@ go run ./cmd/icot --example ./examples/<name> \
 # Declare verified UI-only capability/authentication profiles or a service-free static registry.
 go run ./cmd/icot --example ./examples/<name> \
   --browser-profile status=./reviewed/status.browser.json \
+  --browser-verification ./reviewed/status.live-check.json \
+  --browser-verification ./reviewed/status.portability.json \
   --browser-profile member-auth=./reviewed/member-auth.yaml \
   --browser-registry ./browser-registry \
   --browser-registry https://profiles.example.org/catalog/ \
@@ -58,6 +60,25 @@ local static-registry directory or HTTPS base URL; it is not an account or
 membership service. `--network` accepts `never`, `ask`, or `allow`. Interactive
 runs default to `ask`. Agent mode is effectively `never` unless `allow` is
 explicit. Local registries remain usable with `--network never`.
+
+`--browser-verification PATH` accepts only the exact value-free
+`browsertools.live-check.v1` and `browsertools.portability-check.v1` JSON
+contracts. It is repeatable and optional. OpenUdon strict-decodes each report,
+reconstructs the selected profile action's locator/wait/output probe plan,
+checks the canonical profile digest, origin, action set, lifecycle timestamp,
+Chromium baseline, engine status, fixed messages/diagnostics, and bounded
+counts, then binds it to exactly one selected profile. Unknown fields, trailing
+JSON, stale or future timestamps, conflicting duplicates, invented engine
+success, and private/guided/rich/authentication evidence fail closed.
+
+The source report stays in the operator's reviewed location and is reopened at
+proposal approval to detect replacement. Only its SHA-256 and normalized
+value-free facts enter `.icot/browser-sources.json`; OpenUdon never stages the
+raw report or its local path. A supplied failed report blocks authoring
+approval and package quality.
+No report is required, and cross-engine portability remains optional review
+confidence rather than a runtime requirement or permission to rewrite a
+locator.
 
 ## Browsertools Authoring Handoff
 
@@ -257,10 +278,13 @@ as project and intent files.
 For a browser route, the selected profile is staged under `browser-profiles/`
 and safe review metadata is staged under `.icot/browser-sources.json`. The
 metadata contains IDs, actions, origins, digests, lifecycle/expiry, provenance,
-registry coordinate, login-state requirement, session posture, and authoring
-approvals—never a driver, browser session, credential, raw DOM/HTML, screenshot,
-or private cache content. Build and assess revalidate the profile and metadata,
-emit UWS 1.5, and include both files in the review handoff digest.
+registry coordinate, login-state requirement, session posture, authoring
+approvals, and optional value-free current-page/portability summaries—never a
+driver, browser session, credential, raw DOM/HTML, screenshot, backend error,
+or private cache content. Build and assess independently revalidate summary
+paths, types, counts, fixed diagnostics, selected-action coverage, and profile
+lifecycle, emit UWS 1.5, and include both files in the canonical package and
+review handoff digest.
 
 Selected authentication profiles are staged under `browser-authentication/`,
 with safe digest/flow/origin/expiry/session-name/approval evidence under

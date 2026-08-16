@@ -29,6 +29,13 @@ tier checks before invoking udon.
   exact per-operation approval for every mutation. Never package cookies,
   passwords, driver configuration, raw DOM/HTML, screenshots, or private cache
   content.
+- Optional `browsertools.live-check.v1` and
+  `browsertools.portability-check.v1` inputs must remain value-free, match the
+  exact packaged profile/action set, and pass OpenUdon's independent shape,
+  lifecycle, engine, and fixed-diagnostic checks. Only normalized summaries and
+  source digests enter `.icot/browser-sources.json`; raw reports, rich evidence,
+  backend errors, and local report paths are not staged. Portability is review
+  confidence, not universal execution policy.
 - Execute side-effectful workflows only through a trusted runner with approved credentials.
 - Prefer sandbox or test endpoints for local proof runs.
 - Record validation evidence in the review work item before handoff.
