@@ -191,6 +191,10 @@ retain only value-free evidence and never commit credentials, session state,
 private envelopes, or page captures.
 
 The provider-free and optional loopback qualification gates are described in
-[Browser Integration Evaluation](browser-integration-eval.md). Browsertools'
-detailed producer-side protocol and responsibility matrix live in its
-`docs/authenticated-goal-authoring.md`.
+[Browser Integration Evaluation](browser-integration-eval.md). For both the
+offline reviewed-artifact path and live orchestration boundary, see
+Browsertools' [canonical OpenUdon integration
+reference](https://github.com/OpenUdon/browsertools/blob/main/docs/openudon-integration.md).
+The detailed producer-side protocol and responsibility matrix are in
+[Authenticated goal-directed browser
+authoring](https://github.com/OpenUdon/browsertools/blob/main/docs/authenticated-goal-authoring.md).

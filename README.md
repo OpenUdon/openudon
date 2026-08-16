@@ -7,6 +7,17 @@ OpenUdon is the public UWS workflow authoring, review, package, and executor-han
 directly or under optional external orchestration, and it hands approved packages to a
 trusted executor boundary such as the `udon` runtime.
 
+iCoT is OpenUdon's primary end-user authoring entry point across API, browser,
+and runtime-handoff sources. iCoT retains goal interviewing, LLM/human
+interaction, source selection, and package staging. For UI-only acquisition,
+it delegates to an external Browsertools process. Browsertools owns
+Playwright-based acquisition, browser safety policy, profile synthesis, and
+the shared validation library for browser capability and authentication
+profiles; its CLI is primarily a machine-facing protocol plus maintainer and
+offline tooling. Production runtime replay belongs to Udon and Browserdriver.
+See Browsertools' [canonical OpenUdon integration
+reference](https://github.com/OpenUdon/browsertools/blob/main/docs/openudon-integration.md).
+
 It owns project templates, optional workflow orchestration policy, example artifacts, deterministic
 validation, review handoff evidence, package digests, credential policy, and trusted-runner glue.
 Public workflow semantics belong in `github.com/OpenUdon/uws`; API/event source metadata discovery,
