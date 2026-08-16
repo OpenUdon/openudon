@@ -22,7 +22,7 @@ func TestRunWritesAndVerifiesValueFreeProviderFreeMatrix(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Run: %v", err)
 	}
-	if report.Status != StatusPass || report.Summary != (Summary{Total: 13, Passed: 11, Skipped: 2}) {
+	if report.Status != StatusPass || report.Summary != (Summary{Total: 14, Passed: 11, Skipped: 3}) {
 		t.Fatalf("report summary = %#v", report)
 	}
 	if report.BrowserLaunchedByDefault || report.TargetContactedByICoT || report.CredentialEnvironmentReadByICoT || report.PlanningDeliverablesWritten {
@@ -47,7 +47,7 @@ func TestRunWritesAndVerifiesValueFreeProviderFreeMatrix(t *testing.T) {
 			t.Fatalf("report retained private subprocess output %q: %s", forbidden, data)
 		}
 	}
-	if runner.calls["installed-headless-opt-in"] != 0 || runner.calls["headed-auth-opt-in"] != 0 {
+	if runner.calls["installed-headless-opt-in"] != 0 || runner.calls["headed-auth-opt-in"] != 0 || runner.calls["headed-author-opt-in"] != 0 {
 		t.Fatalf("default run invoked opt-in browser gates: %#v", runner.calls)
 	}
 }
@@ -62,9 +62,9 @@ func TestRunOptInsPassOrHonestlySkipUnavailableComponents(t *testing.T) {
 		wantSkip    int
 		wantCalls   int
 	}{
-		{name: "installed components pass", doctorReady: true, wantPass: 13, wantCalls: 1},
-		{name: "missing components skip", wantPass: 11, wantSkip: 2},
-		{name: "named tests skip", doctorReady: true, skipOptIns: true, wantPass: 11, wantSkip: 2, wantCalls: 1},
+		{name: "installed components pass", doctorReady: true, wantPass: 14, wantCalls: 1},
+		{name: "missing components skip", wantPass: 11, wantSkip: 3},
+		{name: "named tests skip", doctorReady: true, skipOptIns: true, wantPass: 11, wantSkip: 3, wantCalls: 1},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			runner := &fakeRunner{t: t, doctorReady: test.doctorReady, skipOptIns: test.skipOptIns}
@@ -78,7 +78,7 @@ func TestRunOptInsPassOrHonestlySkipUnavailableComponents(t *testing.T) {
 			if report.Summary.Passed != test.wantPass || report.Summary.Skipped != test.wantSkip {
 				t.Fatalf("summary = %#v", report.Summary)
 			}
-			if runner.calls["installed-headless-opt-in"] != test.wantCalls || runner.calls["headed-auth-opt-in"] != test.wantCalls {
+			if runner.calls["installed-headless-opt-in"] != test.wantCalls || runner.calls["headed-auth-opt-in"] != test.wantCalls || runner.calls["headed-author-opt-in"] != test.wantCalls {
 				t.Fatalf("opt-in calls = %#v", runner.calls)
 			}
 		})

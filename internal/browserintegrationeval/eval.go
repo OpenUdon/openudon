@@ -381,8 +381,8 @@ func defaultGates() []gate {
 	return []gate{
 		{
 			ID: "openudon-authoring", Repository: "openudon", Kind: "go_test",
-			Args:       []string{"go", "test", "-v", "./internal/icot", "./internal/icot/elicitor", "-run", "Test(BuildBrowserAuthoringPlan|BrowserAuthoring|DiscoverAuthoringSourcesWithBrowserProfileAndAPIPreference|BrowserProfileWinsOnlyForAPICapabilityGap|DiscoverExplicitGuidedAuthoringBundle|GuidedAuthoringAdapter|BrowserAuthenticationDiscoveryAndReadiness)", "-count=1"},
-			Assertions: []string{"API operation preference", "anonymous non-executing handoff", "authenticated capture fail-closed", "guided result replay and rejection matrix", "separate authentication and capability profiles"},
+			Args:       []string{"go", "test", "-v", "./internal/icot", "./internal/icot/elicitor", "-run", "Test(BuildBrowserAuthoringPlan|BrowserAuthoring|BrowserAuthorLive|LiveObservationDisclosure|DiscoverAuthoringSourcesWithBrowserProfileAndAPIPreference|BrowserProfileWinsOnlyForAPICapabilityGap|DiscoverExplicitGuidedAuthoringBundle|GuidedAuthoringAdapter|BrowserAuthenticationDiscoveryAndReadiness)", "-count=1"},
+			Assertions: []string{"API operation preference", "anonymous non-executing handoff", "explicit authenticated live orchestration", "reduced-observation disclosure and human fallback", "strict private result consumption", "separate authentication and capability profiles"},
 			RequiredPasses: []string{
 				"TestBuildBrowserAuthoringPlanIsValueFreeAndNonExecuting",
 				"TestBuildBrowserAuthoringPlanFailsClosedForAuthenticatedCapture",
@@ -397,12 +397,17 @@ func defaultGates() []gate {
 				"TestDiscoverExplicitGuidedAuthoringBundleDeduplicatesAndOverridesBroadRootAmbiguity",
 				"TestGuidedAuthoringAdapterBoundsReplayWork",
 				"TestBrowserAuthenticationDiscoveryAndReadiness",
+				"TestBrowserAuthorLiveStagesReviewedProfilesAtomically",
+				"TestBrowserAuthorLiveRejectsTamperedResultWithoutStaging",
+				"TestBrowserAuthorLiveRejectsUnknownProtocolField",
+				"TestBrowserAuthorLiveRequiresExplicitAPIOverride",
+				"TestLiveObservationDisclosureDenialFallsBackToHuman",
 			},
 		},
 		{
 			ID: "openudon-package-handoff", Repository: "openudon", Kind: "go_test",
-			Args:       []string{"go", "test", "-v", "./internal/browserverify", "./internal/icot", "./internal/icot/elicitor", "./internal/synthesize", "./internal/trustedrunner", "-run", "Test(Inspect|AttachBrowserVerifications|ValidateBrowserVerificationCoverage|BrowserVerificationAttachment|ApprovedBrowserVerification|MainAttachesExplicitBrowserVerification|ValidateBrowserSourceReview|ValidatePackagedBrowserProfile|BrowserSourceReviewStrict|ReviewMarkdown.*BrowserVerification|ReviewHandoffIncludesBrowser|ValidateBrowserAuthenticationReview|PackageFromIntentBuildsBrowserAuthenticationWorkflow|RunDryRunStagesAndWritesEvidenceWithoutCredentialEnv)", "-count=1"},
-			Assertions: []string{"optional live and portability evidence", "tamper/private/stale/mismatch rejection", "value-free review and package inventory", "trusted dry-run handoff"},
+			Args:       []string{"go", "test", "-v", "./internal/browserverify", "./internal/icot", "./internal/icot/elicitor", "./internal/synthesize", "./internal/trustedrunner", "-run", "Test(Inspect|AttachBrowserVerifications|ValidateBrowserVerificationCoverage|BrowserVerificationAttachment|ApprovedBrowserVerification|MainAttachesExplicitBrowserVerification|ValidateBrowserSourceReview|ValidatePackagedBrowserProfile|BrowserSourceReviewStrict|ReviewMarkdown.*BrowserVerification|ReviewHandoffIncludesBrowser|ValidateBrowserAuthenticationReview|PackageFromIntentBuildsBrowserAuthenticationWorkflow|GenerateWorkflowSelectsUWS18|RunDryRunStagesAndWritesEvidenceWithoutCredentialEnv)", "-count=1"},
+			Assertions: []string{"optional live and portability evidence", "tamper/private/stale/mismatch rejection", "value-free review and package inventory", "UWS 1.7/1.8 discriminator selection", "trusted dry-run handoff"},
 			RequiredPasses: []string{
 				"TestInspectAndValidateLiveSummary",
 				"TestInspectRejectsUnknownPrivateStaleAndMismatchedFacts",
@@ -422,6 +427,8 @@ func defaultGates() []gate {
 				"TestReviewHandoffIncludesBrowserProfileAndReviewEvidence",
 				"TestReviewMarkdownDoesNotTrustTamperedBrowserVerification",
 				"TestRunDryRunStagesAndWritesEvidenceWithoutCredentialEnv",
+				"TestGenerateWorkflowSelectsUWS18ForContextAuthentication",
+				"TestGenerateWorkflowSelectsUWS18ForContextCapability",
 			},
 		},
 		{
@@ -438,8 +445,8 @@ func defaultGates() []gate {
 		},
 		{
 			ID: "browsertools-producer", Repository: "browsertools", Kind: "go_test",
-			Args:       []string{"go", "test", "-v", "./capture", "./cmd/browsertools", "./guide", "./authassist", "-run", "Test(AuthorBuilds|Check|ComparePortability|ContractPressure|LiveCheck|PortabilityCLI|GuideAuthor|GuidedEvidenceReader|RunObservesSelectedAlternatives|RunClosesAndReturnsNoArtifact|RunDefendsAgainstMisbehavingBrowser|PlaywrightDoctorFailsOfflineWithoutInstalling)", "-count=1"},
-			Assertions: []string{"synthetic/fake-engine default", "value-free live and portability wires", "private/auth evidence boundaries", "offline doctor does not install"},
+			Args:       []string{"go", "test", "-v", "./capture", "./cmd/browsertools", "./guide", "./authassist", "./authorsession", "./authorresult", "-run", "Test(AuthorBuilds|Check|ComparePortability|ContractPressure|LiveCheck|PortabilityCLI|GuideAuthor|GuidedEvidenceReader|RunObservesSelectedAlternatives|RunClosesAndReturnsNoArtifact|RunDefendsAgainstMisbehavingBrowser|PlaywrightDoctorFailsOfflineWithoutInstalling|ServeAuthenticatedGoal|ServeFailsClosed|ServeReducesPII|ClickToNewOrigin|ValidateStart|ContextGraphCanonicalization|BuildUsesOldestSufficient|BuiltProfilesValidate|BuildContextAndPush|MarshalDeterministic|PlaywrightAuthorHasNoCredential|AuthorNetworkGuard|AuthorURLFacts|ValidateAuthorBrowserRequest|AuthorSessionChromiumCLI)", "-count=1"},
+			Assertions: []string{"synthetic/fake-engine default", "strict persistent author-session state machine", "human credential/MFA and reduced-observation boundary", "deterministic UWS profile synthesis", "offline doctor does not install"},
 			RequiredPasses: []string{
 				"TestCheckUsesBoundedAcquisitionAndReturnsValueFreeReport",
 				"TestComparePortabilityUsesFreshExactProbePlans",
@@ -450,23 +457,45 @@ func defaultGates() []gate {
 				"TestRunClosesAndReturnsNoArtifactOnFailure",
 				"TestRunDefendsAgainstMisbehavingBrowserImplementations",
 				"TestPlaywrightDoctorFailsOfflineWithoutInstalling",
+				"TestServeAuthenticatedGoalHappyPathIsDeterministicAndPrivate",
+				"TestServeFailsClosedForDenialMalformedAndBrowserFailure",
+				"TestServeReducesPIIAndPromptInjectionLabels",
+				"TestClickToNewOriginRequiresOriginThenActionApproval",
+				"TestValidateStartRejectsPartialBoundsAndUnapprovedGoal",
+				"TestContextGraphCanonicalizationAndDepthBound",
+				"TestBuildUsesOldestSufficientProfilesAndFinalPresence",
+				"TestBuiltProfilesValidateAgainstInstalledUWSSchemas",
+				"TestBuildContextAndPushChallengeRequireNewProfiles",
+				"TestMarshalDeterministicAndDigestBound",
+				"TestPlaywrightAuthorHasNoCredentialReadOrSessionExportAPI",
+				"TestAuthorNetworkGuardExactOriginsMethodsAndBounds",
+				"TestAuthorURLFactsAndARIAReduction",
+				"TestValidateAuthorBrowserRequestIsFinite",
+				"TestAuthorSessionChromiumCLIUsesNDJSONAndGenericFailure",
 			},
 		},
 		{
 			ID: "uws-browser-contract", Repository: "uws", Kind: "go_test",
-			Args:       []string{"go", "test", "-v", "./schemas", "./uws1", "./browserauthentication", "-run", "Test(ValidateBrowser|CanonicalBrowser|BrowserSourceProfile|BrowserProfileSchema|BrowserAuthentication|Validate_UWS15BrowserProfile|SessionExtensionRoundTrip)", "-count=1"},
-			Assertions: []string{"unchanged browser.1.5 contract", "browser-authentication contract", "workflow source bindings"},
+			Args:       []string{"go", "test", "-v", "./schemas", "./uws1", "./browserauthentication", "-run", "Test(ValidateBrowser|CanonicalBrowser|BrowserSourceProfile|BrowserProfileSchema|BrowserAuthentication|Validate_UWS15BrowserProfile|SessionExtensionRoundTrip|ContextProfile|ProfileValidators|ContextSemantics|AuthenticationContext|AuthenticationCallVersions|HistoricalNavigate)", "-count=1"},
+			Assertions: []string{"immutable browser 1.5 and authentication 1.0 contracts", "additive UWS 1.8 context contracts", "discriminator-aware schema dispatch", "workflow source and call bindings"},
 			RequiredPasses: []string{
 				"TestValidateBrowserSourceProfileCanonicalFixtures",
 				"TestBrowserAuthenticationProfileCanonicalFixture",
 				"TestValidate_UWS15BrowserProfileSourceOperationBindings",
 				"TestSessionExtensionRoundTrip",
+				"TestContextProfileFixturesValidate",
+				"TestProfileValidatorsDispatchAndRejectUnknownDiscriminators",
+				"TestContextSemanticsFailClosed",
+				"TestAuthenticationContextOriginAndPathFailClosed",
+				"TestAuthenticationCallVersionsRemainAccepted",
+				"TestContextProfileWireRoundTrip",
+				"TestHistoricalNavigateStringWireRemainsStable",
 			},
 		},
 		{
 			ID: "udon-browser-consumer", Repository: "udon", Kind: "go_test",
-			Args:       []string{"go", "test", "-v", "./internal/sourceloader", "./generator", "./spider", "./pkg/browserdriver", "./pkg/uwsprofile", "./cmd/udon", "-run", "Test(LoadBrowser|BrowserSource|NewRuntimePlanFromUWSFile.*Browser|BrowserRuntime|BrowserAuthentication|SessionIsOpaque|PersistentSubprocess|ValidateAuthenticationRequest|ValidateBrowserAuthenticationCall|ParseExecuteFlagsAcceptsRepeatableBrowserPolicy|BrowserExecutionOptionsRequireExplicitDriver)", "-count=1"},
-			Assertions: []string{"trusted runtime keeps source/profile checks", "mutation and authentication approvals", "opaque named sessions", "driver remains explicit"},
+			Args:       []string{"go", "test", "-v", "./internal/sourceloader", "./generator", "./spider", "./pkg/browserdriver", "./pkg/uwsprofile", "./cmd/udon", "-run", "Test(LoadBrowser|BrowserSource|NewRuntimePlanFromUWSFile.*Browser|BrowserRuntime|BrowserAuthentication|SessionIsOpaque|PersistentSubprocess|PersistentProtocols|ValidateAuthenticationRequest|ValidateBrowserAuthenticationCall|ParseExecuteFlagsAcceptsRepeatableBrowserPolicy|BrowserExecutionOptionsRequireExplicitDriver|ConfiguredBrowserExecutionOptions)", "-count=1"},
+			Assertions: []string{"trusted runtime keeps source/profile checks", "v2 compatibility and v3 context replay", "mutation and authentication approvals", "opaque named sessions", "driver remains explicit"},
 			RequiredPasses: []string{
 				"TestLoadBrowserSourceAndResolveAction",
 				"TestNewRuntimePlanFromUWSFileLoadsBrowserProfilePrivately",
@@ -478,12 +507,16 @@ func defaultGates() []gate {
 				"TestValidateBrowserAuthenticationCallRejectsUnknownRawFields",
 				"TestParseExecuteFlagsAcceptsRepeatableBrowserPolicy",
 				"TestBrowserExecutionOptionsRequireExplicitDriver",
+				"TestLoadBrowser16SourcePreservesPortableContexts",
+				"TestPersistentSubprocessV3SelectsContextWireVersions",
+				"TestPersistentProtocolsRejectMismatchedProfileVersionsBeforeExchange",
+				"TestConfiguredBrowserExecutionOptionsBuildsPersistentV3Policy",
 			},
 		},
 		{
 			ID: "browserdriver-runtime", Repository: "browserdriver", Kind: "npm_test",
 			Args:       []string{"npm", "test"},
-			Assertions: []string{"closed NDJSON runtime protocol", "exact-origin and session isolation", "offline synthetic runtime tests"},
+			Assertions: []string{"closed v2/v3 NDJSON runtime protocol", "exact-origin and child-context enforcement", "popup/frame inventory and ambiguity rejection", "session isolation", "offline synthetic runtime tests"},
 		},
 		{
 			ID: "browser-component-inventory-chromium", Repository: "browsertools", Kind: "doctor",
@@ -517,6 +550,13 @@ func defaultGates() []gate {
 			Env:            map[string]string{"BROWSERTOOLS_AUTH_LIVE_TEST": "1"},
 			Assertions:     []string{"explicit loopback-only headed authentication proof"},
 			RequiredPasses: []string{"TestPlaywrightAuthHeadedLoopbackOptIn"},
+		},
+		{
+			ID: "headed-author-opt-in", Repository: "browsertools", Kind: "go_test", OptIn: "headed",
+			Args:           []string{"go", "test", "-v", "./capture", "-run", "TestPlaywrightAuthorRedirectLoginLoopbackOptIn", "-count=1"},
+			Env:            map[string]string{"BROWSERTOOLS_AUTHOR_LIVE_TEST": "1"},
+			Assertions:     []string{"explicit loopback-only same-context login redirect authoring proof"},
+			RequiredPasses: []string{"TestPlaywrightAuthorRedirectLoginLoopbackOptIn"},
 		},
 	}
 }
@@ -758,14 +798,14 @@ func containsExactLine(lines []string, wanted string) bool {
 
 func optInSkipDetail(kind string) string {
 	if kind == "headed" {
-		return "headed authentication is a separate explicit loopback-only opt-in and was not requested"
+		return "headed authentication/authoring is a separate explicit loopback-only opt-in and was not requested"
 	}
 	return "installed Chromium/Firefox/WebKit checks are separate explicit loopback-only opt-ins and were not requested"
 }
 
 func optInUnavailableDetail(kind string) string {
 	if kind == "headed" {
-		return "headed authentication was requested but pinned Chromium readiness or a named loopback-only test was unavailable"
+		return "headed authentication/authoring was requested but pinned Chromium readiness or a named loopback-only test was unavailable"
 	}
 	return "installed-engine proof was requested but pinned engine readiness or a named loopback-only test was unavailable"
 }
