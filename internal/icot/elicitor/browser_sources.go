@@ -17,6 +17,7 @@ import (
 	"github.com/OpenUdon/browsertools/authprofile"
 	"github.com/OpenUdon/browsertools/bundle"
 	"github.com/OpenUdon/browsertools/profile"
+	"github.com/OpenUdon/evidence/redact"
 	rollout "github.com/OpenUdon/openudon/internal/workflowintent"
 	"github.com/OpenUdon/uws/browserauthentication"
 )
@@ -36,6 +37,9 @@ func discoverBrowserAuthoringSources(ctx context.Context, exampleDir string, exp
 	if at.IsZero() {
 		at = time.Now().UTC()
 	}
+	if len(explicit) > browsertools.DefaultLocalMaxCandidates {
+		return browserAuthoringDiscovery{}, fmt.Errorf("explicit browser sources exceed limit %d; narrow --browser-profile inputs", browsertools.DefaultLocalMaxCandidates)
+	}
 	browserRoots := append([]string(nil), roots...)
 	for _, dir := range []string{"browser-profiles", "browser-authentication", "capability-bundles"} {
 		path := filepath.Join(exampleDir, dir)
@@ -46,6 +50,7 @@ func discoverBrowserAuthoringSources(ctx context.Context, exampleDir string, exp
 		}
 	}
 	explicitIDs := map[string]string{}
+	var guidedCandidates []browsertools.LocalSourceCandidate
 	for _, source := range explicit {
 		id := strings.TrimSpace(source.ID)
 		path := strings.TrimSpace(source.Path)
@@ -59,22 +64,80 @@ func discoverBrowserAuthoringSources(ctx context.Context, exampleDir string, exp
 		absolute = filepath.Clean(absolute)
 		if prior, exists := explicitIDs[absolute]; exists && prior != id {
 			return browserAuthoringDiscovery{}, fmt.Errorf("browser profile %s has conflicting IDs %q and %q", absolute, prior, id)
+		} else if exists {
+			continue
 		}
 		explicitIDs[absolute] = id
+		guided, recognized, inspectErr := inspectExplicitGuidedBundle(absolute, at)
+		if inspectErr != nil {
+			return browserAuthoringDiscovery{}, fmt.Errorf("browser source %s: %w", absolute, inspectErr)
+		}
+		if recognized {
+			guidedCandidates = append(guidedCandidates, guided)
+			continue
+		}
 		browserRoots = append(browserRoots, absolute)
 	}
-	if len(browserRoots) == 0 {
+	if len(browserRoots) == 0 && len(guidedCandidates) == 0 {
 		return browserAuthoringDiscovery{Report: emptyBrowserDiscoveryReport()}, nil
 	}
-	report, err := browsertools.DiscoverLocalSources(ctx, browsertools.LocalSourceDiscoveryOptions{
-		Roots: browserRoots,
-		At:    at,
-	})
+	report := emptyBrowserDiscoveryReport()
+	var err error
+	if len(browserRoots) > 0 {
+		report, err = browsertools.DiscoverLocalSources(ctx, browsertools.LocalSourceDiscoveryOptions{
+			Roots: browserRoots,
+			At:    at,
+		})
+	}
 	result := browserAuthoringDiscovery{Report: report}
 	if err != nil {
 		return result, err
 	}
-	for _, candidate := range report.Candidates {
+	if len(guidedCandidates) > 0 {
+		if result.Report.Visited+len(guidedCandidates) > browsertools.DefaultLocalMaxVisited {
+			return result, fmt.Errorf("browser source visits exceed limit %d; narrow explicit --browser-profile inputs", browsertools.DefaultLocalMaxVisited)
+		}
+		guidedPaths := map[string]bool{}
+		sort.SliceStable(guidedCandidates, func(i, j int) bool {
+			return guidedCandidates[i].Path < guidedCandidates[j].Path
+		})
+		for _, candidate := range guidedCandidates {
+			guidedPaths[filepath.Clean(candidate.Path)] = true
+			result.Report.Roots = append(result.Report.Roots, candidate.Path)
+		}
+		result.Report.Visited += len(guidedCandidates)
+		result.Report.Roots = sortedUniqueBrowserStrings(result.Report.Roots)
+		result.Report.Rejected = removeGuidedPathDiagnostics(result.Report.Rejected, guidedPaths)
+		result.Report.Ambiguous = removeGuidedPathDiagnostics(result.Report.Ambiguous, guidedPaths)
+		byDigest := map[string]int{}
+		for index, candidate := range result.Report.Candidates {
+			byDigest[candidate.Digest] = index
+		}
+		for _, candidate := range guidedCandidates {
+			if priorIndex, duplicate := byDigest[candidate.Digest]; duplicate {
+				prior := result.Report.Candidates[priorIndex]
+				if candidate.Path < prior.Path {
+					result.Report.Candidates[priorIndex] = candidate
+					result.Report.Rejected = append(result.Report.Rejected, browsertools.LocalSourceDiagnostic{Path: prior.Path, Code: "duplicate", Detail: "identical content was already discovered", DuplicateOf: candidate.Path})
+				} else {
+					result.Report.Rejected = append(result.Report.Rejected, browsertools.LocalSourceDiagnostic{Path: candidate.Path, Code: "duplicate", Detail: "identical content was already discovered", DuplicateOf: prior.Path})
+				}
+				continue
+			}
+			if len(result.Report.Candidates) >= browsertools.DefaultLocalMaxCandidates {
+				return result, fmt.Errorf("browser source candidates exceed limit %d; narrow explicit --browser-profile inputs", browsertools.DefaultLocalMaxCandidates)
+			}
+			byDigest[candidate.Digest] = len(result.Report.Candidates)
+			result.Report.Candidates = append(result.Report.Candidates, candidate)
+		}
+		sort.SliceStable(result.Report.Candidates, func(i, j int) bool {
+			return result.Report.Candidates[i].Path < result.Report.Candidates[j].Path
+		})
+		sort.SliceStable(result.Report.Rejected, func(i, j int) bool {
+			return result.Report.Rejected[i].Path < result.Report.Rejected[j].Path
+		})
+	}
+	for _, candidate := range result.Report.Candidates {
 		if candidate.Status != "active" {
 			continue
 		}
@@ -90,6 +153,27 @@ func discoverBrowserAuthoringSources(ctx context.Context, exampleDir string, exp
 	})
 	result.Plans = normalizeSourcePlan(result.Plans)
 	return result, nil
+}
+
+func removeGuidedPathDiagnostics(values []browsertools.LocalSourceDiagnostic, guidedPaths map[string]bool) []browsertools.LocalSourceDiagnostic {
+	kept := values[:0]
+	for _, diagnostic := range values {
+		if !guidedPaths[filepath.Clean(diagnostic.Path)] {
+			kept = append(kept, diagnostic)
+		}
+	}
+	return kept
+}
+
+func sortedUniqueBrowserStrings(values []string) []string {
+	sort.Strings(values)
+	result := values[:0]
+	for _, value := range values {
+		if len(result) == 0 || result[len(result)-1] != value {
+			result = append(result, value)
+		}
+	}
+	return result
 }
 
 func emptyBrowserDiscoveryReport() browsertools.LocalSourceDiscoveryReport {
@@ -118,7 +202,12 @@ func browserMaterializationForCandidate(exampleDir string, candidate browsertool
 	sourceKind := string(candidate.Kind)
 	release := candidate.Release
 	id := strings.TrimSpace(explicitIDs[filepath.Clean(absSource)])
-	if candidate.Kind == browsertools.LocalSourceBundle {
+	if candidate.Kind == browserGuidedSourceKind {
+		value, materialized, err = materializeBrowserGuidedProfile(data, at)
+		if err != nil {
+			return SourceMaterialization{}, APIDocument{}, err
+		}
+	} else if candidate.Kind == browsertools.LocalSourceBundle {
 		capability, parseErr := bundle.Parse(data)
 		if parseErr != nil {
 			return SourceMaterialization{}, APIDocument{}, parseErr
@@ -158,7 +247,7 @@ func browserMaterializationForCandidate(exampleDir string, candidate browsertool
 		return SourceMaterialization{}, APIDocument{}, fmt.Errorf("cannot derive a stable browser source ID for %s", absSource)
 	}
 	ext := strings.ToLower(filepath.Ext(absSource))
-	if candidate.Kind == browsertools.LocalSourceBundle || ext == "" {
+	if candidate.Kind == browsertools.LocalSourceBundle || candidate.Kind == browserGuidedSourceKind || ext == "" {
 		ext = ".json"
 	}
 	target := filepath.ToSlash(filepath.Join("browser-profiles", id+ext))
@@ -346,7 +435,15 @@ func SourceMaterializationContent(source SourceMaterialization, at time.Time) ([
 			return nil, validateErr
 		}
 	}
-	if source.SourceKind == string(browsertools.LocalSourceBundle) {
+	if source.SourceKind == string(browserGuidedSourceKind) {
+		if at.IsZero() {
+			at = time.Now().UTC()
+		}
+		_, materialized, err = materializeBrowserGuidedProfile(data, at)
+		if err != nil {
+			return nil, err
+		}
+	} else if source.SourceKind == string(browsertools.LocalSourceBundle) {
 		value, parseErr := bundle.Parse(data)
 		if parseErr != nil {
 			return nil, parseErr
@@ -437,6 +534,9 @@ func validateBrowserAuthoringProfile(value *profile.Profile) error {
 
 func sensitiveBrowserName(value string) bool {
 	normalized := strings.ToLower(strings.NewReplacer("-", "_", " ", "_", ".", "_").Replace(value))
+	if redact.SensitiveKey(normalized) {
+		return true
+	}
 	for _, marker := range []string{"cookie", "session", "storage", "dom", "html", "screenshot", "raw_capture", "raw_browser", "password", "secret", "credential", "access_token", "refresh_token"} {
 		if strings.Contains(normalized, marker) {
 			return true

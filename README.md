@@ -196,6 +196,15 @@ go run ./cmd/icot --example ./examples/<name> \
   --browser-registry https://profiles.example.org/catalog/ \
   --network ask
 
+# When no reviewed profile exists, emit a non-executing Browsertools handoff.
+install -d -m 0700 /private/operator/browsertools-status
+go run ./cmd/icot browser-authoring plan \
+  --example ./examples/<name> --url https://example.test/status \
+  --origin https://example.test --profile-id status \
+  --action-hint read_status --login-state not-required \
+  --private-root /private/operator/browsertools-status \
+  --out /private/operator/browsertools-status/handoff.json
+
 # Rebuild project.md from workflows/intent.hcl.
 go run ./cmd/icot reconcile --example ./examples/<name>
 

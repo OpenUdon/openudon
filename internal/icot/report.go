@@ -74,6 +74,7 @@ type authorReport struct {
 	BrowserSourceTruncated    []browsertools.LocalSourceDiagnostic `json:"browser_source_truncated,omitempty"`
 	BrowserRegistryCandidates []elicitor.BrowserRegistryCandidate  `json:"browser_registry_candidates,omitempty"`
 	BrowserRegistryBlockers   []elicitor.BrowserRegistryBlocker    `json:"browser_registry_blockers,omitempty"`
+	BrowserAuthoring          *browserAuthoringPlan                `json:"browser_authoring,omitempty"`
 	RemoteCandidates          []elicitor.RemoteSourceCandidate     `json:"remote_candidates,omitempty"`
 	RemoteBlocker             *elicitor.RemoteSourceBlocker        `json:"remote_blocker,omitempty"`
 	ProposedFileActions       []elicitor.FileAction                `json:"proposed_file_actions,omitempty"`

@@ -26,6 +26,9 @@ import (
 )
 
 func Main(args []string, in io.Reader, out, errOut io.Writer) int {
+	if len(args) > 0 && args[0] == "browser-authoring" {
+		return runBrowserAuthoring(args[1:], out, errOut)
+	}
 	if len(args) > 0 && args[0] == "lint" {
 		return runLint(args[1:], out, errOut)
 	}
@@ -77,11 +80,18 @@ func runAuthor(args []string, in io.Reader, out, errOut io.Writer) int {
 	var openAPIFlags repeatedFlag
 	var browserProfileFlags repeatedFlag
 	var browserRegistryFlags repeatedFlag
+	var browserAuthoringOriginFlags repeatedFlag
 	var sourceRootFlags repeatedFlag
 	fs.Var(&apiSourceFlags, "api-source", "Explicit API document KIND:ID=PATH; repeat for multiple sources")
 	fs.Var(&openAPIFlags, "openapi", "OpenAPI shorthand ID=PATH; repeat for multiple sources")
-	fs.Var(&browserProfileFlags, "browser-profile", "Verified browser capability/authentication profile ID=PATH; repeat for multiple sources")
+	fs.Var(&browserProfileFlags, "browser-profile", "Verified browser capability/authentication profile, capability bundle, or guided-authoring result ID=PATH; repeat for multiple sources")
 	fs.Var(&browserRegistryFlags, "browser-registry", "Static Browsertools registry directory or HTTPS URL; repeat for multiple registries")
+	browserAuthoringURL := fs.String("browser-authoring-url", "", "Explicit clean HTTPS or loopback URL for a non-executing Browsertools authoring handoff")
+	browserAuthoringID := fs.String("browser-authoring-id", "", "Stable profile ID for the Browsertools authoring handoff")
+	browserAuthoringAction := fs.String("browser-authoring-action", "", "Stable action hint for the Browsertools authoring handoff")
+	browserAuthoringLogin := fs.String("browser-authoring-login", "", "Login posture for the handoff: required or not-required")
+	browserAuthoringPrivateRoot := fs.String("browser-authoring-private-root", "", "Private Browsertools work/cache root outside the OpenUdon example")
+	fs.Var(&browserAuthoringOriginFlags, "browser-authoring-origin", "Exact origin approved for the Browsertools authoring handoff; repeat for multiple origins")
 	fs.Var(&sourceRootFlags, "source-root", "Explicit bounded local source root; repeat for multiple roots")
 	network := fs.String("network", "", "Remote lookup policy: never, ask, or allow")
 	fs.Usage = func() {
@@ -99,6 +109,7 @@ func runAuthor(args []string, in io.Reader, out, errOut io.Writer) int {
 		fmt.Fprintf(fs.Output(), "  icot replay-eval --root examples/eval    Replay eval references through the iCoT chat loop.\n")
 		fmt.Fprintf(fs.Output(), "  icot authoring-eval --root examples/eval Run optional real-LLM natural-language authoring evidence.\n")
 		fmt.Fprintf(fs.Output(), "  icot report verify --file report.json    Verify scorecard or authoring-eval report JSON and digest.\n")
+		fmt.Fprintf(fs.Output(), "  icot browser-authoring plan ...          Emit a non-executing Browsertools authoring handoff.\n")
 		fmt.Fprintf(fs.Output(), "\nSee docs/icot.md, docs/icot-session-schema.md, and docs/icot-transcript.md for file formats.\n")
 		fmt.Fprintf(fs.Output(), "Next step: openudon build --example examples/<name>\n\n")
 		fs.PrintDefaults()
@@ -124,6 +135,21 @@ func runAuthor(args []string, in io.Reader, out, errOut io.Writer) int {
 		return 2
 	}
 	browserSources, err := parseBrowserSourceFlags(browserProfileFlags)
+	if err != nil {
+		fmt.Fprintln(errOut, err)
+		return 2
+	}
+	browserAuthoringInput := browserAuthoringPlanInput{
+		ExampleDir: exampleDirForPlan(firstNonEmpty(*example, *dirAlias)),
+		TargetURL:  *browserAuthoringURL, Origins: append([]string(nil), browserAuthoringOriginFlags...),
+		ProfileID: *browserAuthoringID, ActionHint: *browserAuthoringAction,
+		LoginState: *browserAuthoringLogin, PrivateRoot: *browserAuthoringPrivateRoot,
+	}
+	if browserAuthoringInputProvided(browserAuthoringInput) && !*agentMode {
+		fmt.Fprintln(errOut, "browser authoring flags are available only with --agent; use `icot browser-authoring plan` for an operator handoff")
+		return 2
+	}
+	browserAuthoring, err := optionalBrowserAuthoringPlan(browserAuthoringInput)
 	if err != nil {
 		fmt.Fprintln(errOut, err)
 		return 2
@@ -163,6 +189,7 @@ func runAuthor(args []string, in io.Reader, out, errOut io.Writer) int {
 			BrowserRegistries: append([]string(nil), browserRegistryFlags...),
 			SourceRoots:       append([]string(nil), sourceRootFlags...),
 			NetworkPolicy:     networkPolicy,
+			BrowserAuthoring:  browserAuthoring,
 		}, out, errOut)
 	}
 	projectPath := filepath.Join(exampleDir, "project.md")
@@ -357,6 +384,7 @@ type agentAuthorOptions struct {
 	BrowserRegistries []string
 	SourceRoots       []string
 	NetworkPolicy     string
+	BrowserAuthoring  *browserAuthoringPlan
 }
 
 func runAgentAuthor(opts agentAuthorOptions, out, errOut io.Writer) int {
@@ -432,6 +460,9 @@ func runAgentAuthor(opts agentAuthorOptions, out, errOut io.Writer) int {
 		report.RemoteBlocker = remote.Blocker
 	}
 	issues := elicitor.CheckReadiness(seed, docs)
+	if browserAuthoringSourceGap(issues) {
+		report.BrowserAuthoring = cloneBrowserAuthoringPlan(opts.BrowserAuthoring)
+	}
 	frontier, frontierErr := elicitor.PlanFrontier(&seed, docs, issues)
 	if frontierErr != nil {
 		report.Status = statusFail
@@ -535,6 +566,15 @@ func agentSuggestedAnswer(issue *elicitor.ReadinessIssue) string {
 	default:
 		return ""
 	}
+}
+
+func browserAuthoringSourceGap(issues []elicitor.ReadinessIssue) bool {
+	for _, issue := range issues {
+		if issue.Code == "missing_api_doc" && strings.EqualFold(issue.Severity, "blocking") {
+			return true
+		}
+	}
+	return false
 }
 
 func agentProjectText(projectPath string, seed elicitor.Session) string {

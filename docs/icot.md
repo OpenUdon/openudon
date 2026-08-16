@@ -46,12 +46,68 @@ go run ./cmd/icot --example ./examples/<name> --network never
 
 `--api-source` uses `KIND:ID=PATH`; `--openapi ID=PATH` is shorthand for an
 OpenAPI source. `--browser-profile ID=PATH` supplies a reviewed
-`uws.browser.1.5` capability profile, a capability bundle, or a secret-free
-`uws.browser-authentication.1.0` sign-in profile. `--browser-registry` accepts a
+`uws.browser.1.5` capability profile, a capability bundle, an explicit
+`browsertools.guided-authoring.v1` result, or a secret-free
+`uws.browser-authentication.1.0` sign-in profile. A guided result is accepted
+only as an explicit file, replayed through Browsertools' draft and review
+gates, rejected if it contains secret/session/private-browser-shaped content or
+bypasses parameter-only guided text/select values, and reduced to its embedded profile; its normalized evidence, decisions,
+specification, and review envelope are not staged in the workflow package.
+`--browser-registry` accepts a
 local static-registry directory or HTTPS base URL; it is not an account or
 membership service. `--network` accepts `never`, `ask`, or `allow`. Interactive
 runs default to `ask`. Agent mode is effectively `never` unless `allow` is
 explicit. Local registries remain usable with `--network never`.
+
+## Browsertools Authoring Handoff
+
+When neither an API operation nor an existing reviewed browser profile covers
+an unauthenticated UI-only outcome, iCoT can emit an inert, value-free handoff
+plan for a separate Browsertools authoring session:
+
+```bash
+install -d -m 0700 /private/operator/browsertools-member-status
+go run ./cmd/icot browser-authoring plan \
+  --example ./examples/member-status \
+  --url https://members.example.test/status \
+  --origin https://members.example.test \
+  --profile-id member-status \
+  --action-hint read_status \
+  --login-state not-required \
+  --private-root /private/operator/browsertools-member-status \
+  --out /private/operator/browsertools-member-status/handoff.json
+```
+
+The `openudon.browser-authoring-handoff.v1` artifact contains argv templates,
+typed declarations for every operator-supplied argv value, and manual review
+gates for Browsertools doctor, finite private capture, exact-ID export, raw
+review/redaction, normalized-evidence import, guided authoring, and the final
+iCoT resume command. It does not invoke Browsertools, install or
+launch a browser, read environment variables, accept credential inputs, contact
+the site, or write an OpenUdon deliverable. The private root must be disjoint
+from the OpenUdon example, already exist as a non-symlink directory with no
+group/other permissions (normally mode `0700`), and contain any file output.
+File output is new-only mode `0600`. Because
+the plan contains a target URL and private local paths, it is local-ephemeral
+and requires redaction review before sharing.
+
+The same inputs can be attached to `icot --agent --json` with
+`--browser-authoring-url`, repeatable `--browser-authoring-origin`,
+`--browser-authoring-id`, `--browser-authoring-action`,
+`--browser-authoring-login`, and `--browser-authoring-private-root`. Agent mode
+returns the handoff inline only when readiness has reached the blocking
+missing-source boundary; an available API source remains preferred. Agent mode
+still writes nothing.
+
+Login-required protected-page authoring intentionally fails closed with
+`needs_reviewed_profiles`. Browsertools can separately observe an explicitly
+authored authentication profile while a human enters credentials and completes
+MFA, but it does not export that session or carry it into capability capture.
+iCoT therefore does not promise live dashboard learning from an authenticated
+context. Supply separately reviewed `uws.browser-authentication.1.0` and
+`uws.browser.1.5` files, or wait for a reviewed upstream context contract;
+popup/iframe SSO, CAPTCHA, enrollment, recovery, and consent remain outside the
+current contract.
 
 Prompt modes preserve the public v1 names with v2 behavior:
 
@@ -111,7 +167,10 @@ and explicit roots. Local discovery recognizes and validates:
 - OData.
 
 The same explicit roots are also inspected by Browsertools for verified
-browser capability profiles, authentication profiles, and capability bundles. Browser ambiguity, inactive lifecycle
+browser capability profiles, authentication profiles, and capability bundles.
+Guided-authoring envelopes are accepted only through an explicit
+`--browser-profile ID=PATH`, so a broad source-root scan cannot silently promote
+authoring evidence. Browser ambiguity, inactive lifecycle
 state, or a traversal bound blocks the run just like incomplete API discovery.
 iCoT prefers an API operation that covers the active capability. It offers a
 browser action only for an API capability gap or an explicitly reviewed browser
