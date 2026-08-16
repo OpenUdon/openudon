@@ -3,9 +3,12 @@ package icot
 import (
 	"bytes"
 	"encoding/json"
+	"net/http"
+	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"strings"
+	"sync/atomic"
 	"testing"
 
 	"github.com/OpenUdon/openudon/internal/icot/elicitor"
@@ -153,6 +156,13 @@ func TestBrowserAuthoringSourceGapPreservesAPIFirstSelection(t *testing.T) {
 }
 
 func TestBrowserAuthoringPlanCLIAndAgentReportDoNotWriteDeliverables(t *testing.T) {
+	var targetHits atomic.Int64
+	target := httptest.NewServer(http.HandlerFunc(func(http.ResponseWriter, *http.Request) {
+		targetHits.Add(1)
+	}))
+	defer target.Close()
+	t.Setenv("MEMBER_PASSWORD", "must-not-appear-in-cli-or-agent-report")
+
 	root := t.TempDir()
 	example := filepath.Join(root, "example")
 	privateRoot := filepath.Join(root, "private")
@@ -162,7 +172,7 @@ func TestBrowserAuthoringPlanCLIAndAgentReportDoNotWriteDeliverables(t *testing.
 	outPath := filepath.Join(privateRoot, "handoff.json")
 	args := []string{
 		"browser-authoring", "plan", "--example", example,
-		"--url", "https://example.test/member", "--origin", "https://example.test",
+		"--url", target.URL + "/member", "--origin", target.URL,
 		"--profile-id", "member", "--action-hint", "read_member",
 		"--login-state", "not-required", "--private-root", privateRoot, "--out", outPath,
 	}
@@ -210,8 +220,8 @@ func TestBrowserAuthoringPlanCLIAndAgentReportDoNotWriteDeliverables(t *testing.
 	sessionPath := writeSessionJSON(t, root, session)
 	agentArgs := []string{
 		"--example", example, "--answers", sessionPath, "--agent", "--json",
-		"--browser-authoring-url", "https://example.test/member",
-		"--browser-authoring-origin", "https://example.test",
+		"--browser-authoring-url", target.URL + "/member",
+		"--browser-authoring-origin", target.URL,
 		"--browser-authoring-id", "member", "--browser-authoring-action", "read_member",
 		"--browser-authoring-login", "not-required", "--browser-authoring-private-root", privateRoot,
 	}
@@ -227,6 +237,13 @@ func TestBrowserAuthoringPlanCLIAndAgentReportDoNotWriteDeliverables(t *testing.
 	}
 	if _, err := os.Stat(filepath.Join(example, "project.md")); !os.IsNotExist(err) {
 		t.Fatalf("agent wrote project deliverable: %v", err)
+	}
+	if got := targetHits.Load(); got != 0 {
+		t.Fatalf("planning contacted the browser target %d time(s)", got)
+	}
+	combined := stdout.String() + stderr.String()
+	if strings.Contains(combined, "must-not-appear-in-cli-or-agent-report") || strings.Contains(combined, "MEMBER_PASSWORD") {
+		t.Fatalf("planning output copied credential environment metadata: %s", combined)
 	}
 }
 

@@ -101,12 +101,53 @@ func TestCLIHelpIncludesReleaseAndLocalSmokeCommands(t *testing.T) {
 	}
 	text := string(output)
 	for _, expected := range []string{
+		"browser-integration-eval run or verify provider-free cross-repo browser evidence",
 		"release-evidence run local udon smoke",
 		"release-notes draft local release evidence notes",
 		"local-udon-smoke build sibling udon",
 	} {
 		if !strings.Contains(text, expected) {
 			t.Fatalf("help missing %q:\n%s", expected, text)
+		}
+	}
+}
+
+func TestCLIBrowserIntegrationEvalHelp(t *testing.T) {
+	cmd := helperCommand("browser-integration-eval", "--help")
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		t.Fatalf("browser-integration-eval help failed: %v\n%s", err, output)
+	}
+	text := string(output)
+	for _, expected := range []string{
+		"Usage: openudon browser-integration-eval",
+		"--browsertools-repo",
+		"--browserdriver-repo",
+		"--installed-engines",
+		"--headed-auth",
+		"--verify",
+		"does not launch a browser",
+		"loopback-only opt-ins",
+	} {
+		if !strings.Contains(text, expected) {
+			t.Fatalf("browser-integration-eval help missing %q:\n%s", expected, text)
+		}
+	}
+}
+
+func TestCLIBrowserIntegrationEvalRejectsMissingOutputAndMixedVerifyMode(t *testing.T) {
+	for _, args := range [][]string{
+		{"browser-integration-eval", "--out", ""},
+		{"browser-integration-eval", "--verify", "missing.json", "--out", "ignored.json"},
+		{"browser-integration-eval", "--verify", "missing.json", "--installed-engines"},
+	} {
+		cmd := helperCommand(args...)
+		output, err := cmd.CombinedOutput()
+		if err == nil {
+			t.Fatalf("arguments %#v succeeded:\n%s", args, output)
+		}
+		if !strings.Contains(string(output), "browser-integration-eval:") {
+			t.Fatalf("arguments %#v missing usage diagnostic:\n%s", args, output)
 		}
 	}
 }

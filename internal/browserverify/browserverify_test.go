@@ -42,7 +42,10 @@ func TestInspectRejectsUnknownPrivateStaleAndMismatchedFacts(t *testing.T) {
 		want   string
 	}{
 		{name: "unknown", mutate: func(value map[string]any) { value["pageValue"] = "secret" }, want: "unknown field"},
-		{name: "private version", mutate: func(value map[string]any) { value["version"] = "browsertools.private-rich-evidence.v1" }, want: "not a value-free"},
+		{name: "private rich version", mutate: func(value map[string]any) { value["version"] = "browsertools.private-rich-evidence.v1" }, want: "not a value-free"},
+		{name: "guided authoring version", mutate: func(value map[string]any) { value["version"] = "browsertools.guided-authoring.v1" }, want: "not a value-free"},
+		{name: "assisted authentication version", mutate: func(value map[string]any) { value["version"] = "browsertools.assisted-authentication.v1" }, want: "not a value-free"},
+		{name: "doctor version", mutate: func(value map[string]any) { value["version"] = "browsertools.playwright-doctor.v1" }, want: "not a value-free"},
 		{name: "stale", mutate: func(value map[string]any) { value["checkedAt"] = "2026-08-14T00:00:00Z" }, want: "stale"},
 		{name: "origin", mutate: func(value map[string]any) { value["origin"] = "https://other.test" }, want: "exact canonical profile origin"},
 		{name: "path", mutate: func(value map[string]any) {

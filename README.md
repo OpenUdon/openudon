@@ -92,6 +92,7 @@ go run ./cmd/openudon check-apitools-boundary
 go run ./cmd/openudon validate ./examples/uws-validation
 make check
 make release-check
+make browser-integration-check
 make eval-seed-build
 make release-saas-check
 git diff --check
@@ -428,7 +429,8 @@ make release-eval
 ```
 
 `make release-saas-check` is the provider-free local SaaS release gate. It runs deterministic checks,
-the eval seed/build matrix, `icot-variants-validate`, `icot-authoring-scorecard`, UWS validation,
+the [browser integration evaluation](docs/browser-integration-eval.md), the eval seed/build matrix,
+`icot-variants-validate`, `icot-authoring-scorecard`, UWS validation,
 doc-memory validation, n8n bridge validation, strict MkDocs, selected strict fixture lint, and
 trusted-runner dry-run demos without live provider credentials or live provider execution. `icot
 scorecard --include-variants` is deterministic reference/variant package evidence; use `icot
@@ -441,6 +443,12 @@ authoring-eval` separately for optional real LLM natural-language authoring evid
 `run-evidence.json` plus async/executor report sidecars, drafts local release
 notes, and writes compact summaries under ignored `.openudon-run/release-evidence/`.
 It does not tag, publish, commit artifacts, or contact live providers.
+
+`make browser-integration-check` runs and then verifies the value-free,
+digest-bound authoring-to-handoff matrix across OpenUdon, Browsertools, UWS,
+Udon, and Browserdriver. Its default path is offline/provider-free and does not
+launch a browser; installed-engine and headed-authentication checks require
+separate loopback-only CLI opt-ins.
 
 ## Readiness
 

@@ -144,6 +144,17 @@ func TestGuidedAuthoringAdapterRejectsUnsignedSafetyBypasses(t *testing.T) {
 			},
 			want: "declared parameter template",
 		},
+		{
+			name: "literal select option",
+			mutate: func(bundle *browserGuidedBundle) {
+				locator := bevidence.CandidateLocator{Role: "combobox", Name: "Member type"}
+				bundle.Evidence[0].CandidateLocators = []bevidence.CandidateLocator{locator}
+				action := bundle.Spec.Actions["read_status"]
+				action.Sequence = []profile.Step{{Kind: profile.StepSelectOption, SelectOption: &profile.SelectOptionStep{Locator: profile.Locator{Role: profile.RoleCombobox, Name: "Member type"}, Value: "premium"}}}
+				bundle.Spec.Actions["read_status"] = action
+			},
+			want: "declared parameter template",
+		},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			root := t.TempDir()
@@ -182,6 +193,36 @@ func TestGuidedAuthoringAdapterRejectsUnsignedSafetyBypasses(t *testing.T) {
 				t.Fatalf("error = %v, want %q", err, test.want)
 			}
 		})
+	}
+}
+
+func TestGuidedAuthoringAdapterRejectsDecisionMismatch(t *testing.T) {
+	root := t.TempDir()
+	path := filepath.Join(root, "guided.json")
+	writeGuidedBundleFixture(t, path, false)
+	data, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var bundle browserGuidedBundle
+	if err := json.Unmarshal(data, &bundle); err != nil {
+		t.Fatal(err)
+	}
+	bundle.Decisions = append(bundle.Decisions, bevidence.LocatorDecision{
+		ActionHint: "read_status",
+		Locator:    bevidence.CandidateLocator{Role: "button", Name: "Read status"},
+		Rationale:  "invented downstream decision",
+	})
+	encoded, err := json.MarshalIndent(bundle, "", "  ")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(path, append(encoded, '\n'), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	_, err = DiscoverAuthoringSourcesWithBrowser(context.Background(), filepath.Join(root, "example"), "read status", nil, nil, []BrowserSourceInput{{ID: "status", Path: path}}, guidedBundleTestTime)
+	if err == nil || !strings.Contains(err.Error(), "ambiguity decisions do not match") {
+		t.Fatalf("decision mismatch error = %v", err)
 	}
 }
 

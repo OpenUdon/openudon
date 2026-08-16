@@ -15,6 +15,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/OpenUdon/openudon/internal/browserintegrationeval"
 	"github.com/OpenUdon/openudon/internal/config"
 	evalpkg "github.com/OpenUdon/openudon/internal/eval"
 	"github.com/OpenUdon/openudon/internal/localcheck"
@@ -40,6 +41,7 @@ func main() {
 		fmt.Fprintf(flag.CommandLine.Output(), "  assess    assess existing example artifacts and write quality reports\n")
 		fmt.Fprintf(flag.CommandLine.Output(), "  approval-template print approval JSON for a validated handoff package\n")
 		fmt.Fprintf(flag.CommandLine.Output(), "  build     regenerate workflow/UWS from an existing intent.hcl\n")
+		fmt.Fprintf(flag.CommandLine.Output(), "  browser-integration-eval run or verify provider-free cross-repo browser evidence\n")
 		fmt.Fprintf(flag.CommandLine.Output(), "  catalog   inspect first-class provider catalog metadata\n")
 		fmt.Fprintf(flag.CommandLine.Output(), "  check-apitools-boundary verify OpenUdon repository boundaries\n")
 		fmt.Fprintf(flag.CommandLine.Output(), "  check-doc-memory verify local memory-bank and evolution harness files\n")
@@ -84,6 +86,8 @@ func main() {
 		}
 	case "catalog":
 		runCatalogCommand(flag.Args()[1:])
+	case "browser-integration-eval":
+		runBrowserIntegrationEvalCommand(flag.Args()[1:])
 	case "validate":
 		if flag.NArg() < 2 {
 			fmt.Fprintln(os.Stderr, "usage: openudon validate [--allow-empty] <uws-file-or-dir>")
@@ -120,6 +124,74 @@ func main() {
 		fmt.Fprintf(os.Stderr, "unknown command %q\n", command)
 		flag.Usage()
 		os.Exit(2)
+	}
+}
+
+func runBrowserIntegrationEvalCommand(args []string) {
+	fs := flag.NewFlagSet("browser-integration-eval", flag.ExitOnError)
+	browsertoolsRepo := fs.String("browsertools-repo", "../browsertools", "Sibling Browsertools repository")
+	uwsRepo := fs.String("uws-repo", "../uws", "Sibling UWS repository")
+	udonRepo := fs.String("udon-repo", "../udon", "Sibling Udon repository")
+	browserdriverRepo := fs.String("browserdriver-repo", "../browserdriver", "Sibling Browserdriver repository")
+	out := fs.String("out", "eval/runs/browser-integration-local/report.json", "Value-free report JSON path")
+	verify := fs.String("verify", "", "Verify an existing report and SHA-256 sidecar instead of running gates")
+	installedEngines := fs.Bool("installed-engines", false, "Opt in to loopback-only installed Chromium, Firefox, and WebKit checks")
+	headedAuth := fs.Bool("headed-auth", false, "Opt in to the loopback-only headed authentication check")
+	fs.Usage = func() {
+		fmt.Fprintf(fs.Output(), "Usage: openudon browser-integration-eval [--browsertools-repo DIR] [--uws-repo DIR] [--udon-repo DIR] [--browserdriver-repo DIR] [--out FILE] [--installed-engines] [--headed-auth]\n")
+		fmt.Fprintf(fs.Output(), "       openudon browser-integration-eval --verify FILE\n\n")
+		fmt.Fprintf(fs.Output(), "Runs the provider-free browser authoring-to-handoff matrix across OpenUdon, Browsertools, UWS, Udon, and Browserdriver. The default does not launch a browser, contact a target, read credential values, or retain subprocess output. Installed-engine checks are explicit loopback-only opt-ins.\n\n")
+		fs.PrintDefaults()
+	}
+	if err := fs.Parse(args); err != nil {
+		os.Exit(2)
+	}
+	if fs.NArg() != 0 {
+		fs.Usage()
+		os.Exit(2)
+	}
+	if strings.TrimSpace(*verify) != "" {
+		invalidVerifyFlag := ""
+		fs.Visit(func(value *flag.Flag) {
+			if value.Name != "verify" && invalidVerifyFlag == "" {
+				invalidVerifyFlag = value.Name
+			}
+		})
+		if invalidVerifyFlag != "" {
+			fmt.Fprintf(os.Stderr, "browser-integration-eval: --verify cannot be combined with --%s\n", invalidVerifyFlag)
+			os.Exit(2)
+		}
+		report, err := browserintegrationeval.VerifyPassingFile(*verify)
+		if err != nil {
+			fmt.Fprintln(os.Stderr, "openudon browser-integration-eval verify: fail -", err)
+			os.Exit(1)
+		}
+		fmt.Printf("openudon browser-integration-eval verify: %s %s (%d passed, %d skipped)\n", report.Status, *verify, report.Summary.Passed, report.Summary.Skipped)
+		return
+	}
+	if strings.TrimSpace(*out) == "" {
+		fmt.Fprintln(os.Stderr, "browser-integration-eval: --out is required")
+		os.Exit(2)
+	}
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer stop()
+	report, err := browserintegrationeval.Run(ctx, browserintegrationeval.Options{
+		RepoRoot: ".", BrowsertoolsRepo: *browsertoolsRepo, UWSRepo: *uwsRepo,
+		UdonRepo: *udonRepo, BrowserdriverRepo: *browserdriverRepo, OutPath: *out,
+		InstalledEngines: *installedEngines, HeadedAuth: *headedAuth,
+	})
+	if report != nil {
+		for _, result := range report.Results {
+			fmt.Printf("  %-30s %s: %s\n", result.ID, result.Status, result.Detail)
+		}
+		fmt.Printf("openudon browser-integration-eval: %s (%d passed, %d failed, %d skipped)\n", report.Status, report.Summary.Passed, report.Summary.Failed, report.Summary.Skipped)
+		if strings.TrimSpace(*out) != "" {
+			fmt.Printf("  report: %s\n", *out)
+		}
+	}
+	if err != nil {
+		fmt.Fprintln(os.Stderr, err)
+		os.Exit(1)
 	}
 }
 

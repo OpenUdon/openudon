@@ -1,4 +1,4 @@
-.PHONY: help test vet check apitools-boundary readiness release-check release-saas-check release-evidence release-eval eval-seed-build icot-authoring-scorecard icot-replay-repair-check icot-variants-validate icot-variants-coverage product-smoke-check product-smoke-live siblings validate-uws eval synthesize-support build-support promote-support assess-support
+.PHONY: help test vet check apitools-boundary readiness release-check release-saas-check release-evidence release-eval browser-integration-check eval-seed-build icot-authoring-scorecard icot-replay-repair-check icot-variants-validate icot-variants-coverage product-smoke-check product-smoke-live siblings validate-uws eval synthesize-support build-support promote-support assess-support
 
 GO ?= go
 OPENUDON_LLM_PROVIDER ?= copilot-api
@@ -10,9 +10,10 @@ OPENUDON_RELEASE_SAAS_FIXTURES ?= slack-message-audit-log gmail-send-audit-recei
 OPENUDON_RELEASE_DEMO_FIXTURES ?= gmail-send-audit-receipt order-fulfillment-chain
 OPENUDON_ICOT_REPLAY_REPAIR_FIXTURES ?= m28-gmail-audit-receipt m28-ambiguous-source-negative
 OPENUDON_ICOT_REPLAY_REPAIR_OUT_DIR ?= eval/runs/icot-replay-repair-local
+OPENUDON_BROWSER_INTEGRATION_OUT ?= eval/runs/browser-integration-local/report.json
 
 help:
-	@echo "Targets: test, vet, check, readiness, release-check, release-saas-check, release-evidence, release-eval, eval-seed-build, icot-authoring-scorecard, icot-replay-repair-check, icot-variants-validate, icot-variants-coverage, product-smoke-check, product-smoke-live, siblings, validate-uws, eval, synthesize-support, build-support, promote-support, assess-support"
+	@echo "Targets: test, vet, check, readiness, release-check, release-saas-check, release-evidence, release-eval, browser-integration-check, eval-seed-build, icot-authoring-scorecard, icot-replay-repair-check, icot-variants-validate, icot-variants-coverage, product-smoke-check, product-smoke-live, siblings, validate-uws, eval, synthesize-support, build-support, promote-support, assess-support"
 
 test:
 	$(GO) test ./...
@@ -36,6 +37,7 @@ release-check:
 
 release-saas-check:
 	$(MAKE) release-check
+	$(MAKE) browser-integration-check
 	$(MAKE) eval-seed-build
 	$(MAKE) icot-variants-validate
 	$(MAKE) icot-variants-coverage
@@ -64,6 +66,10 @@ release-eval:
 
 release-evidence:
 	$(GO) run ./cmd/openudon release-evidence
+
+browser-integration-check:
+	$(GO) run ./cmd/openudon browser-integration-eval --out "$(OPENUDON_BROWSER_INTEGRATION_OUT)"
+	$(GO) run ./cmd/openudon browser-integration-eval --verify "$(OPENUDON_BROWSER_INTEGRATION_OUT)"
 
 eval-seed-build:
 	$(GO) test ./internal/icot -run TestEvalReferenceSeedBuildMatrix -count=1

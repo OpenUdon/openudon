@@ -130,6 +130,12 @@ context. Supply separately reviewed `uws.browser-authentication.1.0` and
 popup/iframe SSO, CAPTCHA, enrollment, recovery, and consent remain outside the
 current contract.
 
+Maintainers can prove this supported and unsupported boundary without a live
+site or credential using `make browser-integration-check`. The resulting
+value-free, digest-bound matrix and its optional loopback-only installed-browser
+extensions are documented in
+[Browser Integration Evaluation](browser-integration-eval.md).
+
 Prompt modes preserve the public v1 names with v2 behavior:
 
 - `full` shows and asks every question in the current frontier.

@@ -48,7 +48,7 @@ For the SaaS release story, run the comprehensive provider-free local gate:
 make release-saas-check
 ```
 
-`release-saas-check` runs `release-check`, `eval-seed-build`,
+`release-saas-check` runs `release-check`, `browser-integration-check`, `eval-seed-build`,
 `icot-variants-validate`, `icot-variants-coverage`, `icot-authoring-scorecard`, UWS validation,
 doc-memory, n8n bridge validation, strict MkDocs build, selected strict SaaS fixture lint, and the
 provider-free dry-run demo in
@@ -60,6 +60,13 @@ examples are:
 - `gmail-send-audit-receipt` for a single-service side-effectful send-and-audit
   workflow;
 - `order-fulfillment-chain` for a multi-service lookup-and-create workflow.
+
+`browser-integration-check` runs the named, provider-free browser
+authoring-to-handoff matrix across OpenUdon, Browsertools, UWS, Udon, and
+Browserdriver, writes a value-free digest-sidecar report, and verifies it. It
+does not retain child-process output. See
+[Browser Integration Evaluation](browser-integration-eval.md) for the exact
+gates and separate loopback-only installed-browser opt-ins.
 
 The demo must use ignored `.openudon-run/...` output, sandbox approval JSON, and
 `openudon run --dry-run`. Do not commit approval JSON, run configs, transcripts,
