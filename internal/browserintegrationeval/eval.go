@@ -381,7 +381,7 @@ func defaultGates() []gate {
 	return []gate{
 		{
 			ID: "openudon-authoring", Repository: "openudon", Kind: "go_test",
-			Args:       []string{"go", "test", "-v", "./internal/icot", "./internal/icot/elicitor", "-run", "Test(BuildBrowserAuthoringPlan|BrowserAuthoring|BrowserAuthorLive|LiveObservationDisclosure|DiscoverAuthoringSourcesWithBrowserProfileAndAPIPreference|BrowserProfileWinsOnlyForAPICapabilityGap|DiscoverExplicitGuidedAuthoringBundle|GuidedAuthoringAdapter|BrowserAuthenticationDiscoveryAndReadiness)", "-count=1"},
+			Args:       []string{"go", "test", "-v", "./internal/icot", "./internal/icot/elicitor", "-run", "Test(BuildBrowserAuthoringPlan|BrowserAuthoring|BrowserAuthorLive|AuthenticatedAuthoring|LiveObservation|LivePlanner|DiscoverAuthoringSourcesWithBrowserProfileAndAPIPreference|BrowserProfileWinsOnlyForAPICapabilityGap|DiscoverExplicitGuidedAuthoringBundle|GuidedAuthoringAdapter|BrowserAuthenticationDiscoveryAndReadiness)", "-count=1"},
 			Assertions: []string{"API operation preference", "anonymous non-executing handoff", "explicit authenticated live orchestration", "reduced-observation disclosure and human fallback", "strict private result consumption", "separate authentication and capability profiles"},
 			RequiredPasses: []string{
 				"TestBuildBrowserAuthoringPlanIsValueFreeAndNonExecuting",
@@ -402,6 +402,11 @@ func defaultGates() []gate {
 				"TestBrowserAuthorLiveRejectsUnknownProtocolField",
 				"TestBrowserAuthorLiveRequiresExplicitAPIOverride",
 				"TestLiveObservationDisclosureDenialFallsBackToHuman",
+				"TestAuthenticatedAuthoringConsumesActualBrowsertoolsEnvelope",
+				"TestAuthenticatedAuthoringBoundsMustEqualRequestedAuthority",
+				"TestBrowserAuthorLiveRequiresInitialStateBeforeObservation",
+				"TestLivePlannerNavigationRequiresAnObservedContext",
+				"TestLiveObservationRejectsRawInjectionAndContextInventoryRegression",
 			},
 		},
 		{
@@ -445,7 +450,7 @@ func defaultGates() []gate {
 		},
 		{
 			ID: "browsertools-producer", Repository: "browsertools", Kind: "go_test",
-			Args:       []string{"go", "test", "-v", "./capture", "./cmd/browsertools", "./guide", "./authassist", "./authorsession", "./authorresult", "-run", "Test(AuthorBuilds|Check|ComparePortability|ContractPressure|LiveCheck|PortabilityCLI|GuideAuthor|GuidedEvidenceReader|RunObservesSelectedAlternatives|RunClosesAndReturnsNoArtifact|RunDefendsAgainstMisbehavingBrowser|PlaywrightDoctorFailsOfflineWithoutInstalling|ServeAuthenticatedGoal|ServeFailsClosed|ServeReducesPII|ClickToNewOrigin|ValidateStart|ContextGraphCanonicalization|BuildUsesOldestSufficient|BuiltProfilesValidate|BuildContextAndPush|MarshalDeterministic|PlaywrightAuthorHasNoCredential|AuthorNetworkGuard|AuthorURLFacts|ValidateAuthorBrowserRequest|AuthorSessionChromiumCLI)", "-count=1"},
+			Args:       []string{"go", "test", "-v", "./capture", "./cmd/browsertools", "./guide", "./authassist", "./authorsession", "./authorresult", "-run", "Test(AuthorBuilds|Check|ComparePortability|ContractPressure|LiveCheck|PortabilityCLI|GuideAuthor|GuidedEvidenceReader|RunObservesSelectedAlternatives|RunClosesAndReturnsNoArtifact|RunDefendsAgainstMisbehavingBrowser|PlaywrightDoctorFailsOfflineWithoutInstalling|ServeAuthenticatedGoal|ServeFailsClosed|ServeReducesPII|ClickToNewOrigin|ValidateStart|ContextGraphCanonicalization|ContextInventory|ObservationGeneration|OpenedContext|ActionInvalidates|BuildUsesOldestSufficient|BuiltProfilesValidate|BuildContextAndPush|BuildContextual|BuildSeparatesAuthentication|BuildRejectsPartialAuthentication|MarshalDeterministic|PlaywrightAuthorHasNoCredential|AuthorNetworkGuard|AuthorURLFacts|ValidateAuthorBrowserRequest|AuthorSessionChromiumCLI)", "-count=1"},
 			Assertions: []string{"synthetic/fake-engine default", "strict persistent author-session state machine", "human credential/MFA and reduced-observation boundary", "deterministic UWS profile synthesis", "offline doctor does not install"},
 			RequiredPasses: []string{
 				"TestCheckUsesBoundedAcquisitionAndReturnsValueFreeReport",
@@ -463,9 +468,17 @@ func defaultGates() []gate {
 				"TestClickToNewOriginRequiresOriginThenActionApproval",
 				"TestValidateStartRejectsPartialBoundsAndUnapprovedGoal",
 				"TestContextGraphCanonicalizationAndDepthBound",
+				"TestContextInventoryResolvesParentsDeterministically",
+				"TestObservationGenerationExpiresPriorCandidateAuthority",
+				"TestObservationGenerationExpiresCandidatesFromOtherContexts",
+				"TestOpenedContextIsNamedAndPublishedInNextObservation",
+				"TestActionInvalidatesGoalProofAndCompletedPhaseIsClosed",
 				"TestBuildUsesOldestSufficientProfilesAndFinalPresence",
 				"TestBuiltProfilesValidateAgainstInstalledUWSSchemas",
 				"TestBuildContextAndPushChallengeRequireNewProfiles",
+				"TestBuildContextualExplorationKeepsMainGoalUnqualified",
+				"TestBuildSeparatesAuthenticationSuccessFromCompleteExplorationTrace",
+				"TestBuildRejectsPartialAuthenticationProofInsteadOfApplyingCompatibilityFallback",
 				"TestMarshalDeterministicAndDigestBound",
 				"TestPlaywrightAuthorHasNoCredentialReadOrSessionExportAPI",
 				"TestAuthorNetworkGuardExactOriginsMethodsAndBounds",
@@ -476,7 +489,7 @@ func defaultGates() []gate {
 		},
 		{
 			ID: "uws-browser-contract", Repository: "uws", Kind: "go_test",
-			Args:       []string{"go", "test", "-v", "./schemas", "./uws1", "./browserauthentication", "-run", "Test(ValidateBrowser|CanonicalBrowser|BrowserSourceProfile|BrowserProfileSchema|BrowserAuthentication|Validate_UWS15BrowserProfile|SessionExtensionRoundTrip|ContextProfile|ProfileValidators|ContextSemantics|AuthenticationContext|AuthenticationCallVersions|HistoricalNavigate)", "-count=1"},
+			Args:       []string{"go", "test", "-v", "./schemas", "./uws1", "./browserauthentication", "-run", "Test(ValidateBrowser|CanonicalBrowser|BrowserSourceProfile|BrowserProfileSchema|BrowserAuthentication|Validate_UWS15BrowserProfile|SessionExtensionRoundTrip|ContextProfile|ProfileValidators|ContextSemantics|AuthenticationContext|AuthenticationCallVersions|HistoricalNavigate|StepReuse)", "-count=1"},
 			Assertions: []string{"immutable browser 1.5 and authentication 1.0 contracts", "additive UWS 1.8 context contracts", "discriminator-aware schema dispatch", "workflow source and call bindings"},
 			RequiredPasses: []string{
 				"TestValidateBrowserSourceProfileCanonicalFixtures",
@@ -490,11 +503,12 @@ func defaultGates() []gate {
 				"TestAuthenticationCallVersionsRemainAccepted",
 				"TestContextProfileWireRoundTrip",
 				"TestHistoricalNavigateStringWireRemainsStable",
+				"TestStepReuseClearsPreviousNavigationUnionArm",
 			},
 		},
 		{
 			ID: "udon-browser-consumer", Repository: "udon", Kind: "go_test",
-			Args:       []string{"go", "test", "-v", "./internal/sourceloader", "./generator", "./spider", "./pkg/browserdriver", "./pkg/uwsprofile", "./cmd/udon", "-run", "Test(LoadBrowser|BrowserSource|NewRuntimePlanFromUWSFile.*Browser|BrowserRuntime|BrowserAuthentication|SessionIsOpaque|PersistentSubprocess|PersistentProtocols|ValidateAuthenticationRequest|ValidateBrowserAuthenticationCall|ParseExecuteFlagsAcceptsRepeatableBrowserPolicy|BrowserExecutionOptionsRequireExplicitDriver|ConfiguredBrowserExecutionOptions)", "-count=1"},
+			Args:       []string{"go", "test", "-v", "./internal/sourceloader", "./generator", "./spider", "./pkg/browserdriver", "./pkg/uwsprofile", "./cmd/udon", "-run", "Test(LoadBrowser|BrowserSource|NewRuntimePlanFromUWSFile.*Browser|BrowserRuntime|BrowserAuthentication|BrowsertoolsEnvelope|SessionIsOpaque|PersistentSubprocess|PersistentProtocols|ValidateAuthenticationRequest|ValidateBrowserAuthenticationCall|ParseExecuteFlagsAcceptsRepeatableBrowserPolicy|BrowserExecutionOptionsRequireExplicitDriver|ConfiguredBrowserExecutionOptions)", "-count=1"},
 			Assertions: []string{"trusted runtime keeps source/profile checks", "v2 compatibility and v3 context replay", "mutation and authentication approvals", "opaque named sessions", "driver remains explicit"},
 			RequiredPasses: []string{
 				"TestLoadBrowserSourceAndResolveAction",
@@ -511,12 +525,17 @@ func defaultGates() []gate {
 				"TestPersistentSubprocessV3SelectsContextWireVersions",
 				"TestPersistentProtocolsRejectMismatchedProfileVersionsBeforeExchange",
 				"TestConfiguredBrowserExecutionOptionsBuildsPersistentV3Policy",
+				"TestBrowsertoolsEnvelopeProfilePairReplaysThroughPersistentV3",
 			},
 		},
 		{
 			ID: "browserdriver-runtime", Repository: "browserdriver", Kind: "npm_test",
 			Args:       []string{"npm", "test"},
 			Assertions: []string{"closed v2/v3 NDJSON runtime protocol", "exact-origin and child-context enforcement", "popup/frame inventory and ambiguity rejection", "session isolation", "offline synthetic runtime tests"},
+			RequiredPasses: []string{
+				"cached frames and popups are revalidated for identity, ambiguity, origin, and detachment",
+				"v3 action resolves context-qualified waits and outputs while v2 stays accepted",
+			},
 		},
 		{
 			ID: "browser-component-inventory-chromium", Repository: "browsertools", Kind: "doctor",
@@ -583,7 +602,14 @@ func evaluateGate(spec gate, output CommandOutput) GateResult {
 		}
 	case "npm_test":
 		result.EvidenceCount = npmTestCount(combined)
-		if output.Err == nil && result.EvidenceCount > 0 {
+		required := true
+		for _, name := range spec.RequiredPasses {
+			if !strings.Contains(combined, "✔ "+name) {
+				required = false
+				break
+			}
+		}
+		if output.Err == nil && result.EvidenceCount > 0 && required {
 			result.Status = StatusPass
 			result.Detail = fmt.Sprintf("%d Browserdriver test(s) passed", result.EvidenceCount)
 			return result

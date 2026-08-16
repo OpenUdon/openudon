@@ -21,6 +21,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/OpenUdon/evidence/redact"
 	"github.com/OpenUdon/openudon/internal/icot/elicitor"
 	rollout "github.com/OpenUdon/openudon/internal/workflowintent"
 )
@@ -36,10 +37,11 @@ const (
 )
 
 var (
-	liveCandidatePattern  = regexp.MustCompile(`^candidate-[a-f0-9]{16}$`)
-	liveContextPattern    = regexp.MustCompile(`^[A-Za-z][A-Za-z0-9_-]{0,63}$`)
-	liveDiagnosticPattern = regexp.MustCompile(`^[a-z][a-z0-9_]{0,63}$`)
-	livePortableRoles     = map[string]bool{
+	liveCandidatePattern      = regexp.MustCompile(`^candidate-[a-f0-9]{16}$`)
+	liveContextPattern        = regexp.MustCompile(`^[A-Za-z][A-Za-z0-9_-]{0,63}$`)
+	liveDiagnosticPattern     = regexp.MustCompile(`^[a-z][a-z0-9_]{0,63}$`)
+	liveReviewDecisionPattern = regexp.MustCompile(`^[a-z][a-z0-9_.-]{0,127}$`)
+	livePortableRoles         = map[string]bool{
 		"button": true, "link": true, "textbox": true, "checkbox": true, "radio": true,
 		"dialog": true, "status": true, "alert": true, "heading": true, "img": true,
 		"list": true, "listitem": true, "combobox": true, "option": true, "menu": true,
@@ -114,11 +116,12 @@ type liveCandidate struct {
 }
 
 type liveObservation struct {
-	Origin      string          `json:"origin"`
-	Path        string          `json:"path"`
-	Context     string          `json:"context"`
-	Candidates  []liveCandidate `json:"candidates"`
-	Diagnostics []string        `json:"diagnostics"`
+	Origin      string                 `json:"origin"`
+	Path        string                 `json:"path"`
+	Context     string                 `json:"context"`
+	Contexts    map[string]liveContext `json:"contexts"`
+	Candidates  []liveCandidate        `json:"candidates"`
+	Diagnostics []string               `json:"diagnostics"`
 }
 
 type liveApproval struct {
@@ -606,24 +609,38 @@ func orchestrateLiveAuthor(ctx context.Context, cfg liveAuthorConfig, reader *bu
 		}
 	}
 	goalOrigin, goalPath := originAndPath(cfg.DashboardURL)
+	expectedBounds := defaultLiveAuthorBounds()
 	start := liveClientMessage{
 		Type: "start", Title: defaultLiveTitle(cfg), URL: cfg.URL, DashboardURL: cfg.DashboardURL,
 		Goal: cfg.Goal, Origins: append([]string(nil), cfg.Origins...),
 		GoalPredicate: &liveGoalPredicate{Origin: goalOrigin, Path: goalPath, Context: cfg.GoalContext, Role: cfg.GoalRole, Label: cfg.GoalLabel},
-		Bounds:        &liveBounds{NavigationTimeoutMS: 20000, TotalTimeoutMS: liveAuthorDefaultTimeout.Milliseconds(), MaxRequests: 512, MaxResponseBytes: 32 << 20, MaxObservations: 64, MaxCandidates: 128},
+		Bounds:        &expectedBounds,
 	}
 	if err := protocol.send(start); err != nil {
 		return liveProtocolResult{}, err
 	}
 	currentContext := "main"
+	knownContexts := map[string]liveContext{}
+	receivedInitialState := false
 	disclosureDecided, plannerEnabled := planner == nil, false
 	for {
 		message, err := protocol.receive()
 		if err != nil {
 			return liveProtocolResult{}, err
 		}
+		if !receivedInitialState && message.Type != "state" {
+			return liveProtocolResult{}, fmt.Errorf("Browsertools did not return the required initial state")
+		}
 		switch message.Type {
 		case "state":
+			if !receivedInitialState {
+				if message.Phase != "authentication" || message.Context != "main" || message.Bounds == nil || *message.Bounds != expectedBounds {
+					return liveProtocolResult{}, fmt.Errorf("Browsertools initial state or bounds do not match the requested authority")
+				}
+				receivedInitialState = true
+			} else if message.Bounds != nil && *message.Bounds != expectedBounds {
+				return liveProtocolResult{}, fmt.Errorf("Browsertools changed live-authoring bounds")
+			}
 			if message.Context != "" {
 				currentContext = message.Context
 			}
@@ -641,6 +658,10 @@ func orchestrateLiveAuthor(ctx context.Context, cfg liveAuthorConfig, reader *bu
 			}
 		case "observation":
 			observation := *message.Observation
+			if err := validateLiveObservationInventory(observation, cfg.Origins, knownContexts); err != nil {
+				return liveProtocolResult{}, err
+			}
+			knownContexts = cloneLiveContexts(observation.Contexts)
 			currentContext = observation.Context
 			printLiveObservation(out, observation)
 			if liveObservationMatchesGoal(observation, *start.GoalPredicate) {
@@ -767,6 +788,15 @@ func defaultLiveTitle(cfg liveAuthorConfig) string {
 
 func printLiveObservation(out io.Writer, observation liveObservation) {
 	fmt.Fprintf(out, "Observation %s%s context=%s diagnostics=%s\n", observation.Origin, observation.Path, observation.Context, firstNonEmpty(strings.Join(observation.Diagnostics, ","), "none"))
+	contextIDs := make([]string, 0, len(observation.Contexts))
+	for id := range observation.Contexts {
+		contextIDs = append(contextIDs, id)
+	}
+	sort.Strings(contextIDs)
+	for _, id := range contextIDs {
+		context := observation.Contexts[id]
+		fmt.Fprintf(out, "- context %s kind=%s parent=%s origin=%s path=%q name=%q\n", id, context.Kind, context.Parent, context.Origin, context.Path, context.Name)
+	}
 	for _, candidate := range observation.Candidates {
 		fmt.Fprintf(out, "- %s role=%s label=%q matches=%d\n", candidate.ID, candidate.Role, candidate.Label, candidate.Matches)
 	}
@@ -828,9 +858,12 @@ func readHumanLivePlan(reader *bufio.Reader, out io.Writer, observation liveObse
 func validateLivePlan(plan livePlan, observation liveObservation) error {
 	switch plan.Kind {
 	case "human":
+		if plan.CandidateID != "" || plan.URL != "" || plan.Context != "" || plan.POSTBudget != 0 {
+			return fmt.Errorf("invalid human fallback action")
+		}
 		return nil
 	case "observe":
-		if plan.Context == "" || !liveContextPattern.MatchString(plan.Context) {
+		if !liveObservationHasContext(observation, plan.Context) || plan.CandidateID != "" || plan.URL != "" || plan.POSTBudget != 0 {
 			return fmt.Errorf("invalid observation context")
 		}
 		return nil
@@ -841,12 +874,12 @@ func validateLivePlan(plan livePlan, observation liveObservation) error {
 				found = true
 			}
 		}
-		if !found || (plan.Kind == "focus_human_input" && plan.POSTBudget != 0) || plan.POSTBudget < 0 || plan.POSTBudget > 32 || plan.URL != "" {
+		if !found || plan.Context != "" || (plan.Kind == "focus_human_input" && plan.POSTBudget != 0) || plan.POSTBudget < 0 || plan.POSTBudget > 32 || plan.URL != "" {
 			return fmt.Errorf("invalid candidate action")
 		}
 		return nil
 	case "navigate_get":
-		if plan.CandidateID != "" || plan.POSTBudget != 0 {
+		if plan.CandidateID != "" || plan.POSTBudget != 0 || !liveObservationHasContext(observation, plan.Context) {
 			return fmt.Errorf("invalid navigation action")
 		}
 		_, _, err := normalizeBrowserAuthoringURL(plan.URL)
@@ -1007,6 +1040,11 @@ func validateLiveServerMessage(message liveServerMessage) error {
 		if (message.Phase != "authentication" && message.Phase != "exploration" && message.Phase != "completed" && message.Phase != "closed") || !liveContextPattern.MatchString(message.Context) {
 			return fmt.Errorf("state is invalid")
 		}
+		if message.Bounds != nil {
+			if err := validateLiveBounds(*message.Bounds); err != nil {
+				return fmt.Errorf("state bounds are invalid")
+			}
+		}
 	case "observation":
 		if message.Observation == nil {
 			return fmt.Errorf("observation is missing")
@@ -1050,10 +1088,18 @@ func validateLiveObservation(observation liveObservation) error {
 	}
 	seen := map[string]bool{}
 	for _, candidate := range observation.Candidates {
-		if !liveCandidatePattern.MatchString(candidate.ID) || seen[candidate.ID] || !livePortableRoles[candidate.Role] || candidate.Matches < 1 || candidate.Matches > liveAuthorMaxCandidates || len(candidate.Label) > 256 {
+		if !liveCandidatePattern.MatchString(candidate.ID) || seen[candidate.ID] || !livePortableRoles[candidate.Role] || candidate.Matches < 1 || candidate.Matches > liveAuthorMaxCandidates || !validLiveReducedLabel(candidate.Label) {
 			return fmt.Errorf("observation candidate is invalid")
 		}
 		seen[candidate.ID] = true
+	}
+	contextOrigins := []string{observation.Origin}
+	for _, context := range observation.Contexts {
+		contextOrigins = append(contextOrigins, context.Origin)
+	}
+	contextOrigins, err = normalizeBrowserAuthoringOrigins(contextOrigins)
+	if err != nil || validateLiveContextGraph(observation.Contexts, contextOrigins) != nil {
+		return fmt.Errorf("observation context inventory is invalid")
 	}
 	for _, diagnostic := range observation.Diagnostics {
 		if !liveDiagnosticPattern.MatchString(diagnostic) {
@@ -1061,6 +1107,66 @@ func validateLiveObservation(observation liveObservation) error {
 		}
 	}
 	return nil
+}
+
+func defaultLiveAuthorBounds() liveBounds {
+	return liveBounds{
+		NavigationTimeoutMS: 20_000, TotalTimeoutMS: liveAuthorDefaultTimeout.Milliseconds(),
+		MaxRequests: 512, MaxResponseBytes: 32 << 20, MaxObservations: 64, MaxCandidates: 128,
+	}
+}
+
+func liveObservationHasContext(observation liveObservation, id string) bool {
+	if id == "main" {
+		return true
+	}
+	if !liveContextPattern.MatchString(id) {
+		return false
+	}
+	_, ok := observation.Contexts[id]
+	return ok
+}
+
+func validateLiveObservationInventory(observation liveObservation, approvedOrigins []string, previous map[string]liveContext) error {
+	if observation.Contexts == nil {
+		return fmt.Errorf("Browsertools observation omitted its context inventory")
+	}
+	if !stringSliceContainsExact(approvedOrigins, observation.Origin) {
+		return fmt.Errorf("Browsertools observation escaped reviewed origins")
+	}
+	if !liveObservationHasContext(observation, observation.Context) {
+		return fmt.Errorf("Browsertools observation names an unknown active context")
+	}
+	for id, context := range observation.Contexts {
+		if !stringSliceContainsExact(approvedOrigins, context.Origin) {
+			return fmt.Errorf("Browsertools observation context %q escaped reviewed origins", id)
+		}
+	}
+	for id, context := range previous {
+		if current, ok := observation.Contexts[id]; !ok || current != context {
+			return fmt.Errorf("Browsertools observation context inventory changed or dropped %q", id)
+		}
+	}
+	return nil
+}
+
+func validLiveReducedLabel(label string) bool {
+	if len(label) > 256 || strings.ContainsAny(label, "\x00\r\n") {
+		return false
+	}
+	if label == "[redacted]" || label == "[untrusted-label]" {
+		return true
+	}
+	if redact.String(label) != label {
+		return false
+	}
+	lower := strings.ToLower(label)
+	for _, phrase := range []string{"ignore previous", "ignore prior", "ignore all instructions", "system prompt", "developer message", "tool call", "reveal secrets", "reveal credentials"} {
+		if strings.Contains(lower, phrase) {
+			return false
+		}
+	}
+	return true
 }
 
 func validLivePath(path string) bool {

@@ -254,7 +254,12 @@ func (runner *fakeRunner) Run(_ context.Context, command Command) CommandOutput 
 	case "command":
 		return CommandOutput{Stdout: strings.Join(spec.RequiredLines, "\n") + "\n"}
 	case "npm_test":
-		return CommandOutput{Stdout: "ℹ tests 20\nℹ pass 20\nℹ fail 0\n"}
+		var output strings.Builder
+		for _, name := range spec.RequiredPasses {
+			fmt.Fprintf(&output, "✔ %s (0.1ms)\n", name)
+		}
+		output.WriteString("ℹ tests 20\nℹ pass 20\nℹ fail 0\n")
+		return CommandOutput{Stdout: output.String()}
 	case "doctor":
 		engine := doctorEngine(spec)
 		if runner.doctorReady {

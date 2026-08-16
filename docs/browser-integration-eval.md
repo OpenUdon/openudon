@@ -29,25 +29,36 @@ network access.
 
 | Gate | Evidence |
 |---|---|
-| OpenUdon authoring | API preference, anonymous handoff, explicit authenticated live orchestration, disclosure denial/human fallback, minimal child environment, private result digest validation, atomic staging, and malformed/tampered rejection |
+| OpenUdon authoring | API preference, anonymous handoff, explicit authenticated live orchestration, disclosure denial/human fallback, minimal child environment, exact bounds/context authority, a real Browsertools-produced private result through validation/staging, and malformed/tampered rejection |
 | OpenUdon package/handoff | Strict live and portability verification, private/tampered input rejection, value-free package review, authentication/capability separation, UWS 1.7/1.8 discriminator selection, and trusted dry-run |
 | iCoT dependency boundary | The `cmd/icot` dependency graph contains no Browsertools capture, Playwright adapter, or Playwright-Go implementation package |
 | OpenUdon repository boundary | Production source contains no private executor, desired-state parser, or removed apitools lifecycle imports |
-| Browsertools producer | Fake author-session transitions, human credential/MFA checkpoints, reduced observations, origin/action/POST gates, deterministic profile synthesis, context bounds, and offline doctor behavior |
-| UWS contract | Immutable browser 1.5/authentication 1.0 compatibility plus UWS 1.8 browser 1.6/authentication 1.1/call 1.1 contexts, dispatch, round trips, and rejection fixtures |
-| Udon consumer | Private source loading, runtime approvals, authentication, opaque sessions, v2 compatibility, v3 context replay, and explicit driver policy |
-| Browserdriver runtime | Offline v2/v3 NDJSON, exact-origin and child-context guards, popup/frame inventory, ambiguity rejection, credential lookup, and session isolation |
+| Browsertools producer | Observation-generation authority, action-time semantic revalidation, complete context inventory, current goal proof, actual response-byte accounting, replayable exploration synthesis, deterministic output, and offline doctor behavior |
+| UWS contract | Immutable browser 1.5/authentication 1.0 compatibility plus UWS 1.8 browser 1.6/authentication 1.1/call 1.1 contexts, fresh union decoding, dispatch, round trips, and rejection fixtures |
+| Udon consumer | Private source loading, runtime approvals, authentication, opaque sessions, v2 compatibility, v3 context replay, and a real Browsertools authentication 1.1/browser 1.5 producer pair through output validation |
+| Browserdriver runtime | Offline v2/v3 NDJSON, exact-origin and child-context guards, popup/frame inventory, cached-context revalidation, ambiguity rejection, credential lookup, and session isolation |
 | Component inventory | Browsertools doctor reports pinned Chromium, Firefox, and WebKit readiness without installing or launching anything |
 
 The report contract is `openudon.browser-integration-eval.v1`. Validation fixes
 the gate order, repository names, command argv, assertions, authority claims,
 counter totals, and closed value-free detail vocabulary. Passing Go gates must
 contain every named test marker, not merely an overall package success. Reports
+also require the producer-to-consumer and producer-to-replay test names; a
+hand-built compatible fixture does not establish either seam. Browserdriver's
+npm gate similarly requires the named v3 replay and cached-context freshness
+tests rather than inferring coverage from a passing-test count. Reports
 record the commit and dirty-worktree bit for every participating repository,
 are written atomically under ignored `eval/runs/`, never include repository
 paths or captured command output, and can be verified only with their matching
 digest sidecar. Verification rejects a structurally valid report whose matrix
 status is `fail` when used as a release gate.
+
+The Go module pins name the exact Browsertools and UWS feature commits used by
+the seam tests. During a coordinated pre-publication review, standalone tests
+may use process-local Git URL mappings to clean local clones of those exact
+commits. Release evidence must use ordinary module resolution after the commits
+are published; an unreachable pseudo-version or a committed `replace` is not a
+releasable pin.
 
 ## Installed Browser Opt-Ins
 

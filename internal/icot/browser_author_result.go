@@ -318,6 +318,9 @@ func validateAuthenticatedAuthoringEnvelope(cfg liveAuthorConfig, envelope *auth
 	if err := validateLiveBounds(envelope.Bounds); err != nil {
 		return err
 	}
+	if envelope.Bounds != defaultLiveAuthorBounds() {
+		return fmt.Errorf("authenticated-authoring bounds do not match the authority sent to Browsertools")
+	}
 	if err := validateLiveContextGraph(envelope.Contexts, origins); err != nil {
 		return err
 	}
@@ -440,7 +443,7 @@ func validateLiveProfileReview(review liveProfileReview, kind string, raw json.R
 	}
 	seen := map[string]bool{}
 	for _, decision := range review.Decisions {
-		if !liveDiagnosticPattern.MatchString(decision) || seen[decision] {
+		if !liveReviewDecisionPattern.MatchString(decision) || seen[decision] {
 			return fmt.Errorf("authenticated-authoring %s review decision is invalid", kind)
 		}
 		seen[decision] = true
