@@ -43,6 +43,7 @@ func TestCLIHelpDocumentsFlags(t *testing.T) {
 		"icot variants validate",
 		"icot replay-eval",
 		"icot authoring-eval",
+		"icot browser-author live",
 		"docs/icot-session-schema.md",
 		"openudon build --example",
 	} {

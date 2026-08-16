@@ -83,6 +83,7 @@ func generateWorkflowDocument(result Result, intent *rollout.Intent) (*uws1.Docu
 		return nil, fmt.Errorf("intent is required")
 	}
 	normalized := intent.NormalizedForGeneration()
+	browserVersions := browserContractVersionsForIntent(result.ExampleDir, normalized)
 	title := "OpenUdon workflow"
 	description := ""
 	timeout := (*float64)(nil)
@@ -96,7 +97,7 @@ func generateWorkflowDocument(result Result, intent *rollout.Intent) (*uws1.Docu
 		idempotency = normalized.Workflow.Idempotency
 	}
 	doc := &uws1.Document{
-		UWS: uwsVersionForIntent(normalized),
+		UWS: uwsVersionForIntentAndBrowserContracts(normalized, browserVersions.Requires18),
 		Info: &uws1.Info{
 			Title:       title,
 			Description: description,
@@ -134,7 +135,7 @@ func generateWorkflowDocument(result Result, intent *rollout.Intent) (*uws1.Docu
 		return name
 	}
 	defaultOpenAPI := firstNonEmpty(normalized.Source, normalized.OpenAPI, result.PrimaryOpenAPI)
-	steps, ops, err := buildUWSSteps(normalized.Steps, defaultOpenAPI, ensureSourceDescription, requestMapper)
+	steps, ops, err := buildUWSSteps(normalized.Steps, defaultOpenAPI, ensureSourceDescription, requestMapper, browserVersions.ContextAuthentication)
 	if err != nil {
 		return nil, err
 	}
@@ -151,14 +152,14 @@ func generateWorkflowDocument(result Result, intent *rollout.Intent) (*uws1.Docu
 	return doc, nil
 }
 
-func buildUWSSteps(steps []*rollout.Step, defaultOpenAPI string, sourceFor func(string) string, requestMapper *requestBindingMapper) ([]*uws1.Step, []*uws1.Operation, error) {
+func buildUWSSteps(steps []*rollout.Step, defaultOpenAPI string, sourceFor func(string) string, requestMapper *requestBindingMapper, contextAuthentication map[string]bool) ([]*uws1.Step, []*uws1.Operation, error) {
 	var outSteps []*uws1.Step
 	var outOps []*uws1.Operation
 	for _, step := range steps {
 		if step == nil {
 			continue
 		}
-		uwsStep, ops, err := buildUWSStep(step, defaultOpenAPI, sourceFor, requestMapper)
+		uwsStep, ops, err := buildUWSStep(step, defaultOpenAPI, sourceFor, requestMapper, contextAuthentication)
 		if err != nil {
 			return nil, nil, err
 		}
@@ -170,7 +171,7 @@ func buildUWSSteps(steps []*rollout.Step, defaultOpenAPI string, sourceFor func(
 	return outSteps, outOps, nil
 }
 
-func buildUWSStep(step *rollout.Step, defaultOpenAPI string, sourceFor func(string) string, requestMapper *requestBindingMapper) (*uws1.Step, []*uws1.Operation, error) {
+func buildUWSStep(step *rollout.Step, defaultOpenAPI string, sourceFor func(string) string, requestMapper *requestBindingMapper, contextAuthentication map[string]bool) (*uws1.Step, []*uws1.Operation, error) {
 	name := sanitizeIdentifier(firstNonEmpty(step.Name, "step"))
 	kind := strings.ToLower(strings.TrimSpace(step.Type))
 	if kind == "" {
@@ -198,7 +199,7 @@ func buildUWSStep(step *rollout.Step, defaultOpenAPI string, sourceFor func(stri
 	var ops []*uws1.Operation
 	if isIntentStructuralType(kind) {
 		uwsStep.Type = uwsWorkflowType(kind)
-		nested, nestedOps, err := buildUWSSteps(step.Steps, firstNonEmpty(step.Source, step.OpenAPI, defaultOpenAPI), sourceFor, requestMapper)
+		nested, nestedOps, err := buildUWSSteps(step.Steps, firstNonEmpty(step.Source, step.OpenAPI, defaultOpenAPI), sourceFor, requestMapper, contextAuthentication)
 		if err != nil {
 			return nil, nil, err
 		}
@@ -208,7 +209,7 @@ func buildUWSStep(step *rollout.Step, defaultOpenAPI string, sourceFor func(stri
 			if branch == nil {
 				continue
 			}
-			caseSteps, caseOps, err := buildUWSSteps(branch.Steps, firstNonEmpty(step.Source, step.OpenAPI, defaultOpenAPI), sourceFor, requestMapper)
+			caseSteps, caseOps, err := buildUWSSteps(branch.Steps, firstNonEmpty(step.Source, step.OpenAPI, defaultOpenAPI), sourceFor, requestMapper, contextAuthentication)
 			if err != nil {
 				return nil, nil, err
 			}
@@ -219,7 +220,7 @@ func buildUWSStep(step *rollout.Step, defaultOpenAPI string, sourceFor func(stri
 			ops = append(ops, caseOps...)
 		}
 		if step.Default != nil {
-			defaultSteps, defaultOps, err := buildUWSSteps(step.Default.Steps, firstNonEmpty(step.Source, step.OpenAPI, defaultOpenAPI), sourceFor, requestMapper)
+			defaultSteps, defaultOps, err := buildUWSSteps(step.Default.Steps, firstNonEmpty(step.Source, step.OpenAPI, defaultOpenAPI), sourceFor, requestMapper, contextAuthentication)
 			if err != nil {
 				return nil, nil, err
 			}
@@ -248,7 +249,11 @@ func buildUWSStep(step *rollout.Step, defaultOpenAPI string, sourceFor func(stri
 			return nil, nil, fmt.Errorf("step %s references browser authentication without a profile document", name)
 		}
 		op.Request = nil
-		op.Extensions = map[string]any{uws1.ExtensionOperationProfile: browserauthentication.CallProfileName}
+		callProfile := browserauthentication.CallProfileName
+		if contextAuthentication[filepath.ToSlash(openAPIPath)] {
+			callProfile = "uws.browser-authentication-call.1.1"
+		}
+		op.Extensions = map[string]any{uws1.ExtensionOperationProfile: callProfile}
 		credentialBindings := step.CredentialBindings
 		if credentialBindings == nil {
 			credentialBindings = map[string]string{}
@@ -1049,6 +1054,13 @@ func stringMapToAny(values map[string]string) map[string]any {
 }
 
 func uwsVersionForIntent(intent *rollout.Intent) string {
+	return uwsVersionForIntentAndBrowserContracts(intent, false)
+}
+
+func uwsVersionForIntentAndBrowserContracts(intent *rollout.Intent, requires18 bool) string {
+	if requires18 {
+		return "1.8.0"
+	}
 	if intentRequiresUWS17(intent) {
 		return "1.7.0"
 	}
@@ -1068,6 +1080,71 @@ func uwsVersionForIntent(intent *rollout.Intent) string {
 		return "1.1.0"
 	}
 	return "1.0.0"
+}
+
+type browserContractVersions struct {
+	Requires18            bool
+	ContextAuthentication map[string]bool
+}
+
+func browserContractVersionsForIntent(exampleDir string, intent *rollout.Intent) browserContractVersions {
+	result := browserContractVersions{ContextAuthentication: map[string]bool{}}
+	if intent == nil || strings.TrimSpace(exampleDir) == "" {
+		return result
+	}
+	var visit func([]*rollout.Step, string)
+	visit = func(steps []*rollout.Step, inheritedSource string) {
+		for _, step := range steps {
+			if step == nil {
+				continue
+			}
+			source := filepath.ToSlash(strings.TrimSpace(firstNonEmpty(step.Source, step.OpenAPI, inheritedSource)))
+			kind := strings.ToLower(strings.TrimSpace(step.Type))
+			switch profileName := browserProfileDiscriminator(exampleDir, source); {
+			case kind == "browser" && profileName == "uws.browser.1.6":
+				result.Requires18 = true
+			case kind == "browser_authentication" && profileName == "uws.browser-authentication.1.1":
+				result.Requires18 = true
+				result.ContextAuthentication[source] = true
+			}
+			visit(step.Steps, source)
+			for _, branch := range step.Cases {
+				if branch != nil {
+					visit(branch.Steps, source)
+				}
+			}
+			if step.Default != nil {
+				visit(step.Default.Steps, source)
+			}
+		}
+	}
+	visit(intent.Steps, intentSourceRef(intent))
+	return result
+}
+
+func browserProfileDiscriminator(exampleDir, relative string) string {
+	if relative == "" || filepath.IsAbs(relative) {
+		return ""
+	}
+	clean := filepath.Clean(filepath.FromSlash(relative))
+	if clean == "." || clean == ".." || strings.HasPrefix(clean, ".."+string(filepath.Separator)) {
+		return ""
+	}
+	path := filepath.Join(exampleDir, clean)
+	info, err := os.Lstat(path)
+	if err != nil || info.Mode()&os.ModeSymlink != 0 || !info.Mode().IsRegular() || info.Size() <= 0 || info.Size() > 20<<20 {
+		return ""
+	}
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return ""
+	}
+	var document map[string]any
+	if err := yaml.Unmarshal(data, &document); err != nil {
+		return ""
+	}
+	value, _ := document["profile"].(string)
+	return strings.TrimSpace(value)
 }
 
 func intentRequiresUWS17(intent *rollout.Intent) bool {

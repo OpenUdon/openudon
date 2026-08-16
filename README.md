@@ -211,6 +211,20 @@ go run ./cmd/icot browser-authoring plan \
   --private-root /private/operator/browsertools-status \
   --out /private/operator/browsertools-status/handoff.json
 
+# Authenticated authoring is a separate, explicit live mode. The human enters
+# credentials/MFA directly in headed Chromium; the private envelope is not packaged.
+install -d -m 0700 /private/operator/member-authoring
+go run ./cmd/icot browser-author live \
+  --example ./examples/member-dashboard \
+  --browsertools /absolute/path/browsertools \
+  --url https://members.example.test/login \
+  --dashboard-url https://members.example.test/dashboard \
+  --goal "reach the member dashboard and learn how to read account status" \
+  --origin https://members.example.test \
+  --origin https://login.example-idp.test \
+  --private-root /private/operator/member-authoring \
+  --profile-id member --goal-role heading --goal-label Dashboard
+
 # Rebuild project.md from workflows/intent.hcl.
 go run ./cmd/icot reconcile --example ./examples/<name>
 
@@ -268,6 +282,17 @@ When LLM extraction is enabled, iCoT also runs a bounded pre-final flow review b
 current draft. That review is advisory: it looks for cross-step data-flow mistakes such as a report
 email step not consuming the report content, and surfaces findings as warnings without rewriting the
 draft.
+
+The normal iCoT command, agent mode, and `browser-authoring plan` never launch a
+browser. Only the explicit `browser-author live` command starts Browsertools.
+Browsertools owns one non-persistent Playwright-Go Chromium context across
+human login/MFA and post-login exploration; iCoT receives reduced semantics,
+requires disclosure/action/completion/staging approvals, and imports only
+reviewed canonical UWS profiles plus safe metadata. `--yes` bypasses none of
+those live gates. See
+[Authenticated Browser Authoring](docs/authenticated-browser-authoring.md) for
+the protocol, data boundary, failure behavior, and the separate Udon/
+Browserdriver trusted-runtime replay.
 
 `--review-repair` turns selected warnings into a bounded repair loop. It can apply narrow wiring
 repairs or add a local `fnct` transform/report/render step when the goal clearly asks for produced

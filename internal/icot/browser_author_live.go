@@ -1,0 +1,1092 @@
+package icot
+
+import (
+	"bufio"
+	"bytes"
+	"context"
+	"crypto/sha256"
+	"encoding/hex"
+	"encoding/json"
+	"errors"
+	"flag"
+	"fmt"
+	"io"
+	"net/url"
+	"os"
+	"os/exec"
+	"path/filepath"
+	"regexp"
+	"sort"
+	"strconv"
+	"strings"
+	"time"
+
+	"github.com/OpenUdon/openudon/internal/icot/elicitor"
+	rollout "github.com/OpenUdon/openudon/internal/workflowintent"
+)
+
+const (
+	liveAuthorProtocol        = "browsertools.author-session.v1"
+	liveAuthorMaxLineBytes    = 64 << 10
+	liveAuthorDefaultTimeout  = 10 * time.Minute
+	liveAuthorResultMaxBytes  = 20 << 20
+	liveAuthorMaxCandidates   = 512
+	liveAuthorMaxDiagnostics  = 256
+	liveAuthorMaxCapabilities = 32
+)
+
+var (
+	liveCandidatePattern  = regexp.MustCompile(`^candidate-[a-f0-9]{16}$`)
+	liveContextPattern    = regexp.MustCompile(`^[A-Za-z][A-Za-z0-9_-]{0,63}$`)
+	liveDiagnosticPattern = regexp.MustCompile(`^[a-z][a-z0-9_]{0,63}$`)
+	livePortableRoles     = map[string]bool{
+		"button": true, "link": true, "textbox": true, "checkbox": true, "radio": true,
+		"dialog": true, "status": true, "alert": true, "heading": true, "img": true,
+		"list": true, "listitem": true, "combobox": true, "option": true, "menu": true,
+		"menuitem": true, "tab": true, "tabpanel": true, "table": true, "row": true,
+		"cell": true, "region": true, "navigation": true, "article": true, "form": true,
+		"search": true, "switch": true, "group": true,
+	}
+)
+
+type liveAuthorConfig struct {
+	ExampleDir          string
+	Browsertools        string
+	DriverDir           string
+	URL                 string
+	DashboardURL        string
+	Goal                string
+	Origins             []string
+	PrivateRoot         string
+	ProfileID           string
+	AfterAuthentication string
+	GoalRole            string
+	GoalLabel           string
+	GoalContext         string
+	Provider            string
+	Model               string
+	NoLLM               bool
+	Temperature         float64
+	Yes                 bool
+}
+
+type liveGoalPredicate struct {
+	Origin      string `json:"origin"`
+	Path        string `json:"path"`
+	Context     string `json:"context,omitempty"`
+	Role        string `json:"role"`
+	Label       string `json:"label,omitempty"`
+	CandidateID string `json:"candidateId,omitempty"`
+}
+
+type liveBounds struct {
+	NavigationTimeoutMS int64 `json:"navigationTimeoutMs"`
+	TotalTimeoutMS      int64 `json:"totalTimeoutMs"`
+	MaxRequests         int   `json:"maxRequests"`
+	MaxResponseBytes    int64 `json:"maxResponseBytes"`
+	MaxObservations     int   `json:"maxObservations"`
+	MaxCandidates       int   `json:"maxCandidates"`
+}
+
+type liveClientMessage struct {
+	Protocol      string             `json:"protocol"`
+	Type          string             `json:"type"`
+	Title         string             `json:"title,omitempty"`
+	URL           string             `json:"url,omitempty"`
+	DashboardURL  string             `json:"dashboardUrl,omitempty"`
+	Goal          string             `json:"goal,omitempty"`
+	Origins       []string           `json:"origins,omitempty"`
+	GoalPredicate *liveGoalPredicate `json:"goalPredicate,omitempty"`
+	Bounds        *liveBounds        `json:"bounds,omitempty"`
+	Context       string             `json:"context,omitempty"`
+	CandidateID   string             `json:"candidateId,omitempty"`
+	Action        string             `json:"action,omitempty"`
+	POSTBudget    int                `json:"postBudget,omitempty"`
+	ApprovalID    string             `json:"approvalId,omitempty"`
+	Confirmed     bool               `json:"confirmed,omitempty"`
+}
+
+type liveCandidate struct {
+	ID      string `json:"id"`
+	Role    string `json:"role"`
+	Label   string `json:"label,omitempty"`
+	Matches int    `json:"matches"`
+}
+
+type liveObservation struct {
+	Origin      string          `json:"origin"`
+	Path        string          `json:"path"`
+	Context     string          `json:"context"`
+	Candidates  []liveCandidate `json:"candidates"`
+	Diagnostics []string        `json:"diagnostics"`
+}
+
+type liveApproval struct {
+	ID          string `json:"id"`
+	Kind        string `json:"kind"`
+	Origin      string `json:"origin,omitempty"`
+	Action      string `json:"action,omitempty"`
+	CandidateID string `json:"candidateId,omitempty"`
+	POSTBudget  int    `json:"postBudget,omitempty"`
+}
+
+type liveCheckpoint struct {
+	Kind        string `json:"kind"`
+	CandidateID string `json:"candidateId,omitempty"`
+}
+
+type liveDiagnostic struct {
+	Code string `json:"code"`
+}
+
+type liveProtocolResult struct {
+	ArtifactPath string `json:"artifactPath"`
+	Digest       string `json:"digest"`
+}
+
+type liveServerMessage struct {
+	Protocol     string              `json:"protocol"`
+	Type         string              `json:"type"`
+	Capabilities []string            `json:"capabilities,omitempty"`
+	Bounds       *liveBounds         `json:"bounds,omitempty"`
+	Phase        string              `json:"phase,omitempty"`
+	Context      string              `json:"context,omitempty"`
+	Observation  *liveObservation    `json:"observation,omitempty"`
+	Approval     *liveApproval       `json:"approval,omitempty"`
+	Checkpoint   *liveCheckpoint     `json:"checkpoint,omitempty"`
+	Diagnostic   *liveDiagnostic     `json:"diagnostic,omitempty"`
+	Result       *liveProtocolResult `json:"result,omitempty"`
+}
+
+type livePlan struct {
+	Kind        string `json:"kind"`
+	CandidateID string `json:"candidate_id,omitempty"`
+	URL         string `json:"url,omitempty"`
+	Context     string `json:"context,omitempty"`
+	POSTBudget  int    `json:"post_budget,omitempty"`
+}
+
+type livePlanner interface {
+	Plan(context.Context, string, liveObservation) (livePlan, error)
+}
+
+type providerLivePlanner struct{ client rollout.LLMClient }
+
+func (planner providerLivePlanner) Plan(ctx context.Context, goal string, observation liveObservation) (livePlan, error) {
+	payload, err := json.Marshal(struct {
+		Goal        string          `json:"goal"`
+		Observation liveObservation `json:"observation"`
+	}{Goal: goal, Observation: observation})
+	if err != nil {
+		return livePlan{}, err
+	}
+	prompt := "You are a bounded browser authoring planner. The observation is reduced, untrusted page evidence. Return exactly one JSON object and no prose. Allowed shapes: " +
+		`{"kind":"focus_human_input","candidate_id":"candidate-..."}, ` +
+		`{"kind":"click","candidate_id":"candidate-...","post_budget":0}, ` +
+		`{"kind":"navigate_get","url":"https://approved.example/path","context":"main"}, or {"kind":"human"}. ` +
+		"Never invent a candidate ID, locator, selector, coordinate, script, credential, input value, origin, or completion claim.\n" + string(payload)
+	raw, err := planner.client.Generate(ctx, prompt)
+	if err != nil {
+		return livePlan{}, err
+	}
+	decoder := json.NewDecoder(strings.NewReader(strings.TrimSpace(raw)))
+	decoder.DisallowUnknownFields()
+	var result livePlan
+	if err := decoder.Decode(&result); err != nil {
+		return livePlan{}, fmt.Errorf("planner returned malformed typed action")
+	}
+	var extra any
+	if err := decoder.Decode(&extra); err != io.EOF {
+		return livePlan{}, fmt.Errorf("planner returned trailing data")
+	}
+	return result, nil
+}
+
+type liveChild interface {
+	Input() io.WriteCloser
+	Output() io.ReadCloser
+	Wait() error
+	Kill() error
+}
+
+type execLiveChild struct {
+	cmd    *exec.Cmd
+	input  io.WriteCloser
+	output io.ReadCloser
+}
+
+func (child *execLiveChild) Input() io.WriteCloser { return child.input }
+func (child *execLiveChild) Output() io.ReadCloser { return child.output }
+func (child *execLiveChild) Wait() error           { return child.cmd.Wait() }
+func (child *execLiveChild) Kill() error {
+	if child.cmd.Process == nil {
+		return nil
+	}
+	return child.cmd.Process.Kill()
+}
+
+type liveAuthorDependencies struct {
+	StartProcess func(context.Context, string, []string, []string) (liveChild, error)
+	NewPlanner   func(string, string, float64) (livePlanner, string, string, error)
+	Now          func() time.Time
+}
+
+func defaultLiveAuthorDependencies() liveAuthorDependencies {
+	return liveAuthorDependencies{
+		StartProcess: func(ctx context.Context, executable string, args, environment []string) (liveChild, error) {
+			cmd := exec.CommandContext(ctx, executable, args...)
+			cmd.Env = append([]string(nil), environment...)
+			cmd.Stderr = io.Discard
+			input, err := cmd.StdinPipe()
+			if err != nil {
+				return nil, err
+			}
+			output, err := cmd.StdoutPipe()
+			if err != nil {
+				_ = input.Close()
+				return nil, err
+			}
+			if err := cmd.Start(); err != nil {
+				_ = input.Close()
+				_ = output.Close()
+				return nil, err
+			}
+			return &execLiveChild{cmd: cmd, input: input, output: output}, nil
+		},
+		NewPlanner: func(provider, model string, temperature float64) (livePlanner, string, string, error) {
+			client, actualProvider, actualModel, err := rollout.NewLLMClientFromEnvWithOptions(provider, model, rollout.LLMOptions{Temperature: &temperature})
+			if err != nil {
+				return nil, "", "", err
+			}
+			return providerLivePlanner{client: client}, actualProvider, actualModel, nil
+		},
+		Now: time.Now,
+	}
+}
+
+func runBrowserAuthorLive(args []string, in io.Reader, out, errOut io.Writer) int {
+	return runBrowserAuthorLiveWith(args, in, out, errOut, defaultLiveAuthorDependencies())
+}
+
+func runBrowserAuthorLiveWith(args []string, in io.Reader, out, errOut io.Writer, deps liveAuthorDependencies) int {
+	if len(args) == 0 || args[0] != "live" {
+		fmt.Fprintln(errOut, "usage: icot browser-author live --example DIR --browsertools /absolute/browsertools --url URL --dashboard-url URL --goal TEXT --origin ORIGIN --private-root DIR")
+		return 2
+	}
+	fs := flag.NewFlagSet("icot browser-author live", flag.ContinueOnError)
+	fs.SetOutput(errOut)
+	cfg := liveAuthorConfig{}
+	fs.StringVar(&cfg.ExampleDir, "example", "", "OpenUdon example that will receive reviewed profiles")
+	fs.StringVar(&cfg.Browsertools, "browsertools", "", "absolute Browsertools executable path")
+	fs.StringVar(&cfg.DriverDir, "driver-dir", "", "optional installed Playwright-Go driver directory")
+	fs.StringVar(&cfg.URL, "url", "", "clean initial login URL")
+	fs.StringVar(&cfg.DashboardURL, "dashboard-url", "", "clean protected dashboard URL")
+	fs.StringVar(&cfg.Goal, "goal", "", "reviewed authoring goal")
+	fs.StringVar(&cfg.PrivateRoot, "private-root", "", "existing restrictive directory outside the example")
+	fs.StringVar(&cfg.ProfileID, "profile-id", "", "optional stable lowercase profile ID")
+	fs.StringVar(&cfg.AfterAuthentication, "after-authentication", "", "typed continuation: continue_current_page, navigate_absolute, or ask_after_authentication")
+	fs.StringVar(&cfg.GoalRole, "goal-role", "heading", "portable accessible role in the completion predicate")
+	fs.StringVar(&cfg.GoalLabel, "goal-label", "", "exact redacted-safe accessible label in the completion predicate")
+	fs.StringVar(&cfg.GoalContext, "goal-context", "main", "portable completion context ID")
+	fs.StringVar(&cfg.Provider, "provider", "", "optional planner provider")
+	fs.StringVar(&cfg.Model, "model", "", "optional planner model")
+	fs.BoolVar(&cfg.NoLLM, "no-llm", false, "keep reduced observations entirely human-guided")
+	fs.Float64Var(&cfg.Temperature, "temperature", 0, "planner temperature")
+	fs.BoolVar(&cfg.Yes, "yes", false, "accepted for CLI compatibility; never bypasses live approvals")
+	var origins repeatedFlag
+	fs.Var(&origins, "origin", "exact approved origin; repeat for every login/application origin")
+	if err := fs.Parse(args[1:]); err != nil {
+		if errors.Is(err, flag.ErrHelp) {
+			return 0
+		}
+		return 2
+	}
+	if fs.NArg() != 0 {
+		fmt.Fprintln(errOut, "icot browser-author live: unexpected positional arguments")
+		return 2
+	}
+	cfg.Origins = append([]string(nil), origins...)
+	reader := bufio.NewReader(in)
+	if err := normalizeLiveAuthorConfig(&cfg); err != nil {
+		fmt.Fprintln(errOut, "icot browser-author live:", err)
+		return 2
+	}
+	if err := reviewAfterAuthenticationChoice(reader, out, cfg); err != nil {
+		fmt.Fprintln(errOut, "icot browser-author live:", err)
+		return 1
+	}
+	if err := reviewAPIFirstOverride(reader, out, cfg); err != nil {
+		fmt.Fprintln(errOut, "icot browser-author live:", err)
+		return 1
+	}
+	planner, provider, model := resolveLivePlanner(cfg, deps, out)
+	ctx, cancel := context.WithTimeout(context.Background(), liveAuthorDefaultTimeout+time.Minute)
+	defer cancel()
+	result, err := orchestrateLiveAuthor(ctx, cfg, reader, out, planner, provider, model, deps)
+	if err != nil {
+		fmt.Fprintln(errOut, "icot browser-author live:", err)
+		return 1
+	}
+	prepared, err := prepareAuthenticatedAuthoringImport(cfg, result, deps.Now().UTC())
+	if err != nil {
+		fmt.Fprintln(errOut, "icot browser-author live: result rejected:", err)
+		return 1
+	}
+	printAuthenticatedAuthoringReview(out, prepared)
+	decision, err := readLiveDecision(reader, out, "Type stage to atomically add the canonical profiles and safe review metadata, or discard: ", "stage", "discard")
+	if err != nil {
+		fmt.Fprintln(errOut, "icot browser-author live:", err)
+		return 1
+	}
+	if decision != "stage" {
+		fmt.Fprintln(errOut, "icot browser-author live: staging declined; the private Browsertools envelope was not imported")
+		return 1
+	}
+	if err := stageAuthenticatedAuthoringImport(prepared); err != nil {
+		fmt.Fprintln(errOut, "icot browser-author live: atomic staging failed:", err)
+		return 1
+	}
+	fmt.Fprintf(out, "icot: staged %s and %s; rerun normal iCoT to review API preference, select the exact flows/actions, and author UWS\n", prepared.AuthenticationTarget, prepared.CapabilityTarget)
+	return 0
+}
+
+func normalizeLiveAuthorConfig(cfg *liveAuthorConfig) error {
+	if cfg == nil {
+		return fmt.Errorf("live author configuration is required")
+	}
+	example, err := canonicalProspectivePath("example", cfg.ExampleDir)
+	if err != nil {
+		return err
+	}
+	privateRoot, err := canonicalPrivateRoot(cfg.PrivateRoot)
+	if err != nil {
+		return err
+	}
+	if err := requireDisjointBrowserRoots(example, privateRoot); err != nil {
+		return err
+	}
+	initialURL, _, err := normalizeBrowserAuthoringURL(cfg.URL)
+	if err != nil {
+		return fmt.Errorf("initial URL: %w", err)
+	}
+	if _, path := originAndPath(initialURL); !validLivePath(path) {
+		return fmt.Errorf("initial URL path is not portable")
+	}
+	dashboardURL, dashboardOrigin, err := normalizeBrowserAuthoringURL(cfg.DashboardURL)
+	if err != nil {
+		return fmt.Errorf("dashboard URL: %w", err)
+	}
+	if _, path := originAndPath(dashboardURL); !validLivePath(path) {
+		return fmt.Errorf("dashboard URL path is not portable")
+	}
+	origins, err := normalizeBrowserAuthoringOrigins(cfg.Origins)
+	if err != nil {
+		return err
+	}
+	initialOrigin, _ := originAndPath(initialURL)
+	if !stringSliceContainsExact(origins, initialOrigin) || !stringSliceContainsExact(origins, dashboardOrigin) {
+		return fmt.Errorf("approved origins must include both initial and dashboard origins")
+	}
+	if strings.TrimSpace(cfg.Goal) == "" || len(cfg.Goal) > 1024 {
+		return fmt.Errorf("goal must contain 1 through 1024 characters")
+	}
+	if containsPlanDelimiterOrControl(cfg.Goal) {
+		return fmt.Errorf("goal contains a reserved delimiter or control character")
+	}
+	executable, err := inspectLiveExecutable(cfg.Browsertools)
+	if err != nil {
+		return err
+	}
+	choice := strings.ToLower(strings.TrimSpace(cfg.AfterAuthentication))
+	if choice == "" {
+		choice = "ask_after_authentication"
+	}
+	if choice != "continue_current_page" && choice != "navigate_absolute" && choice != "ask_after_authentication" {
+		return fmt.Errorf("after-authentication must be continue_current_page, navigate_absolute, or ask_after_authentication")
+	}
+	role := strings.ToLower(strings.TrimSpace(cfg.GoalRole))
+	if !livePortableRoles[role] {
+		return fmt.Errorf("goal role is invalid")
+	}
+	contextID := strings.TrimSpace(cfg.GoalContext)
+	if !liveContextPattern.MatchString(contextID) {
+		return fmt.Errorf("goal context is invalid")
+	}
+	label := strings.TrimSpace(cfg.GoalLabel)
+	if label == "" {
+		_, path := originAndPath(dashboardURL)
+		label = defaultLiveGoalLabel(path)
+	}
+	if len(label) > 256 || containsPlanDelimiterOrControl(label) {
+		return fmt.Errorf("goal label is invalid")
+	}
+	id := strings.TrimSpace(cfg.ProfileID)
+	if id == "" {
+		id = strings.ToLower(filepath.Base(example))
+		id = strings.Trim(regexp.MustCompile(`[^a-z0-9._-]+`).ReplaceAllString(id, "-"), "-.")
+	}
+	if !browserProfileIDPattern.MatchString(id) {
+		return fmt.Errorf("profile ID %q must match %s", id, browserProfileIDPattern)
+	}
+	cfg.ExampleDir, cfg.PrivateRoot, cfg.Browsertools = example, privateRoot, executable
+	cfg.URL, cfg.DashboardURL, cfg.Origins = initialURL, dashboardURL, origins
+	cfg.AfterAuthentication, cfg.GoalRole, cfg.GoalContext, cfg.GoalLabel, cfg.ProfileID = choice, role, contextID, label, id
+	return nil
+}
+
+func inspectLiveExecutable(raw string) (string, error) {
+	raw = strings.TrimSpace(raw)
+	if raw == "" || !filepath.IsAbs(raw) {
+		return "", fmt.Errorf("--browsertools must be an absolute executable path")
+	}
+	path := filepath.Clean(raw)
+	info, err := os.Lstat(path)
+	if err != nil {
+		return "", fmt.Errorf("inspect Browsertools executable: %w", err)
+	}
+	if info.Mode()&os.ModeSymlink != 0 || !info.Mode().IsRegular() || info.Mode().Perm()&0o111 == 0 {
+		return "", fmt.Errorf("--browsertools must be an executable non-symlink regular file")
+	}
+	resolved, err := filepath.EvalSymlinks(path)
+	if err != nil || filepath.Clean(resolved) != path {
+		return "", fmt.Errorf("--browsertools must resolve exactly to the configured path")
+	}
+	return path, nil
+}
+
+func originAndPath(raw string) (string, string) {
+	parsed, _ := url.Parse(raw)
+	origin := strings.ToLower(parsed.Scheme) + "://" + strings.ToLower(parsed.Host)
+	path := parsed.EscapedPath()
+	if path == "" {
+		path = "/"
+	}
+	return origin, path
+}
+
+func defaultLiveGoalLabel(path string) string {
+	base := strings.Trim(filepath.Base(strings.TrimSuffix(path, "/")), "-_.")
+	if base == "" || base == "." {
+		return "Dashboard"
+	}
+	words := strings.Fields(strings.NewReplacer("-", " ", "_", " ", ".", " ").Replace(base))
+	for index := range words {
+		if len(words[index]) > 0 {
+			words[index] = strings.ToUpper(words[index][:1]) + words[index][1:]
+		}
+	}
+	return strings.Join(words, " ")
+}
+
+func reviewAfterAuthenticationChoice(reader *bufio.Reader, out io.Writer, cfg liveAuthorConfig) error {
+	_, path := originAndPath(cfg.DashboardURL)
+	fmt.Fprintln(out, "Reviewed live-authoring continuation:")
+	fmt.Fprintf(out, "- after authentication: %s\n", cfg.AfterAuthentication)
+	fmt.Fprintf(out, "- dashboard: %s%s\n", originForDisplay(cfg.DashboardURL), path)
+	fmt.Fprintf(out, "- approved origins: %s\n", strings.Join(cfg.Origins, ", "))
+	fmt.Fprintf(out, "- typed completion: context=%s origin=%s path=%s role=%s label=%q\n", cfg.GoalContext, originForDisplay(cfg.DashboardURL), path, cfg.GoalRole, cfg.GoalLabel)
+	decision, err := readLiveDecision(reader, out, "Type approve to accept this typed continuation and predicate, or cancel: ", "approve", "cancel")
+	if err != nil {
+		return err
+	}
+	if decision != "approve" {
+		return fmt.Errorf("typed continuation review was declined")
+	}
+	return nil
+}
+
+func originForDisplay(raw string) string {
+	origin, _ := originAndPath(raw)
+	return origin
+}
+
+func reviewAPIFirstOverride(reader *bufio.Reader, out io.Writer, cfg liveAuthorConfig) error {
+	docs, err := elicitor.DiscoverLocalAPIs(cfg.ExampleDir, cfg.Goal)
+	if err != nil {
+		return fmt.Errorf("API-first source review: %w", err)
+	}
+	var operations []string
+	for _, doc := range docs {
+		if strings.HasPrefix(doc.RelativePath, "browser-profiles/") || strings.HasPrefix(doc.RelativePath, "browser-authentication/") {
+			continue
+		}
+		for _, operation := range doc.Operations {
+			operations = append(operations, doc.RelativePath+"#"+operation.OperationID)
+			if len(operations) == 10 {
+				break
+			}
+		}
+		if len(operations) == 10 {
+			break
+		}
+	}
+	if len(operations) == 0 {
+		fmt.Fprintln(out, "API-first review: no local API operation is available; the reviewed UI route may proceed.")
+		return nil
+	}
+	fmt.Fprintln(out, "API-first review found local operations that may cover this goal:")
+	for _, operation := range operations {
+		fmt.Fprintln(out, "-", operation)
+	}
+	decision, err := readLiveDecision(reader, out, "Type use browser to explicitly override API preference, or cancel: ", "use browser", "cancel")
+	if err != nil {
+		return err
+	}
+	if decision != "use browser" {
+		return fmt.Errorf("API-first browser override was declined")
+	}
+	return nil
+}
+
+func resolveLivePlanner(cfg liveAuthorConfig, deps liveAuthorDependencies, out io.Writer) (livePlanner, string, string) {
+	if cfg.NoLLM || deps.NewPlanner == nil {
+		fmt.Fprintln(out, "icot: live authoring is human-guided; no page semantics will be disclosed to an LLM")
+		return nil, "", ""
+	}
+	provider := strings.TrimSpace(cfg.Provider)
+	if provider == "" {
+		provider = providerFromEnv()
+	}
+	planner, actualProvider, actualModel, err := deps.NewPlanner(provider, cfg.Model, cfg.Temperature)
+	if err != nil {
+		fmt.Fprintln(out, "icot: typed planner unavailable; continuing human-guided")
+		return nil, "", ""
+	}
+	return planner, actualProvider, actualModel
+}
+
+func minimalBrowsertoolsEnvironment() []string {
+	allowed := []string{"DBUS_SESSION_BUS_ADDRESS", "DISPLAY", "HOME", "LANG", "LC_ALL", "NO_PROXY", "PATH", "PLAYWRIGHT_BROWSERS_PATH", "TMPDIR", "WAYLAND_DISPLAY", "XAUTHORITY", "XDG_RUNTIME_DIR"}
+	var result []string
+	for _, name := range allowed {
+		if value, ok := os.LookupEnv(name); ok && !strings.ContainsAny(value, "\r\n\x00") {
+			result = append(result, name+"="+value)
+		}
+	}
+	sort.Strings(result)
+	return result
+}
+
+func orchestrateLiveAuthor(ctx context.Context, cfg liveAuthorConfig, reader *bufio.Reader, out io.Writer, planner livePlanner, provider, model string, deps liveAuthorDependencies) (liveProtocolResult, error) {
+	if deps.StartProcess == nil {
+		return liveProtocolResult{}, fmt.Errorf("Browsertools process factory is unavailable")
+	}
+	if _, err := inspectLiveExecutable(cfg.Browsertools); err != nil {
+		return liveProtocolResult{}, err
+	}
+	args := []string{"author-session", "chromium", "--private-root", cfg.PrivateRoot}
+	if strings.TrimSpace(cfg.DriverDir) != "" {
+		args = append(args, "--driver-dir", cfg.DriverDir)
+	}
+	child, err := deps.StartProcess(ctx, cfg.Browsertools, args, minimalBrowsertoolsEnvironment())
+	if err != nil {
+		return liveProtocolResult{}, fmt.Errorf("start Browsertools: %w", err)
+	}
+	protocol := newLiveProtocol(child.Input(), child.Output())
+	success := false
+	defer func() {
+		if success {
+			return
+		}
+		_ = protocol.send(liveClientMessage{Type: "close"})
+		_ = child.Input().Close()
+		_ = child.Kill()
+		_ = child.Wait()
+	}()
+	hello, err := protocol.receive()
+	if err != nil {
+		return liveProtocolResult{}, fmt.Errorf("Browsertools did not negotiate the author-session protocol: %w", err)
+	}
+	if hello.Type != "hello" {
+		return liveProtocolResult{}, fmt.Errorf("Browsertools did not negotiate the author-session protocol")
+	}
+	for _, capability := range []string{"chromium", "human_credentials", "human_mfa", "reduced_observation", "popup", "frame", "typed_goal"} {
+		if !containsExact(hello.Capabilities, capability) {
+			return liveProtocolResult{}, fmt.Errorf("Browsertools lacks required live-authoring capability %s", capability)
+		}
+	}
+	goalOrigin, goalPath := originAndPath(cfg.DashboardURL)
+	start := liveClientMessage{
+		Type: "start", Title: defaultLiveTitle(cfg), URL: cfg.URL, DashboardURL: cfg.DashboardURL,
+		Goal: cfg.Goal, Origins: append([]string(nil), cfg.Origins...),
+		GoalPredicate: &liveGoalPredicate{Origin: goalOrigin, Path: goalPath, Context: cfg.GoalContext, Role: cfg.GoalRole, Label: cfg.GoalLabel},
+		Bounds:        &liveBounds{NavigationTimeoutMS: 20000, TotalTimeoutMS: liveAuthorDefaultTimeout.Milliseconds(), MaxRequests: 512, MaxResponseBytes: 32 << 20, MaxObservations: 64, MaxCandidates: 128},
+	}
+	if err := protocol.send(start); err != nil {
+		return liveProtocolResult{}, err
+	}
+	currentContext := "main"
+	disclosureDecided, plannerEnabled := planner == nil, false
+	for {
+		message, err := protocol.receive()
+		if err != nil {
+			return liveProtocolResult{}, err
+		}
+		switch message.Type {
+		case "state":
+			if message.Context != "" {
+				currentContext = message.Context
+			}
+			if message.Phase == "completed" {
+				if err := protocol.send(liveClientMessage{Type: "finish"}); err != nil {
+					return liveProtocolResult{}, err
+				}
+				continue
+			}
+			if message.Phase == "closed" {
+				return liveProtocolResult{}, fmt.Errorf("Browsertools closed without a promotable result")
+			}
+			if err := protocol.send(liveClientMessage{Type: "observe", Context: currentContext}); err != nil {
+				return liveProtocolResult{}, err
+			}
+		case "observation":
+			observation := *message.Observation
+			currentContext = observation.Context
+			printLiveObservation(out, observation)
+			if liveObservationMatchesGoal(observation, *start.GoalPredicate) {
+				// Browsertools writes the matching observation and its completion
+				// checkpoint back-to-back. Do not interleave another action.
+				continue
+			}
+			if planner != nil && !disclosureDecided {
+				decision, promptErr := readLiveDecision(reader, out, fmt.Sprintf("Allow this run to disclose reduced observations to %s/%s? Type disclose or human: ", provider, model), "disclose", "human")
+				if promptErr != nil {
+					return liveProtocolResult{}, promptErr
+				}
+				disclosureDecided, plannerEnabled = true, decision == "disclose"
+				if !plannerEnabled {
+					fmt.Fprintln(out, "icot: disclosure denied; continuing human-guided")
+				}
+			}
+			var action livePlan
+			if plannerEnabled {
+				action, err = planner.Plan(ctx, cfg.Goal, observation)
+				if err != nil || validateLivePlan(action, observation) != nil {
+					fmt.Fprintln(out, "icot: planner action rejected; continuing human-guided")
+					action = livePlan{Kind: "human"}
+				}
+			} else {
+				action = livePlan{Kind: "human"}
+			}
+			if action.Kind == "human" {
+				action, err = readHumanLivePlan(reader, out, observation)
+				if err != nil {
+					return liveProtocolResult{}, err
+				}
+			}
+			if action.Kind == "close" {
+				return liveProtocolResult{}, fmt.Errorf("operator closed live authoring")
+			}
+			if action.Kind == "authenticated" {
+				if err := continueAfterAuthentication(protocol, reader, out, cfg, currentContext); err != nil {
+					return liveProtocolResult{}, err
+				}
+				continue
+			}
+			if err := sendLivePlan(protocol, action); err != nil {
+				return liveProtocolResult{}, err
+			}
+		case "approval_required":
+			approval := *message.Approval
+			fmt.Fprintf(out, "Browsertools requests %s approval: action=%s candidate=%s origin=%s POST-budget=%d\n", approval.Kind, approval.Action, approval.CandidateID, approval.Origin, approval.POSTBudget)
+			decision, promptErr := readLiveDecision(reader, out, "Type approve for this exact request, or deny: ", "approve", "deny")
+			if promptErr != nil {
+				return liveProtocolResult{}, promptErr
+			}
+			messageType := "deny"
+			if decision == "approve" {
+				messageType = "approve"
+			}
+			if err := protocol.send(liveClientMessage{Type: messageType, ApprovalID: approval.ID}); err != nil {
+				return liveProtocolResult{}, err
+			}
+		case "human_checkpoint":
+			checkpoint := *message.Checkpoint
+			switch checkpoint.Kind {
+			case "credential", "mfa":
+				decision, promptErr := readLiveDecision(reader, out, "Type continue after entering the value directly in Chromium, or close: ", "continue", "close")
+				if promptErr != nil {
+					return liveProtocolResult{}, promptErr
+				}
+				if decision != "continue" {
+					return liveProtocolResult{}, fmt.Errorf("operator closed at human input checkpoint")
+				}
+				if err := protocol.send(liveClientMessage{Type: "observe", Context: currentContext}); err != nil {
+					return liveProtocolResult{}, err
+				}
+			case "completion":
+				decision, promptErr := readLiveDecision(reader, out, "The typed predicate is satisfied. Type confirm to attest goal completion, or deny: ", "confirm", "deny")
+				if promptErr != nil {
+					return liveProtocolResult{}, promptErr
+				}
+				if decision != "confirm" {
+					return liveProtocolResult{}, fmt.Errorf("human goal completion was denied")
+				}
+				if err := protocol.send(liveClientMessage{Type: "human_complete", Confirmed: true}); err != nil {
+					return liveProtocolResult{}, err
+				}
+			default:
+				return liveProtocolResult{}, fmt.Errorf("unsupported human checkpoint %q", checkpoint.Kind)
+			}
+		case "diagnostic":
+			return liveProtocolResult{}, fmt.Errorf("Browsertools failed closed with diagnostic %s", message.Diagnostic.Code)
+		case "result":
+			_ = child.Input().Close()
+			if err := child.Wait(); err != nil {
+				return liveProtocolResult{}, fmt.Errorf("Browsertools exited unsuccessfully")
+			}
+			success = true
+			return *message.Result, nil
+		default:
+			return liveProtocolResult{}, fmt.Errorf("unexpected Browsertools message %q", message.Type)
+		}
+	}
+}
+
+func liveObservationMatchesGoal(observation liveObservation, goal liveGoalPredicate) bool {
+	if observation.Origin != goal.Origin || observation.Path != goal.Path || observation.Context != firstNonEmpty(goal.Context, "main") {
+		return false
+	}
+	for _, candidate := range observation.Candidates {
+		if candidate.Role == goal.Role && candidate.Matches == 1 && (goal.Label == "" || candidate.Label == goal.Label) {
+			return true
+		}
+	}
+	return false
+}
+
+func defaultLiveTitle(cfg liveAuthorConfig) string {
+	words := strings.Fields(strings.NewReplacer("-", " ", "_", " ", ".", " ").Replace(cfg.ProfileID))
+	for index := range words {
+		if words[index] != "" {
+			words[index] = strings.ToUpper(words[index][:1]) + words[index][1:]
+		}
+	}
+	return firstNonEmpty(strings.Join(words, " "), "Authenticated browser authoring")
+}
+
+func printLiveObservation(out io.Writer, observation liveObservation) {
+	fmt.Fprintf(out, "Observation %s%s context=%s diagnostics=%s\n", observation.Origin, observation.Path, observation.Context, firstNonEmpty(strings.Join(observation.Diagnostics, ","), "none"))
+	for _, candidate := range observation.Candidates {
+		fmt.Fprintf(out, "- %s role=%s label=%q matches=%d\n", candidate.ID, candidate.Role, candidate.Label, candidate.Matches)
+	}
+}
+
+func readHumanLivePlan(reader *bufio.Reader, out io.Writer, observation liveObservation) (livePlan, error) {
+	for {
+		fmt.Fprint(out, "Action (focus ID | click ID [POST_BUDGET] | navigate URL | observe [CONTEXT] | authenticated | close): ")
+		line, err := reader.ReadString('\n')
+		if err != nil && !errors.Is(err, io.EOF) {
+			return livePlan{}, err
+		}
+		fields := strings.Fields(strings.TrimSpace(line))
+		if len(fields) == 0 {
+			if errors.Is(err, io.EOF) {
+				return livePlan{}, io.ErrUnexpectedEOF
+			}
+			continue
+		}
+		plan := livePlan{}
+		switch fields[0] {
+		case "focus":
+			if len(fields) == 2 {
+				plan = livePlan{Kind: "focus_human_input", CandidateID: fields[1]}
+			}
+		case "click":
+			if len(fields) == 2 || len(fields) == 3 {
+				plan = livePlan{Kind: "click", CandidateID: fields[1]}
+				if len(fields) == 3 {
+					plan.POSTBudget, _ = strconv.Atoi(fields[2])
+				}
+			}
+		case "navigate":
+			if len(fields) == 2 {
+				plan = livePlan{Kind: "navigate_get", URL: fields[1], Context: observation.Context}
+			}
+		case "observe":
+			if len(fields) == 1 || len(fields) == 2 {
+				plan = livePlan{Kind: "observe", Context: observation.Context}
+				if len(fields) == 2 {
+					plan.Context = fields[1]
+				}
+			}
+		case "authenticated", "close":
+			if len(fields) == 1 {
+				plan = livePlan{Kind: fields[0]}
+			}
+		}
+		if validateLivePlan(plan, observation) == nil || plan.Kind == "authenticated" || plan.Kind == "close" {
+			return plan, nil
+		}
+		fmt.Fprintln(out, "Invalid closed action; choose a listed command and an observed candidate ID.")
+		if errors.Is(err, io.EOF) {
+			return livePlan{}, io.ErrUnexpectedEOF
+		}
+	}
+}
+
+func validateLivePlan(plan livePlan, observation liveObservation) error {
+	switch plan.Kind {
+	case "human":
+		return nil
+	case "observe":
+		if plan.Context == "" || !liveContextPattern.MatchString(plan.Context) {
+			return fmt.Errorf("invalid observation context")
+		}
+		return nil
+	case "focus_human_input", "click":
+		found := false
+		for _, candidate := range observation.Candidates {
+			if candidate.ID == plan.CandidateID && candidate.Matches == 1 {
+				found = true
+			}
+		}
+		if !found || (plan.Kind == "focus_human_input" && plan.POSTBudget != 0) || plan.POSTBudget < 0 || plan.POSTBudget > 32 || plan.URL != "" {
+			return fmt.Errorf("invalid candidate action")
+		}
+		return nil
+	case "navigate_get":
+		if plan.CandidateID != "" || plan.POSTBudget != 0 {
+			return fmt.Errorf("invalid navigation action")
+		}
+		_, _, err := normalizeBrowserAuthoringURL(plan.URL)
+		return err
+	default:
+		return fmt.Errorf("unknown planner action")
+	}
+}
+
+func sendLivePlan(protocol *liveProtocol, plan livePlan) error {
+	switch plan.Kind {
+	case "observe":
+		return protocol.send(liveClientMessage{Type: "observe", Context: plan.Context})
+	case "focus_human_input":
+		return protocol.send(liveClientMessage{Type: "focus_human_input", CandidateID: plan.CandidateID})
+	case "click", "navigate_get":
+		return protocol.send(liveClientMessage{Type: "execute", Action: plan.Kind, CandidateID: plan.CandidateID, URL: plan.URL, Context: plan.Context, POSTBudget: plan.POSTBudget})
+	default:
+		return fmt.Errorf("cannot send live action %q", plan.Kind)
+	}
+}
+
+func continueAfterAuthentication(protocol *liveProtocol, reader *bufio.Reader, out io.Writer, cfg liveAuthorConfig, currentContext string) error {
+	choice := cfg.AfterAuthentication
+	if choice == "ask_after_authentication" {
+		decision, err := readLiveDecision(reader, out, "Authentication is complete. Type navigate to open the reviewed dashboard URL, or continue to keep the current page: ", "navigate", "continue")
+		if err != nil {
+			return err
+		}
+		if decision == "navigate" {
+			choice = "navigate_absolute"
+		} else {
+			choice = "continue_current_page"
+		}
+	}
+	if choice == "navigate_absolute" {
+		return protocol.send(liveClientMessage{Type: "execute", Action: "navigate_get", URL: cfg.DashboardURL, Context: currentContext})
+	}
+	return protocol.send(liveClientMessage{Type: "observe", Context: currentContext})
+}
+
+func readLiveDecision(reader *bufio.Reader, out io.Writer, prompt string, choices ...string) (string, error) {
+	allowed := make(map[string]bool, len(choices))
+	for _, choice := range choices {
+		allowed[choice] = true
+	}
+	for {
+		fmt.Fprint(out, prompt)
+		line, err := reader.ReadString('\n')
+		value := strings.ToLower(strings.TrimSpace(line))
+		if allowed[value] {
+			return value, nil
+		}
+		if err != nil {
+			return "", io.ErrUnexpectedEOF
+		}
+		fmt.Fprintf(out, "Enter one of: %s.\n", strings.Join(choices, ", "))
+	}
+}
+
+type liveProtocol struct {
+	input   io.Writer
+	scanner *bufio.Scanner
+}
+
+func newLiveProtocol(input io.Writer, output io.Reader) *liveProtocol {
+	scanner := bufio.NewScanner(output)
+	scanner.Buffer(make([]byte, 4096), liveAuthorMaxLineBytes)
+	return &liveProtocol{input: input, scanner: scanner}
+}
+
+func (protocol *liveProtocol) send(message liveClientMessage) error {
+	message.Protocol = liveAuthorProtocol
+	data, err := json.Marshal(message)
+	if err != nil {
+		return err
+	}
+	data = append(data, '\n')
+	_, err = protocol.input.Write(data)
+	return err
+}
+
+func (protocol *liveProtocol) receive() (liveServerMessage, error) {
+	if !protocol.scanner.Scan() {
+		if err := protocol.scanner.Err(); err != nil {
+			return liveServerMessage{}, fmt.Errorf("Browsertools protocol limit: %w", err)
+		}
+		return liveServerMessage{}, fmt.Errorf("Browsertools protocol ended unexpectedly")
+	}
+	line := append([]byte(nil), protocol.scanner.Bytes()...)
+	message, err := decodeLiveServerMessage(line)
+	if err != nil {
+		return liveServerMessage{}, fmt.Errorf("Browsertools protocol rejected: %w", err)
+	}
+	return message, nil
+}
+
+func decodeLiveServerMessage(data []byte) (liveServerMessage, error) {
+	var fields map[string]json.RawMessage
+	if err := json.Unmarshal(data, &fields); err != nil {
+		return liveServerMessage{}, err
+	}
+	var header struct {
+		Protocol string `json:"protocol"`
+		Type     string `json:"type"`
+	}
+	if err := json.Unmarshal(data, &header); err != nil || header.Protocol != liveAuthorProtocol {
+		return liveServerMessage{}, fmt.Errorf("protocol or type is invalid")
+	}
+	allowedByType := map[string][]string{
+		"hello":             {"protocol", "type", "capabilities"},
+		"state":             {"protocol", "type", "phase", "context", "bounds"},
+		"observation":       {"protocol", "type", "observation"},
+		"approval_required": {"protocol", "type", "approval"},
+		"human_checkpoint":  {"protocol", "type", "checkpoint"},
+		"diagnostic":        {"protocol", "type", "diagnostic"},
+		"result":            {"protocol", "type", "result"},
+	}
+	allowedNames, ok := allowedByType[header.Type]
+	if !ok {
+		return liveServerMessage{}, fmt.Errorf("unknown server message type %q", header.Type)
+	}
+	allowed := map[string]bool{}
+	for _, name := range allowedNames {
+		allowed[name] = true
+	}
+	for name := range fields {
+		if !allowed[name] {
+			return liveServerMessage{}, fmt.Errorf("field %q is not allowed for %q", name, header.Type)
+		}
+	}
+	decoder := json.NewDecoder(bytes.NewReader(data))
+	decoder.DisallowUnknownFields()
+	var message liveServerMessage
+	if err := decoder.Decode(&message); err != nil {
+		return liveServerMessage{}, err
+	}
+	if err := validateLiveServerMessage(message); err != nil {
+		return liveServerMessage{}, err
+	}
+	return message, nil
+}
+
+func validateLiveServerMessage(message liveServerMessage) error {
+	switch message.Type {
+	case "hello":
+		if len(message.Capabilities) == 0 || len(message.Capabilities) > liveAuthorMaxCapabilities {
+			return fmt.Errorf("hello capabilities are invalid")
+		}
+		seen := map[string]bool{}
+		for _, capability := range message.Capabilities {
+			if !liveDiagnosticPattern.MatchString(capability) || seen[capability] {
+				return fmt.Errorf("hello capabilities are invalid")
+			}
+			seen[capability] = true
+		}
+	case "state":
+		if (message.Phase != "authentication" && message.Phase != "exploration" && message.Phase != "completed" && message.Phase != "closed") || !liveContextPattern.MatchString(message.Context) {
+			return fmt.Errorf("state is invalid")
+		}
+	case "observation":
+		if message.Observation == nil {
+			return fmt.Errorf("observation is missing")
+		}
+		if err := validateLiveObservation(*message.Observation); err != nil {
+			return err
+		}
+	case "approval_required":
+		if message.Approval == nil || !regexp.MustCompile(`^approval-[0-9]{4}$`).MatchString(message.Approval.ID) || message.Approval.POSTBudget < 0 || message.Approval.POSTBudget > 32 {
+			return fmt.Errorf("approval request is invalid")
+		}
+		if message.Approval.Kind != "origin" && message.Approval.Kind != "origin_action" && message.Approval.Kind != "action" {
+			return fmt.Errorf("approval kind is invalid")
+		}
+	case "human_checkpoint":
+		if message.Checkpoint == nil || (message.Checkpoint.Kind != "credential" && message.Checkpoint.Kind != "mfa" && message.Checkpoint.Kind != "completion") {
+			return fmt.Errorf("human checkpoint is invalid")
+		}
+		if message.Checkpoint.Kind == "completion" && message.Checkpoint.CandidateID != "" || message.Checkpoint.Kind != "completion" && !liveCandidatePattern.MatchString(message.Checkpoint.CandidateID) {
+			return fmt.Errorf("human checkpoint candidate is invalid")
+		}
+	case "diagnostic":
+		if message.Diagnostic == nil || !liveDiagnosticPattern.MatchString(message.Diagnostic.Code) {
+			return fmt.Errorf("diagnostic is invalid")
+		}
+	case "result":
+		if message.Result == nil || message.Result.ArtifactPath == "" || !validSHA256Digest(message.Result.Digest) {
+			return fmt.Errorf("result is invalid")
+		}
+	}
+	return nil
+}
+
+func validateLiveObservation(observation liveObservation) error {
+	if len(observation.Candidates) > liveAuthorMaxCandidates || len(observation.Diagnostics) > liveAuthorMaxDiagnostics || !liveContextPattern.MatchString(observation.Context) {
+		return fmt.Errorf("observation bounds or context are invalid")
+	}
+	origins, err := normalizeBrowserAuthoringOrigins([]string{observation.Origin})
+	if err != nil || origins[0] != observation.Origin || !validLivePath(observation.Path) {
+		return fmt.Errorf("observation origin or path is invalid")
+	}
+	seen := map[string]bool{}
+	for _, candidate := range observation.Candidates {
+		if !liveCandidatePattern.MatchString(candidate.ID) || seen[candidate.ID] || !livePortableRoles[candidate.Role] || candidate.Matches < 1 || candidate.Matches > liveAuthorMaxCandidates || len(candidate.Label) > 256 {
+			return fmt.Errorf("observation candidate is invalid")
+		}
+		seen[candidate.ID] = true
+	}
+	for _, diagnostic := range observation.Diagnostics {
+		if !liveDiagnosticPattern.MatchString(diagnostic) {
+			return fmt.Errorf("observation diagnostic is invalid")
+		}
+	}
+	return nil
+}
+
+func validLivePath(path string) bool {
+	if !strings.HasPrefix(path, "/") || strings.ContainsAny(path, "?#\\") {
+		return false
+	}
+	for _, part := range strings.Split(path, "/")[1:] {
+		decoded, err := url.PathUnescape(part)
+		if err != nil || decoded == "." || decoded == ".." || strings.ContainsAny(decoded, "/\\") {
+			return false
+		}
+	}
+	return true
+}
+
+func validSHA256Digest(value string) bool {
+	raw := strings.TrimPrefix(strings.ToLower(strings.TrimSpace(value)), "sha256:")
+	decoded, err := hex.DecodeString(raw)
+	return err == nil && len(decoded) == sha256.Size
+}
+
+func containsExact(values []string, wanted string) bool {
+	for _, value := range values {
+		if value == wanted {
+			return true
+		}
+	}
+	return false
+}

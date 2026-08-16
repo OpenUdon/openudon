@@ -48,9 +48,9 @@ go run ./cmd/icot --example ./examples/<name> --network never
 
 `--api-source` uses `KIND:ID=PATH`; `--openapi ID=PATH` is shorthand for an
 OpenAPI source. `--browser-profile ID=PATH` supplies a reviewed
-`uws.browser.1.5` capability profile, a capability bundle, an explicit
+`uws.browser.1.5` or `uws.browser.1.6` capability profile, a capability bundle, an explicit
 `browsertools.guided-authoring.v1` result, or a secret-free
-`uws.browser-authentication.1.0` sign-in profile. A guided result is accepted
+`uws.browser-authentication.1.0` or `uws.browser-authentication.1.1` sign-in profile. A guided result is accepted
 only as an explicit file, replayed through Browsertools' draft and review
 gates, rejected if it contains secret/session/private-browser-shaped content or
 bypasses parameter-only guided text/select values, and reduced to its embedded profile; its normalized evidence, decisions,
@@ -120,15 +120,38 @@ returns the handoff inline only when readiness has reached the blocking
 missing-source boundary; an available API source remains preferred. Agent mode
 still writes nothing.
 
-Login-required protected-page authoring intentionally fails closed with
-`needs_reviewed_profiles`. Browsertools can separately observe an explicitly
-authored authentication profile while a human enters credentials and completes
-MFA, but it does not export that session or carry it into capability capture.
-iCoT therefore does not promise live dashboard learning from an authenticated
-context. Supply separately reviewed `uws.browser-authentication.1.0` and
-`uws.browser.1.5` files, or wait for a reviewed upstream context contract;
-popup/iframe SSO, CAPTCHA, enrollment, recovery, and consent remain outside the
-current contract.
+The ordinary interview and agent report still fail closed with
+`needs_reviewed_profiles` for a login-required protected-page gap. They never
+launch Browsertools or a browser. An operator may now choose the separate,
+explicit `icot browser-author live` path to keep one headed Chromium context
+alive across human credential/MFA entry and post-login exploration:
+
+```bash
+install -d -m 0700 /private/operator/member-authoring
+go run ./cmd/icot browser-author live \
+  --example ./examples/member-dashboard \
+  --browsertools /absolute/path/browsertools \
+  --url https://members.example.test/login \
+  --dashboard-url https://members.example.test/dashboard \
+  --goal "reach the member dashboard and learn how to read account status" \
+  --origin https://members.example.test \
+  --origin https://login.example-idp.test \
+  --private-root /private/operator/member-authoring \
+  --profile-id member --goal-role heading --goal-label Dashboard
+```
+
+Browsertools owns the non-persistent Playwright-Go context. iCoT uses only the
+closed reduced-observation protocol, names the provider/model before any model
+disclosure, falls back to human guidance on denial, and requires separate
+typed-goal, API-override, origin, action, authentication, completion, and final
+staging gates. `--yes` cannot bypass them. The private result envelope remains
+under `--private-root`; only independently validated canonical profiles and
+safe review metadata are staged. See
+[Authenticated Goal-Directed Browser Authoring](authenticated-browser-authoring.md).
+
+Popup and iframe SSO are supported only through portable UWS 1.8 context
+contracts. CAPTCHA, enrollment, recovery, password changes, consent, account
+creation, and logout remain outside the contract.
 
 Maintainers can prove this supported and unsupported boundary without a live
 site or credential using `make browser-integration-check`. The resulting
@@ -238,7 +261,7 @@ A mutating profile action requires exact authoring approval for its workflow
 step, while Udon still requires a separate exact runtime operation approval.
 
 When a selected browser action requires login state and a reviewed
-`uws.browser-authentication.1.0` profile is available, iCoT can place an
+`uws.browser-authentication.1.0` or `uws.browser-authentication.1.1` profile is available, iCoT can place an
 explicit `browser_authentication` step before the protected action. It asks for
 the exact flow, an execution-local named session, symbolic credential-slot
 bindings, a timeout of at most 600 seconds, and separate authoring approval.
@@ -294,11 +317,12 @@ review handoff digest.
 
 Selected authentication profiles are staged under `browser-authentication/`,
 with safe digest/flow/origin/expiry/session-name/approval evidence under
-`.icot/browser-authentication.json`. Intent lowers authentication to
-`uws.browser-authentication-call.1.0`, protected actions retain
-`uws.browser.1.5` and add the named-session supplement, and the exported
-workflow uses UWS 1.7. Credential values, OTP values, cookies, storage state,
-and live browser handles are never written to the package.
+`.icot/browser-authentication.json`. Main-page 1.0/1.5 sources lower to
+`uws.browser-authentication-call.1.0` and UWS 1.7. A context-qualified
+authentication 1.1 or browser 1.6 source selects UWS 1.8 and authentication
+call 1.1 where required. Protected actions retain the named-session
+supplement. Credential values, OTP values, cookies, storage state, private live
+protocol envelopes, and browser handles are never written to the package.
 
 `project.md` may include a deterministic, non-executable `Candidate Workflows`
 section. Reconcile preserves it, lint validates its shape, and build ignores it.

@@ -2,12 +2,73 @@ package synthesize
 
 import (
 	"encoding/json"
+	"os"
+	"path/filepath"
 	"testing"
 
 	rollout "github.com/OpenUdon/openudon/internal/workflowintent"
 	"github.com/OpenUdon/uws/browserauthentication"
 	"github.com/OpenUdon/uws/schemas"
+	"github.com/OpenUdon/uws/uws1"
 )
+
+func TestGenerateWorkflowSelectsUWS18ForContextAuthentication(t *testing.T) {
+	if _, err := schemas.BrowserAuthenticationProfileSchema("uws.browser-authentication.1.1"); err != nil {
+		t.Skip("the standalone dependency pin predates UWS 1.8")
+	}
+	example := t.TempDir()
+	relative := filepath.ToSlash(filepath.Join("browser-authentication", "member.json"))
+	path := filepath.Join(example, filepath.FromSlash(relative))
+	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(path, []byte(`{"profile":"uws.browser-authentication.1.1"}`), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	intent := &rollout.Intent{
+		Workflow: &rollout.WorkflowMeta{Name: "member_login"},
+		Steps: []*rollout.Step{{
+			Name: "authenticate", Type: "browser_authentication", Source: relative,
+			AuthenticationFlow: "member_login", BrowserSession: "member_portal",
+		}},
+	}
+	doc, err := generateWorkflowDocument(Result{ExampleDir: example}, intent)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if doc.UWS != "1.8.0" {
+		t.Fatalf("UWS version = %q, want 1.8.0", doc.UWS)
+	}
+	if got := doc.Operations[0].Extensions[uws1.ExtensionOperationProfile]; got != "uws.browser-authentication-call.1.1" {
+		t.Fatalf("authentication call profile = %#v", got)
+	}
+}
+
+func TestGenerateWorkflowSelectsUWS18ForContextCapability(t *testing.T) {
+	if _, err := schemas.BrowserSourceProfileSchema("uws.browser.1.6"); err != nil {
+		t.Skip("the standalone dependency pin predates UWS 1.8")
+	}
+	example := t.TempDir()
+	relative := filepath.ToSlash(filepath.Join("browser-profiles", "member.json"))
+	path := filepath.Join(example, filepath.FromSlash(relative))
+	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(path, []byte(`{"profile":"uws.browser.1.6"}`), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	intent := &rollout.Intent{
+		Workflow: &rollout.WorkflowMeta{Name: "member_dashboard"},
+		Steps:    []*rollout.Step{{Name: "read_status", Type: "browser", Source: relative, Operation: "read_status"}},
+	}
+	doc, err := generateWorkflowDocument(Result{ExampleDir: example}, intent)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if doc.UWS != "1.8.0" {
+		t.Fatalf("UWS version = %q, want 1.8.0", doc.UWS)
+	}
+}
 
 func TestGenerateWorkflowLowersBrowserAuthenticationAndNamedSession(t *testing.T) {
 	timeout := 120.0
