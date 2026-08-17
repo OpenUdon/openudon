@@ -97,6 +97,13 @@ or Playwright object. Its only valid proposals are focus, candidate click,
 bounded GET navigation, or human fallback. iCoT rejects invented candidate IDs,
 unknown fields, trailing data, selectors, and malformed actions.
 
+Phrase screening and fixed label markers are defense in depth, not the primary
+LLM containment boundary. Every planner response must still decode as one
+closed typed action: an observed unique candidate ID, a bounded same-origin GET
+navigation in a disclosed context, or human fallback. The planner cannot
+invent a selector, script, coordinate, URL authority, input value, completion
+claim, or unapproved click, and human approval remains mandatory for clicks.
+
 `--yes` is accepted for CLI compatibility but cannot bypass typed-goal review,
 API override, disclosure, origin, action, authentication, completion, or final
 staging approval.

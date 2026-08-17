@@ -21,19 +21,19 @@ import (
 	"strings"
 	"time"
 
-	"github.com/OpenUdon/evidence/redact"
+	"github.com/OpenUdon/browsertools/authorsession"
 	"github.com/OpenUdon/openudon/internal/icot/elicitor"
 	rollout "github.com/OpenUdon/openudon/internal/workflowintent"
 )
 
 const (
-	liveAuthorProtocol        = "browsertools.author-session.v1"
-	liveAuthorMaxLineBytes    = 64 << 10
-	liveAuthorDefaultTimeout  = 10 * time.Minute
-	liveAuthorResultMaxBytes  = 20 << 20
-	liveAuthorMaxCandidates   = 512
-	liveAuthorMaxDiagnostics  = 256
-	liveAuthorMaxCapabilities = 32
+	liveAuthorProtocol              = "browsertools.author-session.v1"
+	liveAuthorMaxLineBytes          = 64 << 10
+	liveAuthorDefaultTimeout        = 10 * time.Minute
+	liveAuthorResultMaxBytes        = 20 << 20
+	liveAuthorAbsoluteMaxCandidates = 512
+	liveAuthorMaxDiagnostics        = 256
+	liveAuthorMaxCapabilities       = 32
 )
 
 var (
@@ -619,6 +619,7 @@ func orchestrateLiveAuthor(ctx context.Context, cfg liveAuthorConfig, reader *bu
 	if err := protocol.send(start); err != nil {
 		return liveProtocolResult{}, err
 	}
+	protocol.setCandidateCeiling(expectedBounds.MaxCandidates)
 	currentContext := "main"
 	knownContexts := map[string]liveContext{}
 	receivedInitialState := false
@@ -882,8 +883,11 @@ func validateLivePlan(plan livePlan, observation liveObservation) error {
 		if plan.CandidateID != "" || plan.POSTBudget != 0 || !liveObservationHasContext(observation, plan.Context) {
 			return fmt.Errorf("invalid navigation action")
 		}
-		_, _, err := normalizeBrowserAuthoringURL(plan.URL)
-		return err
+		canonicalURL, origin, err := normalizeBrowserAuthoringURL(plan.URL)
+		if err != nil || canonicalURL != plan.URL || origin != observation.Origin {
+			return fmt.Errorf("invalid same-origin navigation action")
+		}
+		return nil
 	default:
 		return fmt.Errorf("unknown planner action")
 	}
@@ -941,14 +945,21 @@ func readLiveDecision(reader *bufio.Reader, out io.Writer, prompt string, choice
 }
 
 type liveProtocol struct {
-	input   io.Writer
-	scanner *bufio.Scanner
+	input            io.Writer
+	scanner          *bufio.Scanner
+	candidateCeiling int
 }
 
 func newLiveProtocol(input io.Writer, output io.Reader) *liveProtocol {
 	scanner := bufio.NewScanner(output)
 	scanner.Buffer(make([]byte, 4096), liveAuthorMaxLineBytes)
-	return &liveProtocol{input: input, scanner: scanner}
+	return &liveProtocol{input: input, scanner: scanner, candidateCeiling: liveAuthorAbsoluteMaxCandidates}
+}
+
+func (protocol *liveProtocol) setCandidateCeiling(ceiling int) {
+	if ceiling > 0 && ceiling <= liveAuthorAbsoluteMaxCandidates {
+		protocol.candidateCeiling = ceiling
+	}
 }
 
 func (protocol *liveProtocol) send(message liveClientMessage) error {
@@ -970,14 +981,14 @@ func (protocol *liveProtocol) receive() (liveServerMessage, error) {
 		return liveServerMessage{}, fmt.Errorf("Browsertools protocol ended unexpectedly")
 	}
 	line := append([]byte(nil), protocol.scanner.Bytes()...)
-	message, err := decodeLiveServerMessage(line)
+	message, err := decodeLiveServerMessage(line, protocol.candidateCeiling)
 	if err != nil {
 		return liveServerMessage{}, fmt.Errorf("Browsertools protocol rejected: %w", err)
 	}
 	return message, nil
 }
 
-func decodeLiveServerMessage(data []byte) (liveServerMessage, error) {
+func decodeLiveServerMessage(data []byte, candidateCeiling int) (liveServerMessage, error) {
 	var fields map[string]json.RawMessage
 	if err := json.Unmarshal(data, &fields); err != nil {
 		return liveServerMessage{}, err
@@ -1017,13 +1028,13 @@ func decodeLiveServerMessage(data []byte) (liveServerMessage, error) {
 	if err := decoder.Decode(&message); err != nil {
 		return liveServerMessage{}, err
 	}
-	if err := validateLiveServerMessage(message); err != nil {
+	if err := validateLiveServerMessage(message, candidateCeiling); err != nil {
 		return liveServerMessage{}, err
 	}
 	return message, nil
 }
 
-func validateLiveServerMessage(message liveServerMessage) error {
+func validateLiveServerMessage(message liveServerMessage, candidateCeiling int) error {
 	switch message.Type {
 	case "hello":
 		if len(message.Capabilities) == 0 || len(message.Capabilities) > liveAuthorMaxCapabilities {
@@ -1049,7 +1060,7 @@ func validateLiveServerMessage(message liveServerMessage) error {
 		if message.Observation == nil {
 			return fmt.Errorf("observation is missing")
 		}
-		if err := validateLiveObservation(*message.Observation); err != nil {
+		if err := validateLiveObservation(*message.Observation, candidateCeiling); err != nil {
 			return err
 		}
 	case "approval_required":
@@ -1078,8 +1089,8 @@ func validateLiveServerMessage(message liveServerMessage) error {
 	return nil
 }
 
-func validateLiveObservation(observation liveObservation) error {
-	if len(observation.Candidates) > liveAuthorMaxCandidates || len(observation.Diagnostics) > liveAuthorMaxDiagnostics || !liveContextPattern.MatchString(observation.Context) {
+func validateLiveObservation(observation liveObservation, candidateCeiling int) error {
+	if candidateCeiling <= 0 || candidateCeiling > liveAuthorAbsoluteMaxCandidates || len(observation.Candidates) > candidateCeiling || len(observation.Diagnostics) > liveAuthorMaxDiagnostics || !liveContextPattern.MatchString(observation.Context) {
 		return fmt.Errorf("observation bounds or context are invalid")
 	}
 	origins, err := normalizeBrowserAuthoringOrigins([]string{observation.Origin})
@@ -1088,8 +1099,8 @@ func validateLiveObservation(observation liveObservation) error {
 	}
 	seen := map[string]bool{}
 	for _, candidate := range observation.Candidates {
-		if !liveCandidatePattern.MatchString(candidate.ID) || seen[candidate.ID] || !livePortableRoles[candidate.Role] || candidate.Matches < 1 || candidate.Matches > liveAuthorMaxCandidates || !validLiveReducedLabel(candidate.Label) {
-			return fmt.Errorf("observation candidate is invalid")
+		if err := validateLiveCandidate(candidate, seen, candidateCeiling); err != nil {
+			return err
 		}
 		seen[candidate.ID] = true
 	}
@@ -1105,6 +1116,26 @@ func validateLiveObservation(observation liveObservation) error {
 		if !liveDiagnosticPattern.MatchString(diagnostic) {
 			return fmt.Errorf("observation diagnostic is invalid")
 		}
+	}
+	return nil
+}
+
+func validateLiveCandidate(candidate liveCandidate, seen map[string]bool, candidateCeiling int) error {
+	if !liveCandidatePattern.MatchString(candidate.ID) {
+		return fmt.Errorf("observation candidate rejected: invalid_id")
+	}
+	if seen[candidate.ID] {
+		return fmt.Errorf("observation candidate %s rejected: duplicate_id", candidate.ID)
+	}
+	if !livePortableRoles[candidate.Role] {
+		return fmt.Errorf("observation candidate %s rejected: invalid_role", candidate.ID)
+	}
+	if candidate.Matches < 1 || candidate.Matches > candidateCeiling {
+		return fmt.Errorf("observation candidate %s rejected: invalid_match_count", candidate.ID)
+	}
+	reduction := authorsession.ReduceAccessibilityLabel(candidate.Label)
+	if reduction.Value != candidate.Label {
+		return fmt.Errorf("observation candidate %s rejected: %s", candidate.ID, reduction.Reason)
 	}
 	return nil
 }
@@ -1148,25 +1179,6 @@ func validateLiveObservationInventory(observation liveObservation, approvedOrigi
 		}
 	}
 	return nil
-}
-
-func validLiveReducedLabel(label string) bool {
-	if len(label) > 256 || strings.ContainsAny(label, "\x00\r\n") {
-		return false
-	}
-	if label == "[redacted]" || label == "[untrusted-label]" {
-		return true
-	}
-	if redact.String(label) != label {
-		return false
-	}
-	lower := strings.ToLower(label)
-	for _, phrase := range []string{"ignore previous", "ignore prior", "ignore all instructions", "system prompt", "developer message", "tool call", "reveal secrets", "reveal credentials"} {
-		if strings.Contains(lower, phrase) {
-			return false
-		}
-	}
-	return true
 }
 
 func validLivePath(path string) bool {

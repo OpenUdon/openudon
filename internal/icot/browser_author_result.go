@@ -397,7 +397,7 @@ func liveValueContainsSecret(value any) bool {
 }
 
 func validateLiveBounds(bounds liveBounds) error {
-	if bounds.NavigationTimeoutMS <= 0 || bounds.NavigationTimeoutMS > time.Minute.Milliseconds() || bounds.TotalTimeoutMS < bounds.NavigationTimeoutMS || bounds.TotalTimeoutMS > (30*time.Minute).Milliseconds() || bounds.MaxRequests <= 0 || bounds.MaxRequests > 4096 || bounds.MaxResponseBytes <= 0 || bounds.MaxResponseBytes > 128<<20 || bounds.MaxObservations <= 0 || bounds.MaxObservations > 256 || bounds.MaxCandidates <= 0 || bounds.MaxCandidates > liveAuthorMaxCandidates {
+	if bounds.NavigationTimeoutMS <= 0 || bounds.NavigationTimeoutMS > time.Minute.Milliseconds() || bounds.TotalTimeoutMS < bounds.NavigationTimeoutMS || bounds.TotalTimeoutMS > (30*time.Minute).Milliseconds() || bounds.MaxRequests <= 0 || bounds.MaxRequests > 4096 || bounds.MaxResponseBytes <= 0 || bounds.MaxResponseBytes > 128<<20 || bounds.MaxObservations <= 0 || bounds.MaxObservations > 256 || bounds.MaxCandidates <= 0 || bounds.MaxCandidates > liveAuthorAbsoluteMaxCandidates {
 		return fmt.Errorf("authenticated-authoring bounds are invalid")
 	}
 	return nil
