@@ -97,7 +97,7 @@ func generateWorkflowDocument(result Result, intent *rollout.Intent) (*uws1.Docu
 		idempotency = normalized.Workflow.Idempotency
 	}
 	doc := &uws1.Document{
-		UWS: uwsVersionForIntentAndBrowserContracts(normalized, browserVersions.Requires18),
+		UWS: uwsVersionForIntentAndBrowserContracts(normalized, browserVersions.Requires18, browserVersions.Requires19),
 		Info: &uws1.Info{
 			Title:       title,
 			Description: description,
@@ -1054,10 +1054,13 @@ func stringMapToAny(values map[string]string) map[string]any {
 }
 
 func uwsVersionForIntent(intent *rollout.Intent) string {
-	return uwsVersionForIntentAndBrowserContracts(intent, false)
+	return uwsVersionForIntentAndBrowserContracts(intent, false, false)
 }
 
-func uwsVersionForIntentAndBrowserContracts(intent *rollout.Intent, requires18 bool) string {
+func uwsVersionForIntentAndBrowserContracts(intent *rollout.Intent, requires18, requires19 bool) string {
+	if requires19 {
+		return "1.9.0"
+	}
 	if requires18 {
 		return "1.8.0"
 	}
@@ -1084,6 +1087,7 @@ func uwsVersionForIntentAndBrowserContracts(intent *rollout.Intent, requires18 b
 
 type browserContractVersions struct {
 	Requires18            bool
+	Requires19            bool
 	ContextAuthentication map[string]bool
 }
 
@@ -1101,6 +1105,8 @@ func browserContractVersionsForIntent(exampleDir string, intent *rollout.Intent)
 			source := filepath.ToSlash(strings.TrimSpace(firstNonEmpty(step.Source, step.OpenAPI, inheritedSource)))
 			kind := strings.ToLower(strings.TrimSpace(step.Type))
 			switch profileName := browserProfileDiscriminator(exampleDir, source); {
+			case kind == "browser" && profileName == "uws.browser.1.7":
+				result.Requires19 = true
 			case kind == "browser" && profileName == "uws.browser.1.6":
 				result.Requires18 = true
 			case kind == "browser_authentication" && profileName == "uws.browser-authentication.1.1":

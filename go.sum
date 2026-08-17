@@ -6,8 +6,8 @@ github.com/OpenUdon/authoring v0.0.0-20260814160241-18ba8068d49c h1:A4Qxvbacwj8Q
 github.com/OpenUdon/authoring v0.0.0-20260814160241-18ba8068d49c/go.mod h1:UZUPXJZ4zTGDpb7gE4DpFLhFsRf4j9028y0/muxf6V4=
 github.com/OpenUdon/awssmithy v0.0.0-20260520213111-549a060a5e28 h1:Xrv5Ccw2QVXfuswbTLP98vt5vyMIVmnsfX43TUHBo+Y=
 github.com/OpenUdon/awssmithy v0.0.0-20260520213111-549a060a5e28/go.mod h1:Wkg6qE+XUwzDCpw6gKoUhPQ03K0RhGbxnYpDMmGFStQ=
-github.com/OpenUdon/browsertools v0.0.0-20260817000231-55f40e56e03e h1:oo1iFtbWNhvcbBn6w5CeH4lLRtNfqvNh0a4ccoWMUdg=
-github.com/OpenUdon/browsertools v0.0.0-20260817000231-55f40e56e03e/go.mod h1:zxBjprH4DR6Pka8MSN7snpQWfnUkRoHLJaMYbO6Pe1Q=
+github.com/OpenUdon/browsertools v0.0.0-20260817022912-dd89956d0220 h1:l/ZXXASw+PH1VpqeVTM0VH/b46tHAcbQJ5Q5hA9EcxU=
+github.com/OpenUdon/browsertools v0.0.0-20260817022912-dd89956d0220/go.mod h1:cS5b+PxduWwQvLyo/RyLsNNQlls8dfp1QhbZsMvZZAA=
 github.com/OpenUdon/evidence v0.0.0-20260815084845-0c17258b9736 h1:m66ctgDRK/pv45OfAyrKmjE/XmgehlAXYCCjYK4V1Tw=
 github.com/OpenUdon/evidence v0.0.0-20260815084845-0c17258b9736/go.mod h1:AUZKUpFNDa5j56Vpi64YR1PkcK8JYZJSEGjNkZNdMFI=
 github.com/OpenUdon/googlediscovery v0.0.0-20260520203137-c02129a009fc h1:drM11+jXvEjjpuWisSFurkQXvqrWO1o4PDIwLv1HqLI=
@@ -16,8 +16,8 @@ github.com/OpenUdon/oas v0.0.0-20260507023120-7fb319711323 h1:IIS4CeB6dcbkAdcSIn
 github.com/OpenUdon/oas v0.0.0-20260507023120-7fb319711323/go.mod h1:Q9qOlsluqLT/UmBD1TrwRn46fhNILwk+IIgtuNgyWXM=
 github.com/OpenUdon/schema v0.0.0-20260507023912-6ea3308bb955 h1:dwQPNJKFpa6ndPagc3bKvS8ITuVopArFVsE2JgVFJfY=
 github.com/OpenUdon/schema v0.0.0-20260507023912-6ea3308bb955/go.mod h1:Q0QXMOpiSZlXZpdnMV/FpUaZ85SJWi+h7E5vEU85Rik=
-github.com/OpenUdon/uws v0.0.0-20260816222459-c9665a61adfb h1:UhoCR3xlHqojGSVU4ZDIXx//xlL+Ed8k9R4h8BQCD4c=
-github.com/OpenUdon/uws v0.0.0-20260816222459-c9665a61adfb/go.mod h1:UhFjfGxPepPDdxpmIF+1GBmjhDWXPjgRggrhqDU5KK8=
+github.com/OpenUdon/uws v0.0.0-20260817013720-dd9eb3210513 h1:PWrz4hHXZhXOqxaJd6VzBRJXlmC8MUaaLqTaGdnRUZU=
+github.com/OpenUdon/uws v0.0.0-20260817013720-dd9eb3210513/go.mod h1:UhFjfGxPepPDdxpmIF+1GBmjhDWXPjgRggrhqDU5KK8=
 github.com/agext/levenshtein v1.2.3 h1:YB2fHEn0UJagG8T1rrWknE3ZQzWM06O8AMAatNn7lmo=
 github.com/agext/levenshtein v1.2.3/go.mod h1:JEDfjyjHDjOF/1e4FlBE/PkbqA9OfWu2ki2W0IB5558=
 github.com/antchfx/xmlquery v1.5.1 h1:T9I4Ns1EXiWHy0IqKupGhnfTQtJwlGrpXtauYOoNv78=

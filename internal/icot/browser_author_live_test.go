@@ -31,19 +31,19 @@ func TestAuthenticatedAuthoringConsumesActualBrowsertoolsEnvelope(t *testing.T) 
 		Role: "heading", Label: "Dashboard", Matches: 1,
 	}
 	envelope, err := authorresult.Build(authorresult.BuildRequest{
-		ObservedAt: at, Title: "Member dashboard", Goal: "reach the member dashboard and learn how to read account status",
+		ObservedAt: at, Title: "Member", Goal: "reach the member dashboard and learn how to read account status",
 		InitialURL: "https://members.example.test/login", DashboardURL: "https://members.example.test/dashboard",
 		Origins: []string{"https://members.example.test"}, Contexts: map[string]authorresult.Context{},
 		Bounds: authorresult.Bounds{
 			NavigationTimeoutMS: 20_000, TotalTimeoutMS: 600_000, MaxRequests: 512,
-			MaxResponseBytes: 32 << 20, MaxObservations: 64, MaxCandidates: 128,
+			MaxResponseBytes: 32 << 20, MaxObservations: 64, MaxCandidates: 128, MaxOutputs: 16,
 		},
 		Trace: []authorresult.TraceStep{{
 			Kind: "click", Phase: "authentication", CandidateID: "candidate-0123456789abcdef",
 			Context: "main", Role: "button", Label: "Sign in", POSTBudget: 1, POSTObserved: 1,
 		}},
 		GoalPredicate: authorresult.GoalPredicate{Origin: proof.Origin, Path: proof.Path, Context: "main", Role: proof.Role, Label: proof.Label},
-		GoalProof:     proof, HumanConfirmed: true,
+		GoalProof:     proof, AuthenticationProof: proof, HumanConfirmed: true,
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -59,6 +59,7 @@ func TestAuthenticatedAuthoringConsumesActualBrowsertoolsEnvelope(t *testing.T) 
 	sum := sha256.Sum256(data)
 	cfg := liveAuthorConfig{
 		ExampleDir: example, PrivateRoot: privateRoot, ProfileID: "member",
+		URL:          "https://members.example.test/login",
 		DashboardURL: "https://members.example.test/dashboard",
 		Goal:         "reach the member dashboard and learn how to read account status",
 		Origins:      []string{"https://members.example.test"}, GoalRole: "heading", GoalLabel: "Dashboard", GoalContext: "main",
@@ -127,7 +128,7 @@ func TestBrowserAuthorLiveStagesReviewedProfilesAtomically(t *testing.T) {
 	args := liveAuthorTestArgs(example, privateRoot, executable)
 	args = append(args, "--yes")
 	var stdout, stderr strings.Builder
-	code := runBrowserAuthorLiveWith(args, strings.NewReader("approve\nconfirm\nstage\n"), &stdout, &stderr, deps)
+	code := runBrowserAuthorLiveWith(args, strings.NewReader("approve\ndone\nconfirm\nstage\n"), &stdout, &stderr, deps)
 	if code != 0 {
 		t.Fatalf("exit = %d\nstderr:\n%s\nstdout:\n%s", code, stderr.String(), stdout.String())
 	}
@@ -178,7 +179,7 @@ func TestBrowserAuthorLiveRejectsTamperedResultWithoutStaging(t *testing.T) {
 		},
 	}
 	var stdout, stderr strings.Builder
-	code := runBrowserAuthorLiveWith(liveAuthorTestArgs(example, privateRoot, executable), strings.NewReader("approve\nconfirm\n"), &stdout, &stderr, deps)
+	code := runBrowserAuthorLiveWith(liveAuthorTestArgs(example, privateRoot, executable), strings.NewReader("approve\ndone\nconfirm\n"), &stdout, &stderr, deps)
 	if code != 1 || !strings.Contains(stderr.String(), "digest mismatch") {
 		t.Fatalf("exit = %d, stderr = %q", code, stderr.String())
 	}
@@ -200,7 +201,7 @@ func TestBrowserAuthorLiveRejectsUnknownProtocolField(t *testing.T) {
 		Now: time.Now,
 		StartProcess: func(_ context.Context, _ string, _, _ []string) (liveChild, error) {
 			return newScriptedLiveChild(func(_ *bufio.Reader, writer io.Writer) error {
-				_, err := io.WriteString(writer, `{"protocol":"browsertools.author-session.v1","type":"hello","capabilities":["chromium","human_credentials","human_mfa","reduced_observation","popup","frame","typed_goal"],"dom":"forbidden"}`+"\n")
+				_, err := io.WriteString(writer, `{"protocol":"browsertools.author-session.v2","type":"hello","capabilities":["chromium","human_credentials","reviewed_mfa_kind","reviewed_outputs","reduced_observation","popup","frame","typed_goal"],"dom":"forbidden"}`+"\n")
 				return err
 			}), nil
 		},
@@ -488,7 +489,8 @@ func runSuccessfulAuthorScript(reader *bufio.Reader, writer io.Writer, artifactP
 		return err
 	}
 	complete, err := readTestClientMessage(reader)
-	if err != nil || complete["type"] != "human_complete" || complete["confirmed"] != true {
+	outputs, outputsOK := complete["outputs"].([]any)
+	if err != nil || complete["type"] != "human_complete" || complete["confirmed"] != true || !outputsOK || len(outputs) != 0 {
 		return fmt.Errorf("completion message: %w", err)
 	}
 	if received != nil {
@@ -508,7 +510,7 @@ func runSuccessfulAuthorScript(reader *bufio.Reader, writer io.Writer, artifactP
 }
 
 func liveAuthorTestCapabilities() []string {
-	return []string{"chromium", "human_credentials", "human_mfa", "reduced_observation", "popup", "frame", "typed_goal"}
+	return []string{"chromium", "human_credentials", "reviewed_mfa_kind", "reviewed_outputs", "reduced_observation", "popup", "frame", "typed_goal"}
 }
 
 func readTestClientMessage(reader *bufio.Reader) (map[string]any, error) {
@@ -567,65 +569,23 @@ func (child *scriptedLiveChild) Kill() error {
 
 func writeAuthenticatedAuthoringFixture(t *testing.T, privateRoot string, at time.Time) (string, string) {
 	t.Helper()
-	stamp := at.UTC().Format(time.RFC3339)
-	authentication := map[string]any{
-		"profile":         "uws.browser-authentication.1.1",
-		"info":            map[string]any{"title": "Member dashboard authentication", "applicationOrigins": []string{"https://members.example.test"}, "authenticationOrigins": []string{"https://members.example.test"}},
-		"observationKind": "accessibility_snapshot", "evidence": map[string]any{"learnedAt": stamp, "source": "browsertools_authenticated_authoring_value_free"},
-		"confidence": "medium", "expiresAfter": "P14D", "verification": map[string]any{"lastVerifiedAt": stamp, "successfulRuns": 1},
-		"credentialSlots": map[string]any{},
-		"flows": map[string]any{"authenticated_goal": map[string]any{
-			"sequence": []any{map[string]any{"navigate": "https://members.example.test/login"}},
-			"effects":  []string{"establishes_session"},
-			"success":  map[string]any{"origin": "https://members.example.test", "path": "/dashboard", "locator": map[string]any{"role": "heading", "name": "Dashboard"}},
-		}},
-	}
-	capability := map[string]any{
-		"profile": "uws.browser.1.5", "info": map[string]any{"title": "Member dashboard capability", "origin": "https://members.example.test", "loginStateRequired": true},
-		"observationKind": "accessibility_snapshot", "evidence": map[string]any{"learnedAt": stamp, "source": "browsertools_authenticated_authoring_value_free"},
-		"confidence": "medium", "expiresAfter": "P14D", "verification": map[string]any{"lastVerifiedAt": stamp, "successfulRuns": 1},
-		"actions": map[string]any{"reach_authenticated_goal": map[string]any{
-			"description": "reach the member dashboard and learn how to read account status",
-			"sequence":    []any{map[string]any{"wait_for": map[string]any{"role": "heading", "name": "Dashboard"}}},
-			"outputs":     map[string]any{"goal_present": map[string]any{"type": "boolean", "source": "a11y", "locator": map[string]any{"role": "heading", "name": "Dashboard"}, "presence": true}},
-			"sideEffects": []string{"read_only"}, "confirmationPolicy": map[string]any{"required": false},
-		}},
-	}
-	authenticationRaw, err := json.Marshal(authentication)
+	proof := authorresult.GoalProof{Origin: "https://members.example.test", Path: "/dashboard", Context: "main", Role: "heading", Label: "Dashboard", Matches: 1}
+	envelope, err := authorresult.Build(authorresult.BuildRequest{
+		ObservedAt: at, Title: "Member", Goal: "reach the member dashboard and learn how to read account status",
+		InitialURL: "https://members.example.test/login", DashboardURL: "https://members.example.test/dashboard",
+		Origins: []string{"https://members.example.test"}, Contexts: map[string]authorresult.Context{},
+		Bounds:        authorresult.Bounds{NavigationTimeoutMS: 20_000, TotalTimeoutMS: 600_000, MaxRequests: 512, MaxResponseBytes: 32 << 20, MaxObservations: 64, MaxCandidates: 128, MaxOutputs: 16},
+		Trace:         []authorresult.TraceStep{{Kind: "navigate", Phase: "authentication", Context: "main", URL: "https://members.example.test/login"}},
+		GoalPredicate: authorresult.GoalPredicate{Origin: proof.Origin, Path: proof.Path, Context: proof.Context, Role: proof.Role, Label: proof.Label},
+		GoalProof:     proof, AuthenticationProof: proof, HumanConfirmed: true, Diagnostics: []string{"value_free"},
+	})
 	if err != nil {
 		t.Fatal(err)
 	}
-	capabilityRaw, err := json.Marshal(capability)
+	data, err := authorresult.MarshalDeterministic(envelope)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := schemas.ValidateBrowserAuthenticationProfile(authenticationRaw); err != nil {
-		t.Fatalf("authentication fixture: %v\n%s", err, authenticationRaw)
-	}
-	if err := schemas.ValidateBrowserSourceProfile(capabilityRaw); err != nil {
-		t.Fatalf("capability fixture: %v\n%s", err, capabilityRaw)
-	}
-	authDigest := sha256.Sum256(authenticationRaw)
-	capabilityDigest := sha256.Sum256(capabilityRaw)
-	envelope := authenticatedAuthoringEnvelope{
-		Schema: "browsertools.authenticated-authoring.v1", ObservedAt: stamp,
-		Goal:           "reach the member dashboard and learn how to read account status",
-		GoalPredicate:  liveGoalPredicate{Origin: "https://members.example.test", Path: "/dashboard", Context: "main", Role: "heading", Label: "Dashboard"},
-		GoalProof:      liveGoalProof{Origin: "https://members.example.test", Path: "/dashboard", Context: "main", Role: "heading", Label: "Dashboard", Matches: 1},
-		HumanConfirmed: true, Origins: []string{"https://members.example.test"}, Contexts: map[string]liveContext{},
-		Bounds:                liveBounds{NavigationTimeoutMS: 20000, TotalTimeoutMS: 600000, MaxRequests: 512, MaxResponseBytes: 32 << 20, MaxObservations: 64, MaxCandidates: 128},
-		Trace:                 []liveTraceStep{{Kind: "navigate", Phase: "authentication", Context: "main", URL: "https://members.example.test/login"}},
-		AuthenticationProfile: authenticationRaw,
-		AuthenticationReview:  liveProfileReview{Schema: "browsertools.authenticated-profile-review.v1", Kind: "authentication", ProfileDigest: "sha256:" + hex.EncodeToString(authDigest[:]), AssessedAt: stamp, Decisions: []string{"uws.browser-authentication.1.1"}},
-		CapabilityProfile:     capabilityRaw,
-		CapabilityReview:      liveProfileReview{Schema: "browsertools.authenticated-profile-review.v1", Kind: "capability", ProfileDigest: "sha256:" + hex.EncodeToString(capabilityDigest[:]), AssessedAt: stamp, Decisions: []string{"uws.browser.1.5"}},
-		Diagnostics:           []string{"value_free"},
-	}
-	data, err := json.Marshal(envelope)
-	if err != nil {
-		t.Fatal(err)
-	}
-	data = append(data, '\n')
 	sum := sha256.Sum256(data)
 	digest := "sha256:" + hex.EncodeToString(sum[:])
 	path := filepath.Join(privateRoot, "authenticated-authoring-test.json")

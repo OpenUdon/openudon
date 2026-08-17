@@ -14,6 +14,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/OpenUdon/browsertools/authorresult"
+	"github.com/OpenUdon/browsertools/authorsession"
 	"github.com/OpenUdon/browsertools/authprofile"
 	"github.com/OpenUdon/browsertools/profile"
 	"github.com/OpenUdon/evidence/redact"
@@ -22,7 +24,7 @@ import (
 	"github.com/OpenUdon/uws/schemas"
 )
 
-const authenticatedAuthoringReviewVersion = "openudon.authenticated-browser-authoring-review.v1"
+const authenticatedAuthoringReviewVersion = "openudon.authenticated-browser-authoring-review.v2"
 
 type liveContext struct {
 	Kind   string `json:"kind"`
@@ -42,17 +44,31 @@ type liveGoalProof struct {
 }
 
 type liveTraceStep struct {
-	Kind         string `json:"kind"`
-	Phase        string `json:"phase"`
-	CandidateID  string `json:"candidateId,omitempty"`
-	Context      string `json:"context,omitempty"`
-	Role         string `json:"role,omitempty"`
-	Label        string `json:"label,omitempty"`
-	InputKind    string `json:"inputKind,omitempty"`
-	URL          string `json:"url,omitempty"`
-	POSTBudget   int    `json:"postBudget,omitempty"`
-	POSTObserved int    `json:"postObserved,omitempty"`
-	OpensContext string `json:"opensContext,omitempty"`
+	Kind          string `json:"kind"`
+	Phase         string `json:"phase"`
+	CandidateID   string `json:"candidateId,omitempty"`
+	Context       string `json:"context,omitempty"`
+	Role          string `json:"role,omitempty"`
+	Label         string `json:"label,omitempty"`
+	InputKind     string `json:"inputKind,omitempty"`
+	ChallengeKind string `json:"challengeKind,omitempty"`
+	URL           string `json:"url,omitempty"`
+	POSTBudget    int    `json:"postBudget,omitempty"`
+	POSTObserved  int    `json:"postObserved,omitempty"`
+	OpensContext  string `json:"opensContext,omitempty"`
+}
+
+type liveOutputSelection struct {
+	CandidateID string `json:"candidateId"`
+	Key         string `json:"key"`
+	Type        string `json:"type"`
+	LocatorMode string `json:"locatorMode"`
+	Observation int    `json:"observation"`
+	Context     string `json:"context"`
+	Role        string `json:"role"`
+	Name        string `json:"name,omitempty"`
+	Matches     int    `json:"matches"`
+	RoleMatches int    `json:"roleMatches"`
 }
 
 type liveProfileReview struct {
@@ -74,6 +90,7 @@ type authenticatedAuthoringEnvelope struct {
 	Contexts              map[string]liveContext `json:"contexts"`
 	Bounds                liveBounds             `json:"bounds"`
 	Trace                 []liveTraceStep        `json:"trace"`
+	OutputSelections      []liveOutputSelection  `json:"outputSelections"`
 	AuthenticationProfile json.RawMessage        `json:"authenticationProfile"`
 	AuthenticationReview  liveProfileReview      `json:"authenticationReview"`
 	CapabilityProfile     json.RawMessage        `json:"capabilityProfile"`
@@ -91,6 +108,7 @@ type authenticatedAuthoringSafeReview struct {
 	Contexts             map[string]liveContext `json:"contexts"`
 	Bounds               liveBounds             `json:"bounds"`
 	TraceSteps           int                    `json:"trace_steps"`
+	OutputSelections     []liveOutputSelection  `json:"output_selections"`
 	AuthenticationReview liveProfileReview      `json:"authentication_review"`
 	CapabilityReview     liveProfileReview      `json:"capability_review"`
 	Diagnostics          []string               `json:"diagnostics"`
@@ -157,6 +175,9 @@ func prepareAuthenticatedAuthoringImport(cfg liveAuthorConfig, result liveProtoc
 	if !allowedAuthenticatedProfilePair(authentication.Profile, capability.Schema) {
 		return preparedAuthenticatedImport{}, fmt.Errorf("candidate profile versions cannot be mixed")
 	}
+	if err := validateAuthenticatedProfileSemantics(cfg, envelope, authentication, capability); err != nil {
+		return preparedAuthenticatedImport{}, err
+	}
 	authenticationTarget := filepath.ToSlash(filepath.Join("browser-authentication", cfg.ProfileID+"-auth.json"))
 	capabilityTarget := filepath.ToSlash(filepath.Join("browser-profiles", cfg.ProfileID+".json"))
 	authenticationStaged := append(append([]byte(nil), authenticationBytes...), '\n')
@@ -204,6 +225,7 @@ func prepareAuthenticatedAuthoringImport(cfg liveAuthorConfig, result liveProtoc
 		ObservedAt: envelope.ObservedAt, Goal: envelope.Goal, GoalPredicate: envelope.GoalPredicate,
 		Origins: append([]string(nil), envelope.Origins...), Contexts: cloneLiveContexts(envelope.Contexts), Bounds: envelope.Bounds,
 		TraceSteps: len(envelope.Trace), AuthenticationReview: envelope.AuthenticationReview,
+		OutputSelections: append([]liveOutputSelection(nil), envelope.OutputSelections...),
 		CapabilityReview: envelope.CapabilityReview, Diagnostics: append([]string(nil), envelope.Diagnostics...), PrivateEnvelopeKept: true,
 	}
 	reviewData, err := json.MarshalIndent(safeReview, "", "  ")
@@ -291,7 +313,7 @@ func decodeAuthenticatedAuthoringEnvelope(data []byte) (*authenticatedAuthoringE
 }
 
 func validateAuthenticatedAuthoringEnvelope(cfg liveAuthorConfig, envelope *authenticatedAuthoringEnvelope, at time.Time) error {
-	if envelope == nil || envelope.Schema != "browsertools.authenticated-authoring.v1" || !envelope.HumanConfirmed || envelope.Goal != cfg.Goal {
+	if envelope == nil || envelope.Schema != "browsertools.authenticated-authoring.v2" || !envelope.HumanConfirmed || envelope.Goal != cfg.Goal {
 		return fmt.Errorf("authenticated-authoring identity, goal, or human confirmation is invalid")
 	}
 	observedAt, err := time.Parse(time.RFC3339, envelope.ObservedAt)
@@ -349,6 +371,12 @@ func validateAuthenticatedAuthoringEnvelope(cfg liveAuthorConfig, envelope *auth
 				return fmt.Errorf("authenticated-authoring popup binding is invalid")
 			}
 		}
+		if err := validateLiveTraceSemantics(step); err != nil {
+			return err
+		}
+	}
+	if err := validateLiveOutputSelections(envelope); err != nil {
+		return err
 	}
 	for _, diagnostic := range envelope.Diagnostics {
 		if !liveDiagnosticPattern.MatchString(diagnostic) {
@@ -369,6 +397,90 @@ func validateAuthenticatedAuthoringEnvelope(cfg liveAuthorConfig, envelope *auth
 		return fmt.Errorf("authenticated-authoring envelope contains a secret-like literal")
 	}
 	return nil
+}
+
+func validateLiveTraceSemantics(step liveTraceStep) error {
+	if step.Phase != "authentication" && step.Phase != "exploration" {
+		return fmt.Errorf("authenticated-authoring trace phase is invalid")
+	}
+	switch step.Kind {
+	case "navigate":
+		if step.URL == "" || step.CandidateID != "" || step.Role != "" || step.Label != "" || step.InputKind != "" || step.ChallengeKind != "" || step.OpensContext != "" || step.POSTBudget != 0 || step.POSTObserved != 0 {
+			return fmt.Errorf("authenticated-authoring navigation trace is invalid")
+		}
+	case "click":
+		if !liveCandidatePattern.MatchString(step.CandidateID) || !livePortableRoles[step.Role] || step.Label == authorsession.RedactedLabel || step.Label == authorsession.UntrustedLabel || step.InputKind != "" || step.ChallengeKind != "" {
+			return fmt.Errorf("authenticated-authoring click trace is invalid")
+		}
+	case "focus_human_input":
+		if step.Phase != "authentication" || !liveCandidatePattern.MatchString(step.CandidateID) || !livePortableRoles[step.Role] || step.OpensContext != "" || step.POSTBudget != 0 || step.POSTObserved != 0 {
+			return fmt.Errorf("authenticated-authoring human-input trace is invalid")
+		}
+		switch step.InputKind {
+		case "identifier", "password":
+			if step.ChallengeKind != "" || (step.Label != "" && !canonicalLiveLabel(step.Label)) {
+				return fmt.Errorf("authenticated-authoring credential trace is invalid")
+			}
+		case "otp":
+			if !containsExact(liveOTPChallengeKinds, step.ChallengeKind) || (step.Label != "" && !canonicalLiveLabel(step.Label)) {
+				return fmt.Errorf("authenticated-authoring OTP trace is invalid")
+			}
+		case "mfa":
+			if !containsExact(liveMFAChallengeKinds, step.ChallengeKind) {
+				return fmt.Errorf("authenticated-authoring MFA trace is invalid")
+			}
+		default:
+			return fmt.Errorf("authenticated-authoring human-input kind is invalid")
+		}
+	default:
+		return fmt.Errorf("authenticated-authoring trace kind is invalid")
+	}
+	if step.Phase == "exploration" && step.Kind != "navigate" && step.Kind != "click" {
+		return fmt.Errorf("authenticated-authoring exploration trace is invalid")
+	}
+	return nil
+}
+
+func validateLiveOutputSelections(envelope *authenticatedAuthoringEnvelope) error {
+	if envelope.OutputSelections == nil || len(envelope.OutputSelections) > envelope.Bounds.MaxOutputs || len(envelope.OutputSelections) > liveAuthorSelectedMaxOutputs {
+		return fmt.Errorf("authenticated-authoring output selection bound is invalid")
+	}
+	seenKeys, seenCandidates := map[string]bool{}, map[string]bool{}
+	lastKey, observation := "", 0
+	goalContext := firstNonEmpty(envelope.GoalProof.Context, "main")
+	for _, selection := range envelope.OutputSelections {
+		if !liveCandidatePattern.MatchString(selection.CandidateID) || !liveOutputKeyPattern.MatchString(selection.Key) || selection.Key == "goal_present" || redact.SensitiveKey(strings.ToLower(selection.Key)) ||
+			seenKeys[selection.Key] || seenCandidates[selection.CandidateID] || (lastKey != "" && selection.Key <= lastKey) || !liveOutputTypes[selection.Type] || !liveOutputLocatorModes[selection.LocatorMode] {
+			return fmt.Errorf("authenticated-authoring output identity is invalid")
+		}
+		seenKeys[selection.Key], seenCandidates[selection.CandidateID], lastKey = true, true, selection.Key
+		if observation == 0 {
+			observation = selection.Observation
+		}
+		contextID := firstNonEmpty(selection.Context, "main")
+		if selection.Observation <= 0 || selection.Observation > envelope.Bounds.MaxObservations || selection.Observation != observation || contextID != goalContext || selection.Matches != 1 || selection.RoleMatches < 1 || selection.RoleMatches > envelope.Bounds.MaxCandidates ||
+			!livePortableRoles[selection.Role] || liveOutputControlRoles[selection.Role] {
+			return fmt.Errorf("authenticated-authoring output proof is invalid")
+		}
+		if contextID != "main" {
+			if _, ok := envelope.Contexts[contextID]; !ok {
+				return fmt.Errorf("authenticated-authoring output context is invalid")
+			}
+		}
+		if selection.LocatorMode == "exact_name" {
+			if !canonicalLiveLabel(selection.Name) {
+				return fmt.Errorf("authenticated-authoring exact-name output is invalid")
+			}
+		} else if selection.Name != "" || selection.RoleMatches != 1 {
+			return fmt.Errorf("authenticated-authoring unique-role output is invalid")
+		}
+	}
+	return nil
+}
+
+func canonicalLiveLabel(value string) bool {
+	reduction := authorsession.ReduceAccessibilityLabel(value)
+	return value != "" && reduction.Reason == authorsession.LabelReasonUnchanged && reduction.Value == value
 }
 
 func mustJSONMarshal(value any) []byte {
@@ -397,7 +509,7 @@ func liveValueContainsSecret(value any) bool {
 }
 
 func validateLiveBounds(bounds liveBounds) error {
-	if bounds.NavigationTimeoutMS <= 0 || bounds.NavigationTimeoutMS > time.Minute.Milliseconds() || bounds.TotalTimeoutMS < bounds.NavigationTimeoutMS || bounds.TotalTimeoutMS > (30*time.Minute).Milliseconds() || bounds.MaxRequests <= 0 || bounds.MaxRequests > 4096 || bounds.MaxResponseBytes <= 0 || bounds.MaxResponseBytes > 128<<20 || bounds.MaxObservations <= 0 || bounds.MaxObservations > 256 || bounds.MaxCandidates <= 0 || bounds.MaxCandidates > liveAuthorAbsoluteMaxCandidates {
+	if bounds.NavigationTimeoutMS <= 0 || bounds.NavigationTimeoutMS > time.Minute.Milliseconds() || bounds.TotalTimeoutMS < bounds.NavigationTimeoutMS || bounds.TotalTimeoutMS > (30*time.Minute).Milliseconds() || bounds.MaxRequests <= 0 || bounds.MaxRequests > 4096 || bounds.MaxResponseBytes <= 0 || bounds.MaxResponseBytes > 128<<20 || bounds.MaxObservations <= 0 || bounds.MaxObservations > 256 || bounds.MaxCandidates <= 0 || bounds.MaxCandidates > liveAuthorAbsoluteMaxCandidates || bounds.MaxOutputs <= 0 || bounds.MaxOutputs > liveAuthorAbsoluteMaxOutputs {
 		return fmt.Errorf("authenticated-authoring bounds are invalid")
 	}
 	return nil
@@ -466,8 +578,90 @@ func canonicalEmbeddedProfile(raw json.RawMessage) ([]byte, error) {
 }
 
 func allowedAuthenticatedProfilePair(authentication, capability string) bool {
-	return authentication == "uws.browser-authentication.1.0" && capability == "uws.browser.1.5" ||
-		authentication == "uws.browser-authentication.1.1" && (capability == "uws.browser.1.5" || capability == "uws.browser.1.6")
+	return authentication == "uws.browser-authentication.1.1" &&
+		(capability == "uws.browser.1.5" || capability == "uws.browser.1.6" || capability == "uws.browser.1.7")
+}
+
+func validateAuthenticatedProfileSemantics(cfg liveAuthorConfig, envelope *authenticatedAuthoringEnvelope, authentication *authprofile.Profile, capability *profile.Profile) error {
+	if len(authentication.Flows) != 1 {
+		return fmt.Errorf("authenticated-authoring authentication flow inventory is invalid")
+	}
+	flow, ok := authentication.Flows["authenticated_goal"]
+	if !ok || flow.Success.Locator.Text != "" || flow.Success.Locator.Value != "" || !livePortableRoles[flow.Success.Locator.Role] {
+		return fmt.Errorf("authenticated-authoring authentication success proof is invalid")
+	}
+	dashboardOrigin, dashboardPath := originAndPath(cfg.DashboardURL)
+	if flow.Success.Origin != dashboardOrigin || flow.Success.Path != dashboardPath || (flow.Success.Locator.Name != "" && !canonicalLiveLabel(flow.Success.Locator.Name)) {
+		return fmt.Errorf("authenticated-authoring authentication success proof does not match the reviewed dashboard")
+	}
+	authContext := firstNonEmpty(flow.Success.Context, "main")
+	if authContext != "main" {
+		if _, ok := envelope.Contexts[authContext]; !ok {
+			return fmt.Errorf("authenticated-authoring authentication success context is invalid")
+		}
+	}
+	contexts := make(map[string]authorresult.Context, len(envelope.Contexts))
+	for id, context := range envelope.Contexts {
+		contexts[id] = authorresult.Context{Kind: context.Kind, Parent: context.Parent, Origin: context.Origin, Path: context.Path, Name: context.Name}
+	}
+	trace := make([]authorresult.TraceStep, len(envelope.Trace))
+	for index, step := range envelope.Trace {
+		trace[index] = authorresult.TraceStep{
+			Kind: step.Kind, Phase: step.Phase, CandidateID: step.CandidateID, Context: step.Context,
+			Role: step.Role, Label: step.Label, InputKind: step.InputKind, ChallengeKind: step.ChallengeKind,
+			URL: step.URL, POSTBudget: step.POSTBudget, POSTObserved: step.POSTObserved, OpensContext: step.OpensContext,
+		}
+	}
+	selections := make([]authorresult.OutputSelection, len(envelope.OutputSelections))
+	for index, selection := range envelope.OutputSelections {
+		selections[index] = authorresult.OutputSelection{
+			CandidateID: selection.CandidateID, Key: selection.Key, Type: selection.Type, LocatorMode: selection.LocatorMode,
+			Observation: selection.Observation, Context: selection.Context, Role: selection.Role, Name: selection.Name,
+			Matches: selection.Matches, RoleMatches: selection.RoleMatches,
+		}
+	}
+	observedAt, _ := time.Parse(time.RFC3339, envelope.ObservedAt)
+	expected, err := authorresult.Build(authorresult.BuildRequest{
+		ObservedAt: observedAt, Title: defaultLiveTitle(cfg), Goal: envelope.Goal,
+		InitialURL: cfg.URL, DashboardURL: cfg.DashboardURL, Origins: append([]string(nil), envelope.Origins...),
+		Contexts: contexts,
+		Bounds: authorresult.Bounds{
+			NavigationTimeoutMS: envelope.Bounds.NavigationTimeoutMS, TotalTimeoutMS: envelope.Bounds.TotalTimeoutMS,
+			MaxRequests: envelope.Bounds.MaxRequests, MaxResponseBytes: envelope.Bounds.MaxResponseBytes,
+			MaxObservations: envelope.Bounds.MaxObservations, MaxCandidates: envelope.Bounds.MaxCandidates, MaxOutputs: envelope.Bounds.MaxOutputs,
+		},
+		Trace: trace, OutputSelections: selections,
+		GoalPredicate: authorresult.GoalPredicate{
+			Origin: envelope.GoalPredicate.Origin, Path: envelope.GoalPredicate.Path, Context: envelope.GoalPredicate.Context,
+			Role: envelope.GoalPredicate.Role, Label: envelope.GoalPredicate.Label, Candidate: envelope.GoalPredicate.CandidateID,
+		},
+		GoalProof: authorresult.GoalProof{
+			Origin: envelope.GoalProof.Origin, Path: envelope.GoalProof.Path, Context: envelope.GoalProof.Context,
+			Role: envelope.GoalProof.Role, Label: envelope.GoalProof.Label, Matches: envelope.GoalProof.Matches,
+		},
+		AuthenticationProof: authorresult.GoalProof{
+			Origin: flow.Success.Origin, Path: flow.Success.Path, Context: flow.Success.Context,
+			Role: flow.Success.Locator.Role, Label: flow.Success.Locator.Name, Matches: 1,
+		},
+		HumanConfirmed: envelope.HumanConfirmed, Diagnostics: append([]string(nil), envelope.Diagnostics...),
+	})
+	if err != nil {
+		return fmt.Errorf("authenticated-authoring profile reconstruction: %w", err)
+	}
+	if expected.AuthenticationReview.Schema != envelope.AuthenticationReview.Schema || expected.AuthenticationReview.Kind != envelope.AuthenticationReview.Kind || expected.AuthenticationReview.ProfileDigest != envelope.AuthenticationReview.ProfileDigest || expected.AuthenticationReview.AssessedAt != envelope.AuthenticationReview.AssessedAt || !reflect.DeepEqual(expected.AuthenticationReview.Decisions, envelope.AuthenticationReview.Decisions) ||
+		expected.CapabilityReview.Schema != envelope.CapabilityReview.Schema || expected.CapabilityReview.Kind != envelope.CapabilityReview.Kind || expected.CapabilityReview.ProfileDigest != envelope.CapabilityReview.ProfileDigest || expected.CapabilityReview.AssessedAt != envelope.CapabilityReview.AssessedAt || !reflect.DeepEqual(expected.CapabilityReview.Decisions, envelope.CapabilityReview.Decisions) ||
+		!bytes.Equal(expected.AuthenticationProfile, envelope.AuthenticationProfile) || !bytes.Equal(expected.CapabilityProfile, envelope.CapabilityProfile) || capability.Schema != expectedCapabilitySchema(expected) {
+		return fmt.Errorf("authenticated-authoring returned profiles do not match the reviewed v2 selections")
+	}
+	return nil
+}
+
+func expectedCapabilitySchema(envelope *authorresult.Envelope) string {
+	var header struct {
+		Profile string `json:"profile"`
+	}
+	_ = json.Unmarshal(envelope.CapabilityProfile, &header)
+	return header.Profile
 }
 
 func liveCapabilityExpiry(value *profile.Profile) (time.Time, error) {

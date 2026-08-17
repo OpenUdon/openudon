@@ -72,10 +72,14 @@ The command requires explicit review of the continuation, completion predicate,
 and full origin allowlist. If local API discovery finds a plausible operation,
 the human must type `use browser` to override API preference.
 
-The human types credentials and MFA values directly into Chromium after
-Browsertools focuses the reviewed field. Browsertools does not read those
-values, and iCoT passes a minimal child environment that excludes credential
-and model-provider variables. Clicks require approval. A previously unapproved
+The human types credentials and OTP values directly into Chromium after
+Browsertools focuses the reviewed field. At an MFA checkpoint, iCoT displays
+only the compatible kinds reported by Browsertools and requires the human to
+choose the exact exercised kind: `totp`, `sms_otp`, `email_otp`, `voice_otp`,
+`push`, `push_number_match`, `passkey`, or `security_key`. The model cannot make
+this choice. Browsertools does not read entered values, and iCoT passes a
+minimal child environment that excludes credential and model-provider
+variables. Clicks require approval. A previously unapproved
 origin requires approval. Authentication clicks carry an explicit bounded POST
 budget; Browsertools fails closed if the observed requests exceed it.
 
@@ -104,6 +108,15 @@ navigation in a disclosed context, or human fallback. The planner cannot
 invent a selector, script, coordinate, URL authority, input value, completion
 claim, or unapproved click, and human approval remains mandatory for clicks.
 
+When the completion predicate matches, the human may review zero through 16
+outputs from that final observation with repeated commands of the form
+`output CANDIDATE_ID KEY TYPE LOCATOR_MODE`, followed by `done`. Types are
+`string`, `integer`, `number`, `boolean`, and `presence`; locator modes are
+`exact_name` and `unique_role`. iCoT rejects stale, ambiguous, form-control,
+marker-labeled, duplicate, secret-shaped, and malformed selections, prints a
+value-free sorted summary, and requires a final `confirm`. Output selection is
+never delegated to the planner.
+
 `--yes` is accepted for CLI compatibility but cannot bypass typed-goal review,
 API override, disclosure, origin, action, authentication, completion, or final
 staging approval.
@@ -117,7 +130,7 @@ browsertools author-session chromium \
   --private-root /private/operator/member-authoring
 ```
 
-The child speaks newline-delimited `browsertools.author-session.v1` JSON on
+The child speaks newline-delimited `browsertools.author-session.v2` JSON on
 standard input/output. iCoT accepts only the closed `hello`, `state`,
 `observation`, `approval_required`, `human_checkpoint`, `diagnostic`, and
 `result` messages, with bounded lines, candidates, diagnostics, and values.
@@ -125,18 +138,27 @@ Client actions reference Browsertools-issued candidate IDs; CSS, XPath,
 coordinates, raw scripts, and browser objects are not protocol fields. iCoT
 does not persist the protocol transcript.
 
+Version 2 requires the `reviewed_mfa_kind` and `reviewed_outputs`
+capabilities, negotiates `maxOutputs: 16`, and uses the distinct
+`human_input_complete` message for reviewed credential/MFA completion.
+Protocol v1 is rejected; there is no compatibility fallback at this live
+boundary.
+
 Unknown or oversized messages, timeouts, browser failure, unexpected
 navigation, origin escape, ambiguous targets, denied approvals, malformed
 results, CAPTCHA, or process failure close the context and produce no imported
 artifact. Browsertools writes a mode-`0600`
-`browsertools.authenticated-authoring.v1` envelope under the private root only
+`browsertools.authenticated-authoring.v2` envelope under the private root only
 after typed and human completion. The envelope remains private and is never
 copied into the example or package.
 
 OpenUdon reopens the result as a stable non-symlink file, checks the protocol
 digest, strict-decodes and bounds every field, validates the origin/context
 graph, trace, goal proof, human confirmation, profile-review digests, freshness,
-secret absence, and both embedded UWS schemas. After the operator types
+secret absence, reviewed challenge kinds, credential-slot kinds, resolved
+value-free output proofs, profile versions, and both embedded UWS schemas.
+OpenUdon reconstructs the expected profiles from the reviewed v2 facts and
+rejects a substituted profile even when its digest was also replaced. After the operator types
 `stage`, one atomic new-only transaction adds:
 
 ```text
@@ -156,9 +178,10 @@ silently overwritten.
 
 ## Context And Version Selection
 
-The imported profiles may use the additive UWS 1.8 contracts:
+The imported profiles may use the additive UWS 1.8 and 1.9 contracts:
 
 - `uws.browser.1.6`
+- `uws.browser.1.7`
 - `uws.browser-authentication.1.1`
 - `uws.browser-authentication-call.1.1`
 
@@ -172,6 +195,10 @@ Existing `uws.browser.1.5`, `uws.browser-authentication.1.0`, and call 1.0
 profiles remain accepted. Synthesis emits the oldest sufficient workflow
 version: old main-page profiles continue to produce UWS 1.7, while a browser
 1.6 or authentication 1.1 source selects UWS 1.8 and call 1.1 where required.
+Browser 1.7 selects UWS 1.9. It adds locale-free accessibility-text conversion
+for integer, number, and Boolean outputs; string text remains trimmed text and
+presence remains Boolean matching. Noncanonical or out-of-range values fail
+closed during trusted replay.
 
 ## Authoring Is Not Runtime Replay
 

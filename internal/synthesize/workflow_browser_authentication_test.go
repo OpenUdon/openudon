@@ -70,6 +70,32 @@ func TestGenerateWorkflowSelectsUWS18ForContextCapability(t *testing.T) {
 	}
 }
 
+func TestGenerateWorkflowSelectsUWS19ForScalarAccessibilityCapability(t *testing.T) {
+	if _, err := schemas.BrowserSourceProfileSchema("uws.browser.1.7"); err != nil {
+		t.Fatal("the pinned UWS dependency lacks browser 1.7:", err)
+	}
+	example := t.TempDir()
+	relative := filepath.ToSlash(filepath.Join("browser-profiles", "member.json"))
+	path := filepath.Join(example, filepath.FromSlash(relative))
+	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(path, []byte(`{"profile":"uws.browser.1.7"}`), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	intent := &rollout.Intent{
+		Workflow: &rollout.WorkflowMeta{Name: "member_dashboard"},
+		Steps:    []*rollout.Step{{Name: "read_balance", Type: "browser", Source: relative, Operation: "reach_authenticated_goal"}},
+	}
+	doc, err := generateWorkflowDocument(Result{ExampleDir: example}, intent)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if doc.UWS != "1.9.0" {
+		t.Fatalf("UWS version = %q, want 1.9.0", doc.UWS)
+	}
+}
+
 func TestGenerateWorkflowLowersBrowserAuthenticationAndNamedSession(t *testing.T) {
 	timeout := 120.0
 	intent := &rollout.Intent{

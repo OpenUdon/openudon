@@ -48,7 +48,7 @@ go run ./cmd/icot --example ./examples/<name> --network never
 
 `--api-source` uses `KIND:ID=PATH`; `--openapi ID=PATH` is shorthand for an
 OpenAPI source. `--browser-profile ID=PATH` supplies a reviewed
-`uws.browser.1.5` or `uws.browser.1.6` capability profile, a capability bundle, an explicit
+`uws.browser.1.5`, `uws.browser.1.6`, or `uws.browser.1.7` capability profile, a capability bundle, an explicit
 `browsertools.guided-authoring.v1` result, or a secret-free
 `uws.browser-authentication.1.0` or `uws.browser-authentication.1.1` sign-in profile. A guided result is accepted
 only as an explicit file, replayed through Browsertools' draft and review
@@ -150,7 +150,9 @@ safe review metadata are staged. See
 [Authenticated Goal-Directed Browser Authoring](authenticated-browser-authoring.md).
 
 Popup and iframe SSO are supported only through portable UWS 1.8 context
-contracts. CAPTCHA, enrollment, recovery, password changes, consent, account
+contracts. Reviewed scalar accessibility outputs use browser 1.7 with UWS 1.9,
+strict author-session v2 MFA/output choices, and Browserdriver protocol v3.
+CAPTCHA, enrollment, recovery, password changes, consent, account
 creation, and logout remain outside the contract.
 
 Maintainers can prove this supported and unsupported boundary without a live

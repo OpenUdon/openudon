@@ -29,14 +29,14 @@ network access.
 
 | Gate | Evidence |
 |---|---|
-| OpenUdon authoring | API preference, anonymous handoff, explicit authenticated live orchestration, disclosure denial/human fallback, minimal child environment, exact bounds/context authority, a real Browsertools-produced private result through validation/staging, and malformed/tampered rejection |
-| OpenUdon package/handoff | Strict live and portability verification, private/tampered input rejection, value-free package review, authentication/capability separation, UWS 1.7/1.8 discriminator selection, and trusted dry-run |
+| OpenUdon authoring | API preference, anonymous handoff, strict author-session v2 orchestration, human-only typed MFA/output review, disclosure denial/human fallback, minimal child environment, exact bounds/context authority, a real Browsertools-produced private result through validation/staging, and malformed/tampered/substituted rejection |
+| OpenUdon package/handoff | Strict live and portability verification, private/tampered input rejection, value-free package review, authentication/capability separation, UWS 1.7/1.8/1.9 discriminator selection, and trusted dry-run |
 | iCoT dependency boundary | The `cmd/icot` dependency graph contains no Browsertools capture, Playwright adapter, or Playwright-Go implementation package |
 | OpenUdon repository boundary | Production source contains no private executor, desired-state parser, or removed apitools lifecycle imports |
-| Browsertools producer | Observation-generation authority, action-time semantic revalidation, complete context inventory, current goal proof, actual response-byte accounting, replayable exploration synthesis, deterministic output, and offline doctor behavior |
-| UWS contract | Immutable browser 1.5/authentication 1.0 compatibility plus UWS 1.8 browser 1.6/authentication 1.1/call 1.1 contexts, fresh union decoding, dispatch, round trips, and rejection fixtures |
-| Udon consumer | Private source loading, runtime approvals, authentication, opaque sessions, v2 compatibility, v3 context replay, and a real Browsertools authentication 1.1/browser 1.5 producer pair through output validation |
-| Browserdriver runtime | Offline v2/v3 NDJSON, exact-origin and child-context guards, popup/frame inventory, cached-context revalidation, ambiguity rejection, credential lookup, and session isolation |
+| Browsertools producer | Observation-generation authority, human-selected MFA kind, bounded reviewed outputs, action-time exact-name/unique-role proof, complete context inventory, current goal proof, deterministic output, and offline doctor behavior |
+| UWS contract | Immutable older compatibility plus UWS 1.9/browser 1.7 scalar accessibility conversion, context contracts, fresh union decoding, dispatch, round trips, and rejection fixtures |
+| Udon consumer | Private source loading, runtime approvals, authentication, opaque sessions, v2 rejection/v3 browser 1.7 replay, scalar post-conversion validation, redaction rejection, and real producer pairs through output validation |
+| Browserdriver runtime | Offline v2/v3 NDJSON, browser 1.7 v3-only strict scalar conversion, failure non-disclosure, exact-origin/context guards, ambiguity rejection, credential lookup, and session isolation |
 | Component inventory | Browsertools doctor reports pinned Chromium, Firefox, and WebKit readiness without installing or launching anything |
 
 The report contract is `openudon.browser-integration-eval.v1`. Validation fixes

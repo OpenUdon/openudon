@@ -318,11 +318,13 @@ exhausted, approved remote lookup is limited to curated apitools references plus
 with an eight-second deadline and at most three metadata candidates.
 
 For a UI action that requires login state, iCoT can pair a reviewed,
-secret-free `uws.browser-authentication.1.0` profile with a
-`uws.browser.1.5` capability profile. It authors an explicit sign-in flow,
-execution-local named session, symbolic credential bindings, bounded timeout,
-and separate authoring approval; Udon still requires separate runtime approval
-and keeps credentials, MFA responses, and live session state private.
+secret-free `uws.browser-authentication.1.0` or 1.1 profile with a
+`uws.browser.1.5`, 1.6, or 1.7 capability profile. Browser 1.7 carries strict
+integer, number, and Boolean accessibility-text outputs under UWS 1.9. It
+authors an explicit sign-in flow, execution-local named session, symbolic
+credential bindings, bounded timeout, and separate authoring approval; Udon
+still requires separate runtime approval and keeps credentials, MFA responses,
+and live session state private.
 
 `--agent` returns the entire frontier, candidate workflows, source evidence, blockers, and proposed
 file actions. It never prompts or writes deliverables, including when the session is otherwise

@@ -15,6 +15,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"reflect"
 	"regexp"
 	"sort"
 	"strconv"
@@ -22,16 +23,19 @@ import (
 	"time"
 
 	"github.com/OpenUdon/browsertools/authorsession"
+	"github.com/OpenUdon/evidence/redact"
 	"github.com/OpenUdon/openudon/internal/icot/elicitor"
 	rollout "github.com/OpenUdon/openudon/internal/workflowintent"
 )
 
 const (
-	liveAuthorProtocol              = "browsertools.author-session.v1"
+	liveAuthorProtocol              = "browsertools.author-session.v2"
 	liveAuthorMaxLineBytes          = 64 << 10
 	liveAuthorDefaultTimeout        = 10 * time.Minute
 	liveAuthorResultMaxBytes        = 20 << 20
 	liveAuthorAbsoluteMaxCandidates = 512
+	liveAuthorAbsoluteMaxOutputs    = 32
+	liveAuthorSelectedMaxOutputs    = 16
 	liveAuthorMaxDiagnostics        = 256
 	liveAuthorMaxCapabilities       = 32
 )
@@ -41,6 +45,7 @@ var (
 	liveContextPattern        = regexp.MustCompile(`^[A-Za-z][A-Za-z0-9_-]{0,63}$`)
 	liveDiagnosticPattern     = regexp.MustCompile(`^[a-z][a-z0-9_]{0,63}$`)
 	liveReviewDecisionPattern = regexp.MustCompile(`^[a-z][a-z0-9_.-]{0,127}$`)
+	liveOutputKeyPattern      = regexp.MustCompile(`^[A-Za-z][A-Za-z0-9_-]{0,63}$`)
 	livePortableRoles         = map[string]bool{
 		"button": true, "link": true, "textbox": true, "checkbox": true, "radio": true,
 		"dialog": true, "status": true, "alert": true, "heading": true, "img": true,
@@ -49,6 +54,11 @@ var (
 		"cell": true, "region": true, "navigation": true, "article": true, "form": true,
 		"search": true, "switch": true, "group": true,
 	}
+	liveOutputTypes        = map[string]bool{"string": true, "integer": true, "number": true, "boolean": true, "presence": true}
+	liveOutputLocatorModes = map[string]bool{"exact_name": true, "unique_role": true}
+	liveOutputControlRoles = map[string]bool{"button": true, "textbox": true, "checkbox": true, "radio": true, "combobox": true, "option": true, "menuitem": true, "tab": true, "switch": true}
+	liveOTPChallengeKinds  = []string{"totp", "sms_otp", "email_otp", "voice_otp"}
+	liveMFAChallengeKinds  = []string{"push", "push_number_match", "passkey", "security_key"}
 )
 
 type liveAuthorConfig struct {
@@ -88,24 +98,34 @@ type liveBounds struct {
 	MaxResponseBytes    int64 `json:"maxResponseBytes"`
 	MaxObservations     int   `json:"maxObservations"`
 	MaxCandidates       int   `json:"maxCandidates"`
+	MaxOutputs          int   `json:"maxOutputs"`
+}
+
+type liveOutputRequest struct {
+	CandidateID string `json:"candidateId"`
+	Key         string `json:"key"`
+	Type        string `json:"type"`
+	LocatorMode string `json:"locatorMode"`
 }
 
 type liveClientMessage struct {
-	Protocol      string             `json:"protocol"`
-	Type          string             `json:"type"`
-	Title         string             `json:"title,omitempty"`
-	URL           string             `json:"url,omitempty"`
-	DashboardURL  string             `json:"dashboardUrl,omitempty"`
-	Goal          string             `json:"goal,omitempty"`
-	Origins       []string           `json:"origins,omitempty"`
-	GoalPredicate *liveGoalPredicate `json:"goalPredicate,omitempty"`
-	Bounds        *liveBounds        `json:"bounds,omitempty"`
-	Context       string             `json:"context,omitempty"`
-	CandidateID   string             `json:"candidateId,omitempty"`
-	Action        string             `json:"action,omitempty"`
-	POSTBudget    int                `json:"postBudget,omitempty"`
-	ApprovalID    string             `json:"approvalId,omitempty"`
-	Confirmed     bool               `json:"confirmed,omitempty"`
+	Protocol      string               `json:"protocol"`
+	Type          string               `json:"type"`
+	Title         string               `json:"title,omitempty"`
+	URL           string               `json:"url,omitempty"`
+	DashboardURL  string               `json:"dashboardUrl,omitempty"`
+	Goal          string               `json:"goal,omitempty"`
+	Origins       []string             `json:"origins,omitempty"`
+	GoalPredicate *liveGoalPredicate   `json:"goalPredicate,omitempty"`
+	Bounds        *liveBounds          `json:"bounds,omitempty"`
+	Context       string               `json:"context,omitempty"`
+	CandidateID   string               `json:"candidateId,omitempty"`
+	Action        string               `json:"action,omitempty"`
+	POSTBudget    int                  `json:"postBudget,omitempty"`
+	ApprovalID    string               `json:"approvalId,omitempty"`
+	ChallengeKind string               `json:"challengeKind,omitempty"`
+	Outputs       *[]liveOutputRequest `json:"outputs,omitempty"`
+	Confirmed     bool                 `json:"confirmed,omitempty"`
 }
 
 type liveCandidate struct {
@@ -134,8 +154,9 @@ type liveApproval struct {
 }
 
 type liveCheckpoint struct {
-	Kind        string `json:"kind"`
-	CandidateID string `json:"candidateId,omitempty"`
+	Kind           string   `json:"kind"`
+	CandidateID    string   `json:"candidateId,omitempty"`
+	ChallengeKinds []string `json:"challengeKinds,omitempty"`
 }
 
 type liveDiagnostic struct {
@@ -603,7 +624,7 @@ func orchestrateLiveAuthor(ctx context.Context, cfg liveAuthorConfig, reader *bu
 	if hello.Type != "hello" {
 		return liveProtocolResult{}, fmt.Errorf("Browsertools did not negotiate the author-session protocol")
 	}
-	for _, capability := range []string{"chromium", "human_credentials", "human_mfa", "reduced_observation", "popup", "frame", "typed_goal"} {
+	for _, capability := range []string{"chromium", "human_credentials", "reviewed_mfa_kind", "reviewed_outputs", "reduced_observation", "popup", "frame", "typed_goal"} {
 		if !containsExact(hello.Capabilities, capability) {
 			return liveProtocolResult{}, fmt.Errorf("Browsertools lacks required live-authoring capability %s", capability)
 		}
@@ -622,6 +643,7 @@ func orchestrateLiveAuthor(ctx context.Context, cfg liveAuthorConfig, reader *bu
 	protocol.setCandidateCeiling(expectedBounds.MaxCandidates)
 	currentContext := "main"
 	knownContexts := map[string]liveContext{}
+	var lastObservation *liveObservation
 	receivedInitialState := false
 	disclosureDecided, plannerEnabled := planner == nil, false
 	for {
@@ -664,6 +686,7 @@ func orchestrateLiveAuthor(ctx context.Context, cfg liveAuthorConfig, reader *bu
 			}
 			knownContexts = cloneLiveContexts(observation.Contexts)
 			currentContext = observation.Context
+			lastObservation = &observation
 			printLiveObservation(out, observation)
 			if liveObservationMatchesGoal(observation, *start.GoalPredicate) {
 				// Browsertools writes the matching observation and its completion
@@ -725,7 +748,7 @@ func orchestrateLiveAuthor(ctx context.Context, cfg liveAuthorConfig, reader *bu
 		case "human_checkpoint":
 			checkpoint := *message.Checkpoint
 			switch checkpoint.Kind {
-			case "credential", "mfa":
+			case "credential":
 				decision, promptErr := readLiveDecision(reader, out, "Type continue after entering the value directly in Chromium, or close: ", "continue", "close")
 				if promptErr != nil {
 					return liveProtocolResult{}, promptErr
@@ -733,10 +756,34 @@ func orchestrateLiveAuthor(ctx context.Context, cfg liveAuthorConfig, reader *bu
 				if decision != "continue" {
 					return liveProtocolResult{}, fmt.Errorf("operator closed at human input checkpoint")
 				}
-				if err := protocol.send(liveClientMessage{Type: "observe", Context: currentContext}); err != nil {
+				if err := protocol.send(liveClientMessage{Type: "human_input_complete", CandidateID: checkpoint.CandidateID}); err != nil {
+					return liveProtocolResult{}, err
+				}
+			case "mfa":
+				fmt.Fprintf(out, "Compatible MFA kinds: %s\n", strings.Join(checkpoint.ChallengeKinds, ", "))
+				challengeKind, promptErr := readLiveDecision(reader, out, "Type the exact MFA kind you will complete: ", checkpoint.ChallengeKinds...)
+				if promptErr != nil {
+					return liveProtocolResult{}, promptErr
+				}
+				decision, promptErr := readLiveDecision(reader, out, "Complete that challenge in Chromium or on the paired device, then type continue; or close: ", "continue", "close")
+				if promptErr != nil {
+					return liveProtocolResult{}, promptErr
+				}
+				if decision != "continue" {
+					return liveProtocolResult{}, fmt.Errorf("operator closed at human MFA checkpoint")
+				}
+				if err := protocol.send(liveClientMessage{Type: "human_input_complete", CandidateID: checkpoint.CandidateID, ChallengeKind: challengeKind}); err != nil {
 					return liveProtocolResult{}, err
 				}
 			case "completion":
+				if lastObservation == nil || !liveObservationMatchesGoal(*lastObservation, *start.GoalPredicate) {
+					return liveProtocolResult{}, fmt.Errorf("completion checkpoint has no current matching observation")
+				}
+				outputs, outputErr := readHumanOutputRequests(reader, out, *lastObservation, expectedBounds.MaxOutputs)
+				if outputErr != nil {
+					return liveProtocolResult{}, outputErr
+				}
+				printLiveOutputSummary(out, outputs, *lastObservation)
 				decision, promptErr := readLiveDecision(reader, out, "The typed predicate is satisfied. Type confirm to attest goal completion, or deny: ", "confirm", "deny")
 				if promptErr != nil {
 					return liveProtocolResult{}, promptErr
@@ -744,7 +791,7 @@ func orchestrateLiveAuthor(ctx context.Context, cfg liveAuthorConfig, reader *bu
 				if decision != "confirm" {
 					return liveProtocolResult{}, fmt.Errorf("human goal completion was denied")
 				}
-				if err := protocol.send(liveClientMessage{Type: "human_complete", Confirmed: true}); err != nil {
+				if err := protocol.send(liveClientMessage{Type: "human_complete", Confirmed: true, Outputs: &outputs}); err != nil {
 					return liveProtocolResult{}, err
 				}
 			default:
@@ -925,6 +972,89 @@ func continueAfterAuthentication(protocol *liveProtocol, reader *bufio.Reader, o
 	return protocol.send(liveClientMessage{Type: "observe", Context: currentContext})
 }
 
+func readHumanOutputRequests(reader *bufio.Reader, out io.Writer, observation liveObservation, maxOutputs int) ([]liveOutputRequest, error) {
+	if maxOutputs <= 0 || maxOutputs > liveAuthorSelectedMaxOutputs {
+		return nil, fmt.Errorf("output authority is invalid")
+	}
+	fmt.Fprintf(out, "Review up to %d current accessibility outputs. Enter `output CANDIDATE_ID KEY TYPE LOCATOR_MODE`, then `done`.\n", maxOutputs)
+	requests := make([]liveOutputRequest, 0)
+	seenKeys, seenCandidates := map[string]bool{}, map[string]bool{}
+	for {
+		fmt.Fprint(out, "Output selection: ")
+		line, err := reader.ReadString('\n')
+		if err != nil && !errors.Is(err, io.EOF) {
+			return nil, err
+		}
+		fields := strings.Fields(strings.TrimSpace(line))
+		if len(fields) == 1 && fields[0] == "done" {
+			sort.Slice(requests, func(i, j int) bool { return requests[i].Key < requests[j].Key })
+			return requests, nil
+		}
+		valid := len(fields) == 5 && fields[0] == "output" && len(requests) < maxOutputs
+		var request liveOutputRequest
+		if valid {
+			request = liveOutputRequest{CandidateID: fields[1], Key: fields[2], Type: fields[3], LocatorMode: fields[4]}
+			valid = validateLiveOutputRequest(request, observation, seenKeys, seenCandidates) == nil
+		}
+		if valid {
+			requests = append(requests, request)
+			seenKeys[request.Key], seenCandidates[request.CandidateID] = true, true
+			fmt.Fprintln(out, "Output selection accepted.")
+		} else {
+			fmt.Fprintln(out, "Output selection rejected; use one current candidate, a safe unique key, a scalar type, and an allowed locator mode.")
+		}
+		if errors.Is(err, io.EOF) {
+			return nil, io.ErrUnexpectedEOF
+		}
+	}
+}
+
+func validateLiveOutputRequest(request liveOutputRequest, observation liveObservation, seenKeys, seenCandidates map[string]bool) error {
+	if !liveCandidatePattern.MatchString(request.CandidateID) || !liveOutputKeyPattern.MatchString(request.Key) || request.Key == "goal_present" || redact.SensitiveKey(strings.ToLower(request.Key)) ||
+		seenKeys[request.Key] || seenCandidates[request.CandidateID] || !liveOutputTypes[request.Type] || !liveOutputLocatorModes[request.LocatorMode] {
+		return fmt.Errorf("output identity or declaration is invalid")
+	}
+	var selected *liveCandidate
+	roleMatches := 0
+	for index := range observation.Candidates {
+		candidate := &observation.Candidates[index]
+		if candidate.Role == requestRole(observation, request.CandidateID) {
+			roleMatches += candidate.Matches
+		}
+		if candidate.ID == request.CandidateID {
+			selected = candidate
+		}
+	}
+	if selected == nil || selected.Matches != 1 || !livePortableRoles[selected.Role] || liveOutputControlRoles[selected.Role] || selected.Label == authorsession.RedactedLabel || selected.Label == authorsession.UntrustedLabel {
+		return fmt.Errorf("output candidate is not promotable")
+	}
+	if request.LocatorMode == "exact_name" {
+		reduction := authorsession.ReduceAccessibilityLabel(selected.Label)
+		if selected.Label == "" || reduction.Reason != authorsession.LabelReasonUnchanged || reduction.Value != selected.Label {
+			return fmt.Errorf("output name is not canonical")
+		}
+	} else if roleMatches != 1 {
+		return fmt.Errorf("output role is not unique")
+	}
+	return nil
+}
+
+func requestRole(observation liveObservation, candidateID string) string {
+	for _, candidate := range observation.Candidates {
+		if candidate.ID == candidateID {
+			return candidate.Role
+		}
+	}
+	return ""
+}
+
+func printLiveOutputSummary(out io.Writer, requests []liveOutputRequest, observation liveObservation) {
+	fmt.Fprintf(out, "Reviewed output selections: %d\n", len(requests))
+	for _, request := range requests {
+		fmt.Fprintf(out, "- key=%s type=%s locator=%s role=%s candidate=%s\n", request.Key, request.Type, request.LocatorMode, requestRole(observation, request.CandidateID), request.CandidateID)
+	}
+}
+
 func readLiveDecision(reader *bufio.Reader, out io.Writer, prompt string, choices ...string) (string, error) {
 	allowed := make(map[string]bool, len(choices))
 	for _, choice := range choices {
@@ -1077,6 +1207,16 @@ func validateLiveServerMessage(message liveServerMessage, candidateCeiling int) 
 		if message.Checkpoint.Kind == "completion" && message.Checkpoint.CandidateID != "" || message.Checkpoint.Kind != "completion" && !liveCandidatePattern.MatchString(message.Checkpoint.CandidateID) {
 			return fmt.Errorf("human checkpoint candidate is invalid")
 		}
+		switch message.Checkpoint.Kind {
+		case "credential", "completion":
+			if len(message.Checkpoint.ChallengeKinds) != 0 {
+				return fmt.Errorf("human checkpoint challenge inventory is invalid")
+			}
+		case "mfa":
+			if !reflect.DeepEqual(message.Checkpoint.ChallengeKinds, liveOTPChallengeKinds) && !reflect.DeepEqual(message.Checkpoint.ChallengeKinds, liveMFAChallengeKinds) {
+				return fmt.Errorf("human checkpoint challenge inventory is invalid")
+			}
+		}
 	case "diagnostic":
 		if message.Diagnostic == nil || !liveDiagnosticPattern.MatchString(message.Diagnostic.Code) {
 			return fmt.Errorf("diagnostic is invalid")
@@ -1143,7 +1283,7 @@ func validateLiveCandidate(candidate liveCandidate, seen map[string]bool, candid
 func defaultLiveAuthorBounds() liveBounds {
 	return liveBounds{
 		NavigationTimeoutMS: 20_000, TotalTimeoutMS: liveAuthorDefaultTimeout.Milliseconds(),
-		MaxRequests: 512, MaxResponseBytes: 32 << 20, MaxObservations: 64, MaxCandidates: 128,
+		MaxRequests: 512, MaxResponseBytes: 32 << 20, MaxObservations: 64, MaxCandidates: 128, MaxOutputs: liveAuthorSelectedMaxOutputs,
 	}
 }
 
