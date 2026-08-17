@@ -1,0 +1,12 @@
+{
+  "version": "openudon.browser-scenario.v1",
+  "id": "origin-escape-rejected",
+  "suite": "loopback",
+  "authentication": {"credentials": ["identifier", "password"], "contextMode": "main"},
+  "goal": {"context": "main", "role": "heading", "name": "Member dashboard"},
+  "outputs": [{"key": "plan_present", "type": "presence", "role": "region", "name": "Plan summary", "locatorMode": "exact_name"}],
+  "fault": "origin_escape",
+  "replayVariants": [],
+  "expected": {"authoring": "pass", "replay": "rejected", "failureCode": "origin_rejected", "browserProfile": "uws.browser.1.5", "uwsVersion": "1.8.0"},
+  "probes": []
+}

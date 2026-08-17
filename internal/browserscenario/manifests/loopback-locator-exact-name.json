@@ -1,0 +1,14 @@
+{
+  "version": "openudon.browser-scenario.v1",
+  "id": "locator-exact-name",
+  "suite": "loopback",
+  "authentication": {"credentials": ["identifier", "password"], "contextMode": "main"},
+  "goal": {"context": "main", "role": "heading", "name": "Member dashboard"},
+  "outputs": [
+    {"key": "primary_status", "type": "string", "role": "status", "name": "Primary status", "locatorMode": "exact_name"},
+    {"key": "secondary_status", "type": "string", "role": "status", "name": "Secondary status", "locatorMode": "exact_name"}
+  ],
+  "replayVariants": [],
+  "expected": {"authoring": "pass", "replay": "pass", "browserProfile": "uws.browser.1.5", "uwsVersion": "1.8.0"},
+  "probes": []
+}

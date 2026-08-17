@@ -152,6 +152,45 @@ func TestCLIBrowserIntegrationEvalRejectsMissingOutputAndMixedVerifyMode(t *test
 	}
 }
 
+func TestCLIBrowserScenarioEvalHelpAndNetworkAuthority(t *testing.T) {
+	cmd := helperCommand("browser-scenario-eval", "--help")
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		t.Fatalf("browser-scenario-eval help failed: %v\n%s", err, output)
+	}
+	text := string(output)
+	for _, expected := range []string{
+		"Usage: openudon browser-scenario-eval",
+		"--allow-network",
+		"--require-ready",
+		"--scenario",
+		"--verify",
+		"author-session v2",
+		"credential-free Udon/Browserdriver v2",
+		"never retain credential values, page content, or subprocess output",
+	} {
+		if !strings.Contains(text, expected) {
+			t.Fatalf("browser-scenario-eval help missing %q:\n%s", expected, text)
+		}
+	}
+
+	for _, args := range [][]string{
+		{"browser-scenario-eval", "--suite", "public", "--out", filepath.Join(t.TempDir(), "public.json")},
+		{"browser-scenario-eval", "--suite", "loopback", "--allow-network", "--out", filepath.Join(t.TempDir(), "loopback.json")},
+		{"browser-scenario-eval", "--verify", "missing.json", "--suite", "loopback"},
+		{"browser-scenario-eval", "--suite", "loopback"},
+	} {
+		cmd := helperCommand(args...)
+		output, err := cmd.CombinedOutput()
+		if err == nil {
+			t.Fatalf("arguments %#v succeeded:\n%s", args, output)
+		}
+		if !strings.Contains(string(output), "browser-scenario") && !strings.Contains(string(output), "browser scenario") {
+			t.Fatalf("arguments %#v missing closed diagnostic:\n%s", args, output)
+		}
+	}
+}
+
 func TestCLIReleaseEvidenceHelp(t *testing.T) {
 	cmd := helperCommand("release-evidence", "--help")
 	output, err := cmd.CombinedOutput()

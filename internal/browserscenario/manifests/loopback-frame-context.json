@@ -1,0 +1,11 @@
+{
+  "version": "openudon.browser-scenario.v1",
+  "id": "frame-context",
+  "suite": "loopback",
+  "authentication": {"credentials": ["identifier", "password"], "contextMode": "frame"},
+  "goal": {"context": "frame_1", "role": "heading", "name": "Embedded dashboard"},
+  "outputs": [{"key": "embedded_status", "type": "string", "role": "status", "name": "Embedded status", "locatorMode": "exact_name"}],
+  "replayVariants": [],
+  "expected": {"authoring": "pass", "replay": "pass", "browserProfile": "uws.browser.1.6", "uwsVersion": "1.8.0"},
+  "probes": []
+}

@@ -104,6 +104,7 @@ go run ./cmd/openudon validate ./examples/uws-validation
 make check
 make release-check
 make browser-integration-check
+make browser-scenario-loopback
 make eval-seed-build
 make release-saas-check
 git diff --check
@@ -467,7 +468,8 @@ make release-eval
 ```
 
 `make release-saas-check` is the provider-free local SaaS release gate. It runs deterministic checks,
-the [browser integration evaluation](docs/browser-integration-eval.md), the eval seed/build matrix,
+the browser-free [browser integration evaluation](docs/browser-integration-eval.md), the real
+network-free [browser scenario loopback](docs/browser-scenario-eval.md), the eval seed/build matrix,
 `icot-variants-validate`, `icot-authoring-scorecard`, UWS validation,
 doc-memory validation, n8n bridge validation, strict MkDocs, selected strict fixture lint, and
 trusted-runner dry-run demos without live provider credentials or live provider execution. `icot
@@ -487,6 +489,12 @@ digest-bound authoring-to-handoff matrix across OpenUdon, Browsertools, UWS,
 Udon, and Browserdriver. Its default path is offline/provider-free and does not
 launch a browser; installed-engine and headed-authentication checks require
 separate loopback-only CLI opt-ins.
+
+`make browser-scenario-loopback` runs and verifies the required 21-case real
+Browsertools v2 to Udon/Browserdriver v3 release matrix. It requires installed
+pinned Chromium dependencies and a display (use `xvfb-run -a` on headless
+Linux). `make browser-scenario-public` is an explicit-network, informational
+four-site canary; it is never part of default tests.
 
 ## Readiness
 

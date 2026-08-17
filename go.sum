@@ -6,8 +6,8 @@ github.com/OpenUdon/authoring v0.0.0-20260814160241-18ba8068d49c h1:A4Qxvbacwj8Q
 github.com/OpenUdon/authoring v0.0.0-20260814160241-18ba8068d49c/go.mod h1:UZUPXJZ4zTGDpb7gE4DpFLhFsRf4j9028y0/muxf6V4=
 github.com/OpenUdon/awssmithy v0.0.0-20260520213111-549a060a5e28 h1:Xrv5Ccw2QVXfuswbTLP98vt5vyMIVmnsfX43TUHBo+Y=
 github.com/OpenUdon/awssmithy v0.0.0-20260520213111-549a060a5e28/go.mod h1:Wkg6qE+XUwzDCpw6gKoUhPQ03K0RhGbxnYpDMmGFStQ=
-github.com/OpenUdon/browsertools v0.0.0-20260817022912-dd89956d0220 h1:l/ZXXASw+PH1VpqeVTM0VH/b46tHAcbQJ5Q5hA9EcxU=
-github.com/OpenUdon/browsertools v0.0.0-20260817022912-dd89956d0220/go.mod h1:cS5b+PxduWwQvLyo/RyLsNNQlls8dfp1QhbZsMvZZAA=
+github.com/OpenUdon/browsertools v0.0.0-20260817224213-4d940eaaae16 h1:d3Miq7uKVdaAJOwDAbIc+X3q1Al3N2Y6btumCUquomA=
+github.com/OpenUdon/browsertools v0.0.0-20260817224213-4d940eaaae16/go.mod h1:cS5b+PxduWwQvLyo/RyLsNNQlls8dfp1QhbZsMvZZAA=
 github.com/OpenUdon/evidence v0.0.0-20260815084845-0c17258b9736 h1:m66ctgDRK/pv45OfAyrKmjE/XmgehlAXYCCjYK4V1Tw=
 github.com/OpenUdon/evidence v0.0.0-20260815084845-0c17258b9736/go.mod h1:AUZKUpFNDa5j56Vpi64YR1PkcK8JYZJSEGjNkZNdMFI=
 github.com/OpenUdon/googlediscovery v0.0.0-20260520203137-c02129a009fc h1:drM11+jXvEjjpuWisSFurkQXvqrWO1o4PDIwLv1HqLI=

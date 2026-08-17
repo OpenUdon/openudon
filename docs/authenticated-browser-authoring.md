@@ -224,8 +224,10 @@ qualification must be operator-authorized against a non-production tenant;
 retain only value-free evidence and never commit credentials, session state,
 private envelopes, or page captures.
 
-The provider-free and optional loopback qualification gates are described in
-[Browser Integration Evaluation](browser-integration-eval.md). For both the
+The browser-free contract matrix is described in [Browser Integration
+Evaluation](browser-integration-eval.md). The real deterministic loopback and
+opt-in public canary suites are described in [Browser Scenario
+Evaluation](browser-scenario-eval.md). For both the
 offline reviewed-artifact path and live orchestration boundary, see
 Browsertools' [canonical OpenUdon integration
 reference](https://github.com/OpenUdon/browsertools/blob/main/docs/openudon-integration.md).

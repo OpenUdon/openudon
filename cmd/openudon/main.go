@@ -16,6 +16,7 @@ import (
 	"time"
 
 	"github.com/OpenUdon/openudon/internal/browserintegrationeval"
+	"github.com/OpenUdon/openudon/internal/browserscenario"
 	"github.com/OpenUdon/openudon/internal/config"
 	evalpkg "github.com/OpenUdon/openudon/internal/eval"
 	"github.com/OpenUdon/openudon/internal/localcheck"
@@ -42,6 +43,7 @@ func main() {
 		fmt.Fprintf(flag.CommandLine.Output(), "  approval-template print approval JSON for a validated handoff package\n")
 		fmt.Fprintf(flag.CommandLine.Output(), "  build     regenerate workflow/UWS from an existing intent.hcl\n")
 		fmt.Fprintf(flag.CommandLine.Output(), "  browser-integration-eval run or verify provider-free cross-repo browser evidence\n")
+		fmt.Fprintf(flag.CommandLine.Output(), "  browser-scenario-eval run or verify deterministic loopback/public browser scenarios\n")
 		fmt.Fprintf(flag.CommandLine.Output(), "  catalog   inspect first-class provider catalog metadata\n")
 		fmt.Fprintf(flag.CommandLine.Output(), "  check-apitools-boundary verify OpenUdon repository boundaries\n")
 		fmt.Fprintf(flag.CommandLine.Output(), "  check-doc-memory verify local memory-bank and evolution harness files\n")
@@ -88,6 +90,8 @@ func main() {
 		runCatalogCommand(flag.Args()[1:])
 	case "browser-integration-eval":
 		runBrowserIntegrationEvalCommand(flag.Args()[1:])
+	case "browser-scenario-eval":
+		runBrowserScenarioEvalCommand(flag.Args()[1:])
 	case "validate":
 		if flag.NArg() < 2 {
 			fmt.Fprintln(os.Stderr, "usage: openudon validate [--allow-empty] <uws-file-or-dir>")
@@ -124,6 +128,74 @@ func main() {
 		fmt.Fprintf(os.Stderr, "unknown command %q\n", command)
 		flag.Usage()
 		os.Exit(2)
+	}
+}
+
+func runBrowserScenarioEvalCommand(args []string) {
+	fs := flag.NewFlagSet("browser-scenario-eval", flag.ExitOnError)
+	suite := fs.String("suite", "", "Scenario suite: loopback or public")
+	browsertoolsRepo := fs.String("browsertools-repo", "../browsertools", "Sibling Browsertools repository")
+	udonRepo := fs.String("udon-repo", "../udon", "Sibling Udon repository")
+	browserdriverRepo := fs.String("browserdriver-repo", "../browserdriver", "Sibling Browserdriver repository")
+	out := fs.String("out", "", "Value-free report JSON path")
+	verify := fs.String("verify", "", "Verify an existing report and SHA-256 sidecar instead of running scenarios")
+	requireReady := fs.Bool("require-ready", false, "Fail instead of skipping when installed browser dependencies are unavailable")
+	allowNetwork := fs.Bool("allow-network", false, "Allow the fixed anonymous public target inventory; required for --suite public")
+	var scenarios repeatedStringFlag
+	fs.Var(&scenarios, "scenario", "Repeatable embedded scenario ID to run instead of the full suite")
+	fs.Usage = func() {
+		fmt.Fprintf(fs.Output(), "Usage: openudon browser-scenario-eval --suite loopback|public [--scenario ID]... --out REPORT [--require-ready] [repository flags]\n")
+		fmt.Fprintf(fs.Output(), "       openudon browser-scenario-eval --verify REPORT\n\n")
+		fmt.Fprintf(fs.Output(), "Runs two complementary strict suites. Loopback uses real Browsertools author-session v2 and Udon/Browserdriver v3 replay without external network access. Public uses value-free Browsertools live checks and credential-free Udon/Browserdriver v2 presence replay against only the embedded anonymous targets; it requires --allow-network. Reports never retain credential values, page content, or subprocess output.\n\n")
+		fs.PrintDefaults()
+	}
+	if err := fs.Parse(args); err != nil {
+		os.Exit(2)
+	}
+	if fs.NArg() != 0 {
+		fs.Usage()
+		os.Exit(2)
+	}
+	if strings.TrimSpace(*verify) != "" {
+		invalid := ""
+		fs.Visit(func(value *flag.Flag) {
+			if value.Name != "verify" && invalid == "" {
+				invalid = value.Name
+			}
+		})
+		if invalid != "" {
+			fmt.Fprintf(os.Stderr, "browser-scenario-eval: --verify cannot be combined with --%s\n", invalid)
+			os.Exit(2)
+		}
+		report, err := browserscenario.VerifyReportFile(*verify, true)
+		if err != nil {
+			fmt.Fprintln(os.Stderr, "openudon browser-scenario-eval verify: fail -", err)
+			os.Exit(1)
+		}
+		fmt.Printf("openudon browser-scenario-eval verify: %s %s (%d passed, %d skipped, %d quarantined)\n", report.Status, *verify, report.Summary.Passed, report.Summary.Skipped, report.Summary.Quarantined)
+		return
+	}
+	if strings.TrimSpace(*suite) == "" || strings.TrimSpace(*out) == "" {
+		fmt.Fprintln(os.Stderr, "browser-scenario-eval: --suite and --out are required")
+		os.Exit(2)
+	}
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer stop()
+	report, err := browserscenario.Run(ctx, browserscenario.Options{
+		RepoRoot: ".", BrowsertoolsRepo: *browsertoolsRepo, UdonRepo: *udonRepo,
+		BrowserdriverRepo: *browserdriverRepo, Suite: *suite, ScenarioIDs: []string(scenarios),
+		OutPath: *out, RequireReady: *requireReady, AllowNetwork: *allowNetwork,
+	})
+	if report != nil {
+		for _, result := range report.Scenarios {
+			fmt.Printf("  %-36s %s: %s\n", result.ID, result.Status, result.Detail)
+		}
+		fmt.Printf("openudon browser-scenario-eval: %s (%d passed, %d failed, %d skipped, %d quarantined)\n", report.Status, report.Summary.Passed, report.Summary.Failed, report.Summary.Skipped, report.Summary.Quarantined)
+		fmt.Printf("  report: %s\n", *out)
+	}
+	if err != nil {
+		fmt.Fprintln(os.Stderr, err)
+		os.Exit(1)
 	}
 }
 

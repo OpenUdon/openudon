@@ -1,0 +1,247 @@
+package browserscenario
+
+import (
+	"context"
+	"fmt"
+	"os"
+	"os/exec"
+	"path/filepath"
+	"sort"
+	"strings"
+	"time"
+)
+
+// Options fixes the complete authority of one browser-scenario evaluation.
+// Public targets remain unavailable unless AllowNetwork is explicitly set.
+type Options struct {
+	RepoRoot          string
+	BrowsertoolsRepo  string
+	UdonRepo          string
+	BrowserdriverRepo string
+	Suite             string
+	ScenarioIDs       []string
+	OutPath           string
+	AllowNetwork      bool
+	RequireReady      bool
+	Now               func() time.Time
+	Executor          ScenarioExecutor
+}
+
+// Environment contains only resolved local repositories and locked dependency
+// facts. It deliberately contains no credential values or captured output.
+type Environment struct {
+	RepoRoot          string
+	BrowsertoolsRepo  string
+	UdonRepo          string
+	BrowserdriverRepo string
+	Lock              CompatibilityLock
+	Now               time.Time
+}
+
+// ScenarioExecutor runs one already-validated manifest. Implementations must
+// return only the closed, value-free result vocabulary accepted by Report.
+type ScenarioExecutor interface {
+	Execute(context.Context, Manifest, Environment) ScenarioResult
+}
+
+type ScenarioExecutorFunc func(context.Context, Manifest, Environment) ScenarioResult
+
+func (function ScenarioExecutorFunc) Execute(ctx context.Context, manifest Manifest, environment Environment) ScenarioResult {
+	return function(ctx, manifest, environment)
+}
+
+// Run validates the embedded corpus and compatibility lock before any browser
+// process or network authority can be exercised.
+func Run(ctx context.Context, options Options) (*Report, error) {
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	now := time.Now().UTC().Round(0)
+	if options.Now != nil {
+		now = options.Now().UTC().Round(0)
+	}
+	if now.IsZero() {
+		return nil, fmt.Errorf("browser scenario clock is unavailable")
+	}
+	if options.Suite != SuiteLoopback && options.Suite != SuitePublic {
+		return nil, fmt.Errorf("browser scenario suite must be loopback or public")
+	}
+	if options.Suite == SuitePublic && !options.AllowNetwork {
+		return nil, fmt.Errorf("public browser scenarios require explicit --allow-network")
+	}
+	if options.Suite == SuiteLoopback && options.AllowNetwork {
+		return nil, fmt.Errorf("loopback browser scenarios do not accept network authority")
+	}
+	if strings.TrimSpace(options.OutPath) == "" {
+		return nil, fmt.Errorf("browser scenario report output is required")
+	}
+
+	manifests, err := LoadManifests(now)
+	if err != nil {
+		return nil, err
+	}
+	selected, err := SelectManifests(manifests, options.Suite, options.ScenarioIDs)
+	if err != nil {
+		return nil, err
+	}
+	lock, err := LoadCompatibilityLock()
+	if err != nil {
+		return nil, err
+	}
+	environment, repositories, dependencies, err := resolveEnvironment(ctx, options, lock, now)
+	if err != nil {
+		return nil, err
+	}
+	executor := options.Executor
+	if executor == nil {
+		executor = NewRealExecutor()
+	}
+	if closer, ok := executor.(interface{ Close() error }); ok {
+		defer closer.Close()
+	}
+	results := make([]ScenarioResult, 0, len(selected))
+	for _, manifest := range selected {
+		if manifest.Quarantine != nil {
+			results = append(results, ScenarioResult{ID: manifest.ID, Status: StatusQuarantined, Detail: "quarantined"})
+			continue
+		}
+		result := executor.Execute(ctx, manifest, environment)
+		result.ID = manifest.ID
+		result.Assertions = canonicalAssertions(result.Assertions)
+		if options.RequireReady && result.Status == StatusSkipped {
+			result.Status = StatusFail
+			result.Detail = "dependency_unavailable"
+			for index := range result.Phases {
+				if result.Phases[index].Status == StatusSkipped {
+					result.Phases[index].Status = StatusFail
+				}
+			}
+		}
+		results = append(results, result)
+	}
+	report := NewReport(options.Suite, now, repositories, dependencies, results)
+	if err := ValidateReport(report); err != nil {
+		return report, err
+	}
+	if err := WriteReport(options.OutPath, report); err != nil {
+		return report, err
+	}
+	if report.Status == StatusFail {
+		return report, fmt.Errorf("browser scenario evaluation failed")
+	}
+	return report, nil
+}
+
+func resolveEnvironment(ctx context.Context, options Options, lock CompatibilityLock, now time.Time) (Environment, []RepositoryRevision, []DependencyRevision, error) {
+	root, err := absoluteDirectory(defaultPath(options.RepoRoot, "."), "openudon")
+	if err != nil {
+		return Environment{}, nil, nil, err
+	}
+	browsertoolsRepo, err := absoluteDirectory(defaultPath(options.BrowsertoolsRepo, filepath.Join(root, "..", "browsertools")), "browsertools")
+	if err != nil {
+		return Environment{}, nil, nil, err
+	}
+	udonRepo, err := absoluteDirectory(defaultPath(options.UdonRepo, filepath.Join(root, "..", "udon")), "udon")
+	if err != nil {
+		return Environment{}, nil, nil, err
+	}
+	browserdriverRepo, err := absoluteDirectory(defaultPath(options.BrowserdriverRepo, filepath.Join(root, "..", "browserdriver")), "browserdriver")
+	if err != nil {
+		return Environment{}, nil, nil, err
+	}
+
+	repoPaths := []struct{ name, path string }{
+		{"openudon", root}, {"browsertools", browsertoolsRepo}, {"udon", udonRepo}, {"browserdriver", browserdriverRepo},
+	}
+	repositories := make([]RepositoryRevision, 0, len(repoPaths))
+	for _, repo := range repoPaths {
+		commit, dirty, revisionErr := gitRevision(ctx, repo.path)
+		if revisionErr != nil {
+			return Environment{}, nil, nil, fmt.Errorf("resolve %s browser-scenario revision", repo.name)
+		}
+		repositories = append(repositories, RepositoryRevision{Name: repo.name, Commit: commit, Dirty: dirty})
+	}
+	locked := make(map[string]LockedRevision, len(lock.Components))
+	for _, component := range lock.Components {
+		locked[component.Name] = component
+	}
+	for _, revision := range repositories[1:] {
+		if locked[revision.Name].Commit != revision.Commit {
+			return Environment{}, nil, nil, fmt.Errorf("%s revision does not match the browser-scenario compatibility lock", revision.Name)
+		}
+	}
+	dependencies := []DependencyRevision{
+		{Module: "github.com/OpenUdon/browsertools", Version: locked["browsertools"].Version},
+		{Module: "github.com/OpenUdon/uws", Version: locked["uws"].Version},
+	}
+	for _, dependency := range dependencies {
+		if !goModRequires(root, dependency.Module, dependency.Version) {
+			return Environment{}, nil, nil, fmt.Errorf("%s dependency does not match the browser-scenario compatibility lock", dependency.Module)
+		}
+	}
+	return Environment{
+		RepoRoot: root, BrowsertoolsRepo: browsertoolsRepo, UdonRepo: udonRepo,
+		BrowserdriverRepo: browserdriverRepo, Lock: lock, Now: now,
+	}, repositories, dependencies, nil
+}
+
+func absoluteDirectory(value, name string) (string, error) {
+	path, err := filepath.Abs(value)
+	if err != nil {
+		return "", err
+	}
+	info, err := os.Stat(path)
+	if err != nil || !info.IsDir() {
+		return "", fmt.Errorf("%s repository is unavailable at %s", name, path)
+	}
+	return filepath.Clean(path), nil
+}
+
+func gitRevision(ctx context.Context, directory string) (string, bool, error) {
+	command := exec.CommandContext(ctx, "git", "rev-parse", "HEAD")
+	command.Dir = directory
+	output, err := command.Output()
+	commit := strings.TrimSpace(string(output))
+	if err != nil || !commitPattern.MatchString(commit) {
+		return "", false, fmt.Errorf("git revision unavailable")
+	}
+	command = exec.CommandContext(ctx, "git", "status", "--porcelain=v1", "--untracked-files=all")
+	command.Dir = directory
+	output, err = command.Output()
+	if err != nil {
+		return "", false, err
+	}
+	return commit, strings.TrimSpace(string(output)) != "", nil
+}
+
+func goModRequires(root, module, version string) bool {
+	data, err := os.ReadFile(filepath.Join(root, "go.mod"))
+	if err != nil {
+		return false
+	}
+	want := module + " " + version
+	for _, line := range strings.Split(string(data), "\n") {
+		if strings.Join(strings.Fields(line), " ") == want {
+			return true
+		}
+	}
+	return false
+}
+
+func defaultPath(value, fallback string) string {
+	if strings.TrimSpace(value) == "" {
+		return fallback
+	}
+	return value
+}
+
+// SortedScenarioIDs is useful to render stable CLI summaries without exposing
+// any target-derived values.
+func SortedScenarioIDs(values []ScenarioResult) []string {
+	result := make([]string, 0, len(values))
+	for _, value := range values {
+		result = append(result, value.ID)
+	}
+	sort.Strings(result)
+	return result
+}

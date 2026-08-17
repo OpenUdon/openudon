@@ -1,0 +1,10 @@
+{
+  "version": "openudon.browser-scenario.v1",
+  "id": "quotes-to-scrape-js",
+  "suite": "public",
+  "outputs": [],
+  "replayVariants": [],
+  "expected": {"authoring": "pass", "replay": "pass", "browserProfile": "uws.browser.1.5", "uwsVersion": "1.7.0"},
+  "target": {"url": "https://quotes.toscrape.com/js/", "origins": ["https://fonts.googleapis.com", "https://fonts.gstatic.com", "https://quotes.toscrape.com"]},
+  "probes": [{"id": "pagination-link", "role": "link", "name": "Next", "minMatches": 1, "maxMatches": 1}]
+}

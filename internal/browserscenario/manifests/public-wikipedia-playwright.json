@@ -1,0 +1,10 @@
+{
+  "version": "openudon.browser-scenario.v1",
+  "id": "wikipedia-playwright",
+  "suite": "public",
+  "outputs": [],
+  "replayVariants": [],
+  "expected": {"authoring": "pass", "replay": "pass", "browserProfile": "uws.browser.1.5", "uwsVersion": "1.7.0"},
+  "target": {"url": "https://en.wikipedia.org/wiki/Playwright_(software)", "origins": ["https://auth.wikimedia.org", "https://en.wikipedia.org", "https://upload.wikimedia.org"]},
+  "probes": [{"id": "article-heading", "role": "heading", "name": "Playwright (software)", "minMatches": 1, "maxMatches": 1}]
+}

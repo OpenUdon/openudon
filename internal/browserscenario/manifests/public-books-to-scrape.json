@@ -1,0 +1,10 @@
+{
+  "version": "openudon.browser-scenario.v1",
+  "id": "books-to-scrape",
+  "suite": "public",
+  "outputs": [],
+  "replayVariants": [],
+  "expected": {"authoring": "pass", "replay": "pass", "browserProfile": "uws.browser.1.5", "uwsVersion": "1.7.0"},
+  "target": {"url": "https://books.toscrape.com/", "origins": ["https://books.toscrape.com"]},
+  "probes": [{"id": "catalog-heading", "role": "heading", "name": "All products", "minMatches": 1, "maxMatches": 1}]
+}

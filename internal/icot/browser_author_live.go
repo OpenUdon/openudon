@@ -67,6 +67,7 @@ type liveAuthorConfig struct {
 	DriverDir           string
 	URL                 string
 	DashboardURL        string
+	GoalURL             string
 	Goal                string
 	Origins             []string
 	PrivateRoot         string
@@ -403,13 +404,24 @@ func normalizeLiveAuthorConfig(cfg *liveAuthorConfig) error {
 	if _, path := originAndPath(dashboardURL); !validLivePath(path) {
 		return fmt.Errorf("dashboard URL path is not portable")
 	}
+	goalRaw := strings.TrimSpace(cfg.GoalURL)
+	if goalRaw == "" {
+		goalRaw = dashboardURL
+	}
+	goalURL, goalOrigin, err := normalizeBrowserAuthoringURL(goalRaw)
+	if err != nil {
+		return fmt.Errorf("goal URL: %w", err)
+	}
+	if _, path := originAndPath(goalURL); !validLivePath(path) {
+		return fmt.Errorf("goal URL path is not portable")
+	}
 	origins, err := normalizeBrowserAuthoringOrigins(cfg.Origins)
 	if err != nil {
 		return err
 	}
 	initialOrigin, _ := originAndPath(initialURL)
-	if !stringSliceContainsExact(origins, initialOrigin) || !stringSliceContainsExact(origins, dashboardOrigin) {
-		return fmt.Errorf("approved origins must include both initial and dashboard origins")
+	if !stringSliceContainsExact(origins, initialOrigin) || !stringSliceContainsExact(origins, dashboardOrigin) || !stringSliceContainsExact(origins, goalOrigin) {
+		return fmt.Errorf("approved origins must include initial, dashboard, and goal origins")
 	}
 	if strings.TrimSpace(cfg.Goal) == "" || len(cfg.Goal) > 1024 {
 		return fmt.Errorf("goal must contain 1 through 1024 characters")
@@ -438,7 +450,7 @@ func normalizeLiveAuthorConfig(cfg *liveAuthorConfig) error {
 	}
 	label := strings.TrimSpace(cfg.GoalLabel)
 	if label == "" {
-		_, path := originAndPath(dashboardURL)
+		_, path := originAndPath(goalURL)
 		label = defaultLiveGoalLabel(path)
 	}
 	if len(label) > 256 || containsPlanDelimiterOrControl(label) {
@@ -453,7 +465,7 @@ func normalizeLiveAuthorConfig(cfg *liveAuthorConfig) error {
 		return fmt.Errorf("profile ID %q must match %s", id, browserProfileIDPattern)
 	}
 	cfg.ExampleDir, cfg.PrivateRoot, cfg.Browsertools = example, privateRoot, executable
-	cfg.URL, cfg.DashboardURL, cfg.Origins = initialURL, dashboardURL, origins
+	cfg.URL, cfg.DashboardURL, cfg.GoalURL, cfg.Origins = initialURL, dashboardURL, goalURL, origins
 	cfg.AfterAuthentication, cfg.GoalRole, cfg.GoalContext, cfg.GoalLabel, cfg.ProfileID = choice, role, contextID, label, id
 	return nil
 }
@@ -502,13 +514,22 @@ func defaultLiveGoalLabel(path string) string {
 	return strings.Join(words, " ")
 }
 
+func liveGoalURL(cfg liveAuthorConfig) string {
+	if value := strings.TrimSpace(cfg.GoalURL); value != "" {
+		return value
+	}
+	return cfg.DashboardURL
+}
+
 func reviewAfterAuthenticationChoice(reader *bufio.Reader, out io.Writer, cfg liveAuthorConfig) error {
-	_, path := originAndPath(cfg.DashboardURL)
+	_, dashboardPath := originAndPath(cfg.DashboardURL)
+	goalURL := liveGoalURL(cfg)
+	_, goalPath := originAndPath(goalURL)
 	fmt.Fprintln(out, "Reviewed live-authoring continuation:")
 	fmt.Fprintf(out, "- after authentication: %s\n", cfg.AfterAuthentication)
-	fmt.Fprintf(out, "- dashboard: %s%s\n", originForDisplay(cfg.DashboardURL), path)
+	fmt.Fprintf(out, "- dashboard: %s%s\n", originForDisplay(cfg.DashboardURL), dashboardPath)
 	fmt.Fprintf(out, "- approved origins: %s\n", strings.Join(cfg.Origins, ", "))
-	fmt.Fprintf(out, "- typed completion: context=%s origin=%s path=%s role=%s label=%q\n", cfg.GoalContext, originForDisplay(cfg.DashboardURL), path, cfg.GoalRole, cfg.GoalLabel)
+	fmt.Fprintf(out, "- typed completion: context=%s origin=%s path=%s role=%s label=%q\n", cfg.GoalContext, originForDisplay(goalURL), goalPath, cfg.GoalRole, cfg.GoalLabel)
 	decision, err := readLiveDecision(reader, out, "Type approve to accept this typed continuation and predicate, or cancel: ", "approve", "cancel")
 	if err != nil {
 		return err
@@ -629,7 +650,7 @@ func orchestrateLiveAuthor(ctx context.Context, cfg liveAuthorConfig, reader *bu
 			return liveProtocolResult{}, fmt.Errorf("Browsertools lacks required live-authoring capability %s", capability)
 		}
 	}
-	goalOrigin, goalPath := originAndPath(cfg.DashboardURL)
+	goalOrigin, goalPath := originAndPath(liveGoalURL(cfg))
 	expectedBounds := defaultLiveAuthorBounds()
 	start := liveClientMessage{
 		Type: "start", Title: defaultLiveTitle(cfg), URL: cfg.URL, DashboardURL: cfg.DashboardURL,
@@ -1246,7 +1267,9 @@ func validateLiveObservation(observation liveObservation, candidateCeiling int) 
 	}
 	contextOrigins := []string{observation.Origin}
 	for _, context := range observation.Contexts {
-		contextOrigins = append(contextOrigins, context.Origin)
+		if !stringSliceContainsExact(contextOrigins, context.Origin) {
+			contextOrigins = append(contextOrigins, context.Origin)
+		}
 	}
 	contextOrigins, err = normalizeBrowserAuthoringOrigins(contextOrigins)
 	if err != nil || validateLiveContextGraph(observation.Contexts, contextOrigins) != nil {

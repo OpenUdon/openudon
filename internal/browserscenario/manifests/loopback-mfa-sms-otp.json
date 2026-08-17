@@ -1,0 +1,11 @@
+{
+  "version": "openudon.browser-scenario.v1",
+  "id": "mfa-sms-otp",
+  "suite": "loopback",
+  "authentication": {"credentials": ["identifier", "password"], "challengeKind": "sms_otp", "contextMode": "main"},
+  "goal": {"context": "main", "role": "heading", "name": "Member dashboard"},
+  "outputs": [{"key": "account_name", "type": "string", "role": "status", "name": "Account name", "locatorMode": "exact_name"}],
+  "replayVariants": [],
+  "expected": {"authoring": "pass", "replay": "pass", "browserProfile": "uws.browser.1.5", "uwsVersion": "1.8.0"},
+  "probes": []
+}

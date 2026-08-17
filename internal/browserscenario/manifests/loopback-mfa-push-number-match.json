@@ -1,0 +1,11 @@
+{
+  "version": "openudon.browser-scenario.v1",
+  "id": "mfa-push-number-match",
+  "suite": "loopback",
+  "authentication": {"credentials": ["identifier", "password"], "challengeKind": "push_number_match", "contextMode": "main"},
+  "goal": {"context": "main", "role": "heading", "name": "Member dashboard"},
+  "outputs": [{"key": "plan_present", "type": "presence", "role": "region", "name": "Plan summary", "locatorMode": "exact_name"}],
+  "replayVariants": [],
+  "expected": {"authoring": "pass", "replay": "pass", "browserProfile": "uws.browser.1.5", "uwsVersion": "1.8.0"},
+  "probes": []
+}

@@ -1,0 +1,12 @@
+{
+  "version": "openudon.browser-scenario.v1",
+  "id": "ambiguous-unique-role-rejected",
+  "suite": "loopback",
+  "authentication": {"credentials": ["identifier", "password"], "contextMode": "main"},
+  "goal": {"context": "main", "role": "heading", "name": "Member dashboard"},
+  "outputs": [{"key": "summary", "type": "string", "role": "article", "locatorMode": "unique_role"}],
+  "fault": "ambiguous_unique_role",
+  "replayVariants": [],
+  "expected": {"authoring": "rejected", "replay": "rejected", "failureCode": "ambiguous_output"},
+  "probes": []
+}

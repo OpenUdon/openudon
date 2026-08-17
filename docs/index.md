@@ -96,6 +96,7 @@ for the provider-free release demo, and [Handoff](safety.md) for the review and 
 - [SaaS Operator Release Path](saas-operator-release.md)
 - [Product Smoke Matrix](product-smoke-matrix.md)
 - [Browser Integration Evaluation](browser-integration-eval.md)
+- [Browser Scenario Evaluation](browser-scenario-eval.md)
 - [Release Stewardship](release-stewardship.md)
 - [Release Notes Template](release-note-template.md)
 

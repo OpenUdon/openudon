@@ -1,0 +1,11 @@
+{
+  "version": "openudon.browser-scenario.v1",
+  "id": "popup-context",
+  "suite": "loopback",
+  "authentication": {"credentials": ["identifier", "password"], "contextMode": "popup"},
+  "goal": {"context": "popup_1", "role": "heading", "name": "Member dashboard"},
+  "outputs": [{"key": "account_name", "type": "string", "role": "status", "name": "Account name", "locatorMode": "exact_name"}],
+  "replayVariants": [],
+  "expected": {"authoring": "pass", "replay": "pass", "browserProfile": "uws.browser.1.6", "uwsVersion": "1.8.0"},
+  "probes": []
+}

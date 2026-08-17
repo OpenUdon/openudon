@@ -1,0 +1,17 @@
+{
+  "version": "openudon.browser-scenario.v1",
+  "id": "mfa-totp-scalars",
+  "suite": "loopback",
+  "authentication": {"credentials": ["identifier", "password"], "challengeKind": "totp", "contextMode": "main"},
+  "goal": {"context": "main", "role": "heading", "name": "Member dashboard"},
+  "outputs": [
+    {"key": "account_name", "type": "string", "role": "status", "name": "Account name", "locatorMode": "exact_name"},
+    {"key": "item_count", "type": "integer", "role": "status", "name": "Item count", "locatorMode": "exact_name"},
+    {"key": "usage_ratio", "type": "number", "role": "status", "name": "Usage ratio", "locatorMode": "exact_name"},
+    {"key": "feature_enabled", "type": "boolean", "role": "status", "name": "Feature enabled", "locatorMode": "exact_name"},
+    {"key": "plan_present", "type": "presence", "role": "region", "name": "Plan summary", "locatorMode": "exact_name"}
+  ],
+  "replayVariants": [],
+  "expected": {"authoring": "pass", "replay": "pass", "browserProfile": "uws.browser.1.7", "uwsVersion": "1.9.0"},
+  "probes": []
+}

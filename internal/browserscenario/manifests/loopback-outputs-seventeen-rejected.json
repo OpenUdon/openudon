@@ -1,0 +1,30 @@
+{
+  "version": "openudon.browser-scenario.v1",
+  "id": "outputs-seventeen-rejected",
+  "suite": "loopback",
+  "authentication": {"credentials": ["identifier", "password"], "contextMode": "main"},
+  "goal": {"context": "main", "role": "heading", "name": "Member dashboard"},
+  "outputs": [
+    {"key": "metric_01", "type": "string", "role": "heading", "name": "Metric 01", "locatorMode": "exact_name"},
+    {"key": "metric_02", "type": "string", "role": "heading", "name": "Metric 02", "locatorMode": "exact_name"},
+    {"key": "metric_03", "type": "string", "role": "heading", "name": "Metric 03", "locatorMode": "exact_name"},
+    {"key": "metric_04", "type": "string", "role": "heading", "name": "Metric 04", "locatorMode": "exact_name"},
+    {"key": "metric_05", "type": "string", "role": "heading", "name": "Metric 05", "locatorMode": "exact_name"},
+    {"key": "metric_06", "type": "string", "role": "heading", "name": "Metric 06", "locatorMode": "exact_name"},
+    {"key": "metric_07", "type": "string", "role": "heading", "name": "Metric 07", "locatorMode": "exact_name"},
+    {"key": "metric_08", "type": "string", "role": "heading", "name": "Metric 08", "locatorMode": "exact_name"},
+    {"key": "metric_09", "type": "string", "role": "heading", "name": "Metric 09", "locatorMode": "exact_name"},
+    {"key": "metric_10", "type": "string", "role": "heading", "name": "Metric 10", "locatorMode": "exact_name"},
+    {"key": "metric_11", "type": "string", "role": "heading", "name": "Metric 11", "locatorMode": "exact_name"},
+    {"key": "metric_12", "type": "string", "role": "heading", "name": "Metric 12", "locatorMode": "exact_name"},
+    {"key": "metric_13", "type": "string", "role": "heading", "name": "Metric 13", "locatorMode": "exact_name"},
+    {"key": "metric_14", "type": "string", "role": "heading", "name": "Metric 14", "locatorMode": "exact_name"},
+    {"key": "metric_15", "type": "string", "role": "heading", "name": "Metric 15", "locatorMode": "exact_name"},
+    {"key": "metric_16", "type": "string", "role": "heading", "name": "Metric 16", "locatorMode": "exact_name"},
+    {"key": "metric_17", "type": "string", "role": "heading", "name": "Metric 17", "locatorMode": "exact_name"}
+  ],
+  "fault": "outputs_17",
+  "replayVariants": [],
+  "expected": {"authoring": "rejected", "replay": "rejected", "failureCode": "output_bound"},
+  "probes": []
+}

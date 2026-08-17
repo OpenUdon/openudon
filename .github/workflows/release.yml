@@ -34,8 +34,65 @@ jobs:
           GOWORK=off go run ./cmd/openudon check-apitools-boundary
           git diff --check
 
-  build:
+  browser-scenarios:
     needs: verify
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out OpenUdon
+        uses: actions/checkout@v7
+
+      - name: Set up Go
+        uses: actions/setup-go@v7
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: Set up locked Node
+        uses: actions/setup-node@v6
+        with:
+          node-version: 24
+
+      - name: Check out locked browser components
+        run: |
+          mkdir -p scenario-deps
+          for COMPONENT in browsertools udon browserdriver; do
+            COMMIT="$(jq -r --arg name "$COMPONENT" '.components[] | select(.name == $name) | .commit' internal/browserscenario/compatibility-lock.json)"
+            test "$COMMIT" != "null"
+            git clone --filter=blob:none "https://github.com/OpenUdon/${COMPONENT}.git" "scenario-deps/${COMPONENT}"
+            git -C "scenario-deps/${COMPONENT}" checkout --detach "$COMMIT"
+          done
+
+      - name: Install locked Chromium runtimes
+        run: |
+          npm --prefix scenario-deps/browserdriver ci
+          npx --prefix scenario-deps/browserdriver playwright install --with-deps chromium
+          cd scenario-deps/browsertools
+          go run github.com/mxschmitt/playwright-go/cmd/playwright@v0.6201.0 install --with-deps chromium
+
+      - name: Run required deterministic loopback suite
+        run: |
+          mkdir -p eval/runs/browser-scenario-release
+          xvfb-run -a go run ./cmd/openudon browser-scenario-eval \
+            --suite loopback \
+            --require-ready \
+            --browsertools-repo scenario-deps/browsertools \
+            --udon-repo scenario-deps/udon \
+            --browserdriver-repo scenario-deps/browserdriver \
+            --out eval/runs/browser-scenario-release/report.json
+          go run ./cmd/openudon browser-scenario-eval \
+            --verify eval/runs/browser-scenario-release/report.json
+
+      - name: Upload value-free scenario evidence
+        uses: actions/upload-artifact@v7
+        with:
+          name: browser-scenario-loopback
+          path: eval/runs/browser-scenario-release/report.json*
+          if-no-files-found: error
+          retention-days: 30
+
+  build:
+    needs: [verify, browser-scenarios]
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false

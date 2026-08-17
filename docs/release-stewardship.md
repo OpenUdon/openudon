@@ -48,7 +48,8 @@ For the SaaS release story, run the comprehensive provider-free local gate:
 make release-saas-check
 ```
 
-`release-saas-check` runs `release-check`, `browser-integration-check`, `eval-seed-build`,
+`release-saas-check` runs `release-check`, `browser-integration-check`, the
+required network-free `browser-scenario-loopback`, `eval-seed-build`,
 `icot-variants-validate`, `icot-variants-coverage`, `icot-authoring-scorecard`, UWS validation,
 doc-memory, n8n bridge validation, strict MkDocs build, selected strict SaaS fixture lint, and the
 provider-free dry-run demo in
@@ -67,6 +68,13 @@ Browserdriver, writes a value-free digest-sidecar report, and verifies it. It
 does not retain child-process output. See
 [Browser Integration Evaluation](browser-integration-eval.md) for the exact
 gates and separate loopback-only installed-browser opt-ins.
+
+`browser-scenario-loopback` is the real-browser release complement to that
+browser-free matrix. It runs the fixed 21-case author-session v2 and trusted
+v3 replay corpus, then verifies the value-free report sidecar. The weekly
+`browser-scenario-public` workflow runs four anonymous read-only canaries with
+explicit network authority and is informational. See [Browser Scenario
+Evaluation](browser-scenario-eval.md).
 
 The demo must use ignored `.openudon-run/...` output, sandbox approval JSON, and
 `openudon run --dry-run`. Do not commit approval JSON, run configs, transcripts,

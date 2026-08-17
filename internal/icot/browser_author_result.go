@@ -320,7 +320,7 @@ func validateAuthenticatedAuthoringEnvelope(cfg liveAuthorConfig, envelope *auth
 	if err != nil || at.Before(observedAt.Add(-time.Minute)) || at.Sub(observedAt) > 31*time.Minute {
 		return fmt.Errorf("authenticated-authoring observation time is invalid or stale")
 	}
-	goalOrigin, goalPath := originAndPath(cfg.DashboardURL)
+	goalOrigin, goalPath := originAndPath(liveGoalURL(cfg))
 	wantGoal := liveGoalPredicate{Origin: goalOrigin, Path: goalPath, Context: cfg.GoalContext, Role: cfg.GoalRole, Label: cfg.GoalLabel}
 	if !reflect.DeepEqual(envelope.GoalPredicate, wantGoal) || envelope.GoalProof.Origin != wantGoal.Origin || envelope.GoalProof.Path != wantGoal.Path || envelope.GoalProof.Context != wantGoal.Context || envelope.GoalProof.Role != wantGoal.Role || envelope.GoalProof.Label != wantGoal.Label || envelope.GoalProof.Matches != 1 {
 		return fmt.Errorf("authenticated-authoring typed goal proof does not match the reviewed predicate")

@@ -1,0 +1,10 @@
+{
+  "version": "openudon.browser-scenario.v1",
+  "id": "hacker-news",
+  "suite": "public",
+  "outputs": [],
+  "replayVariants": [],
+  "expected": {"authoring": "pass", "replay": "pass", "browserProfile": "uws.browser.1.5", "uwsVersion": "1.7.0"},
+  "target": {"url": "https://news.ycombinator.com/", "origins": ["https://news.ycombinator.com"]},
+  "probes": [{"id": "pagination-link", "role": "link", "name": "More", "minMatches": 1, "maxMatches": 1}]
+}

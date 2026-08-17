@@ -1,0 +1,72 @@
+name: public browser scenario canaries
+
+on:
+  schedule:
+    - cron: "17 5 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  public-canaries:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out OpenUdon
+        uses: actions/checkout@v7
+
+      - name: Set up Go
+        uses: actions/setup-go@v7
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: Set up locked Node
+        uses: actions/setup-node@v6
+        with:
+          node-version: 24
+
+      - name: Check out locked browser components
+        run: |
+          mkdir -p scenario-deps
+          for COMPONENT in browsertools udon browserdriver; do
+            COMMIT="$(jq -r --arg name "$COMPONENT" '.components[] | select(.name == $name) | .commit' internal/browserscenario/compatibility-lock.json)"
+            test "$COMMIT" != "null"
+            git clone --filter=blob:none "https://github.com/OpenUdon/${COMPONENT}.git" "scenario-deps/${COMPONENT}"
+            git -C "scenario-deps/${COMPONENT}" checkout --detach "$COMMIT"
+          done
+
+      - name: Install locked Chromium runtimes
+        run: |
+          npm --prefix scenario-deps/browserdriver ci
+          npx --prefix scenario-deps/browserdriver playwright install --with-deps chromium
+          cd scenario-deps/browsertools
+          go run github.com/mxschmitt/playwright-go/cmd/playwright@v0.6201.0 install --with-deps chromium
+
+      - name: Run informational public canaries
+        id: canary
+        continue-on-error: true
+        run: |
+          mkdir -p eval/runs/browser-scenario-public
+          go run ./cmd/openudon browser-scenario-eval \
+            --suite public \
+            --allow-network \
+            --require-ready \
+            --browsertools-repo scenario-deps/browsertools \
+            --udon-repo scenario-deps/udon \
+            --browserdriver-repo scenario-deps/browserdriver \
+            --out eval/runs/browser-scenario-public/report.json
+
+      - name: Verify a passing canary report
+        if: steps.canary.outcome == 'success'
+        run: go run ./cmd/openudon browser-scenario-eval --verify eval/runs/browser-scenario-public/report.json
+
+      - name: Upload value-free canary evidence
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: browser-scenario-public
+          path: eval/runs/browser-scenario-public/report.json*
+          if-no-files-found: warn
+          retention-days: 14

@@ -1,0 +1,12 @@
+{
+  "version": "openudon.browser-scenario.v1",
+  "id": "context-substitution-rejected",
+  "suite": "loopback",
+  "authentication": {"credentials": ["identifier", "password"], "contextMode": "popup"},
+  "goal": {"context": "popup_1", "role": "heading", "name": "Member dashboard"},
+  "outputs": [{"key": "account_name", "type": "string", "role": "status", "name": "Account name", "locatorMode": "exact_name"}],
+  "fault": "context_substitution",
+  "replayVariants": [],
+  "expected": {"authoring": "pass", "replay": "rejected", "failureCode": "invalid_context", "browserProfile": "uws.browser.1.6", "uwsVersion": "1.8.0"},
+  "probes": []
+}
