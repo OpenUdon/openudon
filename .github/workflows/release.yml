@@ -70,6 +70,17 @@ jobs:
           cd scenario-deps/browsertools
           go run github.com/mxschmitt/playwright-go/cmd/playwright@v0.6201.0 install --with-deps chromium
 
+      - name: Enable Chromium sandbox user namespaces
+        run: |
+          if sysctl -n kernel.apparmor_restrict_unprivileged_userns >/dev/null 2>&1; then
+            sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
+            test "$(sysctl -n kernel.apparmor_restrict_unprivileged_userns)" = "0"
+          fi
+          if sysctl -n kernel.unprivileged_userns_clone >/dev/null 2>&1; then
+            sudo sysctl -w kernel.unprivileged_userns_clone=1
+            test "$(sysctl -n kernel.unprivileged_userns_clone)" = "1"
+          fi
+
       - name: Run required deterministic loopback suite
         run: |
           mkdir -p eval/runs/browser-scenario-release

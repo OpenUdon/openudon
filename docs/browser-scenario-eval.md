@@ -29,6 +29,13 @@ On headless Linux:
 xvfb-run -a make browser-scenario-loopback
 ```
 
+Chromium still runs with its sandbox enabled. Ubuntu 24.04 hosted runners also
+need unprivileged user namespaces: the release and public-canary workflows
+explicitly enable `kernel.unprivileged_userns_clone` and, when present, disable
+the AppArmor-only `kernel.apparmor_restrict_unprivileged_userns` restriction on
+their ephemeral runner before launch. They fail if either requested setting
+does not take effect; the suites never add `--no-sandbox`.
+
 The 21 embedded cases cover password-only authentication, all eight reviewed
 MFA kinds, main/popup/frame contexts, exact-name and unique-role locators,
 zero/16/17 outputs, typed string/integer/number/Boolean/presence results,

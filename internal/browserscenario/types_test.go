@@ -238,6 +238,38 @@ func TestReportRoundTripTamperAndWireStrictness(t *testing.T) {
 	if _, err := VerifyReportFile(filename, false); err == nil {
 		t.Fatal("unknown report field succeeded")
 	}
+	if err := WriteReport(filename, report); err != nil {
+		t.Fatal(err)
+	}
+	data, _ = os.ReadFile(filename)
+	data = []byte(strings.Replace(string(data), `"engine": "chromium"`, `"engine": "chromium", "engine": "chromium"`, 1))
+	if err := os.WriteFile(filename, data, 0o644); err != nil {
+		t.Fatal(err)
+	}
+	sum = sha256Line(data, filepath.Base(filename))
+	if err := os.WriteFile(filename+".sha256", []byte(sum), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := VerifyReportFile(filename, false); err == nil || !strings.Contains(err.Error(), "duplicate JSON object key") {
+		t.Fatalf("duplicate report field verification = %v", err)
+	}
+}
+
+func TestStrictJSONRejectsDuplicateKeysAtEveryObjectDepth(t *testing.T) {
+	for _, data := range []string{
+		`{"field": 1, "field": 2}`,
+		`{"outer": {"field": 1, "\u0066ield": 2}}`,
+		`{"items": [{"field": 1, "field": 2}]}`,
+	} {
+		var target any
+		if err := decodeStrict([]byte(data), &target); err == nil || err.Error() != "duplicate JSON object key" {
+			t.Fatalf("duplicate input %s = %v", data, err)
+		}
+	}
+	var target any
+	if err := decodeStrict([]byte(`{"left": {"field": 1}, "right": {"field": 2}}`), &target); err != nil {
+		t.Fatalf("independent object keys rejected: %v", err)
+	}
 }
 
 func TestReportRejectsUnsafeClaimsAndUnprovenPass(t *testing.T) {

@@ -64,3 +64,25 @@ func TestReleaseWorkflowPackagesAllPublicCommands(t *testing.T) {
 		}
 	}
 }
+
+func TestBrowserScenarioWorkflowsProvisionSandboxUserNamespaces(t *testing.T) {
+	root := filepath.Join("..", "..")
+	for _, path := range []string{
+		filepath.Join(".github", "workflows", "release.yml"),
+		filepath.Join(".github", "workflows", "browser-scenario-public.yml"),
+	} {
+		workflow := readRepoFile(t, root, path)
+		for _, want := range []string{
+			"Enable Chromium sandbox user namespaces",
+			"kernel.apparmor_restrict_unprivileged_userns=0",
+			"kernel.unprivileged_userns_clone=1",
+		} {
+			if !strings.Contains(workflow, want) {
+				t.Fatalf("%s missing %q", path, want)
+			}
+		}
+		if strings.Contains(workflow, "--no-sandbox") {
+			t.Fatalf("%s disables the Chromium sandbox", path)
+		}
+	}
+}

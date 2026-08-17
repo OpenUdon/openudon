@@ -74,7 +74,9 @@ browser-free matrix. It runs the fixed 21-case author-session v2 and trusted
 v3 replay corpus, then verifies the value-free report sidecar. The weekly
 `browser-scenario-public` workflow runs four anonymous read-only canaries with
 explicit network authority and is informational. See [Browser Scenario
-Evaluation](browser-scenario-eval.md).
+Evaluation](browser-scenario-eval.md). Both hosted Ubuntu jobs explicitly
+enable sandbox-compatible unprivileged user namespaces on their ephemeral
+runner and retain Chromium's sandbox; `xvfb-run` supplies only the display.
 
 The demo must use ignored `.openudon-run/...` output, sandbox approval JSON, and
 `openudon run --dry-run`. Do not commit approval JSON, run configs, transcripts,
