@@ -6,6 +6,7 @@ import (
 	"encoding/base64"
 	"errors"
 	"net"
+	"net/http"
 	"net/url"
 	"path/filepath"
 	"strings"
@@ -133,5 +134,15 @@ func TestRunRejectsInvalidPortBeforeListening(t *testing.T) {
 	err := Run(ctx, RunConfig{EngineConfig: engine.Config{ExampleDir: t.TempDir()}, Port: 65536})
 	if err == nil || !strings.Contains(err.Error(), "port") {
 		t.Fatalf("error = %v", err)
+	}
+}
+
+func TestHTTPServerResourceLimits(t *testing.T) {
+	server := newHTTPServer(http.NotFoundHandler())
+	if server.ReadHeaderTimeout != 5*time.Second || server.ReadTimeout != 15*time.Second || server.IdleTimeout != 30*time.Second {
+		t.Fatalf("server timeouts = header %v read %v idle %v", server.ReadHeaderTimeout, server.ReadTimeout, server.IdleTimeout)
+	}
+	if server.WriteTimeout != 0 || server.MaxHeaderBytes != 32<<10 {
+		t.Fatalf("server resource limits = write %v headers %d", server.WriteTimeout, server.MaxHeaderBytes)
 	}
 }

@@ -39,13 +39,31 @@ func SaveDraft(path string, session Session) error {
 	if path == "" || !LooksLikeSession(session) {
 		return nil
 	}
+	session.Normalize()
+	_, _, err := DraftBytes(session)
+	if err != nil {
+		return err
+	}
+	return authoring.SaveDraft(path, session)
+}
+
+// DraftBytes returns the exact bytes SaveDraft will persist. The boolean is
+// false when SaveDraft would intentionally be a no-op for an empty session.
+func DraftBytes(session Session) ([]byte, bool, error) {
+	if !LooksLikeSession(session) {
+		return nil, false, nil
+	}
 	for index, event := range session.DraftEvents {
 		if _, err := json.Marshal(event); err != nil {
-			return fmt.Errorf("draft event %d is not JSON-marshalable: %w", index, err)
+			return nil, false, fmt.Errorf("draft event %d is not JSON-marshalable: %w", index, err)
 		}
 	}
 	session.Normalize()
-	return authoring.SaveDraft(path, session)
+	data, err := authoring.MarshalDraft(session)
+	if err != nil {
+		return nil, false, err
+	}
+	return data, true, nil
 }
 
 // DeleteDraft removes the on-disk draft and prunes the enclosing `.icot/`

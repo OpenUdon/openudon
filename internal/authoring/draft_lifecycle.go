@@ -49,22 +49,33 @@ func SaveDraft[T any](path string, session T) error {
 	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
 		return err
 	}
+	data, err := MarshalDraft(session)
+	if err != nil {
+		return err
+	}
+	return atomicfile.Write(path, data, 0o600)
+}
+
+// MarshalDraft returns the exact YAML bytes SaveDraft persists. Callers that
+// install an in-memory state only after persistence can use these bytes to
+// construct the post-commit state without a fallible read after the rename.
+func MarshalDraft[T any](session T) ([]byte, error) {
 	// Marshal through JSON first so nested shared Authoring contracts that
 	// intentionally publish JSON tags (for example interview.State) retain
 	// their exact snake_case wire names inside the YAML session file.
 	jsonData, err := json.Marshal(session)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	var wire any
 	if err := json.Unmarshal(jsonData, &wire); err != nil {
-		return err
+		return nil, err
 	}
 	data, err := yaml.Marshal(wire)
 	if err != nil {
-		return err
+		return nil, err
 	}
-	return atomicfile.Write(path, data, 0o600)
+	return data, nil
 }
 
 // DeleteDraft removes the draft file and prunes the enclosing `.icot/`

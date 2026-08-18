@@ -156,7 +156,7 @@ func TestCLIRefusesExistingProjectWithoutForce(t *testing.T) {
 	}
 }
 
-func TestCLIForceYesCreatesBackupsAndOverwritesGeneratedFiles(t *testing.T) {
+func TestCLIForceYesCleansBackupsAndOverwritesGeneratedFiles(t *testing.T) {
 	example := t.TempDir()
 	for _, rel := range []string{"openapi", "workflows", "expected"} {
 		if err := os.MkdirAll(filepath.Join(example, rel), 0o755); err != nil {
@@ -189,19 +189,12 @@ func TestCLIForceYesCreatesBackupsAndOverwritesGeneratedFiles(t *testing.T) {
 		t.Fatalf("project.md was not overwritten with new content:\n%s", project)
 	}
 	projectBackups, err := filepath.Glob(filepath.Join(example, "project.md.bak.*"))
-	if err != nil || len(projectBackups) != 1 {
-		t.Fatalf("expected one project backup, got %v, err %v", projectBackups, err)
-	}
-	backup, err := os.ReadFile(projectBackups[0])
-	if err != nil {
-		t.Fatalf("read backup: %v", err)
-	}
-	if string(backup) != "old\n" {
-		t.Fatalf("backup content = %q", backup)
+	if err != nil || len(projectBackups) != 0 {
+		t.Fatalf("successful transaction left project backups %v, err %v", projectBackups, err)
 	}
 	intentBackups, err := filepath.Glob(filepath.Join(example, "workflows", "intent.hcl.bak.*"))
-	if err != nil || len(intentBackups) != 1 {
-		t.Fatalf("expected one intent backup, got %v, err %v", intentBackups, err)
+	if err != nil || len(intentBackups) != 0 {
+		t.Fatalf("successful transaction left intent backups %v, err %v", intentBackups, err)
 	}
 	intent, err := os.ReadFile(filepath.Join(example, "workflows", "intent.hcl"))
 	if err != nil {

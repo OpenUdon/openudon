@@ -92,10 +92,19 @@ type Approval struct {
 
 // WriteResult reports the completed atomic transaction.
 type WriteResult struct {
-	Written    []string `json:"written"`
-	Removed    []string `json:"removed,omitempty"`
-	Incomplete bool     `json:"incomplete"`
-	Preview    Preview  `json:"preview"`
+	Written         []string `json:"written"`
+	Removed         []string `json:"removed,omitempty"`
+	CleanupWarnings []string `json:"cleanup_warnings,omitempty"`
+	Incomplete      bool     `json:"incomplete"`
+	Preview         Preview  `json:"preview"`
+}
+
+// ApprovalResult is the complete terminal mutation result. Snapshot is built
+// before persistence and is therefore available without any fallible
+// post-commit refresh.
+type ApprovalResult struct {
+	Snapshot    Snapshot    `json:"snapshot"`
+	WriteResult WriteResult `json:"write_result"`
 }
 
 // Engine owns one mutable local authoring session.
@@ -108,6 +117,12 @@ type Engine struct {
 	registry        elicitor.BrowserRegistryDiscovery
 	remote          elicitor.RemoteSourceLookupReport
 	discoveryIssues []elicitor.ReadinessIssue
+
+	workspaceRoot      string
+	watchedPaths       []string
+	workspaceBaseline  workspaceFingerprint
+	externallyModified bool
+	cachedSnapshot     Snapshot
 }
 
 type refreshedEngineState struct {
@@ -117,6 +132,11 @@ type refreshedEngineState struct {
 	remote          elicitor.RemoteSourceLookupReport
 	discoveryIssues []elicitor.ReadinessIssue
 }
+
+var (
+	saveEngineDraft = elicitor.SaveDraft
+	commitPrepared  = artifactwriter.CommitChecked
+)
 
 // Open loads the configured seed, resumable draft, or explicit session,
 // performs bounded source discovery, and returns the current round state.
@@ -131,6 +151,11 @@ func Open(ctx context.Context, config Config) (*Engine, Snapshot, error) {
 	if err := validateSeedConfig(config); err != nil {
 		return nil, Snapshot{}, err
 	}
+	workspaceRoot, err := canonicalWorkspaceRoot(config.ExampleDir)
+	if err != nil {
+		return nil, Snapshot{}, err
+	}
+	config.ExampleDir = workspaceRoot
 	policy, err := normalizeNetworkPolicy(config.NetworkPolicy)
 	if err != nil {
 		return nil, Snapshot{}, err
@@ -141,7 +166,7 @@ func Open(ctx context.Context, config Config) (*Engine, Snapshot, error) {
 		return nil, Snapshot{}, err
 	}
 	session.Normalize()
-	engine := &Engine{config: config, session: session}
+	engine := &Engine{config: config, session: session, workspaceRoot: workspaceRoot}
 	if err := engine.refreshLocked(ctx); err != nil {
 		return nil, Snapshot{}, err
 	}
@@ -149,6 +174,18 @@ func Open(ctx context.Context, config Config) (*Engine, Snapshot, error) {
 	if err != nil {
 		return nil, Snapshot{}, err
 	}
+	paths := watchedPaths(workspaceRoot, snapshot)
+	baseline, err := captureWorkspace(ctx, workspaceRoot, paths)
+	if err != nil {
+		return nil, Snapshot{}, err
+	}
+	engine.watchedPaths = paths
+	engine.workspaceBaseline = baseline
+	cached, err := cloneSnapshot(snapshot)
+	if err != nil {
+		return nil, Snapshot{}, err
+	}
+	engine.cachedSnapshot = cached
 	return engine, snapshot, nil
 }
 
@@ -156,124 +193,221 @@ func Open(ctx context.Context, config Config) (*Engine, Snapshot, error) {
 // actions, and render preview without writing deliverables.
 func (e *Engine) Snapshot(ctx context.Context) (Snapshot, error) {
 	if e == nil {
-		return Snapshot{}, errors.New("engine is nil")
+		return Snapshot{}, operational(errors.New("engine is nil"))
 	}
 	e.mu.Lock()
 	defer e.mu.Unlock()
-	return e.snapshotLocked(ctx)
+	if _, err := e.workspaceStatusLocked(ctx); err != nil {
+		return Snapshot{}, err
+	}
+	return cloneSnapshot(e.cachedSnapshot)
 }
 
 // ApplyRound applies exactly one complete dependency-ready frontier round,
 // refreshes source selection, and autosaves resumable state.
 func (e *Engine) ApplyRound(ctx context.Context, answers []authoring.RoundAnswer) (Snapshot, error) {
 	if e == nil {
-		return Snapshot{}, errors.New("engine is nil")
+		return Snapshot{}, operational(errors.New("engine is nil"))
 	}
 	e.mu.Lock()
 	defer e.mu.Unlock()
-	if err := ctx.Err(); err != nil {
+	if err := e.requireMutableWorkspaceLocked(ctx); err != nil {
 		return Snapshot{}, err
+	}
+	workspaceAtStart, err := observeWorkspaceTree(ctx, e.workspaceRoot)
+	if err != nil {
+		return Snapshot{}, operational(err)
 	}
 	issues := e.currentReadinessLocked()
 	frontier, err := elicitor.PlanFrontier(&e.session, e.discovery.Docs, issues)
 	if err != nil {
-		return Snapshot{}, err
+		return Snapshot{}, rejected(err)
 	}
 	if len(frontier) == 0 {
-		return Snapshot{}, errors.New("current authoring state has no dependency-ready frontier")
+		return Snapshot{}, rejected(errors.New("current authoring state has no dependency-ready frontier"))
 	}
 	canonicalAnswers, err := canonicalizeCompleteRound(frontier, answers)
 	if err != nil {
-		return Snapshot{}, err
+		return Snapshot{}, rejected(err)
 	}
 	nextSession, err := cloneSession(e.session)
 	if err != nil {
-		return Snapshot{}, err
+		return Snapshot{}, operational(err)
 	}
 	if err := elicitor.ApplyFrontierRound(&nextSession, canonicalAnswers, e.discovery.Docs); err != nil {
-		return Snapshot{}, err
+		return Snapshot{}, rejected(err)
 	}
 	nextSession.Normalize()
 	refreshed, err := e.buildRefreshedStateLocked(ctx, nextSession)
 	if err != nil {
+		return Snapshot{}, classifyRefreshFailure(err)
+	}
+	prospective, err := e.snapshotForStateLocked(ctx, refreshed, nil, nil)
+	if err != nil {
+		return Snapshot{}, rejected(err)
+	}
+	// Refresh and rendering can be long-running when reviewed sources are
+	// involved. Recheck the accepted revision's paths before adopting any new
+	// prospective paths so an intervening editor or process cannot become the
+	// next baseline.
+	if err := e.requireMutableWorkspaceLocked(ctx); err != nil {
 		return Snapshot{}, err
 	}
-	if err := elicitor.SaveDraft(elicitor.DraftPath(e.config.ExampleDir), refreshed.session); err != nil {
+	prospectivePaths := watchedPaths(e.workspaceRoot, prospective)
+	accepted := acceptedFingerprint(prospectivePaths, e.workspaceBaseline, workspaceAtStart)
+	draftPath := elicitor.DraftPath(e.config.ExampleDir)
+	draftBytes, persists, err := elicitor.DraftBytes(refreshed.session)
+	if err != nil {
+		return Snapshot{}, rejected(err)
+	}
+	cached, err := cloneSnapshot(prospective)
+	if err != nil {
+		return Snapshot{}, operational(err)
+	}
+	resultSnapshot, err := cloneSnapshot(prospective)
+	if err != nil {
+		return Snapshot{}, operational(err)
+	}
+	if err := e.compareAndLatchWorkspaceLocked(prospectivePaths, accepted); err != nil {
 		return Snapshot{}, err
+	}
+	// No request-context checks occur after persistence begins. SaveDraft is an
+	// atomic rename, and all post-write state is already constructed.
+	if err := saveEngineDraft(draftPath, refreshed.session); err != nil {
+		return Snapshot{}, operational(err)
+	}
+	if persists {
+		accepted = fingerprintWithDraft(accepted, draftPath, draftBytes, true)
 	}
 	e.applyRefreshedStateLocked(refreshed)
-	return e.snapshotLocked(ctx)
+	e.cachedSnapshot = cached
+	e.watchedPaths = prospectivePaths
+	e.workspaceBaseline = accepted
+	return resultSnapshot, nil
 }
 
 // Preview renders final or explicitly incomplete authoring artifacts without
 // writing final deliverables.
 func (e *Engine) Preview(ctx context.Context) (Preview, error) {
 	if e == nil {
-		return Preview{}, errors.New("engine is nil")
+		return Preview{}, operational(errors.New("engine is nil"))
 	}
 	e.mu.Lock()
 	defer e.mu.Unlock()
 	if err := ctx.Err(); err != nil {
+		return Preview{}, operational(err)
+	}
+	if _, err := e.workspaceStatusLocked(ctx); err != nil {
 		return Preview{}, err
 	}
 	preview, _, err := e.renderLocked()
-	return preview, err
+	if err != nil {
+		return Preview{}, rejected(err)
+	}
+	return preview, nil
 }
 
 // ApproveAndWrite revalidates and atomically writes the current proposal only
 // after explicit human approval.
-func (e *Engine) ApproveAndWrite(ctx context.Context, approval Approval) (WriteResult, error) {
+func (e *Engine) ApproveAndWrite(ctx context.Context, approval Approval) (ApprovalResult, error) {
 	if e == nil {
-		return WriteResult{}, errors.New("engine is nil")
+		return ApprovalResult{}, operational(errors.New("engine is nil"))
 	}
 	if !approval.HumanApproved {
-		return WriteResult{}, errors.New("explicit human approval is required before writing authoring artifacts")
+		return ApprovalResult{}, rejected(errors.New("explicit human approval is required before writing authoring artifacts"))
 	}
 	e.mu.Lock()
 	defer e.mu.Unlock()
-	if err := ctx.Err(); err != nil {
-		return WriteResult{}, err
+	if err := e.requireMutableWorkspaceLocked(ctx); err != nil {
+		return ApprovalResult{}, err
 	}
-	if err := e.refreshLocked(ctx); err != nil {
-		return WriteResult{}, err
-	}
-	preview, artifacts, err := e.renderLocked()
+	workspaceAtStart, err := observeWorkspaceTree(ctx, e.workspaceRoot)
 	if err != nil {
-		return WriteResult{}, err
+		return ApprovalResult{}, operational(err)
+	}
+	refreshed, err := e.buildRefreshedStateLocked(ctx, e.session)
+	if err != nil {
+		return ApprovalResult{}, classifyRefreshFailure(err)
+	}
+	preview, artifacts, err := renderState(e.config.ExampleDir, refreshed)
+	if err != nil {
+		return ApprovalResult{}, rejected(err)
 	}
 	if artifacts.Incomplete && !approval.ApproveIncomplete {
-		return WriteResult{}, errors.New("the proposal is incomplete; explicit incomplete-draft approval is required")
+		return ApprovalResult{}, rejected(errors.New("the proposal is incomplete; explicit incomplete-draft approval is required"))
 	}
 	prepared, err := artifactwriter.Prepare(e.config.ExampleDir, artifacts, approval.AllowOverwrite, e.now())
 	if err != nil {
-		return WriteResult{}, err
+		return ApprovalResult{}, classifyPrepareFailure(err)
 	}
-	committed, err := artifactwriter.Commit(prepared, approval.AllowOverwrite)
+	refreshed.session = prepared.Artifacts.Session
+	prospective, err := e.snapshotForStateLocked(ctx, refreshed, &preview, &prepared)
 	if err != nil {
-		return WriteResult{}, err
+		return ApprovalResult{}, rejected(err)
 	}
-	e.session = prepared.Artifacts.Session
-	if !artifacts.Incomplete {
-		if err := elicitor.DeleteDraft(elicitor.DraftPath(e.config.ExampleDir)); err != nil {
-			return WriteResult{}, err
+	if err := e.requireMutableWorkspaceLocked(ctx); err != nil {
+		return ApprovalResult{}, err
+	}
+	prospectivePaths := watchedPaths(e.workspaceRoot, prospective)
+	accepted := acceptedFingerprint(prospectivePaths, e.workspaceBaseline, workspaceAtStart)
+	cached, err := cloneSnapshot(prospective)
+	if err != nil {
+		return ApprovalResult{}, operational(err)
+	}
+	resultSnapshot, err := cloneSnapshot(prospective)
+	if err != nil {
+		return ApprovalResult{}, operational(err)
+	}
+	committed, err := commitPrepared(prepared, approval.AllowOverwrite, func() error {
+		return e.compareAndLatchWorkspaceLocked(prospectivePaths, accepted)
+	})
+	if err != nil {
+		var failure *Failure
+		if errors.As(err, &failure) {
+			return ApprovalResult{}, err
 		}
+		return ApprovalResult{}, classifyCommit(err)
 	}
-	return WriteResult{Written: committed.Written, Removed: committed.Removed, Incomplete: artifacts.Incomplete, Preview: preview}, nil
+	writeResult := WriteResult{
+		Written: committed.Written, Removed: committed.Removed,
+		CleanupWarnings: append([]string(nil), committed.CleanupWarnings...),
+		Incomplete:      artifacts.Incomplete, Preview: preview,
+	}
+	e.applyRefreshedStateLocked(refreshed)
+	e.cachedSnapshot = cached
+	e.watchedPaths = prospectivePaths
+	e.workspaceBaseline = fingerprintWithFiles(accepted, prepared.Files)
+	return ApprovalResult{Snapshot: resultSnapshot, WriteResult: writeResult}, nil
 }
 
 func (e *Engine) snapshotLocked(ctx context.Context) (Snapshot, error) {
+	return e.snapshotForStateLocked(ctx, e.currentStateLocked(), nil, nil)
+}
+
+func (e *Engine) currentStateLocked() refreshedEngineState {
+	return refreshedEngineState{
+		session: e.session, discovery: e.discovery, registry: e.registry,
+		remote: e.remote, discoveryIssues: e.discoveryIssues,
+	}
+}
+
+func (e *Engine) snapshotForStateLocked(ctx context.Context, state refreshedEngineState, exactPreview *Preview, exactPrepared *artifactwriter.Prepared) (Snapshot, error) {
 	if err := ctx.Err(); err != nil {
 		return Snapshot{}, err
 	}
-	issues := e.currentReadinessLocked()
-	frontier, err := elicitor.PlanFrontier(&e.session, e.discovery.Docs, issues)
+	issues := currentReadiness(state)
+	frontier, err := elicitor.PlanFrontier(&state.session, state.discovery.Docs, issues)
 	if err != nil {
 		return Snapshot{}, err
 	}
-	issues = e.currentReadinessLocked()
+	issues = currentReadiness(state)
 	var preview *Preview
-	actions := artifactwriter.PotentialFileActions(e.config.ExampleDir, e.session, false)
-	if rendered, artifacts, renderErr := e.renderLocked(); renderErr == nil {
+	actions := artifactwriter.PotentialFileActions(e.config.ExampleDir, state.session, false)
+	if exactPreview != nil && exactPrepared != nil {
+		value := *exactPreview
+		preview = &value
+		actions = artifactwriter.ProposedFileActions(*exactPrepared)
+	} else if rendered, artifacts, renderErr := renderState(e.config.ExampleDir, state); renderErr == nil {
 		preview = &rendered
 		prepared, prepareErr := artifactwriter.Prepare(e.config.ExampleDir, artifacts, true, e.now())
 		if prepareErr != nil {
@@ -283,20 +417,20 @@ func (e *Engine) snapshotLocked(ctx context.Context) (Snapshot, error) {
 	}
 	top := topIssue(issues)
 	snapshot := Snapshot{
-		Boundary:           e.session.Boundary,
-		CandidateWorkflows: append([]elicitor.CandidateWorkflow(nil), e.session.CandidateWorkflows...),
-		Evidence:           append([]publicinterview.Evidence(nil), e.session.Interview.Evidence...),
+		Boundary:           state.session.Boundary,
+		CandidateWorkflows: append([]elicitor.CandidateWorkflow(nil), state.session.CandidateWorkflows...),
+		Evidence:           append([]publicinterview.Evidence(nil), state.session.Interview.Evidence...),
 		Frontier:           append([]elicitor.QuestionPlan(nil), frontier...),
 		Readiness:          append([]elicitor.ReadinessIssue(nil), issues...),
 		TopIssue:           top,
 		Ready:              preview != nil && !preview.Incomplete && !hasBlockingIssue(issues),
 		ApprovalRequired:   preview != nil,
-		SelectedSources:    append([]elicitor.SourceMaterialization(nil), e.session.SourcePlan...),
+		SelectedSources:    append([]elicitor.SourceMaterialization(nil), state.session.SourcePlan...),
 		SourceCandidates: SourceCandidates{
-			Local: e.discovery.Report, Browser: e.discovery.BrowserReport,
-			BrowserRegistry: append([]elicitor.BrowserRegistryCandidate(nil), e.registry.Candidates...),
-			RegistryBlocks:  append([]elicitor.BrowserRegistryBlocker(nil), e.registry.Blockers...),
-			Remote:          append([]elicitor.RemoteSourceCandidate(nil), e.remote.Candidates...), RemoteBlocker: e.remote.Blocker,
+			Local: state.discovery.Report, Browser: state.discovery.BrowserReport,
+			BrowserRegistry: append([]elicitor.BrowserRegistryCandidate(nil), state.registry.Candidates...),
+			RegistryBlocks:  append([]elicitor.BrowserRegistryBlocker(nil), state.registry.Blockers...),
+			Remote:          append([]elicitor.RemoteSourceCandidate(nil), state.remote.Candidates...), RemoteBlocker: state.remote.Blocker,
 		},
 		ProposedActions: actions,
 		Preview:         preview,
@@ -305,10 +439,14 @@ func (e *Engine) snapshotLocked(ctx context.Context) (Snapshot, error) {
 }
 
 func (e *Engine) renderLocked() (Preview, elicitor.Artifacts, error) {
-	if hasBlockingIssue(e.discoveryIssues) {
-		return Preview{}, elicitor.Artifacts{}, errors.New(e.discoveryIssues[0].Message)
+	return renderState(e.config.ExampleDir, e.currentStateLocked())
+}
+
+func renderState(exampleDir string, state refreshedEngineState) (Preview, elicitor.Artifacts, error) {
+	if hasBlockingIssue(state.discoveryIssues) {
+		return Preview{}, elicitor.Artifacts{}, errors.New(state.discoveryIssues[0].Message)
 	}
-	renderSession, err := cloneSession(e.session)
+	renderSession, err := cloneSession(state.session)
 	if err != nil {
 		return Preview{}, elicitor.Artifacts{}, err
 	}
@@ -325,7 +463,7 @@ func (e *Engine) renderLocked() (Preview, elicitor.Artifacts, error) {
 	}
 	return Preview{
 		ProjectMD: artifacts.ProjectMD, IntentHCL: artifacts.IntentHCL, Incomplete: artifacts.Incomplete,
-		ProjectPath: filepath.Join(e.config.ExampleDir, "project.md"), IntentPath: filepath.Join(e.config.ExampleDir, "workflows", intentName),
+		ProjectPath: filepath.Join(exampleDir, "project.md"), IntentPath: filepath.Join(exampleDir, "workflows", intentName),
 	}, artifacts, nil
 }
 
@@ -401,9 +539,36 @@ func (e *Engine) applyRefreshedStateLocked(refreshed refreshedEngineState) {
 }
 
 func (e *Engine) currentReadinessLocked() []elicitor.ReadinessIssue {
-	issues := append([]elicitor.ReadinessIssue(nil), e.discoveryIssues...)
-	issues = append(issues, elicitor.CheckReadiness(e.session, e.discovery.Docs)...)
+	return currentReadiness(e.currentStateLocked())
+}
+
+func currentReadiness(state refreshedEngineState) []elicitor.ReadinessIssue {
+	issues := append([]elicitor.ReadinessIssue(nil), state.discoveryIssues...)
+	issues = append(issues, elicitor.CheckReadiness(state.session, state.discovery.Docs)...)
 	return issues
+}
+
+func classifyRefreshFailure(err error) error {
+	if isOperationalCause(err) {
+		return operational(err)
+	}
+	return rejected(err)
+}
+
+func classifyPrepareFailure(err error) error {
+	if isOperationalCause(err) {
+		return operational(err)
+	}
+	return rejected(err)
+}
+
+func isOperationalCause(err error) bool {
+	if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) || errors.Is(err, os.ErrPermission) {
+		return true
+	}
+	var pathErr *os.PathError
+	var linkErr *os.LinkError
+	return errors.As(err, &pathErr) || errors.As(err, &linkErr)
 }
 
 func (e *Engine) now() time.Time {

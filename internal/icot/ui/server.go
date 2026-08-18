@@ -3,6 +3,7 @@
 package ui
 
 import (
+	"bytes"
 	"context"
 	"crypto/rand"
 	"crypto/sha256"
@@ -16,30 +17,30 @@ import (
 	"mime"
 	"net"
 	"net/http"
-	"os"
 	"strconv"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
+	"unicode/utf8"
 
 	"github.com/OpenUdon/openudon/internal/authoring"
 	"github.com/OpenUdon/openudon/internal/icot/engine"
 )
 
 const (
-	APIVersion       = "openudon.icot-ui-api.v1"
+	APIVersion       = "openudon.icot-ui-api.v2"
 	SessionCookie    = "openudon_icot_ui"
 	MaxRequestBytes  = 1 << 20
 	humanInputSource = "user"
-	stateSyncTimeout = 2 * time.Second
 	instancePrefix   = "/.icot-ui/"
 )
 
-// AuthoringEngine is the subset of the A07 engine used by the HTTP transport.
+// AuthoringEngine is the engine contract used by the local transport.
 type AuthoringEngine interface {
 	ApplyRound(context.Context, []authoring.RoundAnswer) (engine.Snapshot, error)
-	ApproveAndWrite(context.Context, engine.Approval) (engine.WriteResult, error)
-	Snapshot(context.Context) (engine.Snapshot, error)
+	ApproveAndWrite(context.Context, engine.Approval) (engine.ApprovalResult, error)
+	WorkspaceStatus(context.Context) (engine.WorkspaceStatus, error)
 }
 
 // HandlerConfig configures one server handler after its loopback listener is
@@ -50,11 +51,14 @@ type HandlerConfig struct {
 	ExampleDir string
 	Token      string
 	Authority  string
+	ErrOut     io.Writer
 }
 
-// Workspace identifies the single explicitly selected example.
+// Workspace identifies the selected example and its optimistic ownership
+// status.
 type Workspace struct {
-	ExampleDir string `json:"example_dir"`
+	ExampleDir         string `json:"example_dir"`
+	ExternallyModified bool   `json:"externally_modified"`
 }
 
 // Response is returned by every successful API request.
@@ -68,13 +72,16 @@ type Response struct {
 }
 
 type errorEnvelope struct {
-	Version string       `json:"version"`
-	Error   errorPayload `json:"error"`
+	Version  string       `json:"version"`
+	Revision string       `json:"revision,omitempty"`
+	Error    errorPayload `json:"error"`
 }
 
 type errorPayload struct {
-	Code    string `json:"code"`
-	Message string `json:"message"`
+	Code      string `json:"code"`
+	Message   string `json:"message"`
+	Retryable bool   `json:"retryable"`
+	RequestID string `json:"request_id"`
 }
 
 type roundRequest struct {
@@ -94,22 +101,33 @@ type approveRequest struct {
 	ApproveIncomplete bool   `json:"approve_incomplete"`
 }
 
-// Server serializes revision checks and all A07 engine mutations.
+type requestError struct {
+	status int
+	code   string
+	text   string
+}
+
+func (e *requestError) Error() string { return e.text }
+
+// Server serializes revisions, workspace inspection, and engine mutations.
 type Server struct {
 	mu sync.Mutex
 
-	engine       AuthoringEngine
-	snapshot     engine.Snapshot
-	exampleDir   string
-	token        string
-	authority    string
-	origin       string
-	basePath     string
-	revision     string
-	completed    bool
-	writeResult  *engine.WriteResult
-	synchronized bool
+	engine      AuthoringEngine
+	snapshot    engine.Snapshot
+	exampleDir  string
+	token       string
+	authority   string
+	origin      string
+	basePath    string
+	revision    string
+	completed   bool
+	writeResult *engine.WriteResult
+	workspace   engine.WorkspaceStatus
+	errOut      io.Writer
 }
+
+var fallbackRequestID atomic.Uint64
 
 // GenerateToken returns a 256-bit URL-safe per-process capability token.
 func GenerateToken() (string, error) {
@@ -135,12 +153,16 @@ func NewHandler(config HandlerConfig) (http.Handler, error) {
 	if !validLoopbackAuthority(authority) {
 		return nil, errors.New("UI authority must be an active 127.0.0.1 listener")
 	}
+	errOut := config.ErrOut
+	if errOut == nil {
+		errOut = io.Discard
+	}
 	s := &Server{
 		engine: config.Engine, snapshot: config.Snapshot,
 		exampleDir: config.ExampleDir, token: config.Token, authority: authority,
-		origin: "http://" + authority, basePath: instanceBasePath(config.Token), synchronized: true,
+		origin: "http://" + authority, basePath: instanceBasePath(config.Token), errOut: errOut,
 	}
-	revision, err := revisionFor(s.snapshot, false, nil)
+	revision, err := revisionFor(s.snapshot, false, nil, s.workspace)
 	if err != nil {
 		return nil, err
 	}
@@ -158,44 +180,45 @@ func validLoopbackAuthority(authority string) bool {
 }
 
 func instanceBasePath(token string) string {
-	digest := sha256.Sum256([]byte("openudon.icot-ui.instance-path.v1\x00" + token))
+	digest := sha256.Sum256([]byte("openudon.icot-ui.instance-path.v2\x00" + token))
 	return instancePrefix + hex.EncodeToString(digest[:]) + "/"
 }
 
 func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	requestID := newRequestID()
 	setSecurityHeaders(w)
+	routePath, cookieScoped := s.routePath(r.URL.Path)
 	if r.Host != s.authority {
-		writeError(w, http.StatusForbidden, "forbidden", "request Host is not the active loopback listener")
+		s.writeError(w, http.StatusForbidden, "forbidden", "request Host is not the active loopback listener", false, requestID, "")
 		return
 	}
 	origins := r.Header.Values("Origin")
 	if len(origins) > 1 || (len(origins) == 1 && origins[0] != s.origin) {
-		writeError(w, http.StatusForbidden, "forbidden", "request Origin is not the active loopback origin")
+		s.writeError(w, http.StatusForbidden, "forbidden", "request Origin is not the active loopback origin", false, requestID, "")
 		return
 	}
 
-	routePath, cookieScoped := s.routePath(r.URL.Path)
 	switch routePath {
 	case "/healthz":
 		if cookieScoped {
-			s.serveUnknown(w, r, cookieScoped)
+			s.serveUnknown(w, r, cookieScoped, requestID)
 			return
 		}
-		s.serveHealth(w, r)
+		s.serveHealth(w, r, requestID)
 	case "/":
-		s.serveShell(w, r, cookieScoped)
+		s.serveShell(w, r, cookieScoped, requestID)
 	case "/assets/app.js":
-		s.serveAsset(w, r, cookieScoped, "assets/app.js", "text/javascript; charset=utf-8")
+		s.serveAsset(w, r, cookieScoped, requestID, "assets/app.js", "text/javascript; charset=utf-8")
 	case "/assets/style.css":
-		s.serveAsset(w, r, cookieScoped, "assets/style.css", "text/css; charset=utf-8")
-	case "/api/v1/snapshot":
-		s.serveSnapshot(w, r, cookieScoped)
-	case "/api/v1/round":
-		s.serveRound(w, r, cookieScoped)
-	case "/api/v1/approve":
-		s.serveApprove(w, r, cookieScoped)
+		s.serveAsset(w, r, cookieScoped, requestID, "assets/style.css", "text/css; charset=utf-8")
+	case "/api/v2/snapshot":
+		s.serveSnapshot(w, r, cookieScoped, requestID)
+	case "/api/v2/round":
+		s.serveRound(w, r, cookieScoped, requestID)
+	case "/api/v2/approve":
+		s.serveApprove(w, r, cookieScoped, requestID)
 	default:
-		s.serveUnknown(w, r, cookieScoped)
+		s.serveUnknown(w, r, cookieScoped, requestID)
 	}
 }
 
@@ -207,17 +230,17 @@ func (s *Server) routePath(path string) (string, bool) {
 	return "/" + relative, true
 }
 
-func (s *Server) serveUnknown(w http.ResponseWriter, r *http.Request, cookieScoped bool) {
+func (s *Server) serveUnknown(w http.ResponseWriter, r *http.Request, cookieScoped bool, requestID string) {
 	if !s.authenticated(r, cookieScoped) {
-		writeError(w, http.StatusUnauthorized, "unauthorized", "a valid UI capability token is required")
+		s.writeError(w, http.StatusUnauthorized, "unauthorized", "a valid UI capability token is required", false, requestID, "")
 		return
 	}
-	writeError(w, http.StatusNotFound, "not_found", "route not found")
+	s.writeError(w, http.StatusNotFound, "not_found", "route not found", false, requestID, "")
 }
 
-func (s *Server) serveHealth(w http.ResponseWriter, r *http.Request) {
+func (s *Server) serveHealth(w http.ResponseWriter, r *http.Request, requestID string) {
 	if r.Method != http.MethodGet {
-		methodNotAllowed(w, http.MethodGet)
+		s.methodNotAllowed(w, http.MethodGet, requestID)
 		return
 	}
 	w.Header().Set("Content-Type", "text/plain; charset=utf-8")
@@ -225,14 +248,14 @@ func (s *Server) serveHealth(w http.ResponseWriter, r *http.Request) {
 	_, _ = io.WriteString(w, "ok\n")
 }
 
-func (s *Server) serveShell(w http.ResponseWriter, r *http.Request, cookieScoped bool) {
+func (s *Server) serveShell(w http.ResponseWriter, r *http.Request, cookieScoped bool, requestID string) {
 	if r.Method != http.MethodGet {
-		methodNotAllowed(w, http.MethodGet)
+		s.methodNotAllowed(w, http.MethodGet, requestID)
 		return
 	}
 	if query, present := r.URL.Query()["token"]; present {
-		if len(r.URL.Query()) != 1 || len(query) != 1 || !secureEqual(query[0], s.token) {
-			writeError(w, http.StatusUnauthorized, "unauthorized", "a valid UI capability token is required")
+		if !cookieScoped || r.URL.Path != s.basePath || len(r.URL.Query()) != 1 || len(query) != 1 || !secureEqual(query[0], s.token) {
+			s.writeError(w, http.StatusUnauthorized, "unauthorized", "a valid UI capability token is required", false, requestID, "")
 			return
 		}
 		http.SetCookie(w, &http.Cookie{Name: SessionCookie, Value: s.token, Path: s.basePath, HttpOnly: true, SameSite: http.SameSiteStrictMode})
@@ -240,70 +263,77 @@ func (s *Server) serveShell(w http.ResponseWriter, r *http.Request, cookieScoped
 		return
 	}
 	if !s.authenticated(r, cookieScoped) {
-		writeError(w, http.StatusUnauthorized, "unauthorized", "a valid UI capability token is required")
+		s.writeError(w, http.StatusUnauthorized, "unauthorized", "a valid UI capability token is required", false, requestID, "")
 		return
 	}
-	serveEmbedded(w, "assets/index.html", "text/html; charset=utf-8")
+	if err := serveEmbedded(w, "assets/index.html", "text/html; charset=utf-8"); err != nil {
+		s.writeInternalError(w, r, requestID, "/", "embedded_asset", err, true)
+	}
 }
 
-func (s *Server) serveAsset(w http.ResponseWriter, r *http.Request, cookieScoped bool, name, contentType string) {
+func (s *Server) serveAsset(w http.ResponseWriter, r *http.Request, cookieScoped bool, requestID, name, contentType string) {
 	if r.Method != http.MethodGet {
-		methodNotAllowed(w, http.MethodGet)
+		s.methodNotAllowed(w, http.MethodGet, requestID)
 		return
 	}
 	if !s.authenticated(r, cookieScoped) {
-		writeError(w, http.StatusUnauthorized, "unauthorized", "a valid UI capability token is required")
+		s.writeError(w, http.StatusUnauthorized, "unauthorized", "a valid UI capability token is required", false, requestID, "")
 		return
 	}
-	serveEmbedded(w, name, contentType)
+	if err := serveEmbedded(w, name, contentType); err != nil {
+		s.writeInternalError(w, r, requestID, "/assets", "embedded_asset", err, true)
+	}
 }
 
-func (s *Server) serveSnapshot(w http.ResponseWriter, r *http.Request, cookieScoped bool) {
+func (s *Server) serveSnapshot(w http.ResponseWriter, r *http.Request, cookieScoped bool, requestID string) {
 	if r.Method != http.MethodGet {
-		methodNotAllowed(w, http.MethodGet)
+		s.methodNotAllowed(w, http.MethodGet, requestID)
 		return
 	}
 	if !s.authenticated(r, cookieScoped) {
-		writeError(w, http.StatusUnauthorized, "unauthorized", "a valid UI capability token is required")
+		s.writeError(w, http.StatusUnauthorized, "unauthorized", "a valid UI capability token is required", false, requestID, "")
 		return
 	}
 	s.mu.Lock()
-	if !s.synchronized {
-		s.mu.Unlock()
-		writeError(w, http.StatusInternalServerError, "internal_error", "authoring state is temporarily unavailable")
+	defer s.mu.Unlock()
+	if err := s.refreshWorkspaceLocked(r.Context()); err != nil {
+		s.writeInternalError(w, r, requestID, "/api/v2/snapshot", "workspace_inspection", err, true)
 		return
 	}
-	response := s.responseLocked()
-	s.mu.Unlock()
-	writeJSON(w, http.StatusOK, response)
+	setETag(w, s.revision)
+	if matchesETag(r.Header.Get("If-None-Match"), s.revision) {
+		w.WriteHeader(http.StatusNotModified)
+		return
+	}
+	s.writeJSON(w, http.StatusOK, s.responseLocked(), requestID)
 }
 
-func (s *Server) serveRound(w http.ResponseWriter, r *http.Request, cookieScoped bool) {
+func (s *Server) serveRound(w http.ResponseWriter, r *http.Request, cookieScoped bool, requestID string) {
 	if r.Method != http.MethodPost {
-		methodNotAllowed(w, http.MethodPost)
+		s.methodNotAllowed(w, http.MethodPost, requestID)
 		return
 	}
 	if !s.authenticated(r, cookieScoped) {
-		writeError(w, http.StatusUnauthorized, "unauthorized", "a valid UI capability token is required")
+		s.writeError(w, http.StatusUnauthorized, "unauthorized", "a valid UI capability token is required", false, requestID, "")
 		return
 	}
 	var request roundRequest
 	if err := decodeJSONRequest(w, r, &request); err != nil {
-		writeError(w, http.StatusBadRequest, "malformed_request", safeMessage(err))
+		s.writeRequestError(w, err, requestID)
 		return
 	}
 	if strings.TrimSpace(request.Revision) == "" {
-		writeError(w, http.StatusBadRequest, "malformed_request", "revision is required")
+		s.writeError(w, http.StatusBadRequest, "malformed_request", "revision is required", false, requestID, s.currentRevision())
 		return
 	}
 	if request.Answers == nil {
-		writeError(w, http.StatusBadRequest, "malformed_request", "answers is required")
+		s.writeError(w, http.StatusBadRequest, "malformed_request", "answers is required", false, requestID, s.currentRevision())
 		return
 	}
 	answers := make([]authoring.RoundAnswer, len(request.Answers))
 	for i, answer := range request.Answers {
 		if strings.TrimSpace(answer.QuestionID) == "" {
-			writeError(w, http.StatusBadRequest, "malformed_request", "every answer requires question_id")
+			s.writeError(w, http.StatusBadRequest, "malformed_request", "every answer requires question_id", false, requestID, s.currentRevision())
 			return
 		}
 		answers[i] = authoring.RoundAnswer{QuestionID: answer.QuestionID, Value: answer.Value, Source: humanInputSource}
@@ -311,123 +341,131 @@ func (s *Server) serveRound(w http.ResponseWriter, r *http.Request, cookieScoped
 
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	if !s.synchronized {
-		writeError(w, http.StatusInternalServerError, "internal_error", "authoring state is temporarily unavailable")
-		return
-	}
-	if request.Revision != s.revision {
-		writeError(w, http.StatusConflict, "stale_revision", "request revision does not match the current snapshot")
-		return
-	}
-	if s.completed {
-		writeError(w, http.StatusConflict, "session_frozen", "the approved authoring session is frozen")
+	if !s.beginMutation(w, r, requestID, "/api/v2/round", request.Revision) {
 		return
 	}
 	snapshot, err := s.engine.ApplyRound(r.Context(), answers)
 	if err != nil {
-		if syncErr := s.synchronizeLocked(); syncErr != nil {
-			writeError(w, http.StatusInternalServerError, "internal_error", "failed to synchronize authoring state after the rejected round")
-			return
-		}
-		writeEngineError(w, err)
-		return
-	}
-	revision, err := revisionFor(snapshot, false, nil)
-	if err != nil {
-		writeError(w, http.StatusInternalServerError, "internal_error", "failed to cache the updated authoring state")
+		s.refreshWorkspaceAfterFailure()
+		s.writeEngineError(w, r, requestID, "/api/v2/round", "apply_round", err)
 		return
 	}
 	s.snapshot = snapshot
-	s.revision = revision
-	writeJSON(w, http.StatusOK, s.responseLocked())
+	if err := s.updateRevisionLocked(); err != nil {
+		s.writeInternalError(w, r, requestID, "/api/v2/round", "revision", err, true)
+		return
+	}
+	setETag(w, s.revision)
+	s.writeJSON(w, http.StatusOK, s.responseLocked(), requestID)
 }
 
-func (s *Server) serveApprove(w http.ResponseWriter, r *http.Request, cookieScoped bool) {
+func (s *Server) serveApprove(w http.ResponseWriter, r *http.Request, cookieScoped bool, requestID string) {
 	if r.Method != http.MethodPost {
-		methodNotAllowed(w, http.MethodPost)
+		s.methodNotAllowed(w, http.MethodPost, requestID)
 		return
 	}
 	if !s.authenticated(r, cookieScoped) {
-		writeError(w, http.StatusUnauthorized, "unauthorized", "a valid UI capability token is required")
+		s.writeError(w, http.StatusUnauthorized, "unauthorized", "a valid UI capability token is required", false, requestID, "")
 		return
 	}
 	var request approveRequest
 	if err := decodeJSONRequest(w, r, &request); err != nil {
-		writeError(w, http.StatusBadRequest, "malformed_request", safeMessage(err))
+		s.writeRequestError(w, err, requestID)
 		return
 	}
 	if strings.TrimSpace(request.Revision) == "" {
-		writeError(w, http.StatusBadRequest, "malformed_request", "revision is required")
+		s.writeError(w, http.StatusBadRequest, "malformed_request", "revision is required", false, requestID, s.currentRevision())
 		return
 	}
 
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	if !s.synchronized {
-		writeError(w, http.StatusInternalServerError, "internal_error", "authoring state is temporarily unavailable")
-		return
-	}
-	if request.Revision != s.revision {
-		writeError(w, http.StatusConflict, "stale_revision", "request revision does not match the current snapshot")
-		return
-	}
-	if s.completed {
-		writeError(w, http.StatusConflict, "session_frozen", "the approved authoring session is frozen")
+	if !s.beginMutation(w, r, requestID, "/api/v2/approve", request.Revision) {
 		return
 	}
 	result, err := s.engine.ApproveAndWrite(r.Context(), engine.Approval{
 		HumanApproved: request.HumanApproved, AllowOverwrite: request.AllowOverwrite, ApproveIncomplete: request.ApproveIncomplete,
 	})
 	if err != nil {
-		// Best-effort synchronization captures any refreshed engine state. A
-		// domain rejection can also make snapshot construction repeat that same
-		// rejection, so retain the last known-good cache in that case. An
-		// operational failure must synchronize or fail closed.
-		if syncErr := s.synchronizeLocked(); syncErr != nil {
-			if operationalEngineError(err) {
-				writeError(w, http.StatusInternalServerError, "internal_error", "failed to synchronize authoring state after the rejected approval")
-				return
-			}
-			s.synchronized = true
-		}
-		writeEngineError(w, err)
+		s.refreshWorkspaceAfterFailure()
+		s.writeEngineError(w, r, requestID, "/api/v2/approve", "approve", err)
 		return
 	}
-	// A successful write is the terminal state even if a best-effort inspection
-	// refresh fails after the transaction has committed.
 	s.completed = true
-	s.writeResult = &result
-	if err := s.synchronizeLocked(); err != nil {
-		writeError(w, http.StatusInternalServerError, "internal_error", "failed to cache the approved authoring state")
+	s.snapshot = result.Snapshot
+	s.writeResult = &result.WriteResult
+	if err := s.updateRevisionLocked(); err != nil {
+		s.writeInternalError(w, r, requestID, "/api/v2/approve", "revision", err, true)
 		return
 	}
-	writeJSON(w, http.StatusOK, s.responseLocked())
+	setETag(w, s.revision)
+	s.writeJSON(w, http.StatusOK, s.responseLocked(), requestID)
 }
 
-func (s *Server) synchronizeLocked() error {
-	ctx, cancel := context.WithTimeout(context.Background(), stateSyncTimeout)
-	defer cancel()
-	snapshot, err := s.engine.Snapshot(ctx)
+func (s *Server) beginMutation(w http.ResponseWriter, r *http.Request, requestID, route, requestRevision string) bool {
+	if err := s.refreshWorkspaceLocked(r.Context()); err != nil {
+		s.writeInternalError(w, r, requestID, route, "workspace_inspection", err, true)
+		return false
+	}
+	if s.workspace.ExternallyModified {
+		s.writeError(w, http.StatusConflict, "workspace_changed", "the authoring workspace changed outside this process; restart is required", false, requestID, s.revision)
+		return false
+	}
+	if requestRevision != s.revision {
+		s.writeError(w, http.StatusConflict, "stale_revision", "request revision does not match the current snapshot", true, requestID, s.revision)
+		return false
+	}
+	if s.completed {
+		s.writeError(w, http.StatusConflict, "session_frozen", "the approved authoring session is frozen", false, requestID, s.revision)
+		return false
+	}
+	return true
+}
+
+func (s *Server) refreshWorkspaceLocked(ctx context.Context) error {
+	status, err := s.engine.WorkspaceStatus(ctx)
 	if err != nil {
-		s.synchronized = false
 		return err
 	}
-	revision, err := revisionFor(snapshot, s.completed, s.writeResult)
+	if status != s.workspace {
+		s.workspace = status
+		return s.updateRevisionLocked()
+	}
+	return nil
+}
+
+func (s *Server) refreshWorkspaceAfterFailure() {
+	status, err := s.engine.WorkspaceStatus(context.Background())
 	if err != nil {
-		s.synchronized = false
+		return
+	}
+	if status != s.workspace {
+		s.workspace = status
+		_ = s.updateRevisionLocked()
+	}
+}
+
+func (s *Server) updateRevisionLocked() error {
+	revision, err := revisionFor(s.snapshot, s.completed, s.writeResult, s.workspace)
+	if err != nil {
 		return err
 	}
-	s.snapshot = snapshot
 	s.revision = revision
-	s.synchronized = true
 	return nil
 }
 
 func (s *Server) responseLocked() Response {
 	return Response{
 		Version: APIVersion, Revision: s.revision, Completed: s.completed,
-		Workspace: Workspace{ExampleDir: s.exampleDir}, Snapshot: s.snapshot, WriteResult: s.writeResult,
+		Workspace: Workspace{ExampleDir: s.exampleDir, ExternallyModified: s.workspace.ExternallyModified},
+		Snapshot:  s.snapshot, WriteResult: s.writeResult,
 	}
+}
+
+func (s *Server) currentRevision() string {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.revision
 }
 
 func (s *Server) authenticated(r *http.Request, allowCookie bool) bool {
@@ -445,35 +483,31 @@ func (s *Server) authenticated(r *http.Request, allowCookie bool) bool {
 	return err == nil && secureEqual(cookie.Value, s.token)
 }
 
-func writeEngineError(w http.ResponseWriter, err error) {
-	if operationalEngineError(err) {
-		writeError(w, http.StatusInternalServerError, "internal_error", "authoring engine operation failed")
-		return
+func (s *Server) writeEngineError(w http.ResponseWriter, r *http.Request, requestID, route, stage string, err error) {
+	class, _ := engine.FailureDetails(err)
+	switch class {
+	case engine.FailureRejected:
+		s.writeError(w, http.StatusUnprocessableEntity, "engine_rejected", safeMessage(err), false, requestID, s.revision)
+	case engine.FailureConflict:
+		s.writeError(w, http.StatusConflict, "workspace_changed", "the authoring workspace changed outside this process; restart is required", false, requestID, s.revision)
+	case engine.FailureIndeterminate:
+		s.writeInternalError(w, r, requestID, route, stage, err, false)
+	default:
+		s.writeInternalError(w, r, requestID, route, stage, err, true)
 	}
-	writeError(w, http.StatusUnprocessableEntity, "engine_rejected", safeMessage(err))
-}
-
-func operationalEngineError(err error) bool {
-	if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) ||
-		errors.Is(err, os.ErrPermission) {
-		return true
-	}
-	var pathErr *os.PathError
-	var linkErr *os.LinkError
-	var syscallErr *os.SyscallError
-	return errors.As(err, &pathErr) || errors.As(err, &linkErr) || errors.As(err, &syscallErr)
 }
 
 func secureEqual(left, right string) bool {
 	return len(left) == len(right) && subtle.ConstantTimeCompare([]byte(left), []byte(right)) == 1
 }
 
-func revisionFor(snapshot engine.Snapshot, completed bool, result *engine.WriteResult) (string, error) {
+func revisionFor(snapshot engine.Snapshot, completed bool, result *engine.WriteResult, status engine.WorkspaceStatus) (string, error) {
 	payload := struct {
-		Snapshot    engine.Snapshot     `json:"snapshot"`
-		Completed   bool                `json:"completed"`
-		WriteResult *engine.WriteResult `json:"write_result,omitempty"`
-	}{Snapshot: snapshot, Completed: completed, WriteResult: result}
+		Snapshot    engine.Snapshot        `json:"snapshot"`
+		Completed   bool                   `json:"completed"`
+		WriteResult *engine.WriteResult    `json:"write_result,omitempty"`
+		Workspace   engine.WorkspaceStatus `json:"workspace"`
+	}{Snapshot: snapshot, Completed: completed, WriteResult: result, Workspace: status}
 	data, err := json.Marshal(payload)
 	if err != nil {
 		return "", fmt.Errorf("marshal UI revision state: %w", err)
@@ -483,47 +517,140 @@ func revisionFor(snapshot engine.Snapshot, completed bool, result *engine.WriteR
 }
 
 func decodeJSONRequest(w http.ResponseWriter, r *http.Request, target any) error {
-	mediaType, _, err := mime.ParseMediaType(r.Header.Get("Content-Type"))
+	mediaType, params, err := mime.ParseMediaType(r.Header.Get("Content-Type"))
 	if err != nil || !strings.EqualFold(mediaType, "application/json") {
-		return errors.New("Content-Type must be application/json")
+		return &requestError{status: http.StatusUnsupportedMediaType, code: "unsupported_media_type", text: "Content-Type must be application/json with no charset or UTF-8"}
+	}
+	for name, value := range params {
+		if !strings.EqualFold(name, "charset") || !strings.EqualFold(value, "utf-8") {
+			return &requestError{status: http.StatusUnsupportedMediaType, code: "unsupported_media_type", text: "Content-Type must be application/json with no charset or UTF-8"}
+		}
 	}
 	if r.ContentLength > MaxRequestBytes {
-		return fmt.Errorf("request body exceeds %d bytes", MaxRequestBytes)
+		return &requestError{status: http.StatusRequestEntityTooLarge, code: "payload_too_large", text: fmt.Sprintf("request body exceeds %d bytes", MaxRequestBytes)}
 	}
 	r.Body = http.MaxBytesReader(w, r.Body, MaxRequestBytes)
-	decoder := json.NewDecoder(r.Body)
-	decoder.DisallowUnknownFields()
-	if err := decoder.Decode(target); err != nil {
+	data, err := io.ReadAll(r.Body)
+	if err != nil {
 		var maxErr *http.MaxBytesError
 		if errors.As(err, &maxErr) {
-			return fmt.Errorf("request body exceeds %d bytes", MaxRequestBytes)
+			return &requestError{status: http.StatusRequestEntityTooLarge, code: "payload_too_large", text: fmt.Sprintf("request body exceeds %d bytes", MaxRequestBytes)}
 		}
-		return fmt.Errorf("decode JSON request: %w", err)
+		return &requestError{status: http.StatusBadRequest, code: "malformed_request", text: "could not read JSON request body"}
+	}
+	if !utf8.Valid(data) {
+		return &requestError{status: http.StatusBadRequest, code: "malformed_request", text: "JSON request body is not valid UTF-8"}
+	}
+	if err := rejectDuplicateJSONNames(data); err != nil {
+		return &requestError{status: http.StatusBadRequest, code: "malformed_request", text: safeMessage(err)}
+	}
+	decoder := json.NewDecoder(bytes.NewReader(data))
+	decoder.DisallowUnknownFields()
+	if err := decoder.Decode(target); err != nil {
+		return &requestError{status: http.StatusBadRequest, code: "malformed_request", text: safeMessage(fmt.Errorf("decode JSON request: %w", err))}
 	}
 	var trailing any
 	if err := decoder.Decode(&trailing); !errors.Is(err, io.EOF) {
-		if err == nil {
-			return errors.New("request body must contain exactly one JSON document")
-		}
-		return fmt.Errorf("decode trailing JSON: %w", err)
+		return &requestError{status: http.StatusBadRequest, code: "malformed_request", text: "request body must contain exactly one JSON document"}
 	}
 	return nil
 }
 
-func methodNotAllowed(w http.ResponseWriter, allowed string) {
+func rejectDuplicateJSONNames(data []byte) error {
+	decoder := json.NewDecoder(bytes.NewReader(data))
+	decoder.UseNumber()
+	if err := scanJSONValue(decoder); err != nil {
+		return err
+	}
+	if _, err := decoder.Token(); !errors.Is(err, io.EOF) {
+		if err == nil {
+			return errors.New("request body must contain exactly one JSON document")
+		}
+		return err
+	}
+	return nil
+}
+
+func scanJSONValue(decoder *json.Decoder) error {
+	token, err := decoder.Token()
+	if err != nil {
+		return err
+	}
+	delimiter, ok := token.(json.Delim)
+	if !ok {
+		return nil
+	}
+	switch delimiter {
+	case '{':
+		seen := map[string]bool{}
+		for decoder.More() {
+			nameToken, err := decoder.Token()
+			if err != nil {
+				return err
+			}
+			name, ok := nameToken.(string)
+			if !ok {
+				return errors.New("JSON object member name is not a string")
+			}
+			if seen[name] {
+				return fmt.Errorf("duplicate JSON object name %q", name)
+			}
+			seen[name] = true
+			if err := scanJSONValue(decoder); err != nil {
+				return err
+			}
+		}
+		end, err := decoder.Token()
+		if err != nil || end != json.Delim('}') {
+			return errors.New("JSON object is not closed")
+		}
+	case '[':
+		for decoder.More() {
+			if err := scanJSONValue(decoder); err != nil {
+				return err
+			}
+		}
+		end, err := decoder.Token()
+		if err != nil || end != json.Delim(']') {
+			return errors.New("JSON array is not closed")
+		}
+	default:
+		return errors.New("unexpected JSON delimiter")
+	}
+	return nil
+}
+
+func (s *Server) methodNotAllowed(w http.ResponseWriter, allowed, requestID string) {
 	w.Header().Set("Allow", allowed)
-	writeError(w, http.StatusMethodNotAllowed, "method_not_allowed", "request method is not supported for this route")
+	s.writeError(w, http.StatusMethodNotAllowed, "method_not_allowed", "request method is not supported for this route", false, requestID, "")
 }
 
-func writeError(w http.ResponseWriter, status int, code, message string) {
-	writeJSON(w, status, errorEnvelope{Version: APIVersion, Error: errorPayload{Code: code, Message: message}})
+func (s *Server) writeRequestError(w http.ResponseWriter, err error, requestID string) {
+	var requestErr *requestError
+	if !errors.As(err, &requestErr) {
+		requestErr = &requestError{status: http.StatusBadRequest, code: "malformed_request", text: safeMessage(err)}
+	}
+	s.writeError(w, requestErr.status, requestErr.code, requestErr.text, false, requestID, s.currentRevision())
 }
 
-func writeJSON(w http.ResponseWriter, status int, value any) {
+func (s *Server) writeInternalError(w http.ResponseWriter, _ *http.Request, requestID, route, stage string, cause error, retryable bool) {
+	fmt.Fprintf(s.errOut, "icot ui: request_id=%s route=%s stage=%s cause=%s\n", requestID, route, stage, sanitizeLogCause(cause))
+	s.writeError(w, http.StatusInternalServerError, "internal_error", "authoring engine operation failed", retryable, requestID, s.revision)
+}
+
+func (s *Server) writeError(w http.ResponseWriter, status int, code, message string, retryable bool, requestID, revision string) {
+	s.writeJSON(w, status, errorEnvelope{Version: APIVersion, Revision: revision, Error: errorPayload{
+		Code: code, Message: message, Retryable: retryable, RequestID: requestID,
+	}}, requestID)
+}
+
+func (s *Server) writeJSON(w http.ResponseWriter, status int, value any, requestID string) {
 	data, err := json.Marshal(value)
 	if err != nil {
 		status = http.StatusInternalServerError
-		data = []byte(`{"version":"openudon.icot-ui-api.v1","error":{"code":"internal_error","message":"failed to encode response"}}`)
+		data, _ = json.Marshal(errorEnvelope{Version: APIVersion, Error: errorPayload{
+			Code: "internal_error", Message: "failed to encode response", Retryable: true, RequestID: requestID,
+		}})
 	}
 	w.Header().Set("Content-Type", "application/json; charset=utf-8")
 	w.WriteHeader(status)
@@ -550,9 +677,49 @@ func safeMessage(err error) string {
 	return message
 }
 
+func sanitizeLogCause(err error) string {
+	message := safeMessage(err)
+	lower := strings.ToLower(message)
+	for _, marker := range []string{"token=", "authorization", "cookie", "bearer "} {
+		if strings.Contains(lower, marker) {
+			return "redacted operational failure"
+		}
+	}
+	if len(message) > 512 {
+		message = message[:512]
+	}
+	return message
+}
+
+func newRequestID() string {
+	raw := make([]byte, 16)
+	if _, err := rand.Read(raw); err == nil {
+		return hex.EncodeToString(raw)
+	}
+	value := fallbackRequestID.Add(1)
+	digest := sha256.Sum256([]byte(fmt.Sprintf("%d:%d", time.Now().UnixNano(), value)))
+	return hex.EncodeToString(digest[:16])
+}
+
+func setETag(w http.ResponseWriter, revision string) {
+	w.Header().Set("ETag", strconv.Quote(revision))
+}
+
+func matchesETag(header, revision string) bool {
+	for _, value := range strings.Split(header, ",") {
+		value = strings.TrimSpace(strings.TrimPrefix(strings.TrimSpace(value), "W/"))
+		if value == revision || value == strconv.Quote(revision) {
+			return true
+		}
+	}
+	return false
+}
+
 func setSecurityHeaders(w http.ResponseWriter) {
 	w.Header().Set("Cache-Control", "no-store")
 	w.Header().Set("Content-Security-Policy", "default-src 'none'; script-src 'self'; style-src 'self'; connect-src 'self'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'; object-src 'none'")
+	w.Header().Set("Cross-Origin-Opener-Policy", "same-origin")
+	w.Header().Set("Cross-Origin-Resource-Policy", "same-origin")
 	w.Header().Set("Permissions-Policy", "camera=(), microphone=(), geolocation=(), payment=(), usb=()")
 	w.Header().Set("Referrer-Policy", "no-referrer")
 	w.Header().Set("X-Content-Type-Options", "nosniff")

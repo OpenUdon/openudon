@@ -1919,8 +1919,8 @@ func TestReconcileRegeneratesProjectOnlyAndPreservesPolicy(t *testing.T) {
 		}
 	}
 	backups, err := filepath.Glob(filepath.Join(example, "project.md.bak.*"))
-	if err != nil || len(backups) != 1 {
-		t.Fatalf("expected project backup, got %v err %v", backups, err)
+	if err != nil || len(backups) != 0 {
+		t.Fatalf("successful reconcile left project backups %v err %v", backups, err)
 	}
 	intentBackups, err := filepath.Glob(filepath.Join(example, "workflows", "intent.hcl.bak.*"))
 	if err != nil || len(intentBackups) != 0 {

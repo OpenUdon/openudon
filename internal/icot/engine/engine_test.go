@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -20,6 +21,7 @@ import (
 	"github.com/OpenUdon/browsertools/review"
 	"github.com/OpenUdon/openudon/internal/authoring"
 	"github.com/OpenUdon/openudon/internal/browserverify"
+	"github.com/OpenUdon/openudon/internal/icot/artifactwriter"
 	"github.com/OpenUdon/openudon/internal/icot/elicitor"
 	rollout "github.com/OpenUdon/openudon/internal/workflowintent"
 )
@@ -202,6 +204,365 @@ func TestApplyRoundRejectsInvalidAnswerSets(t *testing.T) {
 			t.Fatalf("forged slots mutated engine boundary: before %#v after %#v", snapshot.Boundary, unchanged.Boundary)
 		}
 	})
+}
+
+func TestApplyRoundTransactionAndCancellationFinalization(t *testing.T) {
+	example := filepath.Join(t.TempDir(), "transactional-round")
+	eng, opened, err := Open(context.Background(), Config{ExampleDir: example, NetworkPolicy: "never"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	answers := answersForSnapshot(opened)
+	originalSave := saveEngineDraft
+	defer func() { saveEngineDraft = originalSave }()
+	saveEngineDraft = func(string, elicitor.Session) error { return errors.New("injected draft persistence failure") }
+	if _, err := eng.ApplyRound(context.Background(), answers); err == nil {
+		t.Fatal("expected draft persistence failure")
+	} else if class, _ := FailureDetails(err); class != FailureOperational {
+		t.Fatalf("persistence failure class = %s, error %v", class, err)
+	}
+	unchanged, err := eng.Snapshot(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !reflect.DeepEqual(unchanged, opened) {
+		t.Fatalf("failed persistence changed memory\nbefore: %#v\nafter: %#v", opened, unchanged)
+	}
+	if _, err := os.Stat(elicitor.DraftPath(example)); !errors.Is(err, os.ErrNotExist) {
+		t.Fatalf("failed persistence changed durable draft: %v", err)
+	}
+
+	ctx, cancel := context.WithCancel(context.Background())
+	saveEngineDraft = func(path string, session elicitor.Session) error {
+		cancel()
+		return originalSave(path, session)
+	}
+	applied, err := eng.ApplyRound(ctx, answers)
+	if err != nil {
+		t.Fatalf("cancellation after persistence started interrupted finalization: %v", err)
+	}
+	if ctx.Err() == nil || applied.Boundary.Outcome == "" {
+		t.Fatalf("round did not finalize after cancellation: ctx=%v snapshot=%#v", ctx.Err(), applied.Boundary)
+	}
+	loaded, ok, err := elicitor.LoadDraft(elicitor.DraftPath(example))
+	if err != nil || !ok || loaded.Boundary.Outcome != applied.Boundary.Outcome {
+		t.Fatalf("durable/cache state diverged: loaded=%#v ok=%t err=%v applied=%#v", loaded.Boundary, ok, err, applied.Boundary)
+	}
+}
+
+func TestApproveAndWriteInstallsSuccessfulCommitWithCleanupWarning(t *testing.T) {
+	example := filepath.Join(t.TempDir(), "approval-cleanup-warning")
+	eng, _, err := Open(context.Background(), Config{
+		ExampleDir: example, FromExample: runtimeFixture(t), NetworkPolicy: "never",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	originalCommit := commitPrepared
+	defer func() { commitPrepared = originalCommit }()
+	commitPrepared = func(prepared artifactwriter.Prepared, force bool, beforeReplace func() error) (artifactwriter.Result, error) {
+		result, err := originalCommit(prepared, force, beforeReplace)
+		result.CleanupWarnings = append(result.CleanupWarnings, "temporary backup cleanup incomplete")
+		return result, err
+	}
+	approved, err := eng.ApproveAndWrite(context.Background(), Approval{HumanApproved: true})
+	if err != nil {
+		t.Fatalf("successful commit with cleanup warning failed: %v", err)
+	}
+	if len(approved.WriteResult.CleanupWarnings) != 1 {
+		t.Fatalf("cleanup warnings = %#v", approved.WriteResult.CleanupWarnings)
+	}
+	cached, err := eng.Snapshot(context.Background())
+	if err != nil || !reflect.DeepEqual(cached, approved.Snapshot) {
+		t.Fatalf("approved snapshot was not installed: equal=%t err=%v", reflect.DeepEqual(cached, approved.Snapshot), err)
+	}
+	status, err := eng.WorkspaceStatus(context.Background())
+	if err != nil || status.ExternallyModified {
+		t.Fatalf("successful commit latched workspace drift: %#v, %v", status, err)
+	}
+}
+
+func TestWorkspaceFingerprintLatchesExternalChanges(t *testing.T) {
+	paths := []string{
+		"project.md",
+		"workflows/intent.hcl",
+		".icot/session.yaml",
+		".icot/browser-sources.json",
+	}
+	for _, relative := range paths {
+		t.Run(strings.ReplaceAll(relative, "/", "-"), func(t *testing.T) {
+			example := filepath.Join(t.TempDir(), "workspace")
+			eng, opened, err := Open(context.Background(), Config{ExampleDir: example, FromExample: runtimeFixture(t), NetworkPolicy: "never"})
+			if err != nil {
+				t.Fatal(err)
+			}
+			path := filepath.Join(example, filepath.FromSlash(relative))
+			if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+				t.Fatal(err)
+			}
+			if err := os.WriteFile(path, []byte("external edit\n"), 0o600); err != nil {
+				t.Fatal(err)
+			}
+			status, err := eng.WorkspaceStatus(context.Background())
+			if err != nil || !status.ExternallyModified {
+				t.Fatalf("workspace status = %#v, %v", status, err)
+			}
+			cached, err := eng.Snapshot(context.Background())
+			if err != nil || !reflect.DeepEqual(cached, opened) {
+				t.Fatalf("cached inspection unavailable after drift: equal=%t err=%v", reflect.DeepEqual(cached, opened), err)
+			}
+			_, err = eng.ApproveAndWrite(context.Background(), Approval{HumanApproved: true, AllowOverwrite: true})
+			if class, code := FailureDetails(err); class != FailureConflict || code != "workspace_changed" {
+				t.Fatalf("drift approval = %s %s %v", class, code, err)
+			}
+		})
+	}
+}
+
+func TestWorkspaceFingerprintCoversMaterializedSourcesAndCompetingEngines(t *testing.T) {
+	profilePath := filepath.Join(repoRoot(t), "examples", "eval", "browser-status-read", "browser-profiles", "status.json")
+	seed := browserSeedSession()
+	example := filepath.Join(t.TempDir(), "browser-source-drift")
+	eng, snapshot, err := Open(context.Background(), Config{
+		ExampleDir: example, Seed: &seed,
+		BrowserSources: []elicitor.BrowserSourceInput{{ID: "status", Path: profilePath}}, NetworkPolicy: "never",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(snapshot.SelectedSources) != 1 {
+		t.Fatalf("selected sources = %#v", snapshot.SelectedSources)
+	}
+	target := filepath.Join(example, filepath.FromSlash(snapshot.SelectedSources[0].TargetPath))
+	if err := os.MkdirAll(filepath.Dir(target), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(target, []byte("external source replacement\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if status, err := eng.WorkspaceStatus(context.Background()); err != nil || !status.ExternallyModified {
+		t.Fatalf("materialized source status = %#v, %v", status, err)
+	}
+
+	shared := filepath.Join(t.TempDir(), "competing")
+	first, _, err := Open(context.Background(), Config{ExampleDir: shared, FromExample: runtimeFixture(t), NetworkPolicy: "never"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	second, _, err := Open(context.Background(), Config{ExampleDir: shared, FromExample: runtimeFixture(t), NetworkPolicy: "never"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := first.ApproveAndWrite(context.Background(), Approval{HumanApproved: true}); err != nil {
+		t.Fatal(err)
+	}
+	status, err := second.WorkspaceStatus(context.Background())
+	if err != nil || !status.ExternallyModified {
+		t.Fatalf("second engine status = %#v, %v", status, err)
+	}
+	projectBefore, err := os.ReadFile(filepath.Join(shared, "project.md"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := second.ApproveAndWrite(context.Background(), Approval{HumanApproved: true, AllowOverwrite: true}); err == nil {
+		t.Fatal("competing engine overwrote accepted workspace")
+	}
+	projectAfter, err := os.ReadFile(filepath.Join(shared, "project.md"))
+	if err != nil || !bytes.Equal(projectBefore, projectAfter) {
+		t.Fatalf("competing engine changed project: equal=%t err=%v", bytes.Equal(projectBefore, projectAfter), err)
+	}
+}
+
+func TestMutationsRecheckWorkspaceAfterPreparation(t *testing.T) {
+	t.Run("round", func(t *testing.T) {
+		example := filepath.Join(t.TempDir(), "round-drift-during-preparation")
+		draftPath := elicitor.DraftPath(example)
+		armed := false
+		mutated := false
+		var mutationErr error
+		now := func() time.Time {
+			if armed && !mutated {
+				mutated = true
+				mutationErr = os.MkdirAll(filepath.Dir(draftPath), 0o755)
+				if mutationErr == nil {
+					mutationErr = os.WriteFile(draftPath, []byte("external draft edit\n"), 0o600)
+				}
+			}
+			return time.Date(2026, time.August, 18, 12, 0, 0, 0, time.UTC)
+		}
+		eng, opened, err := Open(context.Background(), Config{ExampleDir: example, NetworkPolicy: "never", Now: now})
+		if err != nil {
+			t.Fatal(err)
+		}
+		armed = true
+		_, err = eng.ApplyRound(context.Background(), answersForSnapshot(opened))
+		if mutationErr != nil {
+			t.Fatal(mutationErr)
+		}
+		if class, code := FailureDetails(err); class != FailureConflict || code != "workspace_changed" {
+			t.Fatalf("round drift = %s %s %v", class, code, err)
+		}
+		data, readErr := os.ReadFile(draftPath)
+		if readErr != nil || string(data) != "external draft edit\n" {
+			t.Fatalf("external draft was overwritten: %q, %v", data, readErr)
+		}
+	})
+
+	t.Run("newly-selected-source-target", func(t *testing.T) {
+		example := filepath.Join(t.TempDir(), "new-source-target-drift")
+		profilePath := filepath.Join(repoRoot(t), "examples", "eval", "browser-status-read", "browser-profiles", "status.json")
+		target := filepath.Join(example, "browser-profiles", "status.json")
+		armed := false
+		mutated := false
+		var eng *Engine
+		var mutationErr error
+		now := func() time.Time {
+			if armed && !mutated {
+				mutated = true
+				eng.config.BrowserSources = []elicitor.BrowserSourceInput{{ID: "status", Path: profilePath}}
+				mutationErr = os.MkdirAll(filepath.Dir(target), 0o755)
+				if mutationErr == nil {
+					mutationErr = os.WriteFile(target, []byte("external source target\n"), 0o600)
+				}
+			}
+			return time.Date(2026, time.August, 18, 12, 0, 0, 0, time.UTC)
+		}
+		var opened Snapshot
+		var err error
+		eng, opened, err = Open(context.Background(), Config{ExampleDir: example, NetworkPolicy: "never", Now: now})
+		if err != nil {
+			t.Fatal(err)
+		}
+		if len(opened.SelectedSources) != 0 {
+			t.Fatalf("source should not be selected initially: %#v", opened.SelectedSources)
+		}
+		for _, path := range eng.watchedPaths {
+			if path == target {
+				t.Fatalf("new source target was already watched: %s", target)
+			}
+		}
+		armed = true
+		applied, err := eng.ApplyRound(context.Background(), answersForSnapshot(opened))
+		if mutationErr != nil {
+			t.Fatal(mutationErr)
+		}
+		if class, code := FailureDetails(err); class != FailureConflict || code != "workspace_changed" {
+			t.Fatalf("new target drift = %s %s %v; mutated=%t selected=%#v", class, code, err, mutated, applied.SelectedSources)
+		}
+		data, readErr := os.ReadFile(target)
+		if readErr != nil || string(data) != "external source target\n" {
+			t.Fatalf("external source target was overwritten: %q, %v", data, readErr)
+		}
+		status, statusErr := eng.WorkspaceStatus(context.Background())
+		if statusErr != nil || !status.ExternallyModified {
+			t.Fatalf("new target drift was not latched: %#v, %v", status, statusErr)
+		}
+	})
+
+	t.Run("newly-selected-existing-source-target", func(t *testing.T) {
+		example := filepath.Join(t.TempDir(), "existing-source-target-drift")
+		profilePath := filepath.Join(repoRoot(t), "examples", "eval", "browser-status-read", "browser-profiles", "status.json")
+		target := filepath.Join(example, "browser-profiles", "status.json")
+		if err := os.MkdirAll(filepath.Dir(target), 0o755); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(target, []byte("pre-round source target\n"), 0o600); err != nil {
+			t.Fatal(err)
+		}
+		armed := false
+		mutated := false
+		var eng *Engine
+		var mutationErr error
+		now := func() time.Time {
+			if armed && !mutated {
+				mutated = true
+				eng.config.BrowserSources = []elicitor.BrowserSourceInput{{ID: "status", Path: profilePath}}
+				mutationErr = os.WriteFile(target, []byte("external source target\n"), 0o600)
+			}
+			return time.Date(2026, time.August, 18, 12, 0, 0, 0, time.UTC)
+		}
+		var opened Snapshot
+		var err error
+		eng, opened, err = Open(context.Background(), Config{ExampleDir: example, NetworkPolicy: "never", Now: now})
+		if err != nil {
+			t.Fatal(err)
+		}
+		if len(opened.SelectedSources) != 0 {
+			t.Fatalf("source should not be selected initially: %#v", opened.SelectedSources)
+		}
+		for _, path := range eng.watchedPaths {
+			if path == target {
+				t.Fatalf("new source target was already watched: %s", target)
+			}
+		}
+		armed = true
+		applied, err := eng.ApplyRound(context.Background(), answersForSnapshot(opened))
+		if mutationErr != nil {
+			t.Fatal(mutationErr)
+		}
+		if class, code := FailureDetails(err); class != FailureConflict || code != "workspace_changed" {
+			t.Fatalf("existing new-target drift = %s %s %v; selected=%#v", class, code, err, applied.SelectedSources)
+		}
+		data, readErr := os.ReadFile(target)
+		if readErr != nil || string(data) != "external source target\n" {
+			t.Fatalf("external source target changed unexpectedly: %q, %v", data, readErr)
+		}
+	})
+
+	t.Run("approval", func(t *testing.T) {
+		example := filepath.Join(t.TempDir(), "approval-drift-during-preparation")
+		projectPath := filepath.Join(example, "project.md")
+		armed := false
+		mutated := false
+		var mutationErr error
+		now := func() time.Time {
+			if armed && !mutated {
+				mutated = true
+				mutationErr = os.MkdirAll(example, 0o755)
+				if mutationErr == nil {
+					mutationErr = os.WriteFile(projectPath, []byte("external project edit\n"), 0o600)
+				}
+			}
+			return time.Date(2026, time.August, 18, 12, 0, 0, 0, time.UTC)
+		}
+		eng, _, err := Open(context.Background(), Config{
+			ExampleDir: example, FromExample: runtimeFixture(t), NetworkPolicy: "never", Now: now,
+		})
+		if err != nil {
+			t.Fatal(err)
+		}
+		armed = true
+		_, err = eng.ApproveAndWrite(context.Background(), Approval{HumanApproved: true, AllowOverwrite: true})
+		if mutationErr != nil {
+			t.Fatal(mutationErr)
+		}
+		if class, code := FailureDetails(err); class != FailureConflict || code != "workspace_changed" {
+			t.Fatalf("approval drift = %s %s %v", class, code, err)
+		}
+		data, readErr := os.ReadFile(projectPath)
+		if readErr != nil || string(data) != "external project edit\n" {
+			t.Fatalf("external project was overwritten: %q, %v", data, readErr)
+		}
+	})
+}
+
+func TestWorkspaceInspectionRejectsUnsafeWatchedPath(t *testing.T) {
+	example := filepath.Join(t.TempDir(), "unsafe-workspace")
+	eng, _, err := Open(context.Background(), Config{ExampleDir: example, FromExample: runtimeFixture(t), NetworkPolicy: "never"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.MkdirAll(example, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink(t.TempDir(), filepath.Join(example, "workflows")); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := eng.WorkspaceStatus(context.Background()); err == nil {
+		t.Fatal("unsafe watched path was accepted")
+	} else if class, _ := FailureDetails(err); class != FailureOperational {
+		t.Fatalf("unsafe path class = %s, error %v", class, err)
+	}
 }
 
 func TestSnapshotsAreDeepCopies(t *testing.T) {
@@ -407,6 +768,44 @@ func TestEngineBrowserVerificationMetadataAndRevalidation(t *testing.T) {
 	assertNoDeliverables(t, tamperDir)
 }
 
+func TestApprovalResultRetainsExactSnapshotAfterSourceInputChanges(t *testing.T) {
+	original := filepath.Join(repoRoot(t), "examples", "eval", "browser-status-read", "browser-profiles", "status.json")
+	data, err := os.ReadFile(original)
+	if err != nil {
+		t.Fatal(err)
+	}
+	input := filepath.Join(t.TempDir(), "status.json")
+	if err := os.WriteFile(input, data, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	seed := browserSeedSession()
+	example := filepath.Join(t.TempDir(), "approved-snapshot")
+	eng, _, err := Open(context.Background(), Config{
+		ExampleDir: example, Seed: &seed,
+		BrowserSources: []elicitor.BrowserSourceInput{{ID: "status", Path: input}}, NetworkPolicy: "never",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	result, err := eng.ApproveAndWrite(context.Background(), Approval{HumanApproved: true})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if result.Snapshot.Preview == nil || !result.Snapshot.Ready || len(result.Snapshot.SelectedSources) != 1 || len(result.WriteResult.Written) == 0 {
+		t.Fatalf("approval result = %#v", result)
+	}
+	if err := os.WriteFile(input, []byte("changed immediately after commit\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	inspected, err := eng.Snapshot(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !reflect.DeepEqual(inspected, result.Snapshot) {
+		t.Fatalf("approved cached snapshot changed with source input\nresult=%#v\ninspection=%#v", result.Snapshot, inspected)
+	}
+}
+
 func TestApproveAndWriteRequiresFreshRegistrySource(t *testing.T) {
 	now := time.Date(2026, time.August, 18, 12, 0, 0, 0, time.UTC)
 	registryRoot := filepath.Join(t.TempDir(), "registry")
@@ -507,6 +906,16 @@ func firstTestAnswer(question elicitor.QuestionPlan) string {
 		return question.SuggestedAnswer
 	}
 	return "reviewed answer"
+}
+
+func answersForSnapshot(snapshot Snapshot) []authoring.RoundAnswer {
+	answers := make([]authoring.RoundAnswer, 0, len(snapshot.Frontier))
+	for _, question := range snapshot.Frontier {
+		answers = append(answers, authoring.RoundAnswer{
+			QuestionID: question.ID, Value: firstTestAnswer(question), Source: "user",
+		})
+	}
+	return answers
 }
 
 func runtimeFixture(t *testing.T) string {

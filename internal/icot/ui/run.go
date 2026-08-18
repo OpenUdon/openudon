@@ -64,16 +64,12 @@ func Run(ctx context.Context, config RunConfig) error {
 	authority := listener.Addr().String()
 	handler, err := NewHandler(HandlerConfig{
 		Engine: authoringEngine, Snapshot: snapshot, ExampleDir: config.EngineConfig.ExampleDir,
-		Token: token, Authority: authority,
+		Token: token, Authority: authority, ErrOut: config.ErrOut,
 	})
 	if err != nil {
 		return err
 	}
-	server := &http.Server{
-		Handler:           handler,
-		ReadHeaderTimeout: 5 * time.Second,
-		IdleTimeout:       30 * time.Second,
-	}
+	server := newHTTPServer(handler)
 	serveErrors := make(chan error, 1)
 	go func() {
 		serveErrors <- server.Serve(listener)
@@ -110,6 +106,16 @@ func Run(ctx context.Context, config RunConfig) error {
 			return nil
 		}
 		return fmt.Errorf("serve iCoT UI: %w", err)
+	}
+}
+
+func newHTTPServer(handler http.Handler) *http.Server {
+	return &http.Server{
+		Handler:           handler,
+		ReadHeaderTimeout: 5 * time.Second,
+		ReadTimeout:       15 * time.Second,
+		IdleTimeout:       30 * time.Second,
+		MaxHeaderBytes:    32 << 10,
 	}
 }
 

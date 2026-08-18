@@ -1,17 +1,20 @@
 package ui
 
 import (
+	"bufio"
 	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"net"
 	"net/http"
 	"net/http/cookiejar"
 	"net/http/httptest"
 	"net/url"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"sync"
 	"testing"
@@ -45,6 +48,7 @@ type fakeEngine struct {
 	roundErr               error
 	writeErr               error
 	snapshotErr            error
+	workspace              engine.WorkspaceStatus
 	result                 *engine.WriteResult
 	delay                  time.Duration
 	mutateBeforeRoundError bool
@@ -68,24 +72,25 @@ func (f *fakeEngine) ApplyRound(_ context.Context, answers []authoring.RoundAnsw
 	return f.snapshot, nil
 }
 
-func (f *fakeEngine) ApproveAndWrite(_ context.Context, approval engine.Approval) (engine.WriteResult, error) {
+func (f *fakeEngine) ApproveAndWrite(_ context.Context, approval engine.Approval) (engine.ApprovalResult, error) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	f.approvals++
 	f.approval = approval
 	if !approval.HumanApproved {
-		return engine.WriteResult{}, errors.New("explicit human approval is required before writing authoring artifacts")
+		return engine.ApprovalResult{}, engineRejected(errors.New("explicit human approval is required before writing authoring artifacts"))
 	}
 	if f.writeErr != nil {
-		return engine.WriteResult{}, f.writeErr
+		return engine.ApprovalResult{}, f.writeErr
 	}
-	if f.result != nil {
-		return *f.result, nil
-	}
-	return engine.WriteResult{
+	result := engine.WriteResult{
 		Written: []string{"project.md", "workflows/intent.hcl"},
 		Preview: engine.Preview{ProjectMD: "project", IntentHCL: "intent", ProjectPath: "project.md", IntentPath: "workflows/intent.hcl"},
-	}, nil
+	}
+	if f.result != nil {
+		result = *f.result
+	}
+	return engine.ApprovalResult{Snapshot: f.snapshot, WriteResult: result}, nil
 }
 
 func (f *fakeEngine) Snapshot(context.Context) (engine.Snapshot, error) {
@@ -97,10 +102,29 @@ func (f *fakeEngine) Snapshot(context.Context) (engine.Snapshot, error) {
 	return f.snapshot, nil
 }
 
+func (f *fakeEngine) WorkspaceStatus(context.Context) (engine.WorkspaceStatus, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	if f.snapshotErr != nil {
+		return engine.WorkspaceStatus{}, f.snapshotErr
+	}
+	return f.workspace, nil
+}
+
+func engineRejected(err error) error {
+	return &engine.Failure{Class: engine.FailureRejected, Code: "engine_rejected", Cause: err}
+}
+
 func (f *fakeEngine) counts() (int, int) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	return f.rounds, f.approvals
+}
+
+func (f *fakeEngine) setWorkspace(status engine.WorkspaceStatus) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.workspace = status
 }
 
 func newFakeHandler(t *testing.T, fake *fakeEngine) http.Handler {
@@ -139,7 +163,7 @@ func decodeResponse(t *testing.T, response *httptest.ResponseRecorder) Response 
 
 func currentResponse(t *testing.T, handler http.Handler) Response {
 	t.Helper()
-	response := doRequest(handler, http.MethodGet, "/api/v1/snapshot", "", "", true)
+	response := doRequest(handler, http.MethodGet, "/api/v2/snapshot", "", "", true)
 	if response.Code != http.StatusOK {
 		t.Fatalf("snapshot status = %d, body = %s", response.Code, response.Body.String())
 	}
@@ -155,7 +179,7 @@ func TestTokenBootstrapCookieAndBearerAuthentication(t *testing.T) {
 	if health.Code != http.StatusOK || health.Body.String() != "ok\n" || strings.Contains(health.Body.String(), "revision") {
 		t.Fatalf("health response = %d %q", health.Code, health.Body.String())
 	}
-	unauthorized := doRequest(handler, http.MethodGet, "/api/v1/snapshot", "", "", false)
+	unauthorized := doRequest(handler, http.MethodGet, "/api/v2/snapshot", "", "", false)
 	if unauthorized.Code != http.StatusUnauthorized || strings.Contains(unauthorized.Body.String(), testToken) {
 		t.Fatalf("unauthorized response = %d %s", unauthorized.Code, unauthorized.Body.String())
 	}
@@ -176,7 +200,7 @@ func TestTokenBootstrapCookieAndBearerAuthentication(t *testing.T) {
 	if shell.Code != http.StatusOK || !strings.Contains(shell.Body.String(), "iCoT workspace") || strings.Contains(shell.Body.String(), testToken) {
 		t.Fatalf("shell response = %d %s", shell.Code, shell.Body.String())
 	}
-	scopedAPI := httptest.NewRequest(http.MethodGet, "http://"+testAuthority+basePath+"api/v1/snapshot", nil)
+	scopedAPI := httptest.NewRequest(http.MethodGet, "http://"+testAuthority+basePath+"api/v2/snapshot", nil)
 	scopedAPI.Host = testAuthority
 	scopedAPI.AddCookie(cookies[0])
 	scopedResponse := httptest.NewRecorder()
@@ -184,7 +208,7 @@ func TestTokenBootstrapCookieAndBearerAuthentication(t *testing.T) {
 	if scopedResponse.Code != http.StatusOK {
 		t.Fatalf("scoped cookie API response = %d %s", scopedResponse.Code, scopedResponse.Body.String())
 	}
-	globalAPI := httptest.NewRequest(http.MethodGet, "http://"+testAuthority+"/api/v1/snapshot", nil)
+	globalAPI := httptest.NewRequest(http.MethodGet, "http://"+testAuthority+"/api/v2/snapshot", nil)
 	globalAPI.Host = testAuthority
 	globalAPI.AddCookie(cookies[0])
 	globalResponse := httptest.NewRecorder()
@@ -200,6 +224,14 @@ func TestTokenBootstrapCookieAndBearerAuthentication(t *testing.T) {
 	badBootstrap := doRequest(handler, http.MethodGet, basePath+"?token=wrong", "", "", false)
 	if badBootstrap.Code != http.StatusUnauthorized || len(badBootstrap.Result().Cookies()) != 0 {
 		t.Fatalf("bad bootstrap = %d %#v", badBootstrap.Code, badBootstrap.Result().Cookies())
+	}
+	globalBootstrap := doRequest(handler, http.MethodGet, "/?token="+testToken, "", "", false)
+	if globalBootstrap.Code != http.StatusUnauthorized || len(globalBootstrap.Result().Cookies()) != 0 {
+		t.Fatalf("global bootstrap = %d %#v", globalBootstrap.Code, globalBootstrap.Result().Cookies())
+	}
+	v1 := doRequest(handler, http.MethodGet, "/api/v1/snapshot", "", "", true)
+	if v1.Code != http.StatusNotFound {
+		t.Fatalf("retired v1 route = %d %s", v1.Code, v1.Body.String())
 	}
 }
 
@@ -276,6 +308,7 @@ func TestExactHostOriginSecurityHeadersAndMethods(t *testing.T) {
 	}
 	for name := range map[string]bool{
 		"Cache-Control": true, "Content-Security-Policy": true, "Permissions-Policy": true,
+		"Cross-Origin-Opener-Policy": true, "Cross-Origin-Resource-Policy": true,
 		"Referrer-Policy": true, "X-Content-Type-Options": true, "X-Frame-Options": true,
 	} {
 		if exactOriginResponse.Header().Get(name) == "" {
@@ -288,11 +321,11 @@ func TestExactHostOriginSecurityHeadersAndMethods(t *testing.T) {
 		}
 	}
 
-	unsupported := doRequest(handler, http.MethodGet, "/api/v1/round", "", "", true)
+	unsupported := doRequest(handler, http.MethodGet, "/api/v2/round", "", "", true)
 	if unsupported.Code != http.StatusMethodNotAllowed || unsupported.Header().Get("Allow") != http.MethodPost {
 		t.Fatalf("unsupported method = %d allow %q", unsupported.Code, unsupported.Header().Get("Allow"))
 	}
-	preflight := httptest.NewRequest(http.MethodOptions, "http://"+testAuthority+"/api/v1/round", nil)
+	preflight := httptest.NewRequest(http.MethodOptions, "http://"+testAuthority+"/api/v2/round", nil)
 	preflight.Host = testAuthority
 	preflight.Header.Set("Origin", "https://attacker.invalid")
 	preflightResponse := httptest.NewRecorder()
@@ -302,25 +335,56 @@ func TestExactHostOriginSecurityHeadersAndMethods(t *testing.T) {
 	}
 }
 
+func TestConditionalSnapshotAndWorkspaceRevision(t *testing.T) {
+	fake := &fakeEngine{snapshot: engine.Snapshot{Boundary: elicitor.WorkflowBoundary{Outcome: "cached"}}}
+	handler := newFakeHandler(t, fake)
+	initial := currentResponse(t, handler)
+	request := httptest.NewRequest(http.MethodGet, "http://"+testAuthority+"/api/v2/snapshot", nil)
+	request.Host = testAuthority
+	request.Header.Set("Authorization", "Bearer "+testToken)
+	request.Header.Set("If-None-Match", strconv.Quote(initial.Revision))
+	response := httptest.NewRecorder()
+	handler.ServeHTTP(response, request)
+	if response.Code != http.StatusNotModified || response.Body.Len() != 0 || response.Header().Get("ETag") != strconv.Quote(initial.Revision) {
+		t.Fatalf("conditional response = %d etag=%q body=%q", response.Code, response.Header().Get("ETag"), response.Body.String())
+	}
+
+	fake.setWorkspace(engine.WorkspaceStatus{ExternallyModified: true})
+	changed := doRequest(handler, http.MethodGet, "/api/v2/snapshot", "", "", true)
+	if changed.Code != http.StatusOK {
+		t.Fatalf("changed snapshot = %d %s", changed.Code, changed.Body.String())
+	}
+	payload := decodeResponse(t, changed)
+	if !payload.Workspace.ExternallyModified || payload.Revision == initial.Revision {
+		t.Fatalf("workspace change did not revise response: %#v", payload)
+	}
+	mutation := doRequest(handler, http.MethodPost, "/api/v2/approve", fmt.Sprintf(`{"revision":%q,"human_approved":true,"allow_overwrite":true}`, payload.Revision), "application/json", true)
+	if mutation.Code != http.StatusConflict || !strings.Contains(mutation.Body.String(), `"code":"workspace_changed"`) || !strings.Contains(mutation.Body.String(), payload.Revision) {
+		t.Fatalf("workspace mutation = %d %s", mutation.Code, mutation.Body.String())
+	}
+}
+
 func TestStrictJSONAndRequestLimit(t *testing.T) {
 	handler := newFakeHandler(t, &fakeEngine{})
 	tests := []struct {
 		name        string
 		body        string
 		contentType string
+		status      int
+		code        string
 	}{
-		{name: "missing content type", body: `{}`},
-		{name: "wrong content type", body: `{}`, contentType: "text/plain"},
-		{name: "missing answers", body: `{"revision":"sha256:no"}`, contentType: "application/json"},
-		{name: "unknown field", body: `{"revision":"sha256:no","answers":[],"slots":[]}`, contentType: "application/json"},
-		{name: "trailing document", body: `{"revision":"sha256:no","answers":[]} {}`, contentType: "application/json"},
-		{name: "malformed", body: `{"revision":`, contentType: "application/json"},
-		{name: "oversized", body: `{"revision":"sha256:no","answers":[],"padding":"` + strings.Repeat("x", MaxRequestBytes) + `"}`, contentType: "application/json"},
+		{name: "missing content type", body: `{}`, status: http.StatusUnsupportedMediaType, code: "unsupported_media_type"},
+		{name: "wrong content type", body: `{}`, contentType: "text/plain", status: http.StatusUnsupportedMediaType, code: "unsupported_media_type"},
+		{name: "missing answers", body: `{"revision":"sha256:no"}`, contentType: "application/json", status: http.StatusBadRequest, code: "malformed_request"},
+		{name: "unknown field", body: `{"revision":"sha256:no","answers":[],"slots":[]}`, contentType: "application/json", status: http.StatusBadRequest, code: "malformed_request"},
+		{name: "trailing document", body: `{"revision":"sha256:no","answers":[]} {}`, contentType: "application/json", status: http.StatusBadRequest, code: "malformed_request"},
+		{name: "malformed", body: `{"revision":`, contentType: "application/json", status: http.StatusBadRequest, code: "malformed_request"},
+		{name: "oversized", body: `{"revision":"sha256:no","answers":[],"padding":"` + strings.Repeat("x", MaxRequestBytes) + `"}`, contentType: "application/json", status: http.StatusRequestEntityTooLarge, code: "payload_too_large"},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			response := doRequest(handler, http.MethodPost, "/api/v1/round", test.body, test.contentType, true)
-			if response.Code != http.StatusBadRequest || !strings.Contains(response.Body.String(), `"code":"malformed_request"`) || strings.Contains(response.Body.String(), testToken) {
+			response := doRequest(handler, http.MethodPost, "/api/v2/round", test.body, test.contentType, true)
+			if response.Code != test.status || !strings.Contains(response.Body.String(), `"code":"`+test.code+`"`) || strings.Contains(response.Body.String(), testToken) {
 				t.Fatalf("response = %d %s", response.Code, response.Body.String())
 			}
 		})
@@ -328,18 +392,304 @@ func TestStrictJSONAndRequestLimit(t *testing.T) {
 	if rounds, approvals := handler.(*Server).engine.(*fakeEngine).counts(); rounds != 0 || approvals != 0 {
 		t.Fatalf("malformed requests mutated engine: rounds %d approvals %d", rounds, approvals)
 	}
+
+	for name, body := range map[string][]byte{
+		"recursive duplicate": []byte(`{"revision":"sha256:no","answers":[{"question_id":"goal","value":"one","value":"two"}]}`),
+		"invalid utf8":        append([]byte(`{"revision":"sha256:no","answers":[{"question_id":"goal","value":"`), 0xff, '"', '}', ']', '}'),
+	} {
+		t.Run(name, func(t *testing.T) {
+			request := httptest.NewRequest(http.MethodPost, "http://"+testAuthority+"/api/v2/round", bytes.NewReader(body))
+			request.Host = testAuthority
+			request.Header.Set("Authorization", "Bearer "+testToken)
+			request.Header.Set("Content-Type", "application/json")
+			response := httptest.NewRecorder()
+			handler.ServeHTTP(response, request)
+			if response.Code != http.StatusBadRequest || !strings.Contains(response.Body.String(), `"code":"malformed_request"`) {
+				t.Fatalf("response = %d %s", response.Code, response.Body.String())
+			}
+		})
+	}
+	unsupportedCharset := doRequest(handler, http.MethodPost, "/api/v2/round", `{}`, "application/json; charset=iso-8859-1", true)
+	if unsupportedCharset.Code != http.StatusUnsupportedMediaType {
+		t.Fatalf("unsupported charset = %d %s", unsupportedCharset.Code, unsupportedCharset.Body.String())
+	}
+	chunked := httptest.NewRequest(http.MethodPost, "http://"+testAuthority+"/api/v2/round", strings.NewReader(strings.Repeat("x", MaxRequestBytes+1)))
+	chunked.Host = testAuthority
+	chunked.ContentLength = -1
+	chunked.TransferEncoding = []string{"chunked"}
+	chunked.Header.Set("Authorization", "Bearer "+testToken)
+	chunked.Header.Set("Content-Type", "application/json")
+	chunkedResponse := httptest.NewRecorder()
+	handler.ServeHTTP(chunkedResponse, chunked)
+	if chunkedResponse.Code != http.StatusRequestEntityTooLarge || !strings.Contains(chunkedResponse.Body.String(), `"code":"payload_too_large"`) {
+		t.Fatalf("chunked oversized body = %d %s", chunkedResponse.Code, chunkedResponse.Body.String())
+	}
+}
+
+func TestErrorEnvelopeIncludesRequestIDRetryAndRevision(t *testing.T) {
+	handler := newFakeHandler(t, &fakeEngine{})
+	current := currentResponse(t, handler)
+	response := doRequest(handler, http.MethodPost, "/api/v2/round", `{"revision":"sha256:stale","answers":[]}`, "application/json", true)
+	var envelope errorEnvelope
+	if err := json.Unmarshal(response.Body.Bytes(), &envelope); err != nil {
+		t.Fatal(err)
+	}
+	if response.Code != http.StatusConflict || envelope.Revision != current.Revision || !envelope.Error.Retryable || len(envelope.Error.RequestID) != 32 {
+		t.Fatalf("error envelope = %d %#v", response.Code, envelope)
+	}
+}
+
+func TestServerLogsOnlySanitizedInternalFailures(t *testing.T) {
+	var logs bytes.Buffer
+	fake := &fakeEngine{
+		snapshot: engine.Snapshot{Ready: true},
+		writeErr: &engine.Failure{Class: engine.FailureOperational, Code: "engine_operation_failed", Cause: errors.New("disk failed token=super-secret")},
+	}
+	handler, err := NewHandler(HandlerConfig{
+		Engine: fake, Snapshot: fake.snapshot, ExampleDir: "/tmp/example", Token: testToken, Authority: testAuthority, ErrOut: &logs,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	before := currentResponse(t, handler)
+	response := doRequest(handler, http.MethodPost, "/api/v2/approve", fmt.Sprintf(`{"revision":%q,"human_approved":true}`, before.Revision), "application/json", true)
+	if response.Code != http.StatusInternalServerError {
+		t.Fatalf("internal response = %d %s", response.Code, response.Body.String())
+	}
+	line := logs.String()
+	for _, expected := range []string{"request_id=", "route=/api/v2/approve", "stage=approve", "cause=redacted operational failure"} {
+		if !strings.Contains(line, expected) {
+			t.Fatalf("safe log missing %q: %q", expected, line)
+		}
+	}
+	if strings.Contains(line, "super-secret") || strings.Contains(line, testToken) {
+		t.Fatalf("safe log leaked a capability: %q", line)
+	}
+	beforeLength := logs.Len()
+	fake.writeErr = engineRejected(errors.New("review rejected"))
+	response = doRequest(handler, http.MethodPost, "/api/v2/approve", fmt.Sprintf(`{"revision":%q,"human_approved":true}`, before.Revision), "application/json", true)
+	if response.Code != http.StatusUnprocessableEntity || logs.Len() != beforeLength {
+		t.Fatalf("domain rejection was logged: status=%d logs=%q", response.Code, logs.String())
+	}
+}
+
+func TestRealLoopbackListenerBootstrapBearerApprovalAndFreeze(t *testing.T) {
+	example := filepath.Join(t.TempDir(), "listener")
+	eng, snapshot, err := engine.Open(context.Background(), engine.Config{
+		ExampleDir: example, FromExample: filepath.Join(repoRoot(t), "examples", "eval", "runtime-only-render"), NetworkPolicy: "never",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	token, err := GenerateToken()
+	if err != nil {
+		t.Fatal(err)
+	}
+	listener, err := net.Listen("tcp4", "127.0.0.1:0")
+	if err != nil {
+		t.Fatal(err)
+	}
+	authority := listener.Addr().String()
+	handler, err := NewHandler(HandlerConfig{Engine: eng, Snapshot: snapshot, ExampleDir: example, Token: token, Authority: authority})
+	if err != nil {
+		t.Fatal(err)
+	}
+	server := newHTTPServer(handler)
+	served := make(chan error, 1)
+	go func() { served <- server.Serve(listener) }()
+	defer func() {
+		_ = server.Shutdown(context.Background())
+		<-served
+	}()
+	jar, err := cookiejar.New(nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	client := &http.Client{Jar: jar, Timeout: 5 * time.Second}
+	baseURL := "http://" + authority
+	bootstrap, err := client.Get(baseURL + instanceBasePath(token) + "?token=" + url.QueryEscape(token))
+	if err != nil {
+		t.Fatal(err)
+	}
+	_ = bootstrap.Body.Close()
+	if bootstrap.StatusCode != http.StatusOK || bootstrap.Request.URL.Path != instanceBasePath(token) {
+		t.Fatalf("bootstrap final response = %d %s", bootstrap.StatusCode, bootstrap.Request.URL)
+	}
+	request, _ := http.NewRequest(http.MethodGet, baseURL+"/api/v2/snapshot", nil)
+	request.Header.Set("Authorization", "Bearer "+token)
+	response, err := client.Do(request)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var current Response
+	if err := json.NewDecoder(response.Body).Decode(&current); err != nil {
+		t.Fatal(err)
+	}
+	_ = response.Body.Close()
+	approvalBody := fmt.Sprintf(`{"revision":%q,"human_approved":true}`, current.Revision)
+	request, _ = http.NewRequest(http.MethodPost, baseURL+"/api/v2/approve", strings.NewReader(approvalBody))
+	request.Header.Set("Authorization", "Bearer "+token)
+	request.Header.Set("Content-Type", "application/json")
+	response, err = client.Do(request)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var approved Response
+	if err := json.NewDecoder(response.Body).Decode(&approved); err != nil {
+		t.Fatal(err)
+	}
+	_ = response.Body.Close()
+	if response.StatusCode != http.StatusOK || !approved.Completed || approved.WriteResult == nil {
+		t.Fatalf("approval response = %d %#v", response.StatusCode, approved)
+	}
+	request, _ = http.NewRequest(http.MethodPost, baseURL+"/api/v2/approve", strings.NewReader(fmt.Sprintf(`{"revision":%q,"human_approved":true}`, approved.Revision)))
+	request.Header.Set("Authorization", "Bearer "+token)
+	request.Header.Set("Content-Type", "application/json")
+	response, err = client.Do(request)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer response.Body.Close()
+	if response.StatusCode != http.StatusConflict {
+		t.Fatalf("frozen response = %d", response.StatusCode)
+	}
+}
+
+func TestRealLoopbackListenerRound(t *testing.T) {
+	fake := &fakeEngine{snapshot: engine.Snapshot{Boundary: elicitor.WorkflowBoundary{Outcome: "before"}}}
+	listener, err := net.Listen("tcp4", "127.0.0.1:0")
+	if err != nil {
+		t.Fatal(err)
+	}
+	authority := listener.Addr().String()
+	handler, err := NewHandler(HandlerConfig{
+		Engine: fake, Snapshot: fake.snapshot, ExampleDir: t.TempDir(), Token: testToken, Authority: authority,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	server := newHTTPServer(handler)
+	served := make(chan error, 1)
+	go func() { served <- server.Serve(listener) }()
+	defer func() {
+		_ = server.Shutdown(context.Background())
+		<-served
+	}()
+	client := &http.Client{Timeout: 5 * time.Second}
+	baseURL := "http://" + authority
+	request, _ := http.NewRequest(http.MethodGet, baseURL+"/api/v2/snapshot", nil)
+	request.Header.Set("Authorization", "Bearer "+testToken)
+	response, err := client.Do(request)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var current Response
+	if err := json.NewDecoder(response.Body).Decode(&current); err != nil {
+		t.Fatal(err)
+	}
+	_ = response.Body.Close()
+	body := fmt.Sprintf(`{"revision":%q,"answers":[{"question_id":"outcome","value":"after"}]}`, current.Revision)
+	request, _ = http.NewRequest(http.MethodPost, baseURL+"/api/v2/round", strings.NewReader(body))
+	request.Header.Set("Authorization", "Bearer "+testToken)
+	request.Header.Set("Content-Type", "application/json")
+	response, err = client.Do(request)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer response.Body.Close()
+	var applied Response
+	if err := json.NewDecoder(response.Body).Decode(&applied); err != nil {
+		t.Fatal(err)
+	}
+	if response.StatusCode != http.StatusOK || applied.Snapshot.Boundary.Outcome != "after" || applied.Revision == current.Revision {
+		t.Fatalf("round response = %d %#v", response.StatusCode, applied)
+	}
+}
+
+func TestRealListenerRejectsSlowBody(t *testing.T) {
+	fake := &fakeEngine{}
+	listener, err := net.Listen("tcp4", "127.0.0.1:0")
+	if err != nil {
+		t.Fatal(err)
+	}
+	authority := listener.Addr().String()
+	handler, err := NewHandler(HandlerConfig{
+		Engine: fake, Snapshot: fake.snapshot, ExampleDir: t.TempDir(), Token: testToken, Authority: authority,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	server := newHTTPServer(handler)
+	server.ReadTimeout = 100 * time.Millisecond
+	served := make(chan error, 1)
+	go func() { served <- server.Serve(listener) }()
+	defer func() {
+		_ = server.Close()
+		<-served
+	}()
+	connection, err := net.DialTimeout("tcp4", authority, time.Second)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer connection.Close()
+	if _, err := fmt.Fprintf(connection, "POST /api/v2/round HTTP/1.1\r\nHost: %s\r\nAuthorization: Bearer %s\r\nContent-Type: application/json\r\nContent-Length: 100\r\nConnection: close\r\n\r\n{", authority, testToken); err != nil {
+		t.Fatal(err)
+	}
+	response, err := http.ReadResponse(bufio.NewReader(connection), nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer response.Body.Close()
+	if response.StatusCode != http.StatusBadRequest {
+		t.Fatalf("slow body status = %d", response.StatusCode)
+	}
+}
+
+func TestRealListenerRejectsOversizedHeader(t *testing.T) {
+	listener, err := net.Listen("tcp4", "127.0.0.1:0")
+	if err != nil {
+		t.Fatal(err)
+	}
+	server := newHTTPServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusNoContent)
+	}))
+	served := make(chan error, 1)
+	go func() { served <- server.Serve(listener) }()
+	defer func() {
+		_ = server.Close()
+		<-served
+	}()
+	connection, err := net.DialTimeout("tcp4", listener.Addr().String(), time.Second)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer connection.Close()
+	if _, err := fmt.Fprintf(connection, "GET / HTTP/1.1\r\nHost: %s\r\nX-Oversized: %s\r\n\r\n", listener.Addr().String(), strings.Repeat("x", 64<<10)); err != nil {
+		t.Fatal(err)
+	}
+	response, err := http.ReadResponse(bufio.NewReader(connection), nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer response.Body.Close()
+	if response.StatusCode != http.StatusRequestHeaderFieldsTooLarge {
+		t.Fatalf("oversized header status = %d", response.StatusCode)
+	}
 }
 
 func TestRevisionRoundApprovalAndFrozenInspection(t *testing.T) {
-	fake := &fakeEngine{snapshot: engine.Snapshot{Ready: false}}
+	fake := &fakeEngine{
+		snapshot: engine.Snapshot{Ready: false},
+		result:   &engine.WriteResult{CleanupWarnings: []string{"temporary backup cleanup incomplete"}},
+	}
 	handler := newFakeHandler(t, fake)
 	initial := currentResponse(t, handler)
 
-	malformed := doRequest(handler, http.MethodPost, "/api/v1/round", `{"revision":"`+initial.Revision+`","answers":[{"question_id":"","value":"x"}]}`, "application/json", true)
+	malformed := doRequest(handler, http.MethodPost, "/api/v2/round", `{"revision":"`+initial.Revision+`","answers":[{"question_id":"","value":"x"}]}`, "application/json", true)
 	if malformed.Code != http.StatusBadRequest {
 		t.Fatalf("malformed status = %d", malformed.Code)
 	}
-	stale := doRequest(handler, http.MethodPost, "/api/v1/round", `{"revision":"sha256:stale","answers":[{"question_id":"goal","value":"new"}]}`, "application/json", true)
+	stale := doRequest(handler, http.MethodPost, "/api/v2/round", `{"revision":"sha256:stale","answers":[{"question_id":"goal","value":"new"}]}`, "application/json", true)
 	if stale.Code != http.StatusConflict {
 		t.Fatalf("stale status = %d body %s", stale.Code, stale.Body.String())
 	}
@@ -347,7 +697,7 @@ func TestRevisionRoundApprovalAndFrozenInspection(t *testing.T) {
 		t.Fatalf("stale request called engine %d times", rounds)
 	}
 
-	round := doRequest(handler, http.MethodPost, "/api/v1/round", `{"revision":"`+initial.Revision+`","answers":[{"question_id":"goal","value":"new outcome"}]}`, "application/json; charset=utf-8", true)
+	round := doRequest(handler, http.MethodPost, "/api/v2/round", `{"revision":"`+initial.Revision+`","answers":[{"question_id":"goal","value":"new outcome"}]}`, "application/json; charset=utf-8", true)
 	if round.Code != http.StatusOK {
 		t.Fatalf("round status = %d body %s", round.Code, round.Body.String())
 	}
@@ -360,7 +710,7 @@ func TestRevisionRoundApprovalAndFrozenInspection(t *testing.T) {
 		t.Fatalf("engine answers = %#v", fake.seen)
 	}
 	fake.mu.Unlock()
-	declined := doRequest(handler, http.MethodPost, "/api/v1/approve", fmt.Sprintf(`{"revision":%q,"human_approved":false}`, afterRound.Revision), "application/json", true)
+	declined := doRequest(handler, http.MethodPost, "/api/v2/approve", fmt.Sprintf(`{"revision":%q,"human_approved":false}`, afterRound.Revision), "application/json", true)
 	if declined.Code != http.StatusUnprocessableEntity || !strings.Contains(declined.Body.String(), "explicit human approval") {
 		t.Fatalf("declined approval = %d %s", declined.Code, declined.Body.String())
 	}
@@ -368,12 +718,12 @@ func TestRevisionRoundApprovalAndFrozenInspection(t *testing.T) {
 		t.Fatalf("declined approval changed state: %#v", current)
 	}
 
-	approve := doRequest(handler, http.MethodPost, "/api/v1/approve", fmt.Sprintf(`{"revision":%q,"human_approved":true,"allow_overwrite":true,"approve_incomplete":true}`, afterRound.Revision), "application/json", true)
+	approve := doRequest(handler, http.MethodPost, "/api/v2/approve", fmt.Sprintf(`{"revision":%q,"human_approved":true,"allow_overwrite":true,"approve_incomplete":true}`, afterRound.Revision), "application/json", true)
 	if approve.Code != http.StatusOK {
 		t.Fatalf("approve status = %d body %s", approve.Code, approve.Body.String())
 	}
 	approved := decodeResponse(t, approve)
-	if !approved.Completed || approved.WriteResult == nil || approved.Revision == afterRound.Revision {
+	if !approved.Completed || approved.WriteResult == nil || approved.Revision == afterRound.Revision || len(approved.WriteResult.CleanupWarnings) != 1 {
 		t.Fatalf("approved response = %#v", approved)
 	}
 	fake.mu.Lock()
@@ -382,12 +732,12 @@ func TestRevisionRoundApprovalAndFrozenInspection(t *testing.T) {
 	}
 	fake.mu.Unlock()
 
-	frozen := doRequest(handler, http.MethodPost, "/api/v1/approve", fmt.Sprintf(`{"revision":%q,"human_approved":true}`, approved.Revision), "application/json", true)
+	frozen := doRequest(handler, http.MethodPost, "/api/v2/approve", fmt.Sprintf(`{"revision":%q,"human_approved":true}`, approved.Revision), "application/json", true)
 	if frozen.Code != http.StatusConflict || !strings.Contains(frozen.Body.String(), "session_frozen") {
 		t.Fatalf("frozen response = %d %s", frozen.Code, frozen.Body.String())
 	}
 	inspection := currentResponse(t, handler)
-	if !inspection.Completed || inspection.Revision != approved.Revision || inspection.WriteResult == nil {
+	if !inspection.Completed || inspection.Revision != approved.Revision || inspection.WriteResult == nil || len(inspection.WriteResult.CleanupWarnings) != 1 {
 		t.Fatalf("frozen inspection = %#v", inspection)
 	}
 	if rounds, approvals := fake.counts(); rounds != 1 || approvals != 2 {
@@ -404,7 +754,7 @@ func TestIncompleteWriteAlsoFreezesSession(t *testing.T) {
 	fake := &fakeEngine{result: &result}
 	handler := newFakeHandler(t, fake)
 	before := currentResponse(t, handler)
-	response := doRequest(handler, http.MethodPost, "/api/v1/approve", fmt.Sprintf(`{"revision":%q,"human_approved":true,"approve_incomplete":true}`, before.Revision), "application/json", true)
+	response := doRequest(handler, http.MethodPost, "/api/v2/approve", fmt.Sprintf(`{"revision":%q,"human_approved":true,"approve_incomplete":true}`, before.Revision), "application/json", true)
 	if response.Code != http.StatusOK {
 		t.Fatalf("incomplete approval = %d %s", response.Code, response.Body.String())
 	}
@@ -412,7 +762,7 @@ func TestIncompleteWriteAlsoFreezesSession(t *testing.T) {
 	if !after.Completed || after.WriteResult == nil || !after.WriteResult.Incomplete {
 		t.Fatalf("incomplete response = %#v", after)
 	}
-	frozen := doRequest(handler, http.MethodPost, "/api/v1/round", fmt.Sprintf(`{"revision":%q,"answers":[]}`, after.Revision), "application/json", true)
+	frozen := doRequest(handler, http.MethodPost, "/api/v2/round", fmt.Sprintf(`{"revision":%q,"answers":[]}`, after.Revision), "application/json", true)
 	if frozen.Code != http.StatusConflict || !strings.Contains(frozen.Body.String(), "session_frozen") {
 		t.Fatalf("frozen response = %d %s", frozen.Code, frozen.Body.String())
 	}
@@ -427,10 +777,10 @@ func TestEngineRejectionsPreserveRevisionAndState(t *testing.T) {
 		{name: "unavailable registry", failure: "selected browser registry profile could not be freshly revalidated"},
 	} {
 		t.Run(test.name, func(t *testing.T) {
-			fake := &fakeEngine{snapshot: engine.Snapshot{Ready: true}, writeErr: errors.New(test.failure)}
+			fake := &fakeEngine{snapshot: engine.Snapshot{Ready: true}, writeErr: engineRejected(errors.New(test.failure))}
 			handler := newFakeHandler(t, fake)
 			before := currentResponse(t, handler)
-			response := doRequest(handler, http.MethodPost, "/api/v1/approve", fmt.Sprintf(`{"revision":%q,"human_approved":true}`, before.Revision), "application/json", true)
+			response := doRequest(handler, http.MethodPost, "/api/v2/approve", fmt.Sprintf(`{"revision":%q,"human_approved":true}`, before.Revision), "application/json", true)
 			if response.Code != http.StatusUnprocessableEntity || !strings.Contains(response.Body.String(), test.failure) {
 				t.Fatalf("rejection response = %d %s", response.Code, response.Body.String())
 			}
@@ -442,16 +792,15 @@ func TestEngineRejectionsPreserveRevisionAndState(t *testing.T) {
 	}
 }
 
-func TestCanceledRoundResynchronizesRevisionAfterEngineMutation(t *testing.T) {
+func TestCanceledRoundLeavesCachedRevisionAvailable(t *testing.T) {
 	fake := &fakeEngine{
-		snapshot:               engine.Snapshot{Boundary: elicitor.WorkflowBoundary{Outcome: "before"}},
-		roundErr:               context.Canceled,
-		mutateBeforeRoundError: true,
+		snapshot: engine.Snapshot{Boundary: elicitor.WorkflowBoundary{Outcome: "before"}},
+		roundErr: &engine.Failure{Class: engine.FailureOperational, Code: "engine_operation_failed", Cause: context.Canceled},
 	}
 	handler := newFakeHandler(t, fake)
 	before := currentResponse(t, handler)
 	body := fmt.Sprintf(`{"revision":%q,"answers":[{"question_id":"goal","value":"autosaved after cancellation"}]}`, before.Revision)
-	request := httptest.NewRequest(http.MethodPost, "http://"+testAuthority+"/api/v1/round", strings.NewReader(body))
+	request := httptest.NewRequest(http.MethodPost, "http://"+testAuthority+"/api/v2/round", strings.NewReader(body))
 	request.Host = testAuthority
 	request.Header.Set("Authorization", "Bearer "+testToken)
 	request.Header.Set("Content-Type", "application/json")
@@ -465,42 +814,30 @@ func TestCanceledRoundResynchronizesRevisionAfterEngineMutation(t *testing.T) {
 	}
 
 	after := currentResponse(t, handler)
-	if after.Revision == before.Revision || after.Snapshot.Boundary.Outcome != "autosaved after cancellation" {
-		t.Fatalf("state was not resynchronized: before %#v after %#v", before, after)
+	if after.Revision != before.Revision || after.Snapshot.Boundary.Outcome != "before" {
+		t.Fatalf("transactional rejection changed cached state: before %#v after %#v", before, after)
 	}
-	staleApproval := doRequest(handler, http.MethodPost, "/api/v1/approve", fmt.Sprintf(`{"revision":%q,"human_approved":true}`, before.Revision), "application/json", true)
-	if staleApproval.Code != http.StatusConflict || !strings.Contains(staleApproval.Body.String(), "stale_revision") {
-		t.Fatalf("stale approval response = %d %s", staleApproval.Code, staleApproval.Body.String())
-	}
-	if _, approvals := fake.counts(); approvals != 0 {
-		t.Fatalf("stale approval called engine %d times", approvals)
+	staleApproval := doRequest(handler, http.MethodPost, "/api/v2/approve", fmt.Sprintf(`{"revision":%q,"human_approved":true}`, before.Revision), "application/json", true)
+	if staleApproval.Code != http.StatusOK {
+		t.Fatalf("approval after rejected round = %d %s", staleApproval.Code, staleApproval.Body.String())
 	}
 }
 
-func TestFailedPostMutationSynchronizationDoesNotAdvertiseStaleRevision(t *testing.T) {
+func TestFailedWorkspaceInspectionCanRecover(t *testing.T) {
 	fake := &fakeEngine{
-		snapshot:               engine.Snapshot{Boundary: elicitor.WorkflowBoundary{Outcome: "before"}},
-		roundErr:               context.Canceled,
-		snapshotErr:            errors.New("snapshot unavailable"),
-		mutateBeforeRoundError: true,
+		snapshot: engine.Snapshot{Boundary: elicitor.WorkflowBoundary{Outcome: "before"}},
 	}
 	handler := newFakeHandler(t, fake)
 	before := currentResponse(t, handler)
-	body := fmt.Sprintf(`{"revision":%q,"answers":[{"question_id":"goal","value":"advanced"}]}`, before.Revision)
-	response := doRequest(handler, http.MethodPost, "/api/v1/round", body, "application/json", true)
-	if response.Code != http.StatusInternalServerError {
-		t.Fatalf("round response = %d %s", response.Code, response.Body.String())
+	fake.snapshotErr = errors.New("workspace inspection unavailable")
+	inspection := doRequest(handler, http.MethodGet, "/api/v2/snapshot", "", "", true)
+	if inspection.Code != http.StatusInternalServerError {
+		t.Fatalf("failed inspection response = %d %s", inspection.Code, inspection.Body.String())
 	}
-	inspection := doRequest(handler, http.MethodGet, "/api/v1/snapshot", "", "", true)
-	if inspection.Code != http.StatusInternalServerError || strings.Contains(inspection.Body.String(), before.Revision) {
-		t.Fatalf("stale inspection response = %d %s", inspection.Code, inspection.Body.String())
-	}
-	approval := doRequest(handler, http.MethodPost, "/api/v1/approve", fmt.Sprintf(`{"revision":%q,"human_approved":true}`, before.Revision), "application/json", true)
-	if approval.Code != http.StatusInternalServerError {
-		t.Fatalf("approval against unavailable state = %d %s", approval.Code, approval.Body.String())
-	}
-	if _, approvals := fake.counts(); approvals != 0 {
-		t.Fatalf("approval called engine %d times", approvals)
+	fake.snapshotErr = nil
+	after := currentResponse(t, handler)
+	if after.Revision != before.Revision || after.Snapshot.Boundary.Outcome != "before" {
+		t.Fatalf("recovered inspection changed state: before %#v after %#v", before, after)
 	}
 }
 
@@ -513,13 +850,13 @@ func TestOperationalEngineFailuresReturnServerErrors(t *testing.T) {
 		body     func(string) string
 	}{
 		{
-			name: "round autosave", fake: &fakeEngine{roundErr: operationFailure}, endpoint: "/api/v1/round",
+			name: "round autosave", fake: &fakeEngine{roundErr: operationFailure}, endpoint: "/api/v2/round",
 			body: func(revision string) string {
 				return fmt.Sprintf(`{"revision":%q,"answers":[{"question_id":"goal","value":"new"}]}`, revision)
 			},
 		},
 		{
-			name: "approval write", fake: &fakeEngine{snapshot: engine.Snapshot{Ready: true}, writeErr: operationFailure}, endpoint: "/api/v1/approve",
+			name: "approval write", fake: &fakeEngine{snapshot: engine.Snapshot{Ready: true}, writeErr: operationFailure}, endpoint: "/api/v2/approve",
 			body: func(revision string) string {
 				return fmt.Sprintf(`{"revision":%q,"human_approved":true}`, revision)
 			},
@@ -552,12 +889,6 @@ func TestRealEngineCommitFailureReturnsServerErrorWithoutWrite(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := os.MkdirAll(example, 0o755); err != nil {
-		t.Fatal(err)
-	}
-	if err := os.WriteFile(filepath.Join(example, "workflows"), []byte("blocks directory creation\n"), 0o600); err != nil {
-		t.Fatal(err)
-	}
 	handler, err := NewHandler(HandlerConfig{
 		Engine: authoringEngine, Snapshot: snapshot, ExampleDir: example, Token: testToken, Authority: testAuthority,
 	})
@@ -565,16 +896,22 @@ func TestRealEngineCommitFailureReturnsServerErrorWithoutWrite(t *testing.T) {
 		t.Fatal(err)
 	}
 	before := currentResponse(t, handler)
-	response := doRequest(handler, http.MethodPost, "/api/v1/approve", fmt.Sprintf(`{"revision":%q,"human_approved":true}`, before.Revision), "application/json", true)
+	if err := os.MkdirAll(example, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(example, "workflows"), []byte("blocks directory creation\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	response := doRequest(handler, http.MethodPost, "/api/v2/approve", fmt.Sprintf(`{"revision":%q,"human_approved":true}`, before.Revision), "application/json", true)
 	if response.Code != http.StatusInternalServerError || !strings.Contains(response.Body.String(), `"code":"internal_error"`) {
 		t.Fatalf("commit failure response = %d %s", response.Code, response.Body.String())
 	}
 	if _, err := os.Stat(filepath.Join(example, "project.md")); !os.IsNotExist(err) {
 		t.Fatalf("project.md exists after failed transaction: %v", err)
 	}
-	after := currentResponse(t, handler)
-	if after.Revision != before.Revision || after.Completed || after.WriteResult != nil {
-		t.Fatalf("commit failure changed HTTP state: before %#v after %#v", before, after)
+	after := doRequest(handler, http.MethodGet, "/api/v2/snapshot", "", "", true)
+	if after.Code != http.StatusInternalServerError {
+		t.Fatalf("unsafe workspace inspection = %d %s", after.Code, after.Body.String())
 	}
 }
 
@@ -626,7 +963,7 @@ func TestRealEngineBrowserRefreshFailuresPreserveHTTPRevision(t *testing.T) {
 		before := currentResponse(t, handler)
 		report["checkedAt"] = now.Format(time.RFC3339Nano)
 		writeTestJSON(t, reportPath, report)
-		response := doRequest(handler, http.MethodPost, "/api/v1/approve", fmt.Sprintf(`{"revision":%q,"human_approved":true}`, before.Revision), "application/json", true)
+		response := doRequest(handler, http.MethodPost, "/api/v2/approve", fmt.Sprintf(`{"revision":%q,"human_approved":true}`, before.Revision), "application/json", true)
 		if response.Code != http.StatusUnprocessableEntity || !strings.Contains(response.Body.String(), "changed after review") {
 			t.Fatalf("response = %d %s", response.Code, response.Body.String())
 		}
@@ -658,7 +995,7 @@ func TestRealEngineBrowserRefreshFailuresPreserveHTTPRevision(t *testing.T) {
 		if err := os.Rename(registryRoot, registryRoot+".unavailable"); err != nil {
 			t.Fatal(err)
 		}
-		response := doRequest(handler, http.MethodPost, "/api/v1/approve", fmt.Sprintf(`{"revision":%q,"human_approved":true}`, before.Revision), "application/json", true)
+		response := doRequest(handler, http.MethodPost, "/api/v2/approve", fmt.Sprintf(`{"revision":%q,"human_approved":true}`, before.Revision), "application/json", true)
 		if response.Code != http.StatusUnprocessableEntity || !strings.Contains(response.Body.String(), "freshly revalidated") {
 			t.Fatalf("response = %d %s", response.Code, response.Body.String())
 		}
@@ -679,7 +1016,7 @@ func TestConcurrentSameRevisionMutationHasOneWinner(t *testing.T) {
 		go func() {
 			defer workers.Done()
 			<-start
-			statuses <- doRequest(handler, http.MethodPost, "/api/v1/round", body, "application/json", true).Code
+			statuses <- doRequest(handler, http.MethodPost, "/api/v2/round", body, "application/json", true).Code
 		}()
 	}
 	close(start)
@@ -711,7 +1048,7 @@ func TestHTTPAndDirectEngineArtifactParity(t *testing.T) {
 		t.Fatal(err)
 	}
 	revision := currentResponse(t, handler).Revision
-	response := doRequest(handler, http.MethodPost, "/api/v1/approve", fmt.Sprintf(`{"revision":%q,"human_approved":true}`, revision), "application/json", true)
+	response := doRequest(handler, http.MethodPost, "/api/v2/approve", fmt.Sprintf(`{"revision":%q,"human_approved":true}`, revision), "application/json", true)
 	if response.Code != http.StatusOK {
 		t.Fatalf("HTTP approval = %d %s", response.Code, response.Body.String())
 	}

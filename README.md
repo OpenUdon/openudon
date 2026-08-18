@@ -197,8 +197,8 @@ go run ./cmd/icot --from-example ./examples/eval/runtime-only-render --example .
 # Use an openudon.icot-session.v2 YAML or JSON session.
 go run ./cmd/icot --answers ./session.yaml --example ./examples/<name> --yes
 
-# Start the experimental single-workspace loopback UI/API and open its
-# one-time capability URL. The embedded Phase B shell is read-only.
+# Start the experimental single-workspace loopback API v2 and open its
+# one-time capability URL. The embedded Phase B shell is read-only and polls.
 go run ./cmd/icot ui --example ./examples/<name>
 
 # Seed the UI from a reviewed example without opening the browser.
@@ -296,8 +296,11 @@ git.
 `icot ui` is an experimental local transport over the same engine. It always
 binds `127.0.0.1`, generates a per-process capability token, scopes browser
 authentication beneath a separate unguessable instance path, requires exact
-snapshot revisions for mutations, and freezes after an approved final or
-incomplete write. It does not execute workflows or expose a LAN service. See
+snapshot revisions for mutations, detects changes made by editors or another
+process, and freezes after an approved final or incomplete write. A detected
+workspace change preserves cached inspection but blocks mutation until the
+process is restarted. The shell polls API v2 while visible and backs off after
+errors. It does not execute workflows or expose a LAN service. See
 [Local iCoT UI Server](docs/icot-ui.md).
 
 `--prompt-mode full` is the default when the flag is omitted; it prints every question and waits for

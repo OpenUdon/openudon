@@ -17,6 +17,15 @@ main {
 
 header { margin-bottom: 1.5rem; }
 
+.warning {
+  margin: 0 0 1.25rem;
+  padding: 1rem 1.25rem;
+  border: 1px solid #b5472e;
+  border-radius: 14px;
+  background: #fff0e8;
+  color: #742914;
+}
+
 .eyebrow {
   margin: 0 0 .5rem;
   color: #426158;

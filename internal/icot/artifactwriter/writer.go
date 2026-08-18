@@ -28,15 +28,30 @@ type GeneratedFile struct {
 
 // Prepared is a fully revalidated authoring transaction ready to commit.
 type Prepared struct {
-	Artifacts elicitor.Artifacts
-	Files     []GeneratedFile
+	ExampleRoot string
+	Artifacts   elicitor.Artifacts
+	Files       []GeneratedFile
 }
 
 // Result describes the paths affected by a committed transaction.
 type Result struct {
-	Written []string
-	Removed []string
+	Written         []string
+	Removed         []string
+	CleanupWarnings []string
 }
+
+// TransactionError reports a write whose rollback did not complete. Callers
+// must treat the durable result as indeterminate and must not install a new
+// in-memory state.
+type TransactionError struct {
+	Cause error
+}
+
+func (e *TransactionError) Error() string {
+	return "authoring artifact transaction is indeterminate: " + e.Cause.Error()
+}
+
+func (e *TransactionError) Unwrap() error { return e.Cause }
 
 // ProposedFileActions returns the exact package mutations in a prepared
 // transaction. The list is derived from the same file plan Commit consumes.
@@ -123,6 +138,10 @@ func Prepare(exampleDir string, artifacts elicitor.Artifacts, force bool, at tim
 	if at.IsZero() {
 		at = time.Now().UTC()
 	}
+	exampleRoot, err := canonicalExampleRoot(exampleDir)
+	if err != nil {
+		return Prepared{}, err
+	}
 	artifacts.Session.Normalize()
 	revalidatedSources, err := elicitor.RevalidateBrowserVerifications(artifacts.Session.SourcePlan, at)
 	if err != nil {
@@ -141,10 +160,10 @@ func Prepare(exampleDir string, artifacts elicitor.Artifacts, force bool, at tim
 		selectedTargets[target] = source.SHA256
 	}
 
-	projectPath := filepath.Join(exampleDir, "project.md")
-	intentPath := filepath.Join(exampleDir, "workflows", "intent.hcl")
+	projectPath := filepath.Join(exampleRoot, "project.md")
+	intentPath := filepath.Join(exampleRoot, "workflows", "intent.hcl")
 	if artifacts.Incomplete {
-		intentPath = filepath.Join(exampleDir, "workflows", "intent.draft.hcl")
+		intentPath = filepath.Join(exampleRoot, "workflows", "intent.draft.hcl")
 	}
 	files := []GeneratedFile{
 		{Path: projectPath, Content: artifacts.ProjectMD, Action: "write", Reason: "render the reviewed active boundary and candidate workflows"},
@@ -155,18 +174,18 @@ func Prepare(exampleDir string, artifacts elicitor.Artifacts, force bool, at tim
 		return Prepared{}, err
 	}
 	if hasBrowserSources {
-		files = append(files, GeneratedFile{Path: filepath.Join(exampleDir, ".icot", "browser-sources.json"), Content: browserMetadata, AllowOverwrite: true, Action: "write", Reason: "record safe browser origin, action, digest, lifecycle, optional value-free verification, session-posture, and approval evidence"})
+		files = append(files, GeneratedFile{Path: filepath.Join(exampleRoot, ".icot", "browser-sources.json"), Content: browserMetadata, AllowOverwrite: true, Action: "write", Reason: "record safe browser origin, action, digest, lifecycle, optional value-free verification, session-posture, and approval evidence"})
 	} else if !artifacts.Incomplete {
-		files = append(files, GeneratedFile{Path: filepath.Join(exampleDir, ".icot", "browser-sources.json"), Remove: true, AllowOverwrite: true, Action: "remove_if_present", Reason: "remove stale browser source review metadata"})
+		files = append(files, GeneratedFile{Path: filepath.Join(exampleRoot, ".icot", "browser-sources.json"), Remove: true, AllowOverwrite: true, Action: "remove_if_present", Reason: "remove stale browser source review metadata"})
 	}
 	authenticationMetadata, hasAuthenticationSources, err := BrowserAuthenticationMetadataJSON(artifacts.Session)
 	if err != nil {
 		return Prepared{}, err
 	}
 	if hasAuthenticationSources {
-		files = append(files, GeneratedFile{Path: filepath.Join(exampleDir, ".icot", "browser-authentication.json"), Content: authenticationMetadata, AllowOverwrite: true, Action: "write", Reason: "record safe browser authentication source, flow, credential-slot, session-binding, and approval evidence"})
+		files = append(files, GeneratedFile{Path: filepath.Join(exampleRoot, ".icot", "browser-authentication.json"), Content: authenticationMetadata, AllowOverwrite: true, Action: "write", Reason: "record safe browser authentication source, flow, credential-slot, session-binding, and approval evidence"})
 	} else if !artifacts.Incomplete {
-		files = append(files, GeneratedFile{Path: filepath.Join(exampleDir, ".icot", "browser-authentication.json"), Remove: true, AllowOverwrite: true, Action: "remove_if_present", Reason: "remove stale browser authentication review metadata"})
+		files = append(files, GeneratedFile{Path: filepath.Join(exampleRoot, ".icot", "browser-authentication.json"), Remove: true, AllowOverwrite: true, Action: "remove_if_present", Reason: "remove stale browser authentication review metadata"})
 	}
 	if artifacts.Incomplete {
 		sessionData, err := json.MarshalIndent(artifacts.Session, "", "  ")
@@ -182,18 +201,18 @@ func Prepare(exampleDir string, artifacts elicitor.Artifacts, force bool, at tim
 			return Prepared{}, err
 		}
 		files = append(files,
-			GeneratedFile{Path: filepath.Join(exampleDir, ".icot", "session.yaml"), Content: string(sessionData) + "\n", AllowOverwrite: true, Action: "write", Reason: "persist resumable incomplete authoring state"},
-			GeneratedFile{Path: filepath.Join(exampleDir, ".icot", "readiness.json"), Content: string(readinessData) + "\n", AllowOverwrite: true, Action: "write", Reason: "persist incomplete authoring readiness and deferrals"},
+			GeneratedFile{Path: filepath.Join(exampleRoot, ".icot", "session.yaml"), Content: string(sessionData) + "\n", AllowOverwrite: true, Action: "write", Reason: "persist resumable incomplete authoring state"},
+			GeneratedFile{Path: filepath.Join(exampleRoot, ".icot", "readiness.json"), Content: string(readinessData) + "\n", AllowOverwrite: true, Action: "write", Reason: "persist incomplete authoring readiness and deferrals"},
 		)
 	} else {
 		files = append(files,
-			GeneratedFile{Path: filepath.Join(exampleDir, "workflows", "intent.draft.hcl"), Remove: true, AllowOverwrite: true, Action: "remove_if_present", Reason: "promote the completed draft"},
-			GeneratedFile{Path: filepath.Join(exampleDir, ".icot", "session.yaml"), Remove: true, AllowOverwrite: true, Action: "remove_if_present", Reason: "remove obsolete resumable draft state"},
-			GeneratedFile{Path: filepath.Join(exampleDir, ".icot", "readiness.json"), Remove: true, AllowOverwrite: true, Action: "remove_if_present", Reason: "remove obsolete generated draft readiness"},
+			GeneratedFile{Path: filepath.Join(exampleRoot, "workflows", "intent.draft.hcl"), Remove: true, AllowOverwrite: true, Action: "remove_if_present", Reason: "promote the completed draft"},
+			GeneratedFile{Path: filepath.Join(exampleRoot, ".icot", "session.yaml"), Remove: true, AllowOverwrite: true, Action: "remove_if_present", Reason: "remove obsolete resumable draft state"},
+			GeneratedFile{Path: filepath.Join(exampleRoot, ".icot", "readiness.json"), Remove: true, AllowOverwrite: true, Action: "remove_if_present", Reason: "remove obsolete generated draft readiness"},
 		)
 	}
 	for _, source := range artifacts.Session.SourcePlan {
-		target, err := SafeExampleTarget(exampleDir, source.TargetPath)
+		target, err := SafeExampleTarget(exampleRoot, source.TargetPath)
 		if err != nil {
 			return Prepared{}, err
 		}
@@ -217,15 +236,26 @@ func Prepare(exampleDir string, artifacts elicitor.Artifacts, force bool, at tim
 		}
 		files = append(files, GeneratedFile{Path: target, Content: string(data), Action: "copy", Reason: source.Kind + " source " + source.ID + " with SHA-256 " + source.SHA256})
 	}
-	return Prepared{Artifacts: artifacts, Files: files}, nil
+	return Prepared{ExampleRoot: exampleRoot, Artifacts: artifacts, Files: files}, nil
 }
 
 // Commit atomically applies a prepared authoring transaction.
 func Commit(prepared Prepared, force bool) (Result, error) {
-	if err := WriteFilesAtomic(prepared.Files, force); err != nil {
+	return CommitChecked(prepared, force, nil)
+}
+
+// CommitChecked atomically applies a prepared transaction. The optional
+// beforeReplace check runs after staging and immediately before the first
+// artifact replacement, allowing an engine to bind the commit to its accepted
+// workspace fingerprint.
+func CommitChecked(prepared Prepared, force bool, beforeReplace func() error) (Result, error) {
+	var cleanupWarnings []string
+	if err := writeFilesAtomicReporting(prepared.ExampleRoot, prepared.Files, force, beforeReplace, func(err error) {
+		cleanupWarnings = append(cleanupWarnings, err.Error())
+	}); err != nil {
 		return Result{}, err
 	}
-	result := Result{}
+	result := Result{CleanupWarnings: cleanupWarnings}
 	for _, file := range prepared.Files {
 		if file.Remove {
 			result.Removed = append(result.Removed, file.Path)
@@ -241,18 +271,40 @@ func Commit(prepared Prepared, force bool) (Result, error) {
 // WriteFilesAtomic validates and applies a set of file mutations as one
 // rollback-capable transaction.
 func WriteFilesAtomic(files []GeneratedFile, force bool) error {
+	return writeFilesAtomic("", files, force, nil)
+}
+
+func writeFilesAtomic(exampleRoot string, files []GeneratedFile, force bool, beforeReplace func() error) error {
+	return writeFilesAtomicReporting(exampleRoot, files, force, beforeReplace, nil)
+}
+
+func writeFilesAtomicReporting(exampleRoot string, files []GeneratedFile, force bool, beforeReplace func() error, reportCleanup func(error)) error {
+	root, err := transactionRoot(exampleRoot, files)
+	if err != nil {
+		return err
+	}
+	for _, relative := range []string{"openapi", "workflows", "expected"} {
+		if err := createSafeDirectories(root, filepath.Join(root, relative)); err != nil {
+			return err
+		}
+	}
 	for _, file := range files {
 		if err := validateGeneratedFile(file); err != nil {
 			return err
 		}
-		if !file.Remove {
-			if err := scaffoldDirs(exampleDirForGenerated(file.Path)); err != nil {
-				return err
-			}
+		if err := validateOutputPath(root, file.Path, true); err != nil {
+			return err
 		}
-		if _, err := os.Stat(file.Path); err == nil && !force && !file.AllowOverwrite {
+		info, err := os.Lstat(file.Path)
+		if err == nil && info.Mode()&os.ModeSymlink != 0 {
+			return fmt.Errorf("output path %s is a symlink", file.Path)
+		}
+		if err == nil && !info.Mode().IsRegular() {
+			return fmt.Errorf("output path %s is not a regular file", file.Path)
+		}
+		if err == nil && !force && !file.AllowOverwrite {
 			return fmt.Errorf("%s already exists; pass --force to overwrite it", file.Path)
-		} else if err != nil && !os.IsNotExist(err) {
+		} else if err != nil && !errors.Is(err, os.ErrNotExist) {
 			return err
 		}
 	}
@@ -280,35 +332,71 @@ func WriteFilesAtomic(files []GeneratedFile, force bool) error {
 	}
 	backups := map[string]fileBackup{}
 	for _, file := range files {
-		if _, err := os.Stat(file.Path); err == nil {
+		info, err := os.Lstat(file.Path)
+		if err == nil {
+			if info.Mode()&os.ModeSymlink != 0 || !info.Mode().IsRegular() {
+				cleanupTemps(tmpPaths)
+				cleanupBackups(backups)
+				return fmt.Errorf("output path %s changed to an unsafe file type", file.Path)
+			}
 			backupPath, err := backupFilePath(file.Path)
 			if err != nil {
 				cleanupTemps(tmpPaths)
+				cleanupBackups(backups)
 				return err
 			}
 			backups[file.Path] = fileBackup{backupPath: backupPath, existed: true}
-		} else if err != nil && !os.IsNotExist(err) {
+		} else if err != nil && !errors.Is(err, os.ErrNotExist) {
 			cleanupTemps(tmpPaths)
+			cleanupBackups(backups)
+			return err
+		}
+	}
+	for _, file := range files {
+		if err := validateOutputPath(root, file.Path, false); err != nil {
+			cleanupTemps(tmpPaths)
+			cleanupBackups(backups)
 			return err
 		}
 	}
 	var renamed []string
-	for _, file := range files {
+	for index, file := range files {
+		if err := validateOutputPath(root, file.Path, false); err != nil {
+			return rollbackFailure(err, backups, renamed, tmpPaths)
+		}
+		if index == 0 && beforeReplace != nil {
+			if err := beforeReplace(); err != nil {
+				cleanupTemps(tmpPaths)
+				if cleanupErr := cleanupBackups(backups); cleanupErr != nil {
+					return errors.Join(err, cleanupErr)
+				}
+				return err
+			}
+		}
 		var err error
 		if file.Remove {
-			err = os.Remove(file.Path)
+			err = removeFile(file.Path)
 			if os.IsNotExist(err) {
 				err = nil
 			}
 		} else {
-			err = os.Rename(tmpPaths[file.Path], file.Path)
+			err = renameFile(tmpPaths[file.Path], file.Path)
 		}
 		if err != nil {
-			restoreBackups(backups, renamed)
-			cleanupTemps(tmpPaths)
-			return err
+			return rollbackFailure(err, backups, renamed, tmpPaths)
 		}
 		renamed = append(renamed, file.Path)
+	}
+	cleanupTemps(tmpPaths)
+	if err := cleanupBackups(backups); err != nil {
+		if reportCleanup != nil {
+			reportCleanup(fmt.Errorf("remove committed transaction backups: %w", err))
+		}
+	}
+	for _, file := range files {
+		if file.Remove {
+			_ = os.Remove(filepath.Dir(file.Path))
+		}
 	}
 	return nil
 }
@@ -432,7 +520,7 @@ func SafeExampleTarget(exampleDir, relative string) (string, error) {
 	if strings.TrimSpace(relative) == "" || filepath.IsAbs(relative) {
 		return "", fmt.Errorf("source target %q must be a relative package path", relative)
 	}
-	base, err := filepath.Abs(exampleDir)
+	base, err := canonicalExampleRoot(exampleDir)
 	if err != nil {
 		return "", err
 	}
@@ -440,9 +528,11 @@ func SafeExampleTarget(exampleDir, relative string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	rel, err := filepath.Rel(base, target)
-	if err != nil || rel == ".." || strings.HasPrefix(rel, ".."+string(filepath.Separator)) {
+	if !pathWithin(base, target) {
 		return "", fmt.Errorf("source target %q escapes example directory", relative)
+	}
+	if err := validateOutputPath(base, target, false); err != nil && !errors.Is(err, os.ErrNotExist) {
+		return "", err
 	}
 	return target, nil
 }
@@ -470,6 +560,11 @@ type fileBackup struct {
 	existed    bool
 }
 
+var (
+	renameFile = os.Rename
+	removeFile = os.Remove
+)
+
 func validateGeneratedFile(file GeneratedFile) error {
 	if strings.TrimSpace(file.Path) == "" {
 		return errors.New("empty output path")
@@ -487,74 +582,243 @@ func cleanupTemps(paths map[string]string) {
 	}
 }
 
-func restoreBackups(backups map[string]fileBackup, renamed []string) {
+func restoreBackups(backups map[string]fileBackup, renamed []string) error {
+	var failures []error
 	for i := len(renamed) - 1; i >= 0; i-- {
 		path := renamed[i]
 		backup := backups[path]
 		if backup.existed {
-			_ = copyFile(backup.backupPath, path)
+			if err := removeFile(path); err != nil && !errors.Is(err, os.ErrNotExist) {
+				failures = append(failures, fmt.Errorf("remove changed output %s: %w", path, err))
+				continue
+			}
+			if err := renameFile(backup.backupPath, path); err != nil {
+				failures = append(failures, fmt.Errorf("restore output %s: %w", path, err))
+			}
 		} else {
-			_ = os.Remove(path)
+			if err := removeFile(path); err != nil && !errors.Is(err, os.ErrNotExist) {
+				failures = append(failures, fmt.Errorf("remove new output %s: %w", path, err))
+			}
 		}
 	}
+	return errors.Join(failures...)
 }
 
 func backupFilePath(path string) (string, error) {
+	info, err := os.Lstat(path)
+	if err != nil {
+		return "", err
+	}
+	if info.Mode()&os.ModeSymlink != 0 || !info.Mode().IsRegular() {
+		return "", fmt.Errorf("output path %s is not a regular file", path)
+	}
 	data, err := os.ReadFile(path)
 	if err != nil {
 		return "", err
 	}
-	base := fmt.Sprintf("%s.bak.%d", path, time.Now().UnixNano())
-	for i := 0; ; i++ {
-		backupPath := base
-		if i > 0 {
-			backupPath = fmt.Sprintf("%s.%d", base, i)
-		}
-		file, err := os.OpenFile(backupPath, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o644)
-		if errors.Is(err, os.ErrExist) {
+	file, err := os.CreateTemp(filepath.Dir(path), "."+filepath.Base(path)+".backup.")
+	if err != nil {
+		return "", err
+	}
+	backupPath := file.Name()
+	if err := file.Chmod(info.Mode().Perm()); err != nil {
+		_ = file.Close()
+		_ = os.Remove(backupPath)
+		return "", err
+	}
+	_, writeErr := file.Write(data)
+	closeErr := file.Close()
+	if writeErr != nil || closeErr != nil {
+		_ = os.Remove(backupPath)
+		return "", errors.Join(writeErr, closeErr)
+	}
+	return backupPath, nil
+}
+
+func rollbackFailure(cause error, backups map[string]fileBackup, changed []string, temps map[string]string) error {
+	rollbackErr := restoreBackups(backups, changed)
+	cleanupTemps(temps)
+	if rollbackErr != nil {
+		return &TransactionError{Cause: errors.Join(cause, rollbackErr)}
+	}
+	if cleanupErr := cleanupBackups(backups); cleanupErr != nil {
+		return &TransactionError{Cause: errors.Join(cause, cleanupErr)}
+	}
+	return cause
+}
+
+func cleanupBackups(backups map[string]fileBackup) error {
+	var failures []error
+	for _, backup := range backups {
+		if backup.backupPath == "" {
 			continue
 		}
+		if err := removeFile(backup.backupPath); err != nil && !errors.Is(err, os.ErrNotExist) {
+			failures = append(failures, err)
+		}
+	}
+	return errors.Join(failures...)
+}
+
+func transactionRoot(exampleRoot string, files []GeneratedFile) (string, error) {
+	if strings.TrimSpace(exampleRoot) != "" {
+		return canonicalExampleRoot(exampleRoot)
+	}
+	if len(files) == 0 {
+		return "", errors.New("authoring transaction has no files")
+	}
+	paths := make([]string, 0, len(files))
+	for _, file := range files {
+		path, err := filepath.Abs(file.Path)
 		if err != nil {
 			return "", err
 		}
-		_, writeErr := file.Write(data)
-		closeErr := file.Close()
-		if writeErr != nil {
-			return "", writeErr
+		paths = append(paths, filepath.Clean(path))
+	}
+	root := filepath.Dir(paths[0])
+	for _, path := range paths[1:] {
+		for !pathWithin(root, path) {
+			parent := filepath.Dir(root)
+			if parent == root {
+				return "", errors.New("generated file paths do not share a safe transaction root")
+			}
+			root = parent
 		}
-		if closeErr != nil {
-			return "", closeErr
+	}
+	return canonicalExampleRoot(root)
+}
+
+func canonicalExampleRoot(exampleDir string) (string, error) {
+	if strings.TrimSpace(exampleDir) == "" {
+		return "", errors.New("example directory is required")
+	}
+	abs, err := filepath.Abs(exampleDir)
+	if err != nil {
+		return "", err
+	}
+	abs = filepath.Clean(abs)
+	probe := abs
+	var suffix []string
+	for {
+		info, statErr := os.Lstat(probe)
+		if statErr == nil {
+			if info.Mode()&os.ModeSymlink != 0 {
+				return "", fmt.Errorf("example root component %s is a symlink", probe)
+			}
+			if !info.IsDir() {
+				return "", fmt.Errorf("example root component %s is not a directory", probe)
+			}
+			resolved, resolveErr := filepath.EvalSymlinks(probe)
+			if resolveErr != nil {
+				return "", resolveErr
+			}
+			for i := len(suffix) - 1; i >= 0; i-- {
+				resolved = filepath.Join(resolved, suffix[i])
+			}
+			return filepath.Clean(resolved), nil
 		}
-		return backupPath, nil
+		if !errors.Is(statErr, os.ErrNotExist) {
+			return "", statErr
+		}
+		parent := filepath.Dir(probe)
+		if parent == probe {
+			return "", statErr
+		}
+		suffix = append(suffix, filepath.Base(probe))
+		probe = parent
 	}
 }
 
-func copyFile(src, dst string) error {
-	data, err := os.ReadFile(src)
+func validateOutputPath(root, path string, createParents bool) error {
+	abs, err := filepath.Abs(path)
 	if err != nil {
 		return err
 	}
-	return os.WriteFile(dst, data, 0o644)
-}
-
-func exampleDirForGenerated(path string) string {
-	dir := filepath.Dir(path)
-	if filepath.Base(dir) == "workflows" || filepath.Base(dir) == "openapi" || filepath.Base(dir) == "expected" {
-		return filepath.Dir(dir)
+	abs = filepath.Clean(abs)
+	if abs == root || !pathWithin(root, abs) {
+		return fmt.Errorf("output path %s is outside the canonical example root", path)
 	}
-	return dir
-}
-
-func scaffoldDirs(exampleDir string) error {
-	for _, dir := range []string{
-		exampleDir,
-		filepath.Join(exampleDir, "openapi"),
-		filepath.Join(exampleDir, "workflows"),
-		filepath.Join(exampleDir, "expected"),
-	} {
-		if err := os.MkdirAll(dir, 0o755); err != nil {
+	parent := filepath.Dir(abs)
+	if createParents {
+		if err := createSafeDirectories(root, parent); err != nil {
 			return err
 		}
 	}
+	if err := validateDirectoryChain(root, parent); err != nil {
+		return err
+	}
+	if info, statErr := os.Lstat(abs); statErr == nil && info.Mode()&os.ModeSymlink != 0 {
+		return fmt.Errorf("output path %s is a symlink", abs)
+	} else if statErr != nil && !errors.Is(statErr, os.ErrNotExist) {
+		return statErr
+	}
 	return nil
+}
+
+func createSafeDirectories(root, target string) error {
+	if !pathWithin(root, target) {
+		return fmt.Errorf("directory %s is outside the canonical example root", target)
+	}
+	if err := os.MkdirAll(root, 0o755); err != nil {
+		return err
+	}
+	if err := validateDirectoryChain(root, root); err != nil {
+		return err
+	}
+	rel, _ := filepath.Rel(root, target)
+	current := root
+	if rel == "." {
+		return nil
+	}
+	for _, part := range strings.Split(rel, string(filepath.Separator)) {
+		current = filepath.Join(current, part)
+		info, statErr := os.Lstat(current)
+		if errors.Is(statErr, os.ErrNotExist) {
+			if err := os.Mkdir(current, 0o755); err != nil && !errors.Is(err, os.ErrExist) {
+				return err
+			}
+			info, statErr = os.Lstat(current)
+		}
+		if statErr != nil {
+			return statErr
+		}
+		if info.Mode()&os.ModeSymlink != 0 || !info.IsDir() {
+			return fmt.Errorf("output path ancestor %s is not a safe directory", current)
+		}
+	}
+	return nil
+}
+
+func validateDirectoryChain(root, target string) error {
+	rootInfo, err := os.Lstat(root)
+	if err != nil {
+		return err
+	}
+	if rootInfo.Mode()&os.ModeSymlink != 0 || !rootInfo.IsDir() {
+		return fmt.Errorf("canonical example root %s is not a safe directory", root)
+	}
+	rel, err := filepath.Rel(root, target)
+	if err != nil || rel == ".." || strings.HasPrefix(rel, ".."+string(filepath.Separator)) {
+		return fmt.Errorf("directory %s is outside the canonical example root", target)
+	}
+	current := root
+	if rel == "." {
+		return nil
+	}
+	for _, part := range strings.Split(rel, string(filepath.Separator)) {
+		current = filepath.Join(current, part)
+		info, statErr := os.Lstat(current)
+		if statErr != nil {
+			return statErr
+		}
+		if info.Mode()&os.ModeSymlink != 0 || !info.IsDir() {
+			return fmt.Errorf("output path ancestor %s is not a safe directory", current)
+		}
+	}
+	return nil
+}
+
+func pathWithin(root, path string) bool {
+	rel, err := filepath.Rel(root, path)
+	return err == nil && rel != ".." && !strings.HasPrefix(rel, ".."+string(filepath.Separator))
 }
