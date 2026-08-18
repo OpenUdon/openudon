@@ -9,6 +9,11 @@ It does not execute workflows.
 go run ./cmd/icot --example ./examples/<name>
 ```
 
+For the experimental single-workspace loopback transport and embedded
+read-only status shell, see [Local iCoT UI Server](icot-ui.md). It uses the
+same engine and atomic approval writer; the Phase B JSON API is internal and
+has no compatibility guarantee.
+
 ## Inputs And Modes
 
 ```bash

@@ -197,6 +197,14 @@ go run ./cmd/icot --from-example ./examples/eval/runtime-only-render --example .
 # Use an openudon.icot-session.v2 YAML or JSON session.
 go run ./cmd/icot --answers ./session.yaml --example ./examples/<name> --yes
 
+# Start the experimental single-workspace loopback UI/API and open its
+# one-time capability URL. The embedded Phase B shell is read-only.
+go run ./cmd/icot ui --example ./examples/<name>
+
+# Seed the UI from a reviewed example without opening the browser.
+go run ./cmd/icot ui --example ./examples/<name> \
+  --from-example ./examples/eval/runtime-only-render --no-open
+
 # Add reviewed sources or bounded discovery roots; flags are repeatable.
 go run ./cmd/icot --example ./examples/<name> \
   --api-source graphql:catalog=./schema.graphql \
@@ -284,6 +292,13 @@ iCoT autosaves only resumable local state under `<example>/.icot/session.yaml` a
 default. Successful promotion deletes obsolete draft/readiness state. Transcripts are written under
 `<example>/.icot/transcript.json` unless `--no-transcript` is used. These local files are ignored by
 git.
+
+`icot ui` is an experimental local transport over the same engine. It always
+binds `127.0.0.1`, generates a per-process capability token, scopes browser
+authentication beneath a separate unguessable instance path, requires exact
+snapshot revisions for mutations, and freezes after an approved final or
+incomplete write. It does not execute workflows or expose a LAN service. See
+[Local iCoT UI Server](docs/icot-ui.md).
 
 `--prompt-mode full` is the default when the flag is omitted; it prints every question and waits for
 you to confirm or replace defaults. `--prompt-mode normal` prints the full frontier and visibly

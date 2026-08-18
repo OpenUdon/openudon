@@ -4,8 +4,8 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
-	"io"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"reflect"
 	"strings"
@@ -20,7 +20,6 @@ import (
 	"github.com/OpenUdon/browsertools/review"
 	"github.com/OpenUdon/openudon/internal/authoring"
 	"github.com/OpenUdon/openudon/internal/browserverify"
-	icotcli "github.com/OpenUdon/openudon/internal/icot"
 	"github.com/OpenUdon/openudon/internal/icot/elicitor"
 	rollout "github.com/OpenUdon/openudon/internal/workflowintent"
 )
@@ -302,8 +301,11 @@ func TestCLIAndEngineArtifactParity(t *testing.T) {
 	fixture := runtimeFixture(t)
 	cliDir := filepath.Join(t.TempDir(), "cli")
 	engineDir := filepath.Join(t.TempDir(), "engine")
-	if code := icotcli.Main([]string{"--example", cliDir, "--from-example", fixture, "--no-llm", "--yes"}, strings.NewReader(""), io.Discard, io.Discard); code != 0 {
-		t.Fatalf("CLI exit code = %d", code)
+	command := exec.Command("go", "run", "./cmd/icot", "--example", cliDir, "--from-example", fixture, "--no-llm", "--yes")
+	command.Dir = repoRoot(t)
+	command.Stdin = strings.NewReader("")
+	if output, err := command.CombinedOutput(); err != nil {
+		t.Fatalf("run terminal iCoT: %v\n%s", err, output)
 	}
 	engine, _, err := Open(context.Background(), Config{ExampleDir: engineDir, FromExample: fixture, NetworkPolicy: "never"})
 	if err != nil {

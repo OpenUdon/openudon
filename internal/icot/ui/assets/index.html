@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>OpenUdon iCoT</title>
+  <link rel="stylesheet" href="assets/style.css">
+  <script defer src="assets/app.js"></script>
+</head>
+<body>
+  <main>
+    <header>
+      <p class="eyebrow">OpenUdon · local authoring status</p>
+      <h1>iCoT workspace</h1>
+      <p id="connection" role="status">Loading the current snapshot…</p>
+    </header>
+    <section class="summary" aria-label="Authoring summary">
+      <dl>
+        <div><dt>Example</dt><dd id="example">—</dd></div>
+        <div><dt>Project</dt><dd id="project">—</dd></div>
+        <div><dt>Intent</dt><dd id="intent">—</dd></div>
+        <div><dt>Ready</dt><dd id="ready">—</dd></div>
+        <div><dt>Top issue</dt><dd id="issue">—</dd></div>
+        <div><dt>Frontier</dt><dd id="frontier">—</dd></div>
+        <div><dt>Preview</dt><dd id="preview">—</dd></div>
+        <div><dt>Completed</dt><dd id="completed">—</dd></div>
+      </dl>
+    </section>
+    <section>
+      <div class="section-heading">
+        <h2>Snapshot JSON</h2>
+        <span>Read-only Phase B shell</span>
+      </div>
+      <pre id="snapshot">Waiting for the local API.</pre>
+    </section>
+  </main>
+</body>
+</html>
