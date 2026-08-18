@@ -24,12 +24,16 @@ func TestEmbeddedScenarioCorpusIsCompleteAndStrict(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	journey, err := SelectManifests(manifests, SuiteJourney, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
 	public, err := SelectManifests(manifests, SuitePublic, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(loopback) != 21 || len(public) != 4 {
-		t.Fatalf("scenario counts = loopback %d public %d", len(loopback), len(public))
+	if len(loopback) != 21 || len(journey) != 8 || len(public) != 4 {
+		t.Fatalf("scenario counts = loopback %d journey %d public %d", len(loopback), len(journey), len(public))
 	}
 	wantChallenges := map[string]bool{"totp": false, "sms_otp": false, "email_otp": false, "voice_otp": false, "push": false, "push_number_match": false, "passkey": false, "security_key": false}
 	for _, manifest := range loopback {
@@ -46,6 +50,12 @@ func TestEmbeddedScenarioCorpusIsCompleteAndStrict(t *testing.T) {
 	for index, manifest := range public {
 		if manifest.ID != wantPublic[index] {
 			t.Fatalf("public scenario[%d] = %q", index, manifest.ID)
+		}
+	}
+	wantJourney := []string{"catalog-pagination", "catalog-search-filter", "order-structured-read", "parameter-contract-rejected", "record-update-ambiguous", "record-update-approved", "record-update-unapproved", "session-lifecycle"}
+	for index, manifest := range journey {
+		if manifest.ID != wantJourney[index] {
+			t.Fatalf("journey scenario[%d] = %q", index, manifest.ID)
 		}
 	}
 }
@@ -85,6 +95,31 @@ func TestScenarioSelectionAndManifestValidationFailClosed(t *testing.T) {
 				t.Fatal("invalid scenario succeeded")
 			}
 		})
+	}
+}
+
+func TestJourneyManifestOutcomesAreFixedByCase(t *testing.T) {
+	now := time.Date(2026, 8, 17, 12, 0, 0, 0, time.UTC)
+	manifests, err := LoadManifests(now)
+	if err != nil {
+		t.Fatal(err)
+	}
+	journeys, err := SelectManifests(manifests, SuiteJourney, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, manifest := range journeys {
+		candidate := cloneManifest(t, manifest)
+		if candidate.Expected.Replay == "pass" {
+			candidate.Expected.Replay = "rejected"
+			candidate.Expected.FailureCode = "invalid_parameters"
+		} else {
+			candidate.Expected.Replay = "pass"
+			candidate.Expected.FailureCode = ""
+		}
+		if err := ValidateManifest(candidate, now); err == nil {
+			t.Fatalf("journey %s accepted a different expected outcome", manifest.ID)
+		}
 	}
 }
 
@@ -282,6 +317,25 @@ func TestReportRejectsUnsafeClaimsAndUnprovenPass(t *testing.T) {
 	report.Scenarios[0].Assertions = nil
 	if err := ValidateReport(report); err == nil {
 		t.Fatal("passing report without assertions succeeded")
+	}
+}
+
+func TestJourneyReportUsesDedicatedWireVersion(t *testing.T) {
+	report := sampleReport(t)
+	report.Suite = SuiteJourney
+	report.Version = JourneyReportVersion
+	report.HeadedAuthoring = false
+	report.Scenarios[0] = ScenarioResult{
+		ID: "catalog-search-filter", Status: StatusPass, Attempts: 1, Detail: "ok",
+		Phases:     []PhaseResult{{ID: "fixture_ready", Status: StatusPass, Detail: "ok"}, {ID: "teardown", Status: StatusPass, Detail: "ok"}},
+		Assertions: []string{"guided_authoring_v1"},
+	}
+	if err := ValidateReport(report); err != nil {
+		t.Fatal(err)
+	}
+	report.Version = ReportVersion
+	if err := ValidateReport(report); err == nil {
+		t.Fatal("journey report accepted the legacy wire version")
 	}
 }
 

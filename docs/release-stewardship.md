@@ -49,7 +49,8 @@ make release-saas-check
 ```
 
 `release-saas-check` runs `release-check`, `browser-integration-check`, the
-required network-free `browser-scenario-loopback`, `eval-seed-build`,
+required network-free `browser-scenario-loopback` and
+`browser-scenario-journey`, `eval-seed-build`,
 `icot-variants-validate`, `icot-variants-coverage`, `icot-authoring-scorecard`, UWS validation,
 doc-memory, n8n bridge validation, strict MkDocs build, selected strict SaaS fixture lint, and the
 provider-free dry-run demo in
@@ -71,10 +72,13 @@ gates and separate loopback-only installed-browser opt-ins.
 
 `browser-scenario-loopback` is the real-browser release complement to that
 browser-free matrix. It runs the fixed 21-case author-session v2 and trusted
-v3 replay corpus, then verifies the value-free report sidecar. The weekly
+v3 replay corpus, then verifies the value-free report sidecar. The required
+`browser-scenario-journey` gate adds eight headless realistic local read/write
+workflows from strict guided-bundle import through UWS 1.8 and server-state
+postconditions. The weekly
 `browser-scenario-public` workflow runs four anonymous read-only canaries with
 explicit network authority and is informational. See [Browser Scenario
-Evaluation](browser-scenario-eval.md). Both hosted Ubuntu jobs explicitly
+Evaluation](browser-scenario-eval.md). The hosted Ubuntu jobs explicitly
 enable sandbox-compatible unprivileged user namespaces on their ephemeral
 runner and retain Chromium's sandbox; `xvfb-run` supplies only the display.
 

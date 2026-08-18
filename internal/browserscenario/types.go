@@ -21,10 +21,12 @@ import (
 )
 
 const (
-	ManifestVersion = "openudon.browser-scenario.v1"
-	LockVersion     = "openudon.browser-scenario-lock.v1"
-	SuiteLoopback   = "loopback"
-	SuitePublic     = "public"
+	ManifestVersion        = "openudon.browser-scenario.v1"
+	JourneyManifestVersion = "openudon.browser-journey.v1"
+	LockVersion            = "openudon.browser-scenario-lock.v1"
+	SuiteLoopback          = "loopback"
+	SuiteJourney           = "journey"
+	SuitePublic            = "public"
 )
 
 var (
@@ -48,6 +50,11 @@ type Manifest struct {
 	Target         *PublicTarget   `json:"target,omitempty"`
 	Probes         []Probe         `json:"probes"`
 	Quarantine     *Quarantine     `json:"quarantine,omitempty"`
+	Journey        *Journey        `json:"journey,omitempty"`
+}
+
+type Journey struct {
+	Kind string `json:"kind"`
 }
 
 type Authentication struct {
@@ -160,8 +167,8 @@ func LoadCompatibilityLock() (CompatibilityLock, error) {
 }
 
 func SelectManifests(all []Manifest, suite string, ids []string) ([]Manifest, error) {
-	if suite != SuiteLoopback && suite != SuitePublic {
-		return nil, fmt.Errorf("browser scenario suite must be loopback or public")
+	if suite != SuiteLoopback && suite != SuiteJourney && suite != SuitePublic {
+		return nil, fmt.Errorf("browser scenario suite must be loopback, journey, or public")
 	}
 	requested := make(map[string]bool, len(ids))
 	filtered := len(ids) > 0
@@ -194,20 +201,27 @@ func SelectManifests(all []Manifest, suite string, ids []string) ([]Manifest, er
 }
 
 func ValidateManifest(manifest Manifest, now time.Time) error {
-	if manifest.Version != ManifestVersion || !idPattern.MatchString(manifest.ID) {
+	wantVersion := ManifestVersion
+	if manifest.Suite == SuiteJourney {
+		wantVersion = JourneyManifestVersion
+	}
+	if manifest.Version != wantVersion || !idPattern.MatchString(manifest.ID) {
 		return fmt.Errorf("browser scenario identity is invalid")
 	}
-	if manifest.Suite != SuiteLoopback && manifest.Suite != SuitePublic {
+	if manifest.Suite != SuiteLoopback && manifest.Suite != SuiteJourney && manifest.Suite != SuitePublic {
 		return fmt.Errorf("browser scenario suite is invalid")
 	}
 	if manifest.Suite == SuiteLoopback {
 		return validateLoopbackManifest(manifest)
 	}
+	if manifest.Suite == SuiteJourney {
+		return validateJourneyManifest(manifest)
+	}
 	return validatePublicManifest(manifest, now)
 }
 
 func validateLoopbackManifest(manifest Manifest) error {
-	if manifest.Authentication == nil || manifest.Goal == nil || manifest.Target != nil || len(manifest.Probes) != 0 || manifest.Quarantine != nil {
+	if manifest.Authentication == nil || manifest.Goal == nil || manifest.Target != nil || len(manifest.Probes) != 0 || manifest.Quarantine != nil || manifest.Journey != nil {
 		return fmt.Errorf("loopback scenario boundary is invalid")
 	}
 	credentials := strings.Join(manifest.Authentication.Credentials, ",")
@@ -243,9 +257,44 @@ func validateLoopbackManifest(manifest Manifest) error {
 	return nil
 }
 
+func validateJourneyManifest(manifest Manifest) error {
+	if manifest.Authentication != nil || manifest.Goal != nil || len(manifest.Outputs) != 0 || manifest.Fault != "" || manifest.Target != nil || len(manifest.Probes) != 0 || manifest.Quarantine != nil || manifest.Journey == nil ||
+		!allowedJourneyKinds[manifest.Journey.Kind] || manifest.Expected.Authoring != "pass" || !allowedOutcome[manifest.Expected.Replay] || !allowedJourneyFailureCodes[manifest.Expected.FailureCode] ||
+		manifest.Expected.BrowserProfile != "uws.browser.1.5" || manifest.Expected.UWSVersion != "1.8.0" {
+		return fmt.Errorf("journey scenario boundary is invalid")
+	}
+	if manifest.ID != strings.ReplaceAll(manifest.Journey.Kind, "_", "-") {
+		return fmt.Errorf("journey scenario identity does not match its kind")
+	}
+	for _, variant := range manifest.ReplayVariants {
+		if !allowedJourneyReplayVariants[variant] {
+			return fmt.Errorf("journey replay variant %q is invalid", variant)
+		}
+	}
+	return validateJourneyExpectedContract(manifest)
+}
+
+func validateJourneyExpectedContract(manifest Manifest) error {
+	wantReplay, wantFailure := "pass", ""
+	var wantVariants []string
+	switch manifest.Journey.Kind {
+	case "record_update_unapproved":
+		wantReplay, wantFailure = "rejected", "approval_required"
+	case "record_update_ambiguous":
+		wantReplay, wantFailure = "rejected", "ambiguous_locator"
+	case "parameter_contract_rejected":
+		wantReplay, wantFailure = "rejected", "invalid_parameters"
+		wantVariants = []string{"missing_required", "additional_parameter", "wrong_type", "origin_escape"}
+	}
+	if manifest.Expected.Replay != wantReplay || manifest.Expected.FailureCode != wantFailure || !equalStrings(manifest.ReplayVariants, wantVariants) {
+		return fmt.Errorf("journey expected outcome does not match its kind")
+	}
+	return nil
+}
+
 func validatePublicManifest(manifest Manifest, now time.Time) error {
 	if manifest.Authentication != nil || manifest.Goal != nil || len(manifest.Outputs) != 0 || manifest.Fault != "" || len(manifest.ReplayVariants) != 0 ||
-		manifest.Expected.Authoring != "pass" || manifest.Expected.Replay != "pass" || manifest.Expected.FailureCode != "" || manifest.Expected.BrowserProfile != "uws.browser.1.5" || manifest.Expected.UWSVersion != "1.7.0" || manifest.Target == nil {
+		manifest.Expected.Authoring != "pass" || manifest.Expected.Replay != "pass" || manifest.Expected.FailureCode != "" || manifest.Expected.BrowserProfile != "uws.browser.1.5" || manifest.Expected.UWSVersion != "1.7.0" || manifest.Target == nil || manifest.Journey != nil {
 		return fmt.Errorf("public scenario boundary is invalid")
 	}
 	parsed, err := url.Parse(manifest.Target.URL)
@@ -454,3 +503,10 @@ var allowedFaults = map[string]bool{"": true, "outputs_17": true, "stale_candida
 var allowedFailureCodes = map[string]bool{"": true, "output_bound": true, "stale_candidate": true, "ambiguous_output": true, "invalid_context": true, "invalid_response": true, "secret_output": true, "origin_rejected": true}
 var allowedReplayVariants = map[string]bool{"integer_leading_zero": true, "integer_plus": true, "integer_comma": true, "integer_unsafe": true, "number_nan": true, "number_infinity": true, "number_comma": true, "boolean_uppercase": true, "boolean_numeric": true, "empty": true}
 var allowedQuarantineReasons = map[string]bool{"target_unavailable": true, "upstream_markup_drift": true, "origin_inventory_drift": true}
+var allowedJourneyKinds = map[string]bool{
+	"catalog_search_filter": true, "catalog_pagination": true, "order_structured_read": true,
+	"record_update_approved": true, "record_update_unapproved": true, "record_update_ambiguous": true,
+	"parameter_contract_rejected": true, "session_lifecycle": true,
+}
+var allowedJourneyFailureCodes = map[string]bool{"": true, "approval_required": true, "ambiguous_locator": true, "invalid_parameters": true}
+var allowedJourneyReplayVariants = map[string]bool{"missing_required": true, "additional_parameter": true, "wrong_type": true, "origin_escape": true}

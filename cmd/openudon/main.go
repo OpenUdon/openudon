@@ -43,7 +43,7 @@ func main() {
 		fmt.Fprintf(flag.CommandLine.Output(), "  approval-template print approval JSON for a validated handoff package\n")
 		fmt.Fprintf(flag.CommandLine.Output(), "  build     regenerate workflow/UWS from an existing intent.hcl\n")
 		fmt.Fprintf(flag.CommandLine.Output(), "  browser-integration-eval run or verify provider-free cross-repo browser evidence\n")
-		fmt.Fprintf(flag.CommandLine.Output(), "  browser-scenario-eval run or verify deterministic loopback/public browser scenarios\n")
+		fmt.Fprintf(flag.CommandLine.Output(), "  browser-scenario-eval run or verify deterministic loopback/journey/public browser scenarios\n")
 		fmt.Fprintf(flag.CommandLine.Output(), "  catalog   inspect first-class provider catalog metadata\n")
 		fmt.Fprintf(flag.CommandLine.Output(), "  check-apitools-boundary verify OpenUdon repository boundaries\n")
 		fmt.Fprintf(flag.CommandLine.Output(), "  check-doc-memory verify local memory-bank and evolution harness files\n")
@@ -133,7 +133,7 @@ func main() {
 
 func runBrowserScenarioEvalCommand(args []string) {
 	fs := flag.NewFlagSet("browser-scenario-eval", flag.ExitOnError)
-	suite := fs.String("suite", "", "Scenario suite: loopback or public")
+	suite := fs.String("suite", "", "Scenario suite: loopback, journey, or public")
 	browsertoolsRepo := fs.String("browsertools-repo", "../browsertools", "Sibling Browsertools repository")
 	udonRepo := fs.String("udon-repo", "../udon", "Sibling Udon repository")
 	browserdriverRepo := fs.String("browserdriver-repo", "../browserdriver", "Sibling Browserdriver repository")
@@ -144,9 +144,9 @@ func runBrowserScenarioEvalCommand(args []string) {
 	var scenarios repeatedStringFlag
 	fs.Var(&scenarios, "scenario", "Repeatable embedded scenario ID to run instead of the full suite")
 	fs.Usage = func() {
-		fmt.Fprintf(fs.Output(), "Usage: openudon browser-scenario-eval --suite loopback|public [--scenario ID]... --out REPORT [--require-ready] [repository flags]\n")
+		fmt.Fprintf(fs.Output(), "Usage: openudon browser-scenario-eval --suite loopback|journey|public [--scenario ID]... --out REPORT [--require-ready] [repository flags]\n")
 		fmt.Fprintf(fs.Output(), "       openudon browser-scenario-eval --verify REPORT\n\n")
-		fmt.Fprintf(fs.Output(), "Runs two complementary strict suites. Loopback uses real Browsertools author-session v2 and Udon/Browserdriver v3 replay without external network access. Public uses value-free Browsertools live checks and credential-free Udon/Browserdriver v2 presence replay against only the embedded anonymous targets; it requires --allow-network. Reports never retain credential values, page content, or subprocess output.\n\n")
+		fmt.Fprintf(fs.Output(), "Runs three complementary strict suites. Loopback uses real Browsertools author-session v2 and Udon/Browserdriver v3 replay. Journey imports reviewed Browsertools guided-authoring bundles and runs realistic local read/write workflows through UWS 1.8, Udon v3, and headless Chromium. Public uses value-free Browsertools live checks and credential-free Udon/Browserdriver v2 presence replay against only the embedded anonymous targets; it requires --allow-network. Reports never retain credential values, page content, or subprocess output.\n\n")
 		fs.PrintDefaults()
 	}
 	if err := fs.Parse(args); err != nil {

@@ -166,6 +166,8 @@ func TestCLIBrowserScenarioEvalHelpAndNetworkAuthority(t *testing.T) {
 		"--scenario",
 		"--verify",
 		"author-session v2",
+		"guided-authoring bundles",
+		"UWS 1.8",
 		"credential-free Udon/Browserdriver v2",
 		"never retain credential values, page content, or subprocess output",
 	} {
@@ -177,6 +179,7 @@ func TestCLIBrowserScenarioEvalHelpAndNetworkAuthority(t *testing.T) {
 	for _, args := range [][]string{
 		{"browser-scenario-eval", "--suite", "public", "--out", filepath.Join(t.TempDir(), "public.json")},
 		{"browser-scenario-eval", "--suite", "loopback", "--allow-network", "--out", filepath.Join(t.TempDir(), "loopback.json")},
+		{"browser-scenario-eval", "--suite", "journey", "--allow-network", "--out", filepath.Join(t.TempDir(), "journey.json")},
 		{"browser-scenario-eval", "--verify", "missing.json", "--suite", "loopback"},
 		{"browser-scenario-eval", "--suite", "loopback"},
 	} {

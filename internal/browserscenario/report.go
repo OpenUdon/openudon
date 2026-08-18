@@ -16,12 +16,13 @@ import (
 )
 
 const (
-	ReportVersion     = "openudon.browser-scenario-eval.v1"
-	StatusPass        = "pass"
-	StatusFail        = "fail"
-	StatusSkipped     = "skipped"
-	StatusQuarantined = "quarantined"
-	maxReportBytes    = 4 << 20
+	ReportVersion        = "openudon.browser-scenario-eval.v1"
+	JourneyReportVersion = "openudon.browser-journey-eval.v1"
+	StatusPass           = "pass"
+	StatusFail           = "fail"
+	StatusSkipped        = "skipped"
+	StatusQuarantined    = "quarantined"
+	maxReportBytes       = 4 << 20
 )
 
 type Report struct {
@@ -90,8 +91,12 @@ func NewReport(suite string, generatedAt time.Time, repositories []RepositoryRev
 	if len(repositories) > 0 {
 		commit = repositories[0].Commit
 	}
+	version := ReportVersion
+	if suite == SuiteJourney {
+		version = JourneyReportVersion
+	}
 	return &Report{
-		Version: ReportVersion, Status: status, Suite: suite,
+		Version: version, Status: status, Suite: suite,
 		GeneratedAt: generatedAt.UTC().Format(time.RFC3339), Commit: commit,
 		Command: "openudon browser-scenario-eval", Repositories: cloneRepositories(repositories),
 		Dependencies: cloneDependencies(dependencies), Engine: "chromium",
@@ -102,9 +107,12 @@ func NewReport(suite string, generatedAt time.Time, repositories []RepositoryRev
 }
 
 func ValidateReport(report *Report) error {
-	if report == nil || report.Version != ReportVersion || (report.Status != StatusPass && report.Status != StatusFail) ||
-		(report.Suite != SuiteLoopback && report.Suite != SuitePublic) || report.Command != "openudon browser-scenario-eval" || report.Engine != "chromium" {
+	if report == nil || (report.Status != StatusPass && report.Status != StatusFail) ||
+		(report.Suite != SuiteLoopback && report.Suite != SuiteJourney && report.Suite != SuitePublic) || report.Command != "openudon browser-scenario-eval" || report.Engine != "chromium" {
 		return fmt.Errorf("browser scenario report identity is invalid")
+	}
+	if (report.Suite == SuiteJourney) != (report.Version == JourneyReportVersion) || (report.Suite != SuiteJourney && report.Version != ReportVersion) {
+		return fmt.Errorf("browser scenario report version is invalid for its suite")
 	}
 	parsedAt, err := time.Parse(time.RFC3339, report.GeneratedAt)
 	if err != nil || parsedAt.UTC().Format(time.RFC3339) != report.GeneratedAt || !commitPattern.MatchString(report.Commit) {
@@ -353,6 +361,7 @@ var allowedScenarioStatuses = map[string]bool{StatusPass: true, StatusFail: true
 var allowedPhaseStatuses = map[string]bool{StatusPass: true, StatusFail: true, StatusSkipped: true}
 var allowedPhaseIDs = map[string]map[string]bool{
 	SuiteLoopback: {"fixture_ready": true, "authoring_v2": true, "profiles_staged": true, "profile_versions": true, "udon_v3": true, "browserdriver_replay": true, "outputs_validated": true, "teardown": true},
+	SuiteJourney:  {"fixture_ready": true, "bundle_authored": true, "profile_imported": true, "uws_synthesized": true, "udon_v3": true, "browserdriver_replay": true, "postconditions": true, "teardown": true},
 	SuitePublic:   {"browsertools_probe": true, "udon_browserdriver_probe": true, "teardown": true},
 }
 var allowedAssertions = map[string]bool{
@@ -360,6 +369,9 @@ var allowedAssertions = map[string]bool{
 	"profiles_reconstructed": true, "oldest_sufficient_versions": true, "udon_v3_lowering": true,
 	"browserdriver_replay": true, "typed_outputs_exact": true, "expected_rejection": true,
 	"browsertools_presence": true, "runtime_presence": true, "private_material_absent": true,
+	"guided_authoring_v1": true, "canonical_profile_only": true, "closed_macro_vocabulary": true,
+	"structured_outputs_exact": true, "operation_approval_exact": true, "server_state_exact": true,
+	"parameter_contract_exact": true, "session_isolated": true,
 }
 var allowedDetails = map[string]bool{
 	"": true, "ok": true, "quarantined": true, "dependency_unavailable": true,
@@ -369,7 +381,8 @@ var allowedDetails = map[string]bool{
 	"origin_policy_drift": true, "contract_drift": true, "teardown_failed": true,
 	"output_bound": true, "stale_candidate": true, "ambiguous_output": true,
 	"invalid_context": true, "invalid_response": true, "secret_output": true,
-	"origin_rejected": true,
+	"origin_rejected":   true,
+	"approval_required": true, "ambiguous_locator": true, "invalid_parameters": true,
 }
 
 func canonicalAssertions(values []string) []string {

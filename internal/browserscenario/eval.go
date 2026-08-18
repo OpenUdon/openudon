@@ -63,14 +63,14 @@ func Run(ctx context.Context, options Options) (*Report, error) {
 	if now.IsZero() {
 		return nil, fmt.Errorf("browser scenario clock is unavailable")
 	}
-	if options.Suite != SuiteLoopback && options.Suite != SuitePublic {
-		return nil, fmt.Errorf("browser scenario suite must be loopback or public")
+	if options.Suite != SuiteLoopback && options.Suite != SuiteJourney && options.Suite != SuitePublic {
+		return nil, fmt.Errorf("browser scenario suite must be loopback, journey, or public")
 	}
 	if options.Suite == SuitePublic && !options.AllowNetwork {
 		return nil, fmt.Errorf("public browser scenarios require explicit --allow-network")
 	}
-	if options.Suite == SuiteLoopback && options.AllowNetwork {
-		return nil, fmt.Errorf("loopback browser scenarios do not accept network authority")
+	if options.Suite != SuitePublic && options.AllowNetwork {
+		return nil, fmt.Errorf("local browser scenarios do not accept network authority")
 	}
 	if strings.TrimSpace(options.OutPath) == "" {
 		return nil, fmt.Errorf("browser scenario report output is required")

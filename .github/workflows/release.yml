@@ -94,11 +94,32 @@ jobs:
           go run ./cmd/openudon browser-scenario-eval \
             --verify eval/runs/browser-scenario-release/report.json
 
+      - name: Run required realistic journey suite
+        run: |
+          mkdir -p eval/runs/browser-journey-release
+          go run ./cmd/openudon browser-scenario-eval \
+            --suite journey \
+            --require-ready \
+            --browsertools-repo scenario-deps/browsertools \
+            --udon-repo scenario-deps/udon \
+            --browserdriver-repo scenario-deps/browserdriver \
+            --out eval/runs/browser-journey-release/report.json
+          go run ./cmd/openudon browser-scenario-eval \
+            --verify eval/runs/browser-journey-release/report.json
+
       - name: Upload value-free scenario evidence
         uses: actions/upload-artifact@v7
         with:
           name: browser-scenario-loopback
           path: eval/runs/browser-scenario-release/report.json*
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Upload value-free journey evidence
+        uses: actions/upload-artifact@v7
+        with:
+          name: browser-scenario-journey
+          path: eval/runs/browser-journey-release/report.json*
           if-no-files-found: error
           retention-days: 30
 

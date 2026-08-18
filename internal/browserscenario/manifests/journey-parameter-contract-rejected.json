@@ -1,0 +1,16 @@
+{
+  "version": "openudon.browser-journey.v1",
+  "id": "parameter-contract-rejected",
+  "suite": "journey",
+  "outputs": [],
+  "replayVariants": ["missing_required", "additional_parameter", "wrong_type", "origin_escape"],
+  "expected": {
+    "authoring": "pass",
+    "replay": "rejected",
+    "failureCode": "invalid_parameters",
+    "browserProfile": "uws.browser.1.5",
+    "uwsVersion": "1.8.0"
+  },
+  "probes": [],
+  "journey": {"kind": "parameter_contract_rejected"}
+}

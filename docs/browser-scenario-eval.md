@@ -1,6 +1,6 @@
 # Browser Scenario Evaluation
 
-`openudon browser-scenario-eval` owns two complementary real-browser suites.
+`openudon browser-scenario-eval` owns three complementary real-browser suites.
 They test the portable workflow boundary without storing a DOM, accessibility
 snapshot, screenshot, page value, credential, cookie, browser state, or child
 process output.
@@ -8,6 +8,7 @@ process output.
 | Suite | Purpose | Authority | Release posture |
 |---|---|---|---|
 | `loopback` | Deterministic Browsertools author-session v2 through OpenUdon staging, UWS synthesis, Udon v3 lowering, and Browserdriver v3 replay | Local random-port HTTP only; headed Chromium; synthetic credential values remain inside trusted replay | Required real-browser release gate |
+| `journey` | Realistic reviewed read/write workflows from Browsertools guided authoring through strict OpenUdon import, UWS 1.8 synthesis, Udon v3, and Browserdriver v3 | Local random-port HTTP only; headless Chromium; fixture state is inspected after replay | Required real-browser release gate |
 | `public` | Detect external markup, accessibility-name, resource-origin, and runtime drift | Explicit `--allow-network`; four fixed anonymous HTTPS targets; headless read-only presence checks | Weekly/manual informational canary |
 
 The separate [Browser Integration Evaluation](browser-integration-eval.md)
@@ -58,6 +59,40 @@ go run ./cmd/openudon browser-scenario-eval \
 Without `--require-ready`, a missing installed browser dependency is recorded
 as `skipped`; release automation always requires readiness.
 
+## Run The Realistic Journey Suite
+
+The journey suite needs only the pinned Browserdriver Node Playwright Chromium;
+it does not need a display or external network authority:
+
+```bash
+make browser-scenario-journey
+
+# Run selected cases:
+go run ./cmd/openudon browser-scenario-eval \
+  --suite journey \
+  --scenario catalog-search-filter \
+  --scenario record-update-approved \
+  --require-ready \
+  --out eval/runs/browser-scenario-journey-local/report.json
+```
+
+Its eight cases cover a search/filter form, pagination across two browser
+operations in one named session, accessibility/JSON-LD/microdata/CSS reads,
+an approved record update, rejection of the same update without operation
+approval, an ambiguous mutation locator with no server write, four closed
+parameter failures, and isolation between two complete executions. The local
+application exercises `type_text`, radio and checkbox state, `select_option`,
+click navigation waits, locator waits, typed outputs, exact mutation counts,
+and final server state.
+
+Each case builds a deterministic `browsertools.guided-authoring.v1` bundle
+from normalized reviewed evidence, feeds it back through OpenUdon's strict
+source importer, and materializes only the canonical browser 1.5 profile. The
+private bundle, evidence, decisions, review, and draft spec never enter the UWS
+package or report. OpenUdon then synthesizes ordered parameterized operations
+in UWS 1.8, while Udon and Browserdriver replay them through protocol v3 in a
+fresh headless Chromium lifecycle.
+
 ## Run The Public Canaries
 
 Public execution is never implicit:
@@ -91,8 +126,9 @@ the report and cannot silently become a pass.
 
 ## Report And Compatibility Contract
 
-Both suites write `openudon.browser-scenario-eval.v1` JSON and an adjacent
-`.sha256` sidecar. The report contains exact repository commits, public module
+Loopback and public reports use `openudon.browser-scenario-eval.v1`; journey
+reports use `openudon.browser-journey-eval.v1`. Every report has an adjacent
+`.sha256` sidecar and contains exact repository commits, public module
 versions, closed phase/assertion/detail identifiers, counters, and explicit
 safety booleans. It contains no target page content or subprocess output and
 is safe to archive. Verify it independently:
@@ -121,4 +157,5 @@ kinds, and up to 16 reviewed typed outputs. Protocol v1 is rejected without a
 fallback.
 
 Downloads, cookie transfer, goal inference, selectors, arbitrary scripting,
-credential export, and browser-state reuse remain outside both scenario suites.
+credential export, and cross-execution browser-state reuse remain outside all
+three scenario suites.

@@ -55,7 +55,7 @@ func (executor *realExecutor) Execute(ctx context.Context, manifest Manifest, en
 	if manifest.Suite == SuiteLoopback && strings.TrimSpace(os.Getenv("DISPLAY")) == "" && strings.TrimSpace(os.Getenv("WAYLAND_DISPLAY")) == "" {
 		return unavailableScenario(manifest, "fixture_ready")
 	}
-	executor.prepare(ctx, environment)
+	executor.prepare(ctx, environment, manifest.Suite)
 	if executor.unavailable {
 		phase := "fixture_ready"
 		if manifest.Suite == SuitePublic {
@@ -73,10 +73,13 @@ func (executor *realExecutor) Execute(ctx context.Context, manifest Manifest, en
 	if manifest.Suite == SuitePublic {
 		return executor.executePublic(ctx, manifest, environment)
 	}
+	if manifest.Suite == SuiteJourney {
+		return executor.executeJourney(ctx, manifest, environment)
+	}
 	return executor.executeLoopback(ctx, manifest, environment)
 }
 
-func (executor *realExecutor) prepare(ctx context.Context, environment Environment) {
+func (executor *realExecutor) prepare(ctx context.Context, environment Environment, suite string) {
 	executor.mu.Lock()
 	defer executor.mu.Unlock()
 	if executor.prepared {
@@ -116,26 +119,28 @@ func (executor *realExecutor) prepare(ctx context.Context, environment Environme
 		executor.prepareErr = fmt.Errorf("Browserdriver entry point is unavailable")
 		return
 	}
-	executor.browsertools = filepath.Join(root, "browsertools")
-	if !runSilent(ctx, environment.BrowsertoolsRepo, []string{goTool, "build", "-o", executor.browsertools, "./cmd/browsertools"}, nil) {
-		executor.prepareErr = fmt.Errorf("build Browsertools")
-		return
-	}
 	executor.udon = filepath.Join(root, "udon")
 	if !runSilent(ctx, environment.UdonRepo, []string{goTool, "build", "-o", executor.udon, "./cmd/udon"}, nil) {
 		executor.prepareErr = fmt.Errorf("build Udon")
 		return
 	}
-	doctor := runBounded(ctx, environment.BrowsertoolsRepo, []string{executor.browsertools, "playwright", "doctor", "--engine", "chromium", "--format", "json"}, nil, "")
-	var readiness struct {
-		Version      string `json:"version"`
-		Engine       string `json:"engine"`
-		DriverReady  bool   `json:"driver_ready"`
-		BrowserReady bool   `json:"browser_ready"`
-	}
-	if json.Unmarshal(doctor.stdout, &readiness) != nil || readiness.Version != "browsertools.playwright-doctor.v1" || readiness.Engine != "chromium" || !readiness.DriverReady || !readiness.BrowserReady || doctor.err != nil {
-		executor.unavailable = true
-		return
+	if suite != SuiteJourney {
+		executor.browsertools = filepath.Join(root, "browsertools")
+		if !runSilent(ctx, environment.BrowsertoolsRepo, []string{goTool, "build", "-o", executor.browsertools, "./cmd/browsertools"}, nil) {
+			executor.prepareErr = fmt.Errorf("build Browsertools")
+			return
+		}
+		doctor := runBounded(ctx, environment.BrowsertoolsRepo, []string{executor.browsertools, "playwright", "doctor", "--engine", "chromium", "--format", "json"}, nil, "")
+		var readiness struct {
+			Version      string `json:"version"`
+			Engine       string `json:"engine"`
+			DriverReady  bool   `json:"driver_ready"`
+			BrowserReady bool   `json:"browser_ready"`
+		}
+		if json.Unmarshal(doctor.stdout, &readiness) != nil || readiness.Version != "browsertools.playwright-doctor.v1" || readiness.Engine != "chromium" || !readiness.DriverReady || !readiness.BrowserReady || doctor.err != nil {
+			executor.unavailable = true
+			return
+		}
 	}
 	nodeCheck := `import {chromium} from "playwright"; const browser=await chromium.launch({headless:true}); await browser.close();`
 	if !runSilent(ctx, environment.BrowserdriverRepo, []string{executor.node, "--input-type=module", "--eval", nodeCheck}, nil) {
@@ -256,6 +261,203 @@ func (executor *realExecutor) executeLoopback(ctx context.Context, manifest Mani
 		result.Assertions = append(result.Assertions, "expected_rejection")
 	}
 	return finishLoopbackResult(result, fixture, caseRoot)
+}
+
+func (executor *realExecutor) executeJourney(ctx context.Context, manifest Manifest, environment Environment) ScenarioResult {
+	result := ScenarioResult{ID: manifest.ID, Attempts: 1}
+	fixture, err := NewJourneyFixture(manifest)
+	if err != nil {
+		return failedScenario(manifest, "fixture_ready", "fixture_failed")
+	}
+	result.Phases = append(result.Phases, PhaseResult{ID: "fixture_ready", Status: StatusPass, Detail: "ok"})
+	caseRoot, err := os.MkdirTemp(executor.root, "journey-")
+	if err != nil {
+		fixture.Close()
+		return appendFailure(result, "bundle_authored", "staging_failed")
+	}
+	fail := func(phase, detail string) ScenarioResult {
+		return finishJourneyResult(appendFailure(result, phase, detail), fixture, caseRoot)
+	}
+	exampleDir := filepath.Join(caseRoot, "example")
+	privateDir := filepath.Join(caseRoot, "private")
+	if os.Mkdir(exampleDir, 0o700) != nil || os.Mkdir(privateDir, 0o700) != nil {
+		return fail("bundle_authored", "staging_failed")
+	}
+
+	blueprint, err := journeyScenarioBlueprint(manifest, fixture.Origin())
+	if err != nil {
+		return fail("bundle_authored", "contract_drift")
+	}
+	bundle, err := buildJourneyBundle(blueprint.actions, fixture.Origin(), environment.Now)
+	if err != nil {
+		return fail("bundle_authored", "authoring_failed")
+	}
+	bundlePath := filepath.Join(privateDir, "guided-authoring.json")
+	authenticationSourcePath := filepath.Join(privateDir, "authentication.json")
+	if os.WriteFile(bundlePath, bundle, 0o600) != nil || writeJourneyAuthentication(authenticationSourcePath, fixture.Origin(), environment.Now) != nil {
+		return fail("bundle_authored", "staging_failed")
+	}
+	result.Phases = append(result.Phases, PhaseResult{ID: "bundle_authored", Status: StatusPass, Detail: "ok"})
+
+	capabilityPath, authenticationPath, err := stageJourneySources(ctx, exampleDir, bundlePath, authenticationSourcePath, environment.Now)
+	if err != nil {
+		return fail("profile_imported", "profile_mismatch")
+	}
+	result.Phases = append(result.Phases, PhaseResult{ID: "profile_imported", Status: StatusPass, Detail: "ok"})
+
+	workflowRequest := synthesize.BrowserScenarioWorkflowRequest{
+		ExampleDir: exampleDir, AuthenticationPath: authenticationPath, CapabilityPath: capabilityPath,
+		AuthenticationFlow: journeyAuthenticationFlow, Session: journeySession,
+		CredentialSlotBindings: map[string]string{}, Inputs: blueprint.inputs, Actions: blueprint.workflow,
+	}
+	workflow, err := synthesize.WriteBrowserScenarioWorkflow(workflowRequest)
+	if err != nil || workflow.UWSVersion != manifest.Expected.UWSVersion {
+		return fail("uws_synthesized", "profile_mismatch")
+	}
+	result.Phases = append(result.Phases, PhaseResult{ID: "uws_synthesized", Status: StatusPass, Detail: "ok"})
+
+	dataPath := filepath.Join(exampleDir, "journey-data.hcl")
+	if manifest.Journey.Kind == "parameter_contract_rejected" {
+		if detail := executor.executeJourneyParameterCases(ctx, manifest, exampleDir, dataPath, workflow.Path, workflowRequest, blueprint, fixture); detail != "" {
+			return fail("browserdriver_replay", detail)
+		}
+	} else if manifest.Journey.Kind == "session_lifecycle" {
+		first := executor.runJourneyUdon(ctx, exampleDir, dataPath, workflow.Path, blueprint.values, blueprint.approvedOperations, blueprint.workflow[len(blueprint.workflow)-1].Name)
+		second := executor.runJourneyUdon(ctx, exampleDir, dataPath, workflow.Path, blueprint.values, blueprint.approvedOperations, blueprint.workflow[len(blueprint.workflow)-1].Name)
+		if first.failureCode != "" {
+			return fail("browserdriver_replay", first.failureCode)
+		}
+		if second.failureCode != "" {
+			return fail("browserdriver_replay", second.failureCode)
+		}
+		if first.outputs["run_marker"] != "Run 1" || second.outputs["run_marker"] != "Run 2" || fixture.SessionCount() != 2 {
+			return fail("browserdriver_replay", "output_mismatch")
+		}
+	} else {
+		lastStep := blueprint.workflow[len(blueprint.workflow)-1].Name
+		replay := executor.runJourneyUdon(ctx, exampleDir, dataPath, workflow.Path, blueprint.values, blueprint.approvedOperations, lastStep)
+		if manifest.Expected.Replay == "pass" {
+			if replay.failureCode != "" {
+				return fail("browserdriver_replay", replay.failureCode)
+			}
+			if !scenarioOutputsEqual(replay.outputs, blueprint.expectedOutputs) {
+				return fail("browserdriver_replay", "output_mismatch")
+			}
+		} else if replay.failureCode != manifest.Expected.FailureCode {
+			return fail("browserdriver_replay", "replay_failed")
+		}
+	}
+	result.Phases = append(result.Phases,
+		PhaseResult{ID: "udon_v3", Status: StatusPass, Detail: "ok"},
+		PhaseResult{ID: "browserdriver_replay", Status: StatusPass, Detail: "ok"},
+	)
+
+	if !validJourneyPostconditions(manifest, fixture) {
+		return fail("postconditions", "contract_drift")
+	}
+	result.Phases = append(result.Phases, PhaseResult{ID: "postconditions", Status: StatusPass, Detail: "ok"})
+	result.Status, result.Detail = StatusPass, "ok"
+	result.Assertions = journeyAssertions(manifest)
+	return finishJourneyResult(result, fixture, caseRoot)
+}
+
+func (executor *realExecutor) executeJourneyParameterCases(ctx context.Context, manifest Manifest, exampleDir, dataPath, workflowPath string, request synthesize.BrowserScenarioWorkflowRequest, blueprint journeyBlueprint, fixture *JourneyFixture) string {
+	variants := map[string]map[string]any{
+		"missing_required": {},
+		"wrong_type":       {"target_url": 42},
+		"origin_escape":    {"target_url": "http://127.0.0.1:9/escape"},
+	}
+	for _, variant := range []string{"missing_required", "wrong_type", "origin_escape"} {
+		if !journeyContainsString(manifest.ReplayVariants, variant) {
+			continue
+		}
+		replay := executor.runJourneyUdon(ctx, exampleDir, dataPath, workflowPath, variants[variant], nil, blueprint.workflow[len(blueprint.workflow)-1].Name)
+		if variant == "origin_escape" {
+			if replay.failureCode != "origin_rejected" {
+				return journeyReplayFailureDetail(replay.failureCode)
+			}
+		} else if replay.failureCode != "invalid_parameters" {
+			return journeyReplayFailureDetail(replay.failureCode)
+		}
+	}
+	if journeyContainsString(manifest.ReplayVariants, "additional_parameter") {
+		request.Inputs = append(request.Inputs, synthesize.BrowserScenarioInput{Name: "unexpected", Type: "string", Required: true})
+		request.Actions = append([]synthesize.BrowserScenarioAction(nil), request.Actions...)
+		request.Actions[0].With = cloneStringMap(request.Actions[0].With)
+		request.Actions[0].With["unexpected"] = "unexpected"
+		if _, err := synthesize.WriteBrowserScenarioWorkflow(request); err == nil || !strings.Contains(err.Error(), `parameter "unexpected" is not declared`) {
+			return "contract_drift"
+		}
+	}
+	if fixture.MutationPOSTs() != 0 {
+		return "contract_drift"
+	}
+	return ""
+}
+
+func journeyReplayFailureDetail(failureCode string) string {
+	if allowedDetails[failureCode] {
+		return failureCode
+	}
+	return "replay_failed"
+}
+
+func cloneStringMap(values map[string]string) map[string]string {
+	result := make(map[string]string, len(values)+1)
+	for key, value := range values {
+		result[key] = value
+	}
+	return result
+}
+
+func journeyContainsString(values []string, wanted string) bool {
+	for _, value := range values {
+		if value == wanted {
+			return true
+		}
+	}
+	return false
+}
+
+func validJourneyPostconditions(manifest Manifest, fixture *JourneyFixture) bool {
+	switch manifest.Journey.Kind {
+	case "record_update_approved":
+		note, priority, enabled, archived := fixture.RecordState()
+		return fixture.MutationPOSTs() == 1 && note == "Reviewed note" && priority == "high" && enabled && !archived
+	case "record_update_unapproved", "record_update_ambiguous", "parameter_contract_rejected":
+		return fixture.MutationPOSTs() == 0
+	case "session_lifecycle":
+		return fixture.SessionCount() == 2
+	default:
+		return fixture.Requests() > 0
+	}
+}
+
+func journeyAssertions(manifest Manifest) []string {
+	assertions := []string{"guided_authoring_v1", "canonical_profile_only", "closed_macro_vocabulary", "udon_v3_lowering", "browserdriver_replay", "private_material_absent"}
+	switch manifest.Journey.Kind {
+	case "catalog_search_filter", "catalog_pagination", "order_structured_read":
+		assertions = append(assertions, "structured_outputs_exact")
+	case "record_update_approved":
+		assertions = append(assertions, "structured_outputs_exact", "operation_approval_exact", "server_state_exact")
+	case "record_update_unapproved", "record_update_ambiguous":
+		assertions = append(assertions, "expected_rejection", "operation_approval_exact", "server_state_exact")
+	case "parameter_contract_rejected":
+		assertions = append(assertions, "expected_rejection", "parameter_contract_exact", "server_state_exact")
+	case "session_lifecycle":
+		assertions = append(assertions, "structured_outputs_exact", "session_isolated")
+	}
+	return canonicalAssertions(assertions)
+}
+
+func finishJourneyResult(result ScenarioResult, fixture *JourneyFixture, caseRoot string) ScenarioResult {
+	fixture.Close()
+	if err := os.RemoveAll(caseRoot); err != nil {
+		return appendFailure(result, "teardown", "teardown_failed")
+	}
+	result.Phases = append(result.Phases, PhaseResult{ID: "teardown", Status: StatusPass, Detail: "ok"})
+	result.Assertions = canonicalAssertions(result.Assertions)
+	return result
 }
 
 func (executor *realExecutor) executePublic(ctx context.Context, manifest Manifest, environment Environment) ScenarioResult {
@@ -555,6 +757,37 @@ func (executor *realExecutor) runUdon(ctx context.Context, manifest Manifest, ex
 	return replayResult{outputs: outputs}
 }
 
+func (executor *realExecutor) runJourneyUdon(ctx context.Context, exampleDir, dataPath, workflowPath string, values map[string]any, approvals []string, resultStep string) replayResult {
+	if err := os.RemoveAll(filepath.Join(exampleDir, "output")); err != nil {
+		return replayResult{failureCode: "invalid_response"}
+	}
+	if err := os.Remove(filepath.Join(exampleDir, "execution-report.json")); err != nil && !os.IsNotExist(err) {
+		return replayResult{failureCode: "invalid_response"}
+	}
+	if err := writeJourneyData(dataPath, values); err != nil {
+		return replayResult{failureCode: "invalid_response"}
+	}
+	args := []string{
+		executor.udon, "--workdir", exampleDir, "--workflow", workflowPath, "--workflow-format", "uws-json",
+		"--datafile", dataPath, "--execution-report", "execution-report.json", "--execution-timeout", "60s",
+		"--browser-driver", executor.node, "--browser-driver-arg", executor.driverEntry,
+		"--browser-driver-protocol", "v3", "--browser-challenge-timeout", "10s",
+		"--approve-browser-authentication", "authenticate", "--quiet",
+	}
+	for _, operation := range approvals {
+		args = append(args, "--approve-browser-operation", operation)
+	}
+	command := runBounded(ctx, exampleDir, args, nil, "")
+	if command.err != nil {
+		return replayResult{failureCode: journeyFailureCode(filepath.Join(exampleDir, "execution-report.json"))}
+	}
+	outputs, err := readBrowserOutputs(filepath.Join(exampleDir, "output", "udon.hcl"), resultStep)
+	if err != nil {
+		return replayResult{failureCode: "invalid_response"}
+	}
+	return replayResult{outputs: outputs}
+}
+
 func validAuthorResult(manifest Manifest, result icot.BrowserScenarioAuthorResult) bool {
 	if result.AuthenticationProfile != "uws.browser-authentication.1.1" || result.CapabilityProfile != manifest.Expected.BrowserProfile ||
 		result.ReviewedChallengeKind != manifest.Authentication.ChallengeKind || !result.PrivateEnvelopePreserved || result.EnvelopeDigest == "" {
@@ -635,6 +868,10 @@ func mutateScenarioContext(path string) error {
 }
 
 func readScenarioOutputs(path string) (map[string]any, error) {
+	return readBrowserOutputs(path, "read")
+}
+
+func readBrowserOutputs(path, resultStep string) (map[string]any, error) {
 	data, err := os.ReadFile(path)
 	if err != nil || len(data) == 0 || len(data) > scenarioCommandOutputLimit {
 		return nil, fmt.Errorf("scenario runtime output is unavailable")
@@ -647,7 +884,7 @@ func readScenarioOutputs(path string) (map[string]any, error) {
 		if block.Type != "result" {
 			continue
 		}
-		if literalAttribute(block.Body, "from") != "read" || literalAttribute(block.Body, "kind") != "browser" {
+		if literalAttribute(block.Body, "from") != resultStep || literalAttribute(block.Body, "kind") != "browser" {
 			continue
 		}
 		for _, nested := range block.Body.Blocks {
@@ -804,6 +1041,45 @@ func scenarioFailureCode(reportPath string, manifest Manifest) string {
 		return "secret_output"
 	case strings.Contains(lower, "invalid_response"):
 		return "invalid_response"
+	default:
+		return "invalid_response"
+	}
+}
+
+func journeyFailureCode(reportPath string) string {
+	data, err := os.ReadFile(reportPath)
+	if err != nil || len(data) == 0 || len(data) > scenarioCommandOutputLimit {
+		return "invalid_response"
+	}
+	var report struct {
+		Version        string `json:"version"`
+		Status         string `json:"status"`
+		StartedAt      string `json:"started_at"`
+		FinishedAt     string `json:"finished_at"`
+		WorkflowPath   string `json:"workflow_path"`
+		WorkflowFormat string `json:"workflow_format"`
+		WorkDir        string `json:"workdir"`
+		OutputPath     string `json:"output_path,omitempty"`
+		OutputDigest   string `json:"output_digest,omitempty"`
+		ErrorSummary   string `json:"error_summary,omitempty"`
+	}
+	decoder := json.NewDecoder(bytes.NewReader(data))
+	decoder.DisallowUnknownFields()
+	if decoder.Decode(&report) != nil || report.Version != "udon.execution-report.v1" || report.Status != "error" ||
+		report.StartedAt == "" || report.FinishedAt == "" || report.WorkflowPath == "" || report.WorkflowFormat == "" || report.WorkDir == "" || report.ErrorSummary == "" {
+		return "invalid_response"
+	}
+	lower := strings.ToLower(report.ErrorSummary)
+	switch {
+	case strings.Contains(lower, "requires explicit operation-specific approval"):
+		return "approval_required"
+	case strings.Contains(lower, "ambiguous_locator") || strings.Contains(lower, "resolved ambiguously"):
+		return "ambiguous_locator"
+	case strings.Contains(lower, "origin_rejected") || strings.Contains(lower, "outside the allowed origin"):
+		return "origin_rejected"
+	case strings.Contains(lower, "required input"), strings.Contains(lower, "input variable"), strings.Contains(lower, "input type"), strings.Contains(lower, "cannot convert"),
+		strings.Contains(lower, "resolve parameters"), strings.Contains(lower, "unsupported attribute"), strings.Contains(lower, "browser action parameters"):
+		return "invalid_parameters"
 	default:
 		return "invalid_response"
 	}

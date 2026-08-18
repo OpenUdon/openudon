@@ -1,0 +1,15 @@
+{
+  "version": "openudon.browser-journey.v1",
+  "id": "session-lifecycle",
+  "suite": "journey",
+  "outputs": [],
+  "replayVariants": [],
+  "expected": {
+    "authoring": "pass",
+    "replay": "pass",
+    "browserProfile": "uws.browser.1.5",
+    "uwsVersion": "1.8.0"
+  },
+  "probes": [],
+  "journey": {"kind": "session_lifecycle"}
+}
