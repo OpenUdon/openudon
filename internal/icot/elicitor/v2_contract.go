@@ -26,6 +26,8 @@ const (
 	evidenceRecordAssumption         = "assumption"
 	evidenceRecordMapping            = "mapping_classification"
 	evidenceRecordDecision           = "decision_evidence"
+	evidenceRecordDraftOperation     = "draft_operation_ref"
+	evidenceRecordDraftEvent         = "draft_event"
 	evidenceAttrSlot                 = "slot"
 	evidenceAttrStage                = "stage"
 	evidenceAttrConfidence           = "confidence"
@@ -36,6 +38,10 @@ const (
 	evidenceAttrRisk                 = "risk"
 	evidenceAttrLegacyID             = "legacy_id"
 	evidenceAttrPromptVersion        = "prompt_version"
+	evidenceAttrDocumentPath         = "document_path"
+	evidenceAttrOperationID          = "operation_id"
+	evidenceAttrOrder                = "order"
+	evidenceAttrEventJSON            = "event_json"
 )
 
 // WorkflowBoundary is the confirmed delivery boundary for the one active
@@ -113,6 +119,7 @@ func normalizeV2Session(session *Session) {
 	session.Assumptions = mergeAssumptions(nil, session.Assumptions)
 	session.Classifications = normalizeMappingClassifications(session.Classifications)
 	session.DecisionEvidence = normalizeDecisionEvidenceList(session.DecisionEvidence)
+	session.DraftOperations = appendOperationDetailRefs(nil, session.DraftOperations)
 	session.SourcePlan = normalizeSourcePlan(session.SourcePlan)
 	syncLegacyEvidenceLedger(session)
 	session.Interview = publicinterview.Normalize(session.Interview)
@@ -234,7 +241,7 @@ func syncLegacyEvidenceLedger(session *Session) {
 	if session == nil {
 		return
 	}
-	ledger := make([]publicinterview.Evidence, 0, len(session.Interview.Evidence)+len(session.Annotations)+len(session.Assumptions)+len(session.Classifications)+len(session.DecisionEvidence))
+	ledger := make([]publicinterview.Evidence, 0, len(session.Interview.Evidence)+len(session.Annotations)+len(session.Assumptions)+len(session.Classifications)+len(session.DecisionEvidence)+len(session.DraftOperations)+len(session.DraftEvents))
 	for _, evidence := range session.Interview.Evidence {
 		if evidence.Attributes[evidenceAttrRecord] == "" {
 			ledger = append(ledger, evidence)
@@ -301,6 +308,23 @@ func syncLegacyEvidenceLedger(session *Session) {
 			evidenceAttrAlternatives:         string(alternatives),
 		}, decision.Stage, decision.Slot)
 	}
+	for index, ref := range session.DraftOperations {
+		order := strconv.Itoa(index)
+		appendEvidence(evidenceRecordDraftOperation, publicinterview.EvidenceObservedFact, "Operation metadata was expanded for the authoring draft.", ref.OperationID, "local API metadata", map[string]string{
+			evidenceAttrDocumentPath: ref.DocumentPath, evidenceAttrOperationID: ref.OperationID,
+			evidenceAttrOrder: order, evidenceAttrLegacyID: order,
+		}, ref.DocumentPath, ref.OperationID)
+	}
+	for index, event := range session.DraftEvents {
+		data, err := json.Marshal(event)
+		if err != nil {
+			continue
+		}
+		order := strconv.Itoa(index)
+		appendEvidence(evidenceRecordDraftEvent, publicinterview.EvidenceObservedFact, "A structured draft lifecycle event was recorded.", firstNonEmpty(event.Type, event.Kind), "icot authoring lifecycle", map[string]string{
+			evidenceAttrEventJSON: string(data), evidenceAttrOrder: order, evidenceAttrLegacyID: order,
+		})
+	}
 	session.Interview.Evidence = ledger
 }
 
@@ -312,6 +336,18 @@ func restoreLegacyEvidenceFromLedger(session *Session) {
 	restoreAssumptions := len(session.Assumptions) == 0
 	restoreMappings := len(session.Classifications) == 0
 	restoreDecisions := len(session.DecisionEvidence) == 0
+	restoreDraftOperations := len(session.DraftOperations) == 0
+	restoreDraftEvents := len(session.DraftEvents) == 0
+	type orderedOperation struct {
+		order int
+		ref   OperationDetailRef
+	}
+	type orderedEvent struct {
+		order int
+		event TranscriptEvent
+	}
+	var operations []orderedOperation
+	var events []orderedEvent
 	for _, evidence := range session.Interview.Evidence {
 		attributes := evidence.Attributes
 		switch attributes[evidenceAttrRecord] {
@@ -353,6 +389,36 @@ func restoreLegacyEvidenceFromLedger(session *Session) {
 				Evidence: attributes[evidenceAttrEvidence], Alternatives: alternatives,
 				RequiresConfirmation: attributes[evidenceAttrRequiresConfirmation] == "true",
 			})
+		case evidenceRecordDraftOperation:
+			if !restoreDraftOperations {
+				continue
+			}
+			order, _ := strconv.Atoi(attributes[evidenceAttrOrder])
+			operations = append(operations, orderedOperation{order: order, ref: OperationDetailRef{
+				DocumentPath: attributes[evidenceAttrDocumentPath], OperationID: attributes[evidenceAttrOperationID],
+			}})
+		case evidenceRecordDraftEvent:
+			if !restoreDraftEvents {
+				continue
+			}
+			var event TranscriptEvent
+			if err := json.Unmarshal([]byte(attributes[evidenceAttrEventJSON]), &event); err != nil {
+				continue
+			}
+			order, _ := strconv.Atoi(attributes[evidenceAttrOrder])
+			events = append(events, orderedEvent{order: order, event: event})
+		}
+	}
+	if restoreDraftOperations {
+		sort.SliceStable(operations, func(i, j int) bool { return operations[i].order < operations[j].order })
+		for _, operation := range operations {
+			session.DraftOperations = append(session.DraftOperations, operation.ref)
+		}
+	}
+	if restoreDraftEvents {
+		sort.SliceStable(events, func(i, j int) bool { return events[i].order < events[j].order })
+		for _, event := range events {
+			session.DraftEvents = append(session.DraftEvents, event.event)
 		}
 	}
 }

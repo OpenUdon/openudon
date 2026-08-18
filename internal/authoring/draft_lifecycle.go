@@ -4,6 +4,7 @@
 package authoring
 
 import (
+	"encoding/json"
 	"errors"
 	"os"
 	"path/filepath"
@@ -48,7 +49,18 @@ func SaveDraft[T any](path string, session T) error {
 	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
 		return err
 	}
-	data, err := yaml.Marshal(session)
+	// Marshal through JSON first so nested shared Authoring contracts that
+	// intentionally publish JSON tags (for example interview.State) retain
+	// their exact snake_case wire names inside the YAML session file.
+	jsonData, err := json.Marshal(session)
+	if err != nil {
+		return err
+	}
+	var wire any
+	if err := json.Unmarshal(jsonData, &wire); err != nil {
+		return err
+	}
+	data, err := yaml.Marshal(wire)
 	if err != nil {
 		return err
 	}

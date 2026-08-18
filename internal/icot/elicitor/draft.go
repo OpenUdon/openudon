@@ -1,6 +1,8 @@
 package elicitor
 
 import (
+	"encoding/json"
+	"fmt"
 	"os"
 	"path/filepath"
 
@@ -36,6 +38,11 @@ func LoadDraft(path string) (Session, bool, error) {
 func SaveDraft(path string, session Session) error {
 	if path == "" || !LooksLikeSession(session) {
 		return nil
+	}
+	for index, event := range session.DraftEvents {
+		if _, err := json.Marshal(event); err != nil {
+			return fmt.Errorf("draft event %d is not JSON-marshalable: %w", index, err)
+		}
 	}
 	session.Normalize()
 	return authoring.SaveDraft(path, session)
