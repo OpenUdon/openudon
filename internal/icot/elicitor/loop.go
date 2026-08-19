@@ -358,7 +358,7 @@ func (p *prompter) collectSteps(usesAPI bool, defaultOpenAPI string, docs []APID
 				if docPath != defaultOpenAPI {
 					step.OpenAPI = docPath
 				}
-				fields, err := p.stepFields(apitools.RequiredOperationFields(*op))
+				fields, err := p.stepFields(apitools.RequiredRequestFields(*op))
 				if err != nil {
 					return nil, err
 				}

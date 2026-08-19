@@ -189,7 +189,7 @@ func BuildRequestMappingRequest(opening string, session Session, docs []APIDocum
 		if !ok {
 			continue
 		}
-		missing := missingRequiredFields(step, op)
+		missing := missingRequiredFields(session, step, op)
 		if len(missing) == 0 {
 			continue
 		}

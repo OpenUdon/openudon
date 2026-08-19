@@ -920,14 +920,16 @@ func requestFieldPlacementMetadata(operation apitools.OperationSummary) (map[str
 			}
 		}
 	}
-	for _, security := range operation.Security {
-		section, target, ok := securityRequestPlacement(security)
-		if !ok {
-			continue
-		}
-		for _, alias := range []string{security.Name, security.ParameterName, apitools.SecurityCredentialFieldName(security)} {
-			if err := add(alias, section, target); err != nil {
-				return nil, nil, err
+	for _, securitySet := range operation.SecurityRequirementSets {
+		for _, security := range securitySet.Requirements {
+			section, target, ok := securityRequestPlacement(security)
+			if !ok {
+				continue
+			}
+			for _, alias := range []string{security.Name, security.ParameterName, apitools.SecurityCredentialFieldName(security)} {
+				if err := add(alias, section, target); err != nil {
+					return nil, nil, err
+				}
 			}
 		}
 	}

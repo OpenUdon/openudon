@@ -250,7 +250,7 @@ func issueDependencies(issue ReadinessIssue, boundaryRoot string, missingSource,
 			return nil, 0, false
 		}
 		return []string{boundaryRoot}, 70, true
-	case "missing_required_request_values", "missing_credential_bindings", "missing_runtime_inputs", "conflicting_mapping", "low_confidence_mapping", "conflicting_decision_evidence", "low_confidence_decision":
+	case "missing_security_alternative", "missing_required_request_values", "missing_credential_bindings", "missing_runtime_inputs", "conflicting_mapping", "low_confidence_mapping", "conflicting_decision_evidence", "low_confidence_decision":
 		if missingSource || missingOperation {
 			return nil, 0, false
 		}
@@ -274,6 +274,9 @@ func nodeIDForIssue(issue ReadinessIssue) string {
 	code := strings.ReplaceAll(strings.ToLower(strings.TrimSpace(issue.Code)), ".", "_")
 	if strings.HasSuffix(issue.Slot, ".operation") {
 		return "operation." + strings.TrimSuffix(strings.TrimPrefix(slot, "steps_"), "_operation")
+	}
+	if strings.HasSuffix(issue.Slot, ".security_alternative") {
+		return "security.alternative." + strings.TrimSuffix(strings.TrimPrefix(slot, "steps_"), "_security_alternative")
 	}
 	if strings.Contains(issue.Slot, ".with") {
 		return "mapping." + strings.TrimPrefix(slot, "steps_")
@@ -504,6 +507,19 @@ func applyFrontierValue(session *Session, nodeID string, answer authoring.RoundA
 	case nodeFallback:
 		session.Fallback, session.Project.Fallback, session.FallbackSet = value, value, true
 	default:
+		if strings.HasPrefix(nodeID, "security.alternative.") {
+			for _, step := range session.Intent.Steps {
+				if step == nil || nodeIDForIssue(ReadinessIssue{Code: "missing_security_alternative", Slot: securityAlternativeSlot(step)}) != nodeID {
+					continue
+				}
+				op, ok := operationForStep(*session, docs, step)
+				if !ok || !selectSecurityAlternative(session, step, op, value) {
+					return fmt.Errorf("security alternative %q is not one unambiguous listed choice", value)
+				}
+				return nil
+			}
+			return fmt.Errorf("security alternative decision %q does not match an active step", nodeID)
+		}
 		applyProgressiveAnswer(session, QuestionPlan{ID: nodeID, Slots: append([]string(nil), answer.Slots...)}, value, docs)
 	}
 	return nil

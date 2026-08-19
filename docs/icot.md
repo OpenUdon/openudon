@@ -244,6 +244,15 @@ mode. Interactive authoring stops before using any partial candidate set;
 complete-session and agent paths expose the same blocker and narrowing
 guidance.
 
+Selected OpenAPI operations retain their security requirement sets instead of
+flattening them. The outer list is OR, schemes within one alternative are AND,
+and an empty alternative is anonymous. If more than one alternative exists,
+iCoT presents numbered source-order choices and requires one selection before
+credential or request mapping. The stable index and decision evidence survive
+resume; only the selected alternative's fields are eligible for mappings.
+Prompt-budget loss of any of this structure is a visible deferable technical
+blocker, never permission to approve a partial interpretation.
+
 Local and remote discovery are separate. After local evidence is exhausted,
 `--network ask` requires approval. The remote lookup consults only curated
 apitools catalog references and one APIs.guru list request—never a general web

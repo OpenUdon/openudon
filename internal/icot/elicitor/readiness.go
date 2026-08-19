@@ -56,6 +56,16 @@ func CheckReadiness(session Session, docs []APIDocument) []ReadinessIssue {
 				continue
 			}
 			if op, ok := operationForStep(session, docs, step); ok {
+				for _, sourceIssue := range op.ReadinessIssues {
+					if !strings.EqualFold(strings.TrimSpace(sourceIssue.Severity), "error") {
+						continue
+					}
+					message := strings.TrimSpace(sourceIssue.Message)
+					if remediation := strings.TrimSpace(sourceIssue.Remediation); remediation != "" {
+						message = strings.TrimSpace(message + " " + remediation)
+					}
+					add(firstNonEmpty(sourceIssue.Code, "source_prompt_metadata_blocked"), slotPrefix+".source_metadata", readinessBlocking, message, "")
+				}
 				if isBrowserOperationSummary(op) {
 					loginRequired := op.Extensions["openudon.browser.login_state_required"] == "true"
 					if loginRequired && !browserActionHasEstablishedSession(session, step) && browserAuthenticationAvailable(docs) {
@@ -75,11 +85,15 @@ func CheckReadiness(session Session, docs []APIDocument) []ReadinessIssue {
 					add(issue.Code, issue.Slot, issue.Severity, issue.Message, issue.SuggestedAnswer)
 					continue
 				}
-				missingFields := missingRequiredFields(step, op)
+				if _, selected := selectedSecurityAlternative(session, step, op); !selected {
+					add("missing_security_alternative", securityAlternativeSlot(step), readinessBlocking, "Choose one OpenAPI security alternative for this operation. Requirements joined by + must be supplied together: "+strings.Join(securityAlternativeChoices(op), "; ")+".", "")
+					continue
+				}
+				missingFields := missingRequiredFields(session, step, op)
 				if len(missingFields) > 0 {
 					add("missing_required_request_values", slotPrefix+".with", readinessBlocking, "Provide sources for the required path/query/header/body fields: "+strings.Join(missingFields, ", ")+". Use inputs.<name>, safe literals, prior-step outputs, or credentials.<binding>.", suggestedFieldAssignments(session, docs, step, op, missingFields))
 				}
-				if operationNeedsCredential(op) && len(session.Credentials) == 0 {
+				if operationNeedsCredentialForStep(session, step, op) && len(session.Credentials) == 0 {
 					add("missing_credential_bindings", "credentials", readinessBlocking, "Name the symbolic credential binding to use for this API; do not paste a secret value.", suggestedCredentialNameForOperation(session, docs, step, op))
 				}
 				for _, issue := range validateOpenAPIRequestMappings(session, step, op, slotPrefix) {
@@ -158,6 +172,9 @@ func planQuestionForIssue(session Session, docs []APIDocument, blocking Readines
 		plan.ForceAsk = true
 	case readinessUnconfirmedSideEffectCommitment:
 		plan.Prompt = unconfirmedSideEffectCommitmentPrompt(session, docs, blocking.Slot)
+		plan.ForceAsk = true
+	case "missing_security_alternative":
+		plan.Prompt = "Which OpenAPI security alternative should this step use? Choose one numbered alternative; requirements joined by + are required together."
 		plan.ForceAsk = true
 	case "missing_required_request_values":
 		stepName := stepNameForQuestionSlot(blocking.Slot)

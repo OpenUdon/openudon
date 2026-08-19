@@ -88,8 +88,12 @@ type requestBodyFieldContext struct {
 }
 
 type securityPromptContext struct {
+	Alternatives []securityAlternativePromptContext `json:"alternatives,omitempty"`
+}
+
+type securityAlternativePromptContext struct {
 	Schemes          []string `json:"schemes,omitempty"`
-	CredentialFields []string `json:"credential_fields,omitempty"`
+	CredentialFields []string `json:"credential_fields"`
 }
 
 func discoverLocalAPIsLegacy(exampleDir, projectText string) ([]APIDocument, error) {
@@ -112,7 +116,7 @@ func discoverLocalAPIsLegacy(exampleDir, projectText string) ([]APIDocument, err
 				RelativePath: candidate.RelativePath,
 			})
 		}
-		openAPIDocs, err := apitools.BuildAuthoringAPIDocuments(context.Background(), apitools.AuthoringAPIDocumentOptions{
+		openAPIReport, err := apitools.BuildAuthoringAPIDocuments(context.Background(), apitools.AuthoringAPIDocumentOptions{
 			Documents: inventoryDocs,
 			BaseDir:   exampleDir,
 			Query:     projectText,
@@ -120,7 +124,10 @@ func discoverLocalAPIsLegacy(exampleDir, projectText string) ([]APIDocument, err
 		if err != nil {
 			return nil, err
 		}
-		docs = append(docs, openAPIDocs...)
+		if err := blockingPromptDiagnosticError(openAPIReport.Diagnostics); err != nil {
+			return nil, err
+		}
+		docs = append(docs, openAPIReport.Documents...)
 	}
 	discoveryDocs, err := discoverLocalGoogleDiscoveryAPIs(exampleDir)
 	if err != nil {
@@ -203,6 +210,10 @@ func discoverLocalParsedSourceAPIs(exampleDir, dirName string, extensions []stri
 		operations, err := parse(data, rel)
 		if err != nil {
 			return fmt.Errorf("parse %s %s: %w", dirName, path, err)
+		}
+		operations, err = promptSafeOperations(operations)
+		if err != nil {
+			return fmt.Errorf("sanitize %s %s: %w", dirName, path, err)
 		}
 		docs = append(docs, APIDocument{
 			ID:           strings.TrimSuffix(filepath.Base(path), filepath.Ext(path)),
@@ -640,10 +651,10 @@ func operationPrompt(op apitools.OperationSummary) operationPromptContext {
 		Description:    op.Description,
 		Tags:           append([]string(nil), op.Tags...),
 		Provenance:     op.Provenance,
-		RequiredFields: apitools.RequiredOperationFields(op),
+		RequiredFields: apitools.RequiredRequestFields(op),
 		Parameters:     parameterPromptContexts(op.Parameters),
 		RequestBody:    requestBodyPrompt(op.RequestBody),
-		Security:       securityPrompt(op.Security),
+		Security:       securityPrompt(op.SecurityRequirementSets),
 	}
 }
 
@@ -672,12 +683,13 @@ func operationCatalog(docs []APIDocument) []operationCatalogDocumentContext {
 	return catalog
 }
 
-func rankedDraftDocuments(request DraftRequest) []APIDocument {
-	return apitools.RankAuthoringAPIDocuments(request.Docs, apitools.AuthoringOperationRankingOptions{
+func rankedDraftDocuments(request DraftRequest) ([]APIDocument, []apitools.Diagnostic) {
+	report, _ := apitools.RankAuthoringAPIDocuments(request.Docs, apitools.AuthoringOperationRankingOptions{
 		Query:              draftRankingText(request),
 		SelectedOperations: selectedOperationRefs(request.Session),
 		Limit:              maxDraftOperationCandidates,
 	})
+	return report.Documents, report.Diagnostics
 }
 
 type operationRankCandidate struct {
@@ -739,7 +751,7 @@ func operationRankScore(query map[string]int, doc APIDocument, op apitools.Opera
 	score += rankingMatchScore(query, op.Path, 7)
 	score += rankingMatchScore(query, strings.Join(op.Tags, " "), 6)
 	score += rankingMatchScore(query, op.Description, 5)
-	score += rankingMatchScore(query, strings.Join(apitools.RequiredOperationFields(op), " "), 4)
+	score += rankingMatchScore(query, strings.Join(apitools.RequiredRequestFields(op), " "), 4)
 	score += rankingMatchScore(query, operationMethodHints(op.Method), 3)
 	for _, parameter := range op.Parameters {
 		score += rankingMatchScore(query, parameter.Name+" "+parameter.In+" "+parameter.Type, 4)
@@ -963,22 +975,44 @@ func requestBodyPrompt(body *apitools.RequestBodySummary) *requestBodyPromptCont
 	return out
 }
 
-func securityPrompt(security []apitools.SecuritySummary) securityPromptContext {
-	if len(security) == 0 {
+func securityPrompt(sets []apitools.SecurityRequirementSetSummary) securityPromptContext {
+	if len(sets) == 0 {
 		return securityPromptContext{}
 	}
-	var schemes []string
-	var fields []string
-	for _, scheme := range security {
-		schemes = append(schemes, scheme.Name)
-		if field := apitools.SecurityCredentialFieldName(scheme); field != "" {
-			fields = append(fields, field)
+	out := securityPromptContext{Alternatives: make([]securityAlternativePromptContext, 0, len(sets))}
+	for _, set := range sets {
+		alternative := securityAlternativePromptContext{CredentialFields: []string{}}
+		for _, scheme := range set.Requirements {
+			alternative.Schemes = append(alternative.Schemes, scheme.Name)
+			if field := apitools.SecurityCredentialFieldName(scheme); field != "" {
+				alternative.CredentialFields = append(alternative.CredentialFields, field)
+			}
+		}
+		alternative.Schemes = dedupeStrings(alternative.Schemes)
+		alternative.CredentialFields = dedupeStrings(alternative.CredentialFields)
+		if alternative.CredentialFields == nil {
+			alternative.CredentialFields = []string{}
+		}
+		out.Alternatives = append(out.Alternatives, alternative)
+	}
+	return out
+}
+
+func promptSafeOperations(operations []apitools.OperationSummary) ([]apitools.OperationSummary, error) {
+	report, err := apitools.SanitizeOperationSummaries(operations, apitools.PromptBudget{})
+	if err != nil {
+		return nil, err
+	}
+	return report.Operations, nil
+}
+
+func blockingPromptDiagnosticError(diagnostics []apitools.Diagnostic) error {
+	for _, diagnostic := range diagnostics {
+		if strings.EqualFold(strings.TrimSpace(diagnostic.Severity), "error") {
+			return fmt.Errorf("%s: %s", firstNonEmpty(diagnostic.Code, "prompt metadata blocked"), diagnostic.Message)
 		}
 	}
-	return securityPromptContext{
-		Schemes:          dedupeStrings(schemes),
-		CredentialFields: dedupeStrings(fields),
-	}
+	return nil
 }
 
 func stringSliceFromAny(value any) []string {

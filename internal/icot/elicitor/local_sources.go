@@ -147,6 +147,13 @@ func discoverAPIAuthoringSources(ctx context.Context, exampleDir, query string, 
 		}
 		for _, diagnostic := range inventory.Diagnostics {
 			if strings.EqualFold(diagnostic.Severity, "error") {
+				if strings.HasPrefix(strings.ToLower(strings.TrimSpace(diagnostic.Code)), "prompt.") {
+					// Prompt-budget compaction is an execution-critical technical
+					// blocker, but it does not invalidate the source document. Keep
+					// the bounded operation and its embedded readiness issue so the
+					// interview can expose and explicitly defer the missing detail.
+					continue
+				}
 				return discovery, fmt.Errorf("inspect %s: %s", candidate.Path, diagnostic.Message)
 			}
 		}

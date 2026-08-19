@@ -240,11 +240,11 @@ paths:
 			OperationID: "getCurrentCustomer",
 			Method:      "GET",
 			Path:        "/customers/current",
-			Security: []apitools.SecuritySummary{{
+			SecurityRequirementSets: []apitools.SecurityRequirementSetSummary{{Requirements: []apitools.SecuritySummary{{
 				Name: "support_api_key",
 				Type: "apiKey",
 				In:   "header",
-			}},
+			}}}},
 		}},
 	}}
 

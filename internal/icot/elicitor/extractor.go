@@ -395,8 +395,9 @@ func draftPromptRequest(request DraftRequest) map[string]any {
 
 func draftPromptRequestWithDetails(request DraftRequest, detailRefs []OperationDetailRef, lifecycleHints []operationLifecyclePromptHint) map[string]any {
 	draftDocs := detailDocuments(request, detailRefs)
+	var promptDiagnostics []apitools.Diagnostic
 	if len(draftDocs) == 0 {
-		draftDocs = rankedDraftDocuments(request)
+		draftDocs, promptDiagnostics = rankedDraftDocuments(request)
 	}
 	docs := make([]map[string]any, 0, len(draftDocs))
 	for _, doc := range draftDocs {
@@ -420,6 +421,7 @@ func draftPromptRequestWithDetails(request DraftRequest, detailRefs []OperationD
 		"operation_catalog":  operationCatalog(request.Docs),
 		"transcript_turns":   request.TranscriptTurns,
 		"readiness_feedback": request.ReadinessFeedback,
+		"prompt_diagnostics": promptDiagnostics,
 	}
 }
 
@@ -436,7 +438,8 @@ type operationLifecyclePlan struct {
 func buildOperationLifecyclePlan(request DraftRequest) operationLifecyclePlan {
 	seedRefs := operationRefsFromDocuments(selectedDraftDocuments(request))
 	if len(seedRefs) == 0 {
-		seedRefs = operationRefsFromDocuments(rankedDraftDocuments(request))
+		ranked, _ := rankedDraftDocuments(request)
+		seedRefs = operationRefsFromDocuments(ranked)
 	}
 	plan := operationLifecyclePlan{SeedRefs: seedRefs}
 	if len(seedRefs) == 0 {

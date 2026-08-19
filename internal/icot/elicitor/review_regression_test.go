@@ -122,3 +122,49 @@ func TestSourcePlanReusesIdenticalTargetsAndRejectsConflicts(t *testing.T) {
 		t.Fatalf("validateV2State error = %v", err)
 	}
 }
+
+func TestPromptBudgetCompactionRemainsADeferableReadinessBlocker(t *testing.T) {
+	session := Session{
+		Boundary: WorkflowBoundary{Outcome: "List items", Actor: "operator", Trigger: "on demand", SuccessEvidence: []string{"items returned"}, Confirmed: true},
+		Project:  projectwizard.Answers{Goal: "List items"},
+		Intent: rollout.Intent{
+			Workflow: &rollout.WorkflowMeta{Name: "list_items", Description: "List items"},
+			Source:   "openapi/service.json",
+			OpenAPI:  "openapi/service.json",
+			Steps: []*rollout.Step{{
+				Name: "list", Type: "http", OpenAPI: "openapi/service.json", Operation: "listItems",
+			}},
+			Outputs: []*rollout.Output{{Name: "items", From: "steps.list.response.body"}},
+		},
+		SideEffectScope: projectwizard.SideEffectReadOnly,
+		Fallback:        "stop cleanly",
+		FallbackSet:     true,
+	}
+	docs := []APIDocument{{RelativePath: "openapi/service.json", Operations: []apitools.OperationSummary{{
+		OperationID: "listItems", Method: "GET", Path: "/items",
+		ReadinessIssues: []apitools.ReadinessIssue{{Severity: "error", Code: "prompt.operation_budget", Message: "operation metadata was compacted", Remediation: "review the source directly"}},
+	}}}}
+	issues := CheckReadiness(session, docs)
+	issue := readinessIssue(issues, "prompt.operation_budget")
+	if issue.Code == "" || issue.Slot != "steps.list.source_metadata" {
+		t.Fatalf("prompt budget issue = %#v in %#v", issue, issues)
+	}
+	frontier, err := PlanFrontier(&session, docs, issues)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, question := range frontier {
+		if question.ID == nodeIDForIssue(issue) {
+			if !question.Forced {
+				t.Fatalf("prompt blocker question = %#v", question)
+			}
+			for _, node := range session.Interview.Nodes {
+				if node.ID == question.ID && node.Deferrable {
+					return
+				}
+			}
+			t.Fatalf("prompt blocker node is not deferrable: %#v", session.Interview.Nodes)
+		}
+	}
+	t.Fatalf("prompt blocker missing from frontier: %#v", frontier)
+}

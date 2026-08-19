@@ -168,6 +168,10 @@ iCoT turns a project idea into reviewed authoring artifacts. It writes `project.
 The generic interactive loop mechanics are shared through
 `github.com/OpenUdon/authoring/icot`; OpenUdon still owns the prompts, intent
 schema, artifact layout, model/provider clients, reports, and package gates.
+Reviewed API authentication is preserved as OR alternatives of AND symbolic
+bindings through `authoring.prompt-context.v2`. iCoT requires one numbered
+selection before request mappings, supports an explicit anonymous alternative,
+and never unions credentials or stores credential values.
 
 ```bash
 go run ./cmd/icot --example ./examples/<name>

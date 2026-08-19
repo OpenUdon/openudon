@@ -207,7 +207,7 @@ func operationHasRequiredInputs(op apitools.OperationSummary) bool {
 }
 
 func operationRequiresSecurity(op apitools.OperationSummary) bool {
-	return len(op.Security) > 0
+	return apitools.OperationNeedsCredential(op)
 }
 
 func responseFieldMatchesRequestField(responseField, requestField string) bool {

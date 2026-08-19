@@ -538,19 +538,23 @@ func TestDraftPromptRequestIncludesSecurityCredentialFields(t *testing.T) {
 	op := promptOperation(t, DraftRequest{Docs: []APIDocument{{
 		RelativePath: "openapi/support.yaml",
 		Operations: []apitools.OperationSummary{{
-			OperationID: "getTicket",
-			Method:      "GET",
-			Path:        "/tickets/{ticketId}",
-			Security:    securitySummaries("BearerAuth", "ApiKeyAuth"),
+			OperationID:             "getTicket",
+			Method:                  "GET",
+			Path:                    "/tickets/{ticketId}",
+			SecurityRequirementSets: securitySummaries("BearerAuth", "ApiKeyAuth"),
 		}},
 	}}})
 
 	security := op.Security
-	if !containsString(security.Schemes, "ApiKeyAuth") || !containsString(security.Schemes, "BearerAuth") {
-		t.Fatalf("security schemes = %#v", security.Schemes)
+	if len(security.Alternatives) != 1 {
+		t.Fatalf("security alternatives = %#v", security.Alternatives)
 	}
-	if !containsString(security.CredentialFields, "api_key_auth") || !containsString(security.CredentialFields, "Authorization") {
-		t.Fatalf("credential fields = %#v", security.CredentialFields)
+	alternative := security.Alternatives[0]
+	if !containsString(alternative.Schemes, "ApiKeyAuth") || !containsString(alternative.Schemes, "BearerAuth") {
+		t.Fatalf("security schemes = %#v", alternative.Schemes)
+	}
+	if !containsString(alternative.CredentialFields, "api_key_auth") || !containsString(alternative.CredentialFields, "Authorization") {
+		t.Fatalf("credential fields = %#v", alternative.CredentialFields)
 	}
 }
 
@@ -792,10 +796,10 @@ func containsString(values []string, want string) bool {
 	return false
 }
 
-func securitySummaries(names ...string) []apitools.SecuritySummary {
-	out := make([]apitools.SecuritySummary, 0, len(names))
+func securitySummaries(names ...string) []apitools.SecurityRequirementSetSummary {
+	requirements := make([]apitools.SecuritySummary, 0, len(names))
 	for _, name := range names {
-		out = append(out, apitools.SecuritySummary{Name: name})
+		requirements = append(requirements, apitools.SecuritySummary{Name: name})
 	}
-	return out
+	return []apitools.SecurityRequirementSetSummary{{Requirements: requirements}}
 }

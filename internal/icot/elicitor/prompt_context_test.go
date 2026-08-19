@@ -19,12 +19,12 @@ func TestPromptContextFromAPIDocumentsMapsOperationAndCredentials(t *testing.T) 
 			Tags:        []string{"tickets"},
 			Score:       42,
 			Provenance:  "openapi",
-			Security: []apitools.SecuritySummary{{
+			SecurityRequirementSets: []apitools.SecurityRequirementSetSummary{{Requirements: []apitools.SecuritySummary{{
 				Name:        "BearerAuth",
 				Type:        "http",
 				Scheme:      "bearer",
 				Description: "Bearer token binding.",
-			}},
+			}}}},
 			RequestBody: &apitools.RequestBodySummary{
 				ContentTypes:       []string{"application/json"},
 				RequiredFieldPaths: []string{"comment.body"},
@@ -48,8 +48,8 @@ func TestPromptContextFromAPIDocumentsMapsOperationAndCredentials(t *testing.T) 
 	if op.ID != "openapi/support.yaml#getTicket" || op.SourceID != "openapi/support.yaml" || op.OperationID != "getTicket" || op.Verb != "GET" || op.Confidence != "ranked" {
 		t.Fatalf("operation = %#v", op)
 	}
-	if len(op.CredentialBindings) != 1 || op.CredentialBindings[0] != "BearerAuth" {
-		t.Fatalf("operation credentials = %#v", op.CredentialBindings)
+	if len(op.CredentialBindingSets) != 1 || len(op.CredentialBindingSets[0].Bindings) != 1 || op.CredentialBindingSets[0].Bindings[0] != "BearerAuth" {
+		t.Fatalf("operation credential alternatives = %#v", op.CredentialBindingSets)
 	}
 	if len(ctx.Credentials) != 1 || ctx.Credentials[0].Name != "BearerAuth" || ctx.Credentials[0].Kind != "http" {
 		t.Fatalf("credentials = %#v", ctx.Credentials)

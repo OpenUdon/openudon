@@ -8,4 +8,3 @@
 // intentionally validation-first: generated artifacts are treated as untrusted
 // until quality checks and review handoff gates pass.
 package synthesize
-

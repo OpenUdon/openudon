@@ -1205,6 +1205,16 @@ func applyProgressiveAnswer(session *Session, plan QuestionPlan, answer string, 
 			Reason:               "User selected the API source document.",
 			RequiresConfirmation: false,
 		})
+	case strings.Contains(slotText, "security_alternative"):
+		target := targetStepForPlan(session, plan)
+		if target == nil {
+			return
+		}
+		op, ok := operationForStep(*session, docs, target)
+		if !ok {
+			return
+		}
+		selectSecurityAlternative(session, target, op, answer)
 	case strings.Contains(slotText, "authentication_flow"):
 		doc, operation := selectBrowserAuthenticationFlow(answer, docs)
 		if operation == nil {
@@ -1609,7 +1619,7 @@ func deterministicPrefill(session *Session, docs []APIDocument) bool {
 		if !ok {
 			return
 		}
-		for _, field := range missingRequiredFields(step, op) {
+		for _, field := range missingRequiredFields(*session, step, op) {
 			if looksCredentialField(field, op) {
 				if len(session.Credentials) != 1 {
 					continue
@@ -1779,7 +1789,7 @@ func addOpenWeatherMapGeocodePrework(session *Session, docs []APIDocument, weath
 		return false
 	}
 	missing := map[string]bool{}
-	for _, field := range missingRequiredFields(weatherStep, weatherOp) {
+	for _, field := range missingRequiredFields(*session, weatherStep, weatherOp) {
 		missing[field] = true
 	}
 	if !missing["lat"] || !missing["lon"] {
@@ -1911,7 +1921,7 @@ func addDeterministicCredentialMappings(session *Session, docs []APIDocument, st
 	}
 	changed := false
 	source := "credentials." + credential
-	for _, field := range requiredMappingFields(op) {
+	for _, field := range requiredMappingFieldsForStep(*session, step, op) {
 		if !suggestedCredentialField(field, op) && !apiKeyParameterField(field, op) {
 			continue
 		}
@@ -1936,7 +1946,7 @@ func apiKeyParameterField(field string, op *apitools.OperationSummary) bool {
 	if op == nil {
 		return false
 	}
-	for _, security := range op.Security {
+	for _, security := range allSecurityRequirements(op) {
 		if strings.EqualFold(security.Type, "apiKey") && strings.TrimSpace(security.ParameterName) != "" && field == security.ParameterName {
 			return true
 		}
@@ -1948,13 +1958,17 @@ func skippableSecurityAliasField(field string, op *apitools.OperationSummary) bo
 	if op == nil {
 		return false
 	}
-	for _, security := range op.Security {
+	for _, security := range allSecurityRequirements(op) {
 		parameterName := strings.TrimSpace(security.ParameterName)
 		if parameterName == "" {
 			continue
 		}
 		if field == apitools.SecurityCredentialFieldName(security) && field != parameterName {
-			return true
+			for _, required := range apitools.RequiredRequestFields(*op) {
+				if required == parameterName {
+					return true
+				}
+			}
 		}
 	}
 	return false
@@ -2333,7 +2347,7 @@ func operationForStep(session Session, docs []APIDocument, step *rollout.Step) (
 	return nil, false
 }
 
-func missingRequiredFields(step *rollout.Step, op *apitools.OperationSummary) []string {
+func missingRequiredFields(session Session, step *rollout.Step, op *apitools.OperationSummary) []string {
 	available := map[string]bool{}
 	for field, value := range step.With {
 		if strings.TrimSpace(value) != "" {
@@ -2351,7 +2365,7 @@ func missingRequiredFields(step *rollout.Step, op *apitools.OperationSummary) []
 		}
 	}
 	var missing []string
-	for _, field := range requiredMappingFields(op) {
+	for _, field := range requiredMappingFieldsForStep(session, step, op) {
 		if !available[field] {
 			missing = append(missing, field)
 		}
@@ -2363,21 +2377,29 @@ func requiredMappingFields(op *apitools.OperationSummary) []string {
 	if op == nil {
 		return nil
 	}
-	var out []string
-	for _, field := range apitools.RequiredOperationFields(*op) {
+	return apitools.RequiredRequestFields(*op)
+}
+
+func requiredMappingFieldsForStep(session Session, step *rollout.Step, op *apitools.OperationSummary) []string {
+	out := requiredMappingFields(op)
+	securityFields, selected := selectedSecurityCredentialFields(session, step, op)
+	if !selected {
+		return out
+	}
+	for _, field := range securityFields {
 		if skippableSecurityAliasField(field, op) {
 			continue
 		}
 		out = append(out, field)
 	}
-	return out
+	return dedupeStrings(out)
 }
 
 func validateOpenAPIRequestMappings(session Session, step *rollout.Step, op *apitools.OperationSummary, slotPrefix string) []ReadinessIssue {
 	if step == nil || op == nil {
 		return nil
 	}
-	fields := openAPIRequestFieldTypes(op)
+	fields := openAPIRequestFieldTypes(session, step, op)
 	credentialSet := map[string]bool{}
 	for _, credential := range session.Credentials {
 		if credential != "" {
@@ -2439,15 +2461,29 @@ type openAPIRequestFieldInfo struct {
 	Body bool
 }
 
-func openAPIRequestFieldTypes(op *apitools.OperationSummary) map[string]openAPIRequestFieldInfo {
+func openAPIRequestFieldTypes(session Session, step *rollout.Step, op *apitools.OperationSummary) map[string]openAPIRequestFieldInfo {
 	out := map[string]openAPIRequestFieldInfo{}
 	if op == nil {
 		return out
 	}
-	for field, info := range apitools.OperationRequestFieldTypes(*op) {
-		out[field] = openAPIRequestFieldInfo{Type: info.Type, Body: info.Body}
+	for _, parameter := range op.Parameters {
+		if field := strings.TrimSpace(parameter.Name); field != "" {
+			out[field] = openAPIRequestFieldInfo{Type: parameter.Type}
+		}
 	}
-	for _, field := range apitools.RequiredOperationFields(*op) {
+	if op.RequestBody != nil {
+		for _, bodyField := range op.RequestBody.Fields {
+			if field := strings.TrimSpace(bodyField.Path); field != "" {
+				out[field] = openAPIRequestFieldInfo{Type: bodyField.Type, Body: true}
+			}
+		}
+	}
+	if fields, selected := selectedSecurityCredentialFields(session, step, op); selected {
+		for _, field := range fields {
+			out[field] = openAPIRequestFieldInfo{Type: "string"}
+		}
+	}
+	for _, field := range apitools.RequiredRequestFields(*op) {
 		if strings.TrimSpace(field) == "" {
 			continue
 		}
@@ -2546,6 +2582,14 @@ func isNumberLiteral(value string) bool {
 
 func operationNeedsCredential(op *apitools.OperationSummary) bool {
 	return op != nil && apitools.OperationNeedsCredential(*op)
+}
+
+func operationNeedsCredentialForStep(session Session, step *rollout.Step, op *apitools.OperationSummary) bool {
+	selected, ok := selectedSecurityAlternative(session, step, op)
+	if !ok {
+		return operationNeedsCredential(op)
+	}
+	return len(selected.Requirements) > 0
 }
 
 func missingRuntimeInputs(session Session) []string {
@@ -3080,16 +3124,27 @@ func suggestedFieldAssignments(session Session, docs []APIDocument, step *rollou
 }
 
 func suggestedCredentialName(op *apitools.OperationSummary) string {
-	if op == nil || len(op.Security) == 0 {
+	if op == nil || len(op.SecurityRequirementSets) == 0 {
 		return "api_token"
 	}
-	if name := strings.TrimSpace(op.Security[0].Name); name != "" {
-		return name
+	for _, set := range op.SecurityRequirementSets {
+		for _, requirement := range set.Requirements {
+			if name := strings.TrimSpace(requirement.Name); name != "" {
+				return name
+			}
+		}
 	}
 	return "api_token"
 }
 
 func suggestedCredentialNameForOperation(session Session, docs []APIDocument, step *rollout.Step, op *apitools.OperationSummary) string {
+	if selected, ok := selectedSecurityAlternative(session, step, op); ok {
+		for _, requirement := range selected.Requirements {
+			if name := strings.TrimSpace(requirement.Name); name != "" {
+				return name
+			}
+		}
+	}
 	if name := suggestedCredentialName(op); name != "" && name != "api_token" {
 		return name
 	}
@@ -3185,10 +3240,10 @@ func requestFieldDescription(op *apitools.OperationSummary, field string) string
 }
 
 func suggestedCredentialField(field string, op *apitools.OperationSummary) bool {
-	if op == nil || len(op.Security) == 0 {
+	if op == nil || len(op.SecurityRequirementSets) == 0 {
 		return false
 	}
-	for _, security := range op.Security {
+	for _, security := range allSecurityRequirements(op) {
 		if field == apitools.SecurityCredentialFieldName(security) {
 			return true
 		}
@@ -3458,7 +3513,11 @@ func fillCredentialFields(session *Session, docs []APIDocument, credential strin
 		if step.With == nil {
 			step.With = map[string]string{}
 		}
-		for _, field := range apitools.RequiredOperationFields(*op) {
+		securityFields, selected := selectedSecurityCredentialFields(*session, step, op)
+		if !selected {
+			return
+		}
+		for _, field := range securityFields {
 			if step.With[field] == "" && looksCredentialField(field, op) {
 				step.With[field] = "credentials." + credential
 				addMappingClassification(session, MappingClassification{
@@ -3480,7 +3539,7 @@ func looksCredentialField(field string, op *apitools.OperationSummary) bool {
 	if strings.Contains(lowerField, "auth") || strings.Contains(lowerField, "token") || strings.Contains(lowerField, "key") {
 		return true
 	}
-	for _, security := range op.Security {
+	for _, security := range allSecurityRequirements(op) {
 		if field == apitools.SecurityCredentialFieldName(security) {
 			return true
 		}

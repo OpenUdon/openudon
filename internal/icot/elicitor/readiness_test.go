@@ -14,9 +14,9 @@ func TestCheckReadinessRepresentativeCodeTriggers(t *testing.T) {
 		Parameters:  []apitools.ParameterSummary{{Name: "ticketId", Required: true, Type: "string"}},
 	}}}}
 	secureDoc := []APIDocument{{RelativePath: "openapi/support.yaml", Operations: []apitools.OperationSummary{{
-		OperationID: "getTicket",
-		Parameters:  []apitools.ParameterSummary{{Name: "ticketId", Required: true, Type: "string"}},
-		Security:    securitySummaries("BearerAuth"),
+		OperationID:             "getTicket",
+		Parameters:              []apitools.ParameterSummary{{Name: "ticketId", Required: true, Type: "string"}},
+		SecurityRequirementSets: securitySummaries("BearerAuth"),
 	}}}}
 
 	cases := []struct {
@@ -82,7 +82,7 @@ func TestCheckReadinessRepresentativeMappingCodes(t *testing.T) {
 			{Name: "ticketId", Required: true, Type: "string"},
 			{Name: "page", Type: "integer"},
 		},
-		Security: securitySummaries("BearerAuth"),
+		SecurityRequirementSets: securitySummaries("BearerAuth"),
 		RequestBody: &apitools.RequestBodySummary{Fields: []apitools.RequestFieldSummary{
 			{Path: "customer.email", Type: "string"},
 		}},

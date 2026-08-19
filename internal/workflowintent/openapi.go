@@ -30,16 +30,16 @@ type OpenAPISpecContext struct {
 }
 
 type OperationInfo struct {
-	OperationID string
-	Method      string
-	Path        string
-	Summary     string
-	Description string
-	Parameters  []*ParameterInfo
-	RequestBody *RequestBodyInfo
-	Responses   map[string]*ResponseInfo
-	Security    []string
-	Tags        []string
+	OperationID          string
+	Method               string
+	Path                 string
+	Summary              string
+	Description          string
+	Parameters           []*ParameterInfo
+	RequestBody          *RequestBodyInfo
+	Responses            map[string]*ResponseInfo
+	SecurityAlternatives [][]string
+	Tags                 []string
 }
 
 type ParameterInfo struct {
@@ -100,10 +100,14 @@ func LoadOpenAPISpec(path string) (*OpenAPISpec, error) {
 				Schema:      schemaSummaryToMap(op.RequestBody.Schema),
 			}
 		}
-		for _, security := range op.Security {
-			if security.Name != "" {
-				info.Security = append(info.Security, security.Name)
+		for _, set := range op.SecurityRequirementSets {
+			alternative := []string{}
+			for _, security := range set.Requirements {
+				if security.Name != "" {
+					alternative = append(alternative, security.Name)
+				}
 			}
+			info.SecurityAlternatives = append(info.SecurityAlternatives, alternative)
 		}
 		spec.Operations = append(spec.Operations, info)
 	}

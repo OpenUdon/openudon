@@ -943,9 +943,9 @@ func TestDeterministicPrefillUsesSingleCredentialBinding(t *testing.T) {
 	session.CredentialsSet = true
 	session.Intent.Steps[0].With = map[string]string{"ticketId": "inputs.ticketId"}
 	docs := []APIDocument{{RelativePath: "openapi/support.yaml", Operations: []apitools.OperationSummary{{
-		OperationID: "getTicket",
-		Parameters:  []apitools.ParameterSummary{{Name: "ticketId", Required: true}},
-		Security:    securitySummaries("BearerAuth"),
+		OperationID:             "getTicket",
+		Parameters:              []apitools.ParameterSummary{{Name: "ticketId", Required: true}},
+		SecurityRequirementSets: securitySummaries("BearerAuth"),
 	}}}}
 
 	if !deterministicPrefill(&session, docs) {
@@ -965,9 +965,9 @@ func TestDeterministicPrefillLeavesAmbiguousCredentialUnfilled(t *testing.T) {
 	session.CredentialsSet = true
 	session.Intent.Steps[0].With = map[string]string{"ticketId": "inputs.ticketId"}
 	docs := []APIDocument{{RelativePath: "openapi/support.yaml", Operations: []apitools.OperationSummary{{
-		OperationID: "getTicket",
-		Parameters:  []apitools.ParameterSummary{{Name: "ticketId", Required: true}},
-		Security:    securitySummaries("BearerAuth"),
+		OperationID:             "getTicket",
+		Parameters:              []apitools.ParameterSummary{{Name: "ticketId", Required: true}},
+		SecurityRequirementSets: securitySummaries("BearerAuth"),
 	}}}}
 
 	deterministicPrefill(&session, docs)
@@ -1607,9 +1607,9 @@ func TestGroupedDefaultsUseKnownCredentialBinding(t *testing.T) {
 	session.CredentialsSet = true
 	session.Intent.Steps[0].With = map[string]string{"ticketId": "inputs.ticketId"}
 	docs := []APIDocument{{RelativePath: "openapi/support.yaml", Title: "Support API", Operations: []apitools.OperationSummary{{
-		OperationID: "getTicket",
-		Parameters:  []apitools.ParameterSummary{{Name: "ticketId", Required: true}},
-		Security:    securitySummaries("BearerAuth"),
+		OperationID:             "getTicket",
+		Parameters:              []apitools.ParameterSummary{{Name: "ticketId", Required: true}},
+		SecurityRequirementSets: securitySummaries("BearerAuth"),
 	}}}}
 
 	issue := readinessIssue(CheckReadiness(session, docs), "missing_required_request_values")
@@ -1624,9 +1624,9 @@ func TestGroupedDefaultsDeriveCredentialBindingAndAcceptAddsIt(t *testing.T) {
 	session.CredentialsSet = false
 	session.Intent.Steps[0].With = map[string]string{"ticketId": "inputs.ticketId"}
 	docs := []APIDocument{{RelativePath: "openapi/support.yaml", Title: "Support API", Operations: []apitools.OperationSummary{{
-		OperationID: "getTicket",
-		Parameters:  []apitools.ParameterSummary{{Name: "ticketId", Required: true}},
-		Security:    securitySummaries("BearerAuth"),
+		OperationID:             "getTicket",
+		Parameters:              []apitools.ParameterSummary{{Name: "ticketId", Required: true}},
+		SecurityRequirementSets: securitySummaries("BearerAuth"),
 	}}}}
 
 	issue := readinessIssue(CheckReadiness(session, docs), "missing_required_request_values")
@@ -1696,9 +1696,9 @@ func TestReadinessFlagsUndeclaredCredentialReference(t *testing.T) {
 		"Authorization": "credentials.missing_token",
 	}
 	docs := []APIDocument{{RelativePath: "openapi/support.yaml", Operations: []apitools.OperationSummary{{
-		OperationID: "getTicket",
-		Parameters:  []apitools.ParameterSummary{{Name: "ticketId", Required: true}},
-		Security:    securitySummaries("BearerAuth"),
+		OperationID:             "getTicket",
+		Parameters:              []apitools.ParameterSummary{{Name: "ticketId", Required: true}},
+		SecurityRequirementSets: securitySummaries("BearerAuth"),
 	}}}}
 
 	issues := CheckReadiness(session, docs)
@@ -1736,7 +1736,7 @@ func TestReadinessAcceptsKnownOpenAPIRequestFields(t *testing.T) {
 			{Name: "include", In: "query", Type: "string"},
 			{Name: "X-Trace-ID", In: "header", Type: "string"},
 		},
-		Security: securitySummaries("BearerAuth"),
+		SecurityRequirementSets: securitySummaries("BearerAuth"),
 	}}}}
 
 	issues := CheckReadiness(session, docs)
@@ -1766,7 +1766,7 @@ func TestReadinessAcceptsRequiredSecurityCredentialField(t *testing.T) {
 			{Name: "lat", In: "query", Required: true, Type: "number"},
 			{Name: "lon", In: "query", Required: true, Type: "number"},
 		},
-		Security: securitySummaries("OpenWeatherAPIKey"),
+		SecurityRequirementSets: securitySummaries("OpenWeatherAPIKey"),
 	}}}}
 
 	issues := CheckReadiness(session, docs)
@@ -1781,7 +1781,7 @@ func TestRequiredMappingFieldsSkipsAPIKeySecurityAliasWhenParameterNamed(t *test
 		Parameters: []apitools.ParameterSummary{
 			{Name: "appid", In: "query", Required: true, Type: "string"},
 		},
-		Security: []apitools.SecuritySummary{{Name: "openWeatherAPIKey", Type: "apiKey", In: "query", ParameterName: "appid"}},
+		SecurityRequirementSets: []apitools.SecurityRequirementSetSummary{{Requirements: []apitools.SecuritySummary{{Name: "openWeatherAPIKey", Type: "apiKey", In: "query", ParameterName: "appid"}}}},
 	}
 
 	got := requiredMappingFields(op)
@@ -1813,7 +1813,7 @@ func TestDeterministicPrefillAddsOpenWeatherMapGeocodePrework(t *testing.T) {
 				{Name: "lon", In: "query", Required: true, Type: "number"},
 				{Name: "appid", In: "query", Required: true, Type: "string"},
 			},
-			Security: []apitools.SecuritySummary{{Name: "openWeatherAPIKey", Type: "apiKey", In: "query", ParameterName: "appid"}},
+			SecurityRequirementSets: []apitools.SecurityRequirementSetSummary{{Requirements: []apitools.SecuritySummary{{Name: "openWeatherAPIKey", Type: "apiKey", In: "query", ParameterName: "appid"}}}},
 		},
 		{
 			OperationID: "geocodeOpenWeatherMapLocationName",
@@ -1821,7 +1821,7 @@ func TestDeterministicPrefillAddsOpenWeatherMapGeocodePrework(t *testing.T) {
 				{Name: "q", In: "query", Required: true, Type: "string"},
 				{Name: "appid", In: "query", Required: true, Type: "string"},
 			},
-			Security: []apitools.SecuritySummary{{Name: "openWeatherAPIKey", Type: "apiKey", In: "query", ParameterName: "appid"}},
+			SecurityRequirementSets: []apitools.SecurityRequirementSetSummary{{Requirements: []apitools.SecuritySummary{{Name: "openWeatherAPIKey", Type: "apiKey", In: "query", ParameterName: "appid"}}}},
 		},
 	}}}
 

@@ -11,7 +11,7 @@ import (
 // Authoring's product-neutral prompt-safe context shape.
 func PromptContextFromAPIDocuments(docs []APIDocument) promptcontext.Context {
 	var ctx promptcontext.Context
-	credentialSeen := map[string]bool{}
+	credentialIndexes := map[string]int{}
 	for _, doc := range docs {
 		sourceID := sourceDocumentID(doc)
 		if sourceID == "" {
@@ -30,18 +30,18 @@ func PromptContextFromAPIDocuments(docs []APIDocument) promptcontext.Context {
 				continue
 			}
 			operationContextID := sourceID + "#" + operationID
-			credentials := credentialBindingsFromSecurity(op.Security, credentialSeen, &ctx)
+			credentialSets := credentialBindingSetsFromSecurity(op.SecurityRequirementSets, credentialIndexes, &ctx)
 			ctx.Operations = append(ctx.Operations, promptcontext.OperationCandidate{
-				ID:                 operationContextID,
-				SourceID:           sourceID,
-				OperationID:        operationID,
-				Name:               operationLabel(op),
-				Verb:               op.Method,
-				Path:               op.Path,
-				Summary:            firstNonEmpty(op.Summary, op.Description),
-				CredentialBindings: credentials,
-				Tags:               append([]string(nil), op.Tags...),
-				Confidence:         promptContextConfidence(op),
+				ID:                    operationContextID,
+				SourceID:              sourceID,
+				OperationID:           operationID,
+				Name:                  operationLabel(op),
+				Verb:                  op.Method,
+				Path:                  op.Path,
+				Summary:               firstNonEmpty(op.Summary, op.Description),
+				CredentialBindingSets: credentialSets,
+				Tags:                  append([]string(nil), op.Tags...),
+				Confidence:            promptContextConfidence(op),
 				Metadata: map[string]string{
 					"provenance": op.Provenance,
 				},
@@ -66,27 +66,55 @@ func sourceDocumentKind(doc APIDocument) string {
 	return ""
 }
 
-func credentialBindingsFromSecurity(security []apitools.SecuritySummary, seen map[string]bool, ctx *promptcontext.Context) []string {
-	var names []string
-	for _, item := range security {
-		name := strings.TrimSpace(item.Name)
-		if name == "" {
-			continue
-		}
-		names = append(names, name)
-		if seen[name] {
-			continue
-		}
-		seen[name] = true
-		ctx.Credentials = append(ctx.Credentials, promptcontext.CredentialBinding{
-			Name:     name,
-			Kind:     item.Type,
-			Scope:    firstNonEmpty(item.In, item.Scheme),
-			Required: true,
-			Summary:  item.Description,
-		})
+func credentialBindingSetsFromSecurity(sets []apitools.SecurityRequirementSetSummary, indexes map[string]int, ctx *promptcontext.Context) []promptcontext.CredentialBindingSet {
+	if len(sets) == 0 {
+		return nil
 	}
-	return names
+	out := make([]promptcontext.CredentialBindingSet, 0, len(sets))
+	for _, set := range sets {
+		bindings := promptcontext.CredentialBindingSet{Bindings: []string{}}
+		for _, item := range set.Requirements {
+			name := strings.TrimSpace(item.Name)
+			if name == "" {
+				continue
+			}
+			bindings.Bindings = append(bindings.Bindings, name)
+			required := securityNameRequiredInAllAlternatives(name, sets)
+			if index, ok := indexes[name]; ok {
+				ctx.Credentials[index].Required = ctx.Credentials[index].Required && required
+				continue
+			}
+			indexes[name] = len(ctx.Credentials)
+			ctx.Credentials = append(ctx.Credentials, promptcontext.CredentialBinding{
+				Name:     name,
+				Kind:     item.Type,
+				Scope:    firstNonEmpty(item.In, item.Scheme),
+				Required: required,
+				Summary:  item.Description,
+			})
+		}
+		out = append(out, bindings)
+	}
+	return out
+}
+
+func securityNameRequiredInAllAlternatives(name string, sets []apitools.SecurityRequirementSetSummary) bool {
+	if len(sets) == 0 {
+		return false
+	}
+	for _, set := range sets {
+		found := false
+		for _, requirement := range set.Requirements {
+			if strings.TrimSpace(requirement.Name) == name {
+				found = true
+				break
+			}
+		}
+		if !found {
+			return false
+		}
+	}
+	return true
 }
 
 func promptContextConfidence(op apitools.OperationSummary) string {

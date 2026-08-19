@@ -11,11 +11,11 @@ import (
 func TestRequestFieldPlacementsExposeBearerAuthorization(t *testing.T) {
 	fields, err := requestFieldPlacements(apitools.OperationSummary{
 		OperationID: "getCustomer",
-		Security: []apitools.SecuritySummary{{
+		SecurityRequirementSets: []apitools.SecurityRequirementSetSummary{{Requirements: []apitools.SecuritySummary{{
 			Name:   "BearerAuth",
 			Type:   "http",
 			Scheme: "bearer",
-		}},
+		}}}},
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -37,12 +37,12 @@ func TestRequestFieldPlacementsKeepAmbiguousAliasesBlocked(t *testing.T) {
 			{Name: "id", In: "query"},
 		},
 		RequestBody: &apitools.RequestBodySummary{Fields: []apitools.RequestFieldSummary{{Path: "id"}}},
-		Security: []apitools.SecuritySummary{{
+		SecurityRequirementSets: []apitools.SecurityRequirementSetSummary{{Requirements: []apitools.SecuritySummary{{
 			Name:          "id",
 			Type:          "apiKey",
 			In:            "header",
 			ParameterName: "id",
-		}},
+		}}}},
 	})
 	if err != nil {
 		t.Fatal(err)

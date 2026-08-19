@@ -556,15 +556,15 @@ func uwsSourceTypeFromString(sourceType string) uws1.SourceDescriptionType {
 
 func operationSummaryInfo(op apitools.OperationSummary) *rollout.OperationInfo {
 	info := &rollout.OperationInfo{
-		OperationID: op.OperationID,
-		Method:      op.Method,
-		Path:        op.Path,
-		Summary:     op.Summary,
-		Description: op.Description,
-		Tags:        append([]string(nil), op.Tags...),
-		RequestBody: operationSummaryRequestBodyInfo(op.RequestBody),
-		Responses:   map[string]*rollout.ResponseInfo{},
-		Security:    operationSummarySecurityNames(op.Security),
+		OperationID:          op.OperationID,
+		Method:               op.Method,
+		Path:                 op.Path,
+		Summary:              op.Summary,
+		Description:          op.Description,
+		Tags:                 append([]string(nil), op.Tags...),
+		RequestBody:          operationSummaryRequestBodyInfo(op.RequestBody),
+		Responses:            map[string]*rollout.ResponseInfo{},
+		SecurityAlternatives: operationSummarySecurityAlternatives(op.SecurityRequirementSets),
 	}
 	for _, param := range op.Parameters {
 		if strings.TrimSpace(param.Name) == "" {
@@ -673,15 +673,22 @@ func schemaSummaryMap(summary *apitools.SchemaSummary) map[string]any {
 	return schema
 }
 
-func operationSummarySecurityNames(security []apitools.SecuritySummary) []string {
-	var names []string
-	for _, req := range security {
-		name := firstNonEmpty(req.Name, req.ParameterName, req.Scheme)
-		if strings.TrimSpace(name) != "" {
-			names = append(names, strings.TrimSpace(name))
-		}
+func operationSummarySecurityAlternatives(sets []apitools.SecurityRequirementSetSummary) [][]string {
+	if len(sets) == 0 {
+		return nil
 	}
-	return sortedUnique(names)
+	out := make([][]string, 0, len(sets))
+	for _, set := range sets {
+		names := []string{}
+		for _, requirement := range set.Requirements {
+			name := firstNonEmpty(requirement.Name, requirement.ParameterName, requirement.Scheme)
+			if strings.TrimSpace(name) != "" {
+				names = append(names, strings.TrimSpace(name))
+			}
+		}
+		out = append(out, sortedUnique(names))
+	}
+	return out
 }
 
 func googleDiscoveryResponses(model *googlediscovery.Model, op *googlediscovery.Operation) map[string]*rollout.ResponseInfo {
