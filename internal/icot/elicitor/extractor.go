@@ -187,7 +187,13 @@ func (e *chatExtractor) Draft(ctx context.Context, request DraftRequest) (Sessio
 	for round := 0; round <= maxDraftDetailRounds; round++ {
 		lifecyclePlan := buildOperationLifecyclePlan(request)
 		detailRefs := draftDetailRefsWithLifecyclePlan(lifecyclePlan, requested)
-		data, err := json.Marshal(draftPromptRequestWithDetails(request, detailRefs, lifecyclePlan.Hints))
+		promptRequest := draftPromptRequestWithDetails(request, detailRefs, lifecyclePlan.Hints)
+		if diagnostics, ok := promptRequest["prompt_diagnostics"].([]apitools.Diagnostic); ok {
+			if err := blockingPromptDiagnosticError(diagnostics); err != nil {
+				return Session{}, err
+			}
+		}
+		data, err := json.Marshal(promptRequest)
 		if err != nil {
 			return Session{}, err
 		}
@@ -394,11 +400,9 @@ func draftPromptRequest(request DraftRequest) map[string]any {
 }
 
 func draftPromptRequestWithDetails(request DraftRequest, detailRefs []OperationDetailRef, lifecycleHints []operationLifecyclePromptHint) map[string]any {
-	draftDocs := detailDocuments(request, detailRefs)
-	var promptDiagnostics []apitools.Diagnostic
-	if len(draftDocs) == 0 {
-		draftDocs, promptDiagnostics = rankedDraftDocuments(request)
-	}
+	draftDocs, promptDiagnostics := rankedDraftDocumentsWithRefs(request, detailRefs, 0)
+	catalogDocs, catalogDiagnostics := rankedDraftDocumentsWithRefs(request, detailRefs, maxDraftCatalogCandidates)
+	promptDiagnostics = append(promptDiagnostics, catalogDiagnostics...)
 	docs := make([]map[string]any, 0, len(draftDocs))
 	for _, doc := range draftDocs {
 		ops := make([]operationPromptContext, 0, len(doc.Operations))
@@ -418,7 +422,7 @@ func draftPromptRequestWithDetails(request DraftRequest, detailRefs []OperationD
 		"docs":               docs,
 		"prompt_context":     PromptContextFromAPIDocuments(draftDocs),
 		"lifecycle_hints":    lifecycleHints,
-		"operation_catalog":  operationCatalog(request.Docs),
+		"operation_catalog":  operationCatalog(catalogDocs),
 		"transcript_turns":   request.TranscriptTurns,
 		"readiness_feedback": request.ReadinessFeedback,
 		"prompt_diagnostics": promptDiagnostics,

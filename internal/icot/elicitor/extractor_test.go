@@ -258,7 +258,7 @@ func TestDraftPromptRequestIncludesFullCatalogButOnlySelectedDetails(t *testing.
 	if len(catalog) != 1 || len(catalog[0].Operations) != 15 {
 		t.Fatalf("catalog = %#v", catalog)
 	}
-	if catalog[0].Operations[14].OperationID != "operation14" {
+	if !catalogContainsOperation(catalog, "operation14") {
 		t.Fatalf("catalog missing selected operation: %#v", catalog[0].Operations)
 	}
 	encoded, err := json.Marshal(catalog)
@@ -270,6 +270,71 @@ func TestDraftPromptRequestIncludesFullCatalogButOnlySelectedDetails(t *testing.
 			t.Fatalf("catalog includes detailed field %q: %s", forbidden, encoded)
 		}
 	}
+}
+
+func TestDraftPromptRequestSanitizesAndBoundsSourceContext(t *testing.T) {
+	request := DraftRequest{Docs: []APIDocument{{
+		RelativePath: "openapi/many.yaml",
+		Title:        "\x1b[31m" + strings.Repeat("unsafe", apitools.DefaultPromptTextRunes),
+		Operations:   numberedOperations(300),
+	}}}
+	payload := draftPromptRequest(request)
+	docs := payload["docs"].([]map[string]any)
+	if len(docs) == 0 || strings.Contains(docs[0]["title"].(string), "\x1b") {
+		t.Fatalf("source title was not sanitized: %#v", docs)
+	}
+	catalog := payload["operation_catalog"].([]operationCatalogDocumentContext)
+	count := 0
+	for _, doc := range catalog {
+		count += len(doc.Operations)
+	}
+	if count > maxDraftCatalogCandidates+maxDraftOperationCandidates {
+		t.Fatalf("catalog operations = %d, want at most %d", count, maxDraftCatalogCandidates+maxDraftOperationCandidates)
+	}
+	diagnostics := payload["prompt_diagnostics"].([]apitools.Diagnostic)
+	if !hasAPIToolsDiagnostic(diagnostics, "prompt.document_sanitized") || !hasAPIToolsDiagnostic(diagnostics, "prompt.operation_limit") {
+		t.Fatalf("prompt diagnostics = %#v", diagnostics)
+	}
+}
+
+func TestDraftPromptRequestBlocksCompactedSecurityContext(t *testing.T) {
+	op := apitools.OperationSummary{OperationID: "protected", Method: "GET", Path: "/protected"}
+	for i := 0; i <= apitools.DefaultPromptCollectionItems; i++ {
+		op.SecurityRequirementSets = append(op.SecurityRequirementSets, apitools.SecurityRequirementSetSummary{
+			Requirements: []apitools.SecuritySummary{{Name: fmt.Sprintf("scheme%d", i), Type: "apiKey"}},
+		})
+	}
+	payload := draftPromptRequest(DraftRequest{Docs: []APIDocument{{
+		RelativePath: "openapi/protected.yaml",
+		Operations:   []apitools.OperationSummary{op},
+	}}})
+	diagnostics := payload["prompt_diagnostics"].([]apitools.Diagnostic)
+	if !hasAPIToolsDiagnostic(diagnostics, "prompt.operation_budget") {
+		t.Fatalf("prompt diagnostics = %#v", diagnostics)
+	}
+	if err := blockingPromptDiagnosticError(diagnostics); err == nil {
+		t.Fatal("compacted security context did not block drafting")
+	}
+}
+
+func hasAPIToolsDiagnostic(diagnostics []apitools.Diagnostic, code string) bool {
+	for _, diagnostic := range diagnostics {
+		if diagnostic.Code == code {
+			return true
+		}
+	}
+	return false
+}
+
+func catalogContainsOperation(catalog []operationCatalogDocumentContext, operationID string) bool {
+	for _, doc := range catalog {
+		for _, operation := range doc.Operations {
+			if operation.OperationID == operationID {
+				return true
+			}
+		}
+	}
+	return false
 }
 
 func TestDraftPromptRequestIncludesLifecycleHints(t *testing.T) {

@@ -20,6 +20,9 @@ const (
 	// Keep draft prompts compact enough for small models while still exposing a
 	// useful local operation shortlist.
 	maxDraftOperationCandidates = 12
+	// Keep the label-only discovery catalog broad but finite. Detailed source
+	// context remains governed by Apitools' aggregate prompt budget.
+	maxDraftCatalogCandidates = 128
 	// Bound LLM-requested detail expansion so one draft cannot pull the whole
 	// local API catalog into prompt context.
 	maxDraftRequestedOperations = 5
@@ -289,13 +292,17 @@ func discoverLocalAWSSmithyAPIs(exampleDir string) ([]APIDocument, error) {
 			return nil, err
 		}
 		rel = filepath.ToSlash(rel)
+		operations, err := promptSafeOperations(awsSmithyOperationSummaries(rel, model))
+		if err != nil {
+			return nil, fmt.Errorf("sanitize AWS Smithy %s: %w", path, err)
+		}
 		docs = append(docs, APIDocument{
 			ID:           strings.TrimSuffix(filepath.Base(path), filepath.Ext(path)),
 			Path:         path,
 			RelativePath: rel,
 			Title:        firstNonEmpty(model.Title, model.ServiceID, model.AWSServiceID),
 			Description:  model.Description,
-			Operations:   awsSmithyOperationSummaries(rel, model),
+			Operations:   operations,
 		})
 	}
 	return docs, nil
@@ -337,6 +344,10 @@ func discoverLocalAsyncAPIs(exampleDir string) ([]APIDocument, error) {
 		operations, err := apitools.ParseAsyncAPIOperationSummaries(data, rel)
 		if err != nil {
 			return fmt.Errorf("parse AsyncAPI %s: %w", path, err)
+		}
+		operations, err = promptSafeOperations(operations)
+		if err != nil {
+			return fmt.Errorf("sanitize AsyncAPI %s: %w", path, err)
 		}
 		docs = append(docs, APIDocument{
 			ID:           strings.TrimSuffix(filepath.Base(path), filepath.Ext(path)),
@@ -391,13 +402,17 @@ func discoverLocalGoogleDiscoveryAPIs(exampleDir string) ([]APIDocument, error) 
 			if err != nil {
 				return nil, err
 			}
+			operations, err := promptSafeOperations(googleDiscoveryOperationSummaries(filepath.ToSlash(rel), model))
+			if err != nil {
+				return nil, fmt.Errorf("sanitize Google Discovery %s: %w", path, err)
+			}
 			doc := APIDocument{
 				ID:           strings.TrimSuffix(filepath.Base(path), filepath.Ext(path)),
 				Path:         path,
 				RelativePath: filepath.ToSlash(rel),
 				Title:        firstNonEmpty(model.Title, model.Name),
 				Description:  model.Description,
-				Operations:   googleDiscoveryOperationSummaries(filepath.ToSlash(rel), model),
+				Operations:   operations,
 			}
 			docs = append(docs, doc)
 		}
@@ -684,12 +699,35 @@ func operationCatalog(docs []APIDocument) []operationCatalogDocumentContext {
 }
 
 func rankedDraftDocuments(request DraftRequest) ([]APIDocument, []apitools.Diagnostic) {
+	return rankedDraftDocumentsWithRefs(request, selectedOperationDetailRefs(request.Session), maxDraftOperationCandidates)
+}
+
+func rankedDraftDocumentsWithRefs(request DraftRequest, refs []OperationDetailRef, limit int) ([]APIDocument, []apitools.Diagnostic) {
+	selected := make([]apitools.AuthoringOperationRef, 0, len(refs))
+	for _, ref := range refs {
+		selected = append(selected, apitools.AuthoringOperationRef{
+			DocumentPath: ref.DocumentPath,
+			OperationID:  ref.OperationID,
+		})
+	}
+	if len(selected) > 0 && limit == 0 {
+		limit = -1
+	}
 	report, _ := apitools.RankAuthoringAPIDocuments(request.Docs, apitools.AuthoringOperationRankingOptions{
 		Query:              draftRankingText(request),
-		SelectedOperations: selectedOperationRefs(request.Session),
-		Limit:              maxDraftOperationCandidates,
+		SelectedOperations: selected,
+		Limit:              limit,
 	})
 	return report.Documents, report.Diagnostics
+}
+
+func selectedOperationDetailRefs(session Session) []OperationDetailRef {
+	refs := selectedOperationRefs(session)
+	out := make([]OperationDetailRef, 0, len(refs))
+	for _, ref := range refs {
+		out = append(out, OperationDetailRef{DocumentPath: ref.DocumentPath, OperationID: ref.OperationID})
+	}
+	return out
 }
 
 type operationRankCandidate struct {
