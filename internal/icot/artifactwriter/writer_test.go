@@ -251,8 +251,10 @@ func TestPrepareRejectsReservedAndOverlappingSourceTargets(t *testing.T) {
 		{name: "case-folded-icot-state", targets: []string{".ICOT/copied.json"}, want: "reserved"},
 		{name: "project", targets: []string{"project.md"}, want: "reserved"},
 		{name: "case-folded-project", targets: []string{"PROJECT.MD"}, want: "reserved"},
+		{name: "normalized-project", targets: []string{"workflows/../project.md"}, want: "reserved"},
 		{name: "final-intent", targets: []string{"workflows/intent.hcl"}, want: "reserved"},
 		{name: "draft-intent", targets: []string{"workflows/intent.draft.hcl"}, want: "reserved"},
+		{name: "normalized-icot-state", targets: []string{".icot/../.icot/session.yaml"}, want: "reserved"},
 		{name: "duplicate", targets: []string{"openapi/source.json", "openapi/./source.json"}, want: "duplicate or case-insensitive-equivalent"},
 		{name: "case-folded", targets: []string{"openapi/Source.json", "OPENAPI/source.JSON"}, want: "duplicate or case-insensitive-equivalent"},
 		{name: "ancestor-descendant", targets: []string{"openapi/source", "openapi/source/schema.json"}, want: "overlapping ancestor and descendant"},
@@ -273,6 +275,48 @@ func TestPrepareRejectsReservedAndOverlappingSourceTargets(t *testing.T) {
 			}
 			if _, statErr := os.Lstat(root); !errors.Is(statErr, os.ErrNotExist) {
 				t.Fatalf("rejected source plan left filesystem residue: %v", statErr)
+			}
+		})
+	}
+}
+
+func TestRootOutputErrorsAreDistinctFromOutsidePaths(t *testing.T) {
+	root := t.TempDir()
+	outside := filepath.Join(filepath.Dir(root), "outside.txt")
+	tests := []struct {
+		name     string
+		err      error
+		want     string
+		dontWant string
+	}{
+		{
+			name: "transaction-root",
+			err:  validateDistinctOutputPaths(root, []string{root}, "prepared transaction"),
+			want: "must not be the canonical example root itself", dontWant: "outside",
+		},
+		{
+			name: "output-root",
+			err:  validateOutputPath(root, root, false),
+			want: "must not be the canonical example root itself", dontWant: "outside",
+		},
+		{
+			name: "transaction-outside",
+			err:  validateDistinctOutputPaths(root, []string{outside}, "prepared transaction"),
+			want: "outside the canonical example root",
+		},
+		{
+			name: "output-outside",
+			err:  validateOutputPath(root, outside, false),
+			want: "outside the canonical example root",
+		},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			if test.err == nil || !strings.Contains(test.err.Error(), test.want) {
+				t.Fatalf("error = %v, want %q", test.err, test.want)
+			}
+			if test.dontWant != "" && strings.Contains(test.err.Error(), test.dontWant) {
+				t.Fatalf("error = %v, do not want %q", test.err, test.dontWant)
 			}
 		})
 	}

@@ -193,6 +193,8 @@ func Prepare(exampleDir string, artifacts elicitor.Artifacts, force bool, at tim
 	if err != nil {
 		return Prepared{}, err
 	}
+	// Reject ambiguous supplied plans before normalization can coalesce
+	// duplicate entries, then validate the exact revalidated plan below.
 	if err := validateSourceMaterializationTargets(exampleRoot, artifacts.Session.SourcePlan); err != nil {
 		return Prepared{}, err
 	}
@@ -202,6 +204,9 @@ func Prepare(exampleDir string, artifacts elicitor.Artifacts, force bool, at tim
 		return Prepared{}, fmt.Errorf("revalidate browser verification evidence: %w", err)
 	}
 	artifacts.Session.SourcePlan = revalidatedSources
+	if err := validateSourceMaterializationTargets(exampleRoot, artifacts.Session.SourcePlan); err != nil {
+		return Prepared{}, err
+	}
 	if err := elicitor.ValidateBrowserVerificationCoverage(artifacts.Session); err != nil {
 		return Prepared{}, fmt.Errorf("validate browser verification evidence: %w", err)
 	}
@@ -713,7 +718,10 @@ func validateDistinctOutputPaths(root string, paths []string, planName string) e
 			return err
 		}
 		abs = filepath.Clean(abs)
-		if abs == root || !pathWithin(root, abs) {
+		if abs == root {
+			return fmt.Errorf("%s output path %s must not be the canonical example root itself", planName, path)
+		}
+		if !pathWithin(root, abs) {
 			return fmt.Errorf("%s output path %s is outside the canonical example root", planName, path)
 		}
 		relative, err := filepath.Rel(root, abs)
@@ -938,7 +946,10 @@ func validateOutputPath(root, path string, createParents bool) error {
 		return err
 	}
 	abs = filepath.Clean(abs)
-	if abs == root || !pathWithin(root, abs) {
+	if abs == root {
+		return fmt.Errorf("output path %s must not be the canonical example root itself", path)
+	}
+	if !pathWithin(root, abs) {
 		return fmt.Errorf("output path %s is outside the canonical example root", path)
 	}
 	parent := filepath.Dir(abs)

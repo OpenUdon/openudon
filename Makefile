@@ -90,6 +90,8 @@ browser-scenario-public:
 	$(GO) run ./cmd/openudon browser-scenario-eval --verify "$(OPENUDON_BROWSER_SCENARIO_PUBLIC_OUT)"
 
 icot-ui-browser-check:
+	@test -n "$$($(GO) test -tags=icot_ui_browser -list '^TestPhaseCBrowser' ./internal/icot/ui | grep '^TestPhaseCBrowser')" \
+		|| { echo "icot-ui-browser-check: no TestPhaseCBrowser tests found (build tag or file missing)"; exit 1; }
 	$(GO) test -tags=icot_ui_browser ./internal/icot/ui -run '^TestPhaseCBrowser' -count=1 -timeout=3m
 
 eval-seed-build:
