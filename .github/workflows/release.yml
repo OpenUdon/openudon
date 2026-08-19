@@ -81,6 +81,9 @@ jobs:
             test "$(sysctl -n kernel.unprivileged_userns_clone)" = "1"
           fi
 
+      - name: Run required iCoT UI browser qualification
+        run: make icot-ui-browser-check
+
       - name: Run required deterministic loopback suite
         run: |
           mkdir -p eval/runs/browser-scenario-release

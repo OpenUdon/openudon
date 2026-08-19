@@ -3,8 +3,11 @@ package engine
 import (
 	"bytes"
 	"context"
+	"crypto/sha256"
 	"encoding/json"
 	"errors"
+	"fmt"
+	"io"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -97,6 +100,32 @@ func TestSnapshotDoesNotWriteDeliverables(t *testing.T) {
 		t.Fatal(err)
 	}
 	assertNoDeliverables(t, example)
+}
+
+func TestSnapshotReportsAcceptedBaselineWriteConflicts(t *testing.T) {
+	example := filepath.Join(t.TempDir(), "conflicted-preview")
+	if err := os.MkdirAll(example, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	project := filepath.Join(example, "project.md")
+	if err := os.WriteFile(project, []byte("existing project\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	_, snapshot, err := Open(context.Background(), Config{ExampleDir: example, FromExample: runtimeFixture(t), NetworkPolicy: "never"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(snapshot.WriteConflicts) != 1 {
+		t.Fatalf("write conflicts = %#v", snapshot.WriteConflicts)
+	}
+	conflict := snapshot.WriteConflicts[0]
+	if conflict.Code != "overwrite_required" || conflict.Action != "write" || conflict.Path != project {
+		t.Fatalf("write conflict = %#v", conflict)
+	}
+	data, err := os.ReadFile(project)
+	if err != nil || string(data) != "existing project\n" {
+		t.Fatalf("conflict inspection changed project = %q, %v", data, err)
+	}
 }
 
 func TestApplyRoundRejectsInvalidAnswerSets(t *testing.T) {
@@ -562,6 +591,145 @@ func TestWorkspaceInspectionRejectsUnsafeWatchedPath(t *testing.T) {
 		t.Fatal("unsafe watched path was accepted")
 	} else if class, _ := FailureDetails(err); class != FailureOperational {
 		t.Fatalf("unsafe path class = %s, error %v", class, err)
+	}
+}
+
+func TestMutationObservationIsBoundedToWatchedAndCandidateTargets(t *testing.T) {
+	example := filepath.Join(t.TempDir(), "bounded-observation")
+	eng, _, err := Open(context.Background(), Config{ExampleDir: example, FromExample: runtimeFixture(t), NetworkPolicy: "never"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.MkdirAll(filepath.Join(example, "unrelated"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	unrelated := filepath.Join(example, "unrelated", "large-or-private.bin")
+	if err := os.WriteFile(unrelated, []byte("must not be observed\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	candidate := filepath.Join(example, "openapi", "candidate.json")
+	if err := os.MkdirAll(filepath.Dir(candidate), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(candidate, []byte("candidate baseline\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	eng.discovery.Plans = append(eng.discovery.Plans, elicitor.SourceMaterialization{TargetPath: "openapi/candidate.json"})
+
+	observation, err := eng.observeMutationWorkspaceLocked(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, ok := observation.entries[unrelated]; ok {
+		t.Fatalf("unrelated workspace file was observed: %s", unrelated)
+	}
+	if entry, ok := observation.entries[candidate]; !ok || entry.Type != "regular" {
+		t.Fatalf("candidate target observation = %#v, present %t", entry, ok)
+	}
+
+	accepted := acceptedFingerprint(append(eng.watchedPaths, candidate), eng.workspaceBaseline, observation)
+	if err := os.WriteFile(candidate, []byte("candidate changed\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if class, code := FailureDetails(compareWorkspace(example, append(eng.watchedPaths, candidate), accepted)); class != FailureConflict || code != "workspace_changed" {
+		t.Fatalf("candidate drift = %s %s", class, code)
+	}
+}
+
+func TestUnobservedNewTargetIsConservativelyMissing(t *testing.T) {
+	example := filepath.Join(t.TempDir(), "unobserved-target")
+	eng, _, err := Open(context.Background(), Config{ExampleDir: example, FromExample: runtimeFixture(t), NetworkPolicy: "never"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	observation, err := eng.observeMutationWorkspaceLocked(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+	target := filepath.Join(example, "browser-profiles", "newly-produced.json")
+	if _, ok := observation.entries[target]; ok {
+		t.Fatalf("new target unexpectedly observed: %s", target)
+	}
+	if err := os.MkdirAll(filepath.Dir(target), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(target, []byte("concurrent existing target\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	paths := append(append([]string(nil), eng.watchedPaths...), target)
+	accepted := acceptedFingerprint(paths, eng.workspaceBaseline, observation)
+	if accepted.entries[target].Type != "missing" {
+		t.Fatalf("unobserved target baseline = %#v", accepted.entries[target])
+	}
+	if class, code := FailureDetails(compareWorkspace(example, paths, accepted)); class != FailureConflict || code != "workspace_changed" {
+		t.Fatalf("unobserved existing target = %s %s", class, code)
+	}
+}
+
+type cancelingReader struct {
+	cancel context.CancelFunc
+	reads  int
+}
+
+func (r *cancelingReader) Read(buffer []byte) (int, error) {
+	r.reads++
+	if r.reads > 1 {
+		return 0, io.EOF
+	}
+	for index := range buffer {
+		buffer[index] = byte(index)
+	}
+	r.cancel()
+	return len(buffer), nil
+}
+
+func TestStreamingFingerprintHashHonorsCancellationBetweenChunks(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	reader := &cancelingReader{cancel: cancel}
+	digest, count, err := streamSHA256(ctx, reader)
+	if !errors.Is(err, context.Canceled) {
+		t.Fatalf("streaming hash error = %v", err)
+	}
+	if digest != "" || count == 0 || reader.reads != 1 {
+		t.Fatalf("streaming cancellation = digest %q count %d reads %d", digest, count, reader.reads)
+	}
+}
+
+func TestInvalidSourceSessionPlanIsDomainRejected(t *testing.T) {
+	seed, err := loadExampleSession(runtimeFixture(t), true)
+	if err != nil {
+		t.Fatal(err)
+	}
+	content := []byte("reviewed source\n")
+	digest := fmt.Sprintf("%x", sha256.Sum256(content))
+	source := func(id, target string) elicitor.SourceMaterialization {
+		return elicitor.SourceMaterialization{
+			Kind: "openapi", ID: id, SourcePath: id + ".json", TargetPath: target,
+			SHA256: digest, Provenance: "reviewed test", MaterializedContent: append([]byte(nil), content...),
+		}
+	}
+	tests := []struct {
+		name    string
+		sources []elicitor.SourceMaterialization
+	}{
+		{name: "reserved", sources: []elicitor.SourceMaterialization{source("reserved", ".icot/source.json")}},
+		{name: "case-folded", sources: []elicitor.SourceMaterialization{source("one", "openapi/Source.json"), source("two", "OPENAPI/source.JSON")}},
+		{name: "ancestor", sources: []elicitor.SourceMaterialization{source("one", "openapi/source"), source("two", "openapi/source/schema.json")}},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			value, cloneErr := cloneSession(seed)
+			if cloneErr != nil {
+				t.Fatal(cloneErr)
+			}
+			value.SourcePlan = test.sources
+			example := filepath.Join(t.TempDir(), "invalid-source-session")
+			_, _, openErr := Open(context.Background(), Config{ExampleDir: example, Seed: &value, NetworkPolicy: "never"})
+			if class, code := FailureDetails(openErr); class != FailureRejected || code != "engine_rejected" {
+				t.Fatalf("source plan rejection = %s %s %v", class, code, openErr)
+			}
+			assertNoDeliverables(t, example)
+		})
 	}
 }
 

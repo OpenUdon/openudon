@@ -14,6 +14,7 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
+	"reflect"
 	"strconv"
 	"strings"
 	"sync"
@@ -361,6 +362,30 @@ func TestConditionalSnapshotAndWorkspaceRevision(t *testing.T) {
 	mutation := doRequest(handler, http.MethodPost, "/api/v2/approve", fmt.Sprintf(`{"revision":%q,"human_approved":true,"allow_overwrite":true}`, payload.Revision), "application/json", true)
 	if mutation.Code != http.StatusConflict || !strings.Contains(mutation.Body.String(), `"code":"workspace_changed"`) || !strings.Contains(mutation.Body.String(), payload.Revision) {
 		t.Fatalf("workspace mutation = %d %s", mutation.Code, mutation.Body.String())
+	}
+}
+
+func TestWriteConflictsAreExposedAndRevisionBound(t *testing.T) {
+	conflict := engine.WriteConflict{Code: "overwrite_required", Action: "write", Path: "/tmp/example/project.md"}
+	withConflict := newFakeHandler(t, &fakeEngine{snapshot: engine.Snapshot{WriteConflicts: []engine.WriteConflict{conflict}}})
+	conflicted := currentResponse(t, withConflict)
+	if !reflect.DeepEqual(conflicted.Snapshot.WriteConflicts, []engine.WriteConflict{conflict}) {
+		t.Fatalf("API write conflicts = %#v", conflicted.Snapshot.WriteConflicts)
+	}
+
+	withoutConflict := newFakeHandler(t, &fakeEngine{snapshot: engine.Snapshot{WriteConflicts: []engine.WriteConflict{}}})
+	clear := currentResponse(t, withoutConflict)
+	if conflicted.Revision == clear.Revision {
+		t.Fatalf("write conflict did not affect revision: %s", conflicted.Revision)
+	}
+	conditionalRequest := httptest.NewRequest(http.MethodGet, "http://"+testAuthority+"/api/v2/snapshot", nil)
+	conditionalRequest.Host = testAuthority
+	conditionalRequest.Header.Set("Authorization", "Bearer "+testToken)
+	conditionalRequest.Header.Set("If-None-Match", strconv.Quote(conflicted.Revision))
+	conditional := httptest.NewRecorder()
+	withConflict.ServeHTTP(conditional, conditionalRequest)
+	if conditional.Code != http.StatusNotModified {
+		t.Fatalf("conflict ETag response = %d %s", conditional.Code, conditional.Body.String())
 	}
 }
 
@@ -1087,6 +1112,65 @@ func TestEmbeddedAssetsAreSeparateAndAvailable(t *testing.T) {
 		response := doRequest(handler, http.MethodGet, path, "", "", true)
 		if response.Code != http.StatusOK || response.Header().Get("Content-Type") == "" {
 			t.Fatalf("asset %s = %d %q", path, response.Code, response.Header().Get("Content-Type"))
+		}
+	}
+}
+
+func TestEmbeddedShellContainsAccessiblePhaseCControls(t *testing.T) {
+	html, err := assetFiles.ReadFile("assets/index.html")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, required := range []string{
+		`<main id="main-content"`,
+		`<form id="round-form"`,
+		`<div id="frontier-fields"`,
+		`<form id="approval-form"`,
+		`id="review-confirmed"`,
+		`id="allow-overwrite"`,
+		`data-approval="final"`,
+		`data-approval="incomplete"`,
+		`id="mutation-status"`,
+		`id="completion-banner"`,
+		`id="workspace-details"`,
+		`id="review-status" class="state-pill"`,
+		`id="readiness-panel" class="review-panel"`,
+		`id="conflicts-panel" class="review-panel review-panel-wide"`,
+		`id="review-heading" tabindex="-1"`,
+		`role="alert"`,
+		`aria-live="polite"`,
+	} {
+		if !bytes.Contains(html, []byte(required)) {
+			t.Errorf("embedded shell missing %q", required)
+		}
+	}
+	if bytes.Contains(html, []byte("onclick=")) || bytes.Contains(html, []byte("<style")) || bytes.Contains(html, []byte("<script>")) {
+		t.Fatal("embedded shell contains inline script or style")
+	}
+
+	javascript, err := assetFiles.ReadFile("assets/app.js")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, required := range []string{
+		`textarea.dataset.questionId`,
+		`revision: state.renderedPayload.revision`,
+		`human_approved: true`,
+		`approve_incomplete: mode === "incomplete"`,
+		`allow_overwrite: byID("allow-overwrite").checked`,
+		`If-None-Match`,
+		`document.hidden`,
+		`maximumBackoff`,
+		`pollGeneration`,
+		`generation !== state.pollGeneration || state.pendingMutation`,
+		`actionCell.dataset.label = "Action"`,
+		`byID("review-section").dataset.state = reviewState`,
+		`announceMutation("Round submitted. Continue with the next authoring question.")`,
+		`successFocusID = "review-heading"`,
+		`successFocusID = "completion-banner"`,
+	} {
+		if !bytes.Contains(javascript, []byte(required)) {
+			t.Errorf("embedded client missing %q", required)
 		}
 	}
 }

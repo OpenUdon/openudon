@@ -2,8 +2,9 @@
 
 `icot ui` serves one explicitly named authoring workspace on `127.0.0.1`. It
 wraps the same headless engine and transactional approval writer used by
-terminal iCoT. Phase B provides an experimental API v2 and a small embedded
-read-only status shell; it is not a remote service or a supported public API.
+terminal iCoT. Phase C adds an accessible embedded authoring and review shell
+over the experimental API v2; it is not a remote service or a supported public
+API.
 
 ```bash
 go run ./cmd/icot ui --example ./examples/<name>
@@ -40,11 +41,31 @@ the first available state in this order:
 4. an empty authoring state.
 
 The shell shows revision, last successful refresh, workspace paths, selected
-source and proposed action counts, readiness, top issue, frontier size,
-preview, completion, external-modification state, and cached snapshot JSON. It
-polls every two seconds while visible, pauses when hidden, refreshes immediately
-when visible again, and backs off exponentially to 30 seconds after errors. It
-has no round or approval controls.
+sources, readiness, top issue, the complete current frontier, proposed file
+actions and overwrite conflicts, project and intent previews, completion,
+external-modification state, and cached snapshot JSON. Each frontier question
+is an accessible required form control with its prompt, rationale, slot, and
+optional recommendation. A recommendation can be copied into an empty answer,
+but is never silently accepted.
+
+One submit sends every answer in the current frontier with the exact displayed
+revision. Incomplete client-side rounds focus the first missing control. Before
+approval, the operator sees preview, action, readiness, and conflict state,
+checks the review acknowledgement, and chooses either the separate final or
+explicitly incomplete approval. An overwrite conflict also requires a separate
+overwrite acknowledgement. No mutation is retried automatically.
+
+The shell polls every two seconds while visible, pauses when hidden, refreshes
+immediately when visible again, and backs off exponentially to 30 seconds after
+errors. A stale response preserves unsent answers until the operator explicitly
+adopts the new revision; displaced answers remain visible in a local archive.
+Retryable failures reconcile with a snapshot and offer an explicit retry only
+when the revision is unchanged. Domain rejection leaves controls editable;
+indeterminate failure disables mutation; workspace drift requires restart; and
+frozen final or incomplete completion remains inspectable. A polite live status
+announces mutation progress and outcome. After success, focus moves to the
+first question in the next frontier, the proposal-review heading when approval
+becomes available, or the completion banner after approval.
 
 ## Local API v2
 
@@ -64,8 +85,10 @@ cookie is accepted.
 
 A successful response contains `version`, `revision`, `completed`, `workspace`,
 `snapshot`, and, after approval, `write_result`. `workspace` includes
-`externally_modified`. Revision is a `sha256:<hex>` digest over the snapshot,
-completion state, optional write result, and workspace-modification state.
+`externally_modified`; `snapshot.write_conflicts` contains the exact sorted
+read-only preflight conflicts that require overwrite approval. Revision is a
+`sha256:<hex>` digest over the snapshot, completion state, optional write
+result, and workspace-modification state.
 
 Snapshot responses include an `ETag`. Send the prior revision through
 `If-None-Match`; the server returns `304` when cached state and workspace status
@@ -122,8 +145,13 @@ saving the resumable draft. A pre-persistence error changes neither engine
 state nor draft bytes. Once persistence starts, request cancellation does not
 interrupt finalization.
 
-Approval similarly builds the exact refreshed snapshot and write result before
-commit. The shared writer rechecks the accepted workspace fingerprint
+Approval similarly builds the exact refreshed snapshot and prepared write plan
+before commit. `write_result` is constructed afterward directly from the commit
+outcome, with no fallible post-commit refresh. The shared writer validates the
+complete plan before creating directories, temporary files, or backups; it
+rejects duplicate, case-insensitive-equivalent, ancestor/descendant, and
+remove/write path collisions. Selected sources cannot target `project.md`,
+either intent path, or `.icot/**`. The writer then rechecks the accepted workspace fingerprint
 immediately before replacement, rejects descendant symlinks, keeps every output
 beneath the canonical example root, cleans temporary backups after successful
 or successfully rolled-back transactions, and reports rollback failure as
@@ -136,9 +164,13 @@ Workspace fingerprinting is optimistic rather than a persistent lease. Cached
 inspection remains available after ordinary mutation rejection and after
 external drift. An unreadable or unsafe watched path fails closed as an
 operational error and may be retried after the filesystem problem is repaired.
-Paths that first become engine-owned during a round are compared with a
-pre-refresh workspace observation, so a concurrent editor cannot be adopted as
-the new baseline.
+Pre-refresh observation is bounded to the current watched paths and targets in
+the current local/registry materialization plans; unrelated workspace files are
+not read. SHA-256 is streamed with cancellation checks and file identity,
+type, size, and modification state are verified around hashing. A path first
+produced by refresh that was not observed is conservatively treated as
+missing, so an existing or concurrently created target becomes drift instead
+of a newly adopted baseline.
 
 ## Security Boundary
 
@@ -161,9 +193,27 @@ timeout because reviewed-source refresh can be long-running.
 The UI does not execute workflows or start Browsertools live authoring. Stop
 the server with `Ctrl-C`; SIGINT and SIGTERM trigger bounded graceful shutdown.
 
-## Phase B Limits
+## Phase C Limits
 
-Phase B has no folder browser, React or Node dependency, authoring controls in
-the embedded shell, multi-session hosting, remote/LAN serving, account identity,
-LLM drafting, workflow execution, or live browser orchestration. One process
-owns one example for one trusted local operator.
+Phase C has no folder browser, React or Node dependency, multi-session hosting,
+remote/LAN serving, account identity, UI-owned LLM drafting, workflow
+execution, or live browser orchestration. The shell remains plain embedded
+HTML, CSS, and JavaScript. One process owns one example for one trusted local
+operator.
+
+## Browser Qualification
+
+The required provider-free browser gate is:
+
+```bash
+make icot-ui-browser-check
+```
+
+It launches sandboxed Chromium through a build-tagged, test-only Playwright-Go
+harness and exercises the actual loopback listener. It is also part of
+`make release-saas-check`. A local host whose AppArmor or user-namespace policy
+prevents Chromium sandbox startup may use
+`OPENUDON_ICOT_UI_BROWSER_DISABLE_SANDBOX=1` for this test only; release
+automation never disables the sandbox. That local override proves the browser
+journeys but does not satisfy A11's pending hosted sandboxed release-runner
+verification.

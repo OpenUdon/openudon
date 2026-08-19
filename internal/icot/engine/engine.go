@@ -79,8 +79,13 @@ type Snapshot struct {
 	SelectedSources    []elicitor.SourceMaterialization `json:"selected_sources,omitempty"`
 	SourceCandidates   SourceCandidates                 `json:"source_candidates"`
 	ProposedActions    []elicitor.FileAction            `json:"proposed_file_actions"`
+	WriteConflicts     []WriteConflict                  `json:"write_conflicts"`
 	Preview            *Preview                         `json:"preview,omitempty"`
 }
+
+// WriteConflict is one accepted-baseline output collision that approval must
+// explicitly authorize. The writer remains authoritative for commit checks.
+type WriteConflict = artifactwriter.WriteConflict
 
 // Approval is explicit human authority to write the currently rendered
 // proposal. Zero values never approve a write.
@@ -99,9 +104,9 @@ type WriteResult struct {
 	Preview         Preview  `json:"preview"`
 }
 
-// ApprovalResult is the complete terminal mutation result. Snapshot is built
-// before persistence and is therefore available without any fallible
-// post-commit refresh.
+// ApprovalResult is the complete terminal mutation result. The exact Snapshot
+// and prepared write plan exist before commit; WriteResult is constructed
+// afterward directly from the commit outcome, with no fallible refresh.
 type ApprovalResult struct {
 	Snapshot    Snapshot    `json:"snapshot"`
 	WriteResult WriteResult `json:"write_result"`
@@ -214,7 +219,7 @@ func (e *Engine) ApplyRound(ctx context.Context, answers []authoring.RoundAnswer
 	if err := e.requireMutableWorkspaceLocked(ctx); err != nil {
 		return Snapshot{}, err
 	}
-	workspaceAtStart, err := observeWorkspaceTree(ctx, e.workspaceRoot)
+	workspaceAtStart, err := e.observeMutationWorkspaceLocked(ctx)
 	if err != nil {
 		return Snapshot{}, operational(err)
 	}
@@ -321,7 +326,7 @@ func (e *Engine) ApproveAndWrite(ctx context.Context, approval Approval) (Approv
 	if err := e.requireMutableWorkspaceLocked(ctx); err != nil {
 		return ApprovalResult{}, err
 	}
-	workspaceAtStart, err := observeWorkspaceTree(ctx, e.workspaceRoot)
+	workspaceAtStart, err := e.observeMutationWorkspaceLocked(ctx)
 	if err != nil {
 		return ApprovalResult{}, operational(err)
 	}
@@ -403,17 +408,26 @@ func (e *Engine) snapshotForStateLocked(ctx context.Context, state refreshedEngi
 	issues = currentReadiness(state)
 	var preview *Preview
 	actions := artifactwriter.PotentialFileActions(e.config.ExampleDir, state.session, false)
+	conflicts := make([]WriteConflict, 0)
 	if exactPreview != nil && exactPrepared != nil {
 		value := *exactPreview
 		preview = &value
 		actions = artifactwriter.ProposedFileActions(*exactPrepared)
+		conflicts, err = artifactwriter.WriteConflicts(*exactPrepared)
+		if err != nil {
+			return Snapshot{}, operational(err)
+		}
 	} else if rendered, artifacts, renderErr := renderState(e.config.ExampleDir, state); renderErr == nil {
 		preview = &rendered
 		prepared, prepareErr := artifactwriter.Prepare(e.config.ExampleDir, artifacts, true, e.now())
 		if prepareErr != nil {
-			return Snapshot{}, prepareErr
+			return Snapshot{}, classifyPrepareFailure(prepareErr)
 		}
 		actions = artifactwriter.ProposedFileActions(prepared)
+		conflicts, err = artifactwriter.WriteConflicts(prepared)
+		if err != nil {
+			return Snapshot{}, operational(err)
+		}
 	}
 	top := topIssue(issues)
 	snapshot := Snapshot{
@@ -433,6 +447,7 @@ func (e *Engine) snapshotForStateLocked(ctx context.Context, state refreshedEngi
 			Remote:          append([]elicitor.RemoteSourceCandidate(nil), state.remote.Candidates...), RemoteBlocker: state.remote.Blocker,
 		},
 		ProposedActions: actions,
+		WriteConflicts:  conflicts,
 		Preview:         preview,
 	}
 	return cloneSnapshot(snapshot)

@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"reflect"
+	"sort"
 	"strings"
 	"testing"
 	"time"
@@ -29,7 +31,7 @@ func TestProposedFileActionsMatchPreparedTransaction(t *testing.T) {
 
 	t.Run("complete-removals", func(t *testing.T) {
 		example := filepath.Join(t.TempDir(), "complete")
-		prepared, err := Prepare(example, elicitor.Artifacts{ProjectMD: "project\n", IntentHCL: "intent\n"}, true, now)
+		prepared, err := Prepare(example, elicitor.Artifacts{ProjectMD: "project\n", IntentHCL: testIntent}, true, now)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -61,6 +63,219 @@ func TestProposedFileActionsMatchPreparedTransaction(t *testing.T) {
 		assertAction(t, actions, "write", filepath.Join(example, ".icot", "readiness.json"))
 		assertAction(t, actions, "copy", filepath.Join(example, "browser-authentication", "member.json"))
 	})
+}
+
+func TestWriteConflictsMatchCommitOverwritePreflight(t *testing.T) {
+	root := t.TempDir()
+	project := filepath.Join(root, "project.md")
+	intent := filepath.Join(root, "workflows", "intent.hcl")
+	source := filepath.Join(root, "browser-profiles", "status.json")
+	metadata := filepath.Join(root, ".icot", "session.yaml")
+	for _, path := range []string{project, intent, source, metadata} {
+		if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(path, []byte("existing\n"), 0o600); err != nil {
+			t.Fatal(err)
+		}
+	}
+	prepared := Prepared{ExampleRoot: root, Files: []GeneratedFile{
+		{Path: source, Content: "replacement\n", Action: "copy"},
+		{Path: metadata, Content: "replacement\n", Action: "write", AllowOverwrite: true},
+		{Path: filepath.Join(root, ".icot", "readiness.json"), Remove: true, Action: "remove_if_present"},
+		{Path: intent, Content: testIntent, Action: "write"},
+		{Path: project, Content: "replacement\n", Action: "write"},
+	}}
+	conflicts, err := WriteConflicts(prepared)
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := []WriteConflict{
+		{Code: "overwrite_required", Action: "copy", Path: source},
+		{Code: "overwrite_required", Action: "write", Path: project},
+		{Code: "overwrite_required", Action: "write", Path: intent},
+	}
+	sort.SliceStable(want, func(i, j int) bool {
+		if want[i].Path != want[j].Path {
+			return want[i].Path < want[j].Path
+		}
+		return want[i].Action < want[j].Action
+	})
+	if !reflect.DeepEqual(conflicts, want) {
+		t.Fatalf("write conflicts = %#v, want %#v", conflicts, want)
+	}
+	if err := writeFilesAtomic(root, prepared.Files, false, nil); err == nil || !strings.Contains(err.Error(), "pass --force") {
+		t.Fatalf("commit without overwrite authority = %v", err)
+	}
+}
+
+func TestWriteConflictsIsReadOnlyAndRejectsUnsafePaths(t *testing.T) {
+	root := t.TempDir()
+	missing := filepath.Join(root, "new", "nested", "file.txt")
+	conflicts, err := WriteConflicts(Prepared{ExampleRoot: root, Files: []GeneratedFile{{Path: missing, Content: "new\n", Action: "write"}}})
+	if err != nil || len(conflicts) != 0 {
+		t.Fatalf("missing output conflicts = %#v, %v", conflicts, err)
+	}
+	if _, err := os.Stat(filepath.Dir(missing)); !errors.Is(err, os.ErrNotExist) {
+		t.Fatalf("conflict inspection created directories: %v", err)
+	}
+
+	outside := t.TempDir()
+	if err := os.Symlink(outside, filepath.Join(root, "unsafe")); err != nil {
+		t.Fatal(err)
+	}
+	_, err = WriteConflicts(Prepared{ExampleRoot: root, Files: []GeneratedFile{{Path: filepath.Join(root, "unsafe", "file.txt"), Content: "new\n"}}})
+	if err == nil || !strings.Contains(err.Error(), "safe directory") {
+		t.Fatalf("unsafe conflict path error = %v", err)
+	}
+
+	directLink := filepath.Join(root, "allowed-link.json")
+	if err := os.Symlink(filepath.Join(outside, "target.json"), directLink); err != nil {
+		t.Fatal(err)
+	}
+	_, err = WriteConflicts(Prepared{ExampleRoot: root, Files: []GeneratedFile{{
+		Path: directLink, Content: "replacement\n", AllowOverwrite: true,
+	}}})
+	if err == nil || !strings.Contains(err.Error(), "is a symlink") {
+		t.Fatalf("allow-overwrite symlink error = %v", err)
+	}
+
+	removeThroughLink := filepath.Join(root, "unsafe", "obsolete.json")
+	_, err = WriteConflicts(Prepared{ExampleRoot: root, Files: []GeneratedFile{{
+		Path: removeThroughLink, Remove: true, AllowOverwrite: true,
+	}}})
+	if err == nil || !strings.Contains(err.Error(), "safe directory") {
+		t.Fatalf("removal through symlink error = %v", err)
+	}
+
+	directoryTarget := filepath.Join(root, "metadata")
+	if err := os.Mkdir(directoryTarget, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	_, err = WriteConflicts(Prepared{ExampleRoot: root, Files: []GeneratedFile{{
+		Path: directoryTarget, Content: "replacement\n", AllowOverwrite: true,
+	}}})
+	if err == nil || !strings.Contains(err.Error(), "not a regular file") {
+		t.Fatalf("allow-overwrite directory error = %v", err)
+	}
+}
+
+func TestPreparedPlanRejectsAmbiguousPathsBeforeFilesystemMutation(t *testing.T) {
+	tests := []struct {
+		name  string
+		files func(string) []GeneratedFile
+		want  string
+	}{
+		{
+			name: "duplicate",
+			files: func(root string) []GeneratedFile {
+				path := filepath.Join(root, "generated", "same.json")
+				return []GeneratedFile{{Path: path, Content: "one\n"}, {Path: path, Content: "two\n"}}
+			},
+			want: "duplicate or case-insensitive-equivalent",
+		},
+		{
+			name: "case-folded",
+			files: func(root string) []GeneratedFile {
+				return []GeneratedFile{
+					{Path: filepath.Join(root, "generated", "Source.json"), Content: "one\n"},
+					{Path: filepath.Join(root, "generated", "source.JSON"), Content: "two\n"},
+				}
+			},
+			want: "duplicate or case-insensitive-equivalent",
+		},
+		{
+			name: "ancestor-descendant",
+			files: func(root string) []GeneratedFile {
+				return []GeneratedFile{
+					{Path: filepath.Join(root, "generated", "source"), Content: "one\n"},
+					{Path: filepath.Join(root, "generated", "source", "child.json"), Content: "two\n"},
+				}
+			},
+			want: "overlapping ancestor and descendant",
+		},
+		{
+			name: "remove-write-collision",
+			files: func(root string) []GeneratedFile {
+				path := filepath.Join(root, "generated", "collision.json")
+				return []GeneratedFile{{Path: path, Remove: true}, {Path: path, Content: "replacement\n"}}
+			},
+			want: "duplicate or case-insensitive-equivalent",
+		},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			parent := t.TempDir()
+			root := filepath.Join(parent, "workspace")
+			if err := os.Mkdir(root, 0o755); err != nil {
+				t.Fatal(err)
+			}
+			sentinel := filepath.Join(root, "keep.txt")
+			if err := os.WriteFile(sentinel, []byte("byte-identical sentinel\n"), 0o640); err != nil {
+				t.Fatal(err)
+			}
+			before := snapshotFilesystem(t, root)
+			prepared := Prepared{ExampleRoot: root, Files: test.files(root)}
+
+			if _, err := WriteConflicts(prepared); err == nil || !strings.Contains(err.Error(), test.want) {
+				t.Fatalf("WriteConflicts error = %v, want %q", err, test.want)
+			}
+			if after := snapshotFilesystem(t, root); !reflect.DeepEqual(after, before) {
+				t.Fatalf("conflict inspection changed filesystem\nbefore: %#v\nafter: %#v", before, after)
+			}
+			if _, err := Commit(prepared, true); err == nil || !strings.Contains(err.Error(), test.want) {
+				t.Fatalf("Commit error = %v, want %q", err, test.want)
+			}
+			if after := snapshotFilesystem(t, root); !reflect.DeepEqual(after, before) {
+				t.Fatalf("rejected commit changed filesystem\nbefore: %#v\nafter: %#v", before, after)
+			}
+		})
+	}
+}
+
+func TestPrepareRejectsReservedAndOverlappingSourceTargets(t *testing.T) {
+	content := []byte("reviewed source\n")
+	digest := fmt.Sprintf("%x", sha256.Sum256(content))
+	source := func(id, target string) elicitor.SourceMaterialization {
+		return elicitor.SourceMaterialization{
+			Kind: "openapi", ID: id, SourcePath: id + ".json", TargetPath: target,
+			SHA256: digest, Provenance: "reviewed test", MaterializedContent: append([]byte(nil), content...),
+		}
+	}
+	tests := []struct {
+		name    string
+		targets []string
+		want    string
+	}{
+		{name: "icot-state", targets: []string{".icot/copied.json"}, want: "reserved"},
+		{name: "case-folded-icot-state", targets: []string{".ICOT/copied.json"}, want: "reserved"},
+		{name: "project", targets: []string{"project.md"}, want: "reserved"},
+		{name: "case-folded-project", targets: []string{"PROJECT.MD"}, want: "reserved"},
+		{name: "final-intent", targets: []string{"workflows/intent.hcl"}, want: "reserved"},
+		{name: "draft-intent", targets: []string{"workflows/intent.draft.hcl"}, want: "reserved"},
+		{name: "duplicate", targets: []string{"openapi/source.json", "openapi/./source.json"}, want: "duplicate or case-insensitive-equivalent"},
+		{name: "case-folded", targets: []string{"openapi/Source.json", "OPENAPI/source.JSON"}, want: "duplicate or case-insensitive-equivalent"},
+		{name: "ancestor-descendant", targets: []string{"openapi/source", "openapi/source/schema.json"}, want: "overlapping ancestor and descendant"},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			root := filepath.Join(t.TempDir(), "workspace")
+			sources := make([]elicitor.SourceMaterialization, 0, len(test.targets))
+			for index, target := range test.targets {
+				sources = append(sources, source(fmt.Sprintf("source-%d", index), target))
+			}
+			_, err := Prepare(root, elicitor.Artifacts{
+				ProjectMD: "project\n", IntentHCL: testIntent,
+				Session: elicitor.Session{SourcePlan: sources},
+			}, true, time.Date(2026, time.August, 18, 12, 0, 0, 0, time.UTC))
+			if err == nil || !strings.Contains(err.Error(), test.want) {
+				t.Fatalf("Prepare error = %v, want %q", err, test.want)
+			}
+			if _, statErr := os.Lstat(root); !errors.Is(statErr, os.ErrNotExist) {
+				t.Fatalf("rejected source plan left filesystem residue: %v", statErr)
+			}
+		})
+	}
 }
 
 func TestAtomicWriterCleansBackupsAndRollsBackDeterministically(t *testing.T) {
@@ -233,6 +448,43 @@ func assertNoTransactionBackups(t *testing.T, root string) {
 	if len(backups) != 0 {
 		t.Fatalf("transaction backups remain: %v", backups)
 	}
+}
+
+type filesystemEntry struct {
+	Mode    os.FileMode
+	Content string
+}
+
+func snapshotFilesystem(t *testing.T, root string) map[string]filesystemEntry {
+	t.Helper()
+	result := map[string]filesystemEntry{}
+	err := filepath.WalkDir(root, func(path string, entry os.DirEntry, walkErr error) error {
+		if walkErr != nil {
+			return walkErr
+		}
+		info, err := entry.Info()
+		if err != nil {
+			return err
+		}
+		relative, err := filepath.Rel(root, path)
+		if err != nil {
+			return err
+		}
+		value := filesystemEntry{Mode: info.Mode()}
+		if info.Mode().IsRegular() {
+			data, err := os.ReadFile(path)
+			if err != nil {
+				return err
+			}
+			value.Content = string(data)
+		}
+		result[filepath.ToSlash(relative)] = value
+		return nil
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	return result
 }
 
 func assertActionsCoverPreparedFiles(t *testing.T, prepared Prepared, actions []elicitor.FileAction) {

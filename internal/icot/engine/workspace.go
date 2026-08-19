@@ -6,12 +6,14 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"sort"
 	"strings"
 
 	"github.com/OpenUdon/openudon/internal/icot/artifactwriter"
+	"github.com/OpenUdon/openudon/internal/icot/elicitor"
 )
 
 // WorkspaceStatus is the optimistic ownership state for the one example.
@@ -120,7 +122,7 @@ func captureWorkspace(ctx context.Context, root string, paths []string) (workspa
 		if err := ctx.Err(); err != nil {
 			return workspaceFingerprint{}, err
 		}
-		entry, err := fingerprintPath(root, path)
+		entry, err := fingerprintPath(ctx, root, path)
 		if err != nil {
 			return workspaceFingerprint{}, err
 		}
@@ -129,50 +131,36 @@ func captureWorkspace(ctx context.Context, root string, paths []string) (workspa
 	return workspaceFingerprint{entries: entries, digest: fingerprintDigest(entries)}, nil
 }
 
-// observeWorkspaceTree records regular files before a mutation starts so a
-// path that becomes engine-owned during refresh is still bound to its
-// pre-refresh state. Unreadable or unsafe entries outside the eventual watched
-// set are conservatively omitted; if one later becomes watched, comparison
-// either reports drift from missing or fails closed while inspecting it.
-func observeWorkspaceTree(ctx context.Context, root string) (workspaceObservation, error) {
-	observation := workspaceObservation{entries: map[string]pathFingerprint{}}
-	info, err := os.Lstat(root)
-	if errors.Is(err, os.ErrNotExist) {
-		return observation, nil
-	}
+// observeMutationWorkspaceLocked bounds pre-refresh observation to paths the
+// engine already watches plus targets advertised by the current local and
+// registry discovery plans. A target produced only by the refresh is absent
+// from this observation and acceptedFingerprint therefore treats it as
+// missing, so a concurrently-created existing path fails closed as drift.
+func (e *Engine) observeMutationWorkspaceLocked(ctx context.Context) (workspaceObservation, error) {
+	paths, err := e.mutationObservationPathsLocked()
 	if err != nil {
 		return workspaceObservation{}, err
 	}
-	if info.Mode()&os.ModeSymlink != 0 || !info.IsDir() {
-		return workspaceObservation{}, fmt.Errorf("workspace root %s is not a safe directory", root)
-	}
-	err = filepath.WalkDir(root, func(path string, entry os.DirEntry, walkErr error) error {
-		if err := ctx.Err(); err != nil {
-			return err
-		}
-		if walkErr != nil {
-			if entry != nil && entry.IsDir() {
-				return filepath.SkipDir
-			}
-			return nil
-		}
-		if path == root || entry.IsDir() || entry.Type()&os.ModeSymlink != 0 {
-			return nil
-		}
-		entryInfo, err := entry.Info()
-		if err != nil || !entryInfo.Mode().IsRegular() {
-			return nil
-		}
-		fingerprint, err := fingerprintPath(root, path)
-		if err == nil {
-			observation.entries[filepath.Clean(path)] = fingerprint
-		}
-		return nil
-	})
+	fingerprint, err := captureWorkspace(ctx, e.workspaceRoot, paths)
 	if err != nil {
 		return workspaceObservation{}, err
 	}
-	return observation, nil
+	return workspaceObservation{entries: fingerprint.entries}, nil
+}
+
+func (e *Engine) mutationObservationPathsLocked() ([]string, error) {
+	paths := append([]string(nil), e.watchedPaths...)
+	plans := make([]elicitor.SourceMaterialization, 0, len(e.discovery.Plans)+len(e.registry.Plans))
+	plans = append(plans, e.discovery.Plans...)
+	plans = append(plans, e.registry.Plans...)
+	for _, plan := range plans {
+		target, err := artifactwriter.SafeExampleTarget(e.workspaceRoot, plan.TargetPath)
+		if err != nil {
+			return nil, fmt.Errorf("inspect candidate materialization target %q: %w", plan.TargetPath, err)
+		}
+		paths = append(paths, target)
+	}
+	return uniqueSortedPaths(paths), nil
 }
 
 func acceptedFingerprint(paths []string, prior workspaceFingerprint, observed workspaceObservation) workspaceFingerprint {
@@ -191,30 +179,81 @@ func acceptedFingerprint(paths []string, prior workspaceFingerprint, observed wo
 	return workspaceFingerprint{entries: entries, digest: fingerprintDigest(entries)}
 }
 
-func fingerprintPath(root, path string) (pathFingerprint, error) {
+func fingerprintPath(ctx context.Context, root, path string) (pathFingerprint, error) {
 	if _, err := artifactwriter.SafeExampleTarget(root, relativePath(root, path)); err != nil {
 		return pathFingerprint{}, fmt.Errorf("inspect watched path %s: %w", path, err)
 	}
-	info, err := os.Lstat(path)
+	before, err := os.Lstat(path)
 	if errors.Is(err, os.ErrNotExist) {
 		return pathFingerprint{Path: path, Type: "missing"}, nil
 	}
 	if err != nil {
 		return pathFingerprint{}, err
 	}
-	if info.Mode()&os.ModeSymlink != 0 || !info.Mode().IsRegular() {
+	if before.Mode()&os.ModeSymlink != 0 || !before.Mode().IsRegular() {
 		return pathFingerprint{}, fmt.Errorf("watched path %s is not a safe regular file", path)
 	}
-	data, err := os.ReadFile(path)
+	file, err := os.Open(path)
 	if err != nil {
 		return pathFingerprint{}, err
 	}
-	after, err := os.Lstat(path)
-	if err != nil || after.Mode()&os.ModeSymlink != 0 || !after.Mode().IsRegular() {
+	defer file.Close()
+	opened, err := file.Stat()
+	if err != nil || !sameFingerprintFileState(before, opened) {
 		return pathFingerprint{}, fmt.Errorf("watched path %s changed while it was inspected", path)
 	}
-	digest := sha256.Sum256(data)
-	return pathFingerprint{Path: path, Type: "regular", SHA256: hex.EncodeToString(digest[:])}, nil
+	digest, count, err := streamSHA256(ctx, file)
+	if err != nil {
+		return pathFingerprint{}, err
+	}
+	afterOpen, openErr := file.Stat()
+	afterPath, pathErr := os.Lstat(path)
+	if openErr != nil || pathErr != nil || count != before.Size() ||
+		!sameFingerprintFileState(before, afterOpen) || !sameFingerprintFileState(before, afterPath) {
+		return pathFingerprint{}, fmt.Errorf("watched path %s changed while it was inspected", path)
+	}
+	return pathFingerprint{Path: path, Type: "regular", SHA256: digest}, nil
+}
+
+func streamSHA256(ctx context.Context, reader io.Reader) (string, int64, error) {
+	hash := sha256.New()
+	buffer := make([]byte, 32*1024)
+	var total int64
+	for {
+		if err := ctx.Err(); err != nil {
+			return "", total, err
+		}
+		read, err := reader.Read(buffer)
+		if read > 0 {
+			written, writeErr := hash.Write(buffer[:read])
+			total += int64(written)
+			if writeErr != nil {
+				return "", total, writeErr
+			}
+			if written != read {
+				return "", total, io.ErrShortWrite
+			}
+		}
+		if err != nil {
+			if errors.Is(err, io.EOF) {
+				if contextErr := ctx.Err(); contextErr != nil {
+					return "", total, contextErr
+				}
+				return hex.EncodeToString(hash.Sum(nil)), total, nil
+			}
+			return "", total, err
+		}
+		if read == 0 {
+			return "", total, io.ErrNoProgress
+		}
+	}
+}
+
+func sameFingerprintFileState(left, right os.FileInfo) bool {
+	return left != nil && right != nil &&
+		left.Mode().IsRegular() && right.Mode().IsRegular() &&
+		left.Mode() == right.Mode() && left.Size() == right.Size() &&
+		left.ModTime().Equal(right.ModTime()) && os.SameFile(left, right)
 }
 
 func relativePath(root, path string) string {

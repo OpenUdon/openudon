@@ -8,39 +8,201 @@
   <script defer src="assets/app.js"></script>
 </head>
 <body>
-  <main>
-    <header>
-      <p class="eyebrow">OpenUdon · local authoring status</p>
-      <h1>iCoT workspace</h1>
-      <p id="connection" role="status">Loading the current snapshot…</p>
-    </header>
-    <aside id="workspace-warning" class="warning" role="alert" hidden>
-      <strong>Restart required.</strong> Files owned by this authoring session changed outside this process. Cached state remains available below, but all mutations are blocked.
-    </aside>
-    <section class="summary" aria-label="Authoring summary">
-      <dl>
-        <div><dt>Example</dt><dd id="example">—</dd></div>
-        <div><dt>Project</dt><dd id="project">—</dd></div>
-        <div><dt>Intent</dt><dd id="intent">—</dd></div>
-        <div><dt>Revision</dt><dd id="revision">—</dd></div>
-        <div><dt>Last refresh</dt><dd id="refreshed">—</dd></div>
-        <div><dt>Selected sources</dt><dd id="sources">—</dd></div>
-        <div><dt>Proposed actions</dt><dd id="actions">—</dd></div>
-        <div><dt>Ready</dt><dd id="ready">—</dd></div>
-        <div><dt>Top issue</dt><dd id="issue">—</dd></div>
-        <div><dt>Frontier</dt><dd id="frontier">—</dd></div>
-        <div><dt>Preview</dt><dd id="preview">—</dd></div>
-        <div><dt>Completed</dt><dd id="completed">—</dd></div>
-        <div><dt>Workspace</dt><dd id="workspace">—</dd></div>
-      </dl>
-    </section>
-    <section>
-      <div class="section-heading">
-        <h2>Snapshot JSON</h2>
-        <span>Read-only Phase B shell · API v2</span>
+  <a class="skip-link" href="#main-content">Skip to authoring</a>
+  <main id="main-content" tabindex="-1">
+    <header class="page-header">
+      <div class="brand-block">
+        <p class="eyebrow">OpenUdon · local authoring</p>
+        <h1>iCoT workspace</h1>
+        <p class="page-intro">Shape the workflow, inspect the exact proposal, then approve its local write.</p>
       </div>
-      <pre id="snapshot">Waiting for the local API.</pre>
+      <div class="session-state" aria-label="Local session status">
+        <p class="session-label">Session status</p>
+        <p id="connection" role="status" aria-live="polite">Loading the current snapshot…</p>
+        <p id="mutation-status" class="mutation-status" role="status" aria-live="polite" aria-atomic="true"></p>
+      </div>
+    </header>
+
+    <aside id="workspace-warning" class="notice notice-danger" role="alert" tabindex="-1" hidden>
+      <h2>Restart required</h2>
+      <p>Files owned by this authoring session changed outside this process. Cached state and unsent answers remain available, but every mutation is blocked.</p>
+    </aside>
+
+    <aside id="state-warning" class="notice notice-warning" role="alert" tabindex="-1" hidden>
+      <h2>Review the latest workspace state</h2>
+      <p id="state-warning-message"></p>
+      <button id="adopt-latest" type="button">Discard the old form and review latest</button>
+    </aside>
+
+    <aside id="error-banner" class="notice notice-danger" role="alert" tabindex="-1" hidden>
+      <h2>Authoring request failed</h2>
+      <p id="error-message"></p>
+      <p id="error-request-row" class="request-id" hidden>Request ID: <code id="error-request-id"></code></p>
+      <button id="retry-mutation" type="button" hidden>Retry this request</button>
+    </aside>
+
+    <aside id="completion-banner" class="notice notice-success" role="status" aria-live="polite" tabindex="-1" hidden>
+      <h2>Authoring is complete</h2>
+      <p>This process is frozen after the approved write. The final snapshot remains available for inspection.</p>
+    </aside>
+
+    <section class="card summary" aria-labelledby="summary-heading">
+      <div class="summary-heading">
+        <div>
+          <p class="section-kicker">At a glance</p>
+          <h2 id="summary-heading">Workspace status</h2>
+        </div>
+        <p>Live state for this local authoring session.</p>
+      </div>
+      <dl class="status-grid">
+        <div class="status-item"><dt>Ready</dt><dd id="ready">—</dd></div>
+        <div class="status-item"><dt>Frontier</dt><dd id="frontier">—</dd></div>
+        <div class="status-item"><dt>Preview</dt><dd id="preview">—</dd></div>
+        <div class="status-item"><dt>Write conflicts</dt><dd id="conflicts">—</dd></div>
+        <div class="status-item"><dt>Selected sources</dt><dd id="sources">—</dd></div>
+        <div class="status-item"><dt>Proposed actions</dt><dd id="actions">—</dd></div>
+        <div class="status-item"><dt>Workspace</dt><dd id="workspace">—</dd></div>
+        <div class="status-item"><dt>Completed</dt><dd id="completed">—</dd></div>
+      </dl>
+      <div id="issue-summary" class="issue-summary">
+        <p class="issue-label">Current focus</p>
+        <p id="issue">—</p>
+      </div>
+      <details id="workspace-details" class="technical-details">
+        <summary id="workspace-details-toggle">Technical workspace details</summary>
+        <dl class="technical-grid">
+          <div><dt>Example</dt><dd id="example">—</dd></div>
+          <div><dt>Project</dt><dd id="project">—</dd></div>
+          <div><dt>Intent</dt><dd id="intent">—</dd></div>
+          <div><dt>Revision</dt><dd id="revision">—</dd></div>
+          <div><dt>Last successful refresh</dt><dd id="refreshed">—</dd></div>
+        </dl>
+      </details>
     </section>
+
+    <section id="frontier-section" class="card active-card" aria-labelledby="frontier-heading">
+      <div class="section-heading">
+        <div>
+          <p class="section-kicker">Current dependency-ready round</p>
+          <h2 id="frontier-heading" tabindex="-1">Authoring questions</h2>
+        </div>
+        <span id="frontier-revision">Waiting for a revision</span>
+      </div>
+      <form id="round-form" novalidate aria-labelledby="frontier-heading" aria-describedby="round-help">
+        <p id="round-help" class="section-help">Answer every question in this frontier. The whole round is submitted together against the revision shown above.</p>
+        <div id="frontier-fields" class="question-list"></div>
+        <div class="form-actions">
+          <button id="round-submit" class="primary" type="submit">Submit complete round</button>
+        </div>
+      </form>
+      <p id="frontier-empty" class="empty-state" hidden>No authoring questions are currently ready.</p>
+    </section>
+
+    <section id="unsent-section" class="card" aria-labelledby="unsent-heading" hidden>
+      <div class="section-heading">
+        <div>
+          <p class="section-kicker">Preserved for inspection</p>
+          <h2 id="unsent-heading">Unsubmitted answers</h2>
+        </div>
+      </div>
+      <p class="section-help">These answers belonged to an older revision and will not be submitted automatically. Copy them only after reviewing the latest questions.</p>
+      <dl id="unsent-answers" class="stacked-list"></dl>
+    </section>
+
+    <section id="review-section" class="card review-card" aria-labelledby="review-heading">
+      <div class="section-heading">
+        <div>
+          <p class="section-kicker">Inspect before approval</p>
+          <h2 id="review-heading" tabindex="-1">Proposal review</h2>
+        </div>
+        <span id="review-status" class="state-pill">Draft in progress</span>
+      </div>
+
+      <div class="review-grid">
+        <article id="readiness-panel" class="review-panel" aria-labelledby="readiness-heading">
+          <h3 id="readiness-heading">Readiness</h3>
+          <ul id="readiness-list" class="detail-list"></ul>
+        </article>
+        <article class="review-panel" aria-labelledby="sources-heading">
+          <h3 id="sources-heading">Selected sources</h3>
+          <ul id="sources-list" class="detail-list"></ul>
+        </article>
+      </div>
+
+      <article class="review-panel review-panel-wide" aria-labelledby="actions-heading">
+        <h3 id="actions-heading">Proposed file actions</h3>
+        <div class="table-scroll" tabindex="0" role="region" aria-label="Scrollable proposed file actions">
+          <table>
+            <thead><tr><th scope="col">Action</th><th scope="col">Path</th><th scope="col">Reason</th></tr></thead>
+            <tbody id="actions-body"></tbody>
+          </table>
+        </div>
+        <p id="actions-empty" class="empty-state" hidden>No file actions are proposed.</p>
+      </article>
+
+      <article id="conflicts-panel" class="review-panel review-panel-wide" aria-labelledby="conflicts-heading">
+        <h3 id="conflicts-heading">Write conflicts</h3>
+        <ul id="conflicts-list" class="detail-list"></ul>
+      </article>
+
+      <div class="preview-grid">
+        <article class="preview-panel" aria-labelledby="project-preview-heading">
+          <div class="preview-heading">
+            <h3 id="project-preview-heading">Project preview</h3>
+            <p id="project-preview-path" class="path-label">Not rendered yet</p>
+          </div>
+          <pre id="project-preview">Preview unavailable.</pre>
+        </article>
+        <article class="preview-panel" aria-labelledby="intent-preview-heading">
+          <div class="preview-heading">
+            <h3 id="intent-preview-heading">Intent preview</h3>
+            <p id="intent-preview-path" class="path-label">Not rendered yet</p>
+          </div>
+          <pre id="intent-preview">Preview unavailable.</pre>
+        </article>
+      </div>
+
+      <form id="approval-form" class="approval" novalidate aria-labelledby="approval-heading">
+        <p class="section-kicker">Final checkpoint</p>
+        <h3 id="approval-heading">Approval</h3>
+        <p id="approval-help" class="section-help">Approval writes the exact proposal shown for this revision and then freezes the process.</p>
+        <label class="check-row" for="review-confirmed">
+          <input id="review-confirmed" type="checkbox">
+          <span>I reviewed the preview, readiness findings, proposed actions, and conflicts.</span>
+        </label>
+        <label id="overwrite-row" class="check-row check-warning" for="allow-overwrite" hidden>
+          <input id="allow-overwrite" type="checkbox">
+          <span>I authorize replacement of every listed accepted-baseline conflict.</span>
+        </label>
+        <div class="form-actions">
+          <button id="approve-final" class="primary" type="submit" data-approval="final">Approve final artifacts</button>
+          <button id="approve-incomplete" type="submit" data-approval="incomplete">Approve incomplete draft</button>
+        </div>
+        <p id="approval-state" role="status" aria-live="polite"></p>
+      </form>
+    </section>
+
+    <section id="write-result-section" class="card" aria-labelledby="write-result-heading" hidden>
+      <div class="section-heading">
+        <div>
+          <p class="section-kicker">Committed transaction</p>
+          <h2 id="write-result-heading">Write result</h2>
+        </div>
+      </div>
+      <div class="review-grid">
+        <article><h3>Written</h3><ul id="written-list" class="detail-list"></ul></article>
+        <article><h3>Removed</h3><ul id="removed-list" class="detail-list"></ul></article>
+      </div>
+      <article id="cleanup-warning-section" hidden>
+        <h3>Cleanup warnings</h3>
+        <ul id="cleanup-warning-list" class="detail-list warning-list"></ul>
+      </article>
+    </section>
+
+    <details class="card snapshot-card">
+      <summary>Snapshot JSON</summary>
+      <pre id="snapshot">Waiting for the local API.</pre>
+    </details>
   </main>
 </body>
 </html>

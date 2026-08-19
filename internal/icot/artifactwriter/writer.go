@@ -33,6 +33,14 @@ type Prepared struct {
 	Files       []GeneratedFile
 }
 
+// WriteConflict is one prepared mutation that requires explicit overwrite
+// authority before CommitChecked will apply it.
+type WriteConflict struct {
+	Code   string `json:"code"`
+	Action string `json:"action"`
+	Path   string `json:"path"`
+}
+
 // Result describes the paths affected by a committed transaction.
 type Result struct {
 	Written         []string
@@ -69,6 +77,49 @@ func ProposedFileActions(prepared Prepared) []elicitor.FileAction {
 	}
 	sortFileActions(actions)
 	return actions
+}
+
+// WriteConflicts reports the exact regular-file collisions that the prepared
+// transaction would reject without force. It performs no writes and applies
+// the same path-safety checks as commit preflight.
+func WriteConflicts(prepared Prepared) ([]WriteConflict, error) {
+	root, err := validateTransactionPlan(prepared.ExampleRoot, prepared.Files)
+	if err != nil {
+		return nil, err
+	}
+	conflicts := make([]WriteConflict, 0)
+	for _, file := range prepared.Files {
+		if err := validateOutputPath(root, file.Path, false); err != nil && !errors.Is(err, os.ErrNotExist) {
+			return nil, err
+		}
+		info, err := os.Lstat(file.Path)
+		if errors.Is(err, os.ErrNotExist) {
+			continue
+		}
+		if err != nil {
+			return nil, err
+		}
+		if info.Mode()&os.ModeSymlink != 0 || !info.Mode().IsRegular() {
+			return nil, fmt.Errorf("output path %s is not a regular file", file.Path)
+		}
+		if file.Remove || file.AllowOverwrite {
+			continue
+		}
+		action := strings.TrimSpace(file.Action)
+		if action == "" {
+			action = "write"
+		}
+		conflicts = append(conflicts, WriteConflict{
+			Code: "overwrite_required", Action: action, Path: file.Path,
+		})
+	}
+	sort.SliceStable(conflicts, func(i, j int) bool {
+		if conflicts[i].Path != conflicts[j].Path {
+			return conflicts[i].Path < conflicts[j].Path
+		}
+		return conflicts[i].Action < conflicts[j].Action
+	})
+	return conflicts, nil
 }
 
 // PotentialFileActions returns the mutation shape available before artifacts
@@ -142,6 +193,9 @@ func Prepare(exampleDir string, artifacts elicitor.Artifacts, force bool, at tim
 	if err != nil {
 		return Prepared{}, err
 	}
+	if err := validateSourceMaterializationTargets(exampleRoot, artifacts.Session.SourcePlan); err != nil {
+		return Prepared{}, err
+	}
 	artifacts.Session.Normalize()
 	revalidatedSources, err := elicitor.RevalidateBrowserVerifications(artifacts.Session.SourcePlan, at)
 	if err != nil {
@@ -151,15 +205,6 @@ func Prepare(exampleDir string, artifacts elicitor.Artifacts, force bool, at tim
 	if err := elicitor.ValidateBrowserVerificationCoverage(artifacts.Session); err != nil {
 		return Prepared{}, fmt.Errorf("validate browser verification evidence: %w", err)
 	}
-	selectedTargets := map[string]string{}
-	for _, source := range artifacts.Session.SourcePlan {
-		target := filepath.ToSlash(strings.TrimSpace(source.TargetPath))
-		if prior, ok := selectedTargets[target]; ok && prior != source.SHA256 {
-			return Prepared{}, fmt.Errorf("source target %s is selected with different content digests %s and %s; choose one explicit source", target, prior, source.SHA256)
-		}
-		selectedTargets[target] = source.SHA256
-	}
-
 	projectPath := filepath.Join(exampleRoot, "project.md")
 	intentPath := filepath.Join(exampleRoot, "workflows", "intent.hcl")
 	if artifacts.Incomplete {
@@ -236,7 +281,11 @@ func Prepare(exampleDir string, artifacts elicitor.Artifacts, force bool, at tim
 		}
 		files = append(files, GeneratedFile{Path: target, Content: string(data), Action: "copy", Reason: source.Kind + " source " + source.ID + " with SHA-256 " + source.SHA256})
 	}
-	return Prepared{ExampleRoot: exampleRoot, Artifacts: artifacts, Files: files}, nil
+	prepared := Prepared{ExampleRoot: exampleRoot, Artifacts: artifacts, Files: files}
+	if _, err := validateTransactionPlan(prepared.ExampleRoot, prepared.Files); err != nil {
+		return Prepared{}, err
+	}
+	return prepared, nil
 }
 
 // Commit atomically applies a prepared authoring transaction.
@@ -279,20 +328,14 @@ func writeFilesAtomic(exampleRoot string, files []GeneratedFile, force bool, bef
 }
 
 func writeFilesAtomicReporting(exampleRoot string, files []GeneratedFile, force bool, beforeReplace func() error, reportCleanup func(error)) error {
-	root, err := transactionRoot(exampleRoot, files)
+	// Validate the complete transaction before creating a directory, temporary
+	// file, or backup. Ambiguous plans must be byte-for-byte read-only failures.
+	root, err := validateTransactionPlan(exampleRoot, files)
 	if err != nil {
 		return err
 	}
-	for _, relative := range []string{"openapi", "workflows", "expected"} {
-		if err := createSafeDirectories(root, filepath.Join(root, relative)); err != nil {
-			return err
-		}
-	}
 	for _, file := range files {
-		if err := validateGeneratedFile(file); err != nil {
-			return err
-		}
-		if err := validateOutputPath(root, file.Path, true); err != nil {
+		if err := validateOutputPath(root, file.Path, false); err != nil && !errors.Is(err, os.ErrNotExist) {
 			return err
 		}
 		info, err := os.Lstat(file.Path)
@@ -305,6 +348,21 @@ func writeFilesAtomicReporting(exampleRoot string, files []GeneratedFile, force 
 		if err == nil && !force && !file.AllowOverwrite {
 			return fmt.Errorf("%s already exists; pass --force to overwrite it", file.Path)
 		} else if err != nil && !errors.Is(err, os.ErrNotExist) {
+			return err
+		}
+	}
+	// Preserve the established authoring workspace layout, but only after the
+	// complete plan and every overwrite precondition have been accepted.
+	for _, relative := range []string{"openapi", "workflows", "expected"} {
+		if err := createSafeDirectories(root, filepath.Join(root, relative)); err != nil {
+			return err
+		}
+	}
+	for _, file := range files {
+		if file.Remove {
+			continue
+		}
+		if err := validateOutputPath(root, file.Path, true); err != nil {
 			return err
 		}
 	}
@@ -353,7 +411,7 @@ func writeFilesAtomicReporting(exampleRoot string, files []GeneratedFile, force 
 		}
 	}
 	for _, file := range files {
-		if err := validateOutputPath(root, file.Path, false); err != nil {
+		if err := validateOutputPath(root, file.Path, false); err != nil && !(file.Remove && errors.Is(err, os.ErrNotExist)) {
 			cleanupTemps(tmpPaths)
 			cleanupBackups(backups)
 			return err
@@ -361,7 +419,7 @@ func writeFilesAtomicReporting(exampleRoot string, files []GeneratedFile, force 
 	}
 	var renamed []string
 	for index, file := range files {
-		if err := validateOutputPath(root, file.Path, false); err != nil {
+		if err := validateOutputPath(root, file.Path, false); err != nil && !(file.Remove && errors.Is(err, os.ErrNotExist)) {
 			return rollbackFailure(err, backups, renamed, tmpPaths)
 		}
 		if index == 0 && beforeReplace != nil {
@@ -564,6 +622,151 @@ var (
 	renameFile = os.Rename
 	removeFile = os.Remove
 )
+
+func validateSourceMaterializationTargets(root string, sources []elicitor.SourceMaterialization) error {
+	paths := make([]string, 0, len(sources))
+	digests := make(map[string]string, len(sources))
+	for _, source := range sources {
+		target, err := SafeExampleTarget(root, source.TargetPath)
+		if err != nil {
+			return fmt.Errorf("invalid source materialization target %q: %w", source.TargetPath, err)
+		}
+		relative, err := filepath.Rel(root, target)
+		if err != nil {
+			return fmt.Errorf("resolve source materialization target %q: %w", source.TargetPath, err)
+		}
+		relative = filepath.ToSlash(relative)
+		if reservedSourceTarget(relative) {
+			return fmt.Errorf("source materialization target %q is reserved for iCoT authoring state or artifacts", relative)
+		}
+		if prior, ok := digests[target]; ok && !strings.EqualFold(prior, source.SHA256) {
+			return fmt.Errorf("source target %s is selected with different content digests %s and %s; choose one explicit source", relative, prior, source.SHA256)
+		}
+		digests[target] = source.SHA256
+		paths = append(paths, target)
+	}
+	if err := validateDistinctOutputPaths(root, paths, "source materialization"); err != nil {
+		return err
+	}
+	return nil
+}
+
+func reservedSourceTarget(relative string) bool {
+	clean := filepath.ToSlash(filepath.Clean(filepath.FromSlash(strings.TrimSpace(relative))))
+	parts := strings.Split(clean, "/")
+	if len(parts) > 0 && strings.EqualFold(parts[0], ".icot") {
+		return true
+	}
+	for _, reserved := range []string{"project.md", "workflows/intent.hcl", "workflows/intent.draft.hcl"} {
+		if strings.EqualFold(clean, reserved) {
+			return true
+		}
+	}
+	return false
+}
+
+// validateTransactionPlan is the shared, read-only preflight for Prepare,
+// WriteConflicts, and commit. It rejects any plan whose map of output paths is
+// ambiguous on either case-sensitive or case-insensitive filesystems.
+func validateTransactionPlan(exampleRoot string, files []GeneratedFile) (string, error) {
+	root, err := transactionRoot(exampleRoot, files)
+	if err != nil {
+		return "", err
+	}
+	paths := make([]string, 0, len(files))
+	for _, file := range files {
+		if err := validateGeneratedFile(file); err != nil {
+			return "", err
+		}
+		path, err := filepath.Abs(file.Path)
+		if err != nil {
+			return "", err
+		}
+		path = filepath.Clean(path)
+		if err := validateOutputPath(root, path, false); err != nil && !errors.Is(err, os.ErrNotExist) {
+			return "", err
+		}
+		if info, statErr := os.Lstat(path); statErr == nil {
+			if info.Mode()&os.ModeSymlink != 0 {
+				return "", fmt.Errorf("output path %s is a symlink", path)
+			}
+			if !info.Mode().IsRegular() {
+				return "", fmt.Errorf("output path %s is not a regular file", path)
+			}
+		} else if !errors.Is(statErr, os.ErrNotExist) {
+			return "", statErr
+		}
+		paths = append(paths, path)
+	}
+	if err := validateDistinctOutputPaths(root, paths, "prepared transaction"); err != nil {
+		return "", err
+	}
+	return root, nil
+}
+
+func validateDistinctOutputPaths(root string, paths []string, planName string) error {
+	cleaned := make([]string, len(paths))
+	components := make([][]string, len(paths))
+	for index, path := range paths {
+		abs, err := filepath.Abs(path)
+		if err != nil {
+			return err
+		}
+		abs = filepath.Clean(abs)
+		if abs == root || !pathWithin(root, abs) {
+			return fmt.Errorf("%s output path %s is outside the canonical example root", planName, path)
+		}
+		relative, err := filepath.Rel(root, abs)
+		if err != nil {
+			return err
+		}
+		cleaned[index] = abs
+		components[index] = splitPathComponents(relative)
+	}
+	for left := 0; left < len(cleaned); left++ {
+		for right := left + 1; right < len(cleaned); right++ {
+			if equalPathComponentsFold(components[left], components[right]) {
+				return fmt.Errorf("%s has duplicate or case-insensitive-equivalent output paths %s and %s", planName, cleaned[left], cleaned[right])
+			}
+			if pathComponentsAncestorFold(components[left], components[right]) || pathComponentsAncestorFold(components[right], components[left]) {
+				return fmt.Errorf("%s has overlapping ancestor and descendant output paths %s and %s", planName, cleaned[left], cleaned[right])
+			}
+		}
+	}
+	return nil
+}
+
+func splitPathComponents(path string) []string {
+	clean := filepath.Clean(path)
+	if clean == "." {
+		return nil
+	}
+	return strings.Split(clean, string(filepath.Separator))
+}
+
+func equalPathComponentsFold(left, right []string) bool {
+	if len(left) != len(right) {
+		return false
+	}
+	for index := range left {
+		if !strings.EqualFold(left[index], right[index]) {
+			return false
+		}
+	}
+	return true
+}
+
+func pathComponentsAncestorFold(ancestor, descendant []string) bool {
+	if len(ancestor) >= len(descendant) {
+		return false
+	}
+	for index := range ancestor {
+		if !strings.EqualFold(ancestor[index], descendant[index]) {
+			return false
+		}
+	}
+	return true
+}
 
 func validateGeneratedFile(file GeneratedFile) error {
 	if strings.TrimSpace(file.Path) == "" {

@@ -1,4 +1,4 @@
-.PHONY: help test vet check apitools-boundary readiness release-check release-saas-check release-evidence release-eval browser-integration-check browser-scenario-loopback browser-scenario-journey browser-scenario-public eval-seed-build icot-authoring-scorecard icot-replay-repair-check icot-variants-validate icot-variants-coverage product-smoke-check product-smoke-live siblings validate-uws eval synthesize-support build-support promote-support assess-support
+.PHONY: help test vet check apitools-boundary readiness release-check release-saas-check release-evidence release-eval browser-integration-check browser-scenario-loopback browser-scenario-journey browser-scenario-public icot-ui-browser-check eval-seed-build icot-authoring-scorecard icot-replay-repair-check icot-variants-validate icot-variants-coverage product-smoke-check product-smoke-live siblings validate-uws eval synthesize-support build-support promote-support assess-support
 
 GO ?= go
 OPENUDON_LLM_PROVIDER ?= copilot-api
@@ -16,7 +16,7 @@ OPENUDON_BROWSER_SCENARIO_JOURNEY_OUT ?= eval/runs/browser-scenario-journey-loca
 OPENUDON_BROWSER_SCENARIO_PUBLIC_OUT ?= eval/runs/browser-scenario-public-local/report.json
 
 help:
-	@echo "Targets: test, vet, check, readiness, release-check, release-saas-check, release-evidence, release-eval, browser-integration-check, browser-scenario-loopback, browser-scenario-journey, browser-scenario-public, eval-seed-build, icot-authoring-scorecard, icot-replay-repair-check, icot-variants-validate, icot-variants-coverage, product-smoke-check, product-smoke-live, siblings, validate-uws, eval, synthesize-support, build-support, promote-support, assess-support"
+	@echo "Targets: test, vet, check, readiness, release-check, release-saas-check, release-evidence, release-eval, browser-integration-check, browser-scenario-loopback, browser-scenario-journey, browser-scenario-public, icot-ui-browser-check, eval-seed-build, icot-authoring-scorecard, icot-replay-repair-check, icot-variants-validate, icot-variants-coverage, product-smoke-check, product-smoke-live, siblings, validate-uws, eval, synthesize-support, build-support, promote-support, assess-support"
 
 test:
 	$(GO) test ./...
@@ -43,6 +43,7 @@ release-saas-check:
 	$(MAKE) browser-integration-check
 	$(MAKE) browser-scenario-loopback
 	$(MAKE) browser-scenario-journey
+	$(MAKE) icot-ui-browser-check
 	$(MAKE) eval-seed-build
 	$(MAKE) icot-variants-validate
 	$(MAKE) icot-variants-coverage
@@ -87,6 +88,9 @@ browser-scenario-journey:
 browser-scenario-public:
 	$(GO) run ./cmd/openudon browser-scenario-eval --suite public --allow-network --require-ready --out "$(OPENUDON_BROWSER_SCENARIO_PUBLIC_OUT)"
 	$(GO) run ./cmd/openudon browser-scenario-eval --verify "$(OPENUDON_BROWSER_SCENARIO_PUBLIC_OUT)"
+
+icot-ui-browser-check:
+	$(GO) test -tags=icot_ui_browser ./internal/icot/ui -run '^TestPhaseCBrowser' -count=1 -timeout=3m
 
 eval-seed-build:
 	$(GO) test ./internal/icot -run TestEvalReferenceSeedBuildMatrix -count=1

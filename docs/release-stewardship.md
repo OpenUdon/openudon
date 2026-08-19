@@ -48,8 +48,8 @@ For the SaaS release story, run the comprehensive provider-free local gate:
 make release-saas-check
 ```
 
-`release-saas-check` runs `release-check`, `browser-integration-check`, the
-required network-free `browser-scenario-loopback` and
+`release-saas-check` runs `release-check`, the required real-Chromium
+`icot-ui-browser-check`, `browser-integration-check`, the required network-free `browser-scenario-loopback` and
 `browser-scenario-journey`, `eval-seed-build`,
 `icot-variants-validate`, `icot-variants-coverage`, `icot-authoring-scorecard`, UWS validation,
 doc-memory, n8n bridge validation, strict MkDocs build, selected strict SaaS fixture lint, and the
@@ -81,6 +81,16 @@ explicit network authority and is informational. See [Browser Scenario
 Evaluation](browser-scenario-eval.md). The hosted Ubuntu jobs explicitly
 enable sandbox-compatible unprivileged user namespaces on their ephemeral
 runner and retain Chromium's sandbox; `xvfb-run` supplies only the display.
+
+`icot-ui-browser-check` uses the test-only Playwright-Go harness against the
+real embedded iCoT listener. It covers keyboard and accessible-name behavior,
+complete frontier rounds, both approval modes, overwrite conflicts, stale and
+externally modified state, explicit retries, frozen completion, conditional
+polling, visibility changes, and narrow/zoom layout. Production UI packages do
+not import Playwright. The release runner keeps Chromium sandboxing enabled;
+`OPENUDON_ICOT_UI_BROWSER_DISABLE_SANDBOX=1` exists only for local test hosts
+whose kernel policy blocks user namespaces. An override run is local evidence
+only; A11 remains pending until CI records a sandboxed hosted pass.
 
 The demo must use ignored `.openudon-run/...` output, sandbox approval JSON, and
 `openudon run --dry-run`. Do not commit approval JSON, run configs, transcripts,

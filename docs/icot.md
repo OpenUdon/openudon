@@ -9,10 +9,10 @@ It does not execute workflows.
 go run ./cmd/icot --example ./examples/<name>
 ```
 
-For the experimental single-workspace loopback transport and embedded
-read-only status shell, see [Local iCoT UI Server](icot-ui.md). It uses the
-same engine and atomic approval writer; the Phase B JSON API is internal and
-has no compatibility guarantee.
+For the experimental single-workspace loopback transport and embedded Phase C
+authoring/review shell, see [Local iCoT UI Server](icot-ui.md). It uses the
+same engine and atomic approval writer; the JSON API is internal and has no
+compatibility guarantee.
 
 ## Inputs And Modes
 
@@ -309,7 +309,11 @@ It never creates `workflows/intent.hcl`. Resuming, completing, and approving the
 draft promotes it atomically and removes obsolete generated draft/readiness
 files. Source targets reuse identical content, reject differing content unless
 `--force` is supplied, and participate in the same backup/rollback transaction
-as project and intent files.
+as project and intent files. Source materialization cannot target `.icot/**`,
+`project.md`, `workflows/intent.hcl`, or `workflows/intent.draft.hcl`, including
+case-insensitive equivalents. Duplicate, case-insensitive-equivalent,
+ancestor/descendant, and remove/write output collisions reject the complete
+plan before any filesystem mutation.
 
 For a browser route, the selected profile is staged under `browser-profiles/`
 and safe review metadata is staged under `.icot/browser-sources.json`. The

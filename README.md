@@ -198,7 +198,7 @@ go run ./cmd/icot --from-example ./examples/eval/runtime-only-render --example .
 go run ./cmd/icot --answers ./session.yaml --example ./examples/<name> --yes
 
 # Start the experimental single-workspace loopback API v2 and open its
-# one-time capability URL. The embedded Phase B shell is read-only and polls.
+# one-time capability URL. The embedded Phase C shell authors and reviews.
 go run ./cmd/icot ui --example ./examples/<name>
 
 # Seed the UI from a reviewed example without opening the browser.
@@ -300,7 +300,10 @@ snapshot revisions for mutations, detects changes made by editors or another
 process, and freezes after an approved final or incomplete write. A detected
 workspace change preserves cached inspection but blocks mutation until the
 process is restarted. The shell polls API v2 while visible and backs off after
-errors. It does not execute workflows or expose a LAN service. See
+errors. It renders the current frontier as accessible controls, submits
+complete revision-protected rounds, previews proposed artifacts and conflicts,
+and requires explicit final or incomplete approval. It does not execute
+workflows or expose a LAN service. See
 [Local iCoT UI Server](docs/icot-ui.md).
 
 `--prompt-mode full` is the default when the flag is omitted; it prints every question and waits for
@@ -487,13 +490,20 @@ make release-eval
 ```
 
 `make release-saas-check` is the provider-free local SaaS release gate. It runs deterministic checks,
-the browser-free [browser integration evaluation](docs/browser-integration-eval.md), the real
+the required sandboxed `icot-ui-browser-check`, the browser-free
+[browser integration evaluation](docs/browser-integration-eval.md), the real
 network-free [browser scenario loopback and journey suites](docs/browser-scenario-eval.md), the eval seed/build matrix,
 `icot-variants-validate`, `icot-authoring-scorecard`, UWS validation,
 doc-memory validation, n8n bridge validation, strict MkDocs, selected strict fixture lint, and
 trusted-runner dry-run demos without live provider credentials or live provider execution. `icot
 scorecard --include-variants` is deterministic reference/variant package evidence; use `icot
 authoring-eval` separately for optional real LLM natural-language authoring evidence.
+
+`make icot-ui-browser-check` launches Chromium through the test-only
+Playwright-Go harness and qualifies the embedded Phase C authoring, approval,
+accessibility, narrow/zoom layout, polling, stale-state, drift, retry, and
+freeze journeys against a real loopback server. It is part of the release gate,
+not the production UI runtime.
 
 `make release-eval` uses `OPENUDON_LLM_PROVIDER` and `OPENUDON_LLM_MODEL`, defaulting to `copilot-api` and
 `gpt-5.4-mini`, and requires the current eval corpus size as the minimum brief count.
