@@ -7,22 +7,22 @@
     },
     {
       "name": "browsertools",
-      "commit": "4d940eaaae16390dd79b65f1829d66e198095d7d",
+      "commit": "def0e2f573a113fd30375065ea7538be5f893dbb",
       "module": "github.com/OpenUdon/browsertools",
-      "version": "v0.0.0-20260817224213-4d940eaaae16"
+      "version": "v0.0.0-20260819195556-def0e2f573a1"
     },
     {
       "name": "udon",
-      "commit": "2d2f4979d9a66f5bcb723ab4944e17f31dd1a8b8"
+      "commit": "d3e1015346ab96556b30aa48b4b729c60221a56b"
     },
     {
       "name": "uws",
-      "commit": "dd9eb32105131bdbc2855090ae0639b22d12de2b",
+      "commit": "e81d0dee410a5b09432d5580936cbfba652934bf",
       "module": "github.com/OpenUdon/uws",
-      "version": "v0.0.0-20260817013720-dd9eb3210513"
+      "version": "v0.0.0-20260819172405-e81d0dee410a"
     }
   ],
-  "goVersion": "1.26.3",
+  "goVersion": "1.26.6",
   "nodeVersion": "24",
   "playwright": "1.62.1"
 }

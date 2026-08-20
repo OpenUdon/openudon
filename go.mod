@@ -1,14 +1,14 @@
 module github.com/OpenUdon/openudon
 
-go 1.26.3
+go 1.26.6
 
 require (
 	github.com/OpenUdon/apitools v0.0.0-20260820001033-3a9864901572
 	github.com/OpenUdon/asyncapi v0.1.0
 	github.com/OpenUdon/authoring v0.0.0-20260819235644-d73b65ae179c
-	github.com/OpenUdon/browsertools v0.0.0-20260817224213-4d940eaaae16
+	github.com/OpenUdon/browsertools v0.0.0-20260819195556-def0e2f573a1
 	github.com/OpenUdon/evidence v0.0.0-20260815084845-0c17258b9736
-	github.com/OpenUdon/uws v0.0.0-20260817013720-dd9eb3210513
+	github.com/OpenUdon/uws v0.0.0-20260819172405-e81d0dee410a
 	github.com/hashicorp/hcl/v2 v2.24.0
 	github.com/mxschmitt/playwright-go v0.6201.0
 	github.com/santhosh-tekuri/jsonschema/v6 v6.0.2
@@ -46,14 +46,15 @@ require (
 	github.com/ncruces/go-strftime v1.0.0 // indirect
 	github.com/pmezard/go-difflib v1.0.1-0.20181226105442-5d4384ee4fb2 // indirect
 	github.com/remyoudompheng/bigfft v0.0.0-20230129092748-24d4a6f8daec // indirect
+	github.com/theory/jsonpath v0.12.0 // indirect
 	github.com/zclconf/go-cty-yaml v1.1.0 // indirect
-	golang.org/x/crypto v0.51.0 // indirect
-	golang.org/x/mod v0.35.0 // indirect
-	golang.org/x/net v0.54.0 // indirect
-	golang.org/x/sync v0.20.0 // indirect
-	golang.org/x/sys v0.44.0 // indirect
-	golang.org/x/text v0.37.0 // indirect
-	golang.org/x/tools v0.44.0 // indirect
+	golang.org/x/crypto v0.53.0 // indirect
+	golang.org/x/mod v0.37.0 // indirect
+	golang.org/x/net v0.56.0 // indirect
+	golang.org/x/sync v0.21.0 // indirect
+	golang.org/x/sys v0.46.0 // indirect
+	golang.org/x/text v0.39.0 // indirect
+	golang.org/x/tools v0.47.0 // indirect
 	google.golang.org/protobuf v1.36.11 // indirect
 	modernc.org/libc v1.72.0 // indirect
 	modernc.org/mathutil v1.7.1 // indirect
