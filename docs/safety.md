@@ -95,7 +95,10 @@ contract from the current plan, intent, packaged browser/authentication
 profiles, and review metadata: protocol, canonical credential/session
 environment mappings, and exact operation/authentication approvals. The
 external runner re-derives that contract and rejects substitutions. Driver
-arguments, config, evidence, and argv may not contain credential values.
+arguments, config, evidence, and argv may not contain credential values. A
+Docker executor receives the validated host driver through a read-only bind
+mount at `/openudon/browser-driver`; unreferenced API-first fallback profiles
+are ignored by runtime configuration.
 
 `OPENUDON_EXECUTOR` is the canonical final executor selector. It accepts an absolute binary path or
 `docker://<image>`. `OPENUDON_UDON_RUNNER` is separate: it overrides the outer runner shim and must

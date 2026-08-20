@@ -237,7 +237,11 @@ execution. Browser driver arguments are optional repeatable
 `--browser-driver-arg` values and must not contain credentials. Only declared
 `UDON_CREDENTIAL_*` values, required external `UDON_BROWSER_SESSION_*` values,
 and the documented minimal Browserdriver launcher environment cross the
-executor boundary.
+executor boundary. With `OPENUDON_EXECUTOR=docker://<image>`, the supplied
+host driver is validated, mounted read-only at `/openudon/browser-driver`, and
+translated in Udon's argv. A package may retain reviewed browser profiles as
+an API-first fallback without activating this runtime contract when its plan
+contains no browser step.
 
 ## Exclusions And Failure Posture
 

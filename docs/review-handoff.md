@@ -100,7 +100,11 @@ For a browser workflow it also contains the value-free Browserdriver path and
 arguments, derived protocol, canonical credential/session environment names,
 and exact reviewed operation/authentication approvals. A real browser run
 requires `--browser-driver /absolute/path`; dry-run may validate and record the
-derived contract without an installed driver.
+derived contract without an installed driver. Docker execution validates the
+host executable, mounts that one file read-only at
+`/openudon/browser-driver`, and passes only the translated container path to
+Udon. Profiles retained as reviewed API-first fallback evidence do not create
+browser runtime authority when the active plan has no browser step.
 
 Dry runs stage digest-covered files into a fresh workdir and recompute the package digest without
 requiring credential values or invoking the executor. Both dry runs and real handoffs write
