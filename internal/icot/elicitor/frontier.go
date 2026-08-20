@@ -39,20 +39,17 @@ func PlanFrontier(session *Session, docs []APIDocument, issues []ReadinessIssue)
 	}
 	session.Normalize()
 	state, questions := buildInterviewState(*session, docs, issues)
-	frontier, err := publicinterview.Frontier(state)
-	if err != nil {
-		return nil, err
-	}
 	session.Interview = state
-	out := make([]QuestionPlan, 0, len(frontier))
-	for _, node := range frontier {
+	binding := openUdonInterviewBinding(docs)
+	binding.Prepare = nil
+	binding.Question = func(_ Session, _ []APIDocument, node publicinterview.Node) QuestionPlan {
 		question, ok := questions[node.ID]
 		if !ok {
 			question = QuestionPlan{ID: node.ID, Prompt: node.Prompt, Required: node.Required, Recommendation: node.Recommendation, Priority: node.Priority, Rationale: node.Rationale, EvidenceRefs: node.EvidenceRefs}
 		}
-		out = append(out, question)
+		return question
 	}
-	return out, nil
+	return binding.Plan(session, docs)
 }
 
 func buildInterviewState(session Session, docs []APIDocument, issues []ReadinessIssue) (publicinterview.State, map[string]QuestionPlan) {
@@ -350,79 +347,60 @@ func retainGraphDeferrals(deferrals []publicinterview.Deferral, nodes []publicin
 	return out
 }
 
-// ApplyFrontierRound applies all answers to a clone and swaps the normalized
-// session only after the entire round validates.
+// ApplyFrontierRound delegates clone-based product mutation and atomic
+// interview settlement to the shared Authoring binding.
 func ApplyFrontierRound(session *Session, answers []authoring.RoundAnswer, docs []APIDocument) error {
 	if session == nil {
 		return nil
 	}
-	clone, err := cloneSession(*session)
-	if err != nil {
-		return err
-	}
-	if _, err := PlanFrontier(&clone, docs, CheckReadiness(clone, docs)); err != nil {
-		return err
-	}
-	frontier, err := publicinterview.Frontier(clone.Interview)
-	if err != nil {
-		return err
-	}
-	byID := map[string]publicinterview.Node{}
-	for _, node := range frontier {
-		byID[node.ID] = node
-	}
-	seen := map[string]bool{}
-	for index, answer := range answers {
-		node, ok := byID[answer.QuestionID]
-		if !ok || seen[node.ID] {
-			return fmt.Errorf("answer references non-frontier or duplicate decision %q", answer.QuestionID)
-		}
-		seen[node.ID] = true
-		value := strings.TrimSpace(answer.Value)
-		if strings.HasPrefix(strings.ToLower(value), "defer:") {
-			if !node.Deferrable {
-				return fmt.Errorf("decision %q may not be deferred", node.ID)
-			}
-			parts := strings.Split(strings.TrimSpace(value[len("defer:"):]), "|")
-			if len(parts) != 4 {
-				return fmt.Errorf("defer %q with owner | impact | unblock condition | suggested next action", node.ID)
-			}
-			setInterviewNodeStatus(&clone.Interview, node.ID, publicinterview.StatusDeferred)
-			clone.Interview.Deferrals = append(clone.Interview.Deferrals, publicinterview.Deferral{
-				ID: fmt.Sprintf("deferral.%03d.%03d", clone.Interview.Round+1, index+1), NodeID: node.ID,
-				Owner: strings.TrimSpace(parts[0]), Impact: strings.TrimSpace(parts[1]), UnblockCondition: strings.TrimSpace(parts[2]), SuggestedNextAction: strings.TrimSpace(parts[3]),
-			})
-			continue
-		}
-		if value == "" {
-			return fmt.Errorf("decision %q requires an answer", node.ID)
-		}
-		if err := applyFrontierValue(&clone, node.ID, answer, docs); err != nil {
-			return err
-		}
-		setInterviewNodeStatus(&clone.Interview, node.ID, publicinterview.StatusSettled)
-		clone.Interview.Answers = append(clone.Interview.Answers, publicinterview.Answer{
-			ID: fmt.Sprintf("answer.%03d.%03d", clone.Interview.Round+1, index+1), NodeID: node.ID, Value: value, Source: answer.Source,
-		})
-	}
-	clone.Interview.Round++
-	clone.Interview.NoProgressRounds = 0
-	clone.Interview = publicinterview.Normalize(clone.Interview)
-	if err := publicinterview.Validate(clone.Interview); err != nil {
-		return err
-	}
-	clone.Normalize()
-	clone.Boundary.Confirmed = clone.Boundary.Outcome != "" && clone.Boundary.Actor != "" && clone.Boundary.Trigger != "" && len(clone.Boundary.SuccessEvidence) > 0
-	*session = clone
-	return nil
+	return openUdonInterviewBinding(docs).Apply(session, answers, docs)
 }
 
-func setInterviewNodeStatus(state *publicinterview.State, id, status string) {
-	for i := range state.Nodes {
-		if state.Nodes[i].ID == id {
-			state.Nodes[i].Status = status
-			return
-		}
+func openUdonInterviewBinding(docs []APIDocument) authoring.InterviewBinding[Session, APIDocument] {
+	return authoring.InterviewBinding[Session, APIDocument]{
+		State: func(session *Session) *publicinterview.State { return &session.Interview },
+		Clone: cloneSession,
+		Prepare: func(session *Session, currentDocs []APIDocument) error {
+			state, _ := buildInterviewState(*session, currentDocs, CheckReadiness(*session, currentDocs))
+			session.Interview = state
+			return publicinterview.Validate(session.Interview)
+		},
+		Question: func(session Session, currentDocs []APIDocument, node publicinterview.Node) QuestionPlan {
+			_, questions := buildInterviewState(session, currentDocs, CheckReadiness(session, currentDocs))
+			if question, ok := questions[node.ID]; ok {
+				return question
+			}
+			return QuestionPlan{ID: node.ID, Prompt: node.Prompt, Required: node.Required, Recommendation: node.Recommendation, Priority: node.Priority, Rationale: node.Rationale, EvidenceRefs: node.EvidenceRefs}
+		},
+		Resolve: func(session *Session, currentDocs []APIDocument, node publicinterview.Node, answer authoring.RoundAnswer) (publicinterview.Resolution, error) {
+			value := strings.TrimSpace(answer.Value)
+			if strings.HasPrefix(strings.ToLower(value), "defer:") {
+				if !node.Deferrable {
+					return publicinterview.Resolution{}, fmt.Errorf("decision %q may not be deferred", node.ID)
+				}
+				parts := strings.Split(strings.TrimSpace(value[len("defer:"):]), "|")
+				if len(parts) != 4 {
+					return publicinterview.Resolution{}, fmt.Errorf("defer %q with owner | impact | unblock condition | suggested next action", node.ID)
+				}
+				deferral := publicinterview.Deferral{
+					ID: "deferral." + fmt.Sprintf("%03d", session.Interview.Round+1) + "." + node.ID, NodeID: node.ID,
+					Owner: strings.TrimSpace(parts[0]), Impact: strings.TrimSpace(parts[1]), UnblockCondition: strings.TrimSpace(parts[2]), SuggestedNextAction: strings.TrimSpace(parts[3]),
+				}
+				return publicinterview.Resolution{NodeID: node.ID, Deferral: &deferral}, nil
+			}
+			if value == "" {
+				return publicinterview.Resolution{}, fmt.Errorf("decision %q requires an answer", node.ID)
+			}
+			if err := applyFrontierValue(session, node.ID, answer, currentDocs); err != nil {
+				return publicinterview.Resolution{}, err
+			}
+			resolved := publicinterview.Answer{ID: "answer." + fmt.Sprintf("%03d", session.Interview.Round+1) + "." + node.ID, NodeID: node.ID, Value: value, Source: answer.Source}
+			return publicinterview.Resolution{NodeID: node.ID, Answer: &resolved}, nil
+		},
+		Normalize: func(session *Session) {
+			session.Normalize()
+			session.Boundary.Confirmed = session.Boundary.Outcome != "" && session.Boundary.Actor != "" && session.Boundary.Trigger != "" && len(session.Boundary.SuccessEvidence) > 0
+		},
 	}
 }
 

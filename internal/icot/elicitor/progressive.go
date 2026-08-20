@@ -110,6 +110,7 @@ func runProgressive(ctx context.Context, in io.Reader, out io.Writer, seed Sessi
 	nextSessionEvents := func(session Session) []authoring.PromptEvent {
 		return catalogPlanEvents(session, &reportedDraftEvents)
 	}
+	interviewBinding := openUdonInterviewBinding(docs)
 	hooks := authoring.ProgressiveLoopHooks[Session, APIDocument, Artifacts]{
 		Session:       session,
 		Documents:     docs,
@@ -117,6 +118,8 @@ func runProgressive(ctx context.Context, in io.Reader, out io.Writer, seed Sessi
 		Brief:         projectText,
 		NoLLM:         opts.NoLLM,
 		DefaultMode:   opts.DefaultMode,
+		OpeningLabel:  "Workflow goal",
+		Interview:     &interviewBinding,
 		OpeningPrompt: "Tell me what you want this API/workflow to accomplish. Include inputs, API actions, outputs, and safety constraints if you know them. For send/create/update/delete/post/upload/notify actions, explicitly name the provider and action, for example \"send the report using Google Gmail\". Do not paste secrets.",
 		Extractor:     extractor,
 		Normalize: func(session *Session) {
@@ -229,18 +232,7 @@ func runProgressive(ctx context.Context, in io.Reader, out io.Writer, seed Sessi
 			}
 			return progressiveReady(session, issues)
 		},
-		PlanFrontier: func(session Session, docs []APIDocument, issues []ReadinessIssue) []QuestionPlan {
-			frontier, err := PlanFrontier(&session, docs, issues)
-			if err != nil {
-				fmt.Fprintf(statusOut, "icot: interview graph invalid: %v\n", err)
-				return nil
-			}
-			return frontier
-		},
-		ApplyRound: func(session *Session, answers []authoring.RoundAnswer, docs []APIDocument) error {
-			if err := ApplyFrontierRound(session, answers, docs); err != nil {
-				return err
-			}
+		AfterRound: func(session *Session, docs []APIDocument) error {
 			defaultSingleOpenAPIDoc(session, docs)
 			session.SourcePlan = syncSelectedSourcePlansWithBrowser(*session, discovery.Plans, opts.LocalSources, opts.BrowserSources)
 			var err error

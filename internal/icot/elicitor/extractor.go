@@ -9,8 +9,7 @@ import (
 	"strings"
 
 	"github.com/OpenUdon/apitools"
-	"github.com/OpenUdon/authoring/operationlifecycle"
-	"github.com/OpenUdon/authoring/promptcontext"
+	"github.com/OpenUdon/apitools/operationlifecycle"
 	"github.com/OpenUdon/openudon/internal/authoring"
 	"github.com/OpenUdon/openudon/internal/projectwizard"
 	rollout "github.com/OpenUdon/openudon/internal/workflowintent"
@@ -449,13 +448,13 @@ func buildOperationLifecyclePlan(request DraftRequest) operationLifecyclePlan {
 	if len(seedRefs) == 0 {
 		return plan
 	}
-	ctx := PromptContextFromAPIDocuments(request.Docs)
+	operations := lifecycleOperationSummaries(request.Docs)
 	for _, seedRef := range seedRefs {
-		seed, ok := promptOperationCandidateForRef(ctx, seedRef)
+		seed, ok := lifecycleOperationForRef(request.Docs, seedRef)
 		if !ok {
 			continue
 		}
-		expanded := operationlifecycle.Expand(ctx, seed, operationlifecycle.Options{Goal: draftRankingText(request), DesiredState: true})
+		expanded := operationlifecycle.Expand(operations, seed, operationlifecycle.Options{Goal: draftRankingText(request), DesiredState: true})
 		if len(expanded.Roles) <= 1 {
 			continue
 		}
@@ -468,10 +467,10 @@ func buildOperationLifecyclePlan(request DraftRequest) operationLifecyclePlan {
 				Confidence:      role.Confidence,
 				Reason:          role.Reason,
 			})
-			if samePromptOperation(role.Operation, seed) {
+			if sameLifecycleOperation(role.Operation, seed) {
 				continue
 			}
-			if ref, ok := operationDetailRefForCandidate(request.Docs, role.Operation); ok {
+			if ref, ok := operationDetailRefForSummary(request.Docs, role.Operation); ok {
 				plan.SiblingDetailRefs = append(plan.SiblingDetailRefs, ref)
 			}
 		}
@@ -486,20 +485,18 @@ func draftDetailRefsWithLifecyclePlan(plan operationLifecyclePlan, requested []O
 	return appendOperationDetailRefs(refs, requested)
 }
 
-func samePromptOperation(a, b promptcontext.OperationCandidate) bool {
-	return strings.TrimSpace(a.SourceID) != "" &&
-		strings.TrimSpace(a.SourceID) == strings.TrimSpace(b.SourceID) &&
+func sameLifecycleOperation(a, b apitools.OperationSummary) bool {
+	return lifecycleOperationSource(a) != "" && lifecycleOperationSource(a) == lifecycleOperationSource(b) &&
 		firstNonEmpty(a.OperationID, a.ID) == firstNonEmpty(b.OperationID, b.ID)
 }
 
-func operationDetailRefForCandidate(docs []APIDocument, candidate promptcontext.OperationCandidate) (OperationDetailRef, bool) {
-	sourceID := strings.TrimSpace(candidate.SourceID)
+func operationDetailRefForSummary(docs []APIDocument, candidate apitools.OperationSummary) (OperationDetailRef, bool) {
 	operationID := strings.TrimSpace(firstNonEmpty(candidate.OperationID, candidate.ID))
-	if sourceID == "" || operationID == "" {
+	if operationID == "" {
 		return OperationDetailRef{}, false
 	}
 	for _, doc := range docs {
-		if sourceDocumentID(doc) != sourceID {
+		if lifecycleDocumentSource(doc) != lifecycleOperationSource(candidate) {
 			continue
 		}
 		for _, op := range doc.Operations {
@@ -511,29 +508,44 @@ func operationDetailRefForCandidate(docs []APIDocument, candidate promptcontext.
 	return OperationDetailRef{}, false
 }
 
-func promptOperationCandidateForRef(ctx promptcontext.Context, ref OperationDetailRef) (promptcontext.OperationCandidate, bool) {
-	for _, op := range ctx.Operations {
-		if op.OperationID != ref.OperationID {
+func lifecycleOperationForRef(docs []APIDocument, ref OperationDetailRef) (apitools.OperationSummary, bool) {
+	for _, doc := range docs {
+		if strings.TrimSpace(ref.DocumentPath) != "" && doc.RelativePath != ref.DocumentPath {
 			continue
 		}
-		if strings.TrimSpace(ref.DocumentPath) != "" {
-			source := promptSourceForID(ctx, op.SourceID)
-			if source.URI != ref.DocumentPath {
+		for _, operation := range doc.Operations {
+			if operation.OperationID != ref.OperationID {
 				continue
 			}
+			return lifecycleOperationWithSource(doc, operation), true
 		}
-		return op, true
 	}
-	return promptcontext.OperationCandidate{}, false
+	return apitools.OperationSummary{}, false
 }
 
-func promptSourceForID(ctx promptcontext.Context, id string) promptcontext.SourceDocument {
-	for _, source := range ctx.Sources {
-		if source.ID == id {
-			return source
+func lifecycleOperationSummaries(docs []APIDocument) []apitools.OperationSummary {
+	var operations []apitools.OperationSummary
+	for _, doc := range docs {
+		for _, operation := range doc.Operations {
+			operations = append(operations, lifecycleOperationWithSource(doc, operation))
 		}
 	}
-	return promptcontext.SourceDocument{}
+	return operations
+}
+
+func lifecycleOperationWithSource(doc APIDocument, operation apitools.OperationSummary) apitools.OperationSummary {
+	operation.DocumentName = firstNonEmpty(operation.DocumentName, sourceDocumentID(doc))
+	operation.DocumentPath = firstNonEmpty(operation.DocumentPath, doc.Path)
+	operation.DocumentRelativePath = firstNonEmpty(operation.DocumentRelativePath, doc.RelativePath)
+	return operation
+}
+
+func lifecycleDocumentSource(doc APIDocument) string {
+	return firstNonEmpty(doc.RelativePath, doc.Path, sourceDocumentID(doc))
+}
+
+func lifecycleOperationSource(operation apitools.OperationSummary) string {
+	return firstNonEmpty(operation.DocumentRelativePath, operation.DocumentPath, operation.DocumentURL, operation.DocumentName)
 }
 
 func dedupeOperationLifecycleHints(hints []operationLifecyclePromptHint) []operationLifecyclePromptHint {

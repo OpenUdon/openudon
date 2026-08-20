@@ -74,6 +74,10 @@ type NoopInteractiveExtractor[S, D any] = sharedicot.NoopExtractor[S, D]
 // loop.
 type ProgressiveLoopHooks[S, D, A any] = sharedicot.InteractiveHooks[S, D, A]
 
+// InterviewBinding binds downstream session state to Authoring's atomic
+// interview frontier contract.
+type InterviewBinding[S, D any] = sharedicot.InterviewBinding[S, D]
+
 // RunProgressiveICOT runs the domain-neutral progressive iCoT control loop.
 func RunProgressiveICOT[S, D, A any](ctx context.Context, in io.Reader, out io.Writer, hooks ProgressiveLoopHooks[S, D, A]) (A, error) {
 	return sharedicot.RunInteractive(ctx, in, out, hooks)
