@@ -1,5 +1,5 @@
 {
-  "version": "openudon.browser-scenario-lock.v1",
+  "version": "openudon.browser-scenario-lock.v2",
   "components": [
     {
       "name": "browserdriver",
@@ -7,9 +7,9 @@
     },
     {
       "name": "browsertools",
-      "commit": "def0e2f573a113fd30375065ea7538be5f893dbb",
+      "commit": "6c3deeb255383554c82d28fc4499ddacfd22a84c",
       "module": "github.com/OpenUdon/browsertools",
-      "version": "v0.0.0-20260819195556-def0e2f573a1"
+      "version": "v0.0.0-20260820151154-6c3deeb25538"
     },
     {
       "name": "udon",
@@ -24,5 +24,6 @@
   ],
   "goVersion": "1.26.6",
   "nodeVersion": "24",
-  "playwright": "1.62.1"
+  "playwright": "1.62.1",
+  "chromium": "151.0.7922.34"
 }

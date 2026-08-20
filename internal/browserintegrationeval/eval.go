@@ -21,6 +21,7 @@ import (
 	"time"
 
 	"github.com/OpenUdon/openudon/internal/authoring/atomicfile"
+	"github.com/OpenUdon/openudon/internal/browserscenario"
 	"github.com/OpenUdon/openudon/internal/browserverify"
 	"github.com/OpenUdon/openudon/internal/evidencefile"
 	"github.com/OpenUdon/openudon/internal/processgroup"
@@ -156,6 +157,13 @@ func Run(ctx context.Context, opts Options) (*Report, error) {
 	if err != nil {
 		return nil, err
 	}
+	lock, err := browserscenario.LoadCompatibilityLock()
+	if err != nil {
+		return nil, err
+	}
+	if err := validateLockedRepositoryRevisions(revisions, lock); err != nil {
+		return nil, err
+	}
 	report := &Report{
 		Version: ReportVersion, Status: StatusPass,
 		GeneratedAt: now.Format(time.RFC3339), Commit: revisions[0].Commit, Repositories: revisions,
@@ -281,6 +289,13 @@ func Validate(report *Report) error {
 	if err := validateRepositoryRevisions(report.Repositories, report.Commit); err != nil {
 		return err
 	}
+	lock, err := browserscenario.LoadCompatibilityLock()
+	if err != nil {
+		return err
+	}
+	if err := validateLockedRepositoryRevisions(report.Repositories, lock); err != nil {
+		return err
+	}
 	if report.ContainsProviderOutput || !report.SafeToArchive || report.RedactionRequiredBeforeShare || !report.ProviderFree {
 		return fmt.Errorf("browser integration retention or provider-free claims are invalid")
 	}
@@ -383,7 +398,7 @@ func defaultGates() []gate {
 	return []gate{
 		{
 			ID: "openudon-authoring", Repository: "openudon", Kind: "go_test",
-			Args:       []string{"go", "test", "-v", "./internal/icot", "./internal/icot/elicitor", "-run", "Test(BuildBrowserAuthoringPlan|BrowserAuthoring|BrowserAuthorLive|AuthenticatedAuthoring|AuthorSession|LiveAuthor|LiveOutput|LiveObservation|LivePlanner|DiscoverAuthoringSourcesWithBrowserProfileAndAPIPreference|BrowserProfileWinsOnlyForAPICapabilityGap|DiscoverExplicitGuidedAuthoringBundle|GuidedAuthoringAdapter|BrowserAuthenticationDiscoveryAndReadiness)", "-count=1"},
+			Args:       []string{"go", "test", "-v", "./internal/icot", "./internal/icot/elicitor", "-run", "Test(BuildBrowserAuthoringPlan|BrowserAuthoring|BrowserAuthorLive|AuthenticatedAuthoring|AuthorSession|LiveApproval|LiveAuthor|LiveOutput|LiveObservation|LivePlanner|PrepareStableLiveExecutable|DiscoverAuthoringSourcesWithBrowserProfileAndAPIPreference|BrowserProfileWinsOnlyForAPICapabilityGap|DiscoverExplicitGuidedAuthoringBundle|GuidedAuthoringAdapter|BrowserAuthenticationDiscoveryAndReadiness)", "-count=1"},
 			Assertions: []string{"API operation preference", "strict author-session v2", "human-only MFA and output selection", "reduced-observation disclosure and human fallback", "profile reconstruction and substitution rejection", "separate authentication and capability profiles"},
 			RequiredPasses: []string{
 				"TestBuildBrowserAuthoringPlanIsValueFreeAndNonExecuting",
@@ -416,11 +431,14 @@ func defaultGates() []gate {
 				"TestAuthenticatedAuthoringRejectsProfileSubstitutionEvenWithMatchingDigest",
 				"TestAuthorSessionV1AndMalformedV2CheckpointsFailClosed",
 				"TestLiveOutputCompletionAlwaysCarriesExplicitEmptyList",
+				"TestLiveApprovalRequiresTypedReviewedFields",
+				"TestPrepareStableLiveExecutableIsPrivateAndIndependent",
+				"TestAuthenticatedAuthoringRejectsExtraOrigins",
 			},
 		},
 		{
 			ID: "openudon-package-handoff", Repository: "openudon", Kind: "go_test",
-			Args:       []string{"go", "test", "-v", "./internal/browserverify", "./internal/icot", "./internal/icot/elicitor", "./internal/synthesize", "./internal/trustedrunner", "-run", "Test(Inspect|AttachBrowserVerifications|ValidateBrowserVerificationCoverage|BrowserVerificationAttachment|ApprovedBrowserVerification|MainAttachesExplicitBrowserVerification|ValidateBrowserSourceReview|ValidatePackagedBrowserProfile|BrowserSourceReviewStrict|ReviewMarkdown.*BrowserVerification|ReviewHandoffIncludesBrowser|ValidateBrowserAuthenticationReview|PackageFromIntentBuildsBrowserAuthenticationWorkflow|GenerateWorkflowSelectsUWS1|RunDryRunStagesAndWritesEvidenceWithoutCredentialEnv)", "-count=1"},
+			Args:       []string{"go", "test", "-v", "./internal/browserverify", "./internal/icot", "./internal/icot/elicitor", "./internal/synthesize", "./internal/trustedrunner", "./internal/udonrunner", "-run", "Test(Inspect|AttachBrowserVerifications|ValidateBrowserVerificationCoverage|BrowserVerificationAttachment|ApprovedBrowserVerification|MainAttachesExplicitBrowserVerification|ValidateBrowserSourceReview|ValidatePackagedBrowserProfile|BrowserSourceReviewStrict|ReviewMarkdown.*BrowserVerification|ReviewHandoffIncludesBrowser|ValidateBrowserAuthenticationReview|PackageFromIntentBuildsBrowserAuthenticationWorkflow|GenerateWorkflowSelectsUWS1|RunDryRunStagesAndWritesEvidenceWithoutCredentialEnv|BuildBrowserRunConfig|RunBrowserInvocation|BrowserConfig)", "-count=1"},
 			Assertions: []string{"optional live and portability evidence", "tamper/private/stale/mismatch rejection", "value-free review and package inventory", "UWS 1.7/1.8/1.9 discriminator selection", "trusted dry-run handoff"},
 			RequiredPasses: []string{
 				"TestInspectAndValidateLiveSummary",
@@ -444,6 +462,10 @@ func defaultGates() []gate {
 				"TestGenerateWorkflowSelectsUWS18ForContextAuthentication",
 				"TestGenerateWorkflowSelectsUWS18ForContextCapability",
 				"TestGenerateWorkflowSelectsUWS19ForScalarAccessibilityCapability",
+				"TestBuildBrowserRunConfigDerivesReviewedRuntimeContract",
+				"TestBuildBrowserRunConfigRequiresDriverOnlyForExecution",
+				"TestRunBrowserInvocationIsExactAndAllowlisted",
+				"TestBrowserConfigRejectsForgedMappingsAndValues",
 			},
 		},
 		{
@@ -460,7 +482,7 @@ func defaultGates() []gate {
 		},
 		{
 			ID: "browsertools-producer", Repository: "browsertools", Kind: "go_test",
-			Args:       []string{"go", "test", "-v", "./capture", "./cmd/browsertools", "./guide", "./authassist", "./authorsession", "./authorresult", "-run", "Test(AuthorBuilds|Check|ComparePortability|ContractPressure|LiveCheck|PortabilityCLI|GuideAuthor|GuidedEvidenceReader|RunObservesSelectedAlternatives|RunClosesAndReturnsNoArtifact|RunDefendsAgainstMisbehavingBrowser|PlaywrightDoctorFailsOfflineWithoutInstalling|ServeAuthenticatedGoal|ServeFailsClosed|ServeReducesPII|ClickToNewOrigin|ValidateStart|ContextGraphCanonicalization|ContextInventory|ObservationGeneration|OpenedContext|ActionInvalidates|HumanInput|Completion|ProtocolV1|BuildUsesOldestSufficient|BuiltProfilesValidate|BuildContextAndPush|BuildContextual|BuildSeparatesAuthentication|BuildRejectsPartialAuthentication|BuildAuthorsEvery|BuildSelectsOldest|BuildSortsResolved|MarshalDeterministic|PlaywrightAuthorHasNoCredential|AuthorNetworkGuard|AuthorURLFacts|ValidateAuthorBrowserRequest|AuthorSessionChromiumCLI)", "-count=1"},
+			Args:       []string{"go", "test", "-v", "./capture", "./cmd/browsertools", "./guide", "./authassist", "./authorsession", "./authorresult", "-run", "Test(AuthorBuilds|Check|ComparePortability|ContractPressure|LiveCheck|PortabilityCLI|GuideAuthor|GuidedEvidenceReader|RunObservesSelectedAlternatives|RunClosesAndReturnsNoArtifact|RunDefendsAgainstMisbehavingBrowser|PlaywrightDoctorFailsOfflineWithoutInstalling|ServeAuthenticatedGoal|ServeFailsClosed|ServeReducesPII|ClickToNewOrigin|ValidateStart|ContextGraphCanonicalization|ContextInventory|ObservationGeneration|OpenedContext|ActionInvalidates|HumanInput|Completion|ProtocolV1|ActiveTimeout|AuthorChallengeKinds|BuildUsesOldestSufficient|BuiltProfilesValidate|BuildContextAndPush|BuildContextual|BuildSeparatesAuthentication|BuildRejectsPartialAuthentication|BuildAuthorsEvery|BuildSelectsOldest|BuildSortsResolved|MarshalDeterministic|PlaywrightAuthorHasNoCredential|AuthorNetworkGuard|AuthorURLFacts|ValidateAuthorBrowserRequest|AuthorSessionChromiumCLI)", "-count=1"},
 			Assertions: []string{"synthetic/fake-engine default", "strict author-session v2 state machine", "human-reviewed MFA kind and outputs", "deterministic oldest-sufficient UWS profile synthesis", "offline doctor does not install"},
 			RequiredPasses: []string{
 				"TestCheckUsesBoundedAcquisitionAndReturnsValueFreeReport",
@@ -504,6 +526,8 @@ func defaultGates() []gate {
 				"TestAuthorURLFactsAndARIAReduction",
 				"TestValidateAuthorBrowserRequestIsFinite",
 				"TestAuthorSessionChromiumCLIUsesNDJSONAndGenericFailure",
+				"TestActiveTimeoutDoesNotChargeHumanIdleTime",
+				"TestAuthorChallengeKindsAndFrameNamesAreDisclosureSafe",
 			},
 		},
 		{
@@ -768,7 +792,7 @@ func repositoryRevisions(ctx context.Context, repos map[string]string, runner Ru
 	names := []string{"openudon", "browsertools", "uws", "udon", "browserdriver"}
 	revisions := make([]RepositoryRevision, 0, len(names))
 	for _, name := range names {
-		commitOutput := runner(ctx, Command{Repository: name, Dir: repos[name], Args: []string{"git", "rev-parse", "--short=12", "HEAD"}, Timeout: 30 * time.Second})
+		commitOutput := runner(ctx, Command{Repository: name, Dir: repos[name], Args: []string{"git", "rev-parse", "HEAD"}, Timeout: 30 * time.Second})
 		commit := strings.TrimSpace(commitOutput.Stdout)
 		if commitOutput.Err != nil || !commitPattern.MatchString(commit) {
 			return nil, fmt.Errorf("resolve %s release-evidence commit", name)
@@ -791,11 +815,24 @@ func validateRepositoryRevisions(revisions []RepositoryRevision, openUdonCommit 
 		if revisions[index].Name != name || !commitPattern.MatchString(revisions[index].Commit) {
 			return fmt.Errorf("browser integration repository provenance %d drifted", index)
 		}
+		if index > 0 && revisions[index].Dirty {
+			return fmt.Errorf("browser integration sibling %s is dirty", name)
+		}
 	}
 	if revisions[0].Commit != openUdonCommit {
 		return fmt.Errorf("browser integration OpenUdon commit provenance disagrees")
 	}
 	return nil
+}
+
+func validateLockedRepositoryRevisions(revisions []RepositoryRevision, lock browserscenario.CompatibilityLock) error {
+	states := map[string]browserscenario.RepositoryState{}
+	for _, revision := range revisions {
+		if revision.Name != "openudon" {
+			states[revision.Name] = browserscenario.RepositoryState{Commit: revision.Commit, Dirty: revision.Dirty}
+		}
+	}
+	return browserscenario.ValidateRepositoryStates(lock, states)
 }
 
 func verifyDigest(path string, data []byte) error {
@@ -894,6 +931,10 @@ func validDoctorReport(report doctorReport, expectedEngine string, commandErr er
 	if report.Version != "browsertools.playwright-doctor.v1" || report.Engine != expectedEngine ||
 		strings.TrimSpace(report.PlaywrightGoVersion) == "" || strings.TrimSpace(report.PlaywrightVersion) == "" ||
 		len(report.Capabilities) == 0 {
+		return false
+	}
+	lock, err := browserscenario.LoadCompatibilityLock()
+	if err != nil || report.PlaywrightVersion != lock.Playwright {
 		return false
 	}
 	seen := make(map[string]bool, len(report.Capabilities))

@@ -48,7 +48,11 @@ func NewJourneyFixture(manifest Manifest) (*JourneyFixture, error) {
 		return nil, fmt.Errorf("journey fixture requires a journey manifest")
 	}
 	fixture := &JourneyFixture{manifest: manifest, sessions: map[string]int{}, note: "Initial note", priority: "normal", archived: true}
-	fixture.server = httptest.NewServer(http.HandlerFunc(fixture.serveHTTP))
+	fixture.server = httptest.NewUnstartedServer(http.HandlerFunc(fixture.serveHTTP))
+	fixture.server.Config.ReadHeaderTimeout = scenarioHTTPTimeout
+	fixture.server.Config.WriteTimeout = scenarioHTTPTimeout
+	fixture.server.Config.IdleTimeout = scenarioHTTPTimeout
+	fixture.server.Start()
 	return fixture, nil
 }
 
@@ -80,6 +84,9 @@ func (fixture *JourneyFixture) RecordState() (string, string, bool, bool) {
 }
 
 func (fixture *JourneyFixture) serveHTTP(writer http.ResponseWriter, request *http.Request) {
+	writer.Header().Set("Cache-Control", "no-store")
+	writer.Header().Set("Content-Security-Policy", "default-src 'self'; form-action 'self'; base-uri 'none'")
+	writer.Header().Set("X-Content-Type-Options", "nosniff")
 	fixture.mu.Lock()
 	fixture.requestCount++
 	fixture.mu.Unlock()

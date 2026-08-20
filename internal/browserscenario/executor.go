@@ -148,8 +148,13 @@ func (executor *realExecutor) prepare(ctx context.Context, environment Environme
 			return
 		}
 	}
-	nodeCheck := `import {chromium} from "playwright"; const browser=await chromium.launch({headless:true}); await browser.close();`
-	if !runSilent(ctx, scenarioDeadline, environment.BrowserdriverRepo, []string{executor.node, "--input-type=module", "--eval", nodeCheck}, nil) {
+	nodeCheck := `import {createRequire} from "node:module"; import {chromium} from "playwright"; const require=createRequire(import.meta.url); const browser=await chromium.launch({headless:true}); console.log(JSON.stringify({playwright:require("playwright/package.json").version,chromium:browser.version()})); await browser.close();`
+	installed := runBounded(ctx, scenarioDeadline, environment.BrowserdriverRepo, []string{executor.node, "--input-type=module", "--eval", nodeCheck}, nil, "")
+	var versions struct {
+		Playwright string `json:"playwright"`
+		Chromium   string `json:"chromium"`
+	}
+	if installed.err != nil || json.Unmarshal(bytes.TrimSpace(installed.stdout), &versions) != nil || versions.Playwright != environment.Lock.Playwright || versions.Chromium != environment.Lock.Chromium {
 		executor.unavailable = true
 	}
 }
@@ -225,12 +230,14 @@ func (executor *realExecutor) executeLoopback(ctx context.Context, manifest Mani
 			return appendFailure(result, "profiles_staged", "staging_failed")
 		}
 	}
-	fixture.SetRuntime(true)
 	variants := append([]string(nil), manifest.ReplayVariants...)
 	if len(variants) == 0 {
 		variants = []string{""}
 	}
 	for _, variant := range variants {
+		// Each replay variant gets independent server-side session and proof
+		// counters, matching its fresh Browserdriver lifecycle.
+		fixture.SetRuntime(true)
 		if fixture.SetReplayVariant(variant) != nil {
 			fixture.Close()
 			_ = os.RemoveAll(caseRoot)
@@ -238,10 +245,20 @@ func (executor *realExecutor) executeLoopback(ctx context.Context, manifest Mani
 		}
 		replay := executor.runUdon(ctx, manifest, exampleDir, workflow.Path, author.CredentialSlotKinds, bindings)
 		if manifest.Expected.Replay == "pass" {
-			if replay.failureCode != "" || !scenarioOutputsEqual(replay.outputs, expectedScenarioOutputs(manifest)) {
+			if replay.failureCode != "" {
+				fixture.Close()
+				_ = os.RemoveAll(caseRoot)
+				return appendFailure(result, "browserdriver_replay", "replay_failed")
+			}
+			if !scenarioOutputsEqual(replay.outputs, fixture.ExpectedOutputs(manifest.Outputs)) {
 				fixture.Close()
 				_ = os.RemoveAll(caseRoot)
 				return appendFailure(result, "browserdriver_replay", "output_mismatch")
+			}
+			if !fixture.AuthenticatedReplayObserved() {
+				fixture.Close()
+				_ = os.RemoveAll(caseRoot)
+				return appendFailure(result, "browserdriver_replay", "authentication_not_proven")
 			}
 		} else if replay.failureCode != manifest.Expected.FailureCode {
 			fixture.Close()
@@ -754,7 +771,7 @@ func (executor *realExecutor) runUdon(ctx context.Context, manifest Manifest, ex
 	}
 	command := runBounded(ctx, scenarioDeadline, exampleDir, args, environment, input)
 	if command.err != nil {
-		return replayResult{failureCode: scenarioFailureCode(filepath.Join(exampleDir, "execution-report.json"), manifest)}
+		return replayResult{failureCode: scenarioFailureCode(filepath.Join(exampleDir, "execution-report.json"))}
 	}
 	outputs, err := readScenarioOutputs(filepath.Join(exampleDir, "output", "udon.hcl"))
 	if err != nil {
@@ -815,27 +832,6 @@ func scenarioAuthorOutputs(outputs []Output) []icot.BrowserScenarioOutput {
 	result := make([]icot.BrowserScenarioOutput, len(outputs))
 	for index, output := range outputs {
 		result[index] = icot.BrowserScenarioOutput{Key: output.Key, Type: output.Type, Role: output.Role, Name: output.Name, LocatorMode: output.LocatorMode}
-	}
-	return result
-}
-
-func expectedScenarioOutputs(manifest Manifest) map[string]any {
-	result := map[string]any{"goal_present": true}
-	values := map[string]any{
-		"Account name": "Ada Lovelace", "Item count": float64(42), "Usage ratio": float64(-1250),
-		"Feature enabled": true, "Plan summary": true, "Primary status": "Ready", "Secondary status": "Healthy",
-		"Summary": "Stable summary", "Embedded status": "Embedded ready",
-	}
-	for _, output := range manifest.Outputs {
-		if strings.HasPrefix(output.Name, "Metric ") {
-			result[output.Key] = output.Name
-			continue
-		}
-		if output.LocatorMode == "unique_role" {
-			result[output.Key] = "Stable summary"
-			continue
-		}
-		result[output.Key] = values[output.Name]
 	}
 	return result
 }
@@ -982,7 +978,7 @@ func (writer *limitedWriter) Write(value []byte) (int, error) {
 }
 
 func scenarioEnvironment(overrides map[string]string) []string {
-	allowed := map[string]bool{"DISPLAY": true, "WAYLAND_DISPLAY": true, "XAUTHORITY": true, "XDG_RUNTIME_DIR": true, "DBUS_SESSION_BUS_ADDRESS": true, "HOME": true, "PATH": true, "LANG": true, "LC_ALL": true, "PLAYWRIGHT_BROWSERS_PATH": true, "TMPDIR": true, "NO_PROXY": true, "HTTP_PROXY": true, "HTTPS_PROXY": true, "ALL_PROXY": true, "no_proxy": true, "http_proxy": true, "https_proxy": true, "all_proxy": true}
+	allowed := map[string]bool{"DISPLAY": true, "WAYLAND_DISPLAY": true, "XAUTHORITY": true, "XDG_RUNTIME_DIR": true, "DBUS_SESSION_BUS_ADDRESS": true, "HOME": true, "PATH": true, "LANG": true, "LC_ALL": true, "PLAYWRIGHT_BROWSERS_PATH": true, "TMPDIR": true}
 	values := map[string]string{}
 	for _, item := range os.Environ() {
 		name, value, ok := strings.Cut(item, "=")
@@ -1012,7 +1008,7 @@ func regularFile(path string) bool {
 	return err == nil && info.Mode().IsRegular() && info.Mode()&os.ModeSymlink == 0
 }
 
-func scenarioFailureCode(reportPath string, manifest Manifest) string {
+func scenarioFailureCode(reportPath string) string {
 	data, err := os.ReadFile(reportPath)
 	if err != nil || len(data) == 0 || len(data) > scenarioCommandOutputLimit {
 		return "invalid_response"
@@ -1039,7 +1035,7 @@ func scenarioFailureCode(reportPath string, manifest Manifest) string {
 	switch {
 	case strings.Contains(lower, "origin_rejected") || strings.Contains(lower, "outside the allowed origin"):
 		return "origin_rejected"
-	case strings.Contains(lower, "unknown context") || strings.Contains(lower, "context") && manifest.Fault == "context_substitution":
+	case strings.Contains(lower, "invalid_context") || strings.Contains(lower, "unknown context"):
 		return "invalid_context"
 	case strings.Contains(lower, "secret-like") || strings.Contains(lower, "raw-capture"):
 		return "secret_output"

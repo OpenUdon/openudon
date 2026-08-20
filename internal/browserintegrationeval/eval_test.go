@@ -12,6 +12,8 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/OpenUdon/openudon/internal/browserscenario"
 )
 
 func TestRunWritesAndVerifiesValueFreeProviderFreeMatrix(t *testing.T) {
@@ -200,6 +202,7 @@ func TestValidateRejectsContractAndAuthorityDrift(t *testing.T) {
 			report.Repositories[0], report.Repositories[1] = report.Repositories[1], report.Repositories[0]
 		}},
 		{name: "repository commit", mutate: func(report *Report) { report.Repositories[2].Commit = "unknown" }},
+		{name: "dirty sibling", mutate: func(report *Report) { report.Repositories[1].Dirty = true }},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			report := cloneReport(t, base)
@@ -225,7 +228,19 @@ func (runner *fakeRunner) Run(_ context.Context, command Command) CommandOutput 
 		runner.calls = map[string]int{}
 	}
 	if len(command.Args) >= 2 && command.Args[0] == "git" && command.Args[1] == "rev-parse" {
-		return CommandOutput{Stdout: "0123456789ab\n"}
+		if command.Repository == "openudon" {
+			return CommandOutput{Stdout: "0123456789ab\n"}
+		}
+		lock, err := browserscenario.LoadCompatibilityLock()
+		if err != nil {
+			runner.t.Fatal(err)
+		}
+		for _, component := range lock.Components {
+			if component.Name == command.Repository {
+				return CommandOutput{Stdout: component.Commit + "\n"}
+			}
+		}
+		runner.t.Fatalf("missing locked revision for %s", command.Repository)
 	}
 	if len(command.Args) >= 2 && command.Args[0] == "git" && command.Args[1] == "status" {
 		return CommandOutput{}

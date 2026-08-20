@@ -21,7 +21,7 @@ import (
 const (
 	ManifestVersion        = "openudon.browser-scenario.v1"
 	JourneyManifestVersion = "openudon.browser-journey.v1"
-	LockVersion            = "openudon.browser-scenario-lock.v1"
+	LockVersion            = "openudon.browser-scenario-lock.v2"
 	SuiteLoopback          = "loopback"
 	SuiteJourney           = "journey"
 	SuitePublic            = "public"
@@ -108,6 +108,7 @@ type CompatibilityLock struct {
 	GoVersion   string           `json:"goVersion"`
 	NodeVersion string           `json:"nodeVersion"`
 	Playwright  string           `json:"playwright"`
+	Chromium    string           `json:"chromium"`
 }
 
 type LockedRevision struct {
@@ -343,7 +344,7 @@ func validatePublicManifest(manifest Manifest, now time.Time) error {
 }
 
 func ValidateCompatibilityLock(lock CompatibilityLock) error {
-	if lock.Version != LockVersion || lock.GoVersion == "" || lock.NodeVersion == "" || lock.Playwright == "" || len(lock.Components) != 4 {
+	if lock.Version != LockVersion || lock.GoVersion == "" || lock.NodeVersion == "" || lock.Playwright == "" || lock.Chromium == "" || len(lock.Components) != 4 {
 		return fmt.Errorf("browser scenario compatibility lock is incomplete")
 	}
 	want := []string{"browserdriver", "browsertools", "udon", "uws"}
@@ -360,6 +361,28 @@ func ValidateCompatibilityLock(lock CompatibilityLock) error {
 		}
 		if !regexp.MustCompile(`^[a-f0-9]{40}$`).MatchString(component.Commit) {
 			return fmt.Errorf("browser scenario component commit is invalid")
+		}
+	}
+	return nil
+}
+
+// RepositoryState is the clean immutable state required from one locked
+// sibling repository before browser release evidence can run.
+type RepositoryState struct {
+	Commit string
+	Dirty  bool
+}
+
+// ValidateRepositoryStates applies the shared compatibility lock used by both
+// browser-scenario and browser-integration evidence.
+func ValidateRepositoryStates(lock CompatibilityLock, states map[string]RepositoryState) error {
+	for _, component := range lock.Components {
+		state, ok := states[component.Name]
+		if !ok || state.Commit != component.Commit {
+			return fmt.Errorf("%s revision does not match the browser-scenario compatibility lock", component.Name)
+		}
+		if state.Dirty {
+			return fmt.Errorf("%s worktree is dirty; browser release evidence requires locked clean siblings", component.Name)
 		}
 	}
 	return nil

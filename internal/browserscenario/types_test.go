@@ -222,7 +222,7 @@ func TestScenarioEnvironmentExcludesCredentialsAndRetainsNetworkProxy(t *testing
 	t.Setenv("HTTPS_PROXY", "http://proxy.example:8080")
 	values := scenarioEnvironment(nil)
 	joined := strings.Join(values, "\n")
-	if strings.Contains(joined, "OPENAI_API_KEY") || strings.Contains(joined, "SCENARIO_PASSWORD") || !strings.Contains(joined, "HTTPS_PROXY=http://proxy.example:8080") {
+	if strings.Contains(joined, "OPENAI_API_KEY") || strings.Contains(joined, "SCENARIO_PASSWORD") || strings.Contains(joined, "HTTPS_PROXY") {
 		t.Fatalf("scenario environment = %q", joined)
 	}
 }
@@ -232,8 +232,34 @@ func TestCompatibilityLockMatchesPublishedTypedBrowserRevisions(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if lock.Playwright != "1.62.1" || lock.Components[0].Name != "browserdriver" || lock.Components[3].Name != "uws" {
+	if lock.Playwright != "1.62.1" || lock.Chromium != "151.0.7922.34" || lock.Components[0].Name != "browserdriver" || lock.Components[3].Name != "uws" {
 		t.Fatalf("lock = %#v", lock)
+	}
+}
+
+func TestCompatibilityLockRejectsDirtyOrDriftedSibling(t *testing.T) {
+	lock, err := LoadCompatibilityLock()
+	if err != nil {
+		t.Fatal(err)
+	}
+	states := map[string]RepositoryState{}
+	for _, component := range lock.Components {
+		states[component.Name] = RepositoryState{Commit: component.Commit}
+	}
+	if err := ValidateRepositoryStates(lock, states); err != nil {
+		t.Fatal(err)
+	}
+	dirty := states["browserdriver"]
+	dirty.Dirty = true
+	states["browserdriver"] = dirty
+	if err := ValidateRepositoryStates(lock, states); err == nil || !strings.Contains(err.Error(), "dirty") {
+		t.Fatalf("dirty sibling error = %v", err)
+	}
+	dirty.Dirty = false
+	dirty.Commit = strings.Repeat("a", 40)
+	states["browserdriver"] = dirty
+	if err := ValidateRepositoryStates(lock, states); err == nil || !strings.Contains(err.Error(), "compatibility lock") {
+		t.Fatalf("drifted sibling error = %v", err)
 	}
 }
 
@@ -374,6 +400,7 @@ func sampleReport(t *testing.T) *Report {
 	return NewReport(SuiteLoopback, time.Date(2026, 8, 17, 12, 0, 0, 0, time.UTC), []RepositoryRevision{
 		{Name: "openudon", Commit: "6a08b81317a852b9b8581c502eadbbdf591508e1"},
 		{Name: "browsertools", Commit: components["browsertools"].Commit},
+		{Name: "uws", Commit: components["uws"].Commit},
 		{Name: "udon", Commit: components["udon"].Commit},
 		{Name: "browserdriver", Commit: components["browserdriver"].Commit},
 	}, []DependencyRevision{

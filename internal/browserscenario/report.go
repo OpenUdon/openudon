@@ -247,7 +247,7 @@ func requireReportWireFields(data []byte) error {
 }
 
 func validateRepositoryRevisions(revisions []RepositoryRevision, rootCommit string) error {
-	want := []string{"openudon", "browsertools", "udon", "browserdriver"}
+	want := []string{"openudon", "browsertools", "uws", "udon", "browserdriver"}
 	if len(revisions) != len(want) {
 		return fmt.Errorf("browser scenario repository inventory is incomplete")
 	}
@@ -343,7 +343,7 @@ var allowedDetails = map[string]bool{
 	"origin_policy_drift": true, "contract_drift": true, "teardown_failed": true,
 	"output_bound": true, "stale_candidate": true, "ambiguous_output": true,
 	"invalid_context": true, "invalid_response": true, "secret_output": true,
-	"origin_rejected":   true,
+	"origin_rejected": true, "authentication_not_proven": true,
 	"approval_required": true, "ambiguous_locator": true, "invalid_parameters": true,
 }
 

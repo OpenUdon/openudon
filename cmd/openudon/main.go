@@ -135,6 +135,7 @@ func runBrowserScenarioEvalCommand(args []string) {
 	fs := flag.NewFlagSet("browser-scenario-eval", flag.ExitOnError)
 	suite := fs.String("suite", "", "Scenario suite: loopback, journey, or public")
 	browsertoolsRepo := fs.String("browsertools-repo", "../browsertools", "Sibling Browsertools repository")
+	uwsRepo := fs.String("uws-repo", "../uws", "Sibling UWS repository")
 	udonRepo := fs.String("udon-repo", "../udon", "Sibling Udon repository")
 	browserdriverRepo := fs.String("browserdriver-repo", "../browserdriver", "Sibling Browserdriver repository")
 	out := fs.String("out", "", "Value-free report JSON path")
@@ -182,7 +183,7 @@ func runBrowserScenarioEvalCommand(args []string) {
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 	report, err := browserscenario.Run(ctx, browserscenario.Options{
-		RepoRoot: ".", BrowsertoolsRepo: *browsertoolsRepo, UdonRepo: *udonRepo,
+		RepoRoot: ".", BrowsertoolsRepo: *browsertoolsRepo, UWSRepo: *uwsRepo, UdonRepo: *udonRepo,
 		BrowserdriverRepo: *browserdriverRepo, Suite: *suite, ScenarioIDs: []string(scenarios),
 		OutPath: *out, RequireReady: *requireReady, AllowNetwork: *allowNetwork,
 	})

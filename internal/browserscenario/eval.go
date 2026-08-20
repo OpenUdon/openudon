@@ -16,6 +16,7 @@ import (
 type Options struct {
 	RepoRoot          string
 	BrowsertoolsRepo  string
+	UWSRepo           string
 	UdonRepo          string
 	BrowserdriverRepo string
 	Suite             string
@@ -32,6 +33,7 @@ type Options struct {
 type Environment struct {
 	RepoRoot          string
 	BrowsertoolsRepo  string
+	UWSRepo           string
 	UdonRepo          string
 	BrowserdriverRepo string
 	Lock              CompatibilityLock
@@ -137,6 +139,10 @@ func resolveEnvironment(ctx context.Context, options Options, lock Compatibility
 	if err != nil {
 		return Environment{}, nil, nil, err
 	}
+	uwsRepo, err := absoluteDirectory(defaultPath(options.UWSRepo, filepath.Join(root, "..", "uws")), "uws")
+	if err != nil {
+		return Environment{}, nil, nil, err
+	}
 	udonRepo, err := absoluteDirectory(defaultPath(options.UdonRepo, filepath.Join(root, "..", "udon")), "udon")
 	if err != nil {
 		return Environment{}, nil, nil, err
@@ -147,7 +153,7 @@ func resolveEnvironment(ctx context.Context, options Options, lock Compatibility
 	}
 
 	repoPaths := []struct{ name, path string }{
-		{"openudon", root}, {"browsertools", browsertoolsRepo}, {"udon", udonRepo}, {"browserdriver", browserdriverRepo},
+		{"openudon", root}, {"browsertools", browsertoolsRepo}, {"uws", uwsRepo}, {"udon", udonRepo}, {"browserdriver", browserdriverRepo},
 	}
 	repositories := make([]RepositoryRevision, 0, len(repoPaths))
 	for _, repo := range repoPaths {
@@ -161,10 +167,12 @@ func resolveEnvironment(ctx context.Context, options Options, lock Compatibility
 	for _, component := range lock.Components {
 		locked[component.Name] = component
 	}
+	states := make(map[string]RepositoryState, len(repositories)-1)
 	for _, revision := range repositories[1:] {
-		if locked[revision.Name].Commit != revision.Commit {
-			return Environment{}, nil, nil, fmt.Errorf("%s revision does not match the browser-scenario compatibility lock", revision.Name)
-		}
+		states[revision.Name] = RepositoryState{Commit: revision.Commit, Dirty: revision.Dirty}
+	}
+	if err := ValidateRepositoryStates(lock, states); err != nil {
+		return Environment{}, nil, nil, err
 	}
 	dependencies := []DependencyRevision{
 		{Module: "github.com/OpenUdon/browsertools", Version: locked["browsertools"].Version},
@@ -176,7 +184,7 @@ func resolveEnvironment(ctx context.Context, options Options, lock Compatibility
 		}
 	}
 	return Environment{
-		RepoRoot: root, BrowsertoolsRepo: browsertoolsRepo, UdonRepo: udonRepo,
+		RepoRoot: root, BrowsertoolsRepo: browsertoolsRepo, UWSRepo: uwsRepo, UdonRepo: udonRepo,
 		BrowserdriverRepo: browserdriverRepo, Lock: lock, Now: now,
 	}, repositories, dependencies, nil
 }
