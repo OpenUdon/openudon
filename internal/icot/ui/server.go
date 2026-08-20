@@ -13,6 +13,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"html"
 	"io"
 	"mime"
 	"net"
@@ -47,14 +48,16 @@ type AuthoringEngine interface {
 // HandlerConfig configures one server handler after its loopback listener is
 // active. Authority must be the listener's exact host:port value.
 type HandlerConfig struct {
-	Engine     AuthoringEngine
-	Snapshot   engine.Snapshot
-	ExampleDir string
-	Token      string
-	AccessCode string
-	Authority  string
-	ErrOut     io.Writer
-	Now        func() time.Time
+	Engine             AuthoringEngine
+	Snapshot           engine.Snapshot
+	ExampleDir         string
+	Token              string
+	AccessCode         string
+	Authority          string
+	ErrOut             io.Writer
+	AccessCodeOut      io.Writer
+	Now                func() time.Time
+	GenerateAccessCode func() (string, error)
 }
 
 // Workspace identifies the selected example and its optimistic ownership
@@ -130,23 +133,26 @@ func (e *requestError) Error() string { return e.text }
 type Server struct {
 	mu sync.Mutex
 
-	engine            AuthoringEngine
-	snapshot          engine.Snapshot
-	exampleDir        string
-	token             string
-	accessCodeDigest  [sha256.Size]byte
-	accessCodeExpires time.Time
-	accessCodeUsed    bool
-	accessFailures    []time.Time
-	now               func() time.Time
-	authority         string
-	origin            string
-	basePath          string
-	revision          string
-	completed         bool
-	writeResult       *engine.WriteResult
-	workspace         engine.WorkspaceStatus
-	errOut            io.Writer
+	engine             AuthoringEngine
+	snapshot           engine.Snapshot
+	exampleDir         string
+	token              string
+	accessCodeDigest   [sha256.Size]byte
+	accessCodeExpires  time.Time
+	accessCodeUsed     bool
+	accessFailures     []time.Time
+	accessRecoveries   []time.Time
+	accessCodeOut      io.Writer
+	generateAccessCode func() (string, error)
+	now                func() time.Time
+	authority          string
+	origin             string
+	basePath           string
+	revision           string
+	completed          bool
+	writeResult        *engine.WriteResult
+	workspace          engine.WorkspaceStatus
+	errOut             io.Writer
 }
 
 var fallbackRequestID atomic.Uint64
@@ -192,13 +198,8 @@ func NewHandler(config HandlerConfig) (http.Handler, error) {
 		return nil, errors.New("UI capability token is required")
 	}
 	accessCode := strings.ToUpper(strings.TrimSpace(config.AccessCode))
-	if len(accessCode) != 12 {
+	if !validAccessCode(accessCode) {
 		return nil, errors.New("UI access code must contain 12 Crockford Base32 characters")
-	}
-	for _, ch := range accessCode {
-		if !strings.ContainsRune("0123456789ABCDEFGHJKMNPQRSTVWXYZ", ch) {
-			return nil, errors.New("UI access code must contain 12 Crockford Base32 characters")
-		}
 	}
 	authority := strings.TrimSpace(config.Authority)
 	if !validLoopbackAuthority(authority) {
@@ -208,6 +209,14 @@ func NewHandler(config HandlerConfig) (http.Handler, error) {
 	if errOut == nil {
 		errOut = io.Discard
 	}
+	accessCodeOut := config.AccessCodeOut
+	if accessCodeOut == nil {
+		accessCodeOut = io.Discard
+	}
+	generateAccessCode := config.GenerateAccessCode
+	if generateAccessCode == nil {
+		generateAccessCode = GenerateAccessCode
+	}
 	now := config.Now
 	if now == nil {
 		now = time.Now
@@ -216,6 +225,7 @@ func NewHandler(config HandlerConfig) (http.Handler, error) {
 		engine: config.Engine, snapshot: config.Snapshot,
 		exampleDir: config.ExampleDir, token: config.Token, authority: authority,
 		origin: "http://" + authority, basePath: instanceBasePath(config.Token), errOut: errOut,
+		accessCodeOut: accessCodeOut, generateAccessCode: generateAccessCode,
 		accessCodeDigest: sha256.Sum256([]byte(accessCode)), accessCodeExpires: now().Add(5 * time.Minute), now: now,
 	}
 	revision, err := revisionFor(s.snapshot, false, nil, s.workspace)
@@ -224,6 +234,18 @@ func NewHandler(config HandlerConfig) (http.Handler, error) {
 	}
 	s.revision = revision
 	return s, nil
+}
+
+func validAccessCode(code string) bool {
+	if len(code) != 12 {
+		return false
+	}
+	for _, ch := range code {
+		if !strings.ContainsRune("0123456789ABCDEFGHJKMNPQRSTVWXYZ", ch) {
+			return false
+		}
+	}
+	return true
 }
 
 func validLoopbackAuthority(authority string) bool {
@@ -316,7 +338,7 @@ func (s *Server) serveShell(w http.ResponseWriter, r *http.Request, cookieScoped
 		return
 	}
 	if !s.authenticated(r, cookieScoped) {
-		s.writeError(w, http.StatusUnauthorized, "unauthorized", "a valid UI capability token is required", false, requestID, "")
+		http.Redirect(w, r, "/", http.StatusSeeOther)
 		return
 	}
 	if err := serveEmbedded(w, "assets/index.html", "text/html; charset=utf-8"); err != nil {
@@ -331,20 +353,32 @@ func (s *Server) serveBootstrap(w http.ResponseWriter, r *http.Request, requestI
 	}
 	switch r.Method {
 	case http.MethodGet:
-		w.Header().Set("Content-Type", "text/html; charset=utf-8")
-		w.WriteHeader(http.StatusOK)
-		_, _ = io.WriteString(w, `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width"><title>OpenUdon iCoT</title></head><body><main><h1>OpenUdon iCoT</h1><p>Enter the 12-character access code shown in the terminal.</p><form method="post" action="/"><label>Access code <input name="code" inputmode="text" autocomplete="one-time-code" maxlength="12" required></label><button type="submit">Continue</button></form></main></body></html>`)
+		s.writeBootstrapPage(w, "")
 	case http.MethodPost:
-		s.exchangeAccessCode(w, r, requestID)
+		s.handleBootstrapPost(w, r, requestID)
 	default:
 		s.methodNotAllowed(w, "GET, POST", requestID)
 	}
 }
 
-func (s *Server) exchangeAccessCode(w http.ResponseWriter, r *http.Request, requestID string) {
+func (s *Server) writeBootstrapPage(w http.ResponseWriter, message string) {
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	w.WriteHeader(http.StatusOK)
+	_, _ = io.WriteString(w, `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width"><title>OpenUdon iCoT</title></head><body><main><h1>OpenUdon iCoT</h1>`)
+	if message != "" {
+		_, _ = io.WriteString(w, `<p role="status">`+html.EscapeString(message)+`</p>`)
+	}
+	_, _ = io.WriteString(w, `<p>Enter the 12-character access code shown in the terminal.</p><form method="post" action="/"><label>Access code <input name="code" inputmode="text" autocomplete="one-time-code" maxlength="12" required></label><button type="submit">Continue</button></form><hr><p>If the browser session was lost after the code was used, print a fresh single-use code in the terminal.</p><form method="post" action="/"><button type="submit" name="recover" value="1">Print a fresh terminal code</button></form></main></body></html>`)
+}
+
+func (s *Server) handleBootstrapPost(w http.ResponseWriter, r *http.Request, requestID string) {
 	r.Body = http.MaxBytesReader(w, r.Body, 4<<10)
 	if err := r.ParseForm(); err != nil {
 		s.writeError(w, http.StatusBadRequest, "malformed_request", "access-code form is invalid", false, requestID, "")
+		return
+	}
+	if len(r.Form) == 1 && len(r.Form["recover"]) == 1 && r.Form.Get("recover") == "1" {
+		s.recoverAccessCode(w, r, requestID)
 		return
 	}
 	if len(r.Form) != 1 || len(r.Form["code"]) != 1 {
@@ -354,14 +388,7 @@ func (s *Server) exchangeAccessCode(w http.ResponseWriter, r *http.Request, requ
 	now := s.now()
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	cutoff := now.Add(-time.Minute)
-	kept := s.accessFailures[:0]
-	for _, failedAt := range s.accessFailures {
-		if failedAt.After(cutoff) {
-			kept = append(kept, failedAt)
-		}
-	}
-	s.accessFailures = kept
+	s.accessFailures = retainRecentAttempts(s.accessFailures, now)
 	if len(s.accessFailures) >= 5 {
 		s.writeError(w, http.StatusTooManyRequests, "rate_limited", "too many failed access-code attempts; try again later", true, requestID, "")
 		return
@@ -376,6 +403,52 @@ func (s *Server) exchangeAccessCode(w http.ResponseWriter, r *http.Request, requ
 	s.accessCodeUsed = true
 	http.SetCookie(w, &http.Cookie{Name: SessionCookie, Value: s.token, Path: s.basePath, HttpOnly: true, SameSite: http.SameSiteStrictMode})
 	http.Redirect(w, r, s.basePath, http.StatusSeeOther)
+}
+
+func (s *Server) recoverAccessCode(w http.ResponseWriter, r *http.Request, requestID string) {
+	now := s.now()
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.accessRecoveries = retainRecentAttempts(s.accessRecoveries, now)
+	if len(s.accessRecoveries) >= 5 {
+		s.writeError(w, http.StatusTooManyRequests, "rate_limited", "too many access-code recovery requests; try again later", true, requestID, "")
+		return
+	}
+	if !s.accessCodeUsed && now.Before(s.accessCodeExpires) {
+		s.writeError(w, http.StatusConflict, "access_code_active", "the current access code is still active; use the code already shown in the terminal", false, requestID, "")
+		return
+	}
+	code, err := s.generateAccessCode()
+	if err != nil {
+		s.writeInternalError(w, r, requestID, "/", "access_code_generation", err, true)
+		return
+	}
+	code = strings.ToUpper(strings.TrimSpace(code))
+	if !validAccessCode(code) {
+		s.writeInternalError(w, r, requestID, "/", "access_code_generation", errors.New("generated access code is invalid"), true)
+		return
+	}
+	if _, err := fmt.Fprintf(s.accessCodeOut, "icot ui replacement access code: %s\n", code); err != nil {
+		s.writeInternalError(w, r, requestID, "/", "access_code_terminal", err, true)
+		return
+	}
+	s.accessCodeDigest = sha256.Sum256([]byte(code))
+	s.accessCodeExpires = now.Add(5 * time.Minute)
+	s.accessCodeUsed = false
+	s.accessFailures = nil
+	s.accessRecoveries = append(s.accessRecoveries, now)
+	s.writeBootstrapPage(w, "A fresh single-use code was printed in the terminal. It expires in five minutes.")
+}
+
+func retainRecentAttempts(attempts []time.Time, now time.Time) []time.Time {
+	cutoff := now.Add(-time.Minute)
+	kept := attempts[:0]
+	for _, attemptedAt := range attempts {
+		if attemptedAt.After(cutoff) {
+			kept = append(kept, attemptedAt)
+		}
+	}
+	return kept
 }
 
 func (s *Server) serveAsset(w http.ResponseWriter, r *http.Request, cookieScoped bool, requestID, name, contentType string) {

@@ -226,6 +226,10 @@ func TestTokenBootstrapCookieAndBearerAuthentication(t *testing.T) {
 	if shell.Code != http.StatusOK || !strings.Contains(shell.Body.String(), "iCoT workspace") || strings.Contains(shell.Body.String(), testToken) {
 		t.Fatalf("shell response = %d %s", shell.Code, shell.Body.String())
 	}
+	lostSession := doRequest(handler, http.MethodGet, basePath, "", "", false)
+	if lostSession.Code != http.StatusSeeOther || lostSession.Header().Get("Location") != "/" {
+		t.Fatalf("lost browser session = %d location %q", lostSession.Code, lostSession.Header().Get("Location"))
+	}
 	scopedAPI := httptest.NewRequest(http.MethodGet, "http://"+testAuthority+basePath+"api/v2/snapshot", nil)
 	scopedAPI.Host = testAuthority
 	scopedAPI.AddCookie(cookies[0])
@@ -309,6 +313,67 @@ func TestAccessCodeExpiresIsSingleUseAndRateLimited(t *testing.T) {
 	response = doRequest(limited, http.MethodPost, "/", "code=WRONGCODE000", "application/x-www-form-urlencoded", false)
 	if response.Code != http.StatusUnauthorized {
 		t.Fatalf("post-window attempt = %d", response.Code)
+	}
+}
+
+func TestAccessCodeRecoveryRotatesOnlyThroughTerminal(t *testing.T) {
+	var terminal bytes.Buffer
+	handler, err := NewHandler(HandlerConfig{
+		Engine: &fakeEngine{}, ExampleDir: "/tmp/example", Token: testToken, AccessCode: testAccessCode, Authority: testAuthority,
+		AccessCodeOut: &terminal, GenerateAccessCode: func() (string, error) { return "ABCDEFGHJKM2", nil },
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	active := doRequest(handler, http.MethodPost, "/", "recover=1", "application/x-www-form-urlencoded", false)
+	if active.Code != http.StatusConflict || terminal.Len() != 0 || !strings.Contains(active.Body.String(), "access_code_active") {
+		t.Fatalf("active-code recovery = %d %q terminal %q", active.Code, active.Body.String(), terminal.String())
+	}
+	used := doRequest(handler, http.MethodPost, "/", "code="+testAccessCode, "application/x-www-form-urlencoded", false)
+	if used.Code != http.StatusSeeOther {
+		t.Fatalf("initial exchange = %d %s", used.Code, used.Body.String())
+	}
+	recovered := doRequest(handler, http.MethodPost, "/", "recover=1", "application/x-www-form-urlencoded", false)
+	if recovered.Code != http.StatusOK || !strings.Contains(recovered.Body.String(), "printed in the terminal") || strings.Contains(recovered.Body.String(), "ABCDEFGHJKM2") {
+		t.Fatalf("recovery response = %d %s", recovered.Code, recovered.Body.String())
+	}
+	if terminal.String() != "icot ui replacement access code: ABCDEFGHJKM2\n" {
+		t.Fatalf("terminal recovery output = %q", terminal.String())
+	}
+	oldCode := doRequest(handler, http.MethodPost, "/", "code="+testAccessCode, "application/x-www-form-urlencoded", false)
+	if oldCode.Code != http.StatusUnauthorized {
+		t.Fatalf("rotated code remained valid = %d", oldCode.Code)
+	}
+	freshCode := doRequest(handler, http.MethodPost, "/", "code=ABCDEFGHJKM2", "application/x-www-form-urlencoded", false)
+	if freshCode.Code != http.StatusSeeOther {
+		t.Fatalf("replacement exchange = %d %s", freshCode.Code, freshCode.Body.String())
+	}
+}
+
+func TestAccessCodeRecoveryIsRateLimited(t *testing.T) {
+	handler, err := NewHandler(HandlerConfig{
+		Engine: &fakeEngine{}, ExampleDir: "/tmp/example", Token: testToken, AccessCode: testAccessCode, Authority: testAuthority,
+		GenerateAccessCode: func() (string, error) { return "ABCDEFGHJKM2", nil },
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	server := handler.(*Server)
+	for attempt := 0; attempt < 5; attempt++ {
+		server.mu.Lock()
+		server.accessCodeUsed = true
+		server.mu.Unlock()
+		response := doRequest(handler, http.MethodPost, "/", "recover=1", "application/x-www-form-urlencoded", false)
+		if response.Code != http.StatusOK {
+			t.Fatalf("recovery %d = %d %s", attempt+1, response.Code, response.Body.String())
+		}
+	}
+	server.mu.Lock()
+	server.accessCodeUsed = true
+	server.mu.Unlock()
+	response := doRequest(handler, http.MethodPost, "/", "recover=1", "application/x-www-form-urlencoded", false)
+	if response.Code != http.StatusTooManyRequests || !strings.Contains(response.Body.String(), "rate_limited") {
+		t.Fatalf("recovery throttle = %d %s", response.Code, response.Body.String())
 	}
 }
 
@@ -1355,6 +1420,9 @@ func TestEmbeddedShellContainsAccessiblePhaseCControls(t *testing.T) {
 		`id="review-status" class="state-pill"`,
 		`id="readiness-panel" class="review-panel"`,
 		`id="conflicts-panel" class="review-panel review-panel-wide"`,
+		`id="candidate-workflows-list"`,
+		`id="decision-evidence-list"`,
+		`id="source-evidence-list"`,
 		`id="review-heading" tabindex="-1"`,
 		`role="alert"`,
 		`aria-live="polite"`,
@@ -1390,6 +1458,9 @@ func TestEmbeddedShellContainsAccessiblePhaseCControls(t *testing.T) {
 		`successFocusID = "review-heading"`,
 		`successFocusID = "completion-banner"`,
 		`showQuestionError(error.question_id || "", failure.message)`,
+		`renderCandidateWorkflows(snapshot)`,
+		`renderDecisionEvidence(snapshot)`,
+		`renderSourceEvidence(snapshot)`,
 	} {
 		if !bytes.Contains(javascript, []byte(required)) {
 			t.Errorf("embedded client missing %q", required)

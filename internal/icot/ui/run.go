@@ -67,7 +67,7 @@ func Run(ctx context.Context, config RunConfig) error {
 	authority := listener.Addr().String()
 	handler, err := NewHandler(HandlerConfig{
 		Engine: authoringEngine, Snapshot: snapshot, ExampleDir: config.EngineConfig.ExampleDir,
-		Token: token, AccessCode: accessCode, Authority: authority, ErrOut: config.ErrOut,
+		Token: token, AccessCode: accessCode, Authority: authority, ErrOut: config.ErrOut, AccessCodeOut: config.Out,
 	})
 	if err != nil {
 		return err

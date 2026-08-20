@@ -237,6 +237,12 @@ const renderFrontier = (snapshot, revision) => {
       descriptionIDs.push(node.id);
       wrapper.append(node);
     }
+    if (question.evidence_refs?.length) {
+      const node = make("p", `Evidence: ${question.evidence_refs.join(", ")}`, "question-meta");
+      node.id = `${inputID}-evidence`;
+      descriptionIDs.push(node.id);
+      wrapper.append(node);
+    }
     if (question.recommendation) {
       const node = make("p", `Recommendation: ${question.recommendation}`, "question-meta");
       node.id = `${inputID}-recommendation`;
@@ -390,6 +396,71 @@ const renderReadiness = (snapshot) => {
   panel.classList.toggle("is-clear", issues.length === 0);
   panel.classList.toggle("has-danger", issues.some((issue) => issue.severity === "blocking"));
   panel.classList.toggle("has-warning", issues.length > 0 && !issues.some((issue) => issue.severity === "blocking"));
+};
+
+const renderCandidateWorkflows = (snapshot) => {
+  appendEmptyOrItems("candidate-workflows-list", snapshot.candidate_workflows || [], "No deferred candidate workflows.", (candidate) => {
+    const item = make("li");
+    item.append(make("strong", candidate.title || "Untitled candidate"));
+    if (candidate.outcome) item.append(document.createTextNode(` — ${candidate.outcome}`));
+    if (candidate.deferral_reason) item.append(make("div", `Deferred: ${candidate.deferral_reason}`, "question-meta"));
+    if (candidate.promotion_trigger) item.append(make("div", `Promotion trigger: ${candidate.promotion_trigger}`, "question-meta"));
+    return item;
+  });
+};
+
+const renderDecisionEvidence = (snapshot) => {
+  appendEmptyOrItems("decision-evidence-list", snapshot.evidence || [], "No decision evidence has been recorded.", (evidence) => {
+    const item = make("li");
+    item.append(make("strong", evidence.kind || "evidence"));
+    item.append(document.createTextNode(` — ${evidence.summary || "No summary provided."}`));
+    if (evidence.source) item.append(make("div", `Source: ${evidence.source}`, "question-meta"));
+    if (evidence.references?.length) item.append(make("div", `References: ${evidence.references.join(", ")}`, "question-meta"));
+    return item;
+  });
+};
+
+const renderSourceEvidence = (snapshot) => {
+  const sourceCandidates = snapshot.source_candidates || {};
+  const entries = [];
+  for (const candidate of sourceCandidates.local?.candidates || []) {
+    entries.push({ tone: "candidate", title: `Local ${candidate.kind || "API"}: ${candidate.title || candidate.id || "unnamed"}`, detail: `${candidate.operation_count || 0} reviewed operations · ${candidate.provenance || "local discovery"}` });
+  }
+  for (const candidate of sourceCandidates.browser?.candidates || []) {
+    entries.push({ tone: "candidate", title: `Browser profile: ${candidate.title || candidate.id || "unnamed"}`, detail: `${candidate.action_count || 0} reviewed actions · ${candidate.status || "unknown status"}` });
+  }
+  for (const candidate of sourceCandidates.browser_registry || []) {
+    entries.push({ tone: "candidate", title: `Browser registry: ${candidate.title || candidate.id || "unnamed"}`, detail: `${candidate.actions?.length || 0} reviewed actions · ${candidate.status || "unknown status"}` });
+  }
+  for (const candidate of sourceCandidates.remote || []) {
+    entries.push({ tone: "candidate", title: `Remote hint: ${candidate.title || candidate.id || candidate.kind || "unnamed"}`, detail: candidate.provenance || "reviewed remote metadata" });
+  }
+  for (const diagnostic of sourceCandidates.local?.rejected || []) {
+    entries.push({ tone: "blocker", title: `Local source rejected: ${diagnostic.code || diagnostic.kind || "rejected"}`, detail: diagnostic.message || "No detail provided." });
+  }
+  for (const diagnostic of sourceCandidates.local?.ambiguous || []) {
+    entries.push({ tone: "blocker", title: "Local source ambiguous", detail: diagnostic.message || `Possible kinds: ${(diagnostic.possible_kinds || []).join(", ") || "unknown"}` });
+  }
+  for (const diagnostic of sourceCandidates.local?.diagnostics || []) {
+    entries.push({ tone: "blocker", title: `Local discovery: ${diagnostic.code || diagnostic.severity || "diagnostic"}`, detail: diagnostic.message || "No detail provided." });
+  }
+  for (const group of [sourceCandidates.browser?.rejected || [], sourceCandidates.browser?.ambiguous || [], sourceCandidates.browser?.truncated || []]) {
+    for (const diagnostic of group) {
+      entries.push({ tone: "blocker", title: `Browser discovery: ${diagnostic.code || "diagnostic"}`, detail: diagnostic.detail || "No detail provided." });
+    }
+  }
+  for (const blocker of sourceCandidates.browser_registry_blockers || []) {
+    entries.push({ tone: "blocker", title: `Registry blocker: ${blocker.code || "blocked"}`, detail: blocker.message || "No detail provided." });
+  }
+  if (sourceCandidates.remote_blocker) {
+    entries.push({ tone: "blocker", title: `Remote blocker: ${sourceCandidates.remote_blocker.code || "blocked"}`, detail: sourceCandidates.remote_blocker.message || "No detail provided." });
+  }
+  appendEmptyOrItems("source-evidence-list", entries, "No discovery candidates or blockers are present.", (entry) => {
+    const item = make("li", null, entry.tone === "blocker" ? "issue-warning" : "");
+    item.append(make("strong", entry.title));
+    item.append(document.createTextNode(` — ${entry.detail}`));
+    return item;
+  });
 };
 
 const renderSources = (snapshot) => {
@@ -548,6 +619,9 @@ const renderPayload = (payload, refreshedAt = new Date()) => {
   renderRevisableDecisions(snapshot);
   renderReadiness(snapshot);
   renderSources(snapshot);
+  renderCandidateWorkflows(snapshot);
+  renderDecisionEvidence(snapshot);
+  renderSourceEvidence(snapshot);
   renderActions(snapshot);
   renderConflicts(snapshot);
   renderPreview(snapshot);

@@ -447,6 +447,8 @@ dd { margin: .25rem 0 0; overflow-wrap: anywhere; font-weight: 680; }
   gap: 1rem;
 }
 
+.evidence-grid { margin-top: 1rem; }
+
 .review-panel {
   min-width: 0;
   margin-top: 0;

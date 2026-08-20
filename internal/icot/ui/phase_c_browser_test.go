@@ -19,6 +19,7 @@ import (
 
 	"github.com/mxschmitt/playwright-go"
 
+	publicinterview "github.com/OpenUdon/authoring/interview"
 	"github.com/OpenUdon/openudon/internal/authoring"
 	"github.com/OpenUdon/openudon/internal/icot/elicitor"
 	"github.com/OpenUdon/openudon/internal/icot/engine"
@@ -188,6 +189,7 @@ type phaseCBrowserFixture struct {
 	authority  string
 	url        string
 	delay      *phaseCSnapshotDelay
+	terminal   *bytes.Buffer
 }
 
 func newPhaseCBrowserFixture(t *testing.T, browserEngine *phaseCBrowserEngine) *phaseCBrowserFixture {
@@ -199,8 +201,9 @@ func newPhaseCBrowserFixture(t *testing.T, browserEngine *phaseCBrowserEngine) *
 	authority := listener.Addr().String()
 	token := "phase-c-browser-test-capability"
 	accessCode := "0123456789AB"
+	terminal := &bytes.Buffer{}
 	handler, err := NewHandler(HandlerConfig{
-		Engine: browserEngine, Snapshot: browserEngine.snapshot, ExampleDir: "/tmp/phase-c-browser", Token: token, AccessCode: accessCode, Authority: authority,
+		Engine: browserEngine, Snapshot: browserEngine.snapshot, ExampleDir: "/tmp/phase-c-browser", Token: token, AccessCode: accessCode, Authority: authority, AccessCodeOut: terminal,
 	})
 	if err != nil {
 		_ = listener.Close()
@@ -216,7 +219,7 @@ func newPhaseCBrowserFixture(t *testing.T, browserEngine *phaseCBrowserEngine) *
 	go func() { done <- server.Serve(listener) }()
 	fixture := &phaseCBrowserFixture{
 		engine: browserEngine, server: server, listener: listener, token: token, accessCode: accessCode, authority: authority,
-		url: "http://" + authority + "/", delay: delay,
+		url: "http://" + authority + "/", delay: delay, terminal: terminal,
 	}
 	t.Cleanup(func() {
 		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
@@ -267,7 +270,11 @@ func phaseCProposalSnapshot(incomplete bool, withConflict bool) engine.Snapshot 
 		conflicts = append(conflicts, engine.WriteConflict{Code: "overwrite_required", Action: "write", Path: "/tmp/phase-c-browser/project.md"})
 	}
 	return engine.Snapshot{
-		Boundary:         elicitor.WorkflowBoundary{Outcome: "Create a reviewed report", Actor: "operator", Trigger: "on demand", SuccessEvidence: []string{"report is available"}, Confirmed: true},
+		Boundary:           elicitor.WorkflowBoundary{Outcome: "Create a reviewed report", Actor: "operator", Trigger: "on demand", SuccessEvidence: []string{"report is available"}, Confirmed: true},
+		CandidateWorkflows: []elicitor.CandidateWorkflow{{Title: "Archive reports", Outcome: "Archive reviewed reports", DeferralReason: "outside the active boundary", PromotionTrigger: "active workflow is complete"}},
+		Evidence: []publicinterview.Evidence{{
+			ID: "evidence.operator-boundary", Kind: publicinterview.EvidenceUserDecision, Summary: "The operator confirmed the active report boundary.", Source: "user", References: []string{"boundary.outcome"},
+		}},
 		Readiness:        readiness,
 		Ready:            ready,
 		ApprovalRequired: true,
@@ -283,7 +290,7 @@ func phaseCProposalSnapshot(incomplete bool, withConflict bool) engine.Snapshot 
 			ProjectMD: "# Reviewed project\n", IntentHCL: intentContent, Incomplete: incomplete,
 			ProjectPath: "/tmp/phase-c-browser/project.md", IntentPath: intentPath,
 		},
-		SourceCandidates: engine.SourceCandidates{},
+		SourceCandidates: engine.SourceCandidates{Remote: []elicitor.RemoteSourceCandidate{{Kind: "openapi", ID: "reports", Title: "Reports API", Provenance: "reviewed catalog hint"}}},
 	}
 }
 
@@ -324,7 +331,7 @@ func newPhaseCPage(t *testing.T, browser playwright.Browser, fixture *phaseCBrow
 	if err := page.Locator(`input[name="code"]`).Fill(fixture.accessCode); err != nil {
 		t.Fatal(err)
 	}
-	if err := page.Locator(`button[type="submit"]`).Click(); err != nil {
+	if err := page.GetByRole("button", playwright.PageGetByRoleOptions{Name: "Continue", Exact: playwright.Bool(true)}).Click(); err != nil {
 		t.Fatal(err)
 	}
 	waitForLocatorText(t, page.Locator("#connection"), "Connected")
@@ -466,6 +473,9 @@ func TestPhaseCBrowserAccessibleRoundAndFinalApproval(t *testing.T) {
 	waitForLocatorText(t, page.Locator("#project-preview"), "Reviewed project")
 	waitForLocatorText(t, page.Locator("#actions-body"), "intent.hcl")
 	waitForLocatorText(t, page.Locator("#conflicts-list"), "overwrite authorization")
+	waitForLocatorText(t, page.Locator("#candidate-workflows-list"), "Archive reports")
+	waitForLocatorText(t, page.Locator("#decision-evidence-list"), "operator confirmed the active report boundary")
+	waitForLocatorText(t, page.Locator("#source-evidence-list"), "Reports API")
 	requireEnabled(t, finalButton, false)
 
 	review := page.GetByLabel("I reviewed the preview, readiness findings, proposed actions, and conflicts.", playwright.PageGetByLabelOptions{Exact: playwright.Bool(true)})
@@ -511,6 +521,49 @@ func TestPhaseCBrowserAccessibleRoundAndFinalApproval(t *testing.T) {
 	if err != nil || zoomReflows != true {
 		t.Fatalf("200%% zoom horizontal overflow = %#v, %v", zoomReflows, err)
 	}
+}
+
+func TestPhaseCBrowserRecoversAfterSessionCookieLoss(t *testing.T) {
+	_, browser := launchPhaseCBrowser(t)
+	proposal := phaseCProposalSnapshot(false, false)
+	browserEngine := &phaseCBrowserEngine{snapshot: proposal, proposal: proposal}
+	fixture := newPhaseCBrowserFixture(t, browserEngine)
+	page := newPhaseCPage(t, browser, fixture)
+
+	scopedURL := page.URL()
+	if err := page.Context().ClearCookies(); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := page.Goto(scopedURL, playwright.PageGotoOptions{WaitUntil: playwright.WaitUntilStateDomcontentloaded}); err != nil {
+		t.Fatal(err)
+	}
+	if page.URL() != fixture.url {
+		t.Fatalf("lost session did not return to recovery root: %s", page.URL())
+	}
+	if err := page.GetByRole("button", playwright.PageGetByRoleOptions{Name: "Print a fresh terminal code", Exact: playwright.Bool(true)}).Click(); err != nil {
+		t.Fatal(err)
+	}
+	waitForLocatorText(t, page.GetByRole("status"), "printed in the terminal")
+	terminalLine := strings.TrimSpace(fixture.terminal.String())
+	const prefix = "icot ui replacement access code: "
+	if !strings.HasPrefix(terminalLine, prefix) {
+		t.Fatalf("replacement terminal output = %q", terminalLine)
+	}
+	replacementCode := strings.TrimPrefix(terminalLine, prefix)
+	content, err := page.Locator("body").TextContent()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(content, replacementCode) || strings.Contains(page.URL(), replacementCode) {
+		t.Fatalf("replacement code escaped into browser content or URL")
+	}
+	if err := page.Locator(`input[name="code"]`).Fill(replacementCode); err != nil {
+		t.Fatal(err)
+	}
+	if err := page.GetByRole("button", playwright.PageGetByRoleOptions{Name: "Continue", Exact: playwright.Bool(true)}).Click(); err != nil {
+		t.Fatal(err)
+	}
+	waitForLocatorText(t, page.Locator("#connection"), "Connected")
 }
 
 func TestPhaseCBrowserSuccessfulRoundFocusesNextFrontier(t *testing.T) {
