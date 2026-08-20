@@ -3,9 +3,9 @@ module github.com/OpenUdon/openudon
 go 1.26.3
 
 require (
-	github.com/OpenUdon/apitools v0.0.0-20260814155857-ef32163caeca
+	github.com/OpenUdon/apitools v0.0.0-20260820001033-3a9864901572
 	github.com/OpenUdon/asyncapi v0.1.0
-	github.com/OpenUdon/authoring v0.0.0-20260814160241-18ba8068d49c
+	github.com/OpenUdon/authoring v0.0.0-20260819235644-d73b65ae179c
 	github.com/OpenUdon/browsertools v0.0.0-20260817224213-4d940eaaae16
 	github.com/OpenUdon/evidence v0.0.0-20260815084845-0c17258b9736
 	github.com/OpenUdon/uws v0.0.0-20260817013720-dd9eb3210513
@@ -50,7 +50,6 @@ require (
 	golang.org/x/crypto v0.51.0 // indirect
 	golang.org/x/mod v0.35.0 // indirect
 	golang.org/x/net v0.54.0 // indirect
-	golang.org/x/oauth2 v0.34.0 // indirect
 	golang.org/x/sync v0.20.0 // indirect
 	golang.org/x/sys v0.44.0 // indirect
 	golang.org/x/text v0.37.0 // indirect
