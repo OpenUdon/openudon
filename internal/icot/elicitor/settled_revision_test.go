@@ -10,28 +10,29 @@ import (
 	rollout "github.com/OpenUdon/openudon/internal/workflowintent"
 )
 
-func TestReopenSettledDecisionPersistsPendingOutcomeUntilReplacement(t *testing.T) {
-	const original = "Render the reviewed capability report"
+func TestReopenSettledDecisionPersistsPendingActorUntilReplacement(t *testing.T) {
+	const outcome = "Render the reviewed capability report"
+	const original = "operator | on demand"
 	session := Session{
-		Boundary: WorkflowBoundary{Outcome: original, Actor: "operator", Trigger: "on demand", SuccessEvidence: []string{"report exists"}, Confirmed: true},
-		Project:  projectwizard.Answers{ProjectName: "report", Goal: original},
-		Intent:   rollout.Intent{Workflow: &rollout.WorkflowMeta{Name: "report", Description: original}},
+		Boundary: WorkflowBoundary{Outcome: outcome, Actor: "operator", Trigger: "on demand", SuccessEvidence: []string{"report exists"}, Confirmed: true},
+		Project:  projectwizard.Answers{ProjectName: "report", Goal: outcome},
+		Intent:   rollout.Intent{Workflow: &rollout.WorkflowMeta{Name: "report", Description: outcome}},
 		Interview: publicinterview.State{
-			Nodes:   []publicinterview.Node{{ID: nodeBoundaryOutcome, Prompt: "What outcome?", Status: publicinterview.StatusSettled}},
-			Answers: []publicinterview.Answer{{ID: "answer.001.boundary.outcome", NodeID: nodeBoundaryOutcome, Value: original, Source: "user"}},
+			Nodes:   []publicinterview.Node{{ID: nodeActorTrigger, Prompt: "Who starts it?", Status: publicinterview.StatusSettled}},
+			Answers: []publicinterview.Answer{{ID: "answer.001." + nodeActorTrigger, NodeID: nodeActorTrigger, Value: original, Source: "user"}},
 			Round:   1,
 		},
 	}
 	session.Normalize()
 	decisions := BuildRevisableDecisions(session)
-	if len(decisions) != 1 || decisions[0].QuestionID != nodeBoundaryOutcome || decisions[0].Value != original {
+	if len(decisions) != 1 || decisions[0].QuestionID != nodeActorTrigger || decisions[0].Value != original {
 		t.Fatalf("revisable decisions = %#v", decisions)
 	}
 
-	if err := ReopenSettledDecision(&session, nodeBoundaryOutcome, nil); err != nil {
+	if err := ReopenSettledDecision(&session, nodeActorTrigger, nil); err != nil {
 		t.Fatal(err)
 	}
-	if !HasPendingRevision(session) || session.Boundary.Outcome != "" || session.Project.Goal != "" || session.Intent.Workflow.Description != "" {
+	if !HasPendingRevision(session) || session.Boundary.Actor != "" || session.Boundary.Trigger != "" || session.Boundary.Outcome != outcome {
 		t.Fatalf("reopened state was repopulated: %#v / %#v / %#v", session.Boundary, session.Project, session.Intent.Workflow)
 	}
 	if len(BuildRevisableDecisions(session)) != 0 {
@@ -45,7 +46,7 @@ func TestReopenSettledDecisionPersistsPendingOutcomeUntilReplacement(t *testing.
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !HasPendingRevision(resumed) || resumed.Boundary.Outcome != "" || resumed.Project.Goal != "" {
+	if !HasPendingRevision(resumed) || resumed.Boundary.Actor != "" || resumed.Boundary.Trigger != "" || resumed.Boundary.Outcome != outcome {
 		t.Fatalf("resumed pending revision = %#v", resumed)
 	}
 	frontier, err := PlanFrontier(&resumed, nil, nil)
@@ -54,16 +55,16 @@ func TestReopenSettledDecisionPersistsPendingOutcomeUntilReplacement(t *testing.
 	}
 	foundOutcome := false
 	for _, question := range frontier {
-		foundOutcome = foundOutcome || question.ID == nodeBoundaryOutcome
+		foundOutcome = foundOutcome || question.ID == nodeActorTrigger
 	}
 	if !foundOutcome {
 		t.Fatalf("replacement frontier = %#v", frontier)
 	}
-	const replacement = "Render the revised capability report"
+	const replacement = "reviewer | after approval"
 	answers := make([]authoring.RoundAnswer, 0, len(frontier))
 	for _, question := range frontier {
 		value := question.Recommendation
-		if question.ID == nodeBoundaryOutcome {
+		if question.ID == nodeActorTrigger {
 			value = replacement
 		}
 		if value == "" {
@@ -74,7 +75,7 @@ func TestReopenSettledDecisionPersistsPendingOutcomeUntilReplacement(t *testing.
 	if err := ApplyFrontierRound(&resumed, answers, nil); err != nil {
 		t.Fatal(err)
 	}
-	if HasPendingRevision(resumed) || resumed.Boundary.Outcome != replacement || resumed.Project.Goal != replacement || resumed.Intent.Workflow.Description != replacement {
+	if HasPendingRevision(resumed) || resumed.Boundary.Actor != "reviewer" || resumed.Boundary.Trigger != "after approval" || resumed.Boundary.Outcome != outcome {
 		t.Fatalf("replacement did not settle revision: %#v", resumed)
 	}
 }
@@ -83,11 +84,13 @@ func TestReopenSettledDecisionRejectsIneligibleAndNonHumanState(t *testing.T) {
 	session := Session{Interview: publicinterview.State{
 		Nodes: []publicinterview.Node{
 			{ID: nodeActorTrigger, Status: publicinterview.StatusSettled},
+			{ID: nodeBoundaryOutcome, Status: publicinterview.StatusSettled},
 			{ID: "source.selection", Status: publicinterview.StatusSettled},
 		},
 		Answers: []publicinterview.Answer{
 			{NodeID: nodeActorTrigger, Value: "operator | on demand", Source: "user"},
 			{NodeID: nodeActorTrigger, Value: "model replacement", Source: "model"},
+			{NodeID: nodeBoundaryOutcome, Value: "new outcome", Source: "user"},
 			{NodeID: "source.selection", Value: "api", Source: "user"},
 		},
 	}}
@@ -105,8 +108,27 @@ func TestReopenSettledDecisionRejectsIneligibleAndNonHumanState(t *testing.T) {
 	if err := ReopenSettledDecision(&session, "source.selection", nil); err == nil {
 		t.Fatal("ineligible source selection was accepted")
 	}
+	if err := ReopenSettledDecision(&session, nodeBoundaryOutcome, nil); err == nil {
+		t.Fatal("outcome without a safe dependent-state cascade was accepted")
+	}
 	if !reflect.DeepEqual(session, before) {
 		t.Fatalf("rejected reopen mutated session: before %#v after %#v", before, session)
+	}
+}
+
+func TestSelectedBrowserRegistrySourceMakesPolicyNonRevisable(t *testing.T) {
+	session := Session{
+		SourcePlan: []SourceMaterialization{{Kind: "browser-profile", ID: "status", Registry: "https://profiles.example.test"}},
+		Interview: publicinterview.State{
+			Nodes:   []publicinterview.Node{{ID: nodeBrowserRegistry, Status: publicinterview.StatusSettled}},
+			Answers: []publicinterview.Answer{{ID: "answer.001." + nodeBrowserRegistry, NodeID: nodeBrowserRegistry, Value: "allow", Source: "user"}},
+		},
+	}
+	if decisions := BuildRevisableDecisions(session); len(decisions) != 0 {
+		t.Fatalf("selected registry policy was advertised as revisable: %#v", decisions)
+	}
+	if err := ReopenSettledDecision(&session, nodeBrowserRegistry, nil); err == nil {
+		t.Fatal("selected registry policy was reopened without a revocation cascade")
 	}
 }
 

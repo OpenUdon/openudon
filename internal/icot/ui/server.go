@@ -210,9 +210,6 @@ func NewHandler(config HandlerConfig) (http.Handler, error) {
 		errOut = io.Discard
 	}
 	accessCodeOut := config.AccessCodeOut
-	if accessCodeOut == nil {
-		accessCodeOut = io.Discard
-	}
 	generateAccessCode := config.GenerateAccessCode
 	if generateAccessCode == nil {
 		generateAccessCode = GenerateAccessCode
@@ -416,6 +413,10 @@ func (s *Server) recoverAccessCode(w http.ResponseWriter, r *http.Request, reque
 	}
 	if !s.accessCodeUsed && now.Before(s.accessCodeExpires) {
 		s.writeError(w, http.StatusConflict, "access_code_active", "the current access code is still active; use the code already shown in the terminal", false, requestID, "")
+		return
+	}
+	if s.accessCodeOut == nil {
+		s.writeError(w, http.StatusConflict, "access_code_recovery_unavailable", "access-code recovery is unavailable; restart the UI server to print a new code", false, requestID, "")
 		return
 	}
 	code, err := s.generateAccessCode()

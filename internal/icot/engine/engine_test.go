@@ -283,45 +283,59 @@ func TestReopenDecisionPersistsExactReplacementFrontier(t *testing.T) {
 		t.Fatal(err)
 	}
 	answers := answersForSnapshot(opened)
-	const original = "Render the original reviewed report"
+	const outcome = "Render the original reviewed report"
 	for index, question := range opened.Frontier {
 		if question.ID == "boundary.outcome" {
-			answers[index].Value = original
+			answers[index].Value = outcome
 		}
 	}
-	settled, err := eng.ApplyRound(context.Background(), answers)
+	boundarySettled, err := eng.ApplyRound(context.Background(), answers)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !hasRevisableDecision(settled.RevisableDecisions, "boundary.outcome", original) {
-		t.Fatalf("settled outcome is not revisable: %#v", settled.RevisableDecisions)
+	if _, err := eng.ReopenDecision(context.Background(), "boundary.outcome"); err == nil || !strings.Contains(err.Error(), "not eligible") {
+		t.Fatalf("outcome without a safe cascade was revisable: %v", err)
+	}
+	actorAnswers := answersForSnapshot(boundarySettled)
+	const original = "operator | on demand"
+	for index, question := range boundarySettled.Frontier {
+		if question.ID == "boundary.actor_trigger" {
+			actorAnswers[index].Value = original
+		}
+	}
+	settled, err := eng.ApplyRound(context.Background(), actorAnswers)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !hasRevisableDecision(settled.RevisableDecisions, "boundary.actor_trigger", original) {
+		t.Fatalf("settled actor and trigger are not revisable: %#v", settled.RevisableDecisions)
 	}
 
-	reopened, err := eng.ReopenDecision(context.Background(), "boundary.outcome")
+	reopened, err := eng.ReopenDecision(context.Background(), "boundary.actor_trigger")
 	if err != nil {
 		t.Fatal(err)
 	}
-	if reopened.Boundary.Outcome != "" || reopened.ApprovalRequired || reopened.Ready || !hasFrontierQuestion(reopened.Frontier, "boundary.outcome") {
+	if reopened.Boundary.Outcome != outcome || reopened.Boundary.Actor != "" || reopened.Boundary.Trigger != "" || reopened.ApprovalRequired || reopened.Ready || !hasFrontierQuestion(reopened.Frontier, "boundary.actor_trigger") {
 		t.Fatalf("reopened snapshot = %#v", reopened)
 	}
 	draft, ok, err := elicitor.LoadDraft(elicitor.DraftPath(example))
 	if err != nil || !ok {
 		t.Fatalf("load reopened draft = found %t, error %v", ok, err)
 	}
-	if draft.Boundary.Outcome != "" || !elicitor.HasPendingRevision(draft) {
+	if draft.Boundary.Outcome != outcome || draft.Boundary.Actor != "" || draft.Boundary.Trigger != "" || !elicitor.HasPendingRevision(draft) {
 		t.Fatalf("reopened draft = %#v", draft)
 	}
 	if _, err := eng.ApproveAndWrite(context.Background(), Approval{HumanApproved: true}); err == nil || !strings.Contains(err.Error(), "replacement round") {
 		t.Fatalf("approval while revision pending = %v", err)
 	}
-	if _, err := eng.ReopenDecision(context.Background(), "boundary.outcome"); err == nil || !strings.Contains(err.Error(), "not currently settled") {
+	if _, err := eng.ReopenDecision(context.Background(), "boundary.actor_trigger"); err == nil || !strings.Contains(err.Error(), "not currently settled") {
 		t.Fatalf("duplicate reopen error = %v", err)
 	}
 
 	replacementAnswers := answersForSnapshot(reopened)
-	const replacement = "Render the replacement reviewed report"
+	const replacement = "reviewer | after approval"
 	for index, question := range reopened.Frontier {
-		if question.ID == "boundary.outcome" {
+		if question.ID == "boundary.actor_trigger" {
 			replacementAnswers[index].Value = replacement
 		}
 	}
@@ -329,7 +343,7 @@ func TestReopenDecisionPersistsExactReplacementFrontier(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if replaced.Boundary.Outcome != replacement || !hasRevisableDecision(replaced.RevisableDecisions, "boundary.outcome", replacement) {
+	if replaced.Boundary.Outcome != outcome || replaced.Boundary.Actor != "reviewer" || replaced.Boundary.Trigger != "after approval" || !hasRevisableDecision(replaced.RevisableDecisions, "boundary.actor_trigger", replacement) {
 		t.Fatalf("replacement snapshot = %#v", replaced)
 	}
 }

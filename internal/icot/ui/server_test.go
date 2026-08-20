@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"net"
 	"net/http"
 	"net/http/cookiejar"
@@ -353,7 +354,7 @@ func TestAccessCodeRecoveryRotatesOnlyThroughTerminal(t *testing.T) {
 func TestAccessCodeRecoveryIsRateLimited(t *testing.T) {
 	handler, err := NewHandler(HandlerConfig{
 		Engine: &fakeEngine{}, ExampleDir: "/tmp/example", Token: testToken, AccessCode: testAccessCode, Authority: testAuthority,
-		GenerateAccessCode: func() (string, error) { return "ABCDEFGHJKM2", nil },
+		AccessCodeOut: io.Discard, GenerateAccessCode: func() (string, error) { return "ABCDEFGHJKM2", nil },
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -374,6 +375,28 @@ func TestAccessCodeRecoveryIsRateLimited(t *testing.T) {
 	response := doRequest(handler, http.MethodPost, "/", "recover=1", "application/x-www-form-urlencoded", false)
 	if response.Code != http.StatusTooManyRequests || !strings.Contains(response.Body.String(), "rate_limited") {
 		t.Fatalf("recovery throttle = %d %s", response.Code, response.Body.String())
+	}
+}
+
+func TestAccessCodeRecoveryWithoutTerminalFailsWithoutRotation(t *testing.T) {
+	handler, err := NewHandler(HandlerConfig{
+		Engine: &fakeEngine{}, ExampleDir: "/tmp/example", Token: testToken, AccessCode: testAccessCode, Authority: testAuthority,
+		GenerateAccessCode: func() (string, error) { return "ABCDEFGHJKM2", nil },
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	used := doRequest(handler, http.MethodPost, "/", "code="+testAccessCode, "application/x-www-form-urlencoded", false)
+	if used.Code != http.StatusSeeOther {
+		t.Fatalf("initial exchange = %d %s", used.Code, used.Body.String())
+	}
+	recovery := doRequest(handler, http.MethodPost, "/", "recover=1", "application/x-www-form-urlencoded", false)
+	if recovery.Code != http.StatusConflict || !strings.Contains(recovery.Body.String(), "access_code_recovery_unavailable") {
+		t.Fatalf("missing-terminal recovery = %d %s", recovery.Code, recovery.Body.String())
+	}
+	reuse := doRequest(handler, http.MethodPost, "/", "code="+testAccessCode, "application/x-www-form-urlencoded", false)
+	if reuse.Code != http.StatusUnauthorized {
+		t.Fatalf("used code was unexpectedly rotated or reusable = %d", reuse.Code)
 	}
 }
 

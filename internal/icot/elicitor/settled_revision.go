@@ -42,7 +42,7 @@ func BuildRevisableDecisions(session Session) []RevisableDecision {
 	decisions := make([]RevisableDecision, 0, len(latest))
 	for _, node := range session.Interview.Nodes {
 		answer, ok := latest[node.ID]
-		if !ok || strings.TrimSpace(answer.Source) != "user" || node.Status != publicinterview.StatusSettled || !reopenableDecision(node.ID) {
+		if !ok || strings.TrimSpace(answer.Source) != "user" || node.Status != publicinterview.StatusSettled || !reopenableSessionDecision(session, node.ID) {
 			continue
 		}
 		decisions = append(decisions, RevisableDecision{
@@ -64,7 +64,7 @@ func ReopenSettledDecision(session *Session, questionID string, docs []APIDocume
 	if session == nil {
 		return authoring.WithQuestionID(questionID, errors.New("authoring session is required"))
 	}
-	if !reopenableDecision(questionID) {
+	if !reopenableSessionDecision(*session, questionID) {
 		return authoring.WithQuestionID(questionID, fmt.Errorf("decision %q is not eligible for browser revision", questionID))
 	}
 	nodeIndex := -1
@@ -103,7 +103,7 @@ func ReopenSettledDecision(session *Session, questionID string, docs []APIDocume
 
 func reopenableDecision(questionID string) bool {
 	switch questionID {
-	case nodeBoundaryOutcome, nodeActiveWorkflow, nodeActorTrigger, nodeSuccessEvidence,
+	case nodeActiveWorkflow, nodeActorTrigger, nodeSuccessEvidence,
 		nodeRemoteLookup, nodeBrowserRegistry, nodeSideEffectPosture, nodeBrowserSession,
 		nodeBrowserApproval, nodeFallback, nodeVerification:
 		return true
@@ -112,10 +112,24 @@ func reopenableDecision(questionID string) bool {
 	}
 }
 
+func reopenableSessionDecision(session Session, questionID string) bool {
+	if !reopenableDecision(questionID) {
+		return false
+	}
+	return questionID != nodeBrowserRegistry || !usesSelectedBrowserRegistrySource(session)
+}
+
+func usesSelectedBrowserRegistrySource(session Session) bool {
+	for _, source := range session.SourcePlan {
+		if source.Kind == "browser-profile" && strings.TrimSpace(source.Registry) != "" {
+			return true
+		}
+	}
+	return false
+}
+
 func settledDecisionSlots(questionID string) []string {
 	switch questionID {
-	case nodeBoundaryOutcome:
-		return []string{"boundary.outcome"}
 	case nodeActiveWorkflow:
 		return []string{"boundary.active_workflow"}
 	case nodeActorTrigger:
@@ -144,7 +158,7 @@ func settledDecisionSlots(questionID string) []string {
 
 func settledDecisionImpact(questionID string) string {
 	switch questionID {
-	case nodeBoundaryOutcome, nodeActiveWorkflow:
+	case nodeActiveWorkflow:
 		return "Reopening the active boundary may invalidate source, operation, mapping, and preview decisions. The engine will re-run readiness before any replacement is accepted."
 	case nodeBrowserSession, nodeBrowserApproval:
 		return "Reopening browser posture or approval may make the current proposal incomplete until the exact replacement is reviewed."
@@ -155,12 +169,6 @@ func settledDecisionImpact(questionID string) string {
 
 func clearSettledDecision(session *Session, questionID string, docs []APIDocument) error {
 	switch questionID {
-	case nodeBoundaryOutcome:
-		session.Boundary.Outcome = ""
-		session.Project.Goal = ""
-		if session.Intent.Workflow != nil {
-			session.Intent.Workflow.Description = ""
-		}
 	case nodeActiveWorkflow:
 		delete(session.Interview.Metadata, "active_workflow_selected")
 	case nodeActorTrigger:
@@ -301,14 +309,6 @@ func clearRevisionPending(session *Session, questionID string) {
 func preservePendingRevisionState(session *Session) {
 	if session == nil {
 		return
-	}
-	if session.Interview.Metadata[revisionPendingMetadataPrefix+nodeBoundaryOutcome] == "true" {
-		session.Boundary.Outcome = ""
-		session.Project.Goal = ""
-		if session.Intent.Workflow != nil {
-			session.Intent.Workflow.Description = ""
-		}
-		session.Boundary.Confirmed = false
 	}
 	if session.Interview.Metadata[revisionPendingMetadataPrefix+nodeSideEffectPosture] == "true" {
 		session.SideEffectScope, session.Safety = "", ""
