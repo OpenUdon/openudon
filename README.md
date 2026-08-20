@@ -318,15 +318,20 @@ binds `127.0.0.1` and opens a tokenless loopback page. A random 12-character
 Crockford Base32 access code is printed only in the terminal; it expires after
 five minutes, is single-use, and throttles after five failed attempts per
 minute. A successful POST exchange installs the existing scoped HttpOnly,
-SameSite=Strict cookie and redirects to the clean instance path. The UI requires exact
-snapshot revisions for mutations, detects changes made by editors or another
+SameSite=Strict cookie and redirects to the clean instance path. If that
+browser session is lost, the tokenless page can rotate an already-used or
+expired code and print the replacement only in the terminal. The UI requires
+exact snapshot revisions for mutations, detects changes made by editors or another
 process, and freezes after an approved final or incomplete write. A detected
 workspace change preserves cached inspection but blocks mutation until the
 process is restarted. The shell polls API v2 while visible and backs off after
 errors. It renders the current frontier as accessible controls, submits
 complete revision-protected rounds, previews proposed artifacts and conflicts,
-and requires explicit final or incomplete approval. It does not execute
-workflows or expose a LAN service. See
+supports explicit settled-answer reopening, shows candidate/source/review
+evidence, and requires explicit final or incomplete approval. OpenUdon v0.2 is
+CLI-first: this browser path provides deterministic recommendations and can
+resume a terminal-created draft, but does not invoke an LLM extractor. It does
+not execute workflows or expose a LAN service. See
 [Local iCoT UI Server](docs/icot-ui.md).
 
 `--prompt-mode full` is the default when the flag is omitted; it prints every question and waits for

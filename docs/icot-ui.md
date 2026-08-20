@@ -10,9 +10,9 @@ API.
 go run ./cmd/icot ui --example ./examples/<name>
 ```
 
-The command selects an ephemeral port by default, prints a one-time bootstrap
-URL, and opens that URL with the platform browser. Use a fixed loopback port or
-suppress browser opening when needed:
+The command selects an ephemeral port by default, prints a tokenless bootstrap
+URL plus a single-use access code, and opens the URL with the platform browser.
+Use a fixed loopback port or suppress browser opening when needed:
 
 ```bash
 go run ./cmd/icot ui --example ./examples/<name> --port 8419 --no-open
@@ -41,12 +41,22 @@ the first available state in this order:
 4. an empty authoring state.
 
 The shell shows revision, last successful refresh, workspace paths, selected
-sources, readiness, top issue, the complete current frontier, proposed file
-actions and overwrite conflicts, project and intent previews, completion,
-external-modification state, and cached snapshot JSON. Each frontier question
-is an accessible required form control with its prompt, rationale, slot, and
-optional recommendation. A recommendation can be copied into an empty answer,
-but is never silently accepted.
+sources, discovery candidates and blockers, candidate workflows, review
+evidence summaries and references, readiness, top issue, the complete current
+frontier, eligible settled answers, proposed file actions and overwrite
+conflicts, project and intent previews, completion, external-modification
+state, and cached snapshot JSON. Each frontier question
+is an accessible required form control with its prompt, rationale, slot,
+evidence references, optional recommendation, engine-owned closed choices or
+syntax guidance, and a structured deferral control when allowed. A
+recommendation can be copied into an empty answer, but is never silently
+accepted and never replaces existing input.
+
+Eligible settled human answers can be reopened through a separate explicit
+exact-revision mutation. Reopening clears the authoritative value, refreshes
+and autosaves the non-approvable state, and returns the replacement through the
+ordinary complete-frontier round. Imported/model-only state and decisions
+without a product-owned clearing rule are not advertised as revisable.
 
 One submit sends every answer in the current frontier with the exact displayed
 revision. Incomplete client-side rounds focus the first missing control. Before
@@ -58,7 +68,9 @@ overwrite acknowledgement. No mutation is retried automatically.
 The shell polls every two seconds while visible, pauses when hidden, refreshes
 immediately when visible again, and backs off exponentially to 30 seconds after
 errors. A stale response preserves unsent answers until the operator explicitly
-adopts the new revision; displaced answers remain visible in a local archive.
+adopts the new revision; displaced answers remain visible in a volatile
+on-page list. That list is intentionally DOM-only and is lost on reload; it is
+inspection help, not durable authoring state.
 Retryable failures reconcile with a snapshot and offer an explicit retry only
 when the revision is unchanged. Domain rejection leaves controls editable;
 indeterminate failure disables mutation; workspace drift requires restart; and
@@ -77,6 +89,7 @@ are not served.
 | `/healthz` | `GET` | Unauthenticated liveness only. |
 | `/api/v2/snapshot` | `GET` | Returns cached authoring state after checking workspace ownership. |
 | `/api/v2/round` | `POST` | Applies one complete current frontier transactionally. |
+| `/api/v2/reopen` | `POST` | Reopens one advertised settled human decision at the exact revision. |
 | `/api/v2/approve` | `POST` | Performs the explicit final or incomplete atomic write. |
 
 Canonical API paths accept bearer authentication. The browser shell uses
@@ -92,7 +105,8 @@ result, and workspace-modification state.
 
 Snapshot responses include an `ETag`. Send the prior revision through
 `If-None-Match`; the server returns `304` when cached state and workspace status
-are unchanged.
+are unchanged. `If-None-Match: *` also returns `304` because the snapshot
+resource already exists.
 
 Every mutation must send the exact current revision:
 
@@ -107,6 +121,19 @@ Every mutation must send the exact current revision:
 
 Round callers cannot provide slots or evidence sources. OpenUdon binds the
 current frontier's authoritative slots and records the answer as human input.
+Reopening is separately explicit:
+
+```json
+{
+  "revision": "sha256:...",
+  "question_id": "boundary.actor_trigger"
+}
+```
+
+The question must appear in `snapshot.revisable_decisions`. The successful
+response carries the replacement frontier and disables approval until the
+replacement round or an allowed explicit deferral is accepted.
+
 Approval is separately explicit:
 
 ```json
@@ -119,7 +146,8 @@ Approval is separately explicit:
 ```
 
 Successful final and incomplete writes freeze that process. Later mutations
-return `409`, while snapshot inspection remains available. The engine also
+return `409 session_frozen` even when a caller supplies a stale revision, while
+snapshot inspection remains available. The engine also
 fingerprints its project, draft, final intent, review metadata, and selected
 materialized source targets. If an editor or second process changes one, the
 revision changes, `workspace.externally_modified` becomes true, and every later
@@ -140,8 +168,8 @@ request ID, route, stage, and a sanitized cause.
 
 ## Transaction And Workspace Guarantees
 
-A round builds its complete prospective state and snapshot before atomically
-saving the resumable draft. A pre-persistence error changes neither engine
+A round or settled-decision reopen builds its complete prospective state and
+snapshot before atomically saving the resumable draft. A pre-persistence error changes neither engine
 state nor draft bytes. Once persistence starts, request cancellation does not
 interrupt finalization.
 
@@ -172,6 +200,16 @@ produced by refresh that was not observed is conservatively treated as
 missing, so an existing or concurrently created target becomes drift instead
 of a newly adopted baseline.
 
+The exact-byte check intentionally re-hashes watched regular files on each
+visible two-second poll. A reproducible 1 MiB source benchmark is kept in
+`internal/icot/engine`; the A13 development measurement was about 3.2 ms per
+poll on the reference Haswell VM (roughly 0.16% of one core at a two-second
+interval). An mtime/size/inode shortcut was rejected because those metadata can
+remain unchanged while bytes change, which would weaken the advertised
+ownership check. Mutations retain the single server lock, so a second tab's
+poll may wait behind a long reviewed-source refresh; this is accepted for the
+single-operator process rather than serving an ambiguously stale mutation view.
+
 ## Security Boundary
 
 Every process generates a fresh 256-bit internal capability token, a separate
@@ -180,8 +218,12 @@ Crockford Base32 access code. The browser opens a tokenless loopback root; the
 code is shown only in the terminal. A same-origin POST to the exact instance
 root exchanges it for an HttpOnly `SameSite=Strict` cookie and redirects to the
 clean instance path. The code expires after five minutes, is single-use, and
-allows at most five failed attempts per minute. API v2 request and response
-shapes are unchanged. Non-browser local clients may still use the internal
+allows at most five failed attempts per minute. If the browser loses its
+session cookie, navigation to the scoped shell returns to the tokenless root.
+After the prior code is used or expired, a separate root-page POST can rotate
+it and print a fresh five-minute single-use code only in the terminal; recovery
+is limited to five successful rotations per minute and never returns the code
+in HTTP content or a URL. Non-browser local clients may still use the internal
 bearer token on canonical API routes; it never appears in browser-open argv.
 
 The server always binds IPv4 loopback and requires the active listener's exact
@@ -196,6 +238,15 @@ The UI does not execute workflows or start Browsertools live authoring. Stop
 the server with `Ctrl-C`; SIGINT and SIGTERM trigger bounded graceful shutdown.
 
 ## Phase C Limits
+
+OpenUdon v0.2 remains CLI-first. The browser engine does not construct or call
+an LLM extractor: deterministic recommendations are its only in-browser assist.
+An LLM-drafted terminal session may be resumed from `.icot/session.yaml`, and
+unconfirmed classifications return as ordinary required review questions. The
+terminal `icot author` loop remains the surface for drafting, repair,
+assumption explanation, and direct slot editing. Browser-primary assisted
+drafting is an unnumbered candidate direction and would require a separately
+scoped revision-protected engine contract before promotion.
 
 Phase C has no folder browser, React or Node dependency, multi-session hosting,
 remote/LAN serving, account identity, UI-owned LLM drafting, workflow
