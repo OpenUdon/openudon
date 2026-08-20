@@ -370,6 +370,39 @@ func TestAtomicWriterCleansBackupsAndRollsBackDeterministically(t *testing.T) {
 	assertNoTransactionBackups(t, root)
 }
 
+func TestAtomicWriterCreateOnlyInstallCannotReplaceRacingFile(t *testing.T) {
+	root := t.TempDir()
+	project := filepath.Join(root, "project.md")
+	intent := filepath.Join(root, "workflows", "intent.hcl")
+	originalLink := linkFile
+	defer func() { linkFile = originalLink }()
+	injected := false
+	linkFile = func(oldPath, newPath string) error {
+		if newPath == intent && !injected {
+			injected = true
+			if err := os.WriteFile(newPath, []byte("workflow \"racer\" {}\n"), 0o600); err != nil {
+				return err
+			}
+		}
+		return originalLink(oldPath, newPath)
+	}
+	err := writeFilesAtomic(root, []GeneratedFile{
+		{Path: project, Content: "new project\n"},
+		{Path: intent, Content: testIntent},
+	}, false, nil)
+	if err == nil || !errors.Is(err, os.ErrExist) {
+		t.Fatalf("create-only collision error = %v", err)
+	}
+	if _, err := os.Stat(project); !errors.Is(err, os.ErrNotExist) {
+		t.Fatalf("earlier create-only output was not rolled back: %v", err)
+	}
+	data, readErr := os.ReadFile(intent)
+	if readErr != nil || string(data) != "workflow \"racer\" {}\n" {
+		t.Fatalf("racing file was overwritten: %q, %v", data, readErr)
+	}
+	assertNoTransactionBackups(t, root)
+}
+
 func TestAtomicWriterReportsPostCommitCleanupFailureWithoutFailingCommit(t *testing.T) {
 	root := t.TempDir()
 	project := filepath.Join(root, "project.md")

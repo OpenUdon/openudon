@@ -6,6 +6,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"os"
 	"os/exec"
 	"time"
 )
@@ -17,6 +18,88 @@ type Invocation struct {
 	Stdin  io.Reader
 	Stdout io.Writer
 	Stderr io.Writer
+}
+
+// InteractiveChild is a process-group-owned child with pipe access. Parent
+// cancellation and Terminate both kill the complete process tree.
+type InteractiveChild struct {
+	command *exec.Cmd
+	input   io.WriteCloser
+	output  io.ReadCloser
+	done    chan struct{}
+	err     error
+}
+
+func StartInteractive(ctx context.Context, args, environment []string, stderr io.Writer) (*InteractiveChild, error) {
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	if len(args) == 0 {
+		return nil, fmt.Errorf("subprocess command is empty")
+	}
+	commandPath, err := resolveCommand(args[0], environment)
+	if err != nil {
+		return nil, err
+	}
+	command := exec.Command(commandPath, args[1:]...)
+	command.Args[0] = args[0]
+	command.Env = append([]string{}, environment...)
+	command.Stderr = stderr
+	prepare(command)
+	input, err := command.StdinPipe()
+	if err != nil {
+		return nil, err
+	}
+	output, err := command.StdoutPipe()
+	if err != nil {
+		_ = input.Close()
+		return nil, err
+	}
+	if err := command.Start(); err != nil {
+		_ = input.Close()
+		_ = output.Close()
+		return nil, err
+	}
+	child := &InteractiveChild{command: command, input: input, output: output, done: make(chan struct{})}
+	go func() {
+		child.err = command.Wait()
+		close(child.done)
+	}()
+	go func() {
+		select {
+		case <-ctx.Done():
+			child.Terminate()
+		case <-child.done:
+		}
+	}()
+	return child, nil
+}
+
+func (child *InteractiveChild) Input() io.WriteCloser { return child.input }
+func (child *InteractiveChild) Output() io.ReadCloser { return child.output }
+func (child *InteractiveChild) Wait() error {
+	if child == nil {
+		return os.ErrInvalid
+	}
+	<-child.done
+	return child.err
+}
+func (child *InteractiveChild) Terminate() error {
+	if child == nil || child.command == nil {
+		return nil
+	}
+	select {
+	case <-child.done:
+		return child.err
+	default:
+	}
+	terminate(child.command)
+	select {
+	case <-child.done:
+		return child.err
+	case <-time.After(5 * time.Second):
+		return fmt.Errorf("process tree did not terminate")
+	}
 }
 
 func Run(ctx context.Context, timeout time.Duration, invocation Invocation) error {

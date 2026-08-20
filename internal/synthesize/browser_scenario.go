@@ -117,6 +117,9 @@ func WriteBrowserScenarioWorkflow(request BrowserScenarioWorkflowRequest) (Brows
 		Inputs:   inputs, Steps: steps,
 		Outputs: []*rollout.Output{{Name: "scenario_result", From: finalStep + ".received_body"}},
 	}
+	if _, err := rollout.RenderIntentHCL(intent); err != nil {
+		return BrowserScenarioWorkflowResult{}, fmt.Errorf("browser scenario intent: %w", err)
+	}
 	if err := validateIntentRequiredParameters(intent, root, nil, ""); err != nil {
 		return BrowserScenarioWorkflowResult{}, err
 	}

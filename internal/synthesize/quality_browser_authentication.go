@@ -3,9 +3,7 @@ package synthesize
 import (
 	"crypto/sha256"
 	"encoding/hex"
-	"encoding/json"
 	"fmt"
-	"os"
 	"path/filepath"
 	"regexp"
 	"sort"
@@ -13,6 +11,7 @@ import (
 	"time"
 
 	"github.com/OpenUdon/browsertools/authprofile"
+	"github.com/OpenUdon/openudon/internal/evidencefile"
 	"github.com/OpenUdon/openudon/internal/packageartifacts"
 	rollout "github.com/OpenUdon/openudon/internal/workflowintent"
 	"github.com/OpenUdon/uws/browserauthentication"
@@ -63,13 +62,13 @@ func assessBrowserAuthenticationSources(report *QualityReport, exampleDir string
 		return
 	}
 	metadataPath := filepath.Join(exampleDir, filepath.FromSlash(packageartifacts.BrowserAuthenticationReviewPath))
-	data, err := os.ReadFile(metadataPath)
+	data, err := readBrowserSourceReviewFile(metadataPath)
 	if err != nil {
 		report.add("browser.authentication.review", "fail", "browser authentication review evidence is required", err.Error())
 		return
 	}
 	var review browserAuthenticationReview
-	if err := json.Unmarshal(data, &review); err != nil {
+	if err := evidencefile.DecodeStrict(data, &review); err != nil {
 		report.add("browser.authentication.review", "fail", "browser authentication review evidence must be valid JSON", err.Error())
 		return
 	}
@@ -107,7 +106,7 @@ func validateBrowserAuthenticationReview(exampleDir string, paths []string, inte
 			return fmt.Errorf("authentication review is missing %s", path)
 		}
 		absolute := filepath.Join(exampleDir, filepath.FromSlash(path))
-		data, err := os.ReadFile(absolute)
+		data, _, err := evidencefile.ReadRegular(absolute, authprofile.MaxProfileBytes)
 		if err != nil {
 			return err
 		}
@@ -115,7 +114,7 @@ func validateBrowserAuthenticationReview(exampleDir string, paths []string, inte
 		if !strings.EqualFold(source.SHA256, hex.EncodeToString(digest[:])) {
 			return fmt.Errorf("authentication source %s digest mismatch", path)
 		}
-		value, err := authprofile.LoadFile(absolute)
+		value, err := authprofile.Parse(data)
 		if err != nil {
 			return fmt.Errorf("authentication source %s: %w", path, err)
 		}

@@ -13,6 +13,7 @@ import (
 
 	"github.com/OpenUdon/browsertools/profile"
 	"github.com/OpenUdon/openudon/internal/browserverify"
+	"github.com/OpenUdon/openudon/internal/browserworkflow"
 	"github.com/OpenUdon/openudon/internal/packageartifacts"
 	rollout "github.com/OpenUdon/openudon/internal/workflowintent"
 )
@@ -185,6 +186,10 @@ func validateBrowserSourceReview(exampleDir string, paths []string, intent *roll
 		}
 	}
 	approvals := stringSet(review.MutationApprovals)
+	if len(approvals) != len(review.MutationApprovals) {
+		return fmt.Errorf("browser mutation approval inventory contains duplicates")
+	}
+	expectedApprovals := map[string]bool{}
 	usedActions := map[string]map[string]bool{}
 	var stepErrors []string
 	walkIntentSteps(intentSteps(intent), func(step *rollout.Step) {
@@ -215,6 +220,9 @@ func validateBrowserSourceReview(exampleDir string, paths []string, intent *roll
 		if mutating && (!action.ConfirmationPolicy.Required || strings.TrimSpace(action.ConfirmationPolicy.Prompt) == "") {
 			stepErrors = append(stepErrors, fmt.Sprintf("step %s selects a mutating action without profile confirmation policy", firstNonEmpty(step.Name, "<unnamed>")))
 		}
+		if mutating {
+			expectedApprovals[strings.TrimSpace(step.Name)] = true
+		}
 		if mutating && !approvals[strings.TrimSpace(step.Name)] {
 			stepErrors = append(stepErrors, fmt.Sprintf("step %s mutates browser state without operation-specific authoring approval", firstNonEmpty(step.Name, "<unnamed>")))
 		}
@@ -222,6 +230,15 @@ func validateBrowserSourceReview(exampleDir string, paths []string, intent *roll
 			stepErrors = append(stepErrors, fmt.Sprintf("step %s requires an opaque operator-owned runtime session binding", firstNonEmpty(step.Name, "<unnamed>")))
 		}
 	})
+	if len(approvals) != len(expectedApprovals) {
+		stepErrors = append(stepErrors, "browser mutation approval inventory must exactly match mutating browser steps")
+	} else {
+		for name := range approvals {
+			if !expectedApprovals[name] {
+				stepErrors = append(stepErrors, fmt.Sprintf("browser mutation approval %q does not name a mutating browser step", name))
+			}
+		}
+	}
 	if len(stepErrors) > 0 {
 		sort.Strings(stepErrors)
 		return fmt.Errorf("%s", strings.Join(stepErrors, "; "))
@@ -281,18 +298,7 @@ func readBrowserSourceReviewFile(path string) ([]byte, error) {
 }
 
 func intentHasPrecedingAuthenticationSession(intent *rollout.Intent, action *rollout.Step) bool {
-	if intent == nil || action == nil || strings.TrimSpace(action.BrowserSession) == "" {
-		return false
-	}
-	for _, step := range intent.Steps {
-		if step == action {
-			return false
-		}
-		if step != nil && strings.EqualFold(strings.TrimSpace(step.Type), "browser_authentication") && step.BrowserSession == action.BrowserSession {
-			return true
-		}
-	}
-	return false
+	return browserworkflow.Analyze(intent).EstablishedBefore(action)
 }
 
 func validatePackagedBrowserProfile(value *profile.Profile) error {

@@ -329,10 +329,8 @@ func validateAuthenticatedAuthoringEnvelope(cfg liveAuthorConfig, envelope *auth
 	if err != nil || !reflect.DeepEqual(origins, envelope.Origins) {
 		return fmt.Errorf("authenticated-authoring origin inventory is not canonical")
 	}
-	for _, required := range cfg.Origins {
-		if !stringSliceContainsExact(origins, required) {
-			return fmt.Errorf("authenticated-authoring origin inventory dropped a reviewed origin")
-		}
+	if !reflect.DeepEqual(origins, cfg.Origins) {
+		return fmt.Errorf("authenticated-authoring origin inventory does not exactly match reviewed origins")
 	}
 	if len(envelope.Contexts) > 64 || len(envelope.Trace) == 0 || len(envelope.Trace) > 512 || len(envelope.Diagnostics) > liveAuthorMaxDiagnostics {
 		return fmt.Errorf("authenticated-authoring context, trace, or diagnostic bounds are invalid")
@@ -522,6 +520,12 @@ func validateLiveContextGraph(contexts map[string]liveContext, origins []string)
 		}
 		if context.Kind == "popup" && (context.Path != "" || context.Name != "") || context.Kind == "frame" && context.Path == "" && context.Name == "" {
 			return fmt.Errorf("authenticated-authoring context identity is invalid")
+		}
+		if context.Kind == "frame" && context.Name != "" {
+			reduced := authorsession.ReduceAccessibilityLabel(context.Name)
+			if reduced.Reason != authorsession.LabelReasonUnchanged || reduced.Value != context.Name {
+				return fmt.Errorf("authenticated-authoring frame name is not canonical disclosure-safe text")
+			}
 		}
 		if context.Path != "" && (!strings.HasPrefix(context.Path, "/") || strings.ContainsAny(context.Path, "?#\\")) {
 			return fmt.Errorf("authenticated-authoring frame path is invalid")

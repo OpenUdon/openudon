@@ -63,3 +63,14 @@ func TestBrowserAuthenticationIntentPermitsCredentiallessFlow(t *testing.T) {
 		t.Fatalf("credential-less authentication step = %#v", parsed.Steps)
 	}
 }
+
+func TestBrowserAuthenticationIntentRejectsLiteralCredentialBinding(t *testing.T) {
+	timeout := 120.0
+	intent := &Intent{Steps: []*Step{{
+		Name: "authenticate", Type: "browser_authentication", Source: "browser-authentication/member.yaml", AuthenticationFlow: "login", BrowserSession: "member", Timeout: &timeout,
+		CredentialBindings: map[string]string{"password": "Bearer abcdefghijklmnopqrstuvwxyz012345"},
+	}}}
+	if _, err := RenderIntentHCL(intent); err == nil || !strings.Contains(err.Error(), "symbolic") {
+		t.Fatalf("literal browser credential binding error = %v", err)
+	}
+}

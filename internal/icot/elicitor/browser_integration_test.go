@@ -3,12 +3,14 @@ package elicitor
 import (
 	"context"
 	"crypto/sha256"
+	"errors"
 	"fmt"
 	"net"
 	"net/http"
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 	"testing"
 	"time"
@@ -150,6 +152,9 @@ func TestBrowserRegistryLocalSuccessAndNetworkBlockers(t *testing.T) {
 	if len(report.Plans[0].MaterializedContent) == 0 {
 		t.Fatal("registry profile was not retained in memory for approved materialization")
 	}
+	if report.Plans[0].TargetPath != "browser-profiles/example-status.json" {
+		t.Fatalf("registry target changed without a collision: %q", report.Plans[0].TargetPath)
+	}
 
 	denied, err := DiscoverBrowserRegistrySources(context.Background(), []string{"https://registry.example.test"}, "status", "ask", false, browserIntegrationTime)
 	if err != nil {
@@ -164,6 +169,40 @@ func TestBrowserRegistryLocalSuccessAndNetworkBlockers(t *testing.T) {
 	}
 	if len(unsafe.Blockers) != 1 || unsafe.Blockers[0].Code != "browser_registry.unsafe_host" {
 		t.Fatalf("unsafe-host blocker = %#v", unsafe.Blockers)
+	}
+}
+
+func TestBrowserRegistryCollidingIDsGetDistinctTargets(t *testing.T) {
+	firstRoot := filepath.Join(t.TempDir(), "first")
+	secondRoot := filepath.Join(t.TempDir(), "second")
+	bundle := buildBrowserTestBundle(t)
+	for _, root := range []string{firstRoot, secondRoot} {
+		if _, err := registry.PublishLocal(context.Background(), registry.PublishOptions{Root: root, Bundle: bundle, At: browserIntegrationTime}); err != nil {
+			t.Fatal(err)
+		}
+	}
+	report, err := DiscoverBrowserRegistrySources(context.Background(), []string{firstRoot, secondRoot}, "status", "never", false, browserIntegrationTime)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(report.Plans) != 2 || report.Plans[0].TargetPath == report.Plans[1].TargetPath {
+		t.Fatalf("colliding registry plans = %#v", report.Plans)
+	}
+	targets := []string{report.Plans[0].TargetPath, report.Plans[1].TargetPath}
+	sort.Strings(targets)
+	if !strings.HasPrefix(targets[0], "browser-profiles/example-status-") || targets[1] != "browser-profiles/example-status.json" {
+		t.Fatalf("collision targets = %q, %q", report.Plans[0].TargetPath, report.Plans[1].TargetPath)
+	}
+}
+
+func TestBrowserRegistryOperatorTextRemovesControlsAndSecrets(t *testing.T) {
+	got := browserRegistryOperatorText(" hostile\n\x1b[2J Bearer abcdefghijklmnopqrstuvwxyz012345 ")
+	if strings.ContainsAny(got, "\r\n\x1b") || strings.Contains(got, "abcdefghijklmnopqrstuvwxyz012345") {
+		t.Fatalf("unsafe registry text = %q", got)
+	}
+	blocker := browserRegistryErrorBlocker("registry\n\x1b[2J", errors.New("hostile\n\x1b[2J detail"))
+	if strings.ContainsAny(blocker.Registry+blocker.Message, "\r\n\x1b") || strings.Contains(blocker.Message, "hostile") {
+		t.Fatalf("unsafe registry blocker = %#v", blocker)
 	}
 }
 

@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 	"sort"
 	"strings"
+	"syscall"
 	"time"
 
 	"github.com/OpenUdon/openudon/internal/browserverify"
@@ -383,14 +384,15 @@ func writeFilesAtomicReporting(exampleRoot string, files []GeneratedFile, force 
 		}
 		tmpPaths[file.Path] = tmp.Name()
 		_, writeErr := tmp.WriteString(file.Content)
+		syncErr := tmp.Sync()
 		closeErr := tmp.Close()
 		if writeErr != nil {
 			cleanupTemps(tmpPaths)
 			return writeErr
 		}
-		if closeErr != nil {
+		if syncErr != nil || closeErr != nil {
 			cleanupTemps(tmpPaths)
-			return closeErr
+			return errors.Join(syncErr, closeErr)
 		}
 	}
 	backups := map[string]fileBackup{}
@@ -437,18 +439,35 @@ func writeFilesAtomicReporting(exampleRoot string, files []GeneratedFile, force 
 			}
 		}
 		var err error
+		changed := true
+		createOnly := !file.Remove && !force && !file.AllowOverwrite && !backups[file.Path].existed
 		if file.Remove {
 			err = removeFile(file.Path)
 			if os.IsNotExist(err) {
 				err = nil
+				changed = false
 			}
+		} else if createOnly {
+			err = linkFile(tmpPaths[file.Path], file.Path)
 		} else {
 			err = renameFile(tmpPaths[file.Path], file.Path)
 		}
 		if err != nil {
 			return rollbackFailure(err, backups, renamed, tmpPaths)
 		}
+		if !changed {
+			continue
+		}
 		renamed = append(renamed, file.Path)
+		if createOnly {
+			if err := os.Remove(tmpPaths[file.Path]); err != nil {
+				return rollbackFailure(err, backups, renamed, tmpPaths)
+			}
+			delete(tmpPaths, file.Path)
+		}
+		if err := syncTransactionDirectory(filepath.Dir(file.Path)); err != nil {
+			return rollbackFailure(err, backups, renamed, tmpPaths)
+		}
 	}
 	cleanupTemps(tmpPaths)
 	if err := cleanupBackups(backups); err != nil {
@@ -625,6 +644,7 @@ type fileBackup struct {
 
 var (
 	renameFile = os.Rename
+	linkFile   = os.Link
 	removeFile = os.Remove
 )
 
@@ -811,6 +831,9 @@ func restoreBackups(backups map[string]fileBackup, renamed []string) error {
 				failures = append(failures, fmt.Errorf("remove new output %s: %w", path, err))
 			}
 		}
+		if err := syncTransactionDirectory(filepath.Dir(path)); err != nil {
+			failures = append(failures, fmt.Errorf("sync restored output directory %s: %w", filepath.Dir(path), err))
+		}
 	}
 	return errors.Join(failures...)
 }
@@ -838,12 +861,25 @@ func backupFilePath(path string) (string, error) {
 		return "", err
 	}
 	_, writeErr := file.Write(data)
+	syncErr := file.Sync()
 	closeErr := file.Close()
-	if writeErr != nil || closeErr != nil {
+	if writeErr != nil || syncErr != nil || closeErr != nil {
 		_ = os.Remove(backupPath)
-		return "", errors.Join(writeErr, closeErr)
+		return "", errors.Join(writeErr, syncErr, closeErr)
 	}
 	return backupPath, nil
+}
+
+func syncTransactionDirectory(directory string) error {
+	value, err := os.Open(directory)
+	if err != nil {
+		return err
+	}
+	defer value.Close()
+	if err := value.Sync(); err != nil && !errors.Is(err, syscall.EINVAL) && !errors.Is(err, syscall.ENOTSUP) && !errors.Is(err, syscall.EBADF) {
+		return err
+	}
+	return nil
 }
 
 func rollbackFailure(cause error, backups map[string]fileBackup, changed []string, temps map[string]string) error {
@@ -865,6 +901,10 @@ func cleanupBackups(backups map[string]fileBackup) error {
 			continue
 		}
 		if err := removeFile(backup.backupPath); err != nil && !errors.Is(err, os.ErrNotExist) {
+			failures = append(failures, err)
+			continue
+		}
+		if err := syncTransactionDirectory(filepath.Dir(backup.backupPath)); err != nil {
 			failures = append(failures, err)
 		}
 	}

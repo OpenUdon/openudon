@@ -230,11 +230,11 @@ func TestReviewMarkdownSurfacesBrowserDigestActionAndSafetyEvidence(t *testing.T
 	data := synthesizeLongLivedBrowserProfileFixture(true, true, "note")
 	mustWriteSynthesizeTestFile(t, filepath.Join(example, filepath.FromSlash(path)), data)
 	digest := sha256.Sum256(data)
-	reviewData := `{"version":"openudon.browser-source-review.v1","route":"browser","session_posture":"opaque-runtime-binding-required","mutation_approvals":["update"],"sources":[{"id":"editor","target_path":"browser-profiles/editor.json","sha256":"` + hex.EncodeToString(digest[:]) + `","actions":["update_record"],"origins":["https://example.test"],"lifecycle":"active","expires_at":"2126-08-15T00:00:00Z","login_state_required":true,"provenance":"local:test"}]}`
+	reviewData := `{"version":"openudon.browser-source-review.v1","route":"browser","session_posture":"opaque-runtime-binding-required","sources":[{"id":"editor","target_path":"browser-profiles/editor.json","sha256":"` + hex.EncodeToString(digest[:]) + `","actions":["update_record"],"origins":["https://example.test"],"lifecycle":"active","expires_at":"2126-08-15T00:00:00Z","login_state_required":true,"provenance":"local:test"}]}`
 	mustWriteSynthesizeTestFile(t, filepath.Join(example, filepath.FromSlash(packageartifacts.BrowserSourceReviewPath)), []byte(reviewData))
 	result := resultPaths(example)
 	markdown := reviewMarkdown(result, "", "")
-	for _, want := range []string{"## Browser Sources", hex.EncodeToString(digest[:]), "`update_record`", "`https://example.test`", "opaque operator-owned runtime binding required", "`update`"} {
+	for _, want := range []string{"## Browser Sources", hex.EncodeToString(digest[:]), "`update_record`", "`https://example.test`", "opaque operator-owned runtime binding required"} {
 		if !strings.Contains(markdown, want) {
 			t.Fatalf("review evidence missing %q:\n%s", want, markdown)
 		}

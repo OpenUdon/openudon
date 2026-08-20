@@ -14,9 +14,11 @@ import (
 	"sort"
 	"strings"
 	"time"
+	"unicode"
 
 	"github.com/OpenUdon/browsertools"
 	"github.com/OpenUdon/browsertools/registry"
+	"github.com/OpenUdon/evidence/redact"
 	"github.com/OpenUdon/openudon/internal/netpolicy"
 )
 
@@ -92,8 +94,8 @@ func DiscoverBrowserRegistrySourcesWithOptions(ctx context.Context, options Brow
 		return report, fmt.Errorf("network policy must be never, ask, or allow")
 	}
 	seenLocation := map[string]bool{}
-	seenID := map[string]bool{}
-	seenDigest := map[string]bool{}
+	seenCoordinate := map[string]bool{}
+	seenTarget := map[string]bool{}
 	var safeClient *http.Client
 	for _, rawLocation := range options.Locations {
 		location := strings.TrimSpace(rawLocation)
@@ -101,13 +103,14 @@ func DiscoverBrowserRegistrySourcesWithOptions(ctx context.Context, options Brow
 			continue
 		}
 		seenLocation[location] = true
+		safeLocation := browserRegistryOperatorText(location)
 		remote := browserRegistryIsRemote(location)
 		if remote && (policy == "never" || policy == "ask" && !options.Approved) {
 			code, message := "browser_registry.network_denied", "Remote browser registry lookup is disabled by --network never."
 			if policy == "ask" {
 				code, message = "browser_registry.approval_required", "Approve the bounded static browser registry lookup, provide a local profile, or defer source selection."
 			}
-			report.Blockers = append(report.Blockers, BrowserRegistryBlocker{Code: code, Registry: location, Message: message, Deferrable: true})
+			report.Blockers = append(report.Blockers, BrowserRegistryBlocker{Code: code, Registry: safeLocation, Message: message, Deferrable: true})
 			continue
 		}
 		if remote && safeClient == nil {
@@ -123,11 +126,11 @@ func DiscoverBrowserRegistrySourcesWithOptions(ctx context.Context, options Brow
 			Timeout: firstPositiveDuration(options.Timeout, registry.DefaultTimeout),
 		})
 		if err != nil {
-			report.Blockers = append(report.Blockers, browserRegistryErrorBlocker(location, err))
+			report.Blockers = append(report.Blockers, browserRegistryErrorBlocker(safeLocation, err))
 			continue
 		}
 		if len(search.Results) == 0 {
-			report.Blockers = append(report.Blockers, BrowserRegistryBlocker{Code: "browser_registry.empty", Registry: location, Message: "The bounded static browser registry search returned no active capability profiles.", Deferrable: true})
+			report.Blockers = append(report.Blockers, BrowserRegistryBlocker{Code: "browser_registry.empty", Registry: safeLocation, Message: "The bounded static browser registry search returned no active capability profiles.", Deferrable: true})
 			continue
 		}
 		for _, attempt := range pulls {
@@ -137,21 +140,29 @@ func DiscoverBrowserRegistrySourcesWithOptions(ctx context.Context, options Brow
 			match := attempt.Match
 			coordinate := registry.Coordinate{ID: match.Entry.ID, Release: match.Entry.Release}
 			coordinateKey := coordinate.ID + "@" + coordinate.Release
-			if seenID[coordinate.ID] || seenDigest[match.Entry.Bundle.Digest.String()] {
+			registryCoordinateKey := location + "\x00" + coordinateKey
+			if seenCoordinate[registryCoordinateKey] {
 				continue
 			}
 			if attempt.Err != nil {
-				report.Blockers = append(report.Blockers, browserRegistryErrorBlocker(location+"#"+coordinateKey, attempt.Err))
+				report.Blockers = append(report.Blockers, browserRegistryErrorBlocker(safeLocation+"#"+browserRegistryOperatorText(coordinateKey), attempt.Err))
 				continue
 			}
 			pulled := attempt.Pulled
 			plan, doc, candidate, convertErr := browserRegistryMaterialization(location, match.Score, pulled, options.At)
 			if convertErr != nil {
-				report.Blockers = append(report.Blockers, BrowserRegistryBlocker{Code: "browser_registry.invalid_bundle", Registry: location, Message: convertErr.Error(), Deferrable: true})
+				report.Blockers = append(report.Blockers, BrowserRegistryBlocker{Code: "browser_registry.invalid_bundle", Registry: safeLocation, Message: browserRegistryOperatorText(convertErr.Error()), Deferrable: true})
 				continue
 			}
-			seenID[coordinate.ID] = true
-			seenDigest[match.Entry.Bundle.Digest.String()] = true
+			if seenTarget[plan.TargetPath] {
+				targetDigest := sha256.Sum256([]byte(location + "\x00" + plan.SourceSHA256))
+				suffix := hex.EncodeToString(targetDigest[:6])
+				plan.ID += "-" + suffix
+				plan.TargetPath = filepath.ToSlash(filepath.Join("browser-profiles", plan.ID+".json"))
+				candidate.Materialize = plan.TargetPath
+			}
+			seenCoordinate[registryCoordinateKey] = true
+			seenTarget[plan.TargetPath] = true
 			report.Candidates = append(report.Candidates, candidate)
 			report.Plans = append(report.Plans, plan)
 			report.Docs = append(report.Docs, doc)
@@ -224,18 +235,20 @@ func browserRegistryMaterialization(location string, score int, pulled registry.
 		return SourceMaterialization{}, APIDocument{}, BrowserRegistryCandidate{}, fmt.Errorf("browser registry capability has no safe ID")
 	}
 	target := filepath.ToSlash(filepath.Join("browser-profiles", id+".json"))
-	provenance := firstNonEmpty(pulled.Entry.Provenance.Source, pulled.Source, "browser-registry:"+location)
+	provenance := browserRegistryOperatorText(firstNonEmpty(pulled.Entry.Provenance.Source, pulled.Source, "browser-registry:"+location))
+	title := browserRegistryOperatorText(value.Info.Title)
+	safeLocation := browserRegistryOperatorText(location)
 	plan := SourceMaterialization{
 		Kind: browserSourceFamily, SourceKind: string(browsertools.LocalSourceBundle), ID: id, Release: pulled.Entry.Release,
 		SourcePath: pulled.Source, TargetPath: target, SHA256: hex.EncodeToString(digest[:]),
 		SourceSHA256: strings.TrimPrefix(strings.ToLower(pulled.Entry.Bundle.Digest.String()), "sha256:"),
-		Title:        value.Info.Title, OperationCount: len(value.Actions), Actions: value.SortedActionNames(), Origins: append([]string(nil), value.Info.Origin...),
+		Title:        title, OperationCount: len(value.Actions), Actions: value.SortedActionNames(), Origins: append([]string(nil), value.Info.Origin...),
 		Lifecycle: "active", ExpiresAt: expiresAt.Format(time.RFC3339), LoginStateRequired: value.Info.LoginStateRequired,
-		Provenance: provenance, Registry: location, RegistryCoordinate: pulled.Entry.ID + "@" + pulled.Entry.Release,
+		Provenance: provenance, Registry: safeLocation, RegistryCoordinate: pulled.Entry.ID + "@" + pulled.Entry.Release,
 		MaterializedContent: append([]byte(nil), materialized...),
 	}
 	candidate := BrowserRegistryCandidate{
-		Registry: location, ID: pulled.Entry.ID, Release: pulled.Entry.Release, Title: value.Info.Title,
+		Registry: safeLocation, ID: pulled.Entry.ID, Release: pulled.Entry.Release, Title: title,
 		Origins: append([]string(nil), value.Info.Origin...), Actions: value.SortedActionNames(), Score: score,
 		Digest: pulled.Entry.Bundle.Digest.String(), Status: "active", Provenance: provenance, Materialize: target,
 	}
@@ -244,17 +257,40 @@ func browserRegistryMaterialization(location string, score int, pulled registry.
 
 func browserRegistryErrorBlocker(location string, err error) BrowserRegistryBlocker {
 	code := "browser_registry.lookup_failed"
-	message := err.Error()
+	rawMessage := browserRegistryOperatorText(err.Error())
 	var networkErr net.Error
 	switch {
 	case errors.Is(err, context.DeadlineExceeded), errors.As(err, &networkErr) && networkErr.Timeout():
 		code = "browser_registry.timeout"
-	case strings.Contains(strings.ToLower(message), "unsafe") || strings.Contains(strings.ToLower(message), "private") || strings.Contains(strings.ToLower(message), "loopback"):
+	case strings.Contains(strings.ToLower(rawMessage), "unsafe") || strings.Contains(strings.ToLower(rawMessage), "private") || strings.Contains(strings.ToLower(rawMessage), "loopback"):
 		code = "browser_registry.unsafe_host"
-	case strings.Contains(strings.ToLower(message), "not found"):
+	case strings.Contains(strings.ToLower(rawMessage), "not found"):
 		code = "browser_registry.empty"
 	}
-	return BrowserRegistryBlocker{Code: code, Registry: location, Message: message, Deferrable: true}
+	message := map[string]string{
+		"browser_registry.lookup_failed": "The bounded browser registry lookup failed.",
+		"browser_registry.timeout":       "The bounded browser registry lookup timed out.",
+		"browser_registry.unsafe_host":   "The browser registry endpoint did not satisfy the remote-host safety policy.",
+		"browser_registry.empty":         "The browser registry capability was not found.",
+	}[code]
+	return BrowserRegistryBlocker{Code: code, Registry: browserRegistryOperatorText(location), Message: message, Deferrable: true}
+}
+
+func browserRegistryOperatorText(value string) string {
+	value = redact.String(value)
+	value = strings.Map(func(r rune) rune {
+		if unicode.IsControl(r) {
+			return ' '
+		}
+		return r
+	}, value)
+	value = strings.Join(strings.Fields(value), " ")
+	const maxRunes = 512
+	runes := []rune(value)
+	if len(runes) > maxRunes {
+		value = string(runes[:maxRunes])
+	}
+	return value
 }
 
 func browserRegistryIsRemote(location string) bool {

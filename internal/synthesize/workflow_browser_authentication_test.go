@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	rollout "github.com/OpenUdon/openudon/internal/workflowintent"
@@ -22,7 +23,8 @@ func TestGenerateWorkflowSelectsUWS18ForContextAuthentication(t *testing.T) {
 	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.WriteFile(path, []byte(`{"profile":"uws.browser-authentication.1.1"}`), 0o644); err != nil {
+	fixture := strings.Replace(string(synthesizeBrowserAuthenticationFixture()), "uws.browser-authentication.1.0", "uws.browser-authentication.1.1", 1)
+	if err := os.WriteFile(path, []byte(fixture), 0o644); err != nil {
 		t.Fatal(err)
 	}
 	intent := &rollout.Intent{
@@ -54,7 +56,8 @@ func TestGenerateWorkflowSelectsUWS18ForContextCapability(t *testing.T) {
 	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.WriteFile(path, []byte(`{"profile":"uws.browser.1.6"}`), 0o644); err != nil {
+	fixture := strings.Replace(string(synthesizeBrowserProfileFixture(false, false, "query")), "uws.browser.1.5", "uws.browser.1.6", 1)
+	if err := os.WriteFile(path, []byte(fixture), 0o644); err != nil {
 		t.Fatal(err)
 	}
 	intent := &rollout.Intent{
@@ -80,12 +83,13 @@ func TestGenerateWorkflowSelectsUWS19ForScalarAccessibilityCapability(t *testing
 	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.WriteFile(path, []byte(`{"profile":"uws.browser.1.7"}`), 0o644); err != nil {
+	fixture := strings.Replace(string(synthesizeBrowserProfileFixture(false, false, "query")), "uws.browser.1.5", "uws.browser.1.7", 1)
+	if err := os.WriteFile(path, []byte(fixture), 0o644); err != nil {
 		t.Fatal(err)
 	}
 	intent := &rollout.Intent{
 		Workflow: &rollout.WorkflowMeta{Name: "member_dashboard"},
-		Steps:    []*rollout.Step{{Name: "read_balance", Type: "browser", Source: relative, Operation: "reach_authenticated_goal"}},
+		Steps:    []*rollout.Step{{Name: "read_balance", Type: "browser", Source: relative, Operation: "read_status"}},
 	}
 	doc, err := generateWorkflowDocument(Result{ExampleDir: example}, intent)
 	if err != nil {
@@ -97,15 +101,18 @@ func TestGenerateWorkflowSelectsUWS19ForScalarAccessibilityCapability(t *testing
 }
 
 func TestGenerateWorkflowLowersBrowserAuthenticationAndNamedSession(t *testing.T) {
+	example := t.TempDir()
+	writeWorkflowBrowserFixture(t, example, "browser-authentication/member.yaml", synthesizeBrowserAuthenticationFixture())
+	writeWorkflowBrowserFixture(t, example, "browser-profiles/member.yaml", synthesizeBrowserProfileFixture(false, true, "query"))
 	timeout := 120.0
 	intent := &rollout.Intent{
 		Workflow: &rollout.WorkflowMeta{Name: "member_link", Description: "Open a member-only link."},
 		Steps: []*rollout.Step{
 			{Name: "authenticate", Type: "browser_authentication", Source: "browser-authentication/member.yaml", AuthenticationFlow: "member_login_push", BrowserSession: "member_portal", CredentialBindings: map[string]string{"username": "member_username", "password": "member_password"}, Timeout: &timeout},
-			{Name: "open_link", Type: "browser", Source: "browser-profiles/member.yaml", Operation: "open_member_link", BrowserSession: "member_portal"},
+			{Name: "open_link", Type: "browser", Source: "browser-profiles/member.yaml", Operation: "read_status", BrowserSession: "member_portal"},
 		},
 	}
-	doc, err := generateWorkflowDocument(Result{ExampleDir: t.TempDir()}, intent)
+	doc, err := generateWorkflowDocument(Result{ExampleDir: example}, intent)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -126,6 +133,8 @@ func TestGenerateWorkflowLowersBrowserAuthenticationAndNamedSession(t *testing.T
 }
 
 func TestGenerateWorkflowLowersCredentiallessBrowserAuthentication(t *testing.T) {
+	example := t.TempDir()
+	writeWorkflowBrowserFixture(t, example, "browser-authentication/member.yaml", synthesizeCredentiallessBrowserAuthenticationFixture())
 	timeout := 120.0
 	intent := &rollout.Intent{
 		Workflow: &rollout.WorkflowMeta{Name: "member_passkey", Description: "Sign in with a passkey."},
@@ -134,7 +143,7 @@ func TestGenerateWorkflowLowersCredentiallessBrowserAuthentication(t *testing.T)
 			AuthenticationFlow: "member_passkey", BrowserSession: "member_portal", Timeout: &timeout,
 		}},
 	}
-	doc, err := generateWorkflowDocument(Result{ExampleDir: t.TempDir()}, intent)
+	doc, err := generateWorkflowDocument(Result{ExampleDir: example}, intent)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -150,5 +159,25 @@ func TestGenerateWorkflowLowersCredentiallessBrowserAuthentication(t *testing.T)
 	}
 	if err := schemas.ValidateBrowserAuthenticationCallSupplement(data); err != nil {
 		t.Fatalf("credential-less authentication call is invalid: %v", err)
+	}
+}
+
+func TestGenerateWorkflowFailsClosedForUnreadableBrowserProfile(t *testing.T) {
+	intent := &rollout.Intent{Workflow: &rollout.WorkflowMeta{Name: "browser"}, Steps: []*rollout.Step{{
+		Name: "read_status", Type: "browser", Source: "browser-profiles/missing.yaml", Operation: "read_status",
+	}}}
+	if _, err := generateWorkflowDocument(Result{ExampleDir: t.TempDir()}, intent); err == nil || !strings.Contains(err.Error(), "read browser-profiles/missing.yaml") {
+		t.Fatalf("missing browser profile did not fail closed: %v", err)
+	}
+}
+
+func writeWorkflowBrowserFixture(t *testing.T, root, relative string, data []byte) {
+	t.Helper()
+	path := filepath.Join(root, filepath.FromSlash(relative))
+	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(path, data, 0o644); err != nil {
+		t.Fatal(err)
 	}
 }

@@ -7,6 +7,7 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/OpenUdon/openudon/internal/authoring"
 	"github.com/OpenUdon/openudon/internal/evidencefile"
 	"github.com/OpenUdon/uws/uws1"
 	"github.com/hashicorp/hcl/v2"
@@ -385,7 +386,13 @@ func validateStep(step *Step, label string) error {
 	if err := validateTimeout(step.Timeout, label+".timeout"); err != nil {
 		return err
 	}
-	if strings.EqualFold(strings.TrimSpace(step.Type), "browser_authentication") {
+	kind := strings.ToLower(strings.TrimSpace(step.Type))
+	if kind == "browser" || kind == "browser_authentication" {
+		if !browserBindingPattern.MatchString(strings.TrimSpace(step.Name)) {
+			return fmt.Errorf("%s name must be a portable browser runtime identifier", label)
+		}
+	}
+	if kind == "browser_authentication" {
 		if strings.TrimSpace(firstNonEmpty(step.Source, step.OpenAPI)) == "" {
 			return fmt.Errorf("%s.source is required for browser authentication", label)
 		}
@@ -398,6 +405,20 @@ func validateStep(step *Step, label string) error {
 		if step.Timeout == nil || *step.Timeout > 600 {
 			return fmt.Errorf("%s.timeout must be set and no greater than 600 seconds for browser authentication", label)
 		}
+		if len(step.With) != 0 {
+			return fmt.Errorf("%s.with is not supported for browser authentication", label)
+		}
+		for slot, binding := range step.CredentialBindings {
+			if !browserBindingPattern.MatchString(strings.TrimSpace(slot)) || !browserBindingPattern.MatchString(strings.TrimSpace(binding)) || authoring.ContainsLikelyCredentialValue([]byte(binding)) {
+				return fmt.Errorf("%s.credential_bindings must map symbolic slot and binding names", label)
+			}
+		}
+	} else if kind == "browser" {
+		if strings.TrimSpace(step.AuthenticationFlow) != "" || len(step.CredentialBindings) != 0 {
+			return fmt.Errorf("%s carries browser-authentication-only fields", label)
+		}
+	} else if strings.TrimSpace(step.AuthenticationFlow) != "" || strings.TrimSpace(step.BrowserSession) != "" || len(step.CredentialBindings) != 0 {
+		return fmt.Errorf("%s carries browser-only fields on type %q", label, kind)
 	}
 	for i, nested := range step.Steps {
 		if err := validateStep(nested, fmt.Sprintf("%s.step %d", label, i)); err != nil {
@@ -436,6 +457,7 @@ func validateTimeout(value *float64, path string) error {
 
 var labelBindPattern = regexp.MustCompile(`(?m)^([ \t]*)bind\s+(?:"([^"]+)"|([A-Za-z_][A-Za-z0-9_-]*))\s*\{\s*$`)
 var idempotencyAttrPattern = regexp.MustCompile(`(?m)^([ \t]*)idempotency\s*=\s*\{\s*$`)
+var browserBindingPattern = regexp.MustCompile(`^[A-Za-z][A-Za-z0-9_-]*$`)
 
 func rewriteIntentHCLCompatibility(data []byte) ([]byte, []int) {
 	rewritten, insertedLines := rewriteLabelBindSyntax(data)

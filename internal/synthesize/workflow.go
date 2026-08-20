@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"regexp"
 	"sort"
 	"strings"
 
@@ -17,6 +16,11 @@ import (
 	apitoolshelper "github.com/OpenUdon/apitools/helper"
 	"github.com/OpenUdon/apitools/helper/fnctspec"
 	"github.com/OpenUdon/asyncapi"
+	"github.com/OpenUdon/browsertools/authprofile"
+	"github.com/OpenUdon/browsertools/profile"
+	"github.com/OpenUdon/openudon/internal/browserworkflow"
+	"github.com/OpenUdon/openudon/internal/evidencefile"
+	"github.com/OpenUdon/openudon/internal/packageartifacts"
 	rollout "github.com/OpenUdon/openudon/internal/workflowintent"
 	"github.com/OpenUdon/uws/browserauthentication"
 	"github.com/OpenUdon/uws/convert"
@@ -88,7 +92,10 @@ func generateWorkflowDocument(result Result, intent *rollout.Intent) (*uws1.Docu
 	if err != nil {
 		return nil, err
 	}
-	browserVersions := browserContractVersionsForIntent(result.ExampleDir, normalized)
+	browserVersions, err := browserContractVersionsForIntent(result.ExampleDir, normalized)
+	if err != nil {
+		return nil, err
+	}
 	title := "OpenUdon workflow"
 	description := ""
 	timeout := (*float64)(nil)
@@ -140,7 +147,7 @@ func generateWorkflowDocument(result Result, intent *rollout.Intent) (*uws1.Docu
 		return name
 	}
 	defaultOpenAPI := firstNonEmpty(normalized.Source, normalized.OpenAPI, result.PrimaryOpenAPI)
-	steps, ops, err := buildUWSSteps(normalized.Steps, defaultOpenAPI, ensureSourceDescription, requestMapper, browserVersions.ContextAuthentication)
+	steps, ops, err := buildUWSSteps(normalized.Steps, defaultOpenAPI, ensureSourceDescription, requestMapper, browserVersions)
 	if err != nil {
 		return nil, err
 	}
@@ -157,14 +164,14 @@ func generateWorkflowDocument(result Result, intent *rollout.Intent) (*uws1.Docu
 	return doc, nil
 }
 
-func buildUWSSteps(steps []*rollout.Step, defaultOpenAPI string, sourceFor func(string) string, requestMapper *requestBindingMapper, contextAuthentication map[string]bool) ([]*uws1.Step, []*uws1.Operation, error) {
+func buildUWSSteps(steps []*rollout.Step, defaultOpenAPI string, sourceFor func(string) string, requestMapper *requestBindingMapper, browserContracts browserContractVersions) ([]*uws1.Step, []*uws1.Operation, error) {
 	var outSteps []*uws1.Step
 	var outOps []*uws1.Operation
 	for _, step := range steps {
 		if step == nil {
 			continue
 		}
-		uwsStep, ops, err := buildUWSStep(step, defaultOpenAPI, sourceFor, requestMapper, contextAuthentication)
+		uwsStep, ops, err := buildUWSStep(step, defaultOpenAPI, sourceFor, requestMapper, browserContracts)
 		if err != nil {
 			return nil, nil, err
 		}
@@ -176,7 +183,7 @@ func buildUWSSteps(steps []*rollout.Step, defaultOpenAPI string, sourceFor func(
 	return outSteps, outOps, nil
 }
 
-func buildUWSStep(step *rollout.Step, defaultOpenAPI string, sourceFor func(string) string, requestMapper *requestBindingMapper, contextAuthentication map[string]bool) (*uws1.Step, []*uws1.Operation, error) {
+func buildUWSStep(step *rollout.Step, defaultOpenAPI string, sourceFor func(string) string, requestMapper *requestBindingMapper, browserContracts browserContractVersions) (*uws1.Step, []*uws1.Operation, error) {
 	name := sanitizeIdentifier(firstNonEmpty(step.Name, "step"))
 	kind := strings.ToLower(strings.TrimSpace(step.Type))
 	if kind == "" {
@@ -204,7 +211,7 @@ func buildUWSStep(step *rollout.Step, defaultOpenAPI string, sourceFor func(stri
 	var ops []*uws1.Operation
 	if isIntentStructuralType(kind) {
 		uwsStep.Type = uwsWorkflowType(kind)
-		nested, nestedOps, err := buildUWSSteps(step.Steps, firstNonEmpty(step.Source, step.OpenAPI, defaultOpenAPI), sourceFor, requestMapper, contextAuthentication)
+		nested, nestedOps, err := buildUWSSteps(step.Steps, firstNonEmpty(step.Source, step.OpenAPI, defaultOpenAPI), sourceFor, requestMapper, browserContracts)
 		if err != nil {
 			return nil, nil, err
 		}
@@ -214,7 +221,7 @@ func buildUWSStep(step *rollout.Step, defaultOpenAPI string, sourceFor func(stri
 			if branch == nil {
 				continue
 			}
-			caseSteps, caseOps, err := buildUWSSteps(branch.Steps, firstNonEmpty(step.Source, step.OpenAPI, defaultOpenAPI), sourceFor, requestMapper, contextAuthentication)
+			caseSteps, caseOps, err := buildUWSSteps(branch.Steps, firstNonEmpty(step.Source, step.OpenAPI, defaultOpenAPI), sourceFor, requestMapper, browserContracts)
 			if err != nil {
 				return nil, nil, err
 			}
@@ -225,7 +232,7 @@ func buildUWSStep(step *rollout.Step, defaultOpenAPI string, sourceFor func(stri
 			ops = append(ops, caseOps...)
 		}
 		if step.Default != nil {
-			defaultSteps, defaultOps, err := buildUWSSteps(step.Default.Steps, firstNonEmpty(step.Source, step.OpenAPI, defaultOpenAPI), sourceFor, requestMapper, contextAuthentication)
+			defaultSteps, defaultOps, err := buildUWSSteps(step.Default.Steps, firstNonEmpty(step.Source, step.OpenAPI, defaultOpenAPI), sourceFor, requestMapper, browserContracts)
 			if err != nil {
 				return nil, nil, err
 			}
@@ -255,7 +262,7 @@ func buildUWSStep(step *rollout.Step, defaultOpenAPI string, sourceFor func(stri
 		}
 		op.Request = nil
 		callProfile := browserauthentication.CallProfileName
-		if contextAuthentication[filepath.ToSlash(openAPIPath)] {
+		if browserContracts.ContextAuthentication[filepath.ToSlash(openAPIPath)] {
 			callProfile = "uws.browser-authentication-call.1.1"
 		}
 		op.Extensions = map[string]any{uws1.ExtensionOperationProfile: callProfile}
@@ -288,6 +295,25 @@ func buildUWSStep(step *rollout.Step, defaultOpenAPI string, sourceFor func(stri
 		if kind == "browser" && strings.TrimSpace(step.BrowserSession) != "" {
 			if err := browserauthentication.SetSessionExtension(&op.Extensions, &browserauthentication.OperationSession{Session: strings.TrimSpace(step.BrowserSession)}); err != nil {
 				return nil, nil, err
+			}
+		}
+		if kind == "browser" {
+			value := browserContracts.Profiles[filepath.ToSlash(openAPIPath)]
+			if value == nil {
+				return nil, nil, fmt.Errorf("step %s references an unavailable browser action", name)
+			}
+			action, ok := value.Actions[strings.TrimSpace(step.Operation)]
+			if !ok {
+				return nil, nil, fmt.Errorf("step %s references an unavailable browser action", name)
+			}
+			if len(action.Outputs) != 0 {
+				op.Outputs = map[string]string{}
+				uwsStep.Outputs = map[string]string{}
+				for output := range action.Outputs {
+					expression := "$response.body." + output
+					op.Outputs[output] = expression
+					uwsStep.Outputs[output] = expression
+				}
 			}
 		}
 	default:
@@ -1093,29 +1119,41 @@ type browserContractVersions struct {
 	Requires18            bool
 	Requires19            bool
 	ContextAuthentication map[string]bool
+	Profiles              map[string]*profile.Profile
 }
 
-func browserContractVersionsForIntent(exampleDir string, intent *rollout.Intent) browserContractVersions {
-	result := browserContractVersions{ContextAuthentication: map[string]bool{}}
+func browserContractVersionsForIntent(exampleDir string, intent *rollout.Intent) (browserContractVersions, error) {
+	result := browserContractVersions{ContextAuthentication: map[string]bool{}, Profiles: map[string]*profile.Profile{}}
 	if intent == nil || strings.TrimSpace(exampleDir) == "" {
-		return result
+		return result, nil
 	}
+	var resultErr error
 	var visit func([]*rollout.Step, string)
 	visit = func(steps []*rollout.Step, inheritedSource string) {
 		for _, step := range steps {
-			if step == nil {
+			if step == nil || resultErr != nil {
 				continue
 			}
-			source := filepath.ToSlash(strings.TrimSpace(firstNonEmpty(step.Source, step.OpenAPI, inheritedSource)))
+			source := normalizeAPISourceRef(firstNonEmpty(step.Source, step.OpenAPI, inheritedSource))
 			kind := strings.ToLower(strings.TrimSpace(step.Type))
-			switch profileName := browserProfileDiscriminator(exampleDir, source); {
-			case kind == "browser" && profileName == "uws.browser.1.7":
-				result.Requires19 = true
-			case kind == "browser" && profileName == "uws.browser.1.6":
-				result.Requires18 = true
-			case kind == "browser_authentication" && profileName == "uws.browser-authentication.1.1":
-				result.Requires18 = true
-				result.ContextAuthentication[source] = true
+			if kind == "browser" || kind == "browser_authentication" {
+				profileName, browserProfile, err := browserProfileDiscriminator(exampleDir, source, kind)
+				if err != nil {
+					resultErr = fmt.Errorf("step %s browser contract: %w", firstNonEmpty(step.Name, "<unnamed>"), err)
+					continue
+				}
+				if browserProfile != nil {
+					result.Profiles[source] = browserProfile
+				}
+				switch {
+				case kind == "browser" && profileName == "uws.browser.1.7":
+					result.Requires19 = true
+				case kind == "browser" && profileName == "uws.browser.1.6":
+					result.Requires18 = true
+				case kind == "browser_authentication" && profileName == "uws.browser-authentication.1.1":
+					result.Requires18 = true
+					result.ContextAuthentication[source] = true
+				}
 			}
 			visit(step.Steps, source)
 			for _, branch := range step.Cases {
@@ -1129,32 +1167,42 @@ func browserContractVersionsForIntent(exampleDir string, intent *rollout.Intent)
 		}
 	}
 	visit(intent.Steps, intentSourceRef(intent))
-	return result
+	return result, resultErr
 }
 
-func browserProfileDiscriminator(exampleDir, relative string) string {
-	if relative == "" || filepath.IsAbs(relative) {
-		return ""
+func browserProfileDiscriminator(exampleDir, relative, kind string) (string, *profile.Profile, error) {
+	clean, err := packageartifacts.CleanRelativePath(relative)
+	if err != nil || clean != filepath.ToSlash(strings.TrimSpace(relative)) {
+		return "", nil, fmt.Errorf("source must be a canonical package-relative path")
 	}
-	clean := filepath.Clean(filepath.FromSlash(relative))
-	if clean == "." || clean == ".." || strings.HasPrefix(clean, ".."+string(filepath.Separator)) {
-		return ""
+	wantPrefix := "browser-profiles/"
+	if kind == "browser_authentication" {
+		wantPrefix = "browser-authentication/"
 	}
-	path := filepath.Join(exampleDir, clean)
-	info, err := os.Lstat(path)
-	if err != nil || info.Mode()&os.ModeSymlink != 0 || !info.Mode().IsRegular() || info.Size() <= 0 || info.Size() > 20<<20 {
-		return ""
+	if !strings.HasPrefix(clean, wantPrefix) {
+		return "", nil, fmt.Errorf("source %q must be under %s", clean, strings.TrimSuffix(wantPrefix, "/"))
 	}
-	data, err := os.ReadFile(path)
+	data, _, err := evidencefile.ReadRegular(filepath.Join(exampleDir, filepath.FromSlash(clean)), evidencefile.DefaultMaxBytes)
 	if err != nil {
-		return ""
+		return "", nil, fmt.Errorf("read %s: %w", clean, err)
 	}
-	var document map[string]any
-	if err := yaml.Unmarshal(data, &document); err != nil {
-		return ""
+	if kind == "browser_authentication" {
+		value, err := authprofile.Parse(data)
+		if err != nil {
+			return "", nil, fmt.Errorf("parse %s: %w", clean, err)
+		}
+		return strings.TrimSpace(value.Profile), nil, nil
 	}
-	value, _ := document["profile"].(string)
-	return strings.TrimSpace(value)
+	var value *profile.Profile
+	if strings.EqualFold(filepath.Ext(clean), ".json") {
+		value, err = profile.ParseJSON(data)
+	} else {
+		value, err = profile.ParseYAML(data)
+	}
+	if err != nil {
+		return "", nil, fmt.Errorf("parse %s: %w", clean, err)
+	}
+	return strings.TrimSpace(value.Schema), value, nil
 }
 
 func intentRequiresUWS17(intent *rollout.Intent) bool {
@@ -1489,16 +1537,7 @@ func sourceDescriptionName(path string, existing map[string]string) string {
 }
 
 func sanitizeIdentifier(value string) string {
-	value = strings.TrimSpace(value)
-	value = regexp.MustCompile(`[^A-Za-z0-9_]+`).ReplaceAllString(value, "_")
-	value = strings.Trim(value, "_")
-	if value == "" {
-		return ""
-	}
-	if value[0] >= '0' && value[0] <= '9' {
-		value = "_" + value
-	}
-	return value
+	return browserworkflow.RuntimeOperationID(value)
 }
 
 func firstNonEmpty(values ...string) string {

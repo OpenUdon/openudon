@@ -23,9 +23,9 @@ func TestLiveAuthorRecordsOnlyHumanSelectedCompatibleMFAKind(t *testing.T) {
 		kind  string
 		kinds []string
 	}{
-		{kind: "totp", kinds: liveOTPChallengeKinds},
-		{kind: "push", kinds: liveMFAChallengeKinds},
-		{kind: "push_number_match", kinds: liveMFAChallengeKinds},
+		{kind: "totp", kinds: []string{"totp"}},
+		{kind: "push", kinds: []string{"push"}},
+		{kind: "push_number_match", kinds: []string{"push_number_match"}},
 	}
 	for _, test := range tests {
 		t.Run(test.kind, func(t *testing.T) {
@@ -87,6 +87,25 @@ func TestLiveAuthorRecordsOnlyHumanSelectedCompatibleMFAKind(t *testing.T) {
 				t.Fatalf("orchestration did not reach the verified human choice: %v", err)
 			}
 		})
+	}
+}
+
+func TestAuthenticatedAuthoringRejectsExtraOrigins(t *testing.T) {
+	at := time.Date(2026, 8, 17, 3, 0, 0, 0, time.UTC)
+	root := t.TempDir()
+	example, privateRoot := liveAuthorTestRoots(t, root)
+	path, _ := writeCustomV2Envelope(t, privateRoot, at, []authorresult.TraceStep{{Kind: "navigate", Phase: "authentication", Context: "main", URL: "https://members.example.test/login"}}, nil)
+	data, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var envelope authenticatedAuthoringEnvelope
+	if err := json.Unmarshal(data, &envelope); err != nil {
+		t.Fatal(err)
+	}
+	envelope.Origins = append(envelope.Origins, "https://other.example.test")
+	if err := validateAuthenticatedAuthoringEnvelope(testV2ImportConfig(example, privateRoot), &envelope, at); err == nil {
+		t.Fatal("an extra result origin was accepted")
 	}
 }
 

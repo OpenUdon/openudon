@@ -13,9 +13,7 @@ import (
 	"io"
 	"net/url"
 	"os"
-	"os/exec"
 	"path/filepath"
-	"reflect"
 	"regexp"
 	"sort"
 	"strconv"
@@ -25,6 +23,7 @@ import (
 	"github.com/OpenUdon/browsertools/authorsession"
 	"github.com/OpenUdon/evidence/redact"
 	"github.com/OpenUdon/openudon/internal/icot/elicitor"
+	"github.com/OpenUdon/openudon/internal/processgroup"
 	rollout "github.com/OpenUdon/openudon/internal/workflowintent"
 )
 
@@ -46,6 +45,7 @@ var (
 	liveDiagnosticPattern     = regexp.MustCompile(`^[a-z][a-z0-9_]{0,63}$`)
 	liveReviewDecisionPattern = regexp.MustCompile(`^[a-z][a-z0-9_.-]{0,127}$`)
 	liveOutputKeyPattern      = regexp.MustCompile(`^[A-Za-z][A-Za-z0-9_-]{0,63}$`)
+	liveApprovalPattern       = regexp.MustCompile(`^approval-[0-9]{4}$`)
 	livePortableRoles         = map[string]bool{
 		"button": true, "link": true, "textbox": true, "checkbox": true, "radio": true,
 		"dialog": true, "status": true, "alert": true, "heading": true, "img": true,
@@ -235,49 +235,31 @@ type liveChild interface {
 }
 
 type execLiveChild struct {
-	cmd    *exec.Cmd
-	input  io.WriteCloser
-	output io.ReadCloser
+	child *processgroup.InteractiveChild
 }
 
-func (child *execLiveChild) Input() io.WriteCloser { return child.input }
-func (child *execLiveChild) Output() io.ReadCloser { return child.output }
-func (child *execLiveChild) Wait() error           { return child.cmd.Wait() }
-func (child *execLiveChild) Kill() error {
-	if child.cmd.Process == nil {
-		return nil
-	}
-	return child.cmd.Process.Kill()
-}
+func (child *execLiveChild) Input() io.WriteCloser { return child.child.Input() }
+func (child *execLiveChild) Output() io.ReadCloser { return child.child.Output() }
+func (child *execLiveChild) Wait() error           { return child.child.Wait() }
+func (child *execLiveChild) Kill() error           { return child.child.Terminate() }
 
 type liveAuthorDependencies struct {
-	StartProcess func(context.Context, string, []string, []string) (liveChild, error)
-	NewPlanner   func(string, string, float64) (livePlanner, string, string, error)
-	Now          func() time.Time
+	StartProcess      func(context.Context, string, []string, []string) (liveChild, error)
+	PrepareExecutable func(string, string) (string, func(), error)
+	NewPlanner        func(string, string, float64) (livePlanner, string, string, error)
+	Now               func() time.Time
 }
 
 func defaultLiveAuthorDependencies() liveAuthorDependencies {
 	return liveAuthorDependencies{
 		StartProcess: func(ctx context.Context, executable string, args, environment []string) (liveChild, error) {
-			cmd := exec.CommandContext(ctx, executable, args...)
-			cmd.Env = append([]string(nil), environment...)
-			cmd.Stderr = io.Discard
-			input, err := cmd.StdinPipe()
+			child, err := processgroup.StartInteractive(ctx, append([]string{executable}, args...), environment, io.Discard)
 			if err != nil {
 				return nil, err
 			}
-			output, err := cmd.StdoutPipe()
-			if err != nil {
-				_ = input.Close()
-				return nil, err
-			}
-			if err := cmd.Start(); err != nil {
-				_ = input.Close()
-				_ = output.Close()
-				return nil, err
-			}
-			return &execLiveChild{cmd: cmd, input: input, output: output}, nil
+			return &execLiveChild{child: child}, nil
 		},
+		PrepareExecutable: prepareStableLiveExecutable,
 		NewPlanner: func(provider, model string, temperature float64) (livePlanner, string, string, error) {
 			client, actualProvider, actualModel, err := rollout.NewLLMClientFromEnvWithOptions(provider, model, rollout.LLMOptions{Temperature: &temperature})
 			if err != nil {
@@ -345,7 +327,10 @@ func runBrowserAuthorLiveWith(args []string, in io.Reader, out, errOut io.Writer
 		return 1
 	}
 	planner, provider, model := resolveLivePlanner(cfg, deps, out)
-	ctx, cancel := context.WithTimeout(context.Background(), liveAuthorDefaultTimeout+time.Minute)
+	// Browsertools charges its advertised total timeout only while browser work
+	// is active. Do not impose a second wall clock that consumes human MFA and
+	// review time.
+	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	result, err := orchestrateLiveAuthor(ctx, cfg, reader, out, planner, provider, model, deps)
 	if err != nil {
@@ -490,6 +475,62 @@ func inspectLiveExecutable(raw string) (string, error) {
 	return path, nil
 }
 
+func prepareStableLiveExecutable(source, privateRoot string) (string, func(), error) {
+	source, err := inspectLiveExecutable(source)
+	if err != nil {
+		return "", nil, err
+	}
+	directory, err := os.MkdirTemp(privateRoot, ".openudon-browsertools-")
+	if err != nil {
+		return "", nil, fmt.Errorf("create private Browsertools executable copy: %w", err)
+	}
+	cleanup := func() { _ = os.RemoveAll(directory) }
+	if err := os.Chmod(directory, 0o700); err != nil {
+		cleanup()
+		return "", nil, err
+	}
+	input, err := os.Open(source)
+	if err != nil {
+		cleanup()
+		return "", nil, fmt.Errorf("open Browsertools executable: %w", err)
+	}
+	defer input.Close()
+	before, err := input.Stat()
+	pathInfo, pathErr := os.Lstat(source)
+	if err != nil || pathErr != nil || !before.Mode().IsRegular() || before.Mode().Perm()&0o111 == 0 || pathInfo.Mode()&os.ModeSymlink != 0 || !os.SameFile(before, pathInfo) {
+		cleanup()
+		return "", nil, fmt.Errorf("inspect opened Browsertools executable")
+	}
+	name := "browsertools"
+	if strings.EqualFold(filepath.Ext(source), ".exe") {
+		name += ".exe"
+	}
+	target := filepath.Join(directory, name)
+	output, err := os.OpenFile(target, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o500)
+	if err != nil {
+		cleanup()
+		return "", nil, err
+	}
+	const maxLiveExecutableBytes = 256 << 20
+	written, copyErr := io.Copy(output, io.LimitReader(input, maxLiveExecutableBytes+1))
+	syncErr := output.Sync()
+	closeErr := output.Close()
+	after, statErr := input.Stat()
+	if copyErr != nil || syncErr != nil || closeErr != nil || statErr != nil || written != before.Size() || written > maxLiveExecutableBytes || !os.SameFile(before, after) || before.Size() != after.Size() || !before.ModTime().Equal(after.ModTime()) {
+		cleanup()
+		cause := errors.Join(copyErr, syncErr, closeErr, statErr)
+		if cause == nil {
+			cause = fmt.Errorf("source identity, size, or modification time changed")
+		}
+		return "", nil, fmt.Errorf("Browsertools executable changed while creating the private execution copy: %w", cause)
+	}
+	if _, err := inspectLiveExecutable(target); err != nil {
+		cleanup()
+		return "", nil, err
+	}
+	return target, cleanup, nil
+}
+
 func originAndPath(raw string) (string, string) {
 	parsed, _ := url.Parse(raw)
 	origin := strings.ToLower(parsed.Scheme) + "://" + strings.ToLower(parsed.Host)
@@ -616,14 +657,23 @@ func orchestrateLiveAuthor(ctx context.Context, cfg liveAuthorConfig, reader *bu
 	if deps.StartProcess == nil {
 		return liveProtocolResult{}, fmt.Errorf("Browsertools process factory is unavailable")
 	}
-	if _, err := inspectLiveExecutable(cfg.Browsertools); err != nil {
+	executable := cfg.Browsertools
+	cleanupExecutable := func() {}
+	if deps.PrepareExecutable != nil {
+		var err error
+		executable, cleanupExecutable, err = deps.PrepareExecutable(cfg.Browsertools, cfg.PrivateRoot)
+		if err != nil {
+			return liveProtocolResult{}, err
+		}
+	} else if _, err := inspectLiveExecutable(cfg.Browsertools); err != nil {
 		return liveProtocolResult{}, err
 	}
+	defer cleanupExecutable()
 	args := []string{"author-session", "chromium", "--private-root", cfg.PrivateRoot}
 	if strings.TrimSpace(cfg.DriverDir) != "" {
 		args = append(args, "--driver-dir", cfg.DriverDir)
 	}
-	child, err := deps.StartProcess(ctx, cfg.Browsertools, args, minimalBrowsertoolsEnvironment())
+	child, err := deps.StartProcess(ctx, executable, args, minimalBrowsertoolsEnvironment())
 	if err != nil {
 		return liveProtocolResult{}, fmt.Errorf("start Browsertools: %w", err)
 	}
@@ -635,8 +685,17 @@ func orchestrateLiveAuthor(ctx context.Context, cfg liveAuthorConfig, reader *bu
 		}
 		_ = protocol.send(liveClientMessage{Type: "close"})
 		_ = child.Input().Close()
-		_ = child.Kill()
-		_ = child.Wait()
+		done := make(chan struct{})
+		go func() {
+			_ = child.Wait()
+			close(done)
+		}()
+		select {
+		case <-done:
+		case <-time.After(2 * time.Second):
+			_ = child.Kill()
+			<-done
+		}
 	}()
 	hello, err := protocol.receive()
 	if err != nil {
@@ -754,7 +813,10 @@ func orchestrateLiveAuthor(ctx context.Context, cfg liveAuthorConfig, reader *bu
 			}
 		case "approval_required":
 			approval := *message.Approval
-			fmt.Fprintf(out, "Browsertools requests %s approval: action=%s candidate=%s origin=%s POST-budget=%d\n", approval.Kind, approval.Action, approval.CandidateID, approval.Origin, approval.POSTBudget)
+			if err := validateLiveApproval(approval, cfg.Origins); err != nil {
+				return liveProtocolResult{}, err
+			}
+			fmt.Fprintf(out, "Browsertools requests %q approval: action=%q candidate=%q origin=%q POST-budget=%d\n", approval.Kind, approval.Action, approval.CandidateID, approval.Origin, approval.POSTBudget)
 			decision, promptErr := readLiveDecision(reader, out, "Type approve for this exact request, or deny: ", "approve", "deny")
 			if promptErr != nil {
 				return liveProtocolResult{}, promptErr
@@ -1215,11 +1277,11 @@ func validateLiveServerMessage(message liveServerMessage, candidateCeiling int) 
 			return err
 		}
 	case "approval_required":
-		if message.Approval == nil || !regexp.MustCompile(`^approval-[0-9]{4}$`).MatchString(message.Approval.ID) || message.Approval.POSTBudget < 0 || message.Approval.POSTBudget > 32 {
+		if message.Approval == nil || !liveApprovalPattern.MatchString(message.Approval.ID) || message.Approval.POSTBudget < 0 || message.Approval.POSTBudget > 32 {
 			return fmt.Errorf("approval request is invalid")
 		}
-		if message.Approval.Kind != "origin" && message.Approval.Kind != "origin_action" && message.Approval.Kind != "action" {
-			return fmt.Errorf("approval kind is invalid")
+		if err := validateLiveApproval(*message.Approval, nil); err != nil {
+			return err
 		}
 	case "human_checkpoint":
 		if message.Checkpoint == nil || (message.Checkpoint.Kind != "credential" && message.Checkpoint.Kind != "mfa" && message.Checkpoint.Kind != "completion") {
@@ -1234,7 +1296,7 @@ func validateLiveServerMessage(message liveServerMessage, candidateCeiling int) 
 				return fmt.Errorf("human checkpoint challenge inventory is invalid")
 			}
 		case "mfa":
-			if !reflect.DeepEqual(message.Checkpoint.ChallengeKinds, liveOTPChallengeKinds) && !reflect.DeepEqual(message.Checkpoint.ChallengeKinds, liveMFAChallengeKinds) {
+			if !validLiveChallengeKinds(message.Checkpoint.ChallengeKinds) {
 				return fmt.Errorf("human checkpoint challenge inventory is invalid")
 			}
 		}
@@ -1303,6 +1365,59 @@ func validateLiveCandidate(candidate liveCandidate, seen map[string]bool, candid
 	return nil
 }
 
+func validateLiveApproval(approval liveApproval, approvedOrigins []string) error {
+	if !liveApprovalPattern.MatchString(approval.ID) || approval.POSTBudget < 0 || approval.POSTBudget > 32 {
+		return fmt.Errorf("approval request is invalid")
+	}
+	switch approval.Kind {
+	case "origin":
+		if approval.Action != "navigate_get" || approval.CandidateID != "" || approval.POSTBudget != 0 || !canonicalLiveApprovalOrigin(approval.Origin) {
+			return fmt.Errorf("origin approval request is invalid")
+		}
+	case "origin_action":
+		if approval.Action != "click" || !liveCandidatePattern.MatchString(approval.CandidateID) || !canonicalLiveApprovalOrigin(approval.Origin) {
+			return fmt.Errorf("origin-action approval request is invalid")
+		}
+	case "action":
+		if approval.Action != "click" || !liveCandidatePattern.MatchString(approval.CandidateID) || approval.Origin != "" {
+			return fmt.Errorf("action approval request is invalid")
+		}
+	default:
+		return fmt.Errorf("approval kind is invalid")
+	}
+	if approval.Origin != "" && approvedOrigins != nil && !stringSliceContainsExact(approvedOrigins, approval.Origin) {
+		return fmt.Errorf("Browsertools approval escaped reviewed origins")
+	}
+	return nil
+}
+
+func canonicalLiveApprovalOrigin(origin string) bool {
+	values, err := normalizeBrowserAuthoringOrigins([]string{origin})
+	return err == nil && len(values) == 1 && values[0] == origin
+}
+
+func validLiveChallengeKinds(values []string) bool {
+	if len(values) == 0 || len(values) > len(liveOTPChallengeKinds)+len(liveMFAChallengeKinds) {
+		return false
+	}
+	family := 0
+	seen := map[string]bool{}
+	for _, value := range values {
+		current := 0
+		if containsExact(liveOTPChallengeKinds, value) {
+			current = 1
+		} else if containsExact(liveMFAChallengeKinds, value) {
+			current = 2
+		}
+		if current == 0 || seen[value] || (family != 0 && current != family) {
+			return false
+		}
+		family = current
+		seen[value] = true
+	}
+	return true
+}
+
 func defaultLiveAuthorBounds() liveBounds {
 	return liveBounds{
 		NavigationTimeoutMS: 20_000, TotalTimeoutMS: liveAuthorDefaultTimeout.Milliseconds(),
@@ -1358,7 +1473,10 @@ func validLivePath(path string) bool {
 }
 
 func validSHA256Digest(value string) bool {
-	raw := strings.TrimPrefix(strings.ToLower(strings.TrimSpace(value)), "sha256:")
+	if value != strings.ToLower(strings.TrimSpace(value)) || !strings.HasPrefix(value, "sha256:") {
+		return false
+	}
+	raw := strings.TrimPrefix(value, "sha256:")
 	decoded, err := hex.DecodeString(raw)
 	return err == nil && len(decoded) == sha256.Size
 }

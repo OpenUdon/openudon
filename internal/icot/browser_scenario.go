@@ -150,7 +150,12 @@ func scenarioOrigin(raw string) string {
 
 func runBrowserScenarioProtocol(ctx context.Context, cfg liveAuthorConfig, request BrowserScenarioAuthorRequest) (liveProtocolResult, bool, string, error) {
 	deps := defaultLiveAuthorDependencies()
-	child, err := deps.StartProcess(ctx, cfg.Browsertools, scenarioBrowsertoolsArgs(cfg), minimalBrowsertoolsEnvironment())
+	executable, cleanupExecutable, err := deps.PrepareExecutable(cfg.Browsertools, cfg.PrivateRoot)
+	if err != nil {
+		return liveProtocolResult{}, false, "", err
+	}
+	defer cleanupExecutable()
+	child, err := deps.StartProcess(ctx, executable, scenarioBrowsertoolsArgs(cfg), minimalBrowsertoolsEnvironment())
 	if err != nil {
 		return liveProtocolResult{}, false, "", fmt.Errorf("start Browsertools: %w", err)
 	}
@@ -386,7 +391,7 @@ func scenarioHumanInput(protocol *liveProtocol, candidateID, challengeKind strin
 		if message.Checkpoint.Kind != "credential" || len(message.Checkpoint.ChallengeKinds) != 0 {
 			return fmt.Errorf("Browsertools credential checkpoint widened authority")
 		}
-	} else if message.Checkpoint.Kind != "mfa" || !equalLiveStrings(message.Checkpoint.ChallengeKinds, compatible) || !containsExact(compatible, challengeKind) {
+	} else if message.Checkpoint.Kind != "mfa" || !validLiveChallengeKinds(message.Checkpoint.ChallengeKinds) || !containsExact(message.Checkpoint.ChallengeKinds, challengeKind) || !challengeSubsetOf(message.Checkpoint.ChallengeKinds, compatible) {
 		return fmt.Errorf("Browsertools MFA compatibility set is invalid")
 	}
 	if err := protocol.send(liveClientMessage{Type: "human_input_complete", CandidateID: candidateID, ChallengeKind: challengeKind}); err != nil {
@@ -397,6 +402,15 @@ func scenarioHumanInput(protocol *liveProtocol, candidateID, challengeKind strin
 		return fmt.Errorf("Browsertools human-input completion state is invalid")
 	}
 	return nil
+}
+
+func challengeSubsetOf(values, family []string) bool {
+	for _, value := range values {
+		if !containsExact(family, value) {
+			return false
+		}
+	}
+	return true
 }
 
 func scenarioClick(protocol *liveProtocol, candidateID string, postBudget int, expectedPhase string) (string, error) {
@@ -466,16 +480,4 @@ func authProfileSummary(raw []byte) (map[string]string, error) {
 		result[name] = string(slot.Kind)
 	}
 	return result, nil
-}
-
-func equalLiveStrings(left, right []string) bool {
-	if len(left) != len(right) {
-		return false
-	}
-	for index := range left {
-		if left[index] != right[index] {
-			return false
-		}
-	}
-	return true
 }
