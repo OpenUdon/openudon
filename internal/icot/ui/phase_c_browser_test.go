@@ -27,16 +27,28 @@ import (
 type phaseCBrowserEngine struct {
 	mu sync.Mutex
 
-	snapshot      engine.Snapshot
-	proposal      engine.Snapshot
-	workspace     engine.WorkspaceStatus
-	workspaceErr  error
-	roundErr      error
-	roundErrOnce  bool
-	roundCalls    int
-	approvalCalls int
-	answers       []authoring.RoundAnswer
-	approval      engine.Approval
+	snapshot         engine.Snapshot
+	proposal         engine.Snapshot
+	reopenProposal   engine.Snapshot
+	workspace        engine.WorkspaceStatus
+	workspaceErr     error
+	roundErr         error
+	roundErrOnce     bool
+	roundCalls       int
+	reopenCalls      int
+	approvalCalls    int
+	answers          []authoring.RoundAnswer
+	reopenedQuestion string
+	approval         engine.Approval
+}
+
+func (e *phaseCBrowserEngine) ReopenDecision(_ context.Context, questionID string) (engine.Snapshot, error) {
+	e.mu.Lock()
+	defer e.mu.Unlock()
+	e.reopenCalls++
+	e.reopenedQuestion = questionID
+	e.snapshot = e.reopenProposal
+	return e.snapshot, nil
 }
 
 type phaseCSnapshotDelay struct {
@@ -159,6 +171,12 @@ func (e *phaseCBrowserEngine) mutationRecord() (int, int, []authoring.RoundAnswe
 	e.mu.Lock()
 	defer e.mu.Unlock()
 	return e.roundCalls, e.approvalCalls, append([]authoring.RoundAnswer(nil), e.answers...), e.approval
+}
+
+func (e *phaseCBrowserEngine) reopenRecord() (int, string) {
+	e.mu.Lock()
+	defer e.mu.Unlock()
+	return e.reopenCalls, e.reopenedQuestion
 }
 
 type phaseCBrowserFixture struct {
@@ -562,6 +580,60 @@ func TestPhaseCBrowserStructuredChoiceAndDeferral(t *testing.T) {
 	rounds, _, answers, _ := browserEngine.mutationRecord()
 	if rounds != 1 || len(answers) != 2 || answers[0].Value != "never" || answers[1].Value != "defer:API owner | draft remains incomplete | provider publishes a spec | add the reviewed source" {
 		t.Fatalf("structured round = calls %d answers %#v", rounds, answers)
+	}
+}
+
+func TestPhaseCBrowserReopensSettledAnswerBeforeApproval(t *testing.T) {
+	_, browser := launchPhaseCBrowser(t)
+	initial := phaseCProposalSnapshot(false, false)
+	initial.RevisableDecisions = []elicitor.RevisableDecision{{
+		QuestionID: "boundary.actor_trigger", Prompt: "Who starts the workflow and when?", Slots: []string{"boundary.actor", "boundary.trigger"},
+		Value: "operator | on demand", Impact: "Reopening clears this value and re-runs readiness.",
+	}}
+	reopened := engine.Snapshot{
+		Boundary: elicitor.WorkflowBoundary{Outcome: "Create a reviewed report", SuccessEvidence: []string{"report is available"}},
+		Frontier: []elicitor.QuestionPlan{{
+			ID: "boundary.actor_trigger", Prompt: "Who starts the workflow and when?", Slots: []string{"boundary.actor", "boundary.trigger"}, Required: true,
+		}},
+		QuestionControls: []elicitor.QuestionControl{{QuestionID: "boundary.actor_trigger", InputKind: elicitor.QuestionInputText, Syntax: "actor | trigger"}},
+		Readiness:        []elicitor.ReadinessIssue{{Code: "actor_trigger_required", Severity: "blocking", Message: "Replace the reopened actor and trigger."}},
+	}
+	replacement := phaseCProposalSnapshot(false, false)
+	replacement.RevisableDecisions = []elicitor.RevisableDecision{{
+		QuestionID: "boundary.actor_trigger", Prompt: "Who starts the workflow and when?", Value: "reviewer | after approval",
+	}}
+	browserEngine := &phaseCBrowserEngine{snapshot: initial, reopenProposal: reopened, proposal: replacement}
+	fixture := newPhaseCBrowserFixture(t, browserEngine)
+	page := newPhaseCPage(t, browser, fixture)
+
+	reopenButton := page.GetByRole("button", playwright.PageGetByRoleOptions{Name: "Reopen answer for Who starts the workflow and when?", Exact: playwright.Bool(true)})
+	requireVisible(t, reopenButton)
+	requireEnabled(t, reopenButton, true)
+	waitForLocatorText(t, page.Locator("#revisions-list"), "operator | on demand")
+	if err := reopenButton.Click(); err != nil {
+		t.Fatal(err)
+	}
+	answer := page.GetByLabel("Your answer for: Who starts the workflow and when?", playwright.PageGetByLabelOptions{Exact: playwright.Bool(true)})
+	requireVisible(t, answer)
+	waitForActiveID(t, page, "frontier-answer-1")
+	waitForLocatorText(t, page.Locator("#mutation-status"), "Answer reopened")
+	if visible, err := page.GetByRole("button", playwright.PageGetByRoleOptions{Name: "Approve final artifacts", IncludeHidden: playwright.Bool(true)}).IsVisible(); err != nil || visible {
+		t.Fatalf("approval visible while replacement pending = %t, %v", visible, err)
+	}
+	if err := answer.Fill("reviewer | after approval"); err != nil {
+		t.Fatal(err)
+	}
+	if err := page.GetByRole("button", playwright.PageGetByRoleOptions{Name: "Submit complete round", Exact: playwright.Bool(true)}).Click(); err != nil {
+		t.Fatal(err)
+	}
+	requireVisible(t, page.GetByRole("button", playwright.PageGetByRoleOptions{Name: "Approve final artifacts", Exact: playwright.Bool(true)}))
+	waitForLocatorText(t, page.Locator("#revisions-list"), "reviewer | after approval")
+	if calls, questionID := browserEngine.reopenRecord(); calls != 1 || questionID != "boundary.actor_trigger" {
+		t.Fatalf("reopen calls = %d, question = %q", calls, questionID)
+	}
+	rounds, _, answers, _ := browserEngine.mutationRecord()
+	if rounds != 1 || len(answers) != 1 || answers[0].QuestionID != "boundary.actor_trigger" || answers[0].Value != "reviewer | after approval" {
+		t.Fatalf("replacement round = calls %d answers %#v", rounds, answers)
 	}
 }
 

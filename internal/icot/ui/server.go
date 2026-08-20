@@ -39,6 +39,7 @@ const (
 // AuthoringEngine is the engine contract used by the local transport.
 type AuthoringEngine interface {
 	ApplyRound(context.Context, []authoring.RoundAnswer) (engine.Snapshot, error)
+	ReopenDecision(context.Context, string) (engine.Snapshot, error)
 	ApproveAndWrite(context.Context, engine.Approval) (engine.ApprovalResult, error)
 	WorkspaceStatus(context.Context) (engine.WorkspaceStatus, error)
 }
@@ -110,6 +111,11 @@ type approveRequest struct {
 	HumanApproved     bool   `json:"human_approved"`
 	AllowOverwrite    bool   `json:"allow_overwrite"`
 	ApproveIncomplete bool   `json:"approve_incomplete"`
+}
+
+type reopenRequest struct {
+	Revision   string `json:"revision"`
+	QuestionID string `json:"question_id"`
 }
 
 type requestError struct {
@@ -265,6 +271,8 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		s.serveSnapshot(w, r, cookieScoped, requestID)
 	case "/api/v2/round":
 		s.serveRound(w, r, cookieScoped, requestID)
+	case "/api/v2/reopen":
+		s.serveReopen(w, r, cookieScoped, requestID)
 	case "/api/v2/approve":
 		s.serveApprove(w, r, cookieScoped, requestID)
 	default:
@@ -485,6 +493,51 @@ func encodeRoundDeferral(answerValue string, deferral roundDeferral) (string, er
 		parts[index] = strings.TrimSpace(parts[index])
 	}
 	return "defer:" + strings.Join(parts, " | "), nil
+}
+
+func (s *Server) serveReopen(w http.ResponseWriter, r *http.Request, cookieScoped bool, requestID string) {
+	if r.Method != http.MethodPost {
+		s.methodNotAllowed(w, http.MethodPost, requestID)
+		return
+	}
+	if !s.authenticated(r, cookieScoped) {
+		s.writeError(w, http.StatusUnauthorized, "unauthorized", "a valid UI capability token is required", false, requestID, "")
+		return
+	}
+	var request reopenRequest
+	if err := decodeJSONRequest(w, r, &request); err != nil {
+		s.writeRequestError(w, err, requestID)
+		return
+	}
+	request.Revision = strings.TrimSpace(request.Revision)
+	request.QuestionID = strings.TrimSpace(request.QuestionID)
+	if request.Revision == "" {
+		s.writeError(w, http.StatusBadRequest, "malformed_request", "revision is required", false, requestID, s.currentRevision())
+		return
+	}
+	if request.QuestionID == "" {
+		s.writeError(w, http.StatusBadRequest, "malformed_request", "question_id is required", false, requestID, s.currentRevision())
+		return
+	}
+
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if !s.beginMutation(w, r, requestID, "/api/v2/reopen", request.Revision) {
+		return
+	}
+	snapshot, err := s.engine.ReopenDecision(r.Context(), request.QuestionID)
+	if err != nil {
+		s.refreshWorkspaceAfterFailure()
+		s.writeEngineError(w, r, requestID, "/api/v2/reopen", "reopen_decision", err)
+		return
+	}
+	s.snapshot = snapshot
+	if err := s.updateRevisionLocked(); err != nil {
+		s.writeInternalError(w, r, requestID, "/api/v2/reopen", "revision", err, true)
+		return
+	}
+	setETag(w, s.revision)
+	s.writeJSON(w, http.StatusOK, s.responseLocked(), requestID)
 }
 
 func (s *Server) serveApprove(w http.ResponseWriter, r *http.Request, cookieScoped bool, requestID string) {

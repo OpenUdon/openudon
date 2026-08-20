@@ -44,16 +44,34 @@ type fakeEngine struct {
 
 	snapshot               engine.Snapshot
 	rounds                 int
+	reopens                int
 	approvals              int
 	seen                   []authoring.RoundAnswer
+	reopenedQuestion       string
 	approval               engine.Approval
 	roundErr               error
+	reopenErr              error
 	writeErr               error
 	snapshotErr            error
 	workspace              engine.WorkspaceStatus
 	result                 *engine.WriteResult
 	delay                  time.Duration
 	mutateBeforeRoundError bool
+}
+
+func (f *fakeEngine) ReopenDecision(_ context.Context, questionID string) (engine.Snapshot, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.reopens++
+	f.reopenedQuestion = questionID
+	if f.reopenErr != nil {
+		return engine.Snapshot{}, f.reopenErr
+	}
+	f.snapshot.Frontier = []elicitor.QuestionPlan{{ID: questionID, Prompt: "Revise this decision", Required: true}}
+	f.snapshot.RevisableDecisions = nil
+	f.snapshot.ApprovalRequired = false
+	f.snapshot.Ready = false
+	return f.snapshot, nil
 }
 
 func (f *fakeEngine) ApplyRound(_ context.Context, answers []authoring.RoundAnswer) (engine.Snapshot, error) {
@@ -121,6 +139,12 @@ func (f *fakeEngine) counts() (int, int) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	return f.rounds, f.approvals
+}
+
+func (f *fakeEngine) reopenRecord() (int, string) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	return f.reopens, f.reopenedQuestion
 }
 
 func (f *fakeEngine) setWorkspace(status engine.WorkspaceStatus) {
@@ -384,6 +408,10 @@ func TestExactHostOriginSecurityHeadersAndMethods(t *testing.T) {
 	unsupported := doRequest(handler, http.MethodGet, "/api/v2/round", "", "", true)
 	if unsupported.Code != http.StatusMethodNotAllowed || unsupported.Header().Get("Allow") != http.MethodPost {
 		t.Fatalf("unsupported method = %d allow %q", unsupported.Code, unsupported.Header().Get("Allow"))
+	}
+	unsupportedReopen := doRequest(handler, http.MethodGet, "/api/v2/reopen", "", "", true)
+	if unsupportedReopen.Code != http.StatusMethodNotAllowed || unsupportedReopen.Header().Get("Allow") != http.MethodPost {
+		t.Fatalf("unsupported reopen method = %d allow %q", unsupportedReopen.Code, unsupportedReopen.Header().Get("Allow"))
 	}
 	preflight := httptest.NewRequest(http.MethodOptions, "http://"+testAuthority+"/api/v2/round", nil)
 	preflight.Host = testAuthority
@@ -829,6 +857,78 @@ func TestRevisionRoundApprovalAndFrozenInspection(t *testing.T) {
 	}
 }
 
+func TestReopenRequiresExactMutableRevision(t *testing.T) {
+	fake := &fakeEngine{snapshot: engine.Snapshot{
+		Ready: true, ApprovalRequired: true,
+		RevisableDecisions: []elicitor.RevisableDecision{{QuestionID: "boundary.actor_trigger", Prompt: "Who starts it?", Value: "operator | on demand"}},
+	}}
+	handler := newFakeHandler(t, fake)
+	initial := currentResponse(t, handler)
+
+	missing := doRequest(handler, http.MethodPost, "/api/v2/reopen", fmt.Sprintf(`{"revision":%q}`, initial.Revision), "application/json", true)
+	if missing.Code != http.StatusBadRequest || !strings.Contains(missing.Body.String(), "question_id is required") {
+		t.Fatalf("missing question = %d %s", missing.Code, missing.Body.String())
+	}
+	unknown := doRequest(handler, http.MethodPost, "/api/v2/reopen", fmt.Sprintf(`{"revision":%q,"question_id":"boundary.actor_trigger","extra":true}`, initial.Revision), "application/json", true)
+	if unknown.Code != http.StatusBadRequest {
+		t.Fatalf("unknown reopen field = %d %s", unknown.Code, unknown.Body.String())
+	}
+	stale := doRequest(handler, http.MethodPost, "/api/v2/reopen", `{"revision":"sha256:stale","question_id":"boundary.actor_trigger"}`, "application/json", true)
+	if stale.Code != http.StatusConflict || !strings.Contains(stale.Body.String(), "stale_revision") {
+		t.Fatalf("stale reopen = %d %s", stale.Code, stale.Body.String())
+	}
+	if count, _ := fake.reopenRecord(); count != 0 {
+		t.Fatalf("invalid requests called reopen %d times", count)
+	}
+
+	reopened := doRequest(handler, http.MethodPost, "/api/v2/reopen", fmt.Sprintf(`{"revision":%q,"question_id":"boundary.actor_trigger"}`, initial.Revision), "application/json", true)
+	if reopened.Code != http.StatusOK {
+		t.Fatalf("reopen = %d %s", reopened.Code, reopened.Body.String())
+	}
+	afterReopen := decodeResponse(t, reopened)
+	if afterReopen.Revision == initial.Revision || len(afterReopen.Snapshot.Frontier) != 1 || afterReopen.Snapshot.Frontier[0].ID != "boundary.actor_trigger" || afterReopen.Snapshot.ApprovalRequired {
+		t.Fatalf("reopen response = %#v", afterReopen)
+	}
+	if count, questionID := fake.reopenRecord(); count != 1 || questionID != "boundary.actor_trigger" {
+		t.Fatalf("reopen record = %d %q", count, questionID)
+	}
+
+	approved := doRequest(handler, http.MethodPost, "/api/v2/approve", fmt.Sprintf(`{"revision":%q,"human_approved":true}`, afterReopen.Revision), "application/json", true)
+	if approved.Code != http.StatusOK {
+		t.Fatalf("approval = %d %s", approved.Code, approved.Body.String())
+	}
+	frozenState := decodeResponse(t, approved)
+	frozen := doRequest(handler, http.MethodPost, "/api/v2/reopen", fmt.Sprintf(`{"revision":%q,"question_id":"boundary.actor_trigger"}`, frozenState.Revision), "application/json", true)
+	if frozen.Code != http.StatusConflict || !strings.Contains(frozen.Body.String(), "session_frozen") {
+		t.Fatalf("frozen reopen = %d %s", frozen.Code, frozen.Body.String())
+	}
+
+	driftFake := &fakeEngine{snapshot: fake.snapshot, workspace: engine.WorkspaceStatus{ExternallyModified: true}}
+	driftHandler := newFakeHandler(t, driftFake)
+	driftState := currentResponse(t, driftHandler)
+	drifted := doRequest(driftHandler, http.MethodPost, "/api/v2/reopen", fmt.Sprintf(`{"revision":%q,"question_id":"boundary.actor_trigger"}`, driftState.Revision), "application/json", true)
+	if drifted.Code != http.StatusConflict || !strings.Contains(drifted.Body.String(), "workspace_changed") {
+		t.Fatalf("drifted reopen = %d %s", drifted.Code, drifted.Body.String())
+	}
+}
+
+func TestRejectedReopenIdentifiesDecision(t *testing.T) {
+	fake := &fakeEngine{reopenErr: engineRejected(authoring.WithQuestionID("boundary.actor_trigger", errors.New("decision is no longer settled")))}
+	handler := newFakeHandler(t, fake)
+	before := currentResponse(t, handler)
+	response := doRequest(handler, http.MethodPost, "/api/v2/reopen", fmt.Sprintf(`{"revision":%q,"question_id":"boundary.actor_trigger"}`, before.Revision), "application/json", true)
+	if response.Code != http.StatusUnprocessableEntity {
+		t.Fatalf("reopen rejection = %d %s", response.Code, response.Body.String())
+	}
+	var envelope errorEnvelope
+	if err := json.Unmarshal(response.Body.Bytes(), &envelope); err != nil {
+		t.Fatal(err)
+	}
+	if envelope.Error.QuestionID != "boundary.actor_trigger" || envelope.Error.Message != "decision is no longer settled" {
+		t.Fatalf("reopen rejection envelope = %#v", envelope)
+	}
+}
+
 func TestIncompleteWriteAlsoFreezesSession(t *testing.T) {
 	result := engine.WriteResult{
 		Written:    []string{"project.md", "workflows/intent.draft.hcl", ".icot/session.yaml", ".icot/readiness.json"},
@@ -943,6 +1043,12 @@ func TestOperationalEngineFailuresReturnServerErrors(t *testing.T) {
 			name: "approval write", fake: &fakeEngine{snapshot: engine.Snapshot{Ready: true}, writeErr: operationFailure}, endpoint: "/api/v2/approve",
 			body: func(revision string) string {
 				return fmt.Sprintf(`{"revision":%q,"human_approved":true}`, revision)
+			},
+		},
+		{
+			name: "reopen autosave", fake: &fakeEngine{reopenErr: operationFailure}, endpoint: "/api/v2/reopen",
+			body: func(revision string) string {
+				return fmt.Sprintf(`{"revision":%q,"question_id":"boundary.actor_trigger"}`, revision)
 			},
 		},
 	} {

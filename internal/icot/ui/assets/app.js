@@ -346,6 +346,35 @@ const renderFrontier = (snapshot, revision) => {
   byID("frontier-empty").hidden = frontier.length !== 0;
 };
 
+const renderRevisableDecisions = (snapshot) => {
+  const decisions = snapshot.revisable_decisions || [];
+  const list = byID("revisions-list");
+  clearNode(list);
+  for (const decision of decisions) {
+    const item = make("section", null, "revision-item");
+    item.append(make("h4", decision.prompt || decision.question_id || "Settled answer"));
+    const value = make("p", null, "revision-value");
+    value.append(make("strong", "Current answer: "), document.createTextNode(decision.value || "—"));
+    item.append(value);
+    if (decision.slots?.length) item.append(make("p", `Slots: ${decision.slots.join(", ")}`, "question-meta"));
+    item.append(make("p", decision.impact || "Reopening this answer will re-run authoring readiness.", "revision-impact"));
+    const button = make("button", "Reopen answer", "reopen-decision");
+    button.type = "button";
+    button.dataset.questionId = decision.question_id || "";
+    button.setAttribute("aria-label", `Reopen answer for ${decision.prompt || decision.question_id}`);
+    button.addEventListener("click", () => {
+      if (mutationLocked() || (currentSnapshot().frontier || []).length > 0) return;
+      sendMutation({
+        route: "reopen",
+        body: { revision: state.renderedPayload.revision, question_id: decision.question_id },
+      });
+    });
+    item.append(button);
+    list.append(item);
+  }
+  byID("revisions-empty").hidden = decisions.length !== 0;
+};
+
 const renderReadiness = (snapshot) => {
   const issues = snapshot.readiness || [];
   appendEmptyOrItems("readiness-list", issues, "No readiness issues.", (issue) => {
@@ -445,6 +474,9 @@ const updateControls = () => {
 
   document.querySelectorAll(".question").forEach((wrapper) => updateQuestionState(wrapper, locked));
   byID("round-submit").disabled = locked || (snapshot.frontier || []).length === 0;
+  document.querySelectorAll(".reopen-decision").forEach((button) => {
+    button.disabled = locked || (snapshot.frontier || []).length > 0;
+  });
 
   byID("review-confirmed").disabled = locked || !snapshot.approval_required;
   byID("allow-overwrite").disabled = locked || conflicts.length === 0;
@@ -513,6 +545,7 @@ const renderPayload = (payload, refreshedAt = new Date()) => {
   byID("review-confirmed").checked = false;
   byID("allow-overwrite").checked = false;
   renderFrontier(snapshot, payload.revision);
+  renderRevisableDecisions(snapshot);
   renderReadiness(snapshot);
   renderSources(snapshot);
   renderActions(snapshot);
@@ -638,7 +671,8 @@ const handleMutationFailure = async (request, status, payload) => {
     requestID: error.request_id || "",
     retryable: status === 0 || Boolean(error.retryable),
   };
-  announceMutation(`${request.route === "approve" ? "Approval" : "Round submission"} failed. Review the error before continuing.`);
+  const action = request.route === "approve" ? "Approval" : request.route === "reopen" ? "Answer reopening" : "Round submission";
+  announceMutation(`${action} failed. Review the error before continuing.`);
 
   if (failure.code === "engine_rejected" || status === 422) {
     const fieldFocused = showQuestionError(error.question_id || "", failure.message);
@@ -664,7 +698,7 @@ async function sendMutation(request) {
   state.pollGeneration += 1;
   clearError();
   state.pendingMutation = true;
-  announceMutation(request.route === "approve" ? "Approval is being committed." : "Authoring round is being submitted.");
+  announceMutation(request.route === "approve" ? "Approval is being committed." : request.route === "reopen" ? "The settled answer is being reopened." : "Authoring round is being submitted.");
   updateControls();
   try {
     const response = await fetch(`api/v2/${request.route}`, {
@@ -683,6 +717,9 @@ async function sendMutation(request) {
     if (request.route === "approve") {
       announceMutation("Approval committed. Authoring is complete and the session is frozen.");
       successFocusID = "completion-banner";
+    } else if (request.route === "reopen") {
+      announceMutation("Answer reopened. Submit the complete replacement frontier to continue.");
+      successFocusID = answerInputs()[0]?.id || "frontier-heading";
     } else {
       const inputs = answerInputs();
       if (inputs.length > 0) {

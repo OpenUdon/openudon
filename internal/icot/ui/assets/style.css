@@ -302,6 +302,25 @@ dd { margin: .25rem 0 0; overflow-wrap: anywhere; font-weight: 680; }
   counter-reset: question;
 }
 
+.revision-list {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: .85rem;
+}
+
+.revision-item {
+  min-width: 0;
+  padding: .9rem 1rem;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--surface-soft);
+}
+
+.revision-item h4 { margin: 0 0 .5rem; font-size: .98rem; }
+.revision-item p { margin: .4rem 0; overflow-wrap: anywhere; }
+.revision-item button { margin-top: .55rem; }
+.revision-impact { color: var(--warning); font-size: .86rem; }
+
 .question {
   min-width: 0;
   padding: 1rem 1.1rem 1.1rem;
@@ -525,7 +544,7 @@ pre {
   .page-header { margin-bottom: 1rem; padding-inline: .15rem; }
   h1 { font-size: 2.15rem; }
   .page-intro { font-size: .9rem; }
-  .review-grid, .preview-grid { grid-template-columns: 1fr; }
+  .review-grid, .preview-grid, .revision-list { grid-template-columns: 1fr; }
   .section-heading { align-items: start; }
   .section-heading span { flex: 0 0 auto; }
   .card { padding: 1rem; }

@@ -229,6 +229,7 @@ func (s *Session) Normalize() {
 	s.DecisionEvidence = normalizeDecisionEvidenceList(s.DecisionEvidence)
 	normalizeSteps(s.Intent.Steps)
 	normalizeV2Session(s)
+	preservePendingRevisionState(s)
 }
 
 func (s Session) Missing() []string {

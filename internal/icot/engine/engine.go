@@ -74,6 +74,7 @@ type Snapshot struct {
 	Evidence           []publicinterview.Evidence       `json:"evidence,omitempty"`
 	Frontier           []elicitor.QuestionPlan          `json:"frontier"`
 	QuestionControls   []elicitor.QuestionControl       `json:"question_controls,omitempty"`
+	RevisableDecisions []elicitor.RevisableDecision     `json:"revisable_decisions,omitempty"`
 	Readiness          []elicitor.ReadinessIssue        `json:"readiness"`
 	TopIssue           *elicitor.ReadinessIssue         `json:"top_issue,omitempty"`
 	Ready              bool                             `json:"ready"`
@@ -244,6 +245,52 @@ func (e *Engine) ApplyRound(ctx context.Context, answers []authoring.RoundAnswer
 	if err := elicitor.ApplyFrontierRound(&nextSession, canonicalAnswers, e.discovery.Docs); err != nil {
 		return Snapshot{}, rejected(err)
 	}
+	return e.persistSessionMutationLocked(ctx, nextSession, workspaceAtStart, func(prospective Snapshot) error {
+		if questionID := repeatedAnsweredQuestion(canonicalAnswers, prospective.Frontier); questionID != "" {
+			return authoring.WithQuestionID(questionID, fmt.Errorf("answer for decision %q did not resolve its targeted authoring state", questionID))
+		}
+		return nil
+	})
+}
+
+// ReopenDecision transactionally clears one eligible settled human decision.
+// Its replacement is accepted only through the ordinary complete-frontier
+// round contract returned by this mutation.
+func (e *Engine) ReopenDecision(ctx context.Context, questionID string) (Snapshot, error) {
+	if e == nil {
+		return Snapshot{}, operational(errors.New("engine is nil"))
+	}
+	questionID = strings.TrimSpace(questionID)
+	if questionID == "" {
+		return Snapshot{}, rejected(authoring.WithQuestionID(questionID, errors.New("question ID is required")))
+	}
+	e.mu.Lock()
+	defer e.mu.Unlock()
+	if err := e.requireMutableWorkspaceLocked(ctx); err != nil {
+		return Snapshot{}, err
+	}
+	workspaceAtStart, err := e.observeMutationWorkspaceLocked(ctx)
+	if err != nil {
+		return Snapshot{}, operational(err)
+	}
+	nextSession, err := cloneSession(e.session)
+	if err != nil {
+		return Snapshot{}, operational(err)
+	}
+	if err := elicitor.ReopenSettledDecision(&nextSession, questionID, e.discovery.Docs); err != nil {
+		return Snapshot{}, rejected(err)
+	}
+	return e.persistSessionMutationLocked(ctx, nextSession, workspaceAtStart, func(prospective Snapshot) error {
+		for _, question := range prospective.Frontier {
+			if question.ID == questionID {
+				return nil
+			}
+		}
+		return authoring.WithQuestionID(questionID, fmt.Errorf("reopened decision %q did not return to the current frontier", questionID))
+	})
+}
+
+func (e *Engine) persistSessionMutationLocked(ctx context.Context, nextSession elicitor.Session, workspaceAtStart workspaceObservation, validate func(Snapshot) error) (Snapshot, error) {
 	nextSession.Normalize()
 	refreshed, err := e.buildRefreshedStateLocked(ctx, nextSession)
 	if err != nil {
@@ -253,8 +300,10 @@ func (e *Engine) ApplyRound(ctx context.Context, answers []authoring.RoundAnswer
 	if err != nil {
 		return Snapshot{}, rejected(err)
 	}
-	if questionID := repeatedAnsweredQuestion(canonicalAnswers, prospective.Frontier); questionID != "" {
-		return Snapshot{}, rejected(authoring.WithQuestionID(questionID, fmt.Errorf("answer for decision %q did not resolve its targeted authoring state", questionID)))
+	if validate != nil {
+		if err := validate(prospective); err != nil {
+			return Snapshot{}, rejected(err)
+		}
 	}
 	// Refresh and rendering can be long-running when reviewed sources are
 	// involved. Recheck the accepted revision's paths before adopting any new
@@ -339,6 +388,9 @@ func (e *Engine) ApproveAndWrite(ctx context.Context, approval Approval) (Approv
 	if err != nil {
 		return ApprovalResult{}, classifyRefreshFailure(err)
 	}
+	if elicitor.HasPendingRevision(refreshed.session) {
+		return ApprovalResult{}, rejected(errors.New("a reopened authoring decision requires a replacement round before approval"))
+	}
 	preview, artifacts, err := renderState(e.config.ExampleDir, refreshed)
 	if err != nil {
 		return ApprovalResult{}, rejected(err)
@@ -412,6 +464,7 @@ func (e *Engine) snapshotForStateLocked(ctx context.Context, state refreshedEngi
 	}
 	issues = currentReadiness(state)
 	questionControls := elicitor.BuildQuestionControls(state.session, state.discovery.Docs, frontier)
+	revisableDecisions := elicitor.BuildRevisableDecisions(state.session)
 	var preview *Preview
 	actions := artifactwriter.PotentialFileActions(e.config.ExampleDir, state.session, false)
 	conflicts := make([]WriteConflict, 0)
@@ -442,10 +495,11 @@ func (e *Engine) snapshotForStateLocked(ctx context.Context, state refreshedEngi
 		Evidence:           append([]publicinterview.Evidence(nil), state.session.Interview.Evidence...),
 		Frontier:           append([]elicitor.QuestionPlan(nil), frontier...),
 		QuestionControls:   questionControls,
+		RevisableDecisions: revisableDecisions,
 		Readiness:          append([]elicitor.ReadinessIssue(nil), issues...),
 		TopIssue:           top,
-		Ready:              preview != nil && !preview.Incomplete && !hasBlockingIssue(issues),
-		ApprovalRequired:   preview != nil,
+		Ready:              preview != nil && !preview.Incomplete && !hasBlockingIssue(issues) && !elicitor.HasPendingRevision(state.session),
+		ApprovalRequired:   preview != nil && !elicitor.HasPendingRevision(state.session),
 		SelectedSources:    append([]elicitor.SourceMaterialization(nil), state.session.SourcePlan...),
 		SourceCandidates: SourceCandidates{
 			Local: state.discovery.Report, Browser: state.discovery.BrowserReport,

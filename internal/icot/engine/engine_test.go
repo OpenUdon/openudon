@@ -276,6 +276,64 @@ func TestApplyRoundReplacesInadequateExistingGoal(t *testing.T) {
 	}
 }
 
+func TestReopenDecisionPersistsExactReplacementFrontier(t *testing.T) {
+	example := filepath.Join(t.TempDir(), "reopen")
+	eng, opened, err := Open(context.Background(), Config{ExampleDir: example, NetworkPolicy: "never"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	answers := answersForSnapshot(opened)
+	const original = "Render the original reviewed report"
+	for index, question := range opened.Frontier {
+		if question.ID == "boundary.outcome" {
+			answers[index].Value = original
+		}
+	}
+	settled, err := eng.ApplyRound(context.Background(), answers)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !hasRevisableDecision(settled.RevisableDecisions, "boundary.outcome", original) {
+		t.Fatalf("settled outcome is not revisable: %#v", settled.RevisableDecisions)
+	}
+
+	reopened, err := eng.ReopenDecision(context.Background(), "boundary.outcome")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if reopened.Boundary.Outcome != "" || reopened.ApprovalRequired || reopened.Ready || !hasFrontierQuestion(reopened.Frontier, "boundary.outcome") {
+		t.Fatalf("reopened snapshot = %#v", reopened)
+	}
+	draft, ok, err := elicitor.LoadDraft(elicitor.DraftPath(example))
+	if err != nil || !ok {
+		t.Fatalf("load reopened draft = found %t, error %v", ok, err)
+	}
+	if draft.Boundary.Outcome != "" || !elicitor.HasPendingRevision(draft) {
+		t.Fatalf("reopened draft = %#v", draft)
+	}
+	if _, err := eng.ApproveAndWrite(context.Background(), Approval{HumanApproved: true}); err == nil || !strings.Contains(err.Error(), "replacement round") {
+		t.Fatalf("approval while revision pending = %v", err)
+	}
+	if _, err := eng.ReopenDecision(context.Background(), "boundary.outcome"); err == nil || !strings.Contains(err.Error(), "not currently settled") {
+		t.Fatalf("duplicate reopen error = %v", err)
+	}
+
+	replacementAnswers := answersForSnapshot(reopened)
+	const replacement = "Render the replacement reviewed report"
+	for index, question := range reopened.Frontier {
+		if question.ID == "boundary.outcome" {
+			replacementAnswers[index].Value = replacement
+		}
+	}
+	replaced, err := eng.ApplyRound(context.Background(), replacementAnswers)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if replaced.Boundary.Outcome != replacement || !hasRevisableDecision(replaced.RevisableDecisions, "boundary.outcome", replacement) {
+		t.Fatalf("replacement snapshot = %#v", replaced)
+	}
+}
+
 func TestApplyRoundTransactionAndCancellationFinalization(t *testing.T) {
 	example := filepath.Join(t.TempDir(), "transactional-round")
 	eng, opened, err := Open(context.Background(), Config{ExampleDir: example, NetworkPolicy: "never"})
@@ -1125,6 +1183,24 @@ func answersForSnapshot(snapshot Snapshot) []authoring.RoundAnswer {
 		})
 	}
 	return answers
+}
+
+func hasFrontierQuestion(frontier []elicitor.QuestionPlan, questionID string) bool {
+	for _, question := range frontier {
+		if question.ID == questionID {
+			return true
+		}
+	}
+	return false
+}
+
+func hasRevisableDecision(decisions []elicitor.RevisableDecision, questionID, value string) bool {
+	for _, decision := range decisions {
+		if decision.QuestionID == questionID && decision.Value == value {
+			return true
+		}
+	}
+	return false
 }
 
 func runtimeFixture(t *testing.T) string {

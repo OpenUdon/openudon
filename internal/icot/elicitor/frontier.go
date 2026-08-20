@@ -390,6 +390,7 @@ func openUdonInterviewBinding(docs []APIDocument) authoring.InterviewBinding[Ses
 					ID: "deferral." + fmt.Sprintf("%03d", session.Interview.Round+1) + "." + node.ID, NodeID: node.ID,
 					Owner: strings.TrimSpace(parts[0]), Impact: strings.TrimSpace(parts[1]), UnblockCondition: strings.TrimSpace(parts[2]), SuggestedNextAction: strings.TrimSpace(parts[3]),
 				}
+				clearRevisionPending(session, node.ID)
 				return publicinterview.Resolution{NodeID: node.ID, Deferral: &deferral}, nil
 			}
 			if value == "" {
@@ -417,6 +418,7 @@ func openUdonInterviewBinding(docs []APIDocument) authoring.InterviewBinding[Ses
 
 func applyFrontierValue(session *Session, nodeID string, answer authoring.RoundAnswer, docs []APIDocument) error {
 	value := strings.TrimSpace(answer.Value)
+	clearRevisionPending(session, nodeID)
 	switch nodeID {
 	case nodeBoundaryOutcome:
 		session.Boundary.Outcome = value
