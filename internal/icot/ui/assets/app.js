@@ -135,9 +135,9 @@ const showError = (message, requestID = "", retryRequest = null, focus = true) =
 };
 
 const showQuestionError = (questionID, message) => {
-  if (!questionID) return false;
+  if (!questionID) return "";
   const input = answerInputs().find((candidate) => candidate.dataset.questionId === questionID);
-  if (!input) return false;
+  if (!input) return "";
   const error = byID(`${input.id}-error`);
   error.textContent = message;
   error.hidden = false;
@@ -145,8 +145,8 @@ const showQuestionError = (questionID, message) => {
   const toggle = wrapper?.querySelector(".deferral-toggle");
   const focusTarget = toggle?.checked ? deferralFields(wrapper)[0] : input;
   focusTarget?.setAttribute("aria-invalid", "true");
-  focusTarget?.focus();
-  return true;
+  if (!focusTarget?.disabled) focusTarget?.focus();
+  return focusTarget?.id || input.id;
 };
 
 const clearQuestionError = (wrapper) => {
@@ -749,25 +749,26 @@ const handleMutationFailure = async (request, status, payload) => {
   announceMutation(`${action} failed. Review the error before continuing.`);
 
   if (failure.code === "engine_rejected" || status === 422) {
-    const fieldFocused = showQuestionError(error.question_id || "", failure.message);
-    showError(failure.message, failure.requestID, null, !fieldFocused);
-    return;
+    const fieldFocusID = showQuestionError(error.question_id || "", failure.message);
+    showError(failure.message, failure.requestID, null, !fieldFocusID);
+    return fieldFocusID;
   }
   if (error.question_id && status > 0 && status < 500) {
-    const fieldFocused = showQuestionError(error.question_id, failure.message);
-    showError(failure.message, failure.requestID, null, !fieldFocused);
-    return;
+    const fieldFocusID = showQuestionError(error.question_id, failure.message);
+    showError(failure.message, failure.requestID, null, !fieldFocusID);
+    return fieldFocusID;
   }
   if (failure.code === "workspace_changed" || failure.code === "session_frozen" || failure.code === "stale_revision" || status >= 500 || status === 0) {
     await reconcileMutationFailure(request, failure, failure.retryable);
-    return;
+    return "";
   }
   showError(failure.message, failure.requestID);
+  return "";
 };
 
 async function sendMutation(request) {
   if (mutationLocked()) return;
-  let successFocusID = "";
+  let postMutationFocusID = "";
   clearTimeout(state.timer);
   state.pollGeneration += 1;
   clearError();
@@ -783,36 +784,36 @@ async function sendMutation(request) {
     });
     const payload = await decodePayload(response);
     if (!response.ok) {
-      await handleMutationFailure(request, response.status, payload);
+      postMutationFocusID = await handleMutationFailure(request, response.status, payload);
       return;
     }
     clearError();
     renderPayload(payload, new Date());
     if (request.route === "approve") {
       announceMutation("Approval committed. Authoring is complete and the session is frozen.");
-      successFocusID = "completion-banner";
+      postMutationFocusID = "completion-banner";
     } else if (request.route === "reopen") {
       announceMutation("Answer reopened. Submit the complete replacement frontier to continue.");
-      successFocusID = answerInputs()[0]?.id || "frontier-heading";
+      postMutationFocusID = answerInputs()[0]?.id || "frontier-heading";
     } else {
       const inputs = answerInputs();
       if (inputs.length > 0) {
         announceMutation("Round submitted. Continue with the next authoring question.");
-        successFocusID = inputs[0].id;
+        postMutationFocusID = inputs[0].id;
       } else if (payload.snapshot?.approval_required) {
         announceMutation("Round submitted. The proposal is ready for review.");
-        successFocusID = "review-heading";
+        postMutationFocusID = "review-heading";
       } else {
         announceMutation("Round submitted. Review the updated authoring state.");
-        successFocusID = "frontier-heading";
+        postMutationFocusID = "frontier-heading";
       }
     }
   } catch (error) {
-    await handleMutationFailure(request, 0, { error: { code: "network_error", message: error.message, retryable: true } });
+    postMutationFocusID = await handleMutationFailure(request, 0, { error: { code: "network_error", message: error.message, retryable: true } });
   } finally {
     state.pendingMutation = false;
     updateControls();
-    if (successFocusID) byID(successFocusID)?.focus();
+    if (postMutationFocusID) byID(postMutationFocusID)?.focus();
     schedule(normalInterval);
   }
 }

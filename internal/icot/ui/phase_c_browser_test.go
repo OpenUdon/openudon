@@ -797,7 +797,7 @@ func TestPhaseCBrowserDomainRejectionRetainsEditableRound(t *testing.T) {
 	_, browser := launchPhaseCBrowser(t)
 	browserEngine := &phaseCBrowserEngine{
 		snapshot: phaseCFrontierSnapshot(), proposal: phaseCProposalSnapshot(false, false), roundErrOnce: true,
-		roundErr: &engine.Failure{Class: engine.FailureRejected, Code: "engine_rejected", Cause: authoring.WithQuestionID("actor", errors.New("answer does not satisfy the reviewed contract"))},
+		roundErr: &engine.Failure{Class: engine.FailureRejected, Code: "engine_rejected", Cause: authoring.WithQuestionID("boundary.actor_trigger", errors.New("answer does not satisfy the reviewed contract"))},
 	}
 	fixture := newPhaseCBrowserFixture(t, browserEngine)
 	page := newPhaseCPage(t, browser, fixture)
@@ -932,6 +932,7 @@ func TestPhaseCBrowserPollingBackoffAndVisibility(t *testing.T) {
 	if err := page.Clock().Install(); err != nil {
 		t.Fatal(err)
 	}
+	page.OnPageError(func(err error) { t.Errorf("iCoT UI page error: %v", err) })
 	var requests atomic.Int64
 	page.OnRequest(func(request playwright.Request) {
 		if strings.HasSuffix(request.URL(), "/api/v2/snapshot") {
@@ -939,6 +940,12 @@ func TestPhaseCBrowserPollingBackoffAndVisibility(t *testing.T) {
 		}
 	})
 	if _, err := page.Goto(fixture.url, playwright.PageGotoOptions{WaitUntil: playwright.WaitUntilStateDomcontentloaded}); err != nil {
+		t.Fatal(err)
+	}
+	if err := page.Locator(`input[name="code"]`).Fill(fixture.accessCode); err != nil {
+		t.Fatal(err)
+	}
+	if err := page.GetByRole("button", playwright.PageGetByRoleOptions{Name: "Continue", Exact: playwright.Bool(true)}).Click(); err != nil {
 		t.Fatal(err)
 	}
 	waitForLocatorText(t, page.Locator("#connection"), "Connected")
