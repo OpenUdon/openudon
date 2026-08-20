@@ -18,8 +18,9 @@ import (
 )
 
 const (
-	RunConfigVersion       = "openudon.executor-run.v2"
-	LegacyRunConfigVersion = "openudon.executor-run.v1"
+	RunConfigVersion        = "openudon.executor-run.v2"
+	LegacyRunConfigVersion  = "openudon.executor-run.v1"
+	dockerBrowserDriverPath = "/openudon/browser-driver"
 )
 const dockerExecutorPrefix = "docker://"
 
@@ -774,6 +775,19 @@ func dockerImageArgv(envName, image, stage, stagedWorkflow, workflowFormat, exec
 		return nil, err
 	}
 	argv := []string{"docker", "run", "--rm", "-v", stage + ":/workspace", "-w", "/workspace"}
+	containerBrowser := browser
+	if browser != nil && strings.TrimSpace(browser.DriverPath) != "" {
+		if !executablefile.Is(browser.DriverPath) {
+			return nil, fmt.Errorf("browser driver does not point to an executable file: %s", browser.DriverPath)
+		}
+		if strings.Contains(browser.DriverPath, ",") {
+			return nil, fmt.Errorf("browser driver path must not contain a comma for Docker execution: %s", browser.DriverPath)
+		}
+		argv = append(argv, "--mount", "type=bind,src="+browser.DriverPath+",dst="+dockerBrowserDriverPath+",readonly")
+		clone := *browser
+		clone.DriverPath = dockerBrowserDriverPath
+		containerBrowser = &clone
+	}
 	passNames := append([]string(nil), credentialNames...)
 	if browser != nil {
 		for _, binding := range browser.SessionEnvironment {
@@ -804,7 +818,7 @@ func dockerImageArgv(envName, image, stage, stagedWorkflow, workflowFormat, exec
 		}
 		argv = append(argv, "--datafile", "/workspace/"+filepath.ToSlash(relData))
 	}
-	return appendBrowserArgs(argv, browser, driverEnvNames), nil
+	return appendBrowserArgs(argv, containerBrowser, driverEnvNames), nil
 }
 
 func validateDockerImage(envName, image string) error {

@@ -33,14 +33,6 @@ type browserAuthenticationApprovals struct {
 }
 
 func buildBrowserRunConfig(packageRoot, driver string, driverArgs, env []string, dryRun bool) (*udonrunner.BrowserConfig, error) {
-	browserPaths, err := packageartifacts.CollectBrowserProfilePaths(packageRoot)
-	if err != nil {
-		return nil, err
-	}
-	authenticationPaths, err := packageartifacts.CollectBrowserAuthenticationProfilePaths(packageRoot)
-	if err != nil {
-		return nil, err
-	}
 	planData, _, err := evidencefile.ReadRegular(filepath.Join(packageRoot, "expected", "plan.json"), evidencefile.DefaultMaxBytes)
 	if err != nil {
 		return nil, fmt.Errorf("read browser runtime plan: %w", err)
@@ -54,14 +46,19 @@ func buildBrowserRunConfig(packageRoot, driver string, driverArgs, env []string,
 		kind := strings.ToLower(strings.TrimSpace(step.Type))
 		hasBrowserSteps = hasBrowserSteps || kind == "browser" || kind == "browser_authentication"
 	}
-	if !hasBrowserSteps && len(browserPaths) == 0 && len(authenticationPaths) == 0 {
+	if !hasBrowserSteps {
 		if strings.TrimSpace(driver) != "" || len(driverArgs) != 0 {
 			return nil, fmt.Errorf("--browser-driver and --browser-driver-arg require a browser workflow")
 		}
 		return nil, nil
 	}
-	if !hasBrowserSteps {
-		return nil, fmt.Errorf("packaged browser profiles are not referenced by the active workflow")
+	browserPaths, err := packageartifacts.CollectBrowserProfilePaths(packageRoot)
+	if err != nil {
+		return nil, err
+	}
+	authenticationPaths, err := packageartifacts.CollectBrowserAuthenticationProfilePaths(packageRoot)
+	if err != nil {
+		return nil, err
 	}
 	intent, err := rollout.ParseIntentFile(filepath.Join(packageRoot, filepath.FromSlash(rollout.IntentPath)))
 	if err != nil {

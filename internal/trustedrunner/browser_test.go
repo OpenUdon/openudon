@@ -61,6 +61,22 @@ func TestBuildBrowserRunConfigRequiresDriverOnlyForExecution(t *testing.T) {
 	}
 }
 
+func TestBuildBrowserRunConfigIgnoresInertAPIFallbackProfiles(t *testing.T) {
+	root := t.TempDir()
+	intent := &rollout.Intent{Workflow: &rollout.WorkflowMeta{Name: "member-api"}, Steps: []*rollout.Step{{Name: "read_dashboard", Type: "http", OpenAPI: "openapi/member.yaml", Operation: "read_dashboard"}}}
+	writeBrowserRuntimeFixture(t, root, intent)
+	config, err := buildBrowserRunConfig(root, "", nil, nil, false)
+	if err != nil {
+		t.Fatalf("API-first package with inert browser fallback was rejected: %v", err)
+	}
+	if config != nil {
+		t.Fatalf("API-first package acquired browser runtime authority: %#v", config)
+	}
+	if _, err := buildBrowserRunConfig(root, "/tmp/browserdriver", nil, nil, false); err == nil {
+		t.Fatal("browser driver was accepted for an API-only active workflow")
+	}
+}
+
 func TestRuntimeApprovalIDsRejectLoweringCollisions(t *testing.T) {
 	if _, err := runtimeApprovalIDs([]string{"read-a", "read_a"}); err == nil {
 		t.Fatal("colliding runtime approval IDs were accepted")

@@ -178,6 +178,11 @@ func TestExecutorArgvPrecedenceAndValidation(t *testing.T) {
 	if _, err := executorArgv(root, stage, workflow, "uws-yaml", reportPath, nil, nil, map[string]string{"OPENUDON_EXECUTOR": filepath.Join(root, "missing")}); err == nil || !strings.Contains(err.Error(), "executable file") {
 		t.Fatalf("expected missing executor rejection, got %v", err)
 	}
+	delimiterDriver := filepath.Join(root, "browser,driver")
+	mustWriteExecutable(t, delimiterDriver)
+	if _, err := executorArgvWithBrowser(root, stage, workflow, "uws-yaml", reportPath, nil, nil, &BrowserConfig{DriverPath: delimiterDriver, Protocol: "v1"}, nil, map[string]string{"OPENUDON_EXECUTOR": "docker://udon:test"}); err == nil || !strings.Contains(err.Error(), "must not contain a comma") {
+		t.Fatalf("expected Docker mount-delimiter rejection, got %v", err)
+	}
 	nonExecutable := filepath.Join(root, "not-executable")
 	mustWriteRunnerTestFile(t, nonExecutable, []byte("#!/usr/bin/env bash\nexit 0\n"))
 	if _, err := executorArgv(root, stage, workflow, "uws-yaml", reportPath, nil, nil, map[string]string{"OPENUDON_EXECUTOR": nonExecutable}); err == nil || !strings.Contains(err.Error(), "executable file") {
@@ -453,8 +458,16 @@ func TestRunBrowserInvocationIsExactAndAllowlisted(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
+			expectedDriver := driver
+			if tc.name == "docker" {
+				expectedDriver = dockerBrowserDriverPath
+				mount := "type=bind,src=" + driver + ",dst=" + dockerBrowserDriverPath + ",readonly"
+				if !containsArg(invocation.Argv, mount) {
+					t.Fatalf("docker invocation did not mount the configured browser driver read-only: %#v", invocation.Argv)
+				}
+			}
 			for _, value := range []string{
-				"--browser-driver", driver, "--browser-driver-arg", "--headless", "--browser-driver-protocol", "v3",
+				"--browser-driver", expectedDriver, "--browser-driver-arg", "--headless", "--browser-driver-protocol", "v3",
 				"--browser-credential-env", "member_password=UDON_CREDENTIAL_MEMBER_PASSWORD",
 				"--browser-session-env", "existing_member=UDON_BROWSER_SESSION_EXISTING_MEMBER",
 				"--approve-browser-operation", "read_dashboard",
