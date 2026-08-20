@@ -17,6 +17,7 @@ import (
 
 	"github.com/OpenUdon/openudon/internal/synthesize"
 	"github.com/OpenUdon/openudon/internal/trustedrunner"
+	"github.com/OpenUdon/openudon/internal/udonrunner"
 )
 
 const (
@@ -44,7 +45,9 @@ type Options struct {
 	Stdout      io.Writer
 	Stderr      io.Writer
 	Now         func() time.Time
-	RunCommand  func(context.Context, string, ...string) error
+	Invoke      udonrunner.InvokeFunc
+	Env         []string
+	RunnerPath  string
 	Scenarios   []Scenario
 }
 
@@ -216,6 +219,9 @@ func Run(ctx context.Context, opts Options) (*Report, error) {
 	if mode != ModeDryRun && mode != ModeLive {
 		return nil, fmt.Errorf("smoke matrix mode must be %q or %q", ModeDryRun, ModeLive)
 	}
+	if opts.Env == nil {
+		opts.Env = os.Environ()
+	}
 	repoRoot, err := filepath.Abs(defaultString(opts.RepoRoot, "."))
 	if err != nil {
 		return nil, err
@@ -268,7 +274,7 @@ func runScenario(ctx context.Context, repoRoot, workdir, mode string, scenario S
 		RequiredLive: scenario.RequiredLive,
 	}
 	if mode == ModeLive {
-		missing := missingScenarioEnv(scenario)
+		missing := missingScenarioEnv(scenario, opts.Env)
 		if len(missing) > 0 && scenario.RequiredLive {
 			result.Status = StatusFail
 			result.MissingEnv = missing
@@ -293,7 +299,7 @@ func runScenario(ctx context.Context, repoRoot, workdir, mode string, scenario S
 		defer server.Close()
 	}
 
-	exampleDir, err := prepareScenario(ctx, repoRoot, workdir, mode, scenario, serverURL(server))
+	exampleDir, err := prepareScenario(ctx, repoRoot, workdir, mode, scenario, serverURL(server), opts.Env)
 	if err != nil {
 		result.Status = StatusFail
 		result.Detail = err.Error()
@@ -308,7 +314,7 @@ func runScenario(ctx context.Context, repoRoot, workdir, mode string, scenario S
 	}
 	if err != nil {
 		result.Status = StatusFail
-		result.Detail = sanitizeDetail(joinDetail(err.Error(), runOutput), scenario.SensitiveKeys)
+		result.Detail = sanitizeDetail(joinDetail(err.Error(), runOutput), scenario.SensitiveKeys, opts.Env)
 		return result
 	}
 	if mode == ModeLive {
@@ -328,7 +334,7 @@ func runScenario(ctx context.Context, repoRoot, workdir, mode string, scenario S
 	return result
 }
 
-func prepareScenario(ctx context.Context, repoRoot, workdir, mode string, scenario Scenario, stubURL string) (string, error) {
+func prepareScenario(ctx context.Context, repoRoot, workdir, mode string, scenario Scenario, stubURL string, environment []string) (string, error) {
 	src := filepath.Join(repoRoot, "examples", "eval", scenario.Fixture)
 	dst := filepath.Join(workdir, "workspaces", scenario.ID)
 	if err := os.RemoveAll(dst); err != nil {
@@ -345,7 +351,7 @@ func prepareScenario(ctx context.Context, repoRoot, workdir, mode string, scenar
 	if err := copyFile(intentSrc, intentDst, 0o644); err != nil {
 		return "", err
 	}
-	if err := seedDataFile(dst, scenario.Inputs); err != nil {
+	if err := seedDataFile(dst, scenario.Inputs, environment); err != nil {
 		return "", err
 	}
 	if err := applyOverlay(dst, mode, scenario, stubURL); err != nil {
@@ -380,11 +386,11 @@ func runTrusted(ctx context.Context, repoRoot, workdir, exampleDir string, scena
 	if err := os.WriteFile(approvalPath, approvalBuf.Bytes(), 0o600); err != nil {
 		return "", nil, "", err
 	}
-	restore, err := applyScenarioEnv(exampleDir, scenario)
-	if err != nil {
-		return approvalPath, nil, "", err
+	environment := scenarioEnvironment(opts.Env, exampleDir, scenario)
+	runnerPath := strings.TrimSpace(opts.RunnerPath)
+	if runnerPath == "" {
+		runnerPath = environmentValue(environment, "OPENUDON_UDON_RUNNER")
 	}
-	defer restore()
 	var stdout, stderr bytes.Buffer
 	result, err := trustedrunner.Run(ctx, trustedrunner.Options{
 		RepoRoot:     repoRoot,
@@ -393,32 +399,33 @@ func runTrusted(ctx context.Context, repoRoot, workdir, exampleDir string, scena
 		ApprovalPath: approvalPath,
 		WorkDir:      filepath.Join(workdir, "runs", scenario.ID),
 		DryRun:       dryRun,
-		RunnerPath:   os.Getenv("OPENUDON_UDON_RUNNER"),
+		RunnerPath:   runnerPath,
 		Stdout:       &stdout,
 		Stderr:       &stderr,
 		Now:          opts.Now,
-		RunCommand:   opts.RunCommand,
+		Invoke:       opts.Invoke,
+		Env:          environment,
 	})
 	return approvalPath, result, strings.TrimSpace(stdout.String() + "\n" + stderr.String()), err
 }
 
-func applyScenarioEnv(exampleDir string, scenario Scenario) (func(), error) {
-	values := map[string]string{}
+func scenarioEnvironment(base []string, exampleDir string, scenario Scenario) []string {
+	values := environmentMap(base)
 	for alias, source := range scenario.EnvAliases {
-		if strings.TrimSpace(os.Getenv(alias)) == "" {
-			if value := strings.TrimSpace(os.Getenv(source)); value != "" {
+		if strings.TrimSpace(values[alias]) == "" {
+			if value := strings.TrimSpace(values[source]); value != "" {
 				values[alias] = value
 			}
 		}
 	}
 	if scenario.DummyCreds {
 		for _, name := range credentialEnvNamesFromHandoff(filepath.Join(exampleDir, "expected", "review-handoff.json")) {
-			if strings.TrimSpace(os.Getenv(name)) == "" {
+			if strings.TrimSpace(values[name]) == "" {
 				values[name] = "openudon-smoke-dummy"
 			}
 		}
 	}
-	return setTemporaryEnv(values), nil
+	return environmentList(values)
 }
 
 func credentialEnvNamesFromHandoff(path string) []string {
@@ -500,28 +507,6 @@ func joinDetail(parts ...string) string {
 
 func compactWhitespace(value string) string {
 	return strings.Join(strings.Fields(value), " ")
-}
-
-func setTemporaryEnv(values map[string]string) func() {
-	type oldValue struct {
-		value string
-		set   bool
-	}
-	previous := map[string]oldValue{}
-	for name, value := range values {
-		old, ok := os.LookupEnv(name)
-		previous[name] = oldValue{value: old, set: ok}
-		_ = os.Setenv(name, value)
-	}
-	return func() {
-		for name, old := range previous {
-			if old.set {
-				_ = os.Setenv(name, old.value)
-			} else {
-				_ = os.Unsetenv(name)
-			}
-		}
-	}
 }
 
 func maybeStartStubServer(mode string, scenario Scenario) (*httptest.Server, error) {
@@ -823,7 +808,7 @@ func replaceInOpenAPIs(exampleDir string, replacements map[string]string) error 
 	})
 }
 
-func seedDataFile(exampleDir string, inputs map[string]any) error {
+func seedDataFile(exampleDir string, inputs map[string]any, environment []string) error {
 	if len(inputs) == 0 {
 		return nil
 	}
@@ -839,19 +824,19 @@ func seedDataFile(exampleDir string, inputs map[string]any) error {
 	var b strings.Builder
 	b.WriteString("inputs {\n")
 	for _, name := range names {
-		fmt.Fprintf(&b, "  %s = %s\n", name, hclLiteral(resolveInputValue(inputs[name])))
+		fmt.Fprintf(&b, "  %s = %s\n", name, hclLiteral(resolveInputValue(inputs[name], environment)))
 	}
 	b.WriteString("}\n")
 	return os.WriteFile(path, []byte(b.String()), 0o644)
 }
 
-func resolveInputValue(value any) any {
+func resolveInputValue(value any, environment []string) any {
 	text, ok := value.(string)
 	if !ok || !strings.HasPrefix(text, "ENV:") {
 		return value
 	}
 	envName := strings.TrimPrefix(text, "ENV:")
-	if envValue := os.Getenv(envName); strings.TrimSpace(envValue) != "" {
+	if envValue := environmentValue(environment, envName); strings.TrimSpace(envValue) != "" {
 		return envValue
 	}
 	return ""
@@ -888,15 +873,15 @@ func hclLiteral(value any) string {
 	}
 }
 
-func missingScenarioEnv(scenario Scenario) []string {
+func missingScenarioEnv(scenario Scenario, environment []string) []string {
 	var missing []string
 	for _, name := range scenario.RequiredEnv {
-		if strings.TrimSpace(os.Getenv(name)) != "" {
+		if strings.TrimSpace(environmentValue(environment, name)) != "" {
 			continue
 		}
 		sourceFound := false
 		for alias, source := range scenario.EnvAliases {
-			if alias == name && strings.TrimSpace(os.Getenv(source)) != "" {
+			if alias == name && strings.TrimSpace(environmentValue(environment, source)) != "" {
 				sourceFound = true
 				break
 			}
@@ -909,13 +894,41 @@ func missingScenarioEnv(scenario Scenario) []string {
 	return missing
 }
 
-func sanitizeDetail(detail string, keys []string) string {
+func sanitizeDetail(detail string, keys []string, environment []string) string {
 	for _, key := range keys {
-		if value := os.Getenv(key); strings.TrimSpace(value) != "" {
+		if value := environmentValue(environment, key); strings.TrimSpace(value) != "" {
 			detail = strings.ReplaceAll(detail, value, "[redacted]")
 		}
 	}
 	return limitDetail(detail)
+}
+
+func environmentMap(environment []string) map[string]string {
+	values := map[string]string{}
+	for _, entry := range environment {
+		name, value, ok := strings.Cut(entry, "=")
+		if ok && strings.TrimSpace(name) != "" {
+			values[name] = value
+		}
+	}
+	return values
+}
+
+func environmentList(values map[string]string) []string {
+	names := make([]string, 0, len(values))
+	for name := range values {
+		names = append(names, name)
+	}
+	sort.Strings(names)
+	out := make([]string, 0, len(names))
+	for _, name := range names {
+		out = append(out, name+"="+values[name])
+	}
+	return out
+}
+
+func environmentValue(environment []string, name string) string {
+	return environmentMap(environment)[name]
 }
 
 func limitDetail(detail string) string {

@@ -10,6 +10,7 @@ import (
 
 	publicinterview "github.com/OpenUdon/authoring/interview"
 	"github.com/OpenUdon/openudon/internal/projectwizard"
+	"github.com/OpenUdon/openudon/internal/sourcecatalog"
 	rollout "github.com/OpenUdon/openudon/internal/workflowintent"
 	"gopkg.in/yaml.v3"
 )
@@ -106,10 +107,14 @@ func NewSessionFromAnswers(answers projectwizard.Answers) Session {
 	}
 }
 
-func SessionFromIntent(intent *rollout.Intent, project projectwizard.Answers) Session {
+func SessionFromIntent(intent *rollout.Intent, project projectwizard.Answers) (Session, error) {
 	var value rollout.Intent
 	if intent != nil {
-		value = *intent.Clone()
+		clone, err := intent.Clone()
+		if err != nil {
+			return Session{}, err
+		}
+		value = *clone
 	}
 	session := Session{Project: project, Intent: value}
 	if value.Workflow != nil {
@@ -155,7 +160,7 @@ func SessionFromIntent(intent *rollout.Intent, project projectwizard.Answers) Se
 		Source:  "existing project.md and workflows/intent.hcl",
 	}}
 	session.Normalize()
-	return session
+	return session, nil
 }
 
 func (s Session) IntentName() string {
@@ -360,62 +365,6 @@ func emptySession(s Session) bool {
 		strings.TrimSpace(s.Safety+s.Fallback+s.SideEffectScope) == ""
 }
 
-func mergeSessions(base, overlay Session) Session {
-	if base.Intent.Workflow == nil && overlay.Intent.Workflow != nil {
-		base.Intent.Workflow = overlay.Intent.Workflow
-	} else if base.Intent.Workflow != nil && overlay.Intent.Workflow != nil {
-		base.Intent.Workflow.Name = firstNonEmpty(base.Intent.Workflow.Name, overlay.Intent.Workflow.Name)
-		base.Intent.Workflow.Description = firstNonEmpty(base.Intent.Workflow.Description, overlay.Intent.Workflow.Description)
-	}
-	base.Intent.Source = firstNonEmpty(base.Intent.Source, overlay.Intent.Source)
-	base.Intent.OpenAPI = firstNonEmpty(base.Intent.OpenAPI, overlay.Intent.OpenAPI)
-	base.Intent.ServerURL = firstNonEmpty(base.Intent.ServerURL, overlay.Intent.ServerURL)
-	if len(base.Intent.Inputs) == 0 {
-		base.Intent.Inputs = overlay.Intent.Inputs
-	}
-	if len(base.Intent.Steps) == 0 {
-		base.Intent.Steps = overlay.Intent.Steps
-	}
-	if len(base.Intent.Outputs) == 0 {
-		base.Intent.Outputs = overlay.Intent.Outputs
-	}
-	if len(base.Intent.Security) == 0 {
-		base.Intent.Security = overlay.Intent.Security
-	}
-	base.Project = mergeAnswers(base.Project, overlay.Project)
-	if overlay.CredentialsSet {
-		base.Credentials = overlay.Credentials
-		base.CredentialsSet = true
-	} else {
-		base.Credentials = dedupeStrings(append(base.Credentials, overlay.Credentials...))
-	}
-	if overlay.SafetySet {
-		base.Safety = overlay.Safety
-		base.SafetySet = true
-	} else {
-		base.Safety = firstNonEmpty(base.Safety, overlay.Safety)
-	}
-	if overlay.FallbackSet {
-		base.Fallback = overlay.Fallback
-		base.FallbackSet = true
-	} else {
-		base.Fallback = firstNonEmpty(base.Fallback, overlay.Fallback)
-	}
-	base.SideEffectScope = firstNonEmpty(base.SideEffectScope, overlay.SideEffectScope)
-	base.BrowserRoute = firstNonEmpty(base.BrowserRoute, overlay.BrowserRoute)
-	base.BrowserSession = firstNonEmpty(base.BrowserSession, overlay.BrowserSession)
-	base.BrowserApprovals = dedupeStrings(append(base.BrowserApprovals, overlay.BrowserApprovals...))
-	base.BrowserAuthenticationApprovals = dedupeStrings(append(base.BrowserAuthenticationApprovals, overlay.BrowserAuthenticationApprovals...))
-	base.Annotations = append(base.Annotations, overlay.Annotations...)
-	base.Assumptions = mergeAssumptions(base.Assumptions, overlay.Assumptions)
-	base.Classifications = mergeClassifications(base.Classifications, overlay.Classifications)
-	base.DecisionEvidence = mergeDecisionEvidence(base.DecisionEvidence, overlay.DecisionEvidence)
-	base.DraftOperations = appendOperationDetailRefs(base.DraftOperations, overlay.DraftOperations)
-	base.DraftEvents = append(base.DraftEvents, overlay.DraftEvents...)
-	base.Normalize()
-	return base
-}
-
 func mergeAssumptions(base, overlay []Assumption) []Assumption {
 	seen := map[string]bool{}
 	var out []Assumption
@@ -558,8 +507,7 @@ func firstOpenAPIPath(value string) string {
 	for _, item := range splitList(value) {
 		for _, token := range strings.Fields(item) {
 			token = strings.Trim(token, "`'\".,")
-			if strings.HasPrefix(token, "openapi/") || strings.HasPrefix(token, "google-discovery/") || strings.HasPrefix(token, "aws-smithy/") || strings.HasPrefix(token, "asyncapi/") || strings.HasPrefix(token, "discovery/") ||
-				strings.Contains(token, "/openapi/") || strings.Contains(token, "/google-discovery/") || strings.Contains(token, "/aws-smithy/") || strings.Contains(token, "/asyncapi/") || strings.Contains(token, "/discovery/") {
+			if sourcecatalog.ContainsAPIPath(token) {
 				return filepath.ToSlash(token)
 			}
 			ext := strings.ToLower(filepath.Ext(token))

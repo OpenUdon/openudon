@@ -10,24 +10,24 @@ import (
 	"os/exec"
 	"os/signal"
 	"path/filepath"
-	"runtime/debug"
 	"strings"
 	"syscall"
 	"time"
 
 	"github.com/OpenUdon/openudon/internal/browserintegrationeval"
 	"github.com/OpenUdon/openudon/internal/browserscenario"
+	"github.com/OpenUdon/openudon/internal/buildinfo"
 	"github.com/OpenUdon/openudon/internal/config"
 	evalpkg "github.com/OpenUdon/openudon/internal/eval"
 	"github.com/OpenUdon/openudon/internal/localcheck"
 	"github.com/OpenUdon/openudon/internal/n8nbridge"
+	"github.com/OpenUdon/openudon/internal/qualityremediation"
 	"github.com/OpenUdon/openudon/internal/readiness"
 	"github.com/OpenUdon/openudon/internal/releaseevidence"
 	"github.com/OpenUdon/openudon/internal/smokematrix"
 	"github.com/OpenUdon/openudon/internal/synthesize"
 	"github.com/OpenUdon/openudon/internal/trustedrunner"
-	"github.com/OpenUdon/uws/schemas"
-	"github.com/OpenUdon/uws/validation"
+	openudonvalidation "github.com/OpenUdon/openudon/internal/validation"
 )
 
 // version is replaced in release archives with -ldflags. Module-installed
@@ -55,7 +55,7 @@ func main() {
 		fmt.Fprintf(flag.CommandLine.Output(), "  release-evidence run local udon smoke, archive, and release-note evidence flow\n")
 		fmt.Fprintf(flag.CommandLine.Output(), "  release-notes draft local release evidence notes from run evidence\n")
 		fmt.Fprintf(flag.CommandLine.Output(), "  run       validate approval gates and invoke a trusted executor handoff\n")
-		fmt.Fprintf(flag.CommandLine.Output(), "  run-evidence verify/archive run evidence and async sidecar digests\n")
+		fmt.Fprintf(flag.CommandLine.Output(), "  run-evidence keygen/verify/archive run evidence, signatures, and sidecar digests\n")
 		fmt.Fprintf(flag.CommandLine.Output(), "  smoke-matrix run provider-free or opt-in live product smoke scenarios\n")
 		fmt.Fprintf(flag.CommandLine.Output(), "  synthesize generate intent, workflow, UWS, and review artifacts for an example\n")
 		fmt.Fprintf(flag.CommandLine.Output(), "  validate  validate one UWS JSON/YAML file or a directory of UWS artifacts\n")
@@ -267,15 +267,7 @@ func runBrowserIntegrationEvalCommand(args []string) {
 	}
 }
 
-type versionInfo struct {
-	Version   string            `json:"version"`
-	Module    string            `json:"module"`
-	MainPath  string            `json:"main_path,omitempty"`
-	GoVersion string            `json:"go_version,omitempty"`
-	Revision  string            `json:"revision,omitempty"`
-	BuildTags []string          `json:"build_tags,omitempty"`
-	Settings  map[string]string `json:"settings,omitempty"`
-}
+type versionInfo = buildinfo.Info
 
 func runVersionCommand(args []string) {
 	fs := flag.NewFlagSet("version", flag.ExitOnError)
@@ -306,53 +298,7 @@ func runVersionCommand(args []string) {
 }
 
 func collectVersionInfo() versionInfo {
-	info := versionInfo{
-		Version: strings.TrimSpace(version),
-		Module:  "github.com/OpenUdon/openudon",
-	}
-	if build, ok := debug.ReadBuildInfo(); ok {
-		info.GoVersion = build.GoVersion
-		if build.Main.Path != "" {
-			info.MainPath = build.Main.Path
-		}
-		if (info.Version == "" || info.Version == "devel") &&
-			build.Main.Version != "" && build.Main.Version != "(devel)" {
-			info.Version = strings.TrimPrefix(build.Main.Version, "v")
-		}
-		settings := make(map[string]string)
-		for _, setting := range build.Settings {
-			switch setting.Key {
-			case "vcs.revision":
-				info.Revision = setting.Value
-			case "-tags":
-				if strings.TrimSpace(setting.Value) != "" {
-					info.BuildTags = splitBuildTags(setting.Value)
-				}
-			case "vcs.modified", "vcs.time", "vcs":
-				settings[setting.Key] = setting.Value
-			}
-		}
-		if len(settings) > 0 {
-			info.Settings = settings
-		}
-	}
-	if info.Version == "" {
-		info.Version = "devel"
-	}
-	return info
-}
-
-func splitBuildTags(value string) []string {
-	fields := strings.FieldsFunc(value, func(r rune) bool {
-		return r == ',' || r == ' '
-	})
-	tags := make([]string, 0, len(fields))
-	for _, field := range fields {
-		if trimmed := strings.TrimSpace(field); trimmed != "" {
-			tags = append(tags, trimmed)
-		}
-	}
-	return tags
+	return buildinfo.Current(version)
 }
 
 func runReleaseEvidenceCommand(args []string) {
@@ -411,6 +357,8 @@ func runEvidenceCommand(args []string) {
 		os.Exit(2)
 	}
 	switch args[0] {
+	case "keygen":
+		runEvidenceKeygenCommand(args[1:])
 	case "verify":
 		runEvidenceVerifyCommand(args[1:])
 	case "archive":
@@ -422,9 +370,33 @@ func runEvidenceCommand(args []string) {
 	}
 }
 
+func runEvidenceKeygenCommand(args []string) {
+	fs := flag.NewFlagSet("run-evidence keygen", flag.ExitOnError)
+	privateKey := fs.String("private-key", "", "Output PKCS#8 PEM Ed25519 private key")
+	publicKey := fs.String("public-key", "", "Output PKIX PEM Ed25519 public key")
+	fs.Usage = func() {
+		fmt.Fprintf(fs.Output(), "Usage: openudon run-evidence keygen --private-key operator.key --public-key operator.pub\n\n")
+		fs.PrintDefaults()
+	}
+	if err := fs.Parse(args); err != nil {
+		os.Exit(2)
+	}
+	if fs.NArg() != 0 {
+		fs.Usage()
+		os.Exit(2)
+	}
+	if err := trustedrunner.GenerateSigningKey(*privateKey, *publicKey); err != nil {
+		fmt.Fprintln(os.Stderr, err)
+		os.Exit(1)
+	}
+	fmt.Printf("openudon run-evidence keygen: wrote %s and %s\n", *privateKey, *publicKey)
+}
+
 func runEvidenceVerifyCommand(args []string) {
 	fs := flag.NewFlagSet("run-evidence verify", flag.ExitOnError)
 	file := fs.String("file", "", "run-evidence.json file to verify")
+	trustedPublicKey := fs.String("trusted-public-key", "", "PKIX PEM public key required to match the evidence signer")
+	requireSignature := fs.Bool("require-signature", false, "Reject unsigned run evidence")
 	fs.Usage = func() {
 		fmt.Fprintf(fs.Output(), "Usage: openudon run-evidence verify --file run-evidence.json\n\n")
 		fmt.Fprintf(fs.Output(), "Verifies %s, async sidecar relative paths, sidecar SHA-256 digests, record counts, and neutral async record shapes.\n\n", trustedrunner.RunEvidenceVersion)
@@ -433,7 +405,10 @@ func runEvidenceVerifyCommand(args []string) {
 	if err := fs.Parse(args); err != nil {
 		os.Exit(2)
 	}
-	result, err := trustedrunner.VerifyRunEvidenceFile(*file)
+	result, err := trustedrunner.VerifyRunEvidenceFileWithOptions(*file, trustedrunner.VerifyRunEvidenceOptions{
+		TrustedPublicKey: *trustedPublicKey,
+		RequireSignature: *requireSignature,
+	})
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "openudon run-evidence verify: fail %s - %v\n", *file, err)
 		os.Exit(1)
@@ -629,61 +604,12 @@ func runValidateCommand(args []string) {
 	}
 }
 
-func defaultUWSSchemaForFile(path string) string {
-	version := "1.0.0"
-	if doc, err := validation.LoadDocumentFile(path); err == nil && doc != nil && strings.TrimSpace(doc.UWS) != "" {
-		version = strings.TrimSpace(doc.UWS)
-	}
-	return schemas.PathForVersion(".", version)
-}
-
 func validateUWSPath(target string, out io.Writer, allowEmpty bool) error {
-	return validateUWSPathWithSchema(target, out, defaultUWSSchemaForFile, allowEmpty)
+	return openudonvalidation.ValidatePath(target, out, allowEmpty)
 }
 
 func validateUWSPathWithSchema(target string, out io.Writer, schemaForFile func(string) string, allowEmpty bool) error {
-	info, err := os.Stat(target)
-	if err != nil {
-		return fmt.Errorf("target does not exist: %s", target)
-	}
-	if !info.IsDir() {
-		return validateUWSFile(target, out, schemaForFile)
-	}
-
-	files, err := collectUWSArtifactFiles(target)
-	if err != nil {
-		return err
-	}
-	if len(files) == 0 {
-		if allowEmpty {
-			fmt.Fprintf(out, "no UWS artifacts found under %s\n", target)
-			return nil
-		}
-		return fmt.Errorf("no UWS artifacts found under %s; pass --allow-empty to allow this", target)
-	}
-	fmt.Fprintf(out, "found %d UWS artifact(s); schema selected from document version\n", len(files))
-	for _, file := range files {
-		if err := validateUWSFile(file, out, schemaForFile); err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
-func validateUWSFile(path string, out io.Writer, schemaForFile func(string) string) error {
-	if err := validation.ValidateFile(schemaForFile(path), path); err != nil {
-		return err
-	}
-	fmt.Fprintf(out, "openudon: %s is valid UWS\n", path)
-	return nil
-}
-
-func collectUWSArtifactFiles(root string) ([]string, error) {
-	return validation.CollectArtifactFiles(root)
-}
-
-func isUWSArtifactFile(path string) bool {
-	return validation.IsArtifactFile(path)
+	return openudonvalidation.ValidatePathWithSchema(target, out, schemaForFile, allowEmpty)
 }
 
 func runReadinessCommand(args []string) {
@@ -731,6 +657,7 @@ func runTrustedCommand(args []string) {
 	approval := fs.String("approval", "", "Approval JSON file")
 	workdir := fs.String("workdir", "", "executor work directory; defaults to .openudon-run/<example>")
 	dryRun := fs.Bool("dry-run", false, "Validate gates, stage the package, verify the staged digest, and write run evidence without invoking the executor")
+	signingKey := fs.String("signing-key", "", "Optional PKCS#8 PEM Ed25519 key used only to sign the completed run evidence")
 	fs.Usage = func() {
 		fmt.Fprintf(fs.Output(), "Usage: openudon run --example examples/<name> --tier sandbox|production --approval approvals/<name>.json [--workdir .openudon-run/<name>] [--dry-run]\n")
 		fmt.Fprintf(fs.Output(), "\nValidates the OpenUdon handoff package, current quality gates, approval scope, approval digest, tier/state compatibility, runner config, package staging, and staged digest before writing %s run evidence, an async evidence sidecar, and invoking the trusted executor runner.\n", trustedrunner.RunEvidenceVersion)
@@ -754,6 +681,7 @@ func runTrustedCommand(args []string) {
 		RunnerPath:   os.Getenv("OPENUDON_UDON_RUNNER"),
 		Stdout:       os.Stdout,
 		Stderr:       os.Stderr,
+		SigningKey:   *signingKey,
 	})
 	if err != nil {
 		fmt.Fprintln(os.Stderr, err)
@@ -897,24 +825,31 @@ func runEvalCommand(args []string) {
 	}
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
+	runID := runIDFromOutput(*out)
 	var results []evalpkg.EvalResult
+	var evalErr error
 	if strings.TrimSpace(*name) != "" {
-		results = []evalpkg.EvalResult{evalpkg.RunOne(ctx, filepath.Join(*root, strings.TrimSpace(*name)), opts)}
+		var result evalpkg.EvalResult
+		if strings.TrimSpace(*archiveDir) == "" {
+			result = evalpkg.RunOne(ctx, filepath.Join(*root, strings.TrimSpace(*name)), opts)
+		} else {
+			result, evalErr = evalpkg.RunOneArchived(ctx, filepath.Join(*root, strings.TrimSpace(*name)), opts, *archiveDir, runID)
+		}
+		results = []evalpkg.EvalResult{result}
 	} else {
-		results = evalpkg.RunAll(ctx, *root, opts, *concurrency)
+		if strings.TrimSpace(*archiveDir) == "" {
+			results = evalpkg.RunAll(ctx, *root, opts, *concurrency)
+		} else {
+			results, evalErr = evalpkg.RunAllArchived(ctx, *root, opts, *concurrency, *archiveDir, runID)
+		}
+	}
+	if evalErr != nil {
+		fmt.Fprintln(os.Stderr, evalErr)
+		os.Exit(1)
 	}
 	if len(results) == 0 {
 		fmt.Fprintf(os.Stderr, "no eval briefs found under %s\n", *root)
 		os.Exit(1)
-	}
-	runID := runIDFromOutput(*out)
-	if strings.TrimSpace(*archiveDir) != "" {
-		archived, err := evalpkg.ArchiveGeneratedDirs(results, *archiveDir, runID)
-		if err != nil {
-			fmt.Fprintln(os.Stderr, err)
-			os.Exit(1)
-		}
-		results = archived
 	}
 	commit, dirty := gitMetadata()
 	metadata := evalpkg.RunMetadata{
@@ -1129,7 +1064,7 @@ func printQuality(report *synthesize.QualityReport) {
 			if check.Detail != "" {
 				fmt.Printf("    detail: %s\n", check.Detail)
 			}
-			if next := nextActionForQualityCheck(check.Code); next != "" {
+			if next := qualityremediation.NextAction(check.Code); next != "" {
 				fmt.Printf("    next: %s\n", next)
 			}
 		}
@@ -1137,62 +1072,5 @@ func printQuality(report *synthesize.QualityReport) {
 }
 
 func nextActionForQualityCheck(code string) string {
-	switch {
-	case code == "project.present":
-		return "Create project.md from templates/project.md, then rerun synthesize or assess."
-	case strings.HasPrefix(code, "project.authoring."):
-		return "Fill the missing project.md section so synthesis decisions are auditable."
-	case strings.HasPrefix(code, "openapi."):
-		return "Add or fix OpenAPI documents under openapi/ with operation IDs, request fields, response schemas, and security schemes; or declare OpenAPI: none required when no API is needed."
-	case code == "plan.gaps":
-		return "Resolve missing operations, required parameters, or credential bindings in project.md or intent.hcl."
-	case code == "intent.data_flow.required_params":
-		return "Map every required OpenAPI path, query, header, or body field to an input, safe literal, prior-step bind, or credential binding name; document SaaS request mappings in Data Flow."
-	case code == "intent.data_flow.response_paths":
-		return "Use response fields present in the OpenAPI schema or update Outputs and Data Flow; avoid guessing SaaS response paths."
-	case code == "intent.data_flow.explicit":
-		return "Add Data Flow guidance with request field sources, prior-step bindings, credential binding names, and final output sources."
-	case code == "intent.openapi_operations":
-		return "Select only operationId values listed in local OpenAPI documents and document unresolved SaaS capability gaps instead of inventing provider operations."
-	case strings.HasPrefix(code, "intent."):
-		return "Inspect workflows/intent.hcl and project.md; rerun synthesize when the brief needs regeneration."
-	case code == "credentials.security_schemes":
-		return "Declare symbolic credential binding names for required OpenAPI security schemes in project.md, then rerun synthesize or build."
-	case code == "credentials.bindings", code == "workflow.credentials_bound":
-		return "Name runtime credential bindings in project.md and ensure workflow request fields reference binding names, never secret values."
-	case strings.HasPrefix(code, "workflow."):
-		return "Inspect workflows/workflow.hcl against expected/plan.md, then rerun build or synthesize."
-	case strings.HasPrefix(code, "uws."):
-		return "Inspect workflows/workflow.uws.yaml, then rerun promote or build after fixing workflow.hcl."
-	case code == "side_effects.environment":
-		return "Use sandbox/test endpoints or add explicit production handoff approval language to Safety and Approval Boundary."
-	case code == "side_effects.policy":
-		return "Add approval, trusted-runtime, and sandbox proof-run policy to Safety and Approval Boundary."
-	case code == "review.credential_bindings":
-		return "Update Credentials and Secrets with binding names only, then regenerate review evidence with build/synthesize."
-	case code == "review.approval_states":
-		return "State generated, review_required, approved_for_sandbox, and approved_for_production approval requirements in review evidence."
-	case code == "review.sandbox_handoff":
-		return "Scope trusted-runner handoff to approved sandbox or proof runs before production handoff."
-	case code == "review.trusted_runner":
-		return "Regenerate review evidence so expected/review.md includes the trusted-runner handoff command."
-	case code == "review.trusted_runner_dry_run":
-		return "Regenerate review evidence so expected/review.md includes the trusted-runner dry-run command and run-config boundary."
-	case code == "review.production_boundary":
-		return "Regenerate review evidence so it states OpenUdon synthesis does not directly execute production workflows."
-	case code == "review.approval_artifact":
-		return "Regenerate review evidence so it describes approval JSON fields, tier state, expiry, and package_sha256 requirements."
-	case code == "review.credential_scope":
-		return "Regenerate review evidence so it includes the credential scope matrix for declared and expected bindings."
-	case code == "review.side_effect_risk":
-		return "Regenerate review evidence so it lists side-effect risk and approved sandbox/production handoff states."
-	case strings.HasPrefix(code, "review."):
-		return "Update Safety and Approval Boundary or regenerate review evidence with build/synthesize."
-	case strings.HasPrefix(code, "review_handoff."):
-		return "Regenerate expected/review-handoff.json with build/synthesize so the review handoff approval contract can be checked."
-	case code == "artifacts.no_secrets":
-		return "Remove literal secret-like values from artifacts; keep only credential binding names."
-	default:
-		return "Inspect expected/quality.md for details, fix the referenced artifact, and rerun assess."
-	}
+	return qualityremediation.NextAction(code)
 }

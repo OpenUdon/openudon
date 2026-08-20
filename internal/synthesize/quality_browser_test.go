@@ -48,7 +48,10 @@ func TestValidateBrowserSourceReviewBindsProfileActionAndSafety(t *testing.T) {
 	if err := validateBrowserSourceReview(example, []string{path}, intent, withoutApproval, at); err == nil || !strings.Contains(err.Error(), "without operation-specific authoring approval") {
 		t.Fatalf("expected mutation approval rejection, got %v", err)
 	}
-	invented := intent.Clone()
+	invented, err := intent.Clone()
+	if err != nil {
+		t.Fatal(err)
+	}
 	invented.Steps[0].Operation = "invented_action"
 	if err := validateBrowserSourceReview(example, []string{path}, invented, review, at); err == nil || !strings.Contains(err.Error(), "invents browser action") {
 		t.Fatalf("expected invented action rejection, got %v", err)

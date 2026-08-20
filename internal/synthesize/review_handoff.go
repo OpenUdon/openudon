@@ -7,6 +7,8 @@ import (
 	"path/filepath"
 
 	"github.com/OpenUdon/openudon/internal/authoring"
+	"github.com/OpenUdon/openudon/internal/authoring/atomicfile"
+	"github.com/OpenUdon/openudon/internal/evidencefile"
 	"github.com/OpenUdon/openudon/internal/packageartifacts"
 )
 
@@ -21,10 +23,19 @@ type ReviewCredentialBindings = authoring.ReviewCredentialBindings
 type ReviewTrustedRunner = authoring.ReviewTrustedRunner
 
 func writeReviewHandoff(result Result, policy projectPolicy, profile sideEffectProfile) error {
+	expectedCredentials := expectedPlanCredentialNames(result.PlanJSONPath)
+	return writeReviewHandoffWithCredentials(result, policy, profile, expectedCredentials)
+}
+
+func writeReviewHandoffWithCredentials(result Result, policy projectPolicy, profile sideEffectProfile, expectedCredentials []string) error {
 	if err := ensureArtifactDirs(result); err != nil {
 		return err
 	}
-	manifest, err := buildReviewHandoff(result, policy, profile)
+	manifest, err := buildReviewHandoffWithCredentials(result, policy, profile, expectedCredentials)
+	if err != nil {
+		return err
+	}
+	manifest, err = bindReviewHandoffDigests(result, manifest)
 	if err != nil {
 		return err
 	}
@@ -32,13 +43,67 @@ func writeReviewHandoff(result Result, policy projectPolicy, profile sideEffectP
 	if err != nil {
 		return fmt.Errorf("marshal review handoff: %w", err)
 	}
-	return os.WriteFile(result.ReviewHandoffPath, append(data, '\n'), 0o644)
+	return atomicfile.Write(result.ReviewHandoffPath, append(data, '\n'), 0o644)
+}
+
+func bindReviewHandoffDigests(result Result, manifest ReviewHandoff) (ReviewHandoff, error) {
+	selfPath := filepath.ToSlash(relOrAbs(result.ExampleDir, result.ReviewHandoffPath))
+	for i := range manifest.HandoffInputs {
+		input := &manifest.HandoffInputs[i]
+		if input.Path == selfPath {
+			continue
+		}
+		path := filepath.Join(result.ExampleDir, filepath.FromSlash(input.Path))
+		data, _, err := evidencefile.ReadRegular(path, evidencefile.DefaultMaxBytes)
+		if err != nil {
+			if os.IsNotExist(err) && (input.Path == "expected/quality.json" || input.Path == "expected/refinement.json") {
+				input.SHA256 = fmt.Sprintf("%064x", 0)
+				continue
+			}
+			return ReviewHandoff{}, fmt.Errorf("read review handoff input %s: %w", input.Path, err)
+		}
+		input.SHA256 = evidencefile.SHA256(data)
+	}
+	selfDigest, err := authoring.ReviewHandoffSelfDigest(manifest, selfPath)
+	if err != nil {
+		return ReviewHandoff{}, err
+	}
+	for i := range manifest.HandoffInputs {
+		if manifest.HandoffInputs[i].Path == selfPath {
+			manifest.HandoffInputs[i].SHA256 = selfDigest
+		}
+	}
+	return manifest, nil
+}
+
+func refreshReviewHandoffDigests(result Result) error {
+	data, _, err := evidencefile.ReadRegular(result.ReviewHandoffPath, evidencefile.DefaultMaxBytes)
+	if err != nil {
+		return err
+	}
+	var manifest ReviewHandoff
+	if err := evidencefile.DecodeStrict(data, &manifest); err != nil {
+		return fmt.Errorf("parse review handoff for digest refresh: %w", err)
+	}
+	manifest, err = bindReviewHandoffDigests(result, manifest)
+	if err != nil {
+		return err
+	}
+	data, err = json.MarshalIndent(manifest, "", "  ")
+	if err != nil {
+		return err
+	}
+	return atomicfile.Write(result.ReviewHandoffPath, append(data, '\n'), 0o644)
 }
 
 func buildReviewHandoff(result Result, policy projectPolicy, profile sideEffectProfile) (ReviewHandoff, error) {
+	return buildReviewHandoffWithCredentials(result, policy, profile, expectedPlanCredentialNames(result.PlanJSONPath))
+}
+
+func buildReviewHandoffWithCredentials(result Result, policy projectPolicy, profile sideEffectProfile, expectedCredentials []string) (ReviewHandoff, error) {
 	bindingContract := authoring.BuildBindingContract(authoring.BindingContractOptions{
 		BindingNames:         credentialBindingNames(policy),
-		ExpectedBindingNames: expectedPlanCredentialNames(result.PlanJSONPath),
+		ExpectedBindingNames: append([]string(nil), expectedCredentials...),
 	})
 	inputs, err := reviewHandoffInputs(result)
 	if err != nil {

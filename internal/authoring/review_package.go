@@ -1,14 +1,15 @@
 package authoring
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
-	"os"
 	"path/filepath"
 	"sort"
 	"strings"
 
 	evdigest "github.com/OpenUdon/evidence/digest"
+	"github.com/OpenUdon/openudon/internal/evidencefile"
 	"github.com/OpenUdon/openudon/internal/packageartifacts"
 )
 
@@ -38,51 +39,6 @@ type ReviewPackageInput struct {
 	Transcript              *Transcript
 	BindingContract         BindingContract
 	DeferredExecutionPolicy DeferredExecutionPolicy
-}
-
-// BuildReviewPackage builds review metadata from caller-supplied artifact and
-// issue metadata.
-func BuildReviewPackage(input ReviewPackageInput) ReviewPackage {
-	artifacts := make([]ArtifactReview, 0, len(input.Artifacts))
-	for _, artifact := range input.Artifacts {
-		path := strings.TrimSpace(artifact.Path)
-		if path == "" {
-			continue
-		}
-		artifacts = append(artifacts, ArtifactReview{
-			Path:      path,
-			MediaType: strings.TrimSpace(artifact.MediaType),
-			SizeBytes: artifact.SizeBytes,
-		})
-	}
-	sort.SliceStable(artifacts, func(i, j int) bool { return artifacts[i].Path < artifacts[j].Path })
-	contract := input.BindingContract
-	if len(contract.BindingNames) == 0 && (len(input.SymbolicBindings) > 0 || len(input.BindingNames) > 0) {
-		contract = BuildBindingContract(BindingContractOptions{
-			SymbolicBindings: input.SymbolicBindings,
-			BindingNames:     input.BindingNames,
-		})
-	}
-	policy := input.DeferredExecutionPolicy
-	if !policy.ReviewOnly && !policy.RuntimeDeferred && !policy.DirectExecutionDenied && len(policy.Notes) == 0 {
-		policy = defaultDeferredExecutionPolicy()
-	}
-	pkg := ReviewPackage{
-		Name:                    strings.TrimSpace(input.Name),
-		Source:                  strings.TrimSpace(input.Source),
-		Artifacts:               artifacts,
-		Diagnostics:             append([]Diagnostic(nil), input.Diagnostics...),
-		ReadinessIssues:         append([]ReadinessIssue(nil), input.ReadinessIssues...),
-		SymbolicBindings:        append([]SymbolicBinding(nil), contract.SymbolicBindings...),
-		BindingNames:            append([]string(nil), contract.BindingNames...),
-		Assumptions:             append([]Assumption(nil), input.Assumptions...),
-		QuestionPlan:            input.QuestionPlan,
-		TranscriptSummary:       transcriptSummary(input.Transcript),
-		CredentialAudit:         contract.BindingAudit(),
-		DeferredExecutionPolicy: policy,
-	}
-	pkg.RequiredReviewActions = requiredReviewActionsForPackage(pkg)
-	return pkg
 }
 
 // ReviewHandoffInputsFromArtifacts converts artifact metadata to stable,
@@ -129,6 +85,7 @@ func ReviewHandoffInputsFromArtifacts(artifacts []ReviewArtifactInput, extra ...
 // ReviewHandoffDigestOptions configures a deterministic digest over required
 // handoff input files.
 type ReviewHandoffDigestOptions struct {
+	Context context.Context
 	Root    string
 	Scope   string
 	Version string
@@ -149,6 +106,13 @@ type reviewHandoffDigest struct {
 // ComputeReviewHandoffDigest hashes the required files referenced by a handoff
 // manifest. The digest includes file paths and file SHA-256s, not file content.
 func ComputeReviewHandoffDigest(opts ReviewHandoffDigestOptions) (string, error) {
+	ctx := opts.Context
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	if err := ctx.Err(); err != nil {
+		return "", err
+	}
 	root := strings.TrimSpace(opts.Root)
 	if root == "" {
 		root = "."
@@ -160,6 +124,9 @@ func ComputeReviewHandoffDigest(opts ReviewHandoffDigestOptions) (string, error)
 	}
 	fileSet := map[string]struct{}{}
 	for _, input := range opts.Inputs {
+		if err := ctx.Err(); err != nil {
+			return "", err
+		}
 		if !input.Required {
 			continue
 		}
@@ -182,8 +149,11 @@ func ComputeReviewHandoffDigest(opts ReviewHandoffDigestOptions) (string, error)
 		Scope:   scope,
 	}
 	for _, path := range files {
+		if err := ctx.Err(); err != nil {
+			return "", err
+		}
 		full := filepath.Join(root, filepath.FromSlash(path))
-		data, err := os.ReadFile(full)
+		data, _, err := evidencefile.ReadRegular(full, evidencefile.DefaultMaxBytes)
 		if err != nil {
 			return "", fmt.Errorf("read handoff input %s: %w", path, err)
 		}
@@ -201,22 +171,4 @@ func ComputeReviewHandoffDigest(opts ReviewHandoffDigestOptions) (string, error)
 		return "", err
 	}
 	return evdigest.SHA256Bytes(canonical).Value, nil
-}
-
-func requiredReviewActionsForPackage(pkg ReviewPackage) []string {
-	actions := []string{
-		"Review all artifacts before caller-specific rendering.",
-		"Validate artifacts with the downstream renderer and policy checks.",
-		"Keep credential values out of prompts, artifacts, logs, and committed files.",
-	}
-	if len(pkg.BindingNames) > 0 {
-		actions = append(actions, "Map symbolic binding names to trusted runtime bindings outside generated artifacts.")
-	}
-	if len(pkg.ReadinessIssues) > 0 || len(pkg.Diagnostics) > 0 {
-		actions = append(actions, "Resolve blocking diagnostics and readiness issues before execution-capable handoff.")
-	}
-	if len(pkg.QuestionPlan.Questions) > 0 {
-		actions = append(actions, "Answer clarification questions before approving downstream artifacts.")
-	}
-	return actions
 }

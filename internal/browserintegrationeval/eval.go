@@ -20,7 +20,10 @@ import (
 	"strings"
 	"time"
 
+	"github.com/OpenUdon/openudon/internal/authoring/atomicfile"
 	"github.com/OpenUdon/openudon/internal/browserverify"
+	"github.com/OpenUdon/openudon/internal/evidencefile"
+	"github.com/OpenUdon/openudon/internal/processgroup"
 )
 
 const (
@@ -49,6 +52,7 @@ type Command struct {
 	Dir        string
 	Args       []string
 	Env        map[string]string
+	Timeout    time.Duration
 }
 
 type CommandOutput struct {
@@ -178,7 +182,7 @@ func Run(ctx context.Context, opts Options) (*Report, error) {
 			})
 			continue
 		}
-		command := Command{Repository: spec.Repository, Dir: repos[spec.Repository], Args: append([]string(nil), spec.Args...), Env: cloneMap(spec.Env)}
+		command := Command{Repository: spec.Repository, Dir: repos[spec.Repository], Args: append([]string(nil), spec.Args...), Env: cloneMap(spec.Env), Timeout: gateDeadline(spec)}
 		output := runner(ctx, command)
 		result := evaluateGate(spec, output)
 		if spec.Kind == "doctor" && result.Status == StatusPass {
@@ -220,12 +224,10 @@ func Write(path string, report *Report) error {
 	if err := os.MkdirAll(dir, 0o755); err != nil {
 		return err
 	}
-	if err := writeAtomic(path, data, 0o644); err != nil {
+	if err := atomicfile.Write(path, data, 0o644); err != nil {
 		return err
 	}
-	sum := sha256.Sum256(data)
-	line := "sha256:" + hex.EncodeToString(sum[:]) + "  " + filepath.Base(path) + "\n"
-	return writeAtomic(path+".sha256", []byte(line), 0o644)
+	return evidencefile.WriteDigestSidecar(path, data, 0o644)
 }
 
 func VerifyFile(path string) (*Report, error) {
@@ -607,6 +609,17 @@ func defaultGates() []gate {
 	}
 }
 
+func gateDeadline(spec gate) time.Duration {
+	switch spec.Kind {
+	case "doctor", "dependency_scan", "command":
+		return 30 * time.Second
+	case "build":
+		return 2 * time.Minute
+	default:
+		return 3 * time.Minute
+	}
+}
+
 func evaluateGate(spec gate, output CommandOutput) GateResult {
 	result := GateResult{
 		ID: spec.ID, Repository: spec.Repository, Kind: spec.Kind,
@@ -686,15 +699,16 @@ func runCommand(ctx context.Context, command Command) CommandOutput {
 	if len(command.Args) == 0 {
 		return CommandOutput{Err: fmt.Errorf("empty command")}
 	}
-	cmd := exec.CommandContext(ctx, command.Args[0], command.Args[1:]...)
-	cmd.Dir = command.Dir
-	if len(command.Env) > 0 {
-		cmd.Env = environmentWithOverrides(os.Environ(), command.Env)
+	timeout := command.Timeout
+	if timeout <= 0 {
+		timeout = 3 * time.Minute
 	}
+	environment := environmentWithOverrides(os.Environ(), command.Env)
 	var stdout, stderr boundedBuffer
 	stdout.max, stderr.max = maxOutputBytes, maxOutputBytes
-	cmd.Stdout, cmd.Stderr = &stdout, &stderr
-	err := cmd.Run()
+	err := processgroup.Run(ctx, timeout, processgroup.Invocation{
+		Args: command.Args, Dir: command.Dir, Env: environment, Stdout: &stdout, Stderr: &stderr,
+	})
 	if stdout.truncated || stderr.truncated {
 		if err == nil {
 			err = fmt.Errorf("command output exceeded %d bytes", maxOutputBytes)
@@ -754,12 +768,12 @@ func repositoryRevisions(ctx context.Context, repos map[string]string, runner Ru
 	names := []string{"openudon", "browsertools", "uws", "udon", "browserdriver"}
 	revisions := make([]RepositoryRevision, 0, len(names))
 	for _, name := range names {
-		commitOutput := runner(ctx, Command{Repository: name, Dir: repos[name], Args: []string{"git", "rev-parse", "--short=12", "HEAD"}})
+		commitOutput := runner(ctx, Command{Repository: name, Dir: repos[name], Args: []string{"git", "rev-parse", "--short=12", "HEAD"}, Timeout: 30 * time.Second})
 		commit := strings.TrimSpace(commitOutput.Stdout)
 		if commitOutput.Err != nil || !commitPattern.MatchString(commit) {
 			return nil, fmt.Errorf("resolve %s release-evidence commit", name)
 		}
-		statusOutput := runner(ctx, Command{Repository: name, Dir: repos[name], Args: []string{"git", "status", "--porcelain=v1", "--untracked-files=all"}})
+		statusOutput := runner(ctx, Command{Repository: name, Dir: repos[name], Args: []string{"git", "status", "--porcelain=v1", "--untracked-files=all"}, Timeout: 30 * time.Second})
 		if statusOutput.Err != nil {
 			return nil, fmt.Errorf("resolve %s release-evidence worktree state", name)
 		}
@@ -961,62 +975,14 @@ func validResultDetail(spec gate, result GateResult) bool {
 }
 
 func readBoundedRegular(path string, max int64) ([]byte, error) {
-	pathInfo, err := os.Lstat(path)
-	if err != nil {
-		return nil, err
-	}
-	if !pathInfo.Mode().IsRegular() {
-		return nil, fmt.Errorf("%s must be a regular non-symlink file", path)
-	}
-	if pathInfo.Size() > max {
-		return nil, fmt.Errorf("%s exceeds %d bytes", path, max)
-	}
-	file, err := os.Open(path)
-	if err != nil {
-		return nil, err
-	}
-	defer file.Close()
-	openedInfo, err := file.Stat()
-	if err != nil {
-		return nil, err
-	}
-	if !openedInfo.Mode().IsRegular() || !os.SameFile(pathInfo, openedInfo) {
-		return nil, fmt.Errorf("%s changed while being opened", path)
-	}
-	data, err := io.ReadAll(io.LimitReader(file, max+1))
-	if err != nil {
-		return nil, err
-	}
-	if int64(len(data)) > max {
-		return nil, fmt.Errorf("%s exceeds %d bytes", path, max)
+	data, _, err := evidencefile.ReadRegular(path, max)
+	if err != nil || len(data) == 0 {
+		if err != nil && strings.Contains(err.Error(), "regular file") {
+			return nil, fmt.Errorf("%s must be a regular non-symlink file", path)
+		}
+		return nil, fmt.Errorf("%s must be a bounded regular file: %w", path, err)
 	}
 	return data, nil
-}
-
-func writeAtomic(path string, data []byte, mode os.FileMode) error {
-	dir := filepath.Dir(path)
-	temp, err := os.CreateTemp(dir, ".browser-integration-*")
-	if err != nil {
-		return err
-	}
-	tempPath := temp.Name()
-	defer os.Remove(tempPath)
-	if err := temp.Chmod(mode); err != nil {
-		_ = temp.Close()
-		return err
-	}
-	if _, err := temp.Write(data); err != nil {
-		_ = temp.Close()
-		return err
-	}
-	if err := temp.Sync(); err != nil {
-		_ = temp.Close()
-		return err
-	}
-	if err := temp.Close(); err != nil {
-		return err
-	}
-	return os.Rename(tempPath, path)
 }
 
 func environmentWithOverrides(base []string, overrides map[string]string) []string {

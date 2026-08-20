@@ -18,13 +18,19 @@ import (
 	"github.com/OpenUdon/browsertools/profile"
 	"github.com/OpenUdon/openudon/internal/browserverify"
 	"github.com/OpenUdon/openudon/internal/icot"
+	"github.com/OpenUdon/openudon/internal/processgroup"
 	"github.com/OpenUdon/openudon/internal/synthesize"
 	"github.com/hashicorp/hcl/v2"
 	"github.com/hashicorp/hcl/v2/hclsyntax"
 	ctyjson "github.com/zclconf/go-cty/cty/json"
 )
 
-const scenarioCommandOutputLimit = 1 << 20
+const (
+	scenarioCommandOutputLimit = 1 << 20
+	probeDeadline              = 30 * time.Second
+	buildDeadline              = 2 * time.Minute
+	scenarioDeadline           = 3 * time.Minute
+)
 
 type realExecutor struct {
 	mu           sync.Mutex
@@ -110,7 +116,7 @@ func (executor *realExecutor) prepare(ctx context.Context, environment Environme
 		executor.prepareErr = fmt.Errorf("locked toolchain version is unavailable")
 		return
 	}
-	if !runSilent(ctx, environment.BrowserdriverRepo, []string{npm, "run", "build", "--silent"}, nil) {
+	if !runSilent(ctx, buildDeadline, environment.BrowserdriverRepo, []string{npm, "run", "build", "--silent"}, nil) {
 		executor.prepareErr = fmt.Errorf("build Browserdriver")
 		return
 	}
@@ -120,17 +126,17 @@ func (executor *realExecutor) prepare(ctx context.Context, environment Environme
 		return
 	}
 	executor.udon = filepath.Join(root, "udon")
-	if !runSilent(ctx, environment.UdonRepo, []string{goTool, "build", "-o", executor.udon, "./cmd/udon"}, nil) {
+	if !runSilent(ctx, buildDeadline, environment.UdonRepo, []string{goTool, "build", "-o", executor.udon, "./cmd/udon"}, nil) {
 		executor.prepareErr = fmt.Errorf("build Udon")
 		return
 	}
 	if suite != SuiteJourney {
 		executor.browsertools = filepath.Join(root, "browsertools")
-		if !runSilent(ctx, environment.BrowsertoolsRepo, []string{goTool, "build", "-o", executor.browsertools, "./cmd/browsertools"}, nil) {
+		if !runSilent(ctx, buildDeadline, environment.BrowsertoolsRepo, []string{goTool, "build", "-o", executor.browsertools, "./cmd/browsertools"}, nil) {
 			executor.prepareErr = fmt.Errorf("build Browsertools")
 			return
 		}
-		doctor := runBounded(ctx, environment.BrowsertoolsRepo, []string{executor.browsertools, "playwright", "doctor", "--engine", "chromium", "--format", "json"}, nil, "")
+		doctor := runBounded(ctx, probeDeadline, environment.BrowsertoolsRepo, []string{executor.browsertools, "playwright", "doctor", "--engine", "chromium", "--format", "json"}, nil, "")
 		var readiness struct {
 			Version      string `json:"version"`
 			Engine       string `json:"engine"`
@@ -143,7 +149,7 @@ func (executor *realExecutor) prepare(ctx context.Context, environment Environme
 		}
 	}
 	nodeCheck := `import {chromium} from "playwright"; const browser=await chromium.launch({headless:true}); await browser.close();`
-	if !runSilent(ctx, environment.BrowserdriverRepo, []string{executor.node, "--input-type=module", "--eval", nodeCheck}, nil) {
+	if !runSilent(ctx, scenarioDeadline, environment.BrowserdriverRepo, []string{executor.node, "--input-type=module", "--eval", nodeCheck}, nil) {
 		executor.unavailable = true
 	}
 }
@@ -499,7 +505,7 @@ func (executor *realExecutor) executePublic(ctx context.Context, manifest Manife
 	for _, origin := range manifest.Target.Origins {
 		args = append(args, "--allow-origin", origin)
 	}
-	command := runBounded(ctx, environment.BrowsertoolsRepo, args, nil, "")
+	command := runBounded(ctx, scenarioDeadline, environment.BrowsertoolsRepo, args, nil, "")
 	summary, inspectErr := browserverify.Inspect(livePath, prof, environment.Now)
 	if inspectErr != nil {
 		if command.err != nil {
@@ -523,7 +529,7 @@ func (executor *realExecutor) executePublic(ctx context.Context, manifest Manife
 	if err != nil || workflow.UWSVersion != manifest.Expected.UWSVersion {
 		return fail("udon_browserdriver_probe", "staging_failed")
 	}
-	udon := runBounded(ctx, caseRoot, []string{
+	udon := runBounded(ctx, scenarioDeadline, caseRoot, []string{
 		executor.udon, "--workdir", caseRoot, "--workflow", workflow.Path, "--workflow-format", "uws-json",
 		"--execution-report", "execution-report.json", "--execution-timeout", "60s",
 		"--browser-driver", executor.node, "--browser-driver-arg", executor.driverEntry,
@@ -746,7 +752,7 @@ func (executor *realExecutor) runUdon(ctx context.Context, manifest Manifest, ex
 	} else if manifest.Authentication.ChallengeKind != "" && manifest.Authentication.ChallengeKind != "totp" {
 		input = "y\n"
 	}
-	command := runBounded(ctx, exampleDir, args, environment, input)
+	command := runBounded(ctx, scenarioDeadline, exampleDir, args, environment, input)
 	if command.err != nil {
 		return replayResult{failureCode: scenarioFailureCode(filepath.Join(exampleDir, "execution-report.json"), manifest)}
 	}
@@ -777,7 +783,7 @@ func (executor *realExecutor) runJourneyUdon(ctx context.Context, exampleDir, da
 	for _, operation := range approvals {
 		args = append(args, "--approve-browser-operation", operation)
 	}
-	command := runBounded(ctx, exampleDir, args, nil, "")
+	command := runBounded(ctx, scenarioDeadline, exampleDir, args, nil, "")
 	if command.err != nil {
 		return replayResult{failureCode: journeyFailureCode(filepath.Join(exampleDir, "execution-report.json"))}
 	}
@@ -928,31 +934,29 @@ type boundedCommand struct {
 	err    error
 }
 
-func runBounded(ctx context.Context, directory string, args []string, environment map[string]string, input string) boundedCommand {
+func runBounded(ctx context.Context, timeout time.Duration, directory string, args []string, environment map[string]string, input string) boundedCommand {
 	if len(args) == 0 {
 		return boundedCommand{err: fmt.Errorf("empty scenario command")}
 	}
-	command := exec.CommandContext(ctx, args[0], args[1:]...)
-	command.Dir = directory
-	command.Env = scenarioEnvironment(environment)
-	command.Stdin = strings.NewReader(input)
 	var stdout, stderr limitedWriter
 	stdout.limit, stderr.limit = scenarioCommandOutputLimit, scenarioCommandOutputLimit
-	command.Stdout, command.Stderr = &stdout, &stderr
-	err := command.Run()
+	err := processgroup.Run(ctx, timeout, processgroup.Invocation{
+		Args: args, Dir: directory, Env: scenarioEnvironment(environment), Stdin: strings.NewReader(input),
+		Stdout: &stdout, Stderr: &stderr,
+	})
 	if stdout.overflow || stderr.overflow {
 		err = fmt.Errorf("scenario subprocess output exceeded its bound")
 	}
 	return boundedCommand{stdout: stdout.Bytes(), stderr: stderr.Bytes(), err: err}
 }
 
-func runSilent(ctx context.Context, directory string, args []string, environment map[string]string) bool {
-	result := runBounded(ctx, directory, args, environment, "")
+func runSilent(ctx context.Context, timeout time.Duration, directory string, args []string, environment map[string]string) bool {
+	result := runBounded(ctx, timeout, directory, args, environment, "")
 	return result.err == nil
 }
 
 func commandOutputContains(ctx context.Context, directory string, args []string, wanted string) bool {
-	result := runBounded(ctx, directory, args, nil, "")
+	result := runBounded(ctx, probeDeadline, directory, args, nil, "")
 	return result.err == nil && strings.Contains(string(result.stdout), wanted)
 }
 

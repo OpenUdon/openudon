@@ -45,23 +45,6 @@ func CompleteJSONWithFallback(ctx context.Context, client ChatClient, transcript
 	return JSONCompletionResult{Mode: result.Mode, Raw: result.Raw}, nil
 }
 
-// ExtractJSONBlock extracts a JSON object from a raw model response.
-func ExtractJSONBlock(response string) (string, error) {
-	raw, err := structured.ExtractJSONBlock(response)
-	return string(raw), err
-}
-
-// DecodeJSONBlock extracts and decodes a JSON object from a model response.
-func DecodeJSONBlock(raw string, target any) error {
-	return structured.DecodeJSONBlock(raw, target)
-}
-
-// AppendLegacyJSONInstruction appends a JSON-only instruction to the last user
-// turn if one is not already present.
-func AppendLegacyJSONInstruction(transcript []TranscriptTurn, instruction string) []TranscriptTurn {
-	return fromPublicTurns(structured.AppendLegacyJSONInstruction(toPublicTurns(transcript), instruction))
-}
-
 // RenderTranscriptSnapshot renders a markdown-ish transcript snapshot.
 func RenderTranscriptSnapshot(transcript []TranscriptTurn) string {
 	var b strings.Builder

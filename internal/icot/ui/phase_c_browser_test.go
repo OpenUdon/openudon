@@ -10,7 +10,6 @@ import (
 	"net"
 	"net/http"
 	"net/http/httptest"
-	"net/url"
 	"os"
 	"strings"
 	"sync"
@@ -163,13 +162,14 @@ func (e *phaseCBrowserEngine) mutationRecord() (int, int, []authoring.RoundAnswe
 }
 
 type phaseCBrowserFixture struct {
-	engine    *phaseCBrowserEngine
-	server    *http.Server
-	listener  net.Listener
-	token     string
-	authority string
-	url       string
-	delay     *phaseCSnapshotDelay
+	engine     *phaseCBrowserEngine
+	server     *http.Server
+	listener   net.Listener
+	token      string
+	accessCode string
+	authority  string
+	url        string
+	delay      *phaseCSnapshotDelay
 }
 
 func newPhaseCBrowserFixture(t *testing.T, browserEngine *phaseCBrowserEngine) *phaseCBrowserFixture {
@@ -180,8 +180,9 @@ func newPhaseCBrowserFixture(t *testing.T, browserEngine *phaseCBrowserEngine) *
 	}
 	authority := listener.Addr().String()
 	token := "phase-c-browser-test-capability"
+	accessCode := "0123456789AB"
 	handler, err := NewHandler(HandlerConfig{
-		Engine: browserEngine, Snapshot: browserEngine.snapshot, ExampleDir: "/tmp/phase-c-browser", Token: token, Authority: authority,
+		Engine: browserEngine, Snapshot: browserEngine.snapshot, ExampleDir: "/tmp/phase-c-browser", Token: token, AccessCode: accessCode, Authority: authority,
 	})
 	if err != nil {
 		_ = listener.Close()
@@ -196,8 +197,8 @@ func newPhaseCBrowserFixture(t *testing.T, browserEngine *phaseCBrowserEngine) *
 	done := make(chan error, 1)
 	go func() { done <- server.Serve(listener) }()
 	fixture := &phaseCBrowserFixture{
-		engine: browserEngine, server: server, listener: listener, token: token, authority: authority,
-		url: "http://" + authority + instanceBasePath(token) + "?token=" + url.QueryEscape(token), delay: delay,
+		engine: browserEngine, server: server, listener: listener, token: token, accessCode: accessCode, authority: authority,
+		url: "http://" + authority + "/", delay: delay,
 	}
 	t.Cleanup(func() {
 		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
@@ -299,6 +300,12 @@ func newPhaseCPage(t *testing.T, browser playwright.Browser, fixture *phaseCBrow
 	}
 	t.Cleanup(func() { _ = page.Close() })
 	if _, err := page.Goto(fixture.url, playwright.PageGotoOptions{WaitUntil: playwright.WaitUntilStateDomcontentloaded}); err != nil {
+		t.Fatal(err)
+	}
+	if err := page.Locator(`input[name="code"]`).Fill(fixture.accessCode); err != nil {
+		t.Fatal(err)
+	}
+	if err := page.Locator(`button[type="submit"]`).Click(); err != nil {
 		t.Fatal(err)
 	}
 	waitForLocatorText(t, page.Locator("#connection"), "Connected")

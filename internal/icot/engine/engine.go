@@ -21,6 +21,7 @@ import (
 	"github.com/OpenUdon/openudon/internal/icot/artifactwriter"
 	"github.com/OpenUdon/openudon/internal/icot/elicitor"
 	"github.com/OpenUdon/openudon/internal/projectwizard"
+	"github.com/OpenUdon/openudon/internal/sourcecatalog"
 	rollout "github.com/OpenUdon/openudon/internal/workflowintent"
 )
 
@@ -751,7 +752,7 @@ func loadExampleSession(seedDir string, required bool) (elicitor.Session, error)
 	}
 	intent, intentErr := parseSeedIntent(seedDir)
 	if intentErr == nil {
-		return elicitor.SessionFromIntent(intent, project), nil
+		return elicitor.SessionFromIntent(intent, project)
 	}
 	if projectErr == nil {
 		return elicitor.NewSessionFromAnswers(project), nil
@@ -799,6 +800,16 @@ func cloneSession(session elicitor.Session) (elicitor.Session, error) {
 	cloned, err := elicitor.DecodeSession(data, ".json")
 	if err != nil {
 		return elicitor.Session{}, err
+	}
+	cloned.DraftOperations = append([]elicitor.OperationDetailRef(nil), session.DraftOperations...)
+	if len(session.DraftEvents) > 0 {
+		draftData, err := json.Marshal(session.DraftEvents)
+		if err != nil {
+			return elicitor.Session{}, err
+		}
+		if err := json.Unmarshal(draftData, &cloned.DraftEvents); err != nil {
+			return elicitor.Session{}, err
+		}
 	}
 	for index := range cloned.SourcePlan {
 		key := cloned.SourcePlan[index].TargetPath + "\x00" + cloned.SourcePlan[index].SHA256
@@ -850,7 +861,7 @@ func normalizeNetworkPolicy(policy string) (string, error) {
 }
 
 func appendSeedSourceRoots(roots []string, seedDir string) []string {
-	for _, dir := range []string{"openapi", "google-discovery", "discovery", "aws-smithy", "asyncapi", "graphql", "openrpc", "grpc-protobuf", "odata", "browser-profiles", "browser-authentication", "capability-bundles"} {
+	for _, dir := range sourcecatalog.All() {
 		path := filepath.Join(seedDir, dir)
 		if info, err := os.Lstat(path); err == nil && info.IsDir() && info.Mode()&os.ModeSymlink == 0 {
 			roots = append(roots, path)

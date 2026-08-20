@@ -527,6 +527,11 @@ func cloneSession(session Session) (Session, error) {
 	clone.Assumptions = append([]Assumption(nil), session.Assumptions...)
 	clone.Classifications = append([]MappingClassification(nil), session.Classifications...)
 	clone.DecisionEvidence = append([]DecisionEvidence(nil), session.DecisionEvidence...)
+	clone.DraftOperations = append([]OperationDetailRef(nil), session.DraftOperations...)
+	clone.DraftEvents, err = cloneDraftEvents(session.DraftEvents)
+	if err != nil {
+		return Session{}, err
+	}
 	contentBySource := map[string][]byte{}
 	for _, source := range session.SourcePlan {
 		if len(source.MaterializedContent) == 0 {
@@ -540,6 +545,35 @@ func cloneSession(session Session) (Session, error) {
 		clone.SourcePlan[index].MaterializedContent = append([]byte(nil), contentBySource[key]...)
 	}
 	return clone, nil
+}
+
+func cloneDraftEvents(events []TranscriptEvent) ([]TranscriptEvent, error) {
+	if len(events) == 0 {
+		return nil, nil
+	}
+	data, err := json.Marshal(events)
+	if err != nil {
+		return nil, fmt.Errorf("clone draft events: %w", err)
+	}
+	var cloned []TranscriptEvent
+	if err := json.Unmarshal(data, &cloned); err != nil {
+		return nil, fmt.Errorf("clone draft events: %w", err)
+	}
+	return cloned, nil
+}
+
+func cloneDraftEventsForMerge(events []TranscriptEvent) []TranscriptEvent {
+	cloned, err := cloneDraftEvents(events)
+	if err == nil {
+		return cloned
+	}
+	cloned = make([]TranscriptEvent, len(events))
+	for i, event := range events {
+		cloned[i] = TranscriptEvent{Kind: event.Kind, Type: event.Type, Data: map[string]any{
+			"error": "draft event payload was not JSON-serializable and was omitted during merge",
+		}}
+	}
+	return cloned
 }
 
 // FinalApprovalNodeID exposes the non-deferrable proposal approval identity to

@@ -1,6 +1,6 @@
 {
   "status": "pass",
-  "example": "/home/peter/Workspace/openudon/examples/slack-message-audit-log",
+  "example": "slack-message-audit-log",
   "max_attempts": 1,
   "prompt_version": "intent.v3",
   "attempts": [

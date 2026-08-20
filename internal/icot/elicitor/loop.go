@@ -832,11 +832,3 @@ func parsePriorStepSource(source string, prior []*rollout.Step) (string, string,
 	}
 	return "", "", false
 }
-
-func oneLine(value string) string {
-	value = strings.Join(strings.Fields(value), " ")
-	if len(value) <= 80 {
-		return value
-	}
-	return value[:77] + "..."
-}

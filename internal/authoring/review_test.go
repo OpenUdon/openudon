@@ -1,6 +1,7 @@
 package authoring
 
 import (
+	"context"
 	"os"
 	"path/filepath"
 	"strings"
@@ -9,7 +10,7 @@ import (
 
 func TestValidateReviewHandoffRequiresSafePackage(t *testing.T) {
 	manifest := NewReviewHandoff(ReviewHandoffOptions{
-		HandoffInputs: []ReviewHandoffInput{{Path: "project.md", Purpose: "brief", Required: true}},
+		HandoffInputs: []ReviewHandoffInput{{Path: "project.md", Purpose: "brief", Required: true, SHA256: strings.Repeat("0", 64)}},
 		OwnerSplit: ReviewOwnerSplit{
 			"openudon": {"review package"},
 		},
@@ -24,7 +25,7 @@ func TestValidateReviewHandoffRequiresSafePackage(t *testing.T) {
 	if diagnostics := ValidateReviewHandoff(manifest); len(diagnostics) != 0 {
 		t.Fatalf("expected valid handoff, got %#v", diagnostics)
 	}
-	manifest.HandoffInputs = append(manifest.HandoffInputs, ReviewHandoffInput{Path: "../secret.txt", Required: true})
+	manifest.HandoffInputs = append(manifest.HandoffInputs, ReviewHandoffInput{Path: "../secret.txt", Required: true, SHA256: strings.Repeat("0", 64)})
 	if diagnostics := ValidateReviewHandoff(manifest); len(diagnostics) == 0 {
 		t.Fatalf("expected unsafe input path diagnostic")
 	}
@@ -79,6 +80,32 @@ func TestComputeReviewHandoffDigestRejectsSymlinkInput(t *testing.T) {
 	})
 	if err == nil || !strings.Contains(err.Error(), "symlink") {
 		t.Fatalf("expected symlink digest input rejection, got %v", err)
+	}
+}
+
+func TestComputeReviewHandoffDigestIsBoundedAndCancelable(t *testing.T) {
+	root := t.TempDir()
+	oversize := filepath.Join(root, "project.md")
+	file, err := os.Create(oversize)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := file.Truncate(8<<20 + 1); err != nil {
+		file.Close()
+		t.Fatal(err)
+	}
+	if err := file.Close(); err != nil {
+		t.Fatal(err)
+	}
+	opts := ReviewHandoffDigestOptions{Root: root, Inputs: []ReviewHandoffInput{{Path: "project.md", Required: true}}}
+	if _, err := ComputeReviewHandoffDigest(opts); err == nil || !strings.Contains(err.Error(), "limit") {
+		t.Fatalf("expected bounded-read failure, got %v", err)
+	}
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	opts.Context = ctx
+	if _, err := ComputeReviewHandoffDigest(opts); err != context.Canceled {
+		t.Fatalf("expected context cancellation, got %v", err)
 	}
 }
 

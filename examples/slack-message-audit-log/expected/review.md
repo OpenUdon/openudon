@@ -28,7 +28,7 @@
 
 ## OpenAPI Discovery Attempts
 
-- `local` pass `/home/peter/Workspace/openudon/examples/slack-message-audit-log/openapi` - 1 local OpenAPI document(s)
+- `local` pass `openapi` - 1 local OpenAPI document(s)
 
 ## Catalog Advisory
 
@@ -121,7 +121,7 @@
 - Production execution requires `approved_for_production`; do not use this command as production approval.
 - Credential binding audit must verify named runtime bindings and no literal secret values.
 - Dry-run handoff validates approval state, package digest, stored/current quality, tier compatibility, credential-value policy, and direct-production policy before executor invocation.
-- The generated run config is `openudon.executor-run.v1`; it carries package paths, `package_sha256`, tier, workdir, and credential binding names, not credential values.
+- The generated run config is `openudon.executor-run.v2`; it carries package paths, `package_sha256`, tier, workdir, and credential binding names, not credential values.
 
 Trusted dry run, before any executor invocation:
 

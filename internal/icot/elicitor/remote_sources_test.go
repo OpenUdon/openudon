@@ -57,6 +57,19 @@ func TestDiscoverRemoteSourceHintsUsesOneBoundedAPIsGuruLookup(t *testing.T) {
 	}
 }
 
+func TestRemoteSearchClientLeavesSafeTransportToAPITools(t *testing.T) {
+	client := remoteSearchClient(RemoteSourceLookupOptions{}, time.Second)
+	if client.HTTPClient != nil {
+		t.Fatalf("default remote search installed a custom HTTP client: %#v", client.HTTPClient)
+	}
+
+	explicit := &http.Client{}
+	client = remoteSearchClient(RemoteSourceLookupOptions{HTTPClient: explicit, AllowUnsafeHosts: true}, time.Second)
+	if client.HTTPClient != explicit || !client.AllowUnsafeHosts {
+		t.Fatalf("explicit unsafe-host test client was not preserved: %#v", client)
+	}
+}
+
 func TestDiscoverRemoteSourceHintsReportsEmptyAndTimeout(t *testing.T) {
 	t.Run("empty", func(t *testing.T) {
 		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {

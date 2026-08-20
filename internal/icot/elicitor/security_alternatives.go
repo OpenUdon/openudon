@@ -1,6 +1,9 @@
 package elicitor
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
+	"encoding/json"
 	"fmt"
 	"sort"
 	"strconv"
@@ -77,22 +80,74 @@ func selectedSecurityAlternative(session Session, step *rollout.Step, op *apitoo
 	if selected == "" {
 		return apitools.SecurityRequirementSetSummary{}, false
 	}
-	if index, err := strconv.Atoi(selected); err == nil && index > 0 && index <= len(op.SecurityRequirementSets) {
-		return op.SecurityRequirementSets[index-1], true
-	}
-	match := -1
-	for index, set := range op.SecurityRequirementSets {
-		if strings.EqualFold(selected, securityAlternativeLabel(set)) {
-			if match >= 0 {
-				return apitools.SecurityRequirementSetSummary{}, false
-			}
-			match = index
+	for _, set := range op.SecurityRequirementSets {
+		if selected == securityAlternativeFingerprint(set) {
+			return set, true
 		}
 	}
-	if match >= 0 {
-		return op.SecurityRequirementSets[match], true
+	if index, err := strconv.Atoi(selected); err == nil && index > 0 && index <= len(op.SecurityRequirementSets) &&
+		legacySecurityAlternativeConfirmed(session, step, op, index-1) {
+		return op.SecurityRequirementSets[index-1], true
 	}
 	return apitools.SecurityRequirementSetSummary{}, false
+}
+
+func securityAlternativeFingerprint(set apitools.SecurityRequirementSetSummary) string {
+	normalized := set
+	normalized.Requirements = append([]apitools.SecuritySummary(nil), set.Requirements...)
+	for i := range normalized.Requirements {
+		requirement := &normalized.Requirements[i]
+		requirement.Flows = sortedSecurityStrings(requirement.Flows)
+		requirement.Scopes = sortedSecurityStrings(requirement.Scopes)
+		requirement.OAuthFlows = append([]apitools.OAuthFlowSummary(nil), requirement.OAuthFlows...)
+		for j := range requirement.OAuthFlows {
+			requirement.OAuthFlows[j].Scopes = sortedSecurityStrings(requirement.OAuthFlows[j].Scopes)
+		}
+		sort.SliceStable(requirement.OAuthFlows, func(a, b int) bool {
+			left, _ := json.Marshal(requirement.OAuthFlows[a])
+			right, _ := json.Marshal(requirement.OAuthFlows[b])
+			return string(left) < string(right)
+		})
+	}
+	sort.SliceStable(normalized.Requirements, func(i, j int) bool {
+		left, _ := json.Marshal(normalized.Requirements[i])
+		right, _ := json.Marshal(normalized.Requirements[j])
+		return string(left) < string(right)
+	})
+	data, _ := json.Marshal(normalized)
+	digest := sha256.Sum256(data)
+	return "sha256:" + hex.EncodeToString(digest[:])
+}
+
+func sortedSecurityStrings(values []string) []string {
+	out := append([]string(nil), values...)
+	sort.Strings(out)
+	return out
+}
+
+func legacySecurityAlternativeConfirmed(session Session, step *rollout.Step, op *apitools.OperationSummary, index int) bool {
+	if index < 0 || index >= len(op.SecurityRequirementSets) {
+		return false
+	}
+	label := securityAlternativeLabel(op.SecurityRequirementSets[index])
+	matches := 0
+	for _, set := range op.SecurityRequirementSets {
+		if strings.EqualFold(label, securityAlternativeLabel(set)) {
+			matches++
+		}
+	}
+	if matches != 1 {
+		return false
+	}
+	evidenceMatches := 0
+	for _, evidence := range session.DecisionEvidence {
+		evidence = normalizeDecisionEvidence(evidence)
+		if evidence.Slot == securityAlternativeSlot(step) && strings.EqualFold(evidence.Value, label) &&
+			evidence.Source == mappingSourceUser && evidence.Confidence == mappingConfidenceHigh && !evidence.RequiresConfirmation {
+			evidenceMatches++
+		}
+	}
+	return evidenceMatches == 1
 }
 
 func selectSecurityAlternative(session *Session, step *rollout.Step, op *apitools.OperationSummary, answer string) bool {
@@ -121,7 +176,7 @@ func selectSecurityAlternative(session *Session, step *rollout.Step, op *apitool
 	if session.Interview.Metadata == nil {
 		session.Interview.Metadata = map[string]string{}
 	}
-	session.Interview.Metadata[securityAlternativeMetadataKey(step)] = strconv.Itoa(selectedIndex + 1)
+	session.Interview.Metadata[securityAlternativeMetadataKey(step)] = securityAlternativeFingerprint(op.SecurityRequirementSets[selectedIndex])
 	addDecisionEvidence(session, DecisionEvidence{
 		Stage:      decisionStageOperation,
 		Slot:       securityAlternativeSlot(step),

@@ -132,12 +132,6 @@ func printLint(out io.Writer, checks []synthesize.QualityCheck) bool {
 	return failed
 }
 
-func lintIntent(out io.Writer, path string) (*rollout.Intent, error) {
-	intent, check, err := lintIntentReport(path)
-	printIntentLint(out, check)
-	return intent, err
-}
-
 func lintIntentReport(path string) (*rollout.Intent, synthesize.QualityCheck, error) {
 	intent, err := rollout.ParseIntentFile(path)
 	if err != nil {

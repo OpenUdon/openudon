@@ -3,10 +3,10 @@ package workflowintent
 import (
 	"context"
 	"fmt"
-	"os"
 	"strings"
 
 	"github.com/OpenUdon/openudon/internal/authoring"
+	"github.com/OpenUdon/openudon/internal/evidencefile"
 )
 
 func WorkflowFlow() authoring.Flow[*Intent] {
@@ -82,7 +82,7 @@ func (WorkflowAdapter) ParseIntent(ctx context.Context, artifact authoring.Artif
 	data := artifact.Content
 	if len(data) == 0 && path != "" {
 		var err error
-		data, err = os.ReadFile(path)
+		data, _, err = evidencefile.ReadRegular(path, evidencefile.DefaultMaxBytes)
 		if err != nil {
 			return nil, []authoring.Diagnostic{diagnostic("error", "intent_read_failed", err.Error(), path)}, err
 		}

@@ -1,13 +1,12 @@
 package trustedrunner
 
 import (
-	"bytes"
 	"context"
+	"crypto/rand"
 	"encoding/json"
 	"fmt"
 	"io"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"sort"
 	"strings"
@@ -16,7 +15,11 @@ import (
 	asyncevidence "github.com/OpenUdon/evidence/async"
 	evdigest "github.com/OpenUdon/evidence/digest"
 	"github.com/OpenUdon/openudon/internal/authoring"
+	"github.com/OpenUdon/openudon/internal/authoring/atomicfile"
+	"github.com/OpenUdon/openudon/internal/evidencefile"
+	"github.com/OpenUdon/openudon/internal/executablefile"
 	"github.com/OpenUdon/openudon/internal/packageartifacts"
+	"github.com/OpenUdon/openudon/internal/processgroup"
 	"github.com/OpenUdon/openudon/internal/synthesize"
 	"github.com/OpenUdon/openudon/internal/udonrunner"
 )
@@ -25,7 +28,8 @@ const (
 	ApprovalVersion            = "openudon.approval.v1"
 	AsyncEvidenceVersion       = "openudon.async-evidence-bundle.v1"
 	RunConfigVersion           = udonrunner.RunConfigVersion
-	RunEvidenceVersion         = "openudon.run-evidence.v1"
+	RunEvidenceVersion         = "openudon.run-evidence.v2"
+	LegacyRunEvidenceVersion   = "openudon.run-evidence.v1"
 	UdonExecutionReportVersion = "udon.execution-report.v1"
 	ReviewHandoffVersion       = authoring.ReviewHandoffVersion
 
@@ -58,8 +62,10 @@ type Options struct {
 	Stdout       io.Writer
 	Stderr       io.Writer
 	Now          func() time.Time
+	Env          []string
 	Assess       func(context.Context, synthesize.Options) (*synthesize.QualityReport, error)
-	RunCommand   func(context.Context, string, ...string) error
+	Invoke       udonrunner.InvokeFunc
+	SigningKey   string
 }
 
 type TemplateOptions struct {
@@ -73,6 +79,7 @@ type TemplateOptions struct {
 }
 
 type RunResult struct {
+	RunID             string
 	Scope             string
 	Tier              string
 	PackageSHA256     string
@@ -94,12 +101,16 @@ type RunConfig = udonrunner.Config
 
 type RunEvidence struct {
 	Version            string                 `json:"version"`
+	RunID              string                 `json:"run_id"`
 	CreatedAt          string                 `json:"created_at"`
 	Scope              string                 `json:"scope"`
 	Tier               string                 `json:"tier"`
 	DryRun             bool                   `json:"dry_run"`
 	ApprovalState      string                 `json:"approval_state"`
 	PackageSHA256      string                 `json:"package_sha256"`
+	HandoffSHA256      string                 `json:"handoff_sha256"`
+	ApprovalSHA256     string                 `json:"approval_sha256"`
+	RunConfigSHA256    string                 `json:"run_config_sha256"`
 	RunConfigPath      string                 `json:"run_config_path"`
 	PackageRoot        string                 `json:"package_root"`
 	WorkDir            string                 `json:"workdir"`
@@ -121,11 +132,13 @@ type RunEvidenceGate struct {
 }
 
 type RunEvidenceExecutor struct {
-	Invoked    bool     `json:"invoked"`
-	Mode       string   `json:"mode"`
-	RunnerPath string   `json:"runner_path,omitempty"`
-	Argv       []string `json:"argv,omitempty"`
-	ReportPath string   `json:"report_path,omitempty"`
+	Invoked      bool     `json:"invoked"`
+	Mode         string   `json:"mode"`
+	RunnerPath   string   `json:"runner_path,omitempty"`
+	Argv         []string `json:"argv,omitempty"`
+	ReportPath   string   `json:"report_path,omitempty"`
+	ReportSHA256 string   `json:"report_sha256,omitempty"`
+	ReportSize   int64    `json:"report_size,omitempty"`
 }
 
 type RunEvidenceAsyncFile struct {
@@ -178,6 +191,10 @@ func Run(ctx context.Context, opts Options) (*RunResult, error) {
 	if ctx == nil {
 		ctx = context.Background()
 	}
+	signingKeyPEM, err := loadSigningKeyPEM(opts.SigningKey)
+	if err != nil {
+		return nil, fmt.Errorf("validate signing key before execution: %w", err)
+	}
 	p, manifest, digest, err := validatePackage(ctx, packageOptions{
 		RepoRoot:   opts.RepoRoot,
 		ExampleDir: opts.ExampleDir,
@@ -189,7 +206,7 @@ func Run(ctx context.Context, opts Options) (*RunResult, error) {
 	if err := validateManifestPolicy(manifest); err != nil {
 		return nil, err
 	}
-	approval, err := readApproval(opts.ApprovalPath)
+	approval, approvalBytes, err := readApprovalDocument(opts.ApprovalPath)
 	if err != nil {
 		return nil, err
 	}
@@ -198,11 +215,16 @@ func Run(ctx context.Context, opts Options) (*RunResult, error) {
 		return nil, err
 	}
 
-	workdir, err := resolveRunWorkDir(p, opts.WorkDir)
+	runID, err := newRunID()
+	if err != nil {
+		return nil, fmt.Errorf("create run ID: %w", err)
+	}
+	workdir, err := resolveRunWorkDir(p, opts.WorkDir, runID)
 	if err != nil {
 		return nil, err
 	}
 	result := &RunResult{
+		RunID:         runID,
 		Scope:         p.scope,
 		Tier:          opts.Tier,
 		PackageSHA256: digest,
@@ -210,36 +232,43 @@ func Run(ctx context.Context, opts Options) (*RunResult, error) {
 		WorkDir:       workdir,
 		DryRun:        opts.DryRun,
 	}
-	runConfig, err := buildRunConfig(p, manifest, digest, opts.Tier, result.WorkDir)
+	handoffBytes, _, err := evidencefile.ReadRegular(p.handoff, evidencefile.DefaultMaxBytes)
+	if err != nil {
+		return nil, fmt.Errorf("read validated handoff manifest: %w", err)
+	}
+	runConfig, err := buildRunConfig(p, manifest, digest, opts.Tier, result.WorkDir, runID, evidencefile.SHA256(handoffBytes), evidencefile.SHA256(approvalBytes))
 	if err != nil {
 		return nil, err
 	}
-	runConfigPath, err := writeRunConfig(runConfig)
+	runConfigPath, runConfigBytes, err := writeRunConfig(runConfig)
 	if err != nil {
 		return nil, err
 	}
 	result.RunConfigPath = runConfigPath
+	runConfigDigest := evidencefile.SHA256(runConfigBytes)
 	if opts.DryRun {
-		prepared, err := udonrunner.PrepareConfig(ctx, udonrunner.Options{
-			ConfigPath: runConfigPath,
-			RepoRoot:   p.repoRoot,
+		prepared, err := udonrunner.Prepare(ctx, runConfig, udonrunner.Options{
+			RepoRoot: p.repoRoot,
+			Env:      opts.Env,
 		})
 		if err != nil {
 			return nil, fmt.Errorf("prepare trusted executor dry-run: %w", err)
 		}
 		result.StagePath = prepared.StagePath
 		evidencePath, asyncEvidencePath, err := writeRunEvidenceWithAsync(result.WorkDir, runEvidenceOptions{
-			Config:         runConfig,
-			Approval:       approval,
-			Prepared:       prepared,
-			Result:         result,
-			Mode:           "dry-run",
-			StageKind:      "dry-run",
-			ExecutorStatus: "",
-			Now:            now,
+			Config:          runConfig,
+			Approval:        approval,
+			Prepared:        prepared,
+			Result:          result,
+			Mode:            "dry-run",
+			StageKind:       "dry-run",
+			ExecutorStatus:  "",
+			Now:             now,
+			RunConfigSHA256: runConfigDigest,
+			SigningKeyPEM:   signingKeyPEM,
 		})
 		if err != nil {
-			return nil, err
+			return result, fmt.Errorf("write dry-run evidence: %w", err)
 		}
 		result.RunEvidencePath = evidencePath
 		result.AsyncEvidencePath = asyncEvidencePath
@@ -251,40 +280,46 @@ func Run(ctx context.Context, opts Options) (*RunResult, error) {
 		if err := validateRunnerPath("OPENUDON_UDON_RUNNER", runnerPath); err != nil {
 			return nil, err
 		}
-		prepared, err := udonrunner.PrepareConfig(ctx, udonrunner.Options{
-			ConfigPath:              runConfigPath,
+		prepared, err := udonrunner.Prepare(ctx, runConfig, udonrunner.Options{
 			RepoRoot:                p.repoRoot,
+			Env:                     opts.Env,
 			RequireCredentialValues: true,
 		})
 		if err != nil {
 			return nil, fmt.Errorf("prepare trusted executor: %w", err)
 		}
 		result.StagePath = prepared.StagePath
-		args := []string{"--config", runConfigPath}
+		prepared.ExecutorReportPath, err = externalExecutorReportPath(runConfig)
+		if err != nil {
+			return nil, fmt.Errorf("prepare external executor report path: %w", err)
+		}
+		args := []string{"--config", runConfigPath, "--config-sha256", runConfigDigest, "--approval", opts.ApprovalPath}
 		executorArgv := append([]string{runnerPath}, args...)
-		runCommand := opts.RunCommand
-		if runCommand == nil {
-			runCommand = func(ctx context.Context, name string, args ...string) error {
-				cmd := exec.CommandContext(ctx, name, args...)
-				cmd.Dir = p.repoRoot
-				cmd.Stdout = opts.Stdout
-				cmd.Stderr = opts.Stderr
-				return cmd.Run()
+		invocation := udonrunner.Invocation{Argv: executorArgv, Dir: p.repoRoot, Env: outerRunnerEnvironment(opts.Env, runConfig)}
+		invoke := opts.Invoke
+		if invoke == nil {
+			invoke = func(ctx context.Context, invocation udonrunner.Invocation) error {
+				return processgroup.RunContext(ctx, processgroup.Invocation{
+					Args: invocation.Argv, Dir: invocation.Dir, Env: invocation.Env,
+					Stdout: opts.Stdout, Stderr: opts.Stderr,
+				})
 			}
 		}
-		if err := runCommand(ctx, runnerPath, args...); err != nil {
+		if err := invoke(ctx, invocation); err != nil {
 			evidencePath, asyncEvidencePath, evidenceErr := writeRunEvidenceWithAsync(result.WorkDir, runEvidenceOptions{
-				Config:         runConfig,
-				Approval:       approval,
-				Prepared:       prepared,
-				Result:         result,
-				Invoked:        true,
-				Mode:           "external-runner",
-				RunnerPath:     runnerPath,
-				ExecutorArgv:   executorArgv,
-				StageKind:      "preflight",
-				ExecutorStatus: "fail",
-				Now:            now,
+				Config:          runConfig,
+				Approval:        approval,
+				Prepared:        prepared,
+				Result:          result,
+				Invoked:         true,
+				Mode:            "external-runner",
+				RunnerPath:      runnerPath,
+				ExecutorArgv:    executorArgv,
+				StageKind:       "preflight",
+				ExecutorStatus:  "fail",
+				Now:             now,
+				RunConfigSHA256: runConfigDigest,
+				SigningKeyPEM:   signingKeyPEM,
 			})
 			if evidenceErr != nil {
 				return result, fmt.Errorf("run trusted executor: %w; write run evidence: %v", err, evidenceErr)
@@ -294,44 +329,48 @@ func Run(ctx context.Context, opts Options) (*RunResult, error) {
 			return result, fmt.Errorf("run trusted executor: %w", err)
 		}
 		evidencePath, asyncEvidencePath, err := writeRunEvidenceWithAsync(result.WorkDir, runEvidenceOptions{
-			Config:         runConfig,
-			Approval:       approval,
-			Prepared:       prepared,
-			Result:         result,
-			Invoked:        true,
-			Mode:           "external-runner",
-			RunnerPath:     runnerPath,
-			ExecutorArgv:   executorArgv,
-			StageKind:      "preflight",
-			ExecutorStatus: "pass",
-			Now:            now,
+			Config:          runConfig,
+			Approval:        approval,
+			Prepared:        prepared,
+			Result:          result,
+			Invoked:         true,
+			Mode:            "external-runner",
+			RunnerPath:      runnerPath,
+			ExecutorArgv:    executorArgv,
+			StageKind:       "preflight",
+			ExecutorStatus:  "pass",
+			Now:             now,
+			RunConfigSHA256: runConfigDigest,
+			SigningKeyPEM:   signingKeyPEM,
 		})
 		if err != nil {
-			return nil, err
+			return result, fmt.Errorf("write run evidence after successful external runner invocation: %w", err)
 		}
 		result.RunEvidencePath = evidencePath
 		result.AsyncEvidencePath = asyncEvidencePath
 		return result, nil
 	}
-	prepared, err := udonrunner.RunConfig(ctx, udonrunner.Options{
-		ConfigPath: runConfigPath,
-		RepoRoot:   p.repoRoot,
-		Stdout:     opts.Stdout,
-		Stderr:     opts.Stderr,
-		RunCommand: opts.RunCommand,
+	prepared, err := udonrunner.Run(ctx, runConfig, udonrunner.Options{
+		RepoRoot: p.repoRoot,
+		Env:      opts.Env,
+		Stdout:   opts.Stdout,
+		Stderr:   opts.Stderr,
+		Invoke:   opts.Invoke,
 	})
 	if err != nil {
 		result.StagePath = prepared.StagePath
 		evidencePath, asyncEvidencePath, evidenceErr := writeRunEvidenceWithAsync(result.WorkDir, runEvidenceOptions{
-			Config:         runConfig,
-			Approval:       approval,
-			Prepared:       prepared,
-			Result:         result,
-			Invoked:        true,
-			Mode:           "internal-runner",
-			StageKind:      "executor",
-			ExecutorStatus: "fail",
-			Now:            now,
+			Config:          runConfig,
+			Approval:        approval,
+			Prepared:        prepared,
+			Result:          result,
+			Invoked:         true,
+			Mode:            "internal-runner",
+			StageKind:       "executor",
+			ExecutorStatus:  "fail",
+			Now:             now,
+			RunConfigSHA256: runConfigDigest,
+			SigningKeyPEM:   signingKeyPEM,
 		})
 		if evidenceErr != nil {
 			return result, fmt.Errorf("run trusted executor: %w; write run evidence: %v", err, evidenceErr)
@@ -342,18 +381,20 @@ func Run(ctx context.Context, opts Options) (*RunResult, error) {
 	}
 	result.StagePath = prepared.StagePath
 	evidencePath, asyncEvidencePath, err := writeRunEvidenceWithAsync(result.WorkDir, runEvidenceOptions{
-		Config:         runConfig,
-		Approval:       approval,
-		Prepared:       prepared,
-		Result:         result,
-		Invoked:        true,
-		Mode:           "internal-runner",
-		StageKind:      "executor",
-		ExecutorStatus: "pass",
-		Now:            now,
+		Config:          runConfig,
+		Approval:        approval,
+		Prepared:        prepared,
+		Result:          result,
+		Invoked:         true,
+		Mode:            "internal-runner",
+		StageKind:       "executor",
+		ExecutorStatus:  "pass",
+		Now:             now,
+		RunConfigSHA256: runConfigDigest,
+		SigningKeyPEM:   signingKeyPEM,
 	})
 	if err != nil {
-		return nil, err
+		return result, fmt.Errorf("write run evidence after successful executor invocation: %w", err)
 	}
 	result.RunEvidencePath = evidencePath
 	result.AsyncEvidencePath = asyncEvidencePath
@@ -364,17 +405,13 @@ func validateRunnerPath(name, path string) error {
 	if !filepath.IsAbs(path) {
 		return fmt.Errorf("%s must be an absolute path: %s", name, path)
 	}
-	info, err := os.Stat(path)
-	if err != nil {
-		return fmt.Errorf("%s does not point to an executable file: %s", name, path)
-	}
-	if info.IsDir() || info.Mode()&0o111 == 0 {
+	if !executablefile.Is(path) {
 		return fmt.Errorf("%s does not point to an executable file: %s", name, path)
 	}
 	return nil
 }
 
-func buildRunConfig(p paths, manifest handoffManifest, digest, tier, workdir string) (RunConfig, error) {
+func buildRunConfig(p paths, manifest handoffManifest, digest, tier, workdir, runID, handoffDigest, approvalDigest string) (RunConfig, error) {
 	relOpenAPI, err := packageartifacts.CollectAPISourcePaths(p.exampleAbs)
 	if err != nil {
 		return RunConfig{}, err
@@ -385,6 +422,7 @@ func buildRunConfig(p paths, manifest handoffManifest, digest, tier, workdir str
 	}
 	config := RunConfig{
 		Version:             RunConfigVersion,
+		RunID:               runID,
 		Scope:               p.scope,
 		Tier:                tier,
 		PackageRoot:         p.exampleAbs,
@@ -396,6 +434,8 @@ func buildRunConfig(p paths, manifest handoffManifest, digest, tier, workdir str
 		OpenAPIPaths:        relOpenAPI,
 		PackagePaths:        packagePaths,
 		PackageSHA256:       digest,
+		HandoffSHA256:       handoffDigest,
+		ApprovalSHA256:      approvalDigest,
 		CredentialBindings:  sortedCredentialBindings(manifest),
 		DirectProductionRun: false,
 	}
@@ -421,22 +461,23 @@ func packagePathsForRunConfig(p paths, manifest handoffManifest) ([]string, erro
 	return append([]string(nil), paths...), nil
 }
 
-func writeRunConfig(config RunConfig) (string, error) {
+func writeRunConfig(config RunConfig) (string, []byte, error) {
 	if strings.TrimSpace(config.WorkDir) == "" {
-		return "", fmt.Errorf("run config workdir is required")
+		return "", nil, fmt.Errorf("run config workdir is required")
 	}
 	if err := os.MkdirAll(config.WorkDir, 0o755); err != nil {
-		return "", err
+		return "", nil, err
 	}
 	path := filepath.Join(config.WorkDir, "run-config.json")
 	data, err := json.MarshalIndent(config, "", "  ")
 	if err != nil {
-		return "", err
+		return "", nil, err
 	}
-	if err := os.WriteFile(path, append(data, '\n'), 0o600); err != nil {
-		return "", err
+	data = append(data, '\n')
+	if err := atomicfile.Write(path, data, 0o600); err != nil {
+		return "", nil, err
 	}
-	return path, nil
+	return path, data, nil
 }
 
 func writeRunEvidence(workdir string, evidence RunEvidence) (string, error) {
@@ -451,33 +492,39 @@ func writeRunEvidence(workdir string, evidence RunEvidence) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	if err := os.WriteFile(path, append(data, '\n'), 0o600); err != nil {
+	if err := atomicfile.Write(path, append(data, '\n'), 0o600); err != nil {
 		return "", err
 	}
 	return path, nil
 }
 
 func VerifyRunEvidenceFile(path string) (VerifyRunEvidenceResult, error) {
+	return VerifyRunEvidenceFileWithOptions(path, VerifyRunEvidenceOptions{})
+}
+
+func VerifyRunEvidenceFileWithOptions(path string, opts VerifyRunEvidenceOptions) (VerifyRunEvidenceResult, error) {
 	path = strings.TrimSpace(path)
 	if path == "" {
 		return VerifyRunEvidenceResult{}, fmt.Errorf("--file is required")
 	}
-	data, err := os.ReadFile(path)
+	data, _, err := evidencefile.ReadRegular(path, evidencefile.DefaultMaxBytes)
 	if err != nil {
 		return VerifyRunEvidenceResult{}, fmt.Errorf("read run evidence: %w", err)
 	}
 	var evidence RunEvidence
-	dec := json.NewDecoder(bytes.NewReader(data))
-	dec.DisallowUnknownFields()
-	if err := dec.Decode(&evidence); err != nil {
+	if err := evidencefile.DecodeStrict(data, &evidence); err != nil {
 		return VerifyRunEvidenceResult{}, fmt.Errorf("run evidence must be valid JSON: %w", err)
-	}
-	var extra struct{}
-	if err := dec.Decode(&extra); err != io.EOF {
-		return VerifyRunEvidenceResult{}, fmt.Errorf("run evidence must contain a single JSON object")
 	}
 	if err := validateRunEvidenceForVerify(evidence); err != nil {
 		return VerifyRunEvidenceResult{}, err
+	}
+	if evidence.Version == LegacyRunEvidenceVersion && (opts.RequireSignature || strings.TrimSpace(opts.TrustedPublicKey) != "") {
+		return VerifyRunEvidenceResult{}, fmt.Errorf("legacy run evidence cannot carry a v0.2 signature")
+	}
+	if evidence.Version == RunEvidenceVersion {
+		if err := verifyRunEvidenceSignature(path, data, opts); err != nil {
+			return VerifyRunEvidenceResult{}, err
+		}
 	}
 	seenAsyncPaths := map[string]bool{}
 	workdir := filepath.Dir(path)
@@ -490,6 +537,14 @@ func VerifyRunEvidenceFile(path string) (VerifyRunEvidenceResult, error) {
 			return VerifyRunEvidenceResult{}, err
 		}
 	}
+	if evidence.Version == RunEvidenceVersion {
+		requireSuccessfulReport := !evidence.DryRun &&
+			(evidence.Executor.Mode == "internal-runner" || evidence.Executor.Mode == "external-runner") &&
+			evidenceGateStatus(evidence, "executor_invocation") == "pass"
+		if err := verifyExecutorReport(workdir, evidence.Executor, requireSuccessfulReport); err != nil {
+			return VerifyRunEvidenceResult{}, err
+		}
+	}
 	return VerifyRunEvidenceResult{
 		RunEvidencePath:    path,
 		AsyncEvidenceFiles: append([]RunEvidenceAsyncFile(nil), evidence.AsyncEvidenceFiles...),
@@ -497,8 +552,8 @@ func VerifyRunEvidenceFile(path string) (VerifyRunEvidenceResult, error) {
 }
 
 func validateRunEvidenceForVerify(evidence RunEvidence) error {
-	if evidence.Version != RunEvidenceVersion {
-		return fmt.Errorf("run evidence version must be %s", RunEvidenceVersion)
+	if evidence.Version != RunEvidenceVersion && evidence.Version != LegacyRunEvidenceVersion {
+		return fmt.Errorf("run evidence version must be %s or read-only legacy %s", RunEvidenceVersion, LegacyRunEvidenceVersion)
 	}
 	if strings.TrimSpace(evidence.Scope) == "" {
 		return fmt.Errorf("run evidence scope is required")
@@ -512,7 +567,106 @@ func validateRunEvidenceForVerify(evidence RunEvidence) error {
 	if strings.TrimSpace(evidence.WorkDir) == "" {
 		return fmt.Errorf("run evidence workdir is required")
 	}
+	if evidence.Version == RunEvidenceVersion {
+		if strings.TrimSpace(evidence.RunID) == "" || !evidencefile.ValidSHA256(evidence.PackageSHA256) ||
+			!evidencefile.ValidSHA256(evidence.HandoffSHA256) || !evidencefile.ValidSHA256(evidence.ApprovalSHA256) ||
+			!evidencefile.ValidSHA256(evidence.RunConfigSHA256) {
+			return fmt.Errorf("run evidence v2 requires run_id and full package, handoff, approval, and config SHA-256 digests")
+		}
+		if err := validateRunEvidenceGates(evidence); err != nil {
+			return err
+		}
+	}
 	return nil
+}
+
+func validateRunEvidenceGates(evidence RunEvidence) error {
+	statuses := make(map[string]string, len(evidence.Gates))
+	for _, gate := range evidence.Gates {
+		name := strings.TrimSpace(gate.Name)
+		status := strings.TrimSpace(gate.Status)
+		if name == "" || (status != "pass" && status != "fail") {
+			return fmt.Errorf("run evidence gate names are required and statuses must be pass or fail")
+		}
+		if _, exists := statuses[name]; exists {
+			return fmt.Errorf("duplicate run evidence gate: %s", name)
+		}
+		statuses[name] = status
+	}
+	for _, name := range []string{"handoff_package", "manifest_policy", "stored_quality", "current_quality", "approval", "run_config", "staged_digest"} {
+		if statuses[name] != "pass" {
+			return fmt.Errorf("run evidence requires passing %s gate", name)
+		}
+	}
+	executorStatus, hasExecutorGate := statuses["executor_invocation"]
+	if evidence.DryRun {
+		if hasExecutorGate || evidence.Executor.Invoked || evidence.Executor.Mode != "dry-run" || evidence.StageKind != "dry-run" {
+			return fmt.Errorf("dry-run evidence must use the non-invoked dry-run execution posture")
+		}
+		return nil
+	}
+	if !hasExecutorGate || (executorStatus != "pass" && executorStatus != "fail") {
+		return fmt.Errorf("non-dry-run evidence requires an executor_invocation gate")
+	}
+	if !evidence.Executor.Invoked {
+		return fmt.Errorf("non-dry-run evidence must record an invoked executor")
+	}
+	switch evidence.Executor.Mode {
+	case "internal-runner":
+		if evidence.StageKind != "executor" {
+			return fmt.Errorf("internal-runner evidence must use the executor stage")
+		}
+	case "external-runner":
+		if evidence.StageKind != "preflight" {
+			return fmt.Errorf("external-runner evidence must use the preflight stage")
+		}
+	default:
+		return fmt.Errorf("non-dry-run evidence has unsupported executor mode %q", evidence.Executor.Mode)
+	}
+	return nil
+}
+
+func verifyExecutorReport(workdir string, executor RunEvidenceExecutor, requiredSuccess bool) error {
+	if strings.TrimSpace(executor.ReportPath) == "" {
+		if executor.ReportSHA256 != "" || executor.ReportSize != 0 {
+			return fmt.Errorf("executor report digest and size require report_path")
+		}
+		if requiredSuccess {
+			return fmt.Errorf("successful executor evidence requires an executor report")
+		}
+		return nil
+	}
+	clean, err := packageartifacts.CleanRelativePath(executor.ReportPath)
+	if err != nil || clean != executor.ReportPath {
+		return fmt.Errorf("executor report path must be safe workdir-relative path: %q", executor.ReportPath)
+	}
+	data, info, err := evidencefile.ReadRegular(filepath.Join(workdir, filepath.FromSlash(clean)), evidencefile.DefaultMaxBytes)
+	if err != nil {
+		return fmt.Errorf("read executor report %s: %w", clean, err)
+	}
+	if info.Size() != executor.ReportSize {
+		return fmt.Errorf("executor report size mismatch for %s", clean)
+	}
+	if evidencefile.SHA256(data) != executor.ReportSHA256 {
+		return fmt.Errorf("executor report digest mismatch for %s", clean)
+	}
+	report, err := decodeUdonExecutionReport(data)
+	if err != nil {
+		return fmt.Errorf("executor report %s is invalid: %w", clean, err)
+	}
+	if requiredSuccess && !strings.EqualFold(report.Status, "success") {
+		return fmt.Errorf("successful executor evidence requires a success report status")
+	}
+	return nil
+}
+
+func evidenceGateStatus(evidence RunEvidence, name string) string {
+	for _, gate := range evidence.Gates {
+		if gate.Name == name {
+			return gate.Status
+		}
+	}
+	return ""
 }
 
 func verifyAsyncEvidenceFile(workdir string, ref RunEvidenceAsyncFile) error {
@@ -530,7 +684,7 @@ func verifyAsyncEvidenceFile(workdir string, ref RunEvidenceAsyncFile) error {
 		return fmt.Errorf("async evidence purpose is invalid for %s", ref.Path)
 	}
 	path := filepath.Join(workdir, filepath.FromSlash(ref.Path))
-	data, err := os.ReadFile(path)
+	data, _, err := evidencefile.ReadRegular(path, evidencefile.DefaultMaxBytes)
 	if err != nil {
 		return fmt.Errorf("read async evidence %s: %w", ref.Path, err)
 	}
@@ -538,14 +692,8 @@ func verifyAsyncEvidenceFile(workdir string, ref RunEvidenceAsyncFile) error {
 		return fmt.Errorf("async evidence digest mismatch for %s: got %s want %s", ref.Path, got, ref.Digest)
 	}
 	var bundle AsyncEvidenceBundle
-	dec := json.NewDecoder(bytes.NewReader(data))
-	dec.DisallowUnknownFields()
-	if err := dec.Decode(&bundle); err != nil {
+	if err := evidencefile.DecodeStrict(data, &bundle); err != nil {
 		return fmt.Errorf("async evidence %s must be valid JSON: %w", ref.Path, err)
-	}
-	var extra struct{}
-	if err := dec.Decode(&extra); err != io.EOF {
-		return fmt.Errorf("async evidence %s must contain a single JSON object", ref.Path)
 	}
 	if len(bundle.Records) != ref.Records {
 		return fmt.Errorf("async evidence record count mismatch for %s: got %d want %d", ref.Path, len(bundle.Records), ref.Records)
@@ -557,7 +705,10 @@ func verifyAsyncEvidenceFile(workdir string, ref RunEvidenceAsyncFile) error {
 }
 
 func writeRunEvidenceWithAsync(workdir string, opts runEvidenceOptions) (string, string, error) {
-	evidence := buildRunEvidence(opts)
+	evidence, err := buildRunEvidence(opts)
+	if err != nil {
+		return "", "", err
+	}
 	bundle, err := buildAsyncEvidenceBundle(opts)
 	if err != nil {
 		return "", "", err
@@ -570,6 +721,11 @@ func writeRunEvidenceWithAsync(workdir string, opts runEvidenceOptions) (string,
 	evidencePath, err := writeRunEvidence(workdir, evidence)
 	if err != nil {
 		return "", "", err
+	}
+	if len(opts.SigningKeyPEM) != 0 {
+		if _, err := signRunEvidence(evidencePath, opts.SigningKeyPEM); err != nil {
+			return "", "", fmt.Errorf("sign run evidence: %w", err)
+		}
 	}
 	return evidencePath, filepath.Join(workdir, ref.Path), nil
 }
@@ -590,7 +746,7 @@ func writeAsyncEvidenceBundle(workdir string, bundle AsyncEvidenceBundle) (RunEv
 		return RunEvidenceAsyncFile{}, err
 	}
 	data = append(data, '\n')
-	if err := os.WriteFile(path, data, 0o600); err != nil {
+	if err := atomicfile.Write(path, data, 0o600); err != nil {
 		return RunEvidenceAsyncFile{}, err
 	}
 	return RunEvidenceAsyncFile{
@@ -602,20 +758,22 @@ func writeAsyncEvidenceBundle(workdir string, bundle AsyncEvidenceBundle) (RunEv
 }
 
 type runEvidenceOptions struct {
-	Config         RunConfig
-	Approval       Approval
-	Prepared       udonrunner.Result
-	Result         *RunResult
-	Invoked        bool
-	Mode           string
-	RunnerPath     string
-	ExecutorArgv   []string
-	StageKind      string
-	ExecutorStatus string
-	Now            time.Time
+	Config          RunConfig
+	Approval        Approval
+	Prepared        udonrunner.Result
+	Result          *RunResult
+	Invoked         bool
+	Mode            string
+	RunnerPath      string
+	ExecutorArgv    []string
+	StageKind       string
+	ExecutorStatus  string
+	Now             time.Time
+	RunConfigSHA256 string
+	SigningKeyPEM   []byte
 }
 
-func buildRunEvidence(opts runEvidenceOptions) RunEvidence {
+func buildRunEvidence(opts runEvidenceOptions) (RunEvidence, error) {
 	gates := []RunEvidenceGate{
 		{Name: "handoff_package", Status: "pass"},
 		{Name: "manifest_policy", Status: "pass"},
@@ -632,14 +790,22 @@ func buildRunEvidence(opts runEvidenceOptions) RunEvidence {
 	if len(executorArgv) == 0 {
 		executorArgv = append(executorArgv, opts.Prepared.Argv...)
 	}
+	executor, err := buildRunEvidenceExecutor(opts, executorArgv)
+	if err != nil {
+		return RunEvidence{}, err
+	}
 	return RunEvidence{
 		Version:            RunEvidenceVersion,
+		RunID:              opts.Result.RunID,
 		CreatedAt:          opts.Now.UTC().Format(time.RFC3339),
 		Scope:              opts.Result.Scope,
 		Tier:               opts.Result.Tier,
 		DryRun:             opts.Result.DryRun,
 		ApprovalState:      opts.Approval.State,
 		PackageSHA256:      opts.Result.PackageSHA256,
+		HandoffSHA256:      opts.Config.HandoffSHA256,
+		ApprovalSHA256:     opts.Config.ApprovalSHA256,
+		RunConfigSHA256:    opts.RunConfigSHA256,
 		RunConfigPath:      opts.Result.RunConfigPath,
 		PackageRoot:        opts.Config.PackageRoot,
 		WorkDir:            opts.Result.WorkDir,
@@ -651,14 +817,53 @@ func buildRunEvidence(opts runEvidenceOptions) RunEvidence {
 		CredentialBindings: append([]string(nil), opts.Config.CredentialBindings...),
 		CredentialEnvNames: append([]string(nil), opts.Prepared.CredentialEnvNames...),
 		Gates:              gates,
-		Executor: RunEvidenceExecutor{
-			Invoked:    opts.Invoked,
-			Mode:       opts.Mode,
-			RunnerPath: opts.RunnerPath,
-			Argv:       executorArgv,
-			ReportPath: opts.Prepared.ExecutorReportPath,
-		},
+		Executor:           executor,
+	}, nil
+}
+
+func buildRunEvidenceExecutor(opts runEvidenceOptions, executorArgv []string) (RunEvidenceExecutor, error) {
+	executor := RunEvidenceExecutor{
+		Invoked:    opts.Invoked,
+		Mode:       opts.Mode,
+		RunnerPath: opts.RunnerPath,
+		Argv:       executorArgv,
 	}
+	requiredSuccess := opts.Invoked && opts.ExecutorStatus == "pass" &&
+		(opts.Mode == "internal-runner" || opts.Mode == "external-runner") && opts.Result != nil && !opts.Result.DryRun
+	reportPath := strings.TrimSpace(opts.Prepared.ExecutorReportPath)
+	if reportPath == "" {
+		if requiredSuccess {
+			return RunEvidenceExecutor{}, fmt.Errorf("successful executor did not provide an executor report path")
+		}
+		return executor, nil
+	}
+	rel, err := filepath.Rel(opts.Result.WorkDir, reportPath)
+	if err != nil || rel == "." || rel == ".." || filepath.IsAbs(rel) || strings.HasPrefix(rel, ".."+string(filepath.Separator)) {
+		if requiredSuccess {
+			return RunEvidenceExecutor{}, fmt.Errorf("successful executor report path is not workdir-relative")
+		}
+		return executor, nil
+	}
+	data, info, err := evidencefile.ReadRegular(reportPath, evidencefile.DefaultMaxBytes)
+	if err != nil {
+		if requiredSuccess {
+			return RunEvidenceExecutor{}, fmt.Errorf("read successful executor report: %w", err)
+		}
+		return executor, nil
+	}
+	if requiredSuccess {
+		report, err := decodeUdonExecutionReport(data)
+		if err != nil {
+			return RunEvidenceExecutor{}, fmt.Errorf("validate successful executor report: %w", err)
+		}
+		if !strings.EqualFold(report.Status, "success") {
+			return RunEvidenceExecutor{}, fmt.Errorf("successful executor report status must be success")
+		}
+	}
+	executor.ReportPath = filepath.ToSlash(rel)
+	executor.ReportSHA256 = evidencefile.SHA256(data)
+	executor.ReportSize = info.Size()
+	return executor, nil
 }
 
 func buildAsyncEvidenceBundle(opts runEvidenceOptions) (AsyncEvidenceBundle, error) {
@@ -876,28 +1081,52 @@ func readUdonExecutionReport(path string) (*UdonExecutionReport, error) {
 	if path == "" {
 		return nil, nil
 	}
-	data, err := os.ReadFile(path)
+	data, _, err := evidencefile.ReadRegular(path, evidencefile.DefaultMaxBytes)
 	if err != nil {
 		if os.IsNotExist(err) {
 			return nil, nil
 		}
 		return nil, fmt.Errorf("read udon execution report: %w", err)
 	}
+	return decodeUdonExecutionReport(data)
+}
+
+func decodeUdonExecutionReport(data []byte) (*UdonExecutionReport, error) {
 	var report UdonExecutionReport
-	dec := json.NewDecoder(bytes.NewReader(data))
-	dec.DisallowUnknownFields()
-	if err := dec.Decode(&report); err != nil {
+	if err := evidencefile.DecodeStrict(data, &report); err != nil {
 		return nil, fmt.Errorf("udon execution report must be valid JSON: %w", err)
-	}
-	var extra struct{}
-	if err := dec.Decode(&extra); err != io.EOF {
-		return nil, fmt.Errorf("udon execution report must contain a single JSON object")
 	}
 	if strings.TrimSpace(report.Version) != UdonExecutionReportVersion {
 		return nil, fmt.Errorf("udon execution report version must be %s", UdonExecutionReportVersion)
 	}
-	if strings.TrimSpace(report.Status) == "" {
-		return nil, fmt.Errorf("udon execution report status is required")
+	if report.Status != "success" && report.Status != "error" {
+		return nil, fmt.Errorf("udon execution report status must be success or error")
+	}
+	started, err := time.Parse(time.RFC3339, strings.TrimSpace(report.StartedAt))
+	if err != nil {
+		return nil, fmt.Errorf("udon execution report started_at must be RFC3339: %w", err)
+	}
+	finished, err := time.Parse(time.RFC3339, strings.TrimSpace(report.FinishedAt))
+	if err != nil {
+		return nil, fmt.Errorf("udon execution report finished_at must be RFC3339: %w", err)
+	}
+	if finished.Before(started) {
+		return nil, fmt.Errorf("udon execution report finished_at precedes started_at")
+	}
+	for _, field := range []struct{ name, value string }{
+		{name: "workflow_path", value: report.WorkflowPath},
+		{name: "workflow_format", value: report.WorkflowFormat},
+		{name: "workdir", value: report.WorkDir},
+	} {
+		if strings.TrimSpace(field.value) == "" {
+			return nil, fmt.Errorf("udon execution report %s is required", field.name)
+		}
+	}
+	if report.OutputDigest != "" {
+		algorithm, value, ok := strings.Cut(report.OutputDigest, ":")
+		if !ok || algorithm != "sha256" || value != strings.ToLower(value) || !evidencefile.ValidSHA256(value) {
+			return nil, fmt.Errorf("udon execution report output_digest must be sha256 followed by 64 lowercase hexadecimal characters")
+		}
 	}
 	return &report, nil
 }
@@ -920,10 +1149,11 @@ func reportOutputDigests(value string) ([]evdigest.Record, error) {
 		return nil, nil
 	}
 	algorithm, digestValue, ok := strings.Cut(value, ":")
-	if !ok || strings.ToLower(strings.TrimSpace(algorithm)) != string(evdigest.AlgorithmSHA256) || strings.TrimSpace(digestValue) == "" {
+	digestValue = strings.TrimSpace(digestValue)
+	if !ok || strings.TrimSpace(algorithm) != string(evdigest.AlgorithmSHA256) || digestValue != strings.ToLower(digestValue) || !evidencefile.ValidSHA256(digestValue) {
 		return nil, fmt.Errorf("udon execution report output_digest must be sha256:<hex>")
 	}
-	return []evdigest.Record{{Algorithm: evdigest.AlgorithmSHA256, Value: strings.TrimSpace(digestValue)}}, nil
+	return []evdigest.Record{{Algorithm: evdigest.AlgorithmSHA256, Value: digestValue}}, nil
 }
 
 func asyncOperationRef(opts runEvidenceOptions) asyncevidence.OperationRef {
@@ -976,7 +1206,7 @@ func asyncExecutorArgv(opts runEvidenceOptions) []string {
 	return argv
 }
 
-func resolveRunWorkDir(p paths, input string) (string, error) {
+func resolveRunWorkDir(p paths, input, runID string) (string, error) {
 	input = strings.TrimSpace(input)
 	for _, ch := range input {
 		if ch < 0x20 || ch == 0x7f {
@@ -992,7 +1222,56 @@ func resolveRunWorkDir(p paths, input string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	return filepath.Clean(workdir), nil
+	return filepath.Join(filepath.Clean(workdir), "run-"+runID), nil
+}
+
+func newRunID() (string, error) {
+	var value [16]byte
+	if _, err := rand.Read(value[:]); err != nil {
+		return "", err
+	}
+	return fmt.Sprintf("%x", value[:]), nil
+}
+
+func outerRunnerEnvironment(source []string, config RunConfig) []string {
+	if source == nil {
+		source = os.Environ()
+	}
+	values := map[string]string{}
+	for _, item := range source {
+		name, value, ok := strings.Cut(item, "=")
+		if ok {
+			values[name] = value
+		}
+	}
+	allowed := map[string]bool{
+		"PATH": true, "PATHEXT": true, "SystemRoot": true, "SYSTEMROOT": true,
+		"WINDIR": true, "COMSPEC": true, "TMP": true, "TEMP": true,
+		"OPENUDON_EXECUTOR": true,
+	}
+	for _, binding := range config.CredentialBindings {
+		var b strings.Builder
+		b.WriteString("UDON_CREDENTIAL_")
+		lastUnderscore := false
+		for _, ch := range strings.TrimSpace(binding) {
+			if (ch >= 'A' && ch <= 'Z') || (ch >= 'a' && ch <= 'z') || (ch >= '0' && ch <= '9') {
+				b.WriteRune(ch)
+				lastUnderscore = false
+			} else if !lastUnderscore {
+				b.WriteByte('_')
+				lastUnderscore = true
+			}
+		}
+		allowed[strings.TrimRight(strings.ToUpper(b.String()), "_")] = true
+	}
+	var out []string
+	for name := range allowed {
+		if value, ok := values[name]; ok {
+			out = append(out, name+"="+value)
+		}
+	}
+	sort.Strings(out)
+	return out
 }
 
 func sortedCredentialBindings(manifest handoffManifest) []string {
@@ -1009,14 +1288,6 @@ func sortedCredentialBindings(manifest handoffManifest) []string {
 	}
 	sort.Strings(out)
 	return out
-}
-
-func relOrAbs(base, path string) string {
-	rel, err := filepath.Rel(base, path)
-	if err != nil {
-		return path
-	}
-	return rel
 }
 
 func ApprovalTemplate(ctx context.Context, opts TemplateOptions) (Approval, error) {
@@ -1142,13 +1413,16 @@ func resolvePaths(repoRoot, example string) (paths, error) {
 }
 
 func readHandoff(path string) (handoffManifest, error) {
-	data, err := os.ReadFile(path)
+	data, _, err := evidencefile.ReadRegular(path, evidencefile.DefaultMaxBytes)
 	if err != nil {
 		return handoffManifest{}, fmt.Errorf("read handoff manifest: %w", err)
 	}
 	var manifest handoffManifest
-	if err := json.Unmarshal(data, &manifest); err != nil {
+	if err := evidencefile.DecodeStrict(data, &manifest); err != nil {
 		return handoffManifest{}, fmt.Errorf("handoff manifest must be valid JSON: %w", err)
+	}
+	if manifest.Version == authoring.LegacyReviewHandoffVersion {
+		return handoffManifest{}, fmt.Errorf("legacy handoff %s is read-only and cannot execute; regenerate the package with openudon build", manifest.Version)
 	}
 	allowedVersions := []string{ReviewHandoffVersion}
 	if diagnostics := authoring.ValidateReviewHandoff(manifest, authoring.ReviewHandoffValidationOptions{AllowedVersions: allowedVersions}); len(diagnostics) > 0 {
@@ -1172,16 +1446,44 @@ func validateRequiredInputs(p paths, manifest handoffManifest) error {
 	if err != nil {
 		return err
 	}
-	return packageartifacts.ValidateRegularPackageFiles(p.exampleAbs, paths)
+	if err := packageartifacts.ValidateRegularPackageFiles(p.exampleAbs, paths); err != nil {
+		return err
+	}
+	for _, input := range manifest.HandoffInputs {
+		if !input.Required {
+			continue
+		}
+		clean, err := packageartifacts.CleanRelativePath(input.Path)
+		if err != nil {
+			return err
+		}
+		var got string
+		if clean == packageartifacts.ReviewHandoffPath {
+			got, err = authoring.ReviewHandoffSelfDigest(manifest, clean)
+		} else {
+			data, _, readErr := evidencefile.ReadRegular(filepath.Join(p.exampleAbs, filepath.FromSlash(clean)), evidencefile.DefaultMaxBytes)
+			err = readErr
+			if err == nil {
+				got = evidencefile.SHA256(data)
+			}
+		}
+		if err != nil {
+			return fmt.Errorf("verify handoff input %s: %w", clean, err)
+		}
+		if got != strings.ToLower(strings.TrimSpace(input.SHA256)) {
+			return fmt.Errorf("handoff input SHA-256 mismatch for %s", clean)
+		}
+	}
+	return nil
 }
 
 func validateStoredQuality(path string) error {
-	data, err := os.ReadFile(path)
+	data, _, err := evidencefile.ReadRegular(path, evidencefile.DefaultMaxBytes)
 	if err != nil {
 		return fmt.Errorf("read quality report: %w", err)
 	}
 	var report synthesize.QualityReport
-	if err := json.Unmarshal(data, &report); err != nil {
+	if err := evidencefile.DecodeStrict(data, &report); err != nil {
 		return fmt.Errorf("quality report must be valid JSON: %w", err)
 	}
 	if !report.Passed() {
@@ -1230,26 +1532,20 @@ func packageManifestInputs(manifest handoffManifest) []packageartifacts.Manifest
 	return inputs
 }
 
-func readApproval(path string) (Approval, error) {
+func readApprovalDocument(path string) (Approval, []byte, error) {
 	path = strings.TrimSpace(path)
 	if path == "" {
-		return Approval{}, fmt.Errorf("--approval is required")
+		return Approval{}, nil, fmt.Errorf("--approval is required")
 	}
-	data, err := os.ReadFile(path)
+	data, _, err := evidencefile.ReadRegular(path, evidencefile.DefaultMaxBytes)
 	if err != nil {
-		return Approval{}, fmt.Errorf("read approval: %w", err)
+		return Approval{}, nil, fmt.Errorf("read approval: %w", err)
 	}
 	var approval Approval
-	dec := json.NewDecoder(bytes.NewReader(data))
-	dec.DisallowUnknownFields()
-	if err := dec.Decode(&approval); err != nil {
-		return Approval{}, fmt.Errorf("approval must be valid JSON: %w", err)
+	if err := evidencefile.DecodeStrict(data, &approval); err != nil {
+		return Approval{}, nil, fmt.Errorf("approval must be valid JSON: %w", err)
 	}
-	var extra struct{}
-	if err := dec.Decode(&extra); err != io.EOF {
-		return Approval{}, fmt.Errorf("approval must contain a single JSON object")
-	}
-	return approval, nil
+	return approval, data, nil
 }
 
 func validateApproval(approval Approval, scope, digest, tier string, now time.Time) error {

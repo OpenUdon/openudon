@@ -1,41 +1,73 @@
 package eval
 
 import (
+	"fmt"
 	"io"
 	"os"
 	"path/filepath"
 	"strings"
+	"unicode"
 )
 
-func ArchiveGeneratedDirs(results []EvalResult, archiveRoot string, runID string) ([]EvalResult, error) {
-	archiveRoot = strings.TrimSpace(archiveRoot)
-	if archiveRoot == "" {
-		return results, nil
+func archiveWorkspace(src, archiveRoot, runID, name string) (string, error) {
+	runName := safeArchiveName(strings.TrimSpace(runID))
+	if runName == "" {
+		runName = "run"
 	}
-	runID = strings.TrimSpace(runID)
-	if runID == "" {
-		runID = "run"
+	name = safeArchiveName(name)
+	if name == "" {
+		name = safeArchiveName(filepath.Base(filepath.Clean(src)))
 	}
-	archived := append([]EvalResult(nil), results...)
-	for i, result := range archived {
-		src := strings.TrimSpace(result.GeneratedDir)
-		if src == "" {
-			continue
-		}
-		name := safeArchiveName(result.Name)
-		if name == "" {
-			name = safeArchiveName(filepath.Base(filepath.Clean(src)))
-		}
-		target := filepath.Join(archiveRoot, safeArchiveName(runID), name)
-		if err := os.RemoveAll(target); err != nil {
-			return nil, err
-		}
-		if err := copyArchiveTree(src, target); err != nil {
-			return nil, err
-		}
-		archived[i].GeneratedDir = target
+	if name == "" {
+		name = "eval"
 	}
-	return archived, nil
+	relative := filepath.Join(runName, name)
+	cleanRoot, err := filepath.Abs(archiveRoot)
+	if err != nil {
+		return "", fmt.Errorf("resolve eval archive root: %w", err)
+	}
+	target := filepath.Join(cleanRoot, relative)
+	contained, err := filepath.Rel(cleanRoot, target)
+	if err != nil || contained == ".." || strings.HasPrefix(contained, ".."+string(filepath.Separator)) {
+		return "", fmt.Errorf("eval archive target escapes archive root")
+	}
+	if err := os.MkdirAll(cleanRoot, 0o755); err != nil {
+		return "", err
+	}
+	runRoot := filepath.Join(cleanRoot, runName)
+	if err := ensureArchiveDirectory(runRoot); err != nil {
+		return "", err
+	}
+	if err := os.Mkdir(target, 0o755); err != nil {
+		if os.IsExist(err) {
+			return "", fmt.Errorf("eval archive target already exists: %s", target)
+		}
+		return "", err
+	}
+	if err := copyArchiveTree(src, target); err != nil {
+		if cleanupErr := os.RemoveAll(target); cleanupErr != nil {
+			return "", fmt.Errorf("copy eval archive: %w; clean partial archive: %v", err, cleanupErr)
+		}
+		return "", err
+	}
+	return filepath.ToSlash(relative), nil
+}
+
+func ensureArchiveDirectory(path string) error {
+	info, err := os.Lstat(path)
+	if os.IsNotExist(err) {
+		if err := os.Mkdir(path, 0o755); err != nil && !os.IsExist(err) {
+			return err
+		}
+		info, err = os.Lstat(path)
+	}
+	if err != nil {
+		return err
+	}
+	if !info.IsDir() || info.Mode()&os.ModeSymlink != 0 {
+		return fmt.Errorf("eval archive run directory must be a real directory: %s", path)
+	}
+	return nil
 }
 
 func copyArchiveTree(src string, dst string) error {
@@ -48,20 +80,29 @@ func copyArchiveTree(src string, dst string) error {
 			return err
 		}
 		target := filepath.Join(dst, rel)
-		if entry.IsDir() {
-			return os.MkdirAll(target, 0o755)
-		}
-		if entry.Type()&os.ModeType != 0 {
+		if rel == "." {
 			return nil
 		}
-		if err := os.MkdirAll(filepath.Dir(target), 0o755); err != nil {
+		if entry.IsDir() {
+			return os.Mkdir(target, 0o755)
+		}
+		info, err := entry.Info()
+		if err != nil {
 			return err
+		}
+		if !info.Mode().IsRegular() {
+			return fmt.Errorf("eval workspace contains non-regular file: %s", path)
 		}
 		in, err := os.Open(path)
 		if err != nil {
 			return err
 		}
-		out, err := os.OpenFile(target, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0o644)
+		opened, err := in.Stat()
+		if err != nil || !opened.Mode().IsRegular() || !os.SameFile(info, opened) {
+			_ = in.Close()
+			return fmt.Errorf("eval workspace file changed before archival: %s", path)
+		}
+		out, err := os.OpenFile(target, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o644)
 		if err != nil {
 			_ = in.Close()
 			return err
@@ -75,18 +116,28 @@ func copyArchiveTree(src string, dst string) error {
 			_ = out.Close()
 			return err
 		}
+		if err := out.Sync(); err != nil {
+			_ = out.Close()
+			return err
+		}
 		return out.Close()
 	})
 }
 
 func safeArchiveName(value string) string {
 	value = strings.TrimSpace(value)
-	return strings.Map(func(r rune) rune {
-		switch r {
-		case '/', '\\', ':':
-			return '-'
-		default:
+	value = strings.Map(func(r rune) rune {
+		if r <= unicode.MaxASCII && (unicode.IsLetter(r) || unicode.IsDigit(r) || r == '-' || r == '_' || r == '.') {
 			return r
 		}
+		return '-'
 	}, value)
+	value = strings.Trim(value, "-")
+	if value == "." || value == ".." {
+		return ""
+	}
+	if len(value) > 128 {
+		value = value[:128]
+	}
+	return value
 }

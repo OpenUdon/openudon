@@ -6,13 +6,14 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
-	"io"
-	"os"
 	"path/filepath"
 	"regexp"
 	"sort"
 	"strings"
 	"time"
+
+	"github.com/OpenUdon/openudon/internal/authoring/atomicfile"
+	"github.com/OpenUdon/openudon/internal/evidencefile"
 )
 
 const (
@@ -20,6 +21,7 @@ const (
 	JourneyReportVersion = "openudon.browser-journey-eval.v1"
 	StatusPass           = "pass"
 	StatusFail           = "fail"
+	StatusNotRun         = "not_run"
 	StatusSkipped        = "skipped"
 	StatusQuarantined    = "quarantined"
 	maxReportBytes       = 4 << 20
@@ -81,11 +83,12 @@ type PhaseResult struct {
 }
 
 func NewReport(suite string, generatedAt time.Time, repositories []RepositoryRevision, dependencies []DependencyRevision, results []ScenarioResult) *Report {
+	summary := summarizeScenarios(results)
 	status := StatusPass
-	for _, result := range results {
-		if result.Status == StatusFail {
-			status = StatusFail
-		}
+	if summary.Failed > 0 {
+		status = StatusFail
+	} else if summary.Passed == 0 {
+		status = StatusNotRun
 	}
 	commit := ""
 	if len(repositories) > 0 {
@@ -102,12 +105,12 @@ func NewReport(suite string, generatedAt time.Time, repositories []RepositoryRev
 		Dependencies: cloneDependencies(dependencies), Engine: "chromium",
 		HeadedAuthoring: suite == SuiteLoopback, ProviderFree: true,
 		ExternalNetwork: suite == SuitePublic, SafeToArchive: true,
-		Scenarios: cloneScenarioResults(results), Summary: summarizeScenarios(results),
+		Scenarios: cloneScenarioResults(results), Summary: summary,
 	}
 }
 
 func ValidateReport(report *Report) error {
-	if report == nil || (report.Status != StatusPass && report.Status != StatusFail) ||
+	if report == nil || (report.Status != StatusPass && report.Status != StatusFail && report.Status != StatusNotRun) ||
 		(report.Suite != SuiteLoopback && report.Suite != SuiteJourney && report.Suite != SuitePublic) || report.Command != "openudon browser-scenario-eval" || report.Engine != "chromium" {
 		return fmt.Errorf("browser scenario report identity is invalid")
 	}
@@ -169,7 +172,13 @@ func ValidateReport(report *Report) error {
 			return fmt.Errorf("passing browser scenario %q has no assertion evidence", result.ID)
 		}
 	}
-	if len(report.Scenarios) == 0 || report.Summary != summarizeScenarios(report.Scenarios) || (report.Status == StatusPass) != (report.Summary.Failed == 0) {
+	expectedStatus := StatusPass
+	if report.Summary.Failed > 0 {
+		expectedStatus = StatusFail
+	} else if report.Summary.Passed == 0 {
+		expectedStatus = StatusNotRun
+	}
+	if len(report.Scenarios) == 0 || report.Summary != summarizeScenarios(report.Scenarios) || report.Status != expectedStatus {
 		return fmt.Errorf("browser scenario report summary is invalid")
 	}
 	return nil
@@ -187,12 +196,10 @@ func WriteReport(filename string, report *Report) error {
 	if len(data) > maxReportBytes {
 		return fmt.Errorf("browser scenario report exceeds size bound")
 	}
-	if err := writeAtomic(filename, data, 0o644); err != nil {
+	if err := atomicfile.Write(filename, data, 0o644); err != nil {
 		return err
 	}
-	sum := sha256.Sum256(data)
-	digest := "sha256:" + hex.EncodeToString(sum[:]) + "  " + filepath.Base(filename) + "\n"
-	return writeAtomic(filename+".sha256", []byte(digest), 0o644)
+	return evidencefile.WriteDigestSidecar(filename, data, 0o644)
 }
 
 func VerifyReportFile(filename string, requirePassing bool) (*Report, error) {
@@ -286,56 +293,11 @@ func summarizeScenarios(results []ScenarioResult) Summary {
 }
 
 func readBoundedRegular(filename string, limit int64) ([]byte, error) {
-	info, err := os.Lstat(filename)
-	if err != nil {
-		return nil, err
-	}
-	if info.Mode()&os.ModeSymlink != 0 || !info.Mode().IsRegular() || info.Size() <= 0 || info.Size() > limit {
-		return nil, fmt.Errorf("browser scenario evidence must be a bounded regular file")
-	}
-	file, err := os.Open(filename)
-	if err != nil {
-		return nil, err
-	}
-	defer file.Close()
-	data, err := io.ReadAll(io.LimitReader(file, limit+1))
-	if err != nil || int64(len(data)) > limit {
-		return nil, fmt.Errorf("read browser scenario evidence")
-	}
-	after, err := file.Stat()
-	if err != nil || !os.SameFile(info, after) || int64(len(data)) != after.Size() {
-		return nil, fmt.Errorf("browser scenario evidence changed while reading")
+	data, _, err := evidencefile.ReadRegular(filename, limit)
+	if err != nil || len(data) == 0 {
+		return nil, fmt.Errorf("browser scenario evidence must be a bounded regular file: %w", err)
 	}
 	return data, nil
-}
-
-func writeAtomic(filename string, data []byte, mode os.FileMode) error {
-	dir := filepath.Dir(filename)
-	if err := os.MkdirAll(dir, 0o755); err != nil {
-		return err
-	}
-	temporary, err := os.CreateTemp(dir, ".browser-scenario-*")
-	if err != nil {
-		return err
-	}
-	temporaryName := temporary.Name()
-	defer os.Remove(temporaryName)
-	if err := temporary.Chmod(mode); err != nil {
-		temporary.Close()
-		return err
-	}
-	if _, err := temporary.Write(data); err != nil {
-		temporary.Close()
-		return err
-	}
-	if err := temporary.Sync(); err != nil {
-		temporary.Close()
-		return err
-	}
-	if err := temporary.Close(); err != nil {
-		return err
-	}
-	return os.Rename(temporaryName, filename)
 }
 
 func cloneRepositories(values []RepositoryRevision) []RepositoryRevision {

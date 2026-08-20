@@ -177,7 +177,10 @@ func TestAgentJSONBlocksRenderableLowDecisionEvidence(t *testing.T) {
 		Safety:          "Sandbox proof runs only",
 		Fallback:        "Stop if rendering fails",
 	}
-	session := elicitor.SessionFromIntent(testIntent("blocked_agent", "Render a report", "render_report"), project)
+	session, err := elicitor.SessionFromIntent(testIntent("blocked_agent", "Render a report", "render_report"), project)
+	if err != nil {
+		t.Fatal(err)
+	}
 	session.Interview.Evidence = append(session.Interview.Evidence, publicinterview.Evidence{ID: "evidence.low-output", Kind: publicinterview.EvidenceRecommendation, Summary: "The output mapping was inferred with low confidence.", Value: "ticket=render_report.received_body", Source: "llm:low-confidence", References: []string{"intent.outputs.ticket"}})
 	sessionPath := writeSessionJSON(t, dir, session)
 	var stdout, stderr bytes.Buffer
@@ -276,6 +279,43 @@ func TestEvalReferenceSeedBuildMatrix(t *testing.T) {
 			}
 			assertSeedBuildOutcome(t, policy, "pass", nil, "")
 		})
+	}
+}
+
+func TestCopySeedArtifactDirRejectsSymlinkBoundaries(t *testing.T) {
+	root := t.TempDir()
+	realSource := filepath.Join(root, "real-source")
+	if err := os.MkdirAll(realSource, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(realSource, "source.json"), []byte("source\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	linkedSource := filepath.Join(root, "linked-source")
+	if err := os.Symlink(realSource, linkedSource); err != nil {
+		t.Skipf("symlinks unavailable: %v", err)
+	}
+	if err := copySeedArtifactDir(linkedSource, filepath.Join(root, "destination"), true); err == nil || !strings.Contains(err.Error(), "real directory") {
+		t.Fatalf("symlink source error = %v", err)
+	}
+
+	destination := filepath.Join(root, "destination")
+	if err := os.MkdirAll(destination, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	outside := filepath.Join(root, "outside.json")
+	if err := os.WriteFile(outside, []byte("keep\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink(outside, filepath.Join(destination, "source.json")); err != nil {
+		t.Skipf("destination symlinks unavailable: %v", err)
+	}
+	if err := copySeedArtifactDir(realSource, destination, true); err == nil || !strings.Contains(err.Error(), "destination") {
+		t.Fatalf("symlink destination error = %v", err)
+	}
+	data, err := os.ReadFile(outside)
+	if err != nil || string(data) != "keep\n" {
+		t.Fatalf("outside symlink target changed: %q, %v", data, err)
 	}
 }
 
@@ -1218,7 +1258,7 @@ func runtimeOnlyRenderSession() elicitor.Session {
 		Safety:          "Generate and validate artifacts only.",
 		Fallback:        "Stop if no approved function runtime exists.",
 	}
-	return elicitor.SessionFromIntent(&rollout.Intent{
+	session, err := elicitor.SessionFromIntent(&rollout.Intent{
 		Workflow: &rollout.WorkflowMeta{
 			Name:        "runtime_only_render",
 			Description: "Render a local summary report.",
@@ -1239,6 +1279,10 @@ func runtimeOnlyRenderSession() elicitor.Session {
 			From: "render_report.received_body",
 		}},
 	}, project)
+	if err != nil {
+		panic(err)
+	}
+	return session
 }
 
 func runtimeOnlyRenderSecretSession() elicitor.Session {
@@ -1688,7 +1732,10 @@ func TestMainAttachesExplicitBrowserVerificationReport(t *testing.T) {
 		ProjectName: "Browser Status", Goal: "Read browser status", SideEffectScope: projectwizard.SideEffectReadOnly,
 		Safety: "Read-only browser observation through a reviewed profile.", Fallback: "Stop if the current page cannot be read.",
 	}
-	session := elicitor.SessionFromIntent(intent, project)
+	session, err := elicitor.SessionFromIntent(intent, project)
+	if err != nil {
+		t.Fatal(err)
+	}
 	session.BrowserRoute = "browser"
 	session.BrowserSession = "none"
 	sessionPath := writeSessionJSON(t, t.TempDir(), session)
@@ -2261,7 +2308,10 @@ func writeCompleteDraftWithPolicy(t *testing.T, example string, credentials []st
 		Safety:          safety,
 		Fallback:        fallback,
 	}
-	session := elicitor.SessionFromIntent(testIntent("draft_project", "Render a draft report", "render_report"), project)
+	session, err := elicitor.SessionFromIntent(testIntent("draft_project", "Render a draft report", "render_report"), project)
+	if err != nil {
+		t.Fatal(err)
+	}
 	draftPath := elicitor.DraftPath(example)
 	if err := elicitor.SaveDraft(draftPath, session); err != nil {
 		t.Fatalf("save draft: %v", err)

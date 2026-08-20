@@ -14,6 +14,7 @@ import (
 
 	"github.com/OpenUdon/apitools/catalog"
 	"github.com/OpenUdon/apitools/sqlitecache"
+	"github.com/OpenUdon/openudon/internal/sourcecatalog"
 )
 
 const defaultSiblingAPIToolsCache = "../apitools/catalog-openapi-cache"
@@ -469,12 +470,7 @@ func migratedSourceCandidatesForProvider(sources []CatalogMigrationCandidate, pr
 }
 
 func catalogMigrationCandidateIsAPISource(candidate CatalogMigrationCandidate) bool {
-	switch strings.TrimSpace(strings.Split(filepath.ToSlash(candidate.RelativePath), "/")[0]) {
-	case "openapi", "google-discovery", "aws-smithy", "asyncapi", "graphql", "openrpc", "grpc-protobuf", "odata":
-		return candidate.Kind != catalog.SpecKind("security-overlay")
-	default:
-		return false
-	}
+	return sourcecatalog.IsAPIPath(filepath.ToSlash(candidate.RelativePath)) && candidate.Kind != catalog.SpecKind("security-overlay")
 }
 
 func catalogSecurityOverlayTargetRelativePath(sourceRel string) string {
@@ -596,15 +592,6 @@ func CatalogProviderPlan(hints []CatalogHint) []string {
 		}
 	}
 	return out
-}
-
-func PrintCatalogHints(out io.Writer, query string) {
-	hints, err := BuildCatalogHints(query, CatalogHintOptions{})
-	if err != nil {
-		fmt.Fprintf(out, "icot: apitools catalog advisory skipped: %v\n", err)
-		return
-	}
-	printCatalogHints(out, hints)
 }
 
 func printCatalogHints(out io.Writer, hints []CatalogHint) {

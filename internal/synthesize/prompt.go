@@ -69,11 +69,6 @@ func intentPromptMessagesForMode(projectText string, candidates []openapidisco.C
 	}
 }
 
-func generateIntentFromMessages(ctx context.Context, chat rollout.ChatClient, messages []rollout.ChatMessage, primary string, policy projectPolicy) (*rollout.Intent, error) {
-	intent, _, err := generateIntentFromMessagesWithMode(ctx, chat, messages, primary, policy, nil)
-	return intent, err
-}
-
 func generateIntentFromMessagesWithMode(ctx context.Context, chat rollout.ChatClient, messages []rollout.ChatMessage, primary string, policy projectPolicy, temperature *float64) (*rollout.Intent, string, error) {
 	var intent rollout.Intent
 	result, err := authoring.CompleteJSONWithFallback(ctx, workflowintent.ChatAdapter{Client: chat, Temperature: temperature}, workflowintent.MessagesToTranscript(messages), json.RawMessage(embeddedIntentSchema), &intent, authoring.JSONCompletionOptions{
@@ -90,10 +85,6 @@ func generateIntentFromMessagesWithMode(ctx context.Context, chat rollout.ChatCl
 		return nil, result.Mode, err
 	}
 	return &intent, result.Mode, nil
-}
-
-func legacyJSONInstructionMessages(messages []rollout.ChatMessage) []rollout.ChatMessage {
-	return workflowintent.TranscriptToMessages(authoring.AppendLegacyJSONInstruction(workflowintent.MessagesToTranscript(messages), ""))
 }
 
 func decodeIntentJSON(jsonText string, primary string, policy projectPolicy) (*rollout.Intent, error) {
@@ -780,10 +771,6 @@ func intentSecurityNames(intent *rollout.Intent) []string {
 	return out
 }
 
-func renderIntentSystemPrompt() string {
-	return renderIntentSystemPromptForMode(false)
-}
-
 func renderIntentSystemPromptForMode(structured bool) string {
 	prompt := strings.ReplaceAll(strings.TrimSpace(intentGenerationSystemPrompt), "{{EXAMPLES}}", promptExamplesBlock())
 	if structured {
@@ -1019,8 +1006,4 @@ func intentJSONShape() string {
   ],
   "outputs": [{"name": "result", "from": "step_name.received_body"}]
 }`
-}
-
-func extractJSON(response string) (string, error) {
-	return authoring.ExtractJSONBlock(response)
 }

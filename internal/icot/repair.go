@@ -149,7 +149,7 @@ func loadCurrentExampleSession(exampleDir string) (elicitor.Session, error) {
 	if err != nil {
 		return elicitor.Session{}, err
 	}
-	return elicitor.SessionFromIntent(intent, project), nil
+	return elicitor.SessionFromIntent(intent, project)
 }
 
 func applyDeterministicRepairs(exampleDir string, session *elicitor.Session, report *repairReport) (bool, []string) {

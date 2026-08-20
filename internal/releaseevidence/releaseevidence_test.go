@@ -8,6 +8,8 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/OpenUdon/openudon/internal/udonrunner"
 )
 
 func TestRunWritesReleaseEvidenceSummary(t *testing.T) {
@@ -27,13 +29,13 @@ func TestRunWritesReleaseEvidenceSummary(t *testing.T) {
 		Gates:        []string{"go test ./...=pass"},
 		Now:          fixedNow,
 		BuildCommand: fakeBuildCommand,
-		RunCommand:   fakeUdonRunCommand,
+		Invoke:       fakeUdonInvoke,
 		GitCommand:   fakeGitCommand,
 	})
 	if err != nil {
 		t.Fatalf("Run returned error: %v; summary=%#v", err, summary)
 	}
-	if summary.Status != "pass" || summary.Commit != "abc1234" {
+	if summary.Status != "pass" || summary.Commit != "0123456789abcdef0123456789abcdef01234567" {
 		t.Fatalf("unexpected summary: %#v", summary)
 	}
 	for _, path := range []string{
@@ -42,7 +44,7 @@ func TestRunWritesReleaseEvidenceSummary(t *testing.T) {
 		summary.ReleaseNotes,
 		summary.ArchivedRun,
 		filepath.Join(summary.ArchiveDir, "async-evidence.json"),
-		filepath.Join(summary.ArchiveDir, "executor-report.json"),
+		summary.ExecutorReport,
 	} {
 		if _, err := os.Stat(path); err != nil {
 			t.Fatalf("expected artifact %s: %v", path, err)
@@ -67,7 +69,7 @@ func TestRunWritesReleaseEvidenceSummary(t *testing.T) {
 		"OpenUdon Release Evidence Summary",
 		"go test ./...=pass",
 		"run-evidence verify: pass",
-		"executor-report.json",
+		"executor-report-",
 	} {
 		if !strings.Contains(string(markdown), expected) {
 			t.Fatalf("summary markdown missing %q:\n%s", expected, markdown)
@@ -106,7 +108,8 @@ func fakeBuildCommand(_ context.Context, _ string, out string) error {
 	return os.WriteFile(out, []byte("#!/usr/bin/env bash\nexit 0\n"), 0o755)
 }
 
-func fakeUdonRunCommand(_ context.Context, _ string, args ...string) error {
+func fakeUdonInvoke(_ context.Context, invocation udonrunner.Invocation) error {
+	args := invocation.Argv[1:]
 	reportPath := argValue(args, "--execution-report")
 	data := `{"version":"udon.execution-report.v1","status":"success","started_at":"2026-06-03T12:00:00Z","finished_at":"2026-06-03T12:00:00Z","workflow_path":"workflow.uws.yaml","workflow_format":"uws-yaml","workdir":".","output_path":"output.hcl","output_digest":"sha256:` + strings.Repeat("a", 64) + `"}` + "\n"
 	if err := os.MkdirAll(filepath.Dir(reportPath), 0o755); err != nil {
@@ -116,7 +119,7 @@ func fakeUdonRunCommand(_ context.Context, _ string, args ...string) error {
 }
 
 func fakeGitCommand(_ context.Context, name string, args ...string) ([]byte, error) {
-	return []byte("abc1234\n"), nil
+	return []byte("0123456789abcdef0123456789abcdef01234567\n"), nil
 }
 
 func argValue(args []string, name string) string {

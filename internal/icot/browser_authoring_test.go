@@ -208,13 +208,16 @@ func TestBrowserAuthoringPlanCLIAndAgentReportDoNotWriteDeliverables(t *testing.
 
 	stdout.Reset()
 	stderr.Reset()
-	session := elicitor.SessionFromIntent(&rollout.Intent{
+	session, err := elicitor.SessionFromIntent(&rollout.Intent{
 		Workflow: &rollout.WorkflowMeta{Name: "member_status", Description: "Read member status from the reviewed website UI"},
 		Steps:    []*rollout.Step{{Name: "read_member", Type: "browser"}},
 	}, projectwizard.Answers{
 		ProjectName: "Member status", Goal: "Read member status from the reviewed website UI",
 		SideEffectScope: projectwizard.SideEffectReadOnly, Safety: "Read only", Fallback: "Stop if the reviewed UI is unavailable",
 	})
+	if err != nil {
+		t.Fatal(err)
+	}
 	session.BrowserRoute = "browser"
 	session.BrowserSession = "none"
 	sessionPath := writeSessionJSON(t, root, session)

@@ -3,11 +3,11 @@ package workflowintent
 import (
 	"encoding/json"
 	"fmt"
-	"os"
 	"regexp"
 	"sort"
 	"strings"
 
+	"github.com/OpenUdon/openudon/internal/evidencefile"
 	"github.com/OpenUdon/uws/uws1"
 	"github.com/hashicorp/hcl/v2"
 	"github.com/hashicorp/hcl/v2/gohcl"
@@ -193,7 +193,7 @@ type Output struct {
 }
 
 func ParseIntentFile(path string) (*Intent, error) {
-	data, err := os.ReadFile(path)
+	data, _, err := evidencefile.ReadRegular(path, evidencefile.DefaultMaxBytes)
 	if err != nil {
 		return nil, fmt.Errorf("reading file: %w", err)
 	}
@@ -205,12 +205,15 @@ func ParseIntent(data []byte, path string) (*Intent, error) {
 		path = IntentPath
 	}
 	parser := hclparse.NewParser()
-	file, diags := parser.ParseHCL(rewriteIntentHCLCompatibility(data), path)
+	rewritten, insertedLines := rewriteIntentHCLCompatibility(data)
+	file, diags := parser.ParseHCL(rewritten, path)
+	remapIntentHCLDiagnostics(diags, insertedLines)
 	if diags.HasErrors() {
 		return nil, fmt.Errorf("decoding HCL: %s", diags.Error())
 	}
 	var raw hclIntent
 	diags = gohcl.DecodeBody(file.Body, nil, &raw)
+	remapIntentHCLDiagnostics(diags, insertedLines)
 	if diags.HasErrors() {
 		return nil, fmt.Errorf("decoding HCL: %s", diags.Error())
 	}
@@ -235,7 +238,6 @@ type hclIntent struct {
 	Security  []*SecurityIntent `hcl:"security,block" json:"security,omitempty"`
 	Outputs   []*Output         `hcl:"output,block" json:"outputs,omitempty"`
 	Locals    map[string]string `hcl:"locals,optional" json:"locals,omitempty"`
-	Remain    hcl.Body          `hcl:",remain" json:"-"`
 }
 
 type hclWorkflowMeta struct {
@@ -279,7 +281,6 @@ type hclStep struct {
 	Steps              []*hclStep          `hcl:"step,block" json:"steps,omitempty"`
 	Cases              []*hclStepCase      `hcl:"case,block" json:"cases,omitempty"`
 	Default            *hclStepDefault     `hcl:"default,block" json:"default,omitempty"`
-	Remain             hcl.Body            `hcl:",remain" json:"-"`
 }
 
 type hclStepCase struct {
@@ -436,15 +437,19 @@ func validateTimeout(value *float64, path string) error {
 var labelBindPattern = regexp.MustCompile(`(?m)^([ \t]*)bind\s+(?:"([^"]+)"|([A-Za-z_][A-Za-z0-9_-]*))\s*\{\s*$`)
 var idempotencyAttrPattern = regexp.MustCompile(`(?m)^([ \t]*)idempotency\s*=\s*\{\s*$`)
 
-func rewriteIntentHCLCompatibility(data []byte) []byte {
-	return rewriteIdempotencyAttributeSyntax(rewriteLabelBindSyntax(data))
+func rewriteIntentHCLCompatibility(data []byte) ([]byte, []int) {
+	rewritten, insertedLines := rewriteLabelBindSyntax(data)
+	return rewriteIdempotencyAttributeSyntax(rewritten), insertedLines
 }
 
-func rewriteLabelBindSyntax(data []byte) []byte {
+func rewriteLabelBindSyntax(data []byte) ([]byte, []int) {
 	input := string(data)
 	if !strings.Contains(input, "bind ") {
-		return data
+		return data, nil
 	}
+	insertedLines := []int{}
+	inserted := 0
+	searchOffset := 0
 	rewritten := labelBindPattern.ReplaceAllStringFunc(input, func(line string) string {
 		match := labelBindPattern.FindStringSubmatch(line)
 		if len(match) < 4 {
@@ -458,9 +463,44 @@ func rewriteLabelBindSyntax(data []byte) []byte {
 		if label == "" {
 			return line
 		}
+		relativeOffset := strings.Index(input[searchOffset:], line)
+		if relativeOffset < 0 {
+			return line
+		}
+		lineOffset := searchOffset + relativeOffset
+		searchOffset = lineOffset + len(line)
+		originalLine := strings.Count(input[:lineOffset], "\n") + 1
+		inserted++
+		insertedLines = append(insertedLines, originalLine+inserted)
 		return fmt.Sprintf("%sbind {\n%s  from = %q", indent, indent, label)
 	})
-	return []byte(rewritten)
+	return []byte(rewritten), insertedLines
+}
+
+func remapIntentHCLDiagnostics(diags hcl.Diagnostics, insertedLines []int) {
+	mapRange := func(value *hcl.Range) {
+		if value == nil {
+			return
+		}
+		value.Start.Line = originalIntentHCLLine(value.Start.Line, insertedLines)
+		value.End.Line = originalIntentHCLLine(value.End.Line, insertedLines)
+	}
+	for _, diagnostic := range diags {
+		if diagnostic != nil {
+			mapRange(diagnostic.Subject)
+			mapRange(diagnostic.Context)
+		}
+	}
+}
+
+func originalIntentHCLLine(line int, insertedLines []int) int {
+	transformedLine := line
+	for _, insertedLine := range insertedLines {
+		if transformedLine >= insertedLine {
+			line--
+		}
+	}
+	return line
 }
 
 func rewriteIdempotencyAttributeSyntax(data []byte) []byte {
@@ -572,7 +612,7 @@ func addStepBlock(body *hclwrite.Body, step *Step) {
 	setAttrString(sb, "when", step.When)
 	setAttrString(sb, "for_each", step.ForEach)
 	setAttrList(sb, "depends_on", step.DependsOn)
-	setAttrMap(sb, "with", step.With, false)
+	setAttrMap(sb, "with", step.With, true)
 	setAttrString(sb, "provider", step.Provider)
 	if strings.TrimSpace(step.Source) != "" {
 		setAttrString(sb, "source", step.Source)
@@ -582,7 +622,7 @@ func addStepBlock(body *hclwrite.Body, step *Step) {
 	setAttrString(sb, "operation", step.Operation)
 	setAttrString(sb, "authentication_flow", step.AuthenticationFlow)
 	setAttrString(sb, "browser_session", step.BrowserSession)
-	setAttrMap(sb, "credential_bindings", step.CredentialBindings, false)
+	setAttrMap(sb, "credential_bindings", step.CredentialBindings, true)
 	setAttrFloatPtr(sb, "timeout", step.Timeout)
 	setAttrString(sb, "items", step.Items)
 	setAttrString(sb, "mode", step.Mode)
@@ -633,7 +673,7 @@ func addBindBlock(body *hclwrite.Body, bind *StepBind) {
 	block := body.AppendNewBlock("bind", nil)
 	bb := block.Body()
 	setAttrString(bb, "from", bind.From)
-	setAttrMap(bb, "fields", bind.Fields, false)
+	setAttrMap(bb, "fields", bind.Fields, true)
 }
 
 func addIdempotencyBlock(body *hclwrite.Body, idem *uws1.Idempotency) {
@@ -704,13 +744,6 @@ func ValidateHCL(content string) error {
 		return fmt.Errorf("HCL validation error: %s", diags.Error())
 	}
 	return nil
-}
-
-func FormatHCL(content string) (string, error) {
-	if err := ValidateHCL(content); err != nil {
-		return "", err
-	}
-	return string(hclwrite.Format([]byte(content))), nil
 }
 
 func (intent *Intent) MissingSlots() []string {
@@ -799,10 +832,10 @@ func walkSteps(steps []*Step, fn func(*Step)) {
 	}
 }
 
-func (intent *Intent) NormalizedForGeneration() *Intent {
-	clone := intent.Clone()
-	if clone == nil {
-		return nil
+func (intent *Intent) NormalizedForGeneration() (*Intent, error) {
+	clone, err := intent.Clone()
+	if err != nil || clone == nil {
+		return clone, err
 	}
 	if strings.TrimSpace(clone.Source) != "" && strings.TrimSpace(clone.OpenAPI) == "" {
 		clone.OpenAPI = strings.TrimSpace(clone.Source)
@@ -811,7 +844,7 @@ func (intent *Intent) NormalizedForGeneration() *Intent {
 		normalizeStepForGeneration(step)
 	}
 	clone.EnsureActionDescriptions()
-	return clone
+	return clone, nil
 }
 
 func (intent *Intent) EnsureActionDescriptions() {
@@ -915,14 +948,19 @@ func appendStepPrompt(result *string, step *Step, indent string) {
 	}
 }
 
-func (intent *Intent) Clone() *Intent {
+func (intent *Intent) Clone() (*Intent, error) {
 	if intent == nil {
-		return nil
+		return nil, nil
 	}
-	data, _ := json.Marshal(intent)
+	data, err := json.Marshal(intent)
+	if err != nil {
+		return nil, fmt.Errorf("clone intent: %w", err)
+	}
 	var clone Intent
-	_ = json.Unmarshal(data, &clone)
-	return &clone
+	if err := json.Unmarshal(data, &clone); err != nil {
+		return nil, fmt.Errorf("clone intent: %w", err)
+	}
+	return &clone, nil
 }
 
 func normalizeStepForGeneration(step *Step) {
@@ -976,7 +1014,13 @@ func applyStepBindHints(step *Step) {
 			continue
 		}
 		step.DependsOn = appendUnique(step.DependsOn, from)
-		for target, source := range bind.Fields {
+		keys := make([]string, 0, len(bind.Fields))
+		for target := range bind.Fields {
+			keys = append(keys, target)
+		}
+		sort.Strings(keys)
+		for _, target := range keys {
+			source := bind.Fields[target]
 			target = normalizeRequestFieldTarget(target)
 			if target == "" {
 				continue
@@ -1027,5 +1071,3 @@ func leafName(path string) string {
 	}
 	return path
 }
-
-var _ = hcl.DiagError

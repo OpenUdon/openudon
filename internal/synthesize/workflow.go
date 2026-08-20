@@ -9,6 +9,8 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/OpenUdon/openudon/internal/authoring/atomicfile"
+
 	"github.com/OpenUdon/apitools"
 	"github.com/OpenUdon/apitools/awssmithy"
 	"github.com/OpenUdon/apitools/googlediscovery"
@@ -44,7 +46,7 @@ func promoteWorkflow(result Result, schemaPath string) error {
 	if err := ensureArtifactDirs(result); err != nil {
 		return err
 	}
-	if err := os.WriteFile(result.UWSPath, uwsBytes, 0o644); err != nil {
+	if err := atomicfile.Write(result.UWSPath, uwsBytes, 0o644); err != nil {
 		return err
 	}
 
@@ -82,7 +84,10 @@ func generateWorkflowDocument(result Result, intent *rollout.Intent) (*uws1.Docu
 	if intent == nil {
 		return nil, fmt.Errorf("intent is required")
 	}
-	normalized := intent.NormalizedForGeneration()
+	normalized, err := intent.NormalizedForGeneration()
+	if err != nil {
+		return nil, err
+	}
 	browserVersions := browserContractVersionsForIntent(result.ExampleDir, normalized)
 	title := "OpenUdon workflow"
 	description := ""
@@ -344,7 +349,8 @@ func intentRequestMap(values map[string]string, kind, openAPIPath, operationID s
 		return nil, nil
 	}
 	root := map[string]any{}
-	for key, value := range values {
+	for _, key := range sortedStringMapKeys(values) {
+		value := values[key]
 		key = strings.TrimSpace(key)
 		if key == "" || strings.TrimSpace(value) == "" {
 			continue
@@ -1055,10 +1061,6 @@ func stringMapToAny(values map[string]string) map[string]any {
 	return out
 }
 
-func uwsVersionForIntent(intent *rollout.Intent) string {
-	return uwsVersionForIntentAndBrowserContracts(intent, false, false)
-}
-
 func uwsVersionForIntentAndBrowserContracts(intent *rollout.Intent, requires18, requires19 bool) string {
 	if requires19 {
 		return "1.9.0"
@@ -1287,7 +1289,7 @@ func writeWorkflowHCL(result Result, doc *uws1.Document, intent *rollout.Intent)
 	if err := ensureArtifactDirs(result); err != nil {
 		return err
 	}
-	return os.WriteFile(result.WorkflowPath, data, 0o644)
+	return atomicfile.Write(result.WorkflowPath, data, 0o644)
 }
 
 func workflowCompatibilityComments(intent *rollout.Intent) []byte {

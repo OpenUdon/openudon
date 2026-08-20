@@ -34,8 +34,9 @@ import (
 )
 
 const (
-	testAuthority = "127.0.0.1:43123"
-	testToken     = "test-capability-token"
+	testAuthority  = "127.0.0.1:43123"
+	testToken      = "test-capability-token"
+	testAccessCode = "0123456789AB"
 )
 
 type fakeEngine struct {
@@ -131,7 +132,7 @@ func (f *fakeEngine) setWorkspace(status engine.WorkspaceStatus) {
 func newFakeHandler(t *testing.T, fake *fakeEngine) http.Handler {
 	t.Helper()
 	handler, err := NewHandler(HandlerConfig{
-		Engine: fake, Snapshot: fake.snapshot, ExampleDir: "/tmp/example", Token: testToken, Authority: testAuthority,
+		Engine: fake, Snapshot: fake.snapshot, ExampleDir: "/tmp/example", Token: testToken, AccessCode: testAccessCode, Authority: testAuthority,
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -185,7 +186,7 @@ func TestTokenBootstrapCookieAndBearerAuthentication(t *testing.T) {
 		t.Fatalf("unauthorized response = %d %s", unauthorized.Code, unauthorized.Body.String())
 	}
 
-	bootstrap := doRequest(handler, http.MethodGet, basePath+"?token="+testToken, "", "", false)
+	bootstrap := doRequest(handler, http.MethodPost, "/", "code="+url.QueryEscape(testAccessCode), "application/x-www-form-urlencoded", false)
 	if bootstrap.Code != http.StatusSeeOther || bootstrap.Header().Get("Location") != basePath {
 		t.Fatalf("bootstrap response = %d location %q", bootstrap.Code, bootstrap.Header().Get("Location"))
 	}
@@ -222,17 +223,68 @@ func TestTokenBootstrapCookieAndBearerAuthentication(t *testing.T) {
 		t.Fatalf("bearer response = %#v", bearer)
 	}
 
-	badBootstrap := doRequest(handler, http.MethodGet, basePath+"?token=wrong", "", "", false)
+	badBootstrap := doRequest(handler, http.MethodPost, "/", "code=WRONGCODE000", "application/x-www-form-urlencoded", false)
 	if badBootstrap.Code != http.StatusUnauthorized || len(badBootstrap.Result().Cookies()) != 0 {
 		t.Fatalf("bad bootstrap = %d %#v", badBootstrap.Code, badBootstrap.Result().Cookies())
 	}
 	globalBootstrap := doRequest(handler, http.MethodGet, "/?token="+testToken, "", "", false)
-	if globalBootstrap.Code != http.StatusUnauthorized || len(globalBootstrap.Result().Cookies()) != 0 {
+	if globalBootstrap.Code != http.StatusNotFound || len(globalBootstrap.Result().Cookies()) != 0 {
 		t.Fatalf("global bootstrap = %d %#v", globalBootstrap.Code, globalBootstrap.Result().Cookies())
 	}
 	v1 := doRequest(handler, http.MethodGet, "/api/v1/snapshot", "", "", true)
 	if v1.Code != http.StatusNotFound {
 		t.Fatalf("retired v1 route = %d %s", v1.Code, v1.Body.String())
+	}
+}
+
+func TestAccessCodeExpiresIsSingleUseAndRateLimited(t *testing.T) {
+	start := time.Date(2026, 8, 20, 0, 0, 0, 0, time.UTC)
+	now := start
+	newHandler := func() http.Handler {
+		handler, err := NewHandler(HandlerConfig{
+			Engine: &fakeEngine{}, ExampleDir: "/tmp/example", Token: testToken,
+			AccessCode: testAccessCode, Authority: testAuthority, Now: func() time.Time { return now },
+		})
+		if err != nil {
+			t.Fatal(err)
+		}
+		return handler
+	}
+
+	handler := newHandler()
+	first := doRequest(handler, http.MethodPost, "/", "code="+testAccessCode, "application/x-www-form-urlencoded", false)
+	if first.Code != http.StatusSeeOther {
+		t.Fatalf("first exchange = %d", first.Code)
+	}
+	reuse := doRequest(handler, http.MethodPost, "/", "code="+testAccessCode, "application/x-www-form-urlencoded", false)
+	if reuse.Code != http.StatusUnauthorized {
+		t.Fatalf("reused exchange = %d", reuse.Code)
+	}
+
+	now = start
+	expiring := newHandler()
+	now = start.Add(5 * time.Minute)
+	expired := doRequest(expiring, http.MethodPost, "/", "code="+testAccessCode, "application/x-www-form-urlencoded", false)
+	if expired.Code != http.StatusUnauthorized {
+		t.Fatalf("expired exchange = %d", expired.Code)
+	}
+
+	now = start
+	limited := newHandler()
+	for i := 0; i < 5; i++ {
+		response := doRequest(limited, http.MethodPost, "/", "code=WRONGCODE000", "application/x-www-form-urlencoded", false)
+		if response.Code != http.StatusUnauthorized {
+			t.Fatalf("failed attempt %d = %d", i+1, response.Code)
+		}
+	}
+	response := doRequest(limited, http.MethodPost, "/", "code=WRONGCODE000", "application/x-www-form-urlencoded", false)
+	if response.Code != http.StatusTooManyRequests {
+		t.Fatalf("throttled attempt = %d", response.Code)
+	}
+	now = start.Add(time.Minute + time.Nanosecond)
+	response = doRequest(limited, http.MethodPost, "/", "code=WRONGCODE000", "application/x-www-form-urlencoded", false)
+	if response.Code != http.StatusUnauthorized {
+		t.Fatalf("post-window attempt = %d", response.Code)
 	}
 }
 
@@ -315,6 +367,10 @@ func TestExactHostOriginSecurityHeadersAndMethods(t *testing.T) {
 		if exactOriginResponse.Header().Get(name) == "" {
 			t.Errorf("missing security header %s", name)
 		}
+	}
+	csp := exactOriginResponse.Header().Get("Content-Security-Policy")
+	if !strings.Contains(csp, "form-action 'self'") || strings.Contains(csp, "form-action 'none'") {
+		t.Fatalf("bootstrap-blocking content security policy = %q", csp)
 	}
 	for name := range exactOriginResponse.Header() {
 		if strings.HasPrefix(strings.ToLower(name), "access-control-") {
@@ -471,7 +527,7 @@ func TestServerLogsOnlySanitizedInternalFailures(t *testing.T) {
 		writeErr: &engine.Failure{Class: engine.FailureOperational, Code: "engine_operation_failed", Cause: errors.New("disk failed token=super-secret")},
 	}
 	handler, err := NewHandler(HandlerConfig{
-		Engine: fake, Snapshot: fake.snapshot, ExampleDir: "/tmp/example", Token: testToken, Authority: testAuthority, ErrOut: &logs,
+		Engine: fake, Snapshot: fake.snapshot, ExampleDir: "/tmp/example", Token: testToken, AccessCode: testAccessCode, Authority: testAuthority, ErrOut: &logs,
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -515,7 +571,7 @@ func TestRealLoopbackListenerBootstrapBearerApprovalAndFreeze(t *testing.T) {
 		t.Fatal(err)
 	}
 	authority := listener.Addr().String()
-	handler, err := NewHandler(HandlerConfig{Engine: eng, Snapshot: snapshot, ExampleDir: example, Token: token, Authority: authority})
+	handler, err := NewHandler(HandlerConfig{Engine: eng, Snapshot: snapshot, ExampleDir: example, Token: token, AccessCode: testAccessCode, Authority: authority})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -532,7 +588,7 @@ func TestRealLoopbackListenerBootstrapBearerApprovalAndFreeze(t *testing.T) {
 	}
 	client := &http.Client{Jar: jar, Timeout: 5 * time.Second}
 	baseURL := "http://" + authority
-	bootstrap, err := client.Get(baseURL + instanceBasePath(token) + "?token=" + url.QueryEscape(token))
+	bootstrap, err := client.PostForm(baseURL+"/", url.Values{"code": []string{testAccessCode}})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -588,7 +644,7 @@ func TestRealLoopbackListenerRound(t *testing.T) {
 	}
 	authority := listener.Addr().String()
 	handler, err := NewHandler(HandlerConfig{
-		Engine: fake, Snapshot: fake.snapshot, ExampleDir: t.TempDir(), Token: testToken, Authority: authority,
+		Engine: fake, Snapshot: fake.snapshot, ExampleDir: t.TempDir(), Token: testToken, AccessCode: testAccessCode, Authority: authority,
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -639,7 +695,7 @@ func TestRealListenerRejectsSlowBody(t *testing.T) {
 	}
 	authority := listener.Addr().String()
 	handler, err := NewHandler(HandlerConfig{
-		Engine: fake, Snapshot: fake.snapshot, ExampleDir: t.TempDir(), Token: testToken, Authority: authority,
+		Engine: fake, Snapshot: fake.snapshot, ExampleDir: t.TempDir(), Token: testToken, AccessCode: testAccessCode, Authority: authority,
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -915,7 +971,7 @@ func TestRealEngineCommitFailureReturnsServerErrorWithoutWrite(t *testing.T) {
 		t.Fatal(err)
 	}
 	handler, err := NewHandler(HandlerConfig{
-		Engine: authoringEngine, Snapshot: snapshot, ExampleDir: example, Token: testToken, Authority: testAuthority,
+		Engine: authoringEngine, Snapshot: snapshot, ExampleDir: example, Token: testToken, AccessCode: testAccessCode, Authority: testAuthority,
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -981,7 +1037,7 @@ func TestRealEngineBrowserRefreshFailuresPreserveHTTPRevision(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		handler, err := NewHandler(HandlerConfig{Engine: authoringEngine, Snapshot: snapshot, ExampleDir: example, Token: testToken, Authority: testAuthority})
+		handler, err := NewHandler(HandlerConfig{Engine: authoringEngine, Snapshot: snapshot, ExampleDir: example, Token: testToken, AccessCode: testAccessCode, Authority: testAuthority})
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -1012,7 +1068,7 @@ func TestRealEngineBrowserRefreshFailuresPreserveHTTPRevision(t *testing.T) {
 		if len(snapshot.SelectedSources) != 1 || snapshot.SelectedSources[0].RegistryCoordinate != "status@1.0.0" {
 			t.Fatalf("selected sources = %#v", snapshot.SelectedSources)
 		}
-		handler, err := NewHandler(HandlerConfig{Engine: authoringEngine, Snapshot: snapshot, ExampleDir: example, Token: testToken, Authority: testAuthority})
+		handler, err := NewHandler(HandlerConfig{Engine: authoringEngine, Snapshot: snapshot, ExampleDir: example, Token: testToken, AccessCode: testAccessCode, Authority: testAuthority})
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -1068,7 +1124,7 @@ func TestHTTPAndDirectEngineArtifactParity(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	handler, err := NewHandler(HandlerConfig{Engine: httpEngine, Snapshot: snapshot, ExampleDir: httpDir, Token: testToken, Authority: testAuthority})
+	handler, err := NewHandler(HandlerConfig{Engine: httpEngine, Snapshot: snapshot, ExampleDir: httpDir, Token: testToken, AccessCode: testAccessCode, Authority: testAuthority})
 	if err != nil {
 		t.Fatal(err)
 	}

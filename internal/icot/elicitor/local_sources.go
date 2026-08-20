@@ -14,7 +14,9 @@ import (
 
 	"github.com/OpenUdon/apitools"
 	"github.com/OpenUdon/browsertools"
+	"github.com/OpenUdon/openudon/internal/evidencefile"
 	"github.com/OpenUdon/openudon/internal/packageartifacts"
+	"github.com/OpenUdon/openudon/internal/sourcecatalog"
 	rollout "github.com/OpenUdon/openudon/internal/workflowintent"
 )
 
@@ -113,7 +115,7 @@ func DiscoverAuthoringSourcesWithBrowser(ctx context.Context, exampleDir, query 
 
 func discoverAPIAuthoringSources(ctx context.Context, exampleDir, query string, explicit []apitools.LocalSource, roots []string) (LocalSourceDiscovery, error) {
 	allRoots := append([]string(nil), roots...)
-	for _, dir := range []string{"openapi", "google-discovery", "discovery", "aws-smithy", "asyncapi", "graphql", "openrpc", "grpc-protobuf", "odata"} {
+	for _, dir := range sourcecatalog.API() {
 		path := filepath.Join(exampleDir, dir)
 		if _, err := os.Lstat(path); err == nil {
 			allRoots = append(allRoots, path)
@@ -192,22 +194,12 @@ func discoverAPIAuthoringSources(ctx context.Context, exampleDir, query string, 
 func sourceSidecarPlans(source SourceMaterialization) ([]SourceMaterialization, error) {
 	var plans []SourceMaterialization
 	for _, sidecarPath := range packageartifacts.AdvisorySecuritySidecarPathCandidates(source.SourcePath) {
-		info, err := os.Lstat(sidecarPath)
+		content, _, err := evidencefile.ReadRegular(sidecarPath, localSourceSidecarMaxBytes)
 		if os.IsNotExist(err) {
 			continue
 		}
 		if err != nil {
-			return nil, err
-		}
-		if info.Mode()&os.ModeSymlink != 0 || !info.Mode().IsRegular() {
-			return nil, fmt.Errorf("security sidecar must be a regular non-symlink file: %s", sidecarPath)
-		}
-		if info.Size() > localSourceSidecarMaxBytes {
-			return nil, fmt.Errorf("security sidecar exceeds the 20 MiB source limit: %s", sidecarPath)
-		}
-		content, err := os.ReadFile(sidecarPath)
-		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("read security sidecar %s: %w", sidecarPath, err)
 		}
 		digest := sha256.Sum256(content)
 		target, err := sidecarTargetPath(source.SourcePath, source.TargetPath, sidecarPath)
@@ -295,10 +287,6 @@ func defaultSourceExtension(kind string) string {
 	default:
 		return ".json"
 	}
-}
-
-func mergeSelectedSourcePlans(session Session, available []SourceMaterialization, explicit []apitools.LocalSource) []SourceMaterialization {
-	return mergeSelectedSourcePlansWithBrowser(session, available, explicit, nil)
 }
 
 func mergeSelectedSourcePlansWithBrowser(session Session, available []SourceMaterialization, explicit []apitools.LocalSource, browserExplicit []BrowserSourceInput) []SourceMaterialization {

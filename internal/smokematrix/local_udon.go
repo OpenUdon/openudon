@@ -4,13 +4,14 @@ import (
 	"context"
 	"fmt"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"runtime"
 	"strings"
 	"time"
 
+	"github.com/OpenUdon/openudon/internal/processgroup"
 	"github.com/OpenUdon/openudon/internal/trustedrunner"
+	"github.com/OpenUdon/openudon/internal/udonrunner"
 )
 
 type LocalUdonSmokeOptions struct {
@@ -19,8 +20,9 @@ type LocalUdonSmokeOptions struct {
 	WorkDir      string
 	OutPath      string
 	Now          func() time.Time
-	RunCommand   func(context.Context, string, ...string) error
+	Invoke       udonrunner.InvokeFunc
 	BuildCommand func(context.Context, string, string) error
+	Env          []string
 }
 
 func RunLocalUdonSmoke(ctx context.Context, opts LocalUdonSmokeOptions) (*Report, error) {
@@ -57,24 +59,20 @@ func RunLocalUdonSmoke(ctx context.Context, opts LocalUdonSmokeOptions) (*Report
 	if info, err := os.Stat(bin); err != nil || info.IsDir() {
 		return nil, fmt.Errorf("local udon executor was not built at %s", bin)
 	}
-	oldExecutor, hadExecutor := os.LookupEnv("OPENUDON_EXECUTOR")
-	if err := os.Setenv("OPENUDON_EXECUTOR", bin); err != nil {
-		return nil, err
+	environment := opts.Env
+	if environment == nil {
+		environment = os.Environ()
 	}
-	defer func() {
-		if hadExecutor {
-			_ = os.Setenv("OPENUDON_EXECUTOR", oldExecutor)
-		} else {
-			_ = os.Unsetenv("OPENUDON_EXECUTOR")
-		}
-	}()
+	environmentValues := environmentMap(environment)
+	environmentValues["OPENUDON_EXECUTOR"] = bin
 	report, err := Run(ctx, Options{
-		RepoRoot:   repoRoot,
-		WorkDir:    filepath.Join(workdir, "matrix"),
-		OutPath:    defaultString(opts.OutPath, filepath.Join(workdir, "summary.json")),
-		Mode:       ModeLive,
-		Now:        opts.Now,
-		RunCommand: opts.RunCommand,
+		RepoRoot: repoRoot,
+		WorkDir:  filepath.Join(workdir, "matrix"),
+		OutPath:  defaultString(opts.OutPath, filepath.Join(workdir, "summary.json")),
+		Mode:     ModeLive,
+		Now:      opts.Now,
+		Invoke:   opts.Invoke,
+		Env:      environmentList(environmentValues),
 		Scenarios: []Scenario{{
 			ID:       "local-udon-runtime-only",
 			Fixture:  "runtime-only-render",
@@ -99,11 +97,13 @@ func RunLocalUdonSmoke(ctx context.Context, opts LocalUdonSmokeOptions) (*Report
 }
 
 func buildLocalUdonBinary(ctx context.Context, repo, out string) error {
-	cmd := exec.CommandContext(ctx, "go", "build", "-o", out, "./cmd/udon")
-	cmd.Dir = repo
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
-	return cmd.Run()
+	return processgroup.Run(ctx, 2*time.Minute, processgroup.Invocation{
+		Args:   []string{"go", "build", "-o", out, "./cmd/udon"},
+		Dir:    repo,
+		Env:    os.Environ(),
+		Stdout: os.Stdout,
+		Stderr: os.Stderr,
+	})
 }
 
 func localUdonBinaryName() string {

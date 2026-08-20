@@ -7,7 +7,6 @@ import (
 	"io"
 	"net"
 	"net/http"
-	"net/url"
 	"os/exec"
 	"runtime"
 	"strconv"
@@ -56,6 +55,10 @@ func Run(ctx context.Context, config RunConfig) error {
 	if err != nil {
 		return err
 	}
+	accessCode, err := GenerateAccessCode()
+	if err != nil {
+		return err
+	}
 	listener, err := listen("tcp4", net.JoinHostPort("127.0.0.1", strconv.Itoa(config.Port)))
 	if err != nil {
 		return fmt.Errorf("listen on 127.0.0.1:%d: %w", config.Port, err)
@@ -64,7 +67,7 @@ func Run(ctx context.Context, config RunConfig) error {
 	authority := listener.Addr().String()
 	handler, err := NewHandler(HandlerConfig{
 		Engine: authoringEngine, Snapshot: snapshot, ExampleDir: config.EngineConfig.ExampleDir,
-		Token: token, Authority: authority, ErrOut: config.ErrOut,
+		Token: token, AccessCode: accessCode, Authority: authority, ErrOut: config.ErrOut,
 	})
 	if err != nil {
 		return err
@@ -75,8 +78,9 @@ func Run(ctx context.Context, config RunConfig) error {
 		serveErrors <- server.Serve(listener)
 	}()
 
-	bootstrap := (&url.URL{Scheme: "http", Host: authority, Path: instanceBasePath(token), RawQuery: url.Values{"token": []string{token}}.Encode()}).String()
+	bootstrap := "http://" + authority + "/"
 	fmt.Fprintf(config.Out, "icot ui: %s\n", bootstrap)
+	fmt.Fprintf(config.Out, "icot ui access code: %s\n", accessCode)
 	if !config.NoOpen {
 		opener := config.OpenURL
 		if opener == nil {

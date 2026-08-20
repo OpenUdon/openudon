@@ -9,6 +9,8 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/OpenUdon/openudon/internal/authoring/atomicfile"
+
 	"github.com/OpenUdon/openudon/internal/openapidisco"
 	rollout "github.com/OpenUdon/openudon/internal/workflowintent"
 	"github.com/OpenUdon/uws/uws1"
@@ -406,10 +408,10 @@ func writeWorkflowPlan(result Result, plan *WorkflowPlan) error {
 	if err != nil {
 		return err
 	}
-	if err := os.WriteFile(result.PlanJSONPath, append(data, '\n'), 0o644); err != nil {
+	if err := atomicfile.Write(result.PlanJSONPath, append(data, '\n'), 0o644); err != nil {
 		return err
 	}
-	return os.WriteFile(result.PlanMDPath, []byte(workflowPlanMarkdown(plan)), 0o644)
+	return atomicfile.Write(result.PlanMDPath, []byte(workflowPlanMarkdown(plan)), 0o644)
 }
 
 func loadWorkflowPlan(path string) (*WorkflowPlan, error) {

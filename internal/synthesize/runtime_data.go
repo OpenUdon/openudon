@@ -1,11 +1,12 @@
 package synthesize
 
 import (
-	"fmt"
 	"os"
 	"path/filepath"
 	"strconv"
 	"strings"
+
+	"github.com/OpenUdon/openudon/internal/authoring/atomicfile"
 
 	rollout "github.com/OpenUdon/openudon/internal/workflowintent"
 	"github.com/hashicorp/hcl/v2"
@@ -14,7 +15,7 @@ import (
 	"github.com/zclconf/go-cty/cty"
 )
 
-func writeRuntimeDataFile(result Result, intent *rollout.Intent, policy projectPolicy) error {
+func writeRuntimeDataFile(result Result, intent *rollout.Intent, _ projectPolicy) error {
 	if strings.TrimSpace(result.DataPath) == "" {
 		return nil
 	}
@@ -27,7 +28,7 @@ func writeRuntimeDataFile(result Result, intent *rollout.Intent, policy projectP
 		}
 	}
 	for _, block := range file.Body().Blocks() {
-		if block.Type() == "inputs" && len(block.Labels()) == 0 {
+		if (block.Type() == "inputs" || block.Type() == "credentials") && len(block.Labels()) == 0 {
 			file.Body().RemoveBlock(block)
 		}
 	}
@@ -38,7 +39,6 @@ func writeRuntimeDataFile(result Result, intent *rollout.Intent, policy projectP
 			body.SetAttributeValue(name, inputs[name])
 		}
 	}
-	addRuntimeCredentialPlaceholders(file, runtimeCredentialPlaceholders(policy))
 	if !runtimeDataHasContent(file) {
 		if err := os.Remove(result.DataPath); err != nil && !os.IsNotExist(err) {
 			return err
@@ -49,7 +49,7 @@ func writeRuntimeDataFile(result Result, intent *rollout.Intent, policy projectP
 		return err
 	}
 	data := hclwrite.Format(file.Bytes())
-	return os.WriteFile(result.DataPath, data, 0o644)
+	return atomicfile.Write(result.DataPath, data, 0o644)
 }
 
 func runtimeDataWriteFile(path string) *hclwrite.File {
@@ -62,61 +62,6 @@ func runtimeDataWriteFile(path string) *hclwrite.File {
 		return hclwrite.NewEmptyFile()
 	}
 	return file
-}
-
-func runtimeCredentialPlaceholders(policy projectPolicy) []string {
-	var out []string
-	for _, binding := range credentialBindingNames(policy) {
-		if strings.EqualFold(strings.TrimSpace(binding), "googleOAuth2") {
-			out = append(out, strings.TrimSpace(binding))
-		}
-	}
-	return out
-}
-
-func addRuntimeCredentialPlaceholders(file *hclwrite.File, bindings []string) {
-	if file == nil || len(bindings) == 0 {
-		return
-	}
-	for _, binding := range bindings {
-		binding = strings.TrimSpace(binding)
-		if binding == "" || runtimeCredentialBlockExists(file, binding) {
-			continue
-		}
-		block := runtimeCredentialsBlock(file)
-		credential := block.Body().AppendNewBlock(binding, nil)
-		body := credential.Body()
-		body.SetAttributeValue("client_id", cty.StringVal("ENVIRONMENT:GOOGLE_CLIENT_ID"))
-		body.SetAttributeValue("client_secret", cty.StringVal("ENVIRONMENT:GOOGLE_CLIENT_SECRET"))
-		body.SetAttributeValue("oauth_redirect_url", cty.StringVal("ENVIRONMENT:GOOGLE_OAUTH_REDIRECT_URL"))
-		body.SetAttributeValue("refresh_token", cty.StringVal("ENVIRONMENT:GOOGLE_REFRESH_TOKEN"))
-	}
-}
-
-func runtimeCredentialsBlock(file *hclwrite.File) *hclwrite.Block {
-	for _, block := range file.Body().Blocks() {
-		if block.Type() == "credentials" && len(block.Labels()) == 0 {
-			return block
-		}
-	}
-	return file.Body().AppendNewBlock("credentials", nil)
-}
-
-func runtimeCredentialBlockExists(file *hclwrite.File, binding string) bool {
-	if file == nil {
-		return false
-	}
-	for _, credentials := range file.Body().Blocks() {
-		if credentials.Type() != "credentials" || len(credentials.Labels()) != 0 {
-			continue
-		}
-		for _, block := range credentials.Body().Blocks() {
-			if block.Type() == binding && len(block.Labels()) == 0 {
-				return true
-			}
-		}
-	}
-	return false
 }
 
 func runtimeDataHasContent(file *hclwrite.File) bool {
@@ -241,48 +186,10 @@ func runtimeInputExecutionExpression(value string) string {
 	return value
 }
 
-func runtimeInputExpressionMatches(expression, expected string) bool {
-	expression = strings.TrimSpace(expression)
-	expected = strings.TrimSpace(expected)
-	return expression == expected || expression == "variables."+expected
-}
-
-func runtimeInputExpressionContains(expression, expected string) bool {
-	expression = strings.TrimSpace(expression)
-	expected = strings.TrimSpace(expected)
-	return strings.Contains(expression, expected) || strings.Contains(expression, "variables."+expected)
-}
-
-func runtimeInputExpressionForName(name string) string {
-	name = strings.TrimSpace(name)
-	if name == "" {
-		return ""
-	}
-	return "variables.inputs." + name
-}
-
-func runtimeInputExpressionPrefix(value string) bool {
-	return strings.HasPrefix(strings.TrimSpace(value), "variables.inputs.")
-}
-
 func runtimeDataPathExists(result Result) bool {
 	if strings.TrimSpace(result.DataPath) == "" {
 		return false
 	}
 	info, err := os.Lstat(result.DataPath)
 	return err == nil && info.Mode().IsRegular()
-}
-
-func runtimeDataPathError(result Result) error {
-	if strings.TrimSpace(result.DataPath) == "" {
-		return nil
-	}
-	info, err := os.Lstat(result.DataPath)
-	if err != nil {
-		return err
-	}
-	if !info.Mode().IsRegular() {
-		return fmt.Errorf("%s is not a regular file", result.DataPath)
-	}
-	return nil
 }

@@ -426,7 +426,10 @@ func scorecardVariantSession(fixture, fixtureName string, variant evalpkg.Author
 		if err != nil {
 			return elicitor.Session{}, err
 		}
-		session := elicitor.SessionFromIntent(intent, project)
+		session, err := elicitor.SessionFromIntent(intent, project)
+		if err != nil {
+			return elicitor.Session{}, err
+		}
 		if session.Intent.Workflow == nil {
 			session.Intent.Workflow = &rollout.WorkflowMeta{}
 		}

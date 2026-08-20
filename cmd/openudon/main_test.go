@@ -88,7 +88,7 @@ func TestCLIHelpIncludesRunEvidenceCommand(t *testing.T) {
 	if err != nil {
 		t.Fatalf("help failed: %v\n%s", err, output)
 	}
-	if !strings.Contains(string(output), "run-evidence verify/archive run evidence and async sidecar digests") {
+	if !strings.Contains(string(output), "run-evidence keygen/verify/archive run evidence, signatures, and sidecar digests") {
 		t.Fatalf("help missing run-evidence command:\n%s", output)
 	}
 }
@@ -354,16 +354,21 @@ func TestCLIRunDryRunPrintsAsyncEvidencePath(t *testing.T) {
 		t.Fatalf("run dry-run failed: %v\n%s", err, output)
 	}
 	text := string(output)
+	evidenceMatches, err := filepath.Glob(filepath.Join(workdir, "run-*", "run-evidence.json"))
+	if err != nil || len(evidenceMatches) != 1 {
+		t.Fatalf("unique run evidence paths = %#v, err=%v", evidenceMatches, err)
+	}
+	runDir := filepath.Dir(evidenceMatches[0])
 	for _, expected := range []string{
 		"openudon: run dry-run passed",
-		"  evidence: " + filepath.Join(workdir, "run-evidence.json"),
-		"  async:    " + filepath.Join(workdir, "async-evidence.json"),
+		"  evidence: " + evidenceMatches[0],
+		"  async:    " + filepath.Join(runDir, "async-evidence.json"),
 	} {
 		if !strings.Contains(text, expected) {
 			t.Fatalf("run output missing %q:\n%s", expected, text)
 		}
 	}
-	verify := helperCommand("run-evidence", "verify", "--file", filepath.Join(workdir, "run-evidence.json"))
+	verify := helperCommand("run-evidence", "verify", "--file", evidenceMatches[0])
 	verify.Dir = repoRoot
 	verifyOutput, err := verify.CombinedOutput()
 	if err != nil {
@@ -373,7 +378,7 @@ func TestCLIRunDryRunPrintsAsyncEvidencePath(t *testing.T) {
 		t.Fatalf("unexpected run-evidence verify output:\n%s", verifyOutput)
 	}
 	archiveDir := filepath.Join(workdir, "archive")
-	archive := helperCommand("run-evidence", "archive", "--file", filepath.Join(workdir, "run-evidence.json"), "--out", archiveDir)
+	archive := helperCommand("run-evidence", "archive", "--file", evidenceMatches[0], "--out", archiveDir)
 	archive.Dir = repoRoot
 	archiveOutput, err := archive.CombinedOutput()
 	if err != nil {
@@ -386,7 +391,7 @@ func TestCLIRunDryRunPrintsAsyncEvidencePath(t *testing.T) {
 	draft := helperCommand("release-notes", "draft",
 		"--run-evidence", filepath.Join(archiveDir, "run-evidence.json"),
 		"--out", releaseNotes,
-		"--commit", "abc1234",
+		"--commit", "0123456789abcdef0123456789abcdef01234567",
 		"--gate", "go test ./...=pass",
 	)
 	draft.Dir = repoRoot

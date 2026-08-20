@@ -52,12 +52,18 @@ func TestValidateBrowserAuthenticationReview(t *testing.T) {
 	if err := validateBrowserAuthenticationReview(example, []string{relative}, intent, review, time.Date(2026, 9, 14, 0, 0, 0, 0, time.UTC)); err == nil || !strings.Contains(err.Error(), "expired") {
 		t.Fatalf("expiry error = %v", err)
 	}
-	invalid := intent.Clone()
+	invalid, err := intent.Clone()
+	if err != nil {
+		t.Fatal(err)
+	}
 	invalid.Steps[0].AuthenticationFlow = "invented"
 	if err := validateBrowserAuthenticationReview(example, []string{relative}, invalid, review, at); err == nil || !strings.Contains(err.Error(), "invents authentication flow") {
 		t.Fatalf("invented flow error = %v", err)
 	}
-	invalid = intent.Clone()
+	invalid, err = intent.Clone()
+	if err != nil {
+		t.Fatal(err)
+	}
 	invalid.Steps[0].CredentialBindings["username"] = "member.username"
 	if err := validateBrowserAuthenticationReview(example, []string{relative}, invalid, review, at); err == nil || !strings.Contains(err.Error(), "credential bindings") {
 		t.Fatalf("non-portable binding error = %v", err)

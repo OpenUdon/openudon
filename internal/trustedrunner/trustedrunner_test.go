@@ -2,8 +2,10 @@ package trustedrunner
 
 import (
 	"context"
+	"crypto/sha256"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -17,6 +19,7 @@ import (
 	evdigest "github.com/OpenUdon/evidence/digest"
 	"github.com/OpenUdon/openudon/internal/authoring"
 	"github.com/OpenUdon/openudon/internal/synthesize"
+	"github.com/OpenUdon/openudon/internal/udonrunner"
 	"github.com/OpenUdon/uws/validation"
 )
 
@@ -33,7 +36,7 @@ func TestRunValidSandboxApprovalPassesDryRun(t *testing.T) {
 		DryRun:       true,
 		Now:          now,
 		Assess:       passAssess,
-		RunCommand: func(context.Context, string, ...string) error {
+		Invoke: func(context.Context, udonrunner.Invocation) error {
 			t.Fatal("dry-run invoked runner")
 			return nil
 		},
@@ -63,7 +66,7 @@ func TestRunDryRunStagesAndWritesEvidenceWithoutCredentialEnv(t *testing.T) {
 		WorkDir:      "relative-workdir",
 		Now:          now,
 		Assess:       passAssess,
-		RunCommand: func(context.Context, string, ...string) error {
+		Invoke: func(context.Context, udonrunner.Invocation) error {
 			t.Fatal("dry-run invoked runner")
 			return nil
 		},
@@ -71,8 +74,8 @@ func TestRunDryRunStagesAndWritesEvidenceWithoutCredentialEnv(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Run returned error: %v", err)
 	}
-	if !filepath.IsAbs(result.WorkDir) || result.WorkDir != filepath.Join(root, "relative-workdir") {
-		t.Fatalf("workdir = %q, want absolute path under repo root", result.WorkDir)
+	if !filepath.IsAbs(result.WorkDir) || !strings.HasPrefix(result.WorkDir, filepath.Join(root, "relative-workdir", "run-")) {
+		t.Fatalf("workdir = %q, want unique absolute run path under repo root", result.WorkDir)
 	}
 	if _, err := os.Stat(filepath.Join(result.StagePath, "workflows", "workflow.uws.yaml")); err != nil {
 		t.Fatalf("dry-run did not stage workflow: %v", err)
@@ -169,6 +172,128 @@ func TestVerifyRunEvidenceFileValidatesAsyncSidecar(t *testing.T) {
 	}
 }
 
+func TestRunEvidenceSignatureEmbeddedAndTrustedVerification(t *testing.T) {
+	result := writeVerifiableRunEvidence(t)
+	keys := t.TempDir()
+	privatePath := filepath.Join(keys, "operator-private.pem")
+	publicPath := filepath.Join(keys, "operator-public.pem")
+	if err := GenerateSigningKey(privatePath, publicPath); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := SignRunEvidenceFile(result.RunEvidencePath, privatePath); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := VerifyRunEvidenceFileWithOptions(result.RunEvidencePath, VerifyRunEvidenceOptions{RequireSignature: true}); err != nil {
+		t.Fatalf("embedded-key verification failed: %v", err)
+	}
+	if _, err := VerifyRunEvidenceFileWithOptions(result.RunEvidencePath, VerifyRunEvidenceOptions{TrustedPublicKey: publicPath}); err != nil {
+		t.Fatalf("trusted-key verification failed: %v", err)
+	}
+
+	otherPrivate := filepath.Join(keys, "other-private.pem")
+	otherPublic := filepath.Join(keys, "other-public.pem")
+	if err := GenerateSigningKey(otherPrivate, otherPublic); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := VerifyRunEvidenceFileWithOptions(result.RunEvidencePath, VerifyRunEvidenceOptions{TrustedPublicKey: otherPublic}); err == nil || !strings.Contains(err.Error(), "trusted public key") {
+		t.Fatalf("wrong trust key error = %v", err)
+	}
+}
+
+func TestGenerateSigningKeyRejectsCollidingOutputPaths(t *testing.T) {
+	root := t.TempDir()
+	tests := []struct {
+		name       string
+		privateKey string
+		publicKey  string
+	}{
+		{name: "identical", privateKey: filepath.Join(root, "same.pem"), publicKey: filepath.Join(root, "same.pem")},
+		{name: "clean alias", privateKey: filepath.Join(root, "alias.pem"), publicKey: filepath.Join(root, ".", "alias.pem")},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			if err := GenerateSigningKey(test.privateKey, test.publicKey); err == nil || !strings.Contains(err.Error(), "distinct") {
+				t.Fatalf("colliding key paths error = %v", err)
+			}
+			if _, err := os.Lstat(test.privateKey); !os.IsNotExist(err) {
+				t.Fatalf("colliding key path was written: %v", err)
+			}
+		})
+	}
+
+	realDir := filepath.Join(root, "real")
+	if err := os.Mkdir(realDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	aliasDir := filepath.Join(root, "linked")
+	if err := os.Symlink(realDir, aliasDir); err != nil {
+		t.Skipf("symlink aliases unavailable: %v", err)
+	}
+	privateKey := filepath.Join(realDir, "symlink.pem")
+	publicKey := filepath.Join(aliasDir, "symlink.pem")
+	if err := GenerateSigningKey(privateKey, publicKey); err == nil || !strings.Contains(err.Error(), "distinct") {
+		t.Fatalf("symlink-colliding key paths error = %v", err)
+	}
+	if _, err := os.Lstat(privateKey); !os.IsNotExist(err) {
+		t.Fatalf("symlink-colliding key path was written: %v", err)
+	}
+}
+
+func TestRunEvidenceSignatureRejectsMissingAndChangedEvidence(t *testing.T) {
+	unsigned := writeVerifiableRunEvidence(t)
+	if _, err := VerifyRunEvidenceFileWithOptions(unsigned.RunEvidencePath, VerifyRunEvidenceOptions{RequireSignature: true}); err == nil || !strings.Contains(err.Error(), "required") {
+		t.Fatalf("missing signature error = %v", err)
+	}
+
+	result := writeVerifiableRunEvidence(t)
+	keys := t.TempDir()
+	privatePath := filepath.Join(keys, "operator-private.pem")
+	publicPath := filepath.Join(keys, "operator-public.pem")
+	if err := GenerateSigningKey(privatePath, publicPath); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := SignRunEvidenceFile(result.RunEvidencePath, privatePath); err != nil {
+		t.Fatal(err)
+	}
+	f, err := os.OpenFile(result.RunEvidencePath, os.O_APPEND|os.O_WRONLY, 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := f.WriteString(" \n"); err != nil {
+		f.Close()
+		t.Fatal(err)
+	}
+	if err := f.Close(); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := VerifyRunEvidenceFileWithOptions(result.RunEvidencePath, VerifyRunEvidenceOptions{RequireSignature: true}); err == nil || !strings.Contains(err.Error(), "digest mismatch") {
+		t.Fatalf("changed evidence error = %v", err)
+	}
+}
+
+func TestRunRejectsInvalidSigningKeyBeforeExecutorInvocation(t *testing.T) {
+	root, example := writeFixture(t, fixtureOptions{})
+	now := fixedNow()
+	approvalPath := writeApprovalTemplate(t, root, example, StateApprovedForSandbox, now)
+	keyPath := filepath.Join(root, "invalid-signing-key.pem")
+	mustWriteFile(t, keyPath, []byte("not a private key\n"))
+	invoked := false
+	result, err := Run(context.Background(), Options{
+		RepoRoot: root, ExampleDir: example, Tier: TierSandbox, ApprovalPath: approvalPath,
+		Now: now, Assess: passAssess, SigningKey: keyPath,
+		Invoke: func(context.Context, udonrunner.Invocation) error {
+			invoked = true
+			return nil
+		},
+	})
+	if err == nil || !strings.Contains(err.Error(), "validate signing key before execution") {
+		t.Fatalf("invalid signing key result=%#v error=%v", result, err)
+	}
+	if invoked {
+		t.Fatal("executor was invoked before the signing key was validated")
+	}
+}
+
 func TestAsyncEvidenceSidecarMatchesJSONSchema(t *testing.T) {
 	result := writeVerifiableRunEvidence(t)
 	schema := filepath.Join("..", "..", "docs", "schemas", "openudon.async-evidence-bundle.v1.schema.json")
@@ -182,7 +307,14 @@ func TestArchiveRunEvidenceCopiesAndVerifiesEvidence(t *testing.T) {
 	evidence := readRunEvidenceFile(t, result.RunEvidencePath)
 	reportPath := filepath.Join(result.WorkDir, "stage.fake", "executor-report.json")
 	mustWriteFile(t, reportPath, []byte(`{"version":"udon.execution-report.v1","status":"success","started_at":"2026-04-29T12:00:00Z","finished_at":"2026-04-29T12:00:00Z","workflow_path":"workflow.uws.yaml","workflow_format":"uws-yaml","workdir":"."}`+"\n"))
-	evidence.Executor.ReportPath = reportPath
+	evidence.Executor.ReportPath = "stage.fake/executor-report.json"
+	reportData, err := os.ReadFile(reportPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	reportDigest := sha256.Sum256(reportData)
+	evidence.Executor.ReportSHA256 = fmt.Sprintf("%x", reportDigest[:])
+	evidence.Executor.ReportSize = int64(len(reportData))
 	writeRunEvidenceFileForTest(t, result.RunEvidencePath, evidence)
 
 	archiveDir := filepath.Join(result.WorkDir, "archive")
@@ -193,7 +325,7 @@ func TestArchiveRunEvidenceCopiesAndVerifiesEvidence(t *testing.T) {
 	for _, path := range []string{
 		filepath.Join(archiveDir, "run-evidence.json"),
 		filepath.Join(archiveDir, "async-evidence.json"),
-		filepath.Join(archiveDir, "executor-report.json"),
+		filepath.Join(archiveDir, "stage.fake", "executor-report.json"),
 	} {
 		if _, err := os.Stat(path); err != nil {
 			t.Fatalf("archive file missing %s: %v", path, err)
@@ -207,6 +339,80 @@ func TestArchiveRunEvidenceCopiesAndVerifiesEvidence(t *testing.T) {
 	}
 }
 
+func TestArchiveRunEvidenceRejectsCollision(t *testing.T) {
+	result := writeVerifiableRunEvidence(t)
+	archiveDir := filepath.Join(result.WorkDir, "occupied-archive")
+	mustWriteFile(t, filepath.Join(archiveDir, "sentinel"), []byte("do not overwrite"))
+	if _, err := ArchiveRunEvidence(ArchiveOptions{RunEvidencePath: result.RunEvidencePath, ArchiveDir: archiveDir}); err == nil || !strings.Contains(err.Error(), "not empty") {
+		t.Fatalf("archive collision error = %v", err)
+	}
+}
+
+func TestArchiveRunEvidenceRejectsSymlinkedArchiveRoot(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("symlink permissions are not portable on Windows")
+	}
+	result := writeVerifiableRunEvidence(t)
+	target := filepath.Join(result.WorkDir, "archive-target")
+	if err := os.Mkdir(target, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	archiveDir := filepath.Join(result.WorkDir, "archive-link")
+	if err := os.Symlink(target, archiveDir); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := ArchiveRunEvidence(ArchiveOptions{RunEvidencePath: result.RunEvidencePath, ArchiveDir: archiveDir}); err == nil || !strings.Contains(err.Error(), "real directory") {
+		t.Fatalf("symlinked archive root error = %v", err)
+	}
+	entries, err := os.ReadDir(target)
+	if err != nil || len(entries) != 0 {
+		t.Fatalf("symlink target was modified: entries=%v err=%v", entries, err)
+	}
+}
+
+func TestVerifyRunEvidenceRejectsSymlinkedExecutorReport(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("symlink permissions are not portable on Windows")
+	}
+	result := writeVerifiableRunEvidence(t)
+	evidence := readRunEvidenceFile(t, result.RunEvidencePath)
+	target := filepath.Join(t.TempDir(), "substitute-report.json")
+	reportData := []byte("substituted report\n")
+	mustWriteFile(t, target, reportData)
+	reportRel := "stage.fake/executor-report.json"
+	reportPath := filepath.Join(result.WorkDir, filepath.FromSlash(reportRel))
+	if err := os.MkdirAll(filepath.Dir(reportPath), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink(target, reportPath); err != nil {
+		t.Fatal(err)
+	}
+	evidence.Executor.ReportPath = reportRel
+	evidence.Executor.ReportSHA256 = fmt.Sprintf("%x", sha256.Sum256(reportData))
+	evidence.Executor.ReportSize = int64(len(reportData))
+	writeRunEvidenceFileForTest(t, result.RunEvidencePath, evidence)
+	if _, err := VerifyRunEvidenceFile(result.RunEvidencePath); err == nil || !strings.Contains(err.Error(), "regular file") {
+		t.Fatalf("symlinked executor report error = %v", err)
+	}
+}
+
+func TestLegacyRunEvidenceIsInspectableButNotArchivable(t *testing.T) {
+	result := writeVerifiableRunEvidence(t)
+	evidence := readRunEvidenceFile(t, result.RunEvidencePath)
+	evidence.Version = LegacyRunEvidenceVersion
+	evidence.RunID = ""
+	evidence.HandoffSHA256 = ""
+	evidence.ApprovalSHA256 = ""
+	evidence.RunConfigSHA256 = ""
+	writeRunEvidenceFileForTest(t, result.RunEvidencePath, evidence)
+	if _, err := VerifyRunEvidenceFile(result.RunEvidencePath); err != nil {
+		t.Fatalf("legacy evidence inspection failed: %v", err)
+	}
+	if _, err := ArchiveRunEvidence(ArchiveOptions{RunEvidencePath: result.RunEvidencePath, ArchiveDir: filepath.Join(result.WorkDir, "legacy-archive")}); err == nil || !strings.Contains(err.Error(), "read-only") {
+		t.Fatalf("legacy archive error = %v", err)
+	}
+}
+
 func TestWriteReleaseNotesDraftIncludesEvidenceSummary(t *testing.T) {
 	result := writeVerifiableRunEvidence(t)
 	out := filepath.Join(result.WorkDir, "release-notes.md")
@@ -217,13 +423,13 @@ func TestWriteReleaseNotesDraftIncludesEvidenceSummary(t *testing.T) {
 		Gates:           []string{"go test ./...=pass", "go vet ./...=pass"},
 		Now:             fixedNow(),
 		RunCommand: func(context.Context, string, ...string) ([]byte, error) {
-			return []byte("abc1234\n"), nil
+			return []byte("0123456789abcdef0123456789abcdef01234567\n"), nil
 		},
 	})
 	if err != nil {
 		t.Fatalf("WriteReleaseNotesDraft returned error: %v", err)
 	}
-	if written.Path != out || written.Commit != "abc1234" {
+	if written.Path != out || written.Commit != "0123456789abcdef0123456789abcdef01234567" {
 		t.Fatalf("unexpected release notes result: %#v", written)
 	}
 	data, err := os.ReadFile(out)
@@ -232,7 +438,7 @@ func TestWriteReleaseNotesDraftIncludesEvidenceSummary(t *testing.T) {
 	}
 	text := string(data)
 	for _, expected := range []string{
-		"Commit: abc1234",
+		"Commit: 0123456789abcdef0123456789abcdef01234567",
 		"go test ./...=pass",
 		"openudon run-evidence verify: pass",
 		"async-evidence.json",
@@ -251,7 +457,7 @@ func TestWriteReleaseNotesDraftAcceptsExplicitCommit(t *testing.T) {
 		RepoRoot:        result.WorkDir,
 		RunEvidencePath: result.RunEvidencePath,
 		OutPath:         out,
-		Commit:          "0123456789abcdef",
+		Commit:          "0123456789abcdef0123456789abcdef01234567",
 		Now:             fixedNow(),
 		RunCommand: func(context.Context, string, ...string) ([]byte, error) {
 			t.Fatal("Git command called for explicit commit")
@@ -261,7 +467,7 @@ func TestWriteReleaseNotesDraftAcceptsExplicitCommit(t *testing.T) {
 	if err != nil {
 		t.Fatalf("WriteReleaseNotesDraft returned error: %v", err)
 	}
-	if written.Commit != "0123456789abcdef" {
+	if written.Commit != "0123456789abcdef0123456789abcdef01234567" {
 		t.Fatalf("commit = %q, want explicit revision", written.Commit)
 	}
 }
@@ -531,7 +737,7 @@ func TestRunApprovalTrailingJSONFails(t *testing.T) {
 		Now:          now,
 		Assess:       passAssess,
 	})
-	if err == nil || !strings.Contains(err.Error(), "single JSON object") {
+	if err == nil || !strings.Contains(err.Error(), "single JSON value") {
 		t.Fatalf("expected trailing approval JSON failure, got %v", err)
 	}
 }
@@ -551,7 +757,7 @@ func TestRunDigestMismatchFails(t *testing.T) {
 		Now:          now,
 		Assess:       passAssess,
 	})
-	if err == nil || !strings.Contains(err.Error(), "package_sha256") {
+	if err == nil || !strings.Contains(err.Error(), "handoff input SHA-256 mismatch") {
 		t.Fatalf("expected digest mismatch failure, got %v", err)
 	}
 }
@@ -576,7 +782,8 @@ func TestRunNonDryRunWritesRunEvidence(t *testing.T) {
 		WorkDir:      filepath.Join(root, "work"),
 		Now:          now,
 		Assess:       passAssess,
-		RunCommand: func(_ context.Context, _ string, args ...string) error {
+		Invoke: func(_ context.Context, invocation udonrunner.Invocation) error {
+			args := invocation.Argv[1:]
 			reportPath := argValue(t, args, "--execution-report")
 			writeUdonExecutionReport(t, reportPath, "success", now(), "sha256:"+strings.Repeat("a", 64))
 			return nil
@@ -625,6 +832,57 @@ func TestRunNonDryRunWritesRunEvidence(t *testing.T) {
 	if strings.Contains(string(data), "super-secret") {
 		t.Fatalf("run evidence leaked credential value:\n%s", data)
 	}
+	withoutExecutorGate := evidence
+	withoutExecutorGate.Gates = make([]RunEvidenceGate, 0, len(evidence.Gates)-1)
+	for _, gate := range evidence.Gates {
+		if gate.Name != "executor_invocation" {
+			withoutExecutorGate.Gates = append(withoutExecutorGate.Gates, gate)
+		}
+	}
+	writeRunEvidenceFileForTest(t, result.RunEvidencePath, withoutExecutorGate)
+	if _, err := VerifyRunEvidenceFile(result.RunEvidencePath); err == nil || !strings.Contains(err.Error(), "requires an executor_invocation gate") {
+		t.Fatalf("executor-gate-free evidence verification error = %v", err)
+	}
+	writeRunEvidenceFileForTest(t, result.RunEvidencePath, evidence)
+	evidence.Executor.ReportPath = ""
+	evidence.Executor.ReportSHA256 = ""
+	evidence.Executor.ReportSize = 0
+	writeRunEvidenceFileForTest(t, result.RunEvidencePath, evidence)
+	if _, err := VerifyRunEvidenceFile(result.RunEvidencePath); err == nil || !strings.Contains(err.Error(), "requires an executor report") {
+		t.Fatalf("report-free successful evidence verification error = %v", err)
+	}
+}
+
+func TestRunNonDryRunRejectsMissingExecutorReport(t *testing.T) {
+	root, example := writeFixture(t, fixtureOptions{})
+	now := fixedNow()
+	approvalPath := writeApprovalTemplate(t, root, example, StateApprovedForSandbox, now)
+	fakeExecutor := filepath.Join(root, "fake-udon")
+	mustWriteFile(t, fakeExecutor, []byte("#!/usr/bin/env bash\nexit 0\n"))
+	if err := os.Chmod(fakeExecutor, 0o755); err != nil {
+		t.Fatal(err)
+	}
+
+	result, err := Run(context.Background(), Options{
+		RepoRoot: root, ExampleDir: example, Tier: TierSandbox, ApprovalPath: approvalPath,
+		WorkDir: filepath.Join(root, "work"), Now: now, Assess: passAssess,
+		Env: []string{"OPENUDON_EXECUTOR=" + fakeExecutor},
+		Invoke: func(context.Context, udonrunner.Invocation) error {
+			return nil
+		},
+	})
+	if err == nil || !strings.Contains(err.Error(), "executor report") {
+		t.Fatalf("missing executor report result=%#v error=%v", result, err)
+	}
+	if result == nil || result.WorkDir == "" {
+		t.Fatalf("successful invocation failure must retain the partial run result: %#v", result)
+	}
+	if result.RunEvidencePath != "" {
+		t.Fatalf("missing-report run recorded passing evidence: %#v", result)
+	}
+	if _, statErr := os.Lstat(filepath.Join(result.WorkDir, "run-evidence.json")); !os.IsNotExist(statErr) {
+		t.Fatalf("missing-report run wrote evidence, stat error=%v", statErr)
+	}
 }
 
 func TestRunNonDryRunWritesFailureEvidence(t *testing.T) {
@@ -647,7 +905,8 @@ func TestRunNonDryRunWritesFailureEvidence(t *testing.T) {
 		WorkDir:      filepath.Join(root, "work"),
 		Now:          now,
 		Assess:       passAssess,
-		RunCommand: func(_ context.Context, _ string, args ...string) error {
+		Invoke: func(_ context.Context, invocation udonrunner.Invocation) error {
+			args := invocation.Argv[1:]
 			reportPath := argValue(t, args, "--execution-report")
 			writeUdonExecutionReport(t, reportPath, "error", now(), "")
 			return invokeErr
@@ -779,9 +1038,10 @@ func TestRunNonDryRunInvokesRunner(t *testing.T) {
 		WorkDir:      filepath.Join(root, "work"),
 		Now:          now,
 		Assess:       passAssess,
-		RunCommand: func(_ context.Context, name string, args ...string) error {
-			gotName = name
-			gotArgs = args
+		Invoke: func(_ context.Context, invocation udonrunner.Invocation) error {
+			gotName = invocation.Argv[0]
+			gotArgs = invocation.Argv[1:]
+			writeExternalRunnerReport(t, invocation, now())
 			return nil
 		},
 	})
@@ -791,21 +1051,21 @@ func TestRunNonDryRunInvokesRunner(t *testing.T) {
 	if gotName != runnerPath {
 		t.Fatalf("runner path = %q", gotName)
 	}
-	if len(gotArgs) != 2 || gotArgs[0] != "--config" || gotArgs[1] != result.RunConfigPath {
+	if len(gotArgs) != 6 || gotArgs[0] != "--config" || gotArgs[1] != result.RunConfigPath || gotArgs[2] != "--config-sha256" || gotArgs[4] != "--approval" || gotArgs[5] != approvalPath {
 		t.Fatalf("runner args = %#v", gotArgs)
 	}
 	data, err := os.ReadFile(result.RunConfigPath)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !strings.Contains(string(data), `"version": "openudon.executor-run.v1"`) || !strings.Contains(string(data), `"workflow_path": "workflows/workflow.uws.yaml"`) {
+	if !strings.Contains(string(data), `"version": "openudon.executor-run.v2"`) || !strings.Contains(string(data), `"workflow_path": "workflows/workflow.uws.yaml"`) {
 		t.Fatalf("unexpected run config:\n%s", data)
 	}
 	evidence := readRunEvidenceFile(t, result.RunEvidencePath)
 	if evidence.Executor.Mode != "external-runner" || evidence.StageKind != "preflight" || runEvidenceGateStatus(evidence, "executor_invocation") != "pass" {
 		t.Fatalf("unexpected external runner evidence: %#v", evidence)
 	}
-	wantArgv := []string{runnerPath, "--config", result.RunConfigPath}
+	wantArgv := append([]string{runnerPath}, gotArgs...)
 	if strings.Join(evidence.Executor.Argv, "\n") != strings.Join(wantArgv, "\n") {
 		t.Fatalf("external runner evidence argv = %#v, want %#v", evidence.Executor.Argv, wantArgv)
 	}
@@ -843,7 +1103,7 @@ func TestRunExternalRunnerWritesFailureEvidence(t *testing.T) {
 		WorkDir:      filepath.Join(root, "work"),
 		Now:          now,
 		Assess:       passAssess,
-		RunCommand: func(context.Context, string, ...string) error {
+		Invoke: func(context.Context, udonrunner.Invocation) error {
 			return invokeErr
 		},
 	})
@@ -865,6 +1125,153 @@ func TestRunExternalRunnerWritesFailureEvidence(t *testing.T) {
 	}
 	if response.Outcome != "fatal_failure" || response.ErrorSummary == "" {
 		t.Fatalf("unexpected external failure async response: %#v", response)
+	}
+}
+
+func TestRunExternalRunnerInvocationEnvironmentIsAllowlisted(t *testing.T) {
+	root, example := writeFixture(t, fixtureOptions{credentialBindings: []string{"support-api.token"}})
+	now := fixedNow()
+	approvalPath := writeApprovalTemplate(t, root, example, StateApprovedForSandbox, now)
+	runnerPath := filepath.Join(root, "fake-runner")
+	mustWriteFile(t, runnerPath, []byte("#!/usr/bin/env bash\nexit 0\n"))
+	if err := os.Chmod(runnerPath, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	var invocation udonrunner.Invocation
+	_, err := Run(context.Background(), Options{
+		RepoRoot: root, ExampleDir: example, Tier: TierSandbox, ApprovalPath: approvalPath,
+		RunnerPath: runnerPath, WorkDir: filepath.Join(root, "work"), Now: now, Assess: passAssess,
+		Env: []string{
+			"OPENUDON_EXECUTOR=/trusted/udon", "UDON_CREDENTIAL_SUPPORT_API_TOKEN=declared-secret",
+			"PATH=/trusted/bin", "AWS_SECRET_ACCESS_KEY=must-not-pass", "HTTPS_PROXY=http://must-not-pass",
+			"SSH_AUTH_SOCK=/must-not-pass", "UNRELATED_SENTINEL=must-not-pass",
+		},
+		Invoke: func(_ context.Context, got udonrunner.Invocation) error {
+			invocation = got
+			writeExternalRunnerReport(t, got, now())
+			return nil
+		},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	joined := strings.Join(invocation.Env, "\n")
+	for _, required := range []string{"OPENUDON_EXECUTOR=/trusted/udon", "UDON_CREDENTIAL_SUPPORT_API_TOKEN=declared-secret", "PATH=/trusted/bin"} {
+		if !strings.Contains(joined, required) {
+			t.Fatalf("required %q missing from outer runner env: %#v", required, invocation.Env)
+		}
+	}
+	for _, forbidden := range []string{"AWS_SECRET_ACCESS_KEY", "HTTPS_PROXY", "SSH_AUTH_SOCK", "UNRELATED_SENTINEL"} {
+		if strings.Contains(joined, forbidden) {
+			t.Fatalf("%s leaked into outer runner env: %#v", forbidden, invocation.Env)
+		}
+	}
+}
+
+func TestRunExternalRevalidatesPinnedConfigAndApproval(t *testing.T) {
+	root, example := writeFixture(t, fixtureOptions{})
+	now := fixedNow()
+	approvalPath := writeApprovalTemplate(t, root, example, StateApprovedForSandbox, now)
+	runnerPath := filepath.Join(root, "fake-runner")
+	mustWriteFile(t, runnerPath, []byte("#!/usr/bin/env bash\nexit 0\n"))
+	if err := os.Chmod(runnerPath, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	parent, err := Run(context.Background(), Options{
+		RepoRoot: root, ExampleDir: example, Tier: TierSandbox, ApprovalPath: approvalPath,
+		RunnerPath: runnerPath, WorkDir: filepath.Join(root, "work"), Now: now, Assess: passAssess,
+		Invoke: func(_ context.Context, invocation udonrunner.Invocation) error {
+			writeExternalRunnerReport(t, invocation, now())
+			return nil
+		},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	configBytes, err := os.ReadFile(parent.RunConfigPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var parentConfig RunConfig
+	if err := json.Unmarshal(configBytes, &parentConfig); err != nil {
+		t.Fatal(err)
+	}
+	parentReportPath, err := externalExecutorReportPath(parentConfig)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Remove(parentReportPath); err != nil {
+		t.Fatal(err)
+	}
+	configSum := sha256.Sum256(configBytes)
+	configDigest := fmt.Sprintf("%x", configSum[:])
+	invoked := false
+	base := ExternalOptions{
+		ConfigPath: parent.RunConfigPath, ConfigSHA256: configDigest, ApprovalPath: approvalPath,
+		Env: []string{"OPENUDON_EXECUTOR=/bin/true"}, Now: now, Assess: passAssess,
+		Invoke: func(_ context.Context, invocation udonrunner.Invocation) error {
+			invoked = true
+			writeUdonExecutionReport(t, argValue(t, invocation.Argv, "--execution-report"), "success", now(), "")
+			return nil
+		},
+	}
+	if _, err := RunExternal(context.Background(), base); err != nil {
+		t.Fatalf("validated external run failed: %v", err)
+	}
+	if !invoked {
+		t.Fatal("validated external run did not invoke executor")
+	}
+
+	t.Run("config replacement", func(t *testing.T) {
+		mustWriteFile(t, parent.RunConfigPath, append(append([]byte(nil), configBytes...), ' '))
+		defer mustWriteFile(t, parent.RunConfigPath, configBytes)
+		if _, err := RunExternal(context.Background(), base); err == nil || !strings.Contains(err.Error(), "SHA-256 mismatch") {
+			t.Fatalf("config replacement error = %v", err)
+		}
+	})
+
+	t.Run("approval replacement", func(t *testing.T) {
+		approvalBytes, err := os.ReadFile(approvalPath)
+		if err != nil {
+			t.Fatal(err)
+		}
+		mustWriteFile(t, approvalPath, append(append([]byte(nil), approvalBytes...), ' '))
+		defer mustWriteFile(t, approvalPath, approvalBytes)
+		if _, err := RunExternal(context.Background(), base); err == nil || !strings.Contains(err.Error(), "approval SHA-256") {
+			t.Fatalf("approval replacement error = %v", err)
+		}
+	})
+
+	t.Run("forged canonical config", func(t *testing.T) {
+		var forged RunConfig
+		if err := json.Unmarshal(configBytes, &forged); err != nil {
+			t.Fatal(err)
+		}
+		forged.WorkflowPath = "workflows/other.uws.yaml"
+		forgedBytes, err := json.MarshalIndent(forged, "", "  ")
+		if err != nil {
+			t.Fatal(err)
+		}
+		forgedBytes = append(forgedBytes, '\n')
+		mustWriteFile(t, parent.RunConfigPath, forgedBytes)
+		defer mustWriteFile(t, parent.RunConfigPath, configBytes)
+		sum := sha256.Sum256(forgedBytes)
+		forgedOpts := base
+		forgedOpts.ConfigSHA256 = fmt.Sprintf("%x", sum[:])
+		if _, err := RunExternal(context.Background(), forgedOpts); err == nil || !strings.Contains(err.Error(), "canonical validated") {
+			t.Fatalf("forged config error = %v", err)
+		}
+	})
+}
+
+func TestRunExternalRejectsLegacyV1Config(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "legacy-config.json")
+	data := []byte("{\"version\":\"openudon.executor-run.v1\"}\n")
+	mustWriteFile(t, path, data)
+	sum := sha256.Sum256(data)
+	_, err := RunExternal(context.Background(), ExternalOptions{ConfigPath: path, ConfigSHA256: fmt.Sprintf("%x", sum[:]), ApprovalPath: filepath.Join(t.TempDir(), "unused")})
+	if err == nil || !strings.Contains(err.Error(), "cannot execute") {
+		t.Fatalf("legacy config error = %v", err)
 	}
 }
 
@@ -890,7 +1297,7 @@ func TestRunRejectsUnsafeRunnerPathOverride(t *testing.T) {
 				WorkDir:      filepath.Join(root, "work"),
 				Now:          now,
 				Assess:       passAssess,
-				RunCommand: func(context.Context, string, ...string) error {
+				Invoke: func(context.Context, udonrunner.Invocation) error {
 					t.Fatal("runner should not be invoked")
 					return nil
 				},
@@ -911,8 +1318,6 @@ func TestRunNonDryRunUsesDefaultGoRunner(t *testing.T) {
 	if err := os.Chmod(fakeExecutor, 0o755); err != nil {
 		t.Fatal(err)
 	}
-	t.Setenv("OPENUDON_EXECUTOR", fakeExecutor)
-
 	var gotName string
 	var gotArgs []string
 	result, err := Run(context.Background(), Options{
@@ -923,9 +1328,12 @@ func TestRunNonDryRunUsesDefaultGoRunner(t *testing.T) {
 		WorkDir:      filepath.Join(root, "work"),
 		Now:          now,
 		Assess:       passAssess,
-		RunCommand: func(_ context.Context, name string, args ...string) error {
-			gotName = name
-			gotArgs = append([]string(nil), args...)
+		Env:          []string{"OPENUDON_EXECUTOR=" + fakeExecutor},
+		Invoke: func(_ context.Context, invocation udonrunner.Invocation) error {
+			gotName = invocation.Argv[0]
+			gotArgs = append([]string(nil), invocation.Argv[1:]...)
+			args := invocation.Argv[1:]
+			writeUdonExecutionReport(t, argValue(t, args, "--execution-report"), "success", now(), "")
 			return nil
 		},
 	})
@@ -936,7 +1344,7 @@ func TestRunNonDryRunUsesDefaultGoRunner(t *testing.T) {
 		t.Fatalf("executor path = %q, want %q", gotName, fakeExecutor)
 	}
 	stagedWorkdir := argValue(t, gotArgs, "--workdir")
-	if !strings.HasPrefix(stagedWorkdir, filepath.Join(root, "work")+string(os.PathSeparator)+"stage.") {
+	if !strings.HasPrefix(stagedWorkdir, filepath.Join(root, "work", "run-")) || !strings.Contains(stagedWorkdir, string(os.PathSeparator)+"stage.") {
 		t.Fatalf("executor workdir = %q, want fresh stage under work; args=%#v", stagedWorkdir, gotArgs)
 	}
 	if gotWorkflow := argValue(t, gotArgs, "--workflow"); gotWorkflow != filepath.Join(stagedWorkdir, "workflows", "workflow.uws.yaml") {
@@ -1210,7 +1618,7 @@ func TestRunRejectsSymlinkedWorkflowBeforeExecutorInvocation(t *testing.T) {
 		RunnerPath:   filepath.Join(root, "fake-runner"),
 		Now:          now,
 		Assess:       passAssess,
-		RunCommand: func(context.Context, string, ...string) error {
+		Invoke: func(context.Context, udonrunner.Invocation) error {
 			t.Fatal("runner should not be invoked for symlinked workflow")
 			return nil
 		},
@@ -1261,7 +1669,7 @@ func TestRunPackageDigestChangesWhenOpenAPIChanges(t *testing.T) {
 		Now:          now,
 		Assess:       passAssess,
 	})
-	if err == nil || !strings.Contains(err.Error(), "package_sha256") {
+	if err == nil || !strings.Contains(err.Error(), "handoff input SHA-256 mismatch") {
 		t.Fatalf("expected package digest mismatch, got %v", err)
 	}
 }
@@ -1303,12 +1711,12 @@ func TestUdonRunnerStagesPackageAndUsesConfiguredWorkdir(t *testing.T) {
 	mustWriteFile(t, configPath, data)
 	fakeExecutor := filepath.Join(tmp, "fake-udon")
 	capture := filepath.Join(tmp, "args.txt")
-	mustWriteFile(t, fakeExecutor, []byte("#!/usr/bin/env bash\nprintf '%s\\n' \"$@\" > \"$CAPTURE_ARGS\"\n"))
+	mustWriteFile(t, fakeExecutor, []byte(fmt.Sprintf("#!/bin/sh\nprintf '%%s\\n' \"$@\" > %q\n", capture)))
 	if err := os.Chmod(fakeExecutor, 0o755); err != nil {
 		t.Fatal(err)
 	}
 	cmd := runnerCLICommand(t, repoRoot, configPath)
-	cmd.Env = append(os.Environ(), "OPENUDON_EXECUTOR="+fakeExecutor, "CAPTURE_ARGS="+capture)
+	cmd.Env = append(os.Environ(), "OPENUDON_EXECUTOR="+fakeExecutor)
 	out, err := cmd.CombinedOutput()
 	if err != nil {
 		t.Fatalf("udon-runner failed: %v\n%s", err, out)
@@ -1368,12 +1776,12 @@ func TestUdonRunnerRejectsSymlinkedPackageRoot(t *testing.T) {
 	mustWriteFile(t, configPath, data)
 	capture := filepath.Join(tmp, "args.txt")
 	fakeExecutor := filepath.Join(tmp, "fake-udon")
-	mustWriteFile(t, fakeExecutor, []byte("#!/usr/bin/env bash\nprintf '%s\\n' \"$@\" > \"$CAPTURE_ARGS\"\n"))
+	mustWriteFile(t, fakeExecutor, []byte(fmt.Sprintf("#!/bin/sh\nprintf '%%s\\n' \"$@\" > %q\n", capture)))
 	if err := os.Chmod(fakeExecutor, 0o755); err != nil {
 		t.Fatal(err)
 	}
 	cmd := runnerCLICommand(t, repoRoot, configPath)
-	cmd.Env = append(os.Environ(), "OPENUDON_EXECUTOR="+fakeExecutor, "CAPTURE_ARGS="+capture)
+	cmd.Env = append(os.Environ(), "OPENUDON_EXECUTOR="+fakeExecutor)
 	out, err := cmd.CombinedOutput()
 	if err == nil || !strings.Contains(string(out), "package root must not be a symlink") {
 		t.Fatalf("expected package root symlink rejection, err=%v out=%s", err, out)
@@ -1736,12 +2144,12 @@ func TestUdonRunnerAcceptsAbsolutePathsInsidePackageRoot(t *testing.T) {
 	mustWriteFile(t, configPath, data)
 	fakeExecutor := filepath.Join(tmp, "fake-udon")
 	capture := filepath.Join(tmp, "args.txt")
-	mustWriteFile(t, fakeExecutor, []byte("#!/usr/bin/env bash\nprintf '%s\\n' \"$@\" > \"$CAPTURE_ARGS\"\n"))
+	mustWriteFile(t, fakeExecutor, []byte(fmt.Sprintf("#!/bin/sh\nprintf '%%s\\n' \"$@\" > %q\n", capture)))
 	if err := os.Chmod(fakeExecutor, 0o755); err != nil {
 		t.Fatal(err)
 	}
 	cmd := runnerCLICommand(t, repoRoot, configPath)
-	cmd.Env = append(os.Environ(), "OPENUDON_EXECUTOR="+fakeExecutor, "CAPTURE_ARGS="+capture)
+	cmd.Env = append(os.Environ(), "OPENUDON_EXECUTOR="+fakeExecutor)
 	out, err := cmd.CombinedOutput()
 	if err != nil {
 		t.Fatalf("udon-runner failed: %v\n%s", err, out)
@@ -1795,12 +2203,12 @@ func TestUdonRunnerFreshStageHidesPersistentStaleFiles(t *testing.T) {
 	mustWriteFile(t, configPath, data)
 	fakeExecutor := filepath.Join(tmp, "fake-udon")
 	capture := filepath.Join(tmp, "args.txt")
-	mustWriteFile(t, fakeExecutor, []byte("#!/usr/bin/env bash\nprintf '%s\\n' \"$@\" > \"$CAPTURE_ARGS\"\n"))
+	mustWriteFile(t, fakeExecutor, []byte(fmt.Sprintf("#!/bin/sh\nprintf '%%s\\n' \"$@\" > %q\n", capture)))
 	if err := os.Chmod(fakeExecutor, 0o755); err != nil {
 		t.Fatal(err)
 	}
 	cmd := runnerCLICommand(t, repoRoot, configPath)
-	cmd.Env = append(os.Environ(), "OPENUDON_EXECUTOR="+fakeExecutor, "CAPTURE_ARGS="+capture)
+	cmd.Env = append(os.Environ(), "OPENUDON_EXECUTOR="+fakeExecutor)
 	out, err := cmd.CombinedOutput()
 	if err != nil {
 		t.Fatalf("udon-runner failed: %v\n%s", err, out)
@@ -1853,7 +2261,7 @@ func TestUdonRunnerCanInvokeDockerImage(t *testing.T) {
 	}
 	capture := filepath.Join(tmp, "docker-args.txt")
 	fakeDocker := filepath.Join(binDir, "docker")
-	mustWriteFile(t, fakeDocker, []byte("#!/usr/bin/env bash\nprintf '%s\\n' \"$@\" > \"$CAPTURE_ARGS\"\n"))
+	mustWriteFile(t, fakeDocker, []byte(fmt.Sprintf("#!/usr/bin/env bash\nprintf '%%s\\n' \"$@\" > %q\n", capture)))
 	if err := os.Chmod(fakeDocker, 0o755); err != nil {
 		t.Fatal(err)
 	}
@@ -1861,7 +2269,6 @@ func TestUdonRunnerCanInvokeDockerImage(t *testing.T) {
 	cmd.Env = append(os.Environ(),
 		"PATH="+binDir+string(os.PathListSeparator)+os.Getenv("PATH"),
 		"OPENUDON_EXECUTOR=docker://udon:test",
-		"CAPTURE_ARGS="+capture,
 		"UDON_CREDENTIAL_SUPPORT_API_TOKEN=super-secret",
 	)
 	out, err := cmd.CombinedOutput()
@@ -2023,12 +2430,12 @@ func TestUdonRunnerVerifiesStagedPackageDigestBeforeExecutor(t *testing.T) {
 	mustWriteFile(t, configPath, data)
 	capture := filepath.Join(tmp, "args.txt")
 	fakeExecutor := filepath.Join(tmp, "fake-udon")
-	mustWriteFile(t, fakeExecutor, []byte("#!/usr/bin/env bash\nprintf '%s\\n' \"$@\" > \"$CAPTURE_ARGS\"\n"))
+	mustWriteFile(t, fakeExecutor, []byte(fmt.Sprintf("#!/bin/sh\nprintf '%%s\\n' \"$@\" > %q\n", capture)))
 	if err := os.Chmod(fakeExecutor, 0o755); err != nil {
 		t.Fatal(err)
 	}
 	cmd := runnerCLICommand(t, repoRoot, configPath)
-	cmd.Env = append(os.Environ(), "OPENUDON_EXECUTOR="+fakeExecutor, "CAPTURE_ARGS="+capture)
+	cmd.Env = append(os.Environ(), "OPENUDON_EXECUTOR="+fakeExecutor)
 	out, err := cmd.CombinedOutput()
 	if err == nil || !strings.Contains(string(out), "staged package_sha256") {
 		t.Fatalf("expected staged digest mismatch, err=%v out=%s", err, out)
@@ -2099,9 +2506,51 @@ func argValue(t *testing.T, args []string, flag string) string {
 
 func runnerCLICommand(t *testing.T, repoRoot, configPath string) *exec.Cmd {
 	t.Helper()
-	cmd := exec.Command("go", "run", "./cmd/udon-runner", "--config", configPath)
+	cmd := exec.Command(os.Args[0], "-test.run=^TestRunnerHelperProcess$", "--", configPath)
 	cmd.Dir = repoRoot
 	return cmd
+}
+
+// TestRunnerHelperProcess keeps low-level staging/path tests below the external
+// trusted boundary. cmd/udon-runner itself is covered separately with a fully
+// validated package, config digest, and approval.
+func TestRunnerHelperProcess(t *testing.T) {
+	separator := -1
+	for i, arg := range os.Args {
+		if arg == "--" {
+			separator = i
+			break
+		}
+	}
+	if separator < 0 || separator+1 >= len(os.Args) {
+		return
+	}
+	config, err := udonrunner.LoadConfig(os.Args[separator+1])
+	if err != nil {
+		fmt.Fprintln(os.Stderr, err)
+		os.Exit(1)
+	}
+	if config.RunID == "" {
+		config.RunID = "0123456789abcdef0123456789abcdef"
+	}
+	if config.HandoffSHA256 == "" {
+		config.HandoffSHA256 = strings.Repeat("a", 64)
+	}
+	if config.ApprovalSHA256 == "" {
+		config.ApprovalSHA256 = strings.Repeat("b", 64)
+	}
+	wd, wdErr := os.Getwd()
+	if wdErr != nil {
+		fmt.Fprintln(os.Stderr, wdErr)
+		os.Exit(1)
+	}
+	_, err = udonrunner.Run(context.Background(), config, udonrunner.Options{
+		RepoRoot: wd, Env: os.Environ(), Stdout: os.Stdout, Stderr: os.Stderr,
+	})
+	if err != nil {
+		fmt.Fprintln(os.Stderr, err)
+		os.Exit(1)
+	}
 }
 
 type fixtureOptions struct {
@@ -2146,41 +2595,30 @@ func writeFixture(t *testing.T, opts fixtureOptions) (string, string) {
 		mustWriteFile(t, filepath.Join(example, "expected", "review-handoff.json"), []byte("{"))
 		return root, example
 	}
-	manifest := map[string]any{
-		"version":         ReviewHandoffVersion,
-		"generated_state": string(authoring.ReviewStateGenerated),
-		"handoff_inputs": []map[string]any{
-			{"path": "project.md", "required": true},
-			{"path": "workflows/intent.hcl", "required": true},
-			{"path": "workflows/workflow.hcl", "required": true},
-			{"path": "workflows/workflow.uws.yaml", "required": true},
-			{"path": "expected/plan.json", "required": true},
-			{"path": "expected/quality.json", "required": true},
-			{"path": "expected/refinement.json", "required": true},
-			{"path": "expected/review.md", "required": true},
-			{"path": "expected/review-handoff.json", "required": true},
-		},
-		"approval_states": authoring.DefaultReviewStateMachine(),
-		"owner_split": map[string]any{
-			"openudon":                      []string{"artifact validation"},
-			"external_review_orchestration": []string{"approval routing"},
-		},
-		"execution_policy": map[string]any{
-			"direct_production_execution": opts.directProduction,
-		},
-		"credential_bindings": map[string]any{
-			"values_allowed_in_artifacts": opts.valuesAllowed,
-		},
+	paths := []string{
+		"project.md", "workflows/intent.hcl", "workflows/workflow.hcl", "workflows/workflow.uws.yaml",
+		"expected/plan.json", "expected/quality.json", "expected/refinement.json", "expected/review.md", "expected/review-handoff.json",
 	}
-	if len(opts.credentialBindings) > 0 {
-		manifest["credential_bindings"].(map[string]any)["declared"] = append([]string(nil), opts.credentialBindings...)
-		manifest["credential_bindings"].(map[string]any)["expected_from_plan"] = append([]string(nil), opts.credentialBindings...)
-	}
-	inputs := manifest["handoff_inputs"].([]map[string]any)
 	for _, path := range opts.extraRequiredInputs {
-		inputs = append(inputs, map[string]any{"path": path, "required": true})
+		paths = append(paths, path)
 	}
-	manifest["handoff_inputs"] = inputs
+	inputs := make([]authoring.ReviewHandoffInput, 0, len(paths))
+	for _, path := range paths {
+		inputs = append(inputs, authoring.ReviewHandoffInput{Path: path, Purpose: "test package input", Required: true, SHA256: strings.Repeat("0", 64)})
+	}
+	manifest := authoring.NewReviewHandoff(authoring.ReviewHandoffOptions{
+		Version: ReviewHandoffVersion, GeneratedState: string(authoring.ReviewStateGenerated), HandoffInputs: inputs,
+		ApprovalStates: authoring.DefaultReviewStateMachine(),
+		OwnerSplit: authoring.ReviewOwnerSplit{
+			"openudon": {"artifact validation"}, "external_review_orchestration": {"approval routing"},
+		},
+		ExecutionPolicy: authoring.ReviewExecutionPolicy{DirectProductionExecution: opts.directProduction},
+		CredentialBindings: authoring.ReviewCredentialBindings{
+			Declared: append([]string(nil), opts.credentialBindings...), ExpectedFromPlan: append([]string(nil), opts.credentialBindings...),
+			ValuesAllowedInArtifacts: opts.valuesAllowed,
+		},
+	})
+	refreshFixtureHandoffDigests(t, example, &manifest)
 	data, err := json.MarshalIndent(manifest, "", "  ")
 	if err != nil {
 		t.Fatal(err)
@@ -2191,6 +2629,7 @@ func writeFixture(t *testing.T, opts fixtureOptions) (string, string) {
 
 func writeApprovalTemplate(t *testing.T, root, example, state string, now func() time.Time) string {
 	t.Helper()
+	refreshFixtureHandoffFile(t, example)
 	approval, err := ApprovalTemplate(context.Background(), TemplateOptions{
 		RepoRoot:   root,
 		ExampleDir: example,
@@ -2209,6 +2648,7 @@ func writeApprovalTemplate(t *testing.T, root, example, state string, now func()
 
 func writeApprovalTemplateWithoutPolicyCheck(t *testing.T, root, example, state string, now func() time.Time) string {
 	t.Helper()
+	refreshFixtureHandoffFile(t, example)
 	data, err := os.ReadFile(filepath.Join(example, "expected", "review-handoff.json"))
 	if err != nil {
 		t.Fatal(err)
@@ -2236,6 +2676,53 @@ func writeApprovalTemplateWithoutPolicyCheck(t *testing.T, root, example, state 
 	path := filepath.Join(root, "approval.json")
 	writeApprovalFile(t, path, approval)
 	return path
+}
+
+func refreshFixtureHandoffFile(t *testing.T, example string) {
+	t.Helper()
+	path := filepath.Join(example, "expected", "review-handoff.json")
+	data, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var manifest authoring.ReviewHandoff
+	if err := json.Unmarshal(data, &manifest); err != nil {
+		t.Fatal(err)
+	}
+	refreshFixtureHandoffDigests(t, example, &manifest)
+	data, err = json.MarshalIndent(manifest, "", "  ")
+	if err != nil {
+		t.Fatal(err)
+	}
+	mustWriteFile(t, path, append(data, '\n'))
+}
+
+func refreshFixtureHandoffDigests(t *testing.T, example string, manifest *authoring.ReviewHandoff) {
+	t.Helper()
+	const self = "expected/review-handoff.json"
+	for i := range manifest.HandoffInputs {
+		input := &manifest.HandoffInputs[i]
+		if input.Path == self {
+			input.SHA256 = strings.Repeat("0", 64)
+			continue
+		}
+		data, err := os.ReadFile(filepath.Join(example, filepath.FromSlash(input.Path)))
+		if err != nil {
+			input.SHA256 = strings.Repeat("0", 64)
+			continue
+		}
+		digest := sha256.Sum256(data)
+		input.SHA256 = fmt.Sprintf("%x", digest[:])
+	}
+	digest, err := authoring.ReviewHandoffSelfDigest(*manifest, self)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for i := range manifest.HandoffInputs {
+		if manifest.HandoffInputs[i].Path == self {
+			manifest.HandoffInputs[i].SHA256 = digest
+		}
+	}
 }
 
 func passAssess(context.Context, synthesize.Options) (*synthesize.QualityReport, error) {
@@ -2442,6 +2929,49 @@ func writeUdonExecutionReport(t *testing.T, path, status string, now time.Time, 
 	if err := os.WriteFile(path, append(data, '\n'), 0o600); err != nil {
 		t.Fatal(err)
 	}
+}
+
+func TestDecodeUdonExecutionReportEnforcesPublishedContract(t *testing.T) {
+	valid := UdonExecutionReport{
+		Version: UdonExecutionReportVersion, Status: "success",
+		StartedAt: "2026-04-29T12:00:00Z", FinishedAt: "2026-04-29T12:00:01Z",
+		WorkflowPath: "workflow.uws.yaml", WorkflowFormat: "uws-yaml", WorkDir: ".",
+	}
+	for _, mutate := range []func(*UdonExecutionReport){
+		func(report *UdonExecutionReport) { report.Status = "passed" },
+		func(report *UdonExecutionReport) { report.StartedAt = "" },
+		func(report *UdonExecutionReport) { report.FinishedAt = "2026-04-29T11:59:59Z" },
+		func(report *UdonExecutionReport) { report.WorkflowPath = "" },
+		func(report *UdonExecutionReport) { report.OutputDigest = "sha256:" + strings.Repeat("A", 64) },
+	} {
+		report := valid
+		mutate(&report)
+		data, err := json.Marshal(report)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if _, err := decodeUdonExecutionReport(data); err == nil {
+			t.Fatalf("invalid executor report was accepted: %s", data)
+		}
+	}
+}
+
+func writeExternalRunnerReport(t *testing.T, invocation udonrunner.Invocation, now time.Time) {
+	t.Helper()
+	configPath := argValue(t, invocation.Argv, "--config")
+	data, err := os.ReadFile(configPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var config RunConfig
+	if err := json.Unmarshal(data, &config); err != nil {
+		t.Fatal(err)
+	}
+	path, err := externalExecutorReportPath(config)
+	if err != nil {
+		t.Fatal(err)
+	}
+	writeUdonExecutionReport(t, path, "success", now, "")
 }
 
 func runEvidenceGateStatus(evidence RunEvidence, name string) string {

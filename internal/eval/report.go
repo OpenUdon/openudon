@@ -1,6 +1,7 @@
 package eval
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -8,7 +9,12 @@ import (
 	"sort"
 	"strings"
 	"time"
+
+	"github.com/OpenUdon/openudon/internal/authoring/atomicfile"
+	"github.com/OpenUdon/openudon/internal/evidencefile"
 )
+
+const maxEvalReportBytes int64 = 32 << 20
 
 type RunReport struct {
 	GeneratedAt        string              `json:"generated_at"`
@@ -133,27 +139,34 @@ func WriteReport(outPath string, report RunReport) error {
 	if err != nil {
 		return err
 	}
-	if err := os.WriteFile(outPath, append(data, '\n'), 0o644); err != nil {
+	if err := atomicfile.Write(outPath, append(data, '\n'), 0o644); err != nil {
 		return err
 	}
 	mdPath := strings.TrimSuffix(outPath, filepath.Ext(outPath)) + ".md"
-	return os.WriteFile(mdPath, []byte(MarkdownReport(report)), 0o644)
+	return atomicfile.Write(mdPath, []byte(MarkdownReport(report)), 0o644)
 }
 
 func ReadReport(path string) (RunReport, error) {
-	data, err := os.ReadFile(path)
+	data, _, err := evidencefile.ReadRegular(path, maxEvalReportBytes)
 	if err != nil {
 		return RunReport{}, err
 	}
+	trimmed := bytes.TrimSpace(data)
+	if len(trimmed) == 0 {
+		return RunReport{}, fmt.Errorf("eval report is empty")
+	}
 	var report RunReport
-	if err := json.Unmarshal(data, &report); err == nil && report.Results != nil {
+	if trimmed[0] == '{' {
+		if err := evidencefile.DecodeStrict(data, &report); err != nil {
+			return RunReport{}, err
+		}
 		if report.Summary.Briefs == 0 && len(report.Results) > 0 {
 			report.Summary = BuildRunSummary(report.Results)
 		}
 		return report, nil
 	}
 	var results []EvalResult
-	if err := json.Unmarshal(data, &results); err != nil {
+	if err := evidencefile.DecodeStrict(data, &results); err != nil {
 		return RunReport{}, err
 	}
 	return RunReport{

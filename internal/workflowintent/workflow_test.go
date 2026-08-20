@@ -3,10 +3,13 @@ package workflowintent
 import (
 	"context"
 	"encoding/json"
+	"errors"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/OpenUdon/openudon/internal/authoring"
 )
@@ -31,6 +34,25 @@ func TestWorkflowFlowParsesValidatesAndRendersIntent(t *testing.T) {
 	}
 	if _, err := ParseIntent(artifacts.Artifacts[0].Content, IntentPath); err != nil {
 		t.Fatalf("rendered intent did not parse: %v\n%s", err, artifacts.Artifacts[0].Content)
+	}
+}
+
+func TestParseIntentRejectsUnknownHCLWithOriginalLine(t *testing.T) {
+	for _, tc := range []struct {
+		name string
+		hcl  string
+		line string
+	}{
+		{name: "attribute", hcl: "openapi = \"openapi/items.yaml\"\n\nunknown_value = true\n", line: "intent.hcl:3"},
+		{name: "block", hcl: "openapi = \"openapi/items.yaml\"\n\nunknown_block {\n}\n", line: "intent.hcl:3"},
+		{name: "compatibility rewrite", hcl: "openapi = \"openapi/items.yaml\"\nstep \"read\" {\n  type = \"http\"\n  operation = \"read\"\n  bind \"prior\" {\n    unknown_value = true\n  }\n}\n", line: "intent.hcl:6"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			_, err := ParseIntent([]byte(tc.hcl), "intent.hcl")
+			if err == nil || !strings.Contains(err.Error(), tc.line) {
+				t.Fatalf("ParseIntent error = %v, want original location %q", err, tc.line)
+			}
+		})
 	}
 }
 
@@ -76,7 +98,10 @@ step "send" {
 	if err != nil {
 		t.Fatal(err)
 	}
-	normalized := intent.NormalizedForGeneration()
+	normalized, err := intent.NormalizedForGeneration()
+	if err != nil {
+		t.Fatal(err)
+	}
 	if normalized.OpenAPI != "google-discovery/gmail.json" || normalized.Steps[0].OpenAPI != "google-discovery/gmail.json" {
 		t.Fatalf("source alias was not normalized: %#v", normalized)
 	}
@@ -313,6 +338,112 @@ func TestProviderStructuredChatSendsProviderNativeSchema(t *testing.T) {
 			t.Fatalf("gemini structured payload = %#v", got)
 		}
 	})
+}
+
+func TestGeminiAPIKeyUsesHeaderAndNeverURL(t *testing.T) {
+	const secret = "gemini-secret-key"
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.RawQuery != "" || strings.Contains(r.RequestURI, secret) {
+			t.Fatalf("Gemini key leaked into request URL: %s", r.RequestURI)
+		}
+		if got := r.Header.Get("x-goog-api-key"); got != secret {
+			t.Fatalf("x-goog-api-key = %q", got)
+		}
+		_, _ = w.Write([]byte(`{"candidates":[{"content":{"parts":[{"text":"ok"}]}}]}`))
+	}))
+	defer server.Close()
+	t.Setenv("GEMINI_BASE_URL", server.URL)
+	client := &providerLLMClient{provider: "gemini", model: "gemini-test", apiKey: secret, client: server.Client(), timeout: defaultLLMTimeout}
+	if got, err := client.Chat(context.Background(), []ChatMessage{{Role: "user", Content: "hello"}}); err != nil || got != "ok" {
+		t.Fatalf("Gemini chat = %q, %v", got, err)
+	}
+}
+
+func TestProviderResponseLimitAppliesToSuccessAndError(t *testing.T) {
+	for _, status := range []int{http.StatusOK, http.StatusBadGateway} {
+		t.Run(http.StatusText(status), func(t *testing.T) {
+			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+				w.WriteHeader(status)
+				_, _ = w.Write([]byte(strings.Repeat("x", maxProviderResponseBytes+1)))
+			}))
+			defer server.Close()
+			client := &providerLLMClient{provider: "openai", model: "test", apiKey: "secret", client: server.Client(), timeout: defaultLLMTimeout}
+			_, err := client.chatOpenAI(context.Background(), server.URL, []ChatMessage{{Role: "user", Content: "hello"}})
+			if err == nil || !strings.Contains(err.Error(), "response exceeded") {
+				t.Fatalf("oversized response error = %v", err)
+			}
+			if strings.Contains(err.Error(), "secret") {
+				t.Fatalf("provider error leaked API key: %v", err)
+			}
+		})
+	}
+}
+
+type secretErrorTransport struct{}
+
+func (secretErrorTransport) RoundTrip(*http.Request) (*http.Response, error) {
+	return nil, errors.New("proxy failure Authorization: Bearer transport-secret")
+}
+
+func TestProviderTransportErrorsAreFullyRedacted(t *testing.T) {
+	client := &providerLLMClient{
+		provider: "openai", model: "test", apiKey: "api-secret",
+		client: &http.Client{Transport: secretErrorTransport{}}, timeout: defaultLLMTimeout,
+	}
+	_, err := client.chatOpenAI(context.Background(), "https://api.example.invalid/v1/chat", []ChatMessage{{Role: "user", Content: "hello"}})
+	if err == nil || !strings.Contains(err.Error(), "transport request failed") {
+		t.Fatalf("transport error = %v", err)
+	}
+	if strings.Contains(err.Error(), "transport-secret") || strings.Contains(err.Error(), "api-secret") || strings.Contains(err.Error(), "Authorization") {
+		t.Fatalf("transport error leaked secret material: %v", err)
+	}
+}
+
+type secretStatusTransport struct{}
+
+func (secretStatusTransport) RoundTrip(request *http.Request) (*http.Response, error) {
+	return &http.Response{
+		StatusCode: http.StatusBadGateway,
+		Status:     "502 Authorization: Bearer response-secret",
+		Header:     make(http.Header),
+		Body:       io.NopCloser(strings.NewReader(`{"error":"response-secret"}`)),
+		Request:    request,
+	}, nil
+}
+
+func TestProviderHTTPFailureDoesNotSurfaceStatusOrBodySecrets(t *testing.T) {
+	client := &providerLLMClient{
+		provider: "openai", model: "test", apiKey: "api-secret",
+		client: &http.Client{Transport: secretStatusTransport{}}, timeout: defaultLLMTimeout,
+	}
+	_, err := client.chatOpenAI(context.Background(), "https://api.example.invalid/v1/chat", []ChatMessage{{Role: "user", Content: "hello"}})
+	if err == nil || !strings.Contains(err.Error(), "HTTP status 502") {
+		t.Fatalf("provider status error = %v", err)
+	}
+	for _, secret := range []string{"response-secret", "Authorization", "api-secret"} {
+		if strings.Contains(err.Error(), secret) {
+			t.Fatalf("provider status error leaked %q: %v", secret, err)
+		}
+	}
+}
+
+func TestProviderDeadlineUsesShorterCallerOrProviderBound(t *testing.T) {
+	caller, cancelCaller := context.WithTimeout(context.Background(), 20*time.Second)
+	defer cancelCaller()
+	bounded, cancelBounded := contextWithLLMDeadline(caller, time.Minute)
+	defer cancelBounded()
+	callerDeadline, _ := caller.Deadline()
+	boundedDeadline, _ := bounded.Deadline()
+	if !boundedDeadline.Equal(callerDeadline) {
+		t.Fatalf("shorter caller deadline changed: got %s want %s", boundedDeadline, callerDeadline)
+	}
+
+	providerBounded, cancelProvider := contextWithLLMDeadline(context.Background(), 20*time.Second)
+	defer cancelProvider()
+	providerDeadline, ok := providerBounded.Deadline()
+	if !ok || time.Until(providerDeadline) > 20*time.Second || time.Until(providerDeadline) < 19*time.Second {
+		t.Fatalf("provider deadline was not applied: %s", providerDeadline)
+	}
 }
 
 type fakeStructuredChat struct {

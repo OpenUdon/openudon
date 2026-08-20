@@ -1,56 +1,66 @@
 {
-  "version": "apitools.review-handoff.v1",
+  "version": "apitools.review-handoff.v2",
   "generated_state": "generated",
   "handoff_inputs": [
     {
       "path": "expected/plan.json",
       "purpose": "Machine-readable expected steps, bindings, credentials, control flow, and side-effect hints.",
-      "required": true
+      "required": true,
+      "sha256": "d106c7c50fdebad466669479ed4495a81d607085b61f3bb072282c6df70a4e6e"
     },
     {
       "path": "expected/quality.json",
       "purpose": "Deterministic quality gate result.",
-      "required": true
+      "required": true,
+      "sha256": "ed25d4440a3e5efd848449ac681846473ce3213dfd0de4114f16447f79aca33a"
     },
     {
       "path": "expected/refinement.json",
       "purpose": "Generation/refinement attempts, failed checks, and stop reason.",
-      "required": true
+      "required": true,
+      "sha256": "169999fceccf77efb7169477188e50ed92431860cce73e5b40bc68e6e03a06c7"
     },
     {
       "path": "expected/review-handoff.json",
       "purpose": "Machine-readable review handoff manifest for reviewer or orchestrator routing.",
-      "required": true
+      "required": true,
+      "sha256": "75ddf69b0e892827a9f8c8b081a4618109705fd07d0d844d740332320cb43d22"
     },
     {
       "path": "expected/review.md",
       "purpose": "Human review evidence, unresolved risks, skipped execution notes, and trusted-runner command text.",
-      "required": true
+      "required": true,
+      "sha256": "48e8af3a35c63b251697559a89a1d7ada224df9c4981484261fa5621440bac6e"
     },
     {
       "path": "graphql/graphiql-starwars-schema.graphql",
       "purpose": "Reviewed API source contract staged with the trusted executor package.",
-      "required": true
+      "required": true,
+      "sha256": "c9c14720f9503c3116a914b505d0075f1e7705a3383ed73e9416a3224470c155"
     },
     {
       "path": "project.md",
       "purpose": "Source brief, integration policy, runtime policy, credentials policy, safety boundary, and fallback behavior.",
-      "required": true
+      "required": true,
+      "sha256": "33f40da86b7ad0aaa5f5844763655441bd25b629a65a768835eaef820ce5b9b3"
     },
     {
       "path": "workflows/intent.hcl",
       "purpose": "Structured intent extracted from the project brief.",
-      "required": true
+      "required": true,
+      "sha256": "1227497d8d3d6f3f9e44462435cde1f68b3b7fcbdc3c75ff25ec45849799b969"
     },
     {
       "path": "workflows/workflow.hcl",
       "purpose": "Public UWS HCL document produced from intent.",
-      "required": true
+      "required": true,
+      "sha256": "9644d979894d61227a83d3d4fc96902a446cfb0a6861e9ebacd9622034b12a8e"
     },
     {
       "path": "workflows/workflow.uws.yaml",
       "purpose": "Public UWS YAML artifact validated against the public UWS schema and local execution-profile checks.",
-      "required": true
+      "required": true,
+      "sha256": "0bfe3e5000e954cd3302b3dcb1434d88acffc72e4c1fad320c5b6c24ad1878a9"
     }
   ],
   "approval_states": [

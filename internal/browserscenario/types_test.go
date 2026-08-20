@@ -290,6 +290,28 @@ func TestReportRoundTripTamperAndWireStrictness(t *testing.T) {
 	}
 }
 
+func TestAllSkippedSuiteIsNotRunAndCannotPassReleaseVerification(t *testing.T) {
+	report := sampleReport(t)
+	report.Scenarios[0] = ScenarioResult{
+		ID: "password-main", Status: StatusSkipped, Attempts: 1, Detail: "dependency_unavailable",
+		Phases: []PhaseResult{{ID: "fixture_ready", Status: StatusSkipped, Detail: "dependency_unavailable"}},
+	}
+	report = NewReport(report.Suite, time.Date(2026, 8, 17, 12, 0, 0, 0, time.UTC), report.Repositories, report.Dependencies, report.Scenarios)
+	if report.Status != StatusNotRun || report.Summary.Passed != 0 || report.Summary.Skipped != 1 {
+		t.Fatalf("all-skipped report = %#v", report)
+	}
+	path := filepath.Join(t.TempDir(), "not-run.json")
+	if err := WriteReport(path, report); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := VerifyReportFile(path, false); err != nil {
+		t.Fatalf("structural not_run verification failed: %v", err)
+	}
+	if _, err := VerifyReportFile(path, true); err == nil || !strings.Contains(err.Error(), StatusNotRun) {
+		t.Fatalf("release verification error = %v", err)
+	}
+}
+
 func TestStrictJSONRejectsDuplicateKeysAtEveryObjectDepth(t *testing.T) {
 	for _, data := range []string{
 		`{"field": 1, "field": 2}`,

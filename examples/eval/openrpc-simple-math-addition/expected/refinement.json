@@ -1,6 +1,6 @@
 {
   "status": "pass",
-  "example": "/home/peter/Workspace/openudon/examples/eval/openrpc-simple-math-addition",
+  "example": "openrpc-simple-math-addition",
   "max_attempts": 1,
   "prompt_version": "intent.v3",
   "attempts": [

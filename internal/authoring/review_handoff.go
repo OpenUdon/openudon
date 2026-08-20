@@ -1,6 +1,9 @@
 package authoring
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
+	"encoding/json"
 	"fmt"
 	"sort"
 	"strings"
@@ -9,7 +12,10 @@ import (
 )
 
 // ReviewHandoffVersion is the public review handoff schema version.
-const ReviewHandoffVersion = "apitools.review-handoff.v1"
+const (
+	ReviewHandoffVersion       = "apitools.review-handoff.v2"
+	LegacyReviewHandoffVersion = "apitools.review-handoff.v1"
+)
 
 // ReviewState names a public review lifecycle state.
 type ReviewState string
@@ -41,6 +47,7 @@ type ReviewHandoffInput struct {
 	Path     string `json:"path"`
 	Purpose  string `json:"purpose"`
 	Required bool   `json:"required"`
+	SHA256   string `json:"sha256"`
 }
 
 // ReviewApprovalState declares one state and its allowed next states.
@@ -118,23 +125,6 @@ func NewReviewHandoff(opts ReviewHandoffOptions) ReviewHandoff {
 	}
 }
 
-// ReviewHandoff returns a public handoff seeded from the leaf review package.
-func (leaf LeafAdapter) ReviewHandoff(opts ReviewHandoffOptions) ReviewHandoff {
-	if len(opts.HandoffInputs) == 0 {
-		for _, artifact := range leaf.MinimumReviewPackage().Artifacts {
-			opts.HandoffInputs = append(opts.HandoffInputs, ReviewHandoffInput{
-				Path:     artifact.Path,
-				Purpose:  "Reviewable downstream artifact.",
-				Required: true,
-			})
-		}
-	}
-	if len(opts.CredentialBindings.Declared) == 0 {
-		opts.CredentialBindings.Declared = leaf.BindingNames()
-	}
-	return NewReviewHandoff(opts)
-}
-
 // DefaultReviewStateMachine returns the public v1 review lifecycle.
 func DefaultReviewStateMachine() []ReviewApprovalState {
 	return []ReviewApprovalState{
@@ -185,24 +175,6 @@ func ReviewStateMachineHasRequiredStates(states []ReviewApprovalState) bool {
 		}
 	}
 	return true
-}
-
-// ReviewStateCanTransition reports whether from can move to to.
-func ReviewStateCanTransition(states []ReviewApprovalState, from, to string) bool {
-	from = strings.TrimSpace(from)
-	to = strings.TrimSpace(to)
-	for _, state := range states {
-		if strings.TrimSpace(state.Name) != from {
-			continue
-		}
-		for _, next := range state.AllowedNextStates {
-			if strings.TrimSpace(next) == to {
-				return true
-			}
-		}
-		return false
-	}
-	return false
 }
 
 // ValidateReviewHandoff returns diagnostics for public handoff contract issues.
@@ -303,8 +275,56 @@ func validateReviewHandoffInputs(inputs []ReviewHandoffInput) []Diagnostic {
 			continue
 		}
 		seen[clean] = true
+		if !validReviewSHA256(input.SHA256) {
+			diagnostics = append(diagnostics, Diagnostic{
+				Severity: "error",
+				Code:     "review_handoff.input_sha256",
+				Message:  fmt.Sprintf("review handoff input %q requires a full SHA-256 digest", clean),
+			})
+		}
 	}
 	return diagnostics
+}
+
+func validReviewSHA256(value string) bool {
+	value = strings.TrimSpace(value)
+	if len(value) != sha256.Size*2 {
+		return false
+	}
+	_, err := hex.DecodeString(value)
+	return err == nil
+}
+
+// ReviewHandoffSelfDigest computes the v2 manifest's self digest over
+// canonical JSON with only its own handoff-input digest cleared.
+func ReviewHandoffSelfDigest(manifest ReviewHandoff, selfPath string) (string, error) {
+	copy := NewReviewHandoff(ReviewHandoffOptions{
+		Version:            manifest.Version,
+		GeneratedState:     manifest.GeneratedState,
+		HandoffInputs:      manifest.HandoffInputs,
+		ApprovalStates:     manifest.ApprovalStates,
+		OwnerSplit:         manifest.OwnerSplit,
+		ExecutionPolicy:    manifest.ExecutionPolicy,
+		CredentialBindings: manifest.CredentialBindings,
+		TrustedRunner:      manifest.TrustedRunner,
+	})
+	selfPath = strings.TrimSpace(selfPath)
+	found := false
+	for i := range copy.HandoffInputs {
+		if copy.HandoffInputs[i].Path == selfPath {
+			copy.HandoffInputs[i].SHA256 = ""
+			found = true
+		}
+	}
+	if !found {
+		return "", fmt.Errorf("review handoff does not include its own path %q", selfPath)
+	}
+	canonical, err := json.Marshal(copy)
+	if err != nil {
+		return "", err
+	}
+	digest := sha256.Sum256(canonical)
+	return hex.EncodeToString(digest[:]), nil
 }
 
 func cleanReviewHandoffInputPath(inputPath string) (string, bool) {

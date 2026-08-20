@@ -12,6 +12,8 @@ import (
 	publicreport "github.com/OpenUdon/authoring/report"
 	"github.com/OpenUdon/browsertools"
 	"github.com/OpenUdon/evidence/digest"
+	"github.com/OpenUdon/openudon/internal/authoring/atomicfile"
+	"github.com/OpenUdon/openudon/internal/evidencefile"
 	"github.com/OpenUdon/openudon/internal/icot/elicitor"
 	"github.com/OpenUdon/openudon/internal/icotreport"
 	"github.com/OpenUdon/openudon/internal/synthesize"
@@ -222,11 +224,10 @@ func writeJSONReportWithDigest(path string, value any) error {
 			return err
 		}
 	}
-	if err := os.WriteFile(path, data, 0o644); err != nil {
+	if err := atomicfile.Write(path, data, 0o644); err != nil {
 		return err
 	}
-	digestLine := digest.SHA256Bytes(data).Value + "  " + filepath.Base(path) + "\n"
-	return os.WriteFile(path+".sha256", []byte(digestLine), 0o644)
+	return evidencefile.WriteDigestSidecar(path, data, 0o644)
 }
 
 func verifyJSONReportDigest(path string) error {
@@ -242,7 +243,7 @@ func verifyJSONReportDigest(path string) error {
 	if len(fields) == 0 {
 		return fmt.Errorf("digest sidecar %s is empty", path+".sha256")
 	}
-	want := strings.ToLower(strings.TrimSpace(fields[0]))
+	want := strings.TrimPrefix(strings.ToLower(strings.TrimSpace(fields[0])), "sha256:")
 	got := digest.SHA256Bytes(data).Value
 	if want != got {
 		return fmt.Errorf("digest mismatch for %s: sidecar %s, computed %s", path, want, got)

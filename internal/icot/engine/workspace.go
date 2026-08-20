@@ -10,7 +10,6 @@ import (
 	"os"
 	"path/filepath"
 	"sort"
-	"strings"
 
 	"github.com/OpenUdon/openudon/internal/icot/artifactwriter"
 	"github.com/OpenUdon/openudon/internal/icot/elicitor"
@@ -72,11 +71,6 @@ func (e *Engine) requireMutableWorkspaceLocked(ctx context.Context) error {
 		return conflict("workspace_changed", errors.New("the authoring workspace changed outside this process; restart is required"))
 	}
 	return nil
-}
-
-func (e *Engine) installWorkspaceBaseline(snapshot Snapshot, baseline workspaceFingerprint) {
-	e.watchedPaths = watchedPaths(e.workspaceRoot, snapshot)
-	e.workspaceBaseline = baseline
 }
 
 func watchedPaths(root string, snapshot Snapshot) []string {
@@ -337,9 +331,4 @@ func canonicalWorkspaceRoot(exampleDir string) (string, error) {
 		return "", err
 	}
 	return filepath.Dir(projectPath), nil
-}
-
-func workspacePathInside(root, path string) bool {
-	rel, err := filepath.Rel(root, path)
-	return err == nil && rel != ".." && !strings.HasPrefix(rel, ".."+string(filepath.Separator))
 }

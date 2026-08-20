@@ -18,6 +18,8 @@ import (
 	"github.com/OpenUdon/browsertools/bundle"
 	"github.com/OpenUdon/browsertools/profile"
 	"github.com/OpenUdon/evidence/redact"
+	"github.com/OpenUdon/openudon/internal/evidencefile"
+	"github.com/OpenUdon/openudon/internal/sourcecatalog"
 	rollout "github.com/OpenUdon/openudon/internal/workflowintent"
 	"github.com/OpenUdon/uws/browserauthentication"
 )
@@ -41,7 +43,7 @@ func discoverBrowserAuthoringSources(ctx context.Context, exampleDir string, exp
 		return browserAuthoringDiscovery{}, fmt.Errorf("explicit browser sources exceed limit %d; narrow --browser-profile inputs", browsertools.DefaultLocalMaxCandidates)
 	}
 	browserRoots := append([]string(nil), roots...)
-	for _, dir := range []string{"browser-profiles", "browser-authentication", "capability-bundles"} {
+	for _, dir := range sourcecatalog.Browser() {
 		path := filepath.Join(exampleDir, dir)
 		if _, err := os.Lstat(path); err == nil {
 			browserRoots = append(browserRoots, path)
@@ -372,19 +374,9 @@ func parseBrowserProfile(path string, data []byte) (*profile.Profile, error) {
 }
 
 func readStableBrowserCandidate(path, expected string) ([]byte, error) {
-	before, err := os.Lstat(path)
+	data, _, err := evidencefile.ReadRegular(path, browsertools.DefaultLocalMaxBytes)
 	if err != nil {
-		return nil, err
-	}
-	if before.Mode()&os.ModeSymlink != 0 || !before.Mode().IsRegular() {
-		return nil, fmt.Errorf("browser source must remain a non-symlink regular file: %s", path)
-	}
-	if before.Size() > browsertools.DefaultLocalMaxBytes {
-		return nil, fmt.Errorf("browser source exceeds %d bytes: %s", browsertools.DefaultLocalMaxBytes, path)
-	}
-	data, err := os.ReadFile(path)
-	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("read stable browser source: %w", err)
 	}
 	actual := fmt.Sprintf("sha256:%x", sha256.Sum256(data))
 	if strings.TrimSpace(expected) != "" && actual != strings.ToLower(strings.TrimSpace(expected)) {
@@ -408,7 +400,7 @@ func SourceMaterializationContent(source SourceMaterialization, at time.Time) ([
 		return data, nil
 	}
 	if source.Kind != browserSourceFamily && source.Kind != browserAuthenticationSourceFamily {
-		data, err := os.ReadFile(source.SourcePath)
+		data, _, err := evidencefile.ReadRegular(source.SourcePath, apitools.DefaultMaxBytes)
 		if err != nil {
 			return nil, err
 		}

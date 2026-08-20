@@ -3,16 +3,18 @@ package trustedrunner
 import (
 	"bytes"
 	"context"
-	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"sort"
 	"strings"
 	"time"
 
+	"github.com/OpenUdon/openudon/internal/authoring/atomicfile"
+	"github.com/OpenUdon/openudon/internal/evidencefile"
 	"github.com/OpenUdon/openudon/internal/packageartifacts"
+	"github.com/OpenUdon/openudon/internal/processgroup"
 )
 
 type ArchiveOptions struct {
@@ -55,15 +57,29 @@ func ArchiveRunEvidence(opts ArchiveOptions) (ArchiveResult, error) {
 	if err != nil {
 		return ArchiveResult{}, err
 	}
+	evidence, err := readRunEvidenceStrict(opts.RunEvidencePath)
+	if err != nil {
+		return ArchiveResult{}, err
+	}
+	if evidence.Version != RunEvidenceVersion {
+		return ArchiveResult{}, fmt.Errorf("legacy run evidence %s is read-only and cannot be archived because report ownership is not provable", evidence.Version)
+	}
 	archiveDir, err := filepath.Abs(opts.ArchiveDir)
 	if err != nil {
 		return ArchiveResult{}, err
 	}
-	if err := os.MkdirAll(archiveDir, 0o755); err != nil {
+	if err := prepareArchiveDirectory(archiveDir); err != nil {
 		return ArchiveResult{}, err
 	}
 	runDst := filepath.Join(archiveDir, "run-evidence.json")
-	if err := copyFileForArchive(opts.RunEvidencePath, runDst, 0o600); err != nil {
+	if err := copyFileForArchive(archiveDir, opts.RunEvidencePath, runDst, 0o600); err != nil {
+		return ArchiveResult{}, err
+	}
+	if _, err := os.Lstat(SignaturePath(opts.RunEvidencePath)); err == nil {
+		if err := copyFileForArchive(archiveDir, SignaturePath(opts.RunEvidencePath), SignaturePath(runDst), 0o600); err != nil {
+			return ArchiveResult{}, err
+		}
+	} else if !os.IsNotExist(err) {
 		return ArchiveResult{}, err
 	}
 	workdir := filepath.Dir(opts.RunEvidencePath)
@@ -75,22 +91,21 @@ func ArchiveRunEvidence(opts ArchiveOptions) (ArchiveResult, error) {
 		}
 		src := filepath.Join(workdir, filepath.FromSlash(ref.Path))
 		dst := filepath.Join(archiveDir, filepath.FromSlash(ref.Path))
-		if err := copyFileForArchive(src, dst, 0o600); err != nil {
+		if err := copyFileForArchive(archiveDir, src, dst, 0o600); err != nil {
 			return ArchiveResult{}, err
 		}
 		asyncPaths = append(asyncPaths, dst)
 	}
-	evidence, err := readRunEvidenceStrict(opts.RunEvidencePath)
-	if err != nil {
-		return ArchiveResult{}, err
-	}
 	reportDst := ""
 	if strings.TrimSpace(evidence.Executor.ReportPath) != "" {
-		if info, err := os.Stat(evidence.Executor.ReportPath); err == nil && info.Mode().IsRegular() {
-			reportDst = filepath.Join(archiveDir, "executor-report.json")
-			if err := copyFileForArchive(evidence.Executor.ReportPath, reportDst, 0o600); err != nil {
-				return ArchiveResult{}, err
-			}
+		clean, err := packageartifacts.CleanRelativePath(evidence.Executor.ReportPath)
+		if err != nil || clean != evidence.Executor.ReportPath {
+			return ArchiveResult{}, fmt.Errorf("executor report path must be safe workdir-relative path: %q", evidence.Executor.ReportPath)
+		}
+		src := filepath.Join(workdir, filepath.FromSlash(clean))
+		reportDst = filepath.Join(archiveDir, filepath.FromSlash(clean))
+		if err := copyFileForArchive(archiveDir, src, reportDst, 0o600); err != nil {
+			return ArchiveResult{}, err
 		}
 	}
 	archived, err := VerifyRunEvidenceFile(runDst)
@@ -143,7 +158,7 @@ func WriteReleaseNotesDraft(ctx context.Context, opts ReleaseNotesOptions) (Rele
 	if verifierOutput == "" {
 		verifierOutput = fmt.Sprintf("openudon run-evidence verify: pass %s (%d async sidecar file(s))", verified.RunEvidencePath, len(verified.AsyncEvidenceFiles))
 	} else {
-		data, err := os.ReadFile(verifierOutput)
+		data, _, err := evidencefile.ReadRegular(verifierOutput, 1<<20)
 		if err != nil {
 			return ReleaseNotesResult{}, fmt.Errorf("read verifier output: %w", err)
 		}
@@ -172,36 +187,98 @@ func WriteReleaseNotesDraft(ctx context.Context, opts ReleaseNotesOptions) (Rele
 	if err := os.MkdirAll(filepath.Dir(opts.OutPath), 0o755); err != nil {
 		return ReleaseNotesResult{}, err
 	}
-	if err := os.WriteFile(opts.OutPath, []byte(b.String()), 0o644); err != nil {
+	if err := atomicfile.Write(opts.OutPath, []byte(b.String()), 0o644); err != nil {
 		return ReleaseNotesResult{}, err
 	}
 	return ReleaseNotesResult{Path: opts.OutPath, Commit: commit}, nil
 }
 
 func readRunEvidenceStrict(path string) (RunEvidence, error) {
-	data, err := os.ReadFile(path)
+	data, _, err := evidencefile.ReadRegular(path, evidencefile.DefaultMaxBytes)
 	if err != nil {
 		return RunEvidence{}, err
 	}
 	var evidence RunEvidence
-	dec := json.NewDecoder(bytes.NewReader(data))
-	dec.DisallowUnknownFields()
-	if err := dec.Decode(&evidence); err != nil {
+	if err := evidencefile.DecodeStrict(data, &evidence); err != nil {
 		return RunEvidence{}, err
 	}
 	return evidence, nil
 }
 
-func copyFileForArchive(src, dst string, mode os.FileMode) error {
-	data, err := os.ReadFile(src)
+func prepareArchiveDirectory(path string) error {
+	info, err := os.Lstat(path)
+	if errors.Is(err, os.ErrNotExist) {
+		if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+			return err
+		}
+		if err := os.Mkdir(path, 0o755); err != nil {
+			return fmt.Errorf("create exclusive archive directory: %w", err)
+		}
+		return nil
+	}
+	if err != nil {
+		return err
+	}
+	if info.Mode()&os.ModeSymlink != 0 || !info.IsDir() {
+		return fmt.Errorf("archive path must be a real directory: %s", path)
+	}
+	entries, err := os.ReadDir(path)
+	if err != nil {
+		return err
+	}
+	if len(entries) != 0 {
+		return fmt.Errorf("archive directory is not empty: %s", path)
+	}
+	return nil
+}
+
+func copyFileForArchive(root, src, dst string, mode os.FileMode) error {
+	data, _, err := evidencefile.ReadRegular(src, evidencefile.DefaultMaxBytes)
 	if err != nil {
 		return fmt.Errorf("read archive source %s: %w", src, err)
 	}
-	if err := os.MkdirAll(filepath.Dir(dst), 0o755); err != nil {
+	if err := createArchiveParents(root, filepath.Dir(dst)); err != nil {
 		return err
 	}
-	if err := os.WriteFile(dst, data, mode); err != nil {
+	if err := atomicfile.WriteNew(dst, data, mode); err != nil {
 		return fmt.Errorf("write archive file %s: %w", dst, err)
+	}
+	return nil
+}
+
+func createArchiveParents(root, target string) error {
+	root = filepath.Clean(root)
+	target = filepath.Clean(target)
+	rel, err := filepath.Rel(root, target)
+	if err != nil || rel == ".." || filepath.IsAbs(rel) || strings.HasPrefix(rel, ".."+string(filepath.Separator)) {
+		return fmt.Errorf("archive destination escapes archive directory: %s", target)
+	}
+	rootInfo, err := os.Lstat(root)
+	if err != nil {
+		return err
+	}
+	if rootInfo.Mode()&os.ModeSymlink != 0 || !rootInfo.IsDir() {
+		return fmt.Errorf("archive path must remain a real directory: %s", root)
+	}
+	current := root
+	if rel == "." {
+		return nil
+	}
+	for _, component := range strings.Split(rel, string(filepath.Separator)) {
+		current = filepath.Join(current, component)
+		info, err := os.Lstat(current)
+		if errors.Is(err, os.ErrNotExist) {
+			if err := os.Mkdir(current, 0o755); err != nil && !errors.Is(err, os.ErrExist) {
+				return err
+			}
+			info, err = os.Lstat(current)
+		}
+		if err != nil {
+			return err
+		}
+		if info.Mode()&os.ModeSymlink != 0 || !info.IsDir() {
+			return fmt.Errorf("archive destination ancestor is not a real directory: %s", current)
+		}
 	}
 	return nil
 }
@@ -209,12 +286,17 @@ func copyFileForArchive(src, dst string, mode os.FileMode) error {
 func currentCommit(ctx context.Context, repoRoot string, run func(context.Context, string, ...string) ([]byte, error)) (string, error) {
 	if run == nil {
 		run = func(ctx context.Context, name string, args ...string) ([]byte, error) {
-			cmd := exec.CommandContext(ctx, name, args...)
-			cmd.Dir = repoRoot
-			return cmd.Output()
+			var out bytes.Buffer
+			err := processgroup.Run(ctx, 30*time.Second, processgroup.Invocation{
+				Args:   append([]string{name}, args...),
+				Dir:    repoRoot,
+				Env:    os.Environ(),
+				Stdout: &out,
+			})
+			return out.Bytes(), err
 		}
 	}
-	out, err := run(ctx, "git", "rev-parse", "--short", "HEAD")
+	out, err := run(ctx, "git", "rev-parse", "HEAD")
 	if err != nil {
 		return "", fmt.Errorf("resolve current commit: %w", err)
 	}
@@ -226,13 +308,8 @@ func currentCommit(ctx context.Context, repoRoot string, run func(context.Contex
 }
 
 func validateCommitRevision(commit string) error {
-	if len(commit) < 7 || len(commit) > 64 {
-		return fmt.Errorf("commit revision must contain 7 to 64 hexadecimal characters")
-	}
-	for _, r := range commit {
-		if !((r >= '0' && r <= '9') || (r >= 'a' && r <= 'f') || (r >= 'A' && r <= 'F')) {
-			return fmt.Errorf("commit revision must contain only hexadecimal characters")
-		}
+	if !evidencefile.ValidGitObject(commit) {
+		return fmt.Errorf("commit revision must be a full 40- or 64-character hexadecimal Git object ID")
 	}
 	return nil
 }

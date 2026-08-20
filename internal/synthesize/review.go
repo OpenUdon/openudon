@@ -5,51 +5,104 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+
 	"sort"
 	"strings"
 	"time"
 
 	"github.com/OpenUdon/openudon/internal/authoring"
+	"github.com/OpenUdon/openudon/internal/authoring/atomicfile"
 	"github.com/OpenUdon/openudon/internal/browserverify"
+	"github.com/OpenUdon/openudon/internal/evidencefile"
 	"github.com/OpenUdon/openudon/internal/packageartifacts"
 	rollout "github.com/OpenUdon/openudon/internal/workflowintent"
 )
+
+type reviewBuildState struct {
+	projectText         string
+	policy              projectPolicy
+	intent              *rollout.Intent
+	profile             sideEffectProfile
+	expectedPlan        *WorkflowPlan
+	expectedCredentials []string
+}
 
 func writeReview(result Result, provider, model string) error {
 	if err := ensureArtifactDirs(result); err != nil {
 		return err
 	}
-	projectText := ""
-	if data, err := os.ReadFile(result.ProjectPath); err == nil {
-		projectText = string(data)
-	}
-	policy := analyzeProject(projectText)
-	var intent *rollout.Intent
-	if parsed, err := rollout.ParseIntentFile(result.IntentPath); err == nil {
-		intent = parsed
-	}
-	profile := sideEffectProfileForSources(policy, intent, result.OpenAPICandidates, result.PrimaryOpenAPI, result.ExampleDir)
-	if err := writeReviewHandoff(result, policy, profile); err != nil {
+	state, err := loadReviewBuildState(result)
+	if err != nil {
 		return err
 	}
-	return os.WriteFile(result.ReviewPath, []byte(reviewMarkdown(result, provider, model)), 0o644)
+	markdown := reviewMarkdownFromState(result, provider, model, state)
+	if err := atomicfile.Write(result.ReviewPath, []byte(markdown), 0o644); err != nil {
+		return err
+	}
+	return writeReviewHandoffWithCredentials(result, state.policy, state.profile, state.expectedCredentials)
 }
 
 func reviewMarkdown(result Result, provider, model string) string {
+	state, err := loadReviewBuildState(result)
+	if err != nil {
+		// This compatibility helper is retained for package-local render tests.
+		// Production writes use writeReview and return the originating error.
+		state = loadReviewBuildStateBestEffort(result)
+	}
+	return reviewMarkdownFromState(result, provider, model, state)
+}
+
+func loadReviewBuildStateBestEffort(result Result) reviewBuildState {
+	var state reviewBuildState
+	if data, _, err := evidencefile.ReadRegular(result.ProjectPath, evidencefile.DefaultMaxBytes); err == nil {
+		state.projectText = string(data)
+	}
+	if data, _, err := evidencefile.ReadRegular(result.IntentPath, evidencefile.DefaultMaxBytes); err == nil {
+		state.intent, _ = rollout.ParseIntent(data, result.IntentPath)
+	}
+	state.expectedPlan, _ = readWorkflowPlanStrict(result.PlanJSONPath)
+	state.policy = analyzeProject(state.projectText)
+	state.profile = sideEffectProfileForSources(state.policy, state.intent, result.OpenAPICandidates, result.PrimaryOpenAPI, result.ExampleDir)
+	state.expectedCredentials = credentialNamesFromPlan(state.expectedPlan)
+	return state
+}
+
+func loadReviewBuildState(result Result) (reviewBuildState, error) {
+	projectData, _, err := evidencefile.ReadRegular(result.ProjectPath, evidencefile.DefaultMaxBytes)
+	if err != nil {
+		return reviewBuildState{}, fmt.Errorf("read project brief for review: %w", err)
+	}
+	intentData, _, err := evidencefile.ReadRegular(result.IntentPath, evidencefile.DefaultMaxBytes)
+	if err != nil {
+		return reviewBuildState{}, fmt.Errorf("read intent for review: %w", err)
+	}
+	intent, err := rollout.ParseIntent(intentData, result.IntentPath)
+	if err != nil {
+		return reviewBuildState{}, fmt.Errorf("parse intent for review: %w", err)
+	}
+	expectedPlan, err := readWorkflowPlanStrict(result.PlanJSONPath)
+	if err != nil {
+		return reviewBuildState{}, fmt.Errorf("read expected plan for review: %w", err)
+	}
+	state := reviewBuildState{
+		projectText:  string(projectData),
+		intent:       intent,
+		expectedPlan: expectedPlan,
+	}
+	state.policy = analyzeProject(state.projectText)
+	state.profile = sideEffectProfileForSources(state.policy, state.intent, result.OpenAPICandidates, result.PrimaryOpenAPI, result.ExampleDir)
+	state.expectedCredentials = credentialNamesFromPlan(state.expectedPlan)
+	return state, nil
+}
+
+func reviewMarkdownFromState(result Result, provider, model string, state reviewBuildState) string {
 	var b strings.Builder
-	projectText := ""
-	if data, err := os.ReadFile(result.ProjectPath); err == nil {
-		projectText = string(data)
-	}
-	policy := analyzeProject(projectText)
-	var intent *rollout.Intent
-	if parsed, err := rollout.ParseIntentFile(result.IntentPath); err == nil {
-		intent = parsed
-	}
-	profile := sideEffectProfileForSources(policy, intent, result.OpenAPICandidates, result.PrimaryOpenAPI, result.ExampleDir)
+	policy := state.policy
+	intent := state.intent
+	profile := state.profile
 	declaredCredentials := credentialBindingNames(policy)
-	expectedPlan := readWorkflowPlan(result.PlanJSONPath)
-	expectedCredentials := credentialNamesFromPlan(expectedPlan)
+	expectedPlan := state.expectedPlan
+	expectedCredentials := state.expectedCredentials
 	commonReview := reviewLeafAdapter(reviewArtifactSet(result), declaredCredentials, expectedCredentials)
 	commonPackage := commonReview.MinimumReviewPackage()
 	b.WriteString("# OpenUdon Review Evidence\n\n")
@@ -217,7 +270,7 @@ func reviewMarkdown(result Result, provider, model string) string {
 	}
 	b.WriteString("- Credential binding audit must verify named runtime bindings and no literal secret values.\n")
 	b.WriteString("- Dry-run handoff validates approval state, package digest, stored/current quality, tier compatibility, credential-value policy, and direct-production policy before executor invocation.\n")
-	b.WriteString("- The generated run config is `openudon.executor-run.v1`; it carries package paths, `package_sha256`, tier, workdir, and credential binding names, not credential values.\n\n")
+	b.WriteString("- The generated run config is `openudon.executor-run.v2`; it carries package paths, `package_sha256`, tier, workdir, and credential binding names, not credential values.\n\n")
 	b.WriteString("Trusted dry run, before any executor invocation:\n\n")
 	fmt.Fprintf(&b, "```bash\nopenudon run --example %s --tier sandbox --approval approvals/%s.json --dry-run\n```\n\n", relOrAbs(filepath.Dir(result.ExampleDir), result.ExampleDir), filepath.Base(result.ExampleDir))
 	b.WriteString("Trusted proof run, only when explicitly approved:\n\n")
@@ -357,15 +410,23 @@ func reviewExplicitOpenAPIInputs(result Result, intent *rollout.Intent) []string
 }
 
 func readWorkflowPlan(path string) *WorkflowPlan {
-	data, err := os.ReadFile(path)
+	plan, err := readWorkflowPlanStrict(path)
 	if err != nil {
 		return nil
 	}
-	var plan WorkflowPlan
-	if err := json.Unmarshal(data, &plan); err != nil {
-		return nil
+	return plan
+}
+
+func readWorkflowPlanStrict(path string) (*WorkflowPlan, error) {
+	data, _, err := evidencefile.ReadRegular(path, evidencefile.DefaultMaxBytes)
+	if err != nil {
+		return nil, err
 	}
-	return &plan
+	var plan WorkflowPlan
+	if err := evidencefile.DecodeStrict(data, &plan); err != nil {
+		return nil, err
+	}
+	return &plan, nil
 }
 
 func credentialNamesFromPlan(plan *WorkflowPlan) []string {

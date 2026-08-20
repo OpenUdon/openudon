@@ -40,12 +40,15 @@ func TestRunEphemeralPortAutoOpenAndGracefulCancellation(t *testing.T) {
 	select {
 	case target := <-opened:
 		parsed, parseErr := url.Parse(target)
-		token := parsed.Query().Get("token")
-		if parseErr != nil || parsed.Hostname() != "127.0.0.1" || parsed.Port() == "" || token == "" || parsed.Path != instanceBasePath(token) || strings.Contains(parsed.Path, token) {
+		if parseErr != nil || parsed.Hostname() != "127.0.0.1" || parsed.Port() == "" || parsed.Path != "/" || parsed.RawQuery != "" {
 			t.Fatalf("bootstrap URL = %q, %v", target, parseErr)
 		}
-		if stdout.String() != "icot ui: "+target+"\n" {
+		if !strings.HasPrefix(stdout.String(), "icot ui: "+target+"\nicot ui access code: ") {
 			t.Fatalf("stdout = %q", stdout.String())
+		}
+		code := strings.TrimSpace(strings.TrimPrefix(strings.SplitN(stdout.String(), "\n", 2)[1], "icot ui access code: "))
+		if len(code) != 12 || strings.ContainsAny(code, "ILOU") {
+			t.Fatalf("access code = %q", code)
 		}
 	default:
 		t.Fatal("default opener was not called")
@@ -108,7 +111,7 @@ func TestRunOpenerFailureWarnsAndKeepsServingUntilCancellation(t *testing.T) {
 	if !strings.Contains(stderr.String(), "warning: could not open browser: opener unavailable") || !strings.Contains(stderr.String(), "icot ui: open http://127.0.0.1:") {
 		t.Fatalf("stderr = %q", stderr.String())
 	}
-	if !strings.Contains(stdout.String(), "?token=") {
+	if strings.Contains(stdout.String(), "token=") || !strings.Contains(stdout.String(), "icot ui access code: ") {
 		t.Fatalf("stdout = %q", stdout.String())
 	}
 }
@@ -125,6 +128,20 @@ func TestGenerateTokenIs256BitAndUnique(t *testing.T) {
 	decoded, err := base64.RawURLEncoding.DecodeString(first)
 	if err != nil || len(decoded) != 32 || first == second {
 		t.Fatalf("tokens = %q %q, decoded bytes %d, err %v", first, second, len(decoded), err)
+	}
+}
+
+func TestGenerateAccessCodeIsCrockfordAndUnique(t *testing.T) {
+	first, err := GenerateAccessCode()
+	if err != nil {
+		t.Fatal(err)
+	}
+	second, err := GenerateAccessCode()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(first) != 12 || first == second || strings.ContainsAny(first, "ILOU") {
+		t.Fatalf("access codes = %q %q", first, second)
 	}
 }
 

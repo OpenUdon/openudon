@@ -73,10 +73,22 @@ func DefaultReleaseCriteria() ReleaseCriteria {
 }
 
 func RunOne(ctx context.Context, exampleDir string, opts synthesize.Options) EvalResult {
+	result, _ := runOne(ctx, exampleDir, opts, "", "")
+	return result
+}
+
+// RunOneArchived retains the otherwise temporary workspace under archiveRoot.
+// GeneratedDir is archive-relative so reports remain reproducible when the
+// archive root moves.
+func RunOneArchived(ctx context.Context, exampleDir string, opts synthesize.Options, archiveRoot, runID string) (EvalResult, error) {
+	return runOne(ctx, exampleDir, opts, archiveRoot, runID)
+}
+
+func runOne(ctx context.Context, exampleDir string, opts synthesize.Options, archiveRoot, runID string) (result EvalResult, returnErr error) {
 	start := time.Now()
 	name := filepath.Base(filepath.Clean(exampleDir))
 	promptTokensApprox := approximatePromptTokens(exampleDir)
-	result := EvalResult{
+	result = EvalResult{
 		Name:               name,
 		Provider:           strings.TrimSpace(opts.Provider),
 		Model:              strings.TrimSpace(opts.Model),
@@ -87,15 +99,21 @@ func RunOne(ctx context.Context, exampleDir string, opts synthesize.Options) Eva
 	if err != nil {
 		result.DurationMs = time.Since(start).Milliseconds()
 		result.Error = err.Error()
-		return result
+		return result, nil
 	}
-	result.GeneratedDir = workDir
+	workspaceRoot := filepath.Dir(workDir)
+	defer func() {
+		if err := os.RemoveAll(workspaceRoot); err != nil {
+			result.Passed = false
+			if result.Error == "" {
+				result.Error = "remove eval workspace: " + err.Error()
+			}
+			returnErr = errors.Join(returnErr, err)
+		}
+	}()
 	opts.ExampleDir = workDir
 
-	synthResult, err := synthesize.Synthesize(ctx, opts)
-	if synthResult != nil {
-		result.GeneratedDir = synthResult.ExampleDir
-	}
+	_, err = synthesize.Synthesize(ctx, opts)
 	refinement := readRefinement(filepath.Join(workDir, "expected", "refinement.json"))
 	if refinement != nil {
 		result.PromptVersion = refinement.PromptVersion
@@ -122,7 +140,11 @@ func RunOne(ctx context.Context, exampleDir string, opts synthesize.Options) Eva
 	}
 	report, assessErr := synthesize.Assess(synthesize.Options{ExampleDir: workDir, SchemaPath: opts.SchemaPath})
 	if assessErr == nil && report != nil {
-		result.Passed = report.Passed()
+		// Assessment can describe whatever artifacts were left behind, but an
+		// originating synthesis error is still a failed eval. Never let a
+		// readable older/partial package turn that execution failure into passing
+		// release evidence.
+		result.Passed = err == nil && report.Passed()
 		if len(result.FailingChecks) == 0 {
 			result.FailingChecks = failingCodes(report)
 		}
@@ -150,10 +172,30 @@ func RunOne(ctx context.Context, exampleDir string, opts synthesize.Options) Eva
 		result.ReferenceSummary = summarizeReferenceIssues(result.ReferenceIssues)
 	}
 	result.DurationMs = time.Since(start).Milliseconds()
-	return result
+	if strings.TrimSpace(archiveRoot) != "" {
+		relative, archiveErr := archiveWorkspace(workDir, archiveRoot, runID, result.Name)
+		if archiveErr != nil {
+			result.Passed = false
+			if result.Error == "" {
+				result.Error = archiveErr.Error()
+			}
+			return result, archiveErr
+		}
+		result.GeneratedDir = relative
+	}
+	return result, nil
 }
 
 func RunAll(ctx context.Context, evalRoot string, opts synthesize.Options, concurrency int) []EvalResult {
+	results, _ := runAll(ctx, evalRoot, opts, concurrency, "", "")
+	return results
+}
+
+func RunAllArchived(ctx context.Context, evalRoot string, opts synthesize.Options, concurrency int, archiveRoot, runID string) ([]EvalResult, error) {
+	return runAll(ctx, evalRoot, opts, concurrency, archiveRoot, runID)
+}
+
+func runAll(ctx context.Context, evalRoot string, opts synthesize.Options, concurrency int, archiveRoot, runID string) ([]EvalResult, error) {
 	examples := discoverExamples(evalRoot)
 	if concurrency <= 0 {
 		concurrency = 2
@@ -167,13 +209,14 @@ func RunAll(ctx context.Context, evalRoot string, opts synthesize.Options, concu
 	}
 	jobs := make(chan job)
 	results := make([]EvalResult, len(examples))
+	errs := make([]error, len(examples))
 	var wg sync.WaitGroup
 	for worker := 0; worker < concurrency; worker++ {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
 			for current := range jobs {
-				results[current.index] = RunOne(ctx, current.path, opts)
+				results[current.index], errs[current.index] = runOne(ctx, current.path, opts, archiveRoot, runID)
 			}
 		}()
 	}
@@ -182,7 +225,7 @@ func RunAll(ctx context.Context, evalRoot string, opts synthesize.Options, concu
 	}
 	close(jobs)
 	wg.Wait()
-	return results
+	return results, errors.Join(errs...)
 }
 
 func discoverExamples(evalRoot string) []string {
@@ -237,6 +280,7 @@ func copyExampleToTemp(exampleDir string) (string, error) {
 	}
 	dst := filepath.Join(root, base)
 	if err := copyTree(exampleDir, dst); err != nil {
+		_ = os.RemoveAll(root)
 		return "", err
 	}
 	return dst, nil

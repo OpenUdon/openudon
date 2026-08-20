@@ -44,12 +44,12 @@
       x-uws-runtime {
         arguments = [
           {
-            value = "post_message.received_body.channel"
             name = "channel"
+            value = "post_message.received_body.channel"
           },
           {
-            value = "post_message.received_body.ok"
             name = "ok"
+            value = "post_message.received_body.ok"
           },
           {
             name = "ts"

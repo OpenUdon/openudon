@@ -95,14 +95,6 @@ func (contract BindingContract) ReviewCredentialBindings() ReviewCredentialBindi
 	}
 }
 
-// BindingAudit converts a binding contract into the legacy audit shape.
-func (contract BindingContract) BindingAudit() BindingAudit {
-	return BindingAudit{
-		DeclaredSymbolicBindings:     sortedUniqueStrings(contract.BindingNames),
-		LiteralCredentialDiagnostics: append([]Diagnostic(nil), contract.LiteralCredentialDiagnostics...),
-	}
-}
-
 func addSymbolicBinding(out map[string]SymbolicBinding, binding SymbolicBinding) {
 	name := strings.TrimSpace(binding.Name)
 	if name == "" {

@@ -12,6 +12,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/OpenUdon/openudon/internal/authoring/atomicfile"
+	"github.com/OpenUdon/openudon/internal/evidencefile"
 	"github.com/OpenUdon/openudon/internal/openapidisco"
 	"github.com/OpenUdon/openudon/internal/packageartifacts"
 	"github.com/OpenUdon/openudon/internal/workflowintent"
@@ -102,7 +104,8 @@ func Synthesize(ctx context.Context, opts Options) (*Result, error) {
 			var changed bool
 			state.candidates, attempts, changed = discoverComplementaryOpenAPI(ctx, state.discoverer, state.result.ExampleDir, state.projectText, state.candidates, intent, state.policy)
 			if len(attempts) > 0 {
-				state.discoveryReport.Attempts = append(state.discoveryReport.Attempts, attempts...)
+				additional := portableDiscoveryReport(state.result, openapidisco.DiscoveryReport{Attempts: attempts})
+				state.discoveryReport.Attempts = append(state.discoveryReport.Attempts, additional.Attempts...)
 				state.result.DiscoveryReport = state.discoveryReport
 				if err := writeDiscoveryReport(state.result, state.discoveryReport); err != nil {
 					return nil, action, fmt.Errorf("write discovery report: %w", err)
@@ -195,7 +198,7 @@ func PackageFromIntent(ctx context.Context, opts Options) (*Result, *QualityRepo
 	if err := ensureArtifactDirs(state.result); err != nil {
 		return &state.result, nil, err
 	}
-	if err := os.WriteFile(state.result.IntentPath, []byte(intentHCL), 0o644); err != nil {
+	if err := atomicfile.Write(state.result.IntentPath, []byte(intentHCL), 0o644); err != nil {
 		return &state.result, nil, err
 	}
 	if err := writeWorkflowPlan(state.result, workflowPlan); err != nil {
@@ -255,7 +258,7 @@ func prepareRefinement(ctx context.Context, opts Options) (*refinementState, err
 		return nil, err
 	}
 	result := resultPaths(exampleDir)
-	projectBytes, err := os.ReadFile(result.ProjectPath)
+	projectBytes, _, err := evidencefile.ReadRegular(result.ProjectPath, evidencefile.DefaultMaxBytes)
 	if err != nil {
 		return nil, fmt.Errorf("read project brief: %w", err)
 	}
@@ -311,7 +314,7 @@ func prepareRefinement(ctx context.Context, opts Options) (*refinementState, err
 			}
 		}
 		state.candidates = candidates
-		state.discoveryReport = discoveryReport
+		state.discoveryReport = portableDiscoveryReport(state.result, discoveryReport)
 		state.result.DiscoveryReport = discoveryReport
 		if err := writeDiscoveryReport(state.result, discoveryReport); err != nil {
 			return nil, fmt.Errorf("write discovery report: %w", err)
@@ -354,7 +357,7 @@ func runRefinement(ctx context.Context, opts Options, state *refinementState, ll
 			refinement.addAttempt(attempt, action, nil, err, stopReason)
 			refinement.setLastAttemptMode(state.generationMode)
 			if writeErr := writeRefinementReport(state.result, refinement); writeErr != nil {
-				return nil, fmt.Errorf("write refinement report: %w", writeErr)
+				return &state.result, errors.Join(err, fmt.Errorf("write refinement report: %w", writeErr))
 			}
 			return &state.result, err
 		}
@@ -362,7 +365,7 @@ func runRefinement(ctx context.Context, opts Options, state *refinementState, ll
 			refinement.addAttempt(attempt, action, nil, err, "intent references unavailable OpenAPI metadata")
 			refinement.setLastAttemptMode(state.generationMode)
 			if writeErr := writeRefinementReport(state.result, refinement); writeErr != nil {
-				return nil, fmt.Errorf("write refinement report: %w", writeErr)
+				return &state.result, errors.Join(err, fmt.Errorf("write refinement report: %w", writeErr))
 			}
 			return &state.result, err
 		}
@@ -370,7 +373,7 @@ func runRefinement(ctx context.Context, opts Options, state *refinementState, ll
 			refinement.addAttempt(attempt, action, nil, err, "intent uses a runtime outside project policy")
 			refinement.setLastAttemptMode(state.generationMode)
 			if writeErr := writeRefinementReport(state.result, refinement); writeErr != nil {
-				return nil, fmt.Errorf("write refinement report: %w", writeErr)
+				return &state.result, errors.Join(err, fmt.Errorf("write refinement report: %w", writeErr))
 			}
 			return &state.result, err
 		}
@@ -378,17 +381,18 @@ func runRefinement(ctx context.Context, opts Options, state *refinementState, ll
 		workflowPlan := buildWorkflowPlan(state.result, intent, state.candidates, state.policy)
 		intentHCL, err := workflowintent.RenderHCL(ctx, intent)
 		if err != nil {
-			refinement.addAttempt(attempt, action, nil, fmt.Errorf("render intent HCL: %w", err), "intent rendering failed")
+			cause := fmt.Errorf("render intent HCL: %w", err)
+			refinement.addAttempt(attempt, action, nil, cause, "intent rendering failed")
 			refinement.setLastAttemptMode(state.generationMode)
 			if writeErr := writeRefinementReport(state.result, refinement); writeErr != nil {
-				return nil, fmt.Errorf("write refinement report: %w", writeErr)
+				return &state.result, errors.Join(cause, fmt.Errorf("write refinement report: %w", writeErr))
 			}
-			return &state.result, fmt.Errorf("render intent HCL: %w", err)
+			return &state.result, cause
 		}
 		if err := ensureArtifactDirs(state.result); err != nil {
 			return nil, err
 		}
-		if err := os.WriteFile(state.result.IntentPath, []byte(intentHCL), 0o644); err != nil {
+		if err := atomicfile.Write(state.result.IntentPath, []byte(intentHCL), 0o644); err != nil {
 			return nil, err
 		}
 		if err := writeWorkflowPlan(state.result, workflowPlan); err != nil {
@@ -408,7 +412,7 @@ func runRefinement(ctx context.Context, opts Options, state *refinementState, ll
 			refinement.addAttempt(attempt, action, nil, err, stopReason)
 			refinement.setLastAttemptMode(state.generationMode)
 			if writeErr := writeRefinementReport(state.result, refinement); writeErr != nil {
-				return nil, fmt.Errorf("write refinement report: %w", writeErr)
+				return &state.result, errors.Join(err, fmt.Errorf("write refinement report: %w", writeErr))
 			}
 			if stopReason != "" {
 				return &state.result, err
@@ -428,7 +432,7 @@ func runRefinement(ctx context.Context, opts Options, state *refinementState, ll
 			refinement.addAttempt(attempt, action, nil, err, stopReason)
 			refinement.setLastAttemptMode(state.generationMode)
 			if writeErr := writeRefinementReport(state.result, refinement); writeErr != nil {
-				return nil, fmt.Errorf("write refinement report: %w", writeErr)
+				return &state.result, errors.Join(err, fmt.Errorf("write refinement report: %w", writeErr))
 			}
 			if stopReason != "" {
 				return &state.result, err
@@ -510,42 +514,47 @@ func Promote(ctx context.Context, opts Options) (*Result, error) {
 		return nil, err
 	}
 	result := resultPaths(exampleDir)
-	projectBytes, err := os.ReadFile(result.ProjectPath)
+	projectBytes, _, err := evidencefile.ReadRegular(result.ProjectPath, evidencefile.DefaultMaxBytes)
 	if err != nil {
 		return nil, fmt.Errorf("read project brief: %w", err)
+	}
+	policy := analyzeProject(string(projectBytes))
+	if err := validateStructuredProjectPolicy(policy); err != nil {
+		return nil, fmt.Errorf("project policy: %w", err)
+	}
+	intent, err := rollout.ParseIntentFile(result.IntentPath)
+	if err != nil {
+		return nil, fmt.Errorf("parse intent.hcl: %w", err)
 	}
 	candidates, err := openapidisco.LocalFiles(filepath.Join(exampleDir, "openapi"), exampleDir, string(projectBytes))
 	if err != nil && !errors.Is(err, os.ErrNotExist) {
 		return nil, fmt.Errorf("scan local OpenAPI documents: %w", err)
 	}
 	result.OpenAPICandidates = candidates
-	result.DiscoveryReport = openapidisco.DiscoveryReport{Attempts: []openapidisco.DiscoveryAttempt{{
+	result.DiscoveryReport = portableDiscoveryReport(result, openapidisco.DiscoveryReport{Attempts: []openapidisco.DiscoveryAttempt{{
 		Kind:   "local",
 		Source: filepath.ToSlash(filepath.Join(exampleDir, "openapi")),
 		Status: "pass",
 		Detail: fmt.Sprintf("%d local OpenAPI document(s)", len(candidates)),
-	}}}
+	}}})
+	if len(candidates) > 0 {
+		primary, err := openapidisco.SelectPrimary(candidates)
+		if err != nil {
+			return nil, err
+		}
+		result.PrimaryOpenAPI = primary.RelativePath
+	}
+	applyProjectTimeoutAndIdempotency(intent, policy)
+	normalizeIntentSecurityCredentialBindings(intent, candidates, result.PrimaryOpenAPI)
+	workflowPlan := buildWorkflowPlan(result, intent, candidates, policy)
 	if err := writeDiscoveryReport(result, result.DiscoveryReport); err != nil {
 		return nil, fmt.Errorf("write discovery report: %w", err)
 	}
-	if len(candidates) > 0 {
-		if primary, err := openapidisco.SelectPrimary(candidates); err == nil {
-			result.PrimaryOpenAPI = primary.RelativePath
-		}
+	if err := writeWorkflowPlan(result, workflowPlan); err != nil {
+		return nil, err
 	}
-	if intent, err := rollout.ParseIntentFile(result.IntentPath); err == nil {
-		policy := analyzeProject(string(projectBytes))
-		if err := validateStructuredProjectPolicy(policy); err != nil {
-			return nil, fmt.Errorf("project policy: %w", err)
-		}
-		applyProjectTimeoutAndIdempotency(intent, policy)
-		normalizeIntentSecurityCredentialBindings(intent, candidates, result.PrimaryOpenAPI)
-		if err := writeWorkflowPlan(result, buildWorkflowPlan(result, intent, candidates, policy)); err != nil {
-			return nil, err
-		}
-		if err := writeRuntimeDataFile(result, intent, policy); err != nil {
-			return nil, err
-		}
+	if err := writeRuntimeDataFile(result, intent, policy); err != nil {
+		return nil, err
 	}
 	if err := ctx.Err(); err != nil {
 		return nil, err
@@ -648,11 +657,11 @@ func writeDiscoveryReport(result Result, report openapidisco.DiscoveryReport) er
 	if err := os.MkdirAll(filepath.Dir(result.DiscoveryJSONPath), 0o755); err != nil {
 		return err
 	}
-	data, err := json.MarshalIndent(report, "", "  ")
+	data, err := json.MarshalIndent(portableDiscoveryReport(result, report), "", "  ")
 	if err != nil {
 		return err
 	}
-	return os.WriteFile(result.DiscoveryJSONPath, append(data, '\n'), 0o644)
+	return atomicfile.Write(result.DiscoveryJSONPath, append(data, '\n'), 0o644)
 }
 
 func ensureArtifactDirs(result Result) error {

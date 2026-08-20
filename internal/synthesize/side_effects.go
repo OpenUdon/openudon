@@ -1,6 +1,8 @@
 package synthesize
 
 import (
+	"net"
+	"net/url"
 	"sort"
 	"strings"
 
@@ -79,9 +81,6 @@ func sideEffectProfileFor(policy projectPolicy, intent *rollout.Intent) sideEffe
 				Source: "intent runtime",
 				Risk:   kind + " runtime can affect local or remote systems",
 			})
-			if policy.AllowedRuntime[kind] {
-				profile.HasApprovalPolicy = true
-			}
 			return
 		}
 		text := strings.ToLower(strings.Join([]string{step.Name, step.Do, step.Operation, step.Set}, " "))
@@ -252,10 +251,7 @@ func sideEffectsNone(value string) bool {
 func containsSideEffectVerb(value string) bool {
 	for _, token := range sideEffectTokens(value) {
 		switch token {
-		case "create", "created", "creates", "send", "sends", "sent", "write", "writes", "update", "updates", "delete", "deletes", "deploy", "post", "put", "patch":
-			return true
-		}
-		if strings.HasPrefix(token, "create") || strings.HasPrefix(token, "update") || strings.HasPrefix(token, "delete") {
+		case "create", "created", "creates", "creating", "send", "sends", "sent", "sending", "write", "writes", "wrote", "writing", "update", "updated", "updates", "updating", "delete", "deleted", "deletes", "deleting", "deploy", "deployed", "deploys", "deploying", "post", "posted", "posting", "put", "patch", "patched", "patching":
 			return true
 		}
 	}
@@ -300,16 +296,25 @@ func openAPIServerIndex(candidates []openapidisco.Candidate) map[string]string {
 }
 
 func productionEndpointURL(value string) bool {
-	lower := strings.ToLower(strings.TrimSpace(value))
-	if lower == "" {
+	parsed, err := url.Parse(strings.TrimSpace(value))
+	if err != nil || (!strings.EqualFold(parsed.Scheme, "http") && !strings.EqualFold(parsed.Scheme, "https")) || parsed.Hostname() == "" {
 		return false
 	}
-	if strings.Contains(lower, "localhost") || strings.Contains(lower, "127.0.0.1") || strings.Contains(lower, ".test") ||
-		strings.Contains(lower, "sandbox") || strings.Contains(lower, "staging") || strings.Contains(lower, "example.") {
+	host := strings.ToLower(strings.TrimSuffix(parsed.Hostname(), "."))
+	if host == "localhost" || strings.HasSuffix(host, ".localhost") {
 		return false
 	}
-	return strings.Contains(lower, "production") || strings.Contains(lower, "://prod.") ||
-		strings.Contains(lower, "://prod-") || strings.Contains(lower, ".prod.") || strings.Contains(lower, "-prod.")
+	if ip := net.ParseIP(host); ip != nil {
+		return !ip.IsLoopback()
+	}
+	for _, reserved := range []string{".test", ".example", ".invalid", "example.com", "example.net", "example.org"} {
+		if host == strings.TrimPrefix(reserved, ".") || strings.HasSuffix(host, "."+strings.TrimPrefix(reserved, ".")) {
+			return false
+		}
+	}
+	// Every other external endpoint is production-or-unknown. Names containing
+	// "sandbox" or "staging" do not establish an approval boundary.
+	return true
 }
 
 func containsAny(value string, needles []string) bool {

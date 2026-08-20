@@ -38,10 +38,6 @@ func BuildProgressiveReplayScript(exampleDir string, intent *rollout.Intent) (Re
 	return ReplayScript{Version: "openudon.icot-replay.v2", Turns: turns, Input: strings.Join(answers, "\n") + "\n"}, nil
 }
 
-func BuildReplayScript(exampleDir string, intent *rollout.Intent) (ReplayScript, error) {
-	return BuildProgressiveReplayScript(exampleDir, intent)
-}
-
 func AssertReplayLabelsInOrder(output string, turns []ReplayTurn) error {
 	return authoring.AssertPromptLabelsInOrder(output, turns)
 }

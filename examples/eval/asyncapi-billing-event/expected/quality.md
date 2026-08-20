@@ -43,11 +43,13 @@ Status: `pass`
 - `uws.present` pass - workflow.uws.yaml is present
 - `uws.schema` pass - workflow.uws.yaml validates against public UWS schema
 - `uws.execution_profile` pass - workflow.uws.yaml passes local execution-profile validation
-- `uws.source_descriptions` pass - workflow.uws.yaml source descriptions reference package API source documents
+- `uws.source_descriptions` pass - workflow.uws.yaml source descriptions reference package execution source documents
 - `uws.plan_coverage` pass - workflow.uws.yaml includes every planned step
 - `uws.plan_match` pass - workflow.uws.yaml preserves planned runtimes, operations, dependencies, actions, and request mappings
 - `uws.binding_sources` pass - workflow.uws.yaml request fields preserve planned data sources
 - `uws.credentials_bound` pass - workflow.uws.yaml binds required credential-like parameters
+- `browser.sources` pass - browser source review is not required
+- `browser.authentication.sources` pass - browser authentication review is not required
 - `side_effects.policy` pass - side-effectful workflow has approval/trusted-runtime and sandbox proof-run policy
   Detail: publish_invoice_created appears side-effectful
 - `side_effects.retry_policy` pass - retry action policy is not required

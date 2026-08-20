@@ -11,11 +11,3 @@ type Transcript struct {
 }
 
 type TranscriptEvent = authoring.PromptEvent
-
-func SaveTranscript(path string, turns []ReplayTurn, session Session) error {
-	return SaveTranscriptWithEvents(path, turns, nil, session)
-}
-
-func SaveTranscriptWithEvents(path string, turns []ReplayTurn, events []TranscriptEvent, session Session) error {
-	return authoring.SavePromptTranscript(path, TranscriptVersion, turns, events, session)
-}

@@ -41,8 +41,6 @@ func (fixture *LoopbackFixture) Close() {
 	}
 }
 
-func (fixture *LoopbackFixture) Origin() string { return fixture.server.URL }
-
 func (fixture *LoopbackFixture) InitialURL() string {
 	return fixture.server.URL + fixture.path("login")
 }

@@ -1,16 +1,10 @@
 package authoring
 
 import (
-	"bytes"
-	"context"
-	"encoding/base64"
-	"encoding/json"
-	"fmt"
-	"os"
-	"path/filepath"
-	"regexp"
 	"sort"
 	"strings"
+
+	"github.com/OpenUdon/openudon/internal/credentialpolicy"
 )
 
 // LeafOptions configures a review-only leaf adapter.
@@ -98,79 +92,6 @@ func defaultDeferredExecutionPolicy() DeferredExecutionPolicy {
 	}
 }
 
-// ArtifactPaths returns stable artifact paths.
-func (leaf LeafAdapter) ArtifactPaths() []string {
-	paths := make([]string, 0, len(leaf.ArtifactSet.Artifacts))
-	for _, artifact := range leaf.ArtifactSet.Artifacts {
-		if strings.TrimSpace(artifact.Path) != "" {
-			paths = append(paths, artifact.Path)
-		}
-	}
-	sort.Strings(paths)
-	return paths
-}
-
-// FindArtifact returns the first artifact matching path.
-func (leaf LeafAdapter) FindArtifact(path string) (Artifact, bool) {
-	path = strings.TrimSpace(path)
-	for _, artifact := range leaf.ArtifactSet.Artifacts {
-		if artifact.Path == path {
-			return artifact, true
-		}
-	}
-	return Artifact{}, false
-}
-
-// WithArtifact returns a copy of leaf with artifact added or replaced by path.
-func (leaf LeafAdapter) WithArtifact(artifact Artifact) LeafAdapter {
-	next := leaf
-	next.ArtifactSet = cloneArtifactSet(leaf.ArtifactSet)
-	replaced := false
-	for i := range next.ArtifactSet.Artifacts {
-		if next.ArtifactSet.Artifacts[i].Path == artifact.Path {
-			next.ArtifactSet.Artifacts[i] = cloneArtifact(artifact)
-			replaced = true
-			break
-		}
-	}
-	if !replaced {
-		next.ArtifactSet.Artifacts = append(next.ArtifactSet.Artifacts, cloneArtifact(artifact))
-	}
-	SortArtifacts(next.ArtifactSet)
-	next.ReviewPackage = next.MinimumReviewPackage()
-	return next
-}
-
-// ReviewArtifact returns prompt-safe metadata for one artifact.
-func (leaf LeafAdapter) ReviewArtifact(path string) (ArtifactReview, bool) {
-	artifact, ok := leaf.FindArtifact(path)
-	if !ok {
-		return ArtifactReview{}, false
-	}
-	return artifactReview(artifact), true
-}
-
-// WithReviewArtifact returns a copy with review metadata added or replaced.
-func (leaf LeafAdapter) WithReviewArtifact(review ArtifactReview) LeafAdapter {
-	next := leaf
-	next.ReviewPackage = cloneReviewPackage(leaf.MinimumReviewPackage())
-	replaced := false
-	for i := range next.ReviewPackage.Artifacts {
-		if next.ReviewPackage.Artifacts[i].Path == review.Path {
-			next.ReviewPackage.Artifacts[i] = review
-			replaced = true
-			break
-		}
-	}
-	if !replaced {
-		next.ReviewPackage.Artifacts = append(next.ReviewPackage.Artifacts, review)
-	}
-	sort.SliceStable(next.ReviewPackage.Artifacts, func(i, j int) bool {
-		return next.ReviewPackage.Artifacts[i].Path < next.ReviewPackage.Artifacts[j].Path
-	})
-	return next
-}
-
 // ErrorDiagnostics returns error-severity diagnostics.
 func (leaf LeafAdapter) ErrorDiagnostics() []Diagnostic {
 	var out []Diagnostic
@@ -198,39 +119,6 @@ func (leaf LeafAdapter) BlockingReadinessIssues() []ReadinessIssue {
 // require review before caller-specific rendering.
 func (leaf LeafAdapter) HasBlockingIssues() bool {
 	return len(leaf.ErrorDiagnostics()) > 0 || len(leaf.BlockingReadinessIssues()) > 0
-}
-
-// FormatDiagnostics renders diagnostics and readiness issues for plain-text
-// review surfaces.
-func (leaf LeafAdapter) FormatDiagnostics() string {
-	var b strings.Builder
-	for _, diagnostic := range leaf.ArtifactSet.Diagnostics {
-		fmt.Fprintf(&b, "- `%s` %s", firstNonEmpty(diagnostic.Severity, "info"), diagnostic.Message)
-		if diagnostic.Code != "" {
-			fmt.Fprintf(&b, " (`%s`)", diagnostic.Code)
-		}
-		if diagnostic.Path != "" {
-			fmt.Fprintf(&b, " at `%s`", diagnostic.Path)
-		}
-		if diagnostic.Remediation != "" {
-			fmt.Fprintf(&b, " %s", diagnostic.Remediation)
-		}
-		b.WriteByte('\n')
-	}
-	for _, issue := range leaf.ArtifactSet.ReadinessIssues {
-		fmt.Fprintf(&b, "- `%s` %s", firstNonEmpty(issue.Severity, "info"), issue.Message)
-		if issue.Code != "" {
-			fmt.Fprintf(&b, " (`%s`)", issue.Code)
-		}
-		if issue.Path != "" {
-			fmt.Fprintf(&b, " at `%s`", issue.Path)
-		}
-		if issue.Remediation != "" {
-			fmt.Fprintf(&b, " %s", issue.Remediation)
-		}
-		b.WriteByte('\n')
-	}
-	return strings.TrimRight(b.String(), "\n")
 }
 
 // RequiredBindings returns declared symbolic runtime bindings only.
@@ -303,77 +191,6 @@ func ScanCredentialValues(artifacts []Artifact) []Diagnostic {
 	return diagnostics
 }
 
-// ReviewMarkdown renders the generic review package. It intentionally avoids
-// execution instructions.
-func (leaf LeafAdapter) ReviewMarkdown() string {
-	pkg := leaf.MinimumReviewPackage()
-	var b strings.Builder
-	title := firstNonEmpty(pkg.Name, "Deferred Leaf Review")
-	fmt.Fprintf(&b, "# %s\n\n", title)
-	if pkg.Source != "" {
-		fmt.Fprintf(&b, "- Source: `%s`\n", pkg.Source)
-	}
-	b.WriteString("- Execution boundary: review-only; runtime binding and execution are deferred to the caller.\n")
-	b.WriteString("- Credential boundary: symbolic binding names only; literal credential values are prohibited.\n")
-	b.WriteString("\n## Artifacts\n\n")
-	if len(pkg.Artifacts) == 0 {
-		b.WriteString("- No artifacts were provided.\n")
-	} else {
-		for _, artifact := range pkg.Artifacts {
-			fmt.Fprintf(&b, "- `%s`", artifact.Path)
-			if artifact.MediaType != "" {
-				fmt.Fprintf(&b, " `%s`", artifact.MediaType)
-			}
-			fmt.Fprintf(&b, " %d bytes\n", artifact.SizeBytes)
-		}
-	}
-	b.WriteString("\n## Required Bindings\n\n")
-	if len(pkg.BindingNames) == 0 {
-		b.WriteString("- No symbolic runtime bindings declared.\n")
-	} else {
-		for _, name := range pkg.BindingNames {
-			fmt.Fprintf(&b, "- `%s`\n", name)
-		}
-	}
-	b.WriteString("\n## Readiness Issues\n\n")
-	if len(pkg.ReadinessIssues) == 0 {
-		b.WriteString("- No readiness issues reported.\n")
-	} else {
-		for _, issue := range pkg.ReadinessIssues {
-			fmt.Fprintf(&b, "- `%s`: %s\n", firstNonEmpty(issue.Code, issue.Severity), issue.Message)
-		}
-	}
-	b.WriteString("\n## Diagnostics\n\n")
-	formatted := leaf.FormatDiagnostics()
-	if formatted == "" {
-		b.WriteString("- No diagnostics reported.\n")
-	} else {
-		b.WriteString(formatted)
-		b.WriteByte('\n')
-	}
-	b.WriteString("\n## Assumptions\n\n")
-	if len(pkg.Assumptions) == 0 {
-		b.WriteString("- No assumptions recorded.\n")
-	} else {
-		for _, assumption := range pkg.Assumptions {
-			fmt.Fprintf(&b, "- %s\n", assumption.Text)
-		}
-	}
-	b.WriteString("\n## Questions\n\n")
-	if len(pkg.QuestionPlan.Questions) == 0 {
-		b.WriteString("- No clarification questions recorded.\n")
-	} else {
-		for _, question := range pkg.QuestionPlan.Questions {
-			fmt.Fprintf(&b, "- %s\n", question.Prompt)
-		}
-	}
-	b.WriteString("\n## Required Review Actions\n\n")
-	for _, action := range pkg.RequiredReviewActions {
-		fmt.Fprintf(&b, "- %s\n", action)
-	}
-	return b.String()
-}
-
 // MinimumReviewPackage builds prompt-safe review metadata from the leaf.
 func (leaf LeafAdapter) MinimumReviewPackage() ReviewPackage {
 	artifacts := make([]ArtifactReview, 0, len(leaf.ArtifactSet.Artifacts))
@@ -407,50 +224,6 @@ func (leaf LeafAdapter) MinimumReviewPackage() ReviewPackage {
 	}
 	pkg.RequiredReviewActions = requiredReviewActions(leaf, pkg)
 	return pkg
-}
-
-// RequiredReviewActions returns generic actions needed before downstream use.
-func (leaf LeafAdapter) RequiredReviewActions() []string {
-	return leaf.MinimumReviewPackage().RequiredReviewActions
-}
-
-// ArtifactOutputPath returns a filesystem path for artifactPath under root.
-func ArtifactOutputPath(root, artifactPath string) (string, error) {
-	artifactPath = strings.TrimSpace(artifactPath)
-	if artifactPath == "" {
-		return "", fmt.Errorf("artifact path is required")
-	}
-	rel := filepath.Clean(filepath.FromSlash(artifactPath))
-	if filepath.IsAbs(rel) || rel == "." || rel == ".." || strings.HasPrefix(rel, ".."+string(os.PathSeparator)) {
-		return "", fmt.Errorf("artifact path %q must be relative to output root", artifactPath)
-	}
-	return filepath.Join(root, rel), nil
-}
-
-// WriteArtifactSet writes artifacts under root with path traversal protection.
-func WriteArtifactSet(ctx context.Context, root string, set ArtifactSet) ([]string, error) {
-	if ctx == nil {
-		ctx = context.Background()
-	}
-	var written []string
-	for _, artifact := range set.Artifacts {
-		if err := ctx.Err(); err != nil {
-			return nil, err
-		}
-		path, err := ArtifactOutputPath(root, artifact.Path)
-		if err != nil {
-			return nil, err
-		}
-		if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
-			return nil, err
-		}
-		if err := os.WriteFile(path, artifact.Content, 0o644); err != nil {
-			return nil, err
-		}
-		written = append(written, path)
-	}
-	sort.Strings(written)
-	return written, nil
 }
 
 func artifactReview(artifact Artifact) ArtifactReview {
@@ -550,139 +323,8 @@ func cloneArtifact(artifact Artifact) Artifact {
 	return out
 }
 
-func cloneReviewPackage(pkg ReviewPackage) ReviewPackage {
-	out := pkg
-	out.Artifacts = append([]ArtifactReview(nil), pkg.Artifacts...)
-	out.Diagnostics = append([]Diagnostic(nil), pkg.Diagnostics...)
-	out.ReadinessIssues = append([]ReadinessIssue(nil), pkg.ReadinessIssues...)
-	out.SymbolicBindings = append([]SymbolicBinding(nil), pkg.SymbolicBindings...)
-	out.BindingNames = append([]string(nil), pkg.BindingNames...)
-	out.Assumptions = append([]Assumption(nil), pkg.Assumptions...)
-	out.TranscriptSummary = append([]string(nil), pkg.TranscriptSummary...)
-	out.CredentialAudit.DeclaredSymbolicBindings = append([]string(nil), pkg.CredentialAudit.DeclaredSymbolicBindings...)
-	out.CredentialAudit.LiteralCredentialDiagnostics = append([]Diagnostic(nil), pkg.CredentialAudit.LiteralCredentialDiagnostics...)
-	out.RequiredReviewActions = append([]string(nil), pkg.RequiredReviewActions...)
-	out.DeferredExecutionPolicy.Notes = append([]string(nil), pkg.DeferredExecutionPolicy.Notes...)
-	return out
-}
-
-var (
-	providerCredentialPatterns = []*regexp.Regexp{
-		regexp.MustCompile(`AIza[0-9A-Za-z_-]{20,}`),
-		regexp.MustCompile(`sk-ant-api[0-9A-Za-z_-]*-[0-9A-Za-z_-]{20,}`),
-		regexp.MustCompile(`sk-(?:proj-)?[0-9A-Za-z_-]{20,}`),
-		regexp.MustCompile(`ghp_[0-9A-Za-z]{36,}`),
-		regexp.MustCompile(`github_pat_[0-9A-Za-z_]{20,}`),
-		regexp.MustCompile(`(?:AKIA|ASIA)[0-9A-Z]{16}`),
-	}
-	jwtValuePattern              = regexp.MustCompile(`[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+`)
-	sensitiveAssignmentRegexp    = regexp.MustCompile(`(?i)\b([A-Za-z0-9_.-]*(?:api[_-]?key|apikey|app[_-]?id|appid|token|secret|password|authorization|credential)[A-Za-z0-9_.-]*)\s*[:=]\s*["']([^"'\r\n]+)["']`)
-	bearerCredentialRegexp       = regexp.MustCompile(`(?i)\bBearer\s+[A-Za-z0-9._~+/-]{16,}`)
-	tokenShapedCredentialPattern = regexp.MustCompile(`^[A-Za-z0-9_+/=-]+$`)
-	tokenSourceAssignmentSuffix  = regexp.MustCompile(`(?i)(?:^|[_\-.])from$`)
-)
-
 // ContainsLikelyCredentialValue reports whether data contains a likely concrete
 // credential value. Symbolic workflow references and binding names are allowed.
 func ContainsLikelyCredentialValue(data []byte) bool {
-	for _, pattern := range providerCredentialPatterns {
-		if pattern.Match(data) {
-			return true
-		}
-	}
-	if bearerCredentialRegexp.Match(data) {
-		return true
-	}
-	for _, candidate := range jwtValuePattern.FindAll(data, -1) {
-		if isLeafJWT(string(candidate)) {
-			return true
-		}
-	}
-	for _, match := range sensitiveAssignmentRegexp.FindAllSubmatch(data, -1) {
-		if len(match) < 3 {
-			continue
-		}
-		if isSensitiveSourceAssignment(string(match[1])) {
-			continue
-		}
-		if isLikelySecretLiteral(string(match[2])) {
-			return true
-		}
-	}
-	return false
-}
-
-func isSensitiveSourceAssignment(key string) bool {
-	normalized := strings.ToLower(strings.TrimSpace(key))
-	return normalized == "token_from" || tokenSourceAssignmentSuffix.MatchString(normalized)
-}
-
-func isLikelySecretLiteral(value string) bool {
-	value = strings.TrimSpace(value)
-	if value == "" || isSymbolicReference(value) {
-		return false
-	}
-	for _, pattern := range providerCredentialPatterns {
-		if pattern.MatchString(value) {
-			return true
-		}
-	}
-	if isLeafJWT(value) {
-		return true
-	}
-	if len(value) < 16 {
-		return false
-	}
-	if !tokenShapedCredentialPattern.MatchString(value) {
-		return false
-	}
-	var hasLetter, hasDigit bool
-	for _, r := range value {
-		if (r >= 'A' && r <= 'Z') || (r >= 'a' && r <= 'z') {
-			hasLetter = true
-		}
-		if r >= '0' && r <= '9' {
-			hasDigit = true
-		}
-	}
-	return hasLetter && hasDigit
-}
-
-func isSymbolicReference(value string) bool {
-	if strings.ContainsAny(value, " \t\r\n\"'") {
-		return false
-	}
-	if strings.Contains(value, ".") || strings.Contains(value, "_") || strings.Contains(value, "-") {
-		return true
-	}
-	return false
-}
-
-func isLeafJWT(candidate string) bool {
-	parts := strings.Split(candidate, ".")
-	if len(parts) != 3 {
-		return false
-	}
-	header := map[string]any{}
-	payload := map[string]any{}
-	return decodeLeafBase64JSON(parts[0], &header) && decodeLeafBase64JSON(parts[1], &payload)
-}
-
-func decodeLeafBase64JSON(segment string, out any) bool {
-	decoded, err := base64.RawURLEncoding.DecodeString(segment)
-	if err != nil {
-		decoded, err = base64.URLEncoding.DecodeString(segment)
-		if err != nil {
-			return false
-		}
-	}
-	decoder := json.NewDecoder(bytes.NewReader(decoded))
-	decoder.UseNumber()
-	if err := decoder.Decode(out); err != nil {
-		return false
-	}
-	if object, ok := out.(*map[string]any); ok {
-		return len(*object) > 0
-	}
-	return true
+	return credentialpolicy.ContainsLikelyValue(data)
 }

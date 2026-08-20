@@ -3,8 +3,6 @@ package workflowintent
 import (
 	"fmt"
 	"os"
-	"path/filepath"
-	"regexp"
 	"strings"
 
 	"github.com/OpenUdon/apitools"
@@ -256,16 +254,4 @@ func schemaSummaryToMap(schema *apitools.SchemaSummary) map[string]any {
 		out["properties"] = props
 	}
 	return out
-}
-
-func documentSourceName(path string) string {
-	base := filepath.Base(path)
-	ext := filepath.Ext(base)
-	name := strings.TrimSuffix(base, ext)
-	name = regexp.MustCompile(`[^A-Za-z0-9_]+`).ReplaceAllString(name, "_")
-	name = strings.Trim(name, "_")
-	if name == "" {
-		return "openapi"
-	}
-	return name
 }

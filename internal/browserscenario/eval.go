@@ -4,11 +4,11 @@ import (
 	"context"
 	"fmt"
 	"os"
-	"os/exec"
 	"path/filepath"
-	"sort"
 	"strings"
 	"time"
+
+	"github.com/OpenUdon/openudon/internal/processgroup"
 )
 
 // Options fixes the complete authority of one browser-scenario evaluation.
@@ -45,10 +45,6 @@ type ScenarioExecutor interface {
 }
 
 type ScenarioExecutorFunc func(context.Context, Manifest, Environment) ScenarioResult
-
-func (function ScenarioExecutorFunc) Execute(ctx context.Context, manifest Manifest, environment Environment) ScenarioResult {
-	return function(ctx, manifest, environment)
-}
 
 // Run validates the embedded corpus and compatibility lock before any browser
 // process or network authority can be exercised.
@@ -198,16 +194,20 @@ func absoluteDirectory(value, name string) (string, error) {
 }
 
 func gitRevision(ctx context.Context, directory string) (string, bool, error) {
-	command := exec.CommandContext(ctx, "git", "rev-parse", "HEAD")
-	command.Dir = directory
-	output, err := command.Output()
+	var stdout strings.Builder
+	err := processgroup.Run(ctx, probeDeadline, processgroup.Invocation{
+		Args: []string{"git", "rev-parse", "HEAD"}, Dir: directory, Env: os.Environ(), Stdout: &stdout,
+	})
+	output := stdout.String()
 	commit := strings.TrimSpace(string(output))
 	if err != nil || !commitPattern.MatchString(commit) {
 		return "", false, fmt.Errorf("git revision unavailable")
 	}
-	command = exec.CommandContext(ctx, "git", "status", "--porcelain=v1", "--untracked-files=all")
-	command.Dir = directory
-	output, err = command.Output()
+	stdout.Reset()
+	err = processgroup.Run(ctx, probeDeadline, processgroup.Invocation{
+		Args: []string{"git", "status", "--porcelain=v1", "--untracked-files=all"}, Dir: directory, Env: os.Environ(), Stdout: &stdout,
+	})
+	output = stdout.String()
 	if err != nil {
 		return "", false, err
 	}
@@ -233,15 +233,4 @@ func defaultPath(value, fallback string) string {
 		return fallback
 	}
 	return value
-}
-
-// SortedScenarioIDs is useful to render stable CLI summaries without exposing
-// any target-derived values.
-func SortedScenarioIDs(values []ScenarioResult) []string {
-	result := make([]string, 0, len(values))
-	for _, value := range values {
-		result = append(result, value.ID)
-	}
-	sort.Strings(result)
-	return result
 }

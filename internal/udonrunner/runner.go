@@ -1,26 +1,31 @@
 package udonrunner
 
 import (
-	"bytes"
 	"context"
-	"encoding/json"
 	"fmt"
 	"io"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"sort"
 	"strings"
 
 	"github.com/OpenUdon/openudon/internal/authoring"
+	"github.com/OpenUdon/openudon/internal/authoring/atomicfile"
+	"github.com/OpenUdon/openudon/internal/evidencefile"
+	"github.com/OpenUdon/openudon/internal/executablefile"
 	"github.com/OpenUdon/openudon/internal/packageartifacts"
+	"github.com/OpenUdon/openudon/internal/processgroup"
 )
 
-const RunConfigVersion = "openudon.executor-run.v1"
+const (
+	RunConfigVersion       = "openudon.executor-run.v2"
+	LegacyRunConfigVersion = "openudon.executor-run.v1"
+)
 const dockerExecutorPrefix = "docker://"
 
 type Config struct {
 	Version             string   `json:"version"`
+	RunID               string   `json:"run_id"`
 	Scope               string   `json:"scope"`
 	Tier                string   `json:"tier"`
 	PackageRoot         string   `json:"package_root"`
@@ -32,9 +37,21 @@ type Config struct {
 	OpenAPIPaths        []string `json:"openapi_paths,omitempty"`
 	PackagePaths        []string `json:"package_paths"`
 	PackageSHA256       string   `json:"package_sha256"`
+	HandoffSHA256       string   `json:"handoff_sha256"`
+	ApprovalSHA256      string   `json:"approval_sha256"`
 	CredentialBindings  []string `json:"credential_bindings,omitempty"`
 	DirectProductionRun bool     `json:"direct_production_run"`
 }
+
+// Invocation is the complete, auditable process boundary used by trusted
+// runner callers and tests. Argv always includes argv[0].
+type Invocation struct {
+	Argv []string
+	Dir  string
+	Env  []string
+}
+
+type InvokeFunc func(context.Context, Invocation) error
 
 type Options struct {
 	ConfigPath              string
@@ -43,7 +60,7 @@ type Options struct {
 	RequireCredentialValues bool
 	Stdout                  io.Writer
 	Stderr                  io.Writer
-	RunCommand              func(context.Context, string, ...string) error
+	Invoke                  InvokeFunc
 }
 
 type Result struct {
@@ -61,33 +78,22 @@ type Result struct {
 	CredentialEnvNames []string
 }
 
-func RunConfig(ctx context.Context, opts Options) (Result, error) {
-	config, err := LoadConfig(opts.ConfigPath)
-	if err != nil {
-		return Result{}, err
-	}
-	return Run(ctx, config, opts)
-}
-
 func LoadConfig(path string) (Config, error) {
 	if strings.TrimSpace(path) == "" {
 		return Config{}, fmt.Errorf("--config is required")
 	}
-	data, err := os.ReadFile(path)
+	data, _, err := evidencefile.ReadRegular(path, evidencefile.DefaultMaxBytes)
 	if err != nil {
 		return Config{}, fmt.Errorf("read run config: %w", err)
 	}
 	var config Config
-	dec := json.NewDecoder(bytes.NewReader(data))
-	dec.DisallowUnknownFields()
-	if err := dec.Decode(&config); err != nil {
+	if err := evidencefile.DecodeStrict(data, &config); err != nil {
 		return Config{}, fmt.Errorf("run config must be valid JSON: %w", err)
 	}
-	var extra struct{}
-	if err := dec.Decode(&extra); err != io.EOF {
-		return Config{}, fmt.Errorf("run config must contain a single JSON object")
-	}
 	if config.Version != RunConfigVersion {
+		if config.Version == LegacyRunConfigVersion {
+			return Config{}, fmt.Errorf("legacy run config %s is read-only and cannot execute; regenerate the package with openudon build", config.Version)
+		}
 		return Config{}, fmt.Errorf("unsupported run config version: %s", config.Version)
 	}
 	if config.OpenAPIPaths == nil {
@@ -108,14 +114,6 @@ func LoadConfig(path string) (Config, error) {
 	return config, nil
 }
 
-func PrepareConfig(ctx context.Context, opts Options) (Result, error) {
-	config, err := LoadConfig(opts.ConfigPath)
-	if err != nil {
-		return Result{}, err
-	}
-	return Prepare(ctx, config, opts)
-}
-
 func Prepare(ctx context.Context, config Config, opts Options) (Result, error) {
 	result, _, _, err := prepare(ctx, config, opts, opts.RequireCredentialValues, false)
 	return result, err
@@ -126,18 +124,17 @@ func Run(ctx context.Context, config Config, opts Options) (Result, error) {
 	if err != nil {
 		return result, err
 	}
-	runCommand := opts.RunCommand
-	if runCommand == nil {
-		runCommand = func(ctx context.Context, name string, args ...string) error {
-			cmd := exec.CommandContext(ctx, name, args...)
-			cmd.Dir = repoRootAbs
-			cmd.Env = env
-			cmd.Stdout = opts.Stdout
-			cmd.Stderr = opts.Stderr
-			return cmd.Run()
+	invocation := Invocation{Argv: append([]string(nil), result.Argv...), Dir: repoRootAbs, Env: append([]string(nil), env...)}
+	invoke := opts.Invoke
+	if invoke == nil {
+		invoke = func(ctx context.Context, invocation Invocation) error {
+			return processgroup.RunContext(ctx, processgroup.Invocation{
+				Args: invocation.Argv, Dir: invocation.Dir, Env: invocation.Env,
+				Stdout: opts.Stdout, Stderr: opts.Stderr,
+			})
 		}
 	}
-	if err := runCommand(ctx, result.Argv[0], result.Argv[1:]...); err != nil {
+	if err := invoke(ctx, invocation); err != nil {
 		return result, fmt.Errorf("invoke trusted executor: %w", err)
 	}
 	return result, nil
@@ -147,8 +144,26 @@ func prepare(ctx context.Context, config Config, opts Options, requireCredential
 	if ctx == nil {
 		ctx = context.Background()
 	}
+	if err := ctx.Err(); err != nil {
+		return Result{}, nil, "", err
+	}
 	if config.DirectProductionRun {
 		return Result{}, nil, "", fmt.Errorf("run config direct_production_run must be false")
+	}
+	if config.Version != RunConfigVersion {
+		if config.Version == LegacyRunConfigVersion {
+			return Result{}, nil, "", fmt.Errorf("legacy run config %s is read-only and cannot execute; regenerate the package with openudon build", config.Version)
+		}
+		return Result{}, nil, "", fmt.Errorf("run config version must be %s", RunConfigVersion)
+	}
+	if err := ValidateRunID(config.RunID); err != nil {
+		return Result{}, nil, "", err
+	}
+	if _, err := requirePackageSHA256(config.HandoffSHA256); err != nil {
+		return Result{}, nil, "", fmt.Errorf("run config handoff_sha256: %w", err)
+	}
+	if _, err := requirePackageSHA256(config.ApprovalSHA256); err != nil {
+		return Result{}, nil, "", fmt.Errorf("run config approval_sha256: %w", err)
 	}
 	repoRoot := strings.TrimSpace(opts.RepoRoot)
 	if repoRoot == "" {
@@ -189,15 +204,15 @@ func prepare(ctx context.Context, config Config, opts Options, requireCredential
 	if err := validateRegularPackageFile(packageRoot, workflowRel, workflowPath, "workflow"); err != nil {
 		return Result{}, nil, "", err
 	}
-	apiSourceFiles, err := validateAPISourcePaths(packageRoot, runConfigAPISourcePaths(config))
+	apiSourceFiles, err := validateAPISourcePaths(ctx, packageRoot, runConfigAPISourcePaths(config))
 	if err != nil {
 		return Result{}, nil, "", err
 	}
-	dataFiles, err := validateDataFilePaths(packageRoot, config.DataFiles)
+	dataFiles, err := validateDataFilePaths(ctx, packageRoot, config.DataFiles)
 	if err != nil {
 		return Result{}, nil, "", err
 	}
-	packageFiles, err := validatePackagePaths(packageRoot, config.PackagePaths)
+	packageFiles, err := validatePackagePaths(ctx, packageRoot, config.PackagePaths)
 	if err != nil {
 		return Result{}, nil, "", err
 	}
@@ -215,11 +230,11 @@ func prepare(ctx context.Context, config Config, opts Options, requireCredential
 	if err != nil {
 		return Result{}, nil, "", err
 	}
-	env := opts.Env
-	if env == nil {
-		env = os.Environ()
+	sourceEnv := opts.Env
+	if sourceEnv == nil {
+		sourceEnv = os.Environ()
 	}
-	envByName := environmentMap(env)
+	envByName := environmentMap(sourceEnv)
 	if requireCredentialValues {
 		for _, name := range credentialEnvNames {
 			if strings.TrimSpace(envByName[name]) == "" {
@@ -228,11 +243,11 @@ func prepare(ctx context.Context, config Config, opts Options, requireCredential
 		}
 	}
 
-	stage, stagedWorkflow, err := stagePackage(workdir, workflowRel, workflowPath, apiSourceFiles, packageFiles)
+	stage, stagedWorkflow, err := stagePackage(ctx, workdir, workflowRel, workflowPath, apiSourceFiles, packageFiles)
 	if err != nil {
 		return Result{}, nil, "", err
 	}
-	if err := verifyStagedPackageDigest(stage, config.Scope, approvedDigest, packageFiles); err != nil {
+	if err := verifyStagedPackageDigest(ctx, stage, config.Scope, approvedDigest, packageFiles); err != nil {
 		return Result{}, nil, "", err
 	}
 	result := Result{
@@ -248,14 +263,64 @@ func prepare(ctx context.Context, config Config, opts Options, requireCredential
 		CredentialEnvNames: append([]string(nil), credentialEnvNames...),
 	}
 	if buildExecutorArgv {
-		result.ExecutorReportPath = filepath.Join(stage, "executor-report.json")
+		result.ExecutorReportPath = filepath.Join(stage, "executor-report-"+config.RunID+".json")
 		argv, err := executorArgv(repoRootAbs, stage, stagedWorkflow, workflowFormat, result.ExecutorReportPath, stagedDataFilePaths(stage, dataFiles), credentialEnvNames, envByName)
 		if err != nil {
 			return result, nil, "", err
 		}
 		result.Argv = append([]string(nil), argv...)
 	}
-	return result, env, repoRootAbs, nil
+	executorEnv := credentialEnvironment(credentialEnvNames, envByName)
+	if len(result.Argv) > 0 && filepath.Base(result.Argv[0]) == "docker" {
+		executorEnv = append(executorEnv, launcherEnvironment(envByName)...)
+		sort.Strings(executorEnv)
+	}
+	return result, executorEnv, repoRootAbs, nil
+}
+
+// ValidateRunID validates the identifier used to derive unique executor and
+// report paths across the parent and external trusted-runner processes.
+func ValidateRunID(value string) error {
+	value = strings.TrimSpace(value)
+	if len(value) < 16 || len(value) > 64 {
+		return fmt.Errorf("run config run_id must be 16 to 64 lowercase hexadecimal characters")
+	}
+	for _, ch := range value {
+		if !((ch >= '0' && ch <= '9') || (ch >= 'a' && ch <= 'f')) {
+			return fmt.Errorf("run config run_id must be 16 to 64 lowercase hexadecimal characters")
+		}
+	}
+	return nil
+}
+
+func credentialEnvironment(names []string, values map[string]string) []string {
+	out := make([]string, 0, len(names))
+	for _, name := range names {
+		if value, ok := values[name]; ok {
+			out = append(out, name+"="+value)
+		}
+	}
+	sort.Strings(out)
+	return out
+}
+
+// launcherEnvironment is the documented minimum needed to locate and launch
+// Docker (and its Windows process helpers). Cloud, proxy, agent, and unrelated
+// variables are intentionally excluded.
+func launcherEnvironment(values map[string]string) []string {
+	names := []string{"PATH", "PATHEXT", "SystemRoot", "SYSTEMROOT", "WINDIR", "COMSPEC", "TMP", "TEMP"}
+	var out []string
+	seen := map[string]bool{}
+	for _, name := range names {
+		if seen[name] {
+			continue
+		}
+		if value, ok := values[name]; ok && value != "" {
+			out = append(out, name+"="+value)
+			seen[name] = true
+		}
+	}
+	return out
 }
 
 func requireString(value, name string) (string, error) {
@@ -382,9 +447,12 @@ func runConfigAPISourcePaths(config Config) []string {
 	return out
 }
 
-func validateAPISourcePaths(packageRoot string, paths []string) ([][2]string, error) {
+func validateAPISourcePaths(ctx context.Context, packageRoot string, paths []string) ([][2]string, error) {
 	out := make([][2]string, 0, len(paths))
 	for _, raw := range paths {
+		if err := ctx.Err(); err != nil {
+			return nil, err
+		}
 		if strings.TrimSpace(raw) == "" {
 			return nil, fmt.Errorf("api source path must be non-empty")
 		}
@@ -400,13 +468,16 @@ func validateAPISourcePaths(packageRoot string, paths []string) ([][2]string, er
 	return out, nil
 }
 
-func validatePackagePaths(packageRoot string, paths []string) ([][2]string, error) {
+func validatePackagePaths(ctx context.Context, packageRoot string, paths []string) ([][2]string, error) {
 	if len(paths) == 0 {
 		return nil, fmt.Errorf("run config requires package_paths")
 	}
 	out := make([][2]string, 0, len(paths))
 	seen := map[string]bool{}
 	for _, raw := range paths {
+		if err := ctx.Err(); err != nil {
+			return nil, err
+		}
 		if strings.TrimSpace(raw) == "" {
 			return nil, fmt.Errorf("package path must be non-empty")
 		}
@@ -496,11 +567,11 @@ func validateDataFilesInPackagePaths(dataFiles, packageFiles [][2]string) error 
 	return nil
 }
 
-func validateDataFilePaths(packageRoot string, paths []string) ([][2]string, error) {
+func validateDataFilePaths(ctx context.Context, packageRoot string, paths []string) ([][2]string, error) {
 	if len(paths) == 0 {
 		return nil, nil
 	}
-	files, err := validatePackagePaths(packageRoot, paths)
+	files, err := validatePackagePaths(ctx, packageRoot, paths)
 	if err != nil {
 		return nil, fmt.Errorf("data_files: %w", err)
 	}
@@ -515,7 +586,10 @@ func stagedDataFilePaths(stage string, dataFiles [][2]string) []string {
 	return out
 }
 
-func stagePackage(workdir, workflowRel, workflowPath string, openAPIFiles, packageFiles [][2]string) (string, string, error) {
+func stagePackage(ctx context.Context, workdir, workflowRel, workflowPath string, openAPIFiles, packageFiles [][2]string) (string, string, error) {
+	if err := ctx.Err(); err != nil {
+		return "", "", err
+	}
 	if err := os.MkdirAll(workdir, 0o755); err != nil {
 		return "", "", err
 	}
@@ -523,24 +597,31 @@ func stagePackage(workdir, workflowRel, workflowPath string, openAPIFiles, packa
 	if err != nil {
 		return "", "", err
 	}
+	keepStage := false
+	defer func() {
+		if !keepStage {
+			_ = os.RemoveAll(stage)
+		}
+	}()
 	stagedWorkflow := filepath.Join(stage, workflowRel)
-	if err := copyRegularFile(workflowPath, stagedWorkflow); err != nil {
+	if err := copyRegularFile(ctx, workflowPath, stagedWorkflow); err != nil {
 		return "", "", err
 	}
 	for _, pair := range openAPIFiles {
-		if err := copyRegularFile(pair[1], filepath.Join(stage, pair[0])); err != nil {
+		if err := copyRegularFile(ctx, pair[1], filepath.Join(stage, pair[0])); err != nil {
 			return "", "", err
 		}
 	}
 	for _, pair := range packageFiles {
-		if err := copyRegularFile(pair[1], filepath.Join(stage, filepath.FromSlash(pair[0]))); err != nil {
+		if err := copyRegularFile(ctx, pair[1], filepath.Join(stage, filepath.FromSlash(pair[0]))); err != nil {
 			return "", "", err
 		}
 	}
+	keepStage = true
 	return stage, stagedWorkflow, nil
 }
 
-func verifyStagedPackageDigest(stage, scope, approvedDigest string, packageFiles [][2]string) error {
+func verifyStagedPackageDigest(ctx context.Context, stage, scope, approvedDigest string, packageFiles [][2]string) error {
 	approvedDigest = strings.TrimSpace(approvedDigest)
 	inputs := make([]authoring.ReviewHandoffInput, 0, len(packageFiles))
 	for _, pair := range packageFiles {
@@ -550,6 +631,7 @@ func verifyStagedPackageDigest(stage, scope, approvedDigest string, packageFiles
 		})
 	}
 	digest, err := authoring.ComputeReviewHandoffDigest(authoring.ReviewHandoffDigestOptions{
+		Context: ctx,
 		Root:    stage,
 		Scope:   scope,
 		Version: "openudon.handoff-package-digest.v1",
@@ -564,15 +646,18 @@ func verifyStagedPackageDigest(stage, scope, approvedDigest string, packageFiles
 	return nil
 }
 
-func copyRegularFile(src, dst string) error {
-	if err := os.MkdirAll(filepath.Dir(dst), 0o755); err != nil {
+func copyRegularFile(ctx context.Context, src, dst string) error {
+	if err := ctx.Err(); err != nil {
 		return err
 	}
-	data, err := os.ReadFile(src)
+	data, _, err := evidencefile.ReadRegular(src, evidencefile.DefaultMaxBytes)
 	if err != nil {
 		return err
 	}
-	return os.WriteFile(dst, data, 0o644)
+	if err := ctx.Err(); err != nil {
+		return err
+	}
+	return atomicfile.Write(dst, data, 0o644)
 }
 
 func credentialEnvNames(bindings []string) ([]string, error) {
@@ -647,10 +732,10 @@ func executorArgv(repoRoot, stage, stagedWorkflow, workflowFormat, executorRepor
 		return executorPathArgv("OPENUDON_UDON_BIN", executor, stage, stagedWorkflow, workflowFormat, executorReportPath, dataFiles)
 	}
 	executor := filepath.Join(repoRoot, "..", "udon", "dist", "udon-linux-amd64")
-	if !isExecutable(executor) {
+	if !executablefile.Is(executor) {
 		executor = filepath.Join(repoRoot, "..", "udon", "udon")
 	}
-	if !isExecutable(executor) {
+	if !executablefile.Is(executor) {
 		return nil, fmt.Errorf("trusted executor not found. Set OPENUDON_EXECUTOR to an absolute binary path or docker://image, or build ../udon")
 	}
 	return appendDataFileArgs(appendExecutionReportArg([]string{executor, "--workdir", stage, "--workflow", stagedWorkflow, "--workflow-format", workflowFormat}, executorReportPath), dataFiles...), nil
@@ -703,7 +788,7 @@ func executorPathArgv(envName, executor, stage, stagedWorkflow, workflowFormat, 
 	if !filepath.IsAbs(executor) {
 		return nil, fmt.Errorf("%s must be an absolute path: %s", envName, executor)
 	}
-	if !isExecutable(executor) {
+	if !executablefile.Is(executor) {
 		return nil, fmt.Errorf("%s does not point to an executable file: %s", envName, executor)
 	}
 	return appendDataFileArgs(appendExecutionReportArg([]string{executor, "--workdir", stage, "--workflow", stagedWorkflow, "--workflow-format", workflowFormat}, executorReportPath), dataFiles...), nil
@@ -726,12 +811,4 @@ func appendDataFileArgs(argv []string, dataFiles ...string) []string {
 		argv = append(argv, "--datafile", dataFile)
 	}
 	return argv
-}
-
-func isExecutable(path string) bool {
-	info, err := os.Stat(path)
-	if err != nil || info.IsDir() {
-		return false
-	}
-	return info.Mode()&0o111 != 0
 }

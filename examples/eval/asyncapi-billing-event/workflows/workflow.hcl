@@ -1,4 +1,4 @@
-# openapi = "asyncapi/events.yaml"
+# source = "asyncapi/events.yaml"
 # http "publish_invoice_created"
 
   uws = "1.3.0"

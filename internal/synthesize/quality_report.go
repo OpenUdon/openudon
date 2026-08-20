@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"github.com/OpenUdon/openudon/internal/authoring"
+	"github.com/OpenUdon/openudon/internal/authoring/atomicfile"
 	"github.com/OpenUdon/openudon/internal/openapidisco"
 	"github.com/OpenUdon/openudon/internal/packageartifacts"
 	rollout "github.com/OpenUdon/openudon/internal/workflowintent"
@@ -85,14 +86,15 @@ func writeQualityFiles(result Result, report *QualityReport) error {
 	if err := os.MkdirAll(filepath.Dir(result.QualityJSONPath), 0o755); err != nil {
 		return err
 	}
-	data, err := json.MarshalIndent(report, "", "  ")
+	portable := portableQualityReport(result, report)
+	data, err := json.MarshalIndent(portable, "", "  ")
 	if err != nil {
 		return err
 	}
-	if err := os.WriteFile(result.QualityJSONPath, append(data, '\n'), 0o644); err != nil {
+	if err := atomicfile.Write(result.QualityJSONPath, append(data, '\n'), 0o644); err != nil {
 		return err
 	}
-	return os.WriteFile(result.QualityMDPath, []byte(qualityMarkdown(report)), 0o644)
+	return atomicfile.Write(result.QualityMDPath, []byte(qualityMarkdown(portable)), 0o644)
 }
 
 func qualityMarkdown(report *QualityReport) string {

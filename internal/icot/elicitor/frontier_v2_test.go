@@ -1,6 +1,7 @@
 package elicitor
 
 import (
+	"reflect"
 	"testing"
 
 	publicinterview "github.com/OpenUdon/authoring/interview"
@@ -42,6 +43,51 @@ func TestV2DraftMergeReachesDeterministicFrontier(t *testing.T) {
 		if len(frontier) == 0 {
 			t.Fatalf("render error %v with no frontier; issues=%#v session=%#v", renderErr, issues, merged)
 		}
+	}
+}
+
+func TestCloneSessionDeepCopiesDraftState(t *testing.T) {
+	original := Session{
+		DraftOperations: []OperationDetailRef{{DocumentPath: "openapi/items.yaml", OperationID: "getItem"}},
+		DraftEvents: []TranscriptEvent{{Kind: "draft", Data: map[string]any{
+			"operations": []any{"getItem"}, "detail": map[string]any{"status": "ready"},
+		}}},
+	}
+	clone, err := cloneSession(original)
+	if err != nil {
+		t.Fatal(err)
+	}
+	clone.DraftOperations[0].OperationID = "changed"
+	cloneData := clone.DraftEvents[0].Data.(map[string]any)
+	cloneData["operations"].([]any)[0] = "changed"
+	cloneData["detail"].(map[string]any)["status"] = "changed"
+	if original.DraftOperations[0].OperationID != "getItem" {
+		t.Fatal("DraftOperations shared storage with clone")
+	}
+	want := map[string]any{"operations": []any{"getItem"}, "detail": map[string]any{"status": "ready"}}
+	if !reflect.DeepEqual(original.DraftEvents[0].Data, want) {
+		t.Fatalf("DraftEvents shared nested storage with clone: %#v", original.DraftEvents)
+	}
+}
+
+func TestMergeProgressiveSessionsDeepCopiesDraftState(t *testing.T) {
+	base := Session{
+		DraftOperations: []OperationDetailRef{{DocumentPath: "openapi/base.yaml", OperationID: "base"}},
+		DraftEvents:     []TranscriptEvent{{Kind: "base", Data: map[string]any{"nested": map[string]any{"status": "base"}}}},
+	}
+	overlay := Session{
+		DraftOperations: []OperationDetailRef{{DocumentPath: "openapi/overlay.yaml", OperationID: "overlay"}},
+		DraftEvents:     []TranscriptEvent{{Kind: "overlay", Data: map[string]any{"nested": map[string]any{"status": "overlay"}}}},
+	}
+	merged := mergeProgressiveSessions(base, overlay, nil)
+	merged.DraftOperations[0].OperationID = "changed"
+	merged.DraftEvents[0].Data.(map[string]any)["nested"].(map[string]any)["status"] = "changed"
+	merged.DraftEvents[1].Data.(map[string]any)["nested"].(map[string]any)["status"] = "changed"
+	if base.DraftOperations[0].OperationID != "base" || base.DraftEvents[0].Data.(map[string]any)["nested"].(map[string]any)["status"] != "base" {
+		t.Fatalf("base draft state shared storage with merge: %#v", base)
+	}
+	if overlay.DraftEvents[0].Data.(map[string]any)["nested"].(map[string]any)["status"] != "overlay" {
+		t.Fatalf("overlay draft events shared storage with merge: %#v", overlay.DraftEvents)
 	}
 }
 

@@ -438,8 +438,8 @@ output "report" {
 	if result.ReferenceSummary != (ReferenceSummary{}) || len(result.ReferenceIssues) != 0 {
 		t.Fatalf("reference summary = %#v issues = %#v, want no drift", result.ReferenceSummary, result.ReferenceIssues)
 	}
-	if result.GeneratedDir == "" || result.GeneratedDir == example {
-		t.Fatalf("expected generated temp dir, got %q", result.GeneratedDir)
+	if result.GeneratedDir != "" {
+		t.Fatalf("normal eval retained generated dir %q", result.GeneratedDir)
 	}
 	if _, err := os.Stat(filepath.Join(example, "workflows")); !os.IsNotExist(err) {
 		t.Fatalf("eval dirtied source example workflows dir: %v", err)
@@ -907,7 +907,33 @@ func TestReadReportSupportsLegacyResultArray(t *testing.T) {
 	}
 }
 
-func TestArchiveGeneratedDirsCopiesWorkspace(t *testing.T) {
+func TestReadReportRejectsSymlinksUnknownFieldsAndTrailingJSON(t *testing.T) {
+	dir := t.TempDir()
+	for name, body := range map[string]string{
+		"unknown.json":  `{"results":[],"unexpected":true}`,
+		"trailing.json": `{"results":[]} {}`,
+	} {
+		path := filepath.Join(dir, name)
+		if err := os.WriteFile(path, []byte(body), 0o644); err != nil {
+			t.Fatal(err)
+		}
+		if _, err := ReadReport(path); err == nil {
+			t.Fatalf("ReadReport accepted %s", name)
+		}
+	}
+	target := filepath.Join(dir, "report.json")
+	if err := os.WriteFile(target, []byte(`{"results":[]}`), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	link := filepath.Join(dir, "report-link.json")
+	if err := os.Symlink(target, link); err == nil {
+		if _, err := ReadReport(link); err == nil {
+			t.Fatal("ReadReport accepted a symlink")
+		}
+	}
+}
+
+func TestArchiveWorkspaceCopiesWorkspaceAndReturnsRelativePath(t *testing.T) {
 	root := t.TempDir()
 	generated := filepath.Join(root, "generated", "brief")
 	if err := os.MkdirAll(filepath.Join(generated, "workflows"), 0o755); err != nil {
@@ -917,10 +943,7 @@ func TestArchiveGeneratedDirsCopiesWorkspace(t *testing.T) {
 		t.Fatal(err)
 	}
 	archiveRoot := filepath.Join(root, "archive")
-	results, err := ArchiveGeneratedDirs([]EvalResult{{
-		Name:         "brief",
-		GeneratedDir: generated,
-	}}, archiveRoot, "run:1")
+	relative, err := archiveWorkspace(generated, archiveRoot, "run:1", "brief")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -928,7 +951,50 @@ func TestArchiveGeneratedDirsCopiesWorkspace(t *testing.T) {
 	if _, err := os.Stat(want); err != nil {
 		t.Fatalf("archived file missing: %v", err)
 	}
-	if results[0].GeneratedDir != filepath.Join(archiveRoot, "run-1", "brief") {
-		t.Fatalf("generated dir = %q", results[0].GeneratedDir)
+	if relative != "run-1/brief" {
+		t.Fatalf("generated dir = %q", relative)
+	}
+}
+
+func TestArchiveWorkspaceContainsTraversalNames(t *testing.T) {
+	root := t.TempDir()
+	generated := filepath.Join(root, "generated")
+	if err := os.MkdirAll(generated, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(generated, "result.json"), []byte("{}\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	archiveRoot := filepath.Join(root, "archives", "root")
+	relative, err := archiveWorkspace(generated, archiveRoot, "..", "../outside")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if relative == "" || relative == ".." || strings.HasPrefix(relative, "../") || strings.Contains(relative, "/../") {
+		t.Fatalf("archive path escaped root: %q", relative)
+	}
+	if _, err := os.Stat(filepath.Join(archiveRoot, filepath.FromSlash(relative), "result.json")); err != nil {
+		t.Fatalf("contained archive missing: %v", err)
+	}
+	if _, err := os.Stat(filepath.Join(root, "archives", "outside", "result.json")); !os.IsNotExist(err) {
+		t.Fatalf("archive escaped to sibling path: %v", err)
+	}
+}
+
+func TestArchiveWorkspaceRejectsSymlinkAndCleansPartialTarget(t *testing.T) {
+	root := t.TempDir()
+	generated := filepath.Join(root, "generated")
+	if err := os.MkdirAll(generated, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink(filepath.Join(root, "outside"), filepath.Join(generated, "link")); err != nil {
+		t.Skipf("symlink unavailable: %v", err)
+	}
+	archiveRoot := filepath.Join(root, "archive")
+	if _, err := archiveWorkspace(generated, archiveRoot, "run", "brief"); err == nil || !strings.Contains(err.Error(), "non-regular") {
+		t.Fatalf("expected symlink rejection, got %v", err)
+	}
+	if _, err := os.Lstat(filepath.Join(archiveRoot, "run", "brief")); !os.IsNotExist(err) {
+		t.Fatalf("partial archive was not removed: %v", err)
 	}
 }

@@ -1,6 +1,6 @@
 {
   "status": "pass",
-  "example": "/home/peter/Workspace/openudon/examples/eval/asyncapi-streetlights-mqtt",
+  "example": "asyncapi-streetlights-mqtt",
   "max_attempts": 1,
   "prompt_version": "intent.v3",
   "attempts": [

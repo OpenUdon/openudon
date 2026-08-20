@@ -1,6 +1,7 @@
 package elicitor
 
 import (
+	"sort"
 	"strings"
 
 	publicdecision "github.com/OpenUdon/authoring/decision"
@@ -77,7 +78,13 @@ func mergeDecisionEvidence(base, overlay []DecisionEvidence) []DecisionEvidence 
 		}
 	}
 	merged := publicdecision.Merge(records)
-	for _, group := range multiValueRecords {
+	groupKeys := make([]string, 0, len(multiValueRecords))
+	for key := range multiValueRecords {
+		groupKeys = append(groupKeys, key)
+	}
+	sort.Strings(groupKeys)
+	for _, key := range groupKeys {
+		group := multiValueRecords[key]
 		merged = append(merged, publicdecision.Merge(group)...)
 	}
 	merged = publicdecision.NormalizeAll(merged)
@@ -120,17 +127,6 @@ func normalizeDecisionAlternatives(alternatives []DecisionAlternative) []Decisio
 		}
 	}
 	return out
-}
-
-func mergeDecisionEvidenceRecord(base, overlay DecisionEvidence) DecisionEvidence {
-	records := publicdecision.Merge([]publicdecision.Record{
-		authoringDecisionRecord(base),
-		authoringDecisionRecord(overlay),
-	})
-	if len(records) == 0 {
-		return DecisionEvidence{}
-	}
-	return decisionEvidenceFromAuthoring(records[0])
 }
 
 func pruneSupersededDecisionEvidence(evidence []DecisionEvidence, user DecisionEvidence) []DecisionEvidence {

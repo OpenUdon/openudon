@@ -1194,7 +1194,7 @@ step "send_email" {
 		"Approval Artifact Checklist",
 		"Credential Scope Matrix",
 		"Trusted dry run",
-		"`openudon.executor-run.v1`",
+		"`openudon.executor-run.v2`",
 		"`package_sha256`",
 		"`expires_at`",
 		"Trusted proof run",
@@ -1520,7 +1520,7 @@ func validReviewEvidenceText(includeApprovalStates, includeCredentialInventory b
 - Direct production execution: not performed by OpenUdon synthesis.
 - Sandbox/test proof run is optional unless future changes add side effects.
 - Dry-run handoff validates approval state, package digest, stored/current quality, tier compatibility, credential-value policy, and direct-production policy before executor invocation.
-- The generated run config is ` + "`openudon.executor-run.v1`" + `; it carries package paths, ` + "`package_sha256`" + `, tier, workdir, and credential binding names, not credential values.
+- The generated run config is ` + "`openudon.executor-run.v2`" + `; it carries package paths, ` + "`package_sha256`" + `, tier, workdir, and credential binding names, not credential values.
 
 Trusted dry run:
 
@@ -1616,6 +1616,9 @@ func TestAssessReviewHandoffRejectsListedMissingSidecar(t *testing.T) {
 			"external_review_orchestration": {"approval routing"},
 		},
 	}
+	for i := range manifest.HandoffInputs {
+		manifest.HandoffInputs[i].SHA256 = strings.Repeat("0", 64)
+	}
 	data, err := json.MarshalIndent(manifest, "", "  ")
 	if err != nil {
 		t.Fatal(err)
@@ -1628,6 +1631,110 @@ func TestAssessReviewHandoffRejectsListedMissingSidecar(t *testing.T) {
 	assessReviewHandoff(report, handoffPath, sideEffectProfile{}, projectPolicy{}, nil)
 	if !hasCheck(report, "review_handoff.contract", "fail") || !strings.Contains(report.Checks[len(report.Checks)-1].Detail, "google-discovery/gmail.security.json") {
 		t.Fatalf("expected missing listed sidecar failure, got %#v", report.Checks)
+	}
+}
+
+func TestAssessReviewHandoffRejectsStaleInputAndSelfDigests(t *testing.T) {
+	tests := []struct {
+		name   string
+		mutate func(*testing.T, string, Result)
+		want   string
+	}{
+		{
+			name: "package input",
+			mutate: func(t *testing.T, _ string, result Result) {
+				mustWriteSynthesizeTestFile(t, result.ReviewPath, []byte("# Changed review\n"))
+			},
+			want: "expected/review.md",
+		},
+		{
+			name: "handoff self digest",
+			mutate: func(t *testing.T, _ string, result Result) {
+				data, err := os.ReadFile(result.ReviewHandoffPath)
+				if err != nil {
+					t.Fatal(err)
+				}
+				var manifest ReviewHandoff
+				if err := json.Unmarshal(data, &manifest); err != nil {
+					t.Fatal(err)
+				}
+				manifest.OwnerSplit["openudon"] = append(manifest.OwnerSplit["openudon"], "changed responsibility")
+				data, err = json.MarshalIndent(manifest, "", "  ")
+				if err != nil {
+					t.Fatal(err)
+				}
+				mustWriteSynthesizeTestFile(t, result.ReviewHandoffPath, append(data, '\n'))
+			},
+			want: "expected/review-handoff.json",
+		},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			example := t.TempDir()
+			writeSynthesizeRequiredPackageFiles(t, example)
+			result := resultPaths(example)
+			if err := writeReviewHandoff(result, projectPolicy{}, sideEffectProfile{}); err != nil {
+				t.Fatal(err)
+			}
+			test.mutate(t, example, result)
+
+			report := &QualityReport{}
+			assessReviewHandoff(report, result.ReviewHandoffPath, sideEffectProfile{}, projectPolicy{}, nil)
+			if !hasCheck(report, "review_handoff.contract", "fail") || !strings.Contains(report.Checks[len(report.Checks)-1].Detail, test.want) {
+				t.Fatalf("expected stale digest failure for %s, got %#v", test.want, report.Checks)
+			}
+		})
+	}
+}
+
+func TestWriteReviewHandoffRejectsUnsafeOrOversizedInputs(t *testing.T) {
+	for _, test := range []struct {
+		name   string
+		mutate func(*testing.T, Result)
+		want   string
+	}{
+		{
+			name: "symlink",
+			mutate: func(t *testing.T, result Result) {
+				target := filepath.Join(t.TempDir(), "review.md")
+				mustWriteSynthesizeTestFile(t, target, []byte("# Outside package\n"))
+				if err := os.Remove(result.ReviewPath); err != nil {
+					t.Fatal(err)
+				}
+				if err := os.Symlink(target, result.ReviewPath); err != nil {
+					t.Fatal(err)
+				}
+			},
+			want: "regular file",
+		},
+		{
+			name: "oversized",
+			mutate: func(t *testing.T, result Result) {
+				file, err := os.OpenFile(result.ReviewPath, os.O_WRONLY|os.O_TRUNC, 0o644)
+				if err != nil {
+					t.Fatal(err)
+				}
+				if err := file.Truncate(8<<20 + 1); err != nil {
+					_ = file.Close()
+					t.Fatal(err)
+				}
+				if err := file.Close(); err != nil {
+					t.Fatal(err)
+				}
+			},
+			want: "limit",
+		},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			example := t.TempDir()
+			writeSynthesizeRequiredPackageFiles(t, example)
+			result := resultPaths(example)
+			test.mutate(t, result)
+			err := writeReviewHandoff(result, projectPolicy{}, sideEffectProfile{})
+			if err == nil || !strings.Contains(err.Error(), test.want) {
+				t.Fatalf("writeReviewHandoff error = %v, want %q", err, test.want)
+			}
+		})
 	}
 }
 
@@ -4069,6 +4176,23 @@ func TestBuildAndPromoteRequireProjectBrief(t *testing.T) {
 	}
 }
 
+func TestPromoteRejectsInvalidIntentBeforeWritingEvidence(t *testing.T) {
+	example := filepath.Join(t.TempDir(), "examples", "invalid-promote-intent")
+	writeSupportExample(t, example, false)
+	if err := os.MkdirAll(filepath.Join(example, "workflows"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(example, "workflows", "intent.hcl"), []byte("not valid HCL {\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := Promote(context.Background(), Options{ExampleDir: example}); err == nil || !strings.Contains(err.Error(), "parse intent.hcl") {
+		t.Fatalf("invalid promote intent error = %v", err)
+	}
+	if _, err := os.Lstat(filepath.Join(example, "expected", "discovery.json")); !os.IsNotExist(err) {
+		t.Fatalf("promote wrote discovery evidence before validating intent: %v", err)
+	}
+}
+
 func TestSynthesizeHonorsCancelledContextBeforeWork(t *testing.T) {
 	example := filepath.Join(t.TempDir(), "examples", "cancelled")
 	writeSupportExample(t, example, false)
@@ -4111,13 +4235,19 @@ OpenAPI: none required
 	if err := os.WriteFile(filepath.Join(example, "expected"), []byte("not a directory"), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	_, err := Synthesize(context.Background(), Options{
+	result, err := Synthesize(context.Background(), Options{
 		ExampleDir: example,
 		LLMClient:  failingChatClient{},
 		ChatClient: failingChatClient{},
 	})
 	if err == nil || !strings.Contains(err.Error(), "write refinement report") {
 		t.Fatalf("expected refinement write failure, got %v", err)
+	}
+	if !errors.Is(err, context.Canceled) {
+		t.Fatalf("refinement write failure discarded originating cancellation: %v", err)
+	}
+	if result == nil || result.ExampleDir != example {
+		t.Fatalf("dual failure discarded partial result: %#v", result)
 	}
 }
 
@@ -4154,10 +4284,13 @@ credentials {
 		t.Fatal(err)
 	}
 	dataText := string(data)
-	for _, want := range []string{`inputs {`, `summary = "operator value"`, `credentials {`, `client_secret = "ENVIRONMENT:GOOGLE_CLIENT_SECRET"`} {
+	for _, want := range []string{`inputs {`, `summary = "operator value"`} {
 		if !strings.Contains(dataText, want) {
 			t.Fatalf("data.hcl missing %q:\n%s", want, dataText)
 		}
+	}
+	if strings.Contains(dataText, "credentials") || strings.Contains(dataText, "ENVIRONMENT:") {
+		t.Fatalf("data.hcl retained credential placeholders:\n%s", dataText)
 	}
 	if strings.Contains(dataText, "stale") {
 		t.Fatalf("data.hcl kept stale input:\n%s", dataText)
@@ -4178,7 +4311,7 @@ credentials {
 	}
 }
 
-func TestRuntimeDataFileAddsGoogleOAuthEnvironmentPlaceholders(t *testing.T) {
+func TestRuntimeDataFileKeepsCredentialsOutOfArtifacts(t *testing.T) {
 	example := t.TempDir()
 	result := Result{DataPath: filepath.Join(example, "expected", "data.hcl")}
 	intent := &rollout.Intent{
@@ -4200,16 +4333,13 @@ func TestRuntimeDataFileAddsGoogleOAuthEnvironmentPlaceholders(t *testing.T) {
 	for _, want := range []string{
 		`inputs {`,
 		`recipient_email = "me@example.com"`,
-		`credentials {`,
-		`googleOAuth2 {`,
-		`client_id          = "ENVIRONMENT:GOOGLE_CLIENT_ID"`,
-		`client_secret      = "ENVIRONMENT:GOOGLE_CLIENT_SECRET"`,
-		`oauth_redirect_url = "ENVIRONMENT:GOOGLE_OAUTH_REDIRECT_URL"`,
-		`refresh_token      = "ENVIRONMENT:GOOGLE_REFRESH_TOKEN"`,
 	} {
 		if !strings.Contains(text, want) {
 			t.Fatalf("data.hcl missing %q:\n%s", want, text)
 		}
+	}
+	if strings.Contains(text, "credentials") || strings.Contains(text, "ENVIRONMENT:") {
+		t.Fatalf("data.hcl contains credential placeholders:\n%s", text)
 	}
 }
 
@@ -4936,7 +5066,7 @@ info:
   title: Weather API
   version: 1.0.0
 servers:
-  - url: https://api.openweathermap.org
+  - url: https://api.openweathermap.example
 paths:
   /geo/1.0/direct:
     get:
@@ -5003,7 +5133,7 @@ info:
   title: Weather API
   version: 1.0.0
 servers:
-  - url: https://api.openweathermap.org
+  - url: https://api.openweathermap.example
 paths:
   /data/2.5/weather:
     get:

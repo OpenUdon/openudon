@@ -43,21 +43,10 @@ func NewPromptSession(in io.Reader, out io.Writer) *PromptSession {
 	return sharedicot.NewPromptSession(in, out)
 }
 
-// OneLine normalizes a prompt default for display.
-func OneLine(value string) string {
-	return sharedicot.OneLine(value)
-}
-
 // AssertPromptLabelsInOrder verifies that prompt labels were emitted in replay
 // order.
 func AssertPromptLabelsInOrder(output string, turns []PromptTurn) error {
 	return sharedicot.AssertPromptLabelsInOrder(output, turns)
-}
-
-// SavePromptTranscript writes a prompt transcript with private-file
-// permissions. Empty paths are ignored.
-func SavePromptTranscript(path, version string, turns []PromptTurn, events []PromptEvent, session any) error {
-	return sharedicot.SavePromptTranscript(path, version, turns, events, session)
 }
 
 // InteractiveDraftRequest is the model-facing input for an interactive draft.

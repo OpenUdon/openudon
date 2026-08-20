@@ -9,6 +9,8 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/OpenUdon/openudon/internal/udonrunner"
 )
 
 func TestDefaultScenariosCoverBroadSmokeMatrix(t *testing.T) {
@@ -38,13 +40,13 @@ func TestRunDryRunWritesRedactedSummary(t *testing.T) {
 		_ = os.RemoveAll(runRoot)
 	})
 	secret := "slack-secret-value-for-redaction"
-	t.Setenv("UDON_CREDENTIAL_SLACK_BOT_TOKEN", secret)
 	report, err := Run(context.Background(), Options{
 		RepoRoot: repoRoot,
 		WorkDir:  filepath.Join(runRoot, "work"),
 		OutPath:  out,
 		Mode:     ModeDryRun,
 		Now:      fixedNow,
+		Env:      []string{"UDON_CREDENTIAL_SLACK_BOT_TOKEN=" + secret},
 		Scenarios: []Scenario{{
 			ID:         "runtime-only-render-test",
 			Fixture:    "runtime-only-render",
@@ -101,7 +103,8 @@ func TestRunLocalUdonSmokeUsesBuiltExecutorAndExpandsAsyncEvidence(t *testing.T)
 			}
 			return nil
 		},
-		RunCommand: func(_ context.Context, _ string, args ...string) error {
+		Invoke: func(_ context.Context, invocation udonrunner.Invocation) error {
+			args := invocation.Argv[1:]
 			reportPath := smokeArgValue(args, "--execution-report")
 			data := `{"version":"udon.execution-report.v1","status":"success","started_at":"2026-04-29T12:00:00Z","finished_at":"2026-04-29T12:00:00Z","workflow_path":"workflow.uws.yaml","workflow_format":"uws-yaml","workdir":".","output_path":"output.hcl","output_digest":"sha256:` + strings.Repeat("a", 64) + `"}` + "\n"
 			if err := os.MkdirAll(filepath.Dir(reportPath), 0o755); err != nil {
@@ -121,7 +124,7 @@ func TestRunLocalUdonSmokeUsesBuiltExecutorAndExpandsAsyncEvidence(t *testing.T)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !strings.Contains(string(data), `"mode": "internal-runner"`) || !strings.Contains(string(data), `executor-report.json`) {
+	if !strings.Contains(string(data), `"mode": "internal-runner"`) || !strings.Contains(string(data), `executor-report-`) || !strings.Contains(string(data), `"report_sha256"`) {
 		t.Fatalf("run evidence missing executor proof:\n%s", data)
 	}
 	asyncPath := filepath.Join(filepath.Dir(evidencePath), "async-evidence.json")
@@ -281,9 +284,8 @@ func TestWeatherUsesOpenWeatherCredentialName(t *testing.T) {
 }
 
 func TestSanitizeDetailRedactsAndLimitsOutput(t *testing.T) {
-	t.Setenv("OPENUDON_TEST_SECRET", "secret-value")
 	detail := "prefix secret-value " + strings.Repeat("x", maxScenarioDetailLength*2)
-	got := sanitizeDetail(detail, []string{"OPENUDON_TEST_SECRET"})
+	got := sanitizeDetail(detail, []string{"OPENUDON_TEST_SECRET"}, []string{"OPENUDON_TEST_SECRET=secret-value"})
 	if strings.Contains(got, "secret-value") {
 		t.Fatalf("sanitizeDetail leaked secret: %q", got)
 	}

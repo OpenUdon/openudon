@@ -27,7 +27,7 @@
 
 ## OpenAPI Discovery Attempts
 
-- `local` pass `/home/peter/Workspace/openudon/examples/eval/odata-customers-query/openapi` - OpenAPI directory is absent; using package-local first-class API source documents.
+- `local` pass `openapi` - OpenAPI directory is absent; using package-local first-class API source documents.
 
 ## Inferred Steps And Data Flow
 
@@ -93,7 +93,7 @@
 - Sandbox/test proof run is optional unless future changes add side effects.
 - Credential binding audit must verify named runtime bindings and no literal secret values.
 - Dry-run handoff validates approval state, package digest, stored/current quality, tier compatibility, credential-value policy, and direct-production policy before executor invocation.
-- The generated run config is `openudon.executor-run.v1`; it carries package paths, `package_sha256`, tier, workdir, and credential binding names, not credential values.
+- The generated run config is `openudon.executor-run.v2`; it carries package paths, `package_sha256`, tier, workdir, and credential binding names, not credential values.
 
 Trusted dry run, before any executor invocation:
 

@@ -5,8 +5,8 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/OpenUdon/uws/uws1"
 	rollout "github.com/OpenUdon/openudon/internal/workflowintent"
+	"github.com/OpenUdon/uws/uws1"
 )
 
 type CompareIssue struct {

@@ -9,12 +9,12 @@ import (
 	"os"
 	"os/signal"
 	"path/filepath"
-	"sort"
 	"strings"
 	"syscall"
 
 	"github.com/OpenUdon/apitools"
 	"github.com/OpenUdon/apitools/catalog"
+	"github.com/OpenUdon/openudon/internal/catalogpolicy"
 	rollout "github.com/OpenUdon/openudon/internal/workflowintent"
 )
 
@@ -434,40 +434,7 @@ type catalogImportResult struct {
 }
 
 func selectCatalogOpenAPIReference(providerKey, specRefID string) (catalog.SpecReference, catalog.Provider, error) {
-	providerKey = strings.TrimSpace(providerKey)
-	if providerKey == "" {
-		return catalog.SpecReference{}, catalog.Provider{}, fmt.Errorf("missing --provider")
-	}
-	provider, ok := catalog.FindBuiltInProvider(providerKey)
-	if !ok {
-		return catalog.SpecReference{}, catalog.Provider{}, fmt.Errorf("unknown provider %q", providerKey)
-	}
-	specRefID = strings.TrimSpace(specRefID)
-	var refs []catalog.SpecReference
-	for _, ref := range provider.SpecReferences {
-		if ref.Kind != catalog.SpecKindOpenAPI {
-			continue
-		}
-		if specRefID != "" && ref.ID != specRefID {
-			continue
-		}
-		refs = append(refs, ref)
-	}
-	if len(refs) == 0 {
-		if specRefID != "" {
-			return catalog.SpecReference{}, provider, fmt.Errorf("provider %q has no OpenAPI spec reference %q", provider.ID, specRefID)
-		}
-		return catalog.SpecReference{}, provider, fmt.Errorf("provider %q has no directly importable OpenAPI spec; inspect catalog metadata for Discovery, Smithy, Stone, human-docs, or user-provided OpenAPI guidance", provider.ID)
-	}
-	if specRefID == "" && len(refs) > 1 {
-		var ids []string
-		for _, ref := range refs {
-			ids = append(ids, ref.ID)
-		}
-		sort.Strings(ids)
-		return catalog.SpecReference{}, provider, fmt.Errorf("provider %q has multiple OpenAPI specs; pass --spec (%s)", provider.ID, strings.Join(ids, ", "))
-	}
-	return refs[0], provider, nil
+	return catalogpolicy.SelectOpenAPIReference(providerKey, specRefID)
 }
 
 func nonEmptyCatalogNotes(values ...string) []string {

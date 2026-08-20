@@ -2,9 +2,10 @@
   "attempts": [
     {
       "kind": "local",
-      "source": "/home/peter/Workspace/openudon/examples/eval/asyncapi-billing-event/openapi",
+      "source": "openapi",
       "status": "pass",
       "detail": "0 local OpenAPI document(s)"
     }
-  ]
+  ],
+  "truncated": false
 }

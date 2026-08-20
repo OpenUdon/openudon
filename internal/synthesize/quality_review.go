@@ -1,12 +1,13 @@
 package synthesize
 
 import (
-	"encoding/json"
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
 
 	"github.com/OpenUdon/openudon/internal/authoring"
+	"github.com/OpenUdon/openudon/internal/evidencefile"
 	"github.com/OpenUdon/openudon/internal/packageartifacts"
 	rollout "github.com/OpenUdon/openudon/internal/workflowintent"
 )
@@ -74,7 +75,7 @@ func planHasRetryAction(plan *WorkflowPlan) bool {
 }
 
 func assessReview(report *QualityReport, path string, profile sideEffectProfile, policy projectPolicy, expectedPlan *WorkflowPlan) {
-	data, err := os.ReadFile(path)
+	data, _, err := evidencefile.ReadRegular(path, evidencefile.DefaultMaxBytes)
 	if err != nil {
 		report.add("review.present", "fail", "review evidence is required", err.Error())
 		return
@@ -181,13 +182,13 @@ func reviewContainsMinimumPackage(text string) bool {
 }
 
 func assessReviewHandoff(report *QualityReport, path string, profile sideEffectProfile, policy projectPolicy, expectedPlan *WorkflowPlan) {
-	data, err := os.ReadFile(path)
+	data, _, err := evidencefile.ReadRegular(path, evidencefile.DefaultMaxBytes)
 	if err != nil {
 		report.add("review_handoff.present", "fail", "review handoff manifest is required", err.Error())
 		return
 	}
 	var manifest ReviewHandoff
-	if err := json.Unmarshal(data, &manifest); err != nil {
+	if err := evidencefile.DecodeStrict(data, &manifest); err != nil {
 		report.add("review_handoff.present", "fail", "review handoff manifest must be valid JSON", err.Error())
 		return
 	}
@@ -204,6 +205,11 @@ func assessReviewHandoff(report *QualityReport, path string, profile sideEffectP
 	}
 	if !requiredOK {
 		report.add("review_handoff.contract", "fail", "review handoff manifest must list every required handoff input", "")
+		return
+	}
+	exampleDir := filepath.Dir(filepath.Dir(path))
+	if err := validateReviewHandoffInputDigests(exampleDir, path, manifest); err != nil {
+		report.add("review_handoff.contract", "fail", "review handoff manifest input digests must match current package bytes", err.Error())
 		return
 	}
 	if !reviewHandoffHasApprovalStates(manifest) {
@@ -223,6 +229,54 @@ func assessReviewHandoff(report *QualityReport, path string, profile sideEffectP
 		return
 	}
 	report.add("review_handoff.contract", "pass", "review handoff manifest records package, state, execution, and credential contracts", "")
+}
+
+func validateReviewHandoffInputDigests(exampleDir, handoffPath string, manifest ReviewHandoff) error {
+	selfRel, err := filepath.Rel(exampleDir, handoffPath)
+	if err != nil {
+		return fmt.Errorf("resolve review handoff path: %w", err)
+	}
+	selfRel = filepath.ToSlash(selfRel)
+	selfRel, err = packageartifacts.CleanRelativePath(selfRel)
+	if err != nil {
+		return fmt.Errorf("review handoff path must be package-relative: %w", err)
+	}
+	for _, input := range manifest.HandoffInputs {
+		clean, err := packageartifacts.CleanRelativePath(input.Path)
+		if err != nil {
+			return fmt.Errorf("review handoff input path %q is invalid: %w", input.Path, err)
+		}
+		if clean != filepath.ToSlash(input.Path) {
+			return fmt.Errorf("review handoff input path must be canonical: %q", input.Path)
+		}
+		var got string
+		if clean == selfRel {
+			got, err = authoring.ReviewHandoffSelfDigest(manifest, input.Path)
+		} else {
+			data, _, readErr := evidencefile.ReadRegular(filepath.Join(exampleDir, filepath.FromSlash(clean)), evidencefile.DefaultMaxBytes)
+			if readErr != nil && os.IsNotExist(readErr) && missingSelfGeneratedDigestAllowed(clean, input.SHA256) {
+				continue
+			}
+			err = readErr
+			if err == nil {
+				got = evidencefile.SHA256(data)
+			}
+		}
+		if err != nil {
+			return fmt.Errorf("verify handoff input %s: %w", clean, err)
+		}
+		if got != strings.ToLower(strings.TrimSpace(input.SHA256)) {
+			return fmt.Errorf("handoff input SHA-256 mismatch for %s", clean)
+		}
+	}
+	return nil
+}
+
+func missingSelfGeneratedDigestAllowed(path, digest string) bool {
+	if path != "expected/quality.json" && path != "expected/refinement.json" {
+		return false
+	}
+	return strings.TrimSpace(digest) == strings.Repeat("0", 64)
 }
 
 func reviewHandoffHasRequiredInputs(exampleDir string, manifest ReviewHandoff) (bool, error) {
@@ -421,7 +475,7 @@ func reviewContainsTrustedDryRun(text string) bool {
 	for _, required := range []string{
 		"Trusted dry run",
 		"--dry-run",
-		"`openudon.executor-run.v1`",
+		"`openudon.executor-run.v2`",
 		"`package_sha256`",
 		"credential binding names, not credential values",
 	} {

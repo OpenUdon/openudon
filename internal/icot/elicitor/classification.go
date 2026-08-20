@@ -45,10 +45,6 @@ func addMappingClassification(session *Session, classification MappingClassifica
 	addDecisionEvidenceFromMapping(session, classification)
 }
 
-func mergeClassifications(base, overlay []MappingClassification) []MappingClassification {
-	return normalizeMappingClassifications(append(append([]MappingClassification(nil), base...), overlay...))
-}
-
 func normalizeMappingClassifications(classifications []MappingClassification) []MappingClassification {
 	seen := map[string]int{}
 	out := make([]MappingClassification, 0, len(classifications))

@@ -1,25 +1,27 @@
 {
   "status": "pass",
-  "example": "/home/peter/Workspace/openudon/examples/eval/asyncapi-billing-event",
+  "example": "asyncapi-billing-event",
   "artifacts": {
-    "ExampleDir": "/home/peter/Workspace/openudon/examples/eval/asyncapi-billing-event",
-    "ProjectPath": "/home/peter/Workspace/openudon/examples/eval/asyncapi-billing-event/project.md",
-    "IntentPath": "/home/peter/Workspace/openudon/examples/eval/asyncapi-billing-event/workflows/intent.hcl",
-    "WorkflowPath": "/home/peter/Workspace/openudon/examples/eval/asyncapi-billing-event/workflows/workflow.hcl",
-    "UWSPath": "/home/peter/Workspace/openudon/examples/eval/asyncapi-billing-event/workflows/workflow.uws.yaml",
-    "PlanJSONPath": "/home/peter/Workspace/openudon/examples/eval/asyncapi-billing-event/expected/plan.json",
-    "PlanMDPath": "/home/peter/Workspace/openudon/examples/eval/asyncapi-billing-event/expected/plan.md",
-    "DiscoveryJSONPath": "/home/peter/Workspace/openudon/examples/eval/asyncapi-billing-event/expected/discovery.json",
-    "DataPath": "/home/peter/Workspace/openudon/examples/eval/asyncapi-billing-event/expected/data.hcl",
-    "RefinementJSONPath": "/home/peter/Workspace/openudon/examples/eval/asyncapi-billing-event/expected/refinement.json",
-    "RefinementMDPath": "/home/peter/Workspace/openudon/examples/eval/asyncapi-billing-event/expected/refinement.md",
-    "ReviewPath": "/home/peter/Workspace/openudon/examples/eval/asyncapi-billing-event/expected/review.md",
-    "ReviewHandoffPath": "/home/peter/Workspace/openudon/examples/eval/asyncapi-billing-event/expected/review-handoff.json",
-    "QualityJSONPath": "/home/peter/Workspace/openudon/examples/eval/asyncapi-billing-event/expected/quality.json",
-    "QualityMDPath": "/home/peter/Workspace/openudon/examples/eval/asyncapi-billing-event/expected/quality.md",
+    "ExampleDir": ".",
+    "ProjectPath": "project.md",
+    "IntentPath": "workflows/intent.hcl",
+    "WorkflowPath": "workflows/workflow.hcl",
+    "UWSPath": "workflows/workflow.uws.yaml",
+    "PlanJSONPath": "expected/plan.json",
+    "PlanMDPath": "expected/plan.md",
+    "DiscoveryJSONPath": "expected/discovery.json",
+    "DataPath": "expected/data.hcl",
+    "RefinementJSONPath": "expected/refinement.json",
+    "RefinementMDPath": "expected/refinement.md",
+    "ReviewPath": "expected/review.md",
+    "ReviewHandoffPath": "expected/review-handoff.json",
+    "QualityJSONPath": "expected/quality.json",
+    "QualityMDPath": "expected/quality.md",
     "PrimaryOpenAPI": "",
     "OpenAPICandidates": [],
-    "DiscoveryReport": {}
+    "DiscoveryReport": {
+      "truncated": false
+    }
   },
   "checks": [
     {
@@ -218,7 +220,7 @@
     {
       "code": "uws.source_descriptions",
       "status": "pass",
-      "message": "workflow.uws.yaml source descriptions reference package API source documents"
+      "message": "workflow.uws.yaml source descriptions reference package execution source documents"
     },
     {
       "code": "uws.plan_coverage",
@@ -239,6 +241,16 @@
       "code": "uws.credentials_bound",
       "status": "pass",
       "message": "workflow.uws.yaml binds required credential-like parameters"
+    },
+    {
+      "code": "browser.sources",
+      "status": "pass",
+      "message": "browser source review is not required"
+    },
+    {
+      "code": "browser.authentication.sources",
+      "status": "pass",
+      "message": "browser authentication review is not required"
     },
     {
       "code": "side_effects.policy",

@@ -3,11 +3,8 @@
 package browserscenario
 
 import (
-	"bytes"
 	"embed"
-	"encoding/json"
 	"fmt"
-	"io"
 	"io/fs"
 	"net"
 	"net/url"
@@ -18,6 +15,7 @@ import (
 
 	"github.com/OpenUdon/browsertools/authorsession"
 	"github.com/OpenUdon/evidence/redact"
+	"github.com/OpenUdon/openudon/internal/evidencefile"
 )
 
 const (
@@ -368,89 +366,7 @@ func ValidateCompatibilityLock(lock CompatibilityLock) error {
 }
 
 func decodeStrict(data []byte, target any) error {
-	if err := rejectDuplicateJSONKeys(data); err != nil {
-		return err
-	}
-	decoder := json.NewDecoder(bytes.NewReader(data))
-	decoder.DisallowUnknownFields()
-	if err := decoder.Decode(target); err != nil {
-		return err
-	}
-	var extra any
-	if err := decoder.Decode(&extra); err != io.EOF {
-		return fmt.Errorf("trailing JSON")
-	}
-	return nil
-}
-
-func rejectDuplicateJSONKeys(data []byte) error {
-	decoder := json.NewDecoder(bytes.NewReader(data))
-	decoder.UseNumber()
-	if err := scanJSONValue(decoder); err != nil {
-		return err
-	}
-	if _, err := decoder.Token(); err != io.EOF {
-		if err != nil {
-			return err
-		}
-		return fmt.Errorf("trailing JSON")
-	}
-	return nil
-}
-
-func scanJSONValue(decoder *json.Decoder) error {
-	token, err := decoder.Token()
-	if err != nil {
-		return err
-	}
-	delimiter, ok := token.(json.Delim)
-	if !ok {
-		return nil
-	}
-	switch delimiter {
-	case '{':
-		seen := map[string]struct{}{}
-		for decoder.More() {
-			keyToken, err := decoder.Token()
-			if err != nil {
-				return err
-			}
-			key, ok := keyToken.(string)
-			if !ok {
-				return fmt.Errorf("invalid JSON object key")
-			}
-			if _, duplicate := seen[key]; duplicate {
-				return fmt.Errorf("duplicate JSON object key")
-			}
-			seen[key] = struct{}{}
-			if err := scanJSONValue(decoder); err != nil {
-				return err
-			}
-		}
-		end, err := decoder.Token()
-		if err != nil {
-			return err
-		}
-		if end != json.Delim('}') {
-			return fmt.Errorf("invalid JSON object")
-		}
-	case '[':
-		for decoder.More() {
-			if err := scanJSONValue(decoder); err != nil {
-				return err
-			}
-		}
-		end, err := decoder.Token()
-		if err != nil {
-			return err
-		}
-		if end != json.Delim(']') {
-			return fmt.Errorf("invalid JSON array")
-		}
-	default:
-		return fmt.Errorf("invalid JSON delimiter")
-	}
-	return nil
+	return evidencefile.DecodeStrict(data, target)
 }
 
 func exactHTTPSOrigin(raw string) (string, error) {

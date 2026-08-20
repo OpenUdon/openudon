@@ -3,7 +3,6 @@ package elicitor
 import (
 	"context"
 	"fmt"
-	"net"
 	"net/http"
 	"net/url"
 	"sort"
@@ -12,6 +11,7 @@ import (
 
 	"github.com/OpenUdon/apitools"
 	"github.com/OpenUdon/apitools/catalog"
+	"github.com/OpenUdon/openudon/internal/netpolicy"
 )
 
 const (
@@ -102,7 +102,7 @@ func DiscoverRemoteSourceHints(ctx context.Context, query string, opts RemoteSou
 		report.Candidates = report.Candidates[:remoteLookupLimit-1]
 	}
 
-	client := &apitools.Client{HTTPClient: opts.HTTPClient, APIsGuruListURL: opts.APIsGuruListURL, Timeout: deadline, MaxBytes: apitools.DefaultMaxBytes, AllowUnsafeHosts: opts.AllowUnsafeHosts}
+	client := remoteSearchClient(opts, deadline)
 	guru, err := client.Search(deadlineCtx, apitools.SearchOptions{Query: query, Limit: remoteLookupLimit, Source: apitools.SourceAPIsGuru, CacheMode: apitools.CacheModeBypass})
 	report.Attempts = append(report.Attempts, guru.Attempts...)
 	if err != nil {
@@ -133,29 +133,31 @@ func DiscoverRemoteSourceHints(ctx context.Context, query string, opts RemoteSou
 	return report, nil
 }
 
+// remoteSearchClient deliberately leaves the default transport to Apitools.
+// Apitools owns API discovery and its DNS/redirect transport boundary; passing
+// OpenUdon's already-wrapped transport would be rejected as an unsafe custom
+// transport. Explicit callers may still supply a client for unsafe-host test
+// mode, and Apitools itself rejects custom transports without that opt-in.
+func remoteSearchClient(opts RemoteSourceLookupOptions, deadline time.Duration) *apitools.Client {
+	return &apitools.Client{
+		HTTPClient:       opts.HTTPClient,
+		APIsGuruListURL:  opts.APIsGuruListURL,
+		Timeout:          deadline,
+		MaxBytes:         apitools.DefaultMaxBytes,
+		AllowUnsafeHosts: opts.AllowUnsafeHosts,
+	}
+}
+
 func remoteBlocker(code, message, query string) *RemoteSourceBlocker {
 	return &RemoteSourceBlocker{Code: code, Message: message, ProviderHints: queryTokens(query, 3), SourceHints: []string{"--api-source KIND:ID=PATH", "--source-root PATH"}, Deferrable: true}
 }
 
 func safeRemoteSourceURL(raw string, allowUnsafe bool) error {
 	parsed, err := url.Parse(strings.TrimSpace(raw))
-	if err != nil || parsed.Hostname() == "" {
+	if err != nil {
 		return fmt.Errorf("invalid source URL")
 	}
-	if parsed.Scheme != "https" && !(allowUnsafe && parsed.Scheme == "http") {
-		return fmt.Errorf("source URL must use HTTPS")
-	}
-	host := strings.ToLower(parsed.Hostname())
-	if allowUnsafe {
-		return nil
-	}
-	if host == "localhost" || strings.HasSuffix(host, ".localhost") {
-		return fmt.Errorf("unsafe local source host")
-	}
-	if ip := net.ParseIP(host); ip != nil && (ip.IsLoopback() || ip.IsPrivate() || ip.IsLinkLocalUnicast() || ip.IsUnspecified()) {
-		return fmt.Errorf("unsafe private source host")
-	}
-	return nil
+	return netpolicy.ValidateURL(parsed, allowUnsafe)
 }
 
 func hasRemoteCandidate(candidates []RemoteSourceCandidate, rawURL string) bool {

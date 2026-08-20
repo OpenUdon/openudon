@@ -1,6 +1,6 @@
 {
   "status": "pass",
-  "example": "/home/peter/Workspace/openudon/examples/eval/graphql-starwars-hero",
+  "example": "graphql-starwars-hero",
   "max_attempts": 1,
   "prompt_version": "intent.v3",
   "attempts": [

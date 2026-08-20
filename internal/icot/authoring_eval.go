@@ -13,9 +13,10 @@ import (
 	"strings"
 	"time"
 
-	"github.com/OpenUdon/evidence/digest"
 	"github.com/OpenUdon/openudon/internal/authoring"
+	"github.com/OpenUdon/openudon/internal/authoring/atomicfile"
 	evalpkg "github.com/OpenUdon/openudon/internal/eval"
+	"github.com/OpenUdon/openudon/internal/evidencefile"
 	"github.com/OpenUdon/openudon/internal/icot/elicitor"
 	"github.com/OpenUdon/openudon/internal/projectwizard"
 	"github.com/OpenUdon/openudon/internal/synthesize"
@@ -493,11 +494,10 @@ func writeAuthoringEvalReportFile(path string, report authoringEvalReport) (bool
 			return false, err
 		}
 	}
-	if err := os.WriteFile(path, data, 0o644); err != nil {
+	if err := atomicfile.Write(path, data, 0o644); err != nil {
 		return false, err
 	}
-	digestLine := digest.SHA256Bytes(data).Value + "  " + filepath.Base(path) + "\n"
-	return redacted, os.WriteFile(path+".sha256", []byte(digestLine), 0o644)
+	return redacted, evidencefile.WriteDigestSidecar(path, data, 0o644)
 }
 
 func defaultAuthoringEvalExtractor(provider, model string, temperature float64, calls *[]replayLLMCall) (elicitor.Extractor, string, string, error) {

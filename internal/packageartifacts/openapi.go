@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/OpenUdon/evidence/artifact"
+	"github.com/OpenUdon/openudon/internal/sourcecatalog"
 )
 
 // artifactLabels surfaces OpenUdon package wording from the shared
@@ -45,18 +46,6 @@ var fixedRequiredPackagePaths = []string{
 // CleanRelativePath returns a canonical slash-separated package-relative path.
 func CleanRelativePath(inputPath string) (string, error) {
 	return artifact.CleanRelativePath(inputPath, artifactLabels)
-}
-
-var apiSourceDirs = []string{
-	"openapi",
-	"google-discovery",
-	"aws-smithy",
-	"asyncapi",
-	"graphql",
-	"openrpc",
-	"grpc-protobuf",
-	"odata",
-	"discovery",
 }
 
 // RequiredPackagePaths returns the fixed handoff inventory, every regular API
@@ -157,18 +146,13 @@ func ValidatePackageRoot(packageRoot string) error {
 	return artifact.ValidateRoot(packageRoot, artifactLabels)
 }
 
-// CollectOpenAPIPaths returns package-relative OpenAPI artifact paths.
-func CollectOpenAPIPaths(packageRoot string) ([]string, error) {
-	return collectSourceDirPaths(packageRoot, "openapi")
-}
-
 // CollectAPISourcePaths returns package-relative API source artifact paths.
 func CollectAPISourcePaths(packageRoot string) ([]string, error) {
 	if err := ValidatePackageRoot(packageRoot); err != nil {
 		return nil, err
 	}
 	var paths []string
-	for _, dir := range apiSourceDirs {
+	for _, dir := range sourcecatalog.API() {
 		dirPaths, err := collectSourceDirPaths(packageRoot, dir)
 		if err != nil {
 			return nil, err

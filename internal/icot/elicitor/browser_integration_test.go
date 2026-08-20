@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/sha256"
 	"fmt"
+	"net"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -237,6 +238,29 @@ func TestBrowserRegistryHTTPSBoundedSuccessTimeoutAndEmpty(t *testing.T) {
 	}
 	if len(empty.Blockers) != 1 || empty.Blockers[0].Code != "browser_registry.empty" {
 		t.Fatalf("empty blocker = %#v", empty.Blockers)
+	}
+}
+
+type browserRegistryFixedResolver []net.IPAddr
+
+func (r browserRegistryFixedResolver) LookupIPAddr(context.Context, string) ([]net.IPAddr, error) {
+	return r, nil
+}
+
+func TestBrowserRegistryRejectsMixedDNSAnswersBeforeDownloading(t *testing.T) {
+	report, err := DiscoverBrowserRegistrySourcesWithOptions(context.Background(), BrowserRegistryDiscoveryOptions{
+		Locations: []string{"https://registry.example.test"}, Query: "status", Policy: "allow", Approved: true,
+		At: browserIntegrationTime,
+		Resolver: browserRegistryFixedResolver{
+			{IP: net.ParseIP("93.184.216.34")},
+			{IP: net.ParseIP("127.0.0.1")},
+		},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(report.Blockers) != 1 || report.Blockers[0].Code != "browser_registry.unsafe_host" {
+		t.Fatalf("mixed-DNS report = %#v", report)
 	}
 }
 

@@ -17,6 +17,7 @@ import (
 
 	"github.com/OpenUdon/browsertools"
 	"github.com/OpenUdon/browsertools/registry"
+	"github.com/OpenUdon/openudon/internal/netpolicy"
 )
 
 // BrowserRegistryCandidate is prompt-safe metadata for one verified static
@@ -62,6 +63,7 @@ type BrowserRegistryDiscoveryOptions struct {
 	Approved         bool
 	At               time.Time
 	HTTPClient       *http.Client
+	Resolver         netpolicy.Resolver
 	AllowUnsafeHosts bool
 	Timeout          time.Duration
 }
@@ -92,6 +94,7 @@ func DiscoverBrowserRegistrySourcesWithOptions(ctx context.Context, options Brow
 	seenLocation := map[string]bool{}
 	seenID := map[string]bool{}
 	seenDigest := map[string]bool{}
+	var safeClient *http.Client
 	for _, rawLocation := range options.Locations {
 		location := strings.TrimSpace(rawLocation)
 		if location == "" || seenLocation[location] {
@@ -107,18 +110,18 @@ func DiscoverBrowserRegistrySourcesWithOptions(ctx context.Context, options Brow
 			report.Blockers = append(report.Blockers, BrowserRegistryBlocker{Code: code, Registry: location, Message: message, Deferrable: true})
 			continue
 		}
-		clientPolicy := registry.NetworkNever
-		if remote {
-			clientPolicy = registry.NetworkAllow
+		if remote && safeClient == nil {
+			var err error
+			safeClient, err = netpolicy.SafeHTTPClient(options.HTTPClient, netpolicy.Options{AllowUnsafe: options.AllowUnsafeHosts, Resolver: options.Resolver})
+			if err != nil {
+				return report, err
+			}
 		}
-		client := &registry.Client{
-			HTTPClient: options.HTTPClient, NetworkPolicy: clientPolicy,
-			Timeout:          firstPositiveDuration(options.Timeout, registry.DefaultTimeout),
-			MaxBytes:         registry.DefaultMaxBytes,
-			MaxResults:       registry.DefaultMaxResults,
-			AllowUnsafeHosts: options.AllowUnsafeHosts,
-		}
-		search, err := client.Search(ctx, registry.SearchOptions{Location: location, Query: options.Query, Limit: registry.DefaultMaxResults, At: options.At})
+		search, pulls, err := browserRegistryLookup(ctx, browserRegistryLookupOptions{
+			Location: location, Query: options.Query, At: options.At, Remote: remote,
+			HTTPClient: safeClient, AllowUnsafeHosts: options.AllowUnsafeHosts,
+			Timeout: firstPositiveDuration(options.Timeout, registry.DefaultTimeout),
+		})
 		if err != nil {
 			report.Blockers = append(report.Blockers, browserRegistryErrorBlocker(location, err))
 			continue
@@ -127,20 +130,21 @@ func DiscoverBrowserRegistrySourcesWithOptions(ctx context.Context, options Brow
 			report.Blockers = append(report.Blockers, BrowserRegistryBlocker{Code: "browser_registry.empty", Registry: location, Message: "The bounded static browser registry search returned no active capability profiles.", Deferrable: true})
 			continue
 		}
-		for _, match := range search.Results {
+		for _, attempt := range pulls {
 			if len(report.Candidates) >= registry.DefaultMaxResults {
 				break
 			}
+			match := attempt.Match
 			coordinate := registry.Coordinate{ID: match.Entry.ID, Release: match.Entry.Release}
 			coordinateKey := coordinate.ID + "@" + coordinate.Release
 			if seenID[coordinate.ID] || seenDigest[match.Entry.Bundle.Digest.String()] {
 				continue
 			}
-			pulled, pullErr := client.Pull(ctx, registry.PullOptions{Location: location, Coordinate: &coordinate, At: options.At})
-			if pullErr != nil {
-				report.Blockers = append(report.Blockers, browserRegistryErrorBlocker(location+"#"+coordinateKey, pullErr))
+			if attempt.Err != nil {
+				report.Blockers = append(report.Blockers, browserRegistryErrorBlocker(location+"#"+coordinateKey, attempt.Err))
 				continue
 			}
+			pulled := attempt.Pulled
 			plan, doc, candidate, convertErr := browserRegistryMaterialization(location, match.Score, pulled, options.At)
 			if convertErr != nil {
 				report.Blockers = append(report.Blockers, BrowserRegistryBlocker{Code: "browser_registry.invalid_bundle", Registry: location, Message: convertErr.Error(), Deferrable: true})

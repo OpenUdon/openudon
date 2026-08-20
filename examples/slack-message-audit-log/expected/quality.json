@@ -1,33 +1,35 @@
 {
   "status": "pass",
-  "example": "/home/peter/Workspace/openudon/examples/slack-message-audit-log",
+  "example": "slack-message-audit-log",
   "artifacts": {
-    "ExampleDir": "/home/peter/Workspace/openudon/examples/slack-message-audit-log",
-    "ProjectPath": "/home/peter/Workspace/openudon/examples/slack-message-audit-log/project.md",
-    "IntentPath": "/home/peter/Workspace/openudon/examples/slack-message-audit-log/workflows/intent.hcl",
-    "WorkflowPath": "/home/peter/Workspace/openudon/examples/slack-message-audit-log/workflows/workflow.hcl",
-    "UWSPath": "/home/peter/Workspace/openudon/examples/slack-message-audit-log/workflows/workflow.uws.yaml",
-    "PlanJSONPath": "/home/peter/Workspace/openudon/examples/slack-message-audit-log/expected/plan.json",
-    "PlanMDPath": "/home/peter/Workspace/openudon/examples/slack-message-audit-log/expected/plan.md",
-    "DiscoveryJSONPath": "/home/peter/Workspace/openudon/examples/slack-message-audit-log/expected/discovery.json",
-    "DataPath": "/home/peter/Workspace/openudon/examples/slack-message-audit-log/expected/data.hcl",
-    "RefinementJSONPath": "/home/peter/Workspace/openudon/examples/slack-message-audit-log/expected/refinement.json",
-    "RefinementMDPath": "/home/peter/Workspace/openudon/examples/slack-message-audit-log/expected/refinement.md",
-    "ReviewPath": "/home/peter/Workspace/openudon/examples/slack-message-audit-log/expected/review.md",
-    "ReviewHandoffPath": "/home/peter/Workspace/openudon/examples/slack-message-audit-log/expected/review-handoff.json",
-    "QualityJSONPath": "/home/peter/Workspace/openudon/examples/slack-message-audit-log/expected/quality.json",
-    "QualityMDPath": "/home/peter/Workspace/openudon/examples/slack-message-audit-log/expected/quality.md",
+    "ExampleDir": ".",
+    "ProjectPath": "project.md",
+    "IntentPath": "workflows/intent.hcl",
+    "WorkflowPath": "workflows/workflow.hcl",
+    "UWSPath": "workflows/workflow.uws.yaml",
+    "PlanJSONPath": "expected/plan.json",
+    "PlanMDPath": "expected/plan.md",
+    "DiscoveryJSONPath": "expected/discovery.json",
+    "DataPath": "expected/data.hcl",
+    "RefinementJSONPath": "expected/refinement.json",
+    "RefinementMDPath": "expected/refinement.md",
+    "ReviewPath": "expected/review.md",
+    "ReviewHandoffPath": "expected/review-handoff.json",
+    "QualityJSONPath": "expected/quality.json",
+    "QualityMDPath": "expected/quality.md",
     "PrimaryOpenAPI": "openapi/slack.yaml",
     "OpenAPICandidates": [
       {
-        "path": "/home/peter/Workspace/openudon/examples/slack-message-audit-log/openapi/slack.yaml",
+        "path": "openapi/slack.yaml",
         "relative_path": "openapi/slack.yaml",
         "title": "Slack Chat API",
         "source": "local",
         "score": 39
       }
     ],
-    "DiscoveryReport": {}
+    "DiscoveryReport": {
+      "truncated": false
+    }
   },
   "checks": [
     {
@@ -224,7 +226,7 @@
     {
       "code": "uws.source_descriptions",
       "status": "pass",
-      "message": "workflow.uws.yaml source descriptions reference package API source documents"
+      "message": "workflow.uws.yaml source descriptions reference package execution source documents"
     },
     {
       "code": "uws.plan_coverage",
@@ -245,6 +247,16 @@
       "code": "uws.credentials_bound",
       "status": "pass",
       "message": "workflow.uws.yaml binds required credential-like parameters"
+    },
+    {
+      "code": "browser.sources",
+      "status": "pass",
+      "message": "browser source review is not required"
+    },
+    {
+      "code": "browser.authentication.sources",
+      "status": "pass",
+      "message": "browser authentication review is not required"
     },
     {
       "code": "side_effects.policy",

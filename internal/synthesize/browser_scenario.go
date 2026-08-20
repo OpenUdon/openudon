@@ -8,6 +8,7 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/OpenUdon/openudon/internal/authoring/atomicfile"
 	rollout "github.com/OpenUdon/openudon/internal/workflowintent"
 	"github.com/OpenUdon/uws/schemas"
 	"github.com/OpenUdon/uws/uws1"
@@ -133,7 +134,7 @@ func WriteBrowserScenarioWorkflow(request BrowserScenarioWorkflowRequest) (Brows
 	}
 	data = append(data, '\n')
 	path := filepath.Join(root, "workflow.uws.json")
-	if err := os.WriteFile(path, data, 0o600); err != nil {
+	if err := atomicfile.Write(path, data, 0o600); err != nil {
 		return BrowserScenarioWorkflowResult{}, err
 	}
 	if err := validation.ValidateFile(schemas.PathForVersion(root, document.UWS), path); err != nil {

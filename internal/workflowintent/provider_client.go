@@ -19,6 +19,7 @@ const DefaultCopilotAPIModel = "gpt-5.4-mini"
 
 const (
 	defaultLLMTimeout        = 60 * time.Second
+	maxProviderResponseBytes = 8 << 20
 	structuredToolName       = "emit_json"
 	structuredSchemaName     = "structured_output"
 	structuredToolDescriptor = "Emit JSON matching the supplied schema."
@@ -45,27 +46,6 @@ type StructuredOpts struct {
 
 type LLMClient interface {
 	Generate(ctx context.Context, prompt string) (string, error)
-}
-
-type LLMClientOption func(*llmClientConfig)
-
-type llmClientConfig struct {
-	httpClient  *http.Client
-	temperature *float64
-}
-
-func WithLLMHTTPClient(client *http.Client) LLMClientOption {
-	return func(config *llmClientConfig) {
-		if client != nil {
-			config.httpClient = client
-		}
-	}
-}
-
-func WithLLMTemperature(value float64) LLMClientOption {
-	return func(config *llmClientConfig) {
-		config.temperature = &value
-	}
 }
 
 type providerLLMClient struct {
@@ -119,7 +99,7 @@ func (c *providerLLMClient) Chat(ctx context.Context, messages []ChatMessage) (s
 			base = "https://generativelanguage.googleapis.com"
 		}
 		model := strings.TrimPrefix(strings.TrimSpace(c.model), "models/")
-		apiURL := fmt.Sprintf("%s/v1beta/models/%s:generateContent?key=%s", base, url.PathEscape(model), url.QueryEscape(c.apiKey))
+		apiURL := fmt.Sprintf("%s/v1beta/models/%s:generateContent", base, url.PathEscape(model))
 		return c.chatGemini(ctx, apiURL, messages)
 	default:
 		return "", fmt.Errorf("unknown provider: %s", c.provider)
@@ -313,7 +293,7 @@ func (c *providerLLMClient) chatGemini(ctx context.Context, url string, messages
 			} `json:"content"`
 		} `json:"candidates"`
 	}
-	if err := c.postJSON(ctx, url, nil, payload, &out); err != nil {
+	if err := c.postJSON(ctx, url, map[string]string{"x-goog-api-key": c.apiKey}, payload, &out); err != nil {
 		return "", err
 	}
 	if len(out.Candidates) == 0 || len(out.Candidates[0].Content.Parts) == 0 {
@@ -328,7 +308,7 @@ func (c *providerLLMClient) geminiStructuredChat(ctx context.Context, messages [
 		base = "https://generativelanguage.googleapis.com"
 	}
 	model := strings.TrimPrefix(strings.TrimSpace(c.model), "models/")
-	apiURL := fmt.Sprintf("%s/v1beta/models/%s:generateContent?key=%s", base, url.PathEscape(model), url.QueryEscape(c.apiKey))
+	apiURL := fmt.Sprintf("%s/v1beta/models/%s:generateContent", base, url.PathEscape(model))
 	var parts []map[string]string
 	for _, message := range messages {
 		if strings.TrimSpace(message.Content) != "" {
@@ -357,7 +337,7 @@ func (c *providerLLMClient) geminiStructuredChat(ctx context.Context, messages [
 			} `json:"content"`
 		} `json:"candidates"`
 	}
-	if err := c.postJSON(ctx, apiURL, nil, payload, &out); err != nil {
+	if err := c.postJSON(ctx, apiURL, map[string]string{"x-goog-api-key": c.apiKey}, payload, &out); err != nil {
 		return "", err
 	}
 	if len(out.Candidates) == 0 || len(out.Candidates[0].Content.Parts) == 0 {
@@ -489,10 +469,12 @@ func (c *providerLLMClient) openAIEndpoint() string {
 }
 
 func (c *providerLLMClient) postJSON(ctx context.Context, url string, headers map[string]string, payload any, out any) error {
+	ctx, cancel := contextWithLLMDeadline(ctx, c.timeout)
+	defer cancel()
 	currentPayload := payload
 	removedParameters := map[string]bool{}
 	for {
-		statusCode, status, body, err := c.postJSONOnce(ctx, url, headers, currentPayload, out)
+		statusCode, body, err := c.postJSONOnce(ctx, url, headers, currentPayload, out)
 		if err != nil {
 			return err
 		}
@@ -501,23 +483,21 @@ func (c *providerLLMClient) postJSON(ctx context.Context, url string, headers ma
 		}
 		nextPayload, removed := retryPayloadWithoutUnsupportedParameter(currentPayload, body, removedParameters)
 		if removed == "" {
-			return fmt.Errorf("%s returned %s: %s", c.provider, status, strings.TrimSpace(string(body)))
+			return fmt.Errorf("%s returned HTTP status %d", c.provider, statusCode)
 		}
 		removedParameters[removed] = true
 		currentPayload = nextPayload
 	}
 }
 
-func (c *providerLLMClient) postJSONOnce(ctx context.Context, url string, headers map[string]string, payload any, out any) (int, string, []byte, error) {
+func (c *providerLLMClient) postJSONOnce(ctx context.Context, url string, headers map[string]string, payload any, out any) (int, []byte, error) {
 	data, err := json.Marshal(payload)
 	if err != nil {
-		return 0, "", nil, err
+		return 0, nil, err
 	}
-	ctx, cancel := contextWithLLMDeadline(ctx, c.timeout)
-	defer cancel()
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, url, bytes.NewReader(data))
 	if err != nil {
-		return 0, "", nil, err
+		return 0, nil, fmt.Errorf("create LLM provider request")
 	}
 	req.Header.Set("Content-Type", "application/json")
 	for key, value := range headers {
@@ -529,31 +509,34 @@ func (c *providerLLMClient) postJSONOnce(ctx context.Context, url string, header
 	}
 	resp, err := client.Do(req)
 	if err != nil {
-		return 0, "", nil, redactedLLMTransportError(err)
+		return 0, nil, redactedLLMTransportError(err)
 	}
 	defer resp.Body.Close()
-	body, err := io.ReadAll(resp.Body)
+	body, err := io.ReadAll(io.LimitReader(resp.Body, maxProviderResponseBytes+1))
 	if err != nil {
-		return 0, "", nil, err
+		return 0, nil, redactedLLMTransportError(err)
+	}
+	if len(body) > maxProviderResponseBytes {
+		return 0, nil, fmt.Errorf("%s response exceeded the %d-byte limit", c.provider, maxProviderResponseBytes)
 	}
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		return resp.StatusCode, resp.Status, body, nil
+		return resp.StatusCode, body, nil
 	}
 	if err := json.Unmarshal(body, out); err != nil {
-		return resp.StatusCode, resp.Status, body, err
+		return resp.StatusCode, body, err
 	}
-	return resp.StatusCode, resp.Status, body, nil
+	return resp.StatusCode, body, nil
 }
 
 func contextWithLLMDeadline(ctx context.Context, timeout time.Duration) (context.Context, context.CancelFunc) {
 	if ctx == nil {
 		ctx = context.Background()
 	}
-	if _, ok := ctx.Deadline(); ok {
-		return ctx, func() {}
-	}
 	if timeout <= 0 {
 		timeout = defaultLLMTimeout
+	}
+	if deadline, ok := ctx.Deadline(); ok && time.Until(deadline) <= timeout {
+		return context.WithCancel(ctx)
 	}
 	return context.WithTimeout(ctx, timeout)
 }
@@ -699,33 +682,13 @@ func redactedLLMTransportError(err error) error {
 	if err == nil {
 		return nil
 	}
-	var urlErr *url.Error
-	if errors.As(err, &urlErr) && urlErr != nil {
-		redacted := *urlErr
-		redacted.URL = redactURLSecret(redacted.URL)
-		return fmt.Errorf("%s", redacted.Error())
+	if errors.Is(err, context.Canceled) {
+		return fmt.Errorf("LLM provider transport request canceled: %w", context.Canceled)
 	}
-	return err
-}
-
-func redactURLSecret(raw string) string {
-	parsed, err := url.Parse(raw)
-	if err != nil || parsed == nil {
-		return raw
+	if errors.Is(err, context.DeadlineExceeded) {
+		return fmt.Errorf("LLM provider transport request timed out: %w", context.DeadlineExceeded)
 	}
-	query := parsed.Query()
-	changed := false
-	for _, key := range []string{"key", "api_key", "access_token"} {
-		if _, ok := query[key]; ok {
-			query.Set(key, "REDACTED")
-			changed = true
-		}
-	}
-	if !changed {
-		return raw
-	}
-	parsed.RawQuery = query.Encode()
-	return parsed.String()
+	return fmt.Errorf("LLM provider transport request failed")
 }
 
 type LLMOptions struct {

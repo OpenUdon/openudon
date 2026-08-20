@@ -8,6 +8,8 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+
+	"github.com/OpenUdon/openudon/internal/authoring/atomicfile"
 )
 
 const defaultMaxAttempts = 5
@@ -44,7 +46,7 @@ func maxAttempts(value int) int {
 func newRefinementReport(result Result, max int) *RefinementReport {
 	return &RefinementReport{
 		Status:        "running",
-		Example:       result.ExampleDir,
+		Example:       filepath.Base(filepath.Clean(result.ExampleDir)),
 		MaxAttempts:   max,
 		PromptVersion: intentPromptVersion,
 	}
@@ -247,14 +249,33 @@ func writeRefinementReport(result Result, report *RefinementReport) error {
 	if err := os.MkdirAll(filepath.Dir(result.RefinementJSONPath), 0o755); err != nil {
 		return err
 	}
-	data, err := json.MarshalIndent(report, "", "  ")
+	portable := portableRefinementReport(result, report)
+	data, err := json.MarshalIndent(portable, "", "  ")
 	if err != nil {
 		return err
 	}
-	if err := os.WriteFile(result.RefinementJSONPath, append(data, '\n'), 0o644); err != nil {
+	if err := atomicfile.Write(result.RefinementJSONPath, append(data, '\n'), 0o644); err != nil {
 		return err
 	}
-	return os.WriteFile(result.RefinementMDPath, []byte(refinementMarkdown(report)), 0o644)
+	if err := atomicfile.Write(result.RefinementMDPath, []byte(refinementMarkdown(portable)), 0o644); err != nil {
+		return err
+	}
+	// A failed refinement must not rebind an older passing handoff around the
+	// newly written failure report. Leaving the handoff digest stale makes
+	// assessment and trusted execution fail closed until a complete successful
+	// package build replaces the mixed state.
+	if report.Status == "pass" {
+		if _, err := os.Stat(result.QualityJSONPath); err != nil {
+			if os.IsNotExist(err) {
+				return nil
+			}
+			return fmt.Errorf("inspect quality report before handoff refresh: %w", err)
+		}
+		if err := refreshReviewHandoffDigests(result); err != nil {
+			return fmt.Errorf("refresh review handoff digests: %w", err)
+		}
+	}
+	return nil
 }
 
 func refinementMarkdown(report *RefinementReport) string {

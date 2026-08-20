@@ -3,10 +3,12 @@ package elicitor
 import (
 	"encoding/json"
 	"fmt"
+	"sort"
 	"strconv"
 	"strings"
 
 	"github.com/OpenUdon/apitools"
+	"github.com/OpenUdon/openudon/internal/credentialpolicy"
 	rollout "github.com/OpenUdon/openudon/internal/workflowintent"
 )
 
@@ -84,7 +86,13 @@ func decodeRequestMappingSteps(raw json.RawMessage) []RequestMappingStepResponse
 		return nil
 	}
 	steps := make([]RequestMappingStepResponse, 0, len(keyed))
-	for name, data := range keyed {
+	names := make([]string, 0, len(keyed))
+	for name := range keyed {
+		names = append(names, name)
+	}
+	sort.Strings(names)
+	for _, name := range names {
+		data := keyed[name]
 		var step RequestMappingStepResponse
 		if err := json.Unmarshal(data, &step); err != nil {
 			step.With = decodeRequestMappingWith(data)
@@ -240,7 +248,13 @@ func applyRequestMappingResponse(session *Session, request RequestMappingRequest
 			application.Rejected = append(application.Rejected, "missing local step "+name)
 			continue
 		}
-		for field, source := range proposed.With {
+		fieldNames := make([]string, 0, len(proposed.With))
+		for field := range proposed.With {
+			fieldNames = append(fieldNames, field)
+		}
+		sort.Strings(fieldNames)
+		for _, field := range fieldNames {
+			source := proposed.With[field]
 			field = strings.TrimSpace(field)
 			source = strings.TrimSpace(source)
 			if field == "" || source == "" {
@@ -382,18 +396,7 @@ func requestMappingPriorSteps(steps []*rollout.Step) []RequestMappingPriorStep {
 }
 
 func safeRequestMappingValue(source string) bool {
-	source = strings.TrimSpace(source)
-	if source == "" || len(source) > 240 {
-		return false
-	}
-	if strings.ContainsAny(source, "\r\n") {
-		return false
-	}
-	lower := strings.ToLower(source)
-	if strings.Contains(lower, "sk-") || strings.Contains(lower, "secret=") || strings.Contains(lower, "token=") {
-		return false
-	}
-	return true
+	return credentialpolicy.SafeMappingValue(source)
 }
 
 func addRequestMappingClassification(session *Session, step *rollout.Step, field, source string) {

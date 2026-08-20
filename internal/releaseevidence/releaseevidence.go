@@ -10,8 +10,10 @@ import (
 	"strings"
 	"time"
 
+	"github.com/OpenUdon/openudon/internal/authoring/atomicfile"
 	"github.com/OpenUdon/openudon/internal/smokematrix"
 	"github.com/OpenUdon/openudon/internal/trustedrunner"
+	"github.com/OpenUdon/openudon/internal/udonrunner"
 )
 
 const SummaryVersion = "openudon.release-evidence-summary.v1"
@@ -28,7 +30,7 @@ type Options struct {
 	Gates        []string
 	Now          func() time.Time
 
-	RunCommand   func(context.Context, string, ...string) error
+	Invoke       udonrunner.InvokeFunc
 	BuildCommand func(context.Context, string, string) error
 	GitCommand   func(context.Context, string, ...string) ([]byte, error)
 }
@@ -74,7 +76,7 @@ func Run(ctx context.Context, opts Options) (*Summary, error) {
 		WorkDir:      filepath.Join(workdir, "smoke"),
 		OutPath:      smokeSummary,
 		Now:          opts.Now,
-		RunCommand:   opts.RunCommand,
+		Invoke:       opts.Invoke,
 		BuildCommand: opts.BuildCommand,
 	})
 	if err != nil {
@@ -190,7 +192,7 @@ func writeSummaryArtifacts(summary *Summary) error {
 		if err != nil {
 			return err
 		}
-		if err := os.WriteFile(summary.SummaryJSON, append(data, '\n'), 0o644); err != nil {
+		if err := atomicfile.Write(summary.SummaryJSON, append(data, '\n'), 0o644); err != nil {
 			return err
 		}
 	}
@@ -198,7 +200,7 @@ func writeSummaryArtifacts(summary *Summary) error {
 		if err := os.MkdirAll(filepath.Dir(summary.SummaryMD), 0o755); err != nil {
 			return err
 		}
-		if err := os.WriteFile(summary.SummaryMD, []byte(formatMarkdown(summary)), 0o644); err != nil {
+		if err := atomicfile.Write(summary.SummaryMD, []byte(formatMarkdown(summary)), 0o644); err != nil {
 			return err
 		}
 	}

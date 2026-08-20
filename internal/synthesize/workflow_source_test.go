@@ -1116,50 +1116,6 @@ channels:
 `
 }
 
-func discoveryRequestBodyDocument() string {
-	return `{
-	  "kind": "discovery#restDescription",
-	  "discoveryVersion": "v1",
-	  "name": "gmail",
-	  "title": "Gmail API",
-	  "version": "v1",
-	  "rootUrl": "https://gmail.googleapis.com/",
-	  "servicePath": "",
-	  "schemas": {
-	    "Message": {
-	      "id": "Message",
-	      "type": "object",
-	      "properties": {
-	        "raw": {
-	          "description": "The entire email message in an RFC 2822 formatted and base64url encoded string.",
-	          "annotations": {"required": ["gmail.users.messages.send"]},
-	          "type": "string"
-	        }
-	      }
-	    }
-	  },
-	  "resources": {
-	    "users": {
-	      "resources": {
-	        "messages": {
-	          "methods": {
-	            "send": {
-	              "id": "gmail.users.messages.send",
-	              "path": "gmail/v1/users/{userId}/messages/send",
-	              "httpMethod": "POST",
-	              "parameters": {
-	                "userId": {"type": "string", "location": "path", "required": true}
-	              },
-	              "request": {"$ref": "Message"}
-	            }
-	          }
-	        }
-	      }
-	    }
-	  }
-	}`
-}
-
 func discoveryResponseDocument() string {
 	return `{
 	  "kind": "discovery#restDescription",

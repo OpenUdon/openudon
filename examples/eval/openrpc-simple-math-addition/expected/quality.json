@@ -1,25 +1,27 @@
 {
   "status": "pass",
-  "example": "/home/peter/Workspace/openudon/examples/eval/openrpc-simple-math-addition",
+  "example": "openrpc-simple-math-addition",
   "artifacts": {
-    "ExampleDir": "/home/peter/Workspace/openudon/examples/eval/openrpc-simple-math-addition",
-    "ProjectPath": "/home/peter/Workspace/openudon/examples/eval/openrpc-simple-math-addition/project.md",
-    "IntentPath": "/home/peter/Workspace/openudon/examples/eval/openrpc-simple-math-addition/workflows/intent.hcl",
-    "WorkflowPath": "/home/peter/Workspace/openudon/examples/eval/openrpc-simple-math-addition/workflows/workflow.hcl",
-    "UWSPath": "/home/peter/Workspace/openudon/examples/eval/openrpc-simple-math-addition/workflows/workflow.uws.yaml",
-    "PlanJSONPath": "/home/peter/Workspace/openudon/examples/eval/openrpc-simple-math-addition/expected/plan.json",
-    "PlanMDPath": "/home/peter/Workspace/openudon/examples/eval/openrpc-simple-math-addition/expected/plan.md",
-    "DiscoveryJSONPath": "/home/peter/Workspace/openudon/examples/eval/openrpc-simple-math-addition/expected/discovery.json",
-    "DataPath": "/home/peter/Workspace/openudon/examples/eval/openrpc-simple-math-addition/expected/data.hcl",
-    "RefinementJSONPath": "/home/peter/Workspace/openudon/examples/eval/openrpc-simple-math-addition/expected/refinement.json",
-    "RefinementMDPath": "/home/peter/Workspace/openudon/examples/eval/openrpc-simple-math-addition/expected/refinement.md",
-    "ReviewPath": "/home/peter/Workspace/openudon/examples/eval/openrpc-simple-math-addition/expected/review.md",
-    "ReviewHandoffPath": "/home/peter/Workspace/openudon/examples/eval/openrpc-simple-math-addition/expected/review-handoff.json",
-    "QualityJSONPath": "/home/peter/Workspace/openudon/examples/eval/openrpc-simple-math-addition/expected/quality.json",
-    "QualityMDPath": "/home/peter/Workspace/openudon/examples/eval/openrpc-simple-math-addition/expected/quality.md",
+    "ExampleDir": ".",
+    "ProjectPath": "project.md",
+    "IntentPath": "workflows/intent.hcl",
+    "WorkflowPath": "workflows/workflow.hcl",
+    "UWSPath": "workflows/workflow.uws.yaml",
+    "PlanJSONPath": "expected/plan.json",
+    "PlanMDPath": "expected/plan.md",
+    "DiscoveryJSONPath": "expected/discovery.json",
+    "DataPath": "expected/data.hcl",
+    "RefinementJSONPath": "expected/refinement.json",
+    "RefinementMDPath": "expected/refinement.md",
+    "ReviewPath": "expected/review.md",
+    "ReviewHandoffPath": "expected/review-handoff.json",
+    "QualityJSONPath": "expected/quality.json",
+    "QualityMDPath": "expected/quality.md",
     "PrimaryOpenAPI": "",
-    "OpenAPICandidates": null,
-    "DiscoveryReport": {}
+    "OpenAPICandidates": [],
+    "DiscoveryReport": {
+      "truncated": false
+    }
   },
   "checks": [
     {
@@ -216,7 +218,7 @@
     {
       "code": "uws.source_descriptions",
       "status": "pass",
-      "message": "workflow.uws.yaml source descriptions reference package API source documents"
+      "message": "workflow.uws.yaml source descriptions reference package execution source documents"
     },
     {
       "code": "uws.plan_coverage",
@@ -237,6 +239,16 @@
       "code": "uws.credentials_bound",
       "status": "pass",
       "message": "workflow.uws.yaml binds required credential-like parameters"
+    },
+    {
+      "code": "browser.sources",
+      "status": "pass",
+      "message": "browser source review is not required"
+    },
+    {
+      "code": "browser.authentication.sources",
+      "status": "pass",
+      "message": "browser authentication review is not required"
     },
     {
       "code": "side_effects.policy",

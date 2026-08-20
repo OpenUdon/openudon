@@ -1,4 +1,4 @@
-# openapi = "asyncapi/streetlights-mqtt.yml"
+# source = "asyncapi/streetlights-mqtt.yml"
 # http "dim_streetlight"
 
   uws = "1.3.0"
@@ -16,9 +16,6 @@
     sourceOperationId = "dimLight"
     description       = "Publish the Streetlights MQTT dim-light command."
     request {
-      path "streetlightId" {
-        __dollar__expr = "variables.inputs.streetlight_id"
-      }
       body "percentage" {
         __dollar__expr = "variables.inputs.dim_percentage"
       }
@@ -27,6 +24,9 @@
       }
       header "my-app-header" {
         __dollar__expr = "variables.inputs.app_header_value"
+      }
+      path "streetlightId" {
+        __dollar__expr = "variables.inputs.streetlight_id"
       }
     }
   }

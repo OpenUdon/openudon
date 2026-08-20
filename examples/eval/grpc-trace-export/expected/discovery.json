@@ -2,9 +2,10 @@
   "attempts": [
     {
       "kind": "local",
-      "source": "/home/peter/Workspace/openudon/examples/eval/grpc-trace-export/openapi",
+      "source": "openapi",
       "status": "pass",
       "detail": "OpenAPI directory is absent; using package-local first-class API source documents."
     }
-  ]
+  ],
+  "truncated": false
 }

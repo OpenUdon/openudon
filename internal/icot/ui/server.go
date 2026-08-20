@@ -50,8 +50,10 @@ type HandlerConfig struct {
 	Snapshot   engine.Snapshot
 	ExampleDir string
 	Token      string
+	AccessCode string
 	Authority  string
 	ErrOut     io.Writer
+	Now        func() time.Time
 }
 
 // Workspace identifies the selected example and its optimistic ownership
@@ -113,18 +115,23 @@ func (e *requestError) Error() string { return e.text }
 type Server struct {
 	mu sync.Mutex
 
-	engine      AuthoringEngine
-	snapshot    engine.Snapshot
-	exampleDir  string
-	token       string
-	authority   string
-	origin      string
-	basePath    string
-	revision    string
-	completed   bool
-	writeResult *engine.WriteResult
-	workspace   engine.WorkspaceStatus
-	errOut      io.Writer
+	engine            AuthoringEngine
+	snapshot          engine.Snapshot
+	exampleDir        string
+	token             string
+	accessCodeDigest  [sha256.Size]byte
+	accessCodeExpires time.Time
+	accessCodeUsed    bool
+	accessFailures    []time.Time
+	now               func() time.Time
+	authority         string
+	origin            string
+	basePath          string
+	revision          string
+	completed         bool
+	writeResult       *engine.WriteResult
+	workspace         engine.WorkspaceStatus
+	errOut            io.Writer
 }
 
 var fallbackRequestID atomic.Uint64
@@ -138,6 +145,26 @@ func GenerateToken() (string, error) {
 	return base64.RawURLEncoding.EncodeToString(raw), nil
 }
 
+// GenerateAccessCode returns a terminal-only 12-character Crockford Base32
+// bootstrap code. Ambiguous I, L, O, and U characters are never emitted.
+func GenerateAccessCode() (string, error) {
+	const alphabet = "0123456789ABCDEFGHJKMNPQRSTVWXYZ"
+	raw := make([]byte, 12)
+	out := make([]byte, 12)
+	for i := range out {
+		for {
+			if _, err := rand.Read(raw[i : i+1]); err != nil {
+				return "", fmt.Errorf("generate UI access code: %w", err)
+			}
+			if raw[i] < 224 {
+				out[i] = alphabet[int(raw[i])%len(alphabet)]
+				break
+			}
+		}
+	}
+	return string(out), nil
+}
+
 // NewHandler builds the authenticated loopback handler for one engine.
 func NewHandler(config HandlerConfig) (http.Handler, error) {
 	if config.Engine == nil {
@@ -149,6 +176,15 @@ func NewHandler(config HandlerConfig) (http.Handler, error) {
 	if strings.TrimSpace(config.Token) == "" {
 		return nil, errors.New("UI capability token is required")
 	}
+	accessCode := strings.ToUpper(strings.TrimSpace(config.AccessCode))
+	if len(accessCode) != 12 {
+		return nil, errors.New("UI access code must contain 12 Crockford Base32 characters")
+	}
+	for _, ch := range accessCode {
+		if !strings.ContainsRune("0123456789ABCDEFGHJKMNPQRSTVWXYZ", ch) {
+			return nil, errors.New("UI access code must contain 12 Crockford Base32 characters")
+		}
+	}
 	authority := strings.TrimSpace(config.Authority)
 	if !validLoopbackAuthority(authority) {
 		return nil, errors.New("UI authority must be an active 127.0.0.1 listener")
@@ -157,10 +193,15 @@ func NewHandler(config HandlerConfig) (http.Handler, error) {
 	if errOut == nil {
 		errOut = io.Discard
 	}
+	now := config.Now
+	if now == nil {
+		now = time.Now
+	}
 	s := &Server{
 		engine: config.Engine, snapshot: config.Snapshot,
 		exampleDir: config.ExampleDir, token: config.Token, authority: authority,
 		origin: "http://" + authority, basePath: instanceBasePath(config.Token), errOut: errOut,
+		accessCodeDigest: sha256.Sum256([]byte(accessCode)), accessCodeExpires: now().Add(5 * time.Minute), now: now,
 	}
 	revision, err := revisionFor(s.snapshot, false, nil, s.workspace)
 	if err != nil {
@@ -249,17 +290,12 @@ func (s *Server) serveHealth(w http.ResponseWriter, r *http.Request, requestID s
 }
 
 func (s *Server) serveShell(w http.ResponseWriter, r *http.Request, cookieScoped bool, requestID string) {
-	if r.Method != http.MethodGet {
-		s.methodNotAllowed(w, http.MethodGet, requestID)
+	if !cookieScoped {
+		s.serveBootstrap(w, r, requestID)
 		return
 	}
-	if query, present := r.URL.Query()["token"]; present {
-		if !cookieScoped || r.URL.Path != s.basePath || len(r.URL.Query()) != 1 || len(query) != 1 || !secureEqual(query[0], s.token) {
-			s.writeError(w, http.StatusUnauthorized, "unauthorized", "a valid UI capability token is required", false, requestID, "")
-			return
-		}
-		http.SetCookie(w, &http.Cookie{Name: SessionCookie, Value: s.token, Path: s.basePath, HttpOnly: true, SameSite: http.SameSiteStrictMode})
-		http.Redirect(w, r, s.basePath, http.StatusSeeOther)
+	if r.Method != http.MethodGet {
+		s.methodNotAllowed(w, http.MethodGet, requestID)
 		return
 	}
 	if !s.authenticated(r, cookieScoped) {
@@ -269,6 +305,60 @@ func (s *Server) serveShell(w http.ResponseWriter, r *http.Request, cookieScoped
 	if err := serveEmbedded(w, "assets/index.html", "text/html; charset=utf-8"); err != nil {
 		s.writeInternalError(w, r, requestID, "/", "embedded_asset", err, true)
 	}
+}
+
+func (s *Server) serveBootstrap(w http.ResponseWriter, r *http.Request, requestID string) {
+	if r.URL.Path != "/" || len(r.URL.Query()) != 0 {
+		s.writeError(w, http.StatusNotFound, "not_found", "route not found", false, requestID, "")
+		return
+	}
+	switch r.Method {
+	case http.MethodGet:
+		w.Header().Set("Content-Type", "text/html; charset=utf-8")
+		w.WriteHeader(http.StatusOK)
+		_, _ = io.WriteString(w, `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width"><title>OpenUdon iCoT</title></head><body><main><h1>OpenUdon iCoT</h1><p>Enter the 12-character access code shown in the terminal.</p><form method="post" action="/"><label>Access code <input name="code" inputmode="text" autocomplete="one-time-code" maxlength="12" required></label><button type="submit">Continue</button></form></main></body></html>`)
+	case http.MethodPost:
+		s.exchangeAccessCode(w, r, requestID)
+	default:
+		s.methodNotAllowed(w, "GET, POST", requestID)
+	}
+}
+
+func (s *Server) exchangeAccessCode(w http.ResponseWriter, r *http.Request, requestID string) {
+	r.Body = http.MaxBytesReader(w, r.Body, 4<<10)
+	if err := r.ParseForm(); err != nil {
+		s.writeError(w, http.StatusBadRequest, "malformed_request", "access-code form is invalid", false, requestID, "")
+		return
+	}
+	if len(r.Form) != 1 || len(r.Form["code"]) != 1 {
+		s.writeError(w, http.StatusBadRequest, "malformed_request", "exactly one access code is required", false, requestID, "")
+		return
+	}
+	now := s.now()
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	cutoff := now.Add(-time.Minute)
+	kept := s.accessFailures[:0]
+	for _, failedAt := range s.accessFailures {
+		if failedAt.After(cutoff) {
+			kept = append(kept, failedAt)
+		}
+	}
+	s.accessFailures = kept
+	if len(s.accessFailures) >= 5 {
+		s.writeError(w, http.StatusTooManyRequests, "rate_limited", "too many failed access-code attempts; try again later", true, requestID, "")
+		return
+	}
+	codeDigest := sha256.Sum256([]byte(strings.ToUpper(strings.TrimSpace(r.Form.Get("code")))))
+	valid := !s.accessCodeUsed && now.Before(s.accessCodeExpires) && subtle.ConstantTimeCompare(codeDigest[:], s.accessCodeDigest[:]) == 1
+	if !valid {
+		s.accessFailures = append(s.accessFailures, now)
+		s.writeError(w, http.StatusUnauthorized, "unauthorized", "the access code is invalid, expired, or already used", false, requestID, "")
+		return
+	}
+	s.accessCodeUsed = true
+	http.SetCookie(w, &http.Cookie{Name: SessionCookie, Value: s.token, Path: s.basePath, HttpOnly: true, SameSite: http.SameSiteStrictMode})
+	http.Redirect(w, r, s.basePath, http.StatusSeeOther)
 }
 
 func (s *Server) serveAsset(w http.ResponseWriter, r *http.Request, cookieScoped bool, requestID, name, contentType string) {
@@ -717,7 +807,7 @@ func matchesETag(header, revision string) bool {
 
 func setSecurityHeaders(w http.ResponseWriter) {
 	w.Header().Set("Cache-Control", "no-store")
-	w.Header().Set("Content-Security-Policy", "default-src 'none'; script-src 'self'; style-src 'self'; connect-src 'self'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'; object-src 'none'")
+	w.Header().Set("Content-Security-Policy", "default-src 'none'; script-src 'self'; style-src 'self'; connect-src 'self'; base-uri 'none'; form-action 'self'; frame-ancestors 'none'; object-src 'none'")
 	w.Header().Set("Cross-Origin-Opener-Policy", "same-origin")
 	w.Header().Set("Cross-Origin-Resource-Policy", "same-origin")
 	w.Header().Set("Permissions-Policy", "camera=(), microphone=(), geolocation=(), payment=(), usb=()")

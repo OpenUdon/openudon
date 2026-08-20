@@ -368,17 +368,6 @@ func catalogPlanStepOpenAPI(value string, candidates []CatalogMigrationCandidate
 	return ""
 }
 
-func safeCatalogPlanDependsOn(values []string, acceptedNames map[string]bool) []string {
-	var out []string
-	for _, value := range values {
-		name := slugIdent(value)
-		if name != "" && acceptedNames[name] {
-			out = append(out, name)
-		}
-	}
-	return dedupeStrings(out)
-}
-
 func uniqueCatalogPlanStepName(name string, used map[string]bool) string {
 	name = slugIdent(name)
 	if name == "" {

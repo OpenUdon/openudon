@@ -6,11 +6,11 @@ import (
 	"testing"
 )
 
-func TestPublicBetaContractAndInstallationAreDocumented(t *testing.T) {
+func TestCompatibilityContractAndInstallationAreDocumented(t *testing.T) {
 	root := filepath.Join("..", "..")
 	checks := map[string][]string{
 		"README.md": {
-			"v0.1 Public Beta",
+			"v0.2 Security Migration",
 			"openudon/cmd/openudon@v0.1.0",
 			"openudon version --json",
 			"SHA256SUMS",
@@ -30,8 +30,9 @@ func TestPublicBetaContractAndInstallationAreDocumented(t *testing.T) {
 			"Credential values remain",
 		},
 		filepath.Join("docs", "compatibility.md"): {
-			"Stable During v0.1.x",
+			"Stable During v0.2.x",
 			"Experimental Before v1",
+			"openudon.executor-run.v2",
 			"OPENUDON_EXECUTOR",
 		},
 	}

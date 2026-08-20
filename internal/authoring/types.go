@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"sort"
 	"strings"
 	"time"
 
@@ -210,35 +209,6 @@ func (flow Flow[T]) ParseValidateRender(ctx context.Context, artifact Artifact) 
 	return draft, artifacts, diagnostics, err
 }
 
-func (flow Flow[T]) RefineValidateRender(ctx context.Context, draft T, transcript []TranscriptTurn) (T, ArtifactSet, []Diagnostic, error) {
-	if flow.Refiner != nil {
-		refined, diagnostics, err := flow.Refiner.RefineIntent(ctx, draft, transcript)
-		if err != nil {
-			return refined, ArtifactSet{}, diagnostics, err
-		}
-		draft = refined
-	}
-	diagnostics := flow.validate(ctx, draft)
-	if flow.SlotProvider != nil {
-		for _, slot := range flow.SlotProvider.MissingSlots(ctx, draft) {
-			if slot.Required {
-				diagnostics = append(diagnostics, Diagnostic{
-					Severity: "error",
-					Code:     "missing_slot",
-					Message:  fmt.Sprintf("required slot %q is missing", slot.Name),
-					Path:     slot.Name,
-				})
-			}
-		}
-	}
-	if HasErrors(diagnostics) {
-		return draft, ArtifactSet{}, diagnostics, nil
-	}
-	artifacts, renderDiagnostics, err := flow.render(ctx, draft)
-	diagnostics = append(diagnostics, renderDiagnostics...)
-	return draft, artifacts, diagnostics, err
-}
-
 func (flow Flow[T]) validate(ctx context.Context, draft T) []Diagnostic {
 	if flow.Validator == nil {
 		return nil
@@ -261,16 +231,6 @@ func HasErrors(diagnostics []Diagnostic) bool {
 		}
 	}
 	return false
-}
-
-// SortArtifacts orders artifacts by stable path and media type.
-func SortArtifacts(set ArtifactSet) {
-	sort.Slice(set.Artifacts, func(i, j int) bool {
-		if set.Artifacts[i].Path != set.Artifacts[j].Path {
-			return set.Artifacts[i].Path < set.Artifacts[j].Path
-		}
-		return strings.Compare(set.Artifacts[i].MediaType, set.Artifacts[j].MediaType) < 0
-	})
 }
 
 // DiagnosticError wraps diagnostics as an error value.

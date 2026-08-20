@@ -32,6 +32,14 @@ func TestPackageRelativePathRejectsEscapesAndUnsafeText(t *testing.T) {
 	}
 }
 
+func TestPrepareHonorsCanceledContext(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	if _, err := Prepare(ctx, Config{}, Options{}); err != context.Canceled {
+		t.Fatalf("Prepare canceled-context error = %v", err)
+	}
+}
+
 func TestPackageRelativePathAcceptsAbsolutePathInsideRoot(t *testing.T) {
 	root := t.TempDir()
 	absolute := filepath.Join(root, "workflows", "workflow.uws.yaml")
@@ -191,7 +199,7 @@ func TestLoadConfigRejectsUnknownFieldsAndTrailingJSON(t *testing.T) {
 		{
 			name: "trailing-json",
 			data: `{"version":"openudon.executor-run.v1"}{}`,
-			want: "single JSON object",
+			want: "single JSON value",
 		},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
@@ -211,7 +219,7 @@ func TestRunRejectsEmptyPackageSHA256(t *testing.T) {
 	_, err := Run(context.Background(), config, Options{
 		RepoRoot: t.TempDir(),
 		Env:      []string{"OPENUDON_EXECUTOR=/bin/true"},
-		RunCommand: func(context.Context, string, ...string) error {
+		Invoke: func(context.Context, Invocation) error {
 			t.Fatal("executor should not be invoked")
 			return nil
 		},
@@ -227,7 +235,7 @@ func TestRunRejectsInvalidPackageSHA256(t *testing.T) {
 	_, err := Run(context.Background(), config, Options{
 		RepoRoot: t.TempDir(),
 		Env:      []string{"OPENUDON_EXECUTOR=/bin/true"},
-		RunCommand: func(context.Context, string, ...string) error {
+		Invoke: func(context.Context, Invocation) error {
 			t.Fatal("executor should not be invoked")
 			return nil
 		},
@@ -243,7 +251,7 @@ func TestRunRejectsEmptyPackagePaths(t *testing.T) {
 	_, err := Run(context.Background(), config, Options{
 		RepoRoot: t.TempDir(),
 		Env:      []string{"OPENUDON_EXECUTOR=/bin/true"},
-		RunCommand: func(context.Context, string, ...string) error {
+		Invoke: func(context.Context, Invocation) error {
 			t.Fatal("executor should not be invoked")
 			return nil
 		},
@@ -323,7 +331,7 @@ func TestRunRejectsDirectProductionRun(t *testing.T) {
 	_, err := Run(context.Background(), config, Options{
 		RepoRoot: t.TempDir(),
 		Env:      []string{"OPENUDON_EXECUTOR=/bin/true"},
-		RunCommand: func(context.Context, string, ...string) error {
+		Invoke: func(context.Context, Invocation) error {
 			t.Fatal("executor should not be invoked")
 			return nil
 		},
@@ -340,9 +348,9 @@ func TestRunAcceptsValidDigestCoveredConfigAndInvokesExecutor(t *testing.T) {
 	result, err := Run(context.Background(), config, Options{
 		RepoRoot: t.TempDir(),
 		Env:      []string{"OPENUDON_EXECUTOR=/bin/true"},
-		RunCommand: func(_ context.Context, name string, args ...string) error {
-			gotName = name
-			gotArgs = append([]string(nil), args...)
+		Invoke: func(_ context.Context, invocation Invocation) error {
+			gotName = invocation.Argv[0]
+			gotArgs = append([]string(nil), invocation.Argv[1:]...)
 			return nil
 		},
 	})
@@ -362,6 +370,51 @@ func TestRunAcceptsValidDigestCoveredConfigAndInvokesExecutor(t *testing.T) {
 		if _, err := os.Stat(filepath.Join(result.StagePath, filepath.FromSlash(rel))); err != nil {
 			t.Fatalf("staged file missing %s: %v", rel, err)
 		}
+	}
+}
+
+func TestRunInvocationEnvironmentIsAllowlisted(t *testing.T) {
+	for _, tc := range []struct {
+		name     string
+		executor string
+		wantPath bool
+	}{
+		{name: "local", executor: "/bin/true"},
+		{name: "docker", executor: "docker://udon:test", wantPath: true},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			config := validRunnerConfig(t)
+			config.CredentialBindings = []string{"support-api.token"}
+			var invocation Invocation
+			_, err := Run(context.Background(), config, Options{
+				RepoRoot: t.TempDir(),
+				Env: []string{
+					"OPENUDON_EXECUTOR=" + tc.executor,
+					"UDON_CREDENTIAL_SUPPORT_API_TOKEN=declared-secret",
+					"PATH=/trusted/bin", "AWS_SECRET_ACCESS_KEY=must-not-pass",
+					"HTTP_PROXY=http://must-not-pass", "SSH_AUTH_SOCK=/must-not-pass", "UNRELATED_SENTINEL=must-not-pass",
+				},
+				Invoke: func(_ context.Context, got Invocation) error {
+					invocation = got
+					return nil
+				},
+			})
+			if err != nil {
+				t.Fatal(err)
+			}
+			joined := strings.Join(invocation.Env, "\n")
+			if !strings.Contains(joined, "UDON_CREDENTIAL_SUPPORT_API_TOKEN=declared-secret") {
+				t.Fatalf("declared credential missing from invocation env: %#v", invocation.Env)
+			}
+			for _, forbidden := range []string{"AWS_SECRET_ACCESS_KEY", "HTTP_PROXY", "SSH_AUTH_SOCK", "UNRELATED_SENTINEL", "OPENUDON_EXECUTOR"} {
+				if strings.Contains(joined, forbidden) {
+					t.Fatalf("%s leaked into invocation env: %#v", forbidden, invocation.Env)
+				}
+			}
+			if got := strings.Contains(joined, "PATH=/trusted/bin"); got != tc.wantPath {
+				t.Fatalf("PATH presence = %v, want %v; env=%#v", got, tc.wantPath, invocation.Env)
+			}
+		})
 	}
 }
 
@@ -388,6 +441,7 @@ func validRunnerConfig(t *testing.T) Config {
 	}
 	return Config{
 		Version:        RunConfigVersion,
+		RunID:          "0123456789abcdef0123456789abcdef",
 		Scope:          scope,
 		PackageRoot:    root,
 		WorkDir:        workdir,
@@ -396,6 +450,8 @@ func validRunnerConfig(t *testing.T) Config {
 		OpenAPIPaths:   []string{openAPIRel},
 		PackagePaths:   []string{workflowRel, openAPIRel},
 		PackageSHA256:  digest,
+		HandoffSHA256:  strings.Repeat("a", 64),
+		ApprovalSHA256: strings.Repeat("b", 64),
 	}
 }
 

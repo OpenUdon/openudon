@@ -71,7 +71,7 @@ func TestAnonymousSecurityAlternativeRequiresNoCredentialField(t *testing.T) {
 	}
 }
 
-func TestSecurityAlternativeSelectionUsesStableIndexForRepeatedSchemeNames(t *testing.T) {
+func TestSecurityAlternativeSelectionUsesFingerprintAcrossReordering(t *testing.T) {
 	op := &apitools.OperationSummary{SecurityRequirementSets: []apitools.SecurityRequirementSetSummary{
 		{Requirements: []apitools.SecuritySummary{{Name: "oauth", Type: "oauth2", Scopes: []string{"read"}}}},
 		{Requirements: []apitools.SecuritySummary{{Name: "oauth", Type: "oauth2", Scopes: []string{"write"}}}},
@@ -85,10 +85,62 @@ func TestSecurityAlternativeSelectionUsesStableIndexForRepeatedSchemeNames(t *te
 	if !ok || len(selected.Requirements) != 1 || len(selected.Requirements[0].Scopes) != 1 || selected.Requirements[0].Scopes[0] != "write" {
 		t.Fatalf("selected alternative = %#v, ok=%t", selected, ok)
 	}
+	reordered := &apitools.OperationSummary{SecurityRequirementSets: []apitools.SecurityRequirementSetSummary{
+		op.SecurityRequirementSets[1], op.SecurityRequirementSets[0],
+	}}
+	selected, ok = selectedSecurityAlternative(session, step, reordered)
+	if !ok || selected.Requirements[0].Scopes[0] != "write" {
+		t.Fatalf("reordered selection = %#v, ok=%t", selected, ok)
+	}
 	if selectSecurityAlternative(&session, step, &apitools.OperationSummary{SecurityRequirementSets: []apitools.SecurityRequirementSetSummary{
 		{Requirements: []apitools.SecuritySummary{{Name: "same"}}},
 		{Requirements: []apitools.SecuritySummary{{Name: "same"}}},
 	}}, "same") {
 		t.Fatal("ambiguous repeated security label was accepted")
+	}
+}
+
+func TestLegacySecurityAlternativeIndexRequiresUniqueDecisionEvidence(t *testing.T) {
+	op := &apitools.OperationSummary{SecurityRequirementSets: []apitools.SecurityRequirementSetSummary{
+		{Requirements: []apitools.SecuritySummary{{Name: "api_key", Type: "apiKey"}}},
+		{Requirements: []apitools.SecuritySummary{{Name: "bearer", Type: "http"}}},
+	}}
+	step := &rollout.Step{Name: "read"}
+	session := Session{}
+	session.Interview.Metadata = map[string]string{securityAlternativeMetadataKey(step): "2"}
+	if _, ok := selectedSecurityAlternative(session, step, op); ok {
+		t.Fatal("legacy index without decision evidence was accepted")
+	}
+	session.DecisionEvidence = []DecisionEvidence{{
+		Slot: securityAlternativeSlot(step), Value: "bearer", Source: mappingSourceUser, Confidence: mappingConfidenceHigh,
+	}}
+	selected, ok := selectedSecurityAlternative(session, step, op)
+	if !ok || selected.Requirements[0].Name != "bearer" {
+		t.Fatalf("uniquely confirmed legacy selection = %#v, ok=%t", selected, ok)
+	}
+	session.DecisionEvidence = append(session.DecisionEvidence, DecisionEvidence{
+		Slot: securityAlternativeSlot(step), Value: "bearer", Source: mappingSourceUser, Confidence: mappingConfidenceHigh,
+	})
+	if _, ok := selectedSecurityAlternative(session, step, op); ok {
+		t.Fatal("multiply confirmed legacy index was accepted")
+	}
+}
+
+func TestLegacySecurityAlternativeRejectsNonHumanOrUnconfirmedEvidence(t *testing.T) {
+	op := &apitools.OperationSummary{SecurityRequirementSets: []apitools.SecurityRequirementSetSummary{
+		{Requirements: []apitools.SecuritySummary{{Name: "api_key", Type: "apiKey"}}},
+		{Requirements: []apitools.SecuritySummary{{Name: "bearer", Type: "http"}}},
+	}}
+	step := &rollout.Step{Name: "read"}
+	for _, evidence := range []DecisionEvidence{
+		{Slot: securityAlternativeSlot(step), Value: "bearer", Source: mappingSourceLLM, Confidence: mappingConfidenceHigh},
+		{Slot: securityAlternativeSlot(step), Value: "bearer", Source: mappingSourceUser, Confidence: mappingConfidenceLow},
+		{Slot: securityAlternativeSlot(step), Value: "bearer", Source: mappingSourceUser, Confidence: mappingConfidenceHigh, RequiresConfirmation: true},
+	} {
+		session := Session{DecisionEvidence: []DecisionEvidence{evidence}}
+		session.Interview.Metadata = map[string]string{securityAlternativeMetadataKey(step): "2"}
+		if _, ok := selectedSecurityAlternative(session, step, op); ok {
+			t.Fatalf("legacy selection accepted unconfirmed evidence: %#v", evidence)
+		}
 	}
 }

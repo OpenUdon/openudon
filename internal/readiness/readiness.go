@@ -9,7 +9,6 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"sort"
 	"strings"
 	"time"
 
@@ -303,10 +302,4 @@ func resolveNow(now func() time.Time) time.Time {
 		return time.Now()
 	}
 	return now()
-}
-
-func SortChecks(checks []Check) {
-	sort.Slice(checks, func(i, j int) bool {
-		return checks[i].Name < checks[j].Name
-	})
 }

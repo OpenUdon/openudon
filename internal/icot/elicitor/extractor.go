@@ -1037,27 +1037,6 @@ func outputSchema() map[string]any {
 	})
 }
 
-func sourceAnnotationSchema() map[string]any {
-	return strictObjectSchema(map[string]any{
-		"slot":           stringSchema(),
-		"source":         stringSchema(),
-		"prompt_version": stringSchema(),
-		"evidence":       stringSchema(),
-	})
-}
-
-func assumptionSchema() map[string]any {
-	return strictObjectSchema(map[string]any{
-		"id":                    stringSchema(),
-		"slot":                  stringSchema(),
-		"value":                 stringSchema(),
-		"reason":                stringSchema(),
-		"evidence":              stringSchema(),
-		"risk":                  stringSchema(),
-		"requires_confirmation": boolSchema(),
-	})
-}
-
 func catalogPlanCompletionSchema() map[string]any {
 	return strictObjectSchema(map[string]any{
 		"selected_artifacts": arraySchema(strictObjectSchema(map[string]any{

@@ -1,61 +1,72 @@
 {
-  "version": "apitools.review-handoff.v1",
+  "version": "apitools.review-handoff.v2",
   "generated_state": "generated",
   "handoff_inputs": [
     {
       "path": "asyncapi/streetlights-mqtt.yml",
       "purpose": "Reviewed API source contract staged with the trusted executor package.",
-      "required": true
+      "required": true,
+      "sha256": "48ed935327e7138f9276cc26c7d632adacd83c403d4f33de8fda368a4a577c9d"
     },
     {
       "path": "expected/data.hcl",
       "purpose": "Reviewed non-secret runtime input values staged with the trusted executor package.",
-      "required": true
+      "required": true,
+      "sha256": "baae9232dcd39d64869a1bbeda153edbb2067753d4589f1c71e8dc6eb17e24ff"
     },
     {
       "path": "expected/plan.json",
       "purpose": "Machine-readable expected steps, bindings, credentials, control flow, and side-effect hints.",
-      "required": true
+      "required": true,
+      "sha256": "08f565b01aae3a7e33be008e939a298094d3a3e21f27900dca87930a53e7fd07"
     },
     {
       "path": "expected/quality.json",
       "purpose": "Deterministic quality gate result.",
-      "required": true
+      "required": true,
+      "sha256": "c92dff420ce6e9d0681b0cbd182fcd1a0baaf065945623460c9566b30fc964b8"
     },
     {
       "path": "expected/refinement.json",
       "purpose": "Generation/refinement attempts, failed checks, and stop reason.",
-      "required": true
+      "required": true,
+      "sha256": "b1d38c66f0464990a94cee7f476ba0cac848a7bd56363f5ba62b75d8cb355768"
     },
     {
       "path": "expected/review-handoff.json",
       "purpose": "Machine-readable review handoff manifest for reviewer or orchestrator routing.",
-      "required": true
+      "required": true,
+      "sha256": "fc635aaf5da3ef2d74d76eadb094917a78047d26d9c3ce9b001b5951221e35b5"
     },
     {
       "path": "expected/review.md",
       "purpose": "Human review evidence, unresolved risks, skipped execution notes, and trusted-runner command text.",
-      "required": true
+      "required": true,
+      "sha256": "b264f4d1cf98f8bd9ee0e0b27775870c7a9600b44ddfc28d4da30aa816601d91"
     },
     {
       "path": "project.md",
       "purpose": "Source brief, integration policy, runtime policy, credentials policy, safety boundary, and fallback behavior.",
-      "required": true
+      "required": true,
+      "sha256": "35a90222840259ceedba1f94a5ac214118d22b2d4619505ea7685dd4664d4d0e"
     },
     {
       "path": "workflows/intent.hcl",
       "purpose": "Structured intent extracted from the project brief.",
-      "required": true
+      "required": true,
+      "sha256": "b6af181d012c85e0b3513c6177e35fbb8c3e62c5fe032addde6a6e32e599c5d1"
     },
     {
       "path": "workflows/workflow.hcl",
       "purpose": "Public UWS HCL document produced from intent.",
-      "required": true
+      "required": true,
+      "sha256": "3532839becfb3644706b232d7813c86670252a480249be68ce8d8abb1a4dc122"
     },
     {
       "path": "workflows/workflow.uws.yaml",
       "purpose": "Public UWS YAML artifact validated against the public UWS schema and local execution-profile checks.",
-      "required": true
+      "required": true,
+      "sha256": "0007e9dbca9a06868db92ba841ba356d4aac249296c9aa451929cc8caa4d2e09"
     }
   ],
   "approval_states": [
