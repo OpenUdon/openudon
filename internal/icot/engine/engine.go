@@ -73,6 +73,7 @@ type Snapshot struct {
 	CandidateWorkflows []elicitor.CandidateWorkflow     `json:"candidate_workflows,omitempty"`
 	Evidence           []publicinterview.Evidence       `json:"evidence,omitempty"`
 	Frontier           []elicitor.QuestionPlan          `json:"frontier"`
+	QuestionControls   []elicitor.QuestionControl       `json:"question_controls,omitempty"`
 	Readiness          []elicitor.ReadinessIssue        `json:"readiness"`
 	TopIssue           *elicitor.ReadinessIssue         `json:"top_issue,omitempty"`
 	Ready              bool                             `json:"ready"`
@@ -410,6 +411,7 @@ func (e *Engine) snapshotForStateLocked(ctx context.Context, state refreshedEngi
 		return Snapshot{}, err
 	}
 	issues = currentReadiness(state)
+	questionControls := elicitor.BuildQuestionControls(state.session, state.discovery.Docs, frontier)
 	var preview *Preview
 	actions := artifactwriter.PotentialFileActions(e.config.ExampleDir, state.session, false)
 	conflicts := make([]WriteConflict, 0)
@@ -439,6 +441,7 @@ func (e *Engine) snapshotForStateLocked(ctx context.Context, state refreshedEngi
 		CandidateWorkflows: append([]elicitor.CandidateWorkflow(nil), state.session.CandidateWorkflows...),
 		Evidence:           append([]publicinterview.Evidence(nil), state.session.Interview.Evidence...),
 		Frontier:           append([]elicitor.QuestionPlan(nil), frontier...),
+		QuestionControls:   questionControls,
 		Readiness:          append([]elicitor.ReadinessIssue(nil), issues...),
 		TopIssue:           top,
 		Ready:              preview != nil && !preview.Incomplete && !hasBlockingIssue(issues),

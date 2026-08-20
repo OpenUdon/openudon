@@ -93,8 +93,16 @@ type roundRequest struct {
 }
 
 type roundAnswer struct {
-	QuestionID string `json:"question_id"`
-	Value      string `json:"value"`
+	QuestionID string         `json:"question_id"`
+	Value      string         `json:"value"`
+	Deferral   *roundDeferral `json:"deferral,omitempty"`
+}
+
+type roundDeferral struct {
+	Owner               string `json:"owner"`
+	Impact              string `json:"impact"`
+	UnblockCondition    string `json:"unblock_condition"`
+	SuggestedNextAction string `json:"suggested_next_action"`
 }
 
 type approveRequest struct {
@@ -423,11 +431,21 @@ func (s *Server) serveRound(w http.ResponseWriter, r *http.Request, cookieScoped
 	}
 	answers := make([]authoring.RoundAnswer, len(request.Answers))
 	for i, answer := range request.Answers {
-		if strings.TrimSpace(answer.QuestionID) == "" {
+		questionID := strings.TrimSpace(answer.QuestionID)
+		if questionID == "" {
 			s.writeError(w, http.StatusBadRequest, "malformed_request", "every answer requires question_id", false, requestID, s.currentRevision())
 			return
 		}
-		answers[i] = authoring.RoundAnswer{QuestionID: answer.QuestionID, Value: answer.Value, Source: humanInputSource}
+		value := answer.Value
+		if answer.Deferral != nil {
+			var err error
+			value, err = encodeRoundDeferral(answer.Value, *answer.Deferral)
+			if err != nil {
+				s.writeQuestionError(w, http.StatusBadRequest, "malformed_request", err.Error(), false, requestID, s.currentRevision(), questionID)
+				return
+			}
+		}
+		answers[i] = authoring.RoundAnswer{QuestionID: questionID, Value: value, Source: humanInputSource}
 	}
 
 	s.mu.Lock()
@@ -448,6 +466,25 @@ func (s *Server) serveRound(w http.ResponseWriter, r *http.Request, cookieScoped
 	}
 	setETag(w, s.revision)
 	s.writeJSON(w, http.StatusOK, s.responseLocked(), requestID)
+}
+
+func encodeRoundDeferral(answerValue string, deferral roundDeferral) (string, error) {
+	if strings.TrimSpace(answerValue) != "" {
+		return "", errors.New("an answer must contain either value or deferral, not both")
+	}
+	parts := []string{deferral.Owner, deferral.Impact, deferral.UnblockCondition, deferral.SuggestedNextAction}
+	for _, part := range parts {
+		if strings.TrimSpace(part) == "" {
+			return "", errors.New("a deferral requires owner, impact, unblock condition, and suggested next action")
+		}
+		if strings.Contains(part, "|") {
+			return "", errors.New("deferral fields may not contain the | character")
+		}
+	}
+	for index := range parts {
+		parts[index] = strings.TrimSpace(parts[index])
+	}
+	return "defer:" + strings.Join(parts, " | "), nil
 }
 
 func (s *Server) serveApprove(w http.ResponseWriter, r *http.Request, cookieScoped bool, requestID string) {
@@ -816,7 +853,7 @@ func setSecurityHeaders(w http.ResponseWriter) {
 	w.Header().Set("Cross-Origin-Opener-Policy", "same-origin")
 	w.Header().Set("Cross-Origin-Resource-Policy", "same-origin")
 	w.Header().Set("Permissions-Policy", "camera=(), microphone=(), geolocation=(), payment=(), usb=()")
-	w.Header().Set("Referrer-Policy", "no-referrer")
+	w.Header().Set("Referrer-Policy", "same-origin")
 	w.Header().Set("X-Content-Type-Options", "nosniff")
 	w.Header().Set("X-Frame-Options", "DENY")
 }

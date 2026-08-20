@@ -298,6 +298,7 @@ func newPhaseCPage(t *testing.T, browser playwright.Browser, fixture *phaseCBrow
 	if err != nil {
 		t.Fatal(err)
 	}
+	page.OnPageError(func(err error) { t.Errorf("iCoT UI page error: %v", err) })
 	t.Cleanup(func() { _ = page.Close() })
 	if _, err := page.Goto(fixture.url, playwright.PageGotoOptions{WaitUntil: playwright.WaitUntilStateDomcontentloaded}); err != nil {
 		t.Fatal(err)
@@ -516,6 +517,52 @@ func TestPhaseCBrowserSuccessfulRoundFocusesNextFrontier(t *testing.T) {
 	requireVisible(t, page.GetByLabel("Your answer for: Which reviewed source should be used?"))
 	waitForActiveID(t, page, "frontier-answer-1")
 	waitForLocatorText(t, page.Locator("#mutation-status"), "Continue with the next authoring question")
+}
+
+func TestPhaseCBrowserStructuredChoiceAndDeferral(t *testing.T) {
+	_, browser := launchPhaseCBrowser(t)
+	snapshot := engine.Snapshot{
+		Frontier: []elicitor.QuestionPlan{
+			{ID: "source.remote_lookup", Prompt: "Allow remote lookup?", Required: true},
+			{ID: "workflow.fallback", Prompt: "What should happen if the step fails?", Required: true},
+		},
+		QuestionControls: []elicitor.QuestionControl{
+			{QuestionID: "source.remote_lookup", InputKind: elicitor.QuestionInputChoice, Options: []elicitor.QuestionOption{{Value: "never", Label: "Never use the network"}, {Value: "allow", Label: "Allow one lookup"}}},
+			{QuestionID: "workflow.fallback", InputKind: elicitor.QuestionInputText, Deferrable: true, Syntax: "Describe a bounded fallback."},
+		},
+		Readiness:        []elicitor.ReadinessIssue{{Code: "review", Severity: "blocking", Message: "Answer the current frontier."}},
+		ProposedActions:  []elicitor.FileAction{},
+		WriteConflicts:   []engine.WriteConflict{},
+		SourceCandidates: engine.SourceCandidates{},
+	}
+	browserEngine := &phaseCBrowserEngine{snapshot: snapshot, proposal: phaseCProposalSnapshot(true, false)}
+	fixture := newPhaseCBrowserFixture(t, browserEngine)
+	page := newPhaseCPage(t, browser, fixture)
+
+	lookup := page.GetByLabel("Your answer for: Allow remote lookup?", playwright.PageGetByLabelOptions{Exact: playwright.Bool(true)})
+	values := []string{"never"}
+	if _, err := lookup.SelectOption(playwright.SelectOptionValues{Values: &values}); err != nil {
+		t.Fatal(err)
+	}
+	deferToggle := page.GetByLabel("Defer this decision with an explicit owner and unblock plan.", playwright.PageGetByLabelOptions{Exact: playwright.Bool(true)})
+	if err := deferToggle.Check(); err != nil {
+		t.Fatal(err)
+	}
+	for label, value := range map[string]string{
+		"Owner": "API owner", "Impact of deferring": "draft remains incomplete", "Unblock condition": "provider publishes a spec", "Suggested next action": "add the reviewed source",
+	} {
+		if err := page.GetByLabel(label, playwright.PageGetByLabelOptions{Exact: playwright.Bool(true)}).Fill(value); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := page.GetByRole("button", playwright.PageGetByRoleOptions{Name: "Submit complete round", Exact: playwright.Bool(true)}).Click(); err != nil {
+		t.Fatal(err)
+	}
+	requireVisible(t, page.GetByRole("button", playwright.PageGetByRoleOptions{Name: "Approve incomplete draft", Exact: playwright.Bool(true)}))
+	rounds, _, answers, _ := browserEngine.mutationRecord()
+	if rounds != 1 || len(answers) != 2 || answers[0].Value != "never" || answers[1].Value != "defer:API owner | draft remains incomplete | provider publishes a spec | add the reviewed source" {
+		t.Fatalf("structured round = calls %d answers %#v", rounds, answers)
+	}
 }
 
 func TestPhaseCBrowserIncompleteApprovalIsExplicit(t *testing.T) {

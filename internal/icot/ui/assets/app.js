@@ -73,23 +73,40 @@ const mutationLocked = () => Boolean(
   externallyModified()
 );
 
-const answerInputs = () => Array.from(document.querySelectorAll("textarea[data-question-id]"));
+const answerInputs = () => Array.from(document.querySelectorAll(".question-answer[data-question-id]"));
 
-const collectAnswers = () => answerInputs().map((input) => ({
-  question_id: input.dataset.questionId,
-  prompt: input.dataset.questionPrompt || input.dataset.questionId,
-  value: input.value,
-}));
+const questionWrapper = (input) => input.closest(".question");
+
+const deferralFields = (wrapper) => Array.from(wrapper?.querySelectorAll(".deferral-field") || []);
+
+const collectAnswers = () => answerInputs().map((input) => {
+  const wrapper = questionWrapper(input);
+  const toggle = wrapper?.querySelector(".deferral-toggle");
+  const base = {
+    question_id: input.dataset.questionId,
+    prompt: input.dataset.questionPrompt || input.dataset.questionId,
+    value: input.value,
+  };
+  if (!toggle?.checked) return base;
+  const deferral = {};
+  for (const field of deferralFields(wrapper)) deferral[field.dataset.deferralField] = field.value;
+  return {
+    ...base,
+    value: "",
+    deferral,
+    display_value: `Deferred — owner: ${deferral.owner || "—"}; impact: ${deferral.impact || "—"}; unblock condition: ${deferral.unblock_condition || "—"}; next action: ${deferral.suggested_next_action || "—"}`,
+  };
+});
 
 const renderUnsentAnswers = (answers) => {
-  const values = answers.filter((answer) => answer.value.trim() !== "");
+  const values = answers.filter((answer) => (answer.display_value || answer.value || "").trim() !== "");
   if (values.length === 0) return;
   const list = byID("unsent-answers");
   clearNode(list);
   for (const answer of values) {
     const row = make("div");
     row.append(make("dt", answer.prompt));
-    row.append(make("dd", answer.value));
+    row.append(make("dd", answer.display_value || answer.value));
     list.append(row);
   }
   byID("unsent-section").hidden = false;
@@ -124,9 +141,39 @@ const showQuestionError = (questionID, message) => {
   const error = byID(`${input.id}-error`);
   error.textContent = message;
   error.hidden = false;
-  input.setAttribute("aria-invalid", "true");
-  input.focus();
+  const wrapper = questionWrapper(input);
+  const toggle = wrapper?.querySelector(".deferral-toggle");
+  const focusTarget = toggle?.checked ? deferralFields(wrapper)[0] : input;
+  focusTarget?.setAttribute("aria-invalid", "true");
+  focusTarget?.focus();
   return true;
+};
+
+const clearQuestionError = (wrapper) => {
+  const input = wrapper?.querySelector(".question-answer");
+  if (!input) return;
+  const error = byID(`${input.id}-error`);
+  error.hidden = true;
+  for (const control of [input, ...deferralFields(wrapper)]) control.removeAttribute("aria-invalid");
+};
+
+const updateQuestionState = (wrapper, locked = mutationLocked()) => {
+  const input = wrapper.querySelector(".question-answer");
+  const toggle = wrapper.querySelector(".deferral-toggle");
+  const panel = wrapper.querySelector(".deferral-panel");
+  const deferred = Boolean(toggle?.checked);
+  input.disabled = locked || deferred;
+  input.required = !deferred;
+  input.setAttribute("aria-required", String(!deferred));
+  if (toggle) toggle.disabled = locked;
+  if (panel) panel.hidden = !deferred;
+  for (const field of deferralFields(wrapper)) {
+    field.disabled = locked || !deferred;
+    field.required = deferred;
+    field.setAttribute("aria-required", String(deferred));
+  }
+  const recommendation = wrapper.querySelector(".question-actions button");
+  if (recommendation) recommendation.disabled = locked || deferred;
 };
 
 const showStateWarning = (payload, message, focus = false) => {
@@ -156,12 +203,15 @@ const appendEmptyOrItems = (listID, values, emptyText, renderItem) => {
 
 const renderFrontier = (snapshot, revision) => {
   const frontier = snapshot.frontier || [];
+  const controls = new Map((snapshot.question_controls || []).map((control) => [control.question_id, control]));
   const fields = byID("frontier-fields");
   clearNode(fields);
   showText("frontier-revision", revision ? `Revision ${revision}` : "Waiting for a revision");
 
   for (const [index, question] of frontier.entries()) {
     const wrapper = make("fieldset", null, "question");
+    wrapper.dataset.questionId = question.id || "";
+    const control = controls.get(question.id) || { input_kind: "text", options: [], deferrable: false };
     const legend = make("legend", question.prompt || question.id || `Question ${index + 1}`);
     wrapper.append(legend);
 
@@ -193,41 +243,103 @@ const renderFrontier = (snapshot, revision) => {
       descriptionIDs.push(node.id);
       wrapper.append(node);
     }
+    if (control.syntax) {
+      const node = make("p", `Format: ${control.syntax}`, "question-meta question-syntax");
+      node.id = `${inputID}-syntax`;
+      descriptionIDs.push(node.id);
+      wrapper.append(node);
+    }
 
     const label = make("label", `Your answer for: ${question.prompt || question.id || `Question ${index + 1}`}`, "sr-only");
     label.htmlFor = inputID;
     wrapper.append(label);
-    const textarea = make("textarea");
-    textarea.id = inputID;
-    textarea.name = question.id || inputID;
-    textarea.required = true;
-    textarea.dataset.questionId = question.id || "";
-    textarea.dataset.questionPrompt = question.prompt || question.id || `Question ${index + 1}`;
-    textarea.placeholder = "Write your answer…";
-    textarea.setAttribute("aria-required", "true");
+    let input;
+    if (control.input_kind === "choice" && control.options?.length) {
+      input = make("select", null, "question-answer");
+      const placeholder = make("option", "Choose an answer…");
+      placeholder.value = "";
+      input.append(placeholder);
+      for (const option of control.options) {
+        const choice = make("option", option.label || option.value);
+        choice.value = option.value || "";
+        input.append(choice);
+      }
+    } else {
+      input = make("textarea", null, "question-answer");
+      input.placeholder = "Write your answer…";
+    }
+    input.id = inputID;
+    input.name = question.id || inputID;
+    input.required = true;
+    input.dataset.questionId = question.id || "";
+    input.dataset.questionPrompt = question.prompt || question.id || `Question ${index + 1}`;
+    input.setAttribute("aria-required", "true");
     descriptionIDs.push(errorID);
-    textarea.setAttribute("aria-describedby", descriptionIDs.join(" "));
-    wrapper.append(textarea);
+    input.setAttribute("aria-describedby", descriptionIDs.join(" "));
+    wrapper.append(input);
 
     const error = make("p", "", "field-error");
     error.id = errorID;
     error.hidden = true;
     wrapper.append(error);
 
-    if (question.recommendation) {
+    if (control.deferrable) {
+      const toggleID = `${inputID}-defer`;
+      const toggleRow = make("label", null, "check-row deferral-toggle-row");
+      toggleRow.htmlFor = toggleID;
+      const toggle = make("input", null, "deferral-toggle");
+      toggle.id = toggleID;
+      toggle.type = "checkbox";
+      toggleRow.append(toggle, make("span", "Defer this decision with an explicit owner and unblock plan."));
+      wrapper.append(toggleRow);
+
+      const panel = make("fieldset", null, "deferral-panel");
+      panel.hidden = true;
+      panel.append(make("legend", "Deferral details"));
+      const deferralLabels = [
+        ["owner", "Owner"],
+        ["impact", "Impact of deferring"],
+        ["unblock_condition", "Unblock condition"],
+        ["suggested_next_action", "Suggested next action"],
+      ];
+      for (const [fieldName, fieldLabel] of deferralLabels) {
+        const fieldID = `${inputID}-deferral-${fieldName.replaceAll("_", "-")}`;
+        const fieldWrapper = make("div", null, "deferral-field-row");
+        const fieldLabelNode = make("label", fieldLabel);
+        fieldLabelNode.htmlFor = fieldID;
+        const field = make("input", null, "deferral-field");
+        field.id = fieldID;
+        field.type = "text";
+        field.required = true;
+        field.disabled = true;
+        field.dataset.deferralField = fieldName;
+        field.setAttribute("aria-describedby", errorID);
+        fieldWrapper.append(fieldLabelNode, field);
+        panel.append(fieldWrapper);
+      }
+      wrapper.append(panel);
+    }
+
+    const recommendationMatchesControl = control.input_kind !== "choice" || control.options?.some((option) => option.value === question.recommendation);
+    if (question.recommendation && recommendationMatchesControl) {
       const actions = make("div", null, "question-actions");
       const recommendation = make("button", "Use recommendation");
       recommendation.type = "button";
       recommendation.setAttribute("aria-label", `Use recommendation for ${question.prompt || question.id}`);
       recommendation.addEventListener("click", () => {
-        textarea.value = question.recommendation;
-        textarea.dispatchEvent(new Event("input", { bubbles: true }));
-        textarea.focus();
+        if (input.value.trim() !== "") {
+          input.focus();
+          return;
+        }
+        input.value = question.recommendation;
+        input.dispatchEvent(new Event("input", { bubbles: true }));
+        input.focus();
       });
       actions.append(recommendation);
       wrapper.append(actions);
     }
     fields.append(wrapper);
+    updateQuestionState(wrapper, mutationLocked());
   }
 
   byID("round-form").hidden = frontier.length === 0;
@@ -331,8 +443,7 @@ const updateControls = () => {
   const reviewed = byID("review-confirmed").checked;
   const overwriteAllowed = conflicts.length === 0 || byID("allow-overwrite").checked;
 
-  answerInputs().forEach((input) => { input.disabled = locked; });
-  document.querySelectorAll(".question-actions button").forEach((button) => { button.disabled = locked; });
+  document.querySelectorAll(".question").forEach((wrapper) => updateQuestionState(wrapper, locked));
   byID("round-submit").disabled = locked || (snapshot.frontier || []).length === 0;
 
   byID("review-confirmed").disabled = locked || !snapshot.approval_required;
@@ -534,6 +645,11 @@ const handleMutationFailure = async (request, status, payload) => {
     showError(failure.message, failure.requestID, null, !fieldFocused);
     return;
   }
+  if (error.question_id && status > 0 && status < 500) {
+    const fieldFocused = showQuestionError(error.question_id, failure.message);
+    showError(failure.message, failure.requestID, null, !fieldFocused);
+    return;
+  }
   if (failure.code === "workspace_changed" || failure.code === "session_frozen" || failure.code === "stale_revision" || status >= 500 || status === 0) {
     await reconcileMutationFailure(request, failure, failure.retryable);
     return;
@@ -593,15 +709,28 @@ async function sendMutation(request) {
 const validateRound = () => {
   let firstInvalid = null;
   for (const input of answerInputs()) {
+    const wrapper = questionWrapper(input);
+    const toggle = wrapper?.querySelector(".deferral-toggle");
     const error = byID(`${input.id}-error`);
-    if (input.value.trim() === "") {
+    clearQuestionError(wrapper);
+    if (toggle?.checked) {
+      const fields = deferralFields(wrapper);
+      const missing = fields.find((field) => field.value.trim() === "");
+      const invalidSeparator = fields.find((field) => field.value.includes("|"));
+      if (missing || invalidSeparator) {
+        error.textContent = missing
+          ? "A deferral requires an owner, impact, unblock condition, and suggested next action."
+          : "Deferral fields may not contain the | character.";
+        error.hidden = false;
+        const invalid = missing || invalidSeparator;
+        invalid.setAttribute("aria-invalid", "true");
+        if (!firstInvalid) firstInvalid = invalid;
+      }
+    } else if (input.value.trim() === "") {
       error.textContent = "This frontier question requires an answer before the round can be submitted.";
       error.hidden = false;
       input.setAttribute("aria-invalid", "true");
       if (!firstInvalid) firstInvalid = input;
-    } else {
-      error.hidden = true;
-      input.removeAttribute("aria-invalid");
     }
   }
   if (firstInvalid) firstInvalid.focus();
@@ -611,18 +740,20 @@ const validateRound = () => {
 byID("round-form").addEventListener("submit", (event) => {
   event.preventDefault();
   if (mutationLocked() || !validateRound()) return;
-  const answers = collectAnswers().map(({ question_id, value }) => ({ question_id, value: value.trim() }));
+  const answers = collectAnswers().map(({ question_id, value, deferral }) => (
+    deferral
+      ? { question_id, deferral: Object.fromEntries(Object.entries(deferral).map(([key, item]) => [key, item.trim()])) }
+      : { question_id, value: value.trim() }
+  ));
   sendMutation({ route: "round", body: { revision: state.renderedPayload.revision, answers } });
 });
 
 byID("frontier-fields").addEventListener("input", (event) => {
-  if (!event.target.matches("textarea[data-question-id]")) return;
+  if (!event.target.matches(".question-answer, .deferral-field, .deferral-toggle")) return;
   state.dirty = true;
-  const error = byID(`${event.target.id}-error`);
-  if (event.target.value.trim() !== "") {
-    error.hidden = true;
-    event.target.removeAttribute("aria-invalid");
-  }
+  const wrapper = event.target.closest(".question");
+  if (event.target.matches(".deferral-toggle")) updateQuestionState(wrapper);
+  clearQuestionError(wrapper);
   clearError();
   updateControls();
 });

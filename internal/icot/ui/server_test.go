@@ -372,6 +372,9 @@ func TestExactHostOriginSecurityHeadersAndMethods(t *testing.T) {
 	if !strings.Contains(csp, "form-action 'self'") || strings.Contains(csp, "form-action 'none'") {
 		t.Fatalf("bootstrap-blocking content security policy = %q", csp)
 	}
+	if policy := exactOriginResponse.Header().Get("Referrer-Policy"); policy != "same-origin" {
+		t.Fatalf("origin-breaking referrer policy = %q", policy)
+	}
 	for name := range exactOriginResponse.Header() {
 		if strings.HasPrefix(strings.ToLower(name), "access-control-") {
 			t.Errorf("unexpected CORS header %s", name)
@@ -978,6 +981,43 @@ func TestRejectedRoundIdentifiesAuthoritativeQuestion(t *testing.T) {
 	}
 }
 
+func TestStructuredDeferralIsBoundToTheQuestionAnswer(t *testing.T) {
+	fake := &fakeEngine{}
+	handler := newFakeHandler(t, fake)
+	before := currentResponse(t, handler)
+	body := fmt.Sprintf(`{"revision":%q,"answers":[{"question_id":"workflow.fallback","deferral":{"owner":"API owner","impact":"draft remains incomplete","unblock_condition":"provider publishes a spec","suggested_next_action":"add the reviewed source"}}]}`, before.Revision)
+	response := doRequest(handler, http.MethodPost, "/api/v2/round", body, "application/json", true)
+	if response.Code != http.StatusOK {
+		t.Fatalf("structured deferral = %d %s", response.Code, response.Body.String())
+	}
+	fake.mu.Lock()
+	defer fake.mu.Unlock()
+	if len(fake.seen) != 1 || fake.seen[0].QuestionID != "workflow.fallback" || fake.seen[0].Value != "defer:API owner | draft remains incomplete | provider publishes a spec | add the reviewed source" {
+		t.Fatalf("encoded deferral = %#v", fake.seen)
+	}
+}
+
+func TestMalformedStructuredDeferralIsQuestionAddressable(t *testing.T) {
+	fake := &fakeEngine{}
+	handler := newFakeHandler(t, fake)
+	before := currentResponse(t, handler)
+	body := fmt.Sprintf(`{"revision":%q,"answers":[{"question_id":"workflow.fallback","value":"also answer","deferral":{"owner":"API owner","impact":"blocked","unblock_condition":"spec exists","suggested_next_action":"retry"}}]}`, before.Revision)
+	response := doRequest(handler, http.MethodPost, "/api/v2/round", body, "application/json", true)
+	if response.Code != http.StatusBadRequest {
+		t.Fatalf("malformed deferral = %d %s", response.Code, response.Body.String())
+	}
+	var envelope errorEnvelope
+	if err := json.Unmarshal(response.Body.Bytes(), &envelope); err != nil {
+		t.Fatal(err)
+	}
+	if envelope.Error.QuestionID != "workflow.fallback" || !strings.Contains(envelope.Error.Message, "either value or deferral") {
+		t.Fatalf("malformed deferral envelope = %#v", envelope)
+	}
+	if rounds, _ := fake.counts(); rounds != 0 {
+		t.Fatalf("malformed deferral reached engine %d times", rounds)
+	}
+}
+
 func TestRealEngineCommitFailureReturnsServerErrorWithoutWrite(t *testing.T) {
 	example := filepath.Join(t.TempDir(), "target")
 	fixture := filepath.Join(repoRoot(t), "examples", "eval", "runtime-only-render")
@@ -1226,7 +1266,9 @@ func TestEmbeddedShellContainsAccessiblePhaseCControls(t *testing.T) {
 		t.Fatal(err)
 	}
 	for _, required := range []string{
-		`textarea.dataset.questionId`,
+		`input.dataset.questionId`,
+		`control.input_kind === "choice"`,
+		`deferral: Object.fromEntries`,
 		`revision: state.renderedPayload.revision`,
 		`human_approved: true`,
 		`approve_incomplete: mode === "incomplete"`,
