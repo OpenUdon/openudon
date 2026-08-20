@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/OpenUdon/openudon/internal/authoring"
 	"github.com/OpenUdon/openudon/internal/icot/artifactwriter"
 )
 
@@ -52,6 +53,12 @@ func FailureDetails(err error) (FailureClass, string) {
 		return FailureIndeterminate, "transaction_indeterminate"
 	}
 	return FailureOperational, "engine_operation_failed"
+}
+
+// FailureQuestionID returns the authoritative frontier question attached to a
+// rejected answer, when the failure occurred while resolving one question.
+func FailureQuestionID(err error) string {
+	return authoring.QuestionID(err)
 }
 
 func rejected(err error) error {

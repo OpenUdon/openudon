@@ -80,10 +80,11 @@ type errorEnvelope struct {
 }
 
 type errorPayload struct {
-	Code      string `json:"code"`
-	Message   string `json:"message"`
-	Retryable bool   `json:"retryable"`
-	RequestID string `json:"request_id"`
+	Code       string `json:"code"`
+	Message    string `json:"message"`
+	Retryable  bool   `json:"retryable"`
+	RequestID  string `json:"request_id"`
+	QuestionID string `json:"question_id,omitempty"`
 }
 
 type roundRequest struct {
@@ -577,7 +578,7 @@ func (s *Server) writeEngineError(w http.ResponseWriter, r *http.Request, reques
 	class, _ := engine.FailureDetails(err)
 	switch class {
 	case engine.FailureRejected:
-		s.writeError(w, http.StatusUnprocessableEntity, "engine_rejected", safeMessage(err), false, requestID, s.revision)
+		s.writeQuestionError(w, http.StatusUnprocessableEntity, "engine_rejected", safeMessage(err), false, requestID, s.revision, engine.FailureQuestionID(err))
 	case engine.FailureConflict:
 		s.writeError(w, http.StatusConflict, "workspace_changed", "the authoring workspace changed outside this process; restart is required", false, requestID, s.revision)
 	case engine.FailureIndeterminate:
@@ -729,8 +730,12 @@ func (s *Server) writeInternalError(w http.ResponseWriter, _ *http.Request, requ
 }
 
 func (s *Server) writeError(w http.ResponseWriter, status int, code, message string, retryable bool, requestID, revision string) {
+	s.writeQuestionError(w, status, code, message, retryable, requestID, revision, "")
+}
+
+func (s *Server) writeQuestionError(w http.ResponseWriter, status int, code, message string, retryable bool, requestID, revision, questionID string) {
 	s.writeJSON(w, status, errorEnvelope{Version: APIVersion, Revision: revision, Error: errorPayload{
-		Code: code, Message: message, Retryable: retryable, RequestID: requestID,
+		Code: code, Message: message, Retryable: retryable, RequestID: requestID, QuestionID: questionID,
 	}}, requestID)
 }
 

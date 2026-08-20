@@ -961,6 +961,23 @@ func TestOperationalEngineFailuresReturnServerErrors(t *testing.T) {
 	}
 }
 
+func TestRejectedRoundIdentifiesAuthoritativeQuestion(t *testing.T) {
+	fake := &fakeEngine{roundErr: engineRejected(authoring.WithQuestionID("boundary.actor_trigger", errors.New("actor and trigger are invalid")))}
+	handler := newFakeHandler(t, fake)
+	before := currentResponse(t, handler)
+	response := doRequest(handler, http.MethodPost, "/api/v2/round", fmt.Sprintf(`{"revision":%q,"answers":[{"question_id":"boundary.actor_trigger","value":"invalid"}]}`, before.Revision), "application/json", true)
+	if response.Code != http.StatusUnprocessableEntity {
+		t.Fatalf("rejection status = %d body %s", response.Code, response.Body.String())
+	}
+	var envelope errorEnvelope
+	if err := json.Unmarshal(response.Body.Bytes(), &envelope); err != nil {
+		t.Fatal(err)
+	}
+	if envelope.Error.QuestionID != "boundary.actor_trigger" || envelope.Error.Message != "actor and trigger are invalid" {
+		t.Fatalf("rejection envelope = %#v", envelope)
+	}
+}
+
 func TestRealEngineCommitFailureReturnsServerErrorWithoutWrite(t *testing.T) {
 	example := filepath.Join(t.TempDir(), "target")
 	fixture := filepath.Join(repoRoot(t), "examples", "eval", "runtime-only-render")
@@ -1224,6 +1241,7 @@ func TestEmbeddedShellContainsAccessiblePhaseCControls(t *testing.T) {
 		`announceMutation("Round submitted. Continue with the next authoring question.")`,
 		`successFocusID = "review-heading"`,
 		`successFocusID = "completion-banner"`,
+		`showQuestionError(error.question_id || "", failure.message)`,
 	} {
 		if !bytes.Contains(javascript, []byte(required)) {
 			t.Errorf("embedded client missing %q", required)

@@ -625,7 +625,7 @@ func TestPhaseCBrowserDomainRejectionRetainsEditableRound(t *testing.T) {
 	_, browser := launchPhaseCBrowser(t)
 	browserEngine := &phaseCBrowserEngine{
 		snapshot: phaseCFrontierSnapshot(), proposal: phaseCProposalSnapshot(false, false), roundErrOnce: true,
-		roundErr: &engine.Failure{Class: engine.FailureRejected, Code: "engine_rejected", Cause: errors.New("answer does not satisfy the reviewed contract")},
+		roundErr: &engine.Failure{Class: engine.FailureRejected, Code: "engine_rejected", Cause: authoring.WithQuestionID("actor", errors.New("answer does not satisfy the reviewed contract"))},
 	}
 	fixture := newPhaseCBrowserFixture(t, browserEngine)
 	page := newPhaseCPage(t, browser, fixture)
@@ -642,6 +642,10 @@ func TestPhaseCBrowserDomainRejectionRetainsEditableRound(t *testing.T) {
 		t.Fatal(err)
 	}
 	waitForLocatorText(t, page.Locator("#error-message"), "does not satisfy")
+	if invalid, err := actor.GetAttribute("aria-invalid"); err != nil || invalid != "true" {
+		t.Fatalf("rejected actor aria-invalid = %q, %v", invalid, err)
+	}
+	waitForActiveID(t, page, "frontier-answer-2")
 	if visible, err := page.Locator("#retry-mutation").IsVisible(); err != nil || visible {
 		t.Fatalf("domain rejection offered retry = %t, %v", visible, err)
 	}

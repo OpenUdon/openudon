@@ -195,6 +195,19 @@ func mergeStep(base, overlay *rollout.Step) {
 	base.DependsOn = dedupeStrings(append(base.DependsOn, overlay.DependsOn...))
 }
 
+func seedWorkflowGoal(session *Session, answer string) {
+	answer = strings.TrimSpace(answer)
+	if session == nil || answer == "" {
+		return
+	}
+	if session.Intent.Workflow == nil {
+		session.Intent.Workflow = &rollout.WorkflowMeta{}
+	}
+	session.Intent.Workflow.Description = firstNonEmpty(session.Intent.Workflow.Description, answer)
+	session.Intent.Workflow.Name = firstNonEmpty(session.Intent.Workflow.Name, actionName(answer))
+	session.Project.Goal = firstNonEmpty(session.Project.Goal, answer)
+}
+
 func applyProgressiveAnswer(session *Session, plan QuestionPlan, answer string, docs []APIDocument) {
 	answer = strings.TrimSpace(answer)
 	if answer == "" {
@@ -209,9 +222,9 @@ func applyProgressiveAnswer(session *Session, plan QuestionPlan, answer string, 
 		if session.Intent.Workflow == nil {
 			session.Intent.Workflow = &rollout.WorkflowMeta{}
 		}
-		session.Intent.Workflow.Description = firstNonEmpty(session.Intent.Workflow.Description, answer)
+		session.Intent.Workflow.Description = answer
 		session.Intent.Workflow.Name = firstNonEmpty(session.Intent.Workflow.Name, actionName(answer))
-		session.Project.Goal = firstNonEmpty(session.Project.Goal, answer)
+		session.Project.Goal = answer
 	case strings.Contains(slotText, "intent.openapi") || strings.Contains(slotText, "intent.source"):
 		if doc := matchDocAnswer(answer, docs); doc.RelativePath != "" {
 			setIntentAPISourceFromDoc(session, doc)

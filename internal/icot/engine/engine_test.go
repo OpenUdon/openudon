@@ -235,6 +235,47 @@ func TestApplyRoundRejectsInvalidAnswerSets(t *testing.T) {
 	})
 }
 
+func TestApplyRoundReplacesInadequateExistingGoal(t *testing.T) {
+	seed, err := loadSession(Config{ExampleDir: t.TempDir(), FromExample: runtimeFixture(t)})
+	if err != nil {
+		t.Fatal(err)
+	}
+	seed.Project.Goal = "Use the local API document."
+	seed.Intent.Workflow.Description = "Use the local API document."
+	example := filepath.Join(t.TempDir(), "replace-goal")
+	eng, snapshot, err := Open(context.Background(), Config{ExampleDir: example, Seed: &seed, NetworkPolicy: "never"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	const revisedGoal = "Render the reviewed runtime capability report."
+	answers := answersForSnapshot(snapshot)
+	found := false
+	for index, question := range snapshot.Frontier {
+		if len(question.Slots) == 1 && question.Slots[0] == "workflow.description" {
+			answers[index].Value = revisedGoal
+			found = true
+		}
+	}
+	if !found {
+		t.Fatalf("missing goal question not found: %#v", snapshot.Frontier)
+	}
+	updated, err := eng.ApplyRound(context.Background(), answers)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if updated.Boundary.Outcome != seed.Boundary.Outcome {
+		t.Fatalf("goal correction changed boundary outcome to %q", updated.Boundary.Outcome)
+	}
+	if updated.Preview == nil || !strings.Contains(updated.Preview.ProjectMD, revisedGoal) || !strings.Contains(updated.Preview.IntentHCL, revisedGoal) {
+		t.Fatalf("revised goal was not rendered: %#v", updated.Preview)
+	}
+	for _, question := range updated.Frontier {
+		if len(question.Slots) == 1 && question.Slots[0] == "workflow.description" {
+			t.Fatalf("goal question remained open after accepted answer: %#v", question)
+		}
+	}
+}
+
 func TestApplyRoundTransactionAndCancellationFinalization(t *testing.T) {
 	example := filepath.Join(t.TempDir(), "transactional-round")
 	eng, opened, err := Open(context.Background(), Config{ExampleDir: example, NetworkPolicy: "never"})

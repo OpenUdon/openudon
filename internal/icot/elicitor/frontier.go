@@ -3,6 +3,7 @@ package elicitor
 import (
 	"encoding/json"
 	"fmt"
+	"reflect"
 	"sort"
 	"strings"
 
@@ -373,14 +374,17 @@ func openUdonInterviewBinding(docs []APIDocument) authoring.InterviewBinding[Ses
 			return QuestionPlan{ID: node.ID, Prompt: node.Prompt, Required: node.Required, Recommendation: node.Recommendation, Priority: node.Priority, Rationale: node.Rationale, EvidenceRefs: node.EvidenceRefs}
 		},
 		Resolve: func(session *Session, currentDocs []APIDocument, node publicinterview.Node, answer authoring.RoundAnswer) (publicinterview.Resolution, error) {
+			reject := func(err error) (publicinterview.Resolution, error) {
+				return publicinterview.Resolution{}, authoring.WithQuestionID(node.ID, err)
+			}
 			value := strings.TrimSpace(answer.Value)
 			if strings.HasPrefix(strings.ToLower(value), "defer:") {
 				if !node.Deferrable {
-					return publicinterview.Resolution{}, fmt.Errorf("decision %q may not be deferred", node.ID)
+					return reject(fmt.Errorf("decision %q may not be deferred", node.ID))
 				}
 				parts := strings.Split(strings.TrimSpace(value[len("defer:"):]), "|")
 				if len(parts) != 4 {
-					return publicinterview.Resolution{}, fmt.Errorf("defer %q with owner | impact | unblock condition | suggested next action", node.ID)
+					return reject(fmt.Errorf("defer %q with owner | impact | unblock condition | suggested next action", node.ID))
 				}
 				deferral := publicinterview.Deferral{
 					ID: "deferral." + fmt.Sprintf("%03d", session.Interview.Round+1) + "." + node.ID, NodeID: node.ID,
@@ -389,10 +393,17 @@ func openUdonInterviewBinding(docs []APIDocument) authoring.InterviewBinding[Ses
 				return publicinterview.Resolution{NodeID: node.ID, Deferral: &deferral}, nil
 			}
 			if value == "" {
-				return publicinterview.Resolution{}, fmt.Errorf("decision %q requires an answer", node.ID)
+				return reject(fmt.Errorf("decision %q requires an answer", node.ID))
+			}
+			before, err := cloneSession(*session)
+			if err != nil {
+				return reject(fmt.Errorf("clone decision %q state: %w", node.ID, err))
 			}
 			if err := applyFrontierValue(session, node.ID, answer, currentDocs); err != nil {
-				return publicinterview.Resolution{}, err
+				return reject(err)
+			}
+			if reflect.DeepEqual(before, *session) {
+				return reject(fmt.Errorf("answer for decision %q did not update its targeted authoring state", node.ID))
 			}
 			resolved := publicinterview.Answer{ID: "answer." + fmt.Sprintf("%03d", session.Interview.Round+1) + "." + node.ID, NodeID: node.ID, Value: value, Source: answer.Source}
 			return publicinterview.Resolution{NodeID: node.ID, Answer: &resolved}, nil
@@ -409,7 +420,7 @@ func applyFrontierValue(session *Session, nodeID string, answer authoring.RoundA
 	switch nodeID {
 	case nodeBoundaryOutcome:
 		session.Boundary.Outcome = value
-		applyProgressiveAnswer(session, QuestionPlan{Slots: []string{"workflow.goal"}}, value, docs)
+		seedWorkflowGoal(session, value)
 	case nodeActiveWorkflow:
 		if session.Interview.Metadata == nil {
 			session.Interview.Metadata = map[string]string{}

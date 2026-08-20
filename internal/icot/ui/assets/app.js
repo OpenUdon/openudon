@@ -117,6 +117,18 @@ const showError = (message, requestID = "", retryRequest = null, focus = true) =
   if (focus) byID("error-banner").focus();
 };
 
+const showQuestionError = (questionID, message) => {
+  if (!questionID) return false;
+  const input = answerInputs().find((candidate) => candidate.dataset.questionId === questionID);
+  if (!input) return false;
+  const error = byID(`${input.id}-error`);
+  error.textContent = message;
+  error.hidden = false;
+  input.setAttribute("aria-invalid", "true");
+  input.focus();
+  return true;
+};
+
 const showStateWarning = (payload, message, focus = false) => {
   state.latestPayload = payload;
   state.serverRevision = payload.revision;
@@ -518,7 +530,8 @@ const handleMutationFailure = async (request, status, payload) => {
   announceMutation(`${request.route === "approve" ? "Approval" : "Round submission"} failed. Review the error before continuing.`);
 
   if (failure.code === "engine_rejected" || status === 422) {
-    showError(failure.message, failure.requestID);
+    const fieldFocused = showQuestionError(error.question_id || "", failure.message);
+    showError(failure.message, failure.requestID, null, !fieldFocused);
     return;
   }
   if (failure.code === "workspace_changed" || failure.code === "session_frozen" || failure.code === "stale_revision" || status >= 500 || status === 0) {

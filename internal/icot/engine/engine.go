@@ -252,6 +252,9 @@ func (e *Engine) ApplyRound(ctx context.Context, answers []authoring.RoundAnswer
 	if err != nil {
 		return Snapshot{}, rejected(err)
 	}
+	if questionID := repeatedAnsweredQuestion(canonicalAnswers, prospective.Frontier); questionID != "" {
+		return Snapshot{}, rejected(authoring.WithQuestionID(questionID, fmt.Errorf("answer for decision %q did not resolve its targeted authoring state", questionID)))
+	}
 	// Refresh and rendering can be long-running when reviewed sources are
 	// involved. Recheck the accepted revision's paths before adopting any new
 	// prospective paths so an intervening editor or process cannot become the
@@ -605,13 +608,13 @@ func canonicalizeCompleteRound(frontier []elicitor.QuestionPlan, answers []autho
 		id := strings.TrimSpace(answer.QuestionID)
 		question, ok := frontierQuestions[id]
 		if !ok {
-			return nil, fmt.Errorf("answer references non-frontier decision %q", answer.QuestionID)
+			return nil, authoring.WithQuestionID(id, fmt.Errorf("answer references non-frontier decision %q", answer.QuestionID))
 		}
 		if seen[id] {
-			return nil, fmt.Errorf("answer references duplicate decision %q", answer.QuestionID)
+			return nil, authoring.WithQuestionID(id, fmt.Errorf("answer references duplicate decision %q", answer.QuestionID))
 		}
 		if len(answer.Slots) > 0 && !equalStrings(answer.Slots, question.Slots) {
-			return nil, fmt.Errorf("answer slots for decision %q do not match the current frontier", answer.QuestionID)
+			return nil, authoring.WithQuestionID(id, fmt.Errorf("answer slots for decision %q do not match the current frontier", answer.QuestionID))
 		}
 		seen[id] = true
 		answer.QuestionID = question.ID
@@ -625,7 +628,7 @@ func canonicalizeCompleteRound(frontier []elicitor.QuestionPlan, answers []autho
 				missing = append(missing, question.ID)
 			}
 		}
-		return nil, fmt.Errorf("round must answer the complete frontier; missing %s", strings.Join(missing, ", "))
+		return nil, authoring.WithQuestionID(missing[0], fmt.Errorf("round must answer the complete frontier; missing %s", strings.Join(missing, ", ")))
 	}
 	return canonical, nil
 }
@@ -640,6 +643,19 @@ func equalStrings(left, right []string) bool {
 		}
 	}
 	return true
+}
+
+func repeatedAnsweredQuestion(answers []authoring.RoundAnswer, frontier []elicitor.QuestionPlan) string {
+	answered := make(map[string]bool, len(answers))
+	for _, answer := range answers {
+		answered[strings.TrimSpace(answer.QuestionID)] = true
+	}
+	for _, question := range frontier {
+		if answered[question.ID] {
+			return question.ID
+		}
+	}
+	return ""
 }
 
 func requireFreshRegistrySources(selected, discovered []elicitor.SourceMaterialization) error {
