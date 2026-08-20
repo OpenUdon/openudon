@@ -154,12 +154,8 @@ func DiscoverBrowserRegistrySourcesWithOptions(ctx context.Context, options Brow
 				report.Blockers = append(report.Blockers, BrowserRegistryBlocker{Code: "browser_registry.invalid_bundle", Registry: safeLocation, Message: browserRegistryOperatorText(convertErr.Error()), Deferrable: true})
 				continue
 			}
-			if seenTarget[plan.TargetPath] {
-				targetDigest := sha256.Sum256([]byte(location + "\x00" + plan.SourceSHA256))
-				suffix := hex.EncodeToString(targetDigest[:6])
-				plan.ID += "-" + suffix
-				plan.TargetPath = filepath.ToSlash(filepath.Join("browser-profiles", plan.ID+".json"))
-				candidate.Materialize = plan.TargetPath
+			if assignUniqueBrowserRegistryTarget(&plan, &candidate, seenTarget, location) {
+				doc = browserProfileDocument(plan, &pulled.Bundle.Payload.Profile)
 			}
 			seenCoordinate[registryCoordinateKey] = true
 			seenTarget[plan.TargetPath] = true
@@ -186,6 +182,27 @@ func DiscoverBrowserRegistrySourcesWithOptions(ctx context.Context, options Brow
 	report.Plans = normalizeSourcePlan(report.Plans)
 	sort.SliceStable(report.Docs, func(i, j int) bool { return report.Docs[i].RelativePath < report.Docs[j].RelativePath })
 	return report, nil
+}
+
+func assignUniqueBrowserRegistryTarget(plan *SourceMaterialization, candidate *BrowserRegistryCandidate, seen map[string]bool, location string) bool {
+	if plan == nil || candidate == nil || !seen[plan.TargetPath] {
+		return false
+	}
+	baseID := plan.ID
+	targetDigest := sha256.Sum256([]byte(location + "\x00" + plan.SourceSHA256))
+	baseSuffix := hex.EncodeToString(targetDigest[:6])
+	for variant := 1; ; variant++ {
+		suffix := baseSuffix
+		if variant > 1 {
+			suffix += fmt.Sprintf("-%d", variant)
+		}
+		plan.ID = baseID + "-" + suffix
+		plan.TargetPath = filepath.ToSlash(filepath.Join("browser-profiles", plan.ID+".json"))
+		if !seen[plan.TargetPath] {
+			candidate.Materialize = plan.TargetPath
+			return true
+		}
+	}
 }
 
 func firstPositiveDuration(value, fallback time.Duration) time.Duration {

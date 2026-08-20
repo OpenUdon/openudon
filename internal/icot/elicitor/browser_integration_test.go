@@ -193,6 +193,44 @@ func TestBrowserRegistryCollidingIDsGetDistinctTargets(t *testing.T) {
 	if !strings.HasPrefix(targets[0], "browser-profiles/example-status-") || targets[1] != "browser-profiles/example-status.json" {
 		t.Fatalf("collision targets = %q, %q", report.Plans[0].TargetPath, report.Plans[1].TargetPath)
 	}
+	if len(report.Docs) != 2 {
+		t.Fatalf("colliding registry documents = %#v", report.Docs)
+	}
+	planByTarget := map[string]SourceMaterialization{}
+	for _, plan := range report.Plans {
+		planByTarget[plan.TargetPath] = plan
+	}
+	for _, doc := range report.Docs {
+		plan, ok := planByTarget[doc.RelativePath]
+		if !ok || doc.ID != plan.ID {
+			t.Fatalf("registry document was not rebuilt from its collision-safe plan: doc=%#v plans=%#v", doc, report.Plans)
+		}
+		for _, operation := range doc.Operations {
+			if operation.DocumentName != plan.ID || operation.DocumentRelativePath != plan.TargetPath {
+				t.Fatalf("registry operation retained the colliding path: operation=%#v plan=%#v", operation, plan)
+			}
+		}
+	}
+}
+
+func TestBrowserRegistryCollisionAllocatorRechecksGeneratedTarget(t *testing.T) {
+	plan := SourceMaterialization{ID: "example-status", TargetPath: "browser-profiles/example-status.json", SourceSHA256: strings.Repeat("a", 64)}
+	candidate := BrowserRegistryCandidate{Materialize: plan.TargetPath}
+	seen := map[string]bool{plan.TargetPath: true}
+	if !assignUniqueBrowserRegistryTarget(&plan, &candidate, seen, "registry-one") {
+		t.Fatal("first registry collision was not renamed")
+	}
+	firstGenerated := plan.TargetPath
+
+	plan = SourceMaterialization{ID: "example-status", TargetPath: "browser-profiles/example-status.json", SourceSHA256: strings.Repeat("a", 64)}
+	candidate = BrowserRegistryCandidate{Materialize: plan.TargetPath}
+	seen[firstGenerated] = true
+	if !assignUniqueBrowserRegistryTarget(&plan, &candidate, seen, "registry-one") {
+		t.Fatal("second registry collision was not renamed")
+	}
+	if plan.TargetPath == firstGenerated || seen[plan.TargetPath] || candidate.Materialize != plan.TargetPath {
+		t.Fatalf("generated registry target collided again: plan=%#v candidate=%#v seen=%#v", plan, candidate, seen)
+	}
 }
 
 func TestBrowserRegistryOperatorTextRemovesControlsAndSecrets(t *testing.T) {
