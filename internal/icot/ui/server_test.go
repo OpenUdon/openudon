@@ -501,6 +501,15 @@ func TestConditionalSnapshotAndWorkspaceRevision(t *testing.T) {
 	if response.Code != http.StatusNotModified || response.Body.Len() != 0 || response.Header().Get("ETag") != strconv.Quote(initial.Revision) {
 		t.Fatalf("conditional response = %d etag=%q body=%q", response.Code, response.Header().Get("ETag"), response.Body.String())
 	}
+	wildcard := httptest.NewRequest(http.MethodGet, "http://"+testAuthority+"/api/v2/snapshot", nil)
+	wildcard.Host = testAuthority
+	wildcard.Header.Set("Authorization", "Bearer "+testToken)
+	wildcard.Header.Set("If-None-Match", "*")
+	wildcardResponse := httptest.NewRecorder()
+	handler.ServeHTTP(wildcardResponse, wildcard)
+	if wildcardResponse.Code != http.StatusNotModified || wildcardResponse.Body.Len() != 0 || wildcardResponse.Header().Get("ETag") != strconv.Quote(initial.Revision) {
+		t.Fatalf("wildcard conditional response = %d etag=%q body=%q", wildcardResponse.Code, wildcardResponse.Header().Get("ETag"), wildcardResponse.Body.String())
+	}
 
 	fake.setWorkspace(engine.WorkspaceStatus{ExternallyModified: true})
 	changed := doRequest(handler, http.MethodGet, "/api/v2/snapshot", "", "", true)
@@ -912,6 +921,10 @@ func TestRevisionRoundApprovalAndFrozenInspection(t *testing.T) {
 	frozen := doRequest(handler, http.MethodPost, "/api/v2/approve", fmt.Sprintf(`{"revision":%q,"human_approved":true}`, approved.Revision), "application/json", true)
 	if frozen.Code != http.StatusConflict || !strings.Contains(frozen.Body.String(), "session_frozen") {
 		t.Fatalf("frozen response = %d %s", frozen.Code, frozen.Body.String())
+	}
+	frozenWithStaleRevision := doRequest(handler, http.MethodPost, "/api/v2/round", `{"revision":"sha256:stale","answers":[]}`, "application/json", true)
+	if frozenWithStaleRevision.Code != http.StatusConflict || !strings.Contains(frozenWithStaleRevision.Body.String(), "session_frozen") || strings.Contains(frozenWithStaleRevision.Body.String(), "stale_revision") {
+		t.Fatalf("frozen stale response = %d %s", frozenWithStaleRevision.Code, frozenWithStaleRevision.Body.String())
 	}
 	inspection := currentResponse(t, handler)
 	if !inspection.Completed || inspection.Revision != approved.Revision || inspection.WriteResult == nil || len(inspection.WriteResult.CleanupWarnings) != 1 {

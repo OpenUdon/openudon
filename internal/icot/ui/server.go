@@ -665,12 +665,12 @@ func (s *Server) beginMutation(w http.ResponseWriter, r *http.Request, requestID
 		s.writeError(w, http.StatusConflict, "workspace_changed", "the authoring workspace changed outside this process; restart is required", false, requestID, s.revision)
 		return false
 	}
-	if requestRevision != s.revision {
-		s.writeError(w, http.StatusConflict, "stale_revision", "request revision does not match the current snapshot", true, requestID, s.revision)
-		return false
-	}
 	if s.completed {
 		s.writeError(w, http.StatusConflict, "session_frozen", "the approved authoring session is frozen", false, requestID, s.revision)
+		return false
+	}
+	if requestRevision != s.revision {
+		s.writeError(w, http.StatusConflict, "stale_revision", "request revision does not match the current snapshot", true, requestID, s.revision)
 		return false
 	}
 	return true
@@ -966,6 +966,9 @@ func setETag(w http.ResponseWriter, revision string) {
 func matchesETag(header, revision string) bool {
 	for _, value := range strings.Split(header, ",") {
 		value = strings.TrimSpace(strings.TrimPrefix(strings.TrimSpace(value), "W/"))
+		if value == "*" {
+			return true
+		}
 		if value == revision || value == strconv.Quote(revision) {
 			return true
 		}
