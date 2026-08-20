@@ -13,11 +13,13 @@ import (
 	"io"
 	"net/url"
 	"os"
+	"os/signal"
 	"path/filepath"
 	"regexp"
 	"sort"
 	"strconv"
 	"strings"
+	"syscall"
 	"time"
 
 	"github.com/OpenUdon/browsertools/authorsession"
@@ -330,7 +332,7 @@ func runBrowserAuthorLiveWith(args []string, in io.Reader, out, errOut io.Writer
 	// Browsertools charges its advertised total timeout only while browser work
 	// is active. Do not impose a second wall clock that consumes human MFA and
 	// review time.
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer cancel()
 	result, err := orchestrateLiveAuthor(ctx, cfg, reader, out, planner, provider, model, deps)
 	if err != nil {
@@ -693,9 +695,10 @@ func orchestrateLiveAuthor(ctx context.Context, cfg liveAuthorConfig, reader *bu
 		select {
 		case <-done:
 		case <-time.After(2 * time.Second):
-			_ = child.Kill()
-			<-done
 		}
+		// Wait only reaps the direct process. A failed protocol session must also
+		// terminate descendants that survived an early Browsertools exit.
+		_ = child.Kill()
 	}()
 	hello, err := protocol.receive()
 	if err != nil {

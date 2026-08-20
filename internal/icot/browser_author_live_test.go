@@ -448,6 +448,35 @@ func TestBrowserAuthorLiveRequiresInitialStateBeforeObservation(t *testing.T) {
 	}
 }
 
+func TestBrowserAuthorLiveFailureTerminatesGroupAfterLeaderExit(t *testing.T) {
+	root := t.TempDir()
+	example, privateRoot := liveAuthorTestRoots(t, root)
+	executable, err := os.Executable()
+	if err != nil {
+		t.Fatal(err)
+	}
+	cfg := liveAuthorConfig{
+		ExampleDir: example, Browsertools: executable,
+		URL: "https://members.example.test/login", DashboardURL: "https://members.example.test/dashboard",
+		Goal: "read account status", Origins: []string{"https://members.example.test"},
+		PrivateRoot: privateRoot, ProfileID: "member", GoalRole: "heading", GoalLabel: "Dashboard", GoalContext: "main",
+	}
+	if err := normalizeLiveAuthorConfig(&cfg); err != nil {
+		t.Fatal(err)
+	}
+	child := newScriptedLiveChild(func(*bufio.Reader, io.Writer) error { return nil })
+	deps := liveAuthorDependencies{StartProcess: func(context.Context, string, []string, []string) (liveChild, error) {
+		return child, nil
+	}}
+	_, err = orchestrateLiveAuthor(context.Background(), cfg, bufio.NewReader(strings.NewReader("")), io.Discard, nil, "", "", deps)
+	if err == nil {
+		t.Fatal("unexpected Browsertools leader exit was accepted")
+	}
+	if !child.wasKilled() {
+		t.Fatal("failed live authoring did not terminate the process group after its leader exited")
+	}
+}
+
 func TestPrepareStableLiveExecutableIsPrivateAndIndependent(t *testing.T) {
 	root := t.TempDir()
 	source := filepath.Join(root, "browsertools")
@@ -623,6 +652,7 @@ type scriptedLiveChild struct {
 	done        chan struct{}
 	mu          sync.Mutex
 	err         error
+	killed      bool
 }
 
 func newScriptedLiveChild(script func(*bufio.Reader, io.Writer) error) *scriptedLiveChild {
@@ -650,11 +680,20 @@ func (child *scriptedLiveChild) Wait() error {
 	return child.err
 }
 func (child *scriptedLiveChild) Kill() error {
+	child.mu.Lock()
+	child.killed = true
+	child.mu.Unlock()
 	_ = child.input.Close()
 	_ = child.output.Close()
 	_ = child.serverInput.Close()
 	_ = child.serverOut.Close()
 	return nil
+}
+
+func (child *scriptedLiveChild) wasKilled() bool {
+	child.mu.Lock()
+	defer child.mu.Unlock()
+	return child.killed
 }
 
 func writeAuthenticatedAuthoringFixture(t *testing.T, privateRoot string, at time.Time) (string, string) {

@@ -8,6 +8,7 @@ import (
 	"io"
 	"os"
 	"os/exec"
+	"sync"
 	"time"
 )
 
@@ -27,6 +28,7 @@ type InteractiveChild struct {
 	input   io.WriteCloser
 	output  io.ReadCloser
 	done    chan struct{}
+	wait    sync.Once
 	err     error
 }
 
@@ -62,13 +64,16 @@ func StartInteractive(ctx context.Context, args, environment []string, stderr io
 	}
 	child := &InteractiveChild{command: command, input: input, output: output, done: make(chan struct{})}
 	go func() {
-		child.err = command.Wait()
-		close(child.done)
-	}()
-	go func() {
 		select {
 		case <-ctx.Done():
-			child.Terminate()
+			// Prefer a completed Wait when cancellation races normal shutdown.
+			// Otherwise terminate the complete process group and reap the leader.
+			select {
+			case <-child.done:
+				return
+			default:
+			}
+			_ = child.Terminate()
 		case <-child.done:
 		}
 	}()
@@ -81,6 +86,13 @@ func (child *InteractiveChild) Wait() error {
 	if child == nil {
 		return os.ErrInvalid
 	}
+	// StdoutPipe requires its reader to drain protocol output before Wait closes
+	// the pipe. The caller owns that ordering; concurrent cleanup calls share
+	// this single reap operation.
+	child.wait.Do(func() {
+		child.err = child.command.Wait()
+		close(child.done)
+	})
 	<-child.done
 	return child.err
 }
@@ -88,12 +100,10 @@ func (child *InteractiveChild) Terminate() error {
 	if child == nil || child.command == nil {
 		return nil
 	}
-	select {
-	case <-child.done:
-		return child.err
-	default:
-	}
+	// A reaped group leader does not prove that its descendants exited. Always
+	// target the process tree when explicit termination is requested.
 	terminate(child.command)
+	go func() { _ = child.Wait() }()
 	select {
 	case <-child.done:
 		return child.err
