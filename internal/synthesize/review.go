@@ -435,6 +435,11 @@ func credentialNamesFromPlan(plan *WorkflowPlan) []string {
 	}
 	seen := map[string]bool{}
 	for _, step := range plan.Steps {
+		for _, credential := range step.CredentialBindings {
+			if name := strings.TrimSpace(credential); name != "" {
+				seen[name] = true
+			}
+		}
 		for _, param := range step.RequestParams {
 			for _, credential := range credentialBindingsForPlanParam(param) {
 				seen[credential] = true

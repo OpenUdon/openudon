@@ -199,6 +199,7 @@ func (s *Session) Normalize() {
 	s.Project.Outputs = outputsText(s.Intent.Outputs)
 	s.Project.DataFlow = dataFlowText(s.Intent.Steps)
 	s.Project.FunctionContracts = functionText(s.Intent.Steps)
+	mergeBrowserCredentialBindings(s)
 	if s.CredentialsSet {
 		s.Credentials = dedupeStrings(s.Credentials)
 		s.Project.Credentials = s.Credentials
@@ -230,6 +231,38 @@ func (s *Session) Normalize() {
 	normalizeSteps(s.Intent.Steps)
 	normalizeV2Session(s)
 	preservePendingRevisionState(s)
+}
+
+func mergeBrowserCredentialBindings(session *Session) {
+	if session == nil {
+		return
+	}
+	var walk func([]*rollout.Step)
+	walk = func(steps []*rollout.Step) {
+		for _, step := range steps {
+			if step == nil {
+				continue
+			}
+			if strings.EqualFold(strings.TrimSpace(step.Type), "browser_authentication") {
+				for _, binding := range step.CredentialBindings {
+					if browserBindingNamePattern.MatchString(strings.TrimSpace(binding)) {
+						session.Credentials = dedupeStrings(append(session.Credentials, strings.TrimSpace(binding)))
+						session.CredentialsSet = true
+					}
+				}
+			}
+			walk(step.Steps)
+			for _, branch := range step.Cases {
+				if branch != nil {
+					walk(branch.Steps)
+				}
+			}
+			if step.Default != nil {
+				walk(step.Default.Steps)
+			}
+		}
+	}
+	walk(session.Intent.Steps)
 }
 
 func (s Session) Missing() []string {

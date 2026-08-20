@@ -63,6 +63,9 @@ func TestBrowserAuthenticationDiscoveryAndReadiness(t *testing.T) {
 	}
 	authStep := session.Intent.Steps[0]
 	applyProgressiveAnswer(&session, QuestionPlan{Slots: []string{"steps." + authStep.Name + ".credential_bindings"}}, "username=member_username, password=member_password", discovery.Docs)
+	if !session.CredentialsSet || !stringSliceContains(session.Credentials, "member_username") || !stringSliceContains(session.Credentials, "member_password") {
+		t.Fatalf("browser authentication credentials were not merged into the session inventory: %#v", session.Credentials)
+	}
 	applyProgressiveAnswer(&session, QuestionPlan{Slots: []string{"steps." + authStep.Name + ".timeout"}}, "120", discovery.Docs)
 	applyProgressiveAnswer(&session, QuestionPlan{Slots: []string{"steps." + authStep.Name + ".authentication_approval"}}, "approve "+authStep.Name, discovery.Docs)
 	issues = CheckReadiness(session, discovery.Docs)

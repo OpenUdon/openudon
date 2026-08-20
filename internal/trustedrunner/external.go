@@ -83,7 +83,17 @@ func RunExternal(ctx context.Context, opts ExternalOptions) (udonrunner.Result, 
 	if evidencefile.SHA256(handoffBytes) != config.HandoffSHA256 {
 		return udonrunner.Result{}, fmt.Errorf("handoff SHA-256 does not match the validated run config")
 	}
-	expected, err := buildRunConfig(p, manifest, packageDigest, config.Tier, config.WorkDir, config.RunID, config.HandoffSHA256, config.ApprovalSHA256)
+	var browserDriver string
+	var browserDriverArgs []string
+	if config.Browser != nil {
+		browserDriver = config.Browser.DriverPath
+		browserDriverArgs = config.Browser.DriverArgs
+	}
+	expectedBrowser, err := buildBrowserRunConfig(p.exampleAbs, browserDriver, browserDriverArgs, opts.Env, false)
+	if err != nil {
+		return udonrunner.Result{}, err
+	}
+	expected, err := buildRunConfig(p, manifest, packageDigest, config.Tier, config.WorkDir, config.RunID, config.HandoffSHA256, config.ApprovalSHA256, expectedBrowser)
 	if err != nil {
 		return udonrunner.Result{}, err
 	}

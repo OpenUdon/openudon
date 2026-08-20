@@ -52,20 +52,22 @@ type Approval struct {
 }
 
 type Options struct {
-	RepoRoot     string
-	ExampleDir   string
-	Tier         string
-	ApprovalPath string
-	WorkDir      string
-	DryRun       bool
-	RunnerPath   string
-	Stdout       io.Writer
-	Stderr       io.Writer
-	Now          func() time.Time
-	Env          []string
-	Assess       func(context.Context, synthesize.Options) (*synthesize.QualityReport, error)
-	Invoke       udonrunner.InvokeFunc
-	SigningKey   string
+	RepoRoot          string
+	ExampleDir        string
+	Tier              string
+	ApprovalPath      string
+	WorkDir           string
+	DryRun            bool
+	RunnerPath        string
+	Stdout            io.Writer
+	Stderr            io.Writer
+	Now               func() time.Time
+	Env               []string
+	Assess            func(context.Context, synthesize.Options) (*synthesize.QualityReport, error)
+	Invoke            udonrunner.InvokeFunc
+	SigningKey        string
+	BrowserDriver     string
+	BrowserDriverArgs []string
 }
 
 type TemplateOptions struct {
@@ -100,30 +102,31 @@ type VerifyRunEvidenceResult struct {
 type RunConfig = udonrunner.Config
 
 type RunEvidence struct {
-	Version            string                 `json:"version"`
-	RunID              string                 `json:"run_id"`
-	CreatedAt          string                 `json:"created_at"`
-	Scope              string                 `json:"scope"`
-	Tier               string                 `json:"tier"`
-	DryRun             bool                   `json:"dry_run"`
-	ApprovalState      string                 `json:"approval_state"`
-	PackageSHA256      string                 `json:"package_sha256"`
-	HandoffSHA256      string                 `json:"handoff_sha256"`
-	ApprovalSHA256     string                 `json:"approval_sha256"`
-	RunConfigSHA256    string                 `json:"run_config_sha256"`
-	RunConfigPath      string                 `json:"run_config_path"`
-	PackageRoot        string                 `json:"package_root"`
-	WorkDir            string                 `json:"workdir"`
-	StageKind          string                 `json:"stage_kind"`
-	StagePath          string                 `json:"stage_path"`
-	WorkflowPath       string                 `json:"workflow_path"`
-	PackagePaths       []string               `json:"package_paths"`
-	APISourcePaths     []string               `json:"api_source_paths,omitempty"`
-	CredentialBindings []string               `json:"credential_bindings,omitempty"`
-	CredentialEnvNames []string               `json:"credential_env_names,omitempty"`
-	Gates              []RunEvidenceGate      `json:"gates"`
-	Executor           RunEvidenceExecutor    `json:"executor"`
-	AsyncEvidenceFiles []RunEvidenceAsyncFile `json:"async_evidence_files,omitempty"`
+	Version            string                    `json:"version"`
+	RunID              string                    `json:"run_id"`
+	CreatedAt          string                    `json:"created_at"`
+	Scope              string                    `json:"scope"`
+	Tier               string                    `json:"tier"`
+	DryRun             bool                      `json:"dry_run"`
+	ApprovalState      string                    `json:"approval_state"`
+	PackageSHA256      string                    `json:"package_sha256"`
+	HandoffSHA256      string                    `json:"handoff_sha256"`
+	ApprovalSHA256     string                    `json:"approval_sha256"`
+	RunConfigSHA256    string                    `json:"run_config_sha256"`
+	RunConfigPath      string                    `json:"run_config_path"`
+	PackageRoot        string                    `json:"package_root"`
+	WorkDir            string                    `json:"workdir"`
+	StageKind          string                    `json:"stage_kind"`
+	StagePath          string                    `json:"stage_path"`
+	WorkflowPath       string                    `json:"workflow_path"`
+	PackagePaths       []string                  `json:"package_paths"`
+	APISourcePaths     []string                  `json:"api_source_paths,omitempty"`
+	CredentialBindings []string                  `json:"credential_bindings,omitempty"`
+	CredentialEnvNames []string                  `json:"credential_env_names,omitempty"`
+	Browser            *udonrunner.BrowserConfig `json:"browser,omitempty"`
+	Gates              []RunEvidenceGate         `json:"gates"`
+	Executor           RunEvidenceExecutor       `json:"executor"`
+	AsyncEvidenceFiles []RunEvidenceAsyncFile    `json:"async_evidence_files,omitempty"`
 }
 
 type RunEvidenceGate struct {
@@ -236,7 +239,11 @@ func Run(ctx context.Context, opts Options) (*RunResult, error) {
 	if err != nil {
 		return nil, fmt.Errorf("read validated handoff manifest: %w", err)
 	}
-	runConfig, err := buildRunConfig(p, manifest, digest, opts.Tier, result.WorkDir, runID, evidencefile.SHA256(handoffBytes), evidencefile.SHA256(approvalBytes))
+	browserConfig, err := buildBrowserRunConfig(p.exampleAbs, opts.BrowserDriver, opts.BrowserDriverArgs, opts.Env, opts.DryRun)
+	if err != nil {
+		return nil, err
+	}
+	runConfig, err := buildRunConfig(p, manifest, digest, opts.Tier, result.WorkDir, runID, evidencefile.SHA256(handoffBytes), evidencefile.SHA256(approvalBytes), browserConfig)
 	if err != nil {
 		return nil, err
 	}
@@ -411,7 +418,7 @@ func validateRunnerPath(name, path string) error {
 	return nil
 }
 
-func buildRunConfig(p paths, manifest handoffManifest, digest, tier, workdir, runID, handoffDigest, approvalDigest string) (RunConfig, error) {
+func buildRunConfig(p paths, manifest handoffManifest, digest, tier, workdir, runID, handoffDigest, approvalDigest string, browser *udonrunner.BrowserConfig) (RunConfig, error) {
 	relOpenAPI, err := packageartifacts.CollectAPISourcePaths(p.exampleAbs)
 	if err != nil {
 		return RunConfig{}, err
@@ -437,6 +444,7 @@ func buildRunConfig(p paths, manifest handoffManifest, digest, tier, workdir, ru
 		HandoffSHA256:       handoffDigest,
 		ApprovalSHA256:      approvalDigest,
 		CredentialBindings:  sortedCredentialBindings(manifest),
+		Browser:             cloneBrowserConfig(browser),
 		DirectProductionRun: false,
 	}
 	if config.WorkDir == "" {
@@ -575,6 +583,9 @@ func validateRunEvidenceForVerify(evidence RunEvidence) error {
 		}
 		if err := validateRunEvidenceGates(evidence); err != nil {
 			return err
+		}
+		if err := udonrunner.ValidateBrowserEvidenceConfig(evidence.Browser, evidence.CredentialBindings); err != nil {
+			return fmt.Errorf("run evidence browser contract is invalid: %w", err)
 		}
 	}
 	return nil
@@ -816,6 +827,7 @@ func buildRunEvidence(opts runEvidenceOptions) (RunEvidence, error) {
 		APISourcePaths:     append([]string(nil), opts.Prepared.APISourcePaths...),
 		CredentialBindings: append([]string(nil), opts.Config.CredentialBindings...),
 		CredentialEnvNames: append([]string(nil), opts.Prepared.CredentialEnvNames...),
+		Browser:            cloneBrowserConfig(opts.Config.Browser),
 		Gates:              gates,
 		Executor:           executor,
 	}, nil
@@ -1264,6 +1276,14 @@ func outerRunnerEnvironment(source []string, config RunConfig) []string {
 		}
 		allowed[strings.TrimRight(strings.ToUpper(b.String()), "_")] = true
 	}
+	if config.Browser != nil {
+		for _, binding := range config.Browser.SessionEnvironment {
+			allowed[binding.Environment] = true
+		}
+		for _, name := range config.Browser.DriverEnvironment {
+			allowed[name] = true
+		}
+	}
 	var out []string
 	for name := range allowed {
 		if value, ok := values[name]; ok {
@@ -1272,6 +1292,20 @@ func outerRunnerEnvironment(source []string, config RunConfig) []string {
 	}
 	sort.Strings(out)
 	return out
+}
+
+func cloneBrowserConfig(input *udonrunner.BrowserConfig) *udonrunner.BrowserConfig {
+	if input == nil {
+		return nil
+	}
+	result := *input
+	result.DriverArgs = append([]string(nil), input.DriverArgs...)
+	result.DriverEnvironment = append([]string(nil), input.DriverEnvironment...)
+	result.CredentialEnvironment = append([]udonrunner.EnvironmentBinding(nil), input.CredentialEnvironment...)
+	result.SessionEnvironment = append([]udonrunner.EnvironmentBinding(nil), input.SessionEnvironment...)
+	result.ApprovedOperations = append([]string(nil), input.ApprovedOperations...)
+	result.ApprovedAuthentication = append([]string(nil), input.ApprovedAuthentication...)
+	return &result
 }
 
 func sortedCredentialBindings(manifest handoffManifest) []string {

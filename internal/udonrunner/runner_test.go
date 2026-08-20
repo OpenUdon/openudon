@@ -418,6 +418,98 @@ func TestRunInvocationEnvironmentIsAllowlisted(t *testing.T) {
 	}
 }
 
+func TestRunBrowserInvocationIsExactAndAllowlisted(t *testing.T) {
+	for _, tc := range []struct {
+		name     string
+		executor string
+	}{
+		{name: "local", executor: "/bin/true"},
+		{name: "docker", executor: "docker://udon:test"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			config := validRunnerConfig(t)
+			driver := filepath.Join(t.TempDir(), "browserdriver")
+			mustWriteExecutable(t, driver)
+			config.CredentialBindings = []string{"member_password"}
+			config.Browser = &BrowserConfig{
+				DriverPath: driver, DriverArgs: []string{"--headless"}, DriverEnvironment: []string{"HOME", "PATH"}, Protocol: "v3",
+				CredentialEnvironment:  []EnvironmentBinding{{Name: "member_password", Environment: "UDON_CREDENTIAL_MEMBER_PASSWORD"}},
+				SessionEnvironment:     []EnvironmentBinding{{Name: "existing_member", Environment: "UDON_BROWSER_SESSION_EXISTING_MEMBER"}},
+				ApprovedOperations:     []string{"read_dashboard"},
+				ApprovedAuthentication: []string{"authenticate_member"},
+			}
+			var invocation Invocation
+			result, err := Run(context.Background(), config, Options{
+				RepoRoot: t.TempDir(),
+				Env: []string{
+					"OPENUDON_EXECUTOR=" + tc.executor,
+					"UDON_CREDENTIAL_MEMBER_PASSWORD=credential-value",
+					"UDON_BROWSER_SESSION_EXISTING_MEMBER=session-value",
+					"HOME=/trusted/home", "PATH=/trusted/bin",
+					"HTTP_PROXY=http://must-not-pass", "AWS_SECRET_ACCESS_KEY=must-not-pass", "SSH_AUTH_SOCK=/must-not-pass",
+				},
+				Invoke: func(_ context.Context, got Invocation) error { invocation = got; return nil },
+			})
+			if err != nil {
+				t.Fatal(err)
+			}
+			for _, value := range []string{
+				"--browser-driver", driver, "--browser-driver-arg", "--headless", "--browser-driver-protocol", "v3",
+				"--browser-credential-env", "member_password=UDON_CREDENTIAL_MEMBER_PASSWORD",
+				"--browser-session-env", "existing_member=UDON_BROWSER_SESSION_EXISTING_MEMBER",
+				"--approve-browser-operation", "read_dashboard",
+				"--approve-browser-authentication", "authenticate_member",
+			} {
+				if !containsArg(invocation.Argv, value) {
+					t.Fatalf("browser invocation missing %q: %#v", value, invocation.Argv)
+				}
+			}
+			if !containsArg(result.SessionEnvNames, "UDON_BROWSER_SESSION_EXISTING_MEMBER") || !containsArg(result.BrowserEnvNames, "HOME") {
+				t.Fatalf("browser environment metadata = %#v / %#v", result.SessionEnvNames, result.BrowserEnvNames)
+			}
+			joined := strings.Join(invocation.Env, "\n")
+			for _, required := range []string{"UDON_CREDENTIAL_MEMBER_PASSWORD=credential-value", "UDON_BROWSER_SESSION_EXISTING_MEMBER=session-value", "HOME=/trusted/home", "PATH=/trusted/bin"} {
+				if !strings.Contains(joined, required) {
+					t.Fatalf("browser invocation environment omitted %s: %#v", required, invocation.Env)
+				}
+			}
+			for _, forbidden := range []string{"HTTP_PROXY", "AWS_SECRET_ACCESS_KEY", "SSH_AUTH_SOCK", "OPENUDON_EXECUTOR"} {
+				if strings.Contains(joined, forbidden) {
+					t.Fatalf("browser invocation leaked %s: %#v", forbidden, invocation.Env)
+				}
+			}
+		})
+	}
+}
+
+func TestBrowserConfigRejectsForgedMappingsAndValues(t *testing.T) {
+	driver := filepath.Join(t.TempDir(), "browserdriver")
+	mustWriteExecutable(t, driver)
+	base := &BrowserConfig{
+		DriverPath: driver, Protocol: "v3",
+		CredentialEnvironment: []EnvironmentBinding{{Name: "member_password", Environment: "UDON_CREDENTIAL_MEMBER_PASSWORD"}},
+	}
+	tests := []struct {
+		name   string
+		mutate func(*BrowserConfig)
+	}{
+		{name: "forged credential env", mutate: func(value *BrowserConfig) { value.CredentialEnvironment[0].Environment = "AWS_SECRET_ACCESS_KEY" }},
+		{name: "proxy launcher env", mutate: func(value *BrowserConfig) { value.DriverEnvironment = []string{"HTTP_PROXY"} }},
+		{name: "secret driver argument", mutate: func(value *BrowserConfig) { value.DriverArgs = []string{"Bearer abcdefghijklmnopqrstuvwxyz012345"} }},
+		{name: "unsorted approvals", mutate: func(value *BrowserConfig) { value.ApprovedOperations = []string{"z", "a"} }},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			value := *base
+			value.CredentialEnvironment = append([]EnvironmentBinding(nil), base.CredentialEnvironment...)
+			tc.mutate(&value)
+			if _, err := validateBrowserConfig(&value, []string{"member_password"}, map[string]string{"UDON_CREDENTIAL_MEMBER_PASSWORD": "value"}, true, true); err == nil {
+				t.Fatal("forged browser run config was accepted")
+			}
+		})
+	}
+}
+
 func validRunnerConfig(t *testing.T) Config {
 	t.Helper()
 	root := t.TempDir()

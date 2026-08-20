@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/OpenUdon/apitools"
+	"github.com/OpenUdon/openudon/internal/browserworkflow"
 	rollout "github.com/OpenUdon/openudon/internal/workflowintent"
 )
 
@@ -138,18 +139,7 @@ func browserAuthenticationAvailable(docs []APIDocument) bool {
 }
 
 func browserActionHasEstablishedSession(session Session, action *rollout.Step) bool {
-	if action == nil || strings.TrimSpace(action.BrowserSession) == "" {
-		return false
-	}
-	for _, step := range session.Intent.Steps {
-		if step == action {
-			return false
-		}
-		if step != nil && strings.EqualFold(strings.TrimSpace(step.Type), "browser_authentication") && step.BrowserSession == action.BrowserSession {
-			return true
-		}
-	}
-	return false
+	return browserworkflow.Analyze(&session.Intent).EstablishedBefore(action)
 }
 
 func selectBrowserAuthenticationFlow(answer string, docs []APIDocument) (APIDocument, *apitools.OperationSummary) {

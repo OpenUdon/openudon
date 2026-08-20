@@ -396,6 +396,16 @@ func TestVerifyRunEvidenceRejectsSymlinkedExecutorReport(t *testing.T) {
 	}
 }
 
+func TestVerifyRunEvidenceRejectsUnsafeBrowserContract(t *testing.T) {
+	result := writeVerifiableRunEvidence(t)
+	evidence := readRunEvidenceFile(t, result.RunEvidencePath)
+	evidence.Browser = &udonrunner.BrowserConfig{DriverPath: "/trusted/browserdriver", DriverArgs: []string{"Bearer abcdefghijklmnopqrstuvwxyz012345"}, Protocol: "v3"}
+	writeRunEvidenceFileForTest(t, result.RunEvidencePath, evidence)
+	if _, err := VerifyRunEvidenceFile(result.RunEvidencePath); err == nil || !strings.Contains(err.Error(), "browser contract") {
+		t.Fatalf("unsafe browser evidence error = %v", err)
+	}
+}
+
 func TestLegacyRunEvidenceIsInspectableButNotArchivable(t *testing.T) {
 	result := writeVerifiableRunEvidence(t)
 	evidence := readRunEvidenceFile(t, result.RunEvidencePath)

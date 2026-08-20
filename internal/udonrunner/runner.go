@@ -24,23 +24,44 @@ const (
 const dockerExecutorPrefix = "docker://"
 
 type Config struct {
-	Version             string   `json:"version"`
-	RunID               string   `json:"run_id"`
-	Scope               string   `json:"scope"`
-	Tier                string   `json:"tier"`
-	PackageRoot         string   `json:"package_root"`
-	WorkDir             string   `json:"workdir"`
-	WorkflowPath        string   `json:"workflow_path"`
-	WorkflowFormat      string   `json:"workflow_format"`
-	DataFiles           []string `json:"data_files,omitempty"`
-	APISourcePaths      []string `json:"api_source_paths,omitempty"`
-	OpenAPIPaths        []string `json:"openapi_paths,omitempty"`
-	PackagePaths        []string `json:"package_paths"`
-	PackageSHA256       string   `json:"package_sha256"`
-	HandoffSHA256       string   `json:"handoff_sha256"`
-	ApprovalSHA256      string   `json:"approval_sha256"`
-	CredentialBindings  []string `json:"credential_bindings,omitempty"`
-	DirectProductionRun bool     `json:"direct_production_run"`
+	Version             string         `json:"version"`
+	RunID               string         `json:"run_id"`
+	Scope               string         `json:"scope"`
+	Tier                string         `json:"tier"`
+	PackageRoot         string         `json:"package_root"`
+	WorkDir             string         `json:"workdir"`
+	WorkflowPath        string         `json:"workflow_path"`
+	WorkflowFormat      string         `json:"workflow_format"`
+	DataFiles           []string       `json:"data_files,omitempty"`
+	APISourcePaths      []string       `json:"api_source_paths,omitempty"`
+	OpenAPIPaths        []string       `json:"openapi_paths,omitempty"`
+	PackagePaths        []string       `json:"package_paths"`
+	PackageSHA256       string         `json:"package_sha256"`
+	HandoffSHA256       string         `json:"handoff_sha256"`
+	ApprovalSHA256      string         `json:"approval_sha256"`
+	CredentialBindings  []string       `json:"credential_bindings,omitempty"`
+	Browser             *BrowserConfig `json:"browser,omitempty"`
+	DirectProductionRun bool           `json:"direct_production_run"`
+}
+
+// BrowserConfig is the complete value-free browser replay contract. Secret
+// and session values stay in the named environment variables.
+type BrowserConfig struct {
+	DriverPath             string               `json:"driver_path,omitempty"`
+	DriverArgs             []string             `json:"driver_args,omitempty"`
+	DriverEnvironment      []string             `json:"driver_environment,omitempty"`
+	Protocol               string               `json:"protocol"`
+	CredentialEnvironment  []EnvironmentBinding `json:"credential_environment,omitempty"`
+	SessionEnvironment     []EnvironmentBinding `json:"session_environment,omitempty"`
+	ApprovedOperations     []string             `json:"approved_operations,omitempty"`
+	ApprovedAuthentication []string             `json:"approved_authentication,omitempty"`
+}
+
+// EnvironmentBinding maps a reviewed symbolic runtime name to its canonical
+// allowlisted environment-variable name; it never contains a value.
+type EnvironmentBinding struct {
+	Name        string `json:"name"`
+	Environment string `json:"environment"`
 }
 
 // Invocation is the complete, auditable process boundary used by trusted
@@ -76,6 +97,8 @@ type Result struct {
 	PackagePaths       []string
 	PackageSHA256      string
 	CredentialEnvNames []string
+	SessionEnvNames    []string
+	BrowserEnvNames    []string
 }
 
 func LoadConfig(path string) (Config, error) {
@@ -110,6 +133,9 @@ func LoadConfig(path string) (Config, error) {
 	}
 	if config.CredentialBindings == nil {
 		config.CredentialBindings = []string{}
+	}
+	if config.Browser != nil {
+		normalizeBrowserConfig(config.Browser)
 	}
 	return config, nil
 }
@@ -242,6 +268,10 @@ func prepare(ctx context.Context, config Config, opts Options, requireCredential
 			}
 		}
 	}
+	browser, err := validateBrowserConfig(config.Browser, config.CredentialBindings, envByName, requireCredentialValues, buildExecutorArgv)
+	if err != nil {
+		return Result{}, nil, "", err
+	}
 
 	stage, stagedWorkflow, err := stagePackage(ctx, workdir, workflowRel, workflowPath, apiSourceFiles, packageFiles)
 	if err != nil {
@@ -261,16 +291,20 @@ func prepare(ctx context.Context, config Config, opts Options, requireCredential
 		PackagePaths:       relPaths(packageFiles),
 		PackageSHA256:      approvedDigest,
 		CredentialEnvNames: append([]string(nil), credentialEnvNames...),
+		SessionEnvNames:    append([]string(nil), browser.sessionEnv...),
+		BrowserEnvNames:    append([]string(nil), browser.driverEnv...),
 	}
 	if buildExecutorArgv {
 		result.ExecutorReportPath = filepath.Join(stage, "executor-report-"+config.RunID+".json")
-		argv, err := executorArgv(repoRootAbs, stage, stagedWorkflow, workflowFormat, result.ExecutorReportPath, stagedDataFilePaths(stage, dataFiles), credentialEnvNames, envByName)
+		argv, err := executorArgvWithBrowser(repoRootAbs, stage, stagedWorkflow, workflowFormat, result.ExecutorReportPath, stagedDataFilePaths(stage, dataFiles), credentialEnvNames, config.Browser, browser.driverEnv, envByName)
 		if err != nil {
 			return result, nil, "", err
 		}
 		result.Argv = append([]string(nil), argv...)
 	}
-	executorEnv := credentialEnvironment(credentialEnvNames, envByName)
+	executorNames := append(append(append([]string(nil), credentialEnvNames...), browser.sessionEnv...), browser.driverEnv...)
+	sort.Strings(executorNames)
+	executorEnv := credentialEnvironment(executorNames, envByName)
 	if len(result.Argv) > 0 && filepath.Base(result.Argv[0]) == "docker" {
 		executorEnv = append(executorEnv, launcherEnvironment(envByName)...)
 		sort.Strings(executorEnv)
@@ -689,21 +723,7 @@ func credentialEnvNames(bindings []string) ([]string, error) {
 }
 
 func credentialEnvName(binding string) string {
-	var b strings.Builder
-	b.WriteString("UDON_CREDENTIAL_")
-	lastUnderscore := false
-	for _, ch := range strings.TrimSpace(binding) {
-		if (ch >= 'A' && ch <= 'Z') || (ch >= 'a' && ch <= 'z') || (ch >= '0' && ch <= '9') {
-			b.WriteByte(byte(ch))
-			lastUnderscore = false
-			continue
-		}
-		if !lastUnderscore {
-			b.WriteByte('_')
-			lastUnderscore = true
-		}
-	}
-	return strings.TrimRight(strings.ToUpper(b.String()), "_")
+	return normalizedEnvironmentName("UDON_CREDENTIAL_", binding)
 }
 
 func environmentMap(env []string) map[string]string {
@@ -718,18 +738,22 @@ func environmentMap(env []string) map[string]string {
 }
 
 func executorArgv(repoRoot, stage, stagedWorkflow, workflowFormat, executorReportPath string, dataFiles []string, credentialNames []string, env map[string]string) ([]string, error) {
+	return executorArgvWithBrowser(repoRoot, stage, stagedWorkflow, workflowFormat, executorReportPath, dataFiles, credentialNames, nil, nil, env)
+}
+
+func executorArgvWithBrowser(repoRoot, stage, stagedWorkflow, workflowFormat, executorReportPath string, dataFiles []string, credentialNames []string, browser *BrowserConfig, driverEnvNames []string, env map[string]string) ([]string, error) {
 	if executor := strings.TrimSpace(env["OPENUDON_EXECUTOR"]); executor != "" {
 		if strings.HasPrefix(executor, dockerExecutorPrefix) {
 			image := strings.TrimPrefix(executor, dockerExecutorPrefix)
-			return dockerImageArgv("OPENUDON_EXECUTOR", image, stage, stagedWorkflow, workflowFormat, executorReportPath, dataFiles, credentialNames)
+			return dockerImageArgv("OPENUDON_EXECUTOR", image, stage, stagedWorkflow, workflowFormat, executorReportPath, dataFiles, credentialNames, browser, driverEnvNames)
 		}
-		return executorPathArgv("OPENUDON_EXECUTOR", executor, stage, stagedWorkflow, workflowFormat, executorReportPath, dataFiles)
+		return executorPathArgv("OPENUDON_EXECUTOR", executor, stage, stagedWorkflow, workflowFormat, executorReportPath, dataFiles, browser, driverEnvNames)
 	}
 	if image := strings.TrimSpace(env["OPENUDON_UDON_IMAGE"]); image != "" {
-		return dockerImageArgv("OPENUDON_UDON_IMAGE", image, stage, stagedWorkflow, workflowFormat, executorReportPath, dataFiles, credentialNames)
+		return dockerImageArgv("OPENUDON_UDON_IMAGE", image, stage, stagedWorkflow, workflowFormat, executorReportPath, dataFiles, credentialNames, browser, driverEnvNames)
 	}
 	if executor := strings.TrimSpace(env["OPENUDON_UDON_BIN"]); executor != "" {
-		return executorPathArgv("OPENUDON_UDON_BIN", executor, stage, stagedWorkflow, workflowFormat, executorReportPath, dataFiles)
+		return executorPathArgv("OPENUDON_UDON_BIN", executor, stage, stagedWorkflow, workflowFormat, executorReportPath, dataFiles, browser, driverEnvNames)
 	}
 	executor := filepath.Join(repoRoot, "..", "udon", "dist", "udon-linux-amd64")
 	if !executablefile.Is(executor) {
@@ -738,15 +762,27 @@ func executorArgv(repoRoot, stage, stagedWorkflow, workflowFormat, executorRepor
 	if !executablefile.Is(executor) {
 		return nil, fmt.Errorf("trusted executor not found. Set OPENUDON_EXECUTOR to an absolute binary path or docker://image, or build ../udon")
 	}
-	return appendDataFileArgs(appendExecutionReportArg([]string{executor, "--workdir", stage, "--workflow", stagedWorkflow, "--workflow-format", workflowFormat}, executorReportPath), dataFiles...), nil
+	if browser != nil && browser.DriverPath != "" && !executablefile.Is(browser.DriverPath) {
+		return nil, fmt.Errorf("browser driver does not point to an executable file: %s", browser.DriverPath)
+	}
+	argv := appendDataFileArgs(appendExecutionReportArg([]string{executor, "--workdir", stage, "--workflow", stagedWorkflow, "--workflow-format", workflowFormat}, executorReportPath), dataFiles...)
+	return appendBrowserArgs(argv, browser, driverEnvNames), nil
 }
 
-func dockerImageArgv(envName, image, stage, stagedWorkflow, workflowFormat, executorReportPath string, dataFiles, credentialNames []string) ([]string, error) {
+func dockerImageArgv(envName, image, stage, stagedWorkflow, workflowFormat, executorReportPath string, dataFiles, credentialNames []string, browser *BrowserConfig, driverEnvNames []string) ([]string, error) {
 	if err := validateDockerImage(envName, image); err != nil {
 		return nil, err
 	}
 	argv := []string{"docker", "run", "--rm", "-v", stage + ":/workspace", "-w", "/workspace"}
-	for _, name := range credentialNames {
+	passNames := append([]string(nil), credentialNames...)
+	if browser != nil {
+		for _, binding := range browser.SessionEnvironment {
+			passNames = append(passNames, binding.Environment)
+		}
+		passNames = append(passNames, driverEnvNames...)
+	}
+	sort.Strings(passNames)
+	for _, name := range passNames {
 		argv = append(argv, "-e", name)
 	}
 	rel, err := filepath.Rel(stage, stagedWorkflow)
@@ -768,7 +804,7 @@ func dockerImageArgv(envName, image, stage, stagedWorkflow, workflowFormat, exec
 		}
 		argv = append(argv, "--datafile", "/workspace/"+filepath.ToSlash(relData))
 	}
-	return argv, nil
+	return appendBrowserArgs(argv, browser, driverEnvNames), nil
 }
 
 func validateDockerImage(envName, image string) error {
@@ -784,14 +820,45 @@ func validateDockerImage(envName, image string) error {
 	return nil
 }
 
-func executorPathArgv(envName, executor, stage, stagedWorkflow, workflowFormat, executorReportPath string, dataFiles []string) ([]string, error) {
+func executorPathArgv(envName, executor, stage, stagedWorkflow, workflowFormat, executorReportPath string, dataFiles []string, browser *BrowserConfig, driverEnvNames []string) ([]string, error) {
 	if !filepath.IsAbs(executor) {
 		return nil, fmt.Errorf("%s must be an absolute path: %s", envName, executor)
 	}
 	if !executablefile.Is(executor) {
 		return nil, fmt.Errorf("%s does not point to an executable file: %s", envName, executor)
 	}
-	return appendDataFileArgs(appendExecutionReportArg([]string{executor, "--workdir", stage, "--workflow", stagedWorkflow, "--workflow-format", workflowFormat}, executorReportPath), dataFiles...), nil
+	if browser != nil && browser.DriverPath != "" && !executablefile.Is(browser.DriverPath) {
+		return nil, fmt.Errorf("browser driver does not point to an executable file: %s", browser.DriverPath)
+	}
+	argv := appendDataFileArgs(appendExecutionReportArg([]string{executor, "--workdir", stage, "--workflow", stagedWorkflow, "--workflow-format", workflowFormat}, executorReportPath), dataFiles...)
+	return appendBrowserArgs(argv, browser, driverEnvNames), nil
+}
+
+func appendBrowserArgs(argv []string, browser *BrowserConfig, driverEnvNames []string) []string {
+	if browser == nil {
+		return argv
+	}
+	argv = append(argv, "--browser-driver", browser.DriverPath)
+	for _, value := range browser.DriverArgs {
+		argv = append(argv, "--browser-driver-arg", value)
+	}
+	argv = append(argv, "--browser-driver-protocol", browser.Protocol)
+	for _, name := range driverEnvNames {
+		argv = append(argv, "--browser-driver-env", name)
+	}
+	for _, binding := range browser.CredentialEnvironment {
+		argv = append(argv, "--browser-credential-env", binding.Name+"="+binding.Environment)
+	}
+	for _, binding := range browser.SessionEnvironment {
+		argv = append(argv, "--browser-session-env", binding.Name+"="+binding.Environment)
+	}
+	for _, operation := range browser.ApprovedOperations {
+		argv = append(argv, "--approve-browser-operation", operation)
+	}
+	for _, operation := range browser.ApprovedAuthentication {
+		argv = append(argv, "--approve-browser-authentication", operation)
+	}
+	return argv
 }
 
 func appendExecutionReportArg(argv []string, reportPath string) []string {

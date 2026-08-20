@@ -272,6 +272,12 @@ func applyProgressiveAnswer(session *Session, plan QuestionPlan, answer string, 
 		bindings := parseAssignments(answer)
 		if target := targetStepForPlan(session, plan); target != nil && strings.EqualFold(strings.TrimSpace(target.Type), "browser_authentication") {
 			target.CredentialBindings = bindings
+			for _, binding := range bindings {
+				if browserBindingNamePattern.MatchString(strings.TrimSpace(binding)) {
+					session.Credentials = dedupeStrings(append(session.Credentials, strings.TrimSpace(binding)))
+					session.CredentialsSet = true
+				}
+			}
 		}
 	case strings.Contains(slotText, "authentication_approval"):
 		if !strings.HasPrefix(strings.ToLower(answer), "approve ") {
