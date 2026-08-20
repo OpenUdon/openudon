@@ -8,9 +8,11 @@ JSON, and dry-run guidance, see [SaaS Review And Trusted Handoff](saas-review-ha
 
 ## Handoff Manifest
 
-`expected/review-handoff.json` uses the stable `apitools.review-handoff.v1` wire version. The
+`expected/review-handoff.json` uses `apitools.review-handoff.v2`. The
 manifest records package inputs, approval state, owner split, execution policy, credential binding
-names, and trusted-runner metadata.
+names, trusted-runner metadata, and a SHA-256 digest for every input. Its own
+digest is computed from canonical JSON with that digest field cleared; the
+package digest still covers the final manifest bytes.
 
 The manifest is evidence for an external reviewer or orchestrator. It does not grant approval by itself.
 Generation normally leaves side-effectful packages in `generated` or review-required state.
@@ -91,13 +93,16 @@ go run ./cmd/openudon run \
 
 `openudon run` checks the handoff manifest, stored and current quality, approval scope, approval
 state, expiry, package digest, tier compatibility, credential-value policy, and direct-production
-policy. The resulting `openudon.executor-run.v1` config includes the UWS artifact, API source files,
-sorted package paths, package digest, tier, workdir, and credential binding names.
+policy. The resulting `openudon.executor-run.v2` config includes the unique run
+ID, UWS artifact, API source files, sorted package paths, package, handoff, and
+approval digests, tier, workdir, and credential binding names.
 
 Dry runs stage digest-covered files into a fresh workdir and recompute the package digest without
 requiring credential values or invoking the executor. Both dry runs and real handoffs write
-`openudon.run-evidence.v1` at `<workdir>/run-evidence.json` with package paths, staged paths, gate
-outcomes, credential binding names, and a digest reference to `<workdir>/async-evidence.json`. The
+`openudon.run-evidence.v2` in the unique run directory with package paths,
+staged paths, gate outcomes, bound config/handoff/approval/package digests,
+credential binding names, verified executor-report metadata, and a digest
+reference to `async-evidence.json`. The
 sidecar is an `openudon.async-evidence-bundle.v1` wrapper over neutral Evidence async request and
 response records for OpenUdon package handoff audit only. When a compatible udon executor writes a
 `udon.execution-report.v1` file, OpenUdon also forwards status and confirmation-read observations
@@ -170,9 +175,29 @@ If `OPENUDON_UDON_RUNNER` overrides the outer runner shim, OpenUdon evidence mar
 `stage_kind: preflight`. That proves OpenUdon's package validation before handing the config to the
 external runner; the external runner still owns its final executor-visible stage and invocation.
 
+The external runner is invoked with `--config`, `--config-sha256`, and
+`--approval` and repeats the complete trusted validation path before starting
+the final executor. Direct v1 execution is rejected; rebuild the package first.
+
 Verify archived run evidence and sidecar integrity with:
 
 ```bash
 go run ./cmd/openudon run-evidence verify \
   --file .openudon-run/support-email/run-evidence.json
 ```
+
+Optional signature workflow:
+
+```bash
+go run ./cmd/openudon run-evidence keygen \
+  --private-key operator-private.pem --public-key operator-public.pem
+go run ./cmd/openudon run --example ./examples/eval/support-email \
+  --tier sandbox --approval approvals/support-email-sandbox.json \
+  --signing-key operator-private.pem
+go run ./cmd/openudon run-evidence verify --file <run-evidence.json> \
+  --require-signature --trusted-public-key operator-public.pem
+```
+
+The detached envelope contains only the algorithm, public key and fingerprint,
+evidence digest, and signature. The private key never crosses the executor
+boundary.

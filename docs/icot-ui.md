@@ -174,13 +174,15 @@ of a newly adopted baseline.
 
 ## Security Boundary
 
-Every process generates a fresh 256-bit capability token and derives a separate
-unguessable `/.icot-ui/<instance>/` browser path. Only that exact instance root
-may exchange the printed `?token=...` query for an HttpOnly
-`SameSite=Strict` cookie, followed by a redirect to the clean instance path.
-Non-browser clients may send `Authorization: Bearer <token>` to canonical API
-routes. The token is required for the shell, assets, and every API route except
-`/healthz`.
+Every process generates a fresh 256-bit internal capability token, a separate
+unguessable `/.icot-ui/<instance>/` browser path, and a random 12-character
+Crockford Base32 access code. The browser opens a tokenless loopback root; the
+code is shown only in the terminal. A same-origin POST to the exact instance
+root exchanges it for an HttpOnly `SameSite=Strict` cookie and redirects to the
+clean instance path. The code expires after five minutes, is single-use, and
+allows at most five failed attempts per minute. API v2 request and response
+shapes are unchanged. Non-browser local clients may still use the internal
+bearer token on canonical API routes; it never appears in browser-open argv.
 
 The server always binds IPv4 loopback and requires the active listener's exact
 Host plus its exact Origin when an Origin is supplied. It emits no CORS

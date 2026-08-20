@@ -34,18 +34,23 @@ OpenUdon can stage OpenAPI, Google Discovery, AWS Smithy, AsyncAPI, GraphQL, Ope
 gRPC/protobuf, and OData source documents as first-class UWS source descriptions when the trusted
 executor supports them.
 
-## v0.1 Public Beta
+## v0.2 Security Migration
 
-The supported v0.1 core is the deterministic package lifecycle
+The source tree implements the unreleased v0.2 compatibility boundary for the deterministic package lifecycle
 (`validate`, `build`, `promote`, and `assess`), digest-bound approval and
 trusted handoff (`approval-template` and `run`), run-evidence
-verification/archive, and the existing versioned handoff artifacts. iCoT,
+verification/archive/signatures, and the v2 handoff artifacts. Existing v1
+run configs and handoffs must be rebuilt before execution; v1 run evidence is
+read-only inspectable and cannot be archived as v2 evidence. iCoT,
 LLM/provider behavior, eval/catalog/smoke helpers, and exact generated prose
 remain experimental before v1. OpenUdon does not yet expose a supported
 Go-library API.
 
 See [SUPPORT.md](SUPPORT.md) and the
-[v0.1 compatibility contract](docs/compatibility.md) for the exact boundary.
+[v0.2 compatibility contract](docs/compatibility.md) for the exact boundary.
+
+The most recent published binaries remain v0.1.0 until v0.2 release evidence
+is complete; this change does not publish or tag v0.2.0.
 
 ## Quick Start
 
@@ -150,11 +155,22 @@ natural-language project brief
 generate, compile, validate, and report on artifacts. They do not execute production workflows.
 
 `openudon run` is separate. It validates the handoff manifest, stored and current quality, approval
-JSON, package digest, and tier before writing a non-secret `openudon.executor-run.v1` run config and
-`openudon.run-evidence.v1` evidence. Dry runs stage the reviewed package into a fresh workdir and
+JSON, package digest, and tier before writing a non-secret `openudon.executor-run.v2` run config and
+`openudon.run-evidence.v2` evidence in a unique per-run directory. Dry runs stage the reviewed package into a fresh workdir and
 verify the staged digest without invoking the executor or requiring credential values. Non-dry runs
 perform the same staging and digest check before calling the configured executor.
-The runner is also available directly as `go run ./cmd/udon-runner --config <run-config.json>`.
+The runner is also available directly with the digest and approval pinned by
+the parent process:
+
+```bash
+go run ./cmd/udon-runner \
+  --config <run-config.json> \
+  --config-sha256 <sha256> \
+  --approval <approval.json>
+```
+
+It revalidates current quality, handoff, package, approval, tier, and exact
+canonical config bytes before execution. v1 configs are rejected.
 `OPENUDON_EXECUTOR` accepts either an absolute path to an executable file or `docker://<image>`.
 The outer `OPENUDON_UDON_RUNNER` override must be an absolute path to an executable file.
 When that outer override is used, OpenUdon evidence marks its staged package as `stage_kind:
@@ -201,8 +217,8 @@ go run ./cmd/icot --from-example ./examples/eval/runtime-only-render --example .
 # Use an openudon.icot-session.v2 YAML or JSON session.
 go run ./cmd/icot --answers ./session.yaml --example ./examples/<name> --yes
 
-# Start the experimental single-workspace loopback API v2 and open its
-# one-time capability URL. The embedded Phase C shell authors and reviews.
+# Start the experimental single-workspace loopback API v2, open its tokenless
+# page, and enter the one-time terminal code. The Phase C shell authors/reviews.
 go run ./cmd/icot ui --example ./examples/<name>
 
 # Seed the UI from a reviewed example without opening the browser.
@@ -298,8 +314,11 @@ default. Successful promotion deletes obsolete draft/readiness state. Transcript
 git.
 
 `icot ui` is an experimental local transport over the same engine. It always
-binds `127.0.0.1`, generates a per-process capability token, scopes browser
-authentication beneath a separate unguessable instance path, requires exact
+binds `127.0.0.1` and opens a tokenless loopback page. A random 12-character
+Crockford Base32 access code is printed only in the terminal; it expires after
+five minutes, is single-use, and throttles after five failed attempts per
+minute. A successful POST exchange installs the existing scoped HttpOnly,
+SameSite=Strict cookie and redirects to the clean instance path. The UI requires exact
 snapshot revisions for mutations, detects changes made by editors or another
 process, and freezes after an approved final or incomplete write. A detected
 workspace change preserves cached inspection but blocks mutation until the
@@ -674,7 +693,8 @@ fails deterministic checks.
 
 LLM credentials must come from provider environment variables such as `COPILOT_API_BASE_URL`,
 `COPILOT_API_KEY`, `GEMINI_API_KEY`, `OPENAI_API_KEY`, or `ANTHROPIC_API_KEY`. Do not place tokens in
-prompts, commands, examples, or workflow artifacts.
+prompts, commands, examples, or workflow artifacts. Gemini sends its key only
+through `x-goog-api-key`; provider response bodies are bounded to 8 MiB.
 
 Use `OPENUDON_LLM_PROVIDER` and `OPENUDON_LLM_MODEL` when you want shell-level defaults for local
 LLM-assisted commands; explicit `--provider` and `--model` flags still take precedence.
@@ -692,7 +712,7 @@ LLM-assisted commands; explicit `--provider` and `--model` flags still take prec
 - [SaaS operator release path](docs/saas-operator-release.md)
 - [Release stewardship](docs/release-stewardship.md)
 - [Release note template](docs/release-note-template.md)
-- [v0.1 compatibility contract](docs/compatibility.md)
+- [v0.2 compatibility contract](docs/compatibility.md)
 - [Support policy](SUPPORT.md)
 - [Security policy](SECURITY.md)
 - [Contributing](CONTRIBUTING.md)

@@ -145,9 +145,11 @@ candidate_workflows:
   `attributes` retain machine-readable confidence and confirmation qualifiers
   required to reproduce readiness and safety checks after resume.
 - `interview.metadata` may contain `security_alternative.<step>` with the
-  one-based source-order index selected for an operation. Labels are display
-  text only; the index keeps repeated scheme names or different OAuth scope
-  alternatives stable across resume.
+  canonical `sha256:<hex>` fingerprint selected for an operation. Labels are
+  display text only; the fingerprint keeps repeated scheme names or different
+  OAuth scope alternatives stable across reordering and resume. A legacy
+  one-based index is accepted only when unique decision evidence confirms the
+  same alternative; otherwise the operator must reselect.
 - A technical deferral must name its owner, impact, unblock condition, and next
   action. Source, operation, mapping, and output leaves may be deferred.
 - `candidate_workflows` are unnumbered future directions. Each has a title,

@@ -22,6 +22,13 @@ tier checks before invoking udon.
 - Use `OPENUDON_LLM_PROVIDER` and `OPENUDON_LLM_MODEL` for local LLM selection defaults; keep API
   keys in provider-native variables such as `COPILOT_API_KEY`, `OPENAI_API_KEY`,
   `ANTHROPIC_API_KEY`, or `GEMINI_API_KEY`.
+- Gemini credentials are sent only in `x-goog-api-key`, never in a query
+  string. Every provider success and error body is bounded to 8 MiB, caller
+  deadlines are preserved, and transport errors are redacted.
+- Remote source fetches validate every redirect, resolve with the caller's
+  context, reject mixed or unsafe DNS answers, and dial a validated IP without
+  a second lookup. Custom transports that cannot enforce this policy fail
+  closed.
 - Use UWS/OpenAPI validation before any runtime execution.
 - For browser workflows, require an active non-expired `uws.browser.1.5`
   profile, matching `.icot/browser-sources.json` digest/action/origin evidence,
@@ -47,15 +54,22 @@ tier checks before invoking udon.
 - Keep local verification explicit: `go test ./...`, `go vet ./...`, `make check`, and
   `git diff --check`.
 
+Credential scanning is shared across package artifacts and LLM request
+mappings. Only documented `inputs.`, `credentials.`, and prior-step reference
+forms are symbolic; Google refresh/client secrets, Slack/GitHub/AWS tokens,
+bearer/JWT shapes, dash-separated secrets, and high-entropy literals fail
+closed.
+
 ## Quality Gates
 
 OpenUdon fails `side_effects.policy` when generated artifacts imply writes, customer communications,
 command execution, SSH execution, or other side effects without approval/trusted-runtime and
 sandbox proof-run policy.
 
-OpenUdon fails `side_effects.environment` when an explicit production endpoint is used without
-production handoff approval language. Use sandbox, staging, localhost, `.test`, or documented
-example endpoints for proof runs.
+OpenUdon fails `side_effects.environment` when a production-or-unknown endpoint is used without
+production handoff approval language. Every external HTTP(S) endpoint outside
+loopback and reserved `.test`/example domains is production-or-unknown; a host
+name containing `sandbox` or `staging` is not approval evidence.
 
 OpenUdon fails `review.approval_states`, `review.sandbox_handoff`, or `review.credential_bindings`
 when review evidence lacks the review approval-state requirements, sandbox/proof-run handoff
@@ -64,24 +78,36 @@ state that no credential bindings are declared or required.
 
 ## Trusted Runner
 
-`openudon run` writes a non-secret `openudon.executor-run.v1` config only after stored/current quality,
+`openudon run` writes a non-secret `openudon.executor-run.v2` config only after stored/current quality,
 approval state, tier, credential policy, and package digest checks pass. New run configs include
-`package_paths`, the sorted digest-covered handoff inventory. Dry runs and real handoffs stage those
-files into a fresh workdir and recompute `package_sha256` from the staged copy. Dry runs stop there
-and write `openudon.run-evidence.v1` at `<workdir>/run-evidence.json` without requiring credential
-values. Non-dry runs require the declared `UDON_CREDENTIAL_*` environment values before invoking a
-binary or Docker executor, then write the same non-secret evidence shape.
+`package_paths`, the sorted digest-covered handoff inventory, plus exact
+approval and handoff digests. Every invocation receives a unique run ID and
+directory. Dry runs and real handoffs stage those files into a fresh workdir
+and recompute `package_sha256` from the staged copy. Dry runs stop there and
+write `openudon.run-evidence.v2` without requiring credential values. Non-dry
+runs require the declared `UDON_CREDENTIAL_*` values, verify the bounded
+regular executor report by path, digest, and size, then write the same
+non-secret evidence shape.
 
 `OPENUDON_EXECUTOR` is the canonical final executor selector. It accepts an absolute binary path or
 `docker://<image>`. `OPENUDON_UDON_RUNNER` is separate: it overrides the outer runner shim and must
-be an absolute path to an executable file. Docker mode passes only declared `UDON_CREDENTIAL_*`
-environment variable names into argv; non-Docker binary execution inherits the operator environment
-by design.
+be an absolute path to an executable file. Execution uses a typed
+argv/directory/environment invocation. Local binaries receive only declared
+credentials. Docker and outer runners additionally receive the documented
+minimal platform launcher environment; cloud, proxy, SSH-agent, and unrelated
+process variables are not forwarded.
 
 When `OPENUDON_UDON_RUNNER` is used, OpenUdon run evidence records `stage_kind: preflight` because
 the outer wrapper can validate and stage the package before handoff but cannot observe the external
-runner's final staging. The external runner must perform the same fail-closed config, credential,
-staging, and digest checks.
+runner's final staging. It receives `--config`, `--config-sha256`, and
+`--approval`, then revalidates current quality, handoff, package, approval,
+tier, exact config bytes, credential bindings, staging, and digests. v1
+configs cannot execute.
+
+Run evidence may be signed with an optional PKCS#8 PEM Ed25519 private key.
+The key is never placed in config, evidence, argv, or child environments.
+Verification with the embedded PKIX public key proves integrity; pass
+`--trusted-public-key` to additionally pin operator identity.
 
 ## Runtime Profiles
 

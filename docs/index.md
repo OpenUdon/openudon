@@ -103,4 +103,4 @@ for the provider-free release demo, and [Handoff](safety.md) for the review and 
 ### Related
 
 - [Related Projects](related.md)
-- [v0.1 Compatibility Contract](compatibility.md)
+- [v0.2 Compatibility Contract](compatibility.md)
