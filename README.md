@@ -118,6 +118,10 @@ git diff --check
 
 Execute through `openudon run` and the portable run-config handoff. Configure the final executor
 with `OPENUDON_EXECUTOR` as either an absolute binary path or `docker://<image>`.
+Reviewed browser workflows additionally use
+`--browser-driver /absolute/path/browserdriver`; OpenUdon derives the protocol,
+symbolic credential/session environment names, and exact browser approvals
+from the package and binds them into the v2 config and evidence.
 
 ## Layout
 

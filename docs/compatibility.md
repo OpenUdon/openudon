@@ -15,6 +15,9 @@ deliberately smaller than the full command surface.
   `apitools.review-handoff.v2` documents.
 - The `OPENUDON_EXECUTOR` and `OPENUDON_UDON_RUNNER` selector rules and the
   portable `udon-runner` run-config boundary.
+- Additive value-free browser replay fields in executor-run and run-evidence
+  v2: driver path/arguments, protocol, canonical environment mappings, and
+  exact reviewed operation/authentication approvals.
 
 Additive flags and artifact fields may be introduced in v0.2.x. Existing
 fields, accepted inputs, and documented core behavior will not intentionally

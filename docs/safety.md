@@ -89,6 +89,14 @@ runs require the declared `UDON_CREDENTIAL_*` values, verify the bounded
 regular executor report by path, digest, and size, then write the same
 non-secret evidence shape.
 
+For a reviewed browser workflow, `openudon run` additionally requires an
+explicit absolute `--browser-driver` path. It derives a value-free browser
+contract from the current plan, intent, packaged browser/authentication
+profiles, and review metadata: protocol, canonical credential/session
+environment mappings, and exact operation/authentication approvals. The
+external runner re-derives that contract and rejects substitutions. Driver
+arguments, config, evidence, and argv may not contain credential values.
+
 `OPENUDON_EXECUTOR` is the canonical final executor selector. It accepts an absolute binary path or
 `docker://<image>`. `OPENUDON_UDON_RUNNER` is separate: it overrides the outer runner shim and must
 be an absolute path to an executable file. Execution uses a typed

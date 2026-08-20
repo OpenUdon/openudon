@@ -96,6 +96,11 @@ state, expiry, package digest, tier compatibility, credential-value policy, and 
 policy. The resulting `openudon.executor-run.v2` config includes the unique run
 ID, UWS artifact, API source files, sorted package paths, package, handoff, and
 approval digests, tier, workdir, and credential binding names.
+For a browser workflow it also contains the value-free Browserdriver path and
+arguments, derived protocol, canonical credential/session environment names,
+and exact reviewed operation/authentication approvals. A real browser run
+requires `--browser-driver /absolute/path`; dry-run may validate and record the
+derived contract without an installed driver.
 
 Dry runs stage digest-covered files into a fresh workdir and recompute the package digest without
 requiring credential values or invoking the executor. Both dry runs and real handoffs write
@@ -177,7 +182,10 @@ external runner; the external runner still owns its final executor-visible stage
 
 The external runner is invoked with `--config`, `--config-sha256`, and
 `--approval` and repeats the complete trusted validation path before starting
-the final executor. Direct v1 execution is rejected; rebuild the package first.
+the final executor. It also re-derives any browser contract from the package,
+so direct-runner edits to driver mappings, protocol, credentials, sessions, or
+approvals fail before execution. Direct v1 execution is rejected; rebuild the
+package first.
 
 Verify archived run evidence and sidecar integrity with:
 

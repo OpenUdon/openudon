@@ -37,7 +37,9 @@ the AppArmor-only `kernel.apparmor_restrict_unprivileged_userns` restriction on
 their ephemeral runner before launch. They fail if either requested setting
 does not take effect; the suites never add `--no-sandbox`.
 
-The 21 embedded cases cover password-only authentication, all eight reviewed
+The 21 embedded cases use session-gated goal pages and server-verified
+credential/MFA challenges, so replay must authenticate rather than merely
+navigate to a dashboard-shaped page. They cover password-only authentication, all eight reviewed
 MFA kinds, main/popup/frame contexts, exact-name and unique-role locators,
 zero/16/17 outputs, typed string/integer/number/Boolean/presence results,
 noncanonical scalar rejection, stale and ambiguous targets, context
@@ -57,7 +59,9 @@ go run ./cmd/openudon browser-scenario-eval \
 ```
 
 Without `--require-ready`, a missing installed browser dependency is recorded
-as `skipped`; release automation always requires readiness.
+as `skipped` and an all-skipped report exits successfully as `not_run` for
+structural inspection. `not_run` is never accepted as a pass; release
+automation always requires readiness.
 
 ## Run The Realistic Journey Suite
 
@@ -138,9 +142,11 @@ go run ./cmd/openudon browser-scenario-eval \
   --verify eval/runs/browser-scenario-loopback-local/report.json
 ```
 
-The embedded `openudon.browser-scenario-lock.v1` fixes Browsertools, Udon,
-Browserdriver, UWS, Go, Node, and Playwright compatibility. Execution rejects
-a sibling checkout or OpenUdon module pin that differs from the lock. Scenario
+The embedded `openudon.browser-scenario-lock.v2` fixes Browsertools, Udon,
+Browserdriver, UWS, Go, Node, Playwright, and Chromium compatibility. Execution
+rejects a dirty or revision-mismatched sibling checkout, a mismatched OpenUdon
+module pin, or installed Playwright/Chromium versions that differ from the
+lock. Scenario
 manifests and reports strict-decode unknown or duplicate fields and apply
 finite bounds before any browser or network authority is exercised.
 

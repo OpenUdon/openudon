@@ -213,6 +213,32 @@ session and replays the portable workflow; it never receives the authoring
 session, its cookies, or its browser handles. Runtime approval is separate from
 every authoring approval.
 
+Approved browser packages execute through the same digest-bound OpenUdon gate
+as API packages. Supply the reviewed Browserdriver executable explicitly and
+place only the derived symbolic credential variables in the operator
+environment:
+
+```bash
+export OPENUDON_EXECUTOR=/absolute/path/udon
+export UDON_CREDENTIAL_MEMBER_PASSWORD='<runtime value>'
+
+openudon run \
+  --example ./examples/member-dashboard \
+  --tier sandbox \
+  --approval ./approvals/member-dashboard.json \
+  --browser-driver /absolute/path/browserdriver
+```
+
+OpenUdon derives the browser protocol, canonical credential/session mappings,
+and exact operation and authentication approvals from the current reviewed
+intent, profiles, and review files. Those value-free fields are bound into the
+v2 run config and evidence, then re-derived by an external `udon-runner` before
+execution. Browser driver arguments are optional repeatable
+`--browser-driver-arg` values and must not contain credentials. Only declared
+`UDON_CREDENTIAL_*` values, required external `UDON_BROWSER_SESSION_*` values,
+and the documented minimal Browserdriver launcher environment cross the
+executor boundary.
+
 ## Exclusions And Failure Posture
 
 Initial live authoring is Chromium-only. CAPTCHA, enrollment, recovery,
