@@ -7,6 +7,22 @@ to execute it.
 `docs/intent.md` is the internal `intent.hcl` contract. This page focuses on data-flow examples and
 quality expectations.
 
+## UI acquisition boundary
+
+The iCoT UI acquires metadata, not runtime values. An API upload is first
+validated in a bounded private inbox and becomes a source only after explicit
+staging. An authenticated Chromium capture returns only canonical,
+value-free authentication/capability profiles and safe review metadata after
+independent validation and explicit staging. Credentials, MFA values, cookies,
+storage, and page content never enter the interview or package.
+
+Staging refreshes source discovery but does not choose the workflow operation.
+The normal revision-protected interview still selects an API operation or
+browser action, maps symbolic inputs/outputs, declares side effects and
+credentials, and receives final human approval. Package build and exact-byte
+assessment are separate from that authoring approval; trusted execution remains
+outside the UI.
+
 ## How Data Moves
 
 - OpenAPI steps receive request fields from literals, workflow inputs, credential bindings, or prior

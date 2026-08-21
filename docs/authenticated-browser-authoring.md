@@ -1,7 +1,8 @@
 # Authenticated Goal-Directed Browser Authoring
 
-`icot browser-author live` is the one explicit iCoT mode that launches an
-external Browsertools process. It keeps a single headed Chromium context alive
+The iCoT UI is the primary existing-account browser-authoring surface;
+`icot browser-author live` remains its expert terminal fallback. Both launch
+an isolated Browsertools worker process and keep a single headed Chromium context alive
 while a human signs in and completes MFA, then guides bounded exploration in
 that same context toward a reviewed goal. Normal iCoT, `--agent`, and
 `icot browser-authoring plan` remain non-executing.
@@ -30,15 +31,24 @@ authoring session cannot be resumed or exported.
 
 ## Operator Flow
 
-Create an existing private directory with no group or other access, and use an
-absolute, non-symlink Browsertools executable:
+For the primary flow, start `icot ui --example DIR --private-root DIR`, choose
+`existing_account_sign_in` or `authenticated_action`, run the Chromium doctor,
+and review the exact URL, origin allowlist, goal predicate, and profile ID.
+Passwords and MFA values are entered only in the headed Chromium window. The
+loopback page receives reduced candidates, exact approval tuples, and typed
+checkpoint kinds; it never receives the values or the private result path.
+After completion, stage the profile pair, resume the ordinary source/action
+interview, approve authoring, and separately build the reviewed package.
+
+Create an existing private directory with no group or other access. The
+distributed `icot` executable privately stabilizes a copy of itself there and
+re-executes a hidden worker by default:
 
 ```bash
 install -d -m 0700 /private/operator/member-authoring
 
 icot browser-author live \
   --example ./examples/member-dashboard \
-  --browsertools /absolute/path/browsertools \
   --url https://members.example.com/login \
   --dashboard-url https://members.example.com/dashboard \
   --goal "reach the member dashboard and learn how to read account status" \
@@ -50,6 +60,10 @@ icot browser-author live \
   --goal-label Dashboard \
   --after-authentication ask_after_authentication
 ```
+
+`--browsertools /absolute/path/browsertools` remains an expert compatibility
+override for the terminal command only. The UI never accepts an arbitrary
+worker path.
 
 Use `--driver-dir` when the installed Playwright-Go driver is not available at
 its normal location. Chromium must already be installed; the command never
@@ -123,10 +137,10 @@ staging approval.
 
 ## Local Protocol And Artifacts
 
-iCoT starts:
+iCoT normally starts its hidden worker equivalently to:
 
 ```bash
-browsertools author-session chromium \
+icot __browsertools-worker author-session chromium \
   --private-root /private/operator/member-authoring
 ```
 
@@ -158,23 +172,21 @@ graph, trace, goal proof, human confirmation, profile-review digests, freshness,
 secret absence, reviewed challenge kinds, credential-slot kinds, resolved
 value-free output proofs, profile versions, and both embedded UWS schemas.
 OpenUdon reconstructs the expected profiles from the reviewed v2 facts and
-rejects a substituted profile even when its digest was also replaced. After the operator types
-`stage`, one atomic new-only transaction adds:
+rejects a substituted profile even when its digest was also replaced. After a
+separate stage confirmation, one atomic new-only transaction adds:
 
 ```text
 browser-authentication/<id>-auth.json
 browser-profiles/<id>.json
-.icot/browser-authentication.json
-.icot/browser-sources.json
 .icot/authenticated-browser-authoring.json
 ```
 
-The `.icot/authenticated-browser-authoring.json` file contains only safe,
-value-free review facts and the private envelope digest. Run normal iCoT next
-to select the exact authentication flow and capability action, bind symbolic
-runtime credential slots, review API preference again, and author the workflow.
-Existing browser sources or conflicting targets fail closed instead of being
-silently overwritten.
+The review file is a v3 collection containing only safe, value-free review
+facts and private-envelope digests; a valid v2 singleton migrates on the next
+stage. Multiple collision-free profiles may coexist and none is overwritten.
+The later workflow approval selects the exact authentication flow and action,
+binds symbolic runtime credential slots, and writes final browser source and
+authentication review metadata. Existing targets fail closed.
 
 ## Context And Version Selection
 
@@ -202,7 +214,9 @@ closed during trusted replay.
 
 ## Authoring Is Not Runtime Replay
 
-Playwright-Go is an authoring dependency owned by Browsertools. It is used to
+Playwright-Go is an authoring dependency owned by Browsertools. The release
+binary includes Browsertools worker code, but the iCoT engine and HTTP server
+never run Playwright in-process. It is used to
 learn a portable, reviewed description while a human is present. It is not the
 trusted workflow executor.
 

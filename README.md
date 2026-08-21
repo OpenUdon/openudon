@@ -7,14 +7,15 @@ OpenUdon is the public UWS workflow authoring, review, package, and executor-han
 directly or under optional external orchestration, and it hands approved packages to a
 trusted executor boundary such as the `udon` runtime.
 
-iCoT is OpenUdon's primary end-user authoring entry point across API, browser,
-and runtime-handoff sources. iCoT retains goal interviewing, LLM/human
-interaction, source selection, and package staging. For UI-only acquisition,
-it delegates to an external Browsertools process. Browsertools owns
-Playwright-based acquisition, browser safety policy, profile synthesis, and
-the shared validation library for browser capability and authentication
-profiles; its CLI is primarily a machine-facing protocol plus maintainer and
-offline tooling. Production runtime replay belongs to Udon and Browserdriver.
+iCoT UI is OpenUdon's primary interactive authoring entry point across API,
+authenticated-browser, and runtime-handoff sources; terminal commands remain
+expert and automation fallbacks. One distributed `icot` executable handles the
+operator flow, but it privately stabilizes and re-executes itself as an
+isolated Browsertools worker process for Playwright acquisition. Browsertools
+owns that Chromium context, browser safety policy, profile synthesis, and the
+shared validation library; the iCoT engine and HTTP server never initialize
+Playwright in-process. Production runtime replay belongs to Udon and
+Browserdriver.
 See Browsertools' [canonical OpenUdon integration
 reference](https://github.com/OpenUdon/browsertools/blob/main/docs/openudon-integration.md).
 
@@ -186,8 +187,9 @@ own config checks.
 
 ## Authoring With iCoT
 
-iCoT turns a project idea into reviewed authoring artifacts. It writes `project.md` and
-`workflows/intent.hcl`; it does not synthesize compiled artifacts or execute workflows.
+iCoT turns a project idea into reviewed authoring artifacts. Terminal iCoT
+writes `project.md` and `workflows/intent.hcl`; the UI can additionally build
+and assess the reviewed package for handoff, but neither surface executes workflows.
 The generic interactive loop mechanics are shared through
 `github.com/OpenUdon/authoring/icot`; OpenUdon still owns the prompts, intent
 schema, artifact layout, model/provider clients, reports, and package gates.
@@ -224,9 +226,11 @@ go run ./cmd/icot --from-example ./examples/eval/runtime-only-render --example .
 # Use an openudon.icot-session.v2 YAML or JSON session.
 go run ./cmd/icot --answers ./session.yaml --example ./examples/<name> --yes
 
-# Start the experimental single-workspace loopback API v2, open its tokenless
-# page, and enter the one-time terminal code. The Phase C shell authors/reviews.
-go run ./cmd/icot ui --example ./examples/<name>
+# Start the experimental single-workspace API v3 shell. A private root is
+# required only for source upload or authenticated Chromium capture.
+install -d -m 0700 /private/operator/openudon-authoring
+go run ./cmd/icot ui --example ./examples/<name> \
+  --private-root /private/operator/openudon-authoring
 
 # Seed the UI from a reviewed example without opening the browser.
 go run ./cmd/icot ui --example ./examples/<name> \
@@ -259,12 +263,11 @@ go run ./cmd/icot browser-authoring plan \
   --private-root /private/operator/browsertools-status \
   --out /private/operator/browsertools-status/handoff.json
 
-# Authenticated authoring is a separate, explicit live mode. The human enters
-# credentials/MFA directly in headed Chromium; the private envelope is not packaged.
+# The CLI live mode is an expert fallback. It uses the bundled isolated worker
+# by default; --browsertools remains an expert compatibility override.
 install -d -m 0700 /private/operator/member-authoring
 go run ./cmd/icot browser-author live \
   --example ./examples/member-dashboard \
-  --browsertools /absolute/path/browsertools \
   --url https://members.example.test/login \
   --dashboard-url https://members.example.test/dashboard \
   --goal "reach the member dashboard and learn how to read account status" \
@@ -320,7 +323,7 @@ default. Successful promotion deletes obsolete draft/readiness state. Transcript
 `<example>/.icot/transcript.json` unless `--no-transcript` is used. These local files are ignored by
 git.
 
-`icot ui` is an experimental local transport over the same engine. It always
+`icot ui` is the primary interactive authoring shell over the same engine. It always
 binds `127.0.0.1` and opens a tokenless loopback page. A random 12-character
 Crockford Base32 access code is printed only in the terminal; it expires after
 five minutes, is single-use, and throttles after five failed attempts per
@@ -328,17 +331,21 @@ minute. A successful POST exchange installs the existing scoped HttpOnly,
 SameSite=Strict cookie and redirects to the clean instance path. If that
 browser session is lost, the tokenless page can rotate an already-used or
 expired code and print the replacement only in the terminal. The UI requires
-exact snapshot revisions for mutations, detects changes made by editors or another
-process, and freezes after an approved final or incomplete write. A detected
+separate authoring and capture revisions for mutations and asynchronous browser
+events, detects changes made by editors or another process, and freezes only
+after a passing reviewed package build. A detected
 workspace change preserves cached inspection but blocks mutation until the
-process is restarted. The shell polls API v2 while visible and backs off after
-errors. It renders the current frontier as accessible controls, submits
+process is restarted. The shell polls experimental API v3 while visible and backs off after
+errors. It selects a journey, validates/stages bounded API uploads, performs
+isolated existing-account Chromium capture, renders the current frontier as accessible controls, submits
 complete revision-protected rounds, previews proposed artifacts and conflicts,
 supports explicit settled-answer reopening, shows candidate/source/review
-evidence, and requires explicit final or incomplete approval. OpenUdon v0.2 is
-CLI-first: this browser path provides deterministic recommendations and can
-resume a terminal-created draft, but does not invoke an LLM extractor. It does
-not execute workflows or expose a LAN service. See
+evidence, and requires explicit authoring approval. Package build is a second
+confirmation; failed quality can explicitly return to authoring and requires
+reapproval, while success exposes only allowlisted handoff artifacts and exact
+approval-template argv. A later artifact size or digest change invalidates the
+frozen handoff and requires resume, reapproval, and rebuild. The UI does not invoke an LLM extractor, create an
+approval, accept credentials, execute workflows, or expose a LAN service. See
 [Local iCoT UI Server](docs/icot-ui.md).
 
 `--prompt-mode full` is the default when the flag is omitted; it prints every question and waits for
@@ -352,9 +359,9 @@ current draft. That review is advisory: it looks for cross-step data-flow mistak
 email step not consuming the report content, and surfaces findings as warnings without rewriting the
 draft.
 
-The normal iCoT command, agent mode, and `browser-authoring plan` never launch a
-browser. Only the explicit `browser-author live` command starts Browsertools.
-Browsertools owns one non-persistent Playwright-Go Chromium context across
+The normal terminal iCoT command, agent mode, and `browser-authoring plan` never
+launch a browser. UI capture and the expert `browser-author live` command start
+an isolated bundled Browsertools worker. Browsertools owns one non-persistent Playwright-Go Chromium context across
 human login/MFA and post-login exploration; iCoT receives reduced semantics,
 requires disclosure/action/completion/staging approvals, and imports only
 reviewed canonical UWS profiles plus safe metadata. `--yes` bypasses none of

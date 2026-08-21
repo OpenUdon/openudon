@@ -1,272 +1,160 @@
 # Local iCoT UI Server
 
-`icot ui` serves one explicitly named authoring workspace on `127.0.0.1`. It
-wraps the same headless engine and transactional approval writer used by
-terminal iCoT. Phase C adds an accessible embedded authoring and review shell
-over the experimental API v2; it is not a remote service or a supported public
-API.
+`icot ui` is OpenUdon's primary interactive authoring and review surface for
+API and existing-account browser workflows. It serves one explicitly named
+workspace on `127.0.0.1`, uses the same transactional engine as terminal iCoT,
+and exposes the experimental `openudon.icot-ui-api.v3` wire. It is neither a
+remote service nor a supported public API.
 
 ```bash
-go run ./cmd/icot ui --example ./examples/<name>
+install -d -m 0700 /private/operator/openudon-authoring
+go run ./cmd/icot ui \
+  --example ./examples/<name> \
+  --private-root /private/operator/openudon-authoring
 ```
 
-The command selects an ephemeral port by default, prints a tokenless bootstrap
-URL plus a single-use access code, and opens the URL with the platform browser.
-Use a fixed loopback port or suppress browser opening when needed:
+`--private-root` is needed only for an API upload or browser capture. It must
+be absolute, mode `0700`, non-symlink, and outside the example. Use
+`--driver-dir` when the installed Playwright-Go driver is outside its normal
+location. Chromium is an installed prerequisite; iCoT never downloads it.
+A fixed `--port` and `--no-open` remain available for local automation or an
+SSH tunnel to the loopback page.
 
-```bash
-go run ./cmd/icot ui --example ./examples/<name> --port 8419 --no-open
-```
+## Journey and acquisition
 
-The UI accepts the terminal authoring command's reviewed local source inputs:
+The first human decision selects one starter and records its goal as decision
+evidence:
 
-```bash
-go run ./cmd/icot ui --example ./examples/<name> \
-  --from-example ./examples/eval/runtime-only-render \
-  --api-source graphql:catalog=./schema.graphql \
-  --openapi weather=./openapi/weather.yaml \
-  --browser-profile status=./reviewed/status.browser.json \
-  --browser-verification ./reviewed/status.live-check.json \
-  --browser-registry ./reviewed/registry \
-  --source-root ./provider-metadata \
-  --network never
-```
+- `api`
+- `existing_account_sign_in`
+- `authenticated_action`
+- `existing_reviewed_capability`
+- `freeform_mixed`
 
-`--answers FILE` and `--from-example DIR` are mutually exclusive. Startup uses
-the first available state in this order:
+Older resumable sessions without this field remain valid. Registration,
+account creation, consent, enrollment, CAPTCHA, recovery, billing, and
+password-change discovery are unsupported; the shell shows guidance instead
+of launching those flows.
 
-1. explicit `--answers` or `--from-example`;
-2. `<example>/.icot/session.yaml`;
-3. existing `<example>/project.md` or `workflows/intent.hcl`;
-4. an empty authoring state.
+API-family files enter a private, 20 MiB bounded inbox. iCoT rejects symlinks,
+invalid UTF-8, secret-like content, unknown or ambiguous documents, and files
+that do not produce exactly one validated Apitools source candidate. The shell
+shows the detected family, operation count, digest, and canonical workspace
+target. A separate Stage action performs the atomic write and refreshes engine
+discovery. Removal is allowed only for a UI-staged path whose exact digest is
+still owned by the UI; edited or externally replaced files fail closed.
 
-The shell shows revision, last successful refresh, workspace paths, selected
-sources, discovery candidates and blockers, candidate workflows, review
-evidence summaries and references, readiness, top issue, the complete current
-frontier, eligible settled answers, proposed file actions and overwrite
-conflicts, project and intent previews, completion, external-modification
-state, and cached snapshot JSON. Each frontier question
-is an accessible required form control with its prompt, rationale, slot,
-evidence references, optional recommendation, engine-owned closed choices or
-syntax guidance, and a structured deferral control when allowed. A
-recommendation can be copied into an empty answer, but is never silently
-accepted and never replaces existing input.
+Existing reviewed local sources and explicitly configured Browsertools static
+registries remain available. There is no UI provider catalog, folder browser,
+or desired-state conversion surface.
 
-Eligible settled human answers can be reopened through a separate explicit
-exact-revision mutation. Reopening clears the authoritative value, refreshes
-and autosaves the non-approvable state, and returns the replacement through the
-ordinary complete-frontier round. Imported/model-only state and decisions
-without a product-owned clearing rule are not advertised as revisable.
+## Isolated authenticated browser capture
 
-One submit sends every answer in the current frontier with the exact displayed
-revision. Incomplete client-side rounds focus the first missing control. Before
-approval, the operator sees preview, action, readiness, and conflict state,
-checks the review acknowledgement, and chooses either the separate final or
-explicitly incomplete approval. An overwrite conflict also requires a separate
-overwrite acknowledgement. No mutation is retried automatically.
+The distributed `icot` executable contains a hidden Browsertools worker entry
+point. The server copies its own executable under the private root, revalidates
+that copy, and launches it as a separate process group using
+`browsertools.author-session.v2`. Browsertools owns the Playwright-Go Chromium
+context. Neither the iCoT engine nor the HTTP server initializes Playwright
+in-process.
 
-The shell polls every two seconds while visible, pauses when hidden, refreshes
-immediately when visible again, and backs off exponentially to 30 seconds after
-errors. A stale response preserves unsent answers until the operator explicitly
-adopts the new revision; displaced answers remain visible in a volatile
-on-page list. That list is intentionally DOM-only and is lost on reload; it is
-inspection help, not durable authoring state.
-Retryable failures reconcile with a snapshot and offer an explicit retry only
-when the revision is unchanged. Domain rejection leaves controls editable;
-indeterminate failure disables mutation; workspace drift requires restart; and
-frozen final or incomplete completion remains inspectable. A polite live status
-announces mutation progress and outcome. After success, focus moves to the
-first question in the next frontier, the proposal-review heading when approval
-becomes available, or the completion banner after approval.
+Before launch, a 30-second isolated doctor reports the installed Playwright and
+Chromium readiness. Snapshot polling continues while the doctor runs. One
+capture may be active at a time. During an active capture the UI remains
+inspectable, but journey, source, interview, approval, and package mutations
+are blocked.
 
-## Local API v2
+The API and shell model these states explicitly: `preflight`, `configuring`,
+`launching`, `authentication`, `human_input`, `exploration`,
+`action_approval`, `completion_review`, `stage_review`, `staging`, `staged`,
+`canceled`, and `failed`. The shell renders only reduced, validated protocol
+data:
 
-The experimental response version is `openudon.icot-ui-api.v2`. API v1 routes
-are not served.
+- Browsertools-issued candidate actions as buttons;
+- exact origin, action, candidate, and POST-budget approval cards;
+- credential checkpoints that instruct the operator to type only in Chromium;
+- only the MFA kinds reported by Browsertools;
+- typed completion and bounded output decisions.
 
-| Route | Method | Behavior |
-|---|---|---|
-| `/healthz` | `GET` | Unauthenticated liveness only. |
-| `/api/v2/snapshot` | `GET` | Returns cached authoring state after checking workspace ownership. |
-| `/api/v2/round` | `POST` | Applies one complete current frontier transactionally. |
-| `/api/v2/reopen` | `POST` | Reopens one advertised settled human decision at the exact revision. |
-| `/api/v2/approve` | `POST` | Performs the explicit final or incomplete atomic write. |
+Passwords, OTPs, cookies, storage, request bodies, raw Browsertools output,
+child stderr, signing keys, runtime credentials, and the private result path
+have no HTTP or DOM representation. The child environment is allowlisted.
+Process cancellation terminates descendants and drains stdout. Browser-active
+operations retain Browsertools' ten-minute bound; unanswered human checkpoints
+cancel after 30 minutes and every capture has a two-hour absolute ceiling.
 
-Canonical API paths accept bearer authentication. The browser shell uses
-equivalent relative routes beneath its per-process path, where its scoped
-cookie is accepted.
+A successful capture is not staged automatically. OpenUdon stable-reads and
+independently reconstructs the private result, then a separate Stage action
+atomically creates one collision-free authentication/capability profile pair
+and updates the safe
+`openudon.authenticated-browser-authoring-review.v3` collection. A valid v2
+singleton is migrated on that write. Existing profile files are never
+overwritten. Capture staging does not select a workflow action or create final
+`.icot/browser-sources.json`/`.icot/browser-authentication.json`; final
+authoring approval owns that evidence.
 
-A successful response contains `version`, `revision`, `completed`, `workspace`,
-`snapshot`, and, after approval, `write_result`. `workspace` includes
-`externally_modified`; `snapshot.write_conflicts` contains the exact sorted
-read-only preflight conflicts that require overwrite approval. Revision is a
-`sha256:<hex>` digest over the snapshot, completion state, optional write
-result, and workspace-modification state.
+Failed, canceled, expired, crashed, or malformed captures write nothing to the
+workspace.
 
-Snapshot responses include an `ETag`. Send the prior revision through
-`If-None-Match`; the server returns `304` when cached state and workspace status
-are unchanged. `If-None-Match: *` also returns `304` because the snapshot
-resource already exists.
+## Authoring, package, and handoff lifecycle
 
-Every mutation must send the exact current revision:
+The UI uses one optimistic authoring revision for journey, source, interview,
+write, resume, and package mutations, plus a separate capture revision for
+asynchronous browser events. The response ETag covers both. Stale mutations
+are never retried automatically. A changed workspace preserves inspection but
+blocks mutation until restart.
 
-```json
-{
-  "revision": "sha256:...",
-  "answers": [
-    {"question_id": "boundary.outcome", "value": "Return the reviewed report"}
-  ]
-}
-```
+The shell presents the complete frontier, closed controls, structured
+deferrals, settled-decision reopening, source and capability provenance,
+digests, origins, actions, expiry, the symbolic credential/browser-session
+map, and a compact workflow graph. Final authoring approval atomically writes
+`project.md`, intent, selected sources, and review metadata, then enters
+`authored`; it does not finish the UI lifecycle.
 
-Round callers cannot provide slots or evidence sources. OpenUdon binds the
-current frontier's authoritative slots and records the answer as human input.
-Reopening is separately explicit:
+“Build reviewed package” is a separate revision-bound confirmation. The local
+deterministic build has a two-minute deadline. iCoT then performs a non-writing
+assessment of the exact current bytes. A quality failure shows check-specific
+remediation and permits an explicit return to authoring. That transition
+clears the prior write/package result, and final authoring approval must be
+repeated.
 
-```json
-{
-  "revision": "sha256:...",
-  "question_id": "boundary.actor_trigger"
-}
-```
+A passing package enters `handoff_ready` and freezes authoring. The shell shows
+quality checks, side effects, symbolic credentials, runtime approvals, package
+and handoff digests, the exact `openudon approval-template` argv, and bounded
+artifacts from a closed allowlist. Snapshot polling and artifact reads recheck
+the frozen artifact sizes and digests; drift invalidates handoff readiness and
+requires resume, repeated approval, and rebuild. The UI does not create sandbox or production
+approval, accept credential values, call `openudon run`, or execute a workflow.
 
-The question must appear in `snapshot.revisable_decisions`. The successful
-response carries the replacement frontier and disables approval until the
-replacement round or an allowed explicit deferral is accepted.
+## API and access boundary
 
-Approval is separately explicit:
+The tokenless bootstrap accepts only the random 12-character terminal access
+code. The code expires after five minutes, is single-use, and is rate-limited;
+recovery prints a replacement only to the terminal. A successful exchange
+creates a scoped HttpOnly `SameSite=Strict` cookie on an unguessable instance
+path. Bearer authentication remains available for local automation. Exact
+loopback Host and Origin checks, no CORS, restrictive headers, bounded strict
+UTF-8 JSON/multipart decoding, and signal-driven shutdown remain mandatory.
 
-```json
-{
-  "revision": "sha256:...",
-  "human_approved": true,
-  "allow_overwrite": false,
-  "approve_incomplete": false
-}
-```
+API v2 routes are removed. API v3 provides authenticated routes for snapshot,
+journey selection, interview rounds/reopening, source upload/stage/removal,
+browser preflight, capture start/respond/stage/cancel, authoring
+approval/resume, package build, and closed-allowlist artifact inspection.
+There is deliberately no registration, approval-generation, credential, run,
+or execution route.
 
-Successful final and incomplete writes freeze that process. Later mutations
-return `409 session_frozen` even when a caller supplies a stale revision, while
-snapshot inspection remains available. The engine also
-fingerprints its project, draft, final intent, review metadata, and selected
-materialized source targets. If an editor or second process changes one, the
-revision changes, `workspace.externally_modified` becomes true, and every later
-mutation returns `409 workspace_changed`. `allow_overwrite` never bypasses this
-revision-bound drift check. Restart `icot ui` after reviewing the external
-change.
+## Qualification
 
-Mutation bodies are limited to 1 MiB and accept only `application/json` with no
-charset or UTF-8. Invalid UTF-8, duplicate object names at any depth, unknown
-fields, malformed JSON, and multiple documents return `400`; oversized bodies
-return `413`; unsupported media types or charsets return `415`.
-
-Errors contain a closed code, safe message, `retryable`, and an opaque
-`request_id`. Authenticated state errors also include the current `revision`.
-State conflicts are `409`, domain rejection is `422`, and operational or
-indeterminate failures are `500`. Only 500-class failures are logged, using the
-request ID, route, stage, and a sanitized cause.
-
-## Transaction And Workspace Guarantees
-
-A round or settled-decision reopen builds its complete prospective state and
-snapshot before atomically saving the resumable draft. A pre-persistence error changes neither engine
-state nor draft bytes. Once persistence starts, request cancellation does not
-interrupt finalization.
-
-Approval similarly builds the exact refreshed snapshot and prepared write plan
-before commit. `write_result` is constructed afterward directly from the commit
-outcome, with no fallible post-commit refresh. The shared writer validates the
-complete plan before creating directories, temporary files, or backups; it
-rejects duplicate, case-insensitive-equivalent, ancestor/descendant, and
-remove/write path collisions. Selected sources cannot target `project.md`,
-either intent path, or `.icot/**`. The writer then rechecks the accepted workspace fingerprint
-immediately before replacement, rejects descendant symlinks, keeps every output
-beneath the canonical example root, cleans temporary backups after successful
-or successfully rolled-back transactions, and reports rollback failure as
-indeterminate. If post-commit backup cleanup itself fails, approval still
-returns the known successful frozen result and reports the housekeeping problem
-through `write_result.cleanup_warnings`. Empty-directory pruning is best effort
-and cannot turn a successful artifact commit into a failed request.
-
-Workspace fingerprinting is optimistic rather than a persistent lease. Cached
-inspection remains available after ordinary mutation rejection and after
-external drift. An unreadable or unsafe watched path fails closed as an
-operational error and may be retried after the filesystem problem is repaired.
-Pre-refresh observation is bounded to the current watched paths and targets in
-the current local/registry materialization plans; unrelated workspace files are
-not read. SHA-256 is streamed with cancellation checks and file identity,
-type, size, and modification state are verified around hashing. A path first
-produced by refresh that was not observed is conservatively treated as
-missing, so an existing or concurrently created target becomes drift instead
-of a newly adopted baseline.
-
-The exact-byte check intentionally re-hashes watched regular files on each
-visible two-second poll. A reproducible 1 MiB source benchmark is kept in
-`internal/icot/engine`; the A13 development measurement was about 3.2 ms per
-poll on the reference Haswell VM (roughly 0.16% of one core at a two-second
-interval). An mtime/size/inode shortcut was rejected because those metadata can
-remain unchanged while bytes change, which would weaken the advertised
-ownership check. Mutations retain the single server lock, so a second tab's
-poll may wait behind a long reviewed-source refresh; this is accepted for the
-single-operator process rather than serving an ambiguously stale mutation view.
-
-## Security Boundary
-
-Every process generates a fresh 256-bit internal capability token, a separate
-unguessable `/.icot-ui/<instance>/` browser path, and a random 12-character
-Crockford Base32 access code. The browser opens a tokenless loopback root; the
-code is shown only in the terminal. A same-origin POST to the exact instance
-root exchanges it for an HttpOnly `SameSite=Strict` cookie and redirects to the
-clean instance path. The code expires after five minutes, is single-use, and
-allows at most five failed attempts per minute. If the browser loses its
-session cookie, navigation to the scoped shell returns to the tokenless root.
-After the prior code is used or expired, a separate root-page POST can rotate
-it and print a fresh five-minute single-use code only in the terminal; recovery
-is limited to five successful rotations per minute and never returns the code
-in HTTP content or a URL. Non-browser local clients may still use the internal
-bearer token on canonical API routes; it never appears in browser-open argv.
-
-The server always binds IPv4 loopback and requires the active listener's exact
-Host plus its exact Origin when an Origin is supplied. It emits no CORS
-permission. Responses are no-store and carry restrictive CSP, COOP, CORP,
-framing, referrer, content-type, and permissions headers. Request headers are
-limited to 32 KiB; the server uses a five-second header timeout, 15-second read
-timeout, and 30-second idle timeout. It intentionally has no global write
-timeout because reviewed-source refresh can be long-running.
-
-The UI does not execute workflows or start Browsertools live authoring. Stop
-the server with `Ctrl-C`; SIGINT and SIGTERM trigger bounded graceful shutdown.
-
-## Phase C Limits
-
-OpenUdon v0.2 remains CLI-first. The browser engine does not construct or call
-an LLM extractor: deterministic recommendations are its only in-browser assist.
-An LLM-drafted terminal session may be resumed from `.icot/session.yaml`, and
-unconfirmed classifications return as ordinary required review questions. The
-terminal `icot author` loop remains the surface for drafting, repair,
-assumption explanation, and direct slot editing. Browser-primary assisted
-drafting is an unnumbered candidate direction and would require a separately
-scoped revision-protected engine contract before promotion.
-
-Phase C has no folder browser, React or Node dependency, multi-session hosting,
-remote/LAN serving, account identity, UI-owned LLM drafting, workflow
-execution, or live browser orchestration. The shell remains plain embedded
-HTML, CSS, and JavaScript. One process owns one example for one trusted local
-operator.
-
-## Browser Qualification
-
-The required provider-free browser gate is:
+The provider-free shell gate remains:
 
 ```bash
 make icot-ui-browser-check
 ```
 
-It launches sandboxed Chromium through a build-tagged, test-only Playwright-Go
-harness and exercises the actual loopback listener. It is also part of
-`make release-saas-check`. A local host whose AppArmor or user-namespace policy
-prevents Chromium sandbox startup may use
-`OPENUDON_ICOT_UI_BROWSER_DISABLE_SANDBOX=1` for this test only; release
-automation never disables the sandbox. That local override proves the browser
-journeys but does not satisfy A11's pending hosted sandboxed release-runner
-verification.
+It uses a build-tagged test harness to exercise the actual loopback listener.
+The unified acquisition-to-handoff qualification additionally requires an
+installed Chromium run covering access code, starter, authenticated capture,
+profile stage, resumed interview, repeated review as needed, package build,
+and passing handoff. Real-site runs must use an operator-authorized
+non-production tenant and retain only value-free evidence. A local
+`OPENUDON_ICOT_UI_BROWSER_DISABLE_SANDBOX=1` test is diagnostic only and does
+not substitute for hosted sandboxed evidence.

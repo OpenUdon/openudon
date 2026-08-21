@@ -135,7 +135,6 @@ alive across human credential/MFA entry and post-login exploration:
 install -d -m 0700 /private/operator/member-authoring
 go run ./cmd/icot browser-author live \
   --example ./examples/member-dashboard \
-  --browsertools /absolute/path/browsertools \
   --url https://members.example.test/login \
   --dashboard-url https://members.example.test/dashboard \
   --goal "reach the member dashboard and learn how to read account status" \
@@ -144,6 +143,11 @@ go run ./cmd/icot browser-author live \
   --private-root /private/operator/member-authoring \
   --profile-id member --goal-role heading --goal-label Dashboard
 ```
+
+The single `icot` executable re-executes a privately stabilized copy of itself
+as the isolated Browsertools worker. `--browsertools` remains an expert
+compatibility override for this terminal fallback; the primary UI capture
+surface does not accept an arbitrary executable path.
 
 Browsertools owns the non-persistent Playwright-Go context. iCoT uses only the
 closed reduced-observation protocol, names the provider/model before any model
