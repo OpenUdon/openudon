@@ -109,6 +109,37 @@ func TestWriteConflictsMatchCommitOverwritePreflight(t *testing.T) {
 	}
 }
 
+func TestExpectedCurrentSHA256IsRecheckedAtReplacementBoundary(t *testing.T) {
+	root := t.TempDir()
+	path := filepath.Join(root, ".icot", "authenticated-browser-authoring.json")
+	if err := os.MkdirAll(filepath.Dir(path), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	original := []byte("reviewed collection\n")
+	if err := os.WriteFile(path, original, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	digest := sha256.Sum256(original)
+	files := []GeneratedFile{{
+		Path: path, Content: "replacement collection\n", AllowOverwrite: true,
+		ExpectedCurrentSHA256: fmt.Sprintf("sha256:%x", digest[:]),
+	}}
+	concurrent := []byte("concurrently appended collection\n")
+	err := writeFilesAtomic(root, files, false, func() error {
+		return os.WriteFile(path, concurrent, 0o600)
+	})
+	if err == nil || !strings.Contains(err.Error(), "no longer matches its prepared bytes") {
+		t.Fatalf("changed expected file was overwritten: %v", err)
+	}
+	got, readErr := os.ReadFile(path)
+	if readErr != nil {
+		t.Fatal(readErr)
+	}
+	if string(got) != string(concurrent) {
+		t.Fatalf("concurrent bytes = %q, want %q", got, concurrent)
+	}
+}
+
 func TestWriteConflictsIsReadOnlyAndRejectsUnsafePaths(t *testing.T) {
 	root := t.TempDir()
 	missing := filepath.Join(root, "new", "nested", "file.txt")

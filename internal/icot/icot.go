@@ -22,6 +22,9 @@ import (
 )
 
 func Main(args []string, in io.Reader, out, errOut io.Writer) int {
+	if len(args) > 0 && args[0] == "__browsertools-worker" {
+		return runBundledBrowserWorker(args[1:], in, out, errOut)
+	}
 	if len(args) > 0 && args[0] == "ui" {
 		return runUI(args[1:], out, errOut)
 	}
@@ -113,7 +116,7 @@ func runAuthor(args []string, in io.Reader, out, errOut io.Writer) int {
 		fmt.Fprintf(fs.Output(), "  icot replay-eval --root examples/eval    Replay eval references through the iCoT chat loop.\n")
 		fmt.Fprintf(fs.Output(), "  icot authoring-eval --root examples/eval Run optional real-LLM natural-language authoring evidence.\n")
 		fmt.Fprintf(fs.Output(), "  icot report verify --file report.json    Verify scorecard or authoring-eval report JSON and digest.\n")
-		fmt.Fprintf(fs.Output(), "  icot ui --example examples/<name>       Serve the read-only loopback status shell and experimental API v2.\n")
+		fmt.Fprintf(fs.Output(), "  icot ui --example examples/<name>       Serve the primary loopback authoring shell and experimental API v3.\n")
 		fmt.Fprintf(fs.Output(), "  icot browser-author live ...             Run disclosure-gated authenticated Chromium authoring.\n")
 		fmt.Fprintf(fs.Output(), "  icot browser-authoring plan ...          Emit a non-executing Browsertools authoring handoff.\n")
 		fmt.Fprintf(fs.Output(), "\nSee docs/icot.md, docs/icot-session-schema.md, and docs/icot-transcript.md for file formats.\n")

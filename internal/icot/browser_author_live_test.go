@@ -18,8 +18,28 @@ import (
 
 	"github.com/OpenUdon/browsertools/authorresult"
 	"github.com/OpenUdon/browsertools/authorsession"
+	"github.com/OpenUdon/openudon/internal/icot/browserauthor"
 	"github.com/OpenUdon/uws/schemas"
 )
+
+type scriptedSharedAuthorSession struct {
+	events    chan browserauthor.Event
+	responses []browserauthor.Response
+	canceled  bool
+}
+
+func (s *scriptedSharedAuthorSession) Events() <-chan browserauthor.Event { return s.events }
+
+func (s *scriptedSharedAuthorSession) Respond(_ context.Context, response browserauthor.Response) error {
+	s.responses = append(s.responses, response)
+	if response.Kind == "confirm" {
+		s.events <- browserauthor.Event{State: "stage_review", Result: &authorsession.Result{ArtifactPath: "/private/result.json", Digest: "sha256:" + strings.Repeat("a", 64)}}
+		close(s.events)
+	}
+	return nil
+}
+
+func (s *scriptedSharedAuthorSession) Cancel() { s.canceled = true }
 
 func TestAuthenticatedAuthoringConsumesActualBrowsertoolsEnvelope(t *testing.T) {
 	requireAuthenticatedAuthoringSchemas(t)
@@ -89,6 +109,65 @@ func TestAuthenticatedAuthoringConsumesActualBrowsertoolsEnvelope(t *testing.T) 
 	}
 }
 
+func TestBundledBrowserWorkerNegotiatesWithoutLaunchingChromium(t *testing.T) {
+	privateRoot := t.TempDir()
+	if err := os.Chmod(privateRoot, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	var stdout, stderr strings.Builder
+	code := runBundledBrowserWorker(
+		[]string{"author-session", "chromium", "--private-root", privateRoot},
+		strings.NewReader(`{"protocol":"browsertools.author-session.v2","type":"close"}`+"\n"),
+		&stdout, &stderr,
+	)
+	if code != 0 || stderr.Len() != 0 || !strings.Contains(stdout.String(), `"type":"hello"`) || !strings.Contains(stdout.String(), `"phase":"closed"`) {
+		t.Fatalf("code=%d stdout=%q stderr=%q", code, stdout.String(), stderr.String())
+	}
+}
+
+func TestLiveAuthorDefaultsToBundledWorker(t *testing.T) {
+	root := t.TempDir()
+	example, privateRoot := liveAuthorTestRoots(t, root)
+	cfg := liveAuthorConfig{
+		ExampleDir: example, PrivateRoot: privateRoot,
+		URL: "https://members.example.test/login", DashboardURL: "https://members.example.test/dashboard",
+		Goal: "review the member dashboard", Origins: []string{"https://members.example.test"},
+		GoalRole: "heading", GoalLabel: "Dashboard", GoalContext: "main", NoLLM: true,
+	}
+	if err := normalizeLiveAuthorConfig(&cfg); err != nil {
+		t.Fatal(err)
+	}
+	if !cfg.BundledWorker || cfg.Browsertools == "" || !filepath.IsAbs(cfg.Browsertools) {
+		t.Fatalf("bundled worker config = %#v", cfg)
+	}
+}
+
+func TestBundledTerminalHandlesCompletionObservationAndCheckpointTogether(t *testing.T) {
+	session := &scriptedSharedAuthorSession{events: make(chan browserauthor.Event, 2)}
+	session.events <- browserauthor.Event{
+		State: "completion_review",
+		Observation: &authorsession.Observation{
+			Origin: "https://members.example.test", Path: "/dashboard", Context: "main",
+			Candidates: []authorsession.Candidate{{ID: "candidate-0123456789abcdef", Role: "heading", Label: "Dashboard", Matches: 1}},
+		},
+		Checkpoint: &authorsession.Checkpoint{Kind: "completion"},
+	}
+	previous := startSharedBrowserAuthorSession
+	startSharedBrowserAuthorSession = func(context.Context, browserauthor.Config) (sharedBrowserAuthorSession, error) { return session, nil }
+	defer func() { startSharedBrowserAuthorSession = previous }()
+	cfg := liveAuthorConfig{
+		PrivateRoot: "/private", ProfileID: "member", URL: "https://members.example.test/login", DashboardURL: "https://members.example.test/dashboard",
+		Goal: "review dashboard", Origins: []string{"https://members.example.test"}, GoalRole: "heading", GoalLabel: "Dashboard", GoalContext: "main",
+	}
+	result, err := orchestrateBundledLiveAuthor(context.Background(), cfg, bufio.NewReader(strings.NewReader("done\nconfirm\n")), io.Discard, nil, "", "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if result.ArtifactPath != "/private/result.json" || len(session.responses) != 1 || session.responses[0].Kind != "confirm" || session.canceled {
+		t.Fatalf("result=%#v responses=%#v canceled=%t", result, session.responses, session.canceled)
+	}
+}
+
 func TestBrowserAuthorLiveStagesReviewedProfilesAtomically(t *testing.T) {
 	requireAuthenticatedAuthoringSchemas(t)
 	root := t.TempDir()
@@ -135,8 +214,6 @@ func TestBrowserAuthorLiveStagesReviewedProfilesAtomically(t *testing.T) {
 	for _, relative := range []string{
 		"browser-authentication/member-auth.json",
 		"browser-profiles/member.json",
-		".icot/browser-authentication.json",
-		".icot/browser-sources.json",
 		".icot/authenticated-browser-authoring.json",
 	} {
 		if _, err := os.Stat(filepath.Join(example, filepath.FromSlash(relative))); err != nil {

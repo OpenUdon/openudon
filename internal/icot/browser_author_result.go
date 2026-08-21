@@ -5,6 +5,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -20,11 +21,16 @@ import (
 	"github.com/OpenUdon/browsertools/profile"
 	"github.com/OpenUdon/evidence/redact"
 	"github.com/OpenUdon/openudon/internal/icot/elicitor"
+	"github.com/OpenUdon/openudon/internal/icot/engine"
 	"github.com/OpenUdon/uws/browserauthentication"
 	"github.com/OpenUdon/uws/schemas"
 )
 
-const authenticatedAuthoringReviewVersion = "openudon.authenticated-browser-authoring-review.v2"
+const (
+	authenticatedAuthoringReviewVersion       = "openudon.authenticated-browser-authoring-review.v3"
+	legacyAuthenticatedAuthoringReviewVersion = "openudon.authenticated-browser-authoring-review.v2"
+	maxAuthenticatedAuthoringReviews          = 128
+)
 
 type liveContext struct {
 	Kind   string `json:"kind"`
@@ -100,6 +106,9 @@ type authenticatedAuthoringEnvelope struct {
 
 type authenticatedAuthoringSafeReview struct {
 	Version              string                 `json:"version"`
+	ProfileID            string                 `json:"profile_id,omitempty"`
+	AuthenticationTarget string                 `json:"authentication_target,omitempty"`
+	CapabilityTarget     string                 `json:"capability_target,omitempty"`
 	EnvelopeSHA256       string                 `json:"envelope_sha256"`
 	ObservedAt           string                 `json:"observed_at"`
 	Goal                 string                 `json:"goal"`
@@ -113,6 +122,11 @@ type authenticatedAuthoringSafeReview struct {
 	CapabilityReview     liveProfileReview      `json:"capability_review"`
 	Diagnostics          []string               `json:"diagnostics"`
 	PrivateEnvelopeKept  bool                   `json:"private_envelope_kept_outside_package"`
+}
+
+type authenticatedAuthoringReviewCollection struct {
+	Version  string                             `json:"version"`
+	Captures []authenticatedAuthoringSafeReview `json:"captures"`
 }
 
 type preparedAuthenticatedImport struct {
@@ -212,27 +226,20 @@ func prepareAuthenticatedAuthoringImport(cfg liveAuthorConfig, result liveProtoc
 		},
 	}
 	session.Normalize()
-	browserMetadata, ok, err := browserSourceMetadataJSON(session)
-	if err != nil || !ok {
-		return preparedAuthenticatedImport{}, firstNonNil(err, fmt.Errorf("capability review metadata was not produced"))
-	}
-	authenticationMetadata, ok, err := browserAuthenticationMetadataJSON(session)
-	if err != nil || !ok {
-		return preparedAuthenticatedImport{}, firstNonNil(err, fmt.Errorf("authentication review metadata was not produced"))
-	}
 	safeReview := authenticatedAuthoringSafeReview{
-		Version: authenticatedAuthoringReviewVersion, EnvelopeSHA256: actualDigest,
+		Version: authenticatedAuthoringReviewVersion, ProfileID: cfg.ProfileID,
+		AuthenticationTarget: authenticationTarget, CapabilityTarget: capabilityTarget, EnvelopeSHA256: actualDigest,
 		ObservedAt: envelope.ObservedAt, Goal: envelope.Goal, GoalPredicate: envelope.GoalPredicate,
 		Origins: append([]string(nil), envelope.Origins...), Contexts: cloneLiveContexts(envelope.Contexts), Bounds: envelope.Bounds,
 		TraceSteps: len(envelope.Trace), AuthenticationReview: envelope.AuthenticationReview,
 		OutputSelections: append([]liveOutputSelection(nil), envelope.OutputSelections...),
 		CapabilityReview: envelope.CapabilityReview, Diagnostics: append([]string(nil), envelope.Diagnostics...), PrivateEnvelopeKept: true,
 	}
-	reviewData, err := json.MarshalIndent(safeReview, "", "  ")
+	reviewData, expectedReviewSHA256, err := prepareAuthenticatedAuthoringReviewAppend(cfg.ExampleDir, safeReview)
 	if err != nil {
 		return preparedAuthenticatedImport{}, err
 	}
-	reviewData = append(reviewData, '\n')
+	reviewAllowsOverwrite := expectedReviewSHA256 != ""
 	prepared := preparedAuthenticatedImport{
 		ExampleDir: cfg.ExampleDir, AuthenticationTarget: authenticationTarget, CapabilityTarget: capabilityTarget,
 		AuthenticationSchema: authentication.Profile, CapabilitySchema: capability.Schema,
@@ -240,9 +247,7 @@ func prepareAuthenticatedAuthoringImport(cfg liveAuthorConfig, result liveProtoc
 		Files: []generatedFile{
 			{Path: filepath.Join(cfg.ExampleDir, filepath.FromSlash(authenticationTarget)), Content: string(authenticationStaged)},
 			{Path: filepath.Join(cfg.ExampleDir, filepath.FromSlash(capabilityTarget)), Content: string(capabilityStaged)},
-			{Path: filepath.Join(cfg.ExampleDir, ".icot", "browser-authentication.json"), Content: authenticationMetadata},
-			{Path: filepath.Join(cfg.ExampleDir, ".icot", "browser-sources.json"), Content: browserMetadata},
-			{Path: filepath.Join(cfg.ExampleDir, ".icot", "authenticated-browser-authoring.json"), Content: string(reviewData)},
+			{Path: filepath.Join(cfg.ExampleDir, ".icot", "authenticated-browser-authoring.json"), Content: string(reviewData), AllowOverwrite: reviewAllowsOverwrite, ExpectedCurrentSHA256: expectedReviewSHA256},
 		},
 	}
 	if err := validatePreparedAuthenticatedImport(prepared); err != nil {
@@ -251,11 +256,108 @@ func prepareAuthenticatedAuthoringImport(cfg liveAuthorConfig, result liveProtoc
 	return prepared, nil
 }
 
-func firstNonNil(err error, fallback error) error {
+func appendAuthenticatedAuthoringReview(exampleDir string, next authenticatedAuthoringSafeReview) ([]byte, error) {
+	data, _, err := prepareAuthenticatedAuthoringReviewAppend(exampleDir, next)
+	return data, err
+}
+
+func prepareAuthenticatedAuthoringReviewAppend(exampleDir string, next authenticatedAuthoringSafeReview) ([]byte, string, error) {
+	path := filepath.Join(exampleDir, ".icot", "authenticated-browser-authoring.json")
+	collection := authenticatedAuthoringReviewCollection{Version: authenticatedAuthoringReviewVersion}
+	data, exists, err := readStableAuthenticatedAuthoringReview(path)
+	expectedSHA256 := ""
 	if err != nil {
+		return nil, "", err
+	}
+	if exists {
+		digest := sha256.Sum256(data)
+		expectedSHA256 = "sha256:" + hex.EncodeToString(digest[:])
+		var header struct {
+			Version string `json:"version"`
+		}
+		if err := json.Unmarshal(data, &header); err != nil {
+			return nil, "", fmt.Errorf("existing authenticated-authoring review is malformed")
+		}
+		switch header.Version {
+		case authenticatedAuthoringReviewVersion:
+			if err := decodeStrictAuthenticatedReview(data, &collection); err != nil {
+				return nil, "", fmt.Errorf("existing authenticated-authoring v3 review is invalid: %w", err)
+			}
+			if err := engine.ValidateBrowserCaptureReviewCollection(data); err != nil {
+				return nil, "", fmt.Errorf("existing authenticated-authoring v3 review is invalid: %w", err)
+			}
+		case legacyAuthenticatedAuthoringReviewVersion:
+			var legacy authenticatedAuthoringSafeReview
+			if err := decodeStrictAuthenticatedReview(data, &legacy); err != nil {
+				return nil, "", fmt.Errorf("existing authenticated-authoring v2 review is invalid: %w", err)
+			}
+			legacyDigest := strings.TrimPrefix(strings.ToLower(strings.TrimSpace(legacy.EnvelopeSHA256)), "sha256:")
+			if len(legacyDigest) != sha256.Size*2 {
+				return nil, "", fmt.Errorf("existing authenticated-authoring v2 review has an invalid envelope digest")
+			}
+			if _, err := hex.DecodeString(legacyDigest); err != nil {
+				return nil, "", fmt.Errorf("existing authenticated-authoring v2 review has an invalid envelope digest")
+			}
+			legacy.EnvelopeSHA256 = "sha256:" + legacyDigest
+			legacy.ProfileID = "legacy-" + legacyDigest[:12]
+			legacy.Version = authenticatedAuthoringReviewVersion
+			collection.Captures = append(collection.Captures, legacy)
+		default:
+			return nil, "", fmt.Errorf("existing authenticated-authoring review version is unsupported")
+		}
+	}
+	if len(collection.Captures) >= maxAuthenticatedAuthoringReviews {
+		return nil, "", fmt.Errorf("authenticated-authoring review collection is full")
+	}
+	for _, review := range collection.Captures {
+		if review.ProfileID == next.ProfileID || review.EnvelopeSHA256 == next.EnvelopeSHA256 ||
+			review.AuthenticationTarget == next.AuthenticationTarget || review.CapabilityTarget == next.CapabilityTarget {
+			return nil, "", fmt.Errorf("authenticated-authoring profile or envelope already exists")
+		}
+	}
+	collection.Captures = append(collection.Captures, next)
+	sort.Slice(collection.Captures, func(i, j int) bool { return collection.Captures[i].ProfileID < collection.Captures[j].ProfileID })
+	encoded, err := json.MarshalIndent(collection, "", "  ")
+	if err != nil {
+		return nil, "", err
+	}
+	encoded = append(encoded, '\n')
+	if err := engine.ValidateBrowserCaptureReviewCollection(encoded); err != nil {
+		return nil, "", fmt.Errorf("authenticated-authoring review append is invalid: %w", err)
+	}
+	return encoded, expectedSHA256, nil
+}
+
+func readStableAuthenticatedAuthoringReview(path string) ([]byte, bool, error) {
+	before, err := os.Lstat(path)
+	if errors.Is(err, os.ErrNotExist) {
+		return nil, false, nil
+	}
+	if err != nil || before.Mode()&os.ModeSymlink != 0 || !before.Mode().IsRegular() || before.Size() > 2<<20 {
+		return nil, false, fmt.Errorf("existing authenticated-authoring review is unavailable or unsafe")
+	}
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return nil, false, fmt.Errorf("read existing authenticated-authoring review: %w", err)
+	}
+	after, err := os.Lstat(path)
+	if err != nil || after.Mode()&os.ModeSymlink != 0 || !after.Mode().IsRegular() || !os.SameFile(before, after) || before.Size() != after.Size() || before.ModTime() != after.ModTime() || int64(len(data)) != after.Size() {
+		return nil, false, fmt.Errorf("existing authenticated-authoring review changed while it was read")
+	}
+	return data, true, nil
+}
+
+func decodeStrictAuthenticatedReview(data []byte, target any) error {
+	decoder := json.NewDecoder(bytes.NewReader(data))
+	decoder.DisallowUnknownFields()
+	if err := decoder.Decode(target); err != nil {
 		return err
 	}
-	return fallback
+	var trailing any
+	if err := decoder.Decode(&trailing); err != io.EOF {
+		return fmt.Errorf("review contains trailing data")
+	}
+	return nil
 }
 
 func readStablePrivateAuthorResult(path, privateRoot string) ([]byte, string, error) {
@@ -708,22 +810,14 @@ func cloneLiveContexts(values map[string]liveContext) map[string]liveContext {
 }
 
 func validatePreparedAuthenticatedImport(prepared preparedAuthenticatedImport) error {
-	if prepared.ExampleDir == "" || len(prepared.Files) != 5 {
+	if prepared.ExampleDir == "" || len(prepared.Files) != 3 {
 		return fmt.Errorf("prepared authenticated-authoring import is incomplete")
-	}
-	for _, directory := range []string{"browser-authentication", "browser-profiles"} {
-		path := filepath.Join(prepared.ExampleDir, directory)
-		entries, err := os.ReadDir(path)
-		if err == nil && len(entries) > 0 {
-			return fmt.Errorf("%s already contains browser sources; use normal iCoT to merge reviewed profiles", path)
-		}
-		if err != nil && !os.IsNotExist(err) {
-			return err
-		}
 	}
 	for _, file := range prepared.Files {
 		if _, err := os.Lstat(file.Path); err == nil {
-			return fmt.Errorf("refusing to overwrite existing live-authoring target %s", file.Path)
+			if !file.AllowOverwrite {
+				return fmt.Errorf("refusing to overwrite existing live-authoring target %s", file.Path)
+			}
 		} else if !os.IsNotExist(err) {
 			return err
 		}

@@ -83,6 +83,7 @@ type liveAuthorConfig struct {
 	NoLLM               bool
 	Temperature         float64
 	Yes                 bool
+	BundledWorker       bool
 }
 
 type liveGoalPredicate struct {
@@ -279,14 +280,14 @@ func runBrowserAuthorLive(args []string, in io.Reader, out, errOut io.Writer) in
 
 func runBrowserAuthorLiveWith(args []string, in io.Reader, out, errOut io.Writer, deps liveAuthorDependencies) int {
 	if len(args) == 0 || args[0] != "live" {
-		fmt.Fprintln(errOut, "usage: icot browser-author live --example DIR --browsertools /absolute/browsertools --url URL --dashboard-url URL --goal TEXT --origin ORIGIN --private-root DIR")
+		fmt.Fprintln(errOut, "usage: icot browser-author live --example DIR --url URL --dashboard-url URL --goal TEXT --origin ORIGIN --private-root DIR [--browsertools /absolute/browsertools]")
 		return 2
 	}
 	fs := flag.NewFlagSet("icot browser-author live", flag.ContinueOnError)
 	fs.SetOutput(errOut)
 	cfg := liveAuthorConfig{}
 	fs.StringVar(&cfg.ExampleDir, "example", "", "OpenUdon example that will receive reviewed profiles")
-	fs.StringVar(&cfg.Browsertools, "browsertools", "", "absolute Browsertools executable path")
+	fs.StringVar(&cfg.Browsertools, "browsertools", "", "expert compatibility override: absolute Browsertools executable path")
 	fs.StringVar(&cfg.DriverDir, "driver-dir", "", "optional installed Playwright-Go driver directory")
 	fs.StringVar(&cfg.URL, "url", "", "clean initial login URL")
 	fs.StringVar(&cfg.DashboardURL, "dashboard-url", "", "clean protected dashboard URL")
@@ -334,7 +335,13 @@ func runBrowserAuthorLiveWith(args []string, in io.Reader, out, errOut io.Writer
 	// review time.
 	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer cancel()
-	result, err := orchestrateLiveAuthor(ctx, cfg, reader, out, planner, provider, model, deps)
+	var result liveProtocolResult
+	var err error
+	if cfg.BundledWorker {
+		result, err = orchestrateBundledLiveAuthor(ctx, cfg, reader, out, planner, provider, model)
+	} else {
+		result, err = orchestrateLiveAuthor(ctx, cfg, reader, out, planner, provider, model, deps)
+	}
 	if err != nil {
 		fmt.Fprintln(errOut, "icot browser-author live:", err)
 		return 1
@@ -416,7 +423,15 @@ func normalizeLiveAuthorConfig(cfg *liveAuthorConfig) error {
 	if containsPlanDelimiterOrControl(cfg.Goal) {
 		return fmt.Errorf("goal contains a reserved delimiter or control character")
 	}
-	executable, err := inspectLiveExecutable(cfg.Browsertools)
+	executable := strings.TrimSpace(cfg.Browsertools)
+	bundled := executable == ""
+	if bundled {
+		executable, err = os.Executable()
+		if err != nil {
+			return fmt.Errorf("locate bundled browser worker: %w", err)
+		}
+	}
+	executable, err = inspectLiveExecutable(executable)
 	if err != nil {
 		return err
 	}
@@ -451,7 +466,7 @@ func normalizeLiveAuthorConfig(cfg *liveAuthorConfig) error {
 	if !browserProfileIDPattern.MatchString(id) {
 		return fmt.Errorf("profile ID %q must match %s", id, browserProfileIDPattern)
 	}
-	cfg.ExampleDir, cfg.PrivateRoot, cfg.Browsertools = example, privateRoot, executable
+	cfg.ExampleDir, cfg.PrivateRoot, cfg.Browsertools, cfg.BundledWorker = example, privateRoot, executable, bundled
 	cfg.URL, cfg.DashboardURL, cfg.GoalURL, cfg.Origins = initialURL, dashboardURL, goalURL, origins
 	cfg.AfterAuthentication, cfg.GoalRole, cfg.GoalContext, cfg.GoalLabel, cfg.ProfileID = choice, role, contextID, label, id
 	return nil
@@ -672,6 +687,9 @@ func orchestrateLiveAuthor(ctx context.Context, cfg liveAuthorConfig, reader *bu
 	}
 	defer cleanupExecutable()
 	args := []string{"author-session", "chromium", "--private-root", cfg.PrivateRoot}
+	if cfg.BundledWorker {
+		args = append([]string{"__browsertools-worker"}, args...)
+	}
 	if strings.TrimSpace(cfg.DriverDir) != "" {
 		args = append(args, "--driver-dir", cfg.DriverDir)
 	}

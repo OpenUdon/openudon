@@ -7,6 +7,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -16,6 +17,7 @@ import (
 	"time"
 
 	"github.com/OpenUdon/browsertools/authorresult"
+	"github.com/OpenUdon/openudon/internal/icot/engine"
 )
 
 func TestLiveAuthorRecordsOnlyHumanSelectedCompatibleMFAKind(t *testing.T) {
@@ -217,9 +219,230 @@ func TestAuthenticatedAuthoringV2ReconstructsTOTPAndScalarOutputs(t *testing.T) 
 	if slots["totp_seed"].(map[string]any)["kind"] != "totp_seed" {
 		t.Fatalf("TOTP slot = %#v", slots)
 	}
-	var review authenticatedAuthoringSafeReview
-	if err := json.Unmarshal([]byte(prepared.Files[4].Content), &review); err != nil || len(review.OutputSelections) != 5 {
-		t.Fatalf("safe value-free review = %#v, %v", review, err)
+	var review authenticatedAuthoringReviewCollection
+	if err := json.Unmarshal([]byte(prepared.Files[2].Content), &review); err != nil || len(review.Captures) != 1 || len(review.Captures[0].OutputSelections) != 5 {
+		t.Fatalf("safe value-free review collection = %#v, %v", review, err)
+	}
+}
+
+func TestEngineStagesPreparedBrowserCaptureWithoutOverwriting(t *testing.T) {
+	at := time.Date(2026, 8, 17, 3, 0, 0, 0, time.UTC)
+	root := t.TempDir()
+	example, privateRoot := liveAuthorTestRoots(t, root)
+	path, digest := writeCustomV2Envelope(t, privateRoot, at, []authorresult.TraceStep{{Kind: "navigate", Phase: "authentication", Context: "main", URL: "https://members.example.test/login"}}, nil)
+	prepared, err := prepareAuthenticatedAuthoringImport(testV2ImportConfig(example, privateRoot), liveProtocolResult{ArtifactPath: path, Digest: digest}, at)
+	if err != nil {
+		t.Fatal(err)
+	}
+	eng, _, err := engine.Open(context.Background(), engine.Config{ExampleDir: example, PrivateRoot: privateRoot, NetworkPolicy: "never"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	stage := engine.BrowserCaptureStage{
+		ProfileID: "member", Authentication: []byte(prepared.Files[0].Content), Capability: []byte(prepared.Files[1].Content), SafeReview: []byte(prepared.Files[2].Content),
+	}
+	snapshot, err := eng.StageBrowserCapture(context.Background(), stage)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(snapshot.SourceCandidates.Browser.Candidates) != 1 {
+		t.Fatalf("browser discovery after stage = %#v", snapshot.SourceCandidates.Browser)
+	}
+	if _, err := eng.StageBrowserCapture(context.Background(), stage); err == nil || !strings.Contains(err.Error(), "already exists") {
+		t.Fatalf("duplicate capture stage = %v", err)
+	}
+	secondPath, secondDigest := writeCustomV2EnvelopeWithTitle(t, privateRoot, at.Add(time.Minute), "Member Two", []authorresult.TraceStep{{Kind: "navigate", Phase: "authentication", Context: "main", URL: "https://members.example.test/login"}}, nil)
+	secondConfig := testV2ImportConfig(example, privateRoot)
+	secondConfig.ProfileID = "member-two"
+	secondPrepared, err := prepareAuthenticatedAuthoringImport(secondConfig, liveProtocolResult{ArtifactPath: secondPath, Digest: secondDigest}, at.Add(time.Minute))
+	if err != nil {
+		t.Fatal(err)
+	}
+	secondStage := engine.BrowserCaptureStage{
+		ProfileID: "member-two", Authentication: []byte(secondPrepared.Files[0].Content), Capability: []byte(secondPrepared.Files[1].Content), SafeReview: []byte(secondPrepared.Files[2].Content),
+	}
+	secondSnapshot, err := eng.StageBrowserCapture(context.Background(), secondStage)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(secondSnapshot.SourceCandidates.Browser.Candidates) != 2 {
+		t.Fatalf("browser discovery after second stage = %#v", secondSnapshot.SourceCandidates.Browser)
+	}
+	var collection authenticatedAuthoringReviewCollection
+	reviewBytes, err := os.ReadFile(filepath.Join(example, ".icot", "authenticated-browser-authoring.json"))
+	if err != nil || json.Unmarshal(reviewBytes, &collection) != nil || len(collection.Captures) != 2 {
+		t.Fatalf("browser review after second stage = %#v, %v", collection, err)
+	}
+}
+
+func TestAuthenticatedAuthoringReviewMigratesV2AndAppendsWithoutOverwrite(t *testing.T) {
+	example := t.TempDir()
+	if err := os.MkdirAll(filepath.Join(example, ".icot"), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	legacy := authenticatedAuthoringSafeReview{
+		Version: legacyAuthenticatedAuthoringReviewVersion, EnvelopeSHA256: "sha256:" + strings.Repeat("a", 64),
+		ObservedAt: "2026-08-20T00:00:00Z", Goal: "legacy goal", PrivateEnvelopeKept: true,
+	}
+	legacyData, err := json.Marshal(legacy)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(example, ".icot", "authenticated-browser-authoring.json"), append(legacyData, '\n'), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	next := authenticatedAuthoringSafeReview{
+		Version: authenticatedAuthoringReviewVersion, ProfileID: "member", AuthenticationTarget: "browser-authentication/member-auth.json",
+		CapabilityTarget: "browser-profiles/member.json", EnvelopeSHA256: "sha256:" + strings.Repeat("b", 64),
+		ObservedAt: "2026-08-21T00:00:00Z", Goal: "new goal", PrivateEnvelopeKept: true,
+		AuthenticationReview: liveProfileReview{ProfileDigest: "sha256:" + strings.Repeat("c", 64)},
+		CapabilityReview:     liveProfileReview{ProfileDigest: "sha256:" + strings.Repeat("d", 64)},
+	}
+	data, err := appendAuthenticatedAuthoringReview(example, next)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var collection authenticatedAuthoringReviewCollection
+	if err := json.Unmarshal(data, &collection); err != nil {
+		t.Fatal(err)
+	}
+	if collection.Version != authenticatedAuthoringReviewVersion || len(collection.Captures) != 2 || collection.Captures[0].ProfileID != "legacy-aaaaaaaaaaaa" || collection.Captures[1].ProfileID != "member" {
+		t.Fatalf("migrated review collection = %#v", collection)
+	}
+	if err := os.WriteFile(filepath.Join(example, ".icot", "authenticated-browser-authoring.json"), data, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := appendAuthenticatedAuthoringReview(example, authenticatedAuthoringSafeReview{ProfileID: "member", EnvelopeSHA256: "sha256:" + strings.Repeat("c", 64)}); err == nil {
+		t.Fatal("profile collision was accepted")
+	}
+}
+
+func TestAuthenticatedAuthoringReviewRejectsMalformedLegacyDigest(t *testing.T) {
+	example := t.TempDir()
+	if err := os.MkdirAll(filepath.Join(example, ".icot"), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	legacy := authenticatedAuthoringSafeReview{Version: legacyAuthenticatedAuthoringReviewVersion, EnvelopeSHA256: "sha256:short"}
+	data, err := json.Marshal(legacy)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(example, ".icot", "authenticated-browser-authoring.json"), data, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := appendAuthenticatedAuthoringReview(example, authenticatedAuthoringSafeReview{ProfileID: "member", EnvelopeSHA256: "sha256:" + strings.Repeat("b", 64)}); err == nil || !strings.Contains(err.Error(), "invalid envelope digest") {
+		t.Fatalf("malformed legacy digest = %v", err)
+	}
+}
+
+func TestAuthenticatedAuthoringReviewRejectsSemanticallyInvalidV3Collections(t *testing.T) {
+	at := time.Date(2026, 8, 21, 3, 0, 0, 0, time.UTC)
+	root := t.TempDir()
+	example, privateRoot := liveAuthorTestRoots(t, root)
+	path, digest := writeCustomV2Envelope(t, privateRoot, at, []authorresult.TraceStep{{Kind: "navigate", Phase: "authentication", Context: "main", URL: "https://members.example.test/login"}}, nil)
+	prepared, err := prepareAuthenticatedAuthoringImport(testV2ImportConfig(example, privateRoot), liveProtocolResult{ArtifactPath: path, Digest: digest}, at)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var valid authenticatedAuthoringReviewCollection
+	if err := json.Unmarshal([]byte(prepared.Files[2].Content), &valid); err != nil {
+		t.Fatal(err)
+	}
+	tests := []struct {
+		name   string
+		mutate func(*authenticatedAuthoringReviewCollection)
+	}{
+		{name: "duplicate profile", mutate: func(value *authenticatedAuthoringReviewCollection) {
+			value.Captures = append(value.Captures, value.Captures[0])
+		}},
+		{name: "missing target binding", mutate: func(value *authenticatedAuthoringReviewCollection) {
+			value.Captures[0].AuthenticationTarget = ""
+		}},
+		{name: "invalid capture version", mutate: func(value *authenticatedAuthoringReviewCollection) {
+			value.Captures[0].Version = legacyAuthenticatedAuthoringReviewVersion
+		}},
+		{name: "invalid digest", mutate: func(value *authenticatedAuthoringReviewCollection) {
+			value.Captures[0].EnvelopeSHA256 = "sha256:short"
+		}},
+		{name: "altered ordering", mutate: func(value *authenticatedAuthoringReviewCollection) {
+			second := value.Captures[0]
+			second.ProfileID = "account"
+			second.AuthenticationTarget = "browser-authentication/account-auth.json"
+			second.CapabilityTarget = "browser-profiles/account.json"
+			second.EnvelopeSHA256 = "sha256:" + strings.Repeat("e", 64)
+			value.Captures = append(value.Captures, second)
+		}},
+	}
+	reviewPath := filepath.Join(example, ".icot", "authenticated-browser-authoring.json")
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			candidate := valid
+			candidate.Captures = append([]authenticatedAuthoringSafeReview(nil), valid.Captures...)
+			tc.mutate(&candidate)
+			data, err := json.Marshal(candidate)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if err := os.MkdirAll(filepath.Dir(reviewPath), 0o700); err != nil {
+				t.Fatal(err)
+			}
+			if err := os.WriteFile(reviewPath, append(data, '\n'), 0o600); err != nil {
+				t.Fatal(err)
+			}
+			if _, err := appendAuthenticatedAuthoringReview(example, authenticatedAuthoringSafeReview{}); err == nil || !strings.Contains(err.Error(), "existing authenticated-authoring v3 review is invalid") {
+				t.Fatalf("invalid existing collection was accepted: %v", err)
+			}
+		})
+	}
+}
+
+func TestTerminalAuthenticatedAuthoringStageRejectsConcurrentReviewAppend(t *testing.T) {
+	at := time.Date(2026, 8, 21, 4, 0, 0, 0, time.UTC)
+	root := t.TempDir()
+	example, privateRoot := liveAuthorTestRoots(t, root)
+	prepare := func(profileID, title string, observedAt time.Time) preparedAuthenticatedImport {
+		t.Helper()
+		path, digest := writeCustomV2EnvelopeWithTitle(t, privateRoot, observedAt, title, []authorresult.TraceStep{{Kind: "navigate", Phase: "authentication", Context: "main", URL: "https://members.example.test/login"}}, nil)
+		config := testV2ImportConfig(example, privateRoot)
+		config.ProfileID = profileID
+		prepared, err := prepareAuthenticatedAuthoringImport(config, liveProtocolResult{ArtifactPath: path, Digest: digest}, observedAt)
+		if err != nil {
+			t.Fatal(err)
+		}
+		return prepared
+	}
+
+	first := prepare("member", "Member", at)
+	if err := stageAuthenticatedAuthoringImport(first); err != nil {
+		t.Fatal(err)
+	}
+	delayed := prepare("member-two", "Member Two", at.Add(time.Minute))
+	concurrent := prepare("member-three", "Member Three", at.Add(2*time.Minute))
+	if err := stageAuthenticatedAuthoringImport(concurrent); err != nil {
+		t.Fatal(err)
+	}
+	reviewPath := filepath.Join(example, ".icot", "authenticated-browser-authoring.json")
+	concurrentBytes, err := os.ReadFile(reviewPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := stageAuthenticatedAuthoringImport(delayed); err == nil || !strings.Contains(err.Error(), "no longer matches its prepared bytes") {
+		t.Fatalf("stale prepared review overwrite = %v", err)
+	}
+	after, err := os.ReadFile(reviewPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !bytes.Equal(after, concurrentBytes) {
+		t.Fatal("concurrent append was replaced")
+	}
+	for _, path := range []string{
+		filepath.Join(example, "browser-authentication", "member-two-auth.json"),
+		filepath.Join(example, "browser-profiles", "member-two.json"),
+	} {
+		if _, err := os.Lstat(path); !errors.Is(err, os.ErrNotExist) {
+			t.Fatalf("rolled-back stale stage left %s: %v", path, err)
+		}
 	}
 }
 
@@ -277,10 +500,14 @@ func TestAuthorSessionV1AndMalformedV2CheckpointsFailClosed(t *testing.T) {
 }
 
 func writeCustomV2Envelope(t *testing.T, privateRoot string, at time.Time, trace []authorresult.TraceStep, selections []authorresult.OutputSelection) (string, string) {
+	return writeCustomV2EnvelopeWithTitle(t, privateRoot, at, "Member", trace, selections)
+}
+
+func writeCustomV2EnvelopeWithTitle(t *testing.T, privateRoot string, at time.Time, title string, trace []authorresult.TraceStep, selections []authorresult.OutputSelection) (string, string) {
 	t.Helper()
 	proof := authorresult.GoalProof{Origin: "https://members.example.test", Path: "/dashboard", Context: "main", Role: "heading", Label: "Dashboard", Matches: 1}
 	envelope, err := authorresult.Build(authorresult.BuildRequest{
-		ObservedAt: at, Title: "Member", Goal: "reach the member dashboard and learn how to read account status",
+		ObservedAt: at, Title: title, Goal: "reach the member dashboard and learn how to read account status",
 		InitialURL: "https://members.example.test/login", DashboardURL: "https://members.example.test/dashboard", Origins: []string{"https://members.example.test"},
 		Contexts: map[string]authorresult.Context{}, Bounds: authorresult.Bounds{NavigationTimeoutMS: 20_000, TotalTimeoutMS: 600_000, MaxRequests: 512, MaxResponseBytes: 32 << 20, MaxObservations: 64, MaxCandidates: 128, MaxOutputs: 16},
 		Trace: trace, OutputSelections: selections,

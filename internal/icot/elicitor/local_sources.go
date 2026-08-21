@@ -261,6 +261,13 @@ func sourceMaterializationForCandidate(exampleDir string, candidate apitools.Loc
 	}, nil
 }
 
+// SourceMaterializationForCandidate returns the canonical package target for
+// one already validated Apitools candidate. Frontends use this during an
+// explicit upload review before any bytes are staged into the workspace.
+func SourceMaterializationForCandidate(exampleDir string, candidate apitools.LocalSourceCandidate) (SourceMaterialization, error) {
+	return sourceMaterializationForCandidate(exampleDir, candidate)
+}
+
 func sourceFamilyDirectory(kind string) string {
 	switch strings.ToLower(strings.TrimSpace(kind)) {
 	case "openapi", "swagger":

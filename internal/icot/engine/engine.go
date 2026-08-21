@@ -41,6 +41,8 @@ type Config struct {
 	BrowserRegistries    []string
 	SourceRoots          []string
 	NetworkPolicy        string
+	PrivateRoot          string
+	DriverDir            string
 
 	Now func() time.Time
 }
@@ -69,6 +71,9 @@ type Preview struct {
 // Snapshot is the JSON-marshalable current authoring state intended for
 // frontend drivers.
 type Snapshot struct {
+	Journey            elicitor.JourneySelection        `json:"journey"`
+	UploadedSources    []UploadedSource                 `json:"uploaded_sources,omitempty"`
+	StagedSources      []StagedSource                   `json:"staged_sources,omitempty"`
 	Boundary           elicitor.WorkflowBoundary        `json:"boundary"`
 	CandidateWorkflows []elicitor.CandidateWorkflow     `json:"candidate_workflows,omitempty"`
 	Evidence           []publicinterview.Evidence       `json:"evidence,omitempty"`
@@ -131,6 +136,8 @@ type Engine struct {
 	workspaceBaseline  workspaceFingerprint
 	externallyModified bool
 	cachedSnapshot     Snapshot
+	uploadedSources    map[string]UploadedSource
+	stagedSources      map[string]StagedSource
 }
 
 type refreshedEngineState struct {
@@ -164,6 +171,13 @@ func Open(ctx context.Context, config Config) (*Engine, Snapshot, error) {
 		return nil, Snapshot{}, err
 	}
 	config.ExampleDir = workspaceRoot
+	if strings.TrimSpace(config.PrivateRoot) != "" {
+		privateRoot, privateErr := validateAcquisitionPrivateRoot(config.PrivateRoot, workspaceRoot)
+		if privateErr != nil {
+			return nil, Snapshot{}, privateErr
+		}
+		config.PrivateRoot = privateRoot
+	}
 	policy, err := normalizeNetworkPolicy(config.NetworkPolicy)
 	if err != nil {
 		return nil, Snapshot{}, err
@@ -174,7 +188,10 @@ func Open(ctx context.Context, config Config) (*Engine, Snapshot, error) {
 		return nil, Snapshot{}, err
 	}
 	session.Normalize()
-	engine := &Engine{config: config, session: session, workspaceRoot: workspaceRoot}
+	engine := &Engine{config: config, session: session, workspaceRoot: workspaceRoot, uploadedSources: map[string]UploadedSource{}, stagedSources: map[string]StagedSource{}}
+	if err := engine.loadAcquisitionState(); err != nil {
+		return nil, Snapshot{}, err
+	}
 	if err := engine.refreshLocked(ctx); err != nil {
 		return nil, Snapshot{}, err
 	}
@@ -490,6 +507,9 @@ func (e *Engine) snapshotForStateLocked(ctx context.Context, state refreshedEngi
 	}
 	top := topIssue(issues)
 	snapshot := Snapshot{
+		Journey:            state.session.Journey(),
+		UploadedSources:    e.uploadedSourceListLocked(),
+		StagedSources:      e.stagedSourceListLocked(),
 		Boundary:           state.session.Boundary,
 		CandidateWorkflows: append([]elicitor.CandidateWorkflow(nil), state.session.CandidateWorkflows...),
 		Evidence:           append([]publicinterview.Evidence(nil), state.session.Interview.Evidence...),

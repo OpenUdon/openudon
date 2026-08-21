@@ -4,6 +4,7 @@ package processgroup
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -11,6 +12,10 @@ import (
 	"sync"
 	"time"
 )
+
+// ErrTerminationTimeout means the complete process tree did not confirm
+// termination within the containment deadline.
+var ErrTerminationTimeout = errors.New("process tree did not terminate")
 
 type Invocation struct {
 	Args   []string
@@ -108,7 +113,7 @@ func (child *InteractiveChild) Terminate() error {
 	case <-child.done:
 		return child.err
 	case <-time.After(5 * time.Second):
-		return fmt.Errorf("process tree did not terminate")
+		return ErrTerminationTimeout
 	}
 }
 
@@ -169,8 +174,9 @@ func run(ctx context.Context, timeout time.Duration, invocation Invocation) erro
 		terminate(command)
 		select {
 		case <-done:
+			return bounded.Err()
 		case <-time.After(5 * time.Second):
+			return errors.Join(bounded.Err(), ErrTerminationTimeout)
 		}
-		return bounded.Err()
 	}
 }

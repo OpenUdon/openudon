@@ -19,12 +19,13 @@ import (
 
 // GeneratedFile is one prepared mutation in an atomic authoring transaction.
 type GeneratedFile struct {
-	Path           string
-	Content        string
-	AllowOverwrite bool
-	Remove         bool
-	Action         string
-	Reason         string
+	Path                  string
+	Content               string
+	AllowOverwrite        bool
+	ExpectedCurrentSHA256 string
+	Remove                bool
+	Action                string
+	Reason                string
 }
 
 // Prepared is a fully revalidated authoring transaction ready to commit.
@@ -341,6 +342,9 @@ func writeFilesAtomicReporting(exampleRoot string, files []GeneratedFile, force 
 		return err
 	}
 	for _, file := range files {
+		if file.ExpectedCurrentSHA256 != "" && !file.AllowOverwrite {
+			return fmt.Errorf("output path %s has an expected digest without overwrite authority", file.Path)
+		}
 		if err := validateOutputPath(root, file.Path, false); err != nil && !errors.Is(err, os.ErrNotExist) {
 			return err
 		}
@@ -354,6 +358,9 @@ func writeFilesAtomicReporting(exampleRoot string, files []GeneratedFile, force 
 		if err == nil && !force && !file.AllowOverwrite {
 			return fmt.Errorf("%s already exists; pass --force to overwrite it", file.Path)
 		} else if err != nil && !errors.Is(err, os.ErrNotExist) {
+			return err
+		}
+		if err := validateExpectedCurrentSHA256(file); err != nil {
 			return err
 		}
 	}
@@ -438,6 +445,9 @@ func writeFilesAtomicReporting(exampleRoot string, files []GeneratedFile, force 
 				return err
 			}
 		}
+		if err := validateExpectedCurrentSHA256(file); err != nil {
+			return rollbackFailure(err, backups, renamed, tmpPaths)
+		}
 		var err error
 		changed := true
 		createOnly := !file.Remove && !force && !file.AllowOverwrite && !backups[file.Path].existed
@@ -479,6 +489,38 @@ func writeFilesAtomicReporting(exampleRoot string, files []GeneratedFile, force 
 		if file.Remove {
 			_ = os.Remove(filepath.Dir(file.Path))
 		}
+	}
+	return nil
+}
+
+func validateExpectedCurrentSHA256(file GeneratedFile) error {
+	expected := strings.TrimPrefix(strings.ToLower(strings.TrimSpace(file.ExpectedCurrentSHA256)), "sha256:")
+	if expected == "" {
+		return nil
+	}
+	if len(expected) != sha256.Size*2 {
+		return fmt.Errorf("output path %s has an invalid expected SHA-256", file.Path)
+	}
+	for _, character := range expected {
+		if !strings.ContainsRune("0123456789abcdef", character) {
+			return fmt.Errorf("output path %s has an invalid expected SHA-256", file.Path)
+		}
+	}
+	before, err := os.Lstat(file.Path)
+	if err != nil || before.Mode()&os.ModeSymlink != 0 || !before.Mode().IsRegular() {
+		return fmt.Errorf("output path %s no longer matches its prepared bytes", file.Path)
+	}
+	data, err := os.ReadFile(file.Path)
+	if err != nil {
+		return fmt.Errorf("read expected output path %s: %w", file.Path, err)
+	}
+	after, err := os.Lstat(file.Path)
+	if err != nil || after.Mode()&os.ModeSymlink != 0 || !after.Mode().IsRegular() || !os.SameFile(before, after) || before.Size() != after.Size() || before.ModTime() != after.ModTime() || int64(len(data)) != after.Size() {
+		return fmt.Errorf("output path %s changed while its prepared bytes were checked", file.Path)
+	}
+	digest := sha256.Sum256(data)
+	if fmt.Sprintf("%x", digest[:]) != expected {
+		return fmt.Errorf("output path %s no longer matches its prepared bytes", file.Path)
 	}
 	return nil
 }

@@ -82,6 +82,8 @@ func watchedPaths(root string, snapshot Snapshot) []string {
 		filepath.Join(root, ".icot", "readiness.json"),
 		filepath.Join(root, ".icot", "browser-sources.json"),
 		filepath.Join(root, ".icot", "browser-authentication.json"),
+		filepath.Join(root, ".icot", "authenticated-browser-authoring.json"),
+		filepath.Join(root, ".icot", "ui-sources.json"),
 	}
 	for _, action := range snapshot.ProposedActions {
 		paths = append(paths, action.Path)

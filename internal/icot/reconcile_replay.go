@@ -696,14 +696,6 @@ func writeApprovedArtifacts(exampleDir string, artifacts elicitor.Artifacts, for
 	return err
 }
 
-func browserSourceMetadataJSON(session elicitor.Session) (string, bool, error) {
-	return artifactwriter.BrowserSourceMetadataJSON(session)
-}
-
-func browserAuthenticationMetadataJSON(session elicitor.Session) (string, bool, error) {
-	return artifactwriter.BrowserAuthenticationMetadataJSON(session)
-}
-
 func confirmOverwrites(paths []string, force, yes bool, in io.Reader, out io.Writer) error {
 	if !force || yes {
 		return nil

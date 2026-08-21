@@ -4,6 +4,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/OpenUdon/openudon/internal/icot/artifactwriter"
 	"github.com/OpenUdon/openudon/internal/icot/elicitor"
 	rollout "github.com/OpenUdon/openudon/internal/workflowintent"
 )
@@ -23,7 +24,7 @@ func TestBrowserAuthenticationMetadataContainsOnlySafeReviewState(t *testing.T) 
 		}},
 		BrowserAuthenticationApprovals: []string{"authenticate"},
 	}
-	data, ok, err := browserAuthenticationMetadataJSON(session)
+	data, ok, err := artifactwriter.BrowserAuthenticationMetadataJSON(session)
 	if err != nil || !ok {
 		t.Fatalf("metadata: ok=%t err=%v", ok, err)
 	}
@@ -56,7 +57,7 @@ func TestBrowserAuthenticationMetadataRecursesThroughStructuralSteps(t *testing.
 		}}},
 		BrowserAuthenticationApprovals: []string{"authenticate_nested"},
 	}
-	data, ok, err := browserAuthenticationMetadataJSON(session)
+	data, ok, err := artifactwriter.BrowserAuthenticationMetadataJSON(session)
 	if err != nil || !ok {
 		t.Fatalf("metadata: ok=%t err=%v", ok, err)
 	}
