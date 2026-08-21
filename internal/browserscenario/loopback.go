@@ -237,7 +237,8 @@ func (fixture *LoopbackFixture) challenge(writer http.ResponseWriter, request *h
 		http.Redirect(writer, request, fixture.path("dashboard"), http.StatusSeeOther)
 		return
 	}
-	if fixture.runtimeEnabled() {
+	runtime := fixture.runtimeEnabled()
+	if runtime {
 		token, session, ok := fixture.runtimeSession(request)
 		if !ok || !session.loginComplete {
 			http.Error(writer, "authentication required", http.StatusUnauthorized)
@@ -271,11 +272,15 @@ func (fixture *LoopbackFixture) challenge(writer http.ResponseWriter, request *h
 	if kind == "push_number_match" {
 		number = `<p>Number <strong>42</strong></p>`
 	}
+	formAction := fixture.path("dashboard")
+	if runtime {
+		formAction = fixture.path("challenge")
+	}
 	writeScenarioHTML(writer, "Approve sign in", `<main>
 <h1>Additional verification</h1>
 <div role="status" aria-label="Approve verification request">Approve verification request</div>
 `+number+`
-<form method="post" action="`+html.EscapeString(fixture.path("challenge"))+`"><button name="challenge" value="`+html.EscapeString(kind)+`" type="submit">Continue</button></form>
+<form method="post" action="`+html.EscapeString(formAction)+`"><button name="challenge" value="`+html.EscapeString(kind)+`" type="submit">Continue</button></form>
 </main>`)
 }
 

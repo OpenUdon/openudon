@@ -251,7 +251,7 @@ func (executor *realExecutor) executeLoopback(ctx context.Context, manifest Mani
 			if replay.failureCode != "" {
 				fixture.Close()
 				_ = os.RemoveAll(caseRoot)
-				return appendFailure(result, "browserdriver_replay", "replay_failed")
+				return appendFailure(result, "browserdriver_replay", replay.failureCode)
 			}
 			if !scenarioOutputsEqual(replay.outputs, fixture.ExpectedOutputs(manifest.Outputs)) {
 				fixture.Close()
@@ -266,7 +266,11 @@ func (executor *realExecutor) executeLoopback(ctx context.Context, manifest Mani
 		} else if replay.failureCode != manifest.Expected.FailureCode {
 			fixture.Close()
 			_ = os.RemoveAll(caseRoot)
-			return appendFailure(result, "browserdriver_replay", "replay_failed")
+			detail := replay.failureCode
+			if detail == "" {
+				detail = udonreport.CodeUnclassified
+			}
+			return appendFailure(result, "browserdriver_replay", detail)
 		}
 	}
 	result.Phases = append(result.Phases,
