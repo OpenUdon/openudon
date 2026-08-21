@@ -26,7 +26,6 @@ import (
 
 	"github.com/OpenUdon/browsertools/authorresult"
 	"github.com/OpenUdon/browsertools/authorsession"
-	"github.com/OpenUdon/browsertools/capture"
 	"github.com/OpenUdon/openudon/internal/processgroup"
 )
 
@@ -34,7 +33,64 @@ const (
 	DefaultOperatorIdle = 30 * time.Minute
 	DefaultAbsolute     = 2 * time.Hour
 	maxProtocolLine     = 64 << 10
+	DoctorVersion       = "browsertools.playwright-doctor.v1"
+	EngineChromium      = "chromium"
 )
+
+// DoctorCapability mirrors one value-free Browsertools capability decision at
+// the isolated worker JSON boundary without importing its Playwright package.
+type DoctorCapability struct {
+	Name        string `json:"name"`
+	Disposition string `json:"disposition"`
+	Reason      string `json:"reason"`
+}
+
+// DoctorReport is the full process-local worker wire. BrowserExecutable and
+// Error are sanitized before any UI state, ETag, or response is created.
+type DoctorReport struct {
+	Version             string             `json:"version"`
+	Engine              string             `json:"engine"`
+	PlaywrightGoVersion string             `json:"playwright_go_version"`
+	PlaywrightVersion   string             `json:"playwright_version"`
+	DriverReady         bool               `json:"driver_ready"`
+	BrowserReady        bool               `json:"browser_ready"`
+	BrowserExecutable   string             `json:"browser_executable,omitempty"`
+	CapabilityPolicy    []DoctorCapability `json:"capability_policy"`
+	Error               string             `json:"error,omitempty"`
+}
+
+// UIDoctorReport is the closed path-free HTTP shape.
+type UIDoctorReport struct {
+	Version             string             `json:"version"`
+	Engine              string             `json:"engine"`
+	PlaywrightGoVersion string             `json:"playwright_go_version"`
+	PlaywrightVersion   string             `json:"playwright_version"`
+	DriverReady         bool               `json:"driver_ready"`
+	BrowserReady        bool               `json:"browser_ready"`
+	CapabilityPolicy    []DoctorCapability `json:"capability_policy"`
+	Error               string             `json:"error,omitempty"`
+}
+
+// UI reduces the full worker report before it reaches server-owned state.
+func (report DoctorReport) UI() UIDoctorReport {
+	safe := UIDoctorReport{
+		Version: report.Version, Engine: report.Engine,
+		PlaywrightGoVersion: report.PlaywrightGoVersion, PlaywrightVersion: report.PlaywrightVersion,
+		DriverReady: report.DriverReady, BrowserReady: report.BrowserReady,
+		CapabilityPolicy: append([]DoctorCapability(nil), report.CapabilityPolicy...),
+	}
+	if report.Error != "" {
+		switch {
+		case !report.DriverReady:
+			safe.Error = "Playwright driver is unavailable"
+		case !report.BrowserReady:
+			safe.Error = "installed browser is unavailable"
+		default:
+			safe.Error = "Playwright teardown failed"
+		}
+	}
+	return safe
+}
 
 var profileIDPattern = regexp.MustCompile(`^[a-z0-9][a-z0-9._-]{0,63}$`)
 
@@ -92,22 +148,22 @@ type Session struct {
 
 // Doctor performs Browsertools' typed Chromium readiness check with the
 // required 30-second upper bound. It never installs a driver or browser.
-func Doctor(ctx context.Context, privateRoot, driverDir string) (capture.DoctorReport, error) {
+func Doctor(ctx context.Context, privateRoot, driverDir string) (DoctorReport, error) {
 	if ctx == nil {
 		ctx = context.Background()
 	}
 	bounded, cancel := context.WithTimeout(ctx, 30*time.Second)
 	defer cancel()
 	if err := validatePrivateRoot(privateRoot); err != nil {
-		return capture.DoctorReport{}, err
+		return DoctorReport{}, err
 	}
 	executable, err := os.Executable()
 	if err != nil {
-		return capture.DoctorReport{}, fmt.Errorf("locate iCoT executable: %w", err)
+		return DoctorReport{}, fmt.Errorf("locate iCoT executable: %w", err)
 	}
 	stable, cleanup, err := stabilizeExecutable(executable, privateRoot)
 	if err != nil {
-		return capture.DoctorReport{}, err
+		return DoctorReport{}, err
 	}
 	defer cleanup()
 	args := []string{stable, "__browsertools-worker", "playwright-doctor", "chromium"}
@@ -117,17 +173,17 @@ func Doctor(ctx context.Context, privateRoot, driverDir string) (capture.DoctorR
 	var output bytes.Buffer
 	runErr := processgroup.Run(bounded, 30*time.Second, processgroup.Invocation{Args: args, Env: minimalEnvironment(), Stdout: &output, Stderr: io.Discard})
 	if errors.Is(runErr, processgroup.ErrTerminationTimeout) {
-		return capture.DoctorReport{}, fmt.Errorf("isolated Chromium doctor teardown failed: %w", runErr)
+		return DoctorReport{}, fmt.Errorf("isolated Chromium doctor teardown failed: %w", runErr)
 	}
 	decoder := json.NewDecoder(bytes.NewReader(output.Bytes()))
 	decoder.DisallowUnknownFields()
-	var report capture.DoctorReport
-	if err := decoder.Decode(&report); err != nil || report.Version != capture.DoctorVersion || report.Engine != capture.EngineChromium {
-		return capture.DoctorReport{}, errors.New("isolated Chromium doctor returned an invalid report")
+	var report DoctorReport
+	if err := decoder.Decode(&report); err != nil || report.Version != DoctorVersion || report.Engine != EngineChromium {
+		return DoctorReport{}, errors.New("isolated Chromium doctor returned an invalid report")
 	}
 	var trailing any
 	if err := decoder.Decode(&trailing); !errors.Is(err, io.EOF) {
-		return capture.DoctorReport{}, errors.New("isolated Chromium doctor returned trailing data")
+		return DoctorReport{}, errors.New("isolated Chromium doctor returned trailing data")
 	}
 	if runErr != nil {
 		return report, errors.New("isolated Chromium readiness check failed")

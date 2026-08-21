@@ -28,8 +28,9 @@ The default run does not launch a browser, contact a target, read credential
 values, execute a workflow, or retain subprocess stdout/stderr. It exercises
 synthetic records and fake browser implementations, exercises iCoT's strict
 live protocol/result adapters without launching a child browser, checks that
-iCoT has no Browsertools capture or Playwright implementation dependency, runs
-Browserdriver's offline v2/v3 protocol tests, and uses Browsertools doctor only to
+iCoT's engine and HTTP server have no Browsertools capture or Playwright
+implementation dependency (the separately re-executed hidden worker remains
+Browsertools-owned), runs Browserdriver's offline v2/v3 protocol tests, and uses Browsertools doctor only to
 observe pinned component availability without installation, browser launch, or
 network access.
 
@@ -39,7 +40,7 @@ network access.
 |---|---|
 | OpenUdon authoring | API preference, anonymous handoff, strict author-session v2 orchestration, human-only typed MFA/output review, disclosure denial/human fallback, minimal child environment, exact bounds/context authority, a real Browsertools-produced private result through validation/staging, and malformed/tampered/substituted rejection |
 | OpenUdon package/handoff | Strict live and portability verification, private/tampered input rejection, value-free package review, authentication/capability separation, UWS 1.7/1.8/1.9 discriminator selection, and trusted dry-run |
-| iCoT dependency boundary | The `cmd/icot` dependency graph contains no Browsertools capture, Playwright adapter, or Playwright-Go implementation package |
+| iCoT dependency boundary | The engine and HTTP-server dependency graphs contain no Browsertools capture, Playwright adapter, or Playwright-Go implementation package; only the hidden re-executed worker links Browsertools' implementation |
 | OpenUdon repository boundary | Production source contains no private executor, desired-state parser, or removed apitools lifecycle imports |
 | Browsertools producer | Observation-generation authority, human-selected MFA kind, bounded reviewed outputs, action-time exact-name/unique-role proof, complete context inventory, current goal proof, deterministic output, and offline doctor behavior |
 | UWS contract | Immutable older compatibility plus UWS 1.9/browser 1.7 scalar accessibility conversion, context contracts, fresh union decoding, dispatch, round trips, and rejection fixtures |

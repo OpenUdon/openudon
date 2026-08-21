@@ -20,8 +20,8 @@ import (
 	"github.com/mxschmitt/playwright-go"
 
 	publicinterview "github.com/OpenUdon/authoring/interview"
-	"github.com/OpenUdon/browsertools/capture"
 	"github.com/OpenUdon/openudon/internal/authoring"
+	"github.com/OpenUdon/openudon/internal/icot/browserauthor"
 	"github.com/OpenUdon/openudon/internal/icot/elicitor"
 	"github.com/OpenUdon/openudon/internal/icot/engine"
 )
@@ -775,8 +775,8 @@ func TestPhaseCBrowserDirtyAnswersBlockAcquisitionAndSurviveCaptureUpdate(t *tes
 	browserEngine := &phaseCBrowserEngine{snapshot: phaseCFrontierSnapshot(), proposal: phaseCProposalSnapshot(false, false)}
 	fixture := newPhaseCBrowserFixtureWithConfig(t, browserEngine, func(config *HandlerConfig) {
 		config.PrivateRoot = "/tmp/private"
-		config.DoctorBrowser = func(context.Context, string, string) (capture.DoctorReport, error) {
-			return capture.DoctorReport{Version: capture.DoctorVersion, Engine: capture.EngineChromium, DriverReady: true, BrowserReady: true}, nil
+		config.DoctorBrowser = func(context.Context, string, string) (browserauthor.DoctorReport, error) {
+			return browserauthor.DoctorReport{Version: browserauthor.DoctorVersion, Engine: browserauthor.EngineChromium, DriverReady: true, BrowserReady: true}, nil
 		}
 	})
 	page := newPhaseCPage(t, browser, fixture)

@@ -29,7 +29,6 @@ import (
 
 	"github.com/OpenUdon/browsertools/authorresult"
 	"github.com/OpenUdon/browsertools/authorsession"
-	"github.com/OpenUdon/browsertools/capture"
 	"github.com/OpenUdon/openudon/internal/authoring"
 	"github.com/OpenUdon/openudon/internal/icot/browserauthor"
 	"github.com/OpenUdon/openudon/internal/icot/engine"
@@ -101,7 +100,7 @@ type HandlerConfig struct {
 	RevalidatePackage  func(context.Context, trustedrunner.TemplateOptions, trustedrunner.PackageInspection) error
 	PrivateRoot        string
 	DriverDir          string
-	DoctorBrowser      func(context.Context, string, string) (capture.DoctorReport, error)
+	DoctorBrowser      func(context.Context, string, string) (browserauthor.DoctorReport, error)
 	StartCapture       func(context.Context, browserauthor.Config) (CaptureSession, error)
 	PrepareCapture     func(CaptureStageRequest) (engine.BrowserCaptureStage, error)
 }
@@ -115,18 +114,18 @@ type Workspace struct {
 
 // Response is returned by every successful API request.
 type Response struct {
-	ETag            string                  `json:"-"`
-	Version         string                  `json:"version"`
-	Revision        string                  `json:"revision"`
-	CaptureRevision string                  `json:"capture_revision"`
-	Lifecycle       string                  `json:"lifecycle"`
-	Completed       bool                    `json:"completed"`
-	Workspace       Workspace               `json:"workspace"`
-	Snapshot        engine.Snapshot         `json:"snapshot"`
-	Capture         *CaptureState           `json:"capture,omitempty"`
-	BrowserDoctor   *capture.UIDoctorReport `json:"browser_doctor,omitempty"`
-	WriteResult     *engine.WriteResult     `json:"write_result,omitempty"`
-	Package         *PackageState           `json:"package,omitempty"`
+	ETag            string                        `json:"-"`
+	Version         string                        `json:"version"`
+	Revision        string                        `json:"revision"`
+	CaptureRevision string                        `json:"capture_revision"`
+	Lifecycle       string                        `json:"lifecycle"`
+	Completed       bool                          `json:"completed"`
+	Workspace       Workspace                     `json:"workspace"`
+	Snapshot        engine.Snapshot               `json:"snapshot"`
+	Capture         *CaptureState                 `json:"capture,omitempty"`
+	BrowserDoctor   *browserauthor.UIDoctorReport `json:"browser_doctor,omitempty"`
+	WriteResult     *engine.WriteResult           `json:"write_result,omitempty"`
+	Package         *PackageState                 `json:"package,omitempty"`
 }
 
 const (
@@ -315,7 +314,7 @@ type Server struct {
 	revalidatePackage        func(context.Context, trustedrunner.TemplateOptions, trustedrunner.PackageInspection) error
 	privateRoot              string
 	driverDir                string
-	doctorBrowser            func(context.Context, string, string) (capture.DoctorReport, error)
+	doctorBrowser            func(context.Context, string, string) (browserauthor.DoctorReport, error)
 	startCapture             func(context.Context, browserauthor.Config) (CaptureSession, error)
 	prepareCapture           func(CaptureStageRequest) (engine.BrowserCaptureStage, error)
 	captureSession           CaptureSession
@@ -323,7 +322,7 @@ type Server struct {
 	captureResult            *authorsession.Result
 	captureStart             captureStartRequest
 	captureContainmentFailed bool
-	doctorReport             *capture.UIDoctorReport
+	doctorReport             *browserauthor.UIDoctorReport
 	captureContext           context.Context
 	workspace                engine.WorkspaceStatus
 	errOut                   io.Writer
@@ -972,7 +971,7 @@ func (s *Server) serveBrowserPreflight(w http.ResponseWriter, r *http.Request, c
 		s.writeError(w, http.StatusUnprocessableEntity, "capture_teardown_failed", "Chromium readiness process teardown was not confirmed; restart iCoT", false, requestID, s.revision)
 		return
 	}
-	if report.Version == capture.DoctorVersion && report.Engine == capture.EngineChromium {
+	if report.Version == browserauthor.DoctorVersion && report.Engine == browserauthor.EngineChromium {
 		reviewedReport := report.UI()
 		if err != nil {
 			reviewedReport.Error = "Chromium readiness check failed"
@@ -1815,8 +1814,8 @@ func (s *Server) updateRevisionLocked() error {
 	}
 	s.revision = revision
 	captureRevision, err := revisionDigest(struct {
-		Capture *CaptureState           `json:"capture,omitempty"`
-		Doctor  *capture.UIDoctorReport `json:"doctor,omitempty"`
+		Capture *CaptureState                 `json:"capture,omitempty"`
+		Doctor  *browserauthor.UIDoctorReport `json:"doctor,omitempty"`
 	}{Capture: s.capture, Doctor: s.doctorReport})
 	if err != nil {
 		return err

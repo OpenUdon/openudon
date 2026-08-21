@@ -470,8 +470,8 @@ func defaultGates() []gate {
 		},
 		{
 			ID: "icot-dependency-boundary", Repository: "openudon", Kind: "dependency_scan",
-			Args:       []string{"go", "list", "-deps", "./cmd/icot"},
-			Assertions: []string{"iCoT has no Browsertools capture or Playwright implementation dependency"},
+			Args:       []string{"go", "list", "-deps", "./internal/icot/engine", "./internal/icot/ui"},
+			Assertions: []string{"iCoT engine and HTTP server have no Browsertools capture or Playwright implementation dependency"},
 			Forbidden:  []string{"github.com/OpenUdon/browsertools/capture", "github.com/OpenUdon/browsertools/adapter/playwright", "github.com/mxschmitt/playwright-go"},
 		},
 		{

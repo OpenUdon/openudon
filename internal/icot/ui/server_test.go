@@ -24,7 +24,6 @@ import (
 
 	"github.com/OpenUdon/browsertools/authorsession"
 	"github.com/OpenUdon/browsertools/bundle"
-	"github.com/OpenUdon/browsertools/capture"
 	bevidence "github.com/OpenUdon/browsertools/evidence"
 	"github.com/OpenUdon/browsertools/profile"
 	"github.com/OpenUdon/browsertools/registry"
@@ -667,10 +666,10 @@ func TestBrowserPreflightDoesNotBlockSnapshotPolling(t *testing.T) {
 	release := make(chan struct{})
 	handler, err := NewHandler(HandlerConfig{
 		Engine: fake, Snapshot: fake.snapshot, ExampleDir: "/tmp/example", Token: testToken, AccessCode: testAccessCode, Authority: testAuthority,
-		PrivateRoot: "/tmp/private", DoctorBrowser: func(context.Context, string, string) (capture.DoctorReport, error) {
+		PrivateRoot: "/tmp/private", DoctorBrowser: func(context.Context, string, string) (browserauthor.DoctorReport, error) {
 			close(started)
 			<-release
-			return capture.DoctorReport{Version: capture.DoctorVersion, Engine: capture.EngineChromium, DriverReady: true, BrowserReady: true, BrowserExecutable: "/private/sentinel-browser"}, nil
+			return browserauthor.DoctorReport{Version: browserauthor.DoctorVersion, Engine: browserauthor.EngineChromium, DriverReady: true, BrowserReady: true, BrowserExecutable: "/private/sentinel-browser"}, nil
 		},
 	})
 	if err != nil {
@@ -715,9 +714,9 @@ func TestBrowserPreflightFailureExposesOnlySafeTypedReport(t *testing.T) {
 	fake := &fakeEngine{}
 	handler, err := NewHandler(HandlerConfig{
 		Engine: fake, Snapshot: fake.snapshot, ExampleDir: "/tmp/example", Token: testToken, AccessCode: testAccessCode, Authority: testAuthority,
-		PrivateRoot: "/tmp/private", DoctorBrowser: func(context.Context, string, string) (capture.DoctorReport, error) {
-			return capture.DoctorReport{
-				Version: capture.DoctorVersion, Engine: capture.EngineChromium, DriverReady: true,
+		PrivateRoot: "/tmp/private", DoctorBrowser: func(context.Context, string, string) (browserauthor.DoctorReport, error) {
+			return browserauthor.DoctorReport{
+				Version: browserauthor.DoctorVersion, Engine: browserauthor.EngineChromium, DriverReady: true,
 				BrowserExecutable: "/private/sentinel-browser", Error: "sentinel child diagnostic",
 			}, errors.New("sentinel child diagnostic")
 		},
@@ -740,9 +739,9 @@ func TestBrowserPreflightRevisionFailureRollsBackInitialTransition(t *testing.T)
 	fake := &fakeEngine{}
 	handler, err := NewHandler(HandlerConfig{
 		Engine: fake, Snapshot: fake.snapshot, ExampleDir: "/tmp/example", Token: testToken, AccessCode: testAccessCode, Authority: testAuthority,
-		PrivateRoot: "/tmp/private", DoctorBrowser: func(context.Context, string, string) (capture.DoctorReport, error) {
+		PrivateRoot: "/tmp/private", DoctorBrowser: func(context.Context, string, string) (browserauthor.DoctorReport, error) {
 			t.Fatal("doctor started after revision failure")
-			return capture.DoctorReport{}, nil
+			return browserauthor.DoctorReport{}, nil
 		},
 	})
 	if err != nil {
@@ -774,8 +773,8 @@ func TestBrowserPreflightTeardownFailureRequiresRestart(t *testing.T) {
 	fake := &fakeEngine{}
 	handler, err := NewHandler(HandlerConfig{
 		Engine: fake, Snapshot: fake.snapshot, ExampleDir: "/tmp/example", Token: testToken, AccessCode: testAccessCode, Authority: testAuthority,
-		PrivateRoot: "/tmp/private", DoctorBrowser: func(context.Context, string, string) (capture.DoctorReport, error) {
-			return capture.DoctorReport{}, fmt.Errorf("doctor containment: %w", processgroup.ErrTerminationTimeout)
+		PrivateRoot: "/tmp/private", DoctorBrowser: func(context.Context, string, string) (browserauthor.DoctorReport, error) {
+			return browserauthor.DoctorReport{}, fmt.Errorf("doctor containment: %w", processgroup.ErrTerminationTimeout)
 		},
 	})
 	if err != nil {
@@ -803,8 +802,8 @@ func TestCaptureUsesSeparateRevisionBlocksAuthoringAndStagesReviewedResult(t *te
 	handler, err := NewHandler(HandlerConfig{
 		Engine: fake, Snapshot: fake.snapshot, ExampleDir: "/tmp/example", Token: testToken, AccessCode: testAccessCode, Authority: testAuthority,
 		PrivateRoot: "/tmp/private",
-		DoctorBrowser: func(context.Context, string, string) (capture.DoctorReport, error) {
-			return capture.DoctorReport{Version: capture.DoctorVersion, Engine: capture.EngineChromium, DriverReady: true, BrowserReady: true}, nil
+		DoctorBrowser: func(context.Context, string, string) (browserauthor.DoctorReport, error) {
+			return browserauthor.DoctorReport{Version: browserauthor.DoctorVersion, Engine: browserauthor.EngineChromium, DriverReady: true, BrowserReady: true}, nil
 		},
 		StartCapture: func(_ context.Context, config browserauthor.Config) (CaptureSession, error) {
 			receivedConfig = config
@@ -902,8 +901,8 @@ func TestCaptureResponseConsumesRevisionBeforeWorkerDelivery(t *testing.T) {
 	handler, err := NewHandler(HandlerConfig{
 		Engine: fake, Snapshot: fake.snapshot, ExampleDir: "/tmp/example", Token: testToken, AccessCode: testAccessCode, Authority: testAuthority,
 		PrivateRoot: "/tmp/private",
-		DoctorBrowser: func(context.Context, string, string) (capture.DoctorReport, error) {
-			return capture.DoctorReport{Version: capture.DoctorVersion, Engine: capture.EngineChromium, DriverReady: true, BrowserReady: true}, nil
+		DoctorBrowser: func(context.Context, string, string) (browserauthor.DoctorReport, error) {
+			return browserauthor.DoctorReport{Version: browserauthor.DoctorVersion, Engine: browserauthor.EngineChromium, DriverReady: true, BrowserReady: true}, nil
 		},
 		StartCapture: func(context.Context, browserauthor.Config) (CaptureSession, error) { return session, nil },
 	})
@@ -965,8 +964,8 @@ func TestCaptureCancelWaitsForWorkerTeardown(t *testing.T) {
 			handler, err := NewHandler(HandlerConfig{
 				Engine: fake, Snapshot: fake.snapshot, ExampleDir: "/tmp/example", Token: testToken, AccessCode: testAccessCode, Authority: testAuthority,
 				PrivateRoot: "/tmp/private",
-				DoctorBrowser: func(context.Context, string, string) (capture.DoctorReport, error) {
-					return capture.DoctorReport{Version: capture.DoctorVersion, Engine: capture.EngineChromium, DriverReady: true, BrowserReady: true}, nil
+				DoctorBrowser: func(context.Context, string, string) (browserauthor.DoctorReport, error) {
+					return browserauthor.DoctorReport{Version: browserauthor.DoctorVersion, Engine: browserauthor.EngineChromium, DriverReady: true, BrowserReady: true}, nil
 				},
 				StartCapture: func(context.Context, browserauthor.Config) (CaptureSession, error) { return session, nil },
 			})
