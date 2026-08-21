@@ -93,7 +93,9 @@ go run ./cmd/openudon run \
 
 `openudon run` checks the handoff manifest, stored and current quality, approval scope, approval
 state, expiry, package digest, tier compatibility, credential-value policy, and direct-production
-policy. The resulting `openudon.executor-run.v2` config includes the unique run
+policy. Required package inputs are read once into an immutable byte snapshot;
+declared digests, quality, package/handoff digests, and browser handoff facts
+all use that same generation. The resulting `openudon.executor-run.v2` config includes the unique run
 ID, UWS artifact, API source files, sorted package paths, package, handoff, and
 approval digests, tier, workdir, and credential binding names.
 For a browser workflow it also contains the value-free Browserdriver path and
@@ -103,20 +105,32 @@ requires `--browser-driver /absolute/path`; dry-run may validate and record the
 derived contract without an installed driver. Docker execution validates the
 host executable, mounts that one file read-only at
 `/openudon/browser-driver`, and passes only the translated container path to
-Udon. Profiles retained as reviewed API-first fallback evidence do not create
+Udon. Docker `-e` forwarding is limited to declared credentials and sessions;
+driver environment names resolve from container-owned defaults, and host
+desktop/socket requirements are rejected. Profiles retained as reviewed API-first fallback evidence do not create
 browser runtime authority when the active plan has no browser step.
 
-Dry runs stage digest-covered files into a fresh workdir and recompute the package digest without
+Dry runs stage current digest-covered files into a fresh workdir and recompute
+the package digest, rejecting drift from the validated snapshot, without
 requiring credential values or invoking the executor. Both dry runs and real handoffs write
 `openudon.run-evidence.v2` in the unique run directory with package paths,
 staged paths, gate outcomes, bound config/handoff/approval/package digests,
 credential binding names, verified executor-report metadata, and a digest
 reference to `async-evidence.json`. The
 sidecar is an `openudon.async-evidence-bundle.v1` wrapper over neutral Evidence async request and
-response records for OpenUdon package handoff audit only. When a compatible udon executor writes a
-`udon.execution-report.v1` file, OpenUdon also forwards status and confirmation-read observations
-from that report. OpenUdon does not interpret Ramen convergence or store credential values or raw
-executor output. `OPENUDON_EXECUTOR` selects the final executor as an absolute binary path or
+response records for OpenUdon package handoff audit only. When a compatible Udon executor writes a
+strict `udon.execution-report.v2` file, OpenUdon also forwards status and
+confirmation-read observations from that report. A failed v2 report requires
+one closed `error_code`; a successful report has no code. Missing, malformed,
+v1, unknown-code, or unrelated failure evidence is `unclassified` and cannot
+satisfy an expected-failure scenario. The closed failure vocabulary is
+`approval_required`, `invalid_parameters`, `mfa_timeout`, `mfa_denied`,
+`credentials_invalid`, `session_expired`, `driver_error`,
+`unsupported_challenge`, `captcha_required`, `origin_rejected`,
+`ambiguous_locator`, `invalid_context`, `invalid_response`, `secret_output`,
+and `unclassified`. OpenUdon does not interpret Ramen
+convergence or store credential values or raw executor output.
+`OPENUDON_EXECUTOR` selects the final executor as an absolute binary path or
 `docker://<image>`.
 
 The run evidence sidecar reference is workdir-relative so ignored run directories can be archived

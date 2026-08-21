@@ -122,10 +122,15 @@ with `OPENUDON_EXECUTOR` as either an absolute binary path or `docker://<image>`
 Reviewed browser workflows additionally use
 `--browser-driver /absolute/path/browserdriver`; OpenUdon derives the protocol,
 symbolic credential/session environment names, and exact browser approvals
-from the package and binds them into the v2 config and evidence. For a Docker
+from one immutable, manifest-digest-validated package byte snapshot and binds
+them into the v2 config and evidence. Staging rehashes the current files and
+rejects later drift. For a Docker
 executor, that host executable is mounted read-only at
 `/openudon/browser-driver` and Udon receives the container path; the image does
-not need to contain the driver at the host path.
+not need to contain the driver at the host path. Docker forwards only declared
+credentials and sessions with `-e`; approved driver environment names resolve
+from container-owned defaults and host desktop/socket requirements are
+rejected.
 
 ## Layout
 

@@ -90,6 +90,9 @@ type ReviewHandoffDigestOptions struct {
 	Scope   string
 	Version string
 	Inputs  []ReviewHandoffInput
+	// InputBytes, when non-nil, is an immutable caller-validated snapshot keyed
+	// by canonical package-relative path. Digest computation reads no files.
+	InputBytes map[string][]byte
 }
 
 type reviewHandoffDigestFile struct {
@@ -141,8 +144,10 @@ func ComputeReviewHandoffDigest(opts ReviewHandoffDigestOptions) (string, error)
 		files = append(files, path)
 	}
 	sort.Strings(files)
-	if err := packageartifacts.ValidateRegularPackageFiles(root, files); err != nil {
-		return "", err
+	if opts.InputBytes == nil {
+		if err := packageartifacts.ValidateRegularPackageFiles(root, files); err != nil {
+			return "", err
+		}
 	}
 	digest := reviewHandoffDigest{
 		Version: version,
@@ -152,10 +157,20 @@ func ComputeReviewHandoffDigest(opts ReviewHandoffDigestOptions) (string, error)
 		if err := ctx.Err(); err != nil {
 			return "", err
 		}
-		full := filepath.Join(root, filepath.FromSlash(path))
-		data, _, err := evidencefile.ReadRegular(full, evidencefile.DefaultMaxBytes)
-		if err != nil {
-			return "", fmt.Errorf("read handoff input %s: %w", path, err)
+		var data []byte
+		if opts.InputBytes != nil {
+			value, ok := opts.InputBytes[path]
+			if !ok {
+				return "", fmt.Errorf("snapshot missing handoff input %s", path)
+			}
+			data = value
+		} else {
+			full := filepath.Join(root, filepath.FromSlash(path))
+			value, _, err := evidencefile.ReadRegular(full, evidencefile.DefaultMaxBytes)
+			if err != nil {
+				return "", fmt.Errorf("read handoff input %s: %w", path, err)
+			}
+			data = value
 		}
 		reportPath := path
 		if scope != "" {

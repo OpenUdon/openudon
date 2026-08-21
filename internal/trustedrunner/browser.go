@@ -33,7 +33,31 @@ type browserAuthenticationApprovals struct {
 }
 
 func buildBrowserRunConfig(packageRoot, driver string, driverArgs, env []string, dryRun bool) (*udonrunner.BrowserConfig, error) {
-	planData, _, err := evidencefile.ReadRegular(filepath.Join(packageRoot, "expected", "plan.json"), evidencefile.DefaultMaxBytes)
+	browserPaths, err := packageartifacts.CollectBrowserProfilePaths(packageRoot)
+	if err != nil {
+		return nil, err
+	}
+	authenticationPaths, err := packageartifacts.CollectBrowserAuthenticationProfilePaths(packageRoot)
+	if err != nil {
+		return nil, err
+	}
+	read := func(relative string) ([]byte, error) {
+		data, _, err := evidencefile.ReadRegular(filepath.Join(packageRoot, filepath.FromSlash(relative)), evidencefile.DefaultMaxBytes)
+		return data, err
+	}
+	return buildBrowserRunConfigFromBytes(packageRoot, browserPaths, authenticationPaths, read, driver, driverArgs, env, dryRun)
+}
+
+func buildBrowserRunConfigFromSnapshot(snapshot packageSnapshot, driver string, driverArgs, env []string, dryRun bool) (*udonrunner.BrowserConfig, error) {
+	browserPaths, authenticationPaths, err := snapshotBrowserPaths(snapshot)
+	if err != nil {
+		return nil, err
+	}
+	return buildBrowserRunConfigFromBytes("snapshot", browserPaths, authenticationPaths, snapshot.read, driver, driverArgs, env, dryRun)
+}
+
+func buildBrowserRunConfigFromBytes(packageLabel string, browserPaths, authenticationPaths []string, read func(string) ([]byte, error), driver string, driverArgs, env []string, dryRun bool) (*udonrunner.BrowserConfig, error) {
+	planData, err := read("expected/plan.json")
 	if err != nil {
 		return nil, fmt.Errorf("read browser runtime plan: %w", err)
 	}
@@ -52,15 +76,11 @@ func buildBrowserRunConfig(packageRoot, driver string, driverArgs, env []string,
 		}
 		return nil, nil
 	}
-	browserPaths, err := packageartifacts.CollectBrowserProfilePaths(packageRoot)
+	intentData, err := read(rollout.IntentPath)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("read browser runtime intent: %w", err)
 	}
-	authenticationPaths, err := packageartifacts.CollectBrowserAuthenticationProfilePaths(packageRoot)
-	if err != nil {
-		return nil, err
-	}
-	intent, err := rollout.ParseIntentFile(filepath.Join(packageRoot, filepath.FromSlash(rollout.IntentPath)))
+	intent, err := rollout.ParseIntent(intentData, filepath.Join(packageLabel, filepath.FromSlash(rollout.IntentPath)))
 	if err != nil {
 		return nil, fmt.Errorf("read browser runtime intent: %w", err)
 	}
@@ -71,7 +91,11 @@ func buildBrowserRunConfig(packageRoot, driver string, driverArgs, env []string,
 
 	protocolRank := 1
 	for _, relative := range browserPaths {
-		value, err := readBrowserProfile(packageRoot, relative)
+		data, err := read(relative)
+		if err != nil {
+			return nil, fmt.Errorf("read browser profile %s: %w", relative, err)
+		}
+		value, err := parseBrowserProfile(relative, data)
 		if err != nil {
 			return nil, err
 		}
@@ -84,7 +108,11 @@ func buildBrowserRunConfig(packageRoot, driver string, driverArgs, env []string,
 		}
 	}
 	for _, relative := range authenticationPaths {
-		value, err := readBrowserAuthenticationProfile(packageRoot, relative)
+		data, err := read(relative)
+		if err != nil {
+			return nil, fmt.Errorf("read browser authentication profile %s: %w", relative, err)
+		}
+		value, err := authprofile.Parse(data)
 		if err != nil {
 			return nil, err
 		}
@@ -119,7 +147,7 @@ func buildBrowserRunConfig(packageRoot, driver string, driverArgs, env []string,
 		protocolRank = max(protocolRank, 2)
 	}
 
-	approvedOperations, sessionPosture, err := readBrowserOperationApprovals(packageRoot, len(browserPaths) != 0)
+	approvedOperations, sessionPosture, err := readBrowserOperationApprovals(read, len(browserPaths) != 0)
 	if err != nil {
 		return nil, err
 	}
@@ -127,7 +155,7 @@ func buildBrowserRunConfig(packageRoot, driver string, driverArgs, env []string,
 	if err != nil {
 		return nil, fmt.Errorf("browser operation approvals: %w", err)
 	}
-	approvedAuthentication, err := readBrowserAuthenticationApprovals(packageRoot, len(authenticationPaths) != 0)
+	approvedAuthentication, err := readBrowserAuthenticationApprovals(read, len(authenticationPaths) != 0)
 	if err != nil {
 		return nil, err
 	}
@@ -162,30 +190,18 @@ func buildBrowserRunConfig(packageRoot, driver string, driverArgs, env []string,
 	}, nil
 }
 
-func readBrowserProfile(root, relative string) (*profile.Profile, error) {
-	data, _, err := evidencefile.ReadRegular(filepath.Join(root, filepath.FromSlash(relative)), evidencefile.DefaultMaxBytes)
-	if err != nil {
-		return nil, fmt.Errorf("read browser profile %s: %w", relative, err)
-	}
+func parseBrowserProfile(relative string, data []byte) (*profile.Profile, error) {
 	if strings.EqualFold(filepath.Ext(relative), ".json") {
 		return profile.ParseJSON(data)
 	}
 	return profile.ParseYAML(data)
 }
 
-func readBrowserAuthenticationProfile(root, relative string) (*authprofile.Profile, error) {
-	data, _, err := evidencefile.ReadRegular(filepath.Join(root, filepath.FromSlash(relative)), evidencefile.DefaultMaxBytes)
-	if err != nil {
-		return nil, fmt.Errorf("read browser authentication profile %s: %w", relative, err)
-	}
-	return authprofile.Parse(data)
-}
-
-func readBrowserOperationApprovals(root string, required bool) ([]string, string, error) {
+func readBrowserOperationApprovals(read func(string) ([]byte, error), required bool) ([]string, string, error) {
 	if !required {
 		return []string{}, "none", nil
 	}
-	data, _, err := evidencefile.ReadRegular(filepath.Join(root, filepath.FromSlash(packageartifacts.BrowserSourceReviewPath)), evidencefile.DefaultMaxBytes)
+	data, err := read(packageartifacts.BrowserSourceReviewPath)
 	if err != nil {
 		return nil, "", fmt.Errorf("read browser source review: %w", err)
 	}
@@ -199,11 +215,11 @@ func readBrowserOperationApprovals(root string, required bool) ([]string, string
 	return sortedUniqueRuntimeIDs(review.MutationApprovals), strings.TrimSpace(review.SessionPosture), nil
 }
 
-func readBrowserAuthenticationApprovals(root string, required bool) ([]string, error) {
+func readBrowserAuthenticationApprovals(read func(string) ([]byte, error), required bool) ([]string, error) {
 	if !required {
 		return []string{}, nil
 	}
-	data, _, err := evidencefile.ReadRegular(filepath.Join(root, filepath.FromSlash(packageartifacts.BrowserAuthenticationReviewPath)), evidencefile.DefaultMaxBytes)
+	data, err := read(packageartifacts.BrowserAuthenticationReviewPath)
 	if err != nil {
 		return nil, fmt.Errorf("read browser authentication review: %w", err)
 	}
@@ -215,6 +231,29 @@ func readBrowserAuthenticationApprovals(root string, required bool) ([]string, e
 		return nil, fmt.Errorf("unsupported browser authentication review version %q", review.Version)
 	}
 	return sortedUniqueRuntimeIDs(review.Approvals), nil
+}
+
+func snapshotBrowserPaths(snapshot packageSnapshot) ([]string, []string, error) {
+	var browserPaths, authenticationPaths []string
+	for _, path := range snapshot.paths {
+		switch {
+		case strings.HasPrefix(path, "browser-profiles/"):
+			switch strings.ToLower(filepath.Ext(path)) {
+			case ".json", ".yaml", ".yml":
+				browserPaths = append(browserPaths, path)
+			default:
+				return nil, nil, fmt.Errorf("browser profile must use .json, .yaml, or .yml: %s", path)
+			}
+		case strings.HasPrefix(path, "browser-authentication/") && !strings.HasSuffix(strings.ToLower(path), ".review.json"):
+			switch strings.ToLower(filepath.Ext(path)) {
+			case ".json", ".yaml", ".yml":
+				authenticationPaths = append(authenticationPaths, path)
+			default:
+				return nil, nil, fmt.Errorf("browser authentication profile must use .json, .yaml, or .yml: %s", path)
+			}
+		}
+	}
+	return browserPaths, authenticationPaths, nil
 }
 
 func walkIntentSteps(steps []*rollout.Step, visit func(*rollout.Step)) {

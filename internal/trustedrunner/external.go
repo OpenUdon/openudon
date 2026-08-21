@@ -86,11 +86,11 @@ func RunExternal(ctx context.Context, opts ExternalOptions) (udonrunner.Result, 
 		browserDriver = config.Browser.DriverPath
 		browserDriverArgs = config.Browser.DriverArgs
 	}
-	expectedBrowser, err := buildBrowserRunConfig(p.exampleAbs, browserDriver, browserDriverArgs, opts.Env, false)
+	expectedBrowser, err := buildBrowserRunConfigFromSnapshot(validated.snapshot, browserDriver, browserDriverArgs, opts.Env, false)
 	if err != nil {
 		return udonrunner.Result{}, err
 	}
-	expected, err := buildRunConfig(p, manifest, packageDigest, config.Tier, config.WorkDir, config.RunID, config.HandoffSHA256, config.ApprovalSHA256, expectedBrowser)
+	expected, err := buildRunConfig(p, manifest, validated.snapshot, packageDigest, config.Tier, config.WorkDir, config.RunID, config.HandoffSHA256, config.ApprovalSHA256, expectedBrowser)
 	if err != nil {
 		return udonrunner.Result{}, err
 	}

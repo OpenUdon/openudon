@@ -1,13 +1,17 @@
 package trustedrunner
 
 import (
+	"context"
 	"encoding/json"
 	"os"
 	"path/filepath"
 	"reflect"
+	"strings"
 	"testing"
 
+	"github.com/OpenUdon/openudon/internal/authoring"
 	"github.com/OpenUdon/openudon/internal/synthesize"
+	"github.com/OpenUdon/openudon/internal/udonrunner"
 	rollout "github.com/OpenUdon/openudon/internal/workflowintent"
 )
 
@@ -74,6 +78,70 @@ func TestBuildBrowserRunConfigIgnoresInertAPIFallbackProfiles(t *testing.T) {
 	}
 	if _, err := buildBrowserRunConfig(root, "/tmp/browserdriver", nil, nil, false); err == nil {
 		t.Fatal("browser driver was accepted for an API-only active workflow")
+	}
+}
+
+func TestValidatedPackageBrowserConfigStaysBoundToImmutableSnapshot(t *testing.T) {
+	root, example := writeFixture(t, fixtureOptions{})
+	timeout := 120.0
+	intent := &rollout.Intent{Workflow: &rollout.WorkflowMeta{Name: "member"}, Steps: []*rollout.Step{
+		{Name: "authenticate-member", Type: "browser_authentication", Source: "browser-authentication/member.yaml", AuthenticationFlow: "member_login", BrowserSession: "member", CredentialBindings: map[string]string{"password": "member_password"}, Timeout: &timeout},
+		{Name: "read-dashboard", Type: "browser", Source: "browser-profiles/member.json", Operation: "read_dashboard", BrowserSession: "member"},
+	}}
+	writeBrowserRuntimeFixture(t, example, intent)
+
+	handoffPath := filepath.Join(example, "expected", "review-handoff.json")
+	data, err := os.ReadFile(handoffPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var manifest authoring.ReviewHandoff
+	if err := json.Unmarshal(data, &manifest); err != nil {
+		t.Fatal(err)
+	}
+	for _, path := range []string{
+		"browser-profiles/member.json", "browser-authentication/member.yaml",
+		".icot/browser-sources.json", ".icot/browser-authentication.json",
+	} {
+		manifest.HandoffInputs = append(manifest.HandoffInputs, authoring.ReviewHandoffInput{Path: path, Purpose: "browser runtime input", Required: true})
+	}
+	manifest.CredentialBindings.Declared = []string{"member_password"}
+	manifest.CredentialBindings.ExpectedFromPlan = []string{"member_password"}
+	refreshFixtureHandoffDigests(t, example, &manifest)
+	data, err = json.MarshalIndent(manifest, "", "  ")
+	if err != nil {
+		t.Fatal(err)
+	}
+	mustWriteFile(t, handoffPath, append(data, '\n'))
+
+	validated, err := resolveAndValidatePackageBytes(root, example)
+	if err != nil {
+		t.Fatal(err)
+	}
+	before, err := buildBrowserRunConfigFromSnapshot(validated.snapshot, "", nil, []string{"PATH=/trusted/bin"}, true)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if before == nil || !reflect.DeepEqual(before.ApprovedOperations, []string{"read_dashboard"}) || !reflect.DeepEqual(before.ApprovedAuthentication, []string{"authenticate_member"}) {
+		t.Fatalf("snapshot browser config = %#v", before)
+	}
+
+	apiOnly := &rollout.Intent{Workflow: &rollout.WorkflowMeta{Name: "changed"}, Steps: []*rollout.Step{{Name: "api", Type: "http", OpenAPI: "openapi/support.yaml", Operation: "getSupport"}}}
+	writeBrowserRuntimeFixture(t, example, apiOnly)
+	after, err := buildBrowserRunConfigFromSnapshot(validated.snapshot, "", nil, []string{"PATH=/trusted/bin"}, true)
+	if err != nil || !reflect.DeepEqual(before, after) {
+		t.Fatalf("snapshot changed after package mutation: before=%#v after=%#v err=%v", before, after, err)
+	}
+
+	config, err := buildRunConfig(validated.paths, validated.manifest, validated.snapshot, validated.packageSHA256,
+		TierSandbox, filepath.Join(root, "work"), "0123456789abcdef0123456789abcdef",
+		validated.handoffSHA256, strings.Repeat("a", 64), before)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := udonrunner.Prepare(context.Background(), config, udonrunner.Options{RepoRoot: root, Env: []string{"PATH=/trusted/bin"}}); err == nil ||
+		(!strings.Contains(err.Error(), "digest") && !strings.Contains(err.Error(), "does not match")) {
+		t.Fatalf("staging accepted current-file drift: %v", err)
 	}
 }
 

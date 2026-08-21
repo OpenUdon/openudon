@@ -444,7 +444,7 @@ func credentialEnvNamesFromHandoff(path string) []string {
 	}
 	seen := map[string]bool{}
 	for _, binding := range append(manifest.CredentialBindings.Declared, manifest.CredentialBindings.ExpectedFromPlan...) {
-		if name := credentialEnvName(binding); name != "" {
+		if name := udonrunner.CredentialEnvironmentName(binding); name != "" {
 			seen[name] = true
 		}
 	}
@@ -454,24 +454,6 @@ func credentialEnvNamesFromHandoff(path string) []string {
 	}
 	sort.Strings(out)
 	return out
-}
-
-func credentialEnvName(binding string) string {
-	var b strings.Builder
-	b.WriteString("UDON_CREDENTIAL_")
-	lastUnderscore := false
-	for _, ch := range strings.TrimSpace(binding) {
-		if (ch >= 'A' && ch <= 'Z') || (ch >= 'a' && ch <= 'z') || (ch >= '0' && ch <= '9') {
-			b.WriteRune(ch)
-			lastUnderscore = false
-			continue
-		}
-		if !lastUnderscore {
-			b.WriteByte('_')
-			lastUnderscore = true
-		}
-	}
-	return strings.TrimRight(strings.ToUpper(b.String()), "_")
 }
 
 func filterScenarios(scenarios []Scenario, ids []string) []Scenario {

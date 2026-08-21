@@ -20,7 +20,9 @@ import (
 	"github.com/OpenUdon/openudon/internal/executablefile"
 	"github.com/OpenUdon/openudon/internal/packageartifacts"
 	"github.com/OpenUdon/openudon/internal/processgroup"
+	"github.com/OpenUdon/openudon/internal/sourcecatalog"
 	"github.com/OpenUdon/openudon/internal/synthesize"
+	"github.com/OpenUdon/openudon/internal/udonreport"
 	"github.com/OpenUdon/openudon/internal/udonrunner"
 )
 
@@ -30,7 +32,7 @@ const (
 	RunConfigVersion           = udonrunner.RunConfigVersion
 	RunEvidenceVersion         = "openudon.run-evidence.v2"
 	LegacyRunEvidenceVersion   = "openudon.run-evidence.v1"
-	UdonExecutionReportVersion = "udon.execution-report.v1"
+	UdonExecutionReportVersion = udonreport.Version
 	ReviewHandoffVersion       = authoring.ReviewHandoffVersion
 
 	StateApprovedForSandbox    = string(authoring.ReviewStateApprovedForSandbox)
@@ -150,21 +152,30 @@ func resolveAndValidatePackageBytes(repoRoot, exampleDir string) (validatedPacka
 	if err != nil {
 		return validatedPackage{}, err
 	}
-	if err := validateRequiredInputs(p, manifest); err != nil {
+	snapshot, err := readPackageSnapshot(p, manifest, handoffBytes)
+	if err != nil {
 		return validatedPackage{}, err
 	}
-	if err := validateStoredQuality(p.quality); err != nil {
+	if err := validateRequiredSnapshotInputs(manifest, snapshot); err != nil {
+		return validatedPackage{}, err
+	}
+	qualityBytes, err := snapshot.read("expected/quality.json")
+	if err != nil {
+		return validatedPackage{}, err
+	}
+	if err := validateStoredQualityBytes(qualityBytes); err != nil {
 		return validatedPackage{}, err
 	}
 	if err := validateManifestPolicy(manifest); err != nil {
 		return validatedPackage{}, err
 	}
-	packageSHA256, err := computePackageDigest(p, manifest)
+	packageSHA256, err := computePackageSnapshotDigest(p, manifest, snapshot)
 	if err != nil {
 		return validatedPackage{}, err
 	}
 	return validatedPackage{
-		paths: p, manifest: manifest, packageSHA256: packageSHA256, handoffSHA256: evidencefile.SHA256(handoffBytes),
+		paths: p, manifest: manifest, snapshot: snapshot,
+		packageSHA256: packageSHA256, handoffSHA256: evidencefile.SHA256(handoffBytes),
 	}, nil
 }
 
@@ -252,18 +263,7 @@ type AsyncEvidenceRecord struct {
 	ConfirmationReadObservation *asyncevidence.ConfirmationReadObservation `json:"confirmation_read_observation,omitempty"`
 }
 
-type UdonExecutionReport struct {
-	Version        string `json:"version"`
-	Status         string `json:"status"`
-	StartedAt      string `json:"started_at"`
-	FinishedAt     string `json:"finished_at"`
-	WorkflowPath   string `json:"workflow_path"`
-	WorkflowFormat string `json:"workflow_format"`
-	WorkDir        string `json:"workdir"`
-	OutputPath     string `json:"output_path,omitempty"`
-	OutputDigest   string `json:"output_digest,omitempty"`
-	ErrorSummary   string `json:"error_summary,omitempty"`
-}
+type UdonExecutionReport = udonreport.Report
 
 type paths struct {
 	repoRoot       string
@@ -324,11 +324,11 @@ func Run(ctx context.Context, opts Options) (*RunResult, error) {
 		WorkDir:       workdir,
 		DryRun:        opts.DryRun,
 	}
-	browserConfig, err := buildBrowserRunConfig(p.exampleAbs, opts.BrowserDriver, opts.BrowserDriverArgs, opts.Env, opts.DryRun)
+	browserConfig, err := buildBrowserRunConfigFromSnapshot(validated.snapshot, opts.BrowserDriver, opts.BrowserDriverArgs, opts.Env, opts.DryRun)
 	if err != nil {
 		return nil, err
 	}
-	runConfig, err := buildRunConfig(p, manifest, digest, opts.Tier, result.WorkDir, runID, validated.handoffSHA256, evidencefile.SHA256(approvalBytes), browserConfig)
+	runConfig, err := buildRunConfig(p, manifest, validated.snapshot, digest, opts.Tier, result.WorkDir, runID, validated.handoffSHA256, evidencefile.SHA256(approvalBytes), browserConfig)
 	if err != nil {
 		return nil, err
 	}
@@ -503,15 +503,14 @@ func validateRunnerPath(name, path string) error {
 	return nil
 }
 
-func buildRunConfig(p paths, manifest handoffManifest, digest, tier, workdir, runID, handoffDigest, approvalDigest string, browser *udonrunner.BrowserConfig) (RunConfig, error) {
-	relOpenAPI, err := packageartifacts.CollectAPISourcePaths(p.exampleAbs)
-	if err != nil {
-		return RunConfig{}, err
+func buildRunConfig(p paths, manifest handoffManifest, snapshot packageSnapshot, digest, tier, workdir, runID, handoffDigest, approvalDigest string, browser *udonrunner.BrowserConfig) (RunConfig, error) {
+	var relOpenAPI []string
+	for _, path := range snapshot.paths {
+		if sourcecatalog.IsAPIPath(path) && !packageartifacts.IsAdvisorySecuritySidecarPath(path) {
+			relOpenAPI = append(relOpenAPI, path)
+		}
 	}
-	packagePaths, err := packagePathsForRunConfig(p, manifest)
-	if err != nil {
-		return RunConfig{}, err
-	}
+	packagePaths := append([]string(nil), snapshot.paths...)
 	config := RunConfig{
 		Version:             RunConfigVersion,
 		RunID:               runID,
@@ -521,7 +520,7 @@ func buildRunConfig(p paths, manifest handoffManifest, digest, tier, workdir, ru
 		WorkDir:             workdir,
 		WorkflowPath:        filepath.ToSlash(filepath.Join("workflows", "workflow.uws.yaml")),
 		WorkflowFormat:      "uws-yaml",
-		DataFiles:           runConfigDataFiles(p.exampleAbs),
+		DataFiles:           runConfigDataFiles(snapshot),
 		APISourcePaths:      relOpenAPI,
 		OpenAPIPaths:        relOpenAPI,
 		PackagePaths:        packagePaths,
@@ -538,20 +537,11 @@ func buildRunConfig(p paths, manifest handoffManifest, digest, tier, workdir, ru
 	return config, nil
 }
 
-func runConfigDataFiles(exampleRoot string) []string {
-	info, err := os.Lstat(filepath.Join(exampleRoot, filepath.FromSlash(packageartifacts.RuntimeDataPath)))
-	if err != nil || !info.Mode().IsRegular() {
-		return nil
+func runConfigDataFiles(snapshot packageSnapshot) []string {
+	if _, ok := snapshot.files[packageartifacts.RuntimeDataPath]; ok {
+		return []string{packageartifacts.RuntimeDataPath}
 	}
-	return []string{packageartifacts.RuntimeDataPath}
-}
-
-func packagePathsForRunConfig(p paths, manifest handoffManifest) ([]string, error) {
-	paths, err := packageartifacts.RequiredManifestPaths(p.exampleAbs, packageManifestInputs(manifest))
-	if err != nil {
-		return nil, err
-	}
-	return append([]string(nil), paths...), nil
+	return nil
 }
 
 func writeRunConfig(config RunConfig) (string, []byte, error) {
@@ -1189,43 +1179,11 @@ func readUdonExecutionReport(path string) (*UdonExecutionReport, error) {
 }
 
 func decodeUdonExecutionReport(data []byte) (*UdonExecutionReport, error) {
-	var report UdonExecutionReport
-	if err := evidencefile.DecodeStrict(data, &report); err != nil {
-		return nil, fmt.Errorf("udon execution report must be valid JSON: %w", err)
-	}
-	if strings.TrimSpace(report.Version) != UdonExecutionReportVersion {
-		return nil, fmt.Errorf("udon execution report version must be %s", UdonExecutionReportVersion)
-	}
-	if report.Status != "success" && report.Status != "error" {
-		return nil, fmt.Errorf("udon execution report status must be success or error")
-	}
-	started, err := time.Parse(time.RFC3339, strings.TrimSpace(report.StartedAt))
+	report, err := udonreport.Decode(data)
 	if err != nil {
-		return nil, fmt.Errorf("udon execution report started_at must be RFC3339: %w", err)
+		return nil, fmt.Errorf("udon execution report is invalid: %w", err)
 	}
-	finished, err := time.Parse(time.RFC3339, strings.TrimSpace(report.FinishedAt))
-	if err != nil {
-		return nil, fmt.Errorf("udon execution report finished_at must be RFC3339: %w", err)
-	}
-	if finished.Before(started) {
-		return nil, fmt.Errorf("udon execution report finished_at precedes started_at")
-	}
-	for _, field := range []struct{ name, value string }{
-		{name: "workflow_path", value: report.WorkflowPath},
-		{name: "workflow_format", value: report.WorkflowFormat},
-		{name: "workdir", value: report.WorkDir},
-	} {
-		if strings.TrimSpace(field.value) == "" {
-			return nil, fmt.Errorf("udon execution report %s is required", field.name)
-		}
-	}
-	if report.OutputDigest != "" {
-		algorithm, value, ok := strings.Cut(report.OutputDigest, ":")
-		if !ok || algorithm != "sha256" || value != strings.ToLower(value) || !evidencefile.ValidSHA256(value) {
-			return nil, fmt.Errorf("udon execution report output_digest must be sha256 followed by 64 lowercase hexadecimal characters")
-		}
-	}
-	return &report, nil
+	return report, nil
 }
 
 func reportTime(value string, fallback time.Time) (time.Time, error) {
@@ -1344,22 +1302,10 @@ func outerRunnerEnvironment(source []string, config RunConfig) []string {
 	allowed := map[string]bool{
 		"PATH": true, "PATHEXT": true, "SystemRoot": true, "SYSTEMROOT": true,
 		"WINDIR": true, "COMSPEC": true, "TMP": true, "TEMP": true,
-		"OPENUDON_EXECUTOR": true,
+		"OPENUDON_EXECUTOR": true, "OPENUDON_UDON_BIN": true, "OPENUDON_UDON_IMAGE": true,
 	}
 	for _, binding := range config.CredentialBindings {
-		var b strings.Builder
-		b.WriteString("UDON_CREDENTIAL_")
-		lastUnderscore := false
-		for _, ch := range strings.TrimSpace(binding) {
-			if (ch >= 'A' && ch <= 'Z') || (ch >= 'a' && ch <= 'z') || (ch >= '0' && ch <= '9') {
-				b.WriteRune(ch)
-				lastUnderscore = false
-			} else if !lastUnderscore {
-				b.WriteByte('_')
-				lastUnderscore = true
-			}
-		}
-		allowed[strings.TrimRight(strings.ToUpper(b.String()), "_")] = true
+		allowed[udonrunner.CredentialEnvironmentName(binding)] = true
 	}
 	if config.Browser != nil {
 		for _, binding := range config.Browser.SessionEnvironment {
@@ -1462,8 +1408,52 @@ type packageOptions struct {
 type validatedPackage struct {
 	paths         paths
 	manifest      handoffManifest
+	snapshot      packageSnapshot
 	packageSHA256 string
 	handoffSHA256 string
+}
+
+// packageSnapshot is the single manifest-bound byte generation used by all
+// post-validation parsing and handoff derivation. Files are read once while
+// constructing it and are never refreshed in place.
+type packageSnapshot struct {
+	paths []string
+	files map[string][]byte
+}
+
+func (snapshot packageSnapshot) read(path string) ([]byte, error) {
+	clean, err := packageartifacts.CleanRelativePath(path)
+	if err != nil {
+		return nil, err
+	}
+	data, ok := snapshot.files[clean]
+	if !ok {
+		return nil, fmt.Errorf("package snapshot missing %s", clean)
+	}
+	return data, nil
+}
+
+func readPackageSnapshot(p paths, manifest handoffManifest, handoffBytes []byte) (packageSnapshot, error) {
+	paths, err := packageartifacts.RequiredManifestPaths(p.exampleAbs, packageManifestInputs(manifest))
+	if err != nil {
+		return packageSnapshot{}, err
+	}
+	if err := packageartifacts.ValidateRegularPackageFiles(p.exampleAbs, paths); err != nil {
+		return packageSnapshot{}, err
+	}
+	snapshot := packageSnapshot{paths: append([]string(nil), paths...), files: make(map[string][]byte, len(paths))}
+	for _, path := range paths {
+		if path == packageartifacts.ReviewHandoffPath {
+			snapshot.files[path] = append([]byte(nil), handoffBytes...)
+			continue
+		}
+		data, _, err := evidencefile.ReadRegular(filepath.Join(p.exampleAbs, filepath.FromSlash(path)), evidencefile.DefaultMaxBytes)
+		if err != nil {
+			return packageSnapshot{}, fmt.Errorf("read handoff input %s: %w", path, err)
+		}
+		snapshot.files[path] = data
+	}
+	return snapshot, nil
 }
 
 func validatePackage(ctx context.Context, opts packageOptions) (validatedPackage, error) {
@@ -1570,14 +1560,7 @@ func validateManifestPolicy(manifest handoffManifest) error {
 	return nil
 }
 
-func validateRequiredInputs(p paths, manifest handoffManifest) error {
-	paths, err := packageartifacts.RequiredManifestPaths(p.exampleAbs, packageManifestInputs(manifest))
-	if err != nil {
-		return err
-	}
-	if err := packageartifacts.ValidateRegularPackageFiles(p.exampleAbs, paths); err != nil {
-		return err
-	}
+func validateRequiredSnapshotInputs(manifest handoffManifest, snapshot packageSnapshot) error {
 	for _, input := range manifest.HandoffInputs {
 		if !input.Required {
 			continue
@@ -1590,8 +1573,8 @@ func validateRequiredInputs(p paths, manifest handoffManifest) error {
 		if clean == packageartifacts.ReviewHandoffPath {
 			got, err = authoring.ReviewHandoffSelfDigest(manifest, clean)
 		} else {
-			data, _, readErr := evidencefile.ReadRegular(filepath.Join(p.exampleAbs, filepath.FromSlash(clean)), evidencefile.DefaultMaxBytes)
-			err = readErr
+			var data []byte
+			data, err = snapshot.read(clean)
 			if err == nil {
 				got = evidencefile.SHA256(data)
 			}
@@ -1606,11 +1589,7 @@ func validateRequiredInputs(p paths, manifest handoffManifest) error {
 	return nil
 }
 
-func validateStoredQuality(path string) error {
-	data, _, err := evidencefile.ReadRegular(path, evidencefile.DefaultMaxBytes)
-	if err != nil {
-		return fmt.Errorf("read quality report: %w", err)
-	}
+func validateStoredQualityBytes(data []byte) error {
 	var report synthesize.QualityReport
 	if err := evidencefile.DecodeStrict(data, &report); err != nil {
 		return fmt.Errorf("quality report must be valid JSON: %w", err)
@@ -1647,6 +1626,33 @@ func computePackageDigest(p paths, manifest handoffManifest) (string, error) {
 		Scope:   p.scope,
 		Version: "openudon.handoff-package-digest.v1",
 		Inputs:  inputs,
+	})
+}
+
+func computePackageSnapshotDigest(p paths, manifest handoffManifest, snapshot packageSnapshot) (string, error) {
+	manifestInputByPath := map[string]authoring.ReviewHandoffInput{}
+	for _, input := range manifest.HandoffInputs {
+		if !input.Required {
+			continue
+		}
+		clean, err := packageartifacts.CleanRelativePath(input.Path)
+		if err != nil {
+			return "", fmt.Errorf("handoff input path must be safe relative path: %q", input.Path)
+		}
+		input.Path = clean
+		manifestInputByPath[clean] = input
+	}
+	inputs := make([]authoring.ReviewHandoffInput, 0, len(snapshot.paths))
+	for _, path := range snapshot.paths {
+		input, ok := manifestInputByPath[path]
+		if !ok {
+			return "", fmt.Errorf("snapshot path is not a required handoff input: %s", path)
+		}
+		inputs = append(inputs, input)
+	}
+	return authoring.ComputeReviewHandoffDigest(authoring.ReviewHandoffDigestOptions{
+		Root: p.exampleAbs, Scope: p.scope, Version: "openudon.handoff-package-digest.v1",
+		Inputs: inputs, InputBytes: snapshot.files,
 	})
 }
 

@@ -96,7 +96,7 @@ func validateBrowserConfig(config *BrowserConfig, credentials []string, values m
 		declared[strings.TrimSpace(binding)] = true
 	}
 	credentialEnv, err := validateEnvironmentBindings("browser credential", config.CredentialEnvironment, func(binding string) (string, bool) {
-		return credentialEnvName(binding), declared[binding]
+		return CredentialEnvironmentName(binding), declared[binding]
 	}, values, requireValues)
 	if err != nil {
 		return validatedBrowserConfig{}, err
@@ -159,7 +159,9 @@ func sessionEnvName(binding string) string {
 }
 
 // CredentialEnvironmentName returns the canonical Udon credential variable.
-func CredentialEnvironmentName(binding string) string { return credentialEnvName(binding) }
+func CredentialEnvironmentName(binding string) string {
+	return normalizedEnvironmentName("UDON_CREDENTIAL_", binding)
+}
 
 // SessionEnvironmentName returns the canonical Udon browser-session variable.
 func SessionEnvironmentName(binding string) string { return sessionEnvName(binding) }

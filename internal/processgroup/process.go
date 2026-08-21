@@ -30,6 +30,7 @@ type Invocation struct {
 // cancellation and Terminate both kill the complete process tree.
 type InteractiveChild struct {
 	command *exec.Cmd
+	tracker *descendantTracker
 	input   io.WriteCloser
 	output  io.ReadCloser
 	done    chan struct{}
@@ -67,7 +68,13 @@ func StartInteractive(ctx context.Context, args, environment []string, stderr io
 		_ = output.Close()
 		return nil, err
 	}
-	child := &InteractiveChild{command: command, input: input, output: output, done: make(chan struct{})}
+	child := &InteractiveChild{
+		command: command,
+		tracker: startDescendantTracker(command.Process.Pid),
+		input:   input,
+		output:  output,
+		done:    make(chan struct{}),
+	}
 	go func() {
 		select {
 		case <-ctx.Done():
@@ -95,7 +102,8 @@ func (child *InteractiveChild) Wait() error {
 	// the pipe. The caller owns that ordering; concurrent cleanup calls share
 	// this single reap operation.
 	child.wait.Do(func() {
-		child.err = child.command.Wait()
+		waitErr := child.command.Wait()
+		child.err = errors.Join(waitErr, sweepProcessTree(child.command, child.tracker))
 		close(child.done)
 	})
 	<-child.done
@@ -165,8 +173,12 @@ func run(ctx context.Context, timeout time.Duration, invocation Invocation) erro
 	if err := command.Start(); err != nil {
 		return err
 	}
+	tracker := startDescendantTracker(command.Process.Pid)
 	done := make(chan error, 1)
-	go func() { done <- command.Wait() }()
+	go func() {
+		waitErr := command.Wait()
+		done <- errors.Join(waitErr, sweepProcessTree(command, tracker))
+	}()
 	select {
 	case err := <-done:
 		return err
@@ -179,4 +191,15 @@ func run(ctx context.Context, timeout time.Duration, invocation Invocation) erro
 			return errors.Join(bounded.Err(), ErrTerminationTimeout)
 		}
 	}
+}
+
+func sweepProcessTree(command *exec.Cmd, tracker *descendantTracker) error {
+	// A successful group leader may leave children running. Sweep after every
+	// exit path, not only cancellation, and then verify any Linux descendants
+	// recorded before they detached from the original process group/session.
+	terminate(command)
+	if tracker == nil {
+		return nil
+	}
+	return tracker.terminateAndVerify(5 * time.Second)
 }

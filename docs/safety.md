@@ -81,9 +81,13 @@ state that no credential bindings are declared or required.
 `openudon run` writes a non-secret `openudon.executor-run.v2` config only after stored/current quality,
 approval state, tier, credential policy, and package digest checks pass. New run configs include
 `package_paths`, the sorted digest-covered handoff inventory, plus exact
-approval and handoff digests. Every invocation receives a unique run ID and
+approval and handoff digests. Validation reads each manifest-required input
+once, verifies its declared digest, and derives the handoff, package, quality,
+intent, browser profile, review, credential, session, approval, and protocol
+facts from that immutable byte snapshot. Every invocation receives a unique run ID and
 directory. Dry runs and real handoffs stage those files into a fresh workdir
-and recompute `package_sha256` from the staged copy. Dry runs stop there and
+and recompute `package_sha256` from current source files, so drift after the
+snapshot is rejected before execution. Dry runs stop there and
 write `openudon.run-evidence.v2` without requiring credential values. Non-dry
 runs require the declared `UDON_CREDENTIAL_*` values, verify the bounded
 regular executor report by path, digest, and size, then write the same
@@ -97,16 +101,28 @@ environment mappings, and exact operation/authentication approvals. The
 external runner re-derives that contract and rejects substitutions. Driver
 arguments, config, evidence, and argv may not contain credential values. A
 Docker executor receives the validated host driver through a read-only bind
-mount at `/openudon/browser-driver`; unreferenced API-first fallback profiles
-are ignored by runtime configuration.
+mount at `/openudon/browser-driver`; only credentials and session bindings are
+forwarded with Docker `-e`. Approved driver environment names such as `PATH`,
+`HOME`, locale, temporary-directory, and `PLAYWRIGHT_BROWSERS_PATH` use the
+container's own values. Host desktop, display, and socket requirements are
+rejected. Unreferenced API-first fallback profiles are ignored by runtime
+configuration.
 
 `OPENUDON_EXECUTOR` is the canonical final executor selector. It accepts an absolute binary path or
 `docker://<image>`. `OPENUDON_UDON_RUNNER` is separate: it overrides the outer runner shim and must
 be an absolute path to an executable file. Execution uses a typed
 argv/directory/environment invocation. Local binaries receive only declared
 credentials. Docker and outer runners additionally receive the documented
-minimal platform launcher environment; cloud, proxy, SSH-agent, and unrelated
-process variables are not forwarded.
+minimal platform launcher environment; the outer runner also receives explicit
+`OPENUDON_UDON_BIN` and `OPENUDON_UDON_IMAGE` overrides. Cloud, proxy,
+SSH-agent, and unrelated process variables are not forwarded.
+
+On Linux, bounded subprocesses track descendant PID/start-time identities via
+`/proc`, sweep detached `setpgid`/`setsid` children after normal leader exit as
+well as cancellation, and verify termination without killing a reused PID.
+Other Unix platforms retain process-group cleanup and Windows retains task-tree
+cleanup; those fallbacks cannot provide Linux's detached-descendant identity
+proof.
 
 When `OPENUDON_UDON_RUNNER` is used, OpenUdon run evidence records `stage_kind: preflight` because
 the outer wrapper can validate and stage the package before handoff but cannot observe the external

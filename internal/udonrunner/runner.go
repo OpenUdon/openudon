@@ -303,7 +303,10 @@ func prepare(ctx context.Context, config Config, opts Options, requireCredential
 		}
 		result.Argv = append([]string(nil), argv...)
 	}
-	executorNames := append(append(append([]string(nil), credentialEnvNames...), browser.sessionEnv...), browser.driverEnv...)
+	executorNames := append(append([]string(nil), credentialEnvNames...), browser.sessionEnv...)
+	if len(result.Argv) == 0 || filepath.Base(result.Argv[0]) != "docker" {
+		executorNames = append(executorNames, browser.driverEnv...)
+	}
 	sort.Strings(executorNames)
 	executorEnv := credentialEnvironment(executorNames, envByName)
 	if len(result.Argv) > 0 && filepath.Base(result.Argv[0]) == "docker" {
@@ -706,7 +709,7 @@ func credentialEnvNames(bindings []string) ([]string, error) {
 		if err := rejectControlChars("credential binding", binding); err != nil {
 			return nil, err
 		}
-		name := credentialEnvName(binding)
+		name := CredentialEnvironmentName(binding)
 		if name == "UDON_CREDENTIAL" {
 			return nil, fmt.Errorf("credential binding does not produce a valid env var: %s", binding)
 		}
@@ -721,10 +724,6 @@ func credentialEnvNames(bindings []string) ([]string, error) {
 	}
 	sort.Strings(out)
 	return out, nil
-}
-
-func credentialEnvName(binding string) string {
-	return normalizedEnvironmentName("UDON_CREDENTIAL_", binding)
 }
 
 func environmentMap(env []string) map[string]string {
@@ -793,7 +792,11 @@ func dockerImageArgv(envName, image, stage, stagedWorkflow, workflowFormat, exec
 		for _, binding := range browser.SessionEnvironment {
 			passNames = append(passNames, binding.Environment)
 		}
-		passNames = append(passNames, driverEnvNames...)
+		var err error
+		driverEnvNames, err = dockerBrowserDriverEnvironment(driverEnvNames)
+		if err != nil {
+			return nil, err
+		}
 	}
 	sort.Strings(passNames)
 	for _, name := range passNames {
@@ -819,6 +822,21 @@ func dockerImageArgv(envName, image, stage, stagedWorkflow, workflowFormat, exec
 		argv = append(argv, "--datafile", "/workspace/"+filepath.ToSlash(relData))
 	}
 	return appendBrowserArgs(argv, containerBrowser, driverEnvNames), nil
+}
+
+func dockerBrowserDriverEnvironment(names []string) ([]string, error) {
+	containerOwned := map[string]bool{
+		"HOME": true, "PATH": true, "TMPDIR": true, "TMP": true, "TEMP": true,
+		"LANG": true, "LC_ALL": true, "LC_CTYPE": true, "PLAYWRIGHT_BROWSERS_PATH": true,
+	}
+	result := make([]string, 0, len(names))
+	for _, name := range names {
+		if !containerOwned[name] {
+			return nil, fmt.Errorf("Docker browser driver environment %s requires an unsupported host desktop, socket, or platform binding", name)
+		}
+		result = append(result, name)
+	}
+	return result, nil
 }
 
 func validateDockerImage(envName, image string) error {

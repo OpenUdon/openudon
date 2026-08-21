@@ -106,7 +106,7 @@ func TestRunLocalUdonSmokeUsesBuiltExecutorAndExpandsAsyncEvidence(t *testing.T)
 		Invoke: func(_ context.Context, invocation udonrunner.Invocation) error {
 			args := invocation.Argv[1:]
 			reportPath := smokeArgValue(args, "--execution-report")
-			data := `{"version":"udon.execution-report.v1","status":"success","started_at":"2026-04-29T12:00:00Z","finished_at":"2026-04-29T12:00:00Z","workflow_path":"workflow.uws.yaml","workflow_format":"uws-yaml","workdir":".","output_path":"output.hcl","output_digest":"sha256:` + strings.Repeat("a", 64) + `"}` + "\n"
+			data := `{"version":"udon.execution-report.v2","status":"success","started_at":"2026-04-29T12:00:00Z","finished_at":"2026-04-29T12:00:00Z","workflow_path":"workflow.uws.yaml","workflow_format":"uws-yaml","workdir":".","output_path":"output.hcl","output_digest":"sha256:` + strings.Repeat("a", 64) + `"}` + "\n"
 			if err := os.MkdirAll(filepath.Dir(reportPath), 0o755); err != nil {
 				return err
 			}

@@ -481,7 +481,20 @@ func TestRunBrowserInvocationIsExactAndAllowlisted(t *testing.T) {
 				t.Fatalf("browser environment metadata = %#v / %#v", result.SessionEnvNames, result.BrowserEnvNames)
 			}
 			joined := strings.Join(invocation.Env, "\n")
-			for _, required := range []string{"UDON_CREDENTIAL_MEMBER_PASSWORD=credential-value", "UDON_BROWSER_SESSION_EXISTING_MEMBER=session-value", "HOME=/trusted/home", "PATH=/trusted/bin"} {
+			requiredEnvironment := []string{"UDON_CREDENTIAL_MEMBER_PASSWORD=credential-value", "UDON_BROWSER_SESSION_EXISTING_MEMBER=session-value", "PATH=/trusted/bin"}
+			if tc.name == "local" {
+				requiredEnvironment = append(requiredEnvironment, "HOME=/trusted/home")
+			} else {
+				for _, forbiddenArg := range []string{"HOME", "PATH"} {
+					if containsAdjacentArgs(invocation.Argv, "-e", forbiddenArg) {
+						t.Fatalf("docker forwarded host browser environment %s: %#v", forbiddenArg, invocation.Argv)
+					}
+				}
+				if strings.Contains(joined, "HOME=/trusted/home") {
+					t.Fatalf("docker launcher inherited host browser HOME: %#v", invocation.Env)
+				}
+			}
+			for _, required := range requiredEnvironment {
 				if !strings.Contains(joined, required) {
 					t.Fatalf("browser invocation environment omitted %s: %#v", required, invocation.Env)
 				}
@@ -493,6 +506,33 @@ func TestRunBrowserInvocationIsExactAndAllowlisted(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestDockerBrowserRejectsDesktopAndSocketEnvironment(t *testing.T) {
+	config := validRunnerConfig(t)
+	driver := filepath.Join(t.TempDir(), "browserdriver")
+	mustWriteExecutable(t, driver)
+	config.Browser = &BrowserConfig{DriverPath: driver, DriverEnvironment: []string{"DISPLAY"}, Protocol: "v1"}
+	_, err := Run(context.Background(), config, Options{
+		RepoRoot: t.TempDir(),
+		Env:      []string{"OPENUDON_EXECUTOR=docker://udon:test", "DISPLAY=:99", "PATH=/trusted/bin"},
+		Invoke: func(context.Context, Invocation) error {
+			t.Fatal("Docker invoked with host display authority")
+			return nil
+		},
+	})
+	if err == nil || !strings.Contains(err.Error(), "unsupported host desktop") {
+		t.Fatalf("desktop environment error = %v", err)
+	}
+}
+
+func containsAdjacentArgs(values []string, first, second string) bool {
+	for index := 0; index+1 < len(values); index++ {
+		if values[index] == first && values[index+1] == second {
+			return true
+		}
+	}
+	return false
 }
 
 func TestBrowserConfigRejectsForgedMappingsAndValues(t *testing.T) {

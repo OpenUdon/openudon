@@ -338,6 +338,12 @@ func isAdvisorySecuritySidecarPath(filePath string) bool {
 	return strings.HasSuffix(base, ".security") || strings.HasSuffix(base, ".security-overlay")
 }
 
+// IsAdvisorySecuritySidecarPath reports whether filePath uses a supported
+// advisory security-sidecar suffix.
+func IsAdvisorySecuritySidecarPath(filePath string) bool {
+	return isAdvisorySecuritySidecarPath(filePath)
+}
+
 func uniqueSorted(paths []string) ([]string, error) {
 	seen := map[string]struct{}{}
 	var out []string

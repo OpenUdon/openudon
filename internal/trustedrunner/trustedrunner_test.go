@@ -431,7 +431,7 @@ func TestArchiveRunEvidenceCopiesAndVerifiesEvidence(t *testing.T) {
 	result := writeVerifiableRunEvidence(t)
 	evidence := readRunEvidenceFile(t, result.RunEvidencePath)
 	reportPath := filepath.Join(result.WorkDir, "stage.fake", "executor-report.json")
-	mustWriteFile(t, reportPath, []byte(`{"version":"udon.execution-report.v1","status":"success","started_at":"2026-04-29T12:00:00Z","finished_at":"2026-04-29T12:00:00Z","workflow_path":"workflow.uws.yaml","workflow_format":"uws-yaml","workdir":"."}`+"\n"))
+	mustWriteFile(t, reportPath, []byte(`{"version":"udon.execution-report.v2","status":"success","started_at":"2026-04-29T12:00:00Z","finished_at":"2026-04-29T12:00:00Z","workflow_path":"workflow.uws.yaml","workflow_format":"uws-yaml","workdir":"."}`+"\n"))
 	evidence.Executor.ReportPath = "stage.fake/executor-report.json"
 	reportData, err := os.ReadFile(reportPath)
 	if err != nil {
@@ -1277,7 +1277,7 @@ func TestRunExternalRunnerInvocationEnvironmentIsAllowlisted(t *testing.T) {
 		RepoRoot: root, ExampleDir: example, Tier: TierSandbox, ApprovalPath: approvalPath,
 		RunnerPath: runnerPath, WorkDir: filepath.Join(root, "work"), Now: now, Assess: passAssess,
 		Env: []string{
-			"OPENUDON_EXECUTOR=/trusted/udon", "UDON_CREDENTIAL_SUPPORT_API_TOKEN=declared-secret",
+			"OPENUDON_EXECUTOR=/trusted/udon", "OPENUDON_UDON_BIN=/trusted/udon-bin", "OPENUDON_UDON_IMAGE=udon:test", "UDON_CREDENTIAL_SUPPORT_API_TOKEN=declared-secret",
 			"PATH=/trusted/bin", "AWS_SECRET_ACCESS_KEY=must-not-pass", "HTTPS_PROXY=http://must-not-pass",
 			"SSH_AUTH_SOCK=/must-not-pass", "UNRELATED_SENTINEL=must-not-pass",
 		},
@@ -1291,7 +1291,7 @@ func TestRunExternalRunnerInvocationEnvironmentIsAllowlisted(t *testing.T) {
 		t.Fatal(err)
 	}
 	joined := strings.Join(invocation.Env, "\n")
-	for _, required := range []string{"OPENUDON_EXECUTOR=/trusted/udon", "UDON_CREDENTIAL_SUPPORT_API_TOKEN=declared-secret", "PATH=/trusted/bin"} {
+	for _, required := range []string{"OPENUDON_EXECUTOR=/trusted/udon", "OPENUDON_UDON_BIN=/trusted/udon-bin", "OPENUDON_UDON_IMAGE=udon:test", "UDON_CREDENTIAL_SUPPORT_API_TOKEN=declared-secret", "PATH=/trusted/bin"} {
 		if !strings.Contains(joined, required) {
 			t.Fatalf("required %q missing from outer runner env: %#v", required, invocation.Env)
 		}
@@ -3057,6 +3057,10 @@ func writeUdonExecutionReport(t *testing.T, path, status string, now time.Time, 
 		OutputPath:     filepath.Join(filepath.Dir(path), "output", "udon.hcl"),
 		OutputDigest:   outputDigest,
 	}
+	if status == "error" {
+		report.ErrorCode = "unclassified"
+		report.ErrorSummary = "executor failed"
+	}
 	data, err := json.MarshalIndent(report, "", "  ")
 	if err != nil {
 		t.Fatal(err)
@@ -3078,6 +3082,8 @@ func TestDecodeUdonExecutionReportEnforcesPublishedContract(t *testing.T) {
 		func(report *UdonExecutionReport) { report.FinishedAt = "2026-04-29T11:59:59Z" },
 		func(report *UdonExecutionReport) { report.WorkflowPath = "" },
 		func(report *UdonExecutionReport) { report.OutputDigest = "sha256:" + strings.Repeat("A", 64) },
+		func(report *UdonExecutionReport) { report.Version = "udon.execution-report.v1" },
+		func(report *UdonExecutionReport) { report.ErrorCode = "driver_error" },
 	} {
 		report := valid
 		mutate(&report)
@@ -3088,6 +3094,15 @@ func TestDecodeUdonExecutionReportEnforcesPublishedContract(t *testing.T) {
 		if _, err := decodeUdonExecutionReport(data); err == nil {
 			t.Fatalf("invalid executor report was accepted: %s", data)
 		}
+	}
+	failure := valid
+	failure.Status, failure.ErrorCode, failure.ErrorSummary = "error", "invalid_context", "redacted failure"
+	data, err := json.Marshal(failure)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if report, err := decodeUdonExecutionReport(data); err != nil || report.ErrorCode != "invalid_context" {
+		t.Fatalf("typed failure report = %#v, %v", report, err)
 	}
 }
 
