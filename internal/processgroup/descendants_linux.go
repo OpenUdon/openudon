@@ -66,6 +66,11 @@ func (tracker *descendantTracker) stopMonitoring() {
 }
 
 func (tracker *descendantTracker) observe() {
+	// Read the kernel's direct-child lists first. This is substantially cheaper
+	// than a complete /proc scan and closes the scheduling window for a child
+	// that detaches and whose leader exits quickly under host load.
+	tracker.observeChildLists()
+
 	processes := readProcIdentities()
 	tracker.mu.Lock()
 	defer tracker.mu.Unlock()
@@ -94,6 +99,60 @@ func (tracker *descendantTracker) observe() {
 			}
 			tracker.known[pid] = process.startTime
 			changed = true
+		}
+	}
+}
+
+func (tracker *descendantTracker) observeChildLists() {
+	tracker.mu.Lock()
+	seeds := make(map[int]uint64, len(tracker.known)+1)
+	for pid, startTime := range tracker.known {
+		seeds[pid] = startTime
+	}
+	tracker.mu.Unlock()
+	if _, ok := seeds[tracker.rootPID]; !ok {
+		if root, err := readProcIdentity(tracker.rootPID); err == nil {
+			seeds[tracker.rootPID] = root.startTime
+		}
+	}
+
+	queue := make([]int, 0, len(seeds))
+	for pid := range seeds {
+		queue = append(queue, pid)
+	}
+	seen := make(map[int]bool, len(queue))
+	for len(queue) > 0 {
+		pid := queue[0]
+		queue = queue[1:]
+		if seen[pid] {
+			continue
+		}
+		seen[pid] = true
+		process, err := readProcIdentity(pid)
+		if err != nil || seeds[pid] != 0 && seeds[pid] != process.startTime {
+			continue
+		}
+		tracker.mu.Lock()
+		if recorded, exists := tracker.known[pid]; !exists || recorded == process.startTime {
+			tracker.known[pid] = process.startTime
+		}
+		tracker.mu.Unlock()
+
+		data, err := os.ReadFile(filepath.Join("/proc", strconv.Itoa(pid), "task", strconv.Itoa(pid), "children"))
+		if err != nil {
+			continue
+		}
+		for _, field := range strings.Fields(string(data)) {
+			childPID, err := strconv.Atoi(field)
+			if err != nil || seen[childPID] {
+				continue
+			}
+			child, err := readProcIdentity(childPID)
+			if err != nil || child.parentPID != pid {
+				continue
+			}
+			seeds[childPID] = child.startTime
+			queue = append(queue, childPID)
 		}
 	}
 }
@@ -144,16 +203,20 @@ func readProcIdentities() map[int]procIdentity {
 		if err != nil {
 			continue
 		}
-		data, err := os.ReadFile(filepath.Join("/proc", entry.Name(), "stat"))
-		if err != nil {
-			continue
-		}
-		process, err := parseProcIdentity(pid, string(data))
+		process, err := readProcIdentity(pid)
 		if err == nil {
 			processes[pid] = process
 		}
 	}
 	return processes
+}
+
+func readProcIdentity(pid int) (procIdentity, error) {
+	data, err := os.ReadFile(filepath.Join("/proc", strconv.Itoa(pid), "stat"))
+	if err != nil {
+		return procIdentity{}, err
+	}
+	return parseProcIdentity(pid, string(data))
 }
 
 func parseProcIdentity(pid int, stat string) (procIdentity, error) {
