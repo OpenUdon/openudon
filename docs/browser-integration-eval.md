@@ -6,8 +6,10 @@ provider-free checks in sibling OpenUdon, Browsertools, UWS, Udon, and
 Browserdriver checkouts and writes one value-free report with an adjacent
 SHA-256 sidecar.
 
-The matrix imports the scenario compatibility lock and requires every pinned
-sibling checkout to be clean and at the exact reviewed revision. Browsertools
+The matrix imports the scenario compatibility lock and requires OpenUdon plus
+every pinned sibling checkout to be clean and siblings to be at the exact
+reviewed revision. Generated `site/` output is explicitly ignored without
+being removed or treated as evidence. Browsertools
 doctor inventory must report the lock's Playwright contract. The complementary
 scenario evaluator launches the installed Node Playwright/Chromium pair once
 and compares both actual versions with the same lock before replay.

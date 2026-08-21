@@ -255,6 +255,9 @@ func validateRepositoryRevisions(revisions []RepositoryRevision, rootCommit stri
 		if revision.Name != want[index] || !commitPattern.MatchString(revision.Commit) {
 			return fmt.Errorf("browser scenario repository revision is invalid")
 		}
+		if revision.Dirty {
+			return fmt.Errorf("browser scenario repository %s is dirty", revision.Name)
+		}
 	}
 	if revisions[0].Commit != rootCommit {
 		return fmt.Errorf("browser scenario root commit mismatch")
@@ -345,6 +348,8 @@ var allowedDetails = map[string]bool{
 	"invalid_context": true, "invalid_response": true, "secret_output": true,
 	"origin_rejected": true, "authentication_not_proven": true,
 	"approval_required": true, "ambiguous_locator": true, "invalid_parameters": true,
+	"mfa_timeout": true, "mfa_denied": true, "credentials_invalid": true, "session_expired": true,
+	"driver_error": true, "unsupported_challenge": true, "captcha_required": true, "unclassified": true,
 }
 
 func canonicalAssertions(values []string) []string {

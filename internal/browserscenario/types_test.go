@@ -338,6 +338,14 @@ func TestAllSkippedSuiteIsNotRunAndCannotPassReleaseVerification(t *testing.T) {
 	}
 }
 
+func TestScenarioReportRejectsDirtyOpenUdonRoot(t *testing.T) {
+	report := sampleReport(t)
+	report.Repositories[0].Dirty = true
+	if err := ValidateReport(report); err == nil || !strings.Contains(err.Error(), "openudon is dirty") {
+		t.Fatalf("dirty OpenUdon report error = %v", err)
+	}
+}
+
 func TestStrictJSONRejectsDuplicateKeysAtEveryObjectDepth(t *testing.T) {
 	for _, data := range []string{
 		`{"field": 1, "field": 2}`,

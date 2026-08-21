@@ -213,7 +213,7 @@ func gitRevision(ctx context.Context, directory string) (string, bool, error) {
 	}
 	stdout.Reset()
 	err = processgroup.Run(ctx, probeDeadline, processgroup.Invocation{
-		Args: []string{"git", "status", "--porcelain=v1", "--untracked-files=all"}, Dir: directory, Env: os.Environ(), Stdout: &stdout,
+		Args: []string{"git", "status", "--porcelain=v1", "--untracked-files=all", "--", ".", ":(exclude)site", ":(exclude)site/**"}, Dir: directory, Env: os.Environ(), Stdout: &stdout,
 	})
 	output = stdout.String()
 	if err != nil {

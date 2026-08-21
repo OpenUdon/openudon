@@ -33,6 +33,8 @@ type LoopbackFixture struct {
 
 type loopbackSession struct {
 	loginComplete     bool
+	challengeObserved bool
+	approvalGranted   bool
 	challengeComplete bool
 }
 
@@ -103,6 +105,38 @@ func (fixture *LoopbackFixture) SetRuntime(value bool) {
 	fixture.sessions = map[string]loopbackSession{}
 	fixture.replay = loopbackReplayEvidence{}
 	fixture.mu.Unlock()
+}
+
+func (fixture *LoopbackFixture) runtimeEnabled() bool {
+	fixture.mu.RLock()
+	defer fixture.mu.RUnlock()
+	return fixture.runtime
+}
+
+// ApprovePendingChallenge binds an operator approval to the one authenticated
+// session that has actually observed the configured approval challenge.
+func (fixture *LoopbackFixture) ApprovePendingChallenge(kind string) error {
+	fixture.mu.Lock()
+	defer fixture.mu.Unlock()
+	if !fixture.runtime || allowedOTPChallenge(kind) || kind == "" || fixture.manifest.Authentication.ChallengeKind != kind {
+		return fmt.Errorf("loopback approval challenge is unavailable")
+	}
+	pending := ""
+	for token, session := range fixture.sessions {
+		if session.loginComplete && session.challengeObserved && !session.challengeComplete && !session.approvalGranted {
+			if pending != "" {
+				return fmt.Errorf("multiple loopback approval sessions are pending")
+			}
+			pending = token
+		}
+	}
+	if pending == "" {
+		return fmt.Errorf("no loopback approval session is pending")
+	}
+	session := fixture.sessions[pending]
+	session.approvalGranted = true
+	fixture.sessions[pending] = session
+	return nil
 }
 
 // AuthenticatedReplayObserved reports whether the runtime replay completed
@@ -200,32 +234,28 @@ func (fixture *LoopbackFixture) login(writer http.ResponseWriter, request *http.
 func (fixture *LoopbackFixture) challenge(writer http.ResponseWriter, request *http.Request) {
 	kind := fixture.manifest.Authentication.ChallengeKind
 	if kind == "" {
-		fixture.dashboard(writer, request)
+		http.Redirect(writer, request, fixture.path("dashboard"), http.StatusSeeOther)
 		return
 	}
-	if fixture.runtime {
+	if fixture.runtimeEnabled() {
 		token, session, ok := fixture.runtimeSession(request)
 		if !ok || !session.loginComplete {
 			http.Error(writer, "authentication required", http.StatusUnauthorized)
 			return
 		}
 		if request.Method == http.MethodPost {
-			if request.ParseForm() != nil || !validLoopbackChallenge(kind, request.PostForm.Get("challenge"), time.Now()) {
-				http.Error(writer, "invalid challenge", http.StatusUnauthorized)
-				return
-			}
-			session.challengeComplete = true
-			fixture.mu.Lock()
-			fixture.sessions[token] = session
-			fixture.replay.challengeAccepted++
-			fixture.mu.Unlock()
-			http.Redirect(writer, request, fixture.path("dashboard"), http.StatusSeeOther)
+			fixture.submitChallenge(writer, request, token, kind)
 			return
 		}
 		if request.Method != http.MethodGet {
 			writer.WriteHeader(http.StatusMethodNotAllowed)
 			return
 		}
+		fixture.mu.Lock()
+		session = fixture.sessions[token]
+		session.challengeObserved = true
+		fixture.sessions[token] = session
+		fixture.mu.Unlock()
 	}
 	if allowedOTPChallenge(kind) {
 		writeScenarioHTML(writer, "Verification", `<main>
@@ -249,11 +279,40 @@ func (fixture *LoopbackFixture) challenge(writer http.ResponseWriter, request *h
 </main>`)
 }
 
+func (fixture *LoopbackFixture) submitChallenge(writer http.ResponseWriter, request *http.Request, token, kind string) {
+	if request.ParseForm() != nil || !validLoopbackChallenge(kind, request.PostForm.Get("challenge"), time.Now()) {
+		http.Error(writer, "invalid challenge", http.StatusUnauthorized)
+		return
+	}
+	fixture.mu.Lock()
+	current, ok := fixture.sessions[token]
+	if !ok || !current.loginComplete || !current.challengeObserved || current.challengeComplete || (!allowedOTPChallenge(kind) && !current.approvalGranted) {
+		fixture.mu.Unlock()
+		http.Error(writer, "challenge approval required", http.StatusForbidden)
+		return
+	}
+	current.approvalGranted = false
+	current.challengeComplete = true
+	fixture.sessions[token] = current
+	fixture.replay.challengeAccepted++
+	fixture.mu.Unlock()
+	http.Redirect(writer, request, fixture.path("dashboard"), http.StatusSeeOther)
+}
+
 func (fixture *LoopbackFixture) dashboard(writer http.ResponseWriter, request *http.Request) {
-	if fixture.runtime {
+	if fixture.runtimeEnabled() {
 		if request.Method == http.MethodPost {
-			// OTP profiles submit directly to the reviewed dashboard URL.
-			fixture.challenge(writer, request)
+			kind := fixture.manifest.Authentication.ChallengeKind
+			if !allowedOTPChallenge(kind) {
+				writer.WriteHeader(http.StatusMethodNotAllowed)
+				return
+			}
+			token, session, ok := fixture.runtimeSession(request)
+			if !ok || !session.loginComplete {
+				http.Error(writer, "authentication required", http.StatusUnauthorized)
+				return
+			}
+			fixture.submitChallenge(writer, request, token, kind)
 			return
 		}
 		if !fixture.requireRuntimeAuthentication(writer, request) {
@@ -274,7 +333,7 @@ func (fixture *LoopbackFixture) dashboard(writer http.ResponseWriter, request *h
 }
 
 func (fixture *LoopbackFixture) popup(writer http.ResponseWriter, request *http.Request) {
-	if fixture.runtime && !fixture.requireRuntimeAuthentication(writer, request) {
+	if fixture.runtimeEnabled() && !fixture.requireRuntimeAuthentication(writer, request) {
 		return
 	}
 	writeScenarioHTML(writer, "Member report", `<main>
@@ -284,7 +343,7 @@ func (fixture *LoopbackFixture) popup(writer http.ResponseWriter, request *http.
 }
 
 func (fixture *LoopbackFixture) embedded(writer http.ResponseWriter, request *http.Request) {
-	if fixture.runtime && !fixture.requireRuntimeAuthentication(writer, request) {
+	if fixture.runtimeEnabled() && !fixture.requireRuntimeAuthentication(writer, request) {
 		return
 	}
 	writeScenarioHTML(writer, "Embedded dashboard", `<main>

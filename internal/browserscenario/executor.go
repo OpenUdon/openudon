@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -17,9 +18,11 @@ import (
 	"github.com/OpenUdon/browsertools/authprofile"
 	"github.com/OpenUdon/browsertools/profile"
 	"github.com/OpenUdon/openudon/internal/browserverify"
+	"github.com/OpenUdon/openudon/internal/evidencefile"
 	"github.com/OpenUdon/openudon/internal/icot"
 	"github.com/OpenUdon/openudon/internal/processgroup"
 	"github.com/OpenUdon/openudon/internal/synthesize"
+	"github.com/OpenUdon/openudon/internal/udonreport"
 	"github.com/hashicorp/hcl/v2"
 	"github.com/hashicorp/hcl/v2/hclsyntax"
 	ctyjson "github.com/zclconf/go-cty/cty/json"
@@ -243,7 +246,7 @@ func (executor *realExecutor) executeLoopback(ctx context.Context, manifest Mani
 			_ = os.RemoveAll(caseRoot)
 			return appendFailure(result, "udon_v3", "contract_drift")
 		}
-		replay := executor.runUdon(ctx, manifest, exampleDir, workflow.Path, author.CredentialSlotKinds, bindings)
+		replay := executor.runUdon(ctx, manifest, exampleDir, workflow.Path, author.CredentialSlotKinds, bindings, fixture)
 		if manifest.Expected.Replay == "pass" {
 			if replay.failureCode != "" {
 				fixture.Close()
@@ -526,7 +529,7 @@ func (executor *realExecutor) executePublic(ctx context.Context, manifest Manife
 	summary, inspectErr := browserverify.Inspect(livePath, prof, environment.Now)
 	if inspectErr != nil {
 		if command.err != nil {
-			return fail("browsertools_probe", publicCommandFailure(ctx, command))
+			return fail("browsertools_probe", publicLiveFailure(ctx))
 		}
 		return fail("browsertools_probe", "contract_drift")
 	}
@@ -534,7 +537,7 @@ func (executor *realExecutor) executePublic(ctx context.Context, manifest Manife
 		return fail("browsertools_probe", "shape_drift")
 	}
 	if command.err != nil {
-		return fail("browsertools_probe", publicCommandFailure(ctx, command))
+		return fail("browsertools_probe", publicLiveFailure(ctx))
 	}
 	result.Phases = append(result.Phases, PhaseResult{ID: "browsertools_probe", Status: StatusPass, Detail: "ok"})
 
@@ -553,7 +556,7 @@ func (executor *realExecutor) executePublic(ctx context.Context, manifest Manife
 		"--browser-driver-protocol", "v2", "--approve-browser-authentication", "authenticate", "--quiet",
 	}, nil, "")
 	if udon.err != nil {
-		return fail("udon_browserdriver_probe", publicCommandFailure(ctx, udon))
+		return fail("udon_browserdriver_probe", publicUdonFailure(ctx, filepath.Join(caseRoot, "execution-report.json")))
 	}
 	outputs, err := readScenarioOutputs(filepath.Join(caseRoot, "output", "udon.hcl"))
 	if err != nil || !scenarioOutputsEqual(outputs, expectedPublicOutputs(manifest)) {
@@ -709,14 +712,22 @@ func publicTargetOrigin(manifest Manifest) string {
 	return ""
 }
 
-func publicCommandFailure(ctx context.Context, command boundedCommand) string {
-	if ctx.Err() != nil || bytes.Contains(bytes.ToLower(command.stderr), []byte("timeout")) || bytes.Contains(bytes.ToLower(command.stderr), []byte("deadline")) {
+func publicLiveFailure(ctx context.Context) string {
+	if ctx.Err() != nil {
 		return "timeout"
 	}
-	if bytes.Contains(bytes.ToLower(command.stderr), []byte("origin")) {
+	return udonreport.CodeUnclassified
+}
+
+func publicUdonFailure(ctx context.Context, reportPath string) string {
+	if ctx.Err() != nil {
+		return "timeout"
+	}
+	code := executionFailureCode(reportPath)
+	if code == "origin_rejected" {
 		return "origin_policy_drift"
 	}
-	return "target_unreachable"
+	return code
 }
 
 func finishLoopbackResult(result ScenarioResult, fixture *LoopbackFixture, caseRoot string) ScenarioResult {
@@ -735,7 +746,7 @@ type replayResult struct {
 	failureCode string
 }
 
-func (executor *realExecutor) runUdon(ctx context.Context, manifest Manifest, exampleDir, workflowPath string, slotKinds, bindings map[string]string) replayResult {
+func (executor *realExecutor) runUdon(ctx context.Context, manifest Manifest, exampleDir, workflowPath string, slotKinds, bindings map[string]string, fixture *LoopbackFixture) replayResult {
 	args := []string{
 		executor.udon, "--workdir", exampleDir, "--workflow", workflowPath, "--workflow-format", "uws-json",
 		"--execution-report", "execution-report.json", "--execution-timeout", "60s",
@@ -766,10 +777,15 @@ func (executor *realExecutor) runUdon(ctx context.Context, manifest Manifest, ex
 	input := ""
 	if allowedOTPChallenge(manifest.Authentication.ChallengeKind) && manifest.Authentication.ChallengeKind != "totp" {
 		input = "123456\n"
-	} else if manifest.Authentication.ChallengeKind != "" && manifest.Authentication.ChallengeKind != "totp" {
-		input = "y\n"
 	}
-	command := runBounded(ctx, scenarioDeadline, exampleDir, args, environment, input)
+	var command boundedCommand
+	if approvalPrompt := exactBrowserApprovalPrompt(manifest.Authentication.ChallengeKind); approvalPrompt != "" {
+		command = runBoundedAfterPrompt(ctx, scenarioDeadline, exampleDir, args, environment, approvalPrompt, func() error {
+			return fixture.ApprovePendingChallenge(manifest.Authentication.ChallengeKind)
+		})
+	} else {
+		command = runBounded(ctx, scenarioDeadline, exampleDir, args, environment, input)
+	}
 	if command.err != nil {
 		return replayResult{failureCode: scenarioFailureCode(filepath.Join(exampleDir, "execution-report.json"))}
 	}
@@ -778,6 +794,17 @@ func (executor *realExecutor) runUdon(ctx context.Context, manifest Manifest, ex
 		return replayResult{failureCode: "invalid_response"}
 	}
 	return replayResult{outputs: outputs}
+}
+
+func exactBrowserApprovalPrompt(kind string) string {
+	switch kind {
+	case "push_number_match":
+		return "Browser authentication push_number_match number 42. Approve? [y/N]: "
+	case "push", "passkey", "security_key":
+		return "Browser authentication " + kind + " challenge. Approve? [y/N]: "
+	default:
+		return ""
+	}
 }
 
 func (executor *realExecutor) runJourneyUdon(ctx context.Context, exampleDir, dataPath, workflowPath string, values map[string]any, approvals []string, resultStep string) replayResult {
@@ -946,6 +973,67 @@ func runBounded(ctx context.Context, timeout time.Duration, directory string, ar
 	return boundedCommand{stdout: stdout.Bytes(), stderr: stderr.Bytes(), err: err}
 }
 
+func runBoundedAfterPrompt(ctx context.Context, timeout time.Duration, directory string, args []string, environment map[string]string, prompt string, approve func() error) boundedCommand {
+	if len(args) == 0 || prompt == "" || approve == nil {
+		return boundedCommand{err: fmt.Errorf("invalid interactive scenario command")}
+	}
+	var stdout, stderr limitedWriter
+	stdout.limit, stderr.limit = scenarioCommandOutputLimit, scenarioCommandOutputLimit
+	matched := make(chan struct{})
+	observer := &exactPromptWriter{destination: &stdout, prompt: []byte(prompt), matched: matched}
+	inputReader, inputWriter := io.Pipe()
+	interactionContext, cancelInteraction := context.WithCancel(ctx)
+	interactionDone := make(chan error, 1)
+	go func() {
+		select {
+		case <-matched:
+			if err := approve(); err != nil {
+				interactionDone <- err
+				_ = inputWriter.CloseWithError(err)
+				return
+			}
+			_, err := io.WriteString(inputWriter, "y\n")
+			interactionDone <- err
+		case <-interactionContext.Done():
+			interactionDone <- nil
+		}
+	}()
+	err := processgroup.Run(ctx, timeout, processgroup.Invocation{
+		Args: args, Dir: directory, Env: scenarioEnvironment(environment), Stdin: inputReader,
+		Stdout: observer, Stderr: &stderr,
+	})
+	cancelInteraction()
+	_ = inputWriter.Close()
+	_ = inputReader.Close()
+	if interactionErr := <-interactionDone; interactionErr != nil {
+		err = fmt.Errorf("approve observed browser challenge: %w", interactionErr)
+	}
+	if stdout.overflow || stderr.overflow {
+		err = fmt.Errorf("scenario subprocess output exceeded its bound")
+	}
+	return boundedCommand{stdout: stdout.Bytes(), stderr: stderr.Bytes(), err: err}
+}
+
+type exactPromptWriter struct {
+	destination io.Writer
+	prompt      []byte
+	window      []byte
+	matched     chan struct{}
+	once        sync.Once
+}
+
+func (writer *exactPromptWriter) Write(value []byte) (int, error) {
+	written, err := writer.destination.Write(value)
+	writer.window = append(writer.window, value...)
+	if bytes.Contains(writer.window, writer.prompt) {
+		writer.once.Do(func() { close(writer.matched) })
+	}
+	if keep := len(writer.prompt) - 1; keep > 0 && len(writer.window) > keep {
+		writer.window = append(writer.window[:0], writer.window[len(writer.window)-keep:]...)
+	}
+	return written, err
+}
+
 func runSilent(ctx context.Context, timeout time.Duration, directory string, args []string, environment map[string]string) bool {
 	result := runBounded(ctx, timeout, directory, args, environment, "")
 	return result.err == nil
@@ -1009,80 +1097,19 @@ func regularFile(path string) bool {
 }
 
 func scenarioFailureCode(reportPath string) string {
-	data, err := os.ReadFile(reportPath)
-	if err != nil || len(data) == 0 || len(data) > scenarioCommandOutputLimit {
-		return "invalid_response"
-	}
-	var report struct {
-		Version        string `json:"version"`
-		Status         string `json:"status"`
-		StartedAt      string `json:"started_at"`
-		FinishedAt     string `json:"finished_at"`
-		WorkflowPath   string `json:"workflow_path"`
-		WorkflowFormat string `json:"workflow_format"`
-		WorkDir        string `json:"workdir"`
-		OutputPath     string `json:"output_path,omitempty"`
-		OutputDigest   string `json:"output_digest,omitempty"`
-		ErrorSummary   string `json:"error_summary,omitempty"`
-	}
-	decoder := json.NewDecoder(bytes.NewReader(data))
-	decoder.DisallowUnknownFields()
-	if decoder.Decode(&report) != nil || report.Version != "udon.execution-report.v1" || report.Status != "error" ||
-		report.StartedAt == "" || report.FinishedAt == "" || report.WorkflowPath == "" || report.WorkflowFormat == "" || report.WorkDir == "" || report.ErrorSummary == "" {
-		return "invalid_response"
-	}
-	lower := strings.ToLower(report.ErrorSummary)
-	switch {
-	case strings.Contains(lower, "origin_rejected") || strings.Contains(lower, "outside the allowed origin"):
-		return "origin_rejected"
-	case strings.Contains(lower, "invalid_context") || strings.Contains(lower, "unknown context"):
-		return "invalid_context"
-	case strings.Contains(lower, "secret-like") || strings.Contains(lower, "raw-capture"):
-		return "secret_output"
-	case strings.Contains(lower, "invalid_response"):
-		return "invalid_response"
-	default:
-		return "invalid_response"
-	}
+	return executionFailureCode(reportPath)
 }
 
 func journeyFailureCode(reportPath string) string {
-	data, err := os.ReadFile(reportPath)
-	if err != nil || len(data) == 0 || len(data) > scenarioCommandOutputLimit {
-		return "invalid_response"
+	return executionFailureCode(reportPath)
+}
+
+func executionFailureCode(reportPath string) string {
+	data, _, err := evidencefile.ReadRegular(reportPath, scenarioCommandOutputLimit)
+	if err != nil || len(data) == 0 {
+		return udonreport.CodeUnclassified
 	}
-	var report struct {
-		Version        string `json:"version"`
-		Status         string `json:"status"`
-		StartedAt      string `json:"started_at"`
-		FinishedAt     string `json:"finished_at"`
-		WorkflowPath   string `json:"workflow_path"`
-		WorkflowFormat string `json:"workflow_format"`
-		WorkDir        string `json:"workdir"`
-		OutputPath     string `json:"output_path,omitempty"`
-		OutputDigest   string `json:"output_digest,omitempty"`
-		ErrorSummary   string `json:"error_summary,omitempty"`
-	}
-	decoder := json.NewDecoder(bytes.NewReader(data))
-	decoder.DisallowUnknownFields()
-	if decoder.Decode(&report) != nil || report.Version != "udon.execution-report.v1" || report.Status != "error" ||
-		report.StartedAt == "" || report.FinishedAt == "" || report.WorkflowPath == "" || report.WorkflowFormat == "" || report.WorkDir == "" || report.ErrorSummary == "" {
-		return "invalid_response"
-	}
-	lower := strings.ToLower(report.ErrorSummary)
-	switch {
-	case strings.Contains(lower, "requires explicit operation-specific approval"):
-		return "approval_required"
-	case strings.Contains(lower, "ambiguous_locator") || strings.Contains(lower, "resolved ambiguously"):
-		return "ambiguous_locator"
-	case strings.Contains(lower, "origin_rejected") || strings.Contains(lower, "outside the allowed origin"):
-		return "origin_rejected"
-	case strings.Contains(lower, "required input"), strings.Contains(lower, "input variable"), strings.Contains(lower, "input type"), strings.Contains(lower, "cannot convert"),
-		strings.Contains(lower, "resolve parameters"), strings.Contains(lower, "unsupported attribute"), strings.Contains(lower, "browser action parameters"):
-		return "invalid_parameters"
-	default:
-		return "invalid_response"
-	}
+	return udonreport.FailureCode(data)
 }
 
 func unavailableScenario(manifest Manifest, phase string) ScenarioResult {

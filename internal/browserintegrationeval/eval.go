@@ -797,7 +797,7 @@ func repositoryRevisions(ctx context.Context, repos map[string]string, runner Ru
 		if commitOutput.Err != nil || !commitPattern.MatchString(commit) {
 			return nil, fmt.Errorf("resolve %s release-evidence commit", name)
 		}
-		statusOutput := runner(ctx, Command{Repository: name, Dir: repos[name], Args: []string{"git", "status", "--porcelain=v1", "--untracked-files=all"}, Timeout: 30 * time.Second})
+		statusOutput := runner(ctx, Command{Repository: name, Dir: repos[name], Args: []string{"git", "status", "--porcelain=v1", "--untracked-files=all", "--", ".", ":(exclude)site", ":(exclude)site/**"}, Timeout: 30 * time.Second})
 		if statusOutput.Err != nil {
 			return nil, fmt.Errorf("resolve %s release-evidence worktree state", name)
 		}
@@ -815,8 +815,8 @@ func validateRepositoryRevisions(revisions []RepositoryRevision, openUdonCommit 
 		if revisions[index].Name != name || !commitPattern.MatchString(revisions[index].Commit) {
 			return fmt.Errorf("browser integration repository provenance %d drifted", index)
 		}
-		if index > 0 && revisions[index].Dirty {
-			return fmt.Errorf("browser integration sibling %s is dirty", name)
+		if revisions[index].Dirty {
+			return fmt.Errorf("browser integration repository %s is dirty", name)
 		}
 	}
 	if revisions[0].Commit != openUdonCommit {

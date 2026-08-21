@@ -10,6 +10,7 @@ GitHub Actions runs the public Go module with workspace mode disabled:
 
 ```bash
 test -z "$(grep -E '^[[:space:]]*replace[[:space:]]' go.mod)"
+GOWORK=off go build ./internal/icot ./cmd/icot
 GOWORK=off go mod download
 GOWORK=off go vet ./...
 GOWORK=off go test ./... -count=1 -timeout=10m
@@ -87,10 +88,12 @@ real embedded iCoT listener. It covers keyboard and accessible-name behavior,
 complete frontier rounds, both approval modes, overwrite conflicts, stale and
 externally modified state, explicit retries, frozen completion, conditional
 polling, visibility changes, and narrow/zoom layout. Production UI packages do
-not import Playwright. The release runner keeps Chromium sandboxing enabled;
-`OPENUDON_ICOT_UI_BROWSER_DISABLE_SANDBOX=1` exists only for local test hosts
-whose kernel policy blocks user namespaces. An override run is local evidence
-only; A11 remains pending until CI records a sandboxed hosted pass.
+not import Playwright. The required target sets
+`OPENUDON_ICOT_UI_BROWSER_SANDBOX_REQUIRED=1`, rejects
+`OPENUDON_ICOT_UI_BROWSER_DISABLE_SANDBOX=1`, and logs/asserts sandbox-enabled
+launches. `make icot-ui-browser-check-unsandboxed` is a separately named local
+diagnostic for hosts whose kernel policy blocks user namespaces and never
+counts as release evidence.
 
 The demo must use ignored `.openudon-run/...` output, sandbox approval JSON, and
 `openudon run --dry-run`. Do not commit approval JSON, run configs, transcripts,

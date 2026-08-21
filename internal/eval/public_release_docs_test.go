@@ -59,10 +59,35 @@ func TestReleaseWorkflowPackagesAllPublicCommands(t *testing.T) {
 		`gh release create`,
 		`runtime-only-render`,
 		`--dry-run`,
+		`GOWORK=off go build ./internal/icot ./cmd/icot`,
 	} {
 		if !strings.Contains(workflow, want) {
 			t.Fatalf("release workflow missing %q", want)
 		}
+	}
+}
+
+func TestRequiredUIBrowserGateCannotDisableSandbox(t *testing.T) {
+	root := filepath.Join("..", "..")
+	makefile := readRepoFile(t, root, "Makefile")
+	for _, want := range []string{
+		"icot-ui-browser-check-unsandboxed:",
+		"OPENUDON_ICOT_UI_BROWSER_SANDBOX_REQUIRED=1",
+		"sandbox-disable override is forbidden",
+		"chromium_sandbox_enabled",
+	} {
+		if !strings.Contains(makefile+readRepoFile(t, root, "internal", "icot", "ui", "phase_c_browser_test.go"), want) {
+			t.Fatalf("sandboxed UI browser gate missing %q", want)
+		}
+	}
+}
+
+func TestNormalCIStartsWithStandaloneICoTBuild(t *testing.T) {
+	workflow := readRepoFile(t, filepath.Join("..", ".."), ".github", "workflows", "test.yml")
+	build := strings.Index(workflow, "GOWORK=off go build ./internal/icot ./cmd/icot")
+	tests := strings.Index(workflow, "GOWORK=off go test ./...")
+	if build < 0 || tests < 0 || build > tests {
+		t.Fatal("normal CI must build standalone iCoT before the full test suite")
 	}
 }
 

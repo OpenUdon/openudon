@@ -305,11 +305,20 @@ func phaseCProposalSnapshot(incomplete bool, withConflict bool) engine.Snapshot 
 
 func launchPhaseCBrowser(t *testing.T) (*playwright.Playwright, playwright.Browser) {
 	t.Helper()
+	disableSandbox := os.Getenv("OPENUDON_ICOT_UI_BROWSER_DISABLE_SANDBOX") == "1"
+	requireSandbox := os.Getenv("OPENUDON_ICOT_UI_BROWSER_SANDBOX_REQUIRED") == "1"
+	if requireSandbox && disableSandbox {
+		t.Fatal("required iCoT UI browser qualification rejects the sandbox-disable override")
+	}
+	sandbox := !disableSandbox
+	t.Logf("chromium_sandbox_enabled=%t sandbox_required=%t", sandbox, requireSandbox)
+	if requireSandbox && !sandbox {
+		t.Fatal("required iCoT UI browser qualification must enable the Chromium sandbox")
+	}
 	pw, err := playwright.Run()
 	if err != nil {
 		t.Fatalf("start Playwright-Go: %v (install with: go run github.com/mxschmitt/playwright-go/cmd/playwright@v0.6201.0 install chromium)", err)
 	}
-	sandbox := os.Getenv("OPENUDON_ICOT_UI_BROWSER_DISABLE_SANDBOX") != "1"
 	browser, err := pw.Chromium.Launch(playwright.BrowserTypeLaunchOptions{
 		Headless: playwright.Bool(true), ChromiumSandbox: playwright.Bool(sandbox),
 	})

@@ -1,6 +1,7 @@
 package browserscenario
 
 import (
+	"bytes"
 	"encoding/json"
 	"io"
 	"net/http"
@@ -84,13 +85,123 @@ func TestLoopbackChallengeValuesAreKindSpecific(t *testing.T) {
 	}
 }
 
+func TestLoopbackApprovalChallengeRequiresSessionBoundServerApproval(t *testing.T) {
+	for _, test := range []struct{ id, kind string }{
+		{"mfa-push", "push"},
+		{"mfa-push-number-match", "push_number_match"},
+		{"mfa-passkey", "passkey"},
+		{"mfa-security-key", "security_key"},
+	} {
+		t.Run(test.kind, func(t *testing.T) {
+			manifest := loopbackManifestForTest(t, test.id)
+			fixture, err := NewLoopbackFixture(manifest)
+			if err != nil {
+				t.Fatal(err)
+			}
+			defer fixture.Close()
+			fixture.SetRuntime(true)
+			jar, _ := cookiejar.New(nil)
+			client := &http.Client{Jar: jar}
+			response, err := client.PostForm(fixture.InitialURL(), url.Values{"identifier": {"member@example.test"}, "password": {"scenario-password-value"}})
+			if err != nil {
+				t.Fatal(err)
+			}
+			_ = response.Body.Close()
+
+			noRedirect := &http.Client{Jar: jar, CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }}
+			response, err = noRedirect.PostForm(fixture.server.URL+fixture.path("challenge"), url.Values{"challenge": {test.kind}})
+			if err != nil {
+				t.Fatal(err)
+			}
+			if response.StatusCode != http.StatusForbidden {
+				t.Fatalf("direct approval bypass status = %d", response.StatusCode)
+			}
+			_ = response.Body.Close()
+			if err := fixture.ApprovePendingChallenge(test.kind); err != nil {
+				t.Fatal(err)
+			}
+			response, err = noRedirect.PostForm(fixture.server.URL+fixture.path("challenge"), url.Values{"challenge": {test.kind}})
+			if err != nil {
+				t.Fatal(err)
+			}
+			if response.StatusCode != http.StatusSeeOther {
+				t.Fatalf("server-approved challenge status = %d", response.StatusCode)
+			}
+			_ = response.Body.Close()
+		})
+	}
+}
+
+func TestLoopbackApprovalRequiresExactlyOneObservedSession(t *testing.T) {
+	manifest := loopbackManifestForTest(t, "mfa-passkey")
+	fixture, err := NewLoopbackFixture(manifest)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer fixture.Close()
+	fixture.SetRuntime(true)
+	if err := fixture.ApprovePendingChallenge("passkey"); err == nil {
+		t.Fatal("approval succeeded without an observed session")
+	}
+	for range 2 {
+		jar, _ := cookiejar.New(nil)
+		client := &http.Client{Jar: jar}
+		response, postErr := client.PostForm(fixture.InitialURL(), url.Values{"identifier": {"member@example.test"}, "password": {"scenario-password-value"}})
+		if postErr != nil {
+			t.Fatal(postErr)
+		}
+		_ = response.Body.Close()
+	}
+	if err := fixture.ApprovePendingChallenge("passkey"); err == nil {
+		t.Fatal("approval succeeded with multiple pending sessions")
+	}
+}
+
+func TestLoopbackPasswordOnlyStrayDashboardPostIsRejected(t *testing.T) {
+	manifest := loopbackManifestForTest(t, "password-main")
+	fixture, err := NewLoopbackFixture(manifest)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer fixture.Close()
+	fixture.SetRuntime(true)
+	jar, _ := cookiejar.New(nil)
+	client := &http.Client{Jar: jar, CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }}
+	response, err := client.PostForm(fixture.InitialURL(), url.Values{"identifier": {"member@example.test"}, "password": {"scenario-password-value"}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	_ = response.Body.Close()
+	response, err = client.PostForm(fixture.DashboardURL(), url.Values{"challenge": {"push"}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if response.StatusCode != http.StatusMethodNotAllowed {
+		t.Fatalf("password-only stray POST status = %d", response.StatusCode)
+	}
+	_ = response.Body.Close()
+}
+
+func TestExactPromptWriterMatchesSplitPrompt(t *testing.T) {
+	var destination bytes.Buffer
+	matched := make(chan struct{})
+	writer := &exactPromptWriter{destination: &destination, prompt: []byte("Approve? [y/N]: "), matched: matched}
+	_, _ = writer.Write([]byte("Approve? "))
+	_, _ = writer.Write([]byte("[y/N]: "))
+	select {
+	case <-matched:
+	default:
+		t.Fatal("split exact prompt was not observed")
+	}
+}
+
 func TestScenarioFailureClassificationRequiresClosedCode(t *testing.T) {
 	root := t.TempDir()
 	path := root + "/execution-report.json"
-	write := func(summary string) {
+	write := func(code, summary string) {
 		data, err := json.Marshal(map[string]any{
-			"version": "udon.execution-report.v1", "status": "error", "started_at": "2026-08-20T00:00:00Z", "finished_at": "2026-08-20T00:00:01Z",
-			"workflow_path": "workflow.json", "workflow_format": "uws-json", "workdir": root, "error_summary": summary,
+			"version": "udon.execution-report.v2", "status": "error", "started_at": "2026-08-20T00:00:00Z", "finished_at": "2026-08-20T00:00:01Z",
+			"workflow_path": "workflow.json", "workflow_format": "uws-json", "workdir": root, "error_code": code, "error_summary": summary,
 		})
 		if err != nil {
 			t.Fatal(err)
@@ -99,13 +210,17 @@ func TestScenarioFailureClassificationRequiresClosedCode(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	write("unrelated context message")
-	if got := scenarioFailureCode(path); got != "invalid_response" {
+	write("unclassified", "unrelated context message")
+	if got := scenarioFailureCode(path); got != "unclassified" {
 		t.Fatalf("generic context text classified as %q", got)
 	}
-	write("browser driver returned invalid_context")
+	write("invalid_context", "redacted browser failure")
 	if got := scenarioFailureCode(path); got != "invalid_context" {
 		t.Fatalf("closed failure code classified as %q", got)
+	}
+	write("invented", "invalid_context text must not be classified")
+	if got := scenarioFailureCode(path); got != "unclassified" {
+		t.Fatalf("unknown failure code classified as %q", got)
 	}
 }
 

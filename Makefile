@@ -1,4 +1,4 @@
-.PHONY: help test vet check apitools-boundary readiness release-check release-saas-check release-evidence release-eval browser-integration-check browser-scenario-loopback browser-scenario-journey browser-scenario-public icot-ui-browser-check eval-seed-build icot-authoring-scorecard icot-replay-repair-check icot-variants-validate icot-variants-coverage product-smoke-check product-smoke-live siblings validate-uws eval synthesize-support build-support promote-support assess-support
+.PHONY: help test vet check standalone-icot-build apitools-boundary readiness release-check release-saas-check release-evidence release-eval browser-integration-check browser-scenario-loopback browser-scenario-journey browser-scenario-public icot-ui-browser-check icot-ui-browser-check-unsandboxed eval-seed-build icot-authoring-scorecard icot-replay-repair-check icot-variants-validate icot-variants-coverage product-smoke-check product-smoke-live siblings validate-uws eval synthesize-support build-support promote-support assess-support
 
 GO ?= go
 OPENUDON_LLM_PROVIDER ?= copilot-api
@@ -16,7 +16,7 @@ OPENUDON_BROWSER_SCENARIO_JOURNEY_OUT ?= eval/runs/browser-scenario-journey-loca
 OPENUDON_BROWSER_SCENARIO_PUBLIC_OUT ?= eval/runs/browser-scenario-public-local/report.json
 
 help:
-	@echo "Targets: test, vet, check, readiness, release-check, release-saas-check, release-evidence, release-eval, browser-integration-check, browser-scenario-loopback, browser-scenario-journey, browser-scenario-public, icot-ui-browser-check, eval-seed-build, icot-authoring-scorecard, icot-replay-repair-check, icot-variants-validate, icot-variants-coverage, product-smoke-check, product-smoke-live, siblings, validate-uws, eval, synthesize-support, build-support, promote-support, assess-support"
+	@echo "Targets: test, vet, check, standalone-icot-build, readiness, release-check, release-saas-check, release-evidence, release-eval, browser-integration-check, browser-scenario-loopback, browser-scenario-journey, browser-scenario-public, icot-ui-browser-check, icot-ui-browser-check-unsandboxed, eval-seed-build, icot-authoring-scorecard, icot-replay-repair-check, icot-variants-validate, icot-variants-coverage, product-smoke-check, product-smoke-live, siblings, validate-uws, eval, synthesize-support, build-support, promote-support, assess-support"
 
 test:
 	$(GO) test ./...
@@ -24,7 +24,10 @@ test:
 vet:
 	$(GO) vet ./...
 
-check: test siblings apitools-boundary
+standalone-icot-build:
+	GOWORK=off $(GO) build ./internal/icot ./cmd/icot
+
+check: standalone-icot-build test siblings apitools-boundary
 
 apitools-boundary:
 	$(GO) run ./cmd/openudon check-apitools-boundary
@@ -33,6 +36,7 @@ readiness:
 	$(GO) run ./cmd/openudon readiness --run-gates --out eval/readiness/local.json
 
 release-check:
+	$(MAKE) standalone-icot-build
 	$(GO) test ./...
 	$(GO) vet ./...
 	$(MAKE) check
@@ -90,9 +94,14 @@ browser-scenario-public:
 	$(GO) run ./cmd/openudon browser-scenario-eval --verify "$(OPENUDON_BROWSER_SCENARIO_PUBLIC_OUT)"
 
 icot-ui-browser-check:
+	@test "$${OPENUDON_ICOT_UI_BROWSER_DISABLE_SANDBOX:-}" != "1" \
+		|| { echo "icot-ui-browser-check: sandbox-disable override is forbidden; use icot-ui-browser-check-unsandboxed for diagnostics"; exit 1; }
 	@test -n "$$($(GO) test -tags=icot_ui_browser -list '^TestPhaseCBrowser' ./internal/icot/ui | grep '^TestPhaseCBrowser')" \
 		|| { echo "icot-ui-browser-check: no TestPhaseCBrowser tests found (build tag or file missing)"; exit 1; }
-	$(GO) test -tags=icot_ui_browser ./internal/icot/ui -run '^TestPhaseCBrowser' -count=1 -timeout=3m
+	OPENUDON_ICOT_UI_BROWSER_SANDBOX_REQUIRED=1 $(GO) test -tags=icot_ui_browser ./internal/icot/ui -run '^TestPhaseCBrowser' -count=1 -timeout=3m -v
+
+icot-ui-browser-check-unsandboxed:
+	OPENUDON_ICOT_UI_BROWSER_DISABLE_SANDBOX=1 $(GO) test -tags=icot_ui_browser ./internal/icot/ui -run '^TestPhaseCBrowser' -count=1 -timeout=3m -v
 
 eval-seed-build:
 	$(GO) test ./internal/icot -run TestEvalReferenceSeedBuildMatrix -count=1

@@ -28,6 +28,9 @@ jobs:
             exit 1
           fi
 
+      - name: Build iCoT standalone before tests
+        run: GOWORK=off go build ./internal/icot ./cmd/icot
+
       - name: Download public dependencies
         run: GOWORK=off go mod download
 

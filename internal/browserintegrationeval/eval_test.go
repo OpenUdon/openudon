@@ -203,6 +203,7 @@ func TestValidateRejectsContractAndAuthorityDrift(t *testing.T) {
 		}},
 		{name: "repository commit", mutate: func(report *Report) { report.Repositories[2].Commit = "unknown" }},
 		{name: "dirty sibling", mutate: func(report *Report) { report.Repositories[1].Dirty = true }},
+		{name: "dirty openudon", mutate: func(report *Report) { report.Repositories[0].Dirty = true }},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			report := cloneReport(t, base)

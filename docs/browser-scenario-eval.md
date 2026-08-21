@@ -38,8 +38,11 @@ their ephemeral runner before launch. They fail if either requested setting
 does not take effect; the suites never add `--no-sandbox`.
 
 The 21 embedded cases use session-gated goal pages and server-verified
-credential/MFA challenges, so replay must authenticate rather than merely
-navigate to a dashboard-shaped page. They cover password-only authentication, all eight reviewed
+credential/MFA challenges. For push, number-match, passkey, and security-key,
+the evaluator waits for Udon's exact structured terminal prompt, latches
+approval to the one pending observed server session, and only then supplies
+`y`; a direct challenge POST is rejected. Replay must authenticate rather than
+merely navigate to a dashboard-shaped page. They cover password-only authentication, all eight reviewed
 MFA kinds, main/popup/frame contexts, exact-name and unique-role locators,
 zero/16/17 outputs, typed string/integer/number/Boolean/presence results,
 noncanonical scalar rejection, stale and ambiguous targets, context
@@ -122,8 +125,12 @@ presence outputs from a browser 1.5 profile carried by UWS 1.7. No account,
 form submission, credential, MFA challenge, mutation, or production side
 effect is involved.
 
-Public failures use only closed classes such as `target_unreachable`,
-`timeout`, `origin_policy_drift`, `shape_drift`, and `contract_drift`. A
+Public failures use typed live-result facts and strict
+`udon.execution-report.v2` codes, never stderr text. Missing, malformed,
+unknown, or unrelated failures are `unclassified`; that code can be recorded
+but cannot satisfy a negative scenario. Other closed classes include
+`target_unreachable`, `timeout`, `origin_policy_drift`, `shape_drift`, and
+`contract_drift`. A
 maintainer may add a manifest quarantine only for a documented upstream reason,
 with fixed start/end dates no more than 14 days apart. Quarantine is visible in
 the report and cannot silently become a pass.
@@ -144,9 +151,10 @@ go run ./cmd/openudon browser-scenario-eval \
 
 The embedded `openudon.browser-scenario-lock.v2` fixes Browsertools, Udon,
 Browserdriver, UWS, Go, Node, Playwright, and Chromium compatibility. Execution
-rejects a dirty or revision-mismatched sibling checkout, a mismatched OpenUdon
-module pin, or installed Playwright/Chromium versions that differ from the
-lock. Scenario
+rejects a dirty or revision-mismatched OpenUdon or sibling checkout, a
+mismatched OpenUdon module pin, or installed Playwright/Chromium versions that
+differ from the lock. Generated `site/` output is explicitly excluded from the
+dirty-root check and is neither removed nor release evidence. Scenario
 manifests and reports strict-decode unknown or duplicate fields and apply
 finite bounds before any browser or network authority is exercised.
 
