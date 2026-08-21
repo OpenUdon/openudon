@@ -9,8 +9,10 @@ import (
 	"encoding/hex"
 	"fmt"
 	"html"
+	"net"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"strconv"
 	"strings"
 	"sync"
@@ -22,13 +24,14 @@ const scenarioHTTPTimeout = 5 * time.Second
 // LoopbackFixture is one process-local, credential-free browser target. Its
 // address is selected by the kernel and never accepted from a caller.
 type LoopbackFixture struct {
-	server   *httptest.Server
-	manifest Manifest
-	mu       sync.RWMutex
-	variant  string
-	runtime  bool
-	sessions map[string]loopbackSession
-	replay   loopbackReplayEvidence
+	server       *httptest.Server
+	escapeOrigin string
+	manifest     Manifest
+	mu           sync.RWMutex
+	variant      string
+	runtime      bool
+	sessions     map[string]loopbackSession
+	replay       loopbackReplayEvidence
 }
 
 type loopbackSession struct {
@@ -54,6 +57,13 @@ func NewLoopbackFixture(manifest Manifest) (*LoopbackFixture, error) {
 	fixture.server.Config.WriteTimeout = scenarioHTTPTimeout
 	fixture.server.Config.IdleTimeout = scenarioHTTPTimeout
 	fixture.server.Start()
+	escapeURL, err := url.Parse(fixture.server.URL)
+	if err != nil || escapeURL.Scheme != "http" || escapeURL.Hostname() != "127.0.0.1" || escapeURL.Port() == "" {
+		fixture.server.Close()
+		return nil, fmt.Errorf("loopback fixture origin is invalid")
+	}
+	escapeURL.Host = net.JoinHostPort("localhost", escapeURL.Port())
+	fixture.escapeOrigin = escapeURL.String()
 	return fixture, nil
 }
 
@@ -158,7 +168,7 @@ func (fixture *LoopbackFixture) serveHTTP(writer http.ResponseWriter, request *h
 	fixture.mu.RUnlock()
 	formAction := "'self'"
 	if allowEscape {
-		formAction += " http://127.0.0.1:9"
+		formAction += " " + fixture.escapeOrigin
 	}
 	writer.Header().Set("Cache-Control", "no-store")
 	writer.Header().Set("Content-Security-Policy", "default-src 'self'; frame-src 'self'; form-action "+formAction+"; base-uri 'none'")
@@ -193,7 +203,7 @@ func (fixture *LoopbackFixture) login(writer http.ResponseWriter, request *http.
 	runtime, originEscape := fixture.runtime, fixture.manifest.Fault == "origin_escape"
 	fixture.mu.RUnlock()
 	if runtime && originEscape {
-		next = "http://127.0.0.1:9/blocked-origin"
+		next = fixture.escapeOrigin + "/blocked-origin"
 	}
 	if request.Method == http.MethodPost {
 		if runtime {

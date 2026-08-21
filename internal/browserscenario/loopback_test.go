@@ -71,6 +71,26 @@ func TestLoopbackRuntimeRequiresCredentialsChallengeAndSession(t *testing.T) {
 	}
 }
 
+func TestLoopbackOriginEscapeUsesReachableAlternateOrigin(t *testing.T) {
+	manifest := loopbackManifestForTest(t, "origin-escape-rejected")
+	fixture, err := NewLoopbackFixture(manifest)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer fixture.Close()
+	if fixture.escapeOrigin == "" || fixture.escapeOrigin == fixture.server.URL || !strings.Contains(fixture.escapeOrigin, "localhost:") {
+		t.Fatalf("alternate origin = %q, server origin = %q", fixture.escapeOrigin, fixture.server.URL)
+	}
+	response, err := http.Get(fixture.escapeOrigin + fixture.path("login"))
+	if err != nil {
+		t.Fatalf("alternate loopback origin is not reachable: %v", err)
+	}
+	_ = response.Body.Close()
+	if response.StatusCode != http.StatusOK {
+		t.Fatalf("alternate loopback origin status = %d", response.StatusCode)
+	}
+}
+
 func TestLoopbackChallengeValuesAreKindSpecific(t *testing.T) {
 	at := time.Unix(1_800_000_000, 0).UTC()
 	valid := map[string]string{
