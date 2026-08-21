@@ -471,6 +471,7 @@ dd { margin: .25rem 0 0; overflow-wrap: anywhere; font-weight: 680; }
 .preview-panel pre { border-radius: 0; }
 
 .detail-list { margin: .4rem 0 0; padding-left: 1.15rem; }
+.detail-list li { min-width: 0; overflow-wrap: anywhere; }
 .detail-list li + li { margin-top: .55rem; }
 .detail-list code, .path-label { overflow-wrap: anywhere; }
 .issue-blocking { color: #8e2f1d; }
@@ -616,4 +617,72 @@ pre {
 
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { scroll-behavior: auto !important; transition: none !important; }
+}
+
+.starter-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(12rem, 1fr));
+  gap: .7rem;
+  margin: .7rem 0 1rem;
+}
+
+.starter-card {
+  display: flex;
+  gap: .65rem;
+  align-items: flex-start;
+  padding: .8rem;
+  border: 1px solid #dce4df;
+  border-radius: 9px;
+  background: #fbfcfb;
+}
+
+.starter-card small { display: block; margin-top: .25rem; color: var(--muted); }
+.acquisition-grid { margin-top: 1rem; }
+.acquisition-grid,
+.acquisition-grid .review-panel,
+#upload-form,
+#source-file { min-width: 0; max-width: 100%; }
+
+#acquisition-section form > label,
+#capture-form label {
+  display: grid;
+  gap: .35rem;
+  margin-block: .65rem;
+  font-weight: 700;
+}
+
+#acquisition-section input[type="text"],
+#acquisition-section input[type="url"],
+#acquisition-section textarea {
+  width: 100%;
+  padding: .68rem .75rem;
+  border: 1px solid #bfcac3;
+  border-radius: 7px;
+  background: #fff;
+}
+
+#acquisition-section textarea { min-height: 5.5rem; resize: vertical; }
+#capture-panel { margin-top: 1rem; padding: .75rem; border-radius: 8px; background: #f4f7f5; }
+#capture-panel:empty { display: none; }
+#package-artifacts button { margin-left: .55rem; }
+
+.capture-output-list { display: grid; gap: .65rem; margin: 1rem 0; }
+.capture-output-row {
+  align-items: center;
+  display: grid;
+  gap: .5rem;
+  grid-template-columns: minmax(12rem, 2fr) repeat(3, minmax(8rem, 1fr));
+}
+
+.argv-list {
+  margin: 0.5rem 0 0;
+  padding-left: 1.5rem;
+}
+
+.argv-list code {
+  overflow-wrap: anywhere;
+}
+
+@media (max-width: 760px) {
+  .capture-output-row { grid-template-columns: 1fr; }
 }

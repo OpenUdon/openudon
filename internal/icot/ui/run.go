@@ -7,6 +7,7 @@ import (
 	"io"
 	"net"
 	"net/http"
+	"os"
 	"os/exec"
 	"runtime"
 	"strconv"
@@ -19,13 +20,14 @@ const shutdownTimeout = 5 * time.Second
 
 // RunConfig starts one loopback-only UI process.
 type RunConfig struct {
-	EngineConfig engine.Config
-	Port         int
-	NoOpen       bool
-	Out          io.Writer
-	ErrOut       io.Writer
-	OpenURL      func(string) error
-	Listen       func(network, address string) (net.Listener, error)
+	EngineConfig   engine.Config
+	Port           int
+	NoOpen         bool
+	Out            io.Writer
+	ErrOut         io.Writer
+	OpenURL        func(string) error
+	Listen         func(network, address string) (net.Listener, error)
+	PrepareCapture func(CaptureStageRequest) (engine.BrowserCaptureStage, error)
 }
 
 // Run opens one engine, binds 127.0.0.1, optionally opens the browser, and
@@ -65,9 +67,11 @@ func Run(ctx context.Context, config RunConfig) error {
 	}
 	defer listener.Close()
 	authority := listener.Addr().String()
+	repoRoot, _ := os.Getwd()
 	handler, err := NewHandler(HandlerConfig{
-		Engine: authoringEngine, Snapshot: snapshot, ExampleDir: config.EngineConfig.ExampleDir,
-		Token: token, AccessCode: accessCode, Authority: authority, ErrOut: config.ErrOut, AccessCodeOut: config.Out,
+		Context: ctx, Engine: authoringEngine, Snapshot: snapshot, ExampleDir: config.EngineConfig.ExampleDir,
+		Token: token, AccessCode: accessCode, Authority: authority, ErrOut: config.ErrOut, AccessCodeOut: config.Out, RepoRoot: repoRoot,
+		PrivateRoot: config.EngineConfig.PrivateRoot, DriverDir: config.EngineConfig.DriverDir, PrepareCapture: config.PrepareCapture,
 	})
 	if err != nil {
 		return err

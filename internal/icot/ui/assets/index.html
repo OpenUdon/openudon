@@ -14,7 +14,7 @@
       <div class="brand-block">
         <p class="eyebrow">OpenUdon · local authoring</p>
         <h1>iCoT workspace</h1>
-        <p class="page-intro">Shape the workflow, inspect the exact proposal, then approve its local write.</p>
+        <p class="page-intro">Acquire reviewed API or browser capabilities, shape the workflow, build its package, and hand it to the trusted boundary.</p>
       </div>
       <div class="session-state" aria-label="Local session status">
         <p class="session-label">Session status</p>
@@ -42,9 +42,60 @@
     </aside>
 
     <aside id="completion-banner" class="notice notice-success" role="status" aria-live="polite" tabindex="-1" hidden>
-      <h2>Authoring is complete</h2>
-      <p>This process is frozen after the approved write. The final snapshot remains available for inspection.</p>
+      <h2>Package is handoff-ready</h2>
+      <p>The exact package bytes passed current-state assessment. This UI does not create approvals, accept credentials, or execute workflows.</p>
     </aside>
+
+    <section id="acquisition-section" class="card active-card" aria-labelledby="acquisition-heading">
+      <div class="section-heading">
+        <div><p class="section-kicker">Start with reviewed authority</p><h2 id="acquisition-heading">Journey and sources</h2></div>
+        <span id="lifecycle-state" class="state-pill">Authoring</span>
+      </div>
+      <form id="journey-form" novalidate>
+        <fieldset>
+          <legend>Choose a journey starter</legend>
+          <div class="starter-grid">
+            <label class="starter-card"><input id="journey-api" type="radio" name="journey" value="api"><span><strong>API workflow</strong><small>Upload and explore an API-family source.</small></span></label>
+            <label class="starter-card"><input id="journey-sign-in" type="radio" name="journey" value="existing_account_sign_in"><span><strong>Existing-account sign-in</strong><small>Learn sign-in for an account you already control.</small></span></label>
+            <label class="starter-card"><input id="journey-authenticated-action" type="radio" name="journey" value="authenticated_action"><span><strong>Authenticated action</strong><small>Capture a reviewed action after sign-in.</small></span></label>
+            <label class="starter-card"><input id="journey-reviewed-capability" type="radio" name="journey" value="existing_reviewed_capability"><span><strong>Reviewed capability</strong><small>Use an existing local Browsertools profile.</small></span></label>
+            <label class="starter-card"><input id="journey-mixed" type="radio" name="journey" value="freeform_mixed"><span><strong>Mixed workflow</strong><small>Combine API and browser capabilities.</small></span></label>
+          </div>
+        </fieldset>
+        <label for="journey-goal">Goal</label>
+        <textarea id="journey-goal" maxlength="1024" required></textarea>
+        <div class="form-actions"><button id="journey-submit" type="submit">Save journey and goal</button></div>
+      </form>
+
+      <div class="review-grid acquisition-grid">
+        <article class="review-panel" aria-labelledby="upload-heading">
+          <h3 id="upload-heading">API source inbox</h3>
+          <p class="section-help">Files are bounded to 20 MiB, validated by source family, and scanned for secret-like literals before the canonical target is shown.</p>
+          <form id="upload-form"><label for="source-file">API document</label><input id="source-file" type="file" required><button type="submit">Validate upload</button></form>
+          <ul id="uploaded-sources-list" class="detail-list"></ul>
+          <h4>Staged by this UI</h4><ul id="staged-sources-list" class="detail-list"></ul>
+        </article>
+        <article class="review-panel" aria-labelledby="browser-heading">
+          <h3 id="browser-heading">Authenticated Chromium capture</h3>
+          <p class="section-help">Passwords and MFA values are entered only in Chromium. The browser UI receives reduced candidates and value-free checkpoints.</p>
+          <button id="browser-preflight" type="button">Check Browsertools and Chromium</button>
+          <dl id="doctor-panel" class="technical-grid"></dl>
+          <form id="capture-form" novalidate>
+            <label>Profile ID <input id="capture-profile" pattern="[a-z0-9][a-z0-9._-]{0,63}" required></label>
+            <label>Initial sign-in URL <input id="capture-url" type="url" required></label>
+            <label>Protected dashboard URL <input id="capture-dashboard" type="url" required></label>
+            <label>Approved origins, one per line <textarea id="capture-origins" required></textarea></label>
+            <label>Capture goal <textarea id="capture-goal" maxlength="1024" required></textarea></label>
+            <label>Completion role <input id="capture-goal-role" value="heading" required></label>
+            <label>Completion label <input id="capture-goal-label" value="Dashboard" required></label>
+            <button type="submit">Launch isolated capture</button>
+          </form>
+          <div id="capture-panel" role="region" aria-live="polite" aria-label="Browser capture state"></div>
+          <button id="capture-cancel" type="button" hidden>Cancel capture</button>
+        </article>
+      </div>
+      <aside class="notice notice-warning"><h3>Registration is not supported</h3><p>Use an existing account. Account creation, consent enrollment, CAPTCHA, billing, and registration discovery are outside this milestone.</p></aside>
+    </section>
 
     <section class="card summary" aria-labelledby="summary-heading">
       <div class="summary-heading">
@@ -161,6 +212,11 @@
         <ul id="conflicts-list" class="detail-list"></ul>
       </article>
 
+      <div class="review-grid">
+        <article class="review-panel" aria-labelledby="workflow-graph-heading"><h3 id="workflow-graph-heading">Workflow graph</h3><ul id="workflow-graph" class="detail-list"></ul></article>
+        <article class="review-panel" aria-labelledby="symbol-map-heading"><h3 id="symbol-map-heading">Credential and browser-session map</h3><ul id="symbol-map" class="detail-list"></ul></article>
+      </div>
+
       <article id="revisions-panel" class="review-panel review-panel-wide" aria-labelledby="revisions-heading">
         <h3 id="revisions-heading">Settled answers</h3>
         <p id="revisions-help" class="section-help">Reopen an operator-provided answer before approval when it no longer reflects the intended workflow. Finish the current frontier first.</p>
@@ -188,7 +244,7 @@
       <form id="approval-form" class="approval" novalidate aria-labelledby="approval-heading">
         <p class="section-kicker">Final checkpoint</p>
         <h3 id="approval-heading">Approval</h3>
-        <p id="approval-help" class="section-help">Approval writes the exact proposal shown for this revision and then freezes the process.</p>
+        <p id="approval-help" class="section-help">Approval writes the exact proposal shown for this revision and moves it to an authored state. Package build is a separate confirmation.</p>
         <label class="check-row" for="review-confirmed">
           <input id="review-confirmed" type="checkbox">
           <span>I reviewed the preview, readiness findings, proposed actions, and conflicts.</span>
@@ -203,6 +259,18 @@
         </div>
         <p id="approval-state" role="status" aria-live="polite"></p>
       </form>
+    </section>
+
+    <section id="package-section" class="card" aria-labelledby="package-heading">
+      <div class="section-heading"><div><p class="section-kicker">Separate deterministic checkpoint</p><h2 id="package-heading" tabindex="-1">Reviewed package handoff</h2></div><span id="package-status" class="state-pill">Awaiting authoring approval</span></div>
+      <p class="section-help">Build has a two-minute deadline and is followed by a non-writing assessment of the exact resulting bytes.</p>
+      <label class="check-row"><input id="package-confirmed" type="checkbox"><span>I want to build the reviewed package from the authored files.</span></label>
+      <div class="form-actions"><button id="package-build" type="button">Build reviewed package</button><button id="authoring-resume" type="button" hidden>Return to authoring</button></div>
+      <ul id="quality-list" class="detail-list"></ul>
+      <ul id="remediation-list" class="detail-list warning-list"></ul>
+      <dl id="handoff-digests" class="technical-grid"></dl>
+      <div id="approval-command" aria-label="Exact approval-template arguments"></div>
+      <ul id="package-artifacts" class="detail-list"></ul>
     </section>
 
     <section id="write-result-section" class="card" aria-labelledby="write-result-heading" hidden>

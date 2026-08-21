@@ -11,6 +11,7 @@ import (
 	"path/filepath"
 	"strings"
 	"syscall"
+	"time"
 
 	"github.com/OpenUdon/openudon/internal/icot/elicitor"
 	"github.com/OpenUdon/openudon/internal/icot/engine"
@@ -40,10 +41,12 @@ func runUI(args []string, out, errOut io.Writer) int {
 	network := fs.String("network", "", "Remote lookup policy: never, ask, or allow")
 	port := fs.Int("port", 0, "Loopback TCP port; 0 selects an ephemeral port")
 	noOpen := fs.Bool("no-open", false, "Do not open the bootstrap URL in the platform browser")
+	privateRoot := fs.String("private-root", "", "absolute mode-0700 private root required only for upload or browser capture")
+	driverDir := fs.String("driver-dir", "", "optional installed Playwright-Go driver directory for browser capture")
 	fs.Usage = func() {
 		fmt.Fprintln(fs.Output(), "Usage: icot ui --example DIR [--from-example DIR | --answers FILE] [--api-source KIND:ID=PATH] [--openapi ID=PATH] [--browser-profile ID=PATH] [--browser-verification PATH] [--browser-registry LOCATION] [--source-root DIR] [--network never|ask|allow] [--port PORT] [--no-open]")
 		fmt.Fprintln(fs.Output(), "\nServes one explicitly named workspace on 127.0.0.1 with a per-process capability token.")
-		fmt.Fprintln(fs.Output(), "The embedded Phase C shell supports revision-protected rounds and explicit final or incomplete approval over experimental API v2.")
+		fmt.Fprintln(fs.Output(), "The embedded shell supports acquisition, revision-protected authoring, reviewed package build, and handoff over experimental API v3.")
 		fmt.Fprintln(fs.Output(), "External changes to engine-owned files preserve cached inspection but require a process restart before mutation.")
 		fmt.Fprintln(fs.Output())
 		fs.PrintDefaults()
@@ -95,6 +98,8 @@ func runUI(args []string, out, errOut io.Writer) int {
 		BrowserRegistries:    append([]string(nil), browserRegistryFlags...),
 		SourceRoots:          append([]string(nil), sourceRootFlags...),
 		NetworkPolicy:        networkPolicy,
+		PrivateRoot:          strings.TrimSpace(*privateRoot),
+		DriverDir:            strings.TrimSpace(*driverDir),
 	}
 	configureUISeed(&engineConfig, strings.TrimSpace(*answersFile), strings.TrimSpace(*fromExample))
 
@@ -102,11 +107,44 @@ func runUI(args []string, out, errOut io.Writer) int {
 	defer cancel()
 	if err := runUIServer(ctx, uiserver.RunConfig{
 		EngineConfig: engineConfig, Port: *port, NoOpen: *noOpen, Out: out, ErrOut: errOut,
+		PrepareCapture: prepareUICaptureStage,
 	}); err != nil {
 		fmt.Fprintln(errOut, "icot ui:", err)
 		return 1
 	}
 	return 0
+}
+
+func prepareUICaptureStage(request uiserver.CaptureStageRequest) (engine.BrowserCaptureStage, error) {
+	start := request.Start
+	goalURL := strings.TrimSpace(start.GoalOrigin) + strings.TrimSpace(start.GoalPath)
+	cfg := liveAuthorConfig{
+		ExampleDir: request.ExampleDir, PrivateRoot: request.PrivateRoot,
+		URL: start.URL, DashboardURL: start.DashboardURL, GoalURL: goalURL, Goal: start.Goal,
+		Origins: append([]string(nil), start.Origins...), ProfileID: start.ProfileID,
+		AfterAuthentication: "navigate_absolute", GoalRole: start.GoalRole, GoalLabel: start.GoalLabel, GoalContext: start.GoalContext,
+	}
+	if err := normalizeLiveAuthorConfig(&cfg); err != nil {
+		return engine.BrowserCaptureStage{}, err
+	}
+	prepared, err := prepareAuthenticatedAuthoringImport(cfg, liveProtocolResult{
+		ArtifactPath: request.Result.ArtifactPath, Digest: request.Result.Digest,
+	}, time.Now().UTC())
+	if err != nil {
+		return engine.BrowserCaptureStage{}, err
+	}
+	stage := engine.BrowserCaptureStage{ProfileID: cfg.ProfileID}
+	for _, file := range prepared.Files {
+		switch filepath.Clean(file.Path) {
+		case filepath.Join(cfg.ExampleDir, filepath.FromSlash(prepared.AuthenticationTarget)):
+			stage.Authentication = []byte(file.Content)
+		case filepath.Join(cfg.ExampleDir, filepath.FromSlash(prepared.CapabilityTarget)):
+			stage.Capability = []byte(file.Content)
+		case filepath.Join(cfg.ExampleDir, ".icot", "authenticated-browser-authoring.json"):
+			stage.SafeReview = []byte(file.Content)
+		}
+	}
+	return stage, nil
 }
 
 func configureUISeed(config *engine.Config, answersFile, fromExample string) {

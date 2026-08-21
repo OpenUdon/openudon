@@ -2,11 +2,13 @@
 
 const normalInterval = 2000;
 const maximumBackoff = 30000;
+const acquisitionRoutes = new Set(["journey", "source/stage", "source/remove", "browser/preflight", "capture/start"]);
 
 const state = {
   renderedPayload: null,
   latestPayload: null,
   serverRevision: "",
+  etag: "",
   dirty: false,
   pendingMutation: false,
   reconciliationRequired: false,
@@ -69,9 +71,13 @@ const mutationLocked = () => Boolean(
   state.pendingMutation ||
   state.reconciliationRequired ||
   state.unresolvedMutation ||
-  state.renderedPayload?.completed ||
+	state.renderedPayload?.lifecycle !== "authoring" ||
+	state.renderedPayload?.capture?.containment_failed ||
+	(state.renderedPayload?.capture && !["staged", "canceled", "failed"].includes(state.renderedPayload.capture.state)) ||
   externallyModified()
 );
+
+const acquisitionLocked = () => mutationLocked() || state.dirty;
 
 const answerInputs = () => Array.from(document.querySelectorAll(".question-answer[data-question-id]"));
 
@@ -469,6 +475,13 @@ const renderSources = (snapshot) => {
     const item = make("li");
     item.append(make("strong", `${source.kind || "source"}: ${source.id || "unnamed"}`));
     item.append(document.createTextNode(target));
+		const facts = [];
+		if (source.sha256) facts.push(`digest sha256:${source.sha256}`);
+		if (source.provenance) facts.push(`provenance ${source.provenance}`);
+		if (source.origins?.length) facts.push(`origins ${source.origins.join(", ")}`);
+		if (source.actions?.length) facts.push(`actions ${source.actions.join(", ")}`);
+		if (source.expires_at) facts.push(`expires ${source.expires_at}`);
+		if (facts.length) item.append(make("small", ` — ${facts.join("; ")}`));
     return item;
   });
 };
@@ -536,7 +549,8 @@ const renderWriteResult = (payload) => {
 };
 
 const updateControls = () => {
-  const locked = mutationLocked();
+	const locked = mutationLocked();
+	const acquisitionIsLocked = acquisitionLocked();
   const snapshot = currentSnapshot();
   const preview = snapshot.preview;
   const conflicts = snapshot.write_conflicts || [];
@@ -558,7 +572,15 @@ const updateControls = () => {
   byID("approve-final").hidden = !finalAvailable;
   byID("approve-incomplete").hidden = !incompleteAvailable;
   byID("approve-final").disabled = locked || !reviewed || !overwriteAllowed || !finalAvailable;
-  byID("approve-incomplete").disabled = locked || !reviewed || !overwriteAllowed || !incompleteAvailable;
+	byID("approve-incomplete").disabled = locked || !reviewed || !overwriteAllowed || !incompleteAvailable;
+	document.querySelectorAll('#journey-form input, #journey-form textarea, #journey-form button, #upload-form input, #upload-form button, #uploaded-sources-list button, #staged-sources-list button').forEach((control) => {
+		control.disabled = acquisitionIsLocked;
+	});
+	byID("browser-preflight").disabled = acquisitionIsLocked;
+	const capture = state.renderedPayload?.capture;
+	const captureActive = capture && !["configuring", "staged", "canceled", "failed"].includes(capture.state);
+	const captureFormLocked = Boolean(captureActive) || Boolean(capture?.containment_failed) || state.renderedPayload?.lifecycle !== "authoring" || state.dirty || state.pendingMutation || state.reconciliationRequired || state.unresolvedMutation || externallyModified();
+	Array.from(byID("capture-form").elements).forEach((control) => { control.disabled = captureFormLocked; });
 
   let approvalState = "No proposal is currently available for approval.";
   if (state.renderedPayload?.completed) approvalState = "This approved session is frozen.";
@@ -570,12 +592,17 @@ const updateControls = () => {
   else if (finalAvailable) approvalState = "The final proposal is ready for explicit approval.";
   else if (incompleteAvailable) approvalState = "Only explicit incomplete-draft approval is available.";
   showText("approval-state", approvalState);
+  if (state.renderedPayload) {
+    byID("package-build").disabled = state.renderedPayload.lifecycle !== "authored" || !byID("package-confirmed").checked || state.pendingMutation;
+    byID("package-confirmed").disabled = state.renderedPayload.lifecycle !== "authored" || state.pendingMutation;
+  }
 };
 
 const renderPayload = (payload, refreshedAt = new Date()) => {
   state.renderedPayload = payload;
   state.latestPayload = payload;
   state.serverRevision = payload.revision;
+  if (payload.__etag) state.etag = payload.__etag;
   state.dirty = false;
   state.unresolvedMutation = false;
   hideStateWarning();
@@ -584,7 +611,7 @@ const renderPayload = (payload, refreshedAt = new Date()) => {
   const preview = snapshot.preview;
   const drifted = externallyModified(payload);
   showConnection(
-    drifted ? "Connected · restart required" : payload.completed ? "Connected · session frozen" : "Connected · polling every 2 seconds",
+    drifted ? "Connected · restart required" : payload.completed ? "Connected · handoff-ready" : `Connected · ${payload.lifecycle || "authoring"}`,
     drifted ? "warning" : "positive",
   );
   showText("example", payload.workspace?.example_dir);
@@ -604,12 +631,12 @@ const renderPayload = (payload, refreshedAt = new Date()) => {
   byID("issue-summary").classList.toggle("has-issue", Boolean(snapshot.top_issue));
   showStatus("frontier", countLabel(frontierCount, "question"), frontierCount > 0 ? "active" : "");
   showStatus("preview", preview ? (preview.incomplete ? "Incomplete draft" : "Final available") : "Unavailable", preview ? (preview.incomplete ? "warning" : "positive") : "");
-  showStatus("completed", payload.completed ? "Frozen after approved write" : "No", payload.completed ? "positive" : "");
+  showStatus("completed", payload.completed ? "Handoff-ready" : (payload.lifecycle || "authoring"), payload.completed ? "positive" : "");
   showStatus("workspace", drifted ? "Externally modified" : "Unchanged", drifted ? "danger" : "positive");
 
-  const reviewState = payload.completed ? "complete" : snapshot.approval_required ? "ready" : "working";
+  const reviewState = payload.lifecycle !== "authoring" ? "complete" : snapshot.approval_required ? "ready" : "working";
   byID("review-section").dataset.state = reviewState;
-  showText("review-status", payload.completed ? "Approved · frozen" : snapshot.approval_required ? (preview?.incomplete ? "Draft review available" : "Ready for approval") : "Draft in progress");
+  showText("review-status", payload.lifecycle !== "authoring" ? `Authoring ${payload.lifecycle}` : snapshot.approval_required ? (preview?.incomplete ? "Draft review available" : "Ready for approval") : "Draft in progress");
 
   byID("workspace-warning").hidden = !drifted;
   byID("completion-banner").hidden = !payload.completed;
@@ -626,6 +653,9 @@ const renderPayload = (payload, refreshedAt = new Date()) => {
   renderConflicts(snapshot);
   renderPreview(snapshot);
   renderWriteResult(payload);
+  renderAcquisition(payload);
+  renderWorkflowHelpers(snapshot);
+  renderPackage(payload);
   showText("snapshot", JSON.stringify(snapshot, null, 2));
   updateControls();
 };
@@ -633,6 +663,7 @@ const renderPayload = (payload, refreshedAt = new Date()) => {
 const receivePayload = (payload, refreshedAt = new Date(), focusStateWarning = false) => {
   state.serverRevision = payload.revision;
   state.latestPayload = payload;
+  if (payload.__etag) state.etag = payload.__etag;
 
   if (payload.completed || externallyModified(payload)) {
     preserveCurrentAnswers();
@@ -641,13 +672,16 @@ const receivePayload = (payload, refreshedAt = new Date(), focusStateWarning = f
     return;
   }
 
-  if (state.renderedPayload && state.dirty && payload.revision !== state.renderedPayload.revision) {
-    showText("refreshed", refreshedAt.toLocaleTimeString());
-    showConnection("Connected · newer revision requires review", "warning");
-    showStateWarning(
-      payload,
-      `The workspace advanced from ${state.renderedPayload.revision} to ${payload.revision}. Your unsent answers remain in the old form and will not be rebased or submitted automatically.`,
-      focusStateWarning,
+	if (state.renderedPayload && state.dirty) {
+		const revisionChanged = payload.revision !== state.renderedPayload.revision;
+		showText("refreshed", refreshedAt.toLocaleTimeString());
+		showConnection(revisionChanged ? "Connected · newer revision requires review" : "Connected · capture update requires review", "warning");
+		showStateWarning(
+			payload,
+			revisionChanged
+				? `The workspace advanced from ${state.renderedPayload.revision} to ${payload.revision}. Your unsent answers remain in the old form and will not be rebased or submitted automatically.`
+				: "Capture or readiness state changed while you have unsent answers. The old form remains intact; review the update before discarding it.",
+			focusStateWarning,
     );
     return;
   }
@@ -665,8 +699,8 @@ const decodePayload = async (response) => {
 
 async function fetchSnapshot(force = false) {
   const headers = { Accept: "application/json" };
-  if (!force && state.serverRevision) headers["If-None-Match"] = `"${state.serverRevision}"`;
-  const response = await fetch("api/v2/snapshot", { credentials: "same-origin", headers });
+  if (!force && state.etag) headers["If-None-Match"] = state.etag;
+  const response = await fetch("api/v3/snapshot", { credentials: "same-origin", headers });
   if (response.status === 304) return { unchanged: true, refreshedAt: new Date() };
   const payload = await decodePayload(response);
   if (!response.ok) {
@@ -674,6 +708,7 @@ async function fetchSnapshot(force = false) {
     failure.payload = payload;
     throw failure;
   }
+  payload.__etag = response.headers.get("ETag") || "";
   return { payload, refreshedAt: new Date() };
 }
 
@@ -745,7 +780,7 @@ const handleMutationFailure = async (request, status, payload) => {
     requestID: error.request_id || "",
     retryable: status === 0 || Boolean(error.retryable),
   };
-  const action = request.route === "approve" ? "Approval" : request.route === "reopen" ? "Answer reopening" : "Round submission";
+  const action = request.route === "author/approve" ? "Approval" : request.route === "reopen" ? "Answer reopening" : "Authoring mutation";
   announceMutation(`${action} failed. Review the error before continuing.`);
 
   if (failure.code === "engine_rejected" || status === 422) {
@@ -767,16 +802,16 @@ const handleMutationFailure = async (request, status, payload) => {
 };
 
 async function sendMutation(request) {
-  if (mutationLocked()) return;
+	if (mutationLocked() || (state.dirty && acquisitionRoutes.has(request.route))) return;
   let postMutationFocusID = "";
   clearTimeout(state.timer);
   state.pollGeneration += 1;
   clearError();
   state.pendingMutation = true;
-  announceMutation(request.route === "approve" ? "Approval is being committed." : request.route === "reopen" ? "The settled answer is being reopened." : "Authoring round is being submitted.");
+  announceMutation(request.route === "author/approve" ? "Approval is being committed." : request.route === "reopen" ? "The settled answer is being reopened." : "Authoring mutation is being submitted.");
   updateControls();
   try {
-    const response = await fetch(`api/v2/${request.route}`, {
+    const response = await fetch(`api/v3/${request.route}`, {
       method: "POST",
       credentials: "same-origin",
       headers: { Accept: "application/json", "Content-Type": "application/json" },
@@ -788,10 +823,11 @@ async function sendMutation(request) {
       return;
     }
     clearError();
+    payload.__etag = response.headers.get("ETag") || "";
     renderPayload(payload, new Date());
-    if (request.route === "approve") {
-      announceMutation("Approval committed. Authoring is complete and the session is frozen.");
-      postMutationFocusID = "completion-banner";
+    if (request.route === "author/approve") {
+      announceMutation("Approval committed. The authored files are ready for a separate package build.");
+      postMutationFocusID = "package-heading";
     } else if (request.route === "reopen") {
       announceMutation("Answer reopened. Submit the complete replacement frontier to continue.");
       postMutationFocusID = answerInputs()[0]?.id || "frontier-heading";
@@ -817,6 +853,262 @@ async function sendMutation(request) {
     schedule(normalInterval);
   }
 }
+
+async function sendLifecycleJSON(route, body, message = "Updating local state…") {
+	if (state.pendingMutation || !state.renderedPayload || (state.dirty && acquisitionRoutes.has(route))) return;
+  clearTimeout(state.timer);
+  clearError();
+  state.pendingMutation = true;
+  announceMutation(message);
+  updateControls();
+  try {
+    const response = await fetch(`api/v3/${route}`, {
+      method: "POST",
+      credentials: "same-origin",
+      headers: { Accept: "application/json", "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
+    const payload = await decodePayload(response);
+    if (!response.ok) {
+      showError(payload?.error?.message || `Request failed (${response.status}).`, payload?.error?.request_id || "");
+      return;
+    }
+    payload.__etag = response.headers.get("ETag") || "";
+    renderPayload(payload, new Date());
+    announceMutation("Local state updated.");
+  } catch (error) {
+    showError(error.message);
+  } finally {
+    state.pendingMutation = false;
+    updateControls();
+    schedule(normalInterval);
+  }
+}
+
+const renderAcquisition = (payload) => {
+  const snapshot = payload.snapshot || {};
+  const journey = snapshot.journey || {};
+  showText("lifecycle-state", payload.lifecycle || "authoring");
+	document.querySelectorAll('input[name="journey"]').forEach((input) => {
+		input.checked = input.value === journey.starter;
+		input.disabled = acquisitionLocked();
+	});
+	if (document.activeElement !== byID("journey-goal")) byID("journey-goal").value = journey.goal || "";
+	byID("journey-goal").disabled = acquisitionLocked();
+	byID("journey-submit").disabled = acquisitionLocked();
+	Array.from(byID("upload-form").elements).forEach((control) => { control.disabled = acquisitionLocked(); });
+
+  appendEmptyOrItems("uploaded-sources-list", snapshot.uploaded_sources || [], "No validated uploads are waiting for staging.", (source) => {
+    const item = make("li");
+    item.append(make("strong", `${source.original_name} · ${source.kind}`));
+    item.append(document.createTextNode(` — ${source.operation_count || 0} operations; ${source.bytes || 0} bytes; target `));
+    item.append(make("code", source.canonical_target));
+    item.append(document.createTextNode(`; sha256:${source.sha256}`));
+    const button = make("button", "Stage this source");
+    button.type = "button";
+		button.disabled = acquisitionLocked();
+    button.addEventListener("click", () => sendMutation({ route: "source/stage", body: { revision: state.renderedPayload.revision, id: source.id } }));
+    item.append(button);
+    return item;
+  });
+  appendEmptyOrItems("staged-sources-list", snapshot.staged_sources || [], "No UI-owned source has been staged.", (source) => {
+    const item = make("li");
+    item.append(make("strong", `${source.kind}: ${source.target_path}`));
+    item.append(document.createTextNode(` — sha256:${source.sha256}`));
+    const button = make("button", "Remove staged source");
+    button.type = "button";
+		button.disabled = acquisitionLocked();
+    button.addEventListener("click", () => sendMutation({ route: "source/remove", body: { revision: state.renderedPayload.revision, id: source.id } }));
+    item.append(button);
+    return item;
+  });
+
+  const doctor = payload.browser_doctor;
+  const doctorPanel = byID("doctor-panel");
+  clearNode(doctorPanel);
+  if (doctor) {
+    for (const [label, value] of [["Driver", doctor.driver_ready ? "ready" : "unavailable"], ["Chromium", doctor.browser_ready ? "ready" : "unavailable"], ["Playwright", doctor.playwright_version || "—"]]) {
+      const row = make("div"); row.append(make("dt", label), make("dd", value)); doctorPanel.append(row);
+    }
+  }
+	byID("browser-preflight").disabled = acquisitionLocked();
+  renderCapture(payload);
+};
+
+const renderCapture = (payload) => {
+  const capture = payload.capture;
+  const panel = byID("capture-panel");
+  clearNode(panel);
+	const active = capture && !["configuring", "staged", "canceled", "failed"].includes(capture.state);
+	Array.from(byID("capture-form").elements).forEach((control) => {
+		control.disabled = Boolean(active) || Boolean(capture?.containment_failed) || payload.lifecycle !== "authoring" || state.dirty || state.pendingMutation || state.reconciliationRequired || state.unresolvedMutation || externallyModified(payload);
+	});
+	byID("capture-cancel").hidden = !active || capture?.state === "canceling";
+  if (!capture) return;
+  panel.append(make("h4", capture.state.replaceAll("_", " ")));
+  if (capture.message) panel.append(make("p", capture.message));
+  if (capture.observation) {
+    panel.append(make("p", `${capture.observation.origin}${capture.observation.path} · context ${capture.observation.context}`));
+    const actions = make("div", null, "form-actions");
+    for (const candidate of capture.observation.candidates || []) {
+      const credentialRole = ["textbox", "combobox"].includes(candidate.role);
+      const button = make("button", credentialRole ? `Use ${candidate.role} in Chromium: ${candidate.label || candidate.id}` : `${candidate.role}: ${candidate.label || candidate.id}`);
+      button.type = "button";
+      button.addEventListener("click", () => sendCaptureResponse({
+        kind: credentialRole ? "focus_human_input" : "click", candidate_id: candidate.id, post_budget: credentialRole ? 0 : 1,
+      }));
+      actions.append(button);
+    }
+    const authenticated = make("button", "Authentication is complete");
+    authenticated.type = "button";
+    authenticated.addEventListener("click", () => sendCaptureResponse({ kind: "authenticated" }));
+    actions.append(authenticated);
+    panel.append(actions);
+  }
+  if (capture.approval) {
+    panel.append(make("p", `Exact approval: ${capture.approval.kind}; origin ${capture.approval.origin || "current"}; action ${capture.approval.action || "—"}; POST budget ${capture.approval.postBudget ?? capture.approval.post_budget ?? 0}.`));
+    for (const choice of ["approve", "deny"]) {
+      const button = make("button", choice === "approve" ? "Approve exact action" : "Deny");
+      button.type = "button";
+      button.addEventListener("click", () => sendCaptureResponse({ kind: choice, approval_id: capture.approval.id }));
+      panel.append(button);
+    }
+  }
+  if (capture.checkpoint?.kind === "credential") {
+    panel.append(make("p", "Type the credential only in Chromium. Do not paste it into this page."));
+    const button = make("button", "Continue after Chromium input"); button.type = "button";
+    button.addEventListener("click", () => sendCaptureResponse({ kind: "continue", candidate_id: capture.checkpoint.candidateId || capture.checkpoint.candidate_id })); panel.append(button);
+  }
+  if (capture.checkpoint?.kind === "mfa") {
+    panel.append(make("p", "Complete the selected challenge in Chromium or on the paired device. No OTP value belongs here."));
+    for (const kind of capture.checkpoint.challengeKinds || capture.checkpoint.challenge_kinds || []) {
+      const button = make("button", `Continue with ${kind}`); button.type = "button";
+      button.addEventListener("click", () => sendCaptureResponse({ kind: "continue", candidate_id: capture.checkpoint.candidateId || capture.checkpoint.candidate_id, challenge_kind: kind })); panel.append(button);
+    }
+  }
+  if (capture.checkpoint?.kind === "completion") {
+    panel.append(make("p", "The typed completion predicate matched. Optionally select up to 16 value-free output declarations from this final reduced observation."));
+    const outputRows = make("fieldset", null, "capture-output-list");
+    outputRows.append(make("legend", "Reviewed outputs"));
+    for (const [index, candidate] of (capture.observation?.candidates || []).entries()) {
+      const row = make("div", null, "capture-output-row");
+      const choose = document.createElement("input");
+      choose.type = "checkbox";
+      choose.dataset.captureOutput = candidate.id;
+      const chooseLabel = make("label");
+      chooseLabel.append(choose, document.createTextNode(` ${candidate.role}: ${candidate.label || candidate.id}`));
+      const key = document.createElement("input");
+      key.type = "text";
+      key.maxLength = 64;
+      key.placeholder = "output_key";
+      key.dataset.outputField = "key";
+      key.disabled = true;
+      const type = document.createElement("select");
+      type.dataset.outputField = "type";
+      for (const value of ["string", "integer", "number", "boolean", "presence"]) {
+        const option = make("option", value); option.value = value; type.append(option);
+      }
+      type.disabled = true;
+      const locator = document.createElement("select");
+      locator.dataset.outputField = "locatorMode";
+      for (const value of ["exact_name", "unique_role"]) {
+        const option = make("option", value); option.value = value; locator.append(option);
+      }
+      locator.disabled = true;
+      choose.addEventListener("change", () => {
+        key.disabled = !choose.checked; type.disabled = !choose.checked; locator.disabled = !choose.checked;
+        if (choose.checked && !key.value) key.value = `output_${index + 1}`;
+      });
+      row.append(chooseLabel, key, type, locator);
+      outputRows.append(row);
+    }
+    panel.append(outputRows);
+    const button = make("button", "Confirm typed completion"); button.type = "button";
+    button.addEventListener("click", () => {
+      const outputs = Array.from(outputRows.querySelectorAll("[data-capture-output]:checked")).map((choice) => {
+        const row = choice.closest(".capture-output-row");
+        return {
+          candidateId: choice.dataset.captureOutput,
+          key: row.querySelector('[data-output-field="key"]').value.trim(),
+          type: row.querySelector('[data-output-field="type"]').value,
+          locatorMode: row.querySelector('[data-output-field="locatorMode"]').value,
+        };
+      });
+      if (outputs.length > 16 || outputs.some((output) => !/^[a-z][a-z0-9_]{0,63}$/.test(output.key))) {
+        showError("Choose at most 16 outputs and give each a lowercase symbolic key.");
+        return;
+      }
+      sendCaptureResponse({ kind: "confirm", confirmed: true, outputs });
+    }); panel.append(button);
+  }
+  if (capture.result_ready) {
+    const button = make("button", "Stage reviewed profiles", "primary"); button.type = "button";
+    button.addEventListener("click", () => sendLifecycleJSON("capture/stage", { revision: payload.revision, capture_revision: payload.capture_revision }, "Revalidating capture and staging profiles…")); panel.append(button);
+  }
+};
+
+const sendCaptureResponse = (response) => sendLifecycleJSON("capture/respond", {
+  capture_revision: state.renderedPayload.capture_revision,
+  response,
+}, "Sending a typed browser decision…");
+
+const renderWorkflowHelpers = (snapshot) => {
+  const graph = [];
+  if (snapshot.boundary?.outcome) graph.push(`Goal → ${snapshot.boundary.outcome}`);
+  for (const source of snapshot.selected_sources || []) graph.push(`Source → ${source.kind}:${source.id}`);
+  if (snapshot.approval_required) graph.push("Human approval → authored files");
+  graph.push("Authored files → separate package build → trusted handoff");
+  appendEmptyOrItems("workflow-graph", graph, "The graph will appear as the workflow boundary settles.", (item) => make("li", item));
+  const symbols = [];
+  for (const source of snapshot.selected_sources || []) {
+    for (const [flow, slots] of Object.entries(source.flow_credential_slots || {})) symbols.push(`${source.id}.${flow} → ${slots.join(", ") || "no credential slots"}`);
+    if (source.login_state_required) symbols.push(`${source.id} → named browser session required`);
+  }
+  appendEmptyOrItems("symbol-map", symbols, "No symbolic credential or browser-session binding is selected.", (item) => make("li", item));
+};
+
+const renderApprovalArgv = (argv) => {
+	const container = byID("approval-command");
+	clearNode(container);
+	if (!Array.isArray(argv) || argv.length === 0) {
+		container.textContent = "Approval-template argv appears only after a passing build.";
+		return;
+	}
+	container.append(make("span", "Exact arguments, in order:"));
+	const list = make("ol", null, "argv-list");
+	for (const argument of argv) {
+		const item = make("li");
+		item.append(make("code", String(argument)));
+		list.append(item);
+	}
+	container.append(list);
+};
+
+const renderPackage = (payload) => {
+  showText("package-status", payload.package?.status || (payload.lifecycle === "authored" ? "Ready to build" : payload.lifecycle));
+  byID("package-build").disabled = payload.lifecycle !== "authored" || !byID("package-confirmed").checked || state.pendingMutation;
+  byID("package-confirmed").disabled = payload.lifecycle !== "authored" || state.pendingMutation;
+  byID("authoring-resume").hidden = payload.lifecycle !== "package_failed";
+  appendEmptyOrItems("quality-list", payload.package?.quality?.checks || [], "No package quality result yet.", (check) => make("li", `${check.code}: ${check.status} — ${check.message}`));
+  appendEmptyOrItems("remediation-list", payload.package?.remediation || [], "No package remediation is pending.", (item) => make("li", item));
+  const digests = byID("handoff-digests"); clearNode(digests);
+  const inspection = payload.package?.inspection;
+  if (inspection) {
+    const values = [
+      ["Package digest", inspection.package_sha256], ["Handoff digest", inspection.handoff_sha256],
+      ["Side effects", inspection.execution_policy?.side_effectful ? "side-effectful; downstream approval required" : "read-only posture"],
+      ["Credential symbols", (inspection.credential_bindings?.declared || []).join(", ") || "none"],
+      ["Runtime approvals", (inspection.approval_states || []).map((item) => item.name).join(" → ")],
+    ];
+    for (const [label, value] of values) { const row = make("div"); row.append(make("dt", label), make("dd", value || "—")); digests.append(row); }
+  }
+	renderApprovalArgv(payload.package?.approval_template_argv);
+  appendEmptyOrItems("package-artifacts", payload.package?.artifacts || [], "No handoff artifact is available.", (artifact) => {
+    const item = make("li", `${artifact.name} · ${artifact.path} · ${artifact.sha256}`);
+    const button = make("button", "Inspect"); button.type = "button";
+    button.addEventListener("click", () => window.open(`api/v3/artifact?name=${encodeURIComponent(artifact.name)}`, "_blank", "noopener")); item.append(button); return item;
+  });
+};
 
 const validateRound = () => {
   let firstInvalid = null;
@@ -860,6 +1152,72 @@ byID("round-form").addEventListener("submit", (event) => {
   sendMutation({ route: "round", body: { revision: state.renderedPayload.revision, answers } });
 });
 
+byID("journey-form").addEventListener("submit", (event) => {
+	event.preventDefault();
+	if (acquisitionLocked()) return;
+  const starter = document.querySelector('input[name="journey"]:checked')?.value || "";
+  const goal = byID("journey-goal").value.trim();
+  if (!starter || !goal) { showError("Choose a journey starter and enter a goal."); return; }
+  sendMutation({ route: "journey", body: { revision: state.renderedPayload.revision, starter, goal } });
+});
+
+byID("upload-form").addEventListener("submit", async (event) => {
+	event.preventDefault();
+	if (acquisitionLocked()) return;
+  const file = byID("source-file").files?.[0];
+  if (!file) { showError("Choose one API-family document."); return; }
+  const body = new FormData();
+  body.append("revision", state.renderedPayload.revision);
+  body.append("source", file, file.name);
+  state.pendingMutation = true; updateControls(); announceMutation("Validating the private API source upload…");
+  try {
+    const response = await fetch("api/v3/source/upload", { method: "POST", credentials: "same-origin", headers: { Accept: "application/json" }, body });
+    const payload = await decodePayload(response);
+    if (!response.ok) { showError(payload?.error?.message || `Upload failed (${response.status}).`, payload?.error?.request_id || ""); return; }
+    payload.__etag = response.headers.get("ETag") || ""; byID("source-file").value = ""; renderPayload(payload, new Date());
+  } catch (error) { showError(error.message); }
+  finally { state.pendingMutation = false; updateControls(); schedule(normalInterval); }
+});
+
+byID("browser-preflight").addEventListener("click", () => {
+	if (acquisitionLocked()) return;
+  sendMutation({ route: "browser/preflight", body: { revision: state.renderedPayload.revision, capture_revision: state.renderedPayload.capture_revision } });
+});
+
+byID("capture-form").addEventListener("submit", (event) => {
+  event.preventDefault();
+  const origins = byID("capture-origins").value.split(/\r?\n/).map((value) => value.trim()).filter(Boolean);
+  let dashboard;
+  try { dashboard = new URL(byID("capture-dashboard").value); } catch (_) { showError("Enter a valid protected dashboard URL."); return; }
+  sendLifecycleJSON("capture/start", {
+    revision: state.renderedPayload.revision,
+    capture_revision: state.renderedPayload.capture_revision,
+    profile_id: byID("capture-profile").value.trim(),
+    url: byID("capture-url").value.trim(),
+    dashboard_url: dashboard.toString(),
+    goal: byID("capture-goal").value.trim(),
+    origins,
+    goal_origin: dashboard.origin,
+    goal_path: dashboard.pathname || "/",
+    goal_context: "main",
+    goal_role: byID("capture-goal-role").value.trim(),
+    goal_label: byID("capture-goal-label").value.trim(),
+  }, "Launching the isolated Browsertools worker…");
+});
+
+byID("capture-cancel").addEventListener("click", () => sendLifecycleJSON("capture/cancel", {
+  capture_revision: state.renderedPayload.capture_revision,
+}, "Canceling the browser capture and its descendants…"));
+
+byID("package-confirmed").addEventListener("change", updateControls);
+byID("package-build").addEventListener("click", () => sendLifecycleJSON("package/build", {
+  revision: state.renderedPayload.revision,
+  confirmed: true,
+}, "Building and assessing the reviewed package…"));
+byID("authoring-resume").addEventListener("click", () => sendLifecycleJSON("author/resume", {
+  revision: state.renderedPayload.revision,
+}, "Returning the package failure to authoring…"));
+
 byID("frontier-fields").addEventListener("input", (event) => {
   if (!event.target.matches(".question-answer, .deferral-field, .deferral-toggle")) return;
   state.dirty = true;
@@ -876,7 +1234,7 @@ byID("approval-form").addEventListener("submit", (event) => {
   const mode = event.submitter?.dataset.approval;
   if (mode !== "final" && mode !== "incomplete") return;
   sendMutation({
-    route: "approve",
+    route: "author/approve",
     body: {
       revision: state.renderedPayload.revision,
       human_approved: true,

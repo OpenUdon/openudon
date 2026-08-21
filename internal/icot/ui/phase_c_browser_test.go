@@ -20,6 +20,7 @@ import (
 	"github.com/mxschmitt/playwright-go"
 
 	publicinterview "github.com/OpenUdon/authoring/interview"
+	"github.com/OpenUdon/browsertools/capture"
 	"github.com/OpenUdon/openudon/internal/authoring"
 	"github.com/OpenUdon/openudon/internal/icot/elicitor"
 	"github.com/OpenUdon/openudon/internal/icot/engine"
@@ -80,7 +81,7 @@ func (d *phaseCSnapshotDelay) arm(t *testing.T) (<-chan struct{}, <-chan struct{
 }
 
 func (d *phaseCSnapshotDelay) serveHTTP(next http.Handler, w http.ResponseWriter, r *http.Request) {
-	if !strings.HasSuffix(r.URL.Path, "/api/v2/snapshot") {
+	if !strings.HasSuffix(r.URL.Path, "/api/v3/snapshot") {
 		next.ServeHTTP(w, r)
 		return
 	}
@@ -193,6 +194,10 @@ type phaseCBrowserFixture struct {
 }
 
 func newPhaseCBrowserFixture(t *testing.T, browserEngine *phaseCBrowserEngine) *phaseCBrowserFixture {
+	return newPhaseCBrowserFixtureWithConfig(t, browserEngine, nil)
+}
+
+func newPhaseCBrowserFixtureWithConfig(t *testing.T, browserEngine *phaseCBrowserEngine, configure func(*HandlerConfig)) *phaseCBrowserFixture {
 	t.Helper()
 	listener, err := net.Listen("tcp4", "127.0.0.1:0")
 	if err != nil {
@@ -202,9 +207,13 @@ func newPhaseCBrowserFixture(t *testing.T, browserEngine *phaseCBrowserEngine) *
 	token := "phase-c-browser-test-capability"
 	accessCode := "0123456789AB"
 	terminal := &bytes.Buffer{}
-	handler, err := NewHandler(HandlerConfig{
+	config := HandlerConfig{
 		Engine: browserEngine, Snapshot: browserEngine.snapshot, ExampleDir: "/tmp/phase-c-browser", Token: token, AccessCode: accessCode, Authority: authority, AccessCodeOut: terminal,
-	})
+	}
+	if configure != nil {
+		configure(&config)
+	}
+	handler, err := NewHandler(config)
 	if err != nil {
 		_ = listener.Close()
 		t.Fatal(err)
@@ -431,10 +440,10 @@ func TestPhaseCBrowserAccessibleRoundAndFinalApproval(t *testing.T) {
 		t.Fatal(err)
 	}
 	active, err = page.Evaluate("document.activeElement && document.activeElement.id")
-	if err != nil || active != "workspace-details-toggle" {
-		t.Fatalf("workspace disclosure keyboard order = %#v, %v", active, err)
+	if err != nil || active != "journey-api" {
+		t.Fatalf("journey starter keyboard order = %#v, %v", active, err)
 	}
-	if err := page.Keyboard().Press("Tab"); err != nil {
+	if err := outcome.Focus(); err != nil {
 		t.Fatal(err)
 	}
 	active, err = page.Evaluate("document.activeElement && document.activeElement.id")
@@ -491,10 +500,11 @@ func TestPhaseCBrowserAccessibleRoundAndFinalApproval(t *testing.T) {
 	if err := finalButton.Click(); err != nil {
 		t.Fatal(err)
 	}
-	requireVisible(t, page.Locator("#completion-banner"))
-	waitForActiveID(t, page, "completion-banner")
+	requireVisible(t, page.Locator("#package-section"))
+	waitForActiveID(t, page, "package-heading")
 	waitForLocatorText(t, page.Locator("#mutation-status"), "Approval committed")
 	waitForLocatorText(t, page.Locator("#written-list"), "project.md")
+	waitForLocatorText(t, page.Locator("#package-status"), "Ready to build")
 
 	rounds, approvals, answers, approval := browserEngine.mutationRecord()
 	if rounds != 1 || approvals != 1 || len(answers) != 2 {
@@ -509,7 +519,8 @@ func TestPhaseCBrowserAccessibleRoundAndFinalApproval(t *testing.T) {
 
 	noOverflow, err := page.Evaluate("document.documentElement.scrollWidth <= document.documentElement.clientWidth")
 	if err != nil || noOverflow != true {
-		t.Fatalf("page horizontal overflow = %#v, %v", noOverflow, err)
+		overflowing, _ := page.Evaluate(`({document: {scrollWidth: document.documentElement.scrollWidth, clientWidth: document.documentElement.clientWidth}, body: {scrollWidth: document.body.scrollWidth, clientWidth: document.body.clientWidth}, nodes: Array.from(document.querySelectorAll("*")).filter((node) => node.scrollWidth > node.clientWidth + 1 && getComputedStyle(node).overflowX === "visible").map((node) => ({tag: node.tagName, id: node.id, className: node.className, scrollWidth: node.scrollWidth, clientWidth: node.clientWidth})).slice(0, 12)})`)
+		t.Fatalf("page horizontal overflow = %#v, %v; nodes=%#v", noOverflow, err, overflowing)
 	}
 	if err := page.SetViewportSize(1280, 900); err != nil {
 		t.Fatal(err)
@@ -708,7 +719,8 @@ func TestPhaseCBrowserIncompleteApprovalIsExplicit(t *testing.T) {
 	if err := incomplete.Click(); err != nil {
 		t.Fatal(err)
 	}
-	requireVisible(t, page.Locator("#completion-banner"))
+	requireVisible(t, page.Locator("#package-section"))
+	waitForLocatorText(t, page.Locator("#package-status"), "Ready to build")
 	_, approvals, _, approval := browserEngine.mutationRecord()
 	if approvals != 1 || !approval.HumanApproved || !approval.ApproveIncomplete || approval.AllowOverwrite {
 		t.Fatalf("incomplete approval = %#v (calls %d)", approval, approvals)
@@ -746,6 +758,35 @@ func TestPhaseCBrowserStaleRevisionPreservesUnsentAnswersAndDriftLocks(t *testin
 	requireVisible(t, page.Locator("#workspace-warning"))
 	if disabled, err := page.Locator("#review-confirmed").IsDisabled(); err != nil || !disabled {
 		t.Fatalf("drift review control disabled = %t, %v", disabled, err)
+	}
+}
+
+func TestPhaseCBrowserDirtyAnswersBlockAcquisitionAndSurviveCaptureUpdate(t *testing.T) {
+	_, browser := launchPhaseCBrowser(t)
+	browserEngine := &phaseCBrowserEngine{snapshot: phaseCFrontierSnapshot(), proposal: phaseCProposalSnapshot(false, false)}
+	fixture := newPhaseCBrowserFixtureWithConfig(t, browserEngine, func(config *HandlerConfig) {
+		config.PrivateRoot = "/tmp/private"
+		config.DoctorBrowser = func(context.Context, string, string) (capture.DoctorReport, error) {
+			return capture.DoctorReport{Version: capture.DoctorVersion, Engine: capture.EngineChromium, DriverReady: true, BrowserReady: true}, nil
+		}
+	})
+	page := newPhaseCPage(t, browser, fixture)
+
+	outcome := page.GetByLabel("Your answer for: What outcome should this workflow achieve?", playwright.PageGetByLabelOptions{Exact: playwright.Bool(true)})
+	if err := outcome.Fill("unsent answer survives capture state"); err != nil {
+		t.Fatal(err)
+	}
+	for _, selector := range []string{"#journey-api", "#source-file", "#browser-preflight", "#capture-url"} {
+		if disabled, err := page.Locator(selector).IsDisabled(); err != nil || !disabled {
+			t.Fatalf("dirty acquisition control %s disabled = %t, %v", selector, disabled, err)
+		}
+	}
+	current := getPhaseCSnapshot(t, fixture)
+	postBrowserPreflightFromSecondClient(t, fixture, current)
+	requireVisible(t, page.Locator("#state-warning"))
+	waitForLocatorText(t, page.Locator("#connection"), "capture update requires review")
+	if value, err := outcome.InputValue(); err != nil || value != "unsent answer survives capture state" {
+		t.Fatalf("answer after capture-only update = %q, %v", value, err)
 	}
 }
 
@@ -935,7 +976,7 @@ func TestPhaseCBrowserPollingBackoffAndVisibility(t *testing.T) {
 	page.OnPageError(func(err error) { t.Errorf("iCoT UI page error: %v", err) })
 	var requests atomic.Int64
 	page.OnRequest(func(request playwright.Request) {
-		if strings.HasSuffix(request.URL(), "/api/v2/snapshot") {
+		if strings.HasSuffix(request.URL(), "/api/v3/snapshot") {
 			requests.Add(1)
 		}
 	})
@@ -1028,7 +1069,7 @@ func postRoundFromSecondClient(t *testing.T, fixture *phaseCBrowserFixture, revi
 	if err != nil {
 		t.Fatal(err)
 	}
-	request, err := http.NewRequest(http.MethodPost, "http://"+fixture.authority+"/api/v2/round", bytes.NewReader(body))
+	request, err := http.NewRequest(http.MethodPost, "http://"+fixture.authority+"/api/v3/round", bytes.NewReader(body))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -1041,5 +1082,49 @@ func postRoundFromSecondClient(t *testing.T, fixture *phaseCBrowserFixture, revi
 	defer response.Body.Close()
 	if response.StatusCode != http.StatusOK {
 		t.Fatalf("second-client round = %d", response.StatusCode)
+	}
+}
+
+func getPhaseCSnapshot(t *testing.T, fixture *phaseCBrowserFixture) Response {
+	t.Helper()
+	request, err := http.NewRequest(http.MethodGet, "http://"+fixture.authority+"/api/v3/snapshot", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	request.Header.Set("Authorization", "Bearer "+fixture.token)
+	response, err := http.DefaultClient.Do(request)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer response.Body.Close()
+	if response.StatusCode != http.StatusOK {
+		t.Fatalf("second-client snapshot = %d", response.StatusCode)
+	}
+	var payload Response
+	if err := json.NewDecoder(response.Body).Decode(&payload); err != nil {
+		t.Fatal(err)
+	}
+	return payload
+}
+
+func postBrowserPreflightFromSecondClient(t *testing.T, fixture *phaseCBrowserFixture, current Response) {
+	t.Helper()
+	body, err := json.Marshal(captureMutationRequest{Revision: current.Revision, CaptureRevision: current.CaptureRevision})
+	if err != nil {
+		t.Fatal(err)
+	}
+	request, err := http.NewRequest(http.MethodPost, "http://"+fixture.authority+"/api/v3/browser/preflight", bytes.NewReader(body))
+	if err != nil {
+		t.Fatal(err)
+	}
+	request.Header.Set("Authorization", "Bearer "+fixture.token)
+	request.Header.Set("Content-Type", "application/json")
+	response, err := http.DefaultClient.Do(request)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer response.Body.Close()
+	if response.StatusCode != http.StatusOK {
+		t.Fatalf("second-client browser preflight = %d", response.StatusCode)
 	}
 }

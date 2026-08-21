@@ -18,6 +18,8 @@ import (
 	"mime"
 	"net"
 	"net/http"
+	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"sync"
@@ -25,14 +27,21 @@ import (
 	"time"
 	"unicode/utf8"
 
+	"github.com/OpenUdon/browsertools/authorresult"
+	"github.com/OpenUdon/browsertools/authorsession"
+	"github.com/OpenUdon/browsertools/capture"
 	"github.com/OpenUdon/openudon/internal/authoring"
+	"github.com/OpenUdon/openudon/internal/icot/browserauthor"
 	"github.com/OpenUdon/openudon/internal/icot/engine"
+	"github.com/OpenUdon/openudon/internal/synthesize"
+	"github.com/OpenUdon/openudon/internal/trustedrunner"
 )
 
 const (
-	APIVersion       = "openudon.icot-ui-api.v2"
+	APIVersion       = "openudon.icot-ui-api.v3"
 	SessionCookie    = "openudon_icot_ui"
 	MaxRequestBytes  = 1 << 20
+	MaxArtifactBytes = 2 << 20
 	humanInputSource = "user"
 	instancePrefix   = "/.icot-ui/"
 )
@@ -45,9 +54,36 @@ type AuthoringEngine interface {
 	WorkspaceStatus(context.Context) (engine.WorkspaceStatus, error)
 }
 
+type journeyEngine interface {
+	SelectJourney(context.Context, string, string) (engine.Snapshot, error)
+}
+
+type sourceEngine interface {
+	UploadSource(context.Context, string, io.Reader) (engine.UploadedSource, engine.Snapshot, error)
+	StageUploadedSource(context.Context, string) (engine.Snapshot, error)
+	RemoveStagedSource(context.Context, string) (engine.Snapshot, error)
+}
+
+type resumeEngine interface {
+	ResumeAuthoring(context.Context) (engine.Snapshot, error)
+}
+
+type browserCaptureEngine interface {
+	StageBrowserCapture(context.Context, engine.BrowserCaptureStage) (engine.Snapshot, error)
+}
+
+type CaptureSession interface {
+	// Events closes only after worker protocol handling and process-tree
+	// teardown have completed or reported a containment failure.
+	Events() <-chan browserauthor.Event
+	Respond(context.Context, browserauthor.Response) error
+	Cancel()
+}
+
 // HandlerConfig configures one server handler after its loopback listener is
 // active. Authority must be the listener's exact host:port value.
 type HandlerConfig struct {
+	Context            context.Context
 	Engine             AuthoringEngine
 	Snapshot           engine.Snapshot
 	ExampleDir         string
@@ -58,6 +94,16 @@ type HandlerConfig struct {
 	AccessCodeOut      io.Writer
 	Now                func() time.Time
 	GenerateAccessCode func() (string, error)
+	RepoRoot           string
+	BuildPackage       func(context.Context, synthesize.Options) (*synthesize.Result, *synthesize.QualityReport, error)
+	AssessPackage      func(context.Context, synthesize.Options) (*synthesize.QualityReport, error)
+	InspectPackage     func(context.Context, trustedrunner.TemplateOptions) (trustedrunner.PackageInspection, error)
+	RevalidatePackage  func(context.Context, trustedrunner.TemplateOptions, trustedrunner.PackageInspection) error
+	PrivateRoot        string
+	DriverDir          string
+	DoctorBrowser      func(context.Context, string, string) (capture.DoctorReport, error)
+	StartCapture       func(context.Context, browserauthor.Config) (CaptureSession, error)
+	PrepareCapture     func(CaptureStageRequest) (engine.BrowserCaptureStage, error)
 }
 
 // Workspace identifies the selected example and its optimistic ownership
@@ -69,12 +115,63 @@ type Workspace struct {
 
 // Response is returned by every successful API request.
 type Response struct {
-	Version     string              `json:"version"`
-	Revision    string              `json:"revision"`
-	Completed   bool                `json:"completed"`
-	Workspace   Workspace           `json:"workspace"`
-	Snapshot    engine.Snapshot     `json:"snapshot"`
-	WriteResult *engine.WriteResult `json:"write_result,omitempty"`
+	ETag            string                `json:"-"`
+	Version         string                `json:"version"`
+	Revision        string                `json:"revision"`
+	CaptureRevision string                `json:"capture_revision"`
+	Lifecycle       string                `json:"lifecycle"`
+	Completed       bool                  `json:"completed"`
+	Workspace       Workspace             `json:"workspace"`
+	Snapshot        engine.Snapshot       `json:"snapshot"`
+	Capture         *CaptureState         `json:"capture,omitempty"`
+	BrowserDoctor   *capture.DoctorReport `json:"browser_doctor,omitempty"`
+	WriteResult     *engine.WriteResult   `json:"write_result,omitempty"`
+	Package         *PackageState         `json:"package,omitempty"`
+}
+
+const (
+	lifecycleAuthoring    = "authoring"
+	lifecycleAuthored     = "authored"
+	lifecyclePackageFail  = "package_failed"
+	lifecycleHandoffReady = "handoff_ready"
+)
+
+// CaptureState contains only reduced protocol observations. Credential and
+// challenge values, cookies, storage, stderr, and raw worker output have no
+// representation in this API.
+type CaptureState struct {
+	State             string                     `json:"state"`
+	Message           string                     `json:"message,omitempty"`
+	Phase             string                     `json:"phase,omitempty"`
+	Observation       *authorsession.Observation `json:"observation,omitempty"`
+	Approval          *authorsession.Approval    `json:"approval,omitempty"`
+	Checkpoint        *authorsession.Checkpoint  `json:"checkpoint,omitempty"`
+	ResultReady       bool                       `json:"result_ready,omitempty"`
+	ContainmentFailed bool                       `json:"containment_failed,omitempty"`
+	StartedAt         string                     `json:"started_at,omitempty"`
+	UpdatedAt         string                     `json:"updated_at,omitempty"`
+}
+
+type ArtifactSummary struct {
+	Name      string `json:"name"`
+	Path      string `json:"path"`
+	MediaType string `json:"media_type"`
+	Bytes     int64  `json:"bytes"`
+	SHA256    string `json:"sha256"`
+}
+
+type PackageState struct {
+	Status               string                           `json:"status"`
+	Quality              *PackageQuality                  `json:"quality,omitempty"`
+	Inspection           *trustedrunner.PackageInspection `json:"inspection,omitempty"`
+	Artifacts            []ArtifactSummary                `json:"artifacts,omitempty"`
+	ApprovalTemplateArgv []string                         `json:"approval_template_argv,omitempty"`
+	Remediation          []string                         `json:"remediation,omitempty"`
+}
+
+type PackageQuality struct {
+	Status string                    `json:"status"`
+	Checks []synthesize.QualityCheck `json:"checks"`
 }
 
 type errorEnvelope struct {
@@ -121,6 +218,60 @@ type reopenRequest struct {
 	QuestionID string `json:"question_id"`
 }
 
+type revisionRequest struct {
+	Revision string `json:"revision"`
+}
+
+type journeyRequest struct {
+	Revision string `json:"revision"`
+	Starter  string `json:"starter"`
+	Goal     string `json:"goal"`
+}
+
+type sourceMutationRequest struct {
+	Revision string `json:"revision"`
+	ID       string `json:"id"`
+}
+
+type buildRequest struct {
+	Revision  string `json:"revision"`
+	Confirmed bool   `json:"confirmed"`
+}
+
+type captureStartRequest struct {
+	Revision        string   `json:"revision"`
+	CaptureRevision string   `json:"capture_revision"`
+	ProfileID       string   `json:"profile_id"`
+	URL             string   `json:"url"`
+	DashboardURL    string   `json:"dashboard_url"`
+	Goal            string   `json:"goal"`
+	Origins         []string `json:"origins"`
+	GoalOrigin      string   `json:"goal_origin,omitempty"`
+	GoalPath        string   `json:"goal_path,omitempty"`
+	GoalContext     string   `json:"goal_context,omitempty"`
+	GoalRole        string   `json:"goal_role,omitempty"`
+	GoalLabel       string   `json:"goal_label,omitempty"`
+}
+
+type captureRespondRequest struct {
+	CaptureRevision string                 `json:"capture_revision"`
+	Response        browserauthor.Response `json:"response"`
+}
+
+type captureMutationRequest struct {
+	Revision        string `json:"revision,omitempty"`
+	CaptureRevision string `json:"capture_revision"`
+}
+
+// CaptureStageRequest remains process-private; the Browsertools result path is
+// passed only to the OpenUdon validator and is never serialized to the UI.
+type CaptureStageRequest struct {
+	Start       captureStartRequest
+	ExampleDir  string
+	PrivateRoot string
+	Result      authorsession.Result
+}
+
 type requestError struct {
 	status int
 	code   string
@@ -133,26 +284,49 @@ func (e *requestError) Error() string { return e.text }
 type Server struct {
 	mu sync.Mutex
 
-	engine             AuthoringEngine
-	snapshot           engine.Snapshot
-	exampleDir         string
-	token              string
-	accessCodeDigest   [sha256.Size]byte
-	accessCodeExpires  time.Time
-	accessCodeUsed     bool
-	accessFailures     []time.Time
-	accessRecoveries   []time.Time
-	accessCodeOut      io.Writer
-	generateAccessCode func() (string, error)
-	now                func() time.Time
-	authority          string
-	origin             string
-	basePath           string
-	revision           string
-	completed          bool
-	writeResult        *engine.WriteResult
-	workspace          engine.WorkspaceStatus
-	errOut             io.Writer
+	engine                   AuthoringEngine
+	snapshot                 engine.Snapshot
+	exampleDir               string
+	token                    string
+	accessCodeDigest         [sha256.Size]byte
+	accessCodeExpires        time.Time
+	accessCodeUsed           bool
+	accessFailures           []time.Time
+	accessRecoveries         []time.Time
+	accessCodeOut            io.Writer
+	generateAccessCode       func() (string, error)
+	now                      func() time.Time
+	authority                string
+	origin                   string
+	basePath                 string
+	revision                 string
+	captureRevision          string
+	etag                     string
+	lifecycle                string
+	completed                bool
+	writeResult              *engine.WriteResult
+	capture                  *CaptureState
+	packageState             *PackageState
+	artifactPaths            map[string]string
+	repoRoot                 string
+	buildPackage             func(context.Context, synthesize.Options) (*synthesize.Result, *synthesize.QualityReport, error)
+	assessPackage            func(context.Context, synthesize.Options) (*synthesize.QualityReport, error)
+	inspectPackage           func(context.Context, trustedrunner.TemplateOptions) (trustedrunner.PackageInspection, error)
+	revalidatePackage        func(context.Context, trustedrunner.TemplateOptions, trustedrunner.PackageInspection) error
+	privateRoot              string
+	driverDir                string
+	doctorBrowser            func(context.Context, string, string) (capture.DoctorReport, error)
+	startCapture             func(context.Context, browserauthor.Config) (CaptureSession, error)
+	prepareCapture           func(CaptureStageRequest) (engine.BrowserCaptureStage, error)
+	captureSession           CaptureSession
+	captureCancel            context.CancelFunc
+	captureResult            *authorsession.Result
+	captureStart             captureStartRequest
+	captureContainmentFailed bool
+	doctorReport             *capture.DoctorReport
+	captureContext           context.Context
+	workspace                engine.WorkspaceStatus
+	errOut                   io.Writer
 }
 
 var fallbackRequestID atomic.Uint64
@@ -224,12 +398,41 @@ func NewHandler(config HandlerConfig) (http.Handler, error) {
 		origin: "http://" + authority, basePath: instanceBasePath(config.Token), errOut: errOut,
 		accessCodeOut: accessCodeOut, generateAccessCode: generateAccessCode,
 		accessCodeDigest: sha256.Sum256([]byte(accessCode)), accessCodeExpires: now().Add(5 * time.Minute), now: now,
+		lifecycle: lifecycleAuthoring, artifactPaths: map[string]string{}, repoRoot: strings.TrimSpace(config.RepoRoot),
+		buildPackage: config.BuildPackage, assessPackage: config.AssessPackage, inspectPackage: config.InspectPackage, revalidatePackage: config.RevalidatePackage,
+		privateRoot: strings.TrimSpace(config.PrivateRoot), driverDir: strings.TrimSpace(config.DriverDir),
+		doctorBrowser: config.DoctorBrowser, startCapture: config.StartCapture, prepareCapture: config.PrepareCapture,
+		captureContext: config.Context,
 	}
-	revision, err := revisionFor(s.snapshot, false, nil, s.workspace)
-	if err != nil {
+	if s.buildPackage == nil {
+		s.buildPackage = synthesize.PackageFromIntent
+	}
+	if s.assessPackage == nil {
+		s.assessPackage = synthesize.AssessCurrent
+	}
+	if s.inspectPackage == nil {
+		s.inspectPackage = trustedrunner.InspectPackage
+	}
+	if s.revalidatePackage == nil {
+		s.revalidatePackage = trustedrunner.RevalidatePackageBytes
+	}
+	if s.doctorBrowser == nil {
+		s.doctorBrowser = browserauthor.Doctor
+	}
+	if s.startCapture == nil {
+		s.startCapture = func(ctx context.Context, config browserauthor.Config) (CaptureSession, error) {
+			return browserauthor.Start(ctx, config)
+		}
+	}
+	if s.captureContext == nil {
+		s.captureContext = context.Background()
+	}
+	if s.repoRoot == "" {
+		s.repoRoot, _ = os.Getwd()
+	}
+	if err := s.updateRevisionLocked(); err != nil {
 		return nil, err
 	}
-	s.revision = revision
 	return s, nil
 }
 
@@ -286,14 +489,38 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		s.serveAsset(w, r, cookieScoped, requestID, "assets/app.js", "text/javascript; charset=utf-8")
 	case "/assets/style.css":
 		s.serveAsset(w, r, cookieScoped, requestID, "assets/style.css", "text/css; charset=utf-8")
-	case "/api/v2/snapshot":
+	case "/api/v3/snapshot":
 		s.serveSnapshot(w, r, cookieScoped, requestID)
-	case "/api/v2/round":
+	case "/api/v3/journey":
+		s.serveJourney(w, r, cookieScoped, requestID)
+	case "/api/v3/round":
 		s.serveRound(w, r, cookieScoped, requestID)
-	case "/api/v2/reopen":
+	case "/api/v3/reopen":
 		s.serveReopen(w, r, cookieScoped, requestID)
-	case "/api/v2/approve":
+	case "/api/v3/source/upload":
+		s.serveSourceUpload(w, r, cookieScoped, requestID)
+	case "/api/v3/source/stage":
+		s.serveSourceMutation(w, r, cookieScoped, requestID, true)
+	case "/api/v3/source/remove":
+		s.serveSourceMutation(w, r, cookieScoped, requestID, false)
+	case "/api/v3/browser/preflight":
+		s.serveBrowserPreflight(w, r, cookieScoped, requestID)
+	case "/api/v3/capture/start":
+		s.serveCaptureStart(w, r, cookieScoped, requestID)
+	case "/api/v3/capture/respond":
+		s.serveCaptureRespond(w, r, cookieScoped, requestID)
+	case "/api/v3/capture/stage":
+		s.serveCaptureStage(w, r, cookieScoped, requestID)
+	case "/api/v3/capture/cancel":
+		s.serveCaptureCancel(w, r, cookieScoped, requestID)
+	case "/api/v3/author/approve":
 		s.serveApprove(w, r, cookieScoped, requestID)
+	case "/api/v3/author/resume":
+		s.serveResume(w, r, cookieScoped, requestID)
+	case "/api/v3/package/build":
+		s.servePackageBuild(w, r, cookieScoped, requestID)
+	case "/api/v3/artifact":
+		s.serveArtifact(w, r, cookieScoped, requestID)
 	default:
 		s.serveUnknown(w, r, cookieScoped, requestID)
 	}
@@ -478,15 +705,646 @@ func (s *Server) serveSnapshot(w http.ResponseWriter, r *http.Request, cookieSco
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	if err := s.refreshWorkspaceLocked(r.Context()); err != nil {
-		s.writeInternalError(w, r, requestID, "/api/v2/snapshot", "workspace_inspection", err, true)
+		s.writeInternalError(w, r, requestID, "/api/v3/snapshot", "workspace_inspection", err, true)
 		return
 	}
-	setETag(w, s.revision)
-	if matchesETag(r.Header.Get("If-None-Match"), s.revision) {
+	if s.lifecycle == lifecycleHandoffReady {
+		if err := s.validateFrozenArtifactsLocked(r.Context()); err != nil {
+			s.invalidateHandoffLocked()
+			if revisionErr := s.updateRevisionLocked(); revisionErr != nil {
+				s.writeInternalError(w, r, requestID, "/api/v3/snapshot", "revision", revisionErr, true)
+				return
+			}
+		}
+	}
+	setETag(w, s.etag)
+	if matchesETag(r.Header.Get("If-None-Match"), s.etag) {
 		w.WriteHeader(http.StatusNotModified)
 		return
 	}
 	s.writeJSON(w, http.StatusOK, s.responseLocked(), requestID)
+}
+
+func (s *Server) serveJourney(w http.ResponseWriter, r *http.Request, cookieScoped bool, requestID string) {
+	if r.Method != http.MethodPost {
+		s.methodNotAllowed(w, http.MethodPost, requestID)
+		return
+	}
+	if !s.authenticated(r, cookieScoped) {
+		s.writeError(w, http.StatusUnauthorized, "unauthorized", "a valid UI capability token is required", false, requestID, "")
+		return
+	}
+	var request journeyRequest
+	if err := decodeJSONRequest(w, r, &request); err != nil {
+		s.writeRequestError(w, err, requestID)
+		return
+	}
+	selected, ok := s.engine.(journeyEngine)
+	if !ok {
+		s.writeError(w, http.StatusNotImplemented, "unsupported", "journey selection is unavailable", false, requestID, s.currentRevision())
+		return
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if !s.beginMutation(w, r, requestID, "/api/v3/journey", strings.TrimSpace(request.Revision)) {
+		return
+	}
+	snapshot, err := selected.SelectJourney(r.Context(), request.Starter, request.Goal)
+	if err != nil {
+		s.refreshWorkspaceAfterFailure()
+		s.writeEngineError(w, r, requestID, "/api/v3/journey", "select_journey", err)
+		return
+	}
+	s.snapshot = snapshot
+	if err := s.updateRevisionLocked(); err != nil {
+		s.writeInternalError(w, r, requestID, "/api/v3/journey", "revision", err, true)
+		return
+	}
+	setETag(w, s.etag)
+	s.writeJSON(w, http.StatusOK, s.responseLocked(), requestID)
+}
+
+func (s *Server) serveSourceUpload(w http.ResponseWriter, r *http.Request, cookieScoped bool, requestID string) {
+	if r.Method != http.MethodPost {
+		s.methodNotAllowed(w, http.MethodPost, requestID)
+		return
+	}
+	if !s.authenticated(r, cookieScoped) {
+		s.writeError(w, http.StatusUnauthorized, "unauthorized", "a valid UI capability token is required", false, requestID, "")
+		return
+	}
+	r.Body = http.MaxBytesReader(w, r.Body, engine.MaxUploadBytes+(64<<10))
+	reader, err := r.MultipartReader()
+	if err != nil {
+		s.writeError(w, http.StatusUnsupportedMediaType, "unsupported_media_type", "Content-Type must be multipart/form-data", false, requestID, s.currentRevision())
+		return
+	}
+	var revision, filename string
+	var sourceBytes []byte
+	seen := map[string]bool{}
+	for {
+		part, partErr := reader.NextPart()
+		if errors.Is(partErr, io.EOF) {
+			break
+		}
+		if partErr != nil {
+			s.writeError(w, http.StatusBadRequest, "malformed_request", "multipart upload is malformed", false, requestID, s.currentRevision())
+			return
+		}
+		name := part.FormName()
+		if seen[name] || name != "revision" && name != "source" {
+			s.writeError(w, http.StatusBadRequest, "malformed_request", "upload requires exactly one revision and source part", false, requestID, s.currentRevision())
+			return
+		}
+		seen[name] = true
+		if name == "revision" {
+			value, readErr := io.ReadAll(io.LimitReader(part, 1025))
+			if readErr != nil || len(value) > 1024 || part.FileName() != "" {
+				s.writeError(w, http.StatusBadRequest, "malformed_request", "revision upload part is invalid", false, requestID, s.currentRevision())
+				return
+			}
+			revision = strings.TrimSpace(string(value))
+		} else {
+			filename = part.FileName()
+			value, readErr := io.ReadAll(io.LimitReader(part, engine.MaxUploadBytes+1))
+			if readErr != nil || int64(len(value)) > engine.MaxUploadBytes || filename == "" {
+				s.writeError(w, http.StatusRequestEntityTooLarge, "payload_too_large", "uploaded source is missing or exceeds 20 MiB", false, requestID, s.currentRevision())
+				return
+			}
+			sourceBytes = value
+		}
+	}
+	if revision == "" || !seen["source"] {
+		s.writeError(w, http.StatusBadRequest, "malformed_request", "upload requires exactly one revision and source part", false, requestID, s.currentRevision())
+		return
+	}
+	uploader, ok := s.engine.(sourceEngine)
+	if !ok {
+		s.writeError(w, http.StatusNotImplemented, "unsupported", "source upload is unavailable", false, requestID, s.currentRevision())
+		return
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if !s.beginMutation(w, r, requestID, "/api/v3/source/upload", revision) {
+		return
+	}
+	_, snapshot, err := uploader.UploadSource(r.Context(), filename, bytes.NewReader(sourceBytes))
+	if err != nil {
+		s.refreshWorkspaceAfterFailure()
+		s.writeEngineError(w, r, requestID, "/api/v3/source/upload", "upload_source", err)
+		return
+	}
+	s.snapshot = snapshot
+	if err := s.updateRevisionLocked(); err != nil {
+		s.writeInternalError(w, r, requestID, "/api/v3/source/upload", "revision", err, true)
+		return
+	}
+	setETag(w, s.etag)
+	s.writeJSON(w, http.StatusOK, s.responseLocked(), requestID)
+}
+
+func (s *Server) serveSourceMutation(w http.ResponseWriter, r *http.Request, cookieScoped bool, requestID string, stage bool) {
+	if r.Method != http.MethodPost {
+		s.methodNotAllowed(w, http.MethodPost, requestID)
+		return
+	}
+	if !s.authenticated(r, cookieScoped) {
+		s.writeError(w, http.StatusUnauthorized, "unauthorized", "a valid UI capability token is required", false, requestID, "")
+		return
+	}
+	var request sourceMutationRequest
+	if err := decodeJSONRequest(w, r, &request); err != nil {
+		s.writeRequestError(w, err, requestID)
+		return
+	}
+	mutator, ok := s.engine.(sourceEngine)
+	if !ok {
+		s.writeError(w, http.StatusNotImplemented, "unsupported", "source mutation is unavailable", false, requestID, s.currentRevision())
+		return
+	}
+	route, operation := "/api/v3/source/remove", "remove_source"
+	if stage {
+		route, operation = "/api/v3/source/stage", "stage_source"
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if !s.beginMutation(w, r, requestID, route, strings.TrimSpace(request.Revision)) {
+		return
+	}
+	var snapshot engine.Snapshot
+	var err error
+	if stage {
+		snapshot, err = mutator.StageUploadedSource(r.Context(), request.ID)
+	} else {
+		snapshot, err = mutator.RemoveStagedSource(r.Context(), request.ID)
+	}
+	if err != nil {
+		s.refreshWorkspaceAfterFailure()
+		s.writeEngineError(w, r, requestID, route, operation, err)
+		return
+	}
+	s.snapshot = snapshot
+	if err := s.updateRevisionLocked(); err != nil {
+		s.writeInternalError(w, r, requestID, route, "revision", err, true)
+		return
+	}
+	setETag(w, s.etag)
+	s.writeJSON(w, http.StatusOK, s.responseLocked(), requestID)
+}
+
+func (s *Server) serveBrowserPreflight(w http.ResponseWriter, r *http.Request, cookieScoped bool, requestID string) {
+	if r.Method != http.MethodPost {
+		s.methodNotAllowed(w, http.MethodPost, requestID)
+		return
+	}
+	if !s.authenticated(r, cookieScoped) {
+		s.writeError(w, http.StatusUnauthorized, "unauthorized", "a valid UI capability token is required", false, requestID, "")
+		return
+	}
+	var request captureMutationRequest
+	if err := decodeJSONRequest(w, r, &request); err != nil {
+		s.writeRequestError(w, err, requestID)
+		return
+	}
+	s.mu.Lock()
+	if !s.beginMutation(w, r, requestID, "/api/v3/browser/preflight", strings.TrimSpace(request.Revision)) {
+		s.mu.Unlock()
+		return
+	}
+	if strings.TrimSpace(request.CaptureRevision) != s.captureRevision {
+		s.writeError(w, http.StatusConflict, "stale_capture_revision", "capture revision is stale", true, requestID, s.revision)
+		s.mu.Unlock()
+		return
+	}
+	if s.privateRoot == "" {
+		s.writeError(w, http.StatusUnprocessableEntity, "private_root_required", "browser capture requires icot ui --private-root", false, requestID, s.revision)
+		s.mu.Unlock()
+		return
+	}
+	s.capture = &CaptureState{State: "preflight", Message: "Checking the installed Playwright driver and Chromium runtime.", UpdatedAt: s.now().UTC().Format(time.RFC3339)}
+	if err := s.updateRevisionLocked(); err != nil {
+		s.writeInternalError(w, r, requestID, "/api/v3/browser/preflight", "revision", err, true)
+		s.mu.Unlock()
+		return
+	}
+	preflightRevision := s.captureRevision
+	preflightContext, preflightCancel := context.WithCancel(r.Context())
+	s.captureCancel = preflightCancel
+	s.mu.Unlock()
+
+	// Doctor may take up to 30 seconds. Keep the state lock free so polling can
+	// continue to render the explicit preflight state while the isolated worker
+	// performs the readiness check.
+	report, err := s.doctorBrowser(preflightContext, s.privateRoot, s.driverDir)
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if s.capture != nil && s.capture.State == "canceling" && s.captureCancel != nil {
+		preflightCancel()
+		s.captureCancel = nil
+		state := "canceled"
+		message := "Browser readiness checking was canceled after the isolated worker stopped."
+		containmentFailed := browserauthor.TeardownFailed(err)
+		if containmentFailed {
+			state = "failed"
+			message = "The Chromium readiness worker did not confirm process-tree teardown. Restart iCoT before another browser capture."
+			s.captureContainmentFailed = true
+		}
+		s.capture = &CaptureState{State: state, Message: message, ContainmentFailed: containmentFailed, StartedAt: s.capture.StartedAt, UpdatedAt: s.now().UTC().Format(time.RFC3339)}
+		_ = s.updateRevisionLocked()
+		s.writeError(w, http.StatusConflict, "capture_canceled", "browser preflight was canceled", false, requestID, s.revision)
+		return
+	}
+	if s.captureRevision != preflightRevision || s.capture == nil || s.capture.State != "preflight" {
+		preflightCancel()
+		s.writeError(w, http.StatusConflict, "stale_capture_revision", "browser preflight state changed before the readiness check completed", true, requestID, s.revision)
+		return
+	}
+	preflightCancel()
+	s.captureCancel = nil
+	if browserauthor.TeardownFailed(err) {
+		s.captureContainmentFailed = true
+		s.capture = &CaptureState{State: "failed", Message: "The Chromium readiness worker did not confirm process-tree teardown. Restart iCoT before another browser capture.", ContainmentFailed: true, UpdatedAt: s.now().UTC().Format(time.RFC3339)}
+		_ = s.updateRevisionLocked()
+		s.writeError(w, http.StatusUnprocessableEntity, "capture_teardown_failed", "Chromium readiness process teardown was not confirmed; restart iCoT", false, requestID, s.revision)
+		return
+	}
+	if report.Version == capture.DoctorVersion && report.Engine == capture.EngineChromium {
+		reviewedReport := report
+		if err != nil {
+			reviewedReport.Error = "Chromium readiness check failed"
+			reviewedReport.BrowserExecutable = ""
+		}
+		s.doctorReport = &reviewedReport
+	}
+	if err != nil {
+		s.capture = &CaptureState{State: "failed", Message: "Chromium readiness check failed.", UpdatedAt: s.now().UTC().Format(time.RFC3339)}
+		_ = s.updateRevisionLocked()
+		s.writeError(w, http.StatusUnprocessableEntity, "browser_unavailable", "Browsertools could not verify Chromium readiness", false, requestID, s.revision)
+		return
+	}
+	s.capture = &CaptureState{State: "configuring", Message: "Chromium is ready. Review the exact capture authority before launch.", UpdatedAt: s.now().UTC().Format(time.RFC3339)}
+	if err := s.updateRevisionLocked(); err != nil {
+		s.writeInternalError(w, r, requestID, "/api/v3/browser/preflight", "revision", err, true)
+		return
+	}
+	setETag(w, s.etag)
+	s.writeJSON(w, http.StatusOK, s.responseLocked(), requestID)
+}
+
+func (s *Server) serveCaptureStart(w http.ResponseWriter, r *http.Request, cookieScoped bool, requestID string) {
+	if r.Method != http.MethodPost {
+		s.methodNotAllowed(w, http.MethodPost, requestID)
+		return
+	}
+	if !s.authenticated(r, cookieScoped) {
+		s.writeError(w, http.StatusUnauthorized, "unauthorized", "a valid UI capability token is required", false, requestID, "")
+		return
+	}
+	var request captureStartRequest
+	if err := decodeJSONRequest(w, r, &request); err != nil {
+		s.writeRequestError(w, err, requestID)
+		return
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if err := s.refreshWorkspaceLocked(r.Context()); err != nil {
+		s.writeInternalError(w, r, requestID, "/api/v3/capture/start", "workspace_inspection", err, true)
+		return
+	}
+	if strings.TrimSpace(request.Revision) != s.revision || strings.TrimSpace(request.CaptureRevision) != s.captureRevision {
+		s.writeError(w, http.StatusConflict, "stale_revision", "authoring or capture revision is stale", true, requestID, s.revision)
+		return
+	}
+	if s.lifecycle != lifecycleAuthoring || s.workspace.ExternallyModified {
+		s.writeError(w, http.StatusConflict, "session_frozen", "browser capture is unavailable in the current authoring state", false, requestID, s.revision)
+		return
+	}
+	if s.captureContainmentFailed {
+		s.writeError(w, http.StatusConflict, "capture_teardown_failed", "a prior browser process tree did not confirm teardown; restart iCoT before another capture", false, requestID, s.revision)
+		return
+	}
+	if captureActive(s.capture) && s.capture.State != "configuring" {
+		s.writeError(w, http.StatusConflict, "capture_active", "only one browser capture may run at a time", true, requestID, s.revision)
+		return
+	}
+	if s.privateRoot == "" {
+		s.writeError(w, http.StatusUnprocessableEntity, "private_root_required", "browser capture requires icot ui --private-root", false, requestID, s.revision)
+		return
+	}
+	if s.capture == nil || s.capture.State != "configuring" || s.doctorReport == nil || !s.doctorReport.DriverReady || !s.doctorReport.BrowserReady {
+		s.writeError(w, http.StatusConflict, "browser_preflight_required", "a passing Chromium preflight is required before browser capture launch", false, requestID, s.revision)
+		return
+	}
+	goalOrigin := strings.TrimSpace(request.GoalOrigin)
+	if goalOrigin == "" && len(request.Origins) > 0 {
+		goalOrigin = request.Origins[len(request.Origins)-1]
+	}
+	goalPath := strings.TrimSpace(request.GoalPath)
+	if goalPath == "" {
+		goalPath = "/"
+	}
+	goalContext := strings.TrimSpace(request.GoalContext)
+	if goalContext == "" {
+		goalContext = "main"
+	}
+	goalRole := strings.TrimSpace(request.GoalRole)
+	if goalRole == "" {
+		goalRole = "heading"
+	}
+	goalLabel := strings.TrimSpace(request.GoalLabel)
+	if goalLabel == "" {
+		goalLabel = "Dashboard"
+	}
+	request.GoalOrigin, request.GoalPath, request.GoalContext, request.GoalRole, request.GoalLabel = goalOrigin, goalPath, goalContext, goalRole, goalLabel
+	startedAt := s.now().UTC()
+	s.capture = &CaptureState{State: "launching", Message: "Launching an isolated headed Chromium authoring session.", StartedAt: startedAt.Format(time.RFC3339), UpdatedAt: startedAt.Format(time.RFC3339)}
+	s.captureResult = nil
+	request.Revision, request.CaptureRevision = "", ""
+	s.captureStart = request
+	session, err := s.startCapture(s.captureContext, browserauthor.Config{
+		PrivateRoot: s.privateRoot, DriverDir: s.driverDir, InitialURL: request.URL, DashboardURL: request.DashboardURL,
+		Goal: request.Goal, Origins: append([]string(nil), request.Origins...), ProfileID: request.ProfileID,
+		GoalPredicate: authorresult.GoalPredicate{Origin: goalOrigin, Path: goalPath, Context: goalContext, Role: goalRole, Label: goalLabel},
+	})
+	if err != nil {
+		s.capture = &CaptureState{State: "failed", Message: "The isolated Chromium worker could not start.", StartedAt: startedAt.Format(time.RFC3339), UpdatedAt: s.now().UTC().Format(time.RFC3339)}
+		_ = s.updateRevisionLocked()
+		s.writeError(w, http.StatusUnprocessableEntity, "capture_failed", "browser capture failed before launch", false, requestID, s.revision)
+		return
+	}
+	s.captureSession = session
+	go s.consumeCapture(session, startedAt)
+	if err := s.updateRevisionLocked(); err != nil {
+		s.writeInternalError(w, r, requestID, "/api/v3/capture/start", "revision", err, true)
+		return
+	}
+	setETag(w, s.etag)
+	s.writeJSON(w, http.StatusAccepted, s.responseLocked(), requestID)
+}
+
+func (s *Server) consumeCapture(session CaptureSession, startedAt time.Time) {
+	sawTerminal := false
+	resultReceived := false
+	terminalState := ""
+	terminalMessage := ""
+	terminalErrorCode := ""
+	for event := range session.Events() {
+		s.mu.Lock()
+		if s.captureSession != session {
+			s.mu.Unlock()
+			continue
+		}
+		// Cancellation is monotonic. A result or checkpoint that was already
+		// queued when the operator canceled must never restore an actionable
+		// state or become promotable while process-tree teardown is pending.
+		if s.capture != nil && s.capture.State == "canceling" && event.State != "failed" && event.State != "canceled" {
+			s.mu.Unlock()
+			continue
+		}
+		state := &CaptureState{
+			State: event.State, Phase: event.Phase, Observation: event.Observation, Approval: event.Approval, Checkpoint: event.Checkpoint,
+			StartedAt: startedAt.Format(time.RFC3339), UpdatedAt: s.now().UTC().Format(time.RFC3339),
+		}
+		if event.ErrorCode != "" {
+			state.Message = captureErrorMessage(event.ErrorCode)
+		}
+		if event.Result != nil {
+			copy := *event.Result
+			s.captureResult = &copy
+			resultReceived = true
+			state.State = "completion_review"
+			state.ResultReady = false
+			state.Message = "The reduced profiles are complete; waiting for isolated worker teardown before stage review."
+		}
+		if event.State == "failed" || event.State == "canceled" {
+			sawTerminal = true
+			if event.State == "failed" || terminalState == "" {
+				terminalState = event.State
+				terminalMessage = state.Message
+				terminalErrorCode = event.ErrorCode
+			}
+			s.capture = &CaptureState{
+				State: "canceling", Message: "The browser worker stopped; waiting for process-tree teardown to complete.",
+				StartedAt: startedAt.Format(time.RFC3339), UpdatedAt: s.now().UTC().Format(time.RFC3339),
+			}
+			_ = s.updateRevisionLocked()
+			s.mu.Unlock()
+			continue
+		}
+		s.capture = state
+		if event.Result != nil {
+			sawTerminal = true
+		}
+		_ = s.updateRevisionLocked()
+		s.mu.Unlock()
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if s.captureSession != session {
+		return
+	}
+	s.captureSession = nil
+	if terminalState != "" || s.capture != nil && s.capture.State == "canceling" {
+		state := "canceled"
+		message := "Browser capture was canceled after the isolated worker and its descendants stopped; no capture bytes were staged."
+		if terminalState == "canceled" && terminalMessage != "" {
+			message = terminalMessage + " The isolated worker and its descendants have stopped."
+		}
+		if terminalState == "failed" {
+			state = "failed"
+			message = terminalMessage
+			if message == "" {
+				message = "The browser worker failed during teardown; no capture bytes were staged."
+			}
+			if terminalErrorCode == "worker_teardown" {
+				s.captureContainmentFailed = true
+				message += " Restart iCoT before starting another browser capture."
+			}
+		}
+		s.capture = &CaptureState{State: state, Message: message, ContainmentFailed: terminalErrorCode == "worker_teardown", StartedAt: startedAt.Format(time.RFC3339), UpdatedAt: s.now().UTC().Format(time.RFC3339)}
+		s.captureResult = nil
+		_ = s.updateRevisionLocked()
+		return
+	}
+	if resultReceived && s.captureResult != nil {
+		s.capture = &CaptureState{
+			State: "stage_review", Message: "The reduced profiles are complete and the isolated worker has stopped. Review and stage them explicitly.", ResultReady: true,
+			StartedAt: startedAt.Format(time.RFC3339), UpdatedAt: s.now().UTC().Format(time.RFC3339),
+		}
+		_ = s.updateRevisionLocked()
+		return
+	}
+	if !sawTerminal {
+		s.capture = &CaptureState{State: "failed", Message: "The browser worker ended without a promotable result.", StartedAt: startedAt.Format(time.RFC3339), UpdatedAt: s.now().UTC().Format(time.RFC3339)}
+		_ = s.updateRevisionLocked()
+	}
+}
+
+func (s *Server) serveCaptureRespond(w http.ResponseWriter, r *http.Request, cookieScoped bool, requestID string) {
+	if r.Method != http.MethodPost {
+		s.methodNotAllowed(w, http.MethodPost, requestID)
+		return
+	}
+	if !s.authenticated(r, cookieScoped) {
+		s.writeError(w, http.StatusUnauthorized, "unauthorized", "a valid UI capability token is required", false, requestID, "")
+		return
+	}
+	var request captureRespondRequest
+	if err := decodeJSONRequest(w, r, &request); err != nil {
+		s.writeRequestError(w, err, requestID)
+		return
+	}
+	s.mu.Lock()
+	if request.CaptureRevision != s.captureRevision || !captureResponsePending(s.capture) || s.captureSession == nil {
+		s.writeError(w, http.StatusConflict, "stale_capture_revision", "capture revision is stale or no capture response is pending", true, requestID, s.revision)
+		s.mu.Unlock()
+		return
+	}
+	session := s.captureSession
+	pending := *s.capture
+	s.capture = &CaptureState{
+		State: pending.State, Phase: pending.Phase, Message: "Response accepted; waiting for the isolated browser worker.",
+		StartedAt: pending.StartedAt, UpdatedAt: s.now().UTC().Format(time.RFC3339),
+	}
+	if err := s.updateRevisionLocked(); err != nil {
+		s.capture = &pending
+		s.writeInternalError(w, r, requestID, "/api/v3/capture/respond", "revision", err, true)
+		s.mu.Unlock()
+		return
+	}
+	reservedRevision := s.captureRevision
+	s.mu.Unlock()
+	responseCtx, cancel := context.WithTimeout(r.Context(), 5*time.Second)
+	defer cancel()
+	if err := session.Respond(responseCtx, request.Response); err != nil {
+		s.mu.Lock()
+		if s.captureSession == session && s.captureRevision == reservedRevision {
+			s.capture = &pending
+			if revisionErr := s.updateRevisionLocked(); revisionErr != nil {
+				s.writeInternalError(w, r, requestID, "/api/v3/capture/respond", "revision", revisionErr, true)
+				s.mu.Unlock()
+				return
+			}
+		}
+		currentRevision := s.revision
+		s.mu.Unlock()
+		s.writeError(w, http.StatusUnprocessableEntity, "capture_response_rejected", "the typed response is not valid for the current browser checkpoint", false, requestID, currentRevision)
+		return
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	setETag(w, s.etag)
+	s.writeJSON(w, http.StatusAccepted, s.responseLocked(), requestID)
+}
+
+func (s *Server) serveCaptureCancel(w http.ResponseWriter, r *http.Request, cookieScoped bool, requestID string) {
+	if r.Method != http.MethodPost {
+		s.methodNotAllowed(w, http.MethodPost, requestID)
+		return
+	}
+	if !s.authenticated(r, cookieScoped) {
+		s.writeError(w, http.StatusUnauthorized, "unauthorized", "a valid UI capability token is required", false, requestID, "")
+		return
+	}
+	var request captureMutationRequest
+	if err := decodeJSONRequest(w, r, &request); err != nil {
+		s.writeRequestError(w, err, requestID)
+		return
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if request.CaptureRevision != s.captureRevision || !captureActive(s.capture) || s.capture.State == "canceling" || s.captureSession == nil && s.captureCancel == nil {
+		s.writeError(w, http.StatusConflict, "stale_capture_revision", "capture revision is stale or no capture is active", true, requestID, s.revision)
+		return
+	}
+	if s.captureSession != nil {
+		s.captureSession.Cancel()
+	}
+	if s.captureCancel != nil {
+		s.captureCancel()
+	}
+	s.capture = &CaptureState{State: "canceling", Message: "Cancellation was requested; waiting for the isolated worker and all descendants to stop.", StartedAt: s.capture.StartedAt, UpdatedAt: s.now().UTC().Format(time.RFC3339)}
+	s.captureResult = nil
+	if err := s.updateRevisionLocked(); err != nil {
+		s.writeInternalError(w, r, requestID, "/api/v3/capture/cancel", "revision", err, true)
+		return
+	}
+	setETag(w, s.etag)
+	s.writeJSON(w, http.StatusAccepted, s.responseLocked(), requestID)
+}
+
+func (s *Server) serveCaptureStage(w http.ResponseWriter, r *http.Request, cookieScoped bool, requestID string) {
+	if r.Method != http.MethodPost {
+		s.methodNotAllowed(w, http.MethodPost, requestID)
+		return
+	}
+	if !s.authenticated(r, cookieScoped) {
+		s.writeError(w, http.StatusUnauthorized, "unauthorized", "a valid UI capability token is required", false, requestID, "")
+		return
+	}
+	var request captureMutationRequest
+	if err := decodeJSONRequest(w, r, &request); err != nil {
+		s.writeRequestError(w, err, requestID)
+		return
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if request.Revision != s.revision || request.CaptureRevision != s.captureRevision {
+		s.writeError(w, http.StatusConflict, "stale_revision", "authoring or capture revision is stale", true, requestID, s.revision)
+		return
+	}
+	if s.capture == nil || !s.capture.ResultReady || s.captureResult == nil || s.prepareCapture == nil {
+		s.writeError(w, http.StatusConflict, "capture_not_ready", "a completed reviewed capture is required before staging", false, requestID, s.revision)
+		return
+	}
+	stager, ok := s.engine.(browserCaptureEngine)
+	if !ok {
+		s.writeError(w, http.StatusNotImplemented, "unsupported", "browser capture staging is unavailable", false, requestID, s.revision)
+		return
+	}
+	startedAt := s.capture.StartedAt
+	s.capture = &CaptureState{State: "staging", Message: "Revalidating and atomically staging the reduced profile pair.", StartedAt: startedAt, UpdatedAt: s.now().UTC().Format(time.RFC3339)}
+	prepared, err := s.prepareCapture(CaptureStageRequest{Start: s.captureStart, ExampleDir: s.exampleDir, PrivateRoot: s.privateRoot, Result: *s.captureResult})
+	if err != nil {
+		s.capture = &CaptureState{State: "failed", Message: "The completed capture failed independent OpenUdon validation; nothing was staged.", StartedAt: startedAt, UpdatedAt: s.now().UTC().Format(time.RFC3339)}
+		s.captureResult = nil
+		_ = s.updateRevisionLocked()
+		s.writeError(w, http.StatusUnprocessableEntity, "capture_validation_failed", "completed browser capture was rejected", false, requestID, s.revision)
+		return
+	}
+	snapshot, err := stager.StageBrowserCapture(r.Context(), prepared)
+	if err != nil {
+		s.capture = &CaptureState{State: "failed", Message: "The reviewed capture could not be staged; no partial capture was adopted.", StartedAt: startedAt, UpdatedAt: s.now().UTC().Format(time.RFC3339)}
+		s.captureResult = nil
+		s.captureSession = nil
+		s.refreshWorkspaceAfterFailure()
+		_ = s.updateRevisionLocked()
+		s.writeEngineError(w, r, requestID, "/api/v3/capture/stage", "stage_capture", err)
+		return
+	}
+	s.snapshot = snapshot
+	s.capture = &CaptureState{State: "staged", Message: "The canonical profile pair and safe capture review were staged. Continue normal authoring review.", StartedAt: startedAt, UpdatedAt: s.now().UTC().Format(time.RFC3339)}
+	s.captureResult = nil
+	s.captureSession = nil
+	if err := s.updateRevisionLocked(); err != nil {
+		s.writeInternalError(w, r, requestID, "/api/v3/capture/stage", "revision", err, true)
+		return
+	}
+	setETag(w, s.etag)
+	s.writeJSON(w, http.StatusOK, s.responseLocked(), requestID)
+}
+
+func captureErrorMessage(code string) string {
+	switch code {
+	case "operator_idle_timeout":
+		return "Browser capture was canceled after 30 minutes without an operator response."
+	case "absolute_timeout":
+		return "Browser capture reached its two-hour absolute ceiling."
+	case "worker_teardown":
+		return "The browser process tree did not confirm teardown within the containment deadline."
+	default:
+		return "The browser worker failed closed; no capture bytes were staged."
+	}
 }
 
 func (s *Server) serveRound(w http.ResponseWriter, r *http.Request, cookieScoped bool, requestID string) {
@@ -532,21 +1390,21 @@ func (s *Server) serveRound(w http.ResponseWriter, r *http.Request, cookieScoped
 
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	if !s.beginMutation(w, r, requestID, "/api/v2/round", request.Revision) {
+	if !s.beginMutation(w, r, requestID, "/api/v3/round", request.Revision) {
 		return
 	}
 	snapshot, err := s.engine.ApplyRound(r.Context(), answers)
 	if err != nil {
 		s.refreshWorkspaceAfterFailure()
-		s.writeEngineError(w, r, requestID, "/api/v2/round", "apply_round", err)
+		s.writeEngineError(w, r, requestID, "/api/v3/round", "apply_round", err)
 		return
 	}
 	s.snapshot = snapshot
 	if err := s.updateRevisionLocked(); err != nil {
-		s.writeInternalError(w, r, requestID, "/api/v2/round", "revision", err, true)
+		s.writeInternalError(w, r, requestID, "/api/v3/round", "revision", err, true)
 		return
 	}
-	setETag(w, s.revision)
+	setETag(w, s.etag)
 	s.writeJSON(w, http.StatusOK, s.responseLocked(), requestID)
 }
 
@@ -596,21 +1454,21 @@ func (s *Server) serveReopen(w http.ResponseWriter, r *http.Request, cookieScope
 
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	if !s.beginMutation(w, r, requestID, "/api/v2/reopen", request.Revision) {
+	if !s.beginMutation(w, r, requestID, "/api/v3/reopen", request.Revision) {
 		return
 	}
 	snapshot, err := s.engine.ReopenDecision(r.Context(), request.QuestionID)
 	if err != nil {
 		s.refreshWorkspaceAfterFailure()
-		s.writeEngineError(w, r, requestID, "/api/v2/reopen", "reopen_decision", err)
+		s.writeEngineError(w, r, requestID, "/api/v3/reopen", "reopen_decision", err)
 		return
 	}
 	s.snapshot = snapshot
 	if err := s.updateRevisionLocked(); err != nil {
-		s.writeInternalError(w, r, requestID, "/api/v2/reopen", "revision", err, true)
+		s.writeInternalError(w, r, requestID, "/api/v3/reopen", "revision", err, true)
 		return
 	}
-	setETag(w, s.revision)
+	setETag(w, s.etag)
 	s.writeJSON(w, http.StatusOK, s.responseLocked(), requestID)
 }
 
@@ -635,7 +1493,7 @@ func (s *Server) serveApprove(w http.ResponseWriter, r *http.Request, cookieScop
 
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	if !s.beginMutation(w, r, requestID, "/api/v2/approve", request.Revision) {
+	if !s.beginMutation(w, r, requestID, "/api/v3/author/approve", request.Revision) {
 		return
 	}
 	result, err := s.engine.ApproveAndWrite(r.Context(), engine.Approval{
@@ -643,18 +1501,251 @@ func (s *Server) serveApprove(w http.ResponseWriter, r *http.Request, cookieScop
 	})
 	if err != nil {
 		s.refreshWorkspaceAfterFailure()
-		s.writeEngineError(w, r, requestID, "/api/v2/approve", "approve", err)
+		s.writeEngineError(w, r, requestID, "/api/v3/author/approve", "approve", err)
 		return
 	}
-	s.completed = true
+	s.lifecycle = lifecycleAuthored
+	s.completed = false
 	s.snapshot = result.Snapshot
 	s.writeResult = &result.WriteResult
+	s.packageState = nil
+	s.artifactPaths = map[string]string{}
 	if err := s.updateRevisionLocked(); err != nil {
-		s.writeInternalError(w, r, requestID, "/api/v2/approve", "revision", err, true)
+		s.writeInternalError(w, r, requestID, "/api/v3/author/approve", "revision", err, true)
 		return
 	}
-	setETag(w, s.revision)
+	setETag(w, s.etag)
 	s.writeJSON(w, http.StatusOK, s.responseLocked(), requestID)
+}
+
+func (s *Server) serveResume(w http.ResponseWriter, r *http.Request, cookieScoped bool, requestID string) {
+	if r.Method != http.MethodPost {
+		s.methodNotAllowed(w, http.MethodPost, requestID)
+		return
+	}
+	if !s.authenticated(r, cookieScoped) {
+		s.writeError(w, http.StatusUnauthorized, "unauthorized", "a valid UI capability token is required", false, requestID, "")
+		return
+	}
+	var request revisionRequest
+	if err := decodeJSONRequest(w, r, &request); err != nil {
+		s.writeRequestError(w, err, requestID)
+		return
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if err := s.refreshWorkspaceLocked(r.Context()); err != nil {
+		s.writeInternalError(w, r, requestID, "/api/v3/author/resume", "workspace_inspection", err, true)
+		return
+	}
+	if strings.TrimSpace(request.Revision) != s.revision {
+		s.writeError(w, http.StatusConflict, "stale_revision", "request revision does not match the current snapshot", true, requestID, s.revision)
+		return
+	}
+	if s.lifecycle != lifecyclePackageFail {
+		s.writeError(w, http.StatusConflict, "invalid_lifecycle", "authoring can resume only after a package quality failure", false, requestID, s.revision)
+		return
+	}
+	resumer, ok := s.engine.(resumeEngine)
+	if !ok {
+		s.writeError(w, http.StatusNotImplemented, "unsupported", "authoring resume is unavailable", false, requestID, s.revision)
+		return
+	}
+	snapshot, err := resumer.ResumeAuthoring(r.Context())
+	if err != nil {
+		s.writeEngineError(w, r, requestID, "/api/v3/author/resume", "resume_authoring", err)
+		return
+	}
+	s.snapshot = snapshot
+	s.lifecycle = lifecycleAuthoring
+	s.completed = false
+	s.writeResult = nil
+	s.packageState = nil
+	s.artifactPaths = map[string]string{}
+	if err := s.updateRevisionLocked(); err != nil {
+		s.writeInternalError(w, r, requestID, "/api/v3/author/resume", "revision", err, true)
+		return
+	}
+	setETag(w, s.etag)
+	s.writeJSON(w, http.StatusOK, s.responseLocked(), requestID)
+}
+
+func (s *Server) servePackageBuild(w http.ResponseWriter, r *http.Request, cookieScoped bool, requestID string) {
+	if r.Method != http.MethodPost {
+		s.methodNotAllowed(w, http.MethodPost, requestID)
+		return
+	}
+	if !s.authenticated(r, cookieScoped) {
+		s.writeError(w, http.StatusUnauthorized, "unauthorized", "a valid UI capability token is required", false, requestID, "")
+		return
+	}
+	var request buildRequest
+	if err := decodeJSONRequest(w, r, &request); err != nil {
+		s.writeRequestError(w, err, requestID)
+		return
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if err := s.refreshWorkspaceLocked(r.Context()); err != nil {
+		s.writeInternalError(w, r, requestID, "/api/v3/package/build", "workspace_inspection", err, true)
+		return
+	}
+	if strings.TrimSpace(request.Revision) != s.revision {
+		s.writeError(w, http.StatusConflict, "stale_revision", "request revision does not match the current snapshot", true, requestID, s.revision)
+		return
+	}
+	if captureActive(s.capture) {
+		s.writeError(w, http.StatusConflict, "capture_active", "package build is blocked while browser capture is active", true, requestID, s.revision)
+		return
+	}
+	if s.captureContainmentFailed {
+		s.writeError(w, http.StatusConflict, "capture_teardown_failed", "package build is blocked because browser process-tree teardown was not confirmed; restart iCoT", false, requestID, s.revision)
+		return
+	}
+	if s.lifecycle != lifecycleAuthored {
+		s.writeError(w, http.StatusConflict, "invalid_lifecycle", "a separately approved authored state is required before package build", false, requestID, s.revision)
+		return
+	}
+	if !request.Confirmed {
+		s.writeError(w, http.StatusUnprocessableEntity, "confirmation_required", "explicit package-build confirmation is required", false, requestID, s.revision)
+		return
+	}
+	buildCtx, cancel := context.WithTimeout(r.Context(), 2*time.Minute)
+	defer cancel()
+	result, _, err := s.buildPackage(buildCtx, synthesize.Options{ExampleDir: s.exampleDir, LocalOnlyDiscovery: true})
+	if err != nil {
+		s.writeInternalError(w, r, requestID, "/api/v3/package/build", "deterministic_build", err, true)
+		return
+	}
+	var report *synthesize.QualityReport
+	var assessmentErr error
+	inspection, inspectionErr := s.inspectPackage(buildCtx, trustedrunner.TemplateOptions{
+		RepoRoot: s.repoRoot, ExampleDir: s.exampleDir,
+		Assess: func(ctx context.Context, opts synthesize.Options) (*synthesize.QualityReport, error) {
+			opts.LocalOnlyDiscovery = true
+			assessed, assessErr := s.assessPackage(ctx, opts)
+			assessmentErr = assessErr
+			if assessed != nil {
+				copy := *assessed
+				copy.Checks = append([]synthesize.QualityCheck(nil), assessed.Checks...)
+				report = &copy
+			}
+			return assessed, assessErr
+		},
+	})
+	if assessmentErr != nil {
+		s.writeInternalError(w, r, requestID, "/api/v3/package/build", "current_state_assessment", assessmentErr, true)
+		return
+	}
+	if report == nil {
+		if inspectionErr == nil {
+			inspectionErr = errors.New("assessment returned no quality report")
+		}
+		s.writeInternalError(w, r, requestID, "/api/v3/package/build", "current_state_assessment", inspectionErr, true)
+		return
+	}
+	quality := &PackageQuality{Status: report.Status, Checks: append([]synthesize.QualityCheck(nil), report.Checks...)}
+	if !report.Passed() {
+		s.lifecycle = lifecyclePackageFail
+		s.completed = false
+		s.packageState = &PackageState{Status: "failed", Quality: quality, Remediation: packageRemediation(report)}
+		s.artifactPaths = map[string]string{}
+		if err := s.updateRevisionLocked(); err != nil {
+			s.writeInternalError(w, r, requestID, "/api/v3/package/build", "revision", err, true)
+			return
+		}
+		setETag(w, s.etag)
+		s.writeJSON(w, http.StatusOK, s.responseLocked(), requestID)
+		return
+	}
+	if inspectionErr != nil {
+		s.writeInternalError(w, r, requestID, "/api/v3/package/build", "package_inspection", inspectionErr, true)
+		return
+	}
+	artifacts, paths, err := inspectAllowedArtifacts(s.exampleDir, result)
+	if err != nil {
+		s.writeInternalError(w, r, requestID, "/api/v3/package/build", "artifact_allowlist", err, true)
+		return
+	}
+	if err := s.revalidatePackage(buildCtx, trustedrunner.TemplateOptions{RepoRoot: s.repoRoot, ExampleDir: s.exampleDir}, inspection); err != nil {
+		s.writeInternalError(w, r, requestID, "/api/v3/package/build", "package_freeze_revalidation", err, true)
+		return
+	}
+	s.lifecycle = lifecycleHandoffReady
+	s.completed = true
+	s.artifactPaths = paths
+	s.packageState = &PackageState{
+		Status: "pass", Quality: quality, Inspection: &inspection, Artifacts: artifacts,
+		ApprovalTemplateArgv: []string{"openudon", "approval-template", "--example", s.exampleDir, "--state", trustedrunner.StateApprovedForSandbox, "--reviewer", "REVIEWER"},
+	}
+	if err := s.updateRevisionLocked(); err != nil {
+		s.writeInternalError(w, r, requestID, "/api/v3/package/build", "revision", err, true)
+		return
+	}
+	setETag(w, s.etag)
+	s.writeJSON(w, http.StatusOK, s.responseLocked(), requestID)
+}
+
+func (s *Server) serveArtifact(w http.ResponseWriter, r *http.Request, cookieScoped bool, requestID string) {
+	if r.Method != http.MethodGet {
+		s.methodNotAllowed(w, http.MethodGet, requestID)
+		return
+	}
+	if !s.authenticated(r, cookieScoped) {
+		s.writeError(w, http.StatusUnauthorized, "unauthorized", "a valid UI capability token is required", false, requestID, "")
+		return
+	}
+	if len(r.URL.Query()) != 1 || len(r.URL.Query()["name"]) != 1 {
+		s.writeError(w, http.StatusBadRequest, "malformed_request", "artifact inspection requires exactly one name", false, requestID, s.currentRevision())
+		return
+	}
+	name := r.URL.Query().Get("name")
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if s.lifecycle == lifecycleHandoffReady {
+		if err := s.validateFrozenArtifactsLocked(r.Context()); err != nil {
+			s.invalidateHandoffLocked()
+			if revisionErr := s.updateRevisionLocked(); revisionErr != nil {
+				s.writeInternalError(w, r, requestID, "/api/v3/artifact", "revision", revisionErr, true)
+				return
+			}
+			s.writeError(w, http.StatusConflict, "package_changed", "the reviewed package changed after handoff inspection; return to authoring and rebuild", false, requestID, s.revision)
+			return
+		}
+	}
+	if s.lifecycle != lifecycleHandoffReady {
+		s.writeError(w, http.StatusConflict, "invalid_lifecycle", "artifacts are available only after a passing package build", false, requestID, s.revision)
+		return
+	}
+	path, ok := s.artifactPaths[name]
+	if !ok {
+		s.writeError(w, http.StatusNotFound, "not_found", "artifact is not in the inspection allowlist", false, requestID, s.revision)
+		return
+	}
+	data, err := readAllowedArtifact(s.exampleDir, path)
+	if err != nil {
+		s.invalidateHandoffLocked()
+		if revisionErr := s.updateRevisionLocked(); revisionErr != nil {
+			s.writeInternalError(w, r, requestID, "/api/v3/artifact", "revision", revisionErr, true)
+			return
+		}
+		s.writeError(w, http.StatusConflict, "package_changed", "the reviewed package changed after handoff inspection; return to authoring and rebuild", false, requestID, s.revision)
+		return
+	}
+	summary, ok := s.artifactSummaryLocked(name)
+	digest := sha256.Sum256(data)
+	if !ok || summary.Bytes != int64(len(data)) || summary.SHA256 != "sha256:"+hex.EncodeToString(digest[:]) {
+		s.invalidateHandoffLocked()
+		if revisionErr := s.updateRevisionLocked(); revisionErr != nil {
+			s.writeInternalError(w, r, requestID, "/api/v3/artifact", "revision", revisionErr, true)
+			return
+		}
+		s.writeError(w, http.StatusConflict, "package_changed", "the reviewed package changed after handoff inspection; return to authoring and rebuild", false, requestID, s.revision)
+		return
+	}
+	w.Header().Set("Content-Type", artifactMediaType(path))
+	w.WriteHeader(http.StatusOK)
+	_, _ = w.Write(data)
 }
 
 func (s *Server) beginMutation(w http.ResponseWriter, r *http.Request, requestID, route, requestRevision string) bool {
@@ -666,8 +1757,16 @@ func (s *Server) beginMutation(w http.ResponseWriter, r *http.Request, requestID
 		s.writeError(w, http.StatusConflict, "workspace_changed", "the authoring workspace changed outside this process; restart is required", false, requestID, s.revision)
 		return false
 	}
-	if s.completed {
-		s.writeError(w, http.StatusConflict, "session_frozen", "the approved authoring session is frozen", false, requestID, s.revision)
+	if s.captureContainmentFailed {
+		s.writeError(w, http.StatusConflict, "capture_teardown_failed", "browser process-tree teardown was not confirmed; restart iCoT before authoring continues", false, requestID, s.revision)
+		return false
+	}
+	if captureActive(s.capture) {
+		s.writeError(w, http.StatusConflict, "capture_active", "authoring mutations are blocked while browser capture is active", true, requestID, s.revision)
+		return false
+	}
+	if s.lifecycle != lifecycleAuthoring {
+		s.writeError(w, http.StatusConflict, "session_frozen", "authoring is not mutable in the current lifecycle state", false, requestID, s.revision)
 		return false
 	}
 	if requestRevision != s.revision {
@@ -701,19 +1800,41 @@ func (s *Server) refreshWorkspaceAfterFailure() {
 }
 
 func (s *Server) updateRevisionLocked() error {
-	revision, err := revisionFor(s.snapshot, s.completed, s.writeResult, s.workspace)
+	revision, err := digestRevision(struct {
+		Snapshot    engine.Snapshot        `json:"snapshot"`
+		Lifecycle   string                 `json:"lifecycle"`
+		WriteResult *engine.WriteResult    `json:"write_result,omitempty"`
+		Package     *PackageState          `json:"package,omitempty"`
+		Workspace   engine.WorkspaceStatus `json:"workspace"`
+	}{Snapshot: s.snapshot, Lifecycle: s.lifecycle, WriteResult: s.writeResult, Package: s.packageState, Workspace: s.workspace})
 	if err != nil {
 		return err
 	}
 	s.revision = revision
+	captureRevision, err := digestRevision(struct {
+		Capture *CaptureState         `json:"capture,omitempty"`
+		Doctor  *capture.DoctorReport `json:"doctor,omitempty"`
+	}{Capture: s.capture, Doctor: s.doctorReport})
+	if err != nil {
+		return err
+	}
+	s.captureRevision = captureRevision
+	s.etag, err = digestRevision(struct {
+		Authoring string `json:"authoring"`
+		Capture   string `json:"capture"`
+	}{Authoring: s.revision, Capture: s.captureRevision})
+	if err != nil {
+		return err
+	}
 	return nil
 }
 
 func (s *Server) responseLocked() Response {
 	return Response{
-		Version: APIVersion, Revision: s.revision, Completed: s.completed,
+		Version: APIVersion, Revision: s.revision, CaptureRevision: s.captureRevision,
+		Lifecycle: s.lifecycle, Completed: s.completed,
 		Workspace: Workspace{ExampleDir: s.exampleDir, ExternallyModified: s.workspace.ExternallyModified},
-		Snapshot:  s.snapshot, WriteResult: s.writeResult,
+		Snapshot:  s.snapshot, Capture: s.capture, BrowserDoctor: s.doctorReport, WriteResult: s.writeResult, Package: s.packageState,
 	}
 }
 
@@ -756,19 +1877,189 @@ func secureEqual(left, right string) bool {
 	return len(left) == len(right) && subtle.ConstantTimeCompare([]byte(left), []byte(right)) == 1
 }
 
-func revisionFor(snapshot engine.Snapshot, completed bool, result *engine.WriteResult, status engine.WorkspaceStatus) (string, error) {
-	payload := struct {
-		Snapshot    engine.Snapshot        `json:"snapshot"`
-		Completed   bool                   `json:"completed"`
-		WriteResult *engine.WriteResult    `json:"write_result,omitempty"`
-		Workspace   engine.WorkspaceStatus `json:"workspace"`
-	}{Snapshot: snapshot, Completed: completed, WriteResult: result, Workspace: status}
+func digestRevision(payload any) (string, error) {
 	data, err := json.Marshal(payload)
 	if err != nil {
 		return "", fmt.Errorf("marshal UI revision state: %w", err)
 	}
 	digest := sha256.Sum256(data)
 	return "sha256:" + hex.EncodeToString(digest[:]), nil
+}
+
+func captureActive(capture *CaptureState) bool {
+	if capture == nil {
+		return false
+	}
+	switch capture.State {
+	case "staged", "canceled", "failed":
+		return false
+	default:
+		return true
+	}
+}
+
+func captureResponsePending(capture *CaptureState) bool {
+	return captureActive(capture) && (capture.Observation != nil || capture.Approval != nil || capture.Checkpoint != nil)
+}
+
+func packageRemediation(report *synthesize.QualityReport) []string {
+	if report == nil {
+		return []string{"Reopen authoring and rebuild the reviewed package."}
+	}
+	var result []string
+	for _, check := range report.Checks {
+		if strings.EqualFold(check.Status, "pass") {
+			continue
+		}
+		message := strings.TrimSpace(check.Message)
+		if detail := strings.TrimSpace(check.Detail); detail != "" {
+			message = strings.TrimSpace(message + ": " + detail)
+		}
+		result = append(result, strings.TrimSpace(check.Code+": "+safeMessage(errors.New(message))))
+	}
+	if len(result) == 0 {
+		result = append(result, "Reopen authoring, review the quality report, and rebuild the package.")
+	}
+	return result
+}
+
+func inspectAllowedArtifacts(exampleDir string, result *synthesize.Result) ([]ArtifactSummary, map[string]string, error) {
+	if result == nil {
+		return nil, nil, errors.New("package build returned no artifact paths")
+	}
+	candidates := []struct {
+		name string
+		path string
+	}{
+		{"project", result.ProjectPath}, {"intent", result.IntentPath}, {"workflow", result.WorkflowPath},
+		{"uws", result.UWSPath}, {"plan_json", result.PlanJSONPath}, {"plan_md", result.PlanMDPath},
+		{"review", result.ReviewPath}, {"review_handoff", result.ReviewHandoffPath},
+		{"quality_json", result.QualityJSONPath}, {"quality_md", result.QualityMDPath},
+	}
+	root, err := filepath.Abs(exampleDir)
+	if err != nil {
+		return nil, nil, err
+	}
+	paths := make(map[string]string, len(candidates))
+	artifacts := make([]ArtifactSummary, 0, len(candidates))
+	for _, candidate := range candidates {
+		if strings.TrimSpace(candidate.path) == "" {
+			continue
+		}
+		absolute, err := filepath.Abs(candidate.path)
+		if err != nil {
+			return nil, nil, err
+		}
+		relative, err := filepath.Rel(root, absolute)
+		if err != nil || relative == "." || relative == ".." || strings.HasPrefix(relative, ".."+string(filepath.Separator)) || filepath.IsAbs(relative) {
+			return nil, nil, fmt.Errorf("package artifact %s is outside the example", candidate.name)
+		}
+		data, err := readAllowedArtifact(root, absolute)
+		if err != nil {
+			return nil, nil, fmt.Errorf("inspect package artifact %s: %w", candidate.name, err)
+		}
+		digest := sha256.Sum256(data)
+		paths[candidate.name] = absolute
+		artifacts = append(artifacts, ArtifactSummary{
+			Name: candidate.name, Path: filepath.ToSlash(relative), MediaType: artifactMediaType(absolute),
+			Bytes: int64(len(data)), SHA256: "sha256:" + hex.EncodeToString(digest[:]),
+		})
+	}
+	return artifacts, paths, nil
+}
+
+func (s *Server) validateFrozenArtifactsLocked(ctx context.Context) error {
+	if s.packageState == nil || s.packageState.Status != "pass" || s.packageState.Inspection == nil || len(s.packageState.Artifacts) == 0 || len(s.artifactPaths) != len(s.packageState.Artifacts) {
+		return errors.New("handoff artifact inventory is incomplete")
+	}
+	if err := s.revalidatePackage(ctx, trustedrunner.TemplateOptions{
+		RepoRoot: s.repoRoot, ExampleDir: s.exampleDir,
+	}, *s.packageState.Inspection); err != nil {
+		return fmt.Errorf("revalidate complete handoff package: %w", err)
+	}
+	for _, summary := range s.packageState.Artifacts {
+		path, ok := s.artifactPaths[summary.Name]
+		if !ok {
+			return errors.New("handoff artifact path is missing")
+		}
+		data, err := readAllowedArtifact(s.exampleDir, path)
+		if err != nil {
+			return err
+		}
+		digest := sha256.Sum256(data)
+		if summary.Bytes != int64(len(data)) || summary.SHA256 != "sha256:"+hex.EncodeToString(digest[:]) {
+			return errors.New("handoff artifact digest changed")
+		}
+	}
+	return nil
+}
+
+func (s *Server) artifactSummaryLocked(name string) (ArtifactSummary, bool) {
+	if s.packageState == nil {
+		return ArtifactSummary{}, false
+	}
+	for _, summary := range s.packageState.Artifacts {
+		if summary.Name == name {
+			return summary, true
+		}
+	}
+	return ArtifactSummary{}, false
+}
+
+func (s *Server) invalidateHandoffLocked() {
+	var quality *PackageQuality
+	if s.packageState != nil {
+		quality = s.packageState.Quality
+	}
+	s.lifecycle = lifecyclePackageFail
+	s.completed = false
+	s.packageState = &PackageState{
+		Status: "failed", Quality: quality,
+		Remediation: []string{"A reviewed package artifact changed after handoff inspection. Reopen authoring, repeat approval, and rebuild the package."},
+	}
+	s.artifactPaths = map[string]string{}
+}
+
+func readAllowedArtifact(exampleDir, path string) ([]byte, error) {
+	root, err := filepath.Abs(exampleDir)
+	if err != nil {
+		return nil, err
+	}
+	absolute, err := filepath.Abs(path)
+	if err != nil {
+		return nil, err
+	}
+	relative, err := filepath.Rel(root, absolute)
+	if err != nil || relative == "." || relative == ".." || strings.HasPrefix(relative, ".."+string(filepath.Separator)) || filepath.IsAbs(relative) {
+		return nil, errors.New("artifact path is outside the example")
+	}
+	info, err := os.Lstat(absolute)
+	if err != nil || info.Mode()&os.ModeSymlink != 0 || !info.Mode().IsRegular() {
+		return nil, errors.New("artifact is not a regular non-symlink file")
+	}
+	if info.Size() > MaxArtifactBytes {
+		return nil, fmt.Errorf("artifact exceeds the %d-byte inspection limit", MaxArtifactBytes)
+	}
+	data, err := os.ReadFile(absolute)
+	if err != nil {
+		return nil, err
+	}
+	after, err := os.Lstat(absolute)
+	if err != nil || after.Mode()&os.ModeSymlink != 0 || !os.SameFile(info, after) || after.Size() != int64(len(data)) {
+		return nil, errors.New("artifact changed while it was inspected")
+	}
+	return data, nil
+}
+
+func artifactMediaType(path string) string {
+	switch strings.ToLower(filepath.Ext(path)) {
+	case ".json":
+		return "application/json; charset=utf-8"
+	case ".md":
+		return "text/markdown; charset=utf-8"
+	default:
+		return "text/plain; charset=utf-8"
+	}
 }
 
 func decodeJSONRequest(w http.ResponseWriter, r *http.Request, target any) error {
