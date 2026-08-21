@@ -2,7 +2,9 @@ package browserscenario
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
+	"fmt"
 	"io"
 	"net/http"
 	"net/http/cookiejar"
@@ -192,6 +194,31 @@ func TestExactPromptWriterMatchesSplitPrompt(t *testing.T) {
 	case <-matched:
 	default:
 		t.Fatal("split exact prompt was not observed")
+	}
+}
+
+func TestRunBoundedAfterPromptDoesNotWaitForClosedChildStdin(t *testing.T) {
+	if len(os.Args) > 0 && os.Args[len(os.Args)-1] == "prompt-exit-helper" {
+		_, _ = fmt.Fprint(os.Stdout, "Browser authentication push challenge. Approve? [y/N]: ")
+		os.Exit(0)
+	}
+	executable, err := os.Executable()
+	if err != nil {
+		t.Fatal(err)
+	}
+	approved := false
+	started := time.Now()
+	result := runBoundedAfterPrompt(context.Background(), 5*time.Second, t.TempDir(), []string{
+		executable, "-test.run=^TestRunBoundedAfterPromptDoesNotWaitForClosedChildStdin$", "--", "prompt-exit-helper",
+	}, nil, "Browser authentication push challenge. Approve? [y/N]: ", func() error {
+		approved = true
+		return nil
+	})
+	if result.err != nil {
+		t.Fatal(result.err)
+	}
+	if !approved || time.Since(started) > 2*time.Second {
+		t.Fatalf("prompt approval did not finish promptly: approved=%t duration=%s", approved, time.Since(started))
 	}
 }
 

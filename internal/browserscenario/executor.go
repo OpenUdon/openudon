@@ -985,7 +985,10 @@ func runBoundedAfterPrompt(ctx context.Context, timeout time.Duration, directory
 	stdout.limit, stderr.limit = scenarioCommandOutputLimit, scenarioCommandOutputLimit
 	matched := make(chan struct{})
 	observer := &exactPromptWriter{destination: &stdout, prompt: []byte(prompt), matched: matched}
-	inputReader, inputWriter := io.Pipe()
+	inputReader, inputWriter, pipeErr := os.Pipe()
+	if pipeErr != nil {
+		return boundedCommand{err: fmt.Errorf("create interactive scenario input: %w", pipeErr)}
+	}
 	interactionContext, cancelInteraction := context.WithCancel(ctx)
 	interactionDone := make(chan error, 1)
 	go func() {
@@ -993,7 +996,7 @@ func runBoundedAfterPrompt(ctx context.Context, timeout time.Duration, directory
 		case <-matched:
 			if err := approve(); err != nil {
 				interactionDone <- err
-				_ = inputWriter.CloseWithError(err)
+				_ = inputWriter.Close()
 				return
 			}
 			_, err := io.WriteString(inputWriter, "y\n")
