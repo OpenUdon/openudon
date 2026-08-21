@@ -2,6 +2,7 @@ examples/weather-toronto-gmail/
 examples/support-priority-routing/
 examples/eval/mucker-next-steps-agent/
 
+site/
 AGENTS.md
 memory-bank
 memory-bank/
