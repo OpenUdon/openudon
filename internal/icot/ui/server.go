@@ -115,18 +115,18 @@ type Workspace struct {
 
 // Response is returned by every successful API request.
 type Response struct {
-	ETag            string                `json:"-"`
-	Version         string                `json:"version"`
-	Revision        string                `json:"revision"`
-	CaptureRevision string                `json:"capture_revision"`
-	Lifecycle       string                `json:"lifecycle"`
-	Completed       bool                  `json:"completed"`
-	Workspace       Workspace             `json:"workspace"`
-	Snapshot        engine.Snapshot       `json:"snapshot"`
-	Capture         *CaptureState         `json:"capture,omitempty"`
-	BrowserDoctor   *capture.DoctorReport `json:"browser_doctor,omitempty"`
-	WriteResult     *engine.WriteResult   `json:"write_result,omitempty"`
-	Package         *PackageState         `json:"package,omitempty"`
+	ETag            string                  `json:"-"`
+	Version         string                  `json:"version"`
+	Revision        string                  `json:"revision"`
+	CaptureRevision string                  `json:"capture_revision"`
+	Lifecycle       string                  `json:"lifecycle"`
+	Completed       bool                    `json:"completed"`
+	Workspace       Workspace               `json:"workspace"`
+	Snapshot        engine.Snapshot         `json:"snapshot"`
+	Capture         *CaptureState           `json:"capture,omitempty"`
+	BrowserDoctor   *capture.UIDoctorReport `json:"browser_doctor,omitempty"`
+	WriteResult     *engine.WriteResult     `json:"write_result,omitempty"`
+	Package         *PackageState           `json:"package,omitempty"`
 }
 
 const (
@@ -323,13 +323,15 @@ type Server struct {
 	captureResult            *authorsession.Result
 	captureStart             captureStartRequest
 	captureContainmentFailed bool
-	doctorReport             *capture.DoctorReport
+	doctorReport             *capture.UIDoctorReport
 	captureContext           context.Context
 	workspace                engine.WorkspaceStatus
 	errOut                   io.Writer
 }
 
 var fallbackRequestID atomic.Uint64
+
+var revisionDigest = digestRevision
 
 // GenerateToken returns a 256-bit URL-safe per-process capability token.
 func GenerateToken() (string, error) {
@@ -921,8 +923,10 @@ func (s *Server) serveBrowserPreflight(w http.ResponseWriter, r *http.Request, c
 		s.mu.Unlock()
 		return
 	}
+	previousCapture, previousRevision, previousCaptureRevision, previousETag := s.capture, s.revision, s.captureRevision, s.etag
 	s.capture = &CaptureState{State: "preflight", Message: "Checking the installed Playwright driver and Chromium runtime.", UpdatedAt: s.now().UTC().Format(time.RFC3339)}
 	if err := s.updateRevisionLocked(); err != nil {
+		s.capture, s.revision, s.captureRevision, s.etag = previousCapture, previousRevision, previousCaptureRevision, previousETag
 		s.writeInternalError(w, r, requestID, "/api/v3/browser/preflight", "revision", err, true)
 		s.mu.Unlock()
 		return
@@ -969,10 +973,9 @@ func (s *Server) serveBrowserPreflight(w http.ResponseWriter, r *http.Request, c
 		return
 	}
 	if report.Version == capture.DoctorVersion && report.Engine == capture.EngineChromium {
-		reviewedReport := report
+		reviewedReport := report.UI()
 		if err != nil {
 			reviewedReport.Error = "Chromium readiness check failed"
-			reviewedReport.BrowserExecutable = ""
 		}
 		s.doctorReport = &reviewedReport
 	}
@@ -1800,7 +1803,7 @@ func (s *Server) refreshWorkspaceAfterFailure() {
 }
 
 func (s *Server) updateRevisionLocked() error {
-	revision, err := digestRevision(struct {
+	revision, err := revisionDigest(struct {
 		Snapshot    engine.Snapshot        `json:"snapshot"`
 		Lifecycle   string                 `json:"lifecycle"`
 		WriteResult *engine.WriteResult    `json:"write_result,omitempty"`
@@ -1811,15 +1814,15 @@ func (s *Server) updateRevisionLocked() error {
 		return err
 	}
 	s.revision = revision
-	captureRevision, err := digestRevision(struct {
-		Capture *CaptureState         `json:"capture,omitempty"`
-		Doctor  *capture.DoctorReport `json:"doctor,omitempty"`
+	captureRevision, err := revisionDigest(struct {
+		Capture *CaptureState           `json:"capture,omitempty"`
+		Doctor  *capture.UIDoctorReport `json:"doctor,omitempty"`
 	}{Capture: s.capture, Doctor: s.doctorReport})
 	if err != nil {
 		return err
 	}
 	s.captureRevision = captureRevision
-	s.etag, err = digestRevision(struct {
+	s.etag, err = revisionDigest(struct {
 		Authoring string `json:"authoring"`
 		Capture   string `json:"capture"`
 	}{Authoring: s.revision, Capture: s.captureRevision})

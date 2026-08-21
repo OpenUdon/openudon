@@ -115,6 +115,13 @@ or Playwright object. Its only valid proposals are focus, candidate click,
 bounded GET navigation, or human fallback. iCoT rejects invented candidate IDs,
 unknown fields, trailing data, selectors, and malformed actions.
 
+Accessibility-label reduction is a heuristic minimization boundary, not data
+loss prevention. Useful ordinary names, identifiers, order numbers, and other
+page-derived labels can remain in reduced observations and reviewed traces.
+Operators must review those labels before planner disclosure or artifact
+retention and choose the human-only path when the page is not suitable for
+disclosure.
+
 Phrase screening and fixed label markers are defense in depth, not the primary
 LLM containment boundary. Every planner response must still decode as one
 closed typed action: an observed unique candidate ID, a bounded same-origin GET

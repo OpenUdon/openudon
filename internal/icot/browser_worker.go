@@ -44,8 +44,12 @@ func runBundledBrowserWorker(args []string, in io.Reader, out, errOut io.Writer)
 	}
 	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer cancel()
+	stdin, ok := in.(io.ReadCloser)
+	if !ok {
+		stdin = io.NopCloser(in)
+	}
 	if err := authorworker.Run(ctx, authorworker.Options{
-		PrivateRoot: *privateRoot, DriverDirectory: *driverDirectory, Stdin: in, Stdout: out,
+		PrivateRoot: *privateRoot, DriverDirectory: *driverDirectory, Stdin: stdin, Stdout: out,
 	}); err != nil {
 		fmt.Fprintln(errOut, "browser worker: session failed closed")
 		return 1

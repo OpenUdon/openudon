@@ -58,6 +58,40 @@ func TestAnalyzeUsesConservativeDocumentOrder(t *testing.T) {
 	}
 }
 
+func TestAnalyzeTreatsLoopAuthenticationAsNonGuaranteed(t *testing.T) {
+	auth := &rollout.Step{Name: "authenticate", Type: "browser_authentication", BrowserSession: "member"}
+	inside := &rollout.Step{Name: "inside", Type: "browser", BrowserSession: "member"}
+	after := &rollout.Step{Name: "after", Type: "browser", BrowserSession: "member"}
+	intent := &rollout.Intent{Steps: []*rollout.Step{{Name: "repeat", Type: "loop", Steps: []*rollout.Step{auth, inside}}, after}}
+	analysis := Analyze(intent)
+	if !analysis.EstablishedBefore(inside) {
+		t.Fatal("action inside loop did not inherit authentication from its iteration")
+	}
+	if analysis.EstablishedBefore(after) {
+		t.Fatal("loop authentication escaped a possibly empty loop")
+	}
+}
+
+func TestWalkEffectiveSourcesIncludesNestedCasesAndDefaults(t *testing.T) {
+	sequenceChild := &rollout.Step{Name: "sequence-child"}
+	caseChild := &rollout.Step{Name: "case-child", Source: "browser-profiles/case.json"}
+	defaultChild := &rollout.Step{Name: "default-child"}
+	intent := &rollout.Intent{Source: "browser-profiles/root.json", Steps: []*rollout.Step{{
+		Name: "parent", Source: "browser-profiles/parent.json", Steps: []*rollout.Step{sequenceChild},
+		Cases:   []*rollout.StepCase{{Name: "case", Steps: []*rollout.Step{caseChild}}},
+		Default: &rollout.StepDefault{Steps: []*rollout.Step{defaultChild}},
+	}}}
+	got := map[string]string{}
+	WalkEffectiveSources(intent, func(step *rollout.Step, source string) { got[step.Name] = source })
+	want := map[string]string{
+		"parent": "browser-profiles/parent.json", "sequence-child": "browser-profiles/parent.json",
+		"case-child": "browser-profiles/case.json", "default-child": "browser-profiles/parent.json",
+	}
+	if !reflect.DeepEqual(got, want) {
+		t.Fatalf("effective sources = %#v, want %#v", got, want)
+	}
+}
+
 func TestRuntimeOperationIDMatchesBrowserLowering(t *testing.T) {
 	for input, want := range map[string]string{
 		"read-dashboard":            "read_dashboard",

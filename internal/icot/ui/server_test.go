@@ -670,7 +670,7 @@ func TestBrowserPreflightDoesNotBlockSnapshotPolling(t *testing.T) {
 		PrivateRoot: "/tmp/private", DoctorBrowser: func(context.Context, string, string) (capture.DoctorReport, error) {
 			close(started)
 			<-release
-			return capture.DoctorReport{Version: capture.DoctorVersion, Engine: capture.EngineChromium, DriverReady: true, BrowserReady: true}, nil
+			return capture.DoctorReport{Version: capture.DoctorVersion, Engine: capture.EngineChromium, DriverReady: true, BrowserReady: true, BrowserExecutable: "/private/sentinel-browser"}, nil
 		},
 	})
 	if err != nil {
@@ -706,6 +706,9 @@ func TestBrowserPreflightDoesNotBlockSnapshotPolling(t *testing.T) {
 	if ready.Capture == nil || ready.Capture.State != "configuring" || ready.BrowserDoctor == nil || !ready.BrowserDoctor.BrowserReady {
 		t.Fatalf("ready response = %#v", ready)
 	}
+	if strings.Contains(response.Body.String(), "sentinel-browser") || strings.Contains(response.Body.String(), "browser_executable") {
+		t.Fatalf("successful doctor response leaked a private browser path: %s", response.Body.String())
+	}
 }
 
 func TestBrowserPreflightFailureExposesOnlySafeTypedReport(t *testing.T) {
@@ -728,8 +731,42 @@ func TestBrowserPreflightFailureExposesOnlySafeTypedReport(t *testing.T) {
 		t.Fatalf("failed preflight = %d %s", failed.Code, failed.Body.String())
 	}
 	state := currentResponse(t, handler)
-	if state.BrowserDoctor == nil || state.BrowserDoctor.Error != "Chromium readiness check failed" || state.BrowserDoctor.BrowserExecutable != "" || strings.Contains(fmt.Sprintf("%#v", state), "sentinel") {
+	if state.BrowserDoctor == nil || state.BrowserDoctor.Error != "Chromium readiness check failed" || strings.Contains(fmt.Sprintf("%#v", state), "sentinel") {
 		t.Fatalf("safe doctor report = %#v", state.BrowserDoctor)
+	}
+}
+
+func TestBrowserPreflightRevisionFailureRollsBackInitialTransition(t *testing.T) {
+	fake := &fakeEngine{}
+	handler, err := NewHandler(HandlerConfig{
+		Engine: fake, Snapshot: fake.snapshot, ExampleDir: "/tmp/example", Token: testToken, AccessCode: testAccessCode, Authority: testAuthority,
+		PrivateRoot: "/tmp/private", DoctorBrowser: func(context.Context, string, string) (capture.DoctorReport, error) {
+			t.Fatal("doctor started after revision failure")
+			return capture.DoctorReport{}, nil
+		},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	initial := currentResponse(t, handler)
+	originalDigest := revisionDigest
+	defer func() { revisionDigest = originalDigest }()
+	calls := 0
+	revisionDigest = func(payload any) (string, error) {
+		calls++
+		if calls == 2 {
+			return "", errors.New("injected capture revision failure")
+		}
+		return originalDigest(payload)
+	}
+	failed := doRequest(handler, http.MethodPost, "/api/v3/browser/preflight", fmt.Sprintf(`{"revision":%q,"capture_revision":%q}`, initial.Revision, initial.CaptureRevision), "application/json", true)
+	if failed.Code != http.StatusInternalServerError {
+		t.Fatalf("revision failure = %d %s", failed.Code, failed.Body.String())
+	}
+	revisionDigest = originalDigest
+	state := currentResponse(t, handler)
+	if state.Capture != nil || state.Revision != initial.Revision || state.CaptureRevision != initial.CaptureRevision || state.ETag != initial.ETag {
+		t.Fatalf("failed preflight transition was not rolled back: initial=%#v state=%#v", initial, state)
 	}
 }
 

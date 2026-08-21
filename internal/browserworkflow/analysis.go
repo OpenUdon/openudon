@@ -83,7 +83,7 @@ func (a Analysis) walkList(steps []*rollout.Step, incoming map[string]bool) map[
 		}
 
 		conditional := strings.TrimSpace(step.When) != ""
-		loop := strings.TrimSpace(step.ForEach) != "" || kind == "foreach" || kind == "for" || kind == "while"
+		loop := strings.TrimSpace(step.ForEach) != "" || kind == "foreach" || kind == "for" || kind == "while" || kind == "loop"
 		parallel := kind == "parallel"
 		hasCases := len(step.Cases) != 0 || step.Default != nil || kind == "switch"
 
@@ -115,6 +115,55 @@ func (a Analysis) walkList(steps []*rollout.Step, incoming map[string]bool) map[
 		}
 	}
 	return current
+}
+
+// EffectiveSource resolves the source inherited by one step using the same
+// precedence as UWS lowering: explicit source, legacy openapi, then parent.
+func EffectiveSource(step *rollout.Step, inherited string) string {
+	if step == nil {
+		return strings.TrimSpace(inherited)
+	}
+	for _, value := range []string{step.Source, step.OpenAPI, inherited} {
+		if value = strings.TrimSpace(value); value != "" {
+			return value
+		}
+	}
+	return ""
+}
+
+// WalkEffectiveSources visits every nested step, case, and default with the
+// exact source context inherited by that step during lowering.
+func WalkEffectiveSources(intent *rollout.Intent, visit func(*rollout.Step, string)) {
+	if intent == nil || visit == nil {
+		return
+	}
+	inherited := ""
+	for _, value := range []string{intent.Source, intent.OpenAPI} {
+		if value = strings.TrimSpace(value); value != "" {
+			inherited = value
+			break
+		}
+	}
+	walkEffectiveSources(intent.Steps, inherited, visit)
+}
+
+func walkEffectiveSources(steps []*rollout.Step, inherited string, visit func(*rollout.Step, string)) {
+	for _, step := range steps {
+		if step == nil {
+			continue
+		}
+		source := EffectiveSource(step, inherited)
+		visit(step, source)
+		walkEffectiveSources(step.Steps, source, visit)
+		for _, branch := range step.Cases {
+			if branch != nil {
+				walkEffectiveSources(branch.Steps, source, visit)
+			}
+		}
+		if step.Default != nil {
+			walkEffectiveSources(step.Default.Steps, source, visit)
+		}
+	}
 }
 
 func cloneSet(input map[string]bool) map[string]bool {

@@ -224,6 +224,56 @@ func TestBrowserSideEffectsComeFromProfileMetadata(t *testing.T) {
 	}
 }
 
+func TestNestedBrowserSourcesUseSameProfilesForQualityAndLowering(t *testing.T) {
+	example := t.TempDir()
+	readPath := "browser-profiles/read.json"
+	mutatePath := "browser-profiles/mutate.json"
+	readData := []byte(strings.ReplaceAll(string(synthesizeLongLivedBrowserProfileFixture(false, false, "item")), "read_status", "shared_action"))
+	mutateData := []byte(strings.ReplaceAll(string(synthesizeLongLivedBrowserProfileFixture(true, false, "item")), "update_record", "shared_action"))
+	mustWriteSynthesizeTestFile(t, filepath.Join(example, filepath.FromSlash(readPath)), readData)
+	mustWriteSynthesizeTestFile(t, filepath.Join(example, filepath.FromSlash(mutatePath)), mutateData)
+	readProfile, err := profile.ParseJSON(readData)
+	if err != nil {
+		t.Fatal(err)
+	}
+	mutateProfile, err := profile.ParseJSON(mutateData)
+	if err != nil {
+		t.Fatal(err)
+	}
+	readDigest, mutateDigest := sha256.Sum256(readData), sha256.Sum256(mutateData)
+	review := browserSourceReview{
+		Version: browserSourceReviewVersion, Route: "browser", SessionPosture: "none", MutationApprovals: []string{"mutate"},
+		Sources: []browserReviewedSource{
+			{ID: "read", TargetPath: readPath, SHA256: hex.EncodeToString(readDigest[:]), Actions: readProfile.SortedActionNames(), Origins: []string(readProfile.Info.Origin), Lifecycle: "active", ExpiresAt: "2126-08-15T00:00:00Z", Provenance: "test:read"},
+			{ID: "mutate", TargetPath: mutatePath, SHA256: hex.EncodeToString(mutateDigest[:]), Actions: mutateProfile.SortedActionNames(), Origins: []string(mutateProfile.Info.Origin), Lifecycle: "active", ExpiresAt: "2126-08-15T00:00:00Z", Provenance: "test:mutate"},
+		},
+	}
+	readStep := &rollout.Step{Name: "read", Type: "browser", Operation: "shared_action"}
+	mutateStep := &rollout.Step{Name: "mutate", Type: "browser", Source: mutatePath, Operation: "shared_action"}
+	defaultStep := &rollout.Step{Name: "default_read", Type: "browser", Operation: "shared_action"}
+	intent := &rollout.Intent{Workflow: &rollout.WorkflowMeta{Name: "nested_profiles"}, Steps: []*rollout.Step{{
+		Name: "route", Type: "switch", Source: readPath,
+		Cases: []*rollout.StepCase{{Name: "reading", When: "inputs.mode == read", Steps: []*rollout.Step{readStep}}, {Name: "mutating", When: "inputs.mode == mutate", Steps: []*rollout.Step{mutateStep}}}, Default: &rollout.StepDefault{Steps: []*rollout.Step{defaultStep}},
+	}}}
+	if err := validateBrowserSourceReview(example, []string{mutatePath, readPath}, intent, review, time.Date(2026, 8, 21, 0, 0, 0, 0, time.UTC)); err != nil {
+		t.Fatalf("quality selected the wrong duplicate action: %v", err)
+	}
+	doc, err := generateWorkflowDocument(Result{ExampleDir: example}, intent)
+	if err != nil {
+		t.Fatal(err)
+	}
+	sourceURLs := map[string]string{}
+	for _, source := range doc.SourceDescriptions {
+		sourceURLs[source.Name] = source.URL
+	}
+	wantSources := map[string]string{"read": readPath, "mutate": mutatePath, "default_read": readPath}
+	for _, operation := range doc.Operations {
+		if want, ok := wantSources[operation.OperationID]; ok && sourceURLs[operation.SourceDescription] != want {
+			t.Fatalf("operation %s lowered source %q, want %q", operation.OperationID, sourceURLs[operation.SourceDescription], want)
+		}
+	}
+}
+
 func TestReviewMarkdownSurfacesBrowserDigestActionAndSafetyEvidence(t *testing.T) {
 	example := t.TempDir()
 	path := "browser-profiles/editor.json"

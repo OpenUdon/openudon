@@ -274,26 +274,18 @@ func (e *Engine) RemoveStagedSource(ctx context.Context, id string) (Snapshot, e
 	if err := e.requireMutableWorkspaceLocked(ctx); err != nil {
 		return Snapshot{}, err
 	}
+	workspaceAtStart, err := e.observeMutationWorkspaceLocked(ctx)
+	if err != nil {
+		return Snapshot{}, operational(err)
+	}
 	id = strings.ToLower(strings.TrimSpace(id))
 	staged, ok := e.stagedSources[id]
 	if !ok {
 		return Snapshot{}, rejected(errors.New("source was not staged by this UI"))
 	}
-	target, err := artifactwriter.SafeExampleTarget(e.workspaceRoot, staged.TargetPath)
+	target, err := verifyStagedSourceTarget(e.workspaceRoot, staged)
 	if err != nil {
-		return Snapshot{}, rejected(err)
-	}
-	content, err := os.ReadFile(target)
-	if err != nil {
-		return Snapshot{}, conflict("workspace_changed", errors.New("staged source is missing or unreadable"))
-	}
-	digest := sha256.Sum256(content)
-	if hex.EncodeToString(digest[:]) != staged.SHA256 {
-		return Snapshot{}, conflict("workspace_changed", errors.New("staged source changed after UI staging"))
-	}
-	workspaceAtStart, err := e.observeMutationWorkspaceLocked(ctx)
-	if err != nil {
-		return Snapshot{}, operational(err)
+		return Snapshot{}, err
 	}
 	nextRegistry := cloneStagedSources(e.stagedSources)
 	delete(nextRegistry, id)
@@ -305,7 +297,7 @@ func (e *Engine) RemoveStagedSource(ctx context.Context, id string) (Snapshot, e
 	paths := uniqueSortedPaths(append(append([]string(nil), e.watchedPaths...), target, registryPath))
 	accepted := acceptedFingerprint(paths, e.workspaceBaseline, workspaceAtStart)
 	files := []artifactwriter.GeneratedFile{
-		{Path: target, Remove: true, Action: "remove_staged_source", Reason: "explicitly removed UI-owned source"},
+		{Path: target, Remove: true, AllowOverwrite: true, ExpectedCurrentSHA256: "sha256:" + staged.SHA256, Action: "remove_staged_source", Reason: "explicitly removed UI-owned source"},
 		{Path: registryPath, Content: string(registryBytes), AllowOverwrite: true, Action: "update_source_ownership", Reason: "remove UI source authority"},
 	}
 	nextSession, err := cloneSession(e.session)
@@ -325,12 +317,40 @@ func (e *Engine) RemoveStagedSource(ctx context.Context, id string) (Snapshot, e
 		files = append(files, artifactwriter.GeneratedFile{Path: elicitor.DraftPath(e.workspaceRoot), Content: string(draft), AllowOverwrite: true, Action: "update_authoring_session"})
 	}
 	prepared := artifactwriter.Prepared{ExampleRoot: e.workspaceRoot, Files: files}
-	if _, err := commitPrepared(prepared, true, func() error { return e.compareAndLatchWorkspaceLocked(paths, accepted) }); err != nil {
+	if _, err := commitPrepared(prepared, true, func() error {
+		if err := e.compareAndLatchWorkspaceLocked(paths, accepted); err != nil {
+			return err
+		}
+		rechecked, err := verifyStagedSourceTarget(e.workspaceRoot, staged)
+		if err != nil {
+			return err
+		}
+		if rechecked != target {
+			return conflict("workspace_changed", errors.New("staged source target changed before replacement"))
+		}
+		return nil
+	}); err != nil {
 		return Snapshot{}, classifyCommit(err)
 	}
 	e.session = nextSession
 	e.stagedSources = nextRegistry
 	return e.refreshAfterAcquisitionCommitLocked(ctx)
+}
+
+func verifyStagedSourceTarget(root string, staged StagedSource) (string, error) {
+	target, err := artifactwriter.SafeExampleTarget(root, staged.TargetPath)
+	if err != nil {
+		return "", rejected(err)
+	}
+	content, err := os.ReadFile(target)
+	if err != nil {
+		return "", conflict("workspace_changed", errors.New("staged source is missing or unreadable"))
+	}
+	digest := sha256.Sum256(content)
+	if hex.EncodeToString(digest[:]) != staged.SHA256 {
+		return "", conflict("workspace_changed", errors.New("staged source changed after UI staging"))
+	}
+	return target, nil
 }
 
 func validateAcquisitionPrivateRoot(raw, workspace string) (string, error) {

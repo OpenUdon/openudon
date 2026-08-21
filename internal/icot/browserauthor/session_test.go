@@ -2,6 +2,7 @@ package browserauthor
 
 import (
 	"context"
+	"io"
 	"os"
 	"path/filepath"
 	"strings"
@@ -96,6 +97,30 @@ func TestStabilizeExecutableCreatesPrivateCopy(t *testing.T) {
 	info, err := os.Lstat(target)
 	if err != nil || info.Mode().Perm() != 0o500 || !info.Mode().IsRegular() {
 		t.Fatalf("stable executable = %v, %v", info, err)
+	}
+}
+
+func TestStabilizeExecutableRejectsContentMutationDuringCopy(t *testing.T) {
+	privateRoot := t.TempDir()
+	if err := os.Chmod(privateRoot, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	source := filepath.Join(t.TempDir(), "icot")
+	if err := os.WriteFile(source, []byte("original-worker"), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	originalCopy := copyStabilizedExecutable
+	defer func() { copyStabilizedExecutable = originalCopy }()
+	copyStabilizedExecutable = func(destination io.Writer, input io.Reader) (int64, error) {
+		written, err := originalCopy(destination, input)
+		if err == nil {
+			err = os.WriteFile(source, []byte("mutated-worker!"), 0o700)
+		}
+		return written, err
+	}
+	if target, cleanup, err := stabilizeExecutable(source, privateRoot); err == nil {
+		cleanup()
+		t.Fatalf("content mutation was accepted at %s", target)
 	}
 }
 

@@ -85,7 +85,7 @@ func DecodeStrict(data []byte, out any) error {
 func rejectDuplicateJSONKeys(data []byte) error {
 	dec := json.NewDecoder(bytes.NewReader(data))
 	dec.UseNumber()
-	if err := scanJSONValue(dec); err != nil {
+	if err := scanJSONValue(dec, 0); err != nil {
 		return err
 	}
 	if _, err := dec.Token(); err != io.EOF {
@@ -97,7 +97,7 @@ func rejectDuplicateJSONKeys(data []byte) error {
 	return nil
 }
 
-func scanJSONValue(dec *json.Decoder) error {
+func scanJSONValue(dec *json.Decoder, depth int) error {
 	token, err := dec.Token()
 	if err != nil {
 		return err
@@ -105,6 +105,9 @@ func scanJSONValue(dec *json.Decoder) error {
 	delim, ok := token.(json.Delim)
 	if !ok {
 		return nil
+	}
+	if depth >= 64 {
+		return fmt.Errorf("JSON nesting exceeds 64 levels")
 	}
 	switch delim {
 	case '{':
@@ -122,7 +125,7 @@ func scanJSONValue(dec *json.Decoder) error {
 				return fmt.Errorf("duplicate JSON object key")
 			}
 			seen[key] = true
-			if err := scanJSONValue(dec); err != nil {
+			if err := scanJSONValue(dec, depth+1); err != nil {
 				return err
 			}
 		}
@@ -132,7 +135,7 @@ func scanJSONValue(dec *json.Decoder) error {
 		}
 	case '[':
 		for dec.More() {
-			if err := scanJSONValue(dec); err != nil {
+			if err := scanJSONValue(dec, depth+1); err != nil {
 				return err
 			}
 		}

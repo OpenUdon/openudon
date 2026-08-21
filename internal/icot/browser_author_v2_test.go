@@ -280,10 +280,7 @@ func TestAuthenticatedAuthoringReviewMigratesV2AndAppendsWithoutOverwrite(t *tes
 	if err := os.MkdirAll(filepath.Join(example, ".icot"), 0o700); err != nil {
 		t.Fatal(err)
 	}
-	legacy := authenticatedAuthoringSafeReview{
-		Version: legacyAuthenticatedAuthoringReviewVersion, EnvelopeSHA256: "sha256:" + strings.Repeat("a", 64),
-		ObservedAt: "2026-08-20T00:00:00Z", Goal: "legacy goal", PrivateEnvelopeKept: true,
-	}
+	legacy := validLegacyAuthenticatedAuthoringReview("a")
 	legacyData, err := json.Marshal(legacy)
 	if err != nil {
 		t.Fatal(err)
@@ -291,13 +288,14 @@ func TestAuthenticatedAuthoringReviewMigratesV2AndAppendsWithoutOverwrite(t *tes
 	if err := os.WriteFile(filepath.Join(example, ".icot", "authenticated-browser-authoring.json"), append(legacyData, '\n'), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	next := authenticatedAuthoringSafeReview{
-		Version: authenticatedAuthoringReviewVersion, ProfileID: "member", AuthenticationTarget: "browser-authentication/member-auth.json",
-		CapabilityTarget: "browser-profiles/member.json", EnvelopeSHA256: "sha256:" + strings.Repeat("b", 64),
-		ObservedAt: "2026-08-21T00:00:00Z", Goal: "new goal", PrivateEnvelopeKept: true,
-		AuthenticationReview: liveProfileReview{ProfileDigest: "sha256:" + strings.Repeat("c", 64)},
-		CapabilityReview:     liveProfileReview{ProfileDigest: "sha256:" + strings.Repeat("d", 64)},
-	}
+	next := validLegacyAuthenticatedAuthoringReview("b")
+	next.Version = authenticatedAuthoringReviewVersion
+	next.ProfileID = "member"
+	next.AuthenticationTarget = "browser-authentication/member-auth.json"
+	next.CapabilityTarget = "browser-profiles/member.json"
+	next.Goal = "new goal"
+	next.AuthenticationReview.ProfileDigest = "sha256:" + strings.Repeat("c", 64)
+	next.CapabilityReview.ProfileDigest = "sha256:" + strings.Repeat("d", 64)
 	data, err := appendAuthenticatedAuthoringReview(example, next)
 	if err != nil {
 		t.Fatal(err)
@@ -314,6 +312,20 @@ func TestAuthenticatedAuthoringReviewMigratesV2AndAppendsWithoutOverwrite(t *tes
 	}
 	if _, err := appendAuthenticatedAuthoringReview(example, authenticatedAuthoringSafeReview{ProfileID: "member", EnvelopeSHA256: "sha256:" + strings.Repeat("c", 64)}); err == nil {
 		t.Fatal("profile collision was accepted")
+	}
+}
+
+func validLegacyAuthenticatedAuthoringReview(marker string) authenticatedAuthoringSafeReview {
+	observedAt := "2026-08-20T00:00:00Z"
+	profileDigest := "sha256:" + strings.Repeat(marker, 64)
+	return authenticatedAuthoringSafeReview{
+		Version: legacyAuthenticatedAuthoringReviewVersion, EnvelopeSHA256: profileDigest,
+		ObservedAt: observedAt, Goal: "legacy goal",
+		GoalPredicate: liveGoalPredicate{Origin: "https://members.example.test", Path: "/dashboard", Context: "main", Role: "heading", Label: "Dashboard"},
+		Origins:       []string{"https://members.example.test"}, Contexts: map[string]liveContext{}, Bounds: defaultLiveAuthorBounds(), TraceSteps: 1,
+		AuthenticationReview: liveProfileReview{Schema: "browsertools.authenticated-profile-review.v1", Kind: "authentication", ProfileDigest: profileDigest, AssessedAt: observedAt, Decisions: []string{"reviewed"}},
+		CapabilityReview:     liveProfileReview{Schema: "browsertools.authenticated-profile-review.v1", Kind: "capability", ProfileDigest: profileDigest, AssessedAt: observedAt, Decisions: []string{"reviewed"}},
+		PrivateEnvelopeKept:  true,
 	}
 }
 

@@ -74,6 +74,13 @@ func (e *Engine) StageBrowserCapture(ctx context.Context, stage BrowserCaptureSt
 	if err := e.requireMutableWorkspaceLocked(ctx); err != nil {
 		return Snapshot{}, err
 	}
+	if strings.TrimSpace(e.config.PrivateRoot) == "" {
+		return Snapshot{}, rejected(errors.New("browser capture staging requires an engine-configured private root"))
+	}
+	workspaceAtStart, err := e.observeMutationWorkspaceLocked(ctx)
+	if err != nil {
+		return Snapshot{}, operational(err)
+	}
 	stage.ProfileID = strings.ToLower(strings.TrimSpace(stage.ProfileID))
 	if !browserCaptureProfileID.MatchString(stage.ProfileID) {
 		return Snapshot{}, rejected(errors.New("browser capture profile ID is invalid"))
@@ -111,15 +118,12 @@ func (e *Engine) StageBrowserCapture(ctx context.Context, stage BrowserCaptureSt
 	if !found {
 		return Snapshot{}, rejected(errors.New("browser capture safe review does not bind the staged profile"))
 	}
-	authenticationPath := filepath.Join(e.workspaceRoot, "browser-authentication", stage.ProfileID+"-auth.json")
-	capabilityPath := filepath.Join(e.workspaceRoot, "browser-profiles", stage.ProfileID+".json")
-	reviewPath := filepath.Join(e.workspaceRoot, ".icot", "authenticated-browser-authoring.json")
-	for _, path := range []string{authenticationPath, capabilityPath} {
-		if _, err := os.Lstat(path); err == nil {
-			return Snapshot{}, rejected(fmt.Errorf("browser capture target %s already exists", filepath.Base(path)))
-		} else if !errors.Is(err, os.ErrNotExist) {
-			return Snapshot{}, operational(err)
-		}
+	authenticationPath, capabilityPath, reviewPath, err := browserCaptureTargets(e.workspaceRoot, stage.ProfileID)
+	if err != nil {
+		return Snapshot{}, rejected(err)
+	}
+	if err := requireBrowserCaptureTargetsAbsent(authenticationPath, capabilityPath); err != nil {
+		return Snapshot{}, err
 	}
 	currentReview, err := readCurrentBrowserCaptureReview(reviewPath)
 	if err != nil {
@@ -128,21 +132,69 @@ func (e *Engine) StageBrowserCapture(ctx context.Context, stage BrowserCaptureSt
 	if err := validateBrowserCaptureReviewAppend(currentReview, review, stage.ProfileID); err != nil {
 		return Snapshot{}, rejected(err)
 	}
-	workspaceAtStart, err := e.observeMutationWorkspaceLocked(ctx)
-	if err != nil {
-		return Snapshot{}, operational(err)
-	}
 	paths := uniqueSortedPaths(append(append([]string(nil), e.watchedPaths...), authenticationPath, capabilityPath, reviewPath))
 	accepted := acceptedFingerprint(paths, e.workspaceBaseline, workspaceAtStart)
+	reviewFingerprint := accepted.entries[reviewPath]
+	reviewExists := reviewFingerprint.Type == "regular"
+	expectedReviewSHA256 := ""
+	if reviewExists {
+		expectedReviewSHA256 = "sha256:" + reviewFingerprint.SHA256
+	}
 	prepared := artifactwriter.Prepared{ExampleRoot: e.workspaceRoot, Files: []artifactwriter.GeneratedFile{
 		{Path: authenticationPath, Content: ensureTrailingNewline(stage.Authentication), Action: "stage_browser_authentication", Reason: "reviewed Browsertools author session"},
 		{Path: capabilityPath, Content: ensureTrailingNewline(stage.Capability), Action: "stage_browser_capability", Reason: "reviewed Browsertools author session"},
-		{Path: reviewPath, Content: ensureTrailingNewline(stage.SafeReview), AllowOverwrite: true, Action: "update_browser_capture_review", Reason: "safe v3 capture collection"},
+		{Path: reviewPath, Content: ensureTrailingNewline(stage.SafeReview), AllowOverwrite: reviewExists, ExpectedCurrentSHA256: expectedReviewSHA256, Action: "update_browser_capture_review", Reason: "safe v3 capture collection"},
 	}}
-	if _, err := commitPrepared(prepared, false, func() error { return e.compareAndLatchWorkspaceLocked(paths, accepted) }); err != nil {
+	if _, err := commitPrepared(prepared, false, func() error {
+		if err := e.compareAndLatchWorkspaceLocked(paths, accepted); err != nil {
+			return err
+		}
+		recheckedAuthentication, recheckedCapability, recheckedReview, err := browserCaptureTargets(e.workspaceRoot, stage.ProfileID)
+		if err != nil || recheckedAuthentication != authenticationPath || recheckedCapability != capabilityPath || recheckedReview != reviewPath {
+			return conflict("workspace_changed", errors.New("browser capture targets changed before replacement"))
+		}
+		if err := requireBrowserCaptureTargetsAbsent(authenticationPath, capabilityPath); err != nil {
+			return err
+		}
+		currentReview, err := readCurrentBrowserCaptureReview(reviewPath)
+		if err != nil {
+			return rejected(err)
+		}
+		if err := validateBrowserCaptureReviewAppend(currentReview, review, stage.ProfileID); err != nil {
+			return rejected(err)
+		}
+		return nil
+	}); err != nil {
 		return Snapshot{}, classifyCommit(err)
 	}
 	return e.refreshAfterAcquisitionCommitLocked(ctx)
+}
+
+func browserCaptureTargets(root, profileID string) (string, string, string, error) {
+	authentication, err := artifactwriter.SafeExampleTarget(root, filepath.ToSlash(filepath.Join("browser-authentication", profileID+"-auth.json")))
+	if err != nil {
+		return "", "", "", err
+	}
+	capability, err := artifactwriter.SafeExampleTarget(root, filepath.ToSlash(filepath.Join("browser-profiles", profileID+".json")))
+	if err != nil {
+		return "", "", "", err
+	}
+	review, err := artifactwriter.SafeExampleTarget(root, ".icot/authenticated-browser-authoring.json")
+	if err != nil {
+		return "", "", "", err
+	}
+	return authentication, capability, review, nil
+}
+
+func requireBrowserCaptureTargetsAbsent(paths ...string) error {
+	for _, path := range paths {
+		if _, err := os.Lstat(path); err == nil {
+			return rejected(fmt.Errorf("browser capture target %s already exists", filepath.Base(path)))
+		} else if !errors.Is(err, os.ErrNotExist) {
+			return operational(err)
+		}
+	}
+	return nil
 }
 
 func decodeBrowserCaptureReviewCollection(data []byte) (browserCaptureReviewCollection, error) {
@@ -180,15 +232,23 @@ func validateBrowserCaptureReviewCollection(review browserCaptureReviewCollectio
 			return errors.New("browser capture safe review profiles are not deterministically ordered")
 		}
 		seenIDs[capture.ProfileID] = true
-		legacy := strings.HasPrefix(capture.ProfileID, "legacy-") && capture.AuthenticationTarget == "" && capture.CapabilityTarget == ""
-		if !legacy {
+		legacy := strings.HasPrefix(capture.ProfileID, "legacy-")
+		if err := validateBrowserCaptureSafeEvidence(capture); err != nil {
+			return err
+		}
+		if legacy {
+			if capture.AuthenticationTarget != "" || capture.CapabilityTarget != "" {
+				return errors.New("legacy browser capture targets must be empty")
+			}
+			digest := strings.TrimPrefix(strings.ToLower(strings.TrimSpace(capture.EnvelopeSHA256)), "sha256:")
+			if capture.ProfileID != "legacy-"+digest[:12] {
+				return errors.New("legacy browser capture profile ID is not derived from its envelope digest")
+			}
+		} else {
 			expectedAuthentication := filepath.ToSlash(filepath.Join("browser-authentication", capture.ProfileID+"-auth.json"))
 			expectedCapability := filepath.ToSlash(filepath.Join("browser-profiles", capture.ProfileID+".json"))
-			if capture.AuthenticationTarget != expectedAuthentication || capture.CapabilityTarget != expectedCapability || strings.TrimSpace(capture.Goal) == "" || !capture.PrivateEnvelopeKept {
+			if capture.AuthenticationTarget != expectedAuthentication || capture.CapabilityTarget != expectedCapability {
 				return errors.New("browser capture safe review profile binding is invalid")
-			}
-			if _, parseErr := time.Parse(time.RFC3339, capture.ObservedAt); parseErr != nil || !validBrowserCaptureDigest(capture.AuthenticationReview.ProfileDigest) || !validBrowserCaptureDigest(capture.CapabilityReview.ProfileDigest) {
-				return errors.New("browser capture safe review evidence is invalid")
 			}
 		}
 		if capture.AuthenticationTarget != "" {
@@ -207,6 +267,41 @@ func validateBrowserCaptureReviewCollection(review browserCaptureReviewCollectio
 			return errors.New("browser capture safe review contains an invalid or duplicate envelope digest")
 		}
 		seenEnvelopes[capture.EnvelopeSHA256] = true
+	}
+	return nil
+}
+
+func validateBrowserCaptureSafeEvidence(capture browserCaptureSafeReview) error {
+	if strings.TrimSpace(capture.Goal) == "" || !capture.PrivateEnvelopeKept ||
+		strings.TrimSpace(capture.GoalPredicate.Origin) == "" || strings.TrimSpace(capture.GoalPredicate.Path) == "" || strings.TrimSpace(capture.GoalPredicate.Role) == "" ||
+		len(capture.Origins) == 0 || len(capture.Origins) > 64 || capture.Contexts == nil || len(capture.Contexts) > 64 ||
+		capture.TraceSteps <= 0 || capture.TraceSteps > 512 || len(capture.OutputSelections) > capture.Bounds.MaxOutputs ||
+		capture.Bounds.NavigationTimeoutMS <= 0 || capture.Bounds.TotalTimeoutMS <= 0 || capture.Bounds.MaxRequests <= 0 ||
+		capture.Bounds.MaxResponseBytes <= 0 || capture.Bounds.MaxObservations <= 0 || capture.Bounds.MaxCandidates <= 0 || capture.Bounds.MaxOutputs <= 0 {
+		return errors.New("browser capture safe review evidence is incomplete")
+	}
+	if _, err := time.Parse(time.RFC3339, capture.ObservedAt); err != nil || !validBrowserCaptureDigest(capture.EnvelopeSHA256) {
+		return errors.New("browser capture safe review evidence is invalid")
+	}
+	for _, origin := range capture.Origins {
+		if strings.TrimSpace(origin) == "" {
+			return errors.New("browser capture safe review origin evidence is invalid")
+		}
+	}
+	for _, review := range []struct {
+		value authorresult.Review
+		kind  string
+	}{{capture.AuthenticationReview, "authentication"}, {capture.CapabilityReview, "capability"}} {
+		if review.value.Schema != "browsertools.authenticated-profile-review.v1" || review.value.Kind != review.kind ||
+			review.value.AssessedAt != capture.ObservedAt || !validBrowserCaptureDigest(review.value.ProfileDigest) ||
+			len(review.value.Decisions) == 0 || len(review.value.Decisions) > 32 {
+			return errors.New("browser capture safe profile review evidence is invalid")
+		}
+		for _, decision := range review.value.Decisions {
+			if strings.TrimSpace(decision) == "" {
+				return errors.New("browser capture safe profile review decision is invalid")
+			}
+		}
 	}
 	return nil
 }
@@ -246,7 +341,11 @@ func readCurrentBrowserCaptureReview(path string) (browserCaptureReviewCollectio
 	legacy.Version = browserCaptureReviewVersion
 	legacy.ProfileID = "legacy-" + digest[:12]
 	legacy.EnvelopeSHA256 = "sha256:" + digest
-	return browserCaptureReviewCollection{Version: browserCaptureReviewVersion, Captures: []browserCaptureSafeReview{legacy}}, nil
+	collection := browserCaptureReviewCollection{Version: browserCaptureReviewVersion, Captures: []browserCaptureSafeReview{legacy}}
+	if err := validateBrowserCaptureReviewCollection(collection); err != nil {
+		return browserCaptureReviewCollection{}, fmt.Errorf("existing legacy browser capture review is invalid: %w", err)
+	}
+	return collection, nil
 }
 
 func validateBrowserCaptureReviewAppend(current, next browserCaptureReviewCollection, profileID string) error {

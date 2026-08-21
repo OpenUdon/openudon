@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/OpenUdon/browsertools/authprofile"
+	"github.com/OpenUdon/openudon/internal/browserworkflow"
 	"github.com/OpenUdon/openudon/internal/evidencefile"
 	"github.com/OpenUdon/openudon/internal/packageartifacts"
 	rollout "github.com/OpenUdon/openudon/internal/workflowintent"
@@ -169,13 +170,13 @@ func validateBrowserAuthenticationReview(exampleDir string, paths []string, inte
 	}
 	var stepErrors []string
 	expectedApprovals := map[string]bool{}
-	walkIntentSteps(intentSteps(intent), func(step *rollout.Step) {
+	browserworkflow.WalkEffectiveSources(intent, func(step *rollout.Step, effectiveSource string) {
 		if step == nil || !strings.EqualFold(strings.TrimSpace(step.Type), "browser_authentication") {
 			return
 		}
 		name := firstNonEmpty(step.Name, "<unnamed>")
 		expectedApprovals[name] = true
-		ref := normalizeAPISourceRef(firstNonEmpty(step.Source, step.OpenAPI, intentSourceRef(intent)))
+		ref := normalizeAPISourceRef(effectiveSource)
 		value := profiles[ref]
 		if value == nil {
 			stepErrors = append(stepErrors, fmt.Sprintf("step %s references unreviewed authentication source %q", name, ref))

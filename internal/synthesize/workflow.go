@@ -211,7 +211,8 @@ func buildUWSStep(step *rollout.Step, defaultOpenAPI string, sourceFor func(stri
 	var ops []*uws1.Operation
 	if isIntentStructuralType(kind) {
 		uwsStep.Type = uwsWorkflowType(kind)
-		nested, nestedOps, err := buildUWSSteps(step.Steps, firstNonEmpty(step.Source, step.OpenAPI, defaultOpenAPI), sourceFor, requestMapper, browserContracts)
+		effectiveSource := browserworkflow.EffectiveSource(step, defaultOpenAPI)
+		nested, nestedOps, err := buildUWSSteps(step.Steps, effectiveSource, sourceFor, requestMapper, browserContracts)
 		if err != nil {
 			return nil, nil, err
 		}
@@ -221,7 +222,7 @@ func buildUWSStep(step *rollout.Step, defaultOpenAPI string, sourceFor func(stri
 			if branch == nil {
 				continue
 			}
-			caseSteps, caseOps, err := buildUWSSteps(branch.Steps, firstNonEmpty(step.Source, step.OpenAPI, defaultOpenAPI), sourceFor, requestMapper, browserContracts)
+			caseSteps, caseOps, err := buildUWSSteps(branch.Steps, effectiveSource, sourceFor, requestMapper, browserContracts)
 			if err != nil {
 				return nil, nil, err
 			}
@@ -232,7 +233,7 @@ func buildUWSStep(step *rollout.Step, defaultOpenAPI string, sourceFor func(stri
 			ops = append(ops, caseOps...)
 		}
 		if step.Default != nil {
-			defaultSteps, defaultOps, err := buildUWSSteps(step.Default.Steps, firstNonEmpty(step.Source, step.OpenAPI, defaultOpenAPI), sourceFor, requestMapper, browserContracts)
+			defaultSteps, defaultOps, err := buildUWSSteps(step.Default.Steps, effectiveSource, sourceFor, requestMapper, browserContracts)
 			if err != nil {
 				return nil, nil, err
 			}
@@ -241,7 +242,7 @@ func buildUWSStep(step *rollout.Step, defaultOpenAPI string, sourceFor func(stri
 		}
 		return uwsStep, ops, nil
 	}
-	openAPIPath := firstNonEmpty(step.Source, step.OpenAPI, defaultOpenAPI)
+	openAPIPath := browserworkflow.EffectiveSource(step, defaultOpenAPI)
 	request, err := intentRequestMap(step.With, kind, openAPIPath, step.Operation, requestMapper)
 	if err != nil {
 		return nil, nil, fmt.Errorf("step %s request bindings: %w", name, err)
@@ -1127,46 +1128,45 @@ func browserContractVersionsForIntent(exampleDir string, intent *rollout.Intent)
 	if intent == nil || strings.TrimSpace(exampleDir) == "" {
 		return result, nil
 	}
-	var resultErr error
-	var visit func([]*rollout.Step, string)
-	visit = func(steps []*rollout.Step, inheritedSource string) {
-		for _, step := range steps {
-			if step == nil || resultErr != nil {
-				continue
-			}
-			source := normalizeAPISourceRef(firstNonEmpty(step.Source, step.OpenAPI, inheritedSource))
-			kind := strings.ToLower(strings.TrimSpace(step.Type))
-			if kind == "browser" || kind == "browser_authentication" {
-				profileName, browserProfile, err := browserProfileDiscriminator(exampleDir, source, kind)
-				if err != nil {
-					resultErr = fmt.Errorf("step %s browser contract: %w", firstNonEmpty(step.Name, "<unnamed>"), err)
-					continue
-				}
-				if browserProfile != nil {
-					result.Profiles[source] = browserProfile
-				}
-				switch {
-				case kind == "browser" && profileName == "uws.browser.1.7":
-					result.Requires19 = true
-				case kind == "browser" && profileName == "uws.browser.1.6":
-					result.Requires18 = true
-				case kind == "browser_authentication" && profileName == "uws.browser-authentication.1.1":
-					result.Requires18 = true
-					result.ContextAuthentication[source] = true
-				}
-			}
-			visit(step.Steps, source)
-			for _, branch := range step.Cases {
-				if branch != nil {
-					visit(branch.Steps, source)
-				}
-			}
-			if step.Default != nil {
-				visit(step.Default.Steps, source)
-			}
-		}
+	type loadedContract struct {
+		name    string
+		profile *profile.Profile
+		err     error
 	}
-	visit(intent.Steps, intentSourceRef(intent))
+	loaded := map[string]loadedContract{}
+	var resultErr error
+	browserworkflow.WalkEffectiveSources(intent, func(step *rollout.Step, effectiveSource string) {
+		if resultErr != nil {
+			return
+		}
+		source := normalizeAPISourceRef(effectiveSource)
+		kind := strings.ToLower(strings.TrimSpace(step.Type))
+		if kind != "browser" && kind != "browser_authentication" {
+			return
+		}
+		key := kind + "\x00" + source
+		contract, ok := loaded[key]
+		if !ok {
+			contract.name, contract.profile, contract.err = browserProfileDiscriminator(exampleDir, source, kind)
+			loaded[key] = contract
+		}
+		if contract.err != nil {
+			resultErr = fmt.Errorf("step %s browser contract: %w", firstNonEmpty(step.Name, "<unnamed>"), contract.err)
+			return
+		}
+		if contract.profile != nil {
+			result.Profiles[source] = contract.profile
+		}
+		switch {
+		case kind == "browser" && contract.name == "uws.browser.1.7":
+			result.Requires19 = true
+		case kind == "browser" && contract.name == "uws.browser.1.6":
+			result.Requires18 = true
+		case kind == "browser_authentication" && contract.name == "uws.browser-authentication.1.1":
+			result.Requires18 = true
+			result.ContextAuthentication[source] = true
+		}
+	})
 	return result, resultErr
 }
 

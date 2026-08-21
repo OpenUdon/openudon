@@ -14,6 +14,7 @@ import (
 	"github.com/OpenUdon/apitools/googlediscovery"
 	"github.com/OpenUdon/asyncapi"
 	"github.com/OpenUdon/browsertools/profile"
+	"github.com/OpenUdon/openudon/internal/evidencefile"
 	"github.com/OpenUdon/openudon/internal/openapidisco"
 	"github.com/OpenUdon/openudon/internal/packageartifacts"
 	"github.com/OpenUdon/uws/uws1"
@@ -53,6 +54,27 @@ func newLocalAPISourceRegistry(exampleDir string, candidates []openapidisco.Cand
 		sourceType := sourceDescriptionTypeForPath(rel)
 		entry := localAPISource{RelativePath: rel, Type: sourceType}
 		abs := filepath.Join(exampleDir, filepath.FromSlash(rel))
+		if sourceType == uws1.SourceDescriptionTypeBrowserProfile {
+			data, _, readErr := evidencefile.ReadRegular(abs, evidencefile.DefaultMaxBytes)
+			if readErr != nil {
+				entry.Err = readErr
+			} else if sniffed, ok, sniffErr := sniffAPISourceTypeBytes(data); sniffErr != nil {
+				entry.Err = sniffErr
+			} else if ok && sniffed != sourceType {
+				entry.Err = fmt.Errorf("source path implies %s but document looks like %s", sourceType, sniffed)
+			} else {
+				entry.BrowserProfile, entry.Err = parseBrowserProfileBytes(abs, data)
+				if entry.Err == nil {
+					entry.BrowserActions = entry.BrowserProfile.Actions
+					entry.Operations = make(map[string]bool, len(entry.BrowserActions))
+					for name := range entry.BrowserActions {
+						entry.Operations[name] = true
+					}
+				}
+			}
+			registry.add(exampleDir, entry)
+			continue
+		}
 		if sniffed, ok, sniffErr := sniffAPISourceType(abs); sniffErr != nil {
 			entry.Err = sniffErr
 		} else if ok && sniffed != sourceType {
@@ -258,6 +280,10 @@ func sniffAPISourceType(path string) (uws1.SourceDescriptionType, bool, error) {
 	if err != nil {
 		return "", false, err
 	}
+	return sniffAPISourceTypeBytes(data)
+}
+
+func sniffAPISourceTypeBytes(data []byte) (uws1.SourceDescriptionType, bool, error) {
 	text := strings.TrimSpace(string(data))
 	if text == "" {
 		return "", false, nil
@@ -324,10 +350,14 @@ func sniffAPISourceType(path string) (uws1.SourceDescriptionType, bool, error) {
 }
 
 func loadBrowserProfile(path string) (*profile.Profile, error) {
-	data, err := os.ReadFile(path)
+	data, _, err := evidencefile.ReadRegular(path, evidencefile.DefaultMaxBytes)
 	if err != nil {
 		return nil, err
 	}
+	return parseBrowserProfileBytes(path, data)
+}
+
+func parseBrowserProfileBytes(path string, data []byte) (*profile.Profile, error) {
 	switch strings.ToLower(filepath.Ext(path)) {
 	case ".json":
 		return profile.ParseJSON(data)

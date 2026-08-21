@@ -8,6 +8,8 @@ import (
 	"bufio"
 	"bytes"
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -35,6 +37,8 @@ const (
 )
 
 var profileIDPattern = regexp.MustCompile(`^[a-z0-9][a-z0-9._-]{0,63}$`)
+
+var copyStabilizedExecutable = io.Copy
 
 // Config fixes all browser authority before the worker is launched.
 type Config struct {
@@ -750,6 +754,16 @@ func stabilizeExecutable(source, privateRoot string) (string, func(), error) {
 		cleanup()
 		return "", nil, errors.New("iCoT executable identity changed before stabilization")
 	}
+	sourceDigestBefore, err := hashExecutable(input, 256<<20)
+	if err != nil {
+		cleanup()
+		return "", nil, errors.New("could not hash iCoT executable before stabilization")
+	}
+	hashedBefore, err := input.Stat()
+	if err != nil || !sameExecutableState(openedBefore, hashedBefore) {
+		cleanup()
+		return "", nil, errors.New("iCoT executable changed while hashing before stabilization")
+	}
 	name := "icot"
 	if strings.EqualFold(filepath.Ext(source), ".exe") {
 		name += ".exe"
@@ -760,13 +774,16 @@ func stabilizeExecutable(source, privateRoot string) (string, func(), error) {
 		cleanup()
 		return "", nil, err
 	}
-	written, copyErr := io.Copy(output, io.LimitReader(input, (256<<20)+1))
+	written, copyErr := copyStabilizedExecutable(output, io.LimitReader(input, (256<<20)+1))
 	syncErr, closeErr := output.Sync(), output.Close()
 	openedAfter, statErr := input.Stat()
+	sourceDigestAfter, digestErr := hashExecutable(input, 256<<20)
+	hashedAfter, hashedStatErr := input.Stat()
 	pathAfter, pathErr := os.Lstat(source)
 	if copyErr != nil || syncErr != nil || closeErr != nil || statErr != nil || pathErr != nil ||
+		digestErr != nil || hashedStatErr != nil || sourceDigestBefore != sourceDigestAfter ||
 		written != info.Size() || written > 256<<20 || !os.SameFile(openedBefore, openedAfter) || !os.SameFile(openedBefore, pathAfter) ||
-		openedBefore.Size() != openedAfter.Size() || !openedBefore.ModTime().Equal(openedAfter.ModTime()) {
+		!sameExecutableState(openedBefore, openedAfter) || !sameExecutableState(openedAfter, hashedAfter) {
 		cleanup()
 		return "", nil, errors.New("could not stabilize iCoT browser worker executable")
 	}
@@ -775,5 +792,42 @@ func stabilizeExecutable(source, privateRoot string) (string, func(), error) {
 		cleanup()
 		return "", nil, errors.New("stabilized iCoT browser worker is unsafe")
 	}
+	targetFile, err := os.Open(target)
+	if err != nil {
+		cleanup()
+		return "", nil, errors.New("could not open stabilized iCoT browser worker")
+	}
+	targetDigest, targetDigestErr := hashExecutable(targetFile, 256<<20)
+	targetOpenedAfter, targetStatErr := targetFile.Stat()
+	targetCloseErr := targetFile.Close()
+	targetPathAfter, targetPathErr := os.Lstat(target)
+	if targetDigestErr != nil || targetStatErr != nil || targetCloseErr != nil || targetPathErr != nil || targetDigest != sourceDigestBefore ||
+		!sameExecutableState(targetInfo, targetOpenedAfter) || !sameExecutableState(targetOpenedAfter, targetPathAfter) || targetPathAfter.Mode().Perm() != 0o500 {
+		cleanup()
+		return "", nil, errors.New("stabilized iCoT browser worker content could not be verified")
+	}
 	return target, cleanup, nil
+}
+
+func hashExecutable(file *os.File, maxBytes int64) (string, error) {
+	if _, err := file.Seek(0, io.SeekStart); err != nil {
+		return "", err
+	}
+	hash := sha256.New()
+	written, err := io.Copy(hash, io.LimitReader(file, maxBytes+1))
+	if err != nil {
+		return "", err
+	}
+	if written > maxBytes {
+		return "", errors.New("executable exceeds size bound")
+	}
+	if _, err := file.Seek(0, io.SeekStart); err != nil {
+		return "", err
+	}
+	return hex.EncodeToString(hash.Sum(nil)), nil
+}
+
+func sameExecutableState(left, right os.FileInfo) bool {
+	return left != nil && right != nil && left.Mode().IsRegular() && right.Mode().IsRegular() &&
+		left.Mode() == right.Mode() && left.Size() == right.Size() && left.ModTime().Equal(right.ModTime()) && os.SameFile(left, right)
 }

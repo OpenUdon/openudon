@@ -1,11 +1,29 @@
 package evidencefile
 
 import (
+	"bytes"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
 )
+
+func TestDecodeStrictBoundsJSONNestingAt64Levels(t *testing.T) {
+	type nested struct {
+		Value any `json:"value"`
+	}
+	build := func(depth int) []byte {
+		return []byte(`{"value":` + string(bytes.Repeat([]byte("["), depth-1)) + `null` + string(bytes.Repeat([]byte("]"), depth-1)) + `}`)
+	}
+	var accepted nested
+	if err := DecodeStrict(build(64), &accepted); err != nil {
+		t.Fatalf("depth 64 rejected: %v", err)
+	}
+	var rejected nested
+	if err := DecodeStrict(build(65), &rejected); err == nil || !strings.Contains(err.Error(), "64 levels") {
+		t.Fatalf("depth 65 error = %v", err)
+	}
+}
 
 func TestReadRegularRejectsSymlinkAndOversize(t *testing.T) {
 	dir := t.TempDir()

@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/OpenUdon/browsertools/profile"
+	"github.com/OpenUdon/openudon/internal/browserworkflow"
 	"github.com/OpenUdon/openudon/internal/openapidisco"
 	rollout "github.com/OpenUdon/openudon/internal/workflowintent"
 )
@@ -128,7 +129,7 @@ func sideEffectProfileForOpenAPI(policy projectPolicy, intent *rollout.Intent, c
 	profile := sideEffectProfileFor(policy, intent)
 	ops := openAPIOperationIndex(candidates)
 	servers := openAPIServerIndex(candidates)
-	walkIntentSteps(intentSteps(intent), func(step *rollout.Step) {
+	browserworkflow.WalkEffectiveSources(intent, func(step *rollout.Step, effectiveSource string) {
 		if step == nil || strings.TrimSpace(step.Operation) == "" {
 			return
 		}
@@ -136,7 +137,7 @@ func sideEffectProfileForOpenAPI(policy projectPolicy, intent *rollout.Intent, c
 		if name == "" {
 			name = "<unnamed>"
 		}
-		specPath := intentStepOpenAPIPath(intent, step, primary)
+		specPath := normalizeAPISourceRef(firstNonEmpty(effectiveSource, primary))
 		op := ops[operationKey(specPath, step.Operation)]
 		if op != nil {
 			if openAPIMethodIsSideEffectful(op.Method) {
@@ -199,7 +200,7 @@ func sideEffectProfileForSources(policy projectPolicy, intent *rollout.Intent, c
 	if err != nil {
 		return result
 	}
-	walkIntentSteps(intentSteps(intent), func(step *rollout.Step) {
+	browserworkflow.WalkEffectiveSources(intent, func(step *rollout.Step, effectiveSource string) {
 		if step == nil {
 			return
 		}
@@ -208,7 +209,7 @@ func sideEffectProfileForSources(policy projectPolicy, intent *rollout.Intent, c
 			result.SideEffectful = true
 			result.Reasons = append(result.Reasons, name+" establishes an authenticated browser session and may send an MFA challenge")
 			result.Effects = append(result.Effects, sideEffectEvidence{
-				Step: name, Kind: "browser_authentication", Source: firstNonEmpty(step.Source, step.OpenAPI), Operation: step.AuthenticationFlow,
+				Step: name, Kind: "browser_authentication", Source: effectiveSource, Operation: step.AuthenticationFlow,
 				Risk: "browser authentication requires separate authoring and runtime approval",
 			})
 			return
@@ -216,7 +217,7 @@ func sideEffectProfileForSources(policy projectPolicy, intent *rollout.Intent, c
 		if !strings.EqualFold(strings.TrimSpace(step.Type), "browser") {
 			return
 		}
-		ref := intentStepOpenAPIPath(intent, step, primary)
+		ref := normalizeAPISourceRef(firstNonEmpty(effectiveSource, primary))
 		entry, ok := registry.get(ref)
 		if !ok || entry.Err != nil || entry.Type != "browser-profile" {
 			return

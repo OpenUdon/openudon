@@ -61,7 +61,8 @@ Before launch, a 30-second isolated doctor reports the installed Playwright and
 Chromium readiness. Snapshot polling continues while the doctor runs. One
 capture may be active at a time. During an active capture the UI remains
 inspectable, but journey, source, interview, approval, and package mutations
-are blocked.
+are blocked. The UI stores and serves only Browsertools' UI-safe doctor shape;
+the executable path and other private local paths remain CLI-only diagnostics.
 
 The API and shell model these states explicitly: `preflight`, `configuring`,
 `launching`, `authentication`, `human_input`, `exploration`,
@@ -155,6 +156,9 @@ The unified acquisition-to-handoff qualification additionally requires an
 installed Chromium run covering access code, starter, authenticated capture,
 profile stage, resumed interview, repeated review as needed, package build,
 and passing handoff. Real-site runs must use an operator-authorized
-non-production tenant and retain only value-free evidence. A local
-`OPENUDON_ICOT_UI_BROWSER_DISABLE_SANDBOX=1` test is diagnostic only and does
-not substitute for hosted sandboxed evidence.
+non-production tenant and retain only value-free evidence. The required target
+rejects the sandbox-disable override, sets an explicit sandbox-required
+control, and logs `chromium_sandbox_enabled=true` for every journey. Use
+`make icot-ui-browser-check-unsandboxed` only to diagnose a local host whose
+kernel policy blocks user namespaces; it cannot substitute for sandboxed
+release evidence.

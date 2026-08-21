@@ -14,6 +14,7 @@ import (
 	"github.com/OpenUdon/browsertools/profile"
 	"github.com/OpenUdon/openudon/internal/browserverify"
 	"github.com/OpenUdon/openudon/internal/browserworkflow"
+	"github.com/OpenUdon/openudon/internal/evidencefile"
 	"github.com/OpenUdon/openudon/internal/packageartifacts"
 	rollout "github.com/OpenUdon/openudon/internal/workflowintent"
 )
@@ -121,7 +122,8 @@ func validateBrowserSourceReview(exampleDir string, paths []string, intent *roll
 		if !ok {
 			return fmt.Errorf("browser review is missing %s", path)
 		}
-		data, err := os.ReadFile(filepath.Join(exampleDir, filepath.FromSlash(path)))
+		absolute := filepath.Join(exampleDir, filepath.FromSlash(path))
+		data, _, err := evidencefile.ReadRegular(absolute, evidencefile.DefaultMaxBytes)
 		if err != nil {
 			return err
 		}
@@ -135,7 +137,7 @@ func validateBrowserSourceReview(exampleDir string, paths []string, intent *roll
 				return fmt.Errorf("browser source %s source_sha256 is invalid", path)
 			}
 		}
-		value, err := loadBrowserProfile(filepath.Join(exampleDir, filepath.FromSlash(path)))
+		value, err := parseBrowserProfileBytes(path, data)
 		if err != nil {
 			return fmt.Errorf("browser source %s: %w", path, err)
 		}
@@ -192,11 +194,11 @@ func validateBrowserSourceReview(exampleDir string, paths []string, intent *roll
 	expectedApprovals := map[string]bool{}
 	usedActions := map[string]map[string]bool{}
 	var stepErrors []string
-	walkIntentSteps(intentSteps(intent), func(step *rollout.Step) {
+	browserworkflow.WalkEffectiveSources(intent, func(step *rollout.Step, effectiveSource string) {
 		if step == nil || !strings.EqualFold(strings.TrimSpace(step.Type), "browser") {
 			return
 		}
-		ref := normalizeAPISourceRef(firstNonEmpty(step.Source, step.OpenAPI, intentSourceRef(intent)))
+		ref := normalizeAPISourceRef(effectiveSource)
 		value := profiles[ref]
 		if value == nil {
 			stepErrors = append(stepErrors, fmt.Sprintf("step %s references unreviewed browser source %q", firstNonEmpty(step.Name, "<unnamed>"), ref))
@@ -358,13 +360,6 @@ func intentHasBrowserStep(intent *rollout.Intent) bool {
 		}
 	})
 	return found
-}
-
-func intentSourceRef(intent *rollout.Intent) string {
-	if intent == nil {
-		return ""
-	}
-	return firstNonEmpty(intent.Source, intent.OpenAPI)
 }
 
 func equalSortedStrings(left, right []string) bool {
