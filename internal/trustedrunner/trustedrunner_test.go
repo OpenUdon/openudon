@@ -9,6 +9,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"reflect"
 	"runtime"
 	"strings"
 	"syscall"
@@ -50,6 +51,130 @@ func TestRunValidSandboxApprovalPassesDryRun(t *testing.T) {
 	if result.StagePath == "" || result.RunEvidencePath == "" || result.AsyncEvidencePath == "" {
 		t.Fatalf("dry-run did not stage package and write evidence: %+v", result)
 	}
+}
+
+func TestInspectPackageIsNonWritingAndReturnsExactHandoffFacts(t *testing.T) {
+	root, example := writeFixture(t, fixtureOptions{credentialBindings: []string{"support-api.token"}})
+	before := snapshotTree(t, root)
+	inspection, err := InspectPackage(context.Background(), TemplateOptions{RepoRoot: root, ExampleDir: example, Assess: passAssess})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if inspection.Scope != "examples/support-email" || inspection.PackageSHA256 == "" || inspection.HandoffSHA256 == "" || len(inspection.CredentialBindings.Declared) != 1 || len(inspection.ApprovalStates) == 0 {
+		t.Fatalf("inspection = %#v", inspection)
+	}
+	after := snapshotTree(t, root)
+	if !reflect.DeepEqual(before, after) {
+		t.Fatalf("non-writing inspection changed files: before=%v after=%v", before, after)
+	}
+}
+
+func TestInspectPackageRejectsHandoffGenerationChangeDuringAssessment(t *testing.T) {
+	root, example := writeFixture(t, fixtureOptions{})
+	handoffPath := filepath.Join(example, "expected", "review-handoff.json")
+	originalBytes, err := os.ReadFile(handoffPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var replacement authoring.ReviewHandoff
+	if err := json.Unmarshal(originalBytes, &replacement); err != nil {
+		t.Fatal(err)
+	}
+	replacement.ApprovalStates[0].Meaning = "replacement generation safety facts"
+	refreshFixtureHandoffDigests(t, example, &replacement)
+	replacementBytes, err := json.MarshalIndent(replacement, "", "  ")
+	if err != nil {
+		t.Fatal(err)
+	}
+	replacementBytes = append(replacementBytes, '\n')
+
+	_, err = InspectPackage(context.Background(), TemplateOptions{
+		RepoRoot: root, ExampleDir: example,
+		Assess: func(context.Context, synthesize.Options) (*synthesize.QualityReport, error) {
+			mustWriteFile(t, handoffPath, replacementBytes)
+			return passAssess(context.Background(), synthesize.Options{})
+		},
+	})
+	if err == nil || !strings.Contains(err.Error(), "changed during current-state assessment") {
+		t.Fatalf("handoff replacement during assessment error = %v", err)
+	}
+}
+
+func TestInspectPackageRejectsMissingAssessmentReport(t *testing.T) {
+	root, example := writeFixture(t, fixtureOptions{})
+	_, err := InspectPackage(context.Background(), TemplateOptions{
+		RepoRoot: root, ExampleDir: example,
+		Assess: func(context.Context, synthesize.Options) (*synthesize.QualityReport, error) { return nil, nil },
+	})
+	if err == nil || !strings.Contains(err.Error(), "assessment returned no report") {
+		t.Fatalf("missing assessment report error = %v", err)
+	}
+}
+
+func TestRevalidatePackageBytesCoversCompleteManifest(t *testing.T) {
+	tests := []struct {
+		name  string
+		path  string
+		extra bool
+		data  string
+	}{
+		{name: "fixed refinement", path: "expected/refinement.json", data: "{\"changed\":true}\n"},
+		{name: "runtime data", path: "expected/data.hcl", extra: true, data: "inputs { reviewed = true }\n"},
+		{name: "API source", path: "openapi/support.yaml", extra: true, data: "openapi: 3.1.0\ninfo: {title: Changed, version: 1.0.0}\npaths: {}\n"},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			var extras []string
+			if tc.extra {
+				extras = []string{tc.path}
+			}
+			root, example := writeFixture(t, fixtureOptions{extraRequiredInputs: extras})
+			path := filepath.Join(example, filepath.FromSlash(tc.path))
+			if tc.extra {
+				mustWriteFile(t, path, []byte("reviewed package input\n"))
+				refreshFixtureHandoffFile(t, example)
+			}
+			inspection, err := InspectPackage(context.Background(), TemplateOptions{RepoRoot: root, ExampleDir: example, Assess: passAssess})
+			if err != nil {
+				t.Fatal(err)
+			}
+			if err := RevalidatePackageBytes(context.Background(), TemplateOptions{RepoRoot: root, ExampleDir: example}, inspection); err != nil {
+				t.Fatalf("unchanged package did not revalidate: %v", err)
+			}
+			mustWriteFile(t, path, []byte(tc.data))
+			if err := RevalidatePackageBytes(context.Background(), TemplateOptions{RepoRoot: root, ExampleDir: example}, inspection); err == nil {
+				t.Fatal("changed manifest-bound package input revalidated")
+			}
+		})
+	}
+}
+
+func snapshotTree(t *testing.T, root string) map[string]string {
+	t.Helper()
+	result := map[string]string{}
+	if err := filepath.Walk(root, func(path string, info os.FileInfo, err error) error {
+		if err != nil {
+			return err
+		}
+		relative, err := filepath.Rel(root, path)
+		if err != nil {
+			return err
+		}
+		value := info.Mode().String()
+		if info.Mode().IsRegular() {
+			data, err := os.ReadFile(path)
+			if err != nil {
+				return err
+			}
+			digest := sha256.Sum256(data)
+			value += ":" + fmt.Sprintf("%x", digest[:])
+		}
+		result[filepath.ToSlash(relative)] = value
+		return nil
+	}); err != nil {
+		t.Fatal(err)
+	}
+	return result
 }
 
 func TestRunDryRunStagesAndWritesEvidenceWithoutCredentialEnv(t *testing.T) {

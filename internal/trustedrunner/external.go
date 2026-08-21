@@ -64,23 +64,20 @@ func RunExternal(ctx context.Context, opts ExternalOptions) (udonrunner.Result, 
 	if err != nil {
 		return udonrunner.Result{}, err
 	}
-	p, manifest, packageDigest, err := validatePackage(ctx, packageOptions{
+	validated, err := validatePackage(ctx, packageOptions{
 		RepoRoot: repoRoot, ExampleDir: config.PackageRoot, Assess: opts.Assess,
 	})
 	if err != nil {
 		return udonrunner.Result{}, err
 	}
+	p, manifest, packageDigest := validated.paths, validated.manifest, validated.packageSHA256
 	if err := validateManifestPolicy(manifest); err != nil {
 		return udonrunner.Result{}, err
 	}
 	if err := validateApproval(approval, p.scope, packageDigest, config.Tier, resolveNow(opts.Now)); err != nil {
 		return udonrunner.Result{}, err
 	}
-	handoffBytes, _, err := evidencefile.ReadRegular(p.handoff, evidencefile.DefaultMaxBytes)
-	if err != nil {
-		return udonrunner.Result{}, err
-	}
-	if evidencefile.SHA256(handoffBytes) != config.HandoffSHA256 {
+	if validated.handoffSHA256 != config.HandoffSHA256 {
 		return udonrunner.Result{}, fmt.Errorf("handoff SHA-256 does not match the validated run config")
 	}
 	var browserDriver string

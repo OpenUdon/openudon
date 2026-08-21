@@ -80,6 +80,94 @@ type TemplateOptions struct {
 	Assess     func(context.Context, synthesize.Options) (*synthesize.QualityReport, error)
 }
 
+// PackageInspection is a non-writing summary of an exact, currently passing
+// review package. It exposes the information needed for a handoff screen
+// without creating an approval or accepting runtime credentials.
+type PackageInspection struct {
+	Scope              string                             `json:"scope"`
+	PackageSHA256      string                             `json:"package_sha256"`
+	HandoffSHA256      string                             `json:"handoff_sha256"`
+	ExecutionPolicy    authoring.ReviewExecutionPolicy    `json:"execution_policy"`
+	CredentialBindings authoring.ReviewCredentialBindings `json:"credential_bindings"`
+	ApprovalStates     []authoring.ReviewApprovalState    `json:"approval_states"`
+}
+
+// InspectPackage validates and hashes the current package without writing an
+// approval, run configuration, evidence file, or execution artifact.
+func InspectPackage(ctx context.Context, opts TemplateOptions) (PackageInspection, error) {
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	validated, err := validatePackage(ctx, packageOptions{
+		RepoRoot: opts.RepoRoot, ExampleDir: opts.ExampleDir, Assess: opts.Assess,
+	})
+	if err != nil {
+		return PackageInspection{}, err
+	}
+	if err := validateManifestPolicy(validated.manifest); err != nil {
+		return PackageInspection{}, err
+	}
+	return PackageInspection{
+		Scope: validated.paths.scope, PackageSHA256: validated.packageSHA256, HandoffSHA256: validated.handoffSHA256,
+		ExecutionPolicy: validated.manifest.ExecutionPolicy, CredentialBindings: validated.manifest.CredentialBindings,
+		ApprovalStates: append([]authoring.ReviewApprovalState(nil), validated.manifest.ApprovalStates...),
+	}, nil
+}
+
+// RevalidatePackageBytes rederives the complete manifest-bound package from
+// current bytes and compares it with a prior passing inspection. It performs
+// no assessment or write: an unchanged digest-bound package necessarily
+// retains the exact quality and handoff bytes that were assessed previously.
+func RevalidatePackageBytes(ctx context.Context, opts TemplateOptions, expected PackageInspection) error {
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	if err := ctx.Err(); err != nil {
+		return err
+	}
+	current, err := resolveAndValidatePackageBytes(opts.RepoRoot, opts.ExampleDir)
+	if err != nil {
+		return err
+	}
+	if expected.Scope != current.paths.scope {
+		return fmt.Errorf("reviewed package scope changed")
+	}
+	if current.packageSHA256 != expected.PackageSHA256 {
+		return fmt.Errorf("reviewed package SHA-256 changed")
+	}
+	if current.handoffSHA256 != expected.HandoffSHA256 {
+		return fmt.Errorf("review handoff SHA-256 changed")
+	}
+	return nil
+}
+
+func resolveAndValidatePackageBytes(repoRoot, exampleDir string) (validatedPackage, error) {
+	p, err := resolvePaths(repoRoot, exampleDir)
+	if err != nil {
+		return validatedPackage{}, err
+	}
+	manifest, handoffBytes, err := readHandoff(p.handoff)
+	if err != nil {
+		return validatedPackage{}, err
+	}
+	if err := validateRequiredInputs(p, manifest); err != nil {
+		return validatedPackage{}, err
+	}
+	if err := validateStoredQuality(p.quality); err != nil {
+		return validatedPackage{}, err
+	}
+	if err := validateManifestPolicy(manifest); err != nil {
+		return validatedPackage{}, err
+	}
+	packageSHA256, err := computePackageDigest(p, manifest)
+	if err != nil {
+		return validatedPackage{}, err
+	}
+	return validatedPackage{
+		paths: p, manifest: manifest, packageSHA256: packageSHA256, handoffSHA256: evidencefile.SHA256(handoffBytes),
+	}, nil
+}
+
 type RunResult struct {
 	RunID             string
 	Scope             string
@@ -198,7 +286,7 @@ func Run(ctx context.Context, opts Options) (*RunResult, error) {
 	if err != nil {
 		return nil, fmt.Errorf("validate signing key before execution: %w", err)
 	}
-	p, manifest, digest, err := validatePackage(ctx, packageOptions{
+	validated, err := validatePackage(ctx, packageOptions{
 		RepoRoot:   opts.RepoRoot,
 		ExampleDir: opts.ExampleDir,
 		Assess:     opts.Assess,
@@ -206,6 +294,7 @@ func Run(ctx context.Context, opts Options) (*RunResult, error) {
 	if err != nil {
 		return nil, err
 	}
+	p, manifest, digest := validated.paths, validated.manifest, validated.packageSHA256
 	if err := validateManifestPolicy(manifest); err != nil {
 		return nil, err
 	}
@@ -235,15 +324,11 @@ func Run(ctx context.Context, opts Options) (*RunResult, error) {
 		WorkDir:       workdir,
 		DryRun:        opts.DryRun,
 	}
-	handoffBytes, _, err := evidencefile.ReadRegular(p.handoff, evidencefile.DefaultMaxBytes)
-	if err != nil {
-		return nil, fmt.Errorf("read validated handoff manifest: %w", err)
-	}
 	browserConfig, err := buildBrowserRunConfig(p.exampleAbs, opts.BrowserDriver, opts.BrowserDriverArgs, opts.Env, opts.DryRun)
 	if err != nil {
 		return nil, err
 	}
-	runConfig, err := buildRunConfig(p, manifest, digest, opts.Tier, result.WorkDir, runID, evidencefile.SHA256(handoffBytes), evidencefile.SHA256(approvalBytes), browserConfig)
+	runConfig, err := buildRunConfig(p, manifest, digest, opts.Tier, result.WorkDir, runID, validated.handoffSHA256, evidencefile.SHA256(approvalBytes), browserConfig)
 	if err != nil {
 		return nil, err
 	}
@@ -1328,7 +1413,7 @@ func ApprovalTemplate(ctx context.Context, opts TemplateOptions) (Approval, erro
 	if ctx == nil {
 		ctx = context.Background()
 	}
-	p, manifest, digest, err := validatePackage(ctx, packageOptions{
+	validated, err := validatePackage(ctx, packageOptions{
 		RepoRoot:   opts.RepoRoot,
 		ExampleDir: opts.ExampleDir,
 		Assess:     opts.Assess,
@@ -1336,6 +1421,7 @@ func ApprovalTemplate(ctx context.Context, opts TemplateOptions) (Approval, erro
 	if err != nil {
 		return Approval{}, err
 	}
+	p, manifest, digest := validated.paths, validated.manifest, validated.packageSHA256
 	if err := validateManifestPolicy(manifest); err != nil {
 		return Approval{}, err
 	}
@@ -1373,37 +1459,46 @@ type packageOptions struct {
 	Assess     func(context.Context, synthesize.Options) (*synthesize.QualityReport, error)
 }
 
-func validatePackage(ctx context.Context, opts packageOptions) (paths, handoffManifest, string, error) {
-	p, err := resolvePaths(opts.RepoRoot, opts.ExampleDir)
+type validatedPackage struct {
+	paths         paths
+	manifest      handoffManifest
+	packageSHA256 string
+	handoffSHA256 string
+}
+
+func validatePackage(ctx context.Context, opts packageOptions) (validatedPackage, error) {
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	before, err := resolveAndValidatePackageBytes(opts.RepoRoot, opts.ExampleDir)
 	if err != nil {
-		return paths{}, handoffManifest{}, "", err
-	}
-	manifest, err := readHandoff(p.handoff)
-	if err != nil {
-		return paths{}, handoffManifest{}, "", err
-	}
-	if err := validateRequiredInputs(p, manifest); err != nil {
-		return paths{}, handoffManifest{}, "", err
-	}
-	if err := validateStoredQuality(p.quality); err != nil {
-		return paths{}, handoffManifest{}, "", err
+		return validatedPackage{}, err
 	}
 	assess := opts.Assess
 	if assess == nil {
 		assess = synthesize.AssessCurrent
 	}
-	report, err := assess(ctx, synthesize.Options{ExampleDir: p.exampleAbs})
+	report, err := assess(ctx, synthesize.Options{ExampleDir: before.paths.exampleAbs})
 	if err != nil {
-		return paths{}, handoffManifest{}, "", fmt.Errorf("assess current quality: %w", err)
+		return validatedPackage{}, fmt.Errorf("assess current quality: %w", err)
+	}
+	if report == nil {
+		return validatedPackage{}, fmt.Errorf("assess current quality: assessment returned no report")
 	}
 	if !report.Passed() {
-		return paths{}, handoffManifest{}, "", fmt.Errorf("current quality gate is %q", report.Status)
+		return validatedPackage{}, fmt.Errorf("current quality gate is %q", report.Status)
 	}
-	digest, err := computePackageDigest(p, manifest)
+	if err := ctx.Err(); err != nil {
+		return validatedPackage{}, err
+	}
+	after, err := resolveAndValidatePackageBytes(opts.RepoRoot, opts.ExampleDir)
 	if err != nil {
-		return paths{}, handoffManifest{}, "", err
+		return validatedPackage{}, fmt.Errorf("revalidate package after assessment: %w", err)
 	}
-	return p, manifest, digest, nil
+	if before.paths.scope != after.paths.scope || before.packageSHA256 != after.packageSHA256 || before.handoffSHA256 != after.handoffSHA256 {
+		return validatedPackage{}, fmt.Errorf("reviewed package changed during current-state assessment")
+	}
+	return after, nil
 }
 
 func resolvePaths(repoRoot, example string) (paths, error) {
@@ -1446,23 +1541,23 @@ func resolvePaths(repoRoot, example string) (paths, error) {
 	}, nil
 }
 
-func readHandoff(path string) (handoffManifest, error) {
+func readHandoff(path string) (handoffManifest, []byte, error) {
 	data, _, err := evidencefile.ReadRegular(path, evidencefile.DefaultMaxBytes)
 	if err != nil {
-		return handoffManifest{}, fmt.Errorf("read handoff manifest: %w", err)
+		return handoffManifest{}, nil, fmt.Errorf("read handoff manifest: %w", err)
 	}
 	var manifest handoffManifest
 	if err := evidencefile.DecodeStrict(data, &manifest); err != nil {
-		return handoffManifest{}, fmt.Errorf("handoff manifest must be valid JSON: %w", err)
+		return handoffManifest{}, nil, fmt.Errorf("handoff manifest must be valid JSON: %w", err)
 	}
 	if manifest.Version == authoring.LegacyReviewHandoffVersion {
-		return handoffManifest{}, fmt.Errorf("legacy handoff %s is read-only and cannot execute; regenerate the package with openudon build", manifest.Version)
+		return handoffManifest{}, nil, fmt.Errorf("legacy handoff %s is read-only and cannot execute; regenerate the package with openudon build", manifest.Version)
 	}
 	allowedVersions := []string{ReviewHandoffVersion}
 	if diagnostics := authoring.ValidateReviewHandoff(manifest, authoring.ReviewHandoffValidationOptions{AllowedVersions: allowedVersions}); len(diagnostics) > 0 {
-		return handoffManifest{}, fmt.Errorf("handoff manifest is invalid: %s", diagnostics[0].Message)
+		return handoffManifest{}, nil, fmt.Errorf("handoff manifest is invalid: %s", diagnostics[0].Message)
 	}
-	return manifest, nil
+	return manifest, data, nil
 }
 
 func validateManifestPolicy(manifest handoffManifest) error {
