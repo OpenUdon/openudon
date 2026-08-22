@@ -159,7 +159,11 @@ human checkpoints, exact approvals, observations, authentication proof,
 requested outputs, contexts, diagnostics, and accumulated origin ledger. The
 attestation is neither persisted nor returned by the HTTP API. Page-derived
 paths that fail Browsertools' disclosure validator terminate capture before
-terminal, UI, planner, or result exposure.
+terminal, UI, planner, or result exposure. Before any event is published, the
+same controller also checks canonical reduced labels and the closed role,
+phase, diagnostic, context, frame, and challenge vocabularies. An exact new
+canonical HTTPS or loopback origin enters the ledger only after matching human
+approval; the final envelope origin set must equal the ledger.
 
 Browsertools owns the non-persistent Playwright-Go context. iCoT uses only the
 closed reduced-observation protocol, names the provider/model before any model
@@ -285,12 +289,16 @@ verifies immutable bundles within the eight-second/20 MiB bounds. Denial,
 timeout, unsafe host, empty search, invalid bundle, stale, superseded, or revoked
 content is a visible deferrable blocker. No placeholder profile is generated.
 
-Once a browser profile is selected, the frontier orders profile before action,
-then request mappings, opaque runtime-session posture, mutation approval, and
-outputs. Session posture records only `none` or
-`opaque-runtime-binding-required`; it never contains cookies or login values.
-A mutating profile action requires exact authoring approval for its workflow
-step, while Udon still requires a separate exact runtime operation approval.
+For every selected browser step, the frontier orders profile before action,
+then request mappings, that step's session binding, mutation approval, and
+outputs. A login-required action without an earlier in-workflow authentication
+step must name a symbolic external session in its own `browser_session` field;
+multiple browser steps may name different sessions. The aggregate session
+posture records only `none` or `opaque-runtime-binding-required` as review
+evidence. It is not the session name and never contains cookies, tokens, or
+login values. Each mutating profile action requires exact authoring approval
+for its workflow step, while Udon still requires a separate exact runtime
+operation approval.
 
 When a selected browser action requires login state and a reviewed
 `uws.browser-authentication.1.0` or `uws.browser-authentication.1.1` profile is available, iCoT can place an
@@ -301,7 +309,9 @@ The protected action references the same named session. MFA alternatives remain
 separate profile flows, so neither iCoT nor the runtime guesses between push,
 number matching, OTP, or WebAuthn. Enrollment, recovery, password changes,
 consent, logout, account creation, and CAPTCHA handling remain outside this
-sign-in contract.
+sign-in contract. Credential slots and binding names must be symbolic; `none`
+and `clear` are reserved clearing sentinels and cannot satisfy a required
+credential mapping.
 
 ## Proposal And File Lifecycle
 

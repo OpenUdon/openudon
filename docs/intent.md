@@ -317,7 +317,29 @@ The credential-binding keys must exactly match the slots used by the selected
 flow. Values are symbolic binding names resolved by the trusted runtime; they
 are not usernames, passwords, OTPs, tokens, or environment values. Timeout is
 required and cannot exceed 600 seconds. The authentication step must precede
-the protected browser action and both must use the same session name.
+the protected browser action and both must use the same session name. `none`
+and `clear` are reserved credential-clearing sentinels and are invalid as
+required credential slot or binding names.
+
+When login state is supplied externally instead of established by an earlier
+`browser_authentication` step, every affected browser step carries its own
+symbolic session name:
+
+```hcl
+step "read_existing_member_status" {
+  type            = "browser"
+  source          = "browser-profiles/member.yaml"
+  operation       = "read_status"
+  browser_session = "existing_member_session"
+}
+```
+
+The name lowers to `x-uws-browser-session` and lets the trusted runner derive
+the corresponding external `UDON_BROWSER_SESSION_*` mapping. It is not a
+cookie, token, storage value, environment value, or the aggregate
+`opaque-runtime-binding-required` review posture. Login-required steps without
+an earlier matching authentication session or their own symbolic external name
+fail readiness. Multiple browser steps may deliberately use different names.
 
 OpenUdon packages the portable profiles and safe review evidence, then lowers
 the intent to UWS 1.7 with typed authentication and named-session extensions.

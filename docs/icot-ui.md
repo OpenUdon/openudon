@@ -51,11 +51,16 @@ or desired-state conversion surface.
 ## Isolated authenticated browser capture
 
 The distributed `icot` executable contains a hidden Browsertools worker entry
-point. The server copies its own executable under the private root, revalidates
-that copy, and launches it as a separate process group using
-`browsertools.author-session.v2`. Browsertools owns the Playwright-Go Chromium
-context. Neither the iCoT engine nor the HTTP server initializes Playwright
-in-process.
+point. The server fully copies and hashes its executable into a private
+content-addressed cache, publishes the digest-named entry create-only with mode
+`0500`, revalidates every reused entry byte-for-byte, and launches it as a
+separate process group using `browsertools.author-session.v2`. Only stale
+regular temporary files with the owned prefix are swept. A hard interruption
+during first publication can leave a bounded owned temporary, while completed
+digest entries are reused instead of creating one stabilized executable per
+capture.
+Browsertools owns the Playwright-Go Chromium context. Neither the iCoT engine
+nor the HTTP server initializes Playwright in-process.
 
 Before launch, a 30-second isolated doctor reports the installed Playwright and
 Chromium readiness. Snapshot polling continues while the doctor runs. One
@@ -67,14 +72,31 @@ the executable path and other private local paths remain CLI-only diagnostics.
 The API and shell model these states explicitly: `preflight`, `configuring`,
 `launching`, `authentication`, `human_input`, `exploration`,
 `action_approval`, `completion_review`, `stage_review`, `staging`, `staged`,
-`canceled`, and `failed`. The shell renders only reduced, validated protocol
-data:
+`canceling`, `canceled`, `closed`, and `failed`. A worker `closed` state is
+terminal and does not trigger another observation request. The shell renders
+only reduced, validated protocol data:
 
 - Browsertools-issued candidate actions as buttons;
 - exact origin, action, candidate, and POST-budget approval cards;
 - credential checkpoints that instruct the operator to type only in Chromium;
 - only the MFA kinds reported by Browsertools;
 - typed completion and bounded output decisions.
+
+The same typed parent controller serves UI, bundled terminal, expert external,
+and loopback capture. Before an event enters HTTP state it validates the closed
+message union, phases, canonical reduced labels, accessibility roles,
+diagnostics, context/frame identifiers, challenge kinds, additive context
+inventory, and negotiated bounds. Configured and page-derived paths pass the
+shared disclosure validator first, so an unsafe value is rejected without
+entering the snapshot, ETag, DOM, logs, or planner input.
+
+A new canonical HTTPS or loopback HTTP origin is shown on the existing exact
+approval card and is authoritative only after the response matches the pending
+navigation or click. The accumulated ledger governs subsequent events. The
+process-private parent attestation then binds the ordered actions,
+observations, checkpoints, approvals, dashboard proof, output requests,
+contexts, diagnostics, and final origin set. The attestation is neither
+serialized nor exposed by API v3.
 
 Passwords, OTPs, cookies, storage, request bodies, raw Browsertools output,
 child stderr, signing keys, runtime credentials, and the private result path
@@ -84,9 +106,9 @@ operations retain Browsertools' ten-minute bound; unanswered human checkpoints
 cancel after 30 minutes and every capture has a two-hour absolute ceiling.
 
 A successful capture is not staged automatically. OpenUdon stable-reads and
-independently reconstructs the private result, then a separate Stage action
-atomically creates one collision-free authentication/capability profile pair
-and updates the safe
+independently reconstructs the private result, requires it to match the parent
+attestation, then a separate Stage action atomically creates one collision-free
+authentication/capability profile pair and updates the safe
 `openudon.authenticated-browser-authoring-review.v3` collection. A valid v2
 singleton is migrated on that write. Existing profile files are never
 overwritten. Capture staging does not select a workflow action or create final

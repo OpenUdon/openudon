@@ -72,7 +72,7 @@ does not retain child-process output. See
 gates and separate loopback-only installed-browser opt-ins.
 
 `browser-scenario-loopback` is the real-browser release complement to that
-browser-free matrix. It runs the fixed 21-case author-session v2 and trusted
+browser-free matrix. It runs the fixed 23-case author-session v2 and trusted
 v3 replay corpus, then verifies the value-free report sidecar. The required
 `browser-scenario-journey` gate adds eight headless realistic local read/write
 workflows from strict guided-bundle import through UWS 1.8 and server-state

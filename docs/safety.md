@@ -30,12 +30,21 @@ tier checks before invoking udon.
   a second lookup. Custom transports that cannot enforce this policy fail
   closed.
 - Use UWS/OpenAPI validation before any runtime execution.
-- For browser workflows, require an active non-expired `uws.browser.1.5`
-  profile, matching `.icot/browser-sources.json` digest/action/origin evidence,
-  an operator-owned opaque runtime session binding when login is required, and
-  exact per-operation approval for every mutation. Never package cookies,
-  passwords, driver configuration, raw DOM/HTML, screenshots, or private cache
-  content.
+- For browser workflows, require an active non-expired `uws.browser.1.5`, 1.6,
+  or 1.7 profile, matching `.icot/browser-sources.json`
+  digest/action/origin evidence, and exact per-operation approval for every
+  mutation. Login state must come from an earlier reviewed authentication step
+  using the same named session or a symbolic external `browser_session` on
+  each affected step. The aggregate opaque-session posture is review evidence,
+  not executable session authority. Never package cookies, passwords, driver
+  configuration, raw DOM/HTML, screenshots, or private cache content.
+- During authenticated authoring, bundled and expert workers use the same
+  typed controller. It validates reduced event fields and disclosure paths
+  before terminal, HTTP, or planner publication and requires a process-private
+  attestation to bind the final trace, authentication proof, output requests,
+  contexts, diagnostics, and approved-origin ledger before staging. That
+  attestation and all credential/challenge values have no artifact or HTTP
+  representation.
 - Optional `browsertools.live-check.v1` and
   `browsertools.portability-check.v1` inputs must remain value-free, match the
   exact packaged profile/action set, and pass OpenUdon's independent shape,
@@ -58,7 +67,9 @@ Credential scanning is shared across package artifacts and LLM request
 mappings. Only documented `inputs.`, `credentials.`, and prior-step reference
 forms are symbolic; Google refresh/client secrets, Slack/GitHub/AWS tokens,
 bearer/JWT shapes, dash-separated secrets, and high-entropy literals fail
-closed.
+closed. Required credential mappings also reject the reserved `none` and
+`clear` sentinels as slot or binding names; rejection occurs before session or
+draft mutation.
 
 ## Quality Gates
 

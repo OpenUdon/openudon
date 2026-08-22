@@ -177,15 +177,40 @@ candidate_workflows:
   per-flow credential-slot names, origins, active lifecycle/expiry, digest,
   and provenance. `browser_authentication_approvals` contains exact
   authentication step names. Credential values, MFA responses, cookies,
-  storage state, and live browser handles are prohibited.
+  storage state, and live browser handles are prohibited. Required credential
+  answers accept symbolic slot-to-binding assignments only; `none` and `clear`
+  are reserved clearing sentinels, not valid slot or binding names. A rejected
+  answer leaves both in-memory and autosaved draft state unchanged.
 - `browser_route` is `browser` only after an explicit or fallback route
-  selection. `browser_session_posture` is `none` or
-  `opaque-runtime-binding-required`; it never stores a browser session value.
-  `browser_mutation_approvals` contains exact workflow step names, not a global
-  bypass. Separate interview metadata records API remote-lookup and static
-  browser-registry lookup decisions.
+  selection. `browser_session_posture` is derived aggregate review evidence:
+  `none` or `opaque-runtime-binding-required`. It never stores a browser
+  session name or value. A login-required browser action that is not preceded
+  by an authentication step must instead store one symbolic external name in
+  that exact `intent.steps[].browser_session`; different browser steps may use
+  different names. `browser_mutation_approvals` contains exact workflow step
+  names, not a global bypass. Separate interview metadata records API
+  remote-lookup and static browser-registry lookup decisions.
 - `intent`, symbolic credential bindings, `fallback`, and `side_effect_scope`
   retain their existing OpenUdon meanings. Never store credential values.
+
+For example, two independently supplied login contexts are step-scoped while
+the posture remains a value-free aggregate:
+
+```yaml
+intent:
+  steps:
+    - name: read_member_status
+      type: browser
+      source: browser-profiles/member.yaml
+      operation: read_status
+      browser_session: existing_member_session
+    - name: read_admin_status
+      type: browser
+      source: browser-profiles/admin.yaml
+      operation: read_status
+      browser_session: existing_admin_session
+browser_session_posture: opaque-runtime-binding-required
+```
 
 Incomplete approved work is saved as `workflows/intent.draft.hcl` plus
 `.icot/session.yaml` and `.icot/readiness.json`; it never creates

@@ -37,7 +37,7 @@ the AppArmor-only `kernel.apparmor_restrict_unprivileged_userns` restriction on
 their ephemeral runner before launch. They fail if either requested setting
 does not take effect; the suites never add `--no-sandbox`.
 
-The 21 embedded cases use session-gated goal pages and server-verified
+The 23 embedded cases use session-gated goal pages and server-verified
 credential/MFA challenges. For push, number-match, passkey, and security-key,
 the evaluator waits for Udon's exact structured terminal prompt, latches
 approval to the one pending observed server session, and only then supplies
@@ -46,9 +46,11 @@ merely navigate to a dashboard-shaped page. They cover password-only authenticat
 MFA kinds, main/popup/frame contexts, exact-name and unique-role locators,
 zero/16/17 outputs, typed string/integer/number/Boolean/presence results,
 noncanonical scalar rejection, stale and ambiguous targets, context
-substitution, origin escape, and secret-output rejection. Every case starts a
-fresh loopback server, private authoring root, browser context, Udon workdir,
-and Browserdriver lifecycle; teardown is part of the result.
+substitution, origin escape, secret-output rejection, disclosure-path
+injection, and a fabricated parent/worker trace. The last two cases must fail
+before profile staging. Every case starts a fresh loopback server, private
+authoring root, browser context, Udon workdir, and Browserdriver lifecycle;
+teardown is part of the result.
 
 Run a bounded subset by repeating `--scenario`:
 

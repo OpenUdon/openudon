@@ -38,7 +38,7 @@ network access.
 
 | Gate | Evidence |
 |---|---|
-| OpenUdon authoring | API preference, anonymous handoff, strict author-session v2 orchestration, human-only typed MFA/output review, disclosure denial/human fallback, minimal child environment, exact bounds/context authority, a real Browsertools-produced private result through validation/staging, and malformed/tampered/substituted rejection |
+| OpenUdon authoring | API preference, anonymous handoff, strict author-session v2 orchestration, identical pre-publication validation for bundled and expert workers, disclosure-path rejection, human-only typed MFA/output review, exact new-origin approval, process-private trace/auth/output/context/origin attestation, minimal child environment, exact bounds authority, a real Browsertools-produced private result through validation/staging, and malformed/tampered/substituted rejection |
 | OpenUdon package/handoff | Strict live and portability verification, private/tampered input rejection, value-free package review, authentication/capability separation, UWS 1.7/1.8/1.9 discriminator selection, and trusted dry-run |
 | iCoT dependency boundary | The engine and HTTP-server dependency graphs contain no Browsertools capture, Playwright adapter, or Playwright-Go implementation package; only the hidden re-executed worker links Browsertools' implementation |
 | OpenUdon repository boundary | Production source contains no private executor, desired-state parser, or removed apitools lifecycle imports |
@@ -63,10 +63,12 @@ digest sidecar. Verification rejects a structurally valid report whose matrix
 status is `fail` when used as a release gate.
 
 The Go module pins name the exact Browsertools and UWS feature commits used by
-the seam tests. During a coordinated pre-publication review, standalone tests
-may use process-local Git URL mappings to clean local clones of those exact
-commits. Release evidence must use ordinary module resolution after the commits
-are published; an unreachable pseudo-version or a committed `replace` is not a
+the seam tests. Compatibility validation checks both OpenUdon's Browsertools/UWS
+requirements and Browsertools' own UWS requirement against the same lock.
+During a coordinated pre-publication review, standalone tests may use
+process-local Git URL mappings to clean local clones of those exact commits.
+Release evidence must use ordinary module resolution after the commits are
+published; an unreachable pseudo-version or a committed `replace` is not a
 releasable pin.
 
 ## Installed Browser Opt-Ins

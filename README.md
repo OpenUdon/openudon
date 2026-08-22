@@ -366,11 +366,15 @@ draft.
 
 The normal terminal iCoT command, agent mode, and `browser-authoring plan` never
 launch a browser. UI capture and the expert `browser-author live` command start
-an isolated bundled Browsertools worker. Browsertools owns one non-persistent Playwright-Go Chromium context across
-human login/MFA and post-login exploration; iCoT receives reduced semantics,
-requires disclosure/action/completion/staging approvals, and imports only
-reviewed canonical UWS profiles plus safe metadata. `--yes` bypasses none of
-those live gates. See
+an isolated Browsertools worker. The bundled worker and terminal-only expert
+override use the same typed controller: worker events are reduced and
+closed-vocabulary validated before terminal, UI, or planner disclosure, and a
+process-private parent attestation binds the ordered interaction, output
+requests, and exact approved-origin ledger before staging. Browsertools owns one
+non-persistent Playwright-Go Chromium context across human login/MFA and
+post-login exploration; each new canonical HTTPS or loopback origin still needs
+an exact human approval. iCoT imports only reviewed canonical UWS profiles plus
+safe metadata, and `--yes` bypasses none of those live gates. See
 [Authenticated Browser Authoring](docs/authenticated-browser-authoring.md) for
 the protocol, data boundary, failure behavior, and the separate Udon/
 Browserdriver trusted-runtime replay.
@@ -395,6 +399,11 @@ authors an explicit sign-in flow, execution-local named session, symbolic
 credential bindings, bounded timeout, and separate authoring approval; Udon
 still requires separate runtime approval and keeps credentials, MFA responses,
 and live session state private.
+
+If no in-workflow authentication step establishes the required login state,
+each affected browser step must instead name its own symbolic external
+`browser_session`. The aggregate opaque-session posture is review evidence, not
+a runtime session name, cookie, token, or substitute for the step-level binding.
 
 `--agent` returns the entire frontier, candidate workflows, source evidence, blockers, and proposed
 file actions. It never prompts or writes deliverables, including when the session is otherwise
@@ -566,7 +575,7 @@ Udon, and Browserdriver. Its default path is offline/provider-free and does not
 launch a browser; installed-engine and headed-authentication checks require
 separate loopback-only CLI opt-ins.
 
-`make browser-scenario-loopback` runs and verifies the required 21-case real
+`make browser-scenario-loopback` runs and verifies the required 23-case real
 Browsertools v2 to Udon/Browserdriver v3 release matrix. It requires installed
 pinned Chromium dependencies and a display (use `xvfb-run -a` on headless
 Linux). `make browser-scenario-journey` runs the required eight-case headless

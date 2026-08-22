@@ -10,8 +10,10 @@ that same context toward a reviewed goal. Normal iCoT, `--agent`, and
 This closes the earlier authenticated-dashboard gap without moving browser
 ownership into OpenUdon. Browsertools owns Playwright-Go and the live
 non-persistent context. iCoT owns the goal interview, disclosure and approval
-gates, strict protocol client, independent result validation, and atomic import
-of canonical profiles.
+gates, the shared typed parent controller, independent result validation, and
+atomic import of canonical profiles. Bundled, UI, and terminal-only expert
+workers receive the same pre-publication validation and parent-attestation
+checks.
 
 ```text
 human operator
@@ -41,8 +43,9 @@ After completion, stage the profile pair, resume the ordinary source/action
 interview, approve authoring, and separately build the reviewed package.
 
 Create an existing private directory with no group or other access. The
-distributed `icot` executable privately stabilizes a copy of itself there and
-re-executes a hidden worker by default:
+distributed `icot` executable publishes a digest-named mode-`0500` copy of
+itself into a private content-addressed cache there and re-executes that hidden
+worker by default:
 
 ```bash
 install -d -m 0700 /private/operator/member-authoring
@@ -93,9 +96,13 @@ choose the exact exercised kind: `totp`, `sms_otp`, `email_otp`, `voice_otp`,
 `push`, `push_number_match`, `passkey`, or `security_key`. The model cannot make
 this choice. Browsertools does not read entered values, and iCoT passes a
 minimal child environment that excludes credential and model-provider
-variables. Clicks require approval. A previously unapproved
-origin requires approval. Authentication clicks carry an explicit bounded POST
-budget; Browsertools fails closed if the observed requests exceed it.
+variables. Clicks require approval. A previously unapproved origin requires an
+exact approval card tied to the pending navigation or click. Only a canonical
+HTTPS or loopback HTTP origin can be added, and it enters the session ledger
+only after the matching approval. Subsequent observations and actions use that
+accumulated ledger, and the final envelope must contain exactly the same
+origins. Authentication clicks carry an explicit bounded POST budget;
+Browsertools fails closed if the observed requests exceed it.
 
 By default, iCoT may use its configured provider/model as a typed action
 planner. Before the first page-derived observation reaches that planner, iCoT
@@ -159,6 +166,25 @@ Client actions reference Browsertools-issued candidate IDs; CSS, XPath,
 coordinates, raw scripts, and browser objects are not protocol fields. iCoT
 does not persist the protocol transcript.
 
+Before publishing any worker event to the terminal, HTTP state, or planner,
+the parent validates the message union and phase, canonical reduced labels,
+closed accessibility roles, diagnostic and context identifiers, frame names,
+challenge kinds, additive context graph, and configured bounds. This applies
+equally to `--browsertools` expert overrides, so a version-skewed external
+worker cannot publish arbitrary bounded strings and rely on final-envelope
+validation to catch them later. The producer and parent independently enforce
+at most 64 contexts and 256 unique diagnostics. A valid `state` with phase
+`closed` is terminal; the parent does not request another observation.
+
+Every configured goal/dashboard path and every page-derived observation,
+context, and frame path crosses Browsertools' shared disclosure-path validator
+before exposure. It admits an absolute escaped path of at most 2 KiB, valid
+UTF-8 segments of at most 256 decoded bytes, and rejects dot, empty-interior,
+encoded-separator, control, secret-like, prompt-injection, email, phone, and
+credential-assignment segments. Rejection errors do not repeat the unsafe
+path. Unsafe configured paths fail before launch; unsafe page-derived paths
+terminate capture without staging.
+
 Version 2 requires the `reviewed_mfa_kind` and `reviewed_outputs`
 capabilities, negotiates `maxOutputs: 16`, and uses the distinct
 `human_input_complete` message for reviewed credential/MFA completion.
@@ -172,6 +198,16 @@ artifact. Browsertools writes a mode-`0600`
 `browsertools.authenticated-authoring.v2` envelope under the private root only
 after typed and human completion. The envelope remains private and is never
 copied into the example or package.
+
+For every production staging path, the parent retains a process-private,
+non-serializable attestation of its exact ordered actions, observations, human
+checkpoints, approval cards, additive context inventories, dashboard proof,
+output requests, diagnostics, and approved-origin ledger. It has no transcript,
+JSON, HTTP, or workspace representation. Before import, the envelope trace,
+must match the sent actions in order, while its authentication proof, output
+selections, contexts, and origins must match their exact attested facts. Only
+bounded child-observed execution facts, such as actual POST and locator-match
+proofs, remain child-owned.
 
 OpenUdon reopens the result as a stable non-symlink file, checks the protocol
 digest, strict-decodes and bounds every field, validates the origin/context
@@ -194,6 +230,14 @@ stage. Multiple collision-free profiles may coexist and none is overwritten.
 The later workflow approval selects the exact authentication flow and action,
 binds symbolic runtime credential slots, and writes final browser source and
 authentication review metadata. Existing targets fail closed.
+
+The worker cache is reused only when a complete byte hash and mode check match
+the digest-named entry. Publication fully copies and verifies a uniquely named
+temporary before a create-only publish; a hard kill during first publication
+can leave a bounded owned temporary. Later starts remove only stale regular
+files with the exact owned temporary prefix. Published cache entries remain
+reusable across captures rather than creating one full executable copy per
+run.
 
 ## Context And Version Selection
 
@@ -274,6 +318,10 @@ page per declared context. Frames require portable exact metadata. Real-site
 qualification must be operator-authorized against a non-production tenant;
 retain only value-free evidence and never commit credentials, session state,
 private envelopes, or page captures.
+
+Terminal human gates share one context-aware input pump. SIGINT or SIGTERM
+cancels a pending goal, approval, credential, MFA, output, completion, or stage
+prompt promptly; cancellation does not wait for an extra Enter key.
 
 The browser-free contract matrix is described in [Browser Integration
 Evaluation](browser-integration-eval.md). The real deterministic loopback,
