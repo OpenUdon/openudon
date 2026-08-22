@@ -110,19 +110,26 @@ func TestCredentialBindingAnswerRejectsSecretsAtomically(t *testing.T) {
 	}
 	beforeMemory, _ := json.Marshal(session)
 	beforeDraft, _ := os.ReadFile(draft)
-	plan := QuestionPlan{Slots: []string{"steps.sign_in.credential_bindings"}}
-	for _, answer := range []string{
-		"username=member.username",
-		"pass.word=member_password",
-		"password=sk-proj-012345678901234567890123456789",
+	for _, test := range []struct {
+		plan   QuestionPlan
+		answer string
+	}{
+		{plan: QuestionPlan{Slots: []string{"steps.sign_in.credential_bindings"}}, answer: "username=member.username"},
+		{plan: QuestionPlan{Slots: []string{"steps.sign_in.credential_bindings"}}, answer: "pass.word=member_password"},
+		{plan: QuestionPlan{Slots: []string{"steps.sign_in.credential_bindings"}}, answer: "password=sk-proj-012345678901234567890123456789"},
+		{plan: QuestionPlan{Slots: []string{"steps.sign_in.credential_bindings"}}, answer: "username=none"},
+		{plan: QuestionPlan{Slots: []string{"steps.sign_in.credential_bindings"}}, answer: "username=CLEAR"},
+		{plan: QuestionPlan{Slots: []string{"steps.sign_in.credential_bindings"}}, answer: "none=member_username"},
+		{plan: QuestionPlan{Slots: []string{"credentials"}}, answer: "none"},
+		{plan: QuestionPlan{Slots: []string{"credentials"}}, answer: "Clear"},
 	} {
-		if err := applyProgressiveAnswerChecked(&session, plan, answer, nil); err == nil {
-			t.Fatalf("unsafe credential answer %q was accepted", answer)
+		if err := applyProgressiveAnswerChecked(&session, test.plan, test.answer, nil); err == nil {
+			t.Fatalf("unsafe credential answer %q was accepted", test.answer)
 		}
 		afterMemory, _ := json.Marshal(session)
 		afterDraft, _ := os.ReadFile(draft)
 		if string(afterMemory) != string(beforeMemory) || string(afterDraft) != string(beforeDraft) {
-			t.Fatalf("unsafe credential answer %q mutated memory or draft bytes", answer)
+			t.Fatalf("unsafe credential answer %q mutated memory or draft bytes", test.answer)
 		}
 	}
 }

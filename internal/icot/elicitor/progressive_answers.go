@@ -573,7 +573,7 @@ func symbolicCredentialAssignments(answer string) (map[string]string, error) {
 	for _, item := range splitList(answer) {
 		name, binding := splitNameRest(item)
 		name, binding = strings.TrimSpace(name), strings.TrimSpace(binding)
-		if len(name) > 128 || len(binding) > 128 || !browserBindingNamePattern.MatchString(name) || !browserBindingNamePattern.MatchString(binding) || redact.String(binding) != binding {
+		if len(name) > 128 || len(binding) > 128 || reservedCredentialSentinel(name) || reservedCredentialSentinel(binding) || !browserBindingNamePattern.MatchString(name) || !browserBindingNamePattern.MatchString(binding) || redact.String(binding) != binding {
 			return nil, fmt.Errorf("credential binding is not symbolic")
 		}
 		if _, duplicate := out[name]; duplicate {
@@ -589,7 +589,7 @@ func symbolicCredentialNames(answer string) ([]string, error) {
 	seen := map[string]bool{}
 	for _, item := range splitList(answer) {
 		name := strings.TrimSpace(strings.Trim(item, "`'\""))
-		if len(name) > 128 || !browserBindingNamePattern.MatchString(name) || redact.String(name) != name {
+		if len(name) > 128 || reservedCredentialSentinel(name) || !browserBindingNamePattern.MatchString(name) || redact.String(name) != name {
 			return nil, fmt.Errorf("credential binding is not symbolic")
 		}
 		if !seen[name] {
@@ -598,6 +598,11 @@ func symbolicCredentialNames(answer string) ([]string, error) {
 		}
 	}
 	return out, nil
+}
+
+func reservedCredentialSentinel(value string) bool {
+	value = strings.TrimSpace(strings.Trim(value, "`'\""))
+	return strings.EqualFold(value, "none") || strings.EqualFold(value, "clear")
 }
 
 func targetStepsForWithPlan(session *Session, plan QuestionPlan) []*rollout.Step {

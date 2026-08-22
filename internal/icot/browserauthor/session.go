@@ -93,9 +93,27 @@ func (report DoctorReport) UI() UIDoctorReport {
 	return safe
 }
 
-var profileIDPattern = regexp.MustCompile(`^[a-z0-9][a-z0-9._-]{0,63}$`)
-var candidateIDPattern = regexp.MustCompile(`^candidate-[0-9a-f]{16}$`)
-var approvalIDPattern = regexp.MustCompile(`^approval-[0-9]{4}$`)
+var (
+	profileIDPattern   = regexp.MustCompile(`^[a-z0-9][a-z0-9._-]{0,63}$`)
+	candidateIDPattern = regexp.MustCompile(`^candidate-[0-9a-f]{16}$`)
+	approvalIDPattern  = regexp.MustCompile(`^approval-[0-9]{4}$`)
+	contextIDPattern   = regexp.MustCompile(`^[A-Za-z][A-Za-z0-9_-]{0,63}$`)
+	diagnosticPattern  = regexp.MustCompile(`^[a-z][a-z0-9_]{0,63}$`)
+	portableRoles      = map[string]bool{
+		"button": true, "link": true, "textbox": true, "checkbox": true, "radio": true,
+		"dialog": true, "status": true, "alert": true, "heading": true, "img": true,
+		"list": true, "listitem": true, "combobox": true, "option": true, "menu": true,
+		"menuitem": true, "tab": true, "tabpanel": true, "table": true, "row": true,
+		"cell": true, "region": true, "navigation": true, "article": true, "form": true,
+		"search": true, "switch": true, "group": true,
+	}
+	otpChallengeKinds = map[string]bool{
+		"totp": true, "sms_otp": true, "email_otp": true, "voice_otp": true,
+	}
+	nonInputChallengeKinds = map[string]bool{
+		"push": true, "push_number_match": true, "passkey": true, "security_key": true,
+	}
+)
 
 var copyStabilizedExecutable = io.Copy
 
@@ -348,6 +366,7 @@ func (s *Session) run(ctx context.Context, config Config, child *processgroup.In
 		return
 	}
 	phase := "authentication"
+	receivedInitialState := false
 	var completionObservation *authorsession.Observation
 	var lastObservation *authorsession.Observation
 	for {
@@ -366,11 +385,18 @@ func (s *Session) run(ctx context.Context, config Config, child *processgroup.In
 			fail("protocol_mismatch")
 			return
 		}
+		if !receivedInitialState && message.Type != "state" {
+			fail("protocol_state")
+			return
+		}
 		switch message.Type {
 		case "state":
-			if message.Phase != "" {
-				phase = message.Phase
+			if !safeState(message, bounds, receivedInitialState) {
+				fail("malformed_state")
+				return
 			}
+			phase = message.Phase
+			receivedInitialState = true
 			if phase == "completed" {
 				if err := write(authorsession.ClientMessage{Type: "finish"}); err != nil {
 					fail("worker_write")
@@ -447,7 +473,7 @@ func (s *Session) run(ctx context.Context, config Config, child *processgroup.In
 				return
 			}
 		case "human_checkpoint":
-			if message.Checkpoint == nil {
+			if message.Checkpoint == nil || !safeCheckpoint(*message.Checkpoint) {
 				fail("malformed_checkpoint")
 				return
 			}
@@ -473,7 +499,7 @@ func (s *Session) run(ctx context.Context, config Config, child *processgroup.In
 				return
 			}
 		case "result":
-			if message.Result == nil || message.Result.ArtifactPath == "" || !strings.HasPrefix(message.Result.Digest, "sha256:") {
+			if message.Result == nil || message.Result.ArtifactPath == "" || !validSHA256Digest(message.Result.Digest) {
 				fail("malformed_result")
 				return
 			}
@@ -482,7 +508,7 @@ func (s *Session) run(ctx context.Context, config Config, child *processgroup.In
 			_ = child.Wait()
 			return
 		case "diagnostic":
-			if message.Diagnostic == nil || message.Diagnostic.Code == "" {
+			if message.Diagnostic == nil || !diagnosticPattern.MatchString(message.Diagnostic.Code) {
 				fail("malformed_diagnostic")
 				return
 			}
@@ -538,16 +564,9 @@ func scanMessages(reader io.Reader, output chan<- authorsession.ServerMessage, f
 	scanner := bufio.NewScanner(reader)
 	scanner.Buffer(make([]byte, 4096), maxProtocolLine)
 	for scanner.Scan() {
-		decoder := json.NewDecoder(strings.NewReader(scanner.Text()))
-		decoder.DisallowUnknownFields()
-		var message authorsession.ServerMessage
-		if err := decoder.Decode(&message); err != nil {
+		message, err := decodeServerMessage(scanner.Bytes())
+		if err != nil {
 			failures <- err
-			return
-		}
-		var trailing any
-		if err := decoder.Decode(&trailing); !errors.Is(err, io.EOF) {
-			failures <- errors.New("protocol message contains trailing data")
 			return
 		}
 		output <- message
@@ -557,6 +576,49 @@ func scanMessages(reader io.Reader, output chan<- authorsession.ServerMessage, f
 		return
 	}
 	failures <- io.EOF
+}
+
+func decodeServerMessage(data []byte) (authorsession.ServerMessage, error) {
+	var fields map[string]json.RawMessage
+	if err := json.Unmarshal(data, &fields); err != nil {
+		return authorsession.ServerMessage{}, err
+	}
+	var header struct {
+		Protocol string `json:"protocol"`
+		Type     string `json:"type"`
+	}
+	if err := json.Unmarshal(data, &header); err != nil || header.Protocol != authorsession.Protocol {
+		return authorsession.ServerMessage{}, errors.New("protocol message header is invalid")
+	}
+	allowedByType := map[string]map[string]bool{
+		"hello":             {"protocol": true, "type": true, "capabilities": true},
+		"state":             {"protocol": true, "type": true, "phase": true, "context": true, "bounds": true},
+		"observation":       {"protocol": true, "type": true, "observation": true},
+		"approval_required": {"protocol": true, "type": true, "approval": true},
+		"human_checkpoint":  {"protocol": true, "type": true, "checkpoint": true},
+		"diagnostic":        {"protocol": true, "type": true, "diagnostic": true},
+		"result":            {"protocol": true, "type": true, "result": true},
+	}
+	allowed, ok := allowedByType[header.Type]
+	if !ok {
+		return authorsession.ServerMessage{}, errors.New("protocol message type is invalid")
+	}
+	for name := range fields {
+		if !allowed[name] {
+			return authorsession.ServerMessage{}, errors.New("protocol message shape is invalid")
+		}
+	}
+	decoder := json.NewDecoder(bytes.NewReader(data))
+	decoder.DisallowUnknownFields()
+	var message authorsession.ServerMessage
+	if err := decoder.Decode(&message); err != nil {
+		return authorsession.ServerMessage{}, err
+	}
+	var trailing any
+	if err := decoder.Decode(&trailing); !errors.Is(err, io.EOF) {
+		return authorsession.ServerMessage{}, errors.New("protocol message contains trailing data")
+	}
+	return message, nil
 }
 
 func receive(ctx context.Context, messages <-chan authorsession.ServerMessage, failures <-chan error) (authorsession.ServerMessage, error) {
@@ -694,14 +756,36 @@ func pathForURL(raw string) (string, error) {
 }
 
 func requiredCapabilities(values []string) bool {
+	if len(values) == 0 || len(values) > 32 {
+		return false
+	}
 	set := map[string]bool{}
 	for _, value := range values {
+		if !diagnosticPattern.MatchString(value) || set[value] {
+			return false
+		}
 		set[value] = true
 	}
-	for _, required := range []string{"chromium", "human_credentials", "reviewed_mfa_kind", "reviewed_outputs", "reduced_observation", "typed_goal"} {
+	for _, required := range []string{"chromium", "human_credentials", "reviewed_mfa_kind", "reviewed_outputs", "reduced_observation", "popup", "frame", "typed_goal"} {
 		if !set[required] {
 			return false
 		}
+	}
+	return true
+}
+
+func safeState(message authorsession.ServerMessage, bounds authorresult.Bounds, receivedInitial bool) bool {
+	if message.Phase != "authentication" && message.Phase != "exploration" && message.Phase != "completed" && message.Phase != "closed" {
+		return false
+	}
+	if !contextIDPattern.MatchString(message.Context) {
+		return false
+	}
+	if message.Bounds != nil && *message.Bounds != bounds {
+		return false
+	}
+	if !receivedInitial {
+		return message.Phase == "authentication" && message.Context == "main" && message.Bounds != nil && *message.Bounds == bounds
 	}
 	return true
 }
@@ -711,22 +795,104 @@ func safeObservation(observation authorsession.Observation, origins []string) bo
 	for _, origin := range origins {
 		allowed[origin] = true
 	}
-	if !allowed[observation.Origin] || disclosurepath.Validate(observation.Path) != nil || len(observation.Contexts) > authorsession.MaxContexts || len(observation.Diagnostics) > authorsession.MaxUniqueDiagnostics || len(observation.Candidates) > authorsession.DefaultMaxCandidates {
+	if !allowed[observation.Origin] || disclosurepath.Validate(observation.Path) != nil || observation.Contexts == nil || len(observation.Contexts) > authorsession.MaxContexts || len(observation.Diagnostics) > authorsession.MaxUniqueDiagnostics || len(observation.Candidates) > authorsession.DefaultMaxCandidates || !contextIDPattern.MatchString(observation.Context) {
 		return false
 	}
-	for _, browserContext := range observation.Contexts {
-		if browserContext.Path != "" && disclosurepath.Validate(browserContext.Path) != nil {
+	if observation.Context != "main" {
+		if _, ok := observation.Contexts[observation.Context]; !ok {
 			return false
 		}
 	}
+	if !safeContextInventory(observation.Contexts, allowed) {
+		return false
+	}
 	seen := map[string]bool{}
 	for _, candidate := range observation.Candidates {
-		if !candidateIDPattern.MatchString(candidate.ID) || candidate.Role == "" || candidate.Matches < 1 || candidate.Matches > 32 || len(candidate.Label) > 256 || strings.ContainsAny(candidate.Label, "\r\n\x00") || seen[candidate.ID] {
+		if !candidateIDPattern.MatchString(candidate.ID) || !portableRoles[candidate.Role] || candidate.Matches < 1 || candidate.Matches > authorsession.DefaultMaxCandidates || seen[candidate.ID] {
+			return false
+		}
+		if reduction := authorsession.ReduceAccessibilityLabel(candidate.Label); reduction.Value != candidate.Label {
 			return false
 		}
 		seen[candidate.ID] = true
 	}
+	for _, diagnostic := range observation.Diagnostics {
+		if !diagnosticPattern.MatchString(diagnostic) {
+			return false
+		}
+	}
 	return true
+}
+
+func safeContextInventory(contexts map[string]authorresult.Context, allowedOrigins map[string]bool) bool {
+	for id, browserContext := range contexts {
+		if id == "main" || !contextIDPattern.MatchString(id) || !contextIDPattern.MatchString(browserContext.Parent) || !allowedOrigins[browserContext.Origin] || (browserContext.Kind != "popup" && browserContext.Kind != "frame") {
+			return false
+		}
+		if browserContext.Kind == "popup" && (browserContext.Path != "" || browserContext.Name != "") || browserContext.Kind == "frame" && browserContext.Path == "" && browserContext.Name == "" {
+			return false
+		}
+		if browserContext.Path != "" && disclosurepath.Validate(browserContext.Path) != nil {
+			return false
+		}
+		if browserContext.Name != "" {
+			reduction := authorsession.ReduceAccessibilityLabel(browserContext.Name)
+			if reduction.Reason != authorsession.LabelReasonUnchanged || reduction.Value != browserContext.Name {
+				return false
+			}
+		}
+	}
+	for id := range contexts {
+		seen := map[string]bool{}
+		current := id
+		for depth := 0; current != "main"; depth++ {
+			if depth >= 4 || seen[current] {
+				return false
+			}
+			seen[current] = true
+			browserContext, ok := contexts[current]
+			if !ok {
+				return false
+			}
+			current = browserContext.Parent
+		}
+	}
+	return true
+}
+
+func safeCheckpoint(checkpoint authorsession.Checkpoint) bool {
+	switch checkpoint.Kind {
+	case "credential":
+		return candidateIDPattern.MatchString(checkpoint.CandidateID) && (checkpoint.InputKind == "identifier" || checkpoint.InputKind == "password") && len(checkpoint.ChallengeKinds) == 0
+	case "mfa":
+		if !candidateIDPattern.MatchString(checkpoint.CandidateID) || (checkpoint.InputKind != "otp" && checkpoint.InputKind != "mfa") || len(checkpoint.ChallengeKinds) == 0 {
+			return false
+		}
+		allowed := otpChallengeKinds
+		if checkpoint.InputKind == "mfa" {
+			allowed = nonInputChallengeKinds
+		}
+		seen := map[string]bool{}
+		for _, kind := range checkpoint.ChallengeKinds {
+			if !allowed[kind] || seen[kind] {
+				return false
+			}
+			seen[kind] = true
+		}
+		return true
+	case "completion":
+		return checkpoint.CandidateID == "" && checkpoint.InputKind == "" && len(checkpoint.ChallengeKinds) == 0
+	default:
+		return false
+	}
+}
+
+func validSHA256Digest(value string) bool {
+	if value != strings.ToLower(strings.TrimSpace(value)) || !strings.HasPrefix(value, "sha256:") {
+		return false
+	}
+	decoded, err := hex.DecodeString(strings.TrimPrefix(value, "sha256:"))
+	return err == nil && len(decoded) == sha256.Size
 }
 
 func safeApproval(approval authorsession.Approval, origins []string) bool {
