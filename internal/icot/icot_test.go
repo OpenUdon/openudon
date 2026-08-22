@@ -167,6 +167,50 @@ func TestAgentJSONCompleteSessionWritesArtifacts(t *testing.T) {
 	}
 }
 
+func TestCompleteAndAgentAuthoringBlockInactiveBrowserSource(t *testing.T) {
+	dir := t.TempDir()
+	profilePath := filepath.Join(dir, "expired.json")
+	profileData := []byte(`{"profile":"uws.browser.1.5","info":{"title":"Expired UI","origin":"https://example.test"},"observationKind":"accessibility_snapshot","evidence":{"learnedAt":"2020-01-01T00:00:00Z","source":"reviewed_fixture"},"confidence":"high","expiresAfter":"P1D","verification":{"lastVerifiedAt":"2020-01-01T00:00:00Z","successfulRuns":1},"actions":{"read_status":{"sequence":[{"navigate":"/status"}],"outputs":{"status":{"type":"string","source":"a11y","locator":{"role":"status","name":"Ready"}}},"sideEffects":["read_only"],"confirmationPolicy":{"required":false}}}}`)
+	if err := os.WriteFile(profilePath, profileData, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	intent := &rollout.Intent{
+		Source: "browser-profiles/status.json", Workflow: &rollout.WorkflowMeta{Name: "browser_status", Description: "Read browser status"},
+		Steps:   []*rollout.Step{{Name: "read", Type: "browser", Source: "browser-profiles/status.json", Operation: "read_status"}},
+		Outputs: []*rollout.Output{{Name: "status", From: "read.received_body.status"}},
+	}
+	project := projectwizard.Answers{
+		ProjectName: "Browser Status", Goal: "Read browser status", SideEffectScope: projectwizard.SideEffectReadOnly,
+		Safety: "Read-only browser observation through a reviewed profile.", Fallback: "Stop if the page is unavailable.",
+	}
+	session, err := elicitor.SessionFromIntent(intent, project)
+	if err != nil {
+		t.Fatal(err)
+	}
+	session.BrowserRoute, session.BrowserSession = "browser", "none"
+	sessionPath := writeSessionJSON(t, dir, session)
+	for _, test := range []struct {
+		name  string
+		extra []string
+	}{
+		{name: "complete-session"},
+		{name: "agent", extra: []string{"--agent", "--json"}},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			example := filepath.Join(dir, test.name)
+			args := []string{"--example", example, "--answers", sessionPath, "--browser-profile", "expired=" + profilePath, "--no-llm", "--no-transcript"}
+			args = append(args, test.extra...)
+			var stdout, stderr bytes.Buffer
+			if code := Main(args, strings.NewReader(""), &stdout, &stderr); code == 0 || !strings.Contains(stderr.String(), "browser source discovery is incomplete") {
+				t.Fatalf("Main code=%d\nstdout:\n%s\nstderr:\n%s", code, stdout.String(), stderr.String())
+			}
+			if _, err := os.Stat(filepath.Join(example, "workflows", "intent.hcl")); !os.IsNotExist(err) {
+				t.Fatalf("inactive source wrote intent: %v", err)
+			}
+		})
+	}
+}
+
 func TestAgentJSONBlocksRenderableLowDecisionEvidence(t *testing.T) {
 	dir := t.TempDir()
 	example := filepath.Join(dir, "agent-blocked")

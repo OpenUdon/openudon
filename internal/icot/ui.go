@@ -127,8 +127,8 @@ func prepareUICaptureStage(request uiserver.CaptureStageRequest) (engine.Browser
 	if err := normalizeLiveAuthorConfig(&cfg); err != nil {
 		return engine.BrowserCaptureStage{}, err
 	}
-	prepared, err := prepareAuthenticatedAuthoringImport(cfg, liveProtocolResult{
-		ArtifactPath: request.Result.ArtifactPath, Digest: request.Result.Digest,
+	prepared, err := prepareAttestedAuthenticatedAuthoringImport(cfg, liveProtocolResult{
+		ArtifactPath: request.Result.ArtifactPath, Digest: request.Result.Digest, Attestation: request.Attestation,
 	}, time.Now().UTC())
 	if err != nil {
 		return engine.BrowserCaptureStage{}, err

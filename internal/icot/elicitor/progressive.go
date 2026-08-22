@@ -43,34 +43,16 @@ func runProgressive(ctx context.Context, in io.Reader, out io.Writer, seed Sessi
 	}
 
 	projectText := projectwizard.Render(session.Project)
-	discovery, err := DiscoverAuthoringSourcesWithBrowser(ctx, opts.ExampleDir, projectText, opts.LocalSources, opts.SourceRoots, opts.BrowserSources, time.Now().UTC())
+	refreshedSources, err := RefreshSessionSources(ctx, session, SourceRefreshOptions{
+		ExampleDir: opts.ExampleDir, Query: projectText, LocalSources: opts.LocalSources, SourceRoots: opts.SourceRoots,
+		BrowserSources: opts.BrowserSources, BrowserRegistries: opts.BrowserRegistries, BrowserVerifications: opts.BrowserVerifications,
+		NetworkPolicy: opts.NetworkPolicy, At: time.Now().UTC(), RejectIncomplete: true,
+	})
 	if err != nil {
 		return Artifacts{}, err
 	}
-	if err := localSourceDiscoveryBlocker(discovery.Report); err != nil {
-		return Artifacts{}, err
-	}
-	if err := browserSourceDiscoveryBlocker(discovery.BrowserReport); err != nil {
-		return Artifacts{}, err
-	}
-	registryReport := BrowserRegistryDiscovery{Candidates: []BrowserRegistryCandidate{}, Blockers: []BrowserRegistryBlocker{}}
-	if len(opts.BrowserRegistries) > 0 && (len(discovery.Docs) == 0 || session.BrowserRoute == "browser") {
-		approved := strings.EqualFold(opts.NetworkPolicy, "allow") || session.Interview.Metadata["browser_registry_lookup_decision"] == "allow"
-		registryReport, err = DiscoverBrowserRegistrySources(ctx, opts.BrowserRegistries, firstNonEmpty(session.Boundary.Outcome, projectText), opts.NetworkPolicy, approved, time.Now().UTC())
-		if err != nil {
-			return Artifacts{}, err
-		}
-		discovery = MergeBrowserRegistrySources(discovery, registryReport)
-	}
+	session, discovery, registryReport := refreshedSources.Session, refreshedSources.Discovery, refreshedSources.Registry
 	docs := discovery.Docs
-	session = progressiveSessionAfterDiscoveryV2(session, discovery.Plans, opts.LocalSources, opts.BrowserSources, opts.NetworkPolicy)
-	session.SourcePlan, err = AttachBrowserVerifications(session.SourcePlan, opts.BrowserVerifications, time.Now().UTC())
-	if err != nil {
-		return Artifacts{}, err
-	}
-	if len(opts.BrowserRegistries) > 0 {
-		session.Interview.Metadata["browser_registry_configured"] = "true"
-	}
 	openingBrief := ""
 	if session.Intent.Workflow != nil {
 		openingBrief = strings.TrimSpace(session.Intent.Workflow.Description)
@@ -126,7 +108,9 @@ func runProgressive(ctx context.Context, in io.Reader, out io.Writer, seed Sessi
 			session.Normalize()
 		},
 		ApplyOpeningAnswer: func(session *Session, answer string, docs []APIDocument) error {
-			applyProgressiveAnswer(session, QuestionPlan{Slots: []string{"workflow.goal"}}, answer, docs)
+			if err := applyProgressiveAnswerChecked(session, QuestionPlan{Slots: []string{"workflow.goal"}}, answer, docs); err != nil {
+				return err
+			}
 			hints, err := BuildCatalogHints(answer, opts.CatalogHintOptions)
 			if err != nil {
 				fmt.Fprintf(statusOut, "icot: apitools catalog advisory skipped: %v\n", err)
@@ -140,26 +124,16 @@ func runProgressive(ctx context.Context, in io.Reader, out io.Writer, seed Sessi
 		RefreshDocuments: func(session Session, docs []APIDocument) ([]APIDocument, error) {
 			attemptRemoteLookup(session)
 			projectText := projectwizard.Render(session.Project)
-			refreshed, err := DiscoverAuthoringSourcesWithBrowser(ctx, opts.ExampleDir, projectText, opts.LocalSources, opts.SourceRoots, opts.BrowserSources, time.Now().UTC())
+			refreshed, err := RefreshSessionSources(ctx, session, SourceRefreshOptions{
+				ExampleDir: opts.ExampleDir, Query: projectText, LocalSources: opts.LocalSources, SourceRoots: opts.SourceRoots,
+				BrowserSources: opts.BrowserSources, BrowserRegistries: opts.BrowserRegistries, BrowserVerifications: opts.BrowserVerifications,
+				NetworkPolicy: opts.NetworkPolicy, At: time.Now().UTC(), RejectIncomplete: true,
+			})
 			if err != nil {
 				return nil, err
 			}
-			if err := localSourceDiscoveryBlocker(refreshed.Report); err != nil {
-				return nil, err
-			}
-			if err := browserSourceDiscoveryBlocker(refreshed.BrowserReport); err != nil {
-				return nil, err
-			}
-			if len(opts.BrowserRegistries) > 0 && (len(refreshed.Docs) == 0 || session.BrowserRoute == "browser") {
-				approved := strings.EqualFold(opts.NetworkPolicy, "allow") || session.Interview.Metadata["browser_registry_lookup_decision"] == "allow"
-				registryReport, err = DiscoverBrowserRegistrySources(ctx, opts.BrowserRegistries, firstNonEmpty(session.Boundary.Outcome, projectText), opts.NetworkPolicy, approved, time.Now().UTC())
-				if err != nil {
-					return nil, err
-				}
-				refreshed = MergeBrowserRegistrySources(refreshed, registryReport)
-			}
-			discovery = refreshed
-			return refreshed.Docs, nil
+			discovery, registryReport = refreshed.Discovery, refreshed.Registry
+			return refreshed.Discovery.Docs, nil
 		},
 		ShouldDraft: func(session Session, docs []APIDocument, issues []ReadinessIssue) bool {
 			if skipNextDraft {

@@ -116,6 +116,10 @@ group/other permissions (normally mode `0700`), and contain any file output.
 File output is new-only mode `0600`. Because
 the plan contains a target URL and private local paths, it is local-ephemeral
 and requires redaction review before sharing.
+Its strict output contract is published as
+[`openudon.browser-authoring-handoff.v1.schema.json`](schemas/openudon.browser-authoring-handoff.v1.schema.json).
+OpenUdon validates emitted ready and login-required plans against that schema;
+the artifact remains output-only and has no input decoder.
 
 The same inputs can be attached to `icot --agent --json` with
 `--browser-authoring-url`, repeatable `--browser-authoring-origin`,
@@ -148,6 +152,14 @@ The single `icot` executable re-executes a privately stabilized copy of itself
 as the isolated Browsertools worker. `--browsertools` remains an expert
 compatibility override for this terminal fallback; the primary UI capture
 surface does not accept an arbitrary executable path.
+
+Both launch forms use the same typed parent controller. Before staging, its
+process-private attestation must match the worker envelope's ordered actions,
+human checkpoints, exact approvals, observations, authentication proof,
+requested outputs, contexts, diagnostics, and accumulated origin ledger. The
+attestation is neither persisted nor returned by the HTTP API. Page-derived
+paths that fail Browsertools' disclosure validator terminate capture before
+terminal, UI, planner, or result exposure.
 
 Browsertools owns the non-persistent Playwright-Go context. iCoT uses only the
 closed reduced-observation protocol, names the provider/model before any model

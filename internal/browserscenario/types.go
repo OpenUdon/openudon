@@ -388,6 +388,30 @@ func ValidateRepositoryStates(lock CompatibilityLock, states map[string]Reposito
 	return nil
 }
 
+// ValidateGoModulePins verifies the dependency edges that compose the locked
+// browser stack. OpenUdon must use the locked Browsertools and UWS modules, and
+// Browsertools must itself use that same locked UWS revision.
+func ValidateGoModulePins(openUdonRoot, browsertoolsRoot string, lock CompatibilityLock) error {
+	locked := make(map[string]LockedRevision, len(lock.Components))
+	for _, component := range lock.Components {
+		locked[component.Name] = component
+	}
+	checks := []struct {
+		root, owner, dependency string
+	}{
+		{openUdonRoot, "openudon", "browsertools"},
+		{openUdonRoot, "openudon", "uws"},
+		{browsertoolsRoot, "browsertools", "uws"},
+	}
+	for _, check := range checks {
+		dependency, ok := locked[check.dependency]
+		if !ok || !goModRequires(check.root, dependency.Module, dependency.Version) {
+			return fmt.Errorf("%s %s dependency does not match the browser-scenario compatibility lock", check.owner, dependency.Module)
+		}
+	}
+	return nil
+}
+
 func decodeStrict(data []byte, target any) error {
 	return evidencefile.DecodeStrict(data, target)
 }
@@ -438,8 +462,8 @@ var allowedPublicProbeRoles = map[string]bool{
 	"search": true, "switch": true, "group": true,
 }
 var allowedOutcome = map[string]bool{"pass": true, "rejected": true}
-var allowedFaults = map[string]bool{"": true, "outputs_17": true, "stale_candidate": true, "ambiguous_unique_role": true, "context_substitution": true, "invalid_scalars": true, "secret_output": true, "origin_escape": true}
-var allowedFailureCodes = map[string]bool{"": true, "output_bound": true, "stale_candidate": true, "ambiguous_output": true, "invalid_context": true, "invalid_response": true, "secret_output": true, "origin_rejected": true}
+var allowedFaults = map[string]bool{"": true, "outputs_17": true, "stale_candidate": true, "ambiguous_unique_role": true, "context_substitution": true, "invalid_scalars": true, "secret_output": true, "origin_escape": true, "path_injection": true, "fabricated_trace": true}
+var allowedFailureCodes = map[string]bool{"": true, "output_bound": true, "stale_candidate": true, "ambiguous_output": true, "invalid_context": true, "invalid_response": true, "secret_output": true, "origin_rejected": true, "path_disclosure": true, "fabricated_trace": true}
 var allowedReplayVariants = map[string]bool{"integer_leading_zero": true, "integer_plus": true, "integer_comma": true, "integer_unsafe": true, "number_nan": true, "number_infinity": true, "number_comma": true, "boolean_uppercase": true, "boolean_numeric": true, "empty": true}
 var allowedQuarantineReasons = map[string]bool{"target_unavailable": true, "upstream_markup_drift": true, "origin_inventory_drift": true}
 var allowedJourneyKinds = map[string]bool{

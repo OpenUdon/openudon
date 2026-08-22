@@ -121,18 +121,139 @@ func TestBrowserFrontierRequiresSessionPostureAndMutationApproval(t *testing.T) 
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !hasQuestionID(frontier, nodeBrowserSession) || !hasQuestionID(frontier, nodeBrowserApproval) {
+	sessionNode, approvalNode := browserSessionNodeID(session.Intent.Steps[0]), browserApprovalNodeID(session.Intent.Steps[0])
+	if !hasQuestionID(frontier, sessionNode) || !hasQuestionID(frontier, approvalNode) {
 		t.Fatalf("browser frontier = %#v", frontier)
 	}
 	if err := ApplyFrontierRound(&session, []authoring.RoundAnswer{
-		{QuestionID: nodeBrowserSession, Value: "opaque-runtime-binding-required"},
-		{QuestionID: nodeBrowserApproval, Value: "approve update"},
+		{QuestionID: sessionNode, Value: "update_session"},
+		{QuestionID: approvalNode, Value: "approve update"},
 	}, discovery.Docs); err != nil {
 		t.Fatal(err)
 	}
 	issues = CheckReadiness(session, discovery.Docs)
 	if hasReadinessCode(issues, "missing_browser_session_posture") || hasReadinessCode(issues, "unconfirmed_browser_mutation") {
 		t.Fatalf("browser decisions were not applied: %#v", issues)
+	}
+	if session.Intent.Steps[0].BrowserSession != "update_session" || session.BrowserSession != "opaque-runtime-binding-required" {
+		t.Fatalf("external session binding/posture = %#v / %q", session.Intent.Steps[0], session.BrowserSession)
+	}
+}
+
+func TestBrowserFrontierScopesSessionsAndApprovalsToEveryStep(t *testing.T) {
+	root := t.TempDir()
+	path := filepath.Join(root, "editor.json")
+	writeBrowserTestFile(t, path, browserProfileFixture(true, true))
+	discovery, err := DiscoverAuthoringSourcesWithBrowser(context.Background(), filepath.Join(root, "example"), "update two records", nil, nil, []BrowserSourceInput{{ID: "editor", Path: path}}, browserIntegrationTime)
+	if err != nil {
+		t.Fatal(err)
+	}
+	doc := discovery.Docs[0]
+	first := &rollout.Step{Name: "update_primary", Type: "browser", Source: doc.RelativePath, Operation: "update_record", With: map[string]string{"note": "inputs.note"}}
+	second := &rollout.Step{Name: "update_secondary", Type: "browser", Source: doc.RelativePath, Operation: "update_record", With: map[string]string{"note": "inputs.note"}}
+	session := Session{
+		Boundary:   WorkflowBoundary{Outcome: "update two records", Actor: "operator", Trigger: "on demand", SuccessEvidence: []string{"both updates return"}},
+		Project:    projectwizard.Answers{ProjectName: "Editor", Goal: "update two records", Fallback: "stop cleanly", Safety: "after approval", SideEffectScope: projectwizard.SideEffectAfterApproval},
+		Intent:     rollout.Intent{Workflow: &rollout.WorkflowMeta{Name: "editor", Description: "update two records"}, Source: doc.RelativePath, Inputs: []*rollout.Input{{Name: "note", Type: "string", Required: true}}, Steps: []*rollout.Step{first, second}, Outputs: []*rollout.Output{{Name: "result", From: "update_secondary.received_body.status"}}},
+		SourcePlan: discovery.Plans, BrowserRoute: "browser", SideEffectScope: projectwizard.SideEffectAfterApproval,
+		Fallback: "stop cleanly", FallbackSet: true, Safety: "after approval", SafetySet: true, CredentialsSet: true,
+	}
+	session.Normalize()
+	frontier, err := PlanFrontier(&session, discovery.Docs, CheckReadiness(session, discovery.Docs))
+	if err != nil {
+		t.Fatal(err)
+	}
+	answers := []authoring.RoundAnswer{}
+	for index, step := range []*rollout.Step{first, second} {
+		sessionNode, approvalNode := browserSessionNodeID(step), browserApprovalNodeID(step)
+		if !hasQuestionID(frontier, sessionNode) || !hasQuestionID(frontier, approvalNode) {
+			t.Fatalf("frontier omitted controls for %s: %#v", step.Name, frontier)
+		}
+		answers = append(answers,
+			authoring.RoundAnswer{QuestionID: sessionNode, Value: fmt.Sprintf("external_session_%d", index+1), Source: "user"},
+			authoring.RoundAnswer{QuestionID: approvalNode, Value: "approve " + step.Name, Source: "user"},
+		)
+	}
+	if err := ApplyFrontierRound(&session, answers, discovery.Docs); err != nil {
+		t.Fatal(err)
+	}
+	gotFirst, gotSecond := session.Intent.Steps[0], session.Intent.Steps[1]
+	if gotFirst.BrowserSession != "external_session_1" || gotSecond.BrowserSession != "external_session_2" || !stringSliceContains(session.BrowserApprovals, gotFirst.Name) || !stringSliceContains(session.BrowserApprovals, gotSecond.Name) {
+		t.Fatalf("step-scoped browser decisions = %#v / %#v", gotFirst, gotSecond)
+	}
+	if err := ReopenSettledDecision(&session, browserApprovalNodeID(gotFirst), discovery.Docs); err != nil {
+		t.Fatal(err)
+	}
+	if stringSliceContains(session.BrowserApprovals, gotFirst.Name) || !stringSliceContains(session.BrowserApprovals, gotSecond.Name) {
+		t.Fatalf("reopening one approval cleared the wrong scope: %#v", session.BrowserApprovals)
+	}
+}
+
+func TestBrowserFrontierScopesSourcesAndActionsByExactStepIdentity(t *testing.T) {
+	root := t.TempDir()
+	path := filepath.Join(root, "reader.json")
+	writeBrowserTestFile(t, path, browserProfileFixture(false, false))
+	discovery, err := DiscoverAuthoringSourcesWithBrowser(context.Background(), filepath.Join(root, "example"), "read two records", nil, nil, []BrowserSourceInput{{ID: "reader", Path: path}}, browserIntegrationTime)
+	if err != nil {
+		t.Fatal(err)
+	}
+	firstDoc := discovery.Docs[0]
+	firstDoc.RelativePath = "browser-profiles/first.json"
+	firstDoc.Title = "First profile"
+	secondDoc := discovery.Docs[0]
+	secondDoc.RelativePath = "browser-profiles/second.json"
+	secondDoc.Title = "Second profile"
+	docs := []APIDocument{firstDoc, secondDoc}
+	first := &rollout.Step{Name: "read-record", Type: "browser"}
+	second := &rollout.Step{Name: "read_record", Type: "browser"}
+	session := Session{
+		Boundary: WorkflowBoundary{Outcome: "read two records", Actor: "operator", Trigger: "on demand", SuccessEvidence: []string{"both records return"}},
+		Intent:   rollout.Intent{Workflow: &rollout.WorkflowMeta{Name: "reader", Description: "read two records"}, Steps: []*rollout.Step{first, second}},
+	}
+	session.Normalize()
+	frontier, err := PlanFrontier(&session, docs, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	firstSource, secondSource := browserSourceNodeID(first), browserSourceNodeID(second)
+	if firstSource == secondSource {
+		t.Fatalf("distinct step names collided at %q", firstSource)
+	}
+	controls := BuildQuestionControls(session, docs, frontier)
+	controlsByID := make(map[string]QuestionControl, len(controls))
+	for _, control := range controls {
+		controlsByID[control.QuestionID] = control
+	}
+	for _, questionID := range []string{firstSource, secondSource} {
+		control, ok := controlsByID[questionID]
+		if !ok || control.InputKind != QuestionInputChoice || len(control.Options) != 2 {
+			t.Fatalf("source control %q = %#v", questionID, control)
+		}
+	}
+	if err := ApplyFrontierRound(&session, []authoring.RoundAnswer{
+		{QuestionID: firstSource, Value: firstDoc.RelativePath, Source: "user"},
+		{QuestionID: secondSource, Value: secondDoc.RelativePath, Source: "user"},
+	}, docs); err != nil {
+		t.Fatal(err)
+	}
+	gotFirst, gotSecond := session.Intent.Steps[0], session.Intent.Steps[1]
+	if gotFirst.Source != firstDoc.RelativePath || gotSecond.Source != secondDoc.RelativePath {
+		t.Fatalf("step-scoped sources = %q / %q", gotFirst.Source, gotSecond.Source)
+	}
+	frontier, err = PlanFrontier(&session, docs, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	firstAction, secondAction := browserActionNodeID(first), browserActionNodeID(second)
+	if err := ApplyFrontierRound(&session, []authoring.RoundAnswer{
+		{QuestionID: firstAction, Value: firstDoc.Operations[0].OperationID, Source: "user"},
+		{QuestionID: secondAction, Value: secondDoc.Operations[0].OperationID, Source: "user"},
+	}, docs); err != nil {
+		t.Fatal(err)
+	}
+	gotFirst, gotSecond = session.Intent.Steps[0], session.Intent.Steps[1]
+	if gotFirst.Operation != firstDoc.Operations[0].OperationID || gotSecond.Operation != secondDoc.Operations[0].OperationID || gotFirst.Source != firstDoc.RelativePath || gotSecond.Source != secondDoc.RelativePath {
+		t.Fatalf("step-scoped actions = %#v / %#v", gotFirst, gotSecond)
 	}
 }
 

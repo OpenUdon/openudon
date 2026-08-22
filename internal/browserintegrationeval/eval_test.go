@@ -318,6 +318,24 @@ func makeTestRepos(t *testing.T) map[string]string {
 		}
 		repos[name] = path
 	}
+	lock, err := browserscenario.LoadCompatibilityLock()
+	if err != nil {
+		t.Fatal(err)
+	}
+	locked := map[string]browserscenario.LockedRevision{}
+	for _, component := range lock.Components {
+		locked[component.Name] = component
+	}
+	openudonMod := fmt.Sprintf("module example.test/openudon\n\nrequire (\n\t%s %s\n\t%s %s\n)\n",
+		locked["browsertools"].Module, locked["browsertools"].Version,
+		locked["uws"].Module, locked["uws"].Version)
+	browsertoolsMod := fmt.Sprintf("module example.test/browsertools\n\nrequire %s %s\n", locked["uws"].Module, locked["uws"].Version)
+	if err := os.WriteFile(filepath.Join(root, "go.mod"), []byte(openudonMod), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(repos["browsertools"], "go.mod"), []byte(browsertoolsMod), 0o600); err != nil {
+		t.Fatal(err)
+	}
 	return repos
 }
 

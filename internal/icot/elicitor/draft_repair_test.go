@@ -105,3 +105,18 @@ func TestApplyDraftReviewRepairsRejectsMissingSuggestedAnswer(t *testing.T) {
 		t.Fatalf("output changed to %q", got)
 	}
 }
+
+func TestApplyDraftReviewRepairsRejectsBrowserAuthorityMutation(t *testing.T) {
+	session := Session{Intent: rollout.Intent{Steps: []*rollout.Step{{Name: "update", Type: "browser"}}}}
+	for _, slot := range []string{"steps.update.browser_session", "steps.update.browser_approval", "steps.update.authentication_flow", "steps.update.credential_bindings"} {
+		changed, rejected := applyDraftReviewRepairs(&session, []DraftReviewIssue{{
+			Code: "browser_authority", Message: "Set browser authority.", Slot: slot, SuggestedAnswer: "unsafe_auto_value",
+		}})
+		if changed || len(rejected) != 1 || !strings.Contains(rejected[0], "exact operator decision") {
+			t.Fatalf("slot=%s changed=%v rejected=%v", slot, changed, rejected)
+		}
+	}
+	if session.Intent.Steps[0].BrowserSession != "" || session.Intent.Steps[0].AuthenticationFlow != "" {
+		t.Fatalf("browser authority was mutated: %#v", session.Intent.Steps[0])
+	}
+}

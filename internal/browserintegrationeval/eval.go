@@ -164,6 +164,9 @@ func Run(ctx context.Context, opts Options) (*Report, error) {
 	if err := validateLockedRepositoryRevisions(revisions, lock); err != nil {
 		return nil, err
 	}
+	if err := browserscenario.ValidateGoModulePins(repos["openudon"], repos["browsertools"], lock); err != nil {
+		return nil, err
+	}
 	report := &Report{
 		Version: ReportVersion, Status: StatusPass,
 		GeneratedAt: now.Format(time.RFC3339), Commit: revisions[0].Commit, Repositories: revisions,

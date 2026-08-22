@@ -24,16 +24,21 @@ type DraftReviewRequest struct {
 }
 
 type DraftReviewStep struct {
-	Name        string                 `json:"name"`
-	Type        string                 `json:"type,omitempty"`
-	Provider    string                 `json:"provider,omitempty"`
-	Source      string                 `json:"source,omitempty"`
-	OperationID string                 `json:"operationId,omitempty"`
-	Do          string                 `json:"do,omitempty"`
-	DependsOn   []string               `json:"depends_on,omitempty"`
-	With        map[string]string      `json:"with,omitempty"`
-	Binds       []*rollout.StepBind    `json:"binds,omitempty"`
-	Operation   operationPromptContext `json:"operation,omitempty"`
+	Name                 string                 `json:"name"`
+	Type                 string                 `json:"type,omitempty"`
+	Provider             string                 `json:"provider,omitempty"`
+	Source               string                 `json:"source,omitempty"`
+	OperationID          string                 `json:"operationId,omitempty"`
+	Do                   string                 `json:"do,omitempty"`
+	DependsOn            []string               `json:"depends_on,omitempty"`
+	With                 map[string]string      `json:"with,omitempty"`
+	Binds                []*rollout.StepBind    `json:"binds,omitempty"`
+	Operation            operationPromptContext `json:"operation,omitempty"`
+	BrowserSession       string                 `json:"browser_session,omitempty"`
+	AuthenticationFlow   string                 `json:"authentication_flow,omitempty"`
+	LoginStateRequired   bool                   `json:"login_state_required,omitempty"`
+	BrowserSideEffects   []string               `json:"browser_side_effects,omitempty"`
+	BrowserApprovalGiven bool                   `json:"browser_approval_given,omitempty"`
 }
 
 type DraftReviewOutput struct {
@@ -103,18 +108,24 @@ func BuildDraftReviewRequest(session Session, docs []APIDocument, issues []Readi
 			continue
 		}
 		reviewStep := DraftReviewStep{
-			Name:        firstNonEmpty(step.Name, "step"),
-			Type:        strings.TrimSpace(step.Type),
-			Provider:    strings.TrimSpace(step.Provider),
-			Source:      stepAPISourceRef(session, step),
-			OperationID: strings.TrimSpace(step.Operation),
-			Do:          strings.TrimSpace(step.Do),
-			DependsOn:   append([]string(nil), step.DependsOn...),
-			With:        cloneStringMap(step.With),
-			Binds:       cloneStepBinds(step.Binds),
+			Name:           firstNonEmpty(step.Name, "step"),
+			Type:           strings.TrimSpace(step.Type),
+			Provider:       strings.TrimSpace(step.Provider),
+			Source:         stepAPISourceRef(session, step),
+			OperationID:    strings.TrimSpace(step.Operation),
+			Do:             strings.TrimSpace(step.Do),
+			DependsOn:      append([]string(nil), step.DependsOn...),
+			With:           cloneStringMap(step.With),
+			Binds:          cloneStepBinds(step.Binds),
+			BrowserSession: strings.TrimSpace(step.BrowserSession), AuthenticationFlow: strings.TrimSpace(step.AuthenticationFlow),
+			BrowserApprovalGiven: stringSliceContains(session.BrowserApprovals, step.Name),
 		}
 		if op, ok := operationForStep(session, docs, step); ok {
 			reviewStep.Operation = operationPrompt(*op)
+			if isBrowserOperationSummary(op) {
+				reviewStep.LoginStateRequired = op.Extensions["openudon.browser.login_state_required"] == "true"
+				reviewStep.BrowserSideEffects = splitComma(op.Extensions["openudon.browser.side_effects"])
+			}
 		}
 		request.Steps = append(request.Steps, reviewStep)
 	}
@@ -462,10 +473,10 @@ func reviewFinalDraft(ctx context.Context, out io.Writer, extractor Extractor, s
 }
 
 func localDraftReviewIssues(session Session, docs []APIDocument) []DraftReviewIssue {
+	issues := browserDraftReviewIssues(session, docs)
 	if !goalAllowsLocalFnctRemediation(session) {
-		return nil
+		return issues
 	}
-	var issues []DraftReviewIssue
 	for _, step := range session.Intent.Steps {
 		if step == nil {
 			continue
@@ -489,6 +500,29 @@ func localDraftReviewIssues(session Session, docs []APIDocument) []DraftReviewIs
 			RemediationAction: remediationProposeFnctStep,
 		}
 		issues = append(issues, issue)
+	}
+	return issues
+}
+
+func browserDraftReviewIssues(session Session, docs []APIDocument) []DraftReviewIssue {
+	var issues []DraftReviewIssue
+	for _, selected := range selectedBrowserOperations(session, docs) {
+		step, operation := selected.Step, selected.Operation
+		if step == nil {
+			continue
+		}
+		slot := "steps." + step.Name
+		if operation == nil {
+			issues = append(issues, DraftReviewIssue{Severity: readinessWarning, Code: "browser_review_operation_unavailable", Message: "The browser step does not resolve to one reviewed capability action.", Slot: slot + ".operation", GapKind: flowGapUnavailableSource, RemediationAction: remediationCommentOnly})
+			continue
+		}
+		loginRequired := operation.Extensions["openudon.browser.login_state_required"] == "true"
+		if loginRequired && !browserActionHasEstablishedSession(session, step) && !browserBindingNamePattern.MatchString(strings.TrimSpace(step.BrowserSession)) {
+			issues = append(issues, DraftReviewIssue{Severity: readinessWarning, Code: "browser_review_external_session_missing", Message: "The login-dependent browser step lacks a symbolic execution-local session binding.", Slot: slot + ".browser_session", SuggestedAnswer: slugIdent(step.Name) + "_session", GapKind: flowGapUnclearIntent, RemediationAction: remediationAskUser, ClarifyingQuestion: "What symbolic runtime session name should this browser step use?"})
+		}
+		if browserOperationMutates(operation) && !stringSliceContains(session.BrowserApprovals, step.Name) {
+			issues = append(issues, DraftReviewIssue{Severity: readinessWarning, Code: "browser_review_mutation_unapproved", Message: "The mutating browser step lacks its exact authoring approval.", Slot: slot + ".browser_approval", SuggestedAnswer: "approve " + step.Name, GapKind: flowGapUnclearIntent, RemediationAction: remediationAskUser, ClarifyingQuestion: "Do you approve this exact browser mutation for authoring?"})
+		}
 	}
 	return issues
 }

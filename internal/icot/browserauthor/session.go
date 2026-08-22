@@ -26,6 +26,7 @@ import (
 
 	"github.com/OpenUdon/browsertools/authorresult"
 	"github.com/OpenUdon/browsertools/authorsession"
+	"github.com/OpenUdon/browsertools/disclosurepath"
 	"github.com/OpenUdon/openudon/internal/processgroup"
 )
 
@@ -93,6 +94,8 @@ func (report DoctorReport) UI() UIDoctorReport {
 }
 
 var profileIDPattern = regexp.MustCompile(`^[a-z0-9][a-z0-9._-]{0,63}$`)
+var candidateIDPattern = regexp.MustCompile(`^candidate-[0-9a-f]{16}$`)
+var approvalIDPattern = regexp.MustCompile(`^approval-[0-9]{4}$`)
 
 var copyStabilizedExecutable = io.Copy
 
@@ -119,6 +122,7 @@ type Event struct {
 	Checkpoint  *authorsession.Checkpoint  `json:"checkpoint,omitempty"`
 	Result      *authorsession.Result      `json:"result,omitempty"`
 	ErrorCode   string                     `json:"error_code,omitempty"`
+	Attestation *Attestation               `json:"-"`
 }
 
 // Response is the closed set of human decisions accepted for a pending event.
@@ -215,11 +219,36 @@ func Start(ctx context.Context, config Config) (*Session, error) {
 	if err != nil {
 		return nil, err
 	}
-	bounded, cancel := context.WithTimeout(ctx, config.Absolute)
 	args := []string{stable, "__browsertools-worker", "author-session", "chromium", "--private-root", config.PrivateRoot}
 	if config.DriverDir != "" {
 		args = append(args, "--driver-dir", config.DriverDir)
 	}
+	return startProcess(ctx, config, args, cleanup)
+}
+
+// StartExternal runs an explicitly selected Browsertools executable through
+// the same typed controller and parent-attestation state machine as Start.
+func StartExternal(ctx context.Context, config Config, executable string) (*Session, error) {
+	if ctx == nil {
+		return nil, errors.New("browser author context is required")
+	}
+	config, err := normalizeConfig(config)
+	if err != nil {
+		return nil, err
+	}
+	stable, cleanup, err := stabilizeExecutable(strings.TrimSpace(executable), config.PrivateRoot)
+	if err != nil {
+		return nil, err
+	}
+	args := []string{stable, "author-session", "chromium", "--private-root", config.PrivateRoot}
+	if config.DriverDir != "" {
+		args = append(args, "--driver-dir", config.DriverDir)
+	}
+	return startProcess(ctx, config, args, cleanup)
+}
+
+func startProcess(ctx context.Context, config Config, args []string, cleanup func()) (*Session, error) {
+	bounded, cancel := context.WithTimeout(ctx, config.Absolute)
 	child, err := processgroup.StartInteractive(bounded, args, minimalEnvironment(), io.Discard)
 	if err != nil {
 		cancel()
@@ -306,6 +335,11 @@ func (s *Session) run(ctx context.Context, config Config, child *processgroup.In
 		MaxRequests: authorsession.DefaultMaxRequests, MaxResponseBytes: authorsession.DefaultMaxResponseBytes,
 		MaxObservations: authorsession.DefaultMaxObservations, MaxCandidates: authorsession.DefaultMaxCandidates, MaxOutputs: authorsession.DefaultMaxOutputs,
 	}
+	attestation, err := newAttestation(config, bounds)
+	if err != nil {
+		fail("attestation")
+		return
+	}
 	if err := write(authorsession.ClientMessage{
 		Type: "start", Title: config.ProfileID, URL: config.InitialURL, DashboardURL: config.DashboardURL,
 		Goal: config.Goal, Origins: config.Origins, GoalPredicate: &config.GoalPredicate, Bounds: &bounds,
@@ -315,6 +349,7 @@ func (s *Session) run(ctx context.Context, config Config, child *processgroup.In
 	}
 	phase := "authentication"
 	var completionObservation *authorsession.Observation
+	var lastObservation *authorsession.Observation
 	for {
 		message, err := receive(ctx, messages, readErrors)
 		if err != nil {
@@ -343,6 +378,12 @@ func (s *Session) run(ctx context.Context, config Config, child *processgroup.In
 				}
 				continue
 			}
+			if phase == "closed" {
+				s.publishTerminal(Event{State: "closed", Phase: phase})
+				_ = child.Input().Close()
+				_ = child.Wait()
+				return
+			}
 			state := "exploration"
 			if phase == "authentication" {
 				state = "authentication"
@@ -357,9 +398,14 @@ func (s *Session) run(ctx context.Context, config Config, child *processgroup.In
 				return
 			}
 		case "observation":
-			if message.Observation == nil || !safeObservation(*message.Observation, config.Origins) {
+			if message.Observation == nil || !safeObservation(*message.Observation, attestation.originLedger()) || attestation.recordObservation(phase, *message.Observation) != nil {
 				fail("malformed_observation")
 				return
+			}
+			copyObservation := cloneObservation(*message.Observation)
+			lastObservation = &copyObservation
+			if phase == "authentication" && message.Observation.Origin == attestation.dashboardOrigin && message.Observation.Path == attestation.dashboardPath {
+				phase = "exploration"
 			}
 			if observationMatchesGoal(*message.Observation, config.GoalPredicate) {
 				copy := *message.Observation
@@ -372,12 +418,12 @@ func (s *Session) run(ctx context.Context, config Config, child *processgroup.In
 				return
 			}
 			client, err := observationResponse(response, *message.Observation, config)
-			if err != nil || write(client) != nil {
+			if err != nil || attestation.recordClient(client, phase, message.Observation) != nil || write(client) != nil {
 				fail("invalid_response")
 				return
 			}
 		case "approval_required":
-			if message.Approval == nil || !safeApproval(*message.Approval, config.Origins) {
+			if message.Approval == nil || !safeApproval(*message.Approval, attestation.originLedger()) {
 				fail("malformed_approval")
 				return
 			}
@@ -392,12 +438,20 @@ func (s *Session) run(ctx context.Context, config Config, child *processgroup.In
 				fail("invalid_response")
 				return
 			}
+			if kind == "approve" && attestation.recordApproval(*message.Approval) != nil {
+				fail("invalid_response")
+				return
+			}
 			if err := write(authorsession.ClientMessage{Type: kind, ApprovalID: message.Approval.ID}); err != nil {
 				fail("worker_write")
 				return
 			}
 		case "human_checkpoint":
 			if message.Checkpoint == nil {
+				fail("malformed_checkpoint")
+				return
+			}
+			if attestation.recordCheckpoint(*message.Checkpoint, lastObservation) != nil {
 				fail("malformed_checkpoint")
 				return
 			}
@@ -414,7 +468,7 @@ func (s *Session) run(ctx context.Context, config Config, child *processgroup.In
 				return
 			}
 			client, err := checkpointResponse(response, *message.Checkpoint)
-			if err != nil || write(client) != nil {
+			if err != nil || attestation.recordClient(client, phase, lastObservation) != nil || write(client) != nil {
 				fail("invalid_response")
 				return
 			}
@@ -423,7 +477,7 @@ func (s *Session) run(ctx context.Context, config Config, child *processgroup.In
 				fail("malformed_result")
 				return
 			}
-			s.publish(ctx, Event{State: "completion_review", Phase: "completed", Result: message.Result})
+			s.publish(ctx, Event{State: "completion_review", Phase: "completed", Result: message.Result, Attestation: attestation})
 			_ = child.Input().Close()
 			_ = child.Wait()
 			return
@@ -562,9 +616,13 @@ func normalizeConfig(config Config) (Config, error) {
 		return Config{}, errors.New("browser author goal or profile ID is invalid")
 	}
 	if config.GoalPredicate.Origin == "" {
-		config.GoalPredicate = authorresult.GoalPredicate{Origin: dashboardOrigin, Path: pathOf(dashboard), Context: "main", Role: "heading", Label: "Dashboard"}
+		dashboardPath, pathErr := pathForURL(dashboard)
+		if pathErr != nil {
+			return Config{}, pathErr
+		}
+		config.GoalPredicate = authorresult.GoalPredicate{Origin: dashboardOrigin, Path: dashboardPath, Context: "main", Role: "heading", Label: "Dashboard"}
 	}
-	if !seen[config.GoalPredicate.Origin] || !cleanCapturePath(config.GoalPredicate.Path) || config.GoalPredicate.Role == "" {
+	if !seen[config.GoalPredicate.Origin] || disclosurepath.Validate(config.GoalPredicate.Path) != nil || config.GoalPredicate.Role == "" {
 		return Config{}, errors.New("browser author goal predicate is outside approved authority")
 	}
 	config.InitialURL, config.DashboardURL, config.Origins = initial, dashboard, origins
@@ -594,24 +652,11 @@ func cleanURL(raw string) (string, string, error) {
 	if parsed.Path == "" {
 		parsed.Path = "/"
 	}
-	if !cleanCapturePath(parsed.EscapedPath()) {
+	if disclosurepath.Validate(parsed.EscapedPath()) != nil {
 		return "", "", errors.New("URL path must be portable and query-free")
 	}
 	parsed.Scheme, parsed.Host = strings.ToLower(parsed.Scheme), host
 	return parsed.String(), parsed.Scheme + "://" + parsed.Host, nil
-}
-
-func cleanCapturePath(path string) bool {
-	if !strings.HasPrefix(path, "/") || strings.ContainsAny(path, "?#\\") {
-		return false
-	}
-	for _, part := range strings.Split(path, "/")[1:] {
-		decoded, err := url.PathUnescape(part)
-		if err != nil || decoded == "." || decoded == ".." || strings.ContainsAny(decoded, "/\\") {
-			return false
-		}
-	}
-	return true
 }
 
 func cleanOrigin(raw string) (string, error) {
@@ -633,12 +678,19 @@ func isLoopbackHost(host string) bool {
 	return net.ParseIP(host).IsLoopback()
 }
 
-func pathOf(raw string) string {
-	parsed, _ := url.Parse(raw)
-	if parsed.EscapedPath() == "" {
-		return "/"
+func pathForURL(raw string) (string, error) {
+	parsed, err := url.Parse(raw)
+	if err != nil || parsed == nil || !parsed.IsAbs() || parsed.Host == "" {
+		return "", errors.New("URL must be absolute")
 	}
-	return parsed.EscapedPath()
+	path := parsed.EscapedPath()
+	if path == "" {
+		path = "/"
+	}
+	if disclosurepath.Validate(path) != nil {
+		return "", errors.New("URL path must be portable")
+	}
+	return path, nil
 }
 
 func requiredCapabilities(values []string) bool {
@@ -659,12 +711,17 @@ func safeObservation(observation authorsession.Observation, origins []string) bo
 	for _, origin := range origins {
 		allowed[origin] = true
 	}
-	if !allowed[observation.Origin] || observation.Path == "" || len(observation.Candidates) > authorsession.DefaultMaxCandidates {
+	if !allowed[observation.Origin] || disclosurepath.Validate(observation.Path) != nil || len(observation.Contexts) > authorsession.MaxContexts || len(observation.Diagnostics) > authorsession.MaxUniqueDiagnostics || len(observation.Candidates) > authorsession.DefaultMaxCandidates {
 		return false
+	}
+	for _, browserContext := range observation.Contexts {
+		if browserContext.Path != "" && disclosurepath.Validate(browserContext.Path) != nil {
+			return false
+		}
 	}
 	seen := map[string]bool{}
 	for _, candidate := range observation.Candidates {
-		if candidate.ID == "" || candidate.Role == "" || candidate.Matches < 1 || candidate.Matches > 32 || len(candidate.Label) > 256 || strings.ContainsAny(candidate.Label, "\r\n\x00") || seen[candidate.ID] {
+		if !candidateIDPattern.MatchString(candidate.ID) || candidate.Role == "" || candidate.Matches < 1 || candidate.Matches > 32 || len(candidate.Label) > 256 || strings.ContainsAny(candidate.Label, "\r\n\x00") || seen[candidate.ID] {
 			return false
 		}
 		seen[candidate.ID] = true
@@ -673,18 +730,29 @@ func safeObservation(observation authorsession.Observation, origins []string) bo
 }
 
 func safeApproval(approval authorsession.Approval, origins []string) bool {
-	if approval.ID == "" || approval.Kind == "" || approval.POSTBudget < 0 {
+	if !approvalIDPattern.MatchString(approval.ID) || approval.POSTBudget < 0 || approval.POSTBudget > 32 {
 		return false
 	}
-	if approval.Origin == "" {
-		return true
-	}
-	for _, origin := range origins {
-		if approval.Origin == origin {
-			return true
+	switch approval.Kind {
+	case "action":
+		return approval.Origin == "" && approval.Action == "click" && candidateIDPattern.MatchString(approval.CandidateID)
+	case "origin", "origin_action":
+		canonical, err := cleanOrigin(approval.Origin)
+		if err != nil || canonical != approval.Origin {
+			return false
 		}
+		for _, origin := range origins {
+			if approval.Origin == origin {
+				return false
+			}
+		}
+		if approval.Kind == "origin" {
+			return approval.Action == "navigate_get" && approval.CandidateID == "" && approval.POSTBudget == 0
+		}
+		return approval.Action == "click" && candidateIDPattern.MatchString(approval.CandidateID)
+	default:
+		return false
 	}
-	return false
 }
 
 func observationResponse(response Response, observation authorsession.Observation, config Config) (authorsession.ClientMessage, error) {
@@ -710,9 +778,10 @@ func observationResponse(response Response, observation authorsession.Observatio
 		return authorsession.ClientMessage{Type: "execute", CandidateID: response.CandidateID, Action: "click", POSTBudget: response.POSTBudget}, nil
 	case "navigate_get":
 		urlValue, origin, err := cleanURL(response.URL)
-		if err != nil || !contains(config.Origins, origin) {
-			return authorsession.ClientMessage{}, errors.New("navigation is outside approved origins")
+		if err != nil {
+			return authorsession.ClientMessage{}, errors.New("navigation URL is invalid")
 		}
+		_ = origin // The worker requests exact human approval for a new origin.
 		return authorsession.ClientMessage{Type: "execute", Action: "navigate_get", URL: urlValue, Context: response.Context}, nil
 	case "observe":
 		contextID := strings.TrimSpace(response.Context)
@@ -785,51 +854,60 @@ func minimalEnvironment() []string {
 	return result
 }
 
+// StabilizeExecutable publishes an immutable-by-mode, content-addressed worker
+// beneath the caller's private root. Published entries are reused only after a
+// complete byte verification; cleanup is intentionally a no-op because cache
+// entries are bounded by distinct executable digests.
+func StabilizeExecutable(source, privateRoot string) (string, func(), error) {
+	return stabilizeExecutable(source, privateRoot)
+}
+
 func stabilizeExecutable(source, privateRoot string) (string, func(), error) {
 	info, err := os.Lstat(source)
 	if err != nil || info.Mode()&os.ModeSymlink != 0 || !info.Mode().IsRegular() || info.Mode().Perm()&0o111 == 0 {
 		return "", nil, errors.New("iCoT executable is not a safe executable file")
 	}
-	directory, err := os.MkdirTemp(privateRoot, ".openudon-browser-worker-")
-	if err != nil {
+	cacheRoot := filepath.Join(privateRoot, ".openudon-browser-worker-cache")
+	if err := ensureWorkerCache(cacheRoot); err != nil {
 		return "", nil, err
 	}
-	cleanup := func() { _ = os.RemoveAll(directory) }
-	if err := os.Chmod(directory, 0o700); err != nil {
-		cleanup()
-		return "", nil, err
-	}
+	sweepStaleWorkerTemps(cacheRoot, time.Now())
 	input, err := os.Open(source)
 	if err != nil {
-		cleanup()
 		return "", nil, err
 	}
 	defer input.Close()
 	openedBefore, err := input.Stat()
 	if err != nil || !os.SameFile(info, openedBefore) || openedBefore.Size() > 256<<20 {
-		cleanup()
 		return "", nil, errors.New("iCoT executable identity changed before stabilization")
 	}
 	sourceDigestBefore, err := hashExecutable(input, 256<<20)
 	if err != nil {
-		cleanup()
 		return "", nil, errors.New("could not hash iCoT executable before stabilization")
 	}
 	hashedBefore, err := input.Stat()
 	if err != nil || !sameExecutableState(openedBefore, hashedBefore) {
-		cleanup()
 		return "", nil, errors.New("iCoT executable changed while hashing before stabilization")
 	}
-	name := "icot"
+	name := "worker-" + sourceDigestBefore
 	if strings.EqualFold(filepath.Ext(source), ".exe") {
 		name += ".exe"
 	}
-	target := filepath.Join(directory, name)
-	output, err := os.OpenFile(target, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o500)
+	target := filepath.Join(cacheRoot, name)
+	if _, err := os.Lstat(target); err == nil {
+		if err := verifyCachedExecutable(target, sourceDigestBefore); err != nil {
+			return "", nil, err
+		}
+		return target, func() {}, nil
+	} else if !errors.Is(err, os.ErrNotExist) {
+		return "", nil, errors.New("could not inspect cached browser worker")
+	}
+	output, err := os.CreateTemp(cacheRoot, ".openudon-worker-copy-")
 	if err != nil {
-		cleanup()
 		return "", nil, err
 	}
+	temporary := output.Name()
+	cleanupTemporary := func() { _ = os.Remove(temporary) }
 	written, copyErr := copyStabilizedExecutable(output, io.LimitReader(input, (256<<20)+1))
 	syncErr, closeErr := output.Sync(), output.Close()
 	openedAfter, statErr := input.Stat()
@@ -840,29 +918,74 @@ func stabilizeExecutable(source, privateRoot string) (string, func(), error) {
 		digestErr != nil || hashedStatErr != nil || sourceDigestBefore != sourceDigestAfter ||
 		written != info.Size() || written > 256<<20 || !os.SameFile(openedBefore, openedAfter) || !os.SameFile(openedBefore, pathAfter) ||
 		!sameExecutableState(openedBefore, openedAfter) || !sameExecutableState(openedAfter, hashedAfter) {
-		cleanup()
+		cleanupTemporary()
 		return "", nil, errors.New("could not stabilize iCoT browser worker executable")
 	}
-	targetInfo, err := os.Lstat(target)
-	if err != nil || targetInfo.Mode()&os.ModeSymlink != 0 || !targetInfo.Mode().IsRegular() || targetInfo.Mode().Perm() != 0o500 {
-		cleanup()
-		return "", nil, errors.New("stabilized iCoT browser worker is unsafe")
+	if err := os.Chmod(temporary, 0o500); err != nil {
+		cleanupTemporary()
+		return "", nil, err
 	}
-	targetFile, err := os.Open(target)
+	if err := verifyCachedExecutable(temporary, sourceDigestBefore); err != nil {
+		cleanupTemporary()
+		return "", nil, err
+	}
+	if err := os.Link(temporary, target); err != nil && !errors.Is(err, os.ErrExist) {
+		cleanupTemporary()
+		return "", nil, errors.New("could not publish stabilized browser worker")
+	}
+	cleanupTemporary()
+	if err := verifyCachedExecutable(target, sourceDigestBefore); err != nil {
+		return "", nil, err
+	}
+	return target, func() {}, nil
+}
+
+func ensureWorkerCache(path string) error {
+	if err := os.Mkdir(path, 0o700); err != nil && !errors.Is(err, os.ErrExist) {
+		return err
+	}
+	info, err := os.Lstat(path)
+	if err != nil || info.Mode()&os.ModeSymlink != 0 || !info.IsDir() || info.Mode().Perm() != 0o700 {
+		return errors.New("browser worker cache must be a mode-0700 non-symlink directory")
+	}
+	return nil
+}
+
+func verifyCachedExecutable(path, digest string) error {
+	before, err := os.Lstat(path)
+	if err != nil || before.Mode()&os.ModeSymlink != 0 || !before.Mode().IsRegular() || before.Mode().Perm() != 0o500 || before.Size() > 256<<20 {
+		return errors.New("cached browser worker is unsafe")
+	}
+	file, err := os.Open(path)
 	if err != nil {
-		cleanup()
-		return "", nil, errors.New("could not open stabilized iCoT browser worker")
+		return errors.New("could not open cached browser worker")
 	}
-	targetDigest, targetDigestErr := hashExecutable(targetFile, 256<<20)
-	targetOpenedAfter, targetStatErr := targetFile.Stat()
-	targetCloseErr := targetFile.Close()
-	targetPathAfter, targetPathErr := os.Lstat(target)
-	if targetDigestErr != nil || targetStatErr != nil || targetCloseErr != nil || targetPathErr != nil || targetDigest != sourceDigestBefore ||
-		!sameExecutableState(targetInfo, targetOpenedAfter) || !sameExecutableState(targetOpenedAfter, targetPathAfter) || targetPathAfter.Mode().Perm() != 0o500 {
-		cleanup()
-		return "", nil, errors.New("stabilized iCoT browser worker content could not be verified")
+	actual, digestErr := hashExecutable(file, 256<<20)
+	after, statErr := file.Stat()
+	closeErr := file.Close()
+	pathAfter, pathErr := os.Lstat(path)
+	if digestErr != nil || statErr != nil || closeErr != nil || pathErr != nil || actual != digest || !sameExecutableState(before, after) || !sameExecutableState(after, pathAfter) || pathAfter.Mode().Perm() != 0o500 {
+		return errors.New("cached browser worker content could not be verified")
 	}
-	return target, cleanup, nil
+	return nil
+}
+
+func sweepStaleWorkerTemps(cacheRoot string, now time.Time) {
+	entries, err := os.ReadDir(cacheRoot)
+	if err != nil {
+		return
+	}
+	for _, entry := range entries {
+		if !strings.HasPrefix(entry.Name(), ".openudon-worker-copy-") {
+			continue
+		}
+		path := filepath.Join(cacheRoot, entry.Name())
+		info, err := os.Lstat(path)
+		if err != nil || info.Mode()&os.ModeSymlink != 0 || !info.Mode().IsRegular() || now.Sub(info.ModTime()) < 24*time.Hour {
+			continue
+		}
+		_ = os.Remove(path)
+	}
 }
 
 func hashExecutable(file *os.File, maxBytes int64) (string, error) {

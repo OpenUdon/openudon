@@ -4,6 +4,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -32,7 +33,7 @@ func TestEmbeddedScenarioCorpusIsCompleteAndStrict(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(loopback) != 21 || len(journey) != 8 || len(public) != 4 {
+	if len(loopback) != 23 || len(journey) != 8 || len(public) != 4 {
 		t.Fatalf("scenario counts = loopback %d journey %d public %d", len(loopback), len(journey), len(public))
 	}
 	wantChallenges := map[string]bool{"totp": false, "sms_otp": false, "email_otp": false, "voice_otp": false, "push": false, "push_number_match": false, "passkey": false, "security_key": false}
@@ -260,6 +261,38 @@ func TestCompatibilityLockRejectsDirtyOrDriftedSibling(t *testing.T) {
 	states["browserdriver"] = dirty
 	if err := ValidateRepositoryStates(lock, states); err == nil || !strings.Contains(err.Error(), "compatibility lock") {
 		t.Fatalf("drifted sibling error = %v", err)
+	}
+}
+
+func TestCompatibilityLockValidatesOpenUdonAndBrowsertoolsModulePins(t *testing.T) {
+	lock, err := LoadCompatibilityLock()
+	if err != nil {
+		t.Fatal(err)
+	}
+	locked := map[string]LockedRevision{}
+	for _, component := range lock.Components {
+		locked[component.Name] = component
+	}
+	openudonRoot := t.TempDir()
+	browsertoolsRoot := t.TempDir()
+	write := func(root, body string) {
+		t.Helper()
+		if err := os.WriteFile(filepath.Join(root, "go.mod"), []byte(body), 0o600); err != nil {
+			t.Fatal(err)
+		}
+	}
+	openudonMod := fmt.Sprintf("module example.test/openudon\n\nrequire (\n\t%s %s\n\t%s %s\n)\n",
+		locked["browsertools"].Module, locked["browsertools"].Version,
+		locked["uws"].Module, locked["uws"].Version)
+	browsertoolsMod := fmt.Sprintf("module example.test/browsertools\n\nrequire %s %s\n", locked["uws"].Module, locked["uws"].Version)
+	write(openudonRoot, openudonMod)
+	write(browsertoolsRoot, browsertoolsMod)
+	if err := ValidateGoModulePins(openudonRoot, browsertoolsRoot, lock); err != nil {
+		t.Fatal(err)
+	}
+	write(browsertoolsRoot, strings.Replace(browsertoolsMod, locked["uws"].Version, "v0.0.0-20000101000000-aaaaaaaaaaaa", 1))
+	if err := ValidateGoModulePins(openudonRoot, browsertoolsRoot, lock); err == nil || !strings.Contains(err.Error(), "browsertools") {
+		t.Fatalf("Browsertools UWS pin error = %v", err)
 	}
 }
 

@@ -70,11 +70,10 @@ func CheckReadiness(session Session, docs []APIDocument) []ReadinessIssue {
 					loginRequired := op.Extensions["openudon.browser.login_state_required"] == "true"
 					if loginRequired && !browserActionHasEstablishedSession(session, step) && browserAuthenticationAvailable(docs) {
 						add(readinessMissingBrowserAuthenticationFlow, slotPrefix+".authentication_flow", readinessBlocking, "This reviewed browser action requires login state. Select a reviewed authentication flow to establish an execution-local named session before the action.", suggestedBrowserAuthenticationFlow(docs))
+					} else if !browserActionHasEstablishedSession(session, step) && loginRequired && !browserBindingNamePattern.MatchString(strings.TrimSpace(step.BrowserSession)) {
+						add("missing_browser_session_posture", slotPrefix+".browser_session", readinessBlocking, "Name the symbolic execution-local browser session supplied by the trusted runtime for this step. Never place cookies, tokens, passwords, or session values in the workflow.", slugIdent(firstNonEmpty(step.Name, "browser"))+"_session")
 					} else if strings.TrimSpace(session.BrowserSession) == "" && !browserActionHasEstablishedSession(session, step) {
 						recommendation := "none"
-						if loginRequired {
-							recommendation = "opaque-runtime-binding-required"
-						}
 						add("missing_browser_session_posture", slotPrefix+".browser_session", readinessBlocking, "Confirm whether this browser action requires an operator-owned opaque runtime session binding. Never place cookies, tokens, passwords, or session values in the workflow.", recommendation)
 					}
 					if browserOperationMutates(op) && !stringSliceContains(session.BrowserApprovals, step.Name) {

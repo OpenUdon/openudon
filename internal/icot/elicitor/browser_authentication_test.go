@@ -2,11 +2,13 @@ package elicitor
 
 import (
 	"context"
+	"encoding/json"
 	"os"
 	"path/filepath"
 	"testing"
 	"time"
 
+	"github.com/OpenUdon/apitools"
 	"github.com/OpenUdon/openudon/internal/projectwizard"
 	rollout "github.com/OpenUdon/openudon/internal/workflowintent"
 )
@@ -94,6 +96,51 @@ func TestBrowserAuthenticationBindingsUsePortableUWSIdentifiers(t *testing.T) {
 		if exactBrowserCredentialBindings(map[string]string{"username": binding}, required) {
 			t.Fatalf("non-portable binding %q was accepted", binding)
 		}
+	}
+}
+
+func TestCredentialBindingAnswerRejectsSecretsAtomically(t *testing.T) {
+	session := Session{
+		Intent:      rollout.Intent{Steps: []*rollout.Step{{Name: "sign_in", Type: "browser_authentication", CredentialBindings: map[string]string{"username": "member_username"}}}},
+		Credentials: []string{"member_username"}, CredentialsSet: true,
+	}
+	draft := filepath.Join(t.TempDir(), "draft.json")
+	if err := SaveDraft(draft, session); err != nil {
+		t.Fatal(err)
+	}
+	beforeMemory, _ := json.Marshal(session)
+	beforeDraft, _ := os.ReadFile(draft)
+	plan := QuestionPlan{Slots: []string{"steps.sign_in.credential_bindings"}}
+	for _, answer := range []string{
+		"username=member.username",
+		"pass.word=member_password",
+		"password=sk-proj-012345678901234567890123456789",
+	} {
+		if err := applyProgressiveAnswerChecked(&session, plan, answer, nil); err == nil {
+			t.Fatalf("unsafe credential answer %q was accepted", answer)
+		}
+		afterMemory, _ := json.Marshal(session)
+		afterDraft, _ := os.ReadFile(draft)
+		if string(afterMemory) != string(beforeMemory) || string(afterDraft) != string(beforeDraft) {
+			t.Fatalf("unsafe credential answer %q mutated memory or draft bytes", answer)
+		}
+	}
+}
+
+func TestQuestionSlotDispatchUsesExactStepComponents(t *testing.T) {
+	doc := APIDocument{
+		RelativePath: "openapi/items.yaml",
+		Operations:   []apitools.OperationSummary{{OperationID: "getItem", Method: "GET", Summary: "Get item"}},
+	}
+	session := Session{Intent: rollout.Intent{Steps: []*rollout.Step{{Name: "my_browser_session_step", Type: "http", Source: doc.RelativePath}}}}
+	if err := applyProgressiveAnswerChecked(&session, QuestionPlan{Slots: []string{"steps.my_browser_session_step.operation"}}, "getItem", []APIDocument{doc}); err != nil {
+		t.Fatal(err)
+	}
+	if got := session.Intent.Steps[0].Operation; got != "getItem" {
+		t.Fatalf("operation = %q, want getItem", got)
+	}
+	if session.BrowserSession != "" || session.Intent.Steps[0].BrowserSession != "" {
+		t.Fatalf("operation answer was intercepted as a browser session: %#v", session)
 	}
 }
 

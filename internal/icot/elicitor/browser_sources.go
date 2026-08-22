@@ -649,28 +649,41 @@ func isBrowserDocument(doc APIDocument) bool {
 }
 
 func selectedBrowserOperation(session Session, docs []APIDocument) (*rollout.Step, APIDocument, *apitools.OperationSummary) {
-	var selectedStep *rollout.Step
-	var selectedDoc APIDocument
-	var selectedOperation *apitools.OperationSummary
+	selected := selectedBrowserOperations(session, docs)
+	if len(selected) == 0 {
+		return nil, APIDocument{}, nil
+	}
+	return selected[0].Step, selected[0].Document, selected[0].Operation
+}
+
+type selectedBrowserAction struct {
+	Step      *rollout.Step
+	Document  APIDocument
+	Operation *apitools.OperationSummary
+}
+
+func selectedBrowserOperations(session Session, docs []APIDocument) []selectedBrowserAction {
+	var selected []selectedBrowserAction
 	walkSteps(session.Intent.Steps, func(step *rollout.Step) {
-		if selectedStep != nil || step == nil {
+		if step == nil || !strings.EqualFold(strings.TrimSpace(step.Type), "browser") {
 			return
 		}
+		item := selectedBrowserAction{Step: step}
 		ref := stepAPISourceRef(session, step)
 		for _, doc := range docs {
 			if !isBrowserActionDocument(doc) || doc.RelativePath != ref {
 				continue
 			}
-			selectedStep = step
-			selectedDoc = doc
+			item.Document = doc
 			if operation, ok := operationByID([]APIDocument{doc}, doc.RelativePath, step.Operation); ok {
 				copy := *operation
-				selectedOperation = &copy
+				item.Operation = &copy
 			}
-			return
+			break
 		}
+		selected = append(selected, item)
 	})
-	return selectedStep, selectedDoc, selectedOperation
+	return selected
 }
 
 func browserOperationMutates(operation *apitools.OperationSummary) bool {

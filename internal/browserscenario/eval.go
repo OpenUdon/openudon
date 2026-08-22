@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/OpenUdon/openudon/internal/processgroup"
+	"golang.org/x/mod/modfile"
 )
 
 // Options fixes the complete authority of one browser-scenario evaluation.
@@ -174,14 +175,12 @@ func resolveEnvironment(ctx context.Context, options Options, lock Compatibility
 	if err := ValidateRepositoryStates(lock, states); err != nil {
 		return Environment{}, nil, nil, err
 	}
+	if err := ValidateGoModulePins(root, browsertoolsRepo, lock); err != nil {
+		return Environment{}, nil, nil, err
+	}
 	dependencies := []DependencyRevision{
 		{Module: "github.com/OpenUdon/browsertools", Version: locked["browsertools"].Version},
 		{Module: "github.com/OpenUdon/uws", Version: locked["uws"].Version},
-	}
-	for _, dependency := range dependencies {
-		if !goModRequires(root, dependency.Module, dependency.Version) {
-			return Environment{}, nil, nil, fmt.Errorf("%s dependency does not match the browser-scenario compatibility lock", dependency.Module)
-		}
 	}
 	return Environment{
 		RepoRoot: root, BrowsertoolsRepo: browsertoolsRepo, UWSRepo: uwsRepo, UdonRepo: udonRepo,
@@ -223,13 +222,17 @@ func gitRevision(ctx context.Context, directory string) (string, bool, error) {
 }
 
 func goModRequires(root, module, version string) bool {
-	data, err := os.ReadFile(filepath.Join(root, "go.mod"))
+	filename := filepath.Join(root, "go.mod")
+	data, err := os.ReadFile(filename)
 	if err != nil {
 		return false
 	}
-	want := module + " " + version
-	for _, line := range strings.Split(string(data), "\n") {
-		if strings.Join(strings.Fields(line), " ") == want {
+	parsed, err := modfile.Parse(filename, data, nil)
+	if err != nil {
+		return false
+	}
+	for _, requirement := range parsed.Require {
+		if requirement.Mod.Path == module && requirement.Mod.Version == version {
 			return true
 		}
 	}

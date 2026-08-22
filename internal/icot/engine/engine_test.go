@@ -1119,6 +1119,33 @@ func TestApproveAndWriteRequiresFreshRegistrySource(t *testing.T) {
 	assertNoDeliverables(t, example)
 }
 
+func TestOpenReportsInactiveBrowserSourceAsReadinessIssue(t *testing.T) {
+	now := time.Date(2026, time.August, 18, 12, 0, 0, 0, time.UTC)
+	profilePath := filepath.Join(t.TempDir(), "expired.json")
+	profileData := []byte(`{"profile":"uws.browser.1.5","info":{"title":"Expired UI","origin":"https://example.test"},"observationKind":"accessibility_snapshot","evidence":{"learnedAt":"2026-08-15T00:00:00Z","source":"reviewed_fixture"},"confidence":"high","expiresAfter":"P1D","verification":{"lastVerifiedAt":"2026-08-15T00:00:00Z","successfulRuns":1},"actions":{"read_status":{"sequence":[{"navigate":"/status"}],"outputs":{"status":{"type":"string","source":"a11y","locator":{"role":"status","name":"Ready"}}},"sideEffects":["read_only"],"confirmationPolicy":{"required":false}}}}`)
+	if err := os.WriteFile(profilePath, profileData, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	seed := browserSeedSession()
+	_, snapshot, err := Open(context.Background(), Config{
+		ExampleDir: filepath.Join(t.TempDir(), "inactive-source"), Seed: &seed,
+		BrowserSources: []elicitor.BrowserSourceInput{{ID: "expired", Path: profilePath}},
+		NetworkPolicy:  "never", Now: func() time.Time { return now },
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	found := false
+	for _, issue := range snapshot.Readiness {
+		if issue.Code == "browser_source_discovery_blocked" && issue.Severity == "blocking" {
+			found = true
+		}
+	}
+	if !found || snapshot.Ready {
+		t.Fatalf("inactive browser snapshot = %#v", snapshot)
+	}
+}
+
 func missingSourceSession() elicitor.Session {
 	return elicitor.Session{
 		Boundary: elicitor.WorkflowBoundary{Outcome: "Fetch one item", Actor: "operator", Trigger: "on demand", SuccessEvidence: []string{"item output is returned"}, Confirmed: true},

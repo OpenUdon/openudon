@@ -585,35 +585,15 @@ func (e *Engine) buildRefreshedStateLocked(ctx context.Context, baseSession elic
 	if seedDir := strings.TrimSpace(e.config.FromExample); seedDir != "" && filepath.Clean(seedDir) != filepath.Clean(e.config.ExampleDir) {
 		roots = appendSeedSourceRoots(roots, seedDir)
 	}
-	discovery, err := elicitor.DiscoverAuthoringSourcesWithBrowser(ctx, e.config.ExampleDir, projectwizard.Render(session.Project), e.config.LocalSources, roots, e.config.BrowserSources, at)
+	refreshedSources, err := elicitor.RefreshSessionSources(ctx, session, elicitor.SourceRefreshOptions{
+		ExampleDir: e.config.ExampleDir, Query: projectwizard.Render(session.Project), LocalSources: e.config.LocalSources, SourceRoots: roots,
+		BrowserSources: e.config.BrowserSources, BrowserRegistries: e.config.BrowserRegistries, BrowserVerifications: e.config.BrowserVerifications,
+		NetworkPolicy: e.config.NetworkPolicy, At: at,
+	})
 	if err != nil {
 		return refreshedEngineState{}, err
 	}
-	registry := elicitor.BrowserRegistryDiscovery{Candidates: []elicitor.BrowserRegistryCandidate{}, Blockers: []elicitor.BrowserRegistryBlocker{}}
-	if len(e.config.BrowserRegistries) > 0 && (len(discovery.Docs) == 0 || session.BrowserRoute == "browser" || sessionUsesBrowserRegistry(session)) {
-		approved := e.config.NetworkPolicy == "allow" || strings.EqualFold(session.Interview.Metadata["browser_registry_lookup_decision"], "allow")
-		registry, err = elicitor.DiscoverBrowserRegistrySources(ctx, e.config.BrowserRegistries, firstNonEmpty(session.Boundary.Outcome, session.Project.Goal), e.config.NetworkPolicy, approved, at)
-		if err != nil {
-			return refreshedEngineState{}, err
-		}
-		discovery = elicitor.MergeBrowserRegistrySources(discovery, registry)
-	}
-	if err := requireFreshRegistrySources(session.SourcePlan, registry.Plans); err != nil {
-		return refreshedEngineState{}, err
-	}
-	session.SourcePlan = elicitor.SyncSelectedSourcePlansWithBrowser(session, discovery.Plans, e.config.LocalSources, e.config.BrowserSources)
-	session.SourcePlan, err = elicitor.AttachBrowserVerifications(session.SourcePlan, e.config.BrowserVerifications, at)
-	if err != nil {
-		return refreshedEngineState{}, err
-	}
-	if session.Interview.Metadata == nil {
-		session.Interview.Metadata = map[string]string{}
-	}
-	session.Interview.Metadata["network_policy"] = e.config.NetworkPolicy
-	if len(e.config.BrowserRegistries) > 0 {
-		session.Interview.Metadata["browser_registry_configured"] = "true"
-	}
-	session.Normalize()
+	session, discovery, registry := refreshedSources.Session, refreshedSources.Discovery, refreshedSources.Registry
 
 	remote := elicitor.RemoteSourceLookupReport{}
 	if len(discovery.Docs) == 0 && session.Intent.RequiresOpenAPI() {
@@ -623,7 +603,7 @@ func (e *Engine) buildRefreshedStateLocked(ctx context.Context, baseSession elic
 			return refreshedEngineState{}, err
 		}
 	}
-	return refreshedEngineState{session: session, discovery: discovery, registry: registry, remote: remote, discoveryIssues: discoveryReadinessIssues(discovery)}, nil
+	return refreshedEngineState{session: session, discovery: discovery, registry: registry, remote: remote, discoveryIssues: refreshedSources.Issues}, nil
 }
 
 func (e *Engine) applyRefreshedStateLocked(refreshed refreshedEngineState) {
@@ -736,41 +716,11 @@ func repeatedAnsweredQuestion(answers []authoring.RoundAnswer, frontier []elicit
 }
 
 func requireFreshRegistrySources(selected, discovered []elicitor.SourceMaterialization) error {
-	for _, source := range selected {
-		if source.Kind != "browser-profile" || strings.TrimSpace(source.Registry) == "" {
-			continue
-		}
-		matched := false
-		for _, candidate := range discovered {
-			if candidate.Kind == source.Kind && candidate.Registry == source.Registry &&
-				candidate.RegistryCoordinate == source.RegistryCoordinate && candidate.TargetPath == source.TargetPath &&
-				strings.EqualFold(candidate.SHA256, source.SHA256) && strings.EqualFold(candidate.SourceSHA256, source.SourceSHA256) {
-				matched = true
-				break
-			}
-		}
-		if !matched {
-			return fmt.Errorf("selected browser registry profile %s could not be freshly revalidated; use an available configured registry or provide the profile explicitly", firstNonEmpty(source.RegistryCoordinate, source.ID))
-		}
-	}
-	return nil
+	return elicitor.RequireFreshRegistrySources(selected, discovered)
 }
 
 func discoveryReadinessIssues(discovery elicitor.LocalSourceDiscovery) []elicitor.ReadinessIssue {
-	var issues []elicitor.ReadinessIssue
-	if discovery.Report.Truncated || len(discovery.Report.Ambiguous) > 0 {
-		issues = append(issues, elicitor.ReadinessIssue{Code: "source_discovery_blocked", Severity: "blocking", Slot: "source.selection", Message: "Local source discovery is incomplete; narrow roots or declare ambiguous documents with --api-source KIND:ID=PATH."})
-	}
-	var inactive int
-	for _, candidate := range discovery.BrowserReport.Candidates {
-		if candidate.Status != "active" {
-			inactive++
-		}
-	}
-	if len(discovery.BrowserReport.Truncated) > 0 || len(discovery.BrowserReport.Ambiguous) > 0 || inactive > 0 {
-		issues = append(issues, elicitor.ReadinessIssue{Code: "browser_source_discovery_blocked", Severity: "blocking", Slot: "source.browser", Message: "Browser source discovery is incomplete; narrow roots or declare a verified profile with --browser-profile ID=PATH."})
-	}
-	return issues
+	return elicitor.AssessSourceDiscovery(discovery)
 }
 
 func topIssue(issues []elicitor.ReadinessIssue) *elicitor.ReadinessIssue {

@@ -1,12 +1,14 @@
 package elicitor
 
 import (
+	"fmt"
 	"path/filepath"
 	"sort"
 	"strconv"
 	"strings"
 
 	"github.com/OpenUdon/apitools"
+	"github.com/OpenUdon/evidence/redact"
 	"github.com/OpenUdon/openudon/internal/projectwizard"
 	rollout "github.com/OpenUdon/openudon/internal/workflowintent"
 )
@@ -209,23 +211,29 @@ func seedWorkflowGoal(session *Session, answer string) {
 }
 
 func applyProgressiveAnswer(session *Session, plan QuestionPlan, answer string, docs []APIDocument) {
+	_ = applyProgressiveAnswerChecked(session, plan, answer, docs)
+}
+
+func applyProgressiveAnswerChecked(session *Session, plan QuestionPlan, answer string, docs []APIDocument) error {
 	answer = strings.TrimSpace(answer)
 	if answer == "" {
 		answer = strings.TrimSpace(plan.SuggestedAnswer)
 	}
 	if answer == "" {
-		return
+		return nil
 	}
-	slotText := strings.Join(plan.Slots, " ")
+	if err := validateCredentialAnswer(plan, answer); err != nil {
+		return err
+	}
 	switch {
-	case strings.Contains(slotText, "workflow.goal") || strings.Contains(slotText, "workflow.description"):
+	case planHasExactSlot(plan, "workflow.goal", "workflow.description"):
 		if session.Intent.Workflow == nil {
 			session.Intent.Workflow = &rollout.WorkflowMeta{}
 		}
 		session.Intent.Workflow.Description = answer
 		session.Intent.Workflow.Name = firstNonEmpty(session.Intent.Workflow.Name, actionName(answer))
 		session.Project.Goal = answer
-	case strings.Contains(slotText, "intent.openapi") || strings.Contains(slotText, "intent.source"):
+	case planHasExactSlot(plan, "intent.openapi", "intent.source"):
 		if doc := matchDocAnswer(answer, docs); doc.RelativePath != "" {
 			setIntentAPISourceFromDoc(session, doc)
 			if isBrowserDocument(doc) {
@@ -245,20 +253,20 @@ func applyProgressiveAnswer(session *Session, plan QuestionPlan, answer string, 
 			Reason:               "User selected the API source document.",
 			RequiresConfirmation: false,
 		})
-	case strings.Contains(slotText, "security_alternative"):
+	case planHasStepField(plan, "security_alternative"):
 		target := targetStepForPlan(session, plan)
 		if target == nil {
-			return
+			return nil
 		}
 		op, ok := operationForStep(*session, docs, target)
 		if !ok {
-			return
+			return nil
 		}
 		selectSecurityAlternative(session, target, op, answer)
-	case strings.Contains(slotText, "authentication_flow"):
+	case planHasStepField(plan, "authentication_flow"):
 		doc, operation := selectBrowserAuthenticationFlow(answer, docs)
 		if operation == nil {
-			return
+			return nil
 		}
 		target := targetStepForPlan(session, plan)
 		if target != nil && strings.EqualFold(strings.TrimSpace(target.Type), "browser_authentication") {
@@ -268,7 +276,7 @@ func applyProgressiveAnswer(session *Session, plan QuestionPlan, answer string, 
 		} else {
 			insertBrowserAuthenticationStep(session, target, doc, operation)
 		}
-	case strings.Contains(slotText, "credential_bindings"):
+	case planHasStepField(plan, "credential_bindings"):
 		bindings := parseAssignments(answer)
 		if target := targetStepForPlan(session, plan); target != nil && strings.EqualFold(strings.TrimSpace(target.Type), "browser_authentication") {
 			target.CredentialBindings = bindings
@@ -279,51 +287,65 @@ func applyProgressiveAnswer(session *Session, plan QuestionPlan, answer string, 
 				}
 			}
 		}
-	case strings.Contains(slotText, "authentication_approval"):
+	case planHasStepField(plan, "authentication_approval"):
 		if !strings.HasPrefix(strings.ToLower(answer), "approve ") {
-			return
+			return nil
 		}
 		name := strings.TrimSpace(answer[len("approve "):])
 		if target := targetStepForPlan(session, plan); target != nil && strings.EqualFold(strings.TrimSpace(target.Type), "browser_authentication") && name == target.Name {
 			session.BrowserAuthenticationApprovals = dedupeStrings(append(session.BrowserAuthenticationApprovals, target.Name))
 		}
-	case strings.HasSuffix(slotText, ".timeout") && strings.Contains(slotText, "steps."):
+	case planHasStepField(plan, "timeout"):
 		seconds, err := strconv.ParseFloat(answer, 64)
 		if err != nil || seconds <= 0 || seconds > 600 {
-			return
+			return nil
 		}
 		if target := targetStepForPlan(session, plan); target != nil && strings.EqualFold(strings.TrimSpace(target.Type), "browser_authentication") {
 			target.Timeout = &seconds
 		}
-	case strings.Contains(slotText, "browser_session"):
-		if target := targetStepForPlan(session, plan); target != nil && strings.EqualFold(strings.TrimSpace(target.Type), "browser_authentication") {
-			if browserBindingNamePattern.MatchString(answer) {
+	case planHasStepField(plan, "browser_session") || planHasExactSlot(plan, "browser_session"):
+		if target := targetStepForPlan(session, plan); target != nil {
+			stepType := strings.ToLower(strings.TrimSpace(target.Type))
+			if stepType == "browser_authentication" && browserBindingNamePattern.MatchString(answer) {
 				target.BrowserSession = answer
 				for _, candidate := range session.Intent.Steps {
 					if candidate != nil && strings.EqualFold(strings.TrimSpace(candidate.Type), "browser") && strings.TrimSpace(candidate.BrowserSession) == "" {
 						candidate.BrowserSession = answer
 					}
 				}
+				return nil
 			}
-			return
+			if stepType == "browser" {
+				if strings.EqualFold(answer, "none") {
+					target.BrowserSession = ""
+					session.BrowserSession = "none"
+					return nil
+				}
+				if browserBindingNamePattern.MatchString(answer) {
+					target.BrowserSession = answer
+					session.BrowserSession = "opaque-runtime-binding-required"
+					return nil
+				}
+			}
+			return fmt.Errorf("browser session must be none or a symbolic execution-local session name")
 		}
 		posture := strings.ToLower(strings.TrimSpace(answer))
 		switch posture {
 		case "none", "opaque-runtime-binding-required":
 			session.BrowserSession = posture
 		default:
-			return
+			return fmt.Errorf("browser session posture must be none or opaque-runtime-binding-required")
 		}
-	case strings.Contains(slotText, "browser_approval"):
+	case planHasStepField(plan, "browser_approval"):
 		value := strings.TrimSpace(answer)
 		if !strings.HasPrefix(strings.ToLower(value), "approve ") {
-			return
+			return nil
 		}
 		name := strings.TrimSpace(value[len("approve "):])
 		if step := targetStepForPlan(session, plan); step != nil && name == step.Name {
 			session.BrowserApprovals = dedupeStrings(append(session.BrowserApprovals, step.Name))
 		}
-	case strings.Contains(slotText, "operation") || strings.Contains(slotText, "intent.steps"):
+	case planHasStepField(plan, "operation") || planHasExactSlot(plan, "intent.steps"):
 		if doc, op := matchOperationAnswerForPlan(session, plan, answer, docs); op != nil {
 			if intentAPISourceRef(session.Intent) == "" {
 				setIntentAPISourceFromDoc(session, doc)
@@ -402,7 +424,7 @@ func applyProgressiveAnswer(session *Session, plan QuestionPlan, answer string, 
 				})
 			}
 		}
-	case strings.Contains(slotText, ".with"):
+	case planHasStepField(plan, "with"):
 		assignments := parseAssignments(answer)
 		if len(assignments) == 0 && len(plan.Slots) == 1 && strings.Contains(plan.Slots[0], ".with.") {
 			if field := fieldFromWithSlot(plan.Slots[0]); field != "" {
@@ -431,8 +453,8 @@ func applyProgressiveAnswer(session *Session, plan QuestionPlan, answer string, 
 		}
 		addInputsFromAssignments(session, assignments)
 		addCredentialsFromAssignments(session, assignments)
-	case strings.Contains(slotText, "credentials"):
-		session.Credentials = credentialBindings(answer)
+	case planHasExactSlot(plan, "credentials"):
+		session.Credentials, _ = symbolicCredentialNames(answer)
 		session.CredentialsSet = true
 		for _, credential := range session.Credentials {
 			addMappingClassification(session, MappingClassification{
@@ -448,9 +470,9 @@ func applyProgressiveAnswer(session *Session, plan QuestionPlan, answer string, 
 		if len(session.Credentials) == 1 {
 			fillCredentialFields(session, docs, session.Credentials[0])
 		}
-	case strings.Contains(slotText, "intent.inputs"):
+	case planHasSlotPrefix(plan, "intent.inputs"):
 		session.Intent.Inputs = mergeInputsByName(session.Intent.Inputs, parseInputs(answer))
-	case strings.Contains(slotText, "intent.outputs"):
+	case planHasSlotPrefix(plan, "intent.outputs"):
 		session.Intent.Outputs = mergeOutputsByName(session.Intent.Outputs, parseOutputs(answer, lastStepName(session.Intent.Steps)))
 		for _, output := range session.Intent.Outputs {
 			if output == nil || strings.TrimSpace(output.Name) == "" || strings.TrimSpace(output.From) == "" {
@@ -466,7 +488,7 @@ func applyProgressiveAnswer(session *Session, plan QuestionPlan, answer string, 
 				RequiresConfirmation: false,
 			})
 		}
-	case strings.Contains(slotText, "safety"):
+	case planHasExactSlot(plan, "safety", "side_effect_scope"):
 		if scope := projectwizard.NormalizeSideEffectScope(answer); scope != "" {
 			session.SideEffectScope = scope
 			addDecisionEvidence(session, DecisionEvidence{
@@ -496,6 +518,86 @@ func applyProgressiveAnswer(session *Session, plan QuestionPlan, answer string, 
 			})
 		}
 	}
+	return nil
+}
+
+func planHasExactSlot(plan QuestionPlan, wanted ...string) bool {
+	for _, slot := range plan.Slots {
+		for _, candidate := range wanted {
+			if strings.TrimSpace(slot) == candidate {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+func planHasSlotPrefix(plan QuestionPlan, prefix string) bool {
+	for _, slot := range plan.Slots {
+		slot = strings.TrimSpace(slot)
+		if slot == prefix || strings.HasPrefix(slot, prefix+".") {
+			return true
+		}
+	}
+	return false
+}
+
+func planHasStepField(plan QuestionPlan, field string) bool {
+	for _, slot := range plan.Slots {
+		parts := strings.Split(strings.TrimSpace(slot), ".")
+		if len(parts) >= 3 && parts[0] == "steps" && parts[1] != "" && parts[2] == field {
+			return true
+		}
+	}
+	return false
+}
+
+func validateCredentialAnswer(plan QuestionPlan, answer string) error {
+	if planHasStepField(plan, "credential_bindings") {
+		bindings, err := symbolicCredentialAssignments(answer)
+		if err != nil || len(bindings) == 0 {
+			return fmt.Errorf("credential bindings must map symbolic slots to symbolic runtime binding names; do not enter credential values")
+		}
+		return nil
+	}
+	if planHasExactSlot(plan, "credentials") {
+		if names, err := symbolicCredentialNames(answer); err != nil || len(names) == 0 {
+			return fmt.Errorf("credentials must be symbolic runtime binding names; do not enter credential values")
+		}
+	}
+	return nil
+}
+
+func symbolicCredentialAssignments(answer string) (map[string]string, error) {
+	out := map[string]string{}
+	for _, item := range splitList(answer) {
+		name, binding := splitNameRest(item)
+		name, binding = strings.TrimSpace(name), strings.TrimSpace(binding)
+		if len(name) > 128 || len(binding) > 128 || !browserBindingNamePattern.MatchString(name) || !browserBindingNamePattern.MatchString(binding) || redact.String(binding) != binding {
+			return nil, fmt.Errorf("credential binding is not symbolic")
+		}
+		if _, duplicate := out[name]; duplicate {
+			return nil, fmt.Errorf("credential slot is duplicated")
+		}
+		out[name] = binding
+	}
+	return out, nil
+}
+
+func symbolicCredentialNames(answer string) ([]string, error) {
+	var out []string
+	seen := map[string]bool{}
+	for _, item := range splitList(answer) {
+		name := strings.TrimSpace(strings.Trim(item, "`'\""))
+		if len(name) > 128 || !browserBindingNamePattern.MatchString(name) || redact.String(name) != name {
+			return nil, fmt.Errorf("credential binding is not symbolic")
+		}
+		if !seen[name] {
+			seen[name] = true
+			out = append(out, name)
+		}
+	}
+	return out, nil
 }
 
 func targetStepsForWithPlan(session *Session, plan QuestionPlan) []*rollout.Step {

@@ -6,6 +6,7 @@ import (
 	"flag"
 	"fmt"
 	"io"
+	"net"
 	"net/url"
 	"os"
 	"path/filepath"
@@ -13,6 +14,7 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/OpenUdon/browsertools/disclosurepath"
 	"github.com/OpenUdon/browsertools/profile"
 )
 
@@ -355,6 +357,15 @@ func normalizeBrowserAuthoringURL(raw string) (string, string, error) {
 	if parsed.User != nil || parsed.RawQuery != "" || parsed.Fragment != "" || parsed.Opaque != "" {
 		return "", "", fmt.Errorf("target URL must not contain userinfo, query, fragment, or opaque data")
 	}
+	if parsed.Scheme != "https" && !(parsed.Scheme == "http" && browserAuthoringLoopbackHost(parsed.Hostname())) {
+		return "", "", fmt.Errorf("target URL must use HTTPS or loopback HTTP")
+	}
+	if parsed.Path == "" {
+		parsed.Path = "/"
+	}
+	if err := disclosurepath.Validate(parsed.EscapedPath()); err != nil {
+		return "", "", fmt.Errorf("target URL path is unsafe")
+	}
 	origin, err := profile.ParseOrigin(strings.ToLower(parsed.Scheme) + "://" + parsed.Host)
 	if err != nil {
 		return "", "", fmt.Errorf("target URL origin: %w", err)
@@ -380,7 +391,11 @@ func normalizeBrowserAuthoringOrigins(values []string) ([]string, error) {
 	for _, raw := range values {
 		origin, err := profile.ParseOrigin(strings.TrimSpace(raw))
 		if err != nil {
-			return nil, fmt.Errorf("approved origin %q: %w", raw, err)
+			return nil, fmt.Errorf("approved origin is invalid: %w", err)
+		}
+		parsed, parseErr := url.Parse(origin)
+		if parseErr != nil || parsed == nil || (parsed.Scheme != "https" && !(parsed.Scheme == "http" && browserAuthoringLoopbackHost(parsed.Hostname()))) {
+			return nil, fmt.Errorf("approved origin must use HTTPS or loopback HTTP")
 		}
 		if seen[origin] {
 			return nil, fmt.Errorf("approved origin %s is duplicated", origin)
@@ -390,6 +405,15 @@ func normalizeBrowserAuthoringOrigins(values []string) ([]string, error) {
 	}
 	sort.Strings(origins)
 	return origins, nil
+}
+
+func browserAuthoringLoopbackHost(host string) bool {
+	host = strings.TrimSuffix(strings.ToLower(strings.TrimSpace(host)), ".")
+	if host == "localhost" || strings.HasSuffix(host, ".localhost") {
+		return true
+	}
+	ip := net.ParseIP(host)
+	return ip != nil && ip.IsLoopback()
 }
 
 func cleanRequiredPath(label, value string) (string, error) {

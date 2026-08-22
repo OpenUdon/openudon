@@ -1,7 +1,6 @@
 package icot
 
 import (
-	"bufio"
 	"context"
 	"fmt"
 	"io"
@@ -22,17 +21,29 @@ var startSharedBrowserAuthorSession = func(ctx context.Context, config browserau
 	return browserauthor.Start(ctx, config)
 }
 
+var startSharedExternalBrowserAuthorSession = func(ctx context.Context, config browserauthor.Config, executable string) (sharedBrowserAuthorSession, error) {
+	return browserauthor.StartExternal(ctx, config, executable)
+}
+
 // orchestrateBundledLiveAuthor adapts the terminal interaction to the same
-// typed asynchronous controller used by the browser UI. The expert external
-// Browsertools override retains the compatibility protocol adapter in
-// browser_author_live.go.
-func orchestrateBundledLiveAuthor(ctx context.Context, cfg liveAuthorConfig, reader *bufio.Reader, out io.Writer, planner livePlanner, provider, model string) (liveProtocolResult, error) {
-	goalOrigin, goalPath := originAndPath(liveGoalURL(cfg))
-	session, err := startSharedBrowserAuthorSession(ctx, browserauthor.Config{
+// typed asynchronous controller used by the browser UI. Bundled and expert
+// external launches differ only in their executable argument specification.
+func orchestrateBundledLiveAuthor(ctx context.Context, cfg liveAuthorConfig, input liveLineReader, out io.Writer, planner livePlanner, provider, model string) (liveProtocolResult, error) {
+	goalOrigin, goalPath, err := originAndPath(liveGoalURL(cfg))
+	if err != nil {
+		return liveProtocolResult{}, err
+	}
+	controllerConfig := browserauthor.Config{
 		PrivateRoot: cfg.PrivateRoot, DriverDir: cfg.DriverDir, InitialURL: cfg.URL, DashboardURL: cfg.DashboardURL,
 		Goal: cfg.Goal, Origins: append([]string(nil), cfg.Origins...), ProfileID: cfg.ProfileID,
 		GoalPredicate: authorresult.GoalPredicate{Origin: goalOrigin, Path: goalPath, Context: cfg.GoalContext, Role: cfg.GoalRole, Label: cfg.GoalLabel},
-	})
+	}
+	var session sharedBrowserAuthorSession
+	if cfg.BundledWorker {
+		session, err = startSharedBrowserAuthorSession(ctx, controllerConfig)
+	} else {
+		session, err = startSharedExternalBrowserAuthorSession(ctx, controllerConfig, cfg.Browsertools)
+	}
 	if err != nil {
 		return liveProtocolResult{}, err
 	}
@@ -58,7 +69,7 @@ func orchestrateBundledLiveAuthor(ctx context.Context, cfg liveAuthorConfig, rea
 					continue
 				}
 				if planner != nil && !disclosureDecided {
-					decision, promptErr := readLiveDecision(reader, out, fmt.Sprintf("Allow this run to disclose reduced observations to %s/%s? Type disclose or human: ", provider, model), "disclose", "human")
+					decision, promptErr := readLiveDecision(input, out, fmt.Sprintf("Allow this run to disclose reduced observations to %s/%s? Type disclose or human: ", provider, model), "disclose", "human")
 					if promptErr != nil {
 						return liveProtocolResult{}, promptErr
 					}
@@ -76,7 +87,7 @@ func orchestrateBundledLiveAuthor(ctx context.Context, cfg liveAuthorConfig, rea
 					}
 				}
 				if plan.Kind == "human" {
-					plan, err = readHumanLivePlan(reader, out, observation)
+					plan, err = readHumanLivePlan(input, out, observation)
 					if err != nil {
 						return liveProtocolResult{}, err
 					}
@@ -88,7 +99,7 @@ func orchestrateBundledLiveAuthor(ctx context.Context, cfg liveAuthorConfig, rea
 				if plan.Kind == "authenticated" {
 					choice := cfg.AfterAuthentication
 					if choice == "ask_after_authentication" {
-						decision, promptErr := readLiveDecision(reader, out, "Authentication is complete. Type navigate to open the reviewed dashboard URL, or continue to keep the current page: ", "navigate", "continue")
+						decision, promptErr := readLiveDecision(input, out, "Authentication is complete. Type navigate to open the reviewed dashboard URL, or continue to keep the current page: ", "navigate", "continue")
 						if promptErr != nil {
 							return liveProtocolResult{}, promptErr
 						}
@@ -111,7 +122,7 @@ func orchestrateBundledLiveAuthor(ctx context.Context, cfg liveAuthorConfig, rea
 		if event.Approval != nil {
 			approval := event.Approval
 			fmt.Fprintf(out, "Browsertools requests %q approval: action=%q candidate=%q origin=%q POST-budget=%d\n", approval.Kind, approval.Action, approval.CandidateID, approval.Origin, approval.POSTBudget)
-			decision, promptErr := readLiveDecision(reader, out, "Type approve for this exact request, or deny: ", "approve", "deny")
+			decision, promptErr := readLiveDecision(input, out, "Type approve for this exact request, or deny: ", "approve", "deny")
 			if promptErr != nil {
 				return liveProtocolResult{}, promptErr
 			}
@@ -124,18 +135,18 @@ func orchestrateBundledLiveAuthor(ctx context.Context, cfg liveAuthorConfig, rea
 			checkpoint := event.Checkpoint
 			switch checkpoint.Kind {
 			case "credential":
-				decision, promptErr := readLiveDecision(reader, out, "Type continue after entering the value directly in Chromium, or close: ", "continue", "close")
+				decision, promptErr := readLiveDecision(input, out, "Type continue after entering the value directly in Chromium, or close: ", "continue", "close")
 				if promptErr != nil || decision != "continue" {
 					return liveProtocolResult{}, fmt.Errorf("operator closed at human input checkpoint")
 				}
 				err = session.Respond(ctx, browserauthor.Response{Kind: "continue", CandidateID: checkpoint.CandidateID})
 			case "mfa":
 				fmt.Fprintf(out, "Compatible MFA kinds: %s\n", strings.Join(checkpoint.ChallengeKinds, ", "))
-				challengeKind, promptErr := readLiveDecision(reader, out, "Type the exact MFA kind you will complete: ", checkpoint.ChallengeKinds...)
+				challengeKind, promptErr := readLiveDecision(input, out, "Type the exact MFA kind you will complete: ", checkpoint.ChallengeKinds...)
 				if promptErr != nil {
 					return liveProtocolResult{}, promptErr
 				}
-				decision, promptErr := readLiveDecision(reader, out, "Complete that challenge in Chromium or on the paired device, then type continue; or close: ", "continue", "close")
+				decision, promptErr := readLiveDecision(input, out, "Complete that challenge in Chromium or on the paired device, then type continue; or close: ", "continue", "close")
 				if promptErr != nil || decision != "continue" {
 					return liveProtocolResult{}, fmt.Errorf("operator closed at human MFA checkpoint")
 				}
@@ -144,12 +155,12 @@ func orchestrateBundledLiveAuthor(ctx context.Context, cfg liveAuthorConfig, rea
 				if lastObservation == nil {
 					return liveProtocolResult{}, fmt.Errorf("completion checkpoint has no current observation")
 				}
-				outputs, outputErr := readHumanOutputRequests(reader, out, *lastObservation, liveAuthorSelectedMaxOutputs)
+				outputs, outputErr := readHumanOutputRequests(input, out, *lastObservation, liveAuthorSelectedMaxOutputs)
 				if outputErr != nil {
 					return liveProtocolResult{}, outputErr
 				}
 				printLiveOutputSummary(out, outputs, *lastObservation)
-				decision, promptErr := readLiveDecision(reader, out, "The typed predicate is satisfied. Type confirm to attest goal completion, or deny: ", "confirm", "deny")
+				decision, promptErr := readLiveDecision(input, out, "The typed predicate is satisfied. Type confirm to attest goal completion, or deny: ", "confirm", "deny")
 				if promptErr != nil || decision != "confirm" {
 					return liveProtocolResult{}, fmt.Errorf("human goal completion was denied")
 				}
@@ -167,8 +178,11 @@ func orchestrateBundledLiveAuthor(ctx context.Context, cfg liveAuthorConfig, rea
 			continue
 		}
 		if event.Result != nil {
+			if event.Attestation == nil {
+				return liveProtocolResult{}, fmt.Errorf("isolated Browsertools worker returned no parent attestation")
+			}
 			success = true
-			return liveProtocolResult{ArtifactPath: event.Result.ArtifactPath, Digest: event.Result.Digest}, nil
+			return liveProtocolResult{ArtifactPath: event.Result.ArtifactPath, Digest: event.Result.Digest, Attestation: event.Attestation}, nil
 		}
 	}
 	return liveProtocolResult{}, fmt.Errorf("isolated Browsertools worker ended without a result")

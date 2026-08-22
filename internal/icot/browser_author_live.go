@@ -23,7 +23,9 @@ import (
 	"time"
 
 	"github.com/OpenUdon/browsertools/authorsession"
+	"github.com/OpenUdon/browsertools/disclosurepath"
 	"github.com/OpenUdon/evidence/redact"
+	"github.com/OpenUdon/openudon/internal/icot/browserauthor"
 	"github.com/OpenUdon/openudon/internal/icot/elicitor"
 	"github.com/OpenUdon/openudon/internal/processgroup"
 	rollout "github.com/OpenUdon/openudon/internal/workflowintent"
@@ -160,6 +162,7 @@ type liveApproval struct {
 type liveCheckpoint struct {
 	Kind           string   `json:"kind"`
 	CandidateID    string   `json:"candidateId,omitempty"`
+	InputKind      string   `json:"inputKind,omitempty"`
 	ChallengeKinds []string `json:"challengeKinds,omitempty"`
 }
 
@@ -168,8 +171,9 @@ type liveDiagnostic struct {
 }
 
 type liveProtocolResult struct {
-	ArtifactPath string `json:"artifactPath"`
-	Digest       string `json:"digest"`
+	ArtifactPath string                     `json:"artifactPath"`
+	Digest       string                     `json:"digest"`
+	Attestation  *browserauthor.Attestation `json:"-"`
 }
 
 type liveServerMessage struct {
@@ -196,6 +200,63 @@ type livePlan struct {
 
 type livePlanner interface {
 	Plan(context.Context, string, liveObservation) (livePlan, error)
+}
+
+type liveLineReader interface {
+	ReadString(byte) (string, error)
+}
+
+type liveInputLine struct {
+	value string
+	err   error
+}
+
+// contextLineReader owns one input pump for the complete live session. A
+// canceled signal context unblocks every human gate without creating a fresh
+// reader goroutine for each prompt.
+type contextLineReader struct {
+	ctx   context.Context
+	lines <-chan liveInputLine
+}
+
+func newContextLineReader(ctx context.Context, reader *bufio.Reader) *contextLineReader {
+	lines := make(chan liveInputLine, 1)
+	go func() {
+		defer close(lines)
+		for {
+			value, err := reader.ReadString('\n')
+			select {
+			case lines <- liveInputLine{value: value, err: err}:
+			case <-ctx.Done():
+				return
+			}
+			if err != nil {
+				return
+			}
+		}
+	}()
+	return &contextLineReader{ctx: ctx, lines: lines}
+}
+
+func (reader *contextLineReader) ReadString(delimiter byte) (string, error) {
+	if delimiter != '\n' {
+		return "", fmt.Errorf("live input supports newline-delimited decisions only")
+	}
+	if err := reader.ctx.Err(); err != nil {
+		return "", err
+	}
+	select {
+	case line, ok := <-reader.lines:
+		if !ok {
+			if err := reader.ctx.Err(); err != nil {
+				return "", err
+			}
+			return "", io.EOF
+		}
+		return line.value, line.err
+	case <-reader.ctx.Done():
+		return "", reader.ctx.Err()
+	}
 }
 
 type providerLivePlanner struct{ client rollout.LLMClient }
@@ -251,6 +312,7 @@ type liveAuthorDependencies struct {
 	PrepareExecutable func(string, string) (string, func(), error)
 	NewPlanner        func(string, string, float64) (livePlanner, string, string, error)
 	Now               func() time.Time
+	SharedController  bool
 }
 
 func defaultLiveAuthorDependencies() liveAuthorDependencies {
@@ -270,7 +332,8 @@ func defaultLiveAuthorDependencies() liveAuthorDependencies {
 			}
 			return providerLivePlanner{client: client}, actualProvider, actualModel, nil
 		},
-		Now: time.Now,
+		Now:              time.Now,
+		SharedController: true,
 	}
 }
 
@@ -335,24 +398,31 @@ func runBrowserAuthorLiveWith(args []string, in io.Reader, out, errOut io.Writer
 	// review time.
 	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer cancel()
+	input := newContextLineReader(ctx, reader)
 	var result liveProtocolResult
 	var err error
-	if cfg.BundledWorker {
-		result, err = orchestrateBundledLiveAuthor(ctx, cfg, reader, out, planner, provider, model)
+	if deps.SharedController {
+		result, err = orchestrateBundledLiveAuthor(ctx, cfg, input, out, planner, provider, model)
 	} else {
-		result, err = orchestrateLiveAuthor(ctx, cfg, reader, out, planner, provider, model, deps)
+		// Kept only as a deterministic protocol-test seam. Production defaults
+		// always select the shared typed controller above.
+		result, err = orchestrateLiveAuthor(ctx, cfg, input, out, planner, provider, model, deps)
 	}
 	if err != nil {
 		fmt.Fprintln(errOut, "icot browser-author live:", err)
 		return 1
 	}
-	prepared, err := prepareAuthenticatedAuthoringImport(cfg, result, deps.Now().UTC())
+	prepareImport := prepareAuthenticatedAuthoringImport
+	if deps.SharedController {
+		prepareImport = prepareAttestedAuthenticatedAuthoringImport
+	}
+	prepared, err := prepareImport(cfg, result, deps.Now().UTC())
 	if err != nil {
 		fmt.Fprintln(errOut, "icot browser-author live: result rejected:", err)
 		return 1
 	}
 	printAuthenticatedAuthoringReview(out, prepared)
-	decision, err := readLiveDecision(reader, out, "Type stage to atomically add the canonical profiles and safe review metadata, or discard: ", "stage", "discard")
+	decision, err := readLiveDecision(input, out, "Type stage to atomically add the canonical profiles and safe review metadata, or discard: ", "stage", "discard")
 	if err != nil {
 		fmt.Fprintln(errOut, "icot browser-author live:", err)
 		return 1
@@ -388,14 +458,16 @@ func normalizeLiveAuthorConfig(cfg *liveAuthorConfig) error {
 	if err != nil {
 		return fmt.Errorf("initial URL: %w", err)
 	}
-	if _, path := originAndPath(initialURL); !validLivePath(path) {
+	_, initialPath, pathErr := originAndPath(initialURL)
+	if pathErr != nil || !validLivePath(initialPath) {
 		return fmt.Errorf("initial URL path is not portable")
 	}
 	dashboardURL, dashboardOrigin, err := normalizeBrowserAuthoringURL(cfg.DashboardURL)
 	if err != nil {
 		return fmt.Errorf("dashboard URL: %w", err)
 	}
-	if _, path := originAndPath(dashboardURL); !validLivePath(path) {
+	_, dashboardPath, pathErr := originAndPath(dashboardURL)
+	if pathErr != nil || !validLivePath(dashboardPath) {
 		return fmt.Errorf("dashboard URL path is not portable")
 	}
 	goalRaw := strings.TrimSpace(cfg.GoalURL)
@@ -406,14 +478,18 @@ func normalizeLiveAuthorConfig(cfg *liveAuthorConfig) error {
 	if err != nil {
 		return fmt.Errorf("goal URL: %w", err)
 	}
-	if _, path := originAndPath(goalURL); !validLivePath(path) {
+	_, goalPath, pathErr := originAndPath(goalURL)
+	if pathErr != nil || !validLivePath(goalPath) {
 		return fmt.Errorf("goal URL path is not portable")
 	}
 	origins, err := normalizeBrowserAuthoringOrigins(cfg.Origins)
 	if err != nil {
 		return err
 	}
-	initialOrigin, _ := originAndPath(initialURL)
+	initialOrigin, _, err := originAndPath(initialURL)
+	if err != nil {
+		return err
+	}
 	if !stringSliceContainsExact(origins, initialOrigin) || !stringSliceContainsExact(origins, dashboardOrigin) || !stringSliceContainsExact(origins, goalOrigin) {
 		return fmt.Errorf("approved origins must include initial, dashboard, and goal origins")
 	}
@@ -452,7 +528,10 @@ func normalizeLiveAuthorConfig(cfg *liveAuthorConfig) error {
 	}
 	label := strings.TrimSpace(cfg.GoalLabel)
 	if label == "" {
-		_, path := originAndPath(goalURL)
+		_, path, err := originAndPath(goalURL)
+		if err != nil {
+			return err
+		}
 		label = defaultLiveGoalLabel(path)
 	}
 	if len(label) > 256 || containsPlanDelimiterOrControl(label) {
@@ -497,65 +576,23 @@ func prepareStableLiveExecutable(source, privateRoot string) (string, func(), er
 	if err != nil {
 		return "", nil, err
 	}
-	directory, err := os.MkdirTemp(privateRoot, ".openudon-browsertools-")
-	if err != nil {
-		return "", nil, fmt.Errorf("create private Browsertools executable copy: %w", err)
-	}
-	cleanup := func() { _ = os.RemoveAll(directory) }
-	if err := os.Chmod(directory, 0o700); err != nil {
-		cleanup()
-		return "", nil, err
-	}
-	input, err := os.Open(source)
-	if err != nil {
-		cleanup()
-		return "", nil, fmt.Errorf("open Browsertools executable: %w", err)
-	}
-	defer input.Close()
-	before, err := input.Stat()
-	pathInfo, pathErr := os.Lstat(source)
-	if err != nil || pathErr != nil || !before.Mode().IsRegular() || before.Mode().Perm()&0o111 == 0 || pathInfo.Mode()&os.ModeSymlink != 0 || !os.SameFile(before, pathInfo) {
-		cleanup()
-		return "", nil, fmt.Errorf("inspect opened Browsertools executable")
-	}
-	name := "browsertools"
-	if strings.EqualFold(filepath.Ext(source), ".exe") {
-		name += ".exe"
-	}
-	target := filepath.Join(directory, name)
-	output, err := os.OpenFile(target, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o500)
-	if err != nil {
-		cleanup()
-		return "", nil, err
-	}
-	const maxLiveExecutableBytes = 256 << 20
-	written, copyErr := io.Copy(output, io.LimitReader(input, maxLiveExecutableBytes+1))
-	syncErr := output.Sync()
-	closeErr := output.Close()
-	after, statErr := input.Stat()
-	if copyErr != nil || syncErr != nil || closeErr != nil || statErr != nil || written != before.Size() || written > maxLiveExecutableBytes || !os.SameFile(before, after) || before.Size() != after.Size() || !before.ModTime().Equal(after.ModTime()) {
-		cleanup()
-		cause := errors.Join(copyErr, syncErr, closeErr, statErr)
-		if cause == nil {
-			cause = fmt.Errorf("source identity, size, or modification time changed")
-		}
-		return "", nil, fmt.Errorf("Browsertools executable changed while creating the private execution copy: %w", cause)
-	}
-	if _, err := inspectLiveExecutable(target); err != nil {
-		cleanup()
-		return "", nil, err
-	}
-	return target, cleanup, nil
+	return browserauthor.StabilizeExecutable(source, privateRoot)
 }
 
-func originAndPath(raw string) (string, string) {
-	parsed, _ := url.Parse(raw)
+func originAndPath(raw string) (string, string, error) {
+	parsed, err := url.Parse(raw)
+	if err != nil || parsed == nil || !parsed.IsAbs() || parsed.Host == "" {
+		return "", "", fmt.Errorf("URL must be absolute")
+	}
 	origin := strings.ToLower(parsed.Scheme) + "://" + strings.ToLower(parsed.Host)
 	path := parsed.EscapedPath()
 	if path == "" {
 		path = "/"
 	}
-	return origin, path
+	if !validLivePath(path) {
+		return "", "", fmt.Errorf("URL path is unsafe")
+	}
+	return origin, path, nil
 }
 
 func defaultLiveGoalLabel(path string) string {
@@ -580,9 +617,15 @@ func liveGoalURL(cfg liveAuthorConfig) string {
 }
 
 func reviewAfterAuthenticationChoice(reader *bufio.Reader, out io.Writer, cfg liveAuthorConfig) error {
-	_, dashboardPath := originAndPath(cfg.DashboardURL)
+	_, dashboardPath, err := originAndPath(cfg.DashboardURL)
+	if err != nil {
+		return err
+	}
 	goalURL := liveGoalURL(cfg)
-	_, goalPath := originAndPath(goalURL)
+	_, goalPath, err := originAndPath(goalURL)
+	if err != nil {
+		return err
+	}
 	fmt.Fprintln(out, "Reviewed live-authoring continuation:")
 	fmt.Fprintf(out, "- after authentication: %s\n", cfg.AfterAuthentication)
 	fmt.Fprintf(out, "- dashboard: %s%s\n", originForDisplay(cfg.DashboardURL), dashboardPath)
@@ -599,7 +642,7 @@ func reviewAfterAuthenticationChoice(reader *bufio.Reader, out io.Writer, cfg li
 }
 
 func originForDisplay(raw string) string {
-	origin, _ := originAndPath(raw)
+	origin, _, _ := originAndPath(raw)
 	return origin
 }
 
@@ -670,7 +713,7 @@ func minimalBrowsertoolsEnvironment() []string {
 	return result
 }
 
-func orchestrateLiveAuthor(ctx context.Context, cfg liveAuthorConfig, reader *bufio.Reader, out io.Writer, planner livePlanner, provider, model string, deps liveAuthorDependencies) (liveProtocolResult, error) {
+func orchestrateLiveAuthor(ctx context.Context, cfg liveAuthorConfig, input liveLineReader, out io.Writer, planner livePlanner, provider, model string, deps liveAuthorDependencies) (liveProtocolResult, error) {
 	if deps.StartProcess == nil {
 		return liveProtocolResult{}, fmt.Errorf("Browsertools process factory is unavailable")
 	}
@@ -730,7 +773,10 @@ func orchestrateLiveAuthor(ctx context.Context, cfg liveAuthorConfig, reader *bu
 			return liveProtocolResult{}, fmt.Errorf("Browsertools lacks required live-authoring capability %s", capability)
 		}
 	}
-	goalOrigin, goalPath := originAndPath(liveGoalURL(cfg))
+	goalOrigin, goalPath, err := originAndPath(liveGoalURL(cfg))
+	if err != nil {
+		return liveProtocolResult{}, err
+	}
 	expectedBounds := defaultLiveAuthorBounds()
 	start := liveClientMessage{
 		Type: "start", Title: defaultLiveTitle(cfg), URL: cfg.URL, DashboardURL: cfg.DashboardURL,
@@ -795,7 +841,7 @@ func orchestrateLiveAuthor(ctx context.Context, cfg liveAuthorConfig, reader *bu
 				continue
 			}
 			if planner != nil && !disclosureDecided {
-				decision, promptErr := readLiveDecision(reader, out, fmt.Sprintf("Allow this run to disclose reduced observations to %s/%s? Type disclose or human: ", provider, model), "disclose", "human")
+				decision, promptErr := readLiveDecision(input, out, fmt.Sprintf("Allow this run to disclose reduced observations to %s/%s? Type disclose or human: ", provider, model), "disclose", "human")
 				if promptErr != nil {
 					return liveProtocolResult{}, promptErr
 				}
@@ -815,7 +861,7 @@ func orchestrateLiveAuthor(ctx context.Context, cfg liveAuthorConfig, reader *bu
 				action = livePlan{Kind: "human"}
 			}
 			if action.Kind == "human" {
-				action, err = readHumanLivePlan(reader, out, observation)
+				action, err = readHumanLivePlan(input, out, observation)
 				if err != nil {
 					return liveProtocolResult{}, err
 				}
@@ -824,7 +870,7 @@ func orchestrateLiveAuthor(ctx context.Context, cfg liveAuthorConfig, reader *bu
 				return liveProtocolResult{}, fmt.Errorf("operator closed live authoring")
 			}
 			if action.Kind == "authenticated" {
-				if err := continueAfterAuthentication(protocol, reader, out, cfg, currentContext); err != nil {
+				if err := continueAfterAuthentication(protocol, input, out, cfg, currentContext); err != nil {
 					return liveProtocolResult{}, err
 				}
 				continue
@@ -838,7 +884,7 @@ func orchestrateLiveAuthor(ctx context.Context, cfg liveAuthorConfig, reader *bu
 				return liveProtocolResult{}, err
 			}
 			fmt.Fprintf(out, "Browsertools requests %q approval: action=%q candidate=%q origin=%q POST-budget=%d\n", approval.Kind, approval.Action, approval.CandidateID, approval.Origin, approval.POSTBudget)
-			decision, promptErr := readLiveDecision(reader, out, "Type approve for this exact request, or deny: ", "approve", "deny")
+			decision, promptErr := readLiveDecision(input, out, "Type approve for this exact request, or deny: ", "approve", "deny")
 			if promptErr != nil {
 				return liveProtocolResult{}, promptErr
 			}
@@ -853,7 +899,7 @@ func orchestrateLiveAuthor(ctx context.Context, cfg liveAuthorConfig, reader *bu
 			checkpoint := *message.Checkpoint
 			switch checkpoint.Kind {
 			case "credential":
-				decision, promptErr := readLiveDecision(reader, out, "Type continue after entering the value directly in Chromium, or close: ", "continue", "close")
+				decision, promptErr := readLiveDecision(input, out, "Type continue after entering the value directly in Chromium, or close: ", "continue", "close")
 				if promptErr != nil {
 					return liveProtocolResult{}, promptErr
 				}
@@ -865,11 +911,11 @@ func orchestrateLiveAuthor(ctx context.Context, cfg liveAuthorConfig, reader *bu
 				}
 			case "mfa":
 				fmt.Fprintf(out, "Compatible MFA kinds: %s\n", strings.Join(checkpoint.ChallengeKinds, ", "))
-				challengeKind, promptErr := readLiveDecision(reader, out, "Type the exact MFA kind you will complete: ", checkpoint.ChallengeKinds...)
+				challengeKind, promptErr := readLiveDecision(input, out, "Type the exact MFA kind you will complete: ", checkpoint.ChallengeKinds...)
 				if promptErr != nil {
 					return liveProtocolResult{}, promptErr
 				}
-				decision, promptErr := readLiveDecision(reader, out, "Complete that challenge in Chromium or on the paired device, then type continue; or close: ", "continue", "close")
+				decision, promptErr := readLiveDecision(input, out, "Complete that challenge in Chromium or on the paired device, then type continue; or close: ", "continue", "close")
 				if promptErr != nil {
 					return liveProtocolResult{}, promptErr
 				}
@@ -883,12 +929,12 @@ func orchestrateLiveAuthor(ctx context.Context, cfg liveAuthorConfig, reader *bu
 				if lastObservation == nil || !liveObservationMatchesGoal(*lastObservation, *start.GoalPredicate) {
 					return liveProtocolResult{}, fmt.Errorf("completion checkpoint has no current matching observation")
 				}
-				outputs, outputErr := readHumanOutputRequests(reader, out, *lastObservation, expectedBounds.MaxOutputs)
+				outputs, outputErr := readHumanOutputRequests(input, out, *lastObservation, expectedBounds.MaxOutputs)
 				if outputErr != nil {
 					return liveProtocolResult{}, outputErr
 				}
 				printLiveOutputSummary(out, outputs, *lastObservation)
-				decision, promptErr := readLiveDecision(reader, out, "The typed predicate is satisfied. Type confirm to attest goal completion, or deny: ", "confirm", "deny")
+				decision, promptErr := readLiveDecision(input, out, "The typed predicate is satisfied. Type confirm to attest goal completion, or deny: ", "confirm", "deny")
 				if promptErr != nil {
 					return liveProtocolResult{}, promptErr
 				}
@@ -954,7 +1000,7 @@ func printLiveObservation(out io.Writer, observation liveObservation) {
 	}
 }
 
-func readHumanLivePlan(reader *bufio.Reader, out io.Writer, observation liveObservation) (livePlan, error) {
+func readHumanLivePlan(reader liveLineReader, out io.Writer, observation liveObservation) (livePlan, error) {
 	for {
 		fmt.Fprint(out, "Action (focus ID | click ID [POST_BUDGET] | navigate URL | observe [CONTEXT] | authenticated | close): ")
 		line, err := reader.ReadString('\n')
@@ -1057,7 +1103,7 @@ func sendLivePlan(protocol *liveProtocol, plan livePlan) error {
 	}
 }
 
-func continueAfterAuthentication(protocol *liveProtocol, reader *bufio.Reader, out io.Writer, cfg liveAuthorConfig, currentContext string) error {
+func continueAfterAuthentication(protocol *liveProtocol, reader liveLineReader, out io.Writer, cfg liveAuthorConfig, currentContext string) error {
 	choice := cfg.AfterAuthentication
 	if choice == "ask_after_authentication" {
 		decision, err := readLiveDecision(reader, out, "Authentication is complete. Type navigate to open the reviewed dashboard URL, or continue to keep the current page: ", "navigate", "continue")
@@ -1076,7 +1122,7 @@ func continueAfterAuthentication(protocol *liveProtocol, reader *bufio.Reader, o
 	return protocol.send(liveClientMessage{Type: "observe", Context: currentContext})
 }
 
-func readHumanOutputRequests(reader *bufio.Reader, out io.Writer, observation liveObservation, maxOutputs int) ([]liveOutputRequest, error) {
+func readHumanOutputRequests(reader liveLineReader, out io.Writer, observation liveObservation, maxOutputs int) ([]liveOutputRequest, error) {
 	if maxOutputs <= 0 || maxOutputs > liveAuthorSelectedMaxOutputs {
 		return nil, fmt.Errorf("output authority is invalid")
 	}
@@ -1159,7 +1205,7 @@ func printLiveOutputSummary(out io.Writer, requests []liveOutputRequest, observa
 	}
 }
 
-func readLiveDecision(reader *bufio.Reader, out io.Writer, prompt string, choices ...string) (string, error) {
+func readLiveDecision(reader liveLineReader, out io.Writer, prompt string, choices ...string) (string, error) {
 	allowed := make(map[string]bool, len(choices))
 	for _, choice := range choices {
 		allowed[choice] = true
@@ -1172,6 +1218,9 @@ func readLiveDecision(reader *bufio.Reader, out io.Writer, prompt string, choice
 			return value, nil
 		}
 		if err != nil {
+			if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
+				return "", err
+			}
 			return "", io.ErrUnexpectedEOF
 		}
 		fmt.Fprintf(out, "Enter one of: %s.\n", strings.Join(choices, ", "))
@@ -1481,16 +1530,7 @@ func validateLiveObservationInventory(observation liveObservation, approvedOrigi
 }
 
 func validLivePath(path string) bool {
-	if !strings.HasPrefix(path, "/") || strings.ContainsAny(path, "?#\\") {
-		return false
-	}
-	for _, part := range strings.Split(path, "/")[1:] {
-		decoded, err := url.PathUnescape(part)
-		if err != nil || decoded == "." || decoded == ".." || strings.ContainsAny(decoded, "/\\") {
-			return false
-		}
-	}
-	return true
+	return disclosurepath.Validate(path) == nil
 }
 
 func validSHA256Digest(value string) bool {

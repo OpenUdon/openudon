@@ -866,7 +866,7 @@ func TestCaptureUsesSeparateRevisionBlocksAuthoringAndStagesReviewedResult(t *te
 		t.Fatalf("response without a pending checkpoint = %d %s", premature.Code, premature.Body.String())
 	}
 
-	session.events <- browserauthor.Event{State: "completion_review", Result: &authorsession.Result{ArtifactPath: "/private/result.json", Digest: "sha256:reviewed"}}
+	session.events <- browserauthor.Event{State: "completion_review", Result: &authorsession.Result{ArtifactPath: "/private/result.json", Digest: "sha256:reviewed"}, Attestation: &browserauthor.Attestation{}}
 	teardown := waitForCaptureState(t, handler, "completion_review")
 	if teardown.Capture.ResultReady {
 		t.Fatalf("capture became stageable before worker teardown: %#v", teardown.Capture)

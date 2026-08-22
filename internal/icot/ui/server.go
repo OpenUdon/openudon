@@ -269,6 +269,7 @@ type CaptureStageRequest struct {
 	ExampleDir  string
 	PrivateRoot string
 	Result      authorsession.Result
+	Attestation *browserauthor.Attestation
 }
 
 type requestError struct {
@@ -320,6 +321,7 @@ type Server struct {
 	captureSession           CaptureSession
 	captureCancel            context.CancelFunc
 	captureResult            *authorsession.Result
+	captureAttestation       *browserauthor.Attestation
 	captureStart             captureStartRequest
 	captureContainmentFailed bool
 	doctorReport             *browserauthor.UIDoctorReport
@@ -1061,6 +1063,7 @@ func (s *Server) serveCaptureStart(w http.ResponseWriter, r *http.Request, cooki
 	startedAt := s.now().UTC()
 	s.capture = &CaptureState{State: "launching", Message: "Launching an isolated headed Chromium authoring session.", StartedAt: startedAt.Format(time.RFC3339), UpdatedAt: startedAt.Format(time.RFC3339)}
 	s.captureResult = nil
+	s.captureAttestation = nil
 	request.Revision, request.CaptureRevision = "", ""
 	s.captureStart = request
 	session, err := s.startCapture(s.captureContext, browserauthor.Config{
@@ -1113,6 +1116,7 @@ func (s *Server) consumeCapture(session CaptureSession, startedAt time.Time) {
 		if event.Result != nil {
 			copy := *event.Result
 			s.captureResult = &copy
+			s.captureAttestation = event.Attestation
 			resultReceived = true
 			state.State = "completion_review"
 			state.ResultReady = false
@@ -1165,6 +1169,7 @@ func (s *Server) consumeCapture(session CaptureSession, startedAt time.Time) {
 		}
 		s.capture = &CaptureState{State: state, Message: message, ContainmentFailed: terminalErrorCode == "worker_teardown", StartedAt: startedAt.Format(time.RFC3339), UpdatedAt: s.now().UTC().Format(time.RFC3339)}
 		s.captureResult = nil
+		s.captureAttestation = nil
 		_ = s.updateRevisionLocked()
 		return
 	}
@@ -1267,6 +1272,7 @@ func (s *Server) serveCaptureCancel(w http.ResponseWriter, r *http.Request, cook
 	}
 	s.capture = &CaptureState{State: "canceling", Message: "Cancellation was requested; waiting for the isolated worker and all descendants to stop.", StartedAt: s.capture.StartedAt, UpdatedAt: s.now().UTC().Format(time.RFC3339)}
 	s.captureResult = nil
+	s.captureAttestation = nil
 	if err := s.updateRevisionLocked(); err != nil {
 		s.writeInternalError(w, r, requestID, "/api/v3/capture/cancel", "revision", err, true)
 		return
@@ -1295,7 +1301,7 @@ func (s *Server) serveCaptureStage(w http.ResponseWriter, r *http.Request, cooki
 		s.writeError(w, http.StatusConflict, "stale_revision", "authoring or capture revision is stale", true, requestID, s.revision)
 		return
 	}
-	if s.capture == nil || !s.capture.ResultReady || s.captureResult == nil || s.prepareCapture == nil {
+	if s.capture == nil || !s.capture.ResultReady || s.captureResult == nil || s.captureAttestation == nil || s.prepareCapture == nil {
 		s.writeError(w, http.StatusConflict, "capture_not_ready", "a completed reviewed capture is required before staging", false, requestID, s.revision)
 		return
 	}
@@ -1306,10 +1312,11 @@ func (s *Server) serveCaptureStage(w http.ResponseWriter, r *http.Request, cooki
 	}
 	startedAt := s.capture.StartedAt
 	s.capture = &CaptureState{State: "staging", Message: "Revalidating and atomically staging the reduced profile pair.", StartedAt: startedAt, UpdatedAt: s.now().UTC().Format(time.RFC3339)}
-	prepared, err := s.prepareCapture(CaptureStageRequest{Start: s.captureStart, ExampleDir: s.exampleDir, PrivateRoot: s.privateRoot, Result: *s.captureResult})
+	prepared, err := s.prepareCapture(CaptureStageRequest{Start: s.captureStart, ExampleDir: s.exampleDir, PrivateRoot: s.privateRoot, Result: *s.captureResult, Attestation: s.captureAttestation})
 	if err != nil {
 		s.capture = &CaptureState{State: "failed", Message: "The completed capture failed independent OpenUdon validation; nothing was staged.", StartedAt: startedAt, UpdatedAt: s.now().UTC().Format(time.RFC3339)}
 		s.captureResult = nil
+		s.captureAttestation = nil
 		_ = s.updateRevisionLocked()
 		s.writeError(w, http.StatusUnprocessableEntity, "capture_validation_failed", "completed browser capture was rejected", false, requestID, s.revision)
 		return
@@ -1318,6 +1325,7 @@ func (s *Server) serveCaptureStage(w http.ResponseWriter, r *http.Request, cooki
 	if err != nil {
 		s.capture = &CaptureState{State: "failed", Message: "The reviewed capture could not be staged; no partial capture was adopted.", StartedAt: startedAt, UpdatedAt: s.now().UTC().Format(time.RFC3339)}
 		s.captureResult = nil
+		s.captureAttestation = nil
 		s.captureSession = nil
 		s.refreshWorkspaceAfterFailure()
 		_ = s.updateRevisionLocked()
@@ -1327,6 +1335,7 @@ func (s *Server) serveCaptureStage(w http.ResponseWriter, r *http.Request, cooki
 	s.snapshot = snapshot
 	s.capture = &CaptureState{State: "staged", Message: "The canonical profile pair and safe capture review were staged. Continue normal authoring review.", StartedAt: startedAt, UpdatedAt: s.now().UTC().Format(time.RFC3339)}
 	s.captureResult = nil
+	s.captureAttestation = nil
 	s.captureSession = nil
 	if err := s.updateRevisionLocked(); err != nil {
 		s.writeInternalError(w, r, requestID, "/api/v3/capture/stage", "revision", err, true)

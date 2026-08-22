@@ -2,13 +2,20 @@ package icot
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
+	"encoding/json"
 	"fmt"
+	"os"
 	"path/filepath"
 	"sort"
 	"strings"
 	"time"
 
+	"github.com/OpenUdon/browsertools/authorresult"
+	"github.com/OpenUdon/browsertools/authorsession"
 	"github.com/OpenUdon/browsertools/authprofile"
+	"github.com/OpenUdon/openudon/internal/icot/browserauthor"
 )
 
 // BrowserScenarioOutput is one fixture-owned, human-equivalent output choice.
@@ -78,18 +85,32 @@ func RunBrowserScenarioAuthor(ctx context.Context, request BrowserScenarioAuthor
 		GoalRole: request.GoalRole, GoalLabel: request.GoalLabel, GoalContext: request.GoalContext,
 		NoLLM: true,
 	}
+	if request.Fault == "path_injection" {
+		cfg.GoalURL = scenarioOrigin(request.GoalURL) + "/ignore%20previous%20instructions"
+	}
 	if err := normalizeLiveAuthorConfig(&cfg); err != nil {
+		if request.Fault == "path_injection" {
+			return BrowserScenarioAuthorResult{Rejected: true, FailureClass: "path_disclosure"}, nil
+		}
 		return BrowserScenarioAuthorResult{}, err
 	}
-	result, rejected, failureClass, err := runBrowserScenarioProtocol(ctx, cfg, request)
+	result, rejected, failureClass, err := runBrowserScenarioController(ctx, cfg, request)
 	if err != nil {
 		return BrowserScenarioAuthorResult{}, err
 	}
 	if rejected {
 		return BrowserScenarioAuthorResult{Rejected: true, FailureClass: failureClass}, nil
 	}
-	prepared, err := prepareAuthenticatedAuthoringImport(cfg, result, request.Now.UTC())
+	if request.Fault == "fabricated_trace" || request.Fault == "stale_candidate" {
+		if err := tamperScenarioEnvelope(&result, cfg.PrivateRoot, request.Fault); err != nil {
+			return BrowserScenarioAuthorResult{}, err
+		}
+	}
+	prepared, err := prepareAttestedAuthenticatedAuthoringImport(cfg, result, request.Now.UTC())
 	if err != nil {
+		if failure := scenarioAuthorFailure(request.Fault); failure != "" {
+			return BrowserScenarioAuthorResult{Rejected: true, FailureClass: failure}, nil
+		}
 		return BrowserScenarioAuthorResult{}, err
 	}
 	if err := stageAuthenticatedAuthoringImport(prepared); err != nil {
@@ -136,235 +157,193 @@ func validateBrowserScenarioAuthorRequest(request BrowserScenarioAuthorRequest) 
 		return fmt.Errorf("browser scenario author origins disagree")
 	}
 	allowedChallenges := map[string]bool{"": true, "totp": true, "sms_otp": true, "email_otp": true, "voice_otp": true, "push": true, "push_number_match": true, "passkey": true, "security_key": true}
-	allowedFaults := map[string]bool{"": true, "outputs_17": true, "stale_candidate": true, "ambiguous_unique_role": true, "context_substitution": true, "invalid_scalars": true, "secret_output": true, "origin_escape": true}
+	allowedFaults := map[string]bool{"": true, "outputs_17": true, "stale_candidate": true, "ambiguous_unique_role": true, "context_substitution": true, "invalid_scalars": true, "secret_output": true, "origin_escape": true, "path_injection": true, "fabricated_trace": true}
 	if !allowedChallenges[request.ChallengeKind] || !allowedFaults[request.Fault] {
 		return fmt.Errorf("browser scenario author contract is unknown")
 	}
 	return nil
 }
 
+func runBrowserScenarioController(ctx context.Context, cfg liveAuthorConfig, request BrowserScenarioAuthorRequest) (liveProtocolResult, bool, string, error) {
+	goalOrigin, goalPath, err := originAndPath(cfg.GoalURL)
+	if err != nil {
+		return liveProtocolResult{}, false, "", err
+	}
+	session, err := browserauthor.StartExternal(ctx, browserauthor.Config{
+		PrivateRoot: cfg.PrivateRoot, DriverDir: cfg.DriverDir, InitialURL: cfg.URL, DashboardURL: cfg.DashboardURL,
+		Goal: cfg.Goal, Origins: append([]string(nil), cfg.Origins...), ProfileID: cfg.ProfileID,
+		GoalPredicate: authorresult.GoalPredicate{Origin: goalOrigin, Path: goalPath, Context: cfg.GoalContext, Role: cfg.GoalRole, Label: cfg.GoalLabel},
+	}, cfg.Browsertools)
+	if err != nil {
+		return liveProtocolResult{}, false, "", err
+	}
+	success := false
+	defer func() {
+		if !success {
+			session.Cancel()
+		}
+	}()
+	credentialDone := map[string]bool{}
+	loginSubmitted, challengeDone, challengeSubmitted, popupOpened := false, false, false, false
+	for event := range session.Events() {
+		if event.ErrorCode != "" || event.State == "failed" || event.State == "canceled" || event.State == "closed" {
+			return liveProtocolResult{}, false, "", fmt.Errorf("Browsertools scenario controller failed closed (state=%s phase=%s code=%s)", event.State, event.Phase, event.ErrorCode)
+		}
+		if event.Approval != nil {
+			if err := session.Respond(ctx, browserauthor.Response{Kind: "approve", ApprovalID: event.Approval.ID}); err != nil {
+				return liveProtocolResult{}, false, "", err
+			}
+			continue
+		}
+		if event.Checkpoint != nil {
+			checkpoint := event.Checkpoint
+			switch checkpoint.Kind {
+			case "credential":
+				if checkpoint.InputKind != "identifier" && checkpoint.InputKind != "password" {
+					return liveProtocolResult{}, false, "", fmt.Errorf("Browsertools scenario credential kind is invalid")
+				}
+				credentialDone[checkpoint.InputKind] = true
+				err = session.Respond(ctx, browserauthor.Response{Kind: "continue", CandidateID: checkpoint.CandidateID})
+			case "mfa":
+				if request.ChallengeKind == "" || !containsExact(checkpoint.ChallengeKinds, request.ChallengeKind) {
+					return liveProtocolResult{}, false, "", fmt.Errorf("Browsertools scenario MFA kind is invalid")
+				}
+				challengeDone = true
+				err = session.Respond(ctx, browserauthor.Response{Kind: "continue", CandidateID: checkpoint.CandidateID, ChallengeKind: request.ChallengeKind})
+			case "completion":
+				if event.Observation == nil {
+					return liveProtocolResult{}, false, "", fmt.Errorf("Browsertools scenario completion observation is missing")
+				}
+				observation := liveObservationFromShared(*event.Observation)
+				outputs, outputErr := scenarioOutputRequests(request.Outputs, observation, observation, authorsession.DefaultMaxOutputs)
+				if outputErr != nil {
+					if failure := scenarioAuthorFailure(request.Fault); failure != "" {
+						return liveProtocolResult{}, true, failure, nil
+					}
+					return liveProtocolResult{}, false, "", outputErr
+				}
+				shared := make([]authorsession.OutputRequest, len(outputs))
+				for index, output := range outputs {
+					shared[index] = authorsession.OutputRequest{CandidateID: output.CandidateID, Key: output.Key, Type: output.Type, LocatorMode: output.LocatorMode}
+				}
+				err = session.Respond(ctx, browserauthor.Response{Kind: "confirm", Confirmed: true, Outputs: shared})
+			default:
+				return liveProtocolResult{}, false, "", fmt.Errorf("Browsertools scenario checkpoint is invalid")
+			}
+			if err != nil {
+				return liveProtocolResult{}, false, "", err
+			}
+			continue
+		}
+		if event.Observation != nil {
+			observation := liveObservationFromShared(*event.Observation)
+			response, responseErr := scenarioControllerResponse(request, observation, event.Phase, credentialDone, &loginSubmitted, challengeDone, &challengeSubmitted, &popupOpened)
+			if responseErr != nil {
+				return liveProtocolResult{}, false, "", responseErr
+			}
+			if err := session.Respond(ctx, response); err != nil {
+				return liveProtocolResult{}, false, "", err
+			}
+			continue
+		}
+		if event.Result != nil {
+			if event.Attestation == nil {
+				return liveProtocolResult{}, false, "", fmt.Errorf("Browsertools scenario result lacks parent attestation")
+			}
+			success = true
+			return liveProtocolResult{ArtifactPath: event.Result.ArtifactPath, Digest: event.Result.Digest, Attestation: event.Attestation}, false, "", nil
+		}
+	}
+	return liveProtocolResult{}, false, "", fmt.Errorf("Browsertools scenario controller ended without a result")
+}
+
+func scenarioControllerResponse(request BrowserScenarioAuthorRequest, observation liveObservation, phase string, credentialDone map[string]bool, loginSubmitted *bool, challengeDone bool, challengeSubmitted, popupOpened *bool) (browserauthor.Response, error) {
+	focus := func(role, label string) (browserauthor.Response, error) {
+		candidate, err := scenarioCandidate(observation, role, label)
+		return browserauthor.Response{Kind: "focus_human_input", CandidateID: candidate.ID}, err
+	}
+	click := func(role, label string, postBudget int) (browserauthor.Response, error) {
+		candidate, err := scenarioCandidate(observation, role, label)
+		return browserauthor.Response{Kind: "click", CandidateID: candidate.ID, POSTBudget: postBudget}, err
+	}
+	if phase == "authentication" {
+		if !credentialDone["identifier"] {
+			return focus("textbox", "Email address")
+		}
+		if !credentialDone["password"] {
+			return focus("textbox", "Password")
+		}
+		if !*loginSubmitted {
+			*loginSubmitted = true
+			return click("button", "Sign in", 1)
+		}
+		if request.ChallengeKind != "" && !challengeDone {
+			if containsExact(liveOTPChallengeKinds, request.ChallengeKind) {
+				return focus("textbox", "Verification code")
+			}
+			return focus("status", "Approve verification request")
+		}
+		if request.ChallengeKind != "" && !*challengeSubmitted {
+			*challengeSubmitted = true
+			if containsExact(liveOTPChallengeKinds, request.ChallengeKind) {
+				return click("button", "Verify", 1)
+			}
+			return click("button", "Continue", 1)
+		}
+		return browserauthor.Response{}, fmt.Errorf("Browsertools scenario authentication observation is unexpected")
+	}
+	if request.ContextMode == "popup" && !*popupOpened {
+		*popupOpened = true
+		return click("link", "Open member report", 0)
+	}
+	if request.ContextMode == "frame" && observation.Context == "main" {
+		if _, ok := observation.Contexts["frame_1"]; !ok {
+			return browserauthor.Response{}, fmt.Errorf("Browsertools scenario frame is missing")
+		}
+		return browserauthor.Response{Kind: "observe", Context: "frame_1"}, nil
+	}
+	return browserauthor.Response{}, fmt.Errorf("Browsertools scenario exploration observation is unexpected")
+}
+
+func tamperScenarioEnvelope(result *liveProtocolResult, privateRoot, fault string) error {
+	data, _, err := readStablePrivateAuthorResult(result.ArtifactPath, privateRoot)
+	if err != nil {
+		return err
+	}
+	var envelope authorresult.Envelope
+	if err := json.Unmarshal(data, &envelope); err != nil {
+		return err
+	}
+	switch fault {
+	case "fabricated_trace":
+		if len(envelope.Trace) == 0 {
+			return fmt.Errorf("scenario trace is unavailable")
+		}
+		envelope.Trace = append(envelope.Trace, envelope.Trace[0])
+	case "stale_candidate":
+		if len(envelope.OutputSelections) == 0 {
+			return fmt.Errorf("scenario output selection is unavailable")
+		}
+		envelope.OutputSelections[0].CandidateID = "candidate-0000000000000000"
+	default:
+		return nil
+	}
+	mutated, err := authorresult.MarshalDeterministic(&envelope)
+	if err != nil {
+		return err
+	}
+	if err := os.WriteFile(result.ArtifactPath, mutated, 0o600); err != nil {
+		return err
+	}
+	digest := sha256.Sum256(mutated)
+	result.Digest = "sha256:" + hex.EncodeToString(digest[:])
+	return nil
+}
+
 func scenarioOrigin(raw string) string {
-	origin, _ := originAndPath(raw)
+	origin, _, _ := originAndPath(raw)
 	return origin
 }
-
-func runBrowserScenarioProtocol(ctx context.Context, cfg liveAuthorConfig, request BrowserScenarioAuthorRequest) (liveProtocolResult, bool, string, error) {
-	deps := defaultLiveAuthorDependencies()
-	executable, cleanupExecutable, err := deps.PrepareExecutable(cfg.Browsertools, cfg.PrivateRoot)
-	if err != nil {
-		return liveProtocolResult{}, false, "", err
-	}
-	defer cleanupExecutable()
-	child, err := deps.StartProcess(ctx, executable, scenarioBrowsertoolsArgs(cfg), minimalBrowsertoolsEnvironment())
-	if err != nil {
-		return liveProtocolResult{}, false, "", fmt.Errorf("start Browsertools: %w", err)
-	}
-	protocol := newLiveProtocol(child.Input(), child.Output())
-	finished := false
-	defer func() {
-		if finished {
-			return
-		}
-		_ = protocol.send(liveClientMessage{Type: "close"})
-		_ = child.Input().Close()
-		_ = child.Kill()
-		_ = child.Wait()
-	}()
-	hello, err := protocol.receive()
-	if err != nil || hello.Type != "hello" {
-		return liveProtocolResult{}, false, "", fmt.Errorf("Browsertools v2 negotiation failed")
-	}
-	for _, capability := range []string{"chromium", "human_credentials", "reviewed_mfa_kind", "reviewed_outputs", "reduced_observation", "popup", "frame", "typed_goal"} {
-		if !containsExact(hello.Capabilities, capability) {
-			return liveProtocolResult{}, false, "", fmt.Errorf("Browsertools lacks scenario capability %s", capability)
-		}
-	}
-	goalOrigin, goalPath := originAndPath(cfg.GoalURL)
-	bounds := defaultLiveAuthorBounds()
-	start := liveClientMessage{
-		Type: "start", Title: defaultLiveTitle(cfg), URL: cfg.URL, DashboardURL: cfg.DashboardURL,
-		Goal: cfg.Goal, Origins: append([]string(nil), cfg.Origins...), Bounds: &bounds,
-		GoalPredicate: &liveGoalPredicate{Origin: goalOrigin, Path: goalPath, Context: cfg.GoalContext, Role: cfg.GoalRole, Label: cfg.GoalLabel},
-	}
-	if err := protocol.send(start); err != nil {
-		return liveProtocolResult{}, false, "", err
-	}
-	protocol.setCandidateCeiling(bounds.MaxCandidates)
-	state, err := protocol.receive()
-	if err != nil || state.Type != "state" || state.Phase != "authentication" || state.Context != "main" || state.Bounds == nil || *state.Bounds != bounds {
-		code := ""
-		if state.Diagnostic != nil {
-			code = state.Diagnostic.Code
-		}
-		return liveProtocolResult{}, false, "", fmt.Errorf("Browsertools initial scenario state is invalid (type=%s phase=%s context=%s bounds=%t receive=%t diagnostic=%s)", state.Type, state.Phase, state.Context, state.Bounds != nil, err == nil, code)
-	}
-	observation, _, err := scenarioObserve(protocol, "main", cfg, request.GoalURL)
-	if err != nil {
-		return liveProtocolResult{}, false, "", err
-	}
-	for _, input := range []struct{ role, label string }{{"textbox", "Email address"}, {"textbox", "Password"}} {
-		candidate, findErr := scenarioCandidate(observation, input.role, input.label)
-		if findErr != nil {
-			return liveProtocolResult{}, false, "", findErr
-		}
-		if err := scenarioHumanInput(protocol, candidate.ID, "", nil); err != nil {
-			return liveProtocolResult{}, false, "", err
-		}
-	}
-	login, err := scenarioCandidate(observation, "button", "Sign in")
-	if err != nil {
-		return liveProtocolResult{}, false, "", err
-	}
-	currentContext, err := scenarioClick(protocol, login.ID, 1, "authentication")
-	if err != nil {
-		return liveProtocolResult{}, false, "", err
-	}
-	observation, goalReached, err := scenarioObserve(protocol, currentContext, cfg, request.GoalURL)
-	if err != nil {
-		return liveProtocolResult{}, false, "", err
-	}
-	if request.ChallengeKind != "" {
-		role, label := "status", "Approve verification request"
-		if containsExact(liveOTPChallengeKinds, request.ChallengeKind) {
-			role, label = "textbox", "Verification code"
-		}
-		candidate, findErr := scenarioCandidate(observation, role, label)
-		if findErr != nil {
-			return liveProtocolResult{}, false, "", findErr
-		}
-		compatible := liveMFAChallengeKinds
-		if role == "textbox" {
-			compatible = liveOTPChallengeKinds
-		}
-		if err := scenarioHumanInput(protocol, candidate.ID, request.ChallengeKind, compatible); err != nil {
-			return liveProtocolResult{}, false, "", err
-		}
-		buttonName := "Continue"
-		if role == "textbox" {
-			buttonName = "Verify"
-		}
-		button, findErr := scenarioCandidate(observation, "button", buttonName)
-		if findErr != nil {
-			return liveProtocolResult{}, false, "", findErr
-		}
-		currentContext, err = scenarioClick(protocol, button.ID, 1, "authentication")
-		if err != nil {
-			return liveProtocolResult{}, false, "", err
-		}
-		observation, goalReached, err = scenarioObserve(protocol, currentContext, cfg, request.GoalURL)
-		if err != nil {
-			return liveProtocolResult{}, false, "", err
-		}
-	}
-	if request.ContextMode == "popup" {
-		if goalReached {
-			return liveProtocolResult{}, false, "", fmt.Errorf("popup scenario reached the goal before its reviewed click")
-		}
-		open, findErr := scenarioCandidate(observation, "link", "Open member report")
-		if findErr != nil {
-			return liveProtocolResult{}, false, "", findErr
-		}
-		currentContext, err = scenarioClick(protocol, open.ID, 0, "exploration")
-		if err != nil {
-			return liveProtocolResult{}, false, "", err
-		}
-		observation, goalReached, err = scenarioObserve(protocol, currentContext, cfg, request.GoalURL)
-		if err != nil {
-			return liveProtocolResult{}, false, "", err
-		}
-	}
-	if request.ContextMode == "frame" {
-		if goalReached {
-			return liveProtocolResult{}, false, "", fmt.Errorf("frame scenario reached the goal in the wrong context")
-		}
-		if _, ok := observation.Contexts["frame_1"]; !ok {
-			return liveProtocolResult{}, false, "", fmt.Errorf("Browsertools did not discover frame_1")
-		}
-		observation, goalReached, err = scenarioObserve(protocol, "frame_1", cfg, request.GoalURL)
-		if err != nil {
-			return liveProtocolResult{}, false, "", err
-		}
-	}
-	if !goalReached {
-		return liveProtocolResult{}, false, "", fmt.Errorf("browser scenario goal was not observed")
-	}
-	checkpoint, err := protocol.receive()
-	if err != nil || checkpoint.Type != "human_checkpoint" || checkpoint.Checkpoint.Kind != "completion" {
-		return liveProtocolResult{}, false, "", fmt.Errorf("Browsertools completion checkpoint is invalid")
-	}
-	selectionObservation := observation
-	if request.Fault == "stale_candidate" {
-		observation, goalReached, err = scenarioObserve(protocol, observation.Context, cfg, request.GoalURL)
-		if err != nil || !goalReached {
-			return liveProtocolResult{}, false, "", fmt.Errorf("stale-candidate refresh failed")
-		}
-		checkpoint, err = protocol.receive()
-		if err != nil || checkpoint.Type != "human_checkpoint" || checkpoint.Checkpoint.Kind != "completion" {
-			return liveProtocolResult{}, false, "", fmt.Errorf("stale-candidate completion checkpoint is invalid")
-		}
-	}
-	outputs, validationErr := scenarioOutputRequests(request.Outputs, selectionObservation, observation, bounds.MaxOutputs)
-	if validationErr != nil {
-		failure := scenarioAuthorFailure(request.Fault)
-		if failure == "" {
-			return liveProtocolResult{}, false, "", validationErr
-		}
-		_ = protocol.send(liveClientMessage{Type: "close"})
-		_ = child.Input().Close()
-		_ = child.Wait()
-		finished = true
-		return liveProtocolResult{}, true, failure, nil
-	}
-	if err := protocol.send(liveClientMessage{Type: "human_complete", Confirmed: true, Outputs: &outputs}); err != nil {
-		return liveProtocolResult{}, false, "", err
-	}
-	completed, err := protocol.receive()
-	if err != nil || completed.Type != "state" || completed.Phase != "completed" {
-		return liveProtocolResult{}, false, "", fmt.Errorf("Browsertools did not complete scenario authoring")
-	}
-	if err := protocol.send(liveClientMessage{Type: "finish"}); err != nil {
-		return liveProtocolResult{}, false, "", err
-	}
-	message, err := protocol.receive()
-	if err != nil || message.Type != "result" || message.Result == nil {
-		return liveProtocolResult{}, false, "", fmt.Errorf("Browsertools did not return a v2 authoring result")
-	}
-	_ = child.Input().Close()
-	if err := child.Wait(); err != nil {
-		return liveProtocolResult{}, false, "", fmt.Errorf("Browsertools scenario process failed")
-	}
-	finished = true
-	return *message.Result, false, "", nil
-}
-
-func scenarioBrowsertoolsArgs(cfg liveAuthorConfig) []string {
-	args := []string{"author-session", "chromium", "--private-root", cfg.PrivateRoot}
-	if cfg.DriverDir != "" {
-		args = append(args, "--driver-dir", cfg.DriverDir)
-	}
-	return args
-}
-
-func scenarioObserve(protocol *liveProtocol, contextID string, cfg liveAuthorConfig, goalURL string) (liveObservation, bool, error) {
-	if err := protocol.send(liveClientMessage{Type: "observe", Context: contextID}); err != nil {
-		return liveObservation{}, false, err
-	}
-	message, err := protocol.receive()
-	if err != nil || message.Type != "observation" || message.Observation == nil {
-		diagnostic := ""
-		if message.Diagnostic != nil {
-			diagnostic = message.Diagnostic.Code
-		}
-		return liveObservation{}, false, fmt.Errorf("Browsertools scenario observation is invalid (type=%s receive=%t diagnostic=%s)", message.Type, err == nil, diagnostic)
-	}
-	if err := validateLiveObservationInventory(*message.Observation, cfg.Origins, message.Observation.Contexts); err != nil {
-		return liveObservation{}, false, err
-	}
-	goal := liveGoalPredicate{Origin: scenarioOrigin(goalURL), Path: secondOriginPath(goalURL), Context: cfg.GoalContext, Role: cfg.GoalRole, Label: cfg.GoalLabel}
-	return *message.Observation, liveObservationMatchesGoal(*message.Observation, goal), nil
-}
-
-func secondOriginPath(raw string) string { _, path := originAndPath(raw); return path }
 
 func scenarioCandidate(observation liveObservation, role, label string) (liveCandidate, error) {
 	var matches []liveCandidate
@@ -379,31 +358,6 @@ func scenarioCandidate(observation liveObservation, role, label string) (liveCan
 	return matches[0], nil
 }
 
-func scenarioHumanInput(protocol *liveProtocol, candidateID, challengeKind string, compatible []string) error {
-	if err := protocol.send(liveClientMessage{Type: "focus_human_input", CandidateID: candidateID}); err != nil {
-		return err
-	}
-	message, err := protocol.receive()
-	if err != nil || message.Type != "human_checkpoint" || message.Checkpoint == nil || message.Checkpoint.CandidateID != candidateID {
-		return fmt.Errorf("Browsertools human-input checkpoint is invalid")
-	}
-	if challengeKind == "" {
-		if message.Checkpoint.Kind != "credential" || len(message.Checkpoint.ChallengeKinds) != 0 {
-			return fmt.Errorf("Browsertools credential checkpoint widened authority")
-		}
-	} else if message.Checkpoint.Kind != "mfa" || !validLiveChallengeKinds(message.Checkpoint.ChallengeKinds) || !containsExact(message.Checkpoint.ChallengeKinds, challengeKind) || !challengeSubsetOf(message.Checkpoint.ChallengeKinds, compatible) {
-		return fmt.Errorf("Browsertools MFA compatibility set is invalid")
-	}
-	if err := protocol.send(liveClientMessage{Type: "human_input_complete", CandidateID: candidateID, ChallengeKind: challengeKind}); err != nil {
-		return err
-	}
-	state, err := protocol.receive()
-	if err != nil || state.Type != "state" || state.Phase != "authentication" {
-		return fmt.Errorf("Browsertools human-input completion state is invalid")
-	}
-	return nil
-}
-
 func challengeSubsetOf(values, family []string) bool {
 	for _, value := range values {
 		if !containsExact(family, value) {
@@ -411,28 +365,6 @@ func challengeSubsetOf(values, family []string) bool {
 		}
 	}
 	return true
-}
-
-func scenarioClick(protocol *liveProtocol, candidateID string, postBudget int, expectedPhase string) (string, error) {
-	if err := protocol.send(liveClientMessage{Type: "execute", Action: "click", CandidateID: candidateID, POSTBudget: postBudget}); err != nil {
-		return "", err
-	}
-	approval, err := protocol.receive()
-	if err != nil || approval.Type != "approval_required" || approval.Approval == nil || approval.Approval.CandidateID != candidateID || approval.Approval.Action != "click" || approval.Approval.POSTBudget != postBudget {
-		return "", fmt.Errorf("Browsertools exact action approval is invalid")
-	}
-	if err := protocol.send(liveClientMessage{Type: "approve", ApprovalID: approval.Approval.ID}); err != nil {
-		return "", err
-	}
-	state, err := protocol.receive()
-	if err != nil || state.Type != "state" || state.Phase != expectedPhase || state.Context == "" {
-		diagnostic := ""
-		if state.Diagnostic != nil {
-			diagnostic = state.Diagnostic.Code
-		}
-		return "", fmt.Errorf("Browsertools approved action state is invalid (type=%s phase=%s context=%s receive=%t diagnostic=%s)", state.Type, state.Phase, state.Context, err == nil, diagnostic)
-	}
-	return state.Context, nil
 }
 
 func scenarioOutputRequests(declarations []BrowserScenarioOutput, selected, current liveObservation, max int) ([]liveOutputRequest, error) {
@@ -465,6 +397,8 @@ func scenarioAuthorFailure(fault string) string {
 		return "stale_candidate"
 	case "ambiguous_unique_role":
 		return "ambiguous_output"
+	case "fabricated_trace":
+		return "fabricated_trace"
 	default:
 		return ""
 	}

@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"io"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -11,6 +12,30 @@ import (
 	"github.com/OpenUdon/openudon/internal/projectwizard"
 	rollout "github.com/OpenUdon/openudon/internal/workflowintent"
 )
+
+func TestDraftReviewIncludesBrowserAuthorityAndLocalBlockers(t *testing.T) {
+	root := t.TempDir()
+	path := filepath.Join(root, "editor.json")
+	writeBrowserTestFile(t, path, browserProfileFixture(true, true))
+	discovery, err := DiscoverAuthoringSourcesWithBrowser(context.Background(), filepath.Join(root, "example"), "update record", nil, nil, []BrowserSourceInput{{ID: "editor", Path: path}}, browserIntegrationTime)
+	if err != nil {
+		t.Fatal(err)
+	}
+	doc := discovery.Docs[0]
+	session := Session{Intent: rollout.Intent{Steps: []*rollout.Step{{Name: "update", Type: "browser", Source: doc.RelativePath, Operation: "update_record"}}}, SourcePlan: discovery.Plans}
+	request := BuildDraftReviewRequest(session, discovery.Docs, nil)
+	if len(request.Steps) != 1 || !request.Steps[0].LoginStateRequired || len(request.Steps[0].BrowserSideEffects) == 0 || request.Steps[0].BrowserSession != "" || request.Steps[0].BrowserApprovalGiven {
+		t.Fatalf("browser draft review context = %#v", request.Steps)
+	}
+	issues := localDraftReviewIssues(session, discovery.Docs)
+	seen := map[string]bool{}
+	for _, issue := range issues {
+		seen[issue.Code] = true
+	}
+	if !seen["browser_review_external_session_missing"] || !seen["browser_review_mutation_unapproved"] {
+		t.Fatalf("browser draft review issues = %#v", issues)
+	}
+}
 
 func TestDraftReviewIssuesAreAdvisoryWarnings(t *testing.T) {
 	issues := draftReviewReadinessIssues(DraftReviewResponse{Issues: []DraftReviewIssue{{

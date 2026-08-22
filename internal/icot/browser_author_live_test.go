@@ -6,6 +6,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -33,7 +34,7 @@ func (s *scriptedSharedAuthorSession) Events() <-chan browserauthor.Event { retu
 func (s *scriptedSharedAuthorSession) Respond(_ context.Context, response browserauthor.Response) error {
 	s.responses = append(s.responses, response)
 	if response.Kind == "confirm" {
-		s.events <- browserauthor.Event{State: "stage_review", Result: &authorsession.Result{ArtifactPath: "/private/result.json", Digest: "sha256:" + strings.Repeat("a", 64)}}
+		s.events <- browserauthor.Event{State: "stage_review", Result: &authorsession.Result{ArtifactPath: "/private/result.json", Digest: "sha256:" + strings.Repeat("a", 64)}, Attestation: &browserauthor.Attestation{}}
 		close(s.events)
 	}
 	return nil
@@ -158,6 +159,7 @@ func TestBundledTerminalHandlesCompletionObservationAndCheckpointTogether(t *tes
 	cfg := liveAuthorConfig{
 		PrivateRoot: "/private", ProfileID: "member", URL: "https://members.example.test/login", DashboardURL: "https://members.example.test/dashboard",
 		Goal: "review dashboard", Origins: []string{"https://members.example.test"}, GoalRole: "heading", GoalLabel: "Dashboard", GoalContext: "main",
+		BundledWorker: true,
 	}
 	result, err := orchestrateBundledLiveAuthor(context.Background(), cfg, bufio.NewReader(strings.NewReader("done\nconfirm\n")), io.Discard, nil, "", "")
 	if err != nil {
@@ -165,6 +167,28 @@ func TestBundledTerminalHandlesCompletionObservationAndCheckpointTogether(t *tes
 	}
 	if result.ArtifactPath != "/private/result.json" || len(session.responses) != 1 || session.responses[0].Kind != "confirm" || session.canceled {
 		t.Fatalf("result=%#v responses=%#v canceled=%t", result, session.responses, session.canceled)
+	}
+}
+
+func TestLiveInputPumpCancelsBlockedHumanPrompt(t *testing.T) {
+	input, output := io.Pipe()
+	defer input.Close()
+	defer output.Close()
+	ctx, cancel := context.WithCancel(context.Background())
+	pump := newContextLineReader(ctx, bufio.NewReader(input))
+	done := make(chan error, 1)
+	go func() {
+		_, err := readLiveDecision(pump, io.Discard, "decision: ", "continue")
+		done <- err
+	}()
+	cancel()
+	select {
+	case err := <-done:
+		if !errors.Is(err, context.Canceled) {
+			t.Fatalf("prompt error = %v, want context canceled", err)
+		}
+	case <-time.After(time.Second):
+		t.Fatal("blocked human prompt did not observe cancellation")
 	}
 }
 
@@ -584,8 +608,8 @@ func TestPrepareStableLiveExecutableIsPrivateAndIndependent(t *testing.T) {
 		t.Fatalf("stable executable mode = %v, %v", info, err)
 	}
 	cleanup()
-	if _, err := os.Stat(stable); !os.IsNotExist(err) {
-		t.Fatalf("private executable copy was not cleaned up: %v", err)
+	if _, err := os.Stat(stable); err != nil {
+		t.Fatalf("content-addressed executable was not retained: %v", err)
 	}
 }
 

@@ -76,6 +76,44 @@ func TestAttachBrowserVerificationsRetainedSummaryWinsOverRepeatedCLIPath(t *tes
 	}
 }
 
+func TestAttachBrowserVerificationsCanonicalizesBeforeDuplicateOrdering(t *testing.T) {
+	profileData, prof := browserVerificationFixture(t)
+	reportDir := t.TempDir()
+	reportPath := filepath.Join(reportDir, "verification.json")
+	data, err := json.Marshal(browserVerificationLiveReport(t, prof, true))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(reportPath, data, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	sources, err := AttachBrowserVerifications([]SourceMaterialization{browserVerificationSource(profileData)}, []string{reportPath}, browserVerificationAt())
+	if err != nil {
+		t.Fatal(err)
+	}
+	changed := browserVerificationLiveReport(t, prof, true)
+	changed.CheckedAt = "2026-08-16T12:01:00Z"
+	data, _ = json.Marshal(changed)
+	if err := os.WriteFile(reportPath, data, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	child := filepath.Join(reportDir, "child")
+	if err := os.Mkdir(child, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	previous, err := os.Getwd()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Chdir(child); err != nil {
+		t.Fatal(err)
+	}
+	defer os.Chdir(previous)
+	if _, err := AttachBrowserVerifications(sources, []string{"../verification.json"}, browserVerificationAt()); err == nil || !strings.Contains(err.Error(), "changed after review") {
+		t.Fatalf("relative duplicate bypassed retained summary: %v", err)
+	}
+}
+
 func TestAttachBrowserVerificationsRejectsMismatchPrivateAndConflict(t *testing.T) {
 	profileData, prof := browserVerificationFixture(t)
 	source := browserVerificationSource(profileData)

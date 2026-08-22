@@ -1,0 +1,12 @@
+{
+  "version": "openudon.browser-scenario.v1",
+  "id": "fabricated-trace-rejected",
+  "suite": "loopback",
+  "authentication": {"credentials": ["identifier", "password"], "contextMode": "main"},
+  "goal": {"context": "main", "role": "heading", "name": "Member dashboard"},
+  "outputs": [{"key": "account_name", "type": "string", "role": "status", "name": "Account name", "locatorMode": "exact_name"}],
+  "fault": "fabricated_trace",
+  "replayVariants": [],
+  "expected": {"authoring": "rejected", "replay": "rejected", "failureCode": "fabricated_trace"},
+  "probes": []
+}

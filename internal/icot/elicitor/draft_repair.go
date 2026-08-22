@@ -14,6 +14,10 @@ func applyDraftReviewRepairs(session *Session, issues []DraftReviewIssue) (bool,
 	changed := false
 	var rejected []string
 	for _, issue := range sanitizeDraftReviewResponse(DraftReviewResponse{Issues: issues}).Issues {
+		if strings.HasSuffix(strings.TrimSpace(issue.Slot), ".browser_session") || strings.HasSuffix(strings.TrimSpace(issue.Slot), ".browser_approval") || strings.HasSuffix(strings.TrimSpace(issue.Slot), ".authentication_flow") || strings.HasSuffix(strings.TrimSpace(issue.Slot), ".credential_bindings") {
+			rejected = append(rejected, firstNonEmpty(issue.Slot, issue.Code)+" (browser authority requires an exact operator decision)")
+			continue
+		}
 		if strings.TrimSpace(issue.SuggestedAnswer) == "" {
 			rejected = append(rejected, firstNonEmpty(issue.Slot, issue.Code)+" (missing suggested answer)")
 			continue

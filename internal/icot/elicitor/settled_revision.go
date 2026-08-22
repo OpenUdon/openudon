@@ -48,7 +48,7 @@ func BuildRevisableDecisions(session Session) []RevisableDecision {
 		decisions = append(decisions, RevisableDecision{
 			QuestionID: node.ID,
 			Prompt:     firstNonEmpty(node.Prompt, node.Title, node.ID),
-			Slots:      settledDecisionSlots(node.ID),
+			Slots:      settledDecisionSlots(session, node.ID),
 			Value:      answer.Value,
 			Impact:     settledDecisionImpact(node.ID),
 		})
@@ -102,6 +102,9 @@ func ReopenSettledDecision(session *Session, questionID string, docs []APIDocume
 }
 
 func reopenableDecision(questionID string) bool {
+	if strings.HasPrefix(questionID, "browser.session.") || strings.HasPrefix(questionID, "browser.approval.") {
+		return true
+	}
 	switch questionID {
 	case nodeActiveWorkflow, nodeActorTrigger, nodeSuccessEvidence,
 		nodeRemoteLookup, nodeBrowserRegistry, nodeSideEffectPosture, nodeBrowserSession,
@@ -128,7 +131,13 @@ func usesSelectedBrowserRegistrySource(session Session) bool {
 	return false
 }
 
-func settledDecisionSlots(questionID string) []string {
+func settledDecisionSlots(session Session, questionID string) []string {
+	if step := browserStepForNodeID(session, questionID, "browser.session."); step != nil {
+		return []string{"steps." + step.Name + ".browser_session"}
+	}
+	if step := browserStepForNodeID(session, questionID, "browser.approval."); step != nil {
+		return []string{"steps." + step.Name + ".browser_approval"}
+	}
 	switch questionID {
 	case nodeActiveWorkflow:
 		return []string{"boundary.active_workflow"}
@@ -157,6 +166,9 @@ func settledDecisionSlots(questionID string) []string {
 }
 
 func settledDecisionImpact(questionID string) string {
+	if strings.HasPrefix(questionID, "browser.session.") || strings.HasPrefix(questionID, "browser.approval.") {
+		return "Reopening this step-scoped browser session or approval may make the current proposal incomplete until the exact replacement is reviewed."
+	}
 	switch questionID {
 	case nodeActiveWorkflow:
 		return "Reopening the active boundary may invalidate source, operation, mapping, and preview decisions. The engine will re-run readiness before any replacement is accepted."
@@ -168,6 +180,15 @@ func settledDecisionImpact(questionID string) string {
 }
 
 func clearSettledDecision(session *Session, questionID string, docs []APIDocument) error {
+	if step := browserStepForNodeID(*session, questionID, "browser.session."); step != nil {
+		step.BrowserSession = ""
+		synchronizeBrowserSessionPosture(session, docs)
+		return nil
+	}
+	if step := browserStepForNodeID(*session, questionID, "browser.approval."); step != nil {
+		session.BrowserApprovals = removeString(session.BrowserApprovals, step.Name)
+		return nil
+	}
 	switch questionID {
 	case nodeActiveWorkflow:
 		delete(session.Interview.Metadata, "active_workflow_selected")

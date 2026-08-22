@@ -18,8 +18,10 @@ import (
 	"github.com/OpenUdon/browsertools/authorresult"
 	"github.com/OpenUdon/browsertools/authorsession"
 	"github.com/OpenUdon/browsertools/authprofile"
+	"github.com/OpenUdon/browsertools/disclosurepath"
 	"github.com/OpenUdon/browsertools/profile"
 	"github.com/OpenUdon/evidence/redact"
+	"github.com/OpenUdon/openudon/internal/icot/browserauthor"
 	"github.com/OpenUdon/openudon/internal/icot/elicitor"
 	"github.com/OpenUdon/openudon/internal/icot/engine"
 	"github.com/OpenUdon/uws/browserauthentication"
@@ -143,6 +145,17 @@ type preparedAuthenticatedImport struct {
 }
 
 func prepareAuthenticatedAuthoringImport(cfg liveAuthorConfig, result liveProtocolResult, at time.Time) (preparedAuthenticatedImport, error) {
+	return prepareAuthenticatedAuthoringImportWithAttestation(cfg, result, at, false)
+}
+
+// prepareAttestedAuthenticatedAuthoringImport is the production staging entry
+// point. It requires the process-private evidence captured by the parent while
+// it drove the worker protocol.
+func prepareAttestedAuthenticatedAuthoringImport(cfg liveAuthorConfig, result liveProtocolResult, at time.Time) (preparedAuthenticatedImport, error) {
+	return prepareAuthenticatedAuthoringImportWithAttestation(cfg, result, at, true)
+}
+
+func prepareAuthenticatedAuthoringImportWithAttestation(cfg liveAuthorConfig, result liveProtocolResult, at time.Time, requireAttestation bool) (preparedAuthenticatedImport, error) {
 	data, actualDigest, err := readStablePrivateAuthorResult(result.ArtifactPath, cfg.PrivateRoot)
 	if err != nil {
 		return preparedAuthenticatedImport{}, err
@@ -154,8 +167,26 @@ func prepareAuthenticatedAuthoringImport(cfg liveAuthorConfig, result liveProtoc
 	if err != nil {
 		return preparedAuthenticatedImport{}, err
 	}
-	if err := validateAuthenticatedAuthoringEnvelope(cfg, envelope, at); err != nil {
+	validationConfig := cfg
+	if requireAttestation && result.Attestation != nil {
+		// Exact expansion authority is carried only by the parent ledger. The
+		// independent envelope validator still canonicalizes every final origin.
+		validationConfig.Origins = append([]string(nil), envelope.Origins...)
+	}
+	if err := validateAuthenticatedAuthoringEnvelope(validationConfig, envelope, at); err != nil {
 		return preparedAuthenticatedImport{}, err
+	}
+	if requireAttestation {
+		if result.Attestation == nil {
+			return preparedAuthenticatedImport{}, fmt.Errorf("parent browser-authoring attestation is required")
+		}
+		var produced authorresult.Envelope
+		if err := json.Unmarshal(data, &produced); err != nil {
+			return preparedAuthenticatedImport{}, fmt.Errorf("authenticated-authoring envelope cannot be attested")
+		}
+		if err := browserauthor.VerifyAttestation(result.Attestation, &produced); err != nil {
+			return preparedAuthenticatedImport{}, err
+		}
 	}
 	authenticationBytes, err := canonicalEmbeddedProfile(envelope.AuthenticationProfile)
 	if err != nil {
@@ -422,7 +453,10 @@ func validateAuthenticatedAuthoringEnvelope(cfg liveAuthorConfig, envelope *auth
 	if err != nil || at.Before(observedAt.Add(-time.Minute)) || at.Sub(observedAt) > 31*time.Minute {
 		return fmt.Errorf("authenticated-authoring observation time is invalid or stale")
 	}
-	goalOrigin, goalPath := originAndPath(liveGoalURL(cfg))
+	goalOrigin, goalPath, err := originAndPath(liveGoalURL(cfg))
+	if err != nil {
+		return err
+	}
 	wantGoal := liveGoalPredicate{Origin: goalOrigin, Path: goalPath, Context: cfg.GoalContext, Role: cfg.GoalRole, Label: cfg.GoalLabel}
 	if !reflect.DeepEqual(envelope.GoalPredicate, wantGoal) || envelope.GoalProof.Origin != wantGoal.Origin || envelope.GoalProof.Path != wantGoal.Path || envelope.GoalProof.Context != wantGoal.Context || envelope.GoalProof.Role != wantGoal.Role || envelope.GoalProof.Label != wantGoal.Label || envelope.GoalProof.Matches != 1 {
 		return fmt.Errorf("authenticated-authoring typed goal proof does not match the reviewed predicate")
@@ -629,7 +663,7 @@ func validateLiveContextGraph(contexts map[string]liveContext, origins []string)
 				return fmt.Errorf("authenticated-authoring frame name is not canonical disclosure-safe text")
 			}
 		}
-		if context.Path != "" && (!strings.HasPrefix(context.Path, "/") || strings.ContainsAny(context.Path, "?#\\")) {
+		if context.Path != "" && disclosurepath.Validate(context.Path) != nil {
 			return fmt.Errorf("authenticated-authoring frame path is invalid")
 		}
 	}
@@ -696,7 +730,10 @@ func validateAuthenticatedProfileSemantics(cfg liveAuthorConfig, envelope *authe
 	if !ok || flow.Success.Locator.Text != "" || flow.Success.Locator.Value != "" || !livePortableRoles[flow.Success.Locator.Role] {
 		return fmt.Errorf("authenticated-authoring authentication success proof is invalid")
 	}
-	dashboardOrigin, dashboardPath := originAndPath(cfg.DashboardURL)
+	dashboardOrigin, dashboardPath, err := originAndPath(cfg.DashboardURL)
+	if err != nil {
+		return err
+	}
 	if flow.Success.Origin != dashboardOrigin || flow.Success.Path != dashboardPath || (flow.Success.Locator.Name != "" && !canonicalLiveLabel(flow.Success.Locator.Name)) {
 		return fmt.Errorf("authenticated-authoring authentication success proof does not match the reviewed dashboard")
 	}

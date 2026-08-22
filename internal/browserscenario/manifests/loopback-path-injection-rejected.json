@@ -1,0 +1,12 @@
+{
+  "version": "openudon.browser-scenario.v1",
+  "id": "path-injection-rejected",
+  "suite": "loopback",
+  "authentication": {"credentials": ["identifier", "password"], "contextMode": "main"},
+  "goal": {"context": "main", "role": "heading", "name": "Member dashboard"},
+  "outputs": [],
+  "fault": "path_injection",
+  "replayVariants": [],
+  "expected": {"authoring": "rejected", "replay": "rejected", "failureCode": "path_disclosure"},
+  "probes": []
+}

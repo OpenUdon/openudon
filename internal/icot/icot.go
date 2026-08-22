@@ -241,37 +241,16 @@ func runAuthor(args []string, in io.Reader, out, errOut io.Writer) int {
 	var artifacts elicitor.Artifacts
 	complete := completeSession(seed)
 	if complete {
-		discovery, discoveryErr := elicitor.DiscoverAuthoringSourcesWithBrowser(context.Background(), exampleDir, projectwizard.Render(seed.Project), localSources, authorSourceRoots, browserSources, time.Now().UTC())
-		if discoveryErr != nil {
-			fmt.Fprintln(errOut, discoveryErr)
+		refreshed, refreshErr := elicitor.RefreshSessionSources(context.Background(), seed, elicitor.SourceRefreshOptions{
+			ExampleDir: exampleDir, Query: projectwizard.Render(seed.Project), LocalSources: localSources, SourceRoots: authorSourceRoots,
+			BrowserSources: browserSources, BrowserRegistries: browserRegistryFlags, BrowserVerifications: browserVerificationFlags,
+			NetworkPolicy: networkPolicy, At: time.Now().UTC(), RejectIncomplete: true,
+		})
+		if refreshErr != nil {
+			fmt.Fprintln(errOut, refreshErr)
 			return 1
 		}
-		if discovery.Report.Truncated || len(discovery.Report.Ambiguous) > 0 {
-			fmt.Fprintln(errOut, "local source discovery is incomplete; narrow --source-root or declare ambiguous files with --api-source KIND:ID=PATH")
-			return 1
-		}
-		if len(discovery.BrowserReport.Truncated) > 0 || len(discovery.BrowserReport.Ambiguous) > 0 {
-			fmt.Fprintln(errOut, "browser source discovery is incomplete; narrow --source-root or declare the profile with --browser-profile ID=PATH")
-			return 1
-		}
-		if len(browserRegistryFlags) > 0 && (len(discovery.Docs) == 0 || seed.BrowserRoute == "browser" || sessionUsesBrowserRegistry(seed)) {
-			registryDiscovery, registryErr := elicitor.DiscoverBrowserRegistrySources(context.Background(), browserRegistryFlags, seed.Boundary.Outcome, networkPolicy, browserRegistryLookupApproved(seed, networkPolicy), time.Now().UTC())
-			if registryErr != nil {
-				fmt.Fprintln(errOut, registryErr)
-				return 1
-			}
-			discovery = elicitor.MergeBrowserRegistrySources(discovery, registryDiscovery)
-			if sessionUsesBrowserRegistry(seed) && len(registryDiscovery.Plans) == 0 {
-				fmt.Fprintln(errOut, "selected browser registry profile could not be revalidated; use --network allow for HTTPS registries or provide the profile with --browser-profile")
-				return 1
-			}
-		}
-		seed.SourcePlan = elicitor.SyncSelectedSourcePlansWithBrowser(seed, discovery.Plans, localSources, browserSources)
-		seed.SourcePlan, err = elicitor.AttachBrowserVerifications(seed.SourcePlan, browserVerificationFlags, time.Now().UTC())
-		if err != nil {
-			fmt.Fprintln(errOut, err)
-			return 1
-		}
+		seed = refreshed.Session
 	}
 	if complete && (source != seedSourceDraft || *printOnly) {
 		artifacts, err = elicitor.RenderArtifacts(seed)
@@ -432,7 +411,11 @@ func runAgentAuthor(opts agentAuthorOptions, out, errOut io.Writer) int {
 	if strings.TrimSpace(opts.FromExample) != "" && filepath.Clean(opts.FromExample) != filepath.Clean(exampleDir) {
 		discoveryRoots = appendSeedSourceRoots(discoveryRoots, opts.FromExample)
 	}
-	discovery, discoveryErr := elicitor.DiscoverAuthoringSourcesWithBrowser(context.Background(), exampleDir, projectText, opts.LocalSources, discoveryRoots, opts.BrowserSources, time.Now().UTC())
+	refreshed, discoveryErr := elicitor.RefreshSessionSources(context.Background(), seed, elicitor.SourceRefreshOptions{
+		ExampleDir: exampleDir, Query: projectText, LocalSources: opts.LocalSources, SourceRoots: discoveryRoots,
+		BrowserSources: opts.BrowserSources, BrowserRegistries: opts.BrowserRegistries, BrowserVerifications: opts.BrowserVerifications,
+		NetworkPolicy: opts.NetworkPolicy, At: time.Now().UTC(), RejectIncomplete: true,
+	})
 	if discoveryErr != nil {
 		report.Status = statusFail
 		report.Error = discoveryErr.Error()
@@ -441,37 +424,8 @@ func runAgentAuthor(opts agentAuthorOptions, out, errOut io.Writer) int {
 		fmt.Fprintln(errOut, discoveryErr)
 		return 1
 	}
-	registryDiscovery := elicitor.BrowserRegistryDiscovery{Candidates: []elicitor.BrowserRegistryCandidate{}, Blockers: []elicitor.BrowserRegistryBlocker{}}
-	if len(opts.BrowserRegistries) > 0 && (len(discovery.Docs) == 0 || seed.BrowserRoute == "browser") {
-		registryDiscovery, err = elicitor.DiscoverBrowserRegistrySources(context.Background(), opts.BrowserRegistries, firstNonEmpty(seed.Boundary.Outcome, projectText), opts.NetworkPolicy, opts.NetworkPolicy == "allow", time.Now().UTC())
-		if err != nil {
-			report.Status = statusFail
-			report.Error = err.Error()
-			report.FailureFamily = failureMissingAPISource
-			_ = writeAuthorReport(report, opts, out)
-			fmt.Fprintln(errOut, err)
-			return 1
-		}
-		discovery = elicitor.MergeBrowserRegistrySources(discovery, registryDiscovery)
-	}
+	seed, discovery, registryDiscovery := refreshed.Session, refreshed.Discovery, refreshed.Registry
 	docs := discovery.Docs
-	seed.SourcePlan = elicitor.SyncSelectedSourcePlansWithBrowser(seed, discovery.Plans, opts.LocalSources, opts.BrowserSources)
-	seed.SourcePlan, err = elicitor.AttachBrowserVerifications(seed.SourcePlan, opts.BrowserVerifications, time.Now().UTC())
-	if err != nil {
-		report.Status = statusFail
-		report.Error = err.Error()
-		report.FailureFamily = failureMissingAPISource
-		_ = writeAuthorReport(report, opts, out)
-		fmt.Fprintln(errOut, err)
-		return 1
-	}
-	if seed.Interview.Metadata == nil {
-		seed.Interview.Metadata = map[string]string{}
-	}
-	seed.Interview.Metadata["network_policy"] = opts.NetworkPolicy
-	if len(opts.BrowserRegistries) > 0 {
-		seed.Interview.Metadata["browser_registry_configured"] = "true"
-	}
 	if len(docs) == 0 && seed.Intent.RequiresOpenAPI() {
 		remote, remoteErr := elicitor.DiscoverRemoteSourceHints(context.Background(), seed.Boundary.Outcome, elicitor.RemoteSourceLookupOptions{Policy: opts.NetworkPolicy, Approved: opts.NetworkPolicy == "allow"})
 		if remoteErr != nil {

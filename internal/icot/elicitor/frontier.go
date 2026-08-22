@@ -1,6 +1,7 @@
 package elicitor
 
 import (
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"reflect"
@@ -31,6 +32,46 @@ const (
 	nodeVerification        = "workflow.verification"
 	nodeFinalIntentApproval = "intent.final_approval"
 )
+
+func browserActionNodeID(step *rollout.Step) string {
+	return "browser.action." + browserStepNodeComponent(step)
+}
+
+func browserSourceNodeID(step *rollout.Step) string {
+	return "browser.source." + browserStepNodeComponent(step)
+}
+
+func browserSessionNodeID(step *rollout.Step) string {
+	return "browser.session." + browserStepNodeComponent(step)
+}
+
+func browserApprovalNodeID(step *rollout.Step) string {
+	return "browser.approval." + browserStepNodeComponent(step)
+}
+
+func browserStepNodeComponent(step *rollout.Step) string {
+	name := "browser"
+	if step != nil {
+		name = firstNonEmpty(step.Name, name)
+	}
+	// Hex is deliberately reversible and collision-free. Slugging step names
+	// made distinct names such as a-b and a_b share one authority-bearing node.
+	return hex.EncodeToString([]byte(name))
+}
+
+func browserStepForNodeID(session Session, nodeID, prefix string) *rollout.Step {
+	if !strings.HasPrefix(nodeID, prefix) {
+		return nil
+	}
+	wanted := strings.TrimPrefix(nodeID, prefix)
+	var result *rollout.Step
+	walkSteps(session.Intent.Steps, func(step *rollout.Step) {
+		if result == nil && step != nil && strings.EqualFold(strings.TrimSpace(step.Type), "browser") && browserStepNodeComponent(step) == wanted {
+			result = step
+		}
+	})
+	return result
+}
 
 // PlanFrontier returns every independent, dependency-ready question and stores
 // the corresponding design tree in the durable v2 session.
@@ -104,12 +145,16 @@ func buildInterviewState(session Session, docs []APIDocument, issues []Readiness
 	}
 	add(publicinterview.Node{ID: nodeSuccessEvidence, Title: "Success evidence", Dependencies: []string{boundaryRoot}, Required: true, Priority: 89, Recommendation: successRecommendation, Rationale: "Observable evidence makes completion verifiable."}, QuestionPlan{Prompt: "What evidence proves this workflow succeeded?", Slots: []string{"boundary.success_evidence"}}, len(session.Boundary.SuccessEvidence) > 0)
 
-	browserStep, browserDoc, browserOperation := selectedBrowserOperation(session, docs)
-	browserActionNode := ""
-	if browserStep != nil {
-		add(publicinterview.Node{ID: nodeSourceSelection, Title: "Browser source", Dependencies: []string{boundaryRoot}, Required: true, Priority: 75, Rationale: "A verified browser profile is required before selecting one of its reviewed actions."}, QuestionPlan{Prompt: "Select the verified browser profile for the active capability.", Slots: []string{"intent.source"}}, browserDoc.RelativePath != "")
-		browserActionNode = "browser.action." + slugIdent(browserStep.Name)
-		add(publicinterview.Node{ID: browserActionNode, Title: "Browser action", Dependencies: []string{nodeSourceSelection}, Required: true, Priority: 70, Rationale: "The action must exist in the selected verified profile."}, QuestionPlan{Prompt: "Select a reviewed browser action from the verified profile.", Slots: []string{"steps." + browserStep.Name + ".operation"}}, browserOperation != nil)
+	browserSelections := selectedBrowserOperations(session, docs)
+	browserActionNodes := make([]string, 0, len(browserSelections))
+	browserActionsByStep := map[string]string{}
+	for _, selected := range browserSelections {
+		step := selected.Step
+		sourceNode, actionNode := browserSourceNodeID(step), browserActionNodeID(step)
+		browserActionNodes = append(browserActionNodes, actionNode)
+		browserActionsByStep[step.Name] = actionNode
+		add(publicinterview.Node{ID: sourceNode, Title: "Browser source for " + step.Name, Dependencies: []string{boundaryRoot}, Required: true, Priority: 75, Rationale: "A verified browser profile is required before selecting one of its reviewed actions."}, QuestionPlan{Prompt: "Select the verified browser profile for browser step " + step.Name + ".", Slots: []string{"steps." + step.Name + ".source"}}, selected.Document.RelativePath != "")
+		add(publicinterview.Node{ID: actionNode, Title: "Browser action for " + step.Name, Dependencies: []string{sourceNode}, Required: true, Priority: 70, Rationale: "The action must exist in the selected verified profile."}, QuestionPlan{Prompt: "Select a reviewed browser action for step " + step.Name + ".", Slots: []string{"steps." + step.Name + ".operation"}}, selected.Operation != nil)
 	}
 
 	issueMap := map[string]ReadinessIssue{}
@@ -148,6 +193,7 @@ func buildInterviewState(session Session, docs []APIDocument, issues []Readiness
 		}
 		id := originalID
 		plan := planQuestionForIssue(session, docs, issue)
+		issueStep := targetStepForPlan(&session, plan)
 		switch issue.Code {
 		case "missing_side_effect_policy", "unsafe_review_bypass":
 			id, deferrable = nodeSideEffectPosture, false
@@ -160,28 +206,39 @@ func buildInterviewState(session Session, docs []APIDocument, issues []Readiness
 			id = nodeCredentials
 		case "missing_browser_session_posture":
 			id, deferrable = nodeBrowserSession, false
-			if browserActionNode != "" {
-				deps = []string{browserActionNode}
+			if issueStep != nil {
+				id = browserSessionNodeID(issueStep)
+				if actionNode := browserActionsByStep[issueStep.Name]; actionNode != "" {
+					deps = []string{actionNode}
+				}
 			}
 		case "unconfirmed_browser_mutation":
 			id, deferrable = nodeBrowserApproval, false
-			if browserActionNode != "" {
-				deps = []string{browserActionNode}
+			if issueStep != nil {
+				id = browserApprovalNodeID(issueStep)
+				if actionNode := browserActionsByStep[issueStep.Name]; actionNode != "" {
+					deps = []string{actionNode}
+				}
 			}
 		case "missing_outputs":
 			id = nodeOutputs
-			if browserActionNode != "" {
-				deps = existingDependencies(nodes, nodeBrowserSession, nodeBrowserApproval, browserActionNode)
+			if len(browserActionNodes) > 0 {
+				browserDeps := append([]string(nil), browserActionNodes...)
+				browserDeps = append(browserDeps, matchingNodeIDs(nodes, "browser.session.")...)
+				browserDeps = append(browserDeps, matchingNodeIDs(nodes, "browser.approval.")...)
+				deps = existingDependencies(nodes, browserDeps...)
 			}
 		case "missing_operation":
 			if issue.Slot == "intent.steps" {
 				id = nodeWorkflowSteps
 			}
 		}
-		if browserActionNode != "" && browserStep != nil && strings.Contains(issue.Slot, "steps."+browserStep.Name+".") {
+		if issueStep != nil {
 			switch issue.Code {
 			case "missing_required_request_values", "conflicting_mapping", "low_confidence_mapping":
-				deps = []string{browserActionNode}
+				if actionNode := browserActionsByStep[issueStep.Name]; actionNode != "" {
+					deps = []string{actionNode}
+				}
 			}
 		}
 		add(publicinterview.Node{ID: id, Title: issue.Code, Dependencies: deps, Required: issue.Severity == readinessBlocking, Deferrable: deferrable, Priority: priority, Rationale: issue.Message, Recommendation: issue.SuggestedAnswer}, plan, false)
@@ -197,8 +254,11 @@ func buildInterviewState(session Session, docs []APIDocument, issues []Readiness
 	case hasNode(nodes, nodeWorkflowSteps):
 		outputDep = nodeWorkflowSteps
 	}
-	if browserActionNode != "" {
-		browserDeps := existingDependencies(nodes, nodeBrowserSession, nodeBrowserApproval, browserActionNode)
+	if len(browserActionNodes) > 0 {
+		browserIDs := append([]string(nil), browserActionNodes...)
+		browserIDs = append(browserIDs, matchingNodeIDs(nodes, "browser.session.")...)
+		browserIDs = append(browserIDs, matchingNodeIDs(nodes, "browser.approval.")...)
+		browserDeps := existingDependencies(nodes, browserIDs...)
 		if len(browserDeps) > 0 {
 			outputDep = ""
 		}
@@ -208,7 +268,7 @@ func buildInterviewState(session Session, docs []APIDocument, issues []Readiness
 	}
 	if !missingOperation || outputDep != "" {
 		deps := existingDependencies(nodes, outputDep)
-		if browserActionNode == "" {
+		if len(browserActionNodes) == 0 {
 			add(publicinterview.Node{ID: nodeFallback, Title: "Fallback behavior", Dependencies: deps, Deferrable: true, Priority: 20, Recommendation: "stop cleanly and report the failed step", Rationale: "Fallback behavior prevents silent partial success."}, QuestionPlan{Prompt: "What should happen when a required step fails?", Slots: []string{"fallback"}}, strings.TrimSpace(firstNonEmpty(session.Fallback, session.Project.Fallback)) != "")
 			add(publicinterview.Node{ID: nodeVerification, Title: "Verification", Dependencies: deps, Deferrable: true, Priority: 19, Recommendation: successRecommendation, Rationale: "Verification turns the expected result into a reviewable check."}, QuestionPlan{Prompt: "How should the result be verified?", Slots: []string{"boundary.success_evidence"}}, len(session.Boundary.SuccessEvidence) > 0)
 		}
@@ -419,6 +479,92 @@ func openUdonInterviewBinding(docs []APIDocument) authoring.InterviewBinding[Ses
 func applyFrontierValue(session *Session, nodeID string, answer authoring.RoundAnswer, docs []APIDocument) error {
 	value := strings.TrimSpace(answer.Value)
 	clearRevisionPending(session, nodeID)
+	if strings.HasPrefix(nodeID, "browser.source.") {
+		step := browserStepForNodeID(*session, nodeID, "browser.source.")
+		if step == nil {
+			return fmt.Errorf("browser source decision does not match an active browser step")
+		}
+		var browserDocs []APIDocument
+		for _, doc := range docs {
+			if isBrowserActionDocument(doc) {
+				browserDocs = append(browserDocs, doc)
+			}
+		}
+		doc := matchDocAnswer(value, browserDocs)
+		if doc.RelativePath == "" {
+			return fmt.Errorf("browser source for step %q must exactly match a verified browser profile", step.Name)
+		}
+		priorSource := stepAPISourceRef(*session, step)
+		setStepAPISourceFromDoc(step, doc)
+		if priorSource != doc.RelativePath {
+			step.Operation = ""
+			step.BrowserSession = ""
+			session.BrowserApprovals = removeString(session.BrowserApprovals, step.Name)
+			synchronizeBrowserSessionPosture(session, docs)
+		}
+		return nil
+	}
+	if strings.HasPrefix(nodeID, "browser.action.") {
+		step := browserStepForNodeID(*session, nodeID, "browser.action.")
+		if step == nil {
+			return fmt.Errorf("browser action decision does not match an active browser step")
+		}
+		doc, operation := matchOperationAnswer(value, filterDocsForStep(session, docs, step))
+		if operation == nil || !isBrowserOperationSummary(operation) {
+			return fmt.Errorf("browser action for step %q must exactly match an action in its selected profile", step.Name)
+		}
+		step.Type = "browser"
+		setStepAPISourceFromDoc(step, doc)
+		step.Operation = operation.OperationID
+		step.Do = firstNonEmpty(step.Do, operation.Summary, operationLabel(*operation))
+		session.BrowserRoute = "browser"
+		addMappingClassification(session, MappingClassification{
+			Slot: stepOperationSlot(step), Value: operation.OperationID,
+			Source: mappingSourceUser, Confidence: mappingConfidenceHigh,
+			Evidence: value, Reason: "User selected the browser action for this step.",
+		})
+		return nil
+	}
+	if strings.HasPrefix(nodeID, "browser.session.") {
+		step := targetStepForPlan(session, QuestionPlan{Slots: answer.Slots})
+		if step == nil {
+			step = browserStepForNodeID(*session, nodeID, "browser.session.")
+		}
+		if step == nil {
+			return fmt.Errorf("browser session decision does not match an active browser step")
+		}
+		operation, ok := operationForStep(*session, docs, step)
+		loginRequired := ok && operation.Extensions["openudon.browser.login_state_required"] == "true" && !browserActionHasEstablishedSession(*session, step)
+		if strings.EqualFold(value, "none") {
+			if loginRequired {
+				return fmt.Errorf("browser step %q requires a symbolic external session name", step.Name)
+			}
+			step.BrowserSession = ""
+			synchronizeBrowserSessionPosture(session, docs)
+			return nil
+		}
+		if !browserBindingNamePattern.MatchString(value) {
+			return fmt.Errorf("browser session for step %q must be a symbolic execution-local name", step.Name)
+		}
+		step.BrowserSession = value
+		session.BrowserSession = "opaque-runtime-binding-required"
+		return nil
+	}
+	if strings.HasPrefix(nodeID, "browser.approval.") {
+		step := targetStepForPlan(session, QuestionPlan{Slots: answer.Slots})
+		if step == nil {
+			step = browserStepForNodeID(*session, nodeID, "browser.approval.")
+		}
+		if step == nil || value != "approve "+step.Name {
+			return fmt.Errorf("browser mutation approval must exactly match approve <operation-step-name>")
+		}
+		operation, ok := operationForStep(*session, docs, step)
+		if !ok || !browserOperationMutates(operation) {
+			return fmt.Errorf("browser mutation approval does not match an active mutating step")
+		}
+		session.BrowserApprovals = dedupeStrings(append(session.BrowserApprovals, step.Name))
+		return nil
+	}
 	switch nodeID {
 	case nodeBoundaryOutcome:
 		session.Boundary.Outcome = value
@@ -511,9 +657,28 @@ func applyFrontierValue(session *Session, nodeID string, answer authoring.RoundA
 			}
 			return fmt.Errorf("security alternative decision %q does not match an active step", nodeID)
 		}
-		applyProgressiveAnswer(session, QuestionPlan{ID: nodeID, Slots: append([]string(nil), answer.Slots...)}, value, docs)
+		if err := applyProgressiveAnswerChecked(session, QuestionPlan{ID: nodeID, Slots: append([]string(nil), answer.Slots...)}, value, docs); err != nil {
+			return err
+		}
 	}
 	return nil
+}
+
+func synchronizeBrowserSessionPosture(session *Session, docs []APIDocument) {
+	if session == nil {
+		return
+	}
+	hasExternal := false
+	walkSteps(session.Intent.Steps, func(step *rollout.Step) {
+		if step != nil && strings.EqualFold(strings.TrimSpace(step.Type), "browser") && strings.TrimSpace(step.BrowserSession) != "" && !browserActionHasEstablishedSession(*session, step) {
+			hasExternal = true
+		}
+	})
+	if hasExternal {
+		session.BrowserSession = "opaque-runtime-binding-required"
+	} else {
+		session.BrowserSession = "none"
+	}
 }
 
 func splitFrontierList(value string) []string {

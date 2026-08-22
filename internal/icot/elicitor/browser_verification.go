@@ -50,6 +50,7 @@ func AttachBrowserVerifications(sources []SourceMaterialization, reportPaths []s
 		path     string
 		expected int
 		summary  *browserverify.Summary
+		retained bool
 	}
 	requests := make([]requestedReport, 0, len(reportPaths))
 	// Retained attachments must precede repeated CLI paths. Stable sorting then
@@ -58,7 +59,7 @@ func AttachBrowserVerifications(sources []SourceMaterialization, reportPaths []s
 	for index := range result {
 		for attachmentIndex := range result[index].BrowserVerifications {
 			attachment := &result[index].BrowserVerifications[attachmentIndex]
-			requests = append(requests, requestedReport{path: attachment.SourcePath, expected: index, summary: &attachment.Summary})
+			requests = append(requests, requestedReport{path: attachment.SourcePath, expected: index, summary: &attachment.Summary, retained: true})
 		}
 		result[index].BrowserVerifications = nil
 	}
@@ -68,15 +69,23 @@ func AttachBrowserVerifications(sources []SourceMaterialization, reportPaths []s
 	if len(requests) > browserverify.MaxReports {
 		return nil, fmt.Errorf("browser verification reports exceed limit %d", browserverify.MaxReports)
 	}
-	sort.SliceStable(requests, func(i, j int) bool { return filepath.Clean(requests[i].path) < filepath.Clean(requests[j].path) })
+	for index := range requests {
+		absPath, err := filepath.Abs(strings.TrimSpace(requests[index].path))
+		if err != nil || strings.TrimSpace(requests[index].path) == "" {
+			return nil, fmt.Errorf("browser verification report path is invalid")
+		}
+		requests[index].path = filepath.Clean(absPath)
+	}
+	sort.SliceStable(requests, func(i, j int) bool {
+		if requests[i].path != requests[j].path {
+			return requests[i].path < requests[j].path
+		}
+		return requests[i].retained && !requests[j].retained
+	})
 	seenPath := map[string]requestedReport{}
 	logical := map[int]map[string]browserverify.Summary{}
 	for _, request := range requests {
-		absPath, err := filepath.Abs(strings.TrimSpace(request.path))
-		if err != nil || strings.TrimSpace(request.path) == "" {
-			return nil, fmt.Errorf("browser verification report path %q is invalid", request.path)
-		}
-		absPath = filepath.Clean(absPath)
+		absPath := request.path
 		if prior, duplicate := seenPath[absPath]; duplicate {
 			if prior.expected >= 0 && request.expected >= 0 && prior.expected != request.expected {
 				return nil, fmt.Errorf("browser verification report %s is attached to multiple profiles", absPath)

@@ -6,13 +6,14 @@ require (
 	github.com/OpenUdon/apitools v0.0.0-20260820042238-d51b61ead067
 	github.com/OpenUdon/asyncapi v0.1.0
 	github.com/OpenUdon/authoring v0.0.0-20260820042256-2f73e3526583
-	github.com/OpenUdon/browsertools v0.0.0-20260821154836-7ea7e832d7f8
+	github.com/OpenUdon/browsertools v0.0.0-20260822182551-e392fd080fc4
 	github.com/OpenUdon/evidence v0.0.0-20260815084845-0c17258b9736
 	github.com/OpenUdon/uws v0.0.0-20260819172405-e81d0dee410a
 	github.com/hashicorp/hcl/v2 v2.24.0
 	github.com/mxschmitt/playwright-go v0.6201.0
 	github.com/santhosh-tekuri/jsonschema/v6 v6.0.2
 	github.com/zclconf/go-cty v1.18.1
+	golang.org/x/mod v0.37.0
 	gopkg.in/yaml.v3 v3.0.1
 )
 
@@ -49,7 +50,6 @@ require (
 	github.com/theory/jsonpath v0.12.0 // indirect
 	github.com/zclconf/go-cty-yaml v1.1.0 // indirect
 	golang.org/x/crypto v0.53.0 // indirect
-	golang.org/x/mod v0.37.0 // indirect
 	golang.org/x/net v0.56.0 // indirect
 	golang.org/x/sync v0.21.0 // indirect
 	golang.org/x/sys v0.46.0 // indirect

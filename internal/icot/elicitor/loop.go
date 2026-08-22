@@ -74,7 +74,9 @@ func answerFinalBlockingQuestion(out io.Writer, p *prompter, session *Session, d
 	if err != nil {
 		return true, err
 	}
-	applyProgressiveAnswer(session, plan, answer, docs)
+	if err := applyProgressiveAnswerChecked(session, plan, answer, docs); err != nil {
+		return true, err
+	}
 	session.Normalize()
 	if err := autosave(draftPath, *session); err != nil {
 		return true, err

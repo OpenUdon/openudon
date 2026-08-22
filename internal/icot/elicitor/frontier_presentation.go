@@ -55,6 +55,55 @@ func BuildQuestionControls(session Session, docs []APIDocument, frontier []Quest
 
 func questionOptions(session Session, docs []APIDocument, question QuestionPlan) []QuestionOption {
 	values := make([]string, 0)
+	if strings.HasPrefix(question.ID, "browser.source.") {
+		options := make([]QuestionOption, 0)
+		for _, doc := range docs {
+			if isBrowserActionDocument(doc) {
+				options = append(options, QuestionOption{Value: doc.RelativePath, Label: firstNonEmpty(doc.Title, doc.RelativePath)})
+			}
+		}
+		return options
+	}
+	if strings.HasPrefix(question.ID, "browser.action.") {
+		step := browserStepForNodeID(session, question.ID, "browser.action.")
+		if step == nil {
+			return nil
+		}
+		options := make([]QuestionOption, 0)
+		for _, doc := range filterDocsForStep(&session, docs, step) {
+			for index := range doc.Operations {
+				operation := &doc.Operations[index]
+				if isBrowserOperationSummary(operation) {
+					options = append(options, QuestionOption{Value: operation.OperationID, Label: operationLabel(*operation)})
+				}
+			}
+		}
+		return options
+	}
+	if strings.HasPrefix(question.ID, "browser.session.") {
+		step := targetStepForPlan(&session, question)
+		if step == nil {
+			step = browserStepForNodeID(session, question.ID, "browser.session.")
+		}
+		if step != nil {
+			if operation, ok := operationForStep(session, docs, step); ok && operation.Extensions["openudon.browser.login_state_required"] == "true" && !browserActionHasEstablishedSession(session, step) {
+				return nil // symbolic session names are free-form, never the posture literal.
+			}
+			values = []string{"none"}
+		}
+	}
+	if strings.HasPrefix(question.ID, "browser.approval.") {
+		step := targetStepForPlan(&session, question)
+		if step == nil {
+			step = browserStepForNodeID(session, question.ID, "browser.approval.")
+		}
+		if step != nil {
+			values = []string{"approve " + step.Name}
+		}
+	}
+	if len(values) > 0 {
+		return stringOptions(values)
+	}
 	switch question.ID {
 	case nodeActiveWorkflow:
 		values = append(values, strings.TrimSpace(session.Boundary.Outcome))
