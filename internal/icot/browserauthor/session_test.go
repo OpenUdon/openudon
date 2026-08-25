@@ -307,9 +307,15 @@ func TestMinimalEnvironmentExcludesCredentialAndModelValues(t *testing.T) {
 	t.Setenv("OPENAI_API_KEY", "sentinel-model-secret")
 	t.Setenv("MEMBER_PASSWORD", "sentinel-browser-secret")
 	t.Setenv("PATH", "/usr/bin")
+	t.Setenv("CHROME_DEVEL_SANDBOX", "/administrator/chrome_sandbox")
 	environment := strings.Join(minimalEnvironment(), "\n")
-	if strings.Contains(environment, "sentinel-model-secret") || strings.Contains(environment, "sentinel-browser-secret") || !strings.Contains(environment, "PATH=/usr/bin") {
+	if strings.Contains(environment, "sentinel-model-secret") || strings.Contains(environment, "sentinel-browser-secret") ||
+		!strings.Contains(environment, "PATH=/usr/bin") || !strings.Contains(environment, "CHROME_DEVEL_SANDBOX=/administrator/chrome_sandbox") {
 		t.Fatalf("minimal environment = %q", environment)
+	}
+	t.Setenv("CHROME_DEVEL_SANDBOX", "/administrator/chrome_sandbox\nINJECTED=value")
+	if strings.Contains(strings.Join(minimalEnvironment(), "\n"), "CHROME_DEVEL_SANDBOX") {
+		t.Fatal("newline-bearing Chromium sandbox selector was forwarded")
 	}
 }
 

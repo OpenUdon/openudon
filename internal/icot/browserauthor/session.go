@@ -1009,7 +1009,7 @@ func contains(values []string, wanted string) bool {
 }
 
 func minimalEnvironment() []string {
-	allowed := []string{"DBUS_SESSION_BUS_ADDRESS", "DISPLAY", "HOME", "LANG", "LC_ALL", "NO_PROXY", "PATH", "PLAYWRIGHT_BROWSERS_PATH", "TMPDIR", "WAYLAND_DISPLAY", "XAUTHORITY", "XDG_RUNTIME_DIR"}
+	allowed := []string{"CHROME_DEVEL_SANDBOX", "DBUS_SESSION_BUS_ADDRESS", "DISPLAY", "HOME", "LANG", "LC_ALL", "NO_PROXY", "PATH", "PLAYWRIGHT_BROWSERS_PATH", "TMPDIR", "WAYLAND_DISPLAY", "XAUTHORITY", "XDG_RUNTIME_DIR"}
 	var result []string
 	for _, name := range allowed {
 		if value, ok := os.LookupEnv(name); ok && !strings.ContainsAny(value, "\r\n\x00") {

@@ -14,6 +14,7 @@ import (
 
 	"github.com/OpenUdon/browsertools/authorworker"
 	"github.com/OpenUdon/browsertools/capture"
+	"github.com/OpenUdon/browsertools/registrationauthorworker"
 )
 
 // runBundledBrowserWorker is intentionally absent from public help. The parent
@@ -24,7 +25,7 @@ func runBundledBrowserWorker(args []string, in io.Reader, out, errOut io.Writer)
 	if len(args) >= 2 && args[0] == "playwright-doctor" && args[1] == "chromium" {
 		return runBundledBrowserDoctor(args[2:], out, errOut)
 	}
-	if len(args) < 2 || args[0] != "author-session" || args[1] != "chromium" {
+	if len(args) < 2 || (args[0] != "author-session" && args[0] != "registration-author-session") || args[1] != "chromium" {
 		fmt.Fprintln(errOut, "browser worker: unsupported invocation")
 		return 2
 	}
@@ -48,9 +49,17 @@ func runBundledBrowserWorker(args []string, in io.Reader, out, errOut io.Writer)
 	if !ok {
 		stdin = io.NopCloser(in)
 	}
-	if err := authorworker.Run(ctx, authorworker.Options{
-		PrivateRoot: *privateRoot, DriverDirectory: *driverDirectory, Stdin: stdin, Stdout: out,
-	}); err != nil {
+	var runErr error
+	if args[0] == "registration-author-session" {
+		runErr = registrationauthorworker.Run(ctx, registrationauthorworker.Options{
+			PrivateRoot: *privateRoot, DriverDirectory: *driverDirectory, Stdin: stdin, Stdout: out,
+		})
+	} else {
+		runErr = authorworker.Run(ctx, authorworker.Options{
+			PrivateRoot: *privateRoot, DriverDirectory: *driverDirectory, Stdin: stdin, Stdout: out,
+		})
+	}
+	if runErr != nil {
 		fmt.Fprintln(errOut, "browser worker: session failed closed")
 		return 1
 	}

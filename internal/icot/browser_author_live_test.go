@@ -19,6 +19,7 @@ import (
 
 	"github.com/OpenUdon/browsertools/authorresult"
 	"github.com/OpenUdon/browsertools/authorsession"
+	"github.com/OpenUdon/browsertools/capture"
 	"github.com/OpenUdon/openudon/internal/icot/browserauthor"
 	"github.com/OpenUdon/uws/schemas"
 )
@@ -123,6 +124,40 @@ func TestBundledBrowserWorkerNegotiatesWithoutLaunchingChromium(t *testing.T) {
 	)
 	if code != 0 || stderr.Len() != 0 || !strings.Contains(stdout.String(), `"type":"hello"`) || !strings.Contains(stdout.String(), `"phase":"closed"`) {
 		t.Fatalf("code=%d stdout=%q stderr=%q", code, stdout.String(), stderr.String())
+	}
+}
+
+func TestBundledRegistrationWorkerNegotiatesWithoutLaunchingChromium(t *testing.T) {
+	privateRoot := t.TempDir()
+	if err := os.Chmod(privateRoot, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	driverRoot := t.TempDir()
+	if err := os.MkdirAll(filepath.Join(driverRoot, "package"), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(driverRoot, "node"), []byte("synthetic node"), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(driverRoot, "package", "cli.js"), []byte("// synthetic"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	metadata := `{"name":"playwright-core","version":"` + capture.PlaywrightVersion + `"}`
+	if err := os.WriteFile(filepath.Join(driverRoot, "package", "package.json"), []byte(metadata), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	var stdout, stderr strings.Builder
+	code := runBundledBrowserWorker(
+		[]string{"registration-author-session", "chromium", "--private-root", privateRoot, "--driver-dir", driverRoot},
+		strings.NewReader(`{"protocol":"browsertools.registration-author-session.v1","type":"close"}`+"\n"),
+		&stdout, &stderr,
+	)
+	if code != 0 || stderr.Len() != 0 || !strings.Contains(stdout.String(), `"type":"hello"`) || !strings.Contains(stdout.String(), `"phase":"closed"`) {
+		t.Fatalf("code=%d stdout=%q stderr=%q", code, stdout.String(), stderr.String())
+	}
+	entries, err := os.ReadDir(privateRoot)
+	if err != nil || len(entries) != 0 {
+		t.Fatalf("closed worker retained private result: %v, %v", entries, err)
 	}
 }
 

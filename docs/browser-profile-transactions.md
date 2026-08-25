@@ -54,6 +54,25 @@ A consumer must independently obtain the private result, verify its exact
 digest, validate the embedded profiles, and reject stale evidence before
 changing `candidate` to `reviewed`.
 
+For a Browsertools registration result, OpenUdon anchors the canonical
+mode-`0700` per-run private root before launching the child. The worker emits
+only the strict `browsertools.registration-author-session.v1` NDJSON stream;
+it never emits a result name, path, digest, browser handle, or session state.
+After the protocol reaches `closed`, OpenUdon drains stdout, requires a clean
+process-tree exit, and admits exactly one new mode-`0600` digest-named result.
+The anchored reader rejects root or file replacement, symlinks, non-regular
+files, permissive modes, partial/oversized reads, and any result above the
+transaction's 256 KiB adoption ceiling.
+
+OpenUdon then strict-decodes the exact result bytes at the current assessment
+time, rebuilds canonical BRP and Browsertools review bytes independently, and
+checks the complete result/source/review digests, producer/session versions,
+origins, reviewed candidate generation, flow, cleanup policy, and explicit
+human review. Symbolic bindings must exactly cover the reviewed credential
+slots. The resulting `candidate` transaction retains only those bindings,
+digests, times, origins, and published discriminators; the private envelope
+and locator stay inside the process boundary.
+
 Origins are sorted, unique serialized origins: HTTPS, or HTTP only for
 `localhost` and canonical loopback IPs. They have no user information, path,
 query, fragment, empty/default port, Unicode host form, or noncanonical IP
@@ -146,6 +165,13 @@ For a registration candidate, steps 1–3 never authorize Browsertools to submit
 a form. The producer must remain GET/HEAD-only and no account may be created
 during authoring. The reviewed profile may describe a later submit action and
 its exact approval policy, but that is inert source material.
+
+The bundled registration producer uses the same content-addressed mode-`0500`
+re-execution cache, minimal environment, bounded deadlines, stdout drain, and
+complete process-tree teardown as authenticated authoring. On Linux,
+`CHROME_DEVEL_SANDBOX` is merely forwarded as a selector; Browsertools accepts
+it only after validating the administrator-owned sandbox helper. OpenUdon
+never substitutes `--no-sandbox` or relaxes host policy.
 
 ## Trusted-runtime boundary
 
