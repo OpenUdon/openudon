@@ -63,9 +63,12 @@ func TestCompositionAndValueFreeBoundary(t *testing.T) {
 		{"authentication missing session", func(value *Transaction) { value.Session = "" }},
 		{"authentication missing capability", func(value *Transaction) { value.Candidates = value.Candidates[:1] }},
 		{"candidate schema family mismatch", func(value *Transaction) { value.Candidates[0].Schema = "uws.browser.1.7" }},
-		{"duplicate binding", func(value *Transaction) { value.CredentialBindings[1].Binding = value.CredentialBindings[0].Binding }},
+		{"duplicate binding slot", func(value *Transaction) { value.CredentialBindings[1].Slot = value.CredentialBindings[0].Slot }},
 		{"noncanonical origin", func(value *Transaction) { value.Provenance.Origins[0] = "https://LOGIN.example.test" }},
+		{"default origin port", func(value *Transaction) { value.Provenance.Origins[0] = "https://app.example.test:443" }},
+		{"oversized origin", func(value *Transaction) { value.Provenance.Origins[0] = "https://" + strings.Repeat("a", 1024) }},
 		{"expired at observation", func(value *Transaction) { value.Provenance.ExpiresAt = value.Provenance.ObservedAt }},
+		{"unsupported producer result", func(value *Transaction) { value.Provenance.ResultVersion = "browsertools.future.v1" }},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
@@ -80,6 +83,11 @@ func TestCompositionAndValueFreeBoundary(t *testing.T) {
 	credentialless.CredentialBindings = []CredentialBinding{}
 	if err := credentialless.Validate(); err != nil {
 		t.Fatalf("credentialless authentication-capability transaction: %v", err)
+	}
+	sharedBinding := validAuthenticationCapability()
+	sharedBinding.CredentialBindings[1].Binding = sharedBinding.CredentialBindings[0].Binding
+	if err := sharedBinding.Validate(); err != nil {
+		t.Fatalf("shared symbolic runtime binding: %v", err)
 	}
 	nullBindings, err := CanonicalBytes(validRegistration())
 	if err != nil {
@@ -174,6 +182,21 @@ func TestPublicSchemaCompilesAndAcceptsCanonicalTransactions(t *testing.T) {
 	if err := schema.Validate(instance); err == nil {
 		t.Fatal("schema accepted noncanonical candidate composition")
 	}
+
+	invalid = validRegistration()
+	invalid.State = StateFailed
+	invalid.Failure = &Failure{Class: FailureIndeterminate, Code: FailurePromotionIndeterminate}
+	data, err = json.Marshal(invalid)
+	if err != nil {
+		t.Fatal(err)
+	}
+	instance, err = jsonschema.UnmarshalJSON(bytes.NewReader(data))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := schema.Validate(instance); err == nil {
+		t.Fatal("schema accepted indeterminate failure class in failed state")
+	}
 }
 
 func TestPublishedExamplesValidate(t *testing.T) {
@@ -227,6 +250,14 @@ func TestLifecycleAndImmutableTransitions(t *testing.T) {
 	changed.Preparation = validPreparation()
 	if err := ValidateTransition(reviewed, changed); err == nil || !strings.Contains(err.Error(), "immutable") {
 		t.Fatalf("candidate digest drift was not rejected: %v", err)
+	}
+
+	failedWithNewPreparation := candidate
+	failedWithNewPreparation.State = StateFailed
+	failedWithNewPreparation.Preparation = validPreparation()
+	failedWithNewPreparation.Failure = &Failure{Class: FailureOperational, Code: FailurePreparationFailed}
+	if err := ValidateTransition(candidate, failedWithNewPreparation); err == nil || !strings.Contains(err.Error(), "preparation appeared") {
+		t.Fatalf("direct failure introduced preparation facts: %v", err)
 	}
 
 	indeterminate := prepared
@@ -292,8 +323,19 @@ func TestStrictDecodeRejectsUnknownAndMultipleDocuments(t *testing.T) {
 	if _, err := Decode([]byte(unknown)); err == nil || !strings.Contains(err.Error(), "unknown field") {
 		t.Fatalf("unknown field accepted: %v", err)
 	}
-	if _, err := Decode(append(append([]byte(nil), data...), data...)); err == nil || !strings.Contains(err.Error(), "multiple JSON values") {
+	_, err = Decode(append(append([]byte(nil), data...), data...))
+	if err == nil || (!strings.Contains(err.Error(), "multiple JSON values") && !strings.Contains(err.Error(), "trailing JSON")) {
 		t.Fatalf("multiple documents accepted: %v", err)
+	}
+	duplicate := strings.Replace(string(data), `"state":"candidate"`, `"state":"candidate","state":"reviewed"`, 1)
+	if _, err := Decode([]byte(duplicate)); err == nil || !strings.Contains(err.Error(), "duplicate JSON field") {
+		t.Fatalf("duplicate JSON field accepted: %v", err)
+	}
+	if _, err := Decode([]byte{'{', '"', 'i', 'd', '"', ':', '"', 0xff, '"', '}'}); err == nil || !strings.Contains(err.Error(), "valid UTF-8") {
+		t.Fatalf("invalid UTF-8 accepted: %v", err)
+	}
+	if _, err := Decode(bytes.Repeat([]byte{' '}, MaxBytes+1)); err == nil || !strings.Contains(err.Error(), "exceeds") {
+		t.Fatalf("oversized transaction accepted: %v", err)
 	}
 }
 
@@ -305,7 +347,7 @@ func validAuthenticationCapability() Transaction {
 			{Kind: CandidateCapability, Schema: "uws.browser.1.7", SourceSHA256: digest("c"), ReviewSHA256: digest("d")},
 		},
 		Provenance: Provenance{
-			Producer: "browsertools", ResultVersion: "browsertools.authenticated-authoring.v2", ResultSHA256: digest("9"),
+			Producer: "browsertools", ResultVersion: ResultAuthenticatedAuthoringV2, ResultSHA256: digest("9"),
 			ObservedAt: "2026-08-25T12:00:00Z", ExpiresAt: "2026-08-26T12:00:00Z",
 			Origins: []string{"https://app.example.test", "https://login.example.test"},
 		},
@@ -319,7 +361,7 @@ func validRegistration() Transaction {
 		Version: Version, ID: "browser-registration", Kind: KindRegistration, State: StateCandidate,
 		Candidates: []Candidate{{Kind: CandidateRegistration, Schema: "uws.browser-registration.1.0", SourceSHA256: digest("1"), ReviewSHA256: digest("2")}},
 		Provenance: Provenance{
-			Producer: "browsertools", ResultVersion: "browsertools.registration-authoring.v1", ResultSHA256: digest("3"),
+			Producer: "browsertools", ResultVersion: ResultRegistrationAuthoringV1, ResultSHA256: digest("3"),
 			ObservedAt: "2026-08-25T12:00:00Z", ExpiresAt: "2026-08-26T12:00:00Z", Origins: []string{"https://register.example.test"},
 		},
 		CredentialBindings: []CredentialBinding{{Slot: "identifier", Binding: "registration_identifier"}, {Slot: "password", Binding: "registration_password"}},

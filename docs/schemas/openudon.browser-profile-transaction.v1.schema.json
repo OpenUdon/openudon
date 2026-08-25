@@ -86,6 +86,16 @@
       "then": { "required": ["failure"], "not": { "required": ["promotion"] } }
     },
     {
+      "if": { "properties": { "state": { "const": "failed" } }, "required": ["state"] },
+      "then": {
+        "properties": {
+          "failure": {
+            "properties": { "class": { "enum": ["rejected", "conflict", "operational"] } }
+          }
+        }
+      }
+    },
+    {
       "if": { "properties": { "state": { "const": "indeterminate" } }, "required": ["state"] },
       "then": {
         "required": ["preparation"],
@@ -157,7 +167,9 @@
       "required": ["producer", "result_version", "result_sha256", "observed_at", "expires_at", "origins"],
       "properties": {
         "producer": { "const": "browsertools" },
-        "result_version": { "type": "string", "pattern": "^[a-z0-9][a-z0-9.-]{0,127}$" },
+        "result_version": {
+          "enum": ["browsertools.authenticated-authoring.v2", "browsertools.registration-authoring.v1"]
+        },
         "result_sha256": { "$ref": "#/$defs/digest" },
         "observed_at": { "type": "string", "format": "date-time" },
         "expires_at": { "type": "string", "format": "date-time" },

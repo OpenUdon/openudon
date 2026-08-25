@@ -16,11 +16,19 @@ import (
 	"net/url"
 	"regexp"
 	"sort"
+	"strconv"
 	"strings"
 	"time"
+	"unicode/utf8"
 )
 
-const Version = "openudon.browser-profile-transaction.v1"
+const (
+	Version                        = "openudon.browser-profile-transaction.v1"
+	MaxBytes                       = 256 << 10
+	ResultAuthenticatedAuthoringV2 = "browsertools.authenticated-authoring.v2"
+	ResultRegistrationAuthoringV1  = "browsertools.registration-authoring.v1"
+	maxJSONDepth                   = 32
+)
 
 type Kind string
 
@@ -138,9 +146,8 @@ type Transaction struct {
 }
 
 var (
-	idPattern      = regexp.MustCompile(`^[a-z0-9][a-z0-9._-]{0,127}$`)
-	symbolPattern  = regexp.MustCompile(`^[a-z][a-z0-9_]{0,127}$`)
-	versionPattern = regexp.MustCompile(`^[a-z0-9][a-z0-9.-]{0,127}$`)
+	idPattern     = regexp.MustCompile(`^[a-z0-9][a-z0-9._-]{0,127}$`)
+	symbolPattern = regexp.MustCompile(`^[a-z][a-z0-9_]{0,127}$`)
 )
 
 // Validate enforces the closed wire, profile composition, lifecycle, and
@@ -201,7 +208,14 @@ func CanonicalBytes(transaction Transaction) ([]byte, error) {
 	if err := canonical.Validate(); err != nil {
 		return nil, err
 	}
-	return json.Marshal(canonical)
+	data, err := json.Marshal(canonical)
+	if err != nil {
+		return nil, err
+	}
+	if len(data) > MaxBytes {
+		return nil, fmt.Errorf("browser-profile transaction exceeds %d bytes", MaxBytes)
+	}
+	return data, nil
 }
 
 // Digest returns the SHA-256 digest of CanonicalBytes.
@@ -218,6 +232,15 @@ func Digest(transaction Transaction) (string, error) {
 // ordering and semantic invariants.
 func Decode(data []byte) (Transaction, error) {
 	var transaction Transaction
+	if len(data) > MaxBytes {
+		return Transaction{}, fmt.Errorf("browser-profile transaction exceeds %d bytes", MaxBytes)
+	}
+	if !utf8.Valid(data) {
+		return Transaction{}, errors.New("browser-profile transaction must be valid UTF-8")
+	}
+	if err := rejectDuplicateJSONNames(data); err != nil {
+		return Transaction{}, fmt.Errorf("decode browser-profile transaction: %w", err)
+	}
 	decoder := json.NewDecoder(bytes.NewReader(data))
 	decoder.DisallowUnknownFields()
 	if err := decoder.Decode(&transaction); err != nil {
@@ -279,6 +302,8 @@ func ValidateTransition(previous, next Transaction) error {
 		if next.Preparation == nil || *previous.Preparation != *next.Preparation {
 			return errors.New("transaction preparation changed or disappeared")
 		}
+	} else if next.Preparation != nil && next.State != StatePrepared {
+		return errors.New("transaction preparation appeared outside a reviewed-to-prepared transition")
 	}
 	if previous.Promotion != nil {
 		if next.Promotion == nil || *previous.Promotion != *next.Promotion {
@@ -335,7 +360,7 @@ func validCandidateSchema(kind CandidateKind, schema string) bool {
 }
 
 func validateProvenance(provenance Provenance) error {
-	if provenance.Producer != "browsertools" || !strings.HasPrefix(provenance.ResultVersion, "browsertools.") || !versionPattern.MatchString(provenance.ResultVersion) || !validDigest(provenance.ResultSHA256) {
+	if provenance.Producer != "browsertools" || !validResultVersion(provenance.ResultVersion) || !validDigest(provenance.ResultSHA256) {
 		return errors.New("transaction provenance is invalid")
 	}
 	observed, err := time.Parse(time.RFC3339Nano, provenance.ObservedAt)
@@ -364,13 +389,11 @@ func validateBindings(bindings []CredentialBinding) error {
 		return errors.New("transaction must contain an explicit array of at most 32 symbolic credential bindings")
 	}
 	previousSlot := ""
-	seenBindings := map[string]bool{}
 	for _, binding := range bindings {
-		if !symbolPattern.MatchString(binding.Slot) || !symbolPattern.MatchString(binding.Binding) || binding.Slot <= previousSlot || seenBindings[binding.Binding] {
+		if !symbolPattern.MatchString(binding.Slot) || !symbolPattern.MatchString(binding.Binding) || binding.Slot <= previousSlot {
 			return errors.New("transaction credential bindings are invalid, duplicated, or not canonical")
 		}
 		previousSlot = binding.Slot
-		seenBindings[binding.Binding] = true
 	}
 	return nil
 }
@@ -461,7 +484,14 @@ func validDigest(value string) bool {
 	return err == nil
 }
 
+func validResultVersion(value string) bool {
+	return value == ResultAuthenticatedAuthoringV2 || value == ResultRegistrationAuthoringV1
+}
+
 func validOrigin(value string) bool {
+	if utf8.RuneCountInString(value) > 1024 {
+		return false
+	}
 	parsed, err := url.Parse(value)
 	if err != nil || parsed.User != nil || parsed.RawQuery != "" || parsed.Fragment != "" || (parsed.Path != "" && parsed.Path != "/") {
 		return false
@@ -480,8 +510,83 @@ func validOrigin(value string) bool {
 			return false
 		}
 	}
+	port := parsed.Port()
+	if port != "" {
+		number, err := strconv.Atoi(port)
+		defaultPort := scheme == "https" && number == 443 || scheme == "http" && number == 80
+		if err != nil || number < 1 || number > 65535 || strconv.Itoa(number) != port || defaultPort {
+			return false
+		}
+	}
 	canonical := scheme + "://" + strings.ToLower(parsed.Host)
 	return value == canonical
+}
+
+func rejectDuplicateJSONNames(data []byte) error {
+	decoder := json.NewDecoder(bytes.NewReader(data))
+	decoder.UseNumber()
+	if err := scanJSONValue(decoder, 0); err != nil {
+		return err
+	}
+	if token, err := decoder.Token(); err != io.EOF {
+		if err == nil {
+			return fmt.Errorf("contains trailing JSON token %v", token)
+		}
+		return err
+	}
+	return nil
+}
+
+func scanJSONValue(decoder *json.Decoder, depth int) error {
+	token, err := decoder.Token()
+	if err != nil {
+		return err
+	}
+	delimiter, ok := token.(json.Delim)
+	if !ok {
+		return nil
+	}
+	if depth >= maxJSONDepth {
+		return fmt.Errorf("JSON nesting exceeds %d levels", maxJSONDepth)
+	}
+	switch delimiter {
+	case '{':
+		seen := map[string]bool{}
+		for decoder.More() {
+			nameToken, err := decoder.Token()
+			if err != nil {
+				return err
+			}
+			name, ok := nameToken.(string)
+			if !ok {
+				return errors.New("JSON object member name is not a string")
+			}
+			if seen[name] {
+				return fmt.Errorf("duplicate JSON field %q", name)
+			}
+			seen[name] = true
+			if err := scanJSONValue(decoder, depth+1); err != nil {
+				return err
+			}
+		}
+		end, err := decoder.Token()
+		if err != nil || end != json.Delim('}') {
+			return errors.New("JSON object is not closed")
+		}
+	case '[':
+		for decoder.More() {
+			if err := scanJSONValue(decoder, depth+1); err != nil {
+				return err
+			}
+		}
+		end, err := decoder.Token()
+		if err != nil || end != json.Delim(']') {
+			return errors.New("JSON array is not closed")
+		}
+	default:
+		return fmt.Errorf("unexpected JSON delimiter %q", delimiter)
+	}
+	return nil
 }
 
 func requireEOF(decoder *json.Decoder) error {

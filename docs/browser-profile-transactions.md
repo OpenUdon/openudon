@@ -46,17 +46,20 @@ published profile discriminator plus two digests:
 - `source_sha256` binds the exact candidate bytes.
 - `review_sha256` binds the independently reviewed, value-free evidence.
 
-Provenance names Browsertools as the producer and binds its result version,
-result digest, observation and expiry times, and sorted origin set. It does not
-name the private result path. A consumer must independently obtain the private
-result, verify its exact digest, validate the embedded profiles, and reject
-stale evidence before changing `candidate` to `reviewed`.
+Provenance names Browsertools as the producer and binds either the existing
+`browsertools.authenticated-authoring.v2` result or the separate no-submit
+`browsertools.registration-authoring.v1` result, its digest, observation and
+expiry times, and sorted origin set. It does not name the private result path.
+A consumer must independently obtain the private result, verify its exact
+digest, validate the embedded profiles, and reject stale evidence before
+changing `candidate` to `reviewed`.
 
 All digests are lowercase `sha256:` strings. Arrays that are sets use canonical
-order. Decoders reject unknown fields and trailing JSON, so fields for a
-credential value, account identifier, verification response, request or page
-content, cookie, storage state, raw worker output, or private path cannot be
-added to this record.
+order. OpenUdon limits one encoded transaction to 256 KiB and rejects invalid
+UTF-8, duplicate object names, unknown fields, excessive nesting, and trailing
+JSON. Fields for a credential value, account identifier, verification response,
+request or page content, cookie, storage state, raw worker output, or private
+path therefore cannot be added to this record.
 
 ## Lifecycle
 
