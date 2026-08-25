@@ -408,7 +408,9 @@ cleanup, symbolic-binding, and exact submit-approval policy to
 `uws.browser-registration-call.1.0`. Build, assessment, approval-template, and
 trusted-runner dry-run are offline; non-dry registration fails before executor
 invocation until compatible Udon and Browserdriver contracts are published and
-pinned.
+pinned. [Browser-Profile Authoring Transactions](docs/browser-profile-transactions.md)
+defines the common value-free review, prepare-only, atomic-promotion, and
+recovery record for the BAP+BCP and BRP paths.
 
 If no in-workflow authentication step establishes the required login state,
 each affected browser step must instead name its own symbolic external

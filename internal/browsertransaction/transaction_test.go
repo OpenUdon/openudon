@@ -176,6 +176,27 @@ func TestPublicSchemaCompilesAndAcceptsCanonicalTransactions(t *testing.T) {
 	}
 }
 
+func TestPublishedExamplesValidate(t *testing.T) {
+	paths, err := filepath.Glob(filepath.Join("..", "..", "docs", "examples", "browser-profile-transaction-*.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(paths) != 2 {
+		t.Fatalf("found %d published transaction examples, want 2", len(paths))
+	}
+	for _, path := range paths {
+		t.Run(filepath.Base(path), func(t *testing.T) {
+			data, err := os.ReadFile(path)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if _, err := Decode(data); err != nil {
+				t.Fatalf("published example is invalid: %v", err)
+			}
+		})
+	}
+}
+
 func TestLifecycleAndImmutableTransitions(t *testing.T) {
 	candidate := validAuthenticationCapability()
 	reviewed := candidate

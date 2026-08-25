@@ -73,6 +73,7 @@ for the provider-free release demo, and [Handoff](safety.md) for the review and 
 - [Data Flow](data-flow.md)
 - [iCoT](icot.md)
 - [Authenticated Browser Authoring](authenticated-browser-authoring.md)
+- [Browser-Profile Authoring Transactions](browser-profile-transactions.md)
 - [iCoT Corpus And Provider Roadmap](icot-corpus-and-provider-roadmap.md)
 - [iCoT Session Files](icot-session-schema.md)
 - [iCoT Transcripts](icot-transcript.md)
