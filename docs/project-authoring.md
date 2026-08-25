@@ -64,6 +64,15 @@ that session. It records only symbolic credential bindings and safe review
 metadata. Udon resolves credential values, brokers challenges, owns the live
 session, and requires separate runtime approval.
 
+Browser registration is an offline, manual package source rather than an iCoT
+capture flow. Place an already-reviewed `uws.browser-registration.1.0` profile
+and its conventional `*.review.json` Browsertools bundle under
+`browser-registration/`, author an explicit `browser_registration` intent,
+and provide matching `.icot/browser-registration.json` review evidence.
+OpenUdon may build, assess, generate approval, and dry-run that package, but it
+rejects non-dry execution until compatible Udon and Browserdriver registration
+contracts are pinned.
+
 iCoT defaults to the local `copilot-api` gateway, using `COPILOT_API_BASE_URL` when set and
 `http://localhost:4141` otherwise. Use `OPENUDON_LLM_PROVIDER` and `OPENUDON_LLM_MODEL` for
 shell-level overrides, or pass `--provider` and `--model` when you want an explicit provider

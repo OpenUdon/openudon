@@ -9,6 +9,7 @@ import (
 
 	"github.com/OpenUdon/browsertools/authprofile"
 	"github.com/OpenUdon/browsertools/profile"
+	"github.com/OpenUdon/browsertools/registrationprofile"
 	"github.com/OpenUdon/openudon/internal/browserworkflow"
 	"github.com/OpenUdon/openudon/internal/evidencefile"
 	"github.com/OpenUdon/openudon/internal/packageartifacts"
@@ -32,6 +33,23 @@ type browserAuthenticationApprovals struct {
 	Sources   []json.RawMessage `json:"sources"`
 }
 
+type browserRegistrationApprovals struct {
+	Version string `json:"version"`
+	Calls   []struct {
+		Step                string            `json:"step"`
+		Source              string            `json:"source"`
+		Flow                string            `json:"flow"`
+		CredentialBindings  map[string]string `json:"credential_bindings"`
+		Approval            string            `json:"approval"`
+		DuplicatePrevention string            `json:"duplicate_prevention"`
+		OnDuplicate         string            `json:"on_duplicate"`
+		AmbiguousOutcome    string            `json:"ambiguous_outcome"`
+		CleanupDisposition  string            `json:"cleanup_disposition"`
+		Timeout             float64           `json:"timeout"`
+	} `json:"registration_calls"`
+	Sources []json.RawMessage `json:"sources"`
+}
+
 func buildBrowserRunConfig(packageRoot, driver string, driverArgs, env []string, dryRun bool) (*udonrunner.BrowserConfig, error) {
 	browserPaths, err := packageartifacts.CollectBrowserProfilePaths(packageRoot)
 	if err != nil {
@@ -45,18 +63,22 @@ func buildBrowserRunConfig(packageRoot, driver string, driverArgs, env []string,
 		data, _, err := evidencefile.ReadRegular(filepath.Join(packageRoot, filepath.FromSlash(relative)), evidencefile.DefaultMaxBytes)
 		return data, err
 	}
-	return buildBrowserRunConfigFromBytes(packageRoot, browserPaths, authenticationPaths, read, driver, driverArgs, env, dryRun)
-}
-
-func buildBrowserRunConfigFromSnapshot(snapshot packageSnapshot, driver string, driverArgs, env []string, dryRun bool) (*udonrunner.BrowserConfig, error) {
-	browserPaths, authenticationPaths, err := snapshotBrowserPaths(snapshot)
+	registrationPaths, err := packageartifacts.CollectBrowserRegistrationProfilePaths(packageRoot)
 	if err != nil {
 		return nil, err
 	}
-	return buildBrowserRunConfigFromBytes("snapshot", browserPaths, authenticationPaths, snapshot.read, driver, driverArgs, env, dryRun)
+	return buildBrowserRunConfigFromBytes(packageRoot, browserPaths, authenticationPaths, registrationPaths, read, driver, driverArgs, env, dryRun)
 }
 
-func buildBrowserRunConfigFromBytes(packageLabel string, browserPaths, authenticationPaths []string, read func(string) ([]byte, error), driver string, driverArgs, env []string, dryRun bool) (*udonrunner.BrowserConfig, error) {
+func buildBrowserRunConfigFromSnapshot(snapshot packageSnapshot, driver string, driverArgs, env []string, dryRun bool) (*udonrunner.BrowserConfig, error) {
+	browserPaths, authenticationPaths, registrationPaths, err := snapshotBrowserPaths(snapshot)
+	if err != nil {
+		return nil, err
+	}
+	return buildBrowserRunConfigFromBytes("snapshot", browserPaths, authenticationPaths, registrationPaths, snapshot.read, driver, driverArgs, env, dryRun)
+}
+
+func buildBrowserRunConfigFromBytes(packageLabel string, browserPaths, authenticationPaths, registrationPaths []string, read func(string) ([]byte, error), driver string, driverArgs, env []string, dryRun bool) (*udonrunner.BrowserConfig, error) {
 	planData, err := read("expected/plan.json")
 	if err != nil {
 		return nil, fmt.Errorf("read browser runtime plan: %w", err)
@@ -68,7 +90,7 @@ func buildBrowserRunConfigFromBytes(packageLabel string, browserPaths, authentic
 	hasBrowserSteps := false
 	for _, step := range plan.Steps {
 		kind := strings.ToLower(strings.TrimSpace(step.Type))
-		hasBrowserSteps = hasBrowserSteps || kind == "browser" || kind == "browser_authentication"
+		hasBrowserSteps = hasBrowserSteps || kind == "browser" || kind == "browser_authentication" || kind == "browser_registration"
 	}
 	if !hasBrowserSteps {
 		if strings.TrimSpace(driver) != "" || len(driverArgs) != 0 {
@@ -83,6 +105,15 @@ func buildBrowserRunConfigFromBytes(packageLabel string, browserPaths, authentic
 	intent, err := rollout.ParseIntent(intentData, filepath.Join(packageLabel, filepath.FromSlash(rollout.IntentPath)))
 	if err != nil {
 		return nil, fmt.Errorf("read browser runtime intent: %w", err)
+	}
+	hasRegistrationStep := false
+	walkIntentSteps(intent.Steps, func(step *rollout.Step) {
+		if step != nil && strings.EqualFold(strings.TrimSpace(step.Type), "browser_registration") {
+			hasRegistrationStep = true
+		}
+	})
+	if hasRegistrationStep && !dryRun {
+		return nil, fmt.Errorf("browser registration execution is unsupported by the current Udon and Browserdriver contracts")
 	}
 	driver = strings.TrimSpace(driver)
 	if !dryRun && driver == "" {
@@ -125,6 +156,20 @@ func buildBrowserRunConfigFromBytes(packageLabel string, browserPaths, authentic
 			return nil, fmt.Errorf("browser authentication profile %s has unsupported discriminator %q", relative, value.Profile)
 		}
 	}
+	for _, relative := range registrationPaths {
+		data, err := read(relative)
+		if err != nil {
+			return nil, fmt.Errorf("read browser registration profile %s: %w", relative, err)
+		}
+		value, err := registrationprofile.Parse(data)
+		if err != nil {
+			return nil, fmt.Errorf("browser registration profile %s: %w", relative, err)
+		}
+		if value.Profile != "uws.browser-registration.1.0" {
+			return nil, fmt.Errorf("browser registration profile %s has unsupported discriminator %q", relative, value.Profile)
+		}
+		protocolRank = max(protocolRank, 3)
+	}
 
 	credentials := map[string]bool{}
 	hasNamedSession := false
@@ -136,6 +181,13 @@ func buildBrowserRunConfigFromBytes(packageLabel string, browserPaths, authentic
 			hasNamedSession = true
 		}
 		if strings.EqualFold(strings.TrimSpace(step.Type), "browser_authentication") {
+			for _, binding := range step.CredentialBindings {
+				if value := strings.TrimSpace(binding); value != "" {
+					credentials[value] = true
+				}
+			}
+		}
+		if strings.EqualFold(strings.TrimSpace(step.Type), "browser_registration") {
 			for _, binding := range step.CredentialBindings {
 				if value := strings.TrimSpace(binding); value != "" {
 					credentials[value] = true
@@ -163,6 +215,14 @@ func buildBrowserRunConfigFromBytes(packageLabel string, browserPaths, authentic
 	if err != nil {
 		return nil, fmt.Errorf("browser authentication approvals: %w", err)
 	}
+	approvedRegistration, err := readBrowserRegistrationApprovals(read, len(registrationPaths) != 0)
+	if err != nil {
+		return nil, err
+	}
+	approvedRegistration, err = runtimeApprovalIDs(approvedRegistration)
+	if err != nil {
+		return nil, fmt.Errorf("browser registration approvals: %w", err)
+	}
 	analysis := browserworkflow.Analyze(intent)
 	externalSessions := analysis.ExternalSessions()
 	if sessionPosture == "opaque-runtime-binding-required" && len(externalSessions) == 0 {
@@ -187,6 +247,7 @@ func buildBrowserRunConfigFromBytes(packageLabel string, browserPaths, authentic
 		SessionEnvironment:     sessionEnvironment,
 		ApprovedOperations:     approvedOperations,
 		ApprovedAuthentication: approvedAuthentication,
+		ApprovedRegistration:   approvedRegistration,
 	}, nil
 }
 
@@ -233,8 +294,30 @@ func readBrowserAuthenticationApprovals(read func(string) ([]byte, error), requi
 	return sortedUniqueRuntimeIDs(review.Approvals), nil
 }
 
-func snapshotBrowserPaths(snapshot packageSnapshot) ([]string, []string, error) {
-	var browserPaths, authenticationPaths []string
+func readBrowserRegistrationApprovals(read func(string) ([]byte, error), required bool) ([]string, error) {
+	if !required {
+		return []string{}, nil
+	}
+	data, err := read(packageartifacts.BrowserRegistrationReviewPath)
+	if err != nil {
+		return nil, fmt.Errorf("read browser registration review: %w", err)
+	}
+	var review browserRegistrationApprovals
+	if err := evidencefile.DecodeStrict(data, &review); err != nil {
+		return nil, fmt.Errorf("decode browser registration review: %w", err)
+	}
+	if review.Version != "openudon.browser-registration-review.v1" {
+		return nil, fmt.Errorf("unsupported browser registration review version %q", review.Version)
+	}
+	values := make([]string, 0, len(review.Calls))
+	for _, call := range review.Calls {
+		values = append(values, call.Approval)
+	}
+	return sortedUniqueRuntimeIDs(values), nil
+}
+
+func snapshotBrowserPaths(snapshot packageSnapshot) ([]string, []string, []string, error) {
+	var browserPaths, authenticationPaths, registrationPaths []string
 	for _, path := range snapshot.paths {
 		switch {
 		case strings.HasPrefix(path, "browser-profiles/"):
@@ -242,18 +325,25 @@ func snapshotBrowserPaths(snapshot packageSnapshot) ([]string, []string, error) 
 			case ".json", ".yaml", ".yml":
 				browserPaths = append(browserPaths, path)
 			default:
-				return nil, nil, fmt.Errorf("browser profile must use .json, .yaml, or .yml: %s", path)
+				return nil, nil, nil, fmt.Errorf("browser profile must use .json, .yaml, or .yml: %s", path)
 			}
 		case strings.HasPrefix(path, "browser-authentication/") && !strings.HasSuffix(strings.ToLower(path), ".review.json"):
 			switch strings.ToLower(filepath.Ext(path)) {
 			case ".json", ".yaml", ".yml":
 				authenticationPaths = append(authenticationPaths, path)
 			default:
-				return nil, nil, fmt.Errorf("browser authentication profile must use .json, .yaml, or .yml: %s", path)
+				return nil, nil, nil, fmt.Errorf("browser authentication profile must use .json, .yaml, or .yml: %s", path)
+			}
+		case strings.HasPrefix(path, "browser-registration/") && !strings.HasSuffix(strings.ToLower(path), ".review.json"):
+			switch strings.ToLower(filepath.Ext(path)) {
+			case ".json", ".yaml", ".yml":
+				registrationPaths = append(registrationPaths, path)
+			default:
+				return nil, nil, nil, fmt.Errorf("browser registration profile must use .json, .yaml, or .yml: %s", path)
 			}
 		}
 	}
-	return browserPaths, authenticationPaths, nil
+	return browserPaths, authenticationPaths, registrationPaths, nil
 }
 
 func walkIntentSteps(steps []*rollout.Step, visit func(*rollout.Step)) {

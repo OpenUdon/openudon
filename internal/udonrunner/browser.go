@@ -42,6 +42,9 @@ func normalizeBrowserConfig(config *BrowserConfig) {
 	if config.ApprovedAuthentication == nil {
 		config.ApprovedAuthentication = []string{}
 	}
+	if config.ApprovedRegistration == nil {
+		config.ApprovedRegistration = []string{}
+	}
 }
 
 type validatedBrowserConfig struct {
@@ -90,6 +93,9 @@ func validateBrowserConfig(config *BrowserConfig, credentials []string, values m
 	if err := requireSortedUnique("browser authentication approvals", config.ApprovedAuthentication, browserBindingPattern.MatchString); err != nil {
 		return validatedBrowserConfig{}, err
 	}
+	if err := requireSortedUnique("browser registration approvals", config.ApprovedRegistration, browserBindingPattern.MatchString); err != nil {
+		return validatedBrowserConfig{}, err
+	}
 
 	declared := make(map[string]bool, len(credentials))
 	for _, binding := range credentials {
@@ -107,8 +113,14 @@ func validateBrowserConfig(config *BrowserConfig, credentials []string, values m
 	if err != nil {
 		return validatedBrowserConfig{}, err
 	}
-	if config.Protocol == "v1" && (len(credentialEnv) != 0 || len(sessionEnv) != 0 || len(config.ApprovedAuthentication) != 0) {
+	if config.Protocol == "v1" && (len(credentialEnv) != 0 || len(sessionEnv) != 0 || len(config.ApprovedAuthentication) != 0 || len(config.ApprovedRegistration) != 0) {
 		return validatedBrowserConfig{}, fmt.Errorf("browser authentication and named sessions require protocol v2 or v3")
+	}
+	if len(config.ApprovedRegistration) != 0 && config.Protocol != "v3" {
+		return validatedBrowserConfig{}, fmt.Errorf("browser registration dry-run evidence requires protocol v3")
+	}
+	if requireDriver && len(config.ApprovedRegistration) != 0 {
+		return validatedBrowserConfig{}, fmt.Errorf("browser registration execution is unsupported by the current external executor contract")
 	}
 	if requireValues {
 		for _, name := range config.DriverEnvironment {
@@ -216,6 +228,7 @@ func ValidateBrowserEvidenceConfig(config *BrowserConfig, credentials []string) 
 	copy.SessionEnvironment = append([]EnvironmentBinding(nil), config.SessionEnvironment...)
 	copy.ApprovedOperations = append([]string(nil), config.ApprovedOperations...)
 	copy.ApprovedAuthentication = append([]string(nil), config.ApprovedAuthentication...)
+	copy.ApprovedRegistration = append([]string(nil), config.ApprovedRegistration...)
 	_, err := validateBrowserConfig(&copy, credentials, map[string]string{}, false, false)
 	return err
 }

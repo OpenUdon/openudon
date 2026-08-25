@@ -130,6 +130,15 @@ func reviewMarkdownFromState(result Result, provider, model string, state review
 			fmt.Fprintf(&b, "- Browser authentication review: `%s`\n", packageartifacts.BrowserAuthenticationReviewPath)
 		}
 	}
+	if registrationPaths, err := packageartifacts.CollectBrowserRegistrationProfilePaths(result.ExampleDir); err == nil {
+		for _, path := range registrationPaths {
+			fmt.Fprintf(&b, "- Browser registration profile: `%s`\n", path)
+			fmt.Fprintf(&b, "- Browser registration bundle: `%s`\n", packageartifacts.BrowserRegistrationBundlePath(path))
+		}
+		if len(registrationPaths) > 0 {
+			fmt.Fprintf(&b, "- Browser registration review: `%s`\n", packageartifacts.BrowserRegistrationReviewPath)
+		}
+	}
 	if provider != "" || model != "" {
 		fmt.Fprintf(&b, "- LLM: `%s` `%s`\n", provider, model)
 	}
@@ -273,8 +282,12 @@ func reviewMarkdownFromState(result Result, provider, model string, state review
 	b.WriteString("- The generated run config is `openudon.executor-run.v2`; it carries package paths, `package_sha256`, tier, workdir, and credential binding names, not credential values.\n\n")
 	b.WriteString("Trusted dry run, before any executor invocation:\n\n")
 	fmt.Fprintf(&b, "```bash\nopenudon run --example %s --tier sandbox --approval approvals/%s.json --dry-run\n```\n\n", relOrAbs(filepath.Dir(result.ExampleDir), result.ExampleDir), filepath.Base(result.ExampleDir))
-	b.WriteString("Trusted proof run, only when explicitly approved:\n\n")
-	fmt.Fprintf(&b, "```bash\nopenudon run --example %s --tier sandbox --approval approvals/%s.json\n```\n", relOrAbs(filepath.Dir(result.ExampleDir), result.ExampleDir), filepath.Base(result.ExampleDir))
+	if intentHasBrowserRegistrationStep(intent) {
+		b.WriteString("Trusted registration proof run: unavailable. The pinned Udon and Browserdriver contracts do not implement browser registration, and OpenUdon rejects non-dry execution before executor invocation.\n")
+	} else {
+		b.WriteString("Trusted proof run, only when explicitly approved:\n\n")
+		fmt.Fprintf(&b, "```bash\nopenudon run --example %s --tier sandbox --approval approvals/%s.json\n```\n", relOrAbs(filepath.Dir(result.ExampleDir), result.ExampleDir), filepath.Base(result.ExampleDir))
+	}
 	return b.String()
 }
 

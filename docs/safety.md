@@ -38,6 +38,14 @@ tier checks before invoking udon.
   each affected step. The aggregate opaque-session posture is review evidence,
   not executable session authority. Never package cookies, passwords, driver
   configuration, raw DOM/HTML, screenshots, or private cache content.
+- For browser registration, require an active
+  `uws.browser-registration.1.0` profile, its exact promotable
+  `browsertools.registration-review.v1` bundle, and matching
+  `.icot/browser-registration.json` review. Store only symbolic credential
+  names. Account identifiers, verification values, cookies, browser storage,
+  captures, and page content never enter the package. Duplicate prevention is
+  operator attestation, duplicates fail, ambiguous post-submit outcomes stop
+  without retry, and cleanup is a separately approved action.
 - During authenticated authoring, bundled and expert workers use the same
   typed controller. It validates reduced event fields and disclosure paths
   before terminal, HTTP, or planner publication and requires a process-private
@@ -118,6 +126,13 @@ forwarded with Docker `-e`. Approved driver environment names such as `PATH`,
 container's own values. Host desktop, display, and socket requirements are
 rejected. Unreferenced API-first fallback profiles are ignored by runtime
 configuration.
+
+Registration packages use the same immutable approval and dry-run staging
+path, including canonical `UDON_CREDENTIAL_*` names and exact registration
+operation approvals. Dry-run never resolves those values or launches a
+browser. Non-dry registration is rejected before executor construction because
+the currently pinned Udon and Browserdriver contracts do not implement
+`uws.browser-registration-call.1.0`.
 
 `OPENUDON_EXECUTOR` is the canonical final executor selector. It accepts an absolute binary path or
 `docker://<image>`. `OPENUDON_UDON_RUNNER` is separate: it overrides the outer runner shim and must

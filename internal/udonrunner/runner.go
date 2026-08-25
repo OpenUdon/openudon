@@ -56,6 +56,7 @@ type BrowserConfig struct {
 	SessionEnvironment     []EnvironmentBinding `json:"session_environment,omitempty"`
 	ApprovedOperations     []string             `json:"approved_operations,omitempty"`
 	ApprovedAuthentication []string             `json:"approved_authentication,omitempty"`
+	ApprovedRegistration   []string             `json:"approved_registration,omitempty"`
 }
 
 // EnvironmentBinding maps a reviewed symbolic runtime name to its canonical

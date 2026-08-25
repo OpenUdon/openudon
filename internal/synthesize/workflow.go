@@ -18,11 +18,13 @@ import (
 	"github.com/OpenUdon/asyncapi"
 	"github.com/OpenUdon/browsertools/authprofile"
 	"github.com/OpenUdon/browsertools/profile"
+	"github.com/OpenUdon/browsertools/registrationprofile"
 	"github.com/OpenUdon/openudon/internal/browserworkflow"
 	"github.com/OpenUdon/openudon/internal/evidencefile"
 	"github.com/OpenUdon/openudon/internal/packageartifacts"
 	rollout "github.com/OpenUdon/openudon/internal/workflowintent"
 	"github.com/OpenUdon/uws/browserauthentication"
+	"github.com/OpenUdon/uws/browserregistration"
 	"github.com/OpenUdon/uws/convert"
 	"github.com/OpenUdon/uws/runtimes"
 	"github.com/OpenUdon/uws/uws1"
@@ -276,6 +278,31 @@ func buildUWSStep(step *rollout.Step, defaultOpenAPI string, sourceFor func(stri
 			Flow:               strings.TrimSpace(step.AuthenticationFlow),
 			Session:            strings.TrimSpace(step.BrowserSession),
 			CredentialBindings: credentialBindings,
+		}); err != nil {
+			return nil, nil, err
+		}
+	case "browser_registration":
+		if strings.TrimSpace(openAPIPath) == "" {
+			return nil, nil, fmt.Errorf("step %s references browser registration without a profile document", name)
+		}
+		profilePath := filepath.ToSlash(openAPIPath)
+		value := browserContracts.Registrations[profilePath]
+		if value == nil {
+			return nil, nil, fmt.Errorf("step %s references an unavailable browser registration profile", name)
+		}
+		flow, ok := value.Flows[strings.TrimSpace(step.RegistrationFlow)]
+		if !ok {
+			return nil, nil, fmt.Errorf("step %s references an unavailable browser registration flow", name)
+		}
+		if !exactRegistrationBindings(step.CredentialBindings, registrationFlowSlots(flow)) {
+			return nil, nil, fmt.Errorf("step %s credential bindings do not exactly cover the selected registration flow", name)
+		}
+		op.Request = nil
+		op.Extensions = map[string]any{uws1.ExtensionOperationProfile: browserregistration.CallProfileName}
+		if err := browserregistration.SetRegistrationExtension(&op.Extensions, &browserregistration.OperationRegistration{
+			Profile: profilePath, Flow: strings.TrimSpace(step.RegistrationFlow), CredentialBindings: step.CredentialBindings,
+			Approval: strings.TrimSpace(step.RegistrationApproval), DuplicatePrevention: step.DuplicatePrevention,
+			OnDuplicate: step.OnDuplicate, AmbiguousOutcome: step.AmbiguousOutcome, CleanupDisposition: step.CleanupDisposition,
 		}); err != nil {
 			return nil, nil, err
 		}
@@ -1121,17 +1148,19 @@ type browserContractVersions struct {
 	Requires19            bool
 	ContextAuthentication map[string]bool
 	Profiles              map[string]*profile.Profile
+	Registrations         map[string]*registrationprofile.Profile
 }
 
 func browserContractVersionsForIntent(exampleDir string, intent *rollout.Intent) (browserContractVersions, error) {
-	result := browserContractVersions{ContextAuthentication: map[string]bool{}, Profiles: map[string]*profile.Profile{}}
+	result := browserContractVersions{ContextAuthentication: map[string]bool{}, Profiles: map[string]*profile.Profile{}, Registrations: map[string]*registrationprofile.Profile{}}
 	if intent == nil || strings.TrimSpace(exampleDir) == "" {
 		return result, nil
 	}
 	type loadedContract struct {
-		name    string
-		profile *profile.Profile
-		err     error
+		name         string
+		profile      *profile.Profile
+		registration *registrationprofile.Profile
+		err          error
 	}
 	loaded := map[string]loadedContract{}
 	var resultErr error
@@ -1141,13 +1170,20 @@ func browserContractVersionsForIntent(exampleDir string, intent *rollout.Intent)
 		}
 		source := normalizeAPISourceRef(effectiveSource)
 		kind := strings.ToLower(strings.TrimSpace(step.Type))
-		if kind != "browser" && kind != "browser_authentication" {
+		if kind != "browser" && kind != "browser_authentication" && kind != "browser_registration" {
 			return
 		}
 		key := kind + "\x00" + source
 		contract, ok := loaded[key]
 		if !ok {
-			contract.name, contract.profile, contract.err = browserProfileDiscriminator(exampleDir, source, kind)
+			if kind == "browser_registration" {
+				contract.registration, contract.err = browserRegistrationProfile(exampleDir, source)
+				if contract.registration != nil {
+					contract.name = contract.registration.Profile
+				}
+			} else {
+				contract.name, contract.profile, contract.err = browserProfileDiscriminator(exampleDir, source, kind)
+			}
 			loaded[key] = contract
 		}
 		if contract.err != nil {
@@ -1157,6 +1193,9 @@ func browserContractVersionsForIntent(exampleDir string, intent *rollout.Intent)
 		if contract.profile != nil {
 			result.Profiles[source] = contract.profile
 		}
+		if contract.registration != nil {
+			result.Registrations[source] = contract.registration
+		}
 		switch {
 		case kind == "browser" && contract.name == "uws.browser.1.7":
 			result.Requires19 = true
@@ -1165,9 +1204,57 @@ func browserContractVersionsForIntent(exampleDir string, intent *rollout.Intent)
 		case kind == "browser_authentication" && contract.name == "uws.browser-authentication.1.1":
 			result.Requires18 = true
 			result.ContextAuthentication[source] = true
+		case kind == "browser_registration" && contract.name == browserregistration.ProfileName:
+			result.Requires19 = true
 		}
 	})
 	return result, resultErr
+}
+
+func browserRegistrationProfile(exampleDir, relative string) (*registrationprofile.Profile, error) {
+	clean, err := packageartifacts.CleanRelativePath(relative)
+	if err != nil || clean != filepath.ToSlash(strings.TrimSpace(relative)) {
+		return nil, fmt.Errorf("source must be a canonical package-relative path")
+	}
+	if !strings.HasPrefix(clean, "browser-registration/") {
+		return nil, fmt.Errorf("source %q must be under browser-registration", clean)
+	}
+	data, _, err := evidencefile.ReadRegular(filepath.Join(exampleDir, filepath.FromSlash(clean)), registrationprofile.MaxProfileBytes)
+	if err != nil {
+		return nil, fmt.Errorf("read %s: %w", clean, err)
+	}
+	value, err := registrationprofile.Parse(data)
+	if err != nil {
+		return nil, fmt.Errorf("parse %s: %w", clean, err)
+	}
+	return value, nil
+}
+
+func registrationFlowSlots(flow browserregistration.Flow) []string {
+	set := map[string]bool{}
+	for _, step := range flow.Sequence {
+		if step.TypeCredential != nil && strings.TrimSpace(step.TypeCredential.Slot) != "" {
+			set[step.TypeCredential.Slot] = true
+		}
+	}
+	result := make([]string, 0, len(set))
+	for slot := range set {
+		result = append(result, slot)
+	}
+	sort.Strings(result)
+	return result
+}
+
+func exactRegistrationBindings(bindings map[string]string, slots []string) bool {
+	if len(bindings) != len(slots) {
+		return false
+	}
+	for _, slot := range slots {
+		if !browserAuthenticationBindingPattern.MatchString(strings.TrimSpace(bindings[slot])) {
+			return false
+		}
+	}
+	return true
 }
 
 func browserProfileDiscriminator(exampleDir, relative, kind string) (string, *profile.Profile, error) {

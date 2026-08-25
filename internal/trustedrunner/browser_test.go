@@ -10,6 +10,7 @@ import (
 	"testing"
 
 	"github.com/OpenUdon/openudon/internal/authoring"
+	"github.com/OpenUdon/openudon/internal/packageartifacts"
 	"github.com/OpenUdon/openudon/internal/synthesize"
 	"github.com/OpenUdon/openudon/internal/udonrunner"
 	rollout "github.com/OpenUdon/openudon/internal/workflowintent"
@@ -142,6 +143,156 @@ func TestValidatedPackageBrowserConfigStaysBoundToImmutableSnapshot(t *testing.T
 	if _, err := udonrunner.Prepare(context.Background(), config, udonrunner.Options{RepoRoot: root, Env: []string{"PATH=/trusted/bin"}}); err == nil ||
 		(!strings.Contains(err.Error(), "digest") && !strings.Contains(err.Error(), "does not match")) {
 		t.Fatalf("staging accepted current-file drift: %v", err)
+	}
+}
+
+func TestBrowserRegistrationConfigIsDryRunOnly(t *testing.T) {
+	timeout := 300.0
+	intent := &rollout.Intent{Steps: []*rollout.Step{{
+		Name: "register_test_user", Type: "browser_registration", Do: "Create one dedicated test identity.",
+		Source: "browser-registration/dedicated.yaml", RegistrationFlow: "create_dedicated_test_user",
+		RegistrationApproval: "approve_account_creation", DuplicatePrevention: "operator_attestation", OnDuplicate: "fail",
+		AmbiguousOutcome: "stop_without_retry", CleanupDisposition: "retain_dedicated_test_identity",
+		CredentialBindings: map[string]string{"identifier": "test_identifier", "password": "test_password"}, Timeout: &timeout,
+	}}}
+	intentData, err := rollout.RenderIntentHCL(intent)
+	if err != nil {
+		t.Fatal(err)
+	}
+	files := map[string][]byte{
+		"expected/plan.json": []byte(`{"version":"openudon.workflow-plan.v1","steps":[{"name":"register_test_user","type":"browser_registration"}]}`),
+		rollout.IntentPath:   []byte(intentData),
+		"browser-registration/dedicated.yaml": []byte(`profile: uws.browser-registration.1.0
+info:
+  title: Dedicated registration
+  applicationOrigins: [https://example.test]
+  registrationOrigins: [https://example.test]
+observationKind: accessibility_snapshot
+evidence: {learnedAt: "2026-08-25T00:00:00Z", source: synthetic_fixture}
+confidence: high
+expiresAfter: P30D
+verification: {lastVerifiedAt: "2026-08-25T00:00:00Z"}
+credentialSlots:
+  identifier: {kind: identifier}
+  password: {kind: password}
+flows:
+  create_dedicated_test_user:
+    sequence:
+      - navigate: https://example.test/register
+      - type_credential: {locator: {role: textbox, name: Test identifier}, slot: identifier}
+      - type_credential: {locator: {role: textbox, name: Test password}, slot: password}
+      - submit: {locator: {role: button, name: Create account}}
+      - wait_for: {locator: {role: heading, name: Complete}}
+    effects: [creates_account]
+    confirmationPolicy: {required: true}
+    success: {origin: https://example.test, locator: {role: heading, name: Complete}}
+`),
+		packageartifacts.BrowserRegistrationReviewPath: []byte(`{"version":"openudon.browser-registration-review.v1","registration_calls":[{"step":"register_test_user","source":"browser-registration/dedicated.yaml","flow":"create_dedicated_test_user","credential_bindings":{"identifier":"test_identifier","password":"test_password"},"approval":"approve_account_creation","duplicate_prevention":"operator_attestation","on_duplicate":"fail","ambiguous_outcome":"stop_without_retry","cleanup_disposition":"retain_dedicated_test_identity","timeout":300}],"sources":[]}`),
+	}
+	read := func(path string) ([]byte, error) {
+		value, ok := files[path]
+		if !ok {
+			return nil, os.ErrNotExist
+		}
+		return value, nil
+	}
+	config, err := buildBrowserRunConfigFromBytes("synthetic", nil, nil, []string{"browser-registration/dedicated.yaml"}, read, "", nil, nil, true)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if config.Protocol != "v3" || !reflect.DeepEqual(config.ApprovedRegistration, []string{"approve_account_creation"}) {
+		t.Fatalf("registration config = %#v", config)
+	}
+	if len(config.CredentialEnvironment) != 2 || config.CredentialEnvironment[0].Name != "test_identifier" || config.CredentialEnvironment[1].Name != "test_password" {
+		t.Fatalf("registration credential mappings = %#v", config.CredentialEnvironment)
+	}
+	if _, err := buildBrowserRunConfigFromBytes("synthetic", nil, nil, []string{"browser-registration/dedicated.yaml"}, read, "/trusted/browserdriver", nil, nil, false); err == nil || !strings.Contains(err.Error(), "unsupported") {
+		t.Fatalf("live registration error = %v", err)
+	}
+}
+
+func TestTrustedRunnerBrowserRegistrationDryRunNeverInvokesExecutor(t *testing.T) {
+	extra := []string{
+		"browser-registration/dedicated.yaml",
+		"browser-registration/dedicated.review.json",
+		packageartifacts.BrowserRegistrationReviewPath,
+	}
+	root, example := writeFixture(t, fixtureOptions{
+		extraRequiredInputs: extra,
+		credentialBindings:  []string{"test_identifier", "test_password"},
+	})
+	timeout := 300.0
+	intent := &rollout.Intent{Steps: []*rollout.Step{{
+		Name: "register_test_user", Type: "browser_registration", Do: "Create one dedicated test identity.",
+		Source: "browser-registration/dedicated.yaml", RegistrationFlow: "create_dedicated_test_user",
+		RegistrationApproval: "approve_account_creation", DuplicatePrevention: "operator_attestation", OnDuplicate: "fail",
+		AmbiguousOutcome: "stop_without_retry", CleanupDisposition: "delete_separately",
+		CredentialBindings: map[string]string{"identifier": "test_identifier", "password": "test_password"}, Timeout: &timeout,
+	}}}
+	intentData, err := rollout.RenderIntentHCL(intent)
+	if err != nil {
+		t.Fatal(err)
+	}
+	mustWriteFile(t, filepath.Join(example, filepath.FromSlash(rollout.IntentPath)), []byte(intentData))
+	mustWriteFile(t, filepath.Join(example, "expected", "plan.json"), []byte(`{"version":"openudon.workflow-plan.v1","steps":[{"name":"register_test_user","type":"browser_registration"}]}`))
+	mustWriteFile(t, filepath.Join(example, "browser-registration", "dedicated.yaml"), []byte(`profile: uws.browser-registration.1.0
+info:
+  title: Dedicated registration
+  applicationOrigins: [https://example.test]
+  registrationOrigins: [https://example.test]
+observationKind: accessibility_snapshot
+evidence: {learnedAt: "2026-04-29T00:00:00Z", source: synthetic_fixture}
+confidence: high
+expiresAfter: P30D
+verification: {lastVerifiedAt: "2026-04-29T00:00:00Z"}
+credentialSlots:
+  identifier: {kind: identifier}
+  password: {kind: password}
+flows:
+  create_dedicated_test_user:
+    sequence:
+      - navigate: https://example.test/register
+      - type_credential: {locator: {role: textbox, name: Test identifier}, slot: identifier}
+      - type_credential: {locator: {role: textbox, name: Test password}, slot: password}
+      - submit: {locator: {role: button, name: Create account}}
+      - wait_for: {locator: {role: heading, name: Complete}}
+    effects: [creates_account]
+    confirmationPolicy: {required: true}
+    success: {origin: https://example.test, locator: {role: heading, name: Complete}}
+`))
+	mustWriteFile(t, filepath.Join(example, "browser-registration", "dedicated.review.json"), []byte(`{"version":"browsertools.registration-review.v1"}`))
+	mustWriteFile(t, filepath.Join(example, filepath.FromSlash(packageartifacts.BrowserRegistrationReviewPath)), []byte(`{"version":"openudon.browser-registration-review.v1","registration_calls":[{"step":"register_test_user","source":"browser-registration/dedicated.yaml","flow":"create_dedicated_test_user","credential_bindings":{"identifier":"test_identifier","password":"test_password"},"approval":"approve_account_creation","duplicate_prevention":"operator_attestation","on_duplicate":"fail","ambiguous_outcome":"stop_without_retry","cleanup_disposition":"delete_separately","timeout":300}],"sources":[]}`))
+	refreshFixtureHandoffFile(t, example)
+	now := fixedNow()
+	approvalPath := writeApprovalTemplate(t, root, example, StateApprovedForSandbox, now)
+	invoked := false
+	result, err := Run(context.Background(), Options{
+		RepoRoot: root, ExampleDir: example, Tier: "sandbox", ApprovalPath: approvalPath,
+		DryRun: true, Now: now, Assess: passAssess,
+		Invoke: func(context.Context, udonrunner.Invocation) error { invoked = true; return nil },
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !result.DryRun || invoked {
+		t.Fatalf("dry-run result = %#v, invoked = %v", result, invoked)
+	}
+	configData, err := os.ReadFile(result.RunConfigPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(string(configData), "example.test") || !strings.Contains(string(configData), "UDON_CREDENTIAL_TEST_IDENTIFIER") || !strings.Contains(string(configData), `"approved_registration"`) || !strings.Contains(string(configData), `"approve_account_creation"`) {
+		t.Fatalf("unexpected registration dry-run config: %s", configData)
+	}
+	if _, err := Run(context.Background(), Options{
+		RepoRoot: root, ExampleDir: example, Tier: "sandbox", ApprovalPath: approvalPath,
+		Now: now, Assess: passAssess,
+		Invoke: func(context.Context, udonrunner.Invocation) error { invoked = true; return nil },
+	}); err == nil || !strings.Contains(err.Error(), "unsupported") {
+		t.Fatalf("live registration error = %v", err)
+	}
+	if invoked {
+		t.Fatal("registration executor was invoked")
 	}
 }
 

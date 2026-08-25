@@ -203,6 +203,30 @@ func reviewHandoffInputs(result Result) ([]ReviewHandoffInput, error) {
 			Purpose: "Authentication profile digest, flow, named-session, symbolic-credential, and authoring-approval review evidence.", Required: true,
 		})
 	}
+	registrationPaths, err := packageartifacts.CollectBrowserRegistrationProfilePaths(result.ExampleDir)
+	if err != nil {
+		return nil, err
+	}
+	for _, path := range registrationPaths {
+		artifacts = append(artifacts, authoring.ReviewArtifactInput{
+			Path: path, Purpose: "Portable secret-free browser registration profile staged for offline package qualification.", Required: true,
+		})
+	}
+	registrationBundles, err := packageartifacts.CollectBrowserRegistrationBundlePaths(result.ExampleDir)
+	if err != nil {
+		return nil, err
+	}
+	for _, path := range registrationBundles {
+		artifacts = append(artifacts, authoring.ReviewArtifactInput{
+			Path: path, Purpose: "Digest-bound Browsertools registration profile review staged for offline package qualification.", Required: true,
+		})
+	}
+	if len(registrationPaths) > 0 {
+		artifacts = append(artifacts, authoring.ReviewArtifactInput{
+			Path:    packageartifacts.BrowserRegistrationReviewPath,
+			Purpose: "Registration profile, flow, origin, symbolic-binding, mutation-policy, cleanup, and exact-approval review evidence.", Required: true,
+		})
+	}
 	securitySidecars, err := packageartifacts.CollectAdvisorySecuritySidecarPaths(result.ExampleDir)
 	if err != nil {
 		return nil, err

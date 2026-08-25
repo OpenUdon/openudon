@@ -758,6 +758,14 @@ func validateIntentOpenAPIRefs(intent *rollout.Intent, exampleDir string, candid
 	for _, path := range authenticationPaths {
 		authenticationSources[normalizeAPISourceRef(path)] = true
 	}
+	registrationSources := map[string]bool{}
+	registrationPaths, registrationErr := packageartifacts.CollectBrowserRegistrationProfilePaths(exampleDir)
+	if registrationErr != nil {
+		return fmt.Errorf("browser registration sources could not be scanned: %w", registrationErr)
+	}
+	for _, path := range registrationPaths {
+		registrationSources[normalizeAPISourceRef(path)] = true
+	}
 	sourceRegistry, sourceRegistryErr := newLocalAPISourceRegistry(exampleDir, candidates)
 	if sourceRegistryErr != nil && !errors.Is(sourceRegistryErr, os.ErrNotExist) {
 		return fmt.Errorf("local API source registry could not be scanned: %w", sourceRegistryErr)
@@ -772,7 +780,12 @@ func validateIntentOpenAPIRefs(intent *rollout.Intent, exampleDir string, candid
 		intent.OpenAPI = normalizeAPISourceRef(primary)
 	}
 	if ref := normalizeAPISourceRef(firstNonEmpty(intent.Source, intent.OpenAPI)); ref != "" {
-		if isBrowserAuthenticationSourceRef(ref) {
+		if isBrowserRegistrationSourceRef(ref) {
+			if !registrationSources[ref] {
+				return fmt.Errorf("generated intent referenced unavailable browser registration profile %q", ref)
+			}
+			intent.Source, intent.OpenAPI = ref, ""
+		} else if isBrowserAuthenticationSourceRef(ref) {
 			if !authenticationSources[ref] {
 				return fmt.Errorf("generated intent referenced unavailable browser authentication profile %q", ref)
 			}
@@ -818,6 +831,14 @@ func validateIntentOpenAPIRefs(intent *rollout.Intent, exampleDir string, candid
 				step.Source = step.OpenAPI
 			}
 			if ref := normalizeAPISourceRef(firstNonEmpty(step.Source, step.OpenAPI)); ref != "" {
+				if isBrowserRegistrationSourceRef(ref) {
+					if !registrationSources[ref] {
+						bad = append(bad, ref)
+					} else {
+						step.Source, step.OpenAPI = ref, ""
+					}
+					continue
+				}
 				if isBrowserAuthenticationSourceRef(ref) {
 					if !authenticationSources[ref] {
 						bad = append(bad, ref)
@@ -879,9 +900,13 @@ func isBrowserAuthenticationSourceRef(ref string) bool {
 	return strings.HasPrefix(normalizeAPISourceRef(ref), "browser-authentication/")
 }
 
+func isBrowserRegistrationSourceRef(ref string) bool {
+	return strings.HasPrefix(normalizeAPISourceRef(ref), "browser-registration/")
+}
+
 func isBrowserPackageSourceRef(ref string) bool {
 	ref = normalizeAPISourceRef(ref)
-	return strings.HasPrefix(ref, "browser-profiles/") || strings.HasPrefix(ref, "browser-authentication/")
+	return strings.HasPrefix(ref, "browser-profiles/") || strings.HasPrefix(ref, "browser-authentication/") || strings.HasPrefix(ref, "browser-registration/")
 }
 
 func validateIntentRuntimePolicy(intent *rollout.Intent, policy projectPolicy) error {
@@ -919,7 +944,7 @@ func validateIntentRuntimePolicy(intent *rollout.Intent, policy projectPolicy) e
 
 func allowedIntentRuntimeType(typ string) bool {
 	switch strings.ToLower(strings.TrimSpace(typ)) {
-	case "", "http", "openapi", "browser", "browser_authentication", "fnct", "cmd", "ssh",
+	case "", "http", "openapi", "browser", "browser_authentication", "browser_registration", "fnct", "cmd", "ssh",
 		"sequence", "parallel", "switch", "merge", "loop", "await":
 		return true
 	default:

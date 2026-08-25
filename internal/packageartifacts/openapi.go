@@ -30,6 +30,7 @@ const ReviewHandoffPath = "expected/review-handoff.json"
 const RuntimeDataPath = "expected/data.hcl"
 const BrowserSourceReviewPath = ".icot/browser-sources.json"
 const BrowserAuthenticationReviewPath = ".icot/browser-authentication.json"
+const BrowserRegistrationReviewPath = ".icot/browser-registration.json"
 
 var fixedRequiredPackagePaths = []string{
 	"project.md",
@@ -79,6 +80,19 @@ func RequiredPackagePaths(packageRoot string) ([]string, error) {
 	paths = append(paths, authenticationPaths...)
 	if len(authenticationPaths) > 0 {
 		paths = append(paths, BrowserAuthenticationReviewPath)
+	}
+	registrationPaths, err := CollectBrowserRegistrationProfilePaths(packageRoot)
+	if err != nil {
+		return nil, err
+	}
+	paths = append(paths, registrationPaths...)
+	registrationBundles, err := CollectBrowserRegistrationBundlePaths(packageRoot)
+	if err != nil {
+		return nil, err
+	}
+	paths = append(paths, registrationBundles...)
+	if len(registrationPaths) > 0 {
+		paths = append(paths, BrowserRegistrationReviewPath)
 	}
 	securitySidecars, err := CollectAdvisorySecuritySidecarPaths(packageRoot)
 	if err != nil {
@@ -203,6 +217,79 @@ func CollectBrowserAuthenticationProfilePaths(packageRoot string) ([]string, err
 		profiles = append(profiles, path)
 	}
 	return profiles, nil
+}
+
+// CollectBrowserRegistrationProfilePaths returns portable, secret-free
+// account-registration profiles while excluding their digest-bound review
+// bundles.
+func CollectBrowserRegistrationProfilePaths(packageRoot string) ([]string, error) {
+	paths, err := collectSourceDirPaths(packageRoot, "browser-registration")
+	if err != nil {
+		return nil, err
+	}
+	profiles := make([]string, 0, len(paths))
+	for _, path := range paths {
+		if strings.HasSuffix(strings.ToLower(path), ".review.json") {
+			continue
+		}
+		switch strings.ToLower(filepath.Ext(path)) {
+		case ".json", ".yaml", ".yml":
+		default:
+			return nil, fmt.Errorf("browser registration profile must use .json, .yaml, or .yml: %s", path)
+		}
+		profiles = append(profiles, path)
+	}
+	return profiles, nil
+}
+
+// CollectBrowserRegistrationBundlePaths returns exactly one conventional
+// Browsertools review bundle for every registration profile and rejects
+// orphan bundles.
+func CollectBrowserRegistrationBundlePaths(packageRoot string) ([]string, error) {
+	paths, err := collectSourceDirPaths(packageRoot, "browser-registration")
+	if err != nil {
+		return nil, err
+	}
+	profiles := map[string]bool{}
+	bundles := map[string]bool{}
+	for _, path := range paths {
+		if strings.HasSuffix(strings.ToLower(path), ".review.json") {
+			bundles[path] = true
+			continue
+		}
+		switch strings.ToLower(filepath.Ext(path)) {
+		case ".json", ".yaml", ".yml":
+			profiles[path] = true
+		default:
+			return nil, fmt.Errorf("browser registration profile must use .json, .yaml, or .yml: %s", path)
+		}
+	}
+	result := make([]string, 0, len(profiles))
+	for profilePath := range profiles {
+		reviewPath := BrowserRegistrationBundlePath(profilePath)
+		if !bundles[reviewPath] {
+			return nil, fmt.Errorf("browser registration profile %s requires review bundle %s", profilePath, reviewPath)
+		}
+		delete(bundles, reviewPath)
+		result = append(result, reviewPath)
+	}
+	if len(bundles) != 0 {
+		orphans := make([]string, 0, len(bundles))
+		for path := range bundles {
+			orphans = append(orphans, path)
+		}
+		sort.Strings(orphans)
+		return nil, fmt.Errorf("browser registration review bundle has no matching profile: %s", strings.Join(orphans, ", "))
+	}
+	sort.Strings(result)
+	return result, nil
+}
+
+// BrowserRegistrationBundlePath returns the conventional package-relative
+// Browsertools review path for one profile.
+func BrowserRegistrationBundlePath(profilePath string) string {
+	ext := filepath.Ext(profilePath)
+	return strings.TrimSuffix(profilePath, ext) + ".review.json"
 }
 
 // CollectExecutionSourcePaths returns every UWS source document staged in a

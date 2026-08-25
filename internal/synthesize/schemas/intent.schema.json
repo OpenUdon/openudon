@@ -81,7 +81,7 @@
         "name": { "type": "string", "minLength": 1 },
         "type": {
           "type": "string",
-          "enum": ["http", "openapi", "browser", "browser_authentication", "fnct", "cmd", "ssh", "sequence", "parallel", "switch", "merge", "loop", "await"]
+          "enum": ["http", "openapi", "browser", "browser_authentication", "browser_registration", "fnct", "cmd", "ssh", "sequence", "parallel", "switch", "merge", "loop", "await"]
         },
         "do": { "type": "string", "minLength": 1 },
         "using": { "type": "string" },
@@ -101,6 +101,15 @@
         "openapi": { "type": "string" },
         "operation": { "type": "string" },
         "authentication_flow": { "type": "string" },
+        "registration_flow": { "type": "string" },
+        "registration_approval": { "type": "string" },
+        "duplicate_prevention": { "type": "string", "const": "operator_attestation" },
+        "on_duplicate": { "type": "string", "const": "fail" },
+        "ambiguous_outcome": { "type": "string", "const": "stop_without_retry" },
+        "cleanup_disposition": {
+          "type": "string",
+          "enum": ["delete_separately", "retain_dedicated_test_identity"]
+        },
         "browser_session": { "type": "string" },
         "credential_bindings": {
           "type": "object",
@@ -152,6 +161,19 @@
           "then": {
             "required": ["source", "authentication_flow", "browser_session", "credential_bindings", "timeout"],
             "properties": { "timeout": { "type": "number", "exclusiveMinimum": 0, "maximum": 600 } }
+          }
+        },
+        {
+          "if": {
+            "properties": { "type": { "const": "browser_registration" } },
+            "required": ["type"]
+          },
+          "then": {
+            "required": ["source", "registration_flow", "registration_approval", "duplicate_prevention", "on_duplicate", "ambiguous_outcome", "cleanup_disposition", "credential_bindings", "timeout"],
+            "properties": {
+              "credential_bindings": { "minProperties": 1 },
+              "timeout": { "type": "number", "exclusiveMinimum": 0, "maximum": 600 }
+            }
           }
         }
       ]

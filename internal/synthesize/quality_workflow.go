@@ -14,6 +14,8 @@ import (
 	uwsprofile "github.com/OpenUdon/openudon/internal/uwsexec"
 	rollout "github.com/OpenUdon/openudon/internal/workflowintent"
 	"github.com/OpenUdon/uws/browserauthentication"
+	"github.com/OpenUdon/uws/browserregistration"
+	uwsschemas "github.com/OpenUdon/uws/schemas"
 	"github.com/OpenUdon/uws/uws1"
 )
 
@@ -182,7 +184,7 @@ func validateWorkflowAgainstExpectedPlanWithLabels(report *QualityReport, expect
 		report.add(labels.requestEvidenceCode, "fail", labels.requestEvidenceMessage, err.Error())
 		return false
 	}
-	var missing, runtimeMismatch, operationMismatch, dependsMismatch, timeoutMismatch, controlMismatch, actionMismatch, requestMismatch, bindingSourceMismatch, credentialMismatch []string
+	var missing, runtimeMismatch, operationMismatch, registrationMismatch, dependsMismatch, timeoutMismatch, controlMismatch, actionMismatch, requestMismatch, bindingSourceMismatch, credentialMismatch []string
 	for _, step := range expected.Steps {
 		name := strings.TrimSpace(step.Name)
 		if name == "" {
@@ -203,6 +205,9 @@ func validateWorkflowAgainstExpectedPlanWithLabels(report *QualityReport, expect
 		}
 		if strings.TrimSpace(step.Operation) != "" && strings.TrimSpace(op.SourceOperationID) != strings.TrimSpace(step.Operation) {
 			operationMismatch = append(operationMismatch, fmt.Sprintf("%s expected %s got %s", name, step.Operation, op.SourceOperationID))
+		}
+		if strings.EqualFold(strings.TrimSpace(step.Type), "browser_registration") && !compiledRegistrationMatchesPlan(op.Registration, step) {
+			registrationMismatch = append(registrationMismatch, name+" registration call diverges from the expected plan")
 		}
 		if step.Timeout != nil && !floatPtrEqual(op.Timeout, step.Timeout) {
 			timeoutMismatch = append(timeoutMismatch, fmt.Sprintf("%s expected timeout %g got %s", name, *step.Timeout, formatFloatPtr(op.Timeout)))
@@ -336,10 +341,11 @@ func validateWorkflowAgainstExpectedPlanWithLabels(report *QualityReport, expect
 		return false
 	}
 	report.add(labels.planCoverageCode, "pass", labels.planCoveragePass, "")
-	if len(runtimeMismatch) > 0 || len(operationMismatch) > 0 || len(dependsMismatch) > 0 || len(timeoutMismatch) > 0 || len(controlMismatch) > 0 || len(actionMismatch) > 0 || len(requestMismatch) > 0 {
+	if len(runtimeMismatch) > 0 || len(operationMismatch) > 0 || len(registrationMismatch) > 0 || len(dependsMismatch) > 0 || len(timeoutMismatch) > 0 || len(controlMismatch) > 0 || len(actionMismatch) > 0 || len(requestMismatch) > 0 {
 		var details []string
 		details = append(details, sortedCopy(runtimeMismatch)...)
 		details = append(details, sortedCopy(operationMismatch)...)
+		details = append(details, sortedCopy(registrationMismatch)...)
 		details = append(details, sortedCopy(dependsMismatch)...)
 		details = append(details, sortedCopy(timeoutMismatch)...)
 		details = append(details, sortedCopy(controlMismatch)...)
@@ -434,6 +440,7 @@ type compiledOperation struct {
 	SuccessCriteria   []*uws1.Criterion
 	OnFailure         []*uws1.FailureAction
 	OnSuccess         []*uws1.SuccessAction
+	Registration      *browserregistration.OperationRegistration
 }
 
 func compiledOperationIndex(doc *uws1.Document) (map[string]*compiledOperation, error) {
@@ -444,6 +451,9 @@ func compiledOperationIndexWithRequestProjection(doc *uws1.Document, projectRequ
 	out := map[string]*compiledOperation{}
 	if doc == nil {
 		return out, nil
+	}
+	if err := validateCompiledRegistrationOperations(doc); err != nil {
+		return nil, err
 	}
 	operationEvidence := uwsOperationRequestEvidence(doc)
 	if projectRequests != nil {
@@ -505,6 +515,7 @@ func collectCompiledUWSStepList(steps []*uws1.Step, out map[string]*compiledOper
 				SuccessCriteria:   compiledCriteria(op),
 				OnFailure:         compiledFailureActions(op),
 				OnSuccess:         compiledSuccessActions(op),
+				Registration:      compiledRegistration(op),
 			}
 		}
 		childParent := name
@@ -550,10 +561,65 @@ func compiledServiceType(step *uws1.Step, op *uws1.Operation) string {
 	if op.ExtensionProfile() == browserauthentication.CallProfileName {
 		return "browser_authentication"
 	}
+	if op.ExtensionProfile() == browserregistration.CallProfileName {
+		return "browser_registration"
+	}
 	if strings.TrimSpace(op.ExtensionProfile()) != "" {
 		return "fnct"
 	}
 	return ""
+}
+
+func validateCompiledRegistrationOperations(doc *uws1.Document) error {
+	if doc == nil {
+		return nil
+	}
+	for _, op := range doc.Operations {
+		if op == nil || op.ExtensionProfile() != browserregistration.CallProfileName {
+			continue
+		}
+		value, ok, err := browserregistration.ReadRegistrationExtension(op.Extensions)
+		if err != nil {
+			return fmt.Errorf("operation %s browser registration call is invalid: %w", op.OperationID, err)
+		}
+		if !ok {
+			return fmt.Errorf("operation %s browser registration call is missing %s", op.OperationID, browserregistration.ExtensionRegistration)
+		}
+		data, err := json.Marshal(map[string]any{browserregistration.ExtensionRegistration: value})
+		if err != nil {
+			return err
+		}
+		if err := uwsschemas.ValidateBrowserRegistrationCallSupplement(data); err != nil {
+			return fmt.Errorf("operation %s browser registration call is invalid: %w", op.OperationID, err)
+		}
+	}
+	return nil
+}
+
+func compiledRegistration(op *uws1.Operation) *browserregistration.OperationRegistration {
+	if op == nil || op.ExtensionProfile() != browserregistration.CallProfileName {
+		return nil
+	}
+	value, ok, err := browserregistration.ReadRegistrationExtension(op.Extensions)
+	if err != nil || !ok {
+		return nil
+	}
+	return value
+}
+
+func compiledRegistrationMatchesPlan(value *browserregistration.OperationRegistration, step PlanStep) bool {
+	if value == nil || value.Profile != strings.TrimSpace(step.OpenAPI) || value.Flow != strings.TrimSpace(step.RegistrationFlow) ||
+		value.Approval != strings.TrimSpace(step.RegistrationApproval) || value.DuplicatePrevention != strings.TrimSpace(step.DuplicatePrevention) ||
+		value.OnDuplicate != strings.TrimSpace(step.OnDuplicate) || value.AmbiguousOutcome != strings.TrimSpace(step.AmbiguousOutcome) ||
+		value.CleanupDisposition != strings.TrimSpace(step.CleanupDisposition) || len(value.CredentialBindings) != len(step.CredentialBindings) {
+		return false
+	}
+	for slot, binding := range step.CredentialBindings {
+		if value.CredentialBindings[slot] != binding {
+			return false
+		}
+	}
+	return true
 }
 
 func compiledSourceOperationID(step *uws1.Step, op *uws1.Operation) string {

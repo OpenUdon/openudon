@@ -1336,6 +1336,7 @@ func cloneBrowserConfig(input *udonrunner.BrowserConfig) *udonrunner.BrowserConf
 	result.SessionEnvironment = append([]udonrunner.EnvironmentBinding(nil), input.SessionEnvironment...)
 	result.ApprovedOperations = append([]string(nil), input.ApprovedOperations...)
 	result.ApprovedAuthentication = append([]string(nil), input.ApprovedAuthentication...)
+	result.ApprovedRegistration = append([]string(nil), input.ApprovedRegistration...)
 	return &result
 }
 

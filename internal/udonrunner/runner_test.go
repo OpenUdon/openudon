@@ -563,6 +563,20 @@ func TestBrowserConfigRejectsForgedMappingsAndValues(t *testing.T) {
 	}
 }
 
+func TestBrowserRegistrationEvidenceRejectsExecutorConstruction(t *testing.T) {
+	config := &BrowserConfig{Protocol: "v3", DriverPath: "/trusted/browserdriver", ApprovedRegistration: []string{"register_test_user"}}
+	if err := ValidateBrowserEvidenceConfig(config, nil); err != nil {
+		t.Fatalf("dry-run evidence config rejected: %v", err)
+	}
+	if _, err := validateBrowserConfig(config, nil, map[string]string{}, false, true); err == nil || !strings.Contains(err.Error(), "unsupported") {
+		t.Fatalf("executor construction error = %v", err)
+	}
+	config.Protocol = "v2"
+	if err := ValidateBrowserEvidenceConfig(config, nil); err == nil || !strings.Contains(err.Error(), "protocol v3") {
+		t.Fatalf("registration protocol error = %v", err)
+	}
+}
+
 func validRunnerConfig(t *testing.T) Config {
 	t.Helper()
 	root := t.TempDir()

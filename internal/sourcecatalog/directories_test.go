@@ -7,7 +7,7 @@ import (
 
 func TestCanonicalSourceDirectories(t *testing.T) {
 	wantAPI := []string{"openapi", "google-discovery", "discovery", "aws-smithy", "asyncapi", "graphql", "openrpc", "grpc-protobuf", "odata"}
-	wantBrowser := []string{"browser-profiles", "browser-authentication", "capability-bundles"}
+	wantBrowser := []string{"browser-profiles", "browser-authentication", "browser-registration", "capability-bundles"}
 	if got := API(); !reflect.DeepEqual(got, wantAPI) {
 		t.Fatalf("API directories = %#v, want %#v", got, wantAPI)
 	}

@@ -9,7 +9,7 @@ var apiDirectories = []string{
 }
 
 var browserDirectories = []string{
-	"browser-profiles", "browser-authentication", "capability-bundles",
+	"browser-profiles", "browser-authentication", "browser-registration", "capability-bundles",
 }
 
 func API() []string     { return append([]string(nil), apiDirectories...) }

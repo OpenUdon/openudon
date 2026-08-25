@@ -3,6 +3,7 @@ package packageartifacts
 import (
 	"os"
 	"path/filepath"
+	"reflect"
 	"runtime"
 	"strings"
 	"syscall"
@@ -138,6 +139,30 @@ func TestCollectBrowserAuthenticationProfilePathsSkipsReviewBundles(t *testing.T
 	}
 	if len(paths) != 1 || paths[0] != "browser-authentication/member.yaml" {
 		t.Fatalf("authentication profile paths = %#v", paths)
+	}
+}
+
+func TestCollectBrowserRegistrationPathsRequirePairedReview(t *testing.T) {
+	root := t.TempDir()
+	mustWrite(t, filepath.Join(root, "browser-registration", "dedicated.yaml"), []byte("profile: uws.browser-registration.1.0\n"))
+	if _, err := CollectBrowserRegistrationBundlePaths(root); err == nil || !strings.Contains(err.Error(), "requires review bundle") {
+		t.Fatalf("missing review error = %v", err)
+	}
+	mustWrite(t, filepath.Join(root, "browser-registration", "dedicated.review.json"), []byte(`{"version":"browsertools.registration-review.v1"}`))
+	profiles, err := CollectBrowserRegistrationProfilePaths(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	bundles, err := CollectBrowserRegistrationBundlePaths(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !reflect.DeepEqual(profiles, []string{"browser-registration/dedicated.yaml"}) || !reflect.DeepEqual(bundles, []string{"browser-registration/dedicated.review.json"}) {
+		t.Fatalf("registration paths = %#v, %#v", profiles, bundles)
+	}
+	mustWrite(t, filepath.Join(root, "browser-registration", "orphan.review.json"), []byte(`{}`))
+	if _, err := CollectBrowserRegistrationBundlePaths(root); err == nil || !strings.Contains(err.Error(), "no matching profile") {
+		t.Fatalf("orphan review error = %v", err)
 	}
 }
 

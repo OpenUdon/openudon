@@ -400,6 +400,16 @@ credential bindings, bounded timeout, and separate authoring approval; Udon
 still requires separate runtime approval and keeps credentials, MFA responses,
 and live session state private.
 
+OpenUdon also accepts already-reviewed, secret-free
+`uws.browser-registration.1.0` profiles and
+`browsertools.registration-review.v1` bundles as manual package-local sources.
+An explicit `browser_registration` intent lowers fixed duplicate, ambiguity,
+cleanup, symbolic-binding, and exact submit-approval policy to
+`uws.browser-registration-call.1.0`. Build, assessment, approval-template, and
+trusted-runner dry-run are offline; non-dry registration fails before executor
+invocation until compatible Udon and Browserdriver contracts are published and
+pinned.
+
 If no in-workflow authentication step establishes the required login state,
 each affected browser step must instead name its own symbolic external
 `browser_session`. The aggregate opaque-session posture is review evidence, not

@@ -161,8 +161,13 @@ Supported step attributes:
 | `openapi` | Legacy step-local OpenAPI document alias. |
 | `operation` | API source operation ID. |
 | `authentication_flow` | Reviewed flow name from a browser authentication profile. |
+| `registration_flow` | Reviewed flow name from a browser registration profile. |
+| `registration_approval` | Symbolic exact approval required for the registration submit. |
+| `duplicate_prevention`, `on_duplicate`, `ambiguous_outcome` | Fixed fail-closed registration controls. |
+| `cleanup_disposition` | Preselected separate-delete or retained-test-identity policy. |
 | `browser_session` | Execution-local named browser session; never a cookie or session value. |
-| `credential_bindings` | Authentication profile slots mapped to symbolic runtime binding names. |
+| `credential_bindings` | Authentication or registration profile slots mapped to symbolic runtime binding names. |
+| `timeout` | Positive bounded operation timeout; browser authentication and registration cap it at 600 seconds. |
 | `provider` | Optional provider label for multi-provider workflows. |
 | `bind` | Structured source-step-to-target-field wiring. |
 | `when`, `for_each`, `items`, `mode`, `batch_size` | Structural control-flow hints. |
@@ -170,13 +175,13 @@ Supported step attributes:
 | nested `step`, `case`, `default` | Structural child steps. |
 
 Supported leaf step types are `http`, `openapi`, `browser`,
-`browser_authentication`, `fnct`, `cmd`, and `ssh`.
+`browser_authentication`, `browser_registration`, `fnct`, `cmd`, and `ssh`.
 Supported structural step types are `sequence`, `parallel`, `switch`, `merge`, `loop`, and `await`.
 
 OpenUdon policy allows `openapi`, `http`, `browser`,
-`browser_authentication`, and `fnct` by default. Browser authentication and
-mutating browser actions still require their operation-specific authoring and
-runtime approvals. `cmd` and `ssh` require explicit
+`browser_authentication`, `browser_registration`, and `fnct` by default.
+Browser authentication, browser registration, and mutating browser actions
+still require their operation-specific authoring and runtime approvals. `cmd` and `ssh` require explicit
 approval in `project.md`; otherwise quality assessment fails the intent.
 
 Unsupported runtime names such as `sql`, `smtp`, `llm`, and profile-specific `x-udon-*` names must
@@ -345,6 +350,47 @@ OpenUdon packages the portable profiles and safe review evidence, then lowers
 the intent to UWS 1.7 with typed authentication and named-session extensions.
 It does not launch a browser, resolve credentials, broker MFA, or store live
 sessions. Those behaviors remain in Udon and its private persistent driver.
+
+## Browser Registration Steps
+
+`browser_registration` is a separate package-local authoring type for
+`uws.browser-registration-call.1.0`. It references an already-reviewed,
+secret- and account-free `uws.browser-registration.1.0` profile plus its
+digest-bound Browsertools review bundle:
+
+```hcl
+step "register_dedicated_test_user" {
+  type                    = "browser_registration"
+  do                      = "Create one dedicated test identity after exact approval."
+  source                  = "browser-registration/dedicated-test-user.yaml"
+  registration_flow       = "create_dedicated_test_user"
+  registration_approval   = "register_dedicated_test_user"
+  duplicate_prevention    = "operator_attestation"
+  on_duplicate            = "fail"
+  ambiguous_outcome       = "stop_without_retry"
+  cleanup_disposition     = "delete_separately"
+  credential_bindings = {
+    identifier = "dedicated_test_identifier"
+    password   = "dedicated_test_password"
+  }
+  timeout = 300
+}
+```
+
+The binding keys must exactly cover the selected flow's slots and the values
+must remain symbolic. The three duplicate/ambiguity values are fixed. Cleanup
+is either `delete_separately` or `retain_dedicated_test_identity`; the call
+does not perform cleanup. Registration has no `browser_session` and never
+implies later authentication.
+
+The package must also contain
+`browser-registration/dedicated-test-user.review.json` and strict
+`.icot/browser-registration.json` inventory matching the source, review
+digest, origins, flow, slots, approval, timeout, and cleanup policy. iCoT does
+not capture or author registration. OpenUdon build, assessment,
+approval-template, and `run --dry-run` remain offline. A non-dry run fails
+before executor invocation until compatible Udon and Browserdriver
+registration contracts are published and pinned.
 
 ## Data Flow
 

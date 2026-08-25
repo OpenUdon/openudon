@@ -31,32 +31,38 @@ type WorkflowPlan struct {
 }
 
 type PlanStep struct {
-	Name               string                `json:"name"`
-	Type               string                `json:"type,omitempty"`
-	Parent             string                `json:"parent,omitempty"`
-	Branch             string                `json:"branch,omitempty"`
-	BranchWhen         string                `json:"branch_when,omitempty"`
-	Inferred           bool                  `json:"inferred,omitempty"`
-	OpenAPI            string                `json:"openapi,omitempty"`
-	Operation          string                `json:"operation,omitempty"`
-	AuthenticationFlow string                `json:"authentication_flow,omitempty"`
-	BrowserSession     string                `json:"browser_session,omitempty"`
-	CredentialBindings map[string]string     `json:"credential_bindings,omitempty"`
-	Timeout            *float64              `json:"timeout,omitempty"`
-	Runtime            string                `json:"runtime,omitempty"`
-	When               string                `json:"when,omitempty"`
-	ForEach            string                `json:"for_each,omitempty"`
-	Items              string                `json:"items,omitempty"`
-	Mode               string                `json:"mode,omitempty"`
-	BatchSize          string                `json:"batch_size,omitempty"`
-	DependsOn          []string              `json:"depends_on,omitempty"`
-	RequiredParams     []string              `json:"required_params,omitempty"`
-	RequestParams      []PlanParam           `json:"request_params,omitempty"`
-	Bindings           []PlanBinding         `json:"bindings,omitempty"`
-	Credentials        []string              `json:"credentials,omitempty"`
-	SuccessCriteria    []*uws1.Criterion     `json:"successCriteria,omitempty"`
-	OnFailure          []*uws1.FailureAction `json:"onFailure,omitempty"`
-	OnSuccess          []*uws1.SuccessAction `json:"onSuccess,omitempty"`
+	Name                 string                `json:"name"`
+	Type                 string                `json:"type,omitempty"`
+	Parent               string                `json:"parent,omitempty"`
+	Branch               string                `json:"branch,omitempty"`
+	BranchWhen           string                `json:"branch_when,omitempty"`
+	Inferred             bool                  `json:"inferred,omitempty"`
+	OpenAPI              string                `json:"openapi,omitempty"`
+	Operation            string                `json:"operation,omitempty"`
+	AuthenticationFlow   string                `json:"authentication_flow,omitempty"`
+	RegistrationFlow     string                `json:"registration_flow,omitempty"`
+	RegistrationApproval string                `json:"registration_approval,omitempty"`
+	DuplicatePrevention  string                `json:"duplicate_prevention,omitempty"`
+	OnDuplicate          string                `json:"on_duplicate,omitempty"`
+	AmbiguousOutcome     string                `json:"ambiguous_outcome,omitempty"`
+	CleanupDisposition   string                `json:"cleanup_disposition,omitempty"`
+	BrowserSession       string                `json:"browser_session,omitempty"`
+	CredentialBindings   map[string]string     `json:"credential_bindings,omitempty"`
+	Timeout              *float64              `json:"timeout,omitempty"`
+	Runtime              string                `json:"runtime,omitempty"`
+	When                 string                `json:"when,omitempty"`
+	ForEach              string                `json:"for_each,omitempty"`
+	Items                string                `json:"items,omitempty"`
+	Mode                 string                `json:"mode,omitempty"`
+	BatchSize            string                `json:"batch_size,omitempty"`
+	DependsOn            []string              `json:"depends_on,omitempty"`
+	RequiredParams       []string              `json:"required_params,omitempty"`
+	RequestParams        []PlanParam           `json:"request_params,omitempty"`
+	Bindings             []PlanBinding         `json:"bindings,omitempty"`
+	Credentials          []string              `json:"credentials,omitempty"`
+	SuccessCriteria      []*uws1.Criterion     `json:"successCriteria,omitempty"`
+	OnFailure            []*uws1.FailureAction `json:"onFailure,omitempty"`
+	OnSuccess            []*uws1.SuccessAction `json:"onSuccess,omitempty"`
 }
 
 type PlanParam struct {
@@ -160,27 +166,33 @@ func addStepsToWorkflowPlan(plan *WorkflowPlan, intent *rollout.Intent, steps []
 		}
 		name := strings.TrimSpace(step.Name)
 		planStep := PlanStep{
-			Name:               name,
-			Type:               strings.TrimSpace(step.Type),
-			Parent:             ctx.Parent,
-			Branch:             ctx.Branch,
-			BranchWhen:         ctx.BranchWhen,
-			Runtime:            strings.TrimSpace(step.Type),
-			Operation:          strings.TrimSpace(step.Operation),
-			AuthenticationFlow: strings.TrimSpace(step.AuthenticationFlow),
-			BrowserSession:     strings.TrimSpace(step.BrowserSession),
-			CredentialBindings: cloneStringMap(step.CredentialBindings),
-			Timeout:            cloneFloat64Ptr(step.Timeout),
-			When:               strings.TrimSpace(step.When),
-			ForEach:            strings.TrimSpace(step.ForEach),
-			Items:              strings.TrimSpace(step.Items),
-			Mode:               strings.TrimSpace(step.Mode),
-			BatchSize:          strings.TrimSpace(step.BatchSize),
-			DependsOn:          sortedCopy(step.DependsOn),
-			Inferred:           true,
-			SuccessCriteria:    cloneCriteria(step.SuccessCriteria),
-			OnFailure:          cloneFailureActions(step.OnFailure),
-			OnSuccess:          cloneSuccessActions(step.OnSuccess),
+			Name:                 name,
+			Type:                 strings.TrimSpace(step.Type),
+			Parent:               ctx.Parent,
+			Branch:               ctx.Branch,
+			BranchWhen:           ctx.BranchWhen,
+			Runtime:              strings.TrimSpace(step.Type),
+			Operation:            strings.TrimSpace(step.Operation),
+			AuthenticationFlow:   strings.TrimSpace(step.AuthenticationFlow),
+			RegistrationFlow:     strings.TrimSpace(step.RegistrationFlow),
+			RegistrationApproval: strings.TrimSpace(step.RegistrationApproval),
+			DuplicatePrevention:  strings.TrimSpace(step.DuplicatePrevention),
+			OnDuplicate:          strings.TrimSpace(step.OnDuplicate),
+			AmbiguousOutcome:     strings.TrimSpace(step.AmbiguousOutcome),
+			CleanupDisposition:   strings.TrimSpace(step.CleanupDisposition),
+			BrowserSession:       strings.TrimSpace(step.BrowserSession),
+			CredentialBindings:   cloneStringMap(step.CredentialBindings),
+			Timeout:              cloneFloat64Ptr(step.Timeout),
+			When:                 strings.TrimSpace(step.When),
+			ForEach:              strings.TrimSpace(step.ForEach),
+			Items:                strings.TrimSpace(step.Items),
+			Mode:                 strings.TrimSpace(step.Mode),
+			BatchSize:            strings.TrimSpace(step.BatchSize),
+			DependsOn:            sortedCopy(step.DependsOn),
+			Inferred:             true,
+			SuccessCriteria:      cloneCriteria(step.SuccessCriteria),
+			OnFailure:            cloneFailureActions(step.OnFailure),
+			OnSuccess:            cloneSuccessActions(step.OnSuccess),
 		}
 		planStep.OpenAPI = strings.TrimSpace(step.OpenAPI)
 		if planStep.OpenAPI == "" {
@@ -190,6 +202,13 @@ func addStepsToWorkflowPlan(plan *WorkflowPlan, intent *rollout.Intent, steps []
 			planStep.OpenAPI = strings.TrimSpace(intent.OpenAPI)
 			if planStep.OpenAPI == "" {
 				planStep.OpenAPI = strings.TrimSpace(intent.Source)
+			}
+		}
+		if strings.EqualFold(strings.TrimSpace(step.Type), "browser_authentication") || strings.EqualFold(strings.TrimSpace(step.Type), "browser_registration") {
+			for _, binding := range step.CredentialBindings {
+				if name := strings.TrimSpace(binding); name != "" {
+					planStep.Credentials = append(planStep.Credentials, name)
+				}
 			}
 		}
 		if !strings.HasPrefix(planStep.Operation, "#/") {

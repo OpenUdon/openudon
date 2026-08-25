@@ -7,9 +7,9 @@ the relevant behavior.
 | --- | --- |
 | [UWS](https://github.com/OpenUdon/uws) | Public workflow semantics, UWS versions, schema, parsing, validation, and Go model. |
 | [apitools](https://github.com/OpenUdon/apitools) | API source metadata discovery, import/materialization, search, indexing, summaries, auth/security summaries, catalog metadata, protocol-to-UWS-source-type mapping, and operation ranking for OpenAPI, Google Discovery, AWS Smithy, AsyncAPI, GraphQL, OpenRPC, gRPC/protobuf, and OData sources. |
-| [Browsertools](https://github.com/OpenUdon/browsertools) | Engine-neutral browser capability/authentication profile validation, private capture cache, reviewed capability bundles, bounded local discovery, and service-free local/HTTPS static registry tooling. Authentication profiles remain local and are not published to the capability registry. |
+| [Browsertools](https://github.com/OpenUdon/browsertools) | Engine-neutral browser capability/authentication/registration profile validation, offline registration draft and digest-bound review, private capture cache, reviewed capability bundles, bounded local discovery, and service-free local/HTTPS static registry tooling. Authentication and registration profiles remain local and are not published to the capability registry. |
 | [Ramen](https://github.com/OpenUdon/ramen) | Public API-source desired-state conversion, reconciliation, state, graphing, planning, drift, import, apply/delete, and audit artifacts. |
-| `udon` | Private UWS/API/browser-profile compiler and runtime executor. Persistent browser drivers, credentials, MFA challenge brokering, live sessions, exact runtime approvals, and execution remain behind its trusted run-config handoff. |
+| `udon` | Private UWS/API/browser-profile compiler and runtime executor. Persistent browser drivers, credentials, MFA challenge brokering, live sessions, exact runtime approvals, and execution remain behind its trusted run-config handoff. The currently pinned contract does not execute browser registration. |
 | n8n / `../try-n8n` | Service-priority and workflow-pattern evidence for SaaS authoring. OpenUdon does not import or execute n8n workflows. |
 | [OpenW8M](https://github.com/OpenUdon/openw8m) | Public OpenAPI-backed infrastructure authoring and planning. It is not an OpenUdon compatibility gate while the API source metadata boundary is active. |
 
@@ -19,7 +19,8 @@ the relevant behavior.
 - Generic execution or compilation behavior belongs in executor implementations such as `udon`.
 - API/event source metadata search, discovery, import/materialization, first-class provider catalog
   metadata, and operation metadata belong in apitools.
-- Browser observations, profile/bundle validation, private cache, and static
+- Browser observations, profile/bundle validation, offline registration
+  drafting/review, private cache, and static
   registry mechanics belong in Browsertools. OpenUdon selects and packages
   reviewed profiles; it does not store raw captures or operate a registry
   service.
