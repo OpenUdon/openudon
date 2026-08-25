@@ -16,7 +16,36 @@ import (
 	"github.com/OpenUdon/openudon/internal/packageartifacts"
 	rollout "github.com/OpenUdon/openudon/internal/workflowintent"
 	"github.com/OpenUdon/uws/browserregistration"
+	"github.com/OpenUdon/uws/uws1"
 )
+
+func TestRegistrationPlanInventoryMustMatchIntent(t *testing.T) {
+	intent := &rollout.Intent{Steps: []*rollout.Step{{Name: "register_test_user", Type: "browser_registration"}}}
+	plan := &WorkflowPlan{Version: workflowPlanVersion, Steps: []PlanStep{}}
+	mismatches := planIntentInventoryMismatches(intent, plan)
+	if len(mismatches) != 1 || !strings.Contains(mismatches[0], "missing intent step") {
+		t.Fatalf("inventory mismatches = %#v", mismatches)
+	}
+}
+
+func TestCompiledRegistrationValidationRejectsUnknownRawFields(t *testing.T) {
+	doc := &uws1.Document{Operations: []*uws1.Operation{{
+		OperationID: "register_test_user",
+		Extensions: map[string]any{
+			uws1.ExtensionOperationProfile: browserregistration.CallProfileName,
+			browserregistration.ExtensionRegistration: map[string]any{
+				"profile": "browser-registration/dedicated.yaml", "flow": "create_dedicated_test_user",
+				"credentialBindings": map[string]any{"identifier": "test_identifier", "password": "test_password"},
+				"approval":           "approve_account_creation", "duplicatePrevention": "operator_attestation", "onDuplicate": "fail",
+				"ambiguousOutcome": "stop_without_retry", "cleanupDisposition": "delete_separately",
+				"accountIdentifier": "must-not-be-accepted",
+			},
+		},
+	}}}
+	if err := validateCompiledRegistrationOperations(doc); err == nil || !strings.Contains(err.Error(), "additional properties") {
+		t.Fatalf("unknown registration field error = %v", err)
+	}
+}
 
 func TestPackageFromIntentBuildsBrowserRegistrationWorkflow(t *testing.T) {
 	example := t.TempDir()

@@ -206,6 +206,7 @@ flows:
 	if len(config.CredentialEnvironment) != 2 || config.CredentialEnvironment[0].Name != "test_identifier" || config.CredentialEnvironment[1].Name != "test_password" {
 		t.Fatalf("registration credential mappings = %#v", config.CredentialEnvironment)
 	}
+	files["expected/plan.json"] = []byte(`{"version":"openudon.workflow-plan.v1","steps":[]}`)
 	if _, err := buildBrowserRunConfigFromBytes("synthetic", nil, nil, []string{"browser-registration/dedicated.yaml"}, read, "/trusted/browserdriver", nil, nil, false); err == nil || !strings.Contains(err.Error(), "unsupported") {
 		t.Fatalf("live registration error = %v", err)
 	}

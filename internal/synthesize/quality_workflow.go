@@ -120,10 +120,63 @@ func assessWorkflow(report *QualityReport, path, exampleDir string, intent *roll
 		}
 		report.add("workflow.intent_coverage", "pass", "workflow.hcl represents intent steps", "")
 	}
+	if intent != nil && expectedPlan != nil {
+		if mismatches := planIntentInventoryMismatches(intent, expectedPlan); len(mismatches) > 0 {
+			report.add("plan.intent_match", "fail", "expected workflow plan does not exactly match intent step inventory", strings.Join(mismatches, "; "))
+			return false
+		}
+		report.add("plan.intent_match", "pass", "expected workflow plan exactly matches intent step inventory", "")
+	}
 	if expectedPlan != nil && !validateWorkflowAgainstExpectedPlan(report, doc, expectedPlan) {
 		return false
 	}
 	return true
+}
+
+func planIntentInventoryMismatches(intent *rollout.Intent, plan *WorkflowPlan) []string {
+	intentStepsByName := map[string]string{}
+	var mismatches []string
+	if intent != nil {
+		walkIntentSteps(intent.Steps, func(step *rollout.Step) {
+			if step == nil {
+				return
+			}
+			name := strings.TrimSpace(step.Name)
+			if _, exists := intentStepsByName[name]; exists {
+				mismatches = append(mismatches, fmt.Sprintf("intent step %q is duplicated", name))
+				return
+			}
+			intentStepsByName[name] = strings.ToLower(strings.TrimSpace(step.Type))
+		})
+	}
+	planStepsByName := map[string]string{}
+	if plan != nil {
+		for _, step := range plan.Steps {
+			name := strings.TrimSpace(step.Name)
+			if _, exists := planStepsByName[name]; exists {
+				mismatches = append(mismatches, fmt.Sprintf("plan step %q is duplicated", name))
+				continue
+			}
+			planStepsByName[name] = strings.ToLower(strings.TrimSpace(step.Type))
+		}
+	}
+	for name, kind := range intentStepsByName {
+		planKind, exists := planStepsByName[name]
+		if !exists {
+			mismatches = append(mismatches, fmt.Sprintf("plan is missing intent step %q", name))
+			continue
+		}
+		if planKind != kind {
+			mismatches = append(mismatches, fmt.Sprintf("plan step %q type %q does not match intent type %q", name, planKind, kind))
+		}
+	}
+	for name := range planStepsByName {
+		if _, exists := intentStepsByName[name]; !exists {
+			mismatches = append(mismatches, fmt.Sprintf("plan step %q is absent from intent", name))
+		}
+	}
+	sort.Strings(mismatches)
+	return mismatches
 }
 
 func workflowReferencesOpenAPI(source []byte) bool {
@@ -184,12 +237,14 @@ func validateWorkflowAgainstExpectedPlanWithLabels(report *QualityReport, expect
 		report.add(labels.requestEvidenceCode, "fail", labels.requestEvidenceMessage, err.Error())
 		return false
 	}
-	var missing, runtimeMismatch, operationMismatch, registrationMismatch, dependsMismatch, timeoutMismatch, controlMismatch, actionMismatch, requestMismatch, bindingSourceMismatch, credentialMismatch []string
+	var missing, unexpected, runtimeMismatch, operationMismatch, registrationMismatch, dependsMismatch, timeoutMismatch, controlMismatch, actionMismatch, requestMismatch, bindingSourceMismatch, credentialMismatch []string
+	expectedNames := map[string]bool{}
 	for _, step := range expected.Steps {
 		name := strings.TrimSpace(step.Name)
 		if name == "" {
 			continue
 		}
+		expectedNames[name] = true
 		op := ops[name]
 		if op == nil {
 			missing = append(missing, name)
@@ -335,9 +390,22 @@ func validateWorkflowAgainstExpectedPlanWithLabels(report *QualityReport, expect
 			}
 		}
 	}
-	if len(missing) > 0 {
+	for name := range ops {
+		if !expectedNames[name] {
+			unexpected = append(unexpected, name)
+		}
+	}
+	if len(missing) > 0 || len(unexpected) > 0 {
 		sort.Strings(missing)
-		report.add(labels.planCoverageCode, "fail", labels.planCoverageFail, strings.Join(missing, ", "))
+		sort.Strings(unexpected)
+		details := []string{}
+		if len(missing) > 0 {
+			details = append(details, "missing: "+strings.Join(missing, ", "))
+		}
+		if len(unexpected) > 0 {
+			details = append(details, "unexpected: "+strings.Join(unexpected, ", "))
+		}
+		report.add(labels.planCoverageCode, "fail", labels.planCoverageFail, strings.Join(details, "; "))
 		return false
 	}
 	report.add(labels.planCoverageCode, "pass", labels.planCoveragePass, "")
@@ -578,14 +646,11 @@ func validateCompiledRegistrationOperations(doc *uws1.Document) error {
 		if op == nil || op.ExtensionProfile() != browserregistration.CallProfileName {
 			continue
 		}
-		value, ok, err := browserregistration.ReadRegistrationExtension(op.Extensions)
-		if err != nil {
-			return fmt.Errorf("operation %s browser registration call is invalid: %w", op.OperationID, err)
-		}
+		raw, ok := op.Extensions[browserregistration.ExtensionRegistration]
 		if !ok {
 			return fmt.Errorf("operation %s browser registration call is missing %s", op.OperationID, browserregistration.ExtensionRegistration)
 		}
-		data, err := json.Marshal(map[string]any{browserregistration.ExtensionRegistration: value})
+		data, err := json.Marshal(map[string]any{browserregistration.ExtensionRegistration: raw})
 		if err != nil {
 			return err
 		}

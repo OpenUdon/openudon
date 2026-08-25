@@ -87,12 +87,17 @@ func buildBrowserRunConfigFromBytes(packageLabel string, browserPaths, authentic
 	if err := evidencefile.DecodeStrict(planData, &plan); err != nil {
 		return nil, fmt.Errorf("decode browser runtime plan: %w", err)
 	}
-	hasBrowserSteps := false
+	hasPlannedBrowserSteps := false
 	for _, step := range plan.Steps {
 		kind := strings.ToLower(strings.TrimSpace(step.Type))
-		hasBrowserSteps = hasBrowserSteps || kind == "browser" || kind == "browser_authentication" || kind == "browser_registration"
+		if kind == "browser" || kind == "browser_authentication" || kind == "browser_registration" {
+			hasPlannedBrowserSteps = true
+			break
+		}
 	}
-	if !hasBrowserSteps {
+	// A packaged registration profile forces inspection of the authoritative
+	// intent even when the derived plan is stale and omits its registration step.
+	if !hasPlannedBrowserSteps && len(registrationPaths) == 0 {
 		if strings.TrimSpace(driver) != "" || len(driverArgs) != 0 {
 			return nil, fmt.Errorf("--browser-driver and --browser-driver-arg require a browser workflow")
 		}
@@ -106,14 +111,28 @@ func buildBrowserRunConfigFromBytes(packageLabel string, browserPaths, authentic
 	if err != nil {
 		return nil, fmt.Errorf("read browser runtime intent: %w", err)
 	}
+	hasBrowserSteps := false
 	hasRegistrationStep := false
 	walkIntentSteps(intent.Steps, func(step *rollout.Step) {
-		if step != nil && strings.EqualFold(strings.TrimSpace(step.Type), "browser_registration") {
+		if step == nil {
+			return
+		}
+		kind := strings.ToLower(strings.TrimSpace(step.Type))
+		if kind == "browser" || kind == "browser_authentication" || kind == "browser_registration" {
+			hasBrowserSteps = true
+		}
+		if kind == "browser_registration" {
 			hasRegistrationStep = true
 		}
 	})
 	if hasRegistrationStep && !dryRun {
 		return nil, fmt.Errorf("browser registration execution is unsupported by the current Udon and Browserdriver contracts")
+	}
+	if !hasBrowserSteps {
+		if strings.TrimSpace(driver) != "" || len(driverArgs) != 0 {
+			return nil, fmt.Errorf("--browser-driver and --browser-driver-arg require a browser workflow")
+		}
+		return nil, nil
 	}
 	driver = strings.TrimSpace(driver)
 	if !dryRun && driver == "" {
