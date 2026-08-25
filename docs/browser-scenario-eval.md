@@ -127,6 +127,15 @@ presence outputs from a browser 1.5 profile carried by UWS 1.7. No account,
 form submission, credential, MFA challenge, mutation, or production side
 effect is involved.
 
+The hosted weekly workflow needs a repository Actions secret named
+`GENELET_READ_TOKEN`. Use a fine-grained token with read-only **Contents**
+access to `genelet/udon` and no other repository authority. The workflow reads
+the exact Udon commit from the compatibility lock, checks out Browsertools and
+Browserdriver anonymously, and checks out the private Udon revision with
+credential persistence disabled. The repository-scoped `GITHUB_TOKEN` cannot
+read that sibling private repository, and a missing credential fails before
+Chromium or any public target is launched.
+
 Public failures use typed live-result facts and strict
 `udon.execution-report.v2` codes, never stderr text. Missing, malformed,
 unknown, or unrelated failures are `unclassified`; that code can be recorded

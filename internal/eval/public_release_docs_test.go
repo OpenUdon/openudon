@@ -112,3 +112,28 @@ func TestBrowserScenarioWorkflowsProvisionSandboxUserNamespaces(t *testing.T) {
 		}
 	}
 }
+
+func TestBrowserScenarioWorkflowsUseLockedPrivateUdonCheckout(t *testing.T) {
+	root := filepath.Join("..", "..")
+	for _, path := range []string{
+		filepath.Join(".github", "workflows", "release.yml"),
+		filepath.Join(".github", "workflows", "browser-scenario-public.yml"),
+	} {
+		workflow := readRepoFile(t, root, path)
+		for _, want := range []string{
+			`for COMPONENT in browsertools browserdriver`,
+			`select(.name == "udon")`,
+			`repository: genelet/udon`,
+			`ref: ${{ steps.browser-lock.outputs.udon_commit }}`,
+			`token: ${{ secrets.GENELET_READ_TOKEN }}`,
+			`persist-credentials: false`,
+		} {
+			if !strings.Contains(workflow, want) {
+				t.Fatalf("%s missing private Udon checkout control %q", path, want)
+			}
+		}
+		if strings.Contains(workflow, `for COMPONENT in browsertools udon browserdriver`) {
+			t.Fatalf("%s attempts an anonymous Udon checkout", path)
+		}
+	}
+}

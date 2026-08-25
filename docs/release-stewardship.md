@@ -82,6 +82,12 @@ explicit network authority and is informational. See [Browser Scenario
 Evaluation](browser-scenario-eval.md). The hosted Ubuntu jobs explicitly
 enable sandbox-compatible unprivileged user namespaces on their ephemeral
 runner and retain Chromium's sandbox; `xvfb-run` supplies only the display.
+Both the public-canary workflow and the tag-release browser-scenario job need
+the repository Actions secret `GENELET_READ_TOKEN`: a fine-grained token with
+read-only **Contents** access to the private `genelet/udon` repository. They
+resolve its exact SHA from the compatibility lock and disable checkout
+credential persistence; public Browsertools and Browserdriver checkouts remain
+anonymous.
 
 `icot-ui-browser-check` uses the test-only Playwright-Go harness against the
 real embedded iCoT listener. It covers keyboard and accessible-name behavior,

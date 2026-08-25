@@ -27,15 +27,40 @@ jobs:
         with:
           node-version: 24
 
-      - name: Check out locked browser components
+      - name: Require private Udon checkout credential
+        env:
+          GENELET_READ_TOKEN: ${{ secrets.GENELET_READ_TOKEN }}
+        run: |
+          if [ -z "$GENELET_READ_TOKEN" ]; then
+            echo "::error::GENELET_READ_TOKEN must grant read-only contents access to genelet/udon"
+            exit 1
+          fi
+
+      - name: Resolve locked Udon revision
+        id: browser-lock
+        run: |
+          COMMIT="$(jq -r '.components[] | select(.name == "udon") | .commit' internal/browserscenario/compatibility-lock.json)"
+          test "$COMMIT" != "null"
+          echo "udon_commit=$COMMIT" >> "$GITHUB_OUTPUT"
+
+      - name: Check out locked public browser components
         run: |
           mkdir -p scenario-deps
-          for COMPONENT in browsertools udon browserdriver; do
+          for COMPONENT in browsertools browserdriver; do
             COMMIT="$(jq -r --arg name "$COMPONENT" '.components[] | select(.name == $name) | .commit' internal/browserscenario/compatibility-lock.json)"
             test "$COMMIT" != "null"
             git clone --filter=blob:none "https://github.com/OpenUdon/${COMPONENT}.git" "scenario-deps/${COMPONENT}"
             git -C "scenario-deps/${COMPONENT}" checkout --detach "$COMMIT"
           done
+
+      - name: Check out locked private Udon
+        uses: actions/checkout@v7
+        with:
+          repository: genelet/udon
+          ref: ${{ steps.browser-lock.outputs.udon_commit }}
+          path: scenario-deps/udon
+          token: ${{ secrets.GENELET_READ_TOKEN }}
+          persist-credentials: false
 
       - name: Install locked Chromium runtimes
         run: |
