@@ -23,6 +23,10 @@ deliberately smaller than the full command surface.
   operation approvals. This is not a live-execution compatibility claim;
   executor construction fails closed until compatible downstream contracts
   are pinned.
+- The public `openudon.browser-profile-transaction.v1` JSON artifact and its
+  schema. It coordinates the existing BAP/BCP and BRP families through closed,
+  value-free review, preparation, promotion, and recovery states; it neither
+  changes UWS semantics nor grants browser, executor, or target authority.
 
 Additive flags and artifact fields may be introduced in v0.2.x. Existing
 fields, accepted inputs, and documented core behavior will not intentionally
@@ -43,7 +47,10 @@ deterministic package and trusted-handoff boundary stays compatible.
 
 OpenUdon currently has no supported importable Go packages. The module's
 implementation packages remain internal, and v0.2 compatibility is a CLI and
-versioned-artifact contract.
+versioned-artifact contract. The browser-profile transaction therefore has a
+public JSON/schema boundary but no supported Go library API. Existing CLI
+commands and experimental iCoT API v3 do not expose a transaction endpoint as
+part of this contract.
 
 ## v1 Migration
 

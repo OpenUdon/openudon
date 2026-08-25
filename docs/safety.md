@@ -46,6 +46,13 @@ tier checks before invoking udon.
   captures, and page content never enter the package. Duplicate prevention is
   operator attestation, duplicates fail, ambiguous post-submit outcomes stop
   without retry, and cleanup is a separately approved action.
+- Treat `openudon.browser-profile-transaction.v1` as a value-free artifact
+  ledger, not approval or execution authority. Verify its separately retained
+  canonical digest before adoption and keep private-result paths and contents,
+  credentials, account/verification values, page/request content, cookies,
+  storage, captures, raw worker output, and live session material outside it.
+  A BRP transaction has no session and its producer must remain GET/HEAD-only
+  with no submit. Preparation and promotion record package facts only.
 - During authenticated authoring, bundled and expert workers use the same
   typed controller. It validates reduced event fields and disclosure paths
   before terminal, HTTP, or planner publication and requires a process-private
@@ -170,4 +177,6 @@ profiles are allowed for a given environment.
 
 Review approval states, trusted-runner handoff package contents, and optional sibling checkout plus
 secret boundaries are summarized in this guide, [Review Handoff](review-handoff.md), and the
-[project authoring documentation](project-authoring.md).
+[project authoring documentation](project-authoring.md). The value-free
+lifecycle used to coordinate reviewed browser sources is documented in
+[Browser-Profile Authoring Transactions](browser-profile-transactions.md).
