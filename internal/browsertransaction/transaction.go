@@ -504,6 +504,12 @@ func validOrigin(value string) bool {
 	if hostname == "" {
 		return false
 	}
+	canonicalHostname := hostname
+	if ip := net.ParseIP(hostname); ip != nil {
+		canonicalHostname = ip.String()
+	} else if strings.Contains(hostname, ":") || !asciiOnly(hostname) {
+		return false
+	}
 	if scheme == "http" && hostname != "localhost" {
 		ip := net.ParseIP(hostname)
 		if ip == nil || !ip.IsLoopback() {
@@ -518,8 +524,24 @@ func validOrigin(value string) bool {
 			return false
 		}
 	}
-	canonical := scheme + "://" + strings.ToLower(parsed.Host)
+	canonicalHost := canonicalHostname
+	if strings.Contains(canonicalHostname, ":") {
+		canonicalHost = "[" + canonicalHostname + "]"
+	}
+	if port != "" {
+		canonicalHost = net.JoinHostPort(canonicalHostname, port)
+	}
+	canonical := scheme + "://" + canonicalHost
 	return value == canonical
+}
+
+func asciiOnly(value string) bool {
+	for _, character := range value {
+		if character > 127 {
+			return false
+		}
+	}
+	return true
 }
 
 func rejectDuplicateJSONNames(data []byte) error {

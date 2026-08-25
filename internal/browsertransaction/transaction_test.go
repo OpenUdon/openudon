@@ -66,6 +66,9 @@ func TestCompositionAndValueFreeBoundary(t *testing.T) {
 		{"duplicate binding slot", func(value *Transaction) { value.CredentialBindings[1].Slot = value.CredentialBindings[0].Slot }},
 		{"noncanonical origin", func(value *Transaction) { value.Provenance.Origins[0] = "https://LOGIN.example.test" }},
 		{"default origin port", func(value *Transaction) { value.Provenance.Origins[0] = "https://app.example.test:443" }},
+		{"empty origin port", func(value *Transaction) { value.Provenance.Origins[0] = "https://app.example.test:" }},
+		{"expanded IPv6 origin", func(value *Transaction) { value.Provenance.Origins[0] = "https://[0:0:0:0:0:0:0:1]" }},
+		{"Unicode origin host", func(value *Transaction) { value.Provenance.Origins[0] = "https://é.example.test" }},
 		{"oversized origin", func(value *Transaction) { value.Provenance.Origins[0] = "https://" + strings.Repeat("a", 1024) }},
 		{"expired at observation", func(value *Transaction) { value.Provenance.ExpiresAt = value.Provenance.ObservedAt }},
 		{"unsupported producer result", func(value *Transaction) { value.Provenance.ResultVersion = "browsertools.future.v1" }},
@@ -88,6 +91,11 @@ func TestCompositionAndValueFreeBoundary(t *testing.T) {
 	sharedBinding.CredentialBindings[1].Binding = sharedBinding.CredentialBindings[0].Binding
 	if err := sharedBinding.Validate(); err != nil {
 		t.Fatalf("shared symbolic runtime binding: %v", err)
+	}
+	loopbackOrigin := validAuthenticationCapability()
+	loopbackOrigin.Provenance.Origins = []string{"http://[::1]:8080", "https://login.example.test"}
+	if err := loopbackOrigin.Validate(); err != nil {
+		t.Fatalf("canonical loopback origin: %v", err)
 	}
 	nullBindings, err := CanonicalBytes(validRegistration())
 	if err != nil {

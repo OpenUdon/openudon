@@ -54,6 +54,11 @@ A consumer must independently obtain the private result, verify its exact
 digest, validate the embedded profiles, and reject stale evidence before
 changing `candidate` to `reviewed`.
 
+Origins are sorted, unique serialized origins: HTTPS, or HTTP only for
+`localhost` and canonical loopback IPs. They have no user information, path,
+query, fragment, empty/default port, Unicode host form, or noncanonical IP
+spelling, and each is at most 1,024 characters.
+
 All digests are lowercase `sha256:` strings. Arrays that are sets use canonical
 order. OpenUdon limits one encoded transaction to 256 KiB and rejects invalid
 UTF-8, duplicate object names, unknown fields, excessive nesting, and trailing
@@ -92,8 +97,18 @@ generation. It is not browser execution, account activity, approval, release,
 or deployment.
 
 `cancelled` is an intentional terminal stop. `failed` carries only a closed
-failure class and code. Human-readable errors, subprocess output, and paths
-belong in private operator diagnostics, not the transaction.
+failure class and code:
+
+| Class | Codes |
+| --- | --- |
+| `rejected` | `transaction_invalid`, `candidate_invalid`, `candidate_stale`, `digest_mismatch`, `review_rejected` |
+| `conflict` | `workspace_conflict` |
+| `operational` | `preparation_failed`, `qualification_failed`, `promotion_failed` |
+| `indeterminate` | `promotion_indeterminate` |
+
+The indeterminate class/code pair is valid only in the `indeterminate` state;
+the other classes are valid only in `failed`. Human-readable errors, subprocess
+output, and paths belong in private operator diagnostics, not the transaction.
 
 `indeterminate` is reserved for an interrupted or ambiguous promotion. It
 requires the prepared digests and the exact
