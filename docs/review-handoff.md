@@ -133,6 +133,14 @@ convergence or store credential values or raw executor output.
 `OPENUDON_EXECUTOR` selects the final executor as an absolute binary path or
 `docker://<image>`.
 
+An atomically selected package uses the same approval and runner schemas. Use
+`--package-store /absolute/store --selection sha256:...` instead of
+`--example` for both `approval-template` and `run`; selected `run` requires an
+explicit work directory and approval path outside the immutable store. The
+selection is re-prepared and its package/handoff digests are checked before
+either adapter proceeds. Stale selection observations fail before handoff,
+and dry-run still cannot invoke the executor.
+
 The run evidence sidecar reference is workdir-relative so ignored run directories can be archived
 without rewriting paths:
 

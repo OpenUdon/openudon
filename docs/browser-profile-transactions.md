@@ -255,6 +255,31 @@ promotion facts did not change.
 6. If promotion returns without a provable result, record `indeterminate` and
    reconcile before any retry.
 
+The compatible terminal package boundary keeps the long-standing artifact
+`openudon promote` command unchanged. Use the explicit package namespace:
+
+```bash
+openudon package prepare \
+  --example examples/<name> --scope examples/<name> \
+  --scratch /absolute/restrictive-scratch-parent
+
+openudon package promote \
+  --example examples/<name> --scope examples/<name> \
+  --scratch /absolute/restrictive-scratch-parent \
+  --store /absolute/generation-store --confirmed
+
+openudon package inspect --store /absolute/generation-store
+openudon package recover --store /absolute/generation-store
+openudon package recover --store /absolute/generation-store \
+  --accept sha256:EXACT_RECOVERY_REPORT_DIGEST
+```
+
+Prepare emits only preparation and qualification evidence and accepts neither
+a store nor promotion confirmation. Promote requires both. `inspect` emits the
+exact selection digest needed by selected-package approval and handoff. A
+recovery call without `--accept` is read-only; reconciliation requires the
+exact just-observed digest.
+
 For a registration candidate, steps 1–3 never authorize Browsertools to submit
 a form. The producer must remain GET/HEAD-only and no account may be created
 during authoring. The reviewed profile may describe a later submit action and
@@ -280,6 +305,13 @@ assess, prepare, promote, generate an approval template, and perform a dry-run
 for a reviewed registration package, but every non-dry registration attempt
 must fail before executor invocation until compatible Udon and Browserdriver
 registration contracts are independently published and pinned.
+
+Selected generations use the existing approval and runner contracts by
+replacing `--example` with `--package-store /absolute/store --selection
+sha256:...`. Selected `run` also requires an explicit approval and work
+directory outside the immutable store. Approval bytes, package digests, dry-
+run evidence, and executor authority remain unchanged; stale selection
+digests fail before handoff.
 
 See [Authenticated Browser Authoring](authenticated-browser-authoring.md) for
 the live BAP+BCP producer boundary and [Safety And Trusted Execution](safety.md)

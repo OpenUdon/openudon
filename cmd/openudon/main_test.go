@@ -8,11 +8,13 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"reflect"
 	"strings"
 	"testing"
 	"time"
 
 	"github.com/OpenUdon/openudon/internal/localcheck"
+	"github.com/OpenUdon/openudon/internal/packagepipeline"
 	"github.com/OpenUdon/openudon/internal/trustedrunner"
 )
 
@@ -408,6 +410,105 @@ func TestCLIRunDryRunPrintsAsyncEvidencePath(t *testing.T) {
 	}
 	if !strings.Contains(string(notes), "go test ./...=pass") || !strings.Contains(string(notes), "async-evidence.json") {
 		t.Fatalf("release notes missing gate or sidecar path:\n%s", notes)
+	}
+}
+
+func TestCLIPackageLifecycleFeedsSelectedApprovalAndDryRun(t *testing.T) {
+	cwd, err := os.Getwd()
+	if err != nil {
+		t.Fatal(err)
+	}
+	repoRoot, err := filepath.Abs(filepath.Join(cwd, "..", ".."))
+	if err != nil {
+		t.Fatal(err)
+	}
+	example := filepath.Join(repoRoot, "examples", "eval", "openrpc-simple-math-addition")
+	scope := "examples/eval/openrpc-simple-math-addition"
+	scratchRoot := t.TempDir()
+	store := filepath.Join(t.TempDir(), "store")
+	if err := os.Mkdir(store, 0o700); err != nil {
+		t.Fatal(err)
+	}
+
+	prepare := helperCommand("package", "prepare", "--example", example, "--scope", scope, "--scratch", scratchRoot)
+	prepare.Dir = repoRoot
+	prepareOutput, err := prepare.CombinedOutput()
+	if err != nil {
+		t.Fatalf("package prepare failed: %v\n%s", err, prepareOutput)
+	}
+	var prepared packagePreparationOutput
+	if err := json.Unmarshal(prepareOutput, &prepared); err != nil || prepared.Version != packageCommandVersion || prepared.Selection != nil || prepared.Qualification.QualificationSHA256 == "" {
+		t.Fatalf("package prepare output = %#v, parse=%v\n%s", prepared, err, prepareOutput)
+	}
+	if entries, err := os.ReadDir(store); err != nil || len(entries) != 0 {
+		t.Fatalf("prepare changed promotion store: %#v, %v", entries, err)
+	}
+
+	unconfirmed := helperCommand("package", "promote", "--example", example, "--scope", scope, "--scratch", scratchRoot, "--store", store)
+	unconfirmed.Dir = repoRoot
+	if output, err := unconfirmed.CombinedOutput(); err == nil || !strings.Contains(string(output), "explicit --confirmed") {
+		t.Fatalf("unconfirmed promotion = %v\n%s", err, output)
+	}
+	promote := helperCommand("package", "promote", "--example", example, "--scope", scope, "--scratch", scratchRoot, "--store", store, "--confirmed")
+	promote.Dir = repoRoot
+	promoteOutput, err := promote.CombinedOutput()
+	if err != nil {
+		t.Fatalf("package promote failed: %v\n%s", err, promoteOutput)
+	}
+	var promoted packagePreparationOutput
+	if err := json.Unmarshal(promoteOutput, &promoted); err != nil || promoted.Selection == nil || promoted.Selection.SelectionSHA256 == "" || promoted.Preparation.PackageSHA256 != prepared.Preparation.PackageSHA256 {
+		t.Fatalf("package promote output = %#v, parse=%v\n%s", promoted, err, promoteOutput)
+	}
+
+	inspect := helperCommand("package", "inspect", "--store", store)
+	inspect.Dir = repoRoot
+	inspectOutput, err := inspect.CombinedOutput()
+	if err != nil {
+		t.Fatalf("package inspect failed: %v\n%s", err, inspectOutput)
+	}
+	var selected packagepipeline.Selection
+	if err := json.Unmarshal(inspectOutput, &selected); err != nil || !reflect.DeepEqual(selected, *promoted.Selection) {
+		t.Fatalf("package inspect output = %#v, parse=%v\n%s", selected, err, inspectOutput)
+	}
+
+	approvalCommand := helperCommand("approval-template", "--package-store", store, "--selection", selected.SelectionSHA256, "--state", trustedrunner.StateApprovedForSandbox, "--reviewer", "CLI selected package")
+	approvalCommand.Dir = repoRoot
+	approvalBytes, err := approvalCommand.CombinedOutput()
+	if err != nil {
+		t.Fatalf("selected approval failed: %v\n%s", err, approvalBytes)
+	}
+	var approval trustedrunner.Approval
+	if err := json.Unmarshal(approvalBytes, &approval); err != nil || approval.Scope != scope || approval.PackageSHA256 != selected.PackageSHA256 {
+		t.Fatalf("selected approval = %#v, parse=%v\n%s", approval, err, approvalBytes)
+	}
+	approvalPath := filepath.Join(t.TempDir(), "approval.json")
+	if err := os.WriteFile(approvalPath, approvalBytes, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	workdir := filepath.Join(t.TempDir(), "selected-run")
+	run := helperCommand("run", "--package-store", store, "--selection", selected.SelectionSHA256, "--tier", trustedrunner.TierSandbox, "--approval", approvalPath, "--workdir", workdir, "--dry-run")
+	run.Dir = repoRoot
+	runOutput, err := run.CombinedOutput()
+	if err != nil || !strings.Contains(string(runOutput), "openudon: run dry-run passed") || !strings.Contains(string(runOutput), selected.PackageSHA256) {
+		t.Fatalf("selected dry-run = %v\n%s", err, runOutput)
+	}
+}
+
+func TestCLIPackageHelpKeepsLegacyPromoteSeparate(t *testing.T) {
+	command := helperCommand("package", "--help")
+	output, err := command.CombinedOutput()
+	if err != nil {
+		t.Fatalf("package help failed: %v\n%s", err, output)
+	}
+	for _, expected := range []string{"package prepare|promote|inspect|recover", "Prepare retains no filesystem changes", "exact observed digest"} {
+		if !strings.Contains(string(output), expected) {
+			t.Fatalf("package help missing %q:\n%s", expected, output)
+		}
+	}
+	legacy := helperCommand("promote", "--help")
+	legacyOutput, err := legacy.CombinedOutput()
+	if err != nil || !strings.Contains(string(legacyOutput), "Export and validate workflows/workflow.uws.yaml") {
+		t.Fatalf("legacy promote compatibility changed: %v\n%s", err, legacyOutput)
 	}
 }
 

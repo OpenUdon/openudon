@@ -21,6 +21,7 @@ import (
 	evalpkg "github.com/OpenUdon/openudon/internal/eval"
 	"github.com/OpenUdon/openudon/internal/localcheck"
 	"github.com/OpenUdon/openudon/internal/n8nbridge"
+	"github.com/OpenUdon/openudon/internal/packagepipeline"
 	"github.com/OpenUdon/openudon/internal/qualityremediation"
 	"github.com/OpenUdon/openudon/internal/readiness"
 	"github.com/OpenUdon/openudon/internal/releaseevidence"
@@ -49,6 +50,7 @@ func main() {
 		fmt.Fprintf(flag.CommandLine.Output(), "  check-doc-memory verify local memory-bank and evolution harness files\n")
 		fmt.Fprintf(flag.CommandLine.Output(), "  eval      run synthesis eval briefs and write pass/fail reports\n")
 		fmt.Fprintf(flag.CommandLine.Output(), "  n8n-bridge validate review-first n8n pattern summary evidence\n")
+		fmt.Fprintf(flag.CommandLine.Output(), "  package   prepare, promote, inspect, or reconcile immutable package generations\n")
 		fmt.Fprintf(flag.CommandLine.Output(), "  local-udon-smoke build sibling udon and run provider-free executor smoke\n")
 		fmt.Fprintf(flag.CommandLine.Output(), "  promote   export/validate UWS from an existing workflow.hcl\n")
 		fmt.Fprintf(flag.CommandLine.Output(), "  readiness write local private-checkout and deterministic-gate readiness report\n")
@@ -112,6 +114,8 @@ func main() {
 		runSmokeMatrixCommand(flag.Args()[1:])
 	case "approval-template":
 		runApprovalTemplateCommand(flag.Args()[1:])
+	case "package":
+		runPackageCommand(flag.Args()[1:])
 	case "eval":
 		runEvalCommand(flag.Args()[1:])
 	case "n8n-bridge":
@@ -660,10 +664,13 @@ func runTrustedCommand(args []string) {
 	dryRun := fs.Bool("dry-run", false, "Validate gates, stage the package, verify the staged digest, and write run evidence without invoking the executor")
 	signingKey := fs.String("signing-key", "", "Optional PKCS#8 PEM Ed25519 key used only to sign the completed run evidence")
 	browserDriver := fs.String("browser-driver", "", "Absolute trusted browser-driver executable path (or absolute in-image path for Docker)")
+	packageStore := fs.String("package-store", "", "Use an exact atomically selected package generation store")
+	selection := fs.String("selection", "", "Exact current selection SHA-256 required with --package-store")
 	var browserDriverArgs repeatedStringFlag
 	fs.Var(&browserDriverArgs, "browser-driver-arg", "Repeatable non-secret argument passed to the trusted browser driver")
 	fs.Usage = func() {
 		fmt.Fprintf(fs.Output(), "Usage: openudon run --example examples/<name> --tier sandbox|production --approval approvals/<name>.json [--browser-driver /absolute/path] [--browser-driver-arg value] [--workdir .openudon-run/<name>] [--dry-run]\n")
+		fmt.Fprintf(fs.Output(), "       openudon run --package-store /absolute/store --selection sha256:... --tier sandbox|production --approval /outside/store/approval.json --workdir /outside/store/run [--dry-run]\n")
 		fmt.Fprintf(fs.Output(), "\nValidates the OpenUdon handoff package, current quality gates, approval scope, approval digest, tier/state compatibility, runner config, package staging, and staged digest before writing %s run evidence, an async evidence sidecar, and invoking the trusted executor runner.\n", trustedrunner.RunEvidenceVersion)
 		fmt.Fprintf(fs.Output(), "\nTier rules:\n")
 		fmt.Fprintf(fs.Output(), "  sandbox accepts approved_for_sandbox or approved_for_production\n")
@@ -675,7 +682,7 @@ func runTrustedCommand(args []string) {
 	}
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
-	result, err := trustedrunner.Run(ctx, trustedrunner.Options{
+	runOptions := trustedrunner.Options{
 		RepoRoot:          ".",
 		ExampleDir:        *example,
 		Tier:              *tier,
@@ -688,7 +695,18 @@ func runTrustedCommand(args []string) {
 		SigningKey:        *signingKey,
 		BrowserDriver:     *browserDriver,
 		BrowserDriverArgs: []string(browserDriverArgs),
-	})
+	}
+	var result *trustedrunner.RunResult
+	var err error
+	if strings.TrimSpace(*packageStore) != "" || strings.TrimSpace(*selection) != "" {
+		if strings.TrimSpace(*packageStore) == "" || strings.TrimSpace(*selection) == "" || strings.TrimSpace(*example) != "" {
+			fmt.Fprintln(os.Stderr, "--package-store and --selection must be used together and replace --example")
+			os.Exit(2)
+		}
+		result, err = packagepipeline.RunSelected(ctx, *packageStore, *selection, runOptions)
+	} else {
+		result, err = trustedrunner.Run(ctx, runOptions)
+	}
 	if err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
@@ -764,8 +782,11 @@ func runApprovalTemplateCommand(args []string) {
 	state := fs.String("state", "", "Approval state: approved_for_sandbox or approved_for_production")
 	reviewer := fs.String("reviewer", "", "Reviewer name recorded in the approval JSON")
 	notes := fs.String("notes", "", "Optional approval notes")
+	packageStore := fs.String("package-store", "", "Use an exact atomically selected package generation store")
+	selection := fs.String("selection", "", "Exact current selection SHA-256 required with --package-store")
 	fs.Usage = func() {
 		fmt.Fprintf(fs.Output(), "Usage: openudon approval-template --example examples/<name> --state approved_for_sandbox|approved_for_production --reviewer <name> [--notes <text>]\n")
+		fmt.Fprintf(fs.Output(), "       openudon approval-template --package-store /absolute/store --selection sha256:... --state approved_for_sandbox|approved_for_production --reviewer <name> [--notes <text>]\n")
 		fmt.Fprintf(fs.Output(), "\nPrints %s JSON to stdout with the current handoff package SHA-256 digest.\n", trustedrunner.ApprovalVersion)
 		fmt.Fprintf(fs.Output(), "Schema fields: version, scope, state, reviewer, approved_at, expires_at, package_sha256, notes.\n\n")
 		fs.PrintDefaults()
@@ -775,18 +796,161 @@ func runApprovalTemplateCommand(args []string) {
 	}
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
-	approval, err := trustedrunner.ApprovalTemplate(ctx, trustedrunner.TemplateOptions{
+	templateOptions := trustedrunner.TemplateOptions{
 		RepoRoot:   ".",
 		ExampleDir: *example,
 		State:      *state,
 		Reviewer:   *reviewer,
 		Notes:      *notes,
-	})
+	}
+	var approval trustedrunner.Approval
+	var err error
+	if strings.TrimSpace(*packageStore) != "" || strings.TrimSpace(*selection) != "" {
+		if strings.TrimSpace(*packageStore) == "" || strings.TrimSpace(*selection) == "" || strings.TrimSpace(*example) != "" {
+			fmt.Fprintln(os.Stderr, "--package-store and --selection must be used together and replace --example")
+			os.Exit(2)
+		}
+		approval, err = packagepipeline.ApprovalTemplateSelected(ctx, *packageStore, *selection, templateOptions)
+	} else {
+		approval, err = trustedrunner.ApprovalTemplate(ctx, templateOptions)
+	}
 	if err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
 	}
 	if err := trustedrunner.WriteApproval(os.Stdout, approval); err != nil {
+		fmt.Fprintln(os.Stderr, err)
+		os.Exit(1)
+	}
+}
+
+type packagePreparationOutput struct {
+	Version       string                              `json:"version"`
+	Preparation   packagepipeline.Manifest            `json:"preparation"`
+	Qualification packagepipeline.QualificationReport `json:"qualification"`
+	Selection     *packagepipeline.Selection          `json:"selection,omitempty"`
+}
+
+const packageCommandVersion = "openudon.package-command.v1"
+
+func runPackageCommand(args []string) {
+	if len(args) == 0 {
+		fmt.Fprintln(os.Stderr, "Usage: openudon package prepare|promote|inspect|recover [options]")
+		os.Exit(2)
+	}
+	switch args[0] {
+	case "-h", "--help", "help":
+		fmt.Fprintln(os.Stdout, "Usage: openudon package prepare|promote|inspect|recover [options]")
+		fmt.Fprintln(os.Stdout, "Prepare retains no filesystem changes, promote requires explicit confirmation, inspect is read-only, and recover requires an exact observed digest before cleanup.")
+	case "prepare", "promote":
+		runPackageMutationCommand(args[0], args[1:])
+	case "inspect":
+		fs := flag.NewFlagSet("package inspect", flag.ExitOnError)
+		store := fs.String("store", "", "Existing package generation store")
+		fs.Usage = func() {
+			fmt.Fprintln(fs.Output(), "Usage: openudon package inspect --store /absolute/store")
+			fs.PrintDefaults()
+		}
+		if err := fs.Parse(args[1:]); err != nil {
+			os.Exit(2)
+		}
+		ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+		defer stop()
+		current, err := packagepipeline.ReadCurrent(ctx, *store)
+		if err != nil {
+			fmt.Fprintln(os.Stderr, err)
+			os.Exit(1)
+		}
+		writePackageJSON(current.Selection())
+	case "recover":
+		fs := flag.NewFlagSet("package recover", flag.ExitOnError)
+		store := fs.String("store", "", "Existing package generation store")
+		accept := fs.String("accept", "", "Exact recovery report SHA-256 to reconcile; omit for read-only inspection")
+		fs.Usage = func() {
+			fmt.Fprintln(fs.Output(), "Usage: openudon package recover --store /absolute/store [--accept sha256:...]")
+			fs.PrintDefaults()
+		}
+		if err := fs.Parse(args[1:]); err != nil {
+			os.Exit(2)
+		}
+		ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+		defer stop()
+		if strings.TrimSpace(*accept) == "" {
+			report, err := packagepipeline.InspectRecovery(ctx, *store)
+			if err != nil {
+				fmt.Fprintln(os.Stderr, err)
+				os.Exit(1)
+			}
+			writePackageJSON(report)
+			return
+		}
+		reconciled, err := packagepipeline.Reconcile(ctx, packagepipeline.ReconcileOptions{StoreDir: *store, ExpectedRecoverySHA256: *accept})
+		if err != nil {
+			fmt.Fprintln(os.Stderr, err)
+			os.Exit(1)
+		}
+		writePackageJSON(reconciled)
+	default:
+		fmt.Fprintf(os.Stderr, "unknown package command %q\n", args[0])
+		os.Exit(2)
+	}
+}
+
+func runPackageMutationCommand(command string, args []string) {
+	fs := flag.NewFlagSet("package "+command, flag.ExitOnError)
+	example := fs.String("example", "", "Reviewed package directory")
+	scope := fs.String("scope", "", "Explicit portable package scope")
+	scratch := fs.String("scratch", "", "Existing absolute restrictive-scratch parent")
+	expectedInput := fs.String("expected-input", "", "Optional exact preparation input SHA-256")
+	store := fs.String("store", "", "Existing package generation store; required for promote")
+	confirmed := fs.Bool("confirmed", false, "Explicitly authorize atomic selection; required for promote")
+	fs.Usage = func() {
+		fmt.Fprintf(fs.Output(), "Usage: openudon package %s --example DIR --scope PORTABLE --scratch /absolute/dir", command)
+		if command == "promote" {
+			fmt.Fprint(fs.Output(), " --store /absolute/store --confirmed")
+		}
+		fmt.Fprintln(fs.Output())
+		fs.PrintDefaults()
+	}
+	if err := fs.Parse(args); err != nil {
+		os.Exit(2)
+	}
+	if command == "prepare" && (strings.TrimSpace(*store) != "" || *confirmed) {
+		fmt.Fprintln(os.Stderr, "package prepare accepts no store or promotion confirmation")
+		os.Exit(2)
+	}
+	if command == "promote" && (!*confirmed || strings.TrimSpace(*store) == "") {
+		fmt.Fprintln(os.Stderr, "package promote requires --store and explicit --confirmed")
+		os.Exit(2)
+	}
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer stop()
+	qualified, err := packagepipeline.PrepareAndQualifyCurrent(ctx, packagepipeline.CurrentOptions{
+		ExampleDir: *example, Scope: *scope, ExpectedInputSHA256: *expectedInput, ScratchParent: *scratch,
+	})
+	if err != nil {
+		fmt.Fprintln(os.Stderr, err)
+		os.Exit(1)
+	}
+	output := packagePreparationOutput{
+		Version: packageCommandVersion, Preparation: qualified.Prepared().Manifest(), Qualification: qualified.Report(),
+	}
+	if command == "promote" {
+		promoted, err := packagepipeline.Promote(ctx, qualified, packagepipeline.PromotionOptions{StoreDir: *store})
+		if err != nil {
+			fmt.Fprintln(os.Stderr, err)
+			os.Exit(1)
+		}
+		selection := promoted.Selection()
+		output.Selection = &selection
+	}
+	writePackageJSON(output)
+}
+
+func writePackageJSON(value any) {
+	encoder := json.NewEncoder(os.Stdout)
+	encoder.SetIndent("", "  ")
+	if err := encoder.Encode(value); err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
 	}

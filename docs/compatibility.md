@@ -9,6 +9,10 @@ deliberately smaller than the full command surface.
   `build`, `promote`, and `assess`.
 - Digest-bound approval generation and trusted handoff through
   `approval-template` and `run`.
+- Explicit `package prepare|promote|inspect|recover` lifecycle commands and
+  exact `--package-store`/`--selection` approval or run adapters preserve the
+  existing approval, package-byte, and trusted-runner contracts. The legacy
+  artifact `openudon promote` command retains its original meaning.
 - Run evidence verification and archival through `run-evidence`.
 - `openudon.approval.v1` and `openudon.async-evidence-bundle.v1`.
 - Executable `openudon.executor-run.v2`, `openudon.run-evidence.v2`, and

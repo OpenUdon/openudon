@@ -164,7 +164,7 @@ natural-language project brief
   -> trusted executor handoff
 ```
 
-`openudon synthesize`, `openudon build`, `openudon promote`, `openudon assess`, `cmd/icot`, and eval commands
+`openudon synthesize`, `openudon build`, `openudon promote`, `openudon assess`, `openudon package prepare|promote|inspect|recover`, `cmd/icot`, and eval commands
 generate, compile, validate, and report on artifacts. They do not execute production workflows.
 
 `openudon run` is separate. It validates the handoff manifest, stored and current quality, approval
