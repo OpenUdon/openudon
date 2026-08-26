@@ -751,7 +751,14 @@ func apiDocumentLabels(docs []APIDocument) []string {
 }
 
 func operationForStep(session Session, docs []APIDocument, step *rollout.Step) (*apitools.OperationSummary, bool) {
-	if step == nil || strings.TrimSpace(step.Operation) == "" {
+	if step == nil {
+		return nil, false
+	}
+	operationID := strings.TrimSpace(step.Operation)
+	if strings.EqualFold(strings.TrimSpace(step.Type), "browser_registration") {
+		operationID = strings.TrimSpace(step.RegistrationFlow)
+	}
+	if operationID == "" {
 		return nil, false
 	}
 	docPath := stepAPISourceRef(session, step)
@@ -765,12 +772,12 @@ func operationForStep(session Session, docs []APIDocument, step *rollout.Step) (
 	if docPath == "" && len(searchDocs) == 1 {
 		docPath = searchDocs[0].RelativePath
 	}
-	if op, ok := operationByID(searchDocs, docPath, step.Operation); ok {
+	if op, ok := operationByID(searchDocs, docPath, operationID); ok {
 		return op, true
 	}
 	for _, doc := range searchDocs {
 		for i := range doc.Operations {
-			if doc.Operations[i].OperationID == step.Operation {
+			if doc.Operations[i].OperationID == operationID {
 				return &doc.Operations[i], true
 			}
 		}

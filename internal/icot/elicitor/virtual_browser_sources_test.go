@@ -8,12 +8,14 @@ import (
 	"testing"
 	"time"
 
+	"github.com/OpenUdon/apitools"
 	"github.com/OpenUdon/browsertools/authorresult"
 	"github.com/OpenUdon/browsertools/authprofile"
 	"github.com/OpenUdon/browsertools/profile"
 	"github.com/OpenUdon/browsertools/registrationprofile"
 	"github.com/OpenUdon/browsertools/registrationreview"
 	"github.com/OpenUdon/openudon/internal/browsertransaction"
+	"github.com/OpenUdon/openudon/internal/projectwizard"
 	rollout "github.com/OpenUdon/openudon/internal/workflowintent"
 )
 
@@ -185,6 +187,10 @@ func TestDiscoverVirtualBrowserSourcesAcceptsActualBrowsertoolsEncoding(t *testi
 
 func TestDiscoverVirtualRegistrationIsSessionFreeAndReviewBound(t *testing.T) {
 	input := virtualRegistrationInput(t, "new-account")
+	if _, err := DiscoverVirtualBrowserSources([]VirtualBrowserTransactionInput{input}, virtualBrowserTime); err == nil || !strings.Contains(err.Error(), "explicitly reviewed") {
+		t.Fatalf("unreviewed registration error = %v", err)
+	}
+	input.Transaction.State = browsertransaction.StateReviewed
 	discovery, err := DiscoverVirtualBrowserSources([]VirtualBrowserTransactionInput{input}, virtualBrowserTime)
 	if err != nil {
 		t.Fatal(err)
@@ -202,6 +208,142 @@ func TestDiscoverVirtualRegistrationIsSessionFreeAndReviewBound(t *testing.T) {
 	if _, err := DiscoverVirtualBrowserSources([]VirtualBrowserTransactionInput{changed}, virtualBrowserTime); err == nil || !strings.Contains(err.Error(), "digest mismatch") {
 		t.Fatalf("changed review error = %v", err)
 	}
+}
+
+func TestVirtualRegistrationLoweringPreservesReviewedNoSessionContract(t *testing.T) {
+	input := virtualRegistrationInput(t, "new-account")
+	input.Transaction.State = browsertransaction.StateReviewed
+	discovery, err := DiscoverVirtualBrowserSources([]VirtualBrowserTransactionInput{input}, virtualBrowserTime)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(discovery.Docs) != 1 || len(discovery.Docs[0].Operations) != 1 {
+		t.Fatalf("registration documents = %#v", discovery.Docs)
+	}
+	doc, operation := discovery.Docs[0], &discovery.Docs[0].Operations[0]
+	if operation.OperationID != "create_account" || operation.Extensions["openudon.browser_registration.runtime_supported"] != "false" || operation.Extensions["openudon.browser_registration.credential_bindings"] != "identifier=registration_identifier" {
+		t.Fatalf("registration operation = %#v", operation)
+	}
+	plan := discovery.Plans[0]
+	wantReviewDigest := strings.TrimPrefix(digestVirtualBytes(plan.MaterializedReview), "sha256:")
+	if plan.ReviewPath != "browser-registration/new-account.review.json" || len(plan.MaterializedReview) == 0 || plan.ReviewSHA256 != wantReviewDigest || !bytes.Contains(plan.MaterializedContent, []byte(`"human_checkpoint"`)) {
+		t.Fatalf("registration review materialization = %#v", plan)
+	}
+
+	step := stepFromOperation(doc, operation)
+	if step == nil {
+		t.Fatal("registration operation did not lower")
+	}
+	if step.Type != "browser_registration" || step.Source != doc.RelativePath || step.RegistrationFlow != "create_account" || step.RegistrationApproval != "" || step.BrowserSession != "" || step.AuthenticationFlow != "" || step.Operation != "" ||
+		step.DuplicatePrevention != "operator_attestation" || step.OnDuplicate != "fail" || step.AmbiguousOutcome != "stop_without_retry" || step.CleanupDisposition != "delete_separately" || step.Timeout == nil || *step.Timeout != 300 ||
+		!exactBrowserCredentialBindingMap(step.CredentialBindings, map[string]string{"identifier": "registration_identifier"}) {
+		t.Fatalf("lowered registration step = %#v", step)
+	}
+	session := Session{
+		Intent:         rollout.Intent{Workflow: &rollout.WorkflowMeta{Name: "register_account", Description: "Create one reviewed account."}, Source: doc.RelativePath, Steps: []*rollout.Step{step}},
+		SourcePlan:     discovery.Plans,
+		BrowserRoute:   "browser",
+		BrowserSession: "none",
+	}
+	mergeBrowserRegistrationCredentials(&session, step)
+	issues := browserRegistrationReadinessIssues(session, discovery.Docs, step)
+	if len(issues) != 1 || issues[0].Code != readinessUnconfirmedBrowserRegistration {
+		t.Fatalf("pre-approval registration issues = %#v", issues)
+	}
+	question := planQuestionForIssue(session, discovery.Docs, issues[0])
+	if !question.ForceAsk || !planHasStepField(question, "registration_approval") {
+		t.Fatalf("registration approval question = %#v", question)
+	}
+	if err := applyProgressiveAnswerChecked(&session, question, question.SuggestedAnswer, discovery.Docs); err != nil {
+		t.Fatal(err)
+	}
+	if issues := browserRegistrationReadinessIssues(session, discovery.Docs, step); len(issues) != 0 {
+		t.Fatalf("approved registration issues = %#v", issues)
+	}
+	first, err := rollout.RenderIntentHCL(&session.Intent)
+	if err != nil {
+		t.Fatal(err)
+	}
+	parsed, err := rollout.ParseIntent([]byte(first), rollout.IntentPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	second, err := rollout.RenderIntentHCL(parsed)
+	if err != nil || first != second || strings.Contains(first, "browser_session") {
+		t.Fatalf("registration intent is not stable and session-free: err=%v\n%s\n%s", err, first, second)
+	}
+	resumed, err := SessionFromIntent(parsed, projectwizard.Answers{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	resumed.Normalize()
+	if resumed.BrowserRoute != "browser" || resumed.BrowserSession != "none" || !resumed.CredentialsSet || strings.Join(resumed.Credentials, ",") != "registration_identifier" {
+		t.Fatalf("resumed registration posture = route %q session %q credentials %#v", resumed.BrowserRoute, resumed.BrowserSession, resumed.Credentials)
+	}
+	for name, mutate := range map[string]func(*apitools.OperationSummary){
+		"runtime": func(value *apitools.OperationSummary) {
+			value.Extensions["openudon.browser_registration.runtime_supported"] = "true"
+		},
+		"method": func(value *apitools.OperationSummary) { value.Method = "POST" },
+		"policy": func(value *apitools.OperationSummary) {
+			value.Extensions["openudon.browser_registration.on_duplicate"] = "retry"
+		},
+		"timeout": func(value *apitools.OperationSummary) {
+			value.Extensions["openudon.browser_registration.timeout_seconds"] = "601"
+		},
+	} {
+		t.Run("operation-"+name, func(t *testing.T) {
+			changed := *operation
+			changed.Extensions = cloneStringMapForVirtualTest(operation.Extensions)
+			mutate(&changed)
+			if lowered := browserRegistrationStepFromOperation(doc, &changed); lowered != nil {
+				t.Fatalf("invalid registration operation lowered: %#v", lowered)
+			}
+		})
+	}
+
+	for name, mutate := range map[string]func(*rollout.Step){
+		"session":   func(value *rollout.Step) { value.BrowserSession = "invented_session" },
+		"binding":   func(value *rollout.Step) { value.CredentialBindings["identifier"] = "invented_identifier" },
+		"policy":    func(value *rollout.Step) { value.AmbiguousOutcome = "retry" },
+		"operation": func(value *rollout.Step) { value.Operation = "submit" },
+	} {
+		t.Run(name, func(t *testing.T) {
+			changed := *step
+			changed.CredentialBindings = cloneStringMapForVirtualTest(step.CredentialBindings)
+			mutate(&changed)
+			issues := browserRegistrationReadinessIssues(session, discovery.Docs, &changed)
+			if len(issues) != 1 || issues[0].Code != readinessInvalidBrowserRegistrationContract {
+				t.Fatalf("changed registration issues = %#v", issues)
+			}
+		})
+	}
+
+	drifted := *step
+	drifted.CredentialBindings = cloneStringMapForVirtualTest(step.CredentialBindings)
+	drifted.BrowserSession = "invented_session"
+	repairSession := session
+	repairSession.Intent.Steps = []*rollout.Step{&drifted}
+	repairIssue := browserRegistrationReadinessIssues(repairSession, discovery.Docs, &drifted)[0]
+	repairQuestion := planQuestionForIssue(repairSession, discovery.Docs, repairIssue)
+	if err := applyProgressiveAnswerChecked(&repairSession, repairQuestion, repairQuestion.SuggestedAnswer, discovery.Docs); err != nil {
+		t.Fatal(err)
+	}
+	repaired := repairSession.Intent.Steps[0]
+	if repaired.BrowserSession != "" || repaired.RegistrationApproval != "" || !exactBrowserCredentialBindingMap(repaired.CredentialBindings, map[string]string{"identifier": "registration_identifier"}) {
+		t.Fatalf("reselected registration contract = %#v", repaired)
+	}
+	if issues := browserRegistrationReadinessIssues(repairSession, discovery.Docs, repaired); len(issues) != 1 || issues[0].Code != readinessUnconfirmedBrowserRegistration {
+		t.Fatalf("reselected registration approval state = %#v", issues)
+	}
+}
+
+func cloneStringMapForVirtualTest(values map[string]string) map[string]string {
+	result := make(map[string]string, len(values))
+	for key, value := range values {
+		result[key] = value
+	}
+	return result
 }
 
 func TestVirtualBrowserDiscoveryRejectsStaleVersionAndCollisions(t *testing.T) {
@@ -270,7 +412,9 @@ func TestVirtualBrowserDependencyTraversalRejectsMissingCycleAndDuplicates(t *te
 }
 
 func TestRequireFreshVirtualBrowserSourcesRejectsReplacement(t *testing.T) {
-	discovery, err := DiscoverVirtualBrowserSources([]VirtualBrowserTransactionInput{virtualRegistrationInput(t, "new-account")}, virtualBrowserTime)
+	input := virtualRegistrationInput(t, "new-account")
+	input.Transaction.State = browsertransaction.StateReviewed
+	discovery, err := DiscoverVirtualBrowserSources([]VirtualBrowserTransactionInput{input}, virtualBrowserTime)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -359,8 +503,9 @@ flows:
       - navigate: https://app.example.test/register
       - type_credential: {locator: {role: textbox}, slot: identifier}
       - submit: {locator: {role: button, name: Register}}
+      - human_checkpoint: {kind: email_verification}
       - wait_for: {locator: {role: status}}
-    effects: [creates_account]
+    effects: [creates_account, sends_verification, requires_human_verification]
     confirmationPolicy: {required: true}
     success: {origin: https://app.example.test, locator: {role: status}}
 `))
@@ -389,7 +534,7 @@ flows:
 		},
 		CredentialBindings: []browsertransaction.CredentialBinding{{Slot: "identifier", Binding: "registration_identifier"}},
 	}
-	return VirtualBrowserTransactionInput{Transaction: transaction, Sources: []VirtualBrowserSourceInput{{Kind: browsertransaction.CandidateRegistration, Flow: "create_account", Source: source, Review: reviewBytes}}}
+	return VirtualBrowserTransactionInput{Transaction: transaction, Sources: []VirtualBrowserSourceInput{{Kind: browsertransaction.CandidateRegistration, Flow: "create_account", CleanupDisposition: "delete_separately", Source: source, Review: reviewBytes}}}
 }
 
 func transactionExpiry(transaction browsertransaction.Transaction) time.Time {

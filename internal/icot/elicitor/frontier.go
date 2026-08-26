@@ -711,16 +711,20 @@ func cloneSession(session Session) (Session, error) {
 		return Session{}, err
 	}
 	contentBySource := map[string][]byte{}
+	reviewBySource := map[string][]byte{}
 	for _, source := range session.SourcePlan {
-		if len(source.MaterializedContent) == 0 {
-			continue
+		key := source.TargetPath + "\x00" + source.SHA256 + "\x00" + source.ReviewPath + "\x00" + source.ReviewSHA256
+		if len(source.MaterializedContent) > 0 {
+			contentBySource[key] = append([]byte(nil), source.MaterializedContent...)
 		}
-		key := source.TargetPath + "\x00" + source.SHA256
-		contentBySource[key] = append([]byte(nil), source.MaterializedContent...)
+		if len(source.MaterializedReview) > 0 {
+			reviewBySource[key] = append([]byte(nil), source.MaterializedReview...)
+		}
 	}
 	for index := range clone.SourcePlan {
-		key := clone.SourcePlan[index].TargetPath + "\x00" + clone.SourcePlan[index].SHA256
+		key := clone.SourcePlan[index].TargetPath + "\x00" + clone.SourcePlan[index].SHA256 + "\x00" + clone.SourcePlan[index].ReviewPath + "\x00" + clone.SourcePlan[index].ReviewSHA256
 		clone.SourcePlan[index].MaterializedContent = append([]byte(nil), contentBySource[key]...)
+		clone.SourcePlan[index].MaterializedReview = append([]byte(nil), reviewBySource[key]...)
 	}
 	return clone, nil
 }

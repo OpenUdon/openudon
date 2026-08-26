@@ -61,9 +61,16 @@ func TestPrivateInboxAdoptsExactRegistrationCandidate(t *testing.T) {
 		len(transaction.Candidates) != 1 || transaction.Candidates[0].SourceSHA256 != envelope.Candidate.SourceDigest {
 		t.Fatalf("adopted transaction = %#v", transaction)
 	}
-	if candidate.ProfileID() != envelope.Candidate.ProfileID || candidate.Flow() != envelope.Flow.Name ||
+	if candidate.ProfileID() != envelope.Candidate.ProfileID || candidate.Flow() != envelope.Flow.Name || candidate.CleanupDisposition() != "delete_separately" ||
 		!bytes.Equal(candidate.Source(), envelope.Candidate.Source) {
 		t.Fatalf("adopted candidate identity changed")
+	}
+	reviewed, err := candidate.ReviewedTransaction()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if reviewed.State != browsertransaction.StateReviewed || candidate.Transaction().State != browsertransaction.StateCandidate {
+		t.Fatalf("review transition mutated candidate or produced wrong state: candidate=%s reviewed=%s", candidate.Transaction().State, reviewed.State)
 	}
 	firstSource := candidate.Source()
 	firstSource[0] ^= 0xff

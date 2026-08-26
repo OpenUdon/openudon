@@ -403,6 +403,10 @@ and live session state private.
 OpenUdon also accepts already-reviewed, secret-free
 `uws.browser-registration.1.0` profiles and
 `browsertools.registration-review.v1` bundles as manual package-local sources.
+Its internal transaction engine can also turn an explicitly reviewed,
+path-free Browsertools registration candidate into the same package inputs;
+public snapshots and resumable drafts retain only value-free identities, while
+the current CLI/UI does not yet expose that candidate lifecycle.
 An explicit `browser_registration` intent lowers fixed duplicate, ambiguity,
 cleanup, symbolic-binding, and exact submit-approval policy to
 `uws.browser-registration-call.1.0`. Build, assessment, approval-template, and

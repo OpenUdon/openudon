@@ -134,7 +134,7 @@ flows:
 		t.Fatal(err)
 	}
 	transaction := browsertransaction.Transaction{
-		Version: browsertransaction.Version, ID: id, Kind: browsertransaction.KindRegistration, State: browsertransaction.StateCandidate,
+		Version: browsertransaction.Version, ID: id, Kind: browsertransaction.KindRegistration, State: browsertransaction.StateReviewed,
 		Candidates: []browsertransaction.Candidate{{Kind: browsertransaction.CandidateRegistration, Schema: value.Profile, SourceSHA256: engineVirtualDigest(source), ReviewSHA256: engineVirtualDigest(reviewBytes)}},
 		Provenance: browsertransaction.Provenance{
 			Producer: "browsertools", ResultVersion: browsertransaction.ResultRegistrationAuthoringV1,
@@ -143,7 +143,7 @@ flows:
 		},
 		CredentialBindings: []browsertransaction.CredentialBinding{{Slot: "identifier", Binding: "registration_identifier"}},
 	}
-	return elicitor.VirtualBrowserTransactionInput{Transaction: transaction, Sources: []elicitor.VirtualBrowserSourceInput{{Kind: browsertransaction.CandidateRegistration, Flow: "create_account", Source: source, Review: reviewBytes}}}
+	return elicitor.VirtualBrowserTransactionInput{Transaction: transaction, Sources: []elicitor.VirtualBrowserSourceInput{{Kind: browsertransaction.CandidateRegistration, Flow: "create_account", CleanupDisposition: "delete_separately", Source: source, Review: reviewBytes}}}
 }
 
 func engineVirtualDigest(data []byte) string {

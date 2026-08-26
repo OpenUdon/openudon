@@ -12,9 +12,12 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/OpenUdon/browsertools/registrationprofile"
 	"github.com/OpenUdon/openudon/internal/browserverify"
 	"github.com/OpenUdon/openudon/internal/icot/elicitor"
+	"github.com/OpenUdon/openudon/internal/packageartifacts"
 	rollout "github.com/OpenUdon/openudon/internal/workflowintent"
+	"github.com/OpenUdon/uws/browserregistration"
 )
 
 // GeneratedFile is one prepared mutation in an atomic authoring transaction.
@@ -138,13 +141,20 @@ func PotentialFileActions(exampleDir string, session elicitor.Session, complete 
 	}
 	hasBrowserSources := false
 	hasAuthenticationSources := false
+	hasRegistrationSources := false
 	for _, source := range session.SourcePlan {
 		actions = append(actions, elicitor.FileAction{Action: "copy", Path: filepath.Join(exampleDir, filepath.FromSlash(source.TargetPath)), Reason: source.Kind + " source " + source.ID + " with SHA-256 " + source.SHA256})
+		if source.Kind == "browser-registration" && source.ReviewPath != "" {
+			actions = append(actions, elicitor.FileAction{Action: "copy", Path: filepath.Join(exampleDir, filepath.FromSlash(source.ReviewPath)), Reason: "independent browser registration review for " + source.ID + " with SHA-256 " + source.ReviewSHA256})
+		}
 		if source.Kind == "browser-profile" {
 			hasBrowserSources = true
 		}
 		if source.Kind == "browser-authentication" {
 			hasAuthenticationSources = true
+		}
+		if source.Kind == "browser-registration" {
+			hasRegistrationSources = true
 		}
 	}
 	if hasBrowserSources {
@@ -156,6 +166,11 @@ func PotentialFileActions(exampleDir string, session elicitor.Session, complete 
 		actions = append(actions, elicitor.FileAction{Action: "write", Path: filepath.Join(exampleDir, ".icot", "browser-authentication.json"), Reason: "record safe browser authentication source, flow, credential-slot, session-binding, and approval evidence"})
 	} else if complete {
 		actions = append(actions, elicitor.FileAction{Action: "remove_if_present", Path: filepath.Join(exampleDir, ".icot", "browser-authentication.json"), Reason: "remove stale browser authentication review metadata"})
+	}
+	if hasRegistrationSources {
+		actions = append(actions, elicitor.FileAction{Action: "write", Path: filepath.Join(exampleDir, filepath.FromSlash(packageartifacts.BrowserRegistrationReviewPath)), Reason: "record reviewed registration source, symbolic bindings, fixed duplicate/ambiguity/cleanup policy, timeout, and approval evidence"})
+	} else if complete {
+		actions = append(actions, elicitor.FileAction{Action: "remove_if_present", Path: filepath.Join(exampleDir, filepath.FromSlash(packageartifacts.BrowserRegistrationReviewPath)), Reason: "remove stale browser registration review metadata"})
 	}
 	if complete {
 		actions = append(actions,
@@ -239,6 +254,15 @@ func Prepare(exampleDir string, artifacts elicitor.Artifacts, force bool, at tim
 	} else if !artifacts.Incomplete {
 		files = append(files, GeneratedFile{Path: filepath.Join(exampleRoot, ".icot", "browser-authentication.json"), Remove: true, AllowOverwrite: true, Action: "remove_if_present", Reason: "remove stale browser authentication review metadata"})
 	}
+	registrationMetadata, hasRegistrationSources, err := BrowserRegistrationMetadataJSON(artifacts.Session, at)
+	if err != nil {
+		return Prepared{}, err
+	}
+	if hasRegistrationSources {
+		files = append(files, GeneratedFile{Path: filepath.Join(exampleRoot, filepath.FromSlash(packageartifacts.BrowserRegistrationReviewPath)), Content: registrationMetadata, AllowOverwrite: true, Action: "write", Reason: "record reviewed registration source, symbolic bindings, fixed duplicate/ambiguity/cleanup policy, timeout, and approval evidence"})
+	} else if !artifacts.Incomplete {
+		files = append(files, GeneratedFile{Path: filepath.Join(exampleRoot, filepath.FromSlash(packageartifacts.BrowserRegistrationReviewPath)), Remove: true, AllowOverwrite: true, Action: "remove_if_present", Reason: "remove stale browser registration review metadata"})
+	}
 	if artifacts.Incomplete {
 		sessionData, err := json.MarshalIndent(artifacts.Session, "", "  ")
 		if err != nil {
@@ -276,17 +300,44 @@ func Prepare(exampleDir string, artifacts elicitor.Artifacts, force bool, at tim
 		if digest != strings.ToLower(source.SHA256) {
 			return Prepared{}, fmt.Errorf("selected source %s changed after discovery: digest %s, want %s", source.SourcePath, digest, source.SHA256)
 		}
+		sourceAlreadyCurrent := false
 		if existing, err := os.ReadFile(target); err == nil {
 			if fmt.Sprintf("%x", sha256.Sum256(existing)) == digest {
-				continue
+				if source.Kind != "browser-registration" {
+					continue
+				}
+				sourceAlreadyCurrent = true
 			}
-			if !force {
+			if !sourceAlreadyCurrent && !force {
 				return Prepared{}, fmt.Errorf("source target %s contains different content; pass --force to replace it", target)
 			}
 		} else if !os.IsNotExist(err) {
 			return Prepared{}, err
 		}
-		files = append(files, GeneratedFile{Path: target, Content: string(data), Action: "copy", Reason: source.Kind + " source " + source.ID + " with SHA-256 " + source.SHA256})
+		if !sourceAlreadyCurrent {
+			files = append(files, GeneratedFile{Path: target, Content: string(data), Action: "copy", Reason: source.Kind + " source " + source.ID + " with SHA-256 " + source.SHA256})
+		}
+		if source.Kind == "browser-registration" {
+			reviewTarget, err := SafeExampleTarget(exampleRoot, source.ReviewPath)
+			if err != nil {
+				return Prepared{}, err
+			}
+			reviewData, err := elicitor.SourceMaterializationReviewContent(source, at)
+			if err != nil {
+				return Prepared{}, fmt.Errorf("read selected registration review %s: %w", source.SourcePath, err)
+			}
+			if existing, err := os.ReadFile(reviewTarget); err == nil {
+				if fmt.Sprintf("%x", sha256.Sum256(existing)) == strings.ToLower(source.ReviewSHA256) {
+					continue
+				}
+				if !force {
+					return Prepared{}, fmt.Errorf("source target %s contains different content; pass --force to replace it", reviewTarget)
+				}
+			} else if !os.IsNotExist(err) {
+				return Prepared{}, err
+			}
+			files = append(files, GeneratedFile{Path: reviewTarget, Content: string(reviewData), Action: "copy", Reason: "independent browser registration review for " + source.ID + " with SHA-256 " + source.ReviewSHA256})
+		}
 	}
 	prepared := Prepared{ExampleRoot: exampleRoot, Artifacts: artifacts, Files: files}
 	if _, err := validateTransactionPlan(prepared.ExampleRoot, prepared.Files); err != nil {
@@ -584,6 +635,161 @@ func BrowserSourceMetadataJSON(session elicitor.Session) (string, bool, error) {
 	return string(append(data, '\n')), true, nil
 }
 
+// BrowserRegistrationMetadataJSON renders the exact value-free registration
+// source and call inventory consumed by package quality and trusted dry-run.
+func BrowserRegistrationMetadataJSON(session elicitor.Session, at time.Time) (string, bool, error) {
+	if at.IsZero() {
+		at = time.Now().UTC()
+	}
+	type reviewedCall struct {
+		Step                string            `json:"step"`
+		Source              string            `json:"source"`
+		Flow                string            `json:"flow"`
+		CredentialBindings  map[string]string `json:"credential_bindings"`
+		Approval            string            `json:"approval"`
+		DuplicatePrevention string            `json:"duplicate_prevention"`
+		OnDuplicate         string            `json:"on_duplicate"`
+		AmbiguousOutcome    string            `json:"ambiguous_outcome"`
+		CleanupDisposition  string            `json:"cleanup_disposition"`
+		Timeout             float64           `json:"timeout"`
+	}
+	type reviewedSource struct {
+		ID                  string              `json:"id"`
+		TargetPath          string              `json:"target_path"`
+		SHA256              string              `json:"sha256"`
+		ReviewPath          string              `json:"review_path"`
+		ReviewSHA256        string              `json:"review_sha256"`
+		ProfileDigest       string              `json:"profile_digest"`
+		Title               string              `json:"title"`
+		Flows               []string            `json:"flows"`
+		FlowCredentialSlots map[string][]string `json:"flow_credential_slots"`
+		Origins             []string            `json:"origins"`
+		Lifecycle           string              `json:"lifecycle"`
+		ExpiresAt           string              `json:"expires_at"`
+		Provenance          string              `json:"provenance"`
+	}
+	byTarget := map[string]*registrationprofile.Profile{}
+	var sources []reviewedSource
+	for _, source := range session.SourcePlan {
+		if source.Kind != "browser-registration" {
+			continue
+		}
+		data, err := elicitor.SourceMaterializationContent(source, at)
+		if err != nil {
+			return "", false, err
+		}
+		if _, err := elicitor.SourceMaterializationReviewContent(source, at); err != nil {
+			return "", false, err
+		}
+		value, err := registrationprofile.Parse(data)
+		if err != nil {
+			return "", false, err
+		}
+		if err := registrationprofile.ValidateAt(value, at); err != nil {
+			return "", false, err
+		}
+		profileDigest, err := registrationprofile.Digest(value)
+		if err != nil {
+			return "", false, err
+		}
+		expiresAt, err := registrationprofile.ExpiresAt(value)
+		if err != nil {
+			return "", false, err
+		}
+		flowCredentialSlots := make(map[string][]string, len(value.Flows))
+		for flowName, flow := range value.Flows {
+			flowCredentialSlots[flowName] = registrationProfileFlowSlots(flow)
+		}
+		byTarget[filepath.ToSlash(source.TargetPath)] = value
+		sources = append(sources, reviewedSource{
+			ID: source.ID, TargetPath: filepath.ToSlash(source.TargetPath), SHA256: source.SHA256,
+			ReviewPath: filepath.ToSlash(source.ReviewPath), ReviewSHA256: source.ReviewSHA256, ProfileDigest: profileDigest,
+			Title: value.Info.Title, Flows: registrationprofile.SortedFlowNames(value), FlowCredentialSlots: flowCredentialSlots,
+			Origins: registrationprofile.Origins(value), Lifecycle: source.Lifecycle, ExpiresAt: expiresAt.Format(time.RFC3339), Provenance: value.Evidence.Source,
+		})
+	}
+	if len(sources) == 0 {
+		return "", false, nil
+	}
+	var calls []reviewedCall
+	var callErr error
+	walkSteps(session.Intent.Steps, func(step *rollout.Step) {
+		if callErr != nil || step == nil || !strings.EqualFold(strings.TrimSpace(step.Type), "browser_registration") {
+			return
+		}
+		source := filepath.ToSlash(strings.TrimSpace(firstNonEmptyArtifactWriter(step.Source, session.Intent.Source)))
+		value := byTarget[source]
+		if value == nil {
+			callErr = fmt.Errorf("registration step %s references unavailable source %s", step.Name, source)
+			return
+		}
+		flow, ok := value.Flows[strings.TrimSpace(step.RegistrationFlow)]
+		if !ok || step.Timeout == nil || strings.TrimSpace(step.BrowserSession) != "" {
+			callErr = fmt.Errorf("registration step %s is incomplete or carries a session", step.Name)
+			return
+		}
+		slots := registrationProfileFlowSlots(flow)
+		if !exactRegistrationCredentialBindings(step.CredentialBindings, slots) {
+			callErr = fmt.Errorf("registration step %s symbolic bindings do not exactly cover its flow", step.Name)
+			return
+		}
+		calls = append(calls, reviewedCall{
+			Step: step.Name, Source: source, Flow: step.RegistrationFlow, CredentialBindings: step.CredentialBindings,
+			Approval: step.RegistrationApproval, DuplicatePrevention: step.DuplicatePrevention, OnDuplicate: step.OnDuplicate,
+			AmbiguousOutcome: step.AmbiguousOutcome, CleanupDisposition: step.CleanupDisposition, Timeout: *step.Timeout,
+		})
+	})
+	if callErr != nil {
+		return "", false, callErr
+	}
+	sort.Slice(calls, func(i, j int) bool { return calls[i].Step < calls[j].Step })
+	data, err := json.MarshalIndent(struct {
+		Version string           `json:"version"`
+		Calls   []reviewedCall   `json:"registration_calls"`
+		Sources []reviewedSource `json:"sources"`
+	}{Version: "openudon.browser-registration-review.v1", Calls: calls, Sources: sources}, "", "  ")
+	if err != nil {
+		return "", false, err
+	}
+	return string(append(data, '\n')), true, nil
+}
+
+func registrationProfileFlowSlots(flow browserregistration.Flow) []string {
+	set := map[string]bool{}
+	for _, step := range flow.Sequence {
+		if step.TypeCredential != nil {
+			set[step.TypeCredential.Slot] = true
+		}
+	}
+	result := make([]string, 0, len(set))
+	for slot := range set {
+		result = append(result, slot)
+	}
+	sort.Strings(result)
+	return result
+}
+
+func exactRegistrationCredentialBindings(bindings map[string]string, slots []string) bool {
+	if len(bindings) != len(slots) {
+		return false
+	}
+	for _, slot := range slots {
+		if strings.TrimSpace(bindings[slot]) == "" {
+			return false
+		}
+	}
+	return true
+}
+
+func firstNonEmptyArtifactWriter(values ...string) string {
+	for _, value := range values {
+		if strings.TrimSpace(value) != "" {
+			return value
+		}
+	}
+	return ""
+}
+
 // BrowserAuthenticationMetadataJSON renders the reviewed browser
 // authentication metadata included in approved authoring transactions.
 func BrowserAuthenticationMetadataJSON(session elicitor.Session) (string, bool, error) {
@@ -711,6 +917,30 @@ func validateSourceMaterializationTargets(root string, sources []elicitor.Source
 		}
 		digests[target] = source.SHA256
 		paths = append(paths, target)
+		if source.Kind == "browser-registration" {
+			expectedReviewPath := strings.TrimSuffix(filepath.ToSlash(source.TargetPath), filepath.Ext(source.TargetPath)) + ".review.json"
+			if filepath.ToSlash(source.ReviewPath) != expectedReviewPath {
+				return fmt.Errorf("registration review materialization target %q must be adjacent to source %q", source.ReviewPath, source.TargetPath)
+			}
+			reviewTarget, err := SafeExampleTarget(root, source.ReviewPath)
+			if err != nil {
+				return fmt.Errorf("invalid registration review materialization target %q: %w", source.ReviewPath, err)
+			}
+			relative, err := filepath.Rel(root, reviewTarget)
+			if err != nil {
+				return err
+			}
+			if reservedSourceTarget(filepath.ToSlash(relative)) || strings.TrimSpace(source.ReviewSHA256) == "" {
+				return fmt.Errorf("registration review materialization target %q or digest is invalid", source.ReviewPath)
+			}
+			if prior, ok := digests[reviewTarget]; ok && !strings.EqualFold(prior, source.ReviewSHA256) {
+				return fmt.Errorf("registration review target %s is selected with different content digests", relative)
+			}
+			digests[reviewTarget] = source.ReviewSHA256
+			paths = append(paths, reviewTarget)
+		} else if source.ReviewPath != "" || source.ReviewSHA256 != "" || len(source.MaterializedReview) != 0 {
+			return fmt.Errorf("non-registration source %s carries registration review materialization", source.ID)
+		}
 	}
 	if err := validateDistinctOutputPaths(root, paths, "source materialization"); err != nil {
 		return err

@@ -386,8 +386,10 @@ implies later authentication.
 The package must also contain
 `browser-registration/dedicated-test-user.review.json` and strict
 `.icot/browser-registration.json` inventory matching the source, review
-digest, origins, flow, slots, approval, timeout, and cleanup policy. iCoT does
-not capture or author registration. OpenUdon build, assessment,
+digest, origins, flow, slots, approval, timeout, and cleanup policy. The
+internal iCoT transaction engine can derive this intent and inventory from an
+explicitly reviewed, no-submit Browsertools candidate, but the current CLI/UI
+does not expose registration capture. OpenUdon build, assessment,
 approval-template, and `run --dry-run` remain offline. A non-dry run fails
 before executor invocation until compatible Udon and Browserdriver
 registration contracts are published and pinned.

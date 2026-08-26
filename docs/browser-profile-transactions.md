@@ -119,6 +119,24 @@ evidence is derived from the authored step rather than from transaction review.
 Drafts and public snapshots omit source/review bytes and never retain cookies,
 storage, credentials, or a runtime session object.
 
+A reviewed BRP exposes only its exact selected flow for authoring. Selecting it
+creates a standalone `browser_registration` step with the transaction's exact
+symbolic bindings, no browser session, a bounded timeout, and the fixed
+`operator_attestation` / `fail` / `stop_without_retry` policy. The reviewed
+cleanup disposition is either `delete_separately` or
+`retain_dedicated_test_identity`; cleanup is never part of the call. The
+profile's ordered submit and human-checkpoint descriptions remain inert source
+material. A separate step-scoped authoring confirmation is required and does
+not claim that submission or account creation occurred.
+
+On ordinary authoring approval, OpenUdon revalidates both in-memory inputs and
+atomically proposes the canonical profile, its adjacent `*.review.json`
+Browsertools bundle, and `.icot/browser-registration.json`. The latter binds
+the exact source/review digests, flow, bindings, approval, timeout, and fixed
+failure policy consumed by package quality and trusted dry-run. Resumable
+drafts retain only those value-free identities; after restart the exact private
+candidate must be rediscovered before its bytes can be materialized.
+
 Origins are sorted, unique serialized origins: HTTPS, or HTTP only for
 `localhost` and canonical loopback IPs. They have no user information, path,
 query, fragment, empty/default port, Unicode host form, or noncanonical IP

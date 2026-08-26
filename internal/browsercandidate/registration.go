@@ -56,11 +56,12 @@ type AdoptRegistrationRequest struct {
 // Registration is an immutable adopted candidate. Accessors return defensive
 // copies so later engine work cannot alter its reviewed identity.
 type Registration struct {
-	transaction browsertransaction.Transaction
-	profileID   string
-	flow        string
-	source      []byte
-	review      []byte
+	transaction        browsertransaction.Transaction
+	profileID          string
+	flow               string
+	cleanupDisposition string
+	source             []byte
+	review             []byte
 }
 
 // Transaction returns a defensively copied candidate-state transaction.
@@ -89,6 +90,29 @@ func (candidate *Registration) Flow() string {
 		return ""
 	}
 	return candidate.flow
+}
+
+// CleanupDisposition returns the reviewed value-free post-registration
+// cleanup policy. Cleanup itself is a separately authorized operation.
+func (candidate *Registration) CleanupDisposition() string {
+	if candidate == nil {
+		return ""
+	}
+	return candidate.cleanupDisposition
+}
+
+// ReviewedTransaction records explicit acceptance without changing identity.
+func (candidate *Registration) ReviewedTransaction() (browsertransaction.Transaction, error) {
+	if candidate == nil {
+		return browsertransaction.Transaction{}, errors.New("registration candidate is required")
+	}
+	previous := candidate.Transaction()
+	next := candidate.Transaction()
+	next.State = browsertransaction.StateReviewed
+	if err := browsertransaction.ValidateTransition(previous, next); err != nil {
+		return browsertransaction.Transaction{}, err
+	}
+	return next, nil
 }
 
 // Source returns canonical uws.browser-registration.1.0 JSON.
@@ -361,7 +385,7 @@ func adoptRegistration(data []byte, resultDigest string, request AdoptRegistrati
 		return nil, fmt.Errorf("canonicalize registration transaction candidate: %w", err)
 	}
 	return &Registration{
-		transaction: transaction, profileID: result.Candidate.ProfileID, flow: result.Flow.Name,
+		transaction: transaction, profileID: result.Candidate.ProfileID, flow: result.Flow.Name, cleanupDisposition: result.CallPolicy.CleanupDisposition,
 		source: append([]byte(nil), source...), review: append([]byte(nil), reviewBytes...),
 	}, nil
 }

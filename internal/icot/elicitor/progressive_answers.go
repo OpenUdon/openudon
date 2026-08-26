@@ -276,9 +276,15 @@ func applyProgressiveAnswerChecked(session *Session, plan QuestionPlan, answer s
 		} else {
 			insertBrowserAuthenticationStep(session, target, doc, operation)
 		}
+	case planHasStepField(plan, "registration_flow") || planHasStepField(plan, "registration_contract"):
+		doc, operation := selectBrowserRegistrationFlow(answer, docs)
+		target := targetStepForPlan(session, plan)
+		if operation == nil || target == nil || replaceBrowserRegistrationStep(session, target, doc, operation) == nil {
+			return nil
+		}
 	case planHasStepField(plan, "credential_bindings"):
 		bindings := parseAssignments(answer)
-		if target := targetStepForPlan(session, plan); target != nil && strings.EqualFold(strings.TrimSpace(target.Type), "browser_authentication") {
+		if target := targetStepForPlan(session, plan); target != nil && (strings.EqualFold(strings.TrimSpace(target.Type), "browser_authentication") || strings.EqualFold(strings.TrimSpace(target.Type), "browser_registration")) {
 			target.CredentialBindings = bindings
 			for _, binding := range bindings {
 				if browserBindingNamePattern.MatchString(strings.TrimSpace(binding)) {
@@ -295,12 +301,20 @@ func applyProgressiveAnswerChecked(session *Session, plan QuestionPlan, answer s
 		if target := targetStepForPlan(session, plan); target != nil && strings.EqualFold(strings.TrimSpace(target.Type), "browser_authentication") && name == target.Name {
 			session.BrowserAuthenticationApprovals = dedupeStrings(append(session.BrowserAuthenticationApprovals, target.Name))
 		}
+	case planHasStepField(plan, "registration_approval"):
+		if !strings.HasPrefix(strings.ToLower(answer), "approve ") {
+			return nil
+		}
+		name := strings.TrimSpace(answer[len("approve "):])
+		if target := targetStepForPlan(session, plan); target != nil && strings.EqualFold(strings.TrimSpace(target.Type), "browser_registration") && name == target.Name {
+			target.RegistrationApproval = target.Name
+		}
 	case planHasStepField(plan, "timeout"):
 		seconds, err := strconv.ParseFloat(answer, 64)
 		if err != nil || seconds <= 0 || seconds > 600 {
 			return nil
 		}
-		if target := targetStepForPlan(session, plan); target != nil && strings.EqualFold(strings.TrimSpace(target.Type), "browser_authentication") {
+		if target := targetStepForPlan(session, plan); target != nil && (strings.EqualFold(strings.TrimSpace(target.Type), "browser_authentication") || strings.EqualFold(strings.TrimSpace(target.Type), "browser_registration")) {
 			target.Timeout = &seconds
 		}
 	case planHasStepField(plan, "browser_session") || planHasExactSlot(plan, "browser_session"):
@@ -352,7 +366,7 @@ func applyProgressiveAnswerChecked(session *Session, plan QuestionPlan, answer s
 			}
 			if isBrowserDocument(doc) {
 				session.BrowserRoute = "browser"
-				if isBrowserAuthenticationOperationSummary(op) {
+				if isBrowserAuthenticationOperationSummary(op) || isBrowserRegistrationOperationSummary(op) {
 					session.BrowserSession = "none"
 				}
 			}
@@ -365,7 +379,11 @@ func applyProgressiveAnswerChecked(session *Session, plan QuestionPlan, answer s
 				if target == nil {
 					target = session.Intent.Steps[0]
 				}
-				if isBrowserAuthenticationOperationSummary(op) {
+				if isBrowserRegistrationOperationSummary(op) {
+					if replaceBrowserRegistrationStep(session, target, doc, op) == nil {
+						return fmt.Errorf("reviewed registration operation contract is invalid")
+					}
+				} else if isBrowserAuthenticationOperationSummary(op) {
 					target.Type = "browser_authentication"
 					target.AuthenticationFlow = op.OperationID
 					target.Operation = ""
@@ -379,7 +397,7 @@ func applyProgressiveAnswerChecked(session *Session, plan QuestionPlan, answer s
 					session.BrowserRoute = "api"
 				}
 				target.Do = firstNonEmpty(target.Do, op.Summary, operationLabel(*op))
-				if !isBrowserAuthenticationOperationSummary(op) {
+				if !isBrowserAuthenticationOperationSummary(op) && !isBrowserRegistrationOperationSummary(op) {
 					target.Operation = op.OperationID
 				}
 				if strings.TrimSpace(firstNonEmpty(target.Source, target.OpenAPI)) == "" {
@@ -389,6 +407,9 @@ func applyProgressiveAnswerChecked(session *Session, plan QuestionPlan, answer s
 			selectedStep := target
 			if selectedStep == nil && len(session.Intent.Steps) > 0 {
 				selectedStep = session.Intent.Steps[0]
+			}
+			if selectedStep != nil && strings.EqualFold(strings.TrimSpace(selectedStep.Type), "browser_registration") {
+				mergeBrowserRegistrationCredentials(session, selectedStep)
 			}
 			addMappingClassification(session, MappingClassification{
 				Slot:                 stepOperationSlot(selectedStep),

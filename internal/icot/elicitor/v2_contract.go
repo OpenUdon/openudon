@@ -67,6 +67,8 @@ type SourceMaterialization struct {
 	TargetPath           string                     `json:"target_path" yaml:"target_path"`
 	SHA256               string                     `json:"sha256" yaml:"sha256"`
 	SourceSHA256         string                     `json:"source_sha256,omitempty" yaml:"source_sha256,omitempty"`
+	ReviewPath           string                     `json:"review_path,omitempty" yaml:"review_path,omitempty"`
+	ReviewSHA256         string                     `json:"review_sha256,omitempty" yaml:"review_sha256,omitempty"`
 	Title                string                     `json:"title,omitempty" yaml:"title,omitempty"`
 	OperationCount       int                        `json:"operation_count" yaml:"operation_count"`
 	Actions              []string                   `json:"actions,omitempty" yaml:"actions,omitempty"`
@@ -81,6 +83,7 @@ type SourceMaterialization struct {
 	RegistryCoordinate   string                     `json:"registry_coordinate,omitempty" yaml:"registry_coordinate,omitempty"`
 	BrowserVerifications []browserverify.Attachment `json:"browser_verifications,omitempty" yaml:"browser_verifications,omitempty"`
 	MaterializedContent  []byte                     `json:"-" yaml:"-"`
+	MaterializedReview   []byte                     `json:"-" yaml:"-"`
 }
 
 // CandidateWorkflow is an unnumbered future direction with no source,
@@ -140,6 +143,11 @@ func normalizeSourcePlan(sources []SourceMaterialization) []SourceMaterializatio
 		source.TargetPath = filepath.ToSlash(filepath.Clean(strings.TrimSpace(source.TargetPath)))
 		source.SHA256 = strings.ToLower(strings.TrimSpace(source.SHA256))
 		source.SourceSHA256 = strings.ToLower(strings.TrimSpace(source.SourceSHA256))
+		source.ReviewPath = filepath.ToSlash(filepath.Clean(strings.TrimSpace(source.ReviewPath)))
+		if strings.TrimSpace(source.ReviewPath) == "" || source.ReviewPath == "." {
+			source.ReviewPath = ""
+		}
+		source.ReviewSHA256 = strings.ToLower(strings.TrimSpace(source.ReviewSHA256))
 		source.Title = strings.TrimSpace(source.Title)
 		source.Actions = dedupeStrings(source.Actions)
 		source.Flows = dedupeStrings(source.Flows)
@@ -183,7 +191,7 @@ func normalizeSourcePlan(sources []SourceMaterialization) []SourceMaterializatio
 	out := make([]SourceMaterialization, 0, len(normalized))
 	seenContent := map[string]int{}
 	for _, source := range normalized {
-		key := source.TargetPath + "\x00" + source.SHA256
+		key := source.TargetPath + "\x00" + source.SHA256 + "\x00" + source.ReviewPath + "\x00" + source.ReviewSHA256
 		if index, ok := seenContent[key]; ok {
 			// A resumed registry session intentionally does not serialize fetched
 			// document bytes. When rediscovery yields the identical reviewed
@@ -191,6 +199,9 @@ func normalizeSourcePlan(sources []SourceMaterialization) []SourceMaterializatio
 			// equivalent durable record selected by deterministic sorting.
 			if len(out[index].MaterializedContent) == 0 && len(source.MaterializedContent) > 0 {
 				out[index].MaterializedContent = append([]byte(nil), source.MaterializedContent...)
+			}
+			if len(out[index].MaterializedReview) == 0 && len(source.MaterializedReview) > 0 {
+				out[index].MaterializedReview = append([]byte(nil), source.MaterializedReview...)
 			}
 			out[index].BrowserVerifications = normalizeBrowserVerificationAttachments(append(out[index].BrowserVerifications, source.BrowserVerifications...))
 			continue
@@ -498,6 +509,23 @@ func validateV2State(session Session) error {
 			for _, flow := range source.Flows {
 				if _, ok := source.FlowCredentialSlots[flow]; !ok {
 					return fmt.Errorf("browser authentication source %q is missing credential-slot evidence for flow %q", source.ID, flow)
+				}
+			}
+		}
+		if source.Kind == browserRegistrationSourceFamily {
+			if source.SourceKind != virtualBrowserSourceKind || !strings.HasPrefix(source.SourcePath, virtualBrowserPrefix) || source.Lifecycle != "active" {
+				return fmt.Errorf("browser registration source %q must be an active private transaction materialization", source.ID)
+			}
+			if !strings.HasPrefix(source.TargetPath, "browser-registration/") || len(source.Flows) == 0 || len(source.Origins) == 0 || source.OperationCount != len(source.Flows) || len(source.FlowCredentialSlots) != len(source.Flows) {
+				return fmt.Errorf("browser registration source %q must include its exact reviewed flow and origin inventory", source.ID)
+			}
+			expectedReviewPath := strings.TrimSuffix(source.TargetPath, filepath.Ext(source.TargetPath)) + ".review.json"
+			if source.ReviewPath != expectedReviewPath || len(source.ReviewSHA256) != 64 {
+				return fmt.Errorf("browser registration source %q must include its adjacent reviewed bundle identity", source.ID)
+			}
+			for _, flow := range source.Flows {
+				if _, ok := source.FlowCredentialSlots[flow]; !ok {
+					return fmt.Errorf("browser registration source %q is missing credential-slot evidence for flow %q", source.ID, flow)
 				}
 			}
 		}

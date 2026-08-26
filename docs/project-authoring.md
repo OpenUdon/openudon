@@ -64,11 +64,15 @@ that session. It records only symbolic credential bindings and safe review
 metadata. Udon resolves credential values, brokers challenges, owns the live
 session, and requires separate runtime approval.
 
-Browser registration is an offline, manual package source rather than an iCoT
-capture flow. Place an already-reviewed `uws.browser-registration.1.0` profile
+The current terminal/UI product keeps browser registration as an offline,
+manual package source rather than exposing a capture flow. Place an
+already-reviewed `uws.browser-registration.1.0` profile
 and its conventional `*.review.json` Browsertools bundle under
 `browser-registration/`, author an explicit `browser_registration` intent,
 and provide matching `.icot/browser-registration.json` review evidence.
+Internally, the shared iCoT transaction engine can adopt an explicitly reviewed
+no-submit Browsertools candidate into the same session-free intent and package
+artifacts; its user-facing lifecycle is introduced separately.
 OpenUdon may build, assess, generate approval, and dry-run that package, but it
 rejects non-dry execution until compatible Udon and Browserdriver registration
 contracts are pinned.

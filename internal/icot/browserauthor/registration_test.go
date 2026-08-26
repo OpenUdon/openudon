@@ -15,6 +15,8 @@ import (
 	"github.com/OpenUdon/browsertools/registrationauthorsession"
 	"github.com/OpenUdon/browsertools/registrationprofile"
 	"github.com/OpenUdon/openudon/internal/browsertransaction"
+	"github.com/OpenUdon/openudon/internal/icot/elicitor"
+	"github.com/OpenUdon/openudon/internal/icot/engine"
 )
 
 const registrationControllerFixture = `profile: uws.browser-registration.1.0
@@ -104,6 +106,20 @@ chmod 600 "$4/%s"
 	adopted := wantEvent(t, session, "candidate")
 	if adopted.Candidate == nil || adopted.Candidate.Transaction().Provenance.ResultSHA256 != resultDigest || adopted.Candidate.Transaction().Session != "" {
 		t.Fatalf("adopted event = %#v", adopted)
+	}
+	virtualInput, err := engine.RegistrationVirtualBrowserTransaction(adopted.Candidate, true)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if virtualInput.Transaction.State != browsertransaction.StateReviewed || virtualInput.Transaction.Session != "" || virtualInput.Sources[0].CleanupDisposition != "delete_separately" {
+		t.Fatalf("reviewed registration adapter = %#v", virtualInput.Transaction)
+	}
+	discovery, err := elicitor.DiscoverVirtualBrowserSources([]elicitor.VirtualBrowserTransactionInput{virtualInput}, time.Date(2026, 8, 25, 1, 0, 1, 0, time.UTC))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(discovery.Candidates) != 1 || discovery.Candidates[0].ProvidesSession != "" || discovery.Candidates[0].RequiresSession != "" || len(discovery.Docs) != 1 || len(discovery.Docs[0].Operations) != 1 {
+		t.Fatalf("actual producer registration discovery = %#v", discovery.Candidates)
 	}
 	if _, ok := <-session.Events(); ok {
 		t.Fatal("registration event stream did not close")

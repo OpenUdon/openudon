@@ -884,9 +884,14 @@ func cloneSession(session elicitor.Session) (elicitor.Session, error) {
 		}
 	}
 	materialized := map[string][]byte{}
+	materializedReviews := map[string][]byte{}
 	for _, source := range session.SourcePlan {
+		key := source.TargetPath + "\x00" + source.SHA256 + "\x00" + source.ReviewPath + "\x00" + source.ReviewSHA256
 		if len(source.MaterializedContent) > 0 {
-			materialized[source.TargetPath+"\x00"+source.SHA256] = append([]byte(nil), source.MaterializedContent...)
+			materialized[key] = append([]byte(nil), source.MaterializedContent...)
+		}
+		if len(source.MaterializedReview) > 0 {
+			materializedReviews[key] = append([]byte(nil), source.MaterializedReview...)
 		}
 	}
 	data, err := json.Marshal(session)
@@ -908,8 +913,9 @@ func cloneSession(session elicitor.Session) (elicitor.Session, error) {
 		}
 	}
 	for index := range cloned.SourcePlan {
-		key := cloned.SourcePlan[index].TargetPath + "\x00" + cloned.SourcePlan[index].SHA256
+		key := cloned.SourcePlan[index].TargetPath + "\x00" + cloned.SourcePlan[index].SHA256 + "\x00" + cloned.SourcePlan[index].ReviewPath + "\x00" + cloned.SourcePlan[index].ReviewSHA256
 		cloned.SourcePlan[index].MaterializedContent = append([]byte(nil), materialized[key]...)
+		cloned.SourcePlan[index].MaterializedReview = append([]byte(nil), materializedReviews[key]...)
 	}
 	return cloned, nil
 }

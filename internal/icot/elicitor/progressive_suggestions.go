@@ -544,6 +544,9 @@ func stepFromOperation(doc APIDocument, op *apitools.OperationSummary) *rollout.
 			AuthenticationFlow: op.OperationID,
 		}
 	}
+	if isBrowserRegistrationOperationSummary(op) {
+		return browserRegistrationStepFromOperation(doc, op)
+	}
 	if isBrowserDocument(doc) {
 		stepType = "browser"
 	}

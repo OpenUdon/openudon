@@ -10,21 +10,29 @@ import (
 	"github.com/OpenUdon/openudon/internal/icot/elicitor"
 )
 
-// RegistrationVirtualBrowserTransaction converts the path-free A19.1 result
-// into the generic virtual discovery input. Candidate accessors provide fresh
-// defensive copies; private inbox and result-envelope details remain absent.
-func RegistrationVirtualBrowserTransaction(candidate *browsercandidate.Registration) (elicitor.VirtualBrowserTransactionInput, error) {
+// RegistrationVirtualBrowserTransaction converts one immutable, path-free
+// registration candidate into the generic virtual discovery input. When
+// reviewed is true, the returned lifecycle snapshot records explicit
+// acceptance; virtual discovery rejects registration candidates otherwise.
+func RegistrationVirtualBrowserTransaction(candidate *browsercandidate.Registration, reviewed bool) (elicitor.VirtualBrowserTransactionInput, error) {
 	if candidate == nil {
 		return elicitor.VirtualBrowserTransactionInput{}, errors.New("registration candidate is required")
 	}
 	transaction := candidate.Transaction()
+	if reviewed {
+		var err error
+		transaction, err = candidate.ReviewedTransaction()
+		if err != nil {
+			return elicitor.VirtualBrowserTransactionInput{}, err
+		}
+	}
 	if transaction.Kind != browsertransaction.KindRegistration || len(transaction.Candidates) != 1 || transaction.Candidates[0].Kind != browsertransaction.CandidateRegistration {
 		return elicitor.VirtualBrowserTransactionInput{}, errors.New("registration candidate transaction composition is invalid")
 	}
 	return elicitor.VirtualBrowserTransactionInput{
 		Transaction: transaction,
 		Sources: []elicitor.VirtualBrowserSourceInput{{
-			Kind: browsertransaction.CandidateRegistration, Flow: candidate.Flow(), Source: candidate.Source(), Review: candidate.Review(),
+			Kind: browsertransaction.CandidateRegistration, Flow: candidate.Flow(), CleanupDisposition: candidate.CleanupDisposition(), Source: candidate.Source(), Review: candidate.Review(),
 		}},
 	}, nil
 }

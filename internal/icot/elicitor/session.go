@@ -134,11 +134,23 @@ func SessionFromIntent(intent *rollout.Intent, project projectwizard.Answers) (S
 	session.Fallback = project.Fallback
 	session.FallbackSet = true
 	session.SideEffectScope = project.SideEffectScope
+	hasRegistration, hasOtherBrowser := false, false
 	walkSteps(value.Steps, func(step *rollout.Step) {
-		if step != nil && strings.EqualFold(strings.TrimSpace(step.Type), "browser") {
+		if step == nil {
+			return
+		}
+		switch strings.ToLower(strings.TrimSpace(step.Type)) {
+		case "browser", "browser_authentication":
 			session.BrowserRoute = "browser"
+			hasOtherBrowser = true
+		case "browser_registration":
+			session.BrowserRoute = "browser"
+			hasRegistration = true
 		}
 	})
+	if hasRegistration && !hasOtherBrowser {
+		session.BrowserSession = "none"
+	}
 	if session.SideEffectScope == "" {
 		session.SideEffectScope = projectwizard.InferSideEffectScope(project.Safety)
 	}
@@ -243,7 +255,8 @@ func mergeBrowserCredentialBindings(session *Session) {
 			if step == nil {
 				continue
 			}
-			if strings.EqualFold(strings.TrimSpace(step.Type), "browser_authentication") {
+			stepType := strings.ToLower(strings.TrimSpace(step.Type))
+			if stepType == "browser_authentication" || stepType == "browser_registration" {
 				for _, binding := range step.CredentialBindings {
 					if browserBindingNamePattern.MatchString(strings.TrimSpace(binding)) {
 						session.Credentials = dedupeStrings(append(session.Credentials, strings.TrimSpace(binding)))

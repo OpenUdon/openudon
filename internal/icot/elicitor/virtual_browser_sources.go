@@ -34,10 +34,11 @@ const (
 // without a filesystem location. Source and Review are retained only in the
 // engine process and never serialized in a snapshot or draft.
 type VirtualBrowserSourceInput struct {
-	Kind   browsertransaction.CandidateKind `json:"kind"`
-	Flow   string                           `json:"flow,omitempty"`
-	Source []byte                           `json:"-"`
-	Review []byte                           `json:"-"`
+	Kind               browsertransaction.CandidateKind `json:"kind"`
+	Flow               string                           `json:"flow,omitempty"`
+	CleanupDisposition string                           `json:"cleanup_disposition,omitempty"`
+	Source             []byte                           `json:"-"`
+	Review             []byte                           `json:"-"`
 }
 
 // VirtualBrowserTransactionInput is the path-free output of private result
@@ -255,6 +256,9 @@ func virtualBrowserMaterialization(transaction browsertransaction.Transaction, t
 		public.TargetPath, public.Title, public.Dependencies, public.RequiresSession = plan.TargetPath, plan.Title, []string{dependency}, transaction.Session
 		return public, plan, browserProfileDocument(plan, value), nil
 	case browsertransaction.CandidateRegistration:
+		if transaction.State != browsertransaction.StateReviewed {
+			return VirtualBrowserCandidate{}, SourceMaterialization{}, APIDocument{}, errors.New("registration candidate requires an explicitly reviewed transaction")
+		}
 		value, canonical, err := canonicalVirtualRegistration(input.Source, input.Review, at)
 		if err != nil {
 			return VirtualBrowserCandidate{}, SourceMaterialization{}, APIDocument{}, err
@@ -280,9 +284,17 @@ func virtualBrowserMaterialization(transaction browsertransaction.Transaction, t
 		if _, ok := value.Flows[flow]; flow == "" || !ok {
 			return VirtualBrowserCandidate{}, SourceMaterialization{}, APIDocument{}, errors.New("registration candidate requires one exact available flow")
 		}
-		plan.Provenance = virtualFlowProvenance(plan.Provenance, flow)
+		cleanup := strings.TrimSpace(input.CleanupDisposition)
+		if cleanup != "delete_separately" && cleanup != "retain_dedicated_test_identity" {
+			return VirtualBrowserCandidate{}, SourceMaterialization{}, APIDocument{}, errors.New("registration candidate cleanup disposition is invalid")
+		}
+		plan.Provenance = virtualRegistrationPolicyProvenance(plan.Provenance, flow, cleanup)
+		plan.ReviewPath = strings.TrimSuffix(plan.TargetPath, filepath.Ext(plan.TargetPath)) + ".review.json"
+		plan.MaterializedReview = append(append([]byte(nil), input.Review...), '\n')
+		reviewSum := sha256.Sum256(plan.MaterializedReview)
+		plan.ReviewSHA256 = hex.EncodeToString(reviewSum[:])
 		public.TargetPath, public.Title, public.Flow = plan.TargetPath, plan.Title, flow
-		return public, plan, browserRegistrationDocument(plan, value), nil
+		return public, plan, browserRegistrationDocument(plan, value, flow, transaction.CredentialBindings, cleanup), nil
 	default:
 		return VirtualBrowserCandidate{}, SourceMaterialization{}, APIDocument{}, errors.New("candidate kind is unsupported")
 	}
@@ -294,6 +306,11 @@ func virtualCredentialBindings(bindings []browsertransaction.CredentialBinding) 
 		values = append(values, binding.Slot+"="+binding.Binding)
 	}
 	return strings.Join(values, ",")
+}
+
+func virtualRegistrationPolicyProvenance(provenance, flow, cleanup string) string {
+	sum := sha256.Sum256([]byte("flow=" + flow + "\ncleanup=" + cleanup))
+	return provenance + ";registration-policy-sha256:" + hex.EncodeToString(sum[:])
 }
 
 func canonicalVirtualAuthentication(data []byte, at time.Time) (*authprofile.Profile, []byte, error) {
@@ -427,9 +444,12 @@ func registrationFlowSlots(flow browserregistration.Flow) []string {
 	return dedupeStrings(slots)
 }
 
-func browserRegistrationDocument(plan SourceMaterialization, value *registrationprofile.Profile) APIDocument {
+func browserRegistrationDocument(plan SourceMaterialization, value *registrationprofile.Profile, selectedFlow string, bindings []browsertransaction.CredentialBinding, cleanup string) APIDocument {
 	doc := APIDocument{ID: plan.ID, Path: plan.SourcePath, RelativePath: plan.TargetPath, Title: plan.Title, Description: "Reviewed, no-submit browser registration recipe. Runtime execution remains unsupported."}
 	for _, flowName := range registrationprofile.SortedFlowNames(value) {
+		if flowName != selectedFlow {
+			continue
+		}
 		flow := value.Flows[flowName]
 		effects := append([]string(nil), flow.Effects...)
 		sort.Strings(effects)
@@ -438,11 +458,17 @@ func browserRegistrationDocument(plan SourceMaterialization, value *registration
 			Summary: firstNonEmpty(flow.Description, "Review an inert account-registration recipe."), DocumentName: plan.ID,
 			DocumentPath: plan.SourcePath, DocumentRelativePath: plan.TargetPath, Provenance: plan.Provenance,
 			Extensions: map[string]string{
-				"openudon.source_family":                          browserRegistrationSourceFamily,
-				"openudon.browser_registration.credential_slots":  strings.Join(plan.FlowCredentialSlots[flowName], ","),
-				"openudon.browser_registration.effects":           strings.Join(effects, ","),
-				"openudon.browser_registration.runtime_supported": "false",
-				"openudon.browser.expires_at":                     plan.ExpiresAt,
+				"openudon.source_family":                             browserRegistrationSourceFamily,
+				"openudon.browser_registration.credential_slots":     strings.Join(plan.FlowCredentialSlots[flowName], ","),
+				"openudon.browser_registration.effects":              strings.Join(effects, ","),
+				"openudon.browser_registration.runtime_supported":    "false",
+				"openudon.browser_registration.credential_bindings":  virtualCredentialBindings(bindings),
+				"openudon.browser_registration.duplicate_prevention": "operator_attestation",
+				"openudon.browser_registration.on_duplicate":         "fail",
+				"openudon.browser_registration.ambiguous_outcome":    "stop_without_retry",
+				"openudon.browser_registration.cleanup_disposition":  cleanup,
+				"openudon.browser_registration.timeout_seconds":      "300",
+				"openudon.browser.expires_at":                        plan.ExpiresAt,
 			},
 		})
 	}
@@ -513,6 +539,17 @@ func ValidateVirtualBrowserDiscoveryAt(discovery VirtualBrowserDiscovery, at tim
 		if hex.EncodeToString(sum[:]) != plan.SHA256 {
 			return errors.New("virtual browser catalog materialization digest mismatch")
 		}
+		if plan.Kind == browserRegistrationSourceFamily {
+			if plan.ReviewPath == "" || plan.ReviewSHA256 == "" || len(plan.MaterializedReview) == 0 {
+				return errors.New("virtual browser registration review materialization is incomplete")
+			}
+			reviewSum := sha256.Sum256(plan.MaterializedReview)
+			if hex.EncodeToString(reviewSum[:]) != plan.ReviewSHA256 {
+				return errors.New("virtual browser registration review materialization digest mismatch")
+			}
+		} else if plan.ReviewPath != "" || plan.ReviewSHA256 != "" || len(plan.MaterializedReview) != 0 {
+			return errors.New("non-registration virtual source carries registration review materialization")
+		}
 	}
 	return nil
 }
@@ -529,7 +566,7 @@ func RequireFreshVirtualBrowserSources(selected, available []SourceMaterializati
 			continue
 		}
 		candidate, ok := byTarget[source.TargetPath]
-		if !ok || candidate.Kind != source.Kind || candidate.ID != source.ID || candidate.SourcePath != source.SourcePath || candidate.SHA256 != source.SHA256 || candidate.SourceSHA256 != source.SourceSHA256 || candidate.Provenance != source.Provenance {
+		if !ok || candidate.Kind != source.Kind || candidate.ID != source.ID || candidate.SourcePath != source.SourcePath || candidate.SHA256 != source.SHA256 || candidate.SourceSHA256 != source.SourceSHA256 || candidate.ReviewPath != source.ReviewPath || candidate.ReviewSHA256 != source.ReviewSHA256 || candidate.Provenance != source.Provenance {
 			return fmt.Errorf("selected virtual browser source %s is stale or unavailable", source.ID)
 		}
 	}
@@ -650,7 +687,7 @@ func cloneVirtualBrowserInputs(inputs []VirtualBrowserTransactionInput) []Virtua
 		}
 		result[index].Sources = make([]VirtualBrowserSourceInput, len(input.Sources))
 		for sourceIndex, source := range input.Sources {
-			result[index].Sources[sourceIndex] = VirtualBrowserSourceInput{Kind: source.Kind, Flow: source.Flow, Source: append([]byte(nil), source.Source...), Review: append([]byte(nil), source.Review...)}
+			result[index].Sources[sourceIndex] = VirtualBrowserSourceInput{Kind: source.Kind, Flow: source.Flow, CleanupDisposition: source.CleanupDisposition, Source: append([]byte(nil), source.Source...), Review: append([]byte(nil), source.Review...)}
 		}
 	}
 	return result
@@ -675,6 +712,7 @@ func cloneVirtualSourcePlan(plan SourceMaterialization) SourceMaterialization {
 	result.Flows = append([]string(nil), plan.Flows...)
 	result.Origins = append([]string(nil), plan.Origins...)
 	result.MaterializedContent = append([]byte(nil), plan.MaterializedContent...)
+	result.MaterializedReview = append([]byte(nil), plan.MaterializedReview...)
 	if plan.FlowCredentialSlots != nil {
 		result.FlowCredentialSlots = make(map[string][]string, len(plan.FlowCredentialSlots))
 		for flow, slots := range plan.FlowCredentialSlots {

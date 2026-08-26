@@ -47,6 +47,12 @@ func CheckReadiness(session Session, docs []APIDocument) []ReadinessIssue {
 				}
 				continue
 			}
+			if stepType == "browser_registration" {
+				for _, issue := range browserRegistrationReadinessIssues(session, docs, step) {
+					add(issue.Code, issue.Slot, issue.Severity, issue.Message, issue.SuggestedAnswer)
+				}
+				continue
+			}
 			if (stepType == "http" || stepType == "openapi" || stepType == "browser" || strings.TrimSpace(step.Operation) != "") && strings.TrimSpace(step.Operation) == "" {
 				if issue, ok := unconfirmedSideEffectCommitmentIssue(session, docs, step, nil); ok {
 					add(issue.Code, issue.Slot, issue.Severity, issue.Message, issue.SuggestedAnswer)
@@ -168,6 +174,15 @@ func planQuestionForIssue(session Session, docs []APIDocument, blocking Readines
 		plan.Prompt = "How many seconds may this browser authentication and MFA flow wait? Use a value from 1 through 600."
 	case readinessUnconfirmedBrowserAuthentication:
 		plan.Prompt = "Confirm this exact browser authentication step for authoring by answering approve <authentication-step-name>. Runtime execution requires a separate approval."
+		plan.ForceAsk = true
+	case readinessMissingBrowserRegistrationFlow:
+		plan.Prompt = "Which exact reviewed no-submit browser registration flow should be authored?"
+		plan.ForceAsk = true
+	case readinessInvalidBrowserRegistrationContract:
+		plan.Prompt = "Reselect the reviewed registration candidate to restore its fixed no-session, binding, duplicate, ambiguity, cleanup, and timeout contract."
+		plan.ForceAsk = true
+	case readinessUnconfirmedBrowserRegistration:
+		plan.Prompt = "Confirm this exact account-creation step for authoring by answering approve <registration-step-name>. Runtime execution remains unsupported and separately gated."
 		plan.ForceAsk = true
 	case readinessUnconfirmedSideEffectCommitment:
 		plan.Prompt = unconfirmedSideEffectCommitmentPrompt(session, docs, blocking.Slot)

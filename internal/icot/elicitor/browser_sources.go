@@ -1,6 +1,7 @@
 package elicitor
 
 import (
+	"bytes"
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
@@ -460,6 +461,38 @@ func SourceMaterializationContent(source SourceMaterialization, at time.Time) ([
 		return nil, fmt.Errorf("selected browser source %s changed after discovery", source.SourcePath)
 	}
 	return materialized, nil
+}
+
+// SourceMaterializationReviewContent returns the exact independently reviewed
+// registration bundle retained in memory until the ordinary package approval
+// boundary. Resumed virtual sources must be rediscovered before it is available.
+func SourceMaterializationReviewContent(source SourceMaterialization, at time.Time) ([]byte, error) {
+	if source.Kind != browserRegistrationSourceFamily || strings.TrimSpace(source.ReviewPath) == "" || strings.TrimSpace(source.ReviewSHA256) == "" {
+		return nil, fmt.Errorf("selected browser source %s has no registration review materialization", source.ID)
+	}
+	if at.IsZero() {
+		at = time.Now().UTC()
+	}
+	if err := validateBrowserMaterializationFreshness(source, at); err != nil {
+		return nil, err
+	}
+	if len(source.MaterializedReview) == 0 {
+		return nil, fmt.Errorf("selected virtual browser registration review %s is unavailable from the current in-memory catalog", source.ID)
+	}
+	data := append([]byte(nil), source.MaterializedReview...)
+	if fmt.Sprintf("%x", sha256.Sum256(data)) != strings.ToLower(source.ReviewSHA256) {
+		return nil, fmt.Errorf("selected browser registration review does not match SHA-256 %s", source.ReviewSHA256)
+	}
+	profileData, err := SourceMaterializationContent(source, at)
+	if err != nil {
+		return nil, err
+	}
+	profileData = bytes.TrimSuffix(profileData, []byte{'\n'})
+	reviewData := bytes.TrimSuffix(data, []byte{'\n'})
+	if _, _, err := canonicalVirtualRegistration(profileData, reviewData, at); err != nil {
+		return nil, fmt.Errorf("selected browser registration review is invalid: %w", err)
+	}
+	return data, nil
 }
 
 func validateBrowserMaterializationFreshness(source SourceMaterialization, at time.Time) error {
