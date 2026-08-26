@@ -1,12 +1,20 @@
 package main
 
 import (
+	"bufio"
+	"bytes"
+	"errors"
 	"flag"
+	"io"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"strings"
+	"syscall"
 	"testing"
+	"time"
+
+	"github.com/OpenUdon/openudon/internal/browsertransaction"
 )
 
 func TestCLIHelpDocumentsFlags(t *testing.T) {
@@ -44,6 +52,7 @@ func TestCLIHelpDocumentsFlags(t *testing.T) {
 		"icot replay-eval",
 		"icot authoring-eval",
 		"icot browser-author live",
+		"icot browser-transaction",
 		"docs/icot-session-schema.md",
 		"openudon build --example",
 	} {
@@ -52,6 +61,86 @@ func TestCLIHelpDocumentsFlags(t *testing.T) {
 		}
 	}
 }
+
+func TestCLIBrowserTransactionSIGINTAndSIGTERMContainPrompt(t *testing.T) {
+	for name, signal := range map[string]os.Signal{"SIGINT": os.Interrupt, "SIGTERM": syscall.SIGTERM} {
+		t.Run(name, func(t *testing.T) {
+			root := t.TempDir()
+			transaction := browsertransaction.Transaction{
+				Version: browsertransaction.Version, ID: "signal-containment", Kind: browsertransaction.KindRegistration, State: browsertransaction.StateCandidate,
+				Candidates:         []browsertransaction.Candidate{{Kind: browsertransaction.CandidateRegistration, Schema: "uws.browser-registration.1.0", SourceSHA256: cliTransactionDigest("a"), ReviewSHA256: cliTransactionDigest("b")}},
+				Provenance:         browsertransaction.Provenance{Producer: "browsertools", ResultVersion: browsertransaction.ResultRegistrationAuthoringV1, ResultSHA256: cliTransactionDigest("c"), ObservedAt: time.Now().UTC().Format(time.RFC3339Nano), ExpiresAt: time.Now().UTC().Add(time.Hour).Format(time.RFC3339Nano), Origins: []string{"https://example.test"}},
+				CredentialBindings: []browsertransaction.CredentialBinding{{Slot: "email", Binding: "account_email"}},
+			}
+			data, err := browsertransaction.CanonicalBytes(transaction)
+			if err != nil {
+				t.Fatal(err)
+			}
+			transactionPath := filepath.Join(root, "transaction.json")
+			if err := os.WriteFile(transactionPath, data, 0o600); err != nil {
+				t.Fatal(err)
+			}
+			scratch, store := filepath.Join(root, "scratch"), filepath.Join(root, "store")
+			for _, path := range []string{scratch, store} {
+				if err := os.Mkdir(path, 0o700); err != nil {
+					t.Fatal(err)
+				}
+			}
+			cmd := helperCommand("browser-transaction", "--transaction", transactionPath, "--example", filepath.Join(root, "example"), "--scope", "examples/signal", "--scratch", scratch, "--store", store, "--review")
+			stdin, err := cmd.StdinPipe()
+			if err != nil {
+				t.Fatal(err)
+			}
+			stderr, err := cmd.StderrPipe()
+			if err != nil {
+				t.Fatal(err)
+			}
+			var stdout bytes.Buffer
+			cmd.Stdout = &stdout
+			if err := cmd.Start(); err != nil {
+				t.Fatal(err)
+			}
+			t.Cleanup(func() {
+				_ = stdin.Close()
+				if cmd.ProcessState == nil {
+					_ = cmd.Process.Kill()
+					_, _ = io.Copy(io.Discard, stderr)
+					_ = cmd.Wait()
+				}
+			})
+			scanner := bufio.NewScanner(stderr)
+			if !scanner.Scan() || !strings.Contains(scanner.Text(), "review authorization required") {
+				t.Fatalf("prompt = %q, err=%v stdout=%s", scanner.Text(), scanner.Err(), stdout.String())
+			}
+			if err := cmd.Process.Signal(signal); err != nil {
+				t.Fatal(err)
+			}
+			type result struct {
+				remainder []byte
+				err       error
+			}
+			done := make(chan result, 1)
+			go func() {
+				remainder, _ := io.ReadAll(stderr)
+				done <- result{remainder: remainder, err: cmd.Wait()}
+			}()
+			select {
+			case outcome := <-done:
+				var exitErr *exec.ExitError
+				if !errors.As(outcome.err, &exitErr) || exitErr.ExitCode() != 130 {
+					t.Fatalf("signal exit = %v stdout=%s stderr=%s", outcome.err, stdout.String(), outcome.remainder)
+				}
+				if !strings.Contains(string(outcome.remainder), `"code":"canceled"`) || !strings.Contains(stdout.String(), `"event":"started"`) {
+					t.Fatalf("signal output stdout=%s stderr=%s", stdout.String(), outcome.remainder)
+				}
+			case <-time.After(5 * time.Second):
+				t.Fatal("browser transaction prompt did not stop after signal")
+			}
+		})
+	}
+}
+
+func cliTransactionDigest(character string) string { return "sha256:" + strings.Repeat(character, 64) }
 
 func TestCLICreatesProjectAndDirectories(t *testing.T) {
 	example := filepath.Join(t.TempDir(), "guided")

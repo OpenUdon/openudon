@@ -6,10 +6,9 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/OpenUdon/browsertools/registrationauthor"
-	"github.com/OpenUdon/browsertools/registrationauthorsession"
 	"github.com/OpenUdon/openudon/internal/browsertransaction"
 	transactionengine "github.com/OpenUdon/openudon/internal/browsertransaction/engine"
+	"github.com/OpenUdon/openudon/internal/browsertransaction/presentation"
 )
 
 type BrowserTransactionSnapshot = transactionengine.Snapshot
@@ -17,34 +16,9 @@ type BrowserTransactionSnapshot = transactionengine.Snapshot
 // BrowserTransactionResource augments the exact engine snapshot only with
 // deterministic, value-free review disclosures. It does not change the
 // browser-profile transaction v1 wire nested inside the snapshot.
-type BrowserTransactionResource struct {
-	BrowserTransactionSnapshot
-	Review *BrowserTransactionReview `json:"review,omitempty"`
-}
-
-type BrowserTransactionReview struct {
-	Composition           string                                 `json:"composition"`
-	Origins               []string                               `json:"origins"`
-	ObservedAt            string                                 `json:"observed_at"`
-	ExpiresAt             string                                 `json:"expires_at"`
-	FreshnessCheck        string                                 `json:"freshness_check"`
-	CredentialBindings    []browsertransaction.CredentialBinding `json:"credential_bindings"`
-	Session               string                                 `json:"session,omitempty"`
-	RegistrationAuthoring *RegistrationAuthoringDisclosure       `json:"registration_authoring,omitempty"`
-}
-
-type RegistrationAuthoringDisclosure struct {
-	AccessibilityLabels       string   `json:"accessibility_labels"`
-	ObservationStatus         string   `json:"observation_status"`
-	NetworkMethods            []string `json:"network_methods"`
-	MutationRequestsAllowed   bool     `json:"mutation_requests_allowed"`
-	SubmitSupported           bool     `json:"submit_supported"`
-	AccountAttemptSupported   bool     `json:"account_attempt_supported"`
-	SessionEstablishment      bool     `json:"session_establishment_supported"`
-	RuntimeSupported          bool     `json:"runtime_supported"`
-	ApprovalSymbol            string   `json:"approval_symbol"`
-	ApprovalSymbolIsAuthority bool     `json:"approval_symbol_is_authority"`
-}
+type BrowserTransactionResource = presentation.Resource
+type BrowserTransactionReview = presentation.Review
+type RegistrationAuthoringDisclosure = presentation.RegistrationAuthoringDisclosure
 
 // BrowserTransactionEngine is the one shared lifecycle used by API and
 // terminal adapters. No browser or runtime operation is part of the contract.
@@ -238,28 +212,5 @@ func (s *Server) browserTransactionResourceLocked() *BrowserTransactionResource 
 }
 
 func browserTransactionResource(snapshot transactionengine.Snapshot) BrowserTransactionResource {
-	resource := BrowserTransactionResource{BrowserTransactionSnapshot: snapshot}
-	if snapshot.Transaction == nil {
-		return resource
-	}
-	transaction := snapshot.Transaction
-	review := &BrowserTransactionReview{
-		Composition: "BAP+BCP", Origins: append([]string(nil), transaction.Provenance.Origins...),
-		ObservedAt: transaction.Provenance.ObservedAt, ExpiresAt: transaction.Provenance.ExpiresAt,
-		FreshnessCheck:     "engine_rechecks_expires_at_before_review_and_prepare",
-		CredentialBindings: append(make([]browsertransaction.CredentialBinding, 0, len(transaction.CredentialBindings)), transaction.CredentialBindings...),
-		Session:            transaction.Session,
-	}
-	if transaction.Kind == browsertransaction.KindRegistration {
-		review.Composition = "BRP"
-		review.RegistrationAuthoring = &RegistrationAuthoringDisclosure{
-			AccessibilityLabels: registrationauthorsession.AccessibilityLabelDisclosure,
-			ObservationStatus:   "producer_accepted",
-			NetworkMethods:      []string{"GET", "HEAD"}, MutationRequestsAllowed: false,
-			SubmitSupported: false, AccountAttemptSupported: false, SessionEstablishment: false, RuntimeSupported: false,
-			ApprovalSymbol: registrationauthor.ApprovalSymbol, ApprovalSymbolIsAuthority: false,
-		}
-	}
-	resource.Review = review
-	return resource
+	return presentation.New(snapshot)
 }

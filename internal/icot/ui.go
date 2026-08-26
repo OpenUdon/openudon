@@ -13,6 +13,7 @@ import (
 	"syscall"
 	"time"
 
+	transactionengine "github.com/OpenUdon/openudon/internal/browsertransaction/engine"
 	"github.com/OpenUdon/openudon/internal/icot/elicitor"
 	"github.com/OpenUdon/openudon/internal/icot/engine"
 	uiserver "github.com/OpenUdon/openudon/internal/icot/ui"
@@ -43,8 +44,12 @@ func runUI(args []string, out, errOut io.Writer) int {
 	noOpen := fs.Bool("no-open", false, "Do not open the bootstrap URL in the platform browser")
 	privateRoot := fs.String("private-root", "", "absolute mode-0700 private root required only for upload or browser capture")
 	driverDir := fs.String("driver-dir", "", "optional installed Playwright-Go driver directory for browser capture")
+	browserTransactionPath := fs.String("browser-transaction", "", "public browser-profile transaction v1 JSON file")
+	packageScope := fs.String("package-scope", "", "portable package scope for browser-transaction preparation")
+	packageScratch := fs.String("package-scratch", "", "existing absolute restrictive-scratch parent for browser-transaction preparation")
+	packageStore := fs.String("package-store", "", "existing generation store for browser-transaction promotion")
 	fs.Usage = func() {
-		fmt.Fprintln(fs.Output(), "Usage: icot ui --example DIR [--from-example DIR | --answers FILE] [--api-source KIND:ID=PATH] [--openapi ID=PATH] [--browser-profile ID=PATH] [--browser-verification PATH] [--browser-registry LOCATION] [--source-root DIR] [--network never|ask|allow] [--port PORT] [--no-open]")
+		fmt.Fprintln(fs.Output(), "Usage: icot ui --example DIR [--from-example DIR | --answers FILE] [--api-source KIND:ID=PATH] [--openapi ID=PATH] [--browser-profile ID=PATH] [--browser-verification PATH] [--browser-registry LOCATION] [--source-root DIR] [--network never|ask|allow] [--browser-transaction FILE --package-scope PORTABLE --package-scratch DIR --package-store DIR] [--port PORT] [--no-open]")
 		fmt.Fprintln(fs.Output(), "\nServes one explicitly named workspace on 127.0.0.1 with a per-process capability token.")
 		fmt.Fprintln(fs.Output(), "The embedded shell supports acquisition, revision-protected authoring, reviewed package build, and handoff over experimental API v4.")
 		fmt.Fprintln(fs.Output(), "External changes to engine-owned files preserve cached inspection but require a process restart before mutation.")
@@ -72,6 +77,17 @@ func runUI(args []string, out, errOut io.Writer) int {
 	}
 	if *port < 0 || *port > 65535 {
 		fmt.Fprintln(errOut, "icot ui: --port must be between 0 and 65535")
+		return 2
+	}
+	transactionOptions := []string{strings.TrimSpace(*browserTransactionPath), strings.TrimSpace(*packageScope), strings.TrimSpace(*packageScratch), strings.TrimSpace(*packageStore)}
+	configuredTransactionOptions := 0
+	for _, value := range transactionOptions {
+		if value != "" {
+			configuredTransactionOptions++
+		}
+	}
+	if configuredTransactionOptions != 0 && configuredTransactionOptions != len(transactionOptions) {
+		fmt.Fprintln(errOut, "icot ui: --browser-transaction, --package-scope, --package-scratch, and --package-store must be supplied together")
 		return 2
 	}
 	localSources, err := parseLocalSourceFlags(apiSourceFlags, openAPIFlags)
@@ -105,9 +121,26 @@ func runUI(args []string, out, errOut io.Writer) int {
 
 	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer cancel()
+	var browserTransactions uiserver.BrowserTransactionEngine
+	if configuredTransactionOptions != 0 {
+		transactionEngine, _, err := openBrowserTransaction(ctx, transactionOptions[0], browserTransactionPackageOptions{
+			exampleDir: exampleDir, scope: transactionOptions[1], scratchParent: transactionOptions[2], storeDir: transactionOptions[3],
+		})
+		if err != nil {
+			_, code, operation, _, ok := transactionengine.ErrorDetails(err)
+			if ok {
+				fmt.Fprintf(errOut, "icot ui: browser transaction initialization failed: %s/%s\n", operation, code)
+			} else {
+				fmt.Fprintln(errOut, "icot ui: browser transaction initialization failed")
+			}
+			return 1
+		}
+		browserTransactions = transactionEngine
+	}
 	if err := runUIServer(ctx, uiserver.RunConfig{
 		EngineConfig: engineConfig, Port: *port, NoOpen: *noOpen, Out: out, ErrOut: errOut,
-		PrepareCapture: prepareUICaptureStage,
+		PrepareCapture:      prepareUICaptureStage,
+		BrowserTransactions: browserTransactions,
 	}); err != nil {
 		fmt.Fprintln(errOut, "icot ui:", err)
 		return 1

@@ -34,6 +34,9 @@ func Main(args []string, in io.Reader, out, errOut io.Writer) int {
 	if len(args) > 0 && args[0] == "browser-authoring" {
 		return runBrowserAuthoring(args[1:], out, errOut)
 	}
+	if len(args) > 0 && args[0] == "browser-transaction" {
+		return runBrowserTransaction(args[1:], in, out, errOut)
+	}
 	if len(args) > 0 && args[0] == "lint" {
 		return runLint(args[1:], out, errOut)
 	}
@@ -119,6 +122,7 @@ func runAuthor(args []string, in io.Reader, out, errOut io.Writer) int {
 		fmt.Fprintf(fs.Output(), "  icot ui --example examples/<name>       Serve the primary loopback authoring shell and experimental API v4.\n")
 		fmt.Fprintf(fs.Output(), "  icot browser-author live ...             Run disclosure-gated authenticated Chromium authoring.\n")
 		fmt.Fprintf(fs.Output(), "  icot browser-authoring plan ...          Emit a non-executing Browsertools authoring handoff.\n")
+		fmt.Fprintf(fs.Output(), "  icot browser-transaction ...             Review, prepare, promote, or recover a value-free transaction.\n")
 		fmt.Fprintf(fs.Output(), "\nSee docs/icot.md, docs/icot-session-schema.md, and docs/icot-transcript.md for file formats.\n")
 		fmt.Fprintf(fs.Output(), "Next step: openudon build --example examples/<name>\n\n")
 		fs.PrintDefaults()
