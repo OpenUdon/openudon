@@ -186,6 +186,22 @@ profile's ordered submit and human-checkpoint descriptions remain inert source
 material. A separate step-scoped authoring confirmation is required and does
 not claim that submission or account creation occurred.
 
+## Private registration attestation
+
+Non-dry registration additionally requires one
+`openudon.browser-registration-attestation.v1` JSON artifact. Its path must be
+absolute, canonical, outside the OpenUdon repository, and name an owner-readable
+owner-only regular file without symlinks. The artifact is consumed locally and
+is never copied into the package, executor stage, run evidence, or argv.
+
+The closed artifact binds the exact handoff package and canonical BRP digests,
+lowered operation, selected flow, zero prior attempts, dedicated-test posture,
+reviewed cleanup disposition, symbolic reviewer, and a whole-second UTC expiry
+no more than 24 hours away. Unknown fields—including account, credential, and
+verification values—are rejected. This attestation is distinct from both the
+ordinary package approval and the submit approval requested immediately before
+the registration runtime's sole submit.
+
 On ordinary authoring approval, OpenUdon revalidates both in-memory inputs and
 atomically proposes the canonical profile, its adjacent `*.review.json`
 Browsertools bundle, and `.icot/browser-registration.json`. The latter binds
