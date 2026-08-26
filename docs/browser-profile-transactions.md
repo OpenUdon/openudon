@@ -41,8 +41,8 @@ Their `.test` origins and repeated digests are illustrative only.
 
 Cross-package qualification produces one canonical
 `openudon.browser-transaction-qualification.v1` JSON report plus an exact
-SHA-256 sidecar. The report binds the local unpublished OpenUdon commit, the
-published Browsertools and UWS module revisions, fixed BAP+BCP/BRP lifecycle
+SHA-256 sidecar. The report binds the exact OpenUdon commit and its publication
+classification, the published Browsertools and UWS module revisions, fixed BAP+BCP/BRP lifecycle
 digests and gate outcomes, sandbox use, loopback-only access, and zero-POST
 registration authoring. Its closed schema has no path, free-form diagnostic,
 subprocess-output, page/request-content, account, credential, cookie, storage,
@@ -60,8 +60,9 @@ concurrency, frontend-conflict, and sensitive-artifact matrix. It then runs
 one real Browsertools BAP+BCP transaction through package promotion and
 Udon/Browserdriver replay, followed by one real no-submit BRP transaction.
 Only embedded loopback fixtures are reachable. Browsertools and UWS must match
-their published compatibility locks; OpenUdon must be clean, locally committed,
-ahead of `origin/main`, and unpublished.
+their published compatibility locks. OpenUdon must be clean on `main`; its
+exact commit must either match the independently resolved `origin/main` or be
+a locally committed descendant, and the report records which state applies.
 
 Verify a retained report independently with:
 

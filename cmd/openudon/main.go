@@ -151,7 +151,7 @@ func runBrowserTransactionEvalCommand(args []string) {
 	fs.Usage = func() {
 		fmt.Fprintf(fs.Output(), "Usage: openudon browser-transaction-eval --out REPORT [repository flags]\n")
 		fmt.Fprintf(fs.Output(), "       openudon browser-transaction-eval --verify REPORT\n\n")
-		fmt.Fprintf(fs.Output(), "Runs or verifies the canonical, value-free cross-package browser transaction qualification report. Run mode requires clean exact repositories, independently resolves published Browsertools and UWS revisions read-only, and launches sandboxed Chromium only against embedded loopback fixtures. The report contains only closed gate outcomes, exact public/local commit classifications, lifecycle digests, and loopback/sandbox posture; it cannot carry paths, subprocess output, browser content, account identifiers, or credential values.\n\n")
+		fmt.Fprintf(fs.Output(), "Runs or verifies the canonical, value-free cross-package browser transaction qualification report. Run mode requires clean exact repositories, independently resolves the OpenUdon origin and published Browsertools and UWS revisions read-only, and launches sandboxed Chromium only against embedded loopback fixtures. The report contains only closed gate outcomes, exact commit publication classifications, lifecycle digests, and loopback/sandbox posture; it cannot carry paths, subprocess output, browser content, account identifiers, or credential values.\n\n")
 		fs.PrintDefaults()
 	}
 	if err := fs.Parse(args); err != nil {

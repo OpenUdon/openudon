@@ -53,7 +53,7 @@ func TestReportRejectsContractDriftFailureAndDependencyMismatch(t *testing.T) {
 		{name: "false pass code", mutate: func(report *Report) { report.Results[0].FailureCode = "contract_invalid" }},
 		{name: "summary", mutate: func(report *Report) { report.Summary.Passed-- }},
 		{name: "browsertools revision", mutate: func(report *Report) { report.Repositories[1].Commit = strings.Repeat("a", 40) }},
-		{name: "openudon published", mutate: func(report *Report) { report.Repositories[0].Published = true }},
+		{name: "openudon module version", mutate: func(report *Report) { report.Repositories[0].ModuleVersion = "v1.0.0" }},
 		{name: "artifact order", mutate: func(report *Report) {
 			report.Artifacts[0], report.Artifacts[1] = report.Artifacts[1], report.Artifacts[0]
 		}},
@@ -78,6 +78,18 @@ func TestReportRejectsContractDriftFailureAndDependencyMismatch(t *testing.T) {
 	failed.Status = StatusFail
 	if err := Validate(failed); err != nil {
 		t.Fatalf("typed failure rejected: %v", err)
+	}
+}
+
+func TestReportAcceptsOpenUdonPublicationTransition(t *testing.T) {
+	report := testReport(t)
+	report.Repositories[0].Published = false
+	if err := Validate(report); err != nil {
+		t.Fatalf("local unpublished OpenUdon classification rejected: %v", err)
+	}
+	report.Repositories[0].Published = true
+	if err := Validate(report); err != nil {
+		t.Fatalf("published OpenUdon classification rejected: %v", err)
 	}
 }
 
@@ -147,7 +159,7 @@ func testReport(t *testing.T) *Report {
 		locked[component.Name] = component
 	}
 	repositories := []RepositoryRevision{
-		{Name: "openudon", Commit: strings.Repeat("1", 40)},
+		{Name: "openudon", Commit: strings.Repeat("1", 40), Published: true},
 		{Name: "browsertools", Commit: locked["browsertools"].Commit, ModuleVersion: locked["browsertools"].Version, Published: true},
 		{Name: "uws", Commit: locked["uws"].Commit, ModuleVersion: locked["uws"].Version, Published: true},
 	}

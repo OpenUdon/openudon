@@ -247,10 +247,10 @@ func qualificationRepositories(ctx context.Context, roots qualificationRepoRoots
 			remote, remoteErr := qualificationCommandOutput(ctx, time.Minute, item.root, []string{"git", "ls-remote", "--exit-code", "origin", "refs/heads/main"})
 			_, ancestryErr := qualificationCommandOutput(ctx, time.Minute, item.root, []string{"git", "merge-base", "--is-ancestor", originMain, commit})
 			if branchErr != nil || branch != "main" || originErr != nil || !evidencefile.ValidGitObject(originMain) ||
-				remoteErr != nil || remote != originMain+"\trefs/heads/main" || ancestryErr != nil || originMain == commit {
-				return nil, errors.New("OpenUdon qualification revision must remain local and unpublished")
+				remoteErr != nil || remote != originMain+"\trefs/heads/main" || ancestryErr != nil {
+				return nil, errors.New("OpenUdon qualification revision must be published main or local main descended from the independently resolved origin")
 			}
-			repositories = append(repositories, RepositoryRevision{Name: item.name, Commit: commit})
+			repositories = append(repositories, RepositoryRevision{Name: item.name, Commit: commit, Published: commit == originMain})
 			continue
 		}
 		component := locked[item.name]

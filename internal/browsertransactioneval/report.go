@@ -306,8 +306,8 @@ func validateRepositories(repositories []RepositoryRevision) error {
 			return errors.New("browser transaction qualification repository identity is invalid")
 		}
 		if repository.Name == "openudon" {
-			if repository.Published || repository.ModuleVersion != "" {
-				return errors.New("browser transaction qualification must classify OpenUdon as local and unpublished")
+			if repository.ModuleVersion != "" {
+				return errors.New("browser transaction qualification OpenUdon identity must not claim a module version")
 			}
 			continue
 		}
