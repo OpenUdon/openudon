@@ -104,7 +104,7 @@ func TestCLIHelpIncludesReleaseAndLocalSmokeCommands(t *testing.T) {
 	text := string(output)
 	for _, expected := range []string{
 		"browser-integration-eval run or verify provider-free cross-repo browser evidence",
-		"browser-transaction-eval verify value-free cross-package transaction qualification evidence",
+		"browser-transaction-eval run or verify value-free cross-package transaction qualification evidence",
 		"release-evidence run local udon smoke",
 		"release-notes draft local release evidence notes",
 		"local-udon-smoke build sibling udon",
@@ -115,7 +115,7 @@ func TestCLIHelpIncludesReleaseAndLocalSmokeCommands(t *testing.T) {
 	}
 }
 
-func TestCLIBrowserTransactionEvalHelpAndClosedVerifyMode(t *testing.T) {
+func TestCLIBrowserTransactionEvalHelpAndClosedModes(t *testing.T) {
 	cmd := helperCommand("browser-transaction-eval", "--help")
 	output, err := cmd.CombinedOutput()
 	if err != nil {
@@ -123,15 +123,22 @@ func TestCLIBrowserTransactionEvalHelpAndClosedVerifyMode(t *testing.T) {
 	}
 	text := string(output)
 	for _, expected := range []string{
-		"Usage: openudon browser-transaction-eval --verify REPORT",
+		"Usage: openudon browser-transaction-eval --out REPORT [repository flags]",
+		"openudon browser-transaction-eval --verify REPORT",
 		"canonical, value-free cross-package browser transaction qualification report",
+		"sandboxed Chromium only against embedded loopback fixtures",
 		"cannot carry paths, subprocess output, browser content, account identifiers, or credential values",
 	} {
 		if !strings.Contains(text, expected) {
 			t.Fatalf("browser-transaction-eval help missing %q:\n%s", expected, text)
 		}
 	}
-	for _, args := range [][]string{{"browser-transaction-eval"}, {"browser-transaction-eval", "--verify", "missing.json", "extra"}} {
+	for _, args := range [][]string{
+		{"browser-transaction-eval"},
+		{"browser-transaction-eval", "--verify", "missing.json", "extra"},
+		{"browser-transaction-eval", "--verify", "missing.json", "--out", "report.json"},
+		{"browser-transaction-eval", "--verify", "missing.json", "--repo-root", "."},
+	} {
 		cmd := helperCommand(args...)
 		output, err := cmd.CombinedOutput()
 		if err == nil || !strings.Contains(string(output), "browser-transaction-eval:") {

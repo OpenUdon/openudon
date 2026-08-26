@@ -48,16 +48,42 @@ registration authoring. Its closed schema has no path, free-form diagnostic,
 subprocess-output, page/request-content, account, credential, cookie, storage,
 or session-material field.
 
+Run the complete qualification from a clean OpenUdon checkout with the exact
+locked sibling repositories:
+
+```bash
+xvfb-run -a make browser-transaction-qualification
+```
+
+The target first runs the adversarial contract, lifecycle, rollback,
+concurrency, frontend-conflict, and sensitive-artifact matrix. It then runs
+one real Browsertools BAP+BCP transaction through package promotion and
+Udon/Browserdriver replay, followed by one real no-submit BRP transaction.
+Only embedded loopback fixtures are reachable. Browsertools and UWS must match
+their published compatibility locks; OpenUdon must be clean, locally committed,
+ahead of `origin/main`, and unpublished.
+
 Verify a retained report independently with:
 
 ```bash
-openudon browser-transaction-eval --verify eval/runs/browser-transaction-local/report.json
+openudon browser-transaction-eval --verify eval/runs/browser-transaction-qualification-local/report.json
 ```
 
 Verification rejects missing or extra fields, duplicate names, noncanonical
 JSON, unsupported failure codes, dependency-lock drift, digest tampering,
 symlinks, and oversized input. A passing report does not grant runtime or
 target authority.
+
+`xvfb-run` supplies a display on headless Linux; it does not disable or supply
+the Chromium sandbox. Chromium must be able to use the host's unprivileged
+user-namespace sandbox. On a host where policy disables that mechanism, an
+administrator may install Chromium's setuid helper and export its absolute
+path as `CHROME_DEVEL_SANDBOX`. Browsertools accepts the helper only when it is
+a root-owned, single-link, mode-`4755` regular file on a setuid filesystem,
+its resolved path is unchanged, and every ancestor is root-owned and not
+writable except for a root-owned sticky directory. Browsertools never passes a
+sandbox-disable flag. A qualification error naming the sandbox prerequisite is
+distinct from a scenario-level `authoring_failed` result.
 
 ## Immutable identity and provenance
 

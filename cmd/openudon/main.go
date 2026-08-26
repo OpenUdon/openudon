@@ -46,7 +46,7 @@ func main() {
 		fmt.Fprintf(flag.CommandLine.Output(), "  build     regenerate workflow/UWS from an existing intent.hcl\n")
 		fmt.Fprintf(flag.CommandLine.Output(), "  browser-integration-eval run or verify provider-free cross-repo browser evidence\n")
 		fmt.Fprintf(flag.CommandLine.Output(), "  browser-scenario-eval run or verify deterministic loopback/journey/public browser scenarios\n")
-		fmt.Fprintf(flag.CommandLine.Output(), "  browser-transaction-eval verify value-free cross-package transaction qualification evidence\n")
+		fmt.Fprintf(flag.CommandLine.Output(), "  browser-transaction-eval run or verify value-free cross-package transaction qualification evidence\n")
 		fmt.Fprintf(flag.CommandLine.Output(), "  catalog   inspect first-class provider catalog metadata\n")
 		fmt.Fprintf(flag.CommandLine.Output(), "  check-apitools-boundary verify OpenUdon repository boundaries\n")
 		fmt.Fprintf(flag.CommandLine.Output(), "  check-doc-memory verify local memory-bank and evolution harness files\n")
@@ -141,26 +141,58 @@ func main() {
 
 func runBrowserTransactionEvalCommand(args []string) {
 	fs := flag.NewFlagSet("browser-transaction-eval", flag.ExitOnError)
+	repoRoot := fs.String("repo-root", ".", "OpenUdon repository")
+	browsertoolsRepo := fs.String("browsertools-repo", "", "Browsertools repository (default: sibling of --repo-root)")
+	uwsRepo := fs.String("uws-repo", "", "UWS repository (default: sibling of --repo-root)")
+	udonRepo := fs.String("udon-repo", "", "Udon repository (default: sibling of --repo-root)")
+	browserdriverRepo := fs.String("browserdriver-repo", "", "Browserdriver repository (default: sibling of --repo-root)")
+	out := fs.String("out", "", "Run the local qualification and write its value-free report")
 	verify := fs.String("verify", "", "Verify one canonical qualification report and SHA-256 sidecar")
 	fs.Usage = func() {
-		fmt.Fprintf(fs.Output(), "Usage: openudon browser-transaction-eval --verify REPORT\n\n")
-		fmt.Fprintf(fs.Output(), "Verifies the canonical, value-free cross-package browser transaction qualification report. The report contains only closed gate outcomes, exact public/local commit classifications, lifecycle digests, and loopback/sandbox posture; it cannot carry paths, subprocess output, browser content, account identifiers, or credential values.\n\n")
+		fmt.Fprintf(fs.Output(), "Usage: openudon browser-transaction-eval --out REPORT [repository flags]\n")
+		fmt.Fprintf(fs.Output(), "       openudon browser-transaction-eval --verify REPORT\n\n")
+		fmt.Fprintf(fs.Output(), "Runs or verifies the canonical, value-free cross-package browser transaction qualification report. Run mode requires clean exact repositories, independently resolves published Browsertools and UWS revisions read-only, and launches sandboxed Chromium only against embedded loopback fixtures. The report contains only closed gate outcomes, exact public/local commit classifications, lifecycle digests, and loopback/sandbox posture; it cannot carry paths, subprocess output, browser content, account identifiers, or credential values.\n\n")
 		fs.PrintDefaults()
 	}
 	if err := fs.Parse(args); err != nil {
 		os.Exit(2)
 	}
-	if fs.NArg() != 0 || strings.TrimSpace(*verify) == "" {
-		fmt.Fprintln(os.Stderr, "browser-transaction-eval: --verify is required")
+	if fs.NArg() != 0 || (strings.TrimSpace(*out) == "") == (strings.TrimSpace(*verify) == "") {
+		fmt.Fprintln(os.Stderr, "browser-transaction-eval: exactly one of --out or --verify is required")
 		fs.Usage()
 		os.Exit(2)
 	}
-	report, err := browsertransactioneval.VerifyFile(*verify, true)
+	if strings.TrimSpace(*verify) != "" {
+		invalid := ""
+		fs.Visit(func(value *flag.Flag) {
+			if value.Name != "verify" && invalid == "" {
+				invalid = value.Name
+			}
+		})
+		if invalid != "" {
+			fmt.Fprintf(os.Stderr, "browser-transaction-eval: --verify cannot be combined with --%s\n", invalid)
+			os.Exit(2)
+		}
+		report, err := browsertransactioneval.VerifyFile(*verify, true)
+		if err != nil {
+			fmt.Fprintln(os.Stderr, "openudon browser-transaction-eval verify: fail -", err)
+			os.Exit(1)
+		}
+		fmt.Printf("openudon browser-transaction-eval verify: %s (%d passed, %d failed)\n", report.Status, report.Summary.Passed, report.Summary.Failed)
+		return
+	}
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer stop()
+	report, err := browsertransactioneval.RunQualification(ctx, browsertransactioneval.QualificationOptions{
+		RepoRoot: *repoRoot, BrowsertoolsRepo: *browsertoolsRepo, UWSRepo: *uwsRepo,
+		UdonRepo: *udonRepo, BrowserdriverRepo: *browserdriverRepo, OutPath: *out,
+	})
 	if err != nil {
-		fmt.Fprintln(os.Stderr, "openudon browser-transaction-eval verify: fail -", err)
+		fmt.Fprintln(os.Stderr, "openudon browser-transaction-eval: fail -", err)
 		os.Exit(1)
 	}
-	fmt.Printf("openudon browser-transaction-eval verify: %s (%d passed, %d failed)\n", report.Status, report.Summary.Passed, report.Summary.Failed)
+	fmt.Printf("openudon browser-transaction-eval: %s (%d passed, %d failed)\n", report.Status, report.Summary.Passed, report.Summary.Failed)
+	fmt.Printf("  report: %s\n", *out)
 }
 
 func runBrowserScenarioEvalCommand(args []string) {

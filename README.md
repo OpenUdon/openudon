@@ -568,6 +568,7 @@ Use release gates only for candidate release evidence:
 ```bash
 make eval-seed-build
 make release-saas-check
+make browser-transaction-qualification
 make release-evidence
 make release-eval
 ```
@@ -609,6 +610,14 @@ Linux). `make browser-scenario-journey` runs the required eight-case headless
 local read/write matrix through guided authoring, UWS 1.8, Udon v3, and
 Browserdriver v3. `make browser-scenario-public` is an explicit-network,
 informational four-site canary; it is never part of default tests.
+
+`xvfb-run -a make browser-transaction-qualification` runs the complete
+cross-package BAP+BCP and zero-submit BRP release qualification against only
+embedded loopback fixtures, after its adversarial matrix, and writes a
+canonical value-free report under ignored `eval/runs/`. It requires clean
+exact sibling revisions and sandboxed Chromium. Xvfb supplies only the display;
+see [Browser-Profile Authoring Transactions](docs/browser-profile-transactions.md#qualification-evidence)
+for the host sandbox prerequisite and independent report verification.
 
 ## Readiness
 

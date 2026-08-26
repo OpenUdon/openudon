@@ -1,0 +1,134 @@
+package browsertransactioneval
+
+import (
+	"crypto/sha256"
+	"encoding/hex"
+	"os"
+	"path/filepath"
+	"strings"
+	"testing"
+	"time"
+
+	"github.com/OpenUdon/openudon/internal/browserscenario"
+)
+
+func TestBuildQualificationReportMapsValidatedClosedEvidence(t *testing.T) {
+	bapBCP := testBAPBCPQualificationEvidence()
+	brp := testBRPQualificationEvidence()
+	report, err := BuildQualificationReport(
+		time.Date(2026, 8, 26, 1, 2, 3, 0, time.UTC),
+		testReport(t).Repositories,
+		bapBCP,
+		brp,
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := Validate(report); err != nil {
+		t.Fatal(err)
+	}
+	if report.Status != StatusPass || report.Summary != (Summary{Total: 18, Passed: 18}) {
+		t.Fatalf("qualification summary = %#v, status = %q", report.Summary, report.Status)
+	}
+	if len(report.Artifacts) != 18 || report.Results[7].ID != GateBRPNetwork || report.Results[7].EvidenceCount != brp.Requests {
+		t.Fatalf("qualification evidence mapping is invalid: %#v", report)
+	}
+	if !report.Posture.SandboxRequired || !report.Posture.SandboxEnabled || !report.Posture.LoopbackOnly ||
+		report.Posture.PublicTargetsContacted || report.Posture.RegistrationAuthoringPostRequests != 0 ||
+		report.Posture.AccountCreated || report.Posture.ExecutorInvokedForRegistration ||
+		report.Posture.ContainsPrivateMaterial || !report.Posture.ValueFree {
+		t.Fatalf("qualification posture = %#v", report.Posture)
+	}
+}
+
+func TestBuildQualificationReportRejectsInvalidProducerEvidence(t *testing.T) {
+	bapBCP := testBAPBCPQualificationEvidence()
+	brp := testBRPQualificationEvidence()
+	bapBCP.TransactionSHA256 = bapBCP.ProducerResultSHA256
+	if _, err := BuildQualificationReport(time.Now(), testReport(t).Repositories, bapBCP, brp); err == nil ||
+		!strings.Contains(err.Error(), "authenticated qualification evidence is invalid") {
+		t.Fatalf("invalid BAP+BCP evidence error = %v", err)
+	}
+
+	bapBCP = testBAPBCPQualificationEvidence()
+	brp.MutationRequests = 1
+	if _, err := BuildQualificationReport(time.Now(), testReport(t).Repositories, bapBCP, brp); err == nil ||
+		!strings.Contains(err.Error(), "registration qualification evidence is invalid") {
+		t.Fatalf("invalid BRP evidence error = %v", err)
+	}
+}
+
+func TestBoundedQualificationWriterCapsRetainedOutput(t *testing.T) {
+	writer := &boundedQualificationWriter{remaining: 3}
+	if count, err := writer.Write([]byte("private-output")); err != nil || count != len("private-output") {
+		t.Fatalf("Write = %d, %v", count, err)
+	}
+	if !writer.exceeded || writer.remaining != 0 || writer.buffer.String() != "pri" {
+		t.Fatalf("bounded writer = %#v", writer)
+	}
+	if count, err := writer.Write([]byte("more")); err != nil || count != 4 || writer.buffer.String() != "pri" {
+		t.Fatalf("second Write = %d, %v, %q", count, err, writer.buffer.String())
+	}
+}
+
+func TestEqualRepositoryRevisionsRequiresExactOrderAndIdentity(t *testing.T) {
+	repositories := testReport(t).Repositories
+	copy := append([]RepositoryRevision(nil), repositories...)
+	if !equalRepositoryRevisions(repositories, copy) {
+		t.Fatal("equal repository revisions were rejected")
+	}
+	copy[1].Published = false
+	if equalRepositoryRevisions(repositories, copy) {
+		t.Fatal("changed repository identity was accepted")
+	}
+	if equalRepositoryRevisions(repositories, repositories[:2]) {
+		t.Fatal("truncated repository identity was accepted")
+	}
+}
+
+func TestQualificationRootsResolveDefaultsBesideExplicitOpenUdonRoot(t *testing.T) {
+	parent := t.TempDir()
+	root := filepath.Join(parent, "openudon")
+	for _, name := range []string{"openudon", "browsertools", "uws", "udon", "browserdriver"} {
+		if err := os.Mkdir(filepath.Join(parent, name), 0o700); err != nil {
+			t.Fatal(err)
+		}
+	}
+	roots, err := qualificationRoots(QualificationOptions{RepoRoot: root})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if roots.openudon != root || roots.browsertools != filepath.Join(parent, "browsertools") ||
+		roots.uws != filepath.Join(parent, "uws") || roots.udon != filepath.Join(parent, "udon") ||
+		roots.browserdriver != filepath.Join(parent, "browserdriver") {
+		t.Fatalf("qualification roots = %#v", roots)
+	}
+}
+
+func testBAPBCPQualificationEvidence() browserscenario.BAPBCPQualificationEvidence {
+	values := testQualificationDigests("bap-bcp")
+	return browserscenario.BAPBCPQualificationEvidence{
+		ProducerResultSHA256: values[0], TransactionSHA256: values[1], PreparationSHA256: values[2],
+		QualificationSHA256: values[3], GenerationSHA256: values[4], SelectionSHA256: values[5],
+		PackageSHA256: values[6], HandoffSHA256: values[7], WorkflowSHA256: values[8], EvidenceCount: 9,
+	}
+}
+
+func testBRPQualificationEvidence() browserscenario.BRPQualificationEvidence {
+	values := testQualificationDigests("brp")
+	return browserscenario.BRPQualificationEvidence{
+		ProducerResultSHA256: values[0], TransactionSHA256: values[1], PreparationSHA256: values[2],
+		QualificationSHA256: values[3], GenerationSHA256: values[4], SelectionSHA256: values[5],
+		PackageSHA256: values[6], HandoffSHA256: values[7], WorkflowSHA256: values[8], EvidenceCount: 9,
+		Methods: []string{"GET", "HEAD"}, Requests: 2, GETRequests: 1, HEADRequests: 1,
+	}
+}
+
+func testQualificationDigests(prefix string) []string {
+	values := make([]string, 9)
+	for index := range values {
+		sum := sha256.Sum256([]byte(prefix + string(rune(index))))
+		values[index] = "sha256:" + hex.EncodeToString(sum[:])
+	}
+	return values
+}
