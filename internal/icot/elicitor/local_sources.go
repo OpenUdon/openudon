@@ -323,6 +323,20 @@ func syncSelectedSourcePlans(session Session, available []SourceMaterialization,
 
 func syncSelectedSourcePlansWithBrowser(session Session, available []SourceMaterialization, explicit []apitools.LocalSource, browserExplicit []BrowserSourceInput) []SourceMaterialization {
 	selected := mergeSelectedSourcePlansWithBrowser(session, available, explicit, browserExplicit)
+	selectedVirtualTargets := map[string]bool{}
+	for _, plan := range selected {
+		if strings.HasPrefix(plan.SourcePath, virtualBrowserPrefix) {
+			selectedVirtualTargets[filepath.ToSlash(plan.TargetPath)] = true
+		}
+	}
+	for _, plan := range available {
+		if selectedVirtualTargets[filepath.ToSlash(plan.TargetPath)] && strings.HasPrefix(plan.SourcePath, virtualBrowserPrefix) {
+			// Exact virtual freshness is validated before synchronization. Add the
+			// rediscovered plan so normalization reattaches its unpersisted bytes
+			// even before an intent step references the selected source.
+			selected = append(selected, plan)
+		}
+	}
 	refs := map[string]bool{}
 	if ref := filepath.ToSlash(strings.TrimSpace(firstNonEmpty(session.Intent.Source, session.Intent.OpenAPI))); ref != "" {
 		refs[ref] = true

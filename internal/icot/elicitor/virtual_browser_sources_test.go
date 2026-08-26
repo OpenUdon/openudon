@@ -429,6 +429,72 @@ func TestRequireFreshVirtualBrowserSourcesRejectsReplacement(t *testing.T) {
 	}
 }
 
+func TestVirtualSourceSelectionInvalidatesOnlyChangedSourceApprovals(t *testing.T) {
+	registrationInput := virtualRegistrationInput(t, "new-account")
+	registrationInput.Transaction.State = browsertransaction.StateReviewed
+	registrationDiscovery, err := DiscoverVirtualBrowserSources([]VirtualBrowserTransactionInput{registrationInput}, virtualBrowserTime)
+	if err != nil {
+		t.Fatal(err)
+	}
+	registration, err := SelectVirtualBrowserSources(Session{}, registrationDiscovery, []string{"new-account/registration"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	registration.Intent.Steps = []*rollout.Step{{Name: "register", Type: "browser_registration", Source: registrationDiscovery.Plans[0].TargetPath, RegistrationApproval: "register"}}
+	exact, err := SelectVirtualBrowserSources(registration, registrationDiscovery, []string{"new-account/registration"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if exact.Intent.Steps[0].RegistrationApproval != "register" {
+		t.Fatal("exact registration source resume invalidated its approval")
+	}
+	removed, err := SelectVirtualBrowserSources(exact, registrationDiscovery, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if removed.Intent.Steps[0].RegistrationApproval != "" {
+		t.Fatal("removed registration source retained its approval")
+	}
+
+	authDiscovery, err := DiscoverVirtualBrowserSources([]VirtualBrowserTransactionInput{virtualAuthenticationCapabilityInput(t, "account")}, virtualBrowserTime)
+	if err != nil {
+		t.Fatal(err)
+	}
+	auth, err := SelectVirtualBrowserSources(Session{}, authDiscovery, []string{"account/capability"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	var authPath, capabilityPath string
+	for _, plan := range auth.SourcePlan {
+		switch plan.Kind {
+		case browserAuthenticationSourceFamily:
+			authPath = plan.TargetPath
+		case browserSourceFamily:
+			capabilityPath = plan.TargetPath
+		}
+	}
+	auth.Intent.Steps = []*rollout.Step{
+		{Name: "sign_in", Type: "browser_authentication", Source: authPath},
+		{Name: "read_account", Type: "browser", Source: capabilityPath},
+	}
+	auth.BrowserAuthenticationApprovals = []string{"sign_in"}
+	auth.BrowserApprovals = []string{"read_account"}
+	auth, err = SelectVirtualBrowserSources(auth, authDiscovery, []string{"account/capability"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Join(auth.BrowserAuthenticationApprovals, ",") != "sign_in" || strings.Join(auth.BrowserApprovals, ",") != "read_account" {
+		t.Fatalf("exact authentication/capability resume invalidated approvals: auth=%v browser=%v", auth.BrowserAuthenticationApprovals, auth.BrowserApprovals)
+	}
+	auth, err = SelectVirtualBrowserSources(auth, authDiscovery, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(auth.BrowserAuthenticationApprovals) != 0 || len(auth.BrowserApprovals) != 0 {
+		t.Fatalf("removed authentication/capability source retained approvals: auth=%v browser=%v", auth.BrowserAuthenticationApprovals, auth.BrowserApprovals)
+	}
+}
+
 func virtualAuthenticationCapabilityInput(t *testing.T, id string) VirtualBrowserTransactionInput {
 	t.Helper()
 	authentication, err := authprofile.Parse(browserAuthenticationFixture())

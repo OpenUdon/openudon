@@ -135,7 +135,13 @@ Browsertools bundle, and `.icot/browser-registration.json`. The latter binds
 the exact source/review digests, flow, bindings, approval, timeout, and fixed
 failure policy consumed by package quality and trusted dry-run. Resumable
 drafts retain only those value-free identities; after restart the exact private
-candidate must be rediscovered before its bytes can be materialized.
+candidate must be rediscovered before its bytes can be materialized. Exact
+rediscovery rehydrates both byte bodies only in memory. Missing, stale, or
+identity-changed candidates block resume; deselection or replacement clears
+the affected registration, authentication, and mutating-operation authoring
+approvals so the repaired proposal must be reviewed again. Cancellation and
+partial private results produce no candidate, and workspace drift still blocks
+the ordinary atomic write boundary.
 
 Origins are sorted, unique serialized origins: HTTPS, or HTTP only for
 `localhost` and canonical loopback IPs. They have no user information, path,

@@ -176,6 +176,41 @@ printf '%s\n' '{"protocol":"browsertools.registration-author-session.v1","type":
 	}
 }
 
+func TestExternalRegistrationCancellationCannotAdoptCandidate(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("test worker uses a POSIX script")
+	}
+	root := registrationControllerRoot(t)
+	worker := writeRegistrationWorker(t, `#!/bin/sh
+printf '%s\n' '{"protocol":"browsertools.registration-author-session.v1","type":"hello","capabilities":["get_head_only","no_submit","reduced_observation","registration_review"]}'
+IFS= read -r start
+while :; do sleep 1; done
+`)
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	session, err := StartExternalRegistration(ctx, registrationControllerConfig(root), worker)
+	if err != nil {
+		t.Fatal(err)
+	}
+	wantEvent(t, session, "ready")
+	session.Cancel()
+	wantEvent(t, session, "canceled")
+	for event := range session.Events() {
+		if event.Candidate != nil {
+			t.Fatalf("canceled registration produced a candidate: %#v", event)
+		}
+	}
+	entries, err := os.ReadDir(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, entry := range entries {
+		if strings.HasPrefix(entry.Name(), "registration-authoring-") {
+			t.Fatalf("canceled registration retained a result: %s", entry.Name())
+		}
+	}
+}
+
 func TestRegistrationControllerRequiresExactHumanReview(t *testing.T) {
 	bounds := expectedRegistrationBounds(nil)
 	state := registrationRunState{

@@ -1,6 +1,7 @@
 package engine
 
 import (
+	"bytes"
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
@@ -15,6 +16,7 @@ import (
 	"github.com/OpenUdon/browsertools/registrationreview"
 	"github.com/OpenUdon/openudon/internal/browsertransaction"
 	"github.com/OpenUdon/openudon/internal/icot/elicitor"
+	rollout "github.com/OpenUdon/openudon/internal/workflowintent"
 )
 
 var engineVirtualTime = time.Date(2026, 8, 25, 12, 0, 0, 0, time.UTC)
@@ -90,6 +92,55 @@ func TestEngineVirtualBrowserReplacementRevalidatesSelectedIdentity(t *testing.T
 	}
 	if _, err := eng.ReplaceVirtualBrowserSources(context.Background(), 1, []elicitor.VirtualBrowserTransactionInput{input}); err == nil {
 		t.Fatal("stale replacement generation was accepted")
+	}
+}
+
+func TestEngineVirtualBrowserResumeRequiresExactCandidate(t *testing.T) {
+	example := filepath.Join(t.TempDir(), "resume-registration")
+	input := engineVirtualRegistrationInput(t, "signup")
+	seed := elicitor.Session{
+		Boundary: elicitor.WorkflowBoundary{Outcome: "prepare one reviewed registration"},
+		Intent: rollout.Intent{Workflow: &rollout.WorkflowMeta{
+			Name: "reviewed_registration", Description: "Prepare one reviewed registration.",
+		}},
+	}
+	eng, opened, err := Open(context.Background(), Config{
+		ExampleDir: example, Seed: &seed, NetworkPolicy: "never", Now: func() time.Time { return engineVirtualTime },
+		VirtualBrowserTransactions: []elicitor.VirtualBrowserTransactionInput{input},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := eng.SelectVirtualBrowserSources(context.Background(), opened.SourceCandidates.VirtualBrowser.Generation, []string{"signup/registration"}); err != nil {
+		t.Fatal(err)
+	}
+	draft, err := os.ReadFile(elicitor.DraftPath(example))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if bytes.Contains(draft, input.Sources[0].Source) || bytes.Contains(draft, input.Sources[0].Review) {
+		t.Fatal("resumable draft retained registration source or review bytes")
+	}
+	resumed, snapshot, err := Open(context.Background(), Config{
+		ExampleDir: example, NetworkPolicy: "never", Now: func() time.Time { return engineVirtualTime },
+		VirtualBrowserTransactions: []elicitor.VirtualBrowserTransactionInput{input},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(snapshot.SelectedSources) != 1 || len(resumed.session.SourcePlan) != 1 || len(resumed.session.SourcePlan[0].MaterializedContent) == 0 || len(resumed.session.SourcePlan[0].MaterializedReview) == 0 {
+		t.Fatalf("exact candidate resume did not rehydrate private materialization: %#v", snapshot.SelectedSources)
+	}
+	if _, _, err := Open(context.Background(), Config{ExampleDir: example, NetworkPolicy: "never", Now: func() time.Time { return engineVirtualTime }}); err == nil || !strings.Contains(err.Error(), "stale or unavailable") {
+		t.Fatalf("resume without exact candidate error = %v", err)
+	}
+	changed := engineVirtualRegistrationInput(t, "signup")
+	changed.Transaction.Provenance.ResultSHA256 = engineVirtualDigest([]byte("changed private result"))
+	if _, _, err := Open(context.Background(), Config{
+		ExampleDir: example, NetworkPolicy: "never", Now: func() time.Time { return engineVirtualTime },
+		VirtualBrowserTransactions: []elicitor.VirtualBrowserTransactionInput{changed},
+	}); err == nil || !strings.Contains(err.Error(), "stale or unavailable") {
+		t.Fatalf("resume with changed candidate identity error = %v", err)
 	}
 }
 

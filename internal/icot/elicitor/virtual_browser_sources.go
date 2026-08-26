@@ -20,6 +20,7 @@ import (
 	"github.com/OpenUdon/browsertools/registrationprofile"
 	"github.com/OpenUdon/browsertools/registrationreview"
 	"github.com/OpenUdon/openudon/internal/browsertransaction"
+	rollout "github.com/OpenUdon/openudon/internal/workflowintent"
 	"github.com/OpenUdon/uws/browserregistration"
 )
 
@@ -598,6 +599,7 @@ func SelectVirtualBrowserSources(session Session, discovery VirtualBrowserDiscov
 	if err != nil {
 		return Session{}, err
 	}
+	previous := append([]SourceMaterialization(nil), next.SourcePlan...)
 	kept := next.SourcePlan[:0]
 	for _, plan := range next.SourcePlan {
 		if !strings.HasPrefix(plan.SourcePath, virtualBrowserPrefix) {
@@ -612,7 +614,55 @@ func SelectVirtualBrowserSources(session Session, discovery VirtualBrowserDiscov
 		kept = append(kept, cloneVirtualSourcePlan(plan))
 	}
 	next.SourcePlan = normalizeSourcePlan(kept)
+	invalidateChangedVirtualSourceApprovals(&next, previous, next.SourcePlan)
 	return next, nil
+}
+
+func invalidateChangedVirtualSourceApprovals(session *Session, previous, current []SourceMaterialization) {
+	if session == nil {
+		return
+	}
+	previousByTarget := virtualSourceIdentities(previous)
+	currentByTarget := virtualSourceIdentities(current)
+	changed := map[string]bool{}
+	for target, identity := range previousByTarget {
+		if currentByTarget[target] != identity {
+			changed[target] = true
+		}
+	}
+	for target, identity := range currentByTarget {
+		if previousByTarget[target] != identity {
+			changed[target] = true
+		}
+	}
+	walkSteps(session.Intent.Steps, func(step *rollout.Step) {
+		if step == nil || !changed[filepath.ToSlash(stepAPISourceRef(*session, step))] {
+			return
+		}
+		switch strings.ToLower(strings.TrimSpace(step.Type)) {
+		case "browser_registration":
+			step.RegistrationApproval = ""
+		case "browser_authentication":
+			session.BrowserAuthenticationApprovals = removeString(session.BrowserAuthenticationApprovals, step.Name)
+		case "browser":
+			session.BrowserApprovals = removeString(session.BrowserApprovals, step.Name)
+		}
+	})
+}
+
+func virtualSourceIdentities(sources []SourceMaterialization) map[string]string {
+	result := map[string]string{}
+	for _, source := range sources {
+		if !strings.HasPrefix(source.SourcePath, virtualBrowserPrefix) {
+			continue
+		}
+		target := filepath.ToSlash(source.TargetPath)
+		result[target] = strings.Join([]string{
+			source.Kind, source.ID, source.SourcePath, source.SHA256, source.SourceSHA256,
+			source.ReviewPath, source.ReviewSHA256, source.Provenance,
+		}, "\x00")
+	}
+	return result
 }
 
 func virtualBrowserDependencyClosure(candidates []VirtualBrowserCandidate, requested []string) ([]string, error) {
