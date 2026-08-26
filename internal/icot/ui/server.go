@@ -29,7 +29,9 @@ import (
 
 	"github.com/OpenUdon/browsertools/authorresult"
 	"github.com/OpenUdon/browsertools/authorsession"
+	"github.com/OpenUdon/browsertools/registrationauthorsession"
 	"github.com/OpenUdon/openudon/internal/authoring"
+	"github.com/OpenUdon/openudon/internal/browsercandidate"
 	"github.com/OpenUdon/openudon/internal/icot/browserauthor"
 	"github.com/OpenUdon/openudon/internal/icot/engine"
 	"github.com/OpenUdon/openudon/internal/synthesize"
@@ -80,6 +82,14 @@ type CaptureSession interface {
 	Cancel()
 }
 
+type RegistrationAuthoringSession interface {
+	// Events closes only after the registration worker and its complete process
+	// tree have stopped.
+	Events() <-chan browserauthor.RegistrationEvent
+	Send(context.Context, browserauthor.RegistrationCommand) error
+	Cancel()
+}
+
 // HandlerConfig configures one server handler after its loopback listener is
 // active. Authority must be the listener's exact host:port value.
 type HandlerConfig struct {
@@ -103,6 +113,7 @@ type HandlerConfig struct {
 	DriverDir           string
 	DoctorBrowser       func(context.Context, string, string) (browserauthor.DoctorReport, error)
 	StartCapture        func(context.Context, browserauthor.Config) (CaptureSession, error)
+	StartRegistration   func(context.Context, browserauthor.RegistrationConfig) (RegistrationAuthoringSession, error)
 	PrepareCapture      func(CaptureStageRequest) (engine.BrowserCaptureStage, error)
 	BrowserTransactions BrowserTransactionEngine
 }
@@ -116,19 +127,21 @@ type Workspace struct {
 
 // Response is returned by every successful API request.
 type Response struct {
-	ETag               string                        `json:"-"`
-	Version            string                        `json:"version"`
-	Revision           string                        `json:"revision"`
-	CaptureRevision    string                        `json:"capture_revision"`
-	Lifecycle          string                        `json:"lifecycle"`
-	Completed          bool                          `json:"completed"`
-	Workspace          Workspace                     `json:"workspace"`
-	Snapshot           engine.Snapshot               `json:"snapshot"`
-	Capture            *CaptureState                 `json:"capture,omitempty"`
-	BrowserDoctor      *browserauthor.UIDoctorReport `json:"browser_doctor,omitempty"`
-	WriteResult        *engine.WriteResult           `json:"write_result,omitempty"`
-	Package            *PackageState                 `json:"package,omitempty"`
-	BrowserTransaction *BrowserTransactionResource   `json:"browser_transaction,omitempty"`
+	ETag                  string                        `json:"-"`
+	Version               string                        `json:"version"`
+	Revision              string                        `json:"revision"`
+	CaptureRevision       string                        `json:"capture_revision"`
+	RegistrationRevision  string                        `json:"registration_authoring_revision"`
+	Lifecycle             string                        `json:"lifecycle"`
+	Completed             bool                          `json:"completed"`
+	Workspace             Workspace                     `json:"workspace"`
+	Snapshot              engine.Snapshot               `json:"snapshot"`
+	Capture               *CaptureState                 `json:"capture,omitempty"`
+	RegistrationAuthoring *RegistrationAuthoringState   `json:"registration_authoring,omitempty"`
+	BrowserDoctor         *browserauthor.UIDoctorReport `json:"browser_doctor,omitempty"`
+	WriteResult           *engine.WriteResult           `json:"write_result,omitempty"`
+	Package               *PackageState                 `json:"package,omitempty"`
+	BrowserTransaction    *BrowserTransactionResource   `json:"browser_transaction,omitempty"`
 }
 
 const (
@@ -152,6 +165,21 @@ type CaptureState struct {
 	ContainmentFailed bool                       `json:"containment_failed,omitempty"`
 	StartedAt         string                     `json:"started_at,omitempty"`
 	UpdatedAt         string                     `json:"updated_at,omitempty"`
+}
+
+// RegistrationAuthoringState is the complete public authoring surface. It
+// cannot carry URLs, queries, profile bytes, credentials, verification values,
+// private paths, raw worker output, or the adopted candidate.
+type RegistrationAuthoringState struct {
+	State             string                                 `json:"state"`
+	Message           string                                 `json:"message,omitempty"`
+	Phase             string                                 `json:"phase,omitempty"`
+	Bounds            *registrationauthorsession.Bounds      `json:"bounds,omitempty"`
+	Observation       *registrationauthorsession.Observation `json:"observation,omitempty"`
+	ResultReady       bool                                   `json:"result_ready,omitempty"`
+	ContainmentFailed bool                                   `json:"containment_failed,omitempty"`
+	StartedAt         string                                 `json:"started_at,omitempty"`
+	UpdatedAt         string                                 `json:"updated_at,omitempty"`
 }
 
 type ArtifactSummary struct {
@@ -287,52 +315,59 @@ func (e *requestError) Error() string { return e.text }
 type Server struct {
 	mu sync.Mutex
 
-	engine                   AuthoringEngine
-	snapshot                 engine.Snapshot
-	exampleDir               string
-	token                    string
-	accessCodeDigest         [sha256.Size]byte
-	accessCodeExpires        time.Time
-	accessCodeUsed           bool
-	accessFailures           []time.Time
-	accessRecoveries         []time.Time
-	accessCodeOut            io.Writer
-	generateAccessCode       func() (string, error)
-	now                      func() time.Time
-	authority                string
-	origin                   string
-	basePath                 string
-	revision                 string
-	captureRevision          string
-	etag                     string
-	lifecycle                string
-	completed                bool
-	writeResult              *engine.WriteResult
-	capture                  *CaptureState
-	packageState             *PackageState
-	artifactPaths            map[string]string
-	repoRoot                 string
-	buildPackage             func(context.Context, synthesize.Options) (*synthesize.Result, *synthesize.QualityReport, error)
-	assessPackage            func(context.Context, synthesize.Options) (*synthesize.QualityReport, error)
-	inspectPackage           func(context.Context, trustedrunner.TemplateOptions) (trustedrunner.PackageInspection, error)
-	revalidatePackage        func(context.Context, trustedrunner.TemplateOptions, trustedrunner.PackageInspection) error
-	privateRoot              string
-	driverDir                string
-	doctorBrowser            func(context.Context, string, string) (browserauthor.DoctorReport, error)
-	startCapture             func(context.Context, browserauthor.Config) (CaptureSession, error)
-	prepareCapture           func(CaptureStageRequest) (engine.BrowserCaptureStage, error)
-	captureSession           CaptureSession
-	captureCancel            context.CancelFunc
-	captureResult            *authorsession.Result
-	captureAttestation       *browserauthor.Attestation
-	captureStart             captureStartRequest
-	captureContainmentFailed bool
-	doctorReport             *browserauthor.UIDoctorReport
-	captureContext           context.Context
-	workspace                engine.WorkspaceStatus
-	errOut                   io.Writer
-	browserTransactions      BrowserTransactionEngine
-	browserTransaction       *BrowserTransactionSnapshot
+	engine                        AuthoringEngine
+	snapshot                      engine.Snapshot
+	exampleDir                    string
+	token                         string
+	accessCodeDigest              [sha256.Size]byte
+	accessCodeExpires             time.Time
+	accessCodeUsed                bool
+	accessFailures                []time.Time
+	accessRecoveries              []time.Time
+	accessCodeOut                 io.Writer
+	generateAccessCode            func() (string, error)
+	now                           func() time.Time
+	authority                     string
+	origin                        string
+	basePath                      string
+	revision                      string
+	captureRevision               string
+	registrationRevision          string
+	etag                          string
+	lifecycle                     string
+	completed                     bool
+	writeResult                   *engine.WriteResult
+	capture                       *CaptureState
+	packageState                  *PackageState
+	artifactPaths                 map[string]string
+	repoRoot                      string
+	buildPackage                  func(context.Context, synthesize.Options) (*synthesize.Result, *synthesize.QualityReport, error)
+	assessPackage                 func(context.Context, synthesize.Options) (*synthesize.QualityReport, error)
+	inspectPackage                func(context.Context, trustedrunner.TemplateOptions) (trustedrunner.PackageInspection, error)
+	revalidatePackage             func(context.Context, trustedrunner.TemplateOptions, trustedrunner.PackageInspection) error
+	privateRoot                   string
+	driverDir                     string
+	doctorBrowser                 func(context.Context, string, string) (browserauthor.DoctorReport, error)
+	startCapture                  func(context.Context, browserauthor.Config) (CaptureSession, error)
+	startRegistration             func(context.Context, browserauthor.RegistrationConfig) (RegistrationAuthoringSession, error)
+	prepareCapture                func(CaptureStageRequest) (engine.BrowserCaptureStage, error)
+	captureSession                CaptureSession
+	captureCancel                 context.CancelFunc
+	captureResult                 *authorsession.Result
+	captureAttestation            *browserauthor.Attestation
+	captureStart                  captureStartRequest
+	captureContainmentFailed      bool
+	registrationAuthoring         *RegistrationAuthoringState
+	registrationSession           RegistrationAuthoringSession
+	registrationCandidate         *browsercandidate.Registration
+	registrationStart             registrationAuthoringStartRequest
+	registrationContainmentFailed bool
+	doctorReport                  *browserauthor.UIDoctorReport
+	captureContext                context.Context
+	workspace                     engine.WorkspaceStatus
+	errOut                        io.Writer
+	browserTransactions           BrowserTransactionEngine
+	browserTransaction            *BrowserTransactionSnapshot
 }
 
 var fallbackRequestID atomic.Uint64
@@ -409,7 +444,7 @@ func NewHandler(config HandlerConfig) (http.Handler, error) {
 		lifecycle: lifecycleAuthoring, artifactPaths: map[string]string{}, repoRoot: strings.TrimSpace(config.RepoRoot),
 		buildPackage: config.BuildPackage, assessPackage: config.AssessPackage, inspectPackage: config.InspectPackage, revalidatePackage: config.RevalidatePackage,
 		privateRoot: strings.TrimSpace(config.PrivateRoot), driverDir: strings.TrimSpace(config.DriverDir),
-		doctorBrowser: config.DoctorBrowser, startCapture: config.StartCapture, prepareCapture: config.PrepareCapture,
+		doctorBrowser: config.DoctorBrowser, startCapture: config.StartCapture, startRegistration: config.StartRegistration, prepareCapture: config.PrepareCapture,
 		browserTransactions: config.BrowserTransactions,
 		captureContext:      config.Context,
 	}
@@ -431,6 +466,11 @@ func NewHandler(config HandlerConfig) (http.Handler, error) {
 	if s.startCapture == nil {
 		s.startCapture = func(ctx context.Context, config browserauthor.Config) (CaptureSession, error) {
 			return browserauthor.Start(ctx, config)
+		}
+	}
+	if s.startRegistration == nil {
+		s.startRegistration = func(ctx context.Context, config browserauthor.RegistrationConfig) (RegistrationAuthoringSession, error) {
+			return browserauthor.StartRegistration(ctx, config)
 		}
 	}
 	if s.captureContext == nil {
@@ -529,6 +569,12 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		s.serveCaptureStage(w, r, cookieScoped, requestID)
 	case "/api/v4/capture/cancel":
 		s.serveCaptureCancel(w, r, cookieScoped, requestID)
+	case "/api/v4/registration-authoring/start":
+		s.serveRegistrationAuthoringStart(w, r, cookieScoped, requestID)
+	case "/api/v4/registration-authoring/command":
+		s.serveRegistrationAuthoringCommand(w, r, cookieScoped, requestID)
+	case "/api/v4/registration-authoring/cancel":
+		s.serveRegistrationAuthoringCancel(w, r, cookieScoped, requestID)
 	case "/api/v4/author/approve":
 		s.serveApprove(w, r, cookieScoped, requestID)
 	case "/api/v4/author/resume":
@@ -1046,6 +1092,10 @@ func (s *Server) serveCaptureStart(w http.ResponseWriter, r *http.Request, cooki
 	}
 	if captureActive(s.capture) && s.capture.State != "configuring" {
 		s.writeError(w, http.StatusConflict, "capture_active", "only one browser capture may run at a time", true, requestID, s.revision)
+		return
+	}
+	if registrationAuthoringActive(s.registrationAuthoring) {
+		s.writeError(w, http.StatusConflict, "registration_authoring_active", "browser capture is blocked while registration authoring is active", true, requestID, s.revision)
 		return
 	}
 	if s.privateRoot == "" {
@@ -1793,6 +1843,10 @@ func (s *Server) beginMutation(w http.ResponseWriter, r *http.Request, requestID
 		s.writeError(w, http.StatusConflict, "capture_active", "authoring mutations are blocked while browser capture is active", true, requestID, s.revision)
 		return false
 	}
+	if registrationAuthoringActive(s.registrationAuthoring) {
+		s.writeError(w, http.StatusConflict, "registration_authoring_active", "authoring mutations are blocked while browser registration authoring is active", true, requestID, s.revision)
+		return false
+	}
 	if s.lifecycle != lifecycleAuthoring {
 		s.writeError(w, http.StatusConflict, "session_frozen", "authoring is not mutable in the current lifecycle state", false, requestID, s.revision)
 		return false
@@ -1848,10 +1902,18 @@ func (s *Server) updateRevisionLocked() error {
 		return err
 	}
 	s.captureRevision = captureRevision
+	registrationRevision, err := revisionDigest(struct {
+		Authoring *RegistrationAuthoringState `json:"registration_authoring,omitempty"`
+	}{Authoring: s.registrationAuthoring})
+	if err != nil {
+		return err
+	}
+	s.registrationRevision = registrationRevision
 	s.etag, err = revisionDigest(struct {
-		Authoring string `json:"authoring"`
-		Capture   string `json:"capture"`
-	}{Authoring: s.revision, Capture: s.captureRevision})
+		Authoring    string `json:"authoring"`
+		Capture      string `json:"capture"`
+		Registration string `json:"registration_authoring"`
+	}{Authoring: s.revision, Capture: s.captureRevision, Registration: s.registrationRevision})
 	if err != nil {
 		return err
 	}
@@ -1860,10 +1922,10 @@ func (s *Server) updateRevisionLocked() error {
 
 func (s *Server) responseLocked() Response {
 	return Response{
-		Version: APIVersion, Revision: s.revision, CaptureRevision: s.captureRevision,
+		Version: APIVersion, Revision: s.revision, CaptureRevision: s.captureRevision, RegistrationRevision: s.registrationRevision,
 		Lifecycle: s.lifecycle, Completed: s.completed,
 		Workspace: Workspace{ExampleDir: s.exampleDir, ExternallyModified: s.workspace.ExternallyModified},
-		Snapshot:  s.snapshot, Capture: s.capture, BrowserDoctor: s.doctorReport, WriteResult: s.writeResult, Package: s.packageState,
+		Snapshot:  s.snapshot, Capture: s.capture, RegistrationAuthoring: s.registrationAuthoring, BrowserDoctor: s.doctorReport, WriteResult: s.writeResult, Package: s.packageState,
 		BrowserTransaction: s.browserTransactionResourceLocked(),
 	}
 }
@@ -1922,6 +1984,18 @@ func captureActive(capture *CaptureState) bool {
 	}
 	switch capture.State {
 	case "staged", "canceled", "failed":
+		return false
+	default:
+		return true
+	}
+}
+
+func registrationAuthoringActive(authoring *RegistrationAuthoringState) bool {
+	if authoring == nil {
+		return false
+	}
+	switch authoring.State {
+	case "review_ready", "adopted", "canceled", "failed":
 		return false
 	default:
 		return true

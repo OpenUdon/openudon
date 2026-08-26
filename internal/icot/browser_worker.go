@@ -33,6 +33,7 @@ func runBundledBrowserWorker(args []string, in io.Reader, out, errOut io.Writer)
 	fs.SetOutput(errOut)
 	privateRoot := fs.String("private-root", "", "")
 	driverDirectory := fs.String("driver-dir", "", "")
+	protocol := fs.String("protocol", "v1", "")
 	if err := fs.Parse(args[2:]); err != nil {
 		if errors.Is(err, flag.ErrHelp) {
 			return 0
@@ -52,7 +53,7 @@ func runBundledBrowserWorker(args []string, in io.Reader, out, errOut io.Writer)
 	var runErr error
 	if args[0] == "registration-author-session" {
 		runErr = registrationauthorworker.Run(ctx, registrationauthorworker.Options{
-			PrivateRoot: *privateRoot, DriverDirectory: *driverDirectory, Stdin: stdin, Stdout: out,
+			PrivateRoot: *privateRoot, DriverDirectory: *driverDirectory, Protocol: *protocol, Stdin: stdin, Stdout: out,
 		})
 	} else {
 		runErr = authorworker.Run(ctx, authorworker.Options{
