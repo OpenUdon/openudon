@@ -175,10 +175,17 @@ The review edge means an operator accepted the exact profile and review
 digests; it does not mean that the profiles were packaged or run.
 
 `prepared` adds `preparation.package_sha256` and
-`preparation.qualification_sha256`. Preparation writes and validates a complete
-candidate package in a restrictive scratch location. It must not modify the
-currently selected package. A failed preparation leaves the current generation
-unchanged.
+`preparation.qualification_sha256`. The internal preparation boundary first
+reads and rechecks one bounded, manifest-complete generation into defensive
+memory and emits only portable paths, digests, passing stored-quality status,
+approval-state names, execution policy, and symbolic credential names. It
+requires an explicit portable scope and performs no write. Qualification then
+materializes those exact bytes beneath a fresh same-filesystem mode-0700
+scratch root, requires mode-0700 package directories and mode-0600
+single-link files, rejects aliases and unsupported members, and reruns current
+quality/secret, package/handoff, and trusted dry-run gates. The scratch tree is
+removed on success or failure, and no executor is invoked. Neither phase may
+modify the currently selected package; a failed phase leaves it unchanged.
 
 `promoted` retains the preparation and adds `promotion.generation_sha256`.
 Promotion is one atomic selection operation over the already qualified
