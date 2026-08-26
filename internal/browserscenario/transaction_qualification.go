@@ -281,7 +281,7 @@ func materializeBAPBCPPackage(exampleDir string, candidate *browsercandidate.Aut
 	session.Version = elicitor.SessionVersion
 	session.Intent = *intent
 	session.BrowserRoute = "browser"
-	session.BrowserSession = "opaque-runtime-binding-required"
+	session.BrowserSession = "none"
 	session.BrowserAuthenticationApprovals = []string{"authenticate"}
 	for _, binding := range reviewed.CredentialBindings {
 		session.Credentials = append(session.Credentials, binding.Binding)
