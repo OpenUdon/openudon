@@ -151,7 +151,10 @@ func (executor *realExecutor) runBAPBCPQualification(ctx context.Context, enviro
 	}
 	qualified, err := packagepipeline.Qualify(ctx, prepared, packagepipeline.QualifyOptions{ScratchParent: scratch, Now: packageAt})
 	if err != nil {
-		return evidence, errors.New("BAP+BCP qualification package qualification failed")
+		if code, ok := packagepipeline.QualificationFailureCode(err); ok {
+			return evidence, fmt.Errorf("BAP+BCP qualification package qualification failed: %s", code)
+		}
+		return evidence, errors.New("BAP+BCP qualification package qualification failed: unclassified")
 	}
 	baseline, err := packagepipeline.PromoteCurrent(ctx, packagepipeline.CurrentOptions{
 		ExampleDir: filepath.Join(environment.RepoRoot, "examples", "support-priority-routing"),
