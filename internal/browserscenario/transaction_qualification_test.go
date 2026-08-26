@@ -3,6 +3,8 @@ package browserscenario
 import (
 	"strings"
 	"testing"
+
+	"github.com/OpenUdon/openudon/internal/synthesize"
 )
 
 func TestValidateBAPBCPQualificationEvidenceRejectsMissingDuplicateAndMalformedDigests(t *testing.T) {
@@ -22,5 +24,19 @@ func TestValidateBAPBCPQualificationEvidenceRejectsMissingDuplicateAndMalformedD
 	evidence.WorkflowSHA256 = "private/result/path"
 	if err := ValidateBAPBCPQualificationEvidence(evidence); err == nil {
 		t.Fatal("non-digest qualification evidence was accepted")
+	}
+}
+
+func TestClosedQualityFailureIDsRetainsOnlyFixedCodes(t *testing.T) {
+	report := &synthesize.QualityReport{Checks: []synthesize.QualityCheck{
+		{Code: "browser.authentication.sources", Status: "fail"},
+		{Code: "path /private/result", Status: "fail"},
+		{Code: "workflow.present", Status: "pass"},
+	}}
+	if got := closedQualityFailureIDs(report); got != "browser.authentication.sources" {
+		t.Fatalf("closed quality failures = %q", got)
+	}
+	if got := closedQualityFailureIDs(nil); got != "unclassified" {
+		t.Fatalf("nil quality failures = %q", got)
 	}
 }

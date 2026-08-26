@@ -138,28 +138,31 @@ func (executor *realExecutor) runBAPBCPQualification(ctx context.Context, enviro
 	if err := materializeBAPBCPPackage(exampleDir, candidate, reviewed, manifest, packageAt); err != nil {
 		return evidence, err
 	}
-	built, err := synthesize.Build(ctx, synthesize.Options{ExampleDir: exampleDir})
-	if err != nil {
-		return evidence, fmt.Errorf("build BAP+BCP qualification package: %w", err)
+	built, quality, err := synthesize.PackageFromIntent(ctx, synthesize.Options{ExampleDir: exampleDir})
+	if err != nil || built == nil || quality == nil {
+		return evidence, errors.New("BAP+BCP qualification package construction failed")
+	}
+	if !quality.Passed() {
+		return evidence, fmt.Errorf("BAP+BCP qualification package quality failed: %s", closedQualityFailureIDs(quality))
 	}
 	prepared, err := packagepipeline.PrepareCurrent(ctx, packagepipeline.PrepareOptions{ExampleDir: exampleDir, Scope: "qualification/bap-bcp"})
 	if err != nil {
-		return evidence, fmt.Errorf("prepare BAP+BCP qualification package: %w", err)
+		return evidence, errors.New("BAP+BCP qualification package preparation failed")
 	}
 	qualified, err := packagepipeline.Qualify(ctx, prepared, packagepipeline.QualifyOptions{ScratchParent: scratch, Now: packageAt})
 	if err != nil {
-		return evidence, fmt.Errorf("qualify BAP+BCP package: %w", err)
+		return evidence, errors.New("BAP+BCP qualification package qualification failed")
 	}
 	baseline, err := packagepipeline.PromoteCurrent(ctx, packagepipeline.CurrentOptions{
 		ExampleDir: filepath.Join(environment.RepoRoot, "examples", "support-priority-routing"),
 		Scope:      "examples/support-priority-routing", ScratchParent: scratch, StoreDir: store,
 	})
 	if err != nil {
-		return evidence, fmt.Errorf("promote BAP+BCP qualification baseline: %w", err)
+		return evidence, errors.New("BAP+BCP qualification baseline promotion failed")
 	}
 	promoted, err := packagepipeline.Promote(ctx, qualified, packagepipeline.PromotionOptions{StoreDir: store})
 	if err != nil {
-		return evidence, fmt.Errorf("promote BAP+BCP qualification package: %w", err)
+		return evidence, errors.New("BAP+BCP qualification package promotion failed")
 	}
 	selection := promoted.Selection()
 	if selection.PriorGenerationSHA256 != baseline.Selection().SelectedGenerationSHA256 || selection.PriorGenerationSHA256 == "" {
@@ -290,10 +293,10 @@ func materializeBAPBCPPackage(exampleDir string, candidate *browsercandidate.Aut
 		ProjectMD: bapBCPQualificationProject(manifest), IntentHCL: intentHCL, Session: session,
 	}, false, at)
 	if err != nil {
-		return fmt.Errorf("prepare BAP+BCP authoring artifacts: %w", err)
+		return errors.New("prepare BAP+BCP authoring artifacts")
 	}
 	if _, err := artifactwriter.CommitChecked(prepared, false, nil); err != nil {
-		return fmt.Errorf("commit BAP+BCP authoring artifacts: %w", err)
+		return errors.New("commit BAP+BCP authoring artifacts")
 	}
 	return nil
 }
@@ -357,4 +360,33 @@ func validScenarioTaggedSHA256(value string) bool {
 	}
 	_, err := hex.DecodeString(strings.TrimPrefix(value, "sha256:"))
 	return err == nil
+}
+
+func closedQualityFailureIDs(report *synthesize.QualityReport) string {
+	if report == nil {
+		return "unclassified"
+	}
+	var codes []string
+	for _, check := range report.Checks {
+		if check.Status != "pass" && safeQualityCode(check.Code) {
+			codes = append(codes, check.Code)
+		}
+	}
+	sort.Strings(codes)
+	if len(codes) == 0 {
+		return "unclassified"
+	}
+	return strings.Join(codes, ",")
+}
+
+func safeQualityCode(value string) bool {
+	if value == "" || len(value) > 128 {
+		return false
+	}
+	for _, character := range value {
+		if character != '.' && character != '_' && character != '-' && (character < 'a' || character > 'z') && (character < '0' || character > '9') {
+			return false
+		}
+	}
+	return true
 }
