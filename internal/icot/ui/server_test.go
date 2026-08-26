@@ -297,7 +297,7 @@ func decodeResponse(t *testing.T, response *httptest.ResponseRecorder) Response 
 
 func currentResponse(t *testing.T, handler http.Handler) Response {
 	t.Helper()
-	response := doRequest(handler, http.MethodGet, "/api/v3/snapshot", "", "", true)
+	response := doRequest(handler, http.MethodGet, "/api/v4/snapshot", "", "", true)
 	if response.Code != http.StatusOK {
 		t.Fatalf("snapshot status = %d, body = %s", response.Code, response.Body.String())
 	}
@@ -313,7 +313,7 @@ func TestTokenBootstrapCookieAndBearerAuthentication(t *testing.T) {
 	if health.Code != http.StatusOK || health.Body.String() != "ok\n" || strings.Contains(health.Body.String(), "revision") {
 		t.Fatalf("health response = %d %q", health.Code, health.Body.String())
 	}
-	unauthorized := doRequest(handler, http.MethodGet, "/api/v3/snapshot", "", "", false)
+	unauthorized := doRequest(handler, http.MethodGet, "/api/v4/snapshot", "", "", false)
 	if unauthorized.Code != http.StatusUnauthorized || strings.Contains(unauthorized.Body.String(), testToken) {
 		t.Fatalf("unauthorized response = %d %s", unauthorized.Code, unauthorized.Body.String())
 	}
@@ -338,7 +338,7 @@ func TestTokenBootstrapCookieAndBearerAuthentication(t *testing.T) {
 	if lostSession.Code != http.StatusSeeOther || lostSession.Header().Get("Location") != "/" {
 		t.Fatalf("lost browser session = %d location %q", lostSession.Code, lostSession.Header().Get("Location"))
 	}
-	scopedAPI := httptest.NewRequest(http.MethodGet, "http://"+testAuthority+basePath+"api/v3/snapshot", nil)
+	scopedAPI := httptest.NewRequest(http.MethodGet, "http://"+testAuthority+basePath+"api/v4/snapshot", nil)
 	scopedAPI.Host = testAuthority
 	scopedAPI.AddCookie(cookies[0])
 	scopedResponse := httptest.NewRecorder()
@@ -346,7 +346,7 @@ func TestTokenBootstrapCookieAndBearerAuthentication(t *testing.T) {
 	if scopedResponse.Code != http.StatusOK {
 		t.Fatalf("scoped cookie API response = %d %s", scopedResponse.Code, scopedResponse.Body.String())
 	}
-	globalAPI := httptest.NewRequest(http.MethodGet, "http://"+testAuthority+"/api/v3/snapshot", nil)
+	globalAPI := httptest.NewRequest(http.MethodGet, "http://"+testAuthority+"/api/v4/snapshot", nil)
 	globalAPI.Host = testAuthority
 	globalAPI.AddCookie(cookies[0])
 	globalResponse := httptest.NewRecorder()
@@ -604,15 +604,15 @@ func TestExactHostOriginSecurityHeadersAndMethods(t *testing.T) {
 		}
 	}
 
-	unsupported := doRequest(handler, http.MethodGet, "/api/v3/round", "", "", true)
+	unsupported := doRequest(handler, http.MethodGet, "/api/v4/round", "", "", true)
 	if unsupported.Code != http.StatusMethodNotAllowed || unsupported.Header().Get("Allow") != http.MethodPost {
 		t.Fatalf("unsupported method = %d allow %q", unsupported.Code, unsupported.Header().Get("Allow"))
 	}
-	unsupportedReopen := doRequest(handler, http.MethodGet, "/api/v3/reopen", "", "", true)
+	unsupportedReopen := doRequest(handler, http.MethodGet, "/api/v4/reopen", "", "", true)
 	if unsupportedReopen.Code != http.StatusMethodNotAllowed || unsupportedReopen.Header().Get("Allow") != http.MethodPost {
 		t.Fatalf("unsupported reopen method = %d allow %q", unsupportedReopen.Code, unsupportedReopen.Header().Get("Allow"))
 	}
-	preflight := httptest.NewRequest(http.MethodOptions, "http://"+testAuthority+"/api/v3/round", nil)
+	preflight := httptest.NewRequest(http.MethodOptions, "http://"+testAuthority+"/api/v4/round", nil)
 	preflight.Host = testAuthority
 	preflight.Header.Set("Origin", "https://attacker.invalid")
 	preflightResponse := httptest.NewRecorder()
@@ -626,7 +626,7 @@ func TestConditionalSnapshotAndWorkspaceRevision(t *testing.T) {
 	fake := &fakeEngine{snapshot: engine.Snapshot{Boundary: elicitor.WorkflowBoundary{Outcome: "cached"}}}
 	handler := newFakeHandler(t, fake)
 	initial := currentResponse(t, handler)
-	request := httptest.NewRequest(http.MethodGet, "http://"+testAuthority+"/api/v3/snapshot", nil)
+	request := httptest.NewRequest(http.MethodGet, "http://"+testAuthority+"/api/v4/snapshot", nil)
 	request.Host = testAuthority
 	request.Header.Set("Authorization", "Bearer "+testToken)
 	request.Header.Set("If-None-Match", initial.ETag)
@@ -635,7 +635,7 @@ func TestConditionalSnapshotAndWorkspaceRevision(t *testing.T) {
 	if response.Code != http.StatusNotModified || response.Body.Len() != 0 || response.Header().Get("ETag") != initial.ETag {
 		t.Fatalf("conditional response = %d etag=%q body=%q", response.Code, response.Header().Get("ETag"), response.Body.String())
 	}
-	wildcard := httptest.NewRequest(http.MethodGet, "http://"+testAuthority+"/api/v3/snapshot", nil)
+	wildcard := httptest.NewRequest(http.MethodGet, "http://"+testAuthority+"/api/v4/snapshot", nil)
 	wildcard.Host = testAuthority
 	wildcard.Header.Set("Authorization", "Bearer "+testToken)
 	wildcard.Header.Set("If-None-Match", "*")
@@ -646,7 +646,7 @@ func TestConditionalSnapshotAndWorkspaceRevision(t *testing.T) {
 	}
 
 	fake.setWorkspace(engine.WorkspaceStatus{ExternallyModified: true})
-	changed := doRequest(handler, http.MethodGet, "/api/v3/snapshot", "", "", true)
+	changed := doRequest(handler, http.MethodGet, "/api/v4/snapshot", "", "", true)
 	if changed.Code != http.StatusOK {
 		t.Fatalf("changed snapshot = %d %s", changed.Code, changed.Body.String())
 	}
@@ -654,7 +654,7 @@ func TestConditionalSnapshotAndWorkspaceRevision(t *testing.T) {
 	if !payload.Workspace.ExternallyModified || payload.Revision == initial.Revision {
 		t.Fatalf("workspace change did not revise response: %#v", payload)
 	}
-	mutation := doRequest(handler, http.MethodPost, "/api/v3/author/approve", fmt.Sprintf(`{"revision":%q,"human_approved":true,"allow_overwrite":true}`, payload.Revision), "application/json", true)
+	mutation := doRequest(handler, http.MethodPost, "/api/v4/author/approve", fmt.Sprintf(`{"revision":%q,"human_approved":true,"allow_overwrite":true}`, payload.Revision), "application/json", true)
 	if mutation.Code != http.StatusConflict || !strings.Contains(mutation.Body.String(), `"code":"workspace_changed"`) || !strings.Contains(mutation.Body.String(), payload.Revision) {
 		t.Fatalf("workspace mutation = %d %s", mutation.Code, mutation.Body.String())
 	}
@@ -676,13 +676,13 @@ func TestBrowserPreflightDoesNotBlockSnapshotPolling(t *testing.T) {
 		t.Fatal(err)
 	}
 	initial := currentResponse(t, handler)
-	stale := doRequest(handler, http.MethodPost, "/api/v3/browser/preflight", fmt.Sprintf(`{"revision":%q,"capture_revision":"sha256:stale"}`, initial.Revision), "application/json", true)
+	stale := doRequest(handler, http.MethodPost, "/api/v4/browser/preflight", fmt.Sprintf(`{"revision":%q,"capture_revision":"sha256:stale"}`, initial.Revision), "application/json", true)
 	if stale.Code != http.StatusConflict || !strings.Contains(stale.Body.String(), "stale_capture_revision") {
 		t.Fatalf("stale preflight = %d %s", stale.Code, stale.Body.String())
 	}
 	finished := make(chan *httptest.ResponseRecorder, 1)
 	go func() {
-		finished <- doRequest(handler, http.MethodPost, "/api/v3/browser/preflight", fmt.Sprintf(`{"revision":%q,"capture_revision":%q}`, initial.Revision, initial.CaptureRevision), "application/json", true)
+		finished <- doRequest(handler, http.MethodPost, "/api/v4/browser/preflight", fmt.Sprintf(`{"revision":%q,"capture_revision":%q}`, initial.Revision, initial.CaptureRevision), "application/json", true)
 	}()
 	<-started
 
@@ -725,7 +725,7 @@ func TestBrowserPreflightFailureExposesOnlySafeTypedReport(t *testing.T) {
 		t.Fatal(err)
 	}
 	initial := currentResponse(t, handler)
-	failed := doRequest(handler, http.MethodPost, "/api/v3/browser/preflight", fmt.Sprintf(`{"revision":%q,"capture_revision":%q}`, initial.Revision, initial.CaptureRevision), "application/json", true)
+	failed := doRequest(handler, http.MethodPost, "/api/v4/browser/preflight", fmt.Sprintf(`{"revision":%q,"capture_revision":%q}`, initial.Revision, initial.CaptureRevision), "application/json", true)
 	if failed.Code != http.StatusUnprocessableEntity || strings.Contains(failed.Body.String(), "sentinel") {
 		t.Fatalf("failed preflight = %d %s", failed.Code, failed.Body.String())
 	}
@@ -758,7 +758,7 @@ func TestBrowserPreflightRevisionFailureRollsBackInitialTransition(t *testing.T)
 		}
 		return originalDigest(payload)
 	}
-	failed := doRequest(handler, http.MethodPost, "/api/v3/browser/preflight", fmt.Sprintf(`{"revision":%q,"capture_revision":%q}`, initial.Revision, initial.CaptureRevision), "application/json", true)
+	failed := doRequest(handler, http.MethodPost, "/api/v4/browser/preflight", fmt.Sprintf(`{"revision":%q,"capture_revision":%q}`, initial.Revision, initial.CaptureRevision), "application/json", true)
 	if failed.Code != http.StatusInternalServerError {
 		t.Fatalf("revision failure = %d %s", failed.Code, failed.Body.String())
 	}
@@ -781,7 +781,7 @@ func TestBrowserPreflightTeardownFailureRequiresRestart(t *testing.T) {
 		t.Fatal(err)
 	}
 	initial := currentResponse(t, handler)
-	failed := doRequest(handler, http.MethodPost, "/api/v3/browser/preflight", fmt.Sprintf(`{"revision":%q,"capture_revision":%q}`, initial.Revision, initial.CaptureRevision), "application/json", true)
+	failed := doRequest(handler, http.MethodPost, "/api/v4/browser/preflight", fmt.Sprintf(`{"revision":%q,"capture_revision":%q}`, initial.Revision, initial.CaptureRevision), "application/json", true)
 	if failed.Code != http.StatusUnprocessableEntity || !strings.Contains(failed.Body.String(), "capture_teardown_failed") {
 		t.Fatalf("teardown-failed preflight = %d %s", failed.Code, failed.Body.String())
 	}
@@ -789,7 +789,7 @@ func TestBrowserPreflightTeardownFailureRequiresRestart(t *testing.T) {
 	if state.Capture == nil || state.Capture.State != "failed" || !state.Capture.ContainmentFailed || !strings.Contains(state.Capture.Message, "Restart iCoT") {
 		t.Fatalf("teardown-failed state = %#v", state.Capture)
 	}
-	retry := doRequest(handler, http.MethodPost, "/api/v3/browser/preflight", fmt.Sprintf(`{"revision":%q,"capture_revision":%q}`, state.Revision, state.CaptureRevision), "application/json", true)
+	retry := doRequest(handler, http.MethodPost, "/api/v4/browser/preflight", fmt.Sprintf(`{"revision":%q,"capture_revision":%q}`, state.Revision, state.CaptureRevision), "application/json", true)
 	if retry.Code != http.StatusConflict || !strings.Contains(retry.Body.String(), "capture_teardown_failed") {
 		t.Fatalf("preflight retry after containment failure = %d %s", retry.Code, retry.Body.String())
 	}
@@ -820,17 +820,17 @@ func TestCaptureUsesSeparateRevisionBlocksAuthoringAndStagesReviewedResult(t *te
 		t.Fatal(err)
 	}
 	initial := currentResponse(t, handler)
-	direct := doRequest(handler, http.MethodPost, "/api/v3/capture/start", fmt.Sprintf(`{"revision":%q,"capture_revision":%q,"profile_id":"account","url":"https://login.example.test/","dashboard_url":"https://app.example.test/home","goal":"Open the dashboard","origins":["https://login.example.test","https://app.example.test"]}`, initial.Revision, initial.CaptureRevision), "application/json", true)
+	direct := doRequest(handler, http.MethodPost, "/api/v4/capture/start", fmt.Sprintf(`{"revision":%q,"capture_revision":%q,"profile_id":"account","url":"https://login.example.test/","dashboard_url":"https://app.example.test/home","goal":"Open the dashboard","origins":["https://login.example.test","https://app.example.test"]}`, initial.Revision, initial.CaptureRevision), "application/json", true)
 	if direct.Code != http.StatusConflict || !strings.Contains(direct.Body.String(), "browser_preflight_required") {
 		t.Fatalf("capture without preflight = %d %s", direct.Code, direct.Body.String())
 	}
-	preflight := doRequest(handler, http.MethodPost, "/api/v3/browser/preflight", fmt.Sprintf(`{"revision":%q,"capture_revision":%q}`, initial.Revision, initial.CaptureRevision), "application/json", true)
+	preflight := doRequest(handler, http.MethodPost, "/api/v4/browser/preflight", fmt.Sprintf(`{"revision":%q,"capture_revision":%q}`, initial.Revision, initial.CaptureRevision), "application/json", true)
 	if preflight.Code != http.StatusOK {
 		t.Fatalf("capture preflight = %d %s", preflight.Code, preflight.Body.String())
 	}
 	configured := decodeResponse(t, preflight)
 	body := fmt.Sprintf(`{"revision":%q,"capture_revision":%q,"profile_id":"account","url":"https://login.example.test/","dashboard_url":"https://app.example.test/home","goal":"Open the dashboard","origins":["https://login.example.test","https://app.example.test"]}`, configured.Revision, configured.CaptureRevision)
-	started := doRequest(handler, http.MethodPost, "/api/v3/capture/start", body, "application/json", true)
+	started := doRequest(handler, http.MethodPost, "/api/v4/capture/start", body, "application/json", true)
 	if started.Code != http.StatusAccepted {
 		t.Fatalf("capture start = %d %s", started.Code, started.Body.String())
 	}
@@ -838,7 +838,7 @@ func TestCaptureUsesSeparateRevisionBlocksAuthoringAndStagesReviewedResult(t *te
 	if launching.Revision != initial.Revision || launching.CaptureRevision == initial.CaptureRevision || receivedConfig.ProfileID != "account" || receivedConfig.GoalPredicate.Origin != "https://app.example.test" {
 		t.Fatalf("capture launch = %#v config=%#v", launching, receivedConfig)
 	}
-	blocked := doRequest(handler, http.MethodPost, "/api/v3/round", fmt.Sprintf(`{"revision":%q,"answers":[]}`, launching.Revision), "application/json", true)
+	blocked := doRequest(handler, http.MethodPost, "/api/v4/round", fmt.Sprintf(`{"revision":%q,"answers":[]}`, launching.Revision), "application/json", true)
 	if blocked.Code != http.StatusConflict || !strings.Contains(blocked.Body.String(), "capture_active") {
 		t.Fatalf("mutation during capture = %d %s", blocked.Code, blocked.Body.String())
 	}
@@ -849,7 +849,7 @@ func TestCaptureUsesSeparateRevisionBlocksAuthoringAndStagesReviewedResult(t *te
 	}}
 	observation := waitForCaptureState(t, handler, "exploration")
 	respondBody := fmt.Sprintf(`{"capture_revision":%q,"response":{"kind":"click","candidate_id":"candidate-0123456789abcdef"}}`, observation.CaptureRevision)
-	responded := doRequest(handler, http.MethodPost, "/api/v3/capture/respond", respondBody, "application/json", true)
+	responded := doRequest(handler, http.MethodPost, "/api/v4/capture/respond", respondBody, "application/json", true)
 	if responded.Code != http.StatusAccepted {
 		t.Fatalf("capture response = %d %s", responded.Code, responded.Body.String())
 	}
@@ -857,11 +857,11 @@ func TestCaptureUsesSeparateRevisionBlocksAuthoringAndStagesReviewedResult(t *te
 	if acknowledged.CaptureRevision == observation.CaptureRevision || acknowledged.Capture.Observation != nil {
 		t.Fatalf("capture response did not consume its revision: %#v", acknowledged)
 	}
-	replayed := doRequest(handler, http.MethodPost, "/api/v3/capture/respond", respondBody, "application/json", true)
+	replayed := doRequest(handler, http.MethodPost, "/api/v4/capture/respond", respondBody, "application/json", true)
 	if replayed.Code != http.StatusConflict || !strings.Contains(replayed.Body.String(), "stale_capture_revision") {
 		t.Fatalf("replayed capture response = %d %s", replayed.Code, replayed.Body.String())
 	}
-	premature := doRequest(handler, http.MethodPost, "/api/v3/capture/respond", fmt.Sprintf(`{"capture_revision":%q,"response":{"kind":"click","candidate_id":"candidate-0123456789abcdef"}}`, acknowledged.CaptureRevision), "application/json", true)
+	premature := doRequest(handler, http.MethodPost, "/api/v4/capture/respond", fmt.Sprintf(`{"capture_revision":%q,"response":{"kind":"click","candidate_id":"candidate-0123456789abcdef"}}`, acknowledged.CaptureRevision), "application/json", true)
 	if premature.Code != http.StatusConflict || !strings.Contains(premature.Body.String(), "stale_capture_revision") {
 		t.Fatalf("response without a pending checkpoint = %d %s", premature.Code, premature.Body.String())
 	}
@@ -871,7 +871,7 @@ func TestCaptureUsesSeparateRevisionBlocksAuthoringAndStagesReviewedResult(t *te
 	if teardown.Capture.ResultReady {
 		t.Fatalf("capture became stageable before worker teardown: %#v", teardown.Capture)
 	}
-	prematureStage := doRequest(handler, http.MethodPost, "/api/v3/capture/stage", fmt.Sprintf(`{"revision":%q,"capture_revision":%q}`, teardown.Revision, teardown.CaptureRevision), "application/json", true)
+	prematureStage := doRequest(handler, http.MethodPost, "/api/v4/capture/stage", fmt.Sprintf(`{"revision":%q,"capture_revision":%q}`, teardown.Revision, teardown.CaptureRevision), "application/json", true)
 	if prematureStage.Code != http.StatusConflict || !strings.Contains(prematureStage.Body.String(), "capture_not_ready") {
 		t.Fatalf("stage before worker teardown = %d %s", prematureStage.Code, prematureStage.Body.String())
 	}
@@ -880,7 +880,7 @@ func TestCaptureUsesSeparateRevisionBlocksAuthoringAndStagesReviewedResult(t *te
 	if ready.Revision != initial.Revision || !ready.Capture.ResultReady {
 		t.Fatalf("capture completion = %#v", ready)
 	}
-	staged := doRequest(handler, http.MethodPost, "/api/v3/capture/stage", fmt.Sprintf(`{"revision":%q,"capture_revision":%q}`, ready.Revision, ready.CaptureRevision), "application/json", true)
+	staged := doRequest(handler, http.MethodPost, "/api/v4/capture/stage", fmt.Sprintf(`{"revision":%q,"capture_revision":%q}`, ready.Revision, ready.CaptureRevision), "application/json", true)
 	if staged.Code != http.StatusOK {
 		t.Fatalf("capture stage = %d %s", staged.Code, staged.Body.String())
 	}
@@ -910,12 +910,12 @@ func TestCaptureResponseConsumesRevisionBeforeWorkerDelivery(t *testing.T) {
 		t.Fatal(err)
 	}
 	initial := currentResponse(t, handler)
-	preflight := doRequest(handler, http.MethodPost, "/api/v3/browser/preflight", fmt.Sprintf(`{"revision":%q,"capture_revision":%q}`, initial.Revision, initial.CaptureRevision), "application/json", true)
+	preflight := doRequest(handler, http.MethodPost, "/api/v4/browser/preflight", fmt.Sprintf(`{"revision":%q,"capture_revision":%q}`, initial.Revision, initial.CaptureRevision), "application/json", true)
 	if preflight.Code != http.StatusOK {
 		t.Fatalf("preflight = %d %s", preflight.Code, preflight.Body.String())
 	}
 	configured := decodeResponse(t, preflight)
-	started := doRequest(handler, http.MethodPost, "/api/v3/capture/start", fmt.Sprintf(`{"revision":%q,"capture_revision":%q,"profile_id":"account","url":"https://login.example.test/","dashboard_url":"https://app.example.test/home","goal":"Open the dashboard","origins":["https://login.example.test","https://app.example.test"]}`, configured.Revision, configured.CaptureRevision), "application/json", true)
+	started := doRequest(handler, http.MethodPost, "/api/v4/capture/start", fmt.Sprintf(`{"revision":%q,"capture_revision":%q,"profile_id":"account","url":"https://login.example.test/","dashboard_url":"https://app.example.test/home","goal":"Open the dashboard","origins":["https://login.example.test","https://app.example.test"]}`, configured.Revision, configured.CaptureRevision), "application/json", true)
 	if started.Code != http.StatusAccepted {
 		t.Fatalf("capture start = %d %s", started.Code, started.Body.String())
 	}
@@ -927,11 +927,11 @@ func TestCaptureResponseConsumesRevisionBeforeWorkerDelivery(t *testing.T) {
 	body := fmt.Sprintf(`{"capture_revision":%q,"response":{"kind":"click","candidate_id":"candidate-0123456789abcdef"}}`, observation.CaptureRevision)
 	firstDone := make(chan *httptest.ResponseRecorder, 1)
 	go func() {
-		firstDone <- doRequest(handler, http.MethodPost, "/api/v3/capture/respond", body, "application/json", true)
+		firstDone <- doRequest(handler, http.MethodPost, "/api/v4/capture/respond", body, "application/json", true)
 	}()
 	<-session.entered
 
-	duplicate := doRequest(handler, http.MethodPost, "/api/v3/capture/respond", body, "application/json", true)
+	duplicate := doRequest(handler, http.MethodPost, "/api/v4/capture/respond", body, "application/json", true)
 	if duplicate.Code != http.StatusConflict || !strings.Contains(duplicate.Body.String(), "stale_capture_revision") {
 		t.Fatalf("duplicate response = %d %s", duplicate.Code, duplicate.Body.String())
 	}
@@ -973,12 +973,12 @@ func TestCaptureCancelWaitsForWorkerTeardown(t *testing.T) {
 				t.Fatal(err)
 			}
 			initial := currentResponse(t, handler)
-			preflight := doRequest(handler, http.MethodPost, "/api/v3/browser/preflight", fmt.Sprintf(`{"revision":%q,"capture_revision":%q}`, initial.Revision, initial.CaptureRevision), "application/json", true)
+			preflight := doRequest(handler, http.MethodPost, "/api/v4/browser/preflight", fmt.Sprintf(`{"revision":%q,"capture_revision":%q}`, initial.Revision, initial.CaptureRevision), "application/json", true)
 			if preflight.Code != http.StatusOK {
 				t.Fatalf("preflight = %d %s", preflight.Code, preflight.Body.String())
 			}
 			configured := decodeResponse(t, preflight)
-			started := doRequest(handler, http.MethodPost, "/api/v3/capture/start", fmt.Sprintf(`{"revision":%q,"capture_revision":%q,"profile_id":"account","url":"https://login.example.test/","dashboard_url":"https://app.example.test/home","goal":"Open the dashboard","origins":["https://login.example.test","https://app.example.test"]}`, configured.Revision, configured.CaptureRevision), "application/json", true)
+			started := doRequest(handler, http.MethodPost, "/api/v4/capture/start", fmt.Sprintf(`{"revision":%q,"capture_revision":%q,"profile_id":"account","url":"https://login.example.test/","dashboard_url":"https://app.example.test/home","goal":"Open the dashboard","origins":["https://login.example.test","https://app.example.test"]}`, configured.Revision, configured.CaptureRevision), "application/json", true)
 			if started.Code != http.StatusAccepted {
 				t.Fatalf("capture start = %d %s", started.Code, started.Body.String())
 			}
@@ -987,7 +987,7 @@ func TestCaptureCancelWaitsForWorkerTeardown(t *testing.T) {
 				Candidates: []authorsession.Candidate{{ID: "candidate-0123456789abcdef", Role: "button", Label: "Open", Matches: 1}},
 			}}
 			observation := waitForCaptureState(t, handler, "exploration")
-			cancelResponse := doRequest(handler, http.MethodPost, "/api/v3/capture/cancel", fmt.Sprintf(`{"capture_revision":%q}`, observation.CaptureRevision), "application/json", true)
+			cancelResponse := doRequest(handler, http.MethodPost, "/api/v4/capture/cancel", fmt.Sprintf(`{"capture_revision":%q}`, observation.CaptureRevision), "application/json", true)
 			if cancelResponse.Code != http.StatusAccepted {
 				t.Fatalf("capture cancel = %d %s", cancelResponse.Code, cancelResponse.Body.String())
 			}
@@ -1000,7 +1000,7 @@ func TestCaptureCancelWaitsForWorkerTeardown(t *testing.T) {
 			default:
 				t.Fatal("capture cancellation was not propagated")
 			}
-			blocked := doRequest(handler, http.MethodPost, "/api/v3/browser/preflight", fmt.Sprintf(`{"revision":%q,"capture_revision":%q}`, canceling.Revision, canceling.CaptureRevision), "application/json", true)
+			blocked := doRequest(handler, http.MethodPost, "/api/v4/browser/preflight", fmt.Sprintf(`{"revision":%q,"capture_revision":%q}`, canceling.Revision, canceling.CaptureRevision), "application/json", true)
 			if blocked.Code != http.StatusConflict || !strings.Contains(blocked.Body.String(), "capture_active") {
 				t.Fatalf("preflight during teardown = %d %s", blocked.Code, blocked.Body.String())
 			}
@@ -1019,7 +1019,7 @@ func TestCaptureCancelWaitsForWorkerTeardown(t *testing.T) {
 			if test.teardownFailure && (!final.Capture.ContainmentFailed || !strings.Contains(final.Capture.Message, "containment deadline")) {
 				t.Fatalf("teardown failure state = %#v", final.Capture)
 			}
-			retry := doRequest(handler, http.MethodPost, "/api/v3/browser/preflight", fmt.Sprintf(`{"revision":%q,"capture_revision":%q}`, final.Revision, final.CaptureRevision), "application/json", true)
+			retry := doRequest(handler, http.MethodPost, "/api/v4/browser/preflight", fmt.Sprintf(`{"revision":%q,"capture_revision":%q}`, final.Revision, final.CaptureRevision), "application/json", true)
 			if test.teardownFailure {
 				if retry.Code != http.StatusConflict || !strings.Contains(retry.Body.String(), "capture_teardown_failed") {
 					t.Fatalf("preflight after failed teardown = %d %s", retry.Code, retry.Body.String())
@@ -1106,16 +1106,16 @@ func TestPackageFailureResumeReapprovalAndAllowlistedHandoff(t *testing.T) {
 		t.Fatal(err)
 	}
 	authoring := currentResponse(t, handler)
-	approved := doRequest(handler, http.MethodPost, "/api/v3/author/approve", fmt.Sprintf(`{"revision":%q,"human_approved":true}`, authoring.Revision), "application/json", true)
+	approved := doRequest(handler, http.MethodPost, "/api/v4/author/approve", fmt.Sprintf(`{"revision":%q,"human_approved":true}`, authoring.Revision), "application/json", true)
 	if approved.Code != http.StatusOK {
 		t.Fatalf("approval = %d %s", approved.Code, approved.Body.String())
 	}
 	authored := decodeResponse(t, approved)
-	unconfirmed := doRequest(handler, http.MethodPost, "/api/v3/package/build", fmt.Sprintf(`{"revision":%q,"confirmed":false}`, authored.Revision), "application/json", true)
+	unconfirmed := doRequest(handler, http.MethodPost, "/api/v4/package/build", fmt.Sprintf(`{"revision":%q,"confirmed":false}`, authored.Revision), "application/json", true)
 	if unconfirmed.Code != http.StatusUnprocessableEntity || builds != 0 {
 		t.Fatalf("unconfirmed build = %d builds=%d %s", unconfirmed.Code, builds, unconfirmed.Body.String())
 	}
-	failedBuild := doRequest(handler, http.MethodPost, "/api/v3/package/build", fmt.Sprintf(`{"revision":%q,"confirmed":true}`, authored.Revision), "application/json", true)
+	failedBuild := doRequest(handler, http.MethodPost, "/api/v4/package/build", fmt.Sprintf(`{"revision":%q,"confirmed":true}`, authored.Revision), "application/json", true)
 	if failedBuild.Code != http.StatusOK {
 		t.Fatalf("failed package response = %d %s", failedBuild.Code, failedBuild.Body.String())
 	}
@@ -1123,7 +1123,7 @@ func TestPackageFailureResumeReapprovalAndAllowlistedHandoff(t *testing.T) {
 	if failed.Lifecycle != lifecyclePackageFail || failed.Package == nil || len(failed.Package.Remediation) != 1 || !strings.Contains(failed.Package.Remediation[0], "review.complete") {
 		t.Fatalf("failed package state = %#v", failed)
 	}
-	resumedResponse := doRequest(handler, http.MethodPost, "/api/v3/author/resume", fmt.Sprintf(`{"revision":%q}`, failed.Revision), "application/json", true)
+	resumedResponse := doRequest(handler, http.MethodPost, "/api/v4/author/resume", fmt.Sprintf(`{"revision":%q}`, failed.Revision), "application/json", true)
 	if resumedResponse.Code != http.StatusOK {
 		t.Fatalf("resume = %d %s", resumedResponse.Code, resumedResponse.Body.String())
 	}
@@ -1132,12 +1132,12 @@ func TestPackageFailureResumeReapprovalAndAllowlistedHandoff(t *testing.T) {
 		t.Fatalf("resumed state = %#v", resumed)
 	}
 	qualityPass = true
-	reapprovedResponse := doRequest(handler, http.MethodPost, "/api/v3/author/approve", fmt.Sprintf(`{"revision":%q,"human_approved":true}`, resumed.Revision), "application/json", true)
+	reapprovedResponse := doRequest(handler, http.MethodPost, "/api/v4/author/approve", fmt.Sprintf(`{"revision":%q,"human_approved":true}`, resumed.Revision), "application/json", true)
 	if reapprovedResponse.Code != http.StatusOK {
 		t.Fatalf("reapproval = %d %s", reapprovedResponse.Code, reapprovedResponse.Body.String())
 	}
 	reapproved := decodeResponse(t, reapprovedResponse)
-	passingBuild := doRequest(handler, http.MethodPost, "/api/v3/package/build", fmt.Sprintf(`{"revision":%q,"confirmed":true}`, reapproved.Revision), "application/json", true)
+	passingBuild := doRequest(handler, http.MethodPost, "/api/v4/package/build", fmt.Sprintf(`{"revision":%q,"confirmed":true}`, reapproved.Revision), "application/json", true)
 	if passingBuild.Code != http.StatusOK {
 		t.Fatalf("passing package response = %d %s", passingBuild.Code, passingBuild.Body.String())
 	}
@@ -1145,11 +1145,11 @@ func TestPackageFailureResumeReapprovalAndAllowlistedHandoff(t *testing.T) {
 	if !handoff.Completed || handoff.Lifecycle != lifecycleHandoffReady || handoff.Package == nil || handoff.Package.Inspection == nil || len(handoff.Package.Artifacts) != 1 || builds != 2 || assessments != 2 || revalidations != 1 {
 		t.Fatalf("handoff state = %#v builds=%d assessments=%d revalidations=%d", handoff, builds, assessments, revalidations)
 	}
-	artifact := doRequest(handler, http.MethodGet, "/api/v3/artifact?name=project", "", "", true)
+	artifact := doRequest(handler, http.MethodGet, "/api/v4/artifact?name=project", "", "", true)
 	if artifact.Code != http.StatusOK || artifact.Body.String() != "# Reviewed project\n" {
 		t.Fatalf("allowlisted artifact = %d %q", artifact.Code, artifact.Body.String())
 	}
-	for _, path := range []string{"/api/v3/artifact?name=../project", "/api/v3/run", "/api/v3/approval"} {
+	for _, path := range []string{"/api/v4/artifact?name=../project", "/api/v4/run", "/api/v4/approval"} {
 		response := doRequest(handler, http.MethodGet, path, "", "", true)
 		if response.Code != http.StatusNotFound {
 			t.Fatalf("closed route %s = %d %s", path, response.Code, response.Body.String())
@@ -1162,7 +1162,7 @@ func TestPackageFailureResumeReapprovalAndAllowlistedHandoff(t *testing.T) {
 	if changed.Lifecycle != lifecyclePackageFail || changed.Completed || changed.Package == nil || len(changed.Package.Remediation) != 1 {
 		t.Fatalf("changed handoff was not invalidated: %#v", changed)
 	}
-	staleArtifact := doRequest(handler, http.MethodGet, "/api/v3/artifact?name=project", "", "", true)
+	staleArtifact := doRequest(handler, http.MethodGet, "/api/v4/artifact?name=project", "", "", true)
 	if staleArtifact.Code != http.StatusConflict {
 		t.Fatalf("changed handoff artifact = %d %s", staleArtifact.Code, staleArtifact.Body.String())
 	}
@@ -1181,7 +1181,7 @@ func TestWriteConflictsAreExposedAndRevisionBound(t *testing.T) {
 	if conflicted.Revision == clear.Revision {
 		t.Fatalf("write conflict did not affect revision: %s", conflicted.Revision)
 	}
-	conditionalRequest := httptest.NewRequest(http.MethodGet, "http://"+testAuthority+"/api/v3/snapshot", nil)
+	conditionalRequest := httptest.NewRequest(http.MethodGet, "http://"+testAuthority+"/api/v4/snapshot", nil)
 	conditionalRequest.Host = testAuthority
 	conditionalRequest.Header.Set("Authorization", "Bearer "+testToken)
 	conditionalRequest.Header.Set("If-None-Match", conflicted.ETag)
@@ -1211,7 +1211,7 @@ func TestStrictJSONAndRequestLimit(t *testing.T) {
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			response := doRequest(handler, http.MethodPost, "/api/v3/round", test.body, test.contentType, true)
+			response := doRequest(handler, http.MethodPost, "/api/v4/round", test.body, test.contentType, true)
 			if response.Code != test.status || !strings.Contains(response.Body.String(), `"code":"`+test.code+`"`) || strings.Contains(response.Body.String(), testToken) {
 				t.Fatalf("response = %d %s", response.Code, response.Body.String())
 			}
@@ -1226,7 +1226,7 @@ func TestStrictJSONAndRequestLimit(t *testing.T) {
 		"invalid utf8":        append([]byte(`{"revision":"sha256:no","answers":[{"question_id":"goal","value":"`), 0xff, '"', '}', ']', '}'),
 	} {
 		t.Run(name, func(t *testing.T) {
-			request := httptest.NewRequest(http.MethodPost, "http://"+testAuthority+"/api/v3/round", bytes.NewReader(body))
+			request := httptest.NewRequest(http.MethodPost, "http://"+testAuthority+"/api/v4/round", bytes.NewReader(body))
 			request.Host = testAuthority
 			request.Header.Set("Authorization", "Bearer "+testToken)
 			request.Header.Set("Content-Type", "application/json")
@@ -1237,11 +1237,11 @@ func TestStrictJSONAndRequestLimit(t *testing.T) {
 			}
 		})
 	}
-	unsupportedCharset := doRequest(handler, http.MethodPost, "/api/v3/round", `{}`, "application/json; charset=iso-8859-1", true)
+	unsupportedCharset := doRequest(handler, http.MethodPost, "/api/v4/round", `{}`, "application/json; charset=iso-8859-1", true)
 	if unsupportedCharset.Code != http.StatusUnsupportedMediaType {
 		t.Fatalf("unsupported charset = %d %s", unsupportedCharset.Code, unsupportedCharset.Body.String())
 	}
-	chunked := httptest.NewRequest(http.MethodPost, "http://"+testAuthority+"/api/v3/round", strings.NewReader(strings.Repeat("x", MaxRequestBytes+1)))
+	chunked := httptest.NewRequest(http.MethodPost, "http://"+testAuthority+"/api/v4/round", strings.NewReader(strings.Repeat("x", MaxRequestBytes+1)))
 	chunked.Host = testAuthority
 	chunked.ContentLength = -1
 	chunked.TransferEncoding = []string{"chunked"}
@@ -1260,7 +1260,7 @@ func TestSourceUploadMultipartIsStrictAndBounded(t *testing.T) {
 	initial := currentResponse(t, handler)
 
 	body, contentType := multipartUpload(t, initial.Revision, "source", "member.json", []byte(uploadedOpenAPIForUI))
-	request := httptest.NewRequest(http.MethodPost, "http://"+testAuthority+"/api/v3/source/upload", bytes.NewReader(body))
+	request := httptest.NewRequest(http.MethodPost, "http://"+testAuthority+"/api/v4/source/upload", bytes.NewReader(body))
 	request.Host = testAuthority
 	request.Header.Set("Authorization", "Bearer "+testToken)
 	request.Header.Set("Content-Type", contentType)
@@ -1277,7 +1277,7 @@ func TestSourceUploadMultipartIsStrictAndBounded(t *testing.T) {
 
 	current := decodeResponse(t, response)
 	body, contentType = multipartUpload(t, current.Revision, "unexpected", "member.json", []byte("{}"))
-	request = httptest.NewRequest(http.MethodPost, "http://"+testAuthority+"/api/v3/source/upload", bytes.NewReader(body))
+	request = httptest.NewRequest(http.MethodPost, "http://"+testAuthority+"/api/v4/source/upload", bytes.NewReader(body))
 	request.Host = testAuthority
 	request.Header.Set("Authorization", "Bearer "+testToken)
 	request.Header.Set("Content-Type", contentType)
@@ -1288,7 +1288,7 @@ func TestSourceUploadMultipartIsStrictAndBounded(t *testing.T) {
 	}
 
 	body, contentType = multipartUpload(t, current.Revision, "source", "large.json", bytes.Repeat([]byte("x"), int(engine.MaxUploadBytes)+1))
-	request = httptest.NewRequest(http.MethodPost, "http://"+testAuthority+"/api/v3/source/upload", bytes.NewReader(body))
+	request = httptest.NewRequest(http.MethodPost, "http://"+testAuthority+"/api/v4/source/upload", bytes.NewReader(body))
 	request.Host = testAuthority
 	request.Header.Set("Authorization", "Bearer "+testToken)
 	request.Header.Set("Content-Type", contentType)
@@ -1324,7 +1324,7 @@ func multipartUpload(t *testing.T, revision, sourceField, filename string, data 
 func TestErrorEnvelopeIncludesRequestIDRetryAndRevision(t *testing.T) {
 	handler := newFakeHandler(t, &fakeEngine{})
 	current := currentResponse(t, handler)
-	response := doRequest(handler, http.MethodPost, "/api/v3/round", `{"revision":"sha256:stale","answers":[]}`, "application/json", true)
+	response := doRequest(handler, http.MethodPost, "/api/v4/round", `{"revision":"sha256:stale","answers":[]}`, "application/json", true)
 	var envelope errorEnvelope
 	if err := json.Unmarshal(response.Body.Bytes(), &envelope); err != nil {
 		t.Fatal(err)
@@ -1347,12 +1347,12 @@ func TestServerLogsOnlySanitizedInternalFailures(t *testing.T) {
 		t.Fatal(err)
 	}
 	before := currentResponse(t, handler)
-	response := doRequest(handler, http.MethodPost, "/api/v3/author/approve", fmt.Sprintf(`{"revision":%q,"human_approved":true}`, before.Revision), "application/json", true)
+	response := doRequest(handler, http.MethodPost, "/api/v4/author/approve", fmt.Sprintf(`{"revision":%q,"human_approved":true}`, before.Revision), "application/json", true)
 	if response.Code != http.StatusInternalServerError {
 		t.Fatalf("internal response = %d %s", response.Code, response.Body.String())
 	}
 	line := logs.String()
-	for _, expected := range []string{"request_id=", "route=/api/v3/author/approve", "stage=approve", "cause=redacted operational failure"} {
+	for _, expected := range []string{"request_id=", "route=/api/v4/author/approve", "stage=approve", "cause=redacted operational failure"} {
 		if !strings.Contains(line, expected) {
 			t.Fatalf("safe log missing %q: %q", expected, line)
 		}
@@ -1362,7 +1362,7 @@ func TestServerLogsOnlySanitizedInternalFailures(t *testing.T) {
 	}
 	beforeLength := logs.Len()
 	fake.writeErr = engineRejected(errors.New("review rejected"))
-	response = doRequest(handler, http.MethodPost, "/api/v3/author/approve", fmt.Sprintf(`{"revision":%q,"human_approved":true}`, before.Revision), "application/json", true)
+	response = doRequest(handler, http.MethodPost, "/api/v4/author/approve", fmt.Sprintf(`{"revision":%q,"human_approved":true}`, before.Revision), "application/json", true)
 	if response.Code != http.StatusUnprocessableEntity || logs.Len() != beforeLength {
 		t.Fatalf("domain rejection was logged: status=%d logs=%q", response.Code, logs.String())
 	}
@@ -1410,7 +1410,7 @@ func TestRealLoopbackListenerBootstrapBearerApprovalAndFreeze(t *testing.T) {
 	if bootstrap.StatusCode != http.StatusOK || bootstrap.Request.URL.Path != instanceBasePath(token) {
 		t.Fatalf("bootstrap final response = %d %s", bootstrap.StatusCode, bootstrap.Request.URL)
 	}
-	request, _ := http.NewRequest(http.MethodGet, baseURL+"/api/v3/snapshot", nil)
+	request, _ := http.NewRequest(http.MethodGet, baseURL+"/api/v4/snapshot", nil)
 	request.Header.Set("Authorization", "Bearer "+token)
 	response, err := client.Do(request)
 	if err != nil {
@@ -1422,7 +1422,7 @@ func TestRealLoopbackListenerBootstrapBearerApprovalAndFreeze(t *testing.T) {
 	}
 	_ = response.Body.Close()
 	approvalBody := fmt.Sprintf(`{"revision":%q,"human_approved":true}`, current.Revision)
-	request, _ = http.NewRequest(http.MethodPost, baseURL+"/api/v3/author/approve", strings.NewReader(approvalBody))
+	request, _ = http.NewRequest(http.MethodPost, baseURL+"/api/v4/author/approve", strings.NewReader(approvalBody))
 	request.Header.Set("Authorization", "Bearer "+token)
 	request.Header.Set("Content-Type", "application/json")
 	response, err = client.Do(request)
@@ -1437,7 +1437,7 @@ func TestRealLoopbackListenerBootstrapBearerApprovalAndFreeze(t *testing.T) {
 	if response.StatusCode != http.StatusOK || approved.Completed || approved.Lifecycle != lifecycleAuthored || approved.WriteResult == nil {
 		t.Fatalf("approval response = %d %#v", response.StatusCode, approved)
 	}
-	request, _ = http.NewRequest(http.MethodPost, baseURL+"/api/v3/author/approve", strings.NewReader(fmt.Sprintf(`{"revision":%q,"human_approved":true}`, approved.Revision)))
+	request, _ = http.NewRequest(http.MethodPost, baseURL+"/api/v4/author/approve", strings.NewReader(fmt.Sprintf(`{"revision":%q,"human_approved":true}`, approved.Revision)))
 	request.Header.Set("Authorization", "Bearer "+token)
 	request.Header.Set("Content-Type", "application/json")
 	response, err = client.Do(request)
@@ -1472,7 +1472,7 @@ func TestRealLoopbackListenerRound(t *testing.T) {
 	}()
 	client := &http.Client{Timeout: 5 * time.Second}
 	baseURL := "http://" + authority
-	request, _ := http.NewRequest(http.MethodGet, baseURL+"/api/v3/snapshot", nil)
+	request, _ := http.NewRequest(http.MethodGet, baseURL+"/api/v4/snapshot", nil)
 	request.Header.Set("Authorization", "Bearer "+testToken)
 	response, err := client.Do(request)
 	if err != nil {
@@ -1484,7 +1484,7 @@ func TestRealLoopbackListenerRound(t *testing.T) {
 	}
 	_ = response.Body.Close()
 	body := fmt.Sprintf(`{"revision":%q,"answers":[{"question_id":"outcome","value":"after"}]}`, current.Revision)
-	request, _ = http.NewRequest(http.MethodPost, baseURL+"/api/v3/round", strings.NewReader(body))
+	request, _ = http.NewRequest(http.MethodPost, baseURL+"/api/v4/round", strings.NewReader(body))
 	request.Header.Set("Authorization", "Bearer "+testToken)
 	request.Header.Set("Content-Type", "application/json")
 	response, err = client.Do(request)
@@ -1527,7 +1527,7 @@ func TestRealListenerRejectsSlowBody(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer connection.Close()
-	if _, err := fmt.Fprintf(connection, "POST /api/v3/round HTTP/1.1\r\nHost: %s\r\nAuthorization: Bearer %s\r\nContent-Type: application/json\r\nContent-Length: 100\r\nConnection: close\r\n\r\n{", authority, testToken); err != nil {
+	if _, err := fmt.Fprintf(connection, "POST /api/v4/round HTTP/1.1\r\nHost: %s\r\nAuthorization: Bearer %s\r\nContent-Type: application/json\r\nContent-Length: 100\r\nConnection: close\r\n\r\n{", authority, testToken); err != nil {
 		t.Fatal(err)
 	}
 	response, err := http.ReadResponse(bufio.NewReader(connection), nil)
@@ -1580,11 +1580,11 @@ func TestRevisionRoundApprovalAndFrozenInspection(t *testing.T) {
 	handler := newFakeHandler(t, fake)
 	initial := currentResponse(t, handler)
 
-	malformed := doRequest(handler, http.MethodPost, "/api/v3/round", `{"revision":"`+initial.Revision+`","answers":[{"question_id":"","value":"x"}]}`, "application/json", true)
+	malformed := doRequest(handler, http.MethodPost, "/api/v4/round", `{"revision":"`+initial.Revision+`","answers":[{"question_id":"","value":"x"}]}`, "application/json", true)
 	if malformed.Code != http.StatusBadRequest {
 		t.Fatalf("malformed status = %d", malformed.Code)
 	}
-	stale := doRequest(handler, http.MethodPost, "/api/v3/round", `{"revision":"sha256:stale","answers":[{"question_id":"goal","value":"new"}]}`, "application/json", true)
+	stale := doRequest(handler, http.MethodPost, "/api/v4/round", `{"revision":"sha256:stale","answers":[{"question_id":"goal","value":"new"}]}`, "application/json", true)
 	if stale.Code != http.StatusConflict {
 		t.Fatalf("stale status = %d body %s", stale.Code, stale.Body.String())
 	}
@@ -1592,7 +1592,7 @@ func TestRevisionRoundApprovalAndFrozenInspection(t *testing.T) {
 		t.Fatalf("stale request called engine %d times", rounds)
 	}
 
-	round := doRequest(handler, http.MethodPost, "/api/v3/round", `{"revision":"`+initial.Revision+`","answers":[{"question_id":"goal","value":"new outcome"}]}`, "application/json; charset=utf-8", true)
+	round := doRequest(handler, http.MethodPost, "/api/v4/round", `{"revision":"`+initial.Revision+`","answers":[{"question_id":"goal","value":"new outcome"}]}`, "application/json; charset=utf-8", true)
 	if round.Code != http.StatusOK {
 		t.Fatalf("round status = %d body %s", round.Code, round.Body.String())
 	}
@@ -1605,7 +1605,7 @@ func TestRevisionRoundApprovalAndFrozenInspection(t *testing.T) {
 		t.Fatalf("engine answers = %#v", fake.seen)
 	}
 	fake.mu.Unlock()
-	declined := doRequest(handler, http.MethodPost, "/api/v3/author/approve", fmt.Sprintf(`{"revision":%q,"human_approved":false}`, afterRound.Revision), "application/json", true)
+	declined := doRequest(handler, http.MethodPost, "/api/v4/author/approve", fmt.Sprintf(`{"revision":%q,"human_approved":false}`, afterRound.Revision), "application/json", true)
 	if declined.Code != http.StatusUnprocessableEntity || !strings.Contains(declined.Body.String(), "explicit human approval") {
 		t.Fatalf("declined approval = %d %s", declined.Code, declined.Body.String())
 	}
@@ -1613,7 +1613,7 @@ func TestRevisionRoundApprovalAndFrozenInspection(t *testing.T) {
 		t.Fatalf("declined approval changed state: %#v", current)
 	}
 
-	approve := doRequest(handler, http.MethodPost, "/api/v3/author/approve", fmt.Sprintf(`{"revision":%q,"human_approved":true,"allow_overwrite":true,"approve_incomplete":true}`, afterRound.Revision), "application/json", true)
+	approve := doRequest(handler, http.MethodPost, "/api/v4/author/approve", fmt.Sprintf(`{"revision":%q,"human_approved":true,"allow_overwrite":true,"approve_incomplete":true}`, afterRound.Revision), "application/json", true)
 	if approve.Code != http.StatusOK {
 		t.Fatalf("approve status = %d body %s", approve.Code, approve.Body.String())
 	}
@@ -1627,11 +1627,11 @@ func TestRevisionRoundApprovalAndFrozenInspection(t *testing.T) {
 	}
 	fake.mu.Unlock()
 
-	frozen := doRequest(handler, http.MethodPost, "/api/v3/author/approve", fmt.Sprintf(`{"revision":%q,"human_approved":true}`, approved.Revision), "application/json", true)
+	frozen := doRequest(handler, http.MethodPost, "/api/v4/author/approve", fmt.Sprintf(`{"revision":%q,"human_approved":true}`, approved.Revision), "application/json", true)
 	if frozen.Code != http.StatusConflict || !strings.Contains(frozen.Body.String(), "session_frozen") {
 		t.Fatalf("frozen response = %d %s", frozen.Code, frozen.Body.String())
 	}
-	frozenWithStaleRevision := doRequest(handler, http.MethodPost, "/api/v3/round", `{"revision":"sha256:stale","answers":[]}`, "application/json", true)
+	frozenWithStaleRevision := doRequest(handler, http.MethodPost, "/api/v4/round", `{"revision":"sha256:stale","answers":[]}`, "application/json", true)
 	if frozenWithStaleRevision.Code != http.StatusConflict || !strings.Contains(frozenWithStaleRevision.Body.String(), "session_frozen") || strings.Contains(frozenWithStaleRevision.Body.String(), "stale_revision") {
 		t.Fatalf("frozen stale response = %d %s", frozenWithStaleRevision.Code, frozenWithStaleRevision.Body.String())
 	}
@@ -1652,15 +1652,15 @@ func TestReopenRequiresExactMutableRevision(t *testing.T) {
 	handler := newFakeHandler(t, fake)
 	initial := currentResponse(t, handler)
 
-	missing := doRequest(handler, http.MethodPost, "/api/v3/reopen", fmt.Sprintf(`{"revision":%q}`, initial.Revision), "application/json", true)
+	missing := doRequest(handler, http.MethodPost, "/api/v4/reopen", fmt.Sprintf(`{"revision":%q}`, initial.Revision), "application/json", true)
 	if missing.Code != http.StatusBadRequest || !strings.Contains(missing.Body.String(), "question_id is required") {
 		t.Fatalf("missing question = %d %s", missing.Code, missing.Body.String())
 	}
-	unknown := doRequest(handler, http.MethodPost, "/api/v3/reopen", fmt.Sprintf(`{"revision":%q,"question_id":"boundary.actor_trigger","extra":true}`, initial.Revision), "application/json", true)
+	unknown := doRequest(handler, http.MethodPost, "/api/v4/reopen", fmt.Sprintf(`{"revision":%q,"question_id":"boundary.actor_trigger","extra":true}`, initial.Revision), "application/json", true)
 	if unknown.Code != http.StatusBadRequest {
 		t.Fatalf("unknown reopen field = %d %s", unknown.Code, unknown.Body.String())
 	}
-	stale := doRequest(handler, http.MethodPost, "/api/v3/reopen", `{"revision":"sha256:stale","question_id":"boundary.actor_trigger"}`, "application/json", true)
+	stale := doRequest(handler, http.MethodPost, "/api/v4/reopen", `{"revision":"sha256:stale","question_id":"boundary.actor_trigger"}`, "application/json", true)
 	if stale.Code != http.StatusConflict || !strings.Contains(stale.Body.String(), "stale_revision") {
 		t.Fatalf("stale reopen = %d %s", stale.Code, stale.Body.String())
 	}
@@ -1668,7 +1668,7 @@ func TestReopenRequiresExactMutableRevision(t *testing.T) {
 		t.Fatalf("invalid requests called reopen %d times", count)
 	}
 
-	reopened := doRequest(handler, http.MethodPost, "/api/v3/reopen", fmt.Sprintf(`{"revision":%q,"question_id":"boundary.actor_trigger"}`, initial.Revision), "application/json", true)
+	reopened := doRequest(handler, http.MethodPost, "/api/v4/reopen", fmt.Sprintf(`{"revision":%q,"question_id":"boundary.actor_trigger"}`, initial.Revision), "application/json", true)
 	if reopened.Code != http.StatusOK {
 		t.Fatalf("reopen = %d %s", reopened.Code, reopened.Body.String())
 	}
@@ -1680,12 +1680,12 @@ func TestReopenRequiresExactMutableRevision(t *testing.T) {
 		t.Fatalf("reopen record = %d %q", count, questionID)
 	}
 
-	approved := doRequest(handler, http.MethodPost, "/api/v3/author/approve", fmt.Sprintf(`{"revision":%q,"human_approved":true}`, afterReopen.Revision), "application/json", true)
+	approved := doRequest(handler, http.MethodPost, "/api/v4/author/approve", fmt.Sprintf(`{"revision":%q,"human_approved":true}`, afterReopen.Revision), "application/json", true)
 	if approved.Code != http.StatusOK {
 		t.Fatalf("approval = %d %s", approved.Code, approved.Body.String())
 	}
 	frozenState := decodeResponse(t, approved)
-	frozen := doRequest(handler, http.MethodPost, "/api/v3/reopen", fmt.Sprintf(`{"revision":%q,"question_id":"boundary.actor_trigger"}`, frozenState.Revision), "application/json", true)
+	frozen := doRequest(handler, http.MethodPost, "/api/v4/reopen", fmt.Sprintf(`{"revision":%q,"question_id":"boundary.actor_trigger"}`, frozenState.Revision), "application/json", true)
 	if frozen.Code != http.StatusConflict || !strings.Contains(frozen.Body.String(), "session_frozen") {
 		t.Fatalf("frozen reopen = %d %s", frozen.Code, frozen.Body.String())
 	}
@@ -1693,7 +1693,7 @@ func TestReopenRequiresExactMutableRevision(t *testing.T) {
 	driftFake := &fakeEngine{snapshot: fake.snapshot, workspace: engine.WorkspaceStatus{ExternallyModified: true}}
 	driftHandler := newFakeHandler(t, driftFake)
 	driftState := currentResponse(t, driftHandler)
-	drifted := doRequest(driftHandler, http.MethodPost, "/api/v3/reopen", fmt.Sprintf(`{"revision":%q,"question_id":"boundary.actor_trigger"}`, driftState.Revision), "application/json", true)
+	drifted := doRequest(driftHandler, http.MethodPost, "/api/v4/reopen", fmt.Sprintf(`{"revision":%q,"question_id":"boundary.actor_trigger"}`, driftState.Revision), "application/json", true)
 	if drifted.Code != http.StatusConflict || !strings.Contains(drifted.Body.String(), "workspace_changed") {
 		t.Fatalf("drifted reopen = %d %s", drifted.Code, drifted.Body.String())
 	}
@@ -1703,7 +1703,7 @@ func TestRejectedReopenIdentifiesDecision(t *testing.T) {
 	fake := &fakeEngine{reopenErr: engineRejected(authoring.WithQuestionID("boundary.actor_trigger", errors.New("decision is no longer settled")))}
 	handler := newFakeHandler(t, fake)
 	before := currentResponse(t, handler)
-	response := doRequest(handler, http.MethodPost, "/api/v3/reopen", fmt.Sprintf(`{"revision":%q,"question_id":"boundary.actor_trigger"}`, before.Revision), "application/json", true)
+	response := doRequest(handler, http.MethodPost, "/api/v4/reopen", fmt.Sprintf(`{"revision":%q,"question_id":"boundary.actor_trigger"}`, before.Revision), "application/json", true)
 	if response.Code != http.StatusUnprocessableEntity {
 		t.Fatalf("reopen rejection = %d %s", response.Code, response.Body.String())
 	}
@@ -1725,7 +1725,7 @@ func TestIncompleteWriteAlsoFreezesSession(t *testing.T) {
 	fake := &fakeEngine{result: &result}
 	handler := newFakeHandler(t, fake)
 	before := currentResponse(t, handler)
-	response := doRequest(handler, http.MethodPost, "/api/v3/author/approve", fmt.Sprintf(`{"revision":%q,"human_approved":true,"approve_incomplete":true}`, before.Revision), "application/json", true)
+	response := doRequest(handler, http.MethodPost, "/api/v4/author/approve", fmt.Sprintf(`{"revision":%q,"human_approved":true,"approve_incomplete":true}`, before.Revision), "application/json", true)
 	if response.Code != http.StatusOK {
 		t.Fatalf("incomplete approval = %d %s", response.Code, response.Body.String())
 	}
@@ -1733,7 +1733,7 @@ func TestIncompleteWriteAlsoFreezesSession(t *testing.T) {
 	if after.Completed || after.Lifecycle != lifecycleAuthored || after.WriteResult == nil || !after.WriteResult.Incomplete {
 		t.Fatalf("incomplete response = %#v", after)
 	}
-	frozen := doRequest(handler, http.MethodPost, "/api/v3/round", fmt.Sprintf(`{"revision":%q,"answers":[]}`, after.Revision), "application/json", true)
+	frozen := doRequest(handler, http.MethodPost, "/api/v4/round", fmt.Sprintf(`{"revision":%q,"answers":[]}`, after.Revision), "application/json", true)
 	if frozen.Code != http.StatusConflict || !strings.Contains(frozen.Body.String(), "session_frozen") {
 		t.Fatalf("frozen response = %d %s", frozen.Code, frozen.Body.String())
 	}
@@ -1751,7 +1751,7 @@ func TestEngineRejectionsPreserveRevisionAndState(t *testing.T) {
 			fake := &fakeEngine{snapshot: engine.Snapshot{Ready: true}, writeErr: engineRejected(errors.New(test.failure))}
 			handler := newFakeHandler(t, fake)
 			before := currentResponse(t, handler)
-			response := doRequest(handler, http.MethodPost, "/api/v3/author/approve", fmt.Sprintf(`{"revision":%q,"human_approved":true}`, before.Revision), "application/json", true)
+			response := doRequest(handler, http.MethodPost, "/api/v4/author/approve", fmt.Sprintf(`{"revision":%q,"human_approved":true}`, before.Revision), "application/json", true)
 			if response.Code != http.StatusUnprocessableEntity || !strings.Contains(response.Body.String(), test.failure) {
 				t.Fatalf("rejection response = %d %s", response.Code, response.Body.String())
 			}
@@ -1771,7 +1771,7 @@ func TestCanceledRoundLeavesCachedRevisionAvailable(t *testing.T) {
 	handler := newFakeHandler(t, fake)
 	before := currentResponse(t, handler)
 	body := fmt.Sprintf(`{"revision":%q,"answers":[{"question_id":"goal","value":"autosaved after cancellation"}]}`, before.Revision)
-	request := httptest.NewRequest(http.MethodPost, "http://"+testAuthority+"/api/v3/round", strings.NewReader(body))
+	request := httptest.NewRequest(http.MethodPost, "http://"+testAuthority+"/api/v4/round", strings.NewReader(body))
 	request.Host = testAuthority
 	request.Header.Set("Authorization", "Bearer "+testToken)
 	request.Header.Set("Content-Type", "application/json")
@@ -1788,7 +1788,7 @@ func TestCanceledRoundLeavesCachedRevisionAvailable(t *testing.T) {
 	if after.Revision != before.Revision || after.Snapshot.Boundary.Outcome != "before" {
 		t.Fatalf("transactional rejection changed cached state: before %#v after %#v", before, after)
 	}
-	staleApproval := doRequest(handler, http.MethodPost, "/api/v3/author/approve", fmt.Sprintf(`{"revision":%q,"human_approved":true}`, before.Revision), "application/json", true)
+	staleApproval := doRequest(handler, http.MethodPost, "/api/v4/author/approve", fmt.Sprintf(`{"revision":%q,"human_approved":true}`, before.Revision), "application/json", true)
 	if staleApproval.Code != http.StatusOK {
 		t.Fatalf("approval after rejected round = %d %s", staleApproval.Code, staleApproval.Body.String())
 	}
@@ -1801,7 +1801,7 @@ func TestFailedWorkspaceInspectionCanRecover(t *testing.T) {
 	handler := newFakeHandler(t, fake)
 	before := currentResponse(t, handler)
 	fake.snapshotErr = errors.New("workspace inspection unavailable")
-	inspection := doRequest(handler, http.MethodGet, "/api/v3/snapshot", "", "", true)
+	inspection := doRequest(handler, http.MethodGet, "/api/v4/snapshot", "", "", true)
 	if inspection.Code != http.StatusInternalServerError {
 		t.Fatalf("failed inspection response = %d %s", inspection.Code, inspection.Body.String())
 	}
@@ -1821,19 +1821,19 @@ func TestOperationalEngineFailuresReturnServerErrors(t *testing.T) {
 		body     func(string) string
 	}{
 		{
-			name: "round autosave", fake: &fakeEngine{roundErr: operationFailure}, endpoint: "/api/v3/round",
+			name: "round autosave", fake: &fakeEngine{roundErr: operationFailure}, endpoint: "/api/v4/round",
 			body: func(revision string) string {
 				return fmt.Sprintf(`{"revision":%q,"answers":[{"question_id":"goal","value":"new"}]}`, revision)
 			},
 		},
 		{
-			name: "approval write", fake: &fakeEngine{snapshot: engine.Snapshot{Ready: true}, writeErr: operationFailure}, endpoint: "/api/v3/author/approve",
+			name: "approval write", fake: &fakeEngine{snapshot: engine.Snapshot{Ready: true}, writeErr: operationFailure}, endpoint: "/api/v4/author/approve",
 			body: func(revision string) string {
 				return fmt.Sprintf(`{"revision":%q,"human_approved":true}`, revision)
 			},
 		},
 		{
-			name: "reopen autosave", fake: &fakeEngine{reopenErr: operationFailure}, endpoint: "/api/v3/reopen",
+			name: "reopen autosave", fake: &fakeEngine{reopenErr: operationFailure}, endpoint: "/api/v4/reopen",
 			body: func(revision string) string {
 				return fmt.Sprintf(`{"revision":%q,"question_id":"boundary.actor_trigger"}`, revision)
 			},
@@ -1861,7 +1861,7 @@ func TestRejectedRoundIdentifiesAuthoritativeQuestion(t *testing.T) {
 	fake := &fakeEngine{roundErr: engineRejected(authoring.WithQuestionID("boundary.actor_trigger", errors.New("actor and trigger are invalid")))}
 	handler := newFakeHandler(t, fake)
 	before := currentResponse(t, handler)
-	response := doRequest(handler, http.MethodPost, "/api/v3/round", fmt.Sprintf(`{"revision":%q,"answers":[{"question_id":"boundary.actor_trigger","value":"invalid"}]}`, before.Revision), "application/json", true)
+	response := doRequest(handler, http.MethodPost, "/api/v4/round", fmt.Sprintf(`{"revision":%q,"answers":[{"question_id":"boundary.actor_trigger","value":"invalid"}]}`, before.Revision), "application/json", true)
 	if response.Code != http.StatusUnprocessableEntity {
 		t.Fatalf("rejection status = %d body %s", response.Code, response.Body.String())
 	}
@@ -1879,7 +1879,7 @@ func TestStructuredDeferralIsBoundToTheQuestionAnswer(t *testing.T) {
 	handler := newFakeHandler(t, fake)
 	before := currentResponse(t, handler)
 	body := fmt.Sprintf(`{"revision":%q,"answers":[{"question_id":"workflow.fallback","deferral":{"owner":"API owner","impact":"draft remains incomplete","unblock_condition":"provider publishes a spec","suggested_next_action":"add the reviewed source"}}]}`, before.Revision)
-	response := doRequest(handler, http.MethodPost, "/api/v3/round", body, "application/json", true)
+	response := doRequest(handler, http.MethodPost, "/api/v4/round", body, "application/json", true)
 	if response.Code != http.StatusOK {
 		t.Fatalf("structured deferral = %d %s", response.Code, response.Body.String())
 	}
@@ -1895,7 +1895,7 @@ func TestMalformedStructuredDeferralIsQuestionAddressable(t *testing.T) {
 	handler := newFakeHandler(t, fake)
 	before := currentResponse(t, handler)
 	body := fmt.Sprintf(`{"revision":%q,"answers":[{"question_id":"workflow.fallback","value":"also answer","deferral":{"owner":"API owner","impact":"blocked","unblock_condition":"spec exists","suggested_next_action":"retry"}}]}`, before.Revision)
-	response := doRequest(handler, http.MethodPost, "/api/v3/round", body, "application/json", true)
+	response := doRequest(handler, http.MethodPost, "/api/v4/round", body, "application/json", true)
 	if response.Code != http.StatusBadRequest {
 		t.Fatalf("malformed deferral = %d %s", response.Code, response.Body.String())
 	}
@@ -1933,14 +1933,14 @@ func TestRealEngineCommitFailureReturnsServerErrorWithoutWrite(t *testing.T) {
 	if err := os.WriteFile(filepath.Join(example, "workflows"), []byte("blocks directory creation\n"), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	response := doRequest(handler, http.MethodPost, "/api/v3/author/approve", fmt.Sprintf(`{"revision":%q,"human_approved":true}`, before.Revision), "application/json", true)
+	response := doRequest(handler, http.MethodPost, "/api/v4/author/approve", fmt.Sprintf(`{"revision":%q,"human_approved":true}`, before.Revision), "application/json", true)
 	if response.Code != http.StatusInternalServerError || !strings.Contains(response.Body.String(), `"code":"internal_error"`) {
 		t.Fatalf("commit failure response = %d %s", response.Code, response.Body.String())
 	}
 	if _, err := os.Stat(filepath.Join(example, "project.md")); !os.IsNotExist(err) {
 		t.Fatalf("project.md exists after failed transaction: %v", err)
 	}
-	after := doRequest(handler, http.MethodGet, "/api/v3/snapshot", "", "", true)
+	after := doRequest(handler, http.MethodGet, "/api/v4/snapshot", "", "", true)
 	if after.Code != http.StatusInternalServerError {
 		t.Fatalf("unsafe workspace inspection = %d %s", after.Code, after.Body.String())
 	}
@@ -1994,7 +1994,7 @@ func TestRealEngineBrowserRefreshFailuresPreserveHTTPRevision(t *testing.T) {
 		before := currentResponse(t, handler)
 		report["checkedAt"] = now.Format(time.RFC3339Nano)
 		writeTestJSON(t, reportPath, report)
-		response := doRequest(handler, http.MethodPost, "/api/v3/author/approve", fmt.Sprintf(`{"revision":%q,"human_approved":true}`, before.Revision), "application/json", true)
+		response := doRequest(handler, http.MethodPost, "/api/v4/author/approve", fmt.Sprintf(`{"revision":%q,"human_approved":true}`, before.Revision), "application/json", true)
 		if response.Code != http.StatusUnprocessableEntity || !strings.Contains(response.Body.String(), "changed after review") {
 			t.Fatalf("response = %d %s", response.Code, response.Body.String())
 		}
@@ -2026,7 +2026,7 @@ func TestRealEngineBrowserRefreshFailuresPreserveHTTPRevision(t *testing.T) {
 		if err := os.Rename(registryRoot, registryRoot+".unavailable"); err != nil {
 			t.Fatal(err)
 		}
-		response := doRequest(handler, http.MethodPost, "/api/v3/author/approve", fmt.Sprintf(`{"revision":%q,"human_approved":true}`, before.Revision), "application/json", true)
+		response := doRequest(handler, http.MethodPost, "/api/v4/author/approve", fmt.Sprintf(`{"revision":%q,"human_approved":true}`, before.Revision), "application/json", true)
 		if response.Code != http.StatusUnprocessableEntity || !strings.Contains(response.Body.String(), "freshly revalidated") {
 			t.Fatalf("response = %d %s", response.Code, response.Body.String())
 		}
@@ -2047,7 +2047,7 @@ func TestConcurrentSameRevisionMutationHasOneWinner(t *testing.T) {
 		go func() {
 			defer workers.Done()
 			<-start
-			statuses <- doRequest(handler, http.MethodPost, "/api/v3/round", body, "application/json", true).Code
+			statuses <- doRequest(handler, http.MethodPost, "/api/v4/round", body, "application/json", true).Code
 		}()
 	}
 	close(start)
@@ -2079,7 +2079,7 @@ func TestHTTPAndDirectEngineArtifactParity(t *testing.T) {
 		t.Fatal(err)
 	}
 	revision := currentResponse(t, handler).Revision
-	response := doRequest(handler, http.MethodPost, "/api/v3/author/approve", fmt.Sprintf(`{"revision":%q,"human_approved":true}`, revision), "application/json", true)
+	response := doRequest(handler, http.MethodPost, "/api/v4/author/approve", fmt.Sprintf(`{"revision":%q,"human_approved":true}`, revision), "application/json", true)
 	if response.Code != http.StatusOK {
 		t.Fatalf("HTTP approval = %d %s", response.Code, response.Body.String())
 	}

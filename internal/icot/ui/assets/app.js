@@ -700,7 +700,7 @@ const decodePayload = async (response) => {
 async function fetchSnapshot(force = false) {
   const headers = { Accept: "application/json" };
   if (!force && state.etag) headers["If-None-Match"] = state.etag;
-  const response = await fetch("api/v3/snapshot", { credentials: "same-origin", headers });
+  const response = await fetch("api/v4/snapshot", { credentials: "same-origin", headers });
   if (response.status === 304) return { unchanged: true, refreshedAt: new Date() };
   const payload = await decodePayload(response);
   if (!response.ok) {
@@ -811,7 +811,7 @@ async function sendMutation(request) {
   announceMutation(request.route === "author/approve" ? "Approval is being committed." : request.route === "reopen" ? "The settled answer is being reopened." : "Authoring mutation is being submitted.");
   updateControls();
   try {
-    const response = await fetch(`api/v3/${request.route}`, {
+    const response = await fetch(`api/v4/${request.route}`, {
       method: "POST",
       credentials: "same-origin",
       headers: { Accept: "application/json", "Content-Type": "application/json" },
@@ -862,7 +862,7 @@ async function sendLifecycleJSON(route, body, message = "Updating local state…
   announceMutation(message);
   updateControls();
   try {
-    const response = await fetch(`api/v3/${route}`, {
+    const response = await fetch(`api/v4/${route}`, {
       method: "POST",
       credentials: "same-origin",
       headers: { Accept: "application/json", "Content-Type": "application/json" },
@@ -1106,7 +1106,7 @@ const renderPackage = (payload) => {
   appendEmptyOrItems("package-artifacts", payload.package?.artifacts || [], "No handoff artifact is available.", (artifact) => {
     const item = make("li", `${artifact.name} · ${artifact.path} · ${artifact.sha256}`);
     const button = make("button", "Inspect"); button.type = "button";
-    button.addEventListener("click", () => window.open(`api/v3/artifact?name=${encodeURIComponent(artifact.name)}`, "_blank", "noopener")); item.append(button); return item;
+    button.addEventListener("click", () => window.open(`api/v4/artifact?name=${encodeURIComponent(artifact.name)}`, "_blank", "noopener")); item.append(button); return item;
   });
 };
 
@@ -1171,7 +1171,7 @@ byID("upload-form").addEventListener("submit", async (event) => {
   body.append("source", file, file.name);
   state.pendingMutation = true; updateControls(); announceMutation("Validating the private API source upload…");
   try {
-    const response = await fetch("api/v3/source/upload", { method: "POST", credentials: "same-origin", headers: { Accept: "application/json" }, body });
+    const response = await fetch("api/v4/source/upload", { method: "POST", credentials: "same-origin", headers: { Accept: "application/json" }, body });
     const payload = await decodePayload(response);
     if (!response.ok) { showError(payload?.error?.message || `Upload failed (${response.status}).`, payload?.error?.request_id || ""); return; }
     payload.__etag = response.headers.get("ETag") || ""; byID("source-file").value = ""; renderPayload(payload, new Date());

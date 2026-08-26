@@ -46,7 +46,7 @@ func runUI(args []string, out, errOut io.Writer) int {
 	fs.Usage = func() {
 		fmt.Fprintln(fs.Output(), "Usage: icot ui --example DIR [--from-example DIR | --answers FILE] [--api-source KIND:ID=PATH] [--openapi ID=PATH] [--browser-profile ID=PATH] [--browser-verification PATH] [--browser-registry LOCATION] [--source-root DIR] [--network never|ask|allow] [--port PORT] [--no-open]")
 		fmt.Fprintln(fs.Output(), "\nServes one explicitly named workspace on 127.0.0.1 with a per-process capability token.")
-		fmt.Fprintln(fs.Output(), "The embedded shell supports acquisition, revision-protected authoring, reviewed package build, and handoff over experimental API v3.")
+		fmt.Fprintln(fs.Output(), "The embedded shell supports acquisition, revision-protected authoring, reviewed package build, and handoff over experimental API v4.")
 		fmt.Fprintln(fs.Output(), "External changes to engine-owned files preserve cached inspection but require a process restart before mutation.")
 		fmt.Fprintln(fs.Output())
 		fs.PrintDefaults()

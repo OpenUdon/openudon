@@ -81,7 +81,7 @@ func (d *phaseCSnapshotDelay) arm(t *testing.T) (<-chan struct{}, <-chan struct{
 }
 
 func (d *phaseCSnapshotDelay) serveHTTP(next http.Handler, w http.ResponseWriter, r *http.Request) {
-	if !strings.HasSuffix(r.URL.Path, "/api/v3/snapshot") {
+	if !strings.HasSuffix(r.URL.Path, "/api/v4/snapshot") {
 		next.ServeHTTP(w, r)
 		return
 	}
@@ -985,7 +985,7 @@ func TestPhaseCBrowserPollingBackoffAndVisibility(t *testing.T) {
 	page.OnPageError(func(err error) { t.Errorf("iCoT UI page error: %v", err) })
 	var requests atomic.Int64
 	page.OnRequest(func(request playwright.Request) {
-		if strings.HasSuffix(request.URL(), "/api/v3/snapshot") {
+		if strings.HasSuffix(request.URL(), "/api/v4/snapshot") {
 			requests.Add(1)
 		}
 	})
@@ -1078,7 +1078,7 @@ func postRoundFromSecondClient(t *testing.T, fixture *phaseCBrowserFixture, revi
 	if err != nil {
 		t.Fatal(err)
 	}
-	request, err := http.NewRequest(http.MethodPost, "http://"+fixture.authority+"/api/v3/round", bytes.NewReader(body))
+	request, err := http.NewRequest(http.MethodPost, "http://"+fixture.authority+"/api/v4/round", bytes.NewReader(body))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -1096,7 +1096,7 @@ func postRoundFromSecondClient(t *testing.T, fixture *phaseCBrowserFixture, revi
 
 func getPhaseCSnapshot(t *testing.T, fixture *phaseCBrowserFixture) Response {
 	t.Helper()
-	request, err := http.NewRequest(http.MethodGet, "http://"+fixture.authority+"/api/v3/snapshot", nil)
+	request, err := http.NewRequest(http.MethodGet, "http://"+fixture.authority+"/api/v4/snapshot", nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -1122,7 +1122,7 @@ func postBrowserPreflightFromSecondClient(t *testing.T, fixture *phaseCBrowserFi
 	if err != nil {
 		t.Fatal(err)
 	}
-	request, err := http.NewRequest(http.MethodPost, "http://"+fixture.authority+"/api/v3/browser/preflight", bytes.NewReader(body))
+	request, err := http.NewRequest(http.MethodPost, "http://"+fixture.authority+"/api/v4/browser/preflight", bytes.NewReader(body))
 	if err != nil {
 		t.Fatal(err)
 	}

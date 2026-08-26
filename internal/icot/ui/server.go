@@ -37,10 +37,11 @@ import (
 )
 
 const (
-	APIVersion       = "openudon.icot-ui-api.v3"
+	APIVersion       = "openudon.icot-ui-api.v4"
 	SessionCookie    = "openudon_icot_ui"
 	MaxRequestBytes  = 1 << 20
 	MaxArtifactBytes = 2 << 20
+	MaxJSONDepth     = 32
 	humanInputSource = "user"
 	instancePrefix   = "/.icot-ui/"
 )
@@ -82,27 +83,28 @@ type CaptureSession interface {
 // HandlerConfig configures one server handler after its loopback listener is
 // active. Authority must be the listener's exact host:port value.
 type HandlerConfig struct {
-	Context            context.Context
-	Engine             AuthoringEngine
-	Snapshot           engine.Snapshot
-	ExampleDir         string
-	Token              string
-	AccessCode         string
-	Authority          string
-	ErrOut             io.Writer
-	AccessCodeOut      io.Writer
-	Now                func() time.Time
-	GenerateAccessCode func() (string, error)
-	RepoRoot           string
-	BuildPackage       func(context.Context, synthesize.Options) (*synthesize.Result, *synthesize.QualityReport, error)
-	AssessPackage      func(context.Context, synthesize.Options) (*synthesize.QualityReport, error)
-	InspectPackage     func(context.Context, trustedrunner.TemplateOptions) (trustedrunner.PackageInspection, error)
-	RevalidatePackage  func(context.Context, trustedrunner.TemplateOptions, trustedrunner.PackageInspection) error
-	PrivateRoot        string
-	DriverDir          string
-	DoctorBrowser      func(context.Context, string, string) (browserauthor.DoctorReport, error)
-	StartCapture       func(context.Context, browserauthor.Config) (CaptureSession, error)
-	PrepareCapture     func(CaptureStageRequest) (engine.BrowserCaptureStage, error)
+	Context             context.Context
+	Engine              AuthoringEngine
+	Snapshot            engine.Snapshot
+	ExampleDir          string
+	Token               string
+	AccessCode          string
+	Authority           string
+	ErrOut              io.Writer
+	AccessCodeOut       io.Writer
+	Now                 func() time.Time
+	GenerateAccessCode  func() (string, error)
+	RepoRoot            string
+	BuildPackage        func(context.Context, synthesize.Options) (*synthesize.Result, *synthesize.QualityReport, error)
+	AssessPackage       func(context.Context, synthesize.Options) (*synthesize.QualityReport, error)
+	InspectPackage      func(context.Context, trustedrunner.TemplateOptions) (trustedrunner.PackageInspection, error)
+	RevalidatePackage   func(context.Context, trustedrunner.TemplateOptions, trustedrunner.PackageInspection) error
+	PrivateRoot         string
+	DriverDir           string
+	DoctorBrowser       func(context.Context, string, string) (browserauthor.DoctorReport, error)
+	StartCapture        func(context.Context, browserauthor.Config) (CaptureSession, error)
+	PrepareCapture      func(CaptureStageRequest) (engine.BrowserCaptureStage, error)
+	BrowserTransactions BrowserTransactionEngine
 }
 
 // Workspace identifies the selected example and its optimistic ownership
@@ -114,18 +116,19 @@ type Workspace struct {
 
 // Response is returned by every successful API request.
 type Response struct {
-	ETag            string                        `json:"-"`
-	Version         string                        `json:"version"`
-	Revision        string                        `json:"revision"`
-	CaptureRevision string                        `json:"capture_revision"`
-	Lifecycle       string                        `json:"lifecycle"`
-	Completed       bool                          `json:"completed"`
-	Workspace       Workspace                     `json:"workspace"`
-	Snapshot        engine.Snapshot               `json:"snapshot"`
-	Capture         *CaptureState                 `json:"capture,omitempty"`
-	BrowserDoctor   *browserauthor.UIDoctorReport `json:"browser_doctor,omitempty"`
-	WriteResult     *engine.WriteResult           `json:"write_result,omitempty"`
-	Package         *PackageState                 `json:"package,omitempty"`
+	ETag               string                        `json:"-"`
+	Version            string                        `json:"version"`
+	Revision           string                        `json:"revision"`
+	CaptureRevision    string                        `json:"capture_revision"`
+	Lifecycle          string                        `json:"lifecycle"`
+	Completed          bool                          `json:"completed"`
+	Workspace          Workspace                     `json:"workspace"`
+	Snapshot           engine.Snapshot               `json:"snapshot"`
+	Capture            *CaptureState                 `json:"capture,omitempty"`
+	BrowserDoctor      *browserauthor.UIDoctorReport `json:"browser_doctor,omitempty"`
+	WriteResult        *engine.WriteResult           `json:"write_result,omitempty"`
+	Package            *PackageState                 `json:"package,omitempty"`
+	BrowserTransaction *BrowserTransactionResource   `json:"browser_transaction,omitempty"`
 }
 
 const (
@@ -328,6 +331,8 @@ type Server struct {
 	captureContext           context.Context
 	workspace                engine.WorkspaceStatus
 	errOut                   io.Writer
+	browserTransactions      BrowserTransactionEngine
+	browserTransaction       *BrowserTransactionSnapshot
 }
 
 var fallbackRequestID atomic.Uint64
@@ -405,7 +410,8 @@ func NewHandler(config HandlerConfig) (http.Handler, error) {
 		buildPackage: config.BuildPackage, assessPackage: config.AssessPackage, inspectPackage: config.InspectPackage, revalidatePackage: config.RevalidatePackage,
 		privateRoot: strings.TrimSpace(config.PrivateRoot), driverDir: strings.TrimSpace(config.DriverDir),
 		doctorBrowser: config.DoctorBrowser, startCapture: config.StartCapture, prepareCapture: config.PrepareCapture,
-		captureContext: config.Context,
+		browserTransactions: config.BrowserTransactions,
+		captureContext:      config.Context,
 	}
 	if s.buildPackage == nil {
 		s.buildPackage = synthesize.PackageFromIntent
@@ -432,6 +438,13 @@ func NewHandler(config HandlerConfig) (http.Handler, error) {
 	}
 	if s.repoRoot == "" {
 		s.repoRoot, _ = os.Getwd()
+	}
+	if s.browserTransactions != nil {
+		transactionSnapshot, err := s.browserTransactions.Observe(config.Context)
+		if err != nil {
+			return nil, errors.New("initialize browser transaction resource")
+		}
+		s.browserTransaction = &transactionSnapshot
 	}
 	if err := s.updateRevisionLocked(); err != nil {
 		return nil, err
@@ -492,38 +505,42 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		s.serveAsset(w, r, cookieScoped, requestID, "assets/app.js", "text/javascript; charset=utf-8")
 	case "/assets/style.css":
 		s.serveAsset(w, r, cookieScoped, requestID, "assets/style.css", "text/css; charset=utf-8")
-	case "/api/v3/snapshot":
+	case "/api/v4/snapshot":
 		s.serveSnapshot(w, r, cookieScoped, requestID)
-	case "/api/v3/journey":
+	case "/api/v4/journey":
 		s.serveJourney(w, r, cookieScoped, requestID)
-	case "/api/v3/round":
+	case "/api/v4/round":
 		s.serveRound(w, r, cookieScoped, requestID)
-	case "/api/v3/reopen":
+	case "/api/v4/reopen":
 		s.serveReopen(w, r, cookieScoped, requestID)
-	case "/api/v3/source/upload":
+	case "/api/v4/source/upload":
 		s.serveSourceUpload(w, r, cookieScoped, requestID)
-	case "/api/v3/source/stage":
+	case "/api/v4/source/stage":
 		s.serveSourceMutation(w, r, cookieScoped, requestID, true)
-	case "/api/v3/source/remove":
+	case "/api/v4/source/remove":
 		s.serveSourceMutation(w, r, cookieScoped, requestID, false)
-	case "/api/v3/browser/preflight":
+	case "/api/v4/browser/preflight":
 		s.serveBrowserPreflight(w, r, cookieScoped, requestID)
-	case "/api/v3/capture/start":
+	case "/api/v4/capture/start":
 		s.serveCaptureStart(w, r, cookieScoped, requestID)
-	case "/api/v3/capture/respond":
+	case "/api/v4/capture/respond":
 		s.serveCaptureRespond(w, r, cookieScoped, requestID)
-	case "/api/v3/capture/stage":
+	case "/api/v4/capture/stage":
 		s.serveCaptureStage(w, r, cookieScoped, requestID)
-	case "/api/v3/capture/cancel":
+	case "/api/v4/capture/cancel":
 		s.serveCaptureCancel(w, r, cookieScoped, requestID)
-	case "/api/v3/author/approve":
+	case "/api/v4/author/approve":
 		s.serveApprove(w, r, cookieScoped, requestID)
-	case "/api/v3/author/resume":
+	case "/api/v4/author/resume":
 		s.serveResume(w, r, cookieScoped, requestID)
-	case "/api/v3/package/build":
+	case "/api/v4/package/build":
 		s.servePackageBuild(w, r, cookieScoped, requestID)
-	case "/api/v3/artifact":
+	case "/api/v4/artifact":
 		s.serveArtifact(w, r, cookieScoped, requestID)
+	case "/api/v4/browser-transactions/current":
+		s.serveBrowserTransactionCurrent(w, r, cookieScoped, requestID)
+	case "/api/v4/browser-transactions/start", "/api/v4/browser-transactions/review", "/api/v4/browser-transactions/prepare", "/api/v4/browser-transactions/promote", "/api/v4/browser-transactions/cancel", "/api/v4/browser-transactions/recovery/inspect", "/api/v4/browser-transactions/recovery/reconcile", "/api/v4/browser-transactions/selected/inspect":
+		s.serveBrowserTransactionMutation(w, r, cookieScoped, requestID, routePath)
 	default:
 		s.serveUnknown(w, r, cookieScoped, requestID)
 	}
@@ -708,14 +725,14 @@ func (s *Server) serveSnapshot(w http.ResponseWriter, r *http.Request, cookieSco
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	if err := s.refreshWorkspaceLocked(r.Context()); err != nil {
-		s.writeInternalError(w, r, requestID, "/api/v3/snapshot", "workspace_inspection", err, true)
+		s.writeInternalError(w, r, requestID, "/api/v4/snapshot", "workspace_inspection", err, true)
 		return
 	}
 	if s.lifecycle == lifecycleHandoffReady {
 		if err := s.validateFrozenArtifactsLocked(r.Context()); err != nil {
 			s.invalidateHandoffLocked()
 			if revisionErr := s.updateRevisionLocked(); revisionErr != nil {
-				s.writeInternalError(w, r, requestID, "/api/v3/snapshot", "revision", revisionErr, true)
+				s.writeInternalError(w, r, requestID, "/api/v4/snapshot", "revision", revisionErr, true)
 				return
 			}
 		}
@@ -749,18 +766,18 @@ func (s *Server) serveJourney(w http.ResponseWriter, r *http.Request, cookieScop
 	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	if !s.beginMutation(w, r, requestID, "/api/v3/journey", strings.TrimSpace(request.Revision)) {
+	if !s.beginMutation(w, r, requestID, "/api/v4/journey", strings.TrimSpace(request.Revision)) {
 		return
 	}
 	snapshot, err := selected.SelectJourney(r.Context(), request.Starter, request.Goal)
 	if err != nil {
 		s.refreshWorkspaceAfterFailure()
-		s.writeEngineError(w, r, requestID, "/api/v3/journey", "select_journey", err)
+		s.writeEngineError(w, r, requestID, "/api/v4/journey", "select_journey", err)
 		return
 	}
 	s.snapshot = snapshot
 	if err := s.updateRevisionLocked(); err != nil {
-		s.writeInternalError(w, r, requestID, "/api/v3/journey", "revision", err, true)
+		s.writeInternalError(w, r, requestID, "/api/v4/journey", "revision", err, true)
 		return
 	}
 	setETag(w, s.etag)
@@ -828,18 +845,18 @@ func (s *Server) serveSourceUpload(w http.ResponseWriter, r *http.Request, cooki
 	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	if !s.beginMutation(w, r, requestID, "/api/v3/source/upload", revision) {
+	if !s.beginMutation(w, r, requestID, "/api/v4/source/upload", revision) {
 		return
 	}
 	_, snapshot, err := uploader.UploadSource(r.Context(), filename, bytes.NewReader(sourceBytes))
 	if err != nil {
 		s.refreshWorkspaceAfterFailure()
-		s.writeEngineError(w, r, requestID, "/api/v3/source/upload", "upload_source", err)
+		s.writeEngineError(w, r, requestID, "/api/v4/source/upload", "upload_source", err)
 		return
 	}
 	s.snapshot = snapshot
 	if err := s.updateRevisionLocked(); err != nil {
-		s.writeInternalError(w, r, requestID, "/api/v3/source/upload", "revision", err, true)
+		s.writeInternalError(w, r, requestID, "/api/v4/source/upload", "revision", err, true)
 		return
 	}
 	setETag(w, s.etag)
@@ -865,9 +882,9 @@ func (s *Server) serveSourceMutation(w http.ResponseWriter, r *http.Request, coo
 		s.writeError(w, http.StatusNotImplemented, "unsupported", "source mutation is unavailable", false, requestID, s.currentRevision())
 		return
 	}
-	route, operation := "/api/v3/source/remove", "remove_source"
+	route, operation := "/api/v4/source/remove", "remove_source"
 	if stage {
-		route, operation = "/api/v3/source/stage", "stage_source"
+		route, operation = "/api/v4/source/stage", "stage_source"
 	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -910,7 +927,7 @@ func (s *Server) serveBrowserPreflight(w http.ResponseWriter, r *http.Request, c
 		return
 	}
 	s.mu.Lock()
-	if !s.beginMutation(w, r, requestID, "/api/v3/browser/preflight", strings.TrimSpace(request.Revision)) {
+	if !s.beginMutation(w, r, requestID, "/api/v4/browser/preflight", strings.TrimSpace(request.Revision)) {
 		s.mu.Unlock()
 		return
 	}
@@ -928,7 +945,7 @@ func (s *Server) serveBrowserPreflight(w http.ResponseWriter, r *http.Request, c
 	s.capture = &CaptureState{State: "preflight", Message: "Checking the installed Playwright driver and Chromium runtime.", UpdatedAt: s.now().UTC().Format(time.RFC3339)}
 	if err := s.updateRevisionLocked(); err != nil {
 		s.capture, s.revision, s.captureRevision, s.etag = previousCapture, previousRevision, previousCaptureRevision, previousETag
-		s.writeInternalError(w, r, requestID, "/api/v3/browser/preflight", "revision", err, true)
+		s.writeInternalError(w, r, requestID, "/api/v4/browser/preflight", "revision", err, true)
 		s.mu.Unlock()
 		return
 	}
@@ -988,7 +1005,7 @@ func (s *Server) serveBrowserPreflight(w http.ResponseWriter, r *http.Request, c
 	}
 	s.capture = &CaptureState{State: "configuring", Message: "Chromium is ready. Review the exact capture authority before launch.", UpdatedAt: s.now().UTC().Format(time.RFC3339)}
 	if err := s.updateRevisionLocked(); err != nil {
-		s.writeInternalError(w, r, requestID, "/api/v3/browser/preflight", "revision", err, true)
+		s.writeInternalError(w, r, requestID, "/api/v4/browser/preflight", "revision", err, true)
 		return
 	}
 	setETag(w, s.etag)
@@ -1012,7 +1029,7 @@ func (s *Server) serveCaptureStart(w http.ResponseWriter, r *http.Request, cooki
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	if err := s.refreshWorkspaceLocked(r.Context()); err != nil {
-		s.writeInternalError(w, r, requestID, "/api/v3/capture/start", "workspace_inspection", err, true)
+		s.writeInternalError(w, r, requestID, "/api/v4/capture/start", "workspace_inspection", err, true)
 		return
 	}
 	if strings.TrimSpace(request.Revision) != s.revision || strings.TrimSpace(request.CaptureRevision) != s.captureRevision {
@@ -1080,7 +1097,7 @@ func (s *Server) serveCaptureStart(w http.ResponseWriter, r *http.Request, cooki
 	s.captureSession = session
 	go s.consumeCapture(session, startedAt)
 	if err := s.updateRevisionLocked(); err != nil {
-		s.writeInternalError(w, r, requestID, "/api/v3/capture/start", "revision", err, true)
+		s.writeInternalError(w, r, requestID, "/api/v4/capture/start", "revision", err, true)
 		return
 	}
 	setETag(w, s.etag)
@@ -1215,7 +1232,7 @@ func (s *Server) serveCaptureRespond(w http.ResponseWriter, r *http.Request, coo
 	}
 	if err := s.updateRevisionLocked(); err != nil {
 		s.capture = &pending
-		s.writeInternalError(w, r, requestID, "/api/v3/capture/respond", "revision", err, true)
+		s.writeInternalError(w, r, requestID, "/api/v4/capture/respond", "revision", err, true)
 		s.mu.Unlock()
 		return
 	}
@@ -1228,7 +1245,7 @@ func (s *Server) serveCaptureRespond(w http.ResponseWriter, r *http.Request, coo
 		if s.captureSession == session && s.captureRevision == reservedRevision {
 			s.capture = &pending
 			if revisionErr := s.updateRevisionLocked(); revisionErr != nil {
-				s.writeInternalError(w, r, requestID, "/api/v3/capture/respond", "revision", revisionErr, true)
+				s.writeInternalError(w, r, requestID, "/api/v4/capture/respond", "revision", revisionErr, true)
 				s.mu.Unlock()
 				return
 			}
@@ -1274,7 +1291,7 @@ func (s *Server) serveCaptureCancel(w http.ResponseWriter, r *http.Request, cook
 	s.captureResult = nil
 	s.captureAttestation = nil
 	if err := s.updateRevisionLocked(); err != nil {
-		s.writeInternalError(w, r, requestID, "/api/v3/capture/cancel", "revision", err, true)
+		s.writeInternalError(w, r, requestID, "/api/v4/capture/cancel", "revision", err, true)
 		return
 	}
 	setETag(w, s.etag)
@@ -1329,7 +1346,7 @@ func (s *Server) serveCaptureStage(w http.ResponseWriter, r *http.Request, cooki
 		s.captureSession = nil
 		s.refreshWorkspaceAfterFailure()
 		_ = s.updateRevisionLocked()
-		s.writeEngineError(w, r, requestID, "/api/v3/capture/stage", "stage_capture", err)
+		s.writeEngineError(w, r, requestID, "/api/v4/capture/stage", "stage_capture", err)
 		return
 	}
 	s.snapshot = snapshot
@@ -1338,7 +1355,7 @@ func (s *Server) serveCaptureStage(w http.ResponseWriter, r *http.Request, cooki
 	s.captureAttestation = nil
 	s.captureSession = nil
 	if err := s.updateRevisionLocked(); err != nil {
-		s.writeInternalError(w, r, requestID, "/api/v3/capture/stage", "revision", err, true)
+		s.writeInternalError(w, r, requestID, "/api/v4/capture/stage", "revision", err, true)
 		return
 	}
 	setETag(w, s.etag)
@@ -1401,18 +1418,18 @@ func (s *Server) serveRound(w http.ResponseWriter, r *http.Request, cookieScoped
 
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	if !s.beginMutation(w, r, requestID, "/api/v3/round", request.Revision) {
+	if !s.beginMutation(w, r, requestID, "/api/v4/round", request.Revision) {
 		return
 	}
 	snapshot, err := s.engine.ApplyRound(r.Context(), answers)
 	if err != nil {
 		s.refreshWorkspaceAfterFailure()
-		s.writeEngineError(w, r, requestID, "/api/v3/round", "apply_round", err)
+		s.writeEngineError(w, r, requestID, "/api/v4/round", "apply_round", err)
 		return
 	}
 	s.snapshot = snapshot
 	if err := s.updateRevisionLocked(); err != nil {
-		s.writeInternalError(w, r, requestID, "/api/v3/round", "revision", err, true)
+		s.writeInternalError(w, r, requestID, "/api/v4/round", "revision", err, true)
 		return
 	}
 	setETag(w, s.etag)
@@ -1465,18 +1482,18 @@ func (s *Server) serveReopen(w http.ResponseWriter, r *http.Request, cookieScope
 
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	if !s.beginMutation(w, r, requestID, "/api/v3/reopen", request.Revision) {
+	if !s.beginMutation(w, r, requestID, "/api/v4/reopen", request.Revision) {
 		return
 	}
 	snapshot, err := s.engine.ReopenDecision(r.Context(), request.QuestionID)
 	if err != nil {
 		s.refreshWorkspaceAfterFailure()
-		s.writeEngineError(w, r, requestID, "/api/v3/reopen", "reopen_decision", err)
+		s.writeEngineError(w, r, requestID, "/api/v4/reopen", "reopen_decision", err)
 		return
 	}
 	s.snapshot = snapshot
 	if err := s.updateRevisionLocked(); err != nil {
-		s.writeInternalError(w, r, requestID, "/api/v3/reopen", "revision", err, true)
+		s.writeInternalError(w, r, requestID, "/api/v4/reopen", "revision", err, true)
 		return
 	}
 	setETag(w, s.etag)
@@ -1504,7 +1521,7 @@ func (s *Server) serveApprove(w http.ResponseWriter, r *http.Request, cookieScop
 
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	if !s.beginMutation(w, r, requestID, "/api/v3/author/approve", request.Revision) {
+	if !s.beginMutation(w, r, requestID, "/api/v4/author/approve", request.Revision) {
 		return
 	}
 	result, err := s.engine.ApproveAndWrite(r.Context(), engine.Approval{
@@ -1512,7 +1529,7 @@ func (s *Server) serveApprove(w http.ResponseWriter, r *http.Request, cookieScop
 	})
 	if err != nil {
 		s.refreshWorkspaceAfterFailure()
-		s.writeEngineError(w, r, requestID, "/api/v3/author/approve", "approve", err)
+		s.writeEngineError(w, r, requestID, "/api/v4/author/approve", "approve", err)
 		return
 	}
 	s.lifecycle = lifecycleAuthored
@@ -1522,7 +1539,7 @@ func (s *Server) serveApprove(w http.ResponseWriter, r *http.Request, cookieScop
 	s.packageState = nil
 	s.artifactPaths = map[string]string{}
 	if err := s.updateRevisionLocked(); err != nil {
-		s.writeInternalError(w, r, requestID, "/api/v3/author/approve", "revision", err, true)
+		s.writeInternalError(w, r, requestID, "/api/v4/author/approve", "revision", err, true)
 		return
 	}
 	setETag(w, s.etag)
@@ -1546,7 +1563,7 @@ func (s *Server) serveResume(w http.ResponseWriter, r *http.Request, cookieScope
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	if err := s.refreshWorkspaceLocked(r.Context()); err != nil {
-		s.writeInternalError(w, r, requestID, "/api/v3/author/resume", "workspace_inspection", err, true)
+		s.writeInternalError(w, r, requestID, "/api/v4/author/resume", "workspace_inspection", err, true)
 		return
 	}
 	if strings.TrimSpace(request.Revision) != s.revision {
@@ -1564,7 +1581,7 @@ func (s *Server) serveResume(w http.ResponseWriter, r *http.Request, cookieScope
 	}
 	snapshot, err := resumer.ResumeAuthoring(r.Context())
 	if err != nil {
-		s.writeEngineError(w, r, requestID, "/api/v3/author/resume", "resume_authoring", err)
+		s.writeEngineError(w, r, requestID, "/api/v4/author/resume", "resume_authoring", err)
 		return
 	}
 	s.snapshot = snapshot
@@ -1574,7 +1591,7 @@ func (s *Server) serveResume(w http.ResponseWriter, r *http.Request, cookieScope
 	s.packageState = nil
 	s.artifactPaths = map[string]string{}
 	if err := s.updateRevisionLocked(); err != nil {
-		s.writeInternalError(w, r, requestID, "/api/v3/author/resume", "revision", err, true)
+		s.writeInternalError(w, r, requestID, "/api/v4/author/resume", "revision", err, true)
 		return
 	}
 	setETag(w, s.etag)
@@ -1598,7 +1615,7 @@ func (s *Server) servePackageBuild(w http.ResponseWriter, r *http.Request, cooki
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	if err := s.refreshWorkspaceLocked(r.Context()); err != nil {
-		s.writeInternalError(w, r, requestID, "/api/v3/package/build", "workspace_inspection", err, true)
+		s.writeInternalError(w, r, requestID, "/api/v4/package/build", "workspace_inspection", err, true)
 		return
 	}
 	if strings.TrimSpace(request.Revision) != s.revision {
@@ -1625,7 +1642,7 @@ func (s *Server) servePackageBuild(w http.ResponseWriter, r *http.Request, cooki
 	defer cancel()
 	result, _, err := s.buildPackage(buildCtx, synthesize.Options{ExampleDir: s.exampleDir, LocalOnlyDiscovery: true})
 	if err != nil {
-		s.writeInternalError(w, r, requestID, "/api/v3/package/build", "deterministic_build", err, true)
+		s.writeInternalError(w, r, requestID, "/api/v4/package/build", "deterministic_build", err, true)
 		return
 	}
 	var report *synthesize.QualityReport
@@ -1645,14 +1662,14 @@ func (s *Server) servePackageBuild(w http.ResponseWriter, r *http.Request, cooki
 		},
 	})
 	if assessmentErr != nil {
-		s.writeInternalError(w, r, requestID, "/api/v3/package/build", "current_state_assessment", assessmentErr, true)
+		s.writeInternalError(w, r, requestID, "/api/v4/package/build", "current_state_assessment", assessmentErr, true)
 		return
 	}
 	if report == nil {
 		if inspectionErr == nil {
 			inspectionErr = errors.New("assessment returned no quality report")
 		}
-		s.writeInternalError(w, r, requestID, "/api/v3/package/build", "current_state_assessment", inspectionErr, true)
+		s.writeInternalError(w, r, requestID, "/api/v4/package/build", "current_state_assessment", inspectionErr, true)
 		return
 	}
 	quality := &PackageQuality{Status: report.Status, Checks: append([]synthesize.QualityCheck(nil), report.Checks...)}
@@ -1662,7 +1679,7 @@ func (s *Server) servePackageBuild(w http.ResponseWriter, r *http.Request, cooki
 		s.packageState = &PackageState{Status: "failed", Quality: quality, Remediation: packageRemediation(report)}
 		s.artifactPaths = map[string]string{}
 		if err := s.updateRevisionLocked(); err != nil {
-			s.writeInternalError(w, r, requestID, "/api/v3/package/build", "revision", err, true)
+			s.writeInternalError(w, r, requestID, "/api/v4/package/build", "revision", err, true)
 			return
 		}
 		setETag(w, s.etag)
@@ -1670,16 +1687,16 @@ func (s *Server) servePackageBuild(w http.ResponseWriter, r *http.Request, cooki
 		return
 	}
 	if inspectionErr != nil {
-		s.writeInternalError(w, r, requestID, "/api/v3/package/build", "package_inspection", inspectionErr, true)
+		s.writeInternalError(w, r, requestID, "/api/v4/package/build", "package_inspection", inspectionErr, true)
 		return
 	}
 	artifacts, paths, err := inspectAllowedArtifacts(s.exampleDir, result)
 	if err != nil {
-		s.writeInternalError(w, r, requestID, "/api/v3/package/build", "artifact_allowlist", err, true)
+		s.writeInternalError(w, r, requestID, "/api/v4/package/build", "artifact_allowlist", err, true)
 		return
 	}
 	if err := s.revalidatePackage(buildCtx, trustedrunner.TemplateOptions{RepoRoot: s.repoRoot, ExampleDir: s.exampleDir}, inspection); err != nil {
-		s.writeInternalError(w, r, requestID, "/api/v3/package/build", "package_freeze_revalidation", err, true)
+		s.writeInternalError(w, r, requestID, "/api/v4/package/build", "package_freeze_revalidation", err, true)
 		return
 	}
 	s.lifecycle = lifecycleHandoffReady
@@ -1690,7 +1707,7 @@ func (s *Server) servePackageBuild(w http.ResponseWriter, r *http.Request, cooki
 		ApprovalTemplateArgv: []string{"openudon", "approval-template", "--example", s.exampleDir, "--state", trustedrunner.StateApprovedForSandbox, "--reviewer", "REVIEWER"},
 	}
 	if err := s.updateRevisionLocked(); err != nil {
-		s.writeInternalError(w, r, requestID, "/api/v3/package/build", "revision", err, true)
+		s.writeInternalError(w, r, requestID, "/api/v4/package/build", "revision", err, true)
 		return
 	}
 	setETag(w, s.etag)
@@ -1717,7 +1734,7 @@ func (s *Server) serveArtifact(w http.ResponseWriter, r *http.Request, cookieSco
 		if err := s.validateFrozenArtifactsLocked(r.Context()); err != nil {
 			s.invalidateHandoffLocked()
 			if revisionErr := s.updateRevisionLocked(); revisionErr != nil {
-				s.writeInternalError(w, r, requestID, "/api/v3/artifact", "revision", revisionErr, true)
+				s.writeInternalError(w, r, requestID, "/api/v4/artifact", "revision", revisionErr, true)
 				return
 			}
 			s.writeError(w, http.StatusConflict, "package_changed", "the reviewed package changed after handoff inspection; return to authoring and rebuild", false, requestID, s.revision)
@@ -1737,7 +1754,7 @@ func (s *Server) serveArtifact(w http.ResponseWriter, r *http.Request, cookieSco
 	if err != nil {
 		s.invalidateHandoffLocked()
 		if revisionErr := s.updateRevisionLocked(); revisionErr != nil {
-			s.writeInternalError(w, r, requestID, "/api/v3/artifact", "revision", revisionErr, true)
+			s.writeInternalError(w, r, requestID, "/api/v4/artifact", "revision", revisionErr, true)
 			return
 		}
 		s.writeError(w, http.StatusConflict, "package_changed", "the reviewed package changed after handoff inspection; return to authoring and rebuild", false, requestID, s.revision)
@@ -1748,7 +1765,7 @@ func (s *Server) serveArtifact(w http.ResponseWriter, r *http.Request, cookieSco
 	if !ok || summary.Bytes != int64(len(data)) || summary.SHA256 != "sha256:"+hex.EncodeToString(digest[:]) {
 		s.invalidateHandoffLocked()
 		if revisionErr := s.updateRevisionLocked(); revisionErr != nil {
-			s.writeInternalError(w, r, requestID, "/api/v3/artifact", "revision", revisionErr, true)
+			s.writeInternalError(w, r, requestID, "/api/v4/artifact", "revision", revisionErr, true)
 			return
 		}
 		s.writeError(w, http.StatusConflict, "package_changed", "the reviewed package changed after handoff inspection; return to authoring and rebuild", false, requestID, s.revision)
@@ -1812,12 +1829,13 @@ func (s *Server) refreshWorkspaceAfterFailure() {
 
 func (s *Server) updateRevisionLocked() error {
 	revision, err := revisionDigest(struct {
-		Snapshot    engine.Snapshot        `json:"snapshot"`
-		Lifecycle   string                 `json:"lifecycle"`
-		WriteResult *engine.WriteResult    `json:"write_result,omitempty"`
-		Package     *PackageState          `json:"package,omitempty"`
-		Workspace   engine.WorkspaceStatus `json:"workspace"`
-	}{Snapshot: s.snapshot, Lifecycle: s.lifecycle, WriteResult: s.writeResult, Package: s.packageState, Workspace: s.workspace})
+		Snapshot           engine.Snapshot             `json:"snapshot"`
+		Lifecycle          string                      `json:"lifecycle"`
+		WriteResult        *engine.WriteResult         `json:"write_result,omitempty"`
+		Package            *PackageState               `json:"package,omitempty"`
+		BrowserTransaction *BrowserTransactionSnapshot `json:"browser_transaction,omitempty"`
+		Workspace          engine.WorkspaceStatus      `json:"workspace"`
+	}{Snapshot: s.snapshot, Lifecycle: s.lifecycle, WriteResult: s.writeResult, Package: s.packageState, BrowserTransaction: s.browserTransaction, Workspace: s.workspace})
 	if err != nil {
 		return err
 	}
@@ -1846,6 +1864,7 @@ func (s *Server) responseLocked() Response {
 		Lifecycle: s.lifecycle, Completed: s.completed,
 		Workspace: Workspace{ExampleDir: s.exampleDir, ExternallyModified: s.workspace.ExternallyModified},
 		Snapshot:  s.snapshot, Capture: s.capture, BrowserDoctor: s.doctorReport, WriteResult: s.writeResult, Package: s.packageState,
+		BrowserTransaction: s.browserTransactionResourceLocked(),
 	}
 }
 
@@ -2116,7 +2135,7 @@ func decodeJSONRequest(w http.ResponseWriter, r *http.Request, target any) error
 func rejectDuplicateJSONNames(data []byte) error {
 	decoder := json.NewDecoder(bytes.NewReader(data))
 	decoder.UseNumber()
-	if err := scanJSONValue(decoder); err != nil {
+	if err := scanJSONValue(decoder, 0); err != nil {
 		return err
 	}
 	if _, err := decoder.Token(); !errors.Is(err, io.EOF) {
@@ -2128,7 +2147,10 @@ func rejectDuplicateJSONNames(data []byte) error {
 	return nil
 }
 
-func scanJSONValue(decoder *json.Decoder) error {
+func scanJSONValue(decoder *json.Decoder, depth int) error {
+	if depth > MaxJSONDepth {
+		return fmt.Errorf("JSON nesting exceeds %d levels", MaxJSONDepth)
+	}
 	token, err := decoder.Token()
 	if err != nil {
 		return err
@@ -2153,7 +2175,7 @@ func scanJSONValue(decoder *json.Decoder) error {
 				return fmt.Errorf("duplicate JSON object name %q", name)
 			}
 			seen[name] = true
-			if err := scanJSONValue(decoder); err != nil {
+			if err := scanJSONValue(decoder, depth+1); err != nil {
 				return err
 			}
 		}
@@ -2163,7 +2185,7 @@ func scanJSONValue(decoder *json.Decoder) error {
 		}
 	case '[':
 		for decoder.More() {
-			if err := scanJSONValue(decoder); err != nil {
+			if err := scanJSONValue(decoder, depth+1); err != nil {
 				return err
 			}
 		}
