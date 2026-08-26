@@ -54,6 +54,7 @@ func TestClassifyExecutionFailureSummaryReturnsOnlyFixedCategories(t *testing.T)
 		"operation read browser-profile source failed": "browser_profile_contract",
 		"open /private/result: no such file":           "artifact_missing",
 		"workflow main has depends_on cycle":           "dependency_cycle",
+		"uws1: unsupported workflow type custom":       "workflow_type",
 		"unrecognized private failure":                 "unclassified",
 	} {
 		if got := classifyExecutionFailureSummary(summary); got != want {
