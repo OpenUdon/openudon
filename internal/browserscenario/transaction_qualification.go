@@ -482,8 +482,6 @@ func classifyExecutionFailureSummary(summary string) string {
 		{"parse", "parse_contract"},
 		{"decode", "decode_contract"},
 		{"failed", "operation_failed"},
-		{"workflow ", "workflow_lookup"},
-		{"workflow", "workflow_contract"},
 		{"uws", "uws_contract"},
 		{"request", "request_contract"},
 		{"parameter", "request_contract"},
@@ -494,5 +492,39 @@ func classifyExecutionFailureSummary(summary string) string {
 			return match.category
 		}
 	}
+	if strings.Contains(value, "workflow") {
+		return "workflow_keywords_" + allowlistedExecutionFailureKeywords(value)
+	}
 	return "unclassified"
+}
+
+func allowlistedExecutionFailureKeywords(value string) string {
+	allowed := map[string]bool{
+		"workflow": true, "write": true, "open": true, "read": true, "persist": true,
+		"config": true, "program": true, "document": true, "step": true, "operation": true,
+		"result": true, "source": true, "entry": true, "type": true, "execute": true,
+		"execution": true, "evaluate": true, "expression": true, "convert": true, "load": true,
+		"marshal": true, "unmarshal": true, "yaml": true, "json": true, "hcl": true,
+		"file": true, "directory": true, "permission": true, "cycle": true, "not": true,
+		"found": true, "unsupported": true, "missing": true, "required": true, "invalid": true,
+		"failed": true, "cannot": true, "outside": true, "root": true, "path": true,
+		"output": true, "outputs": true,
+	}
+	seen := map[string]bool{}
+	var keywords []string
+	for _, token := range strings.FieldsFunc(strings.ToLower(value), func(character rune) bool {
+		return (character < 'a' || character > 'z') && (character < '0' || character > '9')
+	}) {
+		if allowed[token] && !seen[token] {
+			seen[token] = true
+			keywords = append(keywords, token)
+			if len(keywords) == 8 {
+				break
+			}
+		}
+	}
+	if len(keywords) == 0 {
+		return "unclassified"
+	}
+	return strings.Join(keywords, "_")
 }

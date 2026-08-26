@@ -62,6 +62,9 @@ func TestClassifyExecutionFailureSummaryReturnsOnlyFixedCategories(t *testing.T)
 			t.Fatalf("execution failure category = %q, want %q", got, want)
 		}
 	}
+	if got := classifyExecutionFailureSummary("workflow alpha gamma"); got != "workflow_keywords_workflow" {
+		t.Fatalf("allowlisted execution failure keywords = %q", got)
+	}
 }
 
 func TestClosedQualityFailureIDsRetainsOnlyFixedCodes(t *testing.T) {
