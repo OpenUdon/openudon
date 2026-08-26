@@ -308,7 +308,7 @@ func qualificationAdversarialEnvironment(browsertoolsRepo, goExecutable string) 
 		"CGO_ENABLED": true, "GOENV": true, "GOEXPERIMENT": true, "GOFLAGS": true,
 		"GOROOT": true, "GOTOOLCHAIN": true, "GOOS": true, "GOWORK": true,
 		"GNUMAKEFLAGS": true, "MAKEFILES": true, "MAKEFLAGS": true, "MFLAGS": true,
-		"OPENUDON_BROWSERTOOLS_REPO": true,
+		"OPENUDON_BROWSERTOOLS_REPO": true, "PATH": true,
 	}
 	environment := make([]string, 0, len(os.Environ())+3)
 	for _, item := range os.Environ() {

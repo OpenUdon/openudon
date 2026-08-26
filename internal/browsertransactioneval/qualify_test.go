@@ -140,14 +140,16 @@ func TestQualificationAdversarialEnvironmentClosesControlOverrides(t *testing.T)
 	t.Setenv("GOENV", "private-go-env")
 	environment := qualificationAdversarialEnvironment("literal-$(not-executed)", "/trusted/bin/go")
 	values := map[string]string{}
+	counts := map[string]int{}
 	for _, item := range environment {
 		name, value, ok := strings.Cut(item, "=")
 		if ok {
 			values[name] = value
+			counts[name]++
 		}
 	}
 	if values["OPENUDON_BROWSERTOOLS_REPO"] != "literal-$(not-executed)" || values["GOENV"] != "off" ||
-		!strings.HasPrefix(values["PATH"], "/trusted/bin"+string(os.PathListSeparator)) {
+		!strings.HasPrefix(values["PATH"], "/trusted/bin"+string(os.PathListSeparator)) || counts["PATH"] != 1 {
 		t.Fatalf("closed environment = %#v", values)
 	}
 	for _, name := range []string{"MAKEFLAGS", "MAKEFILES", "GO", "GOFLAGS"} {
