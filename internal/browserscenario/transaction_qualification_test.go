@@ -49,6 +49,18 @@ func TestClosedReplayFailureCodeRejectsPathBearingValues(t *testing.T) {
 	}
 }
 
+func TestClassifyExecutionFailureSummaryReturnsOnlyFixedCategories(t *testing.T) {
+	for summary, want := range map[string]string{
+		"operation read browser-profile source failed": "browser_profile_contract",
+		"open /private/result: no such file":           "artifact_missing",
+		"unrecognized private failure":                 "unclassified",
+	} {
+		if got := classifyExecutionFailureSummary(summary); got != want {
+			t.Fatalf("execution failure category = %q, want %q", got, want)
+		}
+	}
+}
+
 func TestClosedQualityFailureIDsRetainsOnlyFixedCodes(t *testing.T) {
 	report := &synthesize.QualityReport{Checks: []synthesize.QualityCheck{
 		{Code: "openapi.discovery", Status: "warn"},

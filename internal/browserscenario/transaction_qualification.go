@@ -22,6 +22,7 @@ import (
 	"github.com/OpenUdon/openudon/internal/packagepipeline"
 	"github.com/OpenUdon/openudon/internal/synthesize"
 	"github.com/OpenUdon/openudon/internal/trustedrunner"
+	"github.com/OpenUdon/openudon/internal/udonreport"
 	rollout "github.com/OpenUdon/openudon/internal/workflowintent"
 )
 
@@ -216,7 +217,11 @@ func (executor *realExecutor) runBAPBCPQualification(ctx context.Context, enviro
 	fixture.SetRuntime(true)
 	replay := executor.runUdonWithFormat(ctx, manifest, exampleDir, built.UWSPath, "uws-yaml", author.CredentialSlotKinds, bindings, fixture)
 	if replay.failureCode != "" {
-		return evidence, fmt.Errorf("BAP+BCP authenticated replay failed: executor_%s", closedReplayFailureCode(replay.failureCode))
+		code := closedReplayFailureCode(replay.failureCode)
+		if code == udonreport.CodeUnclassified {
+			code += "_" + closedExecutionFailureCategory(filepath.Join(exampleDir, "execution-report.json"))
+		}
+		return evidence, fmt.Errorf("BAP+BCP authenticated replay failed: executor_%s", code)
 	}
 	if !scenarioOutputsEqual(replay.outputs, fixture.ExpectedOutputs(manifest.Outputs)) {
 		return evidence, errors.New("BAP+BCP authenticated replay failed: output_mismatch")
@@ -420,6 +425,48 @@ func closedPackageLifecycleFailure(err error) string {
 func closedReplayFailureCode(value string) string {
 	if safeQualityCode(value) {
 		return value
+	}
+	return "unclassified"
+}
+
+func closedExecutionFailureCategory(path string) string {
+	data, _, err := evidencefile.ReadRegular(path, scenarioCommandOutputLimit)
+	if err != nil {
+		return "report_unavailable"
+	}
+	report, err := udonreport.Decode(data)
+	if err != nil || report.Status != "error" {
+		return "report_invalid"
+	}
+	return classifyExecutionFailureSummary(report.ErrorSummary)
+}
+
+func classifyExecutionFailureSummary(summary string) string {
+	value := strings.ToLower(summary)
+	for _, match := range []struct {
+		contains string
+		category string
+	}{
+		{"browser authentication", "browser_authentication_contract"},
+		{"browser-profile", "browser_profile_contract"},
+		{"browser profile", "browser_profile_contract"},
+		{"browser session", "browser_session_contract"},
+		{"browser driver", "browser_driver_contract"},
+		{"sourcedescription", "source_contract"},
+		{"source description", "source_contract"},
+		{"credential", "credential_contract"},
+		{"no such file", "artifact_missing"},
+		{"not exist", "artifact_missing"},
+		{"workflow", "workflow_contract"},
+		{"uws", "uws_contract"},
+		{"request", "request_contract"},
+		{"parameter", "request_contract"},
+		{"timeout", "timeout"},
+		{"output", "output_contract"},
+	} {
+		if strings.Contains(value, match.contains) {
+			return match.category
+		}
 	}
 	return "unclassified"
 }
