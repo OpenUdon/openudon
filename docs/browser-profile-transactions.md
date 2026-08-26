@@ -216,7 +216,17 @@ output, and paths belong in private operator diagnostics, not the transaction.
 `indeterminate` is reserved for an interrupted or ambiguous promotion. It
 requires the prepared digests and the exact
 `indeterminate/promotion_indeterminate` outcome. Do not retry promotion or
-prepare over it blindly. Reconcile the selected generation and its digest:
+prepare over it blindly. The internal promoter keeps a digest-bound,
+value-free intent until selection and cleanup are proven. Recovery first uses
+`InspectRecovery` to revalidate current, prior, target, lock, intent, and a
+bounded transient inventory; `Reconcile` requires that exact report digest
+and rechecks it before removing only staging, temporary selector, intent, and
+lock artifacts. It never rewrites `current.json` or deletes a generation.
+Typed promoter failures distinguish `rolled_back`, `indeterminate`, and
+`recovery_required` outcomes and include only the recoverable target
+generation digest. A rolled-back target may remain as an immutable unselected
+generation; its presence does not make it current or grant retry authority.
+Reconcile the selected generation and its digest:
 
 - if the prepared generation is current, record `promoted` with that exact
   generation digest;

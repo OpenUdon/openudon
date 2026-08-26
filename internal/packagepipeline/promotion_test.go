@@ -256,7 +256,7 @@ func assertPromotionStorePosture(t *testing.T, store string) {
 func assertNoPromotionTransients(t *testing.T, store string) {
 	t.Helper()
 	for _, entry := range mustReadDir(t, store) {
-		if entry.Name() == promotionLockFile || strings.HasPrefix(entry.Name(), promotionStagePrefix) || strings.HasPrefix(entry.Name(), ".openudon-current-") {
+		if entry.Name() == promotionLockFile || entry.Name() == promotionIntentFile || strings.HasPrefix(entry.Name(), promotionStagePrefix) || strings.HasPrefix(entry.Name(), promotionCurrentPrefix) || strings.HasPrefix(entry.Name(), promotionLockPrefix) || strings.HasPrefix(entry.Name(), promotionIntentPrefix) {
 			t.Fatalf("promotion transient was retained: %s", entry.Name())
 		}
 	}

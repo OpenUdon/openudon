@@ -28,9 +28,38 @@ const (
 	promotionCurrentFile    = "current.json"
 	promotionLockFile       = ".openudon-package-promotion.lock"
 	promotionStagePrefix    = ".openudon-package-stage-"
+	promotionCurrentPrefix  = ".openudon-current-"
 )
 
-var promotionBeforeSelectHook func()
+var (
+	promotionBeforeSelectHook func()
+	promotionFaultHook        func(PromotionBoundary) error
+)
+
+type PromotionBoundary string
+
+const (
+	PromotionAfterIntentWrite       PromotionBoundary = "after_intent_write"
+	PromotionBeforeGenerationRename PromotionBoundary = "before_generation_rename"
+	PromotionAfterGenerationRename  PromotionBoundary = "after_generation_rename"
+	PromotionBeforeGenerationSync   PromotionBoundary = "before_generation_sync"
+	PromotionAfterGenerationSync    PromotionBoundary = "after_generation_sync"
+	PromotionBeforeSelectionRename  PromotionBoundary = "before_selection_rename"
+	PromotionAfterSelectionRename   PromotionBoundary = "after_selection_rename"
+	PromotionBeforeSelectionSync    PromotionBoundary = "before_selection_sync"
+	PromotionAfterSelectionSync     PromotionBoundary = "after_selection_sync"
+	PromotionBeforeIntentCleanup    PromotionBoundary = "before_intent_cleanup"
+	PromotionBeforeLockCleanup      PromotionBoundary = "before_lock_cleanup"
+)
+
+type PromotionState string
+
+const (
+	PromotionFailedState           PromotionState = "failed"
+	PromotionRolledBackState       PromotionState = "rolled_back"
+	PromotionIndeterminateState    PromotionState = "indeterminate"
+	PromotionRecoveryRequiredState PromotionState = "recovery_required"
+)
 
 type PromotionCode string
 
@@ -41,14 +70,18 @@ const (
 	PromotionStageFailed          PromotionCode = "stage_failed"
 	PromotionGenerationCollision  PromotionCode = "generation_collision"
 	PromotionSelectionFailed      PromotionCode = "selection_failed"
+	PromotionRecoveryRequired     PromotionCode = "recovery_required"
+	PromotionRecoveryDrift        PromotionCode = "recovery_drift"
 	PromotionCanceled             PromotionCode = "canceled"
 )
 
 // PromotionError is the closed atomic-promotion failure surface. Its public
 // text never includes a store path or package byte.
 type PromotionError struct {
-	Code PromotionCode
-	err  error
+	Code             PromotionCode
+	State            PromotionState
+	GenerationSHA256 string
+	err              error
 }
 
 func (err *PromotionError) Error() string {
@@ -71,6 +104,22 @@ func PromotionFailureCode(err error) (PromotionCode, bool) {
 		return "", false
 	}
 	return typed.Code, true
+}
+
+func PromotionFailureState(err error) (PromotionState, bool) {
+	var typed *PromotionError
+	if !errors.As(err, &typed) {
+		return "", false
+	}
+	return typed.State, true
+}
+
+func PromotionFailureGeneration(err error) (string, bool) {
+	var typed *PromotionError
+	if !errors.As(err, &typed) || !validTaggedSHA256(typed.GenerationSHA256) {
+		return "", false
+	}
+	return typed.GenerationSHA256, true
 }
 
 // PromotionOptions selects an existing canonical generation-store root.
@@ -113,7 +162,7 @@ func (promoted Promoted) Files() map[string][]byte { return cloneFiles(promoted.
 // exactly one atomic selector replacement. Publishing never changes the
 // current selection; a selector can name only a completely validated
 // generation already present in the store.
-func Promote(ctx context.Context, qualified Qualified, opts PromotionOptions) (Promoted, error) {
+func Promote(ctx context.Context, qualified Qualified, opts PromotionOptions) (result Promoted, resultErr error) {
 	if ctx == nil {
 		ctx = context.Background()
 	}
@@ -123,18 +172,36 @@ func Promote(ctx context.Context, qualified Qualified, opts PromotionOptions) (P
 	if err := validateQualified(qualified); err != nil {
 		return Promoted{}, promotionError(PromotionInvalidQualification, err)
 	}
+	record, err := buildGenerationRecord(qualified)
+	if err != nil {
+		return Promoted{}, promotionError(PromotionInvalidQualification, err)
+	}
 	store, err := canonicalPromotionStore(opts.StoreDir)
 	if err != nil {
 		return Promoted{}, promotionError(PromotionStoreFailed, err)
 	}
-	unlock, err := acquirePromotionLock(store)
+	unlock, err := acquirePromotionLock(store, record.GenerationSHA256)
 	if err != nil {
 		return Promoted{}, err
 	}
-	defer unlock()
+	skipDeferredUnlock := false
+	defer func() {
+		if skipDeferredUnlock {
+			return
+		}
+		if err := unlock(); err != nil {
+			result = Promoted{}
+			resultErr = promotionStateErrorFor(PromotionRecoveryRequired, PromotionIndeterminateState, record.GenerationSHA256, err)
+		}
+	}()
 
 	if err := ctx.Err(); err != nil {
 		return Promoted{}, promotionError(PromotionCanceled, err)
+	}
+	if recovery, err := recoveryTransients(store); err != nil {
+		return Promoted{}, promotionError(PromotionStoreFailed, err)
+	} else if len(recovery) != 1 || recovery[0] != promotionLockFile {
+		return Promoted{}, promotionStateError(PromotionRecoveryRequired, PromotionRecoveryRequiredState, errors.New("promotion store contains unreconciled transient state"))
 	}
 	if err := ensureGenerationDirectory(store); err != nil {
 		return Promoted{}, promotionError(PromotionStoreFailed, err)
@@ -154,10 +221,6 @@ func Promote(ctx context.Context, qualified Qualified, opts PromotionOptions) (P
 		}
 	}
 
-	record, err := buildGenerationRecord(qualified)
-	if err != nil {
-		return Promoted{}, promotionError(PromotionInvalidQualification, err)
-	}
 	if hasCurrent && current.SelectedGenerationSHA256 == record.GenerationSHA256 {
 		generation, err := loadGeneration(ctx, store, record.GenerationSHA256)
 		if err != nil || !reflect.DeepEqual(generation.record, record) {
@@ -165,25 +228,61 @@ func Promote(ctx context.Context, qualified Qualified, opts PromotionOptions) (P
 		}
 		return Promoted{selection: current, files: generation.files}, nil
 	}
+	selection, err := buildSelection(record, current, hasCurrent)
+	if err != nil {
+		return Promoted{}, promotionError(PromotionSelectionFailed, err)
+	}
+	intent, err := buildPromotionIntent(selection, current, hasCurrent)
+	if err != nil {
+		return Promoted{}, promotionError(PromotionSelectionFailed, err)
+	}
+	if err := writePromotionIntent(store, intent); err != nil {
+		if _, statErr := os.Lstat(filepath.Join(store, promotionIntentFile)); statErr == nil {
+			skipDeferredUnlock = true
+			return Promoted{}, promotionStateErrorFor(PromotionRecoveryRequired, PromotionIndeterminateState, record.GenerationSHA256, err)
+		}
+		return Promoted{}, promotionError(PromotionSelectionFailed, err)
+	}
+	if err := hitPromotionBoundary(PromotionAfterIntentWrite); err != nil {
+		rolledBack, keepLock := rollbackPromotionIntent(store, record.GenerationSHA256, err)
+		skipDeferredUnlock = keepLock
+		return Promoted{}, rolledBack
+	}
 	if err := publishGeneration(ctx, store, qualified.Prepared(), record); err != nil {
-		return Promoted{}, err
+		rolledBack, keepLock := rollbackPromotionIntent(store, record.GenerationSHA256, err)
+		skipDeferredUnlock = keepLock
+		return Promoted{}, rolledBack
 	}
 	if promotionBeforeSelectHook != nil {
 		promotionBeforeSelectHook()
 	}
 	if err := ctx.Err(); err != nil {
-		return Promoted{}, promotionError(PromotionCanceled, err)
+		rolledBack, keepLock := rollbackPromotionIntent(store, record.GenerationSHA256, promotionError(PromotionCanceled, err))
+		skipDeferredUnlock = keepLock
+		return Promoted{}, rolledBack
 	}
-	selection, err := buildSelection(record, current, hasCurrent)
+	selected, err := writeSelection(store, selection)
 	if err != nil {
-		return Promoted{}, promotionError(PromotionSelectionFailed, err)
-	}
-	if err := writeSelection(store, selection); err != nil {
-		return Promoted{}, promotionError(PromotionSelectionFailed, err)
+		if selected {
+			skipDeferredUnlock = true
+			return Promoted{}, promotionStateErrorFor(PromotionSelectionFailed, PromotionIndeterminateState, record.GenerationSHA256, err)
+		}
+		rolledBack, keepLock := rollbackPromotionIntent(store, record.GenerationSHA256, promotionError(PromotionSelectionFailed, err))
+		skipDeferredUnlock = keepLock
+		return Promoted{}, rolledBack
 	}
 	generation, err := loadGeneration(ctx, store, record.GenerationSHA256)
 	if err != nil {
-		return Promoted{}, promotionError(PromotionSelectionFailed, errors.New("selected generation failed post-selection validation"))
+		skipDeferredUnlock = true
+		return Promoted{}, promotionStateErrorFor(PromotionSelectionFailed, PromotionIndeterminateState, record.GenerationSHA256, errors.New("selected generation failed post-selection validation"))
+	}
+	if err := unlock(); err != nil {
+		skipDeferredUnlock = true
+		return Promoted{}, promotionStateErrorFor(PromotionRecoveryRequired, PromotionIndeterminateState, record.GenerationSHA256, err)
+	}
+	skipDeferredUnlock = true
+	if err := removePromotionIntent(store); err != nil {
+		return Promoted{}, promotionStateErrorFor(PromotionRecoveryRequired, PromotionIndeterminateState, record.GenerationSHA256, err)
 	}
 	return Promoted{selection: selection, files: generation.files}, nil
 }
@@ -371,6 +470,9 @@ func publishGeneration(ctx context.Context, store string, prepared Prepared, rec
 	if err := ctx.Err(); err != nil {
 		return promotionError(PromotionCanceled, err)
 	}
+	if err := hitPromotionBoundary(PromotionBeforeGenerationRename); err != nil {
+		return promotionError(PromotionStageFailed, err)
+	}
 	if err := os.Rename(stage, final); err != nil {
 		if loaded, loadErr := loadGeneration(ctx, store, record.GenerationSHA256); loadErr == nil && reflect.DeepEqual(loaded.record, record) {
 			return nil
@@ -378,8 +480,17 @@ func publishGeneration(ctx context.Context, store string, prepared Prepared, rec
 		return promotionError(PromotionGenerationCollision, errors.New("publish generation without overwrite"))
 	}
 	removeStage = false
+	if err := hitPromotionBoundary(PromotionAfterGenerationRename); err != nil {
+		return promotionError(PromotionStageFailed, err)
+	}
+	if err := hitPromotionBoundary(PromotionBeforeGenerationSync); err != nil {
+		return promotionError(PromotionStageFailed, err)
+	}
 	if err := syncDirectory(filepath.Join(store, promotionGenerationsDir)); err != nil {
 		return promotionError(PromotionStageFailed, errors.New("synchronize generation directory"))
+	}
+	if err := hitPromotionBoundary(PromotionAfterGenerationSync); err != nil {
+		return promotionError(PromotionStageFailed, err)
 	}
 	loaded, err := loadGeneration(ctx, store, record.GenerationSHA256)
 	if err != nil || !reflect.DeepEqual(loaded.record, record) {
@@ -477,15 +588,15 @@ func readSelection(ctx context.Context, store string) (Selection, bool, error) {
 	return selection, true, nil
 }
 
-func writeSelection(store string, selection Selection) error {
+func writeSelection(store string, selection Selection) (bool, error) {
 	data, err := json.MarshalIndent(selection, "", "  ")
 	if err != nil {
-		return err
+		return false, err
 	}
 	data = append(data, '\n')
-	tmp, err := os.CreateTemp(store, ".openudon-current-")
+	tmp, err := os.CreateTemp(store, promotionCurrentPrefix)
 	if err != nil {
-		return errors.New("create selection staging file")
+		return false, errors.New("create selection staging file")
 	}
 	tmpPath := tmp.Name()
 	remove := true
@@ -496,25 +607,37 @@ func writeSelection(store string, selection Selection) error {
 		}
 	}()
 	if err := tmp.Chmod(0o600); err != nil {
-		return errors.New("restrict selection staging file")
+		return false, errors.New("restrict selection staging file")
 	}
 	if _, err := io.Copy(tmp, bytes.NewReader(data)); err != nil {
-		return errors.New("write selection staging file")
+		return false, errors.New("write selection staging file")
 	}
 	if err := tmp.Sync(); err != nil {
-		return errors.New("synchronize selection staging file")
+		return false, errors.New("synchronize selection staging file")
 	}
 	if err := tmp.Close(); err != nil {
-		return errors.New("close selection staging file")
+		return false, errors.New("close selection staging file")
+	}
+	if err := hitPromotionBoundary(PromotionBeforeSelectionRename); err != nil {
+		return false, err
 	}
 	if err := os.Rename(tmpPath, filepath.Join(store, promotionCurrentFile)); err != nil {
-		return errors.New("atomically replace current selection")
+		return false, errors.New("atomically replace current selection")
 	}
 	remove = false
-	if err := syncDirectory(store); err != nil {
-		return errors.New("synchronize current selection directory")
+	if err := hitPromotionBoundary(PromotionAfterSelectionRename); err != nil {
+		return true, err
 	}
-	return nil
+	if err := hitPromotionBoundary(PromotionBeforeSelectionSync); err != nil {
+		return true, err
+	}
+	if err := syncDirectory(store); err != nil {
+		return true, errors.New("synchronize current selection directory")
+	}
+	if err := hitPromotionBoundary(PromotionAfterSelectionSync); err != nil {
+		return true, err
+	}
+	return true, nil
 }
 
 func canonicalPromotionStore(value string) (string, error) {
@@ -542,30 +665,38 @@ func ensureGenerationDirectory(store string) error {
 	return syncDirectory(store)
 }
 
-func acquirePromotionLock(store string) (func(), error) {
+func acquirePromotionLock(store, targetGeneration string) (func() error, error) {
 	path := filepath.Join(store, promotionLockFile)
-	file, err := os.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o600)
+	lock, err := buildPromotionLock(targetGeneration)
+	if err != nil {
+		return nil, promotionError(PromotionStoreFailed, err)
+	}
+	data, err := json.MarshalIndent(lock, "", "  ")
+	if err == nil {
+		err = writeAtomicNew(path, append(data, '\n'), 0o600, promotionLockPrefix)
+	}
 	if errors.Is(err, fs.ErrExist) {
 		return nil, promotionError(PromotionBusy, errors.New("another promotion owns the store lock"))
 	}
 	if err != nil {
+		if transients, inspectErr := recoveryTransients(store); inspectErr == nil && len(transients) > 0 {
+			return nil, promotionStateError(PromotionRecoveryRequired, PromotionIndeterminateState, errors.New("promotion lock creation left recoverable transient state"))
+		}
 		return nil, promotionError(PromotionStoreFailed, errors.New("create promotion lock"))
 	}
-	if err := file.Sync(); err != nil {
-		_ = file.Close()
-		_ = os.Remove(path)
-		return nil, promotionError(PromotionStoreFailed, errors.New("synchronize promotion lock"))
-	}
-	if err := file.Close(); err != nil {
-		_ = os.Remove(path)
-		return nil, promotionError(PromotionStoreFailed, errors.New("close promotion lock"))
-	}
-	return func() {
-		root, err := os.OpenRoot(store)
-		if err == nil {
-			_ = root.Remove(promotionLockFile)
-			_ = root.Close()
+	return func() error {
+		if err := hitPromotionBoundary(PromotionBeforeLockCleanup); err != nil {
+			return err
 		}
+		root, err := os.OpenRoot(store)
+		if err != nil {
+			return errors.New("open promotion store for lock cleanup")
+		}
+		defer root.Close()
+		if err := root.Remove(promotionLockFile); err != nil && !errors.Is(err, fs.ErrNotExist) {
+			return errors.New("remove promotion lock")
+		}
+		return syncDirectory(store)
 	}, nil
 }
 
@@ -657,5 +788,37 @@ func promotionError(code PromotionCode, err error) error {
 	if typed := new(PromotionError); errors.As(err, &typed) {
 		return err
 	}
-	return &PromotionError{Code: code, err: err}
+	return &PromotionError{Code: code, State: PromotionFailedState, err: err}
+}
+
+func promotionStateError(code PromotionCode, state PromotionState, err error) error {
+	return promotionStateErrorFor(code, state, "", err)
+}
+
+func promotionStateErrorFor(code PromotionCode, state PromotionState, generation string, err error) error {
+	if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
+		code = PromotionCanceled
+	}
+	return &PromotionError{Code: code, State: state, GenerationSHA256: generation, err: err}
+}
+
+func promotionCodeOr(err error, fallback PromotionCode) PromotionCode {
+	if code, ok := PromotionFailureCode(err); ok {
+		return code
+	}
+	return fallback
+}
+
+func rollbackPromotionIntent(store, generation string, cause error) (error, bool) {
+	if err := removePromotionIntent(store); err != nil {
+		return promotionStateErrorFor(PromotionRecoveryRequired, PromotionIndeterminateState, generation, errors.Join(cause, err)), true
+	}
+	return promotionStateErrorFor(promotionCodeOr(cause, PromotionSelectionFailed), PromotionRolledBackState, generation, cause), false
+}
+
+func hitPromotionBoundary(boundary PromotionBoundary) error {
+	if promotionFaultHook == nil {
+		return nil
+	}
+	return promotionFaultHook(boundary)
 }
