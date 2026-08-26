@@ -161,11 +161,11 @@ func (executor *realExecutor) runBAPBCPQualification(ctx context.Context, enviro
 		Scope:      "examples/support-priority-routing", ScratchParent: scratch, StoreDir: store,
 	})
 	if err != nil {
-		return evidence, errors.New("BAP+BCP qualification baseline promotion failed")
+		return evidence, fmt.Errorf("BAP+BCP qualification baseline promotion failed: %s", closedPackageLifecycleFailure(err))
 	}
 	promoted, err := packagepipeline.Promote(ctx, qualified, packagepipeline.PromotionOptions{StoreDir: store})
 	if err != nil {
-		return evidence, errors.New("BAP+BCP qualification package promotion failed")
+		return evidence, fmt.Errorf("BAP+BCP qualification package promotion failed: %s", closedPackageLifecycleFailure(err))
 	}
 	selection := promoted.Selection()
 	if selection.PriorGenerationSHA256 != baseline.Selection().SelectedGenerationSHA256 || selection.PriorGenerationSHA256 == "" {
@@ -392,4 +392,14 @@ func safeQualityCode(value string) bool {
 		}
 	}
 	return true
+}
+
+func closedPackageLifecycleFailure(err error) string {
+	if code, ok := packagepipeline.QualificationFailureCode(err); ok {
+		return "qualification_" + string(code)
+	}
+	if code, ok := packagepipeline.PromotionFailureCode(err); ok {
+		return "promotion_" + string(code)
+	}
+	return "unclassified"
 }

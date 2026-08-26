@@ -1,9 +1,11 @@
 package browserscenario
 
 import (
+	"context"
 	"strings"
 	"testing"
 
+	"github.com/OpenUdon/openudon/internal/packagepipeline"
 	"github.com/OpenUdon/openudon/internal/synthesize"
 )
 
@@ -24,6 +26,17 @@ func TestValidateBAPBCPQualificationEvidenceRejectsMissingDuplicateAndMalformedD
 	evidence.WorkflowSHA256 = "private/result/path"
 	if err := ValidateBAPBCPQualificationEvidence(evidence); err == nil {
 		t.Fatal("non-digest qualification evidence was accepted")
+	}
+}
+
+func TestClosedPackageLifecycleFailureUsesTypedCodes(t *testing.T) {
+	_, qualificationErr := packagepipeline.Qualify(context.Background(), packagepipeline.Prepared{}, packagepipeline.QualifyOptions{})
+	if got := closedPackageLifecycleFailure(qualificationErr); got != "qualification_invalid_preparation" {
+		t.Fatalf("qualification failure = %q", got)
+	}
+	_, promotionErr := packagepipeline.Promote(context.Background(), packagepipeline.Qualified{}, packagepipeline.PromotionOptions{})
+	if got := closedPackageLifecycleFailure(promotionErr); got != "promotion_invalid_qualification" {
+		t.Fatalf("promotion failure = %q", got)
 	}
 }
 
