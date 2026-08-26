@@ -125,7 +125,7 @@ func BuildQualificationReport(at time.Time, repositories []RepositoryRevision, b
 		{ID: GateBRPNetwork, Status: StatusPass, EvidenceCount: brp.Requests},
 		{ID: GateBRPTransaction, Status: StatusPass, EvidenceCount: 2},
 		{ID: GateBRPPackage, Status: StatusPass, EvidenceCount: 5},
-		{ID: GateBRPExecutorRejection, Status: StatusPass, EvidenceCount: 2},
+		{ID: GateBRPRuntime, Status: StatusPass, EvidenceCount: 4},
 		{ID: GateProtocolBounds, Status: StatusPass, EvidenceCount: 1},
 		{ID: GateLifecycleDrift, Status: StatusPass, EvidenceCount: 1},
 		{ID: GateConcurrentLifecycle, Status: StatusPass, EvidenceCount: 1},
@@ -140,8 +140,15 @@ func BuildQualificationReport(at time.Time, repositories []RepositoryRevision, b
 			SandboxRequired: true, SandboxEnabled: true, LoopbackOnly: true,
 			RegistrationAuthoringMethods:      append([]string(nil), brp.Methods...),
 			RegistrationAuthoringPostRequests: brp.MutationRequests,
+			RegistrationRuntimePostRequests:   brp.RuntimePOSTRequests,
+			RegistrationSubmitApproved:        brp.SubmitApproved,
 			AccountCreated:                    brp.AccountCreated, ExecutorInvokedForRegistration: brp.ExecutorInvoked,
-			ContainsPrivateMaterial: false, ValueFree: true,
+			RegistrationSessionEstablished: brp.SessionEstablished,
+			RegistrationResultVersion:      "browsertools.registration-authoring.v2",
+			TransactionVersion:             "openudon.browser-profile-transaction.v2",
+			BrowserDriverProtocol:          "udon.browser-driver.v4",
+			UdonExecutionReportVersion:     "udon.execution-report.v3",
+			ContainsPrivateMaterial:        false, ValueFree: true,
 		},
 		Artifacts: artifacts, Results: results,
 	})
@@ -157,14 +164,17 @@ func qualificationArtifacts(bapBCP browserscenario.BAPBCPQualificationEvidence, 
 		brp.ProducerResultSHA256, brp.TransactionSHA256, brp.PreparationSHA256,
 		brp.QualificationSHA256, brp.GenerationSHA256, brp.SelectionSHA256,
 		brp.PackageSHA256, brp.HandoffSHA256, brp.WorkflowSHA256,
+		brp.AttestationSHA256, brp.ExecutionReportSHA256,
 	}
-	artifacts := make([]ArtifactDigest, 0, 2*len(artifactKindOrder))
+	artifacts := make([]ArtifactDigest, 0, len(bapArtifactKindOrder)+len(brpArtifactKindOrder))
 	for caseIndex, caseID := range []string{CaseBAPBCP, CaseBRP} {
 		values := bapValues
+		kinds := bapArtifactKindOrder
 		if caseIndex == 1 {
 			values = brpValues
+			kinds = brpArtifactKindOrder
 		}
-		for index, kind := range artifactKindOrder {
+		for index, kind := range kinds {
 			artifacts = append(artifacts, ArtifactDigest{Case: caseID, Kind: kind, SHA256: values[index]})
 		}
 	}
@@ -227,10 +237,10 @@ func qualificationRepositories(ctx context.Context, roots qualificationRepoRoots
 		name, root string
 	}
 	items := []repository{
-		{"openudon", roots.openudon}, {"browsertools", roots.browsertools}, {"uws", roots.uws},
-		{"udon", roots.udon}, {"browserdriver", roots.browserdriver},
+		{"openudon", roots.openudon}, {"browsertools", roots.browsertools}, {"browserdriver", roots.browserdriver},
+		{"udon", roots.udon}, {"uws", roots.uws},
 	}
-	repositories := make([]RepositoryRevision, 0, 3)
+	repositories := make([]RepositoryRevision, 0, len(items))
 	for _, item := range items {
 		commit, err := qualificationCommandOutput(ctx, time.Minute, item.root, []string{"git", "rev-parse", "HEAD"})
 		if err != nil || !evidencefile.ValidGitObject(commit) {
@@ -241,31 +251,25 @@ func qualificationRepositories(ctx context.Context, roots qualificationRepoRoots
 		if err != nil || status != "" {
 			return nil, fmt.Errorf("%s qualification repository must be clean", item.name)
 		}
-		if item.name == "openudon" {
-			branch, branchErr := qualificationCommandOutput(ctx, time.Minute, item.root, []string{"git", "symbolic-ref", "--quiet", "--short", "HEAD"})
-			originMain, originErr := qualificationCommandOutput(ctx, time.Minute, item.root, []string{"git", "rev-parse", "refs/remotes/origin/main"})
-			remote, remoteErr := qualificationCommandOutput(ctx, time.Minute, item.root, []string{"git", "ls-remote", "--exit-code", "origin", "refs/heads/main"})
-			_, ancestryErr := qualificationCommandOutput(ctx, time.Minute, item.root, []string{"git", "merge-base", "--is-ancestor", originMain, commit})
-			if branchErr != nil || branch != "main" || originErr != nil || !evidencefile.ValidGitObject(originMain) ||
-				remoteErr != nil || remote != originMain+"\trefs/heads/main" || ancestryErr != nil {
-				return nil, errors.New("OpenUdon qualification revision must be published main or local main descended from the independently resolved origin")
-			}
-			repositories = append(repositories, RepositoryRevision{Name: item.name, Commit: commit, Published: commit == originMain})
-			continue
-		}
 		component := locked[item.name]
-		if commit != component.Commit {
+		if item.name != "openudon" && commit != component.Commit {
 			return nil, fmt.Errorf("%s qualification revision does not match the lock", item.name)
 		}
-		if item.name == "browsertools" || item.name == "uws" {
-			remote, err := qualificationCommandOutput(ctx, time.Minute, item.root, []string{"git", "ls-remote", "--exit-code", "origin", "refs/heads/main"})
-			if err != nil || remote != component.Commit+"\trefs/heads/main" {
-				return nil, fmt.Errorf("%s published qualification revision is not independently resolvable", item.name)
-			}
-			repositories = append(repositories, RepositoryRevision{
-				Name: item.name, Commit: commit, ModuleVersion: component.Version, Published: true,
-			})
+		branch, branchErr := qualificationCommandOutput(ctx, time.Minute, item.root, []string{"git", "symbolic-ref", "--quiet", "--short", "HEAD"})
+		originMain, originErr := qualificationCommandOutput(ctx, time.Minute, item.root, []string{"git", "rev-parse", "refs/remotes/origin/main"})
+		remote, remoteErr := qualificationCommandOutput(ctx, time.Minute, item.root, []string{"git", "ls-remote", "--exit-code", "origin", "refs/heads/main"})
+		_, ancestryErr := qualificationCommandOutput(ctx, time.Minute, item.root, []string{"git", "merge-base", "--is-ancestor", originMain, commit})
+		if branchErr != nil || branch != "main" || originErr != nil || !evidencefile.ValidGitObject(originMain) ||
+			remoteErr != nil || remote != originMain+"\trefs/heads/main" || ancestryErr != nil {
+			return nil, fmt.Errorf("%s qualification revision must be published main or local main descended from the independently resolved origin", item.name)
 		}
+		published := commit == originMain
+		if item.name == "uws" && !published {
+			return nil, errors.New("UWS qualification revision must remain the unchanged published lock")
+		}
+		repositories = append(repositories, RepositoryRevision{
+			Name: item.name, Commit: commit, ModuleVersion: component.Version, Published: published,
+		})
 	}
 	return repositories, nil
 }

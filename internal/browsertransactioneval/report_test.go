@@ -93,6 +93,20 @@ func TestReportAcceptsOpenUdonPublicationTransition(t *testing.T) {
 	}
 }
 
+func TestReportAcceptsLockedLocalImplementationPublicationTransition(t *testing.T) {
+	report := testReport(t)
+	for _, index := range []int{1, 2, 3} {
+		report.Repositories[index].Published = false
+	}
+	if err := Validate(report); err != nil {
+		t.Fatalf("local locked implementation classification rejected: %v", err)
+	}
+	report.Repositories[4].Published = false
+	if err := Validate(report); err == nil {
+		t.Fatal("unpublished unchanged UWS classification was accepted")
+	}
+}
+
 func TestVerifyFileRejectsTamperUnknownMissingDuplicateNoncanonicalAndSymlink(t *testing.T) {
 	report := testReport(t)
 	canonical, err := CanonicalBytes(report)
@@ -161,11 +175,17 @@ func testReport(t *testing.T) *Report {
 	repositories := []RepositoryRevision{
 		{Name: "openudon", Commit: strings.Repeat("1", 40), Published: true},
 		{Name: "browsertools", Commit: locked["browsertools"].Commit, ModuleVersion: locked["browsertools"].Version, Published: true},
+		{Name: "browserdriver", Commit: locked["browserdriver"].Commit, Published: true},
+		{Name: "udon", Commit: locked["udon"].Commit, Published: true},
 		{Name: "uws", Commit: locked["uws"].Commit, ModuleVersion: locked["uws"].Version, Published: true},
 	}
-	artifacts := make([]ArtifactDigest, 0, 2*len(artifactKindOrder))
+	artifacts := make([]ArtifactDigest, 0, len(bapArtifactKindOrder)+len(brpArtifactKindOrder))
 	for _, caseID := range []string{CaseBAPBCP, CaseBRP} {
-		for _, kind := range artifactKindOrder {
+		kinds := bapArtifactKindOrder
+		if caseID == CaseBRP {
+			kinds = brpArtifactKindOrder
+		}
+		for _, kind := range kinds {
 			sum := sha256.Sum256([]byte(caseID + "\x00" + kind))
 			artifacts = append(artifacts, ArtifactDigest{Case: caseID, Kind: kind, SHA256: "sha256:" + hex.EncodeToString(sum[:])})
 		}
@@ -179,7 +199,10 @@ func testReport(t *testing.T) *Report {
 		Repositories: repositories,
 		Posture: Posture{
 			SandboxRequired: true, SandboxEnabled: true, LoopbackOnly: true,
-			RegistrationAuthoringMethods: []string{"GET", "HEAD"}, ValueFree: true,
+			RegistrationAuthoringMethods: []string{"GET", "HEAD"}, RegistrationRuntimePostRequests: 1,
+			RegistrationSubmitApproved: true, AccountCreated: true, ExecutorInvokedForRegistration: true,
+			RegistrationResultVersion: "browsertools.registration-authoring.v2", TransactionVersion: "openudon.browser-profile-transaction.v2",
+			BrowserDriverProtocol: "udon.browser-driver.v4", UdonExecutionReportVersion: "udon.execution-report.v3", ValueFree: true,
 		},
 		Artifacts: artifacts, Results: results,
 	})

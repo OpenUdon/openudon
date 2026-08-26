@@ -20,7 +20,7 @@ import (
 )
 
 const (
-	ReportVersion  = "openudon.browser-transaction-qualification.v1"
+	ReportVersion  = "openudon.browser-transaction-qualification.v2"
 	StatusPass     = "pass"
 	StatusFail     = "fail"
 	CaseBAPBCP     = "bap_bcp"
@@ -39,7 +39,7 @@ const (
 	GateBRPNetwork            = "brp_network"
 	GateBRPTransaction        = "brp_transaction"
 	GateBRPPackage            = "brp_package"
-	GateBRPExecutorRejection  = "brp_executor_rejection"
+	GateBRPRuntime            = "brp_runtime"
 	GateProtocolBounds        = "protocol_bounds"
 	GateLifecycleDrift        = "lifecycle_drift"
 	GateConcurrentLifecycle   = "concurrent_lifecycle"
@@ -60,7 +60,7 @@ var gateOrder = []string{
 	GateBRPNetwork,
 	GateBRPTransaction,
 	GateBRPPackage,
-	GateBRPExecutorRejection,
+	GateBRPRuntime,
 	GateProtocolBounds,
 	GateLifecycleDrift,
 	GateConcurrentLifecycle,
@@ -70,7 +70,7 @@ var gateOrder = []string{
 	GateSensitiveArtifactScan,
 }
 
-var artifactKindOrder = []string{
+var bapArtifactKindOrder = []string{
 	"producer_result",
 	"transaction",
 	"preparation",
@@ -81,6 +81,8 @@ var artifactKindOrder = []string{
 	"handoff",
 	"workflow",
 }
+
+var brpArtifactKindOrder = append(append([]string(nil), bapArtifactKindOrder...), "attestation", "execution_report")
 
 var failureCodes = map[string]bool{
 	"contract_invalid":       true,
@@ -129,8 +131,15 @@ type Posture struct {
 	PublicTargetsContacted            bool     `json:"public_targets_contacted"`
 	RegistrationAuthoringMethods      []string `json:"registration_authoring_methods"`
 	RegistrationAuthoringPostRequests int      `json:"registration_authoring_post_requests"`
+	RegistrationRuntimePostRequests   int      `json:"registration_runtime_post_requests"`
+	RegistrationSubmitApproved        bool     `json:"registration_submit_approved"`
 	AccountCreated                    bool     `json:"account_created"`
 	ExecutorInvokedForRegistration    bool     `json:"executor_invoked_for_registration"`
+	RegistrationSessionEstablished    bool     `json:"registration_session_established"`
+	RegistrationResultVersion         string   `json:"registration_result_version"`
+	TransactionVersion                string   `json:"transaction_version"`
+	BrowserDriverProtocol             string   `json:"browser_driver_protocol"`
+	UdonExecutionReportVersion        string   `json:"udon_execution_report_version"`
 	ContainsPrivateMaterial           bool     `json:"contains_private_material"`
 	ValueFree                         bool     `json:"value_free"`
 }
@@ -289,8 +298,8 @@ func VerifyFile(path string, requirePass bool) (*Report, error) {
 }
 
 func validateRepositories(repositories []RepositoryRevision) error {
-	if len(repositories) != 3 {
-		return errors.New("browser transaction qualification requires three repositories")
+	if len(repositories) != 5 {
+		return errors.New("browser transaction qualification requires five repositories")
 	}
 	lock, err := browserscenario.LoadCompatibilityLock()
 	if err != nil {
@@ -300,7 +309,7 @@ func validateRepositories(repositories []RepositoryRevision) error {
 	for _, component := range lock.Components {
 		locked[component.Name] = component
 	}
-	want := []string{"openudon", "browsertools", "uws"}
+	want := []string{"openudon", "browsertools", "browserdriver", "udon", "uws"}
 	for index, repository := range repositories {
 		if repository.Name != want[index] || !evidencefile.ValidGitObject(repository.Commit) {
 			return errors.New("browser transaction qualification repository identity is invalid")
@@ -312,8 +321,11 @@ func validateRepositories(repositories []RepositoryRevision) error {
 			continue
 		}
 		component := locked[repository.Name]
-		if repository.Commit != component.Commit || repository.ModuleVersion != component.Version || !repository.Published {
-			return fmt.Errorf("browser transaction qualification %s revision does not match the published lock", repository.Name)
+		if repository.Commit != component.Commit || repository.ModuleVersion != component.Version {
+			return fmt.Errorf("browser transaction qualification %s revision does not match the exact lock", repository.Name)
+		}
+		if repository.Name == "uws" && !repository.Published {
+			return errors.New("browser transaction qualification UWS revision must remain published")
 		}
 	}
 	return nil
@@ -321,7 +333,10 @@ func validateRepositories(repositories []RepositoryRevision) error {
 
 func validatePosture(posture Posture) error {
 	if !posture.SandboxRequired || !posture.SandboxEnabled || !posture.LoopbackOnly || posture.PublicTargetsContacted ||
-		posture.RegistrationAuthoringPostRequests != 0 || posture.AccountCreated || posture.ExecutorInvokedForRegistration ||
+		posture.RegistrationAuthoringPostRequests != 0 || posture.RegistrationRuntimePostRequests != 1 || !posture.RegistrationSubmitApproved ||
+		!posture.AccountCreated || !posture.ExecutorInvokedForRegistration || posture.RegistrationSessionEstablished ||
+		posture.RegistrationResultVersion != "browsertools.registration-authoring.v2" || posture.TransactionVersion != "openudon.browser-profile-transaction.v2" ||
+		posture.BrowserDriverProtocol != "udon.browser-driver.v4" || posture.UdonExecutionReportVersion != "udon.execution-report.v3" ||
 		posture.ContainsPrivateMaterial || !posture.ValueFree || !equalStrings(posture.RegistrationAuthoringMethods, []string{"GET", "HEAD"}) {
 		return errors.New("browser transaction qualification posture is invalid")
 	}
@@ -329,14 +344,18 @@ func validatePosture(posture Posture) error {
 }
 
 func validateArtifacts(artifacts []ArtifactDigest) error {
-	wantCount := 2 * len(artifactKindOrder)
+	wantCount := len(bapArtifactKindOrder) + len(brpArtifactKindOrder)
 	if len(artifacts) != wantCount {
 		return fmt.Errorf("browser transaction qualification artifact count = %d, want %d", len(artifacts), wantCount)
 	}
 	index := 0
 	for _, caseID := range []string{CaseBAPBCP, CaseBRP} {
-		seen := make(map[string]bool, len(artifactKindOrder))
-		for _, kind := range artifactKindOrder {
+		kinds := bapArtifactKindOrder
+		if caseID == CaseBRP {
+			kinds = brpArtifactKindOrder
+		}
+		seen := make(map[string]bool, len(kinds))
+		for _, kind := range kinds {
 			artifact := artifacts[index]
 			if artifact.Case != caseID || artifact.Kind != kind || !validTaggedSHA256(artifact.SHA256) || seen[artifact.SHA256] {
 				return fmt.Errorf("browser transaction qualification artifact %d is invalid", index)
@@ -374,7 +393,7 @@ func validateRequiredWireFields(data []byte) error {
 			return err
 		}
 	}
-	if _, err := requiredObject(root["posture"], "posture", "sandbox_required", "sandbox_enabled", "loopback_only", "public_targets_contacted", "registration_authoring_methods", "registration_authoring_post_requests", "account_created", "executor_invoked_for_registration", "contains_private_material", "value_free"); err != nil {
+	if _, err := requiredObject(root["posture"], "posture", "sandbox_required", "sandbox_enabled", "loopback_only", "public_targets_contacted", "registration_authoring_methods", "registration_authoring_post_requests", "registration_runtime_post_requests", "registration_submit_approved", "account_created", "executor_invoked_for_registration", "registration_session_established", "registration_result_version", "transaction_version", "browser_driver_protocol", "udon_execution_report_version", "contains_private_material", "value_free"); err != nil {
 		return err
 	}
 	var artifacts []json.RawMessage

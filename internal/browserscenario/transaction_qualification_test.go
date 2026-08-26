@@ -2,7 +2,6 @@ package browserscenario
 
 import (
 	"context"
-	"errors"
 	"strings"
 	"testing"
 
@@ -46,40 +45,28 @@ func TestTaggedQualificationSHA256NormalizesOnlyValidatedDigests(t *testing.T) {
 	}
 }
 
-func TestValidateBRPQualificationEvidenceRequiresZeroSubmitPosture(t *testing.T) {
+func TestValidateBRPQualificationEvidenceRequiresZeroSubmitAuthoringAndOneAttestedRuntimeSubmit(t *testing.T) {
 	valid := func(character string) string { return "sha256:" + strings.Repeat(character, 64) }
 	evidence := BRPQualificationEvidence{
 		ProducerResultSHA256: valid("1"), TransactionSHA256: valid("2"), PreparationSHA256: valid("3"),
 		QualificationSHA256: valid("4"), GenerationSHA256: valid("5"), SelectionSHA256: valid("6"),
-		PackageSHA256: valid("7"), HandoffSHA256: valid("8"), WorkflowSHA256: valid("9"), EvidenceCount: 9,
+		PackageSHA256: valid("7"), HandoffSHA256: valid("8"), WorkflowSHA256: valid("9"),
+		AttestationSHA256: valid("a"), ExecutionReportSHA256: valid("b"), EvidenceCount: 11,
 		Methods: []string{"GET", "HEAD"}, Requests: 3, GETRequests: 2, HEADRequests: 1,
+		RuntimePOSTRequests: 1, SubmitApproved: true, SubmitExecuted: true, AccountCreated: true,
+		RuntimeSupported: true, ExecutorInvoked: true,
 	}
 	if err := ValidateBRPQualificationEvidence(evidence); err != nil {
 		t.Fatal(err)
 	}
 	evidence.MutationRequests = 1
 	if err := ValidateBRPQualificationEvidence(evidence); err == nil {
-		t.Fatal("mutation request evidence was accepted")
+		t.Fatal("authoring mutation request evidence was accepted")
 	}
 	evidence.MutationRequests = 0
-	evidence.ExecutorInvoked = true
+	evidence.RuntimePOSTRequests = 2
 	if err := ValidateBRPQualificationEvidence(evidence); err == nil {
-		t.Fatal("registration executor invocation was accepted")
-	}
-}
-
-func TestClosedBRPProducerFailureRetainsOnlyFixedCodes(t *testing.T) {
-	if got := closedBRPProducerFailure(errors.New("head_response")); got != "head_response" {
-		t.Fatalf("closed BRP producer failure = %q", got)
-	}
-	if got := closedBRPProducerFailure(errors.New("private/result/path")); got != "unclassified" {
-		t.Fatalf("path-bearing BRP producer failure = %q", got)
-	}
-	if got := closedBRPProducerFailure(errors.New("first_observe_response_worker_protocol")); got != "first_observe_response_worker_protocol" {
-		t.Fatalf("nested BRP producer failure = %q", got)
-	}
-	if got := closedBRPProducerFailure(errors.New("first_observe_response_private_path")); got != "unclassified" {
-		t.Fatalf("nested path-bearing BRP producer failure = %q", got)
+		t.Fatal("multiple registration submits were accepted")
 	}
 }
 

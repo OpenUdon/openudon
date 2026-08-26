@@ -32,12 +32,13 @@ func TestBuildQualificationReportMapsValidatedClosedEvidence(t *testing.T) {
 	if report.Status != StatusPass || report.Summary != (Summary{Total: 18, Passed: 18}) {
 		t.Fatalf("qualification summary = %#v, status = %q", report.Summary, report.Status)
 	}
-	if len(report.Artifacts) != 18 || report.Results[7].ID != GateBRPNetwork || report.Results[7].EvidenceCount != brp.Requests {
+	if len(report.Artifacts) != 20 || report.Results[7].ID != GateBRPNetwork || report.Results[7].EvidenceCount != brp.Requests {
 		t.Fatalf("qualification evidence mapping is invalid: %#v", report)
 	}
 	if !report.Posture.SandboxRequired || !report.Posture.SandboxEnabled || !report.Posture.LoopbackOnly ||
 		report.Posture.PublicTargetsContacted || report.Posture.RegistrationAuthoringPostRequests != 0 ||
-		report.Posture.AccountCreated || report.Posture.ExecutorInvokedForRegistration ||
+		report.Posture.RegistrationRuntimePostRequests != 1 || !report.Posture.RegistrationSubmitApproved ||
+		!report.Posture.AccountCreated || !report.Posture.ExecutorInvokedForRegistration || report.Posture.RegistrationSessionEstablished ||
 		report.Posture.ContainsPrivateMaterial || !report.Posture.ValueFree {
 		t.Fatalf("qualification posture = %#v", report.Posture)
 	}
@@ -183,17 +184,24 @@ func testBAPBCPQualificationEvidence() browserscenario.BAPBCPQualificationEviden
 }
 
 func testBRPQualificationEvidence() browserscenario.BRPQualificationEvidence {
-	values := testQualificationDigests("brp")
+	values := testQualificationDigestsN("brp", 11)
 	return browserscenario.BRPQualificationEvidence{
 		ProducerResultSHA256: values[0], TransactionSHA256: values[1], PreparationSHA256: values[2],
 		QualificationSHA256: values[3], GenerationSHA256: values[4], SelectionSHA256: values[5],
-		PackageSHA256: values[6], HandoffSHA256: values[7], WorkflowSHA256: values[8], EvidenceCount: 9,
+		PackageSHA256: values[6], HandoffSHA256: values[7], WorkflowSHA256: values[8],
+		AttestationSHA256: values[9], ExecutionReportSHA256: values[10], EvidenceCount: 11,
 		Methods: []string{"GET", "HEAD"}, Requests: 2, GETRequests: 1, HEADRequests: 1,
+		RuntimePOSTRequests: 1, SubmitApproved: true, SubmitExecuted: true, AccountCreated: true,
+		RuntimeSupported: true, ExecutorInvoked: true,
 	}
 }
 
 func testQualificationDigests(prefix string) []string {
-	values := make([]string, 9)
+	return testQualificationDigestsN(prefix, 9)
+}
+
+func testQualificationDigestsN(prefix string, count int) []string {
+	values := make([]string, count)
 	for index := range values {
 		sum := sha256.Sum256([]byte(prefix + string(rune(index))))
 		values[index] = "sha256:" + hex.EncodeToString(sum[:])
