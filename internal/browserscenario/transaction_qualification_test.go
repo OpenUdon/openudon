@@ -2,6 +2,7 @@ package browserscenario
 
 import (
 	"context"
+	"errors"
 	"strings"
 	"testing"
 
@@ -64,6 +65,15 @@ func TestValidateBRPQualificationEvidenceRequiresZeroSubmitPosture(t *testing.T)
 	evidence.ExecutorInvoked = true
 	if err := ValidateBRPQualificationEvidence(evidence); err == nil {
 		t.Fatal("registration executor invocation was accepted")
+	}
+}
+
+func TestClosedBRPProducerFailureRetainsOnlyFixedCodes(t *testing.T) {
+	if got := closedBRPProducerFailure(errors.New("head_response")); got != "head_response" {
+		t.Fatalf("closed BRP producer failure = %q", got)
+	}
+	if got := closedBRPProducerFailure(errors.New("private/result/path")); got != "unclassified" {
+		t.Fatalf("path-bearing BRP producer failure = %q", got)
 	}
 }
 

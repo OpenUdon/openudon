@@ -113,7 +113,7 @@ func (executor *realExecutor) runBRPQualification(ctx context.Context, environme
 	}
 	candidate, err := runRegistrationQualificationProducer(ctx, executor.browsertools, privateRoot, fixture, profile)
 	if err != nil || candidate == nil {
-		return evidence, errors.New("BRP producer or adoption failed")
+		return evidence, fmt.Errorf("BRP producer or adoption failed: %s", closedBRPProducerFailure(err))
 	}
 	reviewed, err := candidate.ReviewedTransaction()
 	if err != nil || reviewed.Session != "" || reviewed.State != browsertransaction.StateReviewed {
@@ -234,50 +234,50 @@ func runRegistrationQualificationProducer(ctx context.Context, executable, priva
 		PrivateRoot: privateRoot, TransactionID: "qualification-brp", OperatorIdle: time.Minute, Absolute: 5 * time.Minute,
 	}, executable)
 	if err != nil {
-		return nil, err
+		return nil, errors.New("worker_start")
 	}
 	defer session.Cancel()
 	if _, err := awaitRegistrationQualificationEvent(ctx, session, "ready"); err != nil {
-		return nil, err
+		return nil, errors.New("worker_ready")
 	}
 	if err := session.Send(ctx, browserauthor.RegistrationCommand{
 		Type: "start", ProfileID: "loopback_registration", URL: fixture.URL(), Origins: []string{fixture.Origin()},
 	}); err != nil {
-		return nil, err
+		return nil, errors.New("start_write")
 	}
 	if _, err := awaitRegistrationQualificationEvent(ctx, session, "observing"); err != nil {
-		return nil, err
+		return nil, errors.New("start_response")
 	}
 	if err := session.Send(ctx, browserauthor.RegistrationCommand{Type: "observe"}); err != nil {
-		return nil, err
+		return nil, errors.New("first_observe_write")
 	}
 	if _, err := awaitRegistrationQualificationEvent(ctx, session, "observation"); err != nil {
-		return nil, err
+		return nil, errors.New("first_observe_response")
 	}
 	if err := session.Send(ctx, browserauthor.RegistrationCommand{Type: "navigate", Method: http.MethodHead, URL: fixture.URL()}); err != nil {
-		return nil, err
+		return nil, errors.New("head_write")
 	}
 	if _, err := awaitRegistrationQualificationEvent(ctx, session, "observing"); err != nil {
-		return nil, err
+		return nil, errors.New("head_response")
 	}
 	if err := session.Send(ctx, browserauthor.RegistrationCommand{Type: "observe"}); err != nil {
-		return nil, err
+		return nil, errors.New("second_observe_write")
 	}
 	observed, err := awaitRegistrationQualificationEvent(ctx, session, "observation")
 	if err != nil || observed.Observation == nil {
-		return nil, errors.New("BRP qualification observation is unavailable")
+		return nil, errors.New("second_observe_response")
 	}
 	candidateID := ""
 	for _, candidate := range observed.Observation.Candidates {
 		if candidate.Role == "button" && candidate.Label == "Register" && candidate.Matches == 1 {
 			if candidateID != "" {
-				return nil, errors.New("BRP qualification submit candidate is ambiguous")
+				return nil, errors.New("submit_candidate_ambiguous")
 			}
 			candidateID = candidate.ID
 		}
 	}
 	if candidateID == "" {
-		return nil, errors.New("BRP qualification submit candidate is unavailable")
+		return nil, errors.New("submit_candidate_unavailable")
 	}
 	bindings := []browsertransaction.CredentialBinding{
 		{Slot: "identifier", Binding: "registration_identifier"},
@@ -287,22 +287,41 @@ func runRegistrationQualificationProducer(ctx context.Context, executable, priva
 		Type: "review", Confirmed: true, Profile: profile, CandidateIDs: []string{candidateID},
 		Flow: "create_dedicated_test_user", CleanupDisposition: "delete_separately", CredentialBindings: bindings,
 	}); err != nil {
-		return nil, err
+		return nil, errors.New("review_write")
 	}
 	if _, err := awaitRegistrationQualificationEvent(ctx, session, "reviewed"); err != nil {
-		return nil, err
+		return nil, errors.New("review_response")
 	}
 	if err := session.Send(ctx, browserauthor.RegistrationCommand{Type: "finish", Confirmed: true}); err != nil {
-		return nil, err
+		return nil, errors.New("finish_write")
 	}
 	if _, err := awaitRegistrationQualificationEvent(ctx, session, "closed"); err != nil {
-		return nil, err
+		return nil, errors.New("finish_response")
 	}
 	adopted, err := awaitRegistrationQualificationEvent(ctx, session, "candidate")
 	if err != nil || adopted.Candidate == nil {
-		return nil, errors.New("BRP qualification candidate is unavailable")
+		return nil, errors.New("candidate_adoption")
 	}
 	return adopted.Candidate, nil
+}
+
+func closedBRPProducerFailure(err error) string {
+	if err == nil {
+		return "candidate_unavailable"
+	}
+	code := err.Error()
+	for _, allowed := range []string{
+		"worker_start", "worker_ready", "start_write", "start_response",
+		"first_observe_write", "first_observe_response", "head_write", "head_response",
+		"second_observe_write", "second_observe_response", "submit_candidate_unavailable",
+		"submit_candidate_ambiguous", "review_write", "review_response", "finish_write",
+		"finish_response", "candidate_adoption",
+	} {
+		if code == allowed {
+			return code
+		}
+	}
+	return "unclassified"
 }
 
 func awaitRegistrationQualificationEvent(ctx context.Context, session *browserauthor.RegistrationSession, state string) (browserauthor.RegistrationEvent, error) {
