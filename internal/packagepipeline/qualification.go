@@ -22,6 +22,12 @@ import (
 
 const QualificationVersion = "openudon.package-qualification.v1"
 
+const (
+	qualificationScratchPosture = "same-filesystem mode-0700 root; package directories mode-0700 and files mode-0600 single-link"
+	qualificationNetworkPosture = "offline package validation only"
+	qualificationDryRunPosture  = "trusted dry-run; executor not invoked"
+)
+
 var (
 	qualificationMaterializedHook func(string)
 	qualificationBeforeDryRunHook func() error
@@ -245,13 +251,8 @@ func qualifyInScratch(ctx context.Context, prepared Prepared, scratch string, at
 	report := QualificationReport{
 		Version: QualificationVersion, PreparationSHA256: manifest.ManifestSHA256, InputSHA256: manifest.InputSHA256,
 		PackageSHA256: manifest.PackageSHA256, QualitySHA256: manifest.QualitySHA256,
-		ScratchPosture: "same-filesystem mode-0700 root; package directories mode-0700 and files mode-0600 single-link",
-		NetworkPosture: "offline package validation only", DryRunPosture: "trusted dry-run; executor not invoked",
-		Gates: []QualificationGate{
-			{Name: "prepared_readback", Status: "pass"}, {Name: "scratch_structure", Status: "pass"},
-			{Name: "quality_and_secret_scan", Status: "pass"}, {Name: "package_and_handoff", Status: "pass"},
-			{Name: "trusted_dry_run", Status: "pass"},
-		},
+		ScratchPosture: qualificationScratchPosture, NetworkPosture: qualificationNetworkPosture,
+		DryRunPosture: qualificationDryRunPosture, Gates: qualificationPassingGates(),
 	}
 	data, err := json.Marshal(report)
 	if err != nil {
@@ -260,6 +261,14 @@ func qualifyInScratch(ctx context.Context, prepared Prepared, scratch string, at
 	digest := sha256.Sum256(data)
 	report.QualificationSHA256 = "sha256:" + hex.EncodeToString(digest[:])
 	return Qualified{prepared: clonePrepared(prepared), report: report}, nil
+}
+
+func qualificationPassingGates() []QualificationGate {
+	return []QualificationGate{
+		{Name: "prepared_readback", Status: "pass"}, {Name: "scratch_structure", Status: "pass"},
+		{Name: "quality_and_secret_scan", Status: "pass"}, {Name: "package_and_handoff", Status: "pass"},
+		{Name: "trusted_dry_run", Status: "pass"},
+	}
 }
 
 func materializePrepared(scratch, scope string, files map[string][]byte) error {

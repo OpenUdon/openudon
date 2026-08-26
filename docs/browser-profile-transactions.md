@@ -189,8 +189,15 @@ modify the currently selected package; a failed phase leaves it unchanged.
 
 `promoted` retains the preparation and adds `promotion.generation_sha256`.
 Promotion is one atomic selection operation over the already qualified
-generation. It is not browser execution, account activity, approval, release,
-or deployment.
+generation. The internal store publishes the complete restrictive generation
+under a collision-resistant content identity, synchronizes its files and
+directories where supported, and only then atomically replaces a value-free
+`current.json` selector. That selector binds the selected generation and its
+immediately prior generation; repeated selection of the same generation is
+idempotent, concurrent builders fail closed on a create-only store lock, and
+readers resolve only complete immutable generations. Promotion never removes
+a generation. It is not browser execution, account activity, approval,
+release, retention, or deployment.
 
 `cancelled` is an intentional terminal stop. `failed` carries only a closed
 failure class and code:
