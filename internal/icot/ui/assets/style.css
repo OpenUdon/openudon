@@ -526,6 +526,35 @@ pre {
 .check-warning { padding: .8rem; border-radius: 9px; background: var(--warning-soft); }
 .warning-list { color: var(--warning); }
 
+.transaction-card { border-top: 4px solid #345c76; }
+.transaction-card .section-heading { margin-top: -1.25rem; }
+.transaction-card[data-expired="true"] { border-top-color: var(--danger); }
+.transaction-facts {
+  display: grid;
+  grid-template-columns: minmax(8rem, .7fr) minmax(0, 1.5fr);
+  gap: .45rem .8rem;
+}
+.transaction-facts div { display: contents; }
+.transaction-facts dt { color: var(--muted); font-size: .76rem; font-weight: 760; }
+.transaction-facts dd { min-width: 0; overflow-wrap: anywhere; font: .76rem/1.45 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
+.transaction-evidence-grid { margin-top: 1rem; }
+.transaction-actions {
+  margin-top: 1rem;
+  padding: 1rem;
+  border: 1px solid #b8c9c1;
+  border-radius: 10px;
+  background: var(--surface-soft);
+}
+.transaction-actions legend { padding: 0 .4rem; font-weight: 780; }
+.transaction-action-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(12rem, auto);
+  gap: .7rem 1rem;
+  align-items: center;
+}
+.transaction-action-grid .check-row { margin: 0; }
+.transaction-action-grid button { width: 100%; }
+
 .stacked-list { display: block; }
 .stacked-list div { padding: .7rem 0; border-bottom: 1px solid var(--line); }
 
@@ -554,6 +583,7 @@ pre {
   .summary { padding: 0; }
   .section-heading { margin: -1rem -1rem 1rem; padding: .9rem 1rem; }
   .active-card .section-heading { margin-top: -1rem; }
+  .transaction-card .section-heading { margin-top: -1rem; }
   .summary-heading { padding: .9rem 1rem .8rem; }
   .summary-heading > p { display: none; }
   .status-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
@@ -570,6 +600,7 @@ pre {
 
 @media (max-width: 640px) {
   .deferral-panel { grid-template-columns: minmax(0, 1fr); }
+  .transaction-action-grid { grid-template-columns: minmax(0, 1fr); }
   .section-heading { display: block; }
   .section-heading .state-pill { margin-top: .55rem; }
   .table-scroll { overflow: visible; }

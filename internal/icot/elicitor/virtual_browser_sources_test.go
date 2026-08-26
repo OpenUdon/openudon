@@ -220,6 +220,9 @@ func TestVirtualRegistrationLoweringPreservesReviewedNoSessionContract(t *testin
 	if len(discovery.Docs) != 1 || len(discovery.Docs[0].Operations) != 1 {
 		t.Fatalf("registration documents = %#v", discovery.Docs)
 	}
+	if len(discovery.Candidates) != 1 || discovery.Candidates[0].CleanupDisposition != "delete_separately" {
+		t.Fatalf("registration cleanup candidate = %#v", discovery.Candidates)
+	}
 	doc, operation := discovery.Docs[0], &discovery.Docs[0].Operations[0]
 	if operation.OperationID != "create_account" || operation.Extensions["openudon.browser_registration.runtime_supported"] != "false" || operation.Extensions["openudon.browser_registration.credential_bindings"] != "identifier=registration_identifier" {
 		t.Fatalf("registration operation = %#v", operation)

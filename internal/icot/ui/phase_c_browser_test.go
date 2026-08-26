@@ -21,10 +21,190 @@ import (
 
 	publicinterview "github.com/OpenUdon/authoring/interview"
 	"github.com/OpenUdon/openudon/internal/authoring"
+	"github.com/OpenUdon/openudon/internal/browsertransaction"
+	transactionengine "github.com/OpenUdon/openudon/internal/browsertransaction/engine"
 	"github.com/OpenUdon/openudon/internal/icot/browserauthor"
 	"github.com/OpenUdon/openudon/internal/icot/elicitor"
 	"github.com/OpenUdon/openudon/internal/icot/engine"
+	"github.com/OpenUdon/openudon/internal/packagepipeline"
+	"github.com/OpenUdon/openudon/internal/trustedrunner"
 )
+
+type phaseCBrowserTransactionEngine struct {
+	mu       sync.Mutex
+	snapshot transactionengine.Snapshot
+	sequence int
+}
+
+func newPhaseCBrowserTransactionEngine() *phaseCBrowserTransactionEngine {
+	transaction := apiRegistrationTransaction()
+	transaction.Provenance.ExpiresAt = "2099-08-26T13:00:00Z"
+	digest, _ := browsertransaction.Digest(transaction)
+	return &phaseCBrowserTransactionEngine{snapshot: transactionengine.Snapshot{
+		Version: transactionengine.Version, Revision: apiDigest("a"), Transaction: &transaction, TransactionSHA256: digest,
+		AllowedOperations: []transactionengine.Operation{transactionengine.OperationObserve, transactionengine.OperationReview, transactionengine.OperationCancel},
+	}}
+}
+
+func (e *phaseCBrowserTransactionEngine) forceRevision() {
+	e.mu.Lock()
+	defer e.mu.Unlock()
+	e.snapshot.Revision = apiDigest("0")
+}
+
+func (e *phaseCBrowserTransactionEngine) expire() {
+	e.mu.Lock()
+	defer e.mu.Unlock()
+	e.snapshot.Transaction.Provenance.ExpiresAt = "2000-01-01T00:00:00Z"
+	e.snapshot.TransactionSHA256, _ = browsertransaction.Digest(*e.snapshot.Transaction)
+}
+
+func (e *phaseCBrowserTransactionEngine) useAuthenticationCapability() {
+	e.mu.Lock()
+	defer e.mu.Unlock()
+	e.snapshot.Transaction.Kind = browsertransaction.KindAuthenticationCapability
+	e.snapshot.Transaction.Candidates = []browsertransaction.Candidate{
+		{Kind: browsertransaction.CandidateAuthentication, Schema: "uws.browser-authentication.1.1", SourceSHA256: apiDigest("1"), ReviewSHA256: apiDigest("2")},
+		{Kind: browsertransaction.CandidateCapability, Schema: "uws.browser.1.7", SourceSHA256: apiDigest("3"), ReviewSHA256: apiDigest("4")},
+	}
+	e.snapshot.Transaction.Provenance.ResultVersion = browsertransaction.ResultAuthenticatedAuthoringV2
+	e.snapshot.Transaction.Session = "account_session"
+	e.snapshot.TransactionSHA256, _ = browsertransaction.Digest(*e.snapshot.Transaction)
+}
+
+func (e *phaseCBrowserTransactionEngine) Observe(context.Context) (transactionengine.Snapshot, error) {
+	e.mu.Lock()
+	defer e.mu.Unlock()
+	return e.snapshot, nil
+}
+
+func (e *phaseCBrowserTransactionEngine) advance(operation transactionengine.Operation, revision string) error {
+	if revision != e.snapshot.Revision {
+		return &transactionengine.Error{Class: browsertransaction.FailureConflict, Code: transactionengine.ErrorStaleRevision, Operation: operation, Retryable: true}
+	}
+	e.sequence++
+	characters := "bcdef0123456789"
+	e.snapshot.Revision = apiDigest(string(characters[(e.sequence-1)%len(characters)]))
+	return nil
+}
+
+func (e *phaseCBrowserTransactionEngine) Start(context.Context, transactionengine.StartRequest) (transactionengine.Snapshot, error) {
+	e.mu.Lock()
+	defer e.mu.Unlock()
+	return e.snapshot, &transactionengine.Error{Class: browsertransaction.FailureConflict, Code: transactionengine.ErrorInvalidState, Operation: transactionengine.OperationStart}
+}
+
+func (e *phaseCBrowserTransactionEngine) Review(_ context.Context, request transactionengine.ReviewRequest) (transactionengine.Snapshot, error) {
+	e.mu.Lock()
+	defer e.mu.Unlock()
+	if err := e.advance(transactionengine.OperationReview, request.ExpectedRevision); err != nil {
+		return e.snapshot, err
+	}
+	if !request.HumanApproved || request.ExpectedTransactionSHA256 != e.snapshot.TransactionSHA256 {
+		return e.snapshot, &transactionengine.Error{Class: browsertransaction.FailureRejected, Code: transactionengine.ErrorDigestMismatch, Operation: transactionengine.OperationReview}
+	}
+	e.snapshot.Transaction.State = browsertransaction.StateReviewed
+	e.snapshot.TransactionSHA256, _ = browsertransaction.Digest(*e.snapshot.Transaction)
+	e.snapshot.AllowedOperations = []transactionengine.Operation{transactionengine.OperationObserve, transactionengine.OperationPrepare, transactionengine.OperationCancel}
+	return e.snapshot, nil
+}
+
+func (e *phaseCBrowserTransactionEngine) Prepare(_ context.Context, request transactionengine.PrepareRequest) (transactionengine.Snapshot, error) {
+	e.mu.Lock()
+	defer e.mu.Unlock()
+	if err := e.advance(transactionengine.OperationPrepare, request.ExpectedRevision); err != nil {
+		return e.snapshot, err
+	}
+	if !request.HumanApproved || request.ExpectedTransactionSHA256 != e.snapshot.TransactionSHA256 {
+		return e.snapshot, &transactionengine.Error{Class: browsertransaction.FailureRejected, Code: transactionengine.ErrorDigestMismatch, Operation: transactionengine.OperationPrepare}
+	}
+	preparation := &transactionengine.PreparationEvidence{
+		PreparationSHA256: apiDigest("1"), InputSHA256: apiDigest("2"), PackageSHA256: apiDigest("3"), HandoffSHA256: apiDigest("4"), QualitySHA256: apiDigest("5"), QualificationSHA256: apiDigest("6"),
+	}
+	e.snapshot.Preparation = preparation
+	e.snapshot.Transaction.State = browsertransaction.StatePrepared
+	e.snapshot.Transaction.Preparation = &browsertransaction.Preparation{PackageSHA256: preparation.PackageSHA256, QualificationSHA256: preparation.QualificationSHA256}
+	e.snapshot.TransactionSHA256, _ = browsertransaction.Digest(*e.snapshot.Transaction)
+	e.snapshot.AllowedOperations = []transactionengine.Operation{transactionengine.OperationObserve, transactionengine.OperationPromote, transactionengine.OperationCancel, transactionengine.OperationInspectRecovery}
+	return e.snapshot, nil
+}
+
+func (e *phaseCBrowserTransactionEngine) Promote(_ context.Context, request transactionengine.PromoteRequest) (transactionengine.Snapshot, error) {
+	e.mu.Lock()
+	defer e.mu.Unlock()
+	if err := e.advance(transactionengine.OperationPromote, request.ExpectedRevision); err != nil {
+		return e.snapshot, err
+	}
+	if !request.HumanApproved || request.ExpectedTransactionSHA256 != e.snapshot.TransactionSHA256 || request.ExpectedPreparationSHA256 != e.snapshot.Preparation.PreparationSHA256 || request.ExpectedQualificationSHA256 != e.snapshot.Preparation.QualificationSHA256 {
+		return e.snapshot, &transactionengine.Error{Class: browsertransaction.FailureRejected, Code: transactionengine.ErrorDigestMismatch, Operation: transactionengine.OperationPromote}
+	}
+	target, recovery := apiDigest("7"), apiDigest("8")
+	e.snapshot.Transaction.State = browsertransaction.StateIndeterminate
+	e.snapshot.Transaction.Failure = &browsertransaction.Failure{Class: browsertransaction.FailureIndeterminate, Code: browsertransaction.FailurePromotionIndeterminate}
+	e.snapshot.TransactionSHA256, _ = browsertransaction.Digest(*e.snapshot.Transaction)
+	e.snapshot.LastFailure = &transactionengine.OperationFailure{Class: browsertransaction.FailureIndeterminate, Code: transactionengine.ErrorPromotionIndeterminate, Operation: transactionengine.OperationPromote, PromotionState: packagepipeline.PromotionIndeterminateState, TargetGenerationSHA256: target}
+	e.snapshot.Recovery = &transactionengine.RecoveryEvidence{Report: &packagepipeline.RecoveryReport{
+		Version: packagepipeline.RecoveryReportVersion, Resolution: packagepipeline.RecoveryPromoted, TargetGenerationSHA256: target,
+		ObservedSelectionSHA256: apiDigest("9"), ObservedSelectedGenerationSHA256: target, RecoverySHA256: recovery,
+	}}
+	e.snapshot.AllowedOperations = []transactionengine.Operation{transactionengine.OperationObserve, transactionengine.OperationInspectRecovery, transactionengine.OperationRecover, transactionengine.OperationCancel}
+	return e.snapshot, &transactionengine.Error{Class: browsertransaction.FailureIndeterminate, Code: transactionengine.ErrorPromotionIndeterminate, Operation: transactionengine.OperationPromote}
+}
+
+func (e *phaseCBrowserTransactionEngine) Cancel(_ context.Context, request transactionengine.CancelRequest) (transactionengine.Snapshot, error) {
+	e.mu.Lock()
+	defer e.mu.Unlock()
+	if err := e.advance(transactionengine.OperationCancel, request.ExpectedRevision); err != nil {
+		return e.snapshot, err
+	}
+	e.snapshot.Transaction.State, e.snapshot.Transaction.Failure = browsertransaction.StateCancelled, nil
+	e.snapshot.TransactionSHA256, _ = browsertransaction.Digest(*e.snapshot.Transaction)
+	e.snapshot.AllowedOperations = []transactionengine.Operation{transactionengine.OperationObserve}
+	return e.snapshot, nil
+}
+
+func (e *phaseCBrowserTransactionEngine) InspectRecovery(_ context.Context, request transactionengine.InspectRecoveryRequest) (transactionengine.Snapshot, error) {
+	e.mu.Lock()
+	defer e.mu.Unlock()
+	if err := e.advance(transactionengine.OperationInspectRecovery, request.ExpectedRevision); err != nil {
+		return e.snapshot, err
+	}
+	return e.snapshot, nil
+}
+
+func (e *phaseCBrowserTransactionEngine) Recover(_ context.Context, request transactionengine.RecoverRequest) (transactionengine.Snapshot, error) {
+	e.mu.Lock()
+	defer e.mu.Unlock()
+	if err := e.advance(transactionengine.OperationRecover, request.ExpectedRevision); err != nil {
+		return e.snapshot, err
+	}
+	report := e.snapshot.Recovery.Report
+	if !request.HumanApproved || request.ExpectedTransactionSHA256 != e.snapshot.TransactionSHA256 || request.ExpectedRecoverySHA256 != report.RecoverySHA256 {
+		return e.snapshot, &transactionengine.Error{Class: browsertransaction.FailureConflict, Code: transactionengine.ErrorRecoveryDrift, Operation: transactionengine.OperationRecover}
+	}
+	target := report.TargetGenerationSHA256
+	e.snapshot.Transaction.State, e.snapshot.Transaction.Failure = browsertransaction.StatePromoted, nil
+	e.snapshot.Transaction.Promotion = &browsertransaction.Promotion{GenerationSHA256: target}
+	e.snapshot.TransactionSHA256, _ = browsertransaction.Digest(*e.snapshot.Transaction)
+	e.snapshot.Promotion = &transactionengine.PromotionEvidence{GenerationSHA256: target, SelectionSHA256: report.ObservedSelectionSHA256, SelectedGenerationSHA256: target}
+	e.snapshot.Recovery.Reconciliation = &packagepipeline.Reconciliation{Version: packagepipeline.ReconciliationVersion, Resolution: packagepipeline.RecoveryPromoted, TargetGenerationSHA256: target, SelectedGenerationSHA256: target, ObservedRecoverySHA256: report.RecoverySHA256}
+	e.snapshot.LastFailure = nil
+	e.snapshot.AllowedOperations = []transactionengine.Operation{transactionengine.OperationObserve, transactionengine.OperationInspectSelected}
+	return e.snapshot, nil
+}
+
+func (e *phaseCBrowserTransactionEngine) InspectSelected(_ context.Context, request transactionengine.InspectSelectedRequest) (transactionengine.Snapshot, error) {
+	e.mu.Lock()
+	defer e.mu.Unlock()
+	if err := e.advance(transactionengine.OperationInspectSelected, request.ExpectedRevision); err != nil {
+		return e.snapshot, err
+	}
+	if request.ExpectedSelectionSHA256 != e.snapshot.Promotion.SelectionSHA256 {
+		return e.snapshot, &transactionengine.Error{Class: browsertransaction.FailureConflict, Code: transactionengine.ErrorDigestMismatch, Operation: transactionengine.OperationInspectSelected}
+	}
+	e.snapshot.Inspection = &trustedrunner.PackageInspection{Scope: "examples/registration", PackageSHA256: apiDigest("3"), HandoffSHA256: apiDigest("4"), ExecutionPolicy: authoring.ReviewExecutionPolicy{SideEffectful: true}}
+	return e.snapshot, nil
+}
 
 type phaseCBrowserEngine struct {
 	mu sync.Mutex
@@ -419,6 +599,185 @@ func waitForActiveID(t *testing.T, page playwright.Page, want string) {
 		time.Sleep(25 * time.Millisecond)
 	}
 	t.Fatalf("active element = %#v, want id %q", last, want)
+}
+
+func phaseCBrowserTransactionSnapshot(transactions *phaseCBrowserTransactionEngine) engine.Snapshot {
+	transactions.mu.Lock()
+	defer transactions.mu.Unlock()
+	transaction := transactions.snapshot.Transaction
+	snapshot := phaseCFrontierSnapshot()
+	snapshot.SourceCandidates.VirtualBrowser = engine.VirtualBrowserCandidateSet{
+		Generation: 1,
+		Candidates: []elicitor.VirtualBrowserCandidate{{
+			ID: "registration-api/registration", TransactionID: transaction.ID, TransactionSHA256: transactions.snapshot.TransactionSHA256,
+			Kind: browsertransaction.CandidateRegistration, Schema: transaction.Candidates[0].Schema,
+			SourceSHA256: transaction.Candidates[0].SourceSHA256, ReviewSHA256: transaction.Candidates[0].ReviewSHA256,
+			TargetPath: "browser-registration/registration-api.json", Flow: "create_account", CleanupDisposition: "delete_separately",
+			CredentialBindings: append([]browsertransaction.CredentialBinding(nil), transaction.CredentialBindings...),
+		}},
+	}
+	return snapshot
+}
+
+func TestPhaseCBrowserTransactionReviewRecoveryAndAccessibility(t *testing.T) {
+	_, browser := launchPhaseCBrowser(t)
+	transactions := newPhaseCBrowserTransactionEngine()
+	browserEngine := &phaseCBrowserEngine{snapshot: phaseCBrowserTransactionSnapshot(transactions)}
+	fixture := newPhaseCBrowserFixtureWithConfig(t, browserEngine, func(config *HandlerConfig) {
+		config.BrowserTransactions = transactions
+		config.Now = func() time.Time { return apiTransactionTime }
+	})
+	page := newPhaseCPage(t, browser, fixture)
+
+	section := page.Locator("#browser-transaction-section")
+	requireVisible(t, section)
+	waitForLocatorText(t, page.Locator("#browser-transaction-state"), "BRP · candidate")
+	waitForLocatorText(t, page.Locator("#browser-registration-label-disclosure"), "heuristic")
+	waitForLocatorText(t, page.Locator("#browser-registration-label-disclosure"), "not data loss prevention")
+	waitForLocatorText(t, page.Locator("#browser-registration-policy"), "GET/HEAD only")
+	waitForLocatorText(t, page.Locator("#browser-registration-policy"), "does not grant execution authority")
+	waitForLocatorText(t, page.Locator("#browser-transaction-candidates"), "browser-registration/registration-api.json · delete_separately")
+	waitForLocatorText(t, page.Locator("#browser-transaction-authority"), "grants no browser or workflow runtime authority")
+
+	actionText, err := page.Locator("#browser-transaction-actions button").AllTextContents()
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, label := range actionText {
+		lower := strings.ToLower(label)
+		for _, forbidden := range []string{"execute", "register", "sign in", "submit"} {
+			if strings.Contains(lower, forbidden) {
+				t.Fatalf("transaction action %q offered forbidden %q authority", label, forbidden)
+			}
+		}
+	}
+
+	reviewConfirmation := page.GetByLabel("I reviewed the exact candidates, origins, allowed actions, outputs, checkpoints, cleanup, and disclosures.", playwright.PageGetByLabelOptions{Exact: playwright.Bool(true)})
+	reviewButton := page.GetByRole("button", playwright.PageGetByRoleOptions{Name: "Accept candidate review", Exact: playwright.Bool(true)})
+	requireEnabled(t, reviewButton, false)
+	if err := reviewConfirmation.Check(); err != nil {
+		t.Fatal(err)
+	}
+	requireEnabled(t, reviewButton, true)
+
+	// A second local client advances the transaction revision. The stale
+	// confirmation must fail closed, refresh, and require fresh review.
+	transactions.forceRevision()
+	if err := reviewButton.Click(); err != nil {
+		t.Fatal(err)
+	}
+	waitForLocatorText(t, page.Locator("#error-message"), "stale_revision")
+	waitForActiveID(t, page, "browser-transaction-heading")
+	if checked, err := reviewConfirmation.IsChecked(); err != nil || checked {
+		t.Fatalf("stale revision retained review confirmation = %t, %v", checked, err)
+	}
+	if err := reviewConfirmation.Check(); err != nil {
+		t.Fatal(err)
+	}
+	if err := reviewButton.Click(); err != nil {
+		t.Fatal(err)
+	}
+	waitForLocatorText(t, page.Locator("#browser-transaction-state"), "BRP · reviewed")
+	waitForActiveID(t, page, "browser-transaction-heading")
+
+	prepareConfirmation := page.GetByLabel("I authorize non-promoting scratch preparation and restrictive offline qualification.", playwright.PageGetByLabelOptions{Exact: playwright.Bool(true)})
+	prepareButton := page.GetByRole("button", playwright.PageGetByRoleOptions{Name: "Prepare and qualify", Exact: playwright.Bool(true)})
+	requireEnabled(t, prepareButton, false)
+	if err := prepareConfirmation.Check(); err != nil {
+		t.Fatal(err)
+	}
+	if err := prepareButton.Click(); err != nil {
+		t.Fatal(err)
+	}
+	waitForLocatorText(t, page.Locator("#browser-transaction-state"), "BRP · prepared")
+	waitForLocatorText(t, page.Locator("#browser-transaction-package"), apiDigest("6"))
+
+	promoteConfirmation := page.GetByLabel("I authorize atomic promotion of the exact qualified generation.", playwright.PageGetByLabelOptions{Exact: playwright.Bool(true)})
+	promoteButton := page.GetByRole("button", playwright.PageGetByRoleOptions{Name: "Promote exact generation", Exact: playwright.Bool(true)})
+	requireEnabled(t, promoteButton, false)
+	if err := promoteConfirmation.Check(); err != nil {
+		t.Fatal(err)
+	}
+	if err := promoteButton.Click(); err != nil {
+		t.Fatal(err)
+	}
+	waitForLocatorText(t, page.Locator("#browser-transaction-state"), "BRP · indeterminate")
+	waitForLocatorText(t, page.Locator("#browser-transaction-status"), "promotion_indeterminate")
+	waitForLocatorText(t, page.Locator("#browser-transaction-recovery"), apiDigest("8"))
+
+	recoverConfirmation := page.GetByLabel("I accept the exact recovery report digest shown above.", playwright.PageGetByLabelOptions{Exact: playwright.Bool(true)})
+	recoverButton := page.GetByRole("button", playwright.PageGetByRoleOptions{Name: "Reconcile exact recovery report", Exact: playwright.Bool(true)})
+	requireEnabled(t, recoverButton, false)
+	if err := recoverConfirmation.Check(); err != nil {
+		t.Fatal(err)
+	}
+	if err := recoverButton.Click(); err != nil {
+		t.Fatal(err)
+	}
+	waitForLocatorText(t, page.Locator("#browser-transaction-state"), "BRP · promoted")
+	inspect := page.GetByRole("button", playwright.PageGetByRoleOptions{Name: "Inspect exact selected package", Exact: playwright.Bool(true)})
+	requireEnabled(t, inspect, true)
+	if err := inspect.Click(); err != nil {
+		t.Fatal(err)
+	}
+	waitForLocatorText(t, page.Locator("#browser-transaction-authority"), "requiring a separate trusted-runner approval")
+
+	if err := page.SetViewportSize(360, 760); err != nil {
+		t.Fatal(err)
+	}
+	noOverflow, err := page.Evaluate("document.documentElement.scrollWidth <= document.documentElement.clientWidth")
+	if err != nil || noOverflow != true {
+		t.Fatalf("360px transaction layout horizontal overflow = %#v, %v", noOverflow, err)
+	}
+	if err := page.EmulateMedia(playwright.PageEmulateMediaOptions{ReducedMotion: playwright.ReducedMotionReduce}); err != nil {
+		t.Fatal(err)
+	}
+	reduced, err := page.Evaluate(`matchMedia("(prefers-reduced-motion: reduce)").matches && getComputedStyle(document.querySelector("button")).transitionDuration === "0s"`)
+	if err != nil || reduced != true {
+		t.Fatalf("reduced-motion transaction journey = %#v, %v", reduced, err)
+	}
+}
+
+func TestPhaseCBrowserExpiredTransactionBlocksReview(t *testing.T) {
+	_, browser := launchPhaseCBrowser(t)
+	transactions := newPhaseCBrowserTransactionEngine()
+	transactions.expire()
+	browserEngine := &phaseCBrowserEngine{snapshot: phaseCBrowserTransactionSnapshot(transactions)}
+	fixture := newPhaseCBrowserFixtureWithConfig(t, browserEngine, func(config *HandlerConfig) {
+		config.BrowserTransactions = transactions
+		config.Now = func() time.Time { return apiTransactionTime }
+	})
+	page := newPhaseCPage(t, browser, fixture)
+
+	waitForLocatorText(t, page.Locator("#browser-transaction-status"), "Candidate freshness expired")
+	reviewConfirmation := page.GetByLabel("I reviewed the exact candidates, origins, allowed actions, outputs, checkpoints, cleanup, and disclosures.", playwright.PageGetByLabelOptions{Exact: playwright.Bool(true)})
+	if disabled, err := reviewConfirmation.IsDisabled(); err != nil || !disabled {
+		t.Fatalf("expired review confirmation disabled = %t, %v", disabled, err)
+	}
+	cancelConfirmation := page.GetByLabel("I want to cancel this transaction without runtime execution.", playwright.PageGetByLabelOptions{Exact: playwright.Bool(true)})
+	if disabled, err := cancelConfirmation.IsDisabled(); err != nil || disabled {
+		t.Fatalf("expired cancellation confirmation disabled = %t, %v", disabled, err)
+	}
+}
+
+func TestPhaseCBrowserDistinguishesAuthenticationCapabilityComposition(t *testing.T) {
+	_, browser := launchPhaseCBrowser(t)
+	transactions := newPhaseCBrowserTransactionEngine()
+	transactions.useAuthenticationCapability()
+	browserEngine := &phaseCBrowserEngine{snapshot: phaseCFrontierSnapshot()}
+	fixture := newPhaseCBrowserFixtureWithConfig(t, browserEngine, func(config *HandlerConfig) {
+		config.BrowserTransactions = transactions
+		config.Now = func() time.Time { return apiTransactionTime }
+	})
+	page := newPhaseCPage(t, browser, fixture)
+
+	waitForLocatorText(t, page.Locator("#browser-transaction-state"), "BAP+BCP · candidate")
+	waitForLocatorText(t, page.Locator("#browser-transaction-symbols"), "browser session → account_session")
+	if visible, err := page.Locator("#browser-registration-disclosure").IsVisible(); err != nil || visible {
+		t.Fatalf("registration disclosure visible for BAP+BCP = %t, %v", visible, err)
+	}
+	waitForLocatorText(t, page.Locator("#browser-transaction-candidates"), "authentication")
+	waitForLocatorText(t, page.Locator("#browser-transaction-candidates"), "capability")
 }
 
 func TestPhaseCBrowserAccessibleRoundAndFinalApproval(t *testing.T) {

@@ -64,6 +64,7 @@ type VirtualBrowserCandidate struct {
 	TargetPath         string                                 `json:"target_path"`
 	Title              string                                 `json:"title,omitempty"`
 	Flow               string                                 `json:"flow,omitempty"`
+	CleanupDisposition string                                 `json:"cleanup_disposition,omitempty"`
 	Dependencies       []string                               `json:"dependencies,omitempty"`
 	ProvidesSession    string                                 `json:"provides_session,omitempty"`
 	RequiresSession    string                                 `json:"requires_session,omitempty"`
@@ -294,7 +295,7 @@ func virtualBrowserMaterialization(transaction browsertransaction.Transaction, t
 		plan.MaterializedReview = append(append([]byte(nil), input.Review...), '\n')
 		reviewSum := sha256.Sum256(plan.MaterializedReview)
 		plan.ReviewSHA256 = hex.EncodeToString(reviewSum[:])
-		public.TargetPath, public.Title, public.Flow = plan.TargetPath, plan.Title, flow
+		public.TargetPath, public.Title, public.Flow, public.CleanupDisposition = plan.TargetPath, plan.Title, flow, cleanup
 		return public, plan, browserRegistrationDocument(plan, value, flow, transaction.CredentialBindings, cleanup), nil
 	default:
 		return VirtualBrowserCandidate{}, SourceMaterialization{}, APIDocument{}, errors.New("candidate kind is unsupported")

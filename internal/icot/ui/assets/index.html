@@ -94,7 +94,68 @@
           <button id="capture-cancel" type="button" hidden>Cancel capture</button>
         </article>
       </div>
-      <aside class="notice notice-warning"><h3>Registration is not supported</h3><p>Use an existing account. Account creation, consent enrollment, CAPTCHA, billing, and registration discovery are outside this milestone.</p></aside>
+      <aside class="notice notice-warning"><h3>Registration runtime is not supported</h3><p>A reviewed no-submit BRP candidate can enter the transaction review below. This UI cannot create an account, submit registration, resolve a CAPTCHA, enroll consent, or establish a registration session.</p></aside>
+    </section>
+
+    <section id="browser-transaction-section" class="card transaction-card" aria-labelledby="browser-transaction-heading" hidden>
+      <div class="section-heading">
+        <div><p class="section-kicker">Value-free browser profile lifecycle</p><h2 id="browser-transaction-heading" tabindex="-1">Browser transaction review</h2></div>
+        <span id="browser-transaction-state" class="state-pill">No transaction</span>
+      </div>
+      <p id="browser-transaction-status" class="section-help" role="status" aria-live="polite" aria-atomic="true">No browser transaction is active.</p>
+      <div id="browser-transaction-content">
+        <div class="review-grid">
+          <article class="review-panel" aria-labelledby="transaction-provenance-heading">
+            <h3 id="transaction-provenance-heading">Provenance and freshness</h3>
+            <dl id="browser-transaction-provenance" class="transaction-facts"></dl>
+            <h4>Approved origins</h4><ul id="browser-transaction-origins" class="detail-list"></ul>
+          </article>
+          <article class="review-panel" aria-labelledby="transaction-authority-heading">
+            <h3 id="transaction-authority-heading">Authority and checkpoints</h3>
+            <ul id="browser-transaction-authority" class="detail-list"></ul>
+            <h4>Symbolic bindings</h4><ul id="browser-transaction-symbols" class="detail-list"></ul>
+          </article>
+        </div>
+
+        <article class="review-panel review-panel-wide" aria-labelledby="transaction-candidates-heading">
+          <h3 id="transaction-candidates-heading">Exact candidates and outputs</h3>
+          <div class="table-scroll" tabindex="0" role="region" aria-label="Scrollable browser transaction candidates">
+            <table><thead><tr><th scope="col">Profile</th><th scope="col">Schema</th><th scope="col">Source digest</th><th scope="col">Review digest</th><th scope="col">Output and cleanup</th></tr></thead><tbody id="browser-transaction-candidates"></tbody></table>
+          </div>
+        </article>
+
+        <aside id="browser-registration-disclosure" class="notice notice-warning" role="note" aria-labelledby="browser-registration-disclosure-heading" hidden>
+          <h3 id="browser-registration-disclosure-heading">BRP observation boundary</h3>
+          <p id="browser-registration-label-disclosure"></p>
+          <ul id="browser-registration-policy" class="detail-list"></ul>
+        </aside>
+
+        <div class="review-grid transaction-evidence-grid">
+          <article class="review-panel" aria-labelledby="transaction-package-heading"><h3 id="transaction-package-heading">Package evidence</h3><dl id="browser-transaction-package" class="transaction-facts"></dl></article>
+          <article class="review-panel" aria-labelledby="transaction-recovery-heading"><h3 id="transaction-recovery-heading">Promotion and recovery</h3><dl id="browser-transaction-recovery" class="transaction-facts"></dl></article>
+        </div>
+
+        <fieldset id="browser-transaction-actions" class="transaction-actions">
+          <legend>Separate exact authorizations</legend>
+          <p class="section-help">Each mutation is bound to the transaction revision and digest shown above. Preparing does not promote; promoting does not execute.</p>
+          <div class="transaction-action-grid">
+            <label id="transaction-review-row" class="check-row"><input id="transaction-review-confirmed" type="checkbox"><span>I reviewed the exact candidates, origins, allowed actions, outputs, checkpoints, cleanup, and disclosures.</span></label>
+            <button id="transaction-review" type="button">Accept candidate review</button>
+            <label id="transaction-prepare-row" class="check-row"><input id="transaction-prepare-confirmed" type="checkbox"><span>I authorize non-promoting scratch preparation and restrictive offline qualification.</span></label>
+            <button id="transaction-prepare" type="button">Prepare and qualify</button>
+            <label id="transaction-promote-row" class="check-row"><input id="transaction-promote-confirmed" type="checkbox"><span>I authorize atomic promotion of the exact qualified generation.</span></label>
+            <button id="transaction-promote" type="button">Promote exact generation</button>
+            <label id="transaction-recover-row" class="check-row"><input id="transaction-recover-confirmed" type="checkbox"><span>I accept the exact recovery report digest shown above.</span></label>
+            <button id="transaction-recover" type="button">Reconcile exact recovery report</button>
+            <label id="transaction-cancel-row" class="check-row"><input id="transaction-cancel-confirmed" type="checkbox"><span>I want to cancel this transaction without runtime execution.</span></label>
+            <button id="transaction-cancel" type="button">Cancel transaction</button>
+          </div>
+          <div class="form-actions">
+            <button id="transaction-inspect-recovery" type="button">Inspect recovery state</button>
+            <button id="transaction-inspect-selected" type="button">Inspect exact selected package</button>
+          </div>
+        </fieldset>
+      </div>
     </section>
 
     <section class="card summary" aria-labelledby="summary-heading">

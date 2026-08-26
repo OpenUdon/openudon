@@ -17,6 +17,7 @@ const state = {
   timer: null,
   failures: 0,
   pollGeneration: 0,
+  transactionRevision: "",
 };
 
 const byID = (id) => document.getElementById(id);
@@ -548,6 +549,111 @@ const renderWriteResult = (payload) => {
   appendEmptyOrItems("cleanup-warning-list", warnings, "No cleanup warnings.", (warning) => make("li", warning));
 };
 
+const renderTransactionFacts = (id, facts) => {
+  const list = byID(id);
+  clearNode(list);
+  for (const [label, value] of facts) {
+    const row = make("div");
+    row.append(make("dt", label), make("dd", value || "—"));
+    list.append(row);
+  }
+};
+
+const transactionResource = () => state.renderedPayload?.browser_transaction || null;
+const transactionAllowed = (operation) => (transactionResource()?.allowed_operations || []).includes(operation);
+
+const renderBrowserTransaction = (payload, now = new Date()) => {
+  const resource = payload.browser_transaction;
+  const section = byID("browser-transaction-section");
+  section.hidden = !resource;
+  if (!resource) return;
+  const transaction = resource.transaction;
+  const review = resource.review;
+  const revisionChanged = resource.revision !== state.transactionRevision;
+  state.transactionRevision = resource.revision || "";
+  if (revisionChanged) {
+    for (const id of ["transaction-review-confirmed", "transaction-prepare-confirmed", "transaction-promote-confirmed", "transaction-recover-confirmed", "transaction-cancel-confirmed"]) byID(id).checked = false;
+  }
+  if (!transaction) {
+    showText("browser-transaction-state", "Waiting for candidate");
+    showText("browser-transaction-status", "No browser transaction is active. Candidate and review bodies remain outside this API.");
+    byID("browser-transaction-content").hidden = true;
+    return;
+  }
+  byID("browser-transaction-content").hidden = false;
+  const expiresAt = new Date(transaction.provenance?.expires_at || "");
+  const expired = Number.isFinite(expiresAt.getTime()) && now >= expiresAt;
+  section.dataset.expired = expired ? "true" : "false";
+  showText("browser-transaction-state", `${review?.composition || transaction.kind} · ${transaction.state}`);
+  const failure = resource.last_failure;
+  showText("browser-transaction-status", failure
+    ? `${failure.operation} reported ${failure.code}${failure.promotion_state ? ` (${failure.promotion_state})` : ""}. Review the current state before continuing.`
+    : expired && ["candidate", "reviewed"].includes(transaction.state)
+      ? "Candidate freshness expired. Review and prepare are blocked; cancel or restart with a newly adopted candidate."
+      : `Exact ${transaction.state} transaction. Runtime execution is unavailable.`);
+
+  renderTransactionFacts("browser-transaction-provenance", [
+    ["Composition", review?.composition], ["Transaction ID", transaction.id], ["Transaction digest", resource.transaction_sha256],
+    ["Producer result", `${transaction.provenance?.result_version || "—"} · ${transaction.provenance?.result_sha256 || "—"}`],
+    ["Observed", transaction.provenance?.observed_at], ["Expires", `${transaction.provenance?.expires_at || "—"}${expired ? " · expired" : " · engine rechecks before review and prepare"}`],
+    ["Revision", resource.revision],
+  ]);
+  appendEmptyOrItems("browser-transaction-origins", review?.origins || transaction.provenance?.origins || [], "No approved origins are present.", (origin) => make("li", origin));
+  const symbols = (review?.credential_bindings || transaction.credential_bindings || []).map((binding) => `${binding.slot} → ${binding.binding}`);
+  if (review?.session) symbols.push(`browser session → ${review.session}`);
+  appendEmptyOrItems("browser-transaction-symbols", symbols, "No credential values are present; this transaction uses no symbolic bindings.", (symbol) => make("li", symbol));
+  const authority = [
+    `Allowed now: ${(resource.allowed_operations || []).join(", ") || "observe only"}.`,
+    "Candidate review is separate from prepare/qualification.",
+    "Prepare/qualification is separate from atomic promotion.",
+    "Promotion selects package bytes only; it grants no browser or workflow runtime authority.",
+  ];
+  if (resource.inspection?.execution_policy) authority.push(resource.inspection.execution_policy.side_effectful ? "Selected package declares downstream side effects requiring a separate trusted-runner approval." : "Selected package declares a read-only downstream posture.");
+  appendEmptyOrItems("browser-transaction-authority", authority, "No transaction authority is available.", (item) => make("li", item));
+
+  const virtualCandidates = payload.snapshot?.source_candidates?.virtual_browser?.candidates || [];
+  const tbody = byID("browser-transaction-candidates");
+  clearNode(tbody);
+  for (const candidate of transaction.candidates || []) {
+    const adopted = virtualCandidates.find((item) => item.transaction_id === transaction.id && item.kind === candidate.kind);
+    const output = adopted?.target_path || "Output appears after exact private candidate adoption";
+    const cleanup = candidate.kind === "registration" ? (adopted?.cleanup_disposition || "Cleanup remains separately review-bound") : "No registration cleanup";
+    const row = make("tr");
+    for (const [label, value] of [["Profile", candidate.kind], ["Schema", candidate.schema], ["Source digest", candidate.source_sha256], ["Review digest", candidate.review_sha256], ["Output and cleanup", `${output} · ${cleanup}`]]) {
+      const cell = make("td", value || "—"); cell.dataset.label = label; row.append(cell);
+    }
+    tbody.append(row);
+  }
+
+  const registration = review?.registration_authoring;
+  byID("browser-registration-disclosure").hidden = !registration;
+  if (registration) {
+    showText("browser-registration-label-disclosure", registration.accessibility_labels);
+    appendEmptyOrItems("browser-registration-policy", [
+      `Observation: ${registration.observation_status}; freshness is bounded by the exact observed/expires timestamps above.`,
+      `Network: ${(registration.network_methods || []).join("/")} only; mutation requests allowed: ${registration.mutation_requests_allowed ? "yes" : "no"}.`,
+      `Submit: ${registration.submit_supported ? "supported" : "not supported"}; account attempt: ${registration.account_attempt_supported ? "supported" : "not supported"}; session establishment: ${registration.session_establishment_supported ? "supported" : "not supported"}.`,
+      `Symbol ${registration.approval_symbol} is descriptive and ${registration.approval_symbol_is_authority ? "does" : "does not"} grant execution authority.`,
+    ], "No registration policy is present.", (item) => make("li", item));
+  }
+
+  const preparation = resource.preparation;
+  renderTransactionFacts("browser-transaction-package", preparation ? [
+    ["Preparation", preparation.preparation_sha256], ["Input", preparation.input_sha256], ["Package", preparation.package_sha256],
+    ["Handoff", preparation.handoff_sha256], ["Quality", preparation.quality_sha256], ["Qualification", preparation.qualification_sha256],
+  ] : [["Preparation", "Not prepared"]]);
+  const promotion = resource.promotion;
+  const report = resource.recovery?.report;
+  const reconciliation = resource.recovery?.reconciliation;
+  renderTransactionFacts("browser-transaction-recovery", [
+    ["Generation", promotion?.generation_sha256], ["Selection", promotion?.selection_sha256], ["Baseline selection", promotion?.baseline_selection_sha256],
+    ["Selected generation", promotion?.selected_generation_sha256], ["Prior generation", promotion?.prior_generation_sha256],
+    ["Recovery resolution", report?.resolution], ["Recovery report", report?.recovery_sha256], ["Safe target", report?.target_generation_sha256 || failure?.target_generation_sha256],
+    ["Accepted reconciliation", reconciliation?.observed_recovery_sha256],
+  ]);
+  updateControls();
+};
+
 const updateControls = () => {
 	const locked = mutationLocked();
 	const acquisitionIsLocked = acquisitionLocked();
@@ -581,6 +687,27 @@ const updateControls = () => {
 	const captureActive = capture && !["configuring", "staged", "canceled", "failed"].includes(capture.state);
 	const captureFormLocked = Boolean(captureActive) || Boolean(capture?.containment_failed) || state.renderedPayload?.lifecycle !== "authoring" || state.dirty || state.pendingMutation || state.reconciliationRequired || state.unresolvedMutation || externallyModified();
 	Array.from(byID("capture-form").elements).forEach((control) => { control.disabled = captureFormLocked; });
+	const transaction = transactionResource();
+	const transactionLocked = !transaction?.transaction || state.pendingMutation || state.dirty || state.reconciliationRequired || state.unresolvedMutation || externallyModified();
+	const expiresAt = new Date(transaction?.transaction?.provenance?.expires_at || "");
+	const transactionExpired = Number.isFinite(expiresAt.getTime()) && new Date() >= expiresAt;
+	for (const [operation, rowID, confirmationID, buttonID] of [
+		["review", "transaction-review-row", "transaction-review-confirmed", "transaction-review"],
+		["prepare", "transaction-prepare-row", "transaction-prepare-confirmed", "transaction-prepare"],
+		["promote", "transaction-promote-row", "transaction-promote-confirmed", "transaction-promote"],
+		["recover", "transaction-recover-row", "transaction-recover-confirmed", "transaction-recover"],
+		["cancel", "transaction-cancel-row", "transaction-cancel-confirmed", "transaction-cancel"],
+	]) {
+		const available = transactionAllowed(operation);
+		byID(rowID).hidden = !available;
+		byID(buttonID).hidden = !available;
+		byID(confirmationID).disabled = transactionLocked || !available || (transactionExpired && ["review", "prepare"].includes(operation));
+		byID(buttonID).disabled = transactionLocked || !available || !byID(confirmationID).checked || (transactionExpired && ["review", "prepare"].includes(operation));
+	}
+	byID("transaction-inspect-recovery").hidden = !transactionAllowed("inspect_recovery");
+	byID("transaction-inspect-recovery").disabled = transactionLocked || !transactionAllowed("inspect_recovery");
+	byID("transaction-inspect-selected").hidden = !transactionAllowed("inspect_selected");
+	byID("transaction-inspect-selected").disabled = transactionLocked || !transactionAllowed("inspect_selected");
 
   let approvalState = "No proposal is currently available for approval.";
   if (state.renderedPayload?.completed) approvalState = "This approved session is frozen.";
@@ -656,6 +783,7 @@ const renderPayload = (payload, refreshedAt = new Date()) => {
   renderAcquisition(payload);
   renderWorkflowHelpers(snapshot);
   renderPackage(payload);
+  renderBrowserTransaction(payload, refreshedAt);
   showText("snapshot", JSON.stringify(snapshot, null, 2));
   updateControls();
 };
@@ -725,6 +853,7 @@ async function refreshSnapshot() {
         externallyModified() ? "warning" : "positive",
       );
       showText("refreshed", result.refreshedAt.toLocaleTimeString());
+      renderBrowserTransaction(state.renderedPayload, result.refreshedAt);
     } else {
       receivePayload(result.payload, result.refreshedAt);
     }
@@ -883,6 +1012,41 @@ async function sendLifecycleJSON(route, body, message = "Updating local state…
     updateControls();
     schedule(normalInterval);
   }
+}
+
+async function sendBrowserTransaction(route, body, message) {
+	if (state.pendingMutation || state.dirty || externallyModified() || state.reconciliationRequired || state.unresolvedMutation) return;
+	clearTimeout(state.timer);
+	clearError();
+	state.pendingMutation = true;
+	announceMutation(message);
+	updateControls();
+	let failure = null;
+	try {
+		const response = await fetch(`api/v4/browser-transactions/${route}`, {
+			method: "POST", credentials: "same-origin",
+			headers: { Accept: "application/json", "Content-Type": "application/json" },
+			body: JSON.stringify(body),
+		});
+		const payload = await decodePayload(response);
+		if (!response.ok) failure = { message: payload?.error?.message || `Browser transaction request failed (${response.status}).`, requestID: payload?.error?.request_id || "" };
+		const latest = await fetchSnapshot(true);
+		if (latest.payload) renderPayload(latest.payload, latest.refreshedAt);
+		if (failure) {
+			showError(failure.message, failure.requestID);
+			announceMutation("Browser transaction state requires review.");
+		} else {
+			announceMutation("Browser transaction state updated. Review the exact next checkpoint.");
+		}
+	} catch (error) {
+		showError(error.message);
+		announceMutation("Browser transaction update could not be confirmed.");
+	} finally {
+		state.pendingMutation = false;
+		updateControls();
+		byID("browser-transaction-heading")?.focus();
+		schedule(normalInterval);
+	}
 }
 
 const renderAcquisition = (payload) => {
@@ -1208,6 +1372,34 @@ byID("capture-form").addEventListener("submit", (event) => {
 byID("capture-cancel").addEventListener("click", () => sendLifecycleJSON("capture/cancel", {
   capture_revision: state.renderedPayload.capture_revision,
 }, "Canceling the browser capture and its descendants…"));
+
+for (const id of ["transaction-review-confirmed", "transaction-prepare-confirmed", "transaction-promote-confirmed", "transaction-recover-confirmed", "transaction-cancel-confirmed"]) byID(id).addEventListener("change", updateControls);
+
+const transactionAuthority = () => ({
+	revision: transactionResource()?.revision || "",
+	transaction_sha256: transactionResource()?.transaction_sha256 || "",
+	human_approved: true,
+});
+
+byID("transaction-review").addEventListener("click", () => sendBrowserTransaction("review", transactionAuthority(), "Accepting the exact candidate review…"));
+byID("transaction-prepare").addEventListener("click", () => sendBrowserTransaction("prepare", transactionAuthority(), "Preparing and qualifying without promotion…"));
+byID("transaction-promote").addEventListener("click", () => sendBrowserTransaction("promote", {
+	...transactionAuthority(),
+	preparation_sha256: transactionResource()?.preparation?.preparation_sha256 || "",
+	qualification_sha256: transactionResource()?.preparation?.qualification_sha256 || "",
+}, "Promoting the exact qualified generation without runtime execution…"));
+byID("transaction-cancel").addEventListener("click", () => sendBrowserTransaction("cancel", transactionAuthority(), "Canceling the transaction without runtime execution…"));
+byID("transaction-inspect-recovery").addEventListener("click", () => sendBrowserTransaction("recovery/inspect", {
+	revision: transactionResource()?.revision || "",
+}, "Inspecting promotion recovery state without changing the store…"));
+byID("transaction-recover").addEventListener("click", () => sendBrowserTransaction("recovery/reconcile", {
+	...transactionAuthority(),
+	recovery_sha256: transactionResource()?.recovery?.report?.recovery_sha256 || "",
+}, "Reconciling only the exact accepted recovery report…"));
+byID("transaction-inspect-selected").addEventListener("click", () => sendBrowserTransaction("selected/inspect", {
+	revision: transactionResource()?.revision || "",
+	selection_sha256: transactionResource()?.promotion?.selection_sha256 || "",
+}, "Inspecting the exact selected package without creating approval or runtime state…"));
 
 byID("package-confirmed").addEventListener("change", updateControls);
 byID("package-build").addEventListener("click", () => sendLifecycleJSON("package/build", {
