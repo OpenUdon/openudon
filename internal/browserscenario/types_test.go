@@ -228,7 +228,7 @@ func TestScenarioEnvironmentExcludesCredentialsAndRetainsNetworkProxy(t *testing
 	}
 }
 
-func TestCompatibilityLockMatchesPublishedTypedBrowserRevisions(t *testing.T) {
+func TestCompatibilityLockMatchesExactTypedBrowserRevisions(t *testing.T) {
 	lock, err := LoadCompatibilityLock()
 	if err != nil {
 		t.Fatal(err)

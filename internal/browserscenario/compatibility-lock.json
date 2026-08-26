@@ -3,17 +3,17 @@
   "components": [
     {
       "name": "browserdriver",
-      "commit": "f4d76f8ffb60f26f01485954f954616bfb7873bd"
+      "commit": "a97b1aed6ea69a30591815da8ca07ac9e7c87623"
     },
     {
       "name": "browsertools",
-      "commit": "39e32c1d6f601561cc5c13ec85201815ce85ab9b",
+      "commit": "d26f2982db352619d7a7f6563add802b56e10824",
       "module": "github.com/OpenUdon/browsertools",
-      "version": "v0.0.0-20260825225202-39e32c1d6f60"
+      "version": "v0.0.0-20260826163208-d26f2982db35"
     },
     {
       "name": "udon",
-      "commit": "33e088994655cc2e91119fbb591d44a07cccd47f"
+      "commit": "0044078726e761bd8d260b2f5a92e2f2daf36d7b"
     },
     {
       "name": "uws",
