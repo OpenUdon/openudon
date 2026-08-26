@@ -11,6 +11,7 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
+	"regexp"
 	"sort"
 	"strings"
 	"time"
@@ -21,6 +22,8 @@ import (
 	"github.com/OpenUdon/browsertools/disclosurepath"
 	"github.com/OpenUdon/browsertools/profile"
 	"github.com/OpenUdon/evidence/redact"
+	"github.com/OpenUdon/openudon/internal/browsercandidate"
+	"github.com/OpenUdon/openudon/internal/browsertransaction"
 	"github.com/OpenUdon/openudon/internal/icot/browserauthor"
 	"github.com/OpenUdon/openudon/internal/icot/elicitor"
 	"github.com/OpenUdon/openudon/internal/icot/engine"
@@ -141,6 +144,7 @@ type preparedAuthenticatedImport struct {
 	Origins              []string
 	Contexts             int
 	Goal                 liveGoalPredicate
+	Candidate            *browsercandidate.AuthenticationCapability
 	Files                []generatedFile
 }
 
@@ -223,6 +227,27 @@ func prepareAuthenticatedAuthoringImportWithAttestation(cfg liveAuthorConfig, re
 	if err := validateAuthenticatedProfileSemantics(cfg, envelope, authentication, capability); err != nil {
 		return preparedAuthenticatedImport{}, err
 	}
+	authenticationReview, err := json.Marshal(envelope.AuthenticationReview)
+	if err != nil {
+		return preparedAuthenticatedImport{}, err
+	}
+	capabilityReview, err := json.Marshal(envelope.CapabilityReview)
+	if err != nil {
+		return preparedAuthenticatedImport{}, err
+	}
+	bindings := make([]browsertransaction.CredentialBinding, 0)
+	for _, slot := range liveAuthenticationFlowSlots(authentication.Flows["authenticated_goal"]) {
+		bindings = append(bindings, browsertransaction.CredentialBinding{Slot: slot, Binding: slot})
+	}
+	candidate, err := browsercandidate.ComposeAuthenticationCapability(browsercandidate.AuthenticationCapabilityRequest{
+		TransactionID: cfg.ProfileID, Flow: "authenticated_goal", Session: authenticatedTransactionSession(cfg.ProfileID),
+		CredentialBindings: bindings, Authentication: authenticationBytes, AuthenticationReview: authenticationReview,
+		Capability: capabilityBytes, CapabilityReview: capabilityReview, ResultSHA256: actualDigest,
+		ObservedAt: envelope.ObservedAt, Origins: envelope.Origins, AssessedAt: at,
+	})
+	if err != nil {
+		return preparedAuthenticatedImport{}, fmt.Errorf("compose authenticated-authoring transaction: %w", err)
+	}
 	authenticationTarget := filepath.ToSlash(filepath.Join("browser-authentication", cfg.ProfileID+"-auth.json"))
 	capabilityTarget := filepath.ToSlash(filepath.Join("browser-profiles", cfg.ProfileID+".json"))
 	authenticationStaged := append(append([]byte(nil), authenticationBytes...), '\n')
@@ -275,6 +300,7 @@ func prepareAuthenticatedAuthoringImportWithAttestation(cfg liveAuthorConfig, re
 		ExampleDir: cfg.ExampleDir, AuthenticationTarget: authenticationTarget, CapabilityTarget: capabilityTarget,
 		AuthenticationSchema: authentication.Profile, CapabilitySchema: capability.Schema,
 		EnvelopeDigest: actualDigest, Origins: append([]string(nil), envelope.Origins...), Contexts: len(envelope.Contexts), Goal: envelope.GoalPredicate,
+		Candidate: candidate,
 		Files: []generatedFile{
 			{Path: filepath.Join(cfg.ExampleDir, filepath.FromSlash(authenticationTarget)), Content: string(authenticationStaged)},
 			{Path: filepath.Join(cfg.ExampleDir, filepath.FromSlash(capabilityTarget)), Content: string(capabilityStaged)},
@@ -847,8 +873,11 @@ func cloneLiveContexts(values map[string]liveContext) map[string]liveContext {
 }
 
 func validatePreparedAuthenticatedImport(prepared preparedAuthenticatedImport) error {
-	if prepared.ExampleDir == "" || len(prepared.Files) != 3 {
+	if prepared.ExampleDir == "" || prepared.Candidate == nil || len(prepared.Files) != 3 {
 		return fmt.Errorf("prepared authenticated-authoring import is incomplete")
+	}
+	if _, err := engine.AuthenticationCapabilityVirtualBrowserTransaction(prepared.Candidate, false); err != nil {
+		return fmt.Errorf("prepared authenticated-authoring transaction is invalid: %w", err)
 	}
 	for _, file := range prepared.Files {
 		if _, err := os.Lstat(file.Path); err == nil {
@@ -866,6 +895,9 @@ func stageAuthenticatedAuthoringImport(prepared preparedAuthenticatedImport) err
 	if err := validatePreparedAuthenticatedImport(prepared); err != nil {
 		return err
 	}
+	if _, err := engine.AuthenticationCapabilityVirtualBrowserTransaction(prepared.Candidate, true); err != nil {
+		return fmt.Errorf("review authenticated-authoring transaction: %w", err)
+	}
 	return writeGeneratedFilesAtomic(prepared.Files, false)
 }
 
@@ -876,4 +908,23 @@ func printAuthenticatedAuthoringReview(out io.Writer, prepared preparedAuthentic
 	fmt.Fprintf(out, "- capability: %s -> %s\n", prepared.CapabilitySchema, prepared.CapabilityTarget)
 	fmt.Fprintf(out, "- approved origins: %s; child contexts: %d\n", strings.Join(prepared.Origins, ", "), prepared.Contexts)
 	fmt.Fprintf(out, "- typed goal: %s%s context=%s role=%s label=%q\n", prepared.Goal.Origin, prepared.Goal.Path, prepared.Goal.Context, prepared.Goal.Role, prepared.Goal.Label)
+	if prepared.Candidate != nil {
+		transaction := prepared.Candidate.Transaction()
+		digest, _ := browsertransaction.Digest(transaction)
+		fmt.Fprintf(out, "- transaction: %s candidate=%s session=%s symbolic-bindings=%d\n", transaction.ID, digest, transaction.Session, len(transaction.CredentialBindings))
+	}
+}
+
+func authenticatedTransactionSession(profileID string) string {
+	value := strings.ToLower(strings.TrimSpace(profileID))
+	value = regexp.MustCompile(`[^a-z0-9]+`).ReplaceAllString(value, "_")
+	value = strings.Trim(value, "_")
+	if value == "" || value[0] < 'a' || value[0] > 'z' {
+		value = "browser_" + value
+	}
+	const suffix = "_session"
+	if len(value)+len(suffix) > 128 {
+		value = strings.TrimRight(value[:128-len(suffix)], "_")
+	}
+	return value + suffix
 }

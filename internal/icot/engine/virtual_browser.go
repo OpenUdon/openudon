@@ -29,6 +29,35 @@ func RegistrationVirtualBrowserTransaction(candidate *browsercandidate.Registrat
 	}, nil
 }
 
+// AuthenticationCapabilityVirtualBrowserTransaction converts one immutable,
+// path-free BAP+BCP candidate into the generic virtual discovery input. When
+// reviewed is true, the returned lifecycle snapshot records the caller's
+// explicit acceptance of the exact candidate and review digests.
+func AuthenticationCapabilityVirtualBrowserTransaction(candidate *browsercandidate.AuthenticationCapability, reviewed bool) (elicitor.VirtualBrowserTransactionInput, error) {
+	if candidate == nil {
+		return elicitor.VirtualBrowserTransactionInput{}, errors.New("authentication-capability candidate is required")
+	}
+	transaction := candidate.Transaction()
+	if reviewed {
+		var err error
+		transaction, err = candidate.ReviewedTransaction()
+		if err != nil {
+			return elicitor.VirtualBrowserTransactionInput{}, err
+		}
+	}
+	if transaction.Kind != browsertransaction.KindAuthenticationCapability || len(transaction.Candidates) != 2 ||
+		transaction.Candidates[0].Kind != browsertransaction.CandidateAuthentication || transaction.Candidates[1].Kind != browsertransaction.CandidateCapability {
+		return elicitor.VirtualBrowserTransactionInput{}, errors.New("authentication-capability transaction composition is invalid")
+	}
+	return elicitor.VirtualBrowserTransactionInput{
+		Transaction: transaction,
+		Sources: []elicitor.VirtualBrowserSourceInput{
+			{Kind: browsertransaction.CandidateAuthentication, Flow: candidate.Flow(), Source: candidate.Authentication(), Review: candidate.AuthenticationReview()},
+			{Kind: browsertransaction.CandidateCapability, Source: candidate.Capability(), Review: candidate.CapabilityReview()},
+		},
+	}, nil
+}
+
 // ReplaceVirtualBrowserSources atomically replaces the in-memory catalog when
 // expectedGeneration matches. It performs no workspace write and rejects a
 // replacement that would make an already selected virtual source stale.

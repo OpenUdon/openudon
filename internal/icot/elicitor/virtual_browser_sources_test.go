@@ -14,6 +14,7 @@ import (
 	"github.com/OpenUdon/browsertools/registrationprofile"
 	"github.com/OpenUdon/browsertools/registrationreview"
 	"github.com/OpenUdon/openudon/internal/browsertransaction"
+	rollout "github.com/OpenUdon/openudon/internal/workflowintent"
 )
 
 var virtualBrowserTime = time.Date(2026, 8, 25, 12, 0, 0, 0, time.UTC)
@@ -58,6 +59,56 @@ func TestDiscoverVirtualBrowserSourcesComposesAndSelectsDependencies(t *testing.
 		if bytes.Contains(public, source.Source) || bytes.Contains(public, source.Review) {
 			t.Fatalf("public catalog exposed private source or review: %s", public)
 		}
+	}
+}
+
+func TestVirtualAuthenticationLoweringPreservesTransactionSessionAndBindings(t *testing.T) {
+	input := virtualAuthenticationCapabilityInput(t, "account")
+	discovery, err := DiscoverVirtualBrowserSources([]VirtualBrowserTransactionInput{input}, virtualBrowserTime)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var authenticationDoc, capabilityDoc APIDocument
+	for _, doc := range discovery.Docs {
+		if isBrowserAuthenticationDocument(doc) {
+			authenticationDoc = doc
+		} else if isBrowserActionDocument(doc) {
+			capabilityDoc = doc
+		}
+	}
+	if len(authenticationDoc.Operations) != 1 || len(capabilityDoc.Operations) == 0 {
+		t.Fatalf("virtual documents = %#v", discovery.Docs)
+	}
+	action := &rollout.Step{Name: "read_account", Type: "browser", Source: capabilityDoc.RelativePath, Operation: capabilityDoc.Operations[0].OperationID}
+	session := Session{Intent: rollout.Intent{Steps: []*rollout.Step{action}}}
+	authentication := insertBrowserAuthenticationStep(&session, action, authenticationDoc, &authenticationDoc.Operations[0])
+	if authentication == nil || authentication.BrowserSession != input.Transaction.Session || action.BrowserSession != input.Transaction.Session {
+		t.Fatalf("lowered session contract = auth %#v action %#v", authentication, action)
+	}
+	wantBindings := map[string]string{"password": "account_password", "username": "account_username"}
+	if !exactBrowserCredentialBindings(authentication.CredentialBindings, []string{"password", "username"}) ||
+		authentication.CredentialBindings["password"] != wantBindings["password"] || authentication.CredentialBindings["username"] != wantBindings["username"] ||
+		!session.CredentialsSet || strings.Join(session.Credentials, ",") != "account_password,account_username" {
+		t.Fatalf("lowered symbolic bindings = step %#v inventory %#v", authentication.CredentialBindings, session.Credentials)
+	}
+	second := Session{Intent: rollout.Intent{Steps: []*rollout.Step{{Name: "read_account", Type: "browser", Source: capabilityDoc.RelativePath, Operation: capabilityDoc.Operations[0].OperationID}}}}
+	secondAuthentication := insertBrowserAuthenticationStep(&second, second.Intent.Steps[0], authenticationDoc, &authenticationDoc.Operations[0])
+	firstBytes, _ := json.Marshal(session.Intent)
+	secondBytes, _ := json.Marshal(second.Intent)
+	if secondAuthentication == nil || !bytes.Equal(firstBytes, secondBytes) {
+		t.Fatalf("virtual lowering is unstable:\n%s\n%s", firstBytes, secondBytes)
+	}
+	timeout := 120.0
+	authentication.Timeout = &timeout
+	session.BrowserAuthenticationApprovals = []string{authentication.Name}
+	authentication.BrowserSession = "different_session"
+	if issues := browserAuthenticationReadinessIssues(session, discovery.Docs, authentication); !hasBrowserAuthenticationReadinessCode(issues, readinessMissingBrowserAuthenticationSession) {
+		t.Fatalf("transaction session drift was not rejected: %#v", issues)
+	}
+	authentication.BrowserSession = input.Transaction.Session
+	authentication.CredentialBindings["password"] = "different_password"
+	if issues := browserAuthenticationReadinessIssues(session, discovery.Docs, authentication); !hasBrowserAuthenticationReadinessCode(issues, readinessMissingBrowserCredentialBindings) {
+		t.Fatalf("transaction binding drift was not rejected: %#v", issues)
 	}
 }
 

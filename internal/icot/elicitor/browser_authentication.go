@@ -41,12 +41,22 @@ func browserAuthenticationReadinessIssues(session Session, docs []APIDocument, s
 		}
 		return issues
 	}
-	if strings.TrimSpace(step.BrowserSession) == "" {
-		add(readinessMissingBrowserAuthenticationSession, ".browser_session", "Name the execution-local browser session established by this authentication step.", defaultBrowserSessionName(doc))
+	expectedSession := browserAuthenticationTransactionSession(operation)
+	if strings.TrimSpace(step.BrowserSession) == "" || expectedSession != "" && strings.TrimSpace(step.BrowserSession) != expectedSession {
+		add(readinessMissingBrowserAuthenticationSession, ".browser_session", "Name the exact execution-local browser session established by this authentication step.", defaultBrowserSessionName(doc, operation))
 	}
 	required := browserAuthenticationCredentialSlots(operation)
-	if !exactBrowserCredentialBindings(step.CredentialBindings, required) {
-		add(readinessMissingBrowserCredentialBindings, ".credential_bindings", "Map every credential slot required by the selected flow to a symbolic runtime binding. Do not enter credential values.", suggestedBrowserCredentialBindings(required))
+	expectedBindings := browserAuthenticationTransactionBindings(operation)
+	bindingsMatch := exactBrowserCredentialBindings(step.CredentialBindings, required)
+	if len(expectedBindings) > 0 {
+		bindingsMatch = exactBrowserCredentialBindingMap(step.CredentialBindings, expectedBindings)
+	}
+	if !bindingsMatch {
+		suggested := suggestedBrowserCredentialBindings(required)
+		if len(expectedBindings) > 0 {
+			suggested = formatBrowserCredentialBindingMap(expectedBindings)
+		}
+		add(readinessMissingBrowserCredentialBindings, ".credential_bindings", "Map every credential slot required by the selected flow to its exact symbolic runtime binding. Do not enter credential values.", suggested)
 	}
 	if step.Timeout == nil || *step.Timeout <= 0 || *step.Timeout > 600 {
 		add(readinessMissingBrowserAuthenticationTimeout, ".timeout", "Set a bounded authentication timeout of no more than 600 seconds so an unattended MFA challenge cannot wait forever.", "120")
@@ -121,12 +131,26 @@ func suggestedBrowserAuthenticationFlow(docs []APIDocument) string {
 	return ""
 }
 
-func defaultBrowserSessionName(doc APIDocument) string {
+func defaultBrowserSessionName(doc APIDocument, operation *apitools.OperationSummary) string {
+	if session := browserAuthenticationTransactionSession(operation); session != "" {
+		return session
+	}
 	name := slugIdent(firstNonEmpty(doc.ID, doc.Title, "browser"))
 	if name == "" {
 		name = "browser"
 	}
 	return name + "_session"
+}
+
+func browserAuthenticationTransactionSession(operation *apitools.OperationSummary) string {
+	if operation == nil {
+		return ""
+	}
+	session := strings.TrimSpace(operation.Extensions["openudon.browser_authentication.session"])
+	if !browserBindingNamePattern.MatchString(session) {
+		return ""
+	}
+	return session
 }
 
 func browserAuthenticationAvailable(docs []APIDocument) bool {
@@ -167,7 +191,15 @@ func insertBrowserAuthenticationStep(session *Session, action *rollout.Step, doc
 	name := uniqueIntentStepName(session.Intent.Steps, "authenticate_"+slugIdent(firstNonEmpty(doc.ID, operation.OperationID)))
 	auth := &rollout.Step{
 		Name: name, Type: "browser_authentication", Do: firstNonEmpty(operation.Summary, "Establish the browser session."),
-		Source: doc.RelativePath, AuthenticationFlow: operation.OperationID, BrowserSession: defaultBrowserSessionName(doc),
+		Source: doc.RelativePath, AuthenticationFlow: operation.OperationID, BrowserSession: defaultBrowserSessionName(doc, operation),
+	}
+	if bindings := browserAuthenticationTransactionBindings(operation); len(bindings) > 0 {
+		auth.CredentialBindings = bindings
+		for _, binding := range bindings {
+			session.Credentials = append(session.Credentials, binding)
+		}
+		session.Credentials = dedupeStrings(session.Credentials)
+		session.CredentialsSet = true
 	}
 	if action != nil {
 		action.BrowserSession = auth.BrowserSession
@@ -185,6 +217,53 @@ func insertBrowserAuthenticationStep(session *Session, action *rollout.Step, doc
 	session.BrowserRoute = "browser"
 	session.BrowserSession = "none"
 	return auth
+}
+
+func browserAuthenticationTransactionBindings(operation *apitools.OperationSummary) map[string]string {
+	if operation == nil {
+		return nil
+	}
+	raw := strings.TrimSpace(operation.Extensions["openudon.browser_authentication.credential_bindings"])
+	if raw == "" {
+		return nil
+	}
+	result := map[string]string{}
+	for _, item := range strings.Split(raw, ",") {
+		parts := strings.Split(item, "=")
+		if len(parts) != 2 || !browserBindingNamePattern.MatchString(parts[0]) || !browserBindingNamePattern.MatchString(parts[1]) || result[parts[0]] != "" {
+			return nil
+		}
+		result[parts[0]] = parts[1]
+	}
+	if !exactBrowserCredentialBindings(result, browserAuthenticationCredentialSlots(operation)) {
+		return nil
+	}
+	return result
+}
+
+func exactBrowserCredentialBindingMap(actual, expected map[string]string) bool {
+	if len(actual) != len(expected) {
+		return false
+	}
+	for slot, binding := range expected {
+		if actual[slot] != binding {
+			return false
+		}
+	}
+	return true
+}
+
+func formatBrowserCredentialBindingMap(bindings map[string]string) string {
+	slots := make([]string, 0, len(bindings))
+	for slot := range bindings {
+		slots = append(slots, slot)
+	}
+	sort.Strings(slots)
+	values := make([]string, 0, len(slots))
+	for _, slot := range slots {
+		values = append(values, slot+"="+bindings[slot])
+	}
+	return strings.Join(values, ", ")
 }
 
 func uniqueIntentStepName(steps []*rollout.Step, base string) string {

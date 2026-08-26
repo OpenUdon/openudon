@@ -101,6 +101,24 @@ registry source. Selection persists only value-free resumable metadata; exact
 canonical profile bytes remain process-local and are copied to a package only
 by the ordinary explicit approval path.
 
+For an authenticated-authoring v2 result, OpenUdon independently parses both
+canonical profiles and both canonical reviews before composing the transaction.
+The capability must require login state, the authentication profile must expose
+one exact selected flow, shared popup/frame identifiers must have identical
+definitions, and the union of profile and context origins must exactly equal
+the transaction provenance. Symbolic bindings exactly cover the selected
+flow's credential and challenge slots. The transaction session is a portable
+symbol derived from the profile identity; it names the execution-local session
+provided by the BAP and consumed by the BCP, but is never a browser handle.
+
+Explicit acceptance changes only `candidate` to `reviewed` through the normal
+immutable transition validator. Virtual lowering remains deterministic: BCP
+selection closes over BAP, package inventory contains both canonical target
+files and both safe source-review metadata files, and authentication approval
+evidence is derived from the authored step rather than from transaction review.
+Drafts and public snapshots omit source/review bytes and never retain cookies,
+storage, credentials, or a runtime session object.
+
 Origins are sorted, unique serialized origins: HTTPS, or HTTP only for
 `localhost` and canonical loopback IPs. They have no user information, path,
 query, fragment, empty/default port, Unicode host form, or noncanonical IP

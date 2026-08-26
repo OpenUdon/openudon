@@ -221,7 +221,15 @@ func virtualBrowserMaterialization(transaction browsertransaction.Transaction, t
 		}
 		plan.Provenance = virtualFlowProvenance(plan.Provenance, flow)
 		public.TargetPath, public.Title, public.Flow, public.ProvidesSession = plan.TargetPath, plan.Title, flow, transaction.Session
-		return public, plan, browserAuthenticationDocument(plan, value), nil
+		doc := browserAuthenticationDocument(plan, value)
+		for index := range doc.Operations {
+			if doc.Operations[index].OperationID != flow {
+				continue
+			}
+			doc.Operations[index].Extensions["openudon.browser_authentication.session"] = transaction.Session
+			doc.Operations[index].Extensions["openudon.browser_authentication.credential_bindings"] = virtualCredentialBindings(transaction.CredentialBindings)
+		}
+		return public, plan, doc, nil
 	case browsertransaction.CandidateCapability:
 		if strings.TrimSpace(input.Flow) != "" {
 			return VirtualBrowserCandidate{}, SourceMaterialization{}, APIDocument{}, errors.New("capability candidate must not declare an authentication or registration flow")
@@ -278,6 +286,14 @@ func virtualBrowserMaterialization(transaction browsertransaction.Transaction, t
 	default:
 		return VirtualBrowserCandidate{}, SourceMaterialization{}, APIDocument{}, errors.New("candidate kind is unsupported")
 	}
+}
+
+func virtualCredentialBindings(bindings []browsertransaction.CredentialBinding) string {
+	values := make([]string, 0, len(bindings))
+	for _, binding := range bindings {
+		values = append(values, binding.Slot+"="+binding.Binding)
+	}
+	return strings.Join(values, ",")
 }
 
 func canonicalVirtualAuthentication(data []byte, at time.Time) (*authprofile.Profile, []byte, error) {

@@ -17,7 +17,11 @@ import (
 	"time"
 
 	"github.com/OpenUdon/browsertools/authorresult"
+	"github.com/OpenUdon/openudon/internal/browsercandidate"
+	"github.com/OpenUdon/openudon/internal/icot/artifactwriter"
+	"github.com/OpenUdon/openudon/internal/icot/elicitor"
 	"github.com/OpenUdon/openudon/internal/icot/engine"
+	rollout "github.com/OpenUdon/openudon/internal/workflowintent"
 )
 
 func TestLiveAuthorRecordsOnlyHumanSelectedCompatibleMFAKind(t *testing.T) {
@@ -222,6 +226,139 @@ func TestAuthenticatedAuthoringV2ReconstructsTOTPAndScalarOutputs(t *testing.T) 
 	var review authenticatedAuthoringReviewCollection
 	if err := json.Unmarshal([]byte(prepared.Files[2].Content), &review); err != nil || len(review.Captures) != 1 || len(review.Captures[0].OutputSelections) != 5 {
 		t.Fatalf("safe value-free review collection = %#v, %v", review, err)
+	}
+}
+
+func TestAuthenticatedAuthoringComposesReviewedVirtualSessionTransaction(t *testing.T) {
+	at := time.Date(2026, 8, 17, 3, 0, 0, 0, time.UTC)
+	root := t.TempDir()
+	example, privateRoot := liveAuthorTestRoots(t, root)
+	trace := []authorresult.TraceStep{{
+		Kind: "focus_human_input", Phase: "authentication", CandidateID: "candidate-abcdefabcdefabcd", Context: "main",
+		Role: "textbox", Label: "Verification code", InputKind: "otp", ChallengeKind: "totp",
+	}}
+	path, digest := writeCustomV2Envelope(t, privateRoot, at, trace, nil)
+	prepared, err := prepareAuthenticatedAuthoringImport(testV2ImportConfig(example, privateRoot), liveProtocolResult{ArtifactPath: path, Digest: digest}, at)
+	if err != nil {
+		t.Fatal(err)
+	}
+	transaction := prepared.Candidate.Transaction()
+	if transaction.State != "candidate" || transaction.Session != "member_session" || len(transaction.Candidates) != 2 ||
+		len(transaction.CredentialBindings) != 1 || transaction.CredentialBindings[0].Slot != "totp_seed" || transaction.CredentialBindings[0].Binding != "totp_seed" {
+		t.Fatalf("composed transaction = %#v", transaction)
+	}
+	input, err := engine.AuthenticationCapabilityVirtualBrowserTransaction(prepared.Candidate, true)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if input.Transaction.State != "reviewed" || input.Transaction.Session != transaction.Session {
+		t.Fatalf("reviewed transaction = %#v", input.Transaction)
+	}
+	discovery, err := elicitor.DiscoverVirtualBrowserSources([]elicitor.VirtualBrowserTransactionInput{input}, at)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(discovery.Candidates) != 2 || discovery.Candidates[1].ID != "member/capability" ||
+		len(discovery.Candidates[1].Dependencies) != 1 || discovery.Candidates[1].Dependencies[0] != "member/authentication" ||
+		discovery.Candidates[0].ProvidesSession != transaction.Session || discovery.Candidates[1].RequiresSession != transaction.Session {
+		t.Fatalf("virtual composition = %#v", discovery.Candidates)
+	}
+	selected, err := elicitor.SelectVirtualBrowserSources(elicitor.Session{}, discovery, []string{"member/capability"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(selected.SourcePlan) != 2 || selected.SourcePlan[0].Kind != "browser-authentication" || selected.SourcePlan[1].Kind != "browser-profile" {
+		t.Fatalf("dependency-closed source plan = %#v", selected.SourcePlan)
+	}
+	selected.Intent = rollout.Intent{Steps: []*rollout.Step{
+		{Name: "authenticate_member", Type: "browser_authentication", Source: "browser-authentication/member-auth.json", AuthenticationFlow: "authenticated_goal", BrowserSession: transaction.Session, CredentialBindings: map[string]string{"totp_seed": "totp_seed"}},
+		{Name: "reach_member_goal", Type: "browser", Source: "browser-profiles/member.json", Operation: "reach_authenticated_goal", BrowserSession: transaction.Session},
+	}}
+	selected.BrowserAuthenticationApprovals = []string{"authenticate_member"}
+	firstAuth, hasAuth, err := artifactwriter.BrowserAuthenticationMetadataJSON(selected)
+	if err != nil || !hasAuth {
+		t.Fatalf("authentication inventory: %t %v", hasAuth, err)
+	}
+	secondAuth, _, _ := artifactwriter.BrowserAuthenticationMetadataJSON(selected)
+	firstBrowser, hasBrowser, err := artifactwriter.BrowserSourceMetadataJSON(selected)
+	if err != nil || !hasBrowser || firstAuth != secondAuth || !strings.Contains(firstAuth, `"authentication_approvals": [`) || !strings.Contains(firstAuth, `"session": "member_session"`) {
+		t.Fatalf("stable inventory/approval derivation: auth=%s browser=%s err=%v", firstAuth, firstBrowser, err)
+	}
+	actions := artifactwriter.PotentialFileActions(example, selected, true)
+	for _, suffix := range []string{"browser-authentication/member-auth.json", "browser-profiles/member.json", ".icot/browser-authentication.json", ".icot/browser-sources.json"} {
+		found := false
+		for _, action := range actions {
+			found = found || filepath.ToSlash(action.Path) == filepath.ToSlash(filepath.Join(example, filepath.FromSlash(suffix)))
+		}
+		if !found {
+			t.Fatalf("package inventory omitted %s: %#v", suffix, actions)
+		}
+	}
+	draft, _, err := elicitor.DraftBytes(selected)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, forbidden := range []string{"authenticationProfile", "capabilityProfile", "browserContext", "storageState", "cookie"} {
+		if strings.Contains(string(draft), forbidden) {
+			t.Fatalf("draft retained runtime/private material %q: %s", forbidden, draft)
+		}
+	}
+}
+
+func TestAuthenticationCapabilityCompositionRejectsMismatchAndAmbiguity(t *testing.T) {
+	at := time.Date(2026, 8, 17, 3, 0, 0, 0, time.UTC)
+	root := t.TempDir()
+	example, privateRoot := liveAuthorTestRoots(t, root)
+	path, digest := writeCustomV2Envelope(t, privateRoot, at, []authorresult.TraceStep{{Kind: "navigate", Phase: "authentication", Context: "main", URL: "https://members.example.test/login"}}, nil)
+	prepared, err := prepareAuthenticatedAuthoringImport(testV2ImportConfig(example, privateRoot), liveProtocolResult{ArtifactPath: path, Digest: digest}, at)
+	if err != nil {
+		t.Fatal(err)
+	}
+	transaction := prepared.Candidate.Transaction()
+	request := browsercandidate.AuthenticationCapabilityRequest{
+		TransactionID: transaction.ID, Flow: prepared.Candidate.Flow(), Session: transaction.Session,
+		CredentialBindings: transaction.CredentialBindings, Authentication: prepared.Candidate.Authentication(), AuthenticationReview: prepared.Candidate.AuthenticationReview(),
+		Capability: prepared.Candidate.Capability(), CapabilityReview: prepared.Candidate.CapabilityReview(), ResultSHA256: transaction.Provenance.ResultSHA256,
+		ObservedAt: transaction.Provenance.ObservedAt, Origins: transaction.Provenance.Origins, AssessedAt: at,
+	}
+	mismatched := request
+	mismatched.Origins = []string{"https://other.example.test"}
+	if _, err := browsercandidate.ComposeAuthenticationCapability(mismatched); err == nil || !strings.Contains(err.Error(), "origins") {
+		t.Fatalf("origin mismatch = %v", err)
+	}
+	badSession := request
+	badSession.Session = "different.session"
+	if _, err := browsercandidate.ComposeAuthenticationCapability(badSession); err == nil || !strings.Contains(err.Error(), "session") {
+		t.Fatalf("invalid session = %v", err)
+	}
+	var authentication map[string]any
+	if err := json.Unmarshal(request.Authentication, &authentication); err != nil {
+		t.Fatal(err)
+	}
+	flows := authentication["flows"].(map[string]any)
+	flows["ambiguous"] = flows["authenticated_goal"]
+	ambiguous, err := json.Marshal(authentication)
+	if err != nil {
+		t.Fatal(err)
+	}
+	ambiguousRequest := request
+	ambiguousRequest.Authentication = ambiguous
+	if _, err := browsercandidate.ComposeAuthenticationCapability(ambiguousRequest); err == nil || !strings.Contains(err.Error(), "ambiguous") {
+		t.Fatalf("ambiguous flow = %v", err)
+	}
+	var capability map[string]any
+	if err := json.Unmarshal(request.Capability, &capability); err != nil {
+		t.Fatal(err)
+	}
+	authentication["flows"] = map[string]any{"authenticated_goal": flows["authenticated_goal"]}
+	authentication["contexts"] = map[string]any{"shared_frame": map[string]any{"kind": "frame", "parent": "main", "origin": "https://members.example.test", "path": "/auth-frame"}}
+	capability["profile"] = "uws.browser.1.6"
+	capability["contexts"] = map[string]any{"shared_frame": map[string]any{"kind": "frame", "parent": "main", "origin": "https://members.example.test", "path": "/different-frame"}}
+	contextMismatch := request
+	contextMismatch.Authentication, _ = json.Marshal(authentication)
+	contextMismatch.Capability, _ = json.Marshal(capability)
+	if _, err := browsercandidate.ComposeAuthenticationCapability(contextMismatch); err == nil || !strings.Contains(err.Error(), "differs between") {
+		t.Fatalf("context mismatch = %v", err)
 	}
 }
 
