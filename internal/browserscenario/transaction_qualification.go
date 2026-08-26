@@ -215,8 +215,14 @@ func (executor *realExecutor) runBAPBCPQualification(ctx context.Context, enviro
 	bindings := transactionBindings(reviewed)
 	fixture.SetRuntime(true)
 	replay := executor.runUdonWithFormat(ctx, manifest, exampleDir, built.UWSPath, "uws-yaml", author.CredentialSlotKinds, bindings, fixture)
-	if replay.failureCode != "" || !scenarioOutputsEqual(replay.outputs, fixture.ExpectedOutputs(manifest.Outputs)) || !fixture.AuthenticatedReplayObserved() {
-		return evidence, errors.New("BAP+BCP authenticated replay failed")
+	if replay.failureCode != "" {
+		return evidence, fmt.Errorf("BAP+BCP authenticated replay failed: executor_%s", closedReplayFailureCode(replay.failureCode))
+	}
+	if !scenarioOutputsEqual(replay.outputs, fixture.ExpectedOutputs(manifest.Outputs)) {
+		return evidence, errors.New("BAP+BCP authenticated replay failed: output_mismatch")
+	}
+	if !fixture.AuthenticatedReplayObserved() {
+		return evidence, errors.New("BAP+BCP authenticated replay failed: authentication_not_observed")
 	}
 	workflowSHA256, err := digestQualificationFile(built.UWSPath)
 	if err != nil {
@@ -407,6 +413,13 @@ func closedPackageLifecycleFailure(err error) string {
 	}
 	if code, ok := packagepipeline.PromotionFailureCode(err); ok {
 		return "promotion_" + string(code)
+	}
+	return "unclassified"
+}
+
+func closedReplayFailureCode(value string) string {
+	if safeQualityCode(value) {
+		return value
 	}
 	return "unclassified"
 }

@@ -40,6 +40,15 @@ func TestClosedPackageLifecycleFailureUsesTypedCodes(t *testing.T) {
 	}
 }
 
+func TestClosedReplayFailureCodeRejectsPathBearingValues(t *testing.T) {
+	if got := closedReplayFailureCode("invalid_context"); got != "invalid_context" {
+		t.Fatalf("closed replay failure = %q", got)
+	}
+	if got := closedReplayFailureCode("private/result/path"); got != "unclassified" {
+		t.Fatalf("path-bearing replay failure = %q", got)
+	}
+}
+
 func TestClosedQualityFailureIDsRetainsOnlyFixedCodes(t *testing.T) {
 	report := &synthesize.QualityReport{Checks: []synthesize.QualityCheck{
 		{Code: "openapi.discovery", Status: "warn"},
