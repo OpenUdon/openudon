@@ -156,8 +156,15 @@ func (executor *realExecutor) runBAPBCPQualification(ctx context.Context, enviro
 		}
 		return evidence, errors.New("BAP+BCP qualification package qualification failed: unclassified")
 	}
+	baselineDir := filepath.Join(root, "baseline")
+	if err := os.CopyFS(baselineDir, os.DirFS(filepath.Join(environment.RepoRoot, "examples", "support-priority-routing"))); err != nil {
+		return evidence, errors.New("BAP+BCP qualification baseline copy failed")
+	}
+	if _, err := synthesize.Build(ctx, synthesize.Options{ExampleDir: baselineDir}); err != nil {
+		return evidence, errors.New("BAP+BCP qualification baseline build failed")
+	}
 	baseline, err := packagepipeline.PromoteCurrent(ctx, packagepipeline.CurrentOptions{
-		ExampleDir: filepath.Join(environment.RepoRoot, "examples", "support-priority-routing"),
+		ExampleDir: baselineDir,
 		Scope:      "examples/support-priority-routing", ScratchParent: scratch, StoreDir: store,
 	})
 	if err != nil {
