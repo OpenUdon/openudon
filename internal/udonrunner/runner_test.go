@@ -596,6 +596,31 @@ func TestBrowserRegistrationEvidenceRejectsExecutorConstruction(t *testing.T) {
 	}
 }
 
+func TestDockerBrowserRegistrationCarriesOnlyV4NamesAndApprovals(t *testing.T) {
+	driver := filepath.Join(t.TempDir(), "browserdriver")
+	mustWriteExecutable(t, driver)
+	browser := &BrowserConfig{
+		DriverPath: driver, Protocol: "v4",
+		CredentialEnvironment: []EnvironmentBinding{{Name: "test_identifier", Environment: "UDON_CREDENTIAL_TEST_IDENTIFIER"}},
+		ApprovedRegistration:  []string{"register_test_user"}, AttestedRegistration: []string{"register_test_user"},
+		RegistrationAttestationSHA256: "sha256:" + strings.Repeat("a", 64),
+	}
+	argv, err := dockerImageArgv("OPENUDON_EXECUTOR", "udon:test", "/tmp/stage", "/tmp/stage/workflow.uws.yaml", "uws-yaml", "/tmp/stage/report.json", nil,
+		[]string{"UDON_CREDENTIAL_TEST_IDENTIFIER"}, browser, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, pair := range [][2]string{{"--browser-driver-protocol", "v4"}, {"--attest-browser-registration", "register_test_user"}, {"--approve-browser-registration", "register_test_user"}, {"-e", "UDON_CREDENTIAL_TEST_IDENTIFIER"}} {
+		if !containsAdjacentArgs(argv, pair[0], pair[1]) {
+			t.Fatalf("Docker argv missing %q %q: %#v", pair[0], pair[1], argv)
+		}
+	}
+	joined := strings.Join(argv, " ")
+	if strings.Contains(joined, "sha256:") || strings.Contains(joined, "credential-value") {
+		t.Fatalf("Docker argv leaked private registration material: %s", joined)
+	}
+}
+
 func validRunnerConfig(t *testing.T) Config {
 	t.Helper()
 	root := t.TempDir()

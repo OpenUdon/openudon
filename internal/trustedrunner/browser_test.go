@@ -392,6 +392,19 @@ func TestRuntimeApprovalIDsRejectLoweringCollisions(t *testing.T) {
 	}
 }
 
+func TestOuterRunnerReceivesPrivateAttestationOnlyThroughClosedEnvironment(t *testing.T) {
+	config := RunConfig{Browser: &udonrunner.BrowserConfig{Protocol: "v4"}}
+	path := "/outside/repository/registration-attestation.json"
+	env := outerRunnerEnvironment([]string{"PATH=/trusted/bin", "UNRELATED=forbidden"}, config, path, "register_test_user")
+	if !reflect.DeepEqual(env, []string{
+		"OPENUDON_BROWSER_REGISTRATION_ATTESTATION=" + path,
+		"OPENUDON_BROWSER_REGISTRATION_SUBMIT_APPROVAL=register_test_user",
+		"PATH=/trusted/bin",
+	}) {
+		t.Fatalf("outer runner environment = %#v", env)
+	}
+}
+
 func writeBrowserRuntimeFixture(t *testing.T, root string, intent *rollout.Intent) {
 	t.Helper()
 	hcl, err := rollout.RenderIntentHCL(intent)

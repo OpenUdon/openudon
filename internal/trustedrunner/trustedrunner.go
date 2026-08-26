@@ -947,16 +947,17 @@ func buildRunEvidenceExecutor(opts runEvidenceOptions, executorArgv []string) (R
 		}
 		return executor, nil
 	}
-	if requiredSuccess {
+	requireRegistrationV3 := opts.Config.Browser != nil && opts.Config.Browser.Protocol == "v4"
+	if requiredSuccess || requireRegistrationV3 {
 		report, err := decodeUdonExecutionReport(data)
 		if err != nil {
-			return RunEvidenceExecutor{}, fmt.Errorf("validate successful executor report: %w", err)
+			return RunEvidenceExecutor{}, fmt.Errorf("validate executor report: %w", err)
 		}
-		if !strings.EqualFold(report.Status, "success") {
+		if requiredSuccess && !strings.EqualFold(report.Status, "success") {
 			return RunEvidenceExecutor{}, fmt.Errorf("successful executor report status must be success")
 		}
-		if opts.Config.Browser != nil && opts.Config.Browser.Protocol == "v4" && report.Version != opts.Config.ExecutorReportVersion {
-			return RunEvidenceExecutor{}, fmt.Errorf("successful executor report version does not match the run config")
+		if requireRegistrationV3 && report.Version != opts.Config.ExecutorReportVersion {
+			return RunEvidenceExecutor{}, fmt.Errorf("executor report version does not match the run config")
 		}
 	}
 	executor.ReportPath = filepath.ToSlash(rel)
