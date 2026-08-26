@@ -768,14 +768,6 @@ func repeatedAnsweredQuestion(answers []authoring.RoundAnswer, frontier []elicit
 	return ""
 }
 
-func requireFreshRegistrySources(selected, discovered []elicitor.SourceMaterialization) error {
-	return elicitor.RequireFreshRegistrySources(selected, discovered)
-}
-
-func discoveryReadinessIssues(discovery elicitor.LocalSourceDiscovery) []elicitor.ReadinessIssue {
-	return elicitor.AssessSourceDiscovery(discovery)
-}
-
 func topIssue(issues []elicitor.ReadinessIssue) *elicitor.ReadinessIssue {
 	for i := range issues {
 		if strings.EqualFold(issues[i].Severity, "blocking") {
@@ -970,15 +962,6 @@ func appendSeedSourceRoots(roots []string, seedDir string) []string {
 		}
 	}
 	return roots
-}
-
-func sessionUsesBrowserRegistry(session elicitor.Session) bool {
-	for _, source := range session.SourcePlan {
-		if source.Kind == "browser-profile" && strings.TrimSpace(source.Registry) != "" {
-			return true
-		}
-	}
-	return false
 }
 
 func firstNonEmpty(values ...string) string {

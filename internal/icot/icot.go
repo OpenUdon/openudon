@@ -703,15 +703,6 @@ func appendSeedSourceRoots(roots []string, seedDir string) []string {
 	return roots
 }
 
-func sessionUsesBrowserRegistry(session elicitor.Session) bool {
-	for _, source := range session.SourcePlan {
-		if source.Kind == "browser-profile" && strings.TrimSpace(source.Registry) != "" {
-			return true
-		}
-	}
-	return false
-}
-
 func browserRegistryLookupApproved(session elicitor.Session, networkPolicy string) bool {
 	return strings.EqualFold(strings.TrimSpace(networkPolicy), "allow") ||
 		strings.EqualFold(strings.TrimSpace(session.Interview.Metadata["browser_registry_lookup_decision"]), "allow")

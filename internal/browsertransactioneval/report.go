@@ -11,7 +11,6 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"sort"
 	"strings"
 	"time"
 
@@ -446,25 +445,4 @@ func equalStrings(left, right []string) bool {
 		}
 	}
 	return true
-}
-
-// GateIDs returns a defensive copy of the fixed qualification gate order.
-func GateIDs() []string { return append([]string(nil), gateOrder...) }
-
-// ArtifactKinds returns a defensive copy of the fixed per-case digest order.
-func ArtifactKinds() []string { return append([]string(nil), artifactKindOrder...) }
-
-// SortArtifacts is available to the evaluator before it constructs a report.
-func SortArtifacts(artifacts []ArtifactDigest) {
-	caseRank := map[string]int{CaseBAPBCP: 0, CaseBRP: 1}
-	kindRank := make(map[string]int, len(artifactKindOrder))
-	for index, kind := range artifactKindOrder {
-		kindRank[kind] = index
-	}
-	sort.Slice(artifacts, func(i, j int) bool {
-		if caseRank[artifacts[i].Case] != caseRank[artifacts[j].Case] {
-			return caseRank[artifacts[i].Case] < caseRank[artifacts[j].Case]
-		}
-		return kindRank[artifacts[i].Kind] < kindRank[artifacts[j].Kind]
-	})
 }

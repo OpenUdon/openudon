@@ -9,7 +9,6 @@ import (
 	"encoding/json"
 	"errors"
 	"io"
-	"os"
 	"regexp"
 	"sort"
 	"strings"
@@ -83,33 +82,6 @@ type RegistrationSession struct {
 	events   chan RegistrationEvent
 	done     chan struct{}
 	closed   bool
-}
-
-// StartRegistration stabilizes and re-executes the current OpenUdon binary's
-// hidden Browsertools registration worker.
-func StartRegistration(ctx context.Context, config RegistrationConfig) (*RegistrationSession, error) {
-	if ctx == nil {
-		return nil, errors.New("registration author context is required")
-	}
-	config, inbox, err := normalizeRegistrationConfig(config)
-	if err != nil {
-		return nil, err
-	}
-	executable, err := os.Executable()
-	if err != nil {
-		_ = inbox.Close()
-		return nil, errors.New("locate registration worker executable")
-	}
-	stable, cleanup, err := stabilizeExecutable(executable, config.PrivateRoot)
-	if err != nil {
-		_ = inbox.Close()
-		return nil, err
-	}
-	args := []string{stable, "__browsertools-worker", "registration-author-session", "chromium", "--private-root", config.PrivateRoot}
-	if config.DriverDir != "" {
-		args = append(args, "--driver-dir", config.DriverDir)
-	}
-	return startRegistrationProcess(ctx, config, inbox, args, cleanup)
 }
 
 // StartExternalRegistration runs an explicitly selected Browsertools binary
