@@ -131,20 +131,43 @@ func TestAdversarialMakeTargetDoesNotShellExpandBrowsertoolsPath(t *testing.T) {
 	}
 }
 
-func TestQualificationEnvironmentReplacesExistingValue(t *testing.T) {
+func TestQualificationAdversarialEnvironmentClosesControlOverrides(t *testing.T) {
 	t.Setenv("OPENUDON_BROWSERTOOLS_REPO", "old")
-	environment := qualificationEnvironment("OPENUDON_BROWSERTOOLS_REPO", "literal-$(not-executed)")
-	count := 0
+	t.Setenv("MAKEFLAGS", "-n")
+	t.Setenv("MAKEFILES", "private.mk")
+	t.Setenv("GO", "true")
+	t.Setenv("GOFLAGS", "-run=none")
+	t.Setenv("GOENV", "private-go-env")
+	environment := qualificationAdversarialEnvironment("literal-$(not-executed)", "/trusted/bin/go")
+	values := map[string]string{}
 	for _, item := range environment {
-		if strings.HasPrefix(item, "OPENUDON_BROWSERTOOLS_REPO=") {
-			count++
-			if item != "OPENUDON_BROWSERTOOLS_REPO=literal-$(not-executed)" {
-				t.Fatalf("environment item = %q", item)
-			}
+		name, value, ok := strings.Cut(item, "=")
+		if ok {
+			values[name] = value
 		}
 	}
-	if count != 1 {
-		t.Fatalf("environment override count = %d", count)
+	if values["OPENUDON_BROWSERTOOLS_REPO"] != "literal-$(not-executed)" || values["GOENV"] != "off" ||
+		!strings.HasPrefix(values["PATH"], "/trusted/bin"+string(os.PathListSeparator)) {
+		t.Fatalf("closed environment = %#v", values)
+	}
+	for _, name := range []string{"MAKEFLAGS", "MAKEFILES", "GO", "GOFLAGS"} {
+		if _, ok := values[name]; ok {
+			t.Fatalf("closed environment retained %s", name)
+		}
+	}
+}
+
+func TestQualificationGitEnvironmentRejectsRepositoryOverrides(t *testing.T) {
+	t.Setenv("GIT_DIR", "private.git")
+	t.Setenv("GIT_WORK_TREE", "private-tree")
+	t.Setenv("GIT_CONFIG_COUNT", "1")
+	t.Setenv("GIT_CONFIG_KEY_0", "remote.origin.url")
+	t.Setenv("GIT_CONFIG_VALUE_0", "private-origin")
+	for _, item := range qualificationGitEnvironment() {
+		name, _, ok := strings.Cut(item, "=")
+		if ok && (name == "GIT_DIR" || name == "GIT_WORK_TREE" || strings.HasPrefix(name, "GIT_CONFIG_")) {
+			t.Fatalf("Git environment retained %s", name)
+		}
 	}
 }
 

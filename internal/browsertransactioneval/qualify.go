@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 	"time"
@@ -52,8 +53,16 @@ func RunQualification(ctx context.Context, options QualificationOptions) (*Repor
 	if err != nil {
 		return nil, err
 	}
+	makeExecutable, err := exec.LookPath("make")
+	if err != nil {
+		return nil, errors.New("browser transaction qualification toolchain is unavailable")
+	}
+	goExecutable, err := exec.LookPath("go")
+	if err != nil {
+		return nil, errors.New("browser transaction qualification toolchain is unavailable")
+	}
 	if err := runQualificationCommandSilent(ctx, 10*time.Minute, roots.openudon,
-		[]string{"make", "browser-transaction-adversarial"}, qualificationEnvironment("OPENUDON_BROWSERTOOLS_REPO", roots.browsertools)); err != nil {
+		[]string{makeExecutable, "browser-transaction-adversarial"}, qualificationAdversarialEnvironment(roots.browsertools, goExecutable)); err != nil {
 		return nil, errors.New("browser transaction adversarial qualification failed")
 	}
 	scenarioOptions := browserscenario.Options{
@@ -274,9 +283,12 @@ func equalRepositoryRevisions(left, right []RepositoryRevision) bool {
 }
 
 func qualificationCommandOutput(ctx context.Context, timeout time.Duration, directory string, args []string) (string, error) {
+	if len(args) > 0 && args[0] == "git" {
+		args = append([]string{"git", "--no-replace-objects"}, args[1:]...)
+	}
 	output := &boundedQualificationWriter{remaining: qualificationCommandOutputLimit}
 	err := processgroup.Run(ctx, timeout, processgroup.Invocation{
-		Args: args, Dir: directory, Env: os.Environ(), Stdout: output, Stderr: io.Discard,
+		Args: args, Dir: directory, Env: qualificationGitEnvironment(), Stdout: output, Stderr: io.Discard,
 	})
 	if err != nil || output.exceeded {
 		return "", errors.New("qualification command failed")
@@ -290,15 +302,48 @@ func runQualificationCommandSilent(ctx context.Context, timeout time.Duration, d
 	})
 }
 
-func qualificationEnvironment(name, value string) []string {
-	prefix := name + "="
-	environment := make([]string, 0, len(os.Environ())+1)
+func qualificationAdversarialEnvironment(browsertoolsRepo, goExecutable string) []string {
+	blocked := map[string]bool{
+		"BASH_ENV": true, "ENV": true, "GO": true, "GO111MODULE": true, "GOARCH": true,
+		"CGO_ENABLED": true, "GOENV": true, "GOEXPERIMENT": true, "GOFLAGS": true,
+		"GOROOT": true, "GOTOOLCHAIN": true, "GOOS": true, "GOWORK": true,
+		"GNUMAKEFLAGS": true, "MAKEFILES": true, "MAKEFLAGS": true, "MFLAGS": true,
+		"OPENUDON_BROWSERTOOLS_REPO": true,
+	}
+	environment := make([]string, 0, len(os.Environ())+3)
 	for _, item := range os.Environ() {
-		if !strings.HasPrefix(item, prefix) {
+		name, _, ok := strings.Cut(item, "=")
+		if ok && !blocked[name] {
 			environment = append(environment, item)
 		}
 	}
-	return append(environment, prefix+value)
+	path := filepath.Dir(goExecutable)
+	if inherited := os.Getenv("PATH"); inherited != "" {
+		path += string(os.PathListSeparator) + inherited
+	}
+	return append(environment,
+		"GOENV=off",
+		"OPENUDON_BROWSERTOOLS_REPO="+browsertoolsRepo,
+		"PATH="+path,
+	)
+}
+
+func qualificationGitEnvironment() []string {
+	blocked := map[string]bool{
+		"GIT_ALTERNATE_OBJECT_DIRECTORIES": true, "GIT_CEILING_DIRECTORIES": true,
+		"GIT_COMMON_DIR": true, "GIT_DIR": true, "GIT_DISCOVERY_ACROSS_FILESYSTEM": true,
+		"GIT_INDEX_FILE": true, "GIT_NAMESPACE": true, "GIT_NO_REPLACE_OBJECTS": true,
+		"GIT_OBJECT_DIRECTORY": true, "GIT_REPLACE_REF_BASE": true, "GIT_WORK_TREE": true,
+		"GIT_CONFIG_GLOBAL": true, "GIT_CONFIG_NOSYSTEM": true, "GIT_CONFIG_SYSTEM": true,
+	}
+	environment := make([]string, 0, len(os.Environ()))
+	for _, item := range os.Environ() {
+		name, _, ok := strings.Cut(item, "=")
+		if ok && !blocked[name] && !strings.HasPrefix(name, "GIT_CONFIG_") {
+			environment = append(environment, item)
+		}
+	}
+	return environment
 }
 
 type boundedQualificationWriter struct {
