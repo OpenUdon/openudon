@@ -75,6 +75,12 @@ func TestClosedBRPProducerFailureRetainsOnlyFixedCodes(t *testing.T) {
 	if got := closedBRPProducerFailure(errors.New("private/result/path")); got != "unclassified" {
 		t.Fatalf("path-bearing BRP producer failure = %q", got)
 	}
+	if got := closedBRPProducerFailure(errors.New("first_observe_response_worker_protocol")); got != "first_observe_response_worker_protocol" {
+		t.Fatalf("nested BRP producer failure = %q", got)
+	}
+	if got := closedBRPProducerFailure(errors.New("first_observe_response_private_path")); got != "unclassified" {
+		t.Fatalf("nested path-bearing BRP producer failure = %q", got)
+	}
 }
 
 func TestClosedPackageLifecycleFailureUsesTypedCodes(t *testing.T) {

@@ -251,8 +251,8 @@ func runRegistrationQualificationProducer(ctx context.Context, executable, priva
 	if err := session.Send(ctx, browserauthor.RegistrationCommand{Type: "observe"}); err != nil {
 		return nil, errors.New("first_observe_write")
 	}
-	if _, err := awaitRegistrationQualificationEvent(ctx, session, "observation"); err != nil {
-		return nil, errors.New("first_observe_response")
+	if event, err := awaitRegistrationQualificationEvent(ctx, session, "observation"); err != nil {
+		return nil, errors.New("first_observe_response_" + closedBRPControllerFailure(event.ErrorCode))
 	}
 	if err := session.Send(ctx, browserauthor.RegistrationCommand{Type: "navigate", Method: http.MethodHead, URL: fixture.URL()}); err != nil {
 		return nil, errors.New("head_write")
@@ -321,6 +321,22 @@ func closedBRPProducerFailure(err error) string {
 			return code
 		}
 	}
+	if suffix, ok := strings.CutPrefix(code, "first_observe_response_"); ok && suffix == closedBRPControllerFailure(suffix) {
+		return code
+	}
+	return "unclassified"
+}
+
+func closedBRPControllerFailure(code string) string {
+	for _, allowed := range []string{
+		"protocol_negotiation", "invalid_response", "worker_write", "protocol_mismatch",
+		"malformed_diagnostic", "worker_failed", "worker_protocol", "worker_exit",
+		"review_missing", "candidate_rejected", "worker_teardown", "operator_idle_timeout",
+	} {
+		if code == allowed {
+			return code
+		}
+	}
 	return "unclassified"
 }
 
@@ -328,7 +344,7 @@ func awaitRegistrationQualificationEvent(ctx context.Context, session *browserau
 	select {
 	case event, ok := <-session.Events():
 		if !ok || event.State != state {
-			return browserauthor.RegistrationEvent{}, errors.New("BRP qualification producer transition failed")
+			return event, errors.New("BRP qualification producer transition failed")
 		}
 		return event, nil
 	case <-ctx.Done():
