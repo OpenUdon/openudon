@@ -353,13 +353,20 @@ func ValidateBAPBCPQualificationEvidence(evidence BAPBCPQualificationEvidence) e
 		evidence.QualificationSHA256, evidence.GenerationSHA256, evidence.SelectionSHA256,
 		evidence.PackageSHA256, evidence.HandoffSHA256, evidence.WorkflowSHA256,
 	}
-	if evidence.EvidenceCount != len(values) {
-		return errors.New("BAP+BCP qualification evidence count is invalid")
+	if err := validateQualificationDigests(evidence.EvidenceCount, values); err != nil {
+		return errors.New("BAP+BCP qualification digest evidence is invalid")
+	}
+	return nil
+}
+
+func validateQualificationDigests(count int, values []string) error {
+	if count != len(values) {
+		return errors.New("qualification evidence count is invalid")
 	}
 	seen := map[string]bool{}
 	for _, value := range values {
 		if !validScenarioTaggedSHA256(value) || seen[value] {
-			return errors.New("BAP+BCP qualification digest evidence is invalid")
+			return errors.New("qualification digest evidence is invalid")
 		}
 		seen[value] = true
 	}

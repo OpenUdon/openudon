@@ -45,6 +45,28 @@ func TestTaggedQualificationSHA256NormalizesOnlyValidatedDigests(t *testing.T) {
 	}
 }
 
+func TestValidateBRPQualificationEvidenceRequiresZeroSubmitPosture(t *testing.T) {
+	valid := func(character string) string { return "sha256:" + strings.Repeat(character, 64) }
+	evidence := BRPQualificationEvidence{
+		ProducerResultSHA256: valid("1"), TransactionSHA256: valid("2"), PreparationSHA256: valid("3"),
+		QualificationSHA256: valid("4"), GenerationSHA256: valid("5"), SelectionSHA256: valid("6"),
+		PackageSHA256: valid("7"), HandoffSHA256: valid("8"), WorkflowSHA256: valid("9"), EvidenceCount: 9,
+		Methods: []string{"GET", "HEAD"}, Requests: 3, GETRequests: 2, HEADRequests: 1,
+	}
+	if err := ValidateBRPQualificationEvidence(evidence); err != nil {
+		t.Fatal(err)
+	}
+	evidence.MutationRequests = 1
+	if err := ValidateBRPQualificationEvidence(evidence); err == nil {
+		t.Fatal("mutation request evidence was accepted")
+	}
+	evidence.MutationRequests = 0
+	evidence.ExecutorInvoked = true
+	if err := ValidateBRPQualificationEvidence(evidence); err == nil {
+		t.Fatal("registration executor invocation was accepted")
+	}
+}
+
 func TestClosedPackageLifecycleFailureUsesTypedCodes(t *testing.T) {
 	_, qualificationErr := packagepipeline.Qualify(context.Background(), packagepipeline.Prepared{}, packagepipeline.QualifyOptions{})
 	if got := closedPackageLifecycleFailure(qualificationErr); got != "qualification_invalid_preparation" {
