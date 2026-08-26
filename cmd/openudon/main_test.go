@@ -104,12 +104,38 @@ func TestCLIHelpIncludesReleaseAndLocalSmokeCommands(t *testing.T) {
 	text := string(output)
 	for _, expected := range []string{
 		"browser-integration-eval run or verify provider-free cross-repo browser evidence",
+		"browser-transaction-eval verify value-free cross-package transaction qualification evidence",
 		"release-evidence run local udon smoke",
 		"release-notes draft local release evidence notes",
 		"local-udon-smoke build sibling udon",
 	} {
 		if !strings.Contains(text, expected) {
 			t.Fatalf("help missing %q:\n%s", expected, text)
+		}
+	}
+}
+
+func TestCLIBrowserTransactionEvalHelpAndClosedVerifyMode(t *testing.T) {
+	cmd := helperCommand("browser-transaction-eval", "--help")
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		t.Fatalf("browser-transaction-eval help failed: %v\n%s", err, output)
+	}
+	text := string(output)
+	for _, expected := range []string{
+		"Usage: openudon browser-transaction-eval --verify REPORT",
+		"canonical, value-free cross-package browser transaction qualification report",
+		"cannot carry paths, subprocess output, browser content, account identifiers, or credential values",
+	} {
+		if !strings.Contains(text, expected) {
+			t.Fatalf("browser-transaction-eval help missing %q:\n%s", expected, text)
+		}
+	}
+	for _, args := range [][]string{{"browser-transaction-eval"}, {"browser-transaction-eval", "--verify", "missing.json", "extra"}} {
+		cmd := helperCommand(args...)
+		output, err := cmd.CombinedOutput()
+		if err == nil || !strings.Contains(string(output), "browser-transaction-eval:") {
+			t.Fatalf("arguments %#v were not rejected:\n%s", args, output)
 		}
 	}
 }

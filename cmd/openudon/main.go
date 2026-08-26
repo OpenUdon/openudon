@@ -16,6 +16,7 @@ import (
 
 	"github.com/OpenUdon/openudon/internal/browserintegrationeval"
 	"github.com/OpenUdon/openudon/internal/browserscenario"
+	"github.com/OpenUdon/openudon/internal/browsertransactioneval"
 	"github.com/OpenUdon/openudon/internal/buildinfo"
 	"github.com/OpenUdon/openudon/internal/config"
 	evalpkg "github.com/OpenUdon/openudon/internal/eval"
@@ -45,6 +46,7 @@ func main() {
 		fmt.Fprintf(flag.CommandLine.Output(), "  build     regenerate workflow/UWS from an existing intent.hcl\n")
 		fmt.Fprintf(flag.CommandLine.Output(), "  browser-integration-eval run or verify provider-free cross-repo browser evidence\n")
 		fmt.Fprintf(flag.CommandLine.Output(), "  browser-scenario-eval run or verify deterministic loopback/journey/public browser scenarios\n")
+		fmt.Fprintf(flag.CommandLine.Output(), "  browser-transaction-eval verify value-free cross-package transaction qualification evidence\n")
 		fmt.Fprintf(flag.CommandLine.Output(), "  catalog   inspect first-class provider catalog metadata\n")
 		fmt.Fprintf(flag.CommandLine.Output(), "  check-apitools-boundary verify OpenUdon repository boundaries\n")
 		fmt.Fprintf(flag.CommandLine.Output(), "  check-doc-memory verify local memory-bank and evolution harness files\n")
@@ -94,6 +96,8 @@ func main() {
 		runBrowserIntegrationEvalCommand(flag.Args()[1:])
 	case "browser-scenario-eval":
 		runBrowserScenarioEvalCommand(flag.Args()[1:])
+	case "browser-transaction-eval":
+		runBrowserTransactionEvalCommand(flag.Args()[1:])
 	case "validate":
 		if flag.NArg() < 2 {
 			fmt.Fprintln(os.Stderr, "usage: openudon validate [--allow-empty] <uws-file-or-dir>")
@@ -133,6 +137,30 @@ func main() {
 		flag.Usage()
 		os.Exit(2)
 	}
+}
+
+func runBrowserTransactionEvalCommand(args []string) {
+	fs := flag.NewFlagSet("browser-transaction-eval", flag.ExitOnError)
+	verify := fs.String("verify", "", "Verify one canonical qualification report and SHA-256 sidecar")
+	fs.Usage = func() {
+		fmt.Fprintf(fs.Output(), "Usage: openudon browser-transaction-eval --verify REPORT\n\n")
+		fmt.Fprintf(fs.Output(), "Verifies the canonical, value-free cross-package browser transaction qualification report. The report contains only closed gate outcomes, exact public/local commit classifications, lifecycle digests, and loopback/sandbox posture; it cannot carry paths, subprocess output, browser content, account identifiers, or credential values.\n\n")
+		fs.PrintDefaults()
+	}
+	if err := fs.Parse(args); err != nil {
+		os.Exit(2)
+	}
+	if fs.NArg() != 0 || strings.TrimSpace(*verify) == "" {
+		fmt.Fprintln(os.Stderr, "browser-transaction-eval: --verify is required")
+		fs.Usage()
+		os.Exit(2)
+	}
+	report, err := browsertransactioneval.VerifyFile(*verify, true)
+	if err != nil {
+		fmt.Fprintln(os.Stderr, "openudon browser-transaction-eval verify: fail -", err)
+		os.Exit(1)
+	}
+	fmt.Printf("openudon browser-transaction-eval verify: %s (%d passed, %d failed)\n", report.Status, report.Summary.Passed, report.Summary.Failed)
 }
 
 func runBrowserScenarioEvalCommand(args []string) {

@@ -37,6 +37,28 @@ Published, value-free examples are available for an
 and a [registration candidate](examples/browser-profile-transaction-registration.json).
 Their `.test` origins and repeated digests are illustrative only.
 
+## Qualification evidence
+
+Cross-package qualification produces one canonical
+`openudon.browser-transaction-qualification.v1` JSON report plus an exact
+SHA-256 sidecar. The report binds the local unpublished OpenUdon commit, the
+published Browsertools and UWS module revisions, fixed BAP+BCP/BRP lifecycle
+digests and gate outcomes, sandbox use, loopback-only access, and zero-POST
+registration authoring. Its closed schema has no path, free-form diagnostic,
+subprocess-output, page/request-content, account, credential, cookie, storage,
+or session-material field.
+
+Verify a retained report independently with:
+
+```bash
+openudon browser-transaction-eval --verify eval/runs/browser-transaction-local/report.json
+```
+
+Verification rejects missing or extra fields, duplicate names, noncanonical
+JSON, unsupported failure codes, dependency-lock drift, digest tampering,
+symlinks, and oversized input. A passing report does not grant runtime or
+target authority.
+
 ## Immutable identity and provenance
 
 `id`, `kind`, ordered `candidates`, `provenance`, `credential_bindings`, and
