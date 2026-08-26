@@ -975,13 +975,7 @@ func liveObservationMatchesGoal(observation liveObservation, goal liveGoalPredic
 }
 
 func defaultLiveTitle(cfg liveAuthorConfig) string {
-	words := strings.Fields(strings.NewReplacer("-", " ", "_", " ", ".", " ").Replace(cfg.ProfileID))
-	for index := range words {
-		if words[index] != "" {
-			words[index] = strings.ToUpper(words[index][:1]) + words[index][1:]
-		}
-	}
-	return firstNonEmpty(strings.Join(words, " "), "Authenticated browser authoring")
+	return browserauthor.ProfileTitle(cfg.ProfileID)
 }
 
 func printLiveObservation(out io.Writer, observation liveObservation) {

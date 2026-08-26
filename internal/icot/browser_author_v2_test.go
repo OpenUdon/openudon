@@ -351,9 +351,9 @@ func TestAuthenticationCapabilityCompositionRejectsMismatchAndAmbiguity(t *testi
 		t.Fatal(err)
 	}
 	authentication["flows"] = map[string]any{"authenticated_goal": flows["authenticated_goal"]}
-	authentication["contexts"] = map[string]any{"shared_frame": map[string]any{"kind": "frame", "parent": "main", "origin": "https://members.example.test", "path": "/auth-frame"}}
+	authentication["contexts"] = map[string]authorresult.Context{"shared_frame": {Kind: "frame", Parent: "main", Origin: "https://members.example.test", Path: "/auth-frame"}}
 	capability["profile"] = "uws.browser.1.6"
-	capability["contexts"] = map[string]any{"shared_frame": map[string]any{"kind": "frame", "parent": "main", "origin": "https://members.example.test", "path": "/different-frame"}}
+	capability["contexts"] = map[string]authorresult.Context{"shared_frame": {Kind: "frame", Parent: "main", Origin: "https://members.example.test", Path: "/different-frame"}}
 	contextMismatch := request
 	contextMismatch.Authentication, _ = json.Marshal(authentication)
 	contextMismatch.Capability, _ = json.Marshal(capability)

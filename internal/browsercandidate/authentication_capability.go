@@ -60,7 +60,7 @@ func ComposeAuthenticationCapability(request AuthenticationCapabilityRequest) (*
 	if err != nil {
 		return nil, fmt.Errorf("authentication candidate: %w", err)
 	}
-	canonicalAuthentication, err := canonicalJSON(request.Authentication)
+	canonicalAuthentication, err := canonicalAuthenticatedProfileJSON(request.Authentication)
 	if err != nil || !bytes.Equal(canonicalAuthentication, request.Authentication) {
 		return nil, errors.New("authentication candidate is not canonical JSON")
 	}
@@ -71,7 +71,7 @@ func ComposeAuthenticationCapability(request AuthenticationCapabilityRequest) (*
 	if err != nil {
 		return nil, fmt.Errorf("capability candidate: %w", err)
 	}
-	canonicalCapability, err := canonicalJSON(request.Capability)
+	canonicalCapability, err := canonicalAuthenticatedProfileJSON(request.Capability)
 	if err != nil || !bytes.Equal(canonicalCapability, request.Capability) {
 		return nil, errors.New("capability candidate is not canonical JSON")
 	}
@@ -217,7 +217,7 @@ func cloneAuthenticationTransaction(value browsertransaction.Transaction) browse
 	return value
 }
 
-func canonicalJSON(data []byte) ([]byte, error) {
+func canonicalAuthenticatedProfileJSON(data []byte) ([]byte, error) {
 	var value any
 	decoder := json.NewDecoder(bytes.NewReader(data))
 	decoder.UseNumber()
@@ -227,7 +227,32 @@ func canonicalJSON(data []byte) ([]byte, error) {
 	if err := decoder.Decode(&struct{}{}); !errors.Is(err, io.EOF) {
 		return nil, errors.New("candidate contains trailing JSON")
 	}
-	return json.Marshal(value)
+	object, ok := value.(map[string]any)
+	if !ok {
+		return nil, errors.New("candidate must be a JSON object")
+	}
+	if rawContexts, exists := object["contexts"]; exists {
+		contexts, ok := rawContexts.(map[string]any)
+		if !ok {
+			return nil, errors.New("candidate contexts must be a JSON object")
+		}
+		typed := make(map[string]authorresult.Context, len(contexts))
+		for id, raw := range contexts {
+			encoded, err := json.Marshal(raw)
+			if err != nil {
+				return nil, err
+			}
+			contextDecoder := json.NewDecoder(bytes.NewReader(encoded))
+			contextDecoder.DisallowUnknownFields()
+			var context authorresult.Context
+			if err := contextDecoder.Decode(&context); err != nil {
+				return nil, errors.New("candidate context is invalid")
+			}
+			typed[id] = context
+		}
+		object["contexts"] = typed
+	}
+	return json.Marshal(object)
 }
 
 func validateAuthenticatedReview(data []byte, kind, schema, sourceDigest, observedAt string) error {

@@ -29,7 +29,7 @@ func TestNormalizeConfigFixesFiniteAuthority(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if config.OperatorIdle != DefaultOperatorIdle || config.Absolute != DefaultAbsolute || config.InitialURL != "https://members.example.test/login" {
+	if config.OperatorIdle != DefaultOperatorIdle || config.Absolute != DefaultAbsolute || config.InitialURL != "https://members.example.test/login" || config.profileTitle != "Member" {
 		t.Fatalf("normalized config = %#v", config)
 	}
 	for _, test := range []struct {
@@ -62,6 +62,20 @@ func TestNormalizeConfigFixesFiniteAuthority(t *testing.T) {
 	config.ProfileID = "../member"
 	if _, err := normalizeConfig(config); err == nil {
 		t.Fatal("unsafe profile ID was accepted")
+	}
+}
+
+func TestProfileTitleCanonicalizesPublicIdentifier(t *testing.T) {
+	tests := map[string]string{
+		"member":           "Member",
+		"member_report-v2": "Member Report V2",
+		"browser.profile":  "Browser Profile",
+		"":                 "Authenticated browser authoring",
+	}
+	for profileID, expected := range tests {
+		if actual := ProfileTitle(profileID); actual != expected {
+			t.Fatalf("ProfileTitle(%q) = %q, want %q", profileID, actual, expected)
+		}
 	}
 }
 

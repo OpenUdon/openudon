@@ -47,7 +47,7 @@ type BrowserScenarioAuthorRequest struct {
 	ContextMode       string
 	Outputs           []BrowserScenarioOutput
 	Fault             string
-	Now               time.Time
+	Now               func() time.Time
 }
 
 // BrowserScenarioAuthorResult contains profile/review facts only. It contains
@@ -106,9 +106,13 @@ func RunBrowserScenarioAuthor(ctx context.Context, request BrowserScenarioAuthor
 			return BrowserScenarioAuthorResult{}, err
 		}
 	}
-	prepared, err := prepareAttestedAuthenticatedAuthoringImport(cfg, result, request.Now.UTC())
+	assessedAt := request.Now().UTC().Round(0)
+	if assessedAt.IsZero() {
+		return BrowserScenarioAuthorResult{}, fmt.Errorf("browser scenario assessment clock is unavailable")
+	}
+	prepared, err := prepareAttestedAuthenticatedAuthoringImport(cfg, result, assessedAt)
 	if err != nil {
-		if failure := scenarioAuthorFailure(request.Fault); failure != "" {
+		if failure := scenarioImportFailure(request.Fault, err); failure != "" {
 			return BrowserScenarioAuthorResult{Rejected: true, FailureClass: failure}, nil
 		}
 		return BrowserScenarioAuthorResult{}, err
@@ -144,7 +148,7 @@ func RunBrowserScenarioAuthor(ctx context.Context, request BrowserScenarioAuthor
 }
 
 func validateBrowserScenarioAuthorRequest(request BrowserScenarioAuthorRequest) error {
-	if request.Now.IsZero() || request.ContextMode != "main" && request.ContextMode != "popup" && request.ContextMode != "frame" ||
+	if request.Now == nil || request.ContextMode != "main" && request.ContextMode != "popup" && request.ContextMode != "frame" ||
 		request.GoalContext == "" || request.GoalRole == "" || request.GoalLabel == "" || len(request.Outputs) > 17 {
 		return fmt.Errorf("browser scenario author request is invalid")
 	}
@@ -217,7 +221,7 @@ func runBrowserScenarioController(ctx context.Context, cfg liveAuthorConfig, req
 				observation := liveObservationFromShared(*event.Observation)
 				outputs, outputErr := scenarioOutputRequests(request.Outputs, observation, observation, authorsession.DefaultMaxOutputs)
 				if outputErr != nil {
-					if failure := scenarioAuthorFailure(request.Fault); failure != "" {
+					if failure := scenarioOutputFailure(request.Fault, outputErr); failure != "" {
 						return liveProtocolResult{}, true, failure, nil
 					}
 					return liveProtocolResult{}, false, "", outputErr
@@ -290,6 +294,9 @@ func scenarioControllerResponse(request BrowserScenarioAuthorRequest, observatio
 			}
 			return click("button", "Continue", 1)
 		}
+		if request.ContextMode == "frame" && observation.Context == "main" {
+			return scenarioFrameResponse(request.GoalContext, observation)
+		}
 		return browserauthor.Response{}, fmt.Errorf("Browsertools scenario authentication observation is unexpected")
 	}
 	if request.ContextMode == "popup" && !*popupOpened {
@@ -297,12 +304,17 @@ func scenarioControllerResponse(request BrowserScenarioAuthorRequest, observatio
 		return click("link", "Open member report", 0)
 	}
 	if request.ContextMode == "frame" && observation.Context == "main" {
-		if _, ok := observation.Contexts["frame_1"]; !ok {
-			return browserauthor.Response{}, fmt.Errorf("Browsertools scenario frame is missing")
-		}
-		return browserauthor.Response{Kind: "observe", Context: "frame_1"}, nil
+		return scenarioFrameResponse(request.GoalContext, observation)
 	}
 	return browserauthor.Response{}, fmt.Errorf("Browsertools scenario exploration observation is unexpected")
+}
+
+func scenarioFrameResponse(contextID string, observation liveObservation) (browserauthor.Response, error) {
+	context, ok := observation.Contexts[contextID]
+	if contextID == "" || !ok || context.Kind != "frame" || context.Parent != "main" {
+		return browserauthor.Response{}, fmt.Errorf("Browsertools scenario frame is missing")
+	}
+	return browserauthor.Response{Kind: "observe", Context: contextID}, nil
 }
 
 func tamperScenarioEnvelope(result *liveProtocolResult, privateRoot, fault string) error {
@@ -389,15 +401,28 @@ func scenarioOutputRequests(declarations []BrowserScenarioOutput, selected, curr
 	return requests, nil
 }
 
-func scenarioAuthorFailure(fault string) string {
-	switch fault {
-	case "outputs_17":
+func scenarioOutputFailure(fault string, err error) string {
+	if err == nil {
+		return ""
+	}
+	switch {
+	case fault == "outputs_17" && err.Error() == "output selection bound exceeded":
 		return "output_bound"
-	case "stale_candidate":
-		return "stale_candidate"
-	case "ambiguous_unique_role":
+	case fault == "ambiguous_unique_role" && err.Error() == "required reduced scenario candidate is missing or ambiguous":
 		return "ambiguous_output"
-	case "fabricated_trace":
+	default:
+		return ""
+	}
+}
+
+func scenarioImportFailure(fault string, err error) string {
+	if err == nil {
+		return ""
+	}
+	switch {
+	case fault == "stale_candidate" && err.Error() == "authenticated-authoring output selection was not requested by the operator":
+		return "stale_candidate"
+	case fault == "fabricated_trace" && err.Error() == "authenticated-authoring trace length mismatch":
 		return "fabricated_trace"
 	default:
 		return ""

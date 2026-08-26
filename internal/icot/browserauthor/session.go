@@ -129,6 +129,7 @@ type Config struct {
 	GoalPredicate authorresult.GoalPredicate
 	OperatorIdle  time.Duration
 	Absolute      time.Duration
+	profileTitle  string
 }
 
 // Event is one reduced, browser-safe state transition.
@@ -359,7 +360,7 @@ func (s *Session) run(ctx context.Context, config Config, child *processgroup.In
 		return
 	}
 	if err := write(authorsession.ClientMessage{
-		Type: "start", Title: config.ProfileID, URL: config.InitialURL, DashboardURL: config.DashboardURL,
+		Type: "start", Title: config.profileTitle, URL: config.InitialURL, DashboardURL: config.DashboardURL,
 		Goal: config.Goal, Origins: config.Origins, GoalPredicate: &config.GoalPredicate, Bounds: &bounds,
 	}); err != nil {
 		fail("worker_write")
@@ -677,6 +678,7 @@ func normalizeConfig(config Config) (Config, error) {
 	if config.Goal == "" || len(config.Goal) > 1024 || !profileIDPattern.MatchString(config.ProfileID) {
 		return Config{}, errors.New("browser author goal or profile ID is invalid")
 	}
+	config.profileTitle = ProfileTitle(config.ProfileID)
 	if config.GoalPredicate.Origin == "" {
 		dashboardPath, pathErr := pathForURL(dashboard)
 		if pathErr != nil {
@@ -690,6 +692,22 @@ func normalizeConfig(config Config) (Config, error) {
 	config.InitialURL, config.DashboardURL, config.Origins = initial, dashboard, origins
 	config.DriverDir = strings.TrimSpace(config.DriverDir)
 	return config, nil
+}
+
+// ProfileTitle derives the one canonical Browsertools review title from an
+// already public profile identifier. Frontends and import reconstruction must
+// use this same value so the exact profile digest remains reproducible.
+func ProfileTitle(profileID string) string {
+	words := strings.Fields(strings.NewReplacer("-", " ", "_", " ", ".", " ").Replace(strings.TrimSpace(profileID)))
+	for index := range words {
+		if words[index] != "" {
+			words[index] = strings.ToUpper(words[index][:1]) + words[index][1:]
+		}
+	}
+	if title := strings.Join(words, " "); title != "" {
+		return title
+	}
+	return "Authenticated browser authoring"
 }
 
 func validatePrivateRoot(privateRoot string) error {

@@ -185,7 +185,7 @@ func (executor *realExecutor) executeLoopback(ctx context.Context, manifest Mani
 		InitialURL: fixture.InitialURL(), AuthenticationURL: fixture.AuthenticationURL(), GoalURL: fixture.GoalURL(),
 		GoalContext: manifest.Goal.Context, GoalRole: manifest.Goal.Role, GoalLabel: manifest.Goal.Name,
 		ChallengeKind: manifest.Authentication.ChallengeKind, ContextMode: manifest.Authentication.ContextMode,
-		Outputs: scenarioAuthorOutputs(manifest.Outputs), Fault: manifest.Fault, Now: time.Now().UTC().Round(0),
+		Outputs: scenarioAuthorOutputs(manifest.Outputs), Fault: manifest.Fault, Now: time.Now,
 	})
 	if authorErr != nil {
 		fixture.Close()
