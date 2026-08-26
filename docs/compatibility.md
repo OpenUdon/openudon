@@ -31,6 +31,10 @@ deliberately smaller than the full command surface.
   schema. It coordinates the existing BAP/BCP and BRP families through closed,
   value-free review, preparation, promotion, and recovery states; it neither
   changes UWS semantics nor grants browser, executor, or target authority.
+- The additive `openudon.browser-profile-transaction.v2` JSON artifact is a
+  registration-only contract for exact
+  `browsertools.registration-authoring.v2` provenance. Transaction v1 bytes
+  and unchanged BAP production remain immutable.
 
 Additive flags and artifact fields may be introduced in v0.2.x. Existing
 fields, accepted inputs, and documented core behavior will not intentionally

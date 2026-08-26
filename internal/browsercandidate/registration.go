@@ -308,9 +308,17 @@ func adoptRegistration(data []byte, resultDigest string, request AdoptRegistrati
 	if err != nil || reconstructedDigest != resultDigest {
 		return nil, errors.New("registration result digest does not match reconstructed output")
 	}
-	if result.Schema != registrationauthorresult.Schema || result.Provenance.Producer != "browsertools" ||
-		result.Provenance.ResultVersion != registrationauthorresult.Schema ||
-		result.Provenance.SessionVersion != registrationauthorsession.Protocol {
+	transactionVersion := browsertransaction.VersionV1
+	resultVersion := browsertransaction.ResultRegistrationAuthoringV1
+	sessionVersion := registrationauthorsession.ProtocolV1
+	if result.Schema == registrationauthorresult.SchemaV2 {
+		transactionVersion = browsertransaction.VersionV2
+		resultVersion = browsertransaction.ResultRegistrationAuthoringV2
+		sessionVersion = registrationauthorsession.ProtocolV2
+	}
+	if result.Schema != registrationauthorresult.SchemaV1 && result.Schema != registrationauthorresult.SchemaV2 ||
+		result.Provenance.Producer != "browsertools" || result.Provenance.ResultVersion != result.Schema ||
+		result.Provenance.SessionVersion != sessionVersion {
 		return nil, errors.New("registration result provenance is unsupported")
 	}
 	profile, err := registrationprofile.Parse(result.Candidate.Source)
@@ -365,14 +373,14 @@ func adoptRegistration(data []byte, resultDigest string, request AdoptRegistrati
 		return nil, errors.New("registration symbolic credential bindings do not exactly cover the reviewed slots")
 	}
 	transaction := browsertransaction.Transaction{
-		Version: browsertransaction.Version, ID: request.TransactionID,
+		Version: transactionVersion, ID: request.TransactionID,
 		Kind: browsertransaction.KindRegistration, State: browsertransaction.StateCandidate,
 		Candidates: []browsertransaction.Candidate{{
 			Kind: browsertransaction.CandidateRegistration, Schema: result.Candidate.Schema,
 			SourceSHA256: sourceDigest, ReviewSHA256: result.Candidate.ReviewDigest,
 		}},
 		Provenance: browsertransaction.Provenance{
-			Producer: "browsertools", ResultVersion: browsertransaction.ResultRegistrationAuthoringV1,
+			Producer: "browsertools", ResultVersion: resultVersion,
 			ResultSHA256: resultDigest, ObservedAt: result.ObservedAt, ExpiresAt: result.ExpiresAt,
 			Origins: append([]string(nil), result.Origins...),
 		},

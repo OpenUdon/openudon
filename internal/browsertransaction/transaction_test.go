@@ -50,6 +50,39 @@ func TestCanonicalRoundTripAndDigest(t *testing.T) {
 	}
 }
 
+func TestVersionCompositionIsClosedAndLegacyBytesAreStable(t *testing.T) {
+	legacy := validRegistration()
+	data, err := CanonicalBytes(legacy)
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := `{"version":"openudon.browser-profile-transaction.v1","id":"browser-registration","kind":"registration","state":"candidate","candidates":[{"kind":"registration","schema":"uws.browser-registration.1.0","source_sha256":"sha256:` + strings.Repeat("1", 64) + `","review_sha256":"sha256:` + strings.Repeat("2", 64) + `"}],"provenance":{"producer":"browsertools","result_version":"browsertools.registration-authoring.v1","result_sha256":"sha256:` + strings.Repeat("3", 64) + `","observed_at":"2026-08-25T12:00:00Z","expires_at":"2026-08-26T12:00:00Z","origins":["https://register.example.test"]},"credential_bindings":[{"slot":"identifier","binding":"registration_identifier"},{"slot":"password","binding":"registration_password"}]}`
+	if string(data) != want {
+		t.Fatalf("legacy registration bytes changed\n got: %s\nwant: %s", data, want)
+	}
+
+	v2 := validRegistrationV2()
+	if _, err := CanonicalBytes(v2); err != nil {
+		t.Fatalf("registration v2 rejected: %v", err)
+	}
+	for _, mutate := range []func(*Transaction){
+		func(value *Transaction) { value.Version = VersionV1 },
+		func(value *Transaction) { value.Kind = KindAuthenticationCapability },
+		func(value *Transaction) { value.Provenance.ResultVersion = ResultRegistrationAuthoringV1 },
+	} {
+		invalid := v2
+		mutate(&invalid)
+		if err := invalid.Validate(); err == nil {
+			t.Fatal("invalid transaction v2 composition was accepted")
+		}
+	}
+	legacyWithV2Result := validRegistration()
+	legacyWithV2Result.Provenance.ResultVersion = ResultRegistrationAuthoringV2
+	if err := legacyWithV2Result.Validate(); err == nil {
+		t.Fatal("transaction v1 accepted registration-authoring v2 provenance")
+	}
+}
+
 func TestCompositionAndValueFreeBoundary(t *testing.T) {
 	tests := []struct {
 		name   string
@@ -204,6 +237,49 @@ func TestPublicSchemaCompilesAndAcceptsCanonicalTransactions(t *testing.T) {
 	}
 	if err := schema.Validate(instance); err == nil {
 		t.Fatal("schema accepted indeterminate failure class in failed state")
+	}
+}
+
+func TestPublicV2SchemaCompilesAndAcceptsOnlyRegistrationV2(t *testing.T) {
+	schemaBytes, err := os.ReadFile(filepath.Join("..", "..", "docs", "schemas", "openudon.browser-profile-transaction.v2.schema.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	document, err := jsonschema.UnmarshalJSON(bytes.NewReader(schemaBytes))
+	if err != nil {
+		t.Fatal(err)
+	}
+	compiler := jsonschema.NewCompiler()
+	if err := compiler.AddResource("transaction-v2.schema.json", document); err != nil {
+		t.Fatal(err)
+	}
+	schema, err := compiler.Compile("transaction-v2.schema.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	data, err := CanonicalBytes(validRegistrationV2())
+	if err != nil {
+		t.Fatal(err)
+	}
+	instance, err := jsonschema.UnmarshalJSON(bytes.NewReader(data))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := schema.Validate(instance); err != nil {
+		t.Fatalf("v2 schema rejected canonical registration transaction: %v", err)
+	}
+	for _, invalid := range []Transaction{validRegistration(), validAuthenticationCapability()} {
+		data, err := json.Marshal(invalid)
+		if err != nil {
+			t.Fatal(err)
+		}
+		instance, err := jsonschema.UnmarshalJSON(bytes.NewReader(data))
+		if err != nil {
+			t.Fatal(err)
+		}
+		if err := schema.Validate(instance); err == nil {
+			t.Fatalf("v2 schema accepted %s/%s", invalid.Version, invalid.Kind)
+		}
 	}
 }
 
@@ -374,6 +450,13 @@ func validRegistration() Transaction {
 		},
 		CredentialBindings: []CredentialBinding{{Slot: "identifier", Binding: "registration_identifier"}, {Slot: "password", Binding: "registration_password"}},
 	}
+}
+
+func validRegistrationV2() Transaction {
+	transaction := validRegistration()
+	transaction.Version = VersionV2
+	transaction.Provenance.ResultVersion = ResultRegistrationAuthoringV2
+	return transaction
 }
 
 func validPreparation() *Preparation {

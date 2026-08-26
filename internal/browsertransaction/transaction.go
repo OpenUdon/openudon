@@ -23,10 +23,14 @@ import (
 )
 
 const (
-	Version                        = "openudon.browser-profile-transaction.v1"
+	VersionV1 = "openudon.browser-profile-transaction.v1"
+	VersionV2 = "openudon.browser-profile-transaction.v2"
+	// Version is the immutable legacy default used by unchanged BAP and BRP v1 producers.
+	Version                        = VersionV1
 	MaxBytes                       = 256 << 10
 	ResultAuthenticatedAuthoringV2 = "browsertools.authenticated-authoring.v2"
 	ResultRegistrationAuthoringV1  = "browsertools.registration-authoring.v1"
+	ResultRegistrationAuthoringV2  = "browsertools.registration-authoring.v2"
 	maxJSONDepth                   = 32
 )
 
@@ -153,14 +157,17 @@ var (
 // Validate enforces the closed wire, profile composition, lifecycle, and
 // value-free provenance invariants. Slice order must already be canonical.
 func (transaction Transaction) Validate() error {
-	if transaction.Version != Version {
-		return fmt.Errorf("transaction version must be %q", Version)
+	if transaction.Version != VersionV1 && transaction.Version != VersionV2 {
+		return errors.New("transaction version is unsupported")
 	}
 	if !idPattern.MatchString(transaction.ID) {
 		return errors.New("transaction ID is invalid")
 	}
 	if transaction.Kind != KindAuthenticationCapability && transaction.Kind != KindRegistration {
 		return errors.New("transaction kind is invalid")
+	}
+	if err := validateVersionComposition(transaction); err != nil {
+		return err
 	}
 	if !validState(transaction.State) {
 		return errors.New("transaction state is invalid")
@@ -185,6 +192,23 @@ func (transaction Transaction) Validate() error {
 		return errors.New("registration transaction must not declare a session")
 	}
 	return validateLifecycle(transaction)
+}
+
+func validateVersionComposition(transaction Transaction) error {
+	switch transaction.Version {
+	case VersionV1:
+		if transaction.Kind == KindAuthenticationCapability && transaction.Provenance.ResultVersion != ResultAuthenticatedAuthoringV2 {
+			return errors.New("transaction v1 authentication-capability provenance is invalid")
+		}
+		if transaction.Kind == KindRegistration && transaction.Provenance.ResultVersion != ResultRegistrationAuthoringV1 {
+			return errors.New("transaction v1 registration provenance is invalid")
+		}
+	case VersionV2:
+		if transaction.Kind != KindRegistration || transaction.Provenance.ResultVersion != ResultRegistrationAuthoringV2 {
+			return errors.New("transaction v2 is restricted to registration-authoring v2 provenance")
+		}
+	}
+	return nil
 }
 
 // CanonicalBytes returns the deterministic compact JSON representation. It
@@ -485,7 +509,7 @@ func validDigest(value string) bool {
 }
 
 func validResultVersion(value string) bool {
-	return value == ResultAuthenticatedAuthoringV2 || value == ResultRegistrationAuthoringV1
+	return value == ResultAuthenticatedAuthoringV2 || value == ResultRegistrationAuthoringV1 || value == ResultRegistrationAuthoringV2
 }
 
 func validOrigin(value string) bool {

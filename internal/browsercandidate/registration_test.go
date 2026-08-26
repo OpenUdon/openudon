@@ -85,6 +85,25 @@ func TestPrivateInboxAdoptsExactRegistrationCandidate(t *testing.T) {
 	}
 }
 
+func TestPrivateInboxAdoptsRegistrationAuthoringV2AsTransactionV2(t *testing.T) {
+	root := privateRegistrationRoot(t)
+	inbox, err := OpenPrivateInbox(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer inbox.Close()
+	envelope, written := writeRegistrationResultForProtocol(t, root, registrationauthorsession.ProtocolV2)
+	candidate, err := inbox.AdoptNewRegistration(adoptionRequest(envelope))
+	if err != nil {
+		t.Fatal(err)
+	}
+	transaction := candidate.Transaction()
+	if transaction.Version != browsertransaction.VersionV2 || transaction.Provenance.ResultVersion != browsertransaction.ResultRegistrationAuthoringV2 ||
+		transaction.Provenance.ResultSHA256 != written.Digest {
+		t.Fatalf("v2 adopted transaction = %#v", transaction)
+	}
+}
+
 func TestPrivateInboxRejectsReviewBindingAndLifecycleDrift(t *testing.T) {
 	tests := []struct {
 		name   string
@@ -287,6 +306,10 @@ func TestPrivateInboxRejectsPartialOversizedAndAmbiguousWrites(t *testing.T) {
 }
 
 func writeRegistrationResult(t *testing.T, root string) (*registrationauthorresult.Envelope, *registrationauthorresult.Written) {
+	return writeRegistrationResultForProtocol(t, root, registrationauthorsession.ProtocolV1)
+}
+
+func writeRegistrationResultForProtocol(t *testing.T, root, protocol string) (*registrationauthorresult.Envelope, *registrationauthorresult.Written) {
 	t.Helper()
 	profile, err := registrationprofile.Parse(registrationFixture)
 	if err != nil {
@@ -300,7 +323,7 @@ func writeRegistrationResult(t *testing.T, root string) (*registrationauthorresu
 	envelope, err := registrationauthorresult.Build(registrationauthorresult.BuildRequest{
 		CreatedAt: observedAt.Add(30 * time.Minute),
 		Completion: &registrationauthorsession.Completion{
-			Protocol: registrationauthorsession.Protocol, ProfileID: "synthetic_registration",
+			Protocol: protocol, ProfileID: "synthetic_registration",
 			Profile: *profile, ProfileBytes: profileBytes,
 			ReviewedCandidates: []registrationauthorsession.ReviewedCandidate{{
 				ID: "candidate-0123456789abcdef", Generation: 1, Role: "button", Label: "Register", Matches: 1,

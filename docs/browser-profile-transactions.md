@@ -1,13 +1,18 @@
 # Browser-Profile Authoring Transactions
 
-OpenUdon uses `openudon.browser-profile-transaction.v1` as the value-free
-coordination record for adopting reviewed browser-profile candidates, preparing
-a package, and atomically making that package current. It coordinates existing
-UWS browser profile families; it is not a UWS document, does not define a new
-UWS discriminator, and grants no browser or runtime authority.
+OpenUdon uses `openudon.browser-profile-transaction.v1` as the immutable
+value-free coordination record for unchanged BAP and legacy BRP authoring.
+The additive `openudon.browser-profile-transaction.v2` is restricted to a BRP
+whose provenance is exactly `browsertools.registration-authoring.v2`; it exists
+so an explicitly reviewed structural query can remain in the canonical BRP.
+Both versions coordinate existing UWS browser profile families; neither is a
+UWS document, defines a new UWS discriminator, or grants browser/runtime
+authority.
 
-The public wire is defined by the
-[`openudon.browser-profile-transaction.v1` JSON Schema](schemas/openudon.browser-profile-transaction.v1.schema.json).
+The public wires are defined by the
+[`openudon.browser-profile-transaction.v1` JSON Schema](schemas/openudon.browser-profile-transaction.v1.schema.json)
+and the registration-only
+[`openudon.browser-profile-transaction.v2` JSON Schema](schemas/openudon.browser-profile-transaction.v2.schema.json).
 OpenUdon keeps its implementation internal, so this JSON wire and schema—not a
 Go package—are the compatibility surface.
 
@@ -96,16 +101,19 @@ published profile discriminator plus two digests:
 - `review_sha256` binds the independently reviewed, value-free evidence.
 
 Provenance names Browsertools as the producer and binds either the existing
-`browsertools.authenticated-authoring.v2` result or the separate no-submit
-`browsertools.registration-authoring.v1` result, its digest, observation and
-expiry times, and sorted origin set. It does not name the private result path.
+`browsertools.authenticated-authoring.v2` result, the legacy no-submit
+`browsertools.registration-authoring.v1` result, or—only in transaction v2—the
+query-capable `browsertools.registration-authoring.v2` result, its digest,
+observation and expiry times, and sorted origin set. It does not name the
+private result path or any retained query.
 A consumer must independently obtain the private result, verify its exact
 digest, validate the embedded profiles, and reject stale evidence before
 changing `candidate` to `reviewed`.
 
 For a Browsertools registration result, OpenUdon anchors the canonical
 mode-`0700` per-run private root before launching the child. The worker emits
-only the strict `browsertools.registration-author-session.v1` NDJSON stream;
+only the deliberately selected strict
+`browsertools.registration-author-session.v1` or v2 NDJSON stream;
 it never emits a result name, path, digest, browser handle, or session state.
 After the protocol reaches `closed`, OpenUdon drains stdout, requires a clean
 process-tree exit, and admits exactly one new mode-`0600` digest-named result.
