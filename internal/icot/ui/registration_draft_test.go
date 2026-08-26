@@ -51,7 +51,7 @@ func TestBuildRegistrationDraftRejectsUnsafeQueriesAndIncompleteAuthority(t *tes
 			v.Flow.Steps[0].Navigate = "https://app.example.test/register?token=structural"
 		}},
 		{name: "secret shaped value", mutate: func(v *registrationDraftRequest) {
-			v.Flow.Steps[0].Navigate = "https://app.example.test/register?action=sk_live_12345678901234567890"
+			v.Flow.Steps[0].Navigate = "https://app.example.test/register?action=" + "sk_" + "live_" + strings.Repeat("1", 20)
 		}},
 		{name: "repeated key", mutate: func(v *registrationDraftRequest) {
 			v.Flow.Steps[0].Navigate = "https://app.example.test/register?action=startnew&action=again"

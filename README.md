@@ -232,10 +232,15 @@ go run ./cmd/icot --from-example ./examples/eval/runtime-only-render --example .
 go run ./cmd/icot --answers ./session.yaml --example ./examples/<name> --yes
 
 # Start the experimental single-workspace API v4 shell. A private root is
-# required only for source upload or authenticated Chromium capture.
+# required only for source upload, authenticated Chromium capture, or guided
+# registration authoring. The package triple enables the registration wizard;
+# --browser-transaction remains optional for an existing public transaction.
 install -d -m 0700 /private/operator/openudon-authoring
 go run ./cmd/icot ui --example ./examples/<name> \
-  --private-root /private/operator/openudon-authoring
+  --private-root /private/operator/openudon-authoring \
+  --package-scope examples/<name> \
+  --package-scratch /absolute/restrictive-scratch-parent \
+  --package-store /absolute/generation-store
 
 # Seed the UI from a reviewed example without opening the browser.
 go run ./cmd/icot ui --example ./examples/<name> \
@@ -414,10 +419,14 @@ Its internal transaction engine can also turn an explicitly reviewed,
 path-free Browsertools registration candidate into the same package inputs;
 public snapshots and resumable drafts retain only value-free identities. The
 local UI and terminal expose that candidate lifecycle through the same
-driver-free engine. Supply a public transaction JSON file—never a private
-Browsertools result—to `icot ui --browser-transaction ...` or
-`icot browser-transaction ...`; review, scratch preparation, promotion, and
-recovery each require their own exact digest-bound decision.
+driver-free engine. The UI can construct a v2 candidate in one isolated,
+GET/HEAD-only Browsertools session, disclose its retained structural query for
+explicit review, and adopt it only after clean worker teardown. Configure the
+package option triple for that guided path; a public transaction JSON file—never
+a private Browsertools result—remains the input to
+`icot ui --browser-transaction ...` or `icot browser-transaction ...` for an
+existing candidate. Review, scratch preparation, promotion, and recovery each
+require their own exact digest-bound decision.
 An explicit `browser_registration` intent lowers fixed duplicate, ambiguity,
 cleanup, symbolic-binding, and exact submit-approval policy to
 `uws.browser-registration-call.1.0`. Build, assessment, approval-template, and

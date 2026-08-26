@@ -13,15 +13,15 @@ go run ./cmd/icot ui \
   --private-root /private/operator/openudon-authoring
 ```
 
-`--private-root` is needed only for an API upload or browser capture. It must
-be absolute, mode `0700`, non-symlink, and outside the example. Use
-`--driver-dir` when the installed Playwright-Go driver is outside its normal
-location. Chromium is an installed prerequisite; iCoT never downloads it.
-A fixed `--port` and `--no-open` remain available for local automation or an
-SSH tunnel to the loopback page.
+`--private-root` is needed only for an API upload, browser capture, or guided
+registration authoring. It must be absolute, mode `0700`, non-symlink, and
+outside the example. Use `--driver-dir` when the installed Playwright-Go driver
+is outside its normal location. Chromium is an installed prerequisite; iCoT
+never downloads it. A fixed `--port` and `--no-open` remain available for local
+automation or an SSH tunnel to the loopback page.
 
-To review a public browser-profile transaction in the shell, supply the whole
-transaction/package option group:
+To review a public browser-profile transaction in the shell, supply the package
+option group and the optional existing transaction:
 
 ```bash
 go run ./cmd/icot ui \
@@ -32,10 +32,37 @@ go run ./cmd/icot ui \
   --package-store /absolute/generation-store
 ```
 
-`transaction.json` is the public value-free v1 artifact, not a private
+`transaction.json` is a public value-free v1 or v2 artifact, not a private
 Browsertools result or result path. The package paths stay process-private and
-have no API/DOM representation. Omitting any member of this option group is a
-usage error.
+have no API/DOM representation. Omitting any member of the package option group
+is a usage error. Omitting `--browser-transaction` starts the transaction
+engine without a candidate so the guided registration-authoring path can adopt
+one after clean Browsertools teardown.
+
+## Guided browser registration authoring
+
+The registration wizard is available only when `--private-root` and the full
+package option group are configured. It uses authenticated, revision-bound API
+v4 start, typed-command, and cancel operations to control one isolated headed
+Chromium worker with Browsertools registration protocol v2. Authoring permits
+GET and HEAD navigation only. It cannot type credentials, submit a form, create
+an account, sign in, or execute the workflow it describes.
+
+The operator reviews metadata, confidence and expiry, symbolic credential
+slots, ordered declarative macro steps, observed accessibility locators,
+effects, confirmation and success proof, fixed call controls, cleanup, and the
+exact canonical retained structural query. Credential or verification values
+have no request, API-state, or DOM field. The server constructs and revalidates
+the canonical UWS registration profile; JavaScript does not supply profile
+bytes.
+
+Candidate adoption succeeds only after the worker closes and its process tree
+is drained. The exact private candidate then enters the ordinary value-free
+browser transaction review. Explicit review selects it as a virtual source;
+the normal iCoT authoring rounds write the credential-free profile and review,
+build and qualify the package, and only then permit transaction preparation and
+atomic promotion. Canceling a pending candidate is terminal for that UI
+process; start a fresh iCoT process for another registration-authoring session.
 
 ## Journey and acquisition
 
@@ -48,10 +75,12 @@ evidence:
 - `existing_reviewed_capability`
 - `freeform_mixed`
 
-Older resumable sessions without this field remain valid. Registration,
-account creation, consent, enrollment, CAPTCHA, recovery, billing, and
-password-change discovery are unsupported; the shell shows guidance instead
-of launching those flows.
+Older resumable sessions without this field remain valid. General workflow
+discovery for registration, account creation, consent, enrollment, CAPTCHA,
+recovery, billing, and password changes remains unsupported; the shell shows
+guidance instead of launching those flows. The separate bounded registration
+wizard described above authors only an explicitly configured BRP and grants no
+runtime authority.
 
 API-family files enter a private, 20 MiB bounded inbox. iCoT rejects symlinks,
 invalid UTF-8, secret-like content, unknown or ambiguous documents, and files
