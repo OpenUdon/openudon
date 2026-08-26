@@ -751,8 +751,12 @@ type replayResult struct {
 }
 
 func (executor *realExecutor) runUdon(ctx context.Context, manifest Manifest, exampleDir, workflowPath string, slotKinds, bindings map[string]string, fixture *LoopbackFixture) replayResult {
+	return executor.runUdonWithFormat(ctx, manifest, exampleDir, workflowPath, "uws-json", slotKinds, bindings, fixture)
+}
+
+func (executor *realExecutor) runUdonWithFormat(ctx context.Context, manifest Manifest, exampleDir, workflowPath, workflowFormat string, slotKinds, bindings map[string]string, fixture *LoopbackFixture) replayResult {
 	args := []string{
-		executor.udon, "--workdir", exampleDir, "--workflow", workflowPath, "--workflow-format", "uws-json",
+		executor.udon, "--workdir", exampleDir, "--workflow", workflowPath, "--workflow-format", workflowFormat,
 		"--execution-report", "execution-report.json", "--execution-timeout", "60s",
 		"--browser-driver", executor.node, "--browser-driver-arg", executor.driverEntry,
 		"--browser-driver-protocol", "v3", "--browser-challenge-timeout", "10s",

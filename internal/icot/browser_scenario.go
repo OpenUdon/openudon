@@ -15,6 +15,7 @@ import (
 	"github.com/OpenUdon/browsertools/authorresult"
 	"github.com/OpenUdon/browsertools/authorsession"
 	"github.com/OpenUdon/browsertools/authprofile"
+	"github.com/OpenUdon/openudon/internal/browsercandidate"
 	"github.com/OpenUdon/openudon/internal/icot/browserauthor"
 )
 
@@ -48,6 +49,7 @@ type BrowserScenarioAuthorRequest struct {
 	Outputs           []BrowserScenarioOutput
 	Fault             string
 	Now               func() time.Time
+	CandidateObserver func(*browsercandidate.AuthenticationCapability) error
 }
 
 // BrowserScenarioAuthorResult contains profile/review facts only. It contains
@@ -116,6 +118,11 @@ func RunBrowserScenarioAuthor(ctx context.Context, request BrowserScenarioAuthor
 			return BrowserScenarioAuthorResult{Rejected: true, FailureClass: failure}, nil
 		}
 		return BrowserScenarioAuthorResult{}, err
+	}
+	if request.CandidateObserver != nil {
+		if err := request.CandidateObserver(prepared.Candidate); err != nil {
+			return BrowserScenarioAuthorResult{}, fmt.Errorf("browser scenario candidate observation failed")
+		}
 	}
 	if err := stageAuthenticatedAuthoringImport(prepared); err != nil {
 		return BrowserScenarioAuthorResult{}, err
