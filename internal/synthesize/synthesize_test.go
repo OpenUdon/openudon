@@ -3720,6 +3720,15 @@ func TestCompiledOperationIndexReturnsRequestProjectionErrors(t *testing.T) {
 	}
 }
 
+func TestCompiledServiceTypeRecognizesBrowserAuthenticationProfiles(t *testing.T) {
+	for _, profile := range []string{"uws.browser-authentication-call.1.0", "uws.browser-authentication-call.1.1"} {
+		op := &uws1.Operation{Extensions: map[string]any{uws1.ExtensionOperationProfile: profile}}
+		if got := compiledServiceType(nil, op); got != "browser_authentication" {
+			t.Fatalf("compiled service type for %s = %q", profile, got)
+		}
+	}
+}
+
 func TestAssessFailsWhenPlanIsMissingForGeneratedArtifacts(t *testing.T) {
 	root := t.TempDir()
 	example := filepath.Join(root, "examples", "support-plan-missing")

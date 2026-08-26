@@ -626,7 +626,7 @@ func compiledServiceType(step *uws1.Step, op *uws1.Operation) string {
 	if runtime, ok, err := uwsprofile.ReadOperationRuntime(op.Extensions); err == nil && ok {
 		return runtime.Type
 	}
-	if op.ExtensionProfile() == browserauthentication.CallProfileName {
+	if op.ExtensionProfile() == browserauthentication.CallProfileName || op.ExtensionProfile() == browserauthentication.ContextCallProfileName {
 		return "browser_authentication"
 	}
 	if op.ExtensionProfile() == browserregistration.CallProfileName {
