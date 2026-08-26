@@ -57,6 +57,7 @@ func TestReportRejectsContractDriftFailureAndDependencyMismatch(t *testing.T) {
 		{name: "artifact order", mutate: func(report *Report) {
 			report.Artifacts[0], report.Artifacts[1] = report.Artifacts[1], report.Artifacts[0]
 		}},
+		{name: "duplicate case digest", mutate: func(report *Report) { report.Artifacts[1].SHA256 = report.Artifacts[0].SHA256 }},
 		{name: "post request", mutate: func(report *Report) { report.Posture.RegistrationAuthoringPostRequests = 1 }},
 		{name: "sandbox disabled", mutate: func(report *Report) { report.Posture.SandboxEnabled = false }},
 	}

@@ -335,11 +335,13 @@ func validateArtifacts(artifacts []ArtifactDigest) error {
 	}
 	index := 0
 	for _, caseID := range []string{CaseBAPBCP, CaseBRP} {
+		seen := make(map[string]bool, len(artifactKindOrder))
 		for _, kind := range artifactKindOrder {
 			artifact := artifacts[index]
-			if artifact.Case != caseID || artifact.Kind != kind || !validTaggedSHA256(artifact.SHA256) {
+			if artifact.Case != caseID || artifact.Kind != kind || !validTaggedSHA256(artifact.SHA256) || seen[artifact.SHA256] {
 				return fmt.Errorf("browser transaction qualification artifact %d is invalid", index)
 			}
+			seen[artifact.SHA256] = true
 			index++
 		}
 	}
