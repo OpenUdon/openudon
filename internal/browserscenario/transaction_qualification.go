@@ -234,11 +234,11 @@ func (executor *realExecutor) runBAPBCPQualification(ctx context.Context, enviro
 		return evidence, err
 	}
 	evidence = BAPBCPQualificationEvidence{
-		ProducerResultSHA256: author.EnvelopeDigest, TransactionSHA256: transactionSHA256,
-		PreparationSHA256: prepared.Manifest().ManifestSHA256, QualificationSHA256: qualified.Report().QualificationSHA256,
-		GenerationSHA256: selection.SelectedGenerationSHA256, SelectionSHA256: selection.SelectionSHA256,
-		PackageSHA256: selection.PackageSHA256, HandoffSHA256: inspection.HandoffSHA256,
-		WorkflowSHA256: workflowSHA256, EvidenceCount: 9,
+		ProducerResultSHA256: taggedQualificationSHA256(author.EnvelopeDigest), TransactionSHA256: taggedQualificationSHA256(transactionSHA256),
+		PreparationSHA256: taggedQualificationSHA256(prepared.Manifest().ManifestSHA256), QualificationSHA256: taggedQualificationSHA256(qualified.Report().QualificationSHA256),
+		GenerationSHA256: taggedQualificationSHA256(selection.SelectedGenerationSHA256), SelectionSHA256: taggedQualificationSHA256(selection.SelectionSHA256),
+		PackageSHA256: taggedQualificationSHA256(selection.PackageSHA256), HandoffSHA256: taggedQualificationSHA256(inspection.HandoffSHA256),
+		WorkflowSHA256: taggedQualificationSHA256(workflowSHA256), EvidenceCount: 9,
 	}
 	if err := ValidateBAPBCPQualificationEvidence(evidence); err != nil {
 		return BAPBCPQualificationEvidence{}, err
@@ -381,6 +381,20 @@ func validScenarioTaggedSHA256(value string) bool {
 	}
 	_, err := hex.DecodeString(strings.TrimPrefix(value, "sha256:"))
 	return err == nil
+}
+
+func taggedQualificationSHA256(value string) string {
+	if value != strings.TrimSpace(value) {
+		return ""
+	}
+	value = strings.ToLower(value)
+	if validScenarioTaggedSHA256(value) {
+		return value
+	}
+	if evidencefile.ValidSHA256(value) {
+		return "sha256:" + value
+	}
+	return ""
 }
 
 func closedQualityFailureIDs(report *synthesize.QualityReport) string {

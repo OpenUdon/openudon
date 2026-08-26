@@ -29,6 +29,22 @@ func TestValidateBAPBCPQualificationEvidenceRejectsMissingDuplicateAndMalformedD
 	}
 }
 
+func TestTaggedQualificationSHA256NormalizesOnlyValidatedDigests(t *testing.T) {
+	bare := strings.Repeat("A", 64)
+	if got, want := taggedQualificationSHA256(bare), "sha256:"+strings.ToLower(bare); got != want {
+		t.Fatalf("normalized bare digest = %q, want %q", got, want)
+	}
+	tagged := "sha256:" + strings.Repeat("b", 64)
+	if got := taggedQualificationSHA256(tagged); got != tagged {
+		t.Fatalf("normalized tagged digest = %q, want %q", got, tagged)
+	}
+	for _, value := range []string{"private/result/path", " " + bare, strings.Repeat("c", 63)} {
+		if got := taggedQualificationSHA256(value); got != "" {
+			t.Fatalf("invalid digest %q normalized to %q", value, got)
+		}
+	}
+}
+
 func TestClosedPackageLifecycleFailureUsesTypedCodes(t *testing.T) {
 	_, qualificationErr := packagepipeline.Qualify(context.Background(), packagepipeline.Prepared{}, packagepipeline.QualifyOptions{})
 	if got := closedPackageLifecycleFailure(qualificationErr); got != "qualification_invalid_preparation" {
