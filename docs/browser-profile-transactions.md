@@ -45,13 +45,19 @@ Their `.test` origins and repeated digests are illustrative only.
 ## Qualification evidence
 
 Cross-package qualification produces one canonical
-`openudon.browser-transaction-qualification.v1` JSON report plus an exact
-SHA-256 sidecar. The report binds the exact OpenUdon commit and its publication
-classification, the published Browsertools and UWS module revisions, fixed BAP+BCP/BRP lifecycle
-digests and gate outcomes, sandbox use, loopback-only access, and zero-POST
-registration authoring. Its closed schema has no path, free-form diagnostic,
-subprocess-output, page/request-content, account, credential, cookie, storage,
-or session-material field.
+`openudon.browser-transaction-qualification.v2` JSON report plus an exact
+SHA-256 sidecar. The report binds exact OpenUdon, Browsertools, Browserdriver,
+Udon, and UWS commits and their publication classifications. UWS must remain at
+the unchanged published lock; each implementation repository may be either at
+its published lock or at a clean local `main` descendant while publication is
+pending. The report carries nine BAP+BCP lifecycle digests and eleven BRP
+authoring, package, attestation, workflow, and execution-report digests. Its
+posture proves GET/HEAD-only registration authoring followed by one separately
+attested and approved loopback POST, a fixed registration result, account
+creation only in the disposable fixture, executor invocation, and no named
+registration session. Its closed schema has no path, free-form diagnostic,
+subprocess-output, page/request-content, account identity, credential, cookie,
+storage, or session-material field.
 
 Run the complete qualification from a clean OpenUdon checkout with the exact
 locked sibling repositories:
@@ -63,11 +69,14 @@ xvfb-run -a make browser-transaction-qualification
 The target first runs the adversarial contract, lifecycle, rollback,
 concurrency, frontend-conflict, and sensitive-artifact matrix. It then runs
 one real Browsertools BAP+BCP transaction through package promotion and
-Udon/Browserdriver replay, followed by one real no-submit BRP transaction.
-Only embedded loopback fixtures are reachable. Browsertools and UWS must match
-their published compatibility locks. OpenUdon must be clean on `main`; its
-exact commit must either match the independently resolved `origin/main` or be
-a locally committed descendant, and the report records which state applies.
+Udon/Browserdriver replay. The BRP case drives the authenticated iCoT wizard,
+Browsertools result v2, transaction v2, package prepare/qualify/promote,
+selected-package inspection, the private digest-bound attestation, Udon report
+v3, and Browserdriver protocol v4 through the fixed loopback result. Only
+embedded loopback fixtures are reachable. All five repositories must be clean
+on `main`, match their compatibility lock where applicable, and either equal
+or descend from an independently resolved `origin/main`; the report records
+which exact revisions are already published.
 
 Verify a retained report independently with:
 
@@ -77,8 +86,8 @@ openudon browser-transaction-eval --verify eval/runs/browser-transaction-qualifi
 
 Verification rejects missing or extra fields, duplicate names, noncanonical
 JSON, unsupported failure codes, dependency-lock drift, digest tampering,
-symlinks, and oversized input. A passing report does not grant runtime or
-target authority.
+symlinks, and oversized input. A passing report authorizes neither publication
+nor registration against a non-loopback target.
 
 `xvfb-run` supplies a display on headless Linux; it does not disable or supply
 the Chromium sandbox. Chromium must be able to use the host's unprivileged

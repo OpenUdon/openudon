@@ -623,10 +623,13 @@ Browserdriver v3. `make browser-scenario-public` is an explicit-network,
 informational four-site canary; it is never part of default tests.
 
 `xvfb-run -a make browser-transaction-qualification` runs the complete
-cross-package BAP+BCP and zero-submit BRP release qualification against only
-embedded loopback fixtures, after its adversarial matrix, and writes a
-canonical value-free report under ignored `eval/runs/`. It requires clean
-exact sibling revisions and sandboxed Chromium. Xvfb supplies only the display;
+cross-package BAP+BCP replay and BRP authoring-to-runtime qualification against
+only embedded loopback fixtures, after its adversarial matrix, and writes a
+canonical value-free v2 report under ignored `eval/runs/`. The BRP case keeps
+authoring GET/HEAD-only, then uses the exact private attestation and submit
+approval to prove one Browserdriver-v4 POST through Udon report v3 with no
+named session. It requires clean exact sibling revisions and sandboxed
+Chromium. Xvfb supplies only the display;
 see [Browser-Profile Authoring Transactions](docs/browser-profile-transactions.md#qualification-evidence)
 for the host sandbox prerequisite and independent report verification.
 
