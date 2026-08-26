@@ -55,6 +55,7 @@ func TestClassifyExecutionFailureSummaryReturnsOnlyFixedCategories(t *testing.T)
 		"open /private/result: no such file":           "artifact_missing",
 		"workflow main has depends_on cycle":           "dependency_cycle",
 		"uws1: unsupported workflow type custom":       "workflow_type",
+		"workflow not found":                           "lookup_failed",
 		"unrecognized private failure":                 "unclassified",
 	} {
 		if got := classifyExecutionFailureSummary(summary); got != want {
