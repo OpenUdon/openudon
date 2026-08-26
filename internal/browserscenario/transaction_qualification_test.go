@@ -29,6 +29,7 @@ func TestValidateBAPBCPQualificationEvidenceRejectsMissingDuplicateAndMalformedD
 
 func TestClosedQualityFailureIDsRetainsOnlyFixedCodes(t *testing.T) {
 	report := &synthesize.QualityReport{Checks: []synthesize.QualityCheck{
+		{Code: "openapi.discovery", Status: "warn"},
 		{Code: "browser.authentication.sources", Status: "fail"},
 		{Code: "path /private/result", Status: "fail"},
 		{Code: "workflow.present", Status: "pass"},

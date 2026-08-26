@@ -264,7 +264,7 @@ func materializeBAPBCPPackage(exampleDir string, candidate *browsercandidate.Aut
 	intent := &rollout.Intent{
 		Workflow: &rollout.WorkflowMeta{Name: "browser_transaction_qualification", Description: "Authenticate and read the reviewed loopback goal."},
 		Steps: []*rollout.Step{
-			{Name: "authenticate", Type: "browser_authentication", Source: authenticationTarget, AuthenticationFlow: candidate.Flow(), BrowserSession: reviewed.Session, CredentialBindings: bindings, Timeout: &timeout},
+			{Name: "authenticate", Type: "browser_authentication", Do: "Establish the reviewed loopback browser session.", Source: authenticationTarget, AuthenticationFlow: candidate.Flow(), BrowserSession: reviewed.Session, CredentialBindings: bindings, Timeout: &timeout},
 			{Name: "read", Type: "browser", Source: capabilityTarget, Operation: "reach_authenticated_goal", BrowserSession: reviewed.Session, DependsOn: []string{"authenticate"}},
 		},
 	}
@@ -322,7 +322,7 @@ func bapBCPQualificationProject(manifest Manifest) string {
 		"## Data Flow\n\n- Establish one named session, then read the reviewed goal outputs.\n\n" +
 		"## Function Contracts\n\n- No function runtime is required.\n\n" +
 		"## Credentials and Secrets\n\n- Credential bindings are symbolic names resolved only by the trusted runtime. Values are never package artifacts.\n\n" +
-		"## Safety and Approval Boundary\n\n- Use only the deterministic loopback fixture and require explicit authentication approval.\n\n" +
+		"## Safety and Approval Boundary\n\n- Use only the deterministic loopback fixture. Require explicit authentication approval and the trusted runtime boundary. Perform a sandbox proof run before any production execution.\n\n" +
 		"## Fallback Behavior\n\n- Stop without side effects when authentication, package review, or replay fails.\n"
 }
 
@@ -368,7 +368,7 @@ func closedQualityFailureIDs(report *synthesize.QualityReport) string {
 	}
 	var codes []string
 	for _, check := range report.Checks {
-		if check.Status != "pass" && safeQualityCode(check.Code) {
+		if check.Status == "fail" && safeQualityCode(check.Code) {
 			codes = append(codes, check.Code)
 		}
 	}
