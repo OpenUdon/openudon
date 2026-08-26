@@ -14,6 +14,12 @@ authoring/review shell, see [Local iCoT UI Server](icot-ui.md). It uses the
 same engine and atomic approval writer; the JSON API is internal and has no
 compatibility guarantee.
 
+The separate experimental `icot browser-transaction` adapter presents the
+same driver-free transaction states and kind-specific disclosure as API v4.
+It reads exact authorizations from stdin and has no browser, credential, submit,
+or runtime operation. See [Browser-Profile Authoring
+Transactions](browser-profile-transactions.md#operator-sequence).
+
 ## Inputs And Modes
 
 ```bash

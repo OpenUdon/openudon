@@ -280,6 +280,32 @@ exact selection digest needed by selected-package approval and handoff. A
 recovery call without `--accept` is read-only; reconciliation requires the
 exact just-observed digest.
 
+For the unified transaction journey, use the experimental iCoT adapter:
+
+```bash
+icot browser-transaction \
+  --transaction ./transaction.json \
+  --example examples/<name> --scope examples/<name> \
+  --scratch /absolute/restrictive-scratch-parent \
+  --store /absolute/generation-store --prepare
+```
+
+With no lifecycle flag it only emits the started value-free snapshot.
+`--review`, `--prepare`, and `--promote` request progressively later
+checkpoints; promotion implies the earlier two and a candidate transaction
+still asks separately at every applicable checkpoint. `--recover` is valid only with promotion and
+accepts an indeterminate recovery report by its just-inspected digest.
+`--inspect-selected` is a post-promotion, non-writing package inspection. State
+events use value-free NDJSON on stdout; prompts and closed failure
+class/code/operation records use stderr. Empty or incorrect input fails without
+mutation, and SIGINT/SIGTERM cancel a blocked prompt or engine operation.
+
+The same public transaction can be supplied to `icot ui` with
+`--browser-transaction`, `--package-scope`, `--package-scratch`, and
+`--package-store`. The UI and terminal derive one identical kind-specific
+review resource from the shared engine. Neither command accepts a private
+Browsertools result, credential value, browser handle, or runtime action.
+
 For a registration candidate, steps 1–3 never authorize Browsertools to submit
 a form. The producer must remain GET/HEAD-only and no account may be created
 during authoring. The reviewed profile may describe a later submit action and

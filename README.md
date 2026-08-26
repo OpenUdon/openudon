@@ -231,7 +231,7 @@ go run ./cmd/icot --from-example ./examples/eval/runtime-only-render --example .
 # Use an openudon.icot-session.v2 YAML or JSON session.
 go run ./cmd/icot --answers ./session.yaml --example ./examples/<name> --yes
 
-# Start the experimental single-workspace API v3 shell. A private root is
+# Start the experimental single-workspace API v4 shell. A private root is
 # required only for source upload or authenticated Chromium capture.
 install -d -m 0700 /private/operator/openudon-authoring
 go run ./cmd/icot ui --example ./examples/<name> \
@@ -240,6 +240,13 @@ go run ./cmd/icot ui --example ./examples/<name> \
 # Seed the UI from a reviewed example without opening the browser.
 go run ./cmd/icot ui --example ./examples/<name> \
   --from-example ./examples/eval/runtime-only-render --no-open
+
+# Observe or explicitly advance one public value-free browser transaction.
+go run ./cmd/icot browser-transaction \
+  --transaction ./transaction.json \
+  --example ./examples/<name> --scope examples/<name> \
+  --scratch /absolute/restrictive-scratch-parent \
+  --store /absolute/generation-store --prepare
 
 # Add reviewed sources or bounded discovery roots; flags are repeatable.
 go run ./cmd/icot --example ./examples/<name> \
@@ -340,7 +347,7 @@ separate authoring and capture revisions for mutations and asynchronous browser
 events, detects changes made by editors or another process, and freezes only
 after a passing reviewed package build. A detected
 workspace change preserves cached inspection but blocks mutation until the
-process is restarted. The shell polls experimental API v3 while visible and backs off after
+process is restarted. The shell polls experimental API v4 while visible and backs off after
 errors. It selects a journey, validates/stages bounded API uploads, performs
 isolated existing-account Chromium capture, renders the current frontier as accessible controls, submits
 complete revision-protected rounds, previews proposed artifacts and conflicts,
@@ -405,8 +412,12 @@ OpenUdon also accepts already-reviewed, secret-free
 `browsertools.registration-review.v1` bundles as manual package-local sources.
 Its internal transaction engine can also turn an explicitly reviewed,
 path-free Browsertools registration candidate into the same package inputs;
-public snapshots and resumable drafts retain only value-free identities, while
-the current CLI/UI does not yet expose that candidate lifecycle.
+public snapshots and resumable drafts retain only value-free identities. The
+local UI and terminal expose that candidate lifecycle through the same
+driver-free engine. Supply a public transaction JSON file—never a private
+Browsertools result—to `icot ui --browser-transaction ...` or
+`icot browser-transaction ...`; review, scratch preparation, promotion, and
+recovery each require their own exact digest-bound decision.
 An explicit `browser_registration` intent lowers fixed duplicate, ambiguity,
 cleanup, symbolic-binding, and exact submit-approval policy to
 `uws.browser-registration-call.1.0`. Build, assessment, approval-template, and

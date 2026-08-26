@@ -52,9 +52,10 @@ deterministic package and trusted-handoff boundary stays compatible.
 OpenUdon currently has no supported importable Go packages. The module's
 implementation packages remain internal, and v0.2 compatibility is a CLI and
 versioned-artifact contract. The browser-profile transaction therefore has a
-public JSON/schema boundary but no supported Go library API. Existing CLI
-commands and experimental iCoT API v3 do not expose a transaction endpoint as
-part of this contract.
+public JSON/schema boundary but no supported Go library API. The additive
+`icot browser-transaction` command and experimental iCoT API v4 expose the
+same internal lifecycle, but neither frontend is part of the stable v0.2 CLI
+or HTTP compatibility boundary. The replaced API v3 namespace is closed.
 
 ## v1 Migration
 

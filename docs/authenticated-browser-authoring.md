@@ -199,6 +199,14 @@ artifact. Browsertools writes a mode-`0600`
 after typed and human completion. The envelope remains private and is never
 copied into the example or package.
 
+The unified transaction UI/terminal does not accept that envelope or its path.
+Only after OpenUdon's private adoption boundary has reconstructed and reviewed
+the exact BAP+BCP pair may its separate public, value-free
+`openudon.browser-profile-transaction.v1` artifact be supplied to
+`icot ui --browser-transaction` or `icot browser-transaction`. Those adapters
+coordinate review and package lifecycle only; they do not reopen Chromium or
+carry the authenticated authoring session.
+
 For every production staging path, the parent retains a process-private,
 non-serializable attestation of its exact ordered actions, observations, human
 checkpoints, approval cards, additive context inventories, dashboard proof,

@@ -2,8 +2,8 @@
 
 `icot ui` is OpenUdon's primary interactive authoring and review surface for
 API and existing-account browser workflows. It serves one explicitly named
-workspace on `127.0.0.1`, uses the same transactional engine as terminal iCoT,
-and exposes the experimental `openudon.icot-ui-api.v3` wire. It is neither a
+workspace on `127.0.0.1`, uses the same transactional engines as terminal iCoT,
+and exposes the experimental `openudon.icot-ui-api.v4` wire. It is neither a
 remote service nor a supported public API.
 
 ```bash
@@ -19,6 +19,23 @@ be absolute, mode `0700`, non-symlink, and outside the example. Use
 location. Chromium is an installed prerequisite; iCoT never downloads it.
 A fixed `--port` and `--no-open` remain available for local automation or an
 SSH tunnel to the loopback page.
+
+To review a public browser-profile transaction in the shell, supply the whole
+transaction/package option group:
+
+```bash
+go run ./cmd/icot ui \
+  --example ./examples/<name> \
+  --browser-transaction ./transaction.json \
+  --package-scope examples/<name> \
+  --package-scratch /absolute/restrictive-scratch-parent \
+  --package-store /absolute/generation-store
+```
+
+`transaction.json` is the public value-free v1 artifact, not a private
+Browsertools result or result path. The package paths stay process-private and
+have no API/DOM representation. Omitting any member of this option group is a
+usage error.
 
 ## Journey and acquisition
 
@@ -96,7 +113,7 @@ navigation or click. The accumulated ledger governs subsequent events. The
 process-private parent attestation then binds the ordered actions,
 observations, checkpoints, approvals, dashboard proof, output requests,
 contexts, diagnostics, and final origin set. The attestation is neither
-serialized nor exposed by API v3.
+serialized nor exposed by API v4.
 
 Passwords, OTPs, cookies, storage, request bodies, raw Browsertools output,
 child stderr, signing keys, runtime credentials, and the private result path
@@ -117,6 +134,25 @@ authoring approval owns that evidence.
 
 Failed, canceled, expired, crashed, or malformed captures write nothing to the
 workspace.
+
+## Browser-profile transaction review
+
+When launched with a public transaction, the shell presents the exact BAP+BCP
+or BRP composition, immutable origins/times/digests, symbolic bindings and
+session posture, candidate output targets, registration cleanup, preparation
+and qualification evidence, promotion/recovery identity, and selected-package
+side-effect posture. BRP review includes Browsertools' canonical
+accessibility-label heuristic/not-DLP disclosure and fixed GET/HEAD-only,
+zero-mutation, no-submit, no-account, no-session, and no-runtime facts. Its
+approval symbol is descriptive and grants no authority.
+
+Review, scratch preparation, promotion, recovery acceptance, and cancellation
+use separate checkboxes and revision/digest-bound requests. Stale revisions
+force a refresh and fresh consent. Expired candidates cannot be reviewed or
+prepared. Indeterminate promotion exposes the safe target and exact recovery
+report; blind retry is unavailable. Promotion selects package bytes only. The
+shell has no run, execute, sign-in, registration-submit, credential, or account
+operation.
 
 ## Authoring, package, and handoff lifecycle
 
@@ -158,12 +194,14 @@ path. Bearer authentication remains available for local automation. Exact
 loopback Host and Origin checks, no CORS, restrictive headers, bounded strict
 UTF-8 JSON/multipart decoding, and signal-driven shutdown remain mandatory.
 
-API v2 routes are removed. API v3 provides authenticated routes for snapshot,
+API v2 and v3 routes are removed. API v4 provides authenticated routes for snapshot,
 journey selection, interview rounds/reopening, source upload/stage/removal,
 browser preflight, capture start/respond/stage/cancel, authoring
 approval/resume, package build, and closed-allowlist artifact inspection.
-There is deliberately no registration, approval-generation, credential, run,
-or execution route.
+It additionally exposes current/start/review/prepare/promote/cancel,
+recovery inspection/reconciliation, and selected-package inspection for the
+value-free browser transaction. There is deliberately no registration submit,
+approval-generation, credential, run, or execution route.
 
 ## Qualification
 
