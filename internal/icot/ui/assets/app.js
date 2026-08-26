@@ -4,7 +4,7 @@ const normalInterval = 2000;
 const maximumBackoff = 30000;
 const acquisitionRoutes = new Set(["journey", "source/stage", "source/remove", "browser/preflight", "capture/start"]);
 
-const registrationActive = (authoring) => Boolean(authoring && !["review_ready", "adopted", "canceled", "failed"].includes(authoring.state));
+const registrationActive = (authoring) => Boolean(authoring && !["review_ready", "adopted", "promoted", "canceled", "failed"].includes(authoring.state));
 
 const state = {
   renderedPayload: null,
@@ -1296,8 +1296,8 @@ const addRegistrationStep = (type = "navigate") => {
 const initializeRegistrationRows = () => {
 	if (state.registrationRowsInitialized) return;
 	state.registrationRowsInitialized = true;
-	addRegistrationSlot("identifier", "identifier", "registration_identifier");
-	addRegistrationSlot("password", "password", "registration_password");
+	addRegistrationSlot("identifier", "identifier", "dedicated_test_identifier");
+	addRegistrationSlot("password", "password", "dedicated_test_password");
 	for (const type of ["navigate", "type_credential", "type_credential", "submit", "human_checkpoint", "wait_for"]) addRegistrationStep(type);
 };
 
@@ -1312,11 +1312,13 @@ const renderRegistrationAuthoring = (payload) => {
 	initializeRegistrationRows();
 	const authoring = payload.registration_authoring;
 	showText("registration-authoring-state", authoring?.state?.replaceAll("_", " ") || "Not started");
-	showText("registration-authoring-status", authoring?.message || "This wizard observes accessibility metadata with GET or HEAD only. It cannot type, click, submit, create an account, sign in, or execute the drafted workflow.");
-	const pendingCandidate = authoring?.state === "review_ready";
-	const startLocked = state.pendingMutation || payload.lifecycle !== "authoring" || externallyModified(payload) || Boolean(authoring?.containment_failed) || registrationActive(authoring) || pendingCandidate;
+	showText("registration-authoring-status", authoring?.message || (payload.browser_transaction
+		? "This wizard observes accessibility metadata with GET or HEAD only. It cannot type, click, submit, create an account, sign in, or execute the drafted workflow."
+		: "Configure package scope, restrictive scratch, and a generation store when launching iCoT before registration authoring."));
+	const pendingCandidate = ["review_ready", "transaction_review", "adopted"].includes(authoring?.state);
+	const startLocked = state.pendingMutation || !payload.browser_transaction || payload.lifecycle !== "authoring" || externallyModified(payload) || Boolean(authoring?.containment_failed) || registrationActive(authoring) || pendingCandidate;
 	Array.from(byID("registration-start-form").elements).forEach((control) => { control.disabled = startLocked; });
-	byID("registration-cancel").hidden = !registrationActive(authoring) || authoring?.state === "canceling";
+	byID("registration-cancel").hidden = !registrationActive(authoring) || ["canceling", "transaction_review"].includes(authoring?.state);
 
 	const panel = byID("registration-observation-panel"); clearNode(panel);
 	if (authoring?.bounds) panel.append(make("p", `Fixed bounds: ${authoring.bounds.maxObservations ?? authoring.bounds.max_observations ?? 0} observations; ${authoring.bounds.maxCandidates ?? authoring.bounds.max_candidates ?? 0} candidates.`));

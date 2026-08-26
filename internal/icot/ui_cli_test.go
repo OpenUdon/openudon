@@ -81,6 +81,40 @@ func TestUICommandStartsTheSharedBrowserTransactionEngine(t *testing.T) {
 	}
 }
 
+func TestUICommandConfiguresInactiveBrowserTransactionEngineForRegistrationAuthoring(t *testing.T) {
+	original := runUIServer
+	defer func() { runUIServer = original }()
+	var captured uiserver.RunConfig
+	runUIServer = func(_ context.Context, config uiserver.RunConfig) error {
+		captured = config
+		return nil
+	}
+	root := t.TempDir()
+	scratch, store := filepath.Join(root, "scratch"), filepath.Join(root, "store")
+	for _, path := range []string{scratch, store} {
+		if err := os.Mkdir(path, 0o700); err != nil {
+			t.Fatal(err)
+		}
+	}
+	var stdout, stderr bytes.Buffer
+	code := Main([]string{
+		"ui", "--example", filepath.Join(root, "example"),
+		"--package-scope", "examples/ui", "--package-scratch", scratch, "--package-store", store, "--no-open",
+	}, strings.NewReader(""), &stdout, &stderr)
+	if code != 0 || captured.BrowserTransactions == nil {
+		t.Fatalf("UI inactive transaction config = code %d config %#v stdout %q stderr %q", code, captured, stdout.String(), stderr.String())
+	}
+	snapshot, err := captured.BrowserTransactions.Observe(context.Background())
+	if err != nil || snapshot.Transaction != nil || snapshot.Version == "" || snapshot.RuntimeExecutionSupported {
+		t.Fatalf("UI inactive transaction engine = %#v, %v", snapshot, err)
+	}
+	for _, forbidden := range []string{scratch, store} {
+		if strings.Contains(stdout.String()+stderr.String(), forbidden) {
+			t.Fatalf("UI launch output exposed %q: stdout %q stderr %q", forbidden, stdout.String(), stderr.String())
+		}
+	}
+}
+
 func TestUICommandSeedPrecedence(t *testing.T) {
 	original := runUIServer
 	defer func() { runUIServer = original }()

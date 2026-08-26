@@ -17,6 +17,7 @@ import (
 	"github.com/OpenUdon/openudon/internal/icot/elicitor"
 	"github.com/OpenUdon/openudon/internal/icot/engine"
 	uiserver "github.com/OpenUdon/openudon/internal/icot/ui"
+	"github.com/OpenUdon/openudon/internal/packagepipeline"
 )
 
 var runUIServer = uiserver.Run
@@ -42,14 +43,14 @@ func runUI(args []string, out, errOut io.Writer) int {
 	network := fs.String("network", "", "Remote lookup policy: never, ask, or allow")
 	port := fs.Int("port", 0, "Loopback TCP port; 0 selects an ephemeral port")
 	noOpen := fs.Bool("no-open", false, "Do not open the bootstrap URL in the platform browser")
-	privateRoot := fs.String("private-root", "", "absolute mode-0700 private root required only for upload or browser capture")
+	privateRoot := fs.String("private-root", "", "absolute mode-0700 private root required only for upload, browser capture, or registration authoring")
 	driverDir := fs.String("driver-dir", "", "optional installed Playwright-Go driver directory for browser capture")
-	browserTransactionPath := fs.String("browser-transaction", "", "public browser-profile transaction v1 JSON file")
+	browserTransactionPath := fs.String("browser-transaction", "", "optional public browser-profile transaction v1/v2 JSON file")
 	packageScope := fs.String("package-scope", "", "portable package scope for browser-transaction preparation")
 	packageScratch := fs.String("package-scratch", "", "existing absolute restrictive-scratch parent for browser-transaction preparation")
 	packageStore := fs.String("package-store", "", "existing generation store for browser-transaction promotion")
 	fs.Usage = func() {
-		fmt.Fprintln(fs.Output(), "Usage: icot ui --example DIR [--from-example DIR | --answers FILE] [--api-source KIND:ID=PATH] [--openapi ID=PATH] [--browser-profile ID=PATH] [--browser-verification PATH] [--browser-registry LOCATION] [--source-root DIR] [--network never|ask|allow] [--browser-transaction FILE --package-scope PORTABLE --package-scratch DIR --package-store DIR] [--port PORT] [--no-open]")
+		fmt.Fprintln(fs.Output(), "Usage: icot ui --example DIR [--from-example DIR | --answers FILE] [--api-source KIND:ID=PATH] [--openapi ID=PATH] [--browser-profile ID=PATH] [--browser-verification PATH] [--browser-registry LOCATION] [--source-root DIR] [--network never|ask|allow] [--package-scope PORTABLE --package-scratch DIR --package-store DIR [--browser-transaction FILE]] [--port PORT] [--no-open]")
 		fmt.Fprintln(fs.Output(), "\nServes one explicitly named workspace on 127.0.0.1 with a per-process capability token.")
 		fmt.Fprintln(fs.Output(), "The embedded shell supports acquisition, revision-protected authoring, reviewed package build, and handoff over experimental API v4.")
 		fmt.Fprintln(fs.Output(), "External changes to engine-owned files preserve cached inspection but require a process restart before mutation.")
@@ -79,15 +80,16 @@ func runUI(args []string, out, errOut io.Writer) int {
 		fmt.Fprintln(errOut, "icot ui: --port must be between 0 and 65535")
 		return 2
 	}
-	transactionOptions := []string{strings.TrimSpace(*browserTransactionPath), strings.TrimSpace(*packageScope), strings.TrimSpace(*packageScratch), strings.TrimSpace(*packageStore)}
-	configuredTransactionOptions := 0
-	for _, value := range transactionOptions {
+	transactionPath := strings.TrimSpace(*browserTransactionPath)
+	packageOptions := []string{strings.TrimSpace(*packageScope), strings.TrimSpace(*packageScratch), strings.TrimSpace(*packageStore)}
+	configuredPackageOptions := 0
+	for _, value := range packageOptions {
 		if value != "" {
-			configuredTransactionOptions++
+			configuredPackageOptions++
 		}
 	}
-	if configuredTransactionOptions != 0 && configuredTransactionOptions != len(transactionOptions) {
-		fmt.Fprintln(errOut, "icot ui: --browser-transaction, --package-scope, --package-scratch, and --package-store must be supplied together")
+	if (configuredPackageOptions != 0 && configuredPackageOptions != len(packageOptions)) || (transactionPath != "" && configuredPackageOptions != len(packageOptions)) {
+		fmt.Fprintln(errOut, "icot ui: --package-scope, --package-scratch, and --package-store must be supplied together; --browser-transaction additionally requires that package configuration")
 		return 2
 	}
 	localSources, err := parseLocalSourceFlags(apiSourceFlags, openAPIFlags)
@@ -122,10 +124,18 @@ func runUI(args []string, out, errOut io.Writer) int {
 	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer cancel()
 	var browserTransactions uiserver.BrowserTransactionEngine
-	if configuredTransactionOptions != 0 {
-		transactionEngine, _, err := openBrowserTransaction(ctx, transactionOptions[0], browserTransactionPackageOptions{
-			exampleDir: exampleDir, scope: transactionOptions[1], scratchParent: transactionOptions[2], storeDir: transactionOptions[3],
-		})
+	if configuredPackageOptions == len(packageOptions) {
+		var transactionEngine *transactionengine.Engine
+		var err error
+		if transactionPath != "" {
+			transactionEngine, _, err = openBrowserTransaction(ctx, transactionPath, browserTransactionPackageOptions{
+				exampleDir: exampleDir, scope: packageOptions[0], scratchParent: packageOptions[1], storeDir: packageOptions[2],
+			})
+		} else {
+			transactionEngine, _, err = transactionengine.New(transactionengine.Config{Package: packagepipeline.CurrentOptions{
+				ExampleDir: exampleDir, Scope: packageOptions[0], ScratchParent: packageOptions[1], StoreDir: packageOptions[2],
+			}})
+		}
 		if err != nil {
 			_, code, operation, _, ok := transactionengine.ErrorDetails(err)
 			if ok {

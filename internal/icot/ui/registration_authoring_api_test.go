@@ -5,13 +5,22 @@ import (
 	"encoding/json"
 	"errors"
 	"net/http"
+	"os"
+	"path/filepath"
 	"strings"
 	"sync"
 	"testing"
 	"time"
 
+	"github.com/OpenUdon/browsertools/registrationauthorresult"
 	"github.com/OpenUdon/browsertools/registrationauthorsession"
+	"github.com/OpenUdon/browsertools/registrationprofile"
+	"github.com/OpenUdon/openudon/internal/browsercandidate"
+	"github.com/OpenUdon/openudon/internal/browsertransaction"
+	transactionengine "github.com/OpenUdon/openudon/internal/browsertransaction/engine"
 	"github.com/OpenUdon/openudon/internal/icot/browserauthor"
+	icotengine "github.com/OpenUdon/openudon/internal/icot/engine"
+	"github.com/OpenUdon/openudon/internal/packagepipeline"
 )
 
 type fakeRegistrationAuthoringSession struct {
@@ -64,6 +73,7 @@ func TestRegistrationAuthoringAPILifecycleIsAuthenticatedRevisionBoundAndQuerySa
 	handler, err := NewHandler(HandlerConfig{
 		Context: context.Background(), Engine: fake, Snapshot: fake.snapshot, ExampleDir: "/tmp/example",
 		Token: testToken, AccessCode: testAccessCode, Authority: testAuthority, PrivateRoot: "/tmp/private",
+		BrowserTransactions: newFakeBrowserTransactions(),
 		StartRegistration: func(_ context.Context, config browserauthor.RegistrationConfig) (RegistrationAuthoringSession, error) {
 			configured = config
 			return session, nil
@@ -160,6 +170,7 @@ func TestRegistrationAuthoringAPIEnforcesSingleSessionAndContainmentFailure(t *t
 	handler, err := NewHandler(HandlerConfig{
 		Context: context.Background(), Engine: fake, Snapshot: fake.snapshot, ExampleDir: "/tmp/example",
 		Token: testToken, AccessCode: testAccessCode, Authority: testAuthority, PrivateRoot: "/tmp/private",
+		BrowserTransactions: newFakeBrowserTransactions(),
 		StartRegistration: func(context.Context, browserauthor.RegistrationConfig) (RegistrationAuthoringSession, error) {
 			return session, nil
 		},
@@ -194,6 +205,7 @@ func TestRegistrationAuthoringAPIStartFailureIsClosed(t *testing.T) {
 	handler, err := NewHandler(HandlerConfig{
 		Context: context.Background(), Engine: fake, Snapshot: fake.snapshot, ExampleDir: "/tmp/example",
 		Token: testToken, AccessCode: testAccessCode, Authority: testAuthority, PrivateRoot: "/tmp/private",
+		BrowserTransactions: newFakeBrowserTransactions(),
 		StartRegistration: func(context.Context, browserauthor.RegistrationConfig) (RegistrationAuthoringSession, error) {
 			return nil, errors.New("private path and do-not-retain")
 		},
@@ -215,6 +227,7 @@ func TestRegistrationAuthoringAPIBuildsDraftServerSideThenRequiresExplicitReview
 	handler, err := NewHandler(HandlerConfig{
 		Context: context.Background(), Engine: fake, Snapshot: fake.snapshot, ExampleDir: "/tmp/example",
 		Token: testToken, AccessCode: testAccessCode, Authority: testAuthority, PrivateRoot: "/tmp/private", Now: func() time.Time { return clock },
+		BrowserTransactions: newFakeBrowserTransactions(),
 		StartRegistration: func(context.Context, browserauthor.RegistrationConfig) (RegistrationAuthoringSession, error) {
 			return session, nil
 		},
@@ -265,7 +278,7 @@ func TestRegistrationAuthoringAPIBuildsDraftServerSideThenRequiresExplicitReview
 	}
 	command := <-session.commands
 	if command.Type != "review" || !command.Confirmed || len(command.Profile) == 0 || len(command.CandidateIDs) != 4 || len(command.CredentialBindings) != 2 ||
-		command.Flow != "create_dedicated_test_user" || command.CleanupDisposition != "delete_separately" || strings.Contains(string(command.Profile), "registration_identifier") {
+		command.Flow != "create_dedicated_test_user" || command.CleanupDisposition != "delete_separately" || strings.Contains(string(command.Profile), "dedicated_test_identifier") {
 		t.Fatalf("private review command = %#v profile=%s", command, command.Profile)
 	}
 	session.events <- browserauthor.RegistrationEvent{State: "reviewed", Phase: "reviewed"}
@@ -282,6 +295,272 @@ func TestRegistrationAuthoringAPIBuildsDraftServerSideThenRequiresExplicitReview
 	if response.Code != http.StatusAccepted {
 		t.Fatalf("cancel after finish assertion = %d %s", response.Code, response.Body.String())
 	}
+}
+
+func TestRegistrationAuthoringCleanTeardownStartsTransactionV2AndSelectsReviewedVirtualSource(t *testing.T) {
+	observedAt := time.Date(2026, 8, 26, 12, 5, 0, 0, time.UTC)
+	clock := observedAt.Add(2 * time.Minute)
+	candidate := registrationCandidateV2(t, observedAt)
+	repoRoot, err := filepath.Abs(filepath.Join("..", "..", ".."))
+	if err != nil {
+		t.Fatal(err)
+	}
+	testRoot, err := os.MkdirTemp(repoRoot, ".a21-registration-")
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = os.RemoveAll(testRoot) })
+	example := filepath.Join(testRoot, "example")
+	authoringEngine, authoringSnapshot, err := icotengine.Open(context.Background(), icotengine.Config{
+		ExampleDir: example, NetworkPolicy: "never", Now: func() time.Time { return clock },
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	root := t.TempDir()
+	scratch, store := filepath.Join(root, "scratch"), filepath.Join(root, "store")
+	for _, path := range []string{scratch, store} {
+		if err := os.Mkdir(path, 0o700); err != nil {
+			t.Fatal(err)
+		}
+	}
+	transactions, _, err := transactionengine.New(transactionengine.Config{
+		Package: packagepipeline.CurrentOptions{ExampleDir: example, Scope: "examples/registration", ScratchParent: scratch, StoreDir: store},
+		Now:     func() time.Time { return clock },
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	session := newFakeRegistrationAuthoringSession()
+	var internalErrors strings.Builder
+	handler, err := NewHandler(HandlerConfig{
+		Context: context.Background(), Engine: authoringEngine, Snapshot: authoringSnapshot, ExampleDir: example,
+		Token: testToken, AccessCode: testAccessCode, Authority: testAuthority, PrivateRoot: t.TempDir(), Now: func() time.Time { return clock },
+		BrowserTransactions: transactions, ErrOut: &internalErrors, RepoRoot: repoRoot,
+		StartRegistration: func(context.Context, browserauthor.RegistrationConfig) (RegistrationAuthoringSession, error) {
+			return session, nil
+		},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	initial := currentResponse(t, handler)
+	started := doRequest(handler, http.MethodPost, "/api/v4/registration-authoring/start", registrationStartBody(initial, "https://app.example.test/register?action=startnew"), "application/json", true)
+	if started.Code != http.StatusAccepted {
+		t.Fatalf("start = %d %s", started.Code, started.Body.String())
+	}
+	session.events <- browserauthor.RegistrationEvent{State: "ready"}
+	<-session.commands
+	session.events <- browserauthor.RegistrationEvent{State: "candidate", Candidate: candidate}
+	session.close()
+	pending := waitForRegistrationState(t, handler, "transaction_review")
+	if pending.BrowserTransaction == nil || pending.BrowserTransaction.Transaction == nil || pending.BrowserTransaction.Transaction.Version != browsertransaction.VersionV2 || pending.BrowserTransaction.Transaction.State != browsertransaction.StateCandidate {
+		t.Fatalf("pending registration transaction = %#v", pending.BrowserTransaction)
+	}
+	blockedRound := doRequest(handler, http.MethodPost, "/api/v4/round", `{"revision":"`+pending.Revision+`","answers":[]}`, "application/json", true)
+	if blockedRound.Code != http.StatusConflict || !strings.Contains(blockedRound.Body.String(), `"code":"registration_authoring_active"`) {
+		t.Fatalf("authoring mutation during transaction review = %d %s", blockedRound.Code, blockedRound.Body.String())
+	}
+	transactionSnapshot, err := transactions.Observe(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+	reviewData, err := json.Marshal(transactionengine.ReviewRequest{Authority: transactionengine.Authority{
+		ExpectedRevision: transactionSnapshot.Revision, ExpectedTransactionSHA256: transactionSnapshot.TransactionSHA256, HumanApproved: true,
+	}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	reviewed := doRequest(handler, http.MethodPost, "/api/v4/browser-transactions/review", string(reviewData), "application/json", true)
+	if reviewed.Code != http.StatusOK {
+		t.Fatalf("transaction review = %d %s", reviewed.Code, reviewed.Body.String())
+	}
+	adopted := currentResponse(t, handler)
+	if adopted.RegistrationAuthoring == nil || adopted.RegistrationAuthoring.State != "adopted" || len(adopted.Snapshot.SelectedSources) != 1 ||
+		len(adopted.Snapshot.SourceCandidates.VirtualBrowser.Candidates) != 1 || !adopted.Snapshot.SourceCandidates.VirtualBrowser.Candidates[0].Selected ||
+		adopted.Snapshot.SourceCandidates.VirtualBrowser.Candidates[0].Kind != browsertransaction.CandidateRegistration {
+		t.Fatalf("adopted virtual source = %s", mustJSON(t, adopted))
+	}
+	for _, forbidden := range []string{"action=startnew", "startnew", "do-not-retain", "secret-value"} {
+		if strings.Contains(mustJSON(t, adopted), forbidden) {
+			t.Fatalf("adopted public state exposed %q: %s", forbidden, mustJSON(t, adopted))
+		}
+	}
+	reviewedSnapshot, err := transactions.Observe(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+	prepareData, err := json.Marshal(transactionengine.PrepareRequest{Authority: transactionengine.Authority{
+		ExpectedRevision: reviewedSnapshot.Revision, ExpectedTransactionSHA256: reviewedSnapshot.TransactionSHA256, HumanApproved: true,
+	}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	prepare := doRequest(handler, http.MethodPost, "/api/v4/browser-transactions/prepare", string(prepareData), "application/json", true)
+	if prepare.Code != http.StatusConflict || !strings.Contains(prepare.Body.String(), `"code":"registration_package_not_ready"`) {
+		t.Fatalf("prepare before package handoff = %d %s", prepare.Code, prepare.Body.String())
+	}
+
+	authoring := adopted
+	for round := 0; !authoring.Snapshot.ApprovalRequired && round < 16; round++ {
+		if len(authoring.Snapshot.Frontier) == 0 {
+			t.Fatalf("authoring stalled before approval: %s", mustJSON(t, authoring.Snapshot))
+		}
+		answers := make([]map[string]string, 0, len(authoring.Snapshot.Frontier))
+		for _, question := range authoring.Snapshot.Frontier {
+			value := strings.TrimSpace(question.Recommendation)
+			if value == "" {
+				value = strings.TrimSpace(question.SuggestedAnswer)
+			}
+			if value == "" {
+				value = "reviewed registration package"
+			}
+			answers = append(answers, map[string]string{"question_id": question.ID, "value": value})
+		}
+		body, err := json.Marshal(map[string]any{"revision": authoring.Revision, "answers": answers})
+		if err != nil {
+			t.Fatal(err)
+		}
+		response := doRequest(handler, http.MethodPost, "/api/v4/round", string(body), "application/json", true)
+		if response.Code != http.StatusOK {
+			t.Fatalf("authoring round %d = %d %s", round+1, response.Code, response.Body.String())
+		}
+		authoring = decodeResponse(t, response)
+	}
+	if !authoring.Snapshot.ApprovalRequired || !authoring.Snapshot.Ready {
+		t.Fatalf("registration package did not reach explicit approval: %s", mustJSON(t, authoring.Snapshot))
+	}
+	approveBody, err := json.Marshal(map[string]any{"revision": authoring.Revision, "human_approved": true})
+	if err != nil {
+		t.Fatal(err)
+	}
+	approvedResponse := doRequest(handler, http.MethodPost, "/api/v4/author/approve", string(approveBody), "application/json", true)
+	if approvedResponse.Code != http.StatusOK {
+		t.Fatalf("authoring approval = %d %s", approvedResponse.Code, approvedResponse.Body.String())
+	}
+	approved := decodeResponse(t, approvedResponse)
+	for _, relative := range []string{"browser-registration/guided-registration.json", "browser-registration/guided-registration.review.json"} {
+		if info, err := os.Stat(filepath.Join(example, filepath.FromSlash(relative))); err != nil || !info.Mode().IsRegular() {
+			t.Fatalf("reviewed registration artifact %s = %v, %v", relative, info, err)
+		}
+	}
+	buildBody, err := json.Marshal(map[string]any{"revision": approved.Revision, "confirmed": true})
+	if err != nil {
+		t.Fatal(err)
+	}
+	builtResponse := doRequest(handler, http.MethodPost, "/api/v4/package/build", string(buildBody), "application/json", true)
+	if builtResponse.Code != http.StatusOK {
+		t.Fatalf("package build = %d %s; internal=%s", builtResponse.Code, builtResponse.Body.String(), internalErrors.String())
+	}
+	built := decodeResponse(t, builtResponse)
+	if built.Lifecycle != lifecycleHandoffReady || built.Package == nil || built.Package.Status != "pass" {
+		t.Fatalf("qualified package = %s", mustJSON(t, built))
+	}
+	reviewedSnapshot, err = transactions.Observe(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+	prepareData, err = json.Marshal(transactionengine.PrepareRequest{Authority: transactionengine.Authority{
+		ExpectedRevision: reviewedSnapshot.Revision, ExpectedTransactionSHA256: reviewedSnapshot.TransactionSHA256, HumanApproved: true,
+	}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	preparedResponse := doRequest(handler, http.MethodPost, "/api/v4/browser-transactions/prepare", string(prepareData), "application/json", true)
+	if preparedResponse.Code != http.StatusOK {
+		t.Fatalf("transaction prepare/qualify = %d %s", preparedResponse.Code, preparedResponse.Body.String())
+	}
+	preparedSnapshot, err := transactions.Observe(context.Background())
+	if err != nil || preparedSnapshot.Preparation == nil {
+		t.Fatalf("prepared transaction = %#v, %v", preparedSnapshot, err)
+	}
+	promoteData, err := json.Marshal(transactionengine.PromoteRequest{
+		Authority: transactionengine.Authority{
+			ExpectedRevision: preparedSnapshot.Revision, ExpectedTransactionSHA256: preparedSnapshot.TransactionSHA256, HumanApproved: true,
+		},
+		ExpectedPreparationSHA256: preparedSnapshot.Preparation.PreparationSHA256, ExpectedQualificationSHA256: preparedSnapshot.Preparation.QualificationSHA256,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	promotedResponse := doRequest(handler, http.MethodPost, "/api/v4/browser-transactions/promote", string(promoteData), "application/json", true)
+	if promotedResponse.Code != http.StatusOK {
+		t.Fatalf("transaction promote = %d %s", promotedResponse.Code, promotedResponse.Body.String())
+	}
+	promoted := currentResponse(t, handler)
+	if promoted.RegistrationAuthoring == nil || promoted.RegistrationAuthoring.State != "promoted" || promoted.BrowserTransaction == nil ||
+		promoted.BrowserTransaction.Transaction == nil || promoted.BrowserTransaction.Transaction.State != browsertransaction.StatePromoted || promoted.BrowserTransaction.RuntimeExecutionSupported {
+		t.Fatalf("promoted registration package = %s", mustJSON(t, promoted))
+	}
+}
+
+func registrationCandidateV2(t *testing.T, now time.Time) *browsercandidate.Registration {
+	t.Helper()
+	observation := registrationDraftObservation()
+	profileBytes, candidateIDs, bindings, disclosure, err := buildRegistrationDraft(
+		validRegistrationDraftRequest(),
+		registrationAuthoringStartRequest{ProfileID: "synthetic_registration", Origins: []string{"https://app.example.test"}},
+		observation,
+		now,
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	profile, err := registrationprofile.Parse(profileBytes)
+	if err != nil {
+		t.Fatal(err)
+	}
+	reviewedCandidates := make([]registrationauthorsession.ReviewedCandidate, 0, len(candidateIDs))
+	for _, id := range candidateIDs {
+		for _, observed := range observation.Candidates {
+			if observed.ID == id {
+				reviewedCandidates = append(reviewedCandidates, registrationauthorsession.ReviewedCandidate{
+					ID: observed.ID, Generation: observation.Generation, Role: observed.Role, Label: observed.Label, Matches: observed.Matches,
+				})
+			}
+		}
+	}
+	bounds := registrationauthorsession.Bounds{
+		NavigationTimeoutMS: 20_000, TotalTimeoutMS: 300_000, MaxRequests: 256,
+		MaxResponseBytes: 32 << 20, MaxObservations: 64, MaxCandidates: 128,
+	}
+	envelope, err := registrationauthorresult.Build(registrationauthorresult.BuildRequest{
+		CreatedAt: now.Add(time.Minute),
+		Completion: &registrationauthorsession.Completion{
+			Protocol: registrationauthorsession.ProtocolV2, ProfileID: "synthetic_registration", Profile: *profile, ProfileBytes: profileBytes,
+			ReviewedCandidates: reviewedCandidates, Flow: disclosure.Flow, CleanupDisposition: disclosure.CleanupDisposition,
+			Origins: []string{"https://app.example.test"}, ObservedAt: now, Bounds: bounds, Observations: 1,
+			Network: registrationauthorsession.NetworkSummary{Requests: 1, GETRequests: 1},
+		},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	privateRoot := t.TempDir()
+	if err := os.Chmod(privateRoot, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	inbox, err := browsercandidate.OpenPrivateInbox(privateRoot)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer inbox.Close()
+	if _, err := registrationauthorresult.WritePrivateExclusive(privateRoot, envelope); err != nil {
+		t.Fatal(err)
+	}
+	candidate, err := inbox.AdoptNewRegistration(browsercandidate.AdoptRegistrationRequest{
+		TransactionID: "guided-registration", CredentialBindings: bindings,
+		Review: browsercandidate.RegistrationReview{
+			Confirmed: true, ProfileID: envelope.Candidate.ProfileID, Flow: envelope.Flow.Name, SourceSHA256: envelope.Candidate.SourceDigest,
+			ReviewedCandidates: reviewedCandidates, CleanupDisposition: envelope.CallPolicy.CleanupDisposition,
+			Origins: append([]string(nil), envelope.Origins...), Bounds: envelope.Bounds, Observations: envelope.Observations, MinimumRequests: 1,
+		},
+		AssessedAt: now.Add(time.Minute + time.Second),
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	return candidate
 }
 
 func registrationStartBody(response Response, target string) string {

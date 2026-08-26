@@ -5,13 +5,18 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"net/http"
 	"strings"
 	"time"
 
 	"github.com/OpenUdon/browsertools/registrationauthorsession"
+	"github.com/OpenUdon/openudon/internal/browsercandidate"
 	"github.com/OpenUdon/openudon/internal/browsertransaction"
+	transactionengine "github.com/OpenUdon/openudon/internal/browsertransaction/engine"
 	"github.com/OpenUdon/openudon/internal/icot/browserauthor"
+	"github.com/OpenUdon/openudon/internal/icot/elicitor"
+	icotengine "github.com/OpenUdon/openudon/internal/icot/engine"
 )
 
 type registrationAuthoringStartRequest struct {
@@ -88,6 +93,14 @@ func (s *Server) serveRegistrationAuthoringStart(w http.ResponseWriter, r *http.
 	}
 	if s.privateRoot == "" {
 		s.writeError(w, http.StatusUnprocessableEntity, "private_root_required", "registration authoring requires icot ui --private-root", false, requestID, s.revision)
+		return
+	}
+	if s.browserTransactions == nil || s.browserTransaction == nil {
+		s.writeError(w, http.StatusUnprocessableEntity, "browser_transactions_required", "registration authoring requires package scope, restrictive scratch, and generation-store configuration", false, requestID, s.revision)
+		return
+	}
+	if s.browserTransaction.Transaction != nil {
+		s.writeError(w, http.StatusConflict, "browser_transaction_active", "finish or cancel the current browser transaction before registration authoring", false, requestID, s.revision)
 		return
 	}
 
@@ -220,8 +233,17 @@ func (s *Server) consumeRegistrationAuthoring(session RegistrationAuthoringSessi
 	}
 	if resultReady && s.registrationCandidate != nil {
 		draft := cloneRegistrationDraftDisclosure(s.registrationAuthoring.Draft)
+		transactionSnapshot, err := s.startRegistrationTransactionLocked(s.captureContext, s.registrationCandidate)
+		if err != nil {
+			s.registrationAuthoring = &RegistrationAuthoringState{State: "failed", Message: "The adopted registration candidate could not enter the exact browser transaction lifecycle.", StartedAt: startedAt.Format(time.RFC3339), UpdatedAt: updatedAt}
+			s.registrationCandidate = nil
+			s.clearRegistrationDraftLocked()
+			_ = s.updateRevisionLocked()
+			return
+		}
+		s.browserTransaction = &transactionSnapshot
 		s.registrationAuthoring = &RegistrationAuthoringState{
-			State: "review_ready", Message: "The isolated worker stopped cleanly. The adopted registration candidate is ready for explicit transaction review.",
+			State: "transaction_review", Message: "The worker stopped cleanly and the exact transaction-v2 candidate is ready for separate browser transaction review.",
 			ResultReady: true, Draft: draft, StartedAt: startedAt.Format(time.RFC3339), UpdatedAt: updatedAt,
 		}
 		s.clearRegistrationDraftLocked()
@@ -232,6 +254,84 @@ func (s *Server) consumeRegistrationAuthoring(session RegistrationAuthoringSessi
 	s.registrationCandidate = nil
 	s.clearRegistrationDraftLocked()
 	_ = s.updateRevisionLocked()
+}
+
+func (s *Server) startRegistrationTransactionLocked(ctx context.Context, candidate *browsercandidate.Registration) (transactionengine.Snapshot, error) {
+	if s.browserTransactions == nil || candidate == nil {
+		return transactionengine.Snapshot{}, errors.New("registration transaction lifecycle is unavailable")
+	}
+	transaction := candidate.Transaction()
+	data, err := browsertransaction.CanonicalBytes(transaction)
+	if err != nil {
+		return transactionengine.Snapshot{}, err
+	}
+	digest, err := browsertransaction.Digest(transaction)
+	if err != nil {
+		return transactionengine.Snapshot{}, err
+	}
+	observeCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
+	defer cancel()
+	initial, err := s.browserTransactions.Observe(observeCtx)
+	if err != nil || initial.Transaction != nil {
+		return initial, errors.New("browser transaction lifecycle is not inactive")
+	}
+	return s.browserTransactions.Start(observeCtx, transactionengine.StartRequest{
+		ExpectedRevision: initial.Revision, ExpectedTransactionSHA256: digest, TransactionJSON: data,
+	})
+}
+
+func (s *Server) adoptReviewedRegistrationLocked(ctx context.Context, transactionSnapshot transactionengine.Snapshot) error {
+	if s.registrationCandidate == nil || s.registrationAuthoring == nil || s.registrationAuthoring.State != "transaction_review" || transactionSnapshot.Transaction == nil {
+		return errors.New("registration candidate is not pending transaction review")
+	}
+	expected, err := s.registrationCandidate.ReviewedTransaction()
+	if err != nil {
+		return err
+	}
+	expectedDigest, err := browsertransaction.Digest(expected)
+	if err != nil {
+		return err
+	}
+	actualDigest, err := browsertransaction.Digest(*transactionSnapshot.Transaction)
+	if err != nil || expectedDigest != actualDigest || actualDigest != transactionSnapshot.TransactionSHA256 || transactionSnapshot.Transaction.State != browsertransaction.StateReviewed {
+		return errors.New("reviewed browser transaction does not match the private registration candidate")
+	}
+	authoringEngine, ok := s.engine.(registrationVirtualBrowserEngine)
+	if !ok {
+		return errors.New("authoring engine does not support virtual browser sources")
+	}
+	input, err := icotengine.RegistrationVirtualBrowserTransaction(s.registrationCandidate, true)
+	if err != nil {
+		return err
+	}
+	replaced, err := authoringEngine.ReplaceVirtualBrowserSources(ctx, s.snapshot.SourceCandidates.VirtualBrowser.Generation, []elicitor.VirtualBrowserTransactionInput{input})
+	if err != nil {
+		return err
+	}
+	candidateID := ""
+	for _, candidate := range replaced.SourceCandidates.VirtualBrowser.Candidates {
+		if candidate.TransactionID == expected.ID && candidate.Kind == browsertransaction.CandidateRegistration {
+			if candidateID != "" {
+				return errors.New("registration virtual source is ambiguous")
+			}
+			candidateID = candidate.ID
+		}
+	}
+	if candidateID == "" {
+		return errors.New("registration virtual source is unavailable")
+	}
+	selected, err := authoringEngine.SelectVirtualBrowserSources(ctx, replaced.SourceCandidates.VirtualBrowser.Generation, []string{candidateID})
+	if err != nil {
+		return err
+	}
+	draft := cloneRegistrationDraftDisclosure(s.registrationAuthoring.Draft)
+	s.snapshot = selected
+	s.registrationAuthoring = &RegistrationAuthoringState{
+		State: "adopted", Message: "The explicitly reviewed transaction-v2 candidate is selected as a virtual source. Complete authoring, write, and build the package before preparation.",
+		Draft: draft, StartedAt: s.registrationAuthoring.StartedAt, UpdatedAt: s.now().UTC().Format(time.RFC3339),
+	}
+	s.registrationCandidate = nil
+	return nil
 }
 
 func (s *Server) serveRegistrationAuthoringCommand(w http.ResponseWriter, r *http.Request, cookieScoped bool, requestID string) {

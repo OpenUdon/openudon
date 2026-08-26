@@ -10,6 +10,7 @@ import (
 	"strings"
 
 	"github.com/OpenUdon/openudon/internal/openapidisco"
+	"github.com/OpenUdon/openudon/internal/packageartifacts"
 )
 
 type QualityReport struct {
@@ -76,23 +77,26 @@ func assessContext(ctx context.Context, opts Options, writeReport bool) (*Qualit
 	}
 	candidates, err := openapidisco.LocalFiles(filepath.Join(exampleDir, "openapi"), exampleDir, projectText)
 	apiSourcePaths, sourceErr := collectLocalAPISourcePaths(exampleDir)
-	hasFirstClassSources := sourceErr == nil && len(apiSourcePaths) > 0
+	browserSourcePaths, browserSourceErr := collectLocalBrowserSourcePaths(exampleDir)
+	hasFirstClassSources := sourceErr == nil && browserSourceErr == nil && len(apiSourcePaths)+len(browserSourcePaths) > 0
 	if err != nil && !(errors.Is(err, os.ErrNotExist) && (policy.NoOpenAPI || hasFirstClassSources)) {
 		report.add("openapi.local", "fail", "OpenAPI directory could not be scanned", err.Error())
 	} else if sourceErr != nil {
 		report.add("openapi.local", "fail", "API source documents could not be scanned", sourceErr.Error())
+	} else if browserSourceErr != nil {
+		report.add("openapi.local", "fail", "browser source documents could not be scanned", browserSourceErr.Error())
 	} else if policy.NoOpenAPI {
 		result.OpenAPICandidates = candidates
 		report.Artifacts = result
 		report.add("openapi.local", "pass", "project explicitly declares OpenAPI is not required", candidateList(candidates))
-	} else if len(candidates) == 0 && len(apiSourcePaths) == 0 {
+	} else if len(candidates) == 0 && len(apiSourcePaths) == 0 && len(browserSourcePaths) == 0 {
 		report.add("openapi.local", "fail", "no local API source documents are available", "Add a valid OpenAPI document under openapi/ or a first-class source under google-discovery/, aws-smithy/, asyncapi/, graphql/, openrpc/, grpc-protobuf/, or odata/.")
 	} else {
 		detail := candidateList(candidates)
-		if sourceErr == nil && len(apiSourcePaths) > 0 {
-			detail = strings.TrimSpace(detail + "\n" + strings.Join(apiSourcePaths, "\n"))
+		if len(apiSourcePaths)+len(browserSourcePaths) > 0 {
+			detail = strings.TrimSpace(detail + "\n" + strings.Join(append(append([]string(nil), apiSourcePaths...), browserSourcePaths...), "\n"))
 		}
-		report.add("openapi.local", "pass", fmt.Sprintf("%d OpenAPI document(s), %d API source document(s) available", len(candidates), len(apiSourcePaths)), detail)
+		report.add("openapi.local", "pass", fmt.Sprintf("%d OpenAPI document(s), %d first-class source document(s) available", len(candidates), len(apiSourcePaths)+len(browserSourcePaths)), detail)
 		result.OpenAPICandidates = candidates
 		if primary, err := openapidisco.SelectPrimary(candidates); err == nil {
 			result.PrimaryOpenAPI = primary.RelativePath
@@ -132,6 +136,22 @@ func assessContext(ctx context.Context, opts Options, writeReport bool) (*Qualit
 		}
 	}
 	return report, nil
+}
+
+func collectLocalBrowserSourcePaths(exampleDir string) ([]string, error) {
+	var result []string
+	for _, collect := range []func(string) ([]string, error){
+		packageartifacts.CollectBrowserProfilePaths,
+		packageartifacts.CollectBrowserAuthenticationProfilePaths,
+		packageartifacts.CollectBrowserRegistrationProfilePaths,
+	} {
+		paths, err := collect(exampleDir)
+		if err != nil {
+			return nil, err
+		}
+		result = append(result, paths...)
+	}
+	return result, nil
 }
 
 type conversionDiagnostic struct {

@@ -85,6 +85,16 @@ func (s *Server) serveBrowserTransactionMutation(w http.ResponseWriter, r *http.
 		s.writeError(w, http.StatusServiceUnavailable, "browser_transactions_unavailable", "browser transaction resources are not configured", false, requestID, "")
 		return
 	}
+	registrationReviewOperation := s.registrationAuthoring != nil && s.registrationAuthoring.State == "transaction_review" &&
+		(route == "/api/v4/browser-transactions/review" || route == "/api/v4/browser-transactions/cancel")
+	if registrationAuthoringActive(s.registrationAuthoring) && !registrationReviewOperation {
+		s.writeError(w, http.StatusConflict, "registration_authoring_active", "browser transaction mutations are blocked while registration authoring is active", true, requestID, s.revision)
+		return
+	}
+	if route == "/api/v4/browser-transactions/prepare" && s.registrationAuthoring != nil && s.registrationAuthoring.State == "adopted" && s.lifecycle != lifecycleHandoffReady {
+		s.writeError(w, http.StatusConflict, "registration_package_not_ready", "write and build the reviewed registration package before transaction preparation", false, requestID, s.revision)
+		return
+	}
 
 	ctx, cancel := context.WithTimeout(r.Context(), browserTransactionTimeout(route))
 	defer cancel()
@@ -153,6 +163,37 @@ func (s *Server) serveBrowserTransactionMutation(w http.ResponseWriter, r *http.
 	if err != nil {
 		s.writeBrowserTransactionError(w, requestID, snapshot, err)
 		return
+	}
+	if route == "/api/v4/browser-transactions/review" && s.registrationCandidate != nil {
+		adoptionCtx, cancelAdoption := context.WithTimeout(r.Context(), 15*time.Second)
+		adoptionErr := s.adoptReviewedRegistrationLocked(adoptionCtx, snapshot)
+		cancelAdoption()
+		if adoptionErr != nil {
+			s.registrationAuthoring = &RegistrationAuthoringState{State: "failed", Message: "The reviewed transaction could not be adopted into the authoring source catalog; restart and author again.", StartedAt: s.registrationAuthoring.StartedAt, UpdatedAt: s.now().UTC().Format(time.RFC3339)}
+			s.registrationCandidate = nil
+			_ = s.updateRevisionLocked()
+			s.writeError(w, http.StatusConflict, "registration_candidate_adoption_failed", "the reviewed registration candidate could not enter the authoring source catalog", false, requestID, s.revision)
+			return
+		}
+		if revisionErr := s.updateRevisionLocked(); revisionErr != nil {
+			s.writeError(w, http.StatusInternalServerError, "internal_error", "registration adoption could not be versioned", true, requestID, s.revision)
+			return
+		}
+	}
+	if route == "/api/v4/browser-transactions/cancel" && s.registrationAuthoring != nil && s.registrationAuthoring.State == "transaction_review" {
+		s.registrationAuthoring = &RegistrationAuthoringState{State: "canceled", Message: "The pending reviewed candidate and browser transaction were canceled; restart iCoT before another registration-authoring session.", StartedAt: s.registrationAuthoring.StartedAt, UpdatedAt: s.now().UTC().Format(time.RFC3339)}
+		s.registrationCandidate = nil
+		if revisionErr := s.updateRevisionLocked(); revisionErr != nil {
+			s.writeError(w, http.StatusInternalServerError, "internal_error", "registration cancellation could not be versioned", true, requestID, s.revision)
+			return
+		}
+	}
+	if route == "/api/v4/browser-transactions/promote" && s.registrationAuthoring != nil && s.registrationAuthoring.State == "adopted" {
+		s.registrationAuthoring = &RegistrationAuthoringState{State: "promoted", Message: "The exact qualified registration package generation was promoted without runtime execution.", StartedAt: s.registrationAuthoring.StartedAt, UpdatedAt: s.now().UTC().Format(time.RFC3339)}
+		if revisionErr := s.updateRevisionLocked(); revisionErr != nil {
+			s.writeError(w, http.StatusInternalServerError, "internal_error", "registration promotion could not be versioned", true, requestID, s.revision)
+			return
+		}
 	}
 	setETag(w, snapshot.Revision)
 	s.writeJSON(w, http.StatusOK, browserTransactionResponse{Version: APIVersion, Transaction: browserTransactionResource(snapshot)}, requestID)

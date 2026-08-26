@@ -1068,6 +1068,9 @@ func TestPackageFailureResumeReapprovalAndAllowlistedHandoff(t *testing.T) {
 		Engine: fake, Snapshot: fake.snapshot, ExampleDir: exampleDir, Token: testToken, AccessCode: testAccessCode, Authority: testAuthority,
 		BuildPackage: func(context.Context, synthesize.Options) (*synthesize.Result, *synthesize.QualityReport, error) {
 			builds++
+			if !qualityPass {
+				return &synthesize.Result{ExampleDir: exampleDir, ProjectPath: projectPath}, &synthesize.QualityReport{Status: "fail", Checks: []synthesize.QualityCheck{{Code: "review.complete", Status: "fail", Message: "review is incomplete", Detail: "confirm side effects"}}}, nil
+			}
 			return &synthesize.Result{ExampleDir: exampleDir, ProjectPath: projectPath}, nil, nil
 		},
 		AssessPackage: func(context.Context, synthesize.Options) (*synthesize.QualityReport, error) {
@@ -1142,7 +1145,7 @@ func TestPackageFailureResumeReapprovalAndAllowlistedHandoff(t *testing.T) {
 		t.Fatalf("passing package response = %d %s", passingBuild.Code, passingBuild.Body.String())
 	}
 	handoff := decodeResponse(t, passingBuild)
-	if !handoff.Completed || handoff.Lifecycle != lifecycleHandoffReady || handoff.Package == nil || handoff.Package.Inspection == nil || len(handoff.Package.Artifacts) != 1 || builds != 2 || assessments != 2 || revalidations != 1 {
+	if !handoff.Completed || handoff.Lifecycle != lifecycleHandoffReady || handoff.Package == nil || handoff.Package.Inspection == nil || len(handoff.Package.Artifacts) != 1 || builds != 2 || assessments != 1 || revalidations != 1 {
 		t.Fatalf("handoff state = %#v builds=%d assessments=%d revalidations=%d", handoff, builds, assessments, revalidations)
 	}
 	artifact := doRequest(handler, http.MethodGet, "/api/v4/artifact?name=project", "", "", true)

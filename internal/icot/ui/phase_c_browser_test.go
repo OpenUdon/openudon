@@ -746,6 +746,7 @@ func TestPhaseCBrowserGuidedRegistrationDraftReview(t *testing.T) {
 	fixture := newPhaseCBrowserFixtureWithConfig(t, browserEngine, func(config *HandlerConfig) {
 		config.PrivateRoot = "/tmp/phase-c-registration-private"
 		config.Now = func() time.Time { return time.Date(2026, 8, 26, 12, 0, 0, 0, time.UTC) }
+		config.BrowserTransactions = newFakeBrowserTransactions()
 		config.StartRegistration = func(context.Context, browserauthor.RegistrationConfig) (RegistrationAuthoringSession, error) {
 			return session, nil
 		}

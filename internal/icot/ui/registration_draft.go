@@ -14,6 +14,7 @@ import (
 	"github.com/OpenUdon/browsertools/registrationauthorsession"
 	"github.com/OpenUdon/browsertools/registrationprofile"
 	"github.com/OpenUdon/openudon/internal/browsertransaction"
+	"github.com/OpenUdon/openudon/internal/credentialpolicy"
 	"github.com/OpenUdon/uws/browserregistration"
 )
 
@@ -125,7 +126,8 @@ func buildRegistrationDraft(request registrationDraftRequest, start registration
 		return nil, nil, nil, nil, errors.New("registration draft slots are invalid")
 	}
 	for _, slot := range request.CredentialSlots {
-		if !registrationDraftSymbol.MatchString(slot.Slot) || !registrationDraftSymbol.MatchString(slot.Binding) || slot.Kind != "identifier" && slot.Kind != "password" ||
+		if !registrationDraftSymbol.MatchString(slot.Slot) || !registrationDraftSymbol.MatchString(slot.Binding) || credentialpolicy.IsLikelyLiteral(slot.Binding) ||
+			slot.Kind != "identifier" && slot.Kind != "password" ||
 			slots[slot.Slot].Kind != "" || seenBindings[slot.Binding] {
 			return nil, nil, nil, nil, errors.New("registration draft slots are invalid")
 		}

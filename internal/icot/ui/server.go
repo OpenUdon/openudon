@@ -34,6 +34,7 @@ import (
 	"github.com/OpenUdon/openudon/internal/browsercandidate"
 	"github.com/OpenUdon/openudon/internal/browsertransaction"
 	"github.com/OpenUdon/openudon/internal/icot/browserauthor"
+	"github.com/OpenUdon/openudon/internal/icot/elicitor"
 	"github.com/OpenUdon/openudon/internal/icot/engine"
 	"github.com/OpenUdon/openudon/internal/synthesize"
 	"github.com/OpenUdon/openudon/internal/trustedrunner"
@@ -73,6 +74,11 @@ type resumeEngine interface {
 
 type browserCaptureEngine interface {
 	StageBrowserCapture(context.Context, engine.BrowserCaptureStage) (engine.Snapshot, error)
+}
+
+type registrationVirtualBrowserEngine interface {
+	ReplaceVirtualBrowserSources(context.Context, uint64, []elicitor.VirtualBrowserTransactionInput) (engine.Snapshot, error)
+	SelectVirtualBrowserSources(context.Context, uint64, []string) (engine.Snapshot, error)
 }
 
 type CaptureSession interface {
@@ -168,9 +174,11 @@ type CaptureState struct {
 	UpdatedAt         string                     `json:"updated_at,omitempty"`
 }
 
-// RegistrationAuthoringState is the complete public authoring surface. It
-// cannot carry URLs, queries, profile bytes, credentials, verification values,
-// private paths, raw worker output, or the adopted candidate.
+// RegistrationAuthoringState is the complete public authoring surface. Only
+// Draft may carry the explicitly reviewed canonical profile and retained
+// structural query disclosure. The state cannot carry unreviewed URLs or
+// queries, credential or verification values, private paths, raw worker output,
+// or the adopted candidate.
 type RegistrationAuthoringState struct {
 	State             string                                 `json:"state"`
 	Message           string                                 `json:"message,omitempty"`
@@ -1697,9 +1705,26 @@ func (s *Server) servePackageBuild(w http.ResponseWriter, r *http.Request, cooki
 	}
 	buildCtx, cancel := context.WithTimeout(r.Context(), 2*time.Minute)
 	defer cancel()
-	result, _, err := s.buildPackage(buildCtx, synthesize.Options{ExampleDir: s.exampleDir, LocalOnlyDiscovery: true})
+	result, buildReport, err := s.buildPackage(buildCtx, synthesize.Options{ExampleDir: s.exampleDir, LocalOnlyDiscovery: true})
 	if err != nil {
 		s.writeInternalError(w, r, requestID, "/api/v4/package/build", "deterministic_build", err, true)
+		return
+	}
+	if buildReport != nil && !buildReport.Passed() {
+		s.lifecycle = lifecyclePackageFail
+		s.completed = false
+		s.packageState = &PackageState{
+			Status:      "failed",
+			Quality:     &PackageQuality{Status: buildReport.Status, Checks: append([]synthesize.QualityCheck(nil), buildReport.Checks...)},
+			Remediation: packageRemediation(buildReport),
+		}
+		s.artifactPaths = map[string]string{}
+		if err := s.updateRevisionLocked(); err != nil {
+			s.writeInternalError(w, r, requestID, "/api/v4/package/build", "revision", err, true)
+			return
+		}
+		setETag(w, s.etag)
+		s.writeJSON(w, http.StatusOK, s.responseLocked(), requestID)
 		return
 	}
 	var report *synthesize.QualityReport
@@ -2002,7 +2027,7 @@ func registrationAuthoringActive(authoring *RegistrationAuthoringState) bool {
 		return false
 	}
 	switch authoring.State {
-	case "review_ready", "adopted", "canceled", "failed":
+	case "review_ready", "adopted", "promoted", "canceled", "failed":
 		return false
 	default:
 		return true

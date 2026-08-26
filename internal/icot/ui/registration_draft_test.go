@@ -37,7 +37,7 @@ func TestBuildRegistrationDraftProducesCanonicalV2ProfileAndDisclosure(t *testin
 		disclosure.CallControls.AmbiguousOutcome != "stop_without_retry" || !strings.Contains(disclosure.AccessibilityLabels, "Accessibility") {
 		t.Fatalf("draft disclosure = %#v", disclosure)
 	}
-	if strings.Contains(string(canonical), "registration_identifier") || strings.Contains(string(canonical), "registration_password") {
+	if strings.Contains(string(canonical), "dedicated_test_identifier") || strings.Contains(string(canonical), "dedicated_test_password") {
 		t.Fatalf("symbolic environment bindings crossed into profile: %s", canonical)
 	}
 }
@@ -65,6 +65,7 @@ func TestBuildRegistrationDraftRejectsUnsafeQueriesAndIncompleteAuthority(t *tes
 		{name: "no submit", mutate: func(v *registrationDraftRequest) { v.Flow.Steps[3].Type = "click" }},
 		{name: "unfixed controls", mutate: func(v *registrationDraftRequest) { v.CallControls.OnDuplicate = "retry" }},
 		{name: "binding collision", mutate: func(v *registrationDraftRequest) { v.CredentialSlots[1].Binding = v.CredentialSlots[0].Binding }},
+		{name: "secret shaped binding", mutate: func(v *registrationDraftRequest) { v.CredentialSlots[1].Binding = "m8z_pq4_r2x7_n1cv9bk3sd6fh0jl5wt2" }},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
@@ -81,8 +82,8 @@ func validRegistrationDraftRequest() registrationDraftRequest {
 	return registrationDraftRequest{
 		Title: "Synthetic dedicated test registration", Provider: "Synthetic loopback", Confidence: "high", ExpiresAfter: "P30D",
 		CredentialSlots: []registrationDraftSlot{
-			{Slot: "identifier", Kind: "identifier", Binding: "registration_identifier"},
-			{Slot: "password", Kind: "password", Binding: "registration_password"},
+			{Slot: "identifier", Kind: "identifier", Binding: "dedicated_test_identifier"},
+			{Slot: "password", Kind: "password", Binding: "dedicated_test_password"},
 		},
 		Flow: registrationDraftFlow{
 			Name: "create_dedicated_test_user", Description: "Create one dedicated test identity.",
