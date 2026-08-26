@@ -119,6 +119,35 @@ func TestQualificationStageErrorPreservesOnlySandboxCause(t *testing.T) {
 	}
 }
 
+func TestAdversarialMakeTargetDoesNotShellExpandBrowsertoolsPath(t *testing.T) {
+	data, err := os.ReadFile(filepath.Join("..", "..", "Makefile"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	source := string(data)
+	if !strings.Contains(source, `cd "$${OPENUDON_BROWSERTOOLS_REPO:-../browsertools}"`) ||
+		strings.Contains(source, "$(BROWSERTOOLS_REPO)") {
+		t.Fatal("browser-transaction-adversarial must consume only the quoted child environment path")
+	}
+}
+
+func TestQualificationEnvironmentReplacesExistingValue(t *testing.T) {
+	t.Setenv("OPENUDON_BROWSERTOOLS_REPO", "old")
+	environment := qualificationEnvironment("OPENUDON_BROWSERTOOLS_REPO", "literal-$(not-executed)")
+	count := 0
+	for _, item := range environment {
+		if strings.HasPrefix(item, "OPENUDON_BROWSERTOOLS_REPO=") {
+			count++
+			if item != "OPENUDON_BROWSERTOOLS_REPO=literal-$(not-executed)" {
+				t.Fatalf("environment item = %q", item)
+			}
+		}
+	}
+	if count != 1 {
+		t.Fatalf("environment override count = %d", count)
+	}
+}
+
 func testBAPBCPQualificationEvidence() browserscenario.BAPBCPQualificationEvidence {
 	values := testQualificationDigests("bap-bcp")
 	return browserscenario.BAPBCPQualificationEvidence{

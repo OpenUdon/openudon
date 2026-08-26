@@ -53,7 +53,7 @@ func RunQualification(ctx context.Context, options QualificationOptions) (*Repor
 		return nil, err
 	}
 	if err := runQualificationCommandSilent(ctx, 10*time.Minute, roots.openudon,
-		[]string{"make", "BROWSERTOOLS_REPO=" + roots.browsertools, "browser-transaction-adversarial"}); err != nil {
+		[]string{"make", "browser-transaction-adversarial"}, qualificationEnvironment("OPENUDON_BROWSERTOOLS_REPO", roots.browsertools)); err != nil {
 		return nil, errors.New("browser transaction adversarial qualification failed")
 	}
 	scenarioOptions := browserscenario.Options{
@@ -284,10 +284,21 @@ func qualificationCommandOutput(ctx context.Context, timeout time.Duration, dire
 	return strings.TrimSpace(output.buffer.String()), nil
 }
 
-func runQualificationCommandSilent(ctx context.Context, timeout time.Duration, directory string, args []string) error {
+func runQualificationCommandSilent(ctx context.Context, timeout time.Duration, directory string, args, environment []string) error {
 	return processgroup.Run(ctx, timeout, processgroup.Invocation{
-		Args: args, Dir: directory, Env: os.Environ(), Stdout: io.Discard, Stderr: io.Discard,
+		Args: args, Dir: directory, Env: environment, Stdout: io.Discard, Stderr: io.Discard,
 	})
+}
+
+func qualificationEnvironment(name, value string) []string {
+	prefix := name + "="
+	environment := make([]string, 0, len(os.Environ())+1)
+	for _, item := range os.Environ() {
+		if !strings.HasPrefix(item, prefix) {
+			environment = append(environment, item)
+		}
+	}
+	return append(environment, prefix+value)
 }
 
 type boundedQualificationWriter struct {
