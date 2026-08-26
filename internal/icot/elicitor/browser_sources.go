@@ -27,6 +27,7 @@ import (
 const (
 	browserSourceFamily               = "browser-profile"
 	browserAuthenticationSourceFamily = "browser-authentication"
+	browserRegistrationSourceFamily   = "browser-registration"
 )
 
 type browserAuthoringDiscovery struct {
@@ -399,6 +400,9 @@ func SourceMaterializationContent(source SourceMaterialization, at time.Time) ([
 		}
 		return data, nil
 	}
+	if strings.HasPrefix(source.SourcePath, virtualBrowserPrefix) {
+		return nil, fmt.Errorf("selected virtual browser source %s is unavailable from the current in-memory catalog", source.ID)
+	}
 	if source.Kind != browserSourceFamily && source.Kind != browserAuthenticationSourceFamily {
 		data, _, err := evidencefile.ReadRegular(source.SourcePath, apitools.DefaultMaxBytes)
 		if err != nil {
@@ -459,7 +463,7 @@ func SourceMaterializationContent(source SourceMaterialization, at time.Time) ([
 }
 
 func validateBrowserMaterializationFreshness(source SourceMaterialization, at time.Time) error {
-	if source.Kind != browserSourceFamily && source.Kind != browserAuthenticationSourceFamily {
+	if source.Kind != browserSourceFamily && source.Kind != browserAuthenticationSourceFamily && source.Kind != browserRegistrationSourceFamily {
 		return nil
 	}
 	if at.IsZero() {
@@ -637,11 +641,11 @@ func sortedBrowserOutputKeys(values map[string]profile.Output) []string {
 
 func isBrowserDocument(doc APIDocument) bool {
 	path := filepath.ToSlash(strings.TrimSpace(doc.RelativePath))
-	if strings.HasPrefix(path, "browser-profiles/") || strings.HasPrefix(path, "browser-authentication/") {
+	if strings.HasPrefix(path, "browser-profiles/") || strings.HasPrefix(path, "browser-authentication/") || strings.HasPrefix(path, "browser-registration/") {
 		return true
 	}
 	for _, operation := range doc.Operations {
-		if operation.Extensions["openudon.source_family"] == browserSourceFamily || operation.Extensions["openudon.source_family"] == browserAuthenticationSourceFamily {
+		if operation.Extensions["openudon.source_family"] == browserSourceFamily || operation.Extensions["openudon.source_family"] == browserAuthenticationSourceFamily || operation.Extensions["openudon.source_family"] == browserRegistrationSourceFamily {
 			return true
 		}
 	}

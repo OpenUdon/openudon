@@ -20,6 +20,7 @@ type SourceRefreshOptions struct {
 	BrowserSources       []BrowserSourceInput
 	BrowserRegistries    []string
 	BrowserVerifications []string
+	VirtualBrowser       VirtualBrowserDiscovery
 	NetworkPolicy        string
 	At                   time.Time
 	RejectIncomplete     bool
@@ -46,6 +47,13 @@ func RefreshSessionSources(ctx context.Context, session Session, options SourceR
 	if err != nil {
 		return SourceRefreshResult{}, err
 	}
+	if err := ValidateVirtualBrowserDiscoveryAt(options.VirtualBrowser, options.At); err != nil {
+		return SourceRefreshResult{}, err
+	}
+	discovery, err = MergeVirtualBrowserSources(discovery, options.VirtualBrowser)
+	if err != nil {
+		return SourceRefreshResult{}, err
+	}
 	issues := AssessSourceDiscovery(discovery)
 	if options.RejectIncomplete && len(issues) > 0 {
 		return SourceRefreshResult{}, errors.Join(localSourceDiscoveryBlocker(discovery.Report), browserSourceDiscoveryBlocker(discovery.BrowserReport))
@@ -60,6 +68,9 @@ func RefreshSessionSources(ctx context.Context, session Session, options SourceR
 		discovery = MergeBrowserRegistrySources(discovery, registryReport)
 	}
 	if err := RequireFreshRegistrySources(session.SourcePlan, registryReport.Plans); err != nil {
+		return SourceRefreshResult{}, err
+	}
+	if err := RequireFreshVirtualBrowserSources(session.SourcePlan, options.VirtualBrowser.Plans); err != nil {
 		return SourceRefreshResult{}, err
 	}
 	session.SourcePlan = SyncSelectedSourcePlansWithBrowser(session, discovery.Plans, options.LocalSources, options.BrowserSources)

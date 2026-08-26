@@ -134,7 +134,7 @@ func normalizeSourcePlan(sources []SourceMaterialization) []SourceMaterializatio
 		source.Release = strings.TrimSpace(source.Release)
 		source.Registry = strings.TrimSpace(source.Registry)
 		source.SourcePath = strings.TrimSpace(source.SourcePath)
-		if source.Registry == "" || !strings.Contains(source.SourcePath, "://") {
+		if !strings.HasPrefix(source.SourcePath, virtualBrowserPrefix) && (source.Registry == "" || !strings.Contains(source.SourcePath, "://")) {
 			source.SourcePath = filepath.Clean(source.SourcePath)
 		}
 		source.TargetPath = filepath.ToSlash(filepath.Clean(strings.TrimSpace(source.TargetPath)))

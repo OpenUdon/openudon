@@ -35,14 +35,15 @@ type Config struct {
 	FromExample  string
 	LoadExisting bool
 
-	LocalSources         []apitools.LocalSource
-	BrowserSources       []elicitor.BrowserSourceInput
-	BrowserVerifications []string
-	BrowserRegistries    []string
-	SourceRoots          []string
-	NetworkPolicy        string
-	PrivateRoot          string
-	DriverDir            string
+	LocalSources               []apitools.LocalSource
+	BrowserSources             []elicitor.BrowserSourceInput
+	BrowserVerifications       []string
+	BrowserRegistries          []string
+	SourceRoots                []string
+	VirtualBrowserTransactions []elicitor.VirtualBrowserTransactionInput
+	NetworkPolicy              string
+	PrivateRoot                string
+	DriverDir                  string
 
 	Now func() time.Time
 }
@@ -56,6 +57,14 @@ type SourceCandidates struct {
 	RegistryBlocks  []elicitor.BrowserRegistryBlocker       `json:"browser_registry_blockers,omitempty"`
 	Remote          []elicitor.RemoteSourceCandidate        `json:"remote,omitempty"`
 	RemoteBlocker   *elicitor.RemoteSourceBlocker           `json:"remote_blocker,omitempty"`
+	VirtualBrowser  VirtualBrowserCandidateSet              `json:"virtual_browser"`
+}
+
+// VirtualBrowserCandidateSet binds path-free candidates to the exact catalog
+// generation required by optimistic selection.
+type VirtualBrowserCandidateSet struct {
+	Generation uint64                             `json:"generation"`
+	Candidates []elicitor.VirtualBrowserCandidate `json:"candidates,omitempty"`
 }
 
 // Preview is an in-memory rendering of the deliverables that would be written
@@ -124,12 +133,14 @@ type ApprovalResult struct {
 type Engine struct {
 	mu sync.Mutex
 
-	config          Config
-	session         elicitor.Session
-	discovery       elicitor.LocalSourceDiscovery
-	registry        elicitor.BrowserRegistryDiscovery
-	remote          elicitor.RemoteSourceLookupReport
-	discoveryIssues []elicitor.ReadinessIssue
+	config            Config
+	session           elicitor.Session
+	discovery         elicitor.LocalSourceDiscovery
+	registry          elicitor.BrowserRegistryDiscovery
+	remote            elicitor.RemoteSourceLookupReport
+	discoveryIssues   []elicitor.ReadinessIssue
+	virtual           elicitor.VirtualBrowserDiscovery
+	virtualGeneration uint64
 
 	workspaceRoot      string
 	watchedPaths       []string
@@ -141,11 +152,13 @@ type Engine struct {
 }
 
 type refreshedEngineState struct {
-	session         elicitor.Session
-	discovery       elicitor.LocalSourceDiscovery
-	registry        elicitor.BrowserRegistryDiscovery
-	remote          elicitor.RemoteSourceLookupReport
-	discoveryIssues []elicitor.ReadinessIssue
+	session           elicitor.Session
+	discovery         elicitor.LocalSourceDiscovery
+	registry          elicitor.BrowserRegistryDiscovery
+	remote            elicitor.RemoteSourceLookupReport
+	discoveryIssues   []elicitor.ReadinessIssue
+	virtual           elicitor.VirtualBrowserDiscovery
+	virtualGeneration uint64
 }
 
 var (
@@ -188,7 +201,22 @@ func Open(ctx context.Context, config Config) (*Engine, Snapshot, error) {
 		return nil, Snapshot{}, err
 	}
 	session.Normalize()
-	engine := &Engine{config: config, session: session, workspaceRoot: workspaceRoot, uploadedSources: map[string]UploadedSource{}, stagedSources: map[string]StagedSource{}}
+	at := time.Now().UTC()
+	if config.Now != nil {
+		at = config.Now().UTC()
+	}
+	virtual, err := elicitor.DiscoverVirtualBrowserSources(config.VirtualBrowserTransactions, at)
+	if err != nil {
+		return nil, Snapshot{}, err
+	}
+	// The catalog retains only canonical materialization bytes and safe
+	// summaries. Do not keep caller-owned source or review buffers in Config.
+	config.VirtualBrowserTransactions = nil
+	engine := &Engine{
+		config: config, session: session, workspaceRoot: workspaceRoot,
+		uploadedSources: map[string]UploadedSource{}, stagedSources: map[string]StagedSource{},
+		virtual: virtual, virtualGeneration: 1,
+	}
 	if err := engine.loadAcquisitionState(); err != nil {
 		return nil, Snapshot{}, err
 	}
@@ -467,6 +495,7 @@ func (e *Engine) currentStateLocked() refreshedEngineState {
 	return refreshedEngineState{
 		session: e.session, discovery: e.discovery, registry: e.registry,
 		remote: e.remote, discoveryIssues: e.discoveryIssues,
+		virtual: e.virtual, virtualGeneration: e.virtualGeneration,
 	}
 }
 
@@ -526,6 +555,7 @@ func (e *Engine) snapshotForStateLocked(ctx context.Context, state refreshedEngi
 			BrowserRegistry: append([]elicitor.BrowserRegistryCandidate(nil), state.registry.Candidates...),
 			RegistryBlocks:  append([]elicitor.BrowserRegistryBlocker(nil), state.registry.Blockers...),
 			Remote:          append([]elicitor.RemoteSourceCandidate(nil), state.remote.Candidates...), RemoteBlocker: state.remote.Blocker,
+			VirtualBrowser: virtualBrowserCandidateSet(state.virtualGeneration, state.virtual.Candidates, state.session.SourcePlan),
 		},
 		ProposedActions: actions,
 		WriteConflicts:  conflicts,
@@ -573,6 +603,10 @@ func (e *Engine) refreshLocked(ctx context.Context) error {
 }
 
 func (e *Engine) buildRefreshedStateLocked(ctx context.Context, baseSession elicitor.Session) (refreshedEngineState, error) {
+	return e.buildRefreshedStateWithVirtualLocked(ctx, baseSession, e.virtual, e.virtualGeneration)
+}
+
+func (e *Engine) buildRefreshedStateWithVirtualLocked(ctx context.Context, baseSession elicitor.Session, virtual elicitor.VirtualBrowserDiscovery, virtualGeneration uint64) (refreshedEngineState, error) {
 	if err := ctx.Err(); err != nil {
 		return refreshedEngineState{}, err
 	}
@@ -588,7 +622,8 @@ func (e *Engine) buildRefreshedStateLocked(ctx context.Context, baseSession elic
 	refreshedSources, err := elicitor.RefreshSessionSources(ctx, session, elicitor.SourceRefreshOptions{
 		ExampleDir: e.config.ExampleDir, Query: projectwizard.Render(session.Project), LocalSources: e.config.LocalSources, SourceRoots: roots,
 		BrowserSources: e.config.BrowserSources, BrowserRegistries: e.config.BrowserRegistries, BrowserVerifications: e.config.BrowserVerifications,
-		NetworkPolicy: e.config.NetworkPolicy, At: at,
+		VirtualBrowser: virtual,
+		NetworkPolicy:  e.config.NetworkPolicy, At: at,
 	})
 	if err != nil {
 		return refreshedEngineState{}, err
@@ -603,7 +638,10 @@ func (e *Engine) buildRefreshedStateLocked(ctx context.Context, baseSession elic
 			return refreshedEngineState{}, err
 		}
 	}
-	return refreshedEngineState{session: session, discovery: discovery, registry: registry, remote: remote, discoveryIssues: refreshedSources.Issues}, nil
+	return refreshedEngineState{
+		session: session, discovery: discovery, registry: registry, remote: remote,
+		discoveryIssues: refreshedSources.Issues, virtual: virtual, virtualGeneration: virtualGeneration,
+	}, nil
 }
 
 func (e *Engine) applyRefreshedStateLocked(refreshed refreshedEngineState) {
@@ -612,6 +650,8 @@ func (e *Engine) applyRefreshedStateLocked(refreshed refreshedEngineState) {
 	e.registry = refreshed.registry
 	e.remote = refreshed.remote
 	e.discoveryIssues = refreshed.discoveryIssues
+	e.virtual = refreshed.virtual
+	e.virtualGeneration = refreshed.virtualGeneration
 }
 
 func (e *Engine) currentReadinessLocked() []elicitor.ReadinessIssue {
@@ -652,6 +692,19 @@ func (e *Engine) now() time.Time {
 		return e.config.Now().UTC()
 	}
 	return time.Now().UTC()
+}
+
+func virtualBrowserCandidateSet(generation uint64, candidates []elicitor.VirtualBrowserCandidate, selected []elicitor.SourceMaterialization) VirtualBrowserCandidateSet {
+	result := VirtualBrowserCandidateSet{Generation: generation, Candidates: append([]elicitor.VirtualBrowserCandidate(nil), candidates...)}
+	selectedTargets := map[string]bool{}
+	for _, source := range selected {
+		selectedTargets[source.TargetPath] = true
+	}
+	for index := range result.Candidates {
+		result.Candidates[index].Dependencies = append([]string(nil), candidates[index].Dependencies...)
+		result.Candidates[index].Selected = selectedTargets[result.Candidates[index].TargetPath]
+	}
+	return result
 }
 
 func canonicalizeCompleteRound(frontier []elicitor.QuestionPlan, answers []authoring.RoundAnswer) ([]authoring.RoundAnswer, error) {

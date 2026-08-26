@@ -73,6 +73,34 @@ slots. The resulting `candidate` transaction retains only those bindings,
 digests, times, origins, and published discriminators; the private envelope
 and locator stay inside the process boundary.
 
+## Virtual candidate discovery
+
+After private adoption, the iCoT engine represents each exact source as an
+in-memory virtual candidate. A public candidate summary contains only the
+transaction/source/review digests, published schema, canonical future target,
+symbolic bindings, and kind-specific dependency metadata. It contains no
+private path, result envelope, review body, or profile bytes. The engine uses a
+monotonic catalog generation, and selection must name that exact generation;
+replacement or a stale selection fails closed.
+
+The BAP candidate provides the transaction's symbolic session. Its BCP
+candidate requires that same session and depends on the exact BAP candidate,
+so selecting the BCP traverses and selects the dependency pair. A BRP has no
+session provider, session requirement, or dependency. In every composition,
+source and review digests, schemas, origins, expiry, and complete symbolic
+credential slots for the exact reviewed BAP or BRP flow are rechecked against
+the transaction before discovery. The flow identity is digest-bound into the
+virtual plan provenance so changing it invalidates an existing selection.
+
+Virtual candidates use deterministic `virtual-browser://` identities and
+canonical targets below `browser-authentication/`, `browser-profiles/`, or
+`browser-registration/`. The URI is an engine identity, not a private
+filesystem location. API-family documents retain selection priority over all
+browser candidates, and virtual targets may not shadow an ordinary local or
+registry source. Selection persists only value-free resumable metadata; exact
+canonical profile bytes remain process-local and are copied to a package only
+by the ordinary explicit approval path.
+
 Origins are sorted, unique serialized origins: HTTPS, or HTTP only for
 `localhost` and canonical loopback IPs. They have no user information, path,
 query, fragment, empty/default port, Unicode host form, or noncanonical IP
