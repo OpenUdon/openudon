@@ -4,6 +4,8 @@ const normalInterval = 2000;
 const maximumBackoff = 30000;
 const acquisitionRoutes = new Set(["journey", "source/stage", "source/remove", "browser/preflight", "capture/start"]);
 
+const registrationActive = (authoring) => Boolean(authoring && !["review_ready", "adopted", "canceled", "failed"].includes(authoring.state));
+
 const state = {
   renderedPayload: null,
   latestPayload: null,
@@ -17,7 +19,8 @@ const state = {
   timer: null,
   failures: 0,
   pollGeneration: 0,
-  transactionRevision: "",
+	transactionRevision: "",
+	registrationRowsInitialized: false,
 };
 
 const byID = (id) => document.getElementById(id);
@@ -75,6 +78,8 @@ const mutationLocked = () => Boolean(
 	state.renderedPayload?.lifecycle !== "authoring" ||
 	state.renderedPayload?.capture?.containment_failed ||
 	(state.renderedPayload?.capture && !["staged", "canceled", "failed"].includes(state.renderedPayload.capture.state)) ||
+	state.renderedPayload?.registration_authoring?.containment_failed ||
+	registrationActive(state.renderedPayload?.registration_authoring) ||
   externallyModified()
 );
 
@@ -1097,6 +1102,7 @@ const renderAcquisition = (payload) => {
   }
 	byID("browser-preflight").disabled = acquisitionLocked();
   renderCapture(payload);
+	renderRegistrationAuthoring(payload);
 };
 
 const renderCapture = (payload) => {
@@ -1210,6 +1216,159 @@ const renderCapture = (payload) => {
     button.addEventListener("click", () => sendLifecycleJSON("capture/stage", { revision: payload.revision, capture_revision: payload.capture_revision }, "Revalidating capture and staging profiles…")); panel.append(button);
   }
 };
+
+const registrationCandidateLabel = (candidate) => `${candidate.role}: ${candidate.label || "unlabeled"}`;
+
+const registrationCandidates = () => state.renderedPayload?.registration_authoring?.observation?.candidates || [];
+
+const populateRegistrationSelect = (select, values, labeler = (value) => value) => {
+	const selected = select.value;
+	clearNode(select);
+	const placeholder = make("option", "Choose…"); placeholder.value = ""; select.append(placeholder);
+	for (const value of values) {
+		const option = make("option", labeler(value));
+		option.value = typeof value === "string" ? value : value.id;
+		select.append(option);
+	}
+	if (Array.from(select.options).some((option) => option.value === selected)) select.value = selected;
+};
+
+const addRegistrationSlot = (slot = "", kind = "identifier", binding = "") => {
+	const index = byID("registration-slot-list").children.length + 1;
+	const row = make("div", null, "wizard-row registration-slot-row");
+	const slotID = `registration-slot-${index}`;
+	const slotLabel = make("label", "Slot symbol"); slotLabel.htmlFor = slotID;
+	const slotInput = make("input"); slotInput.id = slotID; slotInput.dataset.registrationSlot = "slot"; slotInput.value = slot; slotInput.pattern = "[a-z][a-z0-9_]{0,127}";
+	const kindID = `${slotID}-kind`; const kindLabel = make("label", "Credential class"); kindLabel.htmlFor = kindID;
+	const kindSelect = make("select"); kindSelect.id = kindID; kindSelect.dataset.registrationSlot = "kind";
+	for (const value of ["identifier", "password"]) { const option = make("option", value); option.value = value; kindSelect.append(option); }
+	kindSelect.value = kind;
+	const bindingID = `${slotID}-binding`; const bindingLabel = make("label", "Environment symbol"); bindingLabel.htmlFor = bindingID;
+	const bindingInput = make("input"); bindingInput.id = bindingID; bindingInput.dataset.registrationSlot = "binding"; bindingInput.value = binding; bindingInput.pattern = "[a-z][a-z0-9_]{0,127}";
+	const remove = make("button", "Remove slot"); remove.type = "button"; remove.addEventListener("click", () => row.remove());
+	row.append(slotLabel, slotInput, kindLabel, kindSelect, bindingLabel, bindingInput, remove);
+	byID("registration-slot-list").append(row);
+};
+
+const updateRegistrationStepRow = (row) => {
+	const type = row.querySelector('[data-registration-step="type"]').value;
+	row.querySelector('[data-registration-step-field="navigate"]').hidden = type !== "navigate";
+	row.querySelector('[data-registration-step-field="candidate"]').hidden = !["type_credential", "click", "submit", "human_checkpoint", "wait_for"].includes(type);
+	row.querySelector('[data-registration-step-field="slot"]').hidden = type !== "type_credential";
+	row.querySelector('[data-registration-step-field="checkpoint"]').hidden = type !== "human_checkpoint";
+};
+
+const addRegistrationStep = (type = "navigate") => {
+	const index = byID("registration-step-list").children.length + 1;
+	const row = make("fieldset", null, "wizard-row registration-step-row");
+	row.append(make("legend", `Step ${index}`));
+	const typeID = `registration-step-${index}-type`; const typeLabel = make("label", "Macro type"); typeLabel.htmlFor = typeID;
+	const typeSelect = make("select"); typeSelect.id = typeID; typeSelect.dataset.registrationStep = "type";
+	for (const value of ["navigate", "type_credential", "click", "submit", "human_checkpoint", "wait_for"]) { const option = make("option", value.replaceAll("_", " ")); option.value = value; typeSelect.append(option); }
+	typeSelect.value = type;
+
+	const navigateWrap = make("div"); navigateWrap.dataset.registrationStepField = "navigate";
+	const navigateID = `registration-step-${index}-navigate`; const navigateLabel = make("label", "Exact GET navigation URL"); navigateLabel.htmlFor = navigateID;
+	const navigate = make("input"); navigate.id = navigateID; navigate.type = "url"; navigate.dataset.registrationStep = "navigate";
+	if (type === "navigate") navigate.value = byID("registration-url").value.trim(); navigateWrap.append(navigateLabel, navigate);
+
+	const candidateWrap = make("div"); candidateWrap.dataset.registrationStepField = "candidate";
+	const candidateID = `registration-step-${index}-candidate`; const candidateLabel = make("label", "Observed accessibility locator"); candidateLabel.htmlFor = candidateID;
+	const candidate = make("select"); candidate.id = candidateID; candidate.dataset.registrationStep = "candidate";
+	populateRegistrationSelect(candidate, registrationCandidates(), registrationCandidateLabel); candidateWrap.append(candidateLabel, candidate);
+
+	const slotWrap = make("div"); slotWrap.dataset.registrationStepField = "slot";
+	const stepSlotID = `registration-step-${index}-slot`; const stepSlotLabel = make("label", "Credential slot symbol"); stepSlotLabel.htmlFor = stepSlotID;
+	const stepSlot = make("input"); stepSlot.id = stepSlotID; stepSlot.dataset.registrationStep = "slot"; stepSlot.pattern = "[a-z][a-z0-9_]{0,127}"; slotWrap.append(stepSlotLabel, stepSlot);
+
+	const checkpointWrap = make("div"); checkpointWrap.dataset.registrationStepField = "checkpoint";
+	const checkpointID = `registration-step-${index}-checkpoint`; const checkpointLabel = make("label", "Human checkpoint kind"); checkpointLabel.htmlFor = checkpointID;
+	const checkpoint = make("select"); checkpoint.id = checkpointID; checkpoint.dataset.registrationStep = "checkpoint";
+	for (const value of ["captcha", "email_verification", "mfa", "consent", "other_control"]) { const option = make("option", value.replaceAll("_", " ")); option.value = value; checkpoint.append(option); }
+	checkpointWrap.append(checkpointLabel, checkpoint);
+	const remove = make("button", "Remove step"); remove.type = "button"; remove.addEventListener("click", () => row.remove());
+	typeSelect.addEventListener("change", () => updateRegistrationStepRow(row));
+	row.append(typeLabel, typeSelect, navigateWrap, candidateWrap, slotWrap, checkpointWrap, remove);
+	byID("registration-step-list").append(row);
+	updateRegistrationStepRow(row);
+};
+
+const initializeRegistrationRows = () => {
+	if (state.registrationRowsInitialized) return;
+	state.registrationRowsInitialized = true;
+	addRegistrationSlot("identifier", "identifier", "registration_identifier");
+	addRegistrationSlot("password", "password", "registration_password");
+	for (const type of ["navigate", "type_credential", "type_credential", "submit", "human_checkpoint", "wait_for"]) addRegistrationStep(type);
+};
+
+const refreshRegistrationCandidateChoices = () => {
+	for (const select of document.querySelectorAll('[data-registration-step="candidate"]')) populateRegistrationSelect(select, registrationCandidates(), registrationCandidateLabel);
+	populateRegistrationSelect(byID("registration-success-candidate"), registrationCandidates(), registrationCandidateLabel);
+	const origins = byID("registration-origins").value.split(/\r?\n/).map((value) => value.trim()).filter(Boolean);
+	populateRegistrationSelect(byID("registration-success-origin"), origins);
+};
+
+const renderRegistrationAuthoring = (payload) => {
+	initializeRegistrationRows();
+	const authoring = payload.registration_authoring;
+	showText("registration-authoring-state", authoring?.state?.replaceAll("_", " ") || "Not started");
+	showText("registration-authoring-status", authoring?.message || "This wizard observes accessibility metadata with GET or HEAD only. It cannot type, click, submit, create an account, sign in, or execute the drafted workflow.");
+	const pendingCandidate = authoring?.state === "review_ready";
+	const startLocked = state.pendingMutation || payload.lifecycle !== "authoring" || externallyModified(payload) || Boolean(authoring?.containment_failed) || registrationActive(authoring) || pendingCandidate;
+	Array.from(byID("registration-start-form").elements).forEach((control) => { control.disabled = startLocked; });
+	byID("registration-cancel").hidden = !registrationActive(authoring) || authoring?.state === "canceling";
+
+	const panel = byID("registration-observation-panel"); clearNode(panel);
+	if (authoring?.bounds) panel.append(make("p", `Fixed bounds: ${authoring.bounds.maxObservations ?? authoring.bounds.max_observations ?? 0} observations; ${authoring.bounds.maxCandidates ?? authoring.bounds.max_candidates ?? 0} candidates.`));
+	if (authoring?.state === "observing") {
+		const observe = make("button", "Observe current page", "primary"); observe.type = "button";
+		observe.addEventListener("click", () => sendRegistrationCommand("observe")); panel.append(observe);
+	}
+	if (authoring?.observation) {
+		panel.append(make("h4", "Reduced accessibility observation"));
+		panel.append(make("p", `${authoring.observation.origin}${authoring.observation.path}`));
+		panel.append(make("p", "Accessibility names may contain personal or account information. Review and retain only the minimum labels required for portable locators.", "section-help"));
+		const list = make("ul", null, "detail-list");
+		for (const candidate of authoring.observation.candidates || []) list.append(make("li", `${registrationCandidateLabel(candidate)} · unique matches ${candidate.matches}`));
+		panel.append(list);
+		const navigation = make("fieldset", null, "navigation-row"); navigation.append(make("legend", "Optional GET or HEAD navigation"));
+		const method = make("select"); method.setAttribute("aria-label", "Navigation method"); for (const value of ["GET", "HEAD"]) { const option = make("option", value); option.value = value; method.append(option); }
+		const target = make("input"); target.type = "url"; target.placeholder = "https://…"; target.setAttribute("aria-label", "Exact navigation URL");
+		const navigate = make("button", "Navigate without submitting"); navigate.type = "button"; navigate.addEventListener("click", () => {
+			if (!target.value.trim()) { showError("Enter an exact GET or HEAD URL."); return; }
+			sendRegistrationCommand("navigate", { method: method.value, url: target.value.trim() });
+		});
+		navigation.append(method, target, navigate); panel.append(navigation);
+	}
+	refreshRegistrationCandidateChoices();
+	byID("registration-draft-form").hidden = authoring?.state !== "observation";
+
+	const review = byID("registration-canonical-review");
+	review.hidden = !authoring?.draft;
+	if (authoring?.draft) {
+		showText("registration-accessibility-disclosure", authoring.draft.accessibility_labels);
+		appendEmptyOrItems("registration-retained-queries", authoring.draft.retained_queries || [], "No literal query is retained.", (entry) => make("li", `${entry.navigation} — ${(entry.parameters || []).map((parameter) => `${parameter.key}=${parameter.value}`).join("; ")}`));
+		appendEmptyOrItems("registration-draft-authority", [
+			...(authoring.draft.credential_bindings || []).map((binding) => `${binding.slot} → ${binding.binding}`),
+			`cleanup → ${authoring.draft.cleanup_disposition}`,
+			`approval → ${authoring.draft.call_controls?.approval}`,
+			`duplicate prevention → ${authoring.draft.call_controls?.duplicate_prevention}; on duplicate → ${authoring.draft.call_controls?.on_duplicate}`,
+			`ambiguous outcome → ${authoring.draft.call_controls?.ambiguous_outcome}`,
+		], "Draft authority is unavailable.", (value) => make("li", value));
+		showText("registration-canonical-profile", JSON.stringify(authoring.draft.canonical, null, 2));
+	}
+	byID("registration-review").hidden = authoring?.state !== "draft_review";
+	byID("registration-finish").hidden = authoring?.state !== "reviewed";
+	byID("registration-review").disabled = authoring?.state !== "draft_review" || !byID("registration-draft-confirmed").checked || state.pendingMutation;
+	byID("registration-finish").disabled = authoring?.state !== "reviewed" || state.pendingMutation;
+};
+
+const sendRegistrationCommand = (type, extra = {}) => sendLifecycleJSON("registration-authoring/command", {
+	revision: state.renderedPayload.revision,
+	registration_revision: state.renderedPayload.registration_authoring_revision,
+	type,
+	...extra,
+}, "Sending a typed no-submit registration-authoring command…");
 
 const sendCaptureResponse = (response) => sendLifecycleJSON("capture/respond", {
   capture_revision: state.renderedPayload.capture_revision,
@@ -1372,6 +1531,81 @@ byID("capture-form").addEventListener("submit", (event) => {
 byID("capture-cancel").addEventListener("click", () => sendLifecycleJSON("capture/cancel", {
   capture_revision: state.renderedPayload.capture_revision,
 }, "Canceling the browser capture and its descendants…"));
+
+byID("registration-start-form").addEventListener("submit", (event) => {
+	event.preventDefault();
+	const origins = byID("registration-origins").value.split(/\r?\n/).map((value) => value.trim()).filter(Boolean);
+	let target;
+	try { target = new URL(byID("registration-url").value.trim()); } catch (_) { showError("Enter a valid absolute registration URL."); return; }
+	if (origins.length === 0) { showError("Enter at least one exact approved origin."); return; }
+	sendLifecycleJSON("registration-authoring/start", {
+		revision: state.renderedPayload.revision,
+		registration_revision: state.renderedPayload.registration_authoring_revision,
+		profile_id: byID("registration-profile-id").value.trim(),
+		url: target.toString(), origins,
+	}, "Launching the isolated no-submit registration observer…");
+});
+
+byID("registration-add-slot").addEventListener("click", () => addRegistrationSlot());
+byID("registration-add-step").addEventListener("click", () => addRegistrationStep("navigate"));
+
+const collectRegistrationDraft = () => {
+	const stabilityText = byID("registration-stability").value.trim();
+	const slots = Array.from(byID("registration-slot-list").children).map((row) => ({
+		slot: row.querySelector('[data-registration-slot="slot"]').value.trim(),
+		kind: row.querySelector('[data-registration-slot="kind"]').value,
+		binding: row.querySelector('[data-registration-slot="binding"]').value.trim(),
+	}));
+	const steps = Array.from(byID("registration-step-list").children).map((row) => {
+		const type = row.querySelector('[data-registration-step="type"]').value;
+		const step = { type };
+		if (type === "navigate") step.navigate = row.querySelector('[data-registration-step="navigate"]').value.trim();
+		if (["type_credential", "click", "submit", "human_checkpoint", "wait_for"].includes(type)) step.candidate_id = row.querySelector('[data-registration-step="candidate"]').value;
+		if (type === "type_credential") step.slot = row.querySelector('[data-registration-step="slot"]').value.trim();
+		if (type === "human_checkpoint") step.checkpoint_kind = row.querySelector('[data-registration-step="checkpoint"]').value;
+		return step;
+	});
+	const effects = ["creates_account"];
+	if (byID("registration-effect-verification").checked) effects.push("sends_verification");
+	if (byID("registration-effect-human").checked) effects.push("requires_human_verification");
+	return {
+		title: byID("registration-title").value.trim(), provider: byID("registration-provider").value.trim(),
+		confidence: byID("registration-confidence").value, expires_after: byID("registration-expiry").value.trim(),
+		...(stabilityText === "" ? {} : { ui_stability_score: Number(stabilityText) }),
+		credential_slots: slots,
+		flow: {
+			name: byID("registration-flow-name").value.trim(), description: byID("registration-flow-description").value.trim(), steps, effects,
+			confirmation_prompt: byID("registration-confirmation-prompt").value.trim(),
+			success: { origin: byID("registration-success-origin").value, path: byID("registration-success-path").value.trim(), candidate_id: byID("registration-success-candidate").value },
+		},
+		call_controls: {
+			approval: "browser_registration_submit", duplicate_prevention: "operator_attestation", on_duplicate: "fail",
+			ambiguous_outcome: "stop_without_retry", cleanup_disposition: byID("registration-cleanup").value,
+		},
+	};
+};
+
+byID("registration-draft-form").addEventListener("submit", (event) => {
+	event.preventDefault();
+	const draft = collectRegistrationDraft();
+	if (!draft.title || !draft.expires_after || draft.credential_slots.some((slot) => !slot.slot || !slot.binding) || draft.flow.steps.some((step) => step.type === "navigate" ? !step.navigate : !step.candidate_id && step.type !== "human_checkpoint") || !draft.flow.success.origin || !draft.flow.success.candidate_id) {
+		showError("Complete every required metadata, symbolic slot, macro step, confirmation, and success-proof field.");
+		return;
+	}
+	sendRegistrationCommand("draft", { draft });
+});
+
+byID("registration-draft-confirmed").addEventListener("change", () => {
+	byID("registration-review").disabled = !byID("registration-draft-confirmed").checked || state.pendingMutation;
+});
+byID("registration-review").addEventListener("click", () => {
+	if (!byID("registration-draft-confirmed").checked) return;
+	sendRegistrationCommand("review", { confirmed: true });
+});
+byID("registration-finish").addEventListener("click", () => sendRegistrationCommand("finish", { confirmed: true }));
+byID("registration-cancel").addEventListener("click", () => sendLifecycleJSON("registration-authoring/cancel", {
+	registration_revision: state.renderedPayload.registration_authoring_revision,
+}, "Canceling registration authoring and waiting for process-tree teardown…"));
 
 for (const id of ["transaction-review-confirmed", "transaction-prepare-confirmed", "transaction-promote-confirmed", "transaction-recover-confirmed", "transaction-cancel-confirmed"]) byID(id).addEventListener("change", updateControls);
 

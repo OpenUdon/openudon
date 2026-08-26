@@ -32,6 +32,7 @@ import (
 	"github.com/OpenUdon/browsertools/registrationauthorsession"
 	"github.com/OpenUdon/openudon/internal/authoring"
 	"github.com/OpenUdon/openudon/internal/browsercandidate"
+	"github.com/OpenUdon/openudon/internal/browsertransaction"
 	"github.com/OpenUdon/openudon/internal/icot/browserauthor"
 	"github.com/OpenUdon/openudon/internal/icot/engine"
 	"github.com/OpenUdon/openudon/internal/synthesize"
@@ -176,6 +177,7 @@ type RegistrationAuthoringState struct {
 	Phase             string                                 `json:"phase,omitempty"`
 	Bounds            *registrationauthorsession.Bounds      `json:"bounds,omitempty"`
 	Observation       *registrationauthorsession.Observation `json:"observation,omitempty"`
+	Draft             *RegistrationDraftDisclosure           `json:"draft,omitempty"`
 	ResultReady       bool                                   `json:"result_ready,omitempty"`
 	ContainmentFailed bool                                   `json:"containment_failed,omitempty"`
 	StartedAt         string                                 `json:"started_at,omitempty"`
@@ -361,6 +363,11 @@ type Server struct {
 	registrationSession           RegistrationAuthoringSession
 	registrationCandidate         *browsercandidate.Registration
 	registrationStart             registrationAuthoringStartRequest
+	registrationDraft             []byte
+	registrationDraftCandidates   []string
+	registrationDraftBindings     []browsertransaction.CredentialBinding
+	registrationDraftFlow         string
+	registrationDraftCleanup      string
 	registrationContainmentFailed bool
 	doctorReport                  *browserauthor.UIDoctorReport
 	captureContext                context.Context

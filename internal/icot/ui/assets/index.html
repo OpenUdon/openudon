@@ -94,7 +94,86 @@
           <button id="capture-cancel" type="button" hidden>Cancel capture</button>
         </article>
       </div>
-      <aside class="notice notice-warning"><h3>Registration runtime is not supported</h3><p>A reviewed no-submit BRP candidate can enter the transaction review below. This UI cannot create an account, submit registration, resolve a CAPTCHA, enroll consent, or establish a registration session.</p></aside>
+      <article id="registration-authoring" class="review-panel review-panel-wide registration-wizard" aria-labelledby="registration-authoring-heading">
+        <div class="section-heading registration-heading">
+          <div><p class="section-kicker">No-submit BRP construction</p><h3 id="registration-authoring-heading" tabindex="-1">Guided registration profile authoring</h3></div>
+          <span id="registration-authoring-state" class="state-pill">Not started</span>
+        </div>
+        <p id="registration-authoring-status" class="section-help" role="status" aria-live="polite" aria-atomic="true">This wizard observes accessibility metadata with GET or HEAD only. It cannot type, click, submit, create an account, sign in, or execute the drafted workflow.</p>
+
+        <form id="registration-start-form" class="wizard-grid" novalidate aria-describedby="registration-authoring-status">
+          <fieldset>
+            <legend>1. Profile metadata and target authority</legend>
+            <label for="registration-profile-id">Profile ID</label><input id="registration-profile-id" pattern="[a-z0-9][a-z0-9._-]{0,63}" required>
+            <label for="registration-title">Title</label><input id="registration-title" maxlength="256" required>
+            <label for="registration-provider">Provider label</label><input id="registration-provider" maxlength="256">
+            <label for="registration-url">Initial registration URL</label><input id="registration-url" type="url" required aria-describedby="registration-query-help">
+            <p id="registration-query-help" class="question-meta">A literal query is retained only after Browsertools validates it as canonical structural data and you review it in the final draft.</p>
+            <label for="registration-origins">Exact approved origins, one per line</label><textarea id="registration-origins" required></textarea>
+          </fieldset>
+          <fieldset>
+            <legend>2. Freshness and confidence</legend>
+            <label for="registration-confidence">Confidence</label><select id="registration-confidence"><option value="high">High</option><option value="medium">Medium</option><option value="low">Low</option></select>
+            <label for="registration-expiry">Expiry duration</label><input id="registration-expiry" value="P30D" pattern="P.*" required>
+            <label for="registration-stability">UI stability score (0–1, optional)</label><input id="registration-stability" type="number" min="0" max="1" step="0.01">
+            <div class="form-actions"><button id="registration-start" class="primary" type="submit">Launch no-submit observation</button></div>
+          </fieldset>
+        </form>
+
+        <div id="registration-observation-panel" class="wizard-panel" role="region" aria-label="Registration observation and navigation"></div>
+
+        <form id="registration-draft-form" novalidate hidden>
+          <fieldset>
+            <legend>3. Symbolic credential slots</legend>
+            <p class="section-help">Enter symbolic environment names only. Account identifiers, passwords, OTPs, CAPTCHA answers, and verification values are never accepted here.</p>
+            <div id="registration-slot-list" class="wizard-list"></div>
+            <button id="registration-add-slot" type="button">Add symbolic slot</button>
+          </fieldset>
+          <fieldset>
+            <legend>4. Ordered registration macro</legend>
+            <p class="section-help">Choose only declarative navigate, credential-slot, accessibility locator, checkpoint, submit, and wait steps. Exactly one submit is required.</p>
+            <div id="registration-step-list" class="wizard-list"></div>
+            <button id="registration-add-step" type="button">Add macro step</button>
+          </fieldset>
+          <fieldset>
+            <legend>5. Effects, confirmation, and success proof</legend>
+            <div class="wizard-checks">
+              <label class="check-row"><input id="registration-effect-account" type="checkbox" checked disabled><span>Creates account (required)</span></label>
+              <label class="check-row"><input id="registration-effect-verification" type="checkbox"><span>Sends verification</span></label>
+              <label class="check-row"><input id="registration-effect-human" type="checkbox"><span>Requires human verification</span></label>
+            </div>
+            <label for="registration-flow-name">Flow name</label><input id="registration-flow-name" value="create_dedicated_test_user" pattern="[a-z][a-z0-9_]{0,127}" required>
+            <label for="registration-flow-description">Flow description</label><textarea id="registration-flow-description" maxlength="1024"></textarea>
+            <label for="registration-confirmation-prompt">Submit confirmation prompt</label><input id="registration-confirmation-prompt" maxlength="512" required>
+            <label for="registration-success-origin">Success origin</label><select id="registration-success-origin" required></select>
+            <label for="registration-success-path">Success path</label><input id="registration-success-path" value="/" pattern="/.*">
+            <label for="registration-success-candidate">Observed success locator</label><select id="registration-success-candidate" required></select>
+          </fieldset>
+          <fieldset>
+            <legend>6. Fixed call controls and cleanup</legend>
+            <dl class="transaction-facts">
+              <div><dt>Submit approval</dt><dd>browser_registration_submit</dd></div>
+              <div><dt>Duplicate prevention</dt><dd>operator_attestation</dd></div>
+              <div><dt>On duplicate</dt><dd>fail</dd></div>
+              <div><dt>Ambiguous outcome</dt><dd>stop_without_retry</dd></div>
+            </dl>
+            <label for="registration-cleanup">Cleanup disposition</label><select id="registration-cleanup"><option value="delete_separately">Delete separately</option><option value="retain_dedicated_test_identity">Retain dedicated test identity</option></select>
+            <div class="form-actions"><button id="registration-build-draft" class="primary" type="submit">Build canonical draft for review</button></div>
+          </fieldset>
+        </form>
+
+        <section id="registration-canonical-review" class="review-panel review-panel-wide" aria-labelledby="registration-canonical-heading" hidden>
+          <h4 id="registration-canonical-heading" tabindex="-1">7. Exact canonical draft review</h4>
+          <p id="registration-accessibility-disclosure" class="section-help"></p>
+          <h5>Retained literal queries</h5><ul id="registration-retained-queries" class="detail-list"></ul>
+          <h5>Symbolic bindings and cleanup</h5><ul id="registration-draft-authority" class="detail-list"></ul>
+          <pre id="registration-canonical-profile" aria-label="Canonical registration profile JSON"></pre>
+          <label class="check-row" for="registration-draft-confirmed"><input id="registration-draft-confirmed" type="checkbox"><span>I reviewed the exact canonical profile, accessibility names, retained structural queries, symbolic bindings, effects, submit confirmation, success proof, call controls, and cleanup.</span></label>
+          <div class="form-actions"><button id="registration-review" class="primary" type="button">Confirm worker review</button><button id="registration-finish" type="button" hidden>Finish and tear down worker</button></div>
+        </section>
+        <button id="registration-cancel" type="button" hidden>Cancel registration authoring</button>
+      </article>
+      <aside class="notice notice-warning"><h3>Registration execution remains outside authoring</h3><p>This wizard constructs a reviewed, credential-free BRP only. It cannot create an account, submit registration, resolve a CAPTCHA, enroll consent, establish a session, or grant runtime approval.</p></aside>
     </section>
 
     <section id="browser-transaction-section" class="card transaction-card" aria-labelledby="browser-transaction-heading" hidden>

@@ -20,6 +20,7 @@ import (
 	"github.com/mxschmitt/playwright-go"
 
 	publicinterview "github.com/OpenUdon/authoring/interview"
+	"github.com/OpenUdon/browsertools/registrationauthorsession"
 	"github.com/OpenUdon/openudon/internal/authoring"
 	"github.com/OpenUdon/openudon/internal/browsertransaction"
 	transactionengine "github.com/OpenUdon/openudon/internal/browsertransaction/engine"
@@ -736,6 +737,138 @@ func TestPhaseCBrowserTransactionReviewRecoveryAndAccessibility(t *testing.T) {
 	if err != nil || reduced != true {
 		t.Fatalf("reduced-motion transaction journey = %#v, %v", reduced, err)
 	}
+}
+
+func TestPhaseCBrowserGuidedRegistrationDraftReview(t *testing.T) {
+	_, browser := launchPhaseCBrowser(t)
+	session := newFakeRegistrationAuthoringSession()
+	browserEngine := &phaseCBrowserEngine{snapshot: phaseCFrontierSnapshot()}
+	fixture := newPhaseCBrowserFixtureWithConfig(t, browserEngine, func(config *HandlerConfig) {
+		config.PrivateRoot = "/tmp/phase-c-registration-private"
+		config.Now = func() time.Time { return time.Date(2026, 8, 26, 12, 0, 0, 0, time.UTC) }
+		config.StartRegistration = func(context.Context, browserauthor.RegistrationConfig) (RegistrationAuthoringSession, error) {
+			return session, nil
+		}
+	})
+	page := newPhaseCPage(t, browser, fixture)
+
+	for id, value := range map[string]string{
+		"#registration-profile-id": "synthetic_registration",
+		"#registration-title":      "Synthetic dedicated test registration",
+		"#registration-provider":   "Synthetic loopback",
+		"#registration-url":        "https://app.example.test/register?action=startnew",
+		"#registration-origins":    "https://app.example.test",
+	} {
+		if err := page.Locator(id).Fill(value); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := page.GetByRole("button", playwright.PageGetByRoleOptions{Name: "Launch no-submit observation", Exact: playwright.Bool(true)}).Click(); err != nil {
+		t.Fatal(err)
+	}
+	session.events <- browserauthor.RegistrationEvent{State: "ready"}
+	select {
+	case command := <-session.commands:
+		if command.Type != "start" || !strings.Contains(command.URL, "action=startnew") {
+			t.Fatalf("private browser start = %#v", command)
+		}
+	case <-time.After(2 * time.Second):
+		t.Fatal("registration browser start command timed out")
+	}
+	session.events <- browserauthor.RegistrationEvent{State: "observing", Phase: "observing", Bounds: &registrationauthorsession.Bounds{
+		NavigationTimeoutMS: 20_000, TotalTimeoutMS: 300_000, MaxRequests: 256, MaxResponseBytes: 32 << 20, MaxObservations: 64, MaxCandidates: 128,
+	}}
+	observe := page.GetByRole("button", playwright.PageGetByRoleOptions{Name: "Observe current page", Exact: playwright.Bool(true)})
+	requireVisible(t, observe)
+	if err := observe.Click(); err != nil {
+		t.Fatal(err)
+	}
+	if command := <-session.commands; command.Type != "observe" {
+		t.Fatalf("browser observe command = %#v", command)
+	}
+	observation := registrationDraftObservation()
+	session.events <- browserauthor.RegistrationEvent{State: "observation", Phase: "observing", Observation: &observation}
+	requireVisible(t, page.Locator("#registration-draft-form"))
+	waitForLocatorText(t, page.Locator("#registration-observation-panel"), "Registration complete")
+
+	rows := page.Locator("#registration-step-list .registration-step-row")
+	if count, err := rows.Count(); err != nil || count != 6 {
+		t.Fatalf("default registration steps = %d, %v", count, err)
+	}
+	if err := rows.Nth(0).Locator(`[data-registration-step="navigate"]`).Fill("https://app.example.test/register?action=startnew"); err != nil {
+		t.Fatal(err)
+	}
+	selections := []struct {
+		row             int
+		candidate, slot string
+	}{
+		{1, "candidate-0000000000000001", "identifier"},
+		{2, "candidate-0000000000000002", "password"},
+		{3, "candidate-0000000000000003", ""},
+		{5, "candidate-0000000000000004", ""},
+	}
+	for _, selection := range selections {
+		values := []string{selection.candidate}
+		if _, err := rows.Nth(selection.row).Locator(`[data-registration-step="candidate"]`).SelectOption(playwright.SelectOptionValues{Values: &values}); err != nil {
+			t.Fatal(err)
+		}
+		if selection.slot != "" {
+			if err := rows.Nth(selection.row).Locator(`[data-registration-step="slot"]`).Fill(selection.slot); err != nil {
+				t.Fatal(err)
+			}
+		}
+	}
+	checkpointValues := []string{"email_verification"}
+	if _, err := rows.Nth(4).Locator(`[data-registration-step="checkpoint"]`).SelectOption(playwright.SelectOptionValues{Values: &checkpointValues}); err != nil {
+		t.Fatal(err)
+	}
+	if err := page.Locator("#registration-confirmation-prompt").Fill("Approve creation of one dedicated test identity."); err != nil {
+		t.Fatal(err)
+	}
+	if err := page.Locator("#registration-success-path").Fill("/registration-complete"); err != nil {
+		t.Fatal(err)
+	}
+	for selector, value := range map[string]string{
+		"#registration-success-origin":    "https://app.example.test",
+		"#registration-success-candidate": "candidate-0000000000000004",
+	} {
+		values := []string{value}
+		if _, err := page.Locator(selector).SelectOption(playwright.SelectOptionValues{Values: &values}); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := page.Locator("#registration-effect-verification").Check(); err != nil {
+		t.Fatal(err)
+	}
+	if err := page.Locator("#registration-effect-human").Check(); err != nil {
+		t.Fatal(err)
+	}
+	if err := page.GetByRole("button", playwright.PageGetByRoleOptions{Name: "Build canonical draft for review", Exact: playwright.Bool(true)}).Click(); err != nil {
+		t.Fatal(err)
+	}
+	waitForLocatorText(t, page.Locator("#registration-canonical-profile"), "action=startnew")
+	waitForLocatorText(t, page.Locator("#registration-retained-queries"), "action=startnew")
+	if err := page.Locator("#registration-draft-confirmed").Check(); err != nil {
+		t.Fatal(err)
+	}
+	review := page.GetByRole("button", playwright.PageGetByRoleOptions{Name: "Confirm worker review", Exact: playwright.Bool(true)})
+	requireEnabled(t, review, true)
+	if err := review.Click(); err != nil {
+		t.Fatal(err)
+	}
+	if command := <-session.commands; command.Type != "review" || len(command.Profile) == 0 || len(command.CandidateIDs) != 4 {
+		t.Fatalf("browser review command = %#v", command)
+	}
+	session.events <- browserauthor.RegistrationEvent{State: "reviewed", Phase: "reviewed"}
+	finish := page.GetByRole("button", playwright.PageGetByRoleOptions{Name: "Finish and tear down worker", Exact: playwright.Bool(true)})
+	requireVisible(t, finish)
+	if err := finish.Click(); err != nil {
+		t.Fatal(err)
+	}
+	if command := <-session.commands; command.Type != "finish" || !command.Confirmed {
+		t.Fatalf("browser finish command = %#v", command)
+	}
+	session.Cancel()
 }
 
 func TestPhaseCBrowserExpiredTransactionBlocksReview(t *testing.T) {

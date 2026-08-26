@@ -697,6 +697,55 @@ pre {
 #capture-panel:empty { display: none; }
 #package-artifacts button { margin-left: .55rem; }
 
+.registration-wizard { margin-top: 1rem; }
+.registration-heading { margin: -.9rem -1rem 1rem; }
+.registration-heading h3 { margin: 0; }
+.wizard-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1rem;
+}
+.registration-wizard fieldset {
+  min-width: 0;
+  margin-top: 1rem;
+  padding: 1rem;
+  border: 1px solid var(--line-strong);
+  border-radius: 10px;
+  background: var(--surface-soft);
+}
+.registration-wizard legend { padding: 0 .4rem; font-weight: 780; }
+.registration-wizard label:not(.check-row) { display: grid; gap: .35rem; margin-top: .65rem; font-weight: 700; }
+.registration-wizard input:not([type="checkbox"]),
+.registration-wizard select,
+.registration-wizard textarea {
+  width: 100%;
+  min-width: 0;
+  padding: .68rem .75rem;
+  border: 1px solid #aebeb5;
+  border-radius: 7px;
+  background: #fff;
+}
+.wizard-panel { margin-top: 1rem; padding: .85rem 1rem; border-radius: 9px; background: #eef5f1; }
+.wizard-panel:empty { display: none; }
+.wizard-list { display: grid; gap: .75rem; margin: .75rem 0; }
+.wizard-row {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr)) auto;
+  gap: .65rem;
+  align-items: end;
+  padding: .75rem;
+  border: 1px solid #d4dfd8;
+  border-radius: 8px;
+  background: #fff;
+}
+.registration-step-row { grid-template-columns: repeat(2, minmax(0, 1fr)) auto; }
+.registration-step-row legend { grid-column: 1 / -1; }
+.wizard-row label { margin-top: 0 !important; font-size: .84rem; }
+.wizard-row button { min-height: 2.55rem; }
+.navigation-row { display: grid; grid-template-columns: 8rem minmax(0, 1fr) auto; gap: .65rem; align-items: end; }
+.wizard-checks { display: flex; flex-wrap: wrap; gap: .3rem 1rem; }
+#registration-canonical-profile { margin-top: .65rem; }
+
 .capture-output-list { display: grid; gap: .65rem; margin: 1rem 0; }
 .capture-output-row {
   align-items: center;
@@ -716,4 +765,5 @@ pre {
 
 @media (max-width: 760px) {
   .capture-output-row { grid-template-columns: 1fr; }
+  .wizard-grid, .wizard-row, .registration-step-row, .navigation-row { grid-template-columns: 1fr; }
 }

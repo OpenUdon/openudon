@@ -208,6 +208,82 @@ func TestRegistrationAuthoringAPIStartFailureIsClosed(t *testing.T) {
 	}
 }
 
+func TestRegistrationAuthoringAPIBuildsDraftServerSideThenRequiresExplicitReviewAndFinish(t *testing.T) {
+	fake := &fakeEngine{}
+	session := newFakeRegistrationAuthoringSession()
+	clock := time.Date(2026, 8, 26, 12, 0, 0, 0, time.UTC)
+	handler, err := NewHandler(HandlerConfig{
+		Context: context.Background(), Engine: fake, Snapshot: fake.snapshot, ExampleDir: "/tmp/example",
+		Token: testToken, AccessCode: testAccessCode, Authority: testAuthority, PrivateRoot: "/tmp/private", Now: func() time.Time { return clock },
+		StartRegistration: func(context.Context, browserauthor.RegistrationConfig) (RegistrationAuthoringSession, error) {
+			return session, nil
+		},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	initial := currentResponse(t, handler)
+	if response := doRequest(handler, http.MethodPost, "/api/v4/registration-authoring/start", registrationStartBody(initial, "https://app.example.test/register?action=startnew"), "application/json", true); response.Code != http.StatusAccepted {
+		t.Fatalf("start = %d %s", response.Code, response.Body.String())
+	}
+	session.events <- browserauthor.RegistrationEvent{State: "ready"}
+	<-session.commands
+	session.events <- browserauthor.RegistrationEvent{State: "observing", Phase: "observing", Bounds: &registrationauthorsession.Bounds{
+		NavigationTimeoutMS: 20_000, TotalTimeoutMS: 300_000, MaxRequests: 256, MaxResponseBytes: 32 << 20, MaxObservations: 64, MaxCandidates: 128,
+	}}
+	observing := waitForRegistrationState(t, handler, "observing")
+	observe := doRequest(handler, http.MethodPost, "/api/v4/registration-authoring/command", `{"revision":"`+observing.Revision+`","registration_revision":"`+observing.RegistrationRevision+`","type":"observe"}`, "application/json", true)
+	if observe.Code != http.StatusAccepted {
+		t.Fatalf("observe = %d %s", observe.Code, observe.Body.String())
+	}
+	<-session.commands
+	observation := registrationDraftObservation()
+	session.events <- browserauthor.RegistrationEvent{State: "observation", Phase: "observing", Observation: &observation}
+	observed := waitForRegistrationState(t, handler, "observation")
+
+	draftRequest := map[string]any{
+		"revision": observed.Revision, "registration_revision": observed.RegistrationRevision, "type": "draft", "draft": validRegistrationDraftRequest(),
+	}
+	draftData, err := json.Marshal(draftRequest)
+	if err != nil {
+		t.Fatal(err)
+	}
+	drafted := doRequest(handler, http.MethodPost, "/api/v4/registration-authoring/command", string(draftData), "application/json", true)
+	if drafted.Code != http.StatusOK || !strings.Contains(drafted.Body.String(), `"key":"action","value":"startnew"`) || !strings.Contains(drafted.Body.String(), `"ambiguous_outcome":"stop_without_retry"`) {
+		t.Fatalf("draft response = %d %s", drafted.Code, drafted.Body.String())
+	}
+	draftState := decodeResponse(t, drafted)
+	if draftState.RegistrationAuthoring == nil || draftState.RegistrationAuthoring.Draft == nil || draftState.RegistrationAuthoring.Draft.ProfileSHA256 == "" {
+		t.Fatalf("draft state = %#v", draftState.RegistrationAuthoring)
+	}
+	if response := doRequest(handler, http.MethodPost, "/api/v4/registration-authoring/command", `{"revision":"`+draftState.Revision+`","registration_revision":"`+draftState.RegistrationRevision+`","type":"review","confirmed":false}`, "application/json", true); response.Code != http.StatusBadRequest {
+		t.Fatalf("unconfirmed review = %d %s", response.Code, response.Body.String())
+	}
+	reviewed := doRequest(handler, http.MethodPost, "/api/v4/registration-authoring/command", `{"revision":"`+draftState.Revision+`","registration_revision":"`+draftState.RegistrationRevision+`","type":"review","confirmed":true}`, "application/json", true)
+	if reviewed.Code != http.StatusAccepted {
+		t.Fatalf("review command = %d %s", reviewed.Code, reviewed.Body.String())
+	}
+	command := <-session.commands
+	if command.Type != "review" || !command.Confirmed || len(command.Profile) == 0 || len(command.CandidateIDs) != 4 || len(command.CredentialBindings) != 2 ||
+		command.Flow != "create_dedicated_test_user" || command.CleanupDisposition != "delete_separately" || strings.Contains(string(command.Profile), "registration_identifier") {
+		t.Fatalf("private review command = %#v profile=%s", command, command.Profile)
+	}
+	session.events <- browserauthor.RegistrationEvent{State: "reviewed", Phase: "reviewed"}
+	reviewedState := waitForRegistrationState(t, handler, "reviewed")
+	finish := doRequest(handler, http.MethodPost, "/api/v4/registration-authoring/command", `{"revision":"`+reviewedState.Revision+`","registration_revision":"`+reviewedState.RegistrationRevision+`","type":"finish","confirmed":true}`, "application/json", true)
+	if finish.Code != http.StatusAccepted {
+		t.Fatalf("finish command = %d %s", finish.Code, finish.Body.String())
+	}
+	if command := <-session.commands; command.Type != "finish" || !command.Confirmed || len(command.Profile) != 0 {
+		t.Fatalf("finish command = %#v", command)
+	}
+	current := currentResponse(t, handler)
+	response := doRequest(handler, http.MethodPost, "/api/v4/registration-authoring/cancel", `{"registration_revision":"`+current.RegistrationRevision+`"}`, "application/json", true)
+	if response.Code != http.StatusAccepted {
+		t.Fatalf("cancel after finish assertion = %d %s", response.Code, response.Body.String())
+	}
+}
+
 func registrationStartBody(response Response, target string) string {
 	payload := map[string]any{
 		"revision": response.Revision, "registration_revision": response.RegistrationRevision,
