@@ -11,6 +11,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/OpenUdon/browsertools/authorsession"
 	"github.com/OpenUdon/browsertools/registrationauthorresult"
 	"github.com/OpenUdon/browsertools/registrationauthorsession"
 	"github.com/OpenUdon/browsertools/registrationprofile"
@@ -245,6 +246,33 @@ func TestRegistrationControllerRequiresExactHumanReview(t *testing.T) {
 	encoded, err := json.Marshal(message)
 	if err != nil || strings.Contains(string(encoded), "registration_identifier") || strings.Contains(string(encoded), "credentialBindings") {
 		t.Fatalf("OpenUdon-only symbolic bindings crossed the worker wire: %s, %v", encoded, err)
+	}
+}
+
+func TestRegistrationControllerAcceptsObservationOnlyEmptyLabelButRejectsItsSelection(t *testing.T) {
+	bounds := expectedRegistrationBounds(nil)
+	state := registrationRunState{
+		started: true, profileID: "synthetic_registration", origins: []string{"https://app.example.test"}, bounds: bounds,
+	}
+	observation := registrationauthorsession.Observation{
+		Generation: 1, Origin: "https://app.example.test", Path: "/register",
+		Candidates:  []registrationauthorsession.Candidate{{ID: "candidate-0123456789abcdef", Role: "status", Matches: 1}},
+		Diagnostics: []string{},
+	}
+	if !safeRegistrationObservation(observation, state) {
+		t.Fatal("protocol-valid observation-only empty label was rejected")
+	}
+	if _, err := selectedRegistrationCandidates([]string{observation.Candidates[0].ID}, observation); err == nil {
+		t.Fatal("empty-label registration candidate was selectable for review")
+	}
+	for _, label := range []string{authorsession.RedactedLabel, authorsession.UntrustedLabel} {
+		observation.Candidates[0].Label = label
+		if !safeRegistrationObservation(observation, state) {
+			t.Fatalf("protocol-valid observation-only label %q was rejected", label)
+		}
+		if _, err := selectedRegistrationCandidates([]string{observation.Candidates[0].ID}, observation); err == nil {
+			t.Fatalf("non-promotable registration candidate %q was selectable for review", label)
+		}
 	}
 }
 

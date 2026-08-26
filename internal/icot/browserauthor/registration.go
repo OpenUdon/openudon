@@ -492,7 +492,7 @@ func safeRegistrationObservation(observation registrationauthorsession.Observati
 	seen := map[string]bool{}
 	for _, candidate := range observation.Candidates {
 		if seen[candidate.ID] || !registrationCandidateID.MatchString(candidate.ID) || candidate.Matches <= 0 || candidate.Matches > state.bounds.MaxCandidates ||
-			!portableRoles[candidate.Role] || candidate.Label == "" || len(candidate.Label) > 256 || authorsession.ReduceAccessibilityLabel(candidate.Label).Value != candidate.Label {
+			!portableRoles[candidate.Role] || len(candidate.Label) > 256 || authorsession.ReduceAccessibilityLabel(candidate.Label).Value != candidate.Label {
 			return false
 		}
 		seen[candidate.ID] = true
@@ -670,7 +670,8 @@ func selectedRegistrationCandidates(ids []string, observation registrationauthor
 	previous := ""
 	for _, id := range ids {
 		candidate, ok := byID[id]
-		if !ok || id <= previous || candidate.Matches != 1 {
+		if !ok || id <= previous || candidate.Matches != 1 || candidate.Label == "" ||
+			candidate.Label == authorsession.RedactedLabel || candidate.Label == authorsession.UntrustedLabel {
 			return nil, errors.New("registration reviewed candidates are invalid")
 		}
 		previous = id
