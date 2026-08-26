@@ -135,6 +135,13 @@ func TestPackageFromIntentBuildsBrowserAuthenticationWorkflow(t *testing.T) {
 	if !report.Passed() {
 		t.Fatalf("quality report failed: %#v", report.Checks)
 	}
+	document, err := loadUWSDocumentFile(result.UWSPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := document.Workflows[0].Outputs["status"]; got != "$steps.read.outputs.status" {
+		t.Fatalf("browser workflow output = %q", got)
+	}
 	assertPackageFileContains(t, example, "workflows/workflow.uws.yaml", "uws: 1.7.0", "uws.browser-authentication-call.1.0", "member_login_push", "member_portal")
 	inputs, err := packageartifacts.RequiredPackagePaths(result.ExampleDir)
 	if err != nil {

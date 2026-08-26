@@ -124,7 +124,6 @@ func generateWorkflowDocument(result Result, intent *rollout.Intent) (*uws1.Docu
 			Description:      description,
 			Idempotency:      idempotency,
 			Steps:            []*uws1.Step{},
-			Outputs:          workflowOutputs(normalized.Outputs),
 			StructuralFields: uws1.StructuralFields{},
 		}},
 	}
@@ -154,6 +153,7 @@ func generateWorkflowDocument(result Result, intent *rollout.Intent) (*uws1.Docu
 		return nil, err
 	}
 	doc.Workflows[0].Steps = steps
+	doc.Workflows[0].Outputs = workflowOutputs(normalized.Outputs, steps)
 	doc.Operations = append(doc.Operations, ops...)
 	addTriggers(doc, normalized.Triggers)
 	addStructuralResultsFromIntent(doc, normalized)
@@ -384,18 +384,55 @@ func fnctUsesRequestBodyObject(function string) bool {
 	return false
 }
 
-func workflowOutputs(outputs []*rollout.Output) map[string]string {
+func workflowOutputs(outputs []*rollout.Output, steps []*uws1.Step) map[string]string {
 	out := map[string]string{}
 	for _, output := range outputs {
 		if output == nil || strings.TrimSpace(output.Name) == "" || strings.TrimSpace(output.From) == "" {
 			continue
 		}
-		out[output.Name] = runtimeInputExecutionExpression(output.From)
+		expression := runtimeInputExecutionExpression(output.From)
+		if stepExpression, ok := uwsStepOutputExpression(expression, steps); ok {
+			expression = stepExpression
+		}
+		out[output.Name] = expression
 	}
 	if len(out) == 0 {
 		return nil
 	}
 	return out
+}
+
+func uwsStepOutputExpression(expression string, steps []*uws1.Step) (string, bool) {
+	parts := strings.Split(strings.TrimSpace(expression), ".")
+	if len(parts) < 3 || parts[0] == "" || parts[1] != "received_body" || parts[2] == "" {
+		return "", false
+	}
+	var found bool
+	walkUWSSteps(steps, func(step *uws1.Step) {
+		if !found && step != nil && strings.TrimSpace(step.StepID) == parts[0] {
+			_, found = step.Outputs[parts[2]]
+		}
+	})
+	if !found {
+		return "", false
+	}
+	return "$steps." + parts[0] + ".outputs." + strings.Join(parts[2:], "."), true
+}
+
+func walkUWSSteps(steps []*uws1.Step, visit func(*uws1.Step)) {
+	for _, step := range steps {
+		if step == nil {
+			continue
+		}
+		visit(step)
+		walkUWSSteps(step.Steps, visit)
+		walkUWSSteps(step.Default, visit)
+		for _, branch := range step.Cases {
+			if branch != nil {
+				walkUWSSteps(branch.Steps, visit)
+			}
+		}
+	}
 }
 
 func intentRequestMap(values map[string]string, kind, openAPIPath, operationID string, mapper *requestBindingMapper) (map[string]any, error) {
