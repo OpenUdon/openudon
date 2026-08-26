@@ -258,12 +258,13 @@ func qualificationRepositories(ctx context.Context, roots qualificationRepoRoots
 		branch, branchErr := qualificationCommandOutput(ctx, time.Minute, item.root, []string{"git", "symbolic-ref", "--quiet", "--short", "HEAD"})
 		originMain, originErr := qualificationCommandOutput(ctx, time.Minute, item.root, []string{"git", "rev-parse", "refs/remotes/origin/main"})
 		remote, remoteErr := qualificationCommandOutput(ctx, time.Minute, item.root, []string{"git", "ls-remote", "--exit-code", "origin", "refs/heads/main"})
-		_, ancestryErr := qualificationCommandOutput(ctx, time.Minute, item.root, []string{"git", "merge-base", "--is-ancestor", originMain, commit})
+		_, localDescendantErr := qualificationCommandOutput(ctx, time.Minute, item.root, []string{"git", "merge-base", "--is-ancestor", originMain, commit})
+		_, publishedErr := qualificationCommandOutput(ctx, time.Minute, item.root, []string{"git", "merge-base", "--is-ancestor", commit, originMain})
+		published, related := qualificationPublicationState(localDescendantErr == nil, publishedErr == nil)
 		if branchErr != nil || branch != "main" || originErr != nil || !evidencefile.ValidGitObject(originMain) ||
-			remoteErr != nil || remote != originMain+"\trefs/heads/main" || ancestryErr != nil {
+			remoteErr != nil || remote != originMain+"\trefs/heads/main" || !related {
 			return nil, fmt.Errorf("%s qualification revision must be published main or local main descended from the independently resolved origin", item.name)
 		}
-		published := commit == originMain
 		if item.name == "uws" && !published {
 			return nil, errors.New("UWS qualification revision must remain the unchanged published lock")
 		}
@@ -272,6 +273,13 @@ func qualificationRepositories(ctx context.Context, roots qualificationRepoRoots
 		})
 	}
 	return repositories, nil
+}
+
+func qualificationPublicationState(localDescendsOrigin, originDescendsLocal bool) (published, related bool) {
+	if !localDescendsOrigin && !originDescendsLocal {
+		return false, false
+	}
+	return originDescendsLocal, true
 }
 
 func equalRepositoryRevisions(left, right []RepositoryRevision) bool {

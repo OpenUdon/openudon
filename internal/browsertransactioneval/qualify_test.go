@@ -89,6 +89,27 @@ func TestEqualRepositoryRevisionsRequiresExactOrderAndIdentity(t *testing.T) {
 	}
 }
 
+func TestQualificationPublicationStateAcceptsPublishedHistoryAndLocalDescendants(t *testing.T) {
+	tests := []struct {
+		name                                string
+		localDescendsOrigin, originHasLocal bool
+		published, related                  bool
+	}{
+		{name: "exact tip", localDescendsOrigin: true, originHasLocal: true, published: true, related: true},
+		{name: "remote advanced", originHasLocal: true, published: true, related: true},
+		{name: "local unpublished", localDescendsOrigin: true, related: true},
+		{name: "diverged", published: false, related: false},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			published, related := qualificationPublicationState(test.localDescendsOrigin, test.originHasLocal)
+			if published != test.published || related != test.related {
+				t.Fatalf("publication state = %t, %t; want %t, %t", published, related, test.published, test.related)
+			}
+		})
+	}
+}
+
 func TestQualificationRootsResolveDefaultsBesideExplicitOpenUdonRoot(t *testing.T) {
 	parent := t.TempDir()
 	root := filepath.Join(parent, "openudon")
