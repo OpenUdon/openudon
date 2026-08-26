@@ -127,6 +127,72 @@ chmod 600 "$4/%s"
 	}
 }
 
+func TestExternalRegistrationWorkerSelectsV2AndRetainsOnlyReviewedStructuralQuery(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("test worker uses a POSIX script")
+	}
+	root := registrationControllerRoot(t)
+	v2Fixture := strings.Replace(registrationControllerFixture,
+		"navigate: https://app.example.test/register",
+		"navigate: https://app.example.test/register?action=startnew", 1)
+	profileBytes, resultBytes, resultDigest := registrationControllerResultForProtocol(t, registrationauthorsession.ProtocolV2, v2Fixture)
+	fixture := filepath.Join(t.TempDir(), "producer-result.json")
+	if err := os.WriteFile(fixture, resultBytes, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	resultName := "registration-authoring-" + strings.TrimPrefix(resultDigest, "sha256:")[:16] + ".json"
+	worker := writeRegistrationWorker(t, fmt.Sprintf(`#!/bin/sh
+if [ "$5" != "--protocol" ] || [ "$6" != "v2" ]; then exit 93; fi
+printf '%%s\n' '{"protocol":"browsertools.registration-author-session.v2","type":"hello","capabilities":["get_head_only","no_submit","reduced_observation","registration_review"]}'
+IFS= read -r start
+case "$start" in *'action=startnew'*) ;; *) exit 94 ;; esac
+printf '%%s\n' '{"protocol":"browsertools.registration-author-session.v2","type":"state","phase":"observing","bounds":{"navigationTimeoutMs":20000,"totalTimeoutMs":300000,"maxRequests":256,"maxResponseBytes":33554432,"maxObservations":64,"maxCandidates":128}}'
+IFS= read -r observe
+printf '%%s\n' '{"protocol":"browsertools.registration-author-session.v2","type":"observation","observation":{"generation":1,"origin":"https://app.example.test","path":"/register","candidates":[{"id":"candidate-0123456789abcdef","role":"button","label":"Register","matches":1}],"diagnostics":[]}}'
+IFS= read -r review
+case "$review" in *'action=startnew'*) ;; *) exit 95 ;; esac
+printf '%%s\n' '{"protocol":"browsertools.registration-author-session.v2","type":"state","phase":"reviewed"}'
+IFS= read -r finish
+printf '%%s\n' '{"protocol":"browsertools.registration-author-session.v2","type":"state","phase":"closed"}'
+cp '%s' "$4/%s"
+chmod 600 "$4/%s"
+`, fixture, resultName, resultName))
+
+	config := registrationControllerConfig(root)
+	config.Protocol = registrationauthorsession.ProtocolV2
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	session, err := StartExternalRegistration(ctx, config, worker)
+	if err != nil {
+		t.Fatal(err)
+	}
+	wantEvent(t, session, "ready")
+	sendRegistrationCommand(t, ctx, session, RegistrationCommand{
+		Type: "start", ProfileID: "synthetic_registration", URL: "https://app.example.test/register?action=startnew",
+		Origins: []string{"https://app.example.test"},
+	})
+	wantEvent(t, session, "observing")
+	sendRegistrationCommand(t, ctx, session, RegistrationCommand{Type: "observe"})
+	observation := wantEvent(t, session, "observation")
+	if encoded, err := json.Marshal(observation); err != nil || strings.Contains(string(encoded), "action") || strings.Contains(string(encoded), "startnew") {
+		t.Fatalf("reduced observation leaked retained query: %s, %v", encoded, err)
+	}
+	sendRegistrationCommand(t, ctx, session, RegistrationCommand{
+		Type: "review", Confirmed: true, Profile: profileBytes,
+		CandidateIDs: []string{observation.Observation.Candidates[0].ID},
+		Flow:         "create_dedicated_test_user", CleanupDisposition: "delete_separately",
+		CredentialBindings: registrationControllerBindings(),
+	})
+	wantEvent(t, session, "reviewed")
+	sendRegistrationCommand(t, ctx, session, RegistrationCommand{Type: "finish", Confirmed: true})
+	wantEvent(t, session, "closed")
+	adopted := wantEvent(t, session, "candidate")
+	transaction := adopted.Candidate.Transaction()
+	if transaction.Version != browsertransaction.VersionV2 || transaction.Provenance.ResultVersion != browsertransaction.ResultRegistrationAuthoringV2 || transaction.Provenance.ResultSHA256 != resultDigest {
+		t.Fatalf("v2 candidate transaction = %#v", transaction)
+	}
+}
+
 func TestExternalRegistrationWorkerExitAndProtocolFailuresAreClosed(t *testing.T) {
 	if runtime.GOOS == "windows" {
 		t.Skip("test worker uses a POSIX script")
@@ -287,6 +353,14 @@ func TestRegistrationControllerRejectsInvalidParentBounds(t *testing.T) {
 	}
 }
 
+func TestRegistrationControllerRejectsUnknownConfiguredProtocol(t *testing.T) {
+	config := registrationControllerConfig(t.TempDir())
+	config.Protocol = "browsertools.registration-author-session.v3"
+	if _, err := StartExternalRegistration(context.Background(), config, "/does/not/matter"); err == nil {
+		t.Fatal("unknown registration author protocol was accepted")
+	}
+}
+
 func TestRegistrationServerDecoderRejectsAmbiguousJSON(t *testing.T) {
 	for _, data := range [][]byte{
 		[]byte(`{"protocol":"browsertools.registration-author-session.v1","type":"state","type":"state","phase":"observing"}`),
@@ -315,8 +389,12 @@ func registrationControllerBindings() []browsertransaction.CredentialBinding {
 }
 
 func registrationControllerResult(t *testing.T) ([]byte, []byte, string) {
+	return registrationControllerResultForProtocol(t, registrationauthorsession.ProtocolV1, registrationControllerFixture)
+}
+
+func registrationControllerResultForProtocol(t *testing.T, protocol, fixture string) ([]byte, []byte, string) {
 	t.Helper()
-	profile, err := registrationprofile.Parse([]byte(registrationControllerFixture))
+	profile, err := registrationprofile.Parse([]byte(fixture))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -328,7 +406,7 @@ func registrationControllerResult(t *testing.T) ([]byte, []byte, string) {
 	result, err := registrationauthorresult.Build(registrationauthorresult.BuildRequest{
 		CreatedAt: observedAt.Add(30 * time.Minute),
 		Completion: &registrationauthorsession.Completion{
-			Protocol: registrationauthorsession.Protocol, ProfileID: "synthetic_registration",
+			Protocol: protocol, ProfileID: "synthetic_registration",
 			Profile: *profile, ProfileBytes: profileBytes,
 			ReviewedCandidates: []registrationauthorsession.ReviewedCandidate{{
 				ID: "candidate-0123456789abcdef", Generation: 1, Role: "button", Label: "Register", Matches: 1,

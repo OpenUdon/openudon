@@ -41,8 +41,11 @@ type RegistrationConfig struct {
 	PrivateRoot   string
 	DriverDir     string
 	TransactionID string
-	OperatorIdle  time.Duration
-	Absolute      time.Duration
+	// Protocol is one immutable Browsertools registration authoring protocol.
+	// Empty preserves the legacy v1 default.
+	Protocol     string
+	OperatorIdle time.Duration
+	Absolute     time.Duration
 }
 
 // RegistrationCommand is the closed parent-side command union. Confirmed is
@@ -103,6 +106,9 @@ func StartExternalRegistration(ctx context.Context, config RegistrationConfig, e
 	if config.DriverDir != "" {
 		args = append(args, "--driver-dir", config.DriverDir)
 	}
+	if config.Protocol == registrationauthorsession.ProtocolV2 {
+		args = append(args, "--protocol", "v2")
+	}
 	return startRegistrationProcess(ctx, config, inbox, args, cleanup)
 }
 
@@ -154,6 +160,7 @@ func (session *RegistrationSession) Cancel() {
 }
 
 type registrationRunState struct {
+	protocol        string
 	phase           string
 	started         bool
 	profileID       string
@@ -188,16 +195,16 @@ func (session *RegistrationSession) run(ctx context.Context, config Registration
 	}()
 	messages := make(chan registrationauthorsession.ServerMessage)
 	readDone := make(chan error, 1)
-	go scanRegistrationMessages(ctx, child.Output(), messages, readDone)
+	go scanRegistrationMessages(ctx, child.Output(), config.Protocol, messages, readDone)
 	first, err := receiveRegistration(ctx, messages, readDone)
-	if err != nil || !validRegistrationHello(first) {
+	if err != nil || !validRegistrationHello(first, config.Protocol) {
 		session.publishTerminal(RegistrationEvent{State: "failed", ErrorCode: "protocol_negotiation"})
 		return
 	}
 	if !session.publish(ctx, RegistrationEvent{State: "ready"}) {
 		return
 	}
-	state := registrationRunState{phase: "awaiting_start"}
+	state := registrationRunState{phase: "awaiting_start", protocol: config.Protocol}
 	for {
 		command, ok := session.awaitRegistrationCommand(ctx, config.OperatorIdle)
 		if !ok {
@@ -222,7 +229,7 @@ func (session *RegistrationSession) run(ctx context.Context, config Registration
 			session.publishTerminal(registrationReceiveFailure(ctx, err))
 			return
 		}
-		if response.Protocol != registrationauthorsession.Protocol {
+		if response.Protocol != config.Protocol {
 			session.publishTerminal(RegistrationEvent{State: "failed", ErrorCode: "protocol_mismatch"})
 			return
 		}
@@ -268,6 +275,16 @@ func (session *RegistrationSession) run(ctx context.Context, config Registration
 			Review: *state.review, AssessedAt: registrationAssessmentClock().UTC().Truncate(time.Second),
 		})
 		if err != nil {
+			session.publishTerminal(RegistrationEvent{State: "failed", ErrorCode: "candidate_rejected"})
+			return
+		}
+		transaction := candidate.Transaction()
+		if config.Protocol == registrationauthorsession.ProtocolV2 {
+			if transaction.Version != browsertransaction.VersionV2 || transaction.Provenance.ResultVersion != browsertransaction.ResultRegistrationAuthoringV2 {
+				session.publishTerminal(RegistrationEvent{State: "failed", ErrorCode: "candidate_rejected"})
+				return
+			}
+		} else if transaction.Version != browsertransaction.VersionV1 || transaction.Provenance.ResultVersion != browsertransaction.ResultRegistrationAuthoringV1 {
 			session.publishTerminal(RegistrationEvent{State: "failed", ErrorCode: "candidate_rejected"})
 			return
 		}
@@ -320,6 +337,12 @@ func normalizeRegistrationConfig(config RegistrationConfig) (RegistrationConfig,
 	if config.OperatorIdle > DefaultOperatorIdle || config.Absolute > DefaultAbsolute || !registrationTransactionID.MatchString(config.TransactionID) {
 		return RegistrationConfig{}, nil, errors.New("registration author configuration is invalid")
 	}
+	if config.Protocol == "" {
+		config.Protocol = registrationauthorsession.ProtocolV1
+	}
+	if config.Protocol != registrationauthorsession.ProtocolV1 && config.Protocol != registrationauthorsession.ProtocolV2 {
+		return RegistrationConfig{}, nil, errors.New("registration author protocol is invalid")
+	}
 	config.DriverDir = strings.TrimSpace(config.DriverDir)
 	inbox, err := browsercandidate.OpenPrivateInbox(config.PrivateRoot)
 	if err != nil {
@@ -329,7 +352,11 @@ func normalizeRegistrationConfig(config RegistrationConfig) (RegistrationConfig,
 }
 
 func prepareRegistrationCommand(command RegistrationCommand, state registrationRunState) (registrationauthorsession.ClientMessage, *browsercandidate.RegistrationReview, error) {
-	message := registrationauthorsession.ClientMessage{Protocol: registrationauthorsession.Protocol, Type: command.Type}
+	protocol := state.protocol
+	if protocol == "" {
+		protocol = registrationauthorsession.ProtocolV1
+	}
+	message := registrationauthorsession.ClientMessage{Protocol: protocol, Type: command.Type}
 	switch command.Type {
 	case "start":
 		if state.started || command.Confirmed || command.Method != "" || len(command.Profile) != 0 || len(command.CandidateIDs) != 0 || len(command.CredentialBindings) != 0 ||
@@ -365,6 +392,11 @@ func prepareRegistrationCommand(command RegistrationCommand, state registrationR
 		profile, err := registrationprofile.Parse(command.Profile)
 		if err != nil {
 			return message, nil, err
+		}
+		if protocol == registrationauthorsession.ProtocolV2 {
+			if err := registrationprofile.ValidateRetainedNavigationV2(profile); err != nil {
+				return message, nil, err
+			}
 		}
 		if !bindingsMatchRegistrationProfile(bindings, profile) {
 			return message, nil, errors.New("registration author symbolic bindings do not match the reviewed profile")
@@ -450,9 +482,9 @@ func applyRegistrationResponse(state *registrationRunState, command Registration
 	}
 }
 
-func validRegistrationHello(message registrationauthorsession.ServerMessage) bool {
+func validRegistrationHello(message registrationauthorsession.ServerMessage, protocol string) bool {
 	want := []string{"get_head_only", "no_submit", "reduced_observation", "registration_review"}
-	return message.Protocol == registrationauthorsession.Protocol && message.Type == "hello" && equalRegistrationStrings(message.Capabilities, want)
+	return message.Protocol == protocol && message.Type == "hello" && equalRegistrationStrings(message.Capabilities, want)
 }
 
 func safeRegistrationObservation(observation registrationauthorsession.Observation, state registrationRunState) bool {
@@ -477,12 +509,12 @@ func safeRegistrationObservation(observation registrationauthorsession.Observati
 	return true
 }
 
-func scanRegistrationMessages(ctx context.Context, reader io.Reader, output chan<- registrationauthorsession.ServerMessage, done chan<- error) {
+func scanRegistrationMessages(ctx context.Context, reader io.Reader, protocol string, output chan<- registrationauthorsession.ServerMessage, done chan<- error) {
 	defer close(output)
 	scanner := bufio.NewScanner(reader)
 	scanner.Buffer(make([]byte, 4096), maxRegistrationProtocolLine)
 	for scanner.Scan() {
-		message, err := decodeRegistrationServerMessage(scanner.Bytes())
+		message, err := decodeRegistrationServerMessageForProtocol(scanner.Bytes(), protocol)
 		if err != nil {
 			done <- err
 			return
@@ -498,6 +530,10 @@ func scanRegistrationMessages(ctx context.Context, reader io.Reader, output chan
 }
 
 func decodeRegistrationServerMessage(data []byte) (registrationauthorsession.ServerMessage, error) {
+	return decodeRegistrationServerMessageForProtocol(data, registrationauthorsession.ProtocolV1)
+}
+
+func decodeRegistrationServerMessageForProtocol(data []byte, protocol string) (registrationauthorsession.ServerMessage, error) {
 	var fields map[string]json.RawMessage
 	if err := evidencefile.DecodeStrict(data, &fields); err != nil {
 		return registrationauthorsession.ServerMessage{}, err
@@ -506,7 +542,7 @@ func decodeRegistrationServerMessage(data []byte) (registrationauthorsession.Ser
 		Protocol string `json:"protocol"`
 		Type     string `json:"type"`
 	}
-	if err := json.Unmarshal(data, &header); err != nil || header.Protocol != registrationauthorsession.Protocol {
+	if err := json.Unmarshal(data, &header); err != nil || header.Protocol != protocol {
 		return registrationauthorsession.ServerMessage{}, errors.New("registration protocol header is invalid")
 	}
 	allowedByType := map[string]map[string]bool{
