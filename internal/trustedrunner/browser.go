@@ -6,6 +6,7 @@ import (
 	"path/filepath"
 	"sort"
 	"strings"
+	"time"
 
 	"github.com/OpenUdon/browsertools/authprofile"
 	"github.com/OpenUdon/browsertools/profile"
@@ -13,6 +14,7 @@ import (
 	"github.com/OpenUdon/openudon/internal/browserworkflow"
 	"github.com/OpenUdon/openudon/internal/evidencefile"
 	"github.com/OpenUdon/openudon/internal/packageartifacts"
+	"github.com/OpenUdon/openudon/internal/registrationattestation"
 	"github.com/OpenUdon/openudon/internal/synthesize"
 	"github.com/OpenUdon/openudon/internal/udonrunner"
 	rollout "github.com/OpenUdon/openudon/internal/workflowintent"
@@ -34,20 +36,22 @@ type browserAuthenticationApprovals struct {
 }
 
 type browserRegistrationApprovals struct {
-	Version string `json:"version"`
-	Calls   []struct {
-		Step                string            `json:"step"`
-		Source              string            `json:"source"`
-		Flow                string            `json:"flow"`
-		CredentialBindings  map[string]string `json:"credential_bindings"`
-		Approval            string            `json:"approval"`
-		DuplicatePrevention string            `json:"duplicate_prevention"`
-		OnDuplicate         string            `json:"on_duplicate"`
-		AmbiguousOutcome    string            `json:"ambiguous_outcome"`
-		CleanupDisposition  string            `json:"cleanup_disposition"`
-		Timeout             float64           `json:"timeout"`
-	} `json:"registration_calls"`
-	Sources []json.RawMessage `json:"sources"`
+	Version string                    `json:"version"`
+	Calls   []browserRegistrationCall `json:"registration_calls"`
+	Sources []json.RawMessage         `json:"sources"`
+}
+
+type browserRegistrationCall struct {
+	Step                string            `json:"step"`
+	Source              string            `json:"source"`
+	Flow                string            `json:"flow"`
+	CredentialBindings  map[string]string `json:"credential_bindings"`
+	Approval            string            `json:"approval"`
+	DuplicatePrevention string            `json:"duplicate_prevention"`
+	OnDuplicate         string            `json:"on_duplicate"`
+	AmbiguousOutcome    string            `json:"ambiguous_outcome"`
+	CleanupDisposition  string            `json:"cleanup_disposition"`
+	Timeout             float64           `json:"timeout"`
 }
 
 func buildBrowserRunConfig(packageRoot, driver string, driverArgs, env []string, dryRun bool) (*udonrunner.BrowserConfig, error) {
@@ -113,6 +117,7 @@ func buildBrowserRunConfigFromBytes(packageLabel string, browserPaths, authentic
 	}
 	hasBrowserSteps := false
 	hasRegistrationStep := false
+	hasOtherBrowserStep := false
 	walkIntentSteps(intent.Steps, func(step *rollout.Step) {
 		if step == nil {
 			return
@@ -123,10 +128,12 @@ func buildBrowserRunConfigFromBytes(packageLabel string, browserPaths, authentic
 		}
 		if kind == "browser_registration" {
 			hasRegistrationStep = true
+		} else if kind == "browser" || kind == "browser_authentication" {
+			hasOtherBrowserStep = true
 		}
 	})
-	if hasRegistrationStep && !dryRun {
-		return nil, fmt.Errorf("browser registration execution is unsupported by the current Udon and Browserdriver contracts")
+	if hasRegistrationStep && !dryRun && hasOtherBrowserStep {
+		return nil, fmt.Errorf("browser protocol v4 registration execution cannot be combined with browser action or authentication steps")
 	}
 	if !hasBrowserSteps {
 		if strings.TrimSpace(driver) != "" || len(driverArgs) != 0 {
@@ -217,6 +224,9 @@ func buildBrowserRunConfigFromBytes(packageLabel string, browserPaths, authentic
 	if hasNamedSession {
 		protocolRank = max(protocolRank, 2)
 	}
+	if hasRegistrationStep && !dryRun {
+		protocolRank = 4
+	}
 
 	approvedOperations, sessionPosture, err := readBrowserOperationApprovals(read, len(browserPaths) != 0)
 	if err != nil {
@@ -247,6 +257,13 @@ func buildBrowserRunConfigFromBytes(packageLabel string, browserPaths, authentic
 	if sessionPosture == "opaque-runtime-binding-required" && len(externalSessions) == 0 {
 		return nil, fmt.Errorf("legacy opaque browser sessions cannot execute through openudon run; select a named browser_session and rebuild")
 	}
+	if hasRegistrationStep && !dryRun {
+		// Protocol v4 carries only registration authority. Packaged but inactive
+		// BAP/BCP sources must not leak action, authentication, or session grants.
+		approvedOperations = []string{}
+		approvedAuthentication = []string{}
+		externalSessions = []string{}
+	}
 
 	credentialBindings := sortedSet(credentials)
 	credentialEnvironment := make([]udonrunner.EnvironmentBinding, 0, len(credentialBindings))
@@ -268,6 +285,54 @@ func buildBrowserRunConfigFromBytes(packageLabel string, browserPaths, authentic
 		ApprovedAuthentication: approvedAuthentication,
 		ApprovedRegistration:   approvedRegistration,
 	}, nil
+}
+
+func authorizeBrowserRegistration(snapshot packageSnapshot, browser *udonrunner.BrowserConfig, packageDigest, attestationPath, submitApproval, repoRoot string, now time.Time) error {
+	if browser == nil || browser.Protocol != "v4" {
+		if strings.TrimSpace(attestationPath) != "" || strings.TrimSpace(submitApproval) != "" {
+			return fmt.Errorf("browser registration attestation and submit approval require one non-dry browser registration workflow")
+		}
+		return nil
+	}
+	data, err := snapshot.read(packageartifacts.BrowserRegistrationReviewPath)
+	if err != nil {
+		return fmt.Errorf("read browser registration review: %w", err)
+	}
+	var review browserRegistrationApprovals
+	if err := evidencefile.DecodeStrict(data, &review); err != nil || review.Version != "openudon.browser-registration-review.v1" || len(review.Calls) != 1 {
+		return fmt.Errorf("non-dry browser registration requires exactly one valid reviewed call")
+	}
+	call := review.Calls[0]
+	operation := browserworkflow.RuntimeOperationID(call.Step)
+	approval := browserworkflow.RuntimeOperationID(call.Approval)
+	if operation == "" || approval != operation || len(browser.ApprovedRegistration) != 1 || browser.ApprovedRegistration[0] != operation {
+		return fmt.Errorf("browser registration review must bind submit approval to the exact runtime operation")
+	}
+	profileData, err := snapshot.read(call.Source)
+	if err != nil {
+		return fmt.Errorf("read browser registration profile: %w", err)
+	}
+	profileValue, err := registrationprofile.Parse(profileData)
+	if err != nil {
+		return fmt.Errorf("browser registration profile is invalid: %w", err)
+	}
+	profileDigest, err := registrationprofile.Digest(profileValue)
+	if err != nil {
+		return fmt.Errorf("digest browser registration profile: %w", err)
+	}
+	_, attestationDigest, err := registrationattestation.ReadOutsideRepo(attestationPath, repoRoot, registrationattestation.Expected{
+		PackageSHA256: "sha256:" + strings.ToLower(strings.TrimSpace(packageDigest)), ProfileSHA256: profileDigest,
+		Operation: operation, Flow: call.Flow, CleanupDisposition: call.CleanupDisposition,
+	}, now)
+	if err != nil {
+		return err
+	}
+	if strings.TrimSpace(submitApproval) != operation {
+		return fmt.Errorf("--approve-browser-registration must name the exact runtime operation %s", operation)
+	}
+	browser.AttestedRegistration = []string{operation}
+	browser.RegistrationAttestationSHA256 = attestationDigest
+	return nil
 }
 
 func parseBrowserProfile(relative string, data []byte) (*profile.Profile, error) {

@@ -329,6 +329,8 @@ func TestCLIRunHelpIncludesApprovalGates(t *testing.T) {
 		"--tier sandbox|production",
 		"--approval",
 		"--dry-run",
+		"--browser-registration-attestation",
+		"--approve-browser-registration",
 		"approved_for_sandbox",
 		"approved_for_production",
 		"trusted executor",

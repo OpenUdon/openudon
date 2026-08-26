@@ -421,9 +421,11 @@ recovery each require their own exact digest-bound decision.
 An explicit `browser_registration` intent lowers fixed duplicate, ambiguity,
 cleanup, symbolic-binding, and exact submit-approval policy to
 `uws.browser-registration-call.1.0`. Build, assessment, approval-template, and
-trusted-runner dry-run are offline; non-dry registration fails before executor
-invocation until compatible Udon and Browserdriver contracts are published and
-pinned. [Browser-Profile Authoring Transactions](docs/browser-profile-transactions.md)
+trusted-runner dry-run are offline. Non-dry registration is enabled only for
+the exact Udon report-v3 and Browserdriver protocol-v4 handoff, with a private
+digest-bound dedicated-test attestation and a separate exact
+`--approve-browser-registration OP_ID`; incomplete or legacy configurations
+still fail before executor invocation. [Browser-Profile Authoring Transactions](docs/browser-profile-transactions.md)
 defines the common value-free review, prepare-only, atomic-promotion, and
 recovery record for the BAP+BCP and BRP paths.
 

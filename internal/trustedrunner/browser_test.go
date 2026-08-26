@@ -8,9 +8,12 @@ import (
 	"reflect"
 	"strings"
 	"testing"
+	"time"
 
+	"github.com/OpenUdon/browsertools/registrationprofile"
 	"github.com/OpenUdon/openudon/internal/authoring"
 	"github.com/OpenUdon/openudon/internal/packageartifacts"
+	"github.com/OpenUdon/openudon/internal/registrationattestation"
 	"github.com/OpenUdon/openudon/internal/synthesize"
 	"github.com/OpenUdon/openudon/internal/udonrunner"
 	rollout "github.com/OpenUdon/openudon/internal/workflowintent"
@@ -146,7 +149,7 @@ func TestValidatedPackageBrowserConfigStaysBoundToImmutableSnapshot(t *testing.T
 	}
 }
 
-func TestBrowserRegistrationConfigIsDryRunOnly(t *testing.T) {
+func TestBrowserRegistrationConfigSelectsV4OnlyForExecution(t *testing.T) {
 	timeout := 300.0
 	intent := &rollout.Intent{Steps: []*rollout.Step{{
 		Name: "register_test_user", Type: "browser_registration", Do: "Create one dedicated test identity.",
@@ -206,9 +209,12 @@ flows:
 	if len(config.CredentialEnvironment) != 2 || config.CredentialEnvironment[0].Name != "test_identifier" || config.CredentialEnvironment[1].Name != "test_password" {
 		t.Fatalf("registration credential mappings = %#v", config.CredentialEnvironment)
 	}
-	files["expected/plan.json"] = []byte(`{"version":"openudon.workflow-plan.v1","steps":[]}`)
-	if _, err := buildBrowserRunConfigFromBytes("synthetic", nil, nil, []string{"browser-registration/dedicated.yaml"}, read, "/trusted/browserdriver", nil, nil, false); err == nil || !strings.Contains(err.Error(), "unsupported") {
-		t.Fatalf("live registration error = %v", err)
+	live, err := buildBrowserRunConfigFromBytes("synthetic", nil, nil, []string{"browser-registration/dedicated.yaml"}, read, "/trusted/browserdriver", nil, nil, false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if live.Protocol != "v4" || len(live.AttestedRegistration) != 0 {
+		t.Fatalf("unattested live registration config = %#v", live)
 	}
 }
 
@@ -226,7 +232,7 @@ func TestTrustedRunnerBrowserRegistrationDryRunNeverInvokesExecutor(t *testing.T
 	intent := &rollout.Intent{Steps: []*rollout.Step{{
 		Name: "register_test_user", Type: "browser_registration", Do: "Create one dedicated test identity.",
 		Source: "browser-registration/dedicated.yaml", RegistrationFlow: "create_dedicated_test_user",
-		RegistrationApproval: "approve_account_creation", DuplicatePrevention: "operator_attestation", OnDuplicate: "fail",
+		RegistrationApproval: "register_test_user", DuplicatePrevention: "operator_attestation", OnDuplicate: "fail",
 		AmbiguousOutcome: "stop_without_retry", CleanupDisposition: "delete_separately",
 		CredentialBindings: map[string]string{"identifier": "test_identifier", "password": "test_password"}, Timeout: &timeout,
 	}}}
@@ -262,7 +268,7 @@ flows:
     success: {origin: https://example.test, locator: {role: heading, name: Complete}}
 `))
 	mustWriteFile(t, filepath.Join(example, "browser-registration", "dedicated.review.json"), []byte(`{"version":"browsertools.registration-review.v1"}`))
-	mustWriteFile(t, filepath.Join(example, filepath.FromSlash(packageartifacts.BrowserRegistrationReviewPath)), []byte(`{"version":"openudon.browser-registration-review.v1","registration_calls":[{"step":"register_test_user","source":"browser-registration/dedicated.yaml","flow":"create_dedicated_test_user","credential_bindings":{"identifier":"test_identifier","password":"test_password"},"approval":"approve_account_creation","duplicate_prevention":"operator_attestation","on_duplicate":"fail","ambiguous_outcome":"stop_without_retry","cleanup_disposition":"delete_separately","timeout":300}],"sources":[]}`))
+	mustWriteFile(t, filepath.Join(example, filepath.FromSlash(packageartifacts.BrowserRegistrationReviewPath)), []byte(`{"version":"openudon.browser-registration-review.v1","registration_calls":[{"step":"register_test_user","source":"browser-registration/dedicated.yaml","flow":"create_dedicated_test_user","credential_bindings":{"identifier":"test_identifier","password":"test_password"},"approval":"register_test_user","duplicate_prevention":"operator_attestation","on_duplicate":"fail","ambiguous_outcome":"stop_without_retry","cleanup_disposition":"delete_separately","timeout":300}],"sources":[]}`))
 	refreshFixtureHandoffFile(t, example)
 	now := fixedNow()
 	approvalPath := writeApprovalTemplate(t, root, example, StateApprovedForSandbox, now)
@@ -282,18 +288,101 @@ flows:
 	if err != nil {
 		t.Fatal(err)
 	}
-	if strings.Contains(string(configData), "example.test") || !strings.Contains(string(configData), "UDON_CREDENTIAL_TEST_IDENTIFIER") || !strings.Contains(string(configData), `"approved_registration"`) || !strings.Contains(string(configData), `"approve_account_creation"`) {
+	if strings.Contains(string(configData), "example.test") || !strings.Contains(string(configData), "UDON_CREDENTIAL_TEST_IDENTIFIER") || !strings.Contains(string(configData), `"approved_registration"`) || !strings.Contains(string(configData), `"register_test_user"`) {
 		t.Fatalf("unexpected registration dry-run config: %s", configData)
+	}
+	driver := filepath.Join(t.TempDir(), "browserdriver")
+	if err := os.WriteFile(driver, []byte("#!/bin/sh\nexit 0\n"), 0o700); err != nil {
+		t.Fatal(err)
 	}
 	if _, err := Run(context.Background(), Options{
 		RepoRoot: root, ExampleDir: example, Tier: "sandbox", ApprovalPath: approvalPath,
-		Now: now, Assess: passAssess,
+		Now: now, Assess: passAssess, BrowserDriver: driver,
+		Env:    []string{"UDON_CREDENTIAL_TEST_IDENTIFIER=value", "UDON_CREDENTIAL_TEST_PASSWORD=value"},
 		Invoke: func(context.Context, udonrunner.Invocation) error { invoked = true; return nil },
-	}); err == nil || !strings.Contains(err.Error(), "unsupported") {
+	}); err == nil || !strings.Contains(err.Error(), "attestation") {
 		t.Fatalf("live registration error = %v", err)
 	}
 	if invoked {
 		t.Fatal("registration executor was invoked")
+	}
+
+	validated, err := resolveAndValidatePackageBytes(root, example)
+	if err != nil {
+		t.Fatal(err)
+	}
+	profileData, err := os.ReadFile(filepath.Join(example, "browser-registration", "dedicated.yaml"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	profileValue, err := registrationprofile.Parse(profileData)
+	if err != nil {
+		t.Fatal(err)
+	}
+	profileDigest, err := registrationprofile.Digest(profileValue)
+	if err != nil {
+		t.Fatal(err)
+	}
+	attestationData, err := json.Marshal(registrationattestation.Artifact{
+		Version: registrationattestation.Version, PackageSHA256: "sha256:" + validated.packageSHA256, ProfileSHA256: profileDigest,
+		Operation: "register_test_user", Flow: "create_dedicated_test_user", PriorAttempts: 0, DedicatedTest: true,
+		CleanupDisposition: "delete_separately", Reviewer: "Synthetic Reviewer", ExpiresAt: now().Add(time.Hour).Format(time.RFC3339),
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	attestationPath := filepath.Join(t.TempDir(), "registration-attestation.json")
+	if err := os.WriteFile(attestationPath, append(attestationData, '\n'), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	invoked = false
+	if _, err := Run(context.Background(), Options{
+		RepoRoot: root, ExampleDir: example, Tier: "sandbox", ApprovalPath: approvalPath,
+		Now: now, Assess: passAssess, BrowserDriver: driver, RegistrationAttestationPath: attestationPath,
+		Env:    []string{"OPENUDON_EXECUTOR=/bin/true", "UDON_CREDENTIAL_TEST_IDENTIFIER=identifier-value", "UDON_CREDENTIAL_TEST_PASSWORD=password-value"},
+		Invoke: func(context.Context, udonrunner.Invocation) error { invoked = true; return nil },
+	}); err == nil || !strings.Contains(err.Error(), "--approve-browser-registration") {
+		t.Fatalf("missing submit approval error = %v", err)
+	}
+	if invoked {
+		t.Fatal("registration executor was invoked without submit approval")
+	}
+
+	result, err = Run(context.Background(), Options{
+		RepoRoot: root, ExampleDir: example, Tier: "sandbox", ApprovalPath: approvalPath,
+		Now: now, Assess: passAssess, BrowserDriver: driver, RegistrationAttestationPath: attestationPath,
+		RegistrationSubmitApproval: "register_test_user",
+		Env:                        []string{"OPENUDON_EXECUTOR=/bin/true", "UDON_CREDENTIAL_TEST_IDENTIFIER=identifier-value", "UDON_CREDENTIAL_TEST_PASSWORD=password-value"},
+		Invoke: func(_ context.Context, invocation udonrunner.Invocation) error {
+			invoked = true
+			for _, pair := range [][2]string{{"--browser-driver-protocol", "v4"}, {"--attest-browser-registration", "register_test_user"}, {"--approve-browser-registration", "register_test_user"}} {
+				if !containsBrowserArgs(invocation.Argv, pair[0], pair[1]) {
+					t.Fatalf("registration invocation missing %q %q: %#v", pair[0], pair[1], invocation.Argv)
+				}
+			}
+			joined := strings.Join(invocation.Argv, " ")
+			if strings.Contains(joined, attestationPath) || strings.Contains(joined, "identifier-value") || strings.Contains(joined, "password-value") {
+				t.Fatalf("private registration material escaped argv: %s", joined)
+			}
+			writeUdonExecutionReport(t, argValue(t, invocation.Argv, "--execution-report"), "success", now(), "")
+			return nil
+		},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !invoked || result.DryRun {
+		t.Fatalf("attested registration result = %#v invoked=%v", result, invoked)
+	}
+	for index, path := range []string{result.RunConfigPath, result.RunEvidencePath} {
+		data, err := os.ReadFile(path)
+		if err != nil {
+			t.Fatal(err)
+		}
+		bytes := string(data)
+		if strings.Contains(bytes, attestationPath) || strings.Contains(bytes, "identifier-value") || strings.Contains(bytes, "password-value") || index == 0 && !strings.Contains(bytes, "udon.execution-report.v3") {
+			t.Fatalf("registration handoff artifact %s is unsafe: %s", path, data)
+		}
 	}
 }
 
@@ -354,4 +443,13 @@ flows:
 `))
 	write(".icot/browser-sources.json", []byte(`{"version":"openudon.browser-source-review.v1","route":"browser","session_posture":"named","mutation_approvals":["read-dashboard"],"sources":[]}`))
 	write(".icot/browser-authentication.json", []byte(`{"version":"openudon.browser-authentication-review.v1","authentication_approvals":["authenticate-member"],"session_bindings":[],"sources":[]}`))
+}
+
+func containsBrowserArgs(values []string, first, second string) bool {
+	for index := 0; index+1 < len(values); index++ {
+		if values[index] == first && values[index+1] == second {
+			return true
+		}
+	}
+	return false
 }

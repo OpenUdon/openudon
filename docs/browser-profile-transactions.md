@@ -399,11 +399,13 @@ reaches the trusted Udon/Browserdriver boundary. That boundary revalidates the
 package, approval, symbolic credential mappings, and session contract before
 invocation.
 
-Registration runtime execution is currently unsupported. OpenUdon may build,
-assess, prepare, promote, generate an approval template, and perform a dry-run
-for a reviewed registration package, but every non-dry registration attempt
-must fail before executor invocation until compatible Udon and Browserdriver
-registration contracts are independently published and pinned.
+Registration runtime execution is restricted to one exact registration-only
+workflow through Browserdriver protocol v4 and Udon execution report v3.
+OpenUdon requires the private digest-bound attestation described above plus a
+separate exact `--approve-browser-registration OP_ID`; it then hands Udon both
+`--attest-browser-registration OP_ID` and the submit approval. Missing,
+expired, drifted, mixed-browser, v2/v3-driver, or report-v2 configurations fail
+before executor invocation. BAP execution retains its v2/v3 behavior.
 
 Selected generations use the existing approval and runner contracts by
 replacing `--example` with `--package-store /absolute/store --selection

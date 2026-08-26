@@ -724,12 +724,14 @@ func runTrustedCommand(args []string) {
 	dryRun := fs.Bool("dry-run", false, "Validate gates, stage the package, verify the staged digest, and write run evidence without invoking the executor")
 	signingKey := fs.String("signing-key", "", "Optional PKCS#8 PEM Ed25519 key used only to sign the completed run evidence")
 	browserDriver := fs.String("browser-driver", "", "Absolute trusted browser-driver executable path (or absolute in-image path for Docker)")
+	registrationAttestation := fs.String("browser-registration-attestation", "", "Absolute owner-only registration attestation path outside the repository")
+	registrationSubmitApproval := fs.String("approve-browser-registration", "", "Approve the sole submit for one exact browser registration operation ID")
 	packageStore := fs.String("package-store", "", "Use an exact atomically selected package generation store")
 	selection := fs.String("selection", "", "Exact current selection SHA-256 required with --package-store")
 	var browserDriverArgs repeatedStringFlag
 	fs.Var(&browserDriverArgs, "browser-driver-arg", "Repeatable non-secret argument passed to the trusted browser driver")
 	fs.Usage = func() {
-		fmt.Fprintf(fs.Output(), "Usage: openudon run --example examples/<name> --tier sandbox|production --approval approvals/<name>.json [--browser-driver /absolute/path] [--browser-driver-arg value] [--workdir .openudon-run/<name>] [--dry-run]\n")
+		fmt.Fprintf(fs.Output(), "Usage: openudon run --example examples/<name> --tier sandbox|production --approval approvals/<name>.json [--browser-driver /absolute/path] [--browser-driver-arg value] [--browser-registration-attestation /outside/repo/attestation.json --approve-browser-registration OP_ID] [--workdir .openudon-run/<name>] [--dry-run]\n")
 		fmt.Fprintf(fs.Output(), "       openudon run --package-store /absolute/store --selection sha256:... --tier sandbox|production --approval /outside/store/approval.json --workdir /outside/store/run [--dry-run]\n")
 		fmt.Fprintf(fs.Output(), "\nValidates the OpenUdon handoff package, current quality gates, approval scope, approval digest, tier/state compatibility, runner config, package staging, and staged digest before writing %s run evidence, an async evidence sidecar, and invoking the trusted executor runner.\n", trustedrunner.RunEvidenceVersion)
 		fmt.Fprintf(fs.Output(), "\nTier rules:\n")
@@ -743,18 +745,20 @@ func runTrustedCommand(args []string) {
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 	runOptions := trustedrunner.Options{
-		RepoRoot:          ".",
-		ExampleDir:        *example,
-		Tier:              *tier,
-		ApprovalPath:      *approval,
-		WorkDir:           *workdir,
-		DryRun:            *dryRun,
-		RunnerPath:        os.Getenv("OPENUDON_UDON_RUNNER"),
-		Stdout:            os.Stdout,
-		Stderr:            os.Stderr,
-		SigningKey:        *signingKey,
-		BrowserDriver:     *browserDriver,
-		BrowserDriverArgs: []string(browserDriverArgs),
+		RepoRoot:                    ".",
+		ExampleDir:                  *example,
+		Tier:                        *tier,
+		ApprovalPath:                *approval,
+		WorkDir:                     *workdir,
+		DryRun:                      *dryRun,
+		RunnerPath:                  os.Getenv("OPENUDON_UDON_RUNNER"),
+		Stdout:                      os.Stdout,
+		Stderr:                      os.Stderr,
+		SigningKey:                  *signingKey,
+		BrowserDriver:               *browserDriver,
+		BrowserDriverArgs:           []string(browserDriverArgs),
+		RegistrationAttestationPath: *registrationAttestation,
+		RegistrationSubmitApproval:  *registrationSubmitApproval,
 	}
 	var result *trustedrunner.RunResult
 	var err error

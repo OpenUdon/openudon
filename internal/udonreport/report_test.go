@@ -5,7 +5,7 @@ import (
 	"testing"
 )
 
-func TestDecodeRequiresTypedV2FailureAndNoSuccessCode(t *testing.T) {
+func TestDecodeRequiresTypedV3FailureAndNoSuccessCode(t *testing.T) {
 	base := Report{Version: Version, Status: "success", StartedAt: "2026-08-21T00:00:00Z", FinishedAt: "2026-08-21T00:00:01Z", WorkflowPath: "workflow.json", WorkflowFormat: "uws-json", WorkDir: "."}
 	if data, _ := json.Marshal(base); mustDecode(t, data) == nil {
 		t.Fatal("valid success was rejected")
@@ -17,6 +17,25 @@ func TestDecodeRequiresTypedV2FailureAndNoSuccessCode(t *testing.T) {
 		if got := FailureCode(data); got != code {
 			t.Fatalf("FailureCode(%s) = %q", code, got)
 		}
+	}
+	for _, code := range []string{"registration_indeterminate", "registration_retry_forbidden", "registration_checkpoint_timeout", "registration_checkpoint_denied"} {
+		failure := base
+		failure.Status, failure.ErrorCode, failure.ErrorSummary = "error", code, "redacted registration failure"
+		data, _ := json.Marshal(failure)
+		if got := FailureCode(data); got != code {
+			t.Fatalf("FailureCode(%s) = %q", code, got)
+		}
+		failure.Version = VersionV2
+		legacyData, _ := json.Marshal(failure)
+		if _, err := Decode(legacyData); err == nil {
+			t.Fatalf("legacy v2 accepted registration code %s", code)
+		}
+	}
+	legacy := base
+	legacy.Version = VersionV2
+	legacyData, _ := json.Marshal(legacy)
+	if _, err := Decode(legacyData); err != nil {
+		t.Fatalf("legacy v2 success rejected: %v", err)
 	}
 	for _, mutate := range []func(*Report){
 		func(report *Report) { report.Version = "udon.execution-report.v1" },

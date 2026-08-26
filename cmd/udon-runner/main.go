@@ -27,11 +27,13 @@ func main() {
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 	if _, err := trustedrunner.RunExternal(ctx, trustedrunner.ExternalOptions{
-		ConfigPath:   *configPath,
-		ConfigSHA256: *configSHA256,
-		ApprovalPath: *approvalPath,
-		Stdout:       os.Stdout,
-		Stderr:       os.Stderr,
+		ConfigPath:                  *configPath,
+		ConfigSHA256:                *configSHA256,
+		ApprovalPath:                *approvalPath,
+		RegistrationAttestationPath: os.Getenv("OPENUDON_BROWSER_REGISTRATION_ATTESTATION"),
+		RegistrationSubmitApproval:  os.Getenv("OPENUDON_BROWSER_REGISTRATION_SUBMIT_APPROVAL"),
+		Stdout:                      os.Stdout,
+		Stderr:                      os.Stderr,
 	}); err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)

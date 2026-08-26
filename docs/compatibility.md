@@ -22,11 +22,11 @@ deliberately smaller than the full command surface.
 - Additive value-free browser replay fields in executor-run and run-evidence
   v2: driver path/arguments, protocol, canonical environment mappings, and
   exact reviewed operation/authentication approvals.
-- Additive value-free browser-registration package and dry-run fields:
-  canonical symbolic credential mappings and exact reviewed registration
-  operation approvals. This is not a live-execution compatibility claim;
-  executor construction fails closed until compatible downstream contracts
-  are pinned.
+- Additive value-free browser-registration package and runtime fields:
+  canonical symbolic credential mappings, exact reviewed registration
+  operation approvals, protocol v4 attestation/submit grants, and the private
+  attestation digest. Non-dry registration requires that complete contract and
+  Udon execution report v3; legacy or incomplete forms fail before invocation.
 - The public `openudon.browser-profile-transaction.v1` JSON artifact and its
   schema. It coordinates the existing BAP/BCP and BRP families through closed,
   value-free review, preparation, promotion, and recovery states; it neither

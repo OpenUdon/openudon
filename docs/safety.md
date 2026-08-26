@@ -140,9 +140,13 @@ configuration.
 Registration packages use the same immutable approval and dry-run staging
 path, including canonical `UDON_CREDENTIAL_*` names and exact registration
 operation approvals. Dry-run never resolves those values or launches a
-browser. Non-dry registration is rejected before executor construction because
-the currently pinned Udon and Browserdriver contracts do not implement
-`uws.browser-registration-call.1.0`.
+browser. Non-dry registration requires a single registration-only workflow,
+Browserdriver protocol v4, Udon execution report v3, an exact private
+`openudon.browser-registration-attestation.v1`, and a separate
+`--approve-browser-registration OP_ID`. OpenUdon validates these before
+executor invocation and forwards only symbolic environment names plus the
+Udon attestation and submit-approval flags. Legacy and incomplete contracts
+remain fail-before-executor.
 
 `OPENUDON_EXECUTOR` is the canonical final executor selector. It accepts an absolute binary path or
 `docker://<image>`. `OPENUDON_UDON_RUNNER` is separate: it overrides the outer runner shim and must

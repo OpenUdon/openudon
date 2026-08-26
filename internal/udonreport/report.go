@@ -11,7 +11,9 @@ import (
 )
 
 const (
-	Version          = "udon.execution-report.v2"
+	VersionV2        = "udon.execution-report.v2"
+	VersionV3        = "udon.execution-report.v3"
+	Version          = VersionV3
 	CodeUnclassified = "unclassified"
 )
 
@@ -21,6 +23,11 @@ var failureCodes = map[string]bool{
 	"driver_error": true, "unsupported_challenge": true, "captcha_required": true,
 	"origin_rejected": true, "ambiguous_locator": true, "invalid_context": true, "invalid_response": true,
 	"secret_output": true, CodeUnclassified: true,
+}
+
+var registrationFailureCodes = map[string]bool{
+	"registration_indeterminate": true, "registration_retry_forbidden": true,
+	"registration_checkpoint_timeout": true, "registration_checkpoint_denied": true,
 }
 
 type Report struct {
@@ -37,15 +44,18 @@ type Report struct {
 	ErrorSummary   string `json:"error_summary,omitempty"`
 }
 
-func ValidFailureCode(code string) bool { return failureCodes[strings.TrimSpace(code)] }
+func ValidFailureCode(code string) bool {
+	code = strings.TrimSpace(code)
+	return failureCodes[code] || registrationFailureCodes[code]
+}
 
 func Decode(data []byte) (*Report, error) {
 	var report Report
 	if err := evidencefile.DecodeStrict(data, &report); err != nil {
 		return nil, fmt.Errorf("must be valid JSON: %w", err)
 	}
-	if report.Version != Version {
-		return nil, fmt.Errorf("version must be %s", Version)
+	if report.Version != VersionV2 && report.Version != VersionV3 {
+		return nil, fmt.Errorf("version must be %s or read-only legacy %s", VersionV3, VersionV2)
 	}
 	if report.Status != "success" && report.Status != "error" {
 		return nil, fmt.Errorf("status must be success or error")
@@ -79,7 +89,7 @@ func Decode(data []byte) (*Report, error) {
 			return nil, fmt.Errorf("successful report must not contain error_code or error_summary")
 		}
 	} else {
-		if !ValidFailureCode(report.ErrorCode) {
+		if !failureCodes[report.ErrorCode] && (report.Version != VersionV3 || !registrationFailureCodes[report.ErrorCode]) {
 			return nil, fmt.Errorf("failed report requires a closed error_code")
 		}
 		if strings.TrimSpace(report.ErrorSummary) == "" {

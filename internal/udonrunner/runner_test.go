@@ -572,8 +572,27 @@ func TestBrowserRegistrationEvidenceRejectsExecutorConstruction(t *testing.T) {
 		t.Fatalf("executor construction error = %v", err)
 	}
 	config.Protocol = "v2"
-	if err := ValidateBrowserEvidenceConfig(config, nil); err == nil || !strings.Contains(err.Error(), "protocol v3") {
+	if err := ValidateBrowserEvidenceConfig(config, nil); err == nil || !strings.Contains(err.Error(), "protocol v3 dry-run") {
 		t.Fatalf("registration protocol error = %v", err)
+	}
+	config.Protocol = "v4"
+	config.AttestedRegistration = []string{"register_test_user"}
+	config.RegistrationAttestationSHA256 = "sha256:" + strings.Repeat("a", 64)
+	if _, err := validateBrowserConfig(config, nil, map[string]string{}, false, true); err != nil {
+		t.Fatalf("exact v4 registration contract rejected: %v", err)
+	}
+	config.AttestedRegistration[0] = "other"
+	if _, err := validateBrowserConfig(config, nil, map[string]string{}, false, true); err == nil || !strings.Contains(err.Error(), "one exact") {
+		t.Fatalf("mismatched v4 registration contract error = %v", err)
+	}
+	runConfig := validRunnerConfig(t)
+	runConfig.ExecutorReportVersion = "udon.execution-report.v2"
+	runConfig.Browser = &BrowserConfig{
+		Protocol: "v4", DriverPath: "/trusted/browserdriver", ApprovedRegistration: []string{"register_test_user"},
+		AttestedRegistration: []string{"register_test_user"}, RegistrationAttestationSHA256: "sha256:" + strings.Repeat("a", 64),
+	}
+	if _, err := Prepare(context.Background(), runConfig, Options{}); err == nil || !strings.Contains(err.Error(), "execution-report.v3") {
+		t.Fatalf("registration report-v2 construction error = %v", err)
 	}
 }
 

@@ -54,22 +54,24 @@ type Approval struct {
 }
 
 type Options struct {
-	RepoRoot          string
-	ExampleDir        string
-	Tier              string
-	ApprovalPath      string
-	WorkDir           string
-	DryRun            bool
-	RunnerPath        string
-	Stdout            io.Writer
-	Stderr            io.Writer
-	Now               func() time.Time
-	Env               []string
-	Assess            func(context.Context, synthesize.Options) (*synthesize.QualityReport, error)
-	Invoke            udonrunner.InvokeFunc
-	SigningKey        string
-	BrowserDriver     string
-	BrowserDriverArgs []string
+	RepoRoot                    string
+	ExampleDir                  string
+	Tier                        string
+	ApprovalPath                string
+	WorkDir                     string
+	DryRun                      bool
+	RunnerPath                  string
+	Stdout                      io.Writer
+	Stderr                      io.Writer
+	Now                         func() time.Time
+	Env                         []string
+	Assess                      func(context.Context, synthesize.Options) (*synthesize.QualityReport, error)
+	Invoke                      udonrunner.InvokeFunc
+	SigningKey                  string
+	BrowserDriver               string
+	BrowserDriverArgs           []string
+	RegistrationAttestationPath string
+	RegistrationSubmitApproval  string
 }
 
 type TemplateOptions struct {
@@ -328,6 +330,9 @@ func Run(ctx context.Context, opts Options) (*RunResult, error) {
 	if err != nil {
 		return nil, err
 	}
+	if err := authorizeBrowserRegistration(validated.snapshot, browserConfig, digest, opts.RegistrationAttestationPath, opts.RegistrationSubmitApproval, p.repoRoot, now); err != nil {
+		return nil, err
+	}
 	runConfig, err := buildRunConfig(p, manifest, validated.snapshot, digest, opts.Tier, result.WorkDir, runID, validated.handoffSHA256, evidencefile.SHA256(approvalBytes), browserConfig)
 	if err != nil {
 		return nil, err
@@ -387,7 +392,7 @@ func Run(ctx context.Context, opts Options) (*RunResult, error) {
 		}
 		args := []string{"--config", runConfigPath, "--config-sha256", runConfigDigest, "--approval", opts.ApprovalPath}
 		executorArgv := append([]string{runnerPath}, args...)
-		invocation := udonrunner.Invocation{Argv: executorArgv, Dir: p.repoRoot, Env: outerRunnerEnvironment(opts.Env, runConfig)}
+		invocation := udonrunner.Invocation{Argv: executorArgv, Dir: p.repoRoot, Env: outerRunnerEnvironment(opts.Env, runConfig, opts.RegistrationAttestationPath, opts.RegistrationSubmitApproval)}
 		invoke := opts.Invoke
 		if invoke == nil {
 			invoke = func(ctx context.Context, invocation udonrunner.Invocation) error {
@@ -512,24 +517,25 @@ func buildRunConfig(p paths, manifest handoffManifest, snapshot packageSnapshot,
 	}
 	packagePaths := append([]string(nil), snapshot.paths...)
 	config := RunConfig{
-		Version:             RunConfigVersion,
-		RunID:               runID,
-		Scope:               p.scope,
-		Tier:                tier,
-		PackageRoot:         p.exampleAbs,
-		WorkDir:             workdir,
-		WorkflowPath:        filepath.ToSlash(filepath.Join("workflows", "workflow.uws.yaml")),
-		WorkflowFormat:      "uws-yaml",
-		DataFiles:           runConfigDataFiles(snapshot),
-		APISourcePaths:      relOpenAPI,
-		OpenAPIPaths:        relOpenAPI,
-		PackagePaths:        packagePaths,
-		PackageSHA256:       digest,
-		HandoffSHA256:       handoffDigest,
-		ApprovalSHA256:      approvalDigest,
-		CredentialBindings:  sortedCredentialBindings(manifest),
-		Browser:             cloneBrowserConfig(browser),
-		DirectProductionRun: false,
+		Version:               RunConfigVersion,
+		RunID:                 runID,
+		Scope:                 p.scope,
+		Tier:                  tier,
+		PackageRoot:           p.exampleAbs,
+		WorkDir:               workdir,
+		WorkflowPath:          filepath.ToSlash(filepath.Join("workflows", "workflow.uws.yaml")),
+		WorkflowFormat:        "uws-yaml",
+		DataFiles:             runConfigDataFiles(snapshot),
+		APISourcePaths:        relOpenAPI,
+		OpenAPIPaths:          relOpenAPI,
+		PackagePaths:          packagePaths,
+		PackageSHA256:         digest,
+		HandoffSHA256:         handoffDigest,
+		ApprovalSHA256:        approvalDigest,
+		ExecutorReportVersion: udonreport.VersionV3,
+		CredentialBindings:    sortedCredentialBindings(manifest),
+		Browser:               cloneBrowserConfig(browser),
+		DirectProductionRun:   false,
 	}
 	if config.WorkDir == "" {
 		config.WorkDir = p.defaultWorkDir
@@ -624,7 +630,7 @@ func VerifyRunEvidenceFileWithOptions(path string, opts VerifyRunEvidenceOptions
 		requireSuccessfulReport := !evidence.DryRun &&
 			(evidence.Executor.Mode == "internal-runner" || evidence.Executor.Mode == "external-runner") &&
 			evidenceGateStatus(evidence, "executor_invocation") == "pass"
-		if err := verifyExecutorReport(workdir, evidence.Executor, requireSuccessfulReport); err != nil {
+		if err := verifyExecutorReport(workdir, evidence.Executor, evidence.Browser, requireSuccessfulReport); err != nil {
 			return VerifyRunEvidenceResult{}, err
 		}
 	}
@@ -712,7 +718,7 @@ func validateRunEvidenceGates(evidence RunEvidence) error {
 	return nil
 }
 
-func verifyExecutorReport(workdir string, executor RunEvidenceExecutor, requiredSuccess bool) error {
+func verifyExecutorReport(workdir string, executor RunEvidenceExecutor, browser *udonrunner.BrowserConfig, requiredSuccess bool) error {
 	if strings.TrimSpace(executor.ReportPath) == "" {
 		if executor.ReportSHA256 != "" || executor.ReportSize != 0 {
 			return fmt.Errorf("executor report digest and size require report_path")
@@ -742,6 +748,9 @@ func verifyExecutorReport(workdir string, executor RunEvidenceExecutor, required
 	}
 	if requiredSuccess && !strings.EqualFold(report.Status, "success") {
 		return fmt.Errorf("successful executor evidence requires a success report status")
+	}
+	if browser != nil && browser.Protocol == "v4" && report.Version != udonreport.VersionV3 {
+		return fmt.Errorf("browser registration evidence requires udon.execution-report.v3")
 	}
 	return nil
 }
@@ -945,6 +954,9 @@ func buildRunEvidenceExecutor(opts runEvidenceOptions, executorArgv []string) (R
 		}
 		if !strings.EqualFold(report.Status, "success") {
 			return RunEvidenceExecutor{}, fmt.Errorf("successful executor report status must be success")
+		}
+		if opts.Config.Browser != nil && opts.Config.Browser.Protocol == "v4" && report.Version != opts.Config.ExecutorReportVersion {
+			return RunEvidenceExecutor{}, fmt.Errorf("successful executor report version does not match the run config")
 		}
 	}
 	executor.ReportPath = filepath.ToSlash(rel)
@@ -1288,7 +1300,7 @@ func newRunID() (string, error) {
 	return fmt.Sprintf("%x", value[:]), nil
 }
 
-func outerRunnerEnvironment(source []string, config RunConfig) []string {
+func outerRunnerEnvironment(source []string, config RunConfig, registrationAttestationPath, registrationSubmitApproval string) []string {
 	if source == nil {
 		source = os.Environ()
 	}
@@ -1315,6 +1327,14 @@ func outerRunnerEnvironment(source []string, config RunConfig) []string {
 			allowed[name] = true
 		}
 	}
+	if strings.TrimSpace(registrationAttestationPath) != "" {
+		values["OPENUDON_BROWSER_REGISTRATION_ATTESTATION"] = registrationAttestationPath
+		allowed["OPENUDON_BROWSER_REGISTRATION_ATTESTATION"] = true
+	}
+	if strings.TrimSpace(registrationSubmitApproval) != "" {
+		values["OPENUDON_BROWSER_REGISTRATION_SUBMIT_APPROVAL"] = registrationSubmitApproval
+		allowed["OPENUDON_BROWSER_REGISTRATION_SUBMIT_APPROVAL"] = true
+	}
 	var out []string
 	for name := range allowed {
 		if value, ok := values[name]; ok {
@@ -1337,6 +1357,7 @@ func cloneBrowserConfig(input *udonrunner.BrowserConfig) *udonrunner.BrowserConf
 	result.ApprovedOperations = append([]string(nil), input.ApprovedOperations...)
 	result.ApprovedAuthentication = append([]string(nil), input.ApprovedAuthentication...)
 	result.ApprovedRegistration = append([]string(nil), input.ApprovedRegistration...)
+	result.AttestedRegistration = append([]string(nil), input.AttestedRegistration...)
 	return &result
 }
 

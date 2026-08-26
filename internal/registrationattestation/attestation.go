@@ -4,6 +4,8 @@
 package registrationattestation
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"io"
@@ -52,45 +54,46 @@ type Expected struct {
 // ReadOutsideRepo reads and validates one exact owner-only, non-symlink
 // artifact outside repoRoot. Requiring that placement makes the artifact
 // untrackable by the OpenUdon repository containing the package.
-func ReadOutsideRepo(path, repoRoot string, expected Expected, now time.Time) (Artifact, error) {
+func ReadOutsideRepo(path, repoRoot string, expected Expected, now time.Time) (Artifact, string, error) {
 	cleanPath, err := validatePrivatePath(path, repoRoot)
 	if err != nil {
-		return Artifact{}, err
+		return Artifact{}, "", err
 	}
 	before, err := os.Lstat(cleanPath)
 	if err != nil {
-		return Artifact{}, errors.New("read browser registration attestation")
+		return Artifact{}, "", errors.New("read browser registration attestation")
 	}
 	if !before.Mode().IsRegular() || before.Mode()&os.ModeSymlink != 0 || before.Mode().Perm()&0o077 != 0 || before.Mode().Perm()&0o400 == 0 || before.Size() <= 0 || before.Size() > MaxBytes {
-		return Artifact{}, errors.New("browser registration attestation must be an owner-readable, owner-only regular file")
+		return Artifact{}, "", errors.New("browser registration attestation must be an owner-readable, owner-only regular file")
 	}
 	file, err := os.Open(cleanPath)
 	if err != nil {
-		return Artifact{}, errors.New("read browser registration attestation")
+		return Artifact{}, "", errors.New("read browser registration attestation")
 	}
 	defer file.Close()
 	opened, err := file.Stat()
 	if err != nil || !os.SameFile(before, opened) {
-		return Artifact{}, errors.New("browser registration attestation changed during open")
+		return Artifact{}, "", errors.New("browser registration attestation changed during open")
 	}
 	data, err := io.ReadAll(io.LimitReader(file, MaxBytes+1))
 	if err != nil || len(data) == 0 || len(data) > MaxBytes {
-		return Artifact{}, errors.New("read browser registration attestation")
+		return Artifact{}, "", errors.New("read browser registration attestation")
 	}
 	after, err := file.Stat()
 	pathAfter, pathErr := os.Lstat(cleanPath)
 	if err != nil || pathErr != nil || !sameFile(opened, after) || !sameFile(after, pathAfter) || after.Size() != int64(len(data)) {
-		return Artifact{}, errors.New("browser registration attestation changed during read")
+		return Artifact{}, "", errors.New("browser registration attestation changed during read")
 	}
 	artifact, err := Decode(data, now)
 	if err != nil {
-		return Artifact{}, err
+		return Artifact{}, "", err
 	}
 	if artifact.PackageSHA256 != expected.PackageSHA256 || artifact.ProfileSHA256 != expected.ProfileSHA256 ||
 		artifact.Operation != expected.Operation || artifact.Flow != expected.Flow || artifact.CleanupDisposition != expected.CleanupDisposition {
-		return Artifact{}, errors.New("browser registration attestation does not match the exact package operation")
+		return Artifact{}, "", errors.New("browser registration attestation does not match the exact package operation")
 	}
-	return artifact, nil
+	sum := sha256.Sum256(data)
+	return artifact, "sha256:" + hex.EncodeToString(sum[:]), nil
 }
 
 // Decode validates the closed value-free artifact without reading a path.

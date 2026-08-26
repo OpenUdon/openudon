@@ -17,12 +17,15 @@ func TestReadOutsideRepoAcceptsExactOwnerOnlyArtifact(t *testing.T) {
 	}
 	artifact := validArtifact(now)
 	path := writeArtifact(t, t.TempDir(), artifact, 0o600)
-	got, err := ReadOutsideRepo(path, repo, expected(artifact), now)
+	got, digest, err := ReadOutsideRepo(path, repo, expected(artifact), now)
 	if err != nil {
 		t.Fatal(err)
 	}
 	if got != artifact {
 		t.Fatalf("artifact = %#v", got)
+	}
+	if !digestPattern.MatchString(digest) {
+		t.Fatalf("artifact digest = %q", digest)
 	}
 }
 
@@ -34,17 +37,17 @@ func TestReadOutsideRepoRejectsUnsafePathModeAndDrift(t *testing.T) {
 	}
 	artifact := validArtifact(now)
 	inside := writeArtifact(t, repo, artifact, 0o600)
-	if _, err := ReadOutsideRepo(inside, repo, expected(artifact), now); err == nil || !strings.Contains(err.Error(), "outside") {
+	if _, _, err := ReadOutsideRepo(inside, repo, expected(artifact), now); err == nil || !strings.Contains(err.Error(), "outside") {
 		t.Fatalf("inside-repository artifact error = %v", err)
 	}
 	public := writeArtifact(t, t.TempDir(), artifact, 0o644)
-	if _, err := ReadOutsideRepo(public, repo, expected(artifact), now); err == nil || !strings.Contains(err.Error(), "owner-only") {
+	if _, _, err := ReadOutsideRepo(public, repo, expected(artifact), now); err == nil || !strings.Contains(err.Error(), "owner-only") {
 		t.Fatalf("public artifact error = %v", err)
 	}
 	private := writeArtifact(t, t.TempDir(), artifact, 0o400)
 	drifted := expected(artifact)
 	drifted.Flow = "different"
-	if _, err := ReadOutsideRepo(private, repo, drifted, now); err == nil || !strings.Contains(err.Error(), "does not match") {
+	if _, _, err := ReadOutsideRepo(private, repo, drifted, now); err == nil || !strings.Contains(err.Error(), "does not match") {
 		t.Fatalf("drifted artifact error = %v", err)
 	}
 }

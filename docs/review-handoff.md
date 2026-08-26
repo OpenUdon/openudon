@@ -118,9 +118,10 @@ staged paths, gate outcomes, bound config/handoff/approval/package digests,
 credential binding names, verified executor-report metadata, and a digest
 reference to `async-evidence.json`. The
 sidecar is an `openudon.async-evidence-bundle.v1` wrapper over neutral Evidence async request and
-response records for OpenUdon package handoff audit only. When a compatible Udon executor writes a
-strict `udon.execution-report.v2` file, OpenUdon also forwards status and
-confirmation-read observations from that report. A failed v2 report requires
+response records for OpenUdon package handoff audit only. OpenUdon accepts the
+historical strict `udon.execution-report.v2` contract for unchanged workflows
+and requires `udon.execution-report.v3` for browser registration. It forwards
+status and confirmation-read observations from either report. A failed report requires
 one closed `error_code`; a successful report has no code. Missing, malformed,
 v1, unknown-code, or unrelated failure evidence is `unclassified` and cannot
 satisfy an expected-failure scenario. The closed failure vocabulary is
@@ -128,7 +129,9 @@ satisfy an expected-failure scenario. The closed failure vocabulary is
 `credentials_invalid`, `session_expired`, `driver_error`,
 `unsupported_challenge`, `captcha_required`, `origin_rejected`,
 `ambiguous_locator`, `invalid_context`, `invalid_response`, `secret_output`,
-and `unclassified`. OpenUdon does not interpret Ramen
+and `unclassified`; v3 additionally admits `registration_indeterminate`,
+`registration_retry_forbidden`, `registration_checkpoint_timeout`, and
+`registration_checkpoint_denied`. OpenUdon does not interpret Ramen
 convergence or store credential values or raw executor output.
 `OPENUDON_EXECUTOR` selects the final executor as an absolute binary path or
 `docker://<image>`.

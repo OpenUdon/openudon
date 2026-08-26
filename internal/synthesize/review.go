@@ -283,7 +283,7 @@ func reviewMarkdownFromState(result Result, provider, model string, state review
 	b.WriteString("Trusted dry run, before any executor invocation:\n\n")
 	fmt.Fprintf(&b, "```bash\nopenudon run --example %s --tier sandbox --approval approvals/%s.json --dry-run\n```\n\n", relOrAbs(filepath.Dir(result.ExampleDir), result.ExampleDir), filepath.Base(result.ExampleDir))
 	if intentHasBrowserRegistrationStep(intent) {
-		b.WriteString("Trusted registration proof run: unavailable. The pinned Udon and Browserdriver contracts do not implement browser registration, and OpenUdon rejects non-dry execution before executor invocation.\n")
+		b.WriteString("Trusted registration proof run: requires the exact Browserdriver-v4/Udon-report-v3 configuration, an owner-only openudon.browser-registration-attestation.v1 outside the repository, and a separate --approve-browser-registration operation decision. Legacy or incomplete configurations fail before executor invocation.\n")
 	} else {
 		b.WriteString("Trusted proof run, only when explicitly approved:\n\n")
 		fmt.Fprintf(&b, "```bash\nopenudon run --example %s --tier sandbox --approval approvals/%s.json\n```\n", relOrAbs(filepath.Dir(result.ExampleDir), result.ExampleDir), filepath.Base(result.ExampleDir))

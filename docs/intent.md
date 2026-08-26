@@ -390,9 +390,11 @@ digest, origins, flow, slots, approval, timeout, and cleanup policy. The
 internal iCoT transaction engine can derive this intent and inventory from an
 explicitly reviewed, no-submit Browsertools candidate, but the current CLI/UI
 does not expose registration capture. OpenUdon build, assessment,
-approval-template, and `run --dry-run` remain offline. A non-dry run fails
-before executor invocation until compatible Udon and Browserdriver
-registration contracts are published and pinned.
+approval-template, and `run --dry-run` remain offline. A non-dry run is allowed
+only for the exact Udon report-v3/Browserdriver-v4 contract after a private
+package/profile/operation-bound dedicated-test attestation and a separate
+exact submit approval; every legacy or incomplete configuration fails before
+executor invocation.
 
 ## Data Flow
 

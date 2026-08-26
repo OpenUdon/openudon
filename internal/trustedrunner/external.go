@@ -20,15 +20,17 @@ import (
 // The config and approval files are both digest-pinned by the parent process,
 // then revalidated against current package state before any executor starts.
 type ExternalOptions struct {
-	ConfigPath   string
-	ConfigSHA256 string
-	ApprovalPath string
-	Env          []string
-	Stdout       io.Writer
-	Stderr       io.Writer
-	Now          func() time.Time
-	Assess       func(context.Context, synthesize.Options) (*synthesize.QualityReport, error)
-	Invoke       udonrunner.InvokeFunc
+	ConfigPath                  string
+	ConfigSHA256                string
+	ApprovalPath                string
+	RegistrationAttestationPath string
+	RegistrationSubmitApproval  string
+	Env                         []string
+	Stdout                      io.Writer
+	Stderr                      io.Writer
+	Now                         func() time.Time
+	Assess                      func(context.Context, synthesize.Options) (*synthesize.QualityReport, error)
+	Invoke                      udonrunner.InvokeFunc
 }
 
 func RunExternal(ctx context.Context, opts ExternalOptions) (udonrunner.Result, error) {
@@ -90,6 +92,9 @@ func RunExternal(ctx context.Context, opts ExternalOptions) (udonrunner.Result, 
 	if err != nil {
 		return udonrunner.Result{}, err
 	}
+	if err := authorizeBrowserRegistration(validated.snapshot, expectedBrowser, packageDigest, opts.RegistrationAttestationPath, opts.RegistrationSubmitApproval, p.repoRoot, resolveNow(opts.Now)); err != nil {
+		return udonrunner.Result{}, err
+	}
 	expected, err := buildRunConfig(p, manifest, validated.snapshot, packageDigest, config.Tier, config.WorkDir, config.RunID, config.HandoffSHA256, config.ApprovalSHA256, expectedBrowser)
 	if err != nil {
 		return udonrunner.Result{}, err
@@ -122,6 +127,9 @@ func publishExternalExecutorReport(config RunConfig, result udonrunner.Result) (
 	}
 	if !strings.EqualFold(strings.TrimSpace(report.Status), "success") {
 		return result, fmt.Errorf("successful external executor report status must be success")
+	}
+	if config.Browser != nil && config.Browser.Protocol == "v4" && report.Version != config.ExecutorReportVersion {
+		return result, fmt.Errorf("successful external executor report version does not match the run config")
 	}
 	path, err := externalExecutorReportPath(config)
 	if err != nil {

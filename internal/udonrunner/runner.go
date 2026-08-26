@@ -25,38 +25,41 @@ const (
 const dockerExecutorPrefix = "docker://"
 
 type Config struct {
-	Version             string         `json:"version"`
-	RunID               string         `json:"run_id"`
-	Scope               string         `json:"scope"`
-	Tier                string         `json:"tier"`
-	PackageRoot         string         `json:"package_root"`
-	WorkDir             string         `json:"workdir"`
-	WorkflowPath        string         `json:"workflow_path"`
-	WorkflowFormat      string         `json:"workflow_format"`
-	DataFiles           []string       `json:"data_files,omitempty"`
-	APISourcePaths      []string       `json:"api_source_paths,omitempty"`
-	OpenAPIPaths        []string       `json:"openapi_paths,omitempty"`
-	PackagePaths        []string       `json:"package_paths"`
-	PackageSHA256       string         `json:"package_sha256"`
-	HandoffSHA256       string         `json:"handoff_sha256"`
-	ApprovalSHA256      string         `json:"approval_sha256"`
-	CredentialBindings  []string       `json:"credential_bindings,omitempty"`
-	Browser             *BrowserConfig `json:"browser,omitempty"`
-	DirectProductionRun bool           `json:"direct_production_run"`
+	Version               string         `json:"version"`
+	RunID                 string         `json:"run_id"`
+	Scope                 string         `json:"scope"`
+	Tier                  string         `json:"tier"`
+	PackageRoot           string         `json:"package_root"`
+	WorkDir               string         `json:"workdir"`
+	WorkflowPath          string         `json:"workflow_path"`
+	WorkflowFormat        string         `json:"workflow_format"`
+	DataFiles             []string       `json:"data_files,omitempty"`
+	APISourcePaths        []string       `json:"api_source_paths,omitempty"`
+	OpenAPIPaths          []string       `json:"openapi_paths,omitempty"`
+	PackagePaths          []string       `json:"package_paths"`
+	PackageSHA256         string         `json:"package_sha256"`
+	HandoffSHA256         string         `json:"handoff_sha256"`
+	ApprovalSHA256        string         `json:"approval_sha256"`
+	ExecutorReportVersion string         `json:"executor_report_version,omitempty"`
+	CredentialBindings    []string       `json:"credential_bindings,omitempty"`
+	Browser               *BrowserConfig `json:"browser,omitempty"`
+	DirectProductionRun   bool           `json:"direct_production_run"`
 }
 
 // BrowserConfig is the complete value-free browser replay contract. Secret
 // and session values stay in the named environment variables.
 type BrowserConfig struct {
-	DriverPath             string               `json:"driver_path,omitempty"`
-	DriverArgs             []string             `json:"driver_args,omitempty"`
-	DriverEnvironment      []string             `json:"driver_environment,omitempty"`
-	Protocol               string               `json:"protocol"`
-	CredentialEnvironment  []EnvironmentBinding `json:"credential_environment,omitempty"`
-	SessionEnvironment     []EnvironmentBinding `json:"session_environment,omitempty"`
-	ApprovedOperations     []string             `json:"approved_operations,omitempty"`
-	ApprovedAuthentication []string             `json:"approved_authentication,omitempty"`
-	ApprovedRegistration   []string             `json:"approved_registration,omitempty"`
+	DriverPath                    string               `json:"driver_path,omitempty"`
+	DriverArgs                    []string             `json:"driver_args,omitempty"`
+	DriverEnvironment             []string             `json:"driver_environment,omitempty"`
+	Protocol                      string               `json:"protocol"`
+	CredentialEnvironment         []EnvironmentBinding `json:"credential_environment,omitempty"`
+	SessionEnvironment            []EnvironmentBinding `json:"session_environment,omitempty"`
+	ApprovedOperations            []string             `json:"approved_operations,omitempty"`
+	ApprovedAuthentication        []string             `json:"approved_authentication,omitempty"`
+	ApprovedRegistration          []string             `json:"approved_registration,omitempty"`
+	AttestedRegistration          []string             `json:"attested_registration,omitempty"`
+	RegistrationAttestationSHA256 string               `json:"registration_attestation_sha256,omitempty"`
 }
 
 // EnvironmentBinding maps a reviewed symbolic runtime name to its canonical
@@ -136,6 +139,9 @@ func LoadConfig(path string) (Config, error) {
 	if config.CredentialBindings == nil {
 		config.CredentialBindings = []string{}
 	}
+	if strings.TrimSpace(config.ExecutorReportVersion) == "" {
+		config.ExecutorReportVersion = "udon.execution-report.v2"
+	}
 	if config.Browser != nil {
 		normalizeBrowserConfig(config.Browser)
 	}
@@ -183,6 +189,16 @@ func prepare(ctx context.Context, config Config, opts Options, requireCredential
 			return Result{}, nil, "", fmt.Errorf("legacy run config %s is read-only and cannot execute; regenerate the package with openudon build", config.Version)
 		}
 		return Result{}, nil, "", fmt.Errorf("run config version must be %s", RunConfigVersion)
+	}
+	reportVersion := strings.TrimSpace(config.ExecutorReportVersion)
+	if reportVersion == "" {
+		reportVersion = "udon.execution-report.v2"
+	}
+	if reportVersion != "udon.execution-report.v2" && reportVersion != "udon.execution-report.v3" {
+		return Result{}, nil, "", fmt.Errorf("run config executor_report_version must be udon.execution-report.v2 or v3")
+	}
+	if config.Browser != nil && strings.EqualFold(strings.TrimSpace(config.Browser.Protocol), "v4") && reportVersion != "udon.execution-report.v3" {
+		return Result{}, nil, "", fmt.Errorf("browser registration protocol v4 requires udon.execution-report.v3")
 	}
 	if err := ValidateRunID(config.RunID); err != nil {
 		return Result{}, nil, "", err
@@ -890,6 +906,14 @@ func appendBrowserArgs(argv []string, browser *BrowserConfig, driverEnvNames []s
 	}
 	for _, operation := range browser.ApprovedAuthentication {
 		argv = append(argv, "--approve-browser-authentication", operation)
+	}
+	for _, operation := range browser.AttestedRegistration {
+		argv = append(argv, "--attest-browser-registration", operation)
+	}
+	for _, operation := range browser.ApprovedRegistration {
+		if browser.Protocol == "v4" {
+			argv = append(argv, "--approve-browser-registration", operation)
+		}
 	}
 	return argv
 }

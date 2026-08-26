@@ -76,9 +76,10 @@ Its UI and terminal review surfaces show only the public transaction,
 candidate/output identity, cleanup disposition, producer disclosure, and
 package/recovery digests; they never accept a private result path or grant
 submit/account/session/runtime authority.
-OpenUdon may build, assess, generate approval, and dry-run that package, but it
-rejects non-dry execution until compatible Udon and Browserdriver registration
-contracts are pinned.
+OpenUdon may build, assess, generate approval, and dry-run that package. Non-dry
+execution additionally requires the exact Udon report-v3/Browserdriver-v4
+contract, an owner-only digest-bound dedicated-test attestation outside the
+repository, and a separate exact submit approval.
 
 iCoT defaults to the local `copilot-api` gateway, using `COPILOT_API_BASE_URL` when set and
 `http://localhost:4141` otherwise. Use `OPENUDON_LLM_PROVIDER` and `OPENUDON_LLM_MODEL` for
