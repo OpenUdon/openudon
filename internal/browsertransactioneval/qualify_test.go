@@ -3,6 +3,8 @@ package browsertransactioneval
 import (
 	"crypto/sha256"
 	"encoding/hex"
+	"errors"
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -102,6 +104,18 @@ func TestQualificationRootsResolveDefaultsBesideExplicitOpenUdonRoot(t *testing.
 		roots.uws != filepath.Join(parent, "uws") || roots.udon != filepath.Join(parent, "udon") ||
 		roots.browserdriver != filepath.Join(parent, "browserdriver") {
 		t.Fatalf("qualification roots = %#v", roots)
+	}
+}
+
+func TestQualificationStageErrorPreservesOnlySandboxCause(t *testing.T) {
+	wrapped := fmt.Errorf("private backend detail: %w", browserscenario.ErrSandboxPrerequisiteUnavailable)
+	got := qualificationStageError(wrapped, "closed fallback")
+	if !errors.Is(got, browserscenario.ErrSandboxPrerequisiteUnavailable) ||
+		got.Error() != browserscenario.ErrSandboxPrerequisiteUnavailable.Error() {
+		t.Fatalf("sandbox error = %v", got)
+	}
+	if got := qualificationStageError(errors.New("private backend detail"), "closed fallback"); got.Error() != "closed fallback" {
+		t.Fatalf("generic error = %v", got)
 	}
 }
 

@@ -28,6 +28,10 @@ import (
 
 const bapBCPQualificationScenario = "mfa-totp-scalars"
 
+// ErrSandboxPrerequisiteUnavailable is the sole safe operational cause
+// exposed when required Chromium sandboxing cannot be established.
+var ErrSandboxPrerequisiteUnavailable = errors.New("browser transaction qualification sandbox prerequisite is unavailable")
+
 // BAPBCPQualificationEvidence is path-free evidence from one exact real
 // Browsertools -> OpenUdon -> package lifecycle -> Udon/Browserdriver loop.
 type BAPBCPQualificationEvidence struct {
@@ -77,7 +81,7 @@ func RunBAPBCPQualification(ctx context.Context, options Options) (BAPBCPQualifi
 	defer executor.Close()
 	executor.prepare(ctx, environment, SuiteLoopback)
 	if executor.unavailable {
-		return BAPBCPQualificationEvidence{}, errors.New("BAP+BCP qualification sandbox prerequisite is unavailable")
+		return BAPBCPQualificationEvidence{}, fmt.Errorf("BAP+BCP qualification: %w", ErrSandboxPrerequisiteUnavailable)
 	}
 	if executor.prepareErr != nil {
 		return BAPBCPQualificationEvidence{}, errors.New("BAP+BCP qualification dependencies are invalid")

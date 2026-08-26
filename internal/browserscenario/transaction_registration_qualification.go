@@ -78,7 +78,7 @@ func RunBRPQualification(ctx context.Context, options Options) (BRPQualification
 	defer executor.Close()
 	executor.prepare(ctx, environment, SuiteLoopback)
 	if executor.unavailable {
-		return BRPQualificationEvidence{}, errors.New("BRP qualification sandbox prerequisite is unavailable")
+		return BRPQualificationEvidence{}, fmt.Errorf("BRP qualification: %w", ErrSandboxPrerequisiteUnavailable)
 	}
 	if executor.prepareErr != nil {
 		return BRPQualificationEvidence{}, errors.New("BRP qualification dependencies are invalid")

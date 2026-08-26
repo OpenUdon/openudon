@@ -62,11 +62,11 @@ func RunQualification(ctx context.Context, options QualificationOptions) (*Repor
 	}
 	bapBCP, err := browserscenario.RunBAPBCPQualification(ctx, scenarioOptions)
 	if err != nil {
-		return nil, errors.New("authenticated browser transaction qualification failed")
+		return nil, qualificationStageError(err, "authenticated browser transaction qualification failed")
 	}
 	brp, err := browserscenario.RunBRPQualification(ctx, scenarioOptions)
 	if err != nil {
-		return nil, errors.New("registration browser transaction qualification failed")
+		return nil, qualificationStageError(err, "registration browser transaction qualification failed")
 	}
 	currentRepositories, err := qualificationRepositories(ctx, roots)
 	if err != nil || !equalRepositoryRevisions(repositories, currentRepositories) {
@@ -84,6 +84,13 @@ func RunQualification(ctx context.Context, options QualificationOptions) (*Repor
 		return nil, err
 	}
 	return verified, nil
+}
+
+func qualificationStageError(err error, fallback string) error {
+	if errors.Is(err, browserscenario.ErrSandboxPrerequisiteUnavailable) {
+		return browserscenario.ErrSandboxPrerequisiteUnavailable
+	}
+	return errors.New(fallback)
 }
 
 // BuildQualificationReport maps only already-validated path-free evidence to
