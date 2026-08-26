@@ -281,7 +281,7 @@ func runRegistrationQualificationProducer(ctx context.Context, executable, priva
 	}
 	bindings := []browsertransaction.CredentialBinding{
 		{Slot: "identifier", Binding: "registration_identifier"},
-		{Slot: "password", Binding: "registration_password"},
+		{Slot: "password", Binding: "reg_password"},
 	}
 	if err := session.Send(ctx, browserauthor.RegistrationCommand{
 		Type: "review", Confirmed: true, Profile: profile, CandidateIDs: []string{candidateID},
