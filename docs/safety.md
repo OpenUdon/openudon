@@ -30,6 +30,15 @@ tier checks before invoking udon.
   a second lookup. Custom transports that cannot enforce this policy fail
   closed.
 - Use UWS/OpenAPI validation before any runtime execution.
+- Treat content provenance and value capability as separate properties.
+  Boolean, numeric, or enum narrowing can remove free-text injection capability,
+  but it does not turn attacker-controlled data into trusted data; constrained
+  values can still influence control flow or authority-bearing inputs.
+- Treat UWS content-trust findings as advisory review evidence only. OpenUdon
+  records stable codes, analyzer severity, document paths, and fixed messages,
+  never runtime values or content excerpts. Findings do not grant or deny
+  trusted-runner authority, and this release does not promote them to ordinary
+  validation errors.
 - For browser workflows, require an active non-expired `uws.browser.1.5`, 1.6,
   or 1.7 profile, matching `.icot/browser-sources.json`
   digest/action/origin evidence, and exact per-operation approval for every
@@ -90,6 +99,13 @@ closed. Required credential mappings also reject the reserved `none` and
 draft mutation.
 
 ## Quality Gates
+
+When `contentTrust` is declared, assessment adds deterministic warning checks
+from the UWS analyzer and includes the same value-free findings in
+`expected/review.md`. Contained browser profiles use Browsertools' resolver;
+unknown extension flow remains explicit rather than guessed. These warning
+checks leave overall quality passing and do not change execution policy.
+Declaration-free packages retain their prior quality and review behavior.
 
 OpenUdon fails `side_effects.policy` when generated artifacts imply writes, customer communications,
 command execution, SSH execution, or other side effects without approval/trusted-runtime and

@@ -40,7 +40,11 @@ An operator may also add reviewable content-provenance declarations to
 `contentTrust` registry is present; otherwise existing packages keep their
 previous UWS selection, including UWS 1.9.0 for browser 1.7. These declarations
 are metadata for advisory analysis and human/AI review, not execution approval
-or runtime policy. See [the intent content-trust contract](docs/intent.md#content-trust).
+or runtime policy. During assessment, declared packages are analyzed with the
+UWS analyzer and contained browser profiles use the Browsertools resolver.
+Findings appear as non-failing warnings in quality and review evidence; they do
+not alter ordinary validation, trusted-runner authorization, or execution. See
+[the intent content-trust contract](docs/intent.md#content-trust).
 
 ## v0.2 Security Migration
 

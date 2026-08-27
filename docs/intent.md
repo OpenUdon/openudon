@@ -183,10 +183,11 @@ operation outputs fail before packaging. A package with `content_trust` emits
 UWS 1.9.1. Declaration-free packages retain their existing version selection;
 in particular, browser 1.7 alone still emits UWS 1.9.0.
 
-UWS content trust is review metadata. The analyzer pass introduced by P06 is
-separate from ordinary validation and execution; these declarations alone do
-not make attacker-controlled data safe, block execution, or change the
-trusted-runner approval decision.
+UWS content trust is review metadata. The explicit analyzer pass is separate
+from ordinary validation and execution. Findings appear as non-failing quality
+warnings and value-free review evidence; these declarations alone do not make
+attacker-controlled data safe, block execution, or change the trusted-runner
+approval decision.
 
 ## Inputs
 

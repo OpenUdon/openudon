@@ -17,6 +17,14 @@ package digest still covers the final manifest bytes.
 The manifest is evidence for an external reviewer or orchestrator. It does not grant approval by itself.
 Generation normally leaves side-effectful packages in `generated` or review-required state.
 
+For packages that declare UWS content trust, `expected/review.md` includes a
+dedicated content-trust analysis section. Each finding records only its stable
+code, analyzer severity, UWS document path, and fixed message. The section is
+advisory and value-free: it contains no runtime value, content excerpt, prompt,
+credential, or resolver error text. `expected/review.md` remains a normal
+digest-covered package input; the analyzer does not add execution authority or
+change the `apitools.review-handoff.v2` JSON contract.
+
 ## Required Package Inputs
 
 The package digest covers the required handoff inventory:
@@ -93,7 +101,9 @@ go run ./cmd/openudon run \
 
 `openudon run` checks the handoff manifest, stored and current quality, approval scope, approval
 state, expiry, package digest, tier compatibility, credential-value policy, and direct-production
-policy. Required package inputs are read once into an immutable byte snapshot;
+policy. Content-trust findings remain warnings during that check and do not
+replace any approval, credential, tier, or digest requirement. Required
+package inputs are read once into an immutable byte snapshot;
 declared digests, quality, package/handoff digests, and browser handoff facts
 all use that same generation. The resulting `openudon.executor-run.v2` config includes the unique run
 ID, UWS artifact, API source files, sorted package paths, package, handoff, and

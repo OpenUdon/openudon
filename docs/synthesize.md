@@ -82,6 +82,22 @@ Use `assess` to rerun deterministic quality gates only:
 go run ./cmd/openudon assess --example ./examples/<name>
 ```
 
+When the generated UWS document contains `contentTrust`, assessment also runs
+the explicit UWS content-trust analyzer. Contained browser-profile operations
+are described by the Browsertools resolver; extension operations without a
+resolver remain opaque or unknown as defined by UWS. Findings are added to
+`expected/quality.json`, `expected/quality.md`, and `expected/review.md` as
+advisory warnings in deterministic order. Each entry contains the stable code,
+analyzer severity, document path, and fixed message, but no runtime value or
+content excerpt.
+
+This analyzer pass is separate from ordinary UWS validation and execution.
+Even a high-severity analyzer finding is represented as a non-failing quality
+warning: it does not change the overall passing status, approve or reject a
+package, construct a runtime plan, or affect trusted-runner authorization.
+Declaration-free packages skip the pass and retain their existing quality and
+review shape.
+
 ## Review Next
 
 Generated artifacts are evidence, not approval. Reviewers should inspect `expected/quality.md`,
