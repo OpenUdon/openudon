@@ -35,6 +35,13 @@ deliberately smaller than the full command surface.
   registration-only contract for exact
   `browsertools.registration-authoring.v2` provenance. Transaction v1 bytes
   and unchanged BAP production remain immutable.
+- Optional operator-authored content-provenance declarations lower to the
+  additive UWS 1.9.1 `contentTrust` registry. Packages without declarations
+  retain their previous UWS version and quality/review shape, including UWS
+  1.9.0 for otherwise unchanged browser 1.7 packages. Analyzer findings are
+  deterministic, value-free advisory warnings; they do not enter ordinary
+  validation, approval, trusted-runner authorization, executor reports, or
+  execution.
 
 Additive flags and artifact fields may be introduced in v0.2.x. Existing
 fields, accepted inputs, and documented core behavior will not intentionally

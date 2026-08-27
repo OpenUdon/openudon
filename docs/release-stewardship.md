@@ -39,6 +39,22 @@ modules, infrastructure engine internals, and parser/conversion packages.
 make release-check
 ```
 
+For the UWS 1.9.1 content-trust compatibility boundary, run:
+
+```bash
+make content-trust-qualification
+```
+
+The first half is an offline OpenUdon matrix covering LLM data and instruction
+channels, authority and control flow, trigger and external-entry defaults,
+opaque extensions, resolver failures/conflicts, non-failing value-free
+evidence, and an unchanged declaration-free browser 1.7 package. The tagged
+second half requires clean sibling checkouts at UWS `9e676eaa469e`,
+Browsertools `75fd5c3ab81f`, and Udon M37 `207e7f1`, then runs Udon's public
+content-trust analyzer tests with workspace mode disabled. Udon remains absent
+from OpenUdon's `go.mod`; this is a local compatibility gate, not a runtime or
+public-CI dependency.
+
 `check-doc-memory` is intentionally local. It verifies ignored memory-bank and
 evolution harness files in maintainer checkouts and warns when milestone changes
 may need a new evolution record. It is not a public CI gate.
