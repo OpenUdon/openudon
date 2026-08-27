@@ -2,6 +2,7 @@ package synthesize
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"path/filepath"
 	"strings"
@@ -11,8 +12,11 @@ import (
 	"github.com/OpenUdon/openudon/internal/evidencefile"
 	"github.com/OpenUdon/openudon/internal/packageartifacts"
 	uwstrust "github.com/OpenUdon/uws/contenttrust"
+	uwsconvert "github.com/OpenUdon/uws/convert"
 	"github.com/OpenUdon/uws/uws1"
 )
+
+const contentTrustAnalysisUnavailableMessage = "operation resolver failed while describing the operation"
 
 // analyzePackageContentTrust is OpenUdon's explicit advisory analysis entry
 // point. It is deliberately separate from execution-profile validation and
@@ -32,6 +36,52 @@ func analyzePackageContentTrust(ctx context.Context, exampleDir string, doc *uws
 		return uwstrust.Analyze(ctx, doc, resolver)
 	}
 	return uwstrust.Analyze(ctx, doc)
+}
+
+func loadPackageContentTrustReport(ctx context.Context, result Result) (*uwstrust.Report, bool, error) {
+	data, _, err := evidencefile.ReadRegular(result.UWSPath, evidencefile.DefaultMaxBytes)
+	if err != nil {
+		return nil, false, err
+	}
+	var doc uws1.Document
+	switch strings.ToLower(filepath.Ext(result.UWSPath)) {
+	case ".json":
+		err = uwsconvert.UnmarshalJSON(data, &doc)
+	case ".hcl":
+		err = uwsconvert.UnmarshalHCL(data, &doc)
+	default:
+		err = uwsconvert.UnmarshalYAML(data, &doc)
+	}
+	if err != nil {
+		return nil, false, err
+	}
+	declared := doc.ContentTrust != nil
+	report, err := analyzePackageContentTrust(ctx, result.ExampleDir, &doc)
+	return report, declared, err
+}
+
+func assessContentTrust(ctx context.Context, quality *QualityReport, result Result) error {
+	report, declared, err := loadPackageContentTrustReport(ctx, result)
+	if err != nil {
+		if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
+			return err
+		}
+		// Ordinary UWS assessment owns malformed/missing document failures. Keep
+		// this pass advisory and never copy underlying error text into evidence.
+		quality.add(uwstrust.CodeResolverFailure, "warn", contentTrustAnalysisUnavailableMessage, "severity=warning; path=contentTrust")
+		return nil
+	}
+	if !declared {
+		return nil
+	}
+	if len(report.Findings) == 0 {
+		quality.add("content_trust.analysis", "pass", "content-trust analysis found no advisory issues", "")
+		return nil
+	}
+	for _, finding := range report.Findings {
+		quality.add(finding.Code, "warn", finding.Message, fmt.Sprintf("severity=%s; path=%s", finding.Severity, finding.Path))
+	}
+	return nil
 }
 
 type packageBrowserResolver struct {

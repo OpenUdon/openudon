@@ -6,9 +6,11 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
+	"strings"
 	"testing"
 
 	uwstrust "github.com/OpenUdon/uws/contenttrust"
+	uwsconvert "github.com/OpenUdon/uws/convert"
 	"github.com/OpenUdon/uws/uws1"
 )
 
@@ -30,6 +32,80 @@ func TestAnalyzePackageContentTrustUsesBrowserResolver(t *testing.T) {
 	}
 	if !reflect.DeepEqual(report, second) {
 		t.Fatalf("reports are not deterministic:\n%#v\n%#v", report, second)
+	}
+}
+
+func TestAssessContentTrustAddsWarningChecksWithoutFailingQuality(t *testing.T) {
+	example := t.TempDir()
+	relative := "browser-profiles/status.json"
+	writeWorkflowBrowserFixture(t, example, relative, synthesizeBrowserProfileFixture(false, false, "query"))
+	doc := browserContentTrustDocument(relative)
+	data, err := uwsconvert.MarshalYAML(doc)
+	if err != nil {
+		t.Fatal(err)
+	}
+	result := Result{ExampleDir: example, UWSPath: filepath.Join(example, "workflows", "workflow.uws.yaml")}
+	if err := os.MkdirAll(filepath.Dir(result.UWSPath), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(result.UWSPath, data, 0o644); err != nil {
+		t.Fatal(err)
+	}
+	quality := &QualityReport{Status: "pass"}
+	if err := assessContentTrust(context.Background(), quality, result); err != nil {
+		t.Fatal(err)
+	}
+	quality.finalize()
+	check := qualityContentTrustCheck(quality, uwstrust.CodeUntrustedControl)
+	if quality.Status != "pass" || check == nil || check.Status != "warn" {
+		t.Fatalf("quality checks/status = %#v / %s", quality.Checks, quality.Status)
+	}
+	if !strings.Contains(check.Detail, "severity=warning; path=") {
+		t.Fatalf("quality detail = %q", check.Detail)
+	}
+	var review strings.Builder
+	writeContentTrustReview(&review, reviewBuildState{contentTrustDeclared: true, contentTrust: &uwstrust.Report{Findings: []uwstrust.Finding{{
+		Code: uwstrust.CodeUntrustedControl, Severity: uwstrust.SeverityWarning, Path: "workflows[0].steps[1].when", Message: "untrusted content can influence control flow",
+	}}}})
+	text := review.String()
+	for _, want := range []string{"## Content-Trust Analysis", uwstrust.CodeUntrustedControl, "workflows[0].steps[1].when", "do not change quality status"} {
+		if !strings.Contains(text, want) {
+			t.Fatalf("review omitted %q:\n%s", want, text)
+		}
+	}
+}
+
+func qualityContentTrustCheck(report *QualityReport, code string) *QualityCheck {
+	if report == nil {
+		return nil
+	}
+	for i := range report.Checks {
+		if report.Checks[i].Code == code {
+			return &report.Checks[i]
+		}
+	}
+	return nil
+}
+
+func TestAssessContentTrustLeavesLegacyQualityUnchanged(t *testing.T) {
+	example := t.TempDir()
+	doc := browserContentTrustDocument("browser-profiles/status.json")
+	doc.UWS = "1.9.0"
+	doc.ContentTrust = nil
+	data, err := uwsconvert.MarshalYAML(doc)
+	if err != nil {
+		t.Fatal(err)
+	}
+	result := Result{ExampleDir: example, UWSPath: filepath.Join(example, "workflow.uws.yaml")}
+	if err := os.WriteFile(result.UWSPath, data, 0o644); err != nil {
+		t.Fatal(err)
+	}
+	quality := &QualityReport{}
+	if err := assessContentTrust(context.Background(), quality, result); err != nil {
+		t.Fatal(err)
+	}
+	if len(quality.Checks) != 0 {
+		t.Fatalf("legacy checks = %#v", quality.Checks)
 	}
 }
 

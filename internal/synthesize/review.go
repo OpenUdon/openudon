@@ -1,6 +1,7 @@
 package synthesize
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -16,15 +17,19 @@ import (
 	"github.com/OpenUdon/openudon/internal/evidencefile"
 	"github.com/OpenUdon/openudon/internal/packageartifacts"
 	rollout "github.com/OpenUdon/openudon/internal/workflowintent"
+	uwstrust "github.com/OpenUdon/uws/contenttrust"
 )
 
 type reviewBuildState struct {
-	projectText         string
-	policy              projectPolicy
-	intent              *rollout.Intent
-	profile             sideEffectProfile
-	expectedPlan        *WorkflowPlan
-	expectedCredentials []string
+	projectText             string
+	policy                  projectPolicy
+	intent                  *rollout.Intent
+	profile                 sideEffectProfile
+	expectedPlan            *WorkflowPlan
+	expectedCredentials     []string
+	contentTrust            *uwstrust.Report
+	contentTrustDeclared    bool
+	contentTrustUnavailable bool
 }
 
 func writeReview(result Result, provider, model string) error {
@@ -64,6 +69,10 @@ func loadReviewBuildStateBestEffort(result Result) reviewBuildState {
 	state.policy = analyzeProject(state.projectText)
 	state.profile = sideEffectProfileForSources(state.policy, state.intent, result.OpenAPICandidates, result.PrimaryOpenAPI, result.ExampleDir)
 	state.expectedCredentials = credentialNamesFromPlan(state.expectedPlan)
+	contentTrust, contentTrustDeclared, analysisErr := loadPackageContentTrustReport(context.Background(), result)
+	state.contentTrust = contentTrust
+	state.contentTrustDeclared = contentTrustDeclared
+	state.contentTrustUnavailable = analysisErr != nil
 	return state
 }
 
@@ -92,6 +101,10 @@ func loadReviewBuildState(result Result) (reviewBuildState, error) {
 	state.policy = analyzeProject(state.projectText)
 	state.profile = sideEffectProfileForSources(state.policy, state.intent, result.OpenAPICandidates, result.PrimaryOpenAPI, result.ExampleDir)
 	state.expectedCredentials = credentialNamesFromPlan(state.expectedPlan)
+	contentTrust, contentTrustDeclared, analysisErr := loadPackageContentTrustReport(context.Background(), result)
+	state.contentTrust = contentTrust
+	state.contentTrustDeclared = contentTrustDeclared
+	state.contentTrustUnavailable = analysisErr != nil
 	return state, nil
 }
 
@@ -194,6 +207,7 @@ func reviewMarkdownFromState(result Result, provider, model string, state review
 		b.WriteString("\n## Inferred Steps And Data Flow\n\n")
 		writeIntentDataFlowReview(&b, intent)
 	}
+	writeContentTrustReview(&b, state)
 	b.WriteString("\n## Side-Effect Summary\n\n")
 	if profile.SideEffectful {
 		b.WriteString("- Side-effectful workflow: yes\n")
@@ -289,6 +303,25 @@ func reviewMarkdownFromState(result Result, provider, model string, state review
 		fmt.Fprintf(&b, "```bash\nopenudon run --example %s --tier sandbox --approval approvals/%s.json\n```\n", relOrAbs(filepath.Dir(result.ExampleDir), result.ExampleDir), filepath.Base(result.ExampleDir))
 	}
 	return b.String()
+}
+
+func writeContentTrustReview(b *strings.Builder, state reviewBuildState) {
+	if b == nil || !state.contentTrustDeclared {
+		return
+	}
+	b.WriteString("\n## Content-Trust Analysis\n\n")
+	b.WriteString("- Advisory review evidence only; findings do not change quality status, approval, trusted-runner authorization, or execution.\n")
+	if state.contentTrustUnavailable || state.contentTrust == nil {
+		fmt.Fprintf(b, "- `%s` (`warning`) at `contentTrust` - %s.\n", uwstrust.CodeResolverFailure, contentTrustAnalysisUnavailableMessage)
+		return
+	}
+	if len(state.contentTrust.Findings) == 0 {
+		b.WriteString("- No advisory findings.\n")
+		return
+	}
+	for _, finding := range state.contentTrust.Findings {
+		fmt.Fprintf(b, "- `%s` (`%s`) at `%s` - %s.\n", finding.Code, finding.Severity, finding.Path, finding.Message)
+	}
 }
 
 func writeBrowserSourceReview(b *strings.Builder, exampleDir string, intent *rollout.Intent) {

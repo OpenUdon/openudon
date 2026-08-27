@@ -115,6 +115,9 @@ func assessContext(ctx context.Context, opts Options, writeReport bool) (*Qualit
 		return nil, err
 	}
 	assessUWS(report, result.UWSPath, opts.SchemaPath, exampleDir, expectedPlan)
+	if err := assessContentTrust(ctx, report, result); err != nil {
+		return nil, err
+	}
 	assessBrowserSources(report, exampleDir, intent)
 	assessBrowserAuthenticationSources(report, exampleDir, intent)
 	assessBrowserRegistrationSources(report, exampleDir, intent)
