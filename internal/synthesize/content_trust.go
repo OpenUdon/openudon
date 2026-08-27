@@ -74,14 +74,25 @@ func assessContentTrust(ctx context.Context, quality *QualityReport, result Resu
 	if !declared {
 		return nil
 	}
+	addContentTrustReportChecks(quality, report)
+	return nil
+}
+
+func addContentTrustReportChecks(quality *QualityReport, report *uwstrust.Report) {
+	if quality == nil {
+		return
+	}
+	if report == nil {
+		quality.add(uwstrust.CodeResolverFailure, "warn", contentTrustAnalysisUnavailableMessage, "severity=warning; path=contentTrust")
+		return
+	}
 	if len(report.Findings) == 0 {
 		quality.add("content_trust.analysis", "pass", "content-trust analysis found no advisory issues", "")
-		return nil
+		return
 	}
 	for _, finding := range report.Findings {
 		quality.add(finding.Code, "warn", finding.Message, fmt.Sprintf("severity=%s; path=%s", finding.Severity, finding.Path))
 	}
-	return nil
 }
 
 type packageBrowserResolver struct {

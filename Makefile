@@ -1,4 +1,4 @@
-.PHONY: help test vet check standalone-icot-build apitools-boundary readiness release-check release-saas-check release-evidence release-eval browser-integration-check browser-scenario-loopback browser-scenario-journey browser-scenario-public browser-transaction-bap-bcp browser-transaction-brp browser-transaction-adversarial browser-transaction-qualification icot-ui-browser-check icot-ui-browser-check-unsandboxed eval-seed-build icot-authoring-scorecard icot-replay-repair-check icot-variants-validate icot-variants-coverage product-smoke-check product-smoke-live siblings validate-uws eval synthesize-support build-support promote-support assess-support
+.PHONY: help test vet check standalone-icot-build apitools-boundary readiness release-check release-saas-check release-evidence release-eval content-trust-qualification browser-integration-check browser-scenario-loopback browser-scenario-journey browser-scenario-public browser-transaction-bap-bcp browser-transaction-brp browser-transaction-adversarial browser-transaction-qualification icot-ui-browser-check icot-ui-browser-check-unsandboxed eval-seed-build icot-authoring-scorecard icot-replay-repair-check icot-variants-validate icot-variants-coverage product-smoke-check product-smoke-live siblings validate-uws eval synthesize-support build-support promote-support assess-support
 
 GO ?= go
 OPENUDON_LLM_PROVIDER ?= copilot-api
@@ -17,7 +17,7 @@ OPENUDON_BROWSER_SCENARIO_PUBLIC_OUT ?= eval/runs/browser-scenario-public-local/
 OPENUDON_BROWSER_TRANSACTION_QUALIFICATION_OUT ?= eval/runs/browser-transaction-qualification-local/report.json
 
 help:
-	@echo "Targets: test, vet, check, standalone-icot-build, readiness, release-check, release-saas-check, release-evidence, release-eval, browser-integration-check, browser-scenario-loopback, browser-scenario-journey, browser-scenario-public, browser-transaction-bap-bcp, browser-transaction-brp, browser-transaction-adversarial, browser-transaction-qualification, icot-ui-browser-check, icot-ui-browser-check-unsandboxed, eval-seed-build, icot-authoring-scorecard, icot-replay-repair-check, icot-variants-validate, icot-variants-coverage, product-smoke-check, product-smoke-live, siblings, validate-uws, eval, synthesize-support, build-support, promote-support, assess-support"
+	@echo "Targets: test, vet, check, standalone-icot-build, readiness, release-check, release-saas-check, release-evidence, release-eval, content-trust-qualification, browser-integration-check, browser-scenario-loopback, browser-scenario-journey, browser-scenario-public, browser-transaction-bap-bcp, browser-transaction-brp, browser-transaction-adversarial, browser-transaction-qualification, icot-ui-browser-check, icot-ui-browser-check-unsandboxed, eval-seed-build, icot-authoring-scorecard, icot-replay-repair-check, icot-variants-validate, icot-variants-coverage, product-smoke-check, product-smoke-live, siblings, validate-uws, eval, synthesize-support, build-support, promote-support, assess-support"
 
 test:
 	$(GO) test ./...
@@ -77,6 +77,10 @@ release-eval:
 
 release-evidence:
 	$(GO) run ./cmd/openudon release-evidence
+
+content-trust-qualification:
+	$(GO) test ./internal/synthesize -run '^TestContentTrustQualification' -count=1
+	$(GO) test -tags=udon_contenttrust_qualification ./internal/synthesize -run '^TestUdonM37ContentTrustCompatibility$$' -count=1
 
 browser-integration-check:
 	$(GO) run ./cmd/openudon browser-integration-eval --out "$(OPENUDON_BROWSER_INTEGRATION_OUT)"
