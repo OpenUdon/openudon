@@ -20,16 +20,49 @@ import (
 const IntentPath = "workflows/intent.hcl"
 
 type Intent struct {
-	Source    string            `hcl:"source,optional" json:"source,omitempty"`
-	OpenAPI   string            `hcl:"openapi,optional" json:"openapi,omitempty"`
-	ServerURL string            `hcl:"server_url,optional" json:"server_url,omitempty"`
-	Workflow  *WorkflowMeta     `hcl:"workflow,block" json:"workflow,omitempty"`
-	Inputs    []*Input          `hcl:"input,block" json:"inputs,omitempty"`
-	Triggers  []*TriggerIntent  `hcl:"trigger,block" json:"triggers,omitempty"`
-	Steps     []*Step           `hcl:"step,block" json:"steps,omitempty"`
-	Security  []*SecurityIntent `hcl:"security,block" json:"security,omitempty"`
-	Outputs   []*Output         `hcl:"output,block" json:"outputs,omitempty"`
-	Locals    map[string]string `hcl:"locals,optional" json:"locals,omitempty"`
+	Source       string              `hcl:"source,optional" json:"source,omitempty"`
+	OpenAPI      string              `hcl:"openapi,optional" json:"openapi,omitempty"`
+	ServerURL    string              `hcl:"server_url,optional" json:"server_url,omitempty"`
+	Workflow     *WorkflowMeta       `hcl:"workflow,block" json:"workflow,omitempty"`
+	ContentTrust *ContentTrustIntent `hcl:"content_trust,block" json:"contentTrust,omitempty"`
+	Inputs       []*Input            `hcl:"input,block" json:"inputs,omitempty"`
+	Triggers     []*TriggerIntent    `hcl:"trigger,block" json:"triggers,omitempty"`
+	Steps        []*Step             `hcl:"step,block" json:"steps,omitempty"`
+	Security     []*SecurityIntent   `hcl:"security,block" json:"security,omitempty"`
+	Outputs      []*Output           `hcl:"output,block" json:"outputs,omitempty"`
+	Locals       map[string]string   `hcl:"locals,optional" json:"locals,omitempty"`
+}
+
+// ContentTrustIntent is the operator-authored form of UWS contentTrust.
+// Source declarations use package-relative source paths; synthesis resolves
+// those paths to the generated sourceDescription identifiers.
+type ContentTrustIntent struct {
+	SourceDescriptions []*SourceDescriptionContentTrustIntent `hcl:"source_description,block" json:"sourceDescriptions,omitempty"`
+	Operations         []*OperationContentTrustIntent         `hcl:"operation,block" json:"operations,omitempty"`
+	Triggers           []*TriggerContentTrustIntent           `hcl:"trigger,block" json:"triggers,omitempty"`
+	Workflows          []*WorkflowContentTrustIntent          `hcl:"workflow,block" json:"workflows,omitempty"`
+}
+
+type SourceDescriptionContentTrustIntent struct {
+	Source string `hcl:"source,label" json:"source"`
+	Level  string `hcl:"level" json:"level"`
+}
+
+type OperationContentTrustIntent struct {
+	Operation string            `hcl:"operation,label" json:"operation"`
+	Default   string            `hcl:"default,optional" json:"default,omitempty"`
+	Outputs   map[string]string `hcl:"outputs,optional" json:"outputs,omitempty"`
+}
+
+type TriggerContentTrustIntent struct {
+	Trigger string `hcl:"trigger,label" json:"trigger"`
+	Level   string `hcl:"level" json:"level"`
+}
+
+type WorkflowContentTrustIntent struct {
+	Workflow string            `hcl:"workflow,label" json:"workflow"`
+	Default  string            `hcl:"default,optional" json:"default,omitempty"`
+	Inputs   map[string]string `hcl:"inputs,optional" json:"inputs,omitempty"`
 }
 
 type WorkflowMeta struct {
@@ -235,16 +268,17 @@ func ParseIntent(data []byte, path string) (*Intent, error) {
 }
 
 type hclIntent struct {
-	Source    string            `hcl:"source,optional" json:"source,omitempty"`
-	OpenAPI   string            `hcl:"openapi,optional" json:"openapi,omitempty"`
-	ServerURL string            `hcl:"server_url,optional" json:"server_url,omitempty"`
-	Workflow  *hclWorkflowMeta  `hcl:"workflow,block" json:"workflow,omitempty"`
-	Inputs    []*Input          `hcl:"input,block" json:"inputs,omitempty"`
-	Triggers  []*TriggerIntent  `hcl:"trigger,block" json:"triggers,omitempty"`
-	Steps     []*hclStep        `hcl:"step,block" json:"steps,omitempty"`
-	Security  []*SecurityIntent `hcl:"security,block" json:"security,omitempty"`
-	Outputs   []*Output         `hcl:"output,block" json:"outputs,omitempty"`
-	Locals    map[string]string `hcl:"locals,optional" json:"locals,omitempty"`
+	Source       string              `hcl:"source,optional" json:"source,omitempty"`
+	OpenAPI      string              `hcl:"openapi,optional" json:"openapi,omitempty"`
+	ServerURL    string              `hcl:"server_url,optional" json:"server_url,omitempty"`
+	Workflow     *hclWorkflowMeta    `hcl:"workflow,block" json:"workflow,omitempty"`
+	ContentTrust *ContentTrustIntent `hcl:"content_trust,block" json:"contentTrust,omitempty"`
+	Inputs       []*Input            `hcl:"input,block" json:"inputs,omitempty"`
+	Triggers     []*TriggerIntent    `hcl:"trigger,block" json:"triggers,omitempty"`
+	Steps        []*hclStep          `hcl:"step,block" json:"steps,omitempty"`
+	Security     []*SecurityIntent   `hcl:"security,block" json:"security,omitempty"`
+	Outputs      []*Output           `hcl:"output,block" json:"outputs,omitempty"`
+	Locals       map[string]string   `hcl:"locals,optional" json:"locals,omitempty"`
 }
 
 type hclWorkflowMeta struct {
@@ -385,7 +419,201 @@ func validateIntent(intent *Intent) error {
 			}
 		}
 	}
+	if err := validateContentTrustIntent(intent); err != nil {
+		return err
+	}
 	return nil
+}
+
+func validateContentTrustIntent(intent *Intent) error {
+	trust := intent.ContentTrust
+	if trust == nil {
+		return nil
+	}
+	if len(trust.SourceDescriptions) == 0 && len(trust.Operations) == 0 && len(trust.Triggers) == 0 && len(trust.Workflows) == 0 {
+		return fmt.Errorf("content_trust must contain at least one declaration")
+	}
+	sources := intentSourceReferences(intent)
+	operations := map[string]bool{}
+	walkSteps(intent.Steps, func(step *Step) {
+		if step != nil && !isStructuralIntentStep(step) {
+			operations[strings.TrimSpace(step.Name)] = true
+		}
+	})
+	triggers := map[string]bool{}
+	for _, trigger := range intent.Triggers {
+		if trigger != nil {
+			triggers[strings.TrimSpace(trigger.Name)] = true
+		}
+	}
+	inputs := map[string]bool{}
+	for _, input := range intent.Inputs {
+		if input != nil {
+			inputs[strings.TrimSpace(input.Name)] = true
+		}
+	}
+
+	seen := map[string]bool{}
+	for i, declaration := range trust.SourceDescriptions {
+		path := fmt.Sprintf("content_trust.source_description %d", i)
+		if declaration == nil {
+			return fmt.Errorf("%s is required", path)
+		}
+		source := filepathSlash(strings.TrimSpace(declaration.Source))
+		if source == "" {
+			return fmt.Errorf("%s source label is required", path)
+		}
+		if seen[source] {
+			return fmt.Errorf("content_trust has duplicate source_description %q", source)
+		}
+		seen[source] = true
+		if !sources[source] {
+			return fmt.Errorf("content_trust.source_description %q references an undeclared source", source)
+		}
+		if err := validateContentTrustLevel(declaration.Level, path+".level"); err != nil {
+			return err
+		}
+	}
+	seen = map[string]bool{}
+	for i, declaration := range trust.Operations {
+		path := fmt.Sprintf("content_trust.operation %d", i)
+		if declaration == nil {
+			return fmt.Errorf("%s is required", path)
+		}
+		operation := strings.TrimSpace(declaration.Operation)
+		if operation == "" {
+			return fmt.Errorf("%s operation label is required", path)
+		}
+		if seen[operation] {
+			return fmt.Errorf("content_trust has duplicate operation %q", operation)
+		}
+		seen[operation] = true
+		if !operations[operation] {
+			return fmt.Errorf("content_trust.operation %q references an undeclared leaf step", operation)
+		}
+		if strings.TrimSpace(declaration.Default) == "" && len(declaration.Outputs) == 0 {
+			return fmt.Errorf("content_trust.operation %q must declare default or outputs", operation)
+		}
+		if declaration.Default != "" {
+			if err := validateContentTrustLevel(declaration.Default, path+".default"); err != nil {
+				return err
+			}
+		}
+		if err := validateContentTrustLevelMap(declaration.Outputs, path+".outputs"); err != nil {
+			return err
+		}
+	}
+	seen = map[string]bool{}
+	for i, declaration := range trust.Triggers {
+		path := fmt.Sprintf("content_trust.trigger %d", i)
+		if declaration == nil {
+			return fmt.Errorf("%s is required", path)
+		}
+		trigger := strings.TrimSpace(declaration.Trigger)
+		if trigger == "" {
+			return fmt.Errorf("%s trigger label is required", path)
+		}
+		if seen[trigger] {
+			return fmt.Errorf("content_trust has duplicate trigger %q", trigger)
+		}
+		seen[trigger] = true
+		if !triggers[trigger] {
+			return fmt.Errorf("content_trust.trigger %q references an undeclared trigger", trigger)
+		}
+		if err := validateContentTrustLevel(declaration.Level, path+".level"); err != nil {
+			return err
+		}
+	}
+	seen = map[string]bool{}
+	for i, declaration := range trust.Workflows {
+		path := fmt.Sprintf("content_trust.workflow %d", i)
+		if declaration == nil {
+			return fmt.Errorf("%s is required", path)
+		}
+		workflow := strings.TrimSpace(declaration.Workflow)
+		if workflow == "" {
+			return fmt.Errorf("%s workflow label is required", path)
+		}
+		if workflow != "main" {
+			return fmt.Errorf("content_trust.workflow %q references an undeclared workflow (only main is generated)", workflow)
+		}
+		if seen[workflow] {
+			return fmt.Errorf("content_trust has duplicate workflow %q", workflow)
+		}
+		seen[workflow] = true
+		if strings.TrimSpace(declaration.Default) == "" && len(declaration.Inputs) == 0 {
+			return fmt.Errorf("content_trust.workflow %q must declare default or inputs", workflow)
+		}
+		if declaration.Default != "" {
+			if err := validateContentTrustLevel(declaration.Default, path+".default"); err != nil {
+				return err
+			}
+		}
+		for input := range declaration.Inputs {
+			if !inputs[strings.TrimSpace(input)] {
+				return fmt.Errorf("content_trust.workflow %q references undeclared input %q", workflow, input)
+			}
+		}
+		if err := validateContentTrustLevelMap(declaration.Inputs, path+".inputs"); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func isStructuralIntentStep(step *Step) bool {
+	if step == nil {
+		return false
+	}
+	switch strings.ToLower(strings.TrimSpace(step.Type)) {
+	case "sequence", "parallel", "switch", "merge", "loop", "await":
+		return true
+	default:
+		return false
+	}
+}
+
+func intentSourceReferences(intent *Intent) map[string]bool {
+	result := map[string]bool{}
+	add := func(value string) {
+		if value = filepathSlash(strings.TrimSpace(value)); value != "" {
+			result[value] = true
+		}
+	}
+	add(intent.Source)
+	add(intent.OpenAPI)
+	walkSteps(intent.Steps, func(step *Step) {
+		if step != nil {
+			add(step.Source)
+			add(step.OpenAPI)
+		}
+	})
+	return result
+}
+
+func filepathSlash(value string) string {
+	return strings.ReplaceAll(value, `\`, "/")
+}
+
+func validateContentTrustLevelMap(values map[string]string, path string) error {
+	for key, level := range values {
+		if strings.TrimSpace(key) == "" {
+			return fmt.Errorf("%s keys must be non-empty", path)
+		}
+		if err := validateContentTrustLevel(level, path+"."+key); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func validateContentTrustLevel(level, path string) error {
+	switch strings.TrimSpace(level) {
+	case string(uws1.ContentTrustUnknown), string(uws1.ContentTrustTrusted), string(uws1.ContentTrustUntrusted):
+		return nil
+	default:
+		return fmt.Errorf("%s must be unknown, trusted, or untrusted", path)
+	}
 }
 
 func validateStep(step *Step, label string) error {
@@ -621,6 +849,7 @@ func RenderIntentHCL(intent *Intent) (string, error) {
 			addIdempotencyBlock(wb, intent.Workflow.Idempotency)
 		}
 	}
+	addContentTrustBlock(body, intent.ContentTrust)
 	for _, input := range intent.Inputs {
 		if input == nil {
 			continue
@@ -662,6 +891,44 @@ func RenderIntentHCL(intent *Intent) (string, error) {
 		return "", err
 	}
 	return string(data), nil
+}
+
+func addContentTrustBlock(body *hclwrite.Body, trust *ContentTrustIntent) {
+	if trust == nil {
+		return
+	}
+	block := body.AppendNewBlock("content_trust", nil)
+	b := block.Body()
+	for _, declaration := range trust.SourceDescriptions {
+		if declaration == nil {
+			continue
+		}
+		db := b.AppendNewBlock("source_description", []string{declaration.Source}).Body()
+		setAttrString(db, "level", declaration.Level)
+	}
+	for _, declaration := range trust.Operations {
+		if declaration == nil {
+			continue
+		}
+		db := b.AppendNewBlock("operation", []string{declaration.Operation}).Body()
+		setAttrString(db, "default", declaration.Default)
+		setAttrMap(db, "outputs", declaration.Outputs, true)
+	}
+	for _, declaration := range trust.Triggers {
+		if declaration == nil {
+			continue
+		}
+		db := b.AppendNewBlock("trigger", []string{declaration.Trigger}).Body()
+		setAttrString(db, "level", declaration.Level)
+	}
+	for _, declaration := range trust.Workflows {
+		if declaration == nil {
+			continue
+		}
+		db := b.AppendNewBlock("workflow", []string{declaration.Workflow}).Body()
+		setAttrString(db, "default", declaration.Default)
+		setAttrMap(db, "inputs", declaration.Inputs, true)
+	}
 }
 
 func addTriggerBlock(body *hclwrite.Body, trigger *TriggerIntent) {
