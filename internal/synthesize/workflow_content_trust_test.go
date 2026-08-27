@@ -109,3 +109,21 @@ func TestGenerateWorkflowContentTrustRejectsEmptyRegistry(t *testing.T) {
 		t.Fatalf("generateWorkflowDocument error = %v", err)
 	}
 }
+
+func TestGenerateWorkflowContentTrustDefaultDeclaresEntryInputs(t *testing.T) {
+	intent := &rollout.Intent{
+		Workflow: &rollout.WorkflowMeta{Name: "Render"},
+		Inputs:   []*rollout.Input{{Name: "body", Type: "string", Required: true}},
+		Steps:    []*rollout.Step{{Name: "render", Type: "fnct", Operation: "render"}},
+		ContentTrust: &rollout.ContentTrustIntent{Workflows: []*rollout.WorkflowContentTrustIntent{{
+			Workflow: "main", Default: "unknown",
+		}}},
+	}
+	doc, err := generateWorkflowDocument(Result{ExampleDir: t.TempDir()}, intent)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if doc.Workflows[0].Inputs == nil || doc.Workflows[0].Inputs.Properties["body"] == nil {
+		t.Fatalf("workflow default did not materialize entry inputs: %#v", doc.Workflows[0].Inputs)
+	}
+}

@@ -158,7 +158,7 @@ func generateWorkflowDocument(result Result, intent *rollout.Intent) (*uws1.Docu
 	addTriggers(doc, normalized.Triggers)
 	if normalized.ContentTrust != nil {
 		doc.ContentTrust = lowerContentTrust(normalized.ContentTrust, ensureSourceDescription)
-		if contentTrustDeclaresWorkflowInputs(normalized.ContentTrust) {
+		if contentTrustDeclaresWorkflowEntry(normalized.ContentTrust) && len(normalized.Inputs) > 0 {
 			doc.Workflows[0].Inputs = workflowInputSchema(normalized.Inputs)
 		}
 	}
@@ -1250,12 +1250,12 @@ func contentTrustLevels(values map[string]string) map[string]uws1.ContentTrustLe
 	return result
 }
 
-func contentTrustDeclaresWorkflowInputs(intent *rollout.ContentTrustIntent) bool {
+func contentTrustDeclaresWorkflowEntry(intent *rollout.ContentTrustIntent) bool {
 	if intent == nil {
 		return false
 	}
 	for _, declaration := range intent.Workflows {
-		if declaration != nil && len(declaration.Inputs) > 0 {
+		if declaration != nil {
 			return true
 		}
 	}

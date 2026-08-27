@@ -35,6 +35,13 @@ OpenUdon can stage OpenAPI, Google Discovery, AWS Smithy, AsyncAPI, GraphQL, Ope
 gRPC/protobuf, and OData source documents as first-class UWS source descriptions when the trusted
 executor supports them.
 
+An operator may also add reviewable content-provenance declarations to
+`workflows/intent.hcl`. OpenUdon emits UWS 1.9.1 only when that optional
+`contentTrust` registry is present; otherwise existing packages keep their
+previous UWS selection, including UWS 1.9.0 for browser 1.7. These declarations
+are metadata for advisory analysis and human/AI review, not execution approval
+or runtime policy. See [the intent content-trust contract](docs/intent.md#content-trust).
+
 ## v0.2 Security Migration
 
 The source tree implements the unreleased v0.2 compatibility boundary for the deterministic package lifecycle

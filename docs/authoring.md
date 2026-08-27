@@ -50,6 +50,14 @@ and packages those source-bound workflows, but protocol execution remains truste
 `build` regenerates from existing intent.
 `assess` reruns deterministic quality checks without synthesizing new intent.
 
+Operators may add a `content_trust` block to `workflows/intent.hcl` after the
+workflow and source choices are reviewed. OpenUdon maps those declarations to
+the generated UWS 1.9.1 document. This block is deliberately operator-authored,
+not an LLM-generation field. Projects without it retain their prior UWS
+version and package shape; browser 1.7 by itself continues to use UWS 1.9.0.
+See [intent.hcl](intent.md#content-trust) for the exact declaration syntax and
+validation boundary.
+
 Before searching public catalogs, inspect first-class provider metadata from `apitools`:
 
 ```bash
@@ -91,6 +99,8 @@ artifacts.
 
 - Put credential binding names in artifacts, never credential values.
 - Keep side-effectful workflows in generated/review state until approval.
+- Treat content-trust declarations as reviewed provenance metadata, not as a
+  substitute for side-effect approval, credential policy, or runtime controls.
 - Use sandbox proof-run language for examples that send email, write records, call commands, or
   otherwise produce effects.
 - Use `openudon run --dry-run` to validate the handoff package without invoking the executor.
