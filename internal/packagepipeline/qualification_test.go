@@ -2,8 +2,10 @@ package packagepipeline
 
 import (
 	"context"
+	"crypto/sha256"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -11,6 +13,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/OpenUdon/openudon/internal/authoring"
 	"github.com/OpenUdon/openudon/internal/synthesize"
 )
 
@@ -138,8 +141,18 @@ func TestQualifyFailureCodesAndCleanup(t *testing.T) {
 }
 
 func TestQualifyRejectsStaleStoredQualityInScratch(t *testing.T) {
-	root := pipelineRepoRoot(t)
-	example := filepath.Join(root, "examples", "support-priority-routing")
+	example := filepath.Join(t.TempDir(), "stale-package")
+	pipelineCopyTree(t, filepath.Join(pipelineRepoRoot(t), "examples", "slack-message-audit-log"), example)
+	reviewPath := filepath.Join(example, "expected", "review.md")
+	review, err := os.ReadFile(reviewPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	review = []byte(strings.Replace(string(review), "--dry-run", "--review-only", 1))
+	if err := os.WriteFile(reviewPath, review, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	refreshQualificationHandoff(t, example)
 	prepared, err := PrepareCurrent(context.Background(), PrepareOptions{ExampleDir: example, Scope: "examples/support-priority-routing"})
 	if err != nil {
 		t.Fatal(err)
@@ -154,11 +167,54 @@ func TestQualifyRejectsStaleStoredQualityInScratch(t *testing.T) {
 	}
 }
 
+func refreshQualificationHandoff(t *testing.T, example string) {
+	t.Helper()
+	const self = "expected/review-handoff.json"
+	path := filepath.Join(example, filepath.FromSlash(self))
+	data, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var manifest authoring.ReviewHandoff
+	if err := json.Unmarshal(data, &manifest); err != nil {
+		t.Fatal(err)
+	}
+	for i := range manifest.HandoffInputs {
+		input := &manifest.HandoffInputs[i]
+		if input.Path == self {
+			input.SHA256 = strings.Repeat("0", 64)
+			continue
+		}
+		data, err := os.ReadFile(filepath.Join(example, filepath.FromSlash(input.Path)))
+		if err != nil {
+			t.Fatal(err)
+		}
+		digest := sha256.Sum256(data)
+		input.SHA256 = fmt.Sprintf("%x", digest[:])
+	}
+	digest, err := authoring.ReviewHandoffSelfDigest(manifest, self)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for i := range manifest.HandoffInputs {
+		if manifest.HandoffInputs[i].Path == self {
+			manifest.HandoffInputs[i].SHA256 = digest
+		}
+	}
+	data, err = json.MarshalIndent(manifest, "", "  ")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(path, append(data, '\n'), 0o600); err != nil {
+		t.Fatal(err)
+	}
+}
+
 func pipelinePassingPreparation(t *testing.T) (Prepared, string, string) {
 	t.Helper()
 	root := t.TempDir()
 	source := filepath.Join(root, "examples", "support-priority-routing")
-	pipelineCopyTree(t, filepath.Join(pipelineRepoRoot(t), "examples", "support-priority-routing"), source)
+	pipelineCopyTree(t, filepath.Join(pipelineRepoRoot(t), "examples", "slack-message-audit-log"), source)
 	if _, err := synthesize.Build(context.Background(), synthesize.Options{ExampleDir: source}); err != nil {
 		t.Fatalf("build passing package fixture: %v", err)
 	}

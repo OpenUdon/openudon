@@ -18,7 +18,7 @@ import (
 
 func TestPrepareCurrentIsDeterministicWriteFreeAndDefensive(t *testing.T) {
 	root := pipelineRepoRoot(t)
-	example := filepath.Join(root, "examples", "support-priority-routing")
+	example := filepath.Join(root, "examples", "slack-message-audit-log")
 	before := pipelineTreeState(t, example)
 	first, err := PrepareCurrent(context.Background(), PrepareOptions{ExampleDir: example, Scope: "examples/support-priority-routing"})
 	if err != nil {
@@ -68,11 +68,11 @@ func TestPrepareCurrentIsDeterministicWriteFreeAndDefensive(t *testing.T) {
 func TestPrepareCurrentHonorsCancellationAndRejectsDrift(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()
-	if _, err := PrepareCurrent(ctx, PrepareOptions{ExampleDir: filepath.Join(pipelineRepoRoot(t), "examples", "support-priority-routing")}); !errors.Is(err, context.Canceled) {
+	if _, err := PrepareCurrent(ctx, PrepareOptions{ExampleDir: filepath.Join(pipelineRepoRoot(t), "examples", "slack-message-audit-log")}); !errors.Is(err, context.Canceled) {
 		t.Fatalf("canceled preparation error = %v", err)
 	}
 
-	source := filepath.Join(pipelineRepoRoot(t), "examples", "support-priority-routing")
+	source := filepath.Join(pipelineRepoRoot(t), "examples", "slack-message-audit-log")
 	example := filepath.Join(t.TempDir(), "package")
 	pipelineCopyTree(t, source, example)
 	originalHook := prepareReadHook

@@ -116,9 +116,10 @@ func TestBundledBrowserWorkerNegotiatesWithoutLaunchingChromium(t *testing.T) {
 	if err := os.Chmod(privateRoot, 0o700); err != nil {
 		t.Fatal(err)
 	}
+	driverRoot := syntheticPlaywrightDriver(t)
 	var stdout, stderr strings.Builder
 	code := runBundledBrowserWorker(
-		[]string{"author-session", "chromium", "--private-root", privateRoot},
+		[]string{"author-session", "chromium", "--private-root", privateRoot, "--driver-dir", driverRoot},
 		strings.NewReader(`{"protocol":"browsertools.author-session.v2","type":"close"}`+"\n"),
 		&stdout, &stderr,
 	)
@@ -132,6 +133,24 @@ func TestBundledRegistrationWorkerNegotiatesWithoutLaunchingChromium(t *testing.
 	if err := os.Chmod(privateRoot, 0o700); err != nil {
 		t.Fatal(err)
 	}
+	driverRoot := syntheticPlaywrightDriver(t)
+	var stdout, stderr strings.Builder
+	code := runBundledBrowserWorker(
+		[]string{"registration-author-session", "chromium", "--private-root", privateRoot, "--driver-dir", driverRoot},
+		strings.NewReader(`{"protocol":"browsertools.registration-author-session.v1","type":"close"}`+"\n"),
+		&stdout, &stderr,
+	)
+	if code != 0 || stderr.Len() != 0 || !strings.Contains(stdout.String(), `"type":"hello"`) || !strings.Contains(stdout.String(), `"phase":"closed"`) {
+		t.Fatalf("code=%d stdout=%q stderr=%q", code, stdout.String(), stderr.String())
+	}
+	entries, err := os.ReadDir(privateRoot)
+	if err != nil || len(entries) != 0 {
+		t.Fatalf("closed worker retained private result: %v, %v", entries, err)
+	}
+}
+
+func syntheticPlaywrightDriver(t *testing.T) string {
+	t.Helper()
 	driverRoot := t.TempDir()
 	if err := os.MkdirAll(filepath.Join(driverRoot, "package"), 0o700); err != nil {
 		t.Fatal(err)
@@ -146,19 +165,7 @@ func TestBundledRegistrationWorkerNegotiatesWithoutLaunchingChromium(t *testing.
 	if err := os.WriteFile(filepath.Join(driverRoot, "package", "package.json"), []byte(metadata), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	var stdout, stderr strings.Builder
-	code := runBundledBrowserWorker(
-		[]string{"registration-author-session", "chromium", "--private-root", privateRoot, "--driver-dir", driverRoot},
-		strings.NewReader(`{"protocol":"browsertools.registration-author-session.v1","type":"close"}`+"\n"),
-		&stdout, &stderr,
-	)
-	if code != 0 || stderr.Len() != 0 || !strings.Contains(stdout.String(), `"type":"hello"`) || !strings.Contains(stdout.String(), `"phase":"closed"`) {
-		t.Fatalf("code=%d stdout=%q stderr=%q", code, stdout.String(), stderr.String())
-	}
-	entries, err := os.ReadDir(privateRoot)
-	if err != nil || len(entries) != 0 {
-		t.Fatalf("closed worker retained private result: %v, %v", entries, err)
-	}
+	return driverRoot
 }
 
 func TestLiveAuthorDefaultsToBundledWorker(t *testing.T) {

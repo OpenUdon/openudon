@@ -187,7 +187,7 @@ func newBrowserTransactionTerminalFixture(t *testing.T) browserTransactionTermin
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := os.CopyFS(example, os.DirFS(filepath.Join(repoRoot, "examples", "support-priority-routing"))); err != nil {
+	if err := os.CopyFS(example, os.DirFS(filepath.Join(repoRoot, "examples", "slack-message-audit-log"))); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := synthesize.Build(context.Background(), synthesize.Options{ExampleDir: example}); err != nil {

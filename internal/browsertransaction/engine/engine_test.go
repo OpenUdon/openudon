@@ -270,7 +270,7 @@ func transactionEngineConfig(t *testing.T) Config {
 	t.Helper()
 	root := t.TempDir()
 	source := filepath.Join(root, "examples", "support-priority-routing")
-	if err := os.CopyFS(source, os.DirFS(filepath.Join(transactionRepoRoot(t), "examples", "support-priority-routing"))); err != nil {
+	if err := os.CopyFS(source, os.DirFS(filepath.Join(transactionRepoRoot(t), "examples", "slack-message-audit-log"))); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := synthesize.Build(context.Background(), synthesize.Options{ExampleDir: source}); err != nil {

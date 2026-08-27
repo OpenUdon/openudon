@@ -17,9 +17,9 @@ func TestPreparedDigestMatchesTrustedPackageInspection(t *testing.T) {
 		t.Fatal("resolve test source")
 	}
 	root := filepath.Clean(filepath.Join(filepath.Dir(file), "..", ".."))
-	example := filepath.Join(root, "examples", "support-priority-routing")
+	example := filepath.Join(root, "examples", "slack-message-audit-log")
 	prepared, err := packagepipeline.PrepareCurrent(context.Background(), packagepipeline.PrepareOptions{
-		ExampleDir: example, Scope: "examples/support-priority-routing",
+		ExampleDir: example, Scope: "examples/slack-message-audit-log",
 	})
 	if err != nil {
 		t.Fatal(err)
