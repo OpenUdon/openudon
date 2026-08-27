@@ -156,6 +156,12 @@ func generateWorkflowDocument(result Result, intent *rollout.Intent) (*uws1.Docu
 	doc.Workflows[0].Outputs = workflowOutputs(normalized.Outputs, steps)
 	doc.Operations = append(doc.Operations, ops...)
 	addTriggers(doc, normalized.Triggers)
+	if normalized.ContentTrust != nil {
+		doc.ContentTrust = lowerContentTrust(normalized.ContentTrust, ensureSourceDescription)
+		if contentTrustDeclaresWorkflowInputs(normalized.ContentTrust) {
+			doc.Workflows[0].Inputs = workflowInputSchema(normalized.Inputs)
+		}
+	}
 	addStructuralResultsFromIntent(doc, normalized)
 	if len(doc.Operations) == 0 && len(doc.Workflows[0].Steps) == 0 {
 		return nil, fmt.Errorf("intent produced no UWS operations or steps")
@@ -1153,6 +1159,9 @@ func stringMapToAny(values map[string]string) map[string]any {
 }
 
 func uwsVersionForIntentAndBrowserContracts(intent *rollout.Intent, requires18, requires19 bool) string {
+	if intent != nil && intent.ContentTrust != nil {
+		return "1.9.1"
+	}
 	if requires19 {
 		return "1.9.0"
 	}
@@ -1178,6 +1187,109 @@ func uwsVersionForIntentAndBrowserContracts(intent *rollout.Intent, requires18, 
 		return "1.1.0"
 	}
 	return "1.0.0"
+}
+
+func lowerContentTrust(intent *rollout.ContentTrustIntent, sourceFor func(string) string) *uws1.ContentTrust {
+	trust := &uws1.ContentTrust{}
+	if intent == nil {
+		return trust
+	}
+	if len(intent.SourceDescriptions) > 0 {
+		trust.SourceDescriptions = map[string]uws1.ContentTrustLevel{}
+		for _, declaration := range intent.SourceDescriptions {
+			if declaration == nil {
+				continue
+			}
+			name := sourceFor(filepath.ToSlash(strings.TrimSpace(declaration.Source)))
+			trust.SourceDescriptions[name] = uws1.ContentTrustLevel(strings.TrimSpace(declaration.Level))
+		}
+	}
+	if len(intent.Operations) > 0 {
+		trust.Operations = map[string]*uws1.OperationContentTrust{}
+		for _, declaration := range intent.Operations {
+			if declaration == nil {
+				continue
+			}
+			value := &uws1.OperationContentTrust{Default: uws1.ContentTrustLevel(strings.TrimSpace(declaration.Default))}
+			if len(declaration.Outputs) > 0 {
+				value.Outputs = contentTrustLevels(declaration.Outputs)
+			}
+			trust.Operations[sanitizeIdentifier(declaration.Operation)] = value
+		}
+	}
+	if len(intent.Triggers) > 0 {
+		trust.Triggers = map[string]uws1.ContentTrustLevel{}
+		for _, declaration := range intent.Triggers {
+			if declaration == nil {
+				continue
+			}
+			trust.Triggers[strings.TrimSpace(declaration.Trigger)] = uws1.ContentTrustLevel(strings.TrimSpace(declaration.Level))
+		}
+	}
+	if len(intent.Workflows) > 0 {
+		trust.Workflows = map[string]*uws1.WorkflowContentTrust{}
+		for _, declaration := range intent.Workflows {
+			if declaration == nil {
+				continue
+			}
+			value := &uws1.WorkflowContentTrust{Default: uws1.ContentTrustLevel(strings.TrimSpace(declaration.Default))}
+			if len(declaration.Inputs) > 0 {
+				value.Inputs = contentTrustLevels(declaration.Inputs)
+			}
+			trust.Workflows[strings.TrimSpace(declaration.Workflow)] = value
+		}
+	}
+	return trust
+}
+
+func contentTrustLevels(values map[string]string) map[string]uws1.ContentTrustLevel {
+	result := make(map[string]uws1.ContentTrustLevel, len(values))
+	for key, level := range values {
+		result[strings.TrimSpace(key)] = uws1.ContentTrustLevel(strings.TrimSpace(level))
+	}
+	return result
+}
+
+func contentTrustDeclaresWorkflowInputs(intent *rollout.ContentTrustIntent) bool {
+	if intent == nil {
+		return false
+	}
+	for _, declaration := range intent.Workflows {
+		if declaration != nil && len(declaration.Inputs) > 0 {
+			return true
+		}
+	}
+	return false
+}
+
+func workflowInputSchema(inputs []*rollout.Input) *uws1.ParamSchema {
+	properties := map[string]*uws1.ParamSchema{}
+	var required []string
+	for _, input := range inputs {
+		if input == nil || strings.TrimSpace(input.Name) == "" {
+			continue
+		}
+		name := strings.TrimSpace(input.Name)
+		properties[name] = &uws1.ParamSchema{Type: uwsInputType(input.Type)}
+		if input.Required {
+			required = append(required, name)
+		}
+	}
+	sort.Strings(required)
+	return &uws1.ParamSchema{Type: "object", Properties: properties, Required: required}
+}
+
+func uwsInputType(value string) string {
+	switch strings.ToLower(strings.TrimSpace(value)) {
+	case "bool":
+		return "boolean"
+	case "list":
+		return "array"
+	case "any":
+		return ""
+	default:
+		return strings.ToLower(strings.TrimSpace(value))
+	}
 }
 
 type browserContractVersions struct {
