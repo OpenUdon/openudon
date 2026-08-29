@@ -32,7 +32,7 @@ var (
 	keyPattern = regexp.MustCompile(`^[A-Za-z][A-Za-z0-9_-]{0,63}$`)
 )
 
-//go:embed manifests/*.json compatibility-lock.json
+//go:embed manifests/*.json compatibility-lock.json qualification-build-inputs.json
 var contracts embed.FS
 
 type Manifest struct {

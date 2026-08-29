@@ -128,14 +128,18 @@ func (executor *realExecutor) prepare(ctx context.Context, environment Environme
 		executor.prepareErr = fmt.Errorf("Browserdriver entry point is unavailable")
 		return
 	}
+	var goBuildEnvironment map[string]string
+	if environment.CommitBoundBuild {
+		goBuildEnvironment = qualificationGoBuildEnvironment()
+	}
 	executor.udon = filepath.Join(root, "udon")
-	if !runSilent(ctx, buildDeadline, environment.UdonRepo, []string{goTool, "build", "-o", executor.udon, "./cmd/udon"}, nil) {
+	if !runSilent(ctx, buildDeadline, environment.UdonRepo, []string{goTool, "build", "-o", executor.udon, "./cmd/udon"}, goBuildEnvironment) {
 		executor.prepareErr = fmt.Errorf("build Udon")
 		return
 	}
 	if suite != SuiteJourney {
 		executor.browsertools = filepath.Join(root, "browsertools")
-		if !runSilent(ctx, buildDeadline, environment.BrowsertoolsRepo, []string{goTool, "build", "-o", executor.browsertools, "./cmd/browsertools"}, nil) {
+		if !runSilent(ctx, buildDeadline, environment.BrowsertoolsRepo, []string{goTool, "build", "-o", executor.browsertools, "./cmd/browsertools"}, goBuildEnvironment) {
 			executor.prepareErr = fmt.Errorf("build Browsertools")
 			return
 		}
@@ -1085,8 +1089,10 @@ func scenarioEnvironment(overrides map[string]string) []string {
 			values[name] = value
 		}
 	}
+	qualificationValues := qualificationGoBuildEnvironment()
 	for name, value := range overrides {
-		if scenarioEnvironmentName.MatchString(name) && !strings.ContainsAny(value, "\x00\r\n") {
+		qualificationValue, qualificationName := qualificationValues[name]
+		if (scenarioEnvironmentName.MatchString(name) || qualificationName && qualificationValue == value) && !strings.ContainsAny(value, "\x00\r\n") {
 			values[name] = value
 		}
 	}
@@ -1100,6 +1106,15 @@ func scenarioEnvironment(overrides map[string]string) []string {
 		result = append(result, name+"="+values[name])
 	}
 	return result
+}
+
+func qualificationGoBuildEnvironment() map[string]string {
+	return map[string]string{
+		"GOENV":       "off",
+		"GOPROXY":     "off",
+		"GOTOOLCHAIN": "go1.26.6",
+		"GOWORK":      "off",
+	}
 }
 
 func regularFile(path string) bool {

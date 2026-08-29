@@ -53,6 +53,13 @@ func RunQualification(ctx context.Context, options QualificationOptions) (*Repor
 	if err != nil {
 		return nil, err
 	}
+	lock, err := browserscenario.LoadCompatibilityLock()
+	if err != nil {
+		return nil, err
+	}
+	if err := browserscenario.ValidateQualificationBuildInputs(ctx, roots.udon, lock); err != nil {
+		return nil, errors.New("browser transaction qualification build inputs are invalid")
+	}
 	makeExecutable, err := exec.LookPath("make")
 	if err != nil {
 		return nil, errors.New("browser transaction qualification toolchain is unavailable")
@@ -80,6 +87,9 @@ func RunQualification(ctx context.Context, options QualificationOptions) (*Repor
 	currentRepositories, err := qualificationRepositories(ctx, roots)
 	if err != nil || !equalRepositoryRevisions(repositories, currentRepositories) {
 		return nil, errors.New("browser transaction qualification repository state changed during execution")
+	}
+	if err := browserscenario.ValidateQualificationBuildInputs(ctx, roots.udon, lock); err != nil {
+		return nil, errors.New("browser transaction qualification build inputs changed during execution")
 	}
 	report, err := BuildQualificationReport(now, repositories, bapBCP, brp)
 	if err != nil {
@@ -322,7 +332,7 @@ func qualificationAdversarialEnvironment(browsertoolsRepo, goExecutable string) 
 		"GNUMAKEFLAGS": true, "MAKEFILES": true, "MAKEFLAGS": true, "MFLAGS": true,
 		"OPENUDON_BROWSERTOOLS_REPO": true, "PATH": true,
 	}
-	environment := make([]string, 0, len(os.Environ())+3)
+	environment := make([]string, 0, len(os.Environ())+7)
 	for _, item := range os.Environ() {
 		name, _, ok := strings.Cut(item, "=")
 		if ok && !blocked[name] {
@@ -335,6 +345,9 @@ func qualificationAdversarialEnvironment(browsertoolsRepo, goExecutable string) 
 	}
 	return append(environment,
 		"GOENV=off",
+		"GOPROXY=off",
+		"GOTOOLCHAIN=go1.26.6",
+		"GOWORK=off",
 		"OPENUDON_BROWSERTOOLS_REPO="+browsertoolsRepo,
 		"PATH="+path,
 	)

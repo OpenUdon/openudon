@@ -1,11 +1,13 @@
 package browserscenario
 
 import (
+	"context"
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -13,6 +15,7 @@ import (
 
 	"github.com/OpenUdon/browsertools/authprofile"
 	"github.com/OpenUdon/browsertools/profile"
+	"github.com/OpenUdon/openudon/internal/synthesize"
 )
 
 func TestEmbeddedScenarioCorpusIsCompleteAndStrict(t *testing.T) {
@@ -221,10 +224,24 @@ func TestScenarioEnvironmentExcludesCredentialsAndRetainsNetworkProxy(t *testing
 	t.Setenv("OPENAI_API_KEY", "must-not-cross")
 	t.Setenv("SCENARIO_PASSWORD", "must-not-cross")
 	t.Setenv("HTTPS_PROXY", "http://proxy.example:8080")
+	t.Setenv("GOWORK", "private.work")
 	values := scenarioEnvironment(nil)
 	joined := strings.Join(values, "\n")
-	if strings.Contains(joined, "OPENAI_API_KEY") || strings.Contains(joined, "SCENARIO_PASSWORD") || strings.Contains(joined, "HTTPS_PROXY") {
+	if strings.Contains(joined, "OPENAI_API_KEY") || strings.Contains(joined, "SCENARIO_PASSWORD") || strings.Contains(joined, "HTTPS_PROXY") || strings.Contains(joined, "GOWORK") {
 		t.Fatalf("scenario environment = %q", joined)
+	}
+	qualifiedValues := scenarioEnvironment(qualificationGoBuildEnvironment())
+	valuesByName := map[string]string{}
+	for _, value := range qualifiedValues {
+		name, item, _ := strings.Cut(value, "=")
+		valuesByName[name] = item
+	}
+	for name, want := range map[string]string{
+		"GOENV": "off", "GOPROXY": "off", "GOTOOLCHAIN": "go1.26.6", "GOWORK": "off",
+	} {
+		if valuesByName[name] != want {
+			t.Fatalf("scenario environment %s = %q, want %q", name, valuesByName[name], want)
+		}
 	}
 }
 
@@ -236,6 +253,148 @@ func TestCompatibilityLockMatchesExactTypedBrowserRevisions(t *testing.T) {
 	if lock.Playwright != "1.62.1" || lock.Chromium != "151.0.7922.34" || lock.Components[0].Name != "browserdriver" || lock.Components[3].Name != "uws" {
 		t.Fatalf("lock = %#v", lock)
 	}
+	components := map[string]LockedRevision{}
+	for _, component := range lock.Components {
+		components[component.Name] = component
+	}
+	if components["browserdriver"].Commit != "a97b1aed6ea69a30591815da8ca07ac9e7c87623" ||
+		components["udon"].Commit != "e0e6559e839bed788201cf0c55a3eb296d375987" ||
+		components["browsertools"].Commit != "75fd5c3ab81f904243f8c2650c61ba1cd8c00540" ||
+		components["uws"].Commit != "9e676eaa469e9168225a7dcee75eb309e3499637" {
+		t.Fatalf("qualification component pins = %#v", components)
+	}
+	buildLock, err := LoadQualificationBuildInputLock(lock)
+	if err != nil {
+		t.Fatal(err)
+	}
+	buildComponents := map[string]QualificationBuildInput{}
+	for _, component := range buildLock.Components {
+		buildComponents[component.Name] = component
+	}
+	if buildComponents["browsertools"].Commit != "d26f2982db352619d7a7f6563add802b56e10824" ||
+		buildComponents["uws"].Commit != "895aa4546067e25f9dd525b1356abf1945d223b4" {
+		t.Fatalf("Udon qualification module pins = %#v", buildComponents)
+	}
+}
+
+func TestQualificationBuildInputLockRejectsUnboundAndDirtyReplacements(t *testing.T) {
+	parent := t.TempDir()
+	browsertoolsCommit := initializeQualificationRepository(t, filepath.Join(parent, "browsertools"))
+	uwsCommit := initializeQualificationRepository(t, filepath.Join(parent, "uws"))
+	udonRoot := filepath.Join(parent, "udon")
+	if err := os.Mkdir(udonRoot, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	goMod := "module example.test/udon\n\ngo 1.26.6\n\n" +
+		"replace github.com/OpenUdon/browsertools => ../browsertools\n" +
+		"replace github.com/OpenUdon/uws => ../uws\n"
+	if err := os.WriteFile(filepath.Join(udonRoot, "go.mod"), []byte(goMod), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	lock := QualificationBuildInputLock{
+		Version: qualificationBuildInputLockVersion,
+		Components: []QualificationBuildInput{
+			{Name: "browsertools", Module: "github.com/OpenUdon/browsertools", Replacement: "../browsertools", Commit: browsertoolsCommit},
+			{Name: "uws", Module: "github.com/OpenUdon/uws", Replacement: "../uws", Commit: uwsCommit},
+		},
+	}
+	compatibility, err := LoadCompatibilityLock()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := ValidateQualificationBuildInputLock(lock, compatibility); err != nil {
+		t.Fatal(err)
+	}
+	if err := validateQualificationBuildInputs(context.Background(), udonRoot, lock); err != nil {
+		t.Fatal(err)
+	}
+
+	drifted := lock
+	drifted.Components = append([]QualificationBuildInput(nil), lock.Components...)
+	drifted.Components[0].Commit = strings.Repeat("a", 40)
+	if err := validateQualificationBuildInputs(context.Background(), udonRoot, drifted); err == nil || !strings.Contains(err.Error(), "revision") {
+		t.Fatalf("drifted build input error = %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(parent, "browsertools", "untracked"), []byte("drift"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := validateQualificationBuildInputs(context.Background(), udonRoot, lock); err == nil || !strings.Contains(err.Error(), "dirty") {
+		t.Fatalf("dirty build input error = %v", err)
+	}
+	if err := os.Remove(filepath.Join(parent, "browsertools", "untracked")); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(parent, "browsertools", "ignored"), []byte("unbound"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := validateQualificationBuildInputs(context.Background(), udonRoot, lock); err == nil || !strings.Contains(err.Error(), "dirty") {
+		t.Fatalf("ignored build input error = %v", err)
+	}
+	if err := os.Remove(filepath.Join(parent, "browsertools", "ignored")); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(udonRoot, "go.mod"), []byte(goMod+"replace example.test/unbound => ../unbound\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := validateQualificationBuildInputs(context.Background(), udonRoot, lock); err == nil || !strings.Contains(err.Error(), "do not match") {
+		t.Fatalf("unbound replacement error = %v", err)
+	}
+}
+
+func TestQualificationBaselineIsCommittedAndBuildable(t *testing.T) {
+	repoRoot := filepath.Clean(filepath.Join("..", ".."))
+	destination := filepath.Join(t.TempDir(), "baseline")
+	if err := copyQualificationBaseline(destination, repoRoot); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := synthesize.Build(context.Background(), synthesize.Options{ExampleDir: destination}); err != nil {
+		t.Fatalf("build qualification baseline: %v", err)
+	}
+	probe := exec.Command("git", "rev-parse", "--is-inside-work-tree")
+	probe.Dir = repoRoot
+	if err := probe.Run(); err != nil {
+		return
+	}
+	for _, relative := range qualificationBaselineRequiredPaths {
+		path := filepath.ToSlash(filepath.Join(qualificationBaselineScope, relative))
+		command := exec.Command("git", "ls-files", "--error-unmatch", "--", path)
+		command.Dir = repoRoot
+		if output, err := command.CombinedOutput(); err != nil {
+			t.Fatalf("qualification baseline path %s is not committed: %v: %s", path, err, strings.TrimSpace(string(output)))
+		}
+	}
+}
+
+func initializeQualificationRepository(t *testing.T, root string) string {
+	t.Helper()
+	if err := os.Mkdir(root, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(root, "README.md"), []byte("qualification fixture\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(root, ".gitignore"), []byte("ignored\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	commands := [][]string{
+		{"init", "--quiet"},
+		{"add", "README.md", ".gitignore"},
+		{"-c", "user.name=OpenUdon Qualification", "-c", "user.email=qualification@example.invalid", "commit", "--quiet", "-m", "fixture"},
+	}
+	for _, args := range commands {
+		command := exec.Command("git", args...)
+		command.Dir = root
+		if output, err := command.CombinedOutput(); err != nil {
+			t.Fatalf("git %v: %v: %s", args, err, strings.TrimSpace(string(output)))
+		}
+	}
+	command := exec.Command("git", "rev-parse", "HEAD")
+	command.Dir = root
+	output, err := command.Output()
+	if err != nil {
+		t.Fatal(err)
+	}
+	return strings.TrimSpace(string(output))
 }
 
 func TestCompatibilityLockRejectsDirtyOrDriftedSibling(t *testing.T) {

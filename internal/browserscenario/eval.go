@@ -39,6 +39,7 @@ type Environment struct {
 	BrowserdriverRepo string
 	Lock              CompatibilityLock
 	Now               time.Time
+	CommitBoundBuild  bool
 }
 
 // ScenarioExecutor runs one already-validated manifest. Implementations must

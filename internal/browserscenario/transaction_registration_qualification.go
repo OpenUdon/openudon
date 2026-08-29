@@ -79,6 +79,10 @@ func RunBRPQualification(ctx context.Context, options Options) (BRPQualification
 	if err != nil {
 		return BRPQualificationEvidence{}, err
 	}
+	if err := ValidateQualificationBuildInputs(ctx, environment.UdonRepo, lock); err != nil {
+		return BRPQualificationEvidence{}, errors.New("BRP qualification build inputs are invalid")
+	}
+	environment.CommitBoundBuild = true
 	executor := &realExecutor{}
 	defer executor.Close()
 	executor.prepare(ctx, environment, SuiteLoopback)
@@ -126,7 +130,7 @@ func (executor *realExecutor) runBRPQualification(ctx context.Context, environme
 	}()
 	packageAt := time.Now().UTC().Round(0)
 	baselineDir := filepath.Join(root, "baseline")
-	if err := os.CopyFS(baselineDir, os.DirFS(filepath.Join(environment.RepoRoot, "examples", "support-priority-routing"))); err != nil {
+	if err := copyQualificationBaseline(baselineDir, environment.RepoRoot); err != nil {
 		return evidence, errors.New("BRP qualification baseline copy failed")
 	}
 	if _, err := synthesize.Build(ctx, synthesize.Options{ExampleDir: baselineDir}); err != nil {
@@ -134,7 +138,7 @@ func (executor *realExecutor) runBRPQualification(ctx context.Context, environme
 	}
 	baseline, err := packagepipeline.PromoteCurrent(ctx, packagepipeline.CurrentOptions{
 		ExampleDir: baselineDir,
-		Scope:      "examples/support-priority-routing", ScratchParent: scratch, StoreDir: store,
+		Scope:      qualificationBaselineScope, ScratchParent: scratch, StoreDir: store,
 	})
 	if err != nil {
 		return evidence, fmt.Errorf("BRP qualification baseline promotion failed: %s", closedPackageLifecycleFailure(err))

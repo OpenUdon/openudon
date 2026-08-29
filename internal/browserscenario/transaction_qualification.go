@@ -69,6 +69,10 @@ func RunBAPBCPQualification(ctx context.Context, options Options) (BAPBCPQualifi
 	if err != nil {
 		return BAPBCPQualificationEvidence{}, err
 	}
+	if err := ValidateQualificationBuildInputs(ctx, environment.UdonRepo, lock); err != nil {
+		return BAPBCPQualificationEvidence{}, errors.New("BAP+BCP qualification build inputs are invalid")
+	}
+	environment.CommitBoundBuild = true
 	manifests, err := LoadManifests(now)
 	if err != nil {
 		return BAPBCPQualificationEvidence{}, err
@@ -162,7 +166,7 @@ func (executor *realExecutor) runBAPBCPQualification(ctx context.Context, enviro
 		return evidence, errors.New("BAP+BCP qualification package qualification failed: unclassified")
 	}
 	baselineDir := filepath.Join(root, "baseline")
-	if err := os.CopyFS(baselineDir, os.DirFS(filepath.Join(environment.RepoRoot, "examples", "support-priority-routing"))); err != nil {
+	if err := copyQualificationBaseline(baselineDir, environment.RepoRoot); err != nil {
 		return evidence, errors.New("BAP+BCP qualification baseline copy failed")
 	}
 	if _, err := synthesize.Build(ctx, synthesize.Options{ExampleDir: baselineDir}); err != nil {
@@ -170,7 +174,7 @@ func (executor *realExecutor) runBAPBCPQualification(ctx context.Context, enviro
 	}
 	baseline, err := packagepipeline.PromoteCurrent(ctx, packagepipeline.CurrentOptions{
 		ExampleDir: baselineDir,
-		Scope:      "examples/support-priority-routing", ScratchParent: scratch, StoreDir: store,
+		Scope:      qualificationBaselineScope, ScratchParent: scratch, StoreDir: store,
 	})
 	if err != nil {
 		return evidence, fmt.Errorf("BAP+BCP qualification baseline promotion failed: %s", closedPackageLifecycleFailure(err))

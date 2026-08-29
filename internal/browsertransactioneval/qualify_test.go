@@ -171,6 +171,7 @@ func TestQualificationAdversarialEnvironmentClosesControlOverrides(t *testing.T)
 		}
 	}
 	if values["OPENUDON_BROWSERTOOLS_REPO"] != "literal-$(not-executed)" || values["GOENV"] != "off" ||
+		values["GOPROXY"] != "off" || values["GOTOOLCHAIN"] != "go1.26.6" || values["GOWORK"] != "off" ||
 		!strings.HasPrefix(values["PATH"], "/trusted/bin"+string(os.PathListSeparator)) || counts["PATH"] != 1 {
 		t.Fatalf("closed environment = %#v", values)
 	}
