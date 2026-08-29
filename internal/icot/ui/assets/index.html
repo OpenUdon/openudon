@@ -125,7 +125,7 @@
         <form id="registration-draft-form" novalidate hidden>
           <fieldset>
             <legend>3. Symbolic credential slots</legend>
-            <p class="section-help">Enter symbolic environment names only. Account identifiers, passwords, OTPs, CAPTCHA answers, and verification values are never accepted here.</p>
+            <p class="section-help">Enter symbolic environment names only. The identifier class may label a runtime-private contact-name input. Account identifiers, contact names, passwords, OTPs, CAPTCHA answers, and verification values are never accepted here.</p>
             <div id="registration-slot-list" class="wizard-list"></div>
             <button id="registration-add-slot" type="button">Add symbolic slot</button>
           </fieldset>
@@ -145,9 +145,12 @@
             <label for="registration-flow-name">Flow name</label><input id="registration-flow-name" value="create_dedicated_test_user" pattern="[a-z][a-z0-9_]{0,127}" required>
             <label for="registration-flow-description">Flow description</label><textarea id="registration-flow-description" maxlength="1024"></textarea>
             <label for="registration-confirmation-prompt">Submit confirmation prompt</label><input id="registration-confirmation-prompt" maxlength="512" required>
-            <label for="registration-success-origin">Success origin</label><select id="registration-success-origin" required></select>
-            <label for="registration-success-path">Success path</label><input id="registration-success-path" value="/" pattern="/.*">
-            <label for="registration-success-candidate">Observed success locator</label><select id="registration-success-candidate" required></select>
+            <p id="registration-success-help" class="section-help">The no-submit observation cannot prove a post-submit outcome. Declare this locator only from separately reviewed provider documentation or a separately reviewed local contract. It is not observed in this authoring session and remains deferred until a separately approved runtime proves it.</p>
+            <label for="registration-success-origin">Post-submit success origin</label><select id="registration-success-origin" required aria-describedby="registration-success-help"></select>
+            <label for="registration-success-path">Post-submit success path (optional)</label><input id="registration-success-path" pattern="/.*" aria-describedby="registration-success-help">
+            <label for="registration-success-role">Operator-reviewed success role</label><select id="registration-success-role" required aria-describedby="registration-success-help"><option value="">Choose…</option><option value="button">button</option><option value="link">link</option><option value="textbox">textbox</option><option value="checkbox">checkbox</option><option value="radio">radio</option><option value="dialog">dialog</option><option value="status">status</option><option value="alert">alert</option><option value="heading">heading</option><option value="img">img</option><option value="list">list</option><option value="listitem">listitem</option><option value="combobox">combobox</option><option value="option">option</option><option value="menu">menu</option><option value="menuitem">menuitem</option><option value="tab">tab</option><option value="tabpanel">tabpanel</option><option value="table">table</option><option value="row">row</option><option value="cell">cell</option><option value="region">region</option><option value="navigation">navigation</option><option value="article">article</option><option value="form">form</option><option value="search">search</option><option value="switch">switch</option><option value="group">group</option></select>
+            <label for="registration-success-name">Operator-reviewed success accessibility name</label><input id="registration-success-name" maxlength="256" required aria-describedby="registration-success-help">
+            <label class="check-row" for="registration-success-reviewed"><input id="registration-success-reviewed" type="checkbox"><span>I reviewed this post-submit locator separately and understand that this no-submit session did not observe or verify it.</span></label>
           </fieldset>
           <fieldset>
             <legend>6. Fixed call controls and cleanup</legend>
@@ -168,7 +171,7 @@
           <h5>Retained literal queries</h5><ul id="registration-retained-queries" class="detail-list"></ul>
           <h5>Symbolic bindings and cleanup</h5><ul id="registration-draft-authority" class="detail-list"></ul>
           <pre id="registration-canonical-profile" aria-label="Canonical registration profile JSON"></pre>
-          <label class="check-row" for="registration-draft-confirmed"><input id="registration-draft-confirmed" type="checkbox"><span>I reviewed the exact canonical profile, accessibility names, retained structural queries, symbolic bindings, effects, submit confirmation, success proof, call controls, and cleanup.</span></label>
+          <label class="check-row" for="registration-draft-confirmed"><input id="registration-draft-confirmed" type="checkbox"><span>I reviewed the exact canonical profile, observed macro accessibility names, retained structural queries, symbolic bindings, effects, submit confirmation, operator-declared deferred success proof, call controls, and cleanup.</span></label>
           <div class="form-actions"><button id="registration-review" class="primary" type="button">Confirm worker review</button><button id="registration-finish" type="button" hidden>Finish and tear down worker</button></div>
         </section>
         <button id="registration-cancel" type="button" hidden>Cancel registration authoring</button>

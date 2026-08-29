@@ -51,10 +51,23 @@ an account, sign in, or execute the workflow it describes.
 The operator reviews metadata, confidence and expiry, symbolic credential
 slots, ordered declarative macro steps, observed accessibility locators,
 effects, confirmation and success proof, fixed call controls, cleanup, and the
-exact canonical retained structural query. Credential or verification values
-have no request, API-state, or DOM field. The server constructs and revalidates
-the canonical UWS registration profile; JavaScript does not supply profile
-bytes.
+exact canonical retained structural query. The common defaults include
+`identifier`, `password`, and `contact_name`; macro steps select from declared
+slots and may reuse `password` for password confirmation without duplicating a
+binding. Credential or verification values have no request, API-state, or DOM
+field.
+
+The no-submit observation cannot observe a post-submit success page. The
+operator therefore supplies the success origin, optional path, and
+accessibility role/name only from separately reviewed provider documentation
+or a separately reviewed local contract, and explicitly acknowledges that the
+locator was not observed during this session. API state discloses
+`operator_reviewed_deferred`, `observed_during_authoring: false`, and
+`runtime_proof_required: true`. The canonical profile records mixed provenance
+as `icot_no_submit_observation_operator_reviewed_success`; a separately
+approved runtime must still prove that normal UWS success condition after
+submission. The server constructs and revalidates the canonical UWS
+registration profile; JavaScript does not supply profile bytes.
 
 Candidate adoption succeeds only after the worker closes and its process tree
 is drained. The exact private candidate then enters the ordinary value-free

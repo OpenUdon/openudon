@@ -155,10 +155,12 @@ func RunRegistrationQualification(ctx context.Context, options RegistrationQuali
 				{Type: "type_credential", CandidateID: ids.email, Slot: "identifier"},
 				{Type: "type_credential", CandidateID: ids.password, Slot: "password"},
 				{Type: "submit", CandidateID: ids.submit},
-				{Type: "wait_for", CandidateID: ids.success},
 			},
 			Effects: []string{"creates_account"}, ConfirmationPrompt: "Approve creation of one dedicated loopback test identity.",
-			Success: registrationDraftSuccess{Origin: options.Origin, Path: "/registration-complete", CandidateID: ids.success},
+			Success: registrationDraftSuccess{
+				Origin: options.Origin, Path: "/registration-complete", Proof: registrationSuccessProofOperatorReviewedDeferred, OperatorReviewed: true,
+				Locator: registrationDraftSuccessLocator{Role: "status", Name: "Registration complete"},
+			},
 		},
 		CallControls: registrationDraftCallControls{
 			Approval: "browser_registration_submit", DuplicatePrevention: "operator_attestation", OnDuplicate: "fail",
@@ -283,7 +285,7 @@ func RunRegistrationQualification(ctx context.Context, options RegistrationQuali
 	}, nil
 }
 
-type registrationQualificationIDs struct{ email, password, submit, success string }
+type registrationQualificationIDs struct{ email, password, submit string }
 
 func registrationQualificationCandidateIDs(observation registrationauthorsession.Observation) (registrationQualificationIDs, error) {
 	result := registrationQualificationIDs{}
@@ -298,11 +300,9 @@ func registrationQualificationCandidateIDs(observation registrationauthorsession
 			result.password = candidate.ID
 		case candidate.Role == "button" && candidate.Label == "Register" && result.submit == "":
 			result.submit = candidate.ID
-		case candidate.Role == "status" && candidate.Label == "Registration complete" && result.success == "":
-			result.success = candidate.ID
 		}
 	}
-	if result.email == "" || result.password == "" || result.submit == "" || result.success == "" {
+	if result.email == "" || result.password == "" || result.submit == "" {
 		return registrationQualificationIDs{}, errors.New("registration qualification accessibility locators are incomplete or ambiguous")
 	}
 	return result, nil

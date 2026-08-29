@@ -11,6 +11,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/OpenUdon/browsertools/authorsession"
 	"github.com/OpenUdon/browsertools/registrationauthorsession"
 	"github.com/OpenUdon/browsertools/registrationprofile"
 	"github.com/OpenUdon/openudon/internal/browsertransaction"
@@ -19,6 +20,8 @@ import (
 )
 
 const registrationAccessibilityDisclosure = registrationauthorsession.AccessibilityLabelDisclosure
+
+const registrationSuccessProofOperatorReviewedDeferred = "operator_reviewed_deferred"
 
 var registrationDraftSymbol = regexp.MustCompile(`^[a-z][a-z0-9_]{0,127}$`)
 
@@ -57,9 +60,16 @@ type registrationDraftStep struct {
 }
 
 type registrationDraftSuccess struct {
-	Origin      string `json:"origin"`
-	Path        string `json:"path,omitempty"`
-	CandidateID string `json:"candidate_id"`
+	Origin           string                          `json:"origin"`
+	Path             string                          `json:"path,omitempty"`
+	Proof            string                          `json:"proof"`
+	OperatorReviewed bool                            `json:"operator_reviewed"`
+	Locator          registrationDraftSuccessLocator `json:"locator"`
+}
+
+type registrationDraftSuccessLocator struct {
+	Role string `json:"role"`
+	Name string `json:"name"`
 }
 
 type registrationDraftCallControls struct {
@@ -79,6 +89,13 @@ type RegistrationDraftDisclosure struct {
 	CredentialBindings  []browsertransaction.CredentialBinding `json:"credential_bindings"`
 	RetainedQueries     []RetainedQueryDisclosure              `json:"retained_queries"`
 	AccessibilityLabels string                                 `json:"accessibility_labels"`
+	SuccessProof        RegistrationSuccessProofDisclosure     `json:"success_proof"`
+}
+
+type RegistrationSuccessProofDisclosure struct {
+	ReviewKind              string `json:"review_kind"`
+	ObservedDuringAuthoring bool   `json:"observed_during_authoring"`
+	RuntimeProofRequired    bool   `json:"runtime_proof_required"`
 }
 
 type RetainedQueryDisclosure struct {
@@ -159,11 +176,10 @@ func buildRegistrationDraft(request registrationDraftRequest, start registration
 	if submitCount != 1 {
 		return nil, nil, nil, nil, errors.New("registration draft must contain exactly one submit")
 	}
-	successCandidate, ok := byID[request.Flow.Success.CandidateID]
-	if !ok || strings.TrimSpace(request.Flow.Success.Origin) == "" {
+	success, err := buildRegistrationDraftSuccess(request.Flow.Success, origins)
+	if err != nil {
 		return nil, nil, nil, nil, errors.New("registration draft success proof is invalid")
 	}
-	selected[request.Flow.Success.CandidateID] = true
 	effects := append([]string(nil), request.Flow.Effects...)
 	sort.Strings(effects)
 
@@ -175,17 +191,14 @@ func buildRegistrationDraft(request registrationDraftRequest, start registration
 			ApplicationOrigins: append([]string(nil), origins...), RegistrationOrigins: append([]string(nil), origins...),
 		},
 		ObservationKind: "accessibility_snapshot",
-		Evidence:        browserregistration.Evidence{LearnedAt: stamp, Source: "icot_guided_observation"},
+		Evidence:        browserregistration.Evidence{LearnedAt: stamp, Source: "icot_no_submit_observation_operator_reviewed_success"},
 		Confidence:      request.Confidence, ExpiresAfter: request.ExpiresAfter,
 		Verification:    browserregistration.Verification{LastVerifiedAt: stamp, UIStabilityScore: request.UIStabilityScore},
 		CredentialSlots: slots,
 		Flows: map[string]browserregistration.Flow{request.Flow.Name: {
 			Description: request.Flow.Description, Sequence: steps, Effects: effects,
 			ConfirmationPolicy: browserregistration.ConfirmationPolicy{Required: true, Prompt: request.Flow.ConfirmationPrompt},
-			Success: browserregistration.SuccessCondition{
-				Origin: request.Flow.Success.Origin, Path: request.Flow.Success.Path,
-				Locator: registrationDraftLocator(successCandidate),
-			},
+			Success:            success,
 		}},
 	}
 	canonical, err := registrationprofile.MarshalJSON(profile)
@@ -203,8 +216,37 @@ func buildRegistrationDraft(request registrationDraftRequest, start registration
 		Flow: request.Flow.Name, CleanupDisposition: controls.CleanupDisposition, CallControls: controls,
 		CredentialBindings: append([]browsertransaction.CredentialBinding(nil), bindings...),
 		RetainedQueries:    retainedQueryDisclosures(profile), AccessibilityLabels: registrationAccessibilityDisclosure,
+		SuccessProof: RegistrationSuccessProofDisclosure{
+			ReviewKind: registrationSuccessProofOperatorReviewedDeferred, ObservedDuringAuthoring: false, RuntimeProofRequired: true,
+		},
 	}
 	return canonical, candidateIDs, bindings, disclosure, nil
+}
+
+func buildRegistrationDraftSuccess(raw registrationDraftSuccess, origins []string) (browserregistration.SuccessCondition, error) {
+	if raw.Proof != registrationSuccessProofOperatorReviewedDeferred || !raw.OperatorReviewed || raw.Origin == "" || strings.TrimSpace(raw.Origin) != raw.Origin ||
+		raw.Path != strings.TrimSpace(raw.Path) || raw.Locator.Role == "" || strings.TrimSpace(raw.Locator.Role) != raw.Locator.Role ||
+		raw.Locator.Name == "" || strings.TrimSpace(raw.Locator.Name) != raw.Locator.Name {
+		return browserregistration.SuccessCondition{}, errors.New("operator-reviewed deferred success proof is incomplete")
+	}
+	declaredOrigin := false
+	for _, origin := range origins {
+		if raw.Origin == origin {
+			declaredOrigin = true
+			break
+		}
+	}
+	if !declaredOrigin {
+		return browserregistration.SuccessCondition{}, errors.New("operator-reviewed deferred success origin is not declared")
+	}
+	reduced := authorsession.ReduceAccessibilityLabel(raw.Locator.Name).Value
+	if reduced != raw.Locator.Name || reduced == authorsession.RedactedLabel || reduced == authorsession.UntrustedLabel {
+		return browserregistration.SuccessCondition{}, errors.New("operator-reviewed deferred success name is not disclosure-safe")
+	}
+	return browserregistration.SuccessCondition{
+		Origin: raw.Origin, Path: raw.Path,
+		Locator: browserregistration.Locator{Role: raw.Locator.Role, Name: raw.Locator.Name},
+	}, nil
 }
 
 func buildRegistrationDraftStep(raw registrationDraftStep, slots map[string]browserregistration.CredentialSlot, candidates map[string]registrationauthorsession.Candidate) (browserregistration.Step, string, error) {

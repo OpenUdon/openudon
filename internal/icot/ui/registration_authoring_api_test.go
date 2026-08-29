@@ -262,7 +262,9 @@ func TestRegistrationAuthoringAPIBuildsDraftServerSideThenRequiresExplicitReview
 		t.Fatal(err)
 	}
 	drafted := doRequest(handler, http.MethodPost, "/api/v4/registration-authoring/command", string(draftData), "application/json", true)
-	if drafted.Code != http.StatusOK || !strings.Contains(drafted.Body.String(), `"key":"action","value":"startnew"`) || !strings.Contains(drafted.Body.String(), `"ambiguous_outcome":"stop_without_retry"`) {
+	if drafted.Code != http.StatusOK || !strings.Contains(drafted.Body.String(), `"key":"action","value":"startnew"`) ||
+		!strings.Contains(drafted.Body.String(), `"ambiguous_outcome":"stop_without_retry"`) ||
+		!strings.Contains(drafted.Body.String(), `"review_kind":"operator_reviewed_deferred","observed_during_authoring":false,"runtime_proof_required":true`) {
 		t.Fatalf("draft response = %d %s", drafted.Code, drafted.Body.String())
 	}
 	draftState := decodeResponse(t, drafted)
@@ -277,7 +279,7 @@ func TestRegistrationAuthoringAPIBuildsDraftServerSideThenRequiresExplicitReview
 		t.Fatalf("review command = %d %s", reviewed.Code, reviewed.Body.String())
 	}
 	command := <-session.commands
-	if command.Type != "review" || !command.Confirmed || len(command.Profile) == 0 || len(command.CandidateIDs) != 4 || len(command.CredentialBindings) != 2 ||
+	if command.Type != "review" || !command.Confirmed || len(command.Profile) == 0 || len(command.CandidateIDs) != 6 || len(command.CredentialBindings) != 3 ||
 		command.Flow != "create_dedicated_test_user" || command.CleanupDisposition != "delete_separately" || strings.Contains(string(command.Profile), "dedicated_test_identifier") {
 		t.Fatalf("private review command = %#v profile=%s", command, command.Profile)
 	}

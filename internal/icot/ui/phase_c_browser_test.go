@@ -790,10 +790,10 @@ func TestPhaseCBrowserGuidedRegistrationDraftReview(t *testing.T) {
 	observation := registrationDraftObservation()
 	session.events <- browserauthor.RegistrationEvent{State: "observation", Phase: "observing", Observation: &observation}
 	requireVisible(t, page.Locator("#registration-draft-form"))
-	waitForLocatorText(t, page.Locator("#registration-observation-panel"), "Registration complete")
+	waitForLocatorText(t, page.Locator("#registration-observation-panel"), "Confirm password")
 
 	rows := page.Locator("#registration-step-list .registration-step-row")
-	if count, err := rows.Count(); err != nil || count != 6 {
+	if count, err := rows.Count(); err != nil || count != 7 {
 		t.Fatalf("default registration steps = %d, %v", count, err)
 	}
 	if err := rows.Nth(0).Locator(`[data-registration-step="navigate"]`).Fill("https://app.example.test/register?action=startnew"); err != nil {
@@ -805,8 +805,10 @@ func TestPhaseCBrowserGuidedRegistrationDraftReview(t *testing.T) {
 	}{
 		{1, "candidate-0000000000000001", "identifier"},
 		{2, "candidate-0000000000000002", "password"},
-		{3, "candidate-0000000000000003", ""},
-		{5, "candidate-0000000000000004", ""},
+		{3, "candidate-0000000000000003", "password"},
+		{4, "candidate-0000000000000004", "contact_name"},
+		{5, "candidate-0000000000000005", ""},
+		{6, "candidate-0000000000000006", ""},
 	}
 	for _, selection := range selections {
 		values := []string{selection.candidate}
@@ -814,14 +816,11 @@ func TestPhaseCBrowserGuidedRegistrationDraftReview(t *testing.T) {
 			t.Fatal(err)
 		}
 		if selection.slot != "" {
-			if err := rows.Nth(selection.row).Locator(`[data-registration-step="slot"]`).Fill(selection.slot); err != nil {
+			values := []string{selection.slot}
+			if _, err := rows.Nth(selection.row).Locator(`[data-registration-step="slot"]`).SelectOption(playwright.SelectOptionValues{Values: &values}); err != nil {
 				t.Fatal(err)
 			}
 		}
-	}
-	checkpointValues := []string{"email_verification"}
-	if _, err := rows.Nth(4).Locator(`[data-registration-step="checkpoint"]`).SelectOption(playwright.SelectOptionValues{Values: &checkpointValues}); err != nil {
-		t.Fatal(err)
 	}
 	if err := page.Locator("#registration-confirmation-prompt").Fill("Approve creation of one dedicated test identity."); err != nil {
 		t.Fatal(err)
@@ -829,19 +828,18 @@ func TestPhaseCBrowserGuidedRegistrationDraftReview(t *testing.T) {
 	if err := page.Locator("#registration-success-path").Fill("/registration-complete"); err != nil {
 		t.Fatal(err)
 	}
-	for selector, value := range map[string]string{
-		"#registration-success-origin":    "https://app.example.test",
-		"#registration-success-candidate": "candidate-0000000000000004",
-	} {
-		values := []string{value}
-		if _, err := page.Locator(selector).SelectOption(playwright.SelectOptionValues{Values: &values}); err != nil {
-			t.Fatal(err)
-		}
-	}
-	if err := page.Locator("#registration-effect-verification").Check(); err != nil {
+	originValues := []string{"https://app.example.test"}
+	if _, err := page.Locator("#registration-success-origin").SelectOption(playwright.SelectOptionValues{Values: &originValues}); err != nil {
 		t.Fatal(err)
 	}
-	if err := page.Locator("#registration-effect-human").Check(); err != nil {
+	roleValues := []string{"status"}
+	if _, err := page.Locator("#registration-success-role").SelectOption(playwright.SelectOptionValues{Values: &roleValues}); err != nil {
+		t.Fatal(err)
+	}
+	if err := page.Locator("#registration-success-name").Fill("Registration complete"); err != nil {
+		t.Fatal(err)
+	}
+	if err := page.Locator("#registration-success-reviewed").Check(); err != nil {
 		t.Fatal(err)
 	}
 	if err := page.GetByRole("button", playwright.PageGetByRoleOptions{Name: "Build canonical draft for review", Exact: playwright.Bool(true)}).Click(); err != nil {
@@ -857,7 +855,7 @@ func TestPhaseCBrowserGuidedRegistrationDraftReview(t *testing.T) {
 	if err := review.Click(); err != nil {
 		t.Fatal(err)
 	}
-	if command := <-session.commands; command.Type != "review" || len(command.Profile) == 0 || len(command.CandidateIDs) != 4 {
+	if command := <-session.commands; command.Type != "review" || len(command.Profile) == 0 || len(command.CandidateIDs) != 6 || len(command.CredentialBindings) != 3 {
 		t.Fatalf("browser review command = %#v", command)
 	}
 	session.events <- browserauthor.RegistrationEvent{State: "reviewed", Phase: "reviewed"}

@@ -1233,6 +1233,15 @@ const populateRegistrationSelect = (select, values, labeler = (value) => value) 
 	if (Array.from(select.options).some((option) => option.value === selected)) select.value = selected;
 };
 
+const registrationSlotSymbols = () => Array.from(byID("registration-slot-list").children)
+	.map((row) => row.querySelector('[data-registration-slot="slot"]').value.trim())
+	.filter(Boolean);
+
+const refreshRegistrationSlotChoices = () => {
+	const symbols = registrationSlotSymbols();
+	for (const select of document.querySelectorAll('[data-registration-step="slot"]')) populateRegistrationSelect(select, symbols);
+};
+
 const addRegistrationSlot = (slot = "", kind = "identifier", binding = "") => {
 	const index = byID("registration-slot-list").children.length + 1;
 	const row = make("div", null, "wizard-row registration-slot-row");
@@ -1245,9 +1254,11 @@ const addRegistrationSlot = (slot = "", kind = "identifier", binding = "") => {
 	kindSelect.value = kind;
 	const bindingID = `${slotID}-binding`; const bindingLabel = make("label", "Environment symbol"); bindingLabel.htmlFor = bindingID;
 	const bindingInput = make("input"); bindingInput.id = bindingID; bindingInput.dataset.registrationSlot = "binding"; bindingInput.value = binding; bindingInput.pattern = "[a-z][a-z0-9_]{0,127}";
-	const remove = make("button", "Remove slot"); remove.type = "button"; remove.addEventListener("click", () => row.remove());
+	const remove = make("button", "Remove slot"); remove.type = "button"; remove.addEventListener("click", () => { row.remove(); refreshRegistrationSlotChoices(); });
+	slotInput.addEventListener("input", refreshRegistrationSlotChoices);
 	row.append(slotLabel, slotInput, kindLabel, kindSelect, bindingLabel, bindingInput, remove);
 	byID("registration-slot-list").append(row);
+	refreshRegistrationSlotChoices();
 };
 
 const updateRegistrationStepRow = (row) => {
@@ -1258,7 +1269,7 @@ const updateRegistrationStepRow = (row) => {
 	row.querySelector('[data-registration-step-field="checkpoint"]').hidden = type !== "human_checkpoint";
 };
 
-const addRegistrationStep = (type = "navigate") => {
+const addRegistrationStep = (type = "navigate", slot = "") => {
 	const index = byID("registration-step-list").children.length + 1;
 	const row = make("fieldset", null, "wizard-row registration-step-row");
 	row.append(make("legend", `Step ${index}`));
@@ -1279,7 +1290,10 @@ const addRegistrationStep = (type = "navigate") => {
 
 	const slotWrap = make("div"); slotWrap.dataset.registrationStepField = "slot";
 	const stepSlotID = `registration-step-${index}-slot`; const stepSlotLabel = make("label", "Credential slot symbol"); stepSlotLabel.htmlFor = stepSlotID;
-	const stepSlot = make("input"); stepSlot.id = stepSlotID; stepSlot.dataset.registrationStep = "slot"; stepSlot.pattern = "[a-z][a-z0-9_]{0,127}"; slotWrap.append(stepSlotLabel, stepSlot);
+	const stepSlot = make("select"); stepSlot.id = stepSlotID; stepSlot.dataset.registrationStep = "slot";
+	populateRegistrationSelect(stepSlot, registrationSlotSymbols());
+	if (slot && Array.from(stepSlot.options).some((option) => option.value === slot)) stepSlot.value = slot;
+	slotWrap.append(stepSlotLabel, stepSlot);
 
 	const checkpointWrap = make("div"); checkpointWrap.dataset.registrationStepField = "checkpoint";
 	const checkpointID = `registration-step-${index}-checkpoint`; const checkpointLabel = make("label", "Human checkpoint kind"); checkpointLabel.htmlFor = checkpointID;
@@ -1298,12 +1312,18 @@ const initializeRegistrationRows = () => {
 	state.registrationRowsInitialized = true;
 	addRegistrationSlot("identifier", "identifier", "dedicated_test_identifier");
 	addRegistrationSlot("password", "password", "dedicated_test_password");
-	for (const type of ["navigate", "type_credential", "type_credential", "submit", "human_checkpoint", "wait_for"]) addRegistrationStep(type);
+	addRegistrationSlot("contact_name", "identifier", "dedicated_test_contact_name");
+	addRegistrationStep("navigate");
+	addRegistrationStep("type_credential", "identifier");
+	addRegistrationStep("type_credential", "password");
+	addRegistrationStep("type_credential", "password");
+	addRegistrationStep("type_credential", "contact_name");
+	addRegistrationStep("click");
+	addRegistrationStep("submit");
 };
 
 const refreshRegistrationCandidateChoices = () => {
 	for (const select of document.querySelectorAll('[data-registration-step="candidate"]')) populateRegistrationSelect(select, registrationCandidates(), registrationCandidateLabel);
-	populateRegistrationSelect(byID("registration-success-candidate"), registrationCandidates(), registrationCandidateLabel);
 	const origins = byID("registration-origins").value.split(/\r?\n/).map((value) => value.trim()).filter(Boolean);
 	populateRegistrationSelect(byID("registration-success-origin"), origins);
 };
@@ -1352,6 +1372,7 @@ const renderRegistrationAuthoring = (payload) => {
 		appendEmptyOrItems("registration-retained-queries", authoring.draft.retained_queries || [], "No literal query is retained.", (entry) => make("li", `${entry.navigation} — ${(entry.parameters || []).map((parameter) => `${parameter.key}=${parameter.value}`).join("; ")}`));
 		appendEmptyOrItems("registration-draft-authority", [
 			...(authoring.draft.credential_bindings || []).map((binding) => `${binding.slot} → ${binding.binding}`),
+			`success proof → ${authoring.draft.success_proof?.review_kind || "unavailable"}; observed during authoring → ${authoring.draft.success_proof?.observed_during_authoring ? "yes" : "no"}; runtime proof required → ${authoring.draft.success_proof?.runtime_proof_required ? "yes" : "no"}`,
 			`cleanup → ${authoring.draft.cleanup_disposition}`,
 			`approval → ${authoring.draft.call_controls?.approval}`,
 			`duplicate prevention → ${authoring.draft.call_controls?.duplicate_prevention}; on duplicate → ${authoring.draft.call_controls?.on_duplicate}`,
@@ -1578,7 +1599,12 @@ const collectRegistrationDraft = () => {
 		flow: {
 			name: byID("registration-flow-name").value.trim(), description: byID("registration-flow-description").value.trim(), steps, effects,
 			confirmation_prompt: byID("registration-confirmation-prompt").value.trim(),
-			success: { origin: byID("registration-success-origin").value, path: byID("registration-success-path").value.trim(), candidate_id: byID("registration-success-candidate").value },
+			success: {
+				origin: byID("registration-success-origin").value, path: byID("registration-success-path").value.trim(),
+				proof: "operator_reviewed_deferred",
+				operator_reviewed: byID("registration-success-reviewed").checked,
+				locator: { role: byID("registration-success-role").value, name: byID("registration-success-name").value.trim() },
+			},
 		},
 		call_controls: {
 			approval: "browser_registration_submit", duplicate_prevention: "operator_attestation", on_duplicate: "fail",
@@ -1590,7 +1616,10 @@ const collectRegistrationDraft = () => {
 byID("registration-draft-form").addEventListener("submit", (event) => {
 	event.preventDefault();
 	const draft = collectRegistrationDraft();
-	if (!draft.title || !draft.expires_after || draft.credential_slots.some((slot) => !slot.slot || !slot.binding) || draft.flow.steps.some((step) => step.type === "navigate" ? !step.navigate : !step.candidate_id && step.type !== "human_checkpoint") || !draft.flow.success.origin || !draft.flow.success.candidate_id) {
+	if (!draft.title || !draft.expires_after || draft.credential_slots.some((slot) => !slot.slot || !slot.binding) ||
+		draft.flow.steps.some((step) => step.type === "navigate" ? !step.navigate : !step.candidate_id && step.type !== "human_checkpoint") ||
+		draft.flow.steps.some((step) => step.type === "type_credential" && !step.slot) || !draft.flow.success.origin ||
+		!draft.flow.success.locator.role || !draft.flow.success.locator.name || !byID("registration-success-reviewed").checked) {
 		showError("Complete every required metadata, symbolic slot, macro step, confirmation, and success-proof field.");
 		return;
 	}
