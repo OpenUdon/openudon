@@ -98,6 +98,13 @@ closed. Required credential mappings also reject the reserved `none` and
 `clear` sentinels as slot or binding names; rejection occurs before session or
 draft mutation.
 
+Guided registration treats high-entropy environment symbols as exceptional.
+They must consist of the closed descriptive binding vocabulary plus at most one
+short digit-bearing product namespace such as `app8` or `w8m`; arbitrary
+lowercase runs are not words and remain rejected. This exception affects only
+symbol names retained in private transaction metadata. It never admits a value
+into the canonical browser-registration profile.
+
 ## Quality Gates
 
 When `contentTrust` is declared, assessment adds deterministic warning checks

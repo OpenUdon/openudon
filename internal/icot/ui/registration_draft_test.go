@@ -54,7 +54,7 @@ func TestBuildRegistrationDraftProducesCanonicalV2ProfileAndDisclosure(t *testin
 func TestBuildRegistrationDraftAcceptsPortableSymbolicBindingsRegardlessOfEntropy(t *testing.T) {
 	request := validRegistrationDraftRequest()
 	want := map[string]string{
-		"identifier":   "app8_registration_identifier",
+		"identifier":   "w8m_registration_identifier",
 		"password":     "customer_portal_login_input",
 		"contact_name": "app8_registration_contact_name",
 	}
@@ -83,6 +83,34 @@ func TestBuildRegistrationDraftAcceptsPortableSymbolicBindingsRegardlessOfEntrop
 		}
 		if bytes.Contains(canonical, []byte(binding.Binding)) {
 			t.Fatalf("symbolic environment binding crossed into profile: %s", canonical)
+		}
+	}
+}
+
+func TestRegistrationDraftBindingNamePolicy(t *testing.T) {
+	for _, binding := range []string{
+		"identifier",
+		"dedicated_test_password",
+		"w8m_registration_identifier",
+		"w8m_registration_password",
+		"app8_registration_contact_name",
+		"customer_portal_login_input",
+	} {
+		if !validRegistrationDraftBindingName(binding) {
+			t.Fatalf("descriptive binding rejected: %q", binding)
+		}
+	}
+	for _, binding := range []string{
+		"nqazwsxedcrfvtgby_hnujmikolp",
+		"abcdefghij_klmnopqrst",
+		"abcdefghijkl_registration_identifier",
+		"m8z_pq4_r2x7_n1cv9bk3sd6fh0jl5wt2",
+	} {
+		if !credentialpolicy.IsLikelyLiteral(binding) {
+			t.Fatalf("opaque test value no longer exercises literal detection: %q", binding)
+		}
+		if validRegistrationDraftBindingName(binding) {
+			t.Fatalf("opaque binding accepted: %q", binding)
 		}
 	}
 }
@@ -120,6 +148,12 @@ func TestBuildRegistrationDraftRejectsUnsafeQueriesAndIncompleteAuthority(t *tes
 		}},
 		{name: "opaque binding namespace", mutate: func(v *registrationDraftRequest) {
 			v.CredentialSlots[1].Binding = "m8z_pq4_r2x7_n1cv9bk3sd6fh0jl5wt2_password"
+		}},
+		{name: "letters-only opaque binding", mutate: func(v *registrationDraftRequest) {
+			v.CredentialSlots[1].Binding = "nqazwsxedcrfvtgby_hnujmikolp"
+		}},
+		{name: "letters-only opaque namespace", mutate: func(v *registrationDraftRequest) {
+			v.CredentialSlots[1].Binding = "abcdefghijkl_registration_identifier"
 		}},
 		{name: "known credential binding pattern", mutate: func(v *registrationDraftRequest) {
 			v.CredentialSlots[1].Binding = "github_pat_" + strings.Repeat("a", 20) + "_password"

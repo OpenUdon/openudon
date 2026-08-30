@@ -254,22 +254,27 @@ func TestRegistrationAuthoringAPIBuildsDraftServerSideThenRequiresExplicitReview
 	session.events <- browserauthor.RegistrationEvent{State: "observation", Phase: "observing", Observation: &observation}
 	observed := waitForRegistrationState(t, handler, "observation")
 
-	unsafeDraft := validRegistrationDraftRequest()
-	unsafeDraft.CredentialSlots[1].Binding = "github_pat_" + strings.Repeat("a", 20) + "_password"
-	unsafeDraftData, err := json.Marshal(map[string]any{
-		"revision": observed.Revision, "registration_revision": observed.RegistrationRevision, "type": "draft", "draft": unsafeDraft,
-	})
-	if err != nil {
-		t.Fatal(err)
-	}
-	unsafeResponse := doRequest(handler, http.MethodPost, "/api/v4/registration-authoring/command", string(unsafeDraftData), "application/json", true)
-	if unsafeResponse.Code != http.StatusUnprocessableEntity || !strings.Contains(unsafeResponse.Body.String(), "lowercase descriptive environment symbol names") {
-		t.Fatalf("unsafe binding response = %d %s", unsafeResponse.Code, unsafeResponse.Body.String())
+	for _, unsafeBinding := range []string{
+		"github_pat_" + strings.Repeat("a", 20) + "_password",
+		"nqazwsxedcrfvtgby_hnujmikolp",
+	} {
+		unsafeDraft := validRegistrationDraftRequest()
+		unsafeDraft.CredentialSlots[1].Binding = unsafeBinding
+		unsafeDraftData, err := json.Marshal(map[string]any{
+			"revision": observed.Revision, "registration_revision": observed.RegistrationRevision, "type": "draft", "draft": unsafeDraft,
+		})
+		if err != nil {
+			t.Fatal(err)
+		}
+		unsafeResponse := doRequest(handler, http.MethodPost, "/api/v4/registration-authoring/command", string(unsafeDraftData), "application/json", true)
+		if unsafeResponse.Code != http.StatusUnprocessableEntity || !strings.Contains(unsafeResponse.Body.String(), "reviewed descriptive terms") || strings.Contains(unsafeResponse.Body.String(), unsafeBinding) {
+			t.Fatalf("unsafe binding response = %d %s", unsafeResponse.Code, unsafeResponse.Body.String())
+		}
 	}
 
 	draft := validRegistrationDraftRequest()
 	namespacedBindings := map[string]string{
-		"identifier":   "app8_registration_identifier",
+		"identifier":   "w8m_registration_identifier",
 		"password":     "customer_portal_login_input",
 		"contact_name": "app8_registration_contact_name",
 	}

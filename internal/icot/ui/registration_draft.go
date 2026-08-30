@@ -230,8 +230,9 @@ func buildRegistrationDraft(request registrationDraftRequest, start registration
 func validRegistrationDraftBindingName(binding string) bool {
 	// Binding is a typed environment-symbol name, not an untyped mapping value.
 	// Known credential formats remain rejected by the shared scanner. When the
-	// value-oriented entropy heuristic also fires, require positive descriptive
-	// snake_case structure instead of trusting an exact slot suffix.
+	// value-oriented entropy heuristic also fires, require a closed descriptive
+	// snake_case vocabulary instead of treating arbitrary lowercase runs as
+	// words. This keeps opaque letters-only values out of transaction metadata.
 	if !registrationDraftSymbol.MatchString(binding) || credentialpolicy.ContainsLikelyValue([]byte(binding)) {
 		return false
 	}
@@ -244,8 +245,10 @@ func descriptiveRegistrationDraftBindingName(binding string) bool {
 		return false
 	}
 	compactNamespaceParts := 0
+	descriptiveWords := 0
 	for _, part := range parts {
-		if registrationDraftLettersOnly(part) {
+		if registrationDraftDescriptiveBindingWord(part) {
+			descriptiveWords++
 			continue
 		}
 		if !registrationDraftCompactNamespacePart(part) {
@@ -256,19 +259,20 @@ func descriptiveRegistrationDraftBindingName(binding string) bool {
 			return false
 		}
 	}
-	return true
+	// One compact product namespace such as app8 or w8m is useful, but it is
+	// never sufficient authority by itself or with only one purpose suffix.
+	return descriptiveWords >= 2
 }
 
-func registrationDraftLettersOnly(value string) bool {
-	if value == "" {
+func registrationDraftDescriptiveBindingWord(value string) bool {
+	// This closed vocabulary is part of the transaction-metadata disclosure
+	// boundary. Additions require adversarial opaque-token coverage.
+	switch value {
+	case "account", "app", "application", "auth", "browser", "confirm", "confirmation", "contact", "credential", "customer", "dedicated", "display", "email", "environment", "existing", "first", "form", "full", "identifier", "input", "last", "login", "member", "name", "new", "password", "portal", "primary", "private", "profile", "registration", "runtime", "secondary", "service", "signup", "test", "user", "username", "workspace":
+		return true
+	default:
 		return false
 	}
-	for _, char := range value {
-		if char < 'a' || char > 'z' {
-			return false
-		}
-	}
-	return true
 }
 
 func registrationDraftCompactNamespacePart(value string) bool {
