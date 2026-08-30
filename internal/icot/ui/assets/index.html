@@ -125,7 +125,7 @@
         <form id="registration-draft-form" novalidate hidden>
           <fieldset>
             <legend>3. Symbolic credential slots</legend>
-            <p class="section-help">Enter symbolic environment names only. The identifier class may label a runtime-private contact-name input. Account identifiers, contact names, passwords, OTPs, CAPTCHA answers, and verification values are never accepted here.</p>
+            <p class="section-help">Enter lowercase descriptive environment symbols only, using snake-case words and at most one product or namespace component of up to 12 characters containing one digit run. The symbol does not need to repeat the slot name. The identifier class may label a runtime-private contact-name input. Known credential formats and opaque token-like names are rejected, but a name check cannot prove that input is non-secret: never enter account identifiers, contact names, passwords, OTPs, CAPTCHA answers, or verification values, and review every exact symbol before continuing.</p>
             <div id="registration-slot-list" class="wizard-list"></div>
             <button id="registration-add-slot" type="button">Add symbolic slot</button>
           </fieldset>

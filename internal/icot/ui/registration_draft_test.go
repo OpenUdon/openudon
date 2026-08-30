@@ -8,6 +8,7 @@ import (
 
 	"github.com/OpenUdon/browsertools/registrationauthorsession"
 	"github.com/OpenUdon/browsertools/registrationprofile"
+	"github.com/OpenUdon/openudon/internal/credentialpolicy"
 )
 
 func TestBuildRegistrationDraftProducesCanonicalV2ProfileAndDisclosure(t *testing.T) {
@@ -50,6 +51,42 @@ func TestBuildRegistrationDraftProducesCanonicalV2ProfileAndDisclosure(t *testin
 	}
 }
 
+func TestBuildRegistrationDraftAcceptsPortableSymbolicBindingsRegardlessOfEntropy(t *testing.T) {
+	request := validRegistrationDraftRequest()
+	want := map[string]string{
+		"identifier":   "app8_registration_identifier",
+		"password":     "customer_portal_login_input",
+		"contact_name": "app8_registration_contact_name",
+	}
+	for index := range request.CredentialSlots {
+		request.CredentialSlots[index].Binding = want[request.CredentialSlots[index].Slot]
+		if !credentialpolicy.IsLikelyLiteral(request.CredentialSlots[index].Binding) {
+			t.Fatalf("test binding no longer exercises the entropy false-positive boundary: %q", request.CredentialSlots[index].Binding)
+		}
+	}
+
+	canonical, _, bindings, _, err := buildRegistrationDraft(
+		request,
+		registrationAuthoringStartRequest{Origins: []string{"https://app.example.test"}},
+		registrationDraftObservation(),
+		time.Date(2026, 8, 26, 12, 0, 0, 0, time.UTC),
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(bindings) != len(want) {
+		t.Fatalf("bindings = %#v", bindings)
+	}
+	for _, binding := range bindings {
+		if want[binding.Slot] != binding.Binding {
+			t.Fatalf("binding = %#v", binding)
+		}
+		if bytes.Contains(canonical, []byte(binding.Binding)) {
+			t.Fatalf("symbolic environment binding crossed into profile: %s", canonical)
+		}
+	}
+}
+
 func TestBuildRegistrationDraftRejectsUnsafeQueriesAndIncompleteAuthority(t *testing.T) {
 	tests := []struct {
 		name   string
@@ -72,8 +109,21 @@ func TestBuildRegistrationDraftRejectsUnsafeQueriesAndIncompleteAuthority(t *tes
 		}},
 		{name: "no submit", mutate: func(v *registrationDraftRequest) { v.Flow.Steps[6].Type = "click" }},
 		{name: "unfixed controls", mutate: func(v *registrationDraftRequest) { v.CallControls.OnDuplicate = "retry" }},
+		{name: "duplicate slot", mutate: func(v *registrationDraftRequest) { v.CredentialSlots[1].Slot = v.CredentialSlots[0].Slot }},
 		{name: "binding collision", mutate: func(v *registrationDraftRequest) { v.CredentialSlots[1].Binding = v.CredentialSlots[0].Binding }},
-		{name: "secret shaped binding", mutate: func(v *registrationDraftRequest) { v.CredentialSlots[1].Binding = "m8z_pq4_r2x7_n1cv9bk3sd6fh0jl5wt2" }},
+		{name: "invalid binding symbol", mutate: func(v *registrationDraftRequest) { v.CredentialSlots[1].Binding = "PASSWORD-VALUE" }},
+		{name: "short opaque binding namespace", mutate: func(v *registrationDraftRequest) {
+			v.CredentialSlots[1].Binding = "a9b8c7d6e5f4g3h2i_password"
+		}},
+		{name: "opaque binding", mutate: func(v *registrationDraftRequest) {
+			v.CredentialSlots[1].Binding = "m8z_pq4_r2x7_n1cv9bk3sd6fh0jl5wt2"
+		}},
+		{name: "opaque binding namespace", mutate: func(v *registrationDraftRequest) {
+			v.CredentialSlots[1].Binding = "m8z_pq4_r2x7_n1cv9bk3sd6fh0jl5wt2_password"
+		}},
+		{name: "known credential binding pattern", mutate: func(v *registrationDraftRequest) {
+			v.CredentialSlots[1].Binding = "github_pat_" + strings.Repeat("a", 20) + "_password"
+		}},
 		{name: "success origin escape", mutate: func(v *registrationDraftRequest) { v.Flow.Success.Origin = "https://other.example.test" }},
 		{name: "success incorrectly observed", mutate: func(v *registrationDraftRequest) { v.Flow.Success.Proof = "observed" }},
 		{name: "success not reviewed", mutate: func(v *registrationDraftRequest) { v.Flow.Success.OperatorReviewed = false }},

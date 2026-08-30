@@ -254,8 +254,30 @@ func TestRegistrationAuthoringAPIBuildsDraftServerSideThenRequiresExplicitReview
 	session.events <- browserauthor.RegistrationEvent{State: "observation", Phase: "observing", Observation: &observation}
 	observed := waitForRegistrationState(t, handler, "observation")
 
+	unsafeDraft := validRegistrationDraftRequest()
+	unsafeDraft.CredentialSlots[1].Binding = "github_pat_" + strings.Repeat("a", 20) + "_password"
+	unsafeDraftData, err := json.Marshal(map[string]any{
+		"revision": observed.Revision, "registration_revision": observed.RegistrationRevision, "type": "draft", "draft": unsafeDraft,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	unsafeResponse := doRequest(handler, http.MethodPost, "/api/v4/registration-authoring/command", string(unsafeDraftData), "application/json", true)
+	if unsafeResponse.Code != http.StatusUnprocessableEntity || !strings.Contains(unsafeResponse.Body.String(), "lowercase descriptive environment symbol names") {
+		t.Fatalf("unsafe binding response = %d %s", unsafeResponse.Code, unsafeResponse.Body.String())
+	}
+
+	draft := validRegistrationDraftRequest()
+	namespacedBindings := map[string]string{
+		"identifier":   "app8_registration_identifier",
+		"password":     "customer_portal_login_input",
+		"contact_name": "app8_registration_contact_name",
+	}
+	for index := range draft.CredentialSlots {
+		draft.CredentialSlots[index].Binding = namespacedBindings[draft.CredentialSlots[index].Slot]
+	}
 	draftRequest := map[string]any{
-		"revision": observed.Revision, "registration_revision": observed.RegistrationRevision, "type": "draft", "draft": validRegistrationDraftRequest(),
+		"revision": observed.Revision, "registration_revision": observed.RegistrationRevision, "type": "draft", "draft": draft,
 	}
 	draftData, err := json.Marshal(draftRequest)
 	if err != nil {
@@ -280,8 +302,13 @@ func TestRegistrationAuthoringAPIBuildsDraftServerSideThenRequiresExplicitReview
 	}
 	command := <-session.commands
 	if command.Type != "review" || !command.Confirmed || len(command.Profile) == 0 || len(command.CandidateIDs) != 6 || len(command.CredentialBindings) != 3 ||
-		command.Flow != "create_dedicated_test_user" || command.CleanupDisposition != "delete_separately" || strings.Contains(string(command.Profile), "dedicated_test_identifier") {
+		command.Flow != "create_dedicated_test_user" || command.CleanupDisposition != "delete_separately" {
 		t.Fatalf("private review command = %#v profile=%s", command, command.Profile)
+	}
+	for _, binding := range command.CredentialBindings {
+		if namespacedBindings[binding.Slot] != binding.Binding || strings.Contains(string(command.Profile), binding.Binding) {
+			t.Fatalf("private review binding = %#v profile=%s", binding, command.Profile)
+		}
 	}
 	session.events <- browserauthor.RegistrationEvent{State: "reviewed", Phase: "reviewed"}
 	reviewedState := waitForRegistrationState(t, handler, "reviewed")

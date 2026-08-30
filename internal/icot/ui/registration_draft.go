@@ -25,6 +25,8 @@ const registrationSuccessProofOperatorReviewedDeferred = "operator_reviewed_defe
 
 var registrationDraftSymbol = regexp.MustCompile(`^[a-z][a-z0-9_]{0,127}$`)
 
+var errRegistrationDraftBindingsInvalid = errors.New("registration draft environment symbols are invalid")
+
 type registrationDraftRequest struct {
 	Title            string                        `json:"title"`
 	Provider         string                        `json:"provider,omitempty"`
@@ -143,10 +145,12 @@ func buildRegistrationDraft(request registrationDraftRequest, start registration
 		return nil, nil, nil, nil, errors.New("registration draft slots are invalid")
 	}
 	for _, slot := range request.CredentialSlots {
-		if !registrationDraftSymbol.MatchString(slot.Slot) || !registrationDraftSymbol.MatchString(slot.Binding) || credentialpolicy.IsLikelyLiteral(slot.Binding) ||
-			slot.Kind != "identifier" && slot.Kind != "password" ||
-			slots[slot.Slot].Kind != "" || seenBindings[slot.Binding] {
+		if !registrationDraftSymbol.MatchString(slot.Slot) ||
+			slot.Kind != "identifier" && slot.Kind != "password" || slots[slot.Slot].Kind != "" {
 			return nil, nil, nil, nil, errors.New("registration draft slots are invalid")
+		}
+		if !validRegistrationDraftBindingName(slot.Binding) || seenBindings[slot.Binding] {
+			return nil, nil, nil, nil, errRegistrationDraftBindingsInvalid
 		}
 		slots[slot.Slot] = browserregistration.CredentialSlot{Kind: slot.Kind}
 		seenBindings[slot.Binding] = true
@@ -221,6 +225,73 @@ func buildRegistrationDraft(request registrationDraftRequest, start registration
 		},
 	}
 	return canonical, candidateIDs, bindings, disclosure, nil
+}
+
+func validRegistrationDraftBindingName(binding string) bool {
+	// Binding is a typed environment-symbol name, not an untyped mapping value.
+	// Known credential formats remain rejected by the shared scanner. When the
+	// value-oriented entropy heuristic also fires, require positive descriptive
+	// snake_case structure instead of trusting an exact slot suffix.
+	if !registrationDraftSymbol.MatchString(binding) || credentialpolicy.ContainsLikelyValue([]byte(binding)) {
+		return false
+	}
+	return !credentialpolicy.IsLikelyLiteral(binding) || descriptiveRegistrationDraftBindingName(binding)
+}
+
+func descriptiveRegistrationDraftBindingName(binding string) bool {
+	parts := strings.Split(binding, "_")
+	if len(parts) < 2 {
+		return false
+	}
+	compactNamespaceParts := 0
+	for _, part := range parts {
+		if registrationDraftLettersOnly(part) {
+			continue
+		}
+		if !registrationDraftCompactNamespacePart(part) {
+			return false
+		}
+		compactNamespaceParts++
+		if compactNamespaceParts > 1 {
+			return false
+		}
+	}
+	return true
+}
+
+func registrationDraftLettersOnly(value string) bool {
+	if value == "" {
+		return false
+	}
+	for _, char := range value {
+		if char < 'a' || char > 'z' {
+			return false
+		}
+	}
+	return true
+}
+
+func registrationDraftCompactNamespacePart(value string) bool {
+	if len(value) == 0 || len(value) > 12 || value[0] < 'a' || value[0] > 'z' {
+		return false
+	}
+	digitRuns := 0
+	inDigits := false
+	for index := 1; index < len(value); index++ {
+		char := value[index]
+		if char >= '0' && char <= '9' {
+			if !inDigits {
+				digitRuns++
+				inDigits = true
+			}
+			continue
+		}
+		if char < 'a' || char > 'z' {
+			return false
+		}
+		inDigits = false
+	}
+	return digitRuns == 1
 }
 
 func buildRegistrationDraftSuccess(raw registrationDraftSuccess, origins []string) (browserregistration.SuccessCondition, error) {

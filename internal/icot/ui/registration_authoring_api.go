@@ -511,7 +511,11 @@ func (s *Server) serveRegistrationAuthoringDraft(w http.ResponseWriter, r *http.
 	}
 	profile, candidates, bindings, disclosure, err := buildRegistrationDraft(*request.Draft, s.registrationStart, *s.registrationAuthoring.Observation, s.now().UTC())
 	if err != nil {
-		s.writeError(w, http.StatusUnprocessableEntity, "registration_draft_rejected", "the structured registration draft is invalid", false, requestID, s.revision)
+		message := "the structured registration draft is invalid"
+		if errors.Is(err, errRegistrationDraftBindingsInvalid) {
+			message = "credential bindings must be unique lowercase descriptive environment symbol names and must not contain recognized credential formats"
+		}
+		s.writeError(w, http.StatusUnprocessableEntity, "registration_draft_rejected", message, false, requestID, s.revision)
 		return
 	}
 	s.registrationDraft = append([]byte(nil), profile...)
