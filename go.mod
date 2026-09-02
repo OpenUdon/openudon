@@ -6,7 +6,7 @@ require (
 	github.com/OpenUdon/apitools v0.0.0-20260820042238-d51b61ead067
 	github.com/OpenUdon/asyncapi v0.1.0
 	github.com/OpenUdon/authoring v0.0.0-20260820042256-2f73e3526583
-	github.com/OpenUdon/browsertools v0.0.0-20260829181035-3107470313d4
+	github.com/OpenUdon/browsertools v0.0.0-20260902183222-ce06b13bfef8
 	github.com/OpenUdon/evidence v0.0.0-20260815084845-0c17258b9736
 	github.com/OpenUdon/uws v0.0.0-20260826233246-9e676eaa469e
 	github.com/hashicorp/hcl/v2 v2.24.0
