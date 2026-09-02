@@ -10,4 +10,6 @@ type descendantTracker struct{}
 
 func startDescendantTracker(int) *descendantTracker { return &descendantTracker{} }
 
+func (*descendantTracker) killRootGroupIfLive() {}
+
 func (*descendantTracker) terminateAndVerify(time.Duration) error { return nil }

@@ -42,6 +42,16 @@ func TestRunEnforcesDeadline(t *testing.T) {
 	}
 }
 
+func TestCanceledRunErrorRetainsContainmentFailure(t *testing.T) {
+	err := canceledRunError(context.DeadlineExceeded, errors.Join(errors.New("worker exit"), ErrTerminationTimeout))
+	if !errors.Is(err, context.DeadlineExceeded) || !errors.Is(err, ErrTerminationTimeout) {
+		t.Fatalf("canceled run error lost a cause: %v", err)
+	}
+	if err := canceledRunError(context.Canceled, errors.New("worker exit")); !errors.Is(err, context.Canceled) || errors.Is(err, ErrTerminationTimeout) {
+		t.Fatalf("ordinary canceled run error = %v", err)
+	}
+}
+
 func TestRunDoesNotInheritEnvironmentForEmptyAllowlist(t *testing.T) {
 	t.Setenv(environmentSentinel, "must-not-pass")
 	executable, err := os.Executable()

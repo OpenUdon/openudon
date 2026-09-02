@@ -17,6 +17,19 @@ import (
 	"time"
 )
 
+func TestDescendantTrackerNeverReplacesARecordedPIDIdentity(t *testing.T) {
+	known := map[int]uint64{123: 4242}
+	if !recordStableDescendantIdentity(known, 123, 4242) {
+		t.Fatal("matching identity was rejected")
+	}
+	if recordStableDescendantIdentity(known, 123, 5252) {
+		t.Fatal("reused PID identity was adopted")
+	}
+	if known[123] != 4242 {
+		t.Fatalf("recorded identity changed to %d", known[123])
+	}
+}
+
 func TestRunSweepsDescendantsAfterNormalLeaderExit(t *testing.T) {
 	testRunSweepsDescendant(t, false)
 }

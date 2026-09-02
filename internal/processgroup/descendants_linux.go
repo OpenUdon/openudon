@@ -19,11 +19,13 @@ import (
 type descendantTracker struct {
 	rootPID int
 
-	mu    sync.Mutex
-	known map[int]uint64
-	stop  chan struct{}
-	done  chan struct{}
-	once  sync.Once
+	mu          sync.Mutex
+	terminateMu sync.Mutex
+	known       map[int]uint64
+	healthy     bool
+	stop        chan struct{}
+	done        chan struct{}
+	once        sync.Once
 }
 
 type procIdentity struct {
@@ -38,6 +40,7 @@ func startDescendantTracker(rootPID int) *descendantTracker {
 	tracker := &descendantTracker{
 		rootPID: rootPID,
 		known:   make(map[int]uint64),
+		healthy: true,
 		stop:    make(chan struct{}),
 		done:    make(chan struct{}),
 	}
@@ -72,19 +75,28 @@ func (tracker *descendantTracker) observe() {
 	tracker.observeChildLists()
 
 	processes := readProcIdentities()
+	if processes == nil {
+		tracker.mu.Lock()
+		tracker.healthy = false
+		tracker.mu.Unlock()
+		return
+	}
 	tracker.mu.Lock()
 	defer tracker.mu.Unlock()
 
 	if root, ok := processes[tracker.rootPID]; ok {
-		if recorded, exists := tracker.known[tracker.rootPID]; !exists || recorded == root.startTime {
-			tracker.known[tracker.rootPID] = root.startTime
-		}
+		recordStableDescendantIdentity(tracker.known, tracker.rootPID, root.startTime)
 	}
 	// Repeat because /proc ordering does not guarantee parents precede children.
 	for changed := true; changed; {
 		changed = false
 		for pid, process := range processes {
-			if recorded, exists := tracker.known[pid]; exists && recorded == process.startTime {
+			if recorded, exists := tracker.known[pid]; exists {
+				if recorded == process.startTime {
+					continue
+				}
+				// A recorded PID is one immutable PID/start-time identity. Never
+				// adopt a later process that reused the numeric PID.
 				continue
 			}
 			_, parentKnown := tracker.known[process.parentPID]
@@ -97,7 +109,7 @@ func (tracker *descendantTracker) observe() {
 					continue
 				}
 			}
-			tracker.known[pid] = process.startTime
+			recordStableDescendantIdentity(tracker.known, pid, process.startTime)
 			changed = true
 		}
 	}
@@ -133,10 +145,11 @@ func (tracker *descendantTracker) observeChildLists() {
 			continue
 		}
 		tracker.mu.Lock()
-		if recorded, exists := tracker.known[pid]; !exists || recorded == process.startTime {
-			tracker.known[pid] = process.startTime
-		}
+		accepted := recordStableDescendantIdentity(tracker.known, pid, process.startTime)
 		tracker.mu.Unlock()
+		if !accepted {
+			continue
+		}
 
 		data, err := os.ReadFile(filepath.Join("/proc", strconv.Itoa(pid), "task", strconv.Itoa(pid), "children"))
 		if err != nil {
@@ -157,13 +170,43 @@ func (tracker *descendantTracker) observeChildLists() {
 	}
 }
 
+func recordStableDescendantIdentity(known map[int]uint64, pid int, startTime uint64) bool {
+	if recorded, exists := known[pid]; exists && recorded != startTime {
+		return false
+	}
+	known[pid] = startTime
+	return true
+}
+
+// killRootGroupIfLive uses the process group only while its leader's immutable
+// identity is still present. After Wait reaps the leader, numeric PGID reuse
+// makes group signaling unsafe and cleanup must remain identity-only.
+func (tracker *descendantTracker) killRootGroupIfLive() {
+	tracker.mu.Lock()
+	startTime, ok := tracker.known[tracker.rootPID]
+	tracker.mu.Unlock()
+	if !ok {
+		return
+	}
+	process, err := readProcIdentity(tracker.rootPID)
+	if err != nil || process.startTime != startTime || process.state == 'Z' || process.groupPID != tracker.rootPID {
+		return
+	}
+	_ = syscall.Kill(-tracker.rootPID, syscall.SIGKILL)
+}
+
 func (tracker *descendantTracker) terminateAndVerify(timeout time.Duration) error {
+	tracker.terminateMu.Lock()
+	defer tracker.terminateMu.Unlock()
 	tracker.stopMonitoring()
 	tracker.observe()
 
 	deadline := time.Now().Add(timeout)
 	for {
-		remaining := tracker.liveIdentities()
+		remaining, err := tracker.liveIdentities()
+		if err != nil {
+			return ErrTerminationTimeout
+		}
 		if len(remaining) == 0 {
 			return nil
 		}
@@ -177,10 +220,13 @@ func (tracker *descendantTracker) terminateAndVerify(timeout time.Duration) erro
 	}
 }
 
-func (tracker *descendantTracker) liveIdentities() []procIdentity {
+func (tracker *descendantTracker) liveIdentities() ([]procIdentity, error) {
 	processes := readProcIdentities()
 	tracker.mu.Lock()
 	defer tracker.mu.Unlock()
+	if processes == nil || !tracker.healthy {
+		return nil, ErrTerminationTimeout
+	}
 	live := make([]procIdentity, 0, len(tracker.known))
 	for pid, startTime := range tracker.known {
 		process, exists := processes[pid]
@@ -189,7 +235,7 @@ func (tracker *descendantTracker) liveIdentities() []procIdentity {
 		}
 		live = append(live, process)
 	}
-	return live
+	return live, nil
 }
 
 func readProcIdentities() map[int]procIdentity {

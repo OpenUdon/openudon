@@ -9,6 +9,7 @@ import (
 	"io"
 	"os"
 	"os/exec"
+	"runtime"
 	"sync"
 	"time"
 )
@@ -113,10 +114,21 @@ func (child *InteractiveChild) Terminate() error {
 	if child == nil || child.command == nil {
 		return nil
 	}
-	// A reaped group leader does not prove that its descendants exited. Always
-	// target the process tree when explicit termination is requested.
-	terminate(child.command)
-	go func() { _ = child.Wait() }()
+	select {
+	case <-child.done:
+		return child.err
+	default:
+	}
+	if runtime.GOOS == "linux" {
+		child.tracker.killRootGroupIfLive()
+		go func() { _ = child.Wait() }()
+		if err := child.tracker.terminateAndVerify(5 * time.Second); err != nil {
+			return err
+		}
+	} else {
+		go func() { _ = child.Wait() }()
+		terminate(child.command)
+	}
 	select {
 	case <-child.done:
 		return child.err
@@ -183,21 +195,44 @@ func run(ctx context.Context, timeout time.Duration, invocation Invocation) erro
 	case err := <-done:
 		return err
 	case <-bounded.Done():
-		terminate(command)
 		select {
-		case <-done:
-			return bounded.Err()
+		case err := <-done:
+			return err
+		default:
+		}
+		if runtime.GOOS == "linux" {
+			tracker.killRootGroupIfLive()
+			if err := tracker.terminateAndVerify(5 * time.Second); err != nil {
+				return errors.Join(bounded.Err(), ErrTerminationTimeout)
+			}
+		} else {
+			terminate(command)
+		}
+		select {
+		case waitErr := <-done:
+			return canceledRunError(bounded.Err(), waitErr)
 		case <-time.After(5 * time.Second):
 			return errors.Join(bounded.Err(), ErrTerminationTimeout)
 		}
 	}
 }
 
+func canceledRunError(contextErr, waitErr error) error {
+	if errors.Is(waitErr, ErrTerminationTimeout) {
+		return errors.Join(contextErr, ErrTerminationTimeout)
+	}
+	return contextErr
+}
+
 func sweepProcessTree(command *exec.Cmd, tracker *descendantTracker) error {
 	// A successful group leader may leave children running. Sweep after every
-	// exit path, not only cancellation, and then verify any Linux descendants
-	// recorded before they detached from the original process group/session.
-	terminate(command)
+	// exit path, not only cancellation. Linux uses only immutable PID/start-time
+	// identities after Wait; signaling a reaped numeric PGID could target an
+	// unrelated process after PID reuse. Other platforms retain their native
+	// post-wait tree cleanup before the platform tracker verifies completion.
+	if runtime.GOOS != "linux" {
+		terminate(command)
+	}
 	if tracker == nil {
 		return nil
 	}
