@@ -3,6 +3,7 @@ package browserauthor
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -18,6 +19,7 @@ import (
 	"github.com/OpenUdon/openudon/internal/browsertransaction"
 	"github.com/OpenUdon/openudon/internal/icot/elicitor"
 	"github.com/OpenUdon/openudon/internal/icot/engine"
+	"github.com/OpenUdon/openudon/internal/processgroup"
 )
 
 const registrationControllerFixture = `profile: uws.browser-registration.1.0
@@ -240,6 +242,25 @@ printf '%s\n' '{"protocol":"browsertools.registration-author-session.v1","type":
 				t.Fatalf("failure = %#v", first)
 			}
 		})
+	}
+}
+
+func TestRegistrationTerminalRetentionSurvivesFullEventStream(t *testing.T) {
+	session := &RegistrationSession{events: make(chan RegistrationEvent, 1)}
+	session.events <- RegistrationEvent{State: "observing"}
+	session.publishTerminal(RegistrationEvent{State: "failed", ErrorCode: "worker_teardown"})
+	event, ok := session.TerminalEvent()
+	if !ok || event.State != "failed" || event.ErrorCode != "worker_teardown" {
+		t.Fatalf("retained terminal event = %#v, ok=%v", event, ok)
+	}
+}
+
+func TestRegistrationWorkerExitCodePrioritizesTeardownFailure(t *testing.T) {
+	if got := registrationWorkerExitCode(errors.Join(errors.New("exit status 7"), processgroup.ErrTerminationTimeout)); got != "worker_teardown" {
+		t.Fatalf("joined teardown failure = %q", got)
+	}
+	if got := registrationWorkerExitCode(errors.New("exit status 7")); got != "worker_exit" {
+		t.Fatalf("ordinary exit failure = %q", got)
 	}
 }
 

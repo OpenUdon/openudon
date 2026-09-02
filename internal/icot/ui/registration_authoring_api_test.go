@@ -24,12 +24,14 @@ import (
 )
 
 type fakeRegistrationAuthoringSession struct {
-	events   chan browserauthor.RegistrationEvent
-	commands chan browserauthor.RegistrationCommand
-	once     sync.Once
-	mu       sync.Mutex
-	canceled bool
-	sendErr  error
+	events      chan browserauthor.RegistrationEvent
+	commands    chan browserauthor.RegistrationCommand
+	once        sync.Once
+	mu          sync.Mutex
+	canceled    bool
+	sendErr     error
+	terminal    browserauthor.RegistrationEvent
+	terminalSet bool
 }
 
 func newFakeRegistrationAuthoringSession() *fakeRegistrationAuthoringSession {
@@ -40,6 +42,12 @@ func newFakeRegistrationAuthoringSession() *fakeRegistrationAuthoringSession {
 
 func (f *fakeRegistrationAuthoringSession) Events() <-chan browserauthor.RegistrationEvent {
 	return f.events
+}
+
+func (f *fakeRegistrationAuthoringSession) TerminalEvent() (browserauthor.RegistrationEvent, bool) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	return f.terminal, f.terminalSet
 }
 
 func (f *fakeRegistrationAuthoringSession) Send(ctx context.Context, command browserauthor.RegistrationCommand) error {
@@ -200,6 +208,56 @@ func TestRegistrationAuthoringAPIEnforcesSingleSessionAndContainmentFailure(t *t
 	}
 	if response := doRequest(handler, http.MethodPost, "/api/v4/registration-authoring/start", registrationStartBody(failed, "https://app.example.test/register"), "application/json", true); response.Code != http.StatusConflict || !strings.Contains(response.Body.String(), "registration_authorization_consumed") {
 		t.Fatalf("restart after containment failure = %d %s", response.Code, response.Body.String())
+	}
+	if response := doRequest(handler, http.MethodPost, "/api/v4/browser/preflight", `{"revision":"`+failed.Revision+`","capture_revision":"`+failed.CaptureRevision+`"}`, "application/json", true); response.Code != http.StatusConflict || !strings.Contains(response.Body.String(), "capture_teardown_failed") {
+		t.Fatalf("capture preflight after registration containment failure = %d %s", response.Code, response.Body.String())
+	}
+	if response := doRequest(handler, http.MethodPost, "/api/v4/capture/start", `{"revision":"`+failed.Revision+`","capture_revision":"`+failed.CaptureRevision+`","profile_id":"account","url":"https://login.example.test/","dashboard_url":"https://app.example.test/home","goal":"Open dashboard","origins":["https://login.example.test","https://app.example.test"]}`, "application/json", true); response.Code != http.StatusConflict || !strings.Contains(response.Body.String(), "capture_teardown_failed") {
+		t.Fatalf("capture start after registration containment failure = %d %s", response.Code, response.Body.String())
+	}
+	if response := doRequest(handler, http.MethodPost, "/api/v4/package/build", `{"revision":"`+failed.Revision+`","confirmed":true}`, "application/json", true); response.Code != http.StatusConflict || !strings.Contains(response.Body.String(), "capture_teardown_failed") {
+		t.Fatalf("package build after registration containment failure = %d %s", response.Code, response.Body.String())
+	}
+	if response := doRequest(handler, http.MethodPost, "/api/v4/capture/stage", `{"revision":"`+failed.Revision+`","capture_revision":"`+failed.CaptureRevision+`"}`, "application/json", true); response.Code != http.StatusConflict || !strings.Contains(response.Body.String(), "capture_teardown_failed") {
+		t.Fatalf("capture stage after registration containment failure = %d %s", response.Code, response.Body.String())
+	}
+	if response := doRequest(handler, http.MethodPost, "/api/v4/round", `{"revision":"`+failed.Revision+`","answers":[]}`, "application/json", true); response.Code != http.StatusConflict || !strings.Contains(response.Body.String(), "capture_teardown_failed") {
+		t.Fatalf("authoring mutation after registration containment failure = %d %s", response.Code, response.Body.String())
+	}
+	if response := doRequest(handler, http.MethodPost, "/api/v4/author/resume", `{"revision":"`+failed.Revision+`"}`, "application/json", true); response.Code != http.StatusConflict || !strings.Contains(response.Body.String(), "capture_teardown_failed") {
+		t.Fatalf("authoring resume after registration containment failure = %d %s", response.Code, response.Body.String())
+	}
+	if response := doRequest(handler, http.MethodPost, "/api/v4/browser-transactions/start", `{}`, "application/json", true); response.Code != http.StatusConflict || !strings.Contains(response.Body.String(), "capture_teardown_failed") {
+		t.Fatalf("browser transaction mutation after registration containment failure = %d %s", response.Code, response.Body.String())
+	}
+}
+
+func TestRegistrationAuthoringAPIRetainsTerminalFailureOutsideEventStream(t *testing.T) {
+	fake := &fakeEngine{}
+	session := newFakeRegistrationAuthoringSession()
+	handler, err := NewHandler(HandlerConfig{
+		Context: context.Background(), Engine: fake, Snapshot: fake.snapshot, ExampleDir: "/tmp/example",
+		Token: testToken, AccessCode: testAccessCode, Authority: testAuthority, PrivateRoot: "/tmp/private",
+		BrowserTransactions: newFakeBrowserTransactions(),
+		StartRegistration: func(context.Context, browserauthor.RegistrationConfig) (RegistrationAuthoringSession, error) {
+			return session, nil
+		},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	initial := currentResponse(t, handler)
+	if response := doRequest(handler, http.MethodPost, "/api/v4/registration-authoring/start", registrationStartBody(initial, "https://app.example.test/register"), "application/json", true); response.Code != http.StatusAccepted {
+		t.Fatalf("start = %d %s", response.Code, response.Body.String())
+	}
+	session.mu.Lock()
+	session.terminal = browserauthor.RegistrationEvent{State: "failed", ErrorCode: "worker_teardown"}
+	session.terminalSet = true
+	session.mu.Unlock()
+	session.close()
+	failed := waitForRegistrationState(t, handler, "failed")
+	if failed.RegistrationAuthoring.FailureCode != "worker_teardown" || !failed.RegistrationAuthoring.ContainmentFailed {
+		t.Fatalf("retained failure = %s", mustJSON(t, failed))
 	}
 }
 

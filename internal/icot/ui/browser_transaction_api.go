@@ -85,6 +85,10 @@ func (s *Server) serveBrowserTransactionMutation(w http.ResponseWriter, r *http.
 		s.writeError(w, http.StatusServiceUnavailable, "browser_transactions_unavailable", "browser transaction resources are not configured", false, requestID, "")
 		return
 	}
+	if s.browserContainmentFailedLocked() {
+		s.writeError(w, http.StatusConflict, "capture_teardown_failed", "browser process-tree teardown was not confirmed; restart iCoT before changing a browser transaction", false, requestID, s.revision)
+		return
+	}
 	registrationReviewOperation := s.registrationAuthoring != nil && s.registrationAuthoring.State == "transaction_review" &&
 		(route == "/api/v4/browser-transactions/review" || route == "/api/v4/browser-transactions/cancel")
 	if registrationAuthoringActive(s.registrationAuthoring) && !registrationReviewOperation {

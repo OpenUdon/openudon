@@ -83,7 +83,7 @@ func (s *Server) serveRegistrationAuthoringStart(w http.ResponseWriter, r *http.
 		s.writeError(w, http.StatusConflict, "session_frozen", "registration authoring is unavailable in the current authoring state", false, requestID, s.revision)
 		return
 	}
-	if s.captureContainmentFailed || s.registrationContainmentFailed {
+	if s.browserContainmentFailedLocked() {
 		s.writeError(w, http.StatusConflict, "browser_teardown_failed", "a prior browser process tree did not confirm teardown; restart iCoT before another browser operation", false, requestID, s.revision)
 		return
 	}
@@ -209,11 +209,22 @@ func (s *Server) consumeRegistrationAuthoring(session RegistrationAuthoringSessi
 		_ = s.updateRevisionLocked()
 		s.mu.Unlock()
 	}
+	terminalEvent, terminalEventSet := session.TerminalEvent()
 
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	if s.registrationSession != session {
 		return
+	}
+	if terminalEventSet {
+		if terminalEvent.Candidate != nil {
+			s.registrationCandidate = terminalEvent.Candidate
+			resultReady = true
+		}
+		if terminalEvent.State == "failed" || terminalEvent.State == "canceled" {
+			terminalState = terminalEvent.State
+			terminalCode = registrationAuthoringFailureCode(terminalEvent.ErrorCode)
+		}
 	}
 	s.registrationSession = nil
 	updatedAt := s.now().UTC().Format(time.RFC3339)

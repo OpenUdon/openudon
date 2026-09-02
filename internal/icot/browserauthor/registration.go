@@ -81,12 +81,14 @@ type RegistrationEvent struct {
 
 // RegistrationSession owns one isolated worker process.
 type RegistrationSession struct {
-	mu       sync.Mutex
-	cancel   context.CancelFunc
-	commands chan RegistrationCommand
-	events   chan RegistrationEvent
-	done     chan struct{}
-	closed   bool
+	mu          sync.Mutex
+	cancel      context.CancelFunc
+	commands    chan RegistrationCommand
+	events      chan RegistrationEvent
+	done        chan struct{}
+	closed      bool
+	terminal    RegistrationEvent
+	terminalSet bool
 }
 
 // StartRegistration stabilizes the current iCoT executable beneath the
@@ -162,6 +164,18 @@ func startRegistrationProcess(ctx context.Context, config RegistrationConfig, in
 
 // Events yields value-free state until the worker terminates.
 func (session *RegistrationSession) Events() <-chan RegistrationEvent { return session.events }
+
+// TerminalEvent returns the final value-free outcome retained independently
+// of the bounded event stream. Callers use it after Events closes so a full or
+// stalled stream cannot hide a containment failure.
+func (session *RegistrationSession) TerminalEvent() (RegistrationEvent, bool) {
+	if session == nil {
+		return RegistrationEvent{}, false
+	}
+	session.mu.Lock()
+	defer session.mu.Unlock()
+	return session.terminal, session.terminalSet
+}
 
 // Send submits one typed no-submit command.
 func (session *RegistrationSession) Send(ctx context.Context, command RegistrationCommand) error {
@@ -292,7 +306,7 @@ func (session *RegistrationSession) run(ctx context.Context, config Registration
 		waitErr := child.Wait()
 		waited = true
 		if waitErr != nil {
-			session.publishTerminal(RegistrationEvent{State: "failed", ErrorCode: "worker_exit"})
+			session.publishTerminal(RegistrationEvent{State: "failed", ErrorCode: registrationWorkerExitCode(waitErr)})
 			return
 		}
 		if command.Type == "close" {
@@ -351,12 +365,21 @@ func (session *RegistrationSession) publish(ctx context.Context, event Registrat
 }
 
 func (session *RegistrationSession) publishTerminal(event RegistrationEvent) {
-	timer := time.NewTimer(time.Second)
-	defer timer.Stop()
+	session.mu.Lock()
+	session.terminal = event
+	session.terminalSet = true
+	session.mu.Unlock()
 	select {
 	case session.events <- event:
-	case <-timer.C:
+	default:
 	}
+}
+
+func registrationWorkerExitCode(err error) string {
+	if errors.Is(err, processgroup.ErrTerminationTimeout) {
+		return "worker_teardown"
+	}
+	return "worker_exit"
 }
 
 func normalizeRegistrationConfig(config RegistrationConfig) (RegistrationConfig, *browsercandidate.PrivateInbox, error) {

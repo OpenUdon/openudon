@@ -93,8 +93,13 @@ type RegistrationAuthoringSession interface {
 	// Events closes only after the registration worker and its complete process
 	// tree have stopped.
 	Events() <-chan browserauthor.RegistrationEvent
+	TerminalEvent() (browserauthor.RegistrationEvent, bool)
 	Send(context.Context, browserauthor.RegistrationCommand) error
 	Cancel()
+}
+
+func (s *Server) browserContainmentFailedLocked() bool {
+	return s.captureContainmentFailed || s.registrationContainmentFailed
 }
 
 // HandlerConfig configures one server handler after its loopback listener is
@@ -1106,7 +1111,7 @@ func (s *Server) serveCaptureStart(w http.ResponseWriter, r *http.Request, cooki
 		s.writeError(w, http.StatusConflict, "session_frozen", "browser capture is unavailable in the current authoring state", false, requestID, s.revision)
 		return
 	}
-	if s.captureContainmentFailed {
+	if s.browserContainmentFailedLocked() {
 		s.writeError(w, http.StatusConflict, "capture_teardown_failed", "a prior browser process tree did not confirm teardown; restart iCoT before another capture", false, requestID, s.revision)
 		return
 	}
@@ -1388,6 +1393,10 @@ func (s *Server) serveCaptureStage(w http.ResponseWriter, r *http.Request, cooki
 		s.writeError(w, http.StatusConflict, "stale_revision", "authoring or capture revision is stale", true, requestID, s.revision)
 		return
 	}
+	if s.browserContainmentFailedLocked() {
+		s.writeError(w, http.StatusConflict, "capture_teardown_failed", "browser process-tree teardown was not confirmed; restart iCoT before staging a capture", false, requestID, s.revision)
+		return
+	}
 	if s.capture == nil || !s.capture.ResultReady || s.captureResult == nil || s.captureAttestation == nil || s.prepareCapture == nil {
 		s.writeError(w, http.StatusConflict, "capture_not_ready", "a completed reviewed capture is required before staging", false, requestID, s.revision)
 		return
@@ -1640,6 +1649,10 @@ func (s *Server) serveResume(w http.ResponseWriter, r *http.Request, cookieScope
 		s.writeError(w, http.StatusConflict, "stale_revision", "request revision does not match the current snapshot", true, requestID, s.revision)
 		return
 	}
+	if s.browserContainmentFailedLocked() {
+		s.writeError(w, http.StatusConflict, "capture_teardown_failed", "browser process-tree teardown was not confirmed; restart iCoT before resuming authoring", false, requestID, s.revision)
+		return
+	}
 	if s.lifecycle != lifecyclePackageFail {
 		s.writeError(w, http.StatusConflict, "invalid_lifecycle", "authoring can resume only after a package quality failure", false, requestID, s.revision)
 		return
@@ -1696,7 +1709,7 @@ func (s *Server) servePackageBuild(w http.ResponseWriter, r *http.Request, cooki
 		s.writeError(w, http.StatusConflict, "capture_active", "package build is blocked while browser capture is active", true, requestID, s.revision)
 		return
 	}
-	if s.captureContainmentFailed {
+	if s.browserContainmentFailedLocked() {
 		s.writeError(w, http.StatusConflict, "capture_teardown_failed", "package build is blocked because browser process-tree teardown was not confirmed; restart iCoT", false, requestID, s.revision)
 		return
 	}
@@ -1872,7 +1885,7 @@ func (s *Server) beginMutation(w http.ResponseWriter, r *http.Request, requestID
 		s.writeError(w, http.StatusConflict, "workspace_changed", "the authoring workspace changed outside this process; restart is required", false, requestID, s.revision)
 		return false
 	}
-	if s.captureContainmentFailed {
+	if s.browserContainmentFailedLocked() {
 		s.writeError(w, http.StatusConflict, "capture_teardown_failed", "browser process-tree teardown was not confirmed; restart iCoT before authoring continues", false, requestID, s.revision)
 		return false
 	}
