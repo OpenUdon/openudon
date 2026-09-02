@@ -1,0 +1,2277 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="Public UWS workflow authoring, review, package, and trusted executor handoff">
+      
+      
+      
+        <link rel="canonical" href="https://openudon.github.io/openudon/icot/">
+      
+      
+        <link rel="prev" href="../data-flow/">
+      
+      
+        <link rel="next" href="../icot-ui/">
+      
+      
+        
+      
+      
+      <link rel="icon" href="../assets/images/favicon.png">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.7">
+    
+    
+      
+        <title>iCoT - OpenUdon</title>
+      
+    
+    
+      <link rel="stylesheet" href="../assets/stylesheets/main.ec1eaa64.min.css">
+      
+        
+        <link rel="stylesheet" href="../assets/stylesheets/palette.ab4e12ef.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+    <script>__md_scope=new URL("..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="teal" data-md-color-accent="deep-orange">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#icot-v2" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+<header class="md-header" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href=".." title="OpenUdon" class="md-header__button md-logo" aria-label="OpenUdon" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            OpenUdon
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              iCoT
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="" data-md-color-scheme="default" data-md-color-primary="teal" data-md-color-accent="deep-orange"  aria-hidden="true"  type="radio" name="__palette" id="__palette_0">
+    
+  
+</form>
+      
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+      <div class="md-header__source">
+        <a href="https://github.com/OpenUdon/openudon" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    OpenUdon/openudon
+  </div>
+</a>
+      </div>
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+            
+<nav class="md-tabs" aria-label="Tabs" data-md-component="tabs">
+  <div class="md-grid">
+    <ul class="md-tabs__list">
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href=".." class="md-tabs__link">
+        
+  
+  
+    
+  
+  Home
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../compatibility/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  Compatibility
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+    
+  
+  
+    
+    
+      <li class="md-tabs__item md-tabs__item--active">
+        <a href="../authoring/" class="md-tabs__link">
+          
+  
+  
+  Authoring
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../tutorial-weather/" class="md-tabs__link">
+          
+  
+  
+  Tutorial
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../safety/" class="md-tabs__link">
+          
+  
+  
+  Handoff
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../related/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  Related
+
+      </a>
+    </li>
+  
+
+      
+    </ul>
+  </div>
+</nav>
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+  
+
+
+<nav class="md-nav md-nav--primary md-nav--lifted" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href=".." title="OpenUdon" class="md-nav__button md-logo" aria-label="OpenUdon" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    OpenUdon
+  </label>
+  
+    <div class="md-nav__source">
+      <a href="https://github.com/OpenUdon/openudon" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    OpenUdon/openudon
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href=".." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Home
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../compatibility/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Compatibility
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+    
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3" checked>
+        
+          
+          <label class="md-nav__link" for="__nav_3" id="__nav_3_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Authoring
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="true">
+          <label class="md-nav__title" for="__nav_3">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Authoring
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../authoring/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../agentic-saas-authoring/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Agentic SaaS Authoring
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../saas-authoring-corpus/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    SaaS Authoring Corpus
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../saas-authoring-trials/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    SaaS Authoring Trials
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../multi-service-saas-patterns/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Multi-Service SaaS Patterns
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../n8n-pattern-bridge/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    n8n Pattern Bridge
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../project-authoring/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Project Briefs
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../project-authoring-schema/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    project.md Schema
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../intent/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    intent.hcl
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../data-flow/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Data Flow
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    iCoT
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    iCoT
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#inputs-and-modes" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Inputs And Modes
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#browsertools-authoring-handoff" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Browsertools Authoring Handoff
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#workflow-boundary-and-frontier" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Workflow Boundary And Frontier
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#source-discovery" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Source Discovery
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#proposal-and-file-lifecycle" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Proposal And File Lifecycle
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#agent-and-structured-reports" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Agent And Structured Reports
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#optional-llm-review" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Optional LLM Review
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../icot-ui/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Local iCoT UI Server
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../authenticated-browser-authoring/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Authenticated Browser Authoring
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../browser-profile-transactions/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Browser-Profile Transactions
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../icot-corpus-and-provider-roadmap/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    iCoT Corpus And Provider Roadmap
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../icot-session-schema/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    iCoT Session Files
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../icot-transcript/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    iCoT Transcripts
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../enterprise-authoring-execution/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Enterprise Authoring And Execution Boundary
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../synthesize/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Synthesize
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4" >
+        
+          
+          <label class="md-nav__link" for="__nav_4" id="__nav_4_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Tutorial
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_4_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_4">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Tutorial
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../tutorial-weather/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Weather
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../tutorial-gmail/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Gmail Audit Receipt
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../tutorial-order-fulfillment/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Order Fulfillment Chain
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../tutorial-support-email/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Support Email
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../eval-gallery/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Eval Gallery
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../eval-seed-build-matrix/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Eval Seed/Build Matrix
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5" >
+        
+          
+          <label class="md-nav__link" for="__nav_5" id="__nav_5_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Handoff
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_5_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_5">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Handoff
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../safety/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Safety
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../review-handoff/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Review Handoff
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../saas-review-handoff/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    SaaS Review Handoff
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../saas-operator-release/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    SaaS Operator Release Path
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../product-smoke-matrix/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Product Smoke Matrix
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../browser-integration-eval/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Browser Integration Evaluation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../browser-scenario-eval/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Browser Scenario Evaluation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../release-stewardship/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Release Stewardship
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../release-note-template/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Release Notes Template
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../related/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Related
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#inputs-and-modes" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Inputs And Modes
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#browsertools-authoring-handoff" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Browsertools Authoring Handoff
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#workflow-boundary-and-frontier" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Workflow Boundary And Frontier
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#source-discovery" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Source Discovery
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#proposal-and-file-lifecycle" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Proposal And File Lifecycle
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#agent-and-structured-reports" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Agent And Structured Reports
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#optional-llm-review" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Optional LLM Review
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+  
+  
+
+
+<h1 id="icot-v2">iCoT v2</h1>
+<p>iCoT is OpenUdon's adaptive guided-authoring CLI. It turns a broad workflow
+request into one reviewed active boundary, a dependency-aware decision graph,
+and either a complete <code>workflows/intent.hcl</code> or an explicitly incomplete draft.
+It does not execute workflows.</p>
+<pre><code class="language-bash">go run ./cmd/icot --example ./examples/&lt;name&gt;
+</code></pre>
+<p>For the experimental single-workspace loopback transport and embedded Phase C
+authoring/review shell, see <a href="../icot-ui/">Local iCoT UI Server</a>. It uses the
+same engine and atomic approval writer; the JSON API is internal and has no
+compatibility guarantee.</p>
+<p>The separate experimental <code>icot browser-transaction</code> adapter presents the
+same driver-free transaction states and kind-specific disclosure as API v4.
+It reads exact authorizations from stdin and has no browser, credential, submit,
+or runtime operation. See <a href="../browser-profile-transactions/#operator-sequence">Browser-Profile Authoring
+Transactions</a>.</p>
+<h2 id="inputs-and-modes">Inputs And Modes</h2>
+<pre><code class="language-bash"># Preview only; writes no deliverables, source copies, transcript, or autosave.
+go run ./cmd/icot --example ./examples/&lt;name&gt; --print
+
+# Disable optional LLM extraction while retaining the adaptive interview.
+go run ./cmd/icot --example ./examples/&lt;name&gt; --no-llm
+
+# Load a v2 session. Add --yes for explicit noninteractive proposal approval.
+go run ./cmd/icot --example ./examples/&lt;name&gt; \
+  --answers ./session.yaml --yes
+
+# Inspect an existing example before asking questions.
+go run ./cmd/icot --example ./examples/&lt;name&gt; \
+  --from-example ./examples/eval/weather-toronto --yes
+
+# Declare reviewed API documents or bounded roots. Flags are repeatable.
+go run ./cmd/icot --example ./examples/&lt;name&gt; \
+  --api-source graphql:catalog=./schema.graphql \
+  --openapi weather=./openapi/weather.yaml \
+  --source-root ./provider-metadata
+
+# Declare verified UI-only capability/authentication profiles or a service-free static registry.
+go run ./cmd/icot --example ./examples/&lt;name&gt; \
+  --browser-profile status=./reviewed/status.browser.json \
+  --browser-verification ./reviewed/status.live-check.json \
+  --browser-verification ./reviewed/status.portability.json \
+  --browser-profile member-auth=./reviewed/member-auth.yaml \
+  --browser-registry ./browser-registry \
+  --browser-registry https://profiles.example.org/catalog/ \
+  --network ask
+
+# Control the bounded remote metadata lookup.
+go run ./cmd/icot --example ./examples/&lt;name&gt; --network never
+</code></pre>
+<p><code>--api-source</code> uses <code>KIND:ID=PATH</code>; <code>--openapi ID=PATH</code> is shorthand for an
+OpenAPI source. <code>--browser-profile ID=PATH</code> supplies a reviewed
+<code>uws.browser.1.5</code>, <code>uws.browser.1.6</code>, or <code>uws.browser.1.7</code> capability profile, a capability bundle, an explicit
+<code>browsertools.guided-authoring.v1</code> result, or a secret-free
+<code>uws.browser-authentication.1.0</code> or <code>uws.browser-authentication.1.1</code> sign-in profile. A guided result is accepted
+only as an explicit file, replayed through Browsertools' draft and review
+gates, rejected if it contains secret/session/private-browser-shaped content or
+bypasses parameter-only guided text/select values, and reduced to its embedded profile; its normalized evidence, decisions,
+specification, and review envelope are not staged in the workflow package.
+<code>--browser-registry</code> accepts a
+local static-registry directory or HTTPS base URL; it is not an account or
+membership service. <code>--network</code> accepts <code>never</code>, <code>ask</code>, or <code>allow</code>. Interactive
+runs default to <code>ask</code>. Agent mode is effectively <code>never</code> unless <code>allow</code> is
+explicit. Local registries remain usable with <code>--network never</code>.</p>
+<p><code>--browser-verification PATH</code> accepts only the exact value-free
+<code>browsertools.live-check.v1</code> and <code>browsertools.portability-check.v1</code> JSON
+contracts. It is repeatable and optional. OpenUdon strict-decodes each report,
+reconstructs the selected profile action's locator/wait/output probe plan,
+checks the canonical profile digest, origin, action set, lifecycle timestamp,
+Chromium baseline, engine status, fixed messages/diagnostics, and bounded
+counts, then binds it to exactly one selected profile. Unknown fields, trailing
+JSON, stale or future timestamps, conflicting duplicates, invented engine
+success, and private/guided/rich/authentication evidence fail closed.</p>
+<p>The source report stays in the operator's reviewed location and is reopened at
+proposal approval to detect replacement. Only its SHA-256 and normalized
+value-free facts enter <code>.icot/browser-sources.json</code>; OpenUdon never stages the
+raw report or its local path. A supplied failed report blocks authoring
+approval and package quality.
+No report is required, and cross-engine portability remains optional review
+confidence rather than a runtime requirement or permission to rewrite a
+locator.</p>
+<h2 id="browsertools-authoring-handoff">Browsertools Authoring Handoff</h2>
+<p>When neither an API operation nor an existing reviewed browser profile covers
+an unauthenticated UI-only outcome, iCoT can emit an inert, value-free handoff
+plan for a separate Browsertools authoring session:</p>
+<pre><code class="language-bash">install -d -m 0700 /private/operator/browsertools-member-status
+go run ./cmd/icot browser-authoring plan \
+  --example ./examples/member-status \
+  --url https://members.example.test/status \
+  --origin https://members.example.test \
+  --profile-id member-status \
+  --action-hint read_status \
+  --login-state not-required \
+  --private-root /private/operator/browsertools-member-status \
+  --out /private/operator/browsertools-member-status/handoff.json
+</code></pre>
+<p>The <code>openudon.browser-authoring-handoff.v1</code> artifact contains argv templates,
+typed declarations for every operator-supplied argv value, and manual review
+gates for Browsertools doctor, finite private capture, exact-ID export, raw
+review/redaction, normalized-evidence import, guided authoring, and the final
+iCoT resume command. It does not invoke Browsertools, install or
+launch a browser, read environment variables, accept credential inputs, contact
+the site, or write an OpenUdon deliverable. The private root must be disjoint
+from the OpenUdon example, already exist as a non-symlink directory with no
+group/other permissions (normally mode <code>0700</code>), and contain any file output.
+File output is new-only mode <code>0600</code>. Because
+the plan contains a target URL and private local paths, it is local-ephemeral
+and requires redaction review before sharing.
+Its strict output contract is published as
+<a href="../schemas/openudon.browser-authoring-handoff.v1.schema.json"><code>openudon.browser-authoring-handoff.v1.schema.json</code></a>.
+OpenUdon validates emitted ready and login-required plans against that schema;
+the artifact remains output-only and has no input decoder.</p>
+<p>The same inputs can be attached to <code>icot --agent --json</code> with
+<code>--browser-authoring-url</code>, repeatable <code>--browser-authoring-origin</code>,
+<code>--browser-authoring-id</code>, <code>--browser-authoring-action</code>,
+<code>--browser-authoring-login</code>, and <code>--browser-authoring-private-root</code>. Agent mode
+returns the handoff inline only when readiness has reached the blocking
+missing-source boundary; an available API source remains preferred. Agent mode
+still writes nothing.</p>
+<p>The ordinary interview and agent report still fail closed with
+<code>needs_reviewed_profiles</code> for a login-required protected-page gap. They never
+launch Browsertools or a browser. An operator may now choose the separate,
+explicit <code>icot browser-author live</code> path to keep one headed Chromium context
+alive across human credential/MFA entry and post-login exploration:</p>
+<pre><code class="language-bash">install -d -m 0700 /private/operator/member-authoring
+go run ./cmd/icot browser-author live \
+  --example ./examples/member-dashboard \
+  --url https://members.example.test/login \
+  --dashboard-url https://members.example.test/dashboard \
+  --goal &quot;reach the member dashboard and learn how to read account status&quot; \
+  --origin https://members.example.test \
+  --origin https://login.example-idp.test \
+  --private-root /private/operator/member-authoring \
+  --profile-id member --goal-role heading --goal-label Dashboard
+</code></pre>
+<p>The single <code>icot</code> executable re-executes a privately stabilized copy of itself
+as the isolated Browsertools worker. <code>--browsertools</code> remains an expert
+compatibility override for this terminal fallback; the primary UI capture
+surface does not accept an arbitrary executable path.</p>
+<p>Both launch forms use the same typed parent controller. Before staging, its
+process-private attestation must match the worker envelope's ordered actions,
+human checkpoints, exact approvals, observations, authentication proof,
+requested outputs, contexts, diagnostics, and accumulated origin ledger. The
+attestation is neither persisted nor returned by the HTTP API. Page-derived
+paths that fail Browsertools' disclosure validator terminate capture before
+terminal, UI, planner, or result exposure. Before any event is published, the
+same controller also checks canonical reduced labels and the closed role,
+phase, diagnostic, context, frame, and challenge vocabularies. An exact new
+canonical HTTPS or loopback origin enters the ledger only after matching human
+approval; the final envelope origin set must equal the ledger.</p>
+<p>Browsertools owns the non-persistent Playwright-Go context. iCoT uses only the
+closed reduced-observation protocol, names the provider/model before any model
+disclosure, falls back to human guidance on denial, and requires separate
+typed-goal, API-override, origin, action, authentication, completion, and final
+staging gates. <code>--yes</code> cannot bypass them. The private result envelope remains
+under <code>--private-root</code>; only independently validated canonical profiles and
+safe review metadata are staged. See
+<a href="../authenticated-browser-authoring/">Authenticated Goal-Directed Browser Authoring</a>.</p>
+<p>Popup and iframe SSO are supported only through portable UWS 1.8 context
+contracts. Reviewed scalar accessibility outputs use browser 1.7 with UWS 1.9,
+strict author-session v2 MFA/output choices, and Browserdriver protocol v3.
+CAPTCHA, enrollment, recovery, password changes, consent, account
+creation, and logout remain outside the contract.</p>
+<p>Maintainers can prove this supported and unsupported boundary without a live
+site or credential using <code>make browser-integration-check</code>. The resulting
+value-free, digest-bound matrix and its optional loopback-only installed-browser
+extensions are documented in
+<a href="../browser-integration-eval/">Browser Integration Evaluation</a>.</p>
+<p>Prompt modes preserve the public v1 names with v2 behavior:</p>
+<ul>
+<li><code>full</code> shows and asks every question in the current frontier.</li>
+<li><code>normal</code> shows the entire frontier and visibly accepts safe defaults.</li>
+<li><code>fast</code> silently accepts safe defaults but shows missing, low-confidence,
+  conflicting, or forced decisions.</li>
+</ul>
+<p>Every round is displayed in full before answers are collected. All answers in
+the round are applied together, followed by one normalization and autosave.
+There is no fixed question ceiling. The interview ends on completion,
+cancellation, approved draft deferral, or three consecutive no-progress rounds.
+Final proposal approval is forced in every prompt mode; <code>--yes</code> is the explicit
+noninteractive equivalent.</p>
+<h2 id="workflow-boundary-and-frontier">Workflow Boundary And Frontier</h2>
+<p>iCoT first confirms one active outcome with its actor, trigger, observable
+success evidence, non-goals, and side-effect/approval posture. If a request
+contains multiple workflows, the operator must select the active workflow even
+in fast mode. Other workflows remain unnumbered candidates with a deferral
+reason and promotion trigger; iCoT does not assign them sources, operations,
+mappings, or steps.</p>
+<p>The decision graph adds only applicable nodes. Its main dependency order is:</p>
+<ol>
+<li>active boundary and outcome;</li>
+<li>actor/trigger and expected result;</li>
+<li>provider capabilities and workflow steps;</li>
+<li>source selection;</li>
+<li>operation selection;</li>
+<li>mappings/data flow, credentials, and side-effect posture;</li>
+<li>outputs, fallback behavior, and verification;</li>
+<li>complete proposal approval.</li>
+</ol>
+<p>Source, operation, mapping, and output leaves may be deferred. Each deferral
+must identify an owner, impact, unblock condition, and suggested next action.
+The workflow boundary and side-effect/approval posture cannot be deferred.</p>
+<p>The durable session uses <code>openudon.icot-session.v2</code> with generic
+<code>authoring.interview.v1</code> graph state and one unified evidence ledger. v1 inputs
+are rejected rather than decoded compatibly. See
+<a href="../icot-session-schema/">iCoT v2 Session Files</a>.</p>
+<h2 id="source-discovery">Source Discovery</h2>
+<p>Before questioning, iCoT inspects existing example sources, explicit documents,
+and explicit roots. Local discovery recognizes and validates:</p>
+<ul>
+<li>OpenAPI/Swagger;</li>
+<li>Google Discovery;</li>
+<li>AWS Smithy;</li>
+<li>AsyncAPI;</li>
+<li>GraphQL;</li>
+<li>OpenRPC;</li>
+<li>gRPC/protobuf;</li>
+<li>OData.</li>
+</ul>
+<p>The same explicit roots are also inspected by Browsertools for verified
+browser capability profiles, authentication profiles, and capability bundles.
+Guided-authoring envelopes are accepted only through an explicit
+<code>--browser-profile ID=PATH</code>, so a broad source-root scan cannot silently promote
+authoring evidence. Browser ambiguity, inactive lifecycle
+state, or a traversal bound blocks the run just like incomplete API discovery.
+iCoT prefers an API operation that covers the active capability. It offers a
+browser action only for an API capability gap or an explicitly reviewed browser
+route; future candidate workflows receive neither kind of source.</p>
+<p>Directory names are hints, never proof. Discovery rejects symlinks and
+non-regular paths, deduplicates identical content by SHA-256, and requires an
+explicit kind for ambiguous JSON or XML. Default bounds are 10,000 visited
+entries, 100 accepted candidates, and 20 MiB per file. Reaching a bound is a
+visible blocker with narrowing guidance.</p>
+<p>Ambiguity or a traversal/candidate bound makes discovery incomplete in every
+mode. Interactive authoring stops before using any partial candidate set;
+complete-session and agent paths expose the same blocker and narrowing
+guidance.</p>
+<p>Selected OpenAPI operations retain their security requirement sets instead of
+flattening them. The outer list is OR, schemes within one alternative are AND,
+and an empty alternative is anonymous. If more than one alternative exists,
+iCoT presents numbered source-order choices and requires one selection before
+credential or request mapping. The stable index and decision evidence survive
+resume; only the selected alternative's fields are eligible for mappings.
+Prompt-budget loss of any of this structure is a visible deferable technical
+blocker, never permission to approve a partial interpretation.</p>
+<p>Local and remote discovery are separate. After local evidence is exhausted,
+<code>--network ask</code> requires approval. The remote lookup consults only curated
+apitools catalog references and one APIs.guru list request—never a general web
+crawler. It has an eight-second total deadline, returns at most three metadata
+candidates, applies unsafe-host protections, and does not copy a document.
+Denial, timeout, unsafe results, or an empty lookup becomes a deferrable source
+blocker with provider/source hints.</p>
+<p>Configured static Browsertools registries are separate evidence sources. Local
+registries need no network permission. Each HTTPS registry gets its own forced
+<code>allow</code>/<code>never</code> decision, separate from APIs.guru/catalog lookup. Browsertools
+searches only <code>index.json</code>, returns at most three active matches, and pulls and
+verifies immutable bundles within the eight-second/20 MiB bounds. Denial,
+timeout, unsafe host, empty search, invalid bundle, stale, superseded, or revoked
+content is a visible deferrable blocker. No placeholder profile is generated.</p>
+<p>For every selected browser step, the frontier orders profile before action,
+then request mappings, that step's session binding, mutation approval, and
+outputs. A login-required action without an earlier in-workflow authentication
+step must name a symbolic external session in its own <code>browser_session</code> field;
+multiple browser steps may name different sessions. The aggregate session
+posture records only <code>none</code> or <code>opaque-runtime-binding-required</code> as review
+evidence. It is not the session name and never contains cookies, tokens, or
+login values. Each mutating profile action requires exact authoring approval
+for its workflow step, while Udon still requires a separate exact runtime
+operation approval.</p>
+<p>When a selected browser action requires login state and a reviewed
+<code>uws.browser-authentication.1.0</code> or <code>uws.browser-authentication.1.1</code> profile is available, iCoT can place an
+explicit <code>browser_authentication</code> step before the protected action. It asks for
+the exact flow, an execution-local named session, symbolic credential-slot
+bindings, a timeout of at most 600 seconds, and separate authoring approval.
+The protected action references the same named session. MFA alternatives remain
+separate profile flows, so neither iCoT nor the runtime guesses between push,
+number matching, OTP, or WebAuthn. Enrollment, recovery, password changes,
+consent, logout, account creation, and CAPTCHA handling remain outside this
+sign-in contract. Credential slots and binding names must be symbolic; <code>none</code>
+and <code>clear</code> are reserved clearing sentinels and cannot satisfy a required
+credential mapping.</p>
+<h2 id="proposal-and-file-lifecycle">Proposal And File Lifecycle</h2>
+<p>Before writing, iCoT shows one proposal containing the active boundary,
+candidate workflows, workflow steps, source origins/digests/targets, mappings,
+safety policy, deferrals, and exact file actions.</p>
+<p>During the interview, only resumable <code>.icot/</code> state may be autosaved. Catalog or
+external sources and deliverable files are not copied before proposal approval.</p>
+<p>A complete approval atomically writes:</p>
+<pre><code class="language-text">project.md
+&lt;selected source documents and reviewed security sidecars&gt;
+workflows/intent.hcl
+</code></pre>
+<p>An approved incomplete technical draft atomically writes:</p>
+<pre><code class="language-text">project.md
+&lt;selected confirmed source documents&gt;
+workflows/intent.draft.hcl
+.icot/session.yaml
+.icot/readiness.json
+</code></pre>
+<p>It never creates <code>workflows/intent.hcl</code>. Resuming, completing, and approving the
+draft promotes it atomically and removes obsolete generated draft/readiness
+files. Source targets reuse identical content, reject differing content unless
+<code>--force</code> is supplied, and participate in the same backup/rollback transaction
+as project and intent files. Source materialization cannot target <code>.icot/**</code>,
+<code>project.md</code>, <code>workflows/intent.hcl</code>, or <code>workflows/intent.draft.hcl</code>, including
+case-insensitive equivalents. Duplicate, case-insensitive-equivalent,
+ancestor/descendant, and remove/write output collisions reject the complete
+plan before any filesystem mutation.</p>
+<p>For a browser route, the selected profile is staged under <code>browser-profiles/</code>
+and safe review metadata is staged under <code>.icot/browser-sources.json</code>. The
+metadata contains IDs, actions, origins, digests, lifecycle/expiry, provenance,
+registry coordinate, login-state requirement, session posture, authoring
+approvals, and optional value-free current-page/portability summaries—never a
+driver, browser session, credential, raw DOM/HTML, screenshot, backend error,
+or private cache content. Build and assess independently revalidate summary
+paths, types, counts, fixed diagnostics, selected-action coverage, and profile
+lifecycle, emit UWS 1.5, and include both files in the canonical package and
+review handoff digest.</p>
+<p>Selected authentication profiles are staged under <code>browser-authentication/</code>,
+with safe digest/flow/origin/expiry/session-name/approval evidence under
+<code>.icot/browser-authentication.json</code>. Main-page 1.0/1.5 sources lower to
+<code>uws.browser-authentication-call.1.0</code> and UWS 1.7. A context-qualified
+authentication 1.1 or browser 1.6 source selects UWS 1.8 and authentication
+call 1.1 where required. Protected actions retain the named-session
+supplement. Credential values, OTP values, cookies, storage state, private live
+protocol envelopes, and browser handles are never written to the package.</p>
+<p><code>project.md</code> may include a deterministic, non-executable <code>Candidate Workflows</code>
+section. Reconcile preserves it, lint validates its shape, and build ignores it.</p>
+<p><code>cancel</code> and <code>--print</code> leave no deliverable or copied source files. Transcripts
+use <code>openudon.icot-transcript.v2</code>; see
+<a href="../icot-transcript/">iCoT v2 Transcript Format</a>.</p>
+<h2 id="agent-and-structured-reports">Agent And Structured Reports</h2>
+<p><code>--agent</code> never prompts and never writes deliverables. It returns the complete
+frontier, candidate workflows, validated/rejected/ambiguous source evidence,
+API and browser-registry blocker/candidates when applicable, readiness blockers,
+and proposed file actions. A complete session still returns
+<code>proposal_approval_required</code> so an interactive run or explicit <code>--yes</code> can
+authorize the transaction.</p>
+<pre><code class="language-bash">go run ./cmd/icot --example ./examples/&lt;name&gt; --agent --json
+go run ./cmd/icot lint --example ./examples/&lt;name&gt; --json
+</code></pre>
+<p>Current structured versions are:</p>
+<ul>
+<li><code>openudon.icot-author-report.v2</code>;</li>
+<li><code>openudon.icot-lint-report.v2</code>;</li>
+<li><code>openudon.icot-repair-report.v2</code>;</li>
+<li><code>openudon.icot-scorecard.v2</code>;</li>
+<li><code>openudon.icot-authoring-eval.v2</code>;</li>
+<li><code>openudon.icot-variants-validation.v2</code>;</li>
+<li><code>openudon.icot-variants-coverage.v2</code>;</li>
+<li><code>openudon.icot-authoring-variants.v2</code>;</li>
+<li><code>openudon.icot-replay.v2</code>.</li>
+</ul>
+<p>Support commands retain their names:</p>
+<pre><code class="language-bash">go run ./cmd/icot reconcile --example ./examples/&lt;name&gt;
+go run ./cmd/icot lint --example ./examples/&lt;name&gt;
+go run ./cmd/icot repair --example ./examples/&lt;name&gt; --dry-run --json
+go run ./cmd/icot replay-eval --root examples/eval --prompt-mode fast
+go run ./cmd/icot variants validate --root examples/eval
+go run ./cmd/icot variants coverage --root examples/eval
+go run ./cmd/icot scorecard --root examples/eval --out eval/runs/icot-scorecard-local
+go run ./cmd/icot authoring-eval --root examples/eval --provider copilot-api \
+  --model gpt-5.4-mini --out eval/runs/icot-authoring-eval-local
+go run ./cmd/icot report verify --file eval/runs/icot-scorecard-local/scorecard.json
+</code></pre>
+<p>Scorecard verification checks version, counters, variant expectations,
+retention/share-safety metadata, and the adjacent SHA-256 sidecar. Provider-free
+scorecards remain release evidence; real-model authoring-eval output remains
+local, ephemeral, and subject to credential scanning.</p>
+<h2 id="optional-llm-review">Optional LLM Review</h2>
+<p>LLM extraction may propose a draft and a bounded pre-final flow review, but
+operation IDs, request fields, response paths, and credential schemes must come
+from inspected evidence. Inline secrets, review bypasses, unconfirmed mutations,
+invented operations, and unsafe placeholder promotion remain blockers.</p>
+<p><code>--review-repair</code> may apply at most two narrow mapping, output-source,
+dependency, or clearly local transform repairs. It cannot silently change a
+source, operation, credential binding, side-effect posture, or active boundary.
+All public rationale is concise evidence; hidden model chain-of-thought is never
+stored or requested.</p>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+          <button type="button" class="md-top md-icon" data-md-component="top" hidden>
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8z"/></svg>
+  Back to top
+</button>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+    <div class="md-copyright__highlight">
+      Copyright 2026 OpenUdon/openudon - UWS workflow authoring and trusted executor handoff - Apache 2.0
+    </div>
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "..", "features": ["navigation.tabs", "navigation.sections", "navigation.top", "search.highlight", "content.code.copy"], "search": "../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+    
+    
+      <script src="../assets/javascripts/bundle.d7400e89.min.js"></script>
+      
+    
+  </body>
+</html>

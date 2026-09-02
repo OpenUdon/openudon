@@ -1,0 +1,2132 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="Public UWS workflow authoring, review, package, and trusted executor handoff">
+      
+      
+      
+        <link rel="canonical" href="https://openudon.github.io/openudon/icot-ui/">
+      
+      
+        <link rel="prev" href="../icot/">
+      
+      
+        <link rel="next" href="../authenticated-browser-authoring/">
+      
+      
+        
+      
+      
+      <link rel="icon" href="../assets/images/favicon.png">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.7">
+    
+    
+      
+        <title>Local iCoT UI Server - OpenUdon</title>
+      
+    
+    
+      <link rel="stylesheet" href="../assets/stylesheets/main.ec1eaa64.min.css">
+      
+        
+        <link rel="stylesheet" href="../assets/stylesheets/palette.ab4e12ef.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+    <script>__md_scope=new URL("..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="teal" data-md-color-accent="deep-orange">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#local-icot-ui-server" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+<header class="md-header" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href=".." title="OpenUdon" class="md-header__button md-logo" aria-label="OpenUdon" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            OpenUdon
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              Local iCoT UI Server
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="" data-md-color-scheme="default" data-md-color-primary="teal" data-md-color-accent="deep-orange"  aria-hidden="true"  type="radio" name="__palette" id="__palette_0">
+    
+  
+</form>
+      
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+      <div class="md-header__source">
+        <a href="https://github.com/OpenUdon/openudon" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    OpenUdon/openudon
+  </div>
+</a>
+      </div>
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+            
+<nav class="md-tabs" aria-label="Tabs" data-md-component="tabs">
+  <div class="md-grid">
+    <ul class="md-tabs__list">
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href=".." class="md-tabs__link">
+        
+  
+  
+    
+  
+  Home
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../compatibility/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  Compatibility
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+    
+  
+  
+    
+    
+      <li class="md-tabs__item md-tabs__item--active">
+        <a href="../authoring/" class="md-tabs__link">
+          
+  
+  
+  Authoring
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../tutorial-weather/" class="md-tabs__link">
+          
+  
+  
+  Tutorial
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../safety/" class="md-tabs__link">
+          
+  
+  
+  Handoff
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../related/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  Related
+
+      </a>
+    </li>
+  
+
+      
+    </ul>
+  </div>
+</nav>
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+  
+
+
+<nav class="md-nav md-nav--primary md-nav--lifted" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href=".." title="OpenUdon" class="md-nav__button md-logo" aria-label="OpenUdon" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    OpenUdon
+  </label>
+  
+    <div class="md-nav__source">
+      <a href="https://github.com/OpenUdon/openudon" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    OpenUdon/openudon
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href=".." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Home
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../compatibility/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Compatibility
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+    
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3" checked>
+        
+          
+          <label class="md-nav__link" for="__nav_3" id="__nav_3_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Authoring
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="true">
+          <label class="md-nav__title" for="__nav_3">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Authoring
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../authoring/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../agentic-saas-authoring/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Agentic SaaS Authoring
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../saas-authoring-corpus/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    SaaS Authoring Corpus
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../saas-authoring-trials/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    SaaS Authoring Trials
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../multi-service-saas-patterns/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Multi-Service SaaS Patterns
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../n8n-pattern-bridge/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    n8n Pattern Bridge
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../project-authoring/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Project Briefs
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../project-authoring-schema/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    project.md Schema
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../intent/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    intent.hcl
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../data-flow/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Data Flow
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../icot/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    iCoT
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Local iCoT UI Server
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Local iCoT UI Server
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#guided-browser-registration-authoring" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Guided browser registration authoring
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#journey-and-acquisition" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Journey and acquisition
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#isolated-authenticated-browser-capture" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Isolated authenticated browser capture
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#browser-profile-transaction-review" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Browser-profile transaction review
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#authoring-package-and-handoff-lifecycle" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Authoring, package, and handoff lifecycle
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#api-and-access-boundary" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        API and access boundary
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#qualification" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Qualification
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../authenticated-browser-authoring/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Authenticated Browser Authoring
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../browser-profile-transactions/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Browser-Profile Transactions
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../icot-corpus-and-provider-roadmap/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    iCoT Corpus And Provider Roadmap
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../icot-session-schema/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    iCoT Session Files
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../icot-transcript/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    iCoT Transcripts
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../enterprise-authoring-execution/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Enterprise Authoring And Execution Boundary
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../synthesize/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Synthesize
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4" >
+        
+          
+          <label class="md-nav__link" for="__nav_4" id="__nav_4_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Tutorial
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_4_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_4">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Tutorial
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../tutorial-weather/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Weather
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../tutorial-gmail/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Gmail Audit Receipt
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../tutorial-order-fulfillment/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Order Fulfillment Chain
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../tutorial-support-email/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Support Email
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../eval-gallery/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Eval Gallery
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../eval-seed-build-matrix/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Eval Seed/Build Matrix
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5" >
+        
+          
+          <label class="md-nav__link" for="__nav_5" id="__nav_5_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Handoff
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_5_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_5">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Handoff
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../safety/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Safety
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../review-handoff/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Review Handoff
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../saas-review-handoff/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    SaaS Review Handoff
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../saas-operator-release/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    SaaS Operator Release Path
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../product-smoke-matrix/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Product Smoke Matrix
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../browser-integration-eval/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Browser Integration Evaluation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../browser-scenario-eval/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Browser Scenario Evaluation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../release-stewardship/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Release Stewardship
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../release-note-template/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Release Notes Template
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../related/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Related
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#guided-browser-registration-authoring" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Guided browser registration authoring
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#journey-and-acquisition" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Journey and acquisition
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#isolated-authenticated-browser-capture" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Isolated authenticated browser capture
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#browser-profile-transaction-review" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Browser-profile transaction review
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#authoring-package-and-handoff-lifecycle" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Authoring, package, and handoff lifecycle
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#api-and-access-boundary" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        API and access boundary
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#qualification" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Qualification
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+  
+  
+
+
+<h1 id="local-icot-ui-server">Local iCoT UI Server</h1>
+<p><code>icot ui</code> is OpenUdon's primary interactive authoring and review surface for
+API and existing-account browser workflows. It serves one explicitly named
+workspace on <code>127.0.0.1</code>, uses the same transactional engines as terminal iCoT,
+and exposes the experimental <code>openudon.icot-ui-api.v4</code> wire. It is neither a
+remote service nor a supported public API.</p>
+<pre><code class="language-bash">install -d -m 0700 /private/operator/openudon-authoring
+go run ./cmd/icot ui \
+  --example ./examples/&lt;name&gt; \
+  --private-root /private/operator/openudon-authoring
+</code></pre>
+<p><code>--private-root</code> is needed only for an API upload, browser capture, or guided
+registration authoring. It must be absolute, mode <code>0700</code>, non-symlink, and
+outside the example. Use <code>--driver-dir</code> when the installed Playwright-Go driver
+is outside its normal location. Chromium is an installed prerequisite; iCoT
+never downloads it. A fixed <code>--port</code> and <code>--no-open</code> remain available for local
+automation or an SSH tunnel to the loopback page.</p>
+<p>To review a public browser-profile transaction in the shell, supply the package
+option group and the optional existing transaction:</p>
+<pre><code class="language-bash">go run ./cmd/icot ui \
+  --example ./examples/&lt;name&gt; \
+  --browser-transaction ./transaction.json \
+  --package-scope examples/&lt;name&gt; \
+  --package-scratch /absolute/restrictive-scratch-parent \
+  --package-store /absolute/generation-store
+</code></pre>
+<p><code>transaction.json</code> is a public value-free v1 or v2 artifact, not a private
+Browsertools result or result path. The package paths stay process-private and
+have no API/DOM representation. Omitting any member of the package option group
+is a usage error. Omitting <code>--browser-transaction</code> starts the transaction
+engine without a candidate so the guided registration-authoring path can adopt
+one after clean Browsertools teardown.</p>
+<h2 id="guided-browser-registration-authoring">Guided browser registration authoring</h2>
+<p>The registration wizard is available only when <code>--private-root</code> and the full
+package option group are configured. It uses authenticated, revision-bound API
+v4 start, typed-command, and cancel operations to control one isolated headed
+Chromium worker with Browsertools registration protocol v2. Authoring permits
+GET and HEAD navigation only. It cannot type credentials, submit a form, create
+an account, sign in, or execute the workflow it describes.</p>
+<p>Each iCoT UI process admits exactly one registration-authoring Launch. The
+attempt is consumed immediately before worker construction, including when the
+worker cannot start or later fails or is canceled. The UI then disables Launch,
+and repeated start requests fail with the fixed
+<code>registration_authorization_consumed</code> code; a chat or client activity indicator
+does not renew that boundary. Another attempt requires a fresh preflight,
+authorization, and iCoT process. Final failure state exposes a closed,
+value-free <code>failure_code</code> and <code>attempt_consumed: true</code>; backend prose, private
+paths, raw output, and target observations cannot enter those fields.</p>
+<p>The operator reviews metadata, confidence and expiry, symbolic credential
+slots, ordered declarative macro steps, observed accessibility locators,
+effects, confirmation and success proof, fixed call controls, cleanup, and the
+exact canonical retained structural query. The common defaults include
+<code>identifier</code>, <code>password</code>, and <code>contact_name</code>; macro steps select from declared
+slots and may reuse <code>password</code> for password confirmation without duplicating a
+binding. Credential or verification values have no request, API-state, or DOM
+field.</p>
+<p>The no-submit observation cannot observe a post-submit success page. The
+operator therefore supplies the success origin, optional path, and
+accessibility role/name only from separately reviewed provider documentation
+or a separately reviewed local contract, and explicitly acknowledges that the
+locator was not observed during this session. API state discloses
+<code>operator_reviewed_deferred</code>, <code>observed_during_authoring: false</code>, and
+<code>runtime_proof_required: true</code>. The canonical profile records mixed provenance
+as <code>icot_no_submit_observation_operator_reviewed_success</code>; a separately
+approved runtime must still prove that normal UWS success condition after
+submission. The server constructs and revalidates the canonical UWS
+registration profile; JavaScript does not supply profile bytes.</p>
+<p>Candidate adoption succeeds only after the worker closes and its process tree
+is drained. The exact private candidate then enters the ordinary value-free
+browser transaction review. Explicit review selects it as a virtual source;
+the normal iCoT authoring rounds write the credential-free profile and review,
+build and qualify the package, and only then permit transaction preparation and
+atomic promotion. Canceling a pending candidate is terminal for that UI
+process; start a fresh iCoT process for another registration-authoring session.</p>
+<h2 id="journey-and-acquisition">Journey and acquisition</h2>
+<p>The first human decision selects one starter and records its goal as decision
+evidence:</p>
+<ul>
+<li><code>api</code></li>
+<li><code>existing_account_sign_in</code></li>
+<li><code>authenticated_action</code></li>
+<li><code>existing_reviewed_capability</code></li>
+<li><code>freeform_mixed</code></li>
+</ul>
+<p>Older resumable sessions without this field remain valid. General workflow
+discovery for registration, account creation, consent, enrollment, CAPTCHA,
+recovery, billing, and password changes remains unsupported; the shell shows
+guidance instead of launching those flows. The separate bounded registration
+wizard described above authors only an explicitly configured BRP and grants no
+runtime authority.</p>
+<p>API-family files enter a private, 20 MiB bounded inbox. iCoT rejects symlinks,
+invalid UTF-8, secret-like content, unknown or ambiguous documents, and files
+that do not produce exactly one validated Apitools source candidate. The shell
+shows the detected family, operation count, digest, and canonical workspace
+target. A separate Stage action performs the atomic write and refreshes engine
+discovery. Removal is allowed only for a UI-staged path whose exact digest is
+still owned by the UI; edited or externally replaced files fail closed.</p>
+<p>Existing reviewed local sources and explicitly configured Browsertools static
+registries remain available. There is no UI provider catalog, folder browser,
+or desired-state conversion surface.</p>
+<h2 id="isolated-authenticated-browser-capture">Isolated authenticated browser capture</h2>
+<p>The distributed <code>icot</code> executable contains a hidden Browsertools worker entry
+point. The server fully copies and hashes its executable into a private
+content-addressed cache, publishes the digest-named entry create-only with mode
+<code>0500</code>, revalidates every reused entry byte-for-byte, and launches it as a
+separate process group using <code>browsertools.author-session.v2</code>. Only stale
+regular temporary files with the owned prefix are swept. A hard interruption
+during first publication can leave a bounded owned temporary, while completed
+digest entries are reused instead of creating one stabilized executable per
+capture.
+Browsertools owns the Playwright-Go Chromium context. Neither the iCoT engine
+nor the HTTP server initializes Playwright in-process.</p>
+<p>Before launch, a 30-second isolated doctor reports the installed Playwright and
+Chromium readiness. Snapshot polling continues while the doctor runs. One
+capture may be active at a time. During an active capture the UI remains
+inspectable, but journey, source, interview, approval, and package mutations
+are blocked. The UI stores and serves only Browsertools' UI-safe doctor shape;
+the executable path and other private local paths remain CLI-only diagnostics.</p>
+<p>The API and shell model these states explicitly: <code>preflight</code>, <code>configuring</code>,
+<code>launching</code>, <code>authentication</code>, <code>human_input</code>, <code>exploration</code>,
+<code>action_approval</code>, <code>completion_review</code>, <code>stage_review</code>, <code>staging</code>, <code>staged</code>,
+<code>canceling</code>, <code>canceled</code>, <code>closed</code>, and <code>failed</code>. A worker <code>closed</code> state is
+terminal and does not trigger another observation request. The shell renders
+only reduced, validated protocol data:</p>
+<ul>
+<li>Browsertools-issued candidate actions as buttons;</li>
+<li>exact origin, action, candidate, and POST-budget approval cards;</li>
+<li>credential checkpoints that instruct the operator to type only in Chromium;</li>
+<li>only the MFA kinds reported by Browsertools;</li>
+<li>typed completion and bounded output decisions.</li>
+</ul>
+<p>The same typed parent controller serves UI, bundled terminal, expert external,
+and loopback capture. Before an event enters HTTP state it validates the closed
+message union, phases, canonical reduced labels, accessibility roles,
+diagnostics, context/frame identifiers, challenge kinds, additive context
+inventory, and negotiated bounds. Configured and page-derived paths pass the
+shared disclosure validator first, so an unsafe value is rejected without
+entering the snapshot, ETag, DOM, logs, or planner input.</p>
+<p>A new canonical HTTPS or loopback HTTP origin is shown on the existing exact
+approval card and is authoritative only after the response matches the pending
+navigation or click. The accumulated ledger governs subsequent events. The
+process-private parent attestation then binds the ordered actions,
+observations, checkpoints, approvals, dashboard proof, output requests,
+contexts, diagnostics, and final origin set. The attestation is neither
+serialized nor exposed by API v4.</p>
+<p>Passwords, OTPs, cookies, storage, request bodies, raw Browsertools output,
+child stderr, signing keys, runtime credentials, and the private result path
+have no HTTP or DOM representation. The child environment is allowlisted.
+Process cancellation terminates descendants and drains stdout. Browser-active
+operations retain Browsertools' ten-minute bound; unanswered human checkpoints
+cancel after 30 minutes and every capture has a two-hour absolute ceiling.</p>
+<p>A successful capture is not staged automatically. OpenUdon stable-reads and
+independently reconstructs the private result, requires it to match the parent
+attestation, then a separate Stage action atomically creates one collision-free
+authentication/capability profile pair and updates the safe
+<code>openudon.authenticated-browser-authoring-review.v3</code> collection. A valid v2
+singleton is migrated on that write. Existing profile files are never
+overwritten. Capture staging does not select a workflow action or create final
+<code>.icot/browser-sources.json</code>/<code>.icot/browser-authentication.json</code>; final
+authoring approval owns that evidence.</p>
+<p>Failed, canceled, expired, crashed, or malformed captures write nothing to the
+workspace.</p>
+<h2 id="browser-profile-transaction-review">Browser-profile transaction review</h2>
+<p>When launched with a public transaction, the shell presents the exact BAP+BCP
+or BRP composition, immutable origins/times/digests, symbolic bindings and
+session posture, candidate output targets, registration cleanup, preparation
+and qualification evidence, promotion/recovery identity, and selected-package
+side-effect posture. BRP review includes Browsertools' canonical
+accessibility-label heuristic/not-DLP disclosure and fixed GET/HEAD-only,
+zero-mutation, no-submit, no-account, no-session, and no-runtime facts. Its
+approval symbol is descriptive and grants no authority.</p>
+<p>Review, scratch preparation, promotion, recovery acceptance, and cancellation
+use separate checkboxes and revision/digest-bound requests. Stale revisions
+force a refresh and fresh consent. Expired candidates cannot be reviewed or
+prepared. Indeterminate promotion exposes the safe target and exact recovery
+report; blind retry is unavailable. Promotion selects package bytes only. The
+shell has no run, execute, sign-in, registration-submit, credential, or account
+operation.</p>
+<h2 id="authoring-package-and-handoff-lifecycle">Authoring, package, and handoff lifecycle</h2>
+<p>The UI uses one optimistic authoring revision for journey, source, interview,
+write, resume, and package mutations, plus a separate capture revision for
+asynchronous browser events. The response ETag covers both. Stale mutations
+are never retried automatically. A changed workspace preserves inspection but
+blocks mutation until restart.</p>
+<p>The shell presents the complete frontier, closed controls, structured
+deferrals, settled-decision reopening, source and capability provenance,
+digests, origins, actions, expiry, the symbolic credential/browser-session
+map, and a compact workflow graph. Final authoring approval atomically writes
+<code>project.md</code>, intent, selected sources, and review metadata, then enters
+<code>authored</code>; it does not finish the UI lifecycle.</p>
+<p>“Build reviewed package” is a separate revision-bound confirmation. The local
+deterministic build has a two-minute deadline. iCoT then performs a non-writing
+assessment of the exact current bytes. A quality failure shows check-specific
+remediation and permits an explicit return to authoring. That transition
+clears the prior write/package result, and final authoring approval must be
+repeated.</p>
+<p>A passing package enters <code>handoff_ready</code> and freezes authoring. The shell shows
+quality checks, side effects, symbolic credentials, runtime approvals, package
+and handoff digests, the exact <code>openudon approval-template</code> argv, and bounded
+artifacts from a closed allowlist. Snapshot polling and artifact reads recheck
+the frozen artifact sizes and digests; drift invalidates handoff readiness and
+requires resume, repeated approval, and rebuild. The UI does not create sandbox or production
+approval, accept credential values, call <code>openudon run</code>, or execute a workflow.</p>
+<h2 id="api-and-access-boundary">API and access boundary</h2>
+<p>The tokenless bootstrap accepts only the random 12-character terminal access
+code. The code expires after five minutes, is single-use, and is rate-limited;
+recovery prints a replacement only to the terminal. A successful exchange
+creates a scoped HttpOnly <code>SameSite=Strict</code> cookie on an unguessable instance
+path. Bearer authentication remains available for local automation. Exact
+loopback Host and Origin checks, no CORS, restrictive headers, bounded strict
+UTF-8 JSON/multipart decoding, and signal-driven shutdown remain mandatory.</p>
+<p>API v2 and v3 routes are removed. API v4 provides authenticated routes for snapshot,
+journey selection, interview rounds/reopening, source upload/stage/removal,
+browser preflight, capture start/respond/stage/cancel, authoring
+approval/resume, package build, and closed-allowlist artifact inspection.
+It additionally exposes current/start/review/prepare/promote/cancel,
+recovery inspection/reconciliation, and selected-package inspection for the
+value-free browser transaction. There is deliberately no registration submit,
+approval-generation, credential, run, or execution route.</p>
+<h2 id="qualification">Qualification</h2>
+<p>The provider-free shell gate remains:</p>
+<pre><code class="language-bash">make icot-ui-browser-check
+</code></pre>
+<p>It uses a build-tagged test harness to exercise the actual loopback listener.
+The unified acquisition-to-handoff qualification additionally requires an
+installed Chromium run covering access code, starter, authenticated capture,
+profile stage, resumed interview, repeated review as needed, package build,
+and passing handoff. Real-site runs must use an operator-authorized
+non-production tenant and retain only value-free evidence. The required target
+rejects the sandbox-disable override, sets an explicit sandbox-required
+control, and logs <code>chromium_sandbox_enabled=true</code> for every journey. Use
+<code>make icot-ui-browser-check-unsandboxed</code> only to diagnose a local host whose
+kernel policy blocks user namespaces; it cannot substitute for sandboxed
+release evidence.</p>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+          <button type="button" class="md-top md-icon" data-md-component="top" hidden>
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8z"/></svg>
+  Back to top
+</button>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+    <div class="md-copyright__highlight">
+      Copyright 2026 OpenUdon/openudon - UWS workflow authoring and trusted executor handoff - Apache 2.0
+    </div>
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "..", "features": ["navigation.tabs", "navigation.sections", "navigation.top", "search.highlight", "content.code.copy"], "search": "../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+    
+    
+      <script src="../assets/javascripts/bundle.d7400e89.min.js"></script>
+      
+    
+  </body>
+</html>
