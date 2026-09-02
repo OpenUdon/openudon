@@ -67,6 +67,10 @@ func (s *Server) serveRegistrationAuthoringStart(w http.ResponseWriter, r *http.
 
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	if s.registrationAttemptConsumed {
+		s.writeError(w, http.StatusConflict, "registration_authorization_consumed", "this iCoT process already consumed its one registration-authoring attempt; a later session requires a fresh preflight, authorization, and process", false, requestID, s.revision)
+		return
+	}
 	if err := s.refreshWorkspaceLocked(r.Context()); err != nil {
 		s.writeInternalError(w, r, requestID, "/api/v4/registration-authoring/start", "workspace_inspection", err, true)
 		return
@@ -105,10 +109,11 @@ func (s *Server) serveRegistrationAuthoringStart(w http.ResponseWriter, r *http.
 	}
 
 	startedAt := s.now().UTC()
-	s.registrationAuthoring = &RegistrationAuthoringState{
+	s.registrationAttemptConsumed = true
+	s.setRegistrationAuthoringLocked(&RegistrationAuthoringState{
 		State: "launching", Message: "Launching an isolated headed Chromium registration-authoring session.",
 		StartedAt: startedAt.Format(time.RFC3339), UpdatedAt: startedAt.Format(time.RFC3339),
-	}
+	})
 	s.registrationCandidate = nil
 	s.clearRegistrationDraftLocked()
 	privateStart := request
@@ -120,10 +125,10 @@ func (s *Server) serveRegistrationAuthoringStart(w http.ResponseWriter, r *http.
 		Protocol: registrationauthorsession.ProtocolV2,
 	})
 	if err != nil {
-		s.registrationAuthoring = &RegistrationAuthoringState{
-			State: "failed", Message: "The isolated Chromium registration worker could not start.",
+		s.setRegistrationAuthoringLocked(&RegistrationAuthoringState{
+			State: "failed", FailureCode: "worker_start_failed", Message: "The isolated Chromium registration worker could not start. This iCoT process has consumed its registration-authoring attempt; a later session requires a fresh preflight, authorization, and process.",
 			StartedAt: startedAt.Format(time.RFC3339), UpdatedAt: s.now().UTC().Format(time.RFC3339),
-		}
+		})
 		_ = s.updateRevisionLocked()
 		s.writeError(w, http.StatusUnprocessableEntity, "registration_authoring_failed", "registration authoring failed before launch", false, requestID, s.revision)
 		return
@@ -161,12 +166,13 @@ func (s *Server) consumeRegistrationAuthoring(session RegistrationAuthoringSessi
 			StartedAt:   startedAt.Format(time.RFC3339), UpdatedAt: s.now().UTC().Format(time.RFC3339),
 		}
 		if event.ErrorCode != "" {
-			state.Message = registrationAuthoringErrorMessage(event.ErrorCode)
+			state.FailureCode = registrationAuthoringFailureCode(event.ErrorCode)
+			state.Message = registrationAuthoringErrorMessage(state.FailureCode)
 		}
 		if event.State == "ready" {
 			state.State = "starting"
 			state.Message = "The isolated worker is ready; opening the reviewed initial navigation."
-			s.registrationAuthoring = state
+			s.setRegistrationAuthoringLocked(state)
 			_ = s.updateRevisionLocked()
 			s.mu.Unlock()
 			ctx, cancel := context.WithTimeout(s.captureContext, 5*time.Second)
@@ -176,7 +182,7 @@ func (s *Server) consumeRegistrationAuthoring(session RegistrationAuthoringSessi
 				session.Cancel()
 				s.mu.Lock()
 				if s.registrationSession == session {
-					s.registrationAuthoring = &RegistrationAuthoringState{State: "canceling", Message: "The registration worker rejected its fixed start command; waiting for teardown.", StartedAt: startedAt.Format(time.RFC3339), UpdatedAt: s.now().UTC().Format(time.RFC3339)}
+					s.setRegistrationAuthoringLocked(&RegistrationAuthoringState{State: "canceling", FailureCode: "start_rejected", Message: "The registration worker rejected its fixed start command; waiting for teardown.", StartedAt: startedAt.Format(time.RFC3339), UpdatedAt: s.now().UTC().Format(time.RFC3339)})
 					terminalState, terminalCode = "failed", "start_rejected"
 					_ = s.updateRevisionLocked()
 				}
@@ -195,11 +201,11 @@ func (s *Server) consumeRegistrationAuthoring(session RegistrationAuthoringSessi
 			state.Message = "The authoring protocol is closed; verifying clean worker teardown and result reconstruction."
 		}
 		if event.State == "failed" || event.State == "canceled" {
-			terminalState, terminalCode = event.State, event.ErrorCode
+			terminalState, terminalCode = event.State, registrationAuthoringFailureCode(event.ErrorCode)
 			state.State = "canceling"
 			state.Message = "The registration worker stopped; waiting for process-tree teardown to complete."
 		}
-		s.registrationAuthoring = state
+		s.setRegistrationAuthoringLocked(state)
 		_ = s.updateRevisionLocked()
 		s.mu.Unlock()
 	}
@@ -216,16 +222,13 @@ func (s *Server) consumeRegistrationAuthoring(session RegistrationAuthoringSessi
 		if state == "" {
 			state = "canceled"
 		}
-		message := "Registration authoring was canceled after the worker and all descendants stopped; no candidate was adopted."
-		if state == "failed" {
-			message = "Registration authoring failed closed after the worker and all descendants stopped; no candidate is available."
-		}
-		containmentFailed := terminalCode == "worker_teardown"
+		failureCode := registrationAuthoringFailureCode(terminalCode)
+		message := registrationAuthoringTerminalMessage(state, failureCode)
+		containmentFailed := failureCode == "worker_teardown"
 		if containmentFailed {
 			s.registrationContainmentFailed = true
-			message += " Restart iCoT before starting another browser operation."
 		}
-		s.registrationAuthoring = &RegistrationAuthoringState{State: state, Message: message, ContainmentFailed: containmentFailed, StartedAt: startedAt.Format(time.RFC3339), UpdatedAt: updatedAt}
+		s.setRegistrationAuthoringLocked(&RegistrationAuthoringState{State: state, Message: message, FailureCode: failureCode, ContainmentFailed: containmentFailed, StartedAt: startedAt.Format(time.RFC3339), UpdatedAt: updatedAt})
 		s.registrationCandidate = nil
 		s.clearRegistrationDraftLocked()
 		_ = s.updateRevisionLocked()
@@ -235,22 +238,22 @@ func (s *Server) consumeRegistrationAuthoring(session RegistrationAuthoringSessi
 		draft := cloneRegistrationDraftDisclosure(s.registrationAuthoring.Draft)
 		transactionSnapshot, err := s.startRegistrationTransactionLocked(s.captureContext, s.registrationCandidate)
 		if err != nil {
-			s.registrationAuthoring = &RegistrationAuthoringState{State: "failed", Message: "The adopted registration candidate could not enter the exact browser transaction lifecycle.", StartedAt: startedAt.Format(time.RFC3339), UpdatedAt: updatedAt}
+			s.setRegistrationAuthoringLocked(&RegistrationAuthoringState{State: "failed", FailureCode: "transaction_start_failed", Message: "The adopted registration candidate could not enter the exact browser transaction lifecycle. This iCoT process has consumed its registration-authoring attempt; a later session requires a fresh preflight, authorization, and process.", StartedAt: startedAt.Format(time.RFC3339), UpdatedAt: updatedAt})
 			s.registrationCandidate = nil
 			s.clearRegistrationDraftLocked()
 			_ = s.updateRevisionLocked()
 			return
 		}
 		s.browserTransaction = &transactionSnapshot
-		s.registrationAuthoring = &RegistrationAuthoringState{
+		s.setRegistrationAuthoringLocked(&RegistrationAuthoringState{
 			State: "transaction_review", Message: "The worker stopped cleanly and the exact transaction-v2 candidate is ready for separate browser transaction review.",
 			ResultReady: true, Draft: draft, StartedAt: startedAt.Format(time.RFC3339), UpdatedAt: updatedAt,
-		}
+		})
 		s.clearRegistrationDraftLocked()
 		_ = s.updateRevisionLocked()
 		return
 	}
-	s.registrationAuthoring = &RegistrationAuthoringState{State: "failed", Message: "The registration worker ended without a promotable candidate.", StartedAt: startedAt.Format(time.RFC3339), UpdatedAt: updatedAt}
+	s.setRegistrationAuthoringLocked(&RegistrationAuthoringState{State: "failed", FailureCode: "candidate_missing", Message: "The registration worker ended without a promotable candidate. This iCoT process has consumed its registration-authoring attempt; a later session requires a fresh preflight, authorization, and process.", StartedAt: startedAt.Format(time.RFC3339), UpdatedAt: updatedAt})
 	s.registrationCandidate = nil
 	s.clearRegistrationDraftLocked()
 	_ = s.updateRevisionLocked()
@@ -326,10 +329,10 @@ func (s *Server) adoptReviewedRegistrationLocked(ctx context.Context, transactio
 	}
 	draft := cloneRegistrationDraftDisclosure(s.registrationAuthoring.Draft)
 	s.snapshot = selected
-	s.registrationAuthoring = &RegistrationAuthoringState{
+	s.setRegistrationAuthoringLocked(&RegistrationAuthoringState{
 		State: "adopted", Message: "The explicitly reviewed transaction-v2 candidate is selected as a virtual source. Complete authoring, write, and build the package before preparation.",
 		Draft: draft, StartedAt: s.registrationAuthoring.StartedAt, UpdatedAt: s.now().UTC().Format(time.RFC3339),
-	}
+	})
 	s.registrationCandidate = nil
 	return nil
 }
@@ -378,13 +381,13 @@ func (s *Server) serveRegistrationAuthoringCommand(w http.ResponseWriter, r *htt
 		command.CleanupDisposition = s.registrationDraftCleanup
 	}
 	previous := *s.registrationAuthoring
-	s.registrationAuthoring = &RegistrationAuthoringState{
+	s.setRegistrationAuthoringLocked(&RegistrationAuthoringState{
 		State: "commanding", Message: "The typed command was accepted; waiting for the isolated worker.", Phase: previous.Phase,
 		StartedAt: previous.StartedAt, UpdatedAt: s.now().UTC().Format(time.RFC3339),
 		Draft: cloneRegistrationDraftDisclosure(previous.Draft),
-	}
+	})
 	if err := s.updateRevisionLocked(); err != nil {
-		s.registrationAuthoring = &previous
+		s.setRegistrationAuthoringLocked(&previous)
 		s.writeInternalError(w, r, requestID, "/api/v4/registration-authoring/command", "revision", err, true)
 		s.mu.Unlock()
 		return
@@ -397,7 +400,7 @@ func (s *Server) serveRegistrationAuthoringCommand(w http.ResponseWriter, r *htt
 	if err := session.Send(ctx, command); err != nil {
 		s.mu.Lock()
 		if s.registrationSession == session && s.registrationRevision == reservedRevision {
-			s.registrationAuthoring = &previous
+			s.setRegistrationAuthoringLocked(&previous)
 			_ = s.updateRevisionLocked()
 		}
 		revision := s.revision
@@ -434,10 +437,10 @@ func (s *Server) serveRegistrationAuthoringCancel(w http.ResponseWriter, r *http
 	s.registrationSession.Cancel()
 	s.registrationCandidate = nil
 	s.clearRegistrationDraftLocked()
-	s.registrationAuthoring = &RegistrationAuthoringState{
+	s.setRegistrationAuthoringLocked(&RegistrationAuthoringState{
 		State: "canceling", Message: "Cancellation was requested; waiting for the isolated worker and all descendants to stop.",
 		StartedAt: s.registrationAuthoring.StartedAt, UpdatedAt: s.now().UTC().Format(time.RFC3339),
-	}
+	})
 	if err := s.updateRevisionLocked(); err != nil {
 		s.writeInternalError(w, r, requestID, "/api/v4/registration-authoring/cancel", "revision", err, true)
 		return
@@ -523,11 +526,11 @@ func (s *Server) serveRegistrationAuthoringDraft(w http.ResponseWriter, r *http.
 	s.registrationDraftBindings = append([]browsertransaction.CredentialBinding(nil), bindings...)
 	s.registrationDraftFlow = request.Draft.Flow.Name
 	s.registrationDraftCleanup = request.Draft.CallControls.CleanupDisposition
-	s.registrationAuthoring = &RegistrationAuthoringState{
+	s.setRegistrationAuthoringLocked(&RegistrationAuthoringState{
 		State: "draft_review", Message: "Review the exact canonical credential-free BRP, retained queries, symbolic bindings, effects, and fixed call controls before confirming.",
 		Phase: s.registrationAuthoring.Phase, Observation: cloneRegistrationAuthoringObservation(s.registrationAuthoring.Observation), Draft: disclosure,
 		StartedAt: s.registrationAuthoring.StartedAt, UpdatedAt: s.now().UTC().Format(time.RFC3339),
-	}
+	})
 	if err := s.updateRevisionLocked(); err != nil {
 		s.writeInternalError(w, r, requestID, "/api/v4/registration-authoring/command", "revision", err, true)
 		return
@@ -556,6 +559,49 @@ func cloneRegistrationDraftDisclosure(value *RegistrationDraftDisclosure) *Regis
 		copy.RetainedQueries[index].Parameters = append([]RetainedQueryParameter(nil), value.RetainedQueries[index].Parameters...)
 	}
 	return &copy
+}
+
+func (s *Server) setRegistrationAuthoringLocked(state *RegistrationAuthoringState) {
+	if state != nil {
+		state.FailureCode = registrationAuthoringFailureCode(state.FailureCode)
+		state.AttemptConsumed = s.registrationAttemptConsumed
+	}
+	s.registrationAuthoring = state
+}
+
+func registrationAuthoringFailureCode(code string) string {
+	switch strings.TrimSpace(code) {
+	case "":
+		return ""
+	case "candidate_adoption_failed", "candidate_missing", "candidate_rejected",
+		"invalid_response", "malformed_diagnostic", "operator_idle_timeout",
+		"protocol_mismatch", "protocol_negotiation", "review_missing",
+		"start_rejected", "transaction_start_failed", "worker_exit",
+		"worker_failed", "worker_protocol", "worker_start_failed",
+		"worker_teardown", "worker_write":
+		return strings.TrimSpace(code)
+	default:
+		return "worker_failed"
+	}
+}
+
+func registrationAuthoringTerminalMessage(state, code string) string {
+	const consumed = " This iCoT process has consumed its registration-authoring attempt; a later session requires a fresh preflight, authorization, and process."
+	if code == "worker_teardown" {
+		return "Registration authoring failed closed because clean worker-descendant teardown could not be confirmed; no candidate is available." + consumed
+	}
+	if state == "canceled" {
+		message := "Registration authoring was canceled after the worker and all descendants stopped; no candidate was adopted."
+		if code != "" {
+			message = registrationAuthoringErrorMessage(code) + " The worker and all descendants then stopped; no candidate was adopted."
+		}
+		return message + consumed
+	}
+	message := "Registration authoring failed closed after the worker and all descendants stopped; no candidate is available."
+	if code != "" {
+		message = registrationAuthoringErrorMessage(code) + " The worker and all descendants then stopped; no candidate is available."
+	}
+	return message + consumed
 }
 
 func registrationAuthoringErrorMessage(code string) string {

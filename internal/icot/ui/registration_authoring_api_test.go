@@ -159,7 +159,7 @@ func TestRegistrationAuthoringAPILifecycleIsAuthenticatedRevisionBoundAndQuerySa
 		t.Fatalf("cancel response = %d %s", canceled.Code, canceled.Body.String())
 	}
 	final := waitForRegistrationState(t, handler, "canceled")
-	if final.RegistrationAuthoring.ResultReady || strings.Contains(mustJSON(t, final), "action=startnew") {
+	if final.RegistrationAuthoring.ResultReady || !final.RegistrationAuthoring.AttemptConsumed || strings.Contains(mustJSON(t, final), "action=startnew") {
 		t.Fatalf("canceled state = %s", mustJSON(t, final))
 	}
 }
@@ -183,7 +183,10 @@ func TestRegistrationAuthoringAPIEnforcesSingleSessionAndContainmentFailure(t *t
 		t.Fatalf("start = %d %s", response.Code, response.Body.String())
 	}
 	active := currentResponse(t, handler)
-	if response := doRequest(handler, http.MethodPost, "/api/v4/registration-authoring/start", registrationStartBody(active, "https://app.example.test/register"), "application/json", true); response.Code != http.StatusConflict {
+	if !active.RegistrationAuthoring.AttemptConsumed {
+		t.Fatalf("active attempt was not consumed: %s", mustJSON(t, active))
+	}
+	if response := doRequest(handler, http.MethodPost, "/api/v4/registration-authoring/start", registrationStartBody(initial, "https://app.example.test/register"), "application/json", true); response.Code != http.StatusConflict || !strings.Contains(response.Body.String(), `"code":"registration_authorization_consumed"`) {
 		t.Fatalf("second start = %d %s", response.Code, response.Body.String())
 	}
 	if response := doRequest(handler, http.MethodPost, "/api/v4/round", `{"revision":"`+active.Revision+`","answers":[]}`, "application/json", true); response.Code != http.StatusConflict || !strings.Contains(response.Body.String(), "registration_authoring_active") {
@@ -192,21 +195,64 @@ func TestRegistrationAuthoringAPIEnforcesSingleSessionAndContainmentFailure(t *t
 	session.events <- browserauthor.RegistrationEvent{State: "failed", ErrorCode: "worker_teardown"}
 	session.close()
 	failed := waitForRegistrationState(t, handler, "failed")
-	if !failed.RegistrationAuthoring.ContainmentFailed {
+	if !failed.RegistrationAuthoring.ContainmentFailed || failed.RegistrationAuthoring.FailureCode != "worker_teardown" || !failed.RegistrationAuthoring.AttemptConsumed {
 		t.Fatalf("containment failure = %s", mustJSON(t, failed))
 	}
-	if response := doRequest(handler, http.MethodPost, "/api/v4/registration-authoring/start", registrationStartBody(failed, "https://app.example.test/register"), "application/json", true); response.Code != http.StatusConflict || !strings.Contains(response.Body.String(), "browser_teardown_failed") {
+	if response := doRequest(handler, http.MethodPost, "/api/v4/registration-authoring/start", registrationStartBody(failed, "https://app.example.test/register"), "application/json", true); response.Code != http.StatusConflict || !strings.Contains(response.Body.String(), "registration_authorization_consumed") {
 		t.Fatalf("restart after containment failure = %d %s", response.Code, response.Body.String())
+	}
+}
+
+func TestRegistrationAuthoringAPITerminalFailureCodeIsClosedAndRetained(t *testing.T) {
+	for _, test := range []struct {
+		name string
+		code string
+		want string
+	}{
+		{name: "known", code: "worker_exit", want: "worker_exit"},
+		{name: "unknown", code: "private path and do-not-retain", want: "worker_failed"},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			fake := &fakeEngine{}
+			session := newFakeRegistrationAuthoringSession()
+			handler, err := NewHandler(HandlerConfig{
+				Context: context.Background(), Engine: fake, Snapshot: fake.snapshot, ExampleDir: "/tmp/example",
+				Token: testToken, AccessCode: testAccessCode, Authority: testAuthority, PrivateRoot: "/tmp/private",
+				BrowserTransactions: newFakeBrowserTransactions(),
+				StartRegistration: func(context.Context, browserauthor.RegistrationConfig) (RegistrationAuthoringSession, error) {
+					return session, nil
+				},
+			})
+			if err != nil {
+				t.Fatal(err)
+			}
+			initial := currentResponse(t, handler)
+			if response := doRequest(handler, http.MethodPost, "/api/v4/registration-authoring/start", registrationStartBody(initial, "https://app.example.test/register"), "application/json", true); response.Code != http.StatusAccepted {
+				t.Fatalf("start = %d %s", response.Code, response.Body.String())
+			}
+			session.events <- browserauthor.RegistrationEvent{State: "failed", ErrorCode: test.code}
+			session.close()
+			failed := waitForRegistrationState(t, handler, "failed")
+			encoded := mustJSON(t, failed)
+			if failed.RegistrationAuthoring.FailureCode != test.want || !failed.RegistrationAuthoring.AttemptConsumed || strings.Contains(encoded, "private path") || strings.Contains(encoded, "do-not-retain") {
+				t.Fatalf("terminal failure = %s", encoded)
+			}
+			if response := doRequest(handler, http.MethodPost, "/api/v4/registration-authoring/start", registrationStartBody(failed, "https://app.example.test/register"), "application/json", true); response.Code != http.StatusConflict || !strings.Contains(response.Body.String(), "registration_authorization_consumed") {
+				t.Fatalf("retry = %d %s", response.Code, response.Body.String())
+			}
+		})
 	}
 }
 
 func TestRegistrationAuthoringAPIStartFailureIsClosed(t *testing.T) {
 	fake := &fakeEngine{}
+	startCalls := 0
 	handler, err := NewHandler(HandlerConfig{
 		Context: context.Background(), Engine: fake, Snapshot: fake.snapshot, ExampleDir: "/tmp/example",
 		Token: testToken, AccessCode: testAccessCode, Authority: testAuthority, PrivateRoot: "/tmp/private",
 		BrowserTransactions: newFakeBrowserTransactions(),
 		StartRegistration: func(context.Context, browserauthor.RegistrationConfig) (RegistrationAuthoringSession, error) {
+			startCalls++
 			return nil, errors.New("private path and do-not-retain")
 		},
 	})
@@ -217,6 +263,14 @@ func TestRegistrationAuthoringAPIStartFailureIsClosed(t *testing.T) {
 	response := doRequest(handler, http.MethodPost, "/api/v4/registration-authoring/start", registrationStartBody(initial, "https://app.example.test/register?action=startnew"), "application/json", true)
 	if response.Code != http.StatusUnprocessableEntity || strings.Contains(response.Body.String(), "private path") || strings.Contains(response.Body.String(), "action=startnew") || strings.Contains(response.Body.String(), "startnew") {
 		t.Fatalf("start failure = %d %s", response.Code, response.Body.String())
+	}
+	failed := currentResponse(t, handler)
+	if failed.RegistrationAuthoring == nil || failed.RegistrationAuthoring.FailureCode != "worker_start_failed" || !failed.RegistrationAuthoring.AttemptConsumed {
+		t.Fatalf("closed start state = %s", mustJSON(t, failed))
+	}
+	retry := doRequest(handler, http.MethodPost, "/api/v4/registration-authoring/start", registrationStartBody(failed, "https://app.example.test/register"), "application/json", true)
+	if retry.Code != http.StatusConflict || !strings.Contains(retry.Body.String(), "registration_authorization_consumed") || startCalls != 1 {
+		t.Fatalf("start retry = %d calls=%d %s", retry.Code, startCalls, retry.Body.String())
 	}
 }
 

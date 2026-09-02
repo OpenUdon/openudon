@@ -2198,6 +2198,8 @@ func TestEmbeddedShellContainsAccessiblePhaseCControls(t *testing.T) {
 		`maximumBackoff`,
 		`pollGeneration`,
 		`sendLifecycleJSON("registration-authoring/start"`,
+		`Boolean(authoring?.attempt_consumed)`,
+		`Fixed failure class: ${authoring.failure_code}.`,
 		`sendRegistrationCommand("draft", { draft })`,
 		`sendRegistrationCommand("review", { confirmed: true })`,
 		`sendRegistrationCommand("finish", { confirmed: true })`,

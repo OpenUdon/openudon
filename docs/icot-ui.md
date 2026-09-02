@@ -48,6 +48,16 @@ Chromium worker with Browsertools registration protocol v2. Authoring permits
 GET and HEAD navigation only. It cannot type credentials, submit a form, create
 an account, sign in, or execute the workflow it describes.
 
+Each iCoT UI process admits exactly one registration-authoring Launch. The
+attempt is consumed immediately before worker construction, including when the
+worker cannot start or later fails or is canceled. The UI then disables Launch,
+and repeated start requests fail with the fixed
+`registration_authorization_consumed` code; a chat or client activity indicator
+does not renew that boundary. Another attempt requires a fresh preflight,
+authorization, and iCoT process. Final failure state exposes a closed,
+value-free `failure_code` and `attempt_consumed: true`; backend prose, private
+paths, raw output, and target observations cannot enter those fields.
+
 The operator reviews metadata, confidence and expiry, symbolic credential
 slots, ordered declarative macro steps, observed accessibility locators,
 effects, confirmation and success proof, fixed call controls, cleanup, and the

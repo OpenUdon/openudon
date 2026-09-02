@@ -178,16 +178,20 @@ type CaptureState struct {
 // Draft may carry the explicitly reviewed canonical profile and retained
 // structural query disclosure. The state cannot carry unreviewed URLs or
 // queries, credential or verification values, private paths, raw worker output,
-// or the adopted candidate.
+// or the adopted candidate. FailureCode is restricted to the server's closed,
+// value-free vocabulary. AttemptConsumed is process-local and does not grant or
+// renew external session authority.
 type RegistrationAuthoringState struct {
 	State             string                                 `json:"state"`
 	Message           string                                 `json:"message,omitempty"`
+	FailureCode       string                                 `json:"failure_code,omitempty"`
 	Phase             string                                 `json:"phase,omitempty"`
 	Bounds            *registrationauthorsession.Bounds      `json:"bounds,omitempty"`
 	Observation       *registrationauthorsession.Observation `json:"observation,omitempty"`
 	Draft             *RegistrationDraftDisclosure           `json:"draft,omitempty"`
 	ResultReady       bool                                   `json:"result_ready,omitempty"`
 	ContainmentFailed bool                                   `json:"containment_failed,omitempty"`
+	AttemptConsumed   bool                                   `json:"attempt_consumed,omitempty"`
 	StartedAt         string                                 `json:"started_at,omitempty"`
 	UpdatedAt         string                                 `json:"updated_at,omitempty"`
 }
@@ -376,6 +380,7 @@ type Server struct {
 	registrationDraftBindings     []browsertransaction.CredentialBinding
 	registrationDraftFlow         string
 	registrationDraftCleanup      string
+	registrationAttemptConsumed   bool
 	registrationContainmentFailed bool
 	doctorReport                  *browserauthor.UIDoctorReport
 	captureContext                context.Context

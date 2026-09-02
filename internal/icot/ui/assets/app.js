@@ -1332,11 +1332,15 @@ const renderRegistrationAuthoring = (payload) => {
 	initializeRegistrationRows();
 	const authoring = payload.registration_authoring;
 	showText("registration-authoring-state", authoring?.state?.replaceAll("_", " ") || "Not started");
-	showText("registration-authoring-status", authoring?.message || (payload.browser_transaction
+	const status = authoring?.message || (payload.browser_transaction
 		? "This wizard observes accessibility metadata with GET or HEAD only. It cannot type, click, submit, create an account, sign in, or execute the drafted workflow."
-		: "Configure package scope, restrictive scratch, and a generation store when launching iCoT before registration authoring."));
+		: "Configure package scope, restrictive scratch, and a generation store when launching iCoT before registration authoring.");
+	const statusDetails = [status];
+	if (authoring?.failure_code) statusDetails.push(`Fixed failure class: ${authoring.failure_code}.`);
+	if (authoring?.attempt_consumed && !status.includes("consumed its registration-authoring attempt")) statusDetails.push("This iCoT process has consumed its one registration-authoring attempt; do not launch again without a fresh preflight, authorization, and process.");
+	showText("registration-authoring-status", statusDetails.join(" "));
 	const pendingCandidate = ["review_ready", "transaction_review", "adopted"].includes(authoring?.state);
-	const startLocked = state.pendingMutation || !payload.browser_transaction || payload.lifecycle !== "authoring" || externallyModified(payload) || Boolean(authoring?.containment_failed) || registrationActive(authoring) || pendingCandidate;
+	const startLocked = state.pendingMutation || !payload.browser_transaction || payload.lifecycle !== "authoring" || externallyModified(payload) || Boolean(authoring?.containment_failed) || Boolean(authoring?.attempt_consumed) || registrationActive(authoring) || pendingCandidate;
 	Array.from(byID("registration-start-form").elements).forEach((control) => { control.disabled = startLocked; });
 	byID("registration-cancel").hidden = !registrationActive(authoring) || ["canceling", "transaction_review"].includes(authoring?.state);
 
