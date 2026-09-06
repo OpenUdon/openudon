@@ -211,6 +211,21 @@ verification values—are rejected. This attestation is distinct from both the
 ordinary package approval and the submit approval requested immediately before
 the registration runtime's sole submit.
 
+The additive [v2 recovery attestation](schemas/openudon.browser-registration-attestation.v2.schema.json)
+records exactly one previous attempt, `delete_separately`, and a maximum
+20-minute expiry. Its closed `recovery` object binds the separately reviewed
+authority, persistent single-use claim, previous attestation, native evidence,
+and executor-report digests, with only `submission_not_started` as an outcome.
+It cannot represent uncertain or post-submission recovery. V1 remains closed
+and continues to require zero prior attempts.
+
+The operating application must independently prove the previous submission
+never began and durably consume its single-use recovery claim before invoking
+OpenUdon. These are trusted operator facts in the attestation; OpenUdon checks
+the artifact and exact current package/operation, not an external application's
+account database or ledger. The artifact alone is not permission to retry.
+It is never generated automatically from a missing receipt or a failed run.
+
 On ordinary authoring approval, OpenUdon revalidates both in-memory inputs and
 atomically proposes the canonical profile, its adjacent `*.review.json`
 Browsertools bundle, and `.icot/browser-registration.json`. The latter binds

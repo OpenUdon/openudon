@@ -6,6 +6,7 @@ package registrationattestation
 import (
 	"crypto/sha256"
 	"encoding/hex"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -20,8 +21,9 @@ import (
 )
 
 const (
-	Version  = "openudon.browser-registration-attestation.v1"
-	MaxBytes = 16 << 10
+	Version         = "openudon.browser-registration-attestation.v1"
+	RecoveryVersion = "openudon.browser-registration-attestation.v2"
+	MaxBytes        = 16 << 10
 )
 
 var (
@@ -31,16 +33,29 @@ var (
 )
 
 type Artifact struct {
-	Version            string `json:"version"`
-	PackageSHA256      string `json:"package_sha256"`
-	ProfileSHA256      string `json:"profile_sha256"`
-	Operation          string `json:"operation"`
-	Flow               string `json:"flow"`
-	PriorAttempts      int    `json:"prior_attempts"`
-	DedicatedTest      bool   `json:"dedicated_test"`
-	CleanupDisposition string `json:"cleanup_disposition"`
-	Reviewer           string `json:"reviewer"`
-	ExpiresAt          string `json:"expires_at"`
+	Version            string    `json:"version"`
+	PackageSHA256      string    `json:"package_sha256"`
+	ProfileSHA256      string    `json:"profile_sha256"`
+	Operation          string    `json:"operation"`
+	Flow               string    `json:"flow"`
+	PriorAttempts      int       `json:"prior_attempts"`
+	DedicatedTest      bool      `json:"dedicated_test"`
+	CleanupDisposition string    `json:"cleanup_disposition"`
+	Reviewer           string    `json:"reviewer"`
+	ExpiresAt          string    `json:"expires_at"`
+	Recovery           *Recovery `json:"recovery,omitempty"`
+}
+
+// Recovery records the operator's independently reviewed pre-submission facts.
+// The operating application owns the persistent single-use claim; this artifact
+// neither issues that claim nor authorizes a retry after uncertain submission.
+type Recovery struct {
+	AuthoritySHA256           string `json:"authority_sha256"`
+	ClaimSHA256               string `json:"claim_sha256"`
+	PriorAttestationSHA256    string `json:"prior_attestation_sha256"`
+	PriorRunEvidenceSHA256    string `json:"prior_run_evidence_sha256"`
+	PriorExecutorReportSHA256 string `json:"prior_executor_report_sha256"`
+	Outcome                   string `json:"outcome"`
 }
 
 type Expected struct {
@@ -105,10 +120,32 @@ func Decode(data []byte, now time.Time) (Artifact, error) {
 	if err := evidencefile.DecodeStrict(data, &artifact); err != nil {
 		return Artifact{}, errors.New("browser registration attestation is invalid")
 	}
-	if artifact.Version != Version || !digestPattern.MatchString(artifact.PackageSHA256) || !digestPattern.MatchString(artifact.ProfileSHA256) ||
-		!symbolPattern.MatchString(artifact.Operation) || !symbolPattern.MatchString(artifact.Flow) || artifact.PriorAttempts != 0 || !artifact.DedicatedTest ||
+	if !digestPattern.MatchString(artifact.PackageSHA256) || !digestPattern.MatchString(artifact.ProfileSHA256) ||
+		!symbolPattern.MatchString(artifact.Operation) || !symbolPattern.MatchString(artifact.Flow) || !artifact.DedicatedTest ||
 		artifact.CleanupDisposition != "delete_separately" && artifact.CleanupDisposition != "retain_dedicated_test_identity" ||
 		!reviewerPattern.MatchString(artifact.Reviewer) {
+		return Artifact{}, errors.New("browser registration attestation is invalid")
+	}
+	var fields map[string]json.RawMessage
+	if json.Unmarshal(data, &fields) != nil {
+		return Artifact{}, errors.New("browser registration attestation is invalid")
+	}
+	switch artifact.Version {
+	case Version:
+		if _, present := fields["recovery"]; present || artifact.PriorAttempts != 0 {
+			return Artifact{}, errors.New("browser registration attestation is invalid")
+		}
+	case RecoveryVersion:
+		r := artifact.Recovery
+		if artifact.PriorAttempts != 1 || artifact.CleanupDisposition != "delete_separately" || r == nil || r.Outcome != "submission_not_started" {
+			return Artifact{}, errors.New("browser registration recovery attestation is invalid")
+		}
+		for _, digest := range []string{r.AuthoritySHA256, r.ClaimSHA256, r.PriorAttestationSHA256, r.PriorRunEvidenceSHA256, r.PriorExecutorReportSHA256} {
+			if !digestPattern.MatchString(digest) {
+				return Artifact{}, errors.New("browser registration recovery attestation is invalid")
+			}
+		}
+	default:
 		return Artifact{}, errors.New("browser registration attestation is invalid")
 	}
 	if now.IsZero() {
@@ -118,6 +155,9 @@ func Decode(data []byte, now time.Time) (Artifact, error) {
 	expires, err := time.Parse(time.RFC3339, artifact.ExpiresAt)
 	if err != nil || expires.Location() != time.UTC || expires.Nanosecond() != 0 || artifact.ExpiresAt != expires.Format(time.RFC3339) || !expires.After(now) || expires.After(now.Add(24*time.Hour)) {
 		return Artifact{}, errors.New("browser registration attestation expiry is invalid")
+	}
+	if artifact.Version == RecoveryVersion && expires.After(now.Add(20*time.Minute)) {
+		return Artifact{}, errors.New("browser registration recovery attestation expiry is invalid")
 	}
 	return artifact, nil
 }

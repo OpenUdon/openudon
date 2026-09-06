@@ -348,40 +348,64 @@ flows:
 		t.Fatal("registration executor was invoked without submit approval")
 	}
 
-	result, err = Run(context.Background(), Options{
-		RepoRoot: root, ExampleDir: example, Tier: "sandbox", ApprovalPath: approvalPath,
-		Now: now, Assess: passAssess, BrowserDriver: driver, RegistrationAttestationPath: attestationPath,
-		RegistrationSubmitApproval: "register_test_user",
-		Env:                        []string{"OPENUDON_EXECUTOR=/bin/true", "UDON_CREDENTIAL_TEST_IDENTIFIER=identifier-value", "UDON_CREDENTIAL_TEST_PASSWORD=password-value"},
-		Invoke: func(_ context.Context, invocation udonrunner.Invocation) error {
-			invoked = true
-			for _, pair := range [][2]string{{"--browser-driver-protocol", "v4"}, {"--attest-browser-registration", "register_test_user"}, {"--approve-browser-registration", "register_test_user"}} {
-				if !containsBrowserArgs(invocation.Argv, pair[0], pair[1]) {
-					t.Fatalf("registration invocation missing %q %q: %#v", pair[0], pair[1], invocation.Argv)
+	for _, recovery := range []bool{false, true} {
+		if recovery {
+			var artifact registrationattestation.Artifact
+			if err := json.Unmarshal(attestationData, &artifact); err != nil {
+				t.Fatal(err)
+			}
+			artifact.Version = registrationattestation.RecoveryVersion
+			artifact.PriorAttempts = 1
+			artifact.ExpiresAt = now().Add(19 * time.Minute).Format(time.RFC3339)
+			artifact.Recovery = &registrationattestation.Recovery{
+				AuthoritySHA256: "sha256:" + strings.Repeat("1", 64), ClaimSHA256: "sha256:" + strings.Repeat("2", 64),
+				PriorAttestationSHA256: "sha256:" + strings.Repeat("3", 64), PriorRunEvidenceSHA256: "sha256:" + strings.Repeat("4", 64),
+				PriorExecutorReportSHA256: "sha256:" + strings.Repeat("5", 64), Outcome: "submission_not_started",
+			}
+			data, err := json.Marshal(artifact)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if err := os.WriteFile(attestationPath, append(data, '\n'), 0600); err != nil {
+				t.Fatal(err)
+			}
+		}
+		invoked = false
+		result, err = Run(context.Background(), Options{
+			RepoRoot: root, ExampleDir: example, Tier: "sandbox", ApprovalPath: approvalPath,
+			Now: now, Assess: passAssess, BrowserDriver: driver, RegistrationAttestationPath: attestationPath,
+			RegistrationSubmitApproval: "register_test_user",
+			Env:                        []string{"OPENUDON_EXECUTOR=/bin/true", "UDON_CREDENTIAL_TEST_IDENTIFIER=identifier-value", "UDON_CREDENTIAL_TEST_PASSWORD=password-value"},
+			Invoke: func(_ context.Context, invocation udonrunner.Invocation) error {
+				invoked = true
+				for _, pair := range [][2]string{{"--browser-driver-protocol", "v4"}, {"--attest-browser-registration", "register_test_user"}, {"--approve-browser-registration", "register_test_user"}} {
+					if !containsBrowserArgs(invocation.Argv, pair[0], pair[1]) {
+						t.Fatalf("registration invocation missing %q %q: %#v", pair[0], pair[1], invocation.Argv)
+					}
 				}
-			}
-			joined := strings.Join(invocation.Argv, " ")
-			if strings.Contains(joined, attestationPath) || strings.Contains(joined, "identifier-value") || strings.Contains(joined, "password-value") {
-				t.Fatalf("private registration material escaped argv: %s", joined)
-			}
-			writeUdonExecutionReport(t, argValue(t, invocation.Argv, "--execution-report"), "success", now(), "")
-			return nil
-		},
-	})
-	if err != nil {
-		t.Fatal(err)
-	}
-	if !invoked || result.DryRun {
-		t.Fatalf("attested registration result = %#v invoked=%v", result, invoked)
-	}
-	for index, path := range []string{result.RunConfigPath, result.RunEvidencePath} {
-		data, err := os.ReadFile(path)
+				joined := strings.Join(invocation.Argv, " ")
+				if strings.Contains(joined, attestationPath) || strings.Contains(joined, "identifier-value") || strings.Contains(joined, "password-value") {
+					t.Fatalf("private registration material escaped argv: %s", joined)
+				}
+				writeUdonExecutionReport(t, argValue(t, invocation.Argv, "--execution-report"), "success", now(), "")
+				return nil
+			},
+		})
 		if err != nil {
 			t.Fatal(err)
 		}
-		bytes := string(data)
-		if strings.Contains(bytes, attestationPath) || strings.Contains(bytes, "identifier-value") || strings.Contains(bytes, "password-value") || index == 0 && !strings.Contains(bytes, "udon.execution-report.v3") {
-			t.Fatalf("registration handoff artifact %s is unsafe: %s", path, data)
+		if !invoked || result.DryRun {
+			t.Fatalf("attested registration result = %#v invoked=%v", result, invoked)
+		}
+		for index, path := range []string{result.RunConfigPath, result.RunEvidencePath} {
+			data, err := os.ReadFile(path)
+			if err != nil {
+				t.Fatal(err)
+			}
+			bytes := string(data)
+			if strings.Contains(bytes, attestationPath) || strings.Contains(bytes, "identifier-value") || strings.Contains(bytes, "password-value") || index == 0 && !strings.Contains(bytes, "udon.execution-report.v3") {
+				t.Fatalf("registration handoff artifact %s is unsafe: %s", path, data)
+			}
 		}
 	}
 }
