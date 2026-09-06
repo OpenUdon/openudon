@@ -1470,7 +1470,13 @@ func TestPhaseCBrowserPollingBackoffAndVisibility(t *testing.T) {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { _ = page.Close() })
-	if err := page.Clock().Install(); err != nil {
+	clockStart := time.Date(2026, time.September, 1, 0, 0, 0, 0, time.UTC)
+	if err := page.Clock().Install(playwright.ClockInstallOptions{Time: clockStart.UnixMilli()}); err != nil {
+		t.Fatal(err)
+	}
+	// Install alone keeps advancing with host time. Pause before loading the
+	// fixture so network/assertion latency cannot cross a polling boundary.
+	if err := page.Clock().PauseAt(clockStart.Add(time.Hour).UnixMilli()); err != nil {
 		t.Fatal(err)
 	}
 	page.OnPageError(func(err error) { t.Errorf("iCoT UI page error: %v", err) })
@@ -1502,6 +1508,9 @@ func TestPhaseCBrowserPollingBackoffAndVisibility(t *testing.T) {
 	if err := page.Clock().RunFor(1999); err != nil {
 		t.Fatal(err)
 	}
+	// Let host time pass while browser time stays one millisecond before due.
+	// Without PauseAt this reliably reproduces the qualification timing race.
+	time.Sleep(25 * time.Millisecond)
 	if requests.Load() != initialRequests+1 {
 		t.Fatalf("poll fired before backoff elapsed: %d", requests.Load())
 	}
