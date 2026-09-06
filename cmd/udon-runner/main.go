@@ -4,6 +4,7 @@ import (
 	"context"
 	"flag"
 	"fmt"
+	"io"
 	"os"
 	"os/signal"
 	"syscall"
@@ -14,6 +15,7 @@ import (
 func main() {
 	configPath := flag.String("config", "", "Path to openudon.executor-run.v2 JSON")
 	configSHA256 := flag.String("config-sha256", "", "Exact SHA-256 of the config bytes validated by openudon")
+	interactiveBrowser := flag.Bool("interactive-browser", false, "Forward private stdin for human browser verification responses")
 	approvalPath := flag.String("approval", "", "Path to the approval JSON bound by the run config")
 	flag.Usage = func() {
 		fmt.Fprintf(flag.CommandLine.Output(), "Usage: udon-runner --config <run-config.json> --config-sha256 <hex> --approval <approval.json>\n\n")
@@ -26,12 +28,17 @@ func main() {
 	}
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
+	var input io.Reader
+	if *interactiveBrowser {
+		input = os.Stdin
+	}
 	if _, err := trustedrunner.RunExternal(ctx, trustedrunner.ExternalOptions{
 		ConfigPath:                  *configPath,
 		ConfigSHA256:                *configSHA256,
 		ApprovalPath:                *approvalPath,
 		RegistrationAttestationPath: os.Getenv("OPENUDON_BROWSER_REGISTRATION_ATTESTATION"),
 		RegistrationSubmitApproval:  os.Getenv("OPENUDON_BROWSER_REGISTRATION_SUBMIT_APPROVAL"),
+		Stdin:                       input,
 		Stdout:                      os.Stdout,
 		Stderr:                      os.Stderr,
 	}); err != nil {

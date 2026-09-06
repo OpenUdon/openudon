@@ -357,3 +357,20 @@ func canonicalAssertions(values []string) []string {
 	sort.Strings(result)
 	return result
 }
+
+// ValidateLocalQualificationReport permits only the OpenUdon engineering delta.
+// Its enclosing system report, not a legacy scenario file, owns the source
+// digest. Every legacy publication verifier still requires clean repositories.
+func ValidateLocalQualificationReport(report *Report) error {
+	if report == nil {
+		return fmt.Errorf("local scenario report is missing")
+	}
+	copy := *report
+	copy.Repositories = append([]RepositoryRevision(nil), report.Repositories...)
+	for i, revision := range copy.Repositories {
+		if revision.Name == "openudon" {
+			copy.Repositories[i].Dirty = false
+		}
+	}
+	return ValidateReport(&copy)
+}

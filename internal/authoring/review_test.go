@@ -2,11 +2,43 @@ package authoring
 
 import (
 	"context"
+	"encoding/json"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
 )
+
+func TestArtifactScanUsesOnlyValidHandoffDeclarationsForBindingPositions(t *testing.T) {
+	name := "w8m_dedicated_password"
+	manifest := NewReviewHandoff(ReviewHandoffOptions{
+		HandoffInputs:      []ReviewHandoffInput{{Path: "project.md", Purpose: "brief", Required: true, SHA256: strings.Repeat("0", 64)}},
+		OwnerSplit:         ReviewOwnerSplit{"openudon": {"review package"}},
+		ExecutionPolicy:    DefaultReviewExecutionPolicy(true),
+		CredentialBindings: ReviewCredentialBindings{Declared: []string{name}},
+	})
+	if diagnostics := ValidateReviewHandoff(manifest); len(diagnostics) != 0 {
+		t.Fatal("fixture handoff")
+	}
+	data, _ := json.Marshal(manifest)
+	artifacts := []Artifact{{Path: "expected/review-handoff.json", Content: data}, {Path: "workflows/workflow.uws.yaml", Content: []byte("credentialBindings:\n  password: w8m_dedicated_password\n")}}
+	if hits := ScanCredentialValues(artifacts); len(hits) != 0 {
+		t.Fatal("declared binding rejected")
+	}
+	if hits := ScanCredentialValues(artifacts[1:]); len(hits) == 0 {
+		t.Fatal("declaration requirement bypassed")
+	}
+	artifacts[1].Content = []byte(`{"password":"w8m_dedicated_password"}`)
+	if hits := ScanCredentialValues(artifacts); len(hits) == 0 {
+		t.Fatal("ordinary password value exempted")
+	}
+	manifest.CredentialBindings.ValuesAllowedInArtifacts = true
+	artifacts[0].Content, _ = json.Marshal(manifest)
+	artifacts[1].Content = []byte("credentialBindings:\n  password: w8m_dedicated_password\n")
+	if hits := ScanCredentialValues(artifacts); len(hits) == 0 {
+		t.Fatal("invalid handoff allowed exemption")
+	}
+}
 
 func TestValidateReviewHandoffRequiresSafePackage(t *testing.T) {
 	manifest := NewReviewHandoff(ReviewHandoffOptions{

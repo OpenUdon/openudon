@@ -54,13 +54,15 @@ type Approval struct {
 }
 
 type Options struct {
-	RepoRoot                    string
-	ExampleDir                  string
-	Tier                        string
-	ApprovalPath                string
-	WorkDir                     string
-	DryRun                      bool
-	RunnerPath                  string
+	RepoRoot     string
+	ExampleDir   string
+	Tier         string
+	ApprovalPath string
+	WorkDir      string
+	DryRun       bool
+	RunnerPath   string
+	// Stdin is an explicitly supplied private human browser-interaction stream.
+	Stdin                       io.Reader
 	Stdout                      io.Writer
 	Stderr                      io.Writer
 	Now                         func() time.Time
@@ -337,6 +339,9 @@ func Run(ctx context.Context, opts Options) (*RunResult, error) {
 	if err != nil {
 		return nil, err
 	}
+	if opts.Stdin != nil && runConfig.Browser == nil {
+		return nil, fmt.Errorf("interactive browser input requires a reviewed browser workflow")
+	}
 	runConfigPath, runConfigBytes, err := writeRunConfig(runConfig)
 	if err != nil {
 		return nil, err
@@ -391,6 +396,9 @@ func Run(ctx context.Context, opts Options) (*RunResult, error) {
 			return nil, fmt.Errorf("prepare external executor report path: %w", err)
 		}
 		args := []string{"--config", runConfigPath, "--config-sha256", runConfigDigest, "--approval", opts.ApprovalPath}
+		if opts.Stdin != nil {
+			args = append(args, "--interactive-browser")
+		}
 		executorArgv := append([]string{runnerPath}, args...)
 		invocation := udonrunner.Invocation{Argv: executorArgv, Dir: p.repoRoot, Env: outerRunnerEnvironment(opts.Env, runConfig, opts.RegistrationAttestationPath, opts.RegistrationSubmitApproval)}
 		invoke := opts.Invoke
@@ -398,7 +406,7 @@ func Run(ctx context.Context, opts Options) (*RunResult, error) {
 			invoke = func(ctx context.Context, invocation udonrunner.Invocation) error {
 				return processgroup.RunContext(ctx, processgroup.Invocation{
 					Args: invocation.Argv, Dir: invocation.Dir, Env: invocation.Env,
-					Stdout: opts.Stdout, Stderr: opts.Stderr,
+					Stdin: opts.Stdin, Stdout: opts.Stdout, Stderr: opts.Stderr,
 				})
 			}
 		}
@@ -450,6 +458,7 @@ func Run(ctx context.Context, opts Options) (*RunResult, error) {
 	prepared, err := udonrunner.Run(ctx, runConfig, udonrunner.Options{
 		RepoRoot: p.repoRoot,
 		Env:      opts.Env,
+		Stdin:    opts.Stdin,
 		Stdout:   opts.Stdout,
 		Stderr:   opts.Stderr,
 		Invoke:   opts.Invoke,

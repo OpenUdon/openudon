@@ -53,6 +53,20 @@ type ScenarioExecutorFunc func(context.Context, Manifest, Environment) ScenarioR
 // Run validates the embedded corpus and compatibility lock before any browser
 // process or network authority can be exercised.
 func Run(ctx context.Context, options Options) (*Report, error) {
+	return runQualification(ctx, options, false)
+}
+
+// RunLocalQualification returns component evidence exclusively for an aggregate
+// that independently binds the exact local source tree before and after work.
+// It never writes a legacy publication report or grants public-target authority.
+func RunLocalQualification(ctx context.Context, options Options) (*Report, error) {
+	if options.Suite == SuitePublic || options.AllowNetwork {
+		return nil, fmt.Errorf("local qualification rejects public authority")
+	}
+	return runQualification(ctx, options, true)
+}
+
+func runQualification(ctx context.Context, options Options, local bool) (*Report, error) {
 	if ctx == nil {
 		ctx = context.Background()
 	}
@@ -72,7 +86,7 @@ func Run(ctx context.Context, options Options) (*Report, error) {
 	if options.Suite != SuitePublic && options.AllowNetwork {
 		return nil, fmt.Errorf("local browser scenarios do not accept network authority")
 	}
-	if strings.TrimSpace(options.OutPath) == "" {
+	if !local && strings.TrimSpace(options.OutPath) == "" {
 		return nil, fmt.Errorf("browser scenario report output is required")
 	}
 
@@ -96,8 +110,14 @@ func Run(ctx context.Context, options Options) (*Report, error) {
 	if executor == nil {
 		executor = NewRealExecutor()
 	}
-	if closer, ok := executor.(interface{ Close() error }); ok {
-		defer closer.Close()
+	closer, hasCloser := executor.(interface{ Close() error })
+	closed := false
+	if hasCloser {
+		defer func() {
+			if !closed {
+				_ = closer.Close()
+			}
+		}()
 	}
 	results := make([]ScenarioResult, 0, len(selected))
 	for _, manifest := range selected {
@@ -119,7 +139,22 @@ func Run(ctx context.Context, options Options) (*Report, error) {
 		}
 		results = append(results, result)
 	}
+	if hasCloser {
+		closed = true
+		if err := closer.Close(); err != nil {
+			return nil, fmt.Errorf("browser scenario teardown failed")
+		}
+	}
 	report := NewReport(options.Suite, now, repositories, dependencies, results)
+	if local {
+		if err := ValidateLocalQualificationReport(report); err != nil {
+			return report, err
+		}
+		if report.Status != StatusPass {
+			return report, fmt.Errorf("browser scenario evaluation failed")
+		}
+		return report, nil
+	}
 	if err := ValidateReport(report); err != nil {
 		return report, err
 	}

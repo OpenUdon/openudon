@@ -23,7 +23,15 @@ import (
 var runUIServer = uiserver.Run
 
 func runUI(args []string, out, errOut io.Writer) int {
-	fs := flag.NewFlagSet("icot ui", flag.ContinueOnError)
+	return runApplication(args, nil, out, errOut)
+}
+
+func runApplication(args []string, input io.Reader, out, errOut io.Writer) int {
+	commandName := "icot ui"
+	if input != nil {
+		commandName = "icot control"
+	}
+	fs := flag.NewFlagSet(commandName, flag.ContinueOnError)
 	fs.SetOutput(out)
 	example := fs.String("example", "", "Example directory for the single UI workspace")
 	fromExample := fs.String("from-example", "", "Seed authoring from an existing example directory")
@@ -41,6 +49,7 @@ func runUI(args []string, out, errOut io.Writer) int {
 	fs.Var(&browserRegistryFlags, "browser-registry", "Static Browsertools registry directory or HTTPS URL; repeat for multiple registries")
 	fs.Var(&sourceRootFlags, "source-root", "Explicit bounded local source root; repeat for multiple roots")
 	network := fs.String("network", "", "Remote lookup policy: never, ask, or allow")
+	protocol := fs.String("protocol", uiserver.RegistrationControlVersion, "Private control protocol version (control only)")
 	port := fs.Int("port", 0, "Loopback TCP port; 0 selects an ephemeral port")
 	noOpen := fs.Bool("no-open", false, "Do not open the bootstrap URL in the platform browser")
 	privateRoot := fs.String("private-root", "", "absolute mode-0700 private root required only for upload, browser capture, or registration authoring")
@@ -50,8 +59,12 @@ func runUI(args []string, out, errOut io.Writer) int {
 	packageScratch := fs.String("package-scratch", "", "existing absolute restrictive-scratch parent for browser-transaction preparation")
 	packageStore := fs.String("package-store", "", "existing generation store for browser-transaction promotion")
 	fs.Usage = func() {
-		fmt.Fprintln(fs.Output(), "Usage: icot ui --example DIR [--from-example DIR | --answers FILE] [--api-source KIND:ID=PATH] [--openapi ID=PATH] [--browser-profile ID=PATH] [--browser-verification PATH] [--browser-registry LOCATION] [--source-root DIR] [--network never|ask|allow] [--package-scope PORTABLE --package-scratch DIR --package-store DIR [--browser-transaction FILE]] [--port PORT] [--no-open]")
-		fmt.Fprintln(fs.Output(), "\nServes one explicitly named workspace on 127.0.0.1 with a per-process capability token.")
+		fmt.Fprintln(fs.Output(), "Usage: "+commandName+" --example DIR [--from-example DIR | --answers FILE] [--api-source KIND:ID=PATH] [--openapi ID=PATH] [--browser-profile ID=PATH] [--browser-verification PATH] [--browser-registry LOCATION] [--source-root DIR] [--network never|ask|allow] [--package-scope PORTABLE --package-scratch DIR --package-store DIR [--browser-transaction FILE]] [--port PORT] [--no-open]")
+		if input == nil {
+			fmt.Fprintln(fs.Output(), "\nServes one explicitly named workspace on 127.0.0.1 with a per-process capability token.")
+		} else {
+			fmt.Fprintln(fs.Output(), "\nRequires --no-open and port 0. Uses private NDJSON pipes without an HTTP listener.")
+		}
 		fmt.Fprintln(fs.Output(), "The embedded shell supports acquisition, revision-protected authoring, reviewed package build, and handoff over experimental API v4.")
 		fmt.Fprintln(fs.Output(), "External changes to engine-owned files preserve cached inspection but require a process restart before mutation.")
 		fmt.Fprintln(fs.Output())
@@ -64,20 +77,28 @@ func runUI(args []string, out, errOut io.Writer) int {
 		return 2
 	}
 	if fs.NArg() != 0 {
-		fmt.Fprintln(errOut, "icot ui: unexpected positional arguments")
+		fmt.Fprintln(errOut, commandName+": unexpected positional arguments")
+		return 2
+	}
+	if (*protocol != uiserver.RegistrationControlVersion && *protocol != uiserver.ApplicationControlVersion) || (input == nil && *protocol != uiserver.RegistrationControlVersion) {
+		fmt.Fprintln(errOut, commandName+": unsupported control protocol")
+		return 2
+	}
+	if input != nil && (*port != 0 || !*noOpen) {
+		fmt.Fprintln(errOut, "icot control: requires --no-open and no port")
 		return 2
 	}
 	exampleDir := strings.TrimSpace(*example)
 	if exampleDir == "" {
-		fmt.Fprintln(errOut, "icot ui: --example is required")
+		fmt.Fprintln(errOut, commandName+": --example is required")
 		return 2
 	}
 	if strings.TrimSpace(*answersFile) != "" && strings.TrimSpace(*fromExample) != "" {
-		fmt.Fprintln(errOut, "icot ui: --answers and --from-example are mutually exclusive")
+		fmt.Fprintln(errOut, commandName+": --answers and --from-example are mutually exclusive")
 		return 2
 	}
 	if *port < 0 || *port > 65535 {
-		fmt.Fprintln(errOut, "icot ui: --port must be between 0 and 65535")
+		fmt.Fprintln(errOut, commandName+": --port must be between 0 and 65535")
 		return 2
 	}
 	transactionPath := strings.TrimSpace(*browserTransactionPath)
@@ -89,22 +110,22 @@ func runUI(args []string, out, errOut io.Writer) int {
 		}
 	}
 	if (configuredPackageOptions != 0 && configuredPackageOptions != len(packageOptions)) || (transactionPath != "" && configuredPackageOptions != len(packageOptions)) {
-		fmt.Fprintln(errOut, "icot ui: --package-scope, --package-scratch, and --package-store must be supplied together; --browser-transaction additionally requires that package configuration")
+		fmt.Fprintln(errOut, commandName+": --package-scope, --package-scratch, and --package-store must be supplied together; --browser-transaction additionally requires that package configuration")
 		return 2
 	}
 	localSources, err := parseLocalSourceFlags(apiSourceFlags, openAPIFlags)
 	if err != nil {
-		fmt.Fprintln(errOut, "icot ui:", err)
+		fmt.Fprintln(errOut, commandName+":", err)
 		return 2
 	}
 	browserSources, err := parseBrowserSourceFlags(browserProfileFlags)
 	if err != nil {
-		fmt.Fprintln(errOut, "icot ui:", err)
+		fmt.Fprintln(errOut, commandName+":", err)
 		return 2
 	}
 	networkPolicy, err := resolveNetworkPolicy(*network, false)
 	if err != nil {
-		fmt.Fprintln(errOut, "icot ui:", err)
+		fmt.Fprintln(errOut, commandName+":", err)
 		return 2
 	}
 
@@ -139,20 +160,34 @@ func runUI(args []string, out, errOut io.Writer) int {
 		if err != nil {
 			_, code, operation, _, ok := transactionengine.ErrorDetails(err)
 			if ok {
-				fmt.Fprintf(errOut, "icot ui: browser transaction initialization failed: %s/%s\n", operation, code)
+				fmt.Fprintf(errOut, commandName+": browser transaction initialization failed: %s/%s\n", operation, code)
 			} else {
-				fmt.Fprintln(errOut, "icot ui: browser transaction initialization failed")
+				fmt.Fprintln(errOut, commandName+": browser transaction initialization failed")
 			}
 			return 1
 		}
 		browserTransactions = transactionEngine
 	}
-	if err := runUIServer(ctx, uiserver.RunConfig{
+	config := uiserver.RunConfig{
 		EngineConfig: engineConfig, Port: *port, NoOpen: *noOpen, Out: out, ErrOut: errOut,
 		PrepareCapture:      prepareUICaptureStage,
 		BrowserTransactions: browserTransactions,
-	}); err != nil {
-		fmt.Fprintln(errOut, "icot ui:", err)
+	}
+	runner := runUIServer
+	if input != nil {
+		runner = func(ctx context.Context, config uiserver.RunConfig) error {
+			owned, ok := input.(io.ReadCloser)
+			if !ok {
+				owned = io.NopCloser(input)
+			}
+			if *protocol == uiserver.ApplicationControlVersion {
+				return uiserver.RunApplicationControl(ctx, config, owned)
+			}
+			return uiserver.RunRegistrationControl(ctx, config, owned)
+		}
+	}
+	if err := runner(ctx, config); err != nil {
+		fmt.Fprintln(errOut, commandName+":", err)
 		return 1
 	}
 	return 0
@@ -176,7 +211,7 @@ func prepareUICaptureStage(request uiserver.CaptureStageRequest) (engine.Browser
 	if err != nil {
 		return engine.BrowserCaptureStage{}, err
 	}
-	stage := engine.BrowserCaptureStage{ProfileID: cfg.ProfileID}
+	stage := engine.BrowserCaptureStage{ProfileID: cfg.ProfileID, Candidate: prepared.Candidate}
 	for _, file := range prepared.Files {
 		switch filepath.Clean(file.Path) {
 		case filepath.Join(cfg.ExampleDir, filepath.FromSlash(prepared.AuthenticationTarget)):

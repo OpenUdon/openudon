@@ -104,6 +104,26 @@ func TestBrowserTransactionRoutesUseSharedTypedOperations(t *testing.T) {
 	}
 }
 
+func TestCapturedCandidateOwnsTransactionUntilReviewAndPackageBuild(t *testing.T) {
+	for _, state := range []string{"running", "stage_review", "transaction_review", "staged"} {
+		t.Run(state, func(t *testing.T) {
+			fake := newFakeBrowserTransactions()
+			s := newBrowserTransactionHandler(t, fake).(*Server)
+			s.capture = &CaptureState{State: state}
+			response := doRequest(s, http.MethodPost, "/api/v4/browser-transactions/prepare", `{"revision":"sha256:r","transaction_sha256":"sha256:t","human_approved":true}`, "application/json", true)
+			if response.Code != http.StatusConflict || fake.calls() != 0 {
+				t.Fatalf("premature preparation reached transaction engine: %d / %d", response.Code, fake.calls())
+			}
+			if state == "transaction_review" {
+				response = doRequest(s, http.MethodPost, "/api/v4/browser-transactions/review", `{"revision":"sha256:r","transaction_sha256":"sha256:t","human_approved":true}`, "application/json", true)
+				if response.Code != http.StatusOK || fake.lastOperation() != transactionengine.OperationReview {
+					t.Fatal("review blocked")
+				}
+			}
+		})
+	}
+}
+
 func TestBrowserTransactionReviewIsKindSpecificAndSymbolic(t *testing.T) {
 	transaction := apiRegistrationTransaction()
 	transaction.Kind = browsertransaction.KindAuthenticationCapability

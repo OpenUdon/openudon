@@ -30,6 +30,7 @@ const (
 type RegistrationQualificationOptions struct {
 	RepoRoot               string
 	BrowsertoolsExecutable string
+	ApplicationExecutable  string
 	ExampleDir             string
 	PrivateRoot            string
 	ScratchParent          string
@@ -53,7 +54,7 @@ type RegistrationQualificationResult struct {
 // endpoints as the guided iCoT browser-registration wizard. It does not grant
 // runtime authority; the caller separately attests and invokes the promoted
 // package after this function returns.
-func RunRegistrationQualification(ctx context.Context, options RegistrationQualificationOptions) (RegistrationQualificationResult, error) {
+func RunRegistrationQualification(ctx context.Context, options RegistrationQualificationOptions) (result RegistrationQualificationResult, resultErr error) {
 	if ctx == nil {
 		ctx = context.Background()
 	}
@@ -65,8 +66,20 @@ func RunRegistrationQualification(ctx context.Context, options RegistrationQuali
 	if now.IsZero() || strings.TrimSpace(options.RepoRoot) == "" || strings.TrimSpace(options.BrowsertoolsExecutable) == "" ||
 		strings.TrimSpace(options.ExampleDir) == "" || strings.TrimSpace(options.PrivateRoot) == "" || strings.TrimSpace(options.ScratchParent) == "" ||
 		strings.TrimSpace(options.StoreDir) == "" || strings.TrimSpace(options.Scope) == "" || strings.TrimSpace(options.ProfileID) == "" ||
-		strings.TrimSpace(options.InitialURL) == "" || strings.TrimSpace(options.Origin) == "" {
+		!qualificationLoopbackURL(options.Origin, options.InitialURL) {
 		return RegistrationQualificationResult{}, errors.New("registration qualification UI authority is invalid")
+	}
+	if options.ApplicationExecutable != "" {
+		controller, err := newApplicationQualification(ctx, options)
+		if err != nil {
+			return result, err
+		}
+		defer func() {
+			if err := controller.Close(); err != nil {
+				resultErr = err
+			}
+		}()
+		return runRegistrationQualificationJourney(ctx, options, controller)
 	}
 	authoringEngine, authoringSnapshot, err := icotengine.Open(ctx, icotengine.Config{
 		ExampleDir: options.ExampleDir, NetworkPolicy: "never", Now: clock,
@@ -96,6 +109,26 @@ func RunRegistrationQualification(ctx context.Context, options RegistrationQuali
 		return RegistrationQualificationResult{}, errors.New("open registration qualification UI")
 	}
 
+	browserUI, err := newRegistrationBrowserQualification(ctx, handler)
+	if err != nil {
+		return RegistrationQualificationResult{}, err
+	}
+	defer func() {
+		if err := browserUI.Close(); err != nil {
+			resultErr = err
+		}
+	}()
+	defer func() {
+		if err := (RegistrationApplication{server: browserUI.server}).close(); err != nil {
+			resultErr = err
+		}
+	}()
+	handler = browserUI
+
+	return runRegistrationQualificationJourney(ctx, options, handler)
+}
+
+func runRegistrationQualificationJourney(ctx context.Context, options RegistrationQualificationOptions, handler http.Handler) (RegistrationQualificationResult, error) {
 	current, err := registrationQualificationCurrent(ctx, handler)
 	if err != nil {
 		return RegistrationQualificationResult{}, err
@@ -200,7 +233,7 @@ func RunRegistrationQualification(ctx context.Context, options RegistrationQuali
 	if err != nil || pending.BrowserTransaction == nil || pending.BrowserTransaction.Transaction == nil {
 		return RegistrationQualificationResult{}, errors.New("registration qualification transaction is unavailable")
 	}
-	transactionSnapshot, err := transactions.Observe(ctx)
+	transactionSnapshot, err := registrationQualificationTransaction(ctx, handler)
 	if err != nil {
 		return RegistrationQualificationResult{}, errors.New("observe registration qualification transaction")
 	}
@@ -253,7 +286,7 @@ func RunRegistrationQualification(ctx context.Context, options RegistrationQuali
 	if err != nil || built.Lifecycle != lifecycleHandoffReady || built.Package == nil || built.Package.Status != "pass" {
 		return RegistrationQualificationResult{}, errors.New("build registration qualification package")
 	}
-	transactionSnapshot, err = transactions.Observe(ctx)
+	transactionSnapshot, err = registrationQualificationTransaction(ctx, handler)
 	if err != nil {
 		return RegistrationQualificationResult{}, errors.New("observe reviewed registration qualification transaction")
 	}
@@ -263,7 +296,7 @@ func RunRegistrationQualification(ctx context.Context, options RegistrationQuali
 	if _, err := registrationQualificationJSON(ctx, handler, http.MethodPost, "/api/v4/browser-transactions/prepare", prepare, http.StatusOK); err != nil {
 		return RegistrationQualificationResult{}, errors.New("prepare registration qualification transaction")
 	}
-	prepared, err := transactions.Observe(ctx)
+	prepared, err := registrationQualificationTransaction(ctx, handler)
 	if err != nil || prepared.Preparation == nil {
 		return RegistrationQualificationResult{}, errors.New("registration qualification preparation is unavailable")
 	}
@@ -276,7 +309,7 @@ func RunRegistrationQualification(ctx context.Context, options RegistrationQuali
 	if _, err := registrationQualificationJSON(ctx, handler, http.MethodPost, "/api/v4/browser-transactions/promote", promote, http.StatusOK); err != nil {
 		return RegistrationQualificationResult{}, errors.New("promote registration qualification transaction")
 	}
-	promoted, err := transactions.Observe(ctx)
+	promoted, err := registrationQualificationTransaction(ctx, handler)
 	if err != nil || promoted.Transaction == nil || promoted.Preparation == nil || promoted.Promotion == nil {
 		return RegistrationQualificationResult{}, errors.New("registration qualification promotion evidence is unavailable")
 	}
@@ -359,4 +392,12 @@ func registrationQualificationJSON(ctx context.Context, handler http.Handler, me
 		return Response{}, errors.New("registration qualification UI response is invalid")
 	}
 	return response, nil
+}
+
+func registrationQualificationTransaction(ctx context.Context, handler http.Handler) (transactionengine.Snapshot, error) {
+	response, err := registrationQualificationCurrent(ctx, handler)
+	if err != nil || response.BrowserTransaction == nil {
+		return transactionengine.Snapshot{}, errors.New("transaction_snapshot")
+	}
+	return response.BrowserTransaction.Snapshot, nil
 }

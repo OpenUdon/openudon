@@ -811,3 +811,13 @@ LLM-assisted commands; explicit `--provider` and `--model` flags still take prec
 - [Security policy](SECURITY.md)
 - [Contributing](CONTRIBUTING.md)
 - [License](LICENSE)
+
+The consolidated local browser engineering gate is `make browser-system-check`;
+see [browser system qualification](docs/browser-system-eval.md) for explicit
+loopback authority, source prerequisites, evidence verification and supervised
+registration control. Operational adoption requires separately reviewed source
+publication and target authority.
+
+The opt-in [supervised application protocol](docs/application-control.md) extends
+`icot control` through authenticated authoring and package promotion while
+retaining the registration-only protocol and all separate runtime approvals.

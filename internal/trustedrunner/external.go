@@ -26,11 +26,13 @@ type ExternalOptions struct {
 	RegistrationAttestationPath string
 	RegistrationSubmitApproval  string
 	Env                         []string
-	Stdout                      io.Writer
-	Stderr                      io.Writer
-	Now                         func() time.Time
-	Assess                      func(context.Context, synthesize.Options) (*synthesize.QualityReport, error)
-	Invoke                      udonrunner.InvokeFunc
+	// Stdin is an explicitly supplied private human browser-interaction stream.
+	Stdin  io.Reader
+	Stdout io.Writer
+	Stderr io.Writer
+	Now    func() time.Time
+	Assess func(context.Context, synthesize.Options) (*synthesize.QualityReport, error)
+	Invoke udonrunner.InvokeFunc
 }
 
 func RunExternal(ctx context.Context, opts ExternalOptions) (udonrunner.Result, error) {
@@ -54,6 +56,9 @@ func RunExternal(ctx context.Context, opts ExternalOptions) (udonrunner.Result, 
 	}
 	if config.Version != RunConfigVersion {
 		return udonrunner.Result{}, fmt.Errorf("run config version must be %s", RunConfigVersion)
+	}
+	if opts.Stdin != nil && config.Browser == nil {
+		return udonrunner.Result{}, fmt.Errorf("interactive browser input requires a reviewed browser workflow")
 	}
 	approval, approvalBytes, err := readApprovalDocument(opts.ApprovalPath)
 	if err != nil {
@@ -108,7 +113,7 @@ func RunExternal(ctx context.Context, opts ExternalOptions) (udonrunner.Result, 
 		return udonrunner.Result{}, fmt.Errorf("run config bytes are not the canonical validated encoding")
 	}
 	result, err := udonrunner.Run(ctx, config, udonrunner.Options{
-		RepoRoot: repoRoot, Env: opts.Env, Stdout: opts.Stdout, Stderr: opts.Stderr, Invoke: opts.Invoke,
+		RepoRoot: repoRoot, Env: opts.Env, Stdin: opts.Stdin, Stdout: opts.Stdout, Stderr: opts.Stderr, Invoke: opts.Invoke,
 	})
 	if err != nil {
 		return result, err

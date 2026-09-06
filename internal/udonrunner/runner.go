@@ -84,9 +84,11 @@ type Options struct {
 	RepoRoot                string
 	Env                     []string
 	RequireCredentialValues bool
-	Stdout                  io.Writer
-	Stderr                  io.Writer
-	Invoke                  InvokeFunc
+	// Stdin is an explicitly supplied private human browser-interaction stream.
+	Stdin  io.Reader
+	Stdout io.Writer
+	Stderr io.Writer
+	Invoke InvokeFunc
 }
 
 type Result struct {
@@ -154,17 +156,20 @@ func Prepare(ctx context.Context, config Config, opts Options) (Result, error) {
 }
 
 func Run(ctx context.Context, config Config, opts Options) (Result, error) {
-	result, env, repoRootAbs, err := prepare(ctx, config, opts, true, true)
+	result, env, _, err := prepare(ctx, config, opts, true, true)
 	if err != nil {
 		return result, err
 	}
-	invocation := Invocation{Argv: append([]string(nil), result.Argv...), Dir: repoRootAbs, Env: append([]string(nil), env...)}
+	// Execute inside the reviewed staging tree. Udon's file backend resolves
+	// local persistence against the process directory, and relative executor
+	// artifacts must remain beside the staged workflow rather than its store.
+	invocation := Invocation{Argv: append([]string(nil), result.Argv...), Dir: result.StagePath, Env: append([]string(nil), env...)}
 	invoke := opts.Invoke
 	if invoke == nil {
 		invoke = func(ctx context.Context, invocation Invocation) error {
 			return processgroup.RunContext(ctx, processgroup.Invocation{
 				Args: invocation.Argv, Dir: invocation.Dir, Env: invocation.Env,
-				Stdout: opts.Stdout, Stderr: opts.Stderr,
+				Stdin: opts.Stdin, Stdout: opts.Stdout, Stderr: opts.Stderr,
 			})
 		}
 	}

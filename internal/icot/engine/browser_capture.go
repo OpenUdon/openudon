@@ -15,6 +15,7 @@ import (
 	"time"
 
 	"github.com/OpenUdon/browsertools/authorresult"
+	"github.com/OpenUdon/openudon/internal/browsercandidate"
 	"github.com/OpenUdon/openudon/internal/credentialpolicy"
 	"github.com/OpenUdon/openudon/internal/icot/artifactwriter"
 	"github.com/OpenUdon/uws/schemas"
@@ -32,10 +33,12 @@ var browserCaptureProfileID = regexp.MustCompile(`^[a-z0-9][a-z0-9._-]{0,63}$`)
 // completed Browsertools author session. The engine revalidates the canonical
 // paths and public schemas before atomically adopting it.
 type BrowserCaptureStage struct {
-	ProfileID      string `json:"profile_id"`
-	Authentication []byte `json:"-"`
-	Capability     []byte `json:"-"`
-	SafeReview     []byte `json:"-"`
+	// Candidate is independently reconstructed private input for the parent lifecycle.
+	Candidate      *browsercandidate.AuthenticationCapability `json:"-"`
+	ProfileID      string                                     `json:"profile_id"`
+	Authentication []byte                                     `json:"-"`
+	Capability     []byte                                     `json:"-"`
+	SafeReview     []byte                                     `json:"-"`
 }
 
 type browserCaptureSafeReview struct {

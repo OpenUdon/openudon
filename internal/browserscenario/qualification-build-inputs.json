@@ -29,7 +29,7 @@
       "name": "browsertools",
       "module": "github.com/OpenUdon/browsertools",
       "replacement": "../browsertools",
-      "commit": "d26f2982db352619d7a7f6563add802b56e10824"
+      "commit": "ce06b13bfef8d1776c3aa019322619c90dacbbd2"
     },
     {
       "name": "evidence",
@@ -47,7 +47,7 @@
       "name": "grand",
       "module": "github.com/genelet/grand",
       "replacement": "../grand",
-      "commit": "c4199526aafe0247df81fa5458afd2e08af29693"
+      "commit": "5a3dae69ae4459b7576331d3801c1e4c0403c9e3"
     },
     {
       "name": "graphqlschema",
@@ -59,7 +59,7 @@
       "name": "hcllight",
       "module": "github.com/genelet/hcllight",
       "replacement": "../hcllight",
-      "commit": "e8c801ba4c72195ad5700b83e6e25c8d1111410d"
+      "commit": "e2042c181d4aff62ee24f1d8240f515ebf4a2825"
     },
     {
       "name": "horizon",
@@ -83,7 +83,7 @@
       "name": "uws",
       "module": "github.com/OpenUdon/uws",
       "replacement": "../uws",
-      "commit": "895aa4546067e25f9dd525b1356abf1945d223b4"
+      "commit": "cb5409586b7b749dd051425b58462f1e73a8c541"
     }
   ]
 }

@@ -58,6 +58,11 @@ inputs are rejected before execution.
 operator environment. Review packages should contain the marker names, not
 plaintext credential values.
 
+The artifact scan recognizes portable symbolic binding names declared by a
+validated review handoff only inside explicit `credential_bindings` or
+`credentialBindings` maps. Ordinary credential fields, comments, undeclared
+names, and known provider-token spellings retain the normal secret scan.
+
 ## Approval JSON
 
 Create approval JSON only after reviewing the current package:

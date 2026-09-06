@@ -462,6 +462,9 @@ func validateV2Session(session Session) error {
 	if err := validateV2State(session); err != nil {
 		return err
 	}
+	if session.BrowserRoute == "browser" && session.BrowserSession == "" {
+		return fmt.Errorf("browser workflow requires an explicit runtime session posture")
+	}
 	if strings.TrimSpace(session.Boundary.Outcome) == "" || strings.TrimSpace(session.Boundary.Actor) == "" || strings.TrimSpace(session.Boundary.Trigger) == "" || len(session.Boundary.SuccessEvidence) == 0 {
 		return fmt.Errorf("active workflow boundary requires outcome, actor, trigger, and success evidence")
 	}
@@ -544,9 +547,6 @@ func validateV2State(session Session) error {
 	case "", "none", "opaque-runtime-binding-required":
 	default:
 		return fmt.Errorf("browser session posture must be none or opaque-runtime-binding-required")
-	}
-	if session.BrowserRoute == "browser" && session.BrowserSession == "" {
-		return fmt.Errorf("browser workflow requires an explicit runtime session posture")
 	}
 	return nil
 }

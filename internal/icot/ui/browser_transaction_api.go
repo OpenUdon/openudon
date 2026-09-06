@@ -2,6 +2,7 @@ package ui
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"net/http"
 	"time"
@@ -79,128 +80,12 @@ func (s *Server) serveBrowserTransactionMutation(w http.ResponseWriter, r *http.
 		s.writeError(w, http.StatusUnauthorized, "unauthorized", "a valid UI capability token is required", false, requestID, "")
 		return
 	}
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	if s.browserTransactions == nil {
-		s.writeError(w, http.StatusServiceUnavailable, "browser_transactions_unavailable", "browser transaction resources are not configured", false, requestID, "")
+	var raw json.RawMessage
+	if err := decodeJSONRequest(w, r, &raw); err != nil {
+		s.writeRequestError(w, err, requestID)
 		return
 	}
-	if s.browserContainmentFailedLocked() {
-		s.writeError(w, http.StatusConflict, "capture_teardown_failed", "browser process-tree teardown was not confirmed; restart iCoT before changing a browser transaction", false, requestID, s.revision)
-		return
-	}
-	registrationReviewOperation := s.registrationAuthoring != nil && s.registrationAuthoring.State == "transaction_review" &&
-		(route == "/api/v4/browser-transactions/review" || route == "/api/v4/browser-transactions/cancel")
-	if registrationAuthoringActive(s.registrationAuthoring) && !registrationReviewOperation {
-		s.writeError(w, http.StatusConflict, "registration_authoring_active", "browser transaction mutations are blocked while registration authoring is active", true, requestID, s.revision)
-		return
-	}
-	if route == "/api/v4/browser-transactions/prepare" && s.registrationAuthoring != nil && s.registrationAuthoring.State == "adopted" && s.lifecycle != lifecycleHandoffReady {
-		s.writeError(w, http.StatusConflict, "registration_package_not_ready", "write and build the reviewed registration package before transaction preparation", false, requestID, s.revision)
-		return
-	}
-
-	ctx, cancel := context.WithTimeout(r.Context(), browserTransactionTimeout(route))
-	defer cancel()
-	var snapshot transactionengine.Snapshot
-	var err error
-	switch route {
-	case "/api/v4/browser-transactions/start":
-		var request transactionengine.StartRequest
-		if !s.decodeBrowserTransactionRequest(w, r, requestID, &request) {
-			return
-		}
-		snapshot, err = s.browserTransactions.Start(ctx, request)
-	case "/api/v4/browser-transactions/review":
-		var request transactionengine.ReviewRequest
-		if !s.decodeBrowserTransactionRequest(w, r, requestID, &request) {
-			return
-		}
-		snapshot, err = s.browserTransactions.Review(ctx, request)
-	case "/api/v4/browser-transactions/prepare":
-		var request transactionengine.PrepareRequest
-		if !s.decodeBrowserTransactionRequest(w, r, requestID, &request) {
-			return
-		}
-		snapshot, err = s.browserTransactions.Prepare(ctx, request)
-	case "/api/v4/browser-transactions/promote":
-		var request transactionengine.PromoteRequest
-		if !s.decodeBrowserTransactionRequest(w, r, requestID, &request) {
-			return
-		}
-		snapshot, err = s.browserTransactions.Promote(ctx, request)
-	case "/api/v4/browser-transactions/cancel":
-		var request transactionengine.CancelRequest
-		if !s.decodeBrowserTransactionRequest(w, r, requestID, &request) {
-			return
-		}
-		snapshot, err = s.browserTransactions.Cancel(ctx, request)
-	case "/api/v4/browser-transactions/recovery/inspect":
-		var request transactionengine.InspectRecoveryRequest
-		if !s.decodeBrowserTransactionRequest(w, r, requestID, &request) {
-			return
-		}
-		snapshot, err = s.browserTransactions.InspectRecovery(ctx, request)
-	case "/api/v4/browser-transactions/recovery/reconcile":
-		var request transactionengine.RecoverRequest
-		if !s.decodeBrowserTransactionRequest(w, r, requestID, &request) {
-			return
-		}
-		snapshot, err = s.browserTransactions.Recover(ctx, request)
-	case "/api/v4/browser-transactions/selected/inspect":
-		var request transactionengine.InspectSelectedRequest
-		if !s.decodeBrowserTransactionRequest(w, r, requestID, &request) {
-			return
-		}
-		snapshot, err = s.browserTransactions.InspectSelected(ctx, request)
-	default:
-		s.writeError(w, http.StatusNotFound, "not_found", "route not found", false, requestID, "")
-		return
-	}
-	if snapshot.Version != "" {
-		s.browserTransaction = &snapshot
-		if revisionErr := s.updateRevisionLocked(); revisionErr != nil {
-			s.writeError(w, http.StatusInternalServerError, "internal_error", "browser transaction resource could not be versioned", true, requestID, snapshot.Revision)
-			return
-		}
-	}
-	if err != nil {
-		s.writeBrowserTransactionError(w, requestID, snapshot, err)
-		return
-	}
-	if route == "/api/v4/browser-transactions/review" && s.registrationCandidate != nil {
-		adoptionCtx, cancelAdoption := context.WithTimeout(r.Context(), 15*time.Second)
-		adoptionErr := s.adoptReviewedRegistrationLocked(adoptionCtx, snapshot)
-		cancelAdoption()
-		if adoptionErr != nil {
-			s.setRegistrationAuthoringLocked(&RegistrationAuthoringState{State: "failed", FailureCode: "candidate_adoption_failed", Message: "The reviewed transaction could not be adopted into the authoring source catalog. This iCoT process has consumed its registration-authoring attempt; a later session requires a fresh preflight, authorization, and process.", StartedAt: s.registrationAuthoring.StartedAt, UpdatedAt: s.now().UTC().Format(time.RFC3339)})
-			s.registrationCandidate = nil
-			_ = s.updateRevisionLocked()
-			s.writeError(w, http.StatusConflict, "registration_candidate_adoption_failed", "the reviewed registration candidate could not enter the authoring source catalog", false, requestID, s.revision)
-			return
-		}
-		if revisionErr := s.updateRevisionLocked(); revisionErr != nil {
-			s.writeError(w, http.StatusInternalServerError, "internal_error", "registration adoption could not be versioned", true, requestID, s.revision)
-			return
-		}
-	}
-	if route == "/api/v4/browser-transactions/cancel" && s.registrationAuthoring != nil && s.registrationAuthoring.State == "transaction_review" {
-		s.setRegistrationAuthoringLocked(&RegistrationAuthoringState{State: "canceled", Message: "The pending reviewed candidate and browser transaction were canceled. This iCoT process has consumed its registration-authoring attempt; a later session requires a fresh preflight, authorization, and process.", StartedAt: s.registrationAuthoring.StartedAt, UpdatedAt: s.now().UTC().Format(time.RFC3339)})
-		s.registrationCandidate = nil
-		if revisionErr := s.updateRevisionLocked(); revisionErr != nil {
-			s.writeError(w, http.StatusInternalServerError, "internal_error", "registration cancellation could not be versioned", true, requestID, s.revision)
-			return
-		}
-	}
-	if route == "/api/v4/browser-transactions/promote" && s.registrationAuthoring != nil && s.registrationAuthoring.State == "adopted" {
-		s.setRegistrationAuthoringLocked(&RegistrationAuthoringState{State: "promoted", Message: "The exact qualified registration package generation was promoted without runtime execution.", StartedAt: s.registrationAuthoring.StartedAt, UpdatedAt: s.now().UTC().Format(time.RFC3339)})
-		if revisionErr := s.updateRevisionLocked(); revisionErr != nil {
-			s.writeError(w, http.StatusInternalServerError, "internal_error", "registration promotion could not be versioned", true, requestID, s.revision)
-			return
-		}
-	}
-	setETag(w, snapshot.Revision)
-	s.writeJSON(w, http.StatusOK, browserTransactionResponse{Version: APIVersion, Transaction: browserTransactionResource(snapshot)}, requestID)
+	s.writeApplicationResult(w, r, requestID, (Application{server: s}).Transaction(r.Context(), route, raw))
 }
 
 func (s *Server) decodeBrowserTransactionRequest(w http.ResponseWriter, r *http.Request, requestID string, target any) bool {

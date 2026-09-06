@@ -2,8 +2,6 @@ package ui
 
 import (
 	"context"
-	"crypto/sha256"
-	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"net/http"
@@ -56,94 +54,7 @@ func (s *Server) serveRegistrationAuthoringStart(w http.ResponseWriter, r *http.
 		s.writeRequestError(w, err, requestID)
 		return
 	}
-	request.Revision = strings.TrimSpace(request.Revision)
-	request.RegistrationRevision = strings.TrimSpace(request.RegistrationRevision)
-	request.ProfileID = strings.TrimSpace(request.ProfileID)
-	request.URL = strings.TrimSpace(request.URL)
-	if request.ProfileID == "" || request.URL == "" || len(request.Origins) == 0 {
-		s.writeError(w, http.StatusBadRequest, "malformed_request", "registration authoring start requires profile_id, url, and origins", false, requestID, s.currentRevision())
-		return
-	}
-
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	if s.registrationAttemptConsumed {
-		s.writeError(w, http.StatusConflict, "registration_authorization_consumed", "this iCoT process already consumed its one registration-authoring attempt; a later session requires a fresh preflight, authorization, and process", false, requestID, s.revision)
-		return
-	}
-	if err := s.refreshWorkspaceLocked(r.Context()); err != nil {
-		s.writeInternalError(w, r, requestID, "/api/v4/registration-authoring/start", "workspace_inspection", err, true)
-		return
-	}
-	if request.Revision != s.revision || request.RegistrationRevision != s.registrationRevision {
-		s.writeError(w, http.StatusConflict, "stale_revision", "authoring or registration-authoring revision is stale", true, requestID, s.revision)
-		return
-	}
-	if s.lifecycle != lifecycleAuthoring || s.workspace.ExternallyModified {
-		s.writeError(w, http.StatusConflict, "session_frozen", "registration authoring is unavailable in the current authoring state", false, requestID, s.revision)
-		return
-	}
-	if s.browserContainmentFailedLocked() {
-		s.writeError(w, http.StatusConflict, "browser_teardown_failed", "a prior browser process tree did not confirm teardown; restart iCoT before another browser operation", false, requestID, s.revision)
-		return
-	}
-	if captureActive(s.capture) || registrationAuthoringActive(s.registrationAuthoring) {
-		s.writeError(w, http.StatusConflict, "browser_authoring_active", "only one browser authoring session may run at a time", true, requestID, s.revision)
-		return
-	}
-	if s.registrationAuthoring != nil && s.registrationAuthoring.State == "review_ready" && s.registrationCandidate != nil {
-		s.writeError(w, http.StatusConflict, "registration_candidate_pending", "the adopted registration candidate must be reviewed or canceled before another authoring session", false, requestID, s.revision)
-		return
-	}
-	if s.privateRoot == "" {
-		s.writeError(w, http.StatusUnprocessableEntity, "private_root_required", "registration authoring requires icot ui --private-root", false, requestID, s.revision)
-		return
-	}
-	if s.browserTransactions == nil || s.browserTransaction == nil {
-		s.writeError(w, http.StatusUnprocessableEntity, "browser_transactions_required", "registration authoring requires package scope, restrictive scratch, and generation-store configuration", false, requestID, s.revision)
-		return
-	}
-	if s.browserTransaction.Transaction != nil {
-		s.writeError(w, http.StatusConflict, "browser_transaction_active", "finish or cancel the current browser transaction before registration authoring", false, requestID, s.revision)
-		return
-	}
-
-	startedAt := s.now().UTC()
-	s.registrationAttemptConsumed = true
-	s.setRegistrationAuthoringLocked(&RegistrationAuthoringState{
-		State: "launching", Message: "Launching an isolated headed Chromium registration-authoring session.",
-		StartedAt: startedAt.Format(time.RFC3339), UpdatedAt: startedAt.Format(time.RFC3339),
-	})
-	s.registrationCandidate = nil
-	s.clearRegistrationDraftLocked()
-	privateStart := request
-	privateStart.Revision, privateStart.RegistrationRevision = "", ""
-	s.registrationStart = privateStart
-	digest := sha256.Sum256([]byte(s.registrationRevision + "\x00" + request.ProfileID))
-	session, err := s.startRegistration(s.captureContext, browserauthor.RegistrationConfig{
-		PrivateRoot: s.privateRoot, DriverDir: s.driverDir, TransactionID: "registration-" + hex.EncodeToString(digest[:8]),
-		Protocol: registrationauthorsession.ProtocolV2,
-	})
-	if err != nil {
-		s.setRegistrationAuthoringLocked(&RegistrationAuthoringState{
-			State: "failed", FailureCode: "worker_start_failed", Message: "The isolated Chromium registration worker could not start. This iCoT process has consumed its registration-authoring attempt; a later session requires a fresh preflight, authorization, and process.",
-			StartedAt: startedAt.Format(time.RFC3339), UpdatedAt: s.now().UTC().Format(time.RFC3339),
-		})
-		_ = s.updateRevisionLocked()
-		s.writeError(w, http.StatusUnprocessableEntity, "registration_authoring_failed", "registration authoring failed before launch", false, requestID, s.revision)
-		return
-	}
-	s.registrationSession = session
-	go s.consumeRegistrationAuthoring(session, browserauthor.RegistrationCommand{
-		Type: "start", ProfileID: request.ProfileID, URL: request.URL,
-		Origins: append([]string(nil), request.Origins...), Bounds: cloneRegistrationAuthoringBounds(request.Bounds),
-	}, startedAt)
-	if err := s.updateRevisionLocked(); err != nil {
-		s.writeInternalError(w, r, requestID, "/api/v4/registration-authoring/start", "revision", err, true)
-		return
-	}
-	setETag(w, s.etag)
-	s.writeJSON(w, http.StatusAccepted, s.responseLocked(), requestID)
+	s.writeRegistrationResult(w, requestID, (RegistrationApplication{server: s}).Start(r.Context(), request))
 }
 
 func (s *Server) consumeRegistrationAuthoring(session RegistrationAuthoringSession, start browserauthor.RegistrationCommand, startedAt time.Time) {
@@ -274,7 +185,10 @@ func (s *Server) startRegistrationTransactionLocked(ctx context.Context, candida
 	if s.browserTransactions == nil || candidate == nil {
 		return transactionengine.Snapshot{}, errors.New("registration transaction lifecycle is unavailable")
 	}
-	transaction := candidate.Transaction()
+	return s.startCandidateTransactionLocked(ctx, candidate.Transaction())
+}
+
+func (s *Server) startCandidateTransactionLocked(ctx context.Context, transaction browsertransaction.Transaction) (transactionengine.Snapshot, error) {
 	data, err := browsertransaction.CanonicalBytes(transaction)
 	if err != nil {
 		return transactionengine.Snapshot{}, err
@@ -362,67 +276,7 @@ func (s *Server) serveRegistrationAuthoringCommand(w http.ResponseWriter, r *htt
 		s.writeRequestError(w, err, requestID)
 		return
 	}
-	command, ok := registrationAuthoringWireCommand(request)
-	if !ok {
-		s.writeError(w, http.StatusBadRequest, "malformed_request", "registration authoring command is not in the closed command union", false, requestID, s.currentRevision())
-		return
-	}
-	if strings.TrimSpace(request.Type) == "draft" {
-		s.serveRegistrationAuthoringDraft(w, r, requestID, request)
-		return
-	}
-
-	s.mu.Lock()
-	if strings.TrimSpace(request.Revision) != s.revision || strings.TrimSpace(request.RegistrationRevision) != s.registrationRevision || s.registrationSession == nil || !registrationAuthoringCommandAllowed(s.registrationAuthoring, request.Type) {
-		s.writeError(w, http.StatusConflict, "stale_registration_revision", "registration-authoring revision is stale or the command is not pending", true, requestID, s.revision)
-		s.mu.Unlock()
-		return
-	}
-	session := s.registrationSession
-	if strings.TrimSpace(request.Type) == "review" {
-		if len(s.registrationDraft) == 0 || len(s.registrationDraftCandidates) == 0 || len(s.registrationDraftBindings) == 0 || s.registrationDraftFlow == "" || s.registrationDraftCleanup == "" {
-			s.writeError(w, http.StatusConflict, "registration_draft_missing", "the canonical registration draft is unavailable", false, requestID, s.revision)
-			s.mu.Unlock()
-			return
-		}
-		command.Profile = append([]byte(nil), s.registrationDraft...)
-		command.CandidateIDs = append([]string(nil), s.registrationDraftCandidates...)
-		command.CredentialBindings = append([]browsertransaction.CredentialBinding(nil), s.registrationDraftBindings...)
-		command.Flow = s.registrationDraftFlow
-		command.CleanupDisposition = s.registrationDraftCleanup
-	}
-	previous := *s.registrationAuthoring
-	s.setRegistrationAuthoringLocked(&RegistrationAuthoringState{
-		State: "commanding", Message: "The typed command was accepted; waiting for the isolated worker.", Phase: previous.Phase,
-		StartedAt: previous.StartedAt, UpdatedAt: s.now().UTC().Format(time.RFC3339),
-		Draft: cloneRegistrationDraftDisclosure(previous.Draft),
-	})
-	if err := s.updateRevisionLocked(); err != nil {
-		s.setRegistrationAuthoringLocked(&previous)
-		s.writeInternalError(w, r, requestID, "/api/v4/registration-authoring/command", "revision", err, true)
-		s.mu.Unlock()
-		return
-	}
-	reservedRevision := s.registrationRevision
-	s.mu.Unlock()
-
-	ctx, cancel := context.WithTimeout(r.Context(), 5*time.Second)
-	defer cancel()
-	if err := session.Send(ctx, command); err != nil {
-		s.mu.Lock()
-		if s.registrationSession == session && s.registrationRevision == reservedRevision {
-			s.setRegistrationAuthoringLocked(&previous)
-			_ = s.updateRevisionLocked()
-		}
-		revision := s.revision
-		s.mu.Unlock()
-		s.writeError(w, http.StatusUnprocessableEntity, "registration_command_rejected", "the typed command is not valid for the current registration-authoring phase", false, requestID, revision)
-		return
-	}
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	setETag(w, s.etag)
-	s.writeJSON(w, http.StatusAccepted, s.responseLocked(), requestID)
+	s.writeRegistrationResult(w, requestID, (RegistrationApplication{server: s}).Command(r.Context(), request))
 }
 
 func (s *Server) serveRegistrationAuthoringCancel(w http.ResponseWriter, r *http.Request, cookieScoped bool, requestID string) {
@@ -439,25 +293,7 @@ func (s *Server) serveRegistrationAuthoringCancel(w http.ResponseWriter, r *http
 		s.writeRequestError(w, err, requestID)
 		return
 	}
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	if strings.TrimSpace(request.RegistrationRevision) != s.registrationRevision || s.registrationSession == nil || !registrationAuthoringActive(s.registrationAuthoring) || s.registrationAuthoring.State == "canceling" {
-		s.writeError(w, http.StatusConflict, "stale_registration_revision", "registration-authoring revision is stale or no session is active", true, requestID, s.revision)
-		return
-	}
-	s.registrationSession.Cancel()
-	s.registrationCandidate = nil
-	s.clearRegistrationDraftLocked()
-	s.setRegistrationAuthoringLocked(&RegistrationAuthoringState{
-		State: "canceling", Message: "Cancellation was requested; waiting for the isolated worker and all descendants to stop.",
-		StartedAt: s.registrationAuthoring.StartedAt, UpdatedAt: s.now().UTC().Format(time.RFC3339),
-	})
-	if err := s.updateRevisionLocked(); err != nil {
-		s.writeInternalError(w, r, requestID, "/api/v4/registration-authoring/cancel", "revision", err, true)
-		return
-	}
-	setETag(w, s.etag)
-	s.writeJSON(w, http.StatusAccepted, s.responseLocked(), requestID)
+	s.writeRegistrationResult(w, requestID, (RegistrationApplication{server: s}).Cancel(r.Context(), request))
 }
 
 func registrationAuthoringWireCommand(request registrationAuthoringCommandRequest) (browserauthor.RegistrationCommand, bool) {
@@ -513,41 +349,6 @@ func registrationAuthoringCommandAllowed(state *RegistrationAuthoringState, comm
 	default:
 		return false
 	}
-}
-
-func (s *Server) serveRegistrationAuthoringDraft(w http.ResponseWriter, r *http.Request, requestID string, request registrationAuthoringCommandRequest) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	if strings.TrimSpace(request.Revision) != s.revision || strings.TrimSpace(request.RegistrationRevision) != s.registrationRevision ||
-		s.registrationSession == nil || s.registrationAuthoring == nil || s.registrationAuthoring.State != "observation" || s.registrationAuthoring.Observation == nil {
-		s.writeError(w, http.StatusConflict, "stale_registration_revision", "registration-authoring revision is stale or no observation is ready for drafting", true, requestID, s.revision)
-		return
-	}
-	profile, candidates, bindings, disclosure, err := buildRegistrationDraft(*request.Draft, s.registrationStart, *s.registrationAuthoring.Observation, s.now().UTC())
-	if err != nil {
-		message := "the structured registration draft is invalid"
-		if errors.Is(err, errRegistrationDraftBindingsInvalid) {
-			message = "credential bindings must be unique lowercase environment symbol names; entropy-like names must use reviewed descriptive terms and must not contain recognized credential formats"
-		}
-		s.writeError(w, http.StatusUnprocessableEntity, "registration_draft_rejected", message, false, requestID, s.revision)
-		return
-	}
-	s.registrationDraft = append([]byte(nil), profile...)
-	s.registrationDraftCandidates = append([]string(nil), candidates...)
-	s.registrationDraftBindings = append([]browsertransaction.CredentialBinding(nil), bindings...)
-	s.registrationDraftFlow = request.Draft.Flow.Name
-	s.registrationDraftCleanup = request.Draft.CallControls.CleanupDisposition
-	s.setRegistrationAuthoringLocked(&RegistrationAuthoringState{
-		State: "draft_review", Message: "Review the exact canonical credential-free BRP, retained queries, symbolic bindings, effects, and fixed call controls before confirming.",
-		Phase: s.registrationAuthoring.Phase, Observation: cloneRegistrationAuthoringObservation(s.registrationAuthoring.Observation), Draft: disclosure,
-		StartedAt: s.registrationAuthoring.StartedAt, UpdatedAt: s.now().UTC().Format(time.RFC3339),
-	})
-	if err := s.updateRevisionLocked(); err != nil {
-		s.writeInternalError(w, r, requestID, "/api/v4/registration-authoring/command", "revision", err, true)
-		return
-	}
-	setETag(w, s.etag)
-	s.writeJSON(w, http.StatusOK, s.responseLocked(), requestID)
 }
 
 func (s *Server) clearRegistrationDraftLocked() {

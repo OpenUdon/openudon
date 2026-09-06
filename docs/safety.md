@@ -160,6 +160,11 @@ container's own values. Host desktop, display, and socket requirements are
 rejected. Unreferenced API-first fallback profiles are ignored by runtime
 configuration.
 
+The trusted executor starts with its process directory set to the exact
+reviewed staging directory. Workflow, data, and report arguments remain explicit;
+relative runtime output is contained beside the staged workflow instead of
+being written into the package repository.
+
 Registration packages use the same immutable approval and dry-run staging
 path, including canonical `UDON_CREDENTIAL_*` names and exact registration
 operation approvals. Dry-run never resolves those values or launches a

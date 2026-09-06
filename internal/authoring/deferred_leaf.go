@@ -1,6 +1,7 @@
 package authoring
 
 import (
+	"encoding/json"
 	"sort"
 	"strings"
 
@@ -174,11 +175,21 @@ func (leaf LeafAdapter) CredentialValueDiagnostics() []Diagnostic {
 // content without resolving or testing credentials.
 func ScanCredentialValues(artifacts []Artifact) []Diagnostic {
 	var diagnostics []Diagnostic
+	var declared []string
+	for _, artifact := range artifacts {
+		if artifact.Path != "expected/review-handoff.json" {
+			continue
+		}
+		var handoff ReviewHandoff
+		if json.Unmarshal(artifact.Content, &handoff) == nil && len(ValidateReviewHandoff(handoff)) == 0 {
+			declared = append(declared, handoff.CredentialBindings.Declared...)
+		}
+	}
 	for _, artifact := range artifacts {
 		if len(artifact.Content) == 0 {
 			continue
 		}
-		if ContainsLikelyCredentialValue(artifact.Content) {
+		if credentialpolicy.ContainsArtifactValue(artifact.Content, declared) {
 			diagnostics = append(diagnostics, Diagnostic{
 				Severity:    "error",
 				Code:        "leaf.literal_credential",

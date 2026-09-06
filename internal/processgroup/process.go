@@ -40,6 +40,12 @@ type InteractiveChild struct {
 }
 
 func StartInteractive(ctx context.Context, args, environment []string, stderr io.Writer) (*InteractiveChild, error) {
+	return StartInteractiveIn(ctx, "", args, environment, stderr)
+}
+
+// StartInteractiveIn binds an explicit child working directory without changing
+// the parent process directory or using a shell wrapper.
+func StartInteractiveIn(ctx context.Context, directory string, args, environment []string, stderr io.Writer) (*InteractiveChild, error) {
 	if ctx == nil {
 		ctx = context.Background()
 	}
@@ -52,6 +58,7 @@ func StartInteractive(ctx context.Context, args, environment []string, stderr io
 	}
 	command := exec.Command(commandPath, args[1:]...)
 	command.Args[0] = args[0]
+	command.Dir = directory
 	command.Env = append([]string{}, environment...)
 	command.Stderr = stderr
 	prepare(command)

@@ -1081,7 +1081,7 @@ func (writer *limitedWriter) Write(value []byte) (int, error) {
 }
 
 func scenarioEnvironment(overrides map[string]string) []string {
-	allowed := map[string]bool{"DISPLAY": true, "WAYLAND_DISPLAY": true, "XAUTHORITY": true, "XDG_RUNTIME_DIR": true, "DBUS_SESSION_BUS_ADDRESS": true, "HOME": true, "PATH": true, "LANG": true, "LC_ALL": true, "PLAYWRIGHT_BROWSERS_PATH": true, "TMPDIR": true}
+	allowed := map[string]bool{"CHROME_DEVEL_SANDBOX": true, "DISPLAY": true, "WAYLAND_DISPLAY": true, "XAUTHORITY": true, "XDG_RUNTIME_DIR": true, "DBUS_SESSION_BUS_ADDRESS": true, "HOME": true, "PATH": true, "LANG": true, "LC_ALL": true, "PLAYWRIGHT_BROWSERS_PATH": true, "TMPDIR": true}
 	values := map[string]string{}
 	for _, item := range os.Environ() {
 		name, value, ok := strings.Cut(item, "=")
@@ -1112,7 +1112,8 @@ func qualificationGoBuildEnvironment() map[string]string {
 	return map[string]string{
 		"GOENV":       "off",
 		"GOPROXY":     "off",
-		"GOTOOLCHAIN": "go1.26.6",
+		"GOTOOLCHAIN": "local",
+		"GOSUMDB":     "off",
 		"GOWORK":      "off",
 	}
 }

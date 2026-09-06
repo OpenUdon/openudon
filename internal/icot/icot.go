@@ -25,6 +25,9 @@ func Main(args []string, in io.Reader, out, errOut io.Writer) int {
 	if len(args) > 0 && args[0] == "__browsertools-worker" {
 		return runBundledBrowserWorker(args[1:], in, out, errOut)
 	}
+	if len(args) > 0 && args[0] == "control" {
+		return runApplication(args[1:], in, out, errOut)
+	}
 	if len(args) > 0 && args[0] == "ui" {
 		return runUI(args[1:], out, errOut)
 	}

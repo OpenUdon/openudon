@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
+	"github.com/OpenUdon/openudon/internal/browsersystem"
 	"io"
 	"os"
 	"os/exec"
@@ -45,6 +46,7 @@ func main() {
 		fmt.Fprintf(flag.CommandLine.Output(), "  approval-template print approval JSON for a validated handoff package\n")
 		fmt.Fprintf(flag.CommandLine.Output(), "  build     regenerate workflow/UWS from an existing intent.hcl\n")
 		fmt.Fprintf(flag.CommandLine.Output(), "  browser-integration-eval run or verify provider-free cross-repo browser evidence\n")
+		fmt.Fprintf(flag.CommandLine.Output(), "  browser-system-eval run or verify the complete local browser engineering gate\n")
 		fmt.Fprintf(flag.CommandLine.Output(), "  browser-scenario-eval run or verify deterministic loopback/journey/public browser scenarios\n")
 		fmt.Fprintf(flag.CommandLine.Output(), "  browser-transaction-eval run or verify value-free cross-package transaction qualification evidence\n")
 		fmt.Fprintf(flag.CommandLine.Output(), "  catalog   inspect first-class provider catalog metadata\n")
@@ -94,6 +96,10 @@ func main() {
 		runCatalogCommand(flag.Args()[1:])
 	case "browser-integration-eval":
 		runBrowserIntegrationEvalCommand(flag.Args()[1:])
+	case "browser-system-component":
+		runBrowserSystemComponent(flag.Args()[1:])
+	case "browser-system-eval":
+		runBrowserSystemEval(flag.Args()[1:])
 	case "browser-scenario-eval":
 		runBrowserScenarioEvalCommand(flag.Args()[1:])
 	case "browser-transaction-eval":
@@ -721,6 +727,7 @@ func runTrustedCommand(args []string) {
 	tier := fs.String("tier", "", "Execution tier: sandbox or production")
 	approval := fs.String("approval", "", "Approval JSON file")
 	workdir := fs.String("workdir", "", "executor work directory; defaults to .openudon-run/<example>")
+	interactiveBrowser := fs.Bool("interactive-browser", false, "Forward private stdin for human browser verification responses; no automatic responses")
 	dryRun := fs.Bool("dry-run", false, "Validate gates, stage the package, verify the staged digest, and write run evidence without invoking the executor")
 	signingKey := fs.String("signing-key", "", "Optional PKCS#8 PEM Ed25519 key used only to sign the completed run evidence")
 	browserDriver := fs.String("browser-driver", "", "Absolute trusted browser-driver executable path (or absolute in-image path for Docker)")
@@ -759,6 +766,13 @@ func runTrustedCommand(args []string) {
 		BrowserDriverArgs:           []string(browserDriverArgs),
 		RegistrationAttestationPath: *registrationAttestation,
 		RegistrationSubmitApproval:  *registrationSubmitApproval,
+	}
+	if *interactiveBrowser {
+		if *dryRun {
+			fmt.Fprintln(os.Stderr, "--interactive-browser requires runtime execution")
+			os.Exit(2)
+		}
+		runOptions.Stdin = os.Stdin
 	}
 	var result *trustedrunner.RunResult
 	var err error
@@ -1307,4 +1321,67 @@ func printQuality(report *synthesize.QualityReport) {
 
 func nextActionForQualityCheck(code string) string {
 	return qualityremediation.NextAction(code)
+}
+
+func runBrowserSystemEval(args []string) {
+	fs := flag.NewFlagSet("browser-system-eval", flag.ExitOnError)
+	suite := fs.String("suite", "", "offline or explicit loopback (three fresh complete passes)")
+	root := fs.String("repo-root", ".", "OpenUdon source root")
+	udonRepo := fs.String("udon-repo", "", "exact Udon checkout with locked auxiliary siblings")
+	out := fs.String("out", "", "report outside source workspace")
+	verify := fs.String("verify", "", "verify a saved report without browser activity")
+	fs.Parse(args)
+	if fs.NArg() != 0 {
+		os.Exit(2)
+	}
+	if *verify != "" {
+		invalid := false
+		fs.Visit(func(f *flag.Flag) {
+			if f.Name != "verify" {
+				invalid = true
+			}
+		})
+		if invalid {
+			os.Exit(2)
+		}
+		report, err := browsersystem.Verify(*verify)
+		if err != nil {
+			fmt.Fprintln(os.Stderr, "browser-system-eval: report_invalid")
+			os.Exit(1)
+		}
+		fmt.Println("browser-system-eval:", report.Status)
+		if report.Status != "pass" {
+			os.Exit(1)
+		}
+		return
+	}
+	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer cancel()
+	_, err := browsersystem.Run(ctx, browsersystem.Options{Root: *root, Suite: *suite, Out: *out, UdonRepo: *udonRepo, Progress: os.Stderr})
+	if err != nil {
+		fmt.Fprintln(os.Stderr, "browser-system-eval:", err)
+		os.Exit(1)
+	}
+	fmt.Fprintln(os.Stdout, "browser-system-eval: pass")
+}
+
+func runBrowserSystemComponent(args []string) {
+	fs := flag.NewFlagSet("browser-system-component", flag.ExitOnError)
+	id := fs.String("component", "", "closed synthetic component")
+	root := fs.String("repo-root", ".", "OpenUdon source root")
+	udon := fs.String("udon-repo", "", "exact Udon source root")
+	fs.Parse(args)
+	if fs.NArg() != 0 {
+		os.Exit(2)
+	}
+	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer cancel()
+	value, err := browsersystem.RunComponent(ctx, *root, *udon, *id)
+	if err != nil {
+		fmt.Fprintln(os.Stderr, "browser-system-component: failed")
+		os.Exit(1)
+	}
+	if json.NewEncoder(os.Stdout).Encode(value) != nil {
+		os.Exit(1)
+	}
 }

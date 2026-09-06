@@ -179,3 +179,13 @@ promote-support:
 
 assess-support:
 	$(GO) run ./cmd/openudon assess --example ./examples/support-email
+
+# Explicit synthetic browser authority; no public suite or provider credentials.
+OPENUDON_BROWSER_SYSTEM_UDON_REPO ?= ../udon
+OPENUDON_BROWSER_SYSTEM_OUT ?= /tmp/openudon-browser-system
+.PHONY: browser-system-check
+browser-system-check:
+	$(GO) run ./cmd/openudon browser-system-eval --udon-repo "$(OPENUDON_BROWSER_SYSTEM_UDON_REPO)" --suite offline --out "$(OPENUDON_BROWSER_SYSTEM_OUT)-offline.json"
+	$(GO) run ./cmd/openudon browser-system-eval --verify "$(OPENUDON_BROWSER_SYSTEM_OUT)-offline.json"
+	$(GO) run ./cmd/openudon browser-system-eval --udon-repo "$(OPENUDON_BROWSER_SYSTEM_UDON_REPO)" --suite loopback --out "$(OPENUDON_BROWSER_SYSTEM_OUT)-loopback.json"
+	$(GO) run ./cmd/openudon browser-system-eval --verify "$(OPENUDON_BROWSER_SYSTEM_OUT)-loopback.json"

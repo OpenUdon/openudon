@@ -237,7 +237,7 @@ func TestScenarioEnvironmentExcludesCredentialsAndRetainsNetworkProxy(t *testing
 		valuesByName[name] = item
 	}
 	for name, want := range map[string]string{
-		"GOENV": "off", "GOPROXY": "off", "GOTOOLCHAIN": "go1.26.6", "GOWORK": "off",
+		"GOENV": "off", "GOPROXY": "off", "GOTOOLCHAIN": "local", "GOWORK": "off",
 	} {
 		if valuesByName[name] != want {
 			t.Fatalf("scenario environment %s = %q, want %q", name, valuesByName[name], want)
@@ -257,10 +257,10 @@ func TestCompatibilityLockMatchesExactTypedBrowserRevisions(t *testing.T) {
 	for _, component := range lock.Components {
 		components[component.Name] = component
 	}
-	if components["browserdriver"].Commit != "a97b1aed6ea69a30591815da8ca07ac9e7c87623" ||
-		components["udon"].Commit != "e0e6559e839bed788201cf0c55a3eb296d375987" ||
-		components["browsertools"].Commit != "75fd5c3ab81f904243f8c2650c61ba1cd8c00540" ||
-		components["uws"].Commit != "9e676eaa469e9168225a7dcee75eb309e3499637" {
+	if components["browserdriver"].Commit != "482b3f0f830729eb867a3318fc900ba2d3783fcd" ||
+		components["udon"].Commit != "ff532651ea8e1786e59f637d461979e3f0052e1a" ||
+		components["browsertools"].Commit != "ce06b13bfef8d1776c3aa019322619c90dacbbd2" ||
+		components["uws"].Commit != "cb5409586b7b749dd051425b58462f1e73a8c541" {
 		t.Fatalf("qualification component pins = %#v", components)
 	}
 	buildLock, err := LoadQualificationBuildInputLock(lock)
@@ -271,8 +271,8 @@ func TestCompatibilityLockMatchesExactTypedBrowserRevisions(t *testing.T) {
 	for _, component := range buildLock.Components {
 		buildComponents[component.Name] = component
 	}
-	if buildComponents["browsertools"].Commit != "d26f2982db352619d7a7f6563add802b56e10824" ||
-		buildComponents["uws"].Commit != "895aa4546067e25f9dd525b1356abf1945d223b4" {
+	if buildComponents["browsertools"].Commit != "ce06b13bfef8d1776c3aa019322619c90dacbbd2" ||
+		buildComponents["uws"].Commit != "cb5409586b7b749dd051425b58462f1e73a8c541" {
 		t.Fatalf("Udon qualification module pins = %#v", buildComponents)
 	}
 }
@@ -629,4 +629,25 @@ func cloneManifest(t *testing.T, source Manifest) Manifest {
 func sha256Line(data []byte, name string) string {
 	sum := sha256.Sum256(data)
 	return "sha256:" + hex.EncodeToString(sum[:]) + "  " + name + "\n"
+}
+
+func TestLocalQualificationKeepsPublicationAndSiblingBoundaries(t *testing.T) {
+	report := sampleReport(t)
+	report.Repositories[0].Dirty = true
+	if err := ValidateLocalQualificationReport(report); err != nil {
+		t.Fatal(err)
+	}
+	if !report.Repositories[0].Dirty {
+		t.Fatal("local validation changed evidence")
+	}
+	if ValidateReport(report) == nil {
+		t.Fatal("legacy publication accepted local delta")
+	}
+	report.Repositories[1].Dirty = true
+	if ValidateLocalQualificationReport(report) == nil {
+		t.Fatal("unbound sibling delta accepted")
+	}
+	if _, err := RunLocalQualification(context.Background(), Options{Suite: SuitePublic, AllowNetwork: true}); err == nil {
+		t.Fatal("local mode accepted public authority")
+	}
 }
