@@ -19,13 +19,15 @@ import (
 type descendantTracker struct {
 	rootPID int
 
-	mu          sync.Mutex
-	terminateMu sync.Mutex
-	known       map[int]uint64
-	healthy     bool
-	stop        chan struct{}
-	done        chan struct{}
-	once        sync.Once
+	mu           sync.Mutex
+	terminateMu  sync.Mutex
+	known        map[int]uint64
+	healthy      bool
+	stop         chan struct{}
+	done         chan struct{}
+	childrenDone chan struct{}
+	scan         func() map[int]procIdentity
+	once         sync.Once
 }
 
 type procIdentity struct {
@@ -37,20 +39,43 @@ type procIdentity struct {
 }
 
 func startDescendantTracker(rootPID int) *descendantTracker {
+	return startDescendantTrackerWithScan(rootPID, readProcIdentities)
+}
+
+func startDescendantTrackerWithScan(rootPID int, scan func() map[int]procIdentity) *descendantTracker {
 	tracker := &descendantTracker{
-		rootPID: rootPID,
-		known:   make(map[int]uint64),
-		healthy: true,
-		stop:    make(chan struct{}),
-		done:    make(chan struct{}),
+		rootPID:      rootPID,
+		known:        make(map[int]uint64),
+		healthy:      true,
+		stop:         make(chan struct{}),
+		done:         make(chan struct{}),
+		childrenDone: make(chan struct{}),
+		scan:         scan,
 	}
-	tracker.observe()
+	// Keep owned child discovery active while a slow whole-host scan runs.
+	tracker.observeChildLists()
+	go tracker.monitorChildren()
 	go tracker.monitor()
 	return tracker
 }
 
+func (tracker *descendantTracker) monitorChildren() {
+	defer close(tracker.childrenDone)
+	ticker := time.NewTicker(time.Millisecond)
+	defer ticker.Stop()
+	for {
+		select {
+		case <-ticker.C:
+			tracker.observeChildLists()
+		case <-tracker.stop:
+			return
+		}
+	}
+}
+
 func (tracker *descendantTracker) monitor() {
 	defer close(tracker.done)
+	tracker.observe()
 	ticker := time.NewTicker(time.Millisecond)
 	defer ticker.Stop()
 	for {
@@ -66,6 +91,9 @@ func (tracker *descendantTracker) monitor() {
 func (tracker *descendantTracker) stopMonitoring() {
 	tracker.once.Do(func() { close(tracker.stop) })
 	<-tracker.done
+	if tracker.childrenDone != nil {
+		<-tracker.childrenDone
+	}
 }
 
 func (tracker *descendantTracker) observe() {
@@ -74,7 +102,11 @@ func (tracker *descendantTracker) observe() {
 	// that detaches and whose leader exits quickly under host load.
 	tracker.observeChildLists()
 
-	processes := readProcIdentities()
+	scan := tracker.scan
+	if scan == nil {
+		scan = readProcIdentities
+	}
+	processes := scan()
 	if processes == nil {
 		tracker.mu.Lock()
 		tracker.healthy = false

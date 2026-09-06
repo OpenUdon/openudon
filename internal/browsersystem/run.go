@@ -12,6 +12,7 @@ import (
 	"reflect"
 	"sort"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/OpenUdon/openudon/internal/browserscenario"
@@ -39,24 +40,43 @@ func environment(extra ...string) []string {
 }
 
 type boundedBuffer struct {
-	bytes.Buffer
+	buffer   bytes.Buffer
+	mu       sync.Mutex
 	exceeded bool
 }
 
 func (b *boundedBuffer) Write(p []byte) (int, error) {
-	if b.Len()+len(p) > 32<<20 {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	if b.buffer.Len()+len(p) > 32<<20 {
 		b.exceeded = true
 		return len(p), nil
 	}
-	return b.Buffer.Write(p)
+	return b.buffer.Write(p)
+}
+func (b *boundedBuffer) snapshot() ([]byte, bool) {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	return append([]byte(nil), b.buffer.Bytes()...), b.exceeded
 }
 func command(ctx context.Context, root string, args, extra []string) ([]byte, error) {
-	var output boundedBuffer
-	err := processgroup.Run(ctx, 15*time.Minute, processgroup.Invocation{Args: args, Dir: root, Env: environment(extra...), Stdout: &output, Stderr: io.Discard})
-	if err != nil || output.exceeded {
-		return nil, errors.New("component_failed")
+	var output, diagnostic boundedBuffer
+	err := processgroup.Run(ctx, 15*time.Minute, processgroup.Invocation{Args: args, Dir: root, Env: environment(extra...), Stdout: &output, Stderr: &diagnostic})
+	stdout, outputExceeded := output.snapshot()
+	stderr, diagnosticExceeded := diagnostic.snapshot()
+	if err != nil || outputExceeded || diagnosticExceeded {
+		reason := "subprocess"
+		switch {
+		case errors.Is(err, processgroup.ErrTerminationTimeout):
+			reason = "teardown"
+		case ctx.Err() != nil || errors.Is(err, context.DeadlineExceeded) || errors.Is(err, context.Canceled):
+			reason = "deadline_or_cancellation"
+		case outputExceeded || diagnosticExceeded:
+			reason = "output_limit"
+		}
+		return nil, &commandFailure{reason: reason, stdout: stdout, stderr: stderr, truncated: outputExceeded || diagnosticExceeded}
 	}
-	return output.Bytes(), nil
+	return stdout, nil
 }
 func toolchains(ctx context.Context, root string) (Toolchains, error) {
 	goOutput, err := command(ctx, root, []string{"go", "version"}, nil)
@@ -318,6 +338,7 @@ func Run(ctx context.Context, o Options) (*Report, error) {
 			after, sourceErr := sources(ctx, root, udonRoot, o.Suite == "loopback")
 			currentRuntimes, runtimeErr := toolchains(ctx, root)
 			if err != nil || sourceErr != nil || runtimeErr != nil || currentRuntimes != runtimes || !reflect.DeepEqual(before, after) {
+				retainFailureDiagnostic(out, id, err, o.Progress)
 				row.Stages = append(row.Stages, Stage{ID: id, Status: "fail"})
 				report.Passes = append(report.Passes, row)
 				report.Status = "fail"

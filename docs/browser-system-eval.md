@@ -63,7 +63,9 @@ attestation: independently compare its sources with the reviewed checkouts and
 trust the process that ran qualification.
 
 Command stages run under the existing process-group supervisor with bounded
-execution and joined descendant teardown. EOF, cancellation and failures do
+execution and joined descendant teardown. On Linux, fast owned-child discovery
+runs independently of whole-host scans; teardown joins both monitors while
+retaining recorded PID/start-time ownership. EOF, cancellation and failures do
 not authorize registration retry. Navigation/request allowlists are explicitly
 reported as application enforcement, not network-wide containment. Synthetic
 approvals and challenge values exist only in local fixture paths. Real-target
@@ -105,7 +107,13 @@ separate review and authorization boundaries.
 The supplied auxiliary baseline now pins Grand 5a3dae69ae44 and Hcllight
 e2042c181d4a; Golet remains 38f8c62a8c31. These exact local replacement inputs
 are tested separately from the Go module requirement labels. Progress output
-contains only pass numbers and fixed stage identifiers.
+contains pass numbers and fixed stage identifiers. On failure it also prints
+the location of an owner-only `<report>.diagnostic.json` sidecar. That private
+file records a fixed failure reason and up to the last 1 MiB of each captured
+child stdout/stderr stream, with a truncation marker. It never enters the reduced
+report, is not qualification evidence, and must remain outside Git. Existing
+diagnostics and final symlinks are never overwritten. A supervising composer
+must preserve this sidecar before deleting its temporary component directory.
 
 Version 2 adds required supervised registration and authenticated-package
 journeys to each of the three loopback passes (13 stages per pass). The verifier
