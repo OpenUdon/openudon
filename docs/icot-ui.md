@@ -13,8 +13,8 @@ go run ./cmd/icot ui \
   --private-root /private/operator/openudon-authoring
 ```
 
-`--private-root` is needed only for an API upload, browser capture, or guided
-registration authoring. It must be absolute, mode `0700`, non-symlink, and
+`--private-root` is needed for an API upload, browser capture, registration
+discovery inventory or guided registration authoring. It must be absolute, mode `0700`, non-symlink, and
 outside the example. Use `--driver-dir` when the installed Playwright-Go driver
 is outside its normal location. Chromium is an installed prerequisite; iCoT
 never downloads it. A fixed `--port` and `--no-open` remain available for local
@@ -40,6 +40,48 @@ engine without a candidate so the guided registration-authoring path can adopt
 one after clean Browsertools teardown.
 
 ## Guided browser registration authoring
+
+The **Registration discovery** panel maintains an explicitly loaded private
+inventory, independently of a browser session. Add a registration URL and type
+(for example, advertiser or publisher), or record the current Browsertools
+observation's origin and path. Observed entries omit query data and establish
+only that a page was observed, not that registration works. Missing or corrected
+routes can be added; remove an incorrect entry before replacing its ID.
+
+Coverage (`unknown` or `partial`) and owner review (`pending` or `reviewed`) are
+separate. Record authentication, invitation, conditional-flow, unreachable-page
+and unknown-route limitations. Even a reviewed inventory with no recorded
+limitations does not guarantee that every registration page was found. This
+panel is an inventory and review surface, not an automatic website crawler.
+
+**Use in wizard** selects a candidate and fills editable profile ID, flow name,
+initial URL and origin fields. Review those fields before launching observation.
+Selection neither starts a browser nor resets a consumed attempt, bypasses
+containment, changes an existing draft, or grants submission authority. Every
+inventory mutation, including selection and coverage changes, requires review
+again. Normal registration authoring still constructs its canonical recipe from
+reviewed observations and fields; inventory metadata does not enter the BRP or
+package. Existing reviewed profiles are not rewritten or stripped.
+
+The inventory needs only `--private-root`; browser observation still needs the
+package configuration below. Storage must be outside **every Git worktree** and
+the example. Each example gets a separate `registration-discovery-<digest>`
+directory under the private root, with mode `0700`, mode `0600` numbered JSON
+revisions and a hash-linked history. It survives UI restarts. Keep that directory
+private: it contains candidate URLs and review history. At most 32 current
+entries, 512 revisions and 128 KiB per revision are accepted. A stale revision,
+damaged history, unsafe permissions or interrupted write is rejected; reload
+after a conflict. A leftover `write-lock` or `pending.json` requires exact local
+inspection and reconciliation after all writers stop; the application never
+deletes or resets that history automatically.
+
+The authenticated `GET /api/v4/registration-discovery` resource returns the
+inventory; `POST` accepts a revision-bound change. Ordinary API-v4 snapshots
+exclude it. The same service is available through
+[supervised application control](application-control.md). No credential values
+belong in this inventory or its navigation URLs. UWS registration 1.1 typed
+private inputs remain a separate consumer/runtime adoption; this change retains
+the current registration 1.0 wizard and dependency pins.
 
 The registration wizard is available only when `--private-root` and the full
 package option group are configured. It uses authenticated, revision-bound API

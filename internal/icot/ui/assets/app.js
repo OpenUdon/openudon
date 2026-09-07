@@ -1328,6 +1328,83 @@ const refreshRegistrationCandidateChoices = () => {
 	populateRegistrationSelect(byID("registration-success-origin"), origins);
 };
 
+let registrationDiscovery = null;
+let registrationDiscoveryPending = false;
+let registrationDiscoveryRenderedRevision = "";
+
+const renderRegistrationDiscovery = () => {
+	const inventory = registrationDiscovery;
+	byID("registration-discovery-load").disabled = registrationDiscoveryPending;
+	byID("registration-discovery-content").hidden = !inventory;
+	if (!inventory) return;
+	byID("registration-discovery-status").textContent = `Coverage: ${inventory.coverage}. Owner review: ${inventory.owner_review}. Revision ${inventory.sequence}. ${inventory.candidates.length} recorded routes; completeness is not guaranteed.`;
+	if (registrationDiscoveryRenderedRevision !== inventory.revision) {
+	registrationDiscoveryRenderedRevision = inventory.revision;
+	byID("registration-discovery-scope").value = inventory.coverage;
+	byID("registration-discovery-limitations").querySelectorAll("input").forEach((input) => { input.checked = inventory.limitations.includes(input.value); });
+	const list = byID("registration-discovery-list");
+	list.replaceChildren();
+	for (const entry of inventory.candidates) {
+		const item = document.createElement("li");
+		const description = document.createElement("p");
+		description.textContent = `${entry.registration_type}: ${entry.url} (${entry.source.replaceAll("_", " ")})${inventory.selected_id === entry.id ? " — selected" : ""}`;
+		item.append(description);
+		const select = document.createElement("button");
+		select.type = "button";
+		select.dataset.discoveryAction = "select";
+		select.textContent = "Use in wizard";
+		select.disabled = registrationDiscoveryPending || state.pendingMutation || byID("registration-start").disabled;
+		select.addEventListener("click", async () => {
+			if (!await requestRegistrationDiscovery({action: "select", id: entry.id})) return;
+			// Selection is advisory. Re-check the current browser gate after I/O;
+			// never launch, renew authority, or change reviewed canonical bytes.
+			if (state.pendingMutation || byID("registration-start").disabled) return;
+			byID("registration-profile-id").value = entry.id;
+			byID("registration-url").value = entry.url;
+			byID("registration-origins").value = new URL(entry.url).origin;
+			byID("registration-flow-name").value = entry.registration_type;
+			byID("registration-url").focus();
+		});
+		const remove = document.createElement("button");
+		remove.type = "button";
+		remove.textContent = "Remove route";
+		remove.disabled = registrationDiscoveryPending;
+		remove.addEventListener("click", () => requestRegistrationDiscovery({action: "remove", id: entry.id}));
+		item.append(select, remove);
+		list.append(item);
+	}
+	}
+	byID("registration-discovery-list").querySelectorAll("button").forEach((control) => { control.disabled = registrationDiscoveryPending || (control.dataset.discoveryAction === "select" && (state.pendingMutation || byID("registration-start").disabled)); });
+	byID("registration-discovery-content").querySelectorAll("form input, form select, form button, #registration-discovery-review").forEach((control) => { control.disabled = registrationDiscoveryPending; });
+	byID("registration-discovery-observed").disabled = registrationDiscoveryPending || !state.renderedPayload?.registration_authoring?.observation;
+};
+
+async function requestRegistrationDiscovery(change = null) {
+	if (registrationDiscoveryPending || (change && !registrationDiscovery)) return false;
+	registrationDiscoveryPending = true;
+	renderRegistrationDiscovery();
+	clearError();
+	try {
+		const options = {credentials: "same-origin", headers: {Accept: "application/json"}};
+		if (change) {
+			options.method = "POST";
+			options.headers["Content-Type"] = "application/json";
+			options.body = JSON.stringify({revision: registrationDiscovery.revision, ...change});
+		}
+		const response = await fetch("api/v4/registration-discovery", options);
+		const payload = await decodePayload(response);
+		if (!response.ok) { showError(payload?.error?.message || "Private inventory request failed."); return false; }
+		registrationDiscovery = payload;
+		return true;
+	} catch (_) {
+		showError("Private inventory request failed. Reload before continuing.");
+		return false;
+	} finally {
+		registrationDiscoveryPending = false;
+		renderRegistrationDiscovery();
+	}
+}
+
 const renderRegistrationAuthoring = (payload) => {
 	initializeRegistrationRows();
 	const authoring = payload.registration_authoring;
@@ -1342,6 +1419,7 @@ const renderRegistrationAuthoring = (payload) => {
 	const pendingCandidate = ["review_ready", "transaction_review", "adopted"].includes(authoring?.state);
 	const startLocked = state.pendingMutation || !payload.browser_transaction || payload.lifecycle !== "authoring" || externallyModified(payload) || Boolean(authoring?.containment_failed) || Boolean(authoring?.attempt_consumed) || registrationActive(authoring) || pendingCandidate;
 	Array.from(byID("registration-start-form").elements).forEach((control) => { control.disabled = startLocked; });
+	renderRegistrationDiscovery();
 	byID("registration-cancel").hidden = !registrationActive(authoring) || ["canceling", "transaction_review"].includes(authoring?.state);
 
 	const panel = byID("registration-observation-panel"); clearNode(panel);
@@ -1558,6 +1636,20 @@ byID("capture-form").addEventListener("submit", (event) => {
 byID("capture-cancel").addEventListener("click", () => sendLifecycleJSON("capture/cancel", {
   capture_revision: state.renderedPayload.capture_revision,
 }, "Canceling the browser capture and its descendants…"));
+
+byID("registration-discovery-load").addEventListener("click", () => requestRegistrationDiscovery());
+byID("registration-discovery-add").addEventListener("submit", (event) => {
+	event.preventDefault();
+	requestRegistrationDiscovery({action: "add", id: byID("registration-discovery-id").value.trim(), registration_type: byID("registration-discovery-type").value.trim(), url: byID("registration-discovery-url").value.trim()});
+});
+byID("registration-discovery-observed").addEventListener("click", () => {
+	requestRegistrationDiscovery({action: "add_observed", id: byID("registration-discovery-id").value.trim(), registration_type: byID("registration-discovery-type").value.trim(), registration_revision: state.renderedPayload?.registration_authoring_revision || ""});
+});
+byID("registration-discovery-coverage").addEventListener("submit", (event) => {
+	event.preventDefault();
+	requestRegistrationDiscovery({action: "coverage", coverage: byID("registration-discovery-scope").value, limitations: Array.from(byID("registration-discovery-limitations").querySelectorAll("input:checked"), (input) => input.value)});
+});
+byID("registration-discovery-review").addEventListener("click", () => requestRegistrationDiscovery({action: "review"}));
 
 byID("registration-start-form").addEventListener("submit", (event) => {
 	event.preventDefault();

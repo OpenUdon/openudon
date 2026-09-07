@@ -739,6 +739,63 @@ func TestPhaseCBrowserTransactionReviewRecoveryAndAccessibility(t *testing.T) {
 	}
 }
 
+func TestPhaseCBrowserRegistrationDiscoveryPreparesWithoutLaunch(t *testing.T) {
+	_, browser := launchPhaseCBrowser(t)
+	privateRoot := t.TempDir()
+	if err := os.Chmod(privateRoot, 0700); err != nil {
+		t.Fatal(err)
+	}
+	var launches atomic.Int32
+	fixture := newPhaseCBrowserFixtureWithConfig(t, &phaseCBrowserEngine{snapshot: phaseCFrontierSnapshot()}, func(config *HandlerConfig) {
+		config.PrivateRoot = privateRoot
+		config.BrowserTransactions = newFakeBrowserTransactions()
+		config.StartRegistration = func(context.Context, browserauthor.RegistrationConfig) (RegistrationAuthoringSession, error) {
+			launches.Add(1)
+			return nil, errors.New("unexpected launch")
+		}
+	})
+	page := newPhaseCPage(t, browser, fixture)
+	if err := page.Locator("#registration-discovery-load").Click(); err != nil {
+		t.Fatal(err)
+	}
+	waitForLocatorText(t, page.Locator("#registration-discovery-status"), "Revision 0")
+	for id, value := range map[string]string{
+		"#registration-discovery-id": "advertiser", "#registration-discovery-type": "advertiser", "#registration-discovery-url": "https://app.example.test/register?action=startnew",
+	} {
+		if err := page.Locator(id).Fill(value); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := page.GetByRole("button", playwright.PageGetByRoleOptions{Name: "Add URL", Exact: playwright.Bool(true)}).Click(); err != nil {
+		t.Fatal(err)
+	}
+	waitForLocatorText(t, page.Locator("#registration-discovery-status"), "Revision 1")
+	if err := page.GetByRole("button", playwright.PageGetByRoleOptions{Name: "Use in wizard", Exact: playwright.Bool(true)}).Click(); err != nil {
+		t.Fatal(err)
+	}
+	waitForLocatorText(t, page.Locator("#registration-discovery-list"), "selected")
+	for id, want := range map[string]string{"#registration-profile-id": "advertiser", "#registration-flow-name": "advertiser", "#registration-url": "https://app.example.test/register?action=startnew", "#registration-origins": "https://app.example.test"} {
+		if value, err := page.Locator(id).InputValue(); err != nil || value != want {
+			t.Fatalf("%s not prepared: %q %v", id, value, err)
+		}
+	}
+	if err := page.Locator("#registration-discovery-review").Click(); err != nil {
+		t.Fatal(err)
+	}
+	waitForLocatorText(t, page.Locator("#registration-discovery-status"), "Coverage: unknown. Owner review: reviewed.")
+	if _, err := page.Reload(); err != nil {
+		t.Fatal(err)
+	}
+	waitForLocatorText(t, page.Locator("#connection"), "Connected")
+	if err := page.Locator("#registration-discovery-load").Click(); err != nil {
+		t.Fatal(err)
+	}
+	waitForLocatorText(t, page.Locator("#registration-discovery-list"), "selected")
+	if launches.Load() != 0 {
+		t.Fatal("inventory contacted target")
+	}
+}
+
 func TestPhaseCBrowserGuidedRegistrationDraftReview(t *testing.T) {
 	_, browser := launchPhaseCBrowser(t)
 	session := newFakeRegistrationAuthoringSession()

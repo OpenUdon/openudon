@@ -101,6 +101,42 @@
         </div>
         <p id="registration-authoring-status" class="section-help" role="status" aria-live="polite" aria-atomic="true">This wizard observes accessibility metadata with GET or HEAD only. It cannot type, click, submit, create an account, sign in, or execute the drafted workflow.</p>
 
+        <section class="wizard-panel" aria-labelledby="registration-discovery-heading">
+          <h4 id="registration-discovery-heading">Registration discovery</h4>
+          <p class="section-help">Keep a private list of possible registration routes and account types. Discovery may miss invitation-only, authenticated or conditional routes. Reviewing the list does not prove completeness. URLs stay in private authoring storage; enter public navigation URLs only, without credentials or verification tokens.</p>
+          <button id="registration-discovery-load" type="button">Load private inventory</button>
+          <p id="registration-discovery-status" role="status" aria-live="polite">Inventory has not been loaded.</p>
+          <div id="registration-discovery-content" hidden>
+            <ul id="registration-discovery-list" class="wizard-list"></ul>
+            <form id="registration-discovery-add" class="wizard-grid">
+              <fieldset>
+                <legend>Add a registration route</legend>
+                <label for="registration-discovery-id">Entry ID</label><input id="registration-discovery-id" pattern="[a-z][a-z0-9_]{0,63}" maxlength="64" required>
+                <label for="registration-discovery-type">Registration type</label><input id="registration-discovery-type" pattern="[a-z][a-z0-9_]{0,63}" maxlength="64" placeholder="advertiser" required>
+                <label for="registration-discovery-url">Entry URL</label><input id="registration-discovery-url" type="url" maxlength="2048">
+                <div class="form-actions"><button type="submit">Add URL</button><button id="registration-discovery-observed" type="button">Add observed page</button></div>
+                <p class="question-meta">The observed-page option records the current browser observation's origin and path. It does not retain its query or establish that the page can register an account.</p>
+              </fieldset>
+            </form>
+            <form id="registration-discovery-coverage">
+              <fieldset>
+                <legend>Coverage and limitations</legend>
+                <label for="registration-discovery-scope">Discovery coverage</label><select id="registration-discovery-scope"><option value="unknown">Unknown</option><option value="partial">Partial</option></select>
+                <div id="registration-discovery-limitations">
+                  <label><input type="checkbox" value="unknown_routes"> Unknown routes</label>
+                  <label><input type="checkbox" value="authentication_required"> Authentication required</label>
+                  <label><input type="checkbox" value="invitation_required"> Invitation required</label>
+                  <label><input type="checkbox" value="conditional_flow"> Conditional flow</label>
+                  <label><input type="checkbox" value="unreachable_page"> Unreachable page</label>
+                </div>
+                <button type="submit">Save coverage</button>
+              </fieldset>
+            </form>
+            <button id="registration-discovery-review" type="button">Mark this inventory reviewed</button>
+            <p class="question-meta">Changes require a new review. “Use in wizard” fills editable fields only. Launch observation separately after reviewing the target authority.</p>
+          </div>
+        </section>
+
         <form id="registration-start-form" class="wizard-grid" novalidate aria-describedby="registration-authoring-status">
           <fieldset>
             <legend>1. Profile metadata and target authority</legend>

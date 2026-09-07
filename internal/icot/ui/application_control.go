@@ -17,10 +17,11 @@ const ApplicationControlVersion = "openudon.application-control.v1"
 // reviewed resources as the UI, never producer envelopes or credential values.
 // Application is encoded while holding the state lock to prevent alias races.
 type ApplicationControlState struct {
-	Version     string          `json:"version"`
-	Application json.RawMessage `json:"application"`
-	Failure     string          `json:"failure,omitempty"`
-	QuestionID  string          `json:"question_id,omitempty"`
+	Version               string          `json:"version"`
+	Application           json.RawMessage `json:"application"`
+	Failure               string          `json:"failure,omitempty"`
+	QuestionID            string          `json:"question_id,omitempty"`
+	RegistrationDiscovery json.RawMessage `json:"registration_discovery,omitempty"`
 }
 
 func (app Application) observe(ctx context.Context) (ApplicationControlState, error) {
@@ -52,6 +53,15 @@ func registrationApplicationResult(result registrationResult) applicationResult 
 func (app Application) dispatch(ctx context.Context, frame registrationControlFrame) (applicationResult, error) {
 	raw := frame.Request
 	switch frame.Operation {
+	case "registration.discovery.snapshot":
+		if len(raw) != 0 {
+			return applicationResult{}, errors.New("protocol")
+		}
+		return app.RegistrationDiscovery(ctx, nil), nil
+	case "registration.discovery.change":
+		return applicationRequest(raw, func(r registrationDiscoveryRequest) applicationResult {
+			return app.RegistrationDiscovery(ctx, &r)
+		})
 	case "snapshot":
 		if len(raw) != 0 {
 			return applicationResult{}, errors.New("protocol")
@@ -164,6 +174,7 @@ func serveApplicationControl(ctx context.Context, app Application, input io.Read
 			state.Failure = reply.Failure.Code
 			state.QuestionID = reply.Failure.QuestionID
 		}
+		state.RegistrationDiscovery = reply.Discovery
 		if err := encoder.Encode(state); err != nil {
 			return errors.New("output")
 		}

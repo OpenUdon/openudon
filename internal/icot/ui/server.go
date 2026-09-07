@@ -596,6 +596,8 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		s.serveCaptureCancel(w, r, cookieScoped, requestID)
 	case "/api/v4/registration-authoring/start":
 		s.serveRegistrationAuthoringStart(w, r, cookieScoped, requestID)
+	case "/api/v4/registration-discovery":
+		s.serveRegistrationDiscovery(w, r, cookieScoped, requestID)
 	case "/api/v4/registration-authoring/command":
 		s.serveRegistrationAuthoringCommand(w, r, cookieScoped, requestID)
 	case "/api/v4/registration-authoring/cancel":

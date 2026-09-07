@@ -17,6 +17,8 @@ UI operation. Unknown or duplicate fields are rejected.
 | Operation | Existing request/behavior |
 | --- | --- |
 | `snapshot` | No request; refresh workspace and immutable package state. |
+| `registration.discovery.snapshot` | No request; explicitly load the private registration inventory. |
+| `registration.discovery.change` | Exact inventory `revision` and closed `action`; returns only that explicit private inventory resource alongside ordinary state. |
 | `registration.start`, `registration.command`, `registration.cancel` | Registration API-v4 requests and closed observe/navigate/draft/review/finish union. |
 | `browser.preflight` | Authoring and capture revisions; check installed Chromium readiness. |
 | `capture.start`, `capture.respond`, `capture.cancel`, `capture.stage` | Authenticated capture requests and typed human checkpoint responses. |
@@ -34,6 +36,29 @@ retains its nonrenewable 20-minute deadline and separate worker teardown bound.
 The external supervisor must own and terminate the process tree if the
 application cannot prove operation or worker teardown. A failed teardown never
 permits another browser-sensitive operation in that application.
+
+Discovery replies alone add `registration_discovery` alongside `application`.
+Ordinary snapshots and later unrelated replies exclude it. Its private wire is
+`openudon.registration-discovery.v1`, with independent `coverage`,
+`owner_review`, `limitations`, `candidates`, `selected_id`, revision digest and
+history sequence. `owner_review: reviewed` never asserts completeness or target
+authority. Supported change requests are:
+
+| Action | Fields in addition to `revision` and `action` |
+| --- | --- |
+| `add` | `id`, `registration_type`, `url`; operator-supplied candidate only. |
+| `add_observed` | `id`, `registration_type`, exact current `registration_revision`; the server supplies the native observation's origin and path without query. |
+| `remove`, `select` | Existing `id`; neither launches a browser nor changes a draft. |
+| `coverage` | `coverage: unknown` or `partial`, and a `limitations` array, including an explicit empty array if appropriate. |
+| `review` | No extra fields; review this exact inventory revision. |
+
+Other fields, source claims and complete-coverage claims are rejected. All
+changes except review clear owner review. The inventory survives restart in
+owner-only history outside Git, examples and packages; see the
+[UI storage and bounds](icot-ui.md#guided-browser-registration-authoring).
+Inventory URLs and these explicit private replies must not enter transcripts,
+logs, prompts or reduced reports. Selecting through control records the choice;
+the supervisor must separately prepare and review its normal start request.
 
 Registration candidates stay in memory after worker teardown. Transaction
 review adopts that exact candidate into the ordinary authoring engine; package

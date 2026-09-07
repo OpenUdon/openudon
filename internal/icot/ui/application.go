@@ -26,6 +26,7 @@ type Application struct{ server *Server }
 type applicationResult struct {
 	Status       int
 	Data         any
+	Discovery    json.RawMessage
 	ETag         string
 	Revision     string
 	Failure      *errorPayload
