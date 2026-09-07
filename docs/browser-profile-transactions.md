@@ -219,6 +219,15 @@ and executor-report digests, with only `submission_not_started` as an outcome.
 It cannot represent uncertain or post-submission recovery. V1 remains closed
 and continues to require zero prior attempts.
 
+The additive [v3 recovery attestation](schemas/openudon.browser-registration-attestation.v3.schema.json)
+records exactly two previous attempts. It retains the same twenty-minute limit,
+cleanup disposition and closed evidence links; those links name the immediate
+predecessor. The operating application must verify the complete earlier chain,
+bind fresh owner authority and any intervening-submission confirmation, and
+consume a distinct second recovery claim before invoking OpenUdon. V1 and v2
+retain their exact zero- and one-prior-attempt semantics. V3 grants no automatic
+retry and cannot represent a third recovery or an uncertain submission.
+
 The operating application must independently prove the previous submission
 never began and durably consume its single-use recovery claim before invoking
 OpenUdon. These are trusted operator facts in the attestation; OpenUdon checks

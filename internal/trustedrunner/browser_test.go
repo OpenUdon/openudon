@@ -348,14 +348,17 @@ flows:
 		t.Fatal("registration executor was invoked without submit approval")
 	}
 
-	for _, recovery := range []bool{false, true} {
-		if recovery {
+	for priorAttempts := 0; priorAttempts <= 2; priorAttempts++ {
+		if priorAttempts > 0 {
 			var artifact registrationattestation.Artifact
 			if err := json.Unmarshal(attestationData, &artifact); err != nil {
 				t.Fatal(err)
 			}
 			artifact.Version = registrationattestation.RecoveryVersion
-			artifact.PriorAttempts = 1
+			if priorAttempts == 2 {
+				artifact.Version = registrationattestation.SecondRecoveryVersion
+			}
+			artifact.PriorAttempts = priorAttempts
 			artifact.ExpiresAt = now().Add(19 * time.Minute).Format(time.RFC3339)
 			artifact.Recovery = &registrationattestation.Recovery{
 				AuthoritySHA256: "sha256:" + strings.Repeat("1", 64), ClaimSHA256: "sha256:" + strings.Repeat("2", 64),

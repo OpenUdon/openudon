@@ -50,6 +50,43 @@ func TestRecoveryAttestationRequiresExactSinglePreSubmissionHistory(t *testing.T
 	}
 }
 
+func TestSecondRecoveryAttestationPreservesDistinctHistoryVersions(t *testing.T) {
+	now := time.Date(2026, 9, 7, 12, 0, 0, 0, time.UTC)
+	base := validArtifact(now)
+	base.Version = SecondRecoveryVersion
+	base.PriorAttempts = 2
+	base.ExpiresAt = now.Add(19 * time.Minute).Format(time.RFC3339)
+	base.Recovery = &Recovery{
+		AuthoritySHA256: "sha256:" + strings.Repeat("1", 64), ClaimSHA256: "sha256:" + strings.Repeat("2", 64),
+		PriorAttestationSHA256: "sha256:" + strings.Repeat("3", 64), PriorRunEvidenceSHA256: "sha256:" + strings.Repeat("4", 64),
+		PriorExecutorReportSHA256: "sha256:" + strings.Repeat("5", 64), Outcome: "submission_not_started",
+	}
+	path := writeArtifact(t, t.TempDir(), base, 0600)
+	got, _, err := ReadOutsideRepo(path, t.TempDir(), expected(base), now)
+	if err != nil || !reflect.DeepEqual(got, base) {
+		t.Fatal("valid second recovery rejected", err)
+	}
+	for _, mutate := range []func(*Artifact){
+		func(a *Artifact) { a.Version = Version }, func(a *Artifact) { a.Version = RecoveryVersion },
+		func(a *Artifact) { a.PriorAttempts = 0 }, func(a *Artifact) { a.PriorAttempts = 1 }, func(a *Artifact) { a.PriorAttempts = 3 },
+		func(a *Artifact) { a.Recovery = nil }, func(a *Artifact) { a.CleanupDisposition = "retain_dedicated_test_identity" },
+		func(a *Artifact) { a.ExpiresAt = now.Add(21 * time.Minute).Format(time.RFC3339) },
+		func(a *Artifact) { a.Recovery.Outcome = "registration_indeterminate" },
+		func(a *Artifact) { a.Recovery.AuthoritySHA256 = "" }, func(a *Artifact) { a.Recovery.ClaimSHA256 = "" },
+		func(a *Artifact) { a.Recovery.PriorAttestationSHA256 = "" }, func(a *Artifact) { a.Recovery.PriorRunEvidenceSHA256 = "" },
+		func(a *Artifact) { a.Recovery.PriorExecutorReportSHA256 = "" },
+	} {
+		a := base
+		r := *base.Recovery
+		a.Recovery = &r
+		mutate(&a)
+		data, _ := json.Marshal(a)
+		if _, err := Decode(data, now); err == nil {
+			t.Fatal("invalid second recovery or historical version accepted")
+		}
+	}
+}
+
 func TestReadOutsideRepoAcceptsExactOwnerOnlyArtifact(t *testing.T) {
 	now := time.Date(2026, 8, 26, 12, 0, 0, 0, time.UTC)
 	repo := filepath.Join(t.TempDir(), "repo")

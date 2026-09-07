@@ -21,9 +21,10 @@ import (
 )
 
 const (
-	Version         = "openudon.browser-registration-attestation.v1"
-	RecoveryVersion = "openudon.browser-registration-attestation.v2"
-	MaxBytes        = 16 << 10
+	Version               = "openudon.browser-registration-attestation.v1"
+	RecoveryVersion       = "openudon.browser-registration-attestation.v2"
+	SecondRecoveryVersion = "openudon.browser-registration-attestation.v3"
+	MaxBytes              = 16 << 10
 )
 
 var (
@@ -135,9 +136,13 @@ func Decode(data []byte, now time.Time) (Artifact, error) {
 		if _, present := fields["recovery"]; present || artifact.PriorAttempts != 0 {
 			return Artifact{}, errors.New("browser registration attestation is invalid")
 		}
-	case RecoveryVersion:
+	case RecoveryVersion, SecondRecoveryVersion:
 		r := artifact.Recovery
-		if artifact.PriorAttempts != 1 || artifact.CleanupDisposition != "delete_separately" || r == nil || r.Outcome != "submission_not_started" {
+		priorAttempts := 1
+		if artifact.Version == SecondRecoveryVersion {
+			priorAttempts = 2
+		}
+		if artifact.PriorAttempts != priorAttempts || artifact.CleanupDisposition != "delete_separately" || r == nil || r.Outcome != "submission_not_started" {
 			return Artifact{}, errors.New("browser registration recovery attestation is invalid")
 		}
 		for _, digest := range []string{r.AuthoritySHA256, r.ClaimSHA256, r.PriorAttestationSHA256, r.PriorRunEvidenceSHA256, r.PriorExecutorReportSHA256} {
@@ -156,7 +161,7 @@ func Decode(data []byte, now time.Time) (Artifact, error) {
 	if err != nil || expires.Location() != time.UTC || expires.Nanosecond() != 0 || artifact.ExpiresAt != expires.Format(time.RFC3339) || !expires.After(now) || expires.After(now.Add(24*time.Hour)) {
 		return Artifact{}, errors.New("browser registration attestation expiry is invalid")
 	}
-	if artifact.Version == RecoveryVersion && expires.After(now.Add(20*time.Minute)) {
+	if artifact.Version != Version && expires.After(now.Add(20*time.Minute)) {
 		return Artifact{}, errors.New("browser registration recovery attestation expiry is invalid")
 	}
 	return artifact, nil
