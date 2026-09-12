@@ -16,6 +16,10 @@ github.com/OpenUdon/browsertools v0.0.0-20260829181035-3107470313d4 h1:rwaU7KC4X
 github.com/OpenUdon/browsertools v0.0.0-20260829181035-3107470313d4/go.mod h1:8Bh6XqHOGEOJm7x00bTLUb7LvyE4X9xKp3nFIwI5/LA=
 github.com/OpenUdon/browsertools v0.0.0-20260902183222-ce06b13bfef8 h1:LTkg3QO5gkIusTyqzBQPsnXuXIuqWoIMtPRD9vQu0eg=
 github.com/OpenUdon/browsertools v0.0.0-20260902183222-ce06b13bfef8/go.mod h1:8Bh6XqHOGEOJm7x00bTLUb7LvyE4X9xKp3nFIwI5/LA=
+github.com/OpenUdon/browsertools v0.0.0-20260912050652-dadd7fbbdb7b h1:vFyYHWC3oi0mYH0PSRFNFRqlqec20MJwz5N/3RntWnk=
+github.com/OpenUdon/browsertools v0.0.0-20260912050652-dadd7fbbdb7b/go.mod h1:deFKQes5V32x2TzSJZIfnaqO1erGQrzDeXqk4yYd2yM=
+github.com/OpenUdon/browsertools v0.0.0-20260912051048-ec0b9e9d6ca1 h1:tTq6JpdoOSyOP08O7tFLNHvxrVelrpZ8/UkHTyQ6uyU=
+github.com/OpenUdon/browsertools v0.0.0-20260912051048-ec0b9e9d6ca1/go.mod h1:deFKQes5V32x2TzSJZIfnaqO1erGQrzDeXqk4yYd2yM=
 github.com/OpenUdon/evidence v0.0.0-20260815084845-0c17258b9736 h1:m66ctgDRK/pv45OfAyrKmjE/XmgehlAXYCCjYK4V1Tw=
 github.com/OpenUdon/evidence v0.0.0-20260815084845-0c17258b9736/go.mod h1:AUZKUpFNDa5j56Vpi64YR1PkcK8JYZJSEGjNkZNdMFI=
 github.com/OpenUdon/googlediscovery v0.0.0-20260520203137-c02129a009fc h1:drM11+jXvEjjpuWisSFurkQXvqrWO1o4PDIwLv1HqLI=
@@ -28,6 +32,8 @@ github.com/OpenUdon/uws v0.0.0-20260825191727-895aa4546067 h1:yiwPo/8eZIct4K8iB0
 github.com/OpenUdon/uws v0.0.0-20260825191727-895aa4546067/go.mod h1:Qa5BAWWPuYeYeN/HnmEnMvQc2hoKrygyaZyzHgsHqwo=
 github.com/OpenUdon/uws v0.0.0-20260826233246-9e676eaa469e h1:zlLV0dVfZbEvxZcWKZkksxZB1QAeI8ghV0j51kPJB6Y=
 github.com/OpenUdon/uws v0.0.0-20260826233246-9e676eaa469e/go.mod h1:Qa5BAWWPuYeYeN/HnmEnMvQc2hoKrygyaZyzHgsHqwo=
+github.com/OpenUdon/uws v0.0.0-20260907155543-9ff877ebce55 h1:orIC4LJMNK0FAIheRhnUwUnsFknEYLK9nKuGxSBB1mg=
+github.com/OpenUdon/uws v0.0.0-20260907155543-9ff877ebce55/go.mod h1:Qa5BAWWPuYeYeN/HnmEnMvQc2hoKrygyaZyzHgsHqwo=
 github.com/agext/levenshtein v1.2.3 h1:YB2fHEn0UJagG8T1rrWknE3ZQzWM06O8AMAatNn7lmo=
 github.com/agext/levenshtein v1.2.3/go.mod h1:JEDfjyjHDjOF/1e4FlBE/PkbqA9OfWu2ki2W0IB5558=
 github.com/antchfx/xmlquery v1.5.1 h1:T9I4Ns1EXiWHy0IqKupGhnfTQtJwlGrpXtauYOoNv78=

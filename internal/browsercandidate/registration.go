@@ -316,7 +316,10 @@ func adoptRegistration(data []byte, resultDigest string, request AdoptRegistrati
 		resultVersion = browsertransaction.ResultRegistrationAuthoringV2
 		sessionVersion = registrationauthorsession.ProtocolV2
 	}
-	if result.Schema != registrationauthorresult.SchemaV1 && result.Schema != registrationauthorresult.SchemaV2 ||
+	if result.Schema == registrationauthorresult.SchemaV3 {
+		transactionVersion, resultVersion, sessionVersion = browsertransaction.VersionV3, browsertransaction.ResultRegistrationAuthoringV3, registrationauthorsession.ProtocolV3
+	}
+	if result.Schema != registrationauthorresult.SchemaV1 && result.Schema != registrationauthorresult.SchemaV2 && result.Schema != registrationauthorresult.SchemaV3 ||
 		result.Provenance.Producer != "browsertools" || result.Provenance.ResultVersion != result.Schema ||
 		result.Provenance.SessionVersion != sessionVersion {
 		return nil, errors.New("registration result provenance is unsupported")
@@ -330,7 +333,11 @@ func adoptRegistration(data []byte, resultDigest string, request AdoptRegistrati
 		return nil, errors.New("registration candidate source is not canonical")
 	}
 	sourceDigest := digest(source)
-	if result.Candidate.Schema != "uws.browser-registration.1.0" || result.Candidate.SourceDigest != sourceDigest ||
+	wantSchema := "uws.browser-registration.1.0"
+	if result.Schema == registrationauthorresult.SchemaV3 {
+		wantSchema = "uws.browser-registration.1.1"
+	}
+	if result.Candidate.Schema != wantSchema || result.Candidate.SourceDigest != sourceDigest ||
 		request.Review.SourceSHA256 != sourceDigest {
 		return nil, errors.New("registration candidate source digest or schema changed after review")
 	}
