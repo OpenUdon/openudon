@@ -38,6 +38,7 @@ func main() {
 		ApprovalPath:                *approvalPath,
 		RegistrationAttestationPath: os.Getenv("OPENUDON_BROWSER_REGISTRATION_ATTESTATION"),
 		RegistrationSubmitApproval:  os.Getenv("OPENUDON_BROWSER_REGISTRATION_SUBMIT_APPROVAL"),
+		RegistrationInputService:    os.Getenv("OPENUDON_REGISTRATION_INPUT_SERVICE"),
 		Stdin:                       input,
 		Stdout:                      os.Stdout,
 		Stderr:                      os.Stderr,

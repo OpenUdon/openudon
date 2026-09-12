@@ -29,6 +29,7 @@ type browserRegistrationReviewedCall struct {
 	Step                string            `json:"step"`
 	Source              string            `json:"source"`
 	Flow                string            `json:"flow"`
+	InputBinding        string            `json:"input_binding,omitempty"`
 	CredentialBindings  map[string]string `json:"credential_bindings"`
 	Approval            string            `json:"approval"`
 	DuplicatePrevention string            `json:"duplicate_prevention"`
@@ -200,6 +201,9 @@ func validateBrowserRegistrationReview(exampleDir string, paths []string, intent
 			return
 		}
 		flow, ok := value.Flows[strings.TrimSpace(step.RegistrationFlow)]
+		if (value.Profile == "uws.browser-registration.1.1") != (step.InputBinding != "") {
+			stepErrors = append(stepErrors, fmt.Sprintf("step %s input binding does not match its profile version", name))
+		}
 		if !ok {
 			stepErrors = append(stepErrors, fmt.Sprintf("step %s invents registration flow %q", name, step.RegistrationFlow))
 			return
@@ -223,7 +227,7 @@ func validateBrowserRegistrationReview(exampleDir string, paths []string, intent
 }
 
 func registrationCallMatchesStep(call browserRegistrationReviewedCall, step *rollout.Step, source string) bool {
-	if step == nil || step.Timeout == nil || call.Timeout != *step.Timeout || call.Source != source || call.Flow != step.RegistrationFlow ||
+	if step == nil || call.InputBinding != step.InputBinding || step.Timeout == nil || call.Timeout != *step.Timeout || call.Source != source || call.Flow != step.RegistrationFlow ||
 		call.Approval != step.RegistrationApproval || call.DuplicatePrevention != step.DuplicatePrevention || call.OnDuplicate != step.OnDuplicate ||
 		call.AmbiguousOutcome != step.AmbiguousOutcome || call.CleanupDisposition != step.CleanupDisposition || len(call.CredentialBindings) != len(step.CredentialBindings) {
 		return false

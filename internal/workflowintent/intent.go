@@ -97,6 +97,7 @@ type Step struct {
 	Operation            string                `hcl:"operation,optional" json:"operation,omitempty"`
 	AuthenticationFlow   string                `hcl:"authentication_flow,optional" json:"authentication_flow,omitempty"`
 	RegistrationFlow     string                `hcl:"registration_flow,optional" json:"registration_flow,omitempty"`
+	InputBinding         string                `hcl:"input_binding,optional" json:"input_binding,omitempty"`
 	RegistrationApproval string                `hcl:"registration_approval,optional" json:"registration_approval,omitempty"`
 	DuplicatePrevention  string                `hcl:"duplicate_prevention,optional" json:"duplicate_prevention,omitempty"`
 	OnDuplicate          string                `hcl:"on_duplicate,optional" json:"on_duplicate,omitempty"`
@@ -310,6 +311,7 @@ type hclStep struct {
 	Operation            string              `hcl:"operation,optional" json:"operation,omitempty"`
 	AuthenticationFlow   string              `hcl:"authentication_flow,optional" json:"authentication_flow,omitempty"`
 	RegistrationFlow     string              `hcl:"registration_flow,optional" json:"registration_flow,omitempty"`
+	InputBinding         string              `hcl:"input_binding,optional" json:"input_binding,omitempty"`
 	RegistrationApproval string              `hcl:"registration_approval,optional" json:"registration_approval,omitempty"`
 	DuplicatePrevention  string              `hcl:"duplicate_prevention,optional" json:"duplicate_prevention,omitempty"`
 	OnDuplicate          string              `hcl:"on_duplicate,optional" json:"on_duplicate,omitempty"`
@@ -666,6 +668,9 @@ func validateStep(step *Step, label string) error {
 		if !browserBindingPattern.MatchString(strings.TrimSpace(step.RegistrationFlow)) {
 			return fmt.Errorf("%s.registration_flow must be a portable symbolic name", label)
 		}
+		if step.InputBinding != "" && !browserBindingPattern.MatchString(step.InputBinding) {
+			return fmt.Errorf("%s.input_binding must be a portable symbolic name", label)
+		}
 		if !browserBindingPattern.MatchString(strings.TrimSpace(step.RegistrationApproval)) {
 			return fmt.Errorf("%s.registration_approval must be a portable symbolic name", label)
 		}
@@ -731,7 +736,7 @@ func validateStep(step *Step, label string) error {
 }
 
 func hasBrowserRegistrationFields(step *Step) bool {
-	return step != nil && (strings.TrimSpace(step.RegistrationFlow) != "" ||
+	return step != nil && (strings.TrimSpace(step.InputBinding) != "" || strings.TrimSpace(step.RegistrationFlow) != "" ||
 		strings.TrimSpace(step.RegistrationApproval) != "" ||
 		strings.TrimSpace(step.DuplicatePrevention) != "" ||
 		strings.TrimSpace(step.OnDuplicate) != "" ||
@@ -974,6 +979,7 @@ func addStepBlock(body *hclwrite.Body, step *Step) {
 	setAttrString(sb, "operation", step.Operation)
 	setAttrString(sb, "authentication_flow", step.AuthenticationFlow)
 	setAttrString(sb, "registration_flow", step.RegistrationFlow)
+	setAttrString(sb, "input_binding", step.InputBinding)
 	setAttrString(sb, "registration_approval", step.RegistrationApproval)
 	setAttrString(sb, "duplicate_prevention", step.DuplicatePrevention)
 	setAttrString(sb, "on_duplicate", step.OnDuplicate)

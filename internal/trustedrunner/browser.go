@@ -45,6 +45,7 @@ type browserRegistrationCall struct {
 	Step                string            `json:"step"`
 	Source              string            `json:"source"`
 	Flow                string            `json:"flow"`
+	InputBinding        string            `json:"input_binding,omitempty"`
 	CredentialBindings  map[string]string `json:"credential_bindings"`
 	Approval            string            `json:"approval"`
 	DuplicatePrevention string            `json:"duplicate_prevention"`
@@ -191,7 +192,7 @@ func buildBrowserRunConfigFromBytes(packageLabel string, browserPaths, authentic
 		if err != nil {
 			return nil, fmt.Errorf("browser registration profile %s: %w", relative, err)
 		}
-		if value.Profile != "uws.browser-registration.1.0" {
+		if value.Profile != "uws.browser-registration.1.0" && value.Profile != "uws.browser-registration.1.1" {
 			return nil, fmt.Errorf("browser registration profile %s has unsupported discriminator %q", relative, value.Profile)
 		}
 		protocolRank = max(protocolRank, 3)
@@ -226,6 +227,11 @@ func buildBrowserRunConfigFromBytes(packageLabel string, browserPaths, authentic
 	}
 	if hasRegistrationStep && !dryRun {
 		protocolRank = 4
+		walkIntentSteps(intent.Steps, func(step *rollout.Step) {
+			if step != nil && step.Type == "browser_registration" && step.InputBinding != "" {
+				protocolRank = 5
+			}
+		})
 	}
 
 	approvedOperations, sessionPosture, err := readBrowserOperationApprovals(read, len(browserPaths) != 0)
@@ -270,6 +276,9 @@ func buildBrowserRunConfigFromBytes(packageLabel string, browserPaths, authentic
 	for _, name := range credentialBindings {
 		credentialEnvironment = append(credentialEnvironment, udonrunner.EnvironmentBinding{Name: name, Environment: udonrunner.CredentialEnvironmentName(name)})
 	}
+	if protocolRank == 5 {
+		credentialEnvironment = nil
+	}
 	sessionEnvironment := make([]udonrunner.EnvironmentBinding, 0, len(externalSessions))
 	for _, name := range externalSessions {
 		sessionEnvironment = append(sessionEnvironment, udonrunner.EnvironmentBinding{Name: name, Environment: udonrunner.SessionEnvironmentName(name)})
@@ -279,6 +288,7 @@ func buildBrowserRunConfigFromBytes(packageLabel string, browserPaths, authentic
 		DriverArgs:             append([]string(nil), driverArgs...),
 		DriverEnvironment:      udonrunner.AvailableBrowserDriverEnvironment(env),
 		Protocol:               fmt.Sprintf("v%d", protocolRank),
+		RegistrationInputUI:    protocolRank == 5,
 		CredentialEnvironment:  credentialEnvironment,
 		SessionEnvironment:     sessionEnvironment,
 		ApprovedOperations:     approvedOperations,
@@ -288,7 +298,7 @@ func buildBrowserRunConfigFromBytes(packageLabel string, browserPaths, authentic
 }
 
 func authorizeBrowserRegistration(snapshot packageSnapshot, browser *udonrunner.BrowserConfig, packageDigest, attestationPath, submitApproval, repoRoot string, now time.Time) error {
-	if browser == nil || browser.Protocol != "v4" {
+	if browser == nil || browser.Protocol != "v4" && browser.Protocol != "v5" {
 		if strings.TrimSpace(attestationPath) != "" || strings.TrimSpace(submitApproval) != "" {
 			return fmt.Errorf("browser registration attestation and submit approval require one non-dry browser registration workflow")
 		}
@@ -315,6 +325,9 @@ func authorizeBrowserRegistration(snapshot packageSnapshot, browser *udonrunner.
 	profileValue, err := registrationprofile.Parse(profileData)
 	if err != nil {
 		return fmt.Errorf("browser registration profile is invalid: %w", err)
+	}
+	if (profileValue.Profile == "uws.browser-registration.1.1") != (browser.Protocol == "v5") || (call.InputBinding != "") != (browser.Protocol == "v5") {
+		return fmt.Errorf("registration input binding and runtime protocol do not match the reviewed profile")
 	}
 	profileDigest, err := registrationprofile.Digest(profileValue)
 	if err != nil {

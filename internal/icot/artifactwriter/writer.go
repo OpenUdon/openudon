@@ -645,6 +645,7 @@ func BrowserRegistrationMetadataJSON(session elicitor.Session, at time.Time) (st
 		Step                string            `json:"step"`
 		Source              string            `json:"source"`
 		Flow                string            `json:"flow"`
+		InputBinding        string            `json:"input_binding,omitempty"`
 		CredentialBindings  map[string]string `json:"credential_bindings"`
 		Approval            string            `json:"approval"`
 		DuplicatePrevention string            `json:"duplicate_prevention"`
@@ -724,6 +725,10 @@ func BrowserRegistrationMetadataJSON(session elicitor.Session, at time.Time) (st
 			return
 		}
 		flow, ok := value.Flows[strings.TrimSpace(step.RegistrationFlow)]
+		if (value.Profile == "uws.browser-registration.1.1") != (step.InputBinding != "") {
+			callErr = fmt.Errorf("registration step %s input binding does not match profile version", step.Name)
+			return
+		}
 		if !ok || step.Timeout == nil || strings.TrimSpace(step.BrowserSession) != "" {
 			callErr = fmt.Errorf("registration step %s is incomplete or carries a session", step.Name)
 			return
@@ -735,7 +740,8 @@ func BrowserRegistrationMetadataJSON(session elicitor.Session, at time.Time) (st
 		}
 		calls = append(calls, reviewedCall{
 			Step: step.Name, Source: source, Flow: step.RegistrationFlow, CredentialBindings: step.CredentialBindings,
-			Approval: step.RegistrationApproval, DuplicatePrevention: step.DuplicatePrevention, OnDuplicate: step.OnDuplicate,
+			InputBinding: step.InputBinding,
+			Approval:     step.RegistrationApproval, DuplicatePrevention: step.DuplicatePrevention, OnDuplicate: step.OnDuplicate,
 			AmbiguousOutcome: step.AmbiguousOutcome, CleanupDisposition: step.CleanupDisposition, Timeout: *step.Timeout,
 		})
 	})

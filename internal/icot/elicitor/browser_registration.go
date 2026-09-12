@@ -65,6 +65,7 @@ func browserRegistrationReadinessIssues(session Session, docs []APIDocument, ste
 	}
 	expectedBindings, expectedTimeout, validContract := browserRegistrationOperationContract(operation)
 	contractMatches := len(expectedBindings) > 0 && exactBrowserCredentialBindingMap(step.CredentialBindings, expectedBindings) &&
+		step.InputBinding == operation.Extensions["openudon.browser_registration.input_binding"] &&
 		strings.TrimSpace(step.BrowserSession) == "" && strings.TrimSpace(step.AuthenticationFlow) == "" && strings.TrimSpace(step.Operation) == "" &&
 		step.DuplicatePrevention == operation.Extensions["openudon.browser_registration.duplicate_prevention"] &&
 		step.OnDuplicate == operation.Extensions["openudon.browser_registration.on_duplicate"] &&
@@ -92,6 +93,7 @@ func browserRegistrationStepFromOperation(doc APIDocument, operation *apitools.O
 		Name: camelToSnake(firstNonEmpty(operation.OperationID, doc.ID, "register")), Type: "browser_registration",
 		Do: firstNonEmpty(operation.Summary, "Create one account only after exact approval."), Source: doc.RelativePath,
 		RegistrationFlow: operation.OperationID, CredentialBindings: bindings,
+		InputBinding:        operation.Extensions["openudon.browser_registration.input_binding"],
 		DuplicatePrevention: operation.Extensions["openudon.browser_registration.duplicate_prevention"],
 		OnDuplicate:         operation.Extensions["openudon.browser_registration.on_duplicate"],
 		AmbiguousOutcome:    operation.Extensions["openudon.browser_registration.ambiguous_outcome"],

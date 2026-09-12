@@ -733,6 +733,7 @@ func runTrustedCommand(args []string) {
 	browserDriver := fs.String("browser-driver", "", "Absolute trusted browser-driver executable path (or absolute in-image path for Docker)")
 	registrationAttestation := fs.String("browser-registration-attestation", "", "Absolute owner-only registration attestation path outside the repository")
 	registrationSubmitApproval := fs.String("approve-browser-registration", "", "Approve the sole submit for one exact browser registration operation ID")
+	registrationInputService := fs.String("browser-registration-input-service", "", "Prepared Udon private form loopback URL; token remains in UDON_REGISTRATION_INPUT_TOKEN")
 	packageStore := fs.String("package-store", "", "Use an exact atomically selected package generation store")
 	selection := fs.String("selection", "", "Exact current selection SHA-256 required with --package-store")
 	var browserDriverArgs repeatedStringFlag
@@ -766,6 +767,7 @@ func runTrustedCommand(args []string) {
 		BrowserDriverArgs:           []string(browserDriverArgs),
 		RegistrationAttestationPath: *registrationAttestation,
 		RegistrationSubmitApproval:  *registrationSubmitApproval,
+		RegistrationInputService:    *registrationInputService,
 	}
 	if *interactiveBrowser {
 		if *dryRun {

@@ -53,6 +53,10 @@ type BrowserConfig struct {
 	DriverArgs                    []string             `json:"driver_args,omitempty"`
 	DriverEnvironment             []string             `json:"driver_environment,omitempty"`
 	Protocol                      string               `json:"protocol"`
+	RegistrationInputUI           bool                 `json:"registration_input_ui,omitempty"`
+	RegistrationInputService      string               `json:"registration_input_service,omitempty"`
+	RegistrationInputTokenEnv     string               `json:"registration_input_token_env,omitempty"`
+	RegistrationInputExpectedEnv  string               `json:"registration_input_expected_env,omitempty"`
 	CredentialEnvironment         []EnvironmentBinding `json:"credential_environment,omitempty"`
 	SessionEnvironment            []EnvironmentBinding `json:"session_environment,omitempty"`
 	ApprovedOperations            []string             `json:"approved_operations,omitempty"`
@@ -202,7 +206,7 @@ func prepare(ctx context.Context, config Config, opts Options, requireCredential
 	if reportVersion != "udon.execution-report.v2" && reportVersion != "udon.execution-report.v3" {
 		return Result{}, nil, "", fmt.Errorf("run config executor_report_version must be udon.execution-report.v2 or v3")
 	}
-	if config.Browser != nil && strings.EqualFold(strings.TrimSpace(config.Browser.Protocol), "v4") && reportVersion != "udon.execution-report.v3" {
+	if config.Browser != nil && (strings.EqualFold(strings.TrimSpace(config.Browser.Protocol), "v4") || strings.EqualFold(strings.TrimSpace(config.Browser.Protocol), "v5")) && reportVersion != "udon.execution-report.v3" {
 		return Result{}, nil, "", fmt.Errorf("browser registration protocol v4 requires udon.execution-report.v3")
 	}
 	if err := ValidateRunID(config.RunID); err != nil {
@@ -279,6 +283,9 @@ func prepare(ctx context.Context, config Config, opts Options, requireCredential
 	if err != nil {
 		return Result{}, nil, "", err
 	}
+	if config.Browser != nil && config.Browser.Protocol == "v5" {
+		credentialEnvNames = nil
+	}
 	sourceEnv := opts.Env
 	if sourceEnv == nil {
 		sourceEnv = os.Environ()
@@ -326,6 +333,10 @@ func prepare(ctx context.Context, config Config, opts Options, requireCredential
 		result.Argv = append([]string(nil), argv...)
 	}
 	executorNames := append(append([]string(nil), credentialEnvNames...), browser.sessionEnv...)
+	if config.Browser != nil && config.Browser.RegistrationInputTokenEnv != "" {
+		executorNames = append(executorNames, config.Browser.RegistrationInputTokenEnv)
+		executorNames = append(executorNames, config.Browser.RegistrationInputExpectedEnv)
+	}
 	if len(result.Argv) == 0 || filepath.Base(result.Argv[0]) != "docker" {
 		executorNames = append(executorNames, browser.driverEnv...)
 	}
@@ -897,6 +908,13 @@ func appendBrowserArgs(argv []string, browser *BrowserConfig, driverEnvNames []s
 		argv = append(argv, "--browser-driver-arg", value)
 	}
 	argv = append(argv, "--browser-driver-protocol", browser.Protocol)
+	if browser.RegistrationInputUI {
+		argv = append(argv, "--browser-registration-input-ui")
+	}
+	if browser.RegistrationInputService != "" {
+		argv = append(argv, "--browser-registration-input-service", browser.RegistrationInputService, "--browser-registration-input-token-env", browser.RegistrationInputTokenEnv)
+		argv = append(argv, "--browser-registration-input-expected-env", browser.RegistrationInputExpectedEnv)
+	}
 	for _, name := range driverEnvNames {
 		argv = append(argv, "--browser-driver-env", name)
 	}
@@ -916,7 +934,7 @@ func appendBrowserArgs(argv []string, browser *BrowserConfig, driverEnvNames []s
 		argv = append(argv, "--attest-browser-registration", operation)
 	}
 	for _, operation := range browser.ApprovedRegistration {
-		if browser.Protocol == "v4" {
+		if browser.Protocol == "v4" || browser.Protocol == "v5" {
 			argv = append(argv, "--approve-browser-registration", operation)
 		}
 	}

@@ -102,6 +102,7 @@
         "operation": { "type": "string" },
         "authentication_flow": { "type": "string" },
         "registration_flow": { "type": "string" },
+        "input_binding": { "type": "string" },
         "registration_approval": { "type": "string" },
         "duplicate_prevention": { "type": "string", "const": "operator_attestation" },
         "on_duplicate": { "type": "string", "const": "fail" },

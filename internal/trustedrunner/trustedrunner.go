@@ -74,6 +74,7 @@ type Options struct {
 	BrowserDriverArgs           []string
 	RegistrationAttestationPath string
 	RegistrationSubmitApproval  string
+	RegistrationInputService    string
 }
 
 type TemplateOptions struct {
@@ -330,6 +331,9 @@ func Run(ctx context.Context, opts Options) (*RunResult, error) {
 	}
 	browserConfig, err := buildBrowserRunConfigFromSnapshot(validated.snapshot, opts.BrowserDriver, opts.BrowserDriverArgs, opts.Env, opts.DryRun)
 	if err != nil {
+		return nil, err
+	}
+	if err := configurePrivateRegistration(browserConfig, opts.RegistrationInputService); err != nil {
 		return nil, err
 	}
 	if err := authorizeBrowserRegistration(validated.snapshot, browserConfig, digest, opts.RegistrationAttestationPath, opts.RegistrationSubmitApproval, p.repoRoot, now); err != nil {
@@ -758,7 +762,7 @@ func verifyExecutorReport(workdir string, executor RunEvidenceExecutor, browser 
 	if requiredSuccess && !strings.EqualFold(report.Status, "success") {
 		return fmt.Errorf("successful executor evidence requires a success report status")
 	}
-	if browser != nil && browser.Protocol == "v4" && report.Version != udonreport.VersionV3 {
+	if browser != nil && (browser.Protocol == "v4" || browser.Protocol == "v5") && report.Version != udonreport.VersionV3 {
 		return fmt.Errorf("browser registration evidence requires udon.execution-report.v3")
 	}
 	return nil
@@ -956,7 +960,7 @@ func buildRunEvidenceExecutor(opts runEvidenceOptions, executorArgv []string) (R
 		}
 		return executor, nil
 	}
-	requireRegistrationV3 := opts.Config.Browser != nil && opts.Config.Browser.Protocol == "v4"
+	requireRegistrationV3 := opts.Config.Browser != nil && (opts.Config.Browser.Protocol == "v4" || opts.Config.Browser.Protocol == "v5")
 	if requiredSuccess || requireRegistrationV3 {
 		report, err := decodeUdonExecutionReport(data)
 		if err != nil {
@@ -1327,9 +1331,17 @@ func outerRunnerEnvironment(source []string, config RunConfig, registrationAttes
 		"OPENUDON_EXECUTOR": true, "OPENUDON_UDON_BIN": true, "OPENUDON_UDON_IMAGE": true,
 	}
 	for _, binding := range config.CredentialBindings {
-		allowed[udonrunner.CredentialEnvironmentName(binding)] = true
+		if config.Browser == nil || config.Browser.Protocol != "v5" {
+			allowed[udonrunner.CredentialEnvironmentName(binding)] = true
+		}
 	}
 	if config.Browser != nil {
+		if config.Browser.RegistrationInputService != "" {
+			values["OPENUDON_REGISTRATION_INPUT_SERVICE"] = config.Browser.RegistrationInputService
+			allowed["OPENUDON_REGISTRATION_INPUT_SERVICE"] = true
+			allowed[config.Browser.RegistrationInputTokenEnv] = true
+			allowed[config.Browser.RegistrationInputExpectedEnv] = true
+		}
 		for _, binding := range config.Browser.SessionEnvironment {
 			allowed[binding.Environment] = true
 		}

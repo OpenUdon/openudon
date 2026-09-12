@@ -464,6 +464,7 @@ func browserRegistrationDocument(plan SourceMaterialization, value *registration
 				"openudon.browser_registration.credential_slots":     strings.Join(plan.FlowCredentialSlots[flowName], ","),
 				"openudon.browser_registration.effects":              strings.Join(effects, ","),
 				"openudon.browser_registration.runtime_supported":    "false",
+				"openudon.browser_registration.input_binding":        registrationInputBinding(value),
 				"openudon.browser_registration.credential_bindings":  virtualCredentialBindings(bindings),
 				"openudon.browser_registration.duplicate_prevention": "operator_attestation",
 				"openudon.browser_registration.on_duplicate":         "fail",
@@ -475,6 +476,13 @@ func browserRegistrationDocument(plan SourceMaterialization, value *registration
 		})
 	}
 	return doc
+}
+
+func registrationInputBinding(value *registrationprofile.Profile) string {
+	if value.Profile == browserregistration.ProfileNameV11 {
+		return "registration_inputs"
+	}
+	return ""
 }
 
 // MergeVirtualBrowserSources appends virtual browser fallback documents after

@@ -25,6 +25,7 @@ type ExternalOptions struct {
 	ApprovalPath                string
 	RegistrationAttestationPath string
 	RegistrationSubmitApproval  string
+	RegistrationInputService    string
 	Env                         []string
 	// Stdin is an explicitly supplied private human browser-interaction stream.
 	Stdin  io.Reader
@@ -97,6 +98,9 @@ func RunExternal(ctx context.Context, opts ExternalOptions) (udonrunner.Result, 
 	if err != nil {
 		return udonrunner.Result{}, err
 	}
+	if err := configurePrivateRegistration(expectedBrowser, opts.RegistrationInputService); err != nil {
+		return udonrunner.Result{}, err
+	}
 	if err := authorizeBrowserRegistration(validated.snapshot, expectedBrowser, packageDigest, opts.RegistrationAttestationPath, opts.RegistrationSubmitApproval, p.repoRoot, resolveNow(opts.Now)); err != nil {
 		return udonrunner.Result{}, err
 	}
@@ -133,7 +137,7 @@ func publishExternalExecutorReport(config RunConfig, result udonrunner.Result) (
 	if !strings.EqualFold(strings.TrimSpace(report.Status), "success") {
 		return result, fmt.Errorf("successful external executor report status must be success")
 	}
-	if config.Browser != nil && config.Browser.Protocol == "v4" && report.Version != config.ExecutorReportVersion {
+	if config.Browser != nil && (config.Browser.Protocol == "v4" || config.Browser.Protocol == "v5") && report.Version != config.ExecutorReportVersion {
 		return result, fmt.Errorf("successful external executor report version does not match the run config")
 	}
 	path, err := externalExecutorReportPath(config)

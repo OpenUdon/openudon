@@ -41,6 +41,7 @@ type PlanStep struct {
 	Operation            string                `json:"operation,omitempty"`
 	AuthenticationFlow   string                `json:"authentication_flow,omitempty"`
 	RegistrationFlow     string                `json:"registration_flow,omitempty"`
+	InputBinding         string                `json:"input_binding,omitempty"`
 	RegistrationApproval string                `json:"registration_approval,omitempty"`
 	DuplicatePrevention  string                `json:"duplicate_prevention,omitempty"`
 	OnDuplicate          string                `json:"on_duplicate,omitempty"`
@@ -175,6 +176,7 @@ func addStepsToWorkflowPlan(plan *WorkflowPlan, intent *rollout.Intent, steps []
 			Operation:            strings.TrimSpace(step.Operation),
 			AuthenticationFlow:   strings.TrimSpace(step.AuthenticationFlow),
 			RegistrationFlow:     strings.TrimSpace(step.RegistrationFlow),
+			InputBinding:         step.InputBinding,
 			RegistrationApproval: strings.TrimSpace(step.RegistrationApproval),
 			DuplicatePrevention:  strings.TrimSpace(step.DuplicatePrevention),
 			OnDuplicate:          strings.TrimSpace(step.OnDuplicate),

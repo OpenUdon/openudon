@@ -629,7 +629,7 @@ func compiledServiceType(step *uws1.Step, op *uws1.Operation) string {
 	if op.ExtensionProfile() == browserauthentication.CallProfileName || op.ExtensionProfile() == browserauthentication.ContextCallProfileName {
 		return "browser_authentication"
 	}
-	if op.ExtensionProfile() == browserregistration.CallProfileName {
+	if op.ExtensionProfile() == browserregistration.CallProfileName || op.ExtensionProfile() == browserregistration.CallProfileNameV11 {
 		return "browser_registration"
 	}
 	if strings.TrimSpace(op.ExtensionProfile()) != "" {
@@ -643,7 +643,7 @@ func validateCompiledRegistrationOperations(doc *uws1.Document) error {
 		return nil
 	}
 	for _, op := range doc.Operations {
-		if op == nil || op.ExtensionProfile() != browserregistration.CallProfileName {
+		if op == nil || op.ExtensionProfile() != browserregistration.CallProfileName && op.ExtensionProfile() != browserregistration.CallProfileNameV11 {
 			continue
 		}
 		raw, ok := op.Extensions[browserregistration.ExtensionRegistration]
@@ -654,7 +654,7 @@ func validateCompiledRegistrationOperations(doc *uws1.Document) error {
 		if err != nil {
 			return err
 		}
-		if err := uwsschemas.ValidateBrowserRegistrationCallSupplement(data); err != nil {
+		if err := uwsschemas.ValidateBrowserRegistrationCallSupplementForProfile(data, op.ExtensionProfile()); err != nil {
 			return fmt.Errorf("operation %s browser registration call is invalid: %w", op.OperationID, err)
 		}
 	}
@@ -662,7 +662,7 @@ func validateCompiledRegistrationOperations(doc *uws1.Document) error {
 }
 
 func compiledRegistration(op *uws1.Operation) *browserregistration.OperationRegistration {
-	if op == nil || op.ExtensionProfile() != browserregistration.CallProfileName {
+	if op == nil || op.ExtensionProfile() != browserregistration.CallProfileName && op.ExtensionProfile() != browserregistration.CallProfileNameV11 {
 		return nil
 	}
 	value, ok, err := browserregistration.ReadRegistrationExtension(op.Extensions)
@@ -673,7 +673,7 @@ func compiledRegistration(op *uws1.Operation) *browserregistration.OperationRegi
 }
 
 func compiledRegistrationMatchesPlan(value *browserregistration.OperationRegistration, step PlanStep) bool {
-	if value == nil || value.Profile != strings.TrimSpace(step.OpenAPI) || value.Flow != strings.TrimSpace(step.RegistrationFlow) ||
+	if value == nil || value.InputBinding != step.InputBinding || value.Profile != strings.TrimSpace(step.OpenAPI) || value.Flow != strings.TrimSpace(step.RegistrationFlow) ||
 		value.Approval != strings.TrimSpace(step.RegistrationApproval) || value.DuplicatePrevention != strings.TrimSpace(step.DuplicatePrevention) ||
 		value.OnDuplicate != strings.TrimSpace(step.OnDuplicate) || value.AmbiguousOutcome != strings.TrimSpace(step.AmbiguousOutcome) ||
 		value.CleanupDisposition != strings.TrimSpace(step.CleanupDisposition) || len(value.CredentialBindings) != len(step.CredentialBindings) {

@@ -305,9 +305,18 @@ func buildUWSStep(step *rollout.Step, defaultOpenAPI string, sourceFor func(stri
 		}
 		op.Request = nil
 		op.Extensions = map[string]any{uws1.ExtensionOperationProfile: browserregistration.CallProfileName}
+		if value.Profile == browserregistration.ProfileNameV11 {
+			if strings.TrimSpace(step.InputBinding) == "" {
+				return nil, nil, fmt.Errorf("step %s requires a private input binding", name)
+			}
+			op.Extensions[uws1.ExtensionOperationProfile] = browserregistration.CallProfileNameV11
+		} else if step.InputBinding != "" {
+			return nil, nil, fmt.Errorf("step %s legacy registration cannot declare input_binding", name)
+		}
 		if err := browserregistration.SetRegistrationExtension(&op.Extensions, &browserregistration.OperationRegistration{
 			Profile: profilePath, Flow: strings.TrimSpace(step.RegistrationFlow), CredentialBindings: step.CredentialBindings,
-			Approval: strings.TrimSpace(step.RegistrationApproval), DuplicatePrevention: step.DuplicatePrevention,
+			InputBinding: step.InputBinding,
+			Approval:     strings.TrimSpace(step.RegistrationApproval), DuplicatePrevention: step.DuplicatePrevention,
 			OnDuplicate: step.OnDuplicate, AmbiguousOutcome: step.AmbiguousOutcome, CleanupDisposition: step.CleanupDisposition,
 		}); err != nil {
 			return nil, nil, err
