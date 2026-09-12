@@ -107,9 +107,8 @@ func (executor *realExecutor) prepare(ctx context.Context, environment Environme
 	}
 	executor.root = root
 	node, nodeErr := exec.LookPath("node")
-	npm, npmErr := exec.LookPath("npm")
 	goTool, goErr := exec.LookPath("go")
-	if nodeErr != nil || npmErr != nil || goErr != nil {
+	if nodeErr != nil || goErr != nil {
 		executor.unavailable = true
 		return
 	}
@@ -119,11 +118,12 @@ func (executor *realExecutor) prepare(ctx context.Context, environment Environme
 		executor.prepareErr = fmt.Errorf("locked toolchain version is unavailable")
 		return
 	}
-	if !runSilent(ctx, buildDeadline, environment.BrowserdriverRepo, []string{npm, "run", "build", "--silent"}, nil) {
+	driverRoot := filepath.Join(root, "browserdriver")
+	if StageBrowserdriver(ctx, environment.BrowserdriverRepo, driverRoot) != nil {
 		executor.prepareErr = fmt.Errorf("build Browserdriver")
 		return
 	}
-	executor.driverEntry = filepath.Join(environment.BrowserdriverRepo, "dist", "src", "index.js")
+	executor.driverEntry = filepath.Join(driverRoot, "dist", "src", "index.js")
 	if !regularFile(executor.driverEntry) {
 		executor.prepareErr = fmt.Errorf("Browserdriver entry point is unavailable")
 		return

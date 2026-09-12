@@ -257,10 +257,10 @@ func TestCompatibilityLockMatchesExactTypedBrowserRevisions(t *testing.T) {
 	for _, component := range lock.Components {
 		components[component.Name] = component
 	}
-	if components["browserdriver"].Commit != "93f98605389214fd6bd5a60defbffd576cf8290e" ||
-		components["udon"].Commit != "f1738eda71bab6af72faa9a21af45b16ba99f85e" ||
-		components["browsertools"].Commit != "ce06b13bfef8d1776c3aa019322619c90dacbbd2" ||
-		components["uws"].Commit != "cb5409586b7b749dd051425b58462f1e73a8c541" {
+	if components["browserdriver"].Commit != "22eb8f1b5e3d298a317b69119d16d37763be273c" ||
+		components["udon"].Commit != "ad257817e5fdd7b2fd55be2ba16d425865397d6b" ||
+		components["browsertools"].Commit != "ec0b9e9d6ca1f6e5e95b81b898f3be636435f471" ||
+		components["uws"].Commit != "9ff877ebce55fba345b7d59ebb838db521822c67" {
 		t.Fatalf("qualification component pins = %#v", components)
 	}
 	buildLock, err := LoadQualificationBuildInputLock(lock)
@@ -271,8 +271,8 @@ func TestCompatibilityLockMatchesExactTypedBrowserRevisions(t *testing.T) {
 	for _, component := range buildLock.Components {
 		buildComponents[component.Name] = component
 	}
-	if buildComponents["browsertools"].Commit != "ce06b13bfef8d1776c3aa019322619c90dacbbd2" ||
-		buildComponents["uws"].Commit != "cb5409586b7b749dd051425b58462f1e73a8c541" {
+	if buildComponents["browsertools"].Commit != "ec0b9e9d6ca1f6e5e95b81b898f3be636435f471" ||
+		buildComponents["uws"].Commit != "9ff877ebce55fba345b7d59ebb838db521822c67" {
 		t.Fatalf("Udon qualification module pins = %#v", buildComponents)
 	}
 }

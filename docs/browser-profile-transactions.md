@@ -5,7 +5,12 @@ value-free coordination record for unchanged BAP and legacy BRP authoring.
 The additive `openudon.browser-profile-transaction.v2` is restricted to a BRP
 whose provenance is exactly `browsertools.registration-authoring.v2`; it exists
 so an explicitly reviewed structural query can remain in the canonical BRP.
-Both versions coordinate existing UWS browser profile families; neither is a
+Transaction v3 binds registration 1.1 exclusively to producer result v3 and
+review v2. It carries reviewed field definitions and ordered preview evidence;
+accepted input values remain in the separate private Udon form. The
+[v3 schema](schemas/openudon.browser-profile-transaction.v3.schema.json)
+preserves this version boundary. All versions coordinate UWS profile families;
+none is a
 UWS document, defines a new UWS discriminator, or grants browser/runtime
 authority.
 
@@ -27,7 +32,7 @@ Each transaction has exactly one of these compositions:
 
 BAP means an existing `uws.browser-authentication.1.0` or 1.1 profile. BCP
 means an existing `uws.browser.1.5`, 1.6, or 1.7 capability profile. BRP means
-the existing `uws.browser-registration.1.0` profile. `BxP` is only shorthand
+the existing `uws.browser-registration.1.0` or 1.1 profile. `BxP` is only shorthand
 for those families.
 
 The BAP and BCP are reviewed as a pair because the authentication flow

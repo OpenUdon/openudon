@@ -23,8 +23,12 @@ upgrades, downloads modules or substitutes a moving repository tip.
 
 The baseline retains Playwright-Go v0.6201.0, Playwright 1.62.1 and Chromium
 151.0.7922.34 on Linux. Browsertools and OpenUdon consume the same reviewed
-Browsertools module. The UWS module implementation remains 9e676eaa469e while
-its checkout closure is the reviewed documentation child cb5409586b7b. Udon's
+Browsertools module at `ec0b9e9d6ca1`. UWS implementation and checkout are
+`9ff877ebce55`; Udon is `ad257817e5fd` and Browserdriver is `22eb8f1b5e3d`.
+The BRP package qualification now exercises actual typed iCoT authoring,
+transaction v3, UWS call 1.1, the separate private form's Start/Apply/approval,
+and exact protocol-v5 replay. It verifies one POST and scans package/run files
+for the synthetic private values and accepted snapshot digest. Udon's
 local replacement lock binds the actual auxiliary source bytes independently
 of its module requirement labels. A host requiring a Chromium setuid helper
 must supply its administrator-owned `CHROME_DEVEL_SANDBOX`; Browsertools

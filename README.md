@@ -423,6 +423,12 @@ credential bindings, bounded timeout, and separate authoring approval; Udon
 still requires separate runtime approval and keeps credentials, MFA responses,
 and live session state private.
 
+The iCoT registration wizard also supports generic BRP 1.1 and UWS call 1.1:
+review typed field definitions, conditional rules and public wizard previews,
+then package them with a symbolic input binding. Runtime values are entered in
+Udon's separate private form and replayed through protocol v5. See
+[Registration 1.1 in iCoT](docs/registration-input-authoring.md).
+
 OpenUdon also accepts already-reviewed, secret-free
 `uws.browser-registration.1.0` profiles and
 `browsertools.registration-review.v1` bundles as manual package-local sources.

@@ -3,23 +3,23 @@
   "components": [
     {
       "name": "browserdriver",
-      "commit": "93f98605389214fd6bd5a60defbffd576cf8290e"
+      "commit": "22eb8f1b5e3d298a317b69119d16d37763be273c"
     },
     {
       "name": "browsertools",
-      "commit": "ce06b13bfef8d1776c3aa019322619c90dacbbd2",
+      "commit": "ec0b9e9d6ca1f6e5e95b81b898f3be636435f471",
       "module": "github.com/OpenUdon/browsertools",
-      "version": "v0.0.0-20260902183222-ce06b13bfef8"
+      "version": "v0.0.0-20260912051048-ec0b9e9d6ca1"
     },
     {
       "name": "udon",
-      "commit": "f1738eda71bab6af72faa9a21af45b16ba99f85e"
+      "commit": "ad257817e5fdd7b2fd55be2ba16d425865397d6b"
     },
     {
       "name": "uws",
-      "commit": "cb5409586b7b749dd051425b58462f1e73a8c541",
+      "commit": "9ff877ebce55fba345b7d59ebb838db521822c67",
       "module": "github.com/OpenUdon/uws",
-      "version": "v0.0.0-20260826233246-9e676eaa469e"
+      "version": "v0.0.0-20260907155543-9ff877ebce55"
     }
   ],
   "goVersion": "1.26.6",

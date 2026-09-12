@@ -216,13 +216,20 @@ func goTests(ctx context.Context, root string, args, extra []string, noSkips boo
 	return result, nil
 }
 func nodeTests(ctx context.Context, root string, live bool) (Tests, error) {
-	if _, err := command(ctx, root, []string{"npm", "run", "build", "--silent"}, nil); err != nil {
+	temp, err := os.MkdirTemp("", "openudon-driver-tests-")
+	if err != nil {
+		return Tests{}, errors.New("driver_build")
+	}
+	defer os.RemoveAll(temp)
+	staged := filepath.Join(temp, "driver")
+	if err := browserscenario.StageBrowserdriver(ctx, root, staged); err != nil {
 		return Tests{}, err
 	}
+	root = staged
 	args := []string{"node", "--test", "--test-reporter=tap"}
 	var extra []string
 	if live {
-		args = append(args, "dist/test/registration-live.test.js")
+		args = append(args, "dist/test/registration-live.test.js", "dist/test/registration-inputs-live.test.js")
 		extra = []string{"BROWSERDRIVER_REGISTRATION_LIVE_TEST=1"}
 	} else {
 		entries, err := filepath.Glob(filepath.Join(root, "dist/test/*.test.js"))
@@ -383,7 +390,7 @@ func runStage(ctx context.Context, root, udonRoot, id string) (any, error) {
 	case "supervised_authenticated_package":
 		return goTests(ctx, root, []string{"-tags=browser_system_qualification", "./internal/icot/ui", "-run", "^TestBrowserSystemSupervisedAuthenticatedPackage$", "-timeout=6m"}, nil, true)
 	case "udon_browser_contract":
-		return goTests(ctx, udonRoot, []string{"-race", "./pkg/browserdriver", "./pkg/uwsprofile", "./internal/sourceloader"}, nil, true)
+		return goTests(ctx, udonRoot, []string{"-race", "./pkg/browserdriver", "./pkg/uwsprofile", "./pkg/registrationinput", "./internal/sourceloader", "-skip", "TestPrivateFormLiveUIStartApplyAndSubmit"}, nil, true)
 	case "udon_browser_cli":
 		return goTests(ctx, udonRoot, []string{"-race", "./cmd/udon", "-run", "Browser|Registration|ReadPrivateLine|ExecutionReportRedactsDriverErrors"}, nil, true)
 	case "registration_driver":

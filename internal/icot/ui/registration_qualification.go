@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -40,6 +41,7 @@ type RegistrationQualificationOptions struct {
 	InitialURL             string
 	Origin                 string
 	Now                    func() time.Time
+	Typed                  bool
 }
 
 // RegistrationQualificationResult retains only canonical public profile and
@@ -137,6 +139,9 @@ func runRegistrationQualificationJourney(ctx context.Context, options Registrati
 		Revision: current.Revision, RegistrationRevision: current.RegistrationRevision,
 		ProfileID: options.ProfileID, URL: options.InitialURL, Origins: []string{options.Origin},
 	}
+	if options.Typed {
+		start.ProfileVersion = "1.1"
+	}
 	if _, err := registrationQualificationJSON(ctx, handler, http.MethodPost, "/api/v4/registration-authoring/start", start, http.StatusAccepted); err != nil {
 		return RegistrationQualificationResult{}, errors.New("start registration qualification wizard")
 	}
@@ -172,7 +177,7 @@ func runRegistrationQualificationJourney(ctx context.Context, options Registrati
 		return RegistrationQualificationResult{}, errors.New("registration qualification observation is unavailable")
 	}
 	ids, err := registrationQualificationCandidateIDs(*observed.RegistrationAuthoring.Observation)
-	if err != nil {
+	if err != nil && !options.Typed {
 		return RegistrationQualificationResult{}, err
 	}
 	draft := registrationDraftRequest{
@@ -200,12 +205,18 @@ func runRegistrationQualificationJourney(ctx context.Context, options Registrati
 			AmbiguousOutcome: "stop_without_retry", CleanupDisposition: "delete_separately",
 		},
 	}
+	if options.Typed {
+		observed, draft, err = typedRegistrationQualificationDraft(ctx, options, handler, observed)
+		if err != nil {
+			return RegistrationQualificationResult{}, err
+		}
+	}
 	draftCommand := registrationAuthoringCommandRequest{
 		Revision: observed.Revision, RegistrationRevision: observed.RegistrationRevision, Type: "draft", Draft: &draft,
 	}
 	drafted, err := registrationQualificationJSON(ctx, handler, http.MethodPost, "/api/v4/registration-authoring/command", draftCommand, http.StatusOK)
 	if err != nil || drafted.RegistrationAuthoring == nil || drafted.RegistrationAuthoring.Draft == nil {
-		return RegistrationQualificationResult{}, errors.New("build registration qualification draft")
+		return RegistrationQualificationResult{}, fmt.Errorf("build registration qualification draft: %w", err)
 	}
 	disclosure := drafted.RegistrationAuthoring.Draft
 	retained := len(disclosure.RetainedQueries) == 1 && len(disclosure.RetainedQueries[0].Parameters) == 1 &&

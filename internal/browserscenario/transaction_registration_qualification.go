@@ -1,6 +1,7 @@
 package browserscenario
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
@@ -24,7 +25,6 @@ import (
 	"github.com/OpenUdon/openudon/internal/registrationattestation"
 	"github.com/OpenUdon/openudon/internal/synthesize"
 	"github.com/OpenUdon/openudon/internal/trustedrunner"
-	"github.com/OpenUdon/openudon/internal/udonrunner"
 )
 
 // BRPQualificationEvidence is path-free evidence from one exact real
@@ -144,11 +144,15 @@ func (executor *realExecutor) runBRPQualification(ctx context.Context, environme
 		return evidence, fmt.Errorf("BRP qualification baseline promotion failed: %s", closedPackageLifecycleFailure(err))
 	}
 	qualifiedUI, err := icotui.RunRegistrationQualification(ctx, icotui.RegistrationQualificationOptions{
+		Typed:    true,
 		RepoRoot: environment.RepoRoot, BrowsertoolsExecutable: executor.browsertools,
 		ExampleDir: exampleDir, PrivateRoot: privateRoot, ScratchParent: scratch, StoreDir: store, Scope: "qualification/brp",
 		ProfileID: "qualification_brp", InitialURL: fixture.URL(), Origin: fixture.Origin(), Now: func() time.Time { return time.Now().UTC() },
 	})
-	if err != nil || qualifiedUI.Snapshot.Transaction == nil || qualifiedUI.Snapshot.Preparation == nil || qualifiedUI.Snapshot.Promotion == nil || !qualifiedUI.RetainedQuery {
+	if err != nil {
+		return evidence, fmt.Errorf("BRP iCoT wizard qualification: %w", err)
+	}
+	if qualifiedUI.Snapshot.Transaction == nil || qualifiedUI.Snapshot.Preparation == nil || qualifiedUI.Snapshot.Promotion == nil || !qualifiedUI.RetainedQuery {
 		return evidence, errors.New("BRP iCoT wizard qualification failed")
 	}
 	authoringNetwork := fixture.Evidence()
@@ -157,9 +161,9 @@ func (executor *realExecutor) runBRPQualification(ctx context.Context, environme
 		return evidence, errors.New("BRP producer exceeded its GET/HEAD-only authority")
 	}
 	reviewed := *qualifiedUI.Snapshot.Transaction
-	if reviewed.Version != browsertransaction.VersionV2 || reviewed.Session != "" || reviewed.State != browsertransaction.StatePromoted ||
-		reviewed.Provenance.ResultVersion != browsertransaction.ResultRegistrationAuthoringV2 {
-		return evidence, errors.New("BRP iCoT transaction-v2 transition failed")
+	if reviewed.Version != browsertransaction.VersionV3 || reviewed.Session != "" || reviewed.State != browsertransaction.StatePromoted ||
+		reviewed.Provenance.ResultVersion != browsertransaction.ResultRegistrationAuthoringV3 {
+		return evidence, errors.New("BRP iCoT transaction-v3 transition failed")
 	}
 	promoted, err := packagepipeline.ReadCurrent(ctx, store)
 	if err != nil {
@@ -215,19 +219,53 @@ func (executor *realExecutor) runBRPQualification(ctx context.Context, environme
 		return evidence, errors.New("BRP registration attestation failed")
 	}
 	runtimeEnv := registrationQualificationRuntimeEnvironment(executor.udon)
-	run, runErr := packagepipeline.RunSelected(ctx, store, selection.SelectionSHA256, trustedrunner.Options{
+	privateForm, err := startRegistrationInputQualification(ctx, root, executor.udon, runtimeAuthority, runtimeEnv)
+	if err != nil {
+		return evidence, err
+	}
+	defer func() {
+		if err := privateForm.Close(); err != nil {
+			resultErr = err
+		}
+	}()
+	runtimeEnv = privateForm.Environment(runtimeEnv)
+	runtimeCtx, runtimeCancel := context.WithCancel(ctx)
+	defer runtimeCancel()
+	inputDone := make(chan error, 1)
+	go func() {
+		err := privateForm.Continue()
+		if err != nil {
+			runtimeCancel()
+		}
+		inputDone <- err
+	}()
+	run, runErr := packagepipeline.RunSelected(runtimeCtx, store, selection.SelectionSHA256, trustedrunner.Options{
 		Tier: trustedrunner.TierSandbox, ApprovalPath: approvalPath, WorkDir: filepath.Join(root, "live-run"),
 		Env: runtimeEnv, Now: func() time.Time { return packageAt.Add(3 * time.Minute) }, Stdout: io.Discard, Stderr: io.Discard,
 		BrowserDriver: executor.node, BrowserDriverArgs: []string{executor.driverEntry, "--headed"},
 		RegistrationAttestationPath: attestationPath, RegistrationSubmitApproval: runtimeAuthority.operation,
+		RegistrationInputService: privateForm.endpoint,
 	})
+	inputErr := <-inputDone
+	if runErr != nil {
+		return evidence, errors.New("BRP attested runtime execution failed")
+	}
+	if inputErr != nil {
+		return evidence, inputErr
+	}
 	if runErr != nil || run == nil || run.DryRun || run.PackageSHA256 != selection.PackageSHA256 {
 		return evidence, errors.New("BRP attested runtime execution failed")
+	}
+	if err := privateForm.VerifyComplete(run.WorkDir, promoted.Files()); err != nil {
+		return evidence, err
 	}
 	var runEvidence trustedrunner.RunEvidence
 	runEvidenceData, _, err := evidencefile.ReadRegular(run.RunEvidencePath, evidencefile.DefaultMaxBytes)
 	if err != nil || evidencefile.DecodeStrict(runEvidenceData, &runEvidence) != nil || !runEvidence.Executor.Invoked || runEvidence.Executor.ReportSHA256 == "" {
 		return evidence, errors.New("BRP execution evidence is invalid")
+	}
+	if bytes.Contains(runEvidenceData, []byte(privateForm.initialIdentity)) || bytes.Contains(runEvidenceData, []byte(registrationInputQualificationToken)) {
+		return evidence, errors.New("BRP private input leaked into evidence")
 	}
 	workflowSHA256, err := digestQualificationFile(filepath.Join(exampleDir, "workflows", "workflow.uws.yaml"))
 	if err != nil {
@@ -238,7 +276,7 @@ func (executor *realExecutor) runBRPQualification(ctx context.Context, environme
 		network.POSTRequests != 1 || network.MutationRequests != 1 || !network.AccountCreated {
 		return evidence, errors.New("BRP runtime exceeded its one-POST authority")
 	}
-	submitApproved := runEvidence.Browser != nil && runEvidence.Browser.Protocol == "v4" &&
+	submitApproved := runEvidence.Browser != nil && runEvidence.Browser.Protocol == "v5" &&
 		len(runEvidence.Browser.ApprovedRegistration) == 1 && runEvidence.Browser.ApprovedRegistration[0] == runtimeAuthority.operation
 	evidence = BRPQualificationEvidence{
 		ProducerResultSHA256: taggedQualificationSHA256(reviewed.Provenance.ResultSHA256), TransactionSHA256: taggedQualificationSHA256(qualifiedUI.Snapshot.TransactionSHA256),
@@ -299,6 +337,7 @@ type registrationQualificationFixture struct {
 
 type registrationQualificationRuntime struct {
 	operation string
+	binding   string
 	flow      string
 	cleanup   string
 	profile   []byte
@@ -317,6 +356,7 @@ func registrationQualificationAuthority(promoted packagepipeline.Promoted, canon
 			Source              string            `json:"source"`
 			Flow                string            `json:"flow"`
 			CredentialBindings  map[string]string `json:"credential_bindings"`
+			InputBinding        string            `json:"input_binding,omitempty"`
 			Approval            string            `json:"approval"`
 			DuplicatePrevention string            `json:"duplicate_prevention"`
 			OnDuplicate         string            `json:"on_duplicate"`
@@ -331,7 +371,7 @@ func registrationQualificationAuthority(promoted packagepipeline.Promoted, canon
 	}
 	call := review.Calls[0]
 	operation := browserworkflow.RuntimeOperationID(call.Step)
-	if operation == "" || browserworkflow.RuntimeOperationID(call.Approval) != operation || call.Flow != "create_dedicated_test_user" || call.CleanupDisposition != "delete_separately" {
+	if operation == "" || call.InputBinding == "" || browserworkflow.RuntimeOperationID(call.Approval) != operation || call.Flow != "create_dedicated_test_user" || call.CleanupDisposition != "delete_separately" {
 		return registrationQualificationRuntime{}, errors.New("registration call authority is invalid")
 	}
 	profile, ok := files[call.Source]
@@ -355,7 +395,7 @@ func registrationQualificationAuthority(promoted packagepipeline.Promoted, canon
 		return registrationQualificationRuntime{}, errors.New("registration profile changed after UI review")
 	}
 	return registrationQualificationRuntime{
-		operation: operation, flow: call.Flow, cleanup: call.CleanupDisposition, profile: append([]byte(nil), profile...),
+		operation: operation, binding: call.InputBinding, flow: call.Flow, cleanup: call.CleanupDisposition, profile: append([]byte(nil), profile...),
 	}, nil
 }
 
@@ -373,7 +413,7 @@ func (fixture *registrationQualificationFixture) serveHTTP(writer http.ResponseW
 	}
 	fixture.mu.Unlock()
 	if request.Method == http.MethodPost && request.URL.Path == "/registration-complete" {
-		if err := request.ParseForm(); err != nil || request.Form.Get("identifier") != "dedicated-test@example.test" || request.Form.Get("password") != "qualification-password-value" {
+		if err := request.ParseForm(); err != nil || request.Form.Get("email") != "dedicated-test@example.test" || request.Form.Get("password") != "qualification-password-value" || request.Form.Get("contact") != "Synthetic Å member" || request.Form.Get("kind") != "business" || request.Form.Get("company") != "Synthetic company" || request.Form.Get("phone") != "" || request.Form.Get("updates") != "" || request.Form.Get("quantity") != "0" || request.Form.Get("ratio") != "1e-7" {
 			http.Error(writer, "invalid registration", http.StatusUnauthorized)
 			return
 		}
@@ -392,7 +432,7 @@ func (fixture *registrationQualificationFixture) serveHTTP(writer http.ResponseW
 	if request.Method == http.MethodHead {
 		return
 	}
-	_, _ = writer.Write([]byte(`<!doctype html><html><body><main><h1>Create account</h1><form method="post" action="/registration-complete"><label>Email<input name="identifier" autocomplete="email"></label><label>Password<input name="password" type="password"></label><button type="submit">Register</button><p role="status" aria-label="Registration complete">Registration proof marker</p></form></main></body></html>`))
+	_, _ = writer.Write([]byte(icotui.SyntheticRegistrationForm))
 }
 
 func (fixture *registrationQualificationFixture) URL() string {
@@ -464,8 +504,6 @@ func writeRegistrationQualificationAttestation(root string, profile []byte, pack
 func registrationQualificationRuntimeEnvironment(udonPath string) []string {
 	values := []string{
 		"OPENUDON_EXECUTOR=" + udonPath,
-		udonrunner.CredentialEnvironmentName("registration_identifier") + "=dedicated-test@example.test",
-		udonrunner.CredentialEnvironmentName("reg_password") + "=qualification-password-value",
 	}
 	for _, name := range []string{"PATH", "HOME", "TMPDIR", "TMP", "TEMP", "DISPLAY", "WAYLAND_DISPLAY", "XAUTHORITY", "DBUS_SESSION_BUS_ADDRESS", "LANG", "LC_ALL", "LC_CTYPE", "PLAYWRIGHT_BROWSERS_PATH"} {
 		if value := os.Getenv(name); value != "" {

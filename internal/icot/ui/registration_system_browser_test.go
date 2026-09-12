@@ -22,7 +22,11 @@ func TestBrowserSystemRealRegistrationUI(t *testing.T) {
 func TestBrowserSystemSupervisedRegistrationPackage(t *testing.T) {
 	testBrowserSystemRegistrationPackage(t, true)
 }
-func testBrowserSystemRegistrationPackage(t *testing.T, control bool) {
+func TestBrowserSystemTypedRegistrationUI(t *testing.T) {
+	testBrowserSystemRegistrationPackage(t, false, true)
+}
+func testBrowserSystemRegistrationPackage(t *testing.T, control bool, typed ...bool) {
+	isTyped := len(typed) != 0 && typed[0]
 	root, err := filepath.Abs("../../..")
 	if err != nil {
 		t.Fatal("source")
@@ -38,6 +42,10 @@ func testBrowserSystemRegistrationPackage(t *testing.T, control bool) {
 		}
 		w.Header().Set("Content-Type", "text/html")
 		if r.Method == "HEAD" {
+			return
+		}
+		if isTyped {
+			_, _ = io.WriteString(w, SyntheticRegistrationForm)
 			return
 		}
 		_, _ = io.WriteString(w, `<!doctype html><html><body><main><h1>Create account</h1><form method="post" action="/registration-complete"><label>Email<input name="identifier" autocomplete="email"></label><label>Password<input name="password" type="password"></label><button type="submit">Register</button><p role="status" aria-label="Registration complete">Registration proof marker</p></form></main></body></html>`)
@@ -71,6 +79,7 @@ func testBrowserSystemRegistrationPackage(t *testing.T, control bool) {
 		}
 	}
 	result, err := RunRegistrationQualification(ctx, RegistrationQualificationOptions{
+		Typed:                 isTyped,
 		ApplicationExecutable: application, RepoRoot: root, BrowsertoolsExecutable: binary, ExampleDir: example, PrivateRoot: filepath.Join(temp, "private"), ScratchParent: filepath.Join(temp, "scratch"), StoreDir: filepath.Join(temp, "store"), Scope: "qualification/brp", ProfileID: "qualification_brp", InitialURL: fixture.URL + "/register?action=startnew", Origin: fixture.URL,
 	})
 	if err != nil {
