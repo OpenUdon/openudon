@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"github.com/OpenUdon/openudon/internal/browsercheck"
 	"io"
 	"os"
 	"os/exec"
@@ -133,13 +134,23 @@ func (executor *realExecutor) prepare(ctx context.Context, environment Environme
 		goBuildEnvironment = qualificationGoBuildEnvironment()
 	}
 	executor.udon = filepath.Join(root, "udon")
-	if !runSilent(ctx, buildDeadline, environment.UdonRepo, []string{goTool, "build", "-o", executor.udon, "./cmd/udon"}, goBuildEnvironment) {
+	if browsercheck.Build(ctx, "udon", executor.udon, func(output string) error {
+		if !runSilent(ctx, buildDeadline, environment.UdonRepo, []string{goTool, "build", "-o", output, "./cmd/udon"}, goBuildEnvironment) {
+			return fmt.Errorf("build Udon")
+		}
+		return nil
+	}) != nil {
 		executor.prepareErr = fmt.Errorf("build Udon")
 		return
 	}
 	if suite != SuiteJourney {
 		executor.browsertools = filepath.Join(root, "browsertools")
-		if !runSilent(ctx, buildDeadline, environment.BrowsertoolsRepo, []string{goTool, "build", "-o", executor.browsertools, "./cmd/browsertools"}, goBuildEnvironment) {
+		if browsercheck.Build(ctx, "browsertools", executor.browsertools, func(output string) error {
+			if !runSilent(ctx, buildDeadline, environment.BrowsertoolsRepo, []string{goTool, "build", "-o", output, "./cmd/browsertools"}, goBuildEnvironment) {
+				return fmt.Errorf("build Browsertools")
+			}
+			return nil
+		}) != nil {
 			executor.prepareErr = fmt.Errorf("build Browsertools")
 			return
 		}

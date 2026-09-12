@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/OpenUdon/openudon/internal/browsercheck"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -60,7 +61,7 @@ type BRPQualificationEvidence struct {
 // RunBRPQualification exercises only a deterministic loopback registration
 // page. Authoring remains GET/HEAD-only; the separately attested runtime path
 // performs exactly one approved submit against the same fixture.
-func RunBRPQualification(ctx context.Context, options Options) (BRPQualificationEvidence, error) {
+func RunBRPQualification(ctx context.Context, options Options) (result BRPQualificationEvidence, resultErr error) {
 	if ctx == nil {
 		ctx = context.Background()
 	}
@@ -84,7 +85,14 @@ func RunBRPQualification(ctx context.Context, options Options) (BRPQualification
 	}
 	environment.CommitBoundBuild = true
 	executor := &realExecutor{}
-	defer executor.Close()
+	defer func() {
+		finish := browsercheck.Span(ctx, "teardown")
+		err := executor.Close()
+		finish(err)
+		if err != nil && resultErr == nil {
+			resultErr = errors.New("qualification_teardown")
+		}
+	}()
 	executor.prepare(ctx, environment, SuiteLoopback)
 	if executor.unavailable {
 		return BRPQualificationEvidence{}, fmt.Errorf("BRP qualification: %w", ErrSandboxPrerequisiteUnavailable)

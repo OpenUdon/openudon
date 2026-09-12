@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 
+	"github.com/OpenUdon/openudon/internal/browsercheck"
 	"github.com/OpenUdon/openudon/internal/evidencefile"
 	"github.com/OpenUdon/openudon/internal/processgroup"
 )
@@ -33,7 +34,9 @@ func StageBrowserdriver(ctx context.Context, source, target string) error {
 	if os.WriteFile(filepath.Join(target, "package.json"), data, 0600) != nil || os.Symlink(filepath.Join(source, "node_modules"), filepath.Join(target, "node_modules")) != nil {
 		return bad
 	}
-	err = processgroup.Run(ctx, buildDeadline, processgroup.Invocation{Args: []string{"npm", "run", "build", "--silent", "--", "--outDir", filepath.Join(target, "dist"), "--incremental", "false"}, Dir: source, Env: os.Environ(), Stdout: io.Discard, Stderr: io.Discard})
+	err = browsercheck.Build(ctx, "browserdriver", filepath.Join(target, "dist"), func(output string) error {
+		return processgroup.Run(ctx, buildDeadline, processgroup.Invocation{Args: []string{"npm", "run", "build", "--silent", "--", "--outDir", output, "--incremental", "false"}, Dir: source, Env: os.Environ(), Stdout: io.Discard, Stderr: io.Discard})
+	})
 	if err != nil {
 		return bad
 	}

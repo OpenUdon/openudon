@@ -6,6 +6,7 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"github.com/OpenUdon/openudon/internal/browsercheck"
 	"os"
 	"path/filepath"
 	"sort"
@@ -50,7 +51,7 @@ type BAPBCPQualificationEvidence struct {
 // RunBAPBCPQualification exercises only the embedded loopback target. It
 // never accepts a target URL, credential value, browser session, or output
 // path from its caller, and removes all private/scratch/runtime material.
-func RunBAPBCPQualification(ctx context.Context, options Options) (BAPBCPQualificationEvidence, error) {
+func RunBAPBCPQualification(ctx context.Context, options Options) (result BAPBCPQualificationEvidence, resultErr error) {
 	if ctx == nil {
 		ctx = context.Background()
 	}
@@ -82,7 +83,14 @@ func RunBAPBCPQualification(ctx context.Context, options Options) (BAPBCPQualifi
 		return BAPBCPQualificationEvidence{}, errors.New("BAP+BCP qualification manifest is unavailable")
 	}
 	executor := &realExecutor{}
-	defer executor.Close()
+	defer func() {
+		finish := browsercheck.Span(ctx, "teardown")
+		err := executor.Close()
+		finish(err)
+		if err != nil && resultErr == nil {
+			resultErr = errors.New("qualification_teardown")
+		}
+	}()
 	executor.prepare(ctx, environment, SuiteLoopback)
 	if executor.unavailable {
 		return BAPBCPQualificationEvidence{}, fmt.Errorf("BAP+BCP qualification: %w", ErrSandboxPrerequisiteUnavailable)
