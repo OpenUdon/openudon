@@ -15,6 +15,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/OpenUdon/openudon/internal/browsercheck"
 	"github.com/OpenUdon/openudon/internal/browserscenario"
 	"github.com/OpenUdon/openudon/internal/evidencefile"
 	"github.com/OpenUdon/openudon/internal/processgroup"
@@ -59,7 +60,9 @@ func (b *boundedBuffer) snapshot() ([]byte, bool) {
 	defer b.mu.Unlock()
 	return append([]byte(nil), b.buffer.Bytes()...), b.exceeded
 }
-func command(ctx context.Context, root string, args, extra []string) ([]byte, error) {
+func command(ctx context.Context, root string, args, extra []string) (result []byte, resultErr error) {
+	finish := browsercheck.Span(ctx, "subprocess")
+	defer func() { finish(resultErr) }()
 	var output, diagnostic boundedBuffer
 	err := processgroup.Run(ctx, 15*time.Minute, processgroup.Invocation{Args: args, Dir: root, Env: environment(extra...), Stdout: &output, Stderr: &diagnostic})
 	stdout, outputExceeded := output.snapshot()
@@ -145,7 +148,9 @@ func source(ctx context.Context, name, root string) (Source, error) {
 	}
 	return Source{Name: name, Commit: strings.TrimSpace(string(revision)), SHA256: hash(inventory.Bytes())}, nil
 }
-func sources(ctx context.Context, root, udonRoot string, includeBuild bool) ([]Source, error) {
+func sources(ctx context.Context, root, udonRoot string, includeBuild bool) (resultSources []Source, resultErr error) {
+	finish := browsercheck.Span(ctx, "source_hashing")
+	defer func() { finish(resultErr) }()
 	var result []Source
 	for _, name := range []string{"openudon", "browsertools", "uws", "udon", "browserdriver"} {
 		path := filepath.Join(filepath.Dir(root), name)
@@ -181,7 +186,14 @@ func sources(ctx context.Context, root, udonRoot string, includeBuild bool) ([]S
 	return result, nil
 }
 func goTests(ctx context.Context, root string, args, extra []string, noSkips bool) (Tests, error) {
-	data, err := command(ctx, root, append([]string{"go", "test", "-json", "-count=1"}, args...), extra)
+	return goTestsMode(ctx, root, args, extra, noSkips, false)
+}
+func goTestsMode(ctx context.Context, root string, args, extra []string, noSkips, cached bool) (Tests, error) {
+	commandArgs := []string{"go", "test", "-json"}
+	if !cached {
+		commandArgs = append(commandArgs, "-count=1")
+	}
+	data, err := command(ctx, root, append(commandArgs, args...), extra)
 	if err != nil {
 		return Tests{}, err
 	}
@@ -265,7 +277,7 @@ func nodeTests(ctx context.Context, root string, live bool) (Tests, error) {
 	return result, nil
 }
 
-func Run(ctx context.Context, o Options) (*Report, error) {
+func Run(ctx context.Context, o Options) (result *Report, resultErr error) {
 	ctx, cancel := context.WithTimeout(ctx, 2*time.Hour)
 	defer cancel()
 	if o.Suite != "offline" && o.Suite != "loopback" || o.Out == "" {
@@ -312,6 +324,11 @@ func Run(ctx context.Context, o Options) (*Report, error) {
 	if err != nil || rel != ".." && !strings.HasPrefix(rel, "../") {
 		return nil, errors.New("report_must_be_outside_workspace")
 	}
+	ctx, trace, err := browsercheck.TraceFile(ctx, out+".timing.jsonl")
+	if err != nil {
+		return nil, err
+	}
+	defer func() { resultErr = errors.Join(resultErr, trace.Close()) }()
 	before, err := sources(ctx, root, udonRoot, o.Suite == "loopback")
 	if err != nil {
 		return nil, err
@@ -341,7 +358,10 @@ func Run(ctx context.Context, o Options) (*Report, error) {
 			if o.Progress != nil {
 				fmt.Fprintf(o.Progress, "browser-system-eval: pass %d stage %s started\n", pass, id)
 			}
-			value, err := runStage(ctx, root, udonRoot, id)
+			stageCtx := browsercheck.Stage(ctx, fmt.Sprintf("pass_%d_%s", pass, id))
+			finish := browsercheck.Span(stageCtx, "stage")
+			value, err := runStage(stageCtx, root, udonRoot, id)
+			finish(err)
 			after, sourceErr := sources(ctx, root, udonRoot, o.Suite == "loopback")
 			currentRuntimes, runtimeErr := toolchains(ctx, root)
 			if err != nil || sourceErr != nil || runtimeErr != nil || currentRuntimes != runtimes || !reflect.DeepEqual(before, after) {

@@ -189,3 +189,16 @@ browser-system-check:
 	$(GO) run ./cmd/openudon browser-system-eval --verify "$(OPENUDON_BROWSER_SYSTEM_OUT)-offline.json"
 	$(GO) run ./cmd/openudon browser-system-eval --udon-repo "$(OPENUDON_BROWSER_SYSTEM_UDON_REPO)" --suite loopback --out "$(OPENUDON_BROWSER_SYSTEM_OUT)-loopback.json"
 	$(GO) run ./cmd/openudon browser-system-eval --verify "$(OPENUDON_BROWSER_SYSTEM_OUT)-loopback.json"
+
+# Feature iteration: unit results use Go's normal dependency-aware cache.
+OPENUDON_SMOKE_OUT ?= /tmp/openudon-smoke-$(shell /usr/bin/date -u +%Y%m%dT%H%M%S%N).json
+OPENUDON_SMOKE_STAGE ?= registration_ui_handoff
+OPENUDON_SMOKE_CACHE ?= $(HOME)/.cache/openudon-browser-development
+OPENUDON_SMOKE_REUSE ?= false
+.PHONY: fast smoke qualify
+fast:
+	$(GO) test ./...
+	$(GO) run ./cmd/openudon check-doc-memory
+smoke:
+	$(GO) run ./cmd/openudon browser-system-dev --mode smoke --stage "$(OPENUDON_SMOKE_STAGE)" --udon-repo "$(OPENUDON_BROWSER_SYSTEM_UDON_REPO)" --out "$(OPENUDON_SMOKE_OUT)" --cache "$(OPENUDON_SMOKE_CACHE)" --reuse=$(OPENUDON_SMOKE_REUSE)
+qualify: browser-system-check

@@ -98,6 +98,8 @@ func main() {
 		runBrowserIntegrationEvalCommand(flag.Args()[1:])
 	case "browser-system-component":
 		runBrowserSystemComponent(flag.Args()[1:])
+	case "browser-system-dev":
+		runBrowserSystemDev(flag.Args()[1:])
 	case "browser-system-eval":
 		runBrowserSystemEval(flag.Args()[1:])
 	case "browser-scenario-eval":
@@ -1386,4 +1388,27 @@ func runBrowserSystemComponent(args []string) {
 	if json.NewEncoder(os.Stdout).Encode(value) != nil {
 		os.Exit(1)
 	}
+}
+
+func runBrowserSystemDev(args []string) {
+	fs := flag.NewFlagSet("browser-system-dev", flag.ExitOnError)
+	mode := fs.String("mode", "smoke", "fast or synthetic smoke; never runtime qualification")
+	stage := fs.String("stage", "", "one closed qualification stage; default registration_ui_handoff")
+	root := fs.String("repo-root", ".", "OpenUdon source root")
+	udon := fs.String("udon-repo", "", "exact prepared Udon checkout")
+	out := fs.String("out", "", "new development report outside source workspaces")
+	cache := fs.String("cache", "", "private development cache outside source workspaces")
+	reuse := fs.Bool("reuse", false, "explicitly reuse matching successful smoke younger than 24 hours")
+	fs.Parse(args)
+	if fs.NArg() != 0 {
+		os.Exit(2)
+	}
+	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer cancel()
+	_, err := browsersystem.RunDevelopment(ctx, browsersystem.DevelopmentOptions{Mode: *mode, Stage: *stage, Root: *root, UdonRepo: *udon, Out: *out, Cache: *cache, Reuse: *reuse, Progress: os.Stderr})
+	if err != nil {
+		fmt.Fprintln(os.Stderr, "browser-system-dev:", err)
+		os.Exit(1)
+	}
+	fmt.Fprintln(os.Stdout, "browser-system-dev: pass (development only)")
 }
