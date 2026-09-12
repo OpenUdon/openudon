@@ -4,11 +4,14 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/OpenUdon/openudon/internal/browserscenario"
 )
 
 func TestDiagnosticChild(t *testing.T) {
@@ -73,6 +76,39 @@ func TestPrivateDiagnosticBoundsAndSymlinkRefusal(t *testing.T) {
 	after, _ := os.ReadFile(out + ".diagnostic.json")
 	if !bytes.Equal(data, after) {
 		t.Fatal("diagnostic followed final symlink")
+	}
+}
+
+func TestFailedScenarioReportSurvivesPrivateDiagnostic(t *testing.T) {
+	report := &browserscenario.Report{Status: browserscenario.StatusFail, Scenarios: []browserscenario.ScenarioResult{{ID: "synthetic-case", Status: browserscenario.StatusFail, Phases: []browserscenario.PhaseResult{{ID: "teardown", Status: browserscenario.StatusFail, Detail: "teardown_failed"}}}}}
+	if scenarioFailure(report, nil) != nil {
+		t.Fatal("successful evaluation acquired a failure")
+	}
+	cause := scenarioFailure(report, errors.New("synthetic-private-scenario-cause"))
+	if cause.Error() != "component_failed" {
+		t.Fatal("scenario detail leaked into ordinary error")
+	}
+	out := filepath.Join(t.TempDir(), "report.json")
+	var progress bytes.Buffer
+	retainFailureDiagnostic(out, "loopback_scenarios", cause, &progress)
+	data, err := os.ReadFile(out + ".diagnostic.json")
+	var diagnostic struct {
+		Reason string `json:"reason"`
+		Stdout string `json:"private_stdout"`
+		Stderr string `json:"private_stderr"`
+	}
+	if err != nil || json.Unmarshal(data, &diagnostic) != nil || diagnostic.Reason != "scenario_evaluation" || diagnostic.Stderr != "synthetic-private-scenario-cause" {
+		t.Fatal("scenario cause was lost")
+	}
+	var retained browserscenario.Report
+	if json.Unmarshal([]byte(diagnostic.Stdout), &retained) != nil || len(retained.Scenarios) != 1 || retained.Scenarios[0].ID != "synthetic-case" || len(retained.Scenarios[0].Phases) != 1 || retained.Scenarios[0].Phases[0].Detail != "teardown_failed" {
+		t.Fatal("failed scenario and phase were lost")
+	}
+	if strings.Contains(progress.String(), "synthetic-") {
+		t.Fatal("private scenario detail leaked into progress")
+	}
+	if _, err := os.Stat(out); !os.IsNotExist(err) {
+		t.Fatal("failed diagnostic replaced aggregate evidence")
 	}
 }
 

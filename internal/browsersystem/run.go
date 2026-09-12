@@ -433,7 +433,8 @@ func runStage(ctx context.Context, root, udonRoot, id string) (any, error) {
 		if id == "journey_scenarios" {
 			options.Suite = browserscenario.SuiteJourney
 		}
-		return browserscenario.RunLocalQualification(ctx, options)
+		report, err := browserscenario.RunLocalQualification(ctx, options)
+		return report, scenarioFailure(report, err)
 	}
 	return nil, errors.New("unknown_stage")
 }

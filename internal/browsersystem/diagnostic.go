@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"io"
 	"os"
+
+	"github.com/OpenUdon/openudon/internal/browserscenario"
 )
 
 // Private diagnostics are never report evidence or part of an error string.
@@ -19,6 +21,17 @@ type commandFailure struct {
 }
 
 func (*commandFailure) Error() string { return "component_failed" }
+
+// Scenario evaluation is in-process, so there are no child streams to retain.
+// Preserve its returned report and cause only through the existing bounded
+// private diagnostic channel; neither can become successful aggregate evidence.
+func scenarioFailure(report *browserscenario.Report, cause error) error {
+	if cause == nil {
+		return nil
+	}
+	data, _ := json.Marshal(report)
+	return &commandFailure{reason: "scenario_evaluation", stdout: data, stderr: []byte(cause.Error())}
+}
 
 func retainFailureDiagnostic(out, stage string, cause error, progress io.Writer) {
 	diagnostic := struct {

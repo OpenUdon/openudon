@@ -118,6 +118,9 @@ child stdout/stderr stream, with a truncation marker. It never enters the reduce
 report, is not qualification evidence, and must remain outside Git. Existing
 diagnostics and final symlinks are never overwritten. A supervising composer
 must preserve this sidecar before deleting its temporary component directory.
+In-process loopback and journey failures retain their returned scenario report
+and cause in those same bounded private fields, including failed-case and phase
+details that ordinary progress intentionally omits.
 
 Version 2 adds required supervised registration and authenticated-package
 journeys to each of the three loopback passes (13 stages per pass). The verifier
