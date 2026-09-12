@@ -16,8 +16,53 @@ import (
 	"github.com/OpenUdon/openudon/internal/packageartifacts"
 	rollout "github.com/OpenUdon/openudon/internal/workflowintent"
 	"github.com/OpenUdon/uws/browserregistration"
+	"github.com/OpenUdon/uws/convert"
 	"github.com/OpenUdon/uws/uws1"
 )
+
+func TestTypedRegistrationExportsUWS19AndExactInputBinding(t *testing.T) {
+	example := t.TempDir()
+	profile, err := registrationprofile.Parse(synthesizeBrowserRegistrationFixture())
+	if err != nil {
+		t.Fatal(err)
+	}
+	profile.Profile = browserregistration.ProfileNameV11
+	optional := false
+	profile.InputSlots = map[string]browserregistration.InputSlot{"display_name": {Type: "string", Label: "Display name", Required: &optional}}
+	flow := profile.Flows["create_dedicated_test_user"]
+	steps := []browserregistration.Step{{InputCheckpoint: &browserregistration.InputCheckpointStep{ID: "initial", Slots: []string{"identifier", "password", "display_name"}}}}
+	steps = append(steps, flow.Sequence[:3]...)
+	steps = append(steps, browserregistration.Step{FillInput: &browserregistration.FillInputStep{Slot: "display_name", Control: "fill", Locator: browserregistration.Locator{Role: "textbox", Name: "Display name"}}})
+	flow.Sequence = append(steps, flow.Sequence[3:]...)
+	flow.Effects = append(flow.Effects, "requires_human_verification")
+	profile.Flows["create_dedicated_test_user"] = flow
+	data, err := registrationprofile.MarshalJSON(profile)
+	if err != nil {
+		t.Fatal(err)
+	}
+	path := "browser-registration/typed.json"
+	mustWriteSynthesizeTestFile(t, filepath.Join(example, path), data)
+	intent := &rollout.Intent{Steps: []*rollout.Step{{Name: "register_member", Type: "browser_registration", Source: path, RegistrationFlow: "create_dedicated_test_user", RegistrationApproval: "register_member", InputBinding: "member_inputs", CredentialBindings: map[string]string{"identifier": "member_id", "password": "member_password"}, DuplicatePrevention: "operator_attestation", OnDuplicate: "fail", AmbiguousOutcome: "stop_without_retry", CleanupDisposition: "delete_separately"}}}
+	document, err := generateWorkflowDocument(Result{ExampleDir: example}, intent)
+	if err != nil {
+		t.Fatal(err)
+	}
+	exported, err := convert.MarshalYAML(document)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var restored uws1.Document
+	if err := convert.UnmarshalYAML(exported, &restored); err != nil {
+		t.Fatal(err)
+	}
+	if restored.UWS != "1.9.0" || len(restored.Operations) != 1 || restored.Operations[0].ExtensionProfile() != browserregistration.CallProfileNameV11 {
+		t.Fatal("typed registration exported with the wrong UWS version or operation profile")
+	}
+	call, ok, err := browserregistration.ReadRegistrationExtension(restored.Operations[0].Extensions)
+	if err != nil || !ok || call.InputBinding != "member_inputs" {
+		t.Fatal("typed input binding changed during export")
+	}
+}
 
 func TestRegistrationPlanInventoryMustMatchIntent(t *testing.T) {
 	intent := &rollout.Intent{Steps: []*rollout.Step{{Name: "register_test_user", Type: "browser_registration"}}}

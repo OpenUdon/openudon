@@ -63,7 +63,7 @@ func typedRegistrationQualificationDraft(ctx context.Context, options Registrati
 	}
 	draft := registrationDraftRequest{Title: "Synthetic typed registration", Provider: "Synthetic loopback", Confidence: "high", ExpiresAfter: "P30D", InputsReviewed: true, InputSlots: fields,
 		CredentialSlots: []registrationDraftSlot{{Slot: "identifier", Kind: "identifier", Binding: "registration_identifier"}, {Slot: "password", Kind: "password", Binding: "reg_password"}},
-		Flow: registrationDraftFlow{Name: "create_dedicated_test_user", Description: "Create one synthetic member through reviewed typed checkpoints.", ConfirmationPrompt: "Approve one synthetic registration.", Effects: []string{"creates_account", "requires_human_verification"},
+		Flow: registrationDraftFlow{Name: "create_dedicated_test_user", Description: "Create one synthetic member through reviewed typed checkpoints.", ConfirmationPrompt: "Approve one synthetic registration.", Effects: []string{"creates_account", "requires_human_verification", "sends_verification"},
 			Steps: []registrationDraftStep{
 				{Type: "input_checkpoint", CheckpointID: "identity", Slots: []string{"identifier", "password", "contact_name", "account_kind", "company"}},
 				{Type: "navigate", Navigate: options.InitialURL},
@@ -78,6 +78,7 @@ func typedRegistrationQualificationDraft(ctx context.Context, options Registrati
 				{Type: "fill_input", Slot: "quantity", Control: "fill", CandidateID: id(third, "Quantity")},
 				{Type: "fill_input", Slot: "ratio", Control: "fill", CandidateID: id(third, "Ratio")},
 				{Type: "submit", CandidateID: id(third, "Register")},
+				{Type: "human_checkpoint", CheckpointKind: "email_verification"},
 			},
 			Success: registrationDraftSuccess{Origin: options.Origin, Path: "/registration-complete", Proof: registrationSuccessProofOperatorReviewedDeferred, OperatorReviewed: true, Locator: registrationDraftSuccessLocator{Role: "status", Name: "Registration complete"}},
 		}, CallControls: registrationDraftCallControls{Approval: "browser_registration_submit", DuplicatePrevention: "operator_attestation", OnDuplicate: "fail", AmbiguousOutcome: "stop_without_retry", CleanupDisposition: "delete_separately"},

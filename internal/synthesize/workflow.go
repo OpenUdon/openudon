@@ -1362,7 +1362,7 @@ func browserContractVersionsForIntent(exampleDir string, intent *rollout.Intent)
 		case kind == "browser_authentication" && contract.name == "uws.browser-authentication.1.1":
 			result.Requires18 = true
 			result.ContextAuthentication[source] = true
-		case kind == "browser_registration" && contract.name == browserregistration.ProfileName:
+		case kind == "browser_registration" && (contract.name == browserregistration.ProfileName || contract.name == browserregistration.ProfileNameV11):
 			result.Requires19 = true
 		}
 	})
