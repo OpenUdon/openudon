@@ -1,6 +1,7 @@
 # Browser system qualification
 
-`make browser-system-check` is the explicit local engineering gate. It runs
+Routine development uses `make fast` and one affected authorized `make smoke`.
+`make qualify` (also `make browser-system-check`) is the complete integration gate. It runs
 browser-free `offline` checks, verifies that report, then requires three fresh
 complete `loopback` passes and verifies their aggregate report. Default `go test
 ./...` remains browser-free. No public target suite, package publication or
@@ -131,3 +132,57 @@ For human browser challenges, an approved trusted run may explicitly opt into
 `openudon run --interactive-browser`. This forwards private stdin through the
 existing trusted runner to Udon. Default runs remain noninteractive, and neither
 run configuration nor public evidence stores response values.
+
+## Focused development
+
+```sh
+make fast
+make smoke OPENUDON_BROWSER_SYSTEM_UDON_REPO=/absolute/prepared/udon \
+  OPENUDON_SMOKE_OUT=/tmp/unique-smoke.json
+# Explicit reuse of a matching success younger than 24 hours:
+make smoke OPENUDON_BROWSER_SYSTEM_UDON_REPO=/absolute/prepared/udon \
+  OPENUDON_SMOKE_OUT=/tmp/unique-reuse.json OPENUDON_SMOKE_REUSE=true
+```
+
+`fast` runs unit tests with normal Go result caching and document checks. Smoke
+runs one closed stage; `OPENUDON_SMOKE_STAGE` defaults to
+`registration_ui_handoff`, the typed UI/BRP/UWS/private-form/trusted-runtime
+flow. Other native loopback stage IDs can be selected explicitly. Unit/helper
+or documentation changes normally need browser-free checks only. Use the full
+fresh gate after affected smoke passes when qualifying a frozen candidate or
+adopting runtime bytes.
+
+The thin CLI is `openudon browser-system-dev --mode fast|smoke --stage ID
+--repo-root ROOT --udon-repo UDON --out FILE [--cache DIRECTORY] [--reuse]`.
+Output must be new and outside both source workspaces. No browser state is
+reused. Only a smoke context can activate the private immutable build cache;
+qualification remains fresh. `OPENUDON_SMOKE_CACHE=` disables custom caching.
+The cache copies explicit Browserdriver/Udon/Browsertools build outputs into
+fresh disposable runtime paths. Other child test stages retain their existing
+Go cache and disposable builds.
+
+The input key covers dirty source/fixture bytes, actual Go dependencies and
+toolchain files, installed Node/npm/JS modules, checker executable, Chromium
+runtime distributions, sandbox bytes and environment. Keys contain hashes;
+reports contain no environment values or command arguments. Source drift during
+a fresh stage fails it. Corrupt cache entries fail closed. An expired matching
+result can be replaced by a fresh run without `--reuse`; corrupt artifacts need
+cache removal or a run with custom caching disabled. Missing or changed keys
+run fresh. Caches are owner-private, local integrity aids, not signed evidence.
+
+`openudon.browser-development.v1` reports always say
+`qualifies_runtime:false`. Explicit reused successes retain the original
+execution ID/time/duration/proof and set `reused:true`; they never count as
+independent repetitions. The qualification verifier rejects development reports.
+
+Both native qualification and development write private `FILE.timing.jsonl`
+sidecars (`openudon.browser-check-timing.v1`). Closed labels measure source
+hashing, subprocesses, stage duration and supported builds/transaction teardown.
+Timing is diagnostic, separate from the unchanged native evidence schema.
+
+Custom build/result reuse is supported for the in-process
+`registration_ui_handoff` and `bap_bcp_transaction` stages. Other selected stages
+run fresh using their existing build behavior; `--reuse` for those stages is
+refused. Their child environments are not treated as interchangeable cached
+build inputs. The fingerprint also includes the installed Playwright-Go driver
+and host package/kernel identity, separately from Node's Playwright modules.

@@ -818,7 +818,9 @@ LLM-assisted commands; explicit `--provider` and `--model` flags still take prec
 - [Contributing](CONTRIBUTING.md)
 - [License](LICENSE)
 
-The consolidated local browser engineering gate is `make browser-system-check`;
+Use `make fast` for routine iterations and `make smoke` for one authorized
+synthetic UI/runtime flow. The complete local browser gate is `make qualify`
+(also `make browser-system-check`);
 see [browser system qualification](docs/browser-system-eval.md) for explicit
 loopback authority, source prerequisites, evidence verification and supervised
 registration control. Operational adoption requires separately reviewed source
