@@ -53,6 +53,7 @@ func runApplication(args []string, input io.Reader, out, errOut io.Writer) int {
 	port := fs.Int("port", 0, "Loopback TCP port; 0 selects an ephemeral port")
 	noOpen := fs.Bool("no-open", false, "Do not open the bootstrap URL in the platform browser")
 	privateRoot := fs.String("private-root", "", "absolute mode-0700 private root required only for upload, browser capture, or registration authoring")
+	registrationAuthorityPath := fs.String("registration-authority", "", "Optional owner-only file fixing one consumer registration-authoring authority")
 	driverDir := fs.String("driver-dir", "", "optional installed Playwright-Go driver directory for browser capture")
 	browserTransactionPath := fs.String("browser-transaction", "", "optional public browser-profile transaction v1/v2 JSON file")
 	packageScope := fs.String("package-scope", "", "portable package scope for browser-transaction preparation")
@@ -172,6 +173,14 @@ func runApplication(args []string, input io.Reader, out, errOut io.Writer) int {
 		EngineConfig: engineConfig, Port: *port, NoOpen: *noOpen, Out: out, ErrOut: errOut,
 		PrepareCapture:      prepareUICaptureStage,
 		BrowserTransactions: browserTransactions,
+	}
+	if *registrationAuthorityPath != "" {
+		authority, err := uiserver.ReadRegistrationAuthority(*registrationAuthorityPath, time.Now())
+		if err != nil {
+			fmt.Fprintln(errOut, "icot: invalid registration authority")
+			return 1
+		}
+		config.RegistrationAuthority = authority
 	}
 	runner := runUIServer
 	if input != nil {

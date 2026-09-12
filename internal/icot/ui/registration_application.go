@@ -42,6 +42,9 @@ func (s *Server) writeRegistrationResult(w http.ResponseWriter, requestID string
 }
 
 func (app RegistrationApplication) Start(ctx context.Context, request registrationAuthoringStartRequest) (result registrationResult) {
+	if request.ProfileVersion != "" && request.ProfileVersion != "1.0" && request.ProfileVersion != "1.1" {
+		return registrationFailure(http.StatusBadRequest, "malformed_request", "unsupported registration profile version", false, "")
+	}
 	s := app.server
 	request.Revision = strings.TrimSpace(request.Revision)
 	request.RegistrationRevision = strings.TrimSpace(request.RegistrationRevision)
@@ -96,6 +99,9 @@ func (app RegistrationApplication) Start(ctx context.Context, request registrati
 	}
 
 	startedAt := s.now().UTC()
+	if !s.registrationAuthority.allowsStart(request, startedAt) {
+		return registrationFailure(http.StatusForbidden, "registration_authority", "registration start is outside the consumer's fixed authority", false, s.revision)
+	}
 	s.registrationAttemptConsumed = true
 	s.setRegistrationAuthoringLocked(&RegistrationAuthoringState{
 		State: "launching", Message: "Launching an isolated headed Chromium registration-authoring session.",
@@ -107,9 +113,13 @@ func (app RegistrationApplication) Start(ctx context.Context, request registrati
 	privateStart.Revision, privateStart.RegistrationRevision = "", ""
 	s.registrationStart = privateStart
 	digest := sha256.Sum256([]byte(s.registrationRevision + "\x00" + request.ProfileID))
+	protocol := registrationauthorsession.ProtocolV2
+	if request.ProfileVersion == "1.1" {
+		protocol = registrationauthorsession.ProtocolV3
+	}
 	session, err := s.startRegistration(s.captureContext, browserauthor.RegistrationConfig{
 		PrivateRoot: s.privateRoot, DriverDir: s.driverDir, TransactionID: "registration-" + hex.EncodeToString(digest[:8]),
-		Protocol: registrationauthorsession.ProtocolV2,
+		Protocol: protocol,
 	})
 	if err != nil {
 		s.setRegistrationAuthoringLocked(&RegistrationAuthoringState{
@@ -152,6 +162,10 @@ func (app RegistrationApplication) Command(ctx context.Context, request registra
 		return
 	}
 	session := s.registrationSession
+	if s.registrationAuthority.validate(s.now()) != nil || command.Type == "navigate" && !s.registrationAuthority.allowsNavigation(command.URL, s.now()) {
+		s.mu.Unlock()
+		return registrationFailure(http.StatusForbidden, "registration_authority", "registration command is outside fixed authority", false, "")
+	}
 	if strings.TrimSpace(request.Type) == "review" {
 		if len(s.registrationDraft) == 0 || len(s.registrationDraftCandidates) == 0 || len(s.registrationDraftBindings) == 0 || s.registrationDraftFlow == "" || s.registrationDraftCleanup == "" {
 			result = registrationFailure(http.StatusConflict, "registration_draft_missing", "the canonical registration draft is unavailable", false, s.revision)
@@ -163,6 +177,7 @@ func (app RegistrationApplication) Command(ctx context.Context, request registra
 		command.CredentialBindings = append([]browsertransaction.CredentialBinding(nil), s.registrationDraftBindings...)
 		command.Flow = s.registrationDraftFlow
 		command.CleanupDisposition = s.registrationDraftCleanup
+		command.StepCandidates = append([]string(nil), s.registrationAuthoring.Draft.StepCandidates...)
 	}
 	previous := *s.registrationAuthoring
 	s.setRegistrationAuthoringLocked(&RegistrationAuthoringState{
@@ -225,14 +240,23 @@ func (app RegistrationApplication) Draft(ctx context.Context, request registrati
 	s := app.server
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	if request.Draft == nil {
+		return registrationFailure(http.StatusBadRequest, "malformed_request", "registration draft is required", false, s.revision)
+	}
+	for _, step := range request.Draft.Flow.Steps {
+		if step.Type == "navigate" && !s.registrationAuthority.allowsNavigation(step.Navigate, s.now()) {
+			return registrationFailure(http.StatusForbidden, "registration_authority", "draft navigation is outside fixed authority", false, s.revision)
+		}
+	}
 	if strings.TrimSpace(request.Revision) != s.revision || strings.TrimSpace(request.RegistrationRevision) != s.registrationRevision ||
 		s.registrationSession == nil || s.registrationAuthoring == nil || s.registrationAuthoring.State != "observation" || s.registrationAuthoring.Observation == nil {
 		result = registrationFailure(http.StatusConflict, "stale_registration_revision", "registration-authoring revision is stale or no observation is ready for drafting", true, s.revision)
 		return
 	}
-	profile, candidates, bindings, disclosure, err := buildRegistrationDraft(*request.Draft, s.registrationStart, *s.registrationAuthoring.Observation, s.now().UTC())
+	profile, candidates, bindings, disclosure, err := buildRegistrationDraftHistory(*request.Draft, s.registrationStart, *s.registrationAuthoring.Observation, s.registrationAuthoring.History, s.registrationAuthoring.Previews, s.now().UTC())
 	if err != nil {
-		message := "the structured registration draft is invalid"
+		// Draft validation returns fixed local messages, never page or field values.
+		message := err.Error()
 		if errors.Is(err, errRegistrationDraftBindingsInvalid) {
 			message = "credential bindings must be unique lowercase environment symbol names; entropy-like names must use reviewed descriptive terms and must not contain recognized credential formats"
 		}

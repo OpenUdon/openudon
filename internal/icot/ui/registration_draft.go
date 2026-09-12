@@ -28,14 +28,16 @@ var registrationDraftSymbol = regexp.MustCompile(`^[a-z][a-z0-9_]{0,127}$`)
 var errRegistrationDraftBindingsInvalid = errors.New("registration draft environment symbols are invalid")
 
 type registrationDraftRequest struct {
-	Title            string                        `json:"title"`
-	Provider         string                        `json:"provider,omitempty"`
-	Confidence       string                        `json:"confidence"`
-	ExpiresAfter     string                        `json:"expires_after"`
-	UIStabilityScore *float64                      `json:"ui_stability_score,omitempty"`
-	CredentialSlots  []registrationDraftSlot       `json:"credential_slots"`
-	Flow             registrationDraftFlow         `json:"flow"`
-	CallControls     registrationDraftCallControls `json:"call_controls"`
+	Title            string                                   `json:"title"`
+	Provider         string                                   `json:"provider,omitempty"`
+	Confidence       string                                   `json:"confidence"`
+	ExpiresAfter     string                                   `json:"expires_after"`
+	UIStabilityScore *float64                                 `json:"ui_stability_score,omitempty"`
+	CredentialSlots  []registrationDraftSlot                  `json:"credential_slots"`
+	InputSlots       map[string]browserregistration.InputSlot `json:"input_slots,omitempty"`
+	InputsReviewed   bool                                     `json:"inputs_reviewed,omitempty"`
+	Flow             registrationDraftFlow                    `json:"flow"`
+	CallControls     registrationDraftCallControls            `json:"call_controls"`
 }
 
 type registrationDraftSlot struct {
@@ -54,11 +56,14 @@ type registrationDraftFlow struct {
 }
 
 type registrationDraftStep struct {
-	Type           string `json:"type"`
-	Navigate       string `json:"navigate,omitempty"`
-	CandidateID    string `json:"candidate_id,omitempty"`
-	Slot           string `json:"slot,omitempty"`
-	CheckpointKind string `json:"checkpoint_kind,omitempty"`
+	Type           string   `json:"type"`
+	Navigate       string   `json:"navigate,omitempty"`
+	CandidateID    string   `json:"candidate_id,omitempty"`
+	Slot           string   `json:"slot,omitempty"`
+	CheckpointKind string   `json:"checkpoint_kind,omitempty"`
+	CheckpointID   string   `json:"checkpoint_id,omitempty"`
+	Slots          []string `json:"slots,omitempty"`
+	Control        string   `json:"control,omitempty"`
 }
 
 type registrationDraftSuccess struct {
@@ -92,6 +97,7 @@ type RegistrationDraftDisclosure struct {
 	RetainedQueries     []RetainedQueryDisclosure              `json:"retained_queries"`
 	AccessibilityLabels string                                 `json:"accessibility_labels"`
 	SuccessProof        RegistrationSuccessProofDisclosure     `json:"success_proof"`
+	StepCandidates      []string                               `json:"step_candidates,omitempty"`
 }
 
 type RegistrationSuccessProofDisclosure struct {
@@ -111,6 +117,14 @@ type RetainedQueryParameter struct {
 }
 
 func buildRegistrationDraft(request registrationDraftRequest, start registrationAuthoringStartRequest, observation registrationauthorsession.Observation, now time.Time) ([]byte, []string, []browsertransaction.CredentialBinding, *RegistrationDraftDisclosure, error) {
+	return buildRegistrationDraftHistory(request, start, observation, nil, nil, now)
+}
+
+func buildRegistrationDraftHistory(request registrationDraftRequest, start registrationAuthoringStartRequest, observation registrationauthorsession.Observation, history []registrationauthorsession.Observation, previews []registrationauthorsession.PreviewRecord, now time.Time) ([]byte, []string, []browsertransaction.CredentialBinding, *RegistrationDraftDisclosure, error) {
+	typed := start.ProfileVersion == "1.1"
+	if typed && (!request.InputsReviewed || len(request.InputSlots) == 0 || len(history) == 0) || !typed && (request.InputsReviewed || len(request.InputSlots) != 0) {
+		return nil, nil, nil, nil, errors.New("typed field definitions require explicit review and registration 1.1 evidence")
+	}
 	if now.IsZero() || strings.TrimSpace(request.Title) == "" || len(request.Title) > 256 || len(request.Provider) > 256 ||
 		(request.Confidence != "low" && request.Confidence != "medium" && request.Confidence != "high") || strings.TrimSpace(request.ExpiresAfter) == "" ||
 		!registrationDraftSymbol.MatchString(request.Flow.Name) || len(request.Flow.Description) > 1024 || len(request.Flow.ConfirmationPrompt) > 512 {
@@ -132,7 +146,14 @@ func buildRegistrationDraft(request registrationDraftRequest, start registration
 		}
 	}
 	byID := make(map[string]registrationauthorsession.Candidate, len(observation.Candidates))
-	for _, candidate := range observation.Candidates {
+	observed := observation.Candidates
+	if typed {
+		observed = nil
+		for _, item := range history {
+			observed = append(observed, item.Candidates...)
+		}
+	}
+	for _, candidate := range observed {
 		if candidate.Matches == 1 && candidate.Label != "" {
 			byID[candidate.ID] = candidate
 		}
@@ -164,8 +185,22 @@ func buildRegistrationDraft(request registrationDraftRequest, start registration
 	steps := make([]browserregistration.Step, 0, len(request.Flow.Steps))
 	selected := map[string]bool{}
 	submitCount := 0
+	stepCandidates := make([]string, 0, len(request.Flow.Steps))
 	for _, raw := range request.Flow.Steps {
-		step, candidateID, err := buildRegistrationDraftStep(raw, slots, byID)
+		var step browserregistration.Step
+		var candidateID string
+		var err error
+		if raw.Type == "input_checkpoint" || raw.Type == "fill_input" {
+			if !typed {
+				return nil, nil, nil, nil, errors.New("typed steps require registration 1.1")
+			}
+			step, candidateID, err = buildRegistrationInputStep(raw, request.InputSlots, byID)
+		} else {
+			if raw.CheckpointID != "" || len(raw.Slots) != 0 || raw.Control != "" {
+				return nil, nil, nil, nil, errors.New("unexpected typed step fields")
+			}
+			step, candidateID, err = buildRegistrationDraftStep(raw, slots, byID)
+		}
 		if err != nil {
 			return nil, nil, nil, nil, err
 		}
@@ -176,6 +211,7 @@ func buildRegistrationDraft(request registrationDraftRequest, start registration
 			submitCount++
 		}
 		steps = append(steps, step)
+		stepCandidates = append(stepCandidates, candidateID)
 	}
 	if submitCount != 1 {
 		return nil, nil, nil, nil, errors.New("registration draft must contain exactly one submit")
@@ -205,6 +241,10 @@ func buildRegistrationDraft(request registrationDraftRequest, start registration
 			Success:            success,
 		}},
 	}
+	if typed {
+		profile.Profile = "uws.browser-registration.1.1"
+		profile.InputSlots = request.InputSlots
+	}
 	canonical, err := registrationprofile.MarshalJSON(profile)
 	if err != nil || registrationprofile.ValidateAt(profile, now.UTC()) != nil || registrationprofile.ValidateRetainedNavigationV2(profile) != nil {
 		return nil, nil, nil, nil, errors.New("registration draft does not satisfy the public profile contract")
@@ -214,6 +254,9 @@ func buildRegistrationDraft(request registrationDraftRequest, start registration
 		candidateIDs = append(candidateIDs, candidateID)
 	}
 	sort.Strings(candidateIDs)
+	if typed && registrationauthorsession.ValidateV3Evidence(profile, request.Flow.Name, history, previews, stepCandidates, candidateIDs) != nil {
+		return nil, nil, nil, nil, errors.New("the sequence is not proved by the reviewed observation history")
+	}
 	digest := sha256.Sum256(canonical)
 	disclosure := &RegistrationDraftDisclosure{
 		ProfileSHA256: "sha256:" + hex.EncodeToString(digest[:]), Canonical: append(json.RawMessage(nil), canonical...),
@@ -224,7 +267,28 @@ func buildRegistrationDraft(request registrationDraftRequest, start registration
 			ReviewKind: registrationSuccessProofOperatorReviewedDeferred, ObservedDuringAuthoring: false, RuntimeProofRequired: true,
 		},
 	}
+	if typed {
+		disclosure.StepCandidates = append([]string(nil), stepCandidates...)
+	}
 	return canonical, candidateIDs, bindings, disclosure, nil
+}
+
+func buildRegistrationInputStep(raw registrationDraftStep, inputs map[string]browserregistration.InputSlot, candidates map[string]registrationauthorsession.Candidate) (browserregistration.Step, string, error) {
+	bad := errors.New("invalid registration input step")
+	if raw.Navigate != "" || raw.CheckpointKind != "" {
+		return browserregistration.Step{}, "", bad
+	}
+	if raw.Type == "input_checkpoint" {
+		if raw.CandidateID != "" || raw.Slot != "" || raw.Control != "" || !registrationDraftSymbol.MatchString(raw.CheckpointID) || len(raw.Slots) == 0 {
+			return browserregistration.Step{}, "", bad
+		}
+		return browserregistration.Step{InputCheckpoint: &browserregistration.InputCheckpointStep{ID: raw.CheckpointID, Slots: append([]string(nil), raw.Slots...)}}, "", nil
+	}
+	candidate, ok := candidates[raw.CandidateID]
+	if !ok || inputs[raw.Slot].Type == "" || raw.CheckpointID != "" || len(raw.Slots) != 0 || raw.Control != "fill" && raw.Control != "check" && raw.Control != "select" {
+		return browserregistration.Step{}, "", bad
+	}
+	return browserregistration.Step{FillInput: &browserregistration.FillInputStep{Slot: raw.Slot, Control: raw.Control, Locator: registrationDraftLocator(candidate)}}, raw.CandidateID, nil
 }
 
 func validRegistrationDraftBindingName(binding string) bool {

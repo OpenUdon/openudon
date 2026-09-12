@@ -172,6 +172,10 @@ func (app Application) CaptureStart(ctx context.Context, request captureStartReq
 	s := app.server
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	if s.registrationAuthority != nil {
+		reply.fail(http.StatusForbidden, "registration_authority", "this process is authorized only for registration authoring", false, s.revision)
+		return
+	}
 	if err := s.refreshWorkspaceLocked(ctx); err != nil {
 		reply.internal(s.revision, "/api/v4/capture/start", "workspace_inspection", err, true)
 		return

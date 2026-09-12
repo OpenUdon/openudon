@@ -24,16 +24,18 @@ type registrationAuthoringStartRequest struct {
 	URL                  string                            `json:"url"`
 	Origins              []string                          `json:"origins"`
 	Bounds               *registrationauthorsession.Bounds `json:"bounds,omitempty"`
+	ProfileVersion       string                            `json:"profile_version,omitempty"`
 }
 
 type registrationAuthoringCommandRequest struct {
-	Revision             string                    `json:"revision"`
-	RegistrationRevision string                    `json:"registration_revision"`
-	Type                 string                    `json:"type"`
-	Method               string                    `json:"method,omitempty"`
-	URL                  string                    `json:"url,omitempty"`
-	Confirmed            bool                      `json:"confirmed,omitempty"`
-	Draft                *registrationDraftRequest `json:"draft,omitempty"`
+	Revision             string                                    `json:"revision"`
+	RegistrationRevision string                                    `json:"registration_revision"`
+	Type                 string                                    `json:"type"`
+	Method               string                                    `json:"method,omitempty"`
+	URL                  string                                    `json:"url,omitempty"`
+	Confirmed            bool                                      `json:"confirmed,omitempty"`
+	Draft                *registrationDraftRequest                 `json:"draft,omitempty"`
+	Preview              *registrationauthorsession.PreviewRequest `json:"preview,omitempty"`
 }
 
 type registrationAuthoringCancelRequest struct {
@@ -73,8 +75,9 @@ func (s *Server) consumeRegistrationAuthoring(session RegistrationAuthoringSessi
 		state := &RegistrationAuthoringState{
 			State: event.State, Phase: event.Phase, Bounds: cloneRegistrationAuthoringBounds(event.Bounds),
 			Observation: cloneRegistrationAuthoringObservation(event.Observation),
-			Draft:       cloneRegistrationDraftDisclosure(s.registrationAuthoring.Draft),
-			StartedAt:   startedAt.Format(time.RFC3339), UpdatedAt: s.now().UTC().Format(time.RFC3339),
+			History:     cloneRegistrationPublic(event.History), Previews: cloneRegistrationPublic(event.Previews),
+			Draft:     cloneRegistrationDraftDisclosure(s.registrationAuthoring.Draft),
+			StartedAt: startedAt.Format(time.RFC3339), UpdatedAt: s.now().UTC().Format(time.RFC3339),
 		}
 		if event.ErrorCode != "" {
 			state.FailureCode = registrationAuthoringFailureCode(event.ErrorCode)
@@ -300,7 +303,15 @@ func registrationAuthoringWireCommand(request registrationAuthoringCommandReques
 	typeName := strings.TrimSpace(request.Type)
 	method := strings.TrimSpace(request.Method)
 	url := strings.TrimSpace(request.URL)
+	if typeName != "preview" && request.Preview != nil {
+		return browserauthor.RegistrationCommand{}, false
+	}
 	switch typeName {
+	case "preview":
+		if method != "" || url != "" || !request.Confirmed || request.Draft != nil || request.Preview == nil {
+			return browserauthor.RegistrationCommand{}, false
+		}
+		return browserauthor.RegistrationCommand{Type: "preview", Confirmed: true, Preview: cloneRegistrationPublic(request.Preview)}, true
 	case "observe":
 		if method != "" || url != "" || request.Confirmed || request.Draft != nil {
 			return browserauthor.RegistrationCommand{}, false
@@ -340,7 +351,7 @@ func registrationAuthoringCommandAllowed(state *RegistrationAuthoringState, comm
 	switch strings.TrimSpace(command) {
 	case "observe":
 		return state.State == "observing"
-	case "navigate":
+	case "navigate", "preview":
 		return state.State == "observation"
 	case "review":
 		return state.State == "draft_review"
@@ -365,6 +376,7 @@ func cloneRegistrationDraftDisclosure(value *RegistrationDraftDisclosure) *Regis
 	}
 	copy := *value
 	copy.Canonical = append(json.RawMessage(nil), value.Canonical...)
+	copy.StepCandidates = append([]string(nil), value.StepCandidates...)
 	copy.CredentialBindings = append([]browsertransaction.CredentialBinding(nil), value.CredentialBindings...)
 	copy.RetainedQueries = append([]RetainedQueryDisclosure(nil), value.RetainedQueries...)
 	for index := range copy.RetainedQueries {
@@ -375,6 +387,13 @@ func cloneRegistrationDraftDisclosure(value *RegistrationDraftDisclosure) *Regis
 
 func (s *Server) setRegistrationAuthoringLocked(state *RegistrationAuthoringState) {
 	if state != nil {
+		if state.Observation != nil && len(state.History) != 0 {
+			state.Suggestions = registrationauthorsession.SuggestFields(*state.Observation)
+		}
+		if s.registrationAuthoring != nil && registrationAuthoringActive(state) && state.History == nil {
+			state.History = cloneRegistrationPublic(s.registrationAuthoring.History)
+			state.Previews = cloneRegistrationPublic(s.registrationAuthoring.Previews)
+		}
 		state.FailureCode = registrationAuthoringFailureCode(state.FailureCode)
 		state.AttemptConsumed = s.registrationAttemptConsumed
 	}
@@ -441,8 +460,13 @@ func cloneRegistrationAuthoringObservation(value *registrationauthorsession.Obse
 	if value == nil {
 		return nil
 	}
-	copy := *value
-	copy.Candidates = append([]registrationauthorsession.Candidate(nil), value.Candidates...)
-	copy.Diagnostics = append([]string(nil), value.Diagnostics...)
-	return &copy
+	return cloneRegistrationPublic(value)
+}
+
+// Clone nested public definitions so transport snapshots cannot mutate authority.
+func cloneRegistrationPublic[T any](value T) T {
+	data, _ := json.Marshal(value)
+	var result T
+	_ = json.Unmarshal(data, &result)
+	return result
 }

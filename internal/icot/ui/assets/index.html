@@ -140,6 +140,7 @@
         <form id="registration-start-form" class="wizard-grid" novalidate aria-describedby="registration-authoring-status">
           <fieldset>
             <legend>1. Profile metadata and target authority</legend>
+            <label for="registration-profile-version">Registration recipe</label><select id="registration-profile-version"><option value="1.1">Typed fields and wizard checkpoints (1.1)</option><option value="1.0" selected>Credential slots (1.0)</option></select>
             <label for="registration-profile-id">Profile ID</label><input id="registration-profile-id" pattern="[a-z0-9][a-z0-9._-]{0,63}" required>
             <label for="registration-title">Title</label><input id="registration-title" maxlength="256" required>
             <label for="registration-provider">Provider label</label><input id="registration-provider" maxlength="256">
@@ -166,6 +167,14 @@
             <button id="registration-add-slot" type="button">Add symbolic slot</button>
           </fieldset>
           <fieldset>
+            <legend>Public field definitions</legend>
+            <p class="section-help">For a typed recipe, review the observed definitions, choose each field's role and define public conditions. Enter personal values later in the separate private runtime form.</p>
+            <div id="registration-input-list" class="wizard-list"></div>
+            <button id="registration-suggest-inputs" type="button">Suggest fields from observations</button>
+            <button id="registration-add-input" type="button">Add field definition</button>
+            <label class="check-row"><input id="registration-inputs-reviewed" type="checkbox"><span>I reviewed field roles, types, constraints and conditions.</span></label>
+          </fieldset>
+          <fieldset>
             <legend>4. Ordered registration macro</legend>
             <p class="section-help">Choose only declarative navigate, credential-slot, accessibility locator, checkpoint, submit, and wait steps. Exactly one submit is required.</p>
             <div id="registration-step-list" class="wizard-list"></div>
@@ -176,7 +185,7 @@
             <div class="wizard-checks">
               <label class="check-row"><input id="registration-effect-account" type="checkbox" checked disabled><span>Creates account (required)</span></label>
               <label class="check-row"><input id="registration-effect-verification" type="checkbox"><span>Sends verification</span></label>
-              <label class="check-row"><input id="registration-effect-human" type="checkbox"><span>Requires human verification</span></label>
+              <label class="check-row"><input id="registration-effect-human" type="checkbox"><span>Requires human verification or private input checkpoints</span></label>
             </div>
             <label for="registration-flow-name">Flow name</label><input id="registration-flow-name" value="create_dedicated_test_user" pattern="[a-z][a-z0-9_]{0,127}" required>
             <label for="registration-flow-description">Flow description</label><textarea id="registration-flow-description" maxlength="1024"></textarea>

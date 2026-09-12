@@ -1217,9 +1217,70 @@ const renderCapture = (payload) => {
   }
 };
 
-const registrationCandidateLabel = (candidate) => `${candidate.role}: ${candidate.label || "unlabeled"}`;
+function registrationInputSymbols() { return Array.from(byID("registration-input-list").children, row => row.querySelector('[data-input="slot"]').value.trim()).filter(Boolean); }
+function addRegistrationInput(slot = "", definition = {}) {
+	const row = make("fieldset", null, "wizard-row"); row.append(make("legend", "Field definition"));
+	const add = (name, label, value = "", options) => {
+		const wrapper = make("label", label), control = make(options ? "select" : "input"); control.dataset.input = name; control.setAttribute("aria-label", label);
+		if (options) for (const item of options) { const option = make("option", item); option.value = item; control.append(option); }
+		control.value = value; wrapper.append(control); row.append(wrapper); return control;
+	};
+	add("slot", "Field symbol", slot).addEventListener("input", refreshRegistrationSlotChoices);
+	add("label", "Field label", definition.label || "");
+	add("type", "Scalar type", definition.type || "string", ["string", "integer", "number", "boolean"]);
+	add("required", "Requirement", definition.requiredWhen ? "conditional" : definition.required ? "required" : "optional", ["required", "optional", "conditional"]);
+	add("enum", "Public enum choices, one per line", "");
+	const enumInput = row.querySelector('[data-input="enum"]'); const enumText = make("textarea"); enumText.dataset.input = "enum"; enumText.setAttribute("aria-label", "Public enum choices, one per line"); enumText.value = (definition.enum || []).map(String).join('\n'); enumInput.replaceWith(enumText);
+	add("condition_slot", "Condition parent symbol", definition.requiredWhen?.slot || "");
+	add("condition_equals", "Public condition choice", definition.requiredWhen ? String(definition.requiredWhen.equals) : "");
+	for (const key of ["minLength", "maxLength", "minimum", "maximum"]) { const control = add(key, key, definition[key] ?? ""); control.type = "number"; control.step = ["minimum", "maximum"].includes(key) ? "any" : "1"; }
+	const remove = make("button", "Remove field"); remove.type = "button"; remove.addEventListener("click", () => { row.remove(); refreshRegistrationSlotChoices(); }); row.append(remove);
+	row.addEventListener("input", () => { byID("registration-inputs-reviewed").checked = false; });
+	byID("registration-input-list").append(row); refreshRegistrationSlotChoices();
+}
+function collectRegistrationInputs() {
+	const result = Object.create(null), pending = [];
+	const scalar = (text, type) => type === "boolean" ? (text === "true" ? true : text === "false" ? false : text) : ["integer", "number"].includes(type) ? Number(text) : text;
+	for (const row of byID("registration-input-list").children) {
+		const get = key => row.querySelector(`[data-input="${key}"]`).value;
+		const name = get("slot").trim(), type = get("type"); if (Object.hasOwn(result, name)) throw new Error("Field symbols must be unique.");
+		const definition = {type, label: get("label").trim()};
+		const choices = get("enum").split('\n').filter(value => value !== ""); if (choices.length) definition.enum = choices.map(value => scalar(value, type));
+		if (get("required") === "conditional") pending.push([definition, get("condition_slot").trim(), get("condition_equals")]); else definition.required = get("required") === "required";
+		for (const key of ["minLength", "maxLength", "minimum", "maximum"]) if (get(key) !== "") definition[key] = Number(get(key));
+		result[name] = definition;
+	}
+	for (const [definition, parent, choice] of pending) definition.requiredWhen = {slot: parent, equals: scalar(choice, result[parent]?.type)};
+	return result;
+}
+function renderRegistrationPreview(parent, candidate, generation) {
+	const kind = candidate.control.kind;
+	if (!["select", "checkbox", "switch", "button", "link"].includes(kind)) return;
+	const group = make("fieldset"); group.append(make("legend", "Public form preview"));
+	const choice = make("select"); choice.setAttribute("aria-label", `Preview choice for ${candidate.label}`);
+	const options = kind === "select" ? candidate.control.options.map(item => [item.value, item.label]) : ["checkbox", "switch"].includes(kind) ? [["true", "Checked"], ["false", "Unchecked"]] : [];
+	for (const [value, label] of options) { const option = make("option", label); option.value = value; choice.append(option); } if (options.length) group.append(choice);
+	const label = make("label", "I reviewed this as a public form choice or read-only transition."); const confirmed = make("input"); confirmed.type = "checkbox"; label.prepend(confirmed); group.append(label);
+	const button = make("button", `Preview ${candidate.label}`); button.type = "button"; button.disabled = true; confirmed.addEventListener("change", () => { button.disabled = !confirmed.checked; });
+	button.addEventListener("click", () => {
+		if (!confirmed.checked) return;
+		const preview = {candidateId: candidate.id, generation, purpose: "public_form_preview", action: kind === "select" ? "select" : ["checkbox", "switch"].includes(kind) ? "check" : "click"};
+		if (preview.action === "select") preview.option = choice.value; if (preview.action === "check") preview.checked = choice.value === "true";
+		sendRegistrationCommand("preview", {confirmed: true, preview});
+	}); group.append(button); parent.append(group);
+}
+byID("registration-add-input").addEventListener("click", () => addRegistrationInput());
+byID("registration-suggest-inputs").addEventListener("click", () => {
+	for (const suggestion of state.renderedPayload?.registration_authoring?.suggestions || []) {
+		if (!suggestion.input || registrationInputSymbols().includes(suggestion.slot)) continue;
+		addRegistrationInput(suggestion.slot, suggestion.input);
+	}
+	byID("registration-inputs-reviewed").checked = false;
+});
 
-const registrationCandidates = () => state.renderedPayload?.registration_authoring?.observation?.candidates || [];
+const registrationCandidateLabel = (candidate) => `${candidate.role}: ${candidate.label || "unlabeled"} · ${candidate.id.slice(-6)}`;
+
+const registrationCandidates = () => { const authoring = state.renderedPayload?.registration_authoring; return authoring?.history?.flatMap(item => item.candidates) || authoring?.observation?.candidates || []; };
 
 const populateRegistrationSelect = (select, values, labeler = (value) => value) => {
 	const selected = select.value;
@@ -1238,7 +1299,7 @@ const registrationSlotSymbols = () => Array.from(byID("registration-slot-list").
 	.filter(Boolean);
 
 const refreshRegistrationSlotChoices = () => {
-	const symbols = registrationSlotSymbols();
+	const symbols = [...registrationSlotSymbols(), ...registrationInputSymbols()];
 	for (const select of document.querySelectorAll('[data-registration-step="slot"]')) populateRegistrationSelect(select, symbols);
 };
 
@@ -1264,9 +1325,11 @@ const addRegistrationSlot = (slot = "", kind = "identifier", binding = "") => {
 const updateRegistrationStepRow = (row) => {
 	const type = row.querySelector('[data-registration-step="type"]').value;
 	row.querySelector('[data-registration-step-field="navigate"]').hidden = type !== "navigate";
-	row.querySelector('[data-registration-step-field="candidate"]').hidden = !["type_credential", "click", "submit", "human_checkpoint", "wait_for"].includes(type);
-	row.querySelector('[data-registration-step-field="slot"]').hidden = type !== "type_credential";
+	row.querySelector('[data-registration-step-field="candidate"]').hidden = !["type_credential", "fill_input", "click", "submit", "human_checkpoint", "wait_for"].includes(type);
+	row.querySelector('[data-registration-step-field="slot"]').hidden = !["type_credential", "fill_input"].includes(type);
 	row.querySelector('[data-registration-step-field="checkpoint"]').hidden = type !== "human_checkpoint";
+	row.querySelector('[data-registration-step-field="inputs"]').hidden = type !== "input_checkpoint";
+	row.querySelector('[data-registration-step-field="control"]').hidden = type !== "fill_input";
 };
 
 const addRegistrationStep = (type = "navigate", slot = "") => {
@@ -1275,7 +1338,7 @@ const addRegistrationStep = (type = "navigate", slot = "") => {
 	row.append(make("legend", `Step ${index}`));
 	const typeID = `registration-step-${index}-type`; const typeLabel = make("label", "Macro type"); typeLabel.htmlFor = typeID;
 	const typeSelect = make("select"); typeSelect.id = typeID; typeSelect.dataset.registrationStep = "type";
-	for (const value of ["navigate", "type_credential", "click", "submit", "human_checkpoint", "wait_for"]) { const option = make("option", value.replaceAll("_", " ")); option.value = value; typeSelect.append(option); }
+	for (const value of ["input_checkpoint", "navigate", "type_credential", "fill_input", "click", "submit", "human_checkpoint", "wait_for"]) { const option = make("option", value.replaceAll("_", " ")); option.value = value; typeSelect.append(option); }
 	typeSelect.value = type;
 
 	const navigateWrap = make("div"); navigateWrap.dataset.registrationStepField = "navigate";
@@ -1291,7 +1354,7 @@ const addRegistrationStep = (type = "navigate", slot = "") => {
 	const slotWrap = make("div"); slotWrap.dataset.registrationStepField = "slot";
 	const stepSlotID = `registration-step-${index}-slot`; const stepSlotLabel = make("label", "Credential slot symbol"); stepSlotLabel.htmlFor = stepSlotID;
 	const stepSlot = make("select"); stepSlot.id = stepSlotID; stepSlot.dataset.registrationStep = "slot";
-	populateRegistrationSelect(stepSlot, registrationSlotSymbols());
+	populateRegistrationSelect(stepSlot, [...registrationSlotSymbols(), ...registrationInputSymbols()]);
 	if (slot && Array.from(stepSlot.options).some((option) => option.value === slot)) stepSlot.value = slot;
 	slotWrap.append(stepSlotLabel, stepSlot);
 
@@ -1300,11 +1363,19 @@ const addRegistrationStep = (type = "navigate", slot = "") => {
 	const checkpoint = make("select"); checkpoint.id = checkpointID; checkpoint.dataset.registrationStep = "checkpoint";
 	for (const value of ["captcha", "email_verification", "mfa", "consent", "other_control"]) { const option = make("option", value.replaceAll("_", " ")); option.value = value; checkpoint.append(option); }
 	checkpointWrap.append(checkpointLabel, checkpoint);
+	const inputsWrap = make("div"); inputsWrap.dataset.registrationStepField = "inputs";
+	const checkpointName = make("input"); checkpointName.dataset.registrationStep = "checkpoint_id"; checkpointName.setAttribute("aria-label", "Input checkpoint ID");
+	const checkpointSlots = make("input"); checkpointSlots.dataset.registrationStep = "slots"; checkpointSlots.setAttribute("aria-label", "Checkpoint slots separated by commas");
+	inputsWrap.append(make("p", "Input checkpoint ID and slot symbols, separated by commas"), checkpointName, checkpointSlots);
+	const controlWrap = make("div"); controlWrap.dataset.registrationStepField = "control";
+	const control = make("select"); control.dataset.registrationStep = "control"; control.setAttribute("aria-label", "Input control action"); for (const value of ["fill", "check", "select"]) { const option = make("option", value); option.value = value; control.append(option); } controlWrap.append(control);
 	const remove = make("button", "Remove step"); remove.type = "button"; remove.addEventListener("click", () => row.remove());
+	const earlier = make("button", "Move earlier"); earlier.type = "button"; earlier.addEventListener("click", () => { if (row.previousElementSibling) row.parentNode.insertBefore(row, row.previousElementSibling); });
 	typeSelect.addEventListener("change", () => updateRegistrationStepRow(row));
-	row.append(typeLabel, typeSelect, navigateWrap, candidateWrap, slotWrap, checkpointWrap, remove);
+	row.append(typeLabel, typeSelect, navigateWrap, candidateWrap, slotWrap, checkpointWrap, inputsWrap, controlWrap, earlier, remove);
 	byID("registration-step-list").append(row);
 	updateRegistrationStepRow(row);
+	return row;
 };
 
 const initializeRegistrationRows = () => {
@@ -1407,6 +1478,11 @@ async function requestRegistrationDiscovery(change = null) {
 
 const renderRegistrationAuthoring = (payload) => {
 	initializeRegistrationRows();
+	if (payload.registration_authority && !state.registrationAuthorityLoaded) {
+		state.registrationAuthorityLoaded = true;
+		const authority = payload.registration_authority;
+		for (const [id,value] of [["registration-profile-id",authority.profile_id],["registration-profile-version",authority.profile_version],["registration-url",authority.initial_url],["registration-origins",authority.origins.join('\n')]]) { byID(id).value = value; byID(id).disabled = true; }
+	}
 	const authoring = payload.registration_authoring;
 	showText("registration-authoring-state", authoring?.state?.replaceAll("_", " ") || "Not started");
 	const status = authoring?.message || (payload.browser_transaction
@@ -1433,7 +1509,11 @@ const renderRegistrationAuthoring = (payload) => {
 		panel.append(make("p", `${authoring.observation.origin}${authoring.observation.path}`));
 		panel.append(make("p", "Accessibility names may contain personal or account information. Review and retain only the minimum labels required for portable locators.", "section-help"));
 		const list = make("ul", null, "detail-list");
-		for (const candidate of authoring.observation.candidates || []) list.append(make("li", `${registrationCandidateLabel(candidate)} · unique matches ${candidate.matches}`));
+		for (const candidate of authoring.observation.candidates || []) {
+			const item = make("li", `${registrationCandidateLabel(candidate)} · unique matches ${candidate.matches}`);
+			if (candidate.control) renderRegistrationPreview(item, candidate, authoring.observation.generation);
+			list.append(item);
+		}
 		panel.append(list);
 		const navigation = make("fieldset", null, "navigation-row"); navigation.append(make("legend", "Optional GET or HEAD navigation"));
 		const method = make("select"); method.setAttribute("aria-label", "Navigation method"); for (const value of ["GET", "HEAD"]) { const option = make("option", value); option.value = value; method.append(option); }
@@ -1661,6 +1741,7 @@ byID("registration-start-form").addEventListener("submit", (event) => {
 		revision: state.renderedPayload.revision,
 		registration_revision: state.renderedPayload.registration_authoring_revision,
 		profile_id: byID("registration-profile-id").value.trim(),
+		profile_version: byID("registration-profile-version").value,
 		url: target.toString(), origins,
 	}, "Launching the isolated no-submit registration observer…");
 });
@@ -1679,8 +1760,10 @@ const collectRegistrationDraft = () => {
 		const type = row.querySelector('[data-registration-step="type"]').value;
 		const step = { type };
 		if (type === "navigate") step.navigate = row.querySelector('[data-registration-step="navigate"]').value.trim();
-		if (["type_credential", "click", "submit", "human_checkpoint", "wait_for"].includes(type)) step.candidate_id = row.querySelector('[data-registration-step="candidate"]').value;
-		if (type === "type_credential") step.slot = row.querySelector('[data-registration-step="slot"]').value.trim();
+		if (["type_credential", "fill_input", "click", "submit", "human_checkpoint", "wait_for"].includes(type)) step.candidate_id = row.querySelector('[data-registration-step="candidate"]').value;
+		if (["type_credential", "fill_input"].includes(type)) step.slot = row.querySelector('[data-registration-step="slot"]').value.trim();
+		if (type === "fill_input") step.control = row.querySelector('[data-registration-step="control"]').value;
+		if (type === "input_checkpoint") { step.checkpoint_id = row.querySelector('[data-registration-step="checkpoint_id"]').value.trim(); step.slots = row.querySelector('[data-registration-step="slots"]').value.split(',').map(value => value.trim()).filter(Boolean); }
 		if (type === "human_checkpoint") step.checkpoint_kind = row.querySelector('[data-registration-step="checkpoint"]').value;
 		return step;
 	});
@@ -1692,6 +1775,7 @@ const collectRegistrationDraft = () => {
 		confidence: byID("registration-confidence").value, expires_after: byID("registration-expiry").value.trim(),
 		...(stabilityText === "" ? {} : { ui_stability_score: Number(stabilityText) }),
 		credential_slots: slots,
+		...(byID("registration-profile-version").value === "1.1" ? {input_slots: collectRegistrationInputs(), inputs_reviewed: byID("registration-inputs-reviewed").checked} : {}),
 		flow: {
 			name: byID("registration-flow-name").value.trim(), description: byID("registration-flow-description").value.trim(), steps, effects,
 			confirmation_prompt: byID("registration-confirmation-prompt").value.trim(),
@@ -1711,10 +1795,11 @@ const collectRegistrationDraft = () => {
 
 byID("registration-draft-form").addEventListener("submit", (event) => {
 	event.preventDefault();
-	const draft = collectRegistrationDraft();
+	let draft;
+	try { draft = collectRegistrationDraft(); } catch { showError("Review the field definitions and use unique symbols."); return; }
 	if (!draft.title || !draft.expires_after || draft.credential_slots.some((slot) => !slot.slot || !slot.binding) ||
-		draft.flow.steps.some((step) => step.type === "navigate" ? !step.navigate : !step.candidate_id && step.type !== "human_checkpoint") ||
-		draft.flow.steps.some((step) => step.type === "type_credential" && !step.slot) || !draft.flow.success.origin ||
+		draft.flow.steps.some((step) => step.type === "navigate" ? !step.navigate : step.type === "input_checkpoint" ? !step.checkpoint_id || !step.slots.length : !step.candidate_id && step.type !== "human_checkpoint") ||
+		draft.flow.steps.some((step) => ["type_credential", "fill_input"].includes(step.type) && !step.slot) || !draft.flow.success.origin ||
 		!draft.flow.success.locator.role || !draft.flow.success.locator.name || !byID("registration-success-reviewed").checked) {
 		showError("Complete every required metadata, symbolic slot, macro step, confirmation, and success-proof field.");
 		return;

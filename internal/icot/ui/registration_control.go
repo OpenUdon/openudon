@@ -87,6 +87,15 @@ func RunApplicationControl(ctx context.Context, config RunConfig, input io.ReadC
 }
 
 func runPrivateControl(ctx context.Context, config RunConfig, input io.ReadCloser, complete bool) (resultErr error) {
+	if config.RegistrationAuthority != nil {
+		deadline, err := time.Parse(time.RFC3339, config.RegistrationAuthority.ExpiresAt)
+		if err != nil {
+			return err
+		}
+		var stop context.CancelFunc
+		ctx, stop = context.WithDeadline(ctx, deadline)
+		defer stop()
+	}
 	ctx, cancel := context.WithTimeout(ctx, 20*time.Minute)
 	defer cancel()
 	author, snapshot, err := engine.Open(ctx, config.EngineConfig)
@@ -106,6 +115,7 @@ func runPrivateControl(ctx context.Context, config RunConfig, input io.ReadClose
 		Token: token, AccessCode: code, Authority: "127.0.0.1:1", ErrOut: io.Discard,
 		PrivateRoot: config.EngineConfig.PrivateRoot, DriverDir: config.EngineConfig.DriverDir,
 		BrowserTransactions: config.BrowserTransactions, PrepareCapture: config.PrepareCapture,
+		RegistrationAuthority: config.RegistrationAuthority,
 	})
 	if err != nil {
 		return errors.New("application_start")

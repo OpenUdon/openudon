@@ -104,29 +104,30 @@ func (s *Server) browserContainmentFailedLocked() bool {
 // HandlerConfig configures one server handler after its loopback listener is
 // active. Authority must be the listener's exact host:port value.
 type HandlerConfig struct {
-	Context             context.Context
-	Engine              AuthoringEngine
-	Snapshot            engine.Snapshot
-	ExampleDir          string
-	Token               string
-	AccessCode          string
-	Authority           string
-	ErrOut              io.Writer
-	AccessCodeOut       io.Writer
-	Now                 func() time.Time
-	GenerateAccessCode  func() (string, error)
-	RepoRoot            string
-	BuildPackage        func(context.Context, synthesize.Options) (*synthesize.Result, *synthesize.QualityReport, error)
-	AssessPackage       func(context.Context, synthesize.Options) (*synthesize.QualityReport, error)
-	InspectPackage      func(context.Context, trustedrunner.TemplateOptions) (trustedrunner.PackageInspection, error)
-	RevalidatePackage   func(context.Context, trustedrunner.TemplateOptions, trustedrunner.PackageInspection) error
-	PrivateRoot         string
-	DriverDir           string
-	DoctorBrowser       func(context.Context, string, string) (browserauthor.DoctorReport, error)
-	StartCapture        func(context.Context, browserauthor.Config) (CaptureSession, error)
-	StartRegistration   func(context.Context, browserauthor.RegistrationConfig) (RegistrationAuthoringSession, error)
-	PrepareCapture      func(CaptureStageRequest) (engine.BrowserCaptureStage, error)
-	BrowserTransactions BrowserTransactionEngine
+	Context               context.Context
+	Engine                AuthoringEngine
+	Snapshot              engine.Snapshot
+	ExampleDir            string
+	Token                 string
+	AccessCode            string
+	Authority             string
+	ErrOut                io.Writer
+	AccessCodeOut         io.Writer
+	Now                   func() time.Time
+	GenerateAccessCode    func() (string, error)
+	RepoRoot              string
+	BuildPackage          func(context.Context, synthesize.Options) (*synthesize.Result, *synthesize.QualityReport, error)
+	AssessPackage         func(context.Context, synthesize.Options) (*synthesize.QualityReport, error)
+	InspectPackage        func(context.Context, trustedrunner.TemplateOptions) (trustedrunner.PackageInspection, error)
+	RevalidatePackage     func(context.Context, trustedrunner.TemplateOptions, trustedrunner.PackageInspection) error
+	PrivateRoot           string
+	DriverDir             string
+	DoctorBrowser         func(context.Context, string, string) (browserauthor.DoctorReport, error)
+	StartCapture          func(context.Context, browserauthor.Config) (CaptureSession, error)
+	StartRegistration     func(context.Context, browserauthor.RegistrationConfig) (RegistrationAuthoringSession, error)
+	PrepareCapture        func(CaptureStageRequest) (engine.BrowserCaptureStage, error)
+	BrowserTransactions   BrowserTransactionEngine
+	RegistrationAuthority *RegistrationAuthority
 }
 
 // Workspace identifies the selected example and its optimistic ownership
@@ -149,6 +150,7 @@ type Response struct {
 	Snapshot              engine.Snapshot               `json:"snapshot"`
 	Capture               *CaptureState                 `json:"capture,omitempty"`
 	RegistrationAuthoring *RegistrationAuthoringState   `json:"registration_authoring,omitempty"`
+	RegistrationAuthority *RegistrationAuthority        `json:"registration_authority,omitempty"`
 	BrowserDoctor         *browserauthor.UIDoctorReport `json:"browser_doctor,omitempty"`
 	WriteResult           *engine.WriteResult           `json:"write_result,omitempty"`
 	Package               *PackageState                 `json:"package,omitempty"`
@@ -186,18 +188,21 @@ type CaptureState struct {
 // value-free vocabulary. AttemptConsumed is process-local and does not grant or
 // renew external session authority.
 type RegistrationAuthoringState struct {
-	State             string                                 `json:"state"`
-	Message           string                                 `json:"message,omitempty"`
-	FailureCode       string                                 `json:"failure_code,omitempty"`
-	Phase             string                                 `json:"phase,omitempty"`
-	Bounds            *registrationauthorsession.Bounds      `json:"bounds,omitempty"`
-	Observation       *registrationauthorsession.Observation `json:"observation,omitempty"`
-	Draft             *RegistrationDraftDisclosure           `json:"draft,omitempty"`
-	ResultReady       bool                                   `json:"result_ready,omitempty"`
-	ContainmentFailed bool                                   `json:"containment_failed,omitempty"`
-	AttemptConsumed   bool                                   `json:"attempt_consumed,omitempty"`
-	StartedAt         string                                 `json:"started_at,omitempty"`
-	UpdatedAt         string                                 `json:"updated_at,omitempty"`
+	State             string                                      `json:"state"`
+	Message           string                                      `json:"message,omitempty"`
+	FailureCode       string                                      `json:"failure_code,omitempty"`
+	Phase             string                                      `json:"phase,omitempty"`
+	Bounds            *registrationauthorsession.Bounds           `json:"bounds,omitempty"`
+	Observation       *registrationauthorsession.Observation      `json:"observation,omitempty"`
+	History           []registrationauthorsession.Observation     `json:"history,omitempty"`
+	Previews          []registrationauthorsession.PreviewRecord   `json:"previews,omitempty"`
+	Suggestions       []registrationauthorsession.FieldSuggestion `json:"suggestions,omitempty"`
+	Draft             *RegistrationDraftDisclosure                `json:"draft,omitempty"`
+	ResultReady       bool                                        `json:"result_ready,omitempty"`
+	ContainmentFailed bool                                        `json:"containment_failed,omitempty"`
+	AttemptConsumed   bool                                        `json:"attempt_consumed,omitempty"`
+	StartedAt         string                                      `json:"started_at,omitempty"`
+	UpdatedAt         string                                      `json:"updated_at,omitempty"`
 }
 
 type ArtifactSummary struct {
@@ -376,6 +381,7 @@ type Server struct {
 	captureStart                  captureStartRequest
 	captureContainmentFailed      bool
 	registrationAuthoring         *RegistrationAuthoringState
+	registrationAuthority         *RegistrationAuthority
 	registrationSession           RegistrationAuthoringSession
 	registrationCandidate         *browsercandidate.Registration
 	captureCandidate              *browsercandidate.AuthenticationCapability
@@ -460,6 +466,9 @@ func NewHandler(config HandlerConfig) (http.Handler, error) {
 	if now == nil {
 		now = time.Now
 	}
+	if config.RegistrationAuthority.validate(now()) != nil {
+		return nil, errors.New("registration authority is invalid")
+	}
 	s := &Server{
 		engine: config.Engine, snapshot: config.Snapshot,
 		exampleDir: config.ExampleDir, token: config.Token, authority: authority,
@@ -470,8 +479,9 @@ func NewHandler(config HandlerConfig) (http.Handler, error) {
 		buildPackage: config.BuildPackage, assessPackage: config.AssessPackage, inspectPackage: config.InspectPackage, revalidatePackage: config.RevalidatePackage,
 		privateRoot: strings.TrimSpace(config.PrivateRoot), driverDir: strings.TrimSpace(config.DriverDir),
 		doctorBrowser: config.DoctorBrowser, startCapture: config.StartCapture, startRegistration: config.StartRegistration, prepareCapture: config.PrepareCapture,
-		browserTransactions: config.BrowserTransactions,
-		captureContext:      config.Context,
+		browserTransactions:   config.BrowserTransactions,
+		registrationAuthority: cloneRegistrationPublic(config.RegistrationAuthority),
+		captureContext:        config.Context,
 	}
 	if s.buildPackage == nil {
 		s.buildPackage = synthesize.PackageFromIntent
@@ -1390,7 +1400,8 @@ func (s *Server) responseLocked() Response {
 		Lifecycle: s.lifecycle, Completed: s.completed,
 		Workspace: Workspace{ExampleDir: s.exampleDir, ExternallyModified: s.workspace.ExternallyModified},
 		Snapshot:  s.snapshot, Capture: s.capture, RegistrationAuthoring: s.registrationAuthoring, BrowserDoctor: s.doctorReport, WriteResult: s.writeResult, Package: s.packageState,
-		BrowserTransaction: s.browserTransactionResourceLocked(),
+		RegistrationAuthority: cloneRegistrationPublic(s.registrationAuthority),
+		BrowserTransaction:    s.browserTransactionResourceLocked(),
 	}
 }
 
