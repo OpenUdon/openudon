@@ -16,6 +16,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/OpenUdon/browsertools"
 	"github.com/OpenUdon/browsertools/authorresult"
 	"github.com/OpenUdon/openudon/internal/browsercandidate"
 	"github.com/OpenUdon/openudon/internal/icot/artifactwriter"
@@ -382,8 +383,8 @@ func TestEngineStagesPreparedBrowserCaptureWithoutOverwriting(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(snapshot.SourceCandidates.Browser.Candidates) != 1 {
-		t.Fatalf("browser discovery after stage = %#v", snapshot.SourceCandidates.Browser)
+	if got := countBrowserCandidates(snapshot.SourceCandidates.Browser, browsertools.LocalSourceProfile); got != 1 {
+		t.Fatalf("capability profiles after stage = %d in %#v", got, snapshot.SourceCandidates.Browser)
 	}
 	if _, err := eng.StageBrowserCapture(context.Background(), stage); err == nil || !strings.Contains(err.Error(), "already exists") {
 		t.Fatalf("duplicate capture stage = %v", err)
@@ -402,8 +403,8 @@ func TestEngineStagesPreparedBrowserCaptureWithoutOverwriting(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(secondSnapshot.SourceCandidates.Browser.Candidates) != 2 {
-		t.Fatalf("browser discovery after second stage = %#v", secondSnapshot.SourceCandidates.Browser)
+	if got := countBrowserCandidates(secondSnapshot.SourceCandidates.Browser, browsertools.LocalSourceProfile); got != 2 {
+		t.Fatalf("capability profiles after second stage = %d in %#v", got, secondSnapshot.SourceCandidates.Browser)
 	}
 	var collection authenticatedAuthoringReviewCollection
 	reviewBytes, err := os.ReadFile(filepath.Join(example, ".icot", "authenticated-browser-authoring.json"))
@@ -696,4 +697,19 @@ func TestLiveOutputCompletionAlwaysCarriesExplicitEmptyList(t *testing.T) {
 	if !strings.Contains(wire.String(), `"outputs":[]`) {
 		t.Fatalf("completion omitted explicit empty output list: %s", wire.String())
 	}
+}
+
+// countBrowserCandidates counts discovered local sources of one kind. Staging
+// asserts on capability profiles specifically, because the authentication
+// recipe staged beside each capability is discoverable only once Browsertools
+// accepts authentication 1.1, and the staging contract itself is unchanged by
+// that.
+func countBrowserCandidates(report browsertools.LocalSourceDiscoveryReport, kind browsertools.LocalSourceKind) int {
+	total := 0
+	for _, candidate := range report.Candidates {
+		if candidate.Kind == kind {
+			total++
+		}
+	}
+	return total
 }
