@@ -725,7 +725,7 @@ func BrowserRegistrationMetadataJSON(session elicitor.Session, at time.Time) (st
 			return
 		}
 		flow, ok := value.Flows[strings.TrimSpace(step.RegistrationFlow)]
-		if (value.Profile == "uws.browser-registration.1.1") != (step.InputBinding != "") {
+		if (value.Profile == "uws.browser-registration.1.1" || value.Profile == "uws.browser-registration.1.2") != (step.InputBinding != "") {
 			callErr = fmt.Errorf("registration step %s input binding does not match profile version", step.Name)
 			return
 		}

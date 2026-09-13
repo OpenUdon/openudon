@@ -479,7 +479,7 @@ func browserRegistrationDocument(plan SourceMaterialization, value *registration
 }
 
 func registrationInputBinding(value *registrationprofile.Profile) string {
-	if value.Profile == browserregistration.ProfileNameV11 {
+	if value.Profile == browserregistration.ProfileNameV11 || value.Profile == browserregistration.ProfileNameV12 {
 		return "registration_inputs"
 	}
 	return ""

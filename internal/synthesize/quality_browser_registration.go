@@ -201,7 +201,7 @@ func validateBrowserRegistrationReview(exampleDir string, paths []string, intent
 			return
 		}
 		flow, ok := value.Flows[strings.TrimSpace(step.RegistrationFlow)]
-		if (value.Profile == "uws.browser-registration.1.1") != (step.InputBinding != "") {
+		if (value.Profile == "uws.browser-registration.1.1" || value.Profile == "uws.browser-registration.1.2") != (step.InputBinding != "") {
 			stepErrors = append(stepErrors, fmt.Sprintf("step %s input binding does not match its profile version", name))
 		}
 		if !ok {

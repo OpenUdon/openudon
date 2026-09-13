@@ -629,7 +629,7 @@ func compiledServiceType(step *uws1.Step, op *uws1.Operation) string {
 	if op.ExtensionProfile() == browserauthentication.CallProfileName || op.ExtensionProfile() == browserauthentication.ContextCallProfileName {
 		return "browser_authentication"
 	}
-	if op.ExtensionProfile() == browserregistration.CallProfileName || op.ExtensionProfile() == browserregistration.CallProfileNameV11 {
+	if op.ExtensionProfile() == browserregistration.CallProfileName || op.ExtensionProfile() == browserregistration.CallProfileNameV11 || op.ExtensionProfile() == browserregistration.CallProfileNameV12 {
 		return "browser_registration"
 	}
 	if strings.TrimSpace(op.ExtensionProfile()) != "" {
@@ -643,7 +643,7 @@ func validateCompiledRegistrationOperations(doc *uws1.Document) error {
 		return nil
 	}
 	for _, op := range doc.Operations {
-		if op == nil || op.ExtensionProfile() != browserregistration.CallProfileName && op.ExtensionProfile() != browserregistration.CallProfileNameV11 {
+		if op == nil || op.ExtensionProfile() != browserregistration.CallProfileName && op.ExtensionProfile() != browserregistration.CallProfileNameV11 && op.ExtensionProfile() != browserregistration.CallProfileNameV12 {
 			continue
 		}
 		raw, ok := op.Extensions[browserregistration.ExtensionRegistration]
@@ -662,7 +662,7 @@ func validateCompiledRegistrationOperations(doc *uws1.Document) error {
 }
 
 func compiledRegistration(op *uws1.Operation) *browserregistration.OperationRegistration {
-	if op == nil || op.ExtensionProfile() != browserregistration.CallProfileName && op.ExtensionProfile() != browserregistration.CallProfileNameV11 {
+	if op == nil || op.ExtensionProfile() != browserregistration.CallProfileName && op.ExtensionProfile() != browserregistration.CallProfileNameV11 && op.ExtensionProfile() != browserregistration.CallProfileNameV12 {
 		return nil
 	}
 	value, ok, err := browserregistration.ReadRegistrationExtension(op.Extensions)

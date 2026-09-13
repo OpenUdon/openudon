@@ -10,7 +10,13 @@ import (
 )
 
 func TestRegistrationV3RequiresExactProfileAndProducerLineage(t *testing.T) {
-	data, err := os.ReadFile("../../docs/schemas/openudon.browser-profile-transaction.v3.schema.json")
+	testVersionedRegistrationLineage(t, "v3")
+}
+func TestRegistrationV4RequiresExactProfileAndProducerLineage(t *testing.T) {
+	testVersionedRegistrationLineage(t, "v4")
+}
+func testVersionedRegistrationLineage(t *testing.T, version string) {
+	data, err := os.ReadFile("../../docs/schemas/openudon.browser-profile-transaction." + version + ".schema.json")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -32,6 +38,11 @@ func TestRegistrationV3RequiresExactProfileAndProducerLineage(t *testing.T) {
 			value.Version = VersionV3
 			value.Provenance.ResultVersion = ResultRegistrationAuthoringV3
 			value.Candidates[0].Schema = "uws.browser-registration.1.1"
+			if version == "v4" {
+				value.Version = VersionV4
+				value.Provenance.ResultVersion = ResultRegistrationAuthoringV4
+				value.Candidates[0].Schema = "uws.browser-registration.1.2"
+			}
 			switch change {
 			case "profile":
 				value.Candidates[0].Schema = "uws.browser-registration.1.0"

@@ -305,7 +305,7 @@ func buildUWSStep(step *rollout.Step, defaultOpenAPI string, sourceFor func(stri
 		}
 		op.Request = nil
 		op.Extensions = map[string]any{uws1.ExtensionOperationProfile: browserregistration.CallProfileName}
-		if value.Profile == browserregistration.ProfileNameV11 {
+		if value.Profile == browserregistration.ProfileNameV11 || value.Profile == browserregistration.ProfileNameV12 {
 			if strings.TrimSpace(step.InputBinding) == "" {
 				return nil, nil, fmt.Errorf("step %s requires a private input binding", name)
 			}
@@ -313,8 +313,14 @@ func buildUWSStep(step *rollout.Step, defaultOpenAPI string, sourceFor func(stri
 		} else if step.InputBinding != "" {
 			return nil, nil, fmt.Errorf("step %s legacy registration cannot declare input_binding", name)
 		}
+		verification := ""
+		if value.Profile == browserregistration.ProfileNameV12 {
+			op.Extensions[uws1.ExtensionOperationProfile] = browserregistration.CallProfileNameV12
+			verification = "reviewed_flow"
+		}
 		if err := browserregistration.SetRegistrationExtension(&op.Extensions, &browserregistration.OperationRegistration{
-			Profile: profilePath, Flow: strings.TrimSpace(step.RegistrationFlow), CredentialBindings: step.CredentialBindings,
+			Verification: verification,
+			Profile:      profilePath, Flow: strings.TrimSpace(step.RegistrationFlow), CredentialBindings: step.CredentialBindings,
 			InputBinding: step.InputBinding,
 			Approval:     strings.TrimSpace(step.RegistrationApproval), DuplicatePrevention: step.DuplicatePrevention,
 			OnDuplicate: step.OnDuplicate, AmbiguousOutcome: step.AmbiguousOutcome, CleanupDisposition: step.CleanupDisposition,
@@ -1362,7 +1368,7 @@ func browserContractVersionsForIntent(exampleDir string, intent *rollout.Intent)
 		case kind == "browser_authentication" && contract.name == "uws.browser-authentication.1.1":
 			result.Requires18 = true
 			result.ContextAuthentication[source] = true
-		case kind == "browser_registration" && (contract.name == browserregistration.ProfileName || contract.name == browserregistration.ProfileNameV11):
+		case kind == "browser_registration" && (contract.name == browserregistration.ProfileName || contract.name == browserregistration.ProfileNameV11 || contract.name == browserregistration.ProfileNameV12):
 			result.Requires19 = true
 		}
 	})

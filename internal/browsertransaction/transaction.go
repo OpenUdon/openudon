@@ -26,6 +26,7 @@ const (
 	VersionV1 = "openudon.browser-profile-transaction.v1"
 	VersionV2 = "openudon.browser-profile-transaction.v2"
 	VersionV3 = "openudon.browser-profile-transaction.v3"
+	VersionV4 = "openudon.browser-profile-transaction.v4"
 	// Version is the immutable legacy default used by unchanged BAP and BRP v1 producers.
 	Version                        = VersionV1
 	MaxBytes                       = 256 << 10
@@ -33,6 +34,7 @@ const (
 	ResultRegistrationAuthoringV1  = "browsertools.registration-authoring.v1"
 	ResultRegistrationAuthoringV2  = "browsertools.registration-authoring.v2"
 	ResultRegistrationAuthoringV3  = "browsertools.registration-authoring.v3"
+	ResultRegistrationAuthoringV4  = "browsertools.registration-authoring.v4"
 	maxJSONDepth                   = 32
 )
 
@@ -159,7 +161,7 @@ var (
 // Validate enforces the closed wire, profile composition, lifecycle, and
 // value-free provenance invariants. Slice order must already be canonical.
 func (transaction Transaction) Validate() error {
-	if transaction.Version != VersionV1 && transaction.Version != VersionV2 && transaction.Version != VersionV3 {
+	if transaction.Version != VersionV1 && transaction.Version != VersionV2 && transaction.Version != VersionV3 && transaction.Version != VersionV4 {
 		return errors.New("transaction version is unsupported")
 	}
 	if !idPattern.MatchString(transaction.ID) {
@@ -202,6 +204,9 @@ func validateVersionComposition(transaction Transaction) error {
 		if transaction.Version == VersionV3 {
 			want = "uws.browser-registration.1.1"
 		}
+		if transaction.Version == VersionV4 {
+			want = "uws.browser-registration.1.2"
+		}
 		if len(transaction.Candidates) != 1 || transaction.Candidates[0].Schema != want {
 			return errors.New("registration transaction profile version does not match provenance")
 		}
@@ -217,6 +222,10 @@ func validateVersionComposition(transaction Transaction) error {
 	case VersionV2:
 		if transaction.Kind != KindRegistration || transaction.Provenance.ResultVersion != ResultRegistrationAuthoringV2 {
 			return errors.New("transaction v2 is restricted to registration-authoring v2 provenance")
+		}
+	case VersionV4:
+		if transaction.Kind != KindRegistration || transaction.Provenance.ResultVersion != ResultRegistrationAuthoringV4 {
+			return errors.New("transaction v4 requires registration authoring v4")
 		}
 	case VersionV3:
 		if transaction.Kind != KindRegistration || transaction.Provenance.ResultVersion != ResultRegistrationAuthoringV3 {
@@ -392,7 +401,7 @@ func validCandidateSchema(kind CandidateKind, schema string) bool {
 	case CandidateCapability:
 		return schema == "uws.browser.1.5" || schema == "uws.browser.1.6" || schema == "uws.browser.1.7"
 	case CandidateRegistration:
-		return schema == "uws.browser-registration.1.0" || schema == "uws.browser-registration.1.1"
+		return schema == "uws.browser-registration.1.0" || schema == "uws.browser-registration.1.1" || schema == "uws.browser-registration.1.2"
 	default:
 		return false
 	}
@@ -524,7 +533,7 @@ func validDigest(value string) bool {
 }
 
 func validResultVersion(value string) bool {
-	return value == ResultAuthenticatedAuthoringV2 || value == ResultRegistrationAuthoringV1 || value == ResultRegistrationAuthoringV2 || value == ResultRegistrationAuthoringV3
+	return value == ResultAuthenticatedAuthoringV2 || value == ResultRegistrationAuthoringV1 || value == ResultRegistrationAuthoringV2 || value == ResultRegistrationAuthoringV3 || value == ResultRegistrationAuthoringV4
 }
 
 func validOrigin(value string) bool {

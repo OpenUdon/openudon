@@ -13,6 +13,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"reflect"
 	"regexp"
 	"sort"
 	"strings"
@@ -23,6 +24,7 @@ import (
 	"github.com/OpenUdon/browsertools/registrationprofile"
 	"github.com/OpenUdon/browsertools/registrationreview"
 	"github.com/OpenUdon/openudon/internal/browsertransaction"
+	"github.com/OpenUdon/uws/browserregistration"
 )
 
 const maxPrivateResultBytes = browsertransaction.MaxBytes
@@ -32,16 +34,17 @@ var registrationResultName = regexp.MustCompile(`^registration-authoring-[0-9a-f
 // RegistrationReview binds the operator-confirmed protocol review to the
 // private result that may be adopted after the worker exits cleanly.
 type RegistrationReview struct {
-	Confirmed          bool
-	ProfileID          string
-	Flow               string
-	SourceSHA256       string
-	ReviewedCandidates []registrationauthorsession.ReviewedCandidate
-	CleanupDisposition string
-	Origins            []string
-	Bounds             registrationauthorsession.Bounds
-	Observations       int
-	MinimumRequests    int
+	VerificationAuthority *browserregistration.HumanVerification
+	Confirmed             bool
+	ProfileID             string
+	Flow                  string
+	SourceSHA256          string
+	ReviewedCandidates    []registrationauthorsession.ReviewedCandidate
+	CleanupDisposition    string
+	Origins               []string
+	Bounds                registrationauthorsession.Bounds
+	Observations          int
+	MinimumRequests       int
 }
 
 // AdoptRegistrationRequest contains only value-free transaction and review
@@ -308,6 +311,9 @@ func adoptRegistration(data []byte, resultDigest string, request AdoptRegistrati
 	if err != nil || reconstructedDigest != resultDigest {
 		return nil, errors.New("registration result digest does not match reconstructed output")
 	}
+	if !reflect.DeepEqual(result.VerificationAuthority, request.Review.VerificationAuthority) {
+		return nil, errors.New("verification authority does not match the reviewed operation")
+	}
 	transactionVersion := browsertransaction.VersionV1
 	resultVersion := browsertransaction.ResultRegistrationAuthoringV1
 	sessionVersion := registrationauthorsession.ProtocolV1
@@ -319,7 +325,10 @@ func adoptRegistration(data []byte, resultDigest string, request AdoptRegistrati
 	if result.Schema == registrationauthorresult.SchemaV3 {
 		transactionVersion, resultVersion, sessionVersion = browsertransaction.VersionV3, browsertransaction.ResultRegistrationAuthoringV3, registrationauthorsession.ProtocolV3
 	}
-	if result.Schema != registrationauthorresult.SchemaV1 && result.Schema != registrationauthorresult.SchemaV2 && result.Schema != registrationauthorresult.SchemaV3 ||
+	if result.Schema == registrationauthorresult.SchemaV4 {
+		transactionVersion, resultVersion, sessionVersion = browsertransaction.VersionV4, browsertransaction.ResultRegistrationAuthoringV4, registrationauthorsession.ProtocolV4
+	}
+	if result.Schema != registrationauthorresult.SchemaV1 && result.Schema != registrationauthorresult.SchemaV2 && result.Schema != registrationauthorresult.SchemaV3 && result.Schema != registrationauthorresult.SchemaV4 ||
 		result.Provenance.Producer != "browsertools" || result.Provenance.ResultVersion != result.Schema ||
 		result.Provenance.SessionVersion != sessionVersion {
 		return nil, errors.New("registration result provenance is unsupported")
@@ -336,6 +345,9 @@ func adoptRegistration(data []byte, resultDigest string, request AdoptRegistrati
 	wantSchema := "uws.browser-registration.1.0"
 	if result.Schema == registrationauthorresult.SchemaV3 {
 		wantSchema = "uws.browser-registration.1.1"
+	}
+	if result.Schema == registrationauthorresult.SchemaV4 {
+		wantSchema = "uws.browser-registration.1.2"
 	}
 	if result.Candidate.Schema != wantSchema || result.Candidate.SourceDigest != sourceDigest ||
 		request.Review.SourceSHA256 != sourceDigest {
@@ -368,7 +380,11 @@ func adoptRegistration(data []byte, resultDigest string, request AdoptRegistrati
 	if !equalStrings(result.Origins, registrationprofile.Origins(profile)) {
 		return nil, errors.New("registration result origins do not match the canonical profile")
 	}
-	if result.Network.Methods == nil || !equalStrings(result.Network.Methods, []string{"GET", "HEAD"}) ||
+	methods := []string{"GET", "HEAD"}
+	if result.Schema == registrationauthorresult.SchemaV4 {
+		methods = append(methods, "POST")
+	}
+	if result.Network.Methods == nil || !equalStrings(result.Network.Methods, methods) ||
 		result.Network.Requests != result.Network.GETRequests+result.Network.HEADRequests ||
 		result.Network.MutationRequests != 0 || result.Network.SubmitExecuted || result.Network.AccountAttempted ||
 		result.Network.SessionEstablished || result.Network.RuntimeSupported || result.Flow.Submit.Executed {
