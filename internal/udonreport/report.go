@@ -13,6 +13,7 @@ import (
 const (
 	VersionV2        = "udon.execution-report.v2"
 	VersionV3        = "udon.execution-report.v3"
+	VersionV4        = "udon.execution-report.v4"
 	Version          = VersionV3
 	CodeUnclassified = "unclassified"
 )
@@ -28,6 +29,16 @@ var failureCodes = map[string]bool{
 var registrationFailureCodes = map[string]bool{
 	"registration_indeterminate": true, "registration_retry_forbidden": true,
 	"registration_checkpoint_timeout": true, "registration_checkpoint_denied": true,
+}
+
+var verificationFailureCodes = map[string]bool{
+	"verification_unsupported": true,
+	"verification_not_ready":   true,
+	"verification_expired":     true,
+	"verification_failed":      true,
+	"verification_timeout":     true,
+	"verification_policy":      true,
+	"verification_budget":      true,
 }
 
 type Report struct {
@@ -46,7 +57,7 @@ type Report struct {
 
 func ValidFailureCode(code string) bool {
 	code = strings.TrimSpace(code)
-	return failureCodes[code] || registrationFailureCodes[code]
+	return failureCodes[code] || registrationFailureCodes[code] || verificationFailureCodes[code]
 }
 
 func Decode(data []byte) (*Report, error) {
@@ -54,8 +65,8 @@ func Decode(data []byte) (*Report, error) {
 	if err := evidencefile.DecodeStrict(data, &report); err != nil {
 		return nil, fmt.Errorf("must be valid JSON: %w", err)
 	}
-	if report.Version != VersionV2 && report.Version != VersionV3 {
-		return nil, fmt.Errorf("version must be %s or read-only legacy %s", VersionV3, VersionV2)
+	if report.Version != VersionV2 && report.Version != VersionV3 && report.Version != VersionV4 {
+		return nil, fmt.Errorf("version must be %s, %s or read-only legacy %s", VersionV4, VersionV3, VersionV2)
 	}
 	if report.Status != "success" && report.Status != "error" {
 		return nil, fmt.Errorf("status must be success or error")
@@ -89,7 +100,7 @@ func Decode(data []byte) (*Report, error) {
 			return nil, fmt.Errorf("successful report must not contain error_code or error_summary")
 		}
 	} else {
-		if !failureCodes[report.ErrorCode] && (report.Version != VersionV3 || !registrationFailureCodes[report.ErrorCode]) {
+		if !failureCodes[report.ErrorCode] && ((report.Version != VersionV3 && report.Version != VersionV4) || !registrationFailureCodes[report.ErrorCode]) && (report.Version != VersionV4 || !verificationFailureCodes[report.ErrorCode]) {
 			return nil, fmt.Errorf("failed report requires a closed error_code")
 		}
 		if strings.TrimSpace(report.ErrorSummary) == "" {

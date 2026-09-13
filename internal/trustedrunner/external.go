@@ -4,8 +4,10 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
+	"os"
 	"path/filepath"
 	"strings"
 	"time"
@@ -120,25 +122,37 @@ func RunExternal(ctx context.Context, opts ExternalOptions) (udonrunner.Result, 
 		RepoRoot: repoRoot, Env: opts.Env, Stdin: opts.Stdin, Stdout: opts.Stdout, Stderr: opts.Stderr, Invoke: opts.Invoke,
 	})
 	if err != nil {
-		return result, err
+		if _, statErr := os.Stat(result.ExecutorReportPath); os.IsNotExist(statErr) {
+			return result, err
+		}
+		published, reportErr := publishExternalExecutorReportOutcome(config, result, false)
+		return published, errors.Join(err, reportErr)
 	}
 	return publishExternalExecutorReport(config, result)
 }
 
 func publishExternalExecutorReport(config RunConfig, result udonrunner.Result) (udonrunner.Result, error) {
+	return publishExternalExecutorReportOutcome(config, result, true)
+}
+
+func publishExternalExecutorReportOutcome(config RunConfig, result udonrunner.Result, success bool) (udonrunner.Result, error) {
 	data, _, err := evidencefile.ReadRegular(result.ExecutorReportPath, evidencefile.DefaultMaxBytes)
 	if err != nil {
-		return result, fmt.Errorf("read successful external executor report: %w", err)
+		return result, fmt.Errorf("read external executor report: %w", err)
 	}
 	report, err := decodeUdonExecutionReport(data)
 	if err != nil {
-		return result, fmt.Errorf("validate successful external executor report: %w", err)
+		return result, fmt.Errorf("validate external executor report: %w", err)
 	}
-	if !strings.EqualFold(strings.TrimSpace(report.Status), "success") {
-		return result, fmt.Errorf("successful external executor report status must be success")
+	wantStatus := "error"
+	if success {
+		wantStatus = "success"
 	}
-	if config.Browser != nil && (config.Browser.Protocol == "v4" || config.Browser.Protocol == "v5") && report.Version != config.ExecutorReportVersion {
-		return result, fmt.Errorf("successful external executor report version does not match the run config")
+	if report.Status != wantStatus {
+		return result, fmt.Errorf("external executor report status must match process outcome")
+	}
+	if config.Browser != nil && (config.Browser.Protocol == "v4" || (config.Browser.Protocol == "v5" || config.Browser.Protocol == "v6")) && report.Version != config.ExecutorReportVersion {
+		return result, fmt.Errorf("external executor report version does not match the run config")
 	}
 	path, err := externalExecutorReportPath(config)
 	if err != nil {

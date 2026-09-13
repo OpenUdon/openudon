@@ -13,7 +13,7 @@ func configurePrivateRegistration(browser *udonrunner.BrowserConfig, endpoint st
 	if endpoint == "" {
 		return nil
 	}
-	if browser == nil || browser.Protocol != "v5" {
+	if browser == nil || (browser.Protocol != "v5" && browser.Protocol != "v6") {
 		return fmt.Errorf("a prepared private form service requires registration 1.1 execution")
 	}
 	parsed, err := url.Parse(endpoint)

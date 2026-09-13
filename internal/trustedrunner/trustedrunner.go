@@ -550,6 +550,9 @@ func buildRunConfig(p paths, manifest handoffManifest, snapshot packageSnapshot,
 		Browser:               cloneBrowserConfig(browser),
 		DirectProductionRun:   false,
 	}
+	if browser != nil && browser.Protocol == "v6" {
+		config.ExecutorReportVersion = udonreport.VersionV4
+	}
 	if config.WorkDir == "" {
 		config.WorkDir = p.defaultWorkDir
 	}
@@ -762,8 +765,14 @@ func verifyExecutorReport(workdir string, executor RunEvidenceExecutor, browser 
 	if requiredSuccess && !strings.EqualFold(report.Status, "success") {
 		return fmt.Errorf("successful executor evidence requires a success report status")
 	}
-	if browser != nil && (browser.Protocol == "v4" || browser.Protocol == "v5") && report.Version != udonreport.VersionV3 {
-		return fmt.Errorf("browser registration evidence requires udon.execution-report.v3")
+	if browser != nil {
+		want := udonreport.VersionV3
+		if browser.Protocol == "v6" {
+			want = udonreport.VersionV4
+		}
+		if (browser.Protocol == "v4" || browser.Protocol == "v5" || browser.Protocol == "v6") && report.Version != want {
+			return fmt.Errorf("browser registration evidence requires %s", want)
+		}
 	}
 	return nil
 }
@@ -948,19 +957,16 @@ func buildRunEvidenceExecutor(opts runEvidenceOptions, executorArgv []string) (R
 	}
 	rel, err := filepath.Rel(opts.Result.WorkDir, reportPath)
 	if err != nil || rel == "." || rel == ".." || filepath.IsAbs(rel) || strings.HasPrefix(rel, ".."+string(filepath.Separator)) {
-		if requiredSuccess {
-			return RunEvidenceExecutor{}, fmt.Errorf("successful executor report path is not workdir-relative")
-		}
-		return executor, nil
+		return RunEvidenceExecutor{}, fmt.Errorf("executor report path is not workdir-relative")
 	}
 	data, info, err := evidencefile.ReadRegular(reportPath, evidencefile.DefaultMaxBytes)
 	if err != nil {
-		if requiredSuccess {
-			return RunEvidenceExecutor{}, fmt.Errorf("read successful executor report: %w", err)
+		if !requiredSuccess && os.IsNotExist(err) {
+			return executor, nil
 		}
-		return executor, nil
+		return RunEvidenceExecutor{}, fmt.Errorf("read executor report: %w", err)
 	}
-	requireRegistrationV3 := opts.Config.Browser != nil && (opts.Config.Browser.Protocol == "v4" || opts.Config.Browser.Protocol == "v5")
+	requireRegistrationV3 := opts.Config.Browser != nil && (opts.Config.Browser.Protocol == "v4" || (opts.Config.Browser.Protocol == "v5" || opts.Config.Browser.Protocol == "v6"))
 	if requiredSuccess || requireRegistrationV3 {
 		report, err := decodeUdonExecutionReport(data)
 		if err != nil {
@@ -1331,7 +1337,7 @@ func outerRunnerEnvironment(source []string, config RunConfig, registrationAttes
 		"OPENUDON_EXECUTOR": true, "OPENUDON_UDON_BIN": true, "OPENUDON_UDON_IMAGE": true,
 	}
 	for _, binding := range config.CredentialBindings {
-		if config.Browser == nil || config.Browser.Protocol != "v5" {
+		if config.Browser == nil || (config.Browser.Protocol != "v5" && config.Browser.Protocol != "v6") {
 			allowed[udonrunner.CredentialEnvironmentName(binding)] = true
 		}
 	}

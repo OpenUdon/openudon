@@ -17,6 +17,7 @@ import (
 	"github.com/OpenUdon/openudon/internal/synthesize"
 	"github.com/OpenUdon/openudon/internal/udonrunner"
 	rollout "github.com/OpenUdon/openudon/internal/workflowintent"
+	"github.com/OpenUdon/uws/browserregistration"
 )
 
 func TestBuildBrowserRunConfigDerivesReviewedRuntimeContract(t *testing.T) {
@@ -215,6 +216,48 @@ flows:
 	}
 	if live.Protocol != "v4" || len(live.AttestedRegistration) != 0 {
 		t.Fatalf("unattested live registration config = %#v", live)
+	}
+
+	// A reviewed 1.2 call resolves the canonical source field. An
+	// unused 1.2 profile in the same package must not upgrade a legacy call.
+	profile, err := registrationprofile.Parse(files["browser-registration/dedicated.yaml"])
+	if err != nil {
+		t.Fatal(err)
+	}
+	profile.Profile = browserregistration.ProfileNameV12
+	required := true
+	profile.InputSlots = map[string]browserregistration.InputSlot{"name": {Type: "string", Label: "Name", Required: &required}}
+	flow := profile.Flows["create_dedicated_test_user"]
+	flow.Sequence = append([]browserregistration.Step{{InputCheckpoint: &browserregistration.InputCheckpointStep{ID: "identity", Slots: []string{"identifier", "password", "name"}}}}, flow.Sequence...)
+	flow.Sequence = append(flow.Sequence[:4], append([]browserregistration.Step{{FillInput: &browserregistration.FillInputStep{Slot: "name", Control: "fill", Locator: browserregistration.Locator{Role: "textbox", Name: "Name"}}}}, flow.Sequence[4:]...)...)
+	flow.HumanVerification = &browserregistration.HumanVerification{Provider: "turnstile", Activation: "before_approval", WidgetBinding: "single_in_submit_form", SubmissionURL: "https://example.test/register", Dependencies: browserregistration.VerificationDependencies{Policy: "turnstile.v1", MaxRequests: 256, MaxResponseBytes: 32 << 20, TimeoutMS: 120000}}
+	flow.Effects = append(flow.Effects, "requires_human_verification")
+	profile.Flows["create_dedicated_test_user"] = flow
+	files["browser-registration/verification.yaml"], err = registrationprofile.MarshalJSON(profile)
+	if err != nil {
+		t.Fatal(err)
+	}
+	paths := []string{"browser-registration/dedicated.yaml", "browser-registration/verification.yaml"}
+	live, err = buildBrowserRunConfigFromBytes("synthetic", nil, nil, paths, read, "/trusted/browserdriver", nil, nil, false)
+	if err != nil || live.Protocol != "v4" {
+		t.Fatalf("unused profile selected v6: %v", err)
+	}
+	intent.Source, intent.OpenAPI = "browser-registration/verification.yaml", "browser-registration/verification.yaml"
+	intent.Steps[0].Source, intent.Steps[0].OpenAPI, intent.Steps[0].InputBinding = "browser-registration/verification.yaml", "", "private_input"
+	intentData, err = rollout.RenderIntentHCL(intent)
+	if err != nil {
+		t.Fatal(err)
+	}
+	files[rollout.IntentPath] = []byte(intentData)
+	var review browserRegistrationApprovals
+	if json.Unmarshal(files[packageartifacts.BrowserRegistrationReviewPath], &review) != nil {
+		t.Fatal("review")
+	}
+	review.Calls[0].Source, review.Calls[0].InputBinding = "browser-registration/verification.yaml", "private_input"
+	files[packageartifacts.BrowserRegistrationReviewPath], _ = json.Marshal(review)
+	live, err = buildBrowserRunConfigFromBytes("synthetic", nil, nil, paths, read, "/trusted/browserdriver", nil, nil, false)
+	if err != nil || live.Protocol != "v6" || !live.RegistrationInputUI || len(live.CredentialEnvironment) != 0 {
+		t.Fatalf("canonical verification source failed: %v", err)
 	}
 }
 

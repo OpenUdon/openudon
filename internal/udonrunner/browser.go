@@ -65,7 +65,7 @@ func validateBrowserConfig(config *BrowserConfig, credentials []string, values m
 	normalizeBrowserConfig(config)
 	config.DriverPath = strings.TrimSpace(config.DriverPath)
 	config.Protocol = strings.ToLower(strings.TrimSpace(config.Protocol))
-	if config.Protocol != "v1" && config.Protocol != "v2" && config.Protocol != "v3" && config.Protocol != "v4" && config.Protocol != "v5" {
+	if config.Protocol != "v1" && config.Protocol != "v2" && config.Protocol != "v3" && config.Protocol != "v4" && (config.Protocol != "v5" && config.Protocol != "v6") {
 		return validatedBrowserConfig{}, fmt.Errorf("run config browser protocol must be v1, v2, v3, v4, or v5")
 	}
 	if requireDriver && config.DriverPath == "" {
@@ -124,13 +124,13 @@ func validateBrowserConfig(config *BrowserConfig, credentials []string, values m
 	if config.Protocol == "v1" && (len(credentialEnv) != 0 || len(sessionEnv) != 0 || len(config.ApprovedAuthentication) != 0 || len(config.ApprovedRegistration) != 0 || len(config.AttestedRegistration) != 0) {
 		return validatedBrowserConfig{}, fmt.Errorf("browser authentication and named sessions require protocol v2 or v3")
 	}
-	if len(config.ApprovedRegistration) != 0 && config.Protocol != "v3" && config.Protocol != "v4" && config.Protocol != "v5" {
+	if len(config.ApprovedRegistration) != 0 && config.Protocol != "v3" && config.Protocol != "v4" && (config.Protocol != "v5" && config.Protocol != "v6") {
 		return validatedBrowserConfig{}, fmt.Errorf("browser registration requires protocol v3 dry-run evidence or protocol v4 execution")
 	}
-	if requireDriver && len(config.ApprovedRegistration) != 0 && config.Protocol != "v4" && config.Protocol != "v5" {
+	if requireDriver && len(config.ApprovedRegistration) != 0 && config.Protocol != "v4" && (config.Protocol != "v5" && config.Protocol != "v6") {
 		return validatedBrowserConfig{}, fmt.Errorf("browser registration execution is unsupported by the current external executor contract")
 	}
-	if config.Protocol == "v4" || config.Protocol == "v5" {
+	if config.Protocol == "v4" || (config.Protocol == "v5" || config.Protocol == "v6") {
 		if len(config.ApprovedRegistration) != 1 || len(config.AttestedRegistration) != 1 || config.ApprovedRegistration[0] != config.AttestedRegistration[0] ||
 			len(config.ApprovedOperations) != 0 || len(config.ApprovedAuthentication) != 0 || len(sessionEnv) != 0 || !validPrefixedSHA256(config.RegistrationAttestationSHA256) {
 			return validatedBrowserConfig{}, fmt.Errorf("browser protocol v4 requires one exact registration attestation and submit approval without action, authentication, or session authority")
@@ -138,7 +138,7 @@ func validateBrowserConfig(config *BrowserConfig, credentials []string, values m
 	} else if len(config.AttestedRegistration) != 0 || strings.TrimSpace(config.RegistrationAttestationSHA256) != "" {
 		return validatedBrowserConfig{}, fmt.Errorf("browser registration attestation requires protocol v4")
 	}
-	if config.Protocol == "v5" {
+	if config.Protocol == "v5" || config.Protocol == "v6" {
 		if len(config.CredentialEnvironment) != 0 || config.RegistrationInputUI == (config.RegistrationInputService != "") {
 			return validatedBrowserConfig{}, fmt.Errorf("protocol v5 requires one private form boundary and no credential environment")
 		}

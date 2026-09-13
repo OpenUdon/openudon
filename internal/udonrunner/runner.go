@@ -203,11 +203,14 @@ func prepare(ctx context.Context, config Config, opts Options, requireCredential
 	if reportVersion == "" {
 		reportVersion = "udon.execution-report.v2"
 	}
-	if reportVersion != "udon.execution-report.v2" && reportVersion != "udon.execution-report.v3" {
-		return Result{}, nil, "", fmt.Errorf("run config executor_report_version must be udon.execution-report.v2 or v3")
+	if reportVersion != "udon.execution-report.v2" && reportVersion != "udon.execution-report.v3" && reportVersion != "udon.execution-report.v4" {
+		return Result{}, nil, "", fmt.Errorf("run config executor_report_version must be udon.execution-report.v2, v3 or v4")
 	}
 	if config.Browser != nil && (strings.EqualFold(strings.TrimSpace(config.Browser.Protocol), "v4") || strings.EqualFold(strings.TrimSpace(config.Browser.Protocol), "v5")) && reportVersion != "udon.execution-report.v3" {
 		return Result{}, nil, "", fmt.Errorf("browser registration protocol v4 requires udon.execution-report.v3")
+	}
+	if config.Browser != nil && strings.EqualFold(strings.TrimSpace(config.Browser.Protocol), "v6") && reportVersion != "udon.execution-report.v4" {
+		return Result{}, nil, "", fmt.Errorf("browser registration protocol v6 requires udon.execution-report.v4")
 	}
 	if err := ValidateRunID(config.RunID); err != nil {
 		return Result{}, nil, "", err
@@ -283,7 +286,7 @@ func prepare(ctx context.Context, config Config, opts Options, requireCredential
 	if err != nil {
 		return Result{}, nil, "", err
 	}
-	if config.Browser != nil && config.Browser.Protocol == "v5" {
+	if config.Browser != nil && (config.Browser.Protocol == "v5" || config.Browser.Protocol == "v6") {
 		credentialEnvNames = nil
 	}
 	sourceEnv := opts.Env
@@ -934,7 +937,7 @@ func appendBrowserArgs(argv []string, browser *BrowserConfig, driverEnvNames []s
 		argv = append(argv, "--attest-browser-registration", operation)
 	}
 	for _, operation := range browser.ApprovedRegistration {
-		if browser.Protocol == "v4" || browser.Protocol == "v5" {
+		if browser.Protocol == "v4" || (browser.Protocol == "v5" || browser.Protocol == "v6") {
 			argv = append(argv, "--approve-browser-registration", operation)
 		}
 	}
