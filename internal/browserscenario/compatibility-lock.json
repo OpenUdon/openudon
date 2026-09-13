@@ -3,7 +3,7 @@
   "components": [
     {
       "name": "browserdriver",
-      "commit": "22eb8f1b5e3d298a317b69119d16d37763be273c"
+      "commit": "9d13e8b35394b35c4e7fc17162336ac4e67be878"
     },
     {
       "name": "browsertools",
@@ -13,7 +13,7 @@
     },
     {
       "name": "udon",
-      "commit": "ad257817e5fdd7b2fd55be2ba16d425865397d6b"
+      "commit": "5ef6af99430cc246b354accd5840801534f0eb81"
     },
     {
       "name": "uws",

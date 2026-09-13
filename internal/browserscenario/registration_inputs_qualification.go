@@ -186,8 +186,17 @@ func (q *registrationInputQualification) Continue() error {
 	if _, err := q.page.Locator("#private-field-updates").SelectOption(playwright.SelectOptionValues{Values: &choice}); err != nil {
 		return bad
 	}
-	if q.button("Apply").Click() != nil || q.button("Approve registration").Click() != nil || q.button("Continue").Click() != nil {
-		return bad
+	for _, name := range []string{"Apply", "Approve registration", "Continue"} {
+		if q.button(name).WaitFor() != nil || q.page.Locator("#countdown").WaitFor() != nil {
+			return bad
+		}
+		text, err := q.page.Locator("#countdown").TextContent()
+		if err != nil || !strings.HasPrefix(text, "Time remaining:") {
+			return bad
+		}
+		if q.button(name).Click() != nil {
+			return bad
+		}
 	}
 	return nil
 }

@@ -25,7 +25,7 @@ upgrades, downloads modules or substitutes a moving repository tip.
 The baseline retains Playwright-Go v0.6201.0, Playwright 1.62.1 and Chromium
 151.0.7922.34 on Linux. Browsertools and OpenUdon consume the same reviewed
 Browsertools module at `ec0b9e9d6ca1`. UWS implementation and checkout are
-`9ff877ebce55`; Udon is `ad257817e5fd` and Browserdriver is `22eb8f1b5e3d`.
+`9ff877ebce55`; Udon is `5ef6af99430c` and Browserdriver is `9d13e8b35394`.
 The BRP package qualification now exercises actual typed iCoT authoring,
 transaction v3, UWS call 1.1, the separate private form's Start/Apply/approval,
 and exact protocol-v5 replay. It verifies one POST and scans package/run files
@@ -186,3 +186,17 @@ run fresh using their existing build behavior; `--reuse` for those stages is
 refused. Their child environments are not treated as interchangeable cached
 build inputs. The fingerprint also includes the installed Playwright-Go driver
 and host package/kernel identity, separately from Node's Playwright modules.
+
+## Registration foreground and deadline integration
+
+Browserdriver M12 requests foreground presentation for the registration page
+at launch and input/human/submit checkpoints. Udon M40 uses the earliest known
+driver, broker and enclosing workflow deadline for the private form countdown.
+The typed UI-to-runtime qualification requires that countdown at each actual
+private checkpoint. Reload preserves its deadline; expired form actions are
+rejected independently of the UI. Initial preparation remains untimed.
+
+This integration does not change public BRP/UWS, private input identity,
+registration authority, retry refusal or the W8M consumed-attempt history.
+Use one fresh affected smoke while developing, then full acceptance v2 for
+the frozen candidate before adopting new runtime bytes.
