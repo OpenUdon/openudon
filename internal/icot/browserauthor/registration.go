@@ -25,6 +25,7 @@ import (
 	"github.com/OpenUdon/openudon/internal/browsertransaction"
 	"github.com/OpenUdon/openudon/internal/evidencefile"
 	"github.com/OpenUdon/openudon/internal/processgroup"
+	"github.com/OpenUdon/uws/browserregistration"
 )
 
 const maxRegistrationProtocolLine = registrationauthorsession.MaxProtocolLineBytes
@@ -53,34 +54,37 @@ type RegistrationConfig struct {
 // RegistrationCommand is the closed parent-side command union. Confirmed is
 // consumed by OpenUdon and never serialized to the Browsertools worker.
 type RegistrationCommand struct {
-	Type               string
-	ProfileID          string
-	URL                string
-	Origins            []string
-	Bounds             *registrationauthorsession.Bounds
-	Method             string
-	Profile            []byte
-	CandidateIDs       []string
-	Flow               string
-	CleanupDisposition string
-	Confirmed          bool
-	CredentialBindings []browsertransaction.CredentialBinding
-	Preview            *registrationauthorsession.PreviewRequest
-	StepCandidates     []string
+	Verification            *browserregistration.HumanVerification
+	VerificationCandidateID string
+	Type                    string
+	ProfileID               string
+	URL                     string
+	Origins                 []string
+	Bounds                  *registrationauthorsession.Bounds
+	Method                  string
+	Profile                 []byte
+	CandidateIDs            []string
+	Flow                    string
+	CleanupDisposition      string
+	Confirmed               bool
+	CredentialBindings      []browsertransaction.CredentialBinding
+	Preview                 *registrationauthorsession.PreviewRequest
+	StepCandidates          []string
 }
 
 // RegistrationEvent exposes only the strict, value-free protocol surface and
 // the final adopted candidate. It has no private-result locator or raw output.
 type RegistrationEvent struct {
-	State       string
-	Phase       string
-	Bounds      *registrationauthorsession.Bounds
-	Observation *registrationauthorsession.Observation
-	History     []registrationauthorsession.Observation
-	Previews    []registrationauthorsession.PreviewRecord
-	Diagnostic  string
-	Candidate   *browsercandidate.Registration
-	ErrorCode   string
+	VerificationAuthority *browserregistration.HumanVerification
+	State                 string
+	Phase                 string
+	Bounds                *registrationauthorsession.Bounds
+	Observation           *registrationauthorsession.Observation
+	History               []registrationauthorsession.Observation
+	Previews              []registrationauthorsession.PreviewRecord
+	Diagnostic            string
+	Candidate             *browsercandidate.Registration
+	ErrorCode             string
 }
 
 // RegistrationSession owns one isolated worker process.
@@ -122,8 +126,12 @@ func StartRegistration(ctx context.Context, config RegistrationConfig) (*Registr
 	if config.Protocol == registrationauthorsession.ProtocolV2 {
 		args = append(args, "--protocol", "v2")
 	}
-	if config.Protocol == registrationauthorsession.ProtocolV3 {
-		args = append(args, "--protocol", "v3")
+	if config.Protocol == registrationauthorsession.ProtocolV3 || config.Protocol == registrationauthorsession.ProtocolV4 {
+		version := "v3"
+		if config.Protocol == registrationauthorsession.ProtocolV4 {
+			version = "v4"
+		}
+		args = append(args, "--protocol", version)
 	}
 	return startRegistrationProcess(ctx, config, inbox, args, cleanup)
 }
@@ -150,8 +158,12 @@ func StartExternalRegistration(ctx context.Context, config RegistrationConfig, e
 	if config.Protocol == registrationauthorsession.ProtocolV2 {
 		args = append(args, "--protocol", "v2")
 	}
-	if config.Protocol == registrationauthorsession.ProtocolV3 {
-		args = append(args, "--protocol", "v3")
+	if config.Protocol == registrationauthorsession.ProtocolV3 || config.Protocol == registrationauthorsession.ProtocolV4 {
+		version := "v3"
+		if config.Protocol == registrationauthorsession.ProtocolV4 {
+			version = "v4"
+		}
+		args = append(args, "--protocol", version)
 	}
 	return startRegistrationProcess(ctx, config, inbox, args, cleanup)
 }
@@ -216,6 +228,7 @@ func (session *RegistrationSession) Cancel() {
 }
 
 type registrationRunState struct {
+	verification    *browserregistration.HumanVerification
 	protocol        string
 	phase           string
 	started         bool
@@ -337,8 +350,12 @@ func (session *RegistrationSession) run(ctx context.Context, config Registration
 			return
 		}
 		transaction := candidate.Transaction()
-		if config.Protocol == registrationauthorsession.ProtocolV3 {
-			if transaction.Version != browsertransaction.VersionV3 || transaction.Provenance.ResultVersion != browsertransaction.ResultRegistrationAuthoringV3 {
+		if config.Protocol == registrationauthorsession.ProtocolV3 || config.Protocol == registrationauthorsession.ProtocolV4 {
+			wantTransaction, wantResult := browsertransaction.VersionV3, browsertransaction.ResultRegistrationAuthoringV3
+			if config.Protocol == registrationauthorsession.ProtocolV4 {
+				wantTransaction, wantResult = browsertransaction.VersionV4, browsertransaction.ResultRegistrationAuthoringV4
+			}
+			if transaction.Version != wantTransaction || transaction.Provenance.ResultVersion != wantResult {
 				session.publishTerminal(RegistrationEvent{State: "failed", ErrorCode: "candidate_rejected"})
 				return
 			}
@@ -412,7 +429,7 @@ func normalizeRegistrationConfig(config RegistrationConfig) (RegistrationConfig,
 	if config.Protocol == "" {
 		config.Protocol = registrationauthorsession.ProtocolV1
 	}
-	if config.Protocol != registrationauthorsession.ProtocolV1 && config.Protocol != registrationauthorsession.ProtocolV2 && config.Protocol != registrationauthorsession.ProtocolV3 {
+	if config.Protocol != registrationauthorsession.ProtocolV1 && config.Protocol != registrationauthorsession.ProtocolV2 && (config.Protocol != registrationauthorsession.ProtocolV3 && config.Protocol != registrationauthorsession.ProtocolV4) {
 		return RegistrationConfig{}, nil, errors.New("registration author protocol is invalid")
 	}
 	config.DriverDir = strings.TrimSpace(config.DriverDir)
@@ -429,10 +446,28 @@ func prepareRegistrationCommand(command RegistrationCommand, state registrationR
 		protocol = registrationauthorsession.ProtocolV1
 	}
 	message := registrationauthorsession.ClientMessage{Protocol: protocol, Type: command.Type}
-	if command.Type != "preview" && command.Preview != nil || command.Type != "review" && len(command.StepCandidates) != 0 || protocol != registrationauthorsession.ProtocolV3 && (command.Preview != nil || len(command.StepCandidates) != 0) {
+	if command.Type != "approve_verification" && (command.Verification != nil || command.VerificationCandidateID != "") {
+		return message, nil, errors.New("unexpected verification authority")
+	}
+	if command.Type != "preview" && command.Preview != nil || command.Type != "review" && len(command.StepCandidates) != 0 || (protocol != registrationauthorsession.ProtocolV3 && protocol != registrationauthorsession.ProtocolV4) && (command.Preview != nil || len(command.StepCandidates) != 0) {
 		return message, nil, errors.New("registration command version or shape is invalid")
 	}
 	switch command.Type {
+	case "approve_verification":
+		if protocol != registrationauthorsession.ProtocolV4 || !command.Confirmed || state.verification != nil || state.observation == nil || registrationauthorsession.ValidateVerificationAuthority(command.Verification, state.origins) != nil {
+			return message, nil, errors.New("invalid verification approval")
+		}
+		found := false
+		for _, candidate := range state.observation.Candidates {
+			if candidate.ID == command.VerificationCandidateID && candidate.Matches == 1 && candidate.Verification != nil && candidate.Verification.Provider == command.Verification.Provider && candidate.Verification.Activation == command.Verification.Activation && candidate.Verification.SubmissionURL == command.Verification.SubmissionURL {
+				found = true
+			}
+		}
+		if !found {
+			return message, nil, errors.New("verification approval must bind an observed submit candidate")
+		}
+		message.Verification = command.Verification
+		message.CandidateID = command.VerificationCandidateID
 	case "preview":
 		if !state.started || !command.Confirmed || command.Preview == nil || state.observation == nil {
 			return message, nil, errors.New("preview requires current observation and confirmation")
@@ -488,7 +523,7 @@ func prepareRegistrationCommand(command RegistrationCommand, state registrationR
 		if err != nil {
 			return message, nil, err
 		}
-		if protocol == registrationauthorsession.ProtocolV2 || protocol == registrationauthorsession.ProtocolV3 {
+		if protocol == registrationauthorsession.ProtocolV2 || (protocol == registrationauthorsession.ProtocolV3 || protocol == registrationauthorsession.ProtocolV4) {
 			if err := registrationprofile.ValidateRetainedNavigationV2(profile); err != nil {
 				return message, nil, err
 			}
@@ -503,8 +538,8 @@ func prepareRegistrationCommand(command RegistrationCommand, state registrationR
 		message.Profile = append(json.RawMessage(nil), canonical...)
 		message.CandidateIDs = append([]string(nil), command.CandidateIDs...)
 		message.Flow, message.CleanupDisposition = command.Flow, command.CleanupDisposition
-		if protocol == registrationauthorsession.ProtocolV3 {
-			if registrationauthorsession.ValidateV3Evidence(profile, command.Flow, state.history, state.previews, command.StepCandidates, command.CandidateIDs) != nil {
+		if protocol == registrationauthorsession.ProtocolV3 || protocol == registrationauthorsession.ProtocolV4 {
+			if registrationauthorsession.ValidateTypedEvidence(protocol, profile, command.Flow, state.history, state.previews, command.StepCandidates, command.CandidateIDs) != nil {
 				return message, nil, errors.New("registration history does not prove the reviewed sequence")
 			}
 			message.StepCandidates = append([]string(nil), command.StepCandidates...)
@@ -512,7 +547,7 @@ func prepareRegistrationCommand(command RegistrationCommand, state registrationR
 			return message, nil, errors.New("legacy authoring requires registration 1.0")
 		}
 		selection := *state.observation
-		if protocol == registrationauthorsession.ProtocolV3 {
+		if protocol == registrationauthorsession.ProtocolV3 || protocol == registrationauthorsession.ProtocolV4 {
 			selection.Candidates = nil
 			for _, observation := range state.history {
 				selection.Candidates = append(selection.Candidates, observation.Candidates...)
@@ -522,7 +557,7 @@ func prepareRegistrationCommand(command RegistrationCommand, state registrationR
 		if err != nil {
 			return message, nil, err
 		}
-		if protocol == registrationauthorsession.ProtocolV3 {
+		if protocol == registrationauthorsession.ProtocolV3 || protocol == registrationauthorsession.ProtocolV4 {
 			for i := range reviewedCandidates {
 				for _, observation := range state.history {
 					for _, candidate := range observation.Candidates {
@@ -534,7 +569,7 @@ func prepareRegistrationCommand(command RegistrationCommand, state registrationR
 			}
 		}
 		review := &browsercandidate.RegistrationReview{
-			Confirmed: true, ProfileID: state.profileID, Flow: command.Flow,
+			Confirmed: true, ProfileID: state.profileID, Flow: command.Flow, VerificationAuthority: state.verification,
 			SourceSHA256: registrationDigest(canonical), ReviewedCandidates: reviewedCandidates,
 			CleanupDisposition: command.CleanupDisposition, Origins: append([]string(nil), state.origins...),
 			Bounds: state.bounds, Observations: state.observations, MinimumRequests: state.minimumRequests,
@@ -573,6 +608,13 @@ func applyRegistrationResponse(state *registrationRunState, command Registration
 		state.minimumRequests++
 		state.observation = nil
 		return RegistrationEvent{State: "observing", Phase: response.Phase}, false, nil
+	case "approve_verification":
+		if state.protocol != registrationauthorsession.ProtocolV4 || response.Type != "state" || response.Phase != "observing" || response.Bounds != nil || command.Verification == nil {
+			return RegistrationEvent{}, false, errors.New("invalid verification approval response")
+		}
+		copy := *command.Verification
+		state.verification = &copy
+		return RegistrationEvent{State: "observation", Phase: state.phase, VerificationAuthority: &copy, Observation: state.observation, History: cloneRegistrationHistory(state.history), Previews: cloneRegistrationPreviews(state.previews)}, false, nil
 	case "observe", "preview":
 		if response.Type != "observation" || response.Observation == nil || !safeRegistrationObservation(*response.Observation, *state) {
 			return RegistrationEvent{}, false, errors.New("invalid observation response")
@@ -581,7 +623,7 @@ func applyRegistrationResponse(state *registrationRunState, command Registration
 		state.observations++
 		observation := cloneRegistrationObservation(*response.Observation)
 		state.observation = &observation
-		if state.protocol == registrationauthorsession.ProtocolV3 {
+		if state.protocol == registrationauthorsession.ProtocolV3 || state.protocol == registrationauthorsession.ProtocolV4 {
 			state.history = append(state.history, cloneRegistrationObservation(observation))
 			if command.Type == "preview" {
 				state.previews = append(state.previews, registrationauthorsession.PreviewRecord{Request: *cloneRegistrationPreview(command.Preview), NextGeneration: observation.Generation})
@@ -614,8 +656,11 @@ func applyRegistrationResponse(state *registrationRunState, command Registration
 
 func validRegistrationHello(message registrationauthorsession.ServerMessage, protocol string) bool {
 	want := []string{"get_head_only", "no_submit", "reduced_observation", "registration_review"}
-	if protocol == registrationauthorsession.ProtocolV3 {
+	if protocol == registrationauthorsession.ProtocolV3 || protocol == registrationauthorsession.ProtocolV4 {
 		want = append(want, "public_control_definitions", "reviewed_public_preview", "registration_1_1")
+	}
+	if protocol == registrationauthorsession.ProtocolV4 {
+		want = []string{"application_get_head_only", "reviewed_verification_traffic", "no_submit", "reduced_observation", "registration_review", "public_control_definitions", "reviewed_public_preview", "registration_1_2"}
 	}
 	return message.Protocol == protocol && message.Type == "hello" && equalRegistrationStrings(message.Capabilities, want)
 }
@@ -628,12 +673,18 @@ func safeRegistrationObservation(observation registrationauthorsession.Observati
 	}
 	seen := map[string]bool{}
 	for _, candidate := range observation.Candidates {
+		if state.protocol != registrationauthorsession.ProtocolV4 && candidate.Verification != nil || candidate.Verification != nil && registrationauthorsession.ValidateVerificationObservation(candidate.Verification, state.origins) != nil {
+			return false
+		}
 		if seen[candidate.ID] || !registrationCandidateID.MatchString(candidate.ID) || candidate.Matches <= 0 || candidate.Matches > state.bounds.MaxCandidates ||
 			!portableRoles[candidate.Role] || len(candidate.Label) > 256 || authorsession.ReduceAccessibilityLabel(candidate.Label).Value != candidate.Label {
 			return false
 		}
 		seen[candidate.ID] = true
-		if state.protocol == registrationauthorsession.ProtocolV3 {
+		if candidate.Verification != nil && (state.protocol != registrationauthorsession.ProtocolV4 || registrationauthorsession.ValidateVerificationObservation(candidate.Verification, state.origins) != nil) {
+			return false
+		}
+		if state.protocol == registrationauthorsession.ProtocolV3 || state.protocol == registrationauthorsession.ProtocolV4 {
 			if candidate.Control != nil && registrationauthorsession.ValidateControlMetadata(candidate.Control) != nil {
 				return false
 			}

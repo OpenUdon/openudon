@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/OpenUdon/browsertools/registrationauthorsession"
+	"github.com/OpenUdon/uws/browserregistration"
 
 	"github.com/OpenUdon/openudon/internal/evidencefile"
 )
@@ -18,13 +19,14 @@ import (
 // It restricts the shared application, so HTTP and control cannot bypass it.
 // It contains no credentials and does not authorize workflow execution.
 type RegistrationAuthority struct {
-	Version        string   `json:"version"`
-	ProfileID      string   `json:"profile_id"`
-	ProfileVersion string   `json:"profile_version"`
-	InitialURL     string   `json:"initial_url"`
-	Origins        []string `json:"origins"`
-	NavigationURLs []string `json:"navigation_urls"`
-	ExpiresAt      string   `json:"expires_at"`
+	Verification   *browserregistration.HumanVerification `json:"verification,omitempty"`
+	Version        string                                 `json:"version"`
+	ProfileID      string                                 `json:"profile_id"`
+	ProfileVersion string                                 `json:"profile_version"`
+	InitialURL     string                                 `json:"initial_url"`
+	Origins        []string                               `json:"origins"`
+	NavigationURLs []string                               `json:"navigation_urls"`
+	ExpiresAt      string                                 `json:"expires_at"`
 }
 
 func ReadRegistrationAuthority(path string, now time.Time) (*RegistrationAuthority, error) {
@@ -49,7 +51,13 @@ func (a *RegistrationAuthority) validate(now time.Time) error {
 		return nil
 	}
 	expires, err := time.Parse(time.RFC3339, a.ExpiresAt)
-	if err != nil || !expires.After(now) || expires.Sub(now) > 20*time.Minute || a.Version != "openudon.registration-authority.v1" || !registrationDraftSymbol.MatchString(a.ProfileID) || a.ProfileVersion != "1.0" && a.ProfileVersion != "1.1" || len(a.Origins) == 0 || len(a.Origins) > 8 || !sort.StringsAreSorted(a.Origins) || len(a.NavigationURLs) == 0 || len(a.NavigationURLs) > 32 {
+	if err != nil || !expires.After(now) || expires.Sub(now) > 20*time.Minute || (a.Version != "openudon.registration-authority.v1" && a.Version != "openudon.registration-authority.v2") || !registrationDraftSymbol.MatchString(a.ProfileID) || a.ProfileVersion != "1.0" && a.ProfileVersion != "1.1" && a.ProfileVersion != "1.2" || len(a.Origins) == 0 || len(a.Origins) > 8 || !sort.StringsAreSorted(a.Origins) || len(a.NavigationURLs) == 0 || len(a.NavigationURLs) > 32 {
+		return bad
+	}
+	if (a.Version == "openudon.registration-authority.v2") != (a.ProfileVersion == "1.2") || (a.Version == "openudon.registration-authority.v1" && a.Verification != nil) {
+		return bad
+	}
+	if a.Version == "openudon.registration-authority.v2" && registrationauthorsession.ValidateVerificationAuthority(a.Verification, a.Origins) != nil {
 		return bad
 	}
 	origins := map[string]bool{}
@@ -103,4 +111,8 @@ func (a *RegistrationAuthority) allowsNavigation(target string, now time.Time) b
 		}
 	}
 	return false
+}
+
+func (a *RegistrationAuthority) allowsVerification(v *browserregistration.HumanVerification, now time.Time) bool {
+	return a == nil || a.validate(now) == nil && a.Version == "openudon.registration-authority.v2" && reflect.DeepEqual(a.Verification, v)
 }

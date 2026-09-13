@@ -42,7 +42,7 @@ func (s *Server) writeRegistrationResult(w http.ResponseWriter, requestID string
 }
 
 func (app RegistrationApplication) Start(ctx context.Context, request registrationAuthoringStartRequest) (result registrationResult) {
-	if request.ProfileVersion != "" && request.ProfileVersion != "1.0" && request.ProfileVersion != "1.1" {
+	if request.ProfileVersion != "" && request.ProfileVersion != "1.0" && request.ProfileVersion != "1.1" && request.ProfileVersion != "1.2" {
 		return registrationFailure(http.StatusBadRequest, "malformed_request", "unsupported registration profile version", false, "")
 	}
 	s := app.server
@@ -117,6 +117,9 @@ func (app RegistrationApplication) Start(ctx context.Context, request registrati
 	if request.ProfileVersion == "1.1" {
 		protocol = registrationauthorsession.ProtocolV3
 	}
+	if request.ProfileVersion == "1.2" {
+		protocol = registrationauthorsession.ProtocolV4
+	}
 	session, err := s.startRegistration(s.captureContext, browserauthor.RegistrationConfig{
 		PrivateRoot: s.privateRoot, DriverDir: s.driverDir, TransactionID: "registration-" + hex.EncodeToString(digest[:8]),
 		Protocol: protocol,
@@ -162,7 +165,7 @@ func (app RegistrationApplication) Command(ctx context.Context, request registra
 		return
 	}
 	session := s.registrationSession
-	if s.registrationAuthority.validate(s.now()) != nil || command.Type == "navigate" && !s.registrationAuthority.allowsNavigation(command.URL, s.now()) {
+	if s.registrationAuthority.validate(s.now()) != nil || command.Type == "approve_verification" && !s.registrationAuthority.allowsVerification(command.Verification, s.now()) || command.Type == "navigate" && !s.registrationAuthority.allowsNavigation(command.URL, s.now()) {
 		s.mu.Unlock()
 		return registrationFailure(http.StatusForbidden, "registration_authority", "registration command is outside fixed authority", false, "")
 	}

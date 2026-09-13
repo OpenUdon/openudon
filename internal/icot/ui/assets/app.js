@@ -1476,6 +1476,35 @@ async function requestRegistrationDiscovery(change = null) {
 	}
 }
 
+const renderRegistrationVerification = (item, candidate, authoring) => {
+	const detected = candidate.verification;
+	const policies = {
+		turnstile: "HTTPS challenges.cloudflare.com: /turnstile/ and /cdn-cgi/challenge-platform/",
+		recaptcha_v2: "HTTPS www.google.com and www.recaptcha.net: /recaptcha/; static GET/HEAD at www.gstatic.com/recaptcha/. Enterprise is excluded.",
+		hcaptcha: "HTTPS hcaptcha.com and its DNS subdomains. Asset subdomains may change.",
+	};
+	if (!policies[detected.provider]) return;
+	const proposed = {provider: detected.provider, activation: detected.activation, widgetBinding: detected.widgetBinding,
+		submissionURL: detected.submissionURL, dependencies: {policy: `${detected.provider}.v1`, maxRequests: 256, maxResponseBytes: 33554432, timeoutMs: 120000}};
+	const authority = state.renderedPayload?.registration_authority?.verification;
+	if (authority) proposed.dependencies = {...authority.dependencies};
+	item.append(make("p", `Detected ${detected.provider}; ${detected.activation === "approved_submit" ? "verification begins with the approved Submit action" : "verification must be ready before final approval"}. Submission destination: ${detected.submissionURL}.`));
+	item.append(make("p", `${policies[detected.provider]}. Provider GET, HEAD and POST: up to ${proposed.dependencies.maxRequests} requests, ${proposed.dependencies.maxResponseBytes} response bytes and ${proposed.dependencies.timeoutMs / 1000} seconds. Frames must descend from this application or the reviewed provider.`));
+	item.append(make("p", "Coverage: one standard widget bound to the reviewed form. Custom or ambiguous integrations stop. Client readiness does not establish backend acceptance. Human challenges remain manual."));
+	if (authoring.verification_authority) {
+		item.append(make("p", "Verification traffic has been explicitly reviewed. Use the navigation control to reopen the exact reviewed page when provider resources were blocked before approval."));
+		return;
+	}
+	if (byID("registration-profile-version").value !== "1.2") return;
+	const label = make("label");
+	const confirmed = make("input"); confirmed.type = "checkbox";
+	label.append(confirmed, document.createTextNode(" I approve these verification dependencies and this widget/form binding."));
+	const approve = make("button", "Approve verification traffic"); approve.type = "button"; approve.disabled = true;
+	confirmed.addEventListener("change", () => { approve.disabled = !confirmed.checked || state.pendingMutation; });
+	approve.addEventListener("click", () => sendRegistrationCommand("approve_verification", {confirmed: confirmed.checked, candidate_id: candidate.id, verification: proposed}));
+	item.append(label, approve);
+};
+
 const renderRegistrationAuthoring = (payload) => {
 	initializeRegistrationRows();
 	if (payload.registration_authority && !state.registrationAuthorityLoaded) {
@@ -1486,7 +1515,7 @@ const renderRegistrationAuthoring = (payload) => {
 	const authoring = payload.registration_authoring;
 	showText("registration-authoring-state", authoring?.state?.replaceAll("_", " ") || "Not started");
 	const status = authoring?.message || (payload.browser_transaction
-		? "This wizard observes accessibility metadata with GET or HEAD only. It cannot type, click, submit, create an account, sign in, or execute the drafted workflow."
+		? "This wizard observes public metadata. Application traffic is GET or HEAD only; verification traffic requires separate review. It cannot submit a registration or accept private registration inputs."
 		: "Configure package scope, restrictive scratch, and a generation store when launching iCoT before registration authoring.");
 	const statusDetails = [status];
 	if (authoring?.failure_code) statusDetails.push(`Fixed failure class: ${authoring.failure_code}.`);
@@ -1512,6 +1541,7 @@ const renderRegistrationAuthoring = (payload) => {
 		for (const candidate of authoring.observation.candidates || []) {
 			const item = make("li", `${registrationCandidateLabel(candidate)} · unique matches ${candidate.matches}`);
 			if (candidate.control) renderRegistrationPreview(item, candidate, authoring.observation.generation);
+			if (candidate.verification) renderRegistrationVerification(item, candidate, authoring);
 			list.append(item);
 		}
 		panel.append(list);
@@ -1775,8 +1805,9 @@ const collectRegistrationDraft = () => {
 		confidence: byID("registration-confidence").value, expires_after: byID("registration-expiry").value.trim(),
 		...(stabilityText === "" ? {} : { ui_stability_score: Number(stabilityText) }),
 		credential_slots: slots,
-		...(byID("registration-profile-version").value === "1.1" ? {input_slots: collectRegistrationInputs(), inputs_reviewed: byID("registration-inputs-reviewed").checked} : {}),
+		...(["1.1", "1.2"].includes(byID("registration-profile-version").value) ? {input_slots: collectRegistrationInputs(), inputs_reviewed: byID("registration-inputs-reviewed").checked} : {}),
 		flow: {
+			...(byID("registration-profile-version").value === "1.2" ? {human_verification: state.renderedPayload?.registration_authoring?.verification_authority} : {}),
 			name: byID("registration-flow-name").value.trim(), description: byID("registration-flow-description").value.trim(), steps, effects,
 			confirmation_prompt: byID("registration-confirmation-prompt").value.trim(),
 			success: {

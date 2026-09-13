@@ -47,12 +47,13 @@ type registrationDraftSlot struct {
 }
 
 type registrationDraftFlow struct {
-	Name               string                   `json:"name"`
-	Description        string                   `json:"description,omitempty"`
-	Steps              []registrationDraftStep  `json:"steps"`
-	Effects            []string                 `json:"effects"`
-	ConfirmationPrompt string                   `json:"confirmation_prompt,omitempty"`
-	Success            registrationDraftSuccess `json:"success"`
+	HumanVerification  *browserregistration.HumanVerification `json:"human_verification,omitempty"`
+	Name               string                                 `json:"name"`
+	Description        string                                 `json:"description,omitempty"`
+	Steps              []registrationDraftStep                `json:"steps"`
+	Effects            []string                               `json:"effects"`
+	ConfirmationPrompt string                                 `json:"confirmation_prompt,omitempty"`
+	Success            registrationDraftSuccess               `json:"success"`
 }
 
 type registrationDraftStep struct {
@@ -121,7 +122,14 @@ func buildRegistrationDraft(request registrationDraftRequest, start registration
 }
 
 func buildRegistrationDraftHistory(request registrationDraftRequest, start registrationAuthoringStartRequest, observation registrationauthorsession.Observation, history []registrationauthorsession.Observation, previews []registrationauthorsession.PreviewRecord, now time.Time) ([]byte, []string, []browsertransaction.CredentialBinding, *RegistrationDraftDisclosure, error) {
-	typed := start.ProfileVersion == "1.1"
+	typed := start.ProfileVersion == "1.1" || start.ProfileVersion == "1.2"
+	protocol := registrationauthorsession.ProtocolV3
+	if start.ProfileVersion == "1.2" {
+		protocol = registrationauthorsession.ProtocolV4
+	}
+	if (start.ProfileVersion == "1.2") != (request.Flow.HumanVerification != nil) {
+		return nil, nil, nil, nil, errors.New("verification descriptor requires registration 1.2")
+	}
 	if typed && (!request.InputsReviewed || len(request.InputSlots) == 0 || len(history) == 0) || !typed && (request.InputsReviewed || len(request.InputSlots) != 0) {
 		return nil, nil, nil, nil, errors.New("typed field definitions require explicit review and registration 1.1 evidence")
 	}
@@ -236,7 +244,7 @@ func buildRegistrationDraftHistory(request registrationDraftRequest, start regis
 		Verification:    browserregistration.Verification{LastVerifiedAt: stamp, UIStabilityScore: request.UIStabilityScore},
 		CredentialSlots: slots,
 		Flows: map[string]browserregistration.Flow{request.Flow.Name: {
-			Description: request.Flow.Description, Sequence: steps, Effects: effects,
+			Description: request.Flow.Description, Sequence: steps, Effects: effects, HumanVerification: request.Flow.HumanVerification,
 			ConfirmationPolicy: browserregistration.ConfirmationPolicy{Required: true, Prompt: request.Flow.ConfirmationPrompt},
 			Success:            success,
 		}},
@@ -244,6 +252,9 @@ func buildRegistrationDraftHistory(request registrationDraftRequest, start regis
 	if typed {
 		profile.Profile = "uws.browser-registration.1.1"
 		profile.InputSlots = request.InputSlots
+	}
+	if start.ProfileVersion == "1.2" {
+		profile.Profile = "uws.browser-registration.1.2"
 	}
 	canonical, err := registrationprofile.MarshalJSON(profile)
 	if err != nil || registrationprofile.ValidateAt(profile, now.UTC()) != nil || registrationprofile.ValidateRetainedNavigationV2(profile) != nil {
@@ -254,7 +265,7 @@ func buildRegistrationDraftHistory(request registrationDraftRequest, start regis
 		candidateIDs = append(candidateIDs, candidateID)
 	}
 	sort.Strings(candidateIDs)
-	if typed && registrationauthorsession.ValidateV3Evidence(profile, request.Flow.Name, history, previews, stepCandidates, candidateIDs) != nil {
+	if typed && registrationauthorsession.ValidateTypedEvidence(protocol, profile, request.Flow.Name, history, previews, stepCandidates, candidateIDs) != nil {
 		return nil, nil, nil, nil, errors.New("the sequence is not proved by the reviewed observation history")
 	}
 	digest := sha256.Sum256(canonical)

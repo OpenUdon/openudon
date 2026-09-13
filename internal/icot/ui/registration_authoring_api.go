@@ -15,6 +15,7 @@ import (
 	"github.com/OpenUdon/openudon/internal/icot/browserauthor"
 	"github.com/OpenUdon/openudon/internal/icot/elicitor"
 	icotengine "github.com/OpenUdon/openudon/internal/icot/engine"
+	"github.com/OpenUdon/uws/browserregistration"
 )
 
 type registrationAuthoringStartRequest struct {
@@ -28,6 +29,8 @@ type registrationAuthoringStartRequest struct {
 }
 
 type registrationAuthoringCommandRequest struct {
+	Verification         *browserregistration.HumanVerification    `json:"verification,omitempty"`
+	CandidateID          string                                    `json:"candidate_id,omitempty"`
 	Revision             string                                    `json:"revision"`
 	RegistrationRevision string                                    `json:"registration_revision"`
 	Type                 string                                    `json:"type"`
@@ -73,7 +76,8 @@ func (s *Server) consumeRegistrationAuthoring(session RegistrationAuthoringSessi
 			continue
 		}
 		state := &RegistrationAuthoringState{
-			State: event.State, Phase: event.Phase, Bounds: cloneRegistrationAuthoringBounds(event.Bounds),
+			VerificationAuthority: cloneRegistrationPublic(event.VerificationAuthority),
+			State:                 event.State, Phase: event.Phase, Bounds: cloneRegistrationAuthoringBounds(event.Bounds),
 			Observation: cloneRegistrationAuthoringObservation(event.Observation),
 			History:     cloneRegistrationPublic(event.History), Previews: cloneRegistrationPublic(event.Previews),
 			Draft:     cloneRegistrationDraftDisclosure(s.registrationAuthoring.Draft),
@@ -303,10 +307,15 @@ func registrationAuthoringWireCommand(request registrationAuthoringCommandReques
 	typeName := strings.TrimSpace(request.Type)
 	method := strings.TrimSpace(request.Method)
 	url := strings.TrimSpace(request.URL)
-	if typeName != "preview" && request.Preview != nil {
+	if typeName != "approve_verification" && (request.Verification != nil || request.CandidateID != "") || typeName != "preview" && request.Preview != nil {
 		return browserauthor.RegistrationCommand{}, false
 	}
 	switch typeName {
+	case "approve_verification":
+		if !request.Confirmed || request.Verification == nil || request.CandidateID == "" || method != "" || url != "" || request.Draft != nil || request.Preview != nil {
+			return browserauthor.RegistrationCommand{}, false
+		}
+		return browserauthor.RegistrationCommand{Type: typeName, Confirmed: true, Verification: cloneRegistrationPublic(request.Verification), VerificationCandidateID: request.CandidateID}, true
 	case "preview":
 		if method != "" || url != "" || !request.Confirmed || request.Draft != nil || request.Preview == nil {
 			return browserauthor.RegistrationCommand{}, false
@@ -353,6 +362,8 @@ func registrationAuthoringCommandAllowed(state *RegistrationAuthoringState, comm
 		return state.State == "observing"
 	case "navigate", "preview":
 		return state.State == "observation"
+	case "approve_verification":
+		return state.State == "observation" && state.VerificationAuthority == nil
 	case "review":
 		return state.State == "draft_review"
 	case "finish":
@@ -393,6 +404,9 @@ func (s *Server) setRegistrationAuthoringLocked(state *RegistrationAuthoringStat
 		if s.registrationAuthoring != nil && registrationAuthoringActive(state) && state.History == nil {
 			state.History = cloneRegistrationPublic(s.registrationAuthoring.History)
 			state.Previews = cloneRegistrationPublic(s.registrationAuthoring.Previews)
+		}
+		if s.registrationAuthoring != nil && registrationAuthoringActive(state) && state.VerificationAuthority == nil {
+			state.VerificationAuthority = cloneRegistrationPublic(s.registrationAuthoring.VerificationAuthority)
 		}
 		state.FailureCode = registrationAuthoringFailureCode(state.FailureCode)
 		state.AttemptConsumed = s.registrationAttemptConsumed

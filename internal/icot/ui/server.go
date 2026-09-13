@@ -13,6 +13,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/OpenUdon/uws/browserregistration"
 	"html"
 	"io"
 	"mime"
@@ -188,21 +189,22 @@ type CaptureState struct {
 // value-free vocabulary. AttemptConsumed is process-local and does not grant or
 // renew external session authority.
 type RegistrationAuthoringState struct {
-	State             string                                      `json:"state"`
-	Message           string                                      `json:"message,omitempty"`
-	FailureCode       string                                      `json:"failure_code,omitempty"`
-	Phase             string                                      `json:"phase,omitempty"`
-	Bounds            *registrationauthorsession.Bounds           `json:"bounds,omitempty"`
-	Observation       *registrationauthorsession.Observation      `json:"observation,omitempty"`
-	History           []registrationauthorsession.Observation     `json:"history,omitempty"`
-	Previews          []registrationauthorsession.PreviewRecord   `json:"previews,omitempty"`
-	Suggestions       []registrationauthorsession.FieldSuggestion `json:"suggestions,omitempty"`
-	Draft             *RegistrationDraftDisclosure                `json:"draft,omitempty"`
-	ResultReady       bool                                        `json:"result_ready,omitempty"`
-	ContainmentFailed bool                                        `json:"containment_failed,omitempty"`
-	AttemptConsumed   bool                                        `json:"attempt_consumed,omitempty"`
-	StartedAt         string                                      `json:"started_at,omitempty"`
-	UpdatedAt         string                                      `json:"updated_at,omitempty"`
+	VerificationAuthority *browserregistration.HumanVerification      `json:"verification_authority,omitempty"`
+	State                 string                                      `json:"state"`
+	Message               string                                      `json:"message,omitempty"`
+	FailureCode           string                                      `json:"failure_code,omitempty"`
+	Phase                 string                                      `json:"phase,omitempty"`
+	Bounds                *registrationauthorsession.Bounds           `json:"bounds,omitempty"`
+	Observation           *registrationauthorsession.Observation      `json:"observation,omitempty"`
+	History               []registrationauthorsession.Observation     `json:"history,omitempty"`
+	Previews              []registrationauthorsession.PreviewRecord   `json:"previews,omitempty"`
+	Suggestions           []registrationauthorsession.FieldSuggestion `json:"suggestions,omitempty"`
+	Draft                 *RegistrationDraftDisclosure                `json:"draft,omitempty"`
+	ResultReady           bool                                        `json:"result_ready,omitempty"`
+	ContainmentFailed     bool                                        `json:"containment_failed,omitempty"`
+	AttemptConsumed       bool                                        `json:"attempt_consumed,omitempty"`
+	StartedAt             string                                      `json:"started_at,omitempty"`
+	UpdatedAt             string                                      `json:"updated_at,omitempty"`
 }
 
 type ArtifactSummary struct {
