@@ -157,3 +157,7 @@ func (q *registrationBrowserQualification) inputDefinitions(d registrationDraftR
 	}
 	return q.page.Locator("#registration-inputs-reviewed").Check(playwright.LocatorCheckOptions{})
 }
+
+// SyntheticVerificationRegistrationForm uses a fixed in-page provider double.
+// It proves the trusted adapter seam, not live provider/backend acceptance.
+var SyntheticVerificationRegistrationForm = strings.Replace(SyntheticRegistrationForm, "</form>", `<div class="cf-turnstile"></div><input type="hidden" name="cf-turnstile-response" value="synthetic-verification-canary"></form><script>window.turnstile={getResponse:()=>"synthetic-verification-canary",isExpired:()=>false};</script>`, 1)

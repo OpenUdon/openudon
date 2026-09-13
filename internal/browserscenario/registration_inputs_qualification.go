@@ -186,7 +186,7 @@ func (q *registrationInputQualification) Continue() error {
 	if _, err := q.page.Locator("#private-field-updates").SelectOption(playwright.SelectOptionValues{Values: &choice}); err != nil {
 		return bad
 	}
-	for _, name := range []string{"Apply", "Approve registration", "Continue"} {
+	for _, name := range []string{"Apply", "Approve registration"} {
 		if q.button(name).WaitFor() != nil || q.page.Locator("#countdown").WaitFor() != nil {
 			return bad
 		}

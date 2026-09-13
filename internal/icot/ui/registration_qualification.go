@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/OpenUdon/uws/browserregistration"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -42,6 +43,7 @@ type RegistrationQualificationOptions struct {
 	Origin                 string
 	Now                    func() time.Time
 	Typed                  bool
+	Verification           bool
 }
 
 // RegistrationQualificationResult retains only canonical public profile and
@@ -142,6 +144,9 @@ func runRegistrationQualificationJourney(ctx context.Context, options Registrati
 	if options.Typed {
 		start.ProfileVersion = "1.1"
 	}
+	if options.Verification {
+		start.ProfileVersion = "1.2"
+	}
 	if _, err := registrationQualificationJSON(ctx, handler, http.MethodPost, "/api/v4/registration-authoring/start", start, http.StatusAccepted); err != nil {
 		return RegistrationQualificationResult{}, errors.New("start registration qualification wizard")
 	}
@@ -211,6 +216,32 @@ func runRegistrationQualificationJourney(ctx context.Context, options Registrati
 			return RegistrationQualificationResult{}, err
 		}
 	}
+	if options.Verification {
+		var candidate registrationauthorsession.Candidate
+		for _, item := range observed.RegistrationAuthoring.Observation.Candidates {
+			if item.Verification != nil {
+				if candidate.ID != "" {
+					return RegistrationQualificationResult{}, errors.New("ambiguous verification fixture")
+				}
+				candidate = item
+			}
+		}
+		if candidate.Verification == nil {
+			return RegistrationQualificationResult{}, errors.New("missing verification fixture")
+		}
+		v := candidate.Verification
+		descriptor := &browserregistration.HumanVerification{Provider: v.Provider, Activation: v.Activation, WidgetBinding: v.WidgetBinding, SubmissionURL: v.SubmissionURL, Dependencies: browserregistration.VerificationDependencies{Policy: v.Provider + ".v1", MaxRequests: 256, MaxResponseBytes: 32 << 20, TimeoutMS: 120000}}
+		approval := registrationAuthoringCommandRequest{Revision: observed.Revision, RegistrationRevision: observed.RegistrationRevision, Type: "approve_verification", Confirmed: true, CandidateID: candidate.ID, Verification: descriptor}
+		if _, err := registrationQualificationJSON(ctx, handler, http.MethodPost, "/api/v4/registration-authoring/command", approval, http.StatusAccepted); err != nil {
+			return RegistrationQualificationResult{}, errors.New("verification dependency review failed")
+		}
+		observed, err = registrationQualificationWait(ctx, handler, "observation")
+		if err != nil {
+			return RegistrationQualificationResult{}, err
+		}
+		draft.Flow.HumanVerification = descriptor
+		draft.Flow.Steps = draft.Flow.Steps[:len(draft.Flow.Steps)-1]
+	}
 	draftCommand := registrationAuthoringCommandRequest{
 		Revision: observed.Revision, RegistrationRevision: observed.RegistrationRevision, Type: "draft", Draft: &draft,
 	}
@@ -241,7 +272,10 @@ func runRegistrationQualificationJourney(ctx context.Context, options Registrati
 		return RegistrationQualificationResult{}, errors.New("finish registration qualification worker")
 	}
 	pending, err := registrationQualificationWait(ctx, handler, "transaction_review")
-	if err != nil || pending.BrowserTransaction == nil || pending.BrowserTransaction.Transaction == nil {
+	if err != nil {
+		return RegistrationQualificationResult{}, err
+	}
+	if pending.BrowserTransaction == nil || pending.BrowserTransaction.Transaction == nil {
 		return RegistrationQualificationResult{}, errors.New("registration qualification transaction is unavailable")
 	}
 	transactionSnapshot, err := registrationQualificationTransaction(ctx, handler)
@@ -364,7 +398,7 @@ func registrationQualificationWait(ctx context.Context, handler http.Handler, st
 			return current, nil
 		}
 		if current.RegistrationAuthoring != nil && (current.RegistrationAuthoring.State == "failed" || current.RegistrationAuthoring.State == "canceled") {
-			return Response{}, errors.New("registration qualification wizard failed closed")
+			return Response{}, fmt.Errorf("registration qualification wizard failed closed awaiting %s: %s", state, current.RegistrationAuthoring.FailureCode)
 		}
 		select {
 		case <-ctx.Done():

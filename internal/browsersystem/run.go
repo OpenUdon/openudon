@@ -241,8 +241,8 @@ func nodeTests(ctx context.Context, root string, live bool) (Tests, error) {
 	args := []string{"node", "--test", "--test-reporter=tap"}
 	var extra []string
 	if live {
-		args = append(args, "dist/test/registration-live.test.js", "dist/test/registration-inputs-live.test.js")
-		extra = []string{"BROWSERDRIVER_REGISTRATION_LIVE_TEST=1"}
+		args = append(args, "dist/test/registration-live.test.js", "dist/test/registration-inputs-live.test.js", "dist/test/verification-live.test.js")
+		extra = []string{"BROWSERDRIVER_REGISTRATION_LIVE_TEST=1", "BROWSERDRIVER_VERIFICATION_LIVE_TEST=1"}
 	} else {
 		entries, err := filepath.Glob(filepath.Join(root, "dist/test/*.test.js"))
 		if err != nil {

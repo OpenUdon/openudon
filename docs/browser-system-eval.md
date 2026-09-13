@@ -135,6 +135,20 @@ run configuration nor public evidence stores response values.
 
 ## Focused development
 
+The verification candidate advances `registration_ui_handoff` to BRP/call 1.2,
+author-session/result v4, transaction v4 and driver v6. It reviews a synthetic
+Turnstile widget through the actual iCoT UI, packages it, and submits once through
+the private input form and trusted executor. The native synthetic driver stage
+also exercises all three providers and both activation modes. Existing native
+report versions and historical proofs remain verifiable. Provider-network test
+keys and production acceptance remain separate.
+
+Before publication, the UI-only development test can consume an explicitly
+prepared Browsertools binary through `OPENUDON_TEST_BROWSERTOOLS_EXECUTABLE`
+and run `TestBrowserSystemVerificationRegistrationUI` with the
+`browser_system_qualification` build tag. This neither qualifies nor adopts a
+runtime; complete acceptance still builds frozen published sources.
+
 ```sh
 make fast
 make smoke OPENUDON_BROWSER_SYSTEM_UDON_REPO=/absolute/prepared/udon \

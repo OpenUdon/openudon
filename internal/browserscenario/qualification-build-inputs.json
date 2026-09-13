@@ -29,7 +29,7 @@
       "name": "browsertools",
       "module": "github.com/OpenUdon/browsertools",
       "replacement": "../browsertools",
-      "commit": "ec0b9e9d6ca1f6e5e95b81b898f3be636435f471"
+      "commit": "995749df47b14d902f1a8ccbbb2bcf4725059175"
     },
     {
       "name": "evidence",
@@ -83,7 +83,7 @@
       "name": "uws",
       "module": "github.com/OpenUdon/uws",
       "replacement": "../uws",
-      "commit": "9ff877ebce55fba345b7d59ebb838db521822c67"
+      "commit": "b6e62fcc91338c60d72d606571e5cc9118a8a8ad"
     }
   ]
 }

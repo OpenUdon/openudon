@@ -173,6 +173,11 @@ func (q *registrationBrowserQualification) act(path string, data []byte) error {
 			return errors.New("input")
 		}
 		switch request.Type {
+		case "approve_verification":
+			if err := q.page.GetByRole("checkbox", playwright.PageGetByRoleOptions{Name: "I approve these verification dependencies and this widget/form binding.", Exact: playwright.Bool(true)}).Check(); err != nil {
+				return err
+			}
+			return q.button("Approve verification traffic").Click()
 		// These are closed fixture commands; no page text enters stage codes.
 		case "preview":
 			if request.Preview == nil {

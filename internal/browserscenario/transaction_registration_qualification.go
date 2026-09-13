@@ -26,6 +26,7 @@ import (
 	"github.com/OpenUdon/openudon/internal/registrationattestation"
 	"github.com/OpenUdon/openudon/internal/synthesize"
 	"github.com/OpenUdon/openudon/internal/trustedrunner"
+	"github.com/OpenUdon/openudon/internal/udonreport"
 )
 
 // BRPQualificationEvidence is path-free evidence from one exact real
@@ -59,7 +60,7 @@ type BRPQualificationEvidence struct {
 }
 
 // RunBRPQualification exercises only a deterministic loopback registration
-// page. Authoring remains GET/HEAD-only; the separately attested runtime path
+// page. Application authoring remains GET/HEAD-only; reviewed provider traffic is separate; the separately attested runtime path
 // performs exactly one approved submit against the same fixture.
 func RunBRPQualification(ctx context.Context, options Options) (result BRPQualificationEvidence, resultErr error) {
 	if ctx == nil {
@@ -152,7 +153,7 @@ func (executor *realExecutor) runBRPQualification(ctx context.Context, environme
 		return evidence, fmt.Errorf("BRP qualification baseline promotion failed: %s", closedPackageLifecycleFailure(err))
 	}
 	qualifiedUI, err := icotui.RunRegistrationQualification(ctx, icotui.RegistrationQualificationOptions{
-		Typed:    true,
+		Typed: true, Verification: true,
 		RepoRoot: environment.RepoRoot, BrowsertoolsExecutable: executor.browsertools,
 		ExampleDir: exampleDir, PrivateRoot: privateRoot, ScratchParent: scratch, StoreDir: store, Scope: "qualification/brp",
 		ProfileID: "qualification_brp", InitialURL: fixture.URL(), Origin: fixture.Origin(), Now: func() time.Time { return time.Now().UTC() },
@@ -166,12 +167,12 @@ func (executor *realExecutor) runBRPQualification(ctx context.Context, environme
 	authoringNetwork := fixture.Evidence()
 	if len(authoringNetwork.Methods) != 2 || authoringNetwork.Methods[0] != http.MethodGet || authoringNetwork.Methods[1] != http.MethodHead ||
 		authoringNetwork.MutationRequests != 0 || authoringNetwork.AccountCreated {
-		return evidence, errors.New("BRP producer exceeded its GET/HEAD-only authority")
+		return evidence, errors.New("BRP producer exceeded its application GET/HEAD authority")
 	}
 	reviewed := *qualifiedUI.Snapshot.Transaction
-	if reviewed.Version != browsertransaction.VersionV3 || reviewed.Session != "" || reviewed.State != browsertransaction.StatePromoted ||
-		reviewed.Provenance.ResultVersion != browsertransaction.ResultRegistrationAuthoringV3 {
-		return evidence, errors.New("BRP iCoT transaction-v3 transition failed")
+	if reviewed.Version != browsertransaction.VersionV4 || reviewed.Session != "" || reviewed.State != browsertransaction.StatePromoted ||
+		reviewed.Provenance.ResultVersion != browsertransaction.ResultRegistrationAuthoringV4 {
+		return evidence, errors.New("BRP iCoT transaction-v4 transition failed")
 	}
 	promoted, err := packagepipeline.ReadCurrent(ctx, store)
 	if err != nil {
@@ -256,7 +257,20 @@ func (executor *realExecutor) runBRPQualification(ctx context.Context, environme
 	})
 	inputErr := <-inputDone
 	if runErr != nil {
-		return evidence, errors.New("BRP attested runtime execution failed")
+		code := "report_unavailable"
+		if run != nil && run.RunEvidencePath != "" {
+			if _, verifyErr := trustedrunner.VerifyRunEvidenceFile(run.RunEvidencePath); verifyErr == nil {
+				data, _, readErr := evidencefile.ReadRegular(run.RunEvidencePath, evidencefile.DefaultMaxBytes)
+				var failed trustedrunner.RunEvidence
+				if readErr == nil && evidencefile.DecodeStrict(data, &failed) == nil && failed.Executor.ReportPath != "" {
+					data, _, readErr = evidencefile.ReadRegular(filepath.Join(run.WorkDir, failed.Executor.ReportPath), evidencefile.DefaultMaxBytes)
+					if report, decodeErr := udonreport.Decode(data); readErr == nil && decodeErr == nil && report.Status == "error" {
+						code = report.ErrorCode
+					}
+				}
+			}
+		}
+		return evidence, fmt.Errorf("BRP attested runtime execution failed (%s): %w; private input: %v", code, runErr, inputErr)
 	}
 	if inputErr != nil {
 		return evidence, inputErr
@@ -284,7 +298,7 @@ func (executor *realExecutor) runBRPQualification(ctx context.Context, environme
 		network.POSTRequests != 1 || network.MutationRequests != 1 || !network.AccountCreated {
 		return evidence, errors.New("BRP runtime exceeded its one-POST authority")
 	}
-	submitApproved := runEvidence.Browser != nil && runEvidence.Browser.Protocol == "v5" &&
+	submitApproved := runEvidence.Browser != nil && runEvidence.Browser.Protocol == "v6" &&
 		len(runEvidence.Browser.ApprovedRegistration) == 1 && runEvidence.Browser.ApprovedRegistration[0] == runtimeAuthority.operation
 	evidence = BRPQualificationEvidence{
 		ProducerResultSHA256: taggedQualificationSHA256(reviewed.Provenance.ResultSHA256), TransactionSHA256: taggedQualificationSHA256(qualifiedUI.Snapshot.TransactionSHA256),
@@ -421,7 +435,7 @@ func (fixture *registrationQualificationFixture) serveHTTP(writer http.ResponseW
 	}
 	fixture.mu.Unlock()
 	if request.Method == http.MethodPost && request.URL.Path == "/registration-complete" {
-		if err := request.ParseForm(); err != nil || request.Form.Get("email") != "dedicated-test@example.test" || request.Form.Get("password") != "qualification-password-value" || request.Form.Get("contact") != "Synthetic Å member" || request.Form.Get("kind") != "business" || request.Form.Get("company") != "Synthetic company" || request.Form.Get("phone") != "" || request.Form.Get("updates") != "" || request.Form.Get("quantity") != "0" || request.Form.Get("ratio") != "1e-7" {
+		if err := request.ParseForm(); err != nil || request.Form.Get("cf-turnstile-response") != "synthetic-verification-canary" || request.Form.Get("email") != "dedicated-test@example.test" || request.Form.Get("password") != "qualification-password-value" || request.Form.Get("contact") != "Synthetic Å member" || request.Form.Get("kind") != "business" || request.Form.Get("company") != "Synthetic company" || request.Form.Get("phone") != "" || request.Form.Get("updates") != "" || request.Form.Get("quantity") != "0" || request.Form.Get("ratio") != "1e-7" {
 			http.Error(writer, "invalid registration", http.StatusUnauthorized)
 			return
 		}
@@ -440,7 +454,7 @@ func (fixture *registrationQualificationFixture) serveHTTP(writer http.ResponseW
 	if request.Method == http.MethodHead {
 		return
 	}
-	_, _ = writer.Write([]byte(icotui.SyntheticRegistrationForm))
+	_, _ = writer.Write([]byte(icotui.SyntheticVerificationRegistrationForm))
 }
 
 func (fixture *registrationQualificationFixture) URL() string {
