@@ -9,10 +9,12 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"strings"
 	"sync/atomic"
 	"testing"
 	"time"
 
+	"github.com/OpenUdon/openudon/internal/icot/browserauthor"
 	"github.com/OpenUdon/openudon/internal/processgroup"
 )
 
@@ -27,6 +29,50 @@ func TestBrowserSystemTypedRegistrationUI(t *testing.T) {
 }
 func TestBrowserSystemVerificationRegistrationUI(t *testing.T) {
 	testBrowserSystemRegistrationPackage(t, false, true, true)
+}
+
+func TestBrowserSystemRegistrationFailureDiagnosticUI(t *testing.T) {
+	fake := &fakeEngine{}
+	session := newFakeRegistrationAuthoringSession()
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+	handler, err := NewHandler(HandlerConfig{
+		Context: ctx, Engine: fake, Snapshot: fake.snapshot, ExampleDir: "/tmp/example",
+		Token: testToken, AccessCode: registrationQualificationCode, Authority: testAuthority, PrivateRoot: "/tmp/private",
+		BrowserTransactions: newFakeBrowserTransactions(),
+		StartRegistration: func(context.Context, browserauthor.RegistrationConfig) (RegistrationAuthoringSession, error) {
+			return session, nil
+		},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	initial := currentResponse(t, handler)
+	q, err := newRegistrationBrowserQualification(ctx, handler)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() {
+		if err := q.Close(); err != nil {
+			t.Fatal(err)
+		}
+	}()
+	if err := q.act("/api/v4/registration-authoring/start", []byte(registrationStartBody(initial, "https://app.example.test/register"))); err != nil {
+		t.Fatal(err)
+	}
+	session.events <- browserauthor.RegistrationEvent{State: "failed", ErrorCode: "worker_failed", Diagnostic: "browser_failure"}
+	session.close()
+	for ctx.Err() == nil {
+		status, err := q.page.Locator("#registration-authoring-status").InnerText()
+		if err != nil {
+			t.Fatal(err)
+		}
+		if strings.Contains(status, "Worker diagnostic: browser_failure.") && strings.Contains(status, "consumed") {
+			return
+		}
+		time.Sleep(25 * time.Millisecond)
+	}
+	t.Fatal("validated worker failure did not reach the rendered UI")
 }
 func testBrowserSystemRegistrationPackage(t *testing.T, control bool, typed ...bool) {
 	isTyped := len(typed) != 0 && typed[0]

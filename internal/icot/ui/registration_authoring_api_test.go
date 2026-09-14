@@ -263,12 +263,17 @@ func TestRegistrationAuthoringAPIRetainsTerminalFailureOutsideEventStream(t *tes
 
 func TestRegistrationAuthoringAPITerminalFailureCodeIsClosedAndRetained(t *testing.T) {
 	for _, test := range []struct {
-		name string
-		code string
-		want string
+		name       string
+		code       string
+		want       string
+		diagnostic string
+		retained   string
+		teardown   bool
 	}{
-		{name: "known", code: "worker_exit", want: "worker_exit"},
-		{name: "unknown", code: "private path and do-not-retain", want: "worker_failed"},
+		{name: "known", code: "worker_failed", want: "worker_failed", diagnostic: "browser_failure", retained: "browser_failure"},
+		{name: "teardown", code: "worker_failed", want: "worker_teardown", diagnostic: "invalid_observation", retained: "invalid_observation", teardown: true},
+		{name: "warning", code: "worker_failed", want: "worker_failed", diagnostic: "synthetic_fixture"},
+		{name: "unknown", code: "private path and do-not-retain", want: "worker_failed", diagnostic: "do-not-retain"},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			fake := &fakeEngine{}
@@ -288,11 +293,17 @@ func TestRegistrationAuthoringAPITerminalFailureCodeIsClosedAndRetained(t *testi
 			if response := doRequest(handler, http.MethodPost, "/api/v4/registration-authoring/start", registrationStartBody(initial, "https://app.example.test/register"), "application/json", true); response.Code != http.StatusAccepted {
 				t.Fatalf("start = %d %s", response.Code, response.Body.String())
 			}
-			session.events <- browserauthor.RegistrationEvent{State: "failed", ErrorCode: test.code}
+			session.events <- browserauthor.RegistrationEvent{State: "failed", ErrorCode: test.code, Diagnostic: test.diagnostic}
+			if test.teardown {
+				session.mu.Lock()
+				session.terminal = browserauthor.RegistrationEvent{State: "failed", ErrorCode: "worker_teardown"}
+				session.terminalSet = true
+				session.mu.Unlock()
+			}
 			session.close()
 			failed := waitForRegistrationState(t, handler, "failed")
 			encoded := mustJSON(t, failed)
-			if failed.RegistrationAuthoring.FailureCode != test.want || !failed.RegistrationAuthoring.AttemptConsumed || strings.Contains(encoded, "private path") || strings.Contains(encoded, "do-not-retain") {
+			if failed.RegistrationAuthoring.WorkerDiagnostic != test.retained || failed.RegistrationAuthoring.ContainmentFailed != test.teardown || failed.RegistrationAuthoring.FailureCode != test.want || !failed.RegistrationAuthoring.AttemptConsumed || strings.Contains(encoded, "private path") || strings.Contains(encoded, "do-not-retain") {
 				t.Fatalf("terminal failure = %s", encoded)
 			}
 			if response := doRequest(handler, http.MethodPost, "/api/v4/registration-authoring/start", registrationStartBody(failed, "https://app.example.test/register"), "application/json", true); response.Code != http.StatusConflict || !strings.Contains(response.Body.String(), "registration_authorization_consumed") {

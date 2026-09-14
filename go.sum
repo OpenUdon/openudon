@@ -20,8 +20,8 @@ github.com/OpenUdon/browsertools v0.0.0-20260912050652-dadd7fbbdb7b h1:vFyYHWC3o
 github.com/OpenUdon/browsertools v0.0.0-20260912050652-dadd7fbbdb7b/go.mod h1:deFKQes5V32x2TzSJZIfnaqO1erGQrzDeXqk4yYd2yM=
 github.com/OpenUdon/browsertools v0.0.0-20260912051048-ec0b9e9d6ca1 h1:tTq6JpdoOSyOP08O7tFLNHvxrVelrpZ8/UkHTyQ6uyU=
 github.com/OpenUdon/browsertools v0.0.0-20260912051048-ec0b9e9d6ca1/go.mod h1:deFKQes5V32x2TzSJZIfnaqO1erGQrzDeXqk4yYd2yM=
-github.com/OpenUdon/browsertools v0.0.0-20260913142333-995749df47b1 h1:OTYDRZEVVAXVQTVYBAJXl493UWzwxNgwdTFJyATycac=
-github.com/OpenUdon/browsertools v0.0.0-20260913142333-995749df47b1/go.mod h1:CkpVoLXfLq/LkxIwgqWf4+WnQRrhxjcMztcGChPOQow=
+github.com/OpenUdon/browsertools v0.0.0-20260914170427-e5a49ff68235 h1:n2U3eqcNhqRUHPHi3HEnokA3orcp8wQFekZsvqVUwNg=
+github.com/OpenUdon/browsertools v0.0.0-20260914170427-e5a49ff68235/go.mod h1:CkpVoLXfLq/LkxIwgqWf4+WnQRrhxjcMztcGChPOQow=
 github.com/OpenUdon/evidence v0.0.0-20260815084845-0c17258b9736 h1:m66ctgDRK/pv45OfAyrKmjE/XmgehlAXYCCjYK4V1Tw=
 github.com/OpenUdon/evidence v0.0.0-20260815084845-0c17258b9736/go.mod h1:AUZKUpFNDa5j56Vpi64YR1PkcK8JYZJSEGjNkZNdMFI=
 github.com/OpenUdon/googlediscovery v0.0.0-20260520203137-c02129a009fc h1:drM11+jXvEjjpuWisSFurkQXvqrWO1o4PDIwLv1HqLI=

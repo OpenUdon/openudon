@@ -1519,6 +1519,7 @@ const renderRegistrationAuthoring = (payload) => {
 		: "Configure package scope, restrictive scratch, and a generation store when launching iCoT before registration authoring.");
 	const statusDetails = [status];
 	if (authoring?.failure_code) statusDetails.push(`Fixed failure class: ${authoring.failure_code}.`);
+	if (authoring?.worker_diagnostic) statusDetails.push(`Worker diagnostic: ${authoring.worker_diagnostic}.`);
 	if (authoring?.attempt_consumed && !status.includes("consumed its registration-authoring attempt")) statusDetails.push("This iCoT process has consumed its one registration-authoring attempt; do not launch again without a fresh preflight, authorization, and process.");
 	showText("registration-authoring-status", statusDetails.join(" "));
 	const pendingCandidate = ["review_ready", "transaction_review", "adopted"].includes(authoring?.state);

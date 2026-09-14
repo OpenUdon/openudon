@@ -38,3 +38,17 @@ The existing BRP 1.1 vocabulary supports scalar inputs and one submit. Files,
 arbitrary widgets, multi-POST wizards and native spinbutton locators need future
 public contracts. Numeric values can use supported textbox locators. W8M is a
 consumer test case; the editor and runtime contain no W8M-specific rules.
+
+## Closed authoring failures
+
+The experimental iCoT v4 snapshot retains a validated worker terminal code in
+`registration_authoring.worker_diagnostic`, separately from the controller's
+`failure_code`. The UI shows both after a failed attempt. Unknown diagnostic
+text, observation warnings used as failures and raw worker stderr are excluded.
+A later process-tree teardown failure remains the controlling failure while
+the earlier validated worker code is retained when available. Neither field
+authorizes a retry or creates a candidate, package or successful authoring report.
+
+Verification authoring supports form-property collisions such as a hidden field
+named `action` through Browsertools' native form binding. DOM-API collisions
+that the installed accessibility engine cannot inspect remain closed failures.

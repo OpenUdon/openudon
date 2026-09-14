@@ -64,6 +64,7 @@ func (s *Server) serveRegistrationAuthoringStart(w http.ResponseWriter, r *http.
 
 func (s *Server) consumeRegistrationAuthoring(session RegistrationAuthoringSession, start browserauthor.RegistrationCommand, startedAt time.Time) {
 	terminalState, terminalCode := "", ""
+	terminalDiagnostic := ""
 	resultReady := false
 	for event := range session.Events() {
 		s.mu.Lock()
@@ -76,6 +77,7 @@ func (s *Server) consumeRegistrationAuthoring(session RegistrationAuthoringSessi
 			continue
 		}
 		state := &RegistrationAuthoringState{
+			WorkerDiagnostic:      registrationWorkerDiagnostic(event.Diagnostic),
 			VerificationAuthority: cloneRegistrationPublic(event.VerificationAuthority),
 			State:                 event.State, Phase: event.Phase, Bounds: cloneRegistrationAuthoringBounds(event.Bounds),
 			Observation: cloneRegistrationAuthoringObservation(event.Observation),
@@ -120,6 +122,9 @@ func (s *Server) consumeRegistrationAuthoring(session RegistrationAuthoringSessi
 		}
 		if event.State == "failed" || event.State == "canceled" {
 			terminalState, terminalCode = event.State, registrationAuthoringFailureCode(event.ErrorCode)
+			if state.WorkerDiagnostic != "" {
+				terminalDiagnostic = state.WorkerDiagnostic
+			}
 			state.State = "canceling"
 			state.Message = "The registration worker stopped; waiting for process-tree teardown to complete."
 		}
@@ -142,6 +147,9 @@ func (s *Server) consumeRegistrationAuthoring(session RegistrationAuthoringSessi
 		if terminalEvent.State == "failed" || terminalEvent.State == "canceled" {
 			terminalState = terminalEvent.State
 			terminalCode = registrationAuthoringFailureCode(terminalEvent.ErrorCode)
+			if code := registrationWorkerDiagnostic(terminalEvent.Diagnostic); code != "" {
+				terminalDiagnostic = code
+			}
 		}
 	}
 	s.registrationSession = nil
@@ -157,7 +165,7 @@ func (s *Server) consumeRegistrationAuthoring(session RegistrationAuthoringSessi
 		if containmentFailed {
 			s.registrationContainmentFailed = true
 		}
-		s.setRegistrationAuthoringLocked(&RegistrationAuthoringState{State: state, Message: message, FailureCode: failureCode, ContainmentFailed: containmentFailed, StartedAt: startedAt.Format(time.RFC3339), UpdatedAt: updatedAt})
+		s.setRegistrationAuthoringLocked(&RegistrationAuthoringState{State: state, Message: message, FailureCode: failureCode, WorkerDiagnostic: terminalDiagnostic, ContainmentFailed: containmentFailed, StartedAt: startedAt.Format(time.RFC3339), UpdatedAt: updatedAt})
 		s.registrationCandidate = nil
 		s.clearRegistrationDraftLocked()
 		_ = s.updateRevisionLocked()
@@ -409,9 +417,17 @@ func (s *Server) setRegistrationAuthoringLocked(state *RegistrationAuthoringStat
 			state.VerificationAuthority = cloneRegistrationPublic(s.registrationAuthoring.VerificationAuthority)
 		}
 		state.FailureCode = registrationAuthoringFailureCode(state.FailureCode)
+		state.WorkerDiagnostic = registrationWorkerDiagnostic(state.WorkerDiagnostic)
 		state.AttemptConsumed = s.registrationAttemptConsumed
 	}
 	s.registrationAuthoring = state
+}
+
+func registrationWorkerDiagnostic(code string) string {
+	if registrationauthorsession.ValidTerminalDiagnostic(code) {
+		return code
+	}
+	return ""
 }
 
 func registrationAuthoringFailureCode(code string) string {

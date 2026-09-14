@@ -193,6 +193,7 @@ type RegistrationAuthoringState struct {
 	State                 string                                      `json:"state"`
 	Message               string                                      `json:"message,omitempty"`
 	FailureCode           string                                      `json:"failure_code,omitempty"`
+	WorkerDiagnostic      string                                      `json:"worker_diagnostic,omitempty"`
 	Phase                 string                                      `json:"phase,omitempty"`
 	Bounds                *registrationauthorsession.Bounds           `json:"bounds,omitempty"`
 	Observation           *registrationauthorsession.Observation      `json:"observation,omitempty"`

@@ -305,10 +305,16 @@ func (session *RegistrationSession) run(ctx context.Context, config Registration
 			return
 		}
 		if response.Type == "diagnostic" {
-			if response.Diagnostic == nil || !registrationauthorsession.ValidDiagnostic(response.Diagnostic.Code) {
+			if response.Diagnostic == nil || !registrationauthorsession.ValidTerminalDiagnostic(response.Diagnostic.Code) {
 				session.publishTerminal(RegistrationEvent{State: "failed", ErrorCode: "malformed_diagnostic"})
 			} else {
-				session.publishTerminal(RegistrationEvent{State: "failed", Diagnostic: response.Diagnostic.Code, ErrorCode: "worker_failed"})
+				event := RegistrationEvent{State: "failed", Diagnostic: response.Diagnostic.Code, ErrorCode: "worker_failed"}
+				if event.Diagnostic == "teardown_failure" {
+					event.ErrorCode = "worker_teardown"
+				} else if event.Diagnostic == "canceled" {
+					event.State, event.ErrorCode = "canceled", ""
+				}
+				session.publishTerminal(event)
 			}
 			return
 		}
@@ -400,6 +406,10 @@ func (session *RegistrationSession) publish(ctx context.Context, event Registrat
 
 func (session *RegistrationSession) publishTerminal(event RegistrationEvent) {
 	session.mu.Lock()
+	if event.ErrorCode == "worker_teardown" && event.Diagnostic == "" {
+		// Keep the validated first failure when process-tree teardown also fails.
+		event.Diagnostic = session.terminal.Diagnostic
+	}
 	session.terminal = event
 	session.terminalSet = true
 	session.mu.Unlock()
