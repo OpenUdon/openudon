@@ -101,8 +101,13 @@ func TestPackageFromIntentBuildsBrowserAuthenticationWorkflow(t *testing.T) {
 	example := t.TempDir()
 	authRel := "browser-authentication/member.yaml"
 	browserRel := "browser-profiles/member.json"
-	authData := synthesizeBrowserAuthenticationFixture()
-	browserData := synthesizeBrowserProfileFixture(false, true, "item")
+	// This package path validates against the real clock. Keep its positive
+	// fixtures current; the validator tests above retain fixed expiry boundaries.
+	verifiedAt := time.Now().UTC().Truncate(time.Second).Add(-24 * time.Hour)
+	fixtureTime := verifiedAt.Format(time.RFC3339)
+	expiresAt := verifiedAt.Add(30 * 24 * time.Hour).Format(time.RFC3339)
+	authData := []byte(strings.ReplaceAll(string(synthesizeBrowserAuthenticationFixture()), "2026-08-15T00:00:00Z", fixtureTime))
+	browserData := []byte(strings.ReplaceAll(string(synthesizeBrowserProfileFixture(false, true, "item")), "2026-08-15T00:00:00Z", fixtureTime))
 	mustWriteSynthesizeTestFile(t, filepath.Join(example, filepath.FromSlash(authRel)), authData)
 	mustWriteSynthesizeTestFile(t, filepath.Join(example, filepath.FromSlash(browserRel)), browserData)
 	authDigest := sha256.Sum256(authData)
@@ -124,8 +129,8 @@ func TestPackageFromIntentBuildsBrowserAuthenticationWorkflow(t *testing.T) {
 	mustWriteSynthesizeTestFile(t, filepath.Join(example, "workflows", "intent.hcl"), []byte(intentHCL))
 	project := buildMatrixProject("Member Link", "OpenAPI: none required\n\n- Use reviewed browser profiles for this UI-only workflow.", "- browser and browser_authentication are allowed only through reviewed profiles and the trusted Udon runtime.\n- Browser authentication requires explicit approval and a sandbox proof run.", "- No function runtime is required.", "- Use symbolic runtime bindings member_username and member_password; never store values.")
 	mustWriteSynthesizeTestFile(t, filepath.Join(example, "project.md"), []byte(project))
-	browserReview := `{"version":"openudon.browser-source-review.v1","route":"browser","session_posture":"none","sources":[{"id":"member","target_path":"` + browserRel + `","sha256":"` + hex.EncodeToString(browserDigest[:]) + `","actions":["read_status"],"origins":["https://example.test"],"lifecycle":"active","expires_at":"2026-09-14T00:00:00Z","login_state_required":true,"provenance":"synthetic_fixture"}]}`
-	authReview := `{"version":"openudon.browser-authentication-review.v1","authentication_approvals":["authenticate"],"session_bindings":[{"step":"authenticate","session":"member_portal"},{"step":"read","session":"member_portal"}],"sources":[{"id":"member","target_path":"` + authRel + `","sha256":"` + hex.EncodeToString(authDigest[:]) + `","title":"Member login","flows":["member_login_push"],"flow_credential_slots":{"member_login_push":["password","username"]},"origins":["https://example.test","https://login.example.test"],"lifecycle":"active","expires_at":"2026-09-14T00:00:00Z","provenance":"synthetic_fixture"}]}`
+	browserReview := `{"version":"openudon.browser-source-review.v1","route":"browser","session_posture":"none","sources":[{"id":"member","target_path":"` + browserRel + `","sha256":"` + hex.EncodeToString(browserDigest[:]) + `","actions":["read_status"],"origins":["https://example.test"],"lifecycle":"active","expires_at":"` + expiresAt + `","login_state_required":true,"provenance":"synthetic_fixture"}]}`
+	authReview := `{"version":"openudon.browser-authentication-review.v1","authentication_approvals":["authenticate"],"session_bindings":[{"step":"authenticate","session":"member_portal"},{"step":"read","session":"member_portal"}],"sources":[{"id":"member","target_path":"` + authRel + `","sha256":"` + hex.EncodeToString(authDigest[:]) + `","title":"Member login","flows":["member_login_push"],"flow_credential_slots":{"member_login_push":["password","username"]},"origins":["https://example.test","https://login.example.test"],"lifecycle":"active","expires_at":"` + expiresAt + `","provenance":"synthetic_fixture"}]}`
 	mustWriteSynthesizeTestFile(t, filepath.Join(example, filepath.FromSlash(packageartifacts.BrowserSourceReviewPath)), []byte(browserReview))
 	mustWriteSynthesizeTestFile(t, filepath.Join(example, filepath.FromSlash(packageartifacts.BrowserAuthenticationReviewPath)), []byte(authReview))
 	result, report, err := PackageFromIntent(context.Background(), Options{ExampleDir: example})
