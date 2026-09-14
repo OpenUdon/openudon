@@ -527,7 +527,7 @@ func registrationQualificationRuntimeEnvironment(udonPath string) []string {
 	values := []string{
 		"OPENUDON_EXECUTOR=" + udonPath,
 	}
-	for _, name := range []string{"PATH", "HOME", "TMPDIR", "TMP", "TEMP", "DISPLAY", "WAYLAND_DISPLAY", "XAUTHORITY", "DBUS_SESSION_BUS_ADDRESS", "LANG", "LC_ALL", "LC_CTYPE", "PLAYWRIGHT_BROWSERS_PATH"} {
+	for _, name := range []string{"CHROME_DEVEL_SANDBOX", "PATH", "HOME", "TMPDIR", "TMP", "TEMP", "DISPLAY", "WAYLAND_DISPLAY", "XAUTHORITY", "DBUS_SESSION_BUS_ADDRESS", "LANG", "LC_ALL", "LC_CTYPE", "PLAYWRIGHT_BROWSERS_PATH"} {
 		if value := os.Getenv(name); value != "" {
 			values = append(values, name+"="+value)
 		}

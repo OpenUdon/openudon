@@ -9,6 +9,17 @@ import (
 	"github.com/OpenUdon/openudon/internal/synthesize"
 )
 
+func TestRegistrationQualificationEnvironmentPreservesSandbox(t *testing.T) {
+	t.Setenv("CHROME_DEVEL_SANDBOX", "/fixture/chrome_sandbox")
+	t.Setenv("UNRELATED_PROVIDER_SECRET", "must-not-be-inherited")
+	environment := strings.Join(registrationQualificationRuntimeEnvironment("/fixture/udon"), "\n")
+	if !strings.Contains(environment, "CHROME_DEVEL_SANDBOX=/fixture/chrome_sandbox") ||
+		!strings.Contains(environment, "OPENUDON_EXECUTOR=/fixture/udon") ||
+		strings.Contains(environment, "UNRELATED_PROVIDER_SECRET") {
+		t.Fatal("qualification environment lost sandbox configuration or inherited unrelated values")
+	}
+}
+
 func TestValidateBAPBCPQualificationEvidenceRejectsMissingDuplicateAndMalformedDigests(t *testing.T) {
 	valid := func(character string) string { return "sha256:" + strings.Repeat(character, 64) }
 	evidence := BAPBCPQualificationEvidence{
