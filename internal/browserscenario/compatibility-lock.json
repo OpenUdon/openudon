@@ -3,7 +3,7 @@
   "components": [
     {
       "name": "browserdriver",
-      "commit": "fb207237a00105d8e21d09ace96f32a1805055c8"
+      "commit": "46a8437b89e0c8eaa2f20f0412b3212df233ba3d"
     },
     {
       "name": "browsertools",
