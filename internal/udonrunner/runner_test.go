@@ -443,6 +443,9 @@ func TestRunBrowserInvocationIsExactAndAllowlisted(t *testing.T) {
 				ApprovedOperations:     []string{"read_dashboard"},
 				ApprovedAuthentication: []string{"authenticate_member"},
 			}
+			if tc.name == "local" {
+				config.Browser.DriverEnvironment = []string{"CHROME_DEVEL_SANDBOX", "HOME", "PATH"}
+			}
 			var invocation Invocation
 			result, err := Run(context.Background(), config, Options{
 				RepoRoot: t.TempDir(),
@@ -451,6 +454,7 @@ func TestRunBrowserInvocationIsExactAndAllowlisted(t *testing.T) {
 					"UDON_CREDENTIAL_MEMBER_PASSWORD=credential-value",
 					"UDON_BROWSER_SESSION_EXISTING_MEMBER=session-value",
 					"HOME=/trusted/home", "PATH=/trusted/bin",
+					"CHROME_DEVEL_SANDBOX=/trusted/chrome_sandbox",
 					"HTTP_PROXY=http://must-not-pass", "AWS_SECRET_ACCESS_KEY=must-not-pass", "SSH_AUTH_SOCK=/must-not-pass",
 				},
 				Invoke: func(_ context.Context, got Invocation) error { invocation = got; return nil },
@@ -483,7 +487,10 @@ func TestRunBrowserInvocationIsExactAndAllowlisted(t *testing.T) {
 			joined := strings.Join(invocation.Env, "\n")
 			requiredEnvironment := []string{"UDON_CREDENTIAL_MEMBER_PASSWORD=credential-value", "UDON_BROWSER_SESSION_EXISTING_MEMBER=session-value", "PATH=/trusted/bin"}
 			if tc.name == "local" {
-				requiredEnvironment = append(requiredEnvironment, "HOME=/trusted/home")
+				requiredEnvironment = append(requiredEnvironment, "HOME=/trusted/home", "CHROME_DEVEL_SANDBOX=/trusted/chrome_sandbox")
+				if !containsAdjacentArgs(invocation.Argv, "--browser-driver-env", "CHROME_DEVEL_SANDBOX") {
+					t.Fatal("sandbox helper environment was not forwarded to Udon's driver")
+				}
 			} else {
 				for _, forbiddenArg := range []string{"HOME", "PATH"} {
 					if containsAdjacentArgs(invocation.Argv, "-e", forbiddenArg) {
@@ -509,20 +516,24 @@ func TestRunBrowserInvocationIsExactAndAllowlisted(t *testing.T) {
 }
 
 func TestDockerBrowserRejectsDesktopAndSocketEnvironment(t *testing.T) {
-	config := validRunnerConfig(t)
-	driver := filepath.Join(t.TempDir(), "browserdriver")
-	mustWriteExecutable(t, driver)
-	config.Browser = &BrowserConfig{DriverPath: driver, DriverEnvironment: []string{"DISPLAY"}, Protocol: "v1"}
-	_, err := Run(context.Background(), config, Options{
-		RepoRoot: t.TempDir(),
-		Env:      []string{"OPENUDON_EXECUTOR=docker://udon:test", "DISPLAY=:99", "PATH=/trusted/bin"},
-		Invoke: func(context.Context, Invocation) error {
-			t.Fatal("Docker invoked with host display authority")
-			return nil
-		},
-	})
-	if err == nil || !strings.Contains(err.Error(), "unsupported host desktop") {
-		t.Fatalf("desktop environment error = %v", err)
+	for _, name := range []string{"DISPLAY", "CHROME_DEVEL_SANDBOX"} {
+		t.Run(name, func(t *testing.T) {
+			config := validRunnerConfig(t)
+			driver := filepath.Join(t.TempDir(), "browserdriver")
+			mustWriteExecutable(t, driver)
+			config.Browser = &BrowserConfig{DriverPath: driver, DriverEnvironment: []string{name}, Protocol: "v1"}
+			_, err := Run(context.Background(), config, Options{
+				RepoRoot: t.TempDir(),
+				Env:      []string{"OPENUDON_EXECUTOR=docker://udon:test", name + "=/host-specific", "PATH=/trusted/bin"},
+				Invoke: func(context.Context, Invocation) error {
+					t.Fatal("Docker invoked with a host browser binding")
+					return nil
+				},
+			})
+			if err == nil || !strings.Contains(err.Error(), "unsupported host desktop") {
+				t.Fatalf("host browser environment error = %v", err)
+			}
+		})
 	}
 }
 

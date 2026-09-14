@@ -34,15 +34,20 @@ func TestBuildBrowserRunConfigDerivesReviewedRuntimeContract(t *testing.T) {
 	}}
 	writeBrowserRuntimeFixture(t, root, intent)
 
-	config, err := buildBrowserRunConfig(root, driver, []string{"--headless"}, []string{"PATH=/trusted/bin", "HOME=/trusted/home", "HTTP_PROXY=http://must-not-pass"}, false)
+	environment := []string{"CHROME_DEVEL_SANDBOX=/trusted/chrome_sandbox", "PATH=/trusted/bin", "HOME=/trusted/home", "HTTP_PROXY=http://must-not-pass", "UNRELATED_SECRET=must-not-pass"}
+	config, err := buildBrowserRunConfig(root, driver, []string{"--headless"}, environment, false)
 	if err != nil {
 		t.Fatal(err)
 	}
 	if config.Protocol != "v3" || config.DriverPath != driver || !reflect.DeepEqual(config.DriverArgs, []string{"--headless"}) {
 		t.Fatalf("browser driver contract = %#v", config)
 	}
-	if !reflect.DeepEqual(config.DriverEnvironment, []string{"HOME", "PATH"}) {
+	if !reflect.DeepEqual(config.DriverEnvironment, []string{"CHROME_DEVEL_SANDBOX", "HOME", "PATH"}) {
 		t.Fatalf("browser driver environment = %#v", config.DriverEnvironment)
+	}
+	outer := strings.Join(outerRunnerEnvironment(environment, RunConfig{Browser: config}, "", ""), "\n")
+	if !strings.Contains(outer, "CHROME_DEVEL_SANDBOX=/trusted/chrome_sandbox") || strings.Contains(outer, "HTTP_PROXY") || strings.Contains(outer, "UNRELATED_SECRET") {
+		t.Fatal("outer runner lost sandbox configuration or inherited unrelated environment")
 	}
 	if want := []string{"authenticate_member"}; !reflect.DeepEqual(config.ApprovedAuthentication, want) {
 		t.Fatalf("authentication approvals = %#v, want %#v", config.ApprovedAuthentication, want)

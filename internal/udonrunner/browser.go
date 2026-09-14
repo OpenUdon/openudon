@@ -16,6 +16,7 @@ import (
 var browserBindingPattern = regexp.MustCompile(`^[A-Za-z][A-Za-z0-9_-]*$`)
 
 var browserDriverEnvironmentAllowlist = map[string]bool{
+	"CHROME_DEVEL_SANDBOX": true,
 	"PATH": true, "PATHEXT": true, "HOME": true, "TMPDIR": true, "TMP": true, "TEMP": true,
 	"SystemRoot": true, "SYSTEMROOT": true, "WINDIR": true, "COMSPEC": true,
 	"DISPLAY": true, "WAYLAND_DISPLAY": true, "XAUTHORITY": true, "DBUS_SESSION_BUS_ADDRESS": true,
