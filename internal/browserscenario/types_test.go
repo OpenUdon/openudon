@@ -258,7 +258,7 @@ func TestCompatibilityLockMatchesExactTypedBrowserRevisions(t *testing.T) {
 		components[component.Name] = component
 	}
 	if components["browserdriver"].Commit != "aefdd875633bbf880ec5138feed5fb227da896a0" ||
-		components["udon"].Commit != "b3ade222a0effb8c7f31884002b7e5bc69dc938e" ||
+		components["udon"].Commit != "2fb0982660dd788ac28eef2286a84d5c177c9390" ||
 		components["browsertools"].Commit != "995749df47b14d902f1a8ccbbb2bcf4725059175" ||
 		components["uws"].Commit != "b6e62fcc91338c60d72d606571e5cc9118a8a8ad" {
 		t.Fatalf("qualification component pins = %#v", components)
