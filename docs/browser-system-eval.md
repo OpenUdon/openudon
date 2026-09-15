@@ -214,3 +214,27 @@ This integration does not change public BRP/UWS, private input identity,
 registration authority, retry refusal or the W8M consumed-attempt history.
 Use one fresh affected smoke while developing, then full acceptance v2 for
 the frozen candidate before adopting new runtime bytes.
+
+## Browser-free qualification input identity
+
+`openudon browser-system-input --repo-root /absolute/immutable/openudon
+--udon-repo /absolute/prepared/udon` emits only version
+`openudon.browser-qualification-input.v1` and a SHA-256. It launches no browser,
+runs no qualification stage and grants no execution or cache authority. Errors
+are closed (`qualification_input`); paths and environment values are not output.
+
+The inventory binds all nineteen source closures and exact root locations,
+including nonignored edits; the running checker; Go, Node, npm and Git; Go dependency
+files from the union of default, iCoT UI and qualification-tag builds; installed npm/Playwright,
+Chromium and Go-driver trees; sandbox bytes; effective environment; host package,
+kernel/boot identity, namespace policy and display-authority contents. Sources
+and host state are checked again before returning. The qualification child
+requires umask 0022, matching existing permission-refusal fixtures. Rebuilding
+from a changed path or changing an input requires a new identity.
+
+A downstream consumer can use this identity in its own explicitly versioned
+reuse policy. W8M acceptance v3 owns its 24-hour native-cache admission, original
+execution provenance, maintained supervisor binding and three fresh consumer
+journeys. Native `browser-system-eval` remains a fresh three-repeat gate; its
+report version and verifier semantics are unchanged. Development-cache results
+remain ineligible for native qualification and cannot seed W8M's cache.

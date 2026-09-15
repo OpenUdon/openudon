@@ -47,6 +47,7 @@ func main() {
 		fmt.Fprintf(flag.CommandLine.Output(), "  build     regenerate workflow/UWS from an existing intent.hcl\n")
 		fmt.Fprintf(flag.CommandLine.Output(), "  browser-integration-eval run or verify provider-free cross-repo browser evidence\n")
 		fmt.Fprintf(flag.CommandLine.Output(), "  browser-system-eval run or verify the complete local browser engineering gate\n")
+		fmt.Fprintf(flag.CommandLine.Output(), "  browser-system-input hash exact qualification inputs without running browsers\n")
 		fmt.Fprintf(flag.CommandLine.Output(), "  browser-scenario-eval run or verify deterministic loopback/journey/public browser scenarios\n")
 		fmt.Fprintf(flag.CommandLine.Output(), "  browser-transaction-eval run or verify value-free cross-package transaction qualification evidence\n")
 		fmt.Fprintf(flag.CommandLine.Output(), "  catalog   inspect first-class provider catalog metadata\n")
@@ -102,6 +103,8 @@ func main() {
 		runBrowserSystemDev(flag.Args()[1:])
 	case "browser-system-eval":
 		runBrowserSystemEval(flag.Args()[1:])
+	case "browser-system-input":
+		runBrowserSystemInput(flag.Args()[1:])
 	case "browser-scenario-eval":
 		runBrowserScenarioEvalCommand(flag.Args()[1:])
 	case "browser-transaction-eval":
@@ -1325,6 +1328,26 @@ func printQuality(report *synthesize.QualityReport) {
 
 func nextActionForQualityCheck(code string) string {
 	return qualityremediation.NextAction(code)
+}
+
+func runBrowserSystemInput(args []string) {
+	fs := flag.NewFlagSet("browser-system-input", flag.ExitOnError)
+	root := fs.String("repo-root", "", "Exact immutable OpenUdon source root")
+	udon := fs.String("udon-repo", "", "Exact immutable Udon source root")
+	fs.Parse(args)
+	if fs.NArg() != 0 || *root == "" || *udon == "" {
+		os.Exit(2)
+	}
+	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer cancel()
+	input, err := browsersystem.QualificationInput(ctx, *root, *udon)
+	if err != nil {
+		fmt.Fprintln(os.Stderr, "browser-system-input: qualification_input")
+		os.Exit(1)
+	}
+	if json.NewEncoder(os.Stdout).Encode(input) != nil {
+		os.Exit(1)
+	}
 }
 
 func runBrowserSystemEval(args []string) {

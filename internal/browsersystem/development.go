@@ -243,6 +243,10 @@ func RunDevelopment(ctx context.Context, o DevelopmentOptions) (report *Developm
 // toolchain files, the running checker, both Chromium distributions and sandbox.
 // Environment values and local paths are hashed, never written to the report.
 func developmentInput(ctx context.Context, root, udon string) (digest string, resultErr error) {
+	return inputInventory(ctx, root, udon, false)
+}
+
+func inputInventory(ctx context.Context, root, udon string, qualification bool) (digest string, resultErr error) {
 	finish := browsercheck.Span(ctx, "development_inputs")
 	defer func() { finish(resultErr) }()
 	ss, err := sources(ctx, root, udon, true)
@@ -268,7 +272,11 @@ func developmentInput(ctx context.Context, root, udon string) (digest string, re
 		values[path] = hash(append([]byte(fmt.Sprint(info.Mode())), b...))
 		return nil
 	}
-	for _, name := range []string{"go", "node", "npm"} {
+	tools := []string{"go", "node", "npm"}
+	if qualification {
+		tools = append(tools, "git")
+	}
+	for _, name := range tools {
 		path, err := exec.LookPath(name)
 		if err != nil {
 			return "", errors.New("development_runtime")
@@ -397,40 +405,8 @@ func developmentInput(ctx context.Context, root, udon string) (digest string, re
 		}
 		values[path] = d
 	}
-	seen := map[string]bool{}
-	for _, repo := range []string{root, udon, filepath.Join(filepath.Dir(root), "browsertools")} {
-		data, err := command(ctx, repo, []string{"go", "list", "-deps", "-test", "-json", "./..."}, nil)
-		if err != nil {
-			return "", errors.New("development_go_dependencies")
-		}
-		decoder := json.NewDecoder(bytes.NewReader(data))
-		for {
-			var pkg struct {
-				Dir                                                                        string
-				GoFiles, CgoFiles, CFiles, CXXFiles, HFiles, SFiles, SysoFiles, EmbedFiles []string
-			}
-			err = decoder.Decode(&pkg)
-			if err == io.EOF {
-				break
-			}
-			if err != nil {
-				return "", err
-			}
-			for _, files := range [][]string{pkg.GoFiles, pkg.CgoFiles, pkg.CFiles, pkg.CXXFiles, pkg.HFiles, pkg.SFiles, pkg.SysoFiles, pkg.EmbedFiles} {
-				for _, name := range files {
-					path := name
-					if !filepath.IsAbs(path) {
-						path = filepath.Join(pkg.Dir, name)
-					}
-					if !seen[path] {
-						if addFile(path) != nil {
-							return "", errors.New("development_go_dependencies")
-						}
-						seen[path] = true
-					}
-				}
-			}
-		}
+	if err := addInputGoDependencies(ctx, root, udon, qualification, addFile); err != nil {
+		return "", err
 	}
 	after, err := sources(ctx, root, udon, true)
 	if err != nil {
