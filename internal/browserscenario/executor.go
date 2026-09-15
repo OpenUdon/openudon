@@ -203,9 +203,10 @@ func (executor *realExecutor) executeLoopback(ctx context.Context, manifest Mani
 		Outputs: scenarioAuthorOutputs(manifest.Outputs), Fault: manifest.Fault, Now: time.Now,
 	})
 	if authorErr != nil {
+		result = appendAuthoringFailure(result, authorErr)
 		fixture.Close()
 		_ = os.RemoveAll(caseRoot)
-		return appendFailure(result, "authoring_v2", "authoring_failed")
+		return result
 	}
 	if manifest.Expected.Authoring == "rejected" {
 		if !author.Rejected || author.FailureClass != manifest.Expected.FailureCode {

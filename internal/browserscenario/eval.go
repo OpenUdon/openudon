@@ -161,6 +161,9 @@ func runQualification(ctx context.Context, options Options, local bool) (*Report
 	if err := WriteReport(options.OutPath, report); err != nil {
 		return report, err
 	}
+	if err := writeAuthoringFailureDiagnostic(options.OutPath, report); err != nil {
+		return report, err
+	}
 	if report.Status == StatusFail {
 		return report, fmt.Errorf("browser scenario evaluation failed")
 	}

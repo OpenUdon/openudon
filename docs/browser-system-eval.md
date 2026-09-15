@@ -123,6 +123,14 @@ In-process loopback and journey failures retain their returned scenario report
 and cause in those same bounded private fields, including failed-case and phase
 details that ordinary progress intentionally omits.
 
+Authoring failures retain a versioned closed phase/code diagnostic in
+`private_stderr`, bound to the compact scenario report in `private_stdout`.
+Raw authoring errors are not copied into these fields. The authoring controller
+joins worker cleanup before returning, and a result requires drained protocol
+output and a successful worker exit. Late cleanup failure invalidates both a
+result and an otherwise expected rejection. These diagnostics explain failure;
+they never establish qualification success.
+
 Version 2 adds required supervised registration and authenticated-package
 journeys to each of the three loopback passes (13 stages per pass). The verifier
 continues to recognize version 1 using its original 11-stage inventory; a

@@ -305,7 +305,8 @@ func (s *Session) Respond(ctx context.Context, response Response) error {
 	}
 }
 
-// Cancel terminates the complete worker process tree.
+// Cancel requests termination of the complete worker process tree. Events
+// closes after worker, reader and private executable cleanup have joined.
 func (s *Session) Cancel() {
 	if s == nil {
 		return
@@ -314,23 +315,35 @@ func (s *Session) Cancel() {
 }
 
 func (s *Session) run(ctx context.Context, config Config, child *processgroup.InteractiveChild, cleanup func()) {
-	defer cleanup()
-	defer close(s.events)
 	defer close(s.done)
+	defer close(s.events)
+	defer s.cancel()
+	defer cleanup()
 	defer func() {
 		s.mu.Lock()
 		s.closed = true
 		s.mu.Unlock()
 	}()
-	defer func() {
-		_ = child.Input().Close()
-		if err := child.Terminate(); errors.Is(err, processgroup.ErrTerminationTimeout) {
-			s.publishTerminal(Event{State: "failed", ErrorCode: "worker_teardown"})
-		}
-	}()
 	messages := make(chan authorsession.ServerMessage)
 	readErrors := make(chan error, 1)
-	go scanMessages(child.Output(), messages, readErrors)
+	scanCtx, stopScan := context.WithCancel(ctx)
+	scanStopped := make(chan struct{})
+	go func() {
+		defer close(scanStopped)
+		scanMessages(scanCtx, child.Output(), messages, readErrors)
+	}()
+	waited := false
+	defer func() {
+		_ = child.Input().Close()
+		stopScan()
+		if !waited {
+			if err := child.Terminate(); errors.Is(err, processgroup.ErrTerminationTimeout) {
+				s.publishTerminal(Event{State: "failed", ErrorCode: "worker_teardown"})
+			}
+		}
+		_ = child.Output().Close()
+		<-scanStopped
+	}()
 	write := func(message authorsession.ClientMessage) error {
 		message.Protocol = authorsession.Protocol
 		data, err := json.Marshal(message)
@@ -342,6 +355,34 @@ func (s *Session) run(ctx context.Context, config Config, child *processgroup.In
 	}
 	fail := func(code string) {
 		s.publishTerminal(Event{State: "failed", ErrorCode: code})
+	}
+	finishWorker := func() bool {
+		_ = child.Input().Close()
+		if err := drainAuthorOutput(ctx, messages, readErrors); err != nil {
+			if errors.Is(ctx.Err(), context.DeadlineExceeded) {
+				fail("absolute_timeout")
+			} else if ctx.Err() != nil {
+				s.publishTerminal(Event{State: "canceled"})
+			} else {
+				fail("worker_protocol")
+			}
+			return false
+		}
+		waitErr := child.Wait()
+		waited = true
+		if waitErr != nil {
+			code := "worker_exit"
+			if errors.Is(waitErr, processgroup.ErrTerminationTimeout) {
+				code = "worker_teardown"
+			}
+			fail(code)
+			return false
+		}
+		if ctx.Err() != nil {
+			s.publishTerminal(Event{State: "canceled"})
+			return false
+		}
+		return true
 	}
 	first, err := receive(ctx, messages, readErrors)
 	if err != nil || first.Type != "hello" || first.Protocol != authorsession.Protocol || !requiredCapabilities(first.Capabilities) {
@@ -406,9 +447,9 @@ func (s *Session) run(ctx context.Context, config Config, child *processgroup.In
 				continue
 			}
 			if phase == "closed" {
-				s.publishTerminal(Event{State: "closed", Phase: phase})
-				_ = child.Input().Close()
-				_ = child.Wait()
+				if finishWorker() {
+					s.publishTerminal(Event{State: "closed", Phase: phase})
+				}
 				return
 			}
 			state := "exploration"
@@ -504,9 +545,9 @@ func (s *Session) run(ctx context.Context, config Config, child *processgroup.In
 				fail("malformed_result")
 				return
 			}
-			s.publish(ctx, Event{State: "completion_review", Phase: "completed", Result: message.Result, Attestation: attestation})
-			_ = child.Input().Close()
-			_ = child.Wait()
+			if finishWorker() {
+				s.publish(ctx, Event{State: "completion_review", Phase: "completed", Result: message.Result, Attestation: attestation})
+			}
 			return
 		case "diagnostic":
 			if message.Diagnostic == nil || !diagnosticPattern.MatchString(message.Diagnostic.Code) {
@@ -560,7 +601,7 @@ func (s *Session) publishTerminal(event Event) {
 	}
 }
 
-func scanMessages(reader io.Reader, output chan<- authorsession.ServerMessage, failures chan<- error) {
+func scanMessages(ctx context.Context, reader io.Reader, output chan<- authorsession.ServerMessage, failures chan<- error) {
 	defer close(output)
 	scanner := bufio.NewScanner(reader)
 	scanner.Buffer(make([]byte, 4096), maxProtocolLine)
@@ -570,13 +611,49 @@ func scanMessages(reader io.Reader, output chan<- authorsession.ServerMessage, f
 			failures <- err
 			return
 		}
-		output <- message
+		select {
+		case output <- message:
+		case <-ctx.Done():
+			failures <- ctx.Err()
+			return
+		}
 	}
 	if err := scanner.Err(); err != nil {
 		failures <- err
 		return
 	}
 	failures <- io.EOF
+}
+
+// The terminal message is not success until every remaining byte is checked.
+// scanMessages sends its final status before closing messages; consume that
+// status even when the closed channel wins the select, so malformed trailing
+// bytes cannot be mistaken for an ordinary EOF.
+func drainAuthorOutput(ctx context.Context, messages <-chan authorsession.ServerMessage, failures <-chan error) error {
+	for {
+		select {
+		case _, ok := <-messages:
+			if ok {
+				return errors.New("browser author worker emitted output after completion")
+			}
+			select {
+			case err := <-failures:
+				if errors.Is(err, io.EOF) {
+					return nil
+				}
+				return err
+			case <-ctx.Done():
+				return ctx.Err()
+			}
+		case err := <-failures:
+			if errors.Is(err, io.EOF) {
+				return nil
+			}
+			return err
+		case <-ctx.Done():
+			return ctx.Err()
+		}
+	}
 }
 
 func decodeServerMessage(data []byte) (authorsession.ServerMessage, error) {

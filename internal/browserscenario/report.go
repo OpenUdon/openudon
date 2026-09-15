@@ -14,6 +14,7 @@ import (
 
 	"github.com/OpenUdon/openudon/internal/authoring/atomicfile"
 	"github.com/OpenUdon/openudon/internal/evidencefile"
+	"github.com/OpenUdon/openudon/internal/icot"
 )
 
 const (
@@ -74,6 +75,9 @@ type ScenarioResult struct {
 	Phases     []PhaseResult `json:"phases"`
 	Assertions []string      `json:"assertions"`
 	Detail     string        `json:"detail"`
+	// Private failure metadata travels separately; published v1 reports keep
+	// their exact wire shape and cannot become evidence of successful authoring.
+	AuthoringDiagnostic *icot.BrowserScenarioAuthorDiagnostic `json:"-"`
 }
 
 type PhaseResult struct {
@@ -317,6 +321,10 @@ func cloneScenarioResults(values []ScenarioResult) []ScenarioResult {
 		result[index] = value
 		result[index].Phases = append([]PhaseResult(nil), value.Phases...)
 		result[index].Assertions = append([]string(nil), value.Assertions...)
+		if value.AuthoringDiagnostic != nil {
+			copy := *value.AuthoringDiagnostic
+			result[index].AuthoringDiagnostic = &copy
+		}
 	}
 	return result
 }

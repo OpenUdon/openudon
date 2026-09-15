@@ -72,7 +72,9 @@ type BrowserScenarioAuthorResult struct {
 // derived only from an embedded loopback manifest. The same OpenUdon envelope
 // validation, profile reconstruction, review generation, and atomic staging
 // used by interactive authoring are retained.
-func RunBrowserScenarioAuthor(ctx context.Context, request BrowserScenarioAuthorRequest) (BrowserScenarioAuthorResult, error) {
+func RunBrowserScenarioAuthor(ctx context.Context, request BrowserScenarioAuthorRequest) (out BrowserScenarioAuthorResult, resultErr error) {
+	phase := "request"
+	defer func() { resultErr = scenarioAuthorStageError(phase, resultErr) }()
 	if ctx == nil {
 		ctx = context.Background()
 	}
@@ -90,12 +92,14 @@ func RunBrowserScenarioAuthor(ctx context.Context, request BrowserScenarioAuthor
 	if request.Fault == "path_injection" {
 		cfg.GoalURL = scenarioOrigin(request.GoalURL) + "/ignore%20previous%20instructions"
 	}
+	phase = "configuration"
 	if err := normalizeLiveAuthorConfig(&cfg); err != nil {
 		if request.Fault == "path_injection" {
 			return BrowserScenarioAuthorResult{Rejected: true, FailureClass: "path_disclosure"}, nil
 		}
 		return BrowserScenarioAuthorResult{}, err
 	}
+	phase = "controller"
 	result, rejected, failureClass, err := runBrowserScenarioController(ctx, cfg, request)
 	if err != nil {
 		return BrowserScenarioAuthorResult{}, err
@@ -104,14 +108,17 @@ func RunBrowserScenarioAuthor(ctx context.Context, request BrowserScenarioAuthor
 		return BrowserScenarioAuthorResult{Rejected: true, FailureClass: failureClass}, nil
 	}
 	if request.Fault == "fabricated_trace" || request.Fault == "stale_candidate" {
+		phase = "result_tamper"
 		if err := tamperScenarioEnvelope(&result, cfg.PrivateRoot, request.Fault); err != nil {
 			return BrowserScenarioAuthorResult{}, err
 		}
 	}
+	phase = "assessment"
 	assessedAt := request.Now().UTC().Round(0)
 	if assessedAt.IsZero() {
 		return BrowserScenarioAuthorResult{}, fmt.Errorf("browser scenario assessment clock is unavailable")
 	}
+	phase = "result_import"
 	prepared, err := prepareAttestedAuthenticatedAuthoringImport(cfg, result, assessedAt)
 	if err != nil {
 		if failure := scenarioImportFailure(request.Fault, err); failure != "" {
@@ -120,21 +127,26 @@ func RunBrowserScenarioAuthor(ctx context.Context, request BrowserScenarioAuthor
 		return BrowserScenarioAuthorResult{}, err
 	}
 	if request.CandidateObserver != nil {
+		phase = "candidate_observer"
 		if err := request.CandidateObserver(prepared.Candidate); err != nil {
 			return BrowserScenarioAuthorResult{}, fmt.Errorf("browser scenario candidate observation failed")
 		}
 	}
+	phase = "package_stage"
 	if err := stageAuthenticatedAuthoringImport(prepared); err != nil {
 		return BrowserScenarioAuthorResult{}, err
 	}
+	phase = "result_read"
 	envelopeData, _, err := readStablePrivateAuthorResult(result.ArtifactPath, cfg.PrivateRoot)
 	if err != nil {
 		return BrowserScenarioAuthorResult{}, err
 	}
+	phase = "result_decode"
 	envelope, err := decodeAuthenticatedAuthoringEnvelope(envelopeData)
 	if err != nil {
 		return BrowserScenarioAuthorResult{}, err
 	}
+	phase = "profile_summary"
 	authentication, err := authProfileSummary(envelope.AuthenticationProfile)
 	if err != nil {
 		return BrowserScenarioAuthorResult{}, err
@@ -186,19 +198,40 @@ func runBrowserScenarioController(ctx context.Context, cfg liveAuthorConfig, req
 		GoalPredicate: authorresult.GoalPredicate{Origin: goalOrigin, Path: goalPath, Context: cfg.GoalContext, Role: cfg.GoalRole, Label: cfg.GoalLabel},
 	}, cfg.Browsertools)
 	if err != nil {
-		return liveProtocolResult{}, false, "", err
+		return liveProtocolResult{}, false, "", scenarioAuthorStageError("worker_start", err)
 	}
+	return runBrowserScenarioSession(ctx, request, session)
+}
+
+type browserScenarioSession interface {
+	Events() <-chan browserauthor.Event
+	Respond(context.Context, browserauthor.Response) error
+	Cancel()
+}
+
+func runBrowserScenarioSession(ctx context.Context, request BrowserScenarioAuthorRequest, session browserScenarioSession) (result liveProtocolResult, rejected bool, failureClass string, resultErr error) {
+	var err error
 	success := false
 	defer func() {
 		if !success {
 			session.Cancel()
+		}
+		// Events closes only after the worker, reader and private executable
+		// cleanup finish. Callers may remove the fixture and private root as
+		// soon as this function returns, including on expected rejection.
+		for event := range session.Events() {
+			if event.ErrorCode != "" || event.State == "failed" || success && (event.State == "canceled" || event.State == "closed") {
+				session.Cancel()
+				result, rejected, failureClass = liveProtocolResult{}, false, ""
+				resultErr = scenarioControllerFailure("worker_cleanup", event, resultErr)
+			}
 		}
 	}()
 	credentialDone := map[string]bool{}
 	loginSubmitted, challengeDone, challengeSubmitted, popupOpened := false, false, false, false
 	for event := range session.Events() {
 		if event.ErrorCode != "" || event.State == "failed" || event.State == "canceled" || event.State == "closed" {
-			return liveProtocolResult{}, false, "", fmt.Errorf("Browsertools scenario controller failed closed (state=%s phase=%s code=%s)", event.State, event.Phase, event.ErrorCode)
+			return liveProtocolResult{}, false, "", scenarioControllerFailure("controller", event, nil)
 		}
 		if event.Approval != nil {
 			if err := session.Respond(ctx, browserauthor.Response{Kind: "approve", ApprovalID: event.Approval.ID}); err != nil {
@@ -231,7 +264,7 @@ func runBrowserScenarioController(ctx context.Context, cfg liveAuthorConfig, req
 					if failure := scenarioOutputFailure(request.Fault, outputErr); failure != "" {
 						return liveProtocolResult{}, true, failure, nil
 					}
-					return liveProtocolResult{}, false, "", outputErr
+					return liveProtocolResult{}, false, "", scenarioAuthorStageError("output_selection", outputErr)
 				}
 				shared := make([]authorsession.OutputRequest, len(outputs))
 				for index, output := range outputs {

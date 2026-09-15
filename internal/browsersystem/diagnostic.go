@@ -30,7 +30,13 @@ func scenarioFailure(report *browserscenario.Report, cause error) error {
 		return nil
 	}
 	data, _ := json.Marshal(report)
-	return &commandFailure{reason: "scenario_evaluation", stdout: data, stderr: []byte(cause.Error())}
+	detail := []byte(cause.Error())
+	if diagnostic, err := browserscenario.AuthoringFailureDiagnostic(report); err != nil {
+		detail = []byte("scenario_diagnostic_invalid")
+	} else if len(diagnostic) != 0 {
+		detail = diagnostic
+	}
+	return &commandFailure{reason: "scenario_evaluation", stdout: data, stderr: detail}
 }
 
 func retainFailureDiagnostic(out, stage string, cause error, progress io.Writer) {

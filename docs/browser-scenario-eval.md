@@ -148,6 +148,18 @@ the report and cannot silently become a pass.
 
 ## Report And Compatibility Contract
 
+A failed loopback authoring run also writes an owner-only
+`<report>.authoring-diagnostic.json` using
+`openudon.browser-scenario-authoring-diagnostic.v1`. It contains only closed
+scenario IDs, operation phases and failure codes, plus the SHA-256 of the
+compact JSON scenario report. Its strict validator checks that binding and
+the failed authoring phase; callers retaining evidence must also bind the
+diagnostic bytes. Existing files and final symlinks are refused. No raw error,
+page content, credential or token is included. Native qualification embeds the
+same record in its private failure sidecar before temporary files are removed.
+Successful report wire formats are unchanged, and failure diagnostics cannot
+satisfy successful qualification.
+
 Loopback and public reports use `openudon.browser-scenario-eval.v1`; journey
 reports use `openudon.browser-journey-eval.v1`. Every report has an adjacent
 `.sha256` sidecar and contains exact repository commits, public module

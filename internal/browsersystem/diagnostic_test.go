@@ -10,8 +10,10 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/OpenUdon/openudon/internal/browserscenario"
+	"github.com/OpenUdon/openudon/internal/icot"
 )
 
 func TestDiagnosticChild(t *testing.T) {
@@ -109,6 +111,49 @@ func TestFailedScenarioReportSurvivesPrivateDiagnostic(t *testing.T) {
 	}
 	if _, err := os.Stat(out); !os.IsNotExist(err) {
 		t.Fatal("failed diagnostic replaced aggregate evidence")
+	}
+}
+
+func TestNativeDiagnosticBindsClosedAuthorFailureAfterCleanup(t *testing.T) {
+	lock, err := browserscenario.LoadCompatibilityLock()
+	if err != nil {
+		t.Fatal(err)
+	}
+	repositories := []browserscenario.RepositoryRevision{{Name: "openudon", Commit: strings.Repeat("a", 40)}}
+	var dependencies []browserscenario.DependencyRevision
+	for _, name := range []string{"browsertools", "uws", "udon", "browserdriver"} {
+		for _, component := range lock.Components {
+			if component.Name == name {
+				repositories = append(repositories, browserscenario.RepositoryRevision{Name: name, Commit: component.Commit})
+				if name == "browsertools" || name == "uws" {
+					dependencies = append(dependencies, browserscenario.DependencyRevision{Module: component.Module, Version: component.Version})
+				}
+			}
+		}
+	}
+	report := browserscenario.NewReport(browserscenario.SuiteLoopback, time.Date(2026, 8, 17, 12, 0, 0, 0, time.UTC), repositories, dependencies, []browserscenario.ScenarioResult{{
+		ID: "outputs-sixteen", Status: browserscenario.StatusFail, Attempts: 1, Detail: "authoring_failed",
+		Phases:              []browserscenario.PhaseResult{{ID: "fixture_ready", Status: "pass", Detail: "ok"}, {ID: "authoring_v2", Status: "fail", Detail: "authoring_failed"}},
+		AuthoringDiagnostic: &icot.BrowserScenarioAuthorDiagnostic{Phase: "controller", Code: "worker_protocol"},
+	}})
+	cause := scenarioFailure(report, errors.New("credential-token-page-canary"))
+	path := filepath.Join(t.TempDir(), "report.json")
+	var progress bytes.Buffer
+	retainFailureDiagnostic(path, "loopback_scenarios", cause, &progress)
+	data, err := os.ReadFile(path + ".diagnostic.json")
+	var retained struct {
+		Stdout string `json:"private_stdout"`
+		Stderr string `json:"private_stderr"`
+	}
+	if err != nil || json.Unmarshal(data, &retained) != nil || bytes.Contains(data, []byte("canary")) || strings.Contains(progress.String(), "worker_protocol") {
+		t.Fatal("closed failure detail was lost or leaked")
+	}
+	var restored browserscenario.Report
+	if json.Unmarshal([]byte(retained.Stdout), &restored) != nil || browserscenario.ValidateAuthoringFailureDiagnostic([]byte(retained.Stderr), &restored) != nil {
+		t.Fatal("retained author failure did not bind the retained report")
+	}
+	if cause.Error() != "component_failed" || restored.Status != "fail" {
+		t.Fatal("diagnostic became public detail or successful qualification")
 	}
 }
 
