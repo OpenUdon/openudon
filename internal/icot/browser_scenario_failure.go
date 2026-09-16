@@ -7,15 +7,17 @@ import (
 	"github.com/OpenUdon/openudon/internal/icot/browserauthor"
 )
 
-// BrowserScenarioAuthorDiagnostic contains a closed operation phase and failure
-// code. It never includes an error string, path, observed label, or input value.
+// BrowserScenarioAuthorDiagnostic contains closed operation, controller and
+// optional worker/stream classes. It never includes an error string, path,
+// observed label, or input value.
 type BrowserScenarioAuthorDiagnostic struct {
-	Phase string `json:"phase"`
-	Code  string `json:"code"`
+	Phase   string                        `json:"phase"`
+	Code    string                        `json:"code"`
+	Failure *browserauthor.FailureDetails `json:"failure,omitempty"`
 }
 
 func (diagnostic BrowserScenarioAuthorDiagnostic) Valid() bool {
-	return validScenarioAuthorPhase(diagnostic.Phase) && validScenarioAuthorCode(diagnostic.Code)
+	return validScenarioAuthorPhase(diagnostic.Phase) && validScenarioAuthorCode(diagnostic.Code) && (diagnostic.Failure == nil || diagnostic.Failure.Valid())
 }
 
 type browserScenarioAuthorFailure struct {
@@ -58,7 +60,7 @@ func scenarioAuthorStageError(phase string, err error) error {
 	if !validScenarioAuthorPhase(phase) {
 		phase = "unknown"
 	}
-	return &browserScenarioAuthorFailure{BrowserScenarioAuthorDiagnostic{phase, code}, err}
+	return &browserScenarioAuthorFailure{BrowserScenarioAuthorDiagnostic{Phase: phase, Code: code}, err}
 }
 
 func scenarioControllerFailure(phase string, event browserauthor.Event, cause error) error {
@@ -79,7 +81,16 @@ func scenarioControllerFailure(phase string, event browserauthor.Event, cause er
 	if !validScenarioAuthorPhase(phase) {
 		phase = "unknown"
 	}
-	return &browserScenarioAuthorFailure{BrowserScenarioAuthorDiagnostic{phase, code}, cause}
+	diagnostic := BrowserScenarioAuthorDiagnostic{Phase: phase, Code: code}
+	if event.Failure != nil {
+		copy := *event.Failure
+		if !copy.Valid() {
+			copy = browserauthor.NoFailureDetails()
+			copy.WorkerDiagnostic = "unknown"
+		}
+		diagnostic.Failure = &copy
+	}
+	return &browserScenarioAuthorFailure{diagnostic, cause}
 }
 
 func validScenarioAuthorPhase(phase string) bool {

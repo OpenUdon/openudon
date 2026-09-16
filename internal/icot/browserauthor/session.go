@@ -142,6 +142,7 @@ type Event struct {
 	Result      *authorsession.Result      `json:"result,omitempty"`
 	ErrorCode   string                     `json:"error_code,omitempty"`
 	Attestation *Attestation               `json:"-"`
+	Failure     *FailureDetails            `json:"-"`
 }
 
 // Response is the closed set of human decisions accepted for a pending event.
@@ -315,6 +316,11 @@ func (s *Session) Cancel() {
 }
 
 func (s *Session) run(ctx context.Context, config Config, child *processgroup.InteractiveChild, cleanup func()) {
+	detail := NoFailureDetails()
+	failureEvent := func(code string) Event {
+		copy := detail
+		return Event{State: "failed", ErrorCode: code, Failure: &copy}
+	}
 	defer close(s.done)
 	defer close(s.events)
 	defer s.cancel()
@@ -338,7 +344,7 @@ func (s *Session) run(ctx context.Context, config Config, child *processgroup.In
 		stopScan()
 		if !waited {
 			if err := child.Terminate(); errors.Is(err, processgroup.ErrTerminationTimeout) {
-				s.publishTerminal(Event{State: "failed", ErrorCode: "worker_teardown"})
+				s.publishTerminal(failureEvent("worker_teardown"))
 			}
 		}
 		_ = child.Output().Close()
@@ -354,7 +360,7 @@ func (s *Session) run(ctx context.Context, config Config, child *processgroup.In
 		return err
 	}
 	fail := func(code string) {
-		s.publishTerminal(Event{State: "failed", ErrorCode: code})
+		s.publishTerminal(failureEvent(code))
 	}
 	finishWorker := func() bool {
 		_ = child.Input().Close()
@@ -364,6 +370,7 @@ func (s *Session) run(ctx context.Context, config Config, child *processgroup.In
 			} else if ctx.Err() != nil {
 				s.publishTerminal(Event{State: "canceled"})
 			} else {
+				detail.StreamPhase, detail.StreamFailure = "drain", authorStreamFailure(err)
 				fail("worker_protocol")
 			}
 			return false
@@ -386,6 +393,9 @@ func (s *Session) run(ctx context.Context, config Config, child *processgroup.In
 	}
 	first, err := receive(ctx, messages, readErrors)
 	if err != nil || first.Type != "hello" || first.Protocol != authorsession.Protocol || !requiredCapabilities(first.Capabilities) {
+		if err != nil && ctx.Err() == nil {
+			detail.StreamPhase, detail.StreamFailure = "receive", authorStreamFailure(err)
+		}
 		fail("protocol_negotiation")
 		return
 	}
@@ -419,6 +429,7 @@ func (s *Session) run(ctx context.Context, config Config, child *processgroup.In
 			} else if ctx.Err() != nil {
 				s.publishTerminal(Event{State: "canceled"})
 			} else {
+				detail.StreamPhase, detail.StreamFailure = "receive", authorStreamFailure(err)
 				fail("worker_protocol")
 			}
 			return
@@ -427,7 +438,7 @@ func (s *Session) run(ctx context.Context, config Config, child *processgroup.In
 			fail("protocol_mismatch")
 			return
 		}
-		if !receivedInitialState && message.Type != "state" {
+		if !receivedInitialState && message.Type != "state" && message.Type != "diagnostic" {
 			fail("protocol_state")
 			return
 		}
@@ -554,6 +565,7 @@ func (s *Session) run(ctx context.Context, config Config, child *processgroup.In
 				fail("malformed_diagnostic")
 				return
 			}
+			detail.WorkerDiagnostic = reduceWorkerDiagnostic(message.Diagnostic.Code)
 		case "error":
 			fail("worker_failed")
 			return
@@ -608,7 +620,7 @@ func scanMessages(ctx context.Context, reader io.Reader, output chan<- authorses
 	for scanner.Scan() {
 		message, err := decodeServerMessage(scanner.Bytes())
 		if err != nil {
-			failures <- err
+			failures <- errAuthorDecode
 			return
 		}
 		select {
@@ -619,7 +631,11 @@ func scanMessages(ctx context.Context, reader io.Reader, output chan<- authorses
 		}
 	}
 	if err := scanner.Err(); err != nil {
-		failures <- err
+		if errors.Is(err, bufio.ErrTooLong) {
+			failures <- errAuthorSize
+		} else {
+			failures <- errAuthorRead
+		}
 		return
 	}
 	failures <- io.EOF
@@ -634,7 +650,7 @@ func drainAuthorOutput(ctx context.Context, messages <-chan authorsession.Server
 		select {
 		case _, ok := <-messages:
 			if ok {
-				return errors.New("browser author worker emitted output after completion")
+				return errAuthorTrailer
 			}
 			select {
 			case err := <-failures:
@@ -703,7 +719,15 @@ func receive(ctx context.Context, messages <-chan authorsession.ServerMessage, f
 	select {
 	case message, ok := <-messages:
 		if !ok {
-			return authorsession.ServerMessage{}, io.EOF
+			// The scanner publishes its final status before closing messages.
+			// Preserve that status whichever select arm wins; a closed channel
+			// must not turn a decode/read/size failure into ordinary EOF.
+			select {
+			case err := <-failures:
+				return authorsession.ServerMessage{}, err
+			case <-ctx.Done():
+				return authorsession.ServerMessage{}, ctx.Err()
+			}
 		}
 		return message, nil
 	case err := <-failures:

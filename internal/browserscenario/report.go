@@ -323,6 +323,10 @@ func cloneScenarioResults(values []ScenarioResult) []ScenarioResult {
 		result[index].Assertions = append([]string(nil), value.Assertions...)
 		if value.AuthoringDiagnostic != nil {
 			copy := *value.AuthoringDiagnostic
+			if copy.Failure != nil {
+				detail := *copy.Failure
+				copy.Failure = &detail
+			}
 			result[index].AuthoringDiagnostic = &copy
 		}
 	}

@@ -150,7 +150,7 @@ the report and cannot silently become a pass.
 
 A failed loopback authoring run also writes an owner-only
 `<report>.authoring-diagnostic.json` using
-`openudon.browser-scenario-authoring-diagnostic.v1`. It contains only closed
+`openudon.browser-scenario-authoring-diagnostic.v2`. It contains only closed
 scenario IDs, operation phases and failure codes, plus the SHA-256 of the
 compact JSON scenario report. Its strict validator checks that binding and
 the failed authoring phase; callers retaining evidence must also bind the
@@ -159,6 +159,24 @@ page content, credential or token is included. Native qualification embeds the
 same record in its private failure sidecar before temporary files are removed.
 Successful report wire formats are unchanged, and failure diagnostics cannot
 satisfy successful qualification.
+
+Each v2 authoring entry requires a `failure` object with `worker_diagnostic`,
+`stream_phase` and `stream_failure`. The last syntactically valid worker
+diagnostic is reduced to an allowlisted producer code, `unknown` for any other
+code, or `none` if absent. It remains separate from the controller's failure
+code. Receive failures distinguish `eof`, `decode`, `size` and `read`; drain
+failures distinguish `decode`, `size`, `read` and `trailing_message`. With no
+observed stream failure, both stream fields are `none`. Clean EOF after a
+terminal result is normal; child exit still must succeed before success is
+published. Cancellation, deadlines and joined cleanup retain precedence.
+
+The strict reader still accepts the original v1 shape. New fields, even null,
+are rejected under v1; missing v2 details, unknown fields and unknown classes
+are rejected under v2. These details are private metadata only: the browser
+author event JSON and UI projection omit them, and native qualification retains
+them only in its private failure sidecar. The author-session v2 protocol and
+public report formats are unchanged. A retained `browser_failure` identifies a
+producer category, not its underlying browser error or historical cause.
 
 Loopback and public reports use `openudon.browser-scenario-eval.v1`; journey
 reports use `openudon.browser-journey-eval.v1`. Every report has an adjacent

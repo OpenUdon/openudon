@@ -2,6 +2,7 @@ package icot
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"strings"
 	"testing"
@@ -28,6 +29,29 @@ func TestScenarioAuthorFailureMetadataExcludesPrivateValues(t *testing.T) {
 	}
 	if (BrowserScenarioAuthorDiagnostic{Phase: canary, Code: "worker_protocol"}).Valid() || (BrowserScenarioAuthorDiagnostic{Phase: "controller", Code: canary}).Valid() {
 		t.Fatal("unknown metadata vocabulary accepted")
+	}
+}
+
+func TestScenarioAuthorFailureRetainsOnlyClosedDetail(t *testing.T) {
+	for _, valid := range []bool{true, false} {
+		detail := browserauthor.FailureDetails{WorkerDiagnostic: "browser_failure", StreamPhase: "receive", StreamFailure: "eof"}
+		if !valid {
+			detail.WorkerDiagnostic = "token_canary_0123456789"
+		}
+		err := scenarioControllerFailure("controller", browserauthor.Event{ErrorCode: "worker_protocol", Failure: &detail}, errors.New("raw-canary"))
+		diagnostic, ok := BrowserScenarioFailureDiagnostic(err)
+		if !ok || !diagnostic.Valid() || diagnostic.Failure == nil {
+			t.Fatal("closed detail lost")
+		}
+		want := "unknown"
+		if valid {
+			want = "browser_failure"
+		}
+		detail.WorkerDiagnostic = "mutated-canary"
+		wire, _ := json.Marshal(diagnostic)
+		if diagnostic.Failure.WorkerDiagnostic != want || strings.Contains(string(wire), "canary") {
+			t.Fatal("private value or mutable alias crossed reduction")
+		}
 	}
 }
 

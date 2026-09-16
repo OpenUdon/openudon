@@ -10,9 +10,11 @@ import (
 
 	"github.com/OpenUdon/openudon/internal/evidencefile"
 	"github.com/OpenUdon/openudon/internal/icot"
+	"github.com/OpenUdon/openudon/internal/icot/browserauthor"
 )
 
-const authoringFailureDiagnosticVersion = "openudon.browser-scenario-authoring-diagnostic.v1"
+const authoringFailureDiagnosticVersion = "openudon.browser-scenario-authoring-diagnostic.v2"
+const legacyAuthoringFailureDiagnosticVersion = "openudon.browser-scenario-authoring-diagnostic.v1"
 const authoringFailureDiagnosticLimit = 64 << 10
 
 type scenarioAuthoringFailure struct {
@@ -24,6 +26,19 @@ type authoringFailureDiagnostic struct {
 	Version      string                     `json:"version"`
 	ReportSHA256 string                     `json:"report_sha256"`
 	Failures     []scenarioAuthoringFailure `json:"failures"`
+}
+
+// Decode v1 through its original shape, so even a null v2 field is rejected.
+type legacyAuthoringFailureDiagnostic struct {
+	Version      string `json:"version"`
+	ReportSHA256 string `json:"report_sha256"`
+	Failures     []struct {
+		Scenario  string `json:"scenario"`
+		Authoring struct {
+			Phase string `json:"phase"`
+			Code  string `json:"code"`
+		} `json:"authoring"`
+	} `json:"failures"`
 }
 
 func appendAuthoringFailure(result ScenarioResult, cause error) ScenarioResult {
@@ -45,7 +60,12 @@ func AuthoringFailureDiagnostic(report *Report) ([]byte, error) {
 	record := authoringFailureDiagnostic{Version: authoringFailureDiagnosticVersion}
 	for _, scenario := range report.Scenarios {
 		if scenario.AuthoringDiagnostic != nil {
-			record.Failures = append(record.Failures, scenarioAuthoringFailure{scenario.ID, *scenario.AuthoringDiagnostic})
+			diagnostic := *scenario.AuthoringDiagnostic
+			if diagnostic.Failure == nil {
+				detail := browserauthor.NoFailureDetails()
+				diagnostic.Failure = &detail
+			}
+			record.Failures = append(record.Failures, scenarioAuthoringFailure{scenario.ID, diagnostic})
 		}
 	}
 	if len(record.Failures) == 0 {
@@ -71,7 +91,35 @@ func ValidateAuthoringFailureDiagnostic(data []byte, report *Report) error {
 		return invalid
 	}
 	var record authoringFailureDiagnostic
-	if evidencefile.DecodeStrict(data, &record) != nil || record.Version != authoringFailureDiagnosticVersion || len(record.Failures) == 0 || len(record.Failures) > len(report.Scenarios) {
+	var header struct {
+		Version string `json:"version"`
+	}
+	if json.Unmarshal(data, &header) != nil {
+		return invalid
+	}
+	switch header.Version {
+	case authoringFailureDiagnosticVersion:
+		if evidencefile.DecodeStrict(data, &record) != nil {
+			return invalid
+		}
+		for _, failure := range record.Failures {
+			if failure.Authoring.Failure == nil {
+				return invalid
+			}
+		}
+	case legacyAuthoringFailureDiagnosticVersion:
+		var legacy legacyAuthoringFailureDiagnostic
+		if evidencefile.DecodeStrict(data, &legacy) != nil {
+			return invalid
+		}
+		record.Version, record.ReportSHA256 = legacy.Version, legacy.ReportSHA256
+		for _, failure := range legacy.Failures {
+			record.Failures = append(record.Failures, scenarioAuthoringFailure{Scenario: failure.Scenario, Authoring: icot.BrowserScenarioAuthorDiagnostic{Phase: failure.Authoring.Phase, Code: failure.Authoring.Code}})
+		}
+	default:
+		return invalid
+	}
+	if len(record.Failures) == 0 || len(record.Failures) > len(report.Scenarios) {
 		return invalid
 	}
 	encoded, err := json.Marshal(report)

@@ -9,6 +9,7 @@ import (
 	"testing"
 
 	"github.com/OpenUdon/openudon/internal/icot"
+	"github.com/OpenUdon/openudon/internal/icot/browserauthor"
 )
 
 func failedAuthoringReport(t *testing.T) *Report {
@@ -31,18 +32,20 @@ func failedAuthoringReport(t *testing.T) *Report {
 func TestAuthoringDiagnosticSurvivesCleanupWithoutChangingReportWire(t *testing.T) {
 	report := failedAuthoringReport(t)
 	original := report.Scenarios[0].AuthoringDiagnostic
+	original.Failure = &browserauthor.FailureDetails{WorkerDiagnostic: "browser_failure", StreamPhase: "receive", StreamFailure: "eof"}
 	copy := cloneScenarioResults(report.Scenarios)
 	original.Code = "worker_exit"
-	if copy[0].AuthoringDiagnostic.Code != "worker_protocol" {
+	original.Failure.WorkerDiagnostic = "unknown"
+	if copy[0].AuthoringDiagnostic.Code != "worker_protocol" || copy[0].AuthoringDiagnostic.Failure.WorkerDiagnostic != "browser_failure" {
 		t.Fatal("diagnostic snapshot aliases executor state")
 	}
 	report.Scenarios = copy
 	data, err := AuthoringFailureDiagnostic(report)
-	if err != nil || ValidateAuthoringFailureDiagnostic(data, report) != nil || !bytes.Contains(data, []byte("worker_protocol")) {
+	if err != nil || ValidateAuthoringFailureDiagnostic(data, report) != nil || !bytes.Contains(data, []byte("worker_protocol")) || !bytes.Contains(data, []byte("browser_failure")) {
 		t.Fatal("closed authoring cause was lost")
 	}
 	wire, err := json.Marshal(report)
-	if err != nil || bytes.Contains(wire, []byte("worker_protocol")) || bytes.Contains(wire, []byte("AuthoringDiagnostic")) || bytes.Contains(data, []byte("canary")) {
+	if err != nil || bytes.Contains(wire, []byte("worker_protocol")) || bytes.Contains(wire, []byte("AuthoringDiagnostic")) || bytes.Contains(wire, []byte("browser_failure")) || bytes.Contains(data, []byte("canary")) {
 		t.Fatal("private metadata changed report wire or leaked a private value")
 	}
 	var restored Report
@@ -69,6 +72,12 @@ func TestAuthoringDiagnosticRejectsTamperingAndPrivateVocabulary(t *testing.T) {
 		func(d *authoringFailureDiagnostic) { d.Failures[0].Scenario = "password-main" },
 		func(d *authoringFailureDiagnostic) { d.Failures[0].Authoring.Code = "credential_canary" },
 		func(d *authoringFailureDiagnostic) { d.Failures[0].Authoring.Phase = "page-canary" },
+		func(d *authoringFailureDiagnostic) { d.Failures[0].Authoring.Failure = nil },
+		func(d *authoringFailureDiagnostic) {
+			d.Failures[0].Authoring.Failure.WorkerDiagnostic = "token_canary_0123456789"
+		},
+		func(d *authoringFailureDiagnostic) { d.Failures[0].Authoring.Failure.StreamPhase = "page-canary" },
+		func(d *authoringFailureDiagnostic) { d.Failures[0].Authoring.Failure.StreamFailure = "read-canary" },
 		func(d *authoringFailureDiagnostic) { d.Failures = append(d.Failures, d.Failures[0]) },
 	} {
 		var record authoringFailureDiagnostic
@@ -84,6 +93,41 @@ func TestAuthoringDiagnosticRejectsTamperingAndPrivateVocabulary(t *testing.T) {
 	unknown := append([]byte(`{"unknown":true,`), data[1:]...)
 	if ValidateAuthoringFailureDiagnostic(unknown, report) == nil || ValidateAuthoringFailureDiagnostic(data, sampleReport(t)) == nil {
 		t.Fatal("unknown field or unrelated passing report accepted")
+	}
+}
+
+func TestAuthoringDiagnosticStrictVersionCompatibility(t *testing.T) {
+	report := failedAuthoringReport(t)
+	data, err := AuthoringFailureDiagnostic(report)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var record authoringFailureDiagnostic
+	if json.Unmarshal(data, &record) != nil || record.Version != authoringFailureDiagnosticVersion || record.Failures[0].Authoring.Failure == nil {
+		t.Fatal("writer did not produce complete v2")
+	}
+	if report.Scenarios[0].AuthoringDiagnostic.Failure != nil {
+		t.Fatal("writer mutated original report")
+	}
+	legacy := bytes.Replace(data, []byte(authoringFailureDiagnosticVersion), []byte(legacyAuthoringFailureDiagnosticVersion), 1)
+	if ValidateAuthoringFailureDiagnostic(legacy, report) == nil {
+		t.Fatal("v2 fields accepted under v1")
+	}
+	field := []byte(`,"failure":{"worker_diagnostic":"none","stream_phase":"none","stream_failure":"none"}`)
+	legacy = bytes.Replace(legacy, field, nil, 1)
+	if ValidateAuthoringFailureDiagnostic(legacy, report) != nil {
+		t.Fatal("unchanged v1 evidence rejected")
+	}
+	for _, changed := range [][]byte{
+		bytes.Replace(legacy, []byte(`"code":"worker_protocol"`), []byte(`"code":"worker_protocol","failure":null`), 1),
+		bytes.Replace(legacy, []byte(legacyAuthoringFailureDiagnosticVersion), []byte(authoringFailureDiagnosticVersion), 1),
+		bytes.Replace(data, []byte(`"worker_diagnostic":"none"`), []byte(`"worker_diagnostic":"none","worker_diagnostic":"browser_failure"`), 1),
+		bytes.Replace(data, []byte(`"stream_phase":"none"`), []byte(`"stream_phase":"none","private":"canary"`), 1),
+		append(append([]byte{}, data...), data...),
+	} {
+		if ValidateAuthoringFailureDiagnostic(changed, report) == nil {
+			t.Fatal("ambiguous or expanded version accepted")
+		}
 	}
 }
 
