@@ -27,6 +27,11 @@ type captureDiagnostic struct {
 	EventsClosed  bool                         `json:"events_closed"`
 }
 
+type captureDiagnosticV2 struct {
+	captureDiagnostic
+	Rejection authordiagnostic.Rejection `json:"rejection"`
+}
+
 type captureDiagnosticSink struct {
 	config CaptureDiagnosticConfig
 	file   *os.File
@@ -85,7 +90,21 @@ func (s *Server) finishCaptureDiagnostic(session CaptureSession, state, code str
 	default:
 		state = "failed"
 	}
-	record := captureDiagnostic{"openudon.capture-diagnostic.v1", sink.config.Attempt, sink.config.Binding, state, captureDiagnosticCode(code), failure, status, backend, session != nil}
+	rejection := authordiagnostic.NoRejection()
+	if backend.Stage == "policy" && backend.Reason == "origin_escape" {
+		rejection = authordiagnostic.UnknownRejection()
+	}
+	if status == "available" {
+		if source, ok := session.(interface {
+			BackendRejectionDiagnostic() authordiagnostic.Rejection
+		}); ok {
+			rejection = source.BackendRejectionDiagnostic()
+		}
+	}
+	if !rejection.ValidFor(backend) {
+		status, backend, rejection = "invalid", authordiagnostic.Class{Stage: "unknown", Reason: "unknown"}, authordiagnostic.NoRejection()
+	}
+	record := captureDiagnosticV2{captureDiagnostic{"openudon.capture-diagnostic.v2", sink.config.Attempt, sink.config.Binding, state, captureDiagnosticCode(code), failure, status, backend, session != nil}, rejection}
 	err := json.NewEncoder(sink.file).Encode(record)
 	closeErr := sink.file.Close()
 	sink.file = nil

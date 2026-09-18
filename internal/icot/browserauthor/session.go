@@ -165,14 +165,15 @@ type Response struct {
 
 // Session is one asynchronously driven worker process.
 type Session struct {
-	backendStatus string
-	backendClass  authordiagnostic.Class
-	mu            sync.Mutex
-	cancel        context.CancelFunc
-	responses     chan Response
-	events        chan Event
-	done          chan struct{}
-	closed        bool
+	backendStatus    string
+	backendClass     authordiagnostic.Class
+	backendRejection authordiagnostic.Rejection
+	mu               sync.Mutex
+	cancel           context.CancelFunc
+	responses        chan Response
+	events           chan Event
+	done             chan struct{}
+	closed           bool
 }
 
 // Doctor performs Browsertools' typed Chromium readiness check with the
@@ -360,19 +361,32 @@ func (s *Session) run(ctx context.Context, config Config, child *processgroup.In
 	waited := false
 	defer func() {
 		status, class := "disabled", authordiagnostic.Class{Stage: "none", Reason: "none"}
+		rejection := authordiagnostic.NoRejection()
 		if config.backendDiagnosticPath != "" {
 			status, class = "missing", authordiagnostic.Class{Stage: "unknown", Reason: "unknown"}
 			if _, err := os.Lstat(config.backendDiagnosticPath); err == nil {
 				var readErr error
-				class, readErr = authordiagnostic.Read(config.backendDiagnosticPath)
+				var record authordiagnostic.RecordV2
+				record, readErr = authordiagnostic.ReadV2(config.backendDiagnosticPath)
+				if readErr == nil {
+					class, rejection = record.Class, record.Rejection
+				} else {
+					// Strict historical worker compatibility; never fabricate detail.
+					class, readErr = authordiagnostic.Read(config.backendDiagnosticPath)
+					if class.Stage == "policy" && class.Reason == "origin_escape" {
+						rejection = authordiagnostic.UnknownRejection()
+					}
+				}
 				status = "available"
 				if readErr != nil {
 					status, class = "invalid", authordiagnostic.Class{Stage: "unknown", Reason: "unknown"}
+					rejection = authordiagnostic.NoRejection()
 				}
 			}
 		}
 		s.mu.Lock()
 		s.backendStatus, s.backendClass = status, class
+		s.backendRejection = rejection
 		s.mu.Unlock()
 	}()
 	defer func() {
@@ -1338,4 +1352,12 @@ func (s *Session) BackendDiagnostic() (string, authordiagnostic.Class) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	return s.backendStatus, s.backendClass
+}
+
+// BackendRejectionDiagnostic shares the same joined-lifecycle boundary and is
+// never part of the public author-session event stream.
+func (s *Session) BackendRejectionDiagnostic() authordiagnostic.Rejection {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.backendRejection
 }

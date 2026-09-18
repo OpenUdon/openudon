@@ -76,12 +76,15 @@ func TestPrivateCaptureDiagnosticPreservesDetailsOutsideApplication(t *testing.T
 		if err != nil {
 			t.Fatal(err)
 		}
-		var diagnostic captureDiagnostic
+		var diagnostic captureDiagnosticV2
 		if evidencefile.DecodeStrict(data, &diagnostic) != nil {
 			t.Fatal("missing private diagnostic")
 		}
 		if diagnostic.Code != captureDiagnosticCode(event.ErrorCode) || diagnostic.Failure != *event.Failure || diagnostic.Backend.Stage != "navigation" || diagnostic.Backend.Reason != "transport" || !diagnostic.EventsClosed || diagnostic.State != event.State {
 			t.Fatalf("diagnostic mismatch: %+v", diagnostic)
+		}
+		if diagnostic.Version != "openudon.capture-diagnostic.v2" || diagnostic.Rejection != authordiagnostic.NoRejection() {
+			t.Fatal("private rejection metadata mismatch")
 		}
 		if strings.Contains(string(data), "TOKEN_CANARY") || strings.Contains(string(wire), "navigation") {
 			t.Fatal("private value leaked")
@@ -102,6 +105,54 @@ type diagnosticFakeSession struct{ *fakeCaptureSession }
 
 func (*diagnosticFakeSession) BackendDiagnostic() (string, authordiagnostic.Class) {
 	return "available", authordiagnostic.Class{Stage: "navigation", Reason: "transport"}
+}
+
+type rejectionFakeSession struct {
+	*fakeCaptureSession
+	rejection authordiagnostic.Rejection
+}
+
+func (*rejectionFakeSession) BackendDiagnostic() (string, authordiagnostic.Class) {
+	return "available", authordiagnostic.Class{Stage: "policy", Reason: "origin_escape"}
+}
+func (s *rejectionFakeSession) BackendRejectionDiagnostic() authordiagnostic.Rejection {
+	return s.rejection
+}
+
+func TestCaptureRejectionV2ProjectionAndMalformedDetail(t *testing.T) {
+	for _, detail := range []authordiagnostic.Rejection{
+		{Boundary: "request", Resource: "document", OriginRelation: "port_mismatch"},
+		{Boundary: "observation", Resource: "document", OriginRelation: "host_mismatch"},
+		{Boundary: "request", Resource: "TOKEN_CANARY", OriginRelation: "host_mismatch"},
+	} {
+		dir := t.TempDir()
+		_ = os.Chmod(dir, 0700)
+		path := filepath.Join(dir, "diagnostic")
+		sink, err := newCaptureDiagnostic(&CaptureDiagnosticConfig{Path: path, Attempt: "fresh", Binding: strings.Repeat("a", 64)})
+		if err != nil {
+			t.Fatal(err)
+		}
+		s := &Server{captureDiagnostic: sink}
+		s.finishCaptureDiagnostic(&rejectionFakeSession{newFakeCaptureSession(), detail}, "failed", "worker_protocol", nil)
+		data, err := os.ReadFile(path)
+		if err != nil {
+			t.Fatal(err)
+		}
+		var r captureDiagnosticV2
+		if evidencefile.DecodeStrict(data, &r) != nil || r.Version != "openudon.capture-diagnostic.v2" {
+			t.Fatal("invalid diagnostic")
+		}
+		valid := detail.ValidFor(authordiagnostic.Class{Stage: "policy", Reason: "origin_escape"})
+		if valid && (r.Rejection != detail || r.BackendStatus != "available") {
+			t.Fatal("lost rejection detail")
+		}
+		if !valid && (r.Rejection != authordiagnostic.NoRejection() || r.BackendStatus != "invalid") {
+			t.Fatal("accepted malformed detail")
+		}
+		if strings.Contains(string(data), "CANARY") {
+			t.Fatal("leaked private value")
+		}
+	}
 }
 
 func TestPrivateCaptureDiagnosticWriteFailureBlocksResult(t *testing.T) {
