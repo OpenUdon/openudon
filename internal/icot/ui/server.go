@@ -105,6 +105,7 @@ func (s *Server) browserContainmentFailedLocked() bool {
 // HandlerConfig configures one server handler after its loopback listener is
 // active. Authority must be the listener's exact host:port value.
 type HandlerConfig struct {
+	CaptureDiagnostic     *CaptureDiagnosticConfig
 	Context               context.Context
 	Engine                AuthoringEngine
 	Snapshot              engine.Snapshot
@@ -339,7 +340,8 @@ func (e *requestError) Error() string { return e.text }
 
 // Server serializes revisions, workspace inspection, and engine mutations.
 type Server struct {
-	mu sync.Mutex
+	captureDiagnostic *captureDiagnosticSink
+	mu                sync.Mutex
 
 	engine                        AuthoringEngine
 	snapshot                      engine.Snapshot
@@ -527,6 +529,11 @@ func NewHandler(config HandlerConfig) (http.Handler, error) {
 	if err := s.updateRevisionLocked(); err != nil {
 		return nil, err
 	}
+	diagnostic, err := newCaptureDiagnostic(config.CaptureDiagnostic)
+	if err != nil {
+		return nil, err
+	}
+	s.captureDiagnostic = diagnostic
 	return s, nil
 }
 
@@ -1002,6 +1009,7 @@ func (s *Server) consumeCapture(session CaptureSession, startedAt time.Time) {
 	terminalState := ""
 	terminalMessage := ""
 	terminalErrorCode := ""
+	var terminalDetail *browserauthor.FailureDetails
 	for event := range session.Events() {
 		s.mu.Lock()
 		if s.captureSession != session {
@@ -1037,6 +1045,10 @@ func (s *Server) consumeCapture(session CaptureSession, startedAt time.Time) {
 				terminalState = event.State
 				terminalMessage = state.Message
 				terminalErrorCode = event.ErrorCode
+				if event.Failure != nil {
+					copy := *event.Failure
+					terminalDetail = &copy
+				}
 			}
 			s.capture = &CaptureState{
 				State: "canceling", Message: "The browser worker stopped; waiting for process-tree teardown to complete.",
@@ -1059,6 +1071,16 @@ func (s *Server) consumeCapture(session CaptureSession, startedAt time.Time) {
 		return
 	}
 	s.captureSession = nil
+	defer func() {
+		state, code := "failed", "missing_terminal"
+		if s.capture != nil {
+			state = s.capture.State
+		}
+		if terminalState != "" || state == "canceled" || state == "stage_review" {
+			code = terminalErrorCode
+		}
+		s.finishCaptureDiagnostic(session, state, code, terminalDetail)
+	}()
 	if terminalState != "" || s.capture != nil && s.capture.State == "canceling" {
 		state := "canceled"
 		message := "Browser capture was canceled after the isolated worker and its descendants stopped; no capture bytes were staged."

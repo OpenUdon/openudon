@@ -111,7 +111,8 @@ func runPrivateControl(ctx context.Context, config RunConfig, input io.ReadClose
 		return errors.New("application_start")
 	}
 	handler, err := NewHandler(HandlerConfig{
-		Context: ctx, Engine: author, Snapshot: snapshot, ExampleDir: config.EngineConfig.ExampleDir,
+		CaptureDiagnostic: config.CaptureDiagnostic,
+		Context:           ctx, Engine: author, Snapshot: snapshot, ExampleDir: config.EngineConfig.ExampleDir,
 		Token: token, AccessCode: code, Authority: "127.0.0.1:1", ErrOut: io.Discard,
 		PrivateRoot: config.EngineConfig.PrivateRoot, DriverDir: config.EngineConfig.DriverDir,
 		BrowserTransactions: config.BrowserTransactions, PrepareCapture: config.PrepareCapture,
@@ -121,6 +122,15 @@ func runPrivateControl(ctx context.Context, config RunConfig, input io.ReadClose
 		return errors.New("application_start")
 	}
 	app := RegistrationApplication{server: handler.(*Server)}
+	defer func() {
+		app.server.mu.Lock()
+		defer app.server.mu.Unlock()
+		if sink := app.server.captureDiagnostic; sink != nil && sink.file != nil {
+			_ = sink.file.Close()
+			sink.file = nil
+		}
+	}()
+
 	defer func() {
 		cancel()
 		if resultErr != nil && resultErr.Error() == "operation_teardown" {

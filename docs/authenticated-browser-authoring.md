@@ -341,3 +341,30 @@ reference](https://github.com/OpenUdon/browsertools/blob/main/docs/openudon-inte
 The detailed producer-side protocol and responsibility matrix are in
 [Authenticated goal-directed browser
 authoring](https://github.com/OpenUdon/browsertools/blob/main/docs/authenticated-goal-authoring.md).
+
+
+## Private capture failure companion (source candidate)
+
+Application control can opt into `--capture-diagnostic FILE`,
+`--capture-diagnostic-attempt SYMBOL` and `--capture-diagnostic-binding SHA256`.
+All three are required together. The binding is supplied by the reviewed
+consumer; it is not new browser authority. A private mode-0700 parent and fresh
+exclusive mode-0600 file are required. One configured application instance
+consumes at most one diagnosed capture. Normal protocol frames and historical
+browser-scenario diagnostic readers are unchanged.
+
+The `openudon.capture-diagnostic.v1` file is separate from UI state. It retains
+only terminal state/controller code, closed worker/stream details, backend
+status and a closed stage/reason. It is finalized after event closure; independent
+process cleanup remains the consumer's responsibility. A canceled worker may
+leave incomplete backend evidence, which stays explicitly invalid or missing.
+A failed companion write clears promotable capture state. Neither a category
+nor event closure proves that a request was prevented or that login succeeded.
+
+This unpublished candidate requires coordinated Browsertools source preparation.
+Owner module pins remain unchanged; a private explicit local replacement is
+used for development. The browser-wide redirect repair passes focused controls
+and authentication smoke. Complete qualification failed its clean-sibling source
+prerequisite: published source revisions and exact compatibility pins are required
+before a fresh run. Publication and runtime adoption remain pending; neither
+these diagnostics nor local passes grant new live capture authority.

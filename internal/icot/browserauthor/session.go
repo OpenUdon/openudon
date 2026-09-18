@@ -24,6 +24,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/OpenUdon/browsertools/authordiagnostic"
 	"github.com/OpenUdon/browsertools/authorresult"
 	"github.com/OpenUdon/browsertools/authorsession"
 	"github.com/OpenUdon/browsertools/disclosurepath"
@@ -119,17 +120,19 @@ var copyStabilizedExecutable = io.Copy
 
 // Config fixes all browser authority before the worker is launched.
 type Config struct {
-	PrivateRoot   string
-	DriverDir     string
-	InitialURL    string
-	DashboardURL  string
-	Goal          string
-	Origins       []string
-	ProfileID     string
-	GoalPredicate authorresult.GoalPredicate
-	OperatorIdle  time.Duration
-	Absolute      time.Duration
-	profileTitle  string
+	Diagnostic            bool
+	backendDiagnosticPath string
+	PrivateRoot           string
+	DriverDir             string
+	InitialURL            string
+	DashboardURL          string
+	Goal                  string
+	Origins               []string
+	ProfileID             string
+	GoalPredicate         authorresult.GoalPredicate
+	OperatorIdle          time.Duration
+	Absolute              time.Duration
+	profileTitle          string
 }
 
 // Event is one reduced, browser-safe state transition.
@@ -162,12 +165,14 @@ type Response struct {
 
 // Session is one asynchronously driven worker process.
 type Session struct {
-	mu        sync.Mutex
-	cancel    context.CancelFunc
-	responses chan Response
-	events    chan Event
-	done      chan struct{}
-	closed    bool
+	backendStatus string
+	backendClass  authordiagnostic.Class
+	mu            sync.Mutex
+	cancel        context.CancelFunc
+	responses     chan Response
+	events        chan Event
+	done          chan struct{}
+	closed        bool
 }
 
 // Doctor performs Browsertools' typed Chromium readiness check with the
@@ -243,12 +248,26 @@ func Start(ctx context.Context, config Config) (*Session, error) {
 	if config.DriverDir != "" {
 		args = append(args, "--driver-dir", config.DriverDir)
 	}
+	if config.Diagnostic {
+		directory, err := os.MkdirTemp(config.PrivateRoot, "author-diagnostic-")
+		if err != nil {
+			cleanup()
+			return nil, errors.New("prepare private worker diagnostic")
+		}
+		config.backendDiagnosticPath = filepath.Join(directory, "worker.json")
+		originalCleanup := cleanup
+		cleanup = func() { originalCleanup(); _ = os.RemoveAll(directory) }
+		args = append(args, "--diagnostic-file", config.backendDiagnosticPath)
+	}
 	return startProcess(ctx, config, args, cleanup)
 }
 
 // StartExternal runs an explicitly selected Browsertools executable through
 // the same typed controller and parent-attestation state machine as Start.
 func StartExternal(ctx context.Context, config Config, executable string) (*Session, error) {
+	if config.Diagnostic {
+		return nil, errors.New("external worker diagnostics unavailable")
+	}
 	if ctx == nil {
 		return nil, errors.New("browser author context is required")
 	}
@@ -339,6 +358,23 @@ func (s *Session) run(ctx context.Context, config Config, child *processgroup.In
 		scanMessages(scanCtx, child.Output(), messages, readErrors)
 	}()
 	waited := false
+	defer func() {
+		status, class := "disabled", authordiagnostic.Class{Stage: "none", Reason: "none"}
+		if config.backendDiagnosticPath != "" {
+			status, class = "missing", authordiagnostic.Class{Stage: "unknown", Reason: "unknown"}
+			if _, err := os.Lstat(config.backendDiagnosticPath); err == nil {
+				var readErr error
+				class, readErr = authordiagnostic.Read(config.backendDiagnosticPath)
+				status = "available"
+				if readErr != nil {
+					status, class = "invalid", authordiagnostic.Class{Stage: "unknown", Reason: "unknown"}
+				}
+			}
+		}
+		s.mu.Lock()
+		s.backendStatus, s.backendClass = status, class
+		s.mu.Unlock()
+	}()
 	defer func() {
 		_ = child.Input().Close()
 		stopScan()
@@ -1294,4 +1330,12 @@ func hashExecutable(file *os.File, maxBytes int64) (string, error) {
 func sameExecutableState(left, right os.FileInfo) bool {
 	return left != nil && right != nil && left.Mode().IsRegular() && right.Mode().IsRegular() &&
 		left.Mode() == right.Mode() && left.Size() == right.Size() && left.ModTime().Equal(right.ModTime()) && os.SameFile(left, right)
+}
+
+// BackendDiagnostic is meaningful only after Events closes. It is deliberately
+// separate from public Event JSON and historical scenario diagnostic schemas.
+func (s *Session) BackendDiagnostic() (string, authordiagnostic.Class) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.backendStatus, s.backendClass
 }

@@ -229,6 +229,13 @@ func (app Application) CaptureStart(ctx context.Context, request captureStartReq
 		goalLabel = "Dashboard"
 	}
 	request.GoalOrigin, request.GoalPath, request.GoalContext, request.GoalRole, request.GoalLabel = goalOrigin, goalPath, goalContext, goalRole, goalLabel
+	if s.captureDiagnostic != nil {
+		if s.captureDiagnostic.used {
+			reply.fail(http.StatusConflict, "capture_failed", "private diagnostic capture already consumed", false, s.revision)
+			return
+		}
+		s.captureDiagnostic.used = true
+	}
 	startedAt := s.now().UTC()
 	s.capture = &CaptureState{State: "launching", Message: "Launching an isolated headed Chromium authoring session.", StartedAt: startedAt.Format(time.RFC3339), UpdatedAt: startedAt.Format(time.RFC3339)}
 	s.captureResult = nil
@@ -236,11 +243,12 @@ func (app Application) CaptureStart(ctx context.Context, request captureStartReq
 	request.Revision, request.CaptureRevision = "", ""
 	s.captureStart = request
 	session, err := s.startCapture(s.captureContext, browserauthor.Config{
-		PrivateRoot: s.privateRoot, DriverDir: s.driverDir, InitialURL: request.URL, DashboardURL: request.DashboardURL,
+		Diagnostic: s.captureDiagnostic != nil, PrivateRoot: s.privateRoot, DriverDir: s.driverDir, InitialURL: request.URL, DashboardURL: request.DashboardURL,
 		Goal: request.Goal, Origins: append([]string(nil), request.Origins...), ProfileID: request.ProfileID,
 		GoalPredicate: authorresult.GoalPredicate{Origin: goalOrigin, Path: goalPath, Context: goalContext, Role: goalRole, Label: goalLabel},
 	})
 	if err != nil {
+		s.finishCaptureDiagnostic(nil, "failed", "worker_start", nil)
 		s.capture = &CaptureState{State: "failed", Message: "The isolated Chromium worker could not start.", StartedAt: startedAt.Format(time.RFC3339), UpdatedAt: s.now().UTC().Format(time.RFC3339)}
 		_ = s.updateRevisionLocked()
 		reply.fail(http.StatusUnprocessableEntity, "capture_failed", "browser capture failed before launch", false, s.revision)

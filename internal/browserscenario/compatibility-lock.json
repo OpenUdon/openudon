@@ -7,9 +7,9 @@
     },
     {
       "name": "browsertools",
-      "commit": "e5a49ff682357d6d5f5d9472b0222bff3a203854",
+      "commit": "3c3978f8a49f8e5ce06559a5ee38de2f4e247328",
       "module": "github.com/OpenUdon/browsertools",
-      "version": "v0.0.0-20260914170427-e5a49ff68235"
+      "version": "v0.0.0-20260918142842-3c3978f8a49f"
     },
     {
       "name": "udon",

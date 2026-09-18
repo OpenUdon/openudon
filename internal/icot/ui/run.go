@@ -20,6 +20,7 @@ const shutdownTimeout = 5 * time.Second
 
 // RunConfig starts one loopback-only UI process.
 type RunConfig struct {
+	CaptureDiagnostic     *CaptureDiagnosticConfig
 	EngineConfig          engine.Config
 	Port                  int
 	NoOpen                bool
