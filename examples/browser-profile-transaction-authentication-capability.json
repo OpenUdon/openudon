@@ -1,0 +1,42 @@
+{
+  "version": "openudon.browser-profile-transaction.v1",
+  "id": "member-dashboard",
+  "kind": "authentication_capability",
+  "state": "reviewed",
+  "candidates": [
+    {
+      "kind": "authentication",
+      "schema": "uws.browser-authentication.1.1",
+      "source_sha256": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "review_sha256": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+    },
+    {
+      "kind": "capability",
+      "schema": "uws.browser.1.7",
+      "source_sha256": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+      "review_sha256": "sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
+    }
+  ],
+  "provenance": {
+    "producer": "browsertools",
+    "result_version": "browsertools.authenticated-authoring.v2",
+    "result_sha256": "sha256:9999999999999999999999999999999999999999999999999999999999999999",
+    "observed_at": "2026-08-25T12:00:00Z",
+    "expires_at": "2026-08-26T12:00:00Z",
+    "origins": [
+      "https://app.example.test",
+      "https://login.example.test"
+    ]
+  },
+  "credential_bindings": [
+    {
+      "slot": "password",
+      "binding": "member_password"
+    },
+    {
+      "slot": "username",
+      "binding": "member_username"
+    }
+  ],
+  "session": "member_session"
+}

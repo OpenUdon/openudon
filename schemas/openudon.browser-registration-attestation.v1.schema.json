@@ -1,0 +1,24 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://openudon.dev/schemas/openudon.browser-registration-attestation.v1.schema.json",
+  "title": "OpenUdon Browser Registration Attestation",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["version", "package_sha256", "profile_sha256", "operation", "flow", "prior_attempts", "dedicated_test", "cleanup_disposition", "reviewer", "expires_at"],
+  "properties": {
+    "version": { "const": "openudon.browser-registration-attestation.v1" },
+    "package_sha256": { "$ref": "#/$defs/digest" },
+    "profile_sha256": { "$ref": "#/$defs/digest" },
+    "operation": { "$ref": "#/$defs/symbol" },
+    "flow": { "$ref": "#/$defs/symbol" },
+    "prior_attempts": { "const": 0 },
+    "dedicated_test": { "const": true },
+    "cleanup_disposition": { "enum": ["delete_separately", "retain_dedicated_test_identity"] },
+    "reviewer": { "type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9 ._-]{0,127}$" },
+    "expires_at": { "type": "string", "format": "date-time" }
+  },
+  "$defs": {
+    "digest": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+    "symbol": { "type": "string", "pattern": "^[A-Za-z][A-Za-z0-9_-]{0,127}$" }
+  }
+}
