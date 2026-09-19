@@ -346,3 +346,24 @@ func TestOperatorIdleCancellationIsBounded(t *testing.T) {
 		t.Fatalf("events = %#v, %#v", first, second)
 	}
 }
+
+func TestNormalizeConfigOptionalScriptPolicyRemainsSeparateFromOrigins(t *testing.T) {
+	root := t.TempDir()
+	if err := os.Chmod(root, 0700); err != nil {
+		t.Fatal(err)
+	}
+	base := Config{PrivateRoot: root, InitialURL: "https://members.example.test/login", DashboardURL: "https://members.example.test/dashboard", Origins: []string{"https://members.example.test"}, Goal: "Review", ProfileID: "member"}
+	base.BlockedScriptOrigin = "https://ANALYTICS.example.test:443"
+	value, err := normalizeConfig(base)
+	if err != nil || value.BlockedScriptOrigin != "https://analytics.example.test" || len(value.Origins) != 1 {
+		t.Fatal("policy was lost or admitted")
+	}
+	for _, raw := range []string{"https://members.example.test", "https://analytics.example.test?token=secret-token-canary", "http://analytics.example.test", "https://analytics.example.test/"} {
+		invalid := base
+		invalid.BlockedScriptOrigin = raw
+		_, err := normalizeConfig(invalid)
+		if err == nil || strings.Contains(err.Error(), "secret-token-canary") {
+			t.Fatal("invalid local policy or unsafe error")
+		}
+	}
+}

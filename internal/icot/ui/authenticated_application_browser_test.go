@@ -4,7 +4,9 @@ package ui
 
 import (
 	"context"
+	"fmt"
 	"io"
+	"net"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -16,6 +18,19 @@ import (
 	"github.com/OpenUdon/openudon/internal/processgroup"
 )
 
+type authPolicyCountingListener struct {
+	net.Listener
+	arrivals atomic.Int64
+}
+
+func (l *authPolicyCountingListener) Accept() (net.Conn, error) {
+	c, err := l.Listener.Accept()
+	if err == nil {
+		l.arrivals.Add(1)
+	}
+	return c, err
+}
+
 func TestBrowserSystemSupervisedAuthenticatedPackage(t *testing.T) {
 	root, err := filepath.Abs("../../..")
 	if err != nil {
@@ -23,6 +38,11 @@ func TestBrowserSystemSupervisedAuthenticatedPackage(t *testing.T) {
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
 	defer cancel()
+	blocked := httptest.NewUnstartedServer(http.HandlerFunc(func(http.ResponseWriter, *http.Request) { t.Error("blocked endpoint reached") }))
+	denied := &authPolicyCountingListener{Listener: blocked.Listener}
+	blocked.Listener = denied
+	blocked.StartTLS()
+	defer blocked.Close()
 	var posts, visits atomic.Int64
 	fixture := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "text/html")
@@ -38,6 +58,7 @@ func TestBrowserSystemSupervisedAuthenticatedPackage(t *testing.T) {
 				http.Redirect(w, r, "/campaigns", 303)
 				return
 			}
+			fmt.Fprintf(w, `<script src="%s/optional.js"></script>`, blocked.URL)
 			_, _ = io.WriteString(w, `<!doctype html><html><body><h1>Sign in</h1><form method="post" action="/login"><label>Email address<input name="identifier" autocomplete="username" onfocus="this.value='fixture-user'"></label><label>Password<input name="password" type="password" autocomplete="current-password" onfocus="this.value='fixture-password'"></label><button type="submit">Sign in</button></form></body></html>`)
 		case "/campaigns":
 			c, err := r.Cookie("fixture_session")
@@ -71,9 +92,12 @@ func TestBrowserSystemSupervisedAuthenticatedPackage(t *testing.T) {
 		t.Fatal("workspace")
 	}
 	defer os.RemoveAll(example)
-	result, err := RunAuthenticatedApplicationQualification(ctx, RegistrationQualificationOptions{RepoRoot: root, ApplicationExecutable: binary, ExampleDir: example, PrivateRoot: filepath.Join(temp, "private"), ScratchParent: filepath.Join(temp, "scratch"), StoreDir: filepath.Join(temp, "store"), Scope: "qualification/authenticated", ProfileID: "qualification_auth", Origin: fixture.URL, InitialURL: fixture.URL + "/login"})
+	result, err := RunAuthenticatedApplicationQualification(ctx, RegistrationQualificationOptions{RepoRoot: root, ApplicationExecutable: binary, ExampleDir: example, PrivateRoot: filepath.Join(temp, "private"), ScratchParent: filepath.Join(temp, "scratch"), StoreDir: filepath.Join(temp, "store"), Scope: "qualification/authenticated", ProfileID: "qualification_auth", Origin: fixture.URL, InitialURL: fixture.URL + "/login"}, blocked.URL)
 	if err != nil {
 		t.Fatal(err)
+	}
+	if denied.arrivals.Load() != 0 {
+		t.Fatal("blocked origin received contact")
 	}
 	if result.Promotion == nil || result.Transaction == nil || result.Transaction.Session == "" || posts.Load() != 1 || visits.Load() < 1 {
 		t.Fatal("authenticated_package_evidence")

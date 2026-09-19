@@ -20,22 +20,26 @@ const shutdownTimeout = 5 * time.Second
 
 // RunConfig starts one loopback-only UI process.
 type RunConfig struct {
-	CaptureDiagnostic     *CaptureDiagnosticConfig
-	EngineConfig          engine.Config
-	Port                  int
-	NoOpen                bool
-	Out                   io.Writer
-	ErrOut                io.Writer
-	OpenURL               func(string) error
-	Listen                func(network, address string) (net.Listener, error)
-	PrepareCapture        func(CaptureStageRequest) (engine.BrowserCaptureStage, error)
-	BrowserTransactions   BrowserTransactionEngine
-	RegistrationAuthority *RegistrationAuthority
+	CaptureBlockedScriptOrigin string
+	CaptureDiagnostic          *CaptureDiagnosticConfig
+	EngineConfig               engine.Config
+	Port                       int
+	NoOpen                     bool
+	Out                        io.Writer
+	ErrOut                     io.Writer
+	OpenURL                    func(string) error
+	Listen                     func(network, address string) (net.Listener, error)
+	PrepareCapture             func(CaptureStageRequest) (engine.BrowserCaptureStage, error)
+	BrowserTransactions        BrowserTransactionEngine
+	RegistrationAuthority      *RegistrationAuthority
 }
 
 // Run opens one engine, binds 127.0.0.1, optionally opens the browser, and
 // serves until cancellation or an HTTP server failure.
 func Run(ctx context.Context, config RunConfig) (resultErr error) {
+	if config.CaptureBlockedScriptOrigin != "" {
+		return errors.New("blocked script policy requires application control")
+	}
 	if config.RegistrationAuthority != nil {
 		deadline, err := time.Parse(time.RFC3339, config.RegistrationAuthority.ExpiresAt)
 		if err != nil {

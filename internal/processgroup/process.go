@@ -159,6 +159,12 @@ func RunContext(ctx context.Context, invocation Invocation) error {
 }
 
 func run(ctx context.Context, timeout time.Duration, invocation Invocation) error {
+	return runWithTracker(ctx, timeout, invocation, startDescendantTracker)
+}
+
+// runWithTracker keeps the default lifecycle while allowing internal fixtures
+// to observe tracker readiness before their synthetic leader exits.
+func runWithTracker(ctx context.Context, timeout time.Duration, invocation Invocation, track func(int) *descendantTracker) error {
 	if ctx == nil {
 		ctx = context.Background()
 	}
@@ -192,7 +198,7 @@ func run(ctx context.Context, timeout time.Duration, invocation Invocation) erro
 	if err := command.Start(); err != nil {
 		return err
 	}
-	tracker := startDescendantTracker(command.Process.Pid)
+	tracker := track(command.Process.Pid)
 	done := make(chan error, 1)
 	go func() {
 		waitErr := command.Wait()

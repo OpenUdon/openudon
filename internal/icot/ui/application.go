@@ -243,7 +243,7 @@ func (app Application) CaptureStart(ctx context.Context, request captureStartReq
 	request.Revision, request.CaptureRevision = "", ""
 	s.captureStart = request
 	session, err := s.startCapture(s.captureContext, browserauthor.Config{
-		Diagnostic: s.captureDiagnostic != nil, PrivateRoot: s.privateRoot, DriverDir: s.driverDir, InitialURL: request.URL, DashboardURL: request.DashboardURL,
+		BlockedScriptOrigin: s.captureBlockedScriptOrigin, Diagnostic: s.captureDiagnostic != nil, PrivateRoot: s.privateRoot, DriverDir: s.driverDir, InitialURL: request.URL, DashboardURL: request.DashboardURL,
 		Goal: request.Goal, Origins: append([]string(nil), request.Origins...), ProfileID: request.ProfileID,
 		GoalPredicate: authorresult.GoalPredicate{Origin: goalOrigin, Path: goalPath, Context: goalContext, Role: goalRole, Label: goalLabel},
 	})

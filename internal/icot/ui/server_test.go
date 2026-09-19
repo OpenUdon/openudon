@@ -801,7 +801,7 @@ func TestCaptureUsesSeparateRevisionBlocksAuthoringAndStagesReviewedResult(t *te
 	var receivedConfig browserauthor.Config
 	handler, err := NewHandler(HandlerConfig{
 		Engine: fake, Snapshot: fake.snapshot, ExampleDir: "/tmp/example", Token: testToken, AccessCode: testAccessCode, Authority: testAuthority,
-		PrivateRoot: "/tmp/private",
+		PrivateRoot: "/tmp/private", CaptureBlockedScriptOrigin: "https://ANALYTICS.example.test:443",
 		DoctorBrowser: func(context.Context, string, string) (browserauthor.DoctorReport, error) {
 			return browserauthor.DoctorReport{Version: browserauthor.DoctorVersion, Engine: browserauthor.EngineChromium, DriverReady: true, BrowserReady: true}, nil
 		},
@@ -830,11 +830,18 @@ func TestCaptureUsesSeparateRevisionBlocksAuthoringAndStagesReviewedResult(t *te
 	}
 	configured := decodeResponse(t, preflight)
 	body := fmt.Sprintf(`{"revision":%q,"capture_revision":%q,"profile_id":"account","url":"https://login.example.test/","dashboard_url":"https://app.example.test/home","goal":"Open the dashboard","origins":["https://login.example.test","https://app.example.test"]}`, configured.Revision, configured.CaptureRevision)
+	injected := strings.TrimSuffix(body, "}") + `,"blocked_script_origin":"https://attacker.example.test"}`
+	if reply := doRequest(handler, http.MethodPost, "/api/v4/capture/start", injected, "application/json", true); reply.Code != http.StatusBadRequest {
+		t.Fatal("protocol supplied local policy")
+	}
 	started := doRequest(handler, http.MethodPost, "/api/v4/capture/start", body, "application/json", true)
 	if started.Code != http.StatusAccepted {
 		t.Fatalf("capture start = %d %s", started.Code, started.Body.String())
 	}
 	launching := decodeResponse(t, started)
+	if receivedConfig.BlockedScriptOrigin != "https://analytics.example.test" || len(receivedConfig.Origins) != 2 {
+		t.Fatal("local denial policy was lost or admitted")
+	}
 	if launching.Revision != initial.Revision || launching.CaptureRevision == initial.CaptureRevision || receivedConfig.ProfileID != "account" || receivedConfig.GoalPredicate.Origin != "https://app.example.test" {
 		t.Fatalf("capture launch = %#v config=%#v", launching, receivedConfig)
 	}

@@ -78,6 +78,9 @@ func (app RegistrationApplication) close() error {
 // browser controller or agent session. EOF, malformed input, signals and the
 // nonrenewable deadline cancel the worker and join its retained terminal state.
 func RunRegistrationControl(ctx context.Context, config RunConfig, input io.ReadCloser) error {
+	if config.CaptureBlockedScriptOrigin != "" {
+		return errors.New("blocked script policy requires application control")
+	}
 	return runPrivateControl(ctx, config, input, false)
 }
 
@@ -111,8 +114,8 @@ func runPrivateControl(ctx context.Context, config RunConfig, input io.ReadClose
 		return errors.New("application_start")
 	}
 	handler, err := NewHandler(HandlerConfig{
-		CaptureDiagnostic: config.CaptureDiagnostic,
-		Context:           ctx, Engine: author, Snapshot: snapshot, ExampleDir: config.EngineConfig.ExampleDir,
+		CaptureDiagnostic: config.CaptureDiagnostic, CaptureBlockedScriptOrigin: config.CaptureBlockedScriptOrigin,
+		Context: ctx, Engine: author, Snapshot: snapshot, ExampleDir: config.EngineConfig.ExampleDir,
 		Token: token, AccessCode: code, Authority: "127.0.0.1:1", ErrOut: io.Discard,
 		PrivateRoot: config.EngineConfig.PrivateRoot, DriverDir: config.EngineConfig.DriverDir,
 		BrowserTransactions: config.BrowserTransactions, PrepareCapture: config.PrepareCapture,

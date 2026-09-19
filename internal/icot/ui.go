@@ -13,6 +13,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/OpenUdon/browsertools/authorpolicy"
 	transactionengine "github.com/OpenUdon/openudon/internal/browsertransaction/engine"
 	"github.com/OpenUdon/openudon/internal/icot/elicitor"
 	"github.com/OpenUdon/openudon/internal/icot/engine"
@@ -54,6 +55,7 @@ func runApplication(args []string, input io.Reader, out, errOut io.Writer) int {
 	noOpen := fs.Bool("no-open", false, "Do not open the bootstrap URL in the platform browser")
 	privateRoot := fs.String("private-root", "", "absolute mode-0700 private root required only for upload, browser capture, or registration authoring")
 	registrationAuthorityPath := fs.String("registration-authority", "", "Optional owner-only file fixing one consumer registration-authoring authority")
+	blockedScriptOrigin := fs.String("capture-blocked-script-origin", "", "Optional exact HTTPS origin for nonfatal GET/Script denial (application control only)")
 	diagnosticPath := fs.String("capture-diagnostic", "", "Optional exclusive private capture diagnostic (application control only)")
 	diagnosticAttempt := fs.String("capture-diagnostic-attempt", "", "Opaque diagnostic attempt identity")
 	diagnosticBinding := fs.String("capture-diagnostic-binding", "", "SHA-256 of consumer operation packet")
@@ -91,6 +93,16 @@ func runApplication(args []string, input io.Reader, out, errOut io.Writer) int {
 	if input != nil && (*port != 0 || !*noOpen) {
 		fmt.Fprintln(errOut, "icot control: requires --no-open and no port")
 		return 2
+	}
+	if *blockedScriptOrigin != "" {
+		if input == nil || *protocol != uiserver.ApplicationControlVersion {
+			fmt.Fprintln(errOut, "icot: blocked script policy requires application control")
+			return 2
+		}
+		if _, err := authorpolicy.New(*blockedScriptOrigin); err != nil {
+			fmt.Fprintln(errOut, "icot: invalid blocked script policy")
+			return 2
+		}
 	}
 	exampleDir := strings.TrimSpace(*example)
 	if exampleDir == "" {
@@ -173,7 +185,8 @@ func runApplication(args []string, input io.Reader, out, errOut io.Writer) int {
 		browserTransactions = transactionEngine
 	}
 	config := uiserver.RunConfig{
-		EngineConfig: engineConfig, Port: *port, NoOpen: *noOpen, Out: out, ErrOut: errOut,
+		CaptureBlockedScriptOrigin: *blockedScriptOrigin,
+		EngineConfig:               engineConfig, Port: *port, NoOpen: *noOpen, Out: out, ErrOut: errOut,
 		PrepareCapture:      prepareUICaptureStage,
 		BrowserTransactions: browserTransactions,
 	}

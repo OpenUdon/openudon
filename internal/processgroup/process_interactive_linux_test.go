@@ -10,6 +10,7 @@ import (
 	"io"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"syscall"
@@ -48,16 +49,67 @@ func testRunSweepsDescendant(t *testing.T, detached bool) {
 	if detached {
 		mode = "detached"
 	}
+	root := t.TempDir()
+	pidFile, releaseFile := filepath.Join(root, "child"), filepath.Join(root, "release")
 	var output bytes.Buffer
-	err = Run(context.Background(), 5*time.Second, Invocation{
-		Args: []string{
-			executable, "-test.run=^TestNormalExitDescendantHelper$", "--", mode, "normal-exit-descendant-helper",
-		},
-		Env: os.Environ(), Stdout: &output, Stderr: io.Discard,
-	})
-	if err != nil {
+	observedTracker := make(chan *descendantTracker, 1)
+	done := make(chan error, 1)
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	go func() {
+		done <- runWithTracker(ctx, 10*time.Second, Invocation{
+			Args: []string{executable, "-test.run=^TestNormalExitDescendantHelper$", "--", pidFile, releaseFile, mode, "normal-exit-descendant-helper"},
+			Env:  os.Environ(), Stdout: &output, Stderr: io.Discard,
+		}, func(pid int) *descendantTracker {
+			tracker := startDescendantTracker(pid)
+			observedTracker <- tracker
+			return tracker
+		})
+	}()
+	joined := false
+	defer func() {
+		if !joined {
+			cancel()
+			select {
+			case <-done:
+			case <-time.After(12 * time.Second):
+				t.Error("fixture did not join")
+			}
+		}
+	}()
+	var tracker *descendantTracker
+	select {
+	case tracker = <-observedTracker:
+	case <-ctx.Done():
+		t.Fatal("tracker did not start")
+	}
+	seen := false
+	for deadline := time.Now().Add(5 * time.Second); time.Now().Before(deadline); {
+		data, _ := os.ReadFile(pidFile)
+		pid, parseErr := strconv.Atoi(string(data))
+		if parseErr == nil {
+			current, readErr := readProcIdentity(pid)
+			tracker.mu.Lock()
+			start, known := tracker.known[pid]
+			tracker.mu.Unlock()
+			if readErr == nil && known && current.startTime == start {
+				seen = true
+				break
+			}
+		}
+		time.Sleep(time.Millisecond)
+	}
+	if !seen {
+		t.Fatal("tracker did not observe fixture child before leader release")
+	}
+	if err := os.WriteFile(releaseFile, nil, 0600); err != nil {
 		t.Fatal(err)
 	}
+	if err := <-done; err != nil {
+		joined = true
+		t.Fatal(err)
+	}
+	joined = true
 	pid, err := strconv.Atoi(strings.TrimSpace(output.String()))
 	if err != nil {
 		t.Fatalf("parse descendant pid %q: %v", output.String(), err)
@@ -118,11 +170,22 @@ func TestNormalExitDescendantHelper(t *testing.T) {
 		os.Exit(2)
 	}
 	_, _ = fmt.Fprintf(os.Stdout, "%d\n", command.Process.Pid)
-	// Give the Linux identity monitor a chance to record the child after it has
-	// detached. The runtime contract relies on continuous /proc observation,
-	// not on the child retaining the original process group.
-	time.Sleep(25 * time.Millisecond)
-	os.Exit(0)
+	pidFile, releaseFile := os.Args[len(os.Args)-4], os.Args[len(os.Args)-3]
+	if os.WriteFile(pidFile, []byte(strconv.Itoa(command.Process.Pid)), 0600) != nil {
+		_ = command.Process.Kill()
+		_ = command.Wait()
+		os.Exit(3)
+	}
+	// Only the test's confirmed PID/start-time observation releases this leader.
+	for deadline := time.Now().Add(7 * time.Second); time.Now().Before(deadline); {
+		if _, err := os.Stat(releaseFile); err == nil {
+			os.Exit(0)
+		}
+		time.Sleep(time.Millisecond)
+	}
+	_ = command.Process.Kill()
+	_ = command.Wait()
+	os.Exit(3)
 }
 
 func TestInteractiveDescendantHelper(t *testing.T) {

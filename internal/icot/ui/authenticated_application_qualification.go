@@ -4,6 +4,9 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"github.com/OpenUdon/browsertools/authorpolicy"
+	"net"
+	"net/url"
 	"strings"
 	"time"
 
@@ -26,14 +29,26 @@ func (q *applicationQualification) command(operation string, request any) (Respo
 // RunAuthenticatedApplicationQualification is a closed synthetic fixture
 // journey. It drives the actual command/worker and all package decisions, with
 // synthetic human responses only at the fixed loopback fixture's checkpoints.
-func RunAuthenticatedApplicationQualification(ctx context.Context, options RegistrationQualificationOptions) (result transactionengine.Snapshot, resultErr error) {
+func RunAuthenticatedApplicationQualification(ctx context.Context, options RegistrationQualificationOptions, blockedScriptOrigins ...string) (result transactionengine.Snapshot, resultErr error) {
 	if !qualificationLoopbackURL(options.Origin, options.InitialURL) || options.InitialURL != options.Origin+"/login" || options.ApplicationExecutable == "" {
 		return result, errors.New("fixture_authority")
 	}
 	if ctx == nil {
 		ctx = context.Background()
 	}
-	q, err := newApplicationQualification(ctx, options)
+	selected := ""
+	if len(blockedScriptOrigins) > 1 {
+		return result, errors.New("fixture_authority")
+	}
+	if len(blockedScriptOrigins) == 1 {
+		selected = blockedScriptOrigins[0]
+		policy, err := authorpolicy.New(selected)
+		u, parseErr := url.Parse(selected)
+		if err != nil || parseErr != nil || u == nil || net.ParseIP(u.Hostname()) == nil || !net.ParseIP(u.Hostname()).IsLoopback() || policy.Origin() == "" {
+			return result, errors.New("fixture_authority")
+		}
+	}
+	q, err := newApplicationQualificationWithPolicy(ctx, options, selected)
 	if err != nil {
 		return result, err
 	}

@@ -39,7 +39,15 @@ type applicationQualification struct {
 }
 
 func newApplicationQualification(ctx context.Context, options RegistrationQualificationOptions) (*applicationQualification, error) {
-	child, err := processgroup.StartInteractiveIn(ctx, options.RepoRoot, []string{options.ApplicationExecutable, "control", "--protocol", ApplicationControlVersion, "--no-open", "--network", "never", "--example", options.ExampleDir, "--private-root", options.PrivateRoot, "--package-scope", options.Scope, "--package-scratch", options.ScratchParent, "--package-store", options.StoreDir}, os.Environ(), io.Discard)
+	return newApplicationQualificationWithPolicy(ctx, options, "")
+}
+
+func newApplicationQualificationWithPolicy(ctx context.Context, options RegistrationQualificationOptions, blockedScriptOrigin string) (*applicationQualification, error) {
+	args := []string{options.ApplicationExecutable, "control", "--protocol", ApplicationControlVersion, "--no-open", "--network", "never", "--example", options.ExampleDir, "--private-root", options.PrivateRoot, "--package-scope", options.Scope, "--package-scratch", options.ScratchParent, "--package-store", options.StoreDir}
+	if blockedScriptOrigin != "" {
+		args = append(args, "--capture-blocked-script-origin", blockedScriptOrigin)
+	}
+	child, err := processgroup.StartInteractiveIn(ctx, options.RepoRoot, args, os.Environ(), io.Discard)
 	if err != nil {
 		return nil, errors.New("application_start")
 	}

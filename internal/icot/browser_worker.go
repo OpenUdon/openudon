@@ -33,6 +33,7 @@ func runBundledBrowserWorker(args []string, in io.Reader, out, errOut io.Writer)
 	fs.SetOutput(errOut)
 	privateRoot := fs.String("private-root", "", "")
 	diagnosticPath := fs.String("diagnostic-file", "", "")
+	blockedScriptOrigin := fs.String("blocked-script-origin", "", "")
 	driverDirectory := fs.String("driver-dir", "", "")
 	protocol := fs.String("protocol", "v1", "")
 	if err := fs.Parse(args[2:]); err != nil {
@@ -52,7 +53,7 @@ func runBundledBrowserWorker(args []string, in io.Reader, out, errOut io.Writer)
 		stdin = io.NopCloser(in)
 	}
 	var runErr error
-	if args[0] == "registration-author-session" && *diagnosticPath != "" {
+	if args[0] == "registration-author-session" && (*diagnosticPath != "" || *blockedScriptOrigin != "") {
 		return 2
 	}
 	if args[0] == "registration-author-session" {
@@ -61,8 +62,8 @@ func runBundledBrowserWorker(args []string, in io.Reader, out, errOut io.Writer)
 		})
 	} else {
 		runErr = authorworker.Run(ctx, authorworker.Options{
-			DiagnosticPath: *diagnosticPath,
-			PrivateRoot:    *privateRoot, DriverDirectory: *driverDirectory, Stdin: stdin, Stdout: out,
+			DiagnosticPath: *diagnosticPath, BlockedScriptOrigin: *blockedScriptOrigin,
+			PrivateRoot: *privateRoot, DriverDirectory: *driverDirectory, Stdin: stdin, Stdout: out,
 		})
 	}
 	if runErr != nil {

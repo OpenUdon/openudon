@@ -25,6 +25,7 @@ import (
 	"time"
 
 	"github.com/OpenUdon/browsertools/authordiagnostic"
+	"github.com/OpenUdon/browsertools/authorpolicy"
 	"github.com/OpenUdon/browsertools/authorresult"
 	"github.com/OpenUdon/browsertools/authorsession"
 	"github.com/OpenUdon/browsertools/disclosurepath"
@@ -120,6 +121,7 @@ var copyStabilizedExecutable = io.Copy
 
 // Config fixes all browser authority before the worker is launched.
 type Config struct {
+	BlockedScriptOrigin   string
 	Diagnostic            bool
 	backendDiagnosticPath string
 	PrivateRoot           string
@@ -249,6 +251,9 @@ func Start(ctx context.Context, config Config) (*Session, error) {
 	if config.DriverDir != "" {
 		args = append(args, "--driver-dir", config.DriverDir)
 	}
+	if config.BlockedScriptOrigin != "" {
+		args = append(args, "--blocked-script-origin", config.BlockedScriptOrigin)
+	}
 	if config.Diagnostic {
 		directory, err := os.MkdirTemp(config.PrivateRoot, "author-diagnostic-")
 		if err != nil {
@@ -283,6 +288,9 @@ func StartExternal(ctx context.Context, config Config, executable string) (*Sess
 	args := []string{stable, "author-session", "chromium", "--private-root", config.PrivateRoot}
 	if config.DriverDir != "" {
 		args = append(args, "--driver-dir", config.DriverDir)
+	}
+	if config.BlockedScriptOrigin != "" {
+		args = append(args, "--blocked-script-origin", config.BlockedScriptOrigin)
 	}
 	return startProcess(ctx, config, args, cleanup)
 }
@@ -788,6 +796,11 @@ func receive(ctx context.Context, messages <-chan authorsession.ServerMessage, f
 }
 
 func normalizeConfig(config Config) (Config, error) {
+	policy, err := authorpolicy.New(config.BlockedScriptOrigin)
+	if err != nil {
+		return Config{}, err
+	}
+	config.BlockedScriptOrigin = policy.Origin()
 	if config.OperatorIdle <= 0 {
 		config.OperatorIdle = DefaultOperatorIdle
 	}
@@ -819,6 +832,9 @@ func normalizeConfig(config Config) (Config, error) {
 			seen[origin] = true
 			origins = append(origins, origin)
 		}
+	}
+	if seen[config.BlockedScriptOrigin] {
+		return Config{}, errors.New("blocked script origin cannot be admitted")
 	}
 	sort.Strings(origins)
 	if !seen[initialOrigin] || !seen[dashboardOrigin] || len(origins) == 0 {

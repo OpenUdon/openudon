@@ -28,6 +28,7 @@ import (
 	"time"
 	"unicode/utf8"
 
+	"github.com/OpenUdon/browsertools/authorpolicy"
 	"github.com/OpenUdon/browsertools/authorsession"
 	"github.com/OpenUdon/browsertools/registrationauthorsession"
 	"github.com/OpenUdon/openudon/internal/authoring"
@@ -105,31 +106,32 @@ func (s *Server) browserContainmentFailedLocked() bool {
 // HandlerConfig configures one server handler after its loopback listener is
 // active. Authority must be the listener's exact host:port value.
 type HandlerConfig struct {
-	CaptureDiagnostic     *CaptureDiagnosticConfig
-	Context               context.Context
-	Engine                AuthoringEngine
-	Snapshot              engine.Snapshot
-	ExampleDir            string
-	Token                 string
-	AccessCode            string
-	Authority             string
-	ErrOut                io.Writer
-	AccessCodeOut         io.Writer
-	Now                   func() time.Time
-	GenerateAccessCode    func() (string, error)
-	RepoRoot              string
-	BuildPackage          func(context.Context, synthesize.Options) (*synthesize.Result, *synthesize.QualityReport, error)
-	AssessPackage         func(context.Context, synthesize.Options) (*synthesize.QualityReport, error)
-	InspectPackage        func(context.Context, trustedrunner.TemplateOptions) (trustedrunner.PackageInspection, error)
-	RevalidatePackage     func(context.Context, trustedrunner.TemplateOptions, trustedrunner.PackageInspection) error
-	PrivateRoot           string
-	DriverDir             string
-	DoctorBrowser         func(context.Context, string, string) (browserauthor.DoctorReport, error)
-	StartCapture          func(context.Context, browserauthor.Config) (CaptureSession, error)
-	StartRegistration     func(context.Context, browserauthor.RegistrationConfig) (RegistrationAuthoringSession, error)
-	PrepareCapture        func(CaptureStageRequest) (engine.BrowserCaptureStage, error)
-	BrowserTransactions   BrowserTransactionEngine
-	RegistrationAuthority *RegistrationAuthority
+	CaptureBlockedScriptOrigin string
+	CaptureDiagnostic          *CaptureDiagnosticConfig
+	Context                    context.Context
+	Engine                     AuthoringEngine
+	Snapshot                   engine.Snapshot
+	ExampleDir                 string
+	Token                      string
+	AccessCode                 string
+	Authority                  string
+	ErrOut                     io.Writer
+	AccessCodeOut              io.Writer
+	Now                        func() time.Time
+	GenerateAccessCode         func() (string, error)
+	RepoRoot                   string
+	BuildPackage               func(context.Context, synthesize.Options) (*synthesize.Result, *synthesize.QualityReport, error)
+	AssessPackage              func(context.Context, synthesize.Options) (*synthesize.QualityReport, error)
+	InspectPackage             func(context.Context, trustedrunner.TemplateOptions) (trustedrunner.PackageInspection, error)
+	RevalidatePackage          func(context.Context, trustedrunner.TemplateOptions, trustedrunner.PackageInspection) error
+	PrivateRoot                string
+	DriverDir                  string
+	DoctorBrowser              func(context.Context, string, string) (browserauthor.DoctorReport, error)
+	StartCapture               func(context.Context, browserauthor.Config) (CaptureSession, error)
+	StartRegistration          func(context.Context, browserauthor.RegistrationConfig) (RegistrationAuthoringSession, error)
+	PrepareCapture             func(CaptureStageRequest) (engine.BrowserCaptureStage, error)
+	BrowserTransactions        BrowserTransactionEngine
+	RegistrationAuthority      *RegistrationAuthority
 }
 
 // Workspace identifies the selected example and its optimistic ownership
@@ -340,8 +342,9 @@ func (e *requestError) Error() string { return e.text }
 
 // Server serializes revisions, workspace inspection, and engine mutations.
 type Server struct {
-	captureDiagnostic *captureDiagnosticSink
-	mu                sync.Mutex
+	captureDiagnostic          *captureDiagnosticSink
+	captureBlockedScriptOrigin string
+	mu                         sync.Mutex
 
 	engine                        AuthoringEngine
 	snapshot                      engine.Snapshot
@@ -474,8 +477,13 @@ func NewHandler(config HandlerConfig) (http.Handler, error) {
 	if config.RegistrationAuthority.validate(now()) != nil {
 		return nil, errors.New("registration authority is invalid")
 	}
+	policy, err := authorpolicy.New(config.CaptureBlockedScriptOrigin)
+	if err != nil {
+		return nil, err
+	}
 	s := &Server{
-		engine: config.Engine, snapshot: config.Snapshot,
+		captureBlockedScriptOrigin: policy.Origin(),
+		engine:                     config.Engine, snapshot: config.Snapshot,
 		exampleDir: config.ExampleDir, token: config.Token, authority: authority,
 		origin: "http://" + authority, basePath: instanceBasePath(config.Token), errOut: errOut,
 		accessCodeOut: accessCodeOut, generateAccessCode: generateAccessCode,
