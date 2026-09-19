@@ -368,3 +368,21 @@ and authentication smoke. Complete qualification failed its clean-sibling source
 prerequisite: published source revisions and exact compatibility pins are required
 before a fresh run. Publication and runtime adoption remain pending; neither
 these diagnostics nor local passes grant new live capture authority.
+
+
+## Reviewed structural-query navigation
+
+Authenticated authoring preserves reviewed literal query parameters such as
+`?view=list` in initial/navigation commands, private action traces and generated
+authentication/capability navigation. Parent attestation binds the exact reviewed
+query. Observations, page-derived URL facts and rejection diagnostics continue
+to expose only origin/path facts, never observed query values. Redirect transport
+and origin/POST/request/byte limits are unchanged.
+
+`authorurl.Normalize` accepts HTTPS or loopback HTTP and shares the established
+structural-query validator: 4,096 URL bytes, 1,024 query bytes, 16 unique items,
+64-byte keys and 256-byte values with canonical encoding/order. Known sensitive
+keys (including private), secret/identity patterns, templates, controls, userinfo,
+fragments and malformed queries are rejected without echoing the input. Only
+reviewed public structural values belong in these retained URLs; this validation
+is not a general-purpose secret detector. Registration protocols are unchanged.

@@ -14,7 +14,7 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/OpenUdon/browsertools/disclosurepath"
+	"github.com/OpenUdon/browsertools/authorurl"
 	"github.com/OpenUdon/browsertools/profile"
 )
 
@@ -346,40 +346,10 @@ func validateBrowserAuthoringPlan(plan browserAuthoringPlan) error {
 }
 
 func normalizeBrowserAuthoringURL(raw string) (string, string, error) {
-	raw = strings.TrimSpace(raw)
 	if containsPlanDelimiterOrControl(raw) {
 		return "", "", fmt.Errorf("target URL contains a reserved delimiter or control character")
 	}
-	parsed, err := url.Parse(raw)
-	if err != nil || parsed == nil || !parsed.IsAbs() || parsed.Host == "" {
-		return "", "", fmt.Errorf("target URL must be an absolute HTTPS or loopback HTTP URL")
-	}
-	if parsed.User != nil || parsed.RawQuery != "" || parsed.Fragment != "" || parsed.Opaque != "" {
-		return "", "", fmt.Errorf("target URL must not contain userinfo, query, fragment, or opaque data")
-	}
-	if parsed.Scheme != "https" && !(parsed.Scheme == "http" && browserAuthoringLoopbackHost(parsed.Hostname())) {
-		return "", "", fmt.Errorf("target URL must use HTTPS or loopback HTTP")
-	}
-	if parsed.Path == "" {
-		parsed.Path = "/"
-	}
-	if err := disclosurepath.Validate(parsed.EscapedPath()); err != nil {
-		return "", "", fmt.Errorf("target URL path is unsafe")
-	}
-	origin, err := profile.ParseOrigin(strings.ToLower(parsed.Scheme) + "://" + parsed.Host)
-	if err != nil {
-		return "", "", fmt.Errorf("target URL origin: %w", err)
-	}
-	canonicalOrigin, err := url.Parse(origin)
-	if err != nil {
-		return "", "", err
-	}
-	parsed.Scheme = canonicalOrigin.Scheme
-	parsed.Host = canonicalOrigin.Host
-	if parsed.Path == "" {
-		parsed.Path = "/"
-	}
-	return parsed.String(), origin, nil
+	return authorurl.Normalize(raw)
 }
 
 func normalizeBrowserAuthoringOrigins(values []string) ([]string, error) {

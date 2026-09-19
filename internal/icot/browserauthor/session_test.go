@@ -32,12 +32,18 @@ func TestNormalizeConfigFixesFiniteAuthority(t *testing.T) {
 	if config.OperatorIdle != DefaultOperatorIdle || config.Absolute != DefaultAbsolute || config.InitialURL != "https://members.example.test/login" || config.profileTitle != "Member" {
 		t.Fatalf("normalized config = %#v", config)
 	}
+	config.InitialURL += "?next=dashboard"
+	config.DashboardURL += "?view=home"
+	withQuery, err := normalizeConfig(config)
+	if err != nil || withQuery.InitialURL != config.InitialURL || withQuery.DashboardURL != config.DashboardURL {
+		t.Fatal("reviewed structural-query inputs were changed", err)
+	}
 	for _, test := range []struct {
 		name   string
 		mutate func(*Config)
 	}{
-		{name: "initial query", mutate: func(value *Config) { value.InitialURL = "https://members.example.test/login?next=dashboard" }},
-		{name: "dashboard query", mutate: func(value *Config) { value.DashboardURL = "https://members.example.test/dashboard?tab=home" }},
+		{name: "initial query", mutate: func(value *Config) { value.InitialURL = "https://members.example.test/login?token=TOKEN_CANARY" }},
+		{name: "dashboard query", mutate: func(value *Config) { value.DashboardURL = "https://members.example.test/dashboard?code=TOKEN_CANARY" }},
 		{name: "encoded path traversal", mutate: func(value *Config) { value.InitialURL = "https://members.example.test/%2e%2e/private" }},
 		{name: "goal path traversal", mutate: func(value *Config) { value.GoalPredicate.Path = "/../private" }},
 		{name: "prompt injection path", mutate: func(value *Config) {

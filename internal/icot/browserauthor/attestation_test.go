@@ -86,8 +86,24 @@ func TestAttestationHasNoSerializableState(t *testing.T) {
 	}
 }
 
-func validAttestationEnvelope(t *testing.T) (*Attestation, *authorresult.Envelope) {
+func TestAttestationBindsTheReviewedNavigationQuery(t *testing.T) {
+	value := "https://members.example.test/dashboard?view=home"
+	a, envelope := validAttestationEnvelope(t, value)
+	if err := VerifyAttestation(a, envelope); err != nil {
+		t.Fatal(err)
+	}
+	envelope.Trace[1].URL = "https://members.example.test/dashboard"
+	if err := VerifyAttestation(a, envelope); err == nil {
+		t.Fatal("query removal escaped parent attestation")
+	}
+}
+
+func validAttestationEnvelope(t *testing.T, navigation ...string) (*Attestation, *authorresult.Envelope) {
 	t.Helper()
+	target := "https://members.example.test/dashboard"
+	if len(navigation) > 0 {
+		target = navigation[0]
+	}
 	predicate := authorresult.GoalPredicate{Origin: "https://members.example.test", Path: "/dashboard", Context: "main", Role: "heading", Label: "Dashboard"}
 	bounds := authorresult.Bounds{NavigationTimeoutMS: 20_000, TotalTimeoutMS: 600_000, MaxRequests: 512, MaxResponseBytes: 32 << 20, MaxObservations: 64, MaxCandidates: 128, MaxOutputs: 16}
 	a, err := newAttestation(Config{DashboardURL: "https://members.example.test/dashboard", Goal: "review dashboard", Origins: []string{"https://members.example.test"}, GoalPredicate: predicate}, bounds)
@@ -105,7 +121,7 @@ func validAttestationEnvelope(t *testing.T) (*Attestation, *authorresult.Envelop
 	if err := a.recordObservation("authentication", dashboard); err != nil {
 		t.Fatal(err)
 	}
-	if err := a.recordClient(authorsession.ClientMessage{Type: "execute", Action: "navigate_get", URL: "https://members.example.test/dashboard", Context: "main"}, "exploration", &dashboard); err != nil {
+	if err := a.recordClient(authorsession.ClientMessage{Type: "execute", Action: "navigate_get", URL: target, Context: "main"}, "exploration", &dashboard); err != nil {
 		t.Fatal(err)
 	}
 	if err := a.recordObservation("exploration", dashboard); err != nil {
@@ -120,7 +136,7 @@ func validAttestationEnvelope(t *testing.T) (*Attestation, *authorresult.Envelop
 		Goal: "review dashboard", Origins: []string{"https://members.example.test"}, Contexts: map[string]authorresult.Context{}, Bounds: bounds,
 		Trace: []authorresult.TraceStep{
 			{Kind: "click", Phase: "authentication", CandidateID: login.Candidates[0].ID, Context: "main", Role: "button", Label: "Sign in", POSTBudget: 2},
-			{Kind: "navigate", Phase: "exploration", Context: "main", URL: "https://members.example.test/dashboard"},
+			{Kind: "navigate", Phase: "exploration", Context: "main", URL: target},
 		},
 		GoalPredicate: predicate, GoalProof: authorresult.GoalProof{Origin: predicate.Origin, Path: predicate.Path, Context: "main", Role: "heading", Label: "Dashboard", Matches: 1},
 		OutputSelections:      []authorresult.OutputSelection{{CandidateID: dashboard.Candidates[0].ID, Key: "dashboard_title", Type: "string", LocatorMode: "exact_name", Observation: 3, Context: "main", Role: "heading", Name: "Dashboard", Matches: 1, RoleMatches: 1}},

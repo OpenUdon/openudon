@@ -3,6 +3,7 @@
 package ui
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"io"
@@ -60,16 +61,21 @@ func TestBrowserSystemSupervisedAuthenticatedPackage(t *testing.T) {
 					return
 				}
 				http.SetCookie(w, &http.Cookie{Name: "fixture_session", Value: "authenticated", Path: "/", HttpOnly: true, SameSite: http.SameSiteStrictMode})
-				http.Redirect(w, r, "/campaigns", 303)
+				http.Redirect(w, r, "/campaigns?view=list", 303)
 				return
 			}
 			fmt.Fprintf(w, `<script src="%s/optional.js"></script>`, blocked.URL)
 			_, _ = io.WriteString(w, `<link rel="stylesheet" href="/shared.css">`)
 			_, _ = io.WriteString(w, `<!doctype html><html><body><h1>Sign in</h1><form method="post" action="/login"><label>Email address<input name="identifier" autocomplete="username" onfocus="this.value='fixture-user'"></label><label>Password<input name="password" type="password" autocomplete="current-password" onfocus="this.value='fixture-password'"></label><button type="submit">Sign in</button></form></body></html>`)
 		case "/campaigns":
+			if r.URL.RawQuery != "view=list" {
+				t.Error("reviewed structural query was lost")
+				w.WriteHeader(400)
+				return
+			}
 			c, err := r.Cookie("fixture_session")
 			if err != nil || c.Value != "authenticated" {
-				w.WriteHeader(401)
+				http.Redirect(w, r, "/login", 303)
 				return
 			}
 			visits.Add(1)
@@ -99,7 +105,7 @@ func TestBrowserSystemSupervisedAuthenticatedPackage(t *testing.T) {
 		t.Fatal("workspace")
 	}
 	defer os.RemoveAll(example)
-	result, err := RunAuthenticatedApplicationQualification(ctx, RegistrationQualificationOptions{RepoRoot: root, ApplicationExecutable: binary, ExampleDir: example, PrivateRoot: filepath.Join(temp, "private"), ScratchParent: filepath.Join(temp, "scratch"), StoreDir: filepath.Join(temp, "store"), Scope: "qualification/authenticated", ProfileID: "qualification_auth", Origin: fixture.URL, InitialURL: fixture.URL + "/login"}, blocked.URL)
+	result, err := RunAuthenticatedApplicationQualification(ctx, RegistrationQualificationOptions{RepoRoot: root, ApplicationExecutable: binary, ExampleDir: example, PrivateRoot: filepath.Join(temp, "private"), ScratchParent: filepath.Join(temp, "scratch"), StoreDir: filepath.Join(temp, "store"), Scope: "qualification/authenticated", ProfileID: "qualification_auth", Origin: fixture.URL, InitialURL: fixture.URL + "/campaigns?view=list"}, blocked.URL)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -111,5 +117,9 @@ func TestBrowserSystemSupervisedAuthenticatedPackage(t *testing.T) {
 	}
 	if result.Promotion == nil || result.Transaction == nil || result.Transaction.Session == "" || posts.Load() != 1 || visits.Load() < 1 {
 		t.Fatal("authenticated_package_evidence")
+	}
+	profile, err := os.ReadFile(filepath.Join(example, "browser-authentication", "qualification_auth-auth.json"))
+	if err != nil || !bytes.Contains(profile, []byte(fixture.URL+"/campaigns?view=list")) {
+		t.Fatal("generated authentication navigation lost the reviewed query")
 	}
 }

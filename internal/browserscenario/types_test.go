@@ -259,7 +259,7 @@ func TestCompatibilityLockMatchesExactTypedBrowserRevisions(t *testing.T) {
 	}
 	if components["browserdriver"].Commit != "8b63833e87b5169decd212f4cc05e973f8ee7363" ||
 		components["udon"].Commit != "884a4ffddbef8bb451be9edf440dd9b7d1c363fc" ||
-		components["browsertools"].Commit != "bbcb6ae76b5a7287b98272ac78b20c145b742de6" ||
+		components["browsertools"].Commit != "7f551775d0f645948c2a97a1f5992eb39ed129fa" ||
 		components["uws"].Commit != "b6e62fcc91338c60d72d606571e5cc9118a8a8ad" {
 		t.Fatalf("qualification component pins = %#v", components)
 	}

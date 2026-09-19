@@ -30,8 +30,13 @@ func (q *applicationQualification) command(operation string, request any) (Respo
 // journey. It drives the actual command/worker and all package decisions, with
 // synthetic human responses only at the fixed loopback fixture's checkpoints.
 func RunAuthenticatedApplicationQualification(ctx context.Context, options RegistrationQualificationOptions, blockedScriptOrigins ...string) (result transactionengine.Snapshot, resultErr error) {
-	if !qualificationLoopbackURL(options.Origin, options.InitialURL) || options.InitialURL != options.Origin+"/login" || options.ApplicationExecutable == "" {
+	queryEntry := options.Origin + "/campaigns?view=list"
+	if !qualificationLoopbackURL(options.Origin, options.InitialURL) || (options.InitialURL != options.Origin+"/login" && options.InitialURL != queryEntry) || options.ApplicationExecutable == "" {
 		return result, errors.New("fixture_authority")
+	}
+	dashboardURL := options.Origin + "/campaigns"
+	if options.InitialURL == queryEntry {
+		dashboardURL = queryEntry
 	}
 	if ctx == nil {
 		ctx = context.Background()
@@ -70,7 +75,7 @@ func RunAuthenticatedApplicationQualification(ctx context.Context, options Regis
 	}
 	current, err = q.command("capture.start", captureStartRequest{
 		Revision: current.Revision, CaptureRevision: current.CaptureRevision, ProfileID: options.ProfileID,
-		URL: options.InitialURL, DashboardURL: options.Origin + "/campaigns", Goal: "Prove campaign list presence", Origins: []string{options.Origin},
+		URL: options.InitialURL, DashboardURL: dashboardURL, Goal: "Prove campaign list presence", Origins: []string{options.Origin},
 		GoalOrigin: options.Origin, GoalPath: "/campaigns", GoalContext: "main", GoalRole: "heading", GoalLabel: "Campaigns",
 	})
 	if err != nil {

@@ -28,6 +28,7 @@ import (
 	"github.com/OpenUdon/browsertools/authorpolicy"
 	"github.com/OpenUdon/browsertools/authorresult"
 	"github.com/OpenUdon/browsertools/authorsession"
+	"github.com/OpenUdon/browsertools/authorurl"
 	"github.com/OpenUdon/browsertools/disclosurepath"
 	"github.com/OpenUdon/openudon/internal/processgroup"
 )
@@ -888,22 +889,7 @@ func validatePrivateRoot(privateRoot string) error {
 }
 
 func cleanURL(raw string) (string, string, error) {
-	parsed, err := url.Parse(strings.TrimSpace(raw))
-	if err != nil || parsed.User != nil || parsed.Host == "" || parsed.RawQuery != "" || parsed.Fragment != "" || parsed.Opaque != "" {
-		return "", "", errors.New("URL must be an absolute clean URL")
-	}
-	host := strings.ToLower(parsed.Host)
-	if parsed.Scheme != "https" && !(parsed.Scheme == "http" && isLoopbackHost(parsed.Hostname())) {
-		return "", "", errors.New("URL must use HTTPS or loopback HTTP")
-	}
-	if parsed.Path == "" {
-		parsed.Path = "/"
-	}
-	if disclosurepath.Validate(parsed.EscapedPath()) != nil {
-		return "", "", errors.New("URL path must be portable and query-free")
-	}
-	parsed.Scheme, parsed.Host = strings.ToLower(parsed.Scheme), host
-	return parsed.String(), parsed.Scheme + "://" + parsed.Host, nil
+	return authorurl.Normalize(raw)
 }
 
 func cleanOrigin(raw string) (string, error) {
