@@ -43,10 +43,15 @@ func TestBrowserSystemSupervisedAuthenticatedPackage(t *testing.T) {
 	blocked.Listener = denied
 	blocked.StartTLS()
 	defer blocked.Close()
-	var posts, visits atomic.Int64
+	var posts, visits, styles atomic.Int64
 	fixture := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "text/html")
 		switch r.URL.Path {
+		case "/shared.css":
+			styles.Add(1)
+			w.Header().Set("Content-Type", "text/css")
+			w.Header().Set("Cache-Control", "public, max-age=3600")
+			_, _ = io.WriteString(w, "body { color: black; }")
 		case "/login":
 			if r.Method == "POST" {
 				posts.Add(1)
@@ -59,6 +64,7 @@ func TestBrowserSystemSupervisedAuthenticatedPackage(t *testing.T) {
 				return
 			}
 			fmt.Fprintf(w, `<script src="%s/optional.js"></script>`, blocked.URL)
+			_, _ = io.WriteString(w, `<link rel="stylesheet" href="/shared.css">`)
 			_, _ = io.WriteString(w, `<!doctype html><html><body><h1>Sign in</h1><form method="post" action="/login"><label>Email address<input name="identifier" autocomplete="username" onfocus="this.value='fixture-user'"></label><label>Password<input name="password" type="password" autocomplete="current-password" onfocus="this.value='fixture-password'"></label><button type="submit">Sign in</button></form></body></html>`)
 		case "/campaigns":
 			c, err := r.Cookie("fixture_session")
@@ -67,6 +73,7 @@ func TestBrowserSystemSupervisedAuthenticatedPackage(t *testing.T) {
 				return
 			}
 			visits.Add(1)
+			_, _ = io.WriteString(w, `<link rel="stylesheet" href="/shared.css">`)
 			_, _ = io.WriteString(w, `<!doctype html><html><body><h1>Campaigns</h1><p role="status" aria-label="Campaign list">Available</p></body></html>`)
 		default:
 			w.WriteHeader(404)
@@ -98,6 +105,9 @@ func TestBrowserSystemSupervisedAuthenticatedPackage(t *testing.T) {
 	}
 	if denied.arrivals.Load() != 0 {
 		t.Fatal("blocked origin received contact")
+	}
+	if styles.Load() != 2 {
+		t.Fatal("authoring cache isolation was not exercised before and after login")
 	}
 	if result.Promotion == nil || result.Transaction == nil || result.Transaction.Session == "" || posts.Load() != 1 || visits.Load() < 1 {
 		t.Fatal("authenticated_package_evidence")

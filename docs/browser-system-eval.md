@@ -136,6 +136,11 @@ journeys to each of the three loopback passes (13 stages per pass). The verifier
 continues to recognize version 1 using its original 11-stage inventory; a
 legacy report does not qualify the application-control adapter.
 
+The authenticated-package fixture reuses a cacheable stylesheet before and after
+its one login POST and requires two server arrivals, successful package promotion
+and zero arrivals at its blocked optional-script origin. This exercises authoring
+cache isolation through the actual application and worker in every native pass.
+
 For human browser challenges, an approved trusted run may explicitly opt into
 `openudon run --interactive-browser`. This forwards private stdin through the
 existing trusted runner to Udon. Default runs remain noninteractive, and neither
