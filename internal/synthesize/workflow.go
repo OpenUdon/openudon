@@ -37,7 +37,9 @@ func promoteWorkflow(result Result, schemaPath string) error {
 	if err != nil {
 		return fmt.Errorf("load workflow UWS document: %w", err)
 	}
-	normalizeUWSStepsForSchema(doc)
+	if err := normalizeUWSStepsForSchema(doc); err != nil {
+		return err
+	}
 	if intent, err := rollout.ParseIntentFile(result.IntentPath); err == nil {
 		addStructuralResultsFromIntent(doc, intent)
 	}
@@ -1690,9 +1692,9 @@ func pruneEmptyTypeFields(value any) {
 	}
 }
 
-func normalizeUWSStepsForSchema(doc *uws1.Document) {
+func normalizeUWSStepsForSchema(doc *uws1.Document) error {
 	if doc == nil {
-		return
+		return nil
 	}
 	operationIDs := make(map[string]bool, len(doc.Operations))
 	for _, op := range doc.Operations {
@@ -1704,11 +1706,21 @@ func normalizeUWSStepsForSchema(doc *uws1.Document) {
 		if workflow == nil {
 			continue
 		}
-		normalizeUWSStepList(workflow.Steps, operationIDs)
+		if err := normalizeUWSStepList(workflow.Steps, operationIDs); err != nil {
+			return err
+		}
 	}
+	return nil
 }
 
-func normalizeUWSStepList(steps []*uws1.Step, operationIDs map[string]bool) {
+// normalizeUWSStepList prepares a synthesized step tree for UWS validation. It
+// is not a general workflow restructurer: an operation- or workflow-reference
+// step that also carries nested Steps/Cases/Default indicates an earlier
+// synthesis stage built the wrong shape (UWS 1.9.2 rejects that combination
+// outright), so this reports it rather than silently discarding the nested
+// content, which could hide a synthesis bug behind a schema-valid but
+// incomplete workflow.
+func normalizeUWSStepList(steps []*uws1.Step, operationIDs map[string]bool) error {
 	for _, step := range steps {
 		if step == nil {
 			continue
@@ -1716,17 +1728,28 @@ func normalizeUWSStepList(steps []*uws1.Step, operationIDs map[string]bool) {
 		if strings.TrimSpace(step.OperationRef) == "" && !isUWSStructuralStepType(step.Type) && operationIDs[strings.TrimSpace(step.StepID)] {
 			step.OperationRef = strings.TrimSpace(step.StepID)
 		}
-		if strings.TrimSpace(step.OperationRef) != "" && !isUWSStructuralStepType(step.Type) {
+		isReferenceStep := strings.TrimSpace(step.OperationRef) != "" || strings.TrimSpace(step.Workflow) != ""
+		if isReferenceStep && !isUWSStructuralStepType(step.Type) {
 			step.Type = ""
 		}
-		normalizeUWSStepList(step.Steps, operationIDs)
+		if isReferenceStep && (len(step.Steps) > 0 || len(step.Cases) > 0 || len(step.Default) > 0) {
+			return fmt.Errorf("synthesized step %q references an operation or workflow and also declares nested steps, cases, or a default branch; the initialization or follow-up call must become a sibling step wired with dependsOn", step.StepID)
+		}
+		if err := normalizeUWSStepList(step.Steps, operationIDs); err != nil {
+			return err
+		}
 		for _, branch := range step.Cases {
 			if branch != nil {
-				normalizeUWSStepList(branch.Steps, operationIDs)
+				if err := normalizeUWSStepList(branch.Steps, operationIDs); err != nil {
+					return err
+				}
 			}
 		}
-		normalizeUWSStepList(step.Default, operationIDs)
+		if err := normalizeUWSStepList(step.Default, operationIDs); err != nil {
+			return err
+		}
 	}
+	return nil
 }
 
 func isUWSStructuralStepType(value string) bool {

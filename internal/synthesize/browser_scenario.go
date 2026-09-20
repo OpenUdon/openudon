@@ -130,7 +130,9 @@ func WriteBrowserScenarioWorkflow(request BrowserScenarioWorkflowRequest) (Brows
 	if err := wireBrowserScenarioOutputs(document, stepNames); err != nil {
 		return BrowserScenarioWorkflowResult{}, err
 	}
-	normalizeUWSStepsForSchema(document)
+	if err := normalizeUWSStepsForSchema(document); err != nil {
+		return BrowserScenarioWorkflowResult{}, err
+	}
 	data, err := json.MarshalIndent(document, "", "  ")
 	if err != nil {
 		return BrowserScenarioWorkflowResult{}, err
