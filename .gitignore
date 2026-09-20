@@ -3,12 +3,6 @@ examples/support-priority-routing/
 examples/eval/mucker-next-steps-agent/
 
 site/
-AGENTS.md
-GOAL.md
-memory-bank
-memory-bank/
-evolution
-evolution/
 .openudon-run/
 approvals/
 articles/
