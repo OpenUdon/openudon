@@ -1531,8 +1531,8 @@ Automation tiers:
   optional apitools catalog advisory metadata.
 - `examples/`: committed examples and eval corpus.
 - `templates/`: project brief starter templates.
-- `memory-bank/`: living project memory.
-- `evolution/`: versioned prompt/result snapshots for milestone-level direction changes.
+- `tabilet/memory-bank/`: living project memory.
+- `tabilet/evolution/`: versioned prompt/result snapshots for milestone-level direction changes.
 
 ## Security Boundary
 
@@ -1585,7 +1585,7 @@ pipes. UI and command adapters share capture, authoring, transaction adoption,
 package and revision checks. The supervisor can complete BRP and BAP/BCP
 authoring through promotion in one application; trusted execution remains
 separate. The registration-only protocol stays compatible. See
-`docs/application-control.md` and `memory-bank/status-M80.md`.
+`docs/application-control.md` and `tabilet/memory-bank/status-M80.md`.
 
 M81/W09 forwards explicitly selected private stdin through existing trusted
 runners to Udon's human verification boundary. The executor runs from its

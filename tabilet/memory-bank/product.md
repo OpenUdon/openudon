@@ -790,7 +790,7 @@ pipes. UI and command adapters share capture, authoring, transaction adoption,
 package and revision checks. The supervisor can complete BRP and BAP/BCP
 authoring through promotion in one application; trusted execution remains
 separate. The registration-only protocol stays compatible. See
-`docs/application-control.md` and `memory-bank/status-M80.md`.
+`docs/application-control.md` and `tabilet/memory-bank/status-M80.md`.
 
 M81/W09 completes the local integration through the W8M-owned operating adapter
 and concrete synthetic target. OpenUdon supplies opt-in private human response

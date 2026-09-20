@@ -1304,7 +1304,7 @@ fresh scope and dependency review promotes them.
   requires approval JSON plus a valid handoff package.
 - OpenUdon no longer imports udon as a Go module; udon is an optional external trusted executor
   behind the run-config handoff.
-- After a major review or milestone, check whether [evolution/](../evolution/) needs a new
+- After a major review or milestone, check whether [tabilet/evolution/](../evolution/) needs a new
   prompt/result version.
 
 ## Milestones
@@ -4041,7 +4041,7 @@ in [status-A28.md](status-A28.md).
 - Create or update the relevant `status-Mx.md` file for milestone task rows, task states, notes, and
   scoped commit tracking. Future milestone task history belongs in individual status files, not in a
   root aggregate status document.
-- After each major milestone or boundary change, decide whether [evolution/](../evolution/) needs a
+- After each major milestone or boundary change, decide whether [tabilet/evolution/](../evolution/) needs a
   new prompt/result version.
 
 ### M79 Consolidated Browser System Engineering

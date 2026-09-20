@@ -13,30 +13,30 @@ wrappers, review evidence, package digests, and trusted execution glue.
 
 The tracked canonical OpenUdon harness snapshot lives in
 `../tofu/openudon`. In a normal `../openudon` checkout, `AGENTS.md`,
-`memory-bank/`, and `evolution/` may be symlinks to this tracked snapshot so
+`tabilet/memory-bank/`, and `tabilet/evolution/` may be symlinks to this tracked snapshot so
 agents can keep using the usual local paths while planning history is committed
 in the `../tofu` repository.
 
 Before making substantial changes, read in this order:
 
-1. [memory-bank/product.md](memory-bank/product.md)
-2. [memory-bank/architecture.md](memory-bank/architecture.md)
-3. [memory-bank/tech-stack.md](memory-bank/tech-stack.md)
-4. [memory-bank/milestone.md](memory-bank/milestone.md)
+1. [tabilet/memory-bank/product.md](tabilet/memory-bank/product.md)
+2. [tabilet/memory-bank/architecture.md](tabilet/memory-bank/architecture.md)
+3. [tabilet/memory-bank/tech-stack.md](tabilet/memory-bank/tech-stack.md)
+4. [tabilet/memory-bank/milestone.md](tabilet/memory-bank/milestone.md)
 
-Use the memory bank as the active project source of truth. `memory-bank/milestone.md`
+Use the memory bank as the active project source of truth. `tabilet/memory-bank/milestone.md`
 owns the current-state dashboard, milestone sequencing, and status-file index.
-Per-milestone task state lives in `memory-bank/status-<LANE><NN>.md`. Do not recreate
+Per-milestone task state lives in `tabilet/memory-bank/status-<LANE><NN>.md`. Do not recreate
 duplicate root-level product, architecture, roadmap, or aggregate status
 documents.
 
-This project exposes [GOAL.md](GOAL.md), one optional protocol for goal requests
+This project exposes [tabilet/GOAL.md](tabilet/GOAL.md), one optional protocol for goal requests
 that span multiple status files. Follow it only when a request names it.
 
-A `GOAL.md` run is a deliberate exception to the row-level commit rule below.
+A `tabilet/GOAL.md` run is a deliberate exception to the row-level commit rule below.
 For that run, `COMMIT_POLICY: none` — the protocol default — means no commits,
 while `COMMIT_POLICY: task` keeps the usual one-commit-per-row cadence.
-Precedence is the request, then `GOAL.md`, then this file; only commits are
+Precedence is the request, then `tabilet/GOAL.md`, then this file; only commits are
 delegated, and only during the run.
 
 ## Boundaries
@@ -102,12 +102,12 @@ Agents may generate and validate artifacts. Production side effects must only ha
 
 ## Documentation Rules
 
-- Update [memory-bank/milestone.md](memory-bank/milestone.md) when sequencing, milestone scope,
+- Update [tabilet/memory-bank/milestone.md](tabilet/memory-bank/milestone.md) when sequencing, milestone scope,
   acceptance criteria, cross-repo contracts, active/parked track summary, current-state dashboard,
   or status-file index changes.
-- When a milestone in [memory-bank/milestone.md](memory-bank/milestone.md) has multiple
+- When a milestone in [tabilet/memory-bank/milestone.md](tabilet/memory-bank/milestone.md) has multiple
   implementation tasks, create or update its permanent, zero-padded
-  `memory-bank/status-<LANE><NN>.md`. Use the per-milestone status file for task rows, task states, notes, scoped commit
+  `tabilet/memory-bank/status-<LANE><NN>.md`. Use the per-milestone status file for task rows, task states, notes, scoped commit
   tracking, and future milestone task history.
 - Never reuse a status ID or create aggregate `status.md`. Keep cancelled work
   under its allocated ID with `[X]` rows.
@@ -119,24 +119,24 @@ Agents may generate and validate artifacts. Production side effects must only ha
 - Treat each row as a commit unit. Parallel authoring, package, and eval work
   requires explicit non-overlapping ownership, resolved prerequisites, and
   downstream impacts in `milestone.md`.
-- Update [memory-bank/product.md](memory-bank/product.md) when product scope, users, workflows,
+- Update [tabilet/memory-bank/product.md](tabilet/memory-bank/product.md) when product scope, users, workflows,
   concepts, or non-goals change.
-- Update [memory-bank/architecture.md](memory-bank/architecture.md) when system boundaries, data
+- Update [tabilet/memory-bank/architecture.md](tabilet/memory-bank/architecture.md) when system boundaries, data
   flow, artifact layout, or security boundaries change.
-- Update [memory-bank/tech-stack.md](memory-bank/tech-stack.md) when dependencies, commands,
+- Update [tabilet/memory-bank/tech-stack.md](tabilet/memory-bank/tech-stack.md) when dependencies, commands,
   runtime assumptions, artifact schemas, or tooling choices change.
 - Keep README focused on operator entry points and concise command guidance. Put durable project
-  memory in `memory-bank/`.
+  memory in `tabilet/memory-bank/`.
 - Keep desired-state conversion docs, milestones, fixtures, and code out of
   OpenUdon. Ramen owns that roadmap.
 
 ## Evolution Rules
 
-- Check [evolution/](evolution/) after a major review, milestone, or boundary change.
+- Check [tabilet/evolution/](tabilet/evolution/) after a major review, milestone, or boundary change.
 - Create the next `prompt-vN.md` and `result-vN.md` only when product direction, architecture
   boundary, milestone target, or public/private contract direction materially changes.
 - Keep the current evolution version when implementation only advances the existing direction.
-- When adding a new evolution version, reconcile it with `memory-bank/` in the same change.
+- When adding a new evolution version, reconcile it with `tabilet/memory-bank/` in the same change.
 
 ## Development browser checks
 
