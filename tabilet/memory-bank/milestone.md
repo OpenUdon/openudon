@@ -3,7 +3,7 @@
 ## UWS 1.11 real-browser qualification — M86
 
 [M86](status-M86.md) follows completed M85 and qualifies the published stack with sandboxed real browsers. It adds a separate current scenario lock and v2 reports while preserving historical scenario verification, runs the existing 23 loopback and eight journey cases plus three Browser 1.8/1.9/v10 journeys, closes all three integration browser opt-ins, and promotes the current local suites into Make and hosted release checks. Acceptance requires clean committed source identities, actual browser execution, independently verified value-free digests, zero skipped/failed required cases, full local checks, and bounded review. Public canaries and real accounts remain outside M86.
-M86.5 records the exact Browser 1.8 integer fixture correction found during the first journey run; M86.6 reruns both full current suites from that clean source, and M86.7 closes documentation, checks and review.
+M86.5 records the exact Browser 1.8 integer fixture correction found during the first journey run. M86.6 passes both full current suites from that clean source: 23/23 loopback and 11/11 journey, with independently verified digests and no failed/skipped/quarantined cases. M86.7 closes documentation, checks and review.
 
 ## Current-stack browser integration qualification — M85
 
