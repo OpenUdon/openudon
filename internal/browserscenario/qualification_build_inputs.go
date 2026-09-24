@@ -46,6 +46,52 @@ func LoadQualificationBuildInputLock(compatibility CompatibilityLock) (Qualifica
 	return lock, nil
 }
 
+// LoadCurrentQualificationBuildInputLock returns E21's separately pinned 14
+// replacement sources for the current v3 Udon stack.
+func LoadCurrentQualificationBuildInputLock(compatibility CompatibilityLock) (QualificationBuildInputLock, error) {
+	data, err := contracts.ReadFile("current-qualification-build-inputs.json")
+	if err != nil {
+		return QualificationBuildInputLock{}, err
+	}
+	var lock QualificationBuildInputLock
+	if err := decodeStrict(data, &lock); err != nil {
+		return QualificationBuildInputLock{}, err
+	}
+	if err := ValidateQualificationBuildInputLock(lock, compatibility); err != nil || len(lock.Components) != 14 {
+		return QualificationBuildInputLock{}, errors.New("current Udon qualification build-input lock is invalid")
+	}
+	compatibilityComponents := map[string]LockedRevision{}
+	for _, component := range compatibility.Components {
+		compatibilityComponents[component.Name] = component
+	}
+	for _, name := range []string{"browsertools", "uws"} {
+		locked := compatibilityComponents[name]
+		for _, component := range lock.Components {
+			if component.Name == name && locked.Commit != component.Commit {
+				return QualificationBuildInputLock{}, fmt.Errorf("current %s build input differs from the compatibility lock", name)
+			}
+		}
+	}
+	return lock, nil
+}
+
+// LoadQualificationBuildInputLockForStack selects the historical M86 closure
+// or the independent current v3 closure by explicit stack name.
+func LoadQualificationBuildInputLockForStack(stack string) (QualificationBuildInputLock, error) {
+	compatibility, err := LoadCompatibilityLockForStack(stack)
+	if err != nil {
+		return QualificationBuildInputLock{}, err
+	}
+	switch stack {
+	case StackHistorical:
+		return LoadQualificationBuildInputLock(compatibility)
+	case StackCurrent:
+		return LoadCurrentQualificationBuildInputLock(compatibility)
+	default:
+		return QualificationBuildInputLock{}, errors.New("browser scenario stack must be historical or current")
+	}
+}
+
 func ValidateQualificationBuildInputLock(lock QualificationBuildInputLock, compatibility CompatibilityLock) error {
 	if err := ValidateCompatibilityLock(compatibility); err != nil {
 		return err
@@ -83,6 +129,24 @@ func ValidateQualificationBuildInputs(ctx context.Context, udonRoot string, comp
 	if err != nil {
 		return err
 	}
+	return validateQualificationBuildInputsForLock(ctx, udonRoot, compatibility, lock)
+}
+
+// ValidateQualificationBuildInputsForStack proves that the selected Udon tree
+// and every local replacement are clean and match the selected stack closure.
+func ValidateQualificationBuildInputsForStack(ctx context.Context, udonRoot, stack string) error {
+	compatibility, err := LoadCompatibilityLockForStack(stack)
+	if err != nil {
+		return err
+	}
+	lock, err := LoadQualificationBuildInputLockForStack(stack)
+	if err != nil {
+		return err
+	}
+	return validateQualificationBuildInputsForLock(ctx, udonRoot, compatibility, lock)
+}
+
+func validateQualificationBuildInputsForLock(ctx context.Context, udonRoot string, compatibility CompatibilityLock, lock QualificationBuildInputLock) error {
 	udonCommit := ""
 	for _, component := range compatibility.Components {
 		if component.Name == "udon" {

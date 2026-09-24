@@ -9,6 +9,14 @@ This prevents a later current-stack update from changing the meaning of
 retained M86 reports. E21 owns the lock transition and its verifiers; see
 [status-E21.md](status-E21.md).
 
+E21.2 advances the scenario and integration selectors to Udon
+`6d32d4967469c579d35adcf47eaddb76a225dbae`. Current v3 evidence also binds
+the separately embedded 14-repository local Udon build closure; its selected
+worktrees must match exact commits and be clean before browser work. Scenario
+and integration v2 readers use their frozen M86 locks, while historical v1
+readers keep their original lock and inventory. Native qualification stack
+selection remains E21.3 work.
+
 ## Current Browser Authoring Boundary
 
 The shared Browsertools authorurl validator binds reviewed command URLs,
@@ -673,6 +681,13 @@ exact sibling revisions, module pins, closed assertions and complete local
 inventory for passing release evidence. Make and hosted release checks select
 the current stack explicitly; public canaries keep the historical opt-in.
 Real-browser qualification and exact report digests remain M86 acceptance.
+
+E21 preserves those M86 v2 semantics with immutable lock snapshots and emits
+current v3 scenario, journey and integration reports from the repaired Udon
+pin. The independent current Udon build-input lock names 14 sibling
+replacements, including exact Browsertools and UWS revisions; all are checked
+for clean state before scenario browser launch. The integration evaluator
+checks the same closure before running its matrix.
 
 The scenario JSON boundary pre-scans tokens recursively and rejects duplicate
 decoded keys in every object before unknown-field decoding, so no consumer can

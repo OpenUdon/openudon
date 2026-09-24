@@ -234,6 +234,11 @@ func resolveEnvironment(ctx context.Context, options Options, lock Compatibility
 	if err := ValidateGoModulePins(root, browsertoolsRepo, lock); err != nil {
 		return Environment{}, nil, nil, err
 	}
+	if options.Stack == StackCurrent {
+		if err := ValidateQualificationBuildInputsForStack(ctx, udonRepo, options.Stack); err != nil {
+			return Environment{}, nil, nil, fmt.Errorf("current Udon qualification build inputs are invalid")
+		}
+	}
 	dependencies := []DependencyRevision{
 		{Module: "github.com/OpenUdon/browsertools", Version: locked["browsertools"].Version},
 		{Module: "github.com/OpenUdon/uws", Version: locked["uws"].Version},

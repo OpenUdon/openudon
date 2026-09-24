@@ -29,7 +29,8 @@ import (
 
 const (
 	LegacyReportVersion = "openudon.browser-integration-eval.v1"
-	ReportVersion       = "openudon.browser-integration-eval.v2"
+	M86ReportVersion    = "openudon.browser-integration-eval.v2"
+	ReportVersion       = "openudon.browser-integration-eval.v3"
 	StatusPass          = "pass"
 	StatusFail          = "fail"
 	StatusSkipped       = "skipped"
@@ -37,16 +38,17 @@ const (
 )
 
 type Options struct {
-	RepoRoot          string
-	BrowsertoolsRepo  string
-	UWSRepo           string
-	UdonRepo          string
-	BrowserdriverRepo string
-	OutPath           string
-	InstalledEngines  bool
-	HeadedAuth        bool
-	Now               func() time.Time
-	Runner            Runner
+	RepoRoot            string
+	BrowsertoolsRepo    string
+	UWSRepo             string
+	UdonRepo            string
+	BrowserdriverRepo   string
+	OutPath             string
+	InstalledEngines    bool
+	HeadedAuth          bool
+	Now                 func() time.Time
+	Runner              Runner
+	validateBuildInputs func(context.Context, string, string) error
 }
 
 type Command struct {
@@ -161,6 +163,13 @@ func Run(ctx context.Context, opts Options) (*Report, error) {
 	lock, specs, err := contractForVersion(ReportVersion)
 	if err != nil {
 		return nil, err
+	}
+	validateBuildInputs := opts.validateBuildInputs
+	if validateBuildInputs == nil {
+		validateBuildInputs = browserscenario.ValidateQualificationBuildInputsForStack
+	}
+	if err := validateBuildInputs(ctx, repos["udon"], browserscenario.StackCurrent); err != nil {
+		return nil, fmt.Errorf("current Udon qualification build inputs are invalid")
 	}
 	if err := validateLockedRepositoryRevisions(revisions, lock); err != nil {
 		return nil, err
@@ -278,7 +287,7 @@ func Validate(report *Report) error {
 	if report == nil {
 		return fmt.Errorf("browser integration report is required")
 	}
-	if report.Version != ReportVersion && report.Version != LegacyReportVersion {
+	if report.Version != ReportVersion && report.Version != M86ReportVersion && report.Version != LegacyReportVersion {
 		return fmt.Errorf("browser integration report version is unsupported")
 	}
 	if report.Status != StatusPass && report.Status != StatusFail {

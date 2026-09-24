@@ -17,7 +17,7 @@ import (
 )
 
 func TestM86CurrentLockSnapshotRetainsPublishedPins(t *testing.T) {
-	lock, gates, err := contractForVersion(ReportVersion)
+	lock, gates, err := contractForVersion(M86ReportVersion)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -28,6 +28,25 @@ func TestM86CurrentLockSnapshotRetainsPublishedPins(t *testing.T) {
 		if component.Name == "udon" && component.Commit != "080b8282e2b8f7ca7a9994b6d9f0e3d2891d853f" {
 			t.Fatalf("M86 Udon pin changed: %s", component.Commit)
 		}
+	}
+}
+
+func TestCurrentReportVersionUsesRepairedLockAndBuildClosure(t *testing.T) {
+	lock, gates, err := contractForVersion(ReportVersion)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(lock.Components) != 4 || len(gates) != 19 {
+		t.Fatalf("current contract has %d components and %d gates", len(lock.Components), len(gates))
+	}
+	for _, component := range lock.Components {
+		if component.Name == "udon" && component.Commit != "6d32d4967469c579d35adcf47eaddb76a225dbae" {
+			t.Fatalf("current Udon pin = %s", component.Commit)
+		}
+	}
+	build, err := browserscenario.LoadCurrentQualificationBuildInputLock(lock)
+	if err != nil || len(build.Components) != 14 {
+		t.Fatalf("current build closure = %d components, err = %v", len(build.Components), err)
 	}
 }
 
@@ -444,7 +463,8 @@ func testOptions(repos map[string]string, out string, runner Runner) Options {
 		RepoRoot: repos["openudon"], BrowsertoolsRepo: repos["browsertools"],
 		UWSRepo: repos["uws"], UdonRepo: repos["udon"], BrowserdriverRepo: repos["browserdriver"],
 		OutPath: out, Runner: runner,
-		Now: func() time.Time { return time.Date(2026, 8, 16, 12, 0, 0, 0, time.UTC) },
+		Now:                 func() time.Time { return time.Date(2026, 8, 16, 12, 0, 0, 0, time.UTC) },
+		validateBuildInputs: func(context.Context, string, string) error { return nil },
 	}
 }
 

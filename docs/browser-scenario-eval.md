@@ -196,10 +196,11 @@ public report formats are unchanged. A retained `browser_failure` identifies a
 producer category, not its underlying browser error or historical cause.
 
 Historical loopback/public reports use `openudon.browser-scenario-eval.v1` and
-historical journey reports use `openudon.browser-journey-eval.v1`. The current
-local suites use `openudon.browser-scenario-eval.v2` and
-`openudon.browser-journey-eval.v2`. The verifier selects the matching lock and
-requires the complete 23-case or 11-case inventory for a passing current
+historical journey reports use `openudon.browser-journey-eval.v1`. M86 current
+local reports use `openudon.browser-scenario-eval.v2` and
+`openudon.browser-journey-eval.v2`; their verifier uses frozen M86 lock bytes.
+New current local reports use v3 versions and the current lock. Both current
+generations require the complete 23-case or 11-case inventory for a passing
 release report. Filtered current runs remain diagnostics. Every report has an adjacent
 `.sha256` sidecar and contains exact repository commits, public module
 versions, closed phase/assertion/detail identifiers, counters, and explicit
@@ -219,8 +220,11 @@ differ from the lock. Generated `site/` output is explicitly excluded from the
 dirty-root check and is neither removed nor release evidence. Scenario
 manifests and reports strict-decode unknown or duplicate fields and apply
 finite bounds before any browser or network authority is exercised.
-The separate current lock fixes the published UWS 1.11 stack with the same
-toolchain versions. Its Node readiness probe launches pinned Chromium with
+The separate current lock fixes the UWS 1.11 stack and repaired Udon
+`6d32d4967469c579d35adcf47eaddb76a225dbae` with the same toolchain versions.
+Current scenario runs also require the exact clean 14-repository Udon local
+replacement closure embedded in
+`internal/browserscenario/current-qualification-build-inputs.json`. Its Node readiness probe launches pinned Chromium with
 `chromiumSandbox: true`; readiness still does not replace an executed case.
 
 ## Where The V2 Contract Is Documented

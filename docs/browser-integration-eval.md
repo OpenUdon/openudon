@@ -6,8 +6,10 @@ provider-free checks in sibling OpenUdon, Browsertools, UWS, Udon, and
 Browserdriver checkouts and writes one value-free report with an adjacent
 SHA-256 sidecar.
 
-The current v2 matrix uses its own exact compatibility lock for the published
-UWS 1.11, Browsertools, Browserdriver and Udon revisions. OpenUdon and every
+M86 v2 reports use their frozen compatibility lock. New current v3 matrices use
+the current exact compatibility lock for the UWS 1.11, Browsertools,
+Browserdriver and repaired Udon revisions, and validate the exact clean
+14-repository Udon local build closure before running gates. OpenUdon and every
 pinned sibling checkout must be clean. Historical v1 reports remain verified
 against the unchanged scenario compatibility lock and original gate inventory.
 Generated `site/` output is explicitly ignored without being removed or
@@ -53,8 +55,9 @@ network access.
 | Browserdriver runtime | Offline v2/v3 legacy NDJSON plus v10 Browser 1.8/1.9 templates and integer safety, failure non-disclosure, exact-origin/context guards, credential lookup, and session isolation |
 | Component inventory | Browsertools doctor reports pinned Chromium, Firefox, and WebKit readiness without installing or launching anything |
 
-The current report contract is `openudon.browser-integration-eval.v2`; the v1
-verifier remains available for historical reports. Validation fixes
+The current report contract is `openudon.browser-integration-eval.v3`. The v2
+verifier remains bound to M86's frozen lock; v1 remains available for
+historical reports. Validation fixes
 the gate order, repository names, command argv, assertions, authority claims,
 counter totals, and closed value-free detail vocabulary. Passing Go gates must
 contain every named test marker, not merely an overall package success. Reports

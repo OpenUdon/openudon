@@ -1,0 +1,89 @@
+{
+  "version": "openudon.browser-transaction-build-input-lock.v1",
+  "components": [
+    {
+      "name": "apitools",
+      "module": "github.com/OpenUdon/apitools",
+      "replacement": "../apitools",
+      "commit": "a5699e570fb5d6288fdd255c71d229fb062b50b3"
+    },
+    {
+      "name": "arazzo",
+      "module": "github.com/OpenUdon/arazzo",
+      "replacement": "../arazzo",
+      "commit": "be78f964c4dab1bcbbfbbc9bb4937cff154d3b49"
+    },
+    {
+      "name": "asyncapi",
+      "module": "github.com/OpenUdon/asyncapi",
+      "replacement": "../asyncapi",
+      "commit": "7d3d9e8d2e7a527591e4fe2bcf637c3165cd634a"
+    },
+    {
+      "name": "awssmithy",
+      "module": "github.com/OpenUdon/awssmithy",
+      "replacement": "../awssmithy",
+      "commit": "d8920534a28fbf3fbdcefe6957ccadeb22746194"
+    },
+    {
+      "name": "browsertools",
+      "module": "github.com/OpenUdon/browsertools",
+      "replacement": "../browsertools",
+      "commit": "9333a9f25dbb17551998a429e123e7a9ba976648"
+    },
+    {
+      "name": "evidence",
+      "module": "github.com/OpenUdon/evidence",
+      "replacement": "../evidence",
+      "commit": "d324099cb15e4a53289e2179fff45b9b88d9274b"
+    },
+    {
+      "name": "golet",
+      "module": "github.com/genelet/golet",
+      "replacement": "../golet",
+      "commit": "bb3ae2245d5d4fe8738e07a8ea315d387bf3f679"
+    },
+    {
+      "name": "grand",
+      "module": "github.com/genelet/grand",
+      "replacement": "../grand",
+      "commit": "d68766f819eec64e3599e65e60c0c6f182c071f3"
+    },
+    {
+      "name": "graphqlschema",
+      "module": "github.com/OpenUdon/graphqlschema",
+      "replacement": "../graphqlschema",
+      "commit": "d5ccb57fb01013762cad29654aadf8de8bc292bd"
+    },
+    {
+      "name": "hcllight",
+      "module": "github.com/genelet/hcllight",
+      "replacement": "../hcllight",
+      "commit": "cd0e35cf01aade9688f40268521880a48ab4cc1f"
+    },
+    {
+      "name": "horizon",
+      "module": "github.com/genelet/horizon",
+      "replacement": "../horizon",
+      "commit": "41ae3c0fd5ea08b9fbed2dfafbc66c4a7012dad2"
+    },
+    {
+      "name": "molecule",
+      "module": "github.com/genelet/molecule",
+      "replacement": "../molecule",
+      "commit": "3eb51f7ffe6c6e03120724a8a6035549917ff0e7"
+    },
+    {
+      "name": "odata",
+      "module": "github.com/OpenUdon/odata",
+      "replacement": "../odata",
+      "commit": "74508823d40f42d4a71eb25b8225a80bf0977a2c"
+    },
+    {
+      "name": "uws",
+      "module": "github.com/OpenUdon/uws",
+      "replacement": "../uws",
+      "commit": "e9b6181be0abb7f683fdb624d4dba282a59991d1"
+    }
+  ]
+}

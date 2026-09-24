@@ -20,8 +20,10 @@ import (
 const (
 	ReportVersion               = "openudon.browser-scenario-eval.v1"
 	JourneyReportVersion        = "openudon.browser-journey-eval.v1"
-	CurrentReportVersion        = "openudon.browser-scenario-eval.v2"
-	CurrentJourneyReportVersion = "openudon.browser-journey-eval.v2"
+	M86CurrentReportVersion     = "openudon.browser-scenario-eval.v2"
+	M86CurrentJourneyVersion    = "openudon.browser-journey-eval.v2"
+	CurrentReportVersion        = "openudon.browser-scenario-eval.v3"
+	CurrentJourneyReportVersion = "openudon.browser-journey-eval.v3"
 	StatusPass                  = "pass"
 	StatusFail                  = "fail"
 	StatusNotRun                = "not_run"
@@ -131,7 +133,7 @@ func ValidateReport(report *Report) error {
 		return fmt.Errorf("browser scenario report identity is invalid")
 	}
 	stack := StackHistorical
-	if report.Version == CurrentReportVersion || report.Version == CurrentJourneyReportVersion {
+	if isCurrentReportVersion(report.Version) {
 		stack = StackCurrent
 	}
 	if stack == StackCurrent && report.Suite == SuitePublic {
@@ -142,9 +144,16 @@ func ValidateReport(report *Report) error {
 		wantVersion = JourneyReportVersion
 	}
 	if stack == StackCurrent {
-		wantVersion = CurrentReportVersion
-		if report.Suite == SuiteJourney {
-			wantVersion = CurrentJourneyReportVersion
+		if isM86CurrentReportVersion(report.Version) {
+			wantVersion = M86CurrentReportVersion
+			if report.Suite == SuiteJourney {
+				wantVersion = M86CurrentJourneyVersion
+			}
+		} else {
+			wantVersion = CurrentReportVersion
+			if report.Suite == SuiteJourney {
+				wantVersion = CurrentJourneyReportVersion
+			}
 		}
 	}
 	if report.Version != wantVersion {
@@ -165,7 +174,12 @@ func ValidateReport(report *Report) error {
 		return err
 	}
 	if stack == StackCurrent {
-		lock, err := LoadCurrentCompatibilityLockV2()
+		var lock CompatibilityLock
+		if isM86CurrentReportVersion(report.Version) {
+			lock, err = LoadCurrentCompatibilityLockV2()
+		} else {
+			lock, err = LoadCurrentCompatibilityLock()
+		}
 		if err != nil {
 			return err
 		}
@@ -282,7 +296,7 @@ func VerifyReportFile(filename string, requirePassing bool) (*Report, error) {
 	if requirePassing && report.Status != StatusPass {
 		return &report, fmt.Errorf("browser scenario report status is %s", report.Status)
 	}
-	if requirePassing && (report.Version == CurrentReportVersion || report.Version == CurrentJourneyReportVersion) {
+	if requirePassing && isCurrentReportVersion(report.Version) {
 		generatedAt, err := time.Parse(time.RFC3339, report.GeneratedAt)
 		if err != nil {
 			return &report, err
@@ -327,6 +341,14 @@ func validateCurrentReportRevisions(report *Report, lock CompatibilityLock) erro
 		}
 	}
 	return nil
+}
+
+func isM86CurrentReportVersion(version string) bool {
+	return version == M86CurrentReportVersion || version == M86CurrentJourneyVersion
+}
+
+func isCurrentReportVersion(version string) bool {
+	return isM86CurrentReportVersion(version) || version == CurrentReportVersion || version == CurrentJourneyReportVersion
 }
 
 func requireReportWireFields(data []byte) error {

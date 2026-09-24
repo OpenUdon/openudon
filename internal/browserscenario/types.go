@@ -35,7 +35,7 @@ var (
 	keyPattern = regexp.MustCompile(`^[A-Za-z][A-Za-z0-9_-]{0,63}$`)
 )
 
-//go:embed manifests/*.json current-manifests/*.json compatibility-lock.json current-compatibility-lock.json current-compatibility-lock-v2.json qualification-build-inputs.json
+//go:embed manifests/*.json current-manifests/*.json compatibility-lock.json current-compatibility-lock.json current-compatibility-lock-v2.json qualification-build-inputs.json current-qualification-build-inputs.json
 var contracts embed.FS
 
 type Manifest struct {
@@ -248,6 +248,12 @@ func lockForStack(stack string) (CompatibilityLock, error) {
 	default:
 		return CompatibilityLock{}, fmt.Errorf("browser scenario stack must be historical or current")
 	}
+}
+
+// LoadCompatibilityLockForStack returns the immutable historical lock or the
+// current v3 lock selected by an explicit stack name.
+func LoadCompatibilityLockForStack(stack string) (CompatibilityLock, error) {
+	return lockForStack(stack)
 }
 
 func SelectManifests(all []Manifest, suite string, ids []string) ([]Manifest, error) {

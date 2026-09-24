@@ -8,9 +8,18 @@ The M86 current scenario v2 verifier reads
 integration v2 verifier reads its own byte-preserved snapshot at
 `internal/browserintegrationeval/current-compatibility-lock-v2.json` (SHA-256
 `9eec17f1489e1c805e2d2bfb8b89a439ee7153d5c49ec09a3ee903ce6761d393`). The
-mutable current selectors remain at the pre-E21 values until E21.2 adds the
-Udon `6d32d49` closure. Historical v1 verification keeps its existing lock.
-All three retained M86 reports pass the frozen readers with their original
+mutable scenario and integration selectors now use Udon
+`6d32d4967469c579d35adcf47eaddb76a225dbae`; their bytes have SHA-256
+`90f96fa2d02809f641c7391f1245487926a48c64cef9a4ace609ebad99667246` and
+`4958e20014cb008a3d8128f0328c7f86bd07cd674a463aa7578ae4348a2e9a9f`.
+Scenario current v3 execution also requires the 14-source local replacement
+closure in `internal/browserscenario/current-qualification-build-inputs.json`
+(SHA-256 `4993304edf46953c33b6112c4f00e3fcf526811ac91400989b775a19066977b9`).
+It fixes Browsertools `9333a9f25dbb17551998a429e123e7a9ba976648` and UWS
+`e9b6181be0abb7f683fdb624d4dba282a59991d1` among the exact clean source inputs.
+Integration runs verify the same Udon closure before executing the fixed
+matrix. Historical v1 and frozen M86 v2 verification retain their original
+locks and meaning. All three retained M86 reports pass with their original
 digests; E21 evidence is recorded in [status-E21.md](status-E21.md).
 
 ## Current Browser Authoring Tooling

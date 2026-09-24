@@ -22,6 +22,34 @@ func TestM86CurrentLockSnapshotRetainsPublishedPins(t *testing.T) {
 	}
 }
 
+func TestCurrentV3LockUsesUdon6dAndSeparateFourteenInputClosure(t *testing.T) {
+	lock, err := LoadCurrentCompatibilityLock()
+	if err != nil {
+		t.Fatal(err)
+	}
+	udon := ""
+	for _, component := range lock.Components {
+		if component.Name == "udon" {
+			udon = component.Commit
+		}
+	}
+	if udon != "6d32d4967469c579d35adcf47eaddb76a225dbae" {
+		t.Fatalf("current Udon pin = %s", udon)
+	}
+	build, err := LoadCurrentQualificationBuildInputLock(lock)
+	if err != nil || len(build.Components) != 14 {
+		t.Fatalf("current build closure = %d components, err = %v", len(build.Components), err)
+	}
+	for _, component := range build.Components {
+		if component.Name == "browsertools" && component.Commit != "9333a9f25dbb17551998a429e123e7a9ba976648" {
+			t.Fatalf("current Browsertools build input = %s", component.Commit)
+		}
+		if component.Name == "uws" && component.Commit != "e9b6181be0abb7f683fdb624d4dba282a59991d1" {
+			t.Fatalf("current UWS build input = %s", component.Commit)
+		}
+	}
+}
+
 func TestM86CurrentReportUsesFrozenLockAfterCurrentLockAdvances(t *testing.T) {
 	lock, err := LoadCurrentCompatibilityLockV2()
 	if err != nil {
@@ -41,10 +69,11 @@ func TestM86CurrentReportUsesFrozenLockAfterCurrentLockAdvances(t *testing.T) {
 		{Module: "github.com/OpenUdon/browsertools", Version: versions["browsertools"]},
 		{Module: "github.com/OpenUdon/uws", Version: versions["uws"]},
 	}, []ScenarioResult{{ID: "password-main", Status: StatusPass, Attempts: 1, Detail: "ok", Phases: []PhaseResult{{ID: "fixture_ready", Status: StatusPass, Detail: "ok"}}, Assertions: []string{"author_session_v2"}}})
+	report.Version = M86CurrentReportVersion
 	if err := ValidateReport(report); err != nil {
 		t.Fatalf("M86 current report no longer verifies: %v", err)
 	}
-	report.Version = CurrentJourneyReportVersion
+	report.Version = M86CurrentJourneyVersion
 	if err := ValidateReport(report); err == nil {
 		t.Fatal("cross-suite M86 report version was accepted")
 	}

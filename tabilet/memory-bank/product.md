@@ -221,6 +221,12 @@ experimental before v1.
   1.8 replay. A separate opt-in four-site public suite performs anonymous
   read-only presence canaries with explicit network authority. All retain only
   closed value-free reports.
+
+The current local release suites retain all 23 loopback cases and run 11
+reviewed journey cases, including the three Browser 1.8/1.9 and v10 cases.
+Current evidence binds the repaired Udon revision and its complete clean local
+build closure. Historical reports and M86 v2 evidence remain verifiable under
+their original lock contracts.
 - **Quality report** is the deterministic release gate for current generated artifacts.
 - **Review evidence** is the human-readable side-effect, risk, credential, and trusted-runner
   package summary.
