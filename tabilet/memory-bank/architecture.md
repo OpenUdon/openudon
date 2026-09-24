@@ -699,6 +699,10 @@ directory whose four direct build/runtime packages match its pinned lock. The
 Browserdriver npm matrix gate checks out its locked source commit into a
 disposable clone, while all generated build output remains outside the supplied
 source checkout. No source or dependency installation is part of qualification.
+Current Udon Go test gates also use an exact disposable clone of Udon and all
+fourteen locked sibling inputs; the source evaluator rechecks the supplied
+closure around these tests. This keeps ignored fixture output from making a
+later native stage accept a mutated source tree.
 
 The scenario JSON boundary pre-scans tokens recursively and rejects duplicate
 decoded keys in every object before unknown-field decoding, so no consumer can

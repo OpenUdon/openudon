@@ -146,6 +146,98 @@ func ValidateQualificationBuildInputsForStack(ctx context.Context, udonRoot, sta
 	return validateQualificationBuildInputsForLock(ctx, udonRoot, compatibility, lock)
 }
 
+// StageCurrentQualificationBuildWorkspace clones the exact current Udon source
+// and its locked sibling closure into a disposable workspace. Go tests may
+// create ignored test output in their working tree, so qualification runs them
+// here instead of in supplied source checkouts.
+func StageCurrentQualificationBuildWorkspace(ctx context.Context, udonRoot, targetRoot string) (stagedUdon string, resultErr error) {
+	bad := errors.New("current Udon qualification workspace staging failed")
+	if ctx == nil || !filepath.IsAbs(udonRoot) || filepath.Clean(udonRoot) != udonRoot || !filepath.IsAbs(targetRoot) || filepath.Clean(targetRoot) != targetRoot {
+		return "", bad
+	}
+	udonRoot, err := filepath.EvalSymlinks(udonRoot)
+	if err != nil || ValidateQualificationBuildInputsForStack(ctx, udonRoot, StackCurrent) != nil {
+		return "", bad
+	}
+	targetParent, err := filepath.EvalSymlinks(filepath.Dir(targetRoot))
+	if err != nil {
+		return "", bad
+	}
+	targetRoot = filepath.Join(targetParent, filepath.Base(targetRoot))
+	rel, err := filepath.Rel(filepath.Dir(udonRoot), targetRoot)
+	if err != nil || rel == "." || rel != ".." && !strings.HasPrefix(rel, ".."+string(filepath.Separator)) {
+		return "", bad
+	}
+	compatibility, err := LoadCurrentCompatibilityLock()
+	if err != nil {
+		return "", bad
+	}
+	lock, err := LoadCurrentQualificationBuildInputLock(compatibility)
+	if err != nil {
+		return "", bad
+	}
+	var udonCommit string
+	for _, component := range compatibility.Components {
+		if component.Name == "udon" {
+			udonCommit = component.Commit
+			break
+		}
+	}
+	if udonCommit == "" || os.Mkdir(targetRoot, 0700) != nil {
+		return "", bad
+	}
+	defer func() {
+		if resultErr != nil {
+			resultErr = errors.Join(resultErr, os.RemoveAll(targetRoot))
+		}
+	}()
+	type source struct {
+		name, path, commit string
+	}
+	sources := []source{{name: "udon", path: udonRoot, commit: udonCommit}}
+	for _, component := range lock.Components {
+		sources = append(sources, source{
+			name: component.Name, path: filepath.Join(filepath.Dir(udonRoot), component.Name), commit: component.Commit,
+		})
+	}
+	for _, source := range sources {
+		if err := cloneQualificationSource(ctx, source.path, filepath.Join(targetRoot, source.name), source.commit); err != nil {
+			return "", bad
+		}
+	}
+	if ValidateQualificationBuildInputsForStack(ctx, udonRoot, StackCurrent) != nil {
+		return "", bad
+	}
+	return filepath.Join(targetRoot, "udon"), nil
+}
+
+func cloneQualificationSource(ctx context.Context, source, target, commit string) error {
+	if !filepath.IsAbs(source) || filepath.Clean(source) != source || !filepath.IsAbs(target) || filepath.Clean(target) != target || !commitPattern.MatchString(commit) {
+		return errors.New("qualification source clone inputs are invalid")
+	}
+	actual, dirty, err := exactQualificationRevision(ctx, source)
+	if err != nil || dirty || actual != commit {
+		return errors.New("qualification source clone is not at its locked clean revision")
+	}
+	cloned := runBounded(ctx, probeDeadline, source, []string{
+		"git", "--no-replace-objects", "clone", "--shared", "--no-checkout", "--quiet", source, target,
+	}, nil, "")
+	if cloned.err != nil {
+		return errors.New("qualification source clone failed")
+	}
+	checkedOut := runBounded(ctx, probeDeadline, target, []string{
+		"git", "--no-replace-objects", "checkout", "--quiet", "--detach", commit,
+	}, nil, "")
+	if checkedOut.err != nil {
+		return errors.New("qualification source checkout failed")
+	}
+	actual, dirty, err = exactQualificationRevision(ctx, target)
+	if err != nil || dirty || actual != commit {
+		return errors.New("qualification source clone failed exact revision validation")
+	}
+	return nil
+}
+
 func validateQualificationBuildInputsForLock(ctx context.Context, udonRoot string, compatibility CompatibilityLock, lock QualificationBuildInputLock) error {
 	udonCommit := ""
 	for _, component := range compatibility.Components {

@@ -39,6 +39,10 @@ integration npm test checks out the exact locked commit into a disposable clone
 and uses the same supplied modules. No dependency installation or supplied
 source mutation occurs. Missing or mismatched modules fail before qualification
 stages start.
+The native Udon Go test stages also run in a temporary clone of the exact Udon
+commit and all fourteen locked local replacements. The aggregate rechecks the
+supplied source trees after every stage, so test-created ignored output remains
+confined to the disposable copy and is removed before a stage passes.
 Set `OPENUDON_BROWSERDRIVER_NODE_MODULES` for all browser Make targets, or
 `OPENUDON_BROWSER_SYSTEM_BROWSERDRIVER_NODE_MODULES` for only this native
 target. The Make equivalent Udon path is `OPENUDON_BROWSER_SYSTEM_UDON_REPO`;

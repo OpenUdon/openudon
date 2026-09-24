@@ -265,6 +265,27 @@ func goTestsMode(ctx context.Context, root string, args, extra []string, noSkips
 	}
 	return result, nil
 }
+
+func udonGoTests(ctx context.Context, root, stack string, args, extra []string, noSkips bool) (result Tests, resultErr error) {
+	if stack != browserscenario.StackCurrent {
+		return goTests(ctx, root, args, extra, noSkips)
+	}
+	parent, err := os.MkdirTemp("", "openudon-udon-system-test-")
+	if err != nil {
+		return Tests{}, errors.New("udon_test_staging")
+	}
+	defer func() {
+		if err := os.RemoveAll(parent); err != nil {
+			resultErr = errors.Join(resultErr, errors.New("udon_test_cleanup"))
+		}
+	}()
+	staged, err := browserscenario.StageCurrentQualificationBuildWorkspace(ctx, root, filepath.Join(parent, "sources"))
+	if err != nil {
+		return Tests{}, errors.New("udon_test_staging")
+	}
+	return goTests(ctx, staged, args, extra, noSkips)
+}
+
 func nodeTests(ctx context.Context, root string, live bool, nodeModules string) (Tests, error) {
 	temp, err := os.MkdirTemp("", "openudon-driver-tests-")
 	if err != nil {
@@ -486,9 +507,9 @@ func runStage(ctx context.Context, root, udonRoot, stack, browserdriverNodeModul
 	case "supervised_authenticated_package":
 		return goTests(ctx, root, []string{"-tags=browser_system_qualification", "./internal/icot/ui", "-run", "^TestBrowserSystemSupervisedAuthenticatedPackage$", "-timeout=6m"}, nil, true)
 	case "udon_browser_contract":
-		return goTests(ctx, udonRoot, []string{"-race", "./pkg/browserdriver", "./pkg/uwsprofile", "./pkg/registrationinput", "./internal/sourceloader", "-skip", "TestPrivateFormLiveUIStartApplyAndSubmit"}, nil, true)
+		return udonGoTests(ctx, udonRoot, stack, []string{"-race", "./pkg/browserdriver", "./pkg/uwsprofile", "./pkg/registrationinput", "./internal/sourceloader", "-skip", "TestPrivateFormLiveUIStartApplyAndSubmit"}, nil, true)
 	case "udon_browser_cli":
-		return goTests(ctx, udonRoot, []string{"-race", "./cmd/udon", "-run", "Browser|Registration|ReadPrivateLine|ExecutionReportRedactsDriverErrors"}, nil, true)
+		return udonGoTests(ctx, udonRoot, stack, []string{"-race", "./cmd/udon", "-run", "Browser|Registration|ReadPrivateLine|ExecutionReportRedactsDriverErrors"}, nil, true)
 	case "registration_driver":
 		return nodeTests(ctx, sibling("browserdriver"), true, browserdriverNodeModules)
 	case "build_inputs":

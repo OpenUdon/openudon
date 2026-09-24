@@ -201,7 +201,7 @@ func Run(ctx context.Context, opts Options) (*Report, error) {
 		Results: make([]GateResult, 0, len(specs)),
 	}
 	componentReady := map[string]bool{}
-	for _, spec := range specs {
+	for specIndex, spec := range specs {
 		enabled := spec.OptIn == "" || (spec.OptIn == "installed" && opts.InstalledEngines) || (spec.OptIn == "headed" && opts.HeadedAuth)
 		if !enabled {
 			report.Results = append(report.Results, GateResult{
@@ -237,12 +237,38 @@ func Run(ctx context.Context, opts Options) (*Report, error) {
 		}
 		output := runner(ctx, command)
 		result := evaluateGate(spec, output, lock)
+		sourceStateChanged := false
+		if opts.Runner == nil {
+			after, sourceErr := repositoryRevisions(ctx, repos, runCommand)
+			closureErr := validateBuildInputs(ctx, repos["udon"], browserscenario.StackCurrent)
+			dependencyErr := browserscenario.ValidateBrowserdriverNodeModules(repos["browserdriver"], browserdriverNodeModules)
+			if sourceErr != nil || !sameRepositoryRevisions(revisions, after) || closureErr != nil || dependencyErr != nil {
+				result.Status = StatusFail
+				result.EvidenceCount = 0
+				result.Detail = commandFailure(errors.New("source state changed during qualification"))
+				sourceStateChanged = true
+			}
+		}
 		if spec.Kind == "doctor" && result.Status == StatusPass {
 			componentReady[doctorEngine(spec)] = doctorBrowserReady(output)
 		}
 		report.Results = append(report.Results, result)
 		if result.Status == StatusFail {
 			report.Status = StatusFail
+		}
+		if sourceStateChanged {
+			for _, pending := range specs[specIndex+1:] {
+				enabled := pending.OptIn == "" || (pending.OptIn == "installed" && opts.InstalledEngines) || (pending.OptIn == "headed" && opts.HeadedAuth)
+				status, detail := StatusFail, "command could not be completed; rerun the recorded command locally for private diagnostics"
+				if !enabled {
+					status, detail = StatusSkipped, optInSkipDetail(pending.OptIn)
+				}
+				report.Results = append(report.Results, GateResult{
+					ID: pending.ID, Repository: pending.Repository, Kind: pending.Kind, Status: status,
+					Command: append([]string(nil), pending.Args...), Assertions: append([]string(nil), pending.Assertions...), Detail: detail,
+				})
+			}
+			break
 		}
 	}
 	report.Summary = summarize(report.Results)
@@ -258,6 +284,18 @@ func Run(ctx context.Context, opts Options) (*Report, error) {
 		return report, fmt.Errorf("browser integration evaluation failed")
 	}
 	return report, nil
+}
+
+func sameRepositoryRevisions(left, right []RepositoryRevision) bool {
+	if len(left) != len(right) {
+		return false
+	}
+	for index := range left {
+		if left[index] != right[index] {
+			return false
+		}
+	}
+	return true
 }
 
 func Write(path string, report *Report) error {
@@ -870,6 +908,9 @@ func evaluateGate(spec gate, output CommandOutput, lock browserscenario.Compatib
 }
 
 func runCommand(ctx context.Context, command Command) CommandOutput {
+	if command.Repository == "udon" && command.Kind == "go_test" {
+		return runIsolatedUdonGoTest(ctx, command)
+	}
 	if command.Repository == "browserdriver" && command.Kind == "npm_test" {
 		return runIsolatedBrowserdriverNPMTest(ctx, command)
 	}
@@ -896,6 +937,26 @@ func runDirectCommand(ctx context.Context, command Command) CommandOutput {
 		}
 	}
 	return CommandOutput{Stdout: stdout.String(), Stderr: stderr.String(), Err: err}
+}
+
+func runIsolatedUdonGoTest(ctx context.Context, command Command) (result CommandOutput) {
+	bad := CommandOutput{Err: errors.New("udon test staging failed")}
+	parent, err := os.MkdirTemp("", "openudon-udon-go-test-")
+	if err != nil {
+		return bad
+	}
+	defer func() {
+		if err := os.RemoveAll(parent); err != nil && result.Err == nil {
+			result.Err = errors.New("udon test cleanup failed")
+		}
+	}()
+	staged, err := browserscenario.StageCurrentQualificationBuildWorkspace(ctx, command.Dir, filepath.Join(parent, "sources"))
+	if err != nil {
+		return bad
+	}
+	command.Dir = staged
+	result = runDirectCommand(ctx, command)
+	return result
 }
 
 func runIsolatedBrowserdriverNPMTest(ctx context.Context, command Command) (result CommandOutput) {
@@ -1002,7 +1063,7 @@ func repositoryRevisions(ctx context.Context, repos map[string]string, runner Ru
 		if commitOutput.Err != nil || !commitPattern.MatchString(commit) {
 			return nil, fmt.Errorf("resolve %s release-evidence commit", name)
 		}
-		statusOutput := runner(ctx, Command{Repository: name, Dir: repos[name], Args: []string{"git", "status", "--porcelain=v1", "--untracked-files=all", "--", ".", ":(exclude)site", ":(exclude)site/**"}, Timeout: 30 * time.Second})
+		statusOutput := runner(ctx, Command{Repository: name, Dir: repos[name], Args: []string{"git", "status", "--porcelain=v1", "--ignored=matching", "--untracked-files=all", "--", ".", ":(exclude)site", ":(exclude)site/**"}, Timeout: 30 * time.Second})
 		if statusOutput.Err != nil {
 			return nil, fmt.Errorf("resolve %s release-evidence worktree state", name)
 		}

@@ -54,6 +54,10 @@ test checks out the exact locked commit into a disposable clone, links those
 modules read-only, and writes build output only there. No npm install or
 supplied source worktree mutation is performed; missing or drifted dependency
 versions reject the run before the matrix starts.
+Current Udon Go gates likewise run in a disposable clone of the exact Udon
+commit and all fourteen locked local replacement sources. The evaluator checks
+the supplied source revisions and clean states after each gate and stops if
+they drift.
 
 ## Required Matrix
 
