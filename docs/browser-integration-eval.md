@@ -6,10 +6,12 @@ provider-free checks in sibling OpenUdon, Browsertools, UWS, Udon, and
 Browserdriver checkouts and writes one value-free report with an adjacent
 SHA-256 sidecar.
 
-The matrix imports the scenario compatibility lock and requires OpenUdon plus
-every pinned sibling checkout to be clean and siblings to be at the exact
-reviewed revision. Generated `site/` output is explicitly ignored without
-being removed or treated as evidence. Browsertools
+The current v2 matrix uses its own exact compatibility lock for the published
+UWS 1.11, Browsertools, Browserdriver and Udon revisions. OpenUdon and every
+pinned sibling checkout must be clean. Historical v1 reports remain verified
+against the unchanged scenario compatibility lock and original gate inventory.
+Generated `site/` output is explicitly ignored without being removed or
+treated as evidence. Browsertools
 doctor inventory must report the lock's Playwright contract. The complementary
 scenario evaluator launches the installed Node Playwright/Chromium pair once
 and compares both actual versions with the same lock before replay.
@@ -39,16 +41,17 @@ network access.
 | Gate | Evidence |
 |---|---|
 | OpenUdon authoring | API preference, anonymous handoff, strict author-session v2 orchestration, identical pre-publication validation for bundled and expert workers, disclosure-path rejection, human-only typed MFA/output review, exact new-origin approval, process-private trace/auth/output/context/origin attestation, minimal child environment, exact bounds authority, a real Browsertools-produced private result through validation/staging, and malformed/tampered/substituted rejection |
-| OpenUdon package/handoff | Strict live and portability verification, private/tampered input rejection, value-free package review, authentication/capability separation, UWS 1.7/1.8/1.9 discriminator selection, and trusted dry-run |
+| OpenUdon package/handoff | Strict live and portability verification, private/tampered input rejection, value-free package review, authentication/capability separation, UWS 1.11 default, Browser 1.8/1.9 templates, and v10 trusted handoff |
 | iCoT dependency boundary | The engine and HTTP-server dependency graphs contain no Browsertools capture, Playwright adapter, or Playwright-Go implementation package; only the hidden re-executed worker links Browsertools' implementation |
 | OpenUdon repository boundary | Production source contains no private executor, desired-state parser, or removed apitools lifecycle imports |
 | Browsertools producer | Observation-generation authority, human-selected MFA kind, bounded reviewed outputs, action-time exact-name/unique-role proof, complete context inventory, current goal proof, deterministic output, and offline doctor behavior |
-| UWS contract | Immutable older compatibility plus UWS 1.9/browser 1.7 scalar accessibility conversion, context contracts, fresh union decoding, dispatch, round trips, and rejection fixtures |
-| Udon consumer | Private source loading, runtime approvals, authentication, opaque sessions, v2 rejection/v3 browser 1.7 replay, scalar post-conversion validation, redaction rejection, and real producer pairs through output validation |
-| Browserdriver runtime | Offline v2/v3 NDJSON, browser 1.7 v3-only strict scalar conversion, failure non-disclosure, exact-origin/context guards, ambiguity rejection, credential lookup, and session isolation |
+| UWS contract | Immutable older compatibility plus UWS 1.11 typed conformance, root-scoped goto, Browser 1.8/1.9 template safety, context contracts, and scalar conversion |
+| Udon consumer | Private source loading, runtime approvals, authentication, opaque sessions, v3 legacy replay, v10 modern action handoff, UWS 1.11 bound execution, and post-conversion validation |
+| Browserdriver runtime | Offline v2/v3 legacy NDJSON plus v10 Browser 1.8/1.9 templates and integer safety, failure non-disclosure, exact-origin/context guards, credential lookup, and session isolation |
 | Component inventory | Browsertools doctor reports pinned Chromium, Firefox, and WebKit readiness without installing or launching anything |
 
-The report contract is `openudon.browser-integration-eval.v1`. Validation fixes
+The current report contract is `openudon.browser-integration-eval.v2`; the v1
+verifier remains available for historical reports. Validation fixes
 the gate order, repository names, command argv, assertions, authority claims,
 counter totals, and closed value-free detail vocabulary. Passing Go gates must
 contain every named test marker, not merely an overall package success. Reports

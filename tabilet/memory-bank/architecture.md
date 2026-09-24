@@ -1076,6 +1076,12 @@ exact revisions, closed phases/assertions/failure classes, counters, safety
 claims, and a digest sidecar; they contain no values, page content, or child
 output.
 
+M85 keeps that scenario lock for historical real-browser qualification. The
+provider-free integration evaluator embeds a separate exact UWS 1.11 stack
+lock and emits a v2 report with named Browser 1.8/1.9 and v10 evidence. Its
+verifier dispatches v1 reports to the original lock and gate inventory, so
+later source qualification does not redefine prior report meaning.
+
 The scenario JSON boundary pre-scans tokens recursively and rejects duplicate
 decoded keys in every object before unknown-field decoding, so no consumer can
 select a different repeated value. Hosted Ubuntu release/public jobs retain

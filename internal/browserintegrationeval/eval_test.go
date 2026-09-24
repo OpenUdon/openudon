@@ -24,7 +24,7 @@ func TestRunWritesAndVerifiesValueFreeProviderFreeMatrix(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Run: %v", err)
 	}
-	if report.Status != StatusPass || report.Summary != (Summary{Total: 14, Passed: 11, Skipped: 3}) {
+	if report.Status != StatusPass || report.Summary != (Summary{Total: 18, Passed: 15, Skipped: 3}) {
 		t.Fatalf("report summary = %#v", report)
 	}
 	if report.BrowserLaunchedByDefault || report.TargetContactedByICoT || report.CredentialEnvironmentReadByICoT || report.PlanningDeliverablesWritten {
@@ -54,6 +54,63 @@ func TestRunWritesAndVerifiesValueFreeProviderFreeMatrix(t *testing.T) {
 	}
 }
 
+func TestLegacyReportRemainsVerifiableAgainstHistoricalLock(t *testing.T) {
+	lock, specs, err := contractForVersion(LegacyReportVersion)
+	if err != nil {
+		t.Fatal(err)
+	}
+	report := &Report{
+		Version: LegacyReportVersion, Status: StatusPass,
+		GeneratedAt: "2026-09-13T00:00:00Z", Commit: "0123456789ab",
+		Command: "openudon browser-integration-eval", RetentionClass: "release_evidence",
+		SafeToArchive: true, ProviderFree: true,
+		Repositories: []RepositoryRevision{{Name: "openudon", Commit: "0123456789ab"}},
+	}
+	for _, name := range []string{"browsertools", "uws", "udon", "browserdriver"} {
+		for _, component := range lock.Components {
+			if component.Name == name {
+				report.Repositories = append(report.Repositories, RepositoryRevision{Name: name, Commit: component.Commit})
+			}
+		}
+	}
+	for _, spec := range specs {
+		result := GateResult{ID: spec.ID, Repository: spec.Repository, Kind: spec.Kind,
+			Command: append([]string(nil), spec.Args...), Assertions: append([]string(nil), spec.Assertions...)}
+		if spec.OptIn != "" {
+			result.Status, result.Detail = StatusSkipped, optInSkipDetail(spec.OptIn)
+		} else {
+			result.Status = StatusPass
+			switch spec.Kind {
+			case "go_test":
+				result.EvidenceCount = len(spec.RequiredPasses)
+				result.Detail = fmt.Sprintf("%d named provider-free test(s) passed", result.EvidenceCount)
+			case "npm_test":
+				result.EvidenceCount, result.Detail = 20, "20 Browserdriver test(s) passed"
+			case "dependency_scan":
+				result.EvidenceCount, result.Detail = 3, "3 dependency path(s) scanned"
+			case "command":
+				result.EvidenceCount = len(spec.RequiredLines)
+				result.Detail = fmt.Sprintf("%d value-free command marker(s) observed", result.EvidenceCount)
+			case "doctor":
+				result.EvidenceCount, result.Detail = 1, doctorPassDetail(doctorEngine(spec), false)
+			}
+		}
+		report.Results = append(report.Results, result)
+	}
+	report.Summary = summarize(report.Results)
+	path := filepath.Join(t.TempDir(), "legacy.json")
+	if err := Write(path, report); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := VerifyPassingFile(path); err != nil {
+		t.Fatal(err)
+	}
+	report.Repositories[1].Commit = "9333a9f25dbb17551998a429e123e7a9ba976648"
+	if err := Validate(report); err == nil {
+		t.Fatal("historical report accepted a current-stack commit")
+	}
+}
+
 func TestRunOptInsPassOrHonestlySkipUnavailableComponents(t *testing.T) {
 	repos := makeTestRepos(t)
 	for _, test := range []struct {
@@ -64,9 +121,9 @@ func TestRunOptInsPassOrHonestlySkipUnavailableComponents(t *testing.T) {
 		wantSkip    int
 		wantCalls   int
 	}{
-		{name: "installed components pass", doctorReady: true, wantPass: 14, wantCalls: 1},
-		{name: "missing components skip", wantPass: 11, wantSkip: 3},
-		{name: "named tests skip", doctorReady: true, skipOptIns: true, wantPass: 11, wantSkip: 3, wantCalls: 1},
+		{name: "installed components pass", doctorReady: true, wantPass: 18, wantCalls: 1},
+		{name: "missing components skip", wantPass: 15, wantSkip: 3},
+		{name: "named tests skip", doctorReady: true, skipOptIns: true, wantPass: 15, wantSkip: 3, wantCalls: 1},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			runner := &fakeRunner{t: t, doctorReady: test.doctorReady, skipOptIns: test.skipOptIns}
@@ -232,7 +289,7 @@ func (runner *fakeRunner) Run(_ context.Context, command Command) CommandOutput 
 		if command.Repository == "openudon" {
 			return CommandOutput{Stdout: "0123456789ab\n"}
 		}
-		lock, err := browserscenario.LoadCompatibilityLock()
+		lock, err := loadCurrentCompatibilityLock()
 		if err != nil {
 			runner.t.Fatal(err)
 		}
@@ -318,7 +375,7 @@ func makeTestRepos(t *testing.T) map[string]string {
 		}
 		repos[name] = path
 	}
-	lock, err := browserscenario.LoadCompatibilityLock()
+	lock, err := loadCurrentCompatibilityLock()
 	if err != nil {
 		t.Fatal(err)
 	}

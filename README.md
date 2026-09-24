@@ -631,10 +631,10 @@ digest-bound authoring-to-handoff matrix across OpenUdon, Browsertools, UWS,
 Udon, and Browserdriver. Its default path is offline/provider-free and does not
 launch a browser; installed-engine and headed-authentication checks require
 separate loopback-only CLI opt-ins.
-The browser integration and scenario matrices retain their earlier exact
-compatibility lock. They reject newer checkout revisions; the UWS 1.11 and
-Browser 1.8/1.9 adoption has separate synthetic handoff and local loopback
-checks recorded in M84.
+The browser integration matrix selects the published UWS 1.11 and Browser
+1.8/1.9 stack and retains verification of historical v1 reports. The separate
+real-browser scenario suites keep their earlier exact compatibility lock and
+qualification history.
 
 `make browser-scenario-loopback` runs and verifies the required 23-case real
 Browsertools v2 to Udon/Browserdriver v3 release matrix. It requires installed

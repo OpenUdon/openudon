@@ -732,16 +732,17 @@ API source metadata discovery/indexing, and portable trusted executor handoff.
   from that authoritative state.
 - `openudon browser-integration-eval` and `make browser-integration-check`
   run the provider-free A03/P01/A04/A06/E02/E03 release matrix across sibling OpenUdon,
-  Browsertools, UWS, Udon, and Browserdriver checkouts. The strict
-  `openudon.browser-integration-eval.v1` JSON report and `.sha256` sidecar live
+  Browsertools, UWS, Udon, and Browserdriver checkouts. The strict current
+  `openudon.browser-integration-eval.v2` JSON report and `.sha256` sidecar live
   under ignored `eval/runs/`, record all five commit/dirty states, fixed named
   evidence and closed diagnostics, and retain no subprocess output. Browsertools
   doctor checks Chromium, Firefox, and WebKit without installation or browser
   launch. Required named gates cover a real Browsertools envelope through
   OpenUdon, Browsertools author-session/result freshness and synthesis,
-  UWS 1.8 context and UWS 1.9 scalar contracts, Udon browser-driver v3,
-  Browserdriver v2/v3, and
-  OpenUdon live-adapter/UWS-selection behavior. `--installed-engines` and
+  UWS 1.8 context, UWS 1.9 scalar and UWS 1.11 typed contracts, Browser
+  1.8/1.9 templates, Udon/Browserdriver v10 handoff, and OpenUdon UWS 1.11
+  output. V1 reports continue to use the unchanged historical scenario lock
+  and gate inventory. `--installed-engines` and
   `--headed-auth` enable only the existing engine, authentication, and
   same-context authoring loopback fixtures and remain skipped when pinned
   components are unavailable.

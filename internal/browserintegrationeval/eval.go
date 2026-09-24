@@ -28,11 +28,12 @@ import (
 )
 
 const (
-	ReportVersion  = "openudon.browser-integration-eval.v1"
-	StatusPass     = "pass"
-	StatusFail     = "fail"
-	StatusSkipped  = "skipped"
-	maxOutputBytes = 4 << 20
+	LegacyReportVersion = "openudon.browser-integration-eval.v1"
+	ReportVersion       = "openudon.browser-integration-eval.v2"
+	StatusPass          = "pass"
+	StatusFail          = "fail"
+	StatusSkipped       = "skipped"
+	maxOutputBytes      = 4 << 20
 )
 
 type Options struct {
@@ -157,7 +158,7 @@ func Run(ctx context.Context, opts Options) (*Report, error) {
 	if err != nil {
 		return nil, err
 	}
-	lock, err := browserscenario.LoadCompatibilityLock()
+	lock, specs, err := contractForVersion(ReportVersion)
 	if err != nil {
 		return nil, err
 	}
@@ -172,10 +173,10 @@ func Run(ctx context.Context, opts Options) (*Report, error) {
 		GeneratedAt: now.Format(time.RFC3339), Commit: revisions[0].Commit, Repositories: revisions,
 		Command: "openudon browser-integration-eval", RetentionClass: "release_evidence",
 		SafeToArchive: true, ProviderFree: true,
-		Results: make([]GateResult, 0, len(defaultGates())),
+		Results: make([]GateResult, 0, len(specs)),
 	}
 	componentReady := map[string]bool{}
-	for _, spec := range defaultGates() {
+	for _, spec := range specs {
 		enabled := spec.OptIn == "" || (spec.OptIn == "installed" && opts.InstalledEngines) || (spec.OptIn == "headed" && opts.HeadedAuth)
 		if !enabled {
 			report.Results = append(report.Results, GateResult{
@@ -195,7 +196,7 @@ func Run(ctx context.Context, opts Options) (*Report, error) {
 		}
 		command := Command{Repository: spec.Repository, Dir: repos[spec.Repository], Args: append([]string(nil), spec.Args...), Env: cloneMap(spec.Env), Timeout: gateDeadline(spec)}
 		output := runner(ctx, command)
-		result := evaluateGate(spec, output)
+		result := evaluateGate(spec, output, lock)
 		if spec.Kind == "doctor" && result.Status == StatusPass {
 			componentReady[doctorEngine(spec)] = doctorBrowserReady(output)
 		}
@@ -277,8 +278,8 @@ func Validate(report *Report) error {
 	if report == nil {
 		return fmt.Errorf("browser integration report is required")
 	}
-	if report.Version != ReportVersion {
-		return fmt.Errorf("browser integration report version must be %q", ReportVersion)
+	if report.Version != ReportVersion && report.Version != LegacyReportVersion {
+		return fmt.Errorf("browser integration report version is unsupported")
 	}
 	if report.Status != StatusPass && report.Status != StatusFail {
 		return fmt.Errorf("browser integration report status %q is invalid", report.Status)
@@ -292,7 +293,7 @@ func Validate(report *Report) error {
 	if err := validateRepositoryRevisions(report.Repositories, report.Commit); err != nil {
 		return err
 	}
-	lock, err := browserscenario.LoadCompatibilityLock()
+	lock, expected, err := contractForVersion(report.Version)
 	if err != nil {
 		return err
 	}
@@ -305,7 +306,6 @@ func Validate(report *Report) error {
 	if report.BrowserLaunchedByDefault || report.TargetContactedByICoT || report.CredentialEnvironmentReadByICoT || report.PlanningDeliverablesWritten {
 		return fmt.Errorf("browser integration authoring authority widened")
 	}
-	expected := defaultGates()
 	if len(report.Results) != len(expected) {
 		return fmt.Errorf("browser integration result count = %d, want %d", len(report.Results), len(expected))
 	}
@@ -397,7 +397,7 @@ func requiredJSONObject(data []byte, label string, fields ...string) (map[string
 	return object, nil
 }
 
-func defaultGates() []gate {
+func legacyGates() []gate {
 	return []gate{
 		{
 			ID: "openudon-authoring", Repository: "openudon", Kind: "go_test",
@@ -636,6 +636,101 @@ func defaultGates() []gate {
 	}
 }
 
+func currentGates() []gate {
+	gates := legacyGates()
+	for index := range gates {
+		spec := &gates[index]
+		switch spec.ID {
+		case "openudon-package-handoff":
+			spec.Args = append([]string(nil), spec.Args...)
+			for arg := range spec.Args {
+				spec.Args[arg] = strings.ReplaceAll(spec.Args[arg], "GenerateWorkflowSelectsUWS1", "GenerateWorkflowDefaultsToUWS111")
+			}
+			spec.Assertions = []string{"optional live and portability evidence", "tamper/private/stale/mismatch rejection", "value-free review and package inventory", "UWS 1.11 default with historical browser contracts", "trusted dry-run handoff"}
+			for name := range spec.RequiredPasses {
+				switch spec.RequiredPasses[name] {
+				case "TestGenerateWorkflowSelectsUWS18ForContextAuthentication":
+					spec.RequiredPasses[name] = "TestGenerateWorkflowDefaultsToUWS111WithContextAuthentication"
+				case "TestGenerateWorkflowSelectsUWS18ForContextCapability":
+					spec.RequiredPasses[name] = "TestGenerateWorkflowDefaultsToUWS111WithContextCapability"
+				case "TestGenerateWorkflowSelectsUWS19ForScalarAccessibilityCapability":
+					spec.RequiredPasses[name] = "TestGenerateWorkflowDefaultsToUWS111WithScalarAccessibilityCapability"
+				}
+			}
+		case "browserdriver-runtime":
+			spec.Assertions = append(spec.Assertions, "v10 Browser 1.8/1.9 template and integer safety")
+			spec.RequiredPasses = append(spec.RequiredPasses,
+				"v10 accepts one persistent action envelope and rejects old action profiles",
+				"templates fail closed outside approved sinks and URL components",
+				"v10 preserves Browser 1.8 signed 64-bit integers and rejects them in Browser 1.9",
+				"v10 action expands a reviewed template before any browser macro")
+		}
+	}
+	newGates := []gate{
+		{
+			ID: "openudon-uws111-browser19-handoff", Repository: "openudon", Kind: "go_test",
+			Args:       []string{"go", "test", "-v", "./internal/synthesize", "./internal/trustedrunner", "./internal/udonrunner", "-run", "Test(GenerateWorkflowAcceptsVersionedBrowserTemplates|GenerateWorkflowRejectsUnsafeVersionedBrowserTemplate|ValidateBrowserSourceReviewAcceptsVersionedTemplateProfile|BuildBrowserRunConfigSelectsVersionedActionProtocol|BuildBrowserRunConfigIgnoresInactiveVersionedProfile|BuildBrowserRunConfigSelectsV10ForMixedActiveProfiles|BrowserV10ConfigPreservesAuthenticationWithoutRegistrationAuthority|RunBrowserInvocationIsExactAndAllowlisted)", "-count=1"},
+			Assertions: []string{"UWS 1.11 Browser 1.8/1.9 authoring", "unsafe templates rejected", "active-source v10 and credential handoff", "registration authority remains separate"},
+			RequiredPasses: []string{
+				"TestGenerateWorkflowAcceptsVersionedBrowserTemplates",
+				"TestGenerateWorkflowRejectsUnsafeVersionedBrowserTemplate",
+				"TestValidateBrowserSourceReviewAcceptsVersionedTemplateProfile",
+				"TestBuildBrowserRunConfigSelectsVersionedActionProtocol",
+				"TestBuildBrowserRunConfigIgnoresInactiveVersionedProfile",
+				"TestBuildBrowserRunConfigSelectsV10ForMixedActiveProfiles",
+				"TestBrowserV10ConfigPreservesAuthenticationWithoutRegistrationAuthority",
+				"TestRunBrowserInvocationIsExactAndAllowlisted",
+			},
+		},
+		{
+			ID: "browsertools-versioned-producer", Repository: "browsertools", Kind: "go_test",
+			Args:       []string{"go", "test", "-v", "./profile", "./draft", "-run", "Test(Browser18And19TypedTemplateRoundTrips|Browser19RejectsUnsafeTextAndTemplatePlacement|Browser18IntegerDefaultKeepsSigned64BitValue|BuildChoosesOldestSufficientTemplateVersion|BuildKeepsBrowser18IntegerDefaultExact)", "-count=1"},
+			Assertions: []string{"typed Browser 1.8/1.9 profiles", "unsafe template rejection", "signed integer preservation"},
+			RequiredPasses: []string{
+				"TestBrowser18And19TypedTemplateRoundTrips",
+				"TestBrowser19RejectsUnsafeTextAndTemplatePlacement",
+				"TestBrowser18IntegerDefaultKeepsSigned64BitValue",
+				"TestBuildChoosesOldestSufficientTemplateVersion",
+				"TestBuildKeepsBrowser18IntegerDefaultExact",
+			},
+		},
+		{
+			ID: "uws111-versioned-contract", Repository: "uws", Kind: "go_test",
+			Args:       []string{"go", "test", "-v", "./schemas", "./uws1", "-run", "Test(Browser18TemplatesAcceptDeclaredScalarsInApprovedSinks|Browser19TemplatesAcceptEscapesAndSafeText|Browser19EnforcesSafeIntegerBoundaries|UWS111TypedConformanceVectorsExecuteAgainstGo|GotoFromNestedExecutionTransfersToRootAndEndsTopLevelRun)", "-count=1"},
+			Assertions: []string{"Browser 1.8/1.9 schema and safety", "UWS 1.11 typed conformance", "root-scoped goto"},
+			RequiredPasses: []string{
+				"TestBrowser18TemplatesAcceptDeclaredScalarsInApprovedSinks",
+				"TestBrowser19TemplatesAcceptEscapesAndSafeText",
+				"TestBrowser19EnforcesSafeIntegerBoundaries",
+				"TestUWS111TypedConformanceVectorsExecuteAgainstGo",
+				"TestGotoFromNestedExecutionTransfersToRootAndEndsTopLevelRun",
+			},
+		},
+		{
+			ID: "udon-uws111-browser19-consumer", Repository: "udon", Kind: "go_test",
+			Args:       []string{"go", "test", "-v", "./internal/sourceloader", "./internal/uwsbridge", "./pkg/browserdriver", "./spider", "-run", "Test(LoadBrowser18And19SourcesPreserveUnresolvedTemplates|Browser18And19LoweringRequiresCore19AndNamedSession|PersistentSubprocessV10CarriesUnresolvedModernAction|PrepareModernPreservesWideBrowser18Integer|BoundRuntimeExecutesUWS110And111Documents)", "-count=1"},
+			Assertions: []string{"Browser 1.8/1.9 source loading", "v10 unresolved action handoff", "UWS 1.11 bound execution"},
+			RequiredPasses: []string{
+				"TestLoadBrowser18And19SourcesPreserveUnresolvedTemplates",
+				"TestBrowser18And19LoweringRequiresCore19AndNamedSession",
+				"TestPersistentSubprocessV10CarriesUnresolvedModernAction",
+				"TestPrepareModernPreservesWideBrowser18Integer",
+				"TestBoundRuntimeExecutesUWS110And111Documents",
+			},
+		},
+	}
+	// Keep the historical gate order and its browser opt-ins; insert the new
+	// mandatory evidence before component inventory and optional browser checks.
+	for index, spec := range gates {
+		if spec.Kind == "doctor" {
+			return append(append(append([]gate(nil), gates[:index]...), newGates...), gates[index:]...)
+		}
+	}
+	return append(gates, newGates...)
+}
+
+func defaultGates() []gate { return currentGates() }
+
 func gateDeadline(spec gate) time.Duration {
 	switch spec.Kind {
 	case "doctor", "dependency_scan", "command":
@@ -647,7 +742,7 @@ func gateDeadline(spec gate) time.Duration {
 	}
 }
 
-func evaluateGate(spec gate, output CommandOutput) GateResult {
+func evaluateGate(spec gate, output CommandOutput, lock browserscenario.CompatibilityLock) GateResult {
 	result := GateResult{
 		ID: spec.ID, Repository: spec.Repository, Kind: spec.Kind,
 		Command: append([]string(nil), spec.Args...), Assertions: append([]string(nil), spec.Assertions...),
@@ -710,7 +805,7 @@ func evaluateGate(spec gate, output CommandOutput) GateResult {
 		}
 	case "doctor":
 		var doctor doctorReport
-		if err := browserverify.DecodeStrictJSON([]byte(output.Stdout), &doctor); err == nil && validDoctorReport(doctor, doctorEngine(spec), output.Err) {
+		if err := browserverify.DecodeStrictJSON([]byte(output.Stdout), &doctor); err == nil && validDoctorReport(doctor, doctorEngine(spec), output.Err, lock) {
 			result.Status = StatusPass
 			result.EvidenceCount = len(doctor.Capabilities)
 			result.Detail = doctorPassDetail(doctor.Engine, doctor.DriverReady && doctor.BrowserReady)
@@ -930,14 +1025,13 @@ func testMarkerCounts(output string, tests []string) (passed, skipped int) {
 	return passed, skipped
 }
 
-func validDoctorReport(report doctorReport, expectedEngine string, commandErr error) bool {
+func validDoctorReport(report doctorReport, expectedEngine string, commandErr error, lock browserscenario.CompatibilityLock) bool {
 	if report.Version != "browsertools.playwright-doctor.v1" || report.Engine != expectedEngine ||
 		strings.TrimSpace(report.PlaywrightGoVersion) == "" || strings.TrimSpace(report.PlaywrightVersion) == "" ||
 		len(report.Capabilities) == 0 {
 		return false
 	}
-	lock, err := browserscenario.LoadCompatibilityLock()
-	if err != nil || report.PlaywrightVersion != lock.Playwright {
+	if report.PlaywrightVersion != lock.Playwright {
 		return false
 	}
 	seen := make(map[string]bool, len(report.Capabilities))
