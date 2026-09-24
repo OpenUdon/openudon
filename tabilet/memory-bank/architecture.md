@@ -694,6 +694,11 @@ retains its historical-default v2 verifier and adds an explicit current v3
 loopback path; its preflight checks all primary and build-source checkouts are
 clean, and its scenario, build-input, BAP and BRP stages use the same current
 stack selection.
+Current qualification accepts a separate read-only Browserdriver `node_modules`
+directory whose four direct build/runtime packages match its pinned lock. The
+Browserdriver npm matrix gate checks out its locked source commit into a
+disposable clone, while all generated build output remains outside the supplied
+source checkout. No source or dependency installation is part of qualification.
 
 The scenario JSON boundary pre-scans tokens recursively and rejects duplicate
 decoded keys in every object before unknown-field decoding, so no consumer can

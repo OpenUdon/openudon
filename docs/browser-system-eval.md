@@ -14,6 +14,7 @@ openudon browser-system-eval --verify /tmp/browser-system-loopback.json
 
 # Repaired Udon candidate, all three complete fresh native repetitions:
 openudon browser-system-eval --stack current --suite loopback \
+  --browserdriver-node-modules /absolute/read-only/browserdriver_node_modules \
   --out /tmp/browser-system-current-loopback.json
 openudon browser-system-eval --verify /tmp/browser-system-current-loopback.json
 ```
@@ -28,7 +29,19 @@ locked revisions before starting, and emits a v3 native report. `--stack`
 defaults to `historical`; the v2 native reader keeps that original baseline and
 the v1 reader keeps its 11-stage loopback inventory. `make
 browser-system-current-check` runs and verifies the explicit current stack.
-The Make equivalent Udon path is `OPENUDON_BROWSER_SYSTEM_UDON_REPO`;
+Current-stack qualification requires a separate, read-only Browserdriver
+`node_modules` directory through `--browserdriver-node-modules`, or through
+`OPENUDON_BROWSER_SYSTEM_BROWSERDRIVER_NODE_MODULES` for Make. It must be
+outside the Browserdriver checkout; `@types/node`, `playwright`,
+`playwright-core`, and `typescript` must match that checkout's pinned
+`package-lock.json`. Builds put output in disposable stage directories. The
+integration npm test checks out the exact locked commit into a disposable clone
+and uses the same supplied modules. No dependency installation or supplied
+source mutation occurs. Missing or mismatched modules fail before qualification
+stages start.
+Set `OPENUDON_BROWSERDRIVER_NODE_MODULES` for all browser Make targets, or
+`OPENUDON_BROWSER_SYSTEM_BROWSERDRIVER_NODE_MODULES` for only this native
+target. The Make equivalent Udon path is `OPENUDON_BROWSER_SYSTEM_UDON_REPO`;
 `OPENUDON_BROWSER_SYSTEM_OUT` selects an output prefix outside both source workspaces. Root aliases are resolved
 before enforcing that output boundary. Missing source revisions,
 installed runtimes or sandbox prerequisites fail; the command never installs,

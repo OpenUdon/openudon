@@ -210,12 +210,12 @@ func RunDevelopment(ctx context.Context, o DevelopmentOptions) (report *Developm
 	case o.Mode == "fast":
 		value, err = goTestsMode(ctx, root, []string{"./..."}, nil, false, true)
 	case id == "registration_ui_handoff" || id == "bap_bcp_transaction":
-		value, err = RunComponent(ctx, root, udon, browserscenario.StackHistorical, id)
+		value, err = RunComponent(ctx, root, udon, browserscenario.StackHistorical, "", id)
 		if err != nil {
 			err = &commandFailure{reason: "component_evaluation", stderr: []byte(err.Error())}
 		}
 	default:
-		value, err = runStage(ctx, root, udon, browserscenario.StackHistorical, id)
+		value, err = runStage(ctx, root, udon, browserscenario.StackHistorical, "", id)
 	}
 	finish(err)
 	report.DurationMS = time.Since(started).Milliseconds()

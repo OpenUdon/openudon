@@ -21,8 +21,13 @@ and compares both actual versions with the same lock before replay.
 ```bash
 make browser-integration-check
 
+# Supply modules prepared outside the clean Browserdriver checkout:
+make browser-integration-check \
+  OPENUDON_BROWSERDRIVER_NODE_MODULES=/absolute/read-only/browserdriver_node_modules
+
 # Equivalent direct commands:
 go run ./cmd/openudon browser-integration-eval \
+  --browserdriver-node-modules /absolute/read-only/browserdriver_node_modules \
   --out eval/runs/browser-integration-local/report.json
 go run ./cmd/openudon browser-integration-eval \
   --verify eval/runs/browser-integration-local/report.json
@@ -40,6 +45,15 @@ The separately re-executed hidden worker remains Browsertools-owned. The
 matrix runs Browserdriver's offline protocol tests and uses Browsertools doctor only to
 observe pinned component availability without installation, browser launch, or
 network access.
+
+Current v3 runs accept `--browserdriver-node-modules` for the separately
+supplied Browserdriver dependencies. The directory must be outside the clean
+source checkout and its `@types/node`, `playwright`, `playwright-core`, and
+`typescript` versions must match `package-lock.json`. The Browserdriver npm
+test checks out the exact locked commit into a disposable clone, links those
+modules read-only, and writes build output only there. No npm install or
+supplied source worktree mutation is performed; missing or drifted dependency
+versions reject the run before the matrix starts.
 
 ## Required Matrix
 

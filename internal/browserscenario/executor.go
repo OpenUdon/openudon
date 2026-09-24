@@ -120,7 +120,7 @@ func (executor *realExecutor) prepare(ctx context.Context, environment Environme
 		return
 	}
 	driverRoot := filepath.Join(root, "browserdriver")
-	if StageBrowserdriver(ctx, environment.BrowserdriverRepo, driverRoot) != nil {
+	if StageBrowserdriverWithNodeModules(ctx, environment.BrowserdriverRepo, environment.BrowserdriverNodeModules, driverRoot) != nil {
 		executor.prepareErr = fmt.Errorf("build Browserdriver")
 		return
 	}

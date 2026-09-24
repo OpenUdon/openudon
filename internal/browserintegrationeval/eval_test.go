@@ -8,6 +8,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"reflect"
 	"strings"
@@ -52,6 +53,72 @@ func TestCurrentReportVersionUsesRepairedLockAndBuildClosure(t *testing.T) {
 	build, err := browserscenario.LoadCurrentQualificationBuildInputLock(lock)
 	if err != nil || len(build.Components) != 14 {
 		t.Fatalf("current build closure = %d components, err = %v", len(build.Components), err)
+	}
+}
+
+func TestBrowserdriverNPMTestBuildsDisposablePinnedSourceCopy(t *testing.T) {
+	root := t.TempDir()
+	source := filepath.Join(root, "browserdriver")
+	modules := filepath.Join(root, "node-modules")
+	if err := os.MkdirAll(source, 0700); err != nil {
+		t.Fatal(err)
+	}
+	versions := map[string]string{"@types/node": "24.5.2", "playwright": "1.62.1", "playwright-core": "1.62.1", "typescript": "5.9.2"}
+	packages := make(map[string]map[string]string, len(versions))
+	for name, version := range versions {
+		packages["node_modules/"+name] = map[string]string{"version": version}
+		packageRoot := filepath.Join(modules, filepath.FromSlash(name))
+		if err := os.MkdirAll(packageRoot, 0700); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(filepath.Join(packageRoot, "package.json"), []byte(`{"version":"`+version+`"}`), 0600); err != nil {
+			t.Fatal(err)
+		}
+	}
+	lock, err := json.Marshal(map[string]any{"lockfileVersion": 3, "packages": packages})
+	if err != nil {
+		t.Fatal(err)
+	}
+	write := func(name, data string) {
+		t.Helper()
+		if err := os.WriteFile(filepath.Join(source, name), []byte(data), 0600); err != nil {
+			t.Fatal(err)
+		}
+	}
+	write("package.json", `{"name":"disposable-browserdriver-test","version":"1.0.0","scripts":{"test":"node test.js"}}`)
+	write("package-lock.json", string(lock))
+	write("test.js", `const fs = require("node:fs"); fs.mkdirSync("dist", {recursive:true}); fs.writeFileSync("dist/probe", "ok"); console.log("staged-npm-pass");`)
+	for _, args := range [][]string{{"init", "-q"}, {"add", "package.json", "package-lock.json", "test.js"}, {"commit", "-q", "-m", "fixture"}} {
+		cmd := exec.Command("git", args...)
+		cmd.Dir = source
+		cmd.Env = append(os.Environ(), "GIT_AUTHOR_NAME=OpenUdon Test", "GIT_AUTHOR_EMAIL=test@example.invalid", "GIT_COMMITTER_NAME=OpenUdon Test", "GIT_COMMITTER_EMAIL=test@example.invalid")
+		if output, err := cmd.CombinedOutput(); err != nil {
+			t.Fatalf("git %v: %v: %s", args, err, output)
+		}
+	}
+	commitCommand := exec.Command("git", "rev-parse", "HEAD")
+	commitCommand.Dir = source
+	commitBytes, err := commitCommand.Output()
+	if err != nil {
+		t.Fatal(err)
+	}
+	command := Command{
+		Repository: "browserdriver", Kind: "npm_test", Dir: source,
+		Args: []string{"npm", "test"}, Timeout: time.Minute,
+		ExpectedCommit: strings.TrimSpace(string(commitBytes)),
+		Env:            map[string]string{"BROWSERDRIVER_NODE_MODULES": modules},
+	}
+	result := runIsolatedBrowserdriverNPMTest(context.Background(), command)
+	if result.Err != nil || !strings.Contains(result.Stdout, "staged-npm-pass") {
+		t.Fatalf("disposable npm test result = %#v", result)
+	}
+	if _, err := os.Stat(filepath.Join(source, "dist")); !os.IsNotExist(err) {
+		t.Fatalf("npm test mutated supplied Browserdriver source: %v", err)
+	}
+	status := exec.Command("git", "status", "--porcelain=v1", "--untracked-files=all")
+	status.Dir = source
+	if output, err := status.CombinedOutput(); err != nil || len(output) != 0 {
+		t.Fatalf("source tree changed after disposable npm test: %v: %s", err, output)
 	}
 }
 

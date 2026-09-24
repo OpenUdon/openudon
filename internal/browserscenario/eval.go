@@ -15,33 +15,35 @@ import (
 // Options fixes the complete authority of one browser-scenario evaluation.
 // Public targets remain unavailable unless AllowNetwork is explicitly set.
 type Options struct {
-	RepoRoot          string
-	BrowsertoolsRepo  string
-	UWSRepo           string
-	UdonRepo          string
-	BrowserdriverRepo string
-	Suite             string
-	Stack             string
-	ScenarioIDs       []string
-	OutPath           string
-	AllowNetwork      bool
-	RequireReady      bool
-	Now               func() time.Time
-	Executor          ScenarioExecutor
+	RepoRoot                 string
+	BrowsertoolsRepo         string
+	UWSRepo                  string
+	UdonRepo                 string
+	BrowserdriverRepo        string
+	BrowserdriverNodeModules string
+	Suite                    string
+	Stack                    string
+	ScenarioIDs              []string
+	OutPath                  string
+	AllowNetwork             bool
+	RequireReady             bool
+	Now                      func() time.Time
+	Executor                 ScenarioExecutor
 }
 
 // Environment contains only resolved local repositories and locked dependency
 // facts. It deliberately contains no credential values or captured output.
 type Environment struct {
-	RepoRoot          string
-	BrowsertoolsRepo  string
-	UWSRepo           string
-	UdonRepo          string
-	BrowserdriverRepo string
-	Lock              CompatibilityLock
-	Stack             string
-	Now               time.Time
-	CommitBoundBuild  bool
+	RepoRoot                 string
+	BrowsertoolsRepo         string
+	UWSRepo                  string
+	UdonRepo                 string
+	BrowserdriverRepo        string
+	BrowserdriverNodeModules string
+	Lock                     CompatibilityLock
+	Stack                    string
+	Now                      time.Time
+	CommitBoundBuild         bool
 }
 
 // ScenarioExecutor runs one already-validated manifest. Implementations must
@@ -208,6 +210,16 @@ func resolveEnvironment(ctx context.Context, options Options, lock Compatibility
 	if err != nil {
 		return Environment{}, nil, nil, err
 	}
+	browserdriverNodeModules := defaultPath(options.BrowserdriverNodeModules, filepath.Join(browserdriverRepo, "node_modules"))
+	if options.Stack == StackCurrent || options.BrowserdriverNodeModules != "" {
+		browserdriverNodeModules, err = filepath.Abs(browserdriverNodeModules)
+		if err == nil {
+			browserdriverNodeModules, err = filepath.EvalSymlinks(browserdriverNodeModules)
+		}
+		if err != nil || options.Stack == StackCurrent && ValidateBrowserdriverNodeModules(browserdriverRepo, browserdriverNodeModules) != nil {
+			return Environment{}, nil, nil, fmt.Errorf("browserdriver build dependencies are invalid")
+		}
+	}
 
 	repoPaths := []struct{ name, path string }{
 		{"openudon", root}, {"browsertools", browsertoolsRepo}, {"uws", uwsRepo}, {"udon", udonRepo}, {"browserdriver", browserdriverRepo},
@@ -245,7 +257,8 @@ func resolveEnvironment(ctx context.Context, options Options, lock Compatibility
 	}
 	return Environment{
 		RepoRoot: root, BrowsertoolsRepo: browsertoolsRepo, UWSRepo: uwsRepo, UdonRepo: udonRepo,
-		BrowserdriverRepo: browserdriverRepo, Lock: lock, Stack: options.Stack, Now: now,
+		BrowserdriverRepo: browserdriverRepo, BrowserdriverNodeModules: browserdriverNodeModules,
+		Lock: lock, Stack: options.Stack, Now: now,
 	}, repositories, dependencies, nil
 }
 

@@ -22,12 +22,13 @@ import (
 )
 
 type Options struct {
-	Root     string
-	Suite    string
-	Stack    string
-	Out      string
-	UdonRepo string
-	Progress io.Writer
+	Root                     string
+	Suite                    string
+	Stack                    string
+	Out                      string
+	UdonRepo                 string
+	BrowserdriverNodeModules string
+	Progress                 io.Writer
 }
 
 func environment(extra ...string) []string {
@@ -150,7 +151,7 @@ func source(ctx context.Context, name, root string) (Source, error) {
 	return Source{Name: name, Commit: strings.TrimSpace(string(revision)), SHA256: hash(inventory.Bytes())}, nil
 }
 
-func validateCurrentStackSources(ctx context.Context, root, udonRoot string, lock browserscenario.CompatibilityLock) error {
+func validateCurrentStackSources(ctx context.Context, root, udonRoot, browserdriverNodeModules string, lock browserscenario.CompatibilityLock) error {
 	if err := browserscenario.ValidateQualificationBuildInputsForStack(ctx, udonRoot, browserscenario.StackCurrent); err != nil {
 		return err
 	}
@@ -182,6 +183,9 @@ func validateCurrentStackSources(ctx context.Context, root, udonRoot string, loc
 		if err != nil || strings.TrimSpace(string(status)) != "" {
 			return errors.New("current repository is not clean")
 		}
+	}
+	if err := browserscenario.ValidateBrowserdriverNodeModules(paths["browserdriver"], browserdriverNodeModules); err != nil {
+		return err
 	}
 	return nil
 }
@@ -261,14 +265,17 @@ func goTestsMode(ctx context.Context, root string, args, extra []string, noSkips
 	}
 	return result, nil
 }
-func nodeTests(ctx context.Context, root string, live bool) (Tests, error) {
+func nodeTests(ctx context.Context, root string, live bool, nodeModules string) (Tests, error) {
 	temp, err := os.MkdirTemp("", "openudon-driver-tests-")
 	if err != nil {
 		return Tests{}, errors.New("driver_build")
 	}
 	defer os.RemoveAll(temp)
 	staged := filepath.Join(temp, "driver")
-	if err := browserscenario.StageBrowserdriver(ctx, root, staged); err != nil {
+	if nodeModules == "" {
+		nodeModules = filepath.Join(root, "node_modules")
+	}
+	if err := browserscenario.StageBrowserdriverWithNodeModules(ctx, root, nodeModules, staged); err != nil {
 		return Tests{}, err
 	}
 	root = staged
@@ -364,8 +371,21 @@ func Run(ctx context.Context, o Options) (result *Report, resultErr error) {
 	if err != nil {
 		return nil, errors.New("source_state")
 	}
+	browserdriverNodeModules := o.BrowserdriverNodeModules
+	if browserdriverNodeModules == "" {
+		browserdriverNodeModules = filepath.Join(filepath.Dir(root), "browserdriver", "node_modules")
+	}
+	if stack == browserscenario.StackCurrent || o.Suite == "loopback" {
+		browserdriverNodeModules, err = filepath.Abs(browserdriverNodeModules)
+		if err == nil {
+			browserdriverNodeModules, err = filepath.EvalSymlinks(browserdriverNodeModules)
+		}
+		if err != nil {
+			return nil, errors.New("source_state")
+		}
+	}
 	if stack == browserscenario.StackCurrent {
-		if err := validateCurrentStackSources(ctx, root, udonRoot, baseline); err != nil {
+		if err := validateCurrentStackSources(ctx, root, udonRoot, browserdriverNodeModules, baseline); err != nil {
 			return nil, errors.New("current_stack_source_state")
 		}
 	}
@@ -413,11 +433,11 @@ func Run(ctx context.Context, o Options) (result *Report, resultErr error) {
 			}
 			stageCtx := browsercheck.Stage(ctx, fmt.Sprintf("pass_%d_%s", pass, id))
 			finish := browsercheck.Span(stageCtx, "stage")
-			value, err := runStage(stageCtx, root, udonRoot, stack, id)
+			value, err := runStage(stageCtx, root, udonRoot, stack, browserdriverNodeModules, id)
 			finish(err)
 			after, sourceErr := sources(ctx, root, udonRoot, stack, o.Suite == "loopback")
 			if sourceErr == nil && stack == browserscenario.StackCurrent {
-				sourceErr = validateCurrentStackSources(ctx, root, udonRoot, baseline)
+				sourceErr = validateCurrentStackSources(ctx, root, udonRoot, browserdriverNodeModules, baseline)
 			}
 			currentRuntimes, runtimeErr := toolchains(ctx, root)
 			if err != nil || sourceErr != nil || runtimeErr != nil || currentRuntimes != runtimes || !reflect.DeepEqual(before, after) {
@@ -443,16 +463,16 @@ func Run(ctx context.Context, o Options) (result *Report, resultErr error) {
 	}
 	return report, nil
 }
-func runStage(ctx context.Context, root, udonRoot, stack, id string) (any, error) {
+func runStage(ctx context.Context, root, udonRoot, stack, browserdriverNodeModules, id string) (any, error) {
 	sibling := func(name string) string { return filepath.Join(filepath.Dir(root), name) }
-	options := browserscenario.Options{RepoRoot: root, BrowsertoolsRepo: sibling("browsertools"), UWSRepo: sibling("uws"), UdonRepo: udonRoot, BrowserdriverRepo: sibling("browserdriver"), RequireReady: true, Stack: stack}
+	options := browserscenario.Options{RepoRoot: root, BrowsertoolsRepo: sibling("browsertools"), UWSRepo: sibling("uws"), UdonRepo: udonRoot, BrowserdriverRepo: sibling("browserdriver"), BrowserdriverNodeModules: browserdriverNodeModules, RequireReady: true, Stack: stack}
 	switch id {
 	case "openudon_unit":
 		return goTests(ctx, root, []string{"./..."}, nil, false)
 	case "browsertools_unit":
 		return goTests(ctx, sibling("browsertools"), []string{"./..."}, nil, false)
 	case "driver_unit":
-		return nodeTests(ctx, sibling("browserdriver"), false)
+		return nodeTests(ctx, sibling("browserdriver"), false, browserdriverNodeModules)
 	case "application_lifecycle":
 		return goTests(ctx, root, []string{"-race", "./internal/icot/ui", "./internal/icot/browserauthor", "./internal/processgroup"}, nil, false)
 	case "ui_browser":
@@ -470,7 +490,7 @@ func runStage(ctx context.Context, root, udonRoot, stack, id string) (any, error
 	case "udon_browser_cli":
 		return goTests(ctx, udonRoot, []string{"-race", "./cmd/udon", "-run", "Browser|Registration|ReadPrivateLine|ExecutionReportRedactsDriverErrors"}, nil, true)
 	case "registration_driver":
-		return nodeTests(ctx, sibling("browserdriver"), true)
+		return nodeTests(ctx, sibling("browserdriver"), true, browserdriverNodeModules)
 	case "build_inputs":
 		if err := browserscenario.ValidateQualificationBuildInputsForStack(ctx, udonRoot, stack); err != nil {
 			return nil, err
@@ -481,7 +501,7 @@ func runStage(ctx context.Context, root, udonRoot, stack, id string) (any, error
 		if err != nil {
 			return nil, errors.New("component_executable")
 		}
-		data, err := command(ctx, root, []string{executable, "browser-system-component", "--component", id, "--repo-root", root, "--udon-repo", udonRoot, "--stack", stack}, nil)
+		data, err := command(ctx, root, []string{executable, "browser-system-component", "--component", id, "--repo-root", root, "--udon-repo", udonRoot, "--stack", stack, "--browserdriver-node-modules", browserdriverNodeModules}, nil)
 		if err != nil {
 			return nil, err
 		}
@@ -516,7 +536,7 @@ func runStage(ctx context.Context, root, udonRoot, stack, id string) (any, error
 
 // RunComponent is a closed synthetic child mode. The aggregate parent owns
 // its process tree, deadline, protocol stream and verified teardown.
-func RunComponent(ctx context.Context, root, udonRoot, stack, id string) (any, error) {
+func RunComponent(ctx context.Context, root, udonRoot, stack, browserdriverNodeModules, id string) (any, error) {
 	if stack == "" {
 		stack = browserscenario.StackHistorical
 	}
@@ -539,12 +559,19 @@ func RunComponent(ctx context.Context, root, udonRoot, stack, id string) (any, e
 		if err == nil {
 			udonRoot, err = filepath.EvalSymlinks(udonRoot)
 		}
+		if browserdriverNodeModules == "" {
+			browserdriverNodeModules = filepath.Join(filepath.Dir(root), "browserdriver", "node_modules")
+		}
+		browserdriverNodeModules, nodeErr := filepath.Abs(browserdriverNodeModules)
+		if nodeErr == nil {
+			browserdriverNodeModules, nodeErr = filepath.EvalSymlinks(browserdriverNodeModules)
+		}
 		lock, lockErr := browserscenario.LoadCurrentCompatibilityLock()
-		if err != nil || lockErr != nil || validateCurrentStackSources(ctx, root, udonRoot, lock) != nil {
+		if err != nil || nodeErr != nil || lockErr != nil || validateCurrentStackSources(ctx, root, udonRoot, browserdriverNodeModules, lock) != nil {
 			return nil, errors.New("current_stack_source_state")
 		}
 	}
-	options := browserscenario.Options{RepoRoot: root, UdonRepo: udonRoot, RequireReady: true, Stack: stack}
+	options := browserscenario.Options{RepoRoot: root, UdonRepo: udonRoot, BrowserdriverNodeModules: browserdriverNodeModules, RequireReady: true, Stack: stack}
 	switch id {
 	case "bap_bcp_transaction":
 		return browserscenario.RunBAPBCPQualification(ctx, options)

@@ -214,6 +214,7 @@ func runBrowserScenarioEvalCommand(args []string) {
 	uwsRepo := fs.String("uws-repo", "../uws", "Sibling UWS repository")
 	udonRepo := fs.String("udon-repo", "../udon", "Sibling Udon repository")
 	browserdriverRepo := fs.String("browserdriver-repo", "../browserdriver", "Sibling Browserdriver repository")
+	browserdriverNodeModules := fs.String("browserdriver-node-modules", "", "Read-only, lock-matched Browserdriver node_modules directory")
 	out := fs.String("out", "", "Value-free report JSON path")
 	verify := fs.String("verify", "", "Verify an existing report and SHA-256 sidecar instead of running scenarios")
 	requireReady := fs.Bool("require-ready", false, "Fail instead of skipping when installed browser dependencies are unavailable")
@@ -260,7 +261,8 @@ func runBrowserScenarioEvalCommand(args []string) {
 	defer stop()
 	report, err := browserscenario.Run(ctx, browserscenario.Options{
 		RepoRoot: ".", BrowsertoolsRepo: *browsertoolsRepo, UWSRepo: *uwsRepo, UdonRepo: *udonRepo,
-		BrowserdriverRepo: *browserdriverRepo, Suite: *suite, Stack: *stack, ScenarioIDs: []string(scenarios),
+		BrowserdriverRepo: *browserdriverRepo, BrowserdriverNodeModules: *browserdriverNodeModules,
+		Suite: *suite, Stack: *stack, ScenarioIDs: []string(scenarios),
 		OutPath: *out, RequireReady: *requireReady, AllowNetwork: *allowNetwork,
 	})
 	if report != nil {
@@ -282,6 +284,7 @@ func runBrowserIntegrationEvalCommand(args []string) {
 	uwsRepo := fs.String("uws-repo", "../uws", "Sibling UWS repository")
 	udonRepo := fs.String("udon-repo", "../udon", "Sibling Udon repository")
 	browserdriverRepo := fs.String("browserdriver-repo", "../browserdriver", "Sibling Browserdriver repository")
+	browserdriverNodeModules := fs.String("browserdriver-node-modules", "", "Read-only, lock-matched Browserdriver node_modules directory")
 	out := fs.String("out", "eval/runs/browser-integration-local/report.json", "Value-free report JSON path")
 	verify := fs.String("verify", "", "Verify an existing report and SHA-256 sidecar instead of running gates")
 	installedEngines := fs.Bool("installed-engines", false, "Opt in to loopback-only installed Chromium, Firefox, and WebKit checks")
@@ -326,7 +329,7 @@ func runBrowserIntegrationEvalCommand(args []string) {
 	defer stop()
 	report, err := browserintegrationeval.Run(ctx, browserintegrationeval.Options{
 		RepoRoot: ".", BrowsertoolsRepo: *browsertoolsRepo, UWSRepo: *uwsRepo,
-		UdonRepo: *udonRepo, BrowserdriverRepo: *browserdriverRepo, OutPath: *out,
+		UdonRepo: *udonRepo, BrowserdriverRepo: *browserdriverRepo, BrowserdriverNodeModules: *browserdriverNodeModules, OutPath: *out,
 		InstalledEngines: *installedEngines, HeadedAuth: *headedAuth,
 	})
 	if report != nil {
@@ -1357,6 +1360,7 @@ func runBrowserSystemEval(args []string) {
 	stack := fs.String("stack", browserscenario.StackHistorical, "historical (default) or current repaired stack")
 	root := fs.String("repo-root", ".", "OpenUdon source root")
 	udonRepo := fs.String("udon-repo", "", "exact Udon checkout with locked auxiliary siblings")
+	browserdriverNodeModules := fs.String("browserdriver-node-modules", "", "read-only, lock-matched Browserdriver node_modules directory")
 	out := fs.String("out", "", "report outside source workspace")
 	verify := fs.String("verify", "", "verify a saved report without browser activity")
 	fs.Parse(args)
@@ -1386,7 +1390,7 @@ func runBrowserSystemEval(args []string) {
 	}
 	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer cancel()
-	_, err := browsersystem.Run(ctx, browsersystem.Options{Root: *root, Suite: *suite, Stack: *stack, Out: *out, UdonRepo: *udonRepo, Progress: os.Stderr})
+	_, err := browsersystem.Run(ctx, browsersystem.Options{Root: *root, Suite: *suite, Stack: *stack, Out: *out, UdonRepo: *udonRepo, BrowserdriverNodeModules: *browserdriverNodeModules, Progress: os.Stderr})
 	if err != nil {
 		fmt.Fprintln(os.Stderr, "browser-system-eval:", err)
 		os.Exit(1)
@@ -1400,13 +1404,14 @@ func runBrowserSystemComponent(args []string) {
 	stack := fs.String("stack", browserscenario.StackHistorical, "historical (default) or current repaired stack")
 	root := fs.String("repo-root", ".", "OpenUdon source root")
 	udon := fs.String("udon-repo", "", "exact Udon source root")
+	browserdriverNodeModules := fs.String("browserdriver-node-modules", "", "read-only, lock-matched Browserdriver node_modules directory")
 	fs.Parse(args)
 	if fs.NArg() != 0 {
 		os.Exit(2)
 	}
 	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer cancel()
-	value, err := browsersystem.RunComponent(ctx, *root, *udon, *stack, *id)
+	value, err := browsersystem.RunComponent(ctx, *root, *udon, *stack, *browserdriverNodeModules, *id)
 	if err != nil {
 		fmt.Fprintln(os.Stderr, "browser-system-component: failed")
 		os.Exit(1)

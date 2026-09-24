@@ -11,6 +11,7 @@ OPENUDON_RELEASE_DEMO_FIXTURES ?= gmail-send-audit-receipt order-fulfillment-cha
 OPENUDON_ICOT_REPLAY_REPAIR_FIXTURES ?= m28-gmail-audit-receipt m28-ambiguous-source-negative
 OPENUDON_ICOT_REPLAY_REPAIR_OUT_DIR ?= eval/runs/icot-replay-repair-local
 OPENUDON_BROWSER_INTEGRATION_OUT ?= eval/runs/browser-integration-local/report.json
+OPENUDON_BROWSERDRIVER_NODE_MODULES ?=
 OPENUDON_BROWSER_SCENARIO_LOOPBACK_OUT ?= eval/runs/browser-scenario-loopback-local/report.json
 OPENUDON_BROWSER_SCENARIO_JOURNEY_OUT ?= eval/runs/browser-scenario-journey-local/report.json
 OPENUDON_BROWSER_SCENARIO_PUBLIC_OUT ?= eval/runs/browser-scenario-public-local/report.json
@@ -83,11 +84,11 @@ content-trust-qualification:
 	$(GO) test -tags=udon_contenttrust_qualification ./internal/synthesize -run '^TestUdonM37ContentTrustCompatibility$$' -count=1
 
 browser-integration-check:
-	$(GO) run ./cmd/openudon browser-integration-eval --out "$(OPENUDON_BROWSER_INTEGRATION_OUT)"
+	$(GO) run ./cmd/openudon browser-integration-eval --browserdriver-node-modules "$(OPENUDON_BROWSERDRIVER_NODE_MODULES)" --out "$(OPENUDON_BROWSER_INTEGRATION_OUT)"
 	$(GO) run ./cmd/openudon browser-integration-eval --verify "$(OPENUDON_BROWSER_INTEGRATION_OUT)"
 
 browser-scenario-loopback:
-	$(GO) run ./cmd/openudon browser-scenario-eval --suite loopback --stack current --require-ready --out "$(OPENUDON_BROWSER_SCENARIO_LOOPBACK_OUT)"
+	$(GO) run ./cmd/openudon browser-scenario-eval --suite loopback --stack current --browserdriver-node-modules "$(OPENUDON_BROWSERDRIVER_NODE_MODULES)" --require-ready --out "$(OPENUDON_BROWSER_SCENARIO_LOOPBACK_OUT)"
 	$(GO) run ./cmd/openudon browser-scenario-eval --verify "$(OPENUDON_BROWSER_SCENARIO_LOOPBACK_OUT)"
 
 browser-transaction-bap-bcp:
@@ -116,7 +117,7 @@ browser-transaction-qualification:
 	$(GO) run ./cmd/openudon browser-transaction-eval --verify "$(OPENUDON_BROWSER_TRANSACTION_QUALIFICATION_OUT)"
 
 browser-scenario-journey:
-	$(GO) run ./cmd/openudon browser-scenario-eval --suite journey --stack current --require-ready --out "$(OPENUDON_BROWSER_SCENARIO_JOURNEY_OUT)"
+	$(GO) run ./cmd/openudon browser-scenario-eval --suite journey --stack current --browserdriver-node-modules "$(OPENUDON_BROWSERDRIVER_NODE_MODULES)" --require-ready --out "$(OPENUDON_BROWSER_SCENARIO_JOURNEY_OUT)"
 	$(GO) run ./cmd/openudon browser-scenario-eval --verify "$(OPENUDON_BROWSER_SCENARIO_JOURNEY_OUT)"
 
 browser-scenario-public:
@@ -183,6 +184,7 @@ assess-support:
 # Explicit synthetic browser authority; no public suite or provider credentials.
 OPENUDON_BROWSER_SYSTEM_UDON_REPO ?= ../udon
 OPENUDON_BROWSER_SYSTEM_OUT ?= /tmp/openudon-browser-system
+OPENUDON_BROWSER_SYSTEM_BROWSERDRIVER_NODE_MODULES ?= $(OPENUDON_BROWSERDRIVER_NODE_MODULES)
 .PHONY: browser-system-check browser-system-current-check
 browser-system-check:
 	$(GO) run ./cmd/openudon browser-system-eval --udon-repo "$(OPENUDON_BROWSER_SYSTEM_UDON_REPO)" --suite offline --out "$(OPENUDON_BROWSER_SYSTEM_OUT)-offline.json"
@@ -191,7 +193,8 @@ browser-system-check:
 	$(GO) run ./cmd/openudon browser-system-eval --verify "$(OPENUDON_BROWSER_SYSTEM_OUT)-loopback.json"
 
 browser-system-current-check:
-	$(GO) run ./cmd/openudon browser-system-eval --stack current --udon-repo "$(OPENUDON_BROWSER_SYSTEM_UDON_REPO)" --suite loopback --out "$(OPENUDON_BROWSER_SYSTEM_OUT)-current-loopback.json"
+	@test -n "$(OPENUDON_BROWSER_SYSTEM_BROWSERDRIVER_NODE_MODULES)" || { echo "set OPENUDON_BROWSER_SYSTEM_BROWSERDRIVER_NODE_MODULES to the supplied lock-matched read-only dependency directory"; exit 2; }
+	$(GO) run ./cmd/openudon browser-system-eval --stack current --udon-repo "$(OPENUDON_BROWSER_SYSTEM_UDON_REPO)" --browserdriver-node-modules "$(OPENUDON_BROWSER_SYSTEM_BROWSERDRIVER_NODE_MODULES)" --suite loopback --out "$(OPENUDON_BROWSER_SYSTEM_OUT)-current-loopback.json"
 	$(GO) run ./cmd/openudon browser-system-eval --verify "$(OPENUDON_BROWSER_SYSTEM_OUT)-current-loopback.json"
 
 # Feature iteration: unit results use Go's normal dependency-aware cache.

@@ -38,25 +38,28 @@ const (
 )
 
 type Options struct {
-	RepoRoot            string
-	BrowsertoolsRepo    string
-	UWSRepo             string
-	UdonRepo            string
-	BrowserdriverRepo   string
-	OutPath             string
-	InstalledEngines    bool
-	HeadedAuth          bool
-	Now                 func() time.Time
-	Runner              Runner
-	validateBuildInputs func(context.Context, string, string) error
+	RepoRoot                 string
+	BrowsertoolsRepo         string
+	UWSRepo                  string
+	UdonRepo                 string
+	BrowserdriverRepo        string
+	BrowserdriverNodeModules string
+	OutPath                  string
+	InstalledEngines         bool
+	HeadedAuth               bool
+	Now                      func() time.Time
+	Runner                   Runner
+	validateBuildInputs      func(context.Context, string, string) error
 }
 
 type Command struct {
-	Repository string
-	Dir        string
-	Args       []string
-	Env        map[string]string
-	Timeout    time.Duration
+	Repository     string
+	Kind           string
+	Dir            string
+	Args           []string
+	Env            map[string]string
+	Timeout        time.Duration
+	ExpectedCommit string
 }
 
 type CommandOutput struct {
@@ -171,6 +174,19 @@ func Run(ctx context.Context, opts Options) (*Report, error) {
 	if err := validateBuildInputs(ctx, repos["udon"], browserscenario.StackCurrent); err != nil {
 		return nil, fmt.Errorf("current Udon qualification build inputs are invalid")
 	}
+	browserdriverNodeModules := opts.BrowserdriverNodeModules
+	if strings.TrimSpace(browserdriverNodeModules) == "" {
+		browserdriverNodeModules = filepath.Join(repos["browserdriver"], "node_modules")
+	}
+	if opts.Runner == nil {
+		browserdriverNodeModules, err = filepath.Abs(browserdriverNodeModules)
+		if err == nil {
+			browserdriverNodeModules, err = filepath.EvalSymlinks(browserdriverNodeModules)
+		}
+		if err != nil || browserscenario.ValidateBrowserdriverNodeModules(repos["browserdriver"], browserdriverNodeModules) != nil {
+			return nil, fmt.Errorf("current Browserdriver build dependencies are invalid")
+		}
+	}
 	if err := validateLockedRepositoryRevisions(revisions, lock); err != nil {
 		return nil, err
 	}
@@ -203,7 +219,22 @@ func Run(ctx context.Context, opts Options) (*Report, error) {
 			})
 			continue
 		}
-		command := Command{Repository: spec.Repository, Dir: repos[spec.Repository], Args: append([]string(nil), spec.Args...), Env: cloneMap(spec.Env), Timeout: gateDeadline(spec)}
+		command := Command{Repository: spec.Repository, Kind: spec.Kind, Dir: repos[spec.Repository], Args: append([]string(nil), spec.Args...), Env: cloneMap(spec.Env), Timeout: gateDeadline(spec)}
+		if spec.Repository == "browserdriver" {
+			for _, revision := range revisions {
+				if revision.Name == "browserdriver" {
+					command.ExpectedCommit = revision.Commit
+					break
+				}
+			}
+		}
+		if spec.Kind == "npm_test" && opts.Runner == nil {
+			command.Env = cloneMap(command.Env)
+			if command.Env == nil {
+				command.Env = make(map[string]string)
+			}
+			command.Env["BROWSERDRIVER_NODE_MODULES"] = browserdriverNodeModules
+		}
 		output := runner(ctx, command)
 		result := evaluateGate(spec, output, lock)
 		if spec.Kind == "doctor" && result.Status == StatusPass {
@@ -839,6 +870,13 @@ func evaluateGate(spec gate, output CommandOutput, lock browserscenario.Compatib
 }
 
 func runCommand(ctx context.Context, command Command) CommandOutput {
+	if command.Repository == "browserdriver" && command.Kind == "npm_test" {
+		return runIsolatedBrowserdriverNPMTest(ctx, command)
+	}
+	return runDirectCommand(ctx, command)
+}
+
+func runDirectCommand(ctx context.Context, command Command) CommandOutput {
 	if len(command.Args) == 0 {
 		return CommandOutput{Err: fmt.Errorf("empty command")}
 	}
@@ -858,6 +896,54 @@ func runCommand(ctx context.Context, command Command) CommandOutput {
 		}
 	}
 	return CommandOutput{Stdout: stdout.String(), Stderr: stderr.String(), Err: err}
+}
+
+func runIsolatedBrowserdriverNPMTest(ctx context.Context, command Command) (result CommandOutput) {
+	bad := CommandOutput{Err: errors.New("browserdriver test staging failed")}
+	nodeModules := command.Env["BROWSERDRIVER_NODE_MODULES"]
+	if nodeModules == "" || command.ExpectedCommit == "" || browserscenario.ValidateBrowserdriverNodeModules(command.Dir, nodeModules) != nil {
+		return bad
+	}
+	parent, err := os.MkdirTemp("", "openudon-browserdriver-npm-")
+	if err != nil {
+		return bad
+	}
+	defer func() {
+		if err := os.RemoveAll(parent); err != nil && result.Err == nil {
+			result.Err = errors.New("browserdriver test cleanup failed")
+		}
+	}()
+	staged := filepath.Join(parent, "browserdriver")
+	timeout := command.Timeout
+	if timeout <= 0 {
+		timeout = 3 * time.Minute
+	}
+	env := environmentWithOverrides(os.Environ(), nil)
+	if err := processgroup.Run(ctx, timeout, processgroup.Invocation{
+		Args: []string{"git", "--no-replace-objects", "clone", "--shared", "--no-checkout", "--quiet", command.Dir, staged},
+		Dir:  parent, Env: env, Stdout: io.Discard, Stderr: io.Discard,
+	}); err != nil {
+		return bad
+	}
+	if err := processgroup.Run(ctx, timeout, processgroup.Invocation{
+		Args: []string{"git", "--no-replace-objects", "checkout", "--quiet", "--detach", command.ExpectedCommit},
+		Dir:  staged, Env: env, Stdout: io.Discard, Stderr: io.Discard,
+	}); err != nil {
+		return bad
+	}
+	if err := os.Symlink(nodeModules, filepath.Join(staged, "node_modules")); err != nil {
+		return bad
+	}
+	envOverrides := cloneMap(command.Env)
+	if envOverrides == nil {
+		envOverrides = make(map[string]string)
+	}
+	delete(envOverrides, "BROWSERDRIVER_NODE_MODULES")
+	envOverrides["PATH"] = filepath.Join(nodeModules, ".bin") + string(os.PathListSeparator) + os.Getenv("PATH")
+	command.Dir = staged
+	command.Env = envOverrides
+	result = runDirectCommand(ctx, command)
+	return result
 }
 
 type boundedBuffer struct {

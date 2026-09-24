@@ -236,15 +236,19 @@ func TestCurrentStackRejectsUnpinnedSourcesBeforeCreatingEvidence(t *testing.T) 
 	parent := t.TempDir()
 	root := filepath.Join(parent, "openudon")
 	udon := filepath.Join(parent, "udon")
+	nodeModules := filepath.Join(parent, "node-modules")
 	if err := os.MkdirAll(root, 0700); err != nil {
 		t.Fatal(err)
 	}
 	if err := os.MkdirAll(udon, 0700); err != nil {
 		t.Fatal(err)
 	}
+	if err := os.MkdirAll(nodeModules, 0700); err != nil {
+		t.Fatal(err)
+	}
 	outputRoot := t.TempDir()
 	out := filepath.Join(outputRoot, "current.json")
-	_, err := Run(context.Background(), Options{Root: root, UdonRepo: udon, Stack: browserscenario.StackCurrent, Suite: "loopback", Out: out})
+	_, err := Run(context.Background(), Options{Root: root, UdonRepo: udon, BrowserdriverNodeModules: nodeModules, Stack: browserscenario.StackCurrent, Suite: "loopback", Out: out})
 	if err == nil || err.Error() != "current_stack_source_state" {
 		t.Fatalf("current source preflight error = %v", err)
 	}

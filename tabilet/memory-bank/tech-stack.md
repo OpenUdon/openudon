@@ -28,6 +28,13 @@ primary and auxiliary worktrees to be clean, and emits
 `openudon.browser-system-qualification.v3`. The default remains historical
 native v2. `make browser-system-current-check` runs the explicit current path
 and verifies its report; the verifier dispatches from the saved report version.
+Current evaluation can take `--browserdriver-node-modules` for a separate
+read-only module tree outside the clean Browserdriver checkout. The evaluator
+checks `@types/node`, `playwright`, `playwright-core`, and `typescript` against
+that checkout's `package-lock.json`. For the current native Make target, set
+`OPENUDON_BROWSER_SYSTEM_BROWSERDRIVER_NODE_MODULES`. Browserdriver source
+builds and npm tests use disposable output/checkouts and never install or change
+the supplied source or modules.
 
 ## Current Browser Authoring Tooling
 

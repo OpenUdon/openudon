@@ -36,6 +36,10 @@ On headless Linux:
 xvfb-run -a make browser-scenario-loopback
 ```
 
+For a clean Browserdriver checkout without `node_modules`, set
+`OPENUDON_BROWSERDRIVER_NODE_MODULES` to the separately prepared, lock-matched
+directory when invoking either local Make target.
+
 Chromium still runs with its sandbox enabled. Ubuntu 24.04 hosted runners also
 need unprivileged user namespaces: the release and public-canary workflows
 explicitly enable `kernel.unprivileged_userns_clone` and, when present, disable
@@ -64,6 +68,7 @@ Run a bounded subset by repeating `--scenario`:
 go run ./cmd/openudon browser-scenario-eval \
   --suite loopback \
   --stack current \
+  --browserdriver-node-modules /absolute/read-only/browserdriver_node_modules \
   --scenario mfa-totp-scalars \
   --scenario popup-context \
   --require-ready \
@@ -226,6 +231,12 @@ Current scenario runs also require the exact clean 14-repository Udon local
 replacement closure embedded in
 `internal/browserscenario/current-qualification-build-inputs.json`. Its Node readiness probe launches pinned Chromium with
 `chromiumSandbox: true`; readiness still does not replace an executed case.
+When the clean Browserdriver checkout has no installed modules, pass
+`--browserdriver-node-modules` with a separate directory outside that checkout.
+Its `@types/node`, `playwright`, `playwright-core`, and `typescript` versions
+must match the checkout's `package-lock.json`. Current-stack builds use these
+modules read-only and place output in disposable directories; they do not
+install dependencies or mutate supplied source worktrees.
 
 ## Where The V2 Contract Is Documented
 
