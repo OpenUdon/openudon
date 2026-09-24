@@ -1034,7 +1034,8 @@ the attacker also updates a digest.
 iCoT runtime path. It runs fixed named tests and boundary checks in OpenUdon,
 Browsertools, UWS, Udon, and Browserdriver, observes all three pinned browser
 component inventories without installing or launching them, and emits only a
-strict `openudon.browser-integration-eval.v1` report plus digest sidecar. The
+strict `openudon.browser-integration-eval.v2` report plus digest sidecar. The
+verifier retains the historical v1 report and gate inventory. The
 report binds each sibling commit and dirty-state bit, fixed argv/assertions,
 closed result details, and the no-browser/no-target/no-credential-value/no-write
 authoring claims. Child stdout/stderr, repository paths, page values, raw/rich

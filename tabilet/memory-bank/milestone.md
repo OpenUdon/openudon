@@ -11,6 +11,11 @@ clean committed OpenUdon checkout, exact published siblings, a passing written
 report and digest verification. Installed-browser and headed-authentication
 opt-ins, historical scenario qualification, live targets and runtime adoption
 are separate.
+Qualification passes at clean OpenUdon `c60a2ccc2ee84553db56f7fee5be4c7cfea737d1`:
+16 required gates pass, no gate fails, and three explicit browser opt-ins are
+skipped. The v2 report digest verifies; M85 review iteration 1 has no open
+P1/P2. See [status-M85](status-M85.md) for the exact evidence and the preserved
+first failed attempt.
 
 ## UWS 1.11 and Browser 1.8/1.9 adoption — M84
 
@@ -1250,7 +1255,7 @@ and runtime adoption are recorded in W8M's own ledgers.
 | M82 | [status-M82.md](status-M82.md) | Complete private v2 registration recovery attestation. |
 | M83 | [status-M83.md](status-M83.md) | Complete private v3 registration recovery attestation. |
 | M84 | [status-M84.md](status-M84.md) | Complete locally: UWS 1.11 and Browser 1.8/1.9 adoption; review iteration 1. |
-| M85 | [status-M85.md](status-M85.md) | Active current-stack provider-free browser integration qualification. |
+| M85 | [status-M85.md](status-M85.md) | Complete locally: current-stack provider-free matrix and review iteration 1 pass. |
 | A01 | [status-A01.md](status-A01.md) | API-first browser-profile fallback authoring. |
 | A02 | [status-A02.md](status-A02.md) | Additive browser authentication and named-session authoring. |
 | A03 | [status-A03.md](status-A03.md) | Browsertools authoring handoff and guided-result consumption. |
