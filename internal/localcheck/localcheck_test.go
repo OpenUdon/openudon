@@ -147,6 +147,20 @@ func TestCheckDocMemoryPassesWithRequiredFiles(t *testing.T) {
 	}
 }
 
+func TestCheckDocMemoryPassesWithTabiletLayout(t *testing.T) {
+	root := t.TempDir()
+	for _, rel := range RequiredMemoryFiles {
+		writeFile(t, filepath.Join(root, "tabilet", rel), []byte(rel+"\n"))
+	}
+	result, err := CheckDocMemory(root)
+	if err != nil {
+		t.Fatalf("CheckDocMemory returned error: %v", err)
+	}
+	if len(result.CheckedFiles) != len(RequiredMemoryFiles) || result.CheckedFiles[0] != "tabilet/memory-bank/product.md" {
+		t.Fatalf("unexpected tabilet files: %v", result.CheckedFiles)
+	}
+}
+
 func runGit(t *testing.T, dir string, args ...string) {
 	t.Helper()
 	cmd := exec.Command("git", args...)

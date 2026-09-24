@@ -65,7 +65,18 @@ func CheckAPIToolsBoundary(root string) error {
 
 func CheckDocMemory(root string) (DocMemoryResult, error) {
 	var result DocMemoryResult
-	for _, file := range RequiredMemoryFiles {
+	files := RequiredMemoryFiles
+	if _, err := os.Stat(filepath.Join(root, "tabilet", "memory-bank", "product.md")); err == nil {
+		files = []string{
+			"tabilet/memory-bank/product.md",
+			"tabilet/memory-bank/architecture.md",
+			"tabilet/memory-bank/tech-stack.md",
+			"tabilet/memory-bank/milestone.md",
+			"tabilet/evolution/prompt-v1.md",
+			"tabilet/evolution/result-v1.md",
+		}
+	}
+	for _, file := range files {
 		path := filepath.Join(root, filepath.FromSlash(file))
 		info, err := os.Stat(path)
 		if err != nil {
@@ -212,14 +223,14 @@ func changedMilestoneWithoutEvolution(root string) bool {
 	if err != nil {
 		return false
 	}
-	untracked, _ := gitLines(root, "ls-files", "--others", "--exclude-standard", "evolution")
+	untracked, _ := gitLines(root, "ls-files", "--others", "--exclude-standard", "evolution", "tabilet/evolution")
 	hasMilestone := false
 	hasEvolution := false
 	for _, path := range append(changed, untracked...) {
 		switch {
-		case path == "memory-bank/milestone.md":
+		case path == "memory-bank/milestone.md" || path == "tabilet/memory-bank/milestone.md":
 			hasMilestone = true
-		case strings.HasPrefix(path, "evolution/"):
+		case strings.HasPrefix(path, "evolution/") || strings.HasPrefix(path, "tabilet/evolution/"):
 			hasEvolution = true
 		}
 	}

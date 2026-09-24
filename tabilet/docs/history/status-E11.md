@@ -1,0 +1,38 @@
+# Retired milestone E11 - E11 Status - Browser Registration Runtime Qualification
+
+**Milestone.** E11
+**Outcome.** legacy-preserved
+**Retired.** 2026-09-24
+**Source status.** tabilet/memory-bank/status-E11.md
+**Source status SHA-256.** 634a0f53092ce4429aadbd8e590ab10a1f06f0bbf61ba6cc24758ab285060777
+**Source milestone snapshot.** tabilet/docs/history/milestone-before-legacy-retirement.md.txt
+**Snapshot SHA-256.** 26884eeda9af4ded30e6d545a33dca84c401d2320c22355fe4fb0336d5dcac71
+**Evidence.** 71a4f78afbcf2180fc478ffa89c53544c9160648
+**Worktree.** includes uncommitted changes
+**Review.** not established
+**Review iterations.** not recorded
+**Verification.** Original status bytes and full earlier milestone bytes preserved by SHA-256; no fresh acceptance claim.
+**Consolidated into.** Current milestone dashboard and maintained memory-bank guidance; full earlier text remains in the frozen snapshot.
+
+## Status record
+
+~~~~~~~~~~~~~~~~~~~~markdown
+# E11 Status - Browser Registration Runtime Qualification
+
+State markers and commit rules are defined in [milestone.md](milestone.md).
+
+## State
+
+Complete locally after M78 and A21. Publication is not authorized.
+
+## Task Ledger
+
+| Item | State | Notes |
+|---|---|---|
+| E11.1 Refresh exact compatibility locks | `[+]` | Commit `b01d62e` established the E11 lock; E11.2 advances only Udon to follow-up fix `e0e6559`, while retaining Browsertools `d26f298`, Browserdriver `a97b1ae`, and unchanged published UWS `895aa45`. OpenUdon remains dynamically bound to its clean local main commit. The lock/module-pin and dirty/drift rejection tests pass. Publication resolution remains a separate authorization gate; the locked general implementation commits are local and unpushed. |
+| E11.2 Prove the complete BRP path | `[+]` | Added a deterministic authenticated iCoT API qualification that drives Browsertools registration authoring v2 with a reviewed literal query through clean teardown, transaction-v2 review/adoption, virtual-source selection, author approval, package prepare/qualify/promote, selected-package review, exact private attestation, Udon report v3, Browserdriver v4, and the fixed loopback registration result. The headed clean-checkout test proves GET/HEAD-only authoring, exactly one separately approved POST, one mutation/account creation, no named session, executor invocation, and eleven value-free digest links. E11 exposed and fixed Udon's timed-workflow output-scope bridge without broadening the fixed `{registered:true}` result. Focused tests and vet pass. |
+| E11.3 Re-run BAP and safety matrices | `[+]` | Re-ran Browsertools full tests/vet plus headed authentication and registration v1/v2 query loopbacks; Browserdriver's full v2/v3/v4 suite plus headed registration matrix; Udon full tests/vet plus headed Browserdriver-v4 handoff; unchanged UWS full tests/vet; and OpenUdon full tests, adversarial transaction matrix, all 17 sandbox-required iCoT UI journeys, real BAP+BCP transaction replay, 11-component browser integration inventory, 23-case loopback suite, and 8-case journey suite. Authentication 1.0/1.1, browser 1.5-1.7, popup/frame, all declared MFA families, scalar conversion/rejection, denial/timeout/indeterminate/retry/origin/teardown/no-session, and value/query non-disclosure pass. All browser contact was synthetic loopback. |
+| E11.4 Finalize evidence, memory, and evolution | `[+]` | OpenUdon `f75d963` emits and independently verifies `openudon.browser-transaction-qualification.v2`: 18/18 gates, 20 unique digest-linked artifacts, GET/HEAD-only authoring, one separately approved loopback runtime POST, fixed success, no registration session, no private material, and no public target contact. Exact publication resolution records Browsertools `d26f298` and Udon `e0e6559` as published historical main commits, unchanged UWS `895aa45` as published, and Browserdriver `a97b1ae` plus OpenUdon as clean local descendants. Full standalone, race, vet/audit, format, module-integrity, dependency-audit, changed-production secret, compatibility, sandboxed `release-saas-check`, 23-loopback, 8-journey, 17-UI, strict-doc, and dry-run gates pass. Review one covered registration authority, attestation, value/query non-disclosure, fixed result scope, retry and teardown; review two covered report integrity, unique digests, locks, publication-history semantics, docs, and memory. The reviews found and closed Udon's timed-result scope, published-history resolution, and the exact Browsertools `go.sum` entry, with no remaining finding. Results are committed locally as Browserdriver v6 `a269e94`, Udon v14 `1d15191`, and coordinated Browsertools v16/OpenUdon v32 Tofu `95752f6`. No push occurred. |
+
+No real-site or account authority is granted by this milestone.
+~~~~~~~~~~~~~~~~~~~~

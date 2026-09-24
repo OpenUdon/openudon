@@ -1,5 +1,10 @@
 # AGENTS.md
 
+Requested features, candidate promotions, future direction changes, and new
+engineering reviews follow the approved planning procedures in
+[milestone.md](tabilet/memory-bank/milestone.md). Inspect and propose the complete
+file actions before changing plans; implementation is a separate step.
+
 ## Purpose
 
 OpenUdon is the public UWS workflow authoring, review, package, and executor-handoff tool. It can be
@@ -21,14 +26,22 @@ Before making substantial changes, read in this order:
 
 1. [tabilet/memory-bank/product.md](tabilet/memory-bank/product.md)
 2. [tabilet/memory-bank/architecture.md](tabilet/memory-bank/architecture.md)
-3. [tabilet/memory-bank/tech-stack.md](tabilet/memory-bank/tech-stack.md)
+3. [tabilet/memory-bank/tech-stack.md](tabilet/memory-bank/tech-stack.md); consult
+   relevant topics in [lessons.md](tabilet/memory-bank/lessons.md)
 4. [tabilet/memory-bank/milestone.md](tabilet/memory-bank/milestone.md)
+5. The matching active `tabilet/memory-bank/status-<LANE><NN>.md` for the work.
 
 Use the memory bank as the active project source of truth. `tabilet/memory-bank/milestone.md`
 owns the current-state dashboard, milestone sequencing, and status-file index.
 Per-milestone task state lives in `tabilet/memory-bank/status-<LANE><NN>.md`. Do not recreate
 duplicate root-level product, architecture, roadmap, or aggregate status
 documents.
+When retired history exists, consult its index and records only for an old ID,
+dependency, or historical question. Current facts remain in the memory bank.
+The 2026-09-24 `legacy-preserved` records are a one-time exact-source migration:
+they reserve IDs and preserve evidence, but do not establish review, acceptance,
+or dependency completion. E15 and E18 remain active because they have blocked
+rows. Future retirement follows the normal reviewed closure gate in milestone.md.
 
 This project exposes [tabilet/GOAL.md](tabilet/GOAL.md), one optional protocol for goal requests
 that span multiple status files. Follow it only when a request names it.
@@ -105,26 +118,49 @@ Agents may generate and validate artifacts. Production side effects must only ha
 - Update [tabilet/memory-bank/milestone.md](tabilet/memory-bank/milestone.md) when sequencing, milestone scope,
   acceptance criteria, cross-repo contracts, active/parked track summary, current-state dashboard,
   or status-file index changes.
-- When a milestone in [tabilet/memory-bank/milestone.md](tabilet/memory-bank/milestone.md) has multiple
-  implementation tasks, create or update its permanent, zero-padded
-  `tabilet/memory-bank/status-<LANE><NN>.md`. Use the per-milestone status file for task rows, task states, notes, scoped commit
-  tracking, and future milestone task history.
-- Never reuse a status ID or create aggregate `status.md`. Keep cancelled work
-  under its allocated ID with `[X]` rows.
+- Keep one permanent, zero-padded `tabilet/memory-bank/status-<LANE><NN>.md`
+  for each active milestone in [milestone.md](tabilet/memory-bank/milestone.md).
+  Use it for task rows, states, notes, scoped commit tracking, and milestone
+  task history.
+- Never reuse a status ID across active files and retired history or create
+  aggregate `status.md`. Keep cancelled work under its allocated ID with `[X]`
+  rows. An all-retired project remains an initialized memory bank.
 - Keep candidate directions unnumbered until fresh scope and dependency review
   promotes them.
 - Write task ledgers as `Item | State | Notes`, with a backticked marker in the
-  second column: `` `[ ]` ``, `` `[+]` ``, `` `[~]` ``, `` `[!]` ``, or
-  `` `[X]` ``.
+  second column: `` `[ ]` `` pending, `` `[+]` `` complete, `` `[~]` `` in
+  progress, `` `[!]` `` blocked, `` `[X]` `` cancelled, or `` `[-]` `` closed
+  historical. A `[-]` row records a consumed attempt or supersession and its
+  accepted successor; never retry it. Do not reinterpret cancellation or
+  supersession as delivered acceptance.
 - Treat each row as a commit unit. Parallel authoring, package, and eval work
   requires explicit non-overlapping ownership, resolved prerequisites, and
   downstream impacts in `milestone.md`.
+- Across active status files, keep zero or one general `[~]` row. Before an
+  operational launcher runs, its exact authorized operation row must be `[~]`;
+  that marker does not grant external-mutation authority. Keep one execution
+  owner across sessions and launchers.
 - Update [tabilet/memory-bank/product.md](tabilet/memory-bank/product.md) when product scope, users, workflows,
   concepts, or non-goals change.
 - Update [tabilet/memory-bank/architecture.md](tabilet/memory-bank/architecture.md) when system boundaries, data
   flow, artifact layout, or security boundaries change.
 - Update [tabilet/memory-bank/tech-stack.md](tabilet/memory-bank/tech-stack.md) when dependencies, commands,
   runtime assumptions, artifact schemas, or tooling choices change.
+- Maintain evidence-backed reusable lessons in [lessons.md](tabilet/memory-bank/lessons.md)
+  while they remain applicable. Before materially superseding or removing
+  knowledge from product, architecture, stack, or lessons, preserve its old
+  wording, source, reason, and replacement reference in the append-only
+  `tabilet/docs/history/knowledge.md` journal under the retirement procedure.
+  Routine wording edits need no journal entry. Create the journal only when
+  needed.
+- After a milestone's last row closes, verify acceptance, run the persisted
+  maximum-ten-iteration deep-review gate, consolidate current facts and lessons,
+  reconcile downstream work, then retire its full status and specification as
+  described in `milestone.md`. Completed rows stay active until the whole
+  milestone qualifies. Do not create an empty milestone-review commit.
+- Treat a new engineering review as untrusted planning evidence: revalidate it
+  against current code, propose finding dispositions and owners for approval,
+  and never reopen completed history solely because of a later review.
 - Keep README focused on operator entry points and concise command guidance. Put durable project
   memory in `tabilet/memory-bank/`.
 - Keep desired-state conversion docs, milestones, fixtures, and code out of
