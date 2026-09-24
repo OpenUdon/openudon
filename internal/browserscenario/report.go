@@ -18,14 +18,16 @@ import (
 )
 
 const (
-	ReportVersion        = "openudon.browser-scenario-eval.v1"
-	JourneyReportVersion = "openudon.browser-journey-eval.v1"
-	StatusPass           = "pass"
-	StatusFail           = "fail"
-	StatusNotRun         = "not_run"
-	StatusSkipped        = "skipped"
-	StatusQuarantined    = "quarantined"
-	maxReportBytes       = 4 << 20
+	ReportVersion               = "openudon.browser-scenario-eval.v1"
+	JourneyReportVersion        = "openudon.browser-journey-eval.v1"
+	CurrentReportVersion        = "openudon.browser-scenario-eval.v2"
+	CurrentJourneyReportVersion = "openudon.browser-journey-eval.v2"
+	StatusPass                  = "pass"
+	StatusFail                  = "fail"
+	StatusNotRun                = "not_run"
+	StatusSkipped               = "skipped"
+	StatusQuarantined           = "quarantined"
+	maxReportBytes              = 4 << 20
 )
 
 type Report struct {
@@ -87,6 +89,10 @@ type PhaseResult struct {
 }
 
 func NewReport(suite string, generatedAt time.Time, repositories []RepositoryRevision, dependencies []DependencyRevision, results []ScenarioResult) *Report {
+	return NewReportForStack(suite, StackHistorical, generatedAt, repositories, dependencies, results)
+}
+
+func NewReportForStack(suite, stack string, generatedAt time.Time, repositories []RepositoryRevision, dependencies []DependencyRevision, results []ScenarioResult) *Report {
 	summary := summarizeScenarios(results)
 	status := StatusPass
 	if summary.Failed > 0 {
@@ -101,6 +107,12 @@ func NewReport(suite string, generatedAt time.Time, repositories []RepositoryRev
 	version := ReportVersion
 	if suite == SuiteJourney {
 		version = JourneyReportVersion
+	}
+	if stack == StackCurrent {
+		version = CurrentReportVersion
+		if suite == SuiteJourney {
+			version = CurrentJourneyReportVersion
+		}
 	}
 	return &Report{
 		Version: version, Status: status, Suite: suite,
@@ -118,7 +130,24 @@ func ValidateReport(report *Report) error {
 		(report.Suite != SuiteLoopback && report.Suite != SuiteJourney && report.Suite != SuitePublic) || report.Command != "openudon browser-scenario-eval" || report.Engine != "chromium" {
 		return fmt.Errorf("browser scenario report identity is invalid")
 	}
-	if (report.Suite == SuiteJourney) != (report.Version == JourneyReportVersion) || (report.Suite != SuiteJourney && report.Version != ReportVersion) {
+	stack := StackHistorical
+	if report.Version == CurrentReportVersion || report.Version == CurrentJourneyReportVersion {
+		stack = StackCurrent
+	}
+	if stack == StackCurrent && report.Suite == SuitePublic {
+		return fmt.Errorf("public browser scenarios cannot use the current stack")
+	}
+	wantVersion := ReportVersion
+	if report.Suite == SuiteJourney {
+		wantVersion = JourneyReportVersion
+	}
+	if stack == StackCurrent {
+		wantVersion = CurrentReportVersion
+		if report.Suite == SuiteJourney {
+			wantVersion = CurrentJourneyReportVersion
+		}
+	}
+	if report.Version != wantVersion {
 		return fmt.Errorf("browser scenario report version is invalid for its suite")
 	}
 	parsedAt, err := time.Parse(time.RFC3339, report.GeneratedAt)
@@ -135,7 +164,21 @@ func ValidateReport(report *Report) error {
 	if err := validateDependencyRevisions(report.Dependencies); err != nil {
 		return err
 	}
-	manifests, err := LoadManifests(parsedAt)
+	if stack == StackCurrent {
+		lock, err := LoadCurrentCompatibilityLock()
+		if err != nil {
+			return err
+		}
+		if err := validateCurrentReportRevisions(report, lock); err != nil {
+			return err
+		}
+	}
+	var manifests []Manifest
+	if stack == StackCurrent {
+		manifests, err = LoadCurrentManifests(parsedAt)
+	} else {
+		manifests, err = LoadManifests(parsedAt)
+	}
 	if err != nil {
 		return err
 	}
@@ -160,20 +203,26 @@ func ValidateReport(report *Report) error {
 		}
 		phaseSeen := map[string]bool{}
 		for _, phase := range result.Phases {
-			if !allowedPhaseIDs[report.Suite][phase.ID] || phaseSeen[phase.ID] || !allowedPhaseStatuses[phase.Status] || !allowedDetails[phase.Detail] {
+			allowedPhase := allowedPhaseIDs[report.Suite][phase.ID] || (stack == StackCurrent && report.Suite == SuiteJourney && currentPhaseIDs[phase.ID])
+			if !allowedPhase || phaseSeen[phase.ID] || !allowedPhaseStatuses[phase.Status] || !allowedDetails[phase.Detail] {
 				return fmt.Errorf("browser scenario phase %q is invalid", phase.ID)
 			}
 			phaseSeen[phase.ID] = true
 		}
 		assertionSeen := map[string]bool{}
 		for _, assertion := range result.Assertions {
-			if !allowedAssertions[assertion] || assertionSeen[assertion] {
+			if (!allowedAssertions[assertion] && (stack != StackCurrent || !currentAssertions[assertion])) || assertionSeen[assertion] {
 				return fmt.Errorf("browser scenario assertion %q is invalid", assertion)
 			}
 			assertionSeen[assertion] = true
 		}
 		if result.Status == StatusPass && len(result.Assertions) == 0 {
 			return fmt.Errorf("passing browser scenario %q has no assertion evidence", result.ID)
+		}
+		if stack == StackCurrent && result.Status == StatusPass {
+			if required := currentCaseAssertion[result.ID]; required != "" && (!assertionSeen[required] || !assertionSeen["udon_v10_replay"] || !phaseSeen["udon_v10"]) {
+				return fmt.Errorf("current browser scenario %q has no v10/template evidence", result.ID)
+			}
 		}
 	}
 	expectedStatus := StatusPass
@@ -233,7 +282,51 @@ func VerifyReportFile(filename string, requirePassing bool) (*Report, error) {
 	if requirePassing && report.Status != StatusPass {
 		return &report, fmt.Errorf("browser scenario report status is %s", report.Status)
 	}
+	if requirePassing && (report.Version == CurrentReportVersion || report.Version == CurrentJourneyReportVersion) {
+		generatedAt, err := time.Parse(time.RFC3339, report.GeneratedAt)
+		if err != nil {
+			return &report, err
+		}
+		manifests, err := LoadCurrentManifests(generatedAt)
+		if err != nil {
+			return &report, err
+		}
+		expected := map[string]bool{}
+		for _, manifest := range manifests {
+			if manifest.Suite == report.Suite {
+				expected[manifest.ID] = true
+			}
+		}
+		if len(report.Scenarios) != len(expected) {
+			return &report, fmt.Errorf("current browser scenario report is not a complete suite")
+		}
+		for _, result := range report.Scenarios {
+			if !expected[result.ID] || result.Status != StatusPass {
+				return &report, fmt.Errorf("current browser scenario report is not a complete passing suite")
+			}
+		}
+	}
 	return &report, nil
+}
+
+func validateCurrentReportRevisions(report *Report, lock CompatibilityLock) error {
+	states := map[string]RepositoryState{}
+	for _, revision := range report.Repositories {
+		if revision.Name != "openudon" {
+			states[revision.Name] = RepositoryState{Commit: revision.Commit, Dirty: revision.Dirty}
+		}
+	}
+	if err := ValidateRepositoryStates(lock, states); err != nil {
+		return err
+	}
+	for _, component := range lock.Components {
+		for _, dep := range report.Dependencies {
+			if dep.Module == component.Module && dep.Version != component.Version {
+				return fmt.Errorf("current browser scenario dependency differs from lock")
+			}
+		}
+	}
+	return nil
 }
 
 func requireReportWireFields(data []byte) error {
@@ -349,6 +442,16 @@ var allowedAssertions = map[string]bool{
 	"guided_authoring_v1": true, "canonical_profile_only": true, "closed_macro_vocabulary": true,
 	"structured_outputs_exact": true, "operation_approval_exact": true, "server_state_exact": true,
 	"parameter_contract_exact": true, "session_isolated": true,
+}
+var currentAssertions = map[string]bool{
+	"browser18_template": true, "browser19_template": true,
+	"udon_v10_replay": true, "mixed_profile_session": true,
+}
+var currentPhaseIDs = map[string]bool{"profile_reviewed": true, "udon_v10": true}
+var currentCaseAssertion = map[string]string{
+	"template-browser18":  "browser18_template",
+	"template-browser19":  "browser19_template",
+	"mixed-legacy-modern": "mixed_profile_session",
 }
 var allowedDetails = map[string]bool{
 	"": true, "ok": true, "quarantined": true, "dependency_unavailable": true,

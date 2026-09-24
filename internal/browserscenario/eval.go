@@ -21,6 +21,7 @@ type Options struct {
 	UdonRepo          string
 	BrowserdriverRepo string
 	Suite             string
+	Stack             string
 	ScenarioIDs       []string
 	OutPath           string
 	AllowNetwork      bool
@@ -38,6 +39,7 @@ type Environment struct {
 	UdonRepo          string
 	BrowserdriverRepo string
 	Lock              CompatibilityLock
+	Stack             string
 	Now               time.Time
 	CommitBoundBuild  bool
 }
@@ -67,6 +69,15 @@ func RunLocalQualification(ctx context.Context, options Options) (*Report, error
 }
 
 func runQualification(ctx context.Context, options Options, local bool) (*Report, error) {
+	if options.Stack == "" {
+		options.Stack = StackHistorical
+	}
+	if options.Stack != StackHistorical && options.Stack != StackCurrent {
+		return nil, fmt.Errorf("browser scenario stack must be historical or current")
+	}
+	if options.Stack == StackCurrent && (options.Suite == SuitePublic || local) {
+		return nil, fmt.Errorf("current scenario stack is limited to release loopback and journey suites")
+	}
 	if ctx == nil {
 		ctx = context.Background()
 	}
@@ -90,7 +101,13 @@ func runQualification(ctx context.Context, options Options, local bool) (*Report
 		return nil, fmt.Errorf("browser scenario report output is required")
 	}
 
-	manifests, err := LoadManifests(now)
+	var manifests []Manifest
+	var err error
+	if options.Stack == StackCurrent {
+		manifests, err = LoadCurrentManifests(now)
+	} else {
+		manifests, err = LoadManifests(now)
+	}
 	if err != nil {
 		return nil, err
 	}
@@ -98,7 +115,7 @@ func runQualification(ctx context.Context, options Options, local bool) (*Report
 	if err != nil {
 		return nil, err
 	}
-	lock, err := LoadCompatibilityLock()
+	lock, err := lockForStack(options.Stack)
 	if err != nil {
 		return nil, err
 	}
@@ -145,7 +162,7 @@ func runQualification(ctx context.Context, options Options, local bool) (*Report
 			return nil, fmt.Errorf("browser scenario teardown failed")
 		}
 	}
-	report := NewReport(options.Suite, now, repositories, dependencies, results)
+	report := NewReportForStack(options.Suite, options.Stack, now, repositories, dependencies, results)
 	if local {
 		if err := ValidateLocalQualificationReport(report); err != nil {
 			return report, err
@@ -223,7 +240,7 @@ func resolveEnvironment(ctx context.Context, options Options, lock Compatibility
 	}
 	return Environment{
 		RepoRoot: root, BrowsertoolsRepo: browsertoolsRepo, UWSRepo: uwsRepo, UdonRepo: udonRepo,
-		BrowserdriverRepo: browserdriverRepo, Lock: lock, Now: now,
+		BrowserdriverRepo: browserdriverRepo, Lock: lock, Stack: options.Stack, Now: now,
 	}, repositories, dependencies, nil
 }
 

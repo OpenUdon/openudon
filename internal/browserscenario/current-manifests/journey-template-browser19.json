@@ -1,0 +1,10 @@
+{
+  "version": "openudon.browser-journey.v2",
+  "id": "template-browser19",
+  "suite": "journey",
+  "outputs": [],
+  "replayVariants": [],
+  "expected": {"authoring": "pass", "replay": "pass", "browserProfile": "uws.browser.1.9", "uwsVersion": "1.11.0"},
+  "probes": [],
+  "journey": {"kind": "template_browser19"}
+}

@@ -1,5 +1,9 @@
 # Milestone
 
+## UWS 1.11 real-browser qualification — M86
+
+[M86](status-M86.md) follows completed M85 and qualifies the published stack with sandboxed real browsers. It adds a separate current scenario lock and v2 reports while preserving historical scenario verification, runs the existing 23 loopback and eight journey cases plus three Browser 1.8/1.9/v10 journeys, closes all three integration browser opt-ins, and promotes the current local suites into Make and hosted release checks. Acceptance requires clean committed source identities, actual browser execution, independently verified value-free digests, zero skipped/failed required cases, full local checks, and bounded review. Public canaries and real accounts remain outside M86.
+
 ## Current-stack browser integration qualification — M85
 
 [M85](status-M85.md) qualifies the published UWS 1.11, Browsertools,
@@ -1256,6 +1260,7 @@ and runtime adoption are recorded in W8M's own ledgers.
 | M83 | [status-M83.md](status-M83.md) | Complete private v3 registration recovery attestation. |
 | M84 | [status-M84.md](status-M84.md) | Complete locally: UWS 1.11 and Browser 1.8/1.9 adoption; review iteration 1. |
 | M85 | [status-M85.md](status-M85.md) | Complete locally: current-stack provider-free matrix and review iteration 1 pass. |
+| M86 | [status-M86.md](status-M86.md) | Active: UWS 1.11 sandboxed real-browser qualification and current scenario evidence. |
 | A01 | [status-A01.md](status-A01.md) | API-first browser-profile fallback authoring. |
 | A02 | [status-A02.md](status-A02.md) | Additive browser authentication and named-session authoring. |
 | A03 | [status-A03.md](status-A03.md) | Browsertools authoring handoff and guided-result consumption. |

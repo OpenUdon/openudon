@@ -209,6 +209,7 @@ func runBrowserTransactionEvalCommand(args []string) {
 func runBrowserScenarioEvalCommand(args []string) {
 	fs := flag.NewFlagSet("browser-scenario-eval", flag.ExitOnError)
 	suite := fs.String("suite", "", "Scenario suite: loopback, journey, or public")
+	stack := fs.String("stack", browserscenario.StackHistorical, "Scenario stack: historical or current (current is local loopback/journey only)")
 	browsertoolsRepo := fs.String("browsertools-repo", "../browsertools", "Sibling Browsertools repository")
 	uwsRepo := fs.String("uws-repo", "../uws", "Sibling UWS repository")
 	udonRepo := fs.String("udon-repo", "../udon", "Sibling Udon repository")
@@ -220,7 +221,7 @@ func runBrowserScenarioEvalCommand(args []string) {
 	var scenarios repeatedStringFlag
 	fs.Var(&scenarios, "scenario", "Repeatable embedded scenario ID to run instead of the full suite")
 	fs.Usage = func() {
-		fmt.Fprintf(fs.Output(), "Usage: openudon browser-scenario-eval --suite loopback|journey|public [--scenario ID]... --out REPORT [--require-ready] [repository flags]\n")
+		fmt.Fprintf(fs.Output(), "Usage: openudon browser-scenario-eval --suite loopback|journey|public [--stack historical|current] [--scenario ID]... --out REPORT [--require-ready] [repository flags]\n")
 		fmt.Fprintf(fs.Output(), "       openudon browser-scenario-eval --verify REPORT\n\n")
 		fmt.Fprintf(fs.Output(), "Runs three complementary strict suites. Loopback uses real Browsertools author-session v2 and Udon/Browserdriver v3 replay. Journey imports reviewed Browsertools guided-authoring bundles and runs realistic local read/write workflows through UWS 1.8, Udon v3, and headless Chromium. Public uses value-free Browsertools live checks and credential-free Udon/Browserdriver v2 presence replay against only the embedded anonymous targets; it requires --allow-network. Reports never retain credential values, page content, or subprocess output.\n\n")
 		fs.PrintDefaults()
@@ -259,7 +260,7 @@ func runBrowserScenarioEvalCommand(args []string) {
 	defer stop()
 	report, err := browserscenario.Run(ctx, browserscenario.Options{
 		RepoRoot: ".", BrowsertoolsRepo: *browsertoolsRepo, UWSRepo: *uwsRepo, UdonRepo: *udonRepo,
-		BrowserdriverRepo: *browserdriverRepo, Suite: *suite, ScenarioIDs: []string(scenarios),
+		BrowserdriverRepo: *browserdriverRepo, Suite: *suite, Stack: *stack, ScenarioIDs: []string(scenarios),
 		OutPath: *out, RequireReady: *requireReady, AllowNetwork: *allowNetwork,
 	})
 	if report != nil {

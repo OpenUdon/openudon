@@ -19,12 +19,15 @@ import (
 )
 
 const (
-	ManifestVersion        = "openudon.browser-scenario.v1"
-	JourneyManifestVersion = "openudon.browser-journey.v1"
-	LockVersion            = "openudon.browser-scenario-lock.v2"
-	SuiteLoopback          = "loopback"
-	SuiteJourney           = "journey"
-	SuitePublic            = "public"
+	ManifestVersion               = "openudon.browser-scenario.v1"
+	JourneyManifestVersion        = "openudon.browser-journey.v1"
+	CurrentJourneyManifestVersion = "openudon.browser-journey.v2"
+	LockVersion                   = "openudon.browser-scenario-lock.v2"
+	StackHistorical               = "historical"
+	StackCurrent                  = "current"
+	SuiteLoopback                 = "loopback"
+	SuiteJourney                  = "journey"
+	SuitePublic                   = "public"
 )
 
 var (
@@ -32,7 +35,7 @@ var (
 	keyPattern = regexp.MustCompile(`^[A-Za-z][A-Za-z0-9_-]{0,63}$`)
 )
 
-//go:embed manifests/*.json compatibility-lock.json qualification-build-inputs.json
+//go:embed manifests/*.json current-manifests/*.json compatibility-lock.json current-compatibility-lock.json qualification-build-inputs.json
 var contracts embed.FS
 
 type Manifest struct {
@@ -150,6 +153,43 @@ func LoadManifests(now time.Time) ([]Manifest, error) {
 	return manifests, nil
 }
 
+// LoadCurrentManifests retains the historical corpus and adds only current-stack
+// cases. The historical reader never sees these new manifests.
+func LoadCurrentManifests(now time.Time) ([]Manifest, error) {
+	manifests, err := LoadManifests(now)
+	if err != nil {
+		return nil, err
+	}
+	entries, err := fs.Glob(contracts, "current-manifests/*.json")
+	if err != nil {
+		return nil, err
+	}
+	sort.Strings(entries)
+	seen := map[string]bool{}
+	for _, manifest := range manifests {
+		seen[manifest.ID] = true
+	}
+	for _, name := range entries {
+		data, err := contracts.ReadFile(name)
+		if err != nil {
+			return nil, err
+		}
+		var manifest Manifest
+		if err := decodeStrict(data, &manifest); err != nil {
+			return nil, fmt.Errorf("%s: %w", name, err)
+		}
+		if err := ValidateManifest(manifest, now); err != nil {
+			return nil, fmt.Errorf("%s: %w", name, err)
+		}
+		if seen[manifest.ID] {
+			return nil, fmt.Errorf("duplicate browser scenario %q", manifest.ID)
+		}
+		seen[manifest.ID] = true
+		manifests = append(manifests, manifest)
+	}
+	return manifests, nil
+}
+
 func LoadCompatibilityLock() (CompatibilityLock, error) {
 	data, err := contracts.ReadFile("compatibility-lock.json")
 	if err != nil {
@@ -163,6 +203,32 @@ func LoadCompatibilityLock() (CompatibilityLock, error) {
 		return CompatibilityLock{}, err
 	}
 	return lock, nil
+}
+
+func LoadCurrentCompatibilityLock() (CompatibilityLock, error) {
+	data, err := contracts.ReadFile("current-compatibility-lock.json")
+	if err != nil {
+		return CompatibilityLock{}, err
+	}
+	var lock CompatibilityLock
+	if err := decodeStrict(data, &lock); err != nil {
+		return lock, err
+	}
+	if err := ValidateCompatibilityLock(lock); err != nil {
+		return lock, err
+	}
+	return lock, nil
+}
+
+func lockForStack(stack string) (CompatibilityLock, error) {
+	switch stack {
+	case StackHistorical:
+		return LoadCompatibilityLock()
+	case StackCurrent:
+		return LoadCurrentCompatibilityLock()
+	default:
+		return CompatibilityLock{}, fmt.Errorf("browser scenario stack must be historical or current")
+	}
 }
 
 func SelectManifests(all []Manifest, suite string, ids []string) ([]Manifest, error) {
@@ -203,6 +269,9 @@ func ValidateManifest(manifest Manifest, now time.Time) error {
 	wantVersion := ManifestVersion
 	if manifest.Suite == SuiteJourney {
 		wantVersion = JourneyManifestVersion
+		if currentJourneyKind(manifest.Journey) {
+			wantVersion = CurrentJourneyManifestVersion
+		}
 	}
 	if manifest.Version != wantVersion || !idPattern.MatchString(manifest.ID) {
 		return fmt.Errorf("browser scenario identity is invalid")
@@ -257,9 +326,17 @@ func validateLoopbackManifest(manifest Manifest) error {
 }
 
 func validateJourneyManifest(manifest Manifest) error {
+	modern := currentJourneyKind(manifest.Journey)
+	wantProfile := "uws.browser.1.5"
+	if modern {
+		wantProfile = "uws.browser.1.9"
+	}
+	if manifest.Journey != nil && manifest.Journey.Kind == "template_browser18" {
+		wantProfile = "uws.browser.1.8"
+	}
 	if manifest.Authentication != nil || manifest.Goal != nil || len(manifest.Outputs) != 0 || manifest.Fault != "" || manifest.Target != nil || len(manifest.Probes) != 0 || manifest.Quarantine != nil || manifest.Journey == nil ||
 		!allowedJourneyKinds[manifest.Journey.Kind] || manifest.Expected.Authoring != "pass" || !allowedOutcome[manifest.Expected.Replay] || !allowedJourneyFailureCodes[manifest.Expected.FailureCode] ||
-		manifest.Expected.BrowserProfile != "uws.browser.1.5" || manifest.Expected.UWSVersion != "1.11.0" {
+		manifest.Expected.BrowserProfile != wantProfile || manifest.Expected.UWSVersion != "1.11.0" {
 		return fmt.Errorf("journey scenario boundary is invalid")
 	}
 	if manifest.ID != strings.ReplaceAll(manifest.Journey.Kind, "_", "-") {
@@ -271,6 +348,13 @@ func validateJourneyManifest(manifest Manifest) error {
 		}
 	}
 	return validateJourneyExpectedContract(manifest)
+}
+
+func currentJourneyKind(journey *Journey) bool {
+	if journey == nil {
+		return false
+	}
+	return journey.Kind == "template_browser18" || journey.Kind == "template_browser19" || journey.Kind == "mixed_legacy_modern"
 }
 
 func validateJourneyExpectedContract(manifest Manifest) error {
@@ -470,6 +554,7 @@ var allowedJourneyKinds = map[string]bool{
 	"catalog_search_filter": true, "catalog_pagination": true, "order_structured_read": true,
 	"record_update_approved": true, "record_update_unapproved": true, "record_update_ambiguous": true,
 	"parameter_contract_rejected": true, "session_lifecycle": true,
+	"template_browser18": true, "template_browser19": true, "mixed_legacy_modern": true,
 }
 var allowedJourneyFailureCodes = map[string]bool{"": true, "approval_required": true, "ambiguous_locator": true, "invalid_parameters": true}
 var allowedJourneyReplayVariants = map[string]bool{"missing_required": true, "additional_parameter": true, "wrong_type": true, "origin_escape": true}
