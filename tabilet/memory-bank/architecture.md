@@ -704,7 +704,9 @@ dependency installation is part of qualification.
 Current Udon Go test gates also use an exact disposable clone of Udon and all
 fourteen locked sibling inputs; the source evaluator rechecks the supplied
 closure around these tests. This keeps ignored fixture output from making a
-later native stage accept a mutated source tree.
+later native stage accept a mutated source tree. The registration UI fixture
+removes only empty `eval` directories it created after removing its example,
+and leaves a pre-existing workspace path untouched.
 
 The scenario JSON boundary pre-scans tokens recursively and rejects duplicate
 decoded keys in every object before unknown-field decoding, so no consumer can

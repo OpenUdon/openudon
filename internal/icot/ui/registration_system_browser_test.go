@@ -123,8 +123,26 @@ func testBrowserSystemRegistrationPackage(t *testing.T, control bool, typed ...b
 		}
 	}
 	parent := filepath.Join(root, "eval", "runs")
-	if os.MkdirAll(parent, 0700) != nil {
-		t.Fatal("workspace")
+	createdParents := make([]string, 0, 2)
+	defer func() {
+		for index := len(createdParents) - 1; index >= 0; index-- {
+			if err := os.Remove(createdParents[index]); err != nil && !os.IsNotExist(err) {
+				t.Errorf("workspace cleanup: %v", err)
+			}
+		}
+	}()
+	for _, directory := range []string{filepath.Join(root, "eval"), parent} {
+		info, err := os.Lstat(directory)
+		if os.IsNotExist(err) {
+			if err := os.Mkdir(directory, 0700); err != nil {
+				t.Fatal("workspace")
+			}
+			createdParents = append(createdParents, directory)
+			continue
+		}
+		if err != nil || !info.IsDir() || info.Mode()&os.ModeSymlink != 0 {
+			t.Fatal("workspace")
+		}
 	}
 	example, err := os.MkdirTemp(parent, ".browser-system-ui-")
 	if err != nil {

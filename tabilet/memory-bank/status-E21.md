@@ -17,7 +17,7 @@ Markers: `[ ]` pending, `[~]` in progress, `[+]` complete, `[!]` blocked,
 | E21.1 Freeze M86 current-lock meaning | `[+]` | Copied the exact pre-E21 scenario lock bytes (SHA-256 `57ebe6c70bc0b1e810ed4fb490f36ecb227c47f362bb738b56680ce7abcd6a77`) and integration lock bytes (`9eec17f1489e1c805e2d2bfb8b89a439ee7153d5c49ec09a3ee903ce6761d393`) into versioned v2 snapshots and routed the M86 readers to them. Focused scenario/integration tests pass. M86 integration/loopback/journey reports independently verify at 19/19, 23/23 and 11/11 with their recorded digests unchanged. E21.2 advanced the mutable current locks while retaining these v2 snapshots. |
 | E21.2 Pin and emit the repaired current stack | `[+]` | Current scenario/integration locks select Udon `6d32d4967469c579d35adcf47eaddb76a225dbae`; the separate 14-repository closure is exact and checks clean commits before execution. Current scenario/journey and integration contracts emit v3; M86 v2 uses frozen lock snapshots. Focused tests and vet pass; build-input lock SHA-256 is `4993304edf46953c33b6112c4f00e3fcf526811ac91400989b775a19066977b9`. |
 | E21.3 Extend native current-stack qualification | `[+]` | Added `browser-system-eval --stack current --suite loopback` and `make browser-system-current-check`; historical remains default v2 and v1/v2 verifiers keep their inventories. Current native v3 routes the 14-source clean closure through the build, scenario, BAP and BRP stages, with clean-source preflight and per-stage rechecks. Focused tests and vet pass. |
-| E21.4 Qualify clean current-stack evidence | `[~]` | Integration attempt 4 passes 19/19 and independently verifies. Loopback attempt 1 is preserved but fails before case assertions because TypeScript cannot resolve the external module tree from the supplied source checkout. The correction builds and performs readiness checks from exact disposable Browserdriver trees with the read-only module tree linked in; focused scenario tests, vet, and offline `make fast` pass. Continue qualification in fresh workspaces. |
+| E21.4 Qualify clean current-stack evidence | `[~]` | OpenUdon `f44170d` passes all 19 integration gates, all 23 loopback cases, and all 11 journey cases. Native qualification passes `ui_browser` then fails `registration_ui`; diagnosis found the test leaves an empty ignored `eval/runs` directory, which trips the native clean-source recheck. A test cleanup correction is in progress; repeat all required evidence at its committed source revision in fresh workspaces. |
 | E21.5 Review and publish OpenUdon | `[ ]` | Complete all required checks and the bounded review-fix gate with no open P1/P2, record report/source digests and teardown, then push OpenUdon only. Do not push W8M or adopt its candidate. |
 
 ## Acceptance
@@ -82,6 +82,41 @@ published by E21.
   directory. The correction makes both use an exact disposable Browserdriver
   clone with the supplied read-only modules linked into it. A focused scenario
   must pass before another full loopback attempt.
+- Integration attempt 1 on OpenUdon `f44170d2f59a005fce096aef9bc3e05f1d694a63`
+  passed the default 16 gates and skipped three explicit opt-in browser gates;
+  preserve its report at
+  `/home/peter/.local/state/openudon/e21-current-qualification-20260924-r4/evidence/integration-v3-attempt-1.json`
+  (SHA-256 `942706f0194ef993d5f9e7a277f100408cf48d6b3b63a3c4d9b0b818c0b959c5`).
+- Integration attempt 2 explicitly ran both opt-in flags and passed 19/19 with
+  zero skips; its v3 report independently verifies at
+  `/home/peter/.local/state/openudon/e21-current-qualification-20260924-r4/evidence/integration-v3-attempt-2.json`
+  (SHA-256 `f737c5e993d28ff253cf4e7d10ff9cb3b9f1f04a6fc048ce2b215ff0024a1a4d`).
+  Loopback attempt 1 passes 23/23 and independently verifies at
+  `/home/peter/.local/state/openudon/e21-current-qualification-20260924-r4/evidence/scenario-loopback-v3-attempt-1.json`
+  (SHA-256 `cd69b9cd563ca9e4584e7ce4b34fe5e0a4f9cc05e58ef95bf059a274a0d0e21a`);
+  journey attempt 1 passes 11/11 and independently verifies at
+  `/home/peter/.local/state/openudon/e21-current-qualification-20260924-r4/evidence/scenario-journey-v3-attempt-1.json`
+  (SHA-256 `459c81966ed9c50187827d4a6d5f12c2fd7e1fa7efca42713d8dab4da0f9f78b`).
+- Native attempt 1 bound the same exact source revisions, passed `ui_browser`,
+  then failed `registration_ui`. Preserve its failed v3 report
+  `/home/peter/.local/state/openudon/e21-current-qualification-20260924-r4/evidence/native-v3-attempt-1-current-loopback.json`
+  (SHA-256 `7b1ee9a945347a0b06b513046e64ee356f4f8e59c957b55a02d21d0b660a0889`)
+  and diagnostic
+  `/home/peter/.local/state/openudon/e21-current-qualification-20260924-r4/evidence/native-v3-attempt-1-current-loopback.json.diagnostic.json`
+  (SHA-256 `ebf1ec6b27cb90c562c7f769b75cdbd771d2ba6d435fa4e0096f8f33ea5324e2`).
+  The diagnostic class is `source_or_runtime_binding`. After the failed stage,
+  all source checkouts were clean except that the registration UI test had left
+  the empty ignored `eval/runs/` parent in OpenUdon. The correction tracks the
+  empty `eval` / `eval/runs` directories it creates and removes only those
+  directories after the fixture is removed, preserving any pre-existing path.
+- Registration UI cleanup check attempt 1 failed during setup because this
+  fresh checkout had no `eval` ancestor. Preserve the diagnostic
+  `/home/peter/.local/state/openudon/e21-current-qualification-20260924-r5/diagnostics/registration-ui-cleanup-attempt-1.txt`
+  (SHA-256 `50f257abc28bb3bb844f7cf0da04854d40c0e8eeb2f1a854a69262e8ab0a522b`).
+  Attempt 2 passed the real registration UI test and removed both newly created
+  directories; preserve
+  `/home/peter/.local/state/openudon/e21-current-qualification-20260924-r5/diagnostics/registration-ui-cleanup-attempt-2.txt`
+  (SHA-256 `338ece31449c54d99735cd2a402b0671597c2dacdf52309a83acd9d0e60d52cb`).
 
 ## Review and verification record
 

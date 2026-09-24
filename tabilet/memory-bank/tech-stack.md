@@ -40,6 +40,8 @@ imports; runtime readiness uses that staged package and the same linked modules.
 Udon Go test gates clone its exact current source and fourteen locked sibling
 inputs to a temporary workspace; the native runner removes it before passing
 the stage and rechecks the original closure.
+The native registration UI fixture also removes any empty `eval/runs` ancestry
+it created, preserving pre-existing paths so its source recheck stays clean.
 
 ## Current Browser Authoring Tooling
 
