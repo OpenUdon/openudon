@@ -15,8 +15,11 @@ report verification. E21.2 advances the current scenario and integration
 locks to the repaired Udon pin and a separate clean 14-source build closure;
 its current report contracts are v3. E21.3 adds native v3 current-stack
 qualification through the scenarios and BAP/BRP stages; historical native v2
-remains the default and v1/v2 reports retain their readers. E21.4 is preparing
-the complete current-stack evidence from a clean committed source revision.
+remains the default and v1/v2 reports retain their readers. E21.4 is qualified
+at OpenUdon `1007cdedf0acebf649bd3ddd065a0e42bac4f542`: current integration,
+loopback, journey, and three-pass native reports independently verify with
+exact clean source bindings. The bounded review is clear; E21.5 publication
+remains in progress until OpenUdon alone is pushed.
 
 The UWS 1.11 real-browser M86, E15 registration-verification integration,
 and E18 initialization-diagnostics integration milestones are complete. E15
