@@ -547,8 +547,9 @@ experimental before v1.
   Apitools operation summaries. Apitools owns the generic ranking algorithm;
   OpenUdon owns which workflow operations seed it and how ranked hints affect
   questions, prompt detail, and reviewed workflow intent.
-- **Browser profile** is a reviewed `uws.browser.1.5`, additive
-  `uws.browser.1.6`, or scalar-capable `uws.browser.1.7` contract produced by Browsertools.
+- **Browser profile** is a reviewed `uws.browser.1.5` through `uws.browser.1.9`
+  contract produced by Browsertools. Versions 1.8/1.9 opt into component-safe
+  parameter templates; 1.9 also supports literal-brace escapes.
   OpenUdon may author against its declared actions only when no adequate API operation is available;
   it packages the profile and safe digest/lifecycle evidence without browser sessions or raw captures.
 - **Browser authentication profile** is a reviewed, secret-free

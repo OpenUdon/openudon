@@ -44,17 +44,18 @@ go run ./cmd/openudon assess --example ./examples/<name>
 `synthesize` reads `project.md`, discovers or imports local API/event source metadata, creates or
 updates intent, and writes the generated package artifacts. OpenAPI, Google Discovery, AWS Smithy
 JSON, AsyncAPI, GraphQL, OpenRPC, gRPC/protobuf, and OData can be staged directly as UWS source
-descriptions when the trusted executor supports them. AsyncAPI source-bound workflows emit UWS 1.3;
-GraphQL, OpenRPC, gRPC/protobuf, and OData source-bound workflows emit UWS 1.4. OpenUdon validates
+descriptions when the trusted executor supports them. New workflows declare UWS 1.11.0;
+AsyncAPI binding was introduced in 1.3 and GraphQL, OpenRPC, gRPC/protobuf, and OData
+binding in 1.4. OpenUdon validates
 and packages those source-bound workflows, but protocol execution remains trusted-runtime-owned.
 `build` regenerates from existing intent.
 `assess` reruns deterministic quality checks without synthesizing new intent.
 
 Operators may add a `content_trust` block to `workflows/intent.hcl` after the
 workflow and source choices are reviewed. OpenUdon maps those declarations to
-the generated UWS 1.9.1 document. This block is deliberately operator-authored,
-not an LLM-generation field. Projects without it retain their prior UWS
-version and package shape; browser 1.7 by itself continues to use UWS 1.9.0.
+the generated UWS 1.11.0 document. This block is deliberately operator-authored,
+not an LLM-generation field. Existing packages retain their declared UWS
+versions and package shape.
 See [intent.hcl](intent.md#content-trust) for the exact declaration syntax and
 validation boundary.
 

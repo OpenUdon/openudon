@@ -100,6 +100,58 @@ func TestGenerateWorkflowDefaultsToUWS111WithScalarAccessibilityCapability(t *te
 	}
 }
 
+func TestGenerateWorkflowAcceptsVersionedBrowserTemplates(t *testing.T) {
+	for _, test := range []struct {
+		version string
+		target  string
+	}{
+		{version: "uws.browser.1.8", target: "/status/{{term}}"},
+		{version: "uws.browser.1.9", target: "/status/{{term}}?label={{{{tag}}}}"},
+	} {
+		t.Run(test.version, func(t *testing.T) {
+			example := t.TempDir()
+			profilePath := "browser-profiles/member.json"
+			fixture := string(synthesizeLongLivedBrowserProfileFixture(false, false, "term"))
+			fixture = strings.Replace(fixture, "uws.browser.1.5", test.version, 1)
+			fixture = strings.Replace(fixture, `"navigate":"/status"`, `"navigate":"`+test.target+`"`, 1)
+			writeWorkflowBrowserFixture(t, example, profilePath, []byte(fixture))
+			intent := &rollout.Intent{
+				Workflow: &rollout.WorkflowMeta{Name: "member_status"},
+				Steps: []*rollout.Step{{
+					Name: "read_status", Type: "browser", Source: profilePath,
+					Operation: "read_status", With: map[string]string{"term": "a/b"},
+				}},
+			}
+			doc, err := generateWorkflowDocument(Result{ExampleDir: example}, intent)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if doc.UWS != "1.11.0" || doc.Operations[0].Request["body"].(map[string]any)["term"] != "a/b" {
+				t.Fatalf("versioned template request was not preserved: %#v", doc)
+			}
+			if err := doc.Validate(); err != nil {
+				t.Fatalf("generated UWS 1.11 document is invalid: %v", err)
+			}
+		})
+	}
+}
+
+func TestGenerateWorkflowRejectsUnsafeVersionedBrowserTemplate(t *testing.T) {
+	example := t.TempDir()
+	profilePath := "browser-profiles/member.json"
+	fixture := string(synthesizeLongLivedBrowserProfileFixture(false, false, "term"))
+	fixture = strings.Replace(fixture, "uws.browser.1.5", "uws.browser.1.9", 1)
+	fixture = strings.Replace(fixture, `"navigate":"/status"`, `"navigate":"/status?{{term}}=value"`, 1)
+	writeWorkflowBrowserFixture(t, example, profilePath, []byte(fixture))
+	intent := &rollout.Intent{
+		Workflow: &rollout.WorkflowMeta{Name: "member_status"},
+		Steps:    []*rollout.Step{{Name: "read_status", Type: "browser", Source: profilePath, Operation: "read_status"}},
+	}
+	if _, err := generateWorkflowDocument(Result{ExampleDir: example}, intent); err == nil {
+		t.Fatal("template in query key was accepted")
+	}
+}
+
 func TestGenerateWorkflowLowersBrowserAuthenticationAndNamedSession(t *testing.T) {
 	example := t.TempDir()
 	writeWorkflowBrowserFixture(t, example, "browser-authentication/member.yaml", synthesizeBrowserAuthenticationFixture())

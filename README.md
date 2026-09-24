@@ -415,10 +415,11 @@ exhausted, approved remote lookup is limited to curated apitools references plus
 with an eight-second deadline and at most three metadata candidates.
 
 For a UI action that requires login state, iCoT can pair a reviewed,
-secret-free `uws.browser-authentication.1.0` or 1.1 profile with a
-`uws.browser.1.5`, 1.6, or 1.7 capability profile. Browser 1.7 carries strict
-integer, number, and Boolean accessibility-text outputs under UWS 1.9. It
-authors an explicit sign-in flow, execution-local named session, symbolic
+secret-free `uws.browser-authentication.1.0` or 1.1 profile with a reviewed
+`uws.browser.1.5` through 1.9 capability profile. Browser 1.8/1.9 add opt-in
+component-safe parameter templates; 1.9 adds literal-brace escapes. Newly
+generated workflows declare UWS 1.11.0. OpenUdon authors an explicit sign-in
+flow, execution-local named session, symbolic
 credential bindings, bounded timeout, and separate authoring approval; Udon
 still requires separate runtime approval and keeps credentials, MFA responses,
 and live session state private.
@@ -630,6 +631,10 @@ digest-bound authoring-to-handoff matrix across OpenUdon, Browsertools, UWS,
 Udon, and Browserdriver. Its default path is offline/provider-free and does not
 launch a browser; installed-engine and headed-authentication checks require
 separate loopback-only CLI opt-ins.
+The browser integration and scenario matrices retain their earlier exact
+compatibility lock. They reject newer checkout revisions; the UWS 1.11 and
+Browser 1.8/1.9 adoption has separate synthetic handoff and local loopback
+checks recorded in M84.
 
 `make browser-scenario-loopback` runs and verifies the required 23-case real
 Browsertools v2 to Udon/Browserdriver v3 release matrix. It requires installed

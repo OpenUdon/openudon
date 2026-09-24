@@ -83,6 +83,23 @@ func TestVersionCompositionIsClosedAndLegacyBytesAreStable(t *testing.T) {
 	}
 }
 
+func TestAuthenticationCapabilityTransactionAcceptsVersionedBrowserProfiles(t *testing.T) {
+	for _, schema := range []string{"uws.browser.1.8", "uws.browser.1.9"} {
+		t.Run(schema, func(t *testing.T) {
+			transaction := validAuthenticationCapability()
+			transaction.Candidates[1].Schema = schema
+			data, err := CanonicalBytes(transaction)
+			if err != nil {
+				t.Fatalf("canonicalize reviewed profile %s: %v", schema, err)
+			}
+			restored, err := Decode(data)
+			if err != nil || restored.Candidates[1].Schema != schema {
+				t.Fatalf("reviewed profile %s round trip = %#v, %v", schema, restored, err)
+			}
+		})
+	}
+}
+
 func TestCompositionAndValueFreeBoundary(t *testing.T) {
 	tests := []struct {
 		name   string

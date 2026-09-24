@@ -11,6 +11,23 @@ import (
 	"github.com/OpenUdon/openudon/internal/authoring"
 )
 
+func TestBrowserV10ConfigPreservesAuthenticationWithoutRegistrationAuthority(t *testing.T) {
+	config := &BrowserConfig{
+		Protocol: "v10", DriverPath: "/trusted/browserdriver",
+		CredentialEnvironment:  []EnvironmentBinding{{Name: "member_password", Environment: CredentialEnvironmentName("member_password")}},
+		ApprovedAuthentication: []string{"authenticate_member"},
+		ApprovedOperations:     []string{"read_dashboard"},
+	}
+	validated, err := validateBrowserConfig(config, []string{"member_password"}, nil, false, true)
+	if err != nil || len(validated.credentialEnv) != 1 {
+		t.Fatalf("v10 authentication handoff = %#v, %v", validated, err)
+	}
+	config.ApprovedRegistration = []string{"register_member"}
+	if _, err := validateBrowserConfig(config, []string{"member_password"}, nil, false, true); err == nil {
+		t.Fatal("v10 action protocol accepted registration authority")
+	}
+}
+
 func TestPackageRelativePathRejectsEscapesAndUnsafeText(t *testing.T) {
 	root := t.TempDir()
 	for _, tc := range []struct {
@@ -425,11 +442,12 @@ func TestRunInvocationEnvironmentIsAllowlisted(t *testing.T) {
 
 func TestRunBrowserInvocationIsExactAndAllowlisted(t *testing.T) {
 	for _, tc := range []struct {
-		name     string
-		executor string
+		name, executor, protocol string
 	}{
-		{name: "local", executor: "/bin/true"},
-		{name: "docker", executor: "docker://udon:test"},
+		{name: "local-v3", executor: "/bin/true", protocol: "v3"},
+		{name: "docker-v3", executor: "docker://udon:test", protocol: "v3"},
+		{name: "local-v10", executor: "/bin/true", protocol: "v10"},
+		{name: "docker-v10", executor: "docker://udon:test", protocol: "v10"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			config := validRunnerConfig(t)
@@ -437,13 +455,13 @@ func TestRunBrowserInvocationIsExactAndAllowlisted(t *testing.T) {
 			mustWriteExecutable(t, driver)
 			config.CredentialBindings = []string{"member_password"}
 			config.Browser = &BrowserConfig{
-				DriverPath: driver, DriverArgs: []string{"--headless"}, DriverEnvironment: []string{"HOME", "PATH"}, Protocol: "v3",
+				DriverPath: driver, DriverArgs: []string{"--headless"}, DriverEnvironment: []string{"HOME", "PATH"}, Protocol: tc.protocol,
 				CredentialEnvironment:  []EnvironmentBinding{{Name: "member_password", Environment: "UDON_CREDENTIAL_MEMBER_PASSWORD"}},
 				SessionEnvironment:     []EnvironmentBinding{{Name: "existing_member", Environment: "UDON_BROWSER_SESSION_EXISTING_MEMBER"}},
 				ApprovedOperations:     []string{"read_dashboard"},
 				ApprovedAuthentication: []string{"authenticate_member"},
 			}
-			if tc.name == "local" {
+			if strings.HasPrefix(tc.name, "local-") {
 				config.Browser.DriverEnvironment = []string{"CHROME_DEVEL_SANDBOX", "HOME", "PATH"}
 			}
 			var invocation Invocation
@@ -463,7 +481,7 @@ func TestRunBrowserInvocationIsExactAndAllowlisted(t *testing.T) {
 				t.Fatal(err)
 			}
 			expectedDriver := driver
-			if tc.name == "docker" {
+			if strings.HasPrefix(tc.name, "docker-") {
 				expectedDriver = dockerBrowserDriverPath
 				mount := "type=bind,src=" + driver + ",dst=" + dockerBrowserDriverPath + ",readonly"
 				if !containsArg(invocation.Argv, mount) {
@@ -471,7 +489,7 @@ func TestRunBrowserInvocationIsExactAndAllowlisted(t *testing.T) {
 				}
 			}
 			for _, value := range []string{
-				"--browser-driver", expectedDriver, "--browser-driver-arg", "--headless", "--browser-driver-protocol", "v3",
+				"--browser-driver", expectedDriver, "--browser-driver-arg", "--headless", "--browser-driver-protocol", tc.protocol,
 				"--browser-credential-env", "member_password=UDON_CREDENTIAL_MEMBER_PASSWORD",
 				"--browser-session-env", "existing_member=UDON_BROWSER_SESSION_EXISTING_MEMBER",
 				"--approve-browser-operation", "read_dashboard",
@@ -486,7 +504,7 @@ func TestRunBrowserInvocationIsExactAndAllowlisted(t *testing.T) {
 			}
 			joined := strings.Join(invocation.Env, "\n")
 			requiredEnvironment := []string{"UDON_CREDENTIAL_MEMBER_PASSWORD=credential-value", "UDON_BROWSER_SESSION_EXISTING_MEMBER=session-value", "PATH=/trusted/bin"}
-			if tc.name == "local" {
+			if strings.HasPrefix(tc.name, "local-") {
 				requiredEnvironment = append(requiredEnvironment, "HOME=/trusted/home", "CHROME_DEVEL_SANDBOX=/trusted/chrome_sandbox")
 				if !containsAdjacentArgs(invocation.Argv, "--browser-driver-env", "CHROME_DEVEL_SANDBOX") {
 					t.Fatal("sandbox helper environment was not forwarded to Udon's driver")

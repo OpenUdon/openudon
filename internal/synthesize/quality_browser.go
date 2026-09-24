@@ -55,7 +55,7 @@ func assessBrowserSources(report *QualityReport, exampleDir string, intent *roll
 	}
 	if len(paths) == 0 {
 		if intentHasBrowserStep(intent) {
-			report.add("browser.sources", "fail", "browser workflow requires a packaged browser profile", "Add a verified uws.browser.1.5 profile through iCoT source selection.")
+			report.add("browser.sources", "fail", "browser workflow requires a packaged browser profile", "Add a reviewed browser profile, version 1.5 through 1.9, through iCoT source selection.")
 			return
 		}
 		report.add("browser.sources", "pass", "browser source review is not required", "")

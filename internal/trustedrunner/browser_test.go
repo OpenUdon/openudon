@@ -63,6 +63,83 @@ func TestBuildBrowserRunConfigDerivesReviewedRuntimeContract(t *testing.T) {
 	}
 }
 
+func TestBuildBrowserRunConfigSelectsVersionedActionProtocol(t *testing.T) {
+	for _, version := range []string{"uws.browser.1.8", "uws.browser.1.9"} {
+		t.Run(version, func(t *testing.T) {
+			root := t.TempDir()
+			timeout := 120.0
+			intent := &rollout.Intent{Workflow: &rollout.WorkflowMeta{Name: "member"}, Steps: []*rollout.Step{
+				{Name: "authenticate-member", Type: "browser_authentication", Source: "browser-authentication/member.yaml", AuthenticationFlow: "member_login", BrowserSession: "member", CredentialBindings: map[string]string{"password": "member_password"}, Timeout: &timeout},
+				{Name: "read-dashboard", Type: "browser", Source: "browser-profiles/member.json", Operation: "read_dashboard", BrowserSession: "member"},
+			}}
+			writeBrowserRuntimeFixture(t, root, intent)
+			path := filepath.Join(root, "browser-profiles/member.json")
+			data, err := os.ReadFile(path)
+			if err != nil {
+				t.Fatal(err)
+			}
+			data = []byte(strings.Replace(string(data), "uws.browser.1.7", version, 1))
+			if err := os.WriteFile(path, data, 0o600); err != nil {
+				t.Fatal(err)
+			}
+			config, err := buildBrowserRunConfig(root, "/trusted/browserdriver", nil, nil, false)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if config.Protocol != "v10" || config.RegistrationInputUI || len(config.CredentialEnvironment) != 1 || config.CredentialEnvironment[0].Name != "member_password" {
+				t.Fatalf("v10 action handoff leaked registration input authority: %#v", config)
+			}
+		})
+	}
+}
+
+func TestBuildBrowserRunConfigIgnoresInactiveVersionedProfile(t *testing.T) {
+	root := t.TempDir()
+	intent := &rollout.Intent{Workflow: &rollout.WorkflowMeta{Name: "member"}, Steps: []*rollout.Step{
+		{Name: "read-dashboard", Type: "browser", Source: "browser-profiles/member.json", Operation: "read_dashboard"},
+	}}
+	writeBrowserRuntimeFixture(t, root, intent)
+	data, err := os.ReadFile(filepath.Join(root, "browser-profiles/member.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	data = []byte(strings.Replace(string(data), "uws.browser.1.7", "uws.browser.1.9", 1))
+	if err := os.WriteFile(filepath.Join(root, "browser-profiles/inactive.json"), data, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	config, err := buildBrowserRunConfig(root, "/trusted/browserdriver", nil, nil, false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if config.Protocol != "v3" {
+		t.Fatalf("inactive profile changed the action protocol to %q", config.Protocol)
+	}
+}
+
+func TestBuildBrowserRunConfigSelectsV10ForMixedActiveProfiles(t *testing.T) {
+	root := t.TempDir()
+	intent := &rollout.Intent{Workflow: &rollout.WorkflowMeta{Name: "member"}, Steps: []*rollout.Step{
+		{Name: "read-legacy", Type: "browser", Source: "browser-profiles/member.json", Operation: "read_dashboard"},
+		{Name: "read-versioned", Type: "browser", Source: "browser-profiles/versioned.json", Operation: "read_dashboard"},
+	}}
+	writeBrowserRuntimeFixture(t, root, intent)
+	data, err := os.ReadFile(filepath.Join(root, "browser-profiles/member.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	data = []byte(strings.Replace(string(data), "uws.browser.1.7", "uws.browser.1.9", 1))
+	if err := os.WriteFile(filepath.Join(root, "browser-profiles/versioned.json"), data, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	config, err := buildBrowserRunConfig(root, "/trusted/browserdriver", nil, nil, false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if config.Protocol != "v10" || config.RegistrationInputUI {
+		t.Fatalf("mixed active actions selected an invalid handoff: %#v", config)
+	}
+}
+
 func TestBuildBrowserRunConfigRequiresDriverOnlyForExecution(t *testing.T) {
 	root := t.TempDir()
 	intent := &rollout.Intent{Workflow: &rollout.WorkflowMeta{Name: "member"}, Steps: []*rollout.Step{{Name: "read_dashboard", Type: "browser", Source: "browser-profiles/member.json", Operation: "read_dashboard"}}}

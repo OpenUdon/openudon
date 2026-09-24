@@ -17,7 +17,7 @@ var browserBindingPattern = regexp.MustCompile(`^[A-Za-z][A-Za-z0-9_-]*$`)
 
 var browserDriverEnvironmentAllowlist = map[string]bool{
 	"CHROME_DEVEL_SANDBOX": true,
-	"PATH": true, "PATHEXT": true, "HOME": true, "TMPDIR": true, "TMP": true, "TEMP": true,
+	"PATH":                 true, "PATHEXT": true, "HOME": true, "TMPDIR": true, "TMP": true, "TEMP": true,
 	"SystemRoot": true, "SYSTEMROOT": true, "WINDIR": true, "COMSPEC": true,
 	"DISPLAY": true, "WAYLAND_DISPLAY": true, "XAUTHORITY": true, "DBUS_SESSION_BUS_ADDRESS": true,
 	"LANG": true, "LC_ALL": true, "LC_CTYPE": true, "PLAYWRIGHT_BROWSERS_PATH": true,
@@ -66,8 +66,8 @@ func validateBrowserConfig(config *BrowserConfig, credentials []string, values m
 	normalizeBrowserConfig(config)
 	config.DriverPath = strings.TrimSpace(config.DriverPath)
 	config.Protocol = strings.ToLower(strings.TrimSpace(config.Protocol))
-	if config.Protocol != "v1" && config.Protocol != "v2" && config.Protocol != "v3" && config.Protocol != "v4" && (config.Protocol != "v5" && config.Protocol != "v6") {
-		return validatedBrowserConfig{}, fmt.Errorf("run config browser protocol must be v1, v2, v3, v4, or v5")
+	if config.Protocol != "v1" && config.Protocol != "v2" && config.Protocol != "v3" && config.Protocol != "v4" && config.Protocol != "v5" && config.Protocol != "v6" && config.Protocol != "v10" {
+		return validatedBrowserConfig{}, fmt.Errorf("run config browser protocol must be v1, v2, v3, v4, v5, v6, or v10")
 	}
 	if requireDriver && config.DriverPath == "" {
 		return validatedBrowserConfig{}, fmt.Errorf("browser workflow execution requires --browser-driver")

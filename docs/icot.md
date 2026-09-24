@@ -180,9 +180,11 @@ under `--private-root`; only independently validated canonical profiles and
 safe review metadata are staged. See
 [Authenticated Goal-Directed Browser Authoring](authenticated-browser-authoring.md).
 
-Popup and iframe SSO are supported only through portable UWS 1.8 context
-contracts. Reviewed scalar accessibility outputs use browser 1.7 with UWS 1.9,
-strict author-session v2 MFA/output choices, and Browserdriver protocol v3.
+Popup and iframe SSO use the portable context contracts introduced in UWS 1.8.
+Reviewed scalar accessibility outputs use Browser 1.7 or later; new workflows
+declare UWS 1.11.0. Strict author-session v2 MFA/output choices use the
+profile's matching Browserdriver protocol (v3 for older actions, v10 for
+Browser 1.8/1.9 actions).
 CAPTCHA, enrollment, recovery, password changes, consent, account
 creation, and logout remain outside the contract.
 
@@ -364,15 +366,14 @@ approvals, and optional value-free current-page/portability summaries—never a
 driver, browser session, credential, raw DOM/HTML, screenshot, backend error,
 or private cache content. Build and assess independently revalidate summary
 paths, types, counts, fixed diagnostics, selected-action coverage, and profile
-lifecycle, emit UWS 1.5, and include both files in the canonical package and
+lifecycle, emit UWS 1.11.0 for new workflows, and include both files in the canonical package and
 review handoff digest.
 
 Selected authentication profiles are staged under `browser-authentication/`,
 with safe digest/flow/origin/expiry/session-name/approval evidence under
-`.icot/browser-authentication.json`. Main-page 1.0/1.5 sources lower to
-`uws.browser-authentication-call.1.0` and UWS 1.7. A context-qualified
-authentication 1.1 or browser 1.6 source selects UWS 1.8 and authentication
-call 1.1 where required. Protected actions retain the named-session
+`.icot/browser-authentication.json`. Authentication 1.0 lowers to
+`uws.browser-authentication-call.1.0`; authentication 1.1 uses call 1.1 where
+required. New workflows declare UWS 1.11.0. Protected actions retain the named-session
 supplement. Credential values, OTP values, cookies, storage state, private live
 protocol envelopes, and browser handles are never written to the package.
 

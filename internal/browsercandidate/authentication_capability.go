@@ -79,7 +79,7 @@ func ComposeAuthenticationCapability(request AuthenticationCapabilityRequest) (*
 		return nil, errors.New("capability candidate must require an authenticated session")
 	}
 	if authentication.Profile != "uws.browser-authentication.1.1" ||
-		(capability.Schema != "uws.browser.1.5" && capability.Schema != "uws.browser.1.6" && capability.Schema != "uws.browser.1.7") {
+		(capability.Schema != "uws.browser.1.5" && capability.Schema != "uws.browser.1.6" && capability.Schema != "uws.browser.1.7" && capability.Schema != "uws.browser.1.8" && capability.Schema != "uws.browser.1.9") {
 		return nil, errors.New("authentication-capability profile versions are incompatible")
 	}
 	if len(authentication.Flows) != 1 {

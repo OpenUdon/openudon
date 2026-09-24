@@ -563,8 +563,8 @@ Transitional debt:
 
 OpenUdon must not teach prompts to emit workflow semantics that lack a public UWS contract. UWS 1.4
 adds GraphQL, OpenRPC, gRPC/protobuf, and OData source description types on top of UWS 1.3 AsyncAPI
-and the UWS 1.2 first-class API source description types. OpenUdon now emits those UWS 1.4 source
-families for reviewed local artifacts backed by source-aware apitools metadata, while downstream
+and the UWS 1.2 first-class API source description types. OpenUdon emits those source
+families in new UWS 1.11.0 documents for reviewed local artifacts backed by source-aware apitools metadata, while downstream
 trusted executors still own protocol execution compatibility. UWS 1.1 defines portable timeout fields and workflow-level
 idempotency metadata; OpenUdon may preserve those only when project policy or intent explicitly
 requests them. Switches, loops, structural results, failure branches, retries, and runtime profiles
@@ -1116,11 +1116,14 @@ orders a selected flow before symbolic credential mappings, bounded timeout,
 authentication approval, and a protected `uws.browser.1.5` action using the
 same session. OpenUdon lowers these steps to the public
 `uws.browser-authentication-call.1.0` and named-session supplements in UWS 1.7
-for old main-page sources. Authentication 1.1 or browser 1.6 selects UWS 1.8
-and authentication-call 1.1 where required; old profiles remain unchanged.
-Browser 1.7 selects UWS 1.9 and requires trusted Browserdriver v3 scalar
-conversion; its integer, number, and Boolean outputs remain subject to Udon's
-post-conversion schema and secret checks.
+for old main-page sources. Authentication 1.1 requires authentication-call 1.1;
+old profile meanings remain unchanged. Newly generated workflows declare UWS
+1.11.0. Browser 1.7 retains its scalar conversion under the legacy inner
+action protocol. Browser 1.8/1.9 profiles pass local validation and review
+with their exact discriminator and select trusted browser-driver v10 for
+action execution, including mixed sessions with older profile actions.
+All scalar outputs remain subject to Udon's post-conversion schema and secret
+checks.
 Credential-less passkey/security-key flows lower an explicit empty binding
 object. Browsertools `*.review.json` sidecars are not inventoried as profiles,
 and session review metadata walks nested structural steps exactly as quality

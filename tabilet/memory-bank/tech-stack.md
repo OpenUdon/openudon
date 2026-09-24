@@ -549,8 +549,8 @@ API source metadata discovery/indexing, and portable trusted executor handoff.
   `aws-smithy/`, `asyncapi/`, `graphql/`, `openrpc/`, `grpc-protobuf/`, `odata/`, and
   legacy-readable `discovery/`. It emits typed source descriptions for OpenAPI, Google Discovery,
   AWS Smithy, UWS 1.3 AsyncAPI, and UWS 1.4 GraphQL/OpenRPC/gRPC-protobuf/OData sources.
-- OpenUdon also scans and stages verified `uws.browser.1.5`/`1.6`/`1.7` profiles under
-  `browser-profiles/`, emits UWS 1.5 `browser-profile` source descriptions, and
+- OpenUdon also scans and stages verified `uws.browser.1.5` through `1.9` profiles under
+  `browser-profiles/`, emits UWS `browser-profile` source descriptions, and
   records prompt-safe source review metadata in `.icot/browser-sources.json`.
   Browsertools owns validation, private cache, bundles, discovery, and the
   service-free static registry; Udon owns drivers, sessions, and execution.
@@ -565,10 +565,12 @@ API source metadata discovery/indexing, and portable trusted executor handoff.
 - OpenUdon scans reviewed `uws.browser-authentication.1.0`/`1.1` profiles under
   `browser-authentication/`, records safe review metadata in
   `.icot/browser-authentication.json`, and lowers explicit authentication and
-  named-session intent fields to UWS 1.7 or 1.8 according to the selected
-  discriminator, or UWS 1.9 for browser 1.7. Browsertools owns local validation;
-  Udon and its persistent Browserdriver own credential resolution, MFA
-  challenge interaction, session state, and execution.
+  named-session intent fields to the matching public supplements. New workflows
+  declare UWS 1.11.0. Browsertools owns local validation; Udon and its persistent
+  Browserdriver own credential resolution, MFA challenge interaction, session
+  state, and execution. Active Browser 1.8/1.9 actions select private
+  browser-driver v10, which carries older actions as inner v2; older-only
+  workflows keep their prior protocol selection.
 - OpenUdon scans reviewed `uws.browser-registration.1.0` profiles and their
   digest-bound `browsertools.registration-review.v1` bundles under
   `browser-registration/`. Explicit `browser_registration` intent lowers to

@@ -76,12 +76,12 @@ step-local `source`. `openapi` is accepted as a backward-compatible alias for Op
 `Intent.MissingSlots()` reports an API source requirement when a step names an `operation` but no
 step-local or top-level source is available.
 
-AsyncAPI sources use paths under `asyncapi/`, emit UWS 1.3, and must use explicit request mapping
+AsyncAPI sources use paths under `asyncapi/`, require UWS 1.3 or later, and must use explicit request mapping
 locations such as `body.invoice_id` or `header.trace_id` because OpenUdon treats AsyncAPI payload and
 header schemas as runtime-owned metadata.
 
 GraphQL, OpenRPC, gRPC/protobuf, and OData sources use paths under `graphql/`, `openrpc/`,
-`grpc-protobuf/`, and `odata/`, emit UWS 1.4, and bind operations with `sourceOperationId` or
+`grpc-protobuf/`, and `odata/`, require UWS 1.4 or later, and bind operations with `sourceOperationId` or
 `sourceOperationRef`. OpenUdon validates and packages those workflows; protocol execution remains
 trusted-runtime-owned.
 
@@ -179,9 +179,9 @@ existing `input` blocks.
 
 Empty registries, empty operation/workflow declarations, duplicates, invalid
 levels, unknown source/step/trigger/workflow/input references, and undeclared
-operation outputs fail before packaging. A package with `content_trust` emits
-UWS 1.9.1. Declaration-free packages retain their existing version selection;
-in particular, browser 1.7 alone still emits UWS 1.9.0.
+operation outputs fail before packaging. New packages declare UWS 1.11.0
+whether or not they contain `content_trust`. Existing packages retain their
+declared UWS version; content trust requires UWS 1.9.1 or later.
 
 UWS content trust is review metadata. The explicit analyzer pass is separate
 from ordinary validation and execution. Findings appear as non-failing quality

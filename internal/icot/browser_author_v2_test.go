@@ -363,6 +363,57 @@ func TestAuthenticationCapabilityCompositionRejectsMismatchAndAmbiguity(t *testi
 	}
 }
 
+func TestAuthenticationCapabilityCompositionAcceptsVersionedProfiles(t *testing.T) {
+	at := time.Date(2026, 8, 17, 3, 0, 0, 0, time.UTC)
+	root := t.TempDir()
+	example, privateRoot := liveAuthorTestRoots(t, root)
+	path, digest := writeCustomV2Envelope(t, privateRoot, at, []authorresult.TraceStep{{Kind: "navigate", Phase: "authentication", Context: "main", URL: "https://members.example.test/login"}}, nil)
+	prepared, err := prepareAuthenticatedAuthoringImport(testV2ImportConfig(example, privateRoot), liveProtocolResult{ArtifactPath: path, Digest: digest}, at)
+	if err != nil {
+		t.Fatal(err)
+	}
+	transaction := prepared.Candidate.Transaction()
+	base := browsercandidate.AuthenticationCapabilityRequest{
+		TransactionID: transaction.ID, Flow: prepared.Candidate.Flow(), Session: transaction.Session,
+		CredentialBindings: transaction.CredentialBindings, Authentication: prepared.Candidate.Authentication(), AuthenticationReview: prepared.Candidate.AuthenticationReview(),
+		Capability: prepared.Candidate.Capability(), CapabilityReview: prepared.Candidate.CapabilityReview(), ResultSHA256: transaction.Provenance.ResultSHA256,
+		ObservedAt: transaction.Provenance.ObservedAt, Origins: transaction.Provenance.Origins, AssessedAt: at,
+	}
+	for _, version := range []string{"uws.browser.1.8", "uws.browser.1.9"} {
+		t.Run(version, func(t *testing.T) {
+			request := base
+			var capability map[string]any
+			if err := json.Unmarshal(base.Capability, &capability); err != nil {
+				t.Fatal(err)
+			}
+			capability["profile"] = version
+			request.Capability, err = json.Marshal(capability)
+			if err != nil {
+				t.Fatal(err)
+			}
+			var review authorresult.Review
+			if err := json.Unmarshal(base.CapabilityReview, &review); err != nil {
+				t.Fatal(err)
+			}
+			profileDigest := sha256.Sum256(request.Capability)
+			review.ProfileDigest = "sha256:" + hex.EncodeToString(profileDigest[:])
+			for index, decision := range review.Decisions {
+				if decision == "uws.browser.1.5" {
+					review.Decisions[index] = version
+				}
+			}
+			request.CapabilityReview, err = json.Marshal(review)
+			if err != nil {
+				t.Fatal(err)
+			}
+			candidate, err := browsercandidate.ComposeAuthenticationCapability(request)
+			if err != nil || candidate.Transaction().Candidates[1].Schema != version {
+				t.Fatalf("versioned candidate = %#v, %v", candidate, err)
+			}
+		})
+	}
+}
+
 func TestEngineStagesPreparedBrowserCaptureWithoutOverwriting(t *testing.T) {
 	at := time.Date(2026, 8, 17, 3, 0, 0, 0, time.UTC)
 	root := t.TempDir()

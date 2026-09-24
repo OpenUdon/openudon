@@ -147,6 +147,12 @@ func buildBrowserRunConfigFromBytes(packageLabel string, browserPaths, authentic
 		return nil, fmt.Errorf("browser workflow execution requires --browser-driver")
 	}
 
+	activeBrowserPaths := map[string]bool{}
+	browserworkflow.WalkEffectiveSources(intent, func(step *rollout.Step, source string) {
+		if strings.EqualFold(strings.TrimSpace(step.Type), "browser") {
+			activeBrowserPaths[filepath.ToSlash(strings.TrimSpace(source))] = true
+		}
+	})
 	protocolRank := 1
 	verificationProfiles := map[string]bool{}
 	for _, relative := range browserPaths {
@@ -161,10 +167,25 @@ func buildBrowserRunConfigFromBytes(packageLabel string, browserPaths, authentic
 		switch value.Schema {
 		case "uws.browser.1.5":
 		case "uws.browser.1.6", "uws.browser.1.7":
-			protocolRank = max(protocolRank, 3)
+			if activeBrowserPaths[relative] {
+				protocolRank = max(protocolRank, 3)
+			}
+		case "uws.browser.1.8", "uws.browser.1.9":
+			if activeBrowserPaths[relative] {
+				protocolRank = max(protocolRank, 10)
+			}
 		default:
 			return nil, fmt.Errorf("browser profile %s has unsupported discriminator %q", relative, value.Schema)
 		}
+		delete(activeBrowserPaths, relative)
+	}
+	if len(activeBrowserPaths) != 0 {
+		missing := make([]string, 0, len(activeBrowserPaths))
+		for relative := range activeBrowserPaths {
+			missing = append(missing, relative)
+		}
+		sort.Strings(missing)
+		return nil, fmt.Errorf("active browser profile %s is unavailable", missing[0])
 	}
 	for _, relative := range authenticationPaths {
 		data, err := read(relative)
@@ -289,7 +310,8 @@ func buildBrowserRunConfigFromBytes(packageLabel string, browserPaths, authentic
 	for _, name := range credentialBindings {
 		credentialEnvironment = append(credentialEnvironment, udonrunner.EnvironmentBinding{Name: name, Environment: udonrunner.CredentialEnvironmentName(name)})
 	}
-	if protocolRank >= 5 {
+	registrationInputProtocol := protocolRank == 5 || protocolRank == 6
+	if registrationInputProtocol {
 		credentialEnvironment = nil
 	}
 	sessionEnvironment := make([]udonrunner.EnvironmentBinding, 0, len(externalSessions))
@@ -301,7 +323,7 @@ func buildBrowserRunConfigFromBytes(packageLabel string, browserPaths, authentic
 		DriverArgs:             append([]string(nil), driverArgs...),
 		DriverEnvironment:      udonrunner.AvailableBrowserDriverEnvironment(env),
 		Protocol:               fmt.Sprintf("v%d", protocolRank),
-		RegistrationInputUI:    protocolRank >= 5,
+		RegistrationInputUI:    registrationInputProtocol,
 		CredentialEnvironment:  credentialEnvironment,
 		SessionEnvironment:     sessionEnvironment,
 		ApprovedOperations:     approvedOperations,

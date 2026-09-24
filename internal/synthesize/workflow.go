@@ -1279,8 +1279,6 @@ func uwsInputType(value string) string {
 }
 
 type browserContractVersions struct {
-	Requires18            bool
-	Requires19            bool
 	ContextAuthentication map[string]bool
 	Profiles              map[string]*profile.Profile
 	Registrations         map[string]*registrationprofile.Profile
@@ -1331,16 +1329,8 @@ func browserContractVersionsForIntent(exampleDir string, intent *rollout.Intent)
 		if contract.registration != nil {
 			result.Registrations[source] = contract.registration
 		}
-		switch {
-		case kind == "browser" && contract.name == "uws.browser.1.7":
-			result.Requires19 = true
-		case kind == "browser" && contract.name == "uws.browser.1.6":
-			result.Requires18 = true
-		case kind == "browser_authentication" && contract.name == "uws.browser-authentication.1.1":
-			result.Requires18 = true
+		if kind == "browser_authentication" && contract.name == "uws.browser-authentication.1.1" {
 			result.ContextAuthentication[source] = true
-		case kind == "browser_registration" && (contract.name == browserregistration.ProfileName || contract.name == browserregistration.ProfileNameV11 || contract.name == browserregistration.ProfileNameV12):
-			result.Requires19 = true
 		}
 	})
 	return result, resultErr

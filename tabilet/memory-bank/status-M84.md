@@ -22,11 +22,15 @@ from UWS adoption.
 **Dependencies.** M84.1 requires the published UWS revision. M84.2 consumes
 reviewed Browsertools Browser 1.8/1.9 support and Udon/Browserdriver's private
 action protocol. M84.3 requires both rows. Ramen is outside this milestone.
+Published reviewed revisions are Browsertools `9333a9f25dbb17551998a429e123e7a9ba976648`
+(M30/M31), Browserdriver `8c13b70d30a500e65e90a95a203493301b8b21a5`
+(M14/M14.2), and Udon `080b8282e2b8f7ca7a9994b6d9f0e3d2891d853f`
+(M42). OpenUdon resolves Browsertools through its published pseudo-version.
 
 | Item | State | Notes |
 |---|---|---|
 | M84.1 | `[+]` | Pinned published UWS `e9b6181be0ab`; new synthesis emits 1.11.0, while loaded documents keep their declared versions. Updated generated-scenario expectations and three expired synthetic registration fixtures. Workspace and pinned `go test ./...`, `go vet ./...`, local CLI checks, example validation, and `git diff --check` passed. |
-| M84.2 | `[ ]` | After owner contracts are reviewed, accept Browser 1.8/1.9 in source/review/package/handoff paths, pin Browsertools, reject unsupported runtime combinations, and cover safe parameter/template flow with synthetic tests. |
+| M84.2 | `[+]` | Browser 1.8/1.9 source/review/transaction paths and active-source v10 runtime selection pass synthetic template, iCoT candidate, mixed-profile, and local/Docker runner handoff tests. Browsertools is pinned to published `9333a9f25dbb`; workspace and `GOWORK=off` `go test ./...`, `go vet ./...`, standalone build, module verification, CLI checks, example validation and diff check pass. Row review found no open P1/P2. |
 | M84.3 | `[ ]` | Reconcile public and memory-bank docs, run workspace and pinned builds/tests/vet plus one synthetic browser integration check, review the whole milestone, and record final compatibility evidence. |
 
 **Verification and review.** Run `go test ./...`, `go vet ./...`,
@@ -37,3 +41,10 @@ published. Review the milestone against acceptance before closure; row
 completion is one scoped commit each under local policy.
 
 **Review gate.** Not started.
+
+**Historical matrix boundary.** `make browser-integration-check` was tried
+against the M84 local stack and correctly stopped before running gates because
+the W13 browser-scenario compatibility lock fixes older Browserdriver,
+Browsertools, Udon and UWS revisions. That lock and its qualification history
+remain unchanged. M84 uses new focused OpenUdon handoff tests and Udon's local
+Browserdriver loopback smoke for adoption evidence.

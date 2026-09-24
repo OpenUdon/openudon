@@ -745,7 +745,7 @@ func canonicalEmbeddedProfile(raw json.RawMessage) ([]byte, error) {
 
 func allowedAuthenticatedProfilePair(authentication, capability string) bool {
 	return authentication == "uws.browser-authentication.1.1" &&
-		(capability == "uws.browser.1.5" || capability == "uws.browser.1.6" || capability == "uws.browser.1.7")
+		(capability == "uws.browser.1.5" || capability == "uws.browser.1.6" || capability == "uws.browser.1.7" || capability == "uws.browser.1.8" || capability == "uws.browser.1.9")
 }
 
 func validateAuthenticatedProfileSemantics(cfg liveAuthorConfig, envelope *authenticatedAuthoringEnvelope, authentication *authprofile.Profile, capability *profile.Profile) error {

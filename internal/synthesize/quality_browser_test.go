@@ -108,6 +108,34 @@ func TestValidateBrowserSourceReviewAcceptsOnlyBoundSuccessfulVerification(t *te
 	}
 }
 
+func TestValidateBrowserSourceReviewAcceptsVersionedTemplateProfile(t *testing.T) {
+	example := t.TempDir()
+	path := "browser-profiles/status.json"
+	fixture := string(synthesizeLongLivedBrowserProfileFixture(false, false, "term"))
+	fixture = strings.Replace(fixture, "uws.browser.1.5", "uws.browser.1.9", 1)
+	fixture = strings.Replace(fixture, `"navigate":"/status"`, `"navigate":"/status/{{term}}?label={{{{tag}}}}"`, 1)
+	data := []byte(fixture)
+	mustWriteSynthesizeTestFile(t, filepath.Join(example, filepath.FromSlash(path)), data)
+	value, err := profile.ParseJSON(data)
+	if err != nil {
+		t.Fatal(err)
+	}
+	digest := sha256.Sum256(data)
+	review := browserSourceReview{
+		Version: browserSourceReviewVersion, Route: "browser", SessionPosture: "none",
+		Sources: []browserReviewedSource{{
+			ID: "status", TargetPath: path, SHA256: hex.EncodeToString(digest[:]), Actions: value.SortedActionNames(),
+			Origins: []string(value.Info.Origin), Lifecycle: "active", ExpiresAt: "2126-08-15T00:00:00Z",
+			Provenance: "local:status.json", Verifications: []browserverify.Summary{synthesizeLiveVerification(t, value)},
+		}},
+	}
+	intent := &rollout.Intent{Source: path, Steps: []*rollout.Step{{Name: "read", Type: "browser", Source: path, Operation: "read_status", With: map[string]string{"term": "a/b"}}}}
+	at := time.Date(2026, 9, 24, 0, 0, 0, 0, time.UTC)
+	if err := validateBrowserSourceReview(example, []string{path}, intent, review, at); err != nil {
+		t.Fatal(err)
+	}
+}
+
 func TestBrowserSourceReviewStrictDecodeRejectsUnknownAndTrailingFields(t *testing.T) {
 	for _, data := range [][]byte{
 		[]byte(`{"version":"openudon.browser-source-review.v1","route":"browser","session_posture":"none","sources":[],"raw_capture":"secret"}`),

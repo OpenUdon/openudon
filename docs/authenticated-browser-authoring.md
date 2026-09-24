@@ -263,13 +263,14 @@ uniquely. A popup must be opened by one approved click that names
 depth cannot exceed four.
 
 Existing `uws.browser.1.5`, `uws.browser-authentication.1.0`, and call 1.0
-profiles remain accepted. Synthesis emits the oldest sufficient workflow
-version: old main-page profiles continue to produce UWS 1.7, while a browser
-1.6 or authentication 1.1 source selects UWS 1.8 and call 1.1 where required.
-Browser 1.7 selects UWS 1.9. It adds locale-free accessibility-text conversion
+profiles remain accepted. New synthesis declares UWS 1.11.0; existing
+packages keep their declared version. Authentication 1.1 uses call 1.1 where
+required. Browser 1.7 adds locale-free accessibility-text conversion
 for integer, number, and Boolean outputs; string text remains trimmed text and
 presence remains Boolean matching. Noncanonical or out-of-range values fail
-closed during trusted replay.
+closed during trusted replay. Reviewed Browser 1.8/1.9 capability profiles
+can be packaged with component-safe templates; runtime actions use the private
+v10 driver protocol.
 
 ## Authoring Is Not Runtime Replay
 

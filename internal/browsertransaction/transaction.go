@@ -399,7 +399,7 @@ func validCandidateSchema(kind CandidateKind, schema string) bool {
 	case CandidateAuthentication:
 		return schema == "uws.browser-authentication.1.0" || schema == "uws.browser-authentication.1.1"
 	case CandidateCapability:
-		return schema == "uws.browser.1.5" || schema == "uws.browser.1.6" || schema == "uws.browser.1.7"
+		return schema == "uws.browser.1.5" || schema == "uws.browser.1.6" || schema == "uws.browser.1.7" || schema == "uws.browser.1.8" || schema == "uws.browser.1.9"
 	case CandidateRegistration:
 		return schema == "uws.browser-registration.1.0" || schema == "uws.browser-registration.1.1" || schema == "uws.browser-registration.1.2"
 	default:
