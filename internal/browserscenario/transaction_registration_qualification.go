@@ -129,10 +129,15 @@ func (executor *realExecutor) runBRPQualification(ctx context.Context, environme
 			return evidence, errors.New("create BRP qualification directory")
 		}
 	}
-	exampleParent := filepath.Join(environment.RepoRoot, "eval", "runs")
-	if err := os.MkdirAll(exampleParent, 0o700); err != nil {
+	exampleParent, cleanupExampleParent, err := createRegistrationQualificationExampleParent(environment.RepoRoot)
+	if err != nil {
 		return evidence, errors.New("create BRP qualification example parent")
 	}
+	defer func() {
+		if cleanupErr := cleanupExampleParent(); cleanupErr != nil && resultErr == nil {
+			resultErr = errors.New("remove BRP qualification example parent")
+		}
+	}()
 	exampleDir, err := os.MkdirTemp(exampleParent, ".e11-brp-")
 	if err != nil {
 		return evidence, errors.New("create BRP qualification example")

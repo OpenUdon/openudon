@@ -41,8 +41,9 @@ Udon Go test gates clone its exact current source and fourteen locked sibling
 inputs to a temporary workspace; the native runner removes it before passing
 the stage and rechecks the original closure.
 Native registration UI, supervised control, and authenticated package fixtures
-also remove any empty `eval/runs` ancestry they create, preserving pre-existing
-paths so source rechecks stay clean.
+and the BRP transaction fixture remove any empty `eval/runs` ancestry they
+create, preserving pre-existing paths and rejecting symlink parents so source
+rechecks stay clean.
 
 ## Current Browser Authoring Tooling
 

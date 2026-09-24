@@ -18,6 +18,9 @@ readers keep their original lock and inventory. Native qualification stack
 selection is explicit: historical remains the default v2 path, and current
 native qualification emits v3 and routes scenario, build-input, BAP and BRP
 stages through the current lock and closure.
+BRP's temporary repository-local example parent is removed on every exit when
+the qualification created it; pre-existing paths are preserved and symlink
+parents are rejected so the per-stage clean-source check remains meaningful.
 
 ## Current Browser Authoring Boundary
 
