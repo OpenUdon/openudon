@@ -9,7 +9,7 @@
     "replay": "rejected",
     "failureCode": "ambiguous_locator",
     "browserProfile": "uws.browser.1.5",
-    "uwsVersion": "1.8.0"
+    "uwsVersion": "1.11.0"
   },
   "probes": [],
   "journey": {"kind": "record_update_ambiguous"}

@@ -7,6 +7,6 @@
   "outputs": [{"key": "plan_present", "type": "presence", "role": "region", "name": "Plan summary", "locatorMode": "exact_name"}],
   "fault": "origin_escape",
   "replayVariants": [],
-  "expected": {"authoring": "pass", "replay": "rejected", "failureCode": "origin_rejected", "browserProfile": "uws.browser.1.5", "uwsVersion": "1.8.0"},
+  "expected": {"authoring": "pass", "replay": "rejected", "failureCode": "origin_rejected", "browserProfile": "uws.browser.1.5", "uwsVersion": "1.11.0"},
   "probes": []
 }

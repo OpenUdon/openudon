@@ -11,7 +11,7 @@ import (
 	"github.com/OpenUdon/uws/uws1"
 )
 
-func TestGenerateWorkflowLowersContentTrustAndSelectsUWS191(t *testing.T) {
+func TestGenerateWorkflowLowersContentTrustWithUWS111Default(t *testing.T) {
 	example := t.TempDir()
 	relative := "browser-profiles/mail.json"
 	path := filepath.Join(example, filepath.FromSlash(relative))
@@ -38,7 +38,7 @@ func TestGenerateWorkflowLowersContentTrustAndSelectsUWS191(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if doc.UWS != "1.9.1" || doc.ContentTrust == nil {
+	if doc.UWS != "1.11.0" || doc.ContentTrust == nil {
 		t.Fatalf("version/contentTrust = %q/%#v", doc.UWS, doc.ContentTrust)
 	}
 	if len(doc.SourceDescriptions) != 1 || doc.ContentTrust.SourceDescriptions[doc.SourceDescriptions[0].Name] != uws1.ContentTrustUntrusted {

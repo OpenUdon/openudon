@@ -30,7 +30,7 @@ info:
 observationKind: accessibility_snapshot
 evidence: {learnedAt: "2026-08-25T00:00:00Z", source: synthetic_fixture}
 confidence: high
-expiresAfter: P30D
+expiresAfter: P100Y
 verification: {lastVerifiedAt: "2026-08-25T00:00:00Z"}
 credentialSlots:
   identifier: {kind: identifier}

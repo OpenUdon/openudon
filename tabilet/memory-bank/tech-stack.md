@@ -522,11 +522,11 @@ API source metadata discovery/indexing, and portable trusted executor handoff.
   remains a backward-compatible alias. OpenUdon infers source type from catalog metadata,
   directory convention, or parser behavior rather than adding a separate intent `source_type`.
 - The optional operator-authored `content_trust` intent block lowers to UWS
-  1.9.1 `uws1.ContentTrust`. Source labels remain package-relative paths until
+  `uws1.ContentTrust` (supported since 1.9.1). New workflows declare UWS 1.11.0;
+  existing packages retain their declared versions. Source labels remain package-relative paths until
   synthesis resolves generated source-description IDs; operation labels use
   the same stable lowering as leaf steps. Empty/no-op or unresolved objects
   fail closed. The structured LLM intent schema deliberately omits this field.
-  Declaration-free browser 1.7 packages retain UWS 1.9.0 output.
 - Package assessment invokes `contenttrust.Analyze` only when the generated
   document declares content trust. A package-local Browsertools M28 resolver
   stable-reads contained profiles; invalid or unavailable contracts become the

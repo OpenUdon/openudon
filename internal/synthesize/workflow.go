@@ -113,7 +113,7 @@ func generateWorkflowDocument(result Result, intent *rollout.Intent) (*uws1.Docu
 		idempotency = normalized.Workflow.Idempotency
 	}
 	doc := &uws1.Document{
-		UWS: uwsVersionForIntentAndBrowserContracts(normalized, browserVersions.Requires18, browserVersions.Requires19),
+		UWS: "1.11.0",
 		Info: &uws1.Info{
 			Title:       title,
 			Description: description,
@@ -1175,37 +1175,6 @@ func stringMapToAny(values map[string]string) map[string]any {
 	return out
 }
 
-func uwsVersionForIntentAndBrowserContracts(intent *rollout.Intent, requires18, requires19 bool) string {
-	if intent != nil && intent.ContentTrust != nil {
-		return "1.9.1"
-	}
-	if requires19 {
-		return "1.9.0"
-	}
-	if requires18 {
-		return "1.8.0"
-	}
-	if intentRequiresUWS17(intent) {
-		return "1.7.0"
-	}
-	if intentRequiresUWS15(intent) {
-		return "1.5.0"
-	}
-	if intentRequiresUWS14(intent) {
-		return "1.4.0"
-	}
-	if intentRequiresUWS13(intent) {
-		return "1.3.0"
-	}
-	if intentRequiresUWS12(intent) {
-		return "1.2.0"
-	}
-	if intentRequiresUWS11(intent) {
-		return "1.1.0"
-	}
-	return "1.0.0"
-}
-
 func lowerContentTrust(intent *rollout.ContentTrustIntent, sourceFor func(string) string) *uws1.ContentTrust {
 	trust := &uws1.ContentTrust{}
 	if intent == nil {
@@ -1456,126 +1425,6 @@ func browserProfileDiscriminator(exampleDir, relative, kind string) (string, *pr
 		return "", nil, fmt.Errorf("parse %s: %w", clean, err)
 	}
 	return strings.TrimSpace(value.Schema), value, nil
-}
-
-func intentRequiresUWS17(intent *rollout.Intent) bool {
-	if intent == nil {
-		return false
-	}
-	requires := false
-	walkIntentSteps(intent.Steps, func(step *rollout.Step) {
-		if step == nil || requires {
-			return
-		}
-		requires = strings.EqualFold(strings.TrimSpace(step.Type), "browser_authentication") || strings.TrimSpace(step.BrowserSession) != ""
-	})
-	return requires
-}
-
-func intentRequiresUWS15(intent *rollout.Intent) bool {
-	if intent == nil {
-		return false
-	}
-	if sourceDescriptionTypeForPath(firstNonEmpty(intent.Source, intent.OpenAPI)) == uws1.SourceDescriptionTypeBrowserProfile {
-		return true
-	}
-	requires := false
-	walkIntentSteps(intent.Steps, func(step *rollout.Step) {
-		if step != nil && !requires && sourceDescriptionTypeForPath(firstNonEmpty(step.Source, step.OpenAPI)) == uws1.SourceDescriptionTypeBrowserProfile {
-			requires = true
-		}
-	})
-	return requires
-}
-
-func intentRequiresUWS14(intent *rollout.Intent) bool {
-	if intent == nil {
-		return false
-	}
-	if sourceTypeRequiresUWS14(sourceDescriptionTypeForPath(firstNonEmpty(intent.Source, intent.OpenAPI))) {
-		return true
-	}
-	requires := false
-	walkIntentSteps(intent.Steps, func(step *rollout.Step) {
-		if step != nil && !requires && sourceTypeRequiresUWS14(sourceDescriptionTypeForPath(firstNonEmpty(step.Source, step.OpenAPI))) {
-			requires = true
-		}
-	})
-	return requires
-}
-
-func sourceTypeRequiresUWS14(sourceType uws1.SourceDescriptionType) bool {
-	switch sourceType {
-	case uws1.SourceDescriptionTypeGraphQL, uws1.SourceDescriptionTypeOpenRPC, uws1.SourceDescriptionTypeGRPCProtobuf, uws1.SourceDescriptionTypeOData:
-		return true
-	default:
-		return false
-	}
-}
-
-func intentRequiresUWS13(intent *rollout.Intent) bool {
-	if intent == nil {
-		return false
-	}
-	if sourceDescriptionTypeForPath(firstNonEmpty(intent.Source, intent.OpenAPI)) == uws1.SourceDescriptionTypeAsyncAPI {
-		return true
-	}
-	requires := false
-	walkIntentSteps(intent.Steps, func(step *rollout.Step) {
-		if step != nil && !requires && sourceDescriptionTypeForPath(firstNonEmpty(step.Source, step.OpenAPI)) == uws1.SourceDescriptionTypeAsyncAPI {
-			requires = true
-		}
-	})
-	return requires
-}
-
-func intentRequiresUWS12(intent *rollout.Intent) bool {
-	if intent == nil {
-		return false
-	}
-	if sourceDescriptionTypeForPath(firstNonEmpty(intent.Source, intent.OpenAPI)) != uws1.SourceDescriptionTypeOpenAPI {
-		return true
-	}
-	requires := false
-	walkIntentSteps(intent.Steps, func(step *rollout.Step) {
-		if step != nil && !requires && sourceDescriptionTypeForPath(firstNonEmpty(step.Source, step.OpenAPI)) != uws1.SourceDescriptionTypeOpenAPI {
-			requires = true
-		}
-	})
-	return requires
-}
-
-func intentRequiresUWS11(intent *rollout.Intent) bool {
-	if intent == nil {
-		return false
-	}
-	if intent.Workflow != nil && (intent.Workflow.Timeout != nil || intent.Workflow.Idempotency != nil) {
-		return true
-	}
-	var walk func([]*rollout.Step) bool
-	walk = func(steps []*rollout.Step) bool {
-		for _, step := range steps {
-			if step == nil {
-				continue
-			}
-			if step.Timeout != nil {
-				return true
-			}
-			if walk(step.Steps) {
-				return true
-			}
-			for _, branch := range step.Cases {
-				if branch != nil && walk(branch.Steps) {
-					return true
-				}
-			}
-			if step.Default != nil && walk(step.Default.Steps) {
-				return true
-			}
-		}
-		return false
-	}
-	return walk(intent.Steps)
 }
 
 func writeWorkflowHCL(result Result, doc *uws1.Document, intent *rollout.Intent) error {

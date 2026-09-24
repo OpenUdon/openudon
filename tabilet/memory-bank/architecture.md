@@ -605,7 +605,7 @@ Current generation policy:
 | Timeouts | Allowed only when explicit `openudon-policy` or intent metadata requests them. |
 | Idempotency | Allowed for explicit workflow-level UWS 1.1 metadata; OpenUdon does not inject API keys. |
 | Runtime profiles | Allowed only for existing validated UWS runtime supplement shapes and project/environment policy. |
-| Content trust | Allowed only through an explicit operator-authored registry. Its presence selects UWS 1.9.1; declaration-free browser 1.7 packages remain UWS 1.9.0. Assessment explicitly invokes UWS analysis, using Browsertools for contained browser-profile contracts, and emits warning-only quality/review evidence without entering ordinary validation or execution. |
+| Content trust | Allowed only through an explicit operator-authored registry. It requires UWS 1.9.1 or later; newly generated workflows declare UWS 1.11.0 and existing packages retain their declared versions. Assessment explicitly invokes UWS analysis, using Browsertools for contained browser-profile contracts, and emits warning-only quality/review evidence without entering ordinary validation or execution. |
 
 The public UWS runtime supplement is a slim non-HTTP invocation selector for extension-owned
 execution only. Public `x-uws-runtime` carries only `type`, `command`, `workingDir`, `function`,

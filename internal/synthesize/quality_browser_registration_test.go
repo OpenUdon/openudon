@@ -20,7 +20,7 @@ import (
 	"github.com/OpenUdon/uws/uws1"
 )
 
-func TestTypedRegistrationExportsUWS19AndExactInputBinding(t *testing.T) {
+func TestTypedRegistrationExportsUWS111AndExactInputBinding(t *testing.T) {
 	example := t.TempDir()
 	profile, err := registrationprofile.Parse(synthesizeBrowserRegistrationFixture())
 	if err != nil {
@@ -55,7 +55,7 @@ func TestTypedRegistrationExportsUWS19AndExactInputBinding(t *testing.T) {
 	if err := convert.UnmarshalYAML(exported, &restored); err != nil {
 		t.Fatal(err)
 	}
-	if restored.UWS != "1.9.0" || len(restored.Operations) != 1 || restored.Operations[0].ExtensionProfile() != browserregistration.CallProfileNameV11 {
+	if restored.UWS != "1.11.0" || len(restored.Operations) != 1 || restored.Operations[0].ExtensionProfile() != browserregistration.CallProfileNameV11 {
 		t.Fatal("typed registration exported with the wrong UWS version or operation profile")
 	}
 	call, ok, err := browserregistration.ReadRegistrationExtension(restored.Operations[0].Extensions)
@@ -170,7 +170,7 @@ func TestPackageFromIntentBuildsBrowserRegistrationWorkflow(t *testing.T) {
 	if !report.Passed() {
 		t.Fatalf("quality report failed: %#v", report.Checks)
 	}
-	assertPackageFileContains(t, example, "workflows/workflow.uws.yaml", "uws: 1.9.0", browserregistration.CallProfileName, "create_dedicated_test_user", "operator_attestation", "stop_without_retry", "delete_separately")
+	assertPackageFileContains(t, example, "workflows/workflow.uws.yaml", "uws: 1.11.0", browserregistration.CallProfileName, "create_dedicated_test_user", "operator_attestation", "stop_without_retry", "delete_separately")
 	workflowData, err := os.ReadFile(result.UWSPath)
 	if err != nil {
 		t.Fatal(err)
@@ -277,7 +277,7 @@ info:
 observationKind: accessibility_snapshot
 evidence: {learnedAt: "2026-08-25T00:00:00Z", source: synthetic_fixture}
 confidence: high
-expiresAfter: P30D
+expiresAfter: P100Y
 verification: {lastVerifiedAt: "2026-08-25T00:00:00Z", uiStabilityScore: 0.95}
 credentialSlots:
   identifier: {kind: identifier}

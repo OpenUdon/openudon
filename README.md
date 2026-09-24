@@ -36,9 +36,9 @@ gRPC/protobuf, and OData source documents as first-class UWS source descriptions
 executor supports them.
 
 An operator may also add reviewable content-provenance declarations to
-`workflows/intent.hcl`. OpenUdon emits UWS 1.9.1 only when that optional
-`contentTrust` registry is present; otherwise existing packages keep their
-previous UWS selection, including UWS 1.9.0 for browser 1.7. These declarations
+`workflows/intent.hcl`. Newly generated workflows declare UWS 1.11.0; existing
+packages retain their declared UWS version. The optional `contentTrust` registry
+requires UWS 1.9.1 or later. These declarations
 are metadata for advisory analysis and human/AI review, not execution approval
 or runtime policy. During assessment, declared packages are analyzed with the
 UWS analyzer and contained browser profiles use the Browsertools resolver.

@@ -521,7 +521,8 @@ experimental before v1.
 - **Content-trust intent** is the optional operator-authored provenance portion
   of intent. It names reviewed source paths, leaf-operation outputs, triggers,
   and external `main` workflow inputs using UWS levels `unknown`, `trusted`, or
-  `untrusted`. It selects UWS 1.9.1 but does not authorize execution, clear
+  `untrusted`. It requires UWS 1.9.1 or later; new workflows declare UWS 1.11.0.
+  It does not authorize execution, clear
   attacker control, or replace package approval and runtime policy.
 - **Content-trust analysis** is an explicit assessment-only UWS pass for
   packages with that registry. Browser operations use the contained

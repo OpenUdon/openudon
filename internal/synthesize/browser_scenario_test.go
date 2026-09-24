@@ -56,7 +56,7 @@ func TestWriteBrowserScenarioWorkflowSupportsOrderedParameterizedActions(t *test
 	if err != nil {
 		t.Fatal(err)
 	}
-	if result.UWSVersion != "1.7.0" {
+	if result.UWSVersion != "1.11.0" {
 		t.Fatalf("UWS version = %q", result.UWSVersion)
 	}
 	data, err := os.ReadFile(result.Path)

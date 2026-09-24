@@ -2262,7 +2262,7 @@ func TestPackageFromIntentBuildRegressionMatrix(t *testing.T) {
 				"uws.plan_match:pass",
 			},
 			wantFiles: map[string][]string{
-				"workflows/workflow.uws.yaml": {"uws: 1.2.0", "google-discovery/gmail.json", "gmail.users.messages.send"},
+				"workflows/workflow.uws.yaml": {"uws: 1.11.0", "google-discovery/gmail.json", "gmail.users.messages.send"},
 				"expected/plan.json":          {`"name": "gmail_message"`, `"operation": "gmail.users.messages.send"`},
 			},
 		},
@@ -2331,7 +2331,7 @@ func TestPackageFromIntentBuildRegressionMatrix(t *testing.T) {
 				"uws.plan_match:pass",
 			},
 			wantFiles: map[string][]string{
-				"workflows/workflow.uws.yaml": {"uws: 1.3.0", "asyncapi/events.yaml", "publishInvoice"},
+				"workflows/workflow.uws.yaml": {"uws: 1.11.0", "asyncapi/events.yaml", "publishInvoice"},
 				"expected/discovery.json":     {"OpenAPI directory is absent", "first-class API source documents"},
 				"expected/plan.json":          {`"name": "publish_invoice"`, `"operation": "publishInvoice"`},
 			},
@@ -2404,7 +2404,7 @@ func TestPackageFromIntentBuildRegressionMatrix(t *testing.T) {
 			},
 			wantFiles: map[string][]string{
 				"workflows/workflow.hcl":      {`body`, `Payload`, `Description`},
-				"workflows/workflow.uws.yaml": {"uws: 1.2.0", "aws-smithy/thing.json", "PutThing", "ThingId", "Payload", "Description"},
+				"workflows/workflow.uws.yaml": {"uws: 1.11.0", "aws-smithy/thing.json", "PutThing", "ThingId", "Payload", "Description"},
 				"expected/plan.json":          {`"name": "put_thing"`, `"operation": "PutThing"`, `"in": "body"`, `"name": "Payload"`, `"name": "Description"`, `"expected_credential": "example_sigv4"`},
 			},
 		},
@@ -2816,7 +2816,7 @@ func TestGenerateWorkflowPreservesTriggerRoutesOptionsAndOutputs(t *testing.T) {
 	}
 }
 
-func TestGenerateWorkflowUsesUWS11ForTimeoutAndIdempotency(t *testing.T) {
+func TestGenerateWorkflowUsesUWS111ByDefaultWithTimeoutAndIdempotency(t *testing.T) {
 	timeout := 10.0
 	ttl := 60.0
 	doc, err := generateWorkflowDocument(Result{ExampleDir: t.TempDir()}, &rollout.Intent{
@@ -2835,7 +2835,7 @@ func TestGenerateWorkflowUsesUWS11ForTimeoutAndIdempotency(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if doc.UWS != "1.1.0" {
+	if doc.UWS != "1.11.0" {
 		t.Fatalf("UWS version = %q", doc.UWS)
 	}
 }

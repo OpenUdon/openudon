@@ -12,6 +12,6 @@
     {"key": "plan_present", "type": "presence", "role": "region", "name": "Plan summary", "locatorMode": "exact_name"}
   ],
   "replayVariants": [],
-  "expected": {"authoring": "pass", "replay": "pass", "browserProfile": "uws.browser.1.7", "uwsVersion": "1.9.0"},
+  "expected": {"authoring": "pass", "replay": "pass", "browserProfile": "uws.browser.1.7", "uwsVersion": "1.11.0"},
   "probes": []
 }

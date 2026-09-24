@@ -6,6 +6,6 @@
   "goal": {"context": "main", "role": "heading", "name": "Member dashboard"},
   "outputs": [{"key": "summary", "type": "string", "role": "article", "locatorMode": "unique_role"}],
   "replayVariants": [],
-  "expected": {"authoring": "pass", "replay": "pass", "browserProfile": "uws.browser.1.5", "uwsVersion": "1.8.0"},
+  "expected": {"authoring": "pass", "replay": "pass", "browserProfile": "uws.browser.1.5", "uwsVersion": "1.11.0"},
   "probes": []
 }

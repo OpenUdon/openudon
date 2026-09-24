@@ -1,5 +1,14 @@
 # Milestone
 
+## UWS 1.11 and Browser 1.8/1.9 adoption — M84
+
+[M84](status-M84.md) adopts the published UWS 1.11 contract for newly
+generated workflows and adds Browser 1.8/1.9 authoring, packaging and trusted
+handoff after Browsertools, Browserdriver and Udon have compatible reviewed
+implementations. Existing packaged documents retain their declared versions.
+This work does not rewrite W13/W16 qualification history or authorize live
+browser or target actions.
+
 ## Canonical authenticated navigation — W13.1u
 
 E20.6 implements retained structural-query navigation with existing containment and
@@ -1221,6 +1230,9 @@ and runtime adoption are recorded in W8M's own ledgers.
 | M79 | [status-M79.md](status-M79.md) | Complete locally: three full passes and review iteration 5; publication and operational adoption remain separate. |
 | M80 | [status-M80.md](status-M80.md) | Complete locally: shared supervised authoring and packaging; W08 review iteration 2. |
 | M81 | [status-M81.md](status-M81.md) | Complete locally: W8M integration, three complete qualification units and W09 review iteration 6. |
+| M82 | [status-M82.md](status-M82.md) | Complete private v2 registration recovery attestation. |
+| M83 | [status-M83.md](status-M83.md) | Complete private v3 registration recovery attestation. |
+| M84 | [status-M84.md](status-M84.md) | Active UWS 1.11 and Browser 1.8/1.9 adoption. |
 | A01 | [status-A01.md](status-A01.md) | API-first browser-profile fallback authoring. |
 | A02 | [status-A02.md](status-A02.md) | Additive browser authentication and named-session authoring. |
 | A03 | [status-A03.md](status-A03.md) | Browsertools authoring handoff and guided-result consumption. |

@@ -23,6 +23,6 @@
     {"key": "metric_16", "type": "string", "role": "heading", "name": "Metric 16", "locatorMode": "exact_name"}
   ],
   "replayVariants": [],
-  "expected": {"authoring": "pass", "replay": "pass", "browserProfile": "uws.browser.1.5", "uwsVersion": "1.8.0"},
+  "expected": {"authoring": "pass", "replay": "pass", "browserProfile": "uws.browser.1.5", "uwsVersion": "1.11.0"},
   "probes": []
 }

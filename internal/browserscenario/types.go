@@ -259,7 +259,7 @@ func validateLoopbackManifest(manifest Manifest) error {
 func validateJourneyManifest(manifest Manifest) error {
 	if manifest.Authentication != nil || manifest.Goal != nil || len(manifest.Outputs) != 0 || manifest.Fault != "" || manifest.Target != nil || len(manifest.Probes) != 0 || manifest.Quarantine != nil || manifest.Journey == nil ||
 		!allowedJourneyKinds[manifest.Journey.Kind] || manifest.Expected.Authoring != "pass" || !allowedOutcome[manifest.Expected.Replay] || !allowedJourneyFailureCodes[manifest.Expected.FailureCode] ||
-		manifest.Expected.BrowserProfile != "uws.browser.1.5" || manifest.Expected.UWSVersion != "1.8.0" {
+		manifest.Expected.BrowserProfile != "uws.browser.1.5" || manifest.Expected.UWSVersion != "1.11.0" {
 		return fmt.Errorf("journey scenario boundary is invalid")
 	}
 	if manifest.ID != strings.ReplaceAll(manifest.Journey.Kind, "_", "-") {
@@ -293,7 +293,7 @@ func validateJourneyExpectedContract(manifest Manifest) error {
 
 func validatePublicManifest(manifest Manifest, now time.Time) error {
 	if manifest.Authentication != nil || manifest.Goal != nil || len(manifest.Outputs) != 0 || manifest.Fault != "" || len(manifest.ReplayVariants) != 0 ||
-		manifest.Expected.Authoring != "pass" || manifest.Expected.Replay != "pass" || manifest.Expected.FailureCode != "" || manifest.Expected.BrowserProfile != "uws.browser.1.5" || manifest.Expected.UWSVersion != "1.7.0" || manifest.Target == nil || manifest.Journey != nil {
+		manifest.Expected.Authoring != "pass" || manifest.Expected.Replay != "pass" || manifest.Expected.FailureCode != "" || manifest.Expected.BrowserProfile != "uws.browser.1.5" || manifest.Expected.UWSVersion != "1.11.0" || manifest.Target == nil || manifest.Journey != nil {
 		return fmt.Errorf("public scenario boundary is invalid")
 	}
 	parsed, err := url.Parse(manifest.Target.URL)

@@ -11,7 +11,7 @@ import (
 	"github.com/OpenUdon/uws/uws1"
 )
 
-func TestGenerateWorkflowDocumentEmitsUWS12TypedSource(t *testing.T) {
+func TestGenerateWorkflowDocumentEmitsUWS111TypedSource(t *testing.T) {
 	example := t.TempDir()
 	dir := filepath.Join(example, "google-discovery")
 	if err := os.MkdirAll(dir, 0o755); err != nil {
@@ -37,8 +37,8 @@ func TestGenerateWorkflowDocumentEmitsUWS12TypedSource(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if doc.UWS != "1.2.0" {
-		t.Fatalf("UWS version = %q, want 1.2.0", doc.UWS)
+	if doc.UWS != "1.11.0" {
+		t.Fatalf("UWS version = %q, want 1.11.0", doc.UWS)
 	}
 	if len(doc.SourceDescriptions) != 1 || doc.SourceDescriptions[0].Type != uws1.SourceDescriptionTypeGoogleDiscovery {
 		t.Fatalf("sourceDescriptions = %#v", doc.SourceDescriptions)
@@ -55,7 +55,7 @@ func TestGenerateWorkflowDocumentEmitsUWS12TypedSource(t *testing.T) {
 	}
 }
 
-func TestGenerateWorkflowDocumentEmitsUWS13AsyncAPISource(t *testing.T) {
+func TestGenerateWorkflowDocumentEmitsUWS111AsyncAPISource(t *testing.T) {
 	example := t.TempDir()
 	mustWriteSynthesizeTestFile(t, filepath.Join(example, "asyncapi", "events.yaml"), []byte(minimalAsyncAPIDocument()))
 	intent := &rollout.Intent{
@@ -76,8 +76,8 @@ func TestGenerateWorkflowDocumentEmitsUWS13AsyncAPISource(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if doc.UWS != "1.3.0" {
-		t.Fatalf("UWS version = %q, want 1.3.0", doc.UWS)
+	if doc.UWS != "1.11.0" {
+		t.Fatalf("UWS version = %q, want 1.11.0", doc.UWS)
 	}
 	if len(doc.SourceDescriptions) != 1 || doc.SourceDescriptions[0].Type != uws1.SourceDescriptionTypeAsyncAPI {
 		t.Fatalf("sourceDescriptions = %#v", doc.SourceDescriptions)
@@ -95,7 +95,7 @@ func TestGenerateWorkflowDocumentEmitsUWS13AsyncAPISource(t *testing.T) {
 	}
 }
 
-func TestGenerateWorkflowDocumentEmitsUWS14GraphQLSource(t *testing.T) {
+func TestGenerateWorkflowDocumentEmitsUWS111GraphQLSource(t *testing.T) {
 	example := t.TempDir()
 	mustWriteSynthesizeTestFile(t, filepath.Join(example, "graphql", "schema.graphql"), []byte(`type Query { hero(episode: String): String }`))
 	intent := &rollout.Intent{
@@ -112,8 +112,8 @@ func TestGenerateWorkflowDocumentEmitsUWS14GraphQLSource(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if doc.UWS != "1.4.0" {
-		t.Fatalf("UWS version = %q, want 1.4.0", doc.UWS)
+	if doc.UWS != "1.11.0" {
+		t.Fatalf("UWS version = %q, want 1.11.0", doc.UWS)
 	}
 	if len(doc.SourceDescriptions) != 1 || doc.SourceDescriptions[0].Type != uws1.SourceDescriptionTypeGraphQL {
 		t.Fatalf("sourceDescriptions = %#v", doc.SourceDescriptions)
@@ -123,7 +123,7 @@ func TestGenerateWorkflowDocumentEmitsUWS14GraphQLSource(t *testing.T) {
 	}
 }
 
-func TestGenerateWorkflowDocumentEmitsUWS15BrowserProfileSource(t *testing.T) {
+func TestGenerateWorkflowDocumentEmitsUWS111BrowserProfileSource(t *testing.T) {
 	example := t.TempDir()
 	path := "browser-profiles/editor.json"
 	mustWriteSynthesizeTestFile(t, filepath.Join(example, filepath.FromSlash(path)), synthesizeBrowserProfileFixture(true, false, "note"))
@@ -140,8 +140,8 @@ func TestGenerateWorkflowDocumentEmitsUWS15BrowserProfileSource(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if doc.UWS != "1.5.0" {
-		t.Fatalf("UWS version = %q, want 1.5.0", doc.UWS)
+	if doc.UWS != "1.11.0" {
+		t.Fatalf("UWS version = %q, want 1.11.0", doc.UWS)
 	}
 	if len(doc.SourceDescriptions) != 1 || doc.SourceDescriptions[0].Type != uws1.SourceDescriptionTypeBrowserProfile || doc.SourceDescriptions[0].URL != path {
 		t.Fatalf("browser sourceDescriptions = %#v", doc.SourceDescriptions)
@@ -189,8 +189,8 @@ func TestGenerateWorkflowDocumentCanonicalizesODataSourceOperationID(t *testing.
 	if err != nil {
 		t.Fatal(err)
 	}
-	if doc.UWS != "1.4.0" {
-		t.Fatalf("UWS version = %q, want 1.4.0", doc.UWS)
+	if doc.UWS != "1.11.0" {
+		t.Fatalf("UWS version = %q, want 1.11.0", doc.UWS)
 	}
 	if len(doc.SourceDescriptions) != 1 || doc.SourceDescriptions[0].Type != uws1.SourceDescriptionTypeOData {
 		t.Fatalf("sourceDescriptions = %#v", doc.SourceDescriptions)
