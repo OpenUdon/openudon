@@ -10,13 +10,12 @@ The exact commits, digests, and bounded review are preserved in the
 not reclassify an earlier failure or authorize a public canary, live account,
 or runtime adoption.
 
-The UWS 1.11 real-browser M86 and E15 registration-verification integration
-milestones are complete. E15 closed against W8M W16.4i.39d synthetic
-qualification, independent evidence checks and exact pass-one adoption. Its
-complete specification and status history are in the
-[E15 history record](../docs/history/status-E15.md). E18 initialization-diagnostics integration
-remains active; its blocked qualification and current scope are in
-[status-E18.md](status-E18.md).
+The UWS 1.11 real-browser M86, E15 registration-verification integration,
+and E18 initialization-diagnostics integration milestones are complete. E15
+and E18 closed against W8M W16.4i.39d synthetic qualification, independent
+evidence checks and exact pass-one adoption. Their complete specifications and
+status histories are in the [E15 history record](../docs/history/status-E15.md)
+and [E18 history record](../docs/history/status-E18.md).
 
 The original .34d `controller/worker_protocol` cause remains unresolved. W8M's
 separate .34e live probe failed/consumed with `verification_timeout`, zero
@@ -24,21 +23,11 @@ application POSTs and unresolved provider cause; W8M real acceptance remains
 incomplete and owner-scoped. These outcomes authorize no new browser, account
 or live operation.
 
-The history index holds 134 legacy-preserved status IDs and one normally reviewed
-completion. Legacy-preserved records retain exact source bytes and the frozen
-milestone text, but do not establish acceptance by themselves. Search the history
-by ID when needed.
+The history index holds 134 legacy-preserved status IDs and two normally reviewed completions. Legacy-preserved records retain exact source bytes and the frozen milestone text, but do not establish acceptance by themselves. Search the history by ID when needed.
 
 ## Active Milestone Specifications
 
-## E18 — Initialization diagnostics integration
-
-[status-E18.md](status-E18.md) records exact published pins and the consumed
-W16.4i.34d qualification. The first two native repetitions pass; the third
-fails at synthetic mfa-sms-otp authoring with `controller/worker_protocol`.
-Registration driver stages pass, but no W8M journey, adoption, or live probe
-follows. A focused authoring investigation and newly reviewed qualification
-scope are prerequisites to closure.
+No active milestone specifications remain.
 
 ## Memory Bank Index
 
@@ -97,8 +86,8 @@ external services.
 
 ## Active And Parked Tracks
 
-- Active: E18 remains blocked, with scope and evidence in its status record.
-  No automatic retry or live authorization follows from this index.
+- Active: no unresolved milestone status files. Any new work requires an
+  approved direction and dependency review.
 - Parked: real-provider evidence, live W8M operation, and public canaries need
   separately approved scope and authority.
 - Completed history: use the [history index](../docs/history/index.md) for
@@ -106,12 +95,8 @@ external services.
 
 ## Status Files
 
-Only status files with unresolved task rows remain active. Search the history
-index before allocating an ID; legacy-preserved IDs remain reserved.
-
-| Milestone | Status File | Summary |
-|---|---|---|
-| E18 | [status-E18.md](status-E18.md) | Initialization diagnostics integration; blocked qualification. |
+No active status files remain. The memory bank remains initialized; search the
+history index before allocating a future ID.
 
 ## Requested Changes After Initialization
 
@@ -218,9 +203,9 @@ adopted; an explicit cleanup request and adequate closure evidence are needed.
 
 The owner approved one explicit legacy preservation migration on 2026-09-24.
 It moved 134 status files whose task rows were all terminal into the history
-index, leaving blocked E15 and E18 active at that time. E15 later completed
-under the normal reviewed procedure; see its permanent history record. E18 remains
-active. The source status documents retain
+index, leaving blocked E15 and E18 active at that time. Both later completed
+under the normal reviewed procedure; see their permanent history records. The
+source status documents retain
 their exact bytes in individual records; the complete pre-migration milestone
 text is frozen at
 [`milestone-before-legacy-retirement.md.txt`](../docs/history/milestone-before-legacy-retirement.md.txt),

@@ -40,11 +40,10 @@ When retired history exists, consult its index and records only for an old ID,
 dependency, or historical question. Current facts remain in the memory bank.
 The 2026-09-24 `legacy-preserved` records are a one-time exact-source migration:
 they reserve IDs and preserve evidence, but do not establish review, acceptance,
-or dependency completion. E15 was left active by that migration while blocked,
-then completed under the normal reviewed closure procedure. E18 remains active
-because it still has blocked rows. Find E15 by ID in the history index; E18
-remains in the memory bank. Future retirement follows the normal reviewed
-closure gate in milestone.md.
+or dependency completion. E15 and E18 were left active by that migration while
+blocked; both have since completed under the normal reviewed closure procedure.
+Find them by ID in the history index. Future retirement follows the normal
+reviewed closure gate in milestone.md.
 
 This project exposes [tabilet/GOAL.md](tabilet/GOAL.md), one optional protocol for goal requests
 that span multiple status files. Follow it only when a request names it.
