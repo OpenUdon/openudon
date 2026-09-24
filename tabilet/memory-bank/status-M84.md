@@ -31,7 +31,7 @@ Published reviewed revisions are Browsertools `9333a9f25dbb17551998a429e123e7a9b
 |---|---|---|
 | M84.1 | `[+]` | Pinned published UWS `e9b6181be0ab`; new synthesis emits 1.11.0, while loaded documents keep their declared versions. Updated generated-scenario expectations and three expired synthetic registration fixtures. Workspace and pinned `go test ./...`, `go vet ./...`, local CLI checks, example validation, and `git diff --check` passed. |
 | M84.2 | `[+]` | Browser 1.8/1.9 source/review/transaction paths and active-source v10 runtime selection pass synthetic template, iCoT candidate, mixed-profile, and local/Docker runner handoff tests. Browsertools is pinned to published `9333a9f25dbb`; workspace and `GOWORK=off` `go test ./...`, `go vet ./...`, standalone build, module verification, CLI checks, example validation and diff check pass. Row review found no open P1/P2. |
-| M84.3 | `[ ]` | Reconcile public and memory-bank docs, run workspace and pinned builds/tests/vet plus one synthetic browser integration check, review the whole milestone, and record final compatibility evidence. |
+| M84.3 | `[+]` | Public and memory-bank docs describe UWS 1.11 output, Browser 1.8/1.9, v10 handoff and the historical matrix lock. Final workspace and `GOWORK=off` full tests/vet, standalone build/module verification, focused synthetic browser handoff tests, CLI checks, example validation and diff check pass. Udon's local Browserdriver loopback smoke exercised Browser 1.9 and a legacy action in one authenticated session. Whole-milestone review iteration 1 found no open P1/P2. |
 
 **Verification and review.** Run `go test ./...`, `go vet ./...`,
 `go run ./cmd/openudon check`, `go run ./cmd/openudon check-apitools-boundary`,
@@ -40,7 +40,11 @@ and `git diff --check`. Compare `GOWORK=off` with workspace mode after pins are
 published. Review the milestone against acceptance before closure; row
 completion is one scoped commit each under local policy.
 
-**Review gate.** Not started.
+**Review gate.** Complete at iteration 1. Reviewed M84.1 and M84.2 changes
+against the UWS 1.11, Browser 1.8/1.9, private v10 handoff and historical
+compatibility boundaries. No open P1/P2 finding remains. The pinned
+Browsertools module resolves from the published revision; published
+Browserdriver and Udon revisions match the locally tested owners.
 
 **Historical matrix boundary.** `make browser-integration-check` was tried
 against the M84 local stack and correctly stopped before running gates because

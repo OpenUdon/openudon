@@ -8,6 +8,11 @@ handoff after Browsertools, Browserdriver and Udon have compatible reviewed
 implementations. Existing packaged documents retain their declared versions.
 This work does not rewrite W13/W16 qualification history or authorize live
 browser or target actions.
+Implementation and bounded review iteration 1 are complete; workspace and
+standalone module checks pass against published owner revisions. The historical
+browser integration matrix remains locked to its earlier qualification set;
+M84 uses focused synthetic handoff tests and a local Browserdriver loopback
+smoke. See [status-M84](status-M84.md) for the exact revisions and checks.
 
 ## Canonical authenticated navigation — W13.1u
 
@@ -1232,7 +1237,7 @@ and runtime adoption are recorded in W8M's own ledgers.
 | M81 | [status-M81.md](status-M81.md) | Complete locally: W8M integration, three complete qualification units and W09 review iteration 6. |
 | M82 | [status-M82.md](status-M82.md) | Complete private v2 registration recovery attestation. |
 | M83 | [status-M83.md](status-M83.md) | Complete private v3 registration recovery attestation. |
-| M84 | [status-M84.md](status-M84.md) | Active UWS 1.11 and Browser 1.8/1.9 adoption. |
+| M84 | [status-M84.md](status-M84.md) | Complete locally: UWS 1.11 and Browser 1.8/1.9 adoption; review iteration 1. |
 | A01 | [status-A01.md](status-A01.md) | API-first browser-profile fallback authoring. |
 | A02 | [status-A02.md](status-A02.md) | Additive browser authentication and named-session authoring. |
 | A03 | [status-A03.md](status-A03.md) | Browsertools authoring handoff and guided-result consumption. |
