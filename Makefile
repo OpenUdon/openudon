@@ -54,7 +54,7 @@ release-saas-check:
 	$(MAKE) icot-variants-coverage
 	$(MAKE) icot-authoring-scorecard
 	$(MAKE) validate-uws
-	$(GO) run ./cmd/openudon check-doc-memory
+	cd tabilet && $(GO) run ../cmd/openudon check-doc-memory
 	$(GO) run ./cmd/openudon n8n-bridge validate --root examples/eval
 	mkdocs build --strict --site-dir $(OPENUDON_RELEASE_SITE_DIR)
 	for fixture in $(OPENUDON_RELEASE_SAAS_FIXTURES); do \
@@ -87,7 +87,7 @@ browser-integration-check:
 	$(GO) run ./cmd/openudon browser-integration-eval --verify "$(OPENUDON_BROWSER_INTEGRATION_OUT)"
 
 browser-scenario-loopback:
-	$(GO) run ./cmd/openudon browser-scenario-eval --suite loopback --require-ready --out "$(OPENUDON_BROWSER_SCENARIO_LOOPBACK_OUT)"
+	$(GO) run ./cmd/openudon browser-scenario-eval --suite loopback --stack current --require-ready --out "$(OPENUDON_BROWSER_SCENARIO_LOOPBACK_OUT)"
 	$(GO) run ./cmd/openudon browser-scenario-eval --verify "$(OPENUDON_BROWSER_SCENARIO_LOOPBACK_OUT)"
 
 browser-transaction-bap-bcp:
@@ -116,7 +116,7 @@ browser-transaction-qualification:
 	$(GO) run ./cmd/openudon browser-transaction-eval --verify "$(OPENUDON_BROWSER_TRANSACTION_QUALIFICATION_OUT)"
 
 browser-scenario-journey:
-	$(GO) run ./cmd/openudon browser-scenario-eval --suite journey --require-ready --out "$(OPENUDON_BROWSER_SCENARIO_JOURNEY_OUT)"
+	$(GO) run ./cmd/openudon browser-scenario-eval --suite journey --stack current --require-ready --out "$(OPENUDON_BROWSER_SCENARIO_JOURNEY_OUT)"
 	$(GO) run ./cmd/openudon browser-scenario-eval --verify "$(OPENUDON_BROWSER_SCENARIO_JOURNEY_OUT)"
 
 browser-scenario-public:
@@ -198,7 +198,7 @@ OPENUDON_SMOKE_REUSE ?= false
 .PHONY: fast smoke qualify
 fast:
 	$(GO) test ./...
-	$(GO) run ./cmd/openudon check-doc-memory
+	cd tabilet && $(GO) run ../cmd/openudon check-doc-memory
 smoke:
 	$(GO) run ./cmd/openudon browser-system-dev --mode smoke --stage "$(OPENUDON_SMOKE_STAGE)" --udon-repo "$(OPENUDON_BROWSER_SYSTEM_UDON_REPO)" --out "$(OPENUDON_SMOKE_OUT)" --cache "$(OPENUDON_SMOKE_CACHE)" --reuse=$(OPENUDON_SMOKE_REUSE)
 qualify: browser-system-check

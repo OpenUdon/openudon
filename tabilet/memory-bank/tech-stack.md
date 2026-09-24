@@ -773,6 +773,15 @@ API source metadata discovery/indexing, and portable trusted executor handoff.
   unrelated failures remain `unclassified` and cannot satisfy negative cases.
   Hosted Ubuntu jobs explicitly enable sandbox-compatible user namespaces and
   never launch Chromium with `--no-sandbox`.
+- M86 adds `--stack current|historical` to the scenario CLI. Historical remains
+  the CLI/default local-qualification selection and keeps its original lock,
+  corpus and v1 report readers. Make and hosted release checks explicitly use
+  current for local loopback/journey: the current lock matches M85's published
+  UWS 1.11 stack, and v2 reports select it by version. The current journey
+  corpus has eleven cases, including Browser 1.8/1.9 templates and a mixed
+  1.5/1.9 named v10 session; current passing verification requires the full
+  23-case or eleven-case inventory. The Node readiness launch now requires
+  `chromiumSandbox: true`. Browser execution acceptance is tracked by M86.
 - A browser suite with no executed scenario reports `not_run`, which is valid
   for structural inspection but never a passing release result. Probe, build,
   and scenario subprocesses have fixed 30-second, two-minute, and three-minute

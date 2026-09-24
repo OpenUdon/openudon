@@ -101,6 +101,10 @@ is recorded honestly as `skipped`; the evaluator never installs it. These
 flags do not authorize a real website, account, credential, MFA challenge, or
 production side effect.
 
+M86 qualification requests both flags together and requires all three opt-in
+gates to pass, producing 19 passed, zero failed and zero skipped gates. A
+doctor inventory result alone is not evidence of a browser launch.
+
 The generated report is release evidence, not runtime authority. Keep any
 private Browsertools cache, guided evidence, assisted-authentication bundle,
 raw/rich capture, cookie, storage state, or live session outside OpenUdon

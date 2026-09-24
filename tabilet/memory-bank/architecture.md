@@ -1083,6 +1083,16 @@ lock and emits a v2 report with named Browser 1.8/1.9 and v10 evidence. Its
 verifier dispatches v1 reports to the original lock and gate inventory, so
 later source qualification does not redefine prior report meaning.
 
+M86 adds a distinct current-stack scenario lock and v2 local report dispatch.
+Historical v1 scenario reports and the 23+8 corpus retain their meaning. The
+current loopback suite reuses the 23 cases; the current journey suite adds
+three reviewed local Browser 1.8/1.9 template cases, including one mixed
+legacy/modern named session through v10. The current verifier requires its
+exact sibling revisions, module pins, closed assertions and complete local
+inventory for passing release evidence. Make and hosted release checks select
+the current stack explicitly; public canaries keep the historical opt-in.
+Real-browser qualification and exact report digests remain M86 acceptance.
+
 The scenario JSON boundary pre-scans tokens recursively and rejects duplicate
 decoded keys in every object before unknown-field decoding, so no consumer can
 select a different repeated value. Hosted Ubuntu release/public jobs retain

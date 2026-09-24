@@ -74,7 +74,7 @@ Rule of thumb:
 go test ./...
 go run ./cmd/openudon check
 go run ./cmd/openudon check-apitools-boundary
-go run ./cmd/openudon check-doc-memory
+(cd tabilet && go run ../cmd/openudon check-doc-memory)
 go run ./cmd/openudon validate ./examples/uws-validation
 make check
 ```

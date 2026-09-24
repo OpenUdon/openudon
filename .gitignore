@@ -3,6 +3,7 @@ examples/support-priority-routing/
 examples/eval/mucker-next-steps-agent/
 
 site/
+/scenario-deps/
 .openudon-run/
 approvals/
 articles/

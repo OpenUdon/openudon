@@ -96,7 +96,7 @@ For a SaaS release candidate, collect deterministic evidence first:
   sidecar, including retention/share-safety metadata, with `icot report verify`;
 - `make release-saas-check`;
 - `go run ./cmd/openudon validate ./examples/uws-validation`;
-- `go run ./cmd/openudon check-doc-memory`;
+- `(cd tabilet && go run ../cmd/openudon check-doc-memory)`;
 - `go run ./cmd/openudon n8n-bridge validate --root examples/eval`;
 - `mkdocs build --strict`;
 - selected strict SaaS fixture lint with `cmd/icot`;

@@ -7,13 +7,19 @@ process output.
 
 | Suite | Purpose | Authority | Release posture |
 |---|---|---|---|
-| `loopback` | Deterministic Browsertools author-session v2 through OpenUdon staging, UWS synthesis, Udon v3 lowering, and Browserdriver v3 replay | Local random-port HTTP only; headed Chromium; synthetic credential values remain inside trusted replay | Required real-browser release gate |
-| `journey` | Realistic reviewed read/write workflows from Browsertools guided authoring through strict OpenUdon import, UWS 1.8 synthesis, Udon v3, and Browserdriver v3 | Local random-port HTTP only; headless Chromium; fixture state is inspected after replay | Required real-browser release gate |
+| `loopback` | Deterministic Browsertools author-session v2 through OpenUdon staging and trusted replay | Local random-port HTTP only; headed Chromium; synthetic credential values remain inside trusted replay | Required current-stack real-browser release gate |
+| `journey` | Reviewed read/write workflows plus Browser 1.8/1.9 template and mixed-session replay | Local random-port HTTP only; headless Chromium; fixture state is inspected after replay | Required current-stack real-browser release gate |
 | `public` | Detect external markup, accessibility-name, resource-origin, and runtime drift | Explicit `--allow-network`; four fixed anonymous HTTPS targets; headless read-only presence checks | Weekly/manual informational canary |
 
 The separate [Browser Integration Evaluation](browser-integration-eval.md)
 remains the fast browser-free contract matrix. Ordinary `go test`, `make
 check`, and `make release-check` do not launch or install a browser.
+
+`make browser-scenario-loopback`, `make browser-scenario-journey`, and the
+hosted release workflow explicitly select `--stack current`. The CLI defaults
+to `--stack historical` for existing callers and local qualification. Public
+canaries remain historical and require their separate network opt-in. The
+historical compatibility lock and v1 report readers are unchanged.
 
 ## Run The Deterministic Loopback Suite
 
@@ -57,6 +63,7 @@ Run a bounded subset by repeating `--scenario`:
 ```bash
 go run ./cmd/openudon browser-scenario-eval \
   --suite loopback \
+  --stack current \
   --scenario mfa-totp-scalars \
   --scenario popup-context \
   --require-ready \
@@ -79,6 +86,7 @@ make browser-scenario-journey
 # Run selected cases:
 go run ./cmd/openudon browser-scenario-eval \
   --suite journey \
+  --stack current \
   --scenario catalog-search-filter \
   --scenario record-update-approved \
   --require-ready \
@@ -93,6 +101,13 @@ parameter failures, and isolation between two complete executions. The local
 application exercises `type_text`, radio and checkbox state, `select_option`,
 click navigation waits, locator waits, typed outputs, exact mutation counts,
 and final server state.
+
+The current stack retains all eight cases and adds three required local cases:
+Browser 1.8 path/query substitution with an exact signed 64-bit integer,
+Browser 1.9 literal-brace and text-sink substitution at the safe-integer
+boundary, and a browser 1.5 then browser 1.9 action in one named v10 session.
+The three modern cases use schema-checked local profiles and exact server
+postconditions. The eight earlier cases keep their guided-authoring import.
 
 Each case builds a deterministic `browsertools.guided-authoring.v1` bundle
 from normalized reviewed evidence, feeds it back through OpenUdon's strict
@@ -178,8 +193,12 @@ them only in its private failure sidecar. The author-session v2 protocol and
 public report formats are unchanged. A retained `browser_failure` identifies a
 producer category, not its underlying browser error or historical cause.
 
-Loopback and public reports use `openudon.browser-scenario-eval.v1`; journey
-reports use `openudon.browser-journey-eval.v1`. Every report has an adjacent
+Historical loopback/public reports use `openudon.browser-scenario-eval.v1` and
+historical journey reports use `openudon.browser-journey-eval.v1`. The current
+local suites use `openudon.browser-scenario-eval.v2` and
+`openudon.browser-journey-eval.v2`. The verifier selects the matching lock and
+requires the complete 23-case or 11-case inventory for a passing current
+release report. Filtered current runs remain diagnostics. Every report has an adjacent
 `.sha256` sidecar and contains exact repository commits, public module
 versions, closed phase/assertion/detail identifiers, counters, and explicit
 safety booleans. It contains no target page content or subprocess output and
@@ -198,6 +217,9 @@ differ from the lock. Generated `site/` output is explicitly excluded from the
 dirty-root check and is neither removed nor release evidence. Scenario
 manifests and reports strict-decode unknown or duplicate fields and apply
 finite bounds before any browser or network authority is exercised.
+The separate current lock fixes the published UWS 1.11 stack with the same
+toolchain versions. Its Node readiness probe launches pinned Chromium with
+`chromiumSandbox: true`; readiness still does not replace an executed case.
 
 ## Where The V2 Contract Is Documented
 

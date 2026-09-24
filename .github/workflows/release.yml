@@ -66,15 +66,15 @@ jobs:
       - name: Resolve locked Udon revision
         id: browser-lock
         run: |
-          COMMIT="$(jq -r '.components[] | select(.name == "udon") | .commit' internal/browserscenario/compatibility-lock.json)"
+          COMMIT="$(jq -r '.components[] | select(.name == "udon") | .commit' internal/browserscenario/current-compatibility-lock.json)"
           test "$COMMIT" != "null"
           echo "udon_commit=$COMMIT" >> "$GITHUB_OUTPUT"
 
       - name: Check out locked public browser components
         run: |
           mkdir -p scenario-deps
-          for COMPONENT in browsertools browserdriver; do
-            COMMIT="$(jq -r --arg name "$COMPONENT" '.components[] | select(.name == $name) | .commit' internal/browserscenario/compatibility-lock.json)"
+          for COMPONENT in browsertools browserdriver uws; do
+            COMMIT="$(jq -r --arg name "$COMPONENT" '.components[] | select(.name == $name) | .commit' internal/browserscenario/current-compatibility-lock.json)"
             test "$COMMIT" != "null"
             git clone --filter=blob:none "https://github.com/OpenUdon/${COMPONENT}.git" "scenario-deps/${COMPONENT}"
             git -C "scenario-deps/${COMPONENT}" checkout --detach "$COMMIT"
@@ -115,8 +115,10 @@ jobs:
           mkdir -p eval/runs/browser-scenario-release
           xvfb-run -a go run ./cmd/openudon browser-scenario-eval \
             --suite loopback \
+            --stack current \
             --require-ready \
             --browsertools-repo scenario-deps/browsertools \
+            --uws-repo scenario-deps/uws \
             --udon-repo scenario-deps/udon \
             --browserdriver-repo scenario-deps/browserdriver \
             --out eval/runs/browser-scenario-release/report.json
@@ -128,8 +130,10 @@ jobs:
           mkdir -p eval/runs/browser-journey-release
           go run ./cmd/openudon browser-scenario-eval \
             --suite journey \
+            --stack current \
             --require-ready \
             --browsertools-repo scenario-deps/browsertools \
+            --uws-repo scenario-deps/uws \
             --udon-repo scenario-deps/udon \
             --browserdriver-repo scenario-deps/browserdriver \
             --out eval/runs/browser-journey-release/report.json
