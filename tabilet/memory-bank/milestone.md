@@ -19,7 +19,10 @@ remains the default and v1/v2 reports retain their readers. E21.4 is qualified
 at OpenUdon `1007cdedf0acebf649bd3ddd065a0e42bac4f542`: current integration,
 loopback, journey, and three-pass native reports independently verify with
 exact clean source bindings. The bounded review is clear; E21.5 publication
-remains in progress until OpenUdon alone is pushed.
+completed when OpenUdon alone was pushed to `origin/main` at
+`679f0bca630862a4ff46ea5a7edc0fc871abe938`. The accepted code commit is
+`1007cdedf0acebf649bd3ddd065a0e42bac4f542`; downstream W8M W21 qualification
+is in progress locally.
 
 The UWS 1.11 real-browser M86, E15 registration-verification integration,
 and E18 initialization-diagnostics integration milestones are complete. E15

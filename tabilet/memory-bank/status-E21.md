@@ -1,6 +1,6 @@
 # Status E21 — Repair current-stack Udon build and preserve M86 report meaning
 
-**State:** Active; E21.5 publication is in progress. Synthetic local qualification only.
+**State:** Active; OpenUdon publication is complete and downstream W8M W21 qualification is in progress. Synthetic local qualification only.
 
 **Scope boundary:** Do not contact providers or target accounts, run a public
 canary, adopt a runtime, or deploy. Publish the reviewed OpenUdon source only
@@ -18,7 +18,7 @@ Markers: `[ ]` pending, `[~]` in progress, `[+]` complete, `[!]` blocked,
 | E21.2 Pin and emit the repaired current stack | `[+]` | Current scenario/integration locks select Udon `6d32d4967469c579d35adcf47eaddb76a225dbae`; the separate 14-repository closure is exact and checks clean commits before execution. Current scenario/journey and integration contracts emit v3; M86 v2 uses frozen lock snapshots. Focused tests and vet pass; build-input lock SHA-256 is `4993304edf46953c33b6112c4f00e3fcf526811ac91400989b775a19066977b9`. |
 | E21.3 Extend native current-stack qualification | `[+]` | Added `browser-system-eval --stack current --suite loopback` and `make browser-system-current-check`; historical remains default v2 and v1/v2 verifiers keep their inventories. Current native v3 routes the 14-source clean closure through the build, scenario, BAP and BRP stages, with clean-source preflight and per-stage rechecks. Focused tests and vet pass. |
 | E21.4 Qualify clean current-stack evidence | `[+]` | Final qualified code commit is `1007cdedf0acebf649bd3ddd065a0e42bac4f542`. A fresh source workspace passed the v3 integration matrix 19/19, loopback suite 23/23, journey suite 11/11, and native qualification 3 passes × 13 stages with zero failures, skips, or quarantines. Exact report hashes and bindings are in the E21.4 attempt record below. Earlier loopback worker EOF and native BRP cleanup failures remain preserved as failed evidence; they are not rewritten by this success. The direct focused BRP component also passed and left all source checkouts clean. Retained M86 v2 reports still verify at 19/19, 23/23, and 11/11 with unchanged SHA-256 digests. Focused malformed/cross-version tests, full `make fast`, `go vet ./...`, documentation-memory checks, independent report verifiers, source cleanliness, and temporary workspace teardown all pass. |
-| E21.5 Review and publish OpenUdon | `[~]` | Bounded review iteration 1 found no P1/P2 issues. Fast-forward local `main` to `1007cdedf0acebf649bd3ddd065a0e42bac4f542` and push OpenUdon only; record the remote result before closing this row. Do not push W8M or adopt its candidate. |
+| E21.5 Review and publish OpenUdon | `[+]` | Bounded review iteration 1 found no P1/P2 issues. Fast-forwarded and pushed OpenUdon `main` to `origin` at `679f0bca630862a4ff46ea5a7edc0fc871abe938`; the exact qualified code commit `1007cdedf0acebf649bd3ddd065a0e42bac4f542` is published in its history and remains the W8M dependency. Only OpenUdon was pushed. W8M remains local and unadopted. |
 
 ## Acceptance
 
@@ -197,6 +197,9 @@ read-only dependency staging, source-clean rechecks, native stage inventories,
 and registration fixture cleanup. Focused cross-version/malformed-evidence
 tests pass; `make fast`, `go vet ./...`, `check-doc-memory`, independent
 verification of all four current reports and all three retained M86 reports,
-all-source cleanliness, and disposable-workspace teardown checks pass. The
-code is ready for OpenUdon-only publication; no W8M push, adoption, or live
-operation is included.
+all-source cleanliness, and disposable-workspace teardown checks pass. OpenUdon
+was pushed alone to `origin/main` at
+`679f0bca630862a4ff46ea5a7edc0fc871abe938`; the accepted runtime code commit
+is `1007cdedf0acebf649bd3ddd065a0e42bac4f542`. W8M remains local and
+unadopted; no live operation is included. E21 remains active for downstream
+W8M W21 reconciliation.
