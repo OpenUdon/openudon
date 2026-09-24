@@ -39,7 +39,10 @@ type BrowserScenarioInput struct {
 type BrowserScenarioAction struct {
 	Name      string
 	Operation string
-	With      map[string]string
+	// Source selects another reviewed profile in the same package. Empty uses
+	// BrowserScenarioWorkflowRequest.CapabilityPath for historical scenarios.
+	Source string
+	With   map[string]string
 }
 
 type BrowserScenarioWorkflowResult struct {
@@ -107,7 +110,15 @@ func WriteBrowserScenarioWorkflow(request BrowserScenarioWorkflowRequest) (Brows
 			}
 			with["body."+parameter] = "inputs." + input
 		}
-		steps = append(steps, &rollout.Step{Name: action.Name, Type: "browser", Source: capability, Operation: action.Operation, BrowserSession: request.Session, DependsOn: []string{previous}, With: with})
+		source := capability
+		if action.Source != "" {
+			var err error
+			source, err = scenarioRelativeSource(root, action.Source)
+			if err != nil {
+				return BrowserScenarioWorkflowResult{}, err
+			}
+		}
+		steps = append(steps, &rollout.Step{Name: action.Name, Type: "browser", Source: source, Operation: action.Operation, BrowserSession: request.Session, DependsOn: []string{previous}, With: with})
 		stepNames = append(stepNames, action.Name)
 		previous = action.Name
 	}
@@ -149,11 +160,19 @@ func WriteBrowserScenarioWorkflow(request BrowserScenarioWorkflowRequest) (Brows
 }
 
 func validateBrowserScenarioActions(root, capability string, actions []BrowserScenarioAction) error {
-	value, err := loadBrowserProfile(filepath.Join(root, filepath.FromSlash(capability)))
-	if err != nil {
-		return err
-	}
 	for _, action := range actions {
+		source := capability
+		if action.Source != "" {
+			var err error
+			source, err = scenarioRelativeSource(root, action.Source)
+			if err != nil {
+				return err
+			}
+		}
+		value, err := loadBrowserProfile(filepath.Join(root, filepath.FromSlash(source)))
+		if err != nil {
+			return err
+		}
 		contract, ok := value.Actions[action.Operation]
 		if !ok {
 			return fmt.Errorf("browser scenario action %q is not declared", action.Operation)

@@ -166,7 +166,7 @@ func (executor *realExecutor) prepare(ctx context.Context, environment Environme
 			return
 		}
 	}
-	nodeCheck := `import {createRequire} from "node:module"; import {chromium} from "playwright"; const require=createRequire(import.meta.url); const browser=await chromium.launch({headless:true}); console.log(JSON.stringify({playwright:require("playwright/package.json").version,chromium:browser.version()})); await browser.close();`
+	nodeCheck := `import {createRequire} from "node:module"; import {chromium} from "playwright"; const require=createRequire(import.meta.url); const browser=await chromium.launch({headless:true,chromiumSandbox:true}); console.log(JSON.stringify({playwright:require("playwright/package.json").version,chromium:browser.version()})); await browser.close();`
 	installed := runBounded(ctx, scenarioDeadline, environment.BrowserdriverRepo, []string{executor.node, "--input-type=module", "--eval", nodeCheck}, nil, "")
 	var versions struct {
 		Playwright string `json:"playwright"`
@@ -310,6 +310,9 @@ func (executor *realExecutor) executeLoopback(ctx context.Context, manifest Mani
 }
 
 func (executor *realExecutor) executeJourney(ctx context.Context, manifest Manifest, environment Environment) ScenarioResult {
+	if currentJourneyKind(manifest.Journey) {
+		return executor.executeModernJourney(ctx, manifest, environment)
+	}
 	result := ScenarioResult{ID: manifest.ID, Attempts: 1}
 	fixture, err := NewJourneyFixture(manifest)
 	if err != nil {
@@ -467,6 +470,21 @@ func journeyContainsString(values []string, wanted string) bool {
 
 func validJourneyPostconditions(manifest Manifest, fixture *JourneyFixture) bool {
 	switch manifest.Journey.Kind {
+	case "template_browser18":
+		fixture.mu.Lock()
+		seen := fixture.wideSeen
+		fixture.mu.Unlock()
+		return seen && fixture.MutationPOSTs() == 0
+	case "template_browser19":
+		fixture.mu.Lock()
+		seen := fixture.textSeen
+		fixture.mu.Unlock()
+		return seen && fixture.MutationPOSTs() == 0
+	case "mixed_legacy_modern":
+		fixture.mu.Lock()
+		seen := fixture.legacySeen && fixture.modernSeen
+		fixture.mu.Unlock()
+		return seen && fixture.SessionCount() == 1 && fixture.MutationPOSTs() == 0
 	case "record_update_approved":
 		note, priority, enabled, archived := fixture.RecordState()
 		return fixture.MutationPOSTs() == 1 && note == "Reviewed note" && priority == "high" && enabled && !archived
@@ -832,6 +850,10 @@ func exactBrowserApprovalPrompt(kind string) string {
 }
 
 func (executor *realExecutor) runJourneyUdon(ctx context.Context, exampleDir, dataPath, workflowPath string, values map[string]any, approvals []string, resultStep string) replayResult {
+	return executor.runJourneyUdonWithProtocol(ctx, exampleDir, dataPath, workflowPath, values, approvals, resultStep, "v3")
+}
+
+func (executor *realExecutor) runJourneyUdonWithProtocol(ctx context.Context, exampleDir, dataPath, workflowPath string, values map[string]any, approvals []string, resultStep, protocol string) replayResult {
 	if err := os.RemoveAll(filepath.Join(exampleDir, "output")); err != nil {
 		return replayResult{failureCode: "invalid_response"}
 	}
@@ -845,7 +867,7 @@ func (executor *realExecutor) runJourneyUdon(ctx context.Context, exampleDir, da
 		executor.udon, "--workdir", exampleDir, "--workflow", workflowPath, "--workflow-format", "uws-json",
 		"--datafile", dataPath, "--execution-report", "execution-report.json", "--execution-timeout", "60s",
 		"--browser-driver", executor.node, "--browser-driver-arg", executor.driverEntry,
-		"--browser-driver-protocol", "v3", "--browser-challenge-timeout", "10s",
+		"--browser-driver-protocol", protocol, "--browser-challenge-timeout", "10s",
 		"--approve-browser-authentication", "authenticate", "--quiet",
 	}
 	for _, operation := range approvals {

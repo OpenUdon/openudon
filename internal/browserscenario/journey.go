@@ -41,6 +41,10 @@ type JourneyFixture struct {
 	priority     string
 	enabled      bool
 	archived     bool
+	wideSeen     bool
+	textSeen     bool
+	legacySeen   bool
+	modernSeen   bool
 }
 
 func NewJourneyFixture(manifest Manifest) (*JourneyFixture, error) {
@@ -107,13 +111,21 @@ func (fixture *JourneyFixture) serveHTTP(writer http.ResponseWriter, request *ht
 		fixture.updateRecord(writer, request)
 	case request.URL.Path == "/workspace":
 		fixture.sessionPage(writer, request)
+	case strings.HasPrefix(request.URL.Path, "/template18/"):
+		fixture.template18(writer, request)
+	case request.URL.Path == "/template19/preview":
+		fixture.template19Preview(writer, request)
+	case strings.HasPrefix(request.URL.Path, "/template19/"):
+		fixture.template19(writer, request)
+	case strings.HasPrefix(request.URL.Path, "/mixed/"):
+		fixture.mixedPage(writer, request)
 	default:
 		http.NotFound(writer, request)
 	}
 }
 
 func (fixture *JourneyFixture) ready(writer http.ResponseWriter, request *http.Request) {
-	if fixture.manifest.Journey.Kind == "session_lifecycle" {
+	if fixture.manifest.Journey.Kind == "session_lifecycle" || fixture.manifest.Journey.Kind == "mixed_legacy_modern" {
 		fixture.mu.Lock()
 		fixture.nextSession++
 		id := fixture.nextSession
@@ -204,9 +216,65 @@ func (fixture *JourneyFixture) sessionPage(writer http.ResponseWriter, request *
 	}
 	fixture.mu.Lock()
 	id := fixture.sessions[cookie.Value]
+	if fixture.manifest.Journey.Kind == "mixed_legacy_modern" && id > 0 {
+		fixture.legacySeen = true
+	}
 	fixture.mu.Unlock()
+	if id == 0 {
+		http.Error(writer, "unknown session", http.StatusUnauthorized)
+		return
+	}
 	body := fmt.Sprintf(`<main><h1>Run workspace</h1><div role="status" aria-label="Run marker">Run %d</div><a href="/workspace?refresh=1">Refresh workspace</a></main>`, id)
 	writeJourneyHTML(writer, "Run workspace", body, "")
+}
+
+func (fixture *JourneyFixture) template18(writer http.ResponseWriter, request *http.Request) {
+	if request.URL.Path != "/template18/9223372036854775807" || request.URL.Query().Get("view") != "a/b" || !strings.Contains(request.URL.RawQuery, "a%2Fb") {
+		http.NotFound(writer, request)
+		return
+	}
+	fixture.mu.Lock()
+	fixture.wideSeen = true
+	fixture.mu.Unlock()
+	writeJourneyHTML(writer, "Wide template", `<main><div role="status" aria-label="Template 18 OK">Template 18 OK</div></main>`, "")
+}
+
+func (fixture *JourneyFixture) template19(writer http.ResponseWriter, request *http.Request) {
+	if request.URL.Path != "/template19/{{literal}}/9007199254740991" || request.URL.Query().Get("tag") != "a/b" || !strings.Contains(strings.ToUpper(request.URL.EscapedPath()), "%7B%7B") {
+		http.NotFound(writer, request)
+		return
+	}
+	writeJourneyHTML(writer, "Safe template", `<main><form action="/template19/preview" method="get"><label>Preview text <input aria-label="Preview text" name="text"></label><button type="submit">Preview</button></form></main>`, "")
+}
+
+func (fixture *JourneyFixture) template19Preview(writer http.ResponseWriter, request *http.Request) {
+	if request.URL.Query().Get("text") != "{{draft}} a/b" {
+		http.NotFound(writer, request)
+		return
+	}
+	fixture.mu.Lock()
+	fixture.textSeen = true
+	fixture.mu.Unlock()
+	writeJourneyHTML(writer, "Preview verified", `<main><div role="status" aria-label="Preview verified">Preview verified</div></main>`, "")
+}
+
+func (fixture *JourneyFixture) mixedPage(writer http.ResponseWriter, request *http.Request) {
+	cookie, err := request.Cookie("journey_run")
+	if err != nil || request.URL.Path != "/mixed/9007199254740991" || request.URL.Query().Get("tag") != "a/b" {
+		http.NotFound(writer, request)
+		return
+	}
+	fixture.mu.Lock()
+	valid := fixture.legacySeen && fixture.sessions[cookie.Value] == 1
+	if valid {
+		fixture.modernSeen = true
+	}
+	fixture.mu.Unlock()
+	if !valid {
+		http.Error(writer, "missing prior action", http.StatusUnauthorized)
+		return
+	}
+	writeJourneyHTML(writer, "Mixed session", `<main><div role="status" aria-label="Mixed OK">Mixed OK</div></main>`, "")
 }
 
 func writeJourneyHTML(writer http.ResponseWriter, title, body, head string) {
@@ -549,6 +617,8 @@ func writeJourneyData(path string, values map[string]any) error {
 			value = cty.BoolVal(typed)
 		case int:
 			value = cty.NumberIntVal(int64(typed))
+		case int64:
+			value = cty.NumberIntVal(typed)
 		case float64:
 			value = cty.NumberFloatVal(typed)
 		default:
