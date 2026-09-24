@@ -22,6 +22,13 @@ matrix. Historical v1 and frozen M86 v2 verification retain their original
 locks and meaning. All three retained M86 reports pass with their original
 digests; E21 evidence is recorded in [status-E21.md](status-E21.md).
 
+Native `openudon browser-system-eval --stack current --suite loopback` selects
+the same current compatibility and 14-source build-input locks, requires all
+primary and auxiliary worktrees to be clean, and emits
+`openudon.browser-system-qualification.v3`. The default remains historical
+native v2. `make browser-system-current-check` runs the explicit current path
+and verifies its report; the verifier dispatches from the saved report version.
+
 ## Current Browser Authoring Tooling
 
 Reviewed query admission, generated-profile, parent-attestation, and synthetic

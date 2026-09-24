@@ -24,6 +24,7 @@ import (
 type Options struct {
 	Root     string
 	Suite    string
+	Stack    string
 	Out      string
 	UdonRepo string
 	Progress io.Writer
@@ -148,7 +149,44 @@ func source(ctx context.Context, name, root string) (Source, error) {
 	}
 	return Source{Name: name, Commit: strings.TrimSpace(string(revision)), SHA256: hash(inventory.Bytes())}, nil
 }
-func sources(ctx context.Context, root, udonRoot string, includeBuild bool) (resultSources []Source, resultErr error) {
+
+func validateCurrentStackSources(ctx context.Context, root, udonRoot string, lock browserscenario.CompatibilityLock) error {
+	if err := browserscenario.ValidateQualificationBuildInputsForStack(ctx, udonRoot, browserscenario.StackCurrent); err != nil {
+		return err
+	}
+	paths := map[string]string{
+		"openudon":      root,
+		"browsertools":  filepath.Join(filepath.Dir(root), "browsertools"),
+		"uws":           filepath.Join(filepath.Dir(root), "uws"),
+		"udon":          udonRoot,
+		"browserdriver": filepath.Join(filepath.Dir(root), "browserdriver"),
+	}
+	locked := map[string]string{}
+	for _, component := range lock.Components {
+		locked[component.Name] = component.Commit
+	}
+	for _, name := range []string{"openudon", "browsertools", "uws", "udon", "browserdriver"} {
+		path := paths[name]
+		top, err := command(ctx, path, []string{"git", "--no-replace-objects", "rev-parse", "--show-toplevel"}, nil)
+		if err != nil || filepath.Clean(strings.TrimSpace(string(top))) != filepath.Clean(path) {
+			return errors.New("current repository root is invalid")
+		}
+		commit, err := command(ctx, path, []string{"git", "--no-replace-objects", "rev-parse", "HEAD"}, nil)
+		if err != nil || !commitPattern.MatchString(strings.TrimSpace(string(commit))) {
+			return errors.New("current repository revision is unavailable")
+		}
+		if expected := locked[name]; expected != "" && strings.TrimSpace(string(commit)) != expected {
+			return errors.New("current repository revision differs from lock")
+		}
+		status, err := command(ctx, path, []string{"git", "--no-replace-objects", "status", "--porcelain=v1", "--ignored=matching", "--untracked-files=all", "--", ".", ":(exclude)site", ":(exclude)site/**"}, nil)
+		if err != nil || strings.TrimSpace(string(status)) != "" {
+			return errors.New("current repository is not clean")
+		}
+	}
+	return nil
+}
+
+func sources(ctx context.Context, root, udonRoot, stack string, includeBuild bool) (resultSources []Source, resultErr error) {
 	finish := browsercheck.Span(ctx, "source_hashing")
 	defer func() { finish(resultErr) }()
 	var result []Source
@@ -167,11 +205,7 @@ func sources(ctx context.Context, root, udonRoot string, includeBuild bool) (res
 		result = append(result, s)
 	}
 	if includeBuild {
-		baseline, err := browserscenario.LoadCompatibilityLock()
-		if err != nil {
-			return nil, err
-		}
-		lock, err := browserscenario.LoadQualificationBuildInputLock(baseline)
+		lock, err := browserscenario.LoadQualificationBuildInputLockForStack(stack)
 		if err != nil {
 			return nil, err
 		}
@@ -280,8 +314,18 @@ func nodeTests(ctx context.Context, root string, live bool) (Tests, error) {
 func Run(ctx context.Context, o Options) (result *Report, resultErr error) {
 	ctx, cancel := context.WithTimeout(ctx, 2*time.Hour)
 	defer cancel()
+	stack := o.Stack
+	if stack == "" {
+		stack = browserscenario.StackHistorical
+	}
+	if stack != browserscenario.StackHistorical && stack != browserscenario.StackCurrent {
+		return nil, errors.New("stack_must_be_historical_or_current")
+	}
 	if o.Suite != "offline" && o.Suite != "loopback" || o.Out == "" {
 		return nil, errors.New("suite_and_output_required")
+	}
+	if stack == browserscenario.StackCurrent && o.Suite != "loopback" {
+		return nil, errors.New("current_stack_requires_loopback")
 	}
 	root, err := filepath.Abs(o.Root)
 	if err == nil {
@@ -305,7 +349,7 @@ func Run(ctx context.Context, o Options) (result *Report, resultErr error) {
 	if err != nil || rel != ".." && !strings.HasPrefix(rel, "../") {
 		return nil, errors.New("report_must_be_outside_workspace")
 	}
-	baseline, err := browserscenario.LoadCompatibilityLock()
+	baseline, err := browserscenario.LoadCompatibilityLockForStack(stack)
 	if err != nil {
 		return nil, err
 	}
@@ -320,6 +364,11 @@ func Run(ctx context.Context, o Options) (result *Report, resultErr error) {
 	if err != nil {
 		return nil, errors.New("source_state")
 	}
+	if stack == browserscenario.StackCurrent {
+		if err := validateCurrentStackSources(ctx, root, udonRoot, baseline); err != nil {
+			return nil, errors.New("current_stack_source_state")
+		}
+	}
 	rel, err = filepath.Rel(filepath.Dir(udonRoot), out)
 	if err != nil || rel != ".." && !strings.HasPrefix(rel, "../") {
 		return nil, errors.New("report_must_be_outside_workspace")
@@ -329,7 +378,7 @@ func Run(ctx context.Context, o Options) (result *Report, resultErr error) {
 		return nil, err
 	}
 	defer func() { resultErr = errors.Join(resultErr, trace.Close()) }()
-	before, err := sources(ctx, root, udonRoot, o.Suite == "loopback")
+	before, err := sources(ctx, root, udonRoot, stack, o.Suite == "loopback")
 	if err != nil {
 		return nil, err
 	}
@@ -347,7 +396,11 @@ func Run(ctx context.Context, o Options) (result *Report, resultErr error) {
 	if err != nil || !validToolchains(runtimes, baseline) {
 		return nil, errors.New("runtime_baseline")
 	}
-	report := &Report{Toolchains: runtimes, Version: Version, Suite: o.Suite, Status: "pass", FailureStage: "none", Sources: before, Baseline: baseline, PlaywrightGo: "v0.6201.0", NetworkClaim: "application_request_allowlists_not_network_wide_containment"}
+	version := Version
+	if stack == browserscenario.StackCurrent {
+		version = CurrentVersion
+	}
+	report := &Report{Toolchains: runtimes, Version: version, Suite: o.Suite, Status: "pass", FailureStage: "none", Sources: before, Baseline: baseline, PlaywrightGo: "v0.6201.0", NetworkClaim: "application_request_allowlists_not_network_wide_containment"}
 	count := 1
 	if o.Suite == "loopback" {
 		count = 3
@@ -360,9 +413,12 @@ func Run(ctx context.Context, o Options) (result *Report, resultErr error) {
 			}
 			stageCtx := browsercheck.Stage(ctx, fmt.Sprintf("pass_%d_%s", pass, id))
 			finish := browsercheck.Span(stageCtx, "stage")
-			value, err := runStage(stageCtx, root, udonRoot, id)
+			value, err := runStage(stageCtx, root, udonRoot, stack, id)
 			finish(err)
-			after, sourceErr := sources(ctx, root, udonRoot, o.Suite == "loopback")
+			after, sourceErr := sources(ctx, root, udonRoot, stack, o.Suite == "loopback")
+			if sourceErr == nil && stack == browserscenario.StackCurrent {
+				sourceErr = validateCurrentStackSources(ctx, root, udonRoot, baseline)
+			}
 			currentRuntimes, runtimeErr := toolchains(ctx, root)
 			if err != nil || sourceErr != nil || runtimeErr != nil || currentRuntimes != runtimes || !reflect.DeepEqual(before, after) {
 				retainFailureDiagnostic(out, id, err, o.Progress)
@@ -387,9 +443,9 @@ func Run(ctx context.Context, o Options) (result *Report, resultErr error) {
 	}
 	return report, nil
 }
-func runStage(ctx context.Context, root, udonRoot, id string) (any, error) {
+func runStage(ctx context.Context, root, udonRoot, stack, id string) (any, error) {
 	sibling := func(name string) string { return filepath.Join(filepath.Dir(root), name) }
-	options := browserscenario.Options{RepoRoot: root, BrowsertoolsRepo: sibling("browsertools"), UWSRepo: sibling("uws"), UdonRepo: udonRoot, BrowserdriverRepo: sibling("browserdriver"), RequireReady: true}
+	options := browserscenario.Options{RepoRoot: root, BrowsertoolsRepo: sibling("browsertools"), UWSRepo: sibling("uws"), UdonRepo: udonRoot, BrowserdriverRepo: sibling("browserdriver"), RequireReady: true, Stack: stack}
 	switch id {
 	case "openudon_unit":
 		return goTests(ctx, root, []string{"./..."}, nil, false)
@@ -416,17 +472,16 @@ func runStage(ctx context.Context, root, udonRoot, id string) (any, error) {
 	case "registration_driver":
 		return nodeTests(ctx, sibling("browserdriver"), true)
 	case "build_inputs":
-		lock, _ := browserscenario.LoadCompatibilityLock()
-		if err := browserscenario.ValidateQualificationBuildInputs(ctx, udonRoot, lock); err != nil {
+		if err := browserscenario.ValidateQualificationBuildInputsForStack(ctx, udonRoot, stack); err != nil {
 			return nil, err
 		}
-		return browserscenario.LoadQualificationBuildInputLock(lock)
+		return browserscenario.LoadQualificationBuildInputLockForStack(stack)
 	case "bap_bcp_transaction", "registration_ui_handoff":
 		executable, err := os.Executable()
 		if err != nil {
 			return nil, errors.New("component_executable")
 		}
-		data, err := command(ctx, root, []string{executable, "browser-system-component", "--component", id, "--repo-root", root, "--udon-repo", udonRoot}, nil)
+		data, err := command(ctx, root, []string{executable, "browser-system-component", "--component", id, "--repo-root", root, "--udon-repo", udonRoot, "--stack", stack}, nil)
 		if err != nil {
 			return nil, err
 		}
@@ -461,8 +516,35 @@ func runStage(ctx context.Context, root, udonRoot, id string) (any, error) {
 
 // RunComponent is a closed synthetic child mode. The aggregate parent owns
 // its process tree, deadline, protocol stream and verified teardown.
-func RunComponent(ctx context.Context, root, udonRoot, id string) (any, error) {
-	options := browserscenario.Options{RepoRoot: root, UdonRepo: udonRoot, RequireReady: true}
+func RunComponent(ctx context.Context, root, udonRoot, stack, id string) (any, error) {
+	if stack == "" {
+		stack = browserscenario.StackHistorical
+	}
+	if stack != browserscenario.StackHistorical && stack != browserscenario.StackCurrent {
+		return nil, errors.New("unknown_stack")
+	}
+	if stack == browserscenario.StackCurrent {
+		var err error
+		root, err = filepath.Abs(root)
+		if err == nil {
+			root, err = filepath.EvalSymlinks(root)
+		}
+		if err != nil {
+			return nil, errors.New("current_stack_source_state")
+		}
+		if udonRoot == "" {
+			udonRoot = filepath.Join(filepath.Dir(root), "udon")
+		}
+		udonRoot, err = filepath.Abs(udonRoot)
+		if err == nil {
+			udonRoot, err = filepath.EvalSymlinks(udonRoot)
+		}
+		lock, lockErr := browserscenario.LoadCurrentCompatibilityLock()
+		if err != nil || lockErr != nil || validateCurrentStackSources(ctx, root, udonRoot, lock) != nil {
+			return nil, errors.New("current_stack_source_state")
+		}
+	}
+	options := browserscenario.Options{RepoRoot: root, UdonRepo: udonRoot, RequireReady: true, Stack: stack}
 	switch id {
 	case "bap_bcp_transaction":
 		return browserscenario.RunBAPBCPQualification(ctx, options)

@@ -13,8 +13,10 @@ or runtime adoption.
 E21.1 freezes the pre-E21 current scenario and integration locks for M86 v2
 report verification. E21.2 advances the current scenario and integration
 locks to the repaired Udon pin and a separate clean 14-source build closure;
-its current report contracts are v3. E21.3 is extending native qualification
-with explicit current-stack routing while preserving historical defaults.
+its current report contracts are v3. E21.3 adds native v3 current-stack
+qualification through the scenarios and BAP/BRP stages; historical native v2
+remains the default and v1/v2 reports retain their readers. E21.4 is preparing
+the complete current-stack evidence from a clean committed source revision.
 
 The UWS 1.11 real-browser M86, E15 registration-verification integration,
 and E18 initialization-diagnostics integration milestones are complete. E15

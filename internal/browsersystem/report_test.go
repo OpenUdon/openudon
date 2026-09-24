@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/OpenUdon/openudon/internal/browserscenario"
 )
@@ -50,6 +51,110 @@ func TestVersionedInventoriesPreserveLegacyMeaning(t *testing.T) {
 		t.Fatal("unknown inventory version accepted")
 	}
 }
+
+func currentLoopbackFailureReport(t *testing.T) *Report {
+	t.Helper()
+	lock, err := browserscenario.LoadCurrentCompatibilityLock()
+	if err != nil {
+		t.Fatal(err)
+	}
+	r := &Report{
+		Toolchains: Toolchains{Go: lock.GoVersion, Node: "24.13.0"}, Version: CurrentVersion,
+		Suite: "loopback", Status: "fail", FailureStage: loopbackStages[0], Baseline: lock,
+		PlaywrightGo: "v0.6201.0", NetworkClaim: "application_request_allowlists_not_network_wide_containment",
+	}
+	for _, name := range []string{"openudon", "browsertools", "uws", "udon", "browserdriver"} {
+		commit := strings.Repeat("a", 40)
+		for _, component := range lock.Components {
+			if component.Name == name {
+				commit = component.Commit
+			}
+		}
+		r.Sources = append(r.Sources, Source{Name: name, Commit: commit, SHA256: strings.Repeat("b", 64)})
+	}
+	build, err := browserscenario.LoadCurrentQualificationBuildInputLock(lock)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, component := range build.Components {
+		r.Sources = append(r.Sources, Source{Name: "udon_build_" + component.Name, Commit: component.Commit, SHA256: strings.Repeat("c", 64)})
+	}
+	r.Passes = []Pass{{Number: 1, Stages: []Stage{{ID: loopbackStages[0], Status: "fail"}}}}
+	return r
+}
+
+func TestCurrentV3ReportSelectsRepairedLockAndBuildClosure(t *testing.T) {
+	r := currentLoopbackFailureReport(t)
+	if err := Validate(r); err != nil {
+		t.Fatalf("current report rejected: %v", err)
+	}
+	r.Sources[3].Commit = strings.Repeat("d", 40)
+	if Validate(r) == nil {
+		t.Fatal("current report accepted a mismatched Udon revision")
+	}
+	r = currentLoopbackFailureReport(t)
+	r.Sources[len(r.Sources)-1].Commit = strings.Repeat("d", 40)
+	if Validate(r) == nil {
+		t.Fatal("current report accepted a mismatched auxiliary build source")
+	}
+	r = currentLoopbackFailureReport(t)
+	r.Version = Version
+	if Validate(r) == nil {
+		t.Fatal("historical v2 report accepted the current baseline")
+	}
+	r = currentLoopbackFailureReport(t)
+	r.Suite = "offline"
+	if Validate(r) == nil {
+		t.Fatal("current v3 report accepted an offline inventory")
+	}
+}
+
+func TestCurrentV3NativeVerifierAcceptsOnlyV3ScenarioStages(t *testing.T) {
+	lock, err := browserscenario.LoadCurrentCompatibilityLock()
+	if err != nil {
+		t.Fatal(err)
+	}
+	commits, versions := map[string]string{}, map[string]string{}
+	for _, component := range lock.Components {
+		commits[component.Name], versions[component.Name] = component.Commit, component.Version
+	}
+	root := strings.Repeat("a", 40)
+	repositories := []browserscenario.RepositoryRevision{{Name: "openudon", Commit: root}}
+	for _, name := range []string{"browsertools", "uws", "udon", "browserdriver"} {
+		repositories = append(repositories, browserscenario.RepositoryRevision{Name: name, Commit: commits[name]})
+	}
+	journeys, err := browserscenario.LoadCurrentManifests(time.Now())
+	if err != nil {
+		t.Fatal(err)
+	}
+	selected, err := browserscenario.SelectManifests(journeys, browserscenario.SuiteJourney, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	results := make([]browserscenario.ScenarioResult, 0, len(selected))
+	for _, manifest := range selected {
+		result := browserscenario.ScenarioResult{ID: manifest.ID, Status: browserscenario.StatusPass, Attempts: 1, Detail: "ok", Phases: []browserscenario.PhaseResult{{ID: "fixture_ready", Status: browserscenario.StatusPass, Detail: "ok"}}, Assertions: []string{"author_session_v2"}}
+		if required := map[string]string{"template-browser18": "browser18_template", "template-browser19": "browser19_template", "mixed-legacy-modern": "mixed_profile_session"}[manifest.ID]; required != "" {
+			result.Assertions = append(result.Assertions, required, "udon_v10_replay")
+			result.Phases = append(result.Phases, browserscenario.PhaseResult{ID: "udon_v10", Status: browserscenario.StatusPass, Detail: "ok"})
+		}
+		results = append(results, result)
+	}
+	component := browserscenario.NewReportForStack(browserscenario.SuiteJourney, browserscenario.StackCurrent, time.Now(), repositories, []browserscenario.DependencyRevision{
+		{Module: "github.com/OpenUdon/browsertools", Version: versions["browsertools"]},
+		{Module: "github.com/OpenUdon/uws", Version: versions["uws"]},
+	}, results)
+	stage := proof("journey_scenarios", component)
+	if err := validateProof(stage, "loopback", browserscenario.StackCurrent); err != nil {
+		t.Fatalf("current v3 journey stage rejected: %v", err)
+	}
+	component.Version = browserscenario.M86CurrentJourneyVersion
+	stage = proof("journey_scenarios", component)
+	if validateProof(stage, "loopback", browserscenario.StackCurrent) == nil {
+		t.Fatal("native v3 verifier accepted an M86 v2 scenario stage")
+	}
+}
+
 func TestReportRejectsMissingReorderedTamperedAndExtraEvidence(t *testing.T) {
 	for name, mutate := range map[string]func(*Report){
 		"missing": func(r *Report) { r.Passes[0].Stages = r.Passes[0].Stages[:1] },
@@ -124,6 +229,29 @@ func TestInvalidSuiteHasNoQualificationSideEffects(t *testing.T) {
 	_, err := Run(context.Background(), Options{Root: t.TempDir(), Suite: "public", Out: filepath.Join(t.TempDir(), "report.json")})
 	if err == nil {
 		t.Fatal("public suite accepted")
+	}
+}
+
+func TestCurrentStackRejectsUnpinnedSourcesBeforeCreatingEvidence(t *testing.T) {
+	parent := t.TempDir()
+	root := filepath.Join(parent, "openudon")
+	udon := filepath.Join(parent, "udon")
+	if err := os.MkdirAll(root, 0700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.MkdirAll(udon, 0700); err != nil {
+		t.Fatal(err)
+	}
+	outputRoot := t.TempDir()
+	out := filepath.Join(outputRoot, "current.json")
+	_, err := Run(context.Background(), Options{Root: root, UdonRepo: udon, Stack: browserscenario.StackCurrent, Suite: "loopback", Out: out})
+	if err == nil || err.Error() != "current_stack_source_state" {
+		t.Fatalf("current source preflight error = %v", err)
+	}
+	for _, path := range []string{out, out + ".timing.jsonl"} {
+		if _, err := os.Stat(path); !os.IsNotExist(err) {
+			t.Fatalf("current preflight created evidence at %s: %v", path, err)
+		}
 	}
 }
 

@@ -75,7 +75,7 @@ func runQualification(ctx context.Context, options Options, local bool) (*Report
 	if options.Stack != StackHistorical && options.Stack != StackCurrent {
 		return nil, fmt.Errorf("browser scenario stack must be historical or current")
 	}
-	if options.Stack == StackCurrent && (options.Suite == SuitePublic || local) {
+	if options.Stack == StackCurrent && options.Suite == SuitePublic {
 		return nil, fmt.Errorf("current scenario stack is limited to release loopback and journey suites")
 	}
 	if ctx == nil {

@@ -15,7 +15,9 @@ the separately embedded 14-repository local Udon build closure; its selected
 worktrees must match exact commits and be clean before browser work. Scenario
 and integration v2 readers use their frozen M86 locks, while historical v1
 readers keep their original lock and inventory. Native qualification stack
-selection remains E21.3 work.
+selection is explicit: historical remains the default v2 path, and current
+native qualification emits v3 and routes scenario, build-input, BAP and BRP
+stages through the current lock and closure.
 
 ## Current Browser Authoring Boundary
 
@@ -687,7 +689,11 @@ current v3 scenario, journey and integration reports from the repaired Udon
 pin. The independent current Udon build-input lock names 14 sibling
 replacements, including exact Browsertools and UWS revisions; all are checked
 for clean state before scenario browser launch. The integration evaluator
-checks the same closure before running its matrix.
+checks the same closure before running its matrix. Native system qualification
+retains its historical-default v2 verifier and adds an explicit current v3
+loopback path; its preflight checks all primary and build-source checkouts are
+clean, and its scenario, build-input, BAP and BRP stages use the same current
+stack selection.
 
 The scenario JSON boundary pre-scans tokens recursively and rejects duplicate
 decoded keys in every object before unknown-field decoding, so no consumer can

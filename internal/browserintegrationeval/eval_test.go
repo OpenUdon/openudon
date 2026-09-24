@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"reflect"
 	"strings"
 	"testing"
 	"time"
@@ -38,6 +39,10 @@ func TestCurrentReportVersionUsesRepairedLockAndBuildClosure(t *testing.T) {
 	}
 	if len(lock.Components) != 4 || len(gates) != 19 {
 		t.Fatalf("current contract has %d components and %d gates", len(lock.Components), len(gates))
+	}
+	scenarioLock, err := browserscenario.LoadCurrentCompatibilityLock()
+	if err != nil || !reflect.DeepEqual(lock, scenarioLock) {
+		t.Fatalf("integration and scenario current locks differ: %v", err)
 	}
 	for _, component := range lock.Components {
 		if component.Name == "udon" && component.Commit != "6d32d4967469c579d35adcf47eaddb76a225dbae" {

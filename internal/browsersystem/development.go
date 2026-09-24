@@ -18,6 +18,7 @@ import (
 
 	"github.com/OpenUdon/browsertools/capture"
 	"github.com/OpenUdon/openudon/internal/browsercheck"
+	"github.com/OpenUdon/openudon/internal/browserscenario"
 	"github.com/OpenUdon/openudon/internal/evidencefile"
 )
 
@@ -46,7 +47,7 @@ func validDevelopment(r DevelopmentReport, input, stage string, now time.Time) b
 	return r.Version == DevelopmentVersion && !r.QualifiesRuntime && r.Mode == "smoke" &&
 		r.InputSHA256 == input && evidencefile.ValidSHA256(input) && len(r.ExecutionID) == 32 && validID(r.ExecutionID) &&
 		!r.ExecutedAt.IsZero() && !r.ExecutedAt.After(now) && now.Sub(r.ExecutedAt) <= 24*time.Hour &&
-		r.DurationMS >= 0 && r.Stage.ID == stage && r.Stage.Status == "pass" && r.Stage.SHA256 == evidenceHash(r.Stage.Evidence) && validateProof(r.Stage, "loopback") == nil
+		r.DurationMS >= 0 && r.Stage.ID == stage && r.Stage.Status == "pass" && r.Stage.SHA256 == evidenceHash(r.Stage.Evidence) && validateProof(r.Stage, "loopback", browserscenario.StackHistorical) == nil
 }
 func cacheableDevelopmentStage(id string) bool {
 	return id == "registration_ui_handoff" || id == "bap_bcp_transaction"
@@ -209,12 +210,12 @@ func RunDevelopment(ctx context.Context, o DevelopmentOptions) (report *Developm
 	case o.Mode == "fast":
 		value, err = goTestsMode(ctx, root, []string{"./..."}, nil, false, true)
 	case id == "registration_ui_handoff" || id == "bap_bcp_transaction":
-		value, err = RunComponent(ctx, root, udon, id)
+		value, err = RunComponent(ctx, root, udon, browserscenario.StackHistorical, id)
 		if err != nil {
 			err = &commandFailure{reason: "component_evaluation", stderr: []byte(err.Error())}
 		}
 	default:
-		value, err = runStage(ctx, root, udon, id)
+		value, err = runStage(ctx, root, udon, browserscenario.StackHistorical, id)
 	}
 	finish(err)
 	report.DurationMS = time.Since(started).Milliseconds()
@@ -249,7 +250,7 @@ func developmentInput(ctx context.Context, root, udon string) (digest string, re
 func inputInventory(ctx context.Context, root, udon string, qualification bool) (digest string, resultErr error) {
 	finish := browsercheck.Span(ctx, "development_inputs")
 	defer func() { finish(resultErr) }()
-	ss, err := sources(ctx, root, udon, true)
+	ss, err := sources(ctx, root, udon, browserscenario.StackHistorical, true)
 	if err != nil {
 		return "", err
 	}
@@ -408,7 +409,7 @@ func inputInventory(ctx context.Context, root, udon string, qualification bool) 
 	if err := addInputGoDependencies(ctx, root, udon, qualification, addFile); err != nil {
 		return "", err
 	}
-	after, err := sources(ctx, root, udon, true)
+	after, err := sources(ctx, root, udon, browserscenario.StackHistorical, true)
 	if err != nil {
 		return "", err
 	}

@@ -17,8 +17,11 @@ import (
 	"github.com/OpenUdon/openudon/internal/evidencefile"
 )
 
-const Version = "openudon.browser-system-qualification.v2"
-const legacyVersion = "openudon.browser-system-qualification.v1"
+const (
+	Version        = "openudon.browser-system-qualification.v2"
+	CurrentVersion = "openudon.browser-system-qualification.v3"
+	legacyVersion  = "openudon.browser-system-qualification.v1"
+)
 
 var digestPattern = regexp.MustCompile(`^[a-f0-9]{64}$`)
 var commitPattern = regexp.MustCompile(`^[a-f0-9]{40}$`)
@@ -97,17 +100,21 @@ func validToolchains(value Toolchains, lock browserscenario.CompatibilityLock) b
 
 func Validate(r *Report) error {
 	bad := errors.New("browser system report is invalid")
-	if r == nil || (r.Version != Version && r.Version != legacyVersion) || (r.Suite != "offline" && r.Suite != "loopback") || (r.Status != "pass" && r.Status != "fail") || r.PlaywrightGo != "v0.6201.0" || r.NetworkClaim != "application_request_allowlists_not_network_wide_containment" {
+	if r == nil || (r.Version != CurrentVersion && r.Version != Version && r.Version != legacyVersion) || (r.Suite != "offline" && r.Suite != "loopback") || r.Version == CurrentVersion && r.Suite != "loopback" || (r.Status != "pass" && r.Status != "fail") || r.PlaywrightGo != "v0.6201.0" || r.NetworkClaim != "application_request_allowlists_not_network_wide_containment" {
 		return bad
 	}
-	lock, err := browserscenario.LoadCompatibilityLock()
+	stack := browserscenario.StackHistorical
+	if r.Version == CurrentVersion {
+		stack = browserscenario.StackCurrent
+	}
+	lock, err := browserscenario.LoadCompatibilityLockForStack(stack)
 	if err != nil || !bytes.Equal(canonical(lock), canonical(r.Baseline)) || !validToolchains(r.Toolchains, lock) {
 		return bad
 	}
 	names := []string{"openudon", "browsertools", "uws", "udon", "browserdriver"}
 	expectedBuildCommits := map[string]string{}
 	if r.Suite == "loopback" {
-		build, err := browserscenario.LoadQualificationBuildInputLock(lock)
+		build, err := browserscenario.LoadQualificationBuildInputLockForStack(stack)
 		if err != nil {
 			return bad
 		}
@@ -162,7 +169,7 @@ func Validate(r *Report) error {
 			if stage.Status != "pass" || !digestPattern.MatchString(stage.SHA256) || stage.SHA256 != evidenceHash(stage.Evidence) {
 				return bad
 			}
-			if err := validateProof(stage, r.Suite); err != nil {
+			if err := validateProof(stage, r.Suite, stack); err != nil {
 				return bad
 			}
 			if stage.ID == "loopback_scenarios" || stage.ID == "journey_scenarios" {
@@ -211,7 +218,7 @@ func decodeProof(data []byte, target any) error {
 	}
 	return nil
 }
-func validateProof(stage Stage, suite string) error {
+func validateProof(stage Stage, suite, stack string) error {
 	bad := errors.New("component evidence is invalid")
 	switch stage.ID {
 	case "loopback_scenarios", "journey_scenarios":
@@ -222,11 +229,23 @@ func validateProof(stage Stage, suite string) error {
 		if browserscenario.ValidateLocalQualificationReport(&r) != nil || r.Status != "pass" || r.Summary.Skipped != 0 || r.Summary.Quarantined != 0 {
 			return bad
 		}
+		if stack == browserscenario.StackCurrent && r.Version != browserscenario.CurrentReportVersion && r.Version != browserscenario.CurrentJourneyReportVersion {
+			return bad
+		}
+		if stack == browserscenario.StackHistorical && r.Version != browserscenario.ReportVersion && r.Version != browserscenario.JourneyReportVersion {
+			return bad
+		}
 		expected := browserscenario.SuiteLoopback
 		if stage.ID == "journey_scenarios" {
 			expected = browserscenario.SuiteJourney
 		}
-		manifests, err := browserscenario.LoadManifests(time.Now())
+		var manifests []browserscenario.Manifest
+		var err error
+		if stack == browserscenario.StackCurrent {
+			manifests, err = browserscenario.LoadCurrentManifests(time.Now())
+		} else {
+			manifests, err = browserscenario.LoadManifests(time.Now())
+		}
 		if err != nil {
 			return bad
 		}
@@ -259,8 +278,7 @@ func validateProof(stage Stage, suite string) error {
 		if decodeProof(stage.Evidence, &e) != nil {
 			return bad
 		}
-		lock, _ := browserscenario.LoadCompatibilityLock()
-		expected, err := browserscenario.LoadQualificationBuildInputLock(lock)
+		expected, err := browserscenario.LoadQualificationBuildInputLockForStack(stack)
 		if err != nil || !bytes.Equal(canonical(e), canonical(expected)) {
 			return bad
 		}

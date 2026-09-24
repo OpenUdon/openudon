@@ -62,7 +62,12 @@ func RunBAPBCPQualification(ctx context.Context, options Options) (result BAPBCP
 	if now.IsZero() || options.AllowNetwork {
 		return BAPBCPQualificationEvidence{}, errors.New("BAP+BCP qualification authority is invalid")
 	}
-	lock, err := LoadCompatibilityLock()
+	stack := options.Stack
+	if stack == "" {
+		stack = StackHistorical
+	}
+	options.Stack = stack
+	lock, err := LoadCompatibilityLockForStack(stack)
 	if err != nil {
 		return BAPBCPQualificationEvidence{}, err
 	}
@@ -70,11 +75,16 @@ func RunBAPBCPQualification(ctx context.Context, options Options) (result BAPBCP
 	if err != nil {
 		return BAPBCPQualificationEvidence{}, err
 	}
-	if err := ValidateQualificationBuildInputs(ctx, environment.UdonRepo, lock); err != nil {
+	if err := ValidateQualificationBuildInputsForStack(ctx, environment.UdonRepo, stack); err != nil {
 		return BAPBCPQualificationEvidence{}, errors.New("BAP+BCP qualification build inputs are invalid")
 	}
 	environment.CommitBoundBuild = true
-	manifests, err := LoadManifests(now)
+	var manifests []Manifest
+	if stack == StackCurrent {
+		manifests, err = LoadCurrentManifests(now)
+	} else {
+		manifests, err = LoadManifests(now)
+	}
 	if err != nil {
 		return BAPBCPQualificationEvidence{}, err
 	}

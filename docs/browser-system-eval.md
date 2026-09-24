@@ -11,13 +11,25 @@ real registration authority is included.
 openudon browser-system-eval --suite offline --out /tmp/browser-system-offline.json
 openudon browser-system-eval --suite loopback --out /tmp/browser-system-loopback.json
 openudon browser-system-eval --verify /tmp/browser-system-loopback.json
+
+# Repaired Udon candidate, all three complete fresh native repetitions:
+openudon browser-system-eval --stack current --suite loopback \
+  --out /tmp/browser-system-current-loopback.json
+openudon browser-system-eval --verify /tmp/browser-system-current-loopback.json
 ```
 
 Use `--repo-root` for OpenUdon and `--udon-repo` for an exact disposable Udon
 checkout with the auxiliary sibling checkouts required by
-`internal/browserscenario/qualification-build-inputs.json`. The Make equivalent
-is `OPENUDON_BROWSER_SYSTEM_UDON_REPO`. `OPENUDON_BROWSER_SYSTEM_OUT` selects
-an output prefix outside both source workspaces. Root aliases are resolved
+`internal/browserscenario/qualification-build-inputs.json` for the historical
+default. The current stack uses
+`internal/browserscenario/current-qualification-build-inputs.json`, requires
+all 14 replacement checkouts and primary sources to be clean at their exact
+locked revisions before starting, and emits a v3 native report. `--stack`
+defaults to `historical`; the v2 native reader keeps that original baseline and
+the v1 reader keeps its 11-stage loopback inventory. `make
+browser-system-current-check` runs and verifies the explicit current stack.
+The Make equivalent Udon path is `OPENUDON_BROWSER_SYSTEM_UDON_REPO`;
+`OPENUDON_BROWSER_SYSTEM_OUT` selects an output prefix outside both source workspaces. Root aliases are resolved
 before enforcing that output boundary. Missing source revisions,
 installed runtimes or sandbox prerequisites fail; the command never installs,
 upgrades, downloads modules or substitutes a moving repository tip.
@@ -52,14 +64,17 @@ go test -tags=browser_system_qualification ./internal/icot/ui \
   -run '^TestBrowserSystemRealRegistrationUI$' -count=1 -timeout=6m
 ```
 
-The report `openudon.browser-system-qualification.v2` binds each primary Git
+The historical v2 report `openudon.browser-system-qualification.v2` binds each primary Git
 revision and local source-tree digest, all auxiliary Udon build source trees
 before and after each loopback stage, the compatibility/build-input locks,
 runtime baseline, exact observed Go/Node versions, ordered component evidence and its SHA-256, scenario
 inventory, and fixed failure stage. Local scenario components use aggregate-only source-bound validation; legacy
 scenario publication files continue to require a clean OpenUdon checkout.
-Local source deltas are engineering inputs;
-they are not represented as published revisions. Component stdout and stderr,
+For a current v3 report, the repaired current compatibility and 14-source
+build-input locks are selected together. The loopback and journey component
+reports use the current v3 scenario contracts; BAP/BRP components use the same
+current stack and closure. Current sources are rechecked for exact revisions
+and clean state around every stage. Component stdout and stderr,
 page values, credentials and private producer files are not report fields.
 Verification rejects unknown and duplicate JSON fields, altered evidence,
 missing/reordered components, incomplete repeatability and skipped required

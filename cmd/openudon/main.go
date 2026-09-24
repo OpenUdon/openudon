@@ -1354,6 +1354,7 @@ func runBrowserSystemInput(args []string) {
 func runBrowserSystemEval(args []string) {
 	fs := flag.NewFlagSet("browser-system-eval", flag.ExitOnError)
 	suite := fs.String("suite", "", "offline or explicit loopback (three fresh complete passes)")
+	stack := fs.String("stack", browserscenario.StackHistorical, "historical (default) or current repaired stack")
 	root := fs.String("repo-root", ".", "OpenUdon source root")
 	udonRepo := fs.String("udon-repo", "", "exact Udon checkout with locked auxiliary siblings")
 	out := fs.String("out", "", "report outside source workspace")
@@ -1385,7 +1386,7 @@ func runBrowserSystemEval(args []string) {
 	}
 	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer cancel()
-	_, err := browsersystem.Run(ctx, browsersystem.Options{Root: *root, Suite: *suite, Out: *out, UdonRepo: *udonRepo, Progress: os.Stderr})
+	_, err := browsersystem.Run(ctx, browsersystem.Options{Root: *root, Suite: *suite, Stack: *stack, Out: *out, UdonRepo: *udonRepo, Progress: os.Stderr})
 	if err != nil {
 		fmt.Fprintln(os.Stderr, "browser-system-eval:", err)
 		os.Exit(1)
@@ -1396,6 +1397,7 @@ func runBrowserSystemEval(args []string) {
 func runBrowserSystemComponent(args []string) {
 	fs := flag.NewFlagSet("browser-system-component", flag.ExitOnError)
 	id := fs.String("component", "", "closed synthetic component")
+	stack := fs.String("stack", browserscenario.StackHistorical, "historical (default) or current repaired stack")
 	root := fs.String("repo-root", ".", "OpenUdon source root")
 	udon := fs.String("udon-repo", "", "exact Udon source root")
 	fs.Parse(args)
@@ -1404,7 +1406,7 @@ func runBrowserSystemComponent(args []string) {
 	}
 	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer cancel()
-	value, err := browsersystem.RunComponent(ctx, *root, *udon, *id)
+	value, err := browsersystem.RunComponent(ctx, *root, *udon, *stack, *id)
 	if err != nil {
 		fmt.Fprintln(os.Stderr, "browser-system-component: failed")
 		os.Exit(1)

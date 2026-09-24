@@ -73,7 +73,12 @@ func RunBRPQualification(ctx context.Context, options Options) (result BRPQualif
 	if now.IsZero() || options.AllowNetwork {
 		return BRPQualificationEvidence{}, errors.New("BRP qualification authority is invalid")
 	}
-	lock, err := LoadCompatibilityLock()
+	stack := options.Stack
+	if stack == "" {
+		stack = StackHistorical
+	}
+	options.Stack = stack
+	lock, err := LoadCompatibilityLockForStack(stack)
 	if err != nil {
 		return BRPQualificationEvidence{}, err
 	}
@@ -81,7 +86,7 @@ func RunBRPQualification(ctx context.Context, options Options) (result BRPQualif
 	if err != nil {
 		return BRPQualificationEvidence{}, err
 	}
-	if err := ValidateQualificationBuildInputs(ctx, environment.UdonRepo, lock); err != nil {
+	if err := ValidateQualificationBuildInputsForStack(ctx, environment.UdonRepo, stack); err != nil {
 		return BRPQualificationEvidence{}, errors.New("BRP qualification build inputs are invalid")
 	}
 	environment.CommitBoundBuild = true
