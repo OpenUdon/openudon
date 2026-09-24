@@ -1,3 +1,37 @@
+# Retired milestone E15 - E15 — Registration verification integration follow-through
+
+**Milestone.** E15
+**Outcome.** completed
+**Retired.** 2026-09-24
+**Source status.** tabilet/memory-bank/status-E15.md
+**Source specification.** tabilet/memory-bank/milestone.md#e15-registration-verification-integration-follow-through
+**Evidence.** 32507f593b351a4ecc292393e45122ecbee359cc
+**Worktree.** includes uncommitted changes
+**Review.** passed
+**Review iterations.** 1
+**Verification.** W16.4i.39d acceptance-v2, independent checks, exact pass-one adoption and review 5 pass; source/report digests and zero failures are preserved in the literal status below.
+**Consolidated into.** Current integration/dashboard guidance in tabilet/memory-bank/milestone.md and the permanent history index; no product, architecture or stack direction changed.
+
+## Milestone specification
+
+~~~markdown
+## E15 — Registration verification integration follow-through
+
+[status-E15.md](status-E15.md) records the verification authoring and
+integration lineage. Acceptance requires a published, exact source closure;
+39 passing native stages across three fresh repetitions; three passing local
+synthetic W8M journeys; canonical and independent evidence verification; and
+adoption of the exact retained pass-one bytes. Failed and consumed attempts
+remain preserved and may be superseded only by an accepted successor. This
+OpenUdon milestone does not authorize real provider or account operations.
+W8M W16.4i.39d later satisfies the synthetic qualification and adoption
+acceptance; its exact source and report evidence are recorded in E15.9.
+
+~~~
+
+## Status record
+
+~~~markdown
 # E15 — Verification authoring and integration
 
 | Item | State | Notes |
@@ -7,9 +41,10 @@
 | E15.3 | `[+]` | Independent aggregate/native verification, twenty source bindings, eight identical runtime hashes and exact tested-byte adoption pass. Bounded integration review iteration 1 closes with no open P1/P2. |
 | E15.4 | `[+]` | Published source 58d41f819e81 passes focused owner checks, fresh complete acceptance v2 and independent exact-byte adoption under W8M W16.4i.2. Integration review iteration 4 closes with no open P1/P2. Earlier failed and consumed evidence remains preserved. |
 | E15.5 | `[+]` | Source repair, owner tests and focused local browser validation pass. Published exact dependencies complete 39 fresh native stages, three W8M journeys, independent verification and exact tested-byte adoption under W16.4i.4. Integration review iteration 3 closes with no open P1/P2; prior failures and consumed invocations remain preserved. |
-| E15.6 | `[!]` | Publication and exact pins pass. One qualification launch failed at native offline driver_unit because fresh preparation omitted installed node_modules; acceptance-v2/browser stages never started. Canonical failure evidence, 536-process teardown and prior preservation verify. No adoption; authority consumed. Corrected separate preparation passes 94 driver tests/13 browser skips, but complete qualification needs new authority. |
-| E15.7 | `[!]` | Corrected offline prerequisites pass. One acceptance-v2 invocation failed at repeat-one udon_browser_contract cancellation test after four native passes; no W8M journeys or adoption. Canonical native failure, rejected incomplete aggregate, all 1,047 process identities absent and 5,016 preservation hashes verify. Deferred orphan reaping is a hypothesis requiring focused reproduction. Authority consumed; previous runtime stays selected. Failure-evidence review iteration 1 passes. |
-| E15.8 | `[!]` | OpenUdon b3a40a9 / Udon 884a4ff and coordination 2903826 are published and bound by W8M 5aea817. One qualification passes offline gates and 33 native stages, including the repaired Udon contract in all three repeats, then stops at the one-hour native component boundary during repeat-three loopback. Final native report/error absent; incomplete aggregate rejected. All 4,217 process identities are absent; sources, dependencies and prior kits preserved. Zero W8M journeys/adoption; authority consumed. Failure closeout review iteration 1 passes; qualification remains failed/consumed. |
+| E15.6 | `[-]` | Publication and exact pins pass. One qualification launch failed at native offline driver_unit because fresh preparation omitted installed node_modules; acceptance-v2/browser stages never started. Canonical failure evidence, 536-process teardown and prior preservation verify. No adoption; authority consumed. Corrected separate preparation passes 94 driver tests/13 browser skips, but complete qualification needs new authority.  Accepted successor: E15.9 / W16.4i.39d. |
+| E15.7 | `[-]` | Corrected offline prerequisites pass. One acceptance-v2 invocation failed at repeat-one udon_browser_contract cancellation test after four native passes; no W8M journeys or adoption. Canonical native failure, rejected incomplete aggregate, all 1,047 process identities absent and 5,016 preservation hashes verify. Deferred orphan reaping is a hypothesis requiring focused reproduction. Authority consumed; previous runtime stays selected. Failure-evidence review iteration 1 passes.  Accepted successor: E15.9 / W16.4i.39d. |
+| E15.8 | `[-]` | OpenUdon b3a40a9 / Udon 884a4ff and coordination 2903826 are published and bound by W8M 5aea817. One qualification passes offline gates and 33 native stages, including the repaired Udon contract in all three repeats, then stops at the one-hour native component boundary during repeat-three loopback. Final native report/error absent; incomplete aggregate rejected. All 4,217 process identities are absent; sources, dependencies and prior kits preserved. Zero W8M journeys/adoption; authority consumed. Failure closeout review iteration 1 passes; qualification remains failed/consumed.  Accepted successor: E15.9 / W16.4i.39d. |
+| E15.9 | `[+]` | W8M W16.4i.39d passes 39/39 native stages and three synthetic journeys; independent verification and exact pass-one adoption pass. Report SHA-256 `50a2e5f98da6ebfd91cc8b24182390d3c651f5d676dec09f49d99f4e929653b3`; adoption review 5 closes with no P1/P2. The source IDs and bounds are recorded below. |
 
 The approved September 13 verification release covers Turnstile, reCAPTCHA v2
 and hCaptcha, including invisible widgets activated by an approved Submit.
@@ -167,6 +202,89 @@ failed smoke; run one fresh affected smoke from a new clean application copy
 before the next full gate. No provider adapter or real operation is changed.
 
 The corrected fresh registration_ui_handoff smoke passes in 80.097 seconds.
+
+
+### E15.9 accepted W16.4i.39d qualification and adoption
+
+W8M W16.4i.39d is the accepted successor for E15.6–E15.8. Its frozen,
+published 20-source closure passes one fresh acceptance-v2 invocation: 39/39
+native stages across three repetitions, including 23/23 loopback and 8/8
+journey-scenario cases per repetition, plus three W8M synthetic journeys. The
+acceptance report records zero failed or skipped native stages/cases and zero
+failed or skipped W8M workflows. The preceding offline unit gate passes with
+35 expected provider/browser test skips (OpenUdon 4, Browsertools 16,
+Browserdriver 15) and zero failures. The three W8M journeys each record one
+synthetic registration, three logins, zero unauthorized mutations, rejected
+retry and verified teardown.
+
+The exact qualification report is
+`/home/peter/.local/state/w8m-browser/w16-initialization-focused-20260916-j8osnfon/qualification/full/acceptance.json`,
+SHA-256 `50a2e5f98da6ebfd91cc8b24182390d3c651f5d676dec09f49d99f4e929653b3`.
+Its exact pass-one native component is SHA-256
+`2457ce3f5c3cbf37d00ac84a2e4be06fab6291288c44e814c5d09797d204ffab`.
+Independent qualification checks pass at SHA-256
+`4ae1f6b1026045bb07cb70b2d585bed9d079b87919e6c48f745dc66b0913550b`:
+39 native stages and three journeys verified, with all 5,958 execution and
+five verifier identities absent without force. The separate adoption receipt
+`/home/peter/.local/state/w8m-browser/w16-initialization-focused-20260916-j8osnfon/qualification/adoption.json`,
+SHA-256 `c30d796d9392f9338781b503902af5c73e37cc9da628fdb75470a485197595d1`,
+records `qualified_and_adopted`, selected pass 1, and adoption review iteration
+5 with no open P1/P2. All eight runtime roles match the independently verified
+retained pass-one bytes; `live_operation_armed` is false.
+
+The report's complete source set is bound below. The primary OpenUdon and
+sibling source commits are ancestors of the current published revisions, but
+this W8M report qualifies the exact listed commits; it is not represented as a
+new W8M qualification at current OpenUdon HEAD. M86's separate current-stack
+real-browser and scenario evidence remains recorded in its retired history
+record.
+
+| Source | Commit | Source SHA-256 |
+| --- | --- | --- |
+| openudon | `19e5d9c3f6186b0816f027d8e5f8f888cb497d45` | `15e9575f20cd585e7005b7cc2dcf69f26e2dbfa8f1ad94b6a5f4275929cd3263` |
+| browsertools | `e5a49ff682357d6d5f5d9472b0222bff3a203854` | `4ed33911f0947a4ce8aa5fe633b29c1dcda4292720f8354063c2d7ef8d01190e` |
+| uws | `b6e62fcc91338c60d72d606571e5cc9118a8a8ad` | `0e209ce940797ec7961f7fa03d49fc6a2478fa34d35655a6406be51bad20f5de` |
+| udon | `884a4ffddbef8bb451be9edf440dd9b7d1c363fc` | `43455fea6347bab49a990d11d6001ad3f008aa692439d3470c51a2fa002c00dd` |
+| browserdriver | `8b63833e87b5169decd212f4cc05e973f8ee7363` | `df8a3a38c4138a5dc0a5c635783833363ecebbf0152b35af752170b59d0066ad` |
+| udon_build_apitools | `d51b61ead067855b9fa7f081021b6919d0bf6014` | `329eb6b883493696cceb8a7ded9dfe9e2fd83a14d67afbe430516899b29ed779` |
+| udon_build_arazzo | `28d73e9b233dc1d7ba7187b949160d7d008a109f` | `28ba830d379cfd521c81da7866222bde0f1955359af52281e20c9eb905c3adb0` |
+| udon_build_asyncapi | `9c447ce8ac74daff0530050be65c5d4ce27ea745` | `8b71d27e0152298662eddbc66a86a015a24af322ff979510c079eb05bb46896c` |
+| udon_build_awssmithy | `45d3437355dd023cb2e5a7bae74c1c3de59ad9c7` | `e3ec1e93bc43e02cd62445e48dc49061fd895a70b8d68237fbe220b0774020ba` |
+| udon_build_browsertools | `995749df47b14d902f1a8ccbbb2bcf4725059175` | `7bc7432910b1fcf0717674b139231661d6de3504219791115d636053273b7c71` |
+| udon_build_evidence | `0c17258b97360969b026eb47f93ebf34b966c90e` | `1ffe86a5f336128a497e6c12f96d9359e5f2b241846b12be755761a022476a19` |
+| udon_build_golet | `38f8c62a8c316ecd74cf5ca1580f160703593ad4` | `62ea993ae549fa1375670c2e00d2396f7d336cac0c20700247ccd984cd843b54` |
+| udon_build_grand | `5a3dae69ae4459b7576331d3801c1e4c0403c9e3` | `c28f482d97005c086eb86aa12243c60a41377ce4c2b6dcba766f5f7cdd1d23c4` |
+| udon_build_graphqlschema | `4331d0bcf6738dd8b1dfbfe82b98cf048bbcb326` | `affefd6fe95bed23ef9681e5c67cf230707ea450e3a2bbce2765ee4d9df57e08` |
+| udon_build_hcllight | `e2042c181d4aff62ee24f1d8240f515ebf4a2825` | `0f80eeeadc92c9b4a2f087b927f65eef4a80772ba036eb67a9309dc5962fda54` |
+| udon_build_horizon | `019c02efc11f10d6cd6c122a4f07792d8bffbd13` | `a819c0bac5ff7117e503e2d86cc48383081ace3a0b4242628adf60bac0bba1e9` |
+| udon_build_molecule | `fbb27c979550ce5caabe0e03ce5665882f0375bf` | `d28d9b6cecd560768c8b54341663370cb13d433a71ca3c35d653eeb2b782ff9d` |
+| udon_build_odata | `ec3ea47db66574515faf36bd9bbc241e104b7a14` | `18b910a7816ea1db12b23d182d25923831fe0ad64a017aae5cc13223ebd795c8` |
+| udon_build_uws | `b6e62fcc91338c60d72d606571e5cc9118a8a8ad` | `12ff98ba8a20534cfc46e84d432a1758f6735557a8ccf0b2c30cb05914c4e089` |
+| w8m | `c51207507ec781ec73bebd35fd8e569f3f7c59d0` | `55b0baaa4f392895541b85a8c49dfe61dbd49d78dfbd1a0b5c9d6a521e225687` |
+
+W8M's later W16.4i.34e live verification-only probe is outside this synthetic
+integration acceptance. Its own ledger records a consumed
+`verification_timeout`, zero application POSTs and unresolved provider cause;
+W8M acceptance remains incomplete. This goal performs no live operation.
+
+### E15.9 bounded integration review iteration 1 started
+
+Review the complete E15 scope, consumed-attempt lineage, exact W16.4i.39d
+report/adoption evidence, source ancestry, downstream W8M disposition, and the
+current memory-bank retirement plan. No new source or browser run is part of
+this documentation closure.
+
+### E15.9 bounded integration review iteration 1 passed
+
+The exact report, independent-check, adoption receipt, source pins, counts and
+W8M ledger narrative agree. The three earlier E15 failures stay `[-]` and name
+this accepted successor. The old W16.4i.34d authoring cause remains unresolved;
+the later .34e live probe is separately failed/consumed in W8M and does not
+change the successful synthetic integration outcome. Current OpenUdon
+integration scope and the downstream W8M ownership boundary are reconciled.
+No open P1/P2 finding remains.
+
+E15.9 closes; E15 is complete and eligible for normal reviewed retirement.
 It exercised the reviewed application runner, separate private-input service,
 Udon 2fb0982 and sandbox-required driver aefdd87 from clean pinned sources,
 with no development cache reuse. The source gate passes against OpenUdon
@@ -532,3 +650,4 @@ without changing the real indexes. Historical status rows and previous fact
 paragraphs remain intact. Publish only these scoped outcome records under the
 already approved proposal. Component-deadline and missing cancellation-error
 review remain the next engineering candidate; no new qualification is armed.
+~~~

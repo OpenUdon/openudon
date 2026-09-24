@@ -10,27 +10,26 @@ The exact commits, digests, and bounded review are preserved in the
 not reclassify an earlier failure or authorize a public canary, live account,
 or runtime adoption.
 
-E15 and E18 remain active because each contains blocked task rows. E15 records
-unresolved downstream qualification and adoption work after consumed attempts.
-E18 records the unresolved authoring `worker_protocol` failure in a consumed
-qualification. Follow their status records and fresh owner authority before
-any new browser qualification or live operation.
+The UWS 1.11 real-browser M86 and E15 registration-verification integration
+milestones are complete. E15 closed against W8M W16.4i.39d synthetic
+qualification, independent evidence checks and exact pass-one adoption. Its
+complete specification and status history are in the
+[E15 history record](../docs/history/status-E15.md). E18 initialization-diagnostics integration
+remains active; its blocked qualification and current scope are in
+[status-E18.md](status-E18.md).
 
-The history index holds the 134 terminal status IDs
-moved through the one-time legacy preservation. Their records retain exact
-status bytes and the frozen earlier milestone text. `legacy-preserved` means
-historical storage only; it does not establish a passing review, acceptance,
-or dependency completion. Search the history by ID when needed.
+The original .34d `controller/worker_protocol` cause remains unresolved. W8M's
+separate .34e live probe failed/consumed with `verification_timeout`, zero
+application POSTs and unresolved provider cause; W8M real acceptance remains
+incomplete and owner-scoped. These outcomes authorize no new browser, account
+or live operation.
+
+The history index holds 134 legacy-preserved status IDs and one normally reviewed
+completion. Legacy-preserved records retain exact source bytes and the frozen
+milestone text, but do not establish acceptance by themselves. Search the history
+by ID when needed.
 
 ## Active Milestone Specifications
-
-## E15 — Registration verification integration follow-through
-
-[status-E15.md](status-E15.md) records the published verification contracts,
-accepted earlier synthetic evidence, consumed later qualification attempts,
-and remaining blockers. The open rows require fresh scope, evidence, review,
-and any separately required authorization before downstream adoption. Real
-provider and W8M operation remain outside local synthetic evidence.
 
 ## E18 — Initialization diagnostics integration
 
@@ -98,8 +97,8 @@ external services.
 
 ## Active And Parked Tracks
 
-- Active: E15 and E18 remain blocked, with scope and evidence in their status
-  records. No automatic retry or live authorization follows from this index.
+- Active: E18 remains blocked, with scope and evidence in its status record.
+  No automatic retry or live authorization follows from this index.
 - Parked: real-provider evidence, live W8M operation, and public canaries need
   separately approved scope and authority.
 - Completed history: use the [history index](../docs/history/index.md) for
@@ -112,7 +111,6 @@ index before allocating an ID; legacy-preserved IDs remain reserved.
 
 | Milestone | Status File | Summary |
 |---|---|---|
-| E15 | [status-E15.md](status-E15.md) | Registration verification integration follow-through; blocked rows. |
 | E18 | [status-E18.md](status-E18.md) | Initialization diagnostics integration; blocked qualification. |
 
 ## Requested Changes After Initialization
@@ -220,7 +218,9 @@ adopted; an explicit cleanup request and adequate closure evidence are needed.
 
 The owner approved one explicit legacy preservation migration on 2026-09-24.
 It moved 134 status files whose task rows were all terminal into the history
-index, leaving blocked E15 and E18 active. The source status documents retain
+index, leaving blocked E15 and E18 active at that time. E15 later completed
+under the normal reviewed procedure; see its permanent history record. E18 remains
+active. The source status documents retain
 their exact bytes in individual records; the complete pre-migration milestone
 text is frozen at
 [`milestone-before-legacy-retirement.md.txt`](../docs/history/milestone-before-legacy-retirement.md.txt),

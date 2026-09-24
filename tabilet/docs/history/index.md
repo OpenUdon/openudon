@@ -7,7 +7,8 @@ the source of current guidance.
 
 The one-time legacy preservation records below retain exact source status bytes and
 a shared frozen milestone snapshot. They do not establish a passing review or
-acceptance. E15 and E18 remain active.
+acceptance. E15 was excluded from that migration while blocked and later closed
+under the normal reviewed procedure. E18 remains active while blocked.
 
 | Milestone | Outcome | Retired | Record | Summary |
 |---|---|---|---|---|
@@ -56,6 +57,7 @@ acceptance. E15 and E18 remain active.
 | E12 | legacy-preserved | 2026-09-24 | [status-E12.md](status-E12.md) | UWS 1.9.1 content-trust compatibility qualification. |
 | E13 | legacy-preserved | 2026-09-24 | [status-E13.md](status-E13.md) | Focused browser development checks. |
 | E14 | legacy-preserved | 2026-09-24 | [status-E14.md](status-E14.md) | Registration foreground and authoritative private-checkpoint timing integration. |
+| E15 | completed | 2026-09-24 | [status-E15.md](status-E15.md) | Verification integration closed on accepted W16.4i.39d synthetic qualification and exact-byte adoption. |
 | E16 | legacy-preserved | 2026-09-24 | [status-E16.md](status-E16.md) | Native input identity for explicitly versioned incremental qualification consumers. |
 | E17 | legacy-preserved | 2026-09-24 | [status-E17.md](status-E17.md) | Verification observability integration and exact revised driver qualification. |
 | E19 | legacy-preserved | 2026-09-24 | [status-E19.md](status-E19.md) | Closed authoring diagnostics and isolated verification. |
