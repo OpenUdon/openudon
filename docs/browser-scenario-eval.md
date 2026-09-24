@@ -103,7 +103,8 @@ click navigation waits, locator waits, typed outputs, exact mutation counts,
 and final server state.
 
 The current stack retains all eight cases and adds three required local cases:
-Browser 1.8 path/query substitution with an exact signed 64-bit integer,
+Browser 1.8 path/query substitution with an exact signed 64-bit integer
+supplied by a reviewed profile default,
 Browser 1.9 literal-brace and text-sink substitution at the safe-integer
 boundary, and a browser 1.5 then browser 1.9 action in one named v10 session.
 The three modern cases use schema-checked local profiles and exact server

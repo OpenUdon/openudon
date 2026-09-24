@@ -31,13 +31,17 @@ func stageModernJourney(exampleDir, origin, kind string, at time.Time) (string, 
 	legacyPath := filepath.Join(profileDir, "legacy.json")
 	var modernVersion, modernName, target, marker string
 	var values map[string]any
+	inputs := []synthesize.BrowserScenarioInput{{Name: "id", Type: "integer", Required: true}, {Name: "tag", Type: "string", Required: true}}
+	var wideDefault int64
 	var actions []synthesize.BrowserScenarioAction
 	switch kind {
 	case "template_browser18":
 		modernVersion, modernName = profile.SchemaV18, "read_wide"
 		target, marker = "/template18/{{id}}?view={{tag}}", "Template 18 OK"
-		values = map[string]any{"id": int64(9223372036854775807), "tag": "a/b"}
-		actions = []synthesize.BrowserScenarioAction{{Name: "read_wide", Operation: modernName, With: map[string]string{"id": "id", "tag": "tag"}}}
+		wideDefault = int64(9223372036854775807)
+		values = map[string]any{"tag": "a/b"}
+		inputs = []synthesize.BrowserScenarioInput{{Name: "tag", Type: "string", Required: true}}
+		actions = []synthesize.BrowserScenarioAction{{Name: "read_wide", Operation: modernName, With: map[string]string{"tag": "tag"}}}
 	case "template_browser19":
 		modernVersion, modernName = profile.SchemaV19, "preview_text"
 		target, marker = "/template19/{{{{literal}}}}/{{id}}?tag={{tag}}", "Preview verified"
@@ -47,7 +51,7 @@ func stageModernJourney(exampleDir, origin, kind string, at time.Time) (string, 
 		modernVersion, modernName = profile.SchemaV19, "read_mixed"
 		target, marker = "/mixed/{{id}}?tag={{tag}}", "Mixed OK"
 		values = map[string]any{"id": int64(9007199254740991), "tag": "a/b"}
-		if err := writeModernProfile(legacyPath, profile.SchemaV15, origin, at, "open_workspace", "/workspace", "Run marker", false, false); err != nil {
+		if err := writeModernProfile(legacyPath, profile.SchemaV15, origin, at, "open_workspace", "/workspace", "Run marker", false, false, 0); err != nil {
 			return "", "", journeyBlueprint{}, err
 		}
 		actions = []synthesize.BrowserScenarioAction{
@@ -57,7 +61,7 @@ func stageModernJourney(exampleDir, origin, kind string, at time.Time) (string, 
 	default:
 		return "", "", journeyBlueprint{}, fmt.Errorf("unknown modern journey kind")
 	}
-	if err := writeModernProfile(modernPath, modernVersion, origin, at, modernName, target, marker, true, kind == "template_browser19"); err != nil {
+	if err := writeModernProfile(modernPath, modernVersion, origin, at, modernName, target, marker, true, kind == "template_browser19", wideDefault); err != nil {
 		return "", "", journeyBlueprint{}, err
 	}
 	capability := modernPath
@@ -66,14 +70,14 @@ func stageModernJourney(exampleDir, origin, kind string, at time.Time) (string, 
 	}
 	blueprint := journeyBlueprint{
 		workflow:        actions,
-		inputs:          []synthesize.BrowserScenarioInput{{Name: "id", Type: "integer", Required: true}, {Name: "tag", Type: "string", Required: true}},
+		inputs:          inputs,
 		values:          values,
 		expectedOutputs: map[string]any{"marker": marker},
 	}
 	return capability, authPath, blueprint, nil
 }
 
-func writeModernProfile(path, version, origin string, at time.Time, actionName, target, marker string, parameters, textSink bool) error {
+func writeModernProfile(path, version, origin string, at time.Time, actionName, target, marker string, parameters, textSink bool, wideDefault int64) error {
 	sequence := []any{map[string]any{"navigate": target}}
 	if textSink {
 		sequence = append(sequence,
@@ -89,7 +93,13 @@ func writeModernProfile(path, version, origin string, at time.Time, actionName, 
 		"sideEffects": []string{"read_only"}, "confirmationPolicy": map[string]any{"required": false},
 	}
 	if parameters {
-		action["parameters"] = map[string]any{"type": "object", "properties": map[string]any{"id": map[string]any{"type": "integer"}, "tag": map[string]any{"type": "string"}}, "required": []string{"id", "tag"}}
+		id := map[string]any{"type": "integer"}
+		required := []string{"id", "tag"}
+		if wideDefault != 0 {
+			id["default"] = wideDefault
+			required = []string{"tag"}
+		}
+		action["parameters"] = map[string]any{"type": "object", "properties": map[string]any{"id": id, "tag": map[string]any{"type": "string"}}, "required": required}
 	}
 	value := map[string]any{
 		"profile":         version,

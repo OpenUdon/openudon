@@ -1,11 +1,13 @@
 package browserscenario
 
 import (
+	"encoding/json"
 	"os"
 	"path/filepath"
 	"testing"
 	"time"
 
+	"github.com/OpenUdon/browsertools/profile"
 	"github.com/OpenUdon/openudon/internal/synthesize"
 )
 
@@ -33,6 +35,21 @@ func TestCurrentScenarioCorpusAndModernSynthesis(t *testing.T) {
 			}
 			if _, err := os.Stat(capability); err != nil {
 				t.Fatal(err)
+			}
+			if kind == "template_browser18" {
+				data, err := os.ReadFile(capability)
+				if err != nil {
+					t.Fatal(err)
+				}
+				parsed, err := profile.ParseJSON(data)
+				if err != nil {
+					t.Fatal(err)
+				}
+				properties := parsed.Actions["read_wide"].Parameters["properties"].(map[string]any)
+				value := properties["id"].(map[string]any)["default"]
+				if value != json.Number("9223372036854775807") || len(blueprint.inputs) != 1 {
+					t.Fatalf("wide profile default or input binding was rounded: %v", value)
+				}
 			}
 			result, err := synthesize.WriteBrowserScenarioWorkflow(synthesize.BrowserScenarioWorkflowRequest{
 				ExampleDir: root, AuthenticationPath: authentication, CapabilityPath: capability,
