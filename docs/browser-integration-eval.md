@@ -30,9 +30,12 @@ The default run does not launch a browser, contact a target, read credential
 values, execute a workflow, or retain subprocess stdout/stderr. It exercises
 synthetic records and fake browser implementations, exercises iCoT's strict
 live protocol/result adapters without launching a child browser, checks that
-iCoT's engine and HTTP server have no Browsertools capture or Playwright
-implementation dependency (the separately re-executed hidden worker remains
-Browsertools-owned), runs Browserdriver's offline v2/v3 protocol tests, and uses Browsertools doctor only to
+iCoT's engine has no Browsertools capture or Playwright implementation
+dependency. The UI package has an explicit registration qualification adapter
+that uses Playwright, but its dependency graph contains no Browsertools
+capture implementation; ordinary matrix execution does not call that adapter.
+The separately re-executed hidden worker remains Browsertools-owned. The
+matrix runs Browserdriver's offline protocol tests and uses Browsertools doctor only to
 observe pinned component availability without installation, browser launch, or
 network access.
 
@@ -42,7 +45,7 @@ network access.
 |---|---|
 | OpenUdon authoring | API preference, anonymous handoff, strict author-session v2 orchestration, identical pre-publication validation for bundled and expert workers, disclosure-path rejection, human-only typed MFA/output review, exact new-origin approval, process-private trace/auth/output/context/origin attestation, minimal child environment, exact bounds authority, a real Browsertools-produced private result through validation/staging, and malformed/tampered/substituted rejection |
 | OpenUdon package/handoff | Strict live and portability verification, private/tampered input rejection, value-free package review, authentication/capability separation, UWS 1.11 default, Browser 1.8/1.9 templates, and v10 trusted handoff |
-| iCoT dependency boundary | The engine and HTTP-server dependency graphs contain no Browsertools capture, Playwright adapter, or Playwright-Go implementation package; only the hidden re-executed worker links Browsertools' implementation |
+| iCoT dependency boundary | The engine dependency graph contains no Browsertools capture, Playwright adapter, or Playwright-Go implementation package. The UI qualification adapter may link Playwright; the UI graph contains no Browsertools capture implementation. |
 | OpenUdon repository boundary | Production source contains no private executor, desired-state parser, or removed apitools lifecycle imports |
 | Browsertools producer | Observation-generation authority, human-selected MFA kind, bounded reviewed outputs, action-time exact-name/unique-role proof, complete context inventory, current goal proof, deterministic output, and offline doctor behavior |
 | UWS contract | Immutable older compatibility plus UWS 1.11 typed conformance, root-scoped goto, Browser 1.8/1.9 template safety, context contracts, and scalar conversion |

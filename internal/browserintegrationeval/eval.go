@@ -657,6 +657,12 @@ func currentGates() []gate {
 					spec.RequiredPasses[name] = "TestGenerateWorkflowDefaultsToUWS111WithScalarAccessibilityCapability"
 				}
 			}
+		case "icot-dependency-boundary":
+			// The UI package now contains an explicit registration qualification
+			// adapter that imports Playwright. The interactive engine must still
+			// have no browser implementation dependency at all.
+			spec.Args = []string{"go", "list", "-deps", "./internal/icot/engine"}
+			spec.Assertions = []string{"iCoT engine has no Browsertools capture or Playwright implementation dependency"}
 		case "browserdriver-runtime":
 			spec.Assertions = append(spec.Assertions, "v10 Browser 1.8/1.9 template and integer safety")
 			spec.RequiredPasses = append(spec.RequiredPasses,
@@ -667,6 +673,12 @@ func currentGates() []gate {
 		}
 	}
 	newGates := []gate{
+		{
+			ID: "icot-ui-capture-boundary", Repository: "openudon", Kind: "dependency_scan",
+			Args:       []string{"go", "list", "-deps", "./internal/icot/ui"},
+			Assertions: []string{"UI qualification may use Playwright but has no Browsertools capture implementation dependency"},
+			Forbidden:  []string{"github.com/OpenUdon/browsertools/capture", "github.com/OpenUdon/browsertools/adapter/playwright"},
+		},
 		{
 			ID: "openudon-uws111-browser19-handoff", Repository: "openudon", Kind: "go_test",
 			Args:       []string{"go", "test", "-v", "./internal/synthesize", "./internal/trustedrunner", "./internal/udonrunner", "-run", "Test(GenerateWorkflowAcceptsVersionedBrowserTemplates|GenerateWorkflowRejectsUnsafeVersionedBrowserTemplate|ValidateBrowserSourceReviewAcceptsVersionedTemplateProfile|BuildBrowserRunConfigSelectsVersionedActionProtocol|BuildBrowserRunConfigIgnoresInactiveVersionedProfile|BuildBrowserRunConfigSelectsV10ForMixedActiveProfiles|BrowserV10ConfigPreservesAuthenticationWithoutRegistrationAuthority|RunBrowserInvocationIsExactAndAllowlisted)", "-count=1"},

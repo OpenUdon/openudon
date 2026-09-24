@@ -28,3 +28,14 @@ Browserdriver `8c13b70d30a500e65e90a95a203493301b8b21a5`, Udon
 **Review gate.** Not started. The gate must inspect report-version dispatch,
 exact pins, required named tests, value-free report details and preservation of
 v1 evidence before qualifying the new stack.
+
+**First clean matrix attempt.** OpenUdon `e6fcc1b87c5f461f30100d9fd033be4e413b1065`
+ran all 18 v2 gates. Fourteen passed, three opt-ins were skipped and the
+dependency gate failed because `internal/icot/ui` already includes a
+registration-only Playwright qualification adapter. The engine graph remains
+free of Browsertools capture and Playwright. The failed report and sidecar are
+preserved under ignored `eval/runs/browser-integration-m85-attempt1/`; they
+are not qualification.
+M85.2 now makes the boundary precise: the engine remains implementation-free,
+and the UI has no Browsertools capture implementation dependency. The adapter
+still requires explicit registration qualification to launch a browser.

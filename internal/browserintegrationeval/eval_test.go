@@ -24,7 +24,7 @@ func TestRunWritesAndVerifiesValueFreeProviderFreeMatrix(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Run: %v", err)
 	}
-	if report.Status != StatusPass || report.Summary != (Summary{Total: 18, Passed: 15, Skipped: 3}) {
+	if report.Status != StatusPass || report.Summary != (Summary{Total: 19, Passed: 16, Skipped: 3}) {
 		t.Fatalf("report summary = %#v", report)
 	}
 	if report.BrowserLaunchedByDefault || report.TargetContactedByICoT || report.CredentialEnvironmentReadByICoT || report.PlanningDeliverablesWritten {
@@ -111,6 +111,34 @@ func TestLegacyReportRemainsVerifiableAgainstHistoricalLock(t *testing.T) {
 	}
 }
 
+func TestCurrentDependencyBoundarySeparatesEngineFromUIQualification(t *testing.T) {
+	lock, err := loadCurrentCompatibilityLock()
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, spec := range currentGates() {
+		switch spec.ID {
+		case "icot-dependency-boundary":
+			if !equalStrings(spec.Args, []string{"go", "list", "-deps", "./internal/icot/engine"}) {
+				t.Fatalf("engine scan widened: %#v", spec.Args)
+			}
+			if got := evaluateGate(spec, CommandOutput{Stdout: "github.com/mxschmitt/playwright-go\n"}, lock); got.Status != StatusFail {
+				t.Fatal("engine accepted Playwright implementation dependency")
+			}
+		case "icot-ui-capture-boundary":
+			if !equalStrings(spec.Args, []string{"go", "list", "-deps", "./internal/icot/ui"}) {
+				t.Fatalf("UI scan narrowed: %#v", spec.Args)
+			}
+			if got := evaluateGate(spec, CommandOutput{Stdout: "github.com/mxschmitt/playwright-go\n"}, lock); got.Status != StatusPass {
+				t.Fatal("explicit UI qualification adapter was rejected")
+			}
+			if got := evaluateGate(spec, CommandOutput{Stdout: "github.com/OpenUdon/browsertools/capture\n"}, lock); got.Status != StatusFail {
+				t.Fatal("UI accepted Browsertools capture implementation dependency")
+			}
+		}
+	}
+}
+
 func TestRunOptInsPassOrHonestlySkipUnavailableComponents(t *testing.T) {
 	repos := makeTestRepos(t)
 	for _, test := range []struct {
@@ -121,9 +149,9 @@ func TestRunOptInsPassOrHonestlySkipUnavailableComponents(t *testing.T) {
 		wantSkip    int
 		wantCalls   int
 	}{
-		{name: "installed components pass", doctorReady: true, wantPass: 18, wantCalls: 1},
-		{name: "missing components skip", wantPass: 15, wantSkip: 3},
-		{name: "named tests skip", doctorReady: true, skipOptIns: true, wantPass: 15, wantSkip: 3, wantCalls: 1},
+		{name: "installed components pass", doctorReady: true, wantPass: 19, wantCalls: 1},
+		{name: "missing components skip", wantPass: 16, wantSkip: 3},
+		{name: "named tests skip", doctorReady: true, skipOptIns: true, wantPass: 16, wantSkip: 3, wantCalls: 1},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			runner := &fakeRunner{t: t, doctorReady: test.doctorReady, skipOptIns: test.skipOptIns}
