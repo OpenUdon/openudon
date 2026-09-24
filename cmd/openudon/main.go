@@ -223,7 +223,7 @@ func runBrowserScenarioEvalCommand(args []string) {
 	fs.Usage = func() {
 		fmt.Fprintf(fs.Output(), "Usage: openudon browser-scenario-eval --suite loopback|journey|public [--stack historical|current] [--scenario ID]... --out REPORT [--require-ready] [repository flags]\n")
 		fmt.Fprintf(fs.Output(), "       openudon browser-scenario-eval --verify REPORT\n\n")
-		fmt.Fprintf(fs.Output(), "Runs three complementary strict suites. Loopback uses real Browsertools author-session v2 and Udon/Browserdriver v3 replay. Journey imports reviewed Browsertools guided-authoring bundles and runs realistic local read/write workflows through UWS 1.8, Udon v3, and headless Chromium. Public uses value-free Browsertools live checks and credential-free Udon/Browserdriver v2 presence replay against only the embedded anonymous targets; it requires --allow-network. Reports never retain credential values, page content, or subprocess output.\n\n")
+		fmt.Fprintf(fs.Output(), "Runs three complementary strict suites. Loopback uses real Browsertools author-session v2 and Udon/Browserdriver v3 replay. Journey runs local reviewed workflows through headless Chromium: eight guided-authoring bundles use UWS 1.8 and Udon v3; three current-stack Browser 1.8/1.9 cases use Udon v10. Public uses value-free Browsertools live checks and credential-free Udon/Browserdriver v2 presence replay against only the embedded anonymous targets; it requires --allow-network. Reports never retain credential values, page content, or subprocess output.\n\n")
 		fs.PrintDefaults()
 	}
 	if err := fs.Parse(args); err != nil {

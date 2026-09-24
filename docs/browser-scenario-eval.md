@@ -110,7 +110,8 @@ boundary, and a browser 1.5 then browser 1.9 action in one named v10 session.
 The three modern cases use schema-checked local profiles and exact server
 postconditions. The eight earlier cases keep their guided-authoring import.
 
-Each case builds a deterministic `browsertools.guided-authoring.v1` bundle
+Each of the eight earlier journey cases builds a deterministic
+`browsertools.guided-authoring.v1` bundle
 from normalized reviewed evidence, feeds it back through OpenUdon's strict
 source importer, and materializes only the canonical browser 1.5 profile. The
 private bundle, evidence, decisions, review, and draft spec never enter the UWS
