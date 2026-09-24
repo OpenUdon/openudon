@@ -96,10 +96,7 @@ func TestBrowserSystemSupervisedAuthenticatedPackage(t *testing.T) {
 			t.Fatal("state")
 		}
 	}
-	parent := filepath.Join(root, "eval", "runs")
-	if os.MkdirAll(parent, 0700) != nil {
-		t.Fatal("workspace")
-	}
+	parent := registrationQualificationRunParent(t, root)
 	example, err := os.MkdirTemp(parent, ".application-auth-")
 	if err != nil {
 		t.Fatal("workspace")

@@ -43,6 +43,7 @@ func TestBrowserSystemSupervisedControl(t *testing.T) {
 		_, _ = io.WriteString(w, `<html><body><h1>Create account</h1><form method="post"><label>Email<input name="email" autocomplete="email"></label><label>Password<input type="password" name="password"></label><button type="submit">Register</button></form></body></html>`)
 	}))
 	defer fixture.Close()
+	parent := registrationQualificationRunParent(t, root)
 	for _, ending := range []string{"cancel", "eof", "broken_protocol"} {
 		t.Run(ending, func(t *testing.T) {
 			state := t.TempDir()
@@ -50,10 +51,6 @@ func TestBrowserSystemSupervisedControl(t *testing.T) {
 				if os.Mkdir(filepath.Join(state, name), 0700) != nil {
 					t.Fatal("state")
 				}
-			}
-			parent := filepath.Join(root, "eval", "runs")
-			if os.MkdirAll(parent, 0700) != nil {
-				t.Fatal("workspace")
 			}
 			example, err := os.MkdirTemp(parent, ".browser-system-control-")
 			if err != nil {

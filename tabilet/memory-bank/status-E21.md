@@ -17,7 +17,7 @@ Markers: `[ ]` pending, `[~]` in progress, `[+]` complete, `[!]` blocked,
 | E21.1 Freeze M86 current-lock meaning | `[+]` | Copied the exact pre-E21 scenario lock bytes (SHA-256 `57ebe6c70bc0b1e810ed4fb490f36ecb227c47f362bb738b56680ce7abcd6a77`) and integration lock bytes (`9eec17f1489e1c805e2d2bfb8b89a439ee7153d5c49ec09a3ee903ce6761d393`) into versioned v2 snapshots and routed the M86 readers to them. Focused scenario/integration tests pass. M86 integration/loopback/journey reports independently verify at 19/19, 23/23 and 11/11 with their recorded digests unchanged. E21.2 advanced the mutable current locks while retaining these v2 snapshots. |
 | E21.2 Pin and emit the repaired current stack | `[+]` | Current scenario/integration locks select Udon `6d32d4967469c579d35adcf47eaddb76a225dbae`; the separate 14-repository closure is exact and checks clean commits before execution. Current scenario/journey and integration contracts emit v3; M86 v2 uses frozen lock snapshots. Focused tests and vet pass; build-input lock SHA-256 is `4993304edf46953c33b6112c4f00e3fcf526811ac91400989b775a19066977b9`. |
 | E21.3 Extend native current-stack qualification | `[+]` | Added `browser-system-eval --stack current --suite loopback` and `make browser-system-current-check`; historical remains default v2 and v1/v2 verifiers keep their inventories. Current native v3 routes the 14-source clean closure through the build, scenario, BAP and BRP stages, with clean-source preflight and per-stage rechecks. Focused tests and vet pass. |
-| E21.4 Qualify clean current-stack evidence | `[~]` | OpenUdon `f44170d` passes all 19 integration gates, all 23 loopback cases, and all 11 journey cases. Native qualification passes `ui_browser` then fails `registration_ui`; diagnosis found the test leaves an empty ignored `eval/runs` directory, which trips the native clean-source recheck. A test cleanup correction is in progress; repeat all required evidence at its committed source revision in fresh workspaces. |
+| E21.4 Qualify clean current-stack evidence | `[~]` | OpenUdon `1c2a916` passes all 19 integration gates, all 23 loopback cases, and all 11 journey cases. Native qualification passes `ui_browser` and `registration_ui`, then fails `supervised_control` because that fixture also leaves ignored `eval/runs`. A shared cleanup correction now covers all three repo-local fixture suites; focused tests and `make fast` pass. Repeat all required evidence at the corrected commit in fresh workspaces. |
 | E21.5 Review and publish OpenUdon | `[ ]` | Complete all required checks and the bounded review-fix gate with no open P1/P2, record report/source digests and teardown, then push OpenUdon only. Do not push W8M or adopt its candidate. |
 
 ## Acceptance
@@ -106,9 +106,10 @@ published by E21.
   (SHA-256 `ebf1ec6b27cb90c562c7f769b75cdbd771d2ba6d435fa4e0096f8f33ea5324e2`).
   The diagnostic class is `source_or_runtime_binding`. After the failed stage,
   all source checkouts were clean except that the registration UI test had left
-  the empty ignored `eval/runs/` parent in OpenUdon. The correction tracks the
-  empty `eval` / `eval/runs` directories it creates and removes only those
-  directories after the fixture is removed, preserving any pre-existing path.
+  the empty ignored `eval/runs/` parent in OpenUdon. The registration UI,
+  supervised control, and authenticated package fixtures now use one cleanup
+  helper. It removes only empty `eval` / `eval/runs` directories created by the
+  test after fixture teardown, preserving any pre-existing path.
 - Registration UI cleanup check attempt 1 failed during setup because this
   fresh checkout had no `eval` ancestor. Preserve the diagnostic
   `/home/peter/.local/state/openudon/e21-current-qualification-20260924-r5/diagnostics/registration-ui-cleanup-attempt-1.txt`
@@ -117,6 +118,23 @@ published by E21.
   directories; preserve
   `/home/peter/.local/state/openudon/e21-current-qualification-20260924-r5/diagnostics/registration-ui-cleanup-attempt-2.txt`
   (SHA-256 `338ece31449c54d99735cd2a402b0671597c2dacdf52309a83acd9d0e60d52cb`).
+- Native attempt 2 on `1c2a916b3a99879a698e5ff4cc200cfd080dfcc3` passed
+  `ui_browser` and `registration_ui`, then failed at `supervised_control` with
+  diagnostic class `source_or_runtime_binding`. Preserve the failed report
+  `/home/peter/.local/state/openudon/e21-current-qualification-20260924-r7/evidence/native-v3-attempt-2-current-loopback.json`
+  (SHA-256 `e6dc734d777e624f1c8e8c85ec54749ff334036e041f3a0685cfaed022c30816`)
+  and diagnostic
+  `/home/peter/.local/state/openudon/e21-current-qualification-20260924-r7/evidence/native-v3-attempt-2-current-loopback.json.diagnostic.json`
+  (SHA-256 `35554b45a6f846581f4abf76bf8fe82d7f7bf9dbec5bdcca53ffab5df1f9d217`).
+  That fixture still used `MkdirAll(eval/runs)` without removing its empty
+  ignored parent; the shared helper now covers it and the authenticated package
+  test.
+- Focused fixture set attempt 1 passes the real registration UI, supervised
+  control, and authenticated package tests with uncached local browser state.
+  It preserved the pre-existing `eval/runs` directory from the failed native
+  attempt. Preserve
+  `/home/peter/.local/state/openudon/e21-current-qualification-20260924-r5/diagnostics/registration-fixtures-cleanup-attempt-1.txt`
+  (SHA-256 `7b400c5d2ecbb108b3d6a2a57d0c03be265c8a86bc56989b4927750b41ac10b4`).
 
 ## Review and verification record
 
