@@ -165,7 +165,7 @@ func ValidateReport(report *Report) error {
 		return err
 	}
 	if stack == StackCurrent {
-		lock, err := LoadCurrentCompatibilityLock()
+		lock, err := LoadCurrentCompatibilityLockV2()
 		if err != nil {
 			return err
 		}

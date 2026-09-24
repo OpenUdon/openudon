@@ -16,6 +16,21 @@ import (
 	"github.com/OpenUdon/openudon/internal/browserscenario"
 )
 
+func TestM86CurrentLockSnapshotRetainsPublishedPins(t *testing.T) {
+	lock, gates, err := contractForVersion(ReportVersion)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(lock.Components) != 4 || len(gates) != 19 {
+		t.Fatalf("M86 current contract has %d components and %d gates", len(lock.Components), len(gates))
+	}
+	for _, component := range lock.Components {
+		if component.Name == "udon" && component.Commit != "080b8282e2b8f7ca7a9994b6d9f0e3d2891d853f" {
+			t.Fatalf("M86 Udon pin changed: %s", component.Commit)
+		}
+	}
+}
+
 func TestRunWritesAndVerifiesValueFreeProviderFreeMatrix(t *testing.T) {
 	repos := makeTestRepos(t)
 	out := filepath.Join(t.TempDir(), "matrix", "report.json")

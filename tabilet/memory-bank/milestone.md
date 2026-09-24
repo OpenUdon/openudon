@@ -10,6 +10,10 @@ The exact commits, digests, and bounded review are preserved in the
 not reclassify an earlier failure or authorize a public canary, live account,
 or runtime adoption.
 
+E21.1 freezes the pre-E21 current scenario and integration locks for M86 v2
+report verification. Both report readers now use those immutable snapshots;
+E21.2 owns advancing the mutable current lock to the repaired Udon closure.
+
 The UWS 1.11 real-browser M86, E15 registration-verification integration,
 and E18 initialization-diagnostics integration milestones are complete. E15
 and E18 closed against W8M W16.4i.39d synthetic qualification, independent
@@ -27,7 +31,18 @@ The history index holds 134 legacy-preserved status IDs and two normally reviewe
 
 ## Active Milestone Specifications
 
-No active milestone specifications remain.
+### E21 — Repair current-stack Udon build and preserve M86 report meaning
+
+Repair the OpenUdon current-stack selector for W8M's UWS 1.11 / Browser 1.9
+candidate. Freeze the exact pre-E21 current compatibility locks and make v1,
+M86 v2, and E21 v3 readers select their original lock semantics. The new
+current lock selects clean Udon `6d32d49` and a separate exact clean 14-source
+local replacement closure; the historical default and M86 evidence remain
+unchanged. Emit v3 scenario, journey, integration, and native qualification
+reports. Extend the native current path through scenarios and BAP/BRP while
+keeping the historical stack as its default. The scope is synthetic and
+provider-free; it includes no deployment, public canary, runtime adoption, or
+target account operation.
 
 ## Memory Bank Index
 
@@ -86,8 +101,9 @@ external services.
 
 ## Active And Parked Tracks
 
-- Active: no unresolved milestone status files. Any new work requires an
-  approved direction and dependency review.
+- Active: E21 owns the current-stack report-preservation and Udon build-lock
+  repair; W8M W20.6/W21 consume its published exact lock. No deployment,
+  public canary, runtime adoption, or target operation is authorized.
 - Parked: real-provider evidence, live W8M operation, and public canaries need
   separately approved scope and authority.
 - Completed history: use the [history index](../docs/history/index.md) for
@@ -95,8 +111,12 @@ external services.
 
 ## Status Files
 
-No active status files remain. The memory bank remains initialized; search the
-history index before allocating a future ID.
+Active status files are indexed below. The memory bank remains initialized;
+search the history index before allocating a future ID.
+
+| ID | Milestone | Status file | State |
+| --- | --- | --- | --- |
+| E21 | Repair current-stack Udon build and preserve M86 report meaning | `tabilet/memory-bank/status-E21.md` | Active |
 
 ## Requested Changes After Initialization
 

@@ -1,5 +1,14 @@
 # Architecture
 
+## M86 v2 report lock preservation
+
+Current-stack scenario and integration report v2 readers use frozen copies of
+the exact M86 current locks. New current evidence will use the mutable current
+lock only under v3 readers. The historical v1/default lock remains separate.
+This prevents a later current-stack update from changing the meaning of
+retained M86 reports. E21 owns the lock transition and its verifiers; see
+[status-E21.md](status-E21.md).
+
 ## Current Browser Authoring Boundary
 
 The shared Browsertools authorurl validator binds reviewed command URLs,

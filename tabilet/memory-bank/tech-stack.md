@@ -1,5 +1,18 @@
 # Tech Stack
 
+## M86 v2 lock snapshots
+
+The M86 current scenario v2 verifier reads
+`internal/browserscenario/current-compatibility-lock-v2.json` (SHA-256
+`57ebe6c70bc0b1e810ed4fb490f36ecb227c47f362bb738b56680ce7abcd6a77`). The
+integration v2 verifier reads its own byte-preserved snapshot at
+`internal/browserintegrationeval/current-compatibility-lock-v2.json` (SHA-256
+`9eec17f1489e1c805e2d2bfb8b89a439ee7153d5c49ec09a3ee903ce6761d393`). The
+mutable current selectors remain at the pre-E21 values until E21.2 adds the
+Udon `6d32d49` closure. Historical v1 verification keeps its existing lock.
+All three retained M86 reports pass the frozen readers with their original
+digests; E21 evidence is recorded in [status-E21.md](status-E21.md).
+
 ## Current Browser Authoring Tooling
 
 Reviewed query admission, generated-profile, parent-attestation, and synthetic

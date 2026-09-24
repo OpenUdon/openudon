@@ -21,6 +21,16 @@ append its previous wording, source, reason, and replacement reference to
 links when merging lessons. Revalidate historical evidence before applying it
 to current work. Routine wording edits need no journal entry or archive run.
 
+## Bind retained report verification to a versioned lock
+
+When report verifiers consult embedded compatibility data, make the report
+version select an immutable lock snapshot. Updating a mutable current lock can
+otherwise invalidate retained reports even when their bytes and recorded
+digests are unchanged. E21 froze the M86 scenario and integration lock bytes
+before advancing current-stack support; the original integration and two
+scenario v2 reports continue to verify. See [status-E21](status-E21.md) and
+[M86](../docs/history/status-M86.md).
+
 ## Validate task tables with the installed runner
 
 When repairing or adding a status ledger, use outer `|` table delimiters and

@@ -35,7 +35,7 @@ var (
 	keyPattern = regexp.MustCompile(`^[A-Za-z][A-Za-z0-9_-]{0,63}$`)
 )
 
-//go:embed manifests/*.json current-manifests/*.json compatibility-lock.json current-compatibility-lock.json qualification-build-inputs.json
+//go:embed manifests/*.json current-manifests/*.json compatibility-lock.json current-compatibility-lock.json current-compatibility-lock-v2.json qualification-build-inputs.json
 var contracts embed.FS
 
 type Manifest struct {
@@ -216,6 +216,25 @@ func LoadCurrentCompatibilityLock() (CompatibilityLock, error) {
 	}
 	if err := ValidateCompatibilityLock(lock); err != nil {
 		return lock, err
+	}
+	return lock, nil
+}
+
+// LoadCurrentCompatibilityLockV2 returns the immutable lock used by M86's
+// current-stack v2 reports. New current-stack evidence uses the mutable v3
+// lock; retaining this snapshot keeps archived v2 reports independently
+// verifiable after current-stack updates.
+func LoadCurrentCompatibilityLockV2() (CompatibilityLock, error) {
+	data, err := contracts.ReadFile("current-compatibility-lock-v2.json")
+	if err != nil {
+		return CompatibilityLock{}, err
+	}
+	var lock CompatibilityLock
+	if err := decodeStrict(data, &lock); err != nil {
+		return CompatibilityLock{}, err
+	}
+	if err := ValidateCompatibilityLock(lock); err != nil {
+		return CompatibilityLock{}, err
 	}
 	return lock, nil
 }
