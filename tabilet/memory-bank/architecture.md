@@ -696,9 +696,11 @@ clean, and its scenario, build-input, BAP and BRP stages use the same current
 stack selection.
 Current qualification accepts a separate read-only Browserdriver `node_modules`
 directory whose four direct build/runtime packages match its pinned lock. The
-Browserdriver npm matrix gate checks out its locked source commit into a
-disposable clone, while all generated build output remains outside the supplied
-source checkout. No source or dependency installation is part of qualification.
+Browserdriver builds and its npm matrix gate check out the locked source commit
+into disposable clones. The read-only module directory is linked into the build
+clone so TypeScript resolves dependencies from the source tree; all generated
+build output remains outside the supplied source checkout. No source or
+dependency installation is part of qualification.
 Current Udon Go test gates also use an exact disposable clone of Udon and all
 fourteen locked sibling inputs; the source evaluator rechecks the supplied
 closure around these tests. This keeps ignored fixture output from making a

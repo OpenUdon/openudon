@@ -96,7 +96,7 @@ func ValidateBrowserdriverNodeModules(source, nodeModules string) error {
 // StageBrowserdriverWithNodeModules builds the exact source with a separately
 // supplied, read-only dependency directory. Both compiler output and the
 // temporary runtime package live outside the supplied source worktree.
-func StageBrowserdriverWithNodeModules(ctx context.Context, source, nodeModules, target string) error {
+func StageBrowserdriverWithNodeModules(ctx context.Context, source, nodeModules, target string) (resultErr error) {
 	bad := errors.New("Browserdriver build prerequisites are invalid")
 	if !filepath.IsAbs(source) || !filepath.IsAbs(target) || !filepath.IsAbs(nodeModules) {
 		return bad
@@ -115,6 +115,19 @@ func StageBrowserdriverWithNodeModules(ctx context.Context, source, nodeModules,
 	if os.WriteFile(filepath.Join(target, "package.json"), data, 0600) != nil || os.Symlink(nodeModules, filepath.Join(target, "node_modules")) != nil {
 		return bad
 	}
+	buildRoot, err := os.MkdirTemp("", "openudon-browserdriver-build-")
+	if err != nil {
+		return bad
+	}
+	defer func() {
+		if err := os.RemoveAll(buildRoot); err != nil && resultErr == nil {
+			resultErr = bad
+		}
+	}()
+	buildSource := filepath.Join(buildRoot, "browserdriver")
+	if cloneBrowserdriverSource(ctx, source, buildSource) != nil || os.Symlink(nodeModules, filepath.Join(buildSource, "node_modules")) != nil {
+		return bad
+	}
 	environment := os.Environ()
 	for i, value := range environment {
 		if strings.HasPrefix(value, "PATH=") {
@@ -123,10 +136,36 @@ func StageBrowserdriverWithNodeModules(ctx context.Context, source, nodeModules,
 		}
 	}
 	err = browsercheck.Build(ctx, "browserdriver", filepath.Join(target, "dist"), func(output string) error {
-		return processgroup.Run(ctx, buildDeadline, processgroup.Invocation{Args: []string{"npm", "run", "build", "--silent", "--", "--outDir", output, "--incremental", "false"}, Dir: source, Env: environment, Stdout: io.Discard, Stderr: io.Discard})
+		return processgroup.Run(ctx, buildDeadline, processgroup.Invocation{Args: []string{"npm", "run", "build", "--silent", "--", "--outDir", output, "--incremental", "false"}, Dir: buildSource, Env: environment, Stdout: io.Discard, Stderr: io.Discard})
 	})
 	if err != nil {
 		return bad
+	}
+	return nil
+}
+
+func cloneBrowserdriverSource(ctx context.Context, source, target string) error {
+	if !filepath.IsAbs(source) || filepath.Clean(source) != source || !filepath.IsAbs(target) || filepath.Clean(target) != target {
+		return errors.New("Browserdriver source clone paths are invalid")
+	}
+	commit := runBounded(ctx, probeDeadline, source, []string{"git", "--no-replace-objects", "rev-parse", "HEAD"}, nil, "")
+	revision := strings.TrimSpace(string(commit.stdout))
+	if commit.err != nil || !commitPattern.MatchString(revision) {
+		return errors.New("Browserdriver source revision is unavailable")
+	}
+	cloned := runBounded(ctx, buildDeadline, source, []string{
+		"git", "--no-replace-objects", "clone", "--shared", "--no-checkout", "--quiet", source, target,
+	}, nil, "")
+	if cloned.err != nil {
+		return errors.New("Browserdriver source clone failed")
+	}
+	checkedOut := runBounded(ctx, buildDeadline, target, []string{"git", "--no-replace-objects", "checkout", "--quiet", "--detach", revision}, nil, "")
+	if checkedOut.err != nil {
+		return errors.New("Browserdriver source checkout failed")
+	}
+	verified := runBounded(ctx, probeDeadline, target, []string{"git", "--no-replace-objects", "rev-parse", "HEAD"}, nil, "")
+	if verified.err != nil || strings.TrimSpace(string(verified.stdout)) != revision {
+		return errors.New("Browserdriver source clone revision drifted")
 	}
 	return nil
 }

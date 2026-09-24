@@ -167,7 +167,7 @@ func (executor *realExecutor) prepare(ctx context.Context, environment Environme
 		}
 	}
 	nodeCheck := `import {createRequire} from "node:module"; import {chromium} from "playwright"; const require=createRequire(import.meta.url); const browser=await chromium.launch({headless:true,chromiumSandbox:true}); console.log(JSON.stringify({playwright:require("playwright/package.json").version,chromium:browser.version()})); await browser.close();`
-	installed := runBounded(ctx, scenarioDeadline, environment.BrowserdriverRepo, []string{executor.node, "--input-type=module", "--eval", nodeCheck}, nil, "")
+	installed := runBounded(ctx, scenarioDeadline, driverRoot, []string{executor.node, "--input-type=module", "--eval", nodeCheck}, nil, "")
 	var versions struct {
 		Playwright string `json:"playwright"`
 		Chromium   string `json:"chromium"`

@@ -34,9 +34,12 @@ checks `@types/node`, `playwright`, `playwright-core`, and `typescript` against
 that checkout's `package-lock.json`. For the current native Make target, set
 `OPENUDON_BROWSER_SYSTEM_BROWSERDRIVER_NODE_MODULES`. Browserdriver source
 builds and npm tests use disposable output/checkouts and never install or change
-the supplied source or modules. Udon Go test gates clone its exact current source
-and fourteen locked sibling inputs to a temporary workspace; the native runner
-removes it before passing the stage and rechecks the original closure.
+the supplied source or modules. Scenario builds link the separate module tree
+inside an exact disposable Browserdriver checkout so TypeScript resolves its
+imports; runtime readiness uses that staged package and the same linked modules.
+Udon Go test gates clone its exact current source and fourteen locked sibling
+inputs to a temporary workspace; the native runner removes it before passing
+the stage and rechecks the original closure.
 
 ## Current Browser Authoring Tooling
 

@@ -1,10 +1,52 @@
 package browserscenario
 
 import (
+	"context"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"testing"
 )
+
+func TestCloneBrowserdriverSourceUsesExactCommitAndLeavesSourceClean(t *testing.T) {
+	root := t.TempDir()
+	source := filepath.Join(root, "source")
+	target := filepath.Join(root, "clone")
+	if err := os.Mkdir(source, 0700); err != nil {
+		t.Fatal(err)
+	}
+	git := func(dir string, args ...string) string {
+		t.Helper()
+		command := exec.Command("git", args...)
+		command.Dir = dir
+		output, err := command.CombinedOutput()
+		if err != nil {
+			t.Fatalf("git %v: %v: %s", args, err, output)
+		}
+		return string(output)
+	}
+	git(source, "init", "--quiet")
+	git(source, "config", "user.name", "OpenUdon Test")
+	git(source, "config", "user.email", "openudon-test@example.invalid")
+	if err := os.WriteFile(filepath.Join(source, "index.ts"), []byte("export const answer = 42;\n"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	git(source, "add", "index.ts")
+	git(source, "commit", "--quiet", "-m", "fixture")
+	want := git(source, "rev-parse", "HEAD")
+	if err := cloneBrowserdriverSource(context.Background(), source, target); err != nil {
+		t.Fatalf("cloneBrowserdriverSource: %v", err)
+	}
+	if got := git(target, "rev-parse", "HEAD"); got != want {
+		t.Fatalf("clone revision = %q, want %q", got, want)
+	}
+	if got, err := os.ReadFile(filepath.Join(target, "index.ts")); err != nil || string(got) != "export const answer = 42;\n" {
+		t.Fatalf("cloned source = %q, %v", got, err)
+	}
+	if got := git(source, "status", "--porcelain", "--untracked-files=all"); got != "" {
+		t.Fatalf("supplied source changed: %q", got)
+	}
+}
 
 func TestValidateBrowserdriverNodeModulesBindsPinnedBuildAndRuntimeVersions(t *testing.T) {
 	root := t.TempDir()
