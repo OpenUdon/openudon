@@ -75,6 +75,40 @@ func LoadCurrentQualificationBuildInputLock(compatibility CompatibilityLock) (Qu
 	return lock, nil
 }
 
+// LoadCurrentQualificationBuildInputLockV4 reads the Browser 1.10 candidate
+// closure without changing the E21 current-stack selector.
+func LoadCurrentQualificationBuildInputLockV4(compatibility CompatibilityLock) (QualificationBuildInputLock, error) {
+	data, err := contracts.ReadFile("current-qualification-build-inputs-v4.json")
+	if err != nil {
+		return QualificationBuildInputLock{}, err
+	}
+	var lock QualificationBuildInputLock
+	if err := decodeStrict(data, &lock); err != nil {
+		return QualificationBuildInputLock{}, err
+	}
+	if err := ValidateQualificationBuildInputLock(lock, compatibility); err != nil || len(lock.Components) != 14 {
+		return QualificationBuildInputLock{}, errors.New("Browser 1.10 qualification build-input lock is invalid")
+	}
+	compatibilityComponents := map[string]LockedRevision{}
+	for _, component := range compatibility.Components {
+		compatibilityComponents[component.Name] = component
+	}
+	for _, name := range []string{"browsertools", "uws"} {
+		locked := compatibilityComponents[name]
+		matched := false
+		for _, component := range lock.Components {
+			if component.Name == name {
+				matched = component.Commit == locked.Commit
+				break
+			}
+		}
+		if !matched {
+			return QualificationBuildInputLock{}, fmt.Errorf("Browser 1.10 %s build input differs from the compatibility lock", name)
+		}
+	}
+	return lock, nil
+}
+
 // LoadQualificationBuildInputLockForStack selects the historical M86 closure
 // or the independent current v3 closure by explicit stack name.
 func LoadQualificationBuildInputLockForStack(stack string) (QualificationBuildInputLock, error) {

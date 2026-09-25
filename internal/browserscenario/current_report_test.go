@@ -50,6 +50,42 @@ func TestCurrentV3LockUsesUdon6dAndSeparateFourteenInputClosure(t *testing.T) {
 	}
 }
 
+func TestCurrentV4LockPinsPublishedBrowser110DependencyChain(t *testing.T) {
+	lock, err := LoadCurrentCompatibilityLockV4()
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := map[string]string{
+		"browserdriver": "1f0e0d8c3bf16861f72938fa456035f1226da547",
+		"browsertools":  "3abe70efc03d9ccb97b8b30e5e86328f60a70c64",
+		"udon":          "4266ac99610a6fe39e363c75068e8256bdd821f5",
+		"uws":           "80ee9bfb24a688b5e875dadf9ecacdc65398f1ff",
+	}
+	for _, component := range lock.Components {
+		if component.Commit != want[component.Name] {
+			t.Fatalf("Browser 1.10 %s pin = %s, want %s", component.Name, component.Commit, want[component.Name])
+		}
+		if component.Name == "browsertools" && component.Version != "v0.0.0-20260925161530-3abe70efc03d" {
+			t.Fatalf("Browsertools module version = %s", component.Version)
+		}
+		if component.Name == "uws" && component.Version != "v0.0.0-20260925154821-80ee9bfb24a6" {
+			t.Fatalf("UWS module version = %s", component.Version)
+		}
+	}
+	build, err := LoadCurrentQualificationBuildInputLockV4(lock)
+	if err != nil || len(build.Components) != 14 {
+		t.Fatalf("Browser 1.10 build closure = %d components, err = %v", len(build.Components), err)
+	}
+	for _, component := range build.Components {
+		if component.Name == "browsertools" && component.Commit != want["browsertools"] {
+			t.Fatalf("Browsertools build input = %s", component.Commit)
+		}
+		if component.Name == "uws" && component.Commit != want["uws"] {
+			t.Fatalf("UWS build input = %s", component.Commit)
+		}
+	}
+}
+
 func TestM86CurrentReportUsesFrozenLockAfterCurrentLockAdvances(t *testing.T) {
 	lock, err := LoadCurrentCompatibilityLockV2()
 	if err != nil {

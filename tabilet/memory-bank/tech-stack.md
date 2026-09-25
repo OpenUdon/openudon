@@ -1,5 +1,16 @@
 # Tech Stack
 
+## Browser 1.10 dependency candidate
+
+OpenUdon's Go module pins published UWS M05
+`80ee9bfb24a688b5e875dadf9ecacdc65398f1ff` and Browsertools M32
+`3abe70efc03d9ccb97b8b30e5e86328f60a70c64`. The exact Browserdriver M15 and
+Udon M43 source pins, module versions, and separate 14-repository Udon build
+closure are recorded in
+`internal/browserscenario/current-compatibility-lock-v4.json` and
+`current-qualification-build-inputs-v4.json`. E21's current lock and reports
+remain selected until E22 installs the versioned v4 readers and new workflow.
+
 ## M86 v2 lock snapshots
 
 The M86 current scenario v2 verifier reads

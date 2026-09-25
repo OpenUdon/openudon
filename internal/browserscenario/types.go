@@ -23,6 +23,7 @@ const (
 	JourneyManifestVersion        = "openudon.browser-journey.v1"
 	CurrentJourneyManifestVersion = "openudon.browser-journey.v2"
 	LockVersion                   = "openudon.browser-scenario-lock.v2"
+	CurrentLockVersionV3          = "openudon.browser-scenario-lock.v3"
 	StackHistorical               = "historical"
 	StackCurrent                  = "current"
 	SuiteLoopback                 = "loopback"
@@ -35,7 +36,7 @@ var (
 	keyPattern = regexp.MustCompile(`^[A-Za-z][A-Za-z0-9_-]{0,63}$`)
 )
 
-//go:embed manifests/*.json current-manifests/*.json compatibility-lock.json current-compatibility-lock.json current-compatibility-lock-v2.json qualification-build-inputs.json current-qualification-build-inputs.json
+//go:embed manifests/*.json current-manifests/*.json compatibility-lock.json current-compatibility-lock.json current-compatibility-lock-v2.json current-compatibility-lock-v4.json qualification-build-inputs.json current-qualification-build-inputs.json current-qualification-build-inputs-v4.json
 var contracts embed.FS
 
 type Manifest struct {
@@ -235,6 +236,24 @@ func LoadCurrentCompatibilityLockV2() (CompatibilityLock, error) {
 	}
 	if err := ValidateCompatibilityLock(lock); err != nil {
 		return CompatibilityLock{}, err
+	}
+	return lock, nil
+}
+
+// LoadCurrentCompatibilityLockV4 returns the exact Browser 1.10 dependency
+// candidate. E22 promotes it to the current stack only with its report-v4
+// reader; until then the existing current selector retains E21's lock.
+func LoadCurrentCompatibilityLockV4() (CompatibilityLock, error) {
+	data, err := contracts.ReadFile("current-compatibility-lock-v4.json")
+	if err != nil {
+		return CompatibilityLock{}, err
+	}
+	var lock CompatibilityLock
+	if err := decodeStrict(data, &lock); err != nil {
+		return lock, err
+	}
+	if err := ValidateCompatibilityLock(lock); err != nil {
+		return lock, err
 	}
 	return lock, nil
 }
@@ -453,7 +472,7 @@ func validatePublicManifest(manifest Manifest, now time.Time) error {
 }
 
 func ValidateCompatibilityLock(lock CompatibilityLock) error {
-	if lock.Version != LockVersion || lock.GoVersion == "" || lock.NodeVersion == "" || lock.Playwright == "" || lock.Chromium == "" || len(lock.Components) != 4 {
+	if (lock.Version != LockVersion && lock.Version != CurrentLockVersionV3) || lock.GoVersion == "" || lock.NodeVersion == "" || lock.Playwright == "" || lock.Chromium == "" || len(lock.Components) != 4 {
 		return fmt.Errorf("browser scenario compatibility lock is incomplete")
 	}
 	want := []string{"browserdriver", "browsertools", "udon", "uws"}

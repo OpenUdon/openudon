@@ -180,8 +180,8 @@ func TestContentTrustQualificationLegacyPackageIsUnchanged(t *testing.T) {
 
 func TestContentTrustQualificationUsesPinnedUWSAndBrowsertools(t *testing.T) {
 	const (
-		wantUWS          = "v0.0.0-20260924030503-e9b6181be0ab"
-		wantBrowsertools = "v0.0.0-20260924034226-9333a9f25dbb"
+		wantUWS          = "v0.0.0-20260925154821-80ee9bfb24a6"
+		wantBrowsertools = "v0.0.0-20260925161530-3abe70efc03d"
 	)
 	_, filename, _, ok := runtime.Caller(0)
 	if !ok {
