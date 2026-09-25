@@ -300,7 +300,7 @@ func nodeTests(ctx context.Context, root string, live bool, nodeModules string) 
 		return Tests{}, err
 	}
 	root = staged
-	args := []string{"node", "--test", "--test-reporter=tap"}
+	args := []string{"node", "--preserve-symlinks", "--test", "--test-reporter=tap"}
 	var extra []string
 	if live {
 		args = append(args, "dist/test/registration-live.test.js", "dist/test/registration-inputs-live.test.js", "dist/test/verification-live.test.js", "dist/test/verification-observability-live.test.js", "dist/test/verification-initialization-live.test.js")

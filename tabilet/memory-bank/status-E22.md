@@ -36,7 +36,7 @@ promoted these pins for current-stack report v4 and preserved the former E21
 selector as an explicit v3 snapshot.
 | E22.2 Add isolated count workflow and current-stack scenarios | [+] | Added version-isolated Browser 1.10 journey manifests for zero, one and multiple rendered rows, and exercise only `campaign_count`; retained prior current-stack manifests for v3 verification. Focused `go test ./internal/browserscenario ./internal/synthesize -count=1` passed, and one fresh `make browser110-smoke` passed against exact locked Browserdriver/Udon source clones. The first smoke diagnosis found the hidden fixture row's inline style was blocked by the fixture CSP; changed it to the HTML `hidden` attribute and verified the browser count excludes it. The smoke also exposed Node/TypeScript symlink resolution for the read-only external node_modules closure; `--preserve-symlinks` now preserves staged package and runtime module resolution. No supplier source was mutated. |
 | E22.3 Preserve old reports and add strict versioned reader | [+] | Froze E21's scenario, integration and 14-source build closure as v3 snapshots; selected the v4 Browser 1.10 locks and manifests for `--stack current`. Scenario, integration and native qualification now emit v4. Focused cross-version tests, full `make fast`, `go vet ./...`, strict JSON parsing and `git diff --check` pass. The retained M86 v2 and E21 v3 reports all verify with unchanged digests; exact hashes follow. The initial `make fast` exposed an expired fixed-date registration fixture; changed it to a dynamic whole-second clock and confirmed the isolated test and full gate pass. |
-| E22.4 Verify, qualify and review | [~] | Both Browserdriver npm staging and Node readiness symlink failures are repaired. A fresh exact-source run passes the 19-gate integration and 23-case loopback suites; the 14-case Browser 1.10 journey independently verifies. Review found operator documents that still called v3 current; the version and lock references are corrected before the final clean qualification. |
+| E22.4 Verify, qualify and review | [~] | Browserdriver npm staging and Node readiness issues are repaired; the final-source 19-gate integration, 23-case loopback and 14-case journey reports independently verify. The first native v4 run fails at `registration_driver`: all five test files cannot resolve `playwright-core` through the staged module symlink. A focused reproduction passes with `--preserve-symlinks`; that flag and an opt-in stage regression test are added. Focused stage verification and a fresh complete native qualification remain. |
 
 **E22.3 retained-report verification.** The three M86 v2 reports independently
 verify with 19/19 integration, 23/23 loopback and 11/11 journey passes. Their
@@ -102,3 +102,20 @@ JSON and whitespace checks pass. The documentation-only source change means
 the final full qualification must bind a new clean OpenUdon commit; the earlier
 reports remain immutable evidence for `533039a` and are not substituted for
 that run.
+
+**E22.4 first native v4 failure and diagnosis.** The fresh qualification at
+clean OpenUdon `ce2be144fcfa477ee0b2c0f3631e30aa99073027` is preserved at
+`/home/peter/.local/state/openudon/e22-browser110-qualification-20260925-final-5EF73f/evidence/native-v4.json`
+with SHA-256
+`3c235b9d67234b6dfe7a9b3f3b764fc55ad2a52e38df9846a41e06a97ea0952d` and
+owner-only diagnostic digest
+`858b63518ca9f643951857dc11918543d38948398f2997c6d30bf5c7a787ca05`. Its
+first six stages pass; `registration_driver` fails before test bodies execute.
+The bounded diagnostic reports five `ERR_MODULE_NOT_FOUND` failures for
+`playwright-core` from the Node tests launched through the readonly external
+`node_modules` symlink. A fresh minimal import reproduces failure without Node's
+symlink preservation and passes with `--preserve-symlinks`. OpenUdon's native
+Browserdriver test launcher now applies the same flag and adds an opt-in
+regression test for that exact five-file synthetic stage. All staged sources
+remain clean. The failed aggregate remains immutable; the affected stage must
+pass before another full qualification attempt.

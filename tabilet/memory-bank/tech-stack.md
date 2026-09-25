@@ -25,7 +25,7 @@ The M86 current scenario v2 verifier reads
 integration v2 verifier reads its own byte-preserved snapshot at
 `internal/browserintegrationeval/current-compatibility-lock-v2.json` (SHA-256
 `9eec17f1489e1c805e2d2bfb8b89a439ee7153d5c49ec09a3ee903ce6761d393`). The
-The frozen E21 current v3 scenario and integration locks are retained at
+frozen E21 current v3 scenario and integration locks are retained at
 `internal/browserscenario/current-compatibility-lock-v3.json` (SHA-256
 `90f96fa2d02809f641c7391f1245487926a48c64cef9a4ace609ebad99667246`) and
 `internal/browserintegrationeval/current-compatibility-lock-v3.json` (SHA-256
@@ -56,9 +56,10 @@ builds and npm tests use disposable output/checkouts and never install or change
 the supplied source or modules. Scenario builds link the separate module tree
 inside an exact disposable Browserdriver checkout so TypeScript resolves its
 imports; runtime readiness uses that staged package and the same linked modules.
-The Node readiness probe and Browserdriver execution subprocess use
-`--preserve-symlinks` so Playwright resolves its lock-matched `playwright-core`
-sibling through the staged `node_modules` link.
+The Node readiness probe, native Browserdriver registration test stage, and
+Browserdriver execution subprocess use `--preserve-symlinks` so Playwright
+resolves its lock-matched `playwright-core` sibling through the staged
+`node_modules` link.
 The integration npm-test gate copies the already-validated module tree into the
 disposable Browserdriver clone as a read-only `node_modules` directory. This
 keeps Node and TypeScript dependency lookup beside the package when tests launch
