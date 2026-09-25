@@ -36,7 +36,7 @@ promoted these pins for current-stack report v4 and preserved the former E21
 selector as an explicit v3 snapshot.
 | E22.2 Add isolated count workflow and current-stack scenarios | [+] | Added version-isolated Browser 1.10 journey manifests for zero, one and multiple rendered rows, and exercise only `campaign_count`; retained prior current-stack manifests for v3 verification. Focused `go test ./internal/browserscenario ./internal/synthesize -count=1` passed, and one fresh `make browser110-smoke` passed against exact locked Browserdriver/Udon source clones. The first smoke diagnosis found the hidden fixture row's inline style was blocked by the fixture CSP; changed it to the HTML `hidden` attribute and verified the browser count excludes it. The smoke also exposed Node/TypeScript symlink resolution for the read-only external node_modules closure; `--preserve-symlinks` now preserves staged package and runtime module resolution. No supplier source was mutated. |
 | E22.3 Preserve old reports and add strict versioned reader | [+] | Froze E21's scenario, integration and 14-source build closure as v3 snapshots; selected the v4 Browser 1.10 locks and manifests for `--stack current`. Scenario, integration and native qualification now emit v4. Focused cross-version tests, full `make fast`, `go vet ./...`, strict JSON parsing and `git diff --check` pass. The retained M86 v2 and E21 v3 reports all verify with unchanged digests; exact hashes follow. The initial `make fast` exposed an expired fixed-date registration fixture; changed it to a dynamic whole-second clock and confirmed the isolated test and full gate pass. |
-| E22.4 Verify, qualify and review | [~] | The first fresh v4 integration attempt was preserved with 18 passed, 1 failed and 0 skipped. Its sole failure was Browserdriver's synthetic npm gate; diagnosis and the focused repair checks pass, so a fresh clean qualification attempt is still required. Continue with exact report binding and full current-stack qualification, then complete the bounded review before publication. |
+| E22.4 Verify, qualify and review | [~] | The Browserdriver npm staging repair now passes a fresh 19/19 integration matrix. The next current-stack loopback report exposed a separate Node readiness probe failure (0/23, 0 skipped); its focused count report reproduces the cause. The probe now preserves module symlinks; focused package checks and a new clean qualification attempt remain. |
 
 **E22.3 retained-report verification.** The three M86 v2 reports independently
 verify with 19/19 integration, 23/23 loopback and 11/11 journey passes. Their
@@ -64,3 +64,24 @@ gate now copies the already lock-validated module tree into a read-only standard
 `node_modules` directory in its disposable source clone. The focused evaluator
 test passes, and a fresh exact M15 Browserdriver npm run passes 157 tests with
 15 existing skips; the E22.4 matrix itself must be rerun in a new output root.
+
+**E22.4 v4 integration rerun.** On clean OpenUdon commit
+`5b07bf7f0267291108c0e17327c2bd41edd87a08` and the exact v4 source pins, the
+fresh matrix passed all 19 gates with zero skips. Its report is retained at
+`/home/peter/.local/state/openudon/e22-browser110-qualification-20260925-MVqzdy/evidence/integration-v4.json`
+with SHA-256
+`97c8280f25c297a7d01c19ac860797cbe3a3faa29690c98e8e0f1fb3e70223f9`.
+Independent v4 verification and exact five-repository binding passed.
+
+The following fresh loopback run on that same commit failed all 23 cases as
+`dependency_unavailable`, with zero skips; its report digest is
+`ffe87a4e83bce1e77c9189e668e727742c2b9cfa63ec679a0c662c7056500bff`. A fresh
+single Browser 1.10 multiple-count diagnostic also failed during readiness,
+with report digest
+`52225b3069628b90d09e3dc39f25329cbaf190ccbce456c734ecf53472e1226b`.
+The Node readiness probe omitted `--preserve-symlinks`, so the external
+read-only `node_modules` symlink hid the sibling `playwright-core` package.
+The same locked Node 24.13.0, Playwright 1.62.1 and Chromium 151.0.7922.34
+probe passes with that option, which is now added to the readiness command.
+Both failure reports remain intact; full qualification must use a new clean
+commit and output root after the focused count journey passes.
