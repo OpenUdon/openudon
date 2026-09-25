@@ -8,7 +8,7 @@ process output.
 | Suite | Purpose | Authority | Release posture |
 |---|---|---|---|
 | `loopback` | Deterministic Browsertools author-session v2 through OpenUdon staging and trusted replay | Local random-port HTTP only; headed Chromium; synthetic credential values remain inside trusted replay | Required current-stack real-browser release gate |
-| `journey` | Reviewed read/write workflows plus Browser 1.8/1.9 template and mixed-session replay | Local random-port HTTP only; headless Chromium; fixture state is inspected after replay | Required current-stack real-browser release gate |
+| `journey` | Reviewed read/write workflows plus Browser 1.8/1.9 template and mixed-session replay and Browser 1.10 count output | Local random-port HTTP only; headless Chromium; fixture state is inspected after replay | Required current-stack real-browser release gate |
 | `public` | Detect external markup, accessibility-name, resource-origin, and runtime drift | Explicit `--allow-network`; four fixed anonymous HTTPS targets; headless read-only presence checks | Weekly/manual informational canary |
 
 The separate [Browser Integration Evaluation](browser-integration-eval.md)

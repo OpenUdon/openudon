@@ -116,7 +116,7 @@ func LoadCurrentQualificationBuildInputLockV4(compatibility CompatibilityLock) (
 }
 
 // LoadQualificationBuildInputLockForStack selects the historical M86 closure
-// or the independent current v3 closure by explicit stack name.
+// or the active Browser 1.10 v4 closure by explicit stack name.
 func LoadQualificationBuildInputLockForStack(stack string) (QualificationBuildInputLock, error) {
 	compatibility, err := LoadCompatibilityLockForStack(stack)
 	if err != nil {

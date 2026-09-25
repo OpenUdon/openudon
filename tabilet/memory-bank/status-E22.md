@@ -36,7 +36,7 @@ promoted these pins for current-stack report v4 and preserved the former E21
 selector as an explicit v3 snapshot.
 | E22.2 Add isolated count workflow and current-stack scenarios | [+] | Added version-isolated Browser 1.10 journey manifests for zero, one and multiple rendered rows, and exercise only `campaign_count`; retained prior current-stack manifests for v3 verification. Focused `go test ./internal/browserscenario ./internal/synthesize -count=1` passed, and one fresh `make browser110-smoke` passed against exact locked Browserdriver/Udon source clones. The first smoke diagnosis found the hidden fixture row's inline style was blocked by the fixture CSP; changed it to the HTML `hidden` attribute and verified the browser count excludes it. The smoke also exposed Node/TypeScript symlink resolution for the read-only external node_modules closure; `--preserve-symlinks` now preserves staged package and runtime module resolution. No supplier source was mutated. |
 | E22.3 Preserve old reports and add strict versioned reader | [+] | Froze E21's scenario, integration and 14-source build closure as v3 snapshots; selected the v4 Browser 1.10 locks and manifests for `--stack current`. Scenario, integration and native qualification now emit v4. Focused cross-version tests, full `make fast`, `go vet ./...`, strict JSON parsing and `git diff --check` pass. The retained M86 v2 and E21 v3 reports all verify with unchanged digests; exact hashes follow. The initial `make fast` exposed an expired fixed-date registration fixture; changed it to a dynamic whole-second clock and confirmed the isolated test and full gate pass. |
-| E22.4 Verify, qualify and review | [~] | Browserdriver npm staging and Node readiness issues are repaired; the final-source 19-gate integration, 23-case loopback and 14-case journey reports independently verify. The first native v4 run fails at `registration_driver`: all five test files cannot resolve `playwright-core` through the staged module symlink. A focused reproduction passes with `--preserve-symlinks`; that flag and an opt-in stage regression test are added. Focused stage verification and a fresh complete native qualification remain. |
+| E22.4 Verify, qualify and review | [~] | Clean commit `6cfee9ade21694f081eb72e07f2da71062142ab5` passed 19 integration gates, 23 loopback cases, 14 journeys, and three native repetitions of 13 stages each. Iteration 1 found and corrected stale current-v3/Udon-v10 descriptions in CLI help, current suite docs, and the active build-input comment; focused tests, vet, strict JSON, memory-link and whitespace checks pass. A fresh complete qualification is required on the corrected clean commit before review iteration 2 and closure. Earlier pass/failure reports remain preserved below. |
 
 **E22.3 retained-report verification.** The three M86 v2 reports independently
 verify with 19/19 integration, 23/23 loopback and 11/11 journey passes. Their
@@ -119,3 +119,51 @@ Browserdriver test launcher now applies the same flag and adds an opt-in
 regression test for that exact five-file synthetic stage. All staged sources
 remain clean. The failed aggregate remains immutable; the affected stage must
 pass before another full qualification attempt.
+
+**E22.4 clean-source qualification on 6cfee9a (pre-review guidance fixes).** A fresh, clean Browserdriver registration
+driver stage passes all five tests with no skips on OpenUdon
+`6cfee9ade21694f081eb72e07f2da71062142ab5`. One subsequent integration command
+ran all 19 gates successfully but could not write a report because an empty
+ignored `.openudon-run/` directory left by the earlier `make fast` run made the
+final source-clean check fail. The owned empty directory was removed, cleanliness
+was rechecked, and a new integration attempt passed all 19 gates with no skips.
+
+The final integration report is
+`/home/peter/.local/state/openudon/e22-browser110-qualification-20260925-retry-Lq8QVS/evidence/integration-v4-clean.json`
+with SHA-256
+`24e79d1d9370b8577e095f60d43cdf106d30df83925bb6ec90bb4fe0da9c9ff8`.
+The fresh loopback report passes 23/23 with zero skips and has SHA-256
+`376d9371a19c4d691091920f4029b0139df969537703f5eaf2a5844aeb534b91`. The
+fresh journey report passes 14/14 with zero skips, including all three count
+cases, and has SHA-256
+`a8b9505ed1774ee661c7c9c6c17cb6fdb09ca894d2e20bf68de9e45527f4376f`. The
+uncached native v4 report passes three repetitions of all 13 required stages
+(39/39, zero skips) and has SHA-256
+`f254e6d648d0eea6f8537e5e3ecf463c0fadb33aa26e81e009b47724ef09310d`.
+All reports independently pass their v4 readers. The native report's 19
+commit-and-source-digest bindings were independently recomputed and match the
+clean worktrees; Go is 1.26.6, Node is 24.13.0, and the lock binds Playwright
+1.62.1 and Chromium 151.0.7922.34. All 23 loopback and 14 journey teardown
+phases pass in each native repetition. The native runner left no owned scenario,
+component, Udon-build, or Browserdriver-test temporary directories.
+
+Focused uncached `go test` passes for `internal/browserscenario`,
+`internal/browserintegrationeval`, and `internal/browsersystem`, including
+unknown/malformed report rejection and v1/v2/v3/v4 cross-version lock and
+inventory checks. The exact Browserdriver registration-driver stage passed
+5/5 with zero skips. The complete `make fast`, `go vet ./...`, strict JSON,
+memory-link and whitespace checks passed after the final source fix. Retained
+M86 v2 and E21 v3 reports continue to verify with their recorded digests.
+
+**E22.4 bounded review.** Iteration 1 reviewed the full E22 range
+`92c6839f8bbf54fc20f32efb73fbb4d6d375f16a..6cfee9ade21694f081eb72e07f2da71062142ab5`.
+Iteration 1 found one blocking P2: current operator/help and stack descriptions
+still presented E21 v3 and Udon v10 as the active Browser 1.10 path. The scenario
+CLI help omitted the three Udon v11 count journeys; the integration guide
+described v3 runs instead of the retained v3 verifier and omitted v11 from the
+count handoff; the current journey inventory still said 11; and the active
+build-input selector comment said v3. The finding is corrected in the review-fix
+worktree. Focused package tests, vet, documentation-memory validation, strict
+JSON parsing, CLI help inspection, and whitespace checks pass. The new clean
+commit and complete qualification are pending; review iteration 2 will recheck
+the full E22 range after they pass.

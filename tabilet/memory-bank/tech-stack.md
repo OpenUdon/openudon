@@ -11,8 +11,9 @@ closure are recorded in
 `58363021e44961527468bc686df114ce69770709345eb39702fbf38e84da6d2a`) and
 `current-qualification-build-inputs-v4.json` (SHA-256
 `10fa8b2570f0a72688a1c8d282fe84cf7ea4af6e82ad5ffa85aa6fc994ff371a`). The
-scenario, integration and native current selectors now emit v4 reports and
-include the three Browser 1.10 count journeys. Full E22 qualification and
+scenario, integration and native current selectors now emit v4 reports; the
+current journey suite has 14 cases, including the three Browser 1.10 count
+journeys through Udon v11. Full E22 qualification and
 bounded review are still pending.
 UWS maintains the profile-version checklist at
 [`future-source-profiles.md`](../../../uws/docs/future-source-profiles.md#adding-a-browser-profile-version).

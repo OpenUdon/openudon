@@ -47,8 +47,9 @@ matrix runs Browserdriver's offline protocol tests and uses Browsertools doctor 
 observe pinned component availability without installation, browser launch, or
 network access.
 
-Current v3 runs accept `--browserdriver-node-modules` for the separately
-supplied Browserdriver dependencies. The directory must be outside the clean
+New current v4 runs accept `--browserdriver-node-modules` for the separately
+supplied Browserdriver dependencies. Retained E21 v3 reports remain verifiable
+with their frozen lock. The directory must be outside the clean
 source checkout and its `@types/node`, `playwright`, `playwright-core`, and
 `typescript` versions must match `package-lock.json`. The Browserdriver npm
 test checks out the exact locked commit into a disposable clone, links those
@@ -65,13 +66,13 @@ they drift.
 | Gate | Evidence |
 |---|---|
 | OpenUdon authoring | API preference, anonymous handoff, strict author-session v2 orchestration, identical pre-publication validation for bundled and expert workers, disclosure-path rejection, human-only typed MFA/output review, exact new-origin approval, process-private trace/auth/output/context/origin attestation, minimal child environment, exact bounds authority, a real Browsertools-produced private result through validation/staging, and malformed/tampered/substituted rejection |
-| OpenUdon package/handoff | Strict live and portability verification, private/tampered input rejection, value-free package review, authentication/capability separation, UWS 1.11 default, Browser 1.8/1.9 templates, Browser 1.10 count output, and v10 trusted handoff |
+| OpenUdon package/handoff | Strict live and portability verification, private/tampered input rejection, value-free package review, authentication/capability separation, UWS 1.11 default, Browser 1.8/1.9 templates, Browser 1.10 count output, and v10/v11 trusted handoff |
 | iCoT dependency boundary | The engine dependency graph contains no Browsertools capture, Playwright adapter, or Playwright-Go implementation package. The UI qualification adapter may link Playwright; the UI graph contains no Browsertools capture implementation. |
 | OpenUdon repository boundary | Production source contains no private executor, desired-state parser, or removed apitools lifecycle imports |
 | Browsertools producer | Observation-generation authority, human-selected MFA kind, bounded reviewed outputs, action-time exact-name/unique-role proof, complete context inventory, current goal proof, deterministic output, and offline doctor behavior |
 | UWS contract | Immutable older compatibility plus UWS 1.11 typed conformance, root-scoped goto, Browser 1.8/1.9 template safety, context contracts, and scalar conversion |
-| Udon consumer | Private source loading, runtime approvals, authentication, opaque sessions, v3 legacy replay, v10 modern action handoff, Browser 1.10 count output, UWS 1.11 bound execution, and post-conversion validation |
-| Browserdriver runtime | Offline v2/v3 legacy NDJSON plus v10 Browser 1.8/1.9 templates, Browser 1.10 count output and integer safety, failure non-disclosure, exact-origin/context guards, credential lookup, and session isolation |
+| Udon consumer | Private source loading, runtime approvals, authentication, opaque sessions, v3 legacy replay, v10 Browser 1.8/1.9 handoff, v11 Browser 1.10 count output, UWS 1.11 bound execution, and post-conversion validation |
+| Browserdriver runtime | Offline v2/v3 legacy NDJSON, v10 Browser 1.8/1.9 templates, v11 Browser 1.10 count output and integer safety, failure non-disclosure, exact-origin/context guards, credential lookup, and session isolation |
 | Component inventory | Browsertools doctor reports pinned Chromium, Firefox, and WebKit readiness without installing or launching anything |
 
 The current report contract is `openudon.browser-integration-eval.v4`. The v3
