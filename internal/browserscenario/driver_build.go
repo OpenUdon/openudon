@@ -136,7 +136,9 @@ func StageBrowserdriverWithNodeModules(ctx context.Context, source, nodeModules,
 		}
 	}
 	err = browsercheck.Build(ctx, "browserdriver", filepath.Join(target, "dist"), func(output string) error {
-		return processgroup.Run(ctx, buildDeadline, processgroup.Invocation{Args: []string{"npm", "run", "build", "--silent", "--", "--outDir", output, "--incremental", "false"}, Dir: buildSource, Env: environment, Stdout: io.Discard, Stderr: io.Discard})
+		// Keep TypeScript resolution rooted at the staged package: realpathing
+		// the external read-only node_modules symlink hides sibling packages.
+		return processgroup.Run(ctx, buildDeadline, processgroup.Invocation{Args: []string{"npm", "run", "build", "--silent", "--", "--outDir", output, "--incremental", "false", "--preserveSymlinks"}, Dir: buildSource, Env: environment, Stdout: io.Discard, Stderr: io.Discard})
 	})
 	if err != nil {
 		return bad

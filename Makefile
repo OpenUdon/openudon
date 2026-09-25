@@ -1,4 +1,4 @@
-.PHONY: help test vet check standalone-icot-build apitools-boundary readiness release-check release-saas-check release-evidence release-eval content-trust-qualification browser-integration-check browser-scenario-loopback browser-scenario-journey browser-scenario-public browser-transaction-bap-bcp browser-transaction-brp browser-transaction-adversarial browser-transaction-qualification icot-ui-browser-check icot-ui-browser-check-unsandboxed eval-seed-build icot-authoring-scorecard icot-replay-repair-check icot-variants-validate icot-variants-coverage product-smoke-check product-smoke-live siblings validate-uws eval synthesize-support build-support promote-support assess-support
+.PHONY: help test vet check standalone-icot-build apitools-boundary readiness release-check release-saas-check release-evidence release-eval content-trust-qualification browser-integration-check browser-scenario-loopback browser-scenario-journey browser-scenario-public browser110-smoke browser-transaction-bap-bcp browser-transaction-brp browser-transaction-adversarial browser-transaction-qualification icot-ui-browser-check icot-ui-browser-check-unsandboxed eval-seed-build icot-authoring-scorecard icot-replay-repair-check icot-variants-validate icot-variants-coverage product-smoke-check product-smoke-live siblings validate-uws eval synthesize-support build-support promote-support assess-support
 
 GO ?= go
 OPENUDON_LLM_PROVIDER ?= copilot-api
@@ -18,7 +18,7 @@ OPENUDON_BROWSER_SCENARIO_PUBLIC_OUT ?= eval/runs/browser-scenario-public-local/
 OPENUDON_BROWSER_TRANSACTION_QUALIFICATION_OUT ?= eval/runs/browser-transaction-qualification-local/report.json
 
 help:
-	@echo "Targets: test, vet, check, standalone-icot-build, readiness, release-check, release-saas-check, release-evidence, release-eval, content-trust-qualification, browser-integration-check, browser-scenario-loopback, browser-scenario-journey, browser-scenario-public, browser-transaction-bap-bcp, browser-transaction-brp, browser-transaction-adversarial, browser-transaction-qualification, icot-ui-browser-check, icot-ui-browser-check-unsandboxed, eval-seed-build, icot-authoring-scorecard, icot-replay-repair-check, icot-variants-validate, icot-variants-coverage, product-smoke-check, product-smoke-live, siblings, validate-uws, eval, synthesize-support, build-support, promote-support, assess-support"
+	@echo "Targets: test, vet, check, standalone-icot-build, readiness, release-check, release-saas-check, release-evidence, release-eval, content-trust-qualification, browser-integration-check, browser-scenario-loopback, browser-scenario-journey, browser-scenario-public, browser110-smoke, browser-transaction-bap-bcp, browser-transaction-brp, browser-transaction-adversarial, browser-transaction-qualification, icot-ui-browser-check, icot-ui-browser-check-unsandboxed, eval-seed-build, icot-authoring-scorecard, icot-replay-repair-check, icot-variants-validate, icot-variants-coverage, product-smoke-check, product-smoke-live, siblings, validate-uws, eval, synthesize-support, build-support, promote-support, assess-support"
 
 test:
 	$(GO) test ./...
@@ -119,6 +119,9 @@ browser-transaction-qualification:
 browser-scenario-journey:
 	$(GO) run ./cmd/openudon browser-scenario-eval --suite journey --stack current --browserdriver-node-modules "$(OPENUDON_BROWSERDRIVER_NODE_MODULES)" --require-ready --out "$(OPENUDON_BROWSER_SCENARIO_JOURNEY_OUT)"
 	$(GO) run ./cmd/openudon browser-scenario-eval --verify "$(OPENUDON_BROWSER_SCENARIO_JOURNEY_OUT)"
+
+browser110-smoke:
+	OPENUDON_BROWSER110_SMOKE=1 OPENUDON_BROWSER_SYSTEM_BROWSERDRIVER_NODE_MODULES="$(OPENUDON_BROWSERDRIVER_NODE_MODULES)" $(GO) test -count=1 ./internal/browserscenario -run '^TestBrowser110CampaignCountFreshLoopbackSmoke$$' -timeout=10m -v
 
 browser-scenario-public:
 	$(GO) run ./cmd/openudon browser-scenario-eval --suite public --allow-network --require-ready --out "$(OPENUDON_BROWSER_SCENARIO_PUBLIC_OUT)"

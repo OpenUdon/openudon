@@ -30,21 +30,22 @@ const (
 )
 
 type JourneyFixture struct {
-	manifest     Manifest
-	server       *httptest.Server
-	mu           sync.Mutex
-	mutationPOST int
-	requestCount int
-	sessions     map[string]int
-	nextSession  int
-	note         string
-	priority     string
-	enabled      bool
-	archived     bool
-	wideSeen     bool
-	textSeen     bool
-	legacySeen   bool
-	modernSeen   bool
+	manifest         Manifest
+	server           *httptest.Server
+	mu               sync.Mutex
+	mutationPOST     int
+	requestCount     int
+	sessions         map[string]int
+	nextSession      int
+	note             string
+	priority         string
+	enabled          bool
+	archived         bool
+	wideSeen         bool
+	textSeen         bool
+	legacySeen       bool
+	modernSeen       bool
+	campaignPageSeen bool
 }
 
 func NewJourneyFixture(manifest Manifest) (*JourneyFixture, error) {
@@ -119,6 +120,8 @@ func (fixture *JourneyFixture) serveHTTP(writer http.ResponseWriter, request *ht
 		fixture.template19(writer, request)
 	case strings.HasPrefix(request.URL.Path, "/mixed/"):
 		fixture.mixedPage(writer, request)
+	case request.URL.Path == "/topics" && request.Method == http.MethodGet:
+		fixture.campaignTopicsPage(writer)
 	default:
 		http.NotFound(writer, request)
 	}
@@ -275,6 +278,26 @@ func (fixture *JourneyFixture) mixedPage(writer http.ResponseWriter, request *ht
 		return
 	}
 	writeJourneyHTML(writer, "Mixed session", `<main><div role="status" aria-label="Mixed OK">Mixed OK</div></main>`, "")
+}
+
+func (fixture *JourneyFixture) campaignTopicsPage(writer http.ResponseWriter) {
+	visible := 0
+	switch fixture.manifest.Journey.Kind {
+	case "campaign_count_browser110_one":
+		visible = 1
+	case "campaign_count_browser110_multiple":
+		visible = 3
+	}
+	var rows strings.Builder
+	for index := 1; index <= visible; index++ {
+		fmt.Fprintf(&rows, `<div class="campaign-row">Synthetic campaign row %d</div>`, index)
+	}
+	rows.WriteString(`<div class="campaign-row" hidden>hidden synthetic row</div>`)
+	body := `<main><h1>Topics</h1><div id="campaign-rows">` + rows.String() + `</div><div class="campaign-row">outside synthetic row A</div><div class="campaign-row">outside synthetic row B</div><p>synthetic private page text</p></main>`
+	fixture.mu.Lock()
+	fixture.campaignPageSeen = true
+	fixture.mu.Unlock()
+	writeJourneyHTML(writer, "Topics", body, "")
 }
 
 func writeJourneyHTML(writer http.ResponseWriter, title, body, head string) {

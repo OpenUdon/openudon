@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/OpenUdon/browsertools/profile"
@@ -58,10 +59,16 @@ func stageModernJourney(exampleDir, origin, kind string, at time.Time) (string, 
 			{Name: "open_workspace", Operation: "open_workspace"},
 			{Name: "read_mixed", Operation: modernName, Source: modernPath, With: map[string]string{"id": "id", "tag": "tag"}},
 		}
+	case "campaign_count_browser110_zero", "campaign_count_browser110_one", "campaign_count_browser110_multiple":
+		modernVersion, modernName = profile.SchemaV110, "count_campaign_rows"
+		target = "/topics"
+		values = map[string]any{}
+		inputs = nil
+		actions = []synthesize.BrowserScenarioAction{{Name: "count_campaign_rows", Operation: modernName}}
 	default:
 		return "", "", journeyBlueprint{}, fmt.Errorf("unknown modern journey kind")
 	}
-	if err := writeModernProfile(modernPath, modernVersion, origin, at, modernName, target, marker, true, kind == "template_browser19", wideDefault); err != nil {
+	if err := writeModernProfile(modernPath, modernVersion, origin, at, modernName, target, marker, modernVersion != profile.SchemaV110, kind == "template_browser19", wideDefault); err != nil {
 		return "", "", journeyBlueprint{}, err
 	}
 	capability := modernPath
@@ -72,9 +79,22 @@ func stageModernJourney(exampleDir, origin, kind string, at time.Time) (string, 
 		workflow:        actions,
 		inputs:          inputs,
 		values:          values,
-		expectedOutputs: map[string]any{"marker": marker},
+		expectedOutputs: modernJourneyExpectedOutputs(kind, marker),
 	}
 	return capability, authPath, blueprint, nil
+}
+
+func modernJourneyExpectedOutputs(kind, marker string) map[string]any {
+	switch kind {
+	case "campaign_count_browser110_zero":
+		return map[string]any{"campaign_count": 0}
+	case "campaign_count_browser110_one":
+		return map[string]any{"campaign_count": 1}
+	case "campaign_count_browser110_multiple":
+		return map[string]any{"campaign_count": 3}
+	default:
+		return map[string]any{"marker": marker}
+	}
 }
 
 func writeModernProfile(path, version, origin string, at time.Time, actionName, target, marker string, parameters, textSink bool, wideDefault int64) error {
@@ -85,11 +105,20 @@ func writeModernProfile(path, version, origin string, at time.Time, actionName, 
 			map[string]any{"click": map[string]any{"locator": map[string]any{"role": "button", "name": "Preview"}, "wait_for": map[string]any{"navigation": "domcontentloaded"}}},
 		)
 	}
-	sequence = append(sequence, map[string]any{"wait_for": map[string]any{"role": "status", "name": marker}})
+	outputs := map[string]any{"marker": map[string]any{"type": "string", "source": "a11y", "locator": map[string]any{"role": "status", "name": marker}}}
+	if version == profile.SchemaV110 {
+		outputs = map[string]any{"campaign_count": map[string]any{
+			"type": "integer", "source": "css", "selector": ".campaign-row", "within": "#campaign-rows",
+			"fallbackReason": "no_a11y_region", "matchCount": true, "visibility": "rendered",
+			"validation": map[string]any{"type": "integer", "minimum": 0, "maximum": 100},
+		}}
+	} else {
+		sequence = append(sequence, map[string]any{"wait_for": map[string]any{"role": "status", "name": marker}})
+	}
 	action := map[string]any{
 		"description": "Read one reviewed synthetic browser target.",
 		"sequence":    sequence,
-		"outputs":     map[string]any{"marker": map[string]any{"type": "string", "source": "a11y", "locator": map[string]any{"role": "status", "name": marker}}},
+		"outputs":     outputs,
 		"sideEffects": []string{"read_only"}, "confirmationPolicy": map[string]any{"required": false},
 	}
 	if parameters {
@@ -154,20 +183,46 @@ func (executor *realExecutor) executeModernJourney(ctx context.Context, manifest
 	}
 	result.Phases = append(result.Phases, PhaseResult{ID: "uws_synthesized", Status: StatusPass, Detail: "ok"})
 	last := blueprint.workflow[len(blueprint.workflow)-1].Name
-	replay := executor.runJourneyUdonWithProtocol(ctx, exampleDir, filepath.Join(exampleDir, "journey-data.hcl"), workflow.Path, blueprint.values, nil, last, "v10")
+	protocol := "v10"
+	udonPhase := "udon_v10"
+	if manifest.Expected.BrowserProfile == profile.SchemaV110 {
+		protocol, udonPhase = "v11", "udon_v11"
+	}
+	replay := executor.runJourneyUdonWithProtocol(ctx, exampleDir, filepath.Join(exampleDir, "journey-data.hcl"), workflow.Path, blueprint.values, nil, last, protocol)
 	if replay.failureCode != "" {
+		if isBrowser110CountKind(manifest.Journey) {
+			reportPath := filepath.Join(exampleDir, "execution-report.json")
+			result.failureCategory = closedExecutionFailureCategory(reportPath)
+			result.failureSummary = executionFailureSummary(reportPath)
+		}
 		return fail("browserdriver_replay", replay.failureCode)
 	}
 	if !scenarioOutputsEqual(replay.outputs, blueprint.expectedOutputs) {
+		if isBrowser110CountKind(manifest.Journey) {
+			result.failureCategory = "expected_output_mismatch"
+			result.failureSummary = fmt.Sprintf("campaign_count=%v", replay.outputs["campaign_count"])
+		}
 		return fail("browserdriver_replay", "output_mismatch")
 	}
-	result.Phases = append(result.Phases, PhaseResult{ID: "udon_v10", Status: StatusPass, Detail: "ok"}, PhaseResult{ID: "browserdriver_replay", Status: StatusPass, Detail: "ok"})
+	if manifest.Expected.BrowserProfile == profile.SchemaV110 {
+		persisted, readErr := os.ReadFile(filepath.Join(exampleDir, "output", "udon.hcl"))
+		if readErr != nil || !strings.Contains(string(persisted), "campaign_count = ") || strings.Contains(string(persisted), "synthetic private page text") {
+			result.failureCategory = "persisted_output_contract"
+			result.failureSummary = fmt.Sprintf("read_error=%t count_attribute=%t private_text_present=%t", readErr != nil, strings.Contains(string(persisted), "campaign_count = "), strings.Contains(string(persisted), "synthetic private page text"))
+			return fail("browserdriver_replay", "output_mismatch")
+		}
+	}
+	result.Phases = append(result.Phases, PhaseResult{ID: udonPhase, Status: StatusPass, Detail: "ok"}, PhaseResult{ID: "browserdriver_replay", Status: StatusPass, Detail: "ok"})
 	if !validJourneyPostconditions(manifest, fixture) {
 		return fail("postconditions", "contract_drift")
 	}
 	result.Phases = append(result.Phases, PhaseResult{ID: "postconditions", Status: StatusPass, Detail: "ok"})
 	result.Status, result.Detail = StatusPass, "ok"
-	result.Assertions = []string{"udon_v10_replay", "browserdriver_replay", "structured_outputs_exact", "private_material_absent"}
+	udonAssertion := "udon_v10_replay"
+	if manifest.Expected.BrowserProfile == profile.SchemaV110 {
+		udonAssertion = "udon_v11_replay"
+	}
+	result.Assertions = []string{udonAssertion, "browserdriver_replay", "structured_outputs_exact", "private_material_absent"}
 	switch manifest.Journey.Kind {
 	case "template_browser18":
 		result.Assertions = append(result.Assertions, "browser18_template")
@@ -175,6 +230,8 @@ func (executor *realExecutor) executeModernJourney(ctx context.Context, manifest
 		result.Assertions = append(result.Assertions, "browser19_template")
 	case "mixed_legacy_modern":
 		result.Assertions = append(result.Assertions, "mixed_profile_session", "browser19_template")
+	case "campaign_count_browser110_zero", "campaign_count_browser110_one", "campaign_count_browser110_multiple":
+		result.Assertions = append(result.Assertions, "browser110_count")
 	}
 	result.Assertions = canonicalAssertions(result.Assertions)
 	return finishJourneyResult(result, fixture, caseRoot)

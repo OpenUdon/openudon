@@ -82,6 +82,9 @@ type ScenarioResult struct {
 	// Private failure metadata travels separately; published v1 reports keep
 	// their exact wire shape and cannot become evidence of successful authoring.
 	AuthoringDiagnostic *icot.BrowserScenarioAuthorDiagnostic `json:"-"`
+	// FailureCategory is local diagnostic metadata and is excluded from reports.
+	failureCategory string
+	failureSummary  string
 }
 
 type PhaseResult struct {

@@ -261,7 +261,7 @@ func (executor *realExecutor) runBRPQualification(ctx context.Context, environme
 	run, runErr := packagepipeline.RunSelected(runtimeCtx, store, selection.SelectionSHA256, trustedrunner.Options{
 		Tier: trustedrunner.TierSandbox, ApprovalPath: approvalPath, WorkDir: filepath.Join(root, "live-run"),
 		Env: runtimeEnv, Now: func() time.Time { return packageAt.Add(3 * time.Minute) }, Stdout: io.Discard, Stderr: io.Discard,
-		BrowserDriver: executor.node, BrowserDriverArgs: []string{executor.driverEntry, "--headed"},
+		BrowserDriver: executor.node, BrowserDriverArgs: []string{"--preserve-symlinks", executor.driverEntry, "--headed"},
 		RegistrationAttestationPath: attestationPath, RegistrationSubmitApproval: runtimeAuthority.operation,
 		RegistrationInputService: privateForm.endpoint,
 	})

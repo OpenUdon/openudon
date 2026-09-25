@@ -485,6 +485,11 @@ func validJourneyPostconditions(manifest Manifest, fixture *JourneyFixture) bool
 		seen := fixture.legacySeen && fixture.modernSeen
 		fixture.mu.Unlock()
 		return seen && fixture.SessionCount() == 1 && fixture.MutationPOSTs() == 0
+	case "campaign_count_browser110_zero", "campaign_count_browser110_one", "campaign_count_browser110_multiple":
+		fixture.mu.Lock()
+		seen := fixture.campaignPageSeen
+		fixture.mu.Unlock()
+		return seen && fixture.MutationPOSTs() == 0
 	case "record_update_approved":
 		note, priority, enabled, archived := fixture.RecordState()
 		return fixture.MutationPOSTs() == 1 && note == "Reviewed note" && priority == "high" && enabled && !archived
@@ -590,7 +595,7 @@ func (executor *realExecutor) executePublic(ctx context.Context, manifest Manife
 	udon := runBounded(ctx, scenarioDeadline, caseRoot, []string{
 		executor.udon, "--workdir", caseRoot, "--workflow", workflow.Path, "--workflow-format", "uws-json",
 		"--execution-report", "execution-report.json", "--execution-timeout", "60s",
-		"--browser-driver", executor.node, "--browser-driver-arg", executor.driverEntry,
+		"--browser-driver", executor.node, "--browser-driver-arg=--preserve-symlinks", "--browser-driver-arg", executor.driverEntry,
 		"--browser-driver-protocol", "v2", "--approve-browser-authentication", "authenticate", "--quiet",
 	}, nil, "")
 	if udon.err != nil {
@@ -792,7 +797,7 @@ func (executor *realExecutor) runUdonWithFormat(ctx context.Context, manifest Ma
 	args := []string{
 		executor.udon, "--workdir", exampleDir, "--workflow", workflowPath, "--workflow-format", workflowFormat,
 		"--execution-report", "execution-report.json", "--execution-timeout", "60s",
-		"--browser-driver", executor.node, "--browser-driver-arg", executor.driverEntry,
+		"--browser-driver", executor.node, "--browser-driver-arg=--preserve-symlinks", "--browser-driver-arg", executor.driverEntry,
 		"--browser-driver-protocol", "v3", "--browser-challenge-timeout", "10s",
 		"--approve-browser-authentication", "authenticate", "--quiet",
 	}
@@ -866,9 +871,12 @@ func (executor *realExecutor) runJourneyUdonWithProtocol(ctx context.Context, ex
 	args := []string{
 		executor.udon, "--workdir", exampleDir, "--workflow", workflowPath, "--workflow-format", "uws-json",
 		"--datafile", dataPath, "--execution-report", "execution-report.json", "--execution-timeout", "60s",
-		"--browser-driver", executor.node, "--browser-driver-arg", executor.driverEntry,
+		"--browser-driver", executor.node, "--browser-driver-arg=--preserve-symlinks", "--browser-driver-arg", executor.driverEntry,
 		"--browser-driver-protocol", protocol, "--browser-challenge-timeout", "10s",
 		"--approve-browser-authentication", "authenticate", "--quiet",
+	}
+	if strings.TrimSpace(os.Getenv("CHROME_DEVEL_SANDBOX")) != "" {
+		args = append(args, "--browser-driver-env", "CHROME_DEVEL_SANDBOX")
 	}
 	for _, operation := range approvals {
 		args = append(args, "--approve-browser-operation", operation)
@@ -1171,6 +1179,18 @@ func executionFailureCode(reportPath string) string {
 		return udonreport.CodeUnclassified
 	}
 	return udonreport.FailureCode(data)
+}
+
+func executionFailureSummary(reportPath string) string {
+	data, _, err := evidencefile.ReadRegular(reportPath, scenarioCommandOutputLimit)
+	if err != nil || len(data) == 0 {
+		return ""
+	}
+	report, err := udonreport.Decode(data)
+	if err != nil || report.Status != "error" {
+		return ""
+	}
+	return report.ErrorSummary
 }
 
 func unavailableScenario(manifest Manifest, phase string) ScenarioResult {

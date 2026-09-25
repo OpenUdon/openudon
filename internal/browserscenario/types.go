@@ -36,7 +36,7 @@ var (
 	keyPattern = regexp.MustCompile(`^[A-Za-z][A-Za-z0-9_-]{0,63}$`)
 )
 
-//go:embed manifests/*.json current-manifests/*.json compatibility-lock.json current-compatibility-lock.json current-compatibility-lock-v2.json current-compatibility-lock-v4.json qualification-build-inputs.json current-qualification-build-inputs.json current-qualification-build-inputs-v4.json
+//go:embed manifests/*.json current-manifests/*.json current-manifests-v4/*.json compatibility-lock.json current-compatibility-lock.json current-compatibility-lock-v2.json current-compatibility-lock-v4.json qualification-build-inputs.json current-qualification-build-inputs.json current-qualification-build-inputs-v4.json
 var contracts embed.FS
 
 type Manifest struct {
@@ -166,6 +166,42 @@ func LoadCurrentManifests(now time.Time) ([]Manifest, error) {
 		return nil, err
 	}
 	sort.Strings(entries)
+	seen := map[string]bool{}
+	for _, manifest := range manifests {
+		seen[manifest.ID] = true
+	}
+	for _, name := range entries {
+		data, err := contracts.ReadFile(name)
+		if err != nil {
+			return nil, err
+		}
+		var manifest Manifest
+		if err := decodeStrict(data, &manifest); err != nil {
+			return nil, fmt.Errorf("%s: %w", name, err)
+		}
+		if err := ValidateManifest(manifest, now); err != nil {
+			return nil, fmt.Errorf("%s: %w", name, err)
+		}
+		if seen[manifest.ID] {
+			return nil, fmt.Errorf("duplicate browser scenario %q", manifest.ID)
+		}
+		seen[manifest.ID] = true
+		manifests = append(manifests, manifest)
+	}
+	return manifests, nil
+}
+
+// LoadCurrentManifestsV4 adds the Browser 1.10 cases without changing the
+// current v3 verifier's original manifest inventory.
+func LoadCurrentManifestsV4(now time.Time) ([]Manifest, error) {
+	manifests, err := LoadCurrentManifests(now)
+	if err != nil {
+		return nil, err
+	}
+	entries, err := fs.Glob(contracts, "current-manifests-v4/*.json")
+	if err != nil {
+		return nil, err
+	}
 	seen := map[string]bool{}
 	for _, manifest := range manifests {
 		seen[manifest.ID] = true
@@ -378,6 +414,9 @@ func validateJourneyManifest(manifest Manifest) error {
 	if manifest.Journey != nil && manifest.Journey.Kind == "template_browser18" {
 		wantProfile = "uws.browser.1.8"
 	}
+	if isBrowser110CountKind(manifest.Journey) {
+		wantProfile = "uws.browser.1.10"
+	}
 	if manifest.Authentication != nil || manifest.Goal != nil || len(manifest.Outputs) != 0 || manifest.Fault != "" || manifest.Target != nil || len(manifest.Probes) != 0 || manifest.Quarantine != nil || manifest.Journey == nil ||
 		!allowedJourneyKinds[manifest.Journey.Kind] || manifest.Expected.Authoring != "pass" || !allowedOutcome[manifest.Expected.Replay] || !allowedJourneyFailureCodes[manifest.Expected.FailureCode] ||
 		manifest.Expected.BrowserProfile != wantProfile || manifest.Expected.UWSVersion != "1.11.0" {
@@ -398,7 +437,19 @@ func currentJourneyKind(journey *Journey) bool {
 	if journey == nil {
 		return false
 	}
-	return journey.Kind == "template_browser18" || journey.Kind == "template_browser19" || journey.Kind == "mixed_legacy_modern"
+	return journey.Kind == "template_browser18" || journey.Kind == "template_browser19" || journey.Kind == "mixed_legacy_modern" || isBrowser110CountKind(journey)
+}
+
+func isBrowser110CountKind(journey *Journey) bool {
+	if journey == nil {
+		return false
+	}
+	switch journey.Kind {
+	case "campaign_count_browser110_zero", "campaign_count_browser110_one", "campaign_count_browser110_multiple":
+		return true
+	default:
+		return false
+	}
 }
 
 func validateJourneyExpectedContract(manifest Manifest) error {
@@ -599,6 +650,7 @@ var allowedJourneyKinds = map[string]bool{
 	"record_update_approved": true, "record_update_unapproved": true, "record_update_ambiguous": true,
 	"parameter_contract_rejected": true, "session_lifecycle": true,
 	"template_browser18": true, "template_browser19": true, "mixed_legacy_modern": true,
+	"campaign_count_browser110_zero": true, "campaign_count_browser110_one": true, "campaign_count_browser110_multiple": true,
 }
 var allowedJourneyFailureCodes = map[string]bool{"": true, "approval_required": true, "ambiguous_locator": true, "invalid_parameters": true}
 var allowedJourneyReplayVariants = map[string]bool{"missing_required": true, "additional_parameter": true, "wrong_type": true, "origin_escape": true}

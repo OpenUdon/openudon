@@ -125,8 +125,10 @@ external services.
 
 ## Active And Parked Tracks
 
-- Active: E22 owns the planned Browser 1.10 campaign-row count workflow after
-  UWS M05, Browsertools M32, Browserdriver M15 and Udon M43 publish. E21's
+- Active: E22 owns the Browser 1.10 campaign-row count workflow. UWS M05,
+  Browsertools M32, Browserdriver M15 and Udon M43 are published and pinned;
+  OpenUdon E22.2's isolated scenarios and fresh smoke are complete, while the
+  v4 verifier/current-stack transition and qualification remain active. E21's
   current-stack repair is complete and W8M W20.6/W21 consume its exact locks.
   No deployment, public canary, runtime adoption, or target operation is authorized.
 - Parked: real-provider evidence, live W8M operation, and public canaries need
@@ -142,7 +144,7 @@ search the history index before allocating a future ID.
 | ID | Milestone | Status file | State |
 | --- | --- | --- | --- |
 | E21 | Repair current-stack Udon build and preserve M86 report meaning | `tabilet/memory-bank/status-E21.md` | Complete; W8M W21 closeout reconciled |
-| E22 | Browser 1.10 campaign-row count workflow | `tabilet/memory-bank/status-E22.md` | Active; upstream profile/runtime dependencies pending |
+| E22 | Browser 1.10 campaign-row count workflow | `tabilet/memory-bank/status-E22.md` | Active; E22.2 complete, v4 verifier and qualification in progress |
 
 ## Requested Changes After Initialization
 
