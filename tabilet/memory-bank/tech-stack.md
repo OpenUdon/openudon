@@ -56,6 +56,10 @@ builds and npm tests use disposable output/checkouts and never install or change
 the supplied source or modules. Scenario builds link the separate module tree
 inside an exact disposable Browserdriver checkout so TypeScript resolves its
 imports; runtime readiness uses that staged package and the same linked modules.
+The integration npm-test gate copies the already-validated module tree into the
+disposable Browserdriver clone as a read-only `node_modules` directory. This
+keeps Node and TypeScript dependency lookup beside the package when tests launch
+child processes with a minimal environment; no package installation runs.
 Udon Go test gates clone its exact current source and fourteen locked sibling
 inputs to a temporary workspace; the native runner removes it before passing
 the stage and rechecks the original closure.

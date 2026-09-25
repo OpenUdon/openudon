@@ -97,9 +97,19 @@ func TestBrowserdriverNPMTestBuildsDisposablePinnedSourceCopy(t *testing.T) {
 		if err := os.MkdirAll(packageRoot, 0700); err != nil {
 			t.Fatal(err)
 		}
-		if err := os.WriteFile(filepath.Join(packageRoot, "package.json"), []byte(`{"version":"`+version+`"}`), 0600); err != nil {
+		packageJSON := `{"version":"` + version + `"}`
+		if name == "playwright" || name == "playwright-core" {
+			packageJSON = `{"version":"` + version + `","main":"index.js"}`
+		}
+		if err := os.WriteFile(filepath.Join(packageRoot, "package.json"), []byte(packageJSON), 0600); err != nil {
 			t.Fatal(err)
 		}
+	}
+	if err := os.WriteFile(filepath.Join(modules, "playwright", "index.js"), []byte(`require("playwright-core");`), 0600); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(modules, "playwright-core", "index.js"), []byte(`module.exports = {};`), 0600); err != nil {
+		t.Fatal(err)
 	}
 	lock, err := json.Marshal(map[string]any{"lockfileVersion": 3, "packages": packages})
 	if err != nil {
@@ -113,7 +123,7 @@ func TestBrowserdriverNPMTestBuildsDisposablePinnedSourceCopy(t *testing.T) {
 	}
 	write("package.json", `{"name":"disposable-browserdriver-test","version":"1.0.0","scripts":{"test":"node test.js"}}`)
 	write("package-lock.json", string(lock))
-	write("test.js", `const fs = require("node:fs"); fs.mkdirSync("dist", {recursive:true}); fs.writeFileSync("dist/probe", "ok"); console.log("staged-npm-pass");`)
+	write("test.js", `const {spawnSync} = require("node:child_process"); const result = spawnSync(process.execPath, ["-e", "require('playwright')"], {env:{PATH:process.env.PATH},encoding:"utf8"}); if (result.status !== 0) throw new Error(result.stderr); console.log("staged-npm-pass");`)
 	for _, args := range [][]string{{"init", "-q"}, {"add", "package.json", "package-lock.json", "test.js"}, {"commit", "-q", "-m", "fixture"}} {
 		cmd := exec.Command("git", args...)
 		cmd.Dir = source
@@ -136,15 +146,43 @@ func TestBrowserdriverNPMTestBuildsDisposablePinnedSourceCopy(t *testing.T) {
 	}
 	result := runIsolatedBrowserdriverNPMTest(context.Background(), command)
 	if result.Err != nil || !strings.Contains(result.Stdout, "staged-npm-pass") {
-		t.Fatalf("disposable npm test result = %#v", result)
+		t.Fatalf("disposable npm test result = %#v (error: %v)", result, result.Err)
 	}
 	if _, err := os.Stat(filepath.Join(source, "dist")); !os.IsNotExist(err) {
 		t.Fatalf("npm test mutated supplied Browserdriver source: %v", err)
+	}
+	if data, err := os.ReadFile(filepath.Join(modules, "playwright", "index.js")); err != nil || string(data) != `require("playwright-core");` {
+		t.Fatalf("npm test mutated supplied Browserdriver modules: %v", err)
 	}
 	status := exec.Command("git", "status", "--porcelain=v1", "--untracked-files=all")
 	status.Dir = source
 	if output, err := status.CombinedOutput(); err != nil || len(output) != 0 {
 		t.Fatalf("source tree changed after disposable npm test: %v: %s", err, output)
+	}
+}
+
+func TestCopyReadOnlyNodeModulesRejectsEscapingSymlink(t *testing.T) {
+	root := t.TempDir()
+	source := filepath.Join(root, "modules")
+	target := filepath.Join(root, "staged")
+	outside := filepath.Join(root, "outside")
+	if err := os.Mkdir(source, 0700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Mkdir(outside, 0700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(outside, "private.js"), []byte("synthetic"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink("../outside", filepath.Join(source, "escape")); err != nil {
+		t.Fatal(err)
+	}
+	if err := copyReadOnlyNodeModules(source, target); err == nil {
+		t.Fatal("dependency symlink escaping its source tree was copied")
+	}
+	if _, err := os.Stat(filepath.Join(target, "escape", "private.js")); !os.IsNotExist(err) {
+		t.Fatalf("outside dependency was staged: %v", err)
 	}
 }
 

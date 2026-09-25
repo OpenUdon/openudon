@@ -970,12 +970,16 @@ func runIsolatedBrowserdriverNPMTest(ctx context.Context, command Command) (resu
 	if err != nil {
 		return bad
 	}
+	staged := filepath.Join(parent, "browserdriver")
+	stagedNodeModules := filepath.Join(staged, "node_modules")
 	defer func() {
+		if err := makeStagedNodeModulesWritable(stagedNodeModules); err != nil && result.Err == nil {
+			result.Err = errors.New("browserdriver test cleanup failed")
+		}
 		if err := os.RemoveAll(parent); err != nil && result.Err == nil {
 			result.Err = errors.New("browserdriver test cleanup failed")
 		}
 	}()
-	staged := filepath.Join(parent, "browserdriver")
 	timeout := command.Timeout
 	if timeout <= 0 {
 		timeout = 3 * time.Minute
@@ -993,7 +997,7 @@ func runIsolatedBrowserdriverNPMTest(ctx context.Context, command Command) (resu
 	}); err != nil {
 		return bad
 	}
-	if err := os.Symlink(nodeModules, filepath.Join(staged, "node_modules")); err != nil {
+	if err := copyReadOnlyNodeModules(nodeModules, stagedNodeModules); err != nil {
 		return bad
 	}
 	envOverrides := cloneMap(command.Env)
@@ -1001,11 +1005,129 @@ func runIsolatedBrowserdriverNPMTest(ctx context.Context, command Command) (resu
 		envOverrides = make(map[string]string)
 	}
 	delete(envOverrides, "BROWSERDRIVER_NODE_MODULES")
-	envOverrides["PATH"] = filepath.Join(nodeModules, ".bin") + string(os.PathListSeparator) + os.Getenv("PATH")
+	envOverrides["PATH"] = filepath.Join(stagedNodeModules, ".bin") + string(os.PathListSeparator) + os.Getenv("PATH")
 	command.Dir = staged
 	command.Env = envOverrides
 	result = runDirectCommand(ctx, command)
 	return result
+}
+
+func makeStagedNodeModulesWritable(root string) error {
+	return filepath.WalkDir(root, func(path string, _ os.DirEntry, walkErr error) error {
+		if walkErr != nil {
+			if os.IsNotExist(walkErr) {
+				return nil
+			}
+			return walkErr
+		}
+		info, err := os.Lstat(path)
+		if err != nil {
+			return err
+		}
+		if info.IsDir() {
+			return os.Chmod(path, 0700)
+		}
+		return nil
+	})
+}
+
+func copyReadOnlyNodeModules(source, target string) error {
+	bad := errors.New("browserdriver dependencies cannot be staged")
+	sourceRoot, err := filepath.EvalSymlinks(source)
+	if err != nil {
+		return bad
+	}
+	rootInfo, err := os.Lstat(sourceRoot)
+	if err != nil || !rootInfo.IsDir() || rootInfo.Mode()&os.ModeSymlink != 0 {
+		return bad
+	}
+	if err := os.Mkdir(target, 0700); err != nil {
+		return bad
+	}
+	type stagedDirectory struct {
+		path string
+		mode os.FileMode
+	}
+	var directories []stagedDirectory
+	var copiedBytes int64
+	err = filepath.WalkDir(sourceRoot, func(path string, _ os.DirEntry, walkErr error) error {
+		if walkErr != nil {
+			return bad
+		}
+		relative, err := filepath.Rel(sourceRoot, path)
+		if err != nil || filepath.IsAbs(relative) || relative == ".." || strings.HasPrefix(filepath.Clean(relative), ".."+string(filepath.Separator)) {
+			return bad
+		}
+		destination := target
+		if relative != "." {
+			destination = filepath.Join(target, relative)
+		}
+		info, err := os.Lstat(path)
+		if err != nil {
+			return bad
+		}
+		if info.IsDir() {
+			if relative != "." {
+				if err := os.Mkdir(destination, 0700); err != nil {
+					return bad
+				}
+			}
+			directories = append(directories, stagedDirectory{path: destination, mode: info.Mode().Perm() &^ 0222})
+			return nil
+		}
+		if info.Mode()&os.ModeSymlink != 0 {
+			link, err := os.Readlink(path)
+			if err != nil || filepath.IsAbs(link) {
+				return bad
+			}
+			resolved, err := filepath.EvalSymlinks(path)
+			if err != nil {
+				return bad
+			}
+			resolvedRelative, err := filepath.Rel(sourceRoot, resolved)
+			if err != nil || resolvedRelative == ".." || strings.HasPrefix(resolvedRelative, ".."+string(filepath.Separator)) {
+				return bad
+			}
+			if err := os.Symlink(link, destination); err != nil {
+				return bad
+			}
+			return nil
+		}
+		if !info.Mode().IsRegular() || info.Size() < 0 || info.Size() > 64<<20 || copiedBytes+info.Size() > 256<<20 {
+			return bad
+		}
+		input, err := os.Open(path)
+		if err != nil {
+			return bad
+		}
+		output, err := os.OpenFile(destination, os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0600)
+		if err != nil {
+			input.Close()
+			return bad
+		}
+		written, copyErr := io.Copy(output, input)
+		closeInputErr := input.Close()
+		modeErr := output.Chmod(info.Mode().Perm() &^ 0222)
+		closeOutputErr := output.Close()
+		if copyErr != nil || closeInputErr != nil || modeErr != nil || closeOutputErr != nil || written != info.Size() {
+			return bad
+		}
+		copiedBytes += written
+		return nil
+	})
+	if err != nil {
+		return bad
+	}
+	for i := len(directories) - 1; i >= 0; i-- {
+		mode := directories[i].mode
+		if mode == 0 {
+			mode = 0500
+		}
+		if err := os.Chmod(directories[i].path, mode); err != nil {
+			return bad
+		}
+	}
+	return nil
 }
 
 type boundedBuffer struct {

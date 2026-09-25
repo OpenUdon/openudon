@@ -36,7 +36,7 @@ promoted these pins for current-stack report v4 and preserved the former E21
 selector as an explicit v3 snapshot.
 | E22.2 Add isolated count workflow and current-stack scenarios | [+] | Added version-isolated Browser 1.10 journey manifests for zero, one and multiple rendered rows, and exercise only `campaign_count`; retained prior current-stack manifests for v3 verification. Focused `go test ./internal/browserscenario ./internal/synthesize -count=1` passed, and one fresh `make browser110-smoke` passed against exact locked Browserdriver/Udon source clones. The first smoke diagnosis found the hidden fixture row's inline style was blocked by the fixture CSP; changed it to the HTML `hidden` attribute and verified the browser count excludes it. The smoke also exposed Node/TypeScript symlink resolution for the read-only external node_modules closure; `--preserve-symlinks` now preserves staged package and runtime module resolution. No supplier source was mutated. |
 | E22.3 Preserve old reports and add strict versioned reader | [+] | Froze E21's scenario, integration and 14-source build closure as v3 snapshots; selected the v4 Browser 1.10 locks and manifests for `--stack current`. Scenario, integration and native qualification now emit v4. Focused cross-version tests, full `make fast`, `go vet ./...`, strict JSON parsing and `git diff --check` pass. The retained M86 v2 and E21 v3 reports all verify with unchanged digests; exact hashes follow. The initial `make fast` exposed an expired fixed-date registration fixture; changed it to a dynamic whole-second clock and confirmed the isolated test and full gate pass. |
-| E22.4 Verify, qualify and review | [~] | Independently verify report bindings and source cleanliness, run full current-stack synthetic qualification on a clean commit, then complete the bounded review before publication. |
+| E22.4 Verify, qualify and review | [~] | The first fresh v4 integration attempt was preserved with 18 passed, 1 failed and 0 skipped. Its sole failure was Browserdriver's synthetic npm gate; diagnosis and the focused repair checks pass, so a fresh clean qualification attempt is still required. Continue with exact report binding and full current-stack qualification, then complete the bounded review before publication. |
 
 **E22.3 retained-report verification.** The three M86 v2 reports independently
 verify with 19/19 integration, 23/23 loopback and 11/11 journey passes. Their
@@ -50,3 +50,17 @@ values `042a5c46d5265b5802a76068c3742d7ebf20786fbfd294e16405a1893de9b2f4`,
 `97373fc50901d192b7d770c33906a72bd0593ba0759dc9c1e4ff4a6a4bdbd1c9`,
 `e6414861599495a28a13775467887720d4c8c812759f4fa2ef17c1cea518ca54`, and
 `9d325601c9499171cfb440c2735c789b8ae3b7db583b64314dadb29c9bf71d18`.
+
+**E22.4 failed integration attempt and diagnosis.** The first fresh v4 matrix
+attempt is retained at
+`/home/peter/.local/state/openudon/e22-browser110-qualification-20260925-znGWHA/evidence/integration-v4.json`
+with SHA-256
+`4398239ae5168cd3b6db880ab81caff105288928476aee3217a59ee670ac3841`.
+All five primary locked sources were clean and exact, all 19 gates ran with no
+skips, and 18 passed. The only failure was `browserdriver-runtime`: the npm
+gate's read-only module-root symlink resolved outside the disposable package,
+so two synthetic child-process tests could not find `playwright-core`. The
+gate now copies the already lock-validated module tree into a read-only standard
+`node_modules` directory in its disposable source clone. The focused evaluator
+test passes, and a fresh exact M15 Browserdriver npm run passes 157 tests with
+15 existing skips; the E22.4 matrix itself must be rerun in a new output root.
