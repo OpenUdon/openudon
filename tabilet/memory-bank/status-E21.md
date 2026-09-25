@@ -1,6 +1,6 @@
 # Status E21 — Repair current-stack Udon build and preserve M86 report meaning
 
-**State:** Active; OpenUdon publication is complete and downstream W8M W21 qualification is in progress. Synthetic local qualification only.
+**State:** Complete. OpenUdon E21 publication and downstream W8M W21 qualification are complete. Synthetic qualification only.
 
 **Scope boundary:** Do not contact providers or target accounts, run a public
 canary, adopt a runtime, or deploy. Publish the reviewed OpenUdon source only
@@ -18,7 +18,8 @@ Markers: `[ ]` pending, `[~]` in progress, `[+]` complete, `[!]` blocked,
 | E21.2 Pin and emit the repaired current stack | `[+]` | Current scenario/integration locks select Udon `6d32d4967469c579d35adcf47eaddb76a225dbae`; the separate 14-repository closure is exact and checks clean commits before execution. Current scenario/journey and integration contracts emit v3; M86 v2 uses frozen lock snapshots. Focused tests and vet pass; build-input lock SHA-256 is `4993304edf46953c33b6112c4f00e3fcf526811ac91400989b775a19066977b9`. |
 | E21.3 Extend native current-stack qualification | `[+]` | Added `browser-system-eval --stack current --suite loopback` and `make browser-system-current-check`; historical remains default v2 and v1/v2 verifiers keep their inventories. Current native v3 routes the 14-source clean closure through the build, scenario, BAP and BRP stages, with clean-source preflight and per-stage rechecks. Focused tests and vet pass. |
 | E21.4 Qualify clean current-stack evidence | `[+]` | Final qualified code commit is `1007cdedf0acebf649bd3ddd065a0e42bac4f542`. A fresh source workspace passed the v3 integration matrix 19/19, loopback suite 23/23, journey suite 11/11, and native qualification 3 passes × 13 stages with zero failures, skips, or quarantines. Exact report hashes and bindings are in the E21.4 attempt record below. Earlier loopback worker EOF and native BRP cleanup failures remain preserved as failed evidence; they are not rewritten by this success. The direct focused BRP component also passed and left all source checkouts clean. Retained M86 v2 reports still verify at 19/19, 23/23, and 11/11 with unchanged SHA-256 digests. Focused malformed/cross-version tests, full `make fast`, `go vet ./...`, documentation-memory checks, independent report verifiers, source cleanliness, and temporary workspace teardown all pass. |
-| E21.5 Review and publish OpenUdon | `[+]` | Bounded review iteration 1 found no P1/P2 issues. Fast-forwarded and pushed OpenUdon `main` to `origin` at `679f0bca630862a4ff46ea5a7edc0fc871abe938`; the exact qualified code commit `1007cdedf0acebf649bd3ddd065a0e42bac4f542` is published in its history and remains the W8M dependency. Only OpenUdon was pushed. W8M remains local and unadopted. |
+| E21.5 Review and publish OpenUdon | `[+]` | Bounded review iteration 1 found no P1/P2 issues. Fast-forwarded and pushed OpenUdon `main` to `origin` at `679f0bca630862a4ff46ea5a7edc0fc871abe938`; the exact qualified code commit `1007cdedf0acebf649bd3ddd065a0e42bac4f542` is published in its history and remains the W8M dependency. Only OpenUdon was pushed. W8M qualification and branch publication remained separate. |
+| E21.6 Reconcile downstream W8M closeout | `[+]` | W8M W21 acceptance v4 passed and was independently verified, then its separate feature branch was published at clean commit `d1fd6c13d871622bf40466cba24649363d2f1846`. The candidate remains unadopted; no W8M runtime change or target contact occurred. |
 
 ## Acceptance
 
@@ -30,16 +31,18 @@ replacements before browser launch. Current scenario, journey, integration
 and native reports use v3; v1 historical default and M86 v2 verifiers keep
 their original semantics. The 19 integration gates, all 23 loopback cases,
 all 11 journey cases, current native scenario/BAP/BRP stages, independent
-verification, source cleanliness, and bounded review pass. Only OpenUdon is
-published.
+verification, source cleanliness, and bounded review pass. OpenUdon E21 is
+published, and the dependent W8M W21 synthetic qualification and separately
+authorized branch publication are complete; the candidate remains unadopted.
 
 ## Dependencies and downstream impact
 
 M86 is retired history and supplies the v2 lock/report compatibility contract;
 it is verification input, not reopened work. The W8M W20.6 affected candidate
 smoke and W21 uncached qualification depend on this published OpenUdon commit
-and both current lock digests. No other repository source is changed or
-published by E21.
+and both current lock digests; W21 passed and its
+branch is separately published. E22 is the planned next OpenUdon consumer change.
+No other repository source was changed or published by E21.
 
 ## E21.4 Attempt Record
 

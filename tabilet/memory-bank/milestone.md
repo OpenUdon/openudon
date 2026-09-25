@@ -21,8 +21,9 @@ loopback, journey, and three-pass native reports independently verify with
 exact clean source bindings. The bounded review is clear; E21.5 publication
 completed when OpenUdon alone was pushed to `origin/main` at
 `679f0bca630862a4ff46ea5a7edc0fc871abe938`. The accepted code commit is
-`1007cdedf0acebf649bd3ddd065a0e42bac4f542`; downstream W8M W21 qualification
-is in progress locally.
+`1007cdedf0acebf649bd3ddd065a0e42bac4f542`. Downstream W8M W21 qualification
+passed independent verification and its separate feature branch was published
+at `d1fd6c13d871622bf40466cba24649363d2f1846`; runtime adoption remains separate.
 
 The UWS 1.11 real-browser M86, E15 registration-verification integration,
 and E18 initialization-diagnostics integration milestones are complete. E15
@@ -53,6 +54,19 @@ reports. Extend the native current path through scenarios and BAP/BRP while
 keeping the historical stack as its default. The scope is synthetic and
 provider-free; it includes no deployment, public canary, runtime adoption, or
 target account operation.
+
+### E22 — Browser 1.10 campaign-row count workflow
+
+Integrate the published Browser 1.10 profile and Udon M43 action into a separate
+synthetic workflow that counts rendered campaign body rows on the default first
+action=topics page. Emit a bounded count from 0 through 100 and no page text or
+attributes. Keep historical E21 report readers v1–v3 unchanged and add a
+current-stack report v4 reader. Cover zero, one, multiple, missing,
+ambiguous, invalid and over-bound cases. Require clean published dependency pins,
+current-stack scenario qualification, strict independent report verification,
+and bounded review. No live target operation, runtime adoption, registration,
+deployment or campaign mutation is included. E22 depends on published UWS M05,
+Browsertools M32, Browserdriver M15 and Udon M43.
 
 ## Memory Bank Index
 
@@ -111,9 +125,10 @@ external services.
 
 ## Active And Parked Tracks
 
-- Active: E21 owns the current-stack report-preservation and Udon build-lock
-  repair; W8M W20.6/W21 consume its published exact lock. No deployment,
-  public canary, runtime adoption, or target operation is authorized.
+- Active: E22 owns the planned Browser 1.10 campaign-row count workflow after
+  UWS M05, Browsertools M32, Browserdriver M15 and Udon M43 publish. E21's
+  current-stack repair is complete and W8M W20.6/W21 consume its exact locks.
+  No deployment, public canary, runtime adoption, or target operation is authorized.
 - Parked: real-provider evidence, live W8M operation, and public canaries need
   separately approved scope and authority.
 - Completed history: use the [history index](../docs/history/index.md) for
@@ -126,7 +141,8 @@ search the history index before allocating a future ID.
 
 | ID | Milestone | Status file | State |
 | --- | --- | --- | --- |
-| E21 | Repair current-stack Udon build and preserve M86 report meaning | `tabilet/memory-bank/status-E21.md` | Active |
+| E21 | Repair current-stack Udon build and preserve M86 report meaning | `tabilet/memory-bank/status-E21.md` | Complete; W8M W21 closeout reconciled |
+| E22 | Browser 1.10 campaign-row count workflow | `tabilet/memory-bank/status-E22.md` | Active; upstream profile/runtime dependencies pending |
 
 ## Requested Changes After Initialization
 
