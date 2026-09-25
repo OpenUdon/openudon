@@ -11,6 +11,11 @@ while [M86](../docs/history/status-M86.md) records the current UWS 1.11 real-bro
 qualification. Historical publication and failed-attempt details are preserved
 in the [history index](../docs/history/index.md).
 
+OpenUdon's Browser 1.10 synthetic journeys model `campaign_count` as the
+0–100 count of rendered campaign rows on the default first page and retain only
+that scalar. This is loopback compatibility evidence; it does not authorize
+contact with or changes to a target account. See [E22](status-E22.md).
+
 ## Memory Bank Index
 
 - This file owns product purpose, audience, workflows, scope, and non-goals.

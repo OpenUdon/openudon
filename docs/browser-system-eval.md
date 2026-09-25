@@ -22,12 +22,13 @@ openudon browser-system-eval --verify /tmp/browser-system-current-loopback.json
 Use `--repo-root` for OpenUdon and `--udon-repo` for an exact disposable Udon
 checkout with the auxiliary sibling checkouts required by
 `internal/browserscenario/qualification-build-inputs.json` for the historical
-default. The current stack uses
-`internal/browserscenario/current-qualification-build-inputs.json`, requires
+default. The Browser 1.10 current stack uses
+`internal/browserscenario/current-qualification-build-inputs-v4.json`, requires
 all 14 replacement checkouts and primary sources to be clean at their exact
-locked revisions before starting, and emits a v3 native report. `--stack`
-defaults to `historical`; the v2 native reader keeps that original baseline and
-the v1 reader keeps its 11-stage loopback inventory. `make
+locked revisions before starting, and emits a v4 native report. The v3 native
+reader keeps E21's frozen locks; the v2 reader keeps M86's original baseline
+and the v1 reader keeps its 11-stage loopback inventory. `--stack` defaults to
+`historical`. `make
 browser-system-current-check` runs and verifies the explicit current stack.
 Current-stack qualification requires a separate, read-only Browserdriver
 `node_modules` directory through `--browserdriver-node-modules`, or through
@@ -87,9 +88,9 @@ before and after each loopback stage, the compatibility/build-input locks,
 runtime baseline, exact observed Go/Node versions, ordered component evidence and its SHA-256, scenario
 inventory, and fixed failure stage. Local scenario components use aggregate-only source-bound validation; legacy
 scenario publication files continue to require a clean OpenUdon checkout.
-For a current v3 report, the repaired current compatibility and 14-source
+For a current v4 report, the Browser 1.10 compatibility and 14-source
 build-input locks are selected together. The loopback and journey component
-reports use the current v3 scenario contracts; BAP/BRP components use the same
+reports use the current v4 scenario contracts; BAP/BRP components use the same
 current stack and closure. Current sources are rechecked for exact revisions
 and clean state around every stage. Component stdout and stderr,
 page values, credentials and private producer files are not report fields.

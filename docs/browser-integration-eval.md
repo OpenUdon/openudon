@@ -6,10 +6,11 @@ provider-free checks in sibling OpenUdon, Browsertools, UWS, Udon, and
 Browserdriver checkouts and writes one value-free report with an adjacent
 SHA-256 sidecar.
 
-M86 v2 reports use their frozen compatibility lock. New current v3 matrices use
-the current exact compatibility lock for the UWS 1.11, Browsertools,
-Browserdriver and repaired Udon revisions, and validate the exact clean
-14-repository Udon local build closure before running gates. OpenUdon and every
+M86 v2 reports use their frozen compatibility lock. E21 v3 reports use their
+frozen current compatibility lock and 14-repository Udon build closure. New
+current v4 matrices use the exact Browser 1.10 compatibility lock for UWS M05,
+Browsertools M32, Browserdriver M15 and Udon M43, and validate the separate
+clean 14-repository Udon build closure before running gates. OpenUdon and every
 pinned sibling checkout must be clean. Historical v1 reports remain verified
 against the unchanged scenario compatibility lock and original gate inventory.
 Generated `site/` output is explicitly ignored without being removed or
@@ -64,24 +65,24 @@ they drift.
 | Gate | Evidence |
 |---|---|
 | OpenUdon authoring | API preference, anonymous handoff, strict author-session v2 orchestration, identical pre-publication validation for bundled and expert workers, disclosure-path rejection, human-only typed MFA/output review, exact new-origin approval, process-private trace/auth/output/context/origin attestation, minimal child environment, exact bounds authority, a real Browsertools-produced private result through validation/staging, and malformed/tampered/substituted rejection |
-| OpenUdon package/handoff | Strict live and portability verification, private/tampered input rejection, value-free package review, authentication/capability separation, UWS 1.11 default, Browser 1.8/1.9 templates, and v10 trusted handoff |
+| OpenUdon package/handoff | Strict live and portability verification, private/tampered input rejection, value-free package review, authentication/capability separation, UWS 1.11 default, Browser 1.8/1.9 templates, Browser 1.10 count output, and v10 trusted handoff |
 | iCoT dependency boundary | The engine dependency graph contains no Browsertools capture, Playwright adapter, or Playwright-Go implementation package. The UI qualification adapter may link Playwright; the UI graph contains no Browsertools capture implementation. |
 | OpenUdon repository boundary | Production source contains no private executor, desired-state parser, or removed apitools lifecycle imports |
 | Browsertools producer | Observation-generation authority, human-selected MFA kind, bounded reviewed outputs, action-time exact-name/unique-role proof, complete context inventory, current goal proof, deterministic output, and offline doctor behavior |
 | UWS contract | Immutable older compatibility plus UWS 1.11 typed conformance, root-scoped goto, Browser 1.8/1.9 template safety, context contracts, and scalar conversion |
-| Udon consumer | Private source loading, runtime approvals, authentication, opaque sessions, v3 legacy replay, v10 modern action handoff, UWS 1.11 bound execution, and post-conversion validation |
-| Browserdriver runtime | Offline v2/v3 legacy NDJSON plus v10 Browser 1.8/1.9 templates and integer safety, failure non-disclosure, exact-origin/context guards, credential lookup, and session isolation |
+| Udon consumer | Private source loading, runtime approvals, authentication, opaque sessions, v3 legacy replay, v10 modern action handoff, Browser 1.10 count output, UWS 1.11 bound execution, and post-conversion validation |
+| Browserdriver runtime | Offline v2/v3 legacy NDJSON plus v10 Browser 1.8/1.9 templates, Browser 1.10 count output and integer safety, failure non-disclosure, exact-origin/context guards, credential lookup, and session isolation |
 | Component inventory | Browsertools doctor reports pinned Chromium, Firefox, and WebKit readiness without installing or launching anything |
 
-The current report contract is `openudon.browser-integration-eval.v3`. The v2
-verifier remains bound to M86's frozen lock; v1 remains available for
-historical reports. Validation fixes
+The current report contract is `openudon.browser-integration-eval.v4`. The v3
+verifier remains bound to E21's frozen lock and v2 remains bound to M86's; v1
+remains available for historical reports. Validation fixes
 the gate order, repository names, command argv, assertions, authority claims,
 counter totals, and closed value-free detail vocabulary. Passing Go gates must
 contain every named test marker, not merely an overall package success. Reports
 also require the producer-to-consumer and producer-to-replay test names; a
 hand-built compatible fixture does not establish either seam. Browserdriver's
-npm gate similarly requires the named v3 replay and cached-context freshness
+npm gate similarly requires its named replay and cached-context freshness
 tests rather than inferring coverage from a passing-test count. Reports
 record the commit and dirty-worktree bit for every participating repository,
 are written atomically under ignored `eval/runs/`, never include repository

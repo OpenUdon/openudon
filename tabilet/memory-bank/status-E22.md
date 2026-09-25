@@ -36,7 +36,7 @@ promoted these pins for current-stack report v4 and preserved the former E21
 selector as an explicit v3 snapshot.
 | E22.2 Add isolated count workflow and current-stack scenarios | [+] | Added version-isolated Browser 1.10 journey manifests for zero, one and multiple rendered rows, and exercise only `campaign_count`; retained prior current-stack manifests for v3 verification. Focused `go test ./internal/browserscenario ./internal/synthesize -count=1` passed, and one fresh `make browser110-smoke` passed against exact locked Browserdriver/Udon source clones. The first smoke diagnosis found the hidden fixture row's inline style was blocked by the fixture CSP; changed it to the HTML `hidden` attribute and verified the browser count excludes it. The smoke also exposed Node/TypeScript symlink resolution for the read-only external node_modules closure; `--preserve-symlinks` now preserves staged package and runtime module resolution. No supplier source was mutated. |
 | E22.3 Preserve old reports and add strict versioned reader | [+] | Froze E21's scenario, integration and 14-source build closure as v3 snapshots; selected the v4 Browser 1.10 locks and manifests for `--stack current`. Scenario, integration and native qualification now emit v4. Focused cross-version tests, full `make fast`, `go vet ./...`, strict JSON parsing and `git diff --check` pass. The retained M86 v2 and E21 v3 reports all verify with unchanged digests; exact hashes follow. The initial `make fast` exposed an expired fixed-date registration fixture; changed it to a dynamic whole-second clock and confirmed the isolated test and full gate pass. |
-| E22.4 Verify, qualify and review | [~] | The Browserdriver npm staging repair now passes a fresh 19/19 integration matrix. The next current-stack loopback report exposed a separate Node readiness probe failure (0/23, 0 skipped); its focused count report reproduces the cause. The probe now preserves module symlinks; focused package checks and a new clean qualification attempt remain. |
+| E22.4 Verify, qualify and review | [~] | Both Browserdriver npm staging and Node readiness symlink failures are repaired. A fresh exact-source run passes the 19-gate integration and 23-case loopback suites; the 14-case Browser 1.10 journey independently verifies. Review found operator documents that still called v3 current; the version and lock references are corrected before the final clean qualification. |
 
 **E22.3 retained-report verification.** The three M86 v2 reports independently
 verify with 19/19 integration, 23/23 loopback and 11/11 journey passes. Their
@@ -85,3 +85,20 @@ The same locked Node 24.13.0, Playwright 1.62.1 and Chromium 151.0.7922.34
 probe passes with that option, which is now added to the readiness command.
 Both failure reports remain intact; full qualification must use a new clean
 commit and output root after the focused count journey passes.
+
+**E22.4 Browser 1.10 report/doc review.** On clean OpenUdon
+`533039a7531477a2fd9710ef26bf1a5d5c1546e4` and the exact v4 source closure, the
+fresh 19-gate integration matrix passes 19/19 with no skips; the full loopback
+suite passes 23/23 and the full journey suite passes 14/14, including the
+zero-, one-, and multiple-row Browser 1.10 cases. The journey report independently
+verifies and binds all five primary sources clean at that commit; SHA-256 is
+`48856e3116810ade3983e278d4ab45664d814322d2c61b30cfe7f1842eb06dbb`.
+All 17 clean staged repositories match their exact locked revisions. A bounded
+documentation review then found that the operator guides still described v3
+as current. Their scenario, integration and native report descriptions now
+identify v4 as current while preserving E21 v3 and M86 v2 readers, and the
+product record states the synthetic 0–100 first-page boundary. Memory link,
+JSON and whitespace checks pass. The documentation-only source change means
+the final full qualification must bind a new clean OpenUdon commit; the earlier
+reports remain immutable evidence for `533039a` and are not substituted for
+that run.

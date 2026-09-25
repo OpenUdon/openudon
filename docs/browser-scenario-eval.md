@@ -204,9 +204,12 @@ Historical loopback/public reports use `openudon.browser-scenario-eval.v1` and
 historical journey reports use `openudon.browser-journey-eval.v1`. M86 current
 local reports use `openudon.browser-scenario-eval.v2` and
 `openudon.browser-journey-eval.v2`; their verifier uses frozen M86 lock bytes.
-New current local reports use v3 versions and the current lock. Both current
-generations require the complete 23-case or 11-case inventory for a passing
-release report. Filtered current runs remain diagnostics. Every report has an adjacent
+E21 current local reports use v3 versions, the frozen E21 lock, and complete
+23-case loopback or 11-case journey inventories. New Browser 1.10 current
+reports use v4 versions and its separate current lock; passing reports require
+all 23 loopback cases or all 14 journey cases. The v4 journeys include
+zero-, one-, and multiple-row `campaign_count` examples and retain only the
+bounded output scalar. Filtered current runs remain diagnostics. Every report has an adjacent
 `.sha256` sidecar and contains exact repository commits, public module
 versions, closed phase/assertion/detail identifiers, counters, and explicit
 safety booleans. It contains no target page content or subprocess output and
@@ -225,11 +228,12 @@ differ from the lock. Generated `site/` output is explicitly excluded from the
 dirty-root check and is neither removed nor release evidence. Scenario
 manifests and reports strict-decode unknown or duplicate fields and apply
 finite bounds before any browser or network authority is exercised.
-The separate current lock fixes the UWS 1.11 stack and repaired Udon
-`6d32d4967469c579d35adcf47eaddb76a225dbae` with the same toolchain versions.
-Current scenario runs also require the exact clean 14-repository Udon local
-replacement closure embedded in
-`internal/browserscenario/current-qualification-build-inputs.json`. Its Node readiness probe launches pinned Chromium with
+The frozen E21 v3 lock fixes the UWS 1.11 stack and repaired Udon
+`6d32d4967469c579d35adcf47eaddb76a225dbae`. Browser 1.10 v4 selects its
+published UWS M05, Browsertools M32, Browserdriver M15 and Udon M43 commits.
+Each generation requires its exact clean 14-repository Udon local replacement
+closure, recorded in `current-qualification-build-inputs-v3.json` for v3 and
+`current-qualification-build-inputs-v4.json` for v4. Its Node readiness probe launches pinned Chromium with
 `chromiumSandbox: true`; readiness still does not replace an executed case.
 When the clean Browserdriver checkout has no installed modules, pass
 `--browserdriver-node-modules` with a separate directory outside that checkout.
