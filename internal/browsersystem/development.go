@@ -47,7 +47,7 @@ func validDevelopment(r DevelopmentReport, input, stage string, now time.Time) b
 	return r.Version == DevelopmentVersion && !r.QualifiesRuntime && r.Mode == "smoke" &&
 		r.InputSHA256 == input && evidencefile.ValidSHA256(input) && len(r.ExecutionID) == 32 && validID(r.ExecutionID) &&
 		!r.ExecutedAt.IsZero() && !r.ExecutedAt.After(now) && now.Sub(r.ExecutedAt) <= 24*time.Hour &&
-		r.DurationMS >= 0 && r.Stage.ID == stage && r.Stage.Status == "pass" && r.Stage.SHA256 == evidenceHash(r.Stage.Evidence) && validateProof(r.Stage, "loopback", browserscenario.StackHistorical) == nil
+		r.DurationMS >= 0 && r.Stage.ID == stage && r.Stage.Status == "pass" && r.Stage.SHA256 == evidenceHash(r.Stage.Evidence) && validateProof(r.Stage, "loopback", browserscenario.StackHistorical, Version) == nil
 }
 func cacheableDevelopmentStage(id string) bool {
 	return id == "registration_ui_handoff" || id == "bap_bcp_transaction"

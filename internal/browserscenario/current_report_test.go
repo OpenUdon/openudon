@@ -2,6 +2,7 @@ package browserscenario
 
 import (
 	"path/filepath"
+	"reflect"
 	"strings"
 	"testing"
 	"time"
@@ -22,8 +23,8 @@ func TestM86CurrentLockSnapshotRetainsPublishedPins(t *testing.T) {
 	}
 }
 
-func TestCurrentV3LockUsesUdon6dAndSeparateFourteenInputClosure(t *testing.T) {
-	lock, err := LoadCurrentCompatibilityLock()
+func TestCurrentV3LockSnapshotUsesUdon6dAndSeparateFourteenInputClosure(t *testing.T) {
+	lock, err := LoadCurrentCompatibilityLockV3()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -36,7 +37,7 @@ func TestCurrentV3LockUsesUdon6dAndSeparateFourteenInputClosure(t *testing.T) {
 	if udon != "6d32d4967469c579d35adcf47eaddb76a225dbae" {
 		t.Fatalf("current Udon pin = %s", udon)
 	}
-	build, err := LoadCurrentQualificationBuildInputLock(lock)
+	build, err := LoadCurrentQualificationBuildInputLockV3(lock)
 	if err != nil || len(build.Components) != 14 {
 		t.Fatalf("current build closure = %d components, err = %v", len(build.Components), err)
 	}
@@ -84,6 +85,60 @@ func TestCurrentV4LockPinsPublishedBrowser110DependencyChain(t *testing.T) {
 			t.Fatalf("UWS build input = %s", component.Commit)
 		}
 	}
+}
+
+func TestCurrentSelectorAdvancesToV4WhileV3SnapshotRemainsVerifiable(t *testing.T) {
+	current, err := LoadCurrentCompatibilityLock()
+	if err != nil {
+		t.Fatal(err)
+	}
+	v4, err := LoadCurrentCompatibilityLockV4()
+	if err != nil || !reflect.DeepEqual(current, v4) {
+		t.Fatalf("current selector differs from v4 lock: %v", err)
+	}
+	v3, err := LoadCurrentCompatibilityLockV3()
+	if err != nil {
+		t.Fatal(err)
+	}
+	v3Build, err := LoadCurrentQualificationBuildInputLockV3(v3)
+	if err != nil || len(v3Build.Components) != 14 {
+		t.Fatalf("frozen v3 build closure = %d components, err = %v", len(v3Build.Components), err)
+	}
+	currentBuild, err := LoadCurrentQualificationBuildInputLock(current)
+	if err != nil || !reflect.DeepEqual(currentBuild, mustCurrentV4Build(t, current)) {
+		t.Fatalf("current selector differs from v4 build closure: %v", err)
+	}
+	versions := map[string]string{}
+	commits := map[string]string{}
+	for _, component := range v3.Components {
+		versions[component.Name], commits[component.Name] = component.Version, component.Commit
+	}
+	rootCommit := strings.Repeat("a", 40)
+	legacy := NewReportForStack(SuiteLoopback, StackCurrent, time.Date(2026, 9, 24, 12, 0, 0, 0, time.UTC), []RepositoryRevision{
+		{Name: "openudon", Commit: rootCommit}, {Name: "browsertools", Commit: commits["browsertools"]},
+		{Name: "uws", Commit: commits["uws"]}, {Name: "udon", Commit: commits["udon"]},
+		{Name: "browserdriver", Commit: commits["browserdriver"]},
+	}, []DependencyRevision{
+		{Module: "github.com/OpenUdon/browsertools", Version: versions["browsertools"]},
+		{Module: "github.com/OpenUdon/uws", Version: versions["uws"]},
+	}, []ScenarioResult{{ID: "password-main", Status: StatusPass, Attempts: 1, Detail: "ok", Phases: []PhaseResult{{ID: "fixture_ready", Status: StatusPass, Detail: "ok"}}, Assertions: []string{"author_session_v2"}}})
+	legacy.Version = CurrentV3ReportVersion
+	if err := ValidateReport(legacy); err != nil {
+		t.Fatalf("retained v3 scenario report no longer verifies: %v", err)
+	}
+	legacy.Version = CurrentReportVersion
+	if err := ValidateReport(legacy); err == nil {
+		t.Fatal("v4 report accepted v3 source bindings")
+	}
+}
+
+func mustCurrentV4Build(t *testing.T, lock CompatibilityLock) QualificationBuildInputLock {
+	t.Helper()
+	build, err := LoadCurrentQualificationBuildInputLockV4(lock)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return build
 }
 
 func TestM86CurrentReportUsesFrozenLockAfterCurrentLockAdvances(t *testing.T) {
@@ -149,5 +204,42 @@ func TestCurrentScenarioReportRequiresExactLockAndCompleteSuite(t *testing.T) {
 	report.Dependencies[0].Version = "v0.0.0-wrong"
 	if err := ValidateReport(report); err == nil {
 		t.Fatal("current report accepted wrong module pin")
+	}
+}
+
+func TestBrowser110CurrentReportRequiresVersionedCountEvidence(t *testing.T) {
+	lock, err := LoadCurrentCompatibilityLockV4()
+	if err != nil {
+		t.Fatal(err)
+	}
+	commits, versions := map[string]string{}, map[string]string{}
+	for _, component := range lock.Components {
+		commits[component.Name], versions[component.Name] = component.Commit, component.Version
+	}
+	repositories := []RepositoryRevision{
+		{Name: "openudon", Commit: strings.Repeat("a", 40)},
+		{Name: "browsertools", Commit: commits["browsertools"]},
+		{Name: "uws", Commit: commits["uws"]},
+		{Name: "udon", Commit: commits["udon"]},
+		{Name: "browserdriver", Commit: commits["browserdriver"]},
+	}
+	result := ScenarioResult{ID: "campaign-count-browser110-multiple", Status: StatusPass, Attempts: 1, Detail: "ok",
+		Phases:     []PhaseResult{{ID: "fixture_ready", Status: StatusPass, Detail: "ok"}},
+		Assertions: []string{"author_session_v2"}}
+	report := NewReportForStack(SuiteJourney, StackCurrent, time.Date(2026, 9, 24, 12, 0, 0, 0, time.UTC), repositories, []DependencyRevision{
+		{Module: "github.com/OpenUdon/browsertools", Version: versions["browsertools"]},
+		{Module: "github.com/OpenUdon/uws", Version: versions["uws"]},
+	}, []ScenarioResult{result})
+	if err := ValidateReport(report); err == nil {
+		t.Fatal("Browser 1.10 count report without v11 evidence was accepted")
+	}
+	report.Scenarios[0].Assertions = append(report.Scenarios[0].Assertions, "browser110_count", "udon_v11_replay")
+	report.Scenarios[0].Phases = append(report.Scenarios[0].Phases, PhaseResult{ID: "udon_v11", Status: StatusPass, Detail: "ok"})
+	if err := ValidateReport(report); err != nil {
+		t.Fatalf("Browser 1.10 count evidence rejected: %v", err)
+	}
+	report.Scenarios[0].ID = "template-browser19"
+	if err := ValidateReport(report); err == nil {
+		t.Fatal("non-count Browser 1.9 scenario accepted Browser 1.10 count evidence")
 	}
 }

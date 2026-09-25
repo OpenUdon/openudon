@@ -25,6 +25,12 @@ completed when OpenUdon alone was pushed to `origin/main` at
 passed independent verification and its separate feature branch was published
 at `d1fd6c13d871622bf40466cba24649363d2f1846`; runtime adoption remains separate.
 
+E22.1 pinned the published Browser 1.10 dependency chain and E22.2 added three
+version-isolated synthetic count journeys. E22.3 now selects the v4 locks,
+manifests and report readers for `--stack current`, while retained v1–v3
+reports dispatch to their original locks and inventories. The focused count
+smoke and affected Go package tests pass; full qualification and review remain.
+
 The UWS 1.11 real-browser M86, E15 registration-verification integration,
 and E18 initialization-diagnostics integration milestones are complete. E15
 and E18 closed against W8M W16.4i.39d synthetic qualification, independent
@@ -127,8 +133,8 @@ external services.
 
 - Active: E22 owns the Browser 1.10 campaign-row count workflow. UWS M05,
   Browsertools M32, Browserdriver M15 and Udon M43 are published and pinned;
-  OpenUdon E22.2's isolated scenarios and fresh smoke are complete, while the
-  v4 verifier/current-stack transition and qualification remain active. E21's
+  OpenUdon E22.2's isolated scenarios and fresh smoke are complete, and E22.3
+  selects v4 with frozen v3 readers. Full qualification remains active. E21's
   current-stack repair is complete and W8M W20.6/W21 consume its exact locks.
   No deployment, public canary, runtime adoption, or target operation is authorized.
 - Parked: real-provider evidence, live W8M operation, and public canaries need

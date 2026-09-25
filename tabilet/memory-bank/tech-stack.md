@@ -1,15 +1,21 @@
 # Tech Stack
 
-## Browser 1.10 dependency candidate
+## Current Browser 1.10 qualification stack
 
 OpenUdon's Go module pins published UWS M05
 `80ee9bfb24a688b5e875dadf9ecacdc65398f1ff` and Browsertools M32
 `3abe70efc03d9ccb97b8b30e5e86328f60a70c64`. The exact Browserdriver M15 and
 Udon M43 source pins, module versions, and separate 14-repository Udon build
 closure are recorded in
-`internal/browserscenario/current-compatibility-lock-v4.json` and
-`current-qualification-build-inputs-v4.json`. E21's current lock and reports
-remain selected until E22 installs the versioned v4 readers and new workflow.
+`internal/browserscenario/current-compatibility-lock-v4.json` (SHA-256
+`58363021e44961527468bc686df114ce69770709345eb39702fbf38e84da6d2a`) and
+`current-qualification-build-inputs-v4.json` (SHA-256
+`10fa8b2570f0a72688a1c8d282fe84cf7ea4af6e82ad5ffa85aa6fc994ff371a`). The
+scenario, integration and native current selectors now emit v4 reports and
+include the three Browser 1.10 count journeys. Full E22 qualification and
+bounded review are still pending.
+UWS maintains the profile-version checklist at
+[`future-source-profiles.md`](../../../uws/docs/future-source-profiles.md#adding-a-browser-profile-version).
 
 ## M86 v2 lock snapshots
 
@@ -19,13 +25,14 @@ The M86 current scenario v2 verifier reads
 integration v2 verifier reads its own byte-preserved snapshot at
 `internal/browserintegrationeval/current-compatibility-lock-v2.json` (SHA-256
 `9eec17f1489e1c805e2d2bfb8b89a439ee7153d5c49ec09a3ee903ce6761d393`). The
-mutable scenario and integration selectors now use Udon
-`6d32d4967469c579d35adcf47eaddb76a225dbae`; their bytes have SHA-256
-`90f96fa2d02809f641c7391f1245487926a48c64cef9a4ace609ebad99667246` and
-`4958e20014cb008a3d8128f0328c7f86bd07cd674a463aa7578ae4348a2e9a9f`.
-Scenario current v3 execution also requires the 14-source local replacement
-closure in `internal/browserscenario/current-qualification-build-inputs.json`
-(SHA-256 `4993304edf46953c33b6112c4f00e3fcf526811ac91400989b775a19066977b9`).
+The frozen E21 current v3 scenario and integration locks are retained at
+`internal/browserscenario/current-compatibility-lock-v3.json` (SHA-256
+`90f96fa2d02809f641c7391f1245487926a48c64cef9a4ace609ebad99667246`) and
+`internal/browserintegrationeval/current-compatibility-lock-v3.json` (SHA-256
+`4958e20014cb008a3d8128f0328c7f86bd07cd674a463aa7578ae4348a2e9a9f`). The
+v3 14-source local replacement closure is frozen at
+`internal/browserscenario/current-qualification-build-inputs-v3.json` (SHA-256
+`4993304edf46953c33b6112c4f00e3fcf526811ac91400989b775a19066977b9`).
 It fixes Browsertools `9333a9f25dbb17551998a429e123e7a9ba976648` and UWS
 `e9b6181be0abb7f683fdb624d4dba282a59991d1` among the exact clean source inputs.
 Integration runs verify the same Udon closure before executing the fixed
@@ -34,10 +41,11 @@ locks and meaning. All three retained M86 reports pass with their original
 digests; E21 evidence is recorded in [status-E21.md](status-E21.md).
 
 Native `openudon browser-system-eval --stack current --suite loopback` selects
-the same current compatibility and 14-source build-input locks, requires all
-primary and auxiliary worktrees to be clean, and emits
-`openudon.browser-system-qualification.v3`. The default remains historical
-native v2. `make browser-system-current-check` runs the explicit current path
+the v4 compatibility and 14-source build-input locks, requires all primary
+and auxiliary worktrees to be clean, and emits
+`openudon.browser-system-qualification.v4`. Its v3 reader retains the E21
+snapshots. The default remains historical native v2.
+`make browser-system-current-check` runs the explicit current path
 and verifies its report; the verifier dispatches from the saved report version.
 Current evaluation can take `--browserdriver-node-modules` for a separate
 read-only module tree outside the clean Browserdriver checkout. The evaluator

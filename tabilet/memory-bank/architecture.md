@@ -1,23 +1,23 @@
 # Architecture
 
-## M86 v2 report lock preservation
+## Versioned browser qualification locks
 
-Current-stack scenario and integration report v2 readers use frozen copies of
-the exact M86 current locks. New current evidence will use the mutable current
-lock only under v3 readers. The historical v1/default lock remains separate.
-This prevents a later current-stack update from changing the meaning of
-retained M86 reports. E21 owns the lock transition and its verifiers; see
+Scenario, integration and native qualification readers dispatch from each
+report's version. Historical v1 and M86 v2 retain their original meanings;
+E21 current v3 readers use frozen Udon `6d32d49` compatibility and 14-source
+build-input snapshots. E22 advances the explicit current selector to Browser
+1.10 report v4, with the published UWS M05, Browsertools M32, Browserdriver
+M15 and Udon M43 pins plus their separate 14-source build closure. Its three
+count scenarios stay outside the v3 manifest inventory. All selected sibling
+worktrees must match exact commits and be clean before browser work. Native
+qualification remains historical by default; `--stack current` emits v4 and
+routes scenario, build-input, BAP and BRP stages through the same v4 lock and
+closure. Full E22 qualification and bounded review are pending in
+[status-E22.md](status-E22.md).
+
+The v2 and v3 snapshots prevent later current-stack updates from changing the
+meaning of retained reports. The E21 repair lineage is in
 [status-E21.md](status-E21.md).
-
-E21.2 advances the scenario and integration selectors to Udon
-`6d32d4967469c579d35adcf47eaddb76a225dbae`. Current v3 evidence also binds
-the separately embedded 14-repository local Udon build closure; its selected
-worktrees must match exact commits and be clean before browser work. Scenario
-and integration v2 readers use their frozen M86 locks, while historical v1
-readers keep their original lock and inventory. Native qualification stack
-selection is explicit: historical remains the default v2 path, and current
-native qualification emits v3 and routes scenario, build-input, BAP and BRP
-stages through the current lock and closure.
 BRP's temporary repository-local example parent is removed on every exit when
 the qualification created it; pre-existing paths are preserved and symlink
 parents are rejected so the per-stage clean-source check remains meaningful.

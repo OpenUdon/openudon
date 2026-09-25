@@ -81,7 +81,7 @@ func RunBAPBCPQualification(ctx context.Context, options Options) (result BAPBCP
 	environment.CommitBoundBuild = true
 	var manifests []Manifest
 	if stack == StackCurrent {
-		manifests, err = LoadCurrentManifests(now)
+		manifests, err = LoadCurrentManifestsV4(now)
 	} else {
 		manifests, err = LoadManifests(now)
 	}

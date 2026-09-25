@@ -46,10 +46,16 @@ func LoadQualificationBuildInputLock(compatibility CompatibilityLock) (Qualifica
 	return lock, nil
 }
 
-// LoadCurrentQualificationBuildInputLock returns E21's separately pinned 14
-// replacement sources for the current v3 Udon stack.
+// LoadCurrentQualificationBuildInputLock returns the active current-stack build
+// closure. New current-stack evidence uses the Browser 1.10 v4 closure.
 func LoadCurrentQualificationBuildInputLock(compatibility CompatibilityLock) (QualificationBuildInputLock, error) {
-	data, err := contracts.ReadFile("current-qualification-build-inputs.json")
+	return LoadCurrentQualificationBuildInputLockV4(compatibility)
+}
+
+// LoadCurrentQualificationBuildInputLockV3 returns E21's frozen 14-source
+// closure for retained v3 report verification.
+func LoadCurrentQualificationBuildInputLockV3(compatibility CompatibilityLock) (QualificationBuildInputLock, error) {
+	data, err := contracts.ReadFile("current-qualification-build-inputs-v3.json")
 	if err != nil {
 		return QualificationBuildInputLock{}, err
 	}
@@ -75,8 +81,8 @@ func LoadCurrentQualificationBuildInputLock(compatibility CompatibilityLock) (Qu
 	return lock, nil
 }
 
-// LoadCurrentQualificationBuildInputLockV4 reads the Browser 1.10 candidate
-// closure without changing the E21 current-stack selector.
+// LoadCurrentQualificationBuildInputLockV4 reads the Browser 1.10 current
+// stack closure.
 func LoadCurrentQualificationBuildInputLockV4(compatibility CompatibilityLock) (QualificationBuildInputLock, error) {
 	data, err := contracts.ReadFile("current-qualification-build-inputs-v4.json")
 	if err != nil {

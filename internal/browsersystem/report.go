@@ -18,9 +18,10 @@ import (
 )
 
 const (
-	Version        = "openudon.browser-system-qualification.v2"
-	CurrentVersion = "openudon.browser-system-qualification.v3"
-	legacyVersion  = "openudon.browser-system-qualification.v1"
+	Version          = "openudon.browser-system-qualification.v2"
+	CurrentV3Version = "openudon.browser-system-qualification.v3"
+	CurrentVersion   = "openudon.browser-system-qualification.v4"
+	legacyVersion    = "openudon.browser-system-qualification.v1"
 )
 
 var digestPattern = regexp.MustCompile(`^[a-f0-9]{64}$`)
@@ -100,14 +101,17 @@ func validToolchains(value Toolchains, lock browserscenario.CompatibilityLock) b
 
 func Validate(r *Report) error {
 	bad := errors.New("browser system report is invalid")
-	if r == nil || (r.Version != CurrentVersion && r.Version != Version && r.Version != legacyVersion) || (r.Suite != "offline" && r.Suite != "loopback") || r.Version == CurrentVersion && r.Suite != "loopback" || (r.Status != "pass" && r.Status != "fail") || r.PlaywrightGo != "v0.6201.0" || r.NetworkClaim != "application_request_allowlists_not_network_wide_containment" {
+	if r == nil || (r.Version != CurrentVersion && r.Version != CurrentV3Version && r.Version != Version && r.Version != legacyVersion) || (r.Suite != "offline" && r.Suite != "loopback") || (r.Version == CurrentVersion || r.Version == CurrentV3Version) && r.Suite != "loopback" || (r.Status != "pass" && r.Status != "fail") || r.PlaywrightGo != "v0.6201.0" || r.NetworkClaim != "application_request_allowlists_not_network_wide_containment" {
 		return bad
 	}
 	stack := browserscenario.StackHistorical
-	if r.Version == CurrentVersion {
+	if r.Version == CurrentV3Version || r.Version == CurrentVersion {
 		stack = browserscenario.StackCurrent
 	}
 	lock, err := browserscenario.LoadCompatibilityLockForStack(stack)
+	if r.Version == CurrentV3Version {
+		lock, err = browserscenario.LoadCurrentCompatibilityLockV3()
+	}
 	if err != nil || !bytes.Equal(canonical(lock), canonical(r.Baseline)) || !validToolchains(r.Toolchains, lock) {
 		return bad
 	}
@@ -115,6 +119,9 @@ func Validate(r *Report) error {
 	expectedBuildCommits := map[string]string{}
 	if r.Suite == "loopback" {
 		build, err := browserscenario.LoadQualificationBuildInputLockForStack(stack)
+		if r.Version == CurrentV3Version {
+			build, err = browserscenario.LoadCurrentQualificationBuildInputLockV3(lock)
+		}
 		if err != nil {
 			return bad
 		}
@@ -169,7 +176,7 @@ func Validate(r *Report) error {
 			if stage.Status != "pass" || !digestPattern.MatchString(stage.SHA256) || stage.SHA256 != evidenceHash(stage.Evidence) {
 				return bad
 			}
-			if err := validateProof(stage, r.Suite, stack); err != nil {
+			if err := validateProof(stage, r.Suite, stack, r.Version); err != nil {
 				return bad
 			}
 			if stage.ID == "loopback_scenarios" || stage.ID == "journey_scenarios" {
@@ -218,7 +225,7 @@ func decodeProof(data []byte, target any) error {
 	}
 	return nil
 }
-func validateProof(stage Stage, suite, stack string) error {
+func validateProof(stage Stage, suite, stack, reportVersion string) error {
 	bad := errors.New("component evidence is invalid")
 	switch stage.ID {
 	case "loopback_scenarios", "journey_scenarios":
@@ -229,8 +236,13 @@ func validateProof(stage Stage, suite, stack string) error {
 		if browserscenario.ValidateLocalQualificationReport(&r) != nil || r.Status != "pass" || r.Summary.Skipped != 0 || r.Summary.Quarantined != 0 {
 			return bad
 		}
-		if stack == browserscenario.StackCurrent && r.Version != browserscenario.CurrentReportVersion && r.Version != browserscenario.CurrentJourneyReportVersion {
-			return bad
+		if stack == browserscenario.StackCurrent {
+			if reportVersion == CurrentV3Version && r.Version != browserscenario.CurrentV3ReportVersion && r.Version != browserscenario.CurrentV3JourneyVersion {
+				return bad
+			}
+			if reportVersion == CurrentVersion && r.Version != browserscenario.CurrentReportVersion && r.Version != browserscenario.CurrentJourneyReportVersion {
+				return bad
+			}
 		}
 		if stack == browserscenario.StackHistorical && r.Version != browserscenario.ReportVersion && r.Version != browserscenario.JourneyReportVersion {
 			return bad
@@ -242,7 +254,11 @@ func validateProof(stage Stage, suite, stack string) error {
 		var manifests []browserscenario.Manifest
 		var err error
 		if stack == browserscenario.StackCurrent {
-			manifests, err = browserscenario.LoadCurrentManifests(time.Now())
+			if reportVersion == CurrentVersion {
+				manifests, err = browserscenario.LoadCurrentManifestsV4(time.Now())
+			} else {
+				manifests, err = browserscenario.LoadCurrentManifests(time.Now())
+			}
 		} else {
 			manifests, err = browserscenario.LoadManifests(time.Now())
 		}
@@ -279,6 +295,13 @@ func validateProof(stage Stage, suite, stack string) error {
 			return bad
 		}
 		expected, err := browserscenario.LoadQualificationBuildInputLockForStack(stack)
+		if reportVersion == CurrentV3Version {
+			lock, lockErr := browserscenario.LoadCurrentCompatibilityLockV3()
+			if lockErr != nil {
+				return bad
+			}
+			expected, err = browserscenario.LoadCurrentQualificationBuildInputLockV3(lock)
+		}
 		if err != nil || !bytes.Equal(canonical(e), canonical(expected)) {
 			return bad
 		}

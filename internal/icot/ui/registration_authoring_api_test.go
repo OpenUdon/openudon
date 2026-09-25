@@ -455,7 +455,7 @@ func TestRegistrationAuthoringAPIBuildsDraftServerSideThenRequiresExplicitReview
 }
 
 func TestRegistrationAuthoringCleanTeardownStartsTransactionV2AndSelectsReviewedVirtualSource(t *testing.T) {
-	observedAt := time.Date(2026, 8, 26, 12, 5, 0, 0, time.UTC)
+	observedAt := time.Now().UTC().Truncate(time.Second).Add(-3 * time.Minute)
 	clock := observedAt.Add(2 * time.Minute)
 	candidate := registrationCandidateV2(t, observedAt)
 	repoRoot, err := filepath.Abs(filepath.Join("..", "..", ".."))

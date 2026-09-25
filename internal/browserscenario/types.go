@@ -36,7 +36,7 @@ var (
 	keyPattern = regexp.MustCompile(`^[A-Za-z][A-Za-z0-9_-]{0,63}$`)
 )
 
-//go:embed manifests/*.json current-manifests/*.json current-manifests-v4/*.json compatibility-lock.json current-compatibility-lock.json current-compatibility-lock-v2.json current-compatibility-lock-v4.json qualification-build-inputs.json current-qualification-build-inputs.json current-qualification-build-inputs-v4.json
+//go:embed manifests/*.json current-manifests/*.json current-manifests-v4/*.json compatibility-lock.json current-compatibility-lock-v2.json current-compatibility-lock-v3.json current-compatibility-lock-v4.json qualification-build-inputs.json current-qualification-build-inputs-v3.json current-qualification-build-inputs-v4.json
 var contracts embed.FS
 
 type Manifest struct {
@@ -243,7 +243,13 @@ func LoadCompatibilityLock() (CompatibilityLock, error) {
 }
 
 func LoadCurrentCompatibilityLock() (CompatibilityLock, error) {
-	data, err := contracts.ReadFile("current-compatibility-lock.json")
+	return LoadCurrentCompatibilityLockV4()
+}
+
+// LoadCurrentCompatibilityLockV3 returns the immutable E21 current-stack
+// lock used by v3 reports. New current-stack runs use the Browser 1.10 v4 lock.
+func LoadCurrentCompatibilityLockV3() (CompatibilityLock, error) {
+	data, err := contracts.ReadFile("current-compatibility-lock-v3.json")
 	if err != nil {
 		return CompatibilityLock{}, err
 	}
@@ -258,9 +264,7 @@ func LoadCurrentCompatibilityLock() (CompatibilityLock, error) {
 }
 
 // LoadCurrentCompatibilityLockV2 returns the immutable lock used by M86's
-// current-stack v2 reports. New current-stack evidence uses the mutable v3
-// lock; retaining this snapshot keeps archived v2 reports independently
-// verifiable after current-stack updates.
+// current-stack v2 reports.
 func LoadCurrentCompatibilityLockV2() (CompatibilityLock, error) {
 	data, err := contracts.ReadFile("current-compatibility-lock-v2.json")
 	if err != nil {
@@ -276,9 +280,7 @@ func LoadCurrentCompatibilityLockV2() (CompatibilityLock, error) {
 	return lock, nil
 }
 
-// LoadCurrentCompatibilityLockV4 returns the exact Browser 1.10 dependency
-// candidate. E22 promotes it to the current stack only with its report-v4
-// reader; until then the existing current selector retains E21's lock.
+// LoadCurrentCompatibilityLockV4 returns the current Browser 1.10 stack lock.
 func LoadCurrentCompatibilityLockV4() (CompatibilityLock, error) {
 	data, err := contracts.ReadFile("current-compatibility-lock-v4.json")
 	if err != nil {
@@ -306,7 +308,7 @@ func lockForStack(stack string) (CompatibilityLock, error) {
 }
 
 // LoadCompatibilityLockForStack returns the immutable historical lock or the
-// current v3 lock selected by an explicit stack name.
+// current v4 lock selected by an explicit stack name.
 func LoadCompatibilityLockForStack(stack string) (CompatibilityLock, error) {
 	return lockForStack(stack)
 }

@@ -33,7 +33,7 @@ func TestM86CurrentLockSnapshotRetainsPublishedPins(t *testing.T) {
 	}
 }
 
-func TestCurrentReportVersionUsesRepairedLockAndBuildClosure(t *testing.T) {
+func TestCurrentV4ReportVersionUsesPublishedBrowser110LockAndBuildClosure(t *testing.T) {
 	lock, gates, err := contractForVersion(ReportVersion)
 	if err != nil {
 		t.Fatal(err)
@@ -45,14 +45,40 @@ func TestCurrentReportVersionUsesRepairedLockAndBuildClosure(t *testing.T) {
 	if err != nil || !reflect.DeepEqual(lock, scenarioLock) {
 		t.Fatalf("integration and scenario current locks differ: %v", err)
 	}
+	want := map[string]string{
+		"browserdriver": "1f0e0d8c3bf16861f72938fa456035f1226da547",
+		"browsertools":  "3abe70efc03d9ccb97b8b30e5e86328f60a70c64",
+		"udon":          "4266ac99610a6fe39e363c75068e8256bdd821f5",
+		"uws":           "80ee9bfb24a688b5e875dadf9ecacdc65398f1ff",
+	}
 	for _, component := range lock.Components {
-		if component.Name == "udon" && component.Commit != "6d32d4967469c579d35adcf47eaddb76a225dbae" {
-			t.Fatalf("current Udon pin = %s", component.Commit)
+		if component.Commit != want[component.Name] {
+			t.Fatalf("current %s pin = %s", component.Name, component.Commit)
 		}
 	}
 	build, err := browserscenario.LoadCurrentQualificationBuildInputLock(lock)
 	if err != nil || len(build.Components) != 14 {
 		t.Fatalf("current build closure = %d components, err = %v", len(build.Components), err)
+	}
+}
+
+func TestCurrentV3ReportRetainsE21LockAndBuildClosure(t *testing.T) {
+	lock, gates, err := contractForVersion(CurrentV3ReportVersion)
+	if err != nil {
+		t.Fatal(err)
+	}
+	scenarioLock, err := browserscenario.LoadCurrentCompatibilityLockV3()
+	if err != nil || !reflect.DeepEqual(lock, scenarioLock) || len(gates) != 19 {
+		t.Fatalf("E21 v3 contract differs from its snapshot: gates=%d err=%v", len(gates), err)
+	}
+	for _, component := range lock.Components {
+		if component.Name == "udon" && component.Commit != "6d32d4967469c579d35adcf47eaddb76a225dbae" {
+			t.Fatalf("E21 Udon pin = %s", component.Commit)
+		}
+	}
+	build, err := browserscenario.LoadCurrentQualificationBuildInputLockV3(lock)
+	if err != nil || len(build.Components) != 14 {
+		t.Fatalf("E21 build closure = %d components, err = %v", len(build.Components), err)
 	}
 }
 

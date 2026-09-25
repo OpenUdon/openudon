@@ -52,14 +52,20 @@ func TestVersionedInventoriesPreserveLegacyMeaning(t *testing.T) {
 	}
 }
 
-func currentLoopbackFailureReport(t *testing.T) *Report {
+func currentLoopbackFailureReport(t *testing.T, version string) *Report {
 	t.Helper()
 	lock, err := browserscenario.LoadCurrentCompatibilityLock()
 	if err != nil {
 		t.Fatal(err)
 	}
+	if version == CurrentV3Version {
+		lock, err = browserscenario.LoadCurrentCompatibilityLockV3()
+		if err != nil {
+			t.Fatal(err)
+		}
+	}
 	r := &Report{
-		Toolchains: Toolchains{Go: lock.GoVersion, Node: "24.13.0"}, Version: CurrentVersion,
+		Toolchains: Toolchains{Go: lock.GoVersion, Node: "24.13.0"}, Version: version,
 		Suite: "loopback", Status: "fail", FailureStage: loopbackStages[0], Baseline: lock,
 		PlaywrightGo: "v0.6201.0", NetworkClaim: "application_request_allowlists_not_network_wide_containment",
 	}
@@ -73,6 +79,9 @@ func currentLoopbackFailureReport(t *testing.T) *Report {
 		r.Sources = append(r.Sources, Source{Name: name, Commit: commit, SHA256: strings.Repeat("b", 64)})
 	}
 	build, err := browserscenario.LoadCurrentQualificationBuildInputLock(lock)
+	if version == CurrentV3Version {
+		build, err = browserscenario.LoadCurrentQualificationBuildInputLockV3(lock)
+	}
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -83,8 +92,8 @@ func currentLoopbackFailureReport(t *testing.T) *Report {
 	return r
 }
 
-func TestCurrentV3ReportSelectsRepairedLockAndBuildClosure(t *testing.T) {
-	r := currentLoopbackFailureReport(t)
+func TestCurrentV3ReportSelectsFrozenE21LockAndBuildClosure(t *testing.T) {
+	r := currentLoopbackFailureReport(t, CurrentV3Version)
 	if err := Validate(r); err != nil {
 		t.Fatalf("current report rejected: %v", err)
 	}
@@ -92,25 +101,36 @@ func TestCurrentV3ReportSelectsRepairedLockAndBuildClosure(t *testing.T) {
 	if Validate(r) == nil {
 		t.Fatal("current report accepted a mismatched Udon revision")
 	}
-	r = currentLoopbackFailureReport(t)
+	r = currentLoopbackFailureReport(t, CurrentV3Version)
 	r.Sources[len(r.Sources)-1].Commit = strings.Repeat("d", 40)
 	if Validate(r) == nil {
 		t.Fatal("current report accepted a mismatched auxiliary build source")
 	}
-	r = currentLoopbackFailureReport(t)
+	r = currentLoopbackFailureReport(t, CurrentV3Version)
 	r.Version = Version
 	if Validate(r) == nil {
 		t.Fatal("historical v2 report accepted the current baseline")
 	}
-	r = currentLoopbackFailureReport(t)
+	r = currentLoopbackFailureReport(t, CurrentV3Version)
 	r.Suite = "offline"
 	if Validate(r) == nil {
 		t.Fatal("current v3 report accepted an offline inventory")
 	}
 }
 
+func TestCurrentV4ReportSelectsBrowser110LockAndBuildClosure(t *testing.T) {
+	r := currentLoopbackFailureReport(t, CurrentVersion)
+	if err := Validate(r); err != nil {
+		t.Fatalf("current v4 report rejected: %v", err)
+	}
+	r.Sources[3].Commit = strings.Repeat("d", 40)
+	if Validate(r) == nil {
+		t.Fatal("current v4 report accepted a mismatched Udon revision")
+	}
+}
+
 func TestCurrentV3NativeVerifierAcceptsOnlyV3ScenarioStages(t *testing.T) {
-	lock, err := browserscenario.LoadCurrentCompatibilityLock()
+	lock, err := browserscenario.LoadCurrentCompatibilityLockV3()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -144,14 +164,72 @@ func TestCurrentV3NativeVerifierAcceptsOnlyV3ScenarioStages(t *testing.T) {
 		{Module: "github.com/OpenUdon/browsertools", Version: versions["browsertools"]},
 		{Module: "github.com/OpenUdon/uws", Version: versions["uws"]},
 	}, results)
+	component.Version = browserscenario.CurrentV3JourneyVersion
 	stage := proof("journey_scenarios", component)
-	if err := validateProof(stage, "loopback", browserscenario.StackCurrent); err != nil {
+	if err := validateProof(stage, "loopback", browserscenario.StackCurrent, CurrentV3Version); err != nil {
 		t.Fatalf("current v3 journey stage rejected: %v", err)
 	}
 	component.Version = browserscenario.M86CurrentJourneyVersion
 	stage = proof("journey_scenarios", component)
-	if validateProof(stage, "loopback", browserscenario.StackCurrent) == nil {
+	if validateProof(stage, "loopback", browserscenario.StackCurrent, CurrentV3Version) == nil {
 		t.Fatal("native v3 verifier accepted an M86 v2 scenario stage")
+	}
+}
+
+func TestCurrentV4NativeVerifierAcceptsOnlyV4CountScenarioStages(t *testing.T) {
+	lock, err := browserscenario.LoadCurrentCompatibilityLockV4()
+	if err != nil {
+		t.Fatal(err)
+	}
+	commits, versions := map[string]string{}, map[string]string{}
+	for _, component := range lock.Components {
+		commits[component.Name], versions[component.Name] = component.Commit, component.Version
+	}
+	repositories := []browserscenario.RepositoryRevision{{Name: "openudon", Commit: strings.Repeat("a", 40)}}
+	for _, name := range []string{"browsertools", "uws", "udon", "browserdriver"} {
+		repositories = append(repositories, browserscenario.RepositoryRevision{Name: name, Commit: commits[name]})
+	}
+	journeys, err := browserscenario.LoadCurrentManifestsV4(time.Now())
+	if err != nil {
+		t.Fatal(err)
+	}
+	selected, err := browserscenario.SelectManifests(journeys, browserscenario.SuiteJourney, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	results := make([]browserscenario.ScenarioResult, 0, len(selected))
+	for _, manifest := range selected {
+		result := browserscenario.ScenarioResult{ID: manifest.ID, Status: browserscenario.StatusPass, Attempts: 1, Detail: "ok", Phases: []browserscenario.PhaseResult{{ID: "fixture_ready", Status: browserscenario.StatusPass, Detail: "ok"}}, Assertions: []string{"author_session_v2"}}
+		switch manifest.ID {
+		case "template-browser18":
+			result.Assertions = append(result.Assertions, "browser18_template", "udon_v10_replay")
+			result.Phases = append(result.Phases, browserscenario.PhaseResult{ID: "udon_v10", Status: browserscenario.StatusPass, Detail: "ok"})
+		case "template-browser19":
+			result.Assertions = append(result.Assertions, "browser19_template", "udon_v10_replay")
+			result.Phases = append(result.Phases, browserscenario.PhaseResult{ID: "udon_v10", Status: browserscenario.StatusPass, Detail: "ok"})
+		case "mixed-legacy-modern":
+			result.Assertions = append(result.Assertions, "mixed_profile_session", "udon_v10_replay")
+			result.Phases = append(result.Phases, browserscenario.PhaseResult{ID: "udon_v10", Status: browserscenario.StatusPass, Detail: "ok"})
+		default:
+			if strings.HasPrefix(manifest.ID, "campaign-count-browser110-") {
+				result.Assertions = append(result.Assertions, "browser110_count", "udon_v11_replay")
+				result.Phases = append(result.Phases, browserscenario.PhaseResult{ID: "udon_v11", Status: browserscenario.StatusPass, Detail: "ok"})
+			}
+		}
+		results = append(results, result)
+	}
+	component := browserscenario.NewReportForStack(browserscenario.SuiteJourney, browserscenario.StackCurrent, time.Now(), repositories, []browserscenario.DependencyRevision{
+		{Module: "github.com/OpenUdon/browsertools", Version: versions["browsertools"]},
+		{Module: "github.com/OpenUdon/uws", Version: versions["uws"]},
+	}, results)
+	stage := proof("journey_scenarios", component)
+	if err := validateProof(stage, "loopback", browserscenario.StackCurrent, CurrentVersion); err != nil {
+		t.Fatalf("current v4 journey stage rejected: %v", err)
+	}
+	component.Version = browserscenario.CurrentV3JourneyVersion
+	stage = proof("journey_scenarios", component)
+	if validateProof(stage, "loopback", browserscenario.StackCurrent, CurrentVersion) == nil {
+		t.Fatal("native v4 verifier accepted a v3 scenario stage")
 	}
 }
 

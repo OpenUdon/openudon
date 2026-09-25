@@ -11,12 +11,15 @@ import (
 //go:embed current-compatibility-lock-v2.json
 var m86CurrentCompatibilityLock []byte
 
-//go:embed current-compatibility-lock.json
-var currentCompatibilityLock []byte
+//go:embed current-compatibility-lock-v3.json
+var currentV3CompatibilityLock []byte
 
-func loadCurrentCompatibilityLock() (browserscenario.CompatibilityLock, error) {
+//go:embed current-compatibility-lock-v4.json
+var currentV4CompatibilityLock []byte
+
+func decodeCompatibilityLock(data []byte) (browserscenario.CompatibilityLock, error) {
 	var lock browserscenario.CompatibilityLock
-	if err := browserverify.DecodeStrictJSON(currentCompatibilityLock, &lock); err != nil {
+	if err := browserverify.DecodeStrictJSON(data, &lock); err != nil {
 		return lock, err
 	}
 	if err := browserscenario.ValidateCompatibilityLock(lock); err != nil {
@@ -25,15 +28,8 @@ func loadCurrentCompatibilityLock() (browserscenario.CompatibilityLock, error) {
 	return lock, nil
 }
 
-func loadM86CurrentCompatibilityLock() (browserscenario.CompatibilityLock, error) {
-	var lock browserscenario.CompatibilityLock
-	if err := browserverify.DecodeStrictJSON(m86CurrentCompatibilityLock, &lock); err != nil {
-		return lock, err
-	}
-	if err := browserscenario.ValidateCompatibilityLock(lock); err != nil {
-		return lock, err
-	}
-	return lock, nil
+func loadCurrentCompatibilityLock() (browserscenario.CompatibilityLock, error) {
+	return decodeCompatibilityLock(currentV4CompatibilityLock)
 }
 
 func contractForVersion(version string) (browserscenario.CompatibilityLock, []gate, error) {
@@ -42,10 +38,13 @@ func contractForVersion(version string) (browserscenario.CompatibilityLock, []ga
 		lock, err := browserscenario.LoadCompatibilityLock()
 		return lock, legacyGates(), err
 	case M86ReportVersion:
-		lock, err := loadM86CurrentCompatibilityLock()
+		lock, err := decodeCompatibilityLock(m86CurrentCompatibilityLock)
+		return lock, currentGates(), err
+	case CurrentV3ReportVersion:
+		lock, err := decodeCompatibilityLock(currentV3CompatibilityLock)
 		return lock, currentGates(), err
 	case ReportVersion:
-		lock, err := loadCurrentCompatibilityLock()
+		lock, err := decodeCompatibilityLock(currentV4CompatibilityLock)
 		return lock, currentGates(), err
 	default:
 		return browserscenario.CompatibilityLock{}, nil, fmt.Errorf("unsupported browser integration report version %q", version)

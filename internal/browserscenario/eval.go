@@ -106,7 +106,7 @@ func runQualification(ctx context.Context, options Options, local bool) (*Report
 	var manifests []Manifest
 	var err error
 	if options.Stack == StackCurrent {
-		manifests, err = LoadCurrentManifests(now)
+		manifests, err = LoadCurrentManifestsV4(now)
 	} else {
 		manifests, err = LoadManifests(now)
 	}

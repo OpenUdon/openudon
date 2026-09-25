@@ -28,13 +28,14 @@ import (
 )
 
 const (
-	LegacyReportVersion = "openudon.browser-integration-eval.v1"
-	M86ReportVersion    = "openudon.browser-integration-eval.v2"
-	ReportVersion       = "openudon.browser-integration-eval.v3"
-	StatusPass          = "pass"
-	StatusFail          = "fail"
-	StatusSkipped       = "skipped"
-	maxOutputBytes      = 4 << 20
+	LegacyReportVersion    = "openudon.browser-integration-eval.v1"
+	M86ReportVersion       = "openudon.browser-integration-eval.v2"
+	CurrentV3ReportVersion = "openudon.browser-integration-eval.v3"
+	ReportVersion          = "openudon.browser-integration-eval.v4"
+	StatusPass             = "pass"
+	StatusFail             = "fail"
+	StatusSkipped          = "skipped"
+	maxOutputBytes         = 4 << 20
 )
 
 type Options struct {
@@ -356,7 +357,7 @@ func Validate(report *Report) error {
 	if report == nil {
 		return fmt.Errorf("browser integration report is required")
 	}
-	if report.Version != ReportVersion && report.Version != M86ReportVersion && report.Version != LegacyReportVersion {
+	if report.Version != ReportVersion && report.Version != CurrentV3ReportVersion && report.Version != M86ReportVersion && report.Version != LegacyReportVersion {
 		return fmt.Errorf("browser integration report version is unsupported")
 	}
 	if report.Status != StatusPass && report.Status != StatusFail {
