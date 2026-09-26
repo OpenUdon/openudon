@@ -15,9 +15,11 @@ scenario, integration and native current selectors now emit v4 reports; the
 current journey suite has 14 cases, including the three Browser 1.10 count
 journeys through Udon v11. Its v4 integration matrix requires named count
 profile, producer, schema, Udon v11 consumer, and Browserdriver extraction
-tests; v2/v3 reports retain their original gate inventory. The corrected
-coverage is in focused checks; fresh full E22 qualification and bounded review
-are still pending.
+tests; v2/v3 reports retain their original gate inventory. Fresh full E22
+qualification and bounded review passed at clean OpenUdon
+`9be9ff3f195ecaa8bdac88cc8616c5fc345dfeb3`; report digests, exact source/runtime
+bindings and review evidence are in the
+[E22 history record](../docs/history/status-E22.md).
 UWS maintains the profile-version checklist at
 [`future-source-profiles.md`](../../../uws/docs/future-source-profiles.md#adding-a-browser-profile-version).
 

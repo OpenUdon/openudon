@@ -1,8 +1,43 @@
+# Retired milestone E22 - Browser 1.10 campaign-row count workflow
+
+**Milestone.** E22
+**Outcome.** completed
+**Retired.** 2026-09-26
+**Source status.** tabilet/memory-bank/status-E22.md
+**Source specification.** tabilet/memory-bank/milestone.md#e22-browser-110-campaign-row-count-workflow
+**Evidence.** 4347818a57cef8970caa92d631d70b2417da46b0
+**Worktree.** clean
+**Review.** passed
+**Review iterations.** 3
+**Verification.** Fresh v4 integration, loopback, journey and native reports independently verify at 19/19, 23/23, 14/14 and three repetitions × 13 stages with zero skips; their SHA-256 digests and 19 exact source bindings are in the literal status below. Retained M86 v2 and E21 v3 reports, focused cross-version tests, `make fast`, `go vet ./...`, strict JSON parsing, documentation-memory checks and `git diff --check` pass. The temporary browser user-namespace setting was restored to `1` and verified. No P1/P2 findings remain.
+**Consolidated into.** [product.md](../../memory-bank/product.md), [architecture.md](../../memory-bank/architecture.md), [tech-stack.md](../../memory-bank/tech-stack.md), [lessons.md](../../memory-bank/lessons.md), the current [milestone dashboard](../../memory-bank/milestone.md), and the [history index](index.md). Evolution did not change; no product or architecture direction changed.
+
+## Milestone specification
+
+````markdown
+### E22 — Browser 1.10 campaign-row count workflow
+
+Integrate the published Browser 1.10 profile and Udon M43 action into a separate
+synthetic workflow that counts rendered campaign body rows on the default first
+action=topics page. Emit a bounded count from 0 through 100 and no page text or
+attributes. Keep historical E21 report readers v1–v3 unchanged and add a
+current-stack report v4 reader. Cover zero, one, multiple, missing,
+ambiguous, invalid and over-bound cases. Require clean published dependency pins,
+current-stack scenario qualification, strict independent report verification,
+and bounded review. No live target operation, runtime adoption, registration,
+deployment or campaign mutation is included. E22 depends on published UWS M05,
+Browsertools M32, Browserdriver M15 and Udon M43.
+````
+
+## Status record
+
+````markdown
 # Status E22 — Browser 1.10 campaign-row count workflow
 
-**State:** Active. E22.1–E22.3 are complete. The corrected v4 implementation
-at `9be9ff3` passed fresh integration, scenario, and three-repeat native
-qualification. Bounded review iteration 3 is in progress.
+**State:** Complete. The corrected v4 implementation at
+`9be9ff3f195ecaa8bdac88cc8616c5fc345dfeb3` passed fresh integration, scenario,
+and three-repeat native qualification. Bounded review iteration 3 passed with
+no open P1/P2 findings.
 
 **Goal.** Add a synthetic OpenUdon workflow that returns a bounded count of
 rendered campaign rows from the default first action=topics page using Browser
@@ -37,7 +72,7 @@ promoted these pins for current-stack report v4 and preserved the former E21
 selector as an explicit v3 snapshot.
 | E22.2 Add isolated count workflow and current-stack scenarios | [+] | Added version-isolated Browser 1.10 journey manifests for zero, one and multiple rendered rows, and exercise only `campaign_count`; retained prior current-stack manifests for v3 verification. Focused `go test ./internal/browserscenario ./internal/synthesize -count=1` passed, and one fresh `make browser110-smoke` passed against exact locked Browserdriver/Udon source clones. The first smoke diagnosis found the hidden fixture row's inline style was blocked by the fixture CSP; changed it to the HTML `hidden` attribute and verified the browser count excludes it. The smoke also exposed Node/TypeScript symlink resolution for the read-only external node_modules closure; `--preserve-symlinks` now preserves staged package and runtime module resolution. No supplier source was mutated. |
 | E22.3 Preserve old reports and add strict versioned reader | [+] | Froze E21's scenario, integration and 14-source build closure as v3 snapshots; selected the v4 Browser 1.10 locks and manifests for `--stack current`. Scenario, integration and native qualification now emit v4. Focused cross-version tests, full `make fast`, `go vet ./...`, strict JSON parsing and `git diff --check` pass. The retained M86 v2 and E21 v3 reports all verify with unchanged digests; exact hashes follow. The initial `make fast` exposed an expired fixed-date registration fixture; changed it to a dynamic whole-second clock and confirmed the isolated test and full gate pass. |
-| E22.4 Verify, qualify and review | [~] | Review iteration 2 found that named Browser 1.10 count tests were absent from v4 integration selectors despite guide claims; the pre-review 724da1e reports remain preserved but do not close E22. The v4 selector now adds named OpenUdon count fixtures, Browsertools producer, UWS schema, Udon v11 consumer, and Browserdriver extraction tests. M86 v2 and E21 v3 use the separately frozen 19-gate inventory (SHA-256 `65554d243f11c3514c0bff0fef619d04a46230ea0bbd8bb0a11b34392f602f5b`); all seven retained M86/E21 reports pass verification. `make fast`, `go vet ./...`, tracked JSON parsing, documentation-memory validation, focused integration tests, and `git diff --check` pass. Fresh full qualification now passes on `9be9ff3`; bounded review iteration 3 is in progress. Earlier pass/failure reports remain preserved. |
+| E22.4 Verify, qualify and review | [+] | Review iteration 2 found that named Browser 1.10 count tests were absent from v4 integration selectors despite guide claims; the pre-review 724da1e reports remain preserved and do not close E22. The v4 selector now requires named OpenUdon count fixtures, Browsertools producer, UWS schema, Udon v11 consumer, and Browserdriver extraction tests. M86 v2 and E21 v3 use the separately frozen 19-gate inventory (SHA-256 `65554d243f11c3514c0bff0fef619d04a46230ea0bbd8bb0a11b34392f602f5b`); all seven retained M86/E21 reports verify. Fresh integration (19/19), loopback (23/23), journey (14/14), and three-repeat native qualification (39/39 stages) pass on clean `9be9ff3`; exact digests and source bindings follow. Review iteration 3 passed with no open P1/P2 findings. Earlier failed and pre-review reports remain preserved. W8M W21 remains separate downstream work; E22 changes neither adopted W8M locks nor runtime selection. |
 
 **E22.3 retained-report verification.** The three M86 v2 reports independently
 verify with 19/19 integration, 23/23 loopback and 11/11 journey passes. Their
@@ -274,3 +309,38 @@ including report-version dispatch, frozen v2/v3 contracts, current v4
 selectors and source closure, synthetic count boundaries, native stages,
 operator guidance, and the verified fresh reports above. The review also
 checks this attempt record and downstream E21/W8M bindings.
+
+**E22.4 bounded review iteration 3 result.** Reviewed the full source and
+documentation range above at clean base `4347818a57cef8970caa92d631d70b2417da46b0`.
+The v1 historical, M86 v2, E21 v3 and Browser 1.10 v4 readers select their
+versioned contracts; the frozen v2/v3 locks, manifests, build closure and
+integration markers preserve prior evidence. The v4 integration gate requires
+the advertised count markers across OpenUdon, Browsertools, UWS, Udon and
+Browserdriver. The three v4 journeys constrain output to the 0–100 integer
+`campaign_count`, do not retain page text or attributes, and verify zero, one
+and multiple rendered rows. Native current-stack validation binds the v4
+scenarios, 14-source build closure and BAP/BRP stages, while historical native
+v2 remains the default. The reviewed diff and current documentation agree on
+these contracts. No P1/P2 finding remains; no lower finding is carried.
+
+Independent verification passed for integration report
+`cb380a6f63951c1e8ec542507ce196a9a60296419a23e8d73e506d46f04035f2`
+(19 passed, zero skipped), loopback report
+`a9549e8b95b990d9676468cad3cfcc7cebbbdf0f0f2f447d243ead90329b4c93`
+(23 passed, zero skipped/quarantined), journey report
+`e5b21a5c88add31f5aa8141bd59352210e1a2cbdcdfef07432af333a5d1deb37`
+(14 passed, zero skipped/quarantined), and native report
+`3e0e26a1350f9c2c2121173d0efbe53818161792926481b1e02cf2caa205cf12`
+(three repetitions of 13 stages, 39 passed, zero skipped). The native evidence
+contains 69 passing loopback and 42 passing journey cases, with all 111
+teardown phases passing. Its 19 source/commit digests were independently
+recomputed against clean exact worktrees. Go 1.26.6, Node 24.13.0, Playwright
+1.62.1 and Chromium 151.0.7922.34 match the locked runtime. The temporary
+user-namespace setting was restored to `1` and verified. All seven retained
+M86/E21 reports still verify with their recorded digests. Existing focused
+checks, `make fast`, `go vet ./...`, strict JSON parsing, memory-link checks and
+`git diff --check` passed. The OpenUdon v4 lock and closure digests are recorded
+in the current tech-stack facts and frozen below. W8M's candidate and adopted
+runtime remain separate; no W8M push, target contact or runtime adoption is
+part of E22.
+````

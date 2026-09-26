@@ -31,6 +31,16 @@ before advancing current-stack support; the original integration and two
 scenario v2 reports continue to verify. See [status-E21](status-E21.md) and
 [M86](../docs/history/status-M86.md).
 
+## Bind advertised coverage to versioned qualification selectors
+
+When release guidance claims a feature is covered, its versioned gate must
+require the named producer, schema, consumer and runtime tests for that feature.
+A passing package suite or a separate end-to-end journey does not prove that
+the integration report attests the advertised seams. Preserve the old selector
+for existing reports and add the explicit markers to a new report version.
+E22 review iteration 2 found and corrected this gap for Browser 1.10 count
+evidence; see the [E22 history record](../docs/history/status-E22.md).
+
 ## Validate task tables with the installed runner
 
 When repairing or adding a status ledger, use outer `|` table delimiters and

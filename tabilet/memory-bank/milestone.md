@@ -25,15 +25,17 @@ completed when OpenUdon alone was pushed to `origin/main` at
 passed independent verification and its separate feature branch was published
 at `d1fd6c13d871622bf40466cba24649363d2f1846`; runtime adoption remains separate.
 
-E22.1 pinned the published Browser 1.10 dependency chain and E22.2 added three
-version-isolated synthetic count journeys. E22.3 now selects the v4 locks,
-manifests and report readers for `--stack current`, while retained v1–v3
-reports dispatch to their original locks and inventories. Review found that
-the v4 integration matrix needed named count-test markers across its upstream
-handoff; the corrected v4 gate overlay preserves the v2/v3 inventory. Focused
-checks pass. Fresh v4 integration, loopback, journey, and three-repeat native
-reports pass on clean OpenUdon `9be9ff3`; independent report and 19-source
-binding checks pass. Bounded review iteration 3 is in progress.
+E22 adds the published Browser 1.10 count action and three synthetic
+zero/one/multiple-row journeys to the explicit current stack. Scenario,
+integration and native reports now use v4; historical v1–v3 readers preserve
+their locks, manifests and gate inventories. Fresh v4 integration (19/19),
+loopback (23/23), journey (14/14), and three-repeat native qualification
+(39/39 stages) independently verify against clean OpenUdon
+`9be9ff3f195ecaa8bdac88cc8616c5fc345dfeb3` and exact dependency/runtime
+bindings. Bounded review iteration 3 passed with no P1/P2 findings. E22 is
+complete; its full acceptance and attempt history are in the
+[E22 history record](../docs/history/status-E22.md). This synthetic support
+does not change W8M's adopted locks or authorize runtime adoption.
 
 The UWS 1.11 real-browser M86, E15 registration-verification integration,
 and E18 initialization-diagnostics integration milestones are complete. E15
@@ -48,7 +50,7 @@ application POSTs and unresolved provider cause; W8M real acceptance remains
 incomplete and owner-scoped. These outcomes authorize no new browser, account
 or live operation.
 
-The history index holds 134 legacy-preserved status IDs and two normally reviewed completions. Legacy-preserved records retain exact source bytes and the frozen milestone text, but do not establish acceptance by themselves. Search the history by ID when needed.
+The history index holds 134 legacy-preserved status IDs and four normally reviewed completions. Legacy-preserved records retain exact source bytes and the frozen milestone text, but do not establish acceptance by themselves. Search the history by ID when needed.
 
 ## Active Milestone Specifications
 
@@ -64,19 +66,6 @@ reports. Extend the native current path through scenarios and BAP/BRP while
 keeping the historical stack as its default. The scope is synthetic and
 provider-free; it includes no deployment, public canary, runtime adoption, or
 target account operation.
-
-### E22 — Browser 1.10 campaign-row count workflow
-
-Integrate the published Browser 1.10 profile and Udon M43 action into a separate
-synthetic workflow that counts rendered campaign body rows on the default first
-action=topics page. Emit a bounded count from 0 through 100 and no page text or
-attributes. Keep historical E21 report readers v1–v3 unchanged and add a
-current-stack report v4 reader. Cover zero, one, multiple, missing,
-ambiguous, invalid and over-bound cases. Require clean published dependency pins,
-current-stack scenario qualification, strict independent report verification,
-and bounded review. No live target operation, runtime adoption, registration,
-deployment or campaign mutation is included. E22 depends on published UWS M05,
-Browsertools M32, Browserdriver M15 and Udon M43.
 
 ## Memory Bank Index
 
@@ -135,14 +124,11 @@ external services.
 
 ## Active And Parked Tracks
 
-- Active: E22 owns the Browser 1.10 campaign-row count workflow. UWS M05,
-  Browsertools M32, Browserdriver M15 and Udon M43 are published and pinned;
-  OpenUdon E22.2's isolated scenarios and fresh smoke are complete, and E22.3
-  selects v4 with frozen v3 readers. E22.4 is correcting v4 integration count
-  coverage while preserving M86 v2/E21 v3 gate inventories; full qualification
-  passed and bounded review iteration 3 is active. E21's
-  current-stack repair is complete and W8M W20.6/W21 consume its exact locks.
-  No deployment, public canary, runtime adoption, or target operation is authorized.
+- Active: No OpenUdon milestone row is in progress. E22's Browser 1.10
+  current-stack qualification and review are complete. W8M's local W21
+  candidate and any runtime adoption remain separate downstream work; the
+  adopted W8M locks are unchanged. No deployment, public canary, or target
+  operation is authorized.
 - Parked: real-provider evidence, live W8M operation, and public canaries need
   separately approved scope and authority.
 - Completed history: use the [history index](../docs/history/index.md) for
@@ -156,7 +142,6 @@ search the history index before allocating a future ID.
 | ID | Milestone | Status file | State |
 | --- | --- | --- | --- |
 | E21 | Repair current-stack Udon build and preserve M86 report meaning | `tabilet/memory-bank/status-E21.md` | Complete; W8M W21 closeout reconciled |
-| E22 | Browser 1.10 campaign-row count workflow | `tabilet/memory-bank/status-E22.md` | Active; v4 qualification passed, bounded review iteration 3 in progress |
 
 ## Requested Changes After Initialization
 

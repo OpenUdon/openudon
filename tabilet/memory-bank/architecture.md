@@ -15,8 +15,9 @@ routes scenario, build-input, BAP and BRP stages through the same v4 lock and
 closure. The v4 integration selector adds named count-profile, producer,
 schema, Udon v11 consumer, and Browserdriver extraction markers while the v2
 and v3 integration readers keep their frozen gate inventory. Full E22
-qualification and bounded review are pending in
-[status-E22.md](status-E22.md).
+qualification and bounded review passed on clean OpenUdon
+`9be9ff3f195ecaa8bdac88cc8616c5fc345dfeb3`; the reports and review are in the
+[E22 history record](../docs/history/status-E22.md).
 
 The v2 and v3 snapshots prevent later current-stack updates from changing the
 meaning of retained reports. The E21 repair lineage is in

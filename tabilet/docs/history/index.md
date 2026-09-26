@@ -63,6 +63,7 @@ subsequently closed under the normal reviewed procedure.
 | E18 | completed | 2026-09-24 | [status-E18.md](status-E18.md) | Initialization diagnostics integration closed on accepted W16.4i.39d synthetic qualification/adoption; historical failures remain bounded. |
 | E19 | legacy-preserved | 2026-09-24 | [status-E19.md](status-E19.md) | Closed authoring diagnostics and isolated verification. |
 | E20 | legacy-preserved | 2026-09-24 | [status-E20.md](status-E20.md) | Private asynchronous capture diagnostics; unresolved active row states. |
+| E22 | completed | 2026-09-26 | [status-E22.md](status-E22.md) | Browser 1.10 current-stack count workflow; v4 qualification and bounded review passed, with v1–v3 evidence preserved. |
 | M01 | legacy-preserved | 2026-09-24 | [status-M01.md](status-M01.md) | Post-POC baseline. |
 | M02 | legacy-preserved | 2026-09-24 | [status-M02.md](status-M02.md) | Eval corpus and reference discipline. |
 | M03 | legacy-preserved | 2026-09-24 | [status-M03.md](status-M03.md) | Structured output and provider drift. |
