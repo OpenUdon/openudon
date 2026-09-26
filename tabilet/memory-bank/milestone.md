@@ -31,7 +31,9 @@ manifests and report readers for `--stack current`, while retained v1–v3
 reports dispatch to their original locks and inventories. Review found that
 the v4 integration matrix needed named count-test markers across its upstream
 handoff; the corrected v4 gate overlay preserves the v2/v3 inventory. Focused
-checks pass; fresh full qualification and bounded review remain.
+checks pass. Fresh v4 integration, loopback, journey, and three-repeat native
+reports pass on clean OpenUdon `9be9ff3`; independent report and 19-source
+binding checks pass. Bounded review iteration 3 is in progress.
 
 The UWS 1.11 real-browser M86, E15 registration-verification integration,
 and E18 initialization-diagnostics integration milestones are complete. E15
@@ -138,7 +140,7 @@ external services.
   OpenUdon E22.2's isolated scenarios and fresh smoke are complete, and E22.3
   selects v4 with frozen v3 readers. E22.4 is correcting v4 integration count
   coverage while preserving M86 v2/E21 v3 gate inventories; full qualification
-  and bounded review remain active. E21's
+  passed and bounded review iteration 3 is active. E21's
   current-stack repair is complete and W8M W20.6/W21 consume its exact locks.
   No deployment, public canary, runtime adoption, or target operation is authorized.
 - Parked: real-provider evidence, live W8M operation, and public canaries need
@@ -154,7 +156,7 @@ search the history index before allocating a future ID.
 | ID | Milestone | Status file | State |
 | --- | --- | --- | --- |
 | E21 | Repair current-stack Udon build and preserve M86 report meaning | `tabilet/memory-bank/status-E21.md` | Complete; W8M W21 closeout reconciled |
-| E22 | Browser 1.10 campaign-row count workflow | `tabilet/memory-bank/status-E22.md` | Active; E22.2 complete, v4 count-marker correction and qualification in progress |
+| E22 | Browser 1.10 campaign-row count workflow | `tabilet/memory-bank/status-E22.md` | Active; v4 qualification passed, bounded review iteration 3 in progress |
 
 ## Requested Changes After Initialization
 
