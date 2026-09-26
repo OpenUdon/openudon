@@ -39,10 +39,10 @@ func contractForVersion(version string) (browserscenario.CompatibilityLock, []ga
 		return lock, legacyGates(), err
 	case M86ReportVersion:
 		lock, err := decodeCompatibilityLock(m86CurrentCompatibilityLock)
-		return lock, currentGates(), err
+		return lock, currentV3Gates(), err
 	case CurrentV3ReportVersion:
 		lock, err := decodeCompatibilityLock(currentV3CompatibilityLock)
-		return lock, currentGates(), err
+		return lock, currentV3Gates(), err
 	case ReportVersion:
 		lock, err := decodeCompatibilityLock(currentV4CompatibilityLock)
 		return lock, currentGates(), err

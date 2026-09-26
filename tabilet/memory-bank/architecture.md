@@ -12,7 +12,10 @@ count scenarios stay outside the v3 manifest inventory. All selected sibling
 worktrees must match exact commits and be clean before browser work. Native
 qualification remains historical by default; `--stack current` emits v4 and
 routes scenario, build-input, BAP and BRP stages through the same v4 lock and
-closure. Full E22 qualification and bounded review are pending in
+closure. The v4 integration selector adds named count-profile, producer,
+schema, Udon v11 consumer, and Browserdriver extraction markers while the v2
+and v3 integration readers keep their frozen gate inventory. Full E22
+qualification and bounded review are pending in
 [status-E22.md](status-E22.md).
 
 The v2 and v3 snapshots prevent later current-stack updates from changing the
@@ -625,11 +628,13 @@ deterministically reconstructs both profiles to reject substitution even when
 the attacker also updates a digest.
 
 `openudon browser-integration-eval` is a release-evidence adapter outside the
-iCoT runtime path. It runs fixed named tests and boundary checks in OpenUdon,
-Browsertools, UWS, Udon, and Browserdriver, observes all three pinned browser
-component inventories without installing or launching them, and emits only a
-strict `openudon.browser-integration-eval.v2` report plus digest sidecar. The
-verifier retains the historical v1 report and gate inventory. The
+iCoT runtime path. It runs version-selected named tests and boundary checks in
+OpenUdon, Browsertools, UWS, Udon, and Browserdriver, observes all three
+pinned browser component inventories without installing or launching them,
+and emits strict v1–v4 reports with digest sidecars. The v4 selector requires
+named Browser 1.10 count-profile, producer, schema, Udon v11 consumer, and
+Browserdriver extraction markers. The v2 and v3 readers retain their fixed
+locks and gate inventories; v1 retains its historical inventory. The
 report binds each sibling commit and dirty-state bit, fixed argv/assertions,
 closed result details, and the no-browser/no-target/no-credential-value/no-write
 authoring claims. Child stdout/stderr, repository paths, page values, raw/rich

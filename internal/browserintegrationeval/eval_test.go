@@ -82,6 +82,120 @@ func TestCurrentV3ReportRetainsE21LockAndBuildClosure(t *testing.T) {
 	}
 }
 
+func TestHistoricalIntegrationGateInventoriesRemainFrozen(t *testing.T) {
+	_, m86, err := contractForVersion(M86ReportVersion)
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, e21, err := contractForVersion(CurrentV3ReportVersion)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(m86) != 19 || !reflect.DeepEqual(m86, e21) {
+		t.Fatalf("M86/E21 historical gate inventories diverged: v2=%d v3=%d", len(m86), len(e21))
+	}
+	data, err := json.Marshal(e21)
+	if err != nil {
+		t.Fatal(err)
+	}
+	sum := sha256.Sum256(data)
+	if got, want := hex.EncodeToString(sum[:]), "65554d243f11c3514c0bff0fef619d04a46230ea0bbd8bb0a11b34392f602f5b"; got != want {
+		t.Fatalf("frozen v2/v3 gate inventory digest = %s, want %s", got, want)
+	}
+	for _, spec := range e21 {
+		for _, marker := range spec.RequiredPasses {
+			if strings.Contains(marker, "Browser110") || strings.Contains(marker, "CurrentV4") || strings.Contains(marker, "V11") {
+				t.Fatalf("historical gate %q includes Browser 1.10-only marker %q", spec.ID, marker)
+			}
+		}
+	}
+}
+
+func TestCurrentV4GatesRequireBrowser110CountMarkers(t *testing.T) {
+	_, gates, err := contractForVersion(ReportVersion)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(gates) != 19 {
+		t.Fatalf("v4 gate count = %d, want 19", len(gates))
+	}
+	wants := map[string][]string{
+		"openudon-package-handoff": {
+			"TestCurrentV4CampaignCountProfilesAndFixtures",
+			"TestBrowser110CurrentReportRequiresVersionedCountEvidence",
+		},
+		"browsertools-versioned-producer": {
+			"TestBrowser110MatchCountOutputValidatesAndDecodesTypedFields",
+			"TestBrowser110MatchCountOutputRejectsInvalidDeclarations",
+			"TestBrowser110RejectsExplicitEmptyScopeSelector",
+			"TestBuildSelectsAndRoundTripsBrowser110MatchCountOutput",
+			"TestBuildRejectsInvalidBrowser110CountOutput",
+		},
+		"uws111-versioned-contract": {
+			"TestBrowser110CountProfileFixture",
+			"TestBrowser110CountOutputConstraints",
+			"TestBrowser110InheritsBrowser19TemplateRules",
+		},
+		"udon-uws111-browser19-consumer": {
+			"TestLoadBrowser110SourcePreservesTypedCountDeclaration",
+			"TestBrowser110LoweringRequiresCore19AndNamedSession",
+			"TestPrepareModernBrowser110PreservesTemplatesAndLiteralBraces",
+			"TestValidateCountActionRejectsNonCountAndUnresolvedSchemas",
+			"TestValidateCountResponseEnforcesExactSafeCountsAndRedaction",
+			"TestPersistentSubprocessV11PairsOnlyBrowser110WithActionV4",
+			"TestConfiguredBrowserExecutionOptionsBuildsPersistentV11Policy",
+		},
+		"browserdriver-runtime": {
+			"v11 selects only the Browser 1.10 inner action and emits the v11 result",
+			"Browser 1.10 counts exact connected matches, including scoped descendants",
+			"Browser 1.10 rendered counts follow box and ancestor visibility rules",
+			"Browser 1.10 rejects missing and ambiguous roots, malformed selectors, and invalid counts",
+			"Browser 1.10 applies integer JSON Schema constraints and never reads text or attributes",
+			"Browser 1.10 keeps Browser 1.9 template semantics in persistent v11",
+		},
+	}
+	byID := make(map[string]gate, len(gates))
+	for _, spec := range gates {
+		byID[spec.ID] = spec
+	}
+	for id, markers := range wants {
+		spec, ok := byID[id]
+		if !ok {
+			t.Fatalf("missing v4 gate %q", id)
+		}
+		for _, marker := range markers {
+			found := false
+			for _, required := range spec.RequiredPasses {
+				if required == marker {
+					found = true
+					break
+				}
+			}
+			if !found {
+				t.Errorf("v4 gate %q does not require marker %q", id, marker)
+			}
+			if spec.Kind == "go_test" && !strings.Contains(strings.Join(spec.Args, " "), strings.TrimPrefix(marker, "Test")) {
+				t.Errorf("v4 gate %q does not select marker %q", id, marker)
+			}
+		}
+	}
+	for id, packageName := range map[string]string{
+		"openudon-package-handoff":       "./internal/browserscenario",
+		"udon-uws111-browser19-consumer": "./cmd/udon",
+	} {
+		found := false
+		for _, argument := range byID[id].Args {
+			if argument == packageName {
+				found = true
+				break
+			}
+		}
+		if !found {
+			t.Errorf("v4 gate %q does not run package %q", id, packageName)
+		}
+	}
+}
+
 func TestBrowserdriverNPMTestBuildsDisposablePinnedSourceCopy(t *testing.T) {
 	root := t.TempDir()
 	source := filepath.Join(root, "browserdriver")

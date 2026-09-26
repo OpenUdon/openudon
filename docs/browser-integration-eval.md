@@ -66,13 +66,13 @@ they drift.
 | Gate | Evidence |
 |---|---|
 | OpenUdon authoring | API preference, anonymous handoff, strict author-session v2 orchestration, identical pre-publication validation for bundled and expert workers, disclosure-path rejection, human-only typed MFA/output review, exact new-origin approval, process-private trace/auth/output/context/origin attestation, minimal child environment, exact bounds authority, a real Browsertools-produced private result through validation/staging, and malformed/tampered/substituted rejection |
-| OpenUdon package/handoff | Strict live and portability verification, private/tampered input rejection, value-free package review, authentication/capability separation, UWS 1.11 default, Browser 1.8/1.9 templates, Browser 1.10 count output, and v10/v11 trusted handoff |
+| OpenUdon package/handoff | Strict live and portability verification, private/tampered input rejection, value-free package review, authentication/capability separation, UWS 1.11 default, Browser 1.8/1.9 templates, named Browser 1.10 count-profile and current-journey fixtures, and v10/v11 trusted handoff |
 | iCoT dependency boundary | The engine dependency graph contains no Browsertools capture, Playwright adapter, or Playwright-Go implementation package. The UI qualification adapter may link Playwright; the UI graph contains no Browsertools capture implementation. |
 | OpenUdon repository boundary | Production source contains no private executor, desired-state parser, or removed apitools lifecycle imports |
-| Browsertools producer | Observation-generation authority, human-selected MFA kind, bounded reviewed outputs, action-time exact-name/unique-role proof, complete context inventory, current goal proof, deterministic output, and offline doctor behavior |
-| UWS contract | Immutable older compatibility plus UWS 1.11 typed conformance, root-scoped goto, Browser 1.8/1.9 template safety, context contracts, and scalar conversion |
-| Udon consumer | Private source loading, runtime approvals, authentication, opaque sessions, v3 legacy replay, v10 Browser 1.8/1.9 handoff, v11 Browser 1.10 count output, UWS 1.11 bound execution, and post-conversion validation |
-| Browserdriver runtime | Offline v2/v3 legacy NDJSON, v10 Browser 1.8/1.9 templates, v11 Browser 1.10 count output and integer safety, failure non-disclosure, exact-origin/context guards, credential lookup, and session isolation |
+| Browsertools producer | Observation-generation authority, human-selected MFA kind, bounded reviewed outputs, action-time exact-name/unique-role proof, complete context inventory, current goal proof, deterministic output, offline doctor behavior, Browser 1.10 typed count-output round trip, and invalid declaration rejection |
+| UWS contract | Immutable older compatibility plus UWS 1.11 typed conformance, root-scoped goto, Browser 1.8/1.9 template safety, Browser 1.10 count fixtures and constraints, context contracts, and scalar conversion |
+| Udon consumer | Private source loading, runtime approvals, authentication, opaque sessions, v3 legacy replay, v10 Browser 1.8/1.9 handoff, v11 Browser 1.10 typed source/lowering, exact bounded-count validation and redaction, UWS 1.11 bound execution, and post-conversion validation |
+| Browserdriver runtime | Offline v2/v3 legacy NDJSON, v10 Browser 1.8/1.9 templates, v11 Browser 1.10 exact connected and rendered-visible counts, integer schema constraints, missing/ambiguous-root and malformed-selector rejection, failure non-disclosure, exact-origin/context guards, credential lookup, and session isolation |
 | Component inventory | Browsertools doctor reports pinned Chromium, Firefox, and WebKit readiness without installing or launching anything |
 
 The current report contract is `openudon.browser-integration-eval.v4`. The v3
@@ -80,7 +80,10 @@ verifier remains bound to E21's frozen lock and v2 remains bound to M86's; v1
 remains available for historical reports. Validation fixes
 the gate order, repository names, command argv, assertions, authority claims,
 counter totals, and closed value-free detail vocabulary. Passing Go gates must
-contain every named test marker, not merely an overall package success. Reports
+contain every named test marker, not merely an overall package success. The v4
+selectors additionally require the Browser 1.10 count fixture, producer,
+schema, Udon v11 consumer, and Browserdriver extraction test markers; v2 and v3
+retain their original marker inventory. Reports
 also require the producer-to-consumer and producer-to-replay test names; a
 hand-built compatible fixture does not establish either seam. Browserdriver's
 npm gate similarly requires its named replay and cached-context freshness

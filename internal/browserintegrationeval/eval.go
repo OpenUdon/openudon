@@ -715,7 +715,9 @@ func legacyGates() []gate {
 	}
 }
 
-func currentGates() []gate {
+// currentV3Gates is the immutable E21/M86 integration selector. Keep its
+// command lines and named markers stable for reports already in circulation.
+func currentV3Gates() []gate {
 	gates := legacyGates()
 	for index := range gates {
 		spec := &gates[index]
@@ -818,6 +820,83 @@ func currentGates() []gate {
 		}
 	}
 	return append(gates, newGates...)
+}
+
+// currentGates adds only Browser 1.10 evidence to the frozen v3 selector.
+func currentGates() []gate {
+	gates := currentV3Gates()
+	byID := make(map[string]*gate, len(gates))
+	for index := range gates {
+		byID[gates[index].ID] = &gates[index]
+	}
+	appendPackages := func(spec *gate, packages ...string) {
+		for index, argument := range spec.Args {
+			if argument != "-run" {
+				continue
+			}
+			args := append([]string(nil), spec.Args[:index]...)
+			args = append(args, packages...)
+			args = append(args, spec.Args[index:]...)
+			spec.Args = args
+			return
+		}
+	}
+	appendTests := func(spec *gate, tests ...string) {
+		for index, argument := range spec.Args {
+			if argument != "-run" || index+1 >= len(spec.Args) {
+				continue
+			}
+			spec.Args[index+1] = strings.TrimSuffix(spec.Args[index+1], ")") + "|" + strings.Join(tests, "|") + ")"
+			for _, test := range tests {
+				spec.RequiredPasses = append(spec.RequiredPasses, "Test"+test)
+			}
+			return
+		}
+	}
+	if spec := byID["openudon-package-handoff"]; spec != nil {
+		appendPackages(spec, "./internal/browserscenario")
+		appendTests(spec, "CurrentV4CampaignCountProfilesAndFixtures", "Browser110CurrentReportRequiresVersionedCountEvidence")
+		spec.Assertions = append(spec.Assertions, "Browser 1.10 count profile and current journey evidence")
+	}
+	if spec := byID["browserdriver-runtime"]; spec != nil {
+		spec.Assertions = append(spec.Assertions, "v11 Browser 1.10 count extraction, visibility, integer constraints, and failure safety")
+		spec.RequiredPasses = append(spec.RequiredPasses,
+			"v11 selects only the Browser 1.10 inner action and emits the v11 result",
+			"Browser 1.10 counts exact connected matches, including scoped descendants",
+			"Browser 1.10 rendered counts follow box and ancestor visibility rules",
+			"Browser 1.10 rejects missing and ambiguous roots, malformed selectors, and invalid counts",
+			"Browser 1.10 applies integer JSON Schema constraints and never reads text or attributes",
+			"Browser 1.10 keeps Browser 1.9 template semantics in persistent v11")
+	}
+	if spec := byID["browsertools-versioned-producer"]; spec != nil {
+		appendTests(spec,
+			"Browser110MatchCountOutputValidatesAndDecodesTypedFields",
+			"Browser110MatchCountOutputRejectsInvalidDeclarations",
+			"Browser110RejectsExplicitEmptyScopeSelector",
+			"BuildSelectsAndRoundTripsBrowser110MatchCountOutput",
+			"BuildRejectsInvalidBrowser110CountOutput")
+		spec.Assertions = append(spec.Assertions, "Browser 1.10 count output authoring and declaration rejection")
+	}
+	if spec := byID["uws111-versioned-contract"]; spec != nil {
+		appendTests(spec,
+			"Browser110CountProfileFixture",
+			"Browser110CountOutputConstraints",
+			"Browser110InheritsBrowser19TemplateRules")
+		spec.Assertions = append(spec.Assertions, "Browser 1.10 count fixture, output constraints, and inherited template safety")
+	}
+	if spec := byID["udon-uws111-browser19-consumer"]; spec != nil {
+		appendPackages(spec, "./cmd/udon")
+		appendTests(spec,
+			"LoadBrowser110SourcePreservesTypedCountDeclaration",
+			"Browser110LoweringRequiresCore19AndNamedSession",
+			"PrepareModernBrowser110PreservesTemplatesAndLiteralBraces",
+			"ValidateCountActionRejectsNonCountAndUnresolvedSchemas",
+			"ValidateCountResponseEnforcesExactSafeCountsAndRedaction",
+			"PersistentSubprocessV11PairsOnlyBrowser110WithActionV4",
+			"ConfiguredBrowserExecutionOptionsBuildsPersistentV11Policy")
+		spec.Assertions = append(spec.Assertions, "Browser 1.10 typed source, v11 lowering, bounded counts, and redaction")
+	}
+	return gates
 }
 
 func defaultGates() []gate { return currentGates() }
