@@ -210,3 +210,26 @@ count markers to v4. M86 v2 and E21 v3 integration, loopback, journey, and E21
 native reports all verify with their recorded digests after the change. The
 pre-review v4 reports remain valid for their bound source commit and are not
 rewritten. Corrected-source qualification and review iteration 3 are pending.
+
+**E22.4 count-marker integration attempts on `9be9ff3`.** The fresh matrix at
+`/home/peter/.local/state/openudon/e22-browser110-qualification-20260925-countcoverage-Wu4p/evidence/integration-v4-count-markers.json`
+passed all 16 mandatory gates and independently verifies; three optional
+installed-browser/auth gates were skipped. SHA-256 is
+`215c6ca2bfd0b80015a52e5f9725064dec8e9f2bb446c1d7372be0b29ad665c7`. The
+OpenUdon count-profile/current-report gate passed 27 named tests; Browsertools
+count producer passed 10, UWS count schema passed 8, Udon v11 consumer passed
+12, and Browserdriver passed its full 157-test suite.
+
+A separate 19-gate run requested every opt-in and is preserved at
+`/home/peter/.local/state/openudon/e22-browser110-qualification-20260925-countcoverage-Wu4p/evidence/integration-v4-full.json`;
+it failed 16/19 with all three browser/auth gates failing, SHA-256
+`62e72e3af20e4101b881a25212e83d452244b70574c6b430b6e7191451a7ccf6`. A fresh
+Browsertools clone at the exact published commit reproduced the installed
+Chromium launch failure: Chromium was unavailable, so Firefox/WebKit portability
+could not establish its Chromium baseline. The host currently reports
+`kernel.apparmor_restrict_unprivileged_userns=1`, and an unprivileged user
+namespace probe is denied. No source checkout was changed. Full loopback
+qualification requires resolving this host sandbox prerequisite; a request to
+temporarily set it to `0` for local synthetic tests and restore `1` is pending
+the user's response. Do not replace either integration report with a later
+attempt.
