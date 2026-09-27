@@ -103,6 +103,14 @@ self-digest clears its own field before canonical JSON hashing.
   `openapi`, Google Discovery maps to `google-discovery`, AWS Smithy JSON maps to `aws-smithy`,
   AsyncAPI maps to `asyncapi`, GraphQL maps to `graphql`, OpenRPC maps to `openrpc`,
   gRPC/protobuf maps to `grpc-protobuf`, and OData maps to `odata`.
+- OpenUdon's non-interactive step-authoring CLI consumes APItools' published operation-candidate
+  contract. `step candidates` scans bounded local family directories and returns path-free exact
+  source/digest references, consumer summaries, match evidence, auth alternatives, effects, and
+  capability gaps. `step check` revalidates that exact operation and effect against current local
+  bytes, including self-reference and dependency-cycle checks; `step bind` writes one explicitly selected step through the shared atomic artifact writer and rejects a cyclic prerequisite graph;
+  `flow-review` is advisory and read-only. These commands neither fetch source URLs nor resolve
+  credentials, invoke API operations, approve packages, or execute workflows. Kinet owns external
+  orchestration and its user-confirmation ledger.
 - `../browsertools` owns browser capability/authentication/registration-profile
   validation and offline registration draft/review tooling, the headed
   author-session state machine and Playwright-Go context, private raw/normalized

@@ -218,6 +218,14 @@ and never unions credentials or stores credential values.
 go run ./cmd/icot --example ./examples/<name>
 ```
 
+For non-interactive consumers, `openudon step candidates` ranks local API
+operations, `openudon step check` validates one selected operation against a
+workflow intent, `openudon step bind` writes one explicitly mapped step, and
+`openudon flow-review` runs the advisory read-only review. The
+versioned JSON contract and runnable fixtures are in
+[the step-authoring contract](docs/step-authoring-contract-v1.md). Model review
+is opt-in per request and reports unavailable or failed outcomes explicitly.
+
 Common modes:
 
 ```bash
@@ -340,6 +348,28 @@ go run ./cmd/icot repair --example ./examples/<name> --dry-run --json
 # Replay eval references through iCoT and save ignored transcripts.
 go run ./cmd/icot replay-eval --root ./examples/eval --provider copilot-api --model gpt-5.4-mini
 ```
+
+## Non-interactive step authoring
+
+External orchestrators can use the versioned, non-prompting step-authoring CLI. Candidate discovery
+is local and offline; it consumes APItools metadata but never fetches source URLs or calls API
+operations. Bind requires an explicit selected operation, mappings, and symbolic credential names;
+it does not approve or execute a workflow.
+
+```bash
+openudon step candidates --example docs/examples/step-authoring/v1/example \
+  --request docs/examples/step-authoring/v1/requests/step-candidates.json
+openudon step check --example docs/examples/step-authoring/v1/example \
+  --request docs/examples/step-authoring/v1/requests/step-check-runnable.json
+openudon step bind --example docs/examples/step-authoring/v1/bind-example \
+  --request docs/examples/step-authoring/v1/requests/step-bind.json
+openudon flow-review --example docs/examples/step-authoring/v1/example \
+  --request docs/examples/step-authoring/v1/requests/flow-review.json
+```
+
+The [v1 contract](docs/step-authoring-contract-v1.md), [JSON schema](docs/schemas/openudon.step-authoring.v1.schema.json),
+and [request/result fixtures](docs/examples/step-authoring/v1/) define the wire format and limits.
+Kinet can validate the fixtures independently without importing OpenUdon Go packages.
 
 iCoT maps broad requests into one active workflow boundary plus unnumbered candidate workflows. It
 shows every dependency-ready decision as one frontier round before collecting answers, and has no

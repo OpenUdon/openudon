@@ -1,0 +1,13 @@
+{
+  "version": "openudon.step-authoring.v1",
+  "kind": "result",
+  "command": "step.check",
+  "status": "conflict",
+  "diagnostics": [
+    {
+      "code": "intent.stale",
+      "severity": "error",
+      "message": "The workflow intent changed; read its current revision and retry."
+    }
+  ]
+}

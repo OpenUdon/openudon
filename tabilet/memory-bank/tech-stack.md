@@ -101,6 +101,42 @@ superseded wording in the [history index](../docs/history/index.md).
 OpenUdon is a Go package and CLI that composes sibling modules for public UWS modeling,
 API source metadata discovery/indexing, and portable trusted executor handoff.
 
+## Non-interactive step authoring (M87)
+
+The `step candidates`, `step check`, `step bind`, and `flow-review` commands
+use strict versioned JSON request/result contracts and bounded safe reads.
+Candidates scans the eight supported local source families, including the
+legacy `discovery/` directory as a Google Discovery alias, and calls published
+APItools M77 operation-candidate metadata at
+`v0.0.0-20260927073943-30c6f3bd5700`; it does not fetch URLs. It preserves
+consumer summaries, compatibility evidence, source-backed effect classes,
+authentication alternatives, and source capabilities while omitting paths
+from results. Check and bind match the exact APItools source kind, ID, digest,
+native selector, and operation key from the pinned candidate API and verify digest-bound
+intent/source revisions, mappings, outputs, dependencies, and OR-of-AND
+authentication alternatives, including self-reference and prerequisite-cycle
+rejection. Check also uses APItools' exact-operation effect
+evidence: a known conflicting class fails, and unknown remains indeterminate.
+Check is read-only; bind replaces or adds one step in `workflows/intent.hcl` through
+`internal/icot/artifactwriter`, using optimistic SHA-256 checks and create-only
+installation for an initially absent intent. Bind locates path-free source IDs
+by hashing contained regular source files under the matching source-family
+directory; the Google Discovery alias is included and supported security
+sidecars are excluded. Symlink traversal is rejected. Credential bindings are symbolic
+and lower to `credentials.<name>` request mappings; output paths are checked
+against the selected operation response. HTTP verbs alone do not imply a
+read/write classification.
+
+`flow-review` reuses iCoT's deterministic local review and optionally its
+existing chat extractor. Model review must name an explicit provider and model;
+provider credentials remain process-environment-only. Credential-shaped
+context is not sent, result messages and diagnostics are bounded and filtered,
+and skipped/unavailable/failed/cancelled review states are not conflated with a
+passed model review. The command is read-only and preserves existing iCoT
+callers' behavior. The v1 schema and synthetic consumer fixtures are published
+under `docs/step-authoring-contract-v1.md` and
+`docs/examples/step-authoring/v1/`.
+
 ## Language And Runtime
 
 - Registration 1.1 pins published UWS `9ff877ebce55`, Browsertools

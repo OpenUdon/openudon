@@ -504,6 +504,18 @@ func localDraftReviewIssues(session Session, docs []APIDocument) []DraftReviewIs
 	return issues
 }
 
+// ReviewDraftLocally exposes the deterministic advisory checks to other
+// read-only review surfaces without changing the existing interactive caller.
+func ReviewDraftLocally(session Session, docs []APIDocument) []DraftReviewIssue {
+	return localDraftReviewIssues(session, docs)
+}
+
+// SanitizeDraftReview applies the established iCoT model-response bounds and
+// advisory classifications for non-interactive review consumers.
+func SanitizeDraftReview(response DraftReviewResponse) DraftReviewResponse {
+	return sanitizeDraftReviewResponse(response)
+}
+
 func browserDraftReviewIssues(session Session, docs []APIDocument) []DraftReviewIssue {
 	var issues []DraftReviewIssue
 	for _, selected := range selectedBrowserOperations(session, docs) {

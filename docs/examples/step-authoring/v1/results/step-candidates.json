@@ -1,0 +1,195 @@
+{
+  "version": "openudon.step-authoring.v1",
+  "kind": "result",
+  "command": "step.candidates",
+  "status": "completed",
+  "diagnostics": [
+    {
+      "code": "candidate.no_compatible_match",
+      "severity": "warning",
+      "message": "No candidate has evidence compatible with every declared step constraint; review the dimension gaps and conflicts."
+    },
+    {
+      "code": "contract.constraints_not_ranked",
+      "severity": "info",
+      "message": "Account and destination constraints are not operation metadata and were not ranked."
+    },
+    {
+      "code": "contract.schema_unsupported",
+      "severity": "warning",
+      "message": "Some declared inputs schema constructs are not represented by APItools; affected matches are indeterminate."
+    }
+  ],
+  "result": {
+    "sources": [
+      {
+        "source_id": "src-1d4eb0f1835e8dcc2a650198",
+        "source_kind": "openapi",
+        "operation_count": 1,
+        "capabilities": [
+          { "dimension": "inputs", "status": "supported" },
+          { "dimension": "outputs", "status": "supported" },
+          { "dimension": "auth", "status": "supported" },
+          {
+            "dimension": "effect",
+            "status": "partial",
+            "gaps": ["Read/write effect is inferred only from operation meaning; the HTTP method is not evidence."]
+          }
+        ],
+        "diagnostics": []
+      }
+    ],
+    "candidates": [
+      {
+        "rank": 1,
+        "operation_ref": {
+          "source_kind": "openapi",
+          "source_id": "src-1d4eb0f1835e8dcc2a650198",
+          "source_sha256": "sha256:a46290a985f29d7e68638b1154b180f564ecfe910a8a47b9a17ff079ef82f257",
+          "native_selector": "#/paths/~1projects/get",
+          "operation_key": "listProjects",
+          "operation_id": "listProjects"
+        },
+        "summary": {
+          "description": "List projects.",
+          "inputs": [
+            {
+              "name": "page_size",
+              "location": "query",
+              "type": "integer",
+              "required": true,
+              "evidence": [
+                { "kind": "request.parameter", "reference": "#/paths/~1projects/get/parameters/query/page_size" }
+              ]
+            }
+          ],
+          "outputs": [
+            {
+              "name": "body",
+              "location": "response",
+              "type": "object",
+              "description": "Project page.",
+              "evidence": [
+                { "kind": "response.body", "reference": "#/paths/~1projects/get/response" }
+              ]
+            },
+            {
+              "name": "projects",
+              "location": "response",
+              "type": "array",
+              "required": true,
+              "evidence": [
+                { "kind": "response.field", "reference": "#/paths/~1projects/get/response/fields/projects" }
+              ]
+            },
+            {
+              "name": "projects[]",
+              "location": "response",
+              "type": "object",
+              "required": true,
+              "evidence": [
+                { "kind": "response.field", "reference": "#/paths/~1projects/get/response/fields/projects[]" }
+              ]
+            },
+            {
+              "name": "projects[].id",
+              "location": "response",
+              "type": "string",
+              "required": false,
+              "evidence": [
+                { "kind": "response.field", "reference": "#/paths/~1projects/get/response/fields/projects[].id" }
+              ]
+            }
+          ],
+          "evidence": [
+            { "kind": "operation.summary", "reference": "#/paths/~1projects/get" }
+          ],
+          "gaps": []
+        },
+        "match": {
+          "score": 58,
+          "purpose": {
+            "status": "compatible",
+            "score": 8,
+            "evidence": [
+              { "kind": "operation.summary", "reference": "#/paths/~1projects/get" }
+            ],
+            "reasons": [
+              "2 of 5 step-purpose terms overlap documented operation wording; this is advisory lexical similarity."
+            ]
+          },
+          "inputs": {
+                  "status": "incompatible",
+            "score": 0,
+            "evidence": [
+              { "kind": "operation.inputs", "reference": "#/paths/~1projects/get" },
+              { "kind": "request.parameter", "reference": "#/paths/~1projects/get/parameters/query/page_size" }
+            ],
+            "reasons": [
+              "0 of 1 source-declared input values have compatible type and requiredness evidence."
+            ],
+            "conflicts": [
+              "Step input page_size is optional but the operation requires it."
+            ],
+            "gaps": [
+              "Some declared input schema constructs are not represented by APItools.",
+              "Step input filter is not used by the operation's declared inputs.",
+              "Step input filter.owner is not used by the operation's declared inputs.",
+              "Step input filter.tags is not used by the operation's declared inputs.",
+              "Step input filter.tags[] is not used by the operation's declared inputs."
+            ]
+          },
+          "outputs": {
+            "status": "compatible",
+            "score": 30,
+            "evidence": [
+              { "kind": "operation.outputs", "reference": "#/paths/~1projects/get" },
+              { "kind": "response.field", "reference": "#/paths/~1projects/get/response/fields/projects" }
+            ],
+            "reasons": [
+              "1 of 1 expected output values have compatible source type evidence."
+            ]
+          },
+          "effect": {
+            "status": "compatible",
+            "score": 20,
+            "evidence": [
+              { "kind": "operation.operation_id", "reference": "#/paths/~1projects/get" },
+              { "kind": "operation.summary", "reference": "#/paths/~1projects/get" }
+            ],
+            "reasons": [
+              "Operation metadata contains the read-style action \"list\"; the HTTP method was not used as proof."
+            ]
+          }
+        },
+        "authentication": {
+          "status": "known",
+          "alternatives": [
+            {
+              "requirements": [
+                {
+                  "name": "apiKeyAuth",
+                  "type": "apiKey",
+                  "location": "header",
+                  "parameter_name": "X-API-Key",
+                  "credential_slot": "api_key_auth"
+                }
+              ]
+            }
+          ]
+        },
+        "effect": {
+          "class": "read",
+          "evidence": [
+            { "kind": "operation.operation_id", "reference": "#/paths/~1projects/get" },
+            { "kind": "operation.summary", "reference": "#/paths/~1projects/get" }
+          ],
+          "reasons": [
+            "Operation metadata contains the read-style action \"list\"; the HTTP method was not used as proof."
+          ]
+        }
+      }
+    ],
+    "truncated": false
+  }
+}

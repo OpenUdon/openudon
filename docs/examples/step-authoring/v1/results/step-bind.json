@@ -1,0 +1,12 @@
+{
+  "version": "openudon.step-authoring.v1",
+  "kind": "result",
+  "command": "step.bind",
+  "status": "completed",
+  "diagnostics": [],
+  "result": {
+    "step_id": "list_projects",
+    "write_outcome": "written",
+    "intent_sha256": "sha256:9f017fb778f3654a368aea549bc9235484a659d678424676f3f23b652ede1ab2"
+  }
+}

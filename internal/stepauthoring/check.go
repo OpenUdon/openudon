@@ -1,0 +1,1101 @@
+package stepauthoring
+
+import (
+	"context"
+	"crypto/sha256"
+	"encoding/hex"
+	"errors"
+	"fmt"
+	"os"
+	"path/filepath"
+	"regexp"
+	"sort"
+	"strings"
+	"unicode"
+	"unicode/utf8"
+
+	"github.com/OpenUdon/apitools"
+	"github.com/OpenUdon/openudon/internal/authoring"
+	"github.com/OpenUdon/openudon/internal/evidencefile"
+	"github.com/OpenUdon/openudon/internal/packageartifacts"
+	"github.com/OpenUdon/openudon/internal/workflowintent"
+	"github.com/OpenUdon/uws/uws1"
+)
+
+const (
+	WireVersion       = "openudon.step-authoring.v1"
+	CheckCommand      = "step.check"
+	MaxRequestBytes   = 256 << 10
+	MaxSourceBytes    = 8 << 20
+	MaxSourceOps      = 1000
+	MaxSchemaNodes    = 2048
+	MaxSchemaDepth    = 32
+	MaxChecks         = 64
+	MaxUnresolved     = 32
+	MaxResultBytes    = 256 << 10
+	defaultIntentPath = "workflows/intent.hcl"
+)
+
+var (
+	sha256Pattern       = regexp.MustCompile(`^sha256:[0-9a-f]{64}$`)
+	sourceIDPattern     = regexp.MustCompile(`^[A-Za-z0-9_-]{1,128}$`)
+	stepOutputReference = regexp.MustCompile(`\b([A-Za-z][A-Za-z0-9_-]*)\.received_body(?:\.([A-Za-z][A-Za-z0-9_.-]*))?`)
+)
+
+// OperationRef binds a selected source operation to its exact local bytes.
+type OperationRef struct {
+	SourceKind     string `json:"source_kind"`
+	SourceID       string `json:"source_id"`
+	SourceSHA256   string `json:"source_sha256"`
+	NativeSelector string `json:"native_selector"`
+	OperationKey   string `json:"operation_key"`
+	OperationID    string `json:"operation_id,omitempty"`
+}
+
+type StepContract struct {
+	ID                     string            `json:"id"`
+	Purpose                string            `json:"purpose"`
+	Inputs                 *uws1.ParamSchema `json:"inputs"`
+	Outputs                *uws1.ParamSchema `json:"outputs"`
+	Effect                 string            `json:"effect"`
+	AccountConstraints     []string          `json:"account_constraints,omitempty"`
+	DestinationConstraints []string          `json:"destination_constraints,omitempty"`
+}
+
+type CheckRequest struct {
+	Version      string       `json:"version"`
+	Kind         string       `json:"kind"`
+	Command      string       `json:"command"`
+	StepID       string       `json:"step_id"`
+	Contract     StepContract `json:"contract"`
+	OperationRef OperationRef `json:"operation_ref"`
+	IntentSHA256 string       `json:"intent_sha256"`
+}
+
+type CheckItem struct {
+	Code    string `json:"code"`
+	Status  string `json:"status"`
+	Message string `json:"message"`
+}
+
+type Diagnostic struct {
+	Code        string `json:"code"`
+	Severity    string `json:"severity"`
+	Message     string `json:"message"`
+	Remediation string `json:"remediation,omitempty"`
+}
+
+type CheckResult struct {
+	StepID              string       `json:"step_id"`
+	IntentSHA256        string       `json:"intent_sha256"`
+	OperationRef        OperationRef `json:"operation_ref"`
+	Assessment          string       `json:"assessment"`
+	Checks              []CheckItem  `json:"checks"`
+	UnresolvedQuestions []string     `json:"unresolved_questions"`
+}
+
+type Result struct {
+	Version     string       `json:"version"`
+	Kind        string       `json:"kind"`
+	Command     string       `json:"command"`
+	Status      string       `json:"status"`
+	Diagnostics []Diagnostic `json:"diagnostics"`
+	Result      *CheckResult `json:"result,omitempty"`
+}
+
+type Outcome struct {
+	Result   Result
+	ExitCode int
+}
+
+func FailedResult(code, message string, exitCode int) Outcome {
+	return Outcome{
+		Result: Result{
+			Version: WireVersion, Kind: "result", Command: CheckCommand,
+			Status: "failed", Diagnostics: []Diagnostic{{Code: code, Severity: "error", Message: message}},
+		},
+		ExitCode: exitCode,
+	}
+}
+
+// Check performs the read-only step.check protocol. It never returns source
+// prose, request values, or local paths in its result.
+func Check(ctx context.Context, exampleDir string, request CheckRequest) Outcome {
+	if request.Version != "" && request.Version != WireVersion {
+		return FailedResult("request.unsupported_version", "The step-check request version is not supported.", 2)
+	}
+	if err := validateRequest(request); err != nil {
+		return FailedResult("request.invalid", "The step-check request is invalid.", 2)
+	}
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	if err := ctx.Err(); err != nil {
+		return blocked("request.cancelled", "The step check was cancelled before it started.")
+	}
+	root, err := resolveExampleRoot(exampleDir)
+	if err != nil {
+		return blocked("example.invalid", "The selected example is unavailable or unsafe.")
+	}
+	intentBytes, err := readWithin(root, defaultIntentPath, evidencefile.DefaultMaxBytes)
+	if err != nil {
+		return blocked("intent.invalid", "The workflow intent is unavailable or unsafe to read.")
+	}
+	intentDigest := "sha256:" + evidencefile.SHA256(intentBytes)
+	if request.IntentSHA256 != intentDigest {
+		return conflict("intent.stale", "The workflow intent changed after selection.")
+	}
+	intent, err := workflowintent.ParseIntent(intentBytes, defaultIntentPath)
+	if err != nil {
+		return blocked("intent.invalid", "The workflow intent could not be validated.")
+	}
+	steps := findSteps(intent.Steps, request.StepID)
+	if len(steps) != 1 {
+		code, message := "step.not_found", "The selected step does not exist exactly once."
+		if len(steps) > 1 {
+			code, message = "step.ambiguous", "The selected step name is ambiguous in the workflow."
+		}
+		check := CheckItem{Code: code, Status: "fail", Message: message}
+		return completedCheck(request, intentDigest, []CheckItem{check}, nil)
+	}
+	step := steps[0]
+	check := newCheckAccumulator()
+	check.add("intent.digest_match", "pass", "The expected intent digest matches the current bytes.")
+
+	relSource, sourceState := selectedSource(intent, step)
+	if sourceState != "ok" {
+		check.add("source.selection", "fail", "The selected step does not resolve to one local API source.")
+		return completedCheck(request, intentDigest, check.items, unresolvedForContract(request.Contract, true, true))
+	}
+	if packageartifacts.IsAdvisorySecuritySidecarPath(relSource) {
+		check.add("source.selection", "fail", "The selected step references a security sidecar rather than an API source document.")
+		return completedCheck(request, intentDigest, check.items, unresolvedForContract(request.Contract, true, true))
+	}
+	sourceBytes, err := readWithin(root, relSource, MaxSourceBytes)
+	if err != nil {
+		return blocked("source.unavailable", "The selected source is unavailable or unsafe to read.")
+	}
+	gotSourceDigest := "sha256:" + evidencefile.SHA256(sourceBytes)
+	if gotSourceDigest != request.OperationRef.SourceSHA256 {
+		return conflict("source.digest_mismatch", "The selected API source changed after operation selection.")
+	}
+	check.add("source.digest_match", "pass", "The selected source digest matches the current bytes.")
+	if sourceIDForPath(relSource) != request.OperationRef.SourceID {
+		check.add("source.identity_match", "fail", "The selected source identity does not match the step source.")
+	}
+
+	candidate, candidateErr := resolveOperationCandidate(ctx, relSource, sourceBytes, request.OperationRef, request.Contract)
+	if err := ctx.Err(); err != nil {
+		return blocked("request.cancelled", "The source check was cancelled before operation inspection completed.")
+	}
+	if errors.Is(candidateErr, errOperationMissing) || errors.Is(candidateErr, errOperationAmbiguous) {
+		check.add("operation.exact_match", "fail", "The selected operation reference does not resolve in the current source.")
+		return completedCheck(request, intentDigest, check.items, unresolvedForContract(request.Contract, true, true))
+	}
+	if candidateErr != nil {
+		return blocked("source.unsupported", "The selected source could not be inspected safely.")
+	}
+	op := candidate.Operation
+	check.add("operation.exact_match", "pass", "The selected operation identity and native selector match one source operation.")
+	if !stepOperationMatches(step.Operation, op, request.OperationRef) {
+		check.add("operation.intent_binding", "fail", "The selected step is not bound to the requested source operation.")
+	} else {
+		check.add("operation.intent_binding", "pass", "The selected step names the requested source operation.")
+	}
+	if !validateInputReferenceValues(intent, stepInputMappingValues(step)) {
+		check.add("mapping.workflow_inputs", "fail", "A step mapping refers to an undeclared workflow input.")
+	}
+
+	checkRequiredMappings(step, request.Contract, op, check)
+	checkOutputs(intent, step, request.Contract, op, check)
+	checkAuthentication(intent, step, op, check)
+	checkDependencies(intent, step, request.StepID, check)
+	if dependencyCycleFrom(intent.Steps, request.StepID) {
+		check.add("dependency.cycle", "fail", "The selected step participates in a workflow dependency cycle or self-reference.")
+	}
+	_, unsupportedInputs, unsupportedOutputs := mapStepContract(request.Contract)
+	inputStatus := addCandidateContractCheck(check, "mapping.input_contract", "input", candidate.Match.Inputs, !unsupportedInputs, true)
+	outputStatus := addCandidateContractCheck(check, "mapping.output_contract", "output", candidate.Match.Outputs, !unsupportedOutputs, true)
+	effectStatus := checkEffect(request.Contract, candidate, true, check)
+
+	return completedCheck(request, intentDigest, check.items, unresolvedForContract(request.Contract, false, effectStatus == "indeterminate" || inputStatus == "indeterminate" || outputStatus == "indeterminate"))
+}
+
+func validateRequest(request CheckRequest) error {
+	if request.Version != WireVersion || request.Kind != "request" || request.Command != CheckCommand {
+		return fmt.Errorf("wire envelope is invalid")
+	}
+	if !symbol(request.StepID) || !symbol(request.Contract.ID) {
+		return fmt.Errorf("step identity is invalid")
+	}
+	if strings.TrimSpace(request.Contract.Purpose) == "" || len(request.Contract.Purpose) > 2048 {
+		return fmt.Errorf("contract purpose is invalid")
+	}
+	if request.Contract.Effect != "read" && request.Contract.Effect != "write" && request.Contract.Effect != "unknown" {
+		return fmt.Errorf("contract effect is invalid")
+	}
+	if err := validateFieldSet(request.Contract.Inputs); err != nil {
+		return err
+	}
+	if err := validateFieldSet(request.Contract.Outputs); err != nil {
+		return err
+	}
+	ref := request.OperationRef
+	if !sourceIDPattern.MatchString(ref.SourceID) || !sha256Pattern.MatchString(ref.SourceSHA256) ||
+		!sourceKindSupported(ref.SourceKind) || !safeNativeIdentity(ref.NativeSelector, 512) ||
+		!safeNativeIdentity(ref.OperationKey, 256) || (ref.OperationID != "" && !safeNativeIdentity(ref.OperationID, 256)) ||
+		!sha256Pattern.MatchString(request.IntentSHA256) {
+		return fmt.Errorf("operation reference or intent digest is invalid")
+	}
+	return nil
+}
+
+// safeNativeIdentity preserves source-family identifiers without letting
+// control characters, invalid UTF-8, or unbounded text enter the public wire.
+// Native selectors and operation keys are opaque and may contain punctuation
+// that differs by source family (for example Smithy shape IDs use '#').
+func safeNativeIdentity(value string, maxRunes int) bool {
+	if strings.TrimSpace(value) != value || value == "" || !utf8.ValidString(value) || utf8.RuneCountInString(value) > maxRunes {
+		return false
+	}
+	for _, r := range value {
+		if !unicode.IsPrint(r) {
+			return false
+		}
+	}
+	return true
+}
+
+func validateFieldSet(schema *uws1.ParamSchema) error {
+	if schema == nil || schema.Type != "object" {
+		return fmt.Errorf("field set must be an object schema")
+	}
+	count := 0
+	var walk func(*uws1.ParamSchema, int) error
+	walk = func(node *uws1.ParamSchema, depth int) error {
+		if node == nil || depth > MaxSchemaDepth {
+			return fmt.Errorf("field schema is invalid")
+		}
+		count++
+		if count > MaxSchemaNodes || len(node.Properties) > MaxSchemaNodes || len(node.Required) > MaxSchemaNodes {
+			return fmt.Errorf("field schema exceeds limits")
+		}
+		required := map[string]bool{}
+		for _, name := range node.Required {
+			if strings.TrimSpace(name) == "" || required[name] {
+				return fmt.Errorf("field schema has invalid required names")
+			}
+			required[name] = true
+			if _, ok := node.Properties[name]; !ok {
+				return fmt.Errorf("field schema requires an undeclared property")
+			}
+		}
+		for name := range node.Properties {
+			if strings.TrimSpace(name) == "" || len(name) > 256 {
+				return fmt.Errorf("field schema has an invalid property name")
+			}
+		}
+		for _, child := range node.Properties {
+			if err := walk(child, depth+1); err != nil {
+				return err
+			}
+		}
+		if node.Items != nil {
+			if err := walk(node.Items, depth+1); err != nil {
+				return err
+			}
+		}
+		for _, list := range [][]*uws1.ParamSchema{node.AllOf, node.OneOf, node.AnyOf} {
+			for _, child := range list {
+				if err := walk(child, depth+1); err != nil {
+					return err
+				}
+			}
+		}
+		return nil
+	}
+	return walk(schema, 0)
+}
+
+func sourceKindSupported(kind string) bool {
+	switch kind {
+	case "openapi", "google-discovery", "aws-smithy", "asyncapi", "graphql", "openrpc", "grpc-protobuf", "odata":
+		return true
+	default:
+		return false
+	}
+}
+
+func symbol(value string) bool {
+	if len(value) == 0 || len(value) > 64 || value[0] < 'a' || value[0] > 'z' {
+		return false
+	}
+	for _, c := range value[1:] {
+		if !(c >= 'a' && c <= 'z') && !(c >= '0' && c <= '9') && c != '_' && c != '-' {
+			return false
+		}
+	}
+	return true
+}
+
+func completedCheck(request CheckRequest, intentDigest string, items []CheckItem, unresolved []string) Outcome {
+	if len(items) > MaxChecks {
+		items = items[:MaxChecks]
+	}
+	if len(unresolved) > MaxUnresolved {
+		unresolved = unresolved[:MaxUnresolved]
+	}
+	if items == nil {
+		items = []CheckItem{}
+	}
+	if unresolved == nil {
+		unresolved = []string{}
+	}
+	assessment := "compatible"
+	for _, item := range items {
+		if item.Status == "fail" {
+			assessment = "incompatible"
+			break
+		}
+		if item.Status == "indeterminate" {
+			assessment = "indeterminate"
+		}
+	}
+	result := CheckResult{
+		StepID: request.StepID, IntentSHA256: intentDigest, OperationRef: request.OperationRef,
+		Assessment: assessment, Checks: items, UnresolvedQuestions: unresolved,
+	}
+	return Outcome{Result: Result{Version: WireVersion, Kind: "result", Command: CheckCommand, Status: "completed", Diagnostics: []Diagnostic{}, Result: &result}}
+}
+
+func blocked(code, message string) Outcome {
+	return Outcome{Result: Result{Version: WireVersion, Kind: "result", Command: CheckCommand, Status: "blocked", Diagnostics: []Diagnostic{{Code: code, Severity: "error", Message: message}}}, ExitCode: 4}
+}
+
+func conflict(code, message string) Outcome {
+	return Outcome{Result: Result{Version: WireVersion, Kind: "result", Command: CheckCommand, Status: "conflict", Diagnostics: []Diagnostic{{Code: code, Severity: "error", Message: message}}}, ExitCode: 3}
+}
+
+type checkAccumulator struct{ items []CheckItem }
+
+func newCheckAccumulator() *checkAccumulator {
+	return &checkAccumulator{items: make([]CheckItem, 0, 16)}
+}
+func (c *checkAccumulator) add(code, status, message string) {
+	if len(c.items) >= MaxChecks {
+		return
+	}
+	c.items = append(c.items, CheckItem{Code: code, Status: status, Message: message})
+}
+
+func resolveExampleRoot(example string) (string, error) {
+	if strings.TrimSpace(example) == "" {
+		return "", fmt.Errorf("missing example")
+	}
+	abs, err := filepath.Abs(example)
+	if err != nil {
+		return "", err
+	}
+	real, err := filepath.EvalSymlinks(abs)
+	if err != nil {
+		return "", err
+	}
+	info, err := os.Stat(real)
+	if err != nil || !info.IsDir() {
+		return "", fmt.Errorf("not a directory")
+	}
+	return filepath.Clean(real), nil
+}
+
+func readWithin(root, relative string, limit int64) ([]byte, error) {
+	if strings.TrimSpace(relative) == "" || strings.Contains(relative, "\\") || filepath.IsAbs(relative) {
+		return nil, fmt.Errorf("invalid relative path")
+	}
+	clean := filepath.Clean(filepath.FromSlash(relative))
+	if clean == "." || clean == ".." || strings.HasPrefix(clean, ".."+string(filepath.Separator)) {
+		return nil, fmt.Errorf("path escapes example")
+	}
+	parts := strings.Split(clean, string(filepath.Separator))
+	current := root
+	for i, part := range parts {
+		if part == "" || part == "." || part == ".." {
+			return nil, fmt.Errorf("invalid path segment")
+		}
+		current = filepath.Join(current, part)
+		info, err := os.Lstat(current)
+		if err != nil {
+			return nil, err
+		}
+		if info.Mode()&os.ModeSymlink != 0 {
+			return nil, fmt.Errorf("symlink component")
+		}
+		if i < len(parts)-1 && !info.IsDir() {
+			return nil, fmt.Errorf("non-directory component")
+		}
+	}
+	data, _, err := evidencefile.ReadRegular(current, limit)
+	return data, err
+}
+
+func selectedSource(intent *workflowintent.Intent, step *workflowintent.Step) (string, string) {
+	if intent == nil || step == nil {
+		return "", "missing"
+	}
+	stepRef, stepState := uniqueSourceRef(step.OpenAPI, step.Source)
+	if stepState != "ok" && stepState != "missing" {
+		return "", stepState
+	}
+	rootRef, rootState := uniqueSourceRef(intent.OpenAPI, intent.Source)
+	if rootState != "ok" && rootState != "missing" {
+		return "", rootState
+	}
+	// A step-level source explicitly overrides the workflow default. Multi-
+	// service workflows commonly use one root default and per-step sources.
+	ref := stepRef
+	if ref == "" {
+		ref = rootRef
+	}
+	if ref == "" {
+		return "", "missing"
+	}
+	if filepath.IsAbs(ref) || strings.Contains(ref, "\\") {
+		return "", "unsafe"
+	}
+	clean := filepath.ToSlash(filepath.Clean(filepath.FromSlash(ref)))
+	if clean == "." || clean == ".." || strings.HasPrefix(clean, "../") || strings.HasPrefix(clean, "/") {
+		return "", "unsafe"
+	}
+	return clean, "ok"
+}
+
+func uniqueSourceRef(primary, secondary string) (string, string) {
+	primary = strings.TrimSpace(primary)
+	secondary = strings.TrimSpace(secondary)
+	if primary != "" && secondary != "" && normalizeSourceRef(primary) != normalizeSourceRef(secondary) {
+		return "", "ambiguous"
+	}
+	if primary != "" {
+		return primary, "ok"
+	}
+	if secondary != "" {
+		return secondary, "ok"
+	}
+	return "", "missing"
+}
+
+func normalizeSourceRef(value string) string {
+	return filepath.ToSlash(filepath.Clean(filepath.FromSlash(strings.TrimSpace(value))))
+}
+
+func sourceIDForPath(relative string) string {
+	pathDigest := sha256.Sum256([]byte(filepath.ToSlash(relative)))
+	return "src-" + hex.EncodeToString(pathDigest[:12])
+}
+
+func stepOperationMatches(stepOperation string, operation apitools.OperationSummary, ref OperationRef) bool {
+	stepOperation = strings.TrimSpace(stepOperation)
+	if stepOperation == "" {
+		return false
+	}
+	return stepOperation == operation.ID || (operation.OperationID != "" && stepOperation == operation.OperationID) || stepOperation == ref.NativeSelector
+}
+
+func findSteps(steps []*workflowintent.Step, name string) []*workflowintent.Step {
+	var found []*workflowintent.Step
+	var walk func([]*workflowintent.Step)
+	walk = func(values []*workflowintent.Step) {
+		for _, step := range values {
+			if step == nil {
+				continue
+			}
+			if step.Name == name {
+				found = append(found, step)
+			}
+			walk(step.Steps)
+			for _, branch := range step.Cases {
+				if branch != nil {
+					walk(branch.Steps)
+				}
+			}
+			if step.Default != nil {
+				walk(step.Default.Steps)
+			}
+		}
+	}
+	walk(steps)
+	return found
+}
+
+func checkRequiredMappings(step *workflowintent.Step, contract StepContract, operation apitools.OperationSummary, check *checkAccumulator) {
+	with := make(map[string]string, len(step.With))
+	for name, value := range step.With {
+		with[strings.TrimSpace(name)] = strings.TrimSpace(value)
+	}
+	for _, bind := range step.Binds {
+		if bind != nil {
+			for name, value := range bind.Fields {
+				if strings.TrimSpace(value) != "" {
+					with[strings.TrimSpace(name)] = strings.TrimSpace(value)
+				}
+			}
+		}
+	}
+	missing := false
+	for _, name := range contract.Inputs.Required {
+		if !contractInputMapped(with, name) {
+			missing = true
+		}
+	}
+	for _, parameter := range operation.Parameters {
+		if !parameter.Required {
+			continue
+		}
+		if !hasInputMapping(with, parameter.Name) {
+			missing = true
+		}
+	}
+	if operation.RequestBody != nil {
+		for _, path := range operation.RequestBody.RequiredFieldPaths {
+			if !hasInputMapping(with, path) {
+				missing = true
+			}
+		}
+		for _, field := range operation.RequestBody.Fields {
+			if field.Required && !hasInputMapping(with, field.Path) {
+				missing = true
+			}
+		}
+		if operation.RequestBody.Required && len(operation.RequestBody.Fields) == 0 && len(operation.RequestBody.RequiredFieldPaths) == 0 && !hasInputMapping(with, "body") {
+			check.add("mapping.request_body_evidence", "indeterminate", "The required request body has no inspectable field mapping evidence.")
+		}
+	}
+	if missing {
+		check.add("mapping.incomplete", "fail", "One or more required input mappings are missing.")
+	} else {
+		check.add("mapping.required_inputs", "pass", "Required contract and operation inputs have mappings.")
+	}
+}
+
+func contractInputMapped(mappings map[string]string, name string) bool {
+	if strings.TrimSpace(mappings[name]) != "" {
+		return true
+	}
+	prefix := "inputs." + name
+	for _, value := range mappings {
+		if value == prefix || strings.HasPrefix(value, prefix+".") || strings.HasPrefix(value, prefix+"[") {
+			return true
+		}
+	}
+	return false
+}
+
+func hasInputMapping(mappings map[string]string, name string) bool {
+	name = strings.TrimSpace(name)
+	if name == "" {
+		return false
+	}
+	for _, key := range []string{name, "body." + name, "query." + name, "path." + name, "header." + name} {
+		if strings.TrimSpace(mappings[key]) != "" {
+			return true
+		}
+	}
+	return false
+}
+
+func checkOutputs(intent *workflowintent.Intent, step *workflowintent.Step, contract StepContract, operation apitools.OperationSummary, check *checkAccumulator) {
+	declared := contract.Outputs.Properties
+	if outputsReferenceMissingDeclaredField(intent, step, declared) {
+		check.add("mapping.output_references", "fail", "A workflow output reference selects a field outside the step contract.")
+	} else {
+		check.add("mapping.output_references", "pass", "Relevant workflow outputs stay within the step contract.")
+	}
+	if len(declared) == 0 {
+		check.add("mapping.outputs", "pass", "The step contract declares no output fields.")
+		return
+	}
+	if operation.ResponseBody == nil || len(operation.ResponseBody.Fields) == 0 {
+		check.add("mapping.outputs", "indeterminate", "The selected operation has no inspectable response-field summary.")
+		return
+	}
+	available := map[string]bool{}
+	for _, field := range operation.ResponseBody.Fields {
+		available[strings.TrimPrefix(strings.TrimSpace(field.Path), "$")] = true
+	}
+	missingRequired, missingOptional := false, false
+	for name := range contractOutputPaths(declared) {
+		if available[name] {
+			continue
+		}
+		if schemaRequiredPath(contract.Outputs, name) {
+			missingRequired = true
+		} else {
+			missingOptional = true
+		}
+	}
+	if missingRequired {
+		check.add("mapping.outputs", "fail", "One or more required contract outputs are absent from the selected response.")
+	} else if missingOptional {
+		check.add("mapping.outputs", "indeterminate", "One or more optional contract outputs are not confirmed by the response summary.")
+	} else {
+		check.add("mapping.outputs", "pass", "Declared contract outputs are present in the selected response summary.")
+	}
+}
+
+func schemaRequired(schema *uws1.ParamSchema, name string) bool {
+	for _, value := range schema.Required {
+		if value == name {
+			return true
+		}
+	}
+	return false
+}
+
+func schemaRequiredPath(schema *uws1.ParamSchema, path string) bool {
+	parts := strings.Split(path, ".")
+	current := schema
+	allRequired := true
+	for index, part := range parts {
+		if current == nil {
+			return false
+		}
+		if current.Type == "array" {
+			current = current.Items
+			if current == nil {
+				return false
+			}
+		}
+		if !schemaRequired(current, part) {
+			allRequired = false
+		}
+		current = current.Properties[part]
+		if current == nil && index < len(parts)-1 {
+			return false
+		}
+	}
+	return allRequired
+}
+
+func contractOutputPaths(properties map[string]*uws1.ParamSchema) map[string]bool {
+	out := map[string]bool{}
+	var walk func(string, *uws1.ParamSchema)
+	walk = func(prefix string, schema *uws1.ParamSchema) {
+		if schema == nil {
+			return
+		}
+		out[prefix] = true
+		for name, child := range schema.Properties {
+			next := name
+			if prefix != "" {
+				next = prefix + "." + name
+			}
+			walk(next, child)
+		}
+		if schema.Items != nil {
+			walk(prefix, schema.Items)
+		}
+	}
+	for name, schema := range properties {
+		walk(name, schema)
+	}
+	return out
+}
+
+func outputsReferenceMissingDeclaredField(intent *workflowintent.Intent, selected *workflowintent.Step, declared map[string]*uws1.ParamSchema) bool {
+	if intent == nil || selected == nil {
+		return false
+	}
+	for _, output := range intent.Outputs {
+		if output == nil {
+			continue
+		}
+		if root, field, ok := outputRef(output.From); ok && root == selected.Name && field != "" && !contractHasOutputPath(declared, field) {
+			return true
+		}
+	}
+	var invalid bool
+	var inspect func([]*workflowintent.Step)
+	inspect = func(steps []*workflowintent.Step) {
+		for _, step := range steps {
+			if step == nil {
+				continue
+			}
+			for _, value := range step.With {
+				if root, field, ok := outputRef(value); ok && root == selected.Name && field != "" && !contractHasOutputPath(declared, field) {
+					invalid = true
+				}
+			}
+			for _, bind := range step.Binds {
+				if bind != nil {
+					for _, value := range bind.Fields {
+						if root, field, ok := outputRef(value); ok && root == selected.Name && field != "" && !contractHasOutputPath(declared, field) {
+							invalid = true
+						}
+					}
+				}
+			}
+			inspect(step.Steps)
+			for _, branch := range step.Cases {
+				if branch != nil {
+					inspect(branch.Steps)
+				}
+			}
+			if step.Default != nil {
+				inspect(step.Default.Steps)
+			}
+		}
+	}
+	inspect(intent.Steps)
+	return invalid
+}
+
+func outputRef(value string) (string, string, bool) {
+	match := stepOutputReference.FindStringSubmatch(strings.TrimSpace(value))
+	if len(match) != 3 {
+		return "", "", false
+	}
+	return match[1], match[2], true
+}
+
+func contractHasOutputPath(properties map[string]*uws1.ParamSchema, path string) bool {
+	parts := strings.Split(path, ".")
+	node := properties[parts[0]]
+	if node == nil {
+		return false
+	}
+	for _, part := range parts[1:] {
+		if node.Type == "array" {
+			node = node.Items
+			if node == nil {
+				return false
+			}
+		}
+		node = node.Properties[part]
+		if node == nil {
+			return false
+		}
+	}
+	return true
+}
+
+func checkAuthentication(intent *workflowintent.Intent, step *workflowintent.Step, operation apitools.OperationSummary, check *checkAccumulator) {
+	sets := operation.SecurityRequirementSets
+	if len(sets) == 0 {
+		check.add("authentication.evidence", "indeterminate", "The source does not provide an explicit authentication alternative.")
+		return
+	}
+	for _, alternative := range sets {
+		if len(alternative.Requirements) == 0 {
+			check.add("authentication.alternative", "pass", "An explicit anonymous alternative is available.")
+			return
+		}
+		allBound := true
+		for _, requirement := range alternative.Requirements {
+			if !authenticationBound(intent, step, requirement) {
+				allBound = false
+				break
+			}
+		}
+		if allBound {
+			check.add("authentication.alternative", "pass", "At least one complete authentication alternative is configured.")
+			return
+		}
+	}
+	check.add("authentication.alternative", "fail", "No complete source authentication alternative is mapped.")
+}
+
+func authenticationBound(intent *workflowintent.Intent, step *workflowintent.Step, requirement apitools.SecuritySummary) bool {
+	for _, declaration := range intent.Security {
+		if declaration == nil || declaration.TokenFrom == "" {
+			continue
+		}
+		if strings.EqualFold(declaration.Name, requirement.Name) || strings.EqualFold(declaration.TokenFrom, requirement.Name) {
+			if !authoring.ContainsLikelyCredentialValue([]byte(declaration.TokenFrom)) {
+				return true
+			}
+		}
+	}
+	fields := []string{requirement.ParameterName, requirement.Name}
+	if strings.EqualFold(requirement.Scheme, "bearer") || strings.EqualFold(requirement.Scheme, "basic") {
+		fields = append(fields, "Authorization")
+	}
+	for _, field := range fields {
+		field = strings.TrimSpace(field)
+		if field == "" {
+			continue
+		}
+		if value := strings.TrimSpace(step.With[field]); value != "" && !authoring.ContainsLikelyCredentialValue([]byte(value)) {
+			return true
+		}
+		for _, binding := range step.Binds {
+			if binding != nil {
+				if value := strings.TrimSpace(binding.Fields[field]); value != "" && !authoring.ContainsLikelyCredentialValue([]byte(value)) {
+					return true
+				}
+			}
+		}
+	}
+	return false
+}
+
+func checkDependencies(intent *workflowintent.Intent, selected *workflowintent.Step, selectedID string, check *checkAccumulator) {
+	all := map[string]int{}
+	var walk func([]*workflowintent.Step)
+	walk = func(steps []*workflowintent.Step) {
+		for _, step := range steps {
+			if step == nil {
+				continue
+			}
+			all[step.Name]++
+			walk(step.Steps)
+			for _, branch := range step.Cases {
+				if branch != nil {
+					walk(branch.Steps)
+				}
+			}
+			if step.Default != nil {
+				walk(step.Default.Steps)
+			}
+		}
+	}
+	walk(intent.Steps)
+	dependencies := map[string]bool{}
+	missing := false
+	for _, dependency := range selected.DependsOn {
+		dependencies[dependency] = true
+		if all[dependency] != 1 || dependency == selectedID {
+			missing = true
+		}
+	}
+	refs := map[string]bool{}
+	for _, value := range selected.With {
+		collectStepRefs(value, refs)
+	}
+	for _, binding := range selected.Binds {
+		if binding != nil {
+			if binding.From != "" {
+				refs[binding.From] = true
+			}
+			for _, value := range binding.Fields {
+				collectStepRefs(value, refs)
+			}
+		}
+	}
+	for ref := range refs {
+		if ref == selectedID || !dependencies[ref] {
+			missing = true
+		}
+	}
+	if missing {
+		check.add("dependency.mapping", "fail", "A referenced workflow dependency is missing or undeclared.")
+	} else {
+		check.add("dependency.mapping", "pass", "Declared and referenced step dependencies resolve.")
+	}
+}
+
+// dependencyCycleFrom checks the selected step and its transitive prerequisites.
+// It includes both declared dependencies and step-output references so a
+// self-reference or a back-edge cannot be hidden by an incomplete depends_on.
+func dependencyCycleFrom(steps []*workflowintent.Step, selectedID string) bool {
+	counts := map[string]int{}
+	var nodes []*workflowintent.Step
+	var collect func([]*workflowintent.Step)
+	collect = func(values []*workflowintent.Step) {
+		for _, step := range values {
+			if step == nil {
+				continue
+			}
+			nodes = append(nodes, step)
+			counts[step.Name]++
+			collect(step.Steps)
+			for _, branch := range step.Cases {
+				if branch != nil {
+					collect(branch.Steps)
+				}
+			}
+			if step.Default != nil {
+				collect(step.Default.Steps)
+			}
+		}
+	}
+	collect(steps)
+	if counts[selectedID] != 1 {
+		return false
+	}
+
+	graph := make(map[string][]string, len(nodes))
+	for _, step := range nodes {
+		if counts[step.Name] != 1 {
+			continue
+		}
+		dependencies := map[string]bool{}
+		for _, name := range step.DependsOn {
+			dependencies[strings.TrimSpace(name)] = true
+		}
+		refs := map[string]bool{}
+		for _, value := range step.With {
+			collectStepRefs(value, refs)
+		}
+		for _, binding := range step.Binds {
+			if binding == nil {
+				continue
+			}
+			collectStepRefs(binding.From, refs)
+			for _, value := range binding.Fields {
+				collectStepRefs(value, refs)
+			}
+		}
+		for name := range refs {
+			dependencies[name] = true
+		}
+		for name := range dependencies {
+			if counts[name] == 1 {
+				graph[step.Name] = append(graph[step.Name], name)
+			}
+		}
+		sort.Strings(graph[step.Name])
+	}
+
+	type frame struct {
+		name string
+		next int
+	}
+	state := map[string]uint8{selectedID: 1}
+	stack := []frame{{name: selectedID}}
+	for len(stack) > 0 {
+		current := &stack[len(stack)-1]
+		edges := graph[current.name]
+		if current.next >= len(edges) {
+			state[current.name] = 2
+			stack = stack[:len(stack)-1]
+			continue
+		}
+		next := edges[current.next]
+		current.next++
+		if state[next] == 1 {
+			return true
+		}
+		if state[next] == 0 {
+			state[next] = 1
+			stack = append(stack, frame{name: next})
+		}
+	}
+	return false
+}
+
+func collectStepRefs(value string, refs map[string]bool) {
+	for _, match := range stepOutputReference.FindAllStringSubmatch(value, -1) {
+		if len(match) > 1 {
+			refs[match[1]] = true
+		}
+	}
+}
+
+func resolveOperationCandidate(ctx context.Context, relative string, source []byte, ref OperationRef, stepContract StepContract) (apitools.OperationCandidate, error) {
+	contract, _, _ := mapStepContract(stepContract)
+	report, err := apitools.BuildOperationCandidates(ctx, apitools.OperationCandidateOptions{
+		Sources: []apitools.OperationSourceInput{{
+			Kind: apitools.OperationSourceKind(ref.SourceKind), Name: ref.SourceID,
+			Path: relative, Content: source,
+		}},
+		Contract: contract,
+		MaxBytes: MaxSourceBytes, MaxOperations: MaxSourceOps, MaxCandidates: MaxCandidateShortlist,
+		PromptBudget: apitools.PromptBudget{MaxTextRunes: maxCandidateSummaryTextRunes},
+	})
+	if err != nil || report.Truncated {
+		return apitools.OperationCandidate{}, errSourceUnsupported
+	}
+	if hasErrorDiagnostics(mapAPIDiagnostics(report.Diagnostics)) {
+		return apitools.OperationCandidate{}, errSourceUnsupported
+	}
+	expectedDigest := strings.TrimPrefix(ref.SourceSHA256, "sha256:")
+	var found []apitools.OperationCandidate
+	for _, candidate := range report.Candidates {
+		if candidate.Source.Kind == apitools.OperationSourceKind(ref.SourceKind) && candidate.Operation.DocumentName == ref.SourceID &&
+			candidate.Source.SHA256 == expectedDigest && candidate.Source.Selector == ref.NativeSelector &&
+			candidate.Operation.ID == ref.OperationKey &&
+			(candidate.Operation.OperationID == ref.OperationID || ref.OperationID == "") {
+			found = append(found, candidate)
+		}
+	}
+	if len(found) == 0 {
+		return apitools.OperationCandidate{}, errOperationMissing
+	}
+	if len(found) != 1 {
+		return apitools.OperationCandidate{}, errOperationAmbiguous
+	}
+	return found[0], nil
+}
+
+func checkEffect(contract StepContract, candidate apitools.OperationCandidate, available bool, check *checkAccumulator) string {
+	if contract.Effect == "unknown" {
+		check.add("effect.evidence", "indeterminate", "The step contract does not declare a read/write effect constraint.")
+		return "indeterminate"
+	}
+	if !available || (candidate.Effect.Class != apitools.OperationEffectRead && candidate.Effect.Class != apitools.OperationEffectWrite) || len(candidate.Effect.Evidence) == 0 {
+		check.add("effect.evidence", "indeterminate", "The selected source operation has no usable effect classification evidence.")
+		return "indeterminate"
+	}
+	if candidate.Effect.Class != apitools.OperationEffect(contract.Effect) {
+		check.add("effect.evidence", "fail", "The selected source operation's classified effect conflicts with the step contract.")
+		return "fail"
+	}
+	check.add("effect.evidence", "pass", "Source metadata supports the selected operation's effect class.")
+	return "pass"
+}
+
+func candidateContractStatus(match apitools.ContractDimensionMatch, representable, available bool) string {
+	if !available {
+		return "indeterminate"
+	}
+	switch match.Status {
+	case apitools.ContractMatchIncompatible:
+		return "incompatible"
+	case apitools.ContractMatchCompatible:
+		if representable {
+			return "compatible"
+		}
+	}
+	return "indeterminate"
+}
+
+func addCandidateContractCheck(check *checkAccumulator, code, dimension string, match apitools.ContractDimensionMatch, representable, available bool) string {
+	status := candidateContractStatus(match, representable, available)
+	switch status {
+	case "compatible":
+		check.add(code, "pass", "Source metadata is compatible with the declared step "+dimension+" contract.")
+	case "incompatible":
+		check.add(code, "fail", "Source metadata conflicts with the declared step "+dimension+" contract.")
+	default:
+		check.add(code, "indeterminate", "Source metadata cannot establish compatibility with the declared step "+dimension+" contract.")
+	}
+	return status
+}
+
+func unresolvedForContract(contract StepContract, includeOperation, includeEffect bool) []string {
+	questions := []string{"Does the selected operation fulfill the natural-language purpose?"}
+	if len(contract.AccountConstraints) > 0 {
+		questions = append(questions, "Does the configured account satisfy the reviewed account constraint?")
+	}
+	if len(contract.DestinationConstraints) > 0 {
+		questions = append(questions, "Does the configured destination satisfy the reviewed destination constraint?")
+	}
+	if contract.Effect != "unknown" && includeEffect {
+		questions = append(questions, "Is the selected operation effect acceptable? Source metadata has no usable effect classification evidence.")
+	}
+	if includeOperation {
+		questions = append(questions, "Does the step's source reference identify the intended local API document?")
+	}
+	sort.Strings(questions)
+	return questions
+}
+
+func sourceDigest(data []byte) string {
+	digest := sha256.Sum256(data)
+	return "sha256:" + hex.EncodeToString(digest[:])
+}
+
+func ValidUTF8Request(data []byte) bool { return utf8.Valid(data) }
+
+// Prevent compile-time drift in the source digest implementation used by
+// fixtures and the CLI.
+var _ = fmt.Sprintf

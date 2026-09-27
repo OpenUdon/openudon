@@ -54,6 +54,7 @@ func main() {
 		fmt.Fprintf(flag.CommandLine.Output(), "  check-apitools-boundary verify OpenUdon repository boundaries\n")
 		fmt.Fprintf(flag.CommandLine.Output(), "  check-doc-memory verify local memory-bank and evolution harness files\n")
 		fmt.Fprintf(flag.CommandLine.Output(), "  eval      run synthesis eval briefs and write pass/fail reports\n")
+		fmt.Fprintf(flag.CommandLine.Output(), "  flow-review run advisory local and optional model review for one workflow intent\n")
 		fmt.Fprintf(flag.CommandLine.Output(), "  n8n-bridge validate review-first n8n pattern summary evidence\n")
 		fmt.Fprintf(flag.CommandLine.Output(), "  package   prepare, promote, inspect, or reconcile immutable package generations\n")
 		fmt.Fprintf(flag.CommandLine.Output(), "  local-udon-smoke build sibling udon and run provider-free executor smoke\n")
@@ -64,6 +65,7 @@ func main() {
 		fmt.Fprintf(flag.CommandLine.Output(), "  run       validate approval gates and invoke a trusted executor handoff\n")
 		fmt.Fprintf(flag.CommandLine.Output(), "  run-evidence keygen/verify/archive run evidence, signatures, and sidecar digests\n")
 		fmt.Fprintf(flag.CommandLine.Output(), "  smoke-matrix run provider-free or opt-in live product smoke scenarios\n")
+		fmt.Fprintf(flag.CommandLine.Output(), "  step      discover, bind, or check one API step against its contract\n")
 		fmt.Fprintf(flag.CommandLine.Output(), "  synthesize generate intent, workflow, UWS, and review artifacts for an example\n")
 		fmt.Fprintf(flag.CommandLine.Output(), "  validate  validate one UWS JSON/YAML file or a directory of UWS artifacts\n")
 		fmt.Fprintf(flag.CommandLine.Output(), "  version   print version\n")
@@ -135,6 +137,10 @@ func main() {
 		runEvalCommand(flag.Args()[1:])
 	case "n8n-bridge":
 		runN8nBridgeCommand(flag.Args()[1:])
+	case "step":
+		os.Exit(runStepCommand(flag.Args()[1:]))
+	case "flow-review":
+		os.Exit(runFlowReviewCommand(flag.Args()[1:], os.Stdin, os.Stdout, os.Stderr))
 	case "readiness":
 		runReadinessCommand(flag.Args()[1:])
 	case "release-evidence":

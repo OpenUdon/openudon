@@ -1,5 +1,7 @@
 github.com/OpenUdon/apitools v0.0.0-20260820042238-d51b61ead067 h1:ESYcEHIMqPbbtMhMId/Zxb0wgRDaBpcUBerNNsmdXYk=
 github.com/OpenUdon/apitools v0.0.0-20260820042238-d51b61ead067/go.mod h1:ntD87NBAQArP6PGjfMN2UH5vnHrauhP00nicDNKSAKI=
+github.com/OpenUdon/apitools v0.0.0-20260927073943-30c6f3bd5700 h1:0N0Tee2qFQ0TCPZVb6Xyf9J8BpjXJDATXovhnc3aOUw=
+github.com/OpenUdon/apitools v0.0.0-20260927073943-30c6f3bd5700/go.mod h1:ntD87NBAQArP6PGjfMN2UH5vnHrauhP00nicDNKSAKI=
 github.com/OpenUdon/asyncapi v0.1.0 h1:ZfGDJHknYUKfEZIC6VrhpdiwDVStMoZnyYmr3AVbQH4=
 github.com/OpenUdon/asyncapi v0.1.0/go.mod h1:RvOKMXItIe+XQu06yZQp839fTZpouX2dL9ngvhg/vOk=
 github.com/OpenUdon/authoring v0.0.0-20260820042256-2f73e3526583 h1:NjQ6S2XEk9iiK72rqWxuayd7zBBkIsVed3bVnMkCFkI=

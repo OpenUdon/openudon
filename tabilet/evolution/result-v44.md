@@ -2,8 +2,8 @@
 
 Approved plan, 2026-09-26. The commands are not implemented or accepted yet.
 
-[M87](../memory-bank/milestone.md#m87--non-interactive-step-authoring-contract-for-kinet)
-and its [six pending rows](../memory-bank/status-M87.md) establish a new public
+[M87's retirement record](../docs/history/status-M87.md) preserves the approved
+specification and original six-row status, which established a new public
 non-interactive authoring contract. OpenUdon drafts the request/result schemas,
 compatibility rules and initial fixtures first, independently of Kinet
 M05/A03/W03. Kinet's first W03 row supplies consumer requirements and adapter

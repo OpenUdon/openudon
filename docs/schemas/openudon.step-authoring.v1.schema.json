@@ -1,0 +1,675 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://openudon.dev/schemas/openudon.step-authoring.v1.schema.json",
+  "title": "OpenUdon Step Authoring Wire v1",
+  "description": "Strict request and result messages for non-interactive OpenUdon step-authoring commands.",
+  "oneOf": [
+    { "$ref": "#/$defs/stepCandidatesRequest" },
+    { "$ref": "#/$defs/stepBindRequest" },
+    { "$ref": "#/$defs/stepCheckRequest" },
+    { "$ref": "#/$defs/flowReviewRequest" },
+    { "$ref": "#/$defs/stepCandidatesResult" },
+    { "$ref": "#/$defs/stepBindResult" },
+    { "$ref": "#/$defs/stepCheckResult" },
+    { "$ref": "#/$defs/flowReviewResult" }
+  ],
+  "$defs": {
+    "version": { "const": "openudon.step-authoring.v1" },
+    "symbol": { "type": "string", "pattern": "^[a-z][a-z0-9_-]{0,63}$" },
+    "credentialBinding": {
+      "allOf": [
+        { "$ref": "#/$defs/symbol" },
+        { "not": { "enum": ["none", "clear"] } }
+      ]
+    },
+    "shortText": { "type": "string", "minLength": 1, "maxLength": 256 },
+    "description": { "type": "string", "maxLength": 1024 },
+    "sha256": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+    "sourceKind": {
+      "enum": [
+        "openapi",
+        "google-discovery",
+        "aws-smithy",
+        "asyncapi",
+        "graphql",
+        "openrpc",
+        "grpc-protobuf",
+        "odata"
+      ]
+    },
+    "fieldDeclaration": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "type"],
+      "properties": {
+        "name": { "$ref": "#/$defs/symbol" },
+        "type": { "enum": ["string", "integer", "number", "boolean", "object", "array"] },
+        "format": { "type": "string", "maxLength": 64 },
+        "required": { "type": "boolean" },
+        "description": { "$ref": "#/$defs/description" }
+      }
+    },
+    "fieldDeclarations": {
+      "type": "array",
+      "maxItems": 64,
+      "uniqueItems": true,
+      "items": { "$ref": "#/$defs/fieldDeclaration" }
+    },
+    "paramSchema": {
+      "type": "object",
+      "properties": {
+        "type": { "type": "string" },
+        "format": { "type": "string" },
+        "$ref": { "type": "string" },
+        "properties": {
+          "type": "object",
+          "additionalProperties": { "$ref": "#/$defs/paramSchema" }
+        },
+        "required": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "items": { "$ref": "#/$defs/paramSchema" },
+        "allOf": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/paramSchema" }
+        },
+        "oneOf": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/paramSchema" }
+        },
+        "anyOf": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/paramSchema" }
+        }
+      },
+      "patternProperties": { "^x-": true },
+      "unevaluatedProperties": false
+    },
+    "fieldSetSchema": {
+      "allOf": [
+        { "$ref": "#/$defs/paramSchema" },
+        {
+          "type": "object",
+          "required": ["type"],
+          "properties": { "type": { "const": "object" } }
+        }
+      ]
+    },
+    "stepContract": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "purpose", "inputs", "outputs", "effect"],
+      "properties": {
+        "id": { "$ref": "#/$defs/symbol" },
+        "purpose": { "type": "string", "minLength": 1, "maxLength": 2048 },
+        "inputs": { "$ref": "#/$defs/fieldSetSchema" },
+        "outputs": { "$ref": "#/$defs/fieldSetSchema" },
+        "effect": { "enum": ["read", "write", "unknown"] },
+        "account_constraints": {
+          "type": "array",
+          "maxItems": 16,
+          "items": { "$ref": "#/$defs/shortText" }
+        },
+        "destination_constraints": {
+          "type": "array",
+          "maxItems": 16,
+          "items": { "$ref": "#/$defs/shortText" }
+        }
+      }
+    },
+    "operationRef": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["source_kind", "source_id", "source_sha256", "native_selector", "operation_key"],
+      "properties": {
+        "source_kind": { "$ref": "#/$defs/sourceKind" },
+        "source_id": { "type": "string", "pattern": "^[A-Za-z0-9_-]{1,128}$" },
+        "source_sha256": { "$ref": "#/$defs/sha256" },
+        "native_selector": { "type": "string", "minLength": 1, "maxLength": 512 },
+        "operation_key": { "type": "string", "minLength": 1, "maxLength": 256 },
+        "operation_id": { "type": "string", "minLength": 1, "maxLength": 256 }
+      }
+    },
+    "sourceFilter": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["source_kind", "source_id", "source_sha256"],
+      "properties": {
+        "source_kind": { "$ref": "#/$defs/sourceKind" },
+        "source_id": { "type": "string", "pattern": "^[A-Za-z0-9_-]{1,128}$" },
+        "source_sha256": { "$ref": "#/$defs/sha256" }
+      }
+    },
+    "diagnostic": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["code", "severity", "message"],
+      "properties": {
+        "code": { "type": "string", "pattern": "^[a-z][a-z0-9_.-]{0,127}$" },
+        "severity": { "enum": ["error", "warning", "info"] },
+        "message": { "type": "string", "minLength": 1, "maxLength": 512 },
+        "pointer": { "type": "string", "maxLength": 256 },
+        "remediation": { "type": "string", "maxLength": 512 }
+      }
+    },
+    "diagnostics": {
+      "type": "array",
+      "maxItems": 32,
+      "items": { "$ref": "#/$defs/diagnostic" }
+    },
+    "requestBase": {
+      "type": "object",
+      "required": ["version", "kind", "command"],
+      "properties": {
+        "version": { "$ref": "#/$defs/version" },
+        "kind": { "const": "request" },
+        "command": { "type": "string" }
+      }
+    },
+    "resultBase": {
+      "type": "object",
+      "required": ["version", "kind", "command", "status", "diagnostics"],
+      "properties": {
+        "version": { "$ref": "#/$defs/version" },
+        "kind": { "const": "result" },
+        "command": { "type": "string" },
+        "status": { "enum": ["completed", "needs_input", "blocked", "conflict", "failed"] },
+        "diagnostics": { "$ref": "#/$defs/diagnostics" }
+      },
+      "allOf": [
+        {
+          "if": { "properties": { "status": { "const": "completed" } }, "required": ["status"] },
+          "then": { "required": ["result"] }
+        }
+      ]
+    },
+    "compatibility": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["status"],
+      "properties": {
+        "status": { "enum": ["compatible", "incompatible", "indeterminate"] },
+        "score": { "type": "integer", "minimum": 0, "maximum": 100 },
+        "evidence": { "type": "array", "maxItems": 16, "items": { "$ref": "#/$defs/operationEvidence" } },
+        "reasons": { "type": "array", "maxItems": 64, "items": { "$ref": "#/$defs/shortText" } },
+        "missing": { "type": "array", "maxItems": 64, "items": { "$ref": "#/$defs/shortText" } },
+        "conflicts": { "type": "array", "maxItems": 64, "items": { "$ref": "#/$defs/shortText" } },
+        "gaps": { "type": "array", "maxItems": 64, "items": { "$ref": "#/$defs/shortText" } }
+      }
+    },
+    "sourceCapability": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["dimension", "status"],
+      "properties": {
+        "dimension": { "type": "string", "pattern": "^[a-z][a-z0-9_.-]{0,63}$" },
+        "status": { "enum": ["supported", "partial", "unsupported"] },
+        "evidence": { "type": "array", "maxItems": 16, "items": { "$ref": "#/$defs/operationEvidence" } },
+        "gaps": { "type": "array", "maxItems": 64, "items": { "$ref": "#/$defs/shortText" } }
+      }
+    },
+    "sourceReport": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["source_id", "source_kind", "operation_count", "capabilities", "diagnostics"],
+      "properties": {
+        "source_id": { "type": "string", "pattern": "^[A-Za-z0-9_-]{1,128}$" },
+        "source_kind": { "$ref": "#/$defs/sourceKind" },
+        "operation_count": { "type": "integer", "minimum": 0 },
+        "capabilities": { "type": "array", "maxItems": 32, "items": { "$ref": "#/$defs/sourceCapability" } },
+        "diagnostics": { "$ref": "#/$defs/diagnostics" }
+      }
+    },
+    "effectEvidence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["class", "evidence", "reasons"],
+      "properties": {
+        "class": { "enum": ["read", "write", "unknown"] },
+        "evidence": { "type": "array", "maxItems": 16, "items": { "$ref": "#/$defs/operationEvidence" } },
+        "reasons": { "type": "array", "maxItems": 8, "items": { "$ref": "#/$defs/shortText" } }
+      }
+    },
+    "operationEvidence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "reference"],
+      "properties": {
+        "kind": { "type": "string", "pattern": "^[a-z][a-z0-9_.-]{0,127}$" },
+        "reference": { "type": "string", "minLength": 1, "maxLength": 512 }
+      }
+    },
+    "operationValueSummary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "evidence"],
+      "properties": {
+        "name": { "type": "string", "minLength": 1, "maxLength": 256 },
+        "location": { "type": "string", "maxLength": 64 },
+        "type": { "type": "string", "maxLength": 64 },
+        "format": { "type": "string", "maxLength": 64 },
+        "required": { "type": "boolean" },
+        "description": { "type": "string", "maxLength": 512 },
+        "evidence": { "type": "array", "maxItems": 16, "items": { "$ref": "#/$defs/operationEvidence" } }
+      }
+    },
+    "consumerSummary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["description", "evidence", "gaps"],
+      "properties": {
+        "description": { "type": "string", "minLength": 1, "maxLength": 1024 },
+        "inputs": { "type": "array", "maxItems": 64, "items": { "$ref": "#/$defs/operationValueSummary" } },
+        "outputs": { "type": "array", "maxItems": 64, "items": { "$ref": "#/$defs/operationValueSummary" } },
+        "evidence": { "type": "array", "maxItems": 16, "items": { "$ref": "#/$defs/operationEvidence" } },
+        "gaps": { "type": "array", "maxItems": 64, "items": { "$ref": "#/$defs/shortText" } }
+      }
+    },
+    "authRequirement": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name"],
+      "properties": {
+        "name": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "type": { "type": "string", "maxLength": 64 },
+        "scheme": { "type": "string", "maxLength": 64 },
+        "location": { "enum": ["header", "query", "cookie", "other"] },
+        "parameter_name": { "type": "string", "maxLength": 512 },
+        "credential_slot": { "type": "string", "pattern": "^[a-z][a-z0-9_-]{0,63}$" },
+        "flows": { "type": "array", "maxItems": 8, "items": { "$ref": "#/$defs/shortText" } },
+        "scopes": { "type": "array", "maxItems": 64, "items": { "$ref": "#/$defs/shortText" } }
+      }
+    },
+    "authAlternative": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["requirements"],
+      "properties": {
+        "requirements": { "type": "array", "maxItems": 16, "items": { "$ref": "#/$defs/authRequirement" } }
+      }
+    },
+    "authentication": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["status"],
+      "properties": {
+        "status": { "enum": ["known", "unknown"] },
+        "alternatives": { "type": "array", "maxItems": 16, "items": { "$ref": "#/$defs/authAlternative" } }
+      },
+      "allOf": [
+        {
+          "if": { "properties": { "status": { "const": "known" } }, "required": ["status"] },
+          "then": { "required": ["alternatives"] }
+        },
+        {
+          "if": { "properties": { "status": { "const": "unknown" } }, "required": ["status"] },
+          "then": { "not": { "required": ["alternatives"] } }
+        }
+      ]
+    },
+    "candidate": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["rank", "operation_ref", "summary", "match", "authentication", "effect"],
+      "properties": {
+        "rank": { "type": "integer", "minimum": 1, "maximum": 100 },
+        "operation_ref": { "$ref": "#/$defs/operationRef" },
+        "summary": { "$ref": "#/$defs/consumerSummary" },
+        "match": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["score", "purpose", "inputs", "outputs", "effect"],
+          "properties": {
+            "score": { "type": "integer", "minimum": 0, "maximum": 100 },
+            "purpose": { "$ref": "#/$defs/compatibility" },
+            "inputs": { "$ref": "#/$defs/compatibility" },
+            "outputs": { "$ref": "#/$defs/compatibility" },
+            "effect": { "$ref": "#/$defs/compatibility" }
+          }
+        },
+        "authentication": { "$ref": "#/$defs/authentication" },
+        "effect": { "$ref": "#/$defs/effectEvidence" }
+      }
+    },
+    "stepCandidatesRequest": {
+      "unevaluatedProperties": false,
+      "allOf": [
+        { "$ref": "#/$defs/requestBase" },
+        {
+          "type": "object",
+          "required": ["version", "kind", "command", "contract"],
+          "properties": {
+            "version": { "$ref": "#/$defs/version" },
+            "kind": { "const": "request" },
+            "command": { "const": "step.candidates" },
+            "contract": { "$ref": "#/$defs/stepContract" },
+            "source_filters": { "type": "array", "maxItems": 32, "items": { "$ref": "#/$defs/sourceFilter" } },
+            "limit": { "type": "integer", "minimum": 1, "maximum": 100 }
+          }
+        }
+      ]
+    },
+    "stepCandidatesResult": {
+      "unevaluatedProperties": false,
+      "allOf": [
+        { "$ref": "#/$defs/resultBase" },
+        {
+          "type": "object",
+          "required": ["version", "kind", "command", "status", "diagnostics"],
+          "properties": {
+            "version": { "$ref": "#/$defs/version" },
+            "kind": { "const": "result" },
+            "command": { "const": "step.candidates" },
+            "status": { "enum": ["completed", "needs_input", "blocked", "conflict", "failed"] },
+            "diagnostics": { "$ref": "#/$defs/diagnostics" },
+            "result": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["candidates", "truncated"],
+              "properties": {
+                "sources": { "type": "array", "maxItems": 32, "items": { "$ref": "#/$defs/sourceReport" } },
+                "candidates": { "type": "array", "maxItems": 100, "items": { "$ref": "#/$defs/candidate" } },
+                "truncated": { "type": "boolean" }
+              }
+            }
+          },
+          "allOf": [
+            { "if": { "properties": { "status": { "const": "completed" } }, "required": ["status"] }, "then": { "required": ["result"] } }
+          ]
+        }
+      ]
+    },
+    "intentRevision": {
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["state", "sha256"],
+          "properties": { "state": { "const": "present" }, "sha256": { "$ref": "#/$defs/sha256" } }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["state"],
+          "properties": { "state": { "const": "missing" } }
+        }
+      ]
+    },
+    "scaffold": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["workflow"],
+      "properties": {
+        "workflow": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["name", "description"],
+          "properties": {
+            "name": { "$ref": "#/$defs/symbol" },
+            "description": { "type": "string", "minLength": 1, "maxLength": 2048 }
+          }
+        },
+        "inputs": { "$ref": "#/$defs/fieldDeclarations" },
+        "outputs": {
+          "type": "array",
+          "maxItems": 64,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["name", "from"],
+            "properties": {
+              "name": { "$ref": "#/$defs/symbol" },
+              "from": { "type": "string", "minLength": 1, "maxLength": 512 },
+              "description": { "$ref": "#/$defs/description" }
+            }
+          }
+        }
+      }
+    },
+    "stepBindRequest": {
+      "unevaluatedProperties": false,
+      "allOf": [
+        { "$ref": "#/$defs/requestBase" },
+        {
+          "type": "object",
+          "required": ["version", "kind", "command", "step_id", "contract", "operation_ref", "request_mappings", "output_mappings", "intent_revision"],
+          "properties": {
+            "version": { "$ref": "#/$defs/version" },
+            "kind": { "const": "request" },
+            "command": { "const": "step.bind" },
+            "step_id": { "$ref": "#/$defs/symbol" },
+            "contract": { "$ref": "#/$defs/stepContract" },
+            "operation_ref": { "$ref": "#/$defs/operationRef" },
+            "request_mappings": {
+              "type": "object",
+              "maxProperties": 64,
+              "propertyNames": { "pattern": "^[A-Za-z][A-Za-z0-9_.-]{0,255}$" },
+              "additionalProperties": { "type": "string", "minLength": 1, "maxLength": 512 }
+            },
+            "output_mappings": {
+              "type": "object",
+              "maxProperties": 64,
+              "propertyNames": { "pattern": "^[A-Za-z][A-Za-z0-9_.-]{0,255}$" },
+              "additionalProperties": { "type": "string", "minLength": 1, "maxLength": 512 }
+            },
+            "authentication_alternative": { "type": "integer", "minimum": 0, "maximum": 15 },
+            "credential_bindings": {
+              "type": "object",
+              "maxProperties": 16,
+              "propertyNames": { "pattern": "^[a-z][a-z0-9_-]{0,63}$" },
+              "additionalProperties": { "$ref": "#/$defs/credentialBinding" }
+            },
+            "depends_on": { "type": "array", "maxItems": 64, "uniqueItems": true, "items": { "$ref": "#/$defs/symbol" } },
+            "intent_revision": { "$ref": "#/$defs/intentRevision" },
+            "scaffold": { "$ref": "#/$defs/scaffold" }
+          },
+          "allOf": [
+            {
+              "if": { "properties": { "intent_revision": { "properties": { "state": { "const": "missing" } } } }, "required": ["intent_revision"] },
+              "then": { "required": ["scaffold"] }
+            },
+            {
+              "if": { "properties": { "intent_revision": { "properties": { "state": { "const": "present" } } } }, "required": ["intent_revision"] },
+              "then": { "not": { "required": ["scaffold"] } }
+            }
+          ]
+        }
+      ]
+    },
+    "stepBindResult": {
+      "unevaluatedProperties": false,
+      "allOf": [
+        { "$ref": "#/$defs/resultBase" },
+        {
+          "type": "object",
+          "required": ["version", "kind", "command", "status", "diagnostics"],
+          "properties": {
+            "version": { "$ref": "#/$defs/version" },
+            "kind": { "const": "result" },
+            "command": { "const": "step.bind" },
+            "status": { "enum": ["completed", "needs_input", "blocked", "conflict", "failed"] },
+            "diagnostics": { "$ref": "#/$defs/diagnostics" },
+            "result": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["step_id", "write_outcome"],
+              "properties": {
+                "step_id": { "$ref": "#/$defs/symbol" },
+                "write_outcome": { "enum": ["written", "unchanged", "indeterminate"] },
+                "intent_sha256": { "$ref": "#/$defs/sha256" }
+              },
+              "allOf": [
+                {
+                  "if": { "properties": { "write_outcome": { "enum": ["written", "unchanged"] } }, "required": ["write_outcome"] },
+                  "then": { "required": ["intent_sha256"] }
+                }
+              ]
+            }
+          },
+          "allOf": [
+            { "if": { "properties": { "status": { "const": "completed" } }, "required": ["status"] }, "then": { "required": ["result"] } }
+          ]
+        }
+      ]
+    },
+    "stepCheckRequest": {
+      "unevaluatedProperties": false,
+      "allOf": [
+        { "$ref": "#/$defs/requestBase" },
+        {
+          "type": "object",
+          "required": ["version", "kind", "command", "step_id", "contract", "operation_ref", "intent_sha256"],
+          "properties": {
+            "version": { "$ref": "#/$defs/version" },
+            "kind": { "const": "request" },
+            "command": { "const": "step.check" },
+            "step_id": { "$ref": "#/$defs/symbol" },
+            "contract": { "$ref": "#/$defs/stepContract" },
+            "operation_ref": { "$ref": "#/$defs/operationRef" },
+            "intent_sha256": { "$ref": "#/$defs/sha256" }
+          }
+        }
+      ]
+    },
+    "checkItem": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["code", "status", "message"],
+      "properties": {
+        "code": { "type": "string", "pattern": "^[a-z][a-z0-9_.-]{0,127}$" },
+        "status": { "enum": ["pass", "fail", "indeterminate"] },
+        "message": { "type": "string", "minLength": 1, "maxLength": 512 },
+        "pointer": { "type": "string", "maxLength": 256 }
+      }
+    },
+    "stepCheckResult": {
+      "unevaluatedProperties": false,
+      "allOf": [
+        { "$ref": "#/$defs/resultBase" },
+        {
+          "type": "object",
+          "required": ["version", "kind", "command", "status", "diagnostics"],
+          "properties": {
+            "version": { "$ref": "#/$defs/version" },
+            "kind": { "const": "result" },
+            "command": { "const": "step.check" },
+            "status": { "enum": ["completed", "needs_input", "blocked", "conflict", "failed"] },
+            "diagnostics": { "$ref": "#/$defs/diagnostics" },
+            "result": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["step_id", "intent_sha256", "operation_ref", "assessment", "checks", "unresolved_questions"],
+              "properties": {
+                "step_id": { "$ref": "#/$defs/symbol" },
+                "intent_sha256": { "$ref": "#/$defs/sha256" },
+                "operation_ref": { "$ref": "#/$defs/operationRef" },
+                "assessment": { "enum": ["compatible", "incompatible", "indeterminate"] },
+                "checks": { "type": "array", "maxItems": 64, "items": { "$ref": "#/$defs/checkItem" } },
+                "unresolved_questions": { "type": "array", "maxItems": 32, "items": { "type": "string", "minLength": 1, "maxLength": 512 } }
+              }
+            }
+          },
+          "allOf": [
+            { "if": { "properties": { "status": { "const": "completed" } }, "required": ["status"] }, "then": { "required": ["result"] } }
+          ]
+        }
+      ]
+    },
+    "modelReviewRequest": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["enabled"],
+      "properties": {
+        "enabled": { "type": "boolean" },
+        "provider": { "enum": ["openai", "anthropic", "gemini", "copilot-api"] },
+        "model": { "type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._:/+-]{0,127}$" }
+      },
+      "allOf": [
+        {
+          "if": { "properties": { "enabled": { "const": true } }, "required": ["enabled"] },
+          "then": { "required": ["provider", "model"] }
+        },
+        {
+          "if": { "properties": { "enabled": { "const": false } }, "required": ["enabled"] },
+          "then": { "not": { "anyOf": [{ "required": ["provider"] }, { "required": ["model"] }] } }
+        }
+      ]
+    },
+    "flowReviewRequest": {
+      "unevaluatedProperties": false,
+      "allOf": [
+        { "$ref": "#/$defs/requestBase" },
+        {
+          "type": "object",
+          "required": ["version", "kind", "command", "intent_sha256", "model_review"],
+          "properties": {
+            "version": { "$ref": "#/$defs/version" },
+            "kind": { "const": "request" },
+            "command": { "const": "flow-review" },
+            "intent_sha256": { "$ref": "#/$defs/sha256" },
+            "model_review": { "$ref": "#/$defs/modelReviewRequest" }
+          }
+        }
+      ]
+    },
+    "reviewFinding": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["code", "severity", "message"],
+      "properties": {
+        "code": { "type": "string", "pattern": "^[a-z][a-z0-9_.-]{0,127}$" },
+        "severity": { "enum": ["warning", "error"] },
+        "message": { "type": "string", "minLength": 1, "maxLength": 512 },
+        "step_id": { "$ref": "#/$defs/symbol" },
+        "pointer": { "type": "string", "maxLength": 256 }
+      }
+    },
+    "flowReviewResult": {
+      "unevaluatedProperties": false,
+      "allOf": [
+        { "$ref": "#/$defs/resultBase" },
+        {
+          "type": "object",
+          "required": ["version", "kind", "command", "status", "diagnostics"],
+          "properties": {
+            "version": { "$ref": "#/$defs/version" },
+            "kind": { "const": "result" },
+            "command": { "const": "flow-review" },
+            "status": { "enum": ["completed", "needs_input", "blocked", "conflict", "failed"] },
+            "diagnostics": { "$ref": "#/$defs/diagnostics" },
+            "result": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["intent_sha256", "local_review", "model_review"],
+              "properties": {
+                "intent_sha256": { "$ref": "#/$defs/sha256" },
+                "local_review": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": ["status", "findings"],
+                  "properties": {
+                    "status": { "const": "completed" },
+                    "findings": { "type": "array", "maxItems": 64, "items": { "$ref": "#/$defs/reviewFinding" } }
+                  }
+                },
+                "model_review": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": ["status", "findings"],
+                  "properties": {
+                    "status": { "enum": ["completed", "skipped", "unavailable", "failed"] },
+                    "findings": { "type": "array", "maxItems": 32, "items": { "$ref": "#/$defs/reviewFinding" } }
+                  }
+                }
+              }
+            }
+          },
+          "allOf": [
+            { "if": { "properties": { "status": { "const": "completed" } }, "required": ["status"] }, "then": { "required": ["result"] } }
+          ]
+        }
+      ]
+    }
+  }
+}
