@@ -202,10 +202,14 @@ locations is ambiguous. For direct `inputs.<name>` mappings, the declared
 workflow input's type and requiredness must satisfy both the step contract
 and selected source field. A nested or otherwise unproven expression is
 indeterminate; `step bind` refuses it until the mapping is made provable.
+Inline credential references use `credentials.<symbol>` with a lowercase
+symbol of letters, digits, `_`, or `-`; `none` and `clear` are reserved and
+cannot name credentials. Bind rejects malformed inline references, and check
+reports them as incompatible in existing intent files.
+
 A selected step that consumes its own output or participates in a cycle through
 its transitive prerequisites fails the dependency check.
-A source or intent digest
-mismatch is a `conflict`, not a fresh successful check. Its assessment is
+A source or intent digest mismatch is a `conflict`, not a fresh successful check. Its assessment is
 `compatible`, `incompatible`, or `indeterminate`; deterministic checks and
 unresolved semantic questions are separate. A structural match does not prove
 that a natural-language outcome has been met.

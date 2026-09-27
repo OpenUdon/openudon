@@ -369,7 +369,7 @@ func validateBindMappings(request BindRequest) bool {
 		}
 	}
 	for key, value := range request.RequestMappings {
-		if !mappingFieldName.MatchString(key) || strings.Contains(key, "..") || !safeMapping(value) {
+		if !mappingFieldName.MatchString(key) || strings.Contains(key, "..") || !safeMapping(value) || invalidInlineCredentialReference(value) {
 			return false
 		}
 	}
@@ -379,7 +379,7 @@ func validateBindMappings(request BindRequest) bool {
 		}
 	}
 	for key, value := range request.CredentialBindings {
-		if !symbol(key) || !symbol(value) || value == "none" || value == "clear" {
+		if !symbol(key) || !validCredentialSymbol(value) {
 			return false
 		}
 	}
@@ -620,7 +620,7 @@ func bindStep(request BindRequest, source string, operation apitools.OperationSu
 					return nil, fmt.Errorf("credential mapping conflicts")
 				}
 				step.With[field] = value
-			} else if !strings.HasPrefix(step.With[field], "credentials.") {
+			} else if !validCredentialReference(step.With[field]) {
 				return nil, fmt.Errorf("required authentication mapping is missing")
 			}
 		}

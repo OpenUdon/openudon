@@ -208,6 +208,7 @@ func Check(ctx context.Context, exampleDir string, request CheckRequest) Outcome
 
 	checkRequiredMappings(step, request.Contract, op, check)
 	checkMappedWorkflowValues(intent, step, request.Contract, op, check)
+	checkInlineCredentialMappings(step, check)
 	checkOutputs(intent, step, request.Contract, op, check)
 	checkAuthentication(intent, step, op, check)
 	checkDependencies(intent, step, request.StepID, check)
@@ -337,6 +338,19 @@ func symbol(value string) bool {
 		}
 	}
 	return true
+}
+
+func validCredentialSymbol(value string) bool {
+	return symbol(value) && value != "none" && value != "clear"
+}
+
+func validCredentialReference(value string) bool {
+	return strings.HasPrefix(value, "credentials.") && validCredentialSymbol(strings.TrimPrefix(value, "credentials."))
+}
+
+func invalidInlineCredentialReference(value string) bool {
+	value = strings.TrimSpace(value)
+	return (value == "credentials" || strings.HasPrefix(value, "credentials.") || strings.HasPrefix(value, "credentials/") || strings.HasPrefix(value, "credentials:")) && !validCredentialReference(value)
 }
 
 func completedCheck(request CheckRequest, intentDigest string, items []CheckItem, unresolved []string) Outcome {
@@ -981,6 +995,25 @@ func contractHasOutputPath(properties map[string]*uws1.ParamSchema, path string)
 	return true
 }
 
+func checkInlineCredentialMappings(step *workflowintent.Step, check *checkAccumulator) {
+	for _, value := range step.With {
+		if invalidInlineCredentialReference(value) {
+			check.add("mapping.credential_reference", "fail", "An inline credential reference is malformed or uses a reserved symbol.")
+			return
+		}
+	}
+	for _, binding := range step.Binds {
+		if binding != nil {
+			for _, value := range binding.Fields {
+				if invalidInlineCredentialReference(value) {
+					check.add("mapping.credential_reference", "fail", "An inline credential reference is malformed or uses a reserved symbol.")
+					return
+				}
+			}
+		}
+	}
+}
+
 func checkAuthentication(intent *workflowintent.Intent, step *workflowintent.Step, operation apitools.OperationSummary, check *checkAccumulator) {
 	sets := operation.SecurityRequirementSets
 	if len(sets) == 0 {
@@ -1027,12 +1060,12 @@ func authenticationBound(intent *workflowintent.Intent, step *workflowintent.Ste
 		if field == "" {
 			continue
 		}
-		if value := strings.TrimSpace(step.With[field]); value != "" && !authoring.ContainsLikelyCredentialValue([]byte(value)) {
+		if value := strings.TrimSpace(step.With[field]); value != "" && !invalidInlineCredentialReference(value) && !authoring.ContainsLikelyCredentialValue([]byte(value)) {
 			return true
 		}
 		for _, binding := range step.Binds {
 			if binding != nil {
-				if value := strings.TrimSpace(binding.Fields[field]); value != "" && !authoring.ContainsLikelyCredentialValue([]byte(value)) {
+				if value := strings.TrimSpace(binding.Fields[field]); value != "" && !invalidInlineCredentialReference(value) && !authoring.ContainsLikelyCredentialValue([]byte(value)) {
 					return true
 				}
 			}

@@ -403,6 +403,32 @@ func TestBindRejectsMappedInputTypeAndUnprovenExpression(t *testing.T) {
 	}
 }
 
+func TestBindValidatesInlineCredentialSymbols(t *testing.T) {
+	fixtureRoot := filepath.Join("..", "..", "docs", "examples", "step-authoring", "v1")
+	for _, value := range []string{"credentials", "credentials.", "credentials.none", "credentials.clear", "credentials.BAD", "credentials.two.parts", "credentials/clear", "credentials:clear"} {
+		t.Run(value, func(t *testing.T) {
+			request := readBindRequest(t, fixtureRoot)
+			request.CredentialBindings = nil
+			request.RequestMappings["X-API-Key"] = value
+			example := copyBindExample(t, fixtureRoot, false)
+			outcome := Bind(nil, example, request)
+			if outcome.ExitCode != 2 || outcome.Result.Status != "failed" || len(outcome.Result.Diagnostics) != 1 || outcome.Result.Diagnostics[0].Code != "request.invalid" {
+				t.Fatalf("invalid inline credential bind = %#v", outcome)
+			}
+			if _, err := os.Lstat(filepath.Join(example, "workflows", "intent.hcl")); !os.IsNotExist(err) {
+				t.Fatalf("invalid credential bind wrote intent: %v", err)
+			}
+		})
+	}
+	request := readBindRequest(t, fixtureRoot)
+	request.CredentialBindings = nil
+	request.RequestMappings["X-API-Key"] = "credentials.project_api_key"
+	outcome := Bind(nil, copyBindExample(t, fixtureRoot, false), request)
+	if outcome.ExitCode != 0 || outcome.Result.Status != "completed" {
+		t.Fatalf("valid inline credential was refused: %#v", outcome)
+	}
+}
+
 func TestBindRejectsContractTypeMismatchWithoutMutation(t *testing.T) {
 	fixtureRoot := filepath.Join("..", "..", "docs", "examples", "step-authoring", "v1")
 	request := readBindRequest(t, fixtureRoot)

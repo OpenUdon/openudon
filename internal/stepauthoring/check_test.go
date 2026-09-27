@@ -199,6 +199,42 @@ func TestCheckRejectsMappedInputTypeAndRequiredness(t *testing.T) {
 	}
 }
 
+func TestCheckRejectsInvalidInlineCredentialSymbols(t *testing.T) {
+	fixtureRoot := filepath.Join("..", "..", "docs", "examples", "step-authoring", "v1")
+	for _, value := range []string{"credentials.", "credentials.none", "credentials.clear", "credentials.BAD", "credentials.two.parts", "credentials/clear", "credentials:clear"} {
+		t.Run(value, func(t *testing.T) {
+			root := copyRunnableExample(t)
+			intentPath := filepath.Join(root, "workflows", "intent.hcl")
+			data, err := os.ReadFile(intentPath)
+			if err != nil {
+				t.Fatal(err)
+			}
+			updated := strings.Replace(string(data), "X-API-Key = \"project_api_key\"", "X-API-Key = \""+value+"\"", 1)
+			if updated == string(data) {
+				t.Fatal("credential fixture was not changed")
+			}
+			if err := os.WriteFile(intentPath, []byte(updated), 0o600); err != nil {
+				t.Fatal(err)
+			}
+			request := readRunnableRequest(t, fixtureRoot)
+			request.IntentSHA256 = "sha256:" + evidencefile.SHA256([]byte(updated))
+			outcome := Check(nil, root, request)
+			if outcome.ExitCode != 0 || outcome.Result.Result == nil || outcome.Result.Result.Assessment != "incompatible" {
+				t.Fatalf("invalid credential check = %#v", outcome)
+			}
+			found := false
+			for _, item := range outcome.Result.Result.Checks {
+				if item.Code == "mapping.credential_reference" && item.Status == "fail" {
+					found = true
+				}
+			}
+			if !found {
+				t.Fatalf("invalid credential diagnostic missing: %#v", outcome.Result.Result.Checks)
+			}
+		})
+	}
+}
+
 func TestCheckRejectsInputAndOutputTypeMismatch(t *testing.T) {
 	root := filepath.Join("..", "..", "docs", "examples", "step-authoring", "v1")
 	request := readRunnableRequest(t, root)

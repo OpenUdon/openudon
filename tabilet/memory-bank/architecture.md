@@ -114,6 +114,8 @@ self-digest clears its own field before canonical JSON hashing.
   direct mapped workflow inputs are checked against contract and source type
   and requiredness, while unproven expressions stay indeterminate and cannot
   be bound;
+  inline credential references share explicit binding symbol validation,
+  including rejection of reserved `none` and `clear` values;
   `flow-review` is advisory and read-only. These commands neither fetch source URLs nor resolve
   credentials, invoke API operations, approve packages, or execute workflows. Kinet owns external
   orchestration and its user-confirmation ledger.

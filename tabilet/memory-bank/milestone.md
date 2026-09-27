@@ -19,7 +19,11 @@ preserved in the [M87 history record](../docs/history/status-M87.md). Kinet W03
 remains the separately owned consumer; the authorized OpenUdon release commit
 publishes the contract and commands it needs for its own real-tool check.
 Contract work also reconciles APItools M77 and Kinet W03 consumer requirements.
-Simulation/browser acquisition (S2b) and iCoT retirement (S3) remain candidates.
+M88 subsequently pinned APItools M78 `26bb05247d6c48f8ee60b9ae178f6ef6d48bbe3d` and corrected
+step-authoring location, mapped-value, and credential checks; its record is in
+[the M88 history](../docs/history/status-M88.md). Kinet W03 owns its real-tool
+consumer check against the published OpenUdon revision. Simulation/browser
+acquisition (S2b) and iCoT retirement (S3) remain candidates.
 
 OpenUdon's UWS 1.11 real-browser M86 qualification is complete: the pinned
 sandboxed browsers launched, all three integration opt-ins passed, and the
@@ -72,16 +76,6 @@ or live operation.
 The history index holds 134 legacy-preserved status IDs and four normally reviewed completions. Legacy-preserved records retain exact source bytes and the frozen milestone text, but do not establish acceptance by themselves. Search the history by ID when needed.
 
 ## Active Milestone Specifications
-
-### M88 — Stage 1 step-authoring remediation
-
-**Goal.** Correct the three confirmed OpenUdon P2 findings in the 2026-09-27 UWS/APItools/OpenUdon stage 1 review and consume APItools' corresponding M78 metadata fixes. M87 stays retired.
-
-**Acceptance.** `step bind` and `step check` compare mapped request keys with source parameter locations, including body/query/path/header/cookie and colliding names. They compare actual workflow input type and requiredness with the selected contract/source requirement, returning fail or indeterminate when evidence is incomplete. Inline `credentials.<symbol>` values obey the same grammar and reserved-sentinel rejection as explicit credential bindings. APItools' repaired effect and nullable output metadata flow through the commands without a false compatible result. Rejected binds leave intent bytes unchanged. Existing v1 request/result shape, CLI exits, source digests, and UWS pin policy remain compatible.
-
-**Order and downstream.** Published APItools M78 is a prerequisite for [M88.1–M88.4](status-M88.md). Rows run in order: dependency pin and consumer regression, location, mapped type, credential validation. Kinet W03 consumes the revised commands and fixtures; it owns its separate real-tool check. M88 does not change Kinet, UWS semantics, browser locks, live providers, or approval policy.
-
-**Verification.** Run focused bind/check cases, schema and fixture conformance, `GOWORK=off go test ./...`, affected race tests, `GOWORK=off go vet ./...`, `make check`, `check-doc-memory`, `git diff --check`, and the persisted whole-milestone review gate before retirement and push.
 
 ### E21 — Repair current-stack Udon build and preserve M86 report meaning
 
@@ -153,18 +147,13 @@ external services.
 
 ## Active And Parked Tracks
 
-- Active: M88 remediates the confirmed stage 1 step-authoring binding findings after APItools M78 publication. M87 is complete and
-  retired in the [history record](../docs/history/status-M87.md), with the
-  bounded review passed at iteration 9. Its APItools M77 dependency is
-  published at `v0.0.0-20260927073943-30c6f3bd5700`, and workspace plus
-  standalone consumer tests pass. The authorized M87 closure commit publishes
-  the step-authoring contract, commands, schema, and fixtures for Kinet W03's
-  separately owned real-tool check. Kinet M05/A03/W03 are
-  consumers' sequencing, not OpenUdon prerequisites. E22's Browser 1.10
-  current-stack qualification and review are complete. W8M's local W21
-  candidate and any runtime adoption remain separate downstream work; the
-  adopted W8M locks are unchanged. No deployment, public canary, or target
-  operation is authorized.
+- Active: No pending implementation row remains in the step-authoring lane. M88
+  corrected the confirmed stage 1 binding findings, passed its review in
+  iteration 2, and is retired in the [history record](../docs/history/status-M88.md).
+  Kinet W03 owns the real-tool consumer check after publication. E22's Browser
+  1.10 current-stack qualification and review remain complete; W8M's local W21
+  candidate and any runtime adoption remain separate. The adopted W8M locks
+  are unchanged. No deployment, public canary, or target operation is authorized.
 - Parked: real-provider evidence, live W8M operation, and public canaries need
   separately approved scope and authority. S2b simulation/browser acquisition
   and S3 iCoT retirement remain unnumbered candidates below.
@@ -179,7 +168,6 @@ search the history index before allocating a future ID.
 | ID | Milestone | Status file | State |
 | --- | --- | --- | --- |
 | E21 | Repair current-stack Udon build and preserve M86 report meaning | `tabilet/memory-bank/status-E21.md` | Complete; W8M W21 closeout reconciled |
-| M88 | [Stage 1 step-authoring remediation](#m88--stage-1-step-authoring-remediation) | [status-M88.md](status-M88.md) | Active; depends on published APItools M78 |
 
 ## Requested Changes After Initialization
 
