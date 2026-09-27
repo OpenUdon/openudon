@@ -231,6 +231,13 @@ func Bind(ctx context.Context, exampleDir string, request BindRequest) BindOutco
 	if dependencyCycleFrom(trialIntent.Steps, request.StepID) {
 		return bindFailure("needs_input", "dependency.cycle", "The selected step would create or retain a workflow dependency cycle.", 4)
 	}
+	valueChecks := newCheckAccumulator()
+	checkMappedWorkflowValues(intent, step, request.Contract, operation, valueChecks)
+	for _, item := range valueChecks.items {
+		if item.Status != "pass" {
+			return bindFailure("needs_input", "mapping.workflow_value_types", "Mapped workflow values must have known compatible types and requiredness before the step can be bound.", 4)
+		}
+	}
 	outputChecks := newCheckAccumulator()
 	checkOutputs(trialIntent, step, request.Contract, operation, outputChecks)
 	for _, item := range outputChecks.items {

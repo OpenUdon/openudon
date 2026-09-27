@@ -196,6 +196,12 @@ request/output mappings, input/output types and requiredness against the step
 contract, an available authentication alternative, declared dependencies, and
 effect against the contract. Unsupported schema constructs or incomplete
 source metadata remain indeterminate; known type/requiredness conflicts fail.
+Request keys must select the location declared by the source (`body`, `query`,
+`path`, `header`, or `cookie`). An unqualified name shared by multiple
+locations is ambiguous. For direct `inputs.<name>` mappings, the declared
+workflow input's type and requiredness must satisfy both the step contract
+and selected source field. A nested or otherwise unproven expression is
+indeterminate; `step bind` refuses it until the mapping is made provable.
 A selected step that consumes its own output or participates in a cycle through
 its transitive prerequisites fails the dependency check.
 A source or intent digest

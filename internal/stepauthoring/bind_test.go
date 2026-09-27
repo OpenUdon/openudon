@@ -378,6 +378,31 @@ func TestBindRejectsWrongRequestLocationWithoutWriting(t *testing.T) {
 	}
 }
 
+func TestBindRejectsMappedInputTypeAndUnprovenExpression(t *testing.T) {
+	fixtureRoot := filepath.Join("..", "..", "docs", "examples", "step-authoring", "v1")
+	for _, test := range []struct {
+		name   string
+		mutate func(*BindRequest)
+	}{
+		{"wrong scaffold type", func(request *BindRequest) { request.Scaffold.Inputs[0].Type = "string" }},
+		{"optional scaffold input", func(request *BindRequest) { request.Scaffold.Inputs[0].Required = false }},
+		{"unproven nested expression", func(request *BindRequest) { request.RequestMappings["page_size"] = "inputs.page_size.value" }},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			request := readBindRequest(t, fixtureRoot)
+			test.mutate(&request)
+			example := copyBindExample(t, fixtureRoot, false)
+			outcome := Bind(nil, example, request)
+			if outcome.ExitCode != 4 || outcome.Result.Status != "needs_input" || len(outcome.Result.Diagnostics) != 1 || outcome.Result.Diagnostics[0].Code != "mapping.workflow_value_types" {
+				t.Fatalf("mapped-value bind = %#v", outcome)
+			}
+			if _, err := os.Lstat(filepath.Join(example, "workflows", "intent.hcl")); !os.IsNotExist(err) {
+				t.Fatalf("rejected bind wrote intent: %v", err)
+			}
+		})
+	}
+}
+
 func TestBindRejectsContractTypeMismatchWithoutMutation(t *testing.T) {
 	fixtureRoot := filepath.Join("..", "..", "docs", "examples", "step-authoring", "v1")
 	request := readBindRequest(t, fixtureRoot)

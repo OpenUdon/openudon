@@ -157,6 +157,48 @@ func TestRequiredMappingsRespectLocationsAndCollisions(t *testing.T) {
 	}
 }
 
+func TestCheckRejectsMappedInputTypeAndRequiredness(t *testing.T) {
+	fixtureRoot := filepath.Join("..", "..", "docs", "examples", "step-authoring", "v1")
+	for _, test := range []struct {
+		name string
+		old  string
+		new  string
+		want string
+	}{
+		{"wrong type", "type     = \"integer\"", "type     = \"string\"", "fail"},
+		{"optional input", "required = true", "required = false", "fail"},
+		{"nested expression", "page_size = \"inputs.page_size\"", "page_size = \"inputs.page_size.value\"", "indeterminate"},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			root := copyRunnableExample(t)
+			intentPath := filepath.Join(root, "workflows", "intent.hcl")
+			data, err := os.ReadFile(intentPath)
+			if err != nil {
+				t.Fatal(err)
+			}
+			updated := strings.Replace(string(data), test.old, test.new, 1)
+			if updated == string(data) {
+				t.Fatal("mapped-input fixture was not changed")
+			}
+			if err := os.WriteFile(intentPath, []byte(updated), 0o600); err != nil {
+				t.Fatal(err)
+			}
+			request := readRunnableRequest(t, fixtureRoot)
+			request.IntentSHA256 = "sha256:" + evidencefile.SHA256([]byte(updated))
+			outcome := Check(nil, root, request)
+			if outcome.ExitCode != 0 || outcome.Result.Result == nil {
+				t.Fatalf("mapped-input check = %#v", outcome)
+			}
+			for _, item := range outcome.Result.Result.Checks {
+				if item.Code == "mapping.workflow_value_types" && item.Status == test.want {
+					return
+				}
+			}
+			t.Fatalf("missing %s mapped-value result: %#v", test.want, outcome.Result.Result.Checks)
+		})
+	}
+}
+
 func TestCheckRejectsInputAndOutputTypeMismatch(t *testing.T) {
 	root := filepath.Join("..", "..", "docs", "examples", "step-authoring", "v1")
 	request := readRunnableRequest(t, root)

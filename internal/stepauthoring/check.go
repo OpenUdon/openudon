@@ -207,6 +207,7 @@ func Check(ctx context.Context, exampleDir string, request CheckRequest) Outcome
 	}
 
 	checkRequiredMappings(step, request.Contract, op, check)
+	checkMappedWorkflowValues(intent, step, request.Contract, op, check)
 	checkOutputs(intent, step, request.Contract, op, check)
 	checkAuthentication(intent, step, op, check)
 	checkDependencies(intent, step, request.StepID, check)
@@ -691,6 +692,118 @@ func hasInputMapping(mappings map[string]string, name string) bool {
 		}
 	}
 	return false
+}
+
+// A contract/source comparison cannot prove a binding when the actual workflow
+// input supplies a different type, or may be absent at execution time.
+func checkMappedWorkflowValues(intent *workflowintent.Intent, step *workflowintent.Step, contract StepContract, operation apitools.OperationSummary, check *checkAccumulator) {
+	inputs := map[string]*workflowintent.Input{}
+	for _, input := range intent.Inputs {
+		if input != nil {
+			inputs[input.Name] = input
+		}
+	}
+	mappings := map[string]string{}
+	for key, value := range step.With {
+		mappings[key] = value
+	}
+	for _, binding := range step.Binds {
+		if binding != nil {
+			for key, value := range binding.Fields {
+				mappings[key] = value
+			}
+		}
+	}
+	locations := declaredRequestLocations(operation)
+	fail, unknown := false, false
+	for key, raw := range mappings {
+		section, name, qualified := requestMappingLocation(strings.TrimSpace(key))
+		if !qualified {
+			if len(locations[name]) == 1 {
+				for section = range locations[name] {
+				}
+			}
+		}
+		sourceType, sourceRequired := sourceMappingRequirement(operation, section, name)
+		value := strings.TrimSpace(raw)
+		if !strings.HasPrefix(value, "inputs.") {
+			if sourceType != "" || sourceRequired {
+				unknown = true
+			}
+			continue
+		}
+		ref := strings.TrimPrefix(value, "inputs.")
+		if strings.IndexAny(ref, ".[\"") >= 0 {
+			unknown = true
+			continue
+		}
+		input := inputs[ref]
+		if input == nil {
+			continue // the existing workflow-input reference check reports this
+		}
+		contractField := contract.Inputs.Properties[ref]
+		contractType, contractRequired := "", false
+		if contractField != nil {
+			contractType = contractField.Type
+			contractRequired = schemaRequired(contract.Inputs, ref)
+		}
+		for _, expected := range []string{contractType, sourceType} {
+			if expected == "" {
+				continue
+			}
+			compatible, known := workflowInputTypeCompatible(input.Type, expected)
+			if !known {
+				unknown = true
+			} else if !compatible {
+				fail = true
+			}
+		}
+		if (contractRequired || sourceRequired) && !input.Required {
+			if input.Default == "" {
+				fail = true
+			} else {
+				unknown = true // the untyped default has not been checked here
+			}
+		}
+	}
+	if fail {
+		check.add("mapping.workflow_value_types", "fail", "A mapped workflow input has an incompatible type or is optional where a value is required.")
+	} else if unknown {
+		check.add("mapping.workflow_value_types", "indeterminate", "The mapped value's type or availability cannot be established from the workflow intent.")
+	}
+}
+
+func sourceMappingRequirement(operation apitools.OperationSummary, section, name string) (string, bool) {
+	for _, parameter := range operation.Parameters {
+		if parameter.Name == name && sourceParameterSection(parameter.In) == section {
+			return parameter.Type, parameter.Required
+		}
+	}
+	if section == "body" && operation.RequestBody != nil {
+		for _, field := range operation.RequestBody.Fields {
+			if field.Path == name {
+				return field.Type, field.Required
+			}
+		}
+	}
+	return "", false
+}
+
+func workflowInputTypeCompatible(actual, expected string) (compatible, known bool) {
+	if actual == "" || expected == "" {
+		return false, false
+	}
+	if actual == expected || actual == "integer" && expected == "number" {
+		return true, true
+	}
+	for _, value := range []string{actual, expected} {
+		switch value {
+		case "string", "integer", "number", "boolean", "object", "array":
+		default:
+			return false, false
+		}
+	}
+	return false, true
 }
 
 func checkOutputs(intent *workflowintent.Intent, step *workflowintent.Step, contract StepContract, operation apitools.OperationSummary, check *checkAccumulator) {

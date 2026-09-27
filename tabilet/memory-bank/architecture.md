@@ -111,6 +111,9 @@ self-digest clears its own field before canonical JSON hashing.
   self-reference, and dependency-cycle checks; `step bind` applies the same
   mapping gate before writing one selected step through the shared atomic
   artifact writer and rejects a cyclic prerequisite graph;
+  direct mapped workflow inputs are checked against contract and source type
+  and requiredness, while unproven expressions stay indeterminate and cannot
+  be bound;
   `flow-review` is advisory and read-only. These commands neither fetch source URLs nor resolve
   credentials, invoke API operations, approve packages, or execute workflows. Kinet owns external
   orchestration and its user-confirmation ledger.
