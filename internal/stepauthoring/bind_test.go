@@ -363,6 +363,21 @@ func TestBindRequiresConfirmedEffectAndAuthenticationAlternatives(t *testing.T) 
 	})
 }
 
+func TestBindRejectsWrongRequestLocationWithoutWriting(t *testing.T) {
+	fixtureRoot := filepath.Join("..", "..", "docs", "examples", "step-authoring", "v1")
+	request := readBindRequest(t, fixtureRoot)
+	delete(request.RequestMappings, "page_size")
+	request.RequestMappings["body.page_size"] = "inputs.page_size"
+	example := copyBindExample(t, fixtureRoot, false)
+	outcome := Bind(nil, example, request)
+	if outcome.ExitCode != 4 || outcome.Result.Status != "needs_input" || len(outcome.Result.Diagnostics) != 1 || outcome.Result.Diagnostics[0].Code != "mapping.incomplete" {
+		t.Fatalf("wrong-location bind outcome = %#v", outcome)
+	}
+	if _, err := os.Lstat(filepath.Join(example, "workflows", "intent.hcl")); !os.IsNotExist(err) {
+		t.Fatalf("wrong-location bind wrote intent: %v", err)
+	}
+}
+
 func TestBindRejectsContractTypeMismatchWithoutMutation(t *testing.T) {
 	fixtureRoot := filepath.Join("..", "..", "docs", "examples", "step-authoring", "v1")
 	request := readBindRequest(t, fixtureRoot)

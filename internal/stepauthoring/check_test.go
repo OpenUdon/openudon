@@ -9,8 +9,10 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/OpenUdon/apitools"
 	"github.com/OpenUdon/openudon/internal/evidencefile"
 	"github.com/OpenUdon/openudon/internal/workflowintent"
+	"github.com/OpenUdon/uws/uws1"
 )
 
 func TestCheckMatchesRunnablePublishedFixture(t *testing.T) {
@@ -82,6 +84,76 @@ func TestCheckUsesEffectEvidenceAndRejectsConflictingContract(t *testing.T) {
 		if item.Code == "effect.evidence" && item.Status != "indeterminate" {
 			t.Fatalf("unknown contract effect was treated as %q: %#v", item.Status, item)
 		}
+	}
+}
+
+func TestCheckRejectsWrongRequestLocation(t *testing.T) {
+	fixtureRoot := filepath.Join("..", "..", "docs", "examples", "step-authoring", "v1")
+	root := copyRunnableExample(t)
+	intentPath := filepath.Join(root, "workflows", "intent.hcl")
+	data, err := os.ReadFile(intentPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	updated := strings.Replace(string(data), "page_size = \"inputs.page_size\"", "\"body.page_size\" = \"inputs.page_size\"", 1)
+	if updated == string(data) {
+		t.Fatal("wrong-location intent was not changed")
+	}
+	if err := os.WriteFile(intentPath, []byte(updated), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	request := readRunnableRequest(t, fixtureRoot)
+	request.IntentSHA256 = "sha256:" + evidencefile.SHA256([]byte(updated))
+	outcome := Check(nil, root, request)
+	if outcome.ExitCode != 0 || outcome.Result.Result == nil || outcome.Result.Result.Assessment != "incompatible" {
+		t.Fatalf("wrong-location check = %#v", outcome)
+	}
+	found := false
+	for _, item := range outcome.Result.Result.Checks {
+		if item.Code == "mapping.location" && item.Status == "fail" {
+			found = true
+		}
+	}
+	if !found {
+		t.Fatalf("wrong-location check missing failure: %#v", outcome.Result.Result.Checks)
+	}
+}
+
+func TestRequiredMappingsRespectLocationsAndCollisions(t *testing.T) {
+	operation := apitools.OperationSummary{
+		Parameters: []apitools.ParameterSummary{
+			{Name: "id", In: "path", Required: true},
+			{Name: "id", In: "query", Required: true},
+			{Name: "trace", In: "header", Required: true},
+			{Name: "session", In: "cookie", Required: true},
+		},
+		RequestBody: &apitools.RequestBodySummary{Fields: []apitools.RequestFieldSummary{{Path: "id", Required: true}}},
+	}
+	contract := StepContract{Inputs: &uws1.ParamSchema{Type: "object"}}
+	for _, test := range []struct {
+		name string
+		with map[string]string
+		fail string
+	}{
+		{"qualified", map[string]string{"path.id": "inputs.id", "query.id": "inputs.id", "body.id": "inputs.id", "header.trace": "inputs.trace", "cookie.session": "inputs.session"}, ""},
+		{"colliding alias", map[string]string{"id": "inputs.id", "header.trace": "inputs.trace", "cookie.session": "inputs.session"}, "mapping.ambiguous"},
+		{"wrong cookie location", map[string]string{"path.id": "inputs.id", "query.id": "inputs.id", "body.id": "inputs.id", "header.trace": "inputs.trace", "query.session": "inputs.session"}, "mapping.location"},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			check := newCheckAccumulator()
+			checkRequiredMappings(&workflowintent.Step{With: test.with}, contract, operation, check)
+			for _, item := range check.items {
+				if item.Status == "fail" && test.fail == "" {
+					t.Fatalf("valid locations failed: %#v", check.items)
+				}
+				if item.Code == test.fail && item.Status == "fail" {
+					return
+				}
+			}
+			if test.fail != "" {
+				t.Fatalf("missing %s failure: %#v", test.fail, check.items)
+			}
+		})
 	}
 }
 

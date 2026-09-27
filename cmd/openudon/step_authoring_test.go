@@ -14,6 +14,7 @@ import (
 	"github.com/OpenUdon/openudon/internal/evidencefile"
 	"github.com/OpenUdon/openudon/internal/stepauthoring"
 	"github.com/OpenUdon/openudon/internal/synthesize"
+	"github.com/OpenUdon/uws/convert"
 	"github.com/OpenUdon/uws/uws1"
 )
 
@@ -226,6 +227,58 @@ func TestStepAuthoringCLISequenceBuildsAndAssessesLocally(t *testing.T) {
 	quality, err := synthesize.Assess(synthesize.Options{ExampleDir: root})
 	if err != nil || !quality.Passed() {
 		t.Fatalf("assessment failed after local step authoring: report=%#v err=%v", quality, err)
+	}
+}
+
+func TestStepCheckRejectsLocationThatBuildWouldPutInBody(t *testing.T) {
+	root := copyCandidateExampleForBuild(t)
+	intentPath := filepath.Join(root, "workflows", "intent.hcl")
+	data, err := os.ReadFile(intentPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	updated := strings.Replace(string(data), "page_size = \"inputs.page_size\"", "\"body.page_size\" = \"inputs.page_size\"", 1)
+	if updated == string(data) {
+		t.Fatal("wrong-location intent was not changed")
+	}
+	if err := os.WriteFile(intentPath, []byte(updated), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	build, err := synthesize.Build(t.Context(), synthesize.Options{ExampleDir: root})
+	if err != nil {
+		t.Fatal(err)
+	}
+	uwsBytes, err := os.ReadFile(build.UWSPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var document uws1.Document
+	if err := convert.UnmarshalYAML(uwsBytes, &document); err != nil {
+		t.Fatal(err)
+	}
+	if len(document.Operations) != 1 || document.Operations[0].Request["body"] == nil || document.Operations[0].Request["query"] != nil {
+		t.Fatalf("the misplaced value was not reproduced in generated UWS: %#v", document.Operations)
+	}
+	fixture := filepath.Join("..", "..", "docs", "examples", "step-authoring", "v1", "requests", "step-check-runnable.json")
+	requestBytes, err := os.ReadFile(fixture)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var request stepauthoring.CheckRequest
+	if err := json.Unmarshal(requestBytes, &request); err != nil {
+		t.Fatal(err)
+	}
+	currentIntent, err := os.ReadFile(intentPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(currentIntent), "body.page_size") {
+		t.Fatalf("build removed the wrong-location mapping: %s", currentIntent)
+	}
+	request.IntentSHA256 = "sha256:" + evidencefile.SHA256(currentIntent)
+	checked := stepauthoring.Check(t.Context(), root, request)
+	if checked.Result.Result == nil || checked.Result.Result.Assessment != "incompatible" {
+		t.Fatalf("generated wrong-location UWS passed step.check: %#v", checked)
 	}
 }
 

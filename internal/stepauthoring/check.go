@@ -540,6 +540,27 @@ func checkRequiredMappings(step *workflowintent.Step, contract StepContract, ope
 			}
 		}
 	}
+	locations := declaredRequestLocations(operation)
+	misplaced, ambiguous := false, false
+	for key, value := range with {
+		if value == "" {
+			continue
+		}
+		section, name, qualified := requestMappingLocation(key)
+		declared := locations[name]
+		if qualified && len(declared) > 0 && !declared[section] {
+			misplaced = true
+		}
+		if !qualified && len(declared) > 1 {
+			ambiguous = true
+		}
+	}
+	if misplaced {
+		check.add("mapping.location", "fail", "A qualified request mapping uses a location different from the selected source.")
+	}
+	if ambiguous {
+		check.add("mapping.ambiguous", "fail", "An unqualified request field occurs in more than one source location.")
+	}
 	missing := false
 	for _, name := range contract.Inputs.Required {
 		if !contractInputMapped(with, name) {
@@ -550,22 +571,29 @@ func checkRequiredMappings(step *workflowintent.Step, contract StepContract, ope
 		if !parameter.Required {
 			continue
 		}
-		if !hasInputMapping(with, parameter.Name) {
+		section := sourceParameterSection(parameter.In)
+		if section == "" {
+			if !hasInputMapping(with, parameter.Name) {
+				missing = true
+			}
+			continue
+		}
+		if !hasLocatedInputMapping(with, locations, section, parameter.Name) {
 			missing = true
 		}
 	}
 	if operation.RequestBody != nil {
 		for _, path := range operation.RequestBody.RequiredFieldPaths {
-			if !hasInputMapping(with, path) {
+			if !hasLocatedInputMapping(with, locations, "body", path) {
 				missing = true
 			}
 		}
 		for _, field := range operation.RequestBody.Fields {
-			if field.Required && !hasInputMapping(with, field.Path) {
+			if field.Required && !hasLocatedInputMapping(with, locations, "body", field.Path) {
 				missing = true
 			}
 		}
-		if operation.RequestBody.Required && len(operation.RequestBody.Fields) == 0 && len(operation.RequestBody.RequiredFieldPaths) == 0 && !hasInputMapping(with, "body") {
+		if operation.RequestBody.Required && len(operation.RequestBody.Fields) == 0 && len(operation.RequestBody.RequiredFieldPaths) == 0 && !hasLocatedInputMapping(with, locations, "body", "body") {
 			check.add("mapping.request_body_evidence", "indeterminate", "The required request body has no inspectable field mapping evidence.")
 		}
 	}
@@ -574,6 +602,69 @@ func checkRequiredMappings(step *workflowintent.Step, contract StepContract, ope
 	} else {
 		check.add("mapping.required_inputs", "pass", "Required contract and operation inputs have mappings.")
 	}
+}
+
+func sourceParameterSection(value string) string {
+	switch strings.TrimSpace(value) {
+	case "path", "query", "header", "cookie":
+		return strings.TrimSpace(value)
+	case "odata-query-option":
+		return "query"
+	case "graphql-variable", "json-rpc", "odata-parameter":
+		return "body"
+	default:
+		return ""
+	}
+}
+
+func declaredRequestLocations(operation apitools.OperationSummary) map[string]map[string]bool {
+	locations := map[string]map[string]bool{}
+	add := func(name, section string) {
+		name = strings.TrimSpace(name)
+		if name == "" || section == "" {
+			return
+		}
+		if locations[name] == nil {
+			locations[name] = map[string]bool{}
+		}
+		locations[name][section] = true
+	}
+	for _, parameter := range operation.Parameters {
+		add(parameter.Name, sourceParameterSection(parameter.In))
+	}
+	if operation.RequestBody != nil {
+		add("body", "body")
+		for _, field := range operation.RequestBody.Fields {
+			add(field.Path, "body")
+		}
+		for _, path := range operation.RequestBody.RequiredFieldPaths {
+			add(path, "body")
+		}
+	}
+	for _, alternative := range operation.SecurityRequirementSets {
+		for _, requirement := range alternative.Requirements {
+			section := sourceParameterSection(requirement.In)
+			add(requirement.ParameterName, section)
+			add(requirement.Name, section)
+		}
+	}
+	return locations
+}
+
+func requestMappingLocation(key string) (section, name string, qualified bool) {
+	for _, prefix := range []string{"body.", "query.", "path.", "header.", "cookie."} {
+		if strings.HasPrefix(key, prefix) {
+			return strings.TrimSuffix(prefix, "."), strings.TrimPrefix(key, prefix), true
+		}
+	}
+	return "", key, false
+}
+
+func hasLocatedInputMapping(mappings map[string]string, locations map[string]map[string]bool, section, name string) bool {
+	if strings.TrimSpace(mappings[section+"."+name]) != "" {
+		return true
+	}
+	return len(locations[name]) == 1 && locations[name][section] && strings.TrimSpace(mappings[name]) != ""
 }
 
 func contractInputMapped(mappings map[string]string, name string) bool {
@@ -594,7 +685,7 @@ func hasInputMapping(mappings map[string]string, name string) bool {
 	if name == "" {
 		return false
 	}
-	for _, key := range []string{name, "body." + name, "query." + name, "path." + name, "header." + name} {
+	for _, key := range []string{name, "body." + name, "query." + name, "path." + name, "header." + name, "cookie." + name} {
 		if strings.TrimSpace(mappings[key]) != "" {
 			return true
 		}
