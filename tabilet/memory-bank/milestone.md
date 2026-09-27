@@ -2,6 +2,14 @@
 
 ## Current State
 
+M87 is approved planning for OpenUdon-owned non-interactive step authoring
+commands and published JSON conformance fixtures, consumed by Kinet W03
+(sibling item S2a). Contract drafting is first and does not wait for Kinet
+M05, A03, or W03. All six M87 rows are pending; no command implementation or
+delivery acceptance is claimed. Apitools' consumer summaries, effect metadata,
+and step-contract ranking are an explicit external integration dependency.
+Simulation/browser acquisition (S2b) and iCoT retirement (S3) remain candidates.
+
 OpenUdon's UWS 1.11 real-browser M86 qualification is complete: the pinned
 sandboxed browsers launched, all three integration opt-ins passed, and the
 current-stack loopback and journey suites passed at clean source revisions.
@@ -53,6 +61,118 @@ or live operation.
 The history index holds 134 legacy-preserved status IDs and four normally reviewed completions. Legacy-preserved records retain exact source bytes and the frozen milestone text, but do not establish acceptance by themselves. Search the history by ID when needed.
 
 ## Active Milestone Specifications
+
+### M87 — Non-interactive step authoring contract for Kinet
+
+**Goal.** Deliver `openudon step candidates`, `openudon step bind`,
+`openudon step check`, and `openudon flow-review` as non-interactive commands
+with stable, versioned JSON results and published conformance fixtures.
+OpenUdon owns the command and intent-authoring contracts; Kinet W03 owns its
+consumer adapter, workflow planning loop, confirmations, ledger, and repair
+orchestration. Public workflow semantics remain owned by UWS.
+
+**Authority and lineage.** The owner approved this four-file planning change
+on 2026-09-26 after inspection of Kinet `docs/ideas.md` section 10 and
+`docs/icot.md` sections 4–7. Kinet's pending W03 first row is consumer
+requirements/feedback, not a prerequisite for OpenUdon to draft and own the
+contract. This is new cross-cutting public-contract work, not a reopening of
+retired iCoT milestones. The planning decision is recorded in
+[evolution v44](../evolution/result-v44.md).
+
+**Scope and contract requirements.**
+
+- Define bounded versioned requests, results, schemas, stable statuses and
+  diagnostic codes, exit-code behavior, and compatibility rules. Machine
+  output uses clean JSON stdout for success and failure; terminal prompts,
+  progress text, and provider error bodies must not contaminate it.
+- A step contract declares purpose, inputs, outputs, account/destination
+  constraints, and confirmed effect class. It is OpenUdon authoring metadata,
+  not a new UWS operation or pending-step extension. Its purpose, inputs,
+  outputs, and effect fields use exactly the declaration shape of UWS C07.2's
+  pending step, which UWS owns; OpenUdon-only fields (contract identity,
+  digests, and account/destination constraints) sit alongside them, so a step
+  contract maps losslessly onto a UWS pending step when package-level
+  placeholders arrive (S2b). Operation/source identity,
+  content digests, contract identity, and expected intent revision bind the
+  candidate, check, and write to the same reviewed inputs.
+- `step candidates` consumes Apitools discovery, ranking, consumer-readable
+  summaries, auth needs, and effect metadata. Preserve auth alternatives as
+  OR-of-AND sets with symbolic bindings only, exact source identity, visible
+  ambiguity/truncation, and unsupported capability diagnostics. Missing effect
+  evidence is `unknown`, treated conservatively like `write`; an HTTP method
+  alone must not establish a `read` claim. Ranking is advisory and confers no
+  operation, account, destination, or execution approval.
+- `step check` is read-only and checks one selected step against its contract,
+  exact source operation, request/output mappings, authentication requirements,
+  relevant dependencies, and effect constraints. Report unresolved semantic
+  questions separately from deterministic checks. Structural compatibility
+  does not prove that arbitrary natural-language intent has been fulfilled.
+- `step bind` explicitly creates or replaces one identified step in
+  `workflows/intent.hcl`, reusing the checks before an atomic write. Preserve
+  unrelated steps, blocks, and content. Initial intent creation requires an
+  explicit workflow scaffold; never silently invent workflow-wide policy.
+  Stale source/contract/intent inputs, unsafe paths, or invalid bindings fail
+  before replacement. Rejected writes leave existing bytes unchanged; an
+  indeterminate filesystem outcome must be reported distinctly for recovery.
+- `flow-review` exposes today's advisory flow review through shared logic,
+  including relevant local checks and explicitly configured model review.
+  It is read-only, performs no automatic repair, and reports unavailable,
+  skipped, or failed model review distinctly from a completed review. Findings
+  remain advisory and cannot replace build, assessment, or digest-bound
+  approval. Model-free fixtures cover its command behavior.
+- Publish consumer-usable schemas and conformance fixtures with valid,
+  malformed, unsupported-version, stale-revision, and digest-mismatched cases
+  plus auth/effect/mapping and write-preservation cases. Kinet can independently
+  validate the public wire without importing OpenUdon internal packages.
+
+**Order and dependencies.** M87.1 owns contract/schema/initial-fixture design
+first. M87.2 and M87.3 supply check and bind against the agreed contract;
+M87.4 supplies candidates integration; M87.5 exposes flow review; M87.6
+qualifies and documents the complete surface. Keep one execution owner and at
+most one general in-progress row. If upstream metadata is unavailable, finish
+independent contract, fixture, check/bind, and review work rather than making
+all of OpenUdon wait; record the unresolved external gate explicitly.
+
+| Dependency or consumer | Owner and required evidence | Effect on M87 |
+|---|---|---|
+| S2a operation metadata | Apitools owns consumer summaries, explicit effect classification with evidence, and ranking by purpose/inputs/outputs. The inspected API supplies summaries, auth alternatives, and text ranking but not the complete new interface. Its owner must separately plan and publish the required API and tests. | No prerequisite for M87.1 or fixture-based development. M87.4 production integration and M87.6 full acceptance require a compatible published dependency; do not duplicate generic ranking/classification here or call a stub delivered. |
+| Kinet W03 | Consumes OpenUdon's published contract and fixtures through an external CLI adapter; retains independent validation and its own `make openudon-check`. Kinet M05/A03 remain its internal sequencing dependencies. | No reverse dependency on Kinet starting or completing W03. OpenUdon supplies early fixtures and release-ready contracts; Kinet later verifies adoption. |
+| Existing OpenUdon authoring/package behavior | Reuse current intent validation, source/auth checks, atomic writing, and advisory review. Preserve iCoT callers, existing packages, build/assess, approval, and trusted-runner behavior. | Regression responsibility, not retirement authority or an instruction to reopen completed history. |
+| UWS S1, Browsertools S2b, and Udon S2c | Public pending-step/mock semantics, acquisition/snapshot checks, and live hybrid execution remain with their owners. UWS C07.2 also owns the declaration shape of the shared purpose/inputs/outputs/effect fields. | Not M87 implementation prerequisites or deliverables. M87.1 agrees the shared field shape with UWS C07.2 before freezing (a design synchronization point, not a wait for UWS publication) and records the UWS revision used; no new runtime semantics or live calls are implied. |
+
+**Acceptance and verification.** All four commands implement their published
+versioned success/failure contracts and pass the conformance corpus. A fixture
+maps each step contract's shared fields losslessly onto UWS's pending-step
+declaration at a recorded UWS revision. A
+credential-free local workflow can select a candidate, bind/check one step,
+review the assembled flow, and pass existing build/assessment without an
+interactive session. Tests prove malformed input and stale/digest-mismatched
+selection rejection, OR-of-AND authentication, conservative unknown effects,
+missing mappings/dependencies, unchanged unrelated steps, concurrent-edit
+conflicts, and rejected-write byte preservation. Fake model responses cover
+flow-review success, findings, failure, and cancellation without claiming live
+model evidence. Preserve supported existing source families or report explicit
+unsupported capabilities; do not silently drop a source kind.
+
+Run focused CLI, schema/conformance, intent, source/auth, writer and review
+tests, affected race tests, `GOWORK=off go test ./...`,
+`GOWORK=off go vet ./...`, `make check`, the Apitools boundary check,
+document-memory validation, and `git diff --check`. Follow the existing
+affected-smoke policy only if shared UI/runtime behavior changes; full browser
+qualification and live-model/provider runs are not default S2a checks.
+Document supported versions and fixture consumption for Kinet; its later real
+consumer check does not block OpenUdon's own contract drafting or qualification.
+Remote publication follows separate authority. Complete the persisted
+maximum-ten-iteration milestone review before declaring M87 accepted.
+
+**Compatibility and exclusions.** Add the commands alongside current iCoT
+interfaces. Extract only shared logic needed for these commands and keep old
+callers working. Kinet-owned placeholders stay in its ledger at this stage;
+M87 neither emits executable placeholders nor weakens approval gates.
+`simulate`, supervised `browser acquire`, package-level pending steps, runtime
+effect enforcement, and iCoT/UI retirement are outside scope. No sibling files,
+UWS semantics, credentials, live provider/browser behavior, deployment, or
+runtime adoption are changed by this planning approval.
 
 ### E21 — Repair current-stack Udon build and preserve M86 report meaning
 
@@ -124,13 +244,17 @@ external services.
 
 ## Active And Parked Tracks
 
-- Active: No OpenUdon milestone row is in progress. E22's Browser 1.10
+- Active: M87 is the next implementation priority, with contract drafting
+  first and all six rows pending. No OpenUdon milestone row is in progress.
+  Its Apitools metadata integration gate does not delay independent contract
+  work or wait for Kinet M05/A03/W03. E22's Browser 1.10
   current-stack qualification and review are complete. W8M's local W21
   candidate and any runtime adoption remain separate downstream work; the
   adopted W8M locks are unchanged. No deployment, public canary, or target
   operation is authorized.
 - Parked: real-provider evidence, live W8M operation, and public canaries need
-  separately approved scope and authority.
+  separately approved scope and authority. S2b simulation/browser acquisition
+  and S3 iCoT retirement remain unnumbered candidates below.
 - Completed history: use the [history index](../docs/history/index.md) for
   terminal ID records and the frozen earlier milestone text.
 
@@ -141,6 +265,7 @@ search the history index before allocating a future ID.
 
 | ID | Milestone | Status file | State |
 | --- | --- | --- | --- |
+| M87 | Non-interactive step authoring contract for Kinet | [status-M87.md](status-M87.md) | Pending; contract first, Apitools integration dependency explicit |
 | E21 | Repair current-stack Udon build and preserve M86 report meaning | `tabilet/memory-bank/status-E21.md` | Complete; W8M W21 closeout reconciled |
 
 ## Requested Changes After Initialization
@@ -361,6 +486,8 @@ fresh scope and dependency review promotes them.
 
 | Direction | Why Deferred | Promotion Trigger |
 |---|---|---|
+| S2b: simulation, supervised browser acquisition, and package-level pending steps | M87 delivers only S2a step commands. Tier-1 simulation, `browser acquire` checkpoints, snapshot checks, and pending-step approval rejection depend on separately owned UWS S1 and Browsertools contracts. | Kinet's stage-5/W04 scope is approved, required UWS mock/pending-step and Browsertools contracts exist, and an OpenUdon-owned command/approval integration outcome is explicitly approved. |
+| S3: retire iCoT terminal/UI and shared interactive loops | Existing consumers, including W8M and Ramen, still rely on these surfaces. M87 is additive and does not authorize removal. | Replacement journey coverage is qualified, W8M migrates off OpenUdon UI launch paths, and removal is explicitly approved; Authoring retires its generic loops only after both OpenUdon and Ramen migrate under its compatibility policy. |
 | Further package/source-family integration | A03/P01/A04/E01/E02 own the approved Browsertools authoring/evidence integration; other API/event source metadata remains owned by apitools and public semantics by UWS. | Another upstream contract is published and an OpenUdon-owned package/review outcome beyond this sequence is explicitly scoped. |
 | Automated real-provider release evidence | Provider runs spend quota and can produce sensitive output; current policy remains local/manual. | Protected credentials, redaction, retention, spend bounds, and review-required CI policy are approved. |
 | Trusted-runner capability expansion | OpenUdon hands approved packages to an external executor and must not absorb runtime semantics. | A public handoff/evidence gap is demonstrated without importing private runtime behavior or weakening approval gates. |
