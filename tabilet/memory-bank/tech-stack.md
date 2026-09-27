@@ -107,8 +107,8 @@ The `step candidates`, `step check`, `step bind`, and `flow-review` commands
 use strict versioned JSON request/result contracts and bounded safe reads.
 Candidates scans the eight supported local source families, including the
 legacy `discovery/` directory as a Google Discovery alias, and calls published
-APItools M77 operation-candidate metadata at
-`v0.0.0-20260927073943-30c6f3bd5700`; it does not fetch URLs. It preserves
+APItools M77 operation-candidate metadata with M78 corrections at
+`v0.0.0-20260927133930-26bb05247d6c`; it does not fetch URLs. It preserves
 consumer summaries, compatibility evidence, source-backed effect classes,
 authentication alternatives, and source capabilities while omitting paths
 from results. Check and bind match the exact APItools source kind, ID, digest,
@@ -117,6 +117,8 @@ intent/source revisions, mappings, outputs, dependencies, and OR-of-AND
 authentication alternatives, including self-reference and prerequisite-cycle
 rejection. Check also uses APItools' exact-operation effect
 evidence: a known conflicting class fails, and unknown remains indeterminate.
+Compound read/mutation wording stays unknown, and nullable response outputs
+remain indeterminate without earning compatibility points.
 Check is read-only; bind replaces or adds one step in `workflows/intent.hcl` through
 `internal/icot/artifactwriter`, using optimistic SHA-256 checks and create-only
 installation for an initially absent intent. Bind locates path-free source IDs

@@ -73,6 +73,16 @@ The history index holds 134 legacy-preserved status IDs and four normally review
 
 ## Active Milestone Specifications
 
+### M88 — Stage 1 step-authoring remediation
+
+**Goal.** Correct the three confirmed OpenUdon P2 findings in the 2026-09-27 UWS/APItools/OpenUdon stage 1 review and consume APItools' corresponding M78 metadata fixes. M87 stays retired.
+
+**Acceptance.** `step bind` and `step check` compare mapped request keys with source parameter locations, including body/query/path/header/cookie and colliding names. They compare actual workflow input type and requiredness with the selected contract/source requirement, returning fail or indeterminate when evidence is incomplete. Inline `credentials.<symbol>` values obey the same grammar and reserved-sentinel rejection as explicit credential bindings. APItools' repaired effect and nullable output metadata flow through the commands without a false compatible result. Rejected binds leave intent bytes unchanged. Existing v1 request/result shape, CLI exits, source digests, and UWS pin policy remain compatible.
+
+**Order and downstream.** Published APItools M78 is a prerequisite for [M88.1–M88.4](status-M88.md). Rows run in order: dependency pin and consumer regression, location, mapped type, credential validation. Kinet W03 consumes the revised commands and fixtures; it owns its separate real-tool check. M88 does not change Kinet, UWS semantics, browser locks, live providers, or approval policy.
+
+**Verification.** Run focused bind/check cases, schema and fixture conformance, `GOWORK=off go test ./...`, affected race tests, `GOWORK=off go vet ./...`, `make check`, `check-doc-memory`, `git diff --check`, and the persisted whole-milestone review gate before retirement and push.
+
 ### E21 — Repair current-stack Udon build and preserve M86 report meaning
 
 Repair the OpenUdon current-stack selector for W8M's UWS 1.11 / Browser 1.9
@@ -143,7 +153,7 @@ external services.
 
 ## Active And Parked Tracks
 
-- Active: no implementation milestone is in progress. M87 is complete and
+- Active: M88 remediates the confirmed stage 1 step-authoring binding findings after APItools M78 publication. M87 is complete and
   retired in the [history record](../docs/history/status-M87.md), with the
   bounded review passed at iteration 9. Its APItools M77 dependency is
   published at `v0.0.0-20260927073943-30c6f3bd5700`, and workspace plus
@@ -169,6 +179,7 @@ search the history index before allocating a future ID.
 | ID | Milestone | Status file | State |
 | --- | --- | --- | --- |
 | E21 | Repair current-stack Udon build and preserve M86 report meaning | `tabilet/memory-bank/status-E21.md` | Complete; W8M W21 closeout reconciled |
+| M88 | [Stage 1 step-authoring remediation](#m88--stage-1-step-authoring-remediation) | [status-M88.md](status-M88.md) | Active; depends on published APItools M78 |
 
 ## Requested Changes After Initialization
 

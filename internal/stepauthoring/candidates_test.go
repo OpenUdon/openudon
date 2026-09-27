@@ -101,6 +101,33 @@ func TestCandidatesPreservesKnownConflictWhenSchemaHasUnsupportedConstructs(t *t
 	t.Fatalf("known input mismatch was hidden by the unsupported schema construct: %#v", outcome.Result.Result.Candidates)
 }
 
+func TestCandidatesKeepNullableOutputIndeterminate(t *testing.T) {
+	fixtureRoot := filepath.Join("..", "..", "docs", "examples", "step-authoring", "v1")
+	root := copyRunnableExample(t)
+	sourcePath := filepath.Join(root, "openapi", "project-api.yaml")
+	data, err := os.ReadFile(sourcePath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	updated := strings.Replace(string(data), "                  projects:\n                    type: array", "                  projects:\n                    type: array\n                    nullable: true", 1)
+	if updated == string(data) {
+		t.Fatal("nullable fixture was not changed")
+	}
+	if err := os.WriteFile(sourcePath, []byte(updated), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	request := readCandidatesRequest(t, filepath.Join(fixtureRoot, "requests", "step-candidates.json"))
+	request.SourceFilters[0].SourceSHA256 = "sha256:" + evidencefile.SHA256([]byte(updated))
+	outcome := Candidates(context.Background(), root, request)
+	if outcome.ExitCode != 0 || outcome.Result.Result == nil || len(outcome.Result.Result.Candidates) != 1 {
+		t.Fatalf("nullable candidate outcome = %#v", outcome)
+	}
+	match := outcome.Result.Result.Candidates[0].Match.Outputs
+	if match.Status != "indeterminate" || match.Score != 0 || !strings.Contains(strings.Join(match.Gaps, " "), "null") {
+		t.Fatalf("nullable output was scored compatible: %#v", match)
+	}
+}
+
 func TestCandidatesSkipsSecuritySidecarsAndDoesNotExposePaths(t *testing.T) {
 	fixtureRoot := filepath.Join("..", "..", "docs", "examples", "step-authoring", "v1")
 	root := t.TempDir()

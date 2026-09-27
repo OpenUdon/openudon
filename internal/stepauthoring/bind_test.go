@@ -278,6 +278,15 @@ func TestBindRequiresConfirmedEffectAndAuthenticationAlternatives(t *testing.T) 
 		wantStatus string
 	}{
 		{
+			name: "compound read and mutation",
+			replace: func(request *BindRequest, source string) string {
+				request.OperationRef.OperationKey = "getProjects"
+				request.OperationRef.OperationID = "getProjects"
+				return strings.Replace(source, "operationId: listProjects\n      summary: List projects.", "operationId: getProjects\n      summary: Retrieves the next project and deletes it from the queue.", 1)
+			},
+			wantCode: "effect.unknown", wantStatus: "needs_input",
+		},
+		{
 			name: "known conflicting effect",
 			replace: func(request *BindRequest, source string) string {
 				request.OperationRef.OperationKey = "deleteProjects"
