@@ -27,5 +27,6 @@
     "operation_key": "listProjects",
     "operation_id": "listProjects"
   },
+  "output_mappings": { "projects": "received_body.projects" },
   "intent_sha256": "sha256:6a010a6eef84f5bf3edc7729953d64f1b8a43580a5fffbeffb080ac68b802f79"
 }

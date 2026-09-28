@@ -63,19 +63,21 @@ type StepContract struct {
 }
 
 type CheckRequest struct {
-	Version      string       `json:"version"`
-	Kind         string       `json:"kind"`
-	Command      string       `json:"command"`
-	StepID       string       `json:"step_id"`
-	Contract     StepContract `json:"contract"`
-	OperationRef OperationRef `json:"operation_ref"`
-	IntentSHA256 string       `json:"intent_sha256"`
+	Version        string            `json:"version"`
+	Kind           string            `json:"kind"`
+	Command        string            `json:"command"`
+	StepID         string            `json:"step_id"`
+	Contract       StepContract      `json:"contract"`
+	OperationRef   OperationRef      `json:"operation_ref"`
+	IntentSHA256   string            `json:"intent_sha256"`
+	OutputMappings map[string]string `json:"output_mappings,omitempty"`
 }
 
 type CheckItem struct {
 	Code    string `json:"code"`
 	Status  string `json:"status"`
 	Message string `json:"message"`
+	Pointer string `json:"pointer,omitempty"`
 }
 
 type Diagnostic struct {
@@ -207,20 +209,31 @@ func Check(ctx context.Context, exampleDir string, request CheckRequest) Outcome
 	}
 
 	checkRequiredMappings(step, request.Contract, op, check)
+	_, unsupportedInputs, unsupportedOutputs := mapStepContract(request.Contract)
+	inputStatus, inputPointer := checkRequestMappingCompatibility(step, request.Contract, op, !unsupportedInputs && operationCapability(candidate, "inputs") == apitools.OperationCapabilitySupported)
+	if inputStatus == "indeterminate" {
+		if pointer := rootContractExtensionPointer("inputs", request.Contract.Inputs); pointer != "" {
+			inputPointer = pointer
+		}
+	}
 	checkMappedWorkflowValues(intent, step, request.Contract, op, check)
 	checkInlineCredentialMappings(step, check)
-	checkOutputs(intent, step, request.Contract, op, check)
+	outputStatus, outputPointer := checkOutputs(intent, step, request.Contract, op, request.OutputMappings, !unsupportedOutputs && operationCapability(candidate, "outputs") == apitools.OperationCapabilitySupported, check)
+	if outputStatus == "indeterminate" {
+		if pointer := rootContractExtensionPointer("outputs", request.Contract.Outputs); pointer != "" {
+			outputPointer = pointer
+		}
+	}
 	checkAuthentication(intent, step, op, check)
 	checkDependencies(intent, step, request.StepID, check)
 	if dependencyCycleFrom(intent.Steps, request.StepID) {
 		check.add("dependency.cycle", "fail", "The selected step participates in a workflow dependency cycle or self-reference.")
 	}
-	_, unsupportedInputs, unsupportedOutputs := mapStepContract(request.Contract)
-	inputStatus := addCandidateContractCheck(check, "mapping.input_contract", "input", candidate.Match.Inputs, !unsupportedInputs, true)
-	outputStatus := addCandidateContractCheck(check, "mapping.output_contract", "output", candidate.Match.Outputs, !unsupportedOutputs, true)
+	addMappingCompatibilityCheck(check, "mapping.input_contract", "input", inputStatus, inputPointer)
+	addMappingCompatibilityCheck(check, "mapping.output_contract", "output", outputStatus, outputPointer)
 	effectStatus := checkEffect(request.Contract, candidate, true, check)
 
-	return completedCheck(request, intentDigest, check.items, unresolvedForContract(request.Contract, false, effectStatus == "indeterminate" || inputStatus == "indeterminate" || outputStatus == "indeterminate"))
+	return completedCheck(request, intentDigest, check.items, unresolvedForContract(request.Contract, false, effectStatus == "indeterminate"))
 }
 
 func validateRequest(request CheckRequest) error {
@@ -241,6 +254,14 @@ func validateRequest(request CheckRequest) error {
 	}
 	if err := validateFieldSet(request.Contract.Outputs); err != nil {
 		return err
+	}
+	if len(request.OutputMappings) > 64 {
+		return fmt.Errorf("output mappings exceed limits")
+	}
+	for path, target := range request.OutputMappings {
+		if !mappingFieldName.MatchString(path) || strings.Contains(path, "..") || !bindOutputReference.MatchString(target) {
+			return fmt.Errorf("output mapping is invalid")
+		}
 	}
 	ref := request.OperationRef
 	if !sourceIDPattern.MatchString(ref.SourceID) || !sha256Pattern.MatchString(ref.SourceSHA256) ||
@@ -397,10 +418,17 @@ func newCheckAccumulator() *checkAccumulator {
 	return &checkAccumulator{items: make([]CheckItem, 0, 16)}
 }
 func (c *checkAccumulator) add(code, status, message string) {
+	c.addAt(code, status, message, "")
+}
+
+func (c *checkAccumulator) addAt(code, status, message, pointer string) {
 	if len(c.items) >= MaxChecks {
 		return
 	}
-	c.items = append(c.items, CheckItem{Code: code, Status: status, Message: message})
+	if len(pointer) > 256 {
+		pointer = ""
+	}
+	c.items = append(c.items, CheckItem{Code: code, Status: status, Message: message, Pointer: pointer})
 }
 
 func resolveExampleRoot(example string) (string, error) {
@@ -577,9 +605,13 @@ func checkRequiredMappings(step *workflowintent.Step, contract StepContract, ope
 		check.add("mapping.ambiguous", "fail", "An unqualified request field occurs in more than one source location.")
 	}
 	missing := false
-	for _, name := range contract.Inputs.Required {
+	missingPointer := ""
+	for _, name := range requiredContractPaths(contract.Inputs) {
 		if !contractInputMapped(with, name) {
 			missing = true
+			if missingPointer == "" {
+				missingPointer = mappingPointer("/contract/inputs", name)
+			}
 		}
 	}
 	for _, parameter := range operation.Parameters {
@@ -590,30 +622,42 @@ func checkRequiredMappings(step *workflowintent.Step, contract StepContract, ope
 		if section == "" {
 			if !hasInputMapping(with, parameter.Name) {
 				missing = true
+				if missingPointer == "" {
+					missingPointer = "/operation/inputs/" + escapeJSONPointer(parameter.Name)
+				}
 			}
 			continue
 		}
 		if !hasLocatedInputMapping(with, locations, section, parameter.Name) {
 			missing = true
+			if missingPointer == "" {
+				missingPointer = "/operation/inputs/" + escapeJSONPointer(section) + "/" + escapeJSONPointer(parameter.Name)
+			}
 		}
 	}
 	if operation.RequestBody != nil {
 		for _, path := range operation.RequestBody.RequiredFieldPaths {
 			if !hasLocatedInputMapping(with, locations, "body", path) {
 				missing = true
+				if missingPointer == "" {
+					missingPointer = "/operation/inputs/body/" + escapeJSONPointer(path)
+				}
 			}
 		}
 		for _, field := range operation.RequestBody.Fields {
 			if field.Required && !hasLocatedInputMapping(with, locations, "body", field.Path) {
 				missing = true
+				if missingPointer == "" {
+					missingPointer = "/operation/inputs/body/" + escapeJSONPointer(field.Path)
+				}
 			}
 		}
 		if operation.RequestBody.Required && len(operation.RequestBody.Fields) == 0 && len(operation.RequestBody.RequiredFieldPaths) == 0 && !hasLocatedInputMapping(with, locations, "body", "body") {
-			check.add("mapping.request_body_evidence", "indeterminate", "The required request body has no inspectable field mapping evidence.")
+			check.addAt("mapping.request_body_evidence", "indeterminate", "The required request body has no inspectable field mapping evidence.", "/operation/inputs/body")
 		}
 	}
 	if missing {
-		check.add("mapping.incomplete", "fail", "One or more required input mappings are missing.")
+		check.addAt("mapping.incomplete", "fail", "One or more required input mappings are missing.", missingPointer)
 	} else {
 		check.add("mapping.required_inputs", "pass", "Required contract and operation inputs have mappings.")
 	}
@@ -675,26 +719,6 @@ func requestMappingLocation(key string) (section, name string, qualified bool) {
 	return "", key, false
 }
 
-func hasLocatedInputMapping(mappings map[string]string, locations map[string]map[string]bool, section, name string) bool {
-	if strings.TrimSpace(mappings[section+"."+name]) != "" {
-		return true
-	}
-	return len(locations[name]) == 1 && locations[name][section] && strings.TrimSpace(mappings[name]) != ""
-}
-
-func contractInputMapped(mappings map[string]string, name string) bool {
-	if strings.TrimSpace(mappings[name]) != "" {
-		return true
-	}
-	prefix := "inputs." + name
-	for _, value := range mappings {
-		if value == prefix || strings.HasPrefix(value, prefix+".") || strings.HasPrefix(value, prefix+"[") {
-			return true
-		}
-	}
-	return false
-}
-
 func hasInputMapping(mappings map[string]string, name string) bool {
 	name = strings.TrimSpace(name)
 	if name == "" {
@@ -717,17 +741,7 @@ func checkMappedWorkflowValues(intent *workflowintent.Intent, step *workflowinte
 			inputs[input.Name] = input
 		}
 	}
-	mappings := map[string]string{}
-	for key, value := range step.With {
-		mappings[key] = value
-	}
-	for _, binding := range step.Binds {
-		if binding != nil {
-			for key, value := range binding.Fields {
-				mappings[key] = value
-			}
-		}
-	}
+	mappings := combineStepMappings(step)
 	locations := declaredRequestLocations(operation)
 	fail, unknown := false, false
 	for key, raw := range mappings {
@@ -738,41 +752,33 @@ func checkMappedWorkflowValues(intent *workflowintent.Intent, step *workflowinte
 				}
 			}
 		}
-		sourceType, sourceRequired := sourceMappingRequirement(operation, section, name)
-		value := strings.TrimSpace(raw)
-		if !strings.HasPrefix(value, "inputs.") {
-			if sourceType != "" || sourceRequired {
+		source := requestFieldEvidence(operation, section, name)
+		path, isInput := inputContractPath(raw)
+		if !isInput {
+			if source.found {
 				unknown = true
 			}
 			continue
 		}
-		ref := strings.TrimPrefix(value, "inputs.")
-		if strings.IndexAny(ref, ".[\"") >= 0 {
-			unknown = true
-			continue
-		}
-		input := inputs[ref]
+		rootName := strings.Split(path, ".")[0]
+		input := inputs[rootName]
 		if input == nil {
 			continue // the existing workflow-input reference check reports this
 		}
-		contractField := contract.Inputs.Properties[ref]
-		contractType, contractRequired := "", false
-		if contractField != nil {
-			contractType = contractField.Type
-			contractRequired = schemaRequired(contract.Inputs, ref)
+		contractRoot := contractRootField(contract.Inputs, path)
+		if contractRoot == nil || contractRoot.Type == "" || input.Type == "" {
+			unknown = true
+		} else if compatible, known := workflowInputTypeCompatible(input.Type, contractRoot.Type); !known {
+			unknown = true
+		} else if !compatible {
+			fail = true
 		}
-		for _, expected := range []string{contractType, sourceType} {
-			if expected == "" {
-				continue
-			}
-			compatible, known := workflowInputTypeCompatible(input.Type, expected)
-			if !known {
-				unknown = true
-			} else if !compatible {
-				fail = true
-			}
+		_, _, contractFound := contractSchemaField(contract.Inputs, path)
+		if !contractFound {
+			unknown = true
 		}
-		if (contractRequired || sourceRequired) && !input.Required {
+		contractRootRequired := schemaRequired(contract.Inputs, rootName)
+		if (contractRootRequired || source.required) && !input.Required {
 			if input.Default == "" {
 				fail = true
 			} else {
@@ -785,22 +791,6 @@ func checkMappedWorkflowValues(intent *workflowintent.Intent, step *workflowinte
 	} else if unknown {
 		check.add("mapping.workflow_value_types", "indeterminate", "The mapped value's type or availability cannot be established from the workflow intent.")
 	}
-}
-
-func sourceMappingRequirement(operation apitools.OperationSummary, section, name string) (string, bool) {
-	for _, parameter := range operation.Parameters {
-		if parameter.Name == name && sourceParameterSection(parameter.In) == section {
-			return parameter.Type, parameter.Required
-		}
-	}
-	if section == "body" && operation.RequestBody != nil {
-		for _, field := range operation.RequestBody.Fields {
-			if field.Path == name {
-				return field.Type, field.Required
-			}
-		}
-	}
-	return "", false
 }
 
 func workflowInputTypeCompatible(actual, expected string) (compatible, known bool) {
@@ -820,43 +810,138 @@ func workflowInputTypeCompatible(actual, expected string) (compatible, known boo
 	return false, true
 }
 
-func checkOutputs(intent *workflowintent.Intent, step *workflowintent.Step, contract StepContract, operation apitools.OperationSummary, check *checkAccumulator) {
+func checkOutputs(intent *workflowintent.Intent, step *workflowintent.Step, contract StepContract, operation apitools.OperationSummary, requestedMappings map[string]string, representable bool, check *checkAccumulator) (string, string) {
 	declared := contract.Outputs.Properties
-	if outputsReferenceMissingDeclaredField(intent, step, declared) {
-		check.add("mapping.output_references", "fail", "A workflow output reference selects a field outside the step contract.")
+	mappings := effectiveOutputMappings(contract.Outputs, requestedMappings)
+	if outputsReferenceMissingDeclaredField(intent, step, contract.Outputs, mappings) {
+		check.addAt("mapping.output_references", "fail", "A workflow output reference selects a field outside the step contract.", "/intent/outputs")
 	} else {
 		check.add("mapping.output_references", "pass", "Relevant workflow outputs stay within the step contract.")
 	}
 	if len(declared) == 0 {
 		check.add("mapping.outputs", "pass", "The step contract declares no output fields.")
-		return
+		if requestedMappings != nil && len(requestedMappings) > 0 {
+			return "incompatible", "/output_mappings"
+		}
+		return "compatible", ""
 	}
-	if operation.ResponseBody == nil || len(operation.ResponseBody.Fields) == 0 {
-		check.add("mapping.outputs", "indeterminate", "The selected operation has no inspectable response-field summary.")
-		return
+	if operation.ResponseBody == nil || len(operation.ResponseBody.Fields) == 0 && operation.ResponseBody.Schema == nil {
+		check.addAt("mapping.outputs", "indeterminate", "The selected operation has no inspectable response-field summary.", "/operation/outputs")
+		return "indeterminate", "/operation/outputs"
 	}
-	available := map[string]bool{}
-	for _, field := range operation.ResponseBody.Fields {
-		available[strings.TrimPrefix(strings.TrimSpace(field.Path), "$")] = true
-	}
-	missingRequired, missingOptional := false, false
-	for name := range contractOutputPaths(declared) {
-		if available[name] {
+	status := "compatible"
+	pointer := ""
+	seenTargets := map[string]string{}
+	for contractPath, target := range requestedMappings {
+		if _, _, exists := contractSchemaField(contract.Outputs, contractPath); !exists {
+			status = aggregateMappingStatus(status, "incompatible")
+			if pointer == "" {
+				pointer = mappingPointer("/contract/outputs", contractPath)
+			}
 			continue
 		}
-		if schemaRequiredPath(contract.Outputs, name) {
-			missingRequired = true
-		} else {
-			missingOptional = true
+		responsePath, ok := responseReferencePath(target)
+		if !ok {
+			status = aggregateMappingStatus(status, "incompatible")
+			if pointer == "" {
+				pointer = mappingPointer("/contract/outputs", contractPath)
+			}
+			continue
 		}
+		if previous, exists := seenTargets[responsePath]; exists && previous != contractPath {
+			status = aggregateMappingStatus(status, "incompatible")
+			if pointer == "" {
+				pointer = mappingPointer("/contract/outputs", contractPath)
+			}
+		}
+		seenTargets[responsePath] = contractPath
+	}
+	missingRequired, missingOptional := false, false
+	missingPointer := ""
+	paths := make([]string, 0, len(contractOutputPaths(declared)))
+	for name := range contractOutputPaths(declared) {
+		paths = append(paths, name)
+	}
+	sort.Strings(paths)
+	for _, name := range paths {
+		field, _, exists := contractSchemaField(contract.Outputs, name)
+		if !exists {
+			status = aggregateMappingStatus(status, "indeterminate")
+			if pointer == "" {
+				pointer = mappingPointer("/contract/outputs", name)
+			}
+			continue
+		}
+		required := schemaRequiredPath(contract.Outputs, name)
+		target, mapped := effectiveOutputTarget(name, mappings)
+		if !mapped {
+			if required {
+				missingRequired = true
+			} else {
+				missingOptional = true
+			}
+			if missingPointer == "" {
+				missingPointer = mappingPointer("/contract/outputs", name)
+			}
+			continue
+		}
+		responsePath, ok := responseReferencePath(target)
+		if !ok {
+			status = aggregateMappingStatus(status, "incompatible")
+			if pointer == "" {
+				pointer = mappingPointer("/contract/outputs", name)
+			}
+			continue
+		}
+		source := responseFieldEvidence(operation, responsePath)
+		if !source.found {
+			if required {
+				missingRequired = true
+			} else {
+				missingOptional = true
+			}
+			if missingPointer == "" {
+				missingPointer = mappingPointer("/contract/outputs", name)
+			}
+			continue
+		}
+		fieldStatus := fieldTypeStatus(field, source, false)
+		if required && source.requiredKnown && !source.required {
+			fieldStatus = "incompatible"
+		}
+		if required && !source.requiredKnown {
+			fieldStatus = aggregateMappingStatus(fieldStatus, "indeterminate")
+		}
+		if source.nullable {
+			fieldStatus = aggregateMappingStatus(fieldStatus, "indeterminate")
+		}
+		if fieldStatus != "compatible" && (status == "compatible" || fieldStatus == "incompatible" && status != "incompatible") {
+			pointer = mappingPointer("/contract/outputs", name)
+		}
+		status = aggregateMappingStatus(status, fieldStatus)
 	}
 	if missingRequired {
-		check.add("mapping.outputs", "fail", "One or more required contract outputs are absent from the selected response.")
+		if pointer == "" {
+			pointer = missingPointer
+		}
+		check.addAt("mapping.outputs", "fail", "One or more required contract outputs are absent from the selected response.", pointer)
+		status = aggregateMappingStatus(status, "incompatible")
 	} else if missingOptional {
-		check.add("mapping.outputs", "indeterminate", "One or more optional contract outputs are not confirmed by the response summary.")
+		if pointer == "" {
+			pointer = missingPointer
+		}
+		check.addAt("mapping.outputs", "indeterminate", "One or more optional contract outputs are not confirmed by the response summary.", pointer)
+		status = aggregateMappingStatus(status, "indeterminate")
 	} else {
 		check.add("mapping.outputs", "pass", "Declared contract outputs are present in the selected response summary.")
 	}
+	if !representable {
+		status = aggregateMappingStatus(status, "indeterminate")
+		if pointer == "" {
+			pointer = "/operation/capabilities/outputs"
+		}
+	}
+	return status, pointer
 }
 
 func schemaRequired(schema *uws1.ParamSchema, name string) bool {
@@ -918,7 +1003,7 @@ func contractOutputPaths(properties map[string]*uws1.ParamSchema) map[string]boo
 	return out
 }
 
-func outputsReferenceMissingDeclaredField(intent *workflowintent.Intent, selected *workflowintent.Step, declared map[string]*uws1.ParamSchema) bool {
+func outputsReferenceMissingDeclaredField(intent *workflowintent.Intent, selected *workflowintent.Step, declared *uws1.ParamSchema, mappings map[string]string) bool {
 	if intent == nil || selected == nil {
 		return false
 	}
@@ -926,7 +1011,7 @@ func outputsReferenceMissingDeclaredField(intent *workflowintent.Intent, selecte
 		if output == nil {
 			continue
 		}
-		if root, field, ok := outputRef(output.From); ok && root == selected.Name && field != "" && !contractHasOutputPath(declared, field) {
+		if root, field, ok := outputRef(output.From); ok && root == selected.Name && field != "" && !outputPathCoveredByContract(field, declared, mappings) {
 			return true
 		}
 	}
@@ -938,14 +1023,14 @@ func outputsReferenceMissingDeclaredField(intent *workflowintent.Intent, selecte
 				continue
 			}
 			for _, value := range step.With {
-				if root, field, ok := outputRef(value); ok && root == selected.Name && field != "" && !contractHasOutputPath(declared, field) {
+				if root, field, ok := outputRef(value); ok && root == selected.Name && field != "" && !outputPathCoveredByContract(field, declared, mappings) {
 					invalid = true
 				}
 			}
 			for _, bind := range step.Binds {
 				if bind != nil {
 					for _, value := range bind.Fields {
-						if root, field, ok := outputRef(value); ok && root == selected.Name && field != "" && !contractHasOutputPath(declared, field) {
+						if root, field, ok := outputRef(value); ok && root == selected.Name && field != "" && !outputPathCoveredByContract(field, declared, mappings) {
 							invalid = true
 						}
 					}
@@ -1278,34 +1363,6 @@ func checkEffect(contract StepContract, candidate apitools.OperationCandidate, a
 	}
 	check.add("effect.evidence", "pass", "Source metadata supports the selected operation's effect class.")
 	return "pass"
-}
-
-func candidateContractStatus(match apitools.ContractDimensionMatch, representable, available bool) string {
-	if !available {
-		return "indeterminate"
-	}
-	switch match.Status {
-	case apitools.ContractMatchIncompatible:
-		return "incompatible"
-	case apitools.ContractMatchCompatible:
-		if representable {
-			return "compatible"
-		}
-	}
-	return "indeterminate"
-}
-
-func addCandidateContractCheck(check *checkAccumulator, code, dimension string, match apitools.ContractDimensionMatch, representable, available bool) string {
-	status := candidateContractStatus(match, representable, available)
-	switch status {
-	case "compatible":
-		check.add(code, "pass", "Source metadata is compatible with the declared step "+dimension+" contract.")
-	case "incompatible":
-		check.add(code, "fail", "Source metadata conflicts with the declared step "+dimension+" contract.")
-	default:
-		check.add(code, "indeterminate", "Source metadata cannot establish compatibility with the declared step "+dimension+" contract.")
-	}
-	return status
 }
 
 func unresolvedForContract(contract StepContract, includeOperation, includeEffect bool) []string {

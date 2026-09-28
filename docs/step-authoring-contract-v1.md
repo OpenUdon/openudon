@@ -1,12 +1,13 @@
 # OpenUdon step-authoring command contract v1
 
-**M87 release contract.** This document and its fixtures define the versioned
-OpenUdon CLI surface delivered by M87. UWS owns pending-step semantics; the
+**M87 release contract, extended additively by M89.** This document and its
+fixtures define the versioned OpenUdon CLI surface for step authoring and
+explicit local API-source provisioning. UWS owns pending-step semantics; the
 recorded local C07.2 mapping check does not publish or modify UWS.
 
 This additive CLI contract is owned by OpenUdon. It gives Kinet a stable,
-versioned subprocess boundary for `step candidates`, `step bind`, `step check`,
-and `flow-review`. It does not add UWS execution behavior. Kinet remains the
+versioned subprocess boundary for `step source add`, `step candidates`,
+`step bind`, `step check`, and `flow-review`. It does not add UWS execution behavior. Kinet remains the
 workflow planner and owns user confirmation, its ledger, receipts, and repair
 orchestration. UWS owns workflow semantics; APItools owns generic operation
 summaries, effect evidence, and ranking.
@@ -17,6 +18,7 @@ summaries, effect evidence, and ranking.
 openudon step candidates --example DIR --request FILE|-
 openudon step bind       --example DIR --request FILE|-
 openudon step check      --example DIR --request FILE|-
+openudon step source add --example DIR --request FILE|-
 openudon flow-review     --example DIR --request FILE|-
 ```
 
@@ -64,7 +66,7 @@ registry is:
 
 | Code | Meaning |
 |---|---|
-| `request.cancelled` | Candidate discovery, step check, or step bind was cancelled before completion. |
+| `request.cancelled` | A source operation, candidate discovery, step check, or step bind was cancelled before completion. |
 | `request.invalid_json` | Request bytes are not one strict UTF-8 JSON value. |
 | `request.unsupported_version` | Request version is not supported by this binary. |
 | `request.invalid` | Request schema or command-specific invariants are invalid. |
@@ -74,8 +76,20 @@ registry is:
 | `source.unavailable` | A requested source cannot be read or verified. |
 | `source.unsupported` | A requested source family or metadata dimension is unavailable. |
 | `source.digest_mismatch` | The current source bytes differ from the requested digest. |
+| `source.invalid` | A source identity, family, or supported file type is invalid. |
+| `source.format_unsupported` | A source file uses an unsupported extension or text encoding. |
+| `source.duplicate` | The same local source file or source identity was supplied more than once. |
+| `source.byte_limit` | The selected local source set exceeds its byte bound. |
+| `manifest.stale` | The package source manifest does not match the approved revision. |
+| `manifest.invalid` | The package source manifest is malformed, unsafe, or inconsistent with its source files. |
+| `manifest.unsupported` | The package source manifest version is not supported. |
+| `source.id_exists` | The requested source identity is already present in the package. |
+| `source.path_exists` | The derived package source path is already present. |
+| `source.validation_failed` | APItools could not validate all selected local sources within the command bounds. |
+| `package.write_failed` | The atomic source write failed and the transaction rollback completed. |
 | `operation.not_found` | Exact source operation identity does not resolve. |
 | `operation.ambiguous` | Operation identity does not select exactly one candidate. |
+| `contract.root_extension_unsupported` | A root-level contract extension prevents binding; the diagnostic names the extension key without echoing its value. |
 | `mapping.incomplete` | Required request/output or dependency mappings are missing. |
 | `mapping.workflow_inputs` | A selected step mapping references an input not declared by the workflow. |
 | `mapping.contract_mismatch` | Source input/output types conflict with the declared step contract. |
@@ -143,6 +157,54 @@ as unknown, not anonymous.
 
 ## Command behavior
 
+### `step source add`
+
+Kinet calls this command only after the user confirms the exact rendered
+proposal. The request carries the proposal-approved SHA-256 for each selected
+local file and the current source-manifest revision. OpenUdon verifies those
+revisions, validates every document through APItools' local source inventory,
+then installs the source documents and updated provenance manifest in one
+create-only/optimistic atomic package transaction. The command performs no
+network discovery, URL fetch, workflow execution, or write outside `--example`.
+
+The strict request shape is:
+
+```json
+{
+  "version": "openudon.step-authoring.v1",
+  "kind": "request",
+  "command": "step.source.add",
+  "manifest_revision": {"state": "missing"},
+  "sources": [{
+    "source_kind": "openapi",
+    "source_id": "weather",
+    "source_path": "/home/user/Downloads/weather.yaml",
+    "source_sha256": "sha256:<64 lowercase hex digits>"
+  }]
+}
+```
+
+For an existing manifest, use `{"state":"present","sha256":"sha256:..."}`
+with its exact digest. Each source path must be absolute, local, regular, and
+free of symlink components; the command bounds each source to 8 MiB, the batch
+to 32 MiB and 16 entries, and APItools inspection to 1,000 operations. Allowed
+extensions are OpenAPI/AsyncAPI `.json`, `.yaml`, or `.yml` (stored as `.yaml`),
+Google Discovery/AWS Smithy/OpenRPC `.json`, GraphQL `.graphql` or `.gql`,
+gRPC/protobuf `.proto`, and OData `.xml` or `.json`.
+
+Output paths are derived as `<source_kind>/<source_id>.<extension>`; callers
+cannot choose package paths. Existing source files are never overwritten. The
+deterministic `expected/api-source-manifest.json` records its version and each
+imported source's ID, kind, package-relative path, and exact content digest.
+Package handoff inventory includes that manifest whenever it exists. Results
+contain package-relative paths and digests, but never echo the selected local
+source path or content. In each result, `source_id` is the caller-selected ID
+used in the manifest and package filename; `candidate_source_id` is the
+path-derived identity used by `step candidates` and its `operation_ref`. Use
+`candidate_source_id` when filtering later candidate discovery; operation
+references in candidate results remain authoritative. Failed validation,
+stale digests, or a changed manifest write no source file.
+
 ### `step candidates`
 
 The request supplies one shared step contract and optional exact source filters
@@ -153,7 +215,9 @@ named input/output values. Types, formats, nested properties, items, and
 requiredness are preserved. ParamSchema references or composition constructs
 or extensions that APItools cannot represent are reported as
 indeterminate/unsupported evidence; they are never silently discarded or
-fetched. Each candidate returns exact source identity, a
+fetched. Root-level `x-*` extensions remain unsupported; the
+`contract.root_extension_unsupported` diagnostic identifies the key and never
+returns its value. Each candidate returns exact source identity, a
 structured consumer summary (description, inputs, outputs, evidence, and gaps),
 separate purpose/input/output/effect match evidence and scores, OR-of-AND
 authentication alternatives, and the effect class with its source evidence
@@ -184,7 +248,10 @@ The runnable request/result pair under `examples/step-authoring/v1/` exercises
 the candidate command. A credential-free end-to-end CLI test also selects a
 local operation, binds and checks it, runs deterministic flow review, and then
 passes the existing build and assessment gates using only a symbolic
-credential binding.
+credential binding. The `requests/step-check-nested-mapping.json` fixture and
+`example-nested-mapping/` package demonstrate an API query parameter mapped
+to a nested contract input and a renamed contract output mapped to a nested
+response path; its checked result is published alongside the request.
 
 ### `step check`
 
@@ -196,12 +263,33 @@ request/output mappings, input/output types and requiredness against the step
 contract, an available authentication alternative, declared dependencies, and
 effect against the contract. Unsupported schema constructs or incomplete
 source metadata remain indeterminate; known type/requiredness conflicts fail.
-Request keys must select the location declared by the source (`body`, `query`,
+Request mapping keys must select the location declared by the source (`body`, `query`,
 `path`, `header`, or `cookie`). An unqualified name shared by multiple
 locations is ambiguous. For direct `inputs.<name>` mappings, the declared
 workflow input's type and requiredness must satisfy both the step contract
-and selected source field. A nested or otherwise unproven expression is
-indeterminate; `step bind` refuses it until the mapping is made provable.
+and selected source field. The contract field may be nested, for example
+`query.q: inputs.address.city`; OpenUdon checks the exact source field's type,
+format, and requiredness against that nested contract field and checks the
+workflow input's declared root type. A mapping to an array value is supported
+as a whole; element-level mappings through array items remain indeterminate.
+
+The optional `output_mappings` request object maps dotted contract output paths
+to exact `received_body` paths, such as
+`{"project_rows":"received_body.data.projects"}`. This permits nested and
+renamed response fields. If omitted, v1 retains the previous same-name mapping
+behavior. OpenUdon checks mapped field types, formats, requiredness, and
+nullability against the contract. A selected nullable response field remains
+indeterminate because UWS `ParamSchema` does not express nullability. Result
+check items may include a JSON Pointer identifying the contract field that
+failed or remains unproven.
+
+Output mappings are request evidence and are not written into
+`workflows/intent.hcl`; Kinet keeps them with the confirmed workflow step and
+supplies them again for later `step check` calls. The intent continues to use
+the actual `received_body` paths. `step bind` requires supported source
+metadata and fully proven compatible mappings before writing. Unknown effects,
+partial source-family mapping capabilities, and unproven expressions remain
+fail-closed.
 Inline credential references use `credentials.<symbol>` with a lowercase
 symbol of letters, digits, `_`, or `-`; `none` and `clear` are reserved and
 cannot name credentials. Bind rejects malformed inline references, and check

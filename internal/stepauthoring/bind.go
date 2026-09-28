@@ -178,17 +178,18 @@ func Bind(ctx context.Context, exampleDir string, request BindRequest) BindOutco
 	if mapCandidateAuthentication(candidate).Status != "known" {
 		return bindFailure("needs_input", "authentication.unknown", "The selected operation has no complete source authentication alternative to bind.", 4)
 	}
+	if operationCapability(candidate, "inputs") != apitools.OperationCapabilitySupported || operationCapability(candidate, "outputs") != apitools.OperationCapabilitySupported {
+		return bindFailure("needs_input", "mapping.incomplete", "The selected source cannot establish complete request and response field metadata for explicit mappings.", 4)
+	}
+	if names := rootContractExtensionNames(request.Contract.Inputs); len(names) > 0 {
+		return bindFailure("needs_input", "contract.root_extension_unsupported", unsupportedRootExtensionMessage("inputs", names), 4)
+	}
+	if names := rootContractExtensionNames(request.Contract.Outputs); len(names) > 0 {
+		return bindFailure("needs_input", "contract.root_extension_unsupported", unsupportedRootExtensionMessage("outputs", names), 4)
+	}
 	_, unsupportedInputs, unsupportedOutputs := mapStepContract(request.Contract)
-	inputStatus := candidateContractStatus(candidate.Match.Inputs, !unsupportedInputs, true)
-	outputStatus := candidateContractStatus(candidate.Match.Outputs, !unsupportedOutputs, true)
-	if inputStatus != "compatible" || outputStatus != "compatible" {
-		code := "mapping.incomplete"
-		message := "Source metadata cannot establish complete input and output compatibility with the step contract."
-		if inputStatus == "incompatible" || outputStatus == "incompatible" {
-			code = "mapping.contract_mismatch"
-			message = "The selected operation's input or output types conflict with the step contract."
-		}
-		return bindFailure("needs_input", code, message, 4)
+	if unsupportedInputs || unsupportedOutputs {
+		return bindFailure("needs_input", "mapping.incomplete", "The step contract contains schema constructs that explicit mappings cannot verify.", 4)
 	}
 	effectCheck := newCheckAccumulator()
 	effectStatus := checkEffect(request.Contract, candidate, true, effectCheck)
@@ -211,16 +212,6 @@ func Bind(ctx context.Context, exampleDir string, request BindRequest) BindOutco
 	if err != nil {
 		return bindFailure("needs_input", "binding.incomplete", "The selected operation needs complete request, output, or authentication mappings before it can be bound.", 4)
 	}
-	check := newCheckAccumulator()
-	checkRequiredMappings(step, request.Contract, operation, check)
-	for _, item := range check.items {
-		if item.Status != "pass" {
-			return bindFailure("needs_input", "mapping.incomplete", "Required operation inputs need explicit symbolic mappings before the step can be bound.", 4)
-		}
-	}
-	if err := validateOutputMappings(request, operation); err != nil {
-		return bindFailure("needs_input", "mapping.outputs", "Required output mappings are absent or do not match the selected response summary.", 4)
-	}
 	trialIntent, err := intent.Clone()
 	if err != nil {
 		return bindFailure("blocked", "intent.invalid", "The workflow intent could not be reviewed safely.", 4)
@@ -231,17 +222,55 @@ func Bind(ctx context.Context, exampleDir string, request BindRequest) BindOutco
 	if dependencyCycleFrom(trialIntent.Steps, request.StepID) {
 		return bindFailure("needs_input", "dependency.cycle", "The selected step would create or retain a workflow dependency cycle.", 4)
 	}
-	valueChecks := newCheckAccumulator()
-	checkMappedWorkflowValues(intent, step, request.Contract, operation, valueChecks)
-	for _, item := range valueChecks.items {
+	check := newCheckAccumulator()
+	checkRequiredMappings(step, request.Contract, operation, check)
+	checkMappedWorkflowValues(intent, step, request.Contract, operation, check)
+	inputStatus, inputPointer := checkRequestMappingCompatibility(step, request.Contract, operation, true)
+	if inputStatus == "indeterminate" {
+		if pointer := rootContractExtensionPointer("inputs", request.Contract.Inputs); pointer != "" {
+			inputPointer = pointer
+		}
+	}
+	addMappingCompatibilityCheck(check, "mapping.input_contract", "input", inputStatus, inputPointer)
+	inputFailure := ""
+	for _, item := range check.items {
+		if item.Code == "mapping.input_contract" && item.Status == "fail" {
+			inputFailure = "mapping.contract_mismatch"
+		}
+		if item.Code == "mapping.workflow_value_types" && item.Status != "pass" && inputFailure == "" {
+			inputFailure = "mapping.workflow_value_types"
+		}
+	}
+	if inputFailure != "" {
+		message := "Mapped workflow values must have known compatible types and requiredness before the step can be bound."
+		if inputFailure == "mapping.contract_mismatch" {
+			message = "The selected operation's request fields conflict with, or cannot be proven compatible with, the step contract."
+		}
+		return bindFailure("needs_input", inputFailure, message, 4)
+	}
+	for _, item := range check.items {
 		if item.Status != "pass" {
-			return bindFailure("needs_input", "mapping.workflow_value_types", "Mapped workflow values must have known compatible types and requiredness before the step can be bound.", 4)
+			return bindFailure("needs_input", "mapping.incomplete", "Required operation inputs need explicit, compatible mappings before the step can be bound.", 4)
 		}
 	}
 	outputChecks := newCheckAccumulator()
-	checkOutputs(trialIntent, step, request.Contract, operation, outputChecks)
+	outputStatus, outputPointer := checkOutputs(nil, step, request.Contract, operation, request.OutputMappings, true, outputChecks)
+	if outputStatus == "indeterminate" {
+		if pointer := rootContractExtensionPointer("outputs", request.Contract.Outputs); pointer != "" {
+			outputPointer = pointer
+		}
+	}
+	addMappingCompatibilityCheck(outputChecks, "mapping.output_contract", "output", outputStatus, outputPointer)
 	for _, item := range outputChecks.items {
-		if item.Status == "fail" {
+		if item.Status != "pass" {
+			return bindFailure("needs_input", "mapping.outputs", "Required output mappings are absent or do not match the selected response summary.", 4)
+		}
+	}
+	outputChecks = newCheckAccumulator()
+	outputStatus, outputPointer = checkOutputs(trialIntent, step, request.Contract, operation, request.OutputMappings, true, outputChecks)
+	addMappingCompatibilityCheck(outputChecks, "mapping.output_contract", "output", outputStatus, outputPointer)
+	for _, item := range outputChecks.items {
+		if item.Status != "pass" {
 			return bindFailure("needs_input", "mapping.output_reference", "Existing workflow outputs must remain within the selected step contract.", 4)
 		}
 	}
@@ -634,44 +663,6 @@ func bindStep(request BindRequest, source string, operation apitools.OperationSu
 		step.With = nil
 	}
 	return step, nil
-}
-
-func validateOutputMappings(request BindRequest, operation apitools.OperationSummary) error {
-	declared := request.Contract.Outputs
-	if len(declared.Properties) == 0 {
-		if len(request.OutputMappings) != 0 {
-			return fmt.Errorf("no outputs are declared")
-		}
-		return nil
-	}
-	if operation.ResponseBody == nil || len(operation.ResponseBody.Fields) == 0 {
-		return fmt.Errorf("operation response has no inspectable output fields")
-	}
-	available := map[string]bool{}
-	for _, field := range operation.ResponseBody.Fields {
-		available[strings.TrimPrefix(strings.TrimSpace(field.Path), "$")] = true
-	}
-	for name, target := range request.OutputMappings {
-		if !contractHasOutputPath(declared.Properties, name) {
-			return fmt.Errorf("output mapping is outside the contract")
-		}
-		path := strings.TrimPrefix(target, "received_body.")
-		if path == target {
-			if target != "received_body" {
-				return fmt.Errorf("output mapping is not a response reference")
-			}
-			continue
-		}
-		if !available[path] {
-			return fmt.Errorf("output mapping is absent from response summary")
-		}
-	}
-	for name := range contractOutputPaths(declared.Properties) {
-		if schemaRequiredPath(declared, name) && request.OutputMappings[name] == "" {
-			return fmt.Errorf("required output mapping is missing")
-		}
-	}
-	return nil
 }
 
 func validateDependencies(intent *workflowintent.Intent, stepID string, dependsOn []string, mappings map[string]string) error {

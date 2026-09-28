@@ -15,6 +15,11 @@
       "message": "Account and destination constraints are not operation metadata and were not ranked."
     },
     {
+      "code": "contract.root_extension_unsupported",
+      "severity": "warning",
+      "message": "The inputs contract root contains unsupported extension field x-openudon-contract."
+    },
+    {
       "code": "contract.schema_unsupported",
       "severity": "warning",
       "message": "Some declared inputs schema constructs are not represented by APItools; affected matches are indeterminate."

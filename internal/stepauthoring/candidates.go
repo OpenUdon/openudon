@@ -33,6 +33,7 @@ const (
 )
 
 var candidateDiagnosticCode = regexp.MustCompile(`^[a-z][a-z0-9_.-]{0,127}$`)
+var contractExtensionName = regexp.MustCompile(`^x-[A-Za-z0-9][A-Za-z0-9._-]{0,125}$`)
 
 type CandidateSourceFilter struct {
 	SourceKind   string `json:"source_kind"`
@@ -233,8 +234,8 @@ func Candidates(ctx context.Context, exampleDir string, request CandidatesReques
 	}
 
 	contract, unsupportedInputs, unsupportedOutputs := mapStepContract(request.Contract)
-	inputGaps := unsupportedContractDiagnostics("inputs", unsupportedInputs)
-	outputGaps := unsupportedContractDiagnostics("outputs", unsupportedOutputs)
+	inputGaps := unsupportedContractDiagnostics("inputs", unsupportedInputs, rootContractExtensionNames(request.Contract.Inputs))
+	outputGaps := unsupportedContractDiagnostics("outputs", unsupportedOutputs, rootContractExtensionNames(request.Contract.Outputs))
 
 	apiSources := make([]apitools.OperationSourceInput, 0, len(sources))
 	for _, source := range sources {
@@ -560,15 +561,65 @@ func mapParamSchema(schema *uws1.ParamSchema, required bool, hasRequired bool) (
 	return value, unsupported
 }
 
-func unsupportedContractDiagnostics(dimension string, unsupported bool) []Diagnostic {
+func unsupportedContractDiagnostics(dimension string, unsupported bool, rootExtensions []string) []Diagnostic {
 	if !unsupported {
 		return nil
 	}
-	diagnostic := Diagnostic{
+	diagnostics := []Diagnostic{{
 		Code: "contract.schema_unsupported", Severity: "warning",
 		Message: "Some declared " + dimension + " schema constructs are not represented by APItools; affected matches are indeterminate.",
+	}}
+	if len(rootExtensions) > 0 {
+		diagnostics = append(diagnostics, Diagnostic{
+			Code: "contract.root_extension_unsupported", Severity: "warning",
+			Message: unsupportedRootExtensionMessage(dimension, rootExtensions),
+		})
 	}
-	return []Diagnostic{diagnostic}
+	return diagnostics
+}
+
+func rootContractExtensionNames(schema *uws1.ParamSchema) []string {
+	if schema == nil || len(schema.Extensions) == 0 {
+		return nil
+	}
+	names := make([]string, 0, len(schema.Extensions))
+	for name := range schema.Extensions {
+		if contractExtensionName.MatchString(name) {
+			names = append(names, name)
+		} else {
+			names = append(names, "invalid x-* extension name")
+		}
+	}
+	sort.Strings(names)
+	return names
+}
+
+func unsupportedRootExtensionMessage(dimension string, names []string) string {
+	if len(names) == 0 {
+		return "The " + dimension + " contract root contains an unsupported extension field."
+	}
+	message := "The " + dimension + " contract root contains unsupported extension field " + names[0] + "."
+	if len(names) > 1 {
+		message += fmt.Sprintf(" %d additional extension field(s) are unsupported.", len(names)-1)
+	}
+	return message
+}
+
+func rootContractExtensionPointer(dimension string, schema *uws1.ParamSchema) string {
+	if schema == nil {
+		return ""
+	}
+	var names []string
+	for name := range schema.Extensions {
+		if contractExtensionName.MatchString(name) {
+			names = append(names, name)
+		}
+	}
+	if len(names) == 0 {
+		return ""
+	}
+	sort.Strings(names)
+	return "/contract/" + dimension + "/" + escapeJSONPointer(names[0])
 }
 
 func mapCandidateReport(report apitools.OperationCandidateReport, limit *int) (CandidatesData, []Diagnostic, error) {

@@ -1,0 +1,37 @@
+{
+  "version": "openudon.step-authoring.v1",
+  "kind": "request",
+  "command": "step.check",
+  "step_id": "list_projects",
+  "contract": {
+    "id": "project_read_contract",
+    "purpose": "List projects for the requested location",
+    "inputs": {
+      "type": "object",
+      "properties": {
+        "pagination": {
+          "type": "object",
+          "properties": { "limit": { "type": "integer" } },
+          "required": ["limit"]
+        }
+      },
+      "required": ["pagination"]
+    },
+    "outputs": {
+      "type": "object",
+      "properties": { "project_rows": { "type": "array" } },
+      "required": ["project_rows"]
+    },
+    "effect": "read"
+  },
+  "operation_ref": {
+    "source_kind": "openapi",
+    "source_id": "src-1d4eb0f1835e8dcc2a650198",
+    "source_sha256": "sha256:4f51b1706e62c8dc8b1742e6ac9249a6d18f01cd0ed119524e7834a2410a1d37",
+    "native_selector": "#/paths/~1projects/get",
+    "operation_key": "listProjects",
+    "operation_id": "listProjects"
+  },
+  "intent_sha256": "sha256:4714e018df8b13af2caa856a5d84af4dc9ea5a3cecc2b6b1d9a167eca44c8ca3",
+  "output_mappings": { "project_rows": "received_body.data.items" }
+}
