@@ -145,6 +145,7 @@ subsequently closed under the normal reviewed procedure.
 | M86 | legacy-preserved | 2026-09-24 | [status-M86.md](status-M86.md) | Active: UWS 1.11 sandboxed real-browser qualification and current scenario evidence. |
 | M87 | completed | 2026-09-27 | [status-M87.md](status-M87.md) | Qualified non-interactive step-authoring commands, v1 schema/fixtures, and APItools M77 integration; review iteration 9 passed. |
 | M88 | completed | 2026-09-27 | [status-M88.md](status-M88.md) | Pinned APItools M78 and corrected step-authoring location, mapped-value, and credential checks; review iteration 2 passed. |
+| M89 | completed | 2026-09-28 | [status-M89.md](status-M89.md) | Qualified local API-source provisioning, nested mappings, fail-closed diagnostics, and Kinet W04.6 consumption; review iteration 5 passed. |
 | P01 | legacy-preserved | 2026-09-24 | [status-P01.md](status-P01.md) | Value-free browser verification package and review evidence. |
 | P02 | legacy-preserved | 2026-09-24 | [status-P02.md](status-P02.md) | Trusted execution and package-integrity v2 migration. |
 | P03 | legacy-preserved | 2026-09-24 | [status-P03.md](status-P03.md) | Value-free trusted browser execution through normal `openudon run`. |
