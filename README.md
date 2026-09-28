@@ -218,10 +218,12 @@ and never unions credentials or stores credential values.
 go run ./cmd/icot --example ./examples/<name>
 ```
 
-For non-interactive consumers, `openudon step candidates` ranks local API
-operations, `openudon step check` validates one selected operation against a
-workflow intent, `openudon step bind` writes one explicitly mapped step, and
-`openudon flow-review` runs the advisory read-only review. The
+For non-interactive consumers, `openudon step source add` validates and stages
+explicitly selected local API documents after the caller's confirmation;
+`openudon step candidates` ranks local API operations, `openudon step check`
+validates one selected operation against a workflow intent, `openudon step bind`
+writes one explicitly mapped step, and `openudon flow-review` runs the advisory
+read-only review. The
 versioned JSON contract and runnable fixtures are in
 [the step-authoring contract](docs/step-authoring-contract-v1.md). Model review
 is opt-in per request and reports unavailable or failed outcomes explicitly.
@@ -353,8 +355,10 @@ go run ./cmd/icot replay-eval --root ./examples/eval --provider copilot-api --mo
 
 External orchestrators can use the versioned, non-prompting step-authoring CLI. Candidate discovery
 is local and offline; it consumes APItools metadata but never fetches source URLs or calls API
-operations. Bind requires an explicit selected operation, mappings, and symbolic credential names;
-it does not approve or execute a workflow.
+operations. `step source add` accepts exact local paths and content digests, validates documents
+through APItools, and atomically writes the source files plus package provenance manifest. Kinet
+calls it only after the user confirms the exact source proposal. Bind requires an explicit selected
+operation, mappings, and symbolic credential names; it does not approve or execute a workflow.
 
 ```bash
 openudon step candidates --example docs/examples/step-authoring/v1/example \

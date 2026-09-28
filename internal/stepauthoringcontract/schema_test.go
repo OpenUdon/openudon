@@ -9,6 +9,7 @@ import (
 	"reflect"
 	"testing"
 
+	"github.com/OpenUdon/openudon/internal/evidencefile"
 	"github.com/OpenUdon/openudon/internal/stepauthoring"
 	"github.com/OpenUdon/uws/uws1"
 	"github.com/santhosh-tekuri/jsonschema/v6"
@@ -94,6 +95,51 @@ func TestPublishedFixturesConformToSchema(t *testing.T) {
 	}
 	if err := schema.Validate(runtimeInstance); err != nil {
 		t.Fatalf("runtime step-candidates output does not conform to the published schema: %v", err)
+	}
+
+	sourceRoot := t.TempDir()
+	sourceContent := []byte("openapi: 3.0.3\ninfo: {title: Weather, version: '1'}\npaths: {}\n")
+	sourcePath := filepath.Join(t.TempDir(), "weather.yaml")
+	if err := os.WriteFile(sourcePath, sourceContent, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	sourceOutcome := stepauthoring.AddSources(context.Background(), sourceRoot, stepauthoring.SourceAddRequest{
+		Version: stepauthoring.WireVersion, Kind: "request", Command: stepauthoring.SourceAddCommand,
+		ManifestRevision: stepauthoring.SourceManifestRevision{State: "missing"},
+		Sources: []stepauthoring.SourceAddEntry{{
+			SourceKind: "openapi", SourceID: "weather", SourcePath: sourcePath,
+			SourceSHA256: "sha256:" + evidencefile.SHA256(sourceContent),
+		}},
+	})
+	if sourceOutcome.Result.Status != "completed" {
+		t.Fatalf("runtime step-source-add output did not complete: %#v", sourceOutcome.Result)
+	}
+	sourceResultBytes, err := json.Marshal(sourceOutcome.Result)
+	if err != nil {
+		t.Fatal(err)
+	}
+	sourceResultInstance, err := jsonschema.UnmarshalJSON(bytes.NewReader(sourceResultBytes))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := schema.Validate(sourceResultInstance); err != nil {
+		t.Fatalf("runtime step-source-add output does not conform to the published schema: %v", err)
+	}
+	indeterminateResult := stepauthoring.SourceAddWireResult{
+		Version: stepauthoring.WireVersion, Kind: "result", Command: stepauthoring.SourceAddCommand,
+		Status: "failed", WriteOutcome: "indeterminate", AffectedPaths: []string{"expected/api-source-manifest.json", "openapi/weather.yaml"},
+		Diagnostics: []stepauthoring.Diagnostic{{Code: "write.indeterminate", Severity: "error", Message: "Inspect the listed paths before retrying."}},
+	}
+	indeterminateBytes, err := json.Marshal(indeterminateResult)
+	if err != nil {
+		t.Fatal(err)
+	}
+	indeterminateInstance, err := jsonschema.UnmarshalJSON(bytes.NewReader(indeterminateBytes))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := schema.Validate(indeterminateInstance); err != nil {
+		t.Fatalf("indeterminate step-source-add output does not conform to the published schema: %v", err)
 	}
 }
 

@@ -86,6 +86,50 @@ func TestStepCandidatesCommandReportsMalformedJSONAsJSON(t *testing.T) {
 	}
 }
 
+func TestStepSourceAddCommandUsesStrictRequestAndOneJSONLine(t *testing.T) {
+	root := t.TempDir()
+	sourceContent := []byte(`openapi: 3.0.3
+info: {title: Weather, version: '1'}
+paths: {}
+`)
+	sourcePath := filepath.Join(t.TempDir(), "weather.yaml")
+	if err := os.WriteFile(sourcePath, sourceContent, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	request := stepauthoring.SourceAddRequest{
+		Version: stepauthoring.WireVersion, Kind: "request", Command: stepauthoring.SourceAddCommand,
+		ManifestRevision: stepauthoring.SourceManifestRevision{State: "missing"},
+		Sources: []stepauthoring.SourceAddEntry{{
+			SourceKind: "openapi", SourceID: "weather", SourcePath: sourcePath,
+			SourceSHA256: "sha256:" + evidencefile.SHA256(sourceContent),
+		}},
+	}
+	requestBytes, err := json.Marshal(request)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var stdout, stderr bytes.Buffer
+	code := runStepSourceCommand([]string{"add", "--example", root, "--request", "-"}, bytes.NewReader(requestBytes), &stdout, &stderr)
+	if code != 0 || stderr.Len() != 0 || strings.Count(stdout.String(), "\n") != 1 {
+		t.Fatalf("unexpected source-add output: code=%d stdout=%q stderr=%q", code, stdout.String(), stderr.String())
+	}
+	var result map[string]any
+	if err := json.Unmarshal(bytes.TrimSpace(stdout.Bytes()), &result); err != nil {
+		t.Fatal(err)
+	}
+	if result["command"] != stepauthoring.SourceAddCommand || result["status"] != "completed" || strings.Contains(stdout.String(), sourcePath) {
+		t.Fatalf("source-add result is invalid or discloses its input path: %s", stdout.String())
+	}
+	resultData := result["result"].(map[string]any)
+	resultSources := resultData["sources"].([]any)
+	firstSource := resultSources[0].(map[string]any)
+	pathDigest := sha256.Sum256([]byte("openapi/weather.yaml"))
+	expectedCandidateSourceID := "src-" + hex.EncodeToString(pathDigest[:12])
+	if firstSource["candidate_source_id"] != expectedCandidateSourceID {
+		t.Fatalf("source-add result omitted the path-derived candidate identity: %#v", firstSource)
+	}
+}
+
 func TestStepAuthoringCLISequenceBuildsAndAssessesLocally(t *testing.T) {
 	root := copyCandidateExampleForBuild(t)
 	sourcePath := "openapi/project-api.yaml"

@@ -28,6 +28,7 @@ type ManifestInput struct {
 
 const ReviewHandoffPath = "expected/review-handoff.json"
 const RuntimeDataPath = "expected/data.hcl"
+const APISourceManifestPath = "expected/api-source-manifest.json"
 const BrowserSourceReviewPath = ".icot/browser-sources.json"
 const BrowserAuthenticationReviewPath = ".icot/browser-authentication.json"
 const BrowserRegistrationReviewPath = ".icot/browser-registration.json"
@@ -59,6 +60,13 @@ func RequiredPackagePaths(packageRoot string) ([]string, error) {
 	paths := append([]string(nil), fixedRequiredPackagePaths...)
 	if runtimeDataFileExists(packageRoot) {
 		paths = append(paths, RuntimeDataPath)
+	}
+	manifestExists, err := apiSourceManifestFileExists(packageRoot)
+	if err != nil {
+		return nil, err
+	}
+	if manifestExists {
+		paths = append(paths, APISourceManifestPath)
 	}
 	openAPIPaths, err := CollectAPISourcePaths(packageRoot)
 	if err != nil {
@@ -100,6 +108,24 @@ func RequiredPackagePaths(packageRoot string) ([]string, error) {
 	}
 	paths = append(paths, securitySidecars...)
 	return uniqueSorted(paths)
+}
+
+func apiSourceManifestFileExists(packageRoot string) (bool, error) {
+	path := filepath.Join(packageRoot, filepath.FromSlash(APISourceManifestPath))
+	info, err := os.Lstat(path)
+	if os.IsNotExist(err) {
+		return false, nil
+	}
+	if err != nil {
+		return false, err
+	}
+	if !info.Mode().IsRegular() {
+		return false, fmt.Errorf("API source manifest must be a regular package file: %s", APISourceManifestPath)
+	}
+	if err := ValidateRegularPackageFiles(packageRoot, []string{APISourceManifestPath}); err != nil {
+		return false, err
+	}
+	return true, nil
 }
 
 func runtimeDataFileExists(packageRoot string) bool {

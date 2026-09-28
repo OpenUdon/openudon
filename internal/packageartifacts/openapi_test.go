@@ -103,6 +103,45 @@ func TestRequiredPackagePathsIncludesRuntimeDataWhenPresent(t *testing.T) {
 	}
 }
 
+func TestRequiredPackagePathsIncludesAPIProvenanceManifest(t *testing.T) {
+	root := t.TempDir()
+	writeRequiredPackageFiles(t, root)
+	mustWrite(t, filepath.Join(root, filepath.FromSlash(APISourceManifestPath)), []byte(`{"version":"openudon.api-source-manifest.v1","sources":[]}`))
+
+	paths, err := RequiredPackagePaths(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !stringSliceContains(paths, APISourceManifestPath) {
+		t.Fatalf("RequiredPackagePaths omitted API source provenance manifest: %#v", paths)
+	}
+	inputs := make([]ManifestInput, 0, len(paths))
+	for _, path := range paths {
+		inputs = append(inputs, ManifestInput{Path: path, Required: true})
+	}
+	manifestPaths, err := RequiredManifestPaths(root, inputs)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !stringSliceContains(manifestPaths, APISourceManifestPath) {
+		t.Fatalf("RequiredManifestPaths omitted API source provenance manifest: %#v", manifestPaths)
+	}
+}
+
+func TestRequiredPackagePathsRejectsUnsafeAPIProvenanceManifest(t *testing.T) {
+	root := t.TempDir()
+	writeRequiredPackageFiles(t, root)
+	if err := os.MkdirAll(filepath.Join(root, "expected"), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink(filepath.Join(t.TempDir(), "outside.json"), filepath.Join(root, filepath.FromSlash(APISourceManifestPath))); err != nil {
+		t.Skipf("symlinks unavailable: %v", err)
+	}
+	if _, err := RequiredPackagePaths(root); err == nil {
+		t.Fatal("RequiredPackagePaths accepted a symlinked provenance manifest")
+	}
+}
+
 func TestCollectAPISourcePathsSkipsAdvisorySecuritySidecars(t *testing.T) {
 	root := t.TempDir()
 	mustWrite(t, filepath.Join(root, "google-discovery", "gmail.json"), []byte(`{"discoveryVersion":"v1"}`))

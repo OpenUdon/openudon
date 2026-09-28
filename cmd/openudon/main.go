@@ -65,7 +65,7 @@ func main() {
 		fmt.Fprintf(flag.CommandLine.Output(), "  run       validate approval gates and invoke a trusted executor handoff\n")
 		fmt.Fprintf(flag.CommandLine.Output(), "  run-evidence keygen/verify/archive run evidence, signatures, and sidecar digests\n")
 		fmt.Fprintf(flag.CommandLine.Output(), "  smoke-matrix run provider-free or opt-in live product smoke scenarios\n")
-		fmt.Fprintf(flag.CommandLine.Output(), "  step      discover, bind, or check one API step against its contract\n")
+		fmt.Fprintf(flag.CommandLine.Output(), "  step      discover, bind, check, or add explicitly selected local API sources\n")
 		fmt.Fprintf(flag.CommandLine.Output(), "  synthesize generate intent, workflow, UWS, and review artifacts for an example\n")
 		fmt.Fprintf(flag.CommandLine.Output(), "  validate  validate one UWS JSON/YAML file or a directory of UWS artifacts\n")
 		fmt.Fprintf(flag.CommandLine.Output(), "  version   print version\n")

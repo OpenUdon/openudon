@@ -18,7 +18,7 @@ import (
 
 func runStepCommand(args []string) int {
 	if len(args) == 0 {
-		fmt.Fprintln(os.Stderr, "usage: openudon step {candidates|bind|check} --example DIR --request FILE|-")
+		fmt.Fprintln(os.Stderr, "usage: openudon step {candidates|bind|check|source add} --example DIR --request FILE|-")
 		return 2
 	}
 	switch args[0] {
@@ -28,9 +28,56 @@ func runStepCommand(args []string) int {
 		return runStepCheckCommand(args[1:], os.Stdin, os.Stdout, os.Stderr)
 	case "bind":
 		return runStepBindCommand(args[1:], os.Stdin, os.Stdout, os.Stderr)
+	case "source":
+		return runStepSourceCommand(args[1:], os.Stdin, os.Stdout, os.Stderr)
 	default:
-		fmt.Fprintln(os.Stderr, "usage: openudon step {candidates|bind|check} --example DIR --request FILE|-")
+		fmt.Fprintln(os.Stderr, "usage: openudon step {candidates|bind|check|source add} --example DIR --request FILE|-")
 		return 2
+	}
+}
+
+func runStepSourceCommand(args []string, stdin io.Reader, stdout, stderr io.Writer) int {
+	if len(args) == 0 || args[0] != "add" {
+		fmt.Fprintln(stderr, "usage: openudon step source add --example DIR --request FILE|-")
+		return 2
+	}
+	fs := flag.NewFlagSet("openudon step source add", flag.ContinueOnError)
+	fs.SetOutput(stderr)
+	example := fs.String("example", "", "Workflow package directory")
+	requestPath := fs.String("request", "", "Versioned JSON request file, or - for stdin")
+	fs.Usage = func() {
+		fmt.Fprintln(stderr, "Usage: openudon step source add --example DIR --request FILE|-")
+		fs.PrintDefaults()
+	}
+	if err := fs.Parse(args[1:]); err != nil {
+		if errors.Is(err, flag.ErrHelp) {
+			return 0
+		}
+		return writeStepSourceAddResult(stdout, failedStepSourceAdd("request.invalid", "The step-source-add command arguments are invalid."))
+	}
+	if fs.NArg() != 0 || *example == "" || *requestPath == "" {
+		return writeStepSourceAddResult(stdout, failedStepSourceAdd("request.invalid", "The step-source-add command requires a package and request."))
+	}
+	data, err := readStepCheckRequest(*requestPath, stdin)
+	if err != nil || !stepauthoring.ValidUTF8Request(data) || !json.Valid(data) {
+		return writeStepSourceAddResult(stdout, failedStepSourceAdd("request.invalid_json", "The step-source-add request must be bounded UTF-8 JSON."))
+	}
+	var request stepauthoring.SourceAddRequest
+	if err := evidencefile.DecodeStrict(data, &request); err != nil {
+		return writeStepSourceAddResult(stdout, failedStepSourceAdd("request.invalid", "The step-source-add request does not match the strict v1 schema."))
+	}
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer stop()
+	return writeStepSourceAddResult(stdout, stepauthoring.AddSources(ctx, *example, request))
+}
+
+func failedStepSourceAdd(code, message string) stepauthoring.SourceAddOutcome {
+	return stepauthoring.SourceAddOutcome{
+		Result: stepauthoring.SourceAddWireResult{
+			Version: stepauthoring.WireVersion, Kind: "result", Command: stepauthoring.SourceAddCommand,
+			Status: "failed", Diagnostics: []stepauthoring.Diagnostic{{Code: code, Severity: "error", Message: message}},
+		},
+		ExitCode: 2,
 	}
 }
 
@@ -240,6 +287,22 @@ func writeStepBindResult(stdout io.Writer, outcome stepauthoring.BindOutcome) in
 	if err != nil || len(encoded) > stepauthoring.MaxResultBytes {
 		fallback := []byte(`{"version":"openudon.step-authoring.v1","kind":"result","command":"step.bind","status":"failed","diagnostics":[{"code":"result.encoding_failed","severity":"error","message":"The step-bind result could not be encoded within its output bound."}]}` + "\n")
 		_, _ = stdout.Write(fallback)
+		return 1
+	}
+	if _, err := stdout.Write(append(encoded, '\n')); err != nil {
+		return 1
+	}
+	return outcome.ExitCode
+}
+
+func writeStepSourceAddResult(stdout io.Writer, outcome stepauthoring.SourceAddOutcome) int {
+	encoded, err := json.Marshal(outcome.Result)
+	if err != nil || len(encoded) > stepauthoring.MaxResultBytes {
+		fallback, _ := json.Marshal(stepauthoring.SourceAddWireResult{
+			Version: stepauthoring.WireVersion, Kind: "result", Command: stepauthoring.SourceAddCommand,
+			Status: "failed", Diagnostics: []stepauthoring.Diagnostic{{Code: "result.encoding_failed", Severity: "error", Message: "The step-source-add result could not be encoded within its output bound."}},
+		})
+		_, _ = io.Copy(stdout, bytes.NewReader(append(fallback, '\n')))
 		return 1
 	}
 	if _, err := stdout.Write(append(encoded, '\n')); err != nil {
