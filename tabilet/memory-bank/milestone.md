@@ -37,6 +37,16 @@ complete; its full acceptance and attempt history are in the
 [E22 history record](../docs/history/status-E22.md). This synthetic support
 does not change W8M's adopted locks or authorize runtime adoption.
 
+P07 closes the OpenUdon trusted-runner dispatch gap for Browser 1.10 without
+changing the executor protocol. P07.1 commit
+`87df787c7737cc669f98c3b4462d7151db3e6b68` maps the active profile to the
+existing rank-10/v10 handoff; fresh current v4 integration, loopback, journey,
+and three-repeat native qualification pass from that exact clean source, and
+bounded review iteration 2 passes. P07 remains local on branch `P07`, with no
+push or publication. W8M W22 still must use a local replacement to pin this
+qualified source and rerun its consumer smoke and qualification before
+considering runtime adoption or its separately gated read-only operation.
+
 The UWS 1.11 real-browser M86, E15 registration-verification integration,
 and E18 initialization-diagnostics integration milestones are complete. E15
 and E18 closed against W8M W16.4i.39d synthetic qualification, independent
@@ -144,14 +154,15 @@ external services.
 
 ## Active And Parked Tracks
 
-- Active: E22's Browser 1.10 current-stack qualification and review are
-  complete. P07.1 has passed its focused and repository checks, including the
-  exact restricted W22 package lifecycle. P07.2 is in progress and owns fresh
-  v4 qualification and bounded review of this repair. W8M W22 is the dependent downstream
-  promotion; its owner authorized at most one read-only count after every
-  qualification, adoption, preflight, and readiness gate passes. No W8M target
-  contact has occurred, and P07 itself authorizes no target operation,
-  runtime adoption, push, or publication.
+- Active: E22's Browser 1.10 current-stack qualification and review, and P07's
+  trusted-dispatch repair, fresh v4 qualification, and bounded review are
+  complete. W8M W22 is the dependent downstream promotion; its owner authorized
+  at most one read-only count after every
+  qualification, adoption, preflight, and readiness gate passes. W8M W22's
+  log records an earlier unauthenticated route probe and redirect to advertiser
+  sign-in; no authenticated count, packet, or attempt resulted, and the single
+  authorized count remains unused. P07 itself made no target contact and
+  authorizes no target operation, runtime adoption, push, or publication.
 - Parked: real-provider evidence and public canaries need separately approved
   scope and authority. W8M's authorized read-only operation remains gated by
   its W22 acceptance and is not part of P07.
@@ -165,7 +176,7 @@ search the history index before allocating a future ID.
 
 | ID | Milestone | Status file | State |
 | --- | --- | --- | --- |
-| P07 | Browser 1.10 trusted package dispatch compatibility | `tabilet/memory-bank/status-P07.md` | Active; P07.1 complete, P07.2 in progress |
+| P07 | Browser 1.10 trusted package dispatch compatibility | `tabilet/memory-bank/status-P07.md` | Complete locally; bounded review iteration 2 passed; awaiting normal history retirement |
 | E21 | Repair current-stack Udon build and preserve M86 report meaning | `tabilet/memory-bank/status-E21.md` | Complete; W8M W21 closeout reconciled |
 
 ## Requested Changes After Initialization

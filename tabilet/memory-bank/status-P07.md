@@ -1,7 +1,7 @@
 # Status P07 — Browser 1.10 trusted package dispatch compatibility
 
-**State:** Active. P07.1 is complete; P07.2 is in progress. Local branch
-`P07`; no push or publication.
+**State:** Complete locally after bounded review iteration 2. P07.1 and P07.2
+are complete on local branch `P07`; no push or publication.
 
 **Goal.** Repair OpenUdon's trusted-runner rank-10 dispatch so the existing
 Browser 1.10 count profile passes the complete package preparation and
@@ -19,12 +19,14 @@ existing focused tests covered 1.8/1.9 but not 1.10. The uncached
 `internal/trustedrunner` baseline test passed with Go 1.26.6.
 
 **Dependencies and downstream impact.** Completed E22 supplies the published
-Browser 1.10 count contract and remains immutable history. W8M W22.2 is blocked
-on this source-owner repair; W8M W22.3 must bind the exact local P07 commit and
-source digest and run fresh consumer smoke and qualification. W8M remains
-responsible for its `session_posture: none` package-review input correction.
-W22.4 adoption and W22.5's single read-only operation remain separately gated
-by W8M acceptance. P07 does not change other package sources or grant target,
+Browser 1.10 count contract and remains immutable history. P07 repairs the
+source-owner dispatch. W8M W22.2 remains blocked on its current OpenUdon pin
+until W8M binds the exact local P07 commit through its local replacement and
+passes the exact package lifecycle; W22.3 must then bind that commit and source
+digest and run fresh consumer smoke and qualification. W8M remains responsible
+for its `session_posture: none` package-review input correction. W22.4 adoption
+and W22.5's single read-only operation remain separately gated by W8M
+acceptance. P07 does not change other package sources or grant target,
 executor, adoption, push, or publication authority.
 
 **Evolution.** No evolution pair is needed: P07 completes trusted-package
@@ -36,7 +38,7 @@ product boundary or public/private contract direction.
 | Item | State | Notes |
 | --- | --- | --- |
 | P07.1 Implement Browser 1.10 trusted dispatch and exact restricted package check | `[+]` | Commit after focused tests, repository gates, and the exact restricted package lifecycle pass. The independent package report and source-byte comparisons are recorded below. |
-| P07.2 Fresh v4 qualification, independent verification, and bounded review | `[~]` | From the exact clean P07.1 commit, run fresh v4 integration, loopback, journey, and three-repeat native qualification. Independently verify source/report bindings and confirm retained E22 reports still verify with unchanged bytes. Review the complete P07 diff beginning at bounded-review iteration 1; repair any P1/P2-or-higher findings and pass the gate. Commit this row locally after its acceptance and checks pass. |
+| P07.2 Fresh v4 qualification, independent verification, and bounded review | `[+]` | Fresh current v4 integration, loopback, journey, and three-repeat native qualification passed from exact clean P07.1 commit `87df787c7737cc669f98c3b4462d7151db3e6b68`. All four reports independently verify; all 19 native source bindings match independent recomputation and exact locks. Retained E22 report hashes and bindings are unchanged. Bounded review iteration 2 passed with no unresolved P1/P2; required repository and documentation checks pass. |
 
 ### P07.1 Verification
 
@@ -72,6 +74,89 @@ stopped before lifecycle gates because its optional expected-input digest was
 passed with the wrong prefix; it is preserved at `attempt-01` and was not a
 package or source failure. W8M still owns binding the corrected posture metadata
 in its candidate.
+
+### P07.2 Verification
+
+The fresh qualification ran from an isolated clean clone of P07.1 commit
+`87df787c7737cc669f98c3b4462d7151db3e6b68`, using the exact current v4 locks
+and clean source revisions. Integration passed 19/19 with no skips, loopback
+passed 23/23 with no skips or quarantines, and journey passed 14/14 with no
+skips or quarantines. Their reports independently verify and their recorded
+digests are:
+
+- `integration-v4-sandbox-helper.json` —
+  `c1c90912963fc9bca08606ab1d2770bf1a05847e7dd7979a7b3e9071cfe1b368`.
+- `loopback-v4.json` —
+  `eb098351d1597833c5f804e262598dd75b10e18d9869332540a349daa3a48477`.
+- `journey-v4.json` —
+  `b8f3aaed7b3e3db5d452af9bd7860c294e8f391807ed13fd2e220f7cecfcc011`.
+
+The fresh current-stack native loopback qualification passed three repeats of
+13 stages each. The v4 report independently verifies; all 19 source entries,
+including the fourteen `udon_build_*` aliases, match independent `SourceDigest`
+recomputation against the exact locked commits. The source inventory and
+recomputation are preserved at
+`/home/peter/.local/state/openudon/p07-qualification-20260928/attempt-01/evidence/native-v4.json`,
+`source-bindings-independent.py`, and
+`source-bindings-independent.json`. The report SHA-256 is
+`e9f443b649f48da7bdfff4f3a6e54d7b57384c046762ac895bd44a334d4f4431`.
+Every source tree remained clean; the external read-only Browserdriver Node
+modules matched the lock. The qualification used the already-installed secure
+Chrome sandbox helper through `CHROME_DEVEL_SANDBOX`; it changed no sysctl and
+used no sudo. The disposable browser and scenario directories were removed.
+
+Retained E22 integration, loopback, journey, and native reports still verify.
+Their original SHA-256 values remain, respectively,
+`cb380a6f63951c1e8ec542507ce196a9a60296419a23e8d73e506d46f04035f2`,
+`a9549e8b95b990d9676468cad3cfcc7cebbbdf0f0f2f447d243ead90329b4c93`,
+`e5b21a5c88add31f5aa8141bd59352210e1a2cbdcdfef07432af333a5d1deb37`, and
+`3e0e26a1350f9c2c2121173d0efbe53818161792926481b1e02cf2caa205cf12`. The
+retained native report's nineteen bindings independently match its original
+clean source trees. New comparison artifacts are under the fresh P07 evidence
+directory; the retained E22 reports and source trees were left unchanged.
+
+An auxiliary optional `browser-system-input` identity export failed with
+`qualification_input` because it expects Browserdriver's `node_modules` inside
+the source checkout. Its empty output is preserved. A temporary symlink used
+to diagnose that helper was removed; the native qualification instead used the
+validated separately supplied, read-only dependency tree and passed its own
+source checks. No report or qualification input was edited to obtain a pass.
+
+Repository checks on the implementation branch passed with Go 1.26.6:
+`make fast` (including `check-doc-memory`), `make check` (standalone iCoT build,
+all Go tests, sibling checks and Apitools boundary), `make vet`, and
+`git diff --check`. The documentation-memory check reported the existing
+milestone-without-evolution warning; P07 changes implementation and current
+facts without changing product or architecture direction, as recorded above.
+
+### Bounded review
+
+Iteration 1 reviewed the complete P07 change from baseline
+`55b24d29279c8efe67ae931f9d73f094f929efab`, including the trusted-runner
+dispatch, regression tests, exact-package evidence, current facts, lesson,
+knowledge preservation, milestone specification, and qualification record.
+The imported F01 P2 is resolved by mapping Browser 1.10 to the existing
+rank-10/v10 handoff and covering supported and unsupported versions.
+
+Iteration 1 found P2 P07-R01: the OpenUdon active-track summary said no W8M
+target contact had occurred, but W8M W22's log records an earlier
+unauthenticated campaign-route probe. That probe read no authenticated count
+and created no packet or attempt; P07 itself made no target contact, and the
+single authorized count remains unused. Correct the summary to preserve those
+distinctions. No code finding remains. Iteration 2 is required after the
+documentation correction and focused memory/diff checks.
+
+Iteration 2 is recorded before the full review pass. P07-R01 is corrected in
+`milestone.md`; `check-doc-memory` and `git diff --check` pass. Re-review the
+complete baseline-to-branch change, including the correction and its review
+record, updated completion summary, and downstream W8M local-replacement
+requirement. Iteration 2 found no unresolved P1/P2-or-higher finding; the
+bounded review gate passed after two iterations. P07-R01 is closed, and the
+imported F01 P2 remains resolved by the existing rank-10/v10 mapping and
+supported/unsupported-version regressions. The fresh three-repeat v4 evidence,
+independent 19-source digest comparison, unchanged retained E22 evidence, full
+repository checks, and downstream W8M local-replacement requirement were
+rechecked. No evolution version was needed.
 
 ## Acceptance
 
