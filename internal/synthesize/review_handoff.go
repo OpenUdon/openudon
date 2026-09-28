@@ -164,6 +164,9 @@ func reviewHandoffInputs(result Result) ([]ReviewHandoffInput, error) {
 		if !info.Mode().IsRegular() || info.Mode()&os.ModeSymlink != 0 {
 			return nil, fmt.Errorf("API source provenance manifest must be a regular package file: %s", packageartifacts.APISourceManifestPath)
 		}
+		if err := packageartifacts.ValidateRegularPackageFiles(result.ExampleDir, []string{packageartifacts.APISourceManifestPath}); err != nil {
+			return nil, fmt.Errorf("validate API source provenance manifest: %w", err)
+		}
 		artifacts = append(artifacts, authoring.ReviewArtifactInput{
 			Path:     packageartifacts.APISourceManifestPath,
 			Purpose:  "Content provenance manifest for locally provisioned API source documents.",

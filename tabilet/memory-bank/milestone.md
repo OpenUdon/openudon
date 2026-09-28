@@ -170,13 +170,14 @@ external services.
 
 ## Active And Parked Tracks
 
-- Active: M89's Stage 1 source-provisioning and mapping remediation is in
-  progress against APItools M79 revision
+- Active: M89's Stage 1 source-provisioning and mapping work continues against APItools M79 revision
   `e3625f6ef52ea54b7f78b7a4a4f1993bf8a06a46`; it is distinct from M87/M88's completed step-authoring
-  contract. M88 corrected the confirmed Stage 1 binding findings, passed its
+  contract. M89.1–M89.4 are complete; M89.5 is revalidating a deep-review fix before its exact-revision Kinet consumer rerun. M88 corrected the confirmed Stage 1 binding findings, passed its
   review in iteration 2, and is retired in the [history record](../docs/history/status-M88.md).
-  Kinet W04 owns the real-tool consumer check after publication; W03 is retired
-  and its earlier consumer check remains historical. E22's Browser
+  Kinet W04.6 passed its real-tool consumer check against published OpenUdon
+  revision `3a05d794f086d3dcf52cdb0c4bc86ea19aea7795`; the review-fix revision
+  needs a second exact consumer check. W03 is retired and its earlier consumer
+  check remains historical. E22's Browser
   1.10 current-stack qualification and review remain complete; W8M's local W21
   candidate and any runtime adoption remain separate. The adopted W8M locks
   are unchanged. No deployment, public canary, or target operation is authorized.
@@ -193,7 +194,7 @@ search the history index before allocating a future ID.
 
 | ID | Milestone | Status file | State |
 | --- | --- | --- | --- |
-| M89 | Stage 1 source provisioning and binding contract | [status-M89.md](status-M89.md) | In progress; M89.1–M89.4 complete, M89.5 awaits publication and exact-revision handoff |
+| M89 | Stage 1 source provisioning and binding contract | [status-M89.md](status-M89.md) | In progress; M89.5 review-fix verification and deep review pending |
 | E21 | Repair current-stack Udon build and preserve M86 report meaning | `tabilet/memory-bank/status-E21.md` | Complete; W8M W21 closeout reconciled |
 
 ## Requested Changes After Initialization
