@@ -170,7 +170,7 @@ func buildBrowserRunConfigFromBytes(packageLabel string, browserPaths, authentic
 			if activeBrowserPaths[relative] {
 				protocolRank = max(protocolRank, 3)
 			}
-		case "uws.browser.1.8", "uws.browser.1.9":
+		case "uws.browser.1.8", "uws.browser.1.9", "uws.browser.1.10":
 			if activeBrowserPaths[relative] {
 				protocolRank = max(protocolRank, 10)
 			}

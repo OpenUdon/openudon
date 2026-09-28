@@ -64,7 +64,7 @@ func TestBuildBrowserRunConfigDerivesReviewedRuntimeContract(t *testing.T) {
 }
 
 func TestBuildBrowserRunConfigSelectsVersionedActionProtocol(t *testing.T) {
-	for _, version := range []string{"uws.browser.1.8", "uws.browser.1.9"} {
+	for _, version := range []string{"uws.browser.1.8", "uws.browser.1.9", "uws.browser.1.10"} {
 		t.Run(version, func(t *testing.T) {
 			root := t.TempDir()
 			timeout := 120.0
@@ -90,6 +90,26 @@ func TestBuildBrowserRunConfigSelectsVersionedActionProtocol(t *testing.T) {
 				t.Fatalf("v10 action handoff leaked registration input authority: %#v", config)
 			}
 		})
+	}
+}
+
+func TestBuildBrowserRunConfigRejectsUnsupportedActionProfile(t *testing.T) {
+	root := t.TempDir()
+	intent := &rollout.Intent{Workflow: &rollout.WorkflowMeta{Name: "member"}, Steps: []*rollout.Step{
+		{Name: "read-dashboard", Type: "browser", Source: "browser-profiles/member.json", Operation: "read_dashboard"},
+	}}
+	writeBrowserRuntimeFixture(t, root, intent)
+	path := filepath.Join(root, "browser-profiles/member.json")
+	data, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	data = []byte(strings.Replace(string(data), "uws.browser.1.7", "uws.browser.1.11", 1))
+	if err := os.WriteFile(path, data, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := buildBrowserRunConfig(root, "/trusted/browserdriver", nil, nil, false); err == nil || !strings.Contains(err.Error(), "unsupported browser profile discriminator") {
+		t.Fatalf("unsupported browser profile error = %v", err)
 	}
 }
 

@@ -199,7 +199,7 @@ API source metadata discovery/indexing, and portable trusted executor handoff.
   `aws-smithy/`, `asyncapi/`, `graphql/`, `openrpc/`, `grpc-protobuf/`, `odata/`, and
   legacy-readable `discovery/`. It emits typed source descriptions for OpenAPI, Google Discovery,
   AWS Smithy, UWS 1.3 AsyncAPI, and UWS 1.4 GraphQL/OpenRPC/gRPC-protobuf/OData sources.
-- OpenUdon also scans and stages verified `uws.browser.1.5` through `1.9` profiles under
+- OpenUdon also scans and stages verified `uws.browser.1.5` through `1.10` profiles under
   `browser-profiles/`, emits UWS `browser-profile` source descriptions, and
   records prompt-safe source review metadata in `.icot/browser-sources.json`.
   Browsertools owns validation, private cache, bundles, discovery, and the
@@ -218,9 +218,10 @@ API source metadata discovery/indexing, and portable trusted executor handoff.
   named-session intent fields to the matching public supplements. New workflows
   declare UWS 1.11.0. Browsertools owns local validation; Udon and its persistent
   Browserdriver own credential resolution, MFA challenge interaction, session
-  state, and execution. Active Browser 1.8/1.9 actions select private
-  browser-driver v10, which carries older actions as inner v2; older-only
-  workflows keep their prior protocol selection.
+  state, and execution. Active Browser 1.8/1.9 actions and Browser 1.10 count
+  actions select private browser-driver v10, which carries older actions as
+  inner v2; the typed Browser 1.10 count consumer is provided by Udon v11.
+  Older-only workflows keep their prior protocol selection.
 - OpenUdon scans reviewed `uws.browser-registration.1.0` profiles and their
   digest-bound `browsertools.registration-review.v1` bundles under
   `browser-registration/`. Explicit `browser_registration` intent lowers to

@@ -41,6 +41,16 @@ for existing reports and add the explicit markers to a new report version.
 E22 review iteration 2 found and corrected this gap for Browser 1.10 count
 evidence; see the [E22 history record](../docs/history/status-E22.md).
 
+## Exercise browser profiles through trusted package preparation
+
+When adding a browser profile version, test the package lifecycle and trusted
+dry-run that consume it, not only its producer, schema, and browser journey.
+E22's v4 count qualification passed while the trusted-runner rank-10 dispatcher
+still rejected `uws.browser.1.10` during W8M package preparation. Preserve
+existing profile-version mappings and verify the restricted dry-run without
+invoking an executor or browser. See [P07](status-P07.md) and the W8M W22.5
+package-preflight record in that repository (`tabilet/memory-bank/status-W22.md`).
+
 ## Validate task tables with the installed runner
 
 When repairing or adding a status ledger, use outer `|` table delimiters and

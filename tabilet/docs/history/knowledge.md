@@ -1402,3 +1402,71 @@ separate. The registration-only protocol stays compatible. See
 `docs/application-control.md` and `tabilet/memory-bank/status-M80.md`.
 
 `````
+
+## 2026-09-28 — Browser 1.10 current compatibility facts
+
+- Original sources: the Browser profile definition in
+  `tabilet/memory-bank/product.md`; browser-profile staging and authentication
+  protocol bullets in `tabilet/memory-bank/tech-stack.md`; and the reviewed
+  browser-authentication paragraph under iCoT Architecture in
+  `tabilet/memory-bank/architecture.md`. The wording below is preserved from OpenUdon commit
+  `55b24d29279c8efe67ae931f9d73f094f929efab`, with source-file SHA-256 values
+  product `f5a83aa8128c820cdf7144e62ac4b4aecea230a52934157c1126c12c33c0f34b`,
+  tech-stack `db1fe2051cd8ce4bc9c13425fdcc53cfdba2b2c5bc4c7b8e16e90ee30ce5d074`,
+  and architecture `0c3acd7cdea0925fed3c86d4e1583a1b661a1b3674c487efa1884988423da7a8`.
+- Retirement reason: P07 corrects current facts to include Browser 1.10 count
+  profiles and their trusted browser-driver v10 dispatch. Completed E22 already
+  records the Browser 1.10 count contract and current-stack qualification; P07
+  closes the OpenUdon trusted-dispatch gap without changing that contract.
+- Evidence: [completed E22 record](status-E22.md); active
+  [P07 specification and status](../../memory-bank/status-P07.md).
+- Replacement: [product browser-profile contract](../../memory-bank/product.md);
+  [tech-stack browser-profile staging and protocol](../../memory-bank/tech-stack.md);
+  [architecture profile dispatch](../../memory-bank/architecture.md).
+
+`````markdown
+### Product — Browser profile
+
+- **Browser profile** is a reviewed `uws.browser.1.5` through `uws.browser.1.9`
+  contract produced by Browsertools. Versions 1.8/1.9 opt into component-safe
+  parameter templates; 1.9 also supports literal-brace escapes.
+  OpenUdon may author against its declared actions only when no adequate API operation is available;
+  it packages the profile and safe digest/lifecycle evidence without browser sessions or raw captures.
+
+### Tech stack — Browser-profile staging
+
+- OpenUdon also scans and stages verified `uws.browser.1.5` through `1.9` profiles under
+  `browser-profiles/`, emits UWS `browser-profile` source descriptions, and
+  records prompt-safe source review metadata in `.icot/browser-sources.json`.
+  Browsertools owns validation, private cache, bundles, discovery, and the
+  service-free static registry; Udon owns drivers, sessions, and execution.
+
+### Tech stack — Active browser-driver protocol
+
+- OpenUdon scans reviewed `uws.browser-authentication.1.0`/`1.1` profiles under
+  `browser-authentication/`, records safe review metadata in
+  `.icot/browser-authentication.json`, and lowers explicit authentication and
+  named-session intent fields to the matching public supplements. New workflows
+  declare UWS 1.11.0. Browsertools owns local validation; Udon and its persistent
+  Browserdriver own credential resolution, MFA challenge interaction, session
+  state, and execution. Active Browser 1.8/1.9 actions select private
+  browser-driver v10, which carries older actions as inner v2; older-only
+  workflows keep their prior protocol selection.
+
+### Architecture — Reviewed browser authentication and action profiles
+
+Reviewed `uws.browser-authentication.1.0` and `1.1` profiles are a separate local-only
+Browsertools source family. They are staged under `browser-authentication/`
+with `.icot/browser-authentication.json` digest, flow, origin, expiry,
+credential-slot, named-session, and exact authoring-approval evidence. iCoT
+orders a selected flow before symbolic credential mappings, bounded timeout,
+authentication approval, and a protected `uws.browser.1.5` action using the
+same session. OpenUdon lowers these steps to the public
+`uws.browser-authentication-call.1.0` and named-session supplements in UWS 1.7
+for old main-page sources. Authentication 1.1 requires authentication-call 1.1;
+old profile meanings remain unchanged. Newly generated workflows declare UWS
+1.11.0. Browser 1.7 retains its scalar conversion under the legacy inner
+action protocol. Browser 1.8/1.9 profiles pass local validation and review
+with their exact discriminator and select trusted browser-driver v10 for
+action execution, including mixed sessions with older profile actions.
+`````
