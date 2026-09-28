@@ -363,6 +363,33 @@ func TestBindRequiresConfirmedEffectAndAuthenticationAlternatives(t *testing.T) 
 	})
 }
 
+func TestBindDoesNotTreatWriteContractAsEvidenceForUnknownEffect(t *testing.T) {
+	fixtureRoot := filepath.Join("..", "..", "docs", "examples", "step-authoring", "v1")
+	request := readBindRequest(t, fixtureRoot)
+	request.Contract.Effect = "write"
+	example := copyBindExample(t, fixtureRoot, false)
+	sourcePath := filepath.Join(example, "openapi", "project-api.yaml")
+	source, err := os.ReadFile(sourcePath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	updated := []byte(strings.Replace(string(source), "summary: List projects.", "summary: Process project information.", 1))
+	if string(updated) == string(source) {
+		t.Fatal("unknown-effect source was not changed")
+	}
+	if err := os.WriteFile(sourcePath, updated, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	request.OperationRef.SourceSHA256 = "sha256:" + evidencefile.SHA256(updated)
+	outcome := Bind(nil, example, request)
+	if outcome.ExitCode != 4 || outcome.Result.Status != "needs_input" || outcome.Result.Diagnostics[0].Code != "effect.unknown" {
+		t.Fatalf("unknown effect accepted under write contract: %#v", outcome.Result)
+	}
+	if _, err := os.Lstat(filepath.Join(example, "workflows", "intent.hcl")); !os.IsNotExist(err) {
+		t.Fatalf("unknown-effect bind created intent: %v", err)
+	}
+}
+
 func TestBindRejectsWrongRequestLocationWithoutWriting(t *testing.T) {
 	fixtureRoot := filepath.Join("..", "..", "docs", "examples", "step-authoring", "v1")
 	request := readBindRequest(t, fixtureRoot)
@@ -482,6 +509,23 @@ func TestBindRejectsUnsupportedContractSchemaWithoutMutation(t *testing.T) {
 	}
 	if _, err := os.Lstat(filepath.Join(example, "workflows", "intent.hcl")); !os.IsNotExist(err) {
 		t.Fatalf("unsupported-schema bind created intent: %v", err)
+	}
+}
+
+func TestBindNamesUnsupportedRootExtensionFieldWithoutWriting(t *testing.T) {
+	fixtureRoot := filepath.Join("..", "..", "docs", "examples", "step-authoring", "v1")
+	request := readBindRequest(t, fixtureRoot)
+	request.Contract.Inputs.Extensions = map[string]any{"x-openudon-contract": "sensitive extension value"}
+	example := copyBindExample(t, fixtureRoot, false)
+	outcome := Bind(nil, example, request)
+	if outcome.ExitCode != 4 || outcome.Result.Status != "needs_input" || outcome.Result.Diagnostics[0].Code != "contract.root_extension_unsupported" || !strings.Contains(outcome.Result.Diagnostics[0].Message, "x-openudon-contract") {
+		t.Fatalf("root extension bind diagnostic = %#v", outcome.Result)
+	}
+	if strings.Contains(outcome.Result.Diagnostics[0].Message, "sensitive extension value") {
+		t.Fatal("bind diagnostic disclosed the root extension value")
+	}
+	if _, err := os.Lstat(filepath.Join(example, "workflows", "intent.hcl")); !os.IsNotExist(err) {
+		t.Fatalf("unsupported root extension created intent: %v", err)
 	}
 }
 

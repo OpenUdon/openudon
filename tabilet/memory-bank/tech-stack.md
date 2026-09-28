@@ -101,14 +101,24 @@ superseded wording in the [history index](../docs/history/index.md).
 OpenUdon is a Go package and CLI that composes sibling modules for public UWS modeling,
 API source metadata discovery/indexing, and portable trusted executor handoff.
 
-## Non-interactive step authoring (M87)
+## Non-interactive step authoring (M87/M89)
 
-The `step candidates`, `step check`, `step bind`, and `flow-review` commands
-use strict versioned JSON request/result contracts and bounded safe reads.
+The `step source add`, `step candidates`, `step check`, `step bind`, and
+`flow-review` commands use strict versioned JSON request/result contracts and
+bounded safe reads.
+`step source add` accepts up to 16 explicitly selected local files (8 MiB each,
+32 MiB per request), validates them with APItools' local source inventory, and
+atomically writes create-only source files plus the digest-bound
+`expected/api-source-manifest.json`. Appending requires the exact current
+manifest SHA-256. The manifest is included in package handoff inputs; results
+omit absolute source paths and content. Source-add results provide both the
+manifest ID and path-derived candidate ID. Kinet owns the preceding
+user-confirmation gate.
 Candidates scans the eight supported local source families, including the
 legacy `discovery/` directory as a Google Discovery alias, and calls published
-APItools M77 operation-candidate metadata with M78 corrections at
-`v0.0.0-20260927133930-26bb05247d6c`; it does not fetch URLs. It preserves
+APItools M79 operation-candidate metadata at
+`v0.0.0-20260928033144-e3625f6ef52e` (commit
+`e3625f6ef52ea54b7f78b7a4a4f1993bf8a06a46`); it does not fetch URLs. It preserves
 consumer summaries, compatibility evidence, source-backed effect classes,
 authentication alternatives, and source capabilities while omitting paths
 from results. Check and bind match the exact APItools source kind, ID, digest,
@@ -117,8 +127,20 @@ intent/source revisions, mappings, outputs, dependencies, and OR-of-AND
 authentication alternatives, including self-reference and prerequisite-cycle
 rejection. Check also uses APItools' exact-operation effect
 evidence: a known conflicting class fails, and unknown remains indeterminate.
-Compound read/mutation wording stays unknown, and nullable response outputs
-remain indeterminate without earning compatibility points.
+Compound read/mutation wording and unrecognized leading actions stay unknown.
+Response nullability is field- and ancestor-scoped, so a nullable selected
+output remains indeterminate without compatibility points while an unrelated
+nullable sibling does not downgrade other outputs.
+Explicit nested and renamed request mappings are checked from the exact
+source field metadata against the corresponding contract path, including type,
+format, and requiredness; workflow input root declarations are checked
+separately. Explicit output mappings map contract paths to actual response
+paths and receive the same type, format, requiredness, and nullability checks.
+Omitted check output mappings retain same-name behavior for v1 compatibility.
+Kinet retains confirmed output mappings outside UWS intent and resends them to
+`step check`. `step bind` requires supported source input/output capabilities
+and refuses unresolved or incompatible mappings; APItools' name-based
+candidate score is advisory and no longer blocks an explicit, proven alias.
 Check is read-only; bind replaces or adds one step in `workflows/intent.hcl` through
 `internal/icot/artifactwriter`, using optimistic SHA-256 checks and create-only
 installation for an initially absent intent. Bind locates path-free source IDs

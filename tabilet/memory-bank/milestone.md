@@ -25,6 +25,14 @@ step-authoring location, mapped-value, and credential checks; its record is in
 consumer check against the published OpenUdon revision. Simulation/browser
 acquisition (S2b) and iCoT retirement (S3) remain candidates.
 
+OpenUdon M89 is the approved Stage 1 remediation plan for package-local source
+provisioning, explicit field mappings, and refusal diagnostics. It depends on
+the accepted and published APItools M79 revision `e3625f6ef52ea54b7f78b7a4a4f1993bf8a06a46`
+(`v0.0.0-20260928033144-e3625f6ef52e`); M89.1 pinned and verified that exact
+source. Kinet W04 consumes the
+accepted and published OpenUdon M89 revision. This new remediation does not
+reopen M87/M88 or promote S2b/S3.
+
 OpenUdon's UWS 1.11 real-browser M86 qualification is complete: the pinned
 sandboxed browsers launched, all three integration opt-ins passed, and the
 current-stack loopback and journey suites passed at clean source revisions.
@@ -76,6 +84,21 @@ or live operation.
 The history index holds 134 legacy-preserved status IDs and four normally reviewed completions. Legacy-preserved records retain exact source bytes and the frozen milestone text, but do not establish acceptance by themselves. Search the history by ID when needed.
 
 ## Active Milestone Specifications
+
+## M89 — Stage 1 source provisioning and binding contract
+
+Using accepted and published APItools M79 revision
+`e3625f6ef52ea54b7f78b7a4a4f1993bf8a06a46`
+(`v0.0.0-20260928033144-e3625f6ef52e`), let Kinet provision explicitly
+confirmed local API documents through an OpenUdon-owned package-write
+command. Validate bounded local inputs through APItools-owned parsing and
+materialization, preserve source digests/provenance, and do not fetch implicit
+remote sources. Support explicit nested/renamed request and response mappings
+with source/type/requiredness evidence. Continue to refuse `unknown` effects
+and unsupported root extensions with diagnostics naming the precise
+unsupported input. Acceptance includes standalone tests, the exact APItools
+revision binding, package-root-safe CLI use, and a consumer handoff to Kinet
+W04. This Stage 1 remediation is distinct from the S2b Stage 5 candidate.
 
 ### E21 — Repair current-stack Udon build and preserve M86 report meaning
 
@@ -147,10 +170,13 @@ external services.
 
 ## Active And Parked Tracks
 
-- Active: No pending implementation row remains in the step-authoring lane. M88
-  corrected the confirmed stage 1 binding findings, passed its review in
-  iteration 2, and is retired in the [history record](../docs/history/status-M88.md).
-  Kinet W03 owns the real-tool consumer check after publication. E22's Browser
+- Active: M89's Stage 1 source-provisioning and mapping remediation is in
+  progress against APItools M79 revision
+  `e3625f6ef52ea54b7f78b7a4a4f1993bf8a06a46`; it is distinct from M87/M88's completed step-authoring
+  contract. M88 corrected the confirmed Stage 1 binding findings, passed its
+  review in iteration 2, and is retired in the [history record](../docs/history/status-M88.md).
+  Kinet W04 owns the real-tool consumer check after publication; W03 is retired
+  and its earlier consumer check remains historical. E22's Browser
   1.10 current-stack qualification and review remain complete; W8M's local W21
   candidate and any runtime adoption remain separate. The adopted W8M locks
   are unchanged. No deployment, public canary, or target operation is authorized.
@@ -167,6 +193,7 @@ search the history index before allocating a future ID.
 
 | ID | Milestone | Status file | State |
 | --- | --- | --- | --- |
+| M89 | Stage 1 source provisioning and binding contract | [status-M89.md](status-M89.md) | In progress; M89.1–M89.4 complete, M89.5 awaits publication and exact-revision handoff |
 | E21 | Repair current-stack Udon build and preserve M86 report meaning | `tabilet/memory-bank/status-E21.md` | Complete; W8M W21 closeout reconciled |
 
 ## Requested Changes After Initialization

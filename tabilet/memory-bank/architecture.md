@@ -104,7 +104,8 @@ self-digest clears its own field before canonical JSON hashing.
   AsyncAPI maps to `asyncapi`, GraphQL maps to `graphql`, OpenRPC maps to `openrpc`,
   gRPC/protobuf maps to `grpc-protobuf`, and OData maps to `odata`.
 - OpenUdon's non-interactive step-authoring CLI consumes APItools' published operation-candidate
-  contract. `step candidates` scans bounded local family directories and returns path-free exact
+  contract, currently APItools M79 revision
+  `e3625f6ef52ea54b7f78b7a4a4f1993bf8a06a46`. `step candidates` scans bounded local family directories and returns path-free exact
   source/digest references, consumer summaries, match evidence, auth alternatives, effects, and
   capability gaps. `step check` revalidates that exact operation and effect against current local
   bytes, including source request locations, colliding unqualified names,
@@ -114,6 +115,17 @@ self-digest clears its own field before canonical JSON hashing.
   direct mapped workflow inputs are checked against contract and source type
   and requiredness, while unproven expressions stay indeterminate and cannot
   be bound;
+  an unrecognized leading operation action stays unknown, and nullability is
+  reported for selected response outputs and their schema ancestors without
+  downgrading unrelated sibling outputs;
+  `step source add` accepts exact local file paths and approved SHA-256 values,
+  validates all selected documents through APItools without network fetching,
+  and atomically writes create-only source files plus
+  `expected/api-source-manifest.json` under the workflow package. The manifest
+  is optimistic-revision-bound, content-digest-checked, and included in the
+  required package handoff inventory. Results contain only package-relative
+  paths and both the caller-selected manifest ID and path-derived candidate ID.
+  Kinet owns the user confirmation that precedes this package write;
   inline credential references share explicit binding symbol validation,
   including rejection of reserved `none` and `clear` values;
   `flow-review` is advisory and read-only. These commands neither fetch source URLs nor resolve

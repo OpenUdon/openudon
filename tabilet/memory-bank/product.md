@@ -35,11 +35,13 @@ review evidence, refinement reports, package digests, credential policy, and mac
 review handoff manifests. It does not own public workflow semantics or generic execution. Those
 remain in `../uws` and executor implementations such as `../udon`.
 
-The expert CLI also exposes versioned `step candidates`, `step bind`, `step check`, and
-`flow-review` operations for independently orchestrated authoring. Candidates ranks only validated
-local API metadata; check and flow review are read-only; bind mutates one explicitly selected intent
-step after digest and safety checks. These commands do not call API operations, resolve credentials,
-approve packages, or execute workflows. Kinet owns its own planning loop and confirmation ledger.
+The expert CLI also exposes versioned `step source add`, `step candidates`, `step bind`,
+`step check`, and `flow-review` operations for independently orchestrated authoring. Source add
+validates and stages explicitly selected local API documents with content provenance after Kinet's
+user-confirmation gate. Candidates ranks only validated local API metadata; check and flow review
+are read-only; bind mutates one explicitly selected intent step after digest and safety checks.
+These commands do not call API operations, resolve credentials, approve packages, or execute
+workflows. Kinet owns its own planning loop and confirmation ledger.
 
 ## Product Goal
 

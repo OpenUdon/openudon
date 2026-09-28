@@ -271,6 +271,26 @@ func TestCheckMarksUnsupportedContractSchemaIndeterminate(t *testing.T) {
 	t.Fatalf("unsupported contract schema was not surfaced: %#v", outcome.Result.Result.Checks)
 }
 
+func TestCheckIdentifiesUnsupportedRootExtensionField(t *testing.T) {
+	root := filepath.Join("..", "..", "docs", "examples", "step-authoring", "v1")
+	request := readRunnableRequest(t, root)
+	request.Contract.Inputs.Extensions = map[string]any{"x-openudon-contract": "sensitive extension value"}
+	outcome := Check(nil, filepath.Join(root, "example"), request)
+	if outcome.Result.Result == nil || outcome.Result.Result.Assessment != "indeterminate" {
+		t.Fatalf("root extension check = %#v", outcome.Result.Result)
+	}
+	if !hasCheckPointer(outcome.Result.Result.Checks, "mapping.input_contract", "indeterminate", "/contract/inputs/x-openudon-contract") {
+		t.Fatalf("root extension field was not identified precisely: %#v", outcome.Result.Result.Checks)
+	}
+	encoded, err := json.Marshal(outcome.Result)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(string(encoded), "sensitive extension value") {
+		t.Fatal("check result disclosed the root extension value")
+	}
+}
+
 func TestCheckReturnsStaleIntentAndSourceConflicts(t *testing.T) {
 	root := filepath.Join("..", "..", "docs", "examples", "step-authoring", "v1")
 	request := readRunnableRequest(t, root)

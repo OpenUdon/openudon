@@ -128,6 +128,55 @@ func TestCandidatesKeepNullableOutputIndeterminate(t *testing.T) {
 	}
 }
 
+func TestCandidatesIdentifyUnsupportedRootExtensionField(t *testing.T) {
+	fixtureRoot := filepath.Join("..", "..", "docs", "examples", "step-authoring", "v1")
+	request := readCandidatesRequest(t, filepath.Join(fixtureRoot, "requests", "step-candidates.json"))
+	request.Contract.Inputs.Extensions = map[string]any{"x-openudon-contract": "sensitive extension value"}
+	outcome := Candidates(context.Background(), filepath.Join(fixtureRoot, "example"), request)
+	if outcome.ExitCode != 0 || outcome.Result.Status != "completed" {
+		t.Fatalf("root extension candidate result = %#v", outcome.Result)
+	}
+	found := false
+	for _, diagnostic := range outcome.Result.Diagnostics {
+		if diagnostic.Code == "contract.root_extension_unsupported" && strings.Contains(diagnostic.Message, "x-openudon-contract") {
+			found = true
+		}
+		if strings.Contains(diagnostic.Message, "sensitive extension value") {
+			t.Fatal("candidate diagnostics disclosed the root extension value")
+		}
+	}
+	if !found {
+		t.Fatalf("root extension diagnostic did not name the field: %#v", outcome.Result.Diagnostics)
+	}
+}
+
+func TestCandidatesIgnoreUnselectedNullableOutputSibling(t *testing.T) {
+	fixtureRoot := filepath.Join("..", "..", "docs", "examples", "step-authoring", "v1")
+	root := copyRunnableExample(t)
+	sourcePath := filepath.Join(root, "openapi", "project-api.yaml")
+	data, err := os.ReadFile(sourcePath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	updated := strings.Replace(string(data), "                  projects:\n                    type: array", "                  projects:\n                    type: array\n                  debug_label:\n                    type: string\n                    nullable: true", 1)
+	if updated == string(data) {
+		t.Fatal("nullable sibling fixture was not changed")
+	}
+	if err := os.WriteFile(sourcePath, []byte(updated), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	request := readCandidatesRequest(t, filepath.Join(fixtureRoot, "requests", "step-candidates.json"))
+	request.SourceFilters[0].SourceSHA256 = "sha256:" + evidencefile.SHA256([]byte(updated))
+	outcome := Candidates(context.Background(), root, request)
+	if outcome.ExitCode != 0 || outcome.Result.Result == nil || len(outcome.Result.Result.Candidates) != 1 {
+		t.Fatalf("nullable-sibling candidate outcome = %#v", outcome)
+	}
+	match := outcome.Result.Result.Candidates[0].Match.Outputs
+	if match.Status != "compatible" || match.Score != 30 || strings.Contains(strings.Join(match.Gaps, " "), "null") {
+		t.Fatalf("unselected nullable sibling changed selected-output compatibility: %#v", match)
+	}
+}
+
 func TestCandidatesSkipsSecuritySidecarsAndDoesNotExposePaths(t *testing.T) {
 	fixtureRoot := filepath.Join("..", "..", "docs", "examples", "step-authoring", "v1")
 	root := t.TempDir()
