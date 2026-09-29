@@ -10,13 +10,13 @@ The exact commits, digests, and bounded review are preserved in the
 not reclassify an earlier failure or authorize a public canary, live account,
 or runtime adoption.
 
-P08 is the active OpenUdon maintenance owner for the Browser 1.10 runtime
+P08 completed the local OpenUdon maintenance for the Browser 1.10 runtime
 handoff mismatch found by W8M W24.5. P07's completed package-dispatch result
 remains historical; its v10 selection let restricted preparation pass but Udon
 rejects Browser 1.10 actions under v10. W8M's sign-in and campaign-page request
-completed, while its count action failed before extraction. P08 repairs the
-source handoff only; W8M retains qualification, adoption and live-count
-authority.
+completed, while its count action failed before extraction. P08.1 selects v11
+and P08.2's focused synthetic journey and review pass. W8M retains
+qualification, adoption and live-count authority.
 
 E21.1 freezes the pre-E21 current scenario and integration locks for M86 v2
 report verification. E21.2 advances the current scenario and integration
@@ -200,7 +200,7 @@ search the history index before allocating a future ID.
 
 | ID | Milestone | Status file | State |
 | --- | --- | --- | --- |
-| P08 | Browser 1.10 v11 trusted execution handoff | `tabilet/memory-bank/status-P08.md` | Active |
+| P08 | Browser 1.10 v11 trusted execution handoff | `tabilet/memory-bank/status-P08.md` | Complete locally; bounded review iteration 1 passed; awaiting normal history retirement |
 | P07 | Browser 1.10 trusted package dispatch compatibility | `tabilet/memory-bank/status-P07.md` | Complete locally; bounded review iteration 2 passed; awaiting normal history retirement |
 | E21 | Repair current-stack Udon build and preserve M86 report meaning | `tabilet/memory-bank/status-E21.md` | Complete; W8M W21 closeout reconciled |
 

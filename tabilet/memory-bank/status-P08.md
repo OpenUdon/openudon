@@ -1,6 +1,7 @@
 # Status P08 — Browser 1.10 v11 trusted execution handoff
 
-**State:** Active. P08.1 is complete; P08.2 is in progress. P07 remains complete
+**State:** Complete locally after bounded review iteration 1. P08.1 and P08.2
+are complete. P07 remains complete
 with its original evidence and counters. W8M W24.5 remains blocked with no
 accepted campaign count.
 
@@ -23,7 +24,7 @@ authorized live count. P08 does not grant a browser or target operation.
 | Item | State | Notes |
 | --- | --- | --- |
 | P08.1 Correct v11 selection and run-config validation | `[+]` | Active Browser 1.10 selects v11; active Browser 1.8/1.9 retain v10; incompatible mixes fail. The persisted run-config validator and local/Docker executor invocation accept v11. Focused tests, `make fast`, `make check`, vet, CLI validation and exact W8M package preparation pass. |
-| P08.2 Verify synthetic handoff and bounded review | `[~]` | Run an affected fresh synthetic journey, repository checks and bounded review. Preserve P07/E22 and W8M attempt evidence; hand off the exact corrected source to W8M without target contact or publication. |
+| P08.2 Verify synthetic handoff and bounded review | `[+]` | A fresh Browser 1.10 count loopback smoke passes against pinned local sources; repository and documentation checks pass. Review iteration 1 found no P1/P2. W8M retains its separate source binding, full qualification and adoption gates. |
 
 ### P08.1 implementation and checks — 2026-09-29 UTC
 
@@ -60,4 +61,16 @@ run-config tests establish that binding. No browser or target was contacted.
 
 ## Review
 
-Whole-milestone review counter: not started.
+Whole-milestone review iteration 1/10 passed. The review checked the
+profile-to-protocol mapping, inactive and mixed-profile behavior, v11
+run-config validation, local/Docker CLI arguments, credential and approval
+boundaries, source-owned documentation, exact package preparation and the
+fresh loopback smoke. The first smoke command stopped before browser setup
+because the Make variable for the external Node modules was empty; a fresh
+invocation with the correct variable passed its Browser 1.10 count journey in
+51 seconds. The preflight failure and correction are retained here; neither
+used a real target. The selected Udon/Browserdriver sources were not modified.
+No P1/P2 or higher-severity finding remains. P08 implementation is complete
+locally; W8M W24 remains blocked pending its own exact-source qualification,
+runtime selection and separately authorized live count. No deployment,
+publication or push occurred.
