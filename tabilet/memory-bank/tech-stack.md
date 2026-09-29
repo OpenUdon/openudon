@@ -218,10 +218,11 @@ API source metadata discovery/indexing, and portable trusted executor handoff.
   named-session intent fields to the matching public supplements. New workflows
   declare UWS 1.11.0. Browsertools owns local validation; Udon and its persistent
   Browserdriver own credential resolution, MFA challenge interaction, session
-  state, and execution. Active Browser 1.8/1.9 actions and Browser 1.10 count
-  actions select private browser-driver v10, which carries older actions as
-  inner v2; the typed Browser 1.10 count consumer is provided by Udon v11.
-  Older-only workflows keep their prior protocol selection.
+  state, and execution. Active Browser 1.8/1.9 actions select private
+  browser-driver v10, which carries older actions as inner v2. Browser 1.10
+  count actions select v11, matching Udon's typed count consumer. An active
+  older/1.10 mix fails before execution. Older-only workflows keep their prior
+  protocol selection.
 - OpenUdon scans reviewed `uws.browser-registration.1.0` profiles and their
   digest-bound `browsertools.registration-review.v1` bundles under
   `browser-registration/`. Explicit `browser_registration` intent lowers to

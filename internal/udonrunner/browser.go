@@ -66,8 +66,8 @@ func validateBrowserConfig(config *BrowserConfig, credentials []string, values m
 	normalizeBrowserConfig(config)
 	config.DriverPath = strings.TrimSpace(config.DriverPath)
 	config.Protocol = strings.ToLower(strings.TrimSpace(config.Protocol))
-	if config.Protocol != "v1" && config.Protocol != "v2" && config.Protocol != "v3" && config.Protocol != "v4" && config.Protocol != "v5" && config.Protocol != "v6" && config.Protocol != "v10" {
-		return validatedBrowserConfig{}, fmt.Errorf("run config browser protocol must be v1, v2, v3, v4, v5, v6, or v10")
+	if config.Protocol != "v1" && config.Protocol != "v2" && config.Protocol != "v3" && config.Protocol != "v4" && config.Protocol != "v5" && config.Protocol != "v6" && config.Protocol != "v10" && config.Protocol != "v11" {
+		return validatedBrowserConfig{}, fmt.Errorf("run config browser protocol must be v1, v2, v3, v4, v5, v6, v10, or v11")
 	}
 	if requireDriver && config.DriverPath == "" {
 		return validatedBrowserConfig{}, fmt.Errorf("browser workflow execution requires --browser-driver")

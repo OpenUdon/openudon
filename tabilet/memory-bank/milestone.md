@@ -10,6 +10,14 @@ The exact commits, digests, and bounded review are preserved in the
 not reclassify an earlier failure or authorize a public canary, live account,
 or runtime adoption.
 
+P08 is the active OpenUdon maintenance owner for the Browser 1.10 runtime
+handoff mismatch found by W8M W24.5. P07's completed package-dispatch result
+remains historical; its v10 selection let restricted preparation pass but Udon
+rejects Browser 1.10 actions under v10. W8M's sign-in and campaign-page request
+completed, while its count action failed before extraction. P08 repairs the
+source handoff only; W8M retains qualification, adoption and live-count
+authority.
+
 E21.1 freezes the pre-E21 current scenario and integration locks for M86 v2
 report verification. E21.2 advances the current scenario and integration
 locks to the repaired Udon pin and a separate clean 14-source build closure;
@@ -63,6 +71,22 @@ or live operation.
 The history index holds 134 legacy-preserved status IDs and four normally reviewed completions. Legacy-preserved records retain exact source bytes and the frozen milestone text, but do not establish acceptance by themselves. Search the history by ID when needed.
 
 ## Active Milestone Specifications
+
+### P08 — Browser 1.10 v11 trusted execution handoff
+
+Correct OpenUdon's active-profile dispatch so Browser 1.10 selects Udon's
+persistent v11 protocol and Browser 1.8/1.9 continue to select v10. Reject an
+active mix of Browser 1.10 with older action profiles before packaging or
+execution because Udon v11 accepts only Browser 1.10 actions. Admit v11 in
+OpenUdon's validated run-config and preserve credential, approval, session,
+registration and environment boundaries for local and Docker executors.
+
+P08.1 implements source and focused regression tests, including a source-bound
+run-config and no-executor dry-run. P08.2 verifies the corrected handoff with
+an affected synthetic browser journey, repository gates and bounded review.
+P08 depends on completed P07 and E22; W8M W24.5 remains blocked until it
+selects and independently qualifies the corrected clean OpenUdon source and
+runtime. No live target contact, deployment, publication or push is in P08.
 
 ### P07 — Browser 1.10 trusted package dispatch compatibility
 
@@ -176,6 +200,7 @@ search the history index before allocating a future ID.
 
 | ID | Milestone | Status file | State |
 | --- | --- | --- | --- |
+| P08 | Browser 1.10 v11 trusted execution handoff | `tabilet/memory-bank/status-P08.md` | Active |
 | P07 | Browser 1.10 trusted package dispatch compatibility | `tabilet/memory-bank/status-P07.md` | Complete locally; bounded review iteration 2 passed; awaiting normal history retirement |
 | E21 | Repair current-stack Udon build and preserve M86 report meaning | `tabilet/memory-bank/status-E21.md` | Complete; W8M W21 closeout reconciled |
 

@@ -1470,3 +1470,23 @@ action protocol. Browser 1.8/1.9 profiles pass local validation and review
 with their exact discriminator and select trusted browser-driver v10 for
 action execution, including mixed sessions with older profile actions.
 `````
+
+## 2026-09-29 — Browser 1.10 trusted handoff correction
+
+- Original source: `tabilet/memory-bank/architecture.md`, browser authentication and action contract; `tabilet/memory-bank/tech-stack.md`, browser-profile source family. Baseline OpenUdon `ecc3e7b00bcc60bf0107b3e3e60fa18e60ed6bb9`.
+- Retirement reason: P07 package preparation accepted Browser 1.10 under v10, but W8M W24.5's exact run-config reached Udon with v10 and Udon rejected the Browser 1.10 action before count extraction.
+- Replacement: [architecture](../../memory-bank/architecture.md), [tech stack](../../memory-bank/tech-stack.md), and [P08](../../memory-bank/status-P08.md).
+
+````markdown
+action protocol. Browser 1.8/1.9 profiles and Browser 1.10 count profiles pass
+local validation and review with their exact discriminator and select trusted
+browser-driver v10 for action execution, including mixed sessions with older
+profile actions. Udon v11 supplies the typed Browser 1.10 count consumer.
+````
+
+````markdown
+  state, and execution. Active Browser 1.8/1.9 actions and Browser 1.10 count
+  actions select private browser-driver v10, which carries older actions as
+  inner v2; the typed Browser 1.10 count consumer is provided by Udon v11.
+  Older-only workflows keep their prior protocol selection.
+````

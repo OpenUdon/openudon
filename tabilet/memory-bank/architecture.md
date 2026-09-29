@@ -762,9 +762,11 @@ for old main-page sources. Authentication 1.1 requires authentication-call 1.1;
 old profile meanings remain unchanged. Newly generated workflows declare UWS
 1.11.0. Browser 1.7 retains its scalar conversion under the legacy inner
 action protocol. Browser 1.8/1.9 profiles and Browser 1.10 count profiles pass
-local validation and review with their exact discriminator and select trusted
-browser-driver v10 for action execution, including mixed sessions with older
-profile actions. Udon v11 supplies the typed Browser 1.10 count consumer.
+local validation and review with their exact discriminator. Active Browser
+1.8/1.9 actions select trusted browser-driver v10; active Browser 1.10 actions
+select v11, which Udon requires for the typed count consumer. Incompatible
+active mixes fail before executor handoff; inactive profile copies cannot
+select the runtime protocol.
 All scalar outputs remain subject to Udon's post-conversion schema and secret
 checks.
 Credential-less passkey/security-key flows lower an explicit empty binding
