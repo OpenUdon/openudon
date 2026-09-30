@@ -2,6 +2,13 @@
 
 ## Current State
 
+M90 is pending, planned on 2026-09-30 as OpenUdon's part of Kinet's stage 4
+local execution slice (Kinet R47). It carries the published Udon M44 per-step
+executor outcomes into `openudon run` evidence so consumers never scrape
+executor output. It starts after Udon M44 is accepted and pushed; Kinet W07
+re-pins to the accepted, published M90 revision. It adds no runtime
+semantics, UWS 1.12 adoption, simulation, or live operation.
+
 M87 is complete for OpenUdon-owned non-interactive step authoring commands and
 published JSON conformance fixtures, consumed by Kinet W03 (sibling item S2a).
 M87.1's v1 contract, schema, synthetic consumer fixtures, schema/UWS
@@ -88,6 +95,36 @@ The history index holds 134 legacy-preserved status IDs and five normally review
 
 ## Active Milestone Specifications
 
+### M90 — Per-step executor outcomes in run evidence
+
+Carry per-step executor outcomes into `openudon run` evidence. Accept
+`udon.execution-report.v5` from the published Udon M44 schema alongside
+v2–v4, and request v5 from the executor only when explicitly configured, so
+existing consumers are unchanged. Validate every per-step record against the
+staged package plan (known step and operation IDs, bounded count and size)
+and reject unknown or duplicate steps. Record per-step outcomes (`not_started`,
+`succeeded`, `failed`, `unknown`), timestamps, and non-secret failure codes in
+run evidence, choosing between an additive run-evidence v2 field and
+`openudon.run-evidence.v3` in the first row. A missing report marks every step
+`unknown`; an incomplete report is preserved as incomplete. Publish
+conformance fixtures for a dry run, success, failure before the write step,
+and an unknown write step. Qualify once, by explicit opt-in, against a real
+executor built from the published Udon M44 revision and a loopback read+write
+fixture (success, failed read, killed during the write). The scope is local
+and provider-free: no deployment, live account, or target operation. This
+partially promotes the "Trusted-runner capability expansion" candidate below.
+**Approved reconciliation.** Choose the run-evidence version and explicit report-v5 selection contract
+before consumer integration. Validate exact run/workflow identity, complete
+supported inventory, operation/invocation identities and timestamp/outcome
+consistency, with bounded records. Missing, malformed, mismatched or incomplete
+inventory never implies not_started; preserve uncertainty and distinguish an
+incomplete run from an incomplete inventory. Preserve legacy readers and
+default execution behavior. Publish fixtures for these cases; qualification
+uses the accepted M44 revision and its frozen dependency-build closure.
+
+Dependencies: Udon M44 accepted and published under separately named authority.
+Downstream: Kinet W07.
+
 ### E21 — Repair current-stack Udon build and preserve M86 report meaning
 
 Repair the OpenUdon current-stack selector for W8M's UWS 1.11 / Browser 1.9
@@ -158,6 +195,9 @@ external services.
 
 ## Active And Parked Tracks
 
+- Active (pending): M90 carries Udon M44 per-step executor outcomes into run
+  evidence for Kinet's stage 4 local execution slice. It waits for Udon M44
+  to be accepted and pushed; Kinet W07 consumes the published M90 revision.
 - Completed: M89's Stage 1 source-provisioning and mapping work consumed APItools M79 revision
   `e3625f6ef52ea54b7f78b7a4a4f1993bf8a06a46`; it is distinct from M87/M88's completed step-authoring
   contract. M89.1–M89.5 completed, the exact Kinet W04.6 consumer passed against published
@@ -183,6 +223,7 @@ search the history index before allocating a future ID.
 | ID | Milestone | Status file | State |
 | --- | --- | --- | --- |
 | E21 | Repair current-stack Udon build and preserve M86 report meaning | `tabilet/memory-bank/status-E21.md` | Complete; W8M W21 closeout reconciled |
+| M90 | Per-step executor outcomes in run evidence | `tabilet/memory-bank/status-M90.md` | Pending; waits for Udon M44 |
 
 ## Requested Changes After Initialization
 
@@ -406,7 +447,7 @@ fresh scope and dependency review promotes them.
 | S3: retire iCoT terminal/UI and shared interactive loops | Existing consumers, including W8M and Ramen, still rely on these surfaces. M87 is additive and does not authorize removal. | Replacement journey coverage is qualified, W8M migrates off OpenUdon UI launch paths, and removal is explicitly approved; Authoring retires its generic loops only after both OpenUdon and Ramen migrate under its compatibility policy. |
 | Further package/source-family integration | A03/P01/A04/E01/E02 own the approved Browsertools authoring/evidence integration; other API/event source metadata remains owned by apitools and public semantics by UWS. | Another upstream contract is published and an OpenUdon-owned package/review outcome beyond this sequence is explicitly scoped. |
 | Automated real-provider release evidence | Provider runs spend quota and can produce sensitive output; current policy remains local/manual. | Protected credentials, redaction, retention, spend bounds, and review-required CI policy are approved. |
-| Trusted-runner capability expansion | OpenUdon hands approved packages to an external executor and must not absorb runtime semantics. | A public handoff/evidence gap is demonstrated without importing private runtime behavior or weakening approval gates. |
+| Trusted-runner capability expansion | OpenUdon hands approved packages to an external executor and must not absorb runtime semantics. The per-step evidence gap was promoted as M90 on 2026-09-30 for Kinet's stage 4; other expansion remains here. | A further public handoff/evidence gap is demonstrated without importing private runtime behavior or weakening approval gates. |
 | UI-owned LLM drafting | The primary UI now owns deterministic acquisition, interview, review, and handoff, while extractor drafting and repair remain terminal/external-orchestration functions. | A separately reviewed engine mutation can invoke an optional extractor under exact-revision protection, persist every proposal as confirmation-required state, and preserve the no-silent-acceptance boundary. |
 
 ## Notes
