@@ -1,6 +1,6 @@
 # Status M91 — iCoT inventory and behavior-preserving extraction
 
-**State:** M91.1 complete; the user approved the 23-capability inventory. M91.2 is complete. M91.3 awaits approval of an upstream neutral-engine prerequisite; later extraction tasks remain pending.
+**State:** M91.1 complete; the user approved the 23-capability inventory. M91.2 is complete. M91.3 awaits accepted/published Authoring M29; later extraction tasks remain pending.
 
 **Goal.** Move shared implementation out of iCoT while keeping all current consumers working.
 
@@ -147,3 +147,10 @@ blocked awaiting the complete prerequisite proposal's approval and explicit
 extension of the goal. No Authoring ID, planning file, code, commit or remote
 was changed. M91's review count remains 0/10 and later rows were not started;
 completed relocation evidence is preserved in `1a2570232cdbe8cafecda7e580f91b8a2af12746`.
+
+## Upstream prerequisite approved
+
+The user approved Authoring M29, extended the existing goal and authorized
+Authoring publication. M91.3 remains blocked on its accepted/published exact
+revision, rather than on user approval. Resume after M29 handoff and record
+its source/module/qualification; retain M91.1/M91.2 and review count 0/10.

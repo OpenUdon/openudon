@@ -145,6 +145,11 @@ APItools M81 → M80 → Udon M45 → OpenUdon M91 → M92 → M93 → M94
 
 ### M91 — iCoT inventory and behavior-preserving extraction
 
+Approved execution prerequisite: Authoring M29 publishes the additive neutral
+engine before M91.3 resumes. M91.1/M91.2 remain complete; no accepted evidence
+or closing-review counter is reset. Old Authoring iCoT APIs remain supported.
+
+
 **Goal.** Move shared implementation out of iCoT while keeping all current consumers working.
 
 **Scope and compatibility.** Inventory terminal authoring, ui/control protocols, browser authoring/transactions, lint/repair/reconcile/report, evaluation/variants/scorecards, corpus/provider tooling, worker dispatch, qualification, docs and W8M consumers. Retain capabilities through replacement commands or Kinet; do not silently discontinue an unmatched journey. Keep registration and authenticated/TOTP capture. Present any additional discontinuation for explicit approval before removal. Extract artifactwriter, review/sanitization, source discovery/catalog planning/session types and browser/qualification helpers into neutral packages, without duplicating them. Rebase non-iCoT importers and evaluation; iCoT remains functional in 5A. Preserve P07/P08 v11 dispatch and E23/E24 current-stack inputs, including any already-landed W27 upstream handoffs.
