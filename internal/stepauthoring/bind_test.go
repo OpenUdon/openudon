@@ -10,8 +10,8 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/OpenUdon/openudon/internal/artifactwriter"
 	"github.com/OpenUdon/openudon/internal/evidencefile"
-	"github.com/OpenUdon/openudon/internal/icot/artifactwriter"
 	"github.com/OpenUdon/openudon/internal/workflowintent"
 )
 

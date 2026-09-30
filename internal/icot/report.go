@@ -13,8 +13,8 @@ import (
 	"github.com/OpenUdon/browsertools"
 	"github.com/OpenUdon/evidence/digest"
 	"github.com/OpenUdon/openudon/internal/authoring/atomicfile"
+	"github.com/OpenUdon/openudon/internal/elicitor"
 	"github.com/OpenUdon/openudon/internal/evidencefile"
-	"github.com/OpenUdon/openudon/internal/icot/elicitor"
 	"github.com/OpenUdon/openudon/internal/icotreport"
 	"github.com/OpenUdon/openudon/internal/synthesize"
 )

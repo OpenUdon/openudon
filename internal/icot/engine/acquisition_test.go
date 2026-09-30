@@ -9,7 +9,7 @@ import (
 	"testing"
 
 	"github.com/OpenUdon/browsertools/authorresult"
-	"github.com/OpenUdon/openudon/internal/icot/artifactwriter"
+	"github.com/OpenUdon/openudon/internal/artifactwriter"
 )
 
 const uploadedOpenAPI = `{

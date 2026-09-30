@@ -18,7 +18,7 @@ import (
 	bevidence "github.com/OpenUdon/browsertools/evidence"
 	"github.com/OpenUdon/browsertools/guide"
 	"github.com/OpenUdon/browsertools/profile"
-	"github.com/OpenUdon/openudon/internal/icot/elicitor"
+	"github.com/OpenUdon/openudon/internal/elicitor"
 	"github.com/OpenUdon/openudon/internal/synthesize"
 	"github.com/hashicorp/hcl/v2/hclwrite"
 	"github.com/zclconf/go-cty/cty"

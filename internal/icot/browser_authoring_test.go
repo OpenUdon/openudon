@@ -11,7 +11,7 @@ import (
 	"sync/atomic"
 	"testing"
 
-	"github.com/OpenUdon/openudon/internal/icot/elicitor"
+	"github.com/OpenUdon/openudon/internal/elicitor"
 	"github.com/OpenUdon/openudon/internal/projectwizard"
 	rollout "github.com/OpenUdon/openudon/internal/workflowintent"
 	uwsvalidation "github.com/OpenUdon/uws/validation"

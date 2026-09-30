@@ -1315,3 +1315,13 @@ v5 flags) and `internal/trustedrunner` (v3 binding, conservative uncertainty,
 signature/archive verification). Canonical external run-config revalidation
 preserves explicit v5 only for HTTP-only packages. Report validation never
 imports a private executor package or decides a downstream retry.
+
+## M91 shared implementation extraction
+
+The transactional writer now lives in `internal/artifactwriter`; coupled draft
+review, session/discovery and elicitation helpers live in `internal/elicitor`.
+Step authoring, browser scenarios and retained iCoT callers import these shared
+packages. Current test-command paths follow the new locations. Public CLI and
+wire contracts, fixture bytes, approval and report semantics remain unchanged.
+M91.3 still separates transport-specific Authoring iCoT adapters; this relocation
+alone does not establish the final dependency boundary or milestone acceptance.

@@ -11,8 +11,8 @@ import (
 	"path/filepath"
 	"sort"
 
-	"github.com/OpenUdon/openudon/internal/icot/artifactwriter"
-	"github.com/OpenUdon/openudon/internal/icot/elicitor"
+	"github.com/OpenUdon/openudon/internal/artifactwriter"
+	"github.com/OpenUdon/openudon/internal/elicitor"
 )
 
 // WorkspaceStatus is the optimistic ownership state for the one example.

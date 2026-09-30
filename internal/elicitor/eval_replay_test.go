@@ -15,7 +15,7 @@ import (
 )
 
 func TestReplayEvalReferencesThroughICOTChat(t *testing.T) {
-	root := filepath.Join("..", "..", "..", "examples", "eval")
+	root := filepath.Join("..", "..", "examples", "eval")
 	fixtures, err := filepath.Glob(filepath.Join(root, "*", "reference", "intent.hcl"))
 	if err != nil {
 		t.Fatal(err)

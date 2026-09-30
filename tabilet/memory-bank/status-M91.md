@@ -1,6 +1,6 @@
 # Status M91 — iCoT inventory and behavior-preserving extraction
 
-**State:** M91.1 complete; the user approved the 23-capability inventory. Extraction tasks remain pending.
+**State:** M91.1 complete; the user approved the 23-capability inventory. M91.2 is complete; later extraction tasks remain pending.
 
 **Goal.** Move shared implementation out of iCoT while keeping all current consumers working.
 
@@ -20,7 +20,7 @@ Inventory terminal authoring, ui/control protocols, browser authoring/transactio
 | Item | State | Notes |
 | --- | --- | --- |
 | M91.1 — Inventory journeys and consumers | `[+]` | Record retained/replaced/discontinued journeys and replacement checks; inventory both W8M capture modes, expert CLI and evaluation surfaces; approve any new discontinuation explicitly. |
-| M91.2 — Extract artifact writing and draft review | `[ ]` | Move transactional artifactwriter and shared review/sanitization into neutral implementation; prove byte-equivalent fixtures. |
+| M91.2 — Extract artifact writing and draft review | `[+]` | Move transactional artifactwriter and shared review/sanitization into neutral implementation; prove byte-equivalent fixtures. |
 | M91.3 — Extract discovery and session logic | `[ ]` | Move local/catalog discovery, planning and session types; decouple non-iCoT authoring consumers from Authoring icot. |
 | M91.4 — Extract browser worker and qualification helpers | `[ ]` | Move process dispatch/launch and scenario/registration helpers; preserve both capture modes and current-stack inputs. |
 | M91.5 — Rebase evaluation | `[ ]` | Move lint/evaluation, variants and scorecard callers off cmd/icot without changing their fixture corpus or expected coverage. |
@@ -89,3 +89,36 @@ all retained behavior needs replacement evidence before Gate 5B/M95 closure.
 Inventory source paths, 23 unique entries, prerequisite retirement envelopes,
 documentation-memory checks and diff checks pass. Closing review stays 0/10;
 this inventory approval is not milestone acceptance or Gate 5B approval.
+
+## M91.2 selected — shared writer and elicitor review
+
+Move `internal/icot/artifactwriter` to `internal/artifactwriter` and the coupled
+elicitor/review implementation to `internal/elicitor`, preserving package names,
+APIs and implementation bodies. Moving the coupled elicitor early carries its
+session/discovery code into neutral ownership without copying private helpers;
+M91.3 still owns removal of its transport-specific Authoring iCoT dependency.
+Rebase callers and current test-command paths, fix only changed fixture-relative
+paths, preserve historical harness/qualification records, and verify identical
+tracked corpus/step fixture bytes. No iCoT command or user capability is removed.
+
+## M91.2 complete — relocation equivalence
+
+The writer and all 78 coupled elicitor files moved without copied implementation.
+All 81 moved files match their `968f334` bodies after import-path and two
+fixture-relative-path adjustments. All 405 tracked evaluation/step fixture files
+match the pre-task digest inventory at
+`/var/tmp/openudon-m91-fixtures-before.json`.
+
+Focused writer/elicitor/step/iCoT/browser tests pass, as do transactional writer
+and discovery race tests, and step optimistic-write/stale-intent/unsafe-review
+race tests. `make fast` passes (full Go tests and documentation-memory checks).
+Logs: `/tmp/openudon-m91-2-focused.log`,
+`/tmp/openudon-m91-2-race.log`, `/tmp/openudon-m91-2-step-race.log`, and
+`/tmp/openudon-m91-2-fast-fixed.log`.
+
+The first full test detected an accidentally rewritten historical integration
+selector. Its original command paths were restored; immutable v2/v3 inventory
+hashes and existing report validators now pass. M91.5 owns evaluation rebasing
+and any needed versioned selector; no historical report, lock, source fixture,
+command capability or approval policy was changed. Final import independence,
+smoke/frozen qualification and closing review remain milestone work.

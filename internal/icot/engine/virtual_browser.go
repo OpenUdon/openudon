@@ -7,7 +7,7 @@ import (
 
 	"github.com/OpenUdon/openudon/internal/browsercandidate"
 	"github.com/OpenUdon/openudon/internal/browsertransaction"
-	"github.com/OpenUdon/openudon/internal/icot/elicitor"
+	"github.com/OpenUdon/openudon/internal/elicitor"
 )
 
 // RegistrationVirtualBrowserTransaction converts one immutable, path-free

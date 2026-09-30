@@ -304,7 +304,7 @@ func TestApplyDraftReviewRemediationsUsesResponseFieldsWhenAvailable(t *testing.
 		},
 	}
 	docs := []APIDocument{{
-		Path:         "../../../examples/eval/m28-gmail-audit-receipt/openapi/gmail.yaml",
+		Path:         "../../examples/eval/m28-gmail-audit-receipt/openapi/gmail.yaml",
 		RelativePath: "openapi/gmail.yaml",
 		Operations: []apitools.OperationSummary{{
 			OperationID: "sendMessage",

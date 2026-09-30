@@ -15,9 +15,9 @@ import (
 	"time"
 
 	"github.com/OpenUdon/browsertools/authorresult"
+	"github.com/OpenUdon/openudon/internal/artifactwriter"
 	"github.com/OpenUdon/openudon/internal/browsercandidate"
 	"github.com/OpenUdon/openudon/internal/credentialpolicy"
-	"github.com/OpenUdon/openudon/internal/icot/artifactwriter"
 	"github.com/OpenUdon/uws/schemas"
 )
 

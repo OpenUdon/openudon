@@ -12,7 +12,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/OpenUdon/openudon/internal/icot/elicitor"
+	"github.com/OpenUdon/openudon/internal/elicitor"
 )
 
 const testIntent = `workflow {

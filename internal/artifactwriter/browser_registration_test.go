@@ -13,8 +13,8 @@ import (
 
 	"github.com/OpenUdon/browsertools/registrationprofile"
 	"github.com/OpenUdon/browsertools/registrationreview"
-	"github.com/OpenUdon/openudon/internal/icot/artifactwriter"
-	"github.com/OpenUdon/openudon/internal/icot/elicitor"
+	"github.com/OpenUdon/openudon/internal/artifactwriter"
+	"github.com/OpenUdon/openudon/internal/elicitor"
 	"github.com/OpenUdon/openudon/internal/packageartifacts"
 	"github.com/OpenUdon/openudon/internal/synthesize"
 	rollout "github.com/OpenUdon/openudon/internal/workflowintent"

@@ -25,8 +25,8 @@ import (
 	"github.com/OpenUdon/browsertools/authorsession"
 	"github.com/OpenUdon/browsertools/disclosurepath"
 	"github.com/OpenUdon/evidence/redact"
+	"github.com/OpenUdon/openudon/internal/elicitor"
 	"github.com/OpenUdon/openudon/internal/icot/browserauthor"
-	"github.com/OpenUdon/openudon/internal/icot/elicitor"
 	"github.com/OpenUdon/openudon/internal/processgroup"
 	rollout "github.com/OpenUdon/openudon/internal/workflowintent"
 )

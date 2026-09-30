@@ -12,8 +12,8 @@ import (
 	"github.com/OpenUdon/openudon/internal/browsercandidate"
 	"github.com/OpenUdon/openudon/internal/browsertransaction"
 	transactionengine "github.com/OpenUdon/openudon/internal/browsertransaction/engine"
+	"github.com/OpenUdon/openudon/internal/elicitor"
 	"github.com/OpenUdon/openudon/internal/icot/browserauthor"
-	"github.com/OpenUdon/openudon/internal/icot/elicitor"
 	icotengine "github.com/OpenUdon/openudon/internal/icot/engine"
 	"github.com/OpenUdon/uws/browserregistration"
 )

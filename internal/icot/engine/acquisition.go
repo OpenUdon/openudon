@@ -16,9 +16,9 @@ import (
 	"unicode/utf8"
 
 	"github.com/OpenUdon/apitools"
+	"github.com/OpenUdon/openudon/internal/artifactwriter"
 	"github.com/OpenUdon/openudon/internal/credentialpolicy"
-	"github.com/OpenUdon/openudon/internal/icot/artifactwriter"
-	"github.com/OpenUdon/openudon/internal/icot/elicitor"
+	"github.com/OpenUdon/openudon/internal/elicitor"
 )
 
 const (

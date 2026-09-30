@@ -15,8 +15,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/OpenUdon/openudon/internal/elicitor"
 	evalpkg "github.com/OpenUdon/openudon/internal/eval"
-	"github.com/OpenUdon/openudon/internal/icot/elicitor"
 	"github.com/OpenUdon/openudon/internal/icotreport"
 	"github.com/OpenUdon/openudon/internal/projectwizard"
 	"github.com/OpenUdon/openudon/internal/synthesize"

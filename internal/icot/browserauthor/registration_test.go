@@ -17,7 +17,7 @@ import (
 	"github.com/OpenUdon/browsertools/registrationauthorsession"
 	"github.com/OpenUdon/browsertools/registrationprofile"
 	"github.com/OpenUdon/openudon/internal/browsertransaction"
-	"github.com/OpenUdon/openudon/internal/icot/elicitor"
+	"github.com/OpenUdon/openudon/internal/elicitor"
 	"github.com/OpenUdon/openudon/internal/icot/engine"
 	"github.com/OpenUdon/openudon/internal/processgroup"
 )

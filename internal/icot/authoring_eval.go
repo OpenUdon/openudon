@@ -15,9 +15,9 @@ import (
 
 	"github.com/OpenUdon/openudon/internal/authoring"
 	"github.com/OpenUdon/openudon/internal/authoring/atomicfile"
+	"github.com/OpenUdon/openudon/internal/elicitor"
 	evalpkg "github.com/OpenUdon/openudon/internal/eval"
 	"github.com/OpenUdon/openudon/internal/evidencefile"
-	"github.com/OpenUdon/openudon/internal/icot/elicitor"
 	"github.com/OpenUdon/openudon/internal/projectwizard"
 	"github.com/OpenUdon/openudon/internal/synthesize"
 	rollout "github.com/OpenUdon/openudon/internal/workflowintent"

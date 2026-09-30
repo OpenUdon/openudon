@@ -9,8 +9,8 @@ import (
 
 	"github.com/OpenUdon/openudon/internal/browsertransaction"
 	transactionengine "github.com/OpenUdon/openudon/internal/browsertransaction/engine"
+	"github.com/OpenUdon/openudon/internal/elicitor"
 	"github.com/OpenUdon/openudon/internal/evidencefile"
-	"github.com/OpenUdon/openudon/internal/icot/elicitor"
 	icotengine "github.com/OpenUdon/openudon/internal/icot/engine"
 )
 

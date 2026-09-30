@@ -18,9 +18,9 @@ import (
 
 	"github.com/OpenUdon/browsertools"
 	"github.com/OpenUdon/browsertools/authorresult"
+	"github.com/OpenUdon/openudon/internal/artifactwriter"
 	"github.com/OpenUdon/openudon/internal/browsercandidate"
-	"github.com/OpenUdon/openudon/internal/icot/artifactwriter"
-	"github.com/OpenUdon/openudon/internal/icot/elicitor"
+	"github.com/OpenUdon/openudon/internal/elicitor"
 	"github.com/OpenUdon/openudon/internal/icot/engine"
 	rollout "github.com/OpenUdon/openudon/internal/workflowintent"
 )

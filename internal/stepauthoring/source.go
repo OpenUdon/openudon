@@ -13,8 +13,8 @@ import (
 	"unicode/utf8"
 
 	"github.com/OpenUdon/apitools"
+	"github.com/OpenUdon/openudon/internal/artifactwriter"
 	"github.com/OpenUdon/openudon/internal/evidencefile"
-	"github.com/OpenUdon/openudon/internal/icot/artifactwriter"
 	"github.com/OpenUdon/openudon/internal/packageartifacts"
 )
 

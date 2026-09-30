@@ -1021,3 +1021,13 @@ set `OPENUDON_M44_EXECUTOR` and `OPENUDON_M44_CLOSURE` to the accepted frozen
 M44 artifact pair. Default checks skip that real executor. Qualification binds
 source, exact closure and binary digests and executes a private binary copy;
 see [per-step run evidence](../../docs/per-step-run-evidence.md).
+
+## M91 shared implementation extraction
+
+Shared writer/review checks now use `go test ./internal/artifactwriter
+./internal/elicitor ./internal/stepauthoring`. The Makefile's current adversarial
+selectors follow those locations. Frozen historical integration-report selector
+commands and lock bytes remain unchanged; M91.5 owns versioned evaluation
+rebasing. Relocation checks passed `make fast` and focused transactional/race
+checks with unchanged tracked fixture bytes. Final smoke and frozen integration
+qualification remain required before milestone acceptance.

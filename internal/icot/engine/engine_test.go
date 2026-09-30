@@ -22,10 +22,10 @@ import (
 	"github.com/OpenUdon/browsertools/profile"
 	"github.com/OpenUdon/browsertools/registry"
 	"github.com/OpenUdon/browsertools/review"
+	"github.com/OpenUdon/openudon/internal/artifactwriter"
 	"github.com/OpenUdon/openudon/internal/authoring"
 	"github.com/OpenUdon/openudon/internal/browserverify"
-	"github.com/OpenUdon/openudon/internal/icot/artifactwriter"
-	"github.com/OpenUdon/openudon/internal/icot/elicitor"
+	"github.com/OpenUdon/openudon/internal/elicitor"
 	rollout "github.com/OpenUdon/openudon/internal/workflowintent"
 )
 

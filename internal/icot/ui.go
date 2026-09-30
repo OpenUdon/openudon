@@ -15,7 +15,7 @@ import (
 
 	"github.com/OpenUdon/browsertools/authorpolicy"
 	transactionengine "github.com/OpenUdon/openudon/internal/browsertransaction/engine"
-	"github.com/OpenUdon/openudon/internal/icot/elicitor"
+	"github.com/OpenUdon/openudon/internal/elicitor"
 	"github.com/OpenUdon/openudon/internal/icot/engine"
 	uiserver "github.com/OpenUdon/openudon/internal/icot/ui"
 	"github.com/OpenUdon/openudon/internal/packagepipeline"

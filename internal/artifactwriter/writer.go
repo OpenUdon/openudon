@@ -14,7 +14,7 @@ import (
 
 	"github.com/OpenUdon/browsertools/registrationprofile"
 	"github.com/OpenUdon/openudon/internal/browserverify"
-	"github.com/OpenUdon/openudon/internal/icot/elicitor"
+	"github.com/OpenUdon/openudon/internal/elicitor"
 	"github.com/OpenUdon/openudon/internal/packageartifacts"
 	rollout "github.com/OpenUdon/openudon/internal/workflowintent"
 	"github.com/OpenUdon/uws/browserregistration"

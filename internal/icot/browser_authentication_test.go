@@ -4,8 +4,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/OpenUdon/openudon/internal/icot/artifactwriter"
-	"github.com/OpenUdon/openudon/internal/icot/elicitor"
+	"github.com/OpenUdon/openudon/internal/artifactwriter"
+	"github.com/OpenUdon/openudon/internal/elicitor"
 	rollout "github.com/OpenUdon/openudon/internal/workflowintent"
 )
 
