@@ -55,7 +55,7 @@ Preparation alone missed a second boundary: P07 selected v10 for Browser 1.10,
 so W8M W24.5 authenticated but Udon rejected the count action before DOM
 extraction. Test the exact prepared run-config's profile/protocol pairing
 through the external executor handoff as well. P08 selects v11 and rejects
-incompatible active mixes; see [P08](status-P08.md).
+incompatible active mixes; see [P08](../docs/history/status-P08.md).
 
 ## Validate task tables with the installed runner
 

@@ -1,3 +1,41 @@
+# Retired milestone P08 - Browser 1.10 v11 trusted execution handoff
+
+**Milestone.** P08
+**Outcome.** completed
+**Retired.** 2026-09-30
+**Source status.** tabilet/memory-bank/status-P08.md
+**Source specification.** tabilet/memory-bank/milestone.md#p08---browser-110-v11-trusted-execution-handoff
+**Evidence.** 4f46abaded9e7fb834e44d3ac54ac2e5ee33a456
+**Worktree.** includes uncommitted changes
+**Review.** passed
+**Review iterations.** 1
+**Verification.** Original recorded owner checks, source-bound synthetic qualification and bounded review passed; original evidence and counters preserved. Current upstream ancestry and downstream W8M history were inspected for normal closure, without a new browser run.
+**Consolidated into.** [architecture](../../memory-bank/architecture.md), [tech-stack](../../memory-bank/tech-stack.md), [lessons](../../memory-bank/lessons.md), and [milestone dashboard](../../memory-bank/milestone.md).
+
+## Milestone specification
+
+````markdown
+### P08 — Browser 1.10 v11 trusted execution handoff
+
+Correct OpenUdon's active-profile dispatch so Browser 1.10 selects Udon's
+persistent v11 protocol and Browser 1.8/1.9 continue to select v10. Reject an
+active mix of Browser 1.10 with older action profiles before packaging or
+execution because Udon v11 accepts only Browser 1.10 actions. Admit v11 in
+OpenUdon's validated run-config and preserve credential, approval, session,
+registration and environment boundaries for local and Docker executors.
+
+P08.1 implements source and focused regression tests, including a source-bound
+run-config and no-executor dry-run. P08.2 verifies the corrected handoff with
+an affected synthetic browser journey, repository gates and bounded review.
+P08 depends on completed P07 and E22; W8M W24.5 remains blocked until it
+selects and independently qualifies the corrected clean OpenUdon source and
+runtime. No live target contact, deployment, publication or push is in P08.
+
+````
+
+## Status record
+
+````markdown
 # Status P08 — Browser 1.10 v11 trusted execution handoff
 
 **State:** Complete locally after bounded review iteration 1. P08.1 and P08.2
@@ -74,3 +112,23 @@ No P1/P2 or higher-severity finding remains. P08 implementation is complete
 locally; W8M W24 remains blocked pending its own exact-source qualification,
 runtime selection and separately authorized live count. No deployment,
 publication or push occurred.
+
+## Normal closure reconciliation — 2026-09-30
+
+The confirmed Stage 5 goal authorizes completing genuinely unfinished
+prerequisite closure before M91. All original task outcomes, consumed attempts
+and review counters above are preserved; no completed task or review is rerun.
+Observed OpenUdon origin/main is
+`e12a6488b86cafddb9298c7917de84fbc1cc85ff`; original accepted E21, P07 and
+P08 source commits are ancestors of that published revision. Earlier local-only
+and downstream-pending statements above retain their original context.
+
+W8M's completed W24 now owns its independently qualified P08.1 v11 source
+`5cad6ce55e0f615a8e754f468614cadbe565790b` and its accepted count/teardown;
+resolve W21/W22/W24 through W8M's history index. P07's v10 preparation result
+remains recorded acceptance of its original scope; P08 owns the corrected v11
+executor pairing. Current Stage 5 extraction preserves that v11 pairing and
+E23/E24 inputs. No W8M record, old report, live claim or adopted runtime is
+modified here. The normal retirement preserves the complete specification and
+status, repairs maintained evidence links, and retains reusable lessons.
+````

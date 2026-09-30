@@ -217,22 +217,6 @@ Status, task-sized commit units, review provenance and persisted review counter:
 
 Status, task-sized commit units, review provenance and persisted review counter: [status-M95.md](status-M95.md).
 
-### P08 — Browser 1.10 v11 trusted execution handoff
-
-Correct OpenUdon's active-profile dispatch so Browser 1.10 selects Udon's
-persistent v11 protocol and Browser 1.8/1.9 continue to select v10. Reject an
-active mix of Browser 1.10 with older action profiles before packaging or
-execution because Udon v11 accepts only Browser 1.10 actions. Admit v11 in
-OpenUdon's validated run-config and preserve credential, approval, session,
-registration and environment boundaries for local and Docker executors.
-
-P08.1 implements source and focused regression tests, including a source-bound
-run-config and no-executor dry-run. P08.2 verifies the corrected handoff with
-an affected synthetic browser journey, repository gates and bounded review.
-P08 depends on completed P07 and E22; W8M W24.5 remains blocked until it
-selects and independently qualifies the corrected clean OpenUdon source and
-runtime. No live target contact, deployment, publication or push is in P08.
-
 ## Memory Bank Index
 
 - This file owns milestones, work sequencing, acceptance criteria, the current-state dashboard, and
@@ -333,7 +317,6 @@ search the history index before allocating a future ID.
 | M93 | Supervised authenticated and registration browser capture | [status-M93.md](status-M93.md) | Approved planning; pending |
 | M94 | Catalog discovery and digest-bound source provisioning | [status-M94.md](status-M94.md) | Approved planning; pending |
 | M95 | Remove iCoT after consumer migration | [status-M95.md](status-M95.md) | Approved planning; pending |
-| P08 | Browser 1.10 v11 trusted execution handoff | `tabilet/memory-bank/status-P08.md` | Complete locally; bounded review iteration 1 passed; awaiting normal history retirement |
 
 ## Requested Changes After Initialization
 
