@@ -158,3 +158,15 @@ Kinet W07 pin or downstream execution is claimed. Final task/source commit
 and its clean-source qualification are recorded below before requesting
 authority; after publication, reconcile W07 to that exact implementation
 revision before closing/retiring M90 and advancing to Kinet M18.
+
+**Clean source qualification (2026-09-30).** Final reviewed implementation
+source `ed5b206a524e6e193123b2d06714b75160379560` is committed with a clean
+worktree. `make report-v5-qualification` passed again at that exact clean
+source; log `/tmp/openudon-m90-qualified-ed5b206.log`. The eight service counts
+and exact-attempt observations agree, using the accepted M44 source/binary/
+closure digests above. The doc-memory guard also passes; go.mod/go.sum remain
+unchanged. Independent `git ls-remote origin refs/heads/main` returned
+`0c7c5d33da2ba7b190954b9eb402cc14b5ec1f73`; the local range contains only
+the approved M90 plan, prerequisite reconciliation and M90 task commits.
+This subsequent readiness record changes no implementation bytes. M90 remains
+unaccepted/unretired pending the separately authorized publication.
