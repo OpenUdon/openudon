@@ -1,6 +1,6 @@
 # Status M91 — iCoT inventory and behavior-preserving extraction
 
-**State:** M91.1 complete; the user approved the 23-capability inventory. M91.2 is complete; later extraction tasks remain pending.
+**State:** M91.1 complete; the user approved the 23-capability inventory. M91.2 is complete. M91.3 awaits approval of an upstream neutral-engine prerequisite; later extraction tasks remain pending.
 
 **Goal.** Move shared implementation out of iCoT while keeping all current consumers working.
 
@@ -21,7 +21,7 @@ Inventory terminal authoring, ui/control protocols, browser authoring/transactio
 | --- | --- | --- |
 | M91.1 — Inventory journeys and consumers | `[+]` | Record retained/replaced/discontinued journeys and replacement checks; inventory both W8M capture modes, expert CLI and evaluation surfaces; approve any new discontinuation explicitly. |
 | M91.2 — Extract artifact writing and draft review | `[+]` | Move transactional artifactwriter and shared review/sanitization into neutral implementation; prove byte-equivalent fixtures. |
-| M91.3 — Extract discovery and session logic | `[ ]` | Move local/catalog discovery, planning and session types; decouple non-iCoT authoring consumers from Authoring icot. |
+| M91.3 — Extract discovery and session logic | `[!]` | Move local/catalog discovery, planning and session types; decouple non-iCoT authoring consumers from Authoring icot. |
 | M91.4 — Extract browser worker and qualification helpers | `[ ]` | Move process dispatch/launch and scenario/registration helpers; preserve both capture modes and current-stack inputs. |
 | M91.5 — Rebase evaluation | `[ ]` | Move lint/evaluation, variants and scorecard callers off cmd/icot without changing their fixture corpus or expected coverage. |
 | M91.6 — Prove equivalence, review and publish | `[ ]` | Check imports, fixtures, evaluation and owner qualification; preserve P07/P08 dispatch; publish accepted source. Consumer qualification belongs to Kinet W08, without weakening its production pin. |
@@ -122,3 +122,28 @@ hashes and existing report validators now pass. M91.5 owns evaluation rebasing
 and any needed versioned selector; no historical report, lock, source fixture,
 command capability or approval policy was changed. Final import independence,
 smoke/frozen qualification and closing review remain milestone work.
+
+## M91.3 dependency discovery — awaiting scope decision
+
+Read-only inspection of Authoring's published HEAD
+`b417eb681746476cca80bdb14cde3e3c96de980c` and OpenUdon's pinned
+`2f73e3526583d303bd67a505a54035f8b1618ae0` finds the generic progressive
+loop, prompt compatibility envelope and clone-based `InterviewBinding` in
+`github.com/OpenUdon/authoring/icot`. Neutral interview/readiness/session/prompt
+primitives exist, but no neutral public engine entry point exposes that complete
+contract. `GOWORK=off go list -deps ./internal/stepauthoring` confirms the
+remaining transitive `authoring/icot` dependency after M91.2.
+
+Authoring's instructions assign generic loops, sessions and atomic bindings to
+Authoring. A recommended additive prerequisite would relocate the existing
+implementation into a neutral Authoring engine and keep the old `icot` API as
+compatibility aliases/forwarders. Ramen still imports the old API; its source
+and ledger were not changed. This is a compatibility-preserving extraction,
+not the deferred Authoring iCoT/icotcli retirement.
+
+Authoring has no pending owner for that prerequisite and is absent from this
+run's execution/publication targets. Under Kinet GOAL's scope stop, M91.3 is
+blocked awaiting the complete prerequisite proposal's approval and explicit
+extension of the goal. No Authoring ID, planning file, code, commit or remote
+was changed. M91's review count remains 0/10 and later rows were not started;
+completed relocation evidence is preserved in `1a2570232cdbe8cafecda7e580f91b8a2af12746`.
