@@ -255,3 +255,15 @@ func TestV5ExternalCanonicalHandoffPreservesInterruptedReport(t *testing.T) {
 		})
 	}
 }
+
+func TestV5PreparationFailureDoesNotInventExecutorInvocation(t *testing.T) {
+	root, example, approval := fixtureV5(t)
+	result, err := Run(context.Background(), Options{RepoRoot: root, ExampleDir: example, Tier: TierSandbox, ApprovalPath: approval, ExecutorReportVersion: "v5", Env: []string{"OPENUDON_EXECUTOR=" + filepath.Join(root, "missing-executor")}, Assess: passAssess, Now: fixedNow(),
+		Invoke: func(context.Context, udonrunner.Invocation) error { t.Fatal("unprepared executor invoked"); return nil }})
+	if err == nil {
+		t.Fatal("missing binary accepted")
+	}
+	if result != nil && result.RunEvidencePath != "" {
+		t.Fatal("preparation refusal claimed invoked executor")
+	}
+}

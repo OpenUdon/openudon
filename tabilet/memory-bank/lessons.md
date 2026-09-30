@@ -62,3 +62,24 @@ repeated long passages and left older "current" headings beside newer work.
 The [knowledge journal](../docs/history/knowledge.md) preserves the wording
 removed during the September 24 consolidation, and [E20](../docs/history/status-E20.md)
 illustrates the owning task evidence.
+
+## Preserve uncertainty across executor report boundaries
+
+When deciding whether an approved run can be repeated, compare the report's
+unique attempt, workflow-byte digest and complete ordered inventory with the
+reviewed staged plan. A missing/rejected report proves no unstarted step;
+an incomplete run can retain truthful complete inventory. Leaf results and
+later run failures are separate observations. Preparation refusal must not
+claim executor invocation. Evidence: M90's strict report/invocation checks and
+`TestPublishedM44Qualification` (failed read, killed write, checkpoint failure,
+missing/stale report and duplicate refusal), [status-M90.md](status-M90.md).
+
+## Validate the exact JSON wire before interpreting typed records
+
+Go's encoding/json accepts case aliases and converts null strings to zero
+values. DisallowUnknownFields alone does not enforce a canonical closed wire
+schema. Reject aliases, nulls and forbidden optional-field presence before
+interpreting report outcomes; reject timestamp precision the consumer cannot
+compare faithfully. Evidence: `internal/udonreport/v5.go` and its alias/null,
+presence, identity and timestamp mutation tests; M90 review finding R90-3 in
+[status-M90.md](status-M90.md). Keep legacy wire behavior under its own version.

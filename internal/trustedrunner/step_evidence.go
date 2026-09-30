@@ -12,6 +12,9 @@ import (
 
 func buildRunEvidenceV5Executor(opts runEvidenceOptions, argv []string) (RunEvidenceExecutor, *udonreport.ObservationV5, error) {
 	e := RunEvidenceExecutor{Invoked: opts.Invoked, Mode: opts.Mode, RunnerPath: opts.RunnerPath, Argv: argv}
+	if opts.Invoked && opts.Mode == "internal-runner" && !opts.Prepared.InvocationAttempted {
+		return e, nil, fmt.Errorf("executor invocation was not attempted; no invoked v5 evidence")
+	}
 	if opts.Prepared.InventoryV5 == nil {
 		return e, nil, fmt.Errorf("missing reviewed v5 inventory")
 	}

@@ -212,3 +212,9 @@ fast:
 smoke:
 	$(GO) run ./cmd/openudon browser-system-dev --mode smoke --stage "$(OPENUDON_SMOKE_STAGE)" --udon-repo "$(OPENUDON_BROWSER_SYSTEM_UDON_REPO)" --out "$(OPENUDON_SMOKE_OUT)" --cache "$(OPENUDON_SMOKE_CACHE)" --reuse=$(OPENUDON_SMOKE_REUSE)
 qualify: browser-system-check
+
+# Explicit provider-free, disposable loopback qualification of accepted Udon M44.
+.PHONY: report-v5-qualification
+report-v5-qualification:
+	@test -n "$(OPENUDON_M44_EXECUTOR)" -a -n "$(OPENUDON_M44_CLOSURE)" || { echo "set OPENUDON_M44_EXECUTOR and OPENUDON_M44_CLOSURE to the accepted frozen M44 build"; exit 2; }
+	OPENUDON_M44_QUALIFY=1 OPENUDON_M44_EXECUTOR="$(OPENUDON_M44_EXECUTOR)" OPENUDON_M44_CLOSURE="$(OPENUDON_M44_CLOSURE)" $(GO) test ./internal/trustedrunner -run '^TestPublishedM44Qualification$$' -count=1 -v

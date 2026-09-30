@@ -1,6 +1,7 @@
 # Status M90 — Per-step executor outcomes in run evidence
 
-**State:** M90.1–M90.2 complete; M90.3 pending; Stage 4 goal execution approved 2026-09-30.
+**State:** Local implementation verified; review passed in 2 iterations;
+M90.3 publication blocked. Stage 4 goal execution approved 2026-09-30.
 One execution owner; COMMIT_POLICY: task. OpenUdon publication is not authorized.
 
 **Scope boundary:** Carry Udon's per-step outcomes into `openudon run` evidence
@@ -41,7 +42,7 @@ Markers: `[ ]` pending, `[~]` in progress, `[+]` complete, `[!]` blocked,
 | --- | --- | --- |
 | M90.1 Choose the evidence contract and publish fixtures | `[+]` | Choose evidence version and explicit v5 selection before integration; publish dry-run, success, failed-read/write, interrupted, missing/stale/mismatched report and incomplete-inventory fixtures; define exact run/workflow and step/invocation identity. |
 | M90.2 Validate report v5 and record per-step outcomes | `[+]` | Validate selected v5 reports alongside unchanged legacy consumers; bounded identities/counts, inventory completeness, times and outcomes; missing/malformed/mismatched evidence cannot imply not_started; preserve incomplete runs and conservative unknowns without secrets or payloads. |
-| M90.3 Qualify against Udon M44, review, and publish | `[ ]` | Opt-in qualification at accepted M44 source/frozen build closure with loopback success, failures and kill/checkpoint cases; make check and bounded review with no P1/P2; publish accepted revision only under separately named origin/main authority. |
+| M90.3 Qualify against Udon M44, review, and publish | `[!]` | Opt-in qualification at accepted M44 source/frozen build closure with loopback success, failures and kill/checkpoint cases; make check and bounded review with no P1/P2; publish accepted revision only under separately named origin/main authority. |
 
 ## Acceptance
 
@@ -92,3 +93,68 @@ CLI (Go 1.26.8; sanitized offline/model-free environment). Conformance, privacy,
 time/identity/duplicate/size mutations, external interrupted handoff, signature
 and archive checks pass. Real M44 qualification and whole-package gates/review
 belong to M90.3. No sibling source or module requirements changed.
+
+## Closing review — iteration 1 started (2026-09-30)
+
+M90 implementation and local qualification are ready; publication remains
+separately gated. `make check` and `go vet ./...` passed in the sanitized
+Go 1.26.8 offline environment. Logs: `/tmp/openudon-m90-check-01.log` and
+`/tmp/openudon-m90-vet-01.log`. Explicit real M44 qualification passes eight
+cases at the accepted source/executor/build closure; the Make target's log is
+`/tmp/openudon-m90-qualification-01.log`. Focused report/runner/CLI race checks
+also pass. Iteration 1 now reviews the complete M90 range from planning
+baseline `ab9925ed90e59131d86a4b1a26dc2bd8a6548131`, including current
+uncommitted qualification and v46 direction records, against the approved
+contract, all compatibility/security/failure boundaries, and Kinet W07.
+No publication or acceptance is inferred from task/check completion.
+
+**Review iteration 1 result.** P2 R90-1: an internal runner preparation
+failure after inventory derivation can reach the inherited failure-evidence
+path with `invoked: true`, although the invocation callback was never entered.
+For v5, refuse fabricated invoked evidence and track the actual boundary entry;
+preserve legacy behavior. P2 R90-2: the real qualification currently checks
+closure field shape and the pinned executor digest but not the exact accepted
+closure bytes; bind the recorded closure digest as well. No other P1/P2 in
+report identity/inventory/time checks, conservative outcomes, external
+canonical handoff, privacy, legacy/browser behavior, signatures or archives.
+
+**Additional iteration 1 finding.** P2 R90-3: encoding/json's case-insensitive
+field matching and null-to-zero handling can accept noncanonical v5 property
+names or optional null strings despite the frozen closed schema. Enforce exact
+field names and non-null fields in v5 only; add alias/null rejection checks.
+Legacy decoding remains unchanged. This is still iteration 1, before its
+remediation verification and the next review pass.
+
+## Closing review — iteration 2 started (2026-09-30)
+
+R90-1 is fixed with an invocation-boundary observation; v5 refuses to emit
+invoked evidence after preparation refusal. R90-2 binds the exact accepted
+closure SHA-256 as well as source/executor. R90-3 rejects aliases, nulls and
+forbidden optional-field presence, plus timestamp grammar/precision that
+cannot be compared faithfully. The legacy reader remains unchanged. Final
+`make check`, affected vet and focused race tests pass; the explicit real M44
+qualification also passes under race checks after these fixes. Logs are
+`/tmp/openudon-m90-check-final.log`, `/tmp/openudon-m90-vet-final.log`, and
+`/tmp/openudon-m90-qualification-03.log`. Iteration 2 now reviews the whole
+M90 diff and all carried findings. Publication remains separately gated.
+
+**Review iteration 2 result.** Passed; no open P1/P2 or carried findings.
+The whole milestone, conformance records, v3 signature/archive verification,
+canonical external handoff, pre-dispatch inventory, report privacy, actual
+invocation observation, strict JSON/presence/time validation and opt-in frozen
+build qualification were reviewed. R90-1/R90-2/R90-3 are closed by their fixes
+and passing refusal/canonical-input/real-M44 checks. `make check`, affected vet,
+formatting and diff checks pass; focused and real-qualification race checks
+pass after the final fixes. Default v2 evidence and legacy/browser report
+selection remain unchanged. Current truth and reusable lessons are consolidated;
+v46 records the material additive public/private handoff direction.
+
+**Publication gate.** M90.3 is blocked only on separately named normal
+fast-forward publication authority for OpenUdon origin/main
+(`git@github.com-tabilet:OpenUdon/openudon.git`). The goal's
+EXTERNAL_MUTATIONS: none was amended only for Udon M44 publication. It does
+not authorize OpenUdon publication. No M90 milestone acceptance, retirement,
+Kinet W07 pin or downstream execution is claimed. Final task/source commit
+and its clean-source qualification are recorded below before requesting
+authority; after publication, reconcile W07 to that exact implementation
+revision before closing/retiring M90 and advancing to Kinet M18.

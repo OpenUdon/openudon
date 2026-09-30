@@ -3,9 +3,13 @@
 package udonreport
 
 import (
+	"bytes"
+	"encoding/json"
 	"fmt"
 	"github.com/OpenUdon/openudon/internal/evidencefile"
+	"reflect"
 	"regexp"
+	"strings"
 	"time"
 )
 
@@ -14,6 +18,7 @@ const MaxSteps = 256
 
 var identifier = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}$`)
 var digest = regexp.MustCompile(`^sha256:[a-f0-9]{64}$`)
+var timestampV5 = regexp.MustCompile(`^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(\.[0-9]{1,9})?(Z|[+-]([01][0-9]|2[0-3]):[0-5][0-9])$`)
 
 // Step identifies exactly one invocation in a supported straight-line plan.
 // Outcomes describe the leaf operation, not downstream expression evaluation.
@@ -50,7 +55,7 @@ func (r ReportV5) Validate() error {
 		return fmt.Errorf("invalid report identity or inventory")
 	}
 	start, err := time.Parse(time.RFC3339Nano, r.StartedAt)
-	if err != nil {
+	if err != nil || !timestampV5.MatchString(r.StartedAt) {
 		return fmt.Errorf("invalid report start")
 	}
 	var finish time.Time
@@ -61,7 +66,7 @@ func (r ReportV5) Validate() error {
 		}
 	case "success", "error":
 		finish, err = time.Parse(time.RFC3339Nano, r.FinishedAt)
-		if err != nil || finish.Before(start) {
+		if err != nil || !timestampV5.MatchString(r.FinishedAt) || finish.Before(start) {
 			return fmt.Errorf("invalid report finish")
 		}
 		if r.Status == "success" && r.ErrorCode != "" {
@@ -91,7 +96,7 @@ func (r ReportV5) Validate() error {
 				return fmt.Errorf("invocation started after sequence stopped")
 			}
 			t, e := time.Parse(time.RFC3339Nano, s.StartedAt)
-			if e != nil || t.Before(previous) || (!finish.IsZero() && t.After(finish)) {
+			if e != nil || !timestampV5.MatchString(s.StartedAt) || t.Before(previous) || (!finish.IsZero() && t.After(finish)) {
 				return fmt.Errorf("invalid invocation start")
 			}
 			previous = t
@@ -103,7 +108,7 @@ func (r ReportV5) Validate() error {
 				stopped = true
 			case "succeeded", "failed":
 				end, e := time.Parse(time.RFC3339Nano, s.FinishedAt)
-				if e != nil || end.Before(t) || (!finish.IsZero() && end.After(finish)) {
+				if e != nil || !timestampV5.MatchString(s.FinishedAt) || end.Before(t) || (!finish.IsZero() && end.After(finish)) {
 					return fmt.Errorf("invalid invocation finish")
 				}
 				previous = end
@@ -135,6 +140,45 @@ func DecodeV5(data []byte) (*ReportV5, error) {
 	var r ReportV5
 	if err := evidencefile.DecodeStrict(data, &r); err != nil {
 		return nil, fmt.Errorf("invalid report v5 JSON")
+	}
+	// encoding/json accepts case aliases and null for strings; the v5 wire
+	// schema permits only canonical property names and non-null typed fields.
+	var object map[string]json.RawMessage
+	if err := json.Unmarshal(data, &object); err != nil {
+		return nil, fmt.Errorf("invalid report v5 JSON")
+	}
+	allowed := map[string]bool{}
+	typ := reflect.TypeOf(ReportV5{})
+	for n := 0; n < typ.NumField(); n++ {
+		allowed[strings.Split(typ.Field(n).Tag.Get("json"), ",")[0]] = true
+	}
+	for k, v := range object {
+		if !allowed[k] || bytes.Equal(bytes.TrimSpace(v), []byte("null")) {
+			return nil, fmt.Errorf("invalid report v5 field")
+		}
+	}
+	var steps []map[string]json.RawMessage
+	if err := json.Unmarshal(object["steps"], &steps); err != nil {
+		return nil, fmt.Errorf("invalid v5 steps")
+	}
+	allowed = map[string]bool{}
+	typ = reflect.TypeOf(StepV5{})
+	for n := 0; n < typ.NumField(); n++ {
+		allowed[strings.Split(typ.Field(n).Tag.Get("json"), ",")[0]] = true
+	}
+	if (r.Status == "incomplete" && (object["finished_at"] != nil || object["error_code"] != nil)) || (r.Status == "success" && object["error_code"] != nil) {
+		return nil, fmt.Errorf("unexpected v5 terminal field")
+	}
+	for n, s := range steps {
+		outcome := r.Steps[n].Outcome
+		if (outcome == "not_started" && (s["started_at"] != nil || s["finished_at"] != nil || s["error_code"] != nil)) || (outcome == "unknown" && (s["finished_at"] != nil || s["error_code"] != nil)) || (outcome == "succeeded" && s["error_code"] != nil) {
+			return nil, fmt.Errorf("unexpected v5 invocation field")
+		}
+		for k, v := range s {
+			if !allowed[k] || bytes.Equal(bytes.TrimSpace(v), []byte("null")) {
+				return nil, fmt.Errorf("invalid v5 step field")
+			}
+		}
 	}
 	if err := r.Validate(); err != nil {
 		return nil, err

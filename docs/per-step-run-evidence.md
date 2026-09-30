@@ -32,7 +32,7 @@ inventory with some `not_started` steps. That differs from incomplete inventory.
 A process-success gate additionally requires a validated `success` report.
 An executor failure still produces conservative evidence, including missing or
 rejected reports. Every read verifies exact attempt/workflow/inventory and
-causal timestamp/result constraints; schema validation alone never authorizes
+causal timestamp/result constraints (RFC3339 at up to nanosecond precision); schema validation alone never authorizes
 retry. Retry policy belongs to downstream consumers and requires a fresh approval.
 
 Fixtures in `fixtures/per-step-run-evidence-v3/` publish this observation member
@@ -41,3 +41,24 @@ success, failed-read/write, interrupted, missing, stale, workflow mismatch,
 incomplete inventory and malformed input. Expected identities are in
 `expected.json`. Source report schema/fixtures are frozen from accepted Udon
 M44 `1a5e9aa2045e3d875da2e18aab2d6db869ac5223`.
+
+## Real executor qualification
+
+Default tests never launch a real executor. The explicit local qualification is:
+
+```bash
+OPENUDON_M44_EXECUTOR=/absolute/qualified/udon-executor \
+OPENUDON_M44_CLOSURE=/absolute/qualified/closure.json \
+GOWORK=off make report-v5-qualification
+```
+
+The gate requires the accepted clean M44 source and qualified binary digest;
+it snapshots those bytes into a private test directory before executing them.
+Its eight cases build and assess a fresh provider-free package, approve only its
+disposable literal loopback service and compare per-step evidence with actual
+read/write counts. Cases are success, failed read/write, kill during write,
+filesystem checkpoint failure, missing/stale report, and duplicate invocation.
+The generated sequence supplies order directly, without operation-level
+`dependsOn` (unsupported in M44's initial v5 inventory). A checkpoint case
+restores the unchanged retained report directory only after the failed process
+exits, so the consumer can validate the last durable observation.

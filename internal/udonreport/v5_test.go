@@ -67,14 +67,17 @@ func TestV5RejectsUntrustedRecordAndTimeMutations(t *testing.T) {
 		t.Fatal(err)
 	}
 	mutations := map[string]func(*ReportV5){
-		"duplicate":           func(r *ReportV5) { r.Steps[1].StepID = r.Steps[0].StepID },
-		"unknown outcome":     func(r *ReportV5) { r.Steps[0].Outcome = "secret payload" },
-		"sensitive code":      func(r *ReportV5) { r.Steps[0].ErrorCode = "secret payload" },
-		"start before run":    func(r *ReportV5) { r.Steps[0].StartedAt = "2000-01-01T00:00:00Z" },
-		"finish before start": func(r *ReportV5) { r.Steps[1].FinishedAt = r.StartedAt },
-		"too many":            func(r *ReportV5) { r.Steps = make([]StepV5, 257) },
-		"invocation mismatch": func(r *ReportV5) { r.Steps[1].InvocationID = "other" },
-		"success unknown":     func(r *ReportV5) { r.Steps[1].Outcome = "unknown"; r.Steps[1].FinishedAt = "" },
+		"comma time":               func(r *ReportV5) { r.StartedAt = "2026-09-30T00:00:00,1Z" },
+		"zone out of range":        func(r *ReportV5) { r.StartedAt = "2026-09-30T00:00:00+24:00" },
+		"lost timestamp precision": func(r *ReportV5) { r.StartedAt = "2026-09-30T00:00:00.0000000001Z" },
+		"duplicate":                func(r *ReportV5) { r.Steps[1].StepID = r.Steps[0].StepID },
+		"unknown outcome":          func(r *ReportV5) { r.Steps[0].Outcome = "secret payload" },
+		"sensitive code":           func(r *ReportV5) { r.Steps[0].ErrorCode = "secret payload" },
+		"start before run":         func(r *ReportV5) { r.Steps[0].StartedAt = "2000-01-01T00:00:00Z" },
+		"finish before start":      func(r *ReportV5) { r.Steps[1].FinishedAt = r.StartedAt },
+		"too many":                 func(r *ReportV5) { r.Steps = make([]StepV5, 257) },
+		"invocation mismatch":      func(r *ReportV5) { r.Steps[1].InvocationID = "other" },
+		"success unknown":          func(r *ReportV5) { r.Steps[1].Outcome = "unknown"; r.Steps[1].FinishedAt = "" },
 	}
 	for name, change := range mutations {
 		t.Run(name, func(t *testing.T) {
@@ -87,7 +90,13 @@ func TestV5RejectsUntrustedRecordAndTimeMutations(t *testing.T) {
 			}
 		})
 	}
-	for _, bad := range [][]byte{[]byte(strings.Repeat(" ", 256<<10+1)), append(data, []byte(" {}")...), []byte(`{"version":"udon.execution-report.v5","version":"bad"}`), []byte(strings.Replace(string(data), `"version":`, `"payload":"secret", "version":`, 1))} {
+	for _, bad := range [][]byte{[]byte(strings.Repeat(" ", 256<<10+1)),
+		[]byte(strings.Replace(string(data), `"steps":`, `"error_code":"","steps":`, 1)),
+		[]byte(strings.Replace(string(data), `"outcome":`, `"error_code":"","outcome":`, 1)),
+		[]byte(strings.Replace(string(data), `"version":`, `"VERSION":`, 1)),
+		[]byte(strings.Replace(string(data), `"steps":`, `"error_code":null,"steps":`, 1)),
+		[]byte(strings.Replace(string(data), `"steps":`, `"inventory_complete":false,"INVENTORY_COMPLETE":true,"steps":`, 1)),
+		[]byte(strings.Replace(string(data), `"outcome":`, `"OUTCOME":`, 1)), append(data, []byte(" {}")...), []byte(`{"version":"udon.execution-report.v5","version":"bad"}`), []byte(strings.Replace(string(data), `"version":`, `"payload":"secret", "version":`, 1))} {
 		if _, err := DecodeV5(bad); err == nil {
 			t.Fatal("untrusted JSON accepted")
 		}

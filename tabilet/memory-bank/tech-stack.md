@@ -1000,3 +1000,9 @@ stages and transaction teardown. No new dependencies or downloads are required.
 M90 selects `openudon.run-evidence.v3` with `--executor-report-version v5`.
 The report-v5 schema/fixtures are frozen from accepted Udon M44 source
 `1a5e9aa2045e3d875da2e18aab2d6db869ac5223`; no private Go dependency is added.
+
+`make report-v5-qualification` is an explicit real-executor loopback gate;
+set `OPENUDON_M44_EXECUTOR` and `OPENUDON_M44_CLOSURE` to the accepted frozen
+M44 artifact pair. Default checks skip that real executor. Qualification binds
+source, exact closure and binary digests and executes a private binary copy;
+see [per-step run evidence](../../docs/per-step-run-evidence.md).

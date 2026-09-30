@@ -97,21 +97,22 @@ type Options struct {
 }
 
 type Result struct {
-	InventoryV5        *udonreport.InventoryV5
-	StagePath          string
-	WorkflowPath       string
-	ExecutorReportPath string
-	Argv               []string
-	PackageRoot        string
-	WorkDir            string
-	APISourcePaths     []string
-	OpenAPIPaths       []string
-	DataFiles          []string
-	PackagePaths       []string
-	PackageSHA256      string
-	CredentialEnvNames []string
-	SessionEnvNames    []string
-	BrowserEnvNames    []string
+	InvocationAttempted bool
+	InventoryV5         *udonreport.InventoryV5
+	StagePath           string
+	WorkflowPath        string
+	ExecutorReportPath  string
+	Argv                []string
+	PackageRoot         string
+	WorkDir             string
+	APISourcePaths      []string
+	OpenAPIPaths        []string
+	DataFiles           []string
+	PackagePaths        []string
+	PackageSHA256       string
+	CredentialEnvNames  []string
+	SessionEnvNames     []string
+	BrowserEnvNames     []string
 }
 
 func LoadConfig(path string) (Config, error) {
@@ -179,6 +180,7 @@ func Run(ctx context.Context, config Config, opts Options) (Result, error) {
 			})
 		}
 	}
+	result.InvocationAttempted = true
 	if err := invoke(ctx, invocation); err != nil {
 		return result, fmt.Errorf("invoke trusted executor: %w", err)
 	}
