@@ -40,3 +40,41 @@ Lineage: Promotes G1/S2d, retaining M89 source/confirmation guarantees. APItools
 ## Closing review
 
 Persisted iteration count: 0/10. Not started; this reconciliation is intake, not a closing-review iteration. Resume any interrupted future review at its persisted number. Acceptance, exact source/build revisions, publication and downstream reconciliation remain pending and must be recorded from observed evidence before normal package retirement.
+
+## APItools producer reconciliation — 2026-09-30
+
+APItools M81/M80 qualified source is published at `fb132631c9827eae5f2ec4503d03f21eabfb4113`
+(`github.com/OpenUdon/apitools v0.0.0-20260930205753-fb132631c982`). Its observed Go
+`Origin.Hash` equals the full source revision. Source review and all required
+producer/consumer checks passed; package-local retirement evidence resolves
+through APItools `tabilet/docs/history/status-M80.md` and `status-M81.md`.
+The cross-package goal owns this downstream reconciliation; APItools performed
+no sibling implementation or dependency edit. Every task here remains pending.
+
+M94.1 must pin that exact published module, not a sibling replacement, and
+consume `CatalogDiscoveryRequest`/`CatalogDiscoveryReport` with
+`apitools.catalog-discovery/v1`. Installation `CatalogIndexOptions` supplies
+explicit root/catalog plus read-only registrations; no root is metadata-only.
+Nil provider keys search open scope; an explicit empty list never broadens it.
+Keep all five outcomes and positive scope gaps. Strong documented purpose needs
+at least two terms and half the requested terms, with typed input/output and
+requested-effect compatibility; scores alone do not select a match. Critical
+selected-field loss cannot prove absence. No-reference providers, stale/missing
+metadata, work/link/prompt/context limits and cancellation stay incomplete.
+
+M94.2 uses `CatalogArtifactReference` with exact raw SHA/bytes and native
+selector, and `ExportCatalogArtifacts`; copy only selected raw identity and
+applicable provider/selected-spec overlays, preserving all selected provenance.
+OpenUdon still verifies selector binding and owns source confirmation. Keep
+ephemeral remote evidence separate until explicit provisioning/registration.
+Remote lookup requires both request and installation opt-in, retains the
+eight-second/three-document/20-MiB bounds and public-catalog digest/final URL,
+and never writes the local index or proves absence.
+
+M94.3 reuses producer source-backed conformance/round-trip fixtures and adds
+its own command/package checks. Existing consumers passed full workspace and
+standalone actual-source adoption with disposable modfiles; that compatibility
+does not qualify future `step discover`. M93 remains the upstream prerequisite
+and no command, source confirmation, integration test or publication is marked
+complete by this handoff. The rollback pin remains the original published
+APItools M79 revision until M94's own implementation adopts this release.

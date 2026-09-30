@@ -42,3 +42,19 @@ Lineage: Consumes M91 extraction and W28 migration without reopening their histo
 ## Closing review
 
 Persisted iteration count: 0/10. Not started; this reconciliation is intake, not a closing-review iteration. Resume any interrupted future review at its persisted number. Acceptance, exact source/build revisions, publication and downstream reconciliation remain pending and must be recorded from observed evidence before normal package retirement.
+
+## APItools producer reconciliation — 2026-09-30
+
+APItools M81/M80 qualified source is published at `fb132631c9827eae5f2ec4503d03f21eabfb4113`
+(`github.com/OpenUdon/apitools v0.0.0-20260930205753-fb132631c982`). Its observed Go
+`Origin.Hash` equals the full source revision. Source review and all required
+producer/consumer checks passed; package-local retirement evidence resolves
+through APItools `tabilet/docs/history/status-M80.md` and `status-M81.md`.
+The cross-package goal owns this downstream reconciliation; APItools performed
+no sibling implementation or dependency edit. Every task here remains pending.
+
+The M94 discovery/provisioning replacement must qualify against that exact
+APItools source and its five-outcome/explicit-root/native-reference contract
+before removal. Producer publication satisfies the metadata prerequisite only;
+it establishes no iCoT replacement journey, Gate 5B approval or W28 acceptance.
+Retain all existing removal gates and pending outcomes.
