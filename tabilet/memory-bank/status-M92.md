@@ -41,3 +41,33 @@ Lineage: Promotes tier-1/pending parts of S2b over M87/M89, preserving M90 evide
 ## Closing review
 
 Persisted iteration count: 0/10. Not started; this reconciliation is intake, not a closing-review iteration. Resume any interrupted future review at its persisted number. Acceptance, exact source/build revisions, publication and downstream reconciliation remain pending and must be recorded from observed evidence before normal package retirement.
+
+## Udon M45 producer reconciliation — 2026-09-30
+
+M45 is accepted and published. Qualified implementation source is
+`238f2e487d50ffec057b7a109a35c9db03f59c55`; source publication was verified
+at `1fa2c5e03c45e80592fdbb5e970ac0c8667f5778` and the package-local
+closure is published at `6c4fb8c80a06179f8c3e33ebe685b2d44f66d273`.
+Resolve acceptance through Udon `tabilet/memory-bank/status-M45.md`; Udon
+keeps its completed records in its own ledger. No sibling milestone is merged.
+
+Frozen evidence: `/var/tmp/udon-m45-source-b7yy2g0w/qualification/closure.json`,
+SHA-256 `10d4c613c4882365f2799789d456e8a3b15484b1995a052e334616cad9d0fd59`.
+The qualified executor SHA-256 is
+`cb4b94c968aa3f3de4106a440fdcd02e6c210941eb25e6666b84cfbc7f63868b`.
+The closure selects fourteen exact sibling revisions with Go 1.26.6, including
+published UWS `a7688f54c68f5a75c7cc95aa2b31cea98b31af41` (1.12), and retains
+APItools `3a986490157247a1389f8f3a9af671591073a8df`; M94 separately adopts
+the newer catalog producer. Owner quality/full tests, report durability and UWS
+race checks, frozen build and independent archive/binary checks passed. Review
+1/10 passed with no open P1/P2 findings.
+
+Consumers must explicitly adopt these source/build identities and check their
+own compatibility; current sibling replacements or an unchanged CLI version
+string are not proof of adoption. Udon delegates pending-step traversal to
+public executable validation at admission and before runtime setup, preserving
+report-v5 refusal precedence, default reports and browser protocols. Pending
+steps in unselected branches or unused workflows refuse all dispatch. Effect
+labels are descriptive and grant no action authority. Existing M44/historical
+bindings stay unchanged until the consuming task adopts the new closure.
+All tasks in this consumer record remain pending.
