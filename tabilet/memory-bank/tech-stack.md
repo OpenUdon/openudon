@@ -44,7 +44,7 @@ It fixes Browsertools `9333a9f25dbb17551998a429e123e7a9ba976648` and UWS
 Integration runs verify the same Udon closure before executing the fixed
 matrix. Historical v1 and frozen M86 v2 verification retain their original
 locks and meaning. All three retained M86 reports pass with their original
-digests; E21 evidence is recorded in [status-E21.md](status-E21.md).
+digests; E21 evidence is recorded in [status-E21.md](../docs/history/status-E21.md).
 
 Native `openudon browser-system-eval --stack current --suite loopback` selects
 the v4 compatibility and 14-source build-input locks, requires all primary

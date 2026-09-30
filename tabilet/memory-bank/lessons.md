@@ -28,7 +28,7 @@ version select an immutable lock snapshot. Updating a mutable current lock can
 otherwise invalidate retained reports even when their bytes and recorded
 digests are unchanged. E21 froze the M86 scenario and integration lock bytes
 before advancing current-stack support; the original integration and two
-scenario v2 reports continue to verify. See [status-E21](status-E21.md) and
+scenario v2 reports continue to verify. See [status-E21](../docs/history/status-E21.md) and
 [M86](../docs/history/status-M86.md).
 
 ## Bind advertised coverage to versioned qualification selectors

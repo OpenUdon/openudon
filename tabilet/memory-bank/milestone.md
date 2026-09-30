@@ -253,19 +253,6 @@ E22 and precedes W8M W22.3 source-bound smoke/qualification and later adoption
 or its separately gated operation. Use local task commits only; no push,
 publication, target contact, or runtime adoption is part of P07.
 
-### E21 — Repair current-stack Udon build and preserve M86 report meaning
-
-Repair the OpenUdon current-stack selector for W8M's UWS 1.11 / Browser 1.9
-candidate. Freeze the exact pre-E21 current compatibility locks and make v1,
-M86 v2, and E21 v3 readers select their original lock semantics. The new
-current lock selects clean Udon `6d32d49` and a separate exact clean 14-source
-local replacement closure; the historical default and M86 evidence remain
-unchanged. Emit v3 scenario, journey, integration, and native qualification
-reports. Extend the native current path through scenarios and BAP/BRP while
-keeping the historical stack as its default. The scope is synthetic and
-provider-free; it includes no deployment, public canary, runtime adoption, or
-target account operation.
-
 ## Memory Bank Index
 
 - This file owns milestones, work sequencing, acceptance criteria, the current-state dashboard, and
@@ -368,7 +355,6 @@ search the history index before allocating a future ID.
 | M95 | Remove iCoT after consumer migration | [status-M95.md](status-M95.md) | Approved planning; pending |
 | P08 | Browser 1.10 v11 trusted execution handoff | `tabilet/memory-bank/status-P08.md` | Complete locally; bounded review iteration 1 passed; awaiting normal history retirement |
 | P07 | Browser 1.10 trusted package dispatch compatibility | `tabilet/memory-bank/status-P07.md` | Complete locally; bounded review iteration 2 passed; awaiting normal history retirement |
-| E21 | Repair current-stack Udon build and preserve M86 report meaning | `tabilet/memory-bank/status-E21.md` | Complete; W8M W21 closeout reconciled |
 
 ## Requested Changes After Initialization
 

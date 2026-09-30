@@ -21,7 +21,7 @@ qualification and bounded review passed on clean OpenUdon
 
 The v2 and v3 snapshots prevent later current-stack updates from changing the
 meaning of retained reports. The E21 repair lineage is in
-[status-E21.md](status-E21.md).
+[status-E21.md](../docs/history/status-E21.md).
 BRP's temporary repository-local example parent is removed on every exit when
 the qualification created it; pre-existing paths are preserved and symlink
 parents are rejected so the per-stage clean-source check remains meaningful.

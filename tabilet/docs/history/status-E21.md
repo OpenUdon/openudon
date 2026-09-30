@@ -1,3 +1,38 @@
+# Retired milestone E21 - Repair current-stack Udon build and preserve M86 report meaning
+
+**Milestone.** E21
+**Outcome.** completed
+**Retired.** 2026-09-30
+**Source status.** tabilet/memory-bank/status-E21.md
+**Source specification.** tabilet/memory-bank/milestone.md#e21---repair-current-stack-udon-build-and-preserve-m86-report-meaning
+**Evidence.** 5038885ead20482ac482d7bc0352794bf7c5093c
+**Worktree.** includes uncommitted changes
+**Review.** passed
+**Review iterations.** 1
+**Verification.** Original recorded owner checks, source-bound synthetic qualification and bounded review passed; original evidence and counters preserved. Current upstream ancestry and downstream W8M history were inspected for normal closure, without a new browser run.
+**Consolidated into.** [architecture](../../memory-bank/architecture.md), [tech-stack](../../memory-bank/tech-stack.md), [lessons](../../memory-bank/lessons.md), and [milestone dashboard](../../memory-bank/milestone.md).
+
+## Milestone specification
+
+````markdown
+### E21 — Repair current-stack Udon build and preserve M86 report meaning
+
+Repair the OpenUdon current-stack selector for W8M's UWS 1.11 / Browser 1.9
+candidate. Freeze the exact pre-E21 current compatibility locks and make v1,
+M86 v2, and E21 v3 readers select their original lock semantics. The new
+current lock selects clean Udon `6d32d49` and a separate exact clean 14-source
+local replacement closure; the historical default and M86 evidence remain
+unchanged. Emit v3 scenario, journey, integration, and native qualification
+reports. Extend the native current path through scenarios and BAP/BRP while
+keeping the historical stack as its default. The scope is synthetic and
+provider-free; it includes no deployment, public canary, runtime adoption, or
+target account operation.
+
+````
+
+## Status record
+
+````markdown
 # Status E21 — Repair current-stack Udon build and preserve M86 report meaning
 
 **State:** Complete. OpenUdon E21 publication and downstream W8M W21 qualification are complete. Synthetic qualification only.
@@ -206,3 +241,23 @@ was pushed alone to `origin/main` at
 is `1007cdedf0acebf649bd3ddd065a0e42bac4f542`. W8M remains local and
 unadopted; no live operation is included. E21 remains active for downstream
 W8M W21 reconciliation.
+
+## Normal closure reconciliation — 2026-09-30
+
+The confirmed Stage 5 goal authorizes completing genuinely unfinished
+prerequisite closure before M91. All original task outcomes, consumed attempts
+and review counters above are preserved; no completed task or review is rerun.
+Observed OpenUdon origin/main is
+`e12a6488b86cafddb9298c7917de84fbc1cc85ff`; original accepted E21, P07 and
+P08 source commits are ancestors of that published revision. Earlier local-only
+and downstream-pending statements above retain their original context.
+
+W8M's completed W24 now owns its independently qualified P08.1 v11 source
+`5cad6ce55e0f615a8e754f468614cadbe565790b` and its accepted count/teardown;
+resolve W21/W22/W24 through W8M's history index. P07's v10 preparation result
+remains recorded acceptance of its original scope; P08 owns the corrected v11
+executor pairing. Current Stage 5 extraction preserves that v11 pairing and
+E23/E24 inputs. No W8M record, old report, live claim or adopted runtime is
+modified here. The normal retirement preserves the complete specification and
+status, repairs maintained evidence links, and retains reusable lessons.
+````
