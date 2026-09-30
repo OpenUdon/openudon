@@ -25,7 +25,7 @@ func TestBrowserSystemInputCLIRefusesUnsupportedFormsBeforeInventory(t *testing.
 	if err != nil {
 		t.Fatal(err)
 	}
-	for _, args := range [][]string{nil, {"--repo-root", "/abs"}, {"--repo-root", "/abs", "--udon-repo", "/abs", "extra"}, {"--suite", "loopback"}, {"--repo-root", "private-input-canary", "--udon-repo", "/abs"}} {
+	for _, args := range [][]string{{"--repo-root", "/abs", "--udon-repo", "/abs", "--stack", "current"}, {"--repo-root", "/abs", "--udon-repo", "/abs", "--stack", "other"}, {"--repo-root", "/abs", "--udon-repo", "/abs", "--browserdriver-node-modules", "/abs"}, nil, {"--repo-root", "/abs"}, {"--repo-root", "/abs", "--udon-repo", "/abs", "extra"}, {"--suite", "loopback"}, {"--repo-root", "private-input-canary", "--udon-repo", "/abs"}} {
 		cmd := exec.Command(self, append([]string{"-test.run=^TestBrowserSystemInputCLIChild$", "--"}, args...)...)
 		cmd.Env = []string{"OPENUDON_INPUT_CLI_FIXTURE=1"}
 		output, err := cmd.CombinedOutput()

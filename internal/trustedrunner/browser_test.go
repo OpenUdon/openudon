@@ -64,8 +64,12 @@ func TestBuildBrowserRunConfigDerivesReviewedRuntimeContract(t *testing.T) {
 }
 
 func TestBuildBrowserRunConfigSelectsVersionedActionProtocol(t *testing.T) {
-	for _, version := range []string{"uws.browser.1.8", "uws.browser.1.9"} {
-		t.Run(version, func(t *testing.T) {
+	for _, tc := range []struct{ version, protocol string }{
+		{"uws.browser.1.8", "v10"},
+		{"uws.browser.1.9", "v10"},
+		{"uws.browser.1.10", "v11"},
+	} {
+		t.Run(tc.version, func(t *testing.T) {
 			root := t.TempDir()
 			timeout := 120.0
 			intent := &rollout.Intent{Workflow: &rollout.WorkflowMeta{Name: "member"}, Steps: []*rollout.Step{
@@ -78,7 +82,7 @@ func TestBuildBrowserRunConfigSelectsVersionedActionProtocol(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			data = []byte(strings.Replace(string(data), "uws.browser.1.7", version, 1))
+			data = []byte(strings.Replace(string(data), "uws.browser.1.7", tc.version, 1))
 			if err := os.WriteFile(path, data, 0o600); err != nil {
 				t.Fatal(err)
 			}
@@ -86,10 +90,33 @@ func TestBuildBrowserRunConfigSelectsVersionedActionProtocol(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			if config.Protocol != "v10" || config.RegistrationInputUI || len(config.CredentialEnvironment) != 1 || config.CredentialEnvironment[0].Name != "member_password" {
-				t.Fatalf("v10 action handoff leaked registration input authority: %#v", config)
+			if config.Protocol != tc.protocol || config.RegistrationInputUI || len(config.CredentialEnvironment) != 1 || config.CredentialEnvironment[0].Name != "member_password" {
+				t.Fatalf("%s action handoff = %#v", tc.protocol, config)
+			}
+			if err := udonrunner.ValidateBrowserEvidenceConfig(config, []string{"member_password"}); err != nil {
+				t.Fatalf("%s rejected by persisted run-config validator: %v", tc.protocol, err)
 			}
 		})
+	}
+}
+
+func TestBuildBrowserRunConfigRejectsUnsupportedActionProfile(t *testing.T) {
+	root := t.TempDir()
+	intent := &rollout.Intent{Workflow: &rollout.WorkflowMeta{Name: "member"}, Steps: []*rollout.Step{
+		{Name: "read-dashboard", Type: "browser", Source: "browser-profiles/member.json", Operation: "read_dashboard"},
+	}}
+	writeBrowserRuntimeFixture(t, root, intent)
+	path := filepath.Join(root, "browser-profiles/member.json")
+	data, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	data = []byte(strings.Replace(string(data), "uws.browser.1.7", "uws.browser.1.11", 1))
+	if err := os.WriteFile(path, data, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := buildBrowserRunConfig(root, "/trusted/browserdriver", nil, nil, false); err == nil || !strings.Contains(err.Error(), "unsupported browser profile discriminator") {
+		t.Fatalf("unsupported browser profile error = %v", err)
 	}
 }
 
@@ -137,6 +164,53 @@ func TestBuildBrowserRunConfigSelectsV10ForMixedActiveProfiles(t *testing.T) {
 	}
 	if config.Protocol != "v10" || config.RegistrationInputUI {
 		t.Fatalf("mixed active actions selected an invalid handoff: %#v", config)
+	}
+}
+
+func TestBuildBrowserRunConfigRejectsMixedBrowser110AndOlderActions(t *testing.T) {
+	for _, older := range []string{"uws.browser.1.7", "uws.browser.1.9"} {
+		t.Run(older, func(t *testing.T) {
+			root := t.TempDir()
+			intent := &rollout.Intent{Workflow: &rollout.WorkflowMeta{Name: "member"}, Steps: []*rollout.Step{
+				{Name: "read-older", Type: "browser", Source: "browser-profiles/member.json", Operation: "read_dashboard"},
+				{Name: "read-count", Type: "browser", Source: "browser-profiles/count.json", Operation: "read_dashboard"},
+			}}
+			writeBrowserRuntimeFixture(t, root, intent)
+			path := filepath.Join(root, "browser-profiles/member.json")
+			data, err := os.ReadFile(path)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if err := os.WriteFile(path, []byte(strings.Replace(string(data), "uws.browser.1.7", older, 1)), 0o600); err != nil {
+				t.Fatal(err)
+			}
+			if err := os.WriteFile(filepath.Join(root, "browser-profiles/count.json"), []byte(strings.Replace(string(data), "uws.browser.1.7", "uws.browser.1.10", 1)), 0o600); err != nil {
+				t.Fatal(err)
+			}
+			if _, err := buildBrowserRunConfig(root, "/trusted/browserdriver", nil, nil, false); err == nil || !strings.Contains(err.Error(), "cannot share") {
+				t.Fatalf("mixed profile error = %v", err)
+			}
+		})
+	}
+}
+
+func TestBuildBrowserRunConfigIgnoresInactiveBrowser110(t *testing.T) {
+	root := t.TempDir()
+	intent := &rollout.Intent{Workflow: &rollout.WorkflowMeta{Name: "member"}, Steps: []*rollout.Step{
+		{Name: "read-dashboard", Type: "browser", Source: "browser-profiles/member.json", Operation: "read_dashboard"},
+	}}
+	writeBrowserRuntimeFixture(t, root, intent)
+	data, err := os.ReadFile(filepath.Join(root, "browser-profiles/member.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	data = []byte(strings.Replace(string(data), "uws.browser.1.7", "uws.browser.1.10", 1))
+	if err := os.WriteFile(filepath.Join(root, "browser-profiles/inactive.json"), data, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	config, err := buildBrowserRunConfig(root, "/trusted/browserdriver", nil, nil, false)
+	if err != nil || config.Protocol != "v3" {
+		t.Fatalf("inactive Browser 1.10 changed handoff: %#v, %v", config, err)
 	}
 }
 

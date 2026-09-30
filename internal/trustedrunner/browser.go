@@ -154,6 +154,8 @@ func buildBrowserRunConfigFromBytes(packageLabel string, browserPaths, authentic
 		}
 	})
 	protocolRank := 1
+	activeBrowser110 := false
+	activeOlderBrowser := false
 	verificationProfiles := map[string]bool{}
 	for _, relative := range browserPaths {
 		data, err := read(relative)
@@ -166,18 +168,31 @@ func buildBrowserRunConfigFromBytes(packageLabel string, browserPaths, authentic
 		}
 		switch value.Schema {
 		case "uws.browser.1.5":
+			if activeBrowserPaths[relative] {
+				activeOlderBrowser = true
+			}
 		case "uws.browser.1.6", "uws.browser.1.7":
 			if activeBrowserPaths[relative] {
+				activeOlderBrowser = true
 				protocolRank = max(protocolRank, 3)
 			}
 		case "uws.browser.1.8", "uws.browser.1.9":
 			if activeBrowserPaths[relative] {
+				activeOlderBrowser = true
 				protocolRank = max(protocolRank, 10)
+			}
+		case "uws.browser.1.10":
+			if activeBrowserPaths[relative] {
+				activeBrowser110 = true
+				protocolRank = max(protocolRank, 11)
 			}
 		default:
 			return nil, fmt.Errorf("browser profile %s has unsupported discriminator %q", relative, value.Schema)
 		}
 		delete(activeBrowserPaths, relative)
+	}
+	if activeBrowser110 && activeOlderBrowser {
+		return nil, fmt.Errorf("active Browser 1.10 actions cannot share one persistent driver protocol with older browser action profiles")
 	}
 	if len(activeBrowserPaths) != 0 {
 		missing := make([]string, 0, len(activeBrowserPaths))

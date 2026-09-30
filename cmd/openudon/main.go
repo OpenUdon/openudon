@@ -1346,13 +1346,21 @@ func runBrowserSystemInput(args []string) {
 	fs := flag.NewFlagSet("browser-system-input", flag.ExitOnError)
 	root := fs.String("repo-root", "", "Exact immutable OpenUdon source root")
 	udon := fs.String("udon-repo", "", "Exact immutable Udon source root")
+	stack := fs.String("stack", "historical", "historical or current input inventory")
+	modules := fs.String("browserdriver-node-modules", "", "Exact supplied modules for current input inventory")
 	fs.Parse(args)
-	if fs.NArg() != 0 || *root == "" || *udon == "" {
+	if fs.NArg() != 0 || *root == "" || *udon == "" || (*stack != "historical" && *stack != "current") || ((*stack == "current") != (*modules != "")) {
 		os.Exit(2)
 	}
 	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer cancel()
-	input, err := browsersystem.QualificationInput(ctx, *root, *udon)
+	var input browsersystem.InputIdentity
+	var err error
+	if *stack == "current" {
+		input, err = browsersystem.CurrentQualificationInput(ctx, *root, *udon, *modules)
+	} else {
+		input, err = browsersystem.QualificationInput(ctx, *root, *udon)
+	}
 	if err != nil {
 		fmt.Fprintln(os.Stderr, "browser-system-input: qualification_input")
 		os.Exit(1)

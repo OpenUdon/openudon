@@ -259,7 +259,7 @@ under `docs/step-authoring-contract-v1.md` and
   `aws-smithy/`, `asyncapi/`, `graphql/`, `openrpc/`, `grpc-protobuf/`, `odata/`, and
   legacy-readable `discovery/`. It emits typed source descriptions for OpenAPI, Google Discovery,
   AWS Smithy, UWS 1.3 AsyncAPI, and UWS 1.4 GraphQL/OpenRPC/gRPC-protobuf/OData sources.
-- OpenUdon also scans and stages verified `uws.browser.1.5` through `1.9` profiles under
+- OpenUdon also scans and stages verified `uws.browser.1.5` through `1.10` profiles under
   `browser-profiles/`, emits UWS `browser-profile` source descriptions, and
   records prompt-safe source review metadata in `.icot/browser-sources.json`.
   Browsertools owns validation, private cache, bundles, discovery, and the
@@ -279,8 +279,10 @@ under `docs/step-authoring-contract-v1.md` and
   declare UWS 1.11.0. Browsertools owns local validation; Udon and its persistent
   Browserdriver own credential resolution, MFA challenge interaction, session
   state, and execution. Active Browser 1.8/1.9 actions select private
-  browser-driver v10, which carries older actions as inner v2; older-only
-  workflows keep their prior protocol selection.
+  browser-driver v10, which carries older actions as inner v2. Browser 1.10
+  count actions select v11, matching Udon's typed count consumer. An active
+  older/1.10 mix fails before execution. Older-only workflows keep their prior
+  protocol selection.
 - OpenUdon scans reviewed `uws.browser-registration.1.0` profiles and their
   digest-bound `browsertools.registration-review.v1` bundles under
   `browser-registration/`. Explicit `browser_registration` intent lowers to
@@ -994,6 +996,19 @@ gate. The native report schema is unchanged; new development/timing schemas are
 `openudon.browser-development.v1` and `openudon.browser-check-timing.v1`.
 Private JSONL sidecars measure source hashing, subprocesses, selected builds,
 stages and transaction teardown. No new dependencies or downloads are required.
+
+The additive current-stack input endpoint is
+`openudon browser-system-input --stack current --repo-root ABS --udon-repo ABS
+--browserdriver-node-modules ABS`. It returns
+`openudon.browser-qualification-input.v2` and a value-free digest. It validates
+the canonical external bundle, locked package versions and executable npm bin
+entry points, then binds all nineteen current-stack sources and roots, bundle
+bytes/modes, tool/browser/Go dependencies and effective environment/host identity.
+The historical default and its v1 response remain unchanged. This inventories
+inputs only: it never installs dependencies, runs a browser, qualifies a runtime
+or grants cache reuse. Consumers own their cache eligibility and fresh journeys.
+
+E24 additionally binds actual process user, mount, network, PID, UTS, IPC, cgroup and available time namespace identities before/after current input inventory. Values are hashed only. Legacy input v1 and completed E23 history remain unchanged.
 
 ## Explicit per-step execution evidence (M90)
 

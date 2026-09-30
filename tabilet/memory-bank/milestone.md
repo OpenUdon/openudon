@@ -2,6 +2,11 @@
 
 ## Current State
 
+E24 completed [actual namespace binding](../docs/history/status-E24.md).
+E23 completed the current-stack/external-module browser-free input helper; see
+[its reviewed history](../docs/history/status-E23.md). W8M owns cache eligibility
+and fresh consumer acceptance.
+
 M90 is complete and published for Kinet's stage 4 local execution slice.
 Accepted implementation `ed5b206a524e6e193123b2d06714b75160379560` explicitly
 selects report v5 and run-evidence v3, validates exact staged inventory and
@@ -55,6 +60,14 @@ The exact commits, digests, and bounded review are preserved in the
 not reclassify an earlier failure or authorize a public canary, live account,
 or runtime adoption.
 
+P08 completed the local OpenUdon maintenance for the Browser 1.10 runtime
+handoff mismatch found by W8M W24.5. P07's completed package-dispatch result
+remains historical; its v10 selection let restricted preparation pass but Udon
+rejects Browser 1.10 actions under v10. W8M's sign-in and campaign-page request
+completed, while its count action failed before extraction. P08.1 selects v11
+and P08.2's focused synthetic journey and review pass. W8M retains
+qualification, adoption and live-count authority.
+
 E21.1 freezes the pre-E21 current scenario and integration locks for M86 v2
 report verification. E21.2 advances the current scenario and integration
 locks to the repaired Udon pin and a separate clean 14-source build closure;
@@ -82,6 +95,17 @@ complete; its full acceptance and attempt history are in the
 [E22 history record](../docs/history/status-E22.md). This synthetic support
 does not change W8M's adopted locks or authorize runtime adoption.
 
+P07 closes the OpenUdon trusted-runner dispatch gap for Browser 1.10 without
+changing the executor protocol. P07.1 commit
+`87df787c7737cc669f98c3b4462d7151db3e6b68` maps the active profile to the
+existing rank-10/v10 handoff; fresh current v4 integration, loopback, journey,
+and three-repeat native qualification pass from that exact clean source, and
+bounded review iteration 2 passes. P07's commits are contained in the merged
+`w27-native-input` line (the separate P07/P08 branch names were removed on
+2026-09-30; W24's accepted P08.1 source is tagged `w24-accepted-p08.1`). W8M W22 still must use a local replacement to pin this
+qualified source and rerun its consumer smoke and qualification before
+considering runtime adoption or its separately gated read-only operation.
+
 The UWS 1.11 real-browser M86, E15 registration-verification integration,
 and E18 initialization-diagnostics integration milestones are complete. E15
 and E18 closed against W8M W16.4i.39d synthetic qualification, independent
@@ -99,6 +123,41 @@ The history index holds 134 legacy-preserved status IDs and five normally review
 
 ## Active Milestone Specifications
 
+### P08 — Browser 1.10 v11 trusted execution handoff
+
+Correct OpenUdon's active-profile dispatch so Browser 1.10 selects Udon's
+persistent v11 protocol and Browser 1.8/1.9 continue to select v10. Reject an
+active mix of Browser 1.10 with older action profiles before packaging or
+execution because Udon v11 accepts only Browser 1.10 actions. Admit v11 in
+OpenUdon's validated run-config and preserve credential, approval, session,
+registration and environment boundaries for local and Docker executors.
+
+P08.1 implements source and focused regression tests, including a source-bound
+run-config and no-executor dry-run. P08.2 verifies the corrected handoff with
+an affected synthetic browser journey, repository gates and bounded review.
+P08 depends on completed P07 and E22; W8M W24.5 remains blocked until it
+selects and independently qualifies the corrected clean OpenUdon source and
+runtime. No live target contact, deployment, publication or push is in P08.
+
+### P07 — Browser 1.10 trusted package dispatch compatibility
+
+Repair OpenUdon's existing trusted-runner dispatch so the completed E22
+Browser 1.10 count profile can pass package preparation and trusted dry-run.
+Map it to the existing rank-10/v10 handoff and preserve Browser 1.8/1.9
+behavior, approval checks, and executor boundaries. Do not change UWS, Udon,
+Browsertools, Browserdriver, or other package source. E22 remains completed
+history. P07 revalidates the exact W8M staged workflow/profile package only in
+a fresh restricted preparation path; the separate W8M `session_posture: none`
+input correction remains W8M-owned downstream work.
+
+P07.1 implements and regression-tests the trusted dispatch repair and the
+restricted exact-package dry-run without invoking an executor or browser.
+P07.2 runs fresh current v4 qualification on the exact clean P07 source,
+independently verifies the reports, rechecks retained E22 evidence without
+changing its bytes, and closes the bounded review gate. P07 depends on completed
+E22 and precedes W8M W22.3 source-bound smoke/qualification and later adoption
+or its separately gated operation. Use local task commits only; no push,
+publication, target contact, or runtime adoption is part of P07.
 
 ### E21 — Repair current-stack Udon build and preserve M86 report meaning
 
@@ -183,9 +242,19 @@ external services.
   1.10 current-stack qualification and review remain complete; W8M's local W21
   candidate and any runtime adoption remain separate. The adopted W8M locks
   are unchanged. No deployment, public canary, or target operation is authorized.
+- Active: E22's Browser 1.10 current-stack qualification and review, and P07's
+  trusted-dispatch repair, fresh v4 qualification, and bounded review are
+  complete. W8M W22 is the dependent downstream promotion; its owner authorized
+  at most one read-only count after every
+  qualification, adoption, preflight, and readiness gate passes. W8M W22's
+  log records an earlier unauthenticated route probe and redirect to advertiser
+  sign-in; no authenticated count, packet, or attempt resulted, and the single
+  authorized count remains unused. P07 itself made no target contact and
+  authorizes no target operation, runtime adoption, push, or publication.
 - Parked: real-provider evidence, live W8M operation, and public canaries need
   separately approved scope and authority. S2b simulation/browser acquisition
-  and S3 iCoT retirement remain unnumbered candidates below.
+  and S3 iCoT retirement remain unnumbered candidates below. W8M's authorized
+  read-only operation remains gated by its own acceptance and is not part of P07.
 - Completed history: use the [history index](../docs/history/index.md) for
   terminal ID records and the frozen earlier milestone text.
 
@@ -196,6 +265,8 @@ search the history index before allocating a future ID.
 
 | ID | Milestone | Status file | State |
 | --- | --- | --- | --- |
+| P08 | Browser 1.10 v11 trusted execution handoff | `tabilet/memory-bank/status-P08.md` | Complete locally; bounded review iteration 1 passed; awaiting normal history retirement |
+| P07 | Browser 1.10 trusted package dispatch compatibility | `tabilet/memory-bank/status-P07.md` | Complete locally; bounded review iteration 2 passed; awaiting normal history retirement |
 | E21 | Repair current-stack Udon build and preserve M86 report meaning | `tabilet/memory-bank/status-E21.md` | Complete; W8M W21 closeout reconciled |
 
 ## Requested Changes After Initialization
@@ -420,7 +491,7 @@ fresh scope and dependency review promotes them.
 | S3: retire iCoT terminal/UI and shared interactive loops | Existing consumers, including W8M and Ramen, still rely on these surfaces. M87 is additive and does not authorize removal. | Replacement journey coverage is qualified, W8M migrates off OpenUdon UI launch paths, and removal is explicitly approved; Authoring retires its generic loops only after both OpenUdon and Ramen migrate under its compatibility policy. |
 | Further package/source-family integration | A03/P01/A04/E01/E02 own the approved Browsertools authoring/evidence integration; other API/event source metadata remains owned by apitools and public semantics by UWS. | Another upstream contract is published and an OpenUdon-owned package/review outcome beyond this sequence is explicitly scoped. |
 | Automated real-provider release evidence | Provider runs spend quota and can produce sensitive output; current policy remains local/manual. | Protected credentials, redaction, retention, spend bounds, and review-required CI policy are approved. |
-| Trusted-runner capability expansion | OpenUdon hands approved packages to an external executor and must not absorb runtime semantics. The per-step evidence gap was promoted as M90 on 2026-09-30 for Kinet's stage 4; other expansion remains here. | A further public handoff/evidence gap is demonstrated without importing private runtime behavior or weakening approval gates. |
+| Trusted-runner capability expansion beyond P07 | OpenUdon hands approved packages to an external executor and must not absorb runtime semantics. P07 addresses the existing Browser 1.10 rank-10 dispatch gap without adding executor behavior; the per-step evidence gap was promoted as M90 on 2026-09-30 for Kinet's stage 4; other expansion remains here. | A further public handoff/evidence gap outside the existing rank mapping is demonstrated and scoped without importing private runtime behavior or weakening approval gates. |
 | UI-owned LLM drafting | The primary UI now owns deterministic acquisition, interview, review, and handoff, while extractor drafting and repair remain terminal/external-orchestration functions. | A separately reviewed engine mutation can invoke an optional extractor under exact-revision protection, persist every proposal as confirmation-required state, and preserve the no-silent-acceptance boundary. |
 
 ## Notes

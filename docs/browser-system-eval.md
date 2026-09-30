@@ -284,3 +284,16 @@ execution provenance, maintained supervisor binding and three fresh consumer
 journeys. Native `browser-system-eval` remains a fresh three-repeat gate; its
 report version and verifier semantics are unchanged. Development-cache results
 remain ineligible for native qualification and cannot seed W8M's cache.
+
+The additive current-stack input endpoint is
+`openudon browser-system-input --stack current --repo-root ABS --udon-repo ABS
+--browserdriver-node-modules ABS`. It returns
+`openudon.browser-qualification-input.v2` and a value-free digest. It validates
+the canonical external bundle, locked package versions and executable npm bin
+entry points, then binds all nineteen current-stack sources and roots, bundle
+bytes/modes, tool/browser/Go dependencies and effective environment/host identity.
+The historical default and its v1 response remain unchanged. This inventories
+inputs only: it never installs dependencies, runs a browser, qualifies a runtime
+or grants cache reuse. Consumers own their cache eligibility and fresh journeys.
+
+E24 additionally binds actual process user, mount, network, PID, UTS, IPC, cgroup and available time namespace identities before/after current input inventory. Values are hashed only. Legacy input v1 and completed E23 history remain unchanged.

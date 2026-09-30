@@ -11,20 +11,22 @@ import (
 	"github.com/OpenUdon/openudon/internal/authoring"
 )
 
-func TestBrowserV10ConfigPreservesAuthenticationWithoutRegistrationAuthority(t *testing.T) {
-	config := &BrowserConfig{
-		Protocol: "v10", DriverPath: "/trusted/browserdriver",
-		CredentialEnvironment:  []EnvironmentBinding{{Name: "member_password", Environment: CredentialEnvironmentName("member_password")}},
-		ApprovedAuthentication: []string{"authenticate_member"},
-		ApprovedOperations:     []string{"read_dashboard"},
-	}
-	validated, err := validateBrowserConfig(config, []string{"member_password"}, nil, false, true)
-	if err != nil || len(validated.credentialEnv) != 1 {
-		t.Fatalf("v10 authentication handoff = %#v, %v", validated, err)
-	}
-	config.ApprovedRegistration = []string{"register_member"}
-	if _, err := validateBrowserConfig(config, []string{"member_password"}, nil, false, true); err == nil {
-		t.Fatal("v10 action protocol accepted registration authority")
+func TestBrowserModernConfigPreservesAuthenticationWithoutRegistrationAuthority(t *testing.T) {
+	for _, protocol := range []string{"v10", "v11"} {
+		config := &BrowserConfig{
+			Protocol: protocol, DriverPath: "/trusted/browserdriver",
+			CredentialEnvironment:  []EnvironmentBinding{{Name: "member_password", Environment: CredentialEnvironmentName("member_password")}},
+			ApprovedAuthentication: []string{"authenticate_member"},
+			ApprovedOperations:     []string{"read_dashboard"},
+		}
+		validated, err := validateBrowserConfig(config, []string{"member_password"}, nil, false, true)
+		if err != nil || len(validated.credentialEnv) != 1 {
+			t.Fatalf("%s authentication handoff = %#v, %v", protocol, validated, err)
+		}
+		config.ApprovedRegistration = []string{"register_member"}
+		if _, err := validateBrowserConfig(config, []string{"member_password"}, nil, false, true); err == nil {
+			t.Fatalf("%s action protocol accepted registration authority", protocol)
+		}
 	}
 }
 
@@ -448,6 +450,8 @@ func TestRunBrowserInvocationIsExactAndAllowlisted(t *testing.T) {
 		{name: "docker-v3", executor: "docker://udon:test", protocol: "v3"},
 		{name: "local-v10", executor: "/bin/true", protocol: "v10"},
 		{name: "docker-v10", executor: "docker://udon:test", protocol: "v10"},
+		{name: "local-v11", executor: "/bin/true", protocol: "v11"},
+		{name: "docker-v11", executor: "docker://udon:test", protocol: "v11"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			config := validRunnerConfig(t)
