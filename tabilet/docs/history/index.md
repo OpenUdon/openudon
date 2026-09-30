@@ -149,3 +149,4 @@ subsequently closed under the normal reviewed procedure.
 | P04 | legacy-preserved | 2026-09-24 | [status-P04.md](status-P04.md) | Immutable trusted execution and containment closure. |
 | P05 | legacy-preserved | 2026-09-24 | [status-P05.md](status-P05.md) | Complete prepare-only package construction, restrictive qualification, atomic promotion, and recovery. |
 | P06 | legacy-preserved | 2026-09-24 | [status-P06.md](status-P06.md) | Advisory content-trust quality and review evidence. |
+| E23 | completed | 2026-09-29 | [status-E23.md](status-E23.md) | Current-stack native input identity with explicit external dependencies; legacy input v1 retained. |
