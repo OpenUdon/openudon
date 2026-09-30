@@ -2,6 +2,7 @@
 
 ## Current State
 
+E24 completed [actual namespace binding](../docs/history/status-E24.md).
 E23 completed the current-stack/external-module browser-free input helper; see
 [its reviewed history](../docs/history/status-E23.md). W8M owns cache eligibility
 and fresh consumer acceptance.

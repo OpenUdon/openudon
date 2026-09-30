@@ -1271,3 +1271,5 @@ composition and consumer-specific smoke; generic code imports no private Udon
 packages or target-specific policy.
 
 Native input inventories belong to OpenUdon. The explicit current-stack v2 input mode binds the supplied external Browserdriver bundle and current nineteen-source closure; external consumers own cache publication, reuse policy and fresh consumer acceptance.
+
+E24 additionally binds actual process user, mount, network, PID, UTS, IPC, cgroup and available time namespace identities before/after current input inventory. Values are hashed only. Legacy input v1 and completed E23 history remain unchanged.

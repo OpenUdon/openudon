@@ -295,3 +295,5 @@ bytes/modes, tool/browser/Go dependencies and effective environment/host identit
 The historical default and its v1 response remain unchanged. This inventories
 inputs only: it never installs dependencies, runs a browser, qualifies a runtime
 or grants cache reuse. Consumers own their cache eligibility and fresh journeys.
+
+E24 additionally binds actual process user, mount, network, PID, UTS, IPC, cgroup and available time namespace identities before/after current input inventory. Values are hashed only. Legacy input v1 and completed E23 history remain unchanged.

@@ -97,7 +97,11 @@ func qualificationInput(ctx context.Context, root, udon, modules, stack, version
 			return InputIdentity{}, bad
 		}
 	}
-	before, err := qualificationHostIdentity()
+	hostIdentity := qualificationHostIdentity
+	if stack == browserscenario.StackCurrent {
+		hostIdentity = currentQualificationHostIdentity
+	}
+	before, err := hostIdentity()
 	if err != nil || ctx.Err() != nil {
 		return InputIdentity{}, bad
 	}
@@ -105,7 +109,7 @@ func qualificationInput(ctx context.Context, root, udon, modules, stack, version
 	if err != nil || ctx.Err() != nil {
 		return InputIdentity{}, bad
 	}
-	after, err := qualificationHostIdentity()
+	after, err := hostIdentity()
 	if err != nil || before != after {
 		return InputIdentity{}, bad
 	}
@@ -174,4 +178,28 @@ func validateCurrentInputModules(source, modules string) error {
 		}
 	}
 	return nil
+}
+
+// Namespace membership may change without changing host-wide namespace policy.
+// Only the current v2 contract grows; historical v1 remains byte-compatible.
+func currentQualificationHostIdentity() (string, error) {
+	host, err := qualificationHostIdentity()
+	if err != nil {
+		return "", err
+	}
+	namespaces := map[string]string{}
+	for _, name := range []string{"user", "mnt", "net", "pid", "uts", "ipc", "cgroup", "time"} {
+		value, err := os.Readlink("/proc/self/ns/" + name)
+		if os.IsNotExist(err) && name == "time" {
+			value = "missing"
+		} else if err != nil {
+			return "", errors.New("qualification_host")
+		}
+		namespaces[name] = value
+	}
+	return currentHostDigest(host, namespaces), nil
+}
+func currentHostDigest(host string, namespaces map[string]string) string {
+	data, _ := json.Marshal(namespaces)
+	return hash([]byte(CurrentInputVersion + "\x00" + host + "\x00" + string(data)))
 }

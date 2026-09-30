@@ -123,3 +123,18 @@ func TestCurrentQualificationInputRejectsMissingUnsafeAndCancelledInputs(t *test
 		t.Fatal("cancelled inventory accepted")
 	}
 }
+
+func TestCurrentHostDigestBindsNamespaceMembership(t *testing.T) {
+	baseline := map[string]string{"user": "user:[1]", "mnt": "mnt:[2]", "net": "net:[3]", "pid": "pid:[4]", "uts": "uts:[5]", "ipc": "ipc:[6]", "cgroup": "cgroup:[7]", "time": "time:[8]"}
+	original := currentHostDigest("host", baseline)
+	for name, value := range baseline {
+		baseline[name] = value + "changed"
+		if currentHostDigest("host", baseline) == original {
+			t.Fatal("unbound namespace", name)
+		}
+		baseline[name] = value
+	}
+	if currentHostDigest("changed host", baseline) == original {
+		t.Fatal("unbound host")
+	}
+}
