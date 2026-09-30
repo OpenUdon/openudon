@@ -52,3 +52,18 @@ rejected. Run evidence carries per-step outcomes with no credential values,
 bodies, or headers. The conformance fixtures are published, the opt-in
 real-executor qualification passes, and the accepted revision is pushed for
 Kinet W07 to pin.
+
+**Udon M44 reconciliation (2026-09-30).** Accepted and published implementation
+source `1a5e9aa2045e3d875da2e18aab2d6db869ac5223`; normal push and independent
+remote-head verification succeeded. Contract: `udon.execution-report.v5`,
+explicit `--execution-report-version v5 --execution-run-id ID`, new report
+path; one flat HTTP sequence, 1–256 unique step/operation invocations, complete
+ordered inventory and exact workflow-file SHA-256. Reject unsupported shapes
+before dispatch. Missing/invalid evidence proves no unstarted step.
+Fixtures/schema: Udon `docs/fixtures/execution-report-v5/` and
+`docs/schemas/udon.execution-report.v5.schema.json` at that source. Frozen
+qualification: `/tmp/udon-m44-qualified-20260930-06/closure.json`, SHA-256
+`603a1c4dae5606dd24683ca40050c918e0b7e2b6f31c10e6d4399ce3c5d739c6`;
+executor SHA-256 `d2d593ac6d5a6a19406180eb70c5993ee4811fecb20c1a31cdb5a1f59278575b`.
+Legacy v3/v4 defaults and v1–v4 schemas remain unchanged. Qualified source
+identity is distinct from the subsequent publication/closure metadata commit.
