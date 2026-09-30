@@ -104,8 +104,8 @@ existing consumers are unchanged. Validate every per-step record against the
 staged package plan (known step and operation IDs, bounded count and size)
 and reject unknown or duplicate steps. Record per-step outcomes (`not_started`,
 `succeeded`, `failed`, `unknown`), timestamps, and non-secret failure codes in
-run evidence, choosing between an additive run-evidence v2 field and
-`openudon.run-evidence.v3` in the first row. A missing report marks every step
+`openudon.run-evidence.v3`, selected only with explicit report v5. The chosen
+contract is [per-step-run-evidence.md](../../docs/per-step-run-evidence.md). A missing report marks every step
 `unknown`; an incomplete report is preserved as incomplete. Publish
 conformance fixtures for a dry run, success, failure before the write step,
 and an unknown write step. Qualify once, by explicit opt-in, against a real

@@ -414,3 +414,8 @@ E13 separates `fast`, one affected synthetic `smoke`, and full `qualify` checks.
 Feature iteration can reuse unchanged compiled outputs and explicitly selected
 successful development results. Reuse is visible and retains the original run;
 it never represents independent browser execution or operational qualification.
+
+## Explicit per-step execution evidence (M90)
+
+Explicit report-v5 selection adds value-free per-step run-evidence v3; legacy
+defaults remain unchanged. See ../../docs/per-step-run-evidence.md.

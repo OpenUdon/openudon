@@ -1,7 +1,7 @@
 # Status M90 — Per-step executor outcomes in run evidence
 
-**State:** Pending; planning approved 2026-09-30 as part of Kinet's stage 4
-cross-package plan. No row has started.
+**State:** M90.1 in progress; Stage 4 goal execution approved 2026-09-30.
+One execution owner; COMMIT_POLICY: task. OpenUdon publication is not authorized.
 
 **Scope boundary:** Carry Udon's per-step outcomes into `openudon run` evidence
 without absorbing runtime semantics or weakening approval gates. Do not adopt
@@ -39,7 +39,7 @@ Markers: `[ ]` pending, `[~]` in progress, `[+]` complete, `[!]` blocked,
 
 | Item | State | Notes |
 | --- | --- | --- |
-| M90.1 Choose the evidence contract and publish fixtures | `[ ]` | Choose evidence version and explicit v5 selection before integration; publish dry-run, success, failed-read/write, interrupted, missing/stale/mismatched report and incomplete-inventory fixtures; define exact run/workflow and step/invocation identity. |
+| M90.1 Choose the evidence contract and publish fixtures | `[+]` | Choose evidence version and explicit v5 selection before integration; publish dry-run, success, failed-read/write, interrupted, missing/stale/mismatched report and incomplete-inventory fixtures; define exact run/workflow and step/invocation identity. |
 | M90.2 Validate report v5 and record per-step outcomes | `[ ]` | Validate selected v5 reports alongside unchanged legacy consumers; bounded identities/counts, inventory completeness, times and outcomes; missing/malformed/mismatched evidence cannot imply not_started; preserve incomplete runs and conservative unknowns without secrets or payloads. |
 | M90.3 Qualify against Udon M44, review, and publish | `[ ]` | Opt-in qualification at accepted M44 source/frozen build closure with loopback success, failures and kill/checkpoint cases; make check and bounded review with no P1/P2; publish accepted revision only under separately named origin/main authority. |
 
@@ -67,3 +67,13 @@ qualification: `/tmp/udon-m44-qualified-20260930-06/closure.json`, SHA-256
 executor SHA-256 `d2d593ac6d5a6a19406180eb70c5993ee4811fecb20c1a31cdb5a1f59278575b`.
 Legacy v3/v4 defaults and v1–v4 schemas remain unchanged. Qualified source
 identity is distinct from the subsequent publication/closure metadata commit.
+
+**M90.1 verification (2026-09-30).** Selected `openudon.run-evidence.v3`
+for explicit `--executor-report-version v5` only; default v2 and legacy report
+selection remain unchanged. `docs/per-step-run-evidence.md` specifies the
+exact attempt/workflow/ordered invocation binding, conservative fixed-state
+unknown observations and incomplete-run/inventory distinction. Ten observation
+fixtures and paired source reports cover dry-run, success, failures, interrupted,
+missing/stale/mismatch/incomplete/malformed reports; expected identities and
+non-validated unknowns were checked. The frozen report schema is byte-identical
+to accepted M44. Implementation/signature/archive wiring follows in M90.2.

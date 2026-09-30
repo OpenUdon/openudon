@@ -1294,3 +1294,10 @@ browser profiles and private runtime state are excluded. Native qualification
 retains its version and fresh three-repeat semantics. W8M owns its aggregate v2
 composition and consumer-specific smoke; generic code imports no private Udon
 packages or target-specific policy.
+
+## Explicit per-step execution evidence (M90)
+
+Report-v5 observations bind exact attempt, staged workflow bytes and ordered
+flat HTTP inventory. Rejected/missing reports produce fixed-class unknown
+observations, never unstarted proof. Run-evidence v3 is explicit opt-in; private
+Udon remains an external CLI.

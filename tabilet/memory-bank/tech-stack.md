@@ -994,3 +994,9 @@ gate. The native report schema is unchanged; new development/timing schemas are
 `openudon.browser-development.v1` and `openudon.browser-check-timing.v1`.
 Private JSONL sidecars measure source hashing, subprocesses, selected builds,
 stages and transaction teardown. No new dependencies or downloads are required.
+
+## Explicit per-step execution evidence (M90)
+
+M90 selects `openudon.run-evidence.v3` with `--executor-report-version v5`.
+The report-v5 schema/fixtures are frozen from accepted Udon M44 source
+`1a5e9aa2045e3d875da2e18aab2d6db869ac5223`; no private Go dependency is added.
