@@ -1325,3 +1325,11 @@ packages. Current test-command paths follow the new locations. Public CLI and
 wire contracts, fixture bytes, approval and report semantics remain unchanged.
 M91.3 still separates transport-specific Authoring iCoT adapters; this relocation
 alone does not establish the final dependency boundary or milestone acceptance.
+
+## M91 neutral Authoring engine adoption
+
+`internal/authoring` now delegates progressive, prompt and atomic interview
+contracts to `github.com/OpenUdon/authoring/engine`. Shared elicitor and step
+authoring therefore no longer import Authoring's iCoT compatibility facade.
+Product APIs, private session/transcript versions and approval behavior stay
+unchanged; remaining OpenUdon-local iCoT browser/evaluation extraction is M91.4/5.

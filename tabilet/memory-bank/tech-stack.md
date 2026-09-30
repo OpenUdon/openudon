@@ -1031,3 +1031,12 @@ commands and lock bytes remain unchanged; M91.5 owns versioned evaluation
 rebasing. Relocation checks passed `make fast` and focused transactional/race
 checks with unchanged tracked fixture bytes. Final smoke and frozen integration
 qualification remain required before milestone acceptance.
+
+## M91.3 exact neutral-engine dependency
+
+OpenUdon pins Authoring `v0.0.0-20260930234600-18056cb6b0c1`, Origin.Hash
+`18056cb6b0c1007dd567a4a825a6b4311a357185`, after verified M29 closure
+`dc8f3d61970ae628fc0399b0ef42187aa62a3e5b`. Only this module was updated;
+UWS and APItools adoption remain M92 and M94. The adapter uses public `engine`
+APIs; default checks remain provider/credential free and standalone tests use
+the published module with GOWORK off.

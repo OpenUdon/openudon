@@ -1,6 +1,6 @@
 # Status M91 — iCoT inventory and behavior-preserving extraction
 
-**State:** M91.1 complete; the user approved the 23-capability inventory. M91.2 is complete. M91.3 awaits M29 closure handoff; its source/module are verified published; later extraction tasks remain pending.
+**State:** M91.1 complete; the user approved the 23-capability inventory. M91.2 is complete. M91.1–M91.3 complete; browser/evaluation extraction remains pending.
 
 **Goal.** Move shared implementation out of iCoT while keeping all current consumers working.
 
@@ -21,7 +21,7 @@ Inventory terminal authoring, ui/control protocols, browser authoring/transactio
 | --- | --- | --- |
 | M91.1 — Inventory journeys and consumers | `[+]` | Record retained/replaced/discontinued journeys and replacement checks; inventory both W8M capture modes, expert CLI and evaluation surfaces; approve any new discontinuation explicitly. |
 | M91.2 — Extract artifact writing and draft review | `[+]` | Move transactional artifactwriter and shared review/sanitization into neutral implementation; prove byte-equivalent fixtures. |
-| M91.3 — Extract discovery and session logic | `[ ]` | Move local/catalog discovery, planning and session types; decouple non-iCoT authoring consumers from Authoring icot. |
+| M91.3 — Extract discovery and session logic | `[+]` | Move local/catalog discovery, planning and session types; decouple non-iCoT authoring consumers from Authoring icot. |
 | M91.4 — Extract browser worker and qualification helpers | `[ ]` | Move process dispatch/launch and scenario/registration helpers; preserve both capture modes and current-stack inputs. |
 | M91.5 — Rebase evaluation | `[ ]` | Move lint/evaluation, variants and scorecard callers off cmd/icot without changing their fixture corpus or expected coverage. |
 | M91.6 — Prove equivalence, review and publish | `[ ]` | Check imports, fixtures, evaluation and owner qualification; preserve P07/P08 dispatch; publish accepted source. Consumer qualification belongs to Kinet W08, without weakening its production pin. |
@@ -169,3 +169,30 @@ and removal of non-iCoT imports of Authoring icot. It remains pending while
 M29's single execution owner completes the normal closure handoff. M91.1/M91.2
 and its 0/10 review counter are preserved; no premature consumer qualification
 is claimed. Ramen's old API remains supported and its source/ledger unchanged.
+
+## M91.3 resumed after verified producer closure
+
+Authoring M29 is complete and its closure is independently verified published
+at `dc8f3d61970ae628fc0399b0ef42187aa62a3e5b`. Qualified source/module remain
+`18056cb6b0c1007dd567a4a825a6b4311a357185` /
+`v0.0.0-20260930234600-18056cb6b0c1`. M29 review passed 1/10; full owner,
+frozen consumer, race and scorecard gates passed. M91.3 is now the sole general
+in-progress row. Adopt the exact module and neutral engine aliases; preserve
+consumer APIs/wire/session/fixture behavior and existing safety gates.
+
+## M91.3 complete — published neutral engine adoption
+
+The three internal Authoring adapters now import `authoring/engine`, preserving
+all existing APIs/bodies after import/alias normalization. OpenUdon pins the
+verified published module `v0.0.0-20260930234600-18056cb6b0c1`; no other module
+pin changed. The module's Origin.Hash and sums were observed in
+`/tmp/openudon-m91-3-authoring-module.json`.
+
+Focused authoring/elicitor/step suites pass in both the workspace and standalone
+with the actual published module (`-mod=readonly`). `make fast` passes. The
+standalone step dependency closure includes engine and excludes Authoring icot
+and OpenUdon internal/icot. All 405 corpus/step fixture hashes are unchanged.
+Logs: `/tmp/openudon-m91-3-focused.log`, `/tmp/openudon-m91-3-standalone.log`,
+`/tmp/openudon-m91-3-fast.log`, `/tmp/openudon-m91-3-deps.txt`.
+M91.4/5 own remaining OpenUdon browser/evaluation import seams; closing review
+stays 0/10 and no final extraction acceptance is claimed.

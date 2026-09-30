@@ -7,7 +7,7 @@ import (
 	"strings"
 	"time"
 
-	sharedicot "github.com/OpenUdon/authoring/icot"
+	sharedengine "github.com/OpenUdon/authoring/engine"
 )
 
 // Transcript records the authoring conversation and tool observations that led
@@ -71,7 +71,7 @@ type SymbolicBinding struct {
 
 // ReadinessIssue explains why an artifact or operation needs more review before
 // validation, rendering, or execution.
-type ReadinessIssue = sharedicot.ReadinessIssue
+type ReadinessIssue = sharedengine.ReadinessIssue
 
 // QuestionPlan lists clarification questions that would reduce ambiguity.
 type QuestionPlan struct {
@@ -88,10 +88,10 @@ type Question struct {
 
 // InteractiveQuestion is one next-question decision in an interactive
 // authoring loop.
-type InteractiveQuestion = sharedicot.InteractiveQuestion
+type InteractiveQuestion = sharedengine.InteractiveQuestion
 
 // RoundAnswer is one answer applied with the rest of a dependency frontier.
-type RoundAnswer = sharedicot.RoundAnswer
+type RoundAnswer = sharedengine.RoundAnswer
 
 // Artifact is a generated draft file or metadata payload.
 type Artifact struct {

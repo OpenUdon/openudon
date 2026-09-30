@@ -10,6 +10,8 @@ github.com/OpenUdon/asyncapi v0.1.0 h1:ZfGDJHknYUKfEZIC6VrhpdiwDVStMoZnyYmr3AVbQ
 github.com/OpenUdon/asyncapi v0.1.0/go.mod h1:RvOKMXItIe+XQu06yZQp839fTZpouX2dL9ngvhg/vOk=
 github.com/OpenUdon/authoring v0.0.0-20260820042256-2f73e3526583 h1:NjQ6S2XEk9iiK72rqWxuayd7zBBkIsVed3bVnMkCFkI=
 github.com/OpenUdon/authoring v0.0.0-20260820042256-2f73e3526583/go.mod h1:UZUPXJZ4zTGDpb7gE4DpFLhFsRf4j9028y0/muxf6V4=
+github.com/OpenUdon/authoring v0.0.0-20260930234600-18056cb6b0c1 h1:5OhMe1TTXCn1ulTMPZrJsiJLUbiA7L04qERkbVC9sZs=
+github.com/OpenUdon/authoring v0.0.0-20260930234600-18056cb6b0c1/go.mod h1:UZUPXJZ4zTGDpb7gE4DpFLhFsRf4j9028y0/muxf6V4=
 github.com/OpenUdon/awssmithy v0.0.0-20260520213111-549a060a5e28 h1:Xrv5Ccw2QVXfuswbTLP98vt5vyMIVmnsfX43TUHBo+Y=
 github.com/OpenUdon/awssmithy v0.0.0-20260520213111-549a060a5e28/go.mod h1:Wkg6qE+XUwzDCpw6gKoUhPQ03K0RhGbxnYpDMmGFStQ=
 github.com/OpenUdon/browsertools v0.0.0-20260924034226-9333a9f25dbb h1:kC/zy1yp1uj7iccdRTcP5+N3YyP/KFl54U+98onyRB8=
