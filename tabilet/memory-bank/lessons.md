@@ -72,7 +72,7 @@ an incomplete run can retain truthful complete inventory. Leaf results and
 later run failures are separate observations. Preparation refusal must not
 claim executor invocation. Evidence: M90's strict report/invocation checks and
 `TestPublishedM44Qualification` (failed read, killed write, checkpoint failure,
-missing/stale report and duplicate refusal), [status-M90.md](status-M90.md).
+missing/stale report and duplicate refusal), [M90 history](../docs/history/status-M90.md).
 
 ## Validate the exact JSON wire before interpreting typed records
 
@@ -82,4 +82,4 @@ schema. Reject aliases, nulls and forbidden optional-field presence before
 interpreting report outcomes; reject timestamp precision the consumer cannot
 compare faithfully. Evidence: `internal/udonreport/v5.go` and its alias/null,
 presence, identity and timestamp mutation tests; M90 review finding R90-3 in
-[status-M90.md](status-M90.md). Keep legacy wire behavior under its own version.
+[M90 history](../docs/history/status-M90.md). Keep legacy wire behavior under its own version.

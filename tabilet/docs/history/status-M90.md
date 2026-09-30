@@ -1,8 +1,59 @@
+# Retired milestone M90 - Per-step executor outcomes in run evidence
+
+**Milestone.** M90
+**Outcome.** completed
+**Retired.** 2026-09-30
+**Source status.** tabilet/memory-bank/status-M90.md
+**Source specification.** tabilet/memory-bank/milestone.md#m90---per-step-executor-outcomes-in-run-evidence
+**Evidence.** a388b235edc733fd23962ff006d2406d4965b48f
+**Worktree.** includes uncommitted changes
+**Review.** passed
+**Review iterations.** 2
+**Verification.** make check, go vet ./..., focused and real-qualification race checks, make report-v5-qualification at clean accepted source ed5b206a524e6e193123b2d06714b75160379560, doc-memory guard and git diff --check passed; source publication independently verified; detailed logs and exact frozen build closure retained below.
+**Consolidated into.** product.md, architecture.md, tech-stack.md, lessons.md, docs/per-step-run-evidence.md and evolution v46; Kinet W07 reconciled in db35053f52fb7ee0e81d833752829b83f76ddd96.
+
+## Milestone specification
+
+````markdown
+### M90 — Per-step executor outcomes in run evidence
+
+Carry per-step executor outcomes into `openudon run` evidence. Accept
+`udon.execution-report.v5` from the published Udon M44 schema alongside
+v2–v4, and request v5 from the executor only when explicitly configured, so
+existing consumers are unchanged. Validate every per-step record against the
+staged package plan (known step and operation IDs, bounded count and size)
+and reject unknown or duplicate steps. Record per-step outcomes (`not_started`,
+`succeeded`, `failed`, `unknown`), timestamps, and non-secret failure codes in
+`openudon.run-evidence.v3`, selected only with explicit report v5. The chosen
+contract is [per-step-run-evidence.md](../../docs/per-step-run-evidence.md). A missing report marks every step
+`unknown`; an incomplete report is preserved as incomplete. Publish
+conformance fixtures for a dry run, success, failure before the write step,
+and an unknown write step. Qualify once, by explicit opt-in, against a real
+executor built from the published Udon M44 revision and a loopback read+write
+fixture (success, failed read, killed during the write). The scope is local
+and provider-free: no deployment, live account, or target operation. This
+partially promotes the "Trusted-runner capability expansion" candidate below.
+**Approved reconciliation.** Choose the run-evidence version and explicit report-v5 selection contract
+before consumer integration. Validate exact run/workflow identity, complete
+supported inventory, operation/invocation identities and timestamp/outcome
+consistency, with bounded records. Missing, malformed, mismatched or incomplete
+inventory never implies not_started; preserve uncertainty and distinguish an
+incomplete run from an incomplete inventory. Preserve legacy readers and
+default execution behavior. Publish fixtures for these cases; qualification
+uses the accepted M44 revision and its frozen dependency-build closure.
+
+Dependencies: Udon M44 accepted and published under separately named authority.
+Downstream: Kinet W07.
+````
+
+## Status record
+
+````markdown
 # Status M90 — Per-step executor outcomes in run evidence
 
-**State:** Local implementation verified; review passed in 2 iterations;
-M90.3 publication blocked. Stage 4 goal execution approved 2026-09-30.
-One execution owner; COMMIT_POLICY: task. OpenUdon publication is not authorized.
+**State:** Completed; implementation accepted and published, review passed in
+2 iterations. One execution owner; COMMIT_POLICY: task. Publication authority
+and exact source/remote verification are recorded below.
 
 **Scope boundary:** Carry Udon's per-step outcomes into `openudon run` evidence
 without absorbing runtime semantics or weakening approval gates. Do not adopt
@@ -42,7 +93,7 @@ Markers: `[ ]` pending, `[~]` in progress, `[+]` complete, `[!]` blocked,
 | --- | --- | --- |
 | M90.1 Choose the evidence contract and publish fixtures | `[+]` | Choose evidence version and explicit v5 selection before integration; publish dry-run, success, failed-read/write, interrupted, missing/stale/mismatched report and incomplete-inventory fixtures; define exact run/workflow and step/invocation identity. |
 | M90.2 Validate report v5 and record per-step outcomes | `[+]` | Validate selected v5 reports alongside unchanged legacy consumers; bounded identities/counts, inventory completeness, times and outcomes; missing/malformed/mismatched evidence cannot imply not_started; preserve incomplete runs and conservative unknowns without secrets or payloads. |
-| M90.3 Qualify against Udon M44, review, and publish | `[!]` | Opt-in qualification at accepted M44 source/frozen build closure with loopback success, failures and kill/checkpoint cases; make check and bounded review with no P1/P2; publish accepted revision only under separately named origin/main authority. |
+| M90.3 Qualify against Udon M44, review, and publish | `[+]` | Opt-in qualification at accepted M44 source/frozen build closure with loopback success, failures and kill/checkpoint cases; make check and bounded review with no P1/P2; publish accepted revision only under separately named origin/main authority. |
 
 ## Acceptance
 
@@ -170,3 +221,25 @@ unchanged. Independent `git ls-remote origin refs/heads/main` returned
 the approved M90 plan, prerequisite reconciliation and M90 task commits.
 This subsequent readiness record changes no implementation bytes. M90 remains
 unaccepted/unretired pending the separately authorized publication.
+
+**Publication authority (2026-09-30).** The user explicitly authorized
+OpenUdon M90 publication to origin/main. This selects M90.3 for normal
+fast-forward publication of the completed reviewed implementation and its
+closure records to `git@github.com-tabilet:OpenUdon/openudon.git`. No other
+repository or action is authorized. Remote main was independently verified
+at `0c7c5d33da2ba7b190954b9eb402cc14b5ec1f73` before this operation.
+
+**Acceptance and downstream reconciliation (2026-09-30).** Normal fast-forward
+publication succeeded and independent remote-head verification returned
+`a388b235edc733fd23962ff006d2406d4965b48f`. The accepted implementation is
+`ed5b206a524e6e193123b2d06714b75160379560`; readiness/closure metadata does not
+change that qualified source identity. Kinet W07 specification and pending
+status were reconciled to this exact published implementation, explicit v5/v3
+contract, inventory/unknown semantics, admission constraints, fixture locations
+and frozen M44 source/build closure in Kinet
+`db35053f52fb7ee0e81d833752829b83f76ddd96`. No Kinet implementation or retry
+is claimed. All tasks, checks, two-iteration review, consolidation and source
+publication requirements are satisfied. Retirement preserves this complete
+status/specification; its metadata publication continues under the same
+separately named M90 origin/main authority.
+````

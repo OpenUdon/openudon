@@ -2,12 +2,16 @@
 
 ## Current State
 
-M90 is pending, planned on 2026-09-30 as OpenUdon's part of Kinet's stage 4
-local execution slice (Kinet R47). It carries the published Udon M44 per-step
-executor outcomes into `openudon run` evidence so consumers never scrape
-executor output. It starts after Udon M44 is accepted and pushed; Kinet W07
-re-pins to the accepted, published M90 revision. It adds no runtime
-semantics, UWS 1.12 adoption, simulation, or live operation.
+M90 is complete and published for Kinet's stage 4 local execution slice.
+Accepted implementation `ed5b206a524e6e193123b2d06714b75160379560` explicitly
+selects report v5 and run-evidence v3, validates exact staged inventory and
+preserves conservative unknown outcomes; legacy defaults remain unchanged.
+The frozen real Udon M44 qualification and two-iteration bounded review pass.
+Kinet W07 is reconciled to that exact published source in
+`db35053f52fb7ee0e81d833752829b83f76ddd96` and remains the separately owned
+consumer. Complete specification, status and publication evidence are in the
+[M90 history record](../docs/history/status-M90.md). No runtime semantics,
+UWS adoption, provider operation or deployment is included.
 
 M87 is complete for OpenUdon-owned non-interactive step authoring commands and
 published JSON conformance fixtures, consumed by Kinet W03 (sibling item S2a).
@@ -95,35 +99,6 @@ The history index holds 134 legacy-preserved status IDs and five normally review
 
 ## Active Milestone Specifications
 
-### M90 — Per-step executor outcomes in run evidence
-
-Carry per-step executor outcomes into `openudon run` evidence. Accept
-`udon.execution-report.v5` from the published Udon M44 schema alongside
-v2–v4, and request v5 from the executor only when explicitly configured, so
-existing consumers are unchanged. Validate every per-step record against the
-staged package plan (known step and operation IDs, bounded count and size)
-and reject unknown or duplicate steps. Record per-step outcomes (`not_started`,
-`succeeded`, `failed`, `unknown`), timestamps, and non-secret failure codes in
-`openudon.run-evidence.v3`, selected only with explicit report v5. The chosen
-contract is [per-step-run-evidence.md](../../docs/per-step-run-evidence.md). A missing report marks every step
-`unknown`; an incomplete report is preserved as incomplete. Publish
-conformance fixtures for a dry run, success, failure before the write step,
-and an unknown write step. Qualify once, by explicit opt-in, against a real
-executor built from the published Udon M44 revision and a loopback read+write
-fixture (success, failed read, killed during the write). The scope is local
-and provider-free: no deployment, live account, or target operation. This
-partially promotes the "Trusted-runner capability expansion" candidate below.
-**Approved reconciliation.** Choose the run-evidence version and explicit report-v5 selection contract
-before consumer integration. Validate exact run/workflow identity, complete
-supported inventory, operation/invocation identities and timestamp/outcome
-consistency, with bounded records. Missing, malformed, mismatched or incomplete
-inventory never implies not_started; preserve uncertainty and distinguish an
-incomplete run from an incomplete inventory. Preserve legacy readers and
-default execution behavior. Publish fixtures for these cases; qualification
-uses the accepted M44 revision and its frozen dependency-build closure.
-
-Dependencies: Udon M44 accepted and published under separately named authority.
-Downstream: Kinet W07.
 
 ### E21 — Repair current-stack Udon build and preserve M86 report meaning
 
@@ -195,9 +170,8 @@ external services.
 
 ## Active And Parked Tracks
 
-- Active (pending): M90 carries Udon M44 per-step executor outcomes into run
-  evidence for Kinet's stage 4 local execution slice. It waits for Udon M44
-  to be accepted and pushed; Kinet W07 consumes the published M90 revision.
+- Completed: M90 publishes explicit report-v5 handoff and strict v3 per-step
+  evidence for Kinet W07; see the [M90 history](../docs/history/status-M90.md).
 - Completed: M89's Stage 1 source-provisioning and mapping work consumed APItools M79 revision
   `e3625f6ef52ea54b7f78b7a4a4f1993bf8a06a46`; it is distinct from M87/M88's completed step-authoring
   contract. M89.1–M89.5 completed, the exact Kinet W04.6 consumer passed against published
@@ -223,7 +197,6 @@ search the history index before allocating a future ID.
 | ID | Milestone | Status file | State |
 | --- | --- | --- | --- |
 | E21 | Repair current-stack Udon build and preserve M86 report meaning | `tabilet/memory-bank/status-E21.md` | Complete; W8M W21 closeout reconciled |
-| M90 | Per-step executor outcomes in run evidence | `tabilet/memory-bank/status-M90.md` | Pending; waits for Udon M44 |
 
 ## Requested Changes After Initialization
 

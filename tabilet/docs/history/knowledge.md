@@ -1402,3 +1402,19 @@ separate. The registration-only protocol stays compatible. See
 `docs/application-control.md` and `tabilet/memory-bank/status-M80.md`.
 
 `````
+
+## M90 completed contract (2026-09-30)
+
+Source: milestone.md current state at a388b235edc733fd23962ff006d2406d4965b48f; pending intake is superseded
+by accepted implementation and source publication. Replacement: current
+M90 completion paragraph and [retired record](status-M90.md). Original wording:
+
+````markdown
+M90 is pending, planned on 2026-09-30 as OpenUdon's part of Kinet's stage 4
+local execution slice (Kinet R47). It carries the published Udon M44 per-step
+executor outcomes into `openudon run` evidence so consumers never scrape
+executor output. It starts after Udon M44 is accepted and pushed; Kinet W07
+re-pins to the accepted, published M90 revision. It adds no runtime
+semantics, UWS 1.12 adoption, simulation, or live operation.
+
+````

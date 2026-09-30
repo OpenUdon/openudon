@@ -152,3 +152,4 @@ subsequently closed under the normal reviewed procedure.
 | P04 | legacy-preserved | 2026-09-24 | [status-P04.md](status-P04.md) | Immutable trusted execution and containment closure. |
 | P05 | legacy-preserved | 2026-09-24 | [status-P05.md](status-P05.md) | Complete prepare-only package construction, restrictive qualification, atomic promotion, and recovery. |
 | P06 | legacy-preserved | 2026-09-24 | [status-P06.md](status-P06.md) | Advisory content-trust quality and review evidence. |
+| M90 | completed | 2026-09-30 | [status-M90.md](status-M90.md) | Explicit v5 report handoff, strict payload-free v3 step evidence, published conformance fixtures and frozen real-M44 qualification; accepted implementation ed5b206a524e6e193123b2d06714b75160379560. |
