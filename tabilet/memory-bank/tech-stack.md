@@ -936,3 +936,14 @@ gate. The native report schema is unchanged; new development/timing schemas are
 `openudon.browser-development.v1` and `openudon.browser-check-timing.v1`.
 Private JSONL sidecars measure source hashing, subprocesses, selected builds,
 stages and transaction teardown. No new dependencies or downloads are required.
+
+The additive current-stack input endpoint is
+`openudon browser-system-input --stack current --repo-root ABS --udon-repo ABS
+--browserdriver-node-modules ABS`. It returns
+`openudon.browser-qualification-input.v2` and a value-free digest. It validates
+the canonical external bundle, locked package versions and executable npm bin
+entry points, then binds all nineteen current-stack sources and roots, bundle
+bytes/modes, tool/browser/Go dependencies and effective environment/host identity.
+The historical default and its v1 response remain unchanged. This inventories
+inputs only: it never installs dependencies, runs a browser, qualifies a runtime
+or grants cache reuse. Consumers own their cache eligibility and fresh journeys.

@@ -2,6 +2,12 @@
 
 ## Current State
 
+E23 is active for the approved W8M W27 prerequisite: a browser-free current-stack
+input identity with explicit external Browserdriver modules. E23.1 implements
+and verifies the additive v2 input endpoint; E23.2 owns bounded review and
+consolidation. Native qualification/report versions and runtime adoption remain
+unchanged. No browser seed or real operation is authorized.
+
 OpenUdon's UWS 1.11 real-browser M86 qualification is complete: the pinned
 sandboxed browsers launched, all three integration opt-ins passed, and the
 current-stack loopback and journey suites passed at clean source revisions.
@@ -200,6 +206,7 @@ search the history index before allocating a future ID.
 
 | ID | Milestone | Status file | State |
 | --- | --- | --- | --- |
+| E23 | Current-stack native input identity | `tabilet/memory-bank/status-E23.md` | Active |
 | P08 | Browser 1.10 v11 trusted execution handoff | `tabilet/memory-bank/status-P08.md` | Complete locally; bounded review iteration 1 passed; awaiting normal history retirement |
 | P07 | Browser 1.10 trusted package dispatch compatibility | `tabilet/memory-bank/status-P07.md` | Complete locally; bounded review iteration 2 passed; awaiting normal history retirement |
 | E21 | Repair current-stack Udon build and preserve M86 report meaning | `tabilet/memory-bank/status-E21.md` | Complete; W8M W21 closeout reconciled |
@@ -448,3 +455,15 @@ fresh scope and dependency review promotes them.
   behind the run-config handoff.
 - After a major review or milestone, check whether [tabilet/evolution/](../evolution/) needs a new
   prompt/result version.
+
+## E23 — Current-stack native input identity
+
+Approved prerequisite of W8M W27's candidate native-reuse implementation. Add an
+explicit current-stack input v2 endpoint selecting the supplied external module
+bundle; preserve the legacy v1 input and all qualification/report contracts.
+Bind exact nineteen-source closure, paths, bytes/modes, tools/dependencies,
+browser/Playwright, environment/display and host/boot/namespace identity without
+exporting raw inputs or launching browsers. Validate readiness before hashing.
+E23.1 owns implementation/tests and its local task commit; E23.2 owns review,
+current-fact consolidation and W8M handoff. W8M owns caches and runtime adoption.
+Acceptance/verification and the ten-iteration review are in status-E23.md.

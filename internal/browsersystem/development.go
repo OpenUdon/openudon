@@ -247,10 +247,14 @@ func developmentInput(ctx context.Context, root, udon string) (digest string, re
 	return inputInventory(ctx, root, udon, false)
 }
 
-func inputInventory(ctx context.Context, root, udon string, qualification bool) (digest string, resultErr error) {
+func inputInventory(ctx context.Context, root, udon string, qualification bool) (string, error) {
+	return inputInventoryStack(ctx, root, udon, qualification, browserscenario.StackHistorical, "")
+}
+
+func inputInventoryStack(ctx context.Context, root, udon string, qualification bool, stack, suppliedModules string) (digest string, resultErr error) {
 	finish := browsercheck.Span(ctx, "development_inputs")
 	defer func() { finish(resultErr) }()
-	ss, err := sources(ctx, root, udon, browserscenario.StackHistorical, true)
+	ss, err := sources(ctx, root, udon, stack, true)
 	if err != nil {
 		return "", err
 	}
@@ -345,7 +349,11 @@ func inputInventory(ctx context.Context, root, udon string, qualification bool) 
 		}
 	}
 	driver := filepath.Join(filepath.Dir(root), "browserdriver")
-	modules, err := filepath.EvalSymlinks(filepath.Join(driver, "node_modules"))
+	modulePath := filepath.Join(driver, "node_modules")
+	if suppliedModules != "" {
+		modulePath = suppliedModules
+	}
+	modules, err := filepath.EvalSymlinks(modulePath)
 	if err != nil {
 		return "", err
 	}
@@ -367,7 +375,12 @@ func inputInventory(ctx context.Context, root, udon string, qualification bool) 
 	}
 	// Resolve paths without launching a browser. Include the installed cache root
 	// because Playwright may select Chromium's full or headless distribution.
-	browser, err := command(ctx, driver, []string{"node", "--input-type=module", "--eval", `import {chromium} from 'playwright'; console.log(chromium.executablePath())`}, nil)
+	browserArgs := []string{"node", "--input-type=module", "--eval", `import {chromium} from 'playwright'; console.log(chromium.executablePath())`}
+	if suppliedModules != "" {
+		values["external_modules_root"] = hash([]byte(suppliedModules))
+		browserArgs = []string{"node", "--preserve-symlinks", "--eval", `const {chromium} = require(process.argv[1]); console.log(chromium.executablePath())`, filepath.Join(modules, "playwright")}
+	}
+	browser, err := command(ctx, driver, browserArgs, nil)
 	if err != nil {
 		return "", err
 	}
@@ -409,7 +422,7 @@ func inputInventory(ctx context.Context, root, udon string, qualification bool) 
 	if err := addInputGoDependencies(ctx, root, udon, qualification, addFile); err != nil {
 		return "", err
 	}
-	after, err := sources(ctx, root, udon, browserscenario.StackHistorical, true)
+	after, err := sources(ctx, root, udon, stack, true)
 	if err != nil {
 		return "", err
 	}

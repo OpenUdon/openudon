@@ -407,3 +407,5 @@ E13 separates `fast`, one affected synthetic `smoke`, and full `qualify` checks.
 Feature iteration can reuse unchanged compiled outputs and explicitly selected
 successful development results. Reuse is visible and retains the original run;
 it never represents independent browser execution or operational qualification.
+
+Current-stack native input identity is available as an explicit browser-free endpoint; it supplies no acceptance or runtime-adoption evidence.
