@@ -1,6 +1,6 @@
 # Status M91 — iCoT inventory and behavior-preserving extraction
 
-**State:** M91.1 complete; the user approved the 23-capability inventory. M91.2 is complete. M91.3 awaits accepted/published Authoring M29; later extraction tasks remain pending.
+**State:** M91.1 complete; the user approved the 23-capability inventory. M91.2 is complete. M91.3 awaits M29 closure handoff; its source/module are verified published; later extraction tasks remain pending.
 
 **Goal.** Move shared implementation out of iCoT while keeping all current consumers working.
 
@@ -21,7 +21,7 @@ Inventory terminal authoring, ui/control protocols, browser authoring/transactio
 | --- | --- | --- |
 | M91.1 — Inventory journeys and consumers | `[+]` | Record retained/replaced/discontinued journeys and replacement checks; inventory both W8M capture modes, expert CLI and evaluation surfaces; approve any new discontinuation explicitly. |
 | M91.2 — Extract artifact writing and draft review | `[+]` | Move transactional artifactwriter and shared review/sanitization into neutral implementation; prove byte-equivalent fixtures. |
-| M91.3 — Extract discovery and session logic | `[!]` | Move local/catalog discovery, planning and session types; decouple non-iCoT authoring consumers from Authoring icot. |
+| M91.3 — Extract discovery and session logic | `[ ]` | Move local/catalog discovery, planning and session types; decouple non-iCoT authoring consumers from Authoring icot. |
 | M91.4 — Extract browser worker and qualification helpers | `[ ]` | Move process dispatch/launch and scenario/registration helpers; preserve both capture modes and current-stack inputs. |
 | M91.5 — Rebase evaluation | `[ ]` | Move lint/evaluation, variants and scorecard callers off cmd/icot without changing their fixture corpus or expected coverage. |
 | M91.6 — Prove equivalence, review and publish | `[ ]` | Check imports, fixtures, evaluation and owner qualification; preserve P07/P08 dispatch; publish accepted source. Consumer qualification belongs to Kinet W08, without weakening its production pin. |
@@ -154,3 +154,18 @@ The user approved Authoring M29, extended the existing goal and authorized
 Authoring publication. M91.3 remains blocked on its accepted/published exact
 revision, rather than on user approval. Resume after M29 handoff and record
 its source/module/qualification; retain M91.1/M91.2 and review count 0/10.
+
+## Authoring M29 exact source reconciliation
+
+Authoring's neutral engine passed closing review iteration 1 with no open P1/P2.
+Qualified source `18056cb6b0c1007dd567a4a825a6b4311a357185` is published;
+Go resolved `v0.0.0-20260930234600-18056cb6b0c1` with that exact Origin.Hash.
+Producer source/qualification/review publication is independently verified at
+`2a929b7686af5710db7a1600dcc1f2d27f6e388d`. Frozen qualification manifest:
+`/var/tmp/authoring-m29-compat-0w5o3ztc/manifest.json`.
+
+M91.3 now has a concrete compatible engine contract and owns exact-pin adoption
+and removal of non-iCoT imports of Authoring icot. It remains pending while
+M29's single execution owner completes the normal closure handoff. M91.1/M91.2
+and its 0/10 review counter are preserved; no premature consumer qualification
+is claimed. Ramen's old API remains supported and its source/ledger unchanged.
