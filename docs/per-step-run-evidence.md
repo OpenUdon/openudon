@@ -4,7 +4,8 @@ Opt in with `openudon run --executor-report-version v5` (or the exact
 `udon.execution-report.v5` name). Omitting it preserves report v3/v4 selection
 and `openudon.run-evidence.v2`. Executable run-config v2 already has
 `executor_report_version`; explicit v5 forwards `--execution-report-version v5`
-and the config's unique `--execution-run-id ID` to Udon. V5 excludes browser
+and the config's unique `--execution-run-id ID` to Udon. The initial OpenUdon admission requires reviewed OpenAPI-backed HTTP sources;
+other source families await independent qualification. V5 excludes browser
 execution and admits only M44's one flat HTTP sequence (1–256 unique operations).
 Unsupported shape is refused before invocation. No UWS/private runtime code
 moves into OpenUdon.

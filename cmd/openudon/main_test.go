@@ -326,6 +326,7 @@ func TestCLIRunHelpIncludesApprovalGates(t *testing.T) {
 	text := string(output)
 	for _, expected := range []string{
 		"Usage: openudon run",
+		"executor-report-version",
 		"--tier sandbox|production",
 		"--approval",
 		"--dry-run",

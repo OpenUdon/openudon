@@ -15,6 +15,7 @@ import (
 	"github.com/OpenUdon/openudon/internal/executablefile"
 	"github.com/OpenUdon/openudon/internal/packageartifacts"
 	"github.com/OpenUdon/openudon/internal/processgroup"
+	"github.com/OpenUdon/openudon/internal/udonreport"
 )
 
 const (
@@ -96,6 +97,7 @@ type Options struct {
 }
 
 type Result struct {
+	InventoryV5        *udonreport.InventoryV5
 	StagePath          string
 	WorkflowPath       string
 	ExecutorReportPath string
@@ -203,8 +205,11 @@ func prepare(ctx context.Context, config Config, opts Options, requireCredential
 	if reportVersion == "" {
 		reportVersion = "udon.execution-report.v2"
 	}
-	if reportVersion != "udon.execution-report.v2" && reportVersion != "udon.execution-report.v3" && reportVersion != "udon.execution-report.v4" {
-		return Result{}, nil, "", fmt.Errorf("run config executor_report_version must be udon.execution-report.v2, v3 or v4")
+	if reportVersion != "udon.execution-report.v2" && reportVersion != "udon.execution-report.v3" && reportVersion != "udon.execution-report.v4" && reportVersion != udonreport.VersionV5 {
+		return Result{}, nil, "", fmt.Errorf("run config executor_report_version must be udon.execution-report.v2, v3, v4 or v5")
+	}
+	if reportVersion == udonreport.VersionV5 && config.Browser != nil {
+		return Result{}, nil, "", fmt.Errorf("report v5 requires HTTP-only execution")
 	}
 	if config.Browser != nil && (strings.EqualFold(strings.TrimSpace(config.Browser.Protocol), "v4") || strings.EqualFold(strings.TrimSpace(config.Browser.Protocol), "v5")) && reportVersion != "udon.execution-report.v3" {
 		return Result{}, nil, "", fmt.Errorf("browser registration protocol v4 requires udon.execution-report.v3")
@@ -327,11 +332,25 @@ func prepare(ctx context.Context, config Config, opts Options, requireCredential
 		SessionEnvNames:    append([]string(nil), browser.sessionEnv...),
 		BrowserEnvNames:    append([]string(nil), browser.driverEnv...),
 	}
+	if reportVersion == udonreport.VersionV5 {
+		data, _, err := evidencefile.ReadRegular(stagedWorkflow, evidencefile.DefaultMaxBytes)
+		if err != nil {
+			return result, nil, "", fmt.Errorf("read v5 staged workflow: %w", err)
+		}
+		inventory, err := udonreport.InventoryFromWorkflowV5(data, workflowFormat, config.RunID)
+		if err != nil {
+			return result, nil, "", err
+		}
+		result.InventoryV5 = &inventory
+	}
 	if buildExecutorArgv {
 		result.ExecutorReportPath = filepath.Join(stage, "executor-report-"+config.RunID+".json")
 		argv, err := executorArgvWithBrowser(repoRootAbs, stage, stagedWorkflow, workflowFormat, result.ExecutorReportPath, stagedDataFilePaths(stage, dataFiles), credentialEnvNames, config.Browser, browser.driverEnv, envByName)
 		if err != nil {
 			return result, nil, "", err
+		}
+		if reportVersion == udonreport.VersionV5 {
+			argv = append(argv, "--execution-report-version", "v5", "--execution-run-id", config.RunID)
 		}
 		result.Argv = append([]string(nil), argv...)
 	}

@@ -738,6 +738,7 @@ func runReadinessCommand(args []string) {
 
 func runTrustedCommand(args []string) {
 	fs := flag.NewFlagSet("run", flag.ExitOnError)
+	executorReportVersion := fs.String("executor-report-version", "", "Opt in to payload-free per-step report v5 and run-evidence v3")
 	example := fs.String("example", "", "Example directory containing generated OpenUdon artifacts")
 	tier := fs.String("tier", "", "Execution tier: sandbox or production")
 	approval := fs.String("approval", "", "Approval JSON file")
@@ -768,6 +769,7 @@ func runTrustedCommand(args []string) {
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 	runOptions := trustedrunner.Options{
+		ExecutorReportVersion:       *executorReportVersion,
 		RepoRoot:                    ".",
 		ExampleDir:                  *example,
 		Tier:                        *tier,

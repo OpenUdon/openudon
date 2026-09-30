@@ -15,6 +15,7 @@ import (
 	"github.com/OpenUdon/openudon/internal/authoring/atomicfile"
 	"github.com/OpenUdon/openudon/internal/evidencefile"
 	"github.com/OpenUdon/openudon/internal/synthesize"
+	"github.com/OpenUdon/openudon/internal/udonreport"
 	"github.com/OpenUdon/openudon/internal/udonrunner"
 )
 
@@ -110,6 +111,12 @@ func RunExternal(ctx context.Context, opts ExternalOptions) (udonrunner.Result, 
 	if err != nil {
 		return udonrunner.Result{}, err
 	}
+	if config.ExecutorReportVersion == udonreport.VersionV5 {
+		if expected.Browser != nil {
+			return udonrunner.Result{}, fmt.Errorf("report v5 requires HTTP-only execution")
+		}
+		expected.ExecutorReportVersion = udonreport.VersionV5
+	}
 	canonical, err := json.MarshalIndent(expected, "", "  ")
 	if err != nil {
 		return udonrunner.Result{}, err
@@ -140,19 +147,29 @@ func publishExternalExecutorReportOutcome(config RunConfig, result udonrunner.Re
 	if err != nil {
 		return result, fmt.Errorf("read external executor report: %w", err)
 	}
-	report, err := decodeUdonExecutionReport(data)
-	if err != nil {
-		return result, fmt.Errorf("validate external executor report: %w", err)
-	}
-	wantStatus := "error"
-	if success {
-		wantStatus = "success"
-	}
-	if report.Status != wantStatus {
-		return result, fmt.Errorf("external executor report status must match process outcome")
-	}
-	if config.Browser != nil && (config.Browser.Protocol == "v4" || (config.Browser.Protocol == "v5" || config.Browser.Protocol == "v6")) && report.Version != config.ExecutorReportVersion {
-		return result, fmt.Errorf("external executor report version does not match the run config")
+	if config.ExecutorReportVersion == udonreport.VersionV5 {
+		if result.InventoryV5 == nil {
+			return result, fmt.Errorf("missing external v5 inventory")
+		}
+		observation := udonreport.ObserveV5(*result.InventoryV5, data)
+		if observation.State != "validated" || (success && observation.ReportStatus != "success") {
+			return result, fmt.Errorf("external report must match validated exact v5 attempt")
+		}
+	} else {
+		report, err := decodeUdonExecutionReport(data)
+		if err != nil {
+			return result, fmt.Errorf("validate external executor report: %w", err)
+		}
+		wantStatus := "error"
+		if success {
+			wantStatus = "success"
+		}
+		if report.Status != wantStatus {
+			return result, fmt.Errorf("external executor report status must match process outcome")
+		}
+		if config.Browser != nil && (config.Browser.Protocol == "v4" || (config.Browser.Protocol == "v5" || config.Browser.Protocol == "v6")) && report.Version != config.ExecutorReportVersion {
+			return result, fmt.Errorf("external executor report version does not match the run config")
+		}
 	}
 	path, err := externalExecutorReportPath(config)
 	if err != nil {

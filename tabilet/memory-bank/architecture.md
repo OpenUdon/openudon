@@ -1301,3 +1301,10 @@ Report-v5 observations bind exact attempt, staged workflow bytes and ordered
 flat HTTP inventory. Rejected/missing reports produce fixed-class unknown
 observations, never unstarted proof. Run-evidence v3 is explicit opt-in; private
 Udon remains an external CLI.
+
+M90.2 implements this in `internal/udonreport` (independent wire/shape
+validation), `internal/udonrunner` (pre-dispatch staged inventory and explicit
+v5 flags) and `internal/trustedrunner` (v3 binding, conservative uncertainty,
+signature/archive verification). Canonical external run-config revalidation
+preserves explicit v5 only for HTTP-only packages. Report validation never
+imports a private executor package or decides a downstream retry.

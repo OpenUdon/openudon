@@ -31,6 +31,7 @@ const (
 	AsyncEvidenceVersion       = "openudon.async-evidence-bundle.v1"
 	RunConfigVersion           = udonrunner.RunConfigVersion
 	RunEvidenceVersion         = "openudon.run-evidence.v2"
+	RunEvidenceVersionV3       = "openudon.run-evidence.v3"
 	LegacyRunEvidenceVersion   = "openudon.run-evidence.v1"
 	UdonExecutionReportVersion = udonreport.Version
 	ReviewHandoffVersion       = authoring.ReviewHandoffVersion
@@ -54,13 +55,14 @@ type Approval struct {
 }
 
 type Options struct {
-	RepoRoot     string
-	ExampleDir   string
-	Tier         string
-	ApprovalPath string
-	WorkDir      string
-	DryRun       bool
-	RunnerPath   string
+	ExecutorReportVersion string
+	RepoRoot              string
+	ExampleDir            string
+	Tier                  string
+	ApprovalPath          string
+	WorkDir               string
+	DryRun                bool
+	RunnerPath            string
 	// Stdin is an explicitly supplied private human browser-interaction stream.
 	Stdin                       io.Reader
 	Stdout                      io.Writer
@@ -206,6 +208,7 @@ type VerifyRunEvidenceResult struct {
 type RunConfig = udonrunner.Config
 
 type RunEvidence struct {
+	StepExecution      *udonreport.ObservationV5 `json:"step_execution,omitempty"`
 	Version            string                    `json:"version"`
 	RunID              string                    `json:"run_id"`
 	CreatedAt          string                    `json:"created_at"`
@@ -342,6 +345,16 @@ func Run(ctx context.Context, opts Options) (*RunResult, error) {
 	runConfig, err := buildRunConfig(p, manifest, validated.snapshot, digest, opts.Tier, result.WorkDir, runID, validated.handoffSHA256, evidencefile.SHA256(approvalBytes), browserConfig)
 	if err != nil {
 		return nil, err
+	}
+	switch opts.ExecutorReportVersion {
+	case "":
+	case "v5", udonreport.VersionV5:
+		if runConfig.Browser != nil {
+			return nil, fmt.Errorf("report v5 requires HTTP-only execution")
+		}
+		runConfig.ExecutorReportVersion = udonreport.VersionV5
+	default:
+		return nil, fmt.Errorf("executor-report-version must be v5 when explicitly selected")
 	}
 	if opts.Stdin != nil && runConfig.Browser == nil {
 		return nil, fmt.Errorf("interactive browser input requires a reviewed browser workflow")
@@ -626,7 +639,7 @@ func VerifyRunEvidenceFileWithOptions(path string, opts VerifyRunEvidenceOptions
 	if evidence.Version == LegacyRunEvidenceVersion && (opts.RequireSignature || strings.TrimSpace(opts.TrustedPublicKey) != "") {
 		return VerifyRunEvidenceResult{}, fmt.Errorf("legacy run evidence cannot carry a v0.2 signature")
 	}
-	if evidence.Version == RunEvidenceVersion {
+	if evidence.Version == RunEvidenceVersion || evidence.Version == RunEvidenceVersionV3 {
 		if err := verifyRunEvidenceSignature(path, data, opts); err != nil {
 			return VerifyRunEvidenceResult{}, err
 		}
@@ -642,12 +655,18 @@ func VerifyRunEvidenceFileWithOptions(path string, opts VerifyRunEvidenceOptions
 			return VerifyRunEvidenceResult{}, err
 		}
 	}
-	if evidence.Version == RunEvidenceVersion {
+	if evidence.Version == RunEvidenceVersion || evidence.Version == RunEvidenceVersionV3 {
 		requireSuccessfulReport := !evidence.DryRun &&
 			(evidence.Executor.Mode == "internal-runner" || evidence.Executor.Mode == "external-runner") &&
 			evidenceGateStatus(evidence, "executor_invocation") == "pass"
-		if err := verifyExecutorReport(workdir, evidence.Executor, evidence.Browser, requireSuccessfulReport); err != nil {
-			return VerifyRunEvidenceResult{}, err
+		var reportErr error
+		if evidence.Version == RunEvidenceVersionV3 {
+			reportErr = verifyStepExecutionV3(workdir, evidence, requireSuccessfulReport)
+		} else {
+			reportErr = verifyExecutorReport(workdir, evidence.Executor, evidence.Browser, requireSuccessfulReport)
+		}
+		if reportErr != nil {
+			return VerifyRunEvidenceResult{}, reportErr
 		}
 	}
 	return VerifyRunEvidenceResult{
@@ -657,7 +676,7 @@ func VerifyRunEvidenceFileWithOptions(path string, opts VerifyRunEvidenceOptions
 }
 
 func validateRunEvidenceForVerify(evidence RunEvidence) error {
-	if evidence.Version != RunEvidenceVersion && evidence.Version != LegacyRunEvidenceVersion {
+	if evidence.Version != RunEvidenceVersion && evidence.Version != RunEvidenceVersionV3 && evidence.Version != LegacyRunEvidenceVersion {
 		return fmt.Errorf("run evidence version must be %s or read-only legacy %s", RunEvidenceVersion, LegacyRunEvidenceVersion)
 	}
 	if strings.TrimSpace(evidence.Scope) == "" {
@@ -672,7 +691,7 @@ func validateRunEvidenceForVerify(evidence RunEvidence) error {
 	if strings.TrimSpace(evidence.WorkDir) == "" {
 		return fmt.Errorf("run evidence workdir is required")
 	}
-	if evidence.Version == RunEvidenceVersion {
+	if evidence.Version == RunEvidenceVersion || evidence.Version == RunEvidenceVersionV3 {
 		if strings.TrimSpace(evidence.RunID) == "" || !evidencefile.ValidSHA256(evidence.PackageSHA256) ||
 			!evidencefile.ValidSHA256(evidence.HandoffSHA256) || !evidencefile.ValidSHA256(evidence.ApprovalSHA256) ||
 			!evidencefile.ValidSHA256(evidence.RunConfigSHA256) {
@@ -684,6 +703,19 @@ func validateRunEvidenceForVerify(evidence RunEvidence) error {
 		if err := udonrunner.ValidateBrowserEvidenceConfig(evidence.Browser, evidence.CredentialBindings); err != nil {
 			return fmt.Errorf("run evidence browser contract is invalid: %w", err)
 		}
+	}
+	if evidence.Version == RunEvidenceVersionV3 {
+		if evidence.StepExecution == nil || evidence.Browser != nil {
+			return fmt.Errorf("v3 requires HTTP step execution observation")
+		}
+		if err := evidence.StepExecution.Validate(); err != nil {
+			return err
+		}
+		if evidence.StepExecution.RunID != evidence.RunID || (evidence.DryRun != (evidence.StepExecution.State == "dry_run")) {
+			return fmt.Errorf("v3 observation identity/posture mismatch")
+		}
+	} else if evidence.StepExecution != nil {
+		return fmt.Errorf("legacy evidence cannot contain v3 step observations")
 	}
 	return nil
 }
@@ -907,12 +939,22 @@ func buildRunEvidence(opts runEvidenceOptions) (RunEvidence, error) {
 	if len(executorArgv) == 0 {
 		executorArgv = append(executorArgv, opts.Prepared.Argv...)
 	}
-	executor, err := buildRunEvidenceExecutor(opts, executorArgv)
+	var executor RunEvidenceExecutor
+	var observation *udonreport.ObservationV5
+	var err error
+	version := RunEvidenceVersion
+	if opts.Config.ExecutorReportVersion == udonreport.VersionV5 {
+		version = RunEvidenceVersionV3
+		executor, observation, err = buildRunEvidenceV5Executor(opts, executorArgv)
+	} else {
+		executor, err = buildRunEvidenceExecutor(opts, executorArgv)
+	}
 	if err != nil {
 		return RunEvidence{}, err
 	}
 	return RunEvidence{
-		Version:            RunEvidenceVersion,
+		Version:            version,
+		StepExecution:      observation,
 		RunID:              opts.Result.RunID,
 		CreatedAt:          opts.Now.UTC().Format(time.RFC3339),
 		Scope:              opts.Result.Scope,
@@ -1143,6 +1185,9 @@ func asyncRecordPayloadCount(record AsyncEvidenceRecord) int {
 }
 
 func asyncExecutionReportRecords(opts runEvidenceOptions, requestEvidenceID, attemptID string, operation asyncevidence.OperationRef, sequenceStart int) ([]AsyncEvidenceRecord, error) {
+	if opts.Config.ExecutorReportVersion == udonreport.VersionV5 {
+		return nil, nil
+	} // v5 has payload-free per-step observations, no legacy output record.
 	report, err := readUdonExecutionReport(opts.Prepared.ExecutorReportPath)
 	if err != nil || report == nil {
 		return nil, err

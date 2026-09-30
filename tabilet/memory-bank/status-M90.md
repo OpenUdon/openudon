@@ -1,6 +1,6 @@
 # Status M90 — Per-step executor outcomes in run evidence
 
-**State:** M90.1 in progress; Stage 4 goal execution approved 2026-09-30.
+**State:** M90.1–M90.2 complete; M90.3 pending; Stage 4 goal execution approved 2026-09-30.
 One execution owner; COMMIT_POLICY: task. OpenUdon publication is not authorized.
 
 **Scope boundary:** Carry Udon's per-step outcomes into `openudon run` evidence
@@ -40,7 +40,7 @@ Markers: `[ ]` pending, `[~]` in progress, `[+]` complete, `[!]` blocked,
 | Item | State | Notes |
 | --- | --- | --- |
 | M90.1 Choose the evidence contract and publish fixtures | `[+]` | Choose evidence version and explicit v5 selection before integration; publish dry-run, success, failed-read/write, interrupted, missing/stale/mismatched report and incomplete-inventory fixtures; define exact run/workflow and step/invocation identity. |
-| M90.2 Validate report v5 and record per-step outcomes | `[ ]` | Validate selected v5 reports alongside unchanged legacy consumers; bounded identities/counts, inventory completeness, times and outcomes; missing/malformed/mismatched evidence cannot imply not_started; preserve incomplete runs and conservative unknowns without secrets or payloads. |
+| M90.2 Validate report v5 and record per-step outcomes | `[+]` | Validate selected v5 reports alongside unchanged legacy consumers; bounded identities/counts, inventory completeness, times and outcomes; missing/malformed/mismatched evidence cannot imply not_started; preserve incomplete runs and conservative unknowns without secrets or payloads. |
 | M90.3 Qualify against Udon M44, review, and publish | `[ ]` | Opt-in qualification at accepted M44 source/frozen build closure with loopback success, failures and kill/checkpoint cases; make check and bounded review with no P1/P2; publish accepted revision only under separately named origin/main authority. |
 
 ## Acceptance
@@ -77,3 +77,18 @@ fixtures and paired source reports cover dry-run, success, failures, interrupted
 missing/stale/mismatch/incomplete/malformed reports; expected identities and
 non-validated unknowns were checked. The frozen report schema is byte-identical
 to accepted M44. Implementation/signature/archive wiring follows in M90.2.
+
+**M90.2 verification (2026-09-30).** Strict bounded v5 JSON/semantic validation
+now independently checks the frozen public wire contract, exact run/workflow
+identity and ordered inventory derived from staged UWS bytes. Opt-in flags
+reach internal and canonical external runners; unsupported HTTP sequence
+shapes fail before dispatch. V3 retains only validated report references, or
+fixed-class all-unknown observations for rejected/missing evidence. Incomplete
+runs retain validated durable inventory. V3 signatures, verification and
+archives preserve the same binding; raw rejected reports are not archived.
+Default v2 and legacy/browser report consumers remain unchanged. Focused full
+tests, race tests and vet passed for udonreport, udonrunner, trustedrunner and
+CLI (Go 1.26.8; sanitized offline/model-free environment). Conformance, privacy,
+time/identity/duplicate/size mutations, external interrupted handoff, signature
+and archive checks pass. Real M44 qualification and whole-package gates/review
+belong to M90.3. No sibling source or module requirements changed.
