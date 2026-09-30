@@ -1506,3 +1506,33 @@ re-pins to the accepted, published M90 revision. It adds no runtime
 semantics, UWS 1.12 adoption, simulation, or live operation.
 
 ````
+
+## Prerequisite closure before M91 — 2026-09-30
+
+Source: memory-bank/milestone.md current-state and active-track summaries at
+`2e0093dbed14deb2cfc0824007781ef797034901`. The earlier W22 pending/local-only statements are superseded by
+W8M W24 history and completed E21/P07/P08 retirement. Historical task evidence
+remains literal in those records; current replacement guidance is the M91
+inventory and the updated milestone dashboard. No old task is retried.
+
+````markdown
+P07 closes the OpenUdon trusted-runner dispatch gap for Browser 1.10 without
+changing the executor protocol. P07.1 commit
+`87df787c7737cc669f98c3b4462d7151db3e6b68` maps the active profile to the
+existing rank-10/v10 handoff; fresh current v4 integration, loopback, journey,
+and three-repeat native qualification pass from that exact clean source, and
+bounded review iteration 2 passes. P07's commits are contained in the merged
+`w27-native-input` line (the separate P07/P08 branch names were removed on
+2026-09-30; W24's accepted P08.1 source is tagged `w24-accepted-p08.1`). W8M W22 still must use a local replacement to pin this
+qualified source and rerun its consumer smoke and qualification before
+considering runtime adoption or its separately gated read-only operation.
+- Active: E22's Browser 1.10 current-stack qualification and review, and P07's
+  trusted-dispatch repair, fresh v4 qualification, and bounded review are
+  complete. W8M W22 is the dependent downstream promotion; its owner authorized
+  at most one read-only count after every
+  qualification, adoption, preflight, and readiness gate passes. W8M W22's
+  log records an earlier unauthenticated route probe and redirect to advertiser
+  sign-in; no authenticated count, packet, or attempt resulted, and the single
+  authorized count remains unused. P07 itself made no target contact and
+  authorizes no target operation, runtime adoption, push, or publication.
+````

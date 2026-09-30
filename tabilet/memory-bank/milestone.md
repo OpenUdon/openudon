@@ -97,16 +97,12 @@ complete; its full acceptance and attempt history are in the
 [E22 history record](../docs/history/status-E22.md). This synthetic support
 does not change W8M's adopted locks or authorize runtime adoption.
 
-P07 closes the OpenUdon trusted-runner dispatch gap for Browser 1.10 without
-changing the executor protocol. P07.1 commit
-`87df787c7737cc669f98c3b4462d7151db3e6b68` maps the active profile to the
-existing rank-10/v10 handoff; fresh current v4 integration, loopback, journey,
-and three-repeat native qualification pass from that exact clean source, and
-bounded review iteration 2 passes. P07's commits are contained in the merged
-`w27-native-input` line (the separate P07/P08 branch names were removed on
-2026-09-30; W24's accepted P08.1 source is tagged `w24-accepted-p08.1`). W8M W22 still must use a local replacement to pin this
-qualified source and rerun its consumer smoke and qualification before
-considering runtime adoption or its separately gated read-only operation.
+P07's reviewed preparation and qualification result is retired history; P08
+owns the subsequent v11 executor-pairing correction. Their exact source,
+verification and original review counters resolve through the history index.
+W8M's retired W24 records its independently qualified P08.1 source and accepted
+count with teardown. Stage 5 preserves that v11 behavior and grants no live
+operation or adoption authority through historical records.
 
 The UWS 1.11 real-browser M86, E15 registration-verification integration,
 and E18 initialization-diagnostics integration milestones are complete. E15
@@ -289,15 +285,11 @@ external services.
   1.10 current-stack qualification and review remain complete; W8M's local W21
   candidate and any runtime adoption remain separate. The adopted W8M locks
   are unchanged. No deployment, public canary, or target operation is authorized.
-- Active: E22's Browser 1.10 current-stack qualification and review, and P07's
-  trusted-dispatch repair, fresh v4 qualification, and bounded review are
-  complete. W8M W22 is the dependent downstream promotion; its owner authorized
-  at most one read-only count after every
-  qualification, adoption, preflight, and readiness gate passes. W8M W22's
-  log records an earlier unauthenticated route probe and redirect to advertiser
-  sign-in; no authenticated count, packet, or attempt resulted, and the single
-  authorized count remains unused. P07 itself made no target contact and
-  authorizes no target operation, runtime adoption, push, or publication.
+- Active: approved Stage 5 M91–M95. M91.1 inventories retained journeys;
+  no extraction implementation or capability removal is claimed. E21/P07/P08
+  completed normal history retirement before M91, preserving all original
+  task outcomes, qualification evidence and review counts. W8M owns its later
+  adopted runtime, consumed attempts and separately gated live operations.
 - Parked: real-provider evidence, live W8M operation, and public canaries need
   separately approved scope and authority. Stage 5 M91–M95 now plans the
   approved subset of S2b/S2d and OpenUdon S3; remaining candidates stay below. W8M's authorized
@@ -312,7 +304,7 @@ search the history index before allocating a future ID.
 
 | ID | Milestone | Status file | State |
 | --- | --- | --- | --- |
-| M91 | iCoT inventory and behavior-preserving extraction | [status-M91.md](status-M91.md) | Approved planning; pending |
+| M91 | iCoT inventory and behavior-preserving extraction | [status-M91.md](status-M91.md) | M91.1 inventory approved; extraction pending |
 | M92 | UWS 1.12, pending packages and pure simulation | [status-M92.md](status-M92.md) | Approved planning; pending |
 | M93 | Supervised authenticated and registration browser capture | [status-M93.md](status-M93.md) | Approved planning; pending |
 | M94 | Catalog discovery and digest-bound source provisioning | [status-M94.md](status-M94.md) | Approved planning; pending |
