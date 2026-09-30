@@ -233,26 +233,6 @@ P08 depends on completed P07 and E22; W8M W24.5 remains blocked until it
 selects and independently qualifies the corrected clean OpenUdon source and
 runtime. No live target contact, deployment, publication or push is in P08.
 
-### P07 — Browser 1.10 trusted package dispatch compatibility
-
-Repair OpenUdon's existing trusted-runner dispatch so the completed E22
-Browser 1.10 count profile can pass package preparation and trusted dry-run.
-Map it to the existing rank-10/v10 handoff and preserve Browser 1.8/1.9
-behavior, approval checks, and executor boundaries. Do not change UWS, Udon,
-Browsertools, Browserdriver, or other package source. E22 remains completed
-history. P07 revalidates the exact W8M staged workflow/profile package only in
-a fresh restricted preparation path; the separate W8M `session_posture: none`
-input correction remains W8M-owned downstream work.
-
-P07.1 implements and regression-tests the trusted dispatch repair and the
-restricted exact-package dry-run without invoking an executor or browser.
-P07.2 runs fresh current v4 qualification on the exact clean P07 source,
-independently verifies the reports, rechecks retained E22 evidence without
-changing its bytes, and closes the bounded review gate. P07 depends on completed
-E22 and precedes W8M W22.3 source-bound smoke/qualification and later adoption
-or its separately gated operation. Use local task commits only; no push,
-publication, target contact, or runtime adoption is part of P07.
-
 ## Memory Bank Index
 
 - This file owns milestones, work sequencing, acceptance criteria, the current-state dashboard, and
@@ -354,7 +334,6 @@ search the history index before allocating a future ID.
 | M94 | Catalog discovery and digest-bound source provisioning | [status-M94.md](status-M94.md) | Approved planning; pending |
 | M95 | Remove iCoT after consumer migration | [status-M95.md](status-M95.md) | Approved planning; pending |
 | P08 | Browser 1.10 v11 trusted execution handoff | `tabilet/memory-bank/status-P08.md` | Complete locally; bounded review iteration 1 passed; awaiting normal history retirement |
-| P07 | Browser 1.10 trusted package dispatch compatibility | `tabilet/memory-bank/status-P07.md` | Complete locally; bounded review iteration 2 passed; awaiting normal history retirement |
 
 ## Requested Changes After Initialization
 

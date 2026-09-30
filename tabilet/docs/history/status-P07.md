@@ -1,3 +1,45 @@
+# Retired milestone P07 - Browser 1.10 trusted package dispatch compatibility
+
+**Milestone.** P07
+**Outcome.** completed
+**Retired.** 2026-09-30
+**Source status.** tabilet/memory-bank/status-P07.md
+**Source specification.** tabilet/memory-bank/milestone.md#p07---browser-110-trusted-package-dispatch-compatibility
+**Evidence.** 5a809e98bd4608fe42d9449ca3f8f33904370861
+**Worktree.** includes uncommitted changes
+**Review.** passed
+**Review iterations.** 2
+**Verification.** Original recorded owner checks, source-bound synthetic qualification and bounded review passed; original evidence and counters preserved. Current upstream ancestry and downstream W8M history were inspected for normal closure, without a new browser run.
+**Consolidated into.** [architecture](../../memory-bank/architecture.md), [tech-stack](../../memory-bank/tech-stack.md), [lessons](../../memory-bank/lessons.md), and [milestone dashboard](../../memory-bank/milestone.md).
+
+## Milestone specification
+
+````markdown
+### P07 — Browser 1.10 trusted package dispatch compatibility
+
+Repair OpenUdon's existing trusted-runner dispatch so the completed E22
+Browser 1.10 count profile can pass package preparation and trusted dry-run.
+Map it to the existing rank-10/v10 handoff and preserve Browser 1.8/1.9
+behavior, approval checks, and executor boundaries. Do not change UWS, Udon,
+Browsertools, Browserdriver, or other package source. E22 remains completed
+history. P07 revalidates the exact W8M staged workflow/profile package only in
+a fresh restricted preparation path; the separate W8M `session_posture: none`
+input correction remains W8M-owned downstream work.
+
+P07.1 implements and regression-tests the trusted dispatch repair and the
+restricted exact-package dry-run without invoking an executor or browser.
+P07.2 runs fresh current v4 qualification on the exact clean P07 source,
+independently verifies the reports, rechecks retained E22 evidence without
+changing its bytes, and closes the bounded review gate. P07 depends on completed
+E22 and precedes W8M W22.3 source-bound smoke/qualification and later adoption
+or its separately gated operation. Use local task commits only; no push,
+publication, target contact, or runtime adoption is part of P07.
+
+````
+
+## Status record
+
+````markdown
 # Status P07 — Browser 1.10 trusted package dispatch compatibility
 
 **State:** Complete locally after bounded review iteration 2. P07.1 and P07.2
@@ -183,3 +225,23 @@ the exact restricted package lifecycle check, independent report verifiers,
 `make fast`, `go vet ./...`, `make check`, documentation-memory checks, and
 `git diff --check`. Do not fetch, install, upgrade, or mutate supplied source
 worktrees during qualification.
+
+## Normal closure reconciliation — 2026-09-30
+
+The confirmed Stage 5 goal authorizes completing genuinely unfinished
+prerequisite closure before M91. All original task outcomes, consumed attempts
+and review counters above are preserved; no completed task or review is rerun.
+Observed OpenUdon origin/main is
+`e12a6488b86cafddb9298c7917de84fbc1cc85ff`; original accepted E21, P07 and
+P08 source commits are ancestors of that published revision. Earlier local-only
+and downstream-pending statements above retain their original context.
+
+W8M's completed W24 now owns its independently qualified P08.1 v11 source
+`5cad6ce55e0f615a8e754f468614cadbe565790b` and its accepted count/teardown;
+resolve W21/W22/W24 through W8M's history index. P07's v10 preparation result
+remains recorded acceptance of its original scope; P08 owns the corrected v11
+executor pairing. Current Stage 5 extraction preserves that v11 pairing and
+E23/E24 inputs. No W8M record, old report, live claim or adopted runtime is
+modified here. The normal retirement preserves the complete specification and
+status, repairs maintained evidence links, and retains reusable lessons.
+````
