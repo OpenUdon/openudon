@@ -690,3 +690,25 @@ No credential/code values or raw protocol frames were recorded here.
 Explicit final confirmation that both journeys were visible still remains
 required. M93.5 remains in progress, review1/10 passed, and acceptance,
 publication and downstream advancement remain pending.
+
+## M93.5 visible registration result — 2026-10-01 12:36 UTC
+
+The user explicitly confirmed seeing Chromium and the local prompt. When the
+prompt moved behind Chromium, safe inspection confirmed it remained open;
+raised only its existing window, without pressing a button or deciding an
+action. The user subsequently reported clicking Continue several times and
+returning to the empty desktop. The actual registration-v4 consumer completed
+with exit0 at12:36:13.638621 UTC:14 events,201.14 seconds, five local Continue
+observations (exact verification refusal, fresh verification approval, recipe
+review, native completion, separate import). No registration POST occurred.
+
+Summary: `/var/tmp/openudon-m93-qualified-8heukane/visible-registration-v4-0s4s5w2h/summary.json`;
+receipt SHA-256 `552bd875fcd4fdcf09ec4c9d285a27d1931438b9dcd01c1c9e223f00c9602ef0`.
+The authenticated summary is at
+`/var/tmp/openudon-m93-qualified-8heukane/visible-auth-xdtadnf9/summary.json`.
+Both helpers reported pass on the qualified source/binary recorded above.
+No credential/code value, full protocol frame or private browser content was
+added to the ledger. Explicit final human confirmation of BOTH visibly
+observed journeys is now requested and pending; a subprocess pass or local
+button observation does not substitute for that answer. M93.5 remains in
+progress with review1/10 passed. No publication or downstream advancement.
