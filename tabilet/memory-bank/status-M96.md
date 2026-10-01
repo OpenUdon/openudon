@@ -1,6 +1,6 @@
 # Status M96 — Reviewed capture package authoring
 
-**State:** Approved planning, 2026-10-01; all rows pending. No implementation or acceptance is inferred.
+**State:** M96.1 verified, 2026-10-01; M96.2–M96.4 pending. Command implementation/native qualification/acceptance remain unproved.
 
 **Goal.** Make a reviewed native capture usable for ordinary browser source/step/package authoring without iCoT.
 
@@ -22,7 +22,7 @@ Reject malformed/unknown fields, stale input/receipt/revision, changed mode/poli
 
 | Item | State | Notes |
 | --- | --- | --- |
-| M96.1 — Freeze reviewed capture package contract | `[ ]` | Versioned bounded request/result and approval bindings, public fixtures for authenticated/TOTP and registration, provenance and compatibility. |
+| M96.1 — Freeze reviewed capture package contract | `[+]` | Versioned bounded request/result and approval bindings, public fixtures for authenticated/TOTP and registration, provenance and compatibility. |
 | M96.2 — Expose neutral adoption and package authoring | `[ ]` | Native receipt/source validation and exact approval reuse neutral engine/materialization/writer; real main CLI dispatch; no iCoT or capture replay. |
 | M96.3 — Verify conformance and refusal behavior | `[ ]` | Owner/revision/digest/mode/policy/path/replay/interruption and side-write checks; retained legacy/protected fixtures unchanged. |
 | M96.4 — Qualify, review and publish replacement | `[ ]` | Frozen exact-source synthetic loopback capture→adoption→build→prepare/promote/inspect/recovery for both modes/TOTP; three fresh native repeats and required integration gates; bounded review, publication and downstream reconciliation before retirement. |
@@ -38,3 +38,11 @@ Normal bounded review: persisted count 0/10, not started. Publish scoped source/
 ## Provenance
 
 Kinet M19.3 execution discovery at `c2243c93fe3fce08847eaf425722e30a75c3cf0d` against exact published producer `04dacce77a29f5e6db427dc47e3ed9ef766b2c32`. `authoringui/application_transaction.go` exposes capture adoption only through retained iCoT; neutral engine/writer already exist. Package preparation requires ordinary review/build evidence. Disposable diagnostic `/var/tmp/kinet-m19-native-contract-pjc2enyk/contract-observation.json` copied unchanged public M93 artifacts and deliberately unchanged example intent: it has additional expected operation/assembly failures and is not accepted qualification. User approved the complete proposal, exact file actions and subsequent goal/publication/display extension on 2026-10-01. User separately requires a pause before W8M W28 to verify W27's latest status; do not assume W27 remains active or is complete.
+
+## Execution selection — 2026-10-01
+
+One owner resumes the user-approved extended task-policy goal at planning commit `923ec73`. M96.1 is the sole general in-progress row; Kinet M19.3 remains blocked. The mandatory pre-W28 pause is preserved. Reuse neutral engine/writer; no UI/iCoT call, native capture rerun or runtime authority.
+
+## M96.1 verified task
+
+Closed bounded browser-author v1 request/plan/result types and six synthetic public fixtures freeze separate read-only catalog/planning and exact-confirmed native apply. Strict native start, both modes/TOTP, symbolic-only bindings, receipt paths and exact plan identity/partial-write semantics tested. Full make check, affected wire race and diff checks passed. Frozen baseline/hashes/logs: `/var/tmp/openudon-m96-1-qualified-llwa83ui`; 53 protected tracked fixture/schema files unchanged. No command dispatch, browser, authoring write, promotion or runtime ran. M96.2–M96.4 and review0/10 remain pending.

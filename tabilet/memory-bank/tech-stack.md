@@ -1238,3 +1238,7 @@ source and 32MiB combined selected source/overlay bytes; additional provenance
 is at most1MiB, overlays at most64 ×2MiB. Source/manifest paths and legacy
 source-add v1 do not change. See docs/catalog-discovery.md for the separate
 confirmation, conflict, indeterminate-write and no-automatic-replay contract.
+
+## M96.1 wire foundation — 2026-10-01
+
+M96.1 offline wire checks: GOWORK=off go test ./internal/browserpackage and affected race. Public synthetic authenticated/registration request/plan/partial-write-result examples are docs/fixtures/browser-author-v1. Command dispatch/native package qualification remain M96.2–M96.4 work.

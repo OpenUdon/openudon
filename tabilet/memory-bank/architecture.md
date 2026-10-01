@@ -1498,3 +1498,7 @@ writer for raw sources, optimistic manifest and digest-bound
 implicit registration/index mutation was added. Likely concrete credentials
 are refused without rewriting the raw bytes. Catalog mode results add only a
 provenance path to the source-add result shape; local v1 remains unchanged.
+
+## M96.1 wire foundation — 2026-10-01
+
+M96.1 freezes the additive browser-author v1 request/plan/result types and strict decoder in internal/browserpackage. Native capture start remains reused; this commit implements no CLI adoption, writer or delivery. Ordinary authoring and package promotion are separate boundaries.

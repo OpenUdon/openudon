@@ -7,3 +7,69 @@ The published M93 capture contract imports canonical profiles and a receipt. Exi
 M96 adds a bounded non-iCoT command over the existing neutral authoring engine, elicitor and artifact writer. It binds receipt/source/input identities and retains separately issued authoring approval before native build. Capture approval, package promotion and runtime authority remain separate. Both authenticated/TOTP and registration are retained. No duplicate profile/review writer or browser rerun is allowed.
 
 Kinet remains an external CLI consumer. After the exact producer is accepted/published, M19 reconciles its shared pin, narrowly admits native public review artifacts and implements recoverable prepare/promote/inspect/recover delivery. Its external v1 envelope stays unchanged. M95 must retain this replacement when retiring iCoT. Full contract/fixtures are frozen in M96.1; no future revision or acceptance is implied here.
+
+## M96.1 frozen command and wire
+
+Planned public commands (implemented in M96.2):
+
+```text
+openudon browser-author plan --example DIR --request FILE|-
+openudon browser-author apply --example DIR --request FILE|- --expected-plan sha256:HEX --confirmed
+```
+
+`plan` is read-only, model-free and network-free. `apply` recomputes the plan,
+requires exact matching authority and readiness, commits reviewed authoring
+through the existing neutral writer and runs native package build. It does not
+promote, capture, login, submit registration or execute a workflow. File paths
+remain explicit local CLI inputs. The example must be within the working root.
+
+Request version `openudon.browser-author.v1`, kind `request`, max256KiB UTF-8:
+
+| Field | Contract |
+| --- | --- |
+| `request_id`, `workflow_name` | Bounded lowercase identifiers |
+| `start` | Unchanged closed native capture start; exact serialized bytes bind the receipt start hash |
+| `receipt_path` | Clean example-relative `expected/browser-capture/ID.json` |
+| `receipt_sha256` | Lowercase64hex of the exact receipt file bytes |
+| `transaction_sha256` | Native tagged transaction digest |
+| `input_sha256` | Optional tagged current package inventory digest for read-only discovery; required for apply |
+| `expected_totp` | Required explicit Boolean; true requires captured native TOTP evidence, never a synthesized step |
+| `registration_authority` | Required non-secret registration requester identity; absent for authentication; grants no submit permission |
+| `workflow_name` | Name of the proposed workflow |
+| `flow`, `action` | Exact native operations. Flow selects authentication/registration; action selects authenticated capability. Missing choices produce a non-ready read-only catalog, never an implicit choice |
+| `cleanup_disposition` | Registration only: `delete_separately` or `retain_dedicated_test_identity` |
+| `inputs` | At most32 unique `{name,type,sensitive?}` declarations; no defaults or values |
+| `input_bindings` | At most32 native parameter→`inputs.NAME` references, declared above; never arbitrary expressions or literals |
+| `allow_overwrite` | Explicit permission for the exact authoring conflicts bound into the reviewed plan; default false |
+
+Unknown/duplicate keys, mixed modes, native schema violations and unsafe paths
+are refused without payload echo. Native canonical receipt/source/review/expiry
+and immutable start policy validation remain required in M96.2. The source pair
+and session/credential lowering reuse neutral elicitor semantics. Registration
+is an inert unsupported-runtime recipe, retaining all native safety policies.
+
+Plan version above, kind `plan`: request ID, tagged exact request-byte digest,
+tagged current input digest, receipt and transaction digests, native candidates,
+operation catalog, readiness, blocker codes, optional native preview, native
+write conflicts and `plan_sha256`. Arrays retain native deterministic order.
+The plan digest hashes encoding/json's compact typed struct serialization with
+its own field empty. Exact request hashes include whitespace; starts retain
+native raw member order and whitespace for receipt matching. A missing initial
+input digest permits catalog inspection only; use the returned digest to form
+a bound request, re-plan, then confirm that exact plan.
+
+Input inventory is sorted package-relative regular-file `{path,sha256,bytes}`
+records (tagged byte digests), serialized with encoding/json and tagged SHA-256.
+`.git` is excluded; symlinks/special files are refused. Bounds:512 files,
+8MiB per file,32MiB total. No input may change between review and commit.
+
+Result version above, kind `result`: request ID/digest, approved plan digest,
+outcome `authored` or `build_failed`, written relative paths and native quality
+status. `authored` proves local authoring/build only. `build_failed` means the
+native authoring commit succeeded but build did not pass; it never claims no
+writes. Lost output requires inspection of actual artifacts and a fresh proposal,
+never automatic apply replay. Replay is refused by changed package inventory.
+Package prepare/promote/inspect/recover remains a distinct later authority.
+Reports are at most2MiB. Personal previews/candidates stay transient; observers
+retain only approved metadata. [Synthetic request fixtures](fixtures/browser-author-v1/README.md)
+have placeholder hashes and grant no authority.

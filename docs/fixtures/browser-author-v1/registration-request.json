@@ -1,0 +1,28 @@
+{
+  "version": "openudon.browser-author.v1",
+  "kind": "request",
+  "request_id": "sample-registration",
+  "start": {
+    "version": "openudon.browser-capture-start.v1",
+    "mode": "registration",
+    "absolute_seconds": 600,
+    "operator_idle_seconds": 180,
+    "registration": {
+      "profile_id": "dedicated-test-user",
+      "url": "https://members.example.test/register",
+      "origins": [
+        "https://members.example.test"
+      ],
+      "transaction_id": "dedicated-test-registration"
+    }
+  },
+  "receipt_path": "expected/browser-capture/signup.json",
+  "receipt_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "transaction_sha256": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+  "input_sha256": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+  "expected_totp": false,
+  "workflow_name": "review_registration",
+  "flow": "create_account",
+  "registration_authority": "synthetic-requester",
+  "cleanup_disposition": "delete_separately"
+}

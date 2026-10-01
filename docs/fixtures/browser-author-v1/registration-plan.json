@@ -1,0 +1,17 @@
+{
+  "version": "openudon.browser-author.v1",
+  "kind": "plan",
+  "request_id": "sample-registration",
+  "request_sha256": "sha256:d6f4ef20e7596b7e5f4916c595a5fcaa20ead19010f4a4a08992f5c8f8a89950",
+  "input_sha256": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+  "receipt_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "transaction_sha256": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+  "candidates": [],
+  "operations": [],
+  "ready": false,
+  "blockers": [
+    "synthetic_fixture_not_authority"
+  ],
+  "write_conflicts": [],
+  "plan_sha256": "sha256:ceeaf10719edcb2df19d13825bf2ad4d049eaeb86cf84b18a388ba54241b359d"
+}
