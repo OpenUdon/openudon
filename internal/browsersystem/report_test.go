@@ -58,6 +58,9 @@ func currentLoopbackFailureReport(t *testing.T, version string) *Report {
 	if err != nil {
 		t.Fatal(err)
 	}
+	if version == CurrentV4Version {
+		lock, err = browserscenario.LoadCurrentCompatibilityLockV4()
+	}
 	if version == CurrentV3Version {
 		lock, err = browserscenario.LoadCurrentCompatibilityLockV3()
 		if err != nil {
@@ -79,6 +82,9 @@ func currentLoopbackFailureReport(t *testing.T, version string) *Report {
 		r.Sources = append(r.Sources, Source{Name: name, Commit: commit, SHA256: strings.Repeat("b", 64)})
 	}
 	build, err := browserscenario.LoadCurrentQualificationBuildInputLock(lock)
+	if version == CurrentV4Version {
+		build, err = browserscenario.LoadCurrentQualificationBuildInputLockV4(lock)
+	}
 	if version == CurrentV3Version {
 		build, err = browserscenario.LoadCurrentQualificationBuildInputLockV3(lock)
 	}
@@ -119,7 +125,7 @@ func TestCurrentV3ReportSelectsFrozenE21LockAndBuildClosure(t *testing.T) {
 }
 
 func TestCurrentV4ReportSelectsBrowser110LockAndBuildClosure(t *testing.T) {
-	r := currentLoopbackFailureReport(t, CurrentVersion)
+	r := currentLoopbackFailureReport(t, CurrentV4Version)
 	if err := Validate(r); err != nil {
 		t.Fatalf("current v4 report rejected: %v", err)
 	}
@@ -222,13 +228,14 @@ func TestCurrentV4NativeVerifierAcceptsOnlyV4CountScenarioStages(t *testing.T) {
 		{Module: "github.com/OpenUdon/browsertools", Version: versions["browsertools"]},
 		{Module: "github.com/OpenUdon/uws", Version: versions["uws"]},
 	}, results)
+	component.Version = browserscenario.CurrentV4JourneyVersion
 	stage := proof("journey_scenarios", component)
-	if err := validateProof(stage, "loopback", browserscenario.StackCurrent, CurrentVersion); err != nil {
+	if err := validateProof(stage, "loopback", browserscenario.StackCurrent, CurrentV4Version); err != nil {
 		t.Fatalf("current v4 journey stage rejected: %v", err)
 	}
 	component.Version = browserscenario.CurrentV3JourneyVersion
 	stage = proof("journey_scenarios", component)
-	if validateProof(stage, "loopback", browserscenario.StackCurrent, CurrentVersion) == nil {
+	if validateProof(stage, "loopback", browserscenario.StackCurrent, CurrentV4Version) == nil {
 		t.Fatal("native v4 verifier accepted a v3 scenario stage")
 	}
 }
@@ -384,5 +391,16 @@ func TestOutputCannotEnterWorkspaceThroughRootAlias(t *testing.T) {
 	_, err := Run(context.Background(), Options{Root: alias, Suite: "offline", Out: filepath.Join(root, "report.json")})
 	if err == nil || err.Error() != "report_must_be_outside_workspace" {
 		t.Fatal("source alias bypassed output boundary")
+	}
+}
+
+func TestCurrentV5NativeReportRequiresM45AndUWS112Baseline(t *testing.T) {
+	r := currentLoopbackFailureReport(t, CurrentVersion)
+	if err := Validate(r); err != nil {
+		t.Fatal(err)
+	}
+	r.Version = CurrentV4Version
+	if Validate(r) == nil {
+		t.Fatal("new native baseline accepted as old qualification")
 	}
 }

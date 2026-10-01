@@ -2,6 +2,25 @@
 
 ## Current State
 
+Stage 5 M91 extraction is complete, accepted and published at qualified
+application source `3fd40d3f874bdcf668a018550112a02cd0d02409`, through
+review/source publication `c8f2de71d983bea93dc1c045568c397a10a4eb56`.
+Review 1 passed; required frozen integration and three fresh native repeats
+passed, with retained fixtures/assets and historical locks unchanged.
+
+M92 is also accepted/published: public UWS 1.12, package pending steps and pure
+simulation qualified at `96c16acacc7f442858dac8a0fcb36c84991ebddf`; review4
+passed, final integration and exact earlier native39 context independently
+verified. M93 is also qualified, human-accepted and published at application
+`f1273b622445d60dc7f3ea849e5b7f1a1f1e733a` through
+`d5b483afc93dc5b25ac319b1ce590f5d4d6fd682`; native39, integration17 and both
+visible journeys passed, review1 passed. M94 catalog discovery/provisioning is
+also accepted/published at application/test source
+`ee49fe433a4d476f8d28d3d888352293c490dfc6`, through
+`5a2a2643ff71831ae72cdeca57baf197c1afbf16`; full owner/native conformance and
+review1 passed. M95 removal remains gated by Kinet U07, Gate5B and W8M W28.
+Resolve completed prerequisites through the [history index](../docs/history/index.md).
+
 E24 completed [actual namespace binding](../docs/history/status-E24.md).
 E23 completed the current-stack/external-module browser-free input helper; see
 [its reviewed history](../docs/history/status-E23.md). W8M owns cache eligibility
@@ -39,7 +58,7 @@ M88 subsequently pinned APItools M78 `26bb05247d6c48f8ee60b9ae178f6ef6d48bbe3d` 
 step-authoring location, mapped-value, and credential checks; its record is in
 [the M88 history](../docs/history/status-M88.md). Kinet W03 owns its real-tool
 consumer check against the published OpenUdon revision. Simulation/browser
-acquisition (S2b) and iCoT retirement (S3) remain candidates.
+acquisition (S2b) and OpenUdon iCoT retirement (S3) are now planned in M91–M95; Authoring retirement remains deferred.
 
 OpenUdon M89 was the approved Stage 1 remediation plan for package-local source
 provisioning, explicit field mappings, and refusal diagnostics. It depends on
@@ -95,16 +114,12 @@ complete; its full acceptance and attempt history are in the
 [E22 history record](../docs/history/status-E22.md). This synthetic support
 does not change W8M's adopted locks or authorize runtime adoption.
 
-P07 closes the OpenUdon trusted-runner dispatch gap for Browser 1.10 without
-changing the executor protocol. P07.1 commit
-`87df787c7737cc669f98c3b4462d7151db3e6b68` maps the active profile to the
-existing rank-10/v10 handoff; fresh current v4 integration, loopback, journey,
-and three-repeat native qualification pass from that exact clean source, and
-bounded review iteration 2 passes. P07's commits are contained in the merged
-`w27-native-input` line (the separate P07/P08 branch names were removed on
-2026-09-30; W24's accepted P08.1 source is tagged `w24-accepted-p08.1`). W8M W22 still must use a local replacement to pin this
-qualified source and rerun its consumer smoke and qualification before
-considering runtime adoption or its separately gated read-only operation.
+P07's reviewed preparation and qualification result is retired history; P08
+owns the subsequent v11 executor-pairing correction. Their exact source,
+verification and original review counters resolve through the history index.
+W8M's retired W24 records its independently qualified P08.1 source and accepted
+count with teardown. Stage 5 preserves that v11 behavior and grants no live
+operation or adoption authority through historical records.
 
 The UWS 1.11 real-browser M86, E15 registration-verification integration,
 and E18 initialization-diagnostics integration milestones are complete. E15
@@ -123,54 +138,44 @@ The history index holds 134 legacy-preserved status IDs and five normally review
 
 ## Active Milestone Specifications
 
-### P08 — Browser 1.10 v11 trusted execution handoff
+### Stage 5 coordination (approved planning, 2026-09-30)
 
-Correct OpenUdon's active-profile dispatch so Browser 1.10 selects Udon's
-persistent v11 protocol and Browser 1.8/1.9 continue to select v10. Reject an
-active mix of Browser 1.10 with older action profiles before packaging or
-execution because Udon v11 accepts only Browser 1.10 actions. Admit v11 in
-OpenUdon's validated run-config and preserve credential, approval, session,
-registration and environment boundaries for local and Docker executors.
+M91 is an accepted published extraction prerequisite. OpenUdon owns remaining
+M95 target work; M92 pending/simulation, M93 supervised capture and M94
+catalog discovery/provisioning are accepted. The
+canonical cross-package text (order, Gate 5B, the W27 handoff rule, gates,
+publication policy, and the F01–F10 / SR01–SR06 findings table) is Kinet
+`docs/kinet-order.md` §6 (`../../../kinet/docs/kinet-order.md`); Kinet's
+`tabilet/memory-bank/suggested.txt` is the only launch reference.
 
-P08.1 implements source and focused regression tests, including a source-bound
-run-config and no-executor dry-run. P08.2 verifies the corrected handoff with
-an affected synthetic browser journey, repository gates and bounded review.
-P08 depends on completed P07 and E22; W8M W24.5 remains blocked until it
-selects and independently qualifies the corrected clean OpenUdon source and
-runtime. No live target contact, deployment, publication or push is in P08.
+```text
+Completed prerequisites: APItools M81/M80, Udon M45, Authoring M29, OpenUdon M91/M92/M93
+Remaining: OpenUdon M94
+→ Kinet A10 → W08 → W09 → W10 → M19 → U07
+→ Gate 5B → W8M W28 → OpenUdon M95 → Kinet M20 → W8M W29
+```
 
-### P07 — Browser 1.10 trusted package dispatch compatibility
+- M91–M94 are additive (stage 5A). They retain registration and
+  authenticated/TOTP capture, and new packages use UWS 1.12.
+- M95 removes iCoT only after Gate 5B and W8M W28's acceptance.
+- M93.0 is an operation row: it prepares the private remote desktop under
+  named authorization.
+- Before consuming an upstream revision, record its actual accepted source,
+  publication and qualification evidence. Never invent a future hash.
 
-Repair OpenUdon's existing trusted-runner dispatch so the completed E22
-Browser 1.10 count profile can pass package preparation and trusted dry-run.
-Map it to the existing rank-10/v10 handoff and preserve Browser 1.8/1.9
-behavior, approval checks, and executor boundaries. Do not change UWS, Udon,
-Browsertools, Browserdriver, or other package source. E22 remains completed
-history. P07 revalidates the exact W8M staged workflow/profile package only in
-a fresh restricted preparation path; the separate W8M `session_posture: none`
-input correction remains W8M-owned downstream work.
+### M95 — Remove iCoT after consumer migration
 
-P07.1 implements and regression-tests the trusted dispatch repair and the
-restricted exact-package dry-run without invoking an executor or browser.
-P07.2 runs fresh current v4 qualification on the exact clean P07 source,
-independently verifies the reports, rechecks retained E22 evidence without
-changing its bytes, and closes the bounded review gate. P07 depends on completed
-E22 and precedes W8M W22.3 source-bound smoke/qualification and later adoption
-or its separately gated operation. Use local task commits only; no push,
-publication, target contact, or runtime adoption is part of P07.
+**Goal.** Remove OpenUdon's iCoT terminal, UI, control and planner after their replacements qualify.
 
-### E21 — Repair current-stack Udon build and preserve M86 report meaning
+**Scope and compatibility.** Remove cmd/icot and remaining internal/icot surfaces, embedded UI assets, application/registration control entry points, iCoT-only planner/reporting, release binary and obsolete CI gates. Remove OpenUdon's remaining Authoring icot dependency, not Authoring's packages. Retain neutral shared implementation, replacement commands, evaluation/scorecards and qualification coverage from M91. Retain build/assess/approval-template/run/package on legacy packages without editing historical .icot files. No unnoticed journey loss; extra discontinuations need approval. Preserve P07/P08 browser v11 dispatch and E23/E24 qualification inputs. Source history and old adopted binaries remain available.
 
-Repair the OpenUdon current-stack selector for W8M's UWS 1.11 / Browser 1.9
-candidate. Freeze the exact pre-E21 current compatibility locks and make v1,
-M86 v2, and E21 v3 readers select their original lock semantics. The new
-current lock selects clean Udon `6d32d49` and a separate exact clean 14-source
-local replacement closure; the historical default and M86 evidence remain
-unchanged. Emit v3 scenario, journey, integration, and native qualification
-reports. Extend the native current path through scenarios and BAP/BRP while
-keeping the historical stack as its default. The scope is synthetic and
-provider-free; it includes no deployment, public canary, runtime adoption, or
-target account operation.
+**Dependencies.** M91–M94 accepted/published; Kinet U07 acceptance; approved Gate 5B and inventory dispositions; W8M W28 accepted/published at exact Kinet/OpenUdon revisions.
+
+**Downstream.** Kinet M20, then W8M W29 final adoption. Earlier W28 qualification cannot qualify new M95 binaries.
+
+**Acceptance.** Verify W8M no longer launches iCoT, all inventory dispositions have evidence, no retained command/gate depends on removed code, and old packages still work. Run owner checks and required integration/browser qualification on frozen source, review with no open P1/P2, update install/startup/operator/tutorial docs and publish. Publication is producer acceptance; W29 separately qualifies final consumer pins.
+
+Status, task-sized commit units, review provenance and persisted review counter: [status-M95.md](status-M95.md).
 
 ## Memory Bank Index
 
@@ -229,6 +234,8 @@ external services.
 
 ## Active And Parked Tracks
 
+- Remaining approved work: M95 after Kinet U07, Gate5B and W8M W28. M91 is accepted/published extraction; APItools M81/M80, Udon M45 and Authoring M29 remain accepted prerequisites in their own ledgers.
+
 - Completed: M90 publishes explicit report-v5 handoff and strict v3 per-step
   evidence for Kinet W07; see the [M90 history](../docs/history/status-M90.md).
 - Completed: M89's Stage 1 source-provisioning and mapping work consumed APItools M79 revision
@@ -242,18 +249,14 @@ external services.
   1.10 current-stack qualification and review remain complete; W8M's local W21
   candidate and any runtime adoption remain separate. The adopted W8M locks
   are unchanged. No deployment, public canary, or target operation is authorized.
-- Active: E22's Browser 1.10 current-stack qualification and review, and P07's
-  trusted-dispatch repair, fresh v4 qualification, and bounded review are
-  complete. W8M W22 is the dependent downstream promotion; its owner authorized
-  at most one read-only count after every
-  qualification, adoption, preflight, and readiness gate passes. W8M W22's
-  log records an earlier unauthenticated route probe and redirect to advertiser
-  sign-in; no authenticated count, packet, or attempt resulted, and the single
-  authorized count remains unused. P07 itself made no target contact and
-  authorizes no target operation, runtime adoption, push, or publication.
+- Active: approved Stage 5 M95. M94 supplies accepted catalog discovery/provisioning; M93 supplies accepted supervised capture; M92 supplies pending/simulation; M91 retained all 23 journeys and extracted
+  shared implementation; no capability removal is claimed. E21/P07/P08
+  completed normal history retirement before M91, preserving all original
+  task outcomes, qualification evidence and review counts. W8M owns its later
+  adopted runtime, consumed attempts and separately gated live operations.
 - Parked: real-provider evidence, live W8M operation, and public canaries need
-  separately approved scope and authority. S2b simulation/browser acquisition
-  and S3 iCoT retirement remain unnumbered candidates below. W8M's authorized
+  separately approved scope and authority. Stage 5 M91–M95 now plans the
+  approved subset of S2b/S2d and OpenUdon S3; remaining candidates stay below. W8M's authorized
   read-only operation remains gated by its own acceptance and is not part of P07.
 - Completed history: use the [history index](../docs/history/index.md) for
   terminal ID records and the frozen earlier milestone text.
@@ -265,9 +268,7 @@ search the history index before allocating a future ID.
 
 | ID | Milestone | Status file | State |
 | --- | --- | --- | --- |
-| P08 | Browser 1.10 v11 trusted execution handoff | `tabilet/memory-bank/status-P08.md` | Complete locally; bounded review iteration 1 passed; awaiting normal history retirement |
-| P07 | Browser 1.10 trusted package dispatch compatibility | `tabilet/memory-bank/status-P07.md` | Complete locally; bounded review iteration 2 passed; awaiting normal history retirement |
-| E21 | Repair current-stack Udon build and preserve M86 report meaning | `tabilet/memory-bank/status-E21.md` | Complete; W8M W21 closeout reconciled |
+| M95 | Remove iCoT after consumer migration | [status-M95.md](status-M95.md) | Approved planning; pending |
 
 ## Requested Changes After Initialization
 
@@ -487,8 +488,8 @@ fresh scope and dependency review promotes them.
 
 | Direction | Why Deferred | Promotion Trigger |
 |---|---|---|
-| S2b: simulation, supervised browser acquisition, and package-level pending steps | M87 delivers only S2a step commands. Tier-1 simulation, `browser acquire` checkpoints, snapshot checks, and pending-step approval rejection depend on separately owned UWS S1 and Browsertools contracts. | Kinet's stage-5/W04 scope is approved, required UWS mock/pending-step and Browsertools contracts exist, and an OpenUdon-owned command/approval integration outcome is explicitly approved. |
-| S3: retire iCoT terminal/UI and shared interactive loops | Existing consumers, including W8M and Ramen, still rely on these surfaces. M87 is additive and does not authorize removal. | Replacement journey coverage is qualified, W8M migrates off OpenUdon UI launch paths, and removal is explicitly approved; Authoring retires its generic loops only after both OpenUdon and Ramen migrate under its compatibility policy. |
+| Remaining S2b: live-read simulation and browser snapshot checks | M92/M93 now own pure simulation, pending packages and supervised capture; snapshot semantics and live-read execution are separately owned. | Owner contracts and explicit tier/snapshot adoption are approved. |
+| Authoring S3 retirement coordination | OpenUdon M95 removes only its own iCoT and Authoring dependency; Ramen still uses generic icot/icotcli. | Ramen migrates and Authoring approves its compatibility/removal process. |
 | Further package/source-family integration | A03/P01/A04/E01/E02 own the approved Browsertools authoring/evidence integration; other API/event source metadata remains owned by apitools and public semantics by UWS. | Another upstream contract is published and an OpenUdon-owned package/review outcome beyond this sequence is explicitly scoped. |
 | Automated real-provider release evidence | Provider runs spend quota and can produce sensitive output; current policy remains local/manual. | Protected credentials, redaction, retention, spend bounds, and review-required CI policy are approved. |
 | Trusted-runner capability expansion beyond P07 | OpenUdon hands approved packages to an external executor and must not absorb runtime semantics. P07 addresses the existing Browser 1.10 rank-10 dispatch gap without adding executor behavior; the per-step evidence gap was promoted as M90 on 2026-09-30 for Kinet's stage 4; other expansion remains here. | A further public handoff/evidence gap outside the existing rank mapping is demonstrated and scoped without importing private runtime behavior or weakening approval gates. |

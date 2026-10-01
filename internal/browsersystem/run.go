@@ -495,17 +495,17 @@ func runStage(ctx context.Context, root, udonRoot, stack, browserdriverNodeModul
 	case "driver_unit":
 		return nodeTests(ctx, sibling("browserdriver"), false, browserdriverNodeModules)
 	case "application_lifecycle":
-		return goTests(ctx, root, []string{"-race", "./internal/icot/ui", "./internal/icot/browserauthor", "./internal/processgroup"}, nil, false)
+		return goTests(ctx, root, []string{"-race", "./internal/authoringui", "./internal/browserauthor", "./internal/processgroup"}, nil, false)
 	case "ui_browser":
-		return goTests(ctx, root, []string{"-tags=icot_ui_browser", "./internal/icot/ui", "-run", "^TestPhaseCBrowser", "-timeout=5m"}, []string{"OPENUDON_ICOT_UI_BROWSER_SANDBOX_REQUIRED=1"}, true)
+		return goTests(ctx, root, []string{"-tags=icot_ui_browser", "./internal/authoringui", "-run", "^TestPhaseCBrowser", "-timeout=5m"}, []string{"OPENUDON_ICOT_UI_BROWSER_SANDBOX_REQUIRED=1"}, true)
 	case "registration_ui":
-		return goTests(ctx, root, []string{"-tags=browser_system_qualification", "./internal/icot/ui", "-run", "^TestBrowserSystemRealRegistrationUI$", "-timeout=6m"}, nil, true)
+		return goTests(ctx, root, []string{"-tags=browser_system_qualification", "./internal/authoringui", "-run", "^TestBrowserSystemRealRegistrationUI$", "-timeout=6m"}, nil, true)
 	case "supervised_control":
-		return goTests(ctx, root, []string{"-tags=browser_system_qualification", "./internal/icot/ui", "-run", "^TestBrowserSystemSupervisedControl$", "-timeout=6m"}, nil, true)
+		return goTests(ctx, root, []string{"-tags=browser_system_qualification", "./internal/authoringui", "-run", "^TestBrowserSystemSupervisedControl$", "-timeout=6m"}, nil, true)
 	case "supervised_registration_package":
-		return goTests(ctx, root, []string{"-tags=browser_system_qualification", "./internal/icot/ui", "-run", "^TestBrowserSystemSupervisedRegistrationPackage$", "-timeout=6m"}, nil, true)
+		return goTests(ctx, root, []string{"-tags=browser_system_qualification", "./internal/authoringui", "-run", "^TestBrowserSystemSupervisedRegistrationPackage$", "-timeout=6m"}, nil, true)
 	case "supervised_authenticated_package":
-		return goTests(ctx, root, []string{"-tags=browser_system_qualification", "./internal/icot/ui", "-run", "^TestBrowserSystemSupervisedAuthenticatedPackage$", "-timeout=6m"}, nil, true)
+		return goTests(ctx, root, []string{"-tags=browser_system_qualification", "./internal/authoringui", "-run", "^TestBrowserSystemSupervisedAuthenticatedPackage$", "-timeout=6m"}, nil, true)
 	case "udon_browser_contract":
 		return udonGoTests(ctx, udonRoot, stack, []string{"-race", "./pkg/browserdriver", "./pkg/uwsprofile", "./pkg/registrationinput", "./internal/sourceloader", "-skip", "TestPrivateFormLiveUIStartApplyAndSubmit"}, nil, true)
 	case "udon_browser_cli":

@@ -1,0 +1,28 @@
+[
+  {
+    "provider_id": "example-notes",
+    "artifact_id": "synthetic-notes-openapi",
+    "kind": "openapi",
+    "path": "openapi/notes.json",
+    "source_url": "https://notes.example.invalid/openapi.json",
+    "sha256": "11af1e5a79a7643d0237e34e469f99340501ab55077393ef5accdfcd776caac1",
+    "bytes": 1873,
+    "metadata": {
+      "validation_status": "valid-openapi",
+      "fixture": "synthetic"
+    }
+  },
+  {
+    "provider_id": "example-notes-alias",
+    "artifact_id": "synthetic-notes-openapi",
+    "kind": "openapi",
+    "path": "openapi/notes.json",
+    "source_url": "https://notes.example.invalid/openapi.json",
+    "sha256": "11af1e5a79a7643d0237e34e469f99340501ab55077393ef5accdfcd776caac1",
+    "bytes": 1873,
+    "metadata": {
+      "validation_status": "valid-openapi",
+      "fixture": "synthetic"
+    }
+  }
+]

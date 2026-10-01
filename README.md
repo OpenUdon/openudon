@@ -371,6 +371,10 @@ openudon flow-review --example docs/examples/step-authoring/v1/example \
   --request docs/examples/step-authoring/v1/requests/flow-review.json
 ```
 
+Unresolved contracts use the additive [pending-step command](docs/step-pending.md).
+Approval and all execution paths refuse them; bind resolves an exact reviewed
+contract against a source and explicit mappings.
+
 The [v1 contract](docs/step-authoring-contract-v1.md), [JSON schema](docs/schemas/openudon.step-authoring.v1.schema.json),
 and [request/result fixtures](docs/examples/step-authoring/v1/) define the wire format and limits.
 Kinet can validate the fixtures independently without importing OpenUdon Go packages.
@@ -868,3 +872,13 @@ publication and target authority.
 The opt-in [supervised application protocol](docs/application-control.md) extends
 `icot control` through authenticated authoring and package promotion while
 retaining the registration-only protocol and all separate runtime approvals.
+
+### Retained expert authoring commands
+
+`openudon authoring --help` lists lint, reconcile, repair, report verification,
+variants, scorecard and optional provider evaluation. These share the legacy
+iCoT implementation during migration; existing subcommand flags and report
+schemas remain compatible. The expert surface does not start a UI or browser
+worker. Model-backed evaluation remains an explicit separate operation.
+
+Pure previews, including unresolved contracts: [workflow simulation](docs/simulation.md).

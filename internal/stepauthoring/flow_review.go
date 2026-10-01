@@ -12,8 +12,8 @@ import (
 	"github.com/OpenUdon/browsertools"
 	"github.com/OpenUdon/openudon/internal/authoring"
 	"github.com/OpenUdon/openudon/internal/credentialpolicy"
+	"github.com/OpenUdon/openudon/internal/elicitor"
 	"github.com/OpenUdon/openudon/internal/evidencefile"
-	"github.com/OpenUdon/openudon/internal/icot/elicitor"
 	"github.com/OpenUdon/openudon/internal/projectwizard"
 	"github.com/OpenUdon/openudon/internal/workflowintent"
 )

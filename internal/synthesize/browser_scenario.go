@@ -19,6 +19,9 @@ import (
 // the release scenario suite. All source files must already be staged beneath
 // ExampleDir by the normal authenticated-authoring import path.
 type BrowserScenarioWorkflowRequest struct {
+	// UWSVersion selects the frozen manifest version only in qualification.
+	// Empty uses the normal new-package default; existing versions cannot drift.
+	UWSVersion             string
 	ExampleDir             string
 	AuthenticationPath     string
 	CapabilityPath         string
@@ -134,7 +137,7 @@ func WriteBrowserScenarioWorkflow(request BrowserScenarioWorkflowRequest) (Brows
 	if err := validateIntentRequiredParameters(intent, root, nil, ""); err != nil {
 		return BrowserScenarioWorkflowResult{}, err
 	}
-	document, err := generateWorkflowDocument(Result{ExampleDir: root}, intent)
+	document, err := generateWorkflowDocument(Result{ExampleDir: root, UWSPath: filepath.Join(root, "workflow.uws.json"), declaredUWSVersion: request.UWSVersion}, intent)
 	if err != nil {
 		return BrowserScenarioWorkflowResult{}, err
 	}

@@ -7,7 +7,7 @@ observed query values remain undisclosed. Registration foreground and private
 checkpoint countdowns do not grant live registration authority. Authoring and
 package review likewise do not grant live browser or target authority.
 [E20](../docs/history/status-E20.md) records the authenticated-authoring qualification lineage,
-while [M86](../docs/history/status-M86.md) records the current UWS 1.11 real-browser
+while [M86](../docs/history/status-M86.md) records the retained UWS 1.11 real-browser
 qualification. Historical publication and failed-attempt details are preserved
 in the [history index](../docs/history/index.md).
 
@@ -121,7 +121,7 @@ experimental before v1.
 - **Content-trust intent** is the optional operator-authored provenance portion
   of intent. It names reviewed source paths, leaf-operation outputs, triggers,
   and external `main` workflow inputs using UWS levels `unknown`, `trusted`, or
-  `untrusted`. It requires UWS 1.9.1 or later; new workflows declare UWS 1.11.0.
+  `untrusted`. It requires UWS 1.9.1 or later; new workflows declare UWS 1.12.0.
   It does not authorize execution, clear
   attacker control, or replace package approval and runtime policy.
 - **Content-trust analysis** is an explicit assessment-only UWS pass for
@@ -239,8 +239,9 @@ experimental before v1.
 
 The current local release suites retain all 23 loopback cases and run 14
 reviewed journey cases, including Browser 1.8/1.9 and v10 cases plus three
-Browser 1.10 count cases through Udon v11. Current v4 evidence binds the
-published dependency revisions and complete clean local build closure.
+Browser 1.10 count cases through Udon v11. Retained E22/M91 v4 evidence binds its original published dependency revisions
+and clean local build closure. New current evidence uses M92 scenario/journey
+v5 with UWS 1.12 and accepted Udon M45; previous reports retain their meanings.
 Historical reports and M86 v2 evidence remain verifiable under their original
 lock contracts.
 - **Quality report** is the deterministic release gate for current generated artifacts.
@@ -422,3 +423,52 @@ Current-stack native input identity is available as an explicit browser-free end
 
 Explicit report-v5 selection adds value-free per-step run-evidence v3; legacy
 defaults remain unchanged. See ../../docs/per-step-run-evidence.md.
+
+## Retained expert authoring entry
+
+`openudon authoring` provides lint, reconcile, repair, reports, variants,
+scorecards and explicit model evaluation over shared implementation. Legacy
+iCoT terminal/UI/control remains available during Stage 5A; M95 removes it
+only after approved replacements qualify. Extraction itself changes no
+user approval or execution authority.
+
+M92.2 adds explicitly reviewed unresolved step contracts inside packages. The
+non-interactive `step pending` command publishes an intent contract, without a
+guessed endpoint, and `step bind` resolves only that exact contract against an
+explicit source/operation and mappings. New 1.12 operations carry confirmed
+effect labels; labels never authorize execution. Pending packages are readable
+and assessable, but package inspection, approval, dry runs and real runs refuse
+pending contracts everywhere in the document. Pure simulation is implemented and producer-qualified through `openudon simulate`; M92 records exact source and separate native-runtime evidence. Consumer adoption remains separately owned.
+
+M92.3 previews bound and pending contracts using fixtures, explicit examples or
+public schema synthesis. Pending results remain hypothetical; browser outputs
+are mocked contracts. Exported previews redact scalar values and object field
+names, retain declared step/effect/provenance, and grant no execution authority.
+
+## Supervised public browser capture
+
+`openudon browser-capture` exposes authenticated/TOTP and no-submit registration
+recipe capture to supervising products through bounded reviewed-start/event
+contracts. Credentials stay in the private headed browser; exact immutable
+user approvals precede native actions and a separate profile import. Reviewed
+profiles do not grant workflow execution. M93 is qualified and user-accepted
+at application `f1273b622445d60dc7f3ea849e5b7f1a1f1e733a`, with source publication
+`d5b483afc93dc5b25ac319b1ce590f5d4d6fd682`; see its permanent history record.
+iCoT remains available during 5A. Kinet and W8M independently qualify adoption.
+
+## Scoped catalog discovery
+
+`step discover` presents native APItools match, ambiguity, scoped no-qualifying
+API, insufficient evidence and blocked outcomes with coverage and source
+provenance. Configuration is explicit and offline by default. Missing roots,
+indexes or scope never prove a service lacks an API. Evidence grants no
+source/package/browser/execution approval; user confirmation and consumer
+routing remain separate. Optional remote lookup requires both explicit
+installation capability and request opt-in.
+
+Confirmed catalog selections can be provisioned with the additive catalog
+source request. Native references, raw bytes and applicable advisory overlay
+provenance are preserved together with the package's source manifest through
+the existing atomic writer. Discovery never supplies that confirmation;
+catalog identity/selector drift or unsafe/private bytes are refused. Catalog
+security advice does not change runtime authorization or workflow behavior.

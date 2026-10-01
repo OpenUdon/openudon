@@ -24,6 +24,7 @@ const (
 	CurrentJourneyManifestVersion = "openudon.browser-journey.v2"
 	LockVersion                   = "openudon.browser-scenario-lock.v2"
 	CurrentLockVersionV3          = "openudon.browser-scenario-lock.v3"
+	CurrentLockVersionV4          = "openudon.browser-scenario-lock.v4"
 	StackHistorical               = "historical"
 	StackCurrent                  = "current"
 	SuiteLoopback                 = "loopback"
@@ -36,7 +37,7 @@ var (
 	keyPattern = regexp.MustCompile(`^[A-Za-z][A-Za-z0-9_-]{0,63}$`)
 )
 
-//go:embed manifests/*.json current-manifests/*.json current-manifests-v4/*.json compatibility-lock.json current-compatibility-lock-v2.json current-compatibility-lock-v3.json current-compatibility-lock-v4.json qualification-build-inputs.json current-qualification-build-inputs-v3.json current-qualification-build-inputs-v4.json
+//go:embed manifests/*.json current-manifests/*.json current-manifests-v4/*.json compatibility-lock.json current-compatibility-lock-v2.json current-compatibility-lock-v3.json current-compatibility-lock-v4.json current-compatibility-lock-v5.json current-qualification-build-inputs-v5.json qualification-build-inputs.json current-qualification-build-inputs-v3.json current-qualification-build-inputs-v4.json
 var contracts embed.FS
 
 type Manifest struct {
@@ -107,12 +108,13 @@ type Quarantine struct {
 }
 
 type CompatibilityLock struct {
-	Version     string           `json:"version"`
-	Components  []LockedRevision `json:"components"`
-	GoVersion   string           `json:"goVersion"`
-	NodeVersion string           `json:"nodeVersion"`
-	Playwright  string           `json:"playwright"`
-	Chromium    string           `json:"chromium"`
+	Version                    string           `json:"version"`
+	BrowsertoolsUWSRequirement *LockedRevision  `json:"browsertoolsUWSRequirement,omitempty"`
+	Components                 []LockedRevision `json:"components"`
+	GoVersion                  string           `json:"goVersion"`
+	NodeVersion                string           `json:"nodeVersion"`
+	Playwright                 string           `json:"playwright"`
+	Chromium                   string           `json:"chromium"`
 }
 
 type LockedRevision struct {
@@ -243,11 +245,11 @@ func LoadCompatibilityLock() (CompatibilityLock, error) {
 }
 
 func LoadCurrentCompatibilityLock() (CompatibilityLock, error) {
-	return LoadCurrentCompatibilityLockV4()
+	return LoadCurrentCompatibilityLockV5()
 }
 
 // LoadCurrentCompatibilityLockV3 returns the immutable E21 current-stack
-// lock used by v3 reports. New current-stack runs use the Browser 1.10 v4 lock.
+// lock used by v3 reports. New current-stack runs use the UWS 1.12/M45 v5 lock.
 func LoadCurrentCompatibilityLockV3() (CompatibilityLock, error) {
 	data, err := contracts.ReadFile("current-compatibility-lock-v3.json")
 	if err != nil {
@@ -296,6 +298,37 @@ func LoadCurrentCompatibilityLockV4() (CompatibilityLock, error) {
 	return lock, nil
 }
 
+// LoadCurrentCompatibilityLockV5 pins UWS 1.12 and accepted Udon M45.
+// It separately records Browsertools' retained direct UWS requirement; the
+// effective OpenUdon/Udon builds select the primary locked UWS 1.12 module.
+func LoadCurrentCompatibilityLockV5() (CompatibilityLock, error) {
+	data, err := contracts.ReadFile("current-compatibility-lock-v5.json")
+	if err != nil {
+		return CompatibilityLock{}, err
+	}
+	var lock CompatibilityLock
+	if err := decodeStrict(data, &lock); err != nil {
+		return lock, err
+	}
+	return lock, ValidateCompatibilityLock(lock)
+}
+
+// LoadCurrentManifestsV5 retains fixture bytes and journeys but authors fresh
+// packages at UWS 1.12. This versioned qualification policy leaves v1-v4
+// report expectations and historical package generation unchanged.
+func LoadCurrentManifestsV5(now time.Time) ([]Manifest, error) {
+	manifests, err := LoadCurrentManifestsV4(now)
+	if err != nil {
+		return nil, err
+	}
+	for index := range manifests {
+		if manifests[index].Expected.UWSVersion == "1.11.0" {
+			manifests[index].Expected.UWSVersion = "1.12.0"
+		}
+	}
+	return manifests, nil
+}
+
 func lockForStack(stack string) (CompatibilityLock, error) {
 	switch stack {
 	case StackHistorical:
@@ -308,7 +341,7 @@ func lockForStack(stack string) (CompatibilityLock, error) {
 }
 
 // LoadCompatibilityLockForStack returns the immutable historical lock or the
-// current v4 lock selected by an explicit stack name.
+// current v5 lock selected by an explicit stack name.
 func LoadCompatibilityLockForStack(stack string) (CompatibilityLock, error) {
 	return lockForStack(stack)
 }
@@ -525,8 +558,16 @@ func validatePublicManifest(manifest Manifest, now time.Time) error {
 }
 
 func ValidateCompatibilityLock(lock CompatibilityLock) error {
-	if (lock.Version != LockVersion && lock.Version != CurrentLockVersionV3) || lock.GoVersion == "" || lock.NodeVersion == "" || lock.Playwright == "" || lock.Chromium == "" || len(lock.Components) != 4 {
+	if (lock.Version != LockVersion && lock.Version != CurrentLockVersionV3 && lock.Version != CurrentLockVersionV4) || lock.GoVersion == "" || lock.NodeVersion == "" || lock.Playwright == "" || lock.Chromium == "" || len(lock.Components) != 4 {
 		return fmt.Errorf("browser scenario compatibility lock is incomplete")
+	}
+	if lock.Version == CurrentLockVersionV4 {
+		edge := lock.BrowsertoolsUWSRequirement
+		if edge == nil || edge.Name != "uws" || edge.Module != "github.com/OpenUdon/uws" || edge.Version == "" || !commitPattern.MatchString(edge.Commit) {
+			return fmt.Errorf("browsertools declared UWS edge is incomplete")
+		}
+	} else if lock.BrowsertoolsUWSRequirement != nil {
+		return fmt.Errorf("historical lock cannot contain a new module edge")
 	}
 	want := []string{"browserdriver", "browsertools", "udon", "uws"}
 	for index, component := range lock.Components {
@@ -571,7 +612,8 @@ func ValidateRepositoryStates(lock CompatibilityLock, states map[string]Reposito
 
 // ValidateGoModulePins verifies the dependency edges that compose the locked
 // browser stack. OpenUdon must use the locked Browsertools and UWS modules, and
-// Browsertools must itself use that same locked UWS revision.
+// Browsertools must itself use that same locked UWS revision in historical contexts. The 1.12 context records its
+// retained declared Browsertools edge separately from the effective UWS module.
 func ValidateGoModulePins(openUdonRoot, browsertoolsRoot string, lock CompatibilityLock) error {
 	locked := make(map[string]LockedRevision, len(lock.Components))
 	for _, component := range lock.Components {
@@ -586,6 +628,9 @@ func ValidateGoModulePins(openUdonRoot, browsertoolsRoot string, lock Compatibil
 	}
 	for _, check := range checks {
 		dependency, ok := locked[check.dependency]
+		if check.owner == "browsertools" && lock.BrowsertoolsUWSRequirement != nil {
+			dependency = *lock.BrowsertoolsUWSRequirement
+		}
 		if !ok || !goModRequires(check.root, dependency.Module, dependency.Version) {
 			return fmt.Errorf("%s %s dependency does not match the browser-scenario compatibility lock", check.owner, dependency.Module)
 		}

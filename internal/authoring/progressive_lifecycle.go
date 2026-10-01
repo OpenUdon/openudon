@@ -5,7 +5,7 @@ import (
 	"io"
 	"strings"
 
-	sharedicot "github.com/OpenUdon/authoring/icot"
+	sharedengine "github.com/OpenUdon/authoring/engine"
 )
 
 // ProgressiveLifecycleOptions adds draft/transcript lifecycle behavior
@@ -29,7 +29,7 @@ func RunProgressiveWithLifecycle[S, D, A any](ctx context.Context, in io.Reader,
 	if draftPath == "" && strings.TrimSpace(opts.ExampleDir) != "" {
 		draftPath = DraftPath(opts.ExampleDir)
 	}
-	return sharedicot.RunInteractiveWithLifecycle(ctx, in, out, hooks, sharedicot.InteractiveLifecycleOptions[S, D, A]{
+	return sharedengine.RunInteractiveWithLifecycle(ctx, in, out, hooks, sharedengine.InteractiveLifecycleOptions[S, D, A]{
 		DraftPath:            draftPath,
 		TranscriptPath:       opts.TranscriptPath,
 		TranscriptVersion:    firstNonEmpty(opts.TranscriptVersion, "openudon.icot-transcript.v2"),

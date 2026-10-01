@@ -8,8 +8,8 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/OpenUdon/openudon/internal/icot"
-	"github.com/OpenUdon/openudon/internal/icot/browserauthor"
+	"github.com/OpenUdon/openudon/internal/browserauthor"
+	"github.com/OpenUdon/openudon/internal/browserauthoring"
 )
 
 func failedAuthoringReport(t *testing.T) *Report {
@@ -20,7 +20,7 @@ func failedAuthoringReport(t *testing.T) *Report {
 	if scenario.AuthoringDiagnostic.Phase != "unknown" || scenario.AuthoringDiagnostic.Code != "operation_failed" {
 		t.Fatal("untyped error was not reduced to a closed fallback")
 	}
-	scenario.AuthoringDiagnostic = &icot.BrowserScenarioAuthorDiagnostic{Phase: "controller", Code: "worker_protocol"}
+	scenario.AuthoringDiagnostic = &browserauthoring.BrowserScenarioAuthorDiagnostic{Phase: "controller", Code: "worker_protocol"}
 	report.Scenarios = cloneScenarioResults([]ScenarioResult{scenario})
 	report.Status, report.Summary = StatusFail, Summary{Total: 1, Failed: 1}
 	if err := ValidateReport(report); err != nil {

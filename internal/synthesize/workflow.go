@@ -22,6 +22,7 @@ import (
 	"github.com/OpenUdon/openudon/internal/browserworkflow"
 	"github.com/OpenUdon/openudon/internal/evidencefile"
 	"github.com/OpenUdon/openudon/internal/packageartifacts"
+	uwsprofile "github.com/OpenUdon/openudon/internal/uwsexec"
 	rollout "github.com/OpenUdon/openudon/internal/workflowintent"
 	"github.com/OpenUdon/uws/browserauthentication"
 	"github.com/OpenUdon/uws/browserregistration"
@@ -73,7 +74,12 @@ func loadUWSDocumentFile(path string) (*uws1.Document, error) {
 	if err != nil {
 		return nil, err
 	}
+	return decodeUWSDocument(path, data)
+}
+
+func decodeUWSDocument(path string, data []byte) (*uws1.Document, error) {
 	var doc uws1.Document
+	var err error
 	switch strings.ToLower(filepath.Ext(path)) {
 	case ".hcl":
 		err = convert.UnmarshalHCL(data, &doc)
@@ -86,6 +92,32 @@ func loadUWSDocumentFile(path string) (*uws1.Document, error) {
 		return nil, err
 	}
 	return &doc, nil
+}
+
+// workflowUWSVersion keeps declared package versions when rebuilding. Only a
+// package without either generated document adopts the new authoring default.
+func workflowUWSVersion(result Result) (string, error) {
+	workflowPath, uwsPath := result.WorkflowPath, result.UWSPath
+	if workflowPath == "" && result.ExampleDir != "" {
+		workflowPath = filepath.Join(result.ExampleDir, "workflows", "workflow.hcl")
+	}
+	if uwsPath == "" && result.ExampleDir != "" {
+		uwsPath = filepath.Join(result.ExampleDir, "workflows", "workflow.uws.yaml")
+	}
+	version, err := uwsprofile.DeclaredVersion(workflowPath, uwsPath)
+	if err != nil {
+		return "", err
+	}
+	if result.declaredUWSVersion != "" {
+		if version != "" && version != result.declaredUWSVersion {
+			return "", fmt.Errorf("scenario UWS version differs from its existing document")
+		}
+		version = result.declaredUWSVersion
+	}
+	if version == "" {
+		version = "1.12.0"
+	}
+	return version, nil
 }
 
 func generateWorkflowDocument(result Result, intent *rollout.Intent) (*uws1.Document, error) {
@@ -112,8 +144,12 @@ func generateWorkflowDocument(result Result, intent *rollout.Intent) (*uws1.Docu
 		timeout = normalized.Workflow.Timeout
 		idempotency = normalized.Workflow.Idempotency
 	}
+	version, err := workflowUWSVersion(result)
+	if err != nil {
+		return nil, err
+	}
 	doc := &uws1.Document{
-		UWS: "1.11.0",
+		UWS: version,
 		Info: &uws1.Info{
 			Title:       title,
 			Description: description,
@@ -168,6 +204,15 @@ func generateWorkflowDocument(result Result, intent *rollout.Intent) (*uws1.Docu
 	if len(doc.Operations) == 0 && len(doc.Workflows[0].Steps) == 0 {
 		return nil, fmt.Errorf("intent produced no UWS operations or steps")
 	}
+	if doc.UWS != "1.12.0" {
+		// Effect is additive in 1.12; retained legacy declarations keep their wire
+		// shape. A pending contract remains invalid rather than being upgraded.
+		for _, op := range doc.Operations {
+			if op != nil {
+				op.Effect = ""
+			}
+		}
+	}
 	if err := doc.Validate(); err != nil {
 		return nil, err
 	}
@@ -219,6 +264,10 @@ func buildUWSStep(step *rollout.Step, defaultOpenAPI string, sourceFor func(stri
 		},
 	}
 	var ops []*uws1.Operation
+	if step.Pending != nil {
+		uwsStep.Pending = step.Pending
+		return uwsStep, nil, nil
+	}
 	if isIntentStructuralType(kind) {
 		uwsStep.Type = uwsWorkflowType(kind)
 		effectiveSource := browserworkflow.EffectiveSource(step, defaultOpenAPI)
@@ -259,6 +308,7 @@ func buildUWSStep(step *rollout.Step, defaultOpenAPI string, sourceFor func(stri
 	}
 	op := &uws1.Operation{
 		OperationID:              name,
+		Effect:                   uws1.OperationEffect(step.Effect),
 		Description:              strings.TrimSpace(step.Do),
 		Request:                  request,
 		SuccessCriteria:          step.SuccessCriteria,

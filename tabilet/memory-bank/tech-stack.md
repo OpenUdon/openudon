@@ -1,8 +1,8 @@
 # Tech Stack
 
-## Current Browser 1.10 qualification stack
+## Retained Browser 1.10 qualification stack (E22/M91)
 
-OpenUdon's Go module pins published UWS M05
+This retained context pinned published UWS M05
 `80ee9bfb24a688b5e875dadf9ecacdc65398f1ff` and Browsertools M32
 `3abe70efc03d9ccb97b8b30e5e86328f60a70c64`. The exact Browserdriver M15 and
 Udon M43 source pins, module versions, and separate 14-repository Udon build
@@ -11,8 +11,8 @@ closure are recorded in
 `58363021e44961527468bc686df114ce69770709345eb39702fbf38e84da6d2a`) and
 `current-qualification-build-inputs-v4.json` (SHA-256
 `10fa8b2570f0a72688a1c8d282fe84cf7ea4af6e82ad5ffa85aa6fc994ff371a`). The
-scenario, integration and native current selectors now emit v4 reports; the
-current journey suite has 14 cases, including the three Browser 1.10 count
+E22 scenario, integration and native selectors emitted v4 reports; its
+journey suite has 14 cases, including the three Browser 1.10 count
 journeys through Udon v11. Its v4 integration matrix requires named count
 profile, producer, schema, Udon v11 consumer, and Browserdriver extraction
 tests; v2/v3 reports retain their original gate inventory. Fresh full E22
@@ -44,13 +44,16 @@ It fixes Browsertools `9333a9f25dbb17551998a429e123e7a9ba976648` and UWS
 Integration runs verify the same Udon closure before executing the fixed
 matrix. Historical v1 and frozen M86 v2 verification retain their original
 locks and meaning. All three retained M86 reports pass with their original
-digests; E21 evidence is recorded in [status-E21.md](status-E21.md).
+digests; E21 evidence is recorded in [status-E21.md](../docs/history/status-E21.md).
 
 Native `openudon browser-system-eval --stack current --suite loopback` selects
-the v4 compatibility and 14-source build-input locks, requires all primary
+M92 v5 compatibility and 14-source build-input locks, requires all primary
 and auxiliary worktrees to be clean, and emits
-`openudon.browser-system-qualification.v4`. Its v3 reader retains the E21
-snapshots. The default remains historical native v2.
+`openudon.browser-system-qualification.v5`. Scenario/journey use v5 and
+integration uses v6. The retained v4 reader uses E22/M91 snapshots; v3 uses E21.
+The effective UWS pin is published 1.12 `a7688f54c68f5a75c7cc95aa2b31cea98b31af41`;
+Browsertools retains its declared 1.11 dependency edge, separately recorded
+in the new lock. Accepted Udon M45 supplies the exact executor closure. The default remains historical native v2.
 `make browser-system-current-check` runs the explicit current path
 and verifies its report; the verifier dispatches from the saved report version.
 Current evaluation can take `--browserdriver-node-modules` for a separate
@@ -116,9 +119,10 @@ manifest ID and path-derived candidate ID. Kinet owns the preceding
 user-confirmation gate.
 Candidates scans the eight supported local source families, including the
 legacy `discovery/` directory as a Google Discovery alias, and calls published
-APItools M79 operation-candidate metadata at
-`v0.0.0-20260928033144-e3625f6ef52e` (commit
-`e3625f6ef52ea54b7f78b7a4a4f1993bf8a06a46`); it does not fetch URLs. It preserves
+APItools operation-candidate metadata at adopted M81/M80
+`v0.0.0-20260930205753-fb132631c982` (commit
+`fb132631c9827eae5f2ec4503d03f21eabfb4113`); the legacy candidates path still
+does not fetch URLs. It preserves
 consumer summaries, compatibility evidence, source-backed effect classes,
 authentication alternatives, and source capabilities while omitting paths
 from results. Check and bind match the exact APItools source kind, ID, digest,
@@ -232,7 +236,7 @@ under `docs/step-authoring-contract-v1.md` and
   remains a backward-compatible alias. OpenUdon infers source type from catalog metadata,
   directory convention, or parser behavior rather than adding a separate intent `source_type`.
 - The optional operator-authored `content_trust` intent block lowers to UWS
-  `uws1.ContentTrust` (supported since 1.9.1). New workflows declare UWS 1.11.0;
+  `uws1.ContentTrust` (supported since 1.9.1). New workflows declare UWS 1.12.0;
   existing packages retain their declared versions. Source labels remain package-relative paths until
   synthesis resolves generated source-description IDs; operation labels use
   the same stable lowering as leaf steps. Empty/no-op or unresolved objects
@@ -276,7 +280,7 @@ under `docs/step-authoring-contract-v1.md` and
   `browser-authentication/`, records safe review metadata in
   `.icot/browser-authentication.json`, and lowers explicit authentication and
   named-session intent fields to the matching public supplements. New workflows
-  declare UWS 1.11.0. Browsertools owns local validation; Udon and its persistent
+  declare UWS 1.12.0. Browsertools owns local validation; Udon and its persistent
   Browserdriver own credential resolution, MFA challenge interaction, session
   state, and execution. Active Browser 1.8/1.9 actions select private
   browser-driver v10, which carries older actions as inner v2. Browser 1.10
@@ -445,15 +449,15 @@ under `docs/step-authoring-contract-v1.md` and
 - `openudon browser-integration-eval` and `make browser-integration-check`
   run the provider-free A03/P01/A04/A06/E02/E03 release matrix across sibling OpenUdon,
   Browsertools, UWS, Udon, and Browserdriver checkouts. The strict current
-  `openudon.browser-integration-eval.v2` JSON report and `.sha256` sidecar live
+  `openudon.browser-integration-eval.v6` JSON report and `.sha256` sidecar live
   under ignored `eval/runs/`, record all five commit/dirty states, fixed named
   evidence and closed diagnostics, and retain no subprocess output. Browsertools
   doctor checks Chromium, Firefox, and WebKit without installation or browser
   launch. Required named gates cover a real Browsertools envelope through
   OpenUdon, Browsertools author-session/result freshness and synthesis,
   UWS 1.8 context, UWS 1.9 scalar and UWS 1.11 typed contracts, Browser
-  1.8/1.9 templates, Udon/Browserdriver v10 handoff, and OpenUdon UWS 1.11
-  output. V1 reports continue to use the unchanged historical scenario lock
+  1.8/1.9 templates, Udon/Browserdriver v10 handoff, and OpenUdon UWS 1.12
+  output, plus pending/simulation producer conformance. V1 reports continue to use the unchanged historical scenario lock
   and gate inventory. `--installed-engines` and
   `--headed-auth` enable only the existing engine, authentication, and
   same-context authoring loopback fixtures and remain skipped when pinned
@@ -1022,6 +1026,218 @@ M44 artifact pair. Default checks skip that real executor. Qualification binds
 source, exact closure and binary digests and executes a private binary copy;
 see [per-step run evidence](../../docs/per-step-run-evidence.md).
 
+## Shared authoring commands and qualification (M91)
+
+OpenUdon pins Authoring `v0.0.0-20260930234600-18056cb6b0c1`, Origin.Hash
+`18056cb6b0c1007dd567a4a825a6b4311a357185`, after published M29 closure
+`dc8f3d61970ae628fc0399b0ef42187aa62a3e5b`. Adapters use public `engine` APIs.
+Only this dependency changed; UWS 1.12 and APItools adoption remain M92/M94.
+Default checks remain provider/credential free; standalone checks use the
+actual published module with GOWORK off.
+
+Focused source paths are `internal/artifactwriter`, `elicitor`, `stepauthoring`,
+`browserauthoring`, `browserauthor`, `authoringengine`, `authoringui` and
+`authoringcli`. Current Make selectors follow them. UI build tags/response
+versions and embedded asset bytes retain their contracts.
+
+Use `openudon authoring lint|reconcile|repair|report|variants|scorecard|replay-eval|authoring-eval`
+for retained expert/evaluation commands. Subcommand flags/help, report schemas
+and canonical `icot ...` report labels remain compatible; qualification binds
+actual launcher argv separately. Model-backed evaluation still requires
+explicit invocation and provider authority.
+
+`openudon.browser-integration-eval.v5` retains all 19 gates with neutral paths
+and preserved semantic coverage. v1–v4 readers and all compatibility/build
+locks remain frozen. `make browser-system-current-check` qualifies the existing
+exact current browser closure, using external read-only modules and three
+fresh sandboxed loopback repeats. M91 observed Go 1.26.6, Node 24.14.1, Chromium
+151.0.7922.34 and Playwright 1.62.1/Playwright-Go v0.6201.0. W8M's exact Node
+24.13.0 requirement is separate and was not qualified by this owner gate.
+
+Qualified application source: `3fd40d3f874bdcf668a018550112a02cd0d02409`.
+Summary: `/var/tmp/openudon-m91-qualified-1y6zysvk/qualification.json`, SHA-256
+`9a2524deddccc400457ae76d2e432a205898a181bcfe8bdc84f62348b4c28075`.
+Required integration: 16 pass, zero fail, three unrequested optional gates.
+Native qualification: 39/39 stages across three fresh repeats; report verifies.
+All 405 retained fixtures and three embedded UI assets remain unchanged.
+The temporary approved test display was torn down; M93's desktop/human-visible
+checks and Kinet W08's fresh M92 consumer qualification remain pending.
+
+## M92 applied UWS dependency and executor compatibility
+
+M92.1 pins published UWS source `a7688f54c68f5a75c7cc95aa2b31cea98b31af41`
+as `v0.0.0-20260927134327-a7688f54c68f`; Browsertools stays at its
+existing `3abe70efc03d9ccb97b8b30e5e86328f60a70c64` module. New authoring
+packages default to UWS 1.12.0. Rebuilding reads existing HCL/export versions
+before artifact writes, preserves the declared version, and refuses conflicting,
+unsafe or unsupported declarations. Historical scenario qualification selects
+its manifest version explicitly and cannot override an existing document.
+
+`make report-v5-m45-qualification` is an opt-in loopback-only gate selecting the
+accepted M45 executor/closure via `OPENUDON_M45_EXECUTOR` and
+`OPENUDON_M45_CLOSURE`. Its test verifies both digests, source identity, the
+clean fourteen-source closure and all four passed qualification commands before
+executing a private binary copy. It covers eight report-v5 cases at each of
+UWS 1.11 and 1.12. The M44 gate retains its own frozen binding. Udon remains an
+external CLI, never an imported dependency.
+
+M91's browser integration v5/current scenario v4 locks remain immutable rollback
+contexts. They do not qualify M92's newer pin. M92 publishes separate v5
+locks/build inputs and current report selectors, with its own source-bound
+qualification evidence.
+
+M92.2 adds `openudon step pending --example DIR --request FILE|-`, with
+`openudon.step-pending.v1` request/result envelopes. See `docs/step-pending.md`
+and its schema, which references unchanged step-authoring v1 definitions;
+offline validators load both resources. Confirmed bind effects are stored in
+intent HCL and exported as public operation effects for 1.12 packages. Old v1
+fixture bytes remain frozen; current bind tests independently verify the new
+intent digest and effect, plus the exact older digest with just that additive
+annotation absent. `step bind` resolves a pending contract using the current
+intent revision, exact contract and its existing source/auth/mapping checks.
+
+M92.3 adds `openudon simulate --example DIR [--input FILE] [--fixtures FILE]
+[--allow-generated-fallback]`, with `openudon.simulate-input.v1` input and
+`openudon.simulate.v1` results (see `docs/simulation.md`). It uses published UWS
+1.12 `mockruntime`, public fixture/JCS matching and deterministic schema synthesis;
+the exact transitive dependency is `github.com/gowebpki/jcs v1.0.2`. No private
+executor import or schema/expression engine is introduced. Numeric user inputs
+retain JSON number identity for fixture matching. M92 records passed producer
+conformance and source-bound runtime qualification; consumer adoption is separate.
+
+## M92.4 producer and runtime contracts
+
+Published additive schemas: `openudon.step-pending.v1`,
+`openudon.simulate-input.v1` and `openudon.simulate.v1`, with versioned
+examples under `docs/examples/step-pending/v1` and `docs/examples/simulation/v1`.
+Conformance loads local schema resources only. Current browser compatibility
+and build-input files are versioned `*-v5.json`; native v5 and integration v6
+qualify the UWS 1.12/M45 context and preserve all earlier report contexts.
+The temporary M92 Xvfb permission is synthetic loopback qualification only.
+
+## M93 private development desktop
+
+The approved M93.0 operation prepares the existing development host with
+Xvfb 2:21.1.22-1ubuntu1, xauth 1:1.1.2-1.1build1, Openbox 3.6.1-12ubuntu3
+and x11vnc 0.9.17-2. Temporary X authentication/private password files are
+owner-only; X listens on no TCP port and VNC listens on 127.0.0.1:5901 only.
+Use an SSH tunnel and noVNC in a local browser; clipboard exchange and VNC
+remote command/control are disabled. A bounded user process, not a permanent
+system service, owns teardown. Exact session bindings/expiry and the required
+human connection checkpoint live in status-M93.md. Desktop setup grants no
+capture target, model disclosure, credentials, registration or execution
+permission and proves no M93.5 journey. Restoring an expired session requires
+its currently selected authorized operation; never replay closed task rows.
+
+The browser transport extension was approved on 2026-10-01: use the full
+Ubuntu noVNC application and websockify on the same named host, not Kinet's
+user-installed root npm core library. Installation/verification is owned by
+the still-selected M93.0 operation. The old session expired without a human
+connection. Installation completed: noVNC 1:1.6.0-2, websockify and
+python3-websockify 0.13.0+dfsg1-2ubuntu1; `/usr/share/novnc/vnc.html` is
+served by a temporary loopback relay at 127.0.0.1:6080. Exact fresh session
+bindings/expiry and automated readiness/teardown evidence live in status-M93.md. Both listeners must remain loopback-only and SSH-forwarded, with
+password-required VNC, clipboard disabled and bounded automatic teardown.
+
+## M93.1 capture protocol foundation
+
+`docs/schemas/openudon.browser-capture.v1.schema.json` is the exact embedded
+resource in `docs/schemas.BrowserCaptureResources`; runtime decoders use the
+already-pinned JSON Schema v6 dependency and shared strict evidencefile reader.
+No new dependency, worker implementation or schema engine was added. The
+NDJSON message ceiling is 256 KiB, nesting 64 levels, session count 4096
+events and absolute deadline at most two hours. Native Browsertools reduced
+records keep their own field semantics; a registration event transmits the
+current observation/latest preview rather than the entire growing history.
+Published examples and `go test ./internal/browsercapture` cover both mode
+envelopes, TOTP checkpoint metadata, reviewed proposals and exact single-use
+approval/refusal. See `docs/browser-capture-protocol.md`; later M93 tasks
+expose the command and run browser/transaction qualification.
+
+## M93.2 authenticated supervising transport
+
+`internal/browsercapture.RunAuthenticated` wraps the existing controller;
+`browserauthor.NormalizeConfig` and `ValidateResponse` are neutral pure entry
+points over its existing configuration/decision checks. An internal generic
+stream driver serializes both mode adapters without a second browser engine.
+Input/output must be closeable pipes or local sockets whose closure interrupts
+I/O. Absolute context expiry closes them; worker and reader teardown join before
+return. Invalid input is fail-closed and never echoed. Private completion data
+has no JSON representation. No dependency, public CLI or profile import is added
+by this row. Race/pipe tests include TOTP and credential acknowledgments,
+separate worker origin denial, exact observation disclosure, replay, changed
+state, EOF, expiry, blocked output and late teardown failure.
+
+## M93.3 registration supervising transport
+
+`RunRegistration` uses the explicitly reviewed existing native protocol (v1–v4);
+v4 is the start default and retains native verification support.
+its reviewed GET/HEAD/no-submit start and existing verification/preview/profile
+validators. Legacy registration transports keep their original version defaults.
+`RegistrationSession.ValidateDecision` is a pure check against its own current
+snapshot; `NormalizeRegistrationConfig` and `NormalizeRegistrationStart` reuse
+existing authority/bounds/URL helpers before allocating a worker. No dependency
+or public command is added. Native terminal outcomes remain separately readable
+after joined worker/reader/private cleanup, including a dropped late failure.
+Authenticated blocked-script/diagnostic-file options stay mode-specific;
+registration uses its existing closed diagnostics and no-submit traffic policy.
+Tests cover verification refusal, preview definitions, symbolic canonical
+profile validation, exact current generations, retained outcomes, private
+cleanup ordering and value-free bounded wire. Public CLI/worker embedding,
+independent package import and fresh native/visible qualification remain M93.4/5.
+
+
+## M93.4 command, reviewed start and profile admission
+
+`openudon browser-capture --start FILE --approve-start-sha256 SHA --example DIR
+--private-root DIR [--driver-dir DIR]` uses the exact embedded
+`openudon.browser-capture-start.v1` schema (closed union, same 256 KiB limit).
+Start examples and command/import details live in docs/browser-capture-protocol.md.
+The main CLI's hidden worker reuses browserauthoring.RunWorker; no dependency
+or browser engine was added. Credentials/model settings have no start fields.
+Native configuration validates disjoint prospective package/private roots,
+exact goal/role/context/origin policy and declared finite timeouts.
+
+Import approval uses the existing event/command schema, after joined completion.
+Native candidate conversion/virtual discovery and the shared authoring workspace
+fingerprint stay owner implementations. The retained atomic artifact writer
+commits profiles/reviews plus expected/browser-capture/<transaction-id>.json;
+receipt metadata binds the reviewed start/transaction and exact file digests.
+It grants no package promotion/executor authority. New profile/receipt targets
+are create-only; the retained auth review append uses its exact prior digest.
+Native expiry/drift are rechecked immediately before replace. Uncertain writes
+or terminal delivery never authorize retries. M93.5 qualification remains open.
+
+The confirmed initial noVNC session expired cleanly at 07:58:47 UTC on
+2026-10-01, with owned processes gone and private auth removed. Human desktop
+confirmation is recorded independently. Restore a bounded display only for the
+currently selected, authorized later-reuse row, never by replaying closed M93.0.
+
+## M94.1 published APItools and explicit discovery
+
+Current APItools pin: `v0.0.0-20260930205753-fb132631c982`, exact source
+`fb132631c9827eae5f2ec4503d03f21eabfb4113`; module sum
+`h1:ELxWOW2xW+3ahSrArRi78JD8kVKDFI7TduZrpBBWgwE=`. No replacement or sibling
+checkout is used. M79 remains a rollback/historical reference, not the current
+pin. `openudon step discover --request FILE|- [--catalog-root DIR]
+[--catalog-registry REL] [--catalog-index REL] [--catalog-metadata FILE]
+[--enable-remote]` uses the native APItools request/report; stdout is one
+bounded JSON report. Explicit operator indexing remains `apitools catalog
+index`, not an implicit discovery side effect. See docs/catalog-discovery.md
+for outcomes, bounds, exit codes and dual remote opt-in. No new module was
+added; APItools sqlitecache remains the source owner's read-only adapter.
+
+Catalog provisioning uses `step source add --catalog --example DIR --request
+FILE|-` with the same explicit catalog configuration. Its additive closed
+request schema is `docs/schemas/openudon.step-source-catalog.v1.schema.json`,
+embedded/validated with the existing JSON-schema dependency and disabled remote
+schema loading. APItools ExportCatalogArtifacts, BuildOperationCandidates and
+the existing OpenUdon source writer own materialization, selector checks and
+atomic publication respectively. Bounds remain 256KiB request/result, 8MiB
+source and 32MiB combined selected source/overlay bytes; additional provenance
+is at most1MiB, overlays at most64 ×2MiB. Source/manifest paths and legacy
+source-add v1 do not change. See docs/catalog-discovery.md for the separate
+confirmation, conflict, indeterminate-write and no-automatic-replay contract.
 
 ## Received consumer TOTP/qualification guidance
 

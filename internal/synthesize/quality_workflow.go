@@ -112,6 +112,10 @@ func assessWorkflow(report *QualityReport, path, exampleDir string, intent *roll
 		return false
 	}
 	report.add("workflow.uws_parse", "pass", "workflow.hcl parses as a public UWS document", "")
+	if count := len(uwsprofile.PendingStepIDs(doc)); count != 0 {
+		report.add("workflow.pending_steps", "fail", "workflow.hcl contains unresolved pending contracts", fmt.Sprintf("%d pending step(s); approval and execution refused", count))
+		return false
+	}
 	if intent != nil {
 		missing := missingIntentSteps(intent, doc.Workflows)
 		if len(missing) > 0 {

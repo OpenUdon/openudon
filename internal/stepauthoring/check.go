@@ -243,16 +243,7 @@ func validateRequest(request CheckRequest) error {
 	if !symbol(request.StepID) || !symbol(request.Contract.ID) {
 		return fmt.Errorf("step identity is invalid")
 	}
-	if strings.TrimSpace(request.Contract.Purpose) == "" || len(request.Contract.Purpose) > 2048 {
-		return fmt.Errorf("contract purpose is invalid")
-	}
-	if request.Contract.Effect != "read" && request.Contract.Effect != "write" && request.Contract.Effect != "unknown" {
-		return fmt.Errorf("contract effect is invalid")
-	}
-	if err := validateFieldSet(request.Contract.Inputs); err != nil {
-		return err
-	}
-	if err := validateFieldSet(request.Contract.Outputs); err != nil {
+	if err := validateStepContract(request.Contract); err != nil {
 		return err
 	}
 	if len(request.OutputMappings) > 64 {
@@ -269,6 +260,22 @@ func validateRequest(request CheckRequest) error {
 		!safeNativeIdentity(ref.OperationKey, 256) || (ref.OperationID != "" && !safeNativeIdentity(ref.OperationID, 256)) ||
 		!sha256Pattern.MatchString(request.IntentSHA256) {
 		return fmt.Errorf("operation reference or intent digest is invalid")
+	}
+	return nil
+}
+
+func validateStepContract(contract StepContract) error {
+	if strings.TrimSpace(contract.Purpose) == "" || len(contract.Purpose) > 2048 {
+		return fmt.Errorf("contract purpose is invalid")
+	}
+	if contract.Effect != "read" && contract.Effect != "write" && contract.Effect != "unknown" {
+		return fmt.Errorf("contract effect is invalid")
+	}
+	if err := validateFieldSet(contract.Inputs); err != nil {
+		return err
+	}
+	if err := validateFieldSet(contract.Outputs); err != nil {
+		return err
 	}
 	return nil
 }

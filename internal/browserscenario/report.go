@@ -13,8 +13,8 @@ import (
 	"time"
 
 	"github.com/OpenUdon/openudon/internal/authoring/atomicfile"
+	"github.com/OpenUdon/openudon/internal/browserauthoring"
 	"github.com/OpenUdon/openudon/internal/evidencefile"
-	"github.com/OpenUdon/openudon/internal/icot"
 )
 
 const (
@@ -24,8 +24,10 @@ const (
 	M86CurrentJourneyVersion    = "openudon.browser-journey-eval.v2"
 	CurrentV3ReportVersion      = "openudon.browser-scenario-eval.v3"
 	CurrentV3JourneyVersion     = "openudon.browser-journey-eval.v3"
-	CurrentReportVersion        = "openudon.browser-scenario-eval.v4"
-	CurrentJourneyReportVersion = "openudon.browser-journey-eval.v4"
+	CurrentV4ReportVersion      = "openudon.browser-scenario-eval.v4"
+	CurrentV4JourneyVersion     = "openudon.browser-journey-eval.v4"
+	CurrentReportVersion        = "openudon.browser-scenario-eval.v5"
+	CurrentJourneyReportVersion = "openudon.browser-journey-eval.v5"
 	StatusPass                  = "pass"
 	StatusFail                  = "fail"
 	StatusNotRun                = "not_run"
@@ -83,7 +85,7 @@ type ScenarioResult struct {
 	Detail     string        `json:"detail"`
 	// Private failure metadata travels separately; published v1 reports keep
 	// their exact wire shape and cannot become evidence of successful authoring.
-	AuthoringDiagnostic *icot.BrowserScenarioAuthorDiagnostic `json:"-"`
+	AuthoringDiagnostic *browserauthoring.BrowserScenarioAuthorDiagnostic `json:"-"`
 	// FailureCategory is local diagnostic metadata and is excluded from reports.
 	failureCategory string
 	failureSummary  string
@@ -160,6 +162,11 @@ func ValidateReport(report *Report) error {
 			if report.Suite == SuiteJourney {
 				wantVersion = CurrentV3JourneyVersion
 			}
+		case isCurrentV4ReportVersion(report.Version):
+			wantVersion = CurrentV4ReportVersion
+			if report.Suite == SuiteJourney {
+				wantVersion = CurrentV4JourneyVersion
+			}
 		default:
 			wantVersion = CurrentReportVersion
 			if report.Suite == SuiteJourney {
@@ -191,8 +198,10 @@ func ValidateReport(report *Report) error {
 			lock, err = LoadCurrentCompatibilityLockV2()
 		case isCurrentV3ReportVersion(report.Version):
 			lock, err = LoadCurrentCompatibilityLockV3()
-		default:
+		case isCurrentV4ReportVersion(report.Version):
 			lock, err = LoadCurrentCompatibilityLockV4()
+		default:
+			lock, err = LoadCurrentCompatibilityLockV5()
 		}
 		if err != nil {
 			return err
@@ -217,6 +226,7 @@ func ValidateReport(report *Report) error {
 		}
 	}
 	seen := map[string]bool{}
+	supportsBrowser110 := isCurrentV4ReportVersion(report.Version) || isCurrentV5ReportVersion(report.Version)
 	for _, result := range report.Scenarios {
 		if !validIDs[result.ID] || seen[result.ID] || !allowedScenarioStatuses[result.Status] || result.Attempts < 0 || result.Attempts > 1 || !allowedDetails[result.Detail] {
 			return fmt.Errorf("browser scenario result %q is invalid", result.ID)
@@ -233,7 +243,7 @@ func ValidateReport(report *Report) error {
 		for _, phase := range result.Phases {
 			allowedPhase := allowedPhaseIDs[report.Suite][phase.ID] ||
 				(stack == StackCurrent && report.Suite == SuiteJourney && currentPhaseIDs[phase.ID]) ||
-				(isCurrentV4ReportVersion(report.Version) && report.Suite == SuiteJourney && currentV4PhaseIDs[phase.ID])
+				(supportsBrowser110 && report.Suite == SuiteJourney && currentV4PhaseIDs[phase.ID])
 			if !allowedPhase || phaseSeen[phase.ID] || !allowedPhaseStatuses[phase.Status] || !allowedDetails[phase.Detail] {
 				return fmt.Errorf("browser scenario phase %q is invalid", phase.ID)
 			}
@@ -242,12 +252,12 @@ func ValidateReport(report *Report) error {
 		assertionSeen := map[string]bool{}
 		for _, assertion := range result.Assertions {
 			if (!allowedAssertions[assertion] && (stack != StackCurrent || !currentAssertions[assertion] &&
-				(!isCurrentV4ReportVersion(report.Version) || !currentV4Assertions[assertion]))) || assertionSeen[assertion] {
+				(!supportsBrowser110 || !currentV4Assertions[assertion]))) || assertionSeen[assertion] {
 				return fmt.Errorf("browser scenario assertion %q is invalid", assertion)
 			}
 			assertionSeen[assertion] = true
 		}
-		if isCurrentV4ReportVersion(report.Version) && !isBrowser110ManifestID(result.ID) &&
+		if supportsBrowser110 && !isBrowser110ManifestID(result.ID) &&
 			(assertionSeen["browser110_count"] || assertionSeen["udon_v11_replay"] || phaseSeen["udon_v11"]) {
 			return fmt.Errorf("non-count browser scenario %q has Browser 1.10 evidence", result.ID)
 		}
@@ -258,7 +268,7 @@ func ValidateReport(report *Report) error {
 			if required := currentCaseAssertion[result.ID]; required != "" && (!assertionSeen[required] || !assertionSeen["udon_v10_replay"] || !phaseSeen["udon_v10"]) {
 				return fmt.Errorf("current browser scenario %q has no v10/template evidence", result.ID)
 			}
-			if isCurrentV4ReportVersion(report.Version) && isBrowser110ManifestID(result.ID) &&
+			if supportsBrowser110 && isBrowser110ManifestID(result.ID) &&
 				(!assertionSeen["browser110_count"] || !assertionSeen["udon_v11_replay"] || !phaseSeen["udon_v11"]) {
 				return fmt.Errorf("current Browser 1.10 scenario %q has no v11 count evidence", result.ID)
 			}
@@ -377,14 +387,21 @@ func isCurrentV3ReportVersion(version string) bool {
 }
 
 func isCurrentV4ReportVersion(version string) bool {
+	return version == CurrentV4ReportVersion || version == CurrentV4JourneyVersion
+}
+
+func isCurrentV5ReportVersion(version string) bool {
 	return version == CurrentReportVersion || version == CurrentJourneyReportVersion
 }
 
 func isCurrentReportVersion(version string) bool {
-	return isM86CurrentReportVersion(version) || isCurrentV3ReportVersion(version) || isCurrentV4ReportVersion(version)
+	return isM86CurrentReportVersion(version) || isCurrentV3ReportVersion(version) || isCurrentV4ReportVersion(version) || isCurrentV5ReportVersion(version)
 }
 
 func currentManifestsForReport(version string, at time.Time) ([]Manifest, error) {
+	if isCurrentV5ReportVersion(version) {
+		return LoadCurrentManifestsV5(at)
+	}
 	if isCurrentV4ReportVersion(version) {
 		return LoadCurrentManifestsV4(at)
 	}

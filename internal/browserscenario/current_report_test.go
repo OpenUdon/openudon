@@ -1,6 +1,7 @@
 package browserscenario
 
 import (
+	"os"
 	"path/filepath"
 	"reflect"
 	"strings"
@@ -87,14 +88,14 @@ func TestCurrentV4LockPinsPublishedBrowser110DependencyChain(t *testing.T) {
 	}
 }
 
-func TestCurrentSelectorAdvancesToV4WhileV3SnapshotRemainsVerifiable(t *testing.T) {
+func TestCurrentSelectorAdvancesToV5WhileV3SnapshotRemainsVerifiable(t *testing.T) {
 	current, err := LoadCurrentCompatibilityLock()
 	if err != nil {
 		t.Fatal(err)
 	}
-	v4, err := LoadCurrentCompatibilityLockV4()
-	if err != nil || !reflect.DeepEqual(current, v4) {
-		t.Fatalf("current selector differs from v4 lock: %v", err)
+	v5, err := LoadCurrentCompatibilityLockV5()
+	if err != nil || !reflect.DeepEqual(current, v5) {
+		t.Fatalf("current selector differs from v5 lock: %v", err)
 	}
 	v3, err := LoadCurrentCompatibilityLockV3()
 	if err != nil {
@@ -105,8 +106,8 @@ func TestCurrentSelectorAdvancesToV4WhileV3SnapshotRemainsVerifiable(t *testing.
 		t.Fatalf("frozen v3 build closure = %d components, err = %v", len(v3Build.Components), err)
 	}
 	currentBuild, err := LoadCurrentQualificationBuildInputLock(current)
-	if err != nil || !reflect.DeepEqual(currentBuild, mustCurrentV4Build(t, current)) {
-		t.Fatalf("current selector differs from v4 build closure: %v", err)
+	if err != nil || !reflect.DeepEqual(currentBuild, mustCurrentV5Build(t, current)) {
+		t.Fatalf("current selector differs from v5 build closure: %v", err)
 	}
 	versions := map[string]string{}
 	commits := map[string]string{}
@@ -208,38 +209,110 @@ func TestCurrentScenarioReportRequiresExactLockAndCompleteSuite(t *testing.T) {
 }
 
 func TestBrowser110CurrentReportRequiresVersionedCountEvidence(t *testing.T) {
-	lock, err := LoadCurrentCompatibilityLockV4()
+	for _, version := range []string{CurrentV4JourneyVersion, CurrentJourneyReportVersion} {
+		t.Run(version, func(t *testing.T) {
+			lock, err := LoadCurrentCompatibilityLockV4()
+			if version == CurrentJourneyReportVersion {
+				lock, err = LoadCurrentCompatibilityLockV5()
+			}
+			if err != nil {
+				t.Fatal(err)
+			}
+			commits, versions := map[string]string{}, map[string]string{}
+			for _, component := range lock.Components {
+				commits[component.Name], versions[component.Name] = component.Commit, component.Version
+			}
+			repositories := []RepositoryRevision{
+				{Name: "openudon", Commit: strings.Repeat("a", 40)},
+				{Name: "browsertools", Commit: commits["browsertools"]},
+				{Name: "uws", Commit: commits["uws"]},
+				{Name: "udon", Commit: commits["udon"]},
+				{Name: "browserdriver", Commit: commits["browserdriver"]},
+			}
+			result := ScenarioResult{ID: "campaign-count-browser110-multiple", Status: StatusPass, Attempts: 1, Detail: "ok",
+				Phases:     []PhaseResult{{ID: "fixture_ready", Status: StatusPass, Detail: "ok"}},
+				Assertions: []string{"author_session_v2"}}
+			report := NewReportForStack(SuiteJourney, StackCurrent, time.Date(2026, 9, 24, 12, 0, 0, 0, time.UTC), repositories, []DependencyRevision{
+				{Module: "github.com/OpenUdon/browsertools", Version: versions["browsertools"]},
+				{Module: "github.com/OpenUdon/uws", Version: versions["uws"]},
+			}, []ScenarioResult{result})
+			report.Version = version
+			if err := ValidateReport(report); err == nil {
+				t.Fatal("Browser 1.10 count report without v11 evidence was accepted")
+			}
+			report.Scenarios[0].Assertions = append(report.Scenarios[0].Assertions, "browser110_count", "udon_v11_replay")
+			report.Scenarios[0].Phases = append(report.Scenarios[0].Phases, PhaseResult{ID: "udon_v11", Status: StatusPass, Detail: "ok"})
+			if err := ValidateReport(report); err != nil {
+				t.Fatalf("Browser 1.10 count evidence rejected: %v", err)
+			}
+			report.Scenarios[0].ID = "template-browser19"
+			if err := ValidateReport(report); err == nil {
+				t.Fatal("non-count Browser 1.9 scenario accepted Browser 1.10 count evidence")
+			}
+		})
+	}
+}
+
+func mustCurrentV5Build(t *testing.T, lock CompatibilityLock) QualificationBuildInputLock {
+	t.Helper()
+	value, err := LoadCurrentQualificationBuildInputLockV5(lock)
 	if err != nil {
 		t.Fatal(err)
 	}
-	commits, versions := map[string]string{}, map[string]string{}
-	for _, component := range lock.Components {
-		commits[component.Name], versions[component.Name] = component.Commit, component.Version
+	return value
+}
+
+func TestCurrentV5AdoptsUWS112M45AndPreservesDeclaredBrowsertoolsEdge(t *testing.T) {
+	lock, err := LoadCurrentCompatibilityLockV5()
+	if err != nil {
+		t.Fatal(err)
 	}
-	repositories := []RepositoryRevision{
-		{Name: "openudon", Commit: strings.Repeat("a", 40)},
-		{Name: "browsertools", Commit: commits["browsertools"]},
-		{Name: "uws", Commit: commits["uws"]},
-		{Name: "udon", Commit: commits["udon"]},
-		{Name: "browserdriver", Commit: commits["browserdriver"]},
+	if componentCommit(lock, "uws") != "a7688f54c68f5a75c7cc95aa2b31cea98b31af41" || componentCommit(lock, "udon") != "238f2e487d50ffec057b7a109a35c9db03f59c55" || lock.BrowsertoolsUWSRequirement == nil || lock.BrowsertoolsUWSRequirement.Commit != "80ee9bfb24a688b5e875dadf9ecacdc65398f1ff" {
+		t.Fatal("adoption or declared edge identity changed")
 	}
-	result := ScenarioResult{ID: "campaign-count-browser110-multiple", Status: StatusPass, Attempts: 1, Detail: "ok",
-		Phases:     []PhaseResult{{ID: "fixture_ready", Status: StatusPass, Detail: "ok"}},
-		Assertions: []string{"author_session_v2"}}
-	report := NewReportForStack(SuiteJourney, StackCurrent, time.Date(2026, 9, 24, 12, 0, 0, 0, time.UTC), repositories, []DependencyRevision{
-		{Module: "github.com/OpenUdon/browsertools", Version: versions["browsertools"]},
-		{Module: "github.com/OpenUdon/uws", Version: versions["uws"]},
-	}, []ScenarioResult{result})
-	if err := ValidateReport(report); err == nil {
-		t.Fatal("Browser 1.10 count report without v11 evidence was accepted")
+	root := t.TempDir()
+	browser := t.TempDir()
+	modules := map[string]string{}
+	for _, c := range lock.Components {
+		modules[c.Name] = c.Module + " " + c.Version
 	}
-	report.Scenarios[0].Assertions = append(report.Scenarios[0].Assertions, "browser110_count", "udon_v11_replay")
-	report.Scenarios[0].Phases = append(report.Scenarios[0].Phases, PhaseResult{ID: "udon_v11", Status: StatusPass, Detail: "ok"})
-	if err := ValidateReport(report); err != nil {
-		t.Fatalf("Browser 1.10 count evidence rejected: %v", err)
+	if err := os.WriteFile(filepath.Join(root, "go.mod"), []byte("module example.test/openudon\nrequire (\n"+modules["browsertools"]+"\n"+modules["uws"]+"\n)\n"), 0600); err != nil {
+		t.Fatal(err)
 	}
-	report.Scenarios[0].ID = "template-browser19"
-	if err := ValidateReport(report); err == nil {
-		t.Fatal("non-count Browser 1.9 scenario accepted Browser 1.10 count evidence")
+	edge := lock.BrowsertoolsUWSRequirement
+	if err := os.WriteFile(filepath.Join(browser, "go.mod"), []byte("module example.test/browsertools\nrequire "+edge.Module+" "+edge.Version+"\n"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	if err := ValidateGoModulePins(root, browser, lock); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(browser, "go.mod"), []byte("module example.test/browsertools\nrequire "+modules["uws"]+"\n"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	if ValidateGoModulePins(root, browser, lock) == nil {
+		t.Fatal("silently replaced retained declared requirement")
+	}
+	old, err := LoadCurrentManifestsV4(time.Now())
+	if err != nil {
+		t.Fatal(err)
+	}
+	fresh, err := LoadCurrentManifestsV5(time.Now())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(old) != len(fresh) {
+		t.Fatal("adoption lost journeys")
+	}
+	for i := range old {
+		want := old[i].Expected.UWSVersion
+		if want == "1.11.0" {
+			if fresh[i].Expected.UWSVersion != "1.12.0" {
+				t.Fatal("new package retained old declaration")
+			}
+			fresh[i].Expected.UWSVersion = want
+		}
+		if !reflect.DeepEqual(old[i], fresh[i]) {
+			t.Fatal("adoption changed journey meaning")
+		}
 	}
 }

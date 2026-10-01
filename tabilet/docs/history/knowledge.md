@@ -1506,3 +1506,378 @@ re-pins to the accepted, published M90 revision. It adds no runtime
 semantics, UWS 1.12 adoption, simulation, or live operation.
 
 ````
+
+## Prerequisite closure before M91 — 2026-09-30
+
+Source: memory-bank/milestone.md current-state and active-track summaries at
+`2e0093dbed14deb2cfc0824007781ef797034901`. The earlier W22 pending/local-only statements are superseded by
+W8M W24 history and completed E21/P07/P08 retirement. Historical task evidence
+remains literal in those records; current replacement guidance is the M91
+inventory and the updated milestone dashboard. No old task is retried.
+
+````markdown
+P07 closes the OpenUdon trusted-runner dispatch gap for Browser 1.10 without
+changing the executor protocol. P07.1 commit
+`87df787c7737cc669f98c3b4462d7151db3e6b68` maps the active profile to the
+existing rank-10/v10 handoff; fresh current v4 integration, loopback, journey,
+and three-repeat native qualification pass from that exact clean source, and
+bounded review iteration 2 passes. P07's commits are contained in the merged
+`w27-native-input` line (the separate P07/P08 branch names were removed on
+2026-09-30; W24's accepted P08.1 source is tagged `w24-accepted-p08.1`). W8M W22 still must use a local replacement to pin this
+qualified source and rerun its consumer smoke and qualification before
+considering runtime adoption or its separately gated read-only operation.
+- Active: E22's Browser 1.10 current-stack qualification and review, and P07's
+  trusted-dispatch repair, fresh v4 qualification, and bounded review are
+  complete. W8M W22 is the dependent downstream promotion; its owner authorized
+  at most one read-only count after every
+  qualification, adoption, preflight, and readiness gate passes. W8M W22's
+  log records an earlier unauthenticated route probe and redirect to advertiser
+  sign-in; no authenticated count, packet, or attempt resulted, and the single
+  authorized count remains unused. P07 itself made no target contact and
+  authorizes no target operation, runtime adoption, push, or publication.
+````
+
+## 2026-10-01 — M91 extraction consolidated
+
+Sources: architecture.md and tech-stack.md, their M91 extraction/adoption
+sections. Interim per-task statements are consolidated into the completed
+implementation contract after review 1 and fresh qualification at
+`3fd40d3f874bdcf668a018550112a02cd0d02409`. Public behavior remains retained
+and iCoT removal stays M95. Replacements: current M91 sections in those files.
+
+### Previous architecture wording
+
+````markdown
+## M91 shared implementation extraction
+
+The transactional writer now lives in `internal/artifactwriter`; coupled draft
+review, session/discovery and elicitation helpers live in `internal/elicitor`.
+Step authoring, browser scenarios and retained iCoT callers import these shared
+packages. Current test-command paths follow the new locations. Public CLI and
+wire contracts, fixture bytes, approval and report semantics remain unchanged.
+M91.3 still separates transport-specific Authoring iCoT adapters; this relocation
+alone does not establish the final dependency boundary or milestone acceptance.
+
+## M91 neutral Authoring engine adoption
+
+`internal/authoring` now delegates progressive, prompt and atomic interview
+contracts to `github.com/OpenUdon/authoring/engine`. Shared elicitor and step
+authoring therefore no longer import Authoring's iCoT compatibility facade.
+Product APIs, private session/transcript versions and approval behavior stay
+unchanged; remaining OpenUdon-local iCoT browser/evaluation extraction is M91.4/5.
+
+## M91 browser implementation relocation
+
+`internal/browserauthor` owns asynchronous capture controllers,
+`internal/authoringengine` owns headless lifecycle, and `internal/authoringui`
+retains the local UI/control transport during 5A. Shared terminal capture,
+attestation/staging, closed worker dispatch and scenario qualification now live
+in `internal/browserauthoring`; the retained iCoT terminal delegates through
+aliases/forwarders. Browser scenario consumers import that shared package, not
+the terminal. Artifact writes use the existing neutral transactional writer.
+Both registration and authenticated/TOTP capture and their approval/uncertainty
+contracts remain unchanged. M95 owns later entry-point retirement after parity.
+
+## M91 neutral expert/evaluation entry
+
+`internal/authoringcli` owns the single retained terminal/expert implementation.
+`internal/icot` is a temporary compatibility adapter during 5A.
+`openudon authoring` exposes the closed expert lint/reconcile/repair/report,
+variants/scorecard and explicit model-evaluation commands, without exposing the
+old UI/control or worker transport. Existing report wires and canonical legacy
+command labels remain compatible. M95 owns deletion of obsolete interaction
+and transport code after replacement evidence; this extraction does not count
+as retirement. Integration evaluation v5 uses relocated selectors while v1–v4
+continue verifying their immutable selectors/locks. Current native browser
+runner paths follow shared packages; report wire/stage identities remain stable.
+````
+
+### Previous stack wording
+
+````markdown
+## M91 shared implementation extraction
+
+Shared writer/review checks now use `go test ./internal/artifactwriter
+./internal/elicitor ./internal/stepauthoring`. The Makefile's current adversarial
+selectors follow those locations. Frozen historical integration-report selector
+commands and lock bytes remain unchanged; M91.5 owns versioned evaluation
+rebasing. Relocation checks passed `make fast` and focused transactional/race
+checks with unchanged tracked fixture bytes. Final smoke and frozen integration
+qualification remain required before milestone acceptance.
+
+## M91.3 exact neutral-engine dependency
+
+OpenUdon pins Authoring `v0.0.0-20260930234600-18056cb6b0c1`, Origin.Hash
+`18056cb6b0c1007dd567a4a825a6b4311a357185`, after verified M29 closure
+`dc8f3d61970ae628fc0399b0ef42187aa62a3e5b`. Only this module was updated;
+UWS and APItools adoption remain M92 and M94. The adapter uses public `engine`
+APIs; default checks remain provider/credential free and standalone tests use
+the published module with GOWORK off.
+
+## M91 browser checks after relocation
+
+Current focused selectors use `internal/browserauthoring`,
+`internal/browserauthor`, `internal/authoringengine`, and
+`internal/authoringui`. UI build tags and response schemas retain their existing
+names; embedded assets move byte-for-byte. M91.5 still owns rebasing versioned
+evaluation/native runner selectors. Frozen report selectors and build-input
+locks remain immutable. The affected authorized smoke and frozen integration
+qualification run after that rebase in M91.6, before final acceptance.
+
+## M91 expert and integration evaluation commands
+
+Use `openudon authoring lint|reconcile|repair|report|variants|scorecard|replay-eval|authoring-eval`
+for retained expert/evaluation commands. Subcommand flags/help, report schema
+versions and canonical `icot ...` report labels remain unchanged for
+compatibility; actual launcher argv is captured separately in qualification.
+The Make evaluation targets now invoke this expert entry. Model-backed replay/
+authoring evaluation still requires explicit invocation and provider authority;
+default checks are fake/model free.
+
+`openudon.browser-integration-eval.v5` retains all 19 gates and named-test
+inventories with relocated source/dependency paths. v1–v4 verification and
+compatibility/build-input locks stay unchanged. v5 engine/UI dependency scans
+also reject either iCoT package. Current native browser selectors use shared
+UI/controller locations, with the same build tags, assertions and stage names.
+````
+
+## M92 current-truth qualification and default consolidation — 2026-10-01
+
+Source: current product, architecture and tech-stack sections below. Review R2
+found historical default/pin/selector claims still phrased as current. M92
+selects UWS 1.12, accepted Udon M45, scenario/journey/native v5 and integration
+v6, preserving earlier immutable readers and lock bytes. Replacement: each
+current document, particularly its M92 applied-contract sections. This journal
+preserves superseded wording; it does not rewrite historical evidence.
+
+### product.md superseded excerpts
+
+Source: `tabilet/memory-bank/product.md`.
+
+`````markdown
+[E20](../docs/history/status-E20.md) records the authenticated-authoring qualification lineage,
+while [M86](../docs/history/status-M86.md) records the current UWS 1.11 real-browser
+qualification. Historical publication and failed-attempt details are preserved
+`````
+
+`````markdown
+  and external `main` workflow inputs using UWS levels `unknown`, `trusted`, or
+  `untrusted`. It requires UWS 1.9.1 or later; new workflows declare UWS 1.11.0.
+  It does not authorize execution, clear
+`````
+
+`````markdown
+reviewed journey cases, including Browser 1.8/1.9 and v10 cases plus three
+Browser 1.10 count cases through Udon v11. Current v4 evidence binds the
+published dependency revisions and complete clean local build closure.
+Historical reports and M86 v2 evidence remain verifiable under their original
+`````
+
+### architecture.md superseded excerpts
+
+Source: `tabilet/memory-bank/architecture.md`.
+
+`````markdown
+E21 current v3 readers use frozen Udon `6d32d49` compatibility and 14-source
+build-input snapshots. E22 advances the explicit current selector to Browser
+1.10 report v4, with the published UWS M05, Browsertools M32, Browserdriver
+`````
+
+`````markdown
+worktrees must match exact commits and be clean before browser work. Native
+qualification remains historical by default; `--stack current` emits v4 and
+routes scenario, build-input, BAP and BRP stages through the same v4 lock and
+closure. The v4 integration selector adds named count-profile, producer,
+schema, Udon v11 consumer, and Browserdriver extraction markers while the v2
+`````
+
+`````markdown
+and the UWS 1.2 first-class API source description types. OpenUdon emits those source
+families in new UWS 1.11.0 documents for reviewed local artifacts backed by source-aware apitools metadata, while downstream
+trusted executors still own protocol execution compatibility. UWS 1.1 defines portable timeout fields and workflow-level
+`````
+
+`````markdown
+| Runtime profiles | Allowed only for existing validated UWS runtime supplement shapes and project/environment policy. |
+| Content trust | Allowed only through an explicit operator-authored registry. It requires UWS 1.9.1 or later; newly generated workflows declare UWS 1.11.0 and existing packages retain their declared versions. Assessment explicitly invokes UWS analysis, using Browsertools for contained browser-profile contracts, and emits warning-only quality/review evidence without entering ordinary validation or execution. |
+
+`````
+
+`````markdown
+pinned browser component inventories without installing or launching them,
+and emits strict v1–v4 reports with digest sidecars. The v4 selector requires
+named Browser 1.10 count-profile, producer, schema, Udon v11 consumer, and
+`````
+
+`````markdown
+old profile meanings remain unchanged. Newly generated workflows declare UWS
+1.11.0. Browser 1.7 retains its scalar conversion under the legacy inner
+action protocol. Browser 1.8/1.9 profiles and Browser 1.10 count profiles pass
+`````
+
+### tech-stack.md superseded excerpts
+
+Source: `tabilet/memory-bank/tech-stack.md`.
+
+`````markdown
+
+## Current Browser 1.10 qualification stack
+
+OpenUdon's Go module pins published UWS M05
+`80ee9bfb24a688b5e875dadf9ecacdc65398f1ff` and Browsertools M32
+`````
+
+`````markdown
+`10fa8b2570f0a72688a1c8d282fe84cf7ea4af6e82ad5ffa85aa6fc994ff371a`). The
+scenario, integration and native current selectors now emit v4 reports; the
+current journey suite has 14 cases, including the three Browser 1.10 count
+journeys through Udon v11. Its v4 integration matrix requires named count
+`````
+
+`````markdown
+Native `openudon browser-system-eval --stack current --suite loopback` selects
+the v4 compatibility and 14-source build-input locks, requires all primary
+and auxiliary worktrees to be clean, and emits
+`openudon.browser-system-qualification.v4`. Its v3 reader retains the E21
+snapshots. The default remains historical native v2.
+`make browser-system-current-check` runs the explicit current path
+`````
+
+`````markdown
+  named-session intent fields to the matching public supplements. New workflows
+  declare UWS 1.11.0. Browsertools owns local validation; Udon and its persistent
+  Browserdriver own credential resolution, MFA challenge interaction, session
+`````
+
+`````markdown
+  Browsertools, UWS, Udon, and Browserdriver checkouts. The strict current
+  `openudon.browser-integration-eval.v2` JSON report and `.sha256` sidecar live
+  under ignored `eval/runs/`, record all five commit/dirty states, fixed named
+`````
+
+`````markdown
+  UWS 1.8 context, UWS 1.9 scalar and UWS 1.11 typed contracts, Browser
+  1.8/1.9 templates, Udon/Browserdriver v10 handoff, and OpenUdon UWS 1.11
+  output. V1 reports continue to use the unchanged historical scenario lock
+  and gate inventory. `--installed-engines` and
+`````
+
+Additional superseded tech-stack.md content-trust default:
+
+`````markdown
+  `uws1.ContentTrust` (supported since 1.9.1). New workflows declare UWS 1.11.0;
+`````
+
+## 2026-10-01 — M93 operator browser viewer replaces native viewer
+
+Reason: the user selected a browser viewer and approved the complete transport
+proposal and continued goal execution. This is an operator transport change
+within M93.0; it allocates no IDs, changes no product boundary and preserves
+all human acceptance gates and prior attempt outcomes. Replacement: current
+M93/consumer status records and Kinet launch reference; full noVNC/websockify
+remain private, SSH-forwarded and temporary. Earlier retired records remain
+frozen. No evolution version is required for this scope-preserving change.
+
+Source: `tabilet/memory-bank/milestone.md`; original operator wording:
+
+````markdown
+**Downstream.** M94; Kinet W09/M19/U07; W8M W28/W29.
+
+**Acceptance.** Versioned conformance and headless loopback checks cover both capture modes, TOTP, verification refusal, stale decisions, expiry and teardown. Before visible qualification, operation row M93.0 prepares Xvfb, a minimal window manager and x11vnc on the development host under the launch reference's named authorization; x11vnc listens on loopback only and the user connects with Remote Desktop Manager through an SSH tunnel. Record versions/display bindings and preserve Chromium sandboxing. Use disposable fixtures and bounded sessions; no public listener, service deployment or real target login. One explicit human-visible qualification covers both retained journeys. Qualify under owner policy; review and publish. A proven upstream protocol gap requires its owner's own approved plan, not copied code.
+
+Status, task-sized commit units, review provenance and persisted review counter: [status-M93.md](status-M93.md).
+````
+
+Source: `tabilet/memory-bank/status-M93.md`; original operator wording:
+
+````markdown
+| Item | State | Notes |
+| --- | --- | --- |
+| M93.0 — Prepare the private remote desktop (operation) | `[~]` | Operation row: run only while the launch request's named EXTERNAL_MUTATIONS authorization for the development desktop is in force. Check installation privilege first and stop if missing. Install and start Xvfb, a minimal window manager and x11vnc on the existing host; x11vnc listens on loopback only. The user connects once with Remote Desktop Manager through an SSH tunnel to confirm the session. No public listener, firewall change or permanent service; record versions and display bindings. Reused by M93.5, Kinet W09/U07 and W8M W28/W29. |
+| M93.1 — Freeze capture event/decision protocol | `[ ]` | Bound fields and event sizes; publish conformance fixtures and issued-reference/revision validation for both modes. |
+| M93.2 — Authenticated and TOTP capture | `[ ]` | Preserve goal/dashboard/origin policy, MFA-kind selection, human credential entry, disclosure consent and exact action approval. |
+
+## Acceptance and verification
+
+Versioned conformance and headless loopback checks cover both capture modes, TOTP, verification refusal, stale decisions, expiry and teardown. Before visible qualification, operation row M93.0 prepares Xvfb, a minimal window manager and x11vnc on the development host under the launch reference's named authorization; x11vnc listens on loopback only and the user connects with Remote Desktop Manager through an SSH tunnel. Record versions/display bindings and preserve Chromium sandboxing. Use disposable fixtures and bounded sessions; no public listener, service deployment or real target login. One explicit human-visible qualification covers both retained journeys. Qualify under owner policy; review and publish. A proven upstream protocol gap requires its owner's own approved plan, not copied code.
+
+Default checks use fake providers, disposable roots and loopback fixtures. No live target operation or deployment is authorized. Preserve package instructions, one execution owner and exact upstream reconciliation before advancing. Task commits/publication follow only the separately launched goal's explicit policy; this planning approval performs neither.
+
+issued-decision/revision/deadline/private-input rules. Native selectors are now
+v5 and integration v6 with separate retained v4/v5 readers. M93.0 must prepare
+its own private desktop and obtain the user's Remote Desktop Manager
+connection confirmation; M92's disposable Xvfb is already torn down and proves
+neither M93.0 nor M93.5 human acceptance. Capture submissions retain write
+
+Preserve private X authentication, private VNC credentials and disposable
+settings. Record exact installed versions and display/session bindings. The
+user must connect once with Remote Desktop Manager and confirm the display
+before this operation completes or M93.1 begins. Synthetic M92 Xvfb evidence
+is already torn down and is not this human checkpoint's acceptance.
+
+
+Human connection instructions: on the user's workstation, forward local
+15901 to this host's 127.0.0.1:5901 with SSH. In Remote Desktop Manager choose
+VNC, host 127.0.0.1, port 15901 and the private VNC password. The display contains
+an OpenUdon M93.0 connection-check message. The user must confirm that message
+````
+
+Source: `tabilet/memory-bank/tech-stack.md`; original operator wording:
+
+````markdown
+and x11vnc 0.9.17-2. Temporary X authentication/private password files are
+owner-only; X listens on no TCP port and VNC listens on 127.0.0.1:5901 only.
+Use an SSH tunnel and Remote Desktop Manager; clipboard exchange and VNC
+remote command/control are disabled. A bounded user process, not a permanent
+system service, owns teardown. Exact session bindings/expiry and the required
+````
+
+
+## 2026-10-01 — M93 reviewed native registration protocol selection
+
+Source: current architecture/stack before the M93.5 retained-profile checks,
+at `04e7e272adf2689327fe9ac73b81cb5e56e97fab`. These initially described
+only the newly added v4 adapter:
+
+```text
+and uses the existing no-submit v4 controller, including native verification,
+`RunRegistration` uses native `browsertools.registration-author-session.v4`,
+
+```
+
+Replacement: [capture architecture](../../memory-bank/architecture.md#m931-supervising-capture-envelope-foundation)
+and [M93.4 stack](../../memory-bank/tech-stack.md#m934-command-reviewed-start-and-profile-admission).
+The reviewed start now optionally selects an existing native v1/v2/v3/v4.
+Default remains v4. Native v4 requires verification/input BRP 1.2; older native
+protocols retain simpler existing profiles and their own native query/profile/
+preview/verification rules. No automatic fallback, new worker or relaxed gate
+was introduced. M93.5 qualification remains open; this is no acceptance claim.
+
+## 2026-10-01 — M94 adopts published APItools catalog producer
+
+- Original sources: architecture.md step-authoring APItools pin and tech-stack.md candidates pin.
+- Reason: M94.1 adopts published M81/M80 source fb132631c9827eae5f2ec4503d03f21eabfb4113 while retaining the legacy candidate/source contracts.
+- Evidence: exact module Origin.Hash and producer history; M94.1 source-backed native/CLI conformance and existing candidate/source checks.
+- Replacement: current architecture/tech-stack catalog discovery sections; M79 remains rollback and historical context.
+
+```markdown
+contract, currently APItools M79 revision
+  `e3625f6ef52ea54b7f78b7a4a4f1993bf8a06a46`.
+
+APItools M79 operation-candidate metadata at
+`v0.0.0-20260928033144-e3625f6ef52e` (commit
+`e3625f6ef52ea54b7f78b7a4a4f1993bf8a06a46`); it does not fetch URLs.
+```
+
+## 2026-10-01 — M94 consolidation corrects the M93 capture status
+
+Source: architecture.md, supervised browser capture/import section. Reason: the
+implementation description retained a pre-qualification sentence after M93
+normal closure. Evidence: retired M93 record, qualified application
+`f1273b622445d60dc7f3ea849e5b7f1a1f1e733a`, published closure
+`ca3b805456a459d83431cbc6ef3126015a575772`, and explicit human acceptance of
+both journeys. Replacement: current architecture sentence links M93 history.
+
+```markdown
+M93.5's native/visible qualification and accepted publication are still pending.
+```

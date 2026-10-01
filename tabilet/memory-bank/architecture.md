@@ -5,14 +5,16 @@
 Scenario, integration and native qualification readers dispatch from each
 report's version. Historical v1 and M86 v2 retain their original meanings;
 E21 current v3 readers use frozen Udon `6d32d49` compatibility and 14-source
-build-input snapshots. E22 advances the explicit current selector to Browser
+build-input snapshots. E22 advanced the explicit current selector to Browser
 1.10 report v4, with the published UWS M05, Browsertools M32, Browserdriver
 M15 and Udon M43 pins plus their separate 14-source build closure. Its three
 count scenarios stay outside the v3 manifest inventory. All selected sibling
 worktrees must match exact commits and be clean before browser work. Native
-qualification remains historical by default; `--stack current` emits v4 and
-routes scenario, build-input, BAP and BRP stages through the same v4 lock and
-closure. The v4 integration selector adds named count-profile, producer,
+qualification remains historical by default. The retained E22/M91 context
+used v4 locks and closure. New `--stack current` evidence uses M92 native v5,
+scenario/journey v5 and the exact UWS 1.12/M45 v5 input locks; integration
+emits v6. Its declared Browsertools UWS edge remains 1.11, with effective UWS
+1.12 selected separately. Earlier versioned readers retain their original pins. The v4 integration selector adds named count-profile, producer,
 schema, Udon v11 consumer, and Browserdriver extraction markers while the v2
 and v3 integration readers keep their frozen gate inventory. Full E22
 qualification and bounded review passed on clean OpenUdon
@@ -21,7 +23,7 @@ qualification and bounded review passed on clean OpenUdon
 
 The v2 and v3 snapshots prevent later current-stack updates from changing the
 meaning of retained reports. The E21 repair lineage is in
-[status-E21.md](status-E21.md).
+[status-E21.md](../docs/history/status-E21.md).
 BRP's temporary repository-local example parent is removed on every exit when
 the qualification created it; pre-existing paths are preserved and symlink
 parents are rejected so the per-stage clean-source check remains meaningful.
@@ -104,8 +106,8 @@ self-digest clears its own field before canonical JSON hashing.
   AsyncAPI maps to `asyncapi`, GraphQL maps to `graphql`, OpenRPC maps to `openrpc`,
   gRPC/protobuf maps to `grpc-protobuf`, and OData maps to `odata`.
 - OpenUdon's non-interactive step-authoring CLI consumes APItools' published operation-candidate
-  contract, currently APItools M79 revision
-  `e3625f6ef52ea54b7f78b7a4a4f1993bf8a06a46`. `step candidates` scans bounded local family directories and returns path-free exact
+  contract, now adopted at published APItools M81/M80 revision
+  `fb132631c9827eae5f2ec4503d03f21eabfb4113`. `step candidates` scans bounded local family directories and returns path-free exact
   source/digest references, consumer summaries, match evidence, auth alternatives, effects, and
   capability gaps. `step check` revalidates that exact operation and effect against current local
   bytes, including source request locations, colliding unqualified names,
@@ -190,7 +192,7 @@ Transitional debt:
 OpenUdon must not teach prompts to emit workflow semantics that lack a public UWS contract. UWS 1.4
 adds GraphQL, OpenRPC, gRPC/protobuf, and OData source description types on top of UWS 1.3 AsyncAPI
 and the UWS 1.2 first-class API source description types. OpenUdon emits those source
-families in new UWS 1.11.0 documents for reviewed local artifacts backed by source-aware apitools metadata, while downstream
+families in new UWS 1.12.0 documents for reviewed local artifacts backed by source-aware apitools metadata, while downstream
 trusted executors still own protocol execution compatibility. UWS 1.1 defines portable timeout fields and workflow-level
 idempotency metadata; OpenUdon may preserve those only when project policy or intent explicitly
 requests them. Switches, loops, structural results, failure branches, retries, and runtime profiles
@@ -231,7 +233,7 @@ Current generation policy:
 | Timeouts | Allowed only when explicit `openudon-policy` or intent metadata requests them. |
 | Idempotency | Allowed for explicit workflow-level UWS 1.1 metadata; OpenUdon does not inject API keys. |
 | Runtime profiles | Allowed only for existing validated UWS runtime supplement shapes and project/environment policy. |
-| Content trust | Allowed only through an explicit operator-authored registry. It requires UWS 1.9.1 or later; newly generated workflows declare UWS 1.11.0 and existing packages retain their declared versions. Assessment explicitly invokes UWS analysis, using Browsertools for contained browser-profile contracts, and emits warning-only quality/review evidence without entering ordinary validation or execution. |
+| Content trust | Allowed only through an explicit operator-authored registry. It requires UWS 1.9.1 or later; newly generated workflows declare UWS 1.12.0 and existing packages retain their declared versions. Assessment explicitly invokes UWS analysis, using Browsertools for contained browser-profile contracts, and emits warning-only quality/review evidence without entering ordinary validation or execution. |
 
 The public UWS runtime supplement is a slim non-HTTP invocation selector for extension-owned
 execution only. Public `x-uws-runtime` carries only `type`, `command`, `workingDir`, `function`,
@@ -660,7 +662,8 @@ the attacker also updates a digest.
 iCoT runtime path. It runs version-selected named tests and boundary checks in
 OpenUdon, Browsertools, UWS, Udon, and Browserdriver, observes all three
 pinned browser component inventories without installing or launching them,
-and emits strict v1–v4 reports with digest sidecars. The v4 selector requires
+and emits strict v6 reports with digest sidecars; v1–v5 readers remain. The
+retained v4 selector requires
 named Browser 1.10 count-profile, producer, schema, Udon v11 consumer, and
 Browserdriver extraction markers. The v2 and v3 readers retain their fixed
 locks and gate inventories; v1 retains its historical inventory. The
@@ -788,7 +791,7 @@ same session. OpenUdon lowers these steps to the public
 `uws.browser-authentication-call.1.0` and named-session supplements in UWS 1.7
 for old main-page sources. Authentication 1.1 requires authentication-call 1.1;
 old profile meanings remain unchanged. Newly generated workflows declare UWS
-1.11.0. Browser 1.7 retains its scalar conversion under the legacy inner
+1.12.0. Browser 1.7 retains its scalar conversion under the legacy inner
 action protocol. Browser 1.8/1.9 profiles and Browser 1.10 count profiles pass
 local validation and review with their exact discriminator. Active Browser
 1.8/1.9 actions select trusted browser-driver v10; active Browser 1.10 actions
@@ -1315,3 +1318,183 @@ v5 flags) and `internal/trustedrunner` (v3 binding, conservative uncertainty,
 signature/archive verification). Canonical external run-config revalidation
 preserves explicit v5 only for HTTP-only packages. Report validation never
 imports a private executor package or decides a downstream retry.
+
+## Shared authoring implementation (M91)
+
+`internal/artifactwriter` owns the transactional writer; `internal/elicitor`
+owns shared draft review, discovery, catalog planning and session helpers.
+`internal/authoring` delegates prompt, progressive and atomic interviews to
+the public Authoring `engine` package. These consumers no longer depend on
+either iCoT compatibility package. Approval, rollback and uncertainty rules
+remain unchanged.
+
+`internal/browserauthor` owns capture controllers, `internal/authoringengine`
+owns headless lifecycle, and `internal/browserauthoring` owns shared capture,
+worker dispatch, attestation/staging and scenario helpers. `internal/authoringui`
+retains the local UI/control transport during 5A. Registration and authenticated/
+TOTP capture, private credential input and bounded child environment/actions
+retain their contracts; the existing transactional writer stages artifacts.
+
+`internal/authoringcli` contains the single retained terminal/expert
+implementation. `internal/icot` temporarily forwards legacy entry points.
+`openudon authoring` exposes only the closed expert commands; existing report
+wires and canonical legacy command labels remain compatible. M95 owns actual
+removal of obsolete interaction/UI assets after replacement qualification.
+
+Integration evaluation v5 uses neutral paths and the actual modern v10/v11
+authentication-authority marker; v1–v4 retain immutable selectors and locks.
+Native stage/wire identities remain unchanged. Fresh owner qualification
+passed three complete current-stack repeats, with source/tool bindings and
+without result reuse or sandbox overrides; consumer adoption is separate.
+
+## M92.1 version-preserving authoring
+
+Synthesis reads declared versions from bounded regular existing HCL/export
+artifacts before refinement/discovery writes. Conflicting declarations refuse
+without rewriting the package. New packages default to public UWS 1.12.0;
+existing declared versions retain their generation and approval path. Browser
+qualification explicitly carries the immutable manifest version into the same
+synthesis implementation; it cannot overwrite a different existing declaration.
+External executor compatibility uses M45's verified frozen binary and build
+closure, including report-v5 evidence for both retained 1.11 and new 1.12
+packages. M92 records passed fresh three-repeat browser qualification at its exact runtime checkpoint and separately verified final simulation producer revision.
+
+M92.2 shares declared-version reading in `uwsexec` across synthesis and pending
+commands. Pending intent schema field sets are JSON strings in HCL, decoded
+into the public `uws1.PendingStep`; generation uses its native UWS shape and no
+executable operation. Pending-only authoring skips API discovery without
+changing the project brief or later source/quality checks. A new additive
+`openudon.step-pending.v1` envelope uses revision-checked atomic intent writes
+and existing scaffolds/dependency checks. Resolution uses the existing bind
+path, requires the exact pending contract and removes that pending block.
+
+Assess distinguishes pending contracts in HCL and exported UWS. Trusted runner
+admission independently decodes both captured artifacts before stored quality
+or an injected assessor can authorize anything, and uses public executable
+validation when pending contracts exist. This includes unused workflows and
+unselected branches. Refusal produces no approval, staging, credential lookup
+or executor dispatch. The unchanged legacy version retains its wire shape;
+confirmed 1.12 effects are additive and descriptive.
+
+M92.3's `internal/simulation` captures bounded regular package files and uses
+shared review-handoff digest and public UWS decoders. Captured HCL/YAML must
+agree; empty operation inventories normalize the public decoder nil/empty
+difference. Pending operations exist only in memory. Legacy request expression
+wrappers and received_body outputs adapt to public expressions; the public
+orchestrator/mock runtime owns all scheduling, branching, loops and evaluation.
+No network, browser worker, executor or credential resolver is connected.
+Explicit fixtures/examples/schemas supply responses; original package files
+and digest are checked again after computation. Fixed diagnostics and bounded
+redacted shapes are exported as `openudon.simulate.v1`. This is preview evidence,
+not approval or real-run evidence; M92 records final producer conformance and the distinct native-runtime qualification context.
+
+## M92.4 conformance and qualification context
+
+New current browser evidence selects scenario/journey v5, integration v6 and
+native system v5. Exact UWS 1.12/M45 locks preserve old report readers and their
+frozen contexts. The new lock separately records Browsertools' retained older
+declared UWS edge and the effective UWS 1.12 module; it never rewrites that
+sibling's go.mod. Fresh-package qualification advances only declared UWS versions
+while retaining all fixture journey semantics. Published pending/simulation
+schemas and examples are checked offline against actual owner output, including
+package digest and revision-bound pending intent writes. M92 records observed
+producer and browser qualification with exact source identities. The final
+pure-simulation namespace fix does not change browser/authoring/executor code
+or pins; native evidence retains its original source identity.
+
+## M93.1 supervising capture envelope foundation
+
+`internal/browsercapture` implements `openudon.browser-capture.v1` as a
+process-local single-owner gate above the existing neutral browser controllers.
+A new session has random IDs, one mode, a fixed deadline, monotonic event
+revisions and bounded transient reduced views. A typed proposal executes
+nothing: it produces an exact server-held review card; approval/refusal names
+that issued event/action/digest and consumes it once. Changed or unpublishable
+worker state invalidates earlier authority. Terminal results, cancellation and
+expiry cannot restore or replay a command. The existing controllers retain
+semantic validation, origin/action/verification gates and private browser input.
+
+The closed wire imports Browsertools reduced record types, keeps full
+registration history controller-local, and exposes no worker-result paths,
+attestations, raw page/browser state or credential/code values. Model-disclosure
+proposals bind the current observation and supply no model invocation themselves.
+Kinet owns transient UI/Ask handling and its A10/W09 persistence projection.
+The exact published schema is embedded and enforced before typed records are
+interpreted. This foundation alone exposes no capture CLI or completed journey;
+M93.2–M93.5 own adapters, profiles/worker handoff and acceptance.
+
+M93.2 adds the authenticated/TOTP adapter over `browserauthor.Session` and a
+single-owner closeable-stream driver reusable by both modes. Controller-owned
+pure decision checks reuse its existing observation/checkpoint conversions;
+actual dispatch retains native worker and parent-attestation checks. No worker,
+profile validator or model client is duplicated. A proposal never responds to
+the controller; only the exact one-use approved command does. Worker-issued
+origin/action approvals remain independent checkpoints. Disclosure consent is
+an exact observation event, not a model call or persistent session grant.
+
+The adapter closes and joins its reader and drains controller events through
+joined worker closure on EOF, malformed/stale input, cancellation, absolute
+expiry or output failure. Late teardown failure overrides a nominal cancel.
+A joined capture emits terminal state `captured` with no profile metadata;
+its private result/attestation has no JSON representation and remains input
+to M93.4's independent review/package lifecycle. M93.3 adds registration;
+M93.4 adds command/worker embedding/import, with M93.5 owning fresh
+browser and human-visible acceptance of both journeys.
+
+The registration adapter consumes an already reviewed fixed initial authority
+and uses the selected existing no-submit controller; v4 includes native verification,
+public preview and canonical profile/history validation. Current-state proposal
+checks use an immutable controller-owned snapshot; no consumer reconstructs
+the registration state machine or resends full history. Only current observation
+and latest preview cross the stream. GET/HEAD navigation stays within approved
+origins; exact verification refusal sends no command. Native reduced terminal
+diagnostics are retained, with containment failures taking precedence.
+
+The shared driver reads the native registration controller's retained terminal
+outcome after joined closure; a dropped terminal event cannot hide a candidate
+or late containment failure. Registration now joins its protocol reader and
+private cleanup before closing its event stream. A native subprocess check
+holds private cleanup and proves the stream cannot close early. Private
+candidates stay in-process with no wire representation until independent
+M93.4 package admission. iCoT remains on the same native implementation.
+
+
+M93.4 exposes a digest-approved reviewed start file and embeds the shared hidden
+worker in the main CLI. Both capture modes retain the same stream, one-use gate,
+reader and absolute deadline through a separate post-join import phase. Native
+attested reconstruction/adoption, virtual-source validation, workspace fingerprint
+and atomic authoring writer own source identity, drift/expiry, targets and rollback.
+A result binds the held reviewed transaction; approval imports profiles/reviews
+and a metadata-only native transaction/file receipt together. Conservative write
+effects include login/submission recipes. This is local authoring admission,
+not full-package promotion or execution authority. Only a committed import emits
+terminal imported metadata; refusal/cancel/EOF/expiry writes no profiles. A
+failed write or lost terminal delivery requires inspection, never automatic replay.
+M93 native/visible qualification, explicit human acceptance and publication
+are complete; see [its permanent record](../docs/history/status-M93.md).
+Kinet and W8M retain their independent adoption qualifications.
+
+## M94 catalog discovery adapter
+
+`step discover` returns the native APItools catalog-discovery/v1 report from
+its indexed discovery/ranking implementation. Root/registry/index, optional
+installation catalog metadata and remote capability are selected only through
+trusted CLI configuration; requests retain the native bounded decoder plus
+OpenUdon's shared duplicate-key check. Read-only registration access uses
+APItools sqlitecache; no implicit roots, index writes or copied ranking.
+All five outcomes/coverage/reference/license facts remain unchanged. Only
+scoped no-qualifying-api can support automatic browser fallback; the adapter
+never performs routing, confirmation or execution. Optional remote retrieval
+requires both installation and request opt-in under native bounds.
+
+`step source add --catalog` consumes the closed additive
+`openudon.step-source-catalog.v1` request. Native APItools artifact-scoped export
+prepares only confirmed references in disposable private staging. OpenUdon
+independently checks selectors against the exact exported raw source and
+disjoint final package/catalog roots, preserves every selected provider link
+and applicable advisory overlays, then shares `step source add`'s one atomic
+writer for raw sources, optimistic manifest and digest-bound
+`openudon.catalog-source-provenance.v1`. No separate writer/ranking/parser or
+implicit registration/index mutation was added. Likely concrete credentials
+are refused without rewriting the raw bytes. Catalog mode results add only a
+provenance path to the source-add result shape; local v1 remains unchanged.

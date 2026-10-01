@@ -28,8 +28,16 @@ version select an immutable lock snapshot. Updating a mutable current lock can
 otherwise invalidate retained reports even when their bytes and recorded
 digests are unchanged. E21 froze the M86 scenario and integration lock bytes
 before advancing current-stack support; the original integration and two
-scenario v2 reports continue to verify. See [status-E21](status-E21.md) and
+scenario v2 reports continue to verify. See [status-E21](../docs/history/status-E21.md) and
 [M86](../docs/history/status-M86.md).
+
+Advancing a report version must carry its supported phase/assertion vocabulary
+as well as its pins and required markers. Test both retained and new versions
+with positive count evidence and negative non-count evidence. M92 review R3
+found that all fourteen native journeys ran successfully while the outer v5
+verifier still rejected the retained `udon_v11` phase through a v4-only branch.
+Evidence: `TestBrowser110CurrentReportRequiresVersionedCountEvidence` and
+M92's status record, resolved through the milestone/history index.
 
 ## Bind advertised coverage to versioned qualification selectors
 
@@ -41,6 +49,13 @@ for existing reports and add the explicit markers to a new report version.
 E22 review iteration 2 found and corrected this gap for Browser 1.10 count
 evidence; see the [E22 history record](../docs/history/status-E22.md).
 
+M91's frozen integration detected a stale v10-only marker after P08 had
+broadened the real test to v10/v11. Relocate current paths and require the
+actual modern marker in a new report version; preserve all historical
+selectors/locks. Compare fixture/asset bytes and shared function bodies as
+well as counters, then run fresh native qualification at the extracted
+source. See M91's closing record (resolved through the history index).
+
 ## Exercise browser profiles through trusted package preparation
 
 When adding a browser profile version, test the package lifecycle and trusted
@@ -48,14 +63,14 @@ dry-run that consume it, not only its producer, schema, and browser journey.
 E22's v4 count qualification passed while the trusted-runner rank-10 dispatcher
 still rejected `uws.browser.1.10` during W8M package preparation. Preserve
 existing profile-version mappings and verify the restricted dry-run without
-invoking an executor or browser. See [P07](status-P07.md) and the W8M W22.5
+invoking an executor or browser. See [P07](../docs/history/status-P07.md) and the W8M W22.5
 package-preflight record in that repository (`tabilet/memory-bank/status-W22.md`).
 
 Preparation alone missed a second boundary: P07 selected v10 for Browser 1.10,
 so W8M W24.5 authenticated but Udon rejected the count action before DOM
 extraction. Test the exact prepared run-config's profile/protocol pairing
 through the external executor handoff as well. P08 selects v11 and rejects
-incompatible active mixes; see [P08](status-P08.md).
+incompatible active mixes; see [P08](../docs/history/status-P08.md).
 
 ## Validate task tables with the installed runner
 
@@ -100,6 +115,51 @@ compare faithfully. Evidence: `internal/udonreport/v5.go` and its alias/null,
 presence, identity and timestamp mutation tests; M90 review finding R90-3 in
 [M90 history](../docs/history/status-M90.md). Keep legacy wire behavior under its own version.
 
+Capture's M93.1 uses the same exact-schema rule: the public resource is
+embedded, duplicate keys/unknown nested fields are rejected before interpreting
+the closed union, and conformance uses the actual decoders. Evidence:
+`internal/browsercapture/conformance_test.go` and
+`docs/browser-capture-protocol.md`. Its process-local gate additionally binds
+review to immutable issued arguments and consumes approval/refusal once; a
+failed new-state publication must destroy old action authority.
+
+## Keep hypothetical execution separate from executable approval
+
+Project unresolved contracts only in memory for preview, using public runtime
+semantics and explicit response fixtures/examples/schemas. Never publish or
+approve a fabricated operation. Reserve every public identity namespace,
+including parallel groups, before choosing synthetic names. Pending admission
+must check every workflow/branch and both generated artifacts before stored
+quality, credentials or executor dispatch. Evidence: M92 pending refusal,
+public orchestration and namespace regression tests, resolved through its
+milestone/history record. Export provenance and labels without private values;
+preview success grants no execution authority.
+
+
+## Preserve an explicit empty choice at a native JSON boundary
+
+A reviewed empty selection is distinct from absent authority. A pointer to a
+nil Go slice marshals as JSON null and decodes as an absent pointer; cloning a
+reviewed selection must retain a non-nil zero-length slice when empty is valid.
+Test the native worker JSON round trip as well as adapter method calls. Evidence:
+M93.5 actual public authenticated/TOTP capture with no outputs; shared
+browserauthor.checkpointResponse and
+TestCompletionRetainsExplicitEmptySelectionAcrossWorkerJSON. This retains the
+worker's refusal of missing/unconfirmed authority instead of relaxing it.
+
+## Bind catalog selection through native export and package publication
+
+An indexed discovery result proves only its reported scope. Preserve its native
+artifact references, raw identity and selectors through selected export, then
+independently validate selector binding before a confirmed package transaction.
+Keep every selected provider link and only applicable advisory overlays; advice
+does not authorize runtime behavior. Stage privately and commit source bytes,
+manifest and provenance with the existing atomic writer, so refusals cannot
+leave a partially provisioned package. Evidence: M94 catalog round-trip,
+wrong-selector/drift/collision/cancellation/schema tests and source-backed
+public fixtures in docs/fixtures/catalog-discovery-v1. Read-only native SQLite
+may maintain transient WAL/shared-memory files; assert unchanged registration
+data/index/raw bytes rather than confusing those locks with application writes.
 
 ## Separate setup seeds, current codes and recovery codes
 

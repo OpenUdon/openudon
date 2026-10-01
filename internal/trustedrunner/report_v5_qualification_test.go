@@ -28,29 +28,37 @@ const acceptedM44Closure = "603a1c4dae5606dd24683ca40050c918e0b7e2b6f31c10e6d439
 
 const acceptedM44Executor = "d2d593ac6d5a6a19406180eb70c5993ee4811fecb20c1a31cdb5a1f59278575b"
 
-func qualifiedM44(t *testing.T) string {
+type reportQualification struct {
+	name, source, binary, closure string
+	verificationCount             int
+}
+
+var m44ReportQualification = reportQualification{"M44", acceptedM44, acceptedM44Executor, acceptedM44Closure, 3}
+var m45ReportQualification = reportQualification{"M45", "238f2e487d50ffec057b7a109a35c9db03f59c55", "cb4b94c968aa3f3de4106a440fdcd02e6c210941eb25e6666b84cfbc7f63868b", "10d4c613c4882365f2799789d456e8a3b15484b1995a052e334616cad9d0fd59", 4}
+
+func qualifiedReportExecutor(t *testing.T, identity reportQualification) string {
 	t.Helper()
-	if os.Getenv("OPENUDON_M44_QUALIFY") != "1" {
-		t.Skip("explicit loopback-only real M44 qualification")
+	if os.Getenv("OPENUDON_"+identity.name+"_QUALIFY") != "1" {
+		t.Skip("explicit loopback-only real executor qualification")
 	}
-	path := os.Getenv("OPENUDON_M44_EXECUTOR")
+	path := os.Getenv("OPENUDON_" + identity.name + "_EXECUTOR")
 	if !filepath.IsAbs(path) {
-		t.Fatal("set absolute OPENUDON_M44_EXECUTOR")
+		t.Fatal("set the absolute qualified executor path")
 	}
 	binary, _, err := evidencefile.ReadRegular(path, 512<<20)
 	if err != nil {
 		t.Fatal(err)
 	}
 	sum := sha256.Sum256(binary)
-	if hex.EncodeToString(sum[:]) != acceptedM44Executor {
-		t.Fatal("executor does not match accepted frozen M44 build")
+	if hex.EncodeToString(sum[:]) != identity.binary {
+		t.Fatal("executor does not match accepted frozen build")
 	}
-	data, _, err := evidencefile.ReadRegular(os.Getenv("OPENUDON_M44_CLOSURE"), 8<<20)
+	data, _, err := evidencefile.ReadRegular(os.Getenv("OPENUDON_"+identity.name+"_CLOSURE"), 8<<20)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if evidencefile.SHA256(data) != acceptedM44Closure {
-		t.Fatal("closure bytes differ from accepted M44 qualification")
+	if evidencefile.SHA256(data) != identity.closure {
+		t.Fatal("closure bytes differ from accepted qualification")
 	}
 	var closure struct {
 		SourceRevision   string            `json:"source_revision"`
@@ -65,7 +73,7 @@ func qualifiedM44(t *testing.T) string {
 	if err := json.Unmarshal(data, &closure); err != nil {
 		t.Fatal(err)
 	}
-	if closure.SourceRevision != acceptedM44 || closure.WorktreeIncluded || len(closure.Overlays) != 0 || closure.ExecutorSHA256 != acceptedM44Executor || len(closure.Siblings) != 14 || len(closure.Verification) != 3 {
+	if closure.SourceRevision != identity.source || closure.WorktreeIncluded || len(closure.Overlays) != 0 || closure.ExecutorSHA256 != identity.binary || len(closure.Siblings) != 14 || len(closure.Verification) != identity.verificationCount {
 		t.Fatal("not accepted clean build closure")
 	}
 	for _, v := range closure.Verification {
@@ -82,7 +90,17 @@ func qualifiedM44(t *testing.T) string {
 }
 
 func TestPublishedM44Qualification(t *testing.T) {
-	executor := qualifiedM44(t)
+	qualifyReportV5(t, qualifiedReportExecutor(t, m44ReportQualification), m44ReportQualification, "1.11.0")
+}
+
+func TestPublishedM45Qualification(t *testing.T) {
+	executor := qualifiedReportExecutor(t, m45ReportQualification)
+	for _, version := range []string{"1.11.0", "1.12.0"} {
+		t.Run(version, func(t *testing.T) { qualifyReportV5(t, executor, m45ReportQualification, version) })
+	}
+}
+
+func qualifyReportV5(t *testing.T, executor string, identity reportQualification, version string) {
 	for _, mode := range []string{"success", "failed-read", "failed-write", "kill-write", "checkpoint", "missing", "stale", "duplicate"} {
 		t.Run(mode, func(t *testing.T) {
 			var reads, writes atomic.Int32
@@ -171,10 +189,15 @@ step "write" {
  operation = "post"
 }
 `))
+			// The legacy branch reauthors an already declared package; the
+			// fresh branch must adopt 1.12 without selecting a version override.
+			if version != "1.12.0" {
+				mustWriteFile(t, filepath.Join(example, "workflows/workflow.hcl"), []byte("uws = \""+version+"\"\n"))
+			}
 			if _, err := synthesize.Build(context.Background(), synthesize.Options{ExampleDir: example}); err != nil {
 				t.Fatal(err)
 			}
-			approved, err := ApprovalTemplate(context.Background(), TemplateOptions{RepoRoot: root, ExampleDir: example, State: StateApprovedForSandbox, Reviewer: "M44 loopback qualification"})
+			approved, err := ApprovalTemplate(context.Background(), TemplateOptions{RepoRoot: root, ExampleDir: example, State: StateApprovedForSandbox, Reviewer: identity.name + " loopback qualification"})
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -289,7 +312,7 @@ step "write" {
 			if strings.Contains(string(data), "CANARY") {
 				t.Fatal("payload leaked")
 			}
-			t.Logf("M44 source=%s executor=%s mode=%s observation=%s reads=%d writes=%d", acceptedM44, acceptedM44Executor, mode, o.State, reads.Load(), writes.Load())
+			t.Logf("%s source=%s executor=%s UWS=%s mode=%s observation=%s reads=%d writes=%d", identity.name, identity.source, identity.binary, version, mode, o.State, reads.Load(), writes.Load())
 		})
 	}
 }

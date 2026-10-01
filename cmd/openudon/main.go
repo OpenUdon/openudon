@@ -15,6 +15,9 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/OpenUdon/openudon/internal/authoringcli"
+	"github.com/OpenUdon/openudon/internal/browserauthoring"
+	"github.com/OpenUdon/openudon/internal/browsercapture"
 	"github.com/OpenUdon/openudon/internal/browserintegrationeval"
 	"github.com/OpenUdon/openudon/internal/browserscenario"
 	"github.com/OpenUdon/openudon/internal/browsertransactioneval"
@@ -43,6 +46,7 @@ func main() {
 		fmt.Fprintf(flag.CommandLine.Output(), "Commands:\n")
 		fmt.Fprintf(flag.CommandLine.Output(), "  check     verify required sibling repositories are present\n")
 		fmt.Fprintf(flag.CommandLine.Output(), "  assess    assess existing example artifacts and write quality reports\n")
+		fmt.Fprintf(flag.CommandLine.Output(), "  authoring retained expert lint, repair, reconcile, variants, reports and evaluation\n")
 		fmt.Fprintf(flag.CommandLine.Output(), "  approval-template print approval JSON for a validated handoff package\n")
 		fmt.Fprintf(flag.CommandLine.Output(), "  build     regenerate workflow/UWS from an existing intent.hcl\n")
 		fmt.Fprintf(flag.CommandLine.Output(), "  browser-integration-eval run or verify provider-free cross-repo browser evidence\n")
@@ -65,7 +69,9 @@ func main() {
 		fmt.Fprintf(flag.CommandLine.Output(), "  run       validate approval gates and invoke a trusted executor handoff\n")
 		fmt.Fprintf(flag.CommandLine.Output(), "  run-evidence keygen/verify/archive run evidence, signatures, and sidecar digests\n")
 		fmt.Fprintf(flag.CommandLine.Output(), "  smoke-matrix run provider-free or opt-in live product smoke scenarios\n")
-		fmt.Fprintf(flag.CommandLine.Output(), "  step      discover, bind, check, or add explicitly selected local API sources\n")
+		fmt.Fprintf(flag.CommandLine.Output(), "  simulate  preview a package with the pure public UWS mock runtime\n")
+		fmt.Fprintf(flag.CommandLine.Output(), "  browser-capture supervise reviewed authenticated or registration capture over bounded JSONL\n")
+		fmt.Fprintf(flag.CommandLine.Output(), "  step      discover, author pending contracts, bind, check, or add explicitly selected local API sources\n")
 		fmt.Fprintf(flag.CommandLine.Output(), "  synthesize generate intent, workflow, UWS, and review artifacts for an example\n")
 		fmt.Fprintf(flag.CommandLine.Output(), "  validate  validate one UWS JSON/YAML file or a directory of UWS artifacts\n")
 		fmt.Fprintf(flag.CommandLine.Output(), "  version   print version\n")
@@ -78,6 +84,14 @@ func main() {
 	}
 
 	switch command {
+	case "__browsertools-worker":
+		os.Exit(browserauthoring.RunWorker(flag.Args()[1:], os.Stdin, os.Stdout, os.Stderr))
+	case "browser-capture":
+		ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
+		defer stop()
+		os.Exit(browsercapture.RunCommand(ctx, flag.Args()[1:], os.Stdin, os.Stdout, os.Stderr))
+	case "authoring":
+		os.Exit(authoringcli.RunExpert(flag.Args()[1:], os.Stdin, os.Stdout, os.Stderr))
 	case "check":
 		if err := config.CheckSiblings("."); err != nil {
 			fmt.Fprintln(os.Stderr, err)
@@ -119,6 +133,8 @@ func main() {
 		runValidateCommand(flag.Args()[1:])
 	case "synthesize", "build", "promote", "assess":
 		runArtifactCommand(command, flag.Args()[1:])
+	case "simulate":
+		os.Exit(runSimulateCommand(flag.Args()[1:], os.Stdout, os.Stderr))
 	case "run":
 		runTrustedCommand(flag.Args()[1:])
 	case "run-evidence":

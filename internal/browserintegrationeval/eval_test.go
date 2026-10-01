@@ -34,14 +34,14 @@ func TestM86CurrentLockSnapshotRetainsPublishedPins(t *testing.T) {
 }
 
 func TestCurrentV4ReportVersionUsesPublishedBrowser110LockAndBuildClosure(t *testing.T) {
-	lock, gates, err := contractForVersion(ReportVersion)
+	lock, gates, err := contractForVersion(CurrentV4ReportVersion)
 	if err != nil {
 		t.Fatal(err)
 	}
 	if len(lock.Components) != 4 || len(gates) != 19 {
 		t.Fatalf("current contract has %d components and %d gates", len(lock.Components), len(gates))
 	}
-	scenarioLock, err := browserscenario.LoadCurrentCompatibilityLock()
+	scenarioLock, err := browserscenario.LoadCurrentCompatibilityLockV4()
 	if err != nil || !reflect.DeepEqual(lock, scenarioLock) {
 		t.Fatalf("integration and scenario current locks differ: %v", err)
 	}
@@ -56,7 +56,7 @@ func TestCurrentV4ReportVersionUsesPublishedBrowser110LockAndBuildClosure(t *tes
 			t.Fatalf("current %s pin = %s", component.Name, component.Commit)
 		}
 	}
-	build, err := browserscenario.LoadCurrentQualificationBuildInputLock(lock)
+	build, err := browserscenario.LoadCurrentQualificationBuildInputLockV4(lock)
 	if err != nil || len(build.Components) != 14 {
 		t.Fatalf("current build closure = %d components, err = %v", len(build.Components), err)
 	}
@@ -112,7 +112,7 @@ func TestHistoricalIntegrationGateInventoriesRemainFrozen(t *testing.T) {
 }
 
 func TestCurrentV4GatesRequireBrowser110CountMarkers(t *testing.T) {
-	_, gates, err := contractForVersion(ReportVersion)
+	_, gates, err := contractForVersion(CurrentV4ReportVersion)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -308,7 +308,7 @@ func TestRunWritesAndVerifiesValueFreeProviderFreeMatrix(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Run: %v", err)
 	}
-	if report.Status != StatusPass || report.Summary != (Summary{Total: 19, Passed: 16, Skipped: 3}) {
+	if report.Status != StatusPass || report.Summary != (Summary{Total: 20, Passed: 17, Skipped: 3}) {
 		t.Fatalf("report summary = %#v", report)
 	}
 	if report.BrowserLaunchedByDefault || report.TargetContactedByICoT || report.CredentialEnvironmentReadByICoT || report.PlanningDeliverablesWritten {
@@ -400,17 +400,17 @@ func TestCurrentDependencyBoundarySeparatesEngineFromUIQualification(t *testing.
 	if err != nil {
 		t.Fatal(err)
 	}
-	for _, spec := range currentGates() {
+	for _, spec := range extractedGates() {
 		switch spec.ID {
 		case "icot-dependency-boundary":
-			if !equalStrings(spec.Args, []string{"go", "list", "-deps", "./internal/icot/engine"}) {
+			if !equalStrings(spec.Args, []string{"go", "list", "-deps", "./internal/authoringengine"}) {
 				t.Fatalf("engine scan widened: %#v", spec.Args)
 			}
 			if got := evaluateGate(spec, CommandOutput{Stdout: "github.com/mxschmitt/playwright-go\n"}, lock); got.Status != StatusFail {
 				t.Fatal("engine accepted Playwright implementation dependency")
 			}
 		case "icot-ui-capture-boundary":
-			if !equalStrings(spec.Args, []string{"go", "list", "-deps", "./internal/icot/ui"}) {
+			if !equalStrings(spec.Args, []string{"go", "list", "-deps", "./internal/authoringui"}) {
 				t.Fatalf("UI scan narrowed: %#v", spec.Args)
 			}
 			if got := evaluateGate(spec, CommandOutput{Stdout: "github.com/mxschmitt/playwright-go\n"}, lock); got.Status != StatusPass {
@@ -433,9 +433,9 @@ func TestRunOptInsPassOrHonestlySkipUnavailableComponents(t *testing.T) {
 		wantSkip    int
 		wantCalls   int
 	}{
-		{name: "installed components pass", doctorReady: true, wantPass: 19, wantCalls: 1},
-		{name: "missing components skip", wantPass: 16, wantSkip: 3},
-		{name: "named tests skip", doctorReady: true, skipOptIns: true, wantPass: 16, wantSkip: 3, wantCalls: 1},
+		{name: "installed components pass", doctorReady: true, wantPass: 20, wantCalls: 1},
+		{name: "missing components skip", wantPass: 17, wantSkip: 3},
+		{name: "named tests skip", doctorReady: true, skipOptIns: true, wantPass: 17, wantSkip: 3, wantCalls: 1},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			runner := &fakeRunner{t: t, doctorReady: test.doctorReady, skipOptIns: test.skipOptIns}
@@ -635,7 +635,7 @@ func (runner *fakeRunner) Run(_ context.Context, command Command) CommandOutput 
 		}
 		return CommandOutput{Stdout: output.String(), Stderr: "PASSWORD=member-password-value"}
 	case "dependency_scan":
-		return CommandOutput{Stdout: "runtime\nfmt\ngithub.com/OpenUdon/openudon/internal/icot\n"}
+		return CommandOutput{Stdout: "runtime\nfmt\ngithub.com/OpenUdon/openudon/internal/authoringengine\n"}
 	case "command":
 		return CommandOutput{Stdout: strings.Join(spec.RequiredLines, "\n") + "\n"}
 	case "npm_test":
@@ -698,7 +698,11 @@ func makeTestRepos(t *testing.T) map[string]string {
 	openudonMod := fmt.Sprintf("module example.test/openudon\n\nrequire (\n\t%s %s\n\t%s %s\n)\n",
 		locked["browsertools"].Module, locked["browsertools"].Version,
 		locked["uws"].Module, locked["uws"].Version)
-	browsertoolsMod := fmt.Sprintf("module example.test/browsertools\n\nrequire %s %s\n", locked["uws"].Module, locked["uws"].Version)
+	browsertoolsUWS := locked["uws"]
+	if lock.BrowsertoolsUWSRequirement != nil {
+		browsertoolsUWS = *lock.BrowsertoolsUWSRequirement
+	}
+	browsertoolsMod := fmt.Sprintf("module example.test/browsertools\n\nrequire %s %s\n", browsertoolsUWS.Module, browsertoolsUWS.Version)
 	if err := os.WriteFile(filepath.Join(root, "go.mod"), []byte(openudonMod), 0o600); err != nil {
 		t.Fatal(err)
 	}
@@ -741,4 +745,76 @@ func writeReportAndDigest(t *testing.T, path string, data []byte) {
 	if err := os.WriteFile(path+".sha256", []byte(line), 0o600); err != nil {
 		t.Fatal(err)
 	}
+}
+
+func TestHistoricalV4InventoryRemainsFrozenAfterExtraction(t *testing.T) {
+	_, specs, err := contractForVersion(CurrentV4ReportVersion)
+	if err != nil {
+		t.Fatal(err)
+	}
+	data, err := json.Marshal(specs)
+	if err != nil {
+		t.Fatal(err)
+	}
+	sum := sha256.Sum256(data)
+	if got := hex.EncodeToString(sum[:]); got != "737ddc4b2616d7eee34713be10d4e1781108b5e80c7caabdf8916bf9a7fdc539" {
+		t.Fatalf("historical v4 inventory changed: %s", got)
+	}
+	_, current, err := contractForVersion(CurrentV5ReportVersion)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(current) != len(specs) {
+		t.Fatal("extraction dropped qualification coverage")
+	}
+	for index, spec := range current {
+		expectedPasses := append([]string(nil), specs[index].RequiredPasses...)
+		for index, name := range expectedPasses {
+			expectedPasses[index] = strings.ReplaceAll(name, "BrowserV10ConfigPreservesAuthenticationWithoutRegistrationAuthority", "BrowserModernConfigPreservesAuthenticationWithoutRegistrationAuthority")
+		}
+		if !reflect.DeepEqual(spec.RequiredPasses, expectedPasses) {
+			t.Fatalf("named coverage changed for %s", spec.ID)
+		}
+		for _, arg := range spec.Args {
+			if strings.Contains(arg, "./internal/icot") {
+				t.Fatalf("current selector still uses iCoT: %s", arg)
+			}
+		}
+		if spec.Kind == "dependency_scan" {
+			for _, forbidden := range []string{"github.com/OpenUdon/openudon/internal/icot", "github.com/OpenUdon/authoring/icot"} {
+				lock, err := loadCurrentCompatibilityLock()
+				if err != nil {
+					t.Fatal(err)
+				}
+				if evaluateGate(spec, CommandOutput{Stdout: forbidden + "\n"}, lock).Status != StatusFail {
+					t.Fatalf("%s accepted %s", spec.ID, forbidden)
+				}
+			}
+		}
+	}
+}
+
+func TestCurrentHandoffRequiresModernAuthenticationAuthorityEvidence(t *testing.T) {
+	lock, specs, err := contractForVersion(ReportVersion)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, spec := range specs {
+		if spec.ID != "openudon-uws111-browser19-handoff" {
+			continue
+		}
+		var oldEvidence, currentEvidence strings.Builder
+		for _, name := range spec.RequiredPasses {
+			fmt.Fprintf(&currentEvidence, "--- PASS: %s (0.00s)\n", name)
+			fmt.Fprintf(&oldEvidence, "--- PASS: %s (0.00s)\n", strings.ReplaceAll(name, "BrowserModernConfigPreservesAuthenticationWithoutRegistrationAuthority", "BrowserV10ConfigPreservesAuthenticationWithoutRegistrationAuthority"))
+		}
+		if evaluateGate(spec, CommandOutput{Stdout: oldEvidence.String()}, lock).Status != StatusFail {
+			t.Fatal("accepted stale authority marker")
+		}
+		if evaluateGate(spec, CommandOutput{Stdout: currentEvidence.String()}, lock).Status != StatusPass {
+			t.Fatal("rejected complete modern authority evidence")
+		}
+		return
+	}
+	t.Fatal("missing handoff gate")
 }

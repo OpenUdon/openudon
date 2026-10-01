@@ -59,7 +59,7 @@ release-saas-check:
 	$(GO) run ./cmd/openudon n8n-bridge validate --root examples/eval
 	mkdocs build --strict --site-dir $(OPENUDON_RELEASE_SITE_DIR)
 	for fixture in $(OPENUDON_RELEASE_SAAS_FIXTURES); do \
-		$(GO) run ./cmd/icot lint --example ./examples/eval/$$fixture; \
+		$(GO) run ./cmd/openudon authoring lint --example ./examples/eval/$$fixture; \
 	done
 	rm -rf "$(OPENUDON_RELEASE_DEMO_ROOT)"
 	mkdir -p "$(OPENUDON_RELEASE_DEMO_ROOT)/approvals"
@@ -100,16 +100,16 @@ browser-transaction-brp:
 browser-transaction-adversarial:
 	$(GO) test -count=1 ./internal/browsertransaction -run '^(TestCanonicalRoundTripAndDigest|TestVersionCompositionIsClosedAndLegacyBytesAreStable|TestCompositionAndValueFreeBoundary|TestPublicV2SchemaCompilesAndAcceptsOnlyRegistrationV2|TestLifecycleAndImmutableTransitions|TestLifecycleFieldsAndFailureCodes|TestClosedTransitionMatrix|TestStrictDecodeRejectsUnknownAndMultipleDocuments)$$'
 	$(GO) test -count=1 ./internal/browsercandidate -run '^(TestPrivateInboxRejectsReviewBindingAndLifecycleDrift|TestPrivateInboxRejectsUnsafeAndChangedResults|TestPrivateInboxRejectsNonCanonicalResultJSON|TestPrivateInboxRejectsPartialOversizedAndAmbiguousWrites)$$'
-	$(GO) test -count=1 ./internal/icot/browserauthor -run '^(TestExternalRegistrationWorkerExitAndProtocolFailuresAreClosed|TestExternalRegistrationCancellationCannotAdoptCandidate|TestRegistrationControllerRequiresExactHumanReview|TestRegistrationControllerAcceptsObservationOnlyEmptyLabelButRejectsItsSelection|TestRegistrationControllerRejectsInvalidParentBounds|TestRegistrationServerDecoderRejectsAmbiguousJSON|TestStabilizeExecutableRejectsContentMutationDuringCopy|TestOperatorIdleCancellationIsBounded)$$'
-	$(GO) test -count=1 ./internal/icot/elicitor -run '^(TestDiscoverVirtualBrowserSourcesRejectsAuthenticatedReviewDrift|TestVirtualBrowserDiscoveryRejectsStaleVersionAndCollisions|TestVirtualBrowserDependencyTraversalRejectsMissingCycleAndDuplicates|TestRequireFreshVirtualBrowserSourcesRejectsReplacement)$$'
+	$(GO) test -count=1 ./internal/browserauthor -run '^(TestExternalRegistrationWorkerExitAndProtocolFailuresAreClosed|TestExternalRegistrationCancellationCannotAdoptCandidate|TestRegistrationControllerRequiresExactHumanReview|TestRegistrationControllerAcceptsObservationOnlyEmptyLabelButRejectsItsSelection|TestRegistrationControllerRejectsInvalidParentBounds|TestRegistrationServerDecoderRejectsAmbiguousJSON|TestStabilizeExecutableRejectsContentMutationDuringCopy|TestOperatorIdleCancellationIsBounded)$$'
+	$(GO) test -count=1 ./internal/elicitor -run '^(TestDiscoverVirtualBrowserSourcesRejectsAuthenticatedReviewDrift|TestVirtualBrowserDiscoveryRejectsStaleVersionAndCollisions|TestVirtualBrowserDependencyTraversalRejectsMissingCycleAndDuplicates|TestRequireFreshVirtualBrowserSourcesRejectsReplacement)$$'
 	$(GO) test -count=1 ./internal/browsertransaction/engine -run '^(TestAuthorizationRevisionConcurrencyAndCancellationPreserveState|TestIndeterminatePromotionRequiresExactInspectedRecovery)$$'
 	$(GO) test -count=1 ./internal/packagepipeline -run '^(TestPrepareCurrentHonorsCancellationAndRejectsDrift|TestConcurrentPromotionFailsClosedAndLeavesConsistentSelection|TestPromoteRejectsInvalidInputsAndGenerationCollision|TestPromotionFaultBoundariesHaveTypedRecoverableOutcomes|TestInterruptedPreselectionReconcilesAsRollbackAndPreservesGeneration|TestInterruptedIntentBeforePublicationReconcilesAsRollback|TestRecoveryRejectsSelectionDriftWithoutCleanup|TestRollbackReconciliationPreservesSelectedPriorAndTarget|TestInterruptedPromotionCancellationStates)$$'
-	$(GO) test -count=1 ./internal/icot/artifactwriter -run '^(TestExpectedCurrentSHA256IsRecheckedAtReplacementBoundary|TestWriteConflictsIsReadOnlyAndRejectsUnsafePaths|TestPreparedPlanRejectsAmbiguousPathsBeforeFilesystemMutation|TestAtomicWriterCreateOnlyInstallCannotReplaceRacingFile|TestAtomicWriterClassifiesRollbackFailureIndeterminate|TestAtomicWriterRejectsSymlinksSwapsAndOutsidePaths)$$'
+	$(GO) test -count=1 ./internal/artifactwriter -run '^(TestExpectedCurrentSHA256IsRecheckedAtReplacementBoundary|TestWriteConflictsIsReadOnlyAndRejectsUnsafePaths|TestPreparedPlanRejectsAmbiguousPathsBeforeFilesystemMutation|TestAtomicWriterCreateOnlyInstallCannotReplaceRacingFile|TestAtomicWriterClassifiesRollbackFailureIndeterminate|TestAtomicWriterRejectsSymlinksSwapsAndOutsidePaths)$$'
 	$(GO) test -count=1 ./internal/trustedrunner -run '^(TestValidatedPackageBrowserConfigStaysBoundToImmutableSnapshot|TestTrustedRunnerBrowserRegistrationDryRunNeverInvokesExecutor|TestOuterRunnerReceivesPrivateAttestationOnlyThroughClosedEnvironment|TestInspectPackageRejectsHandoffGenerationChangeDuringAssessment|TestRunDigestMismatchFails|TestRunRejectsSymlinkedWorkflowBeforeExecutorInvocation|TestUdonRunnerVerifiesStagedPackageDigestBeforeExecutor)$$'
 	$(GO) test -count=1 ./internal/registrationattestation ./internal/udonrunner ./internal/udonreport -run '^(TestReadOutsideRepoAcceptsExactOwnerOnlyArtifact|TestReadOutsideRepoRejectsUnsafePathModeAndDrift|TestDecodeRejectsValuesUnknownFieldsAndLifecycleDrift|TestBrowserRegistrationEvidenceRejectsExecutorConstruction|TestDockerBrowserRegistrationCarriesOnlyV4NamesAndApprovals|TestDecodeRequiresTypedV3FailureAndNoSuccessCode)$$'
 	$(GO) test -count=1 ./internal/synthesize -run '^(TestValidateBrowserRegistrationReviewRejectsTamper|TestBrowserRegistrationProfileRejectsPIIAndSecretShapedValues|TestValidatePackagedBrowserProfileRejectsRawOrSecretShapedFields|TestNoSecretsQualityReportsOnlyArtifactPaths)$$'
 	$(GO) test -count=1 ./internal/browsertransactioneval ./internal/browserscenario -run '^(TestReportRejectsContractDriftFailureAndDependencyMismatch|TestVerifyFileRejectsTamperUnknownMissingDuplicateNoncanonicalAndSymlink|TestCompatibilityLockRejectsDirtyOrDriftedSibling|TestStrictJSONRejectsDuplicateKeysAtEveryObjectDepth)$$'
-	$(GO) test -count=1 ./internal/icot ./internal/icot/ui -run '^(TestBrowserTransactionTerminalDenialCancellationExpiryAndUsage|TestBrowserTransactionTerminalIndeterminateRecoveryUsesExactSharedState|TestV4BrowserTransactionResourceAndV3RouteClosure|TestBrowserTransactionTransportBoundsAndTypedErrors|TestConcurrentSameRevisionMutationHasOneWinner)$$'
+	$(GO) test -count=1 ./internal/authoringcli ./internal/authoringui -run '^(TestBrowserTransactionTerminalDenialCancellationExpiryAndUsage|TestBrowserTransactionTerminalIndeterminateRecoveryUsesExactSharedState|TestV4BrowserTransactionResourceAndV3RouteClosure|TestBrowserTransactionTransportBoundsAndTypedErrors|TestConcurrentSameRevisionMutationHasOneWinner)$$'
 	cd "$${OPENUDON_BROWSERTOOLS_REPO:-../browsertools}" && $(GO) test -count=1 ./registrationauthorsession ./registrationauthorworker ./registrationauthorresult ./registrationauthor ./capture -run '^(TestStrictDecoderRejectsDuplicateTrailingDeepAndUnknownFields|TestProtocolAndPhaseMismatchesFailClosed|TestBackendFailureAndCancellationReturnFixedDiagnostics|TestFinishRequiresCleanBoundedNetworkSummary|TestCancellationInterruptsBlockedOwnedInputAndClosesBrowser|TestOversizedProtocolLineFailsWithoutEcho|TestSessionInterfaceHasNoMutationOrStateExportSurface|TestRunCancellationInterruptsReadAndClosesSession|TestWorkerSourceExposesNoPlaywrightOrEnvironmentSurface|TestVerifyRejectsEveryBoundIdentityAndSafetyMutation|TestDecodeRejectsUnclosedDuplicateUnknownDeepAndSensitiveInput|TestReadPrivateExactRejectsSymlinkModeAndTamper|TestBuildRejectsObservationAndSelectionDrift|TestChromeSandboxHelperRejectsUserControlledAndNoncanonicalPaths|TestPlaywrightRegistrationHasNoInputSubmitOrStateAPI|TestRegistrationNetworkGuardAllowsOnlyApprovedGETAndHEAD|TestRegistrationNetworkGuardBoundsAndCloseAccounting|TestValidateRegistrationBrowserRequestIsExactAndFinite|TestRegistrationURLFactsRejectsDisclosureAndQuery)$$'
 
 browser-transaction-qualification:
@@ -130,32 +130,32 @@ browser-scenario-public:
 icot-ui-browser-check:
 	@test "$${OPENUDON_ICOT_UI_BROWSER_DISABLE_SANDBOX:-}" != "1" \
 		|| { echo "icot-ui-browser-check: sandbox-disable override is forbidden; use icot-ui-browser-check-unsandboxed for diagnostics"; exit 1; }
-	@test -n "$$($(GO) test -tags=icot_ui_browser -list '^TestPhaseCBrowser' ./internal/icot/ui | grep '^TestPhaseCBrowser')" \
+	@test -n "$$($(GO) test -tags=icot_ui_browser -list '^TestPhaseCBrowser' ./internal/authoringui | grep '^TestPhaseCBrowser')" \
 		|| { echo "icot-ui-browser-check: no TestPhaseCBrowser tests found (build tag or file missing)"; exit 1; }
-	OPENUDON_ICOT_UI_BROWSER_SANDBOX_REQUIRED=1 $(GO) test -tags=icot_ui_browser ./internal/icot/ui -run '^TestPhaseCBrowser' -count=1 -timeout=3m -v
+	OPENUDON_ICOT_UI_BROWSER_SANDBOX_REQUIRED=1 $(GO) test -tags=icot_ui_browser ./internal/authoringui -run '^TestPhaseCBrowser' -count=1 -timeout=3m -v
 
 icot-ui-browser-check-unsandboxed:
-	OPENUDON_ICOT_UI_BROWSER_DISABLE_SANDBOX=1 $(GO) test -tags=icot_ui_browser ./internal/icot/ui -run '^TestPhaseCBrowser' -count=1 -timeout=3m -v
+	OPENUDON_ICOT_UI_BROWSER_DISABLE_SANDBOX=1 $(GO) test -tags=icot_ui_browser ./internal/authoringui -run '^TestPhaseCBrowser' -count=1 -timeout=3m -v
 
 eval-seed-build:
-	$(GO) test ./internal/icot -run TestEvalReferenceSeedBuildMatrix -count=1
+	$(GO) test ./internal/authoringcli -run TestEvalReferenceSeedBuildMatrix -count=1
 
 icot-authoring-scorecard:
-	$(GO) run ./cmd/icot scorecard --root examples/eval --include-variants --out eval/runs/icot-authoring-scorecard-local
-	$(GO) run ./cmd/icot report verify --file eval/runs/icot-authoring-scorecard-local/scorecard.json
+	$(GO) run ./cmd/openudon authoring scorecard --root examples/eval --include-variants --out eval/runs/icot-authoring-scorecard-local
+	$(GO) run ./cmd/openudon authoring report verify --file eval/runs/icot-authoring-scorecard-local/scorecard.json
 
 icot-replay-repair-check:
 	rm -rf "$(OPENUDON_ICOT_REPLAY_REPAIR_OUT_DIR)"
 	mkdir -p "$(OPENUDON_ICOT_REPLAY_REPAIR_OUT_DIR)"
 	set -e; for fixture in $(OPENUDON_ICOT_REPLAY_REPAIR_FIXTURES); do \
-		$(GO) run ./cmd/icot replay-eval --root examples/eval --name "$$fixture" --provider $(OPENUDON_LLM_PROVIDER) --model $(OPENUDON_LLM_MODEL) --prompt-mode fast --review-repair --out-dir "$(OPENUDON_ICOT_REPLAY_REPAIR_OUT_DIR)/$$fixture"; \
+		$(GO) run ./cmd/openudon authoring replay-eval --root examples/eval --name "$$fixture" --provider $(OPENUDON_LLM_PROVIDER) --model $(OPENUDON_LLM_MODEL) --prompt-mode fast --review-repair --out-dir "$(OPENUDON_ICOT_REPLAY_REPAIR_OUT_DIR)/$$fixture"; \
 	done
 
 icot-variants-validate:
-	$(GO) run ./cmd/icot variants validate --root examples/eval
+	$(GO) run ./cmd/openudon authoring variants validate --root examples/eval
 
 icot-variants-coverage:
-	$(GO) run ./cmd/icot variants coverage --root examples/eval
+	$(GO) run ./cmd/openudon authoring variants coverage --root examples/eval
 
 product-smoke-check:
 	$(GO) run ./cmd/openudon smoke-matrix --mode dry-run --workdir .openudon-run/product-smoke --out .openudon-run/product-smoke/summary.json
@@ -218,3 +218,8 @@ qualify: browser-system-check
 report-v5-qualification:
 	@test -n "$(OPENUDON_M44_EXECUTOR)" -a -n "$(OPENUDON_M44_CLOSURE)" || { echo "set OPENUDON_M44_EXECUTOR and OPENUDON_M44_CLOSURE to the accepted frozen M44 build"; exit 2; }
 	OPENUDON_M44_QUALIFY=1 OPENUDON_M44_EXECUTOR="$(OPENUDON_M44_EXECUTOR)" OPENUDON_M44_CLOSURE="$(OPENUDON_M44_CLOSURE)" $(GO) test ./internal/trustedrunner -run '^TestPublishedM44Qualification$$' -count=1 -v
+
+.PHONY: report-v5-m45-qualification
+report-v5-m45-qualification:
+	@test -n "$(OPENUDON_M45_EXECUTOR)" -a -n "$(OPENUDON_M45_CLOSURE)" || { echo "set OPENUDON_M45_EXECUTOR and OPENUDON_M45_CLOSURE to the accepted frozen M45 build"; exit 2; }
+	OPENUDON_M45_QUALIFY=1 OPENUDON_M45_EXECUTOR="$(OPENUDON_M45_EXECUTOR)" OPENUDON_M45_CLOSURE="$(OPENUDON_M45_CLOSURE)" $(GO) test ./internal/trustedrunner -run '^TestPublishedM45Qualification$$' -count=1 -v

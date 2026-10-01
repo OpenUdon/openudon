@@ -1,0 +1,12 @@
+{
+  "contract": {
+    "effect": "read",
+    "purpose": "list notes records"
+  },
+  "filters": {},
+  "limits": {},
+  "provider_keys": [
+    "unknown provider"
+  ],
+  "schema_version": "apitools.catalog-discovery/v1"
+}

@@ -1,0 +1,19 @@
+{
+  "upstream": "github.com/OpenUdon/apitools",
+  "source": "fb132631c9827eae5f2ec4503d03f21eabfb4113",
+  "files": [
+    {
+      "path": "catalog.json",
+      "sha256": "2dfe3821a2b0519725af4b524686e38c941f388ae1d18d667912830fc4d7c1d9"
+    },
+    {
+      "path": "registrations.json",
+      "sha256": "e014327c23a77cff680d1a69c42e9338deed042d9bef2cd91c65898b80139eb0"
+    },
+    {
+      "path": "openapi/notes.json",
+      "sha256": "11af1e5a79a7643d0237e34e469f99340501ab55077393ef5accdfcd776caac1"
+    }
+  ],
+  "scope": "exact unchanged upstream synthetic fixtures; no real account evidence"
+}

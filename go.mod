@@ -3,12 +3,12 @@ module github.com/OpenUdon/openudon
 go 1.26.6
 
 require (
-	github.com/OpenUdon/apitools v0.0.0-20260928033144-e3625f6ef52e
+	github.com/OpenUdon/apitools v0.0.0-20260930205753-fb132631c982
 	github.com/OpenUdon/asyncapi v0.1.0
-	github.com/OpenUdon/authoring v0.0.0-20260820042256-2f73e3526583
+	github.com/OpenUdon/authoring v0.0.0-20260930234600-18056cb6b0c1
 	github.com/OpenUdon/browsertools v0.0.0-20260925161530-3abe70efc03d
 	github.com/OpenUdon/evidence v0.0.0-20260815084845-0c17258b9736
-	github.com/OpenUdon/uws v0.0.0-20260925154821-80ee9bfb24a6
+	github.com/OpenUdon/uws v0.0.0-20260927134327-a7688f54c68f
 	github.com/hashicorp/hcl/v2 v2.24.0
 	github.com/mxschmitt/playwright-go v0.6201.0
 	github.com/santhosh-tekuri/jsonschema/v6 v6.0.2
@@ -40,6 +40,7 @@ require (
 	github.com/golang/groupcache v0.0.0-20210331224755-41bb18bfe9da // indirect
 	github.com/google/go-cmp v0.7.0 // indirect
 	github.com/google/uuid v1.6.0 // indirect
+	github.com/gowebpki/jcs v1.0.2 // indirect
 	github.com/hashicorp/go-uuid v1.0.3 // indirect
 	github.com/mattn/go-isatty v0.0.20 // indirect
 	github.com/mitchellh/go-homedir v1.1.0 // indirect

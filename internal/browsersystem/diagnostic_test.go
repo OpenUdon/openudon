@@ -12,9 +12,9 @@ import (
 	"testing"
 	"time"
 
+	"github.com/OpenUdon/openudon/internal/browserauthor"
+	"github.com/OpenUdon/openudon/internal/browserauthoring"
 	"github.com/OpenUdon/openudon/internal/browserscenario"
-	"github.com/OpenUdon/openudon/internal/icot"
-	"github.com/OpenUdon/openudon/internal/icot/browserauthor"
 )
 
 func TestDiagnosticChild(t *testing.T) {
@@ -135,7 +135,7 @@ func TestNativeDiagnosticBindsClosedAuthorFailureAfterCleanup(t *testing.T) {
 	report := browserscenario.NewReport(browserscenario.SuiteLoopback, time.Date(2026, 8, 17, 12, 0, 0, 0, time.UTC), repositories, dependencies, []browserscenario.ScenarioResult{{
 		ID: "outputs-sixteen", Status: browserscenario.StatusFail, Attempts: 1, Detail: "authoring_failed",
 		Phases:              []browserscenario.PhaseResult{{ID: "fixture_ready", Status: "pass", Detail: "ok"}, {ID: "authoring_v2", Status: "fail", Detail: "authoring_failed"}},
-		AuthoringDiagnostic: &icot.BrowserScenarioAuthorDiagnostic{Phase: "controller", Code: "worker_protocol", Failure: &browserauthor.FailureDetails{WorkerDiagnostic: "browser_failure", StreamPhase: "receive", StreamFailure: "eof"}},
+		AuthoringDiagnostic: &browserauthoring.BrowserScenarioAuthorDiagnostic{Phase: "controller", Code: "worker_protocol", Failure: &browserauthor.FailureDetails{WorkerDiagnostic: "browser_failure", StreamPhase: "receive", StreamFailure: "eof"}},
 	}})
 	cause := scenarioFailure(report, errors.New("credential-token-page-canary"))
 	path := filepath.Join(t.TempDir(), "report.json")

@@ -40,6 +40,8 @@ type Options struct {
 }
 
 type Result struct {
+	// Private scenario qualification may explicitly select a historical version.
+	declaredUWSVersion string
 	ExampleDir         string
 	ProjectPath        string
 	IntentPath         string
@@ -258,6 +260,10 @@ func prepareRefinement(ctx context.Context, opts Options) (*refinementState, err
 		return nil, err
 	}
 	result := resultPaths(exampleDir)
+	// Refuse version drift before discovery or any artifact writes.
+	if _, err := workflowUWSVersion(result); err != nil {
+		return nil, err
+	}
 	projectBytes, _, err := evidencefile.ReadRegular(result.ProjectPath, evidencefile.DefaultMaxBytes)
 	if err != nil {
 		return nil, fmt.Errorf("read project brief: %w", err)
@@ -277,7 +283,13 @@ func prepareRefinement(ctx context.Context, opts Options) (*refinementState, err
 		policy:      policy,
 		discoverer:  discoverer,
 	}
-	if !policy.NoOpenAPI {
+	// An unresolved-only intent has no API bindings to discover yet. This
+	// does not alter the brief or waive later admission/source checks.
+	pendingOnly := false
+	if intent, e := workflowintent.ParseIntentFile(result.IntentPath); e == nil {
+		pendingOnly = intent.OnlyPendingSteps()
+	}
+	if !policy.NoOpenAPI && !pendingOnly {
 		if err := ctx.Err(); err != nil {
 			return nil, err
 		}
@@ -514,6 +526,10 @@ func Promote(ctx context.Context, opts Options) (*Result, error) {
 		return nil, err
 	}
 	result := resultPaths(exampleDir)
+	// Refuse version drift before discovery or any artifact writes.
+	if _, err := workflowUWSVersion(result); err != nil {
+		return nil, err
+	}
 	projectBytes, _, err := evidencefile.ReadRegular(result.ProjectPath, evidencefile.DefaultMaxBytes)
 	if err != nil {
 		return nil, fmt.Errorf("read project brief: %w", err)
@@ -945,7 +961,7 @@ func validateIntentRuntimePolicy(intent *rollout.Intent, policy projectPolicy) e
 func allowedIntentRuntimeType(typ string) bool {
 	switch strings.ToLower(strings.TrimSpace(typ)) {
 	case "", "http", "openapi", "browser", "browser_authentication", "browser_registration", "fnct", "cmd", "ssh",
-		"sequence", "parallel", "switch", "merge", "loop", "await":
+		"sequence", "parallel", "switch", "merge", "loop", "await", "pending":
 		return true
 	default:
 		return false

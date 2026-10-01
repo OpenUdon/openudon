@@ -2,6 +2,7 @@ package evidencefile
 
 import (
 	"bytes"
+	"encoding/json"
 	"os"
 	"path/filepath"
 	"strings"
@@ -91,5 +92,18 @@ func TestWriteDigestSidecar(t *testing.T) {
 func TestWriteDigestSidecarRejectsEmptyEvidencePath(t *testing.T) {
 	if err := WriteDigestSidecar(" ", []byte("evidence\n"), 0o640); err == nil {
 		t.Fatal("WriteDigestSidecar accepted an empty evidence path")
+	}
+}
+
+func TestDecodeStrictNumbersPreservesRequestNumberAndRefusesDuplicate(t *testing.T) {
+	var value map[string]any
+	if err := DecodeStrictNumbers([]byte(`{"id":9007199254740993}`), &value); err != nil {
+		t.Fatal(err)
+	}
+	if number, ok := value["id"].(json.Number); !ok || number.String() != "9007199254740993" {
+		t.Fatalf("numeric identity lost: %#v", value)
+	}
+	if err := DecodeStrictNumbers([]byte(`{"id":1,"id":2}`), &value); err == nil {
+		t.Fatal("duplicate request accepted")
 	}
 }

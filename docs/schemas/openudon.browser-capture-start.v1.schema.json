@@ -1,0 +1,193 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://openudon.dev/schemas/openudon.browser-capture-start.v1.schema.json",
+  "title": "Exact reviewed browser capture start request",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "version": {
+      "const": "openudon.browser-capture-start.v1"
+    },
+    "mode": {
+      "enum": [
+        "authenticated",
+        "registration"
+      ]
+    },
+    "operator_idle_seconds": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 1800
+    },
+    "absolute_seconds": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 7200
+    },
+    "authentication": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "profile_id": {
+          "type": "string",
+          "pattern": "^[a-z0-9][a-z0-9._-]{0,63}$"
+        },
+        "url": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 4096
+        },
+        "dashboard_url": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 4096
+        },
+        "goal_url": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 4096
+        },
+        "goal": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 1024
+        },
+        "origins": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 32,
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 4096
+          }
+        },
+        "goal_role": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 64
+        },
+        "goal_context": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 64
+        },
+        "goal_label": {
+          "type": "string",
+          "maxLength": 256
+        },
+        "after_authentication": {
+          "enum": [
+            "continue_current_page",
+            "navigate_absolute",
+            "ask_after_authentication"
+          ]
+        },
+        "blocked_script_origin": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 4096
+        },
+        "diagnostic": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "profile_id",
+        "url",
+        "dashboard_url",
+        "goal_url",
+        "goal",
+        "origins",
+        "goal_role",
+        "goal_context",
+        "after_authentication"
+      ]
+    },
+    "registration": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "profile_id": {
+          "type": "string",
+          "pattern": "^[a-z0-9][a-z0-9._-]{0,63}$"
+        },
+        "url": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 4096
+        },
+        "origins": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 32,
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 4096
+          }
+        },
+        "transaction_id": {
+          "type": "string",
+          "pattern": "^[a-z0-9][a-z0-9._-]{0,127}$"
+        },
+        "bounds": {
+          "$ref": "https://openudon.dev/schemas/openudon.browser-capture.v1.schema.json#/$defs/registrationauthorsessionBounds"
+        },
+        "protocol": {
+          "type": "string",
+          "enum": [
+            "browsertools.registration-author-session.v1",
+            "browsertools.registration-author-session.v2",
+            "browsertools.registration-author-session.v3",
+            "browsertools.registration-author-session.v4"
+          ]
+        }
+      },
+      "required": [
+        "profile_id",
+        "url",
+        "origins",
+        "transaction_id"
+      ]
+    }
+  },
+  "required": [
+    "version",
+    "mode"
+  ],
+  "oneOf": [
+    {
+      "properties": {
+        "mode": {
+          "const": "authenticated"
+        }
+      },
+      "required": [
+        "authentication"
+      ],
+      "not": {
+        "required": [
+          "registration"
+        ]
+      }
+    },
+    {
+      "properties": {
+        "mode": {
+          "const": "registration"
+        }
+      },
+      "required": [
+        "registration"
+      ],
+      "not": {
+        "required": [
+          "authentication"
+        ]
+      }
+    }
+  ]
+}

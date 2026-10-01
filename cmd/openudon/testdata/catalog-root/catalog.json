@@ -1,0 +1,42 @@
+{
+  "providers": [
+    {
+      "id": "example-notes",
+      "display_name": "Example Notes",
+      "review_state": "reviewed-catalog-entry",
+      "candidate_id": "example-notes",
+      "official_openapi_availability": "known",
+      "official_machine_spec_availability": "unknown",
+      "user_openapi_need": "not-expected",
+      "spec_references": [
+        {
+          "id": "synthetic-notes-openapi",
+          "kind": "openapi",
+          "url": "https://notes.example.invalid/openapi.json",
+          "source_authority": "official-provider",
+          "license_note": "Synthetic fixture: redistribution permitted.",
+          "source_note": "Repository-written synthetic fixture, not provider evidence."
+        }
+      ]
+    },
+    {
+      "id": "example-notes-alias",
+      "display_name": "Example Notes Shared",
+      "review_state": "reviewed-catalog-entry",
+      "candidate_id": "example-notes-alias",
+      "official_openapi_availability": "known",
+      "official_machine_spec_availability": "unknown",
+      "user_openapi_need": "not-expected",
+      "spec_references": [
+        {
+          "id": "synthetic-notes-openapi",
+          "kind": "openapi",
+          "url": "https://notes.example.invalid/openapi.json",
+          "source_authority": "official-provider",
+          "license_note": "Synthetic fixture: redistribution permitted.",
+          "source_note": "Repository-written synthetic fixture, not provider evidence."
+        }
+      ]
+    }
+  ]
+}

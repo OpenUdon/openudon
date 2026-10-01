@@ -10,7 +10,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/OpenUdon/openudon/internal/icot/elicitor"
+	"github.com/OpenUdon/openudon/internal/elicitor"
 )
 
 type fakeDraftReviewer struct {

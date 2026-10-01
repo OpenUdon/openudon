@@ -64,11 +64,24 @@ func ReadRegular(path string, limit int64) ([]byte, os.FileInfo, error) {
 
 // DecodeStrict decodes exactly one JSON value and rejects unknown fields.
 func DecodeStrict(data []byte, out any) error {
+	return decodeStrict(data, out, false)
+}
+
+// DecodeStrictNumbers additionally preserves JSON numeric inputs exactly.
+// Use it when caller data participates in canonical request matching.
+func DecodeStrictNumbers(data []byte, out any) error {
+	return decodeStrict(data, out, true)
+}
+
+func decodeStrict(data []byte, out any, numbers bool) error {
 	if err := rejectDuplicateJSONKeys(data); err != nil {
 		return err
 	}
 	dec := json.NewDecoder(bytes.NewReader(data))
 	dec.DisallowUnknownFields()
+	if numbers {
+		dec.UseNumber()
+	}
 	if err := dec.Decode(out); err != nil {
 		return err
 	}

@@ -24,6 +24,7 @@ import (
 	"github.com/OpenUdon/openudon/internal/synthesize"
 	"github.com/OpenUdon/openudon/internal/udonreport"
 	"github.com/OpenUdon/openudon/internal/udonrunner"
+	"github.com/OpenUdon/openudon/internal/uwsexec"
 )
 
 const (
@@ -165,6 +166,23 @@ func resolveAndValidatePackageBytes(repoRoot, exampleDir string) (validatedPacka
 	}
 	if err := validateRequiredSnapshotInputs(manifest, snapshot); err != nil {
 		return validatedPackage{}, err
+	}
+	// Check captured artifacts independently of stored quality or an injected
+	// assessor. No stale pass can authorize an unresolved package.
+	for _, artifact := range []struct{ path, format string }{{"workflows/workflow.hcl", uwsexec.DocumentFormatHCL}, {"workflows/workflow.uws.yaml", uwsexec.DocumentFormatYAML}} {
+		data, readErr := snapshot.read(artifact.path)
+		if readErr != nil {
+			return validatedPackage{}, readErr
+		}
+		doc, decodeErr := uwsexec.DecodeDocument(data, artifact.format)
+		if decodeErr != nil {
+			return validatedPackage{}, fmt.Errorf("reviewed UWS artifact cannot be decoded")
+		}
+		if len(uwsexec.PendingStepIDs(doc)) != 0 {
+			if err := doc.ValidateExecutable(); err != nil {
+				return validatedPackage{}, fmt.Errorf("reviewed package has pending contracts; approval and execution refused")
+			}
+		}
 	}
 	qualityBytes, err := snapshot.read("expected/quality.json")
 	if err != nil {

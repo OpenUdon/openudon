@@ -1,0 +1,794 @@
+# Retired milestone M93 - Supervised authenticated and registration browser capture
+
+**Milestone.** M93
+**Outcome.** completed
+**Retired.** 2026-10-01
+**Source status.** tabilet/memory-bank/status-M93.md
+**Source specification.** tabilet/memory-bank/milestone.md#m93---supervised-authenticated-and-registration-browser-capture
+**Evidence.** d5b483afc93dc5b25ac319b1ce590f5d4d6fd682
+**Worktree.** includes uncommitted changes
+**Review.** passed
+**Review iterations.** 1
+**Verification.** Full make check, full vet, affected race/conformance, public schemas/CLI, document/format/diff passed. Final application f1273b622445d60dc7f3ea849e5b7f1a1f1e733a: native39/three fresh repeats and integration17/zero failures/three optional unrequested independently verified, native display teardown verified. Actual public authenticated/TOTP and registration visible consumers passed; user explicitly saw and accepted both. No registration submission; private-input values excluded. Qualified source publication independently verified at d5b483afc93dc5b25ac319b1ce590f5d4d6fd682, successful prepush exact-diff manifest retained. Qualification-summary SHA256 abdb8490206a3e734f009a6f9430d903017635270327366b4e40bdf95e625da6. Failed/partial attempts preserve their original evidence below.
+**Consolidated into.** product.md, architecture.md, tech-stack.md, lessons.md and docs/browser-capture-protocol.md; exact producer reconciled to OpenUdon M94/M95, Kinet A10/W09/M19/U07 and W8M W28/W29. Evolution v47 direction unchanged.
+
+## Milestone specification
+
+````markdown
+### M93 — Supervised authenticated and registration browser capture
+
+**Goal.** Expose both existing browser-capture journeys to Kinet through a bounded non-interactive protocol.
+
+**Scope and compatibility.** Publish openudon.browser-capture.v1 events and decisions for state, reduced observation, issued action approvals, human sign-in/MFA-kind checkpoints, preview, diagnostic and result. Bind decisions to issued IDs and revisions. Cover authenticated goal/dashboard/origin capture including TOTP, and registration-authority binding, verification approvals, preview/navigation, diagnostic and blocked-script policies. Preserve exact origins, action approvals, deadlines, POST limits, cancellation/teardown and explicit model-disclosure consent; human-guided is the default. Embed the existing Browsertools worker under openudon and import only reviewed profiles using package transactions. Credentials/codes stay in the private browser input path, never application protocol payloads or ordinary logs; this does not prohibit the human's protected desktop input transport. Keep iCoT on the shared implementation until M95.
+
+**Dependencies.** M92 accepted/published; M91 retained-journey inventory. Existing Browsertools authorworker/authorsession and registration protocols; no new Browsertools work is presumed.
+
+**Downstream.** M94; Kinet W09/M19/U07; W8M W28/W29.
+
+**Acceptance.** Versioned conformance and headless loopback checks cover both capture modes, TOTP, verification refusal, stale decisions, expiry and teardown. Before visible qualification, operation row M93.0 prepares Xvfb, a minimal window manager, x11vnc, the full noVNC viewer and websockify on the development host under the launch reference's named authorization; x11vnc and websockify listen on loopback only and the user connects with noVNC in a local browser through an SSH tunnel. Record versions/display bindings and preserve Chromium sandboxing. Use disposable fixtures and bounded sessions; no public listener, service deployment or real target login. One explicit human-visible qualification covers both retained journeys. Qualify under owner policy; review and publish. A proven upstream protocol gap requires its owner's own approved plan, not copied code.
+
+Status, task-sized commit units, review provenance and persisted review counter: [status-M93.md](status-M93.md).
+
+````
+
+## Status record
+
+````markdown
+# Status M93 — Supervised authenticated and registration browser capture
+
+**State:** Completed and accepted; qualified source published and every pending consumer reconciled. Normal retirement/publication of closure is the remaining action.
+
+**Goal.** Expose both existing browser-capture journeys to Kinet through a bounded non-interactive protocol.
+
+**Dependencies.** M92 accepted/published; M91 retained-journey inventory. Existing Browsertools authorworker/authorsession and registration protocols; no new Browsertools work is presumed.
+
+**Downstream.** M94; Kinet W09/M19/U07; W8M W28/W29.
+
+Markers: `[ ]` pending, `[~]` in progress, `[+]` complete, `[!]` blocked,
+`[-]` closed history, `[X]` cancelled. (OpenUdon's convention; W8M's differs.)
+
+## Scope and contract
+
+Publish openudon.browser-capture.v1 events and decisions for state, reduced observation, issued action approvals, human sign-in/MFA-kind checkpoints, preview, diagnostic and result. Bind decisions to issued IDs and revisions. Cover authenticated goal/dashboard/origin capture including TOTP, and registration-authority binding, verification approvals, preview/navigation, diagnostic and blocked-script policies. Preserve exact origins, action approvals, deadlines, POST limits, cancellation/teardown and explicit model-disclosure consent; human-guided is the default. Embed the existing Browsertools worker under openudon and import only reviewed profiles using package transactions. Credentials/codes stay in the private browser input path, never application protocol payloads or ordinary logs; this does not prohibit the human's protected desktop input transport. Keep iCoT on the shared implementation until M95.
+
+## Tasks
+
+| Item | State | Notes |
+| --- | --- | --- |
+| M93.0 — Prepare the private remote desktop (operation) | `[+]` | Operation row: run only while the launch request's named EXTERNAL_MUTATIONS authorization for the development desktop is in force. Check installation privilege first and stop if missing. Install and start Xvfb, a minimal window manager, x11vnc, the full noVNC viewer and websockify on the existing host; x11vnc and websockify listen on loopback only. The user connects once with noVNC in a local browser through an SSH tunnel to confirm the session. No public listener, firewall change or permanent service; record versions, display bindings, relay checks and teardown. Reused by M93.5, Kinet W09/U07 and W8M W28/W29. |
+| M93.1 — Freeze capture event/decision protocol | `[+]` | Bound fields and event sizes; publish conformance fixtures and issued-reference/revision validation for both modes. |
+| M93.2 — Authenticated and TOTP capture | `[+]` | Preserve goal/dashboard/origin policy, MFA-kind selection, human credential entry, disclosure consent and exact action approval. |
+| M93.3 — Registration and verification capture | `[+]` | Retain registration authority, preview/navigation, verification approval, diagnostics and blocked-script rules; no production-registration authority is implied. |
+| M93.4 — Embed worker and import reviewed profiles | `[+]` | Reuse Browsertools worker entry and package lifecycle; classify submissions as write; preserve iCoT on the same implementation during 5A. |
+| M93.5 — Qualify headless and visible sessions, review and publish | `[+]` | Requires M93.0's prepared desktop; run both synthetic modes and human-visible evidence, owner qualification, review and publication. Do not defer this environment prerequisite to Kinet W09. |
+
+## Acceptance and verification
+
+Versioned conformance and headless loopback checks cover both capture modes, TOTP, verification refusal, stale decisions, expiry and teardown. Before visible qualification, operation row M93.0 prepares Xvfb, a minimal window manager, x11vnc, the full noVNC viewer and websockify on the development host under the launch reference's named authorization; x11vnc and websockify listen on loopback only and the user connects with noVNC in a local browser through an SSH tunnel. Record versions/display bindings and preserve Chromium sandboxing. Use disposable fixtures and bounded sessions; no public listener, service deployment or real target login. One explicit human-visible qualification covers both retained journeys. Qualify under owner policy; review and publish. A proven upstream protocol gap requires its owner's own approved plan, not copied code.
+
+Default checks use fake providers, disposable roots and loopback fixtures. No live target operation or deployment is authorized. Preserve package instructions, one execution owner and exact upstream reconciliation before advancing. Task commits/publication follow only the separately launched goal's explicit policy; this planning approval performs neither.
+
+## Provenance and lineage
+
+Source: “Stage 5 draft reconciliation” (Kinet `stage5/REVIEW.md` findings F01–F10 and its accompanying drafts; refinement findings SR01–SR06; see the findings table in Kinet `docs/kinet-order.md` §6). Source priorities: not supplied. Draft baseline: e12a6488b86cafddb9298c7917de84fbc1cc85ff. Revalidated at this repository's full HEAD `e12a6488b86cafddb9298c7917de84fbc1cc85ff`. The draft source is read-only. Relevant uncommitted evidence: Kinet's `stage5/` drafts and APItools' approved M81/M80 planning changes; no implementation changes were used or made. User approved the complete dispositions and planning-file actions on 2026-09-30.
+
+Supports F05 (primary migration owner W8M W28) and F06 (existing Browsertools worker, no new owner work). Evidence: internal/icot/browserauthor/, internal/icot/ui/, docs/authenticated-browser-authoring.md; Browsertools authorworker/worker.go and authorsession/session.go expose reduced observations and reviewed MFA kinds. Registration retention and remote desktop were explicitly selected during reconciliation.
+
+Lineage: Preserve accepted browser-authoring/transaction gates and M91 inventory; cancelled W8M production registration remains cancelled.
+
+## Closing review
+
+Persisted iteration count: 1/10. Iteration 1 passed on 2026-10-01 with no open P1/P2 or higher findings; human-visible qualification and acceptance remain pending. Resume any interrupted future review at its persisted number. Acceptance, exact source/build revisions, publication and downstream reconciliation remain pending and must be recorded from observed evidence before normal package retirement.
+
+## M91 exact producer reconciliation — 2026-10-01
+
+Accepted extraction application source: `3fd40d3f874bdcf668a018550112a02cd0d02409`;
+qualified review/source publication: `c8f2de71d983bea93dc1c045568c397a10a4eb56`.
+Resolve the producer through OpenUdon's history index and its permanent M91
+record; no producer ledger is merged here. Review 1 passed, 405 fixture bytes
+and three UI assets stayed identical, integration v5 passed 16 required gates
+with three unrequested optional gates, and native current-stack qualification
+passed three fresh complete repeats (39 stages). Summary SHA-256:
+`9a2524deddccc400457ae76d2e432a205898a181bcfe8bdc84f62348b4c28075`.
+
+The single implementations now live in `internal/artifactwriter`, `elicitor`,
+`browserauthor`, `browserauthoring`, `authoringengine`, `authoringui` and
+`authoringcli`; Authoring is pinned to its published neutral `engine` source
+`18056cb6b0c1007dd567a4a825a6b4311a357185`. `internal/icot` is a temporary
+legacy forwarding adapter, and the old UI/control/terminal still works during
+5A. All current public approval, credentials, cancellation, recovery and
+v10/v11 browser dispatch boundaries remain unchanged. Historical report
+selectors/locks and `.icot` package data stay frozen. These source facts satisfy
+the extraction prerequisite only; every task in this consumer remains pending.
+
+Capture adapters reuse neutral browserauthor/browserauthoring controllers and
+existing Browsertools workers. The temporary M91 Xvfb session was automatically
+torn down and grants no M93.0 completion or visible demonstration evidence.
+Perform M93.0 under its own named operation authority and retain both journey
+checkpoints. The runtime sandbox and private human credential path stay closed.
+
+## M92 exact producer reconciliation — 2026-10-01
+
+Final qualified application source: `96c16acacc7f442858dac8a0fcb36c84991ebddf`;
+source/qualification publication independently verified at `bbb03effbe4215cf15473c4dfec561b64b80a122`.
+Review 4/10 passed with no open findings. Frozen final producer bundle:
+`/var/tmp/openudon-m92-corrected-producer-z89k3b36`, summary SHA-256 `a87277a65341e17b3f2e40daf275197cc02ff4377d160fdd0ba383fb7684ec30`;
+CLI SHA-256 `dd109478d24321733fc63b20c163340e4786727fe18f39146c69be714d8edbef`. Published UWS source is
+`a7688f54c68f5a75c7cc95aa2b31cea98b31af41` (1.12); exact M45 executor source,
+binary and fourteen-source closure remain accepted: source
+`238f2e487d50ffec057b7a109a35c9db03f59c55`, executor SHA-256
+`cb4b94c968aa3f3de4106a440fdcd02e6c210941eb25e6666b84cfbc7f63868b`,
+closure SHA-256
+`10d4c613c4882365f2799789d456e8a3b15484b1995a052e334616cad9d0fd59`.
+Final frozen full checks and integration v6 passed seventeen required gates
+(fourteen named producer tests), zero failed, three optional unrequested.
+Fresh native v5 passed39/39 at `7efb58678954a037a54e5d5874020258ce98cdca`.
+Its evidence retains that actual source; the final delta changes only pure
+simulation inventory, its test/marker, current documents and a new example's
+formatting/digest, with browser/runtime/authoring/pin scope proven identical.
+Both reports independently verify; temporary display teardown is verified.
+Never relabel native evidence or treat a same-version binary as adoption.
+
+Additive contracts and local conformance fixtures are
+`openudon.step-pending.v1`, `openudon.simulate-input.v1`, and
+`openudon.simulate.v1`. The legacy step-authoring v1 remains unchanged. New
+packages default to UWS1.12, existing declarations remain unchanged. Pending
+contracts refuse every approval/dry/real path across both artifacts and all
+branches/workflows before credential/executor dispatch. Simulation is pure
+public mock orchestration and in-memory projection, with no network, browser
+worker, credentials or executor. Browser results are mocked contracts, not
+page verification; previews grant no action authority. Every task in this
+consumer remains pending; resolve producer closure through OpenUdon's history
+index after normal retirement, preserving each package's own ledger.
+
+Reuse neutral browserauthor/browserauthoring/authoringui controllers and current
+Browsertools worker interfaces; preserve both capture modes and exact-origin,
+issued-decision/revision/deadline/private-input rules. Native selectors are now
+v5 and integration v6 with separate retained v4/v5 readers. M93.0 must prepare
+its own private desktop and obtain the user's Remote Desktop Manager
+connection confirmation; M92's disposable Xvfb is already torn down and proves
+neither M93.0 nor M93.5 human acceptance. Capture submissions retain write
+effects; any pending resolution binds the exact contract/current revision.
+
+## M93.0 selected — 2026-10-01
+
+M92 normal closure is independently verified published at
+`f33d41f7202c00b986b640dee17861a39c79c027`; resolve its permanent history
+record, not a missing active status. Qualified application is96c16acacc7f442858dac8a0fcb36c84991ebddf.
+This is the sole general in-progress row across the goal's package ledgers.
+The approved Kinet launcher explicitly authorizes installing/running Xvfb,
+a minimal window manager and x11vnc on vps-f7dfc687.vps.ovh.us, with VNC
+loopback-only and SSH transport, no public listener/firewall/permanent service.
+Check actual installation privilege before installation and stop if missing.
+Preserve private X authentication, private VNC credentials and disposable
+settings. Record exact installed versions and display/session bindings. The
+user must connect once with Remote Desktop Manager and confirm the display
+before this operation completes or M93.1 begins. Synthetic M92 Xvfb evidence
+is already torn down and is not this human checkpoint's acceptance.
+
+## M93.0 first startup attempt — retained diagnostic 2026-10-01
+
+Installed the authorized missing Openbox/x11vnc packages after successful
+noninteractive installation privilege and repository metadata checks; existing
+Xvfb/xauth remain installed. The first private desktop attempt created its
+listener, but the helper's short RFB-banner socket probe timed out during the
+VNC server's connection sniffing. That is not a human connection result.
+Attempt `/var/tmp/openudon-m93-desktop-xqnd4u4y` records failure and teardown:
+all owned children exited and its private authentication/password directory
+was removed. Never reuse that failed attempt as acceptance. Correct the helper
+readiness check to verify the exact x11vnc PID owns the loopback TCP listener;
+start a new disposable session. The required human RDM check remains pending.
+
+## M93.0 desktop ready; human checkpoint pending — 2026-10-01
+
+Privilege check `sudo -n -v` passed. Authorized apt metadata refresh and
+`apt-get install --no-install-recommends openbox x11vnc` completed with exit 0;
+logs `/var/tmp/openudon-m93-desktop-apt-update.log` and
+`/var/tmp/openudon-m93-desktop-apt-install.log`. Installed versions:
+Openbox 3.6.1-12ubuntu3, x11vnc 0.9.17-2, Xvfb 2:21.1.22-1ubuntu1,
+xauth 1:1.1.2-1.1build1. No permanent service, firewall or public listener
+was configured. New private session `/var/tmp/openudon-m93-desktop-uyyn13g5` uses display `:98`,
+1280x800x24, TCP disabled for X and exact VNC listener 127.0.0.1:5901.
+Owned listener PID and absence of X TCP listener were independently checked.
+RFB 3.8 probe offered only password authentication (type 2), no unauthenticated
+access; this is a local readiness check, not the human confirmation.
+
+Root/private directories are 0700, Xauthority/password files 0600 and owned by
+peter. Password values are absent from commands, environment, repo and audit;
+retrieve the private password only in the user's SSH terminal. Clipboard
+exchange, x11vnc remote-control and external-command hooks are disabled;
+existing user x11vnc config is bypassed. No provider secrets enter child env.
+A standalone user supervisor expires this disposable session at
+`2026-10-01T04:00:24.673997+00:00` and removes private credentials after stopping its owned
+children. No system service was installed. Session metadata/expiry and local
+RFB evidence remain in that private root. The prior failed attempt is retained
+separately with verified teardown; it was not retried as historical evidence.
+
+Human connection instructions: on the user's workstation, forward local
+15901 to this host's 127.0.0.1:5901 with SSH. In Remote Desktop Manager choose
+VNC, host 127.0.0.1, port 15901 and the private VNC password. The display contains
+an OpenUdon M93.0 connection-check message. The user must confirm that message
+is visible before M93.0 can complete. Until then this row remains in progress,
+M93.1–M93.5 remain pending, and the ordered goal waits at its explicit checkpoint.
+
+## M93.0 approved browser transport update — 2026-10-01
+
+The user approved the complete browser-viewer proposal and explicitly resumed
+the existing Stage 5 goal. M93.0 remains the sole in-progress operation; no new
+ID, reordered dependency, reset review count or human acceptance is implied.
+The operator uses noVNC in a normal browser through an SSH-forwarded loopback
+websockify relay. Install the full distro viewer/relay on the named development
+host, preserve private X authentication and password-required VNC, disable
+clipboard exchange and automatically stop owned processes/remove private auth
+when the bounded session expires. No public listener, firewall change, permanent
+service, real target login or model disclosure is authorized by this update.
+
+The earlier desktop at `/var/tmp/openudon-m93-desktop-uyyn13g5` expired at
+2026-10-01T04:00:24.673997+00:00 without human confirmation. Its metadata records
+no remaining children and removal of private auth. Preserve both earlier attempt
+records; their Remote Desktop Manager instructions are historical, not current
+connection instructions. Restore only this currently selected authorized row
+with a new disposable session. Check viewer serving, WebSocket/RFB transport,
+password-only authentication, mapped desktop, exact loopback listeners, secret
+handling and teardown; then obtain the user's visible-message confirmation
+before marking M93.0 complete or starting M93.1. M93.5's two visible journeys
+and later consumer checkpoints remain required.
+
+## M93.0 full browser viewer ready; human confirmation pending — 2026-10-01
+
+Approved distro installation completed successfully under the verified
+`sudo -n` privilege: noVNC `1:1.6.0-2`, websockify and python3-websockify
+`0.13.0+dfsg1-2ubuntu1`. Installation log:
+`/var/tmp/openudon-m93-browser-apt-install.log`. Kinet's untracked root npm
+files and node_modules were preserved and are not product dependencies.
+
+Fresh session `/var/tmp/openudon-m93-browser-n5sop97f` uses X display `:98` with X TCP disabled,
+VNC `127.0.0.1:5901` and browser relay `127.0.0.1:6080`. Created at
+`2026-10-01T06:58:47.310535+00:00`; expires at `2026-10-01T07:58:47.310535+00:00`. Supervisor
+`/var/tmp/openudon-m93-browser-supervisor.py` SHA-256
+`b83e0558cf6c8d460ba1b8bb542fe894c1d75fb9f946d2dca8adc2a14c8f2253` owns the bounded lifecycle. It uses no permanent
+service, disables directory listing/clipboard/remote commands and receives
+no provider credentials. Private directories are 0700 and auth files 0600;
+password values never enter command arguments, environment, logs, audit or
+repository. The exact owned listener PIDs, X TCP refusal and mapped message
+were checked independently. Earlier expired attempts remain untouched.
+
+A separate short-lived test at `/var/tmp/openudon-m93-browser-zoe4eri5`
+expired automatically, removed private auth and left no running owned children
+or desktop/relay listeners. Its session JSON SHA-256 is
+`9f1f5bff911f8cf549054fa36a8ec87a62a67b411f265d0a12ae779c2639e2cf`.
+Fresh sandboxed Chromium/Playwright readiness took 6.230 seconds: full viewer
+loaded, password prompt required, wrong password refused, correct password
+rendered a 1280x800 desktop canvas, and the test client disconnected. It used
+only loopback with external requests blocked, no capture target or model.
+Browser readiness SHA-256 `86706f33de4c17c8cb4d5464c33a91169f6f850aa7eb7976898767ef3058dc6b`;
+security readiness SHA-256 `e8804b0e03734b8aa82761b90c7510302d4d6b819eb7bf738bd406c046c64ac7`.
+These are automated connection checks, not the human checkpoint or M93.5's
+journey qualification. The captured image caught the UI fade after connection;
+it proves rendered pixels, not a separate user-visible acknowledgement.
+
+Planning verification: Kinet `make check` and OpenUdon's tabilet-cwd
+`check-doc-memory` passed; the evolution warning is expected because an
+operator transport change does not meet the direction-change trigger. W8M's
+browser-free structural checker, Go test and Go vet passed. Go operating
+unit tests took 103.670 seconds; no native browser qualification was run.
+Its `make fast` stopped at
+the pre-existing absent exact Node 24.13.0 path; the separate Go test passed (`/tmp/w8m-m93-browser-plan-go-test.log`). No runtime qualification is inferred
+from that partial gate, and no W8M scripts/locks/old records were altered.
+
+Connection instructions: on the user's workstation run
+`ssh -N -o ExitOnForwardFailure=yes -L 127.0.0.1:16080:127.0.0.1:6080 peter@vps-f7dfc687.vps.ovh.us`,
+then open `http://127.0.0.1:16080/vnc.html?autoconnect=1&resize=scale`.
+Privately retrieve the password with SSH from
+`/var/tmp/openudon-m93-browser-n5sop97f/private/vnc-password` and enter it in noVNC; never put it in a URL
+or chat. The user must confirm seeing "OpenUdon M93.0 connection check".
+M93.0 remains in progress and M93.1–M93.5 remain pending until that evidence
+arrives. Review count remains 0/10. The goal is open, not completed.
+
+## M93.0 human connection accepted; M93.1 selected — 2026-10-01
+
+The user reported that the browser view is good after receiving the SSH/noVNC
+connection instructions for `/var/tmp/openudon-m93-browser-n5sop97f`. This
+satisfies M93.0's required human desktop connection checkpoint alongside its
+recorded readiness/security/automatic-teardown checks. The separate observation
+record is `human-confirmation.json` in that disposable root. Earlier attempts
+remain retained failures/expiry records. The active session keeps its original
+bounded expiry; no public listener or permanent service is authorized.
+
+M93.0 is complete; its operation is not replayed. M93.1 is the sole selected
+general row. M93.2–M93.5 remain pending. This human connection does not qualify
+authenticated/TOTP or registration capture, accept M93, or satisfy later M93.5
+or Kinet U07 visible journeys. Review count remains 0/10.
+
+## M93.1 protocol foundation complete — 2026-10-01
+
+Added `internal/browsercapture` and the exact embedded public
+`openudon.browser-capture.v1` schema, with eleven valid/seven invalid wire
+examples and `docs/browser-capture-protocol.md`. Both mode envelopes reuse
+Browsertools reduced types and existing controller semantics; no worker,
+profile validator or schema engine was copied. The supervising gate has
+random session/event/action references, mode/revision/deadline correlation,
+256 KiB messages, 4096 events and a two-hour absolute ceiling. A proposal
+executes nothing, an exact digest-bound decision consumes its held immutable
+command once, refusal dispatches nothing, and changed/unpublishable state,
+cancellation, terminal result and expiry destroy old authority.
+
+Focused conformance/race checks, stale/forged binding and digest tests, refusal,
+unknown credentials/duplicate keys, mutated review-card copies, mode isolation
+and failure/expiry/teardown-authority checks passed. `make fast` passed the
+owner's full routine Go/doc gate; focused Go vet passed. Logs:
+`/tmp/openudon-m93-1-protocol-test.log`, `/tmp/openudon-m93-1-vet.log`,
+`/tmp/openudon-m93-1-fast.log`. The temporary schema-generation attempt first
+identified an unsupported native float field, then generated the resource
+correctly; that tool file was removed. No failed generation was consumed as
+conformance evidence. The published review card carries its actual command
+digest, verified by the conformance test. Existing fixture/asset/lock bytes
+were not changed. Current architecture/stack and the existing exact-wire
+lesson were updated; evolution v47 direction is unchanged.
+
+M93.2 is the sole in-progress row. This foundation exposes no capture CLI yet
+and supplies no real browser journey, profile import, M93.5 qualification,
+milestone review or publication. Review count remains 0/10.
+
+## M93.2 complete; M93.3 selected — 2026-10-01
+
+Added internal authenticated/TOTP capture over the unchanged native
+`browserauthor.Session` worker loop. Controller-owned pure configuration and
+decision helpers reuse existing normalization and observation/checkpoint
+conversion; only offered fields, current candidate/approval IDs and MFA kinds
+are accepted. No credential or code field exists. The adapter issues exact
+review cards before dispatch, preserves native origin/action approvals and
+POST bounds, and emits disclosure consent for only the exact observation. It
+never calls a model. A single-owner bounded closeable-stream loop is reusable
+by the registration adapter. Invalid/stale/replayed input fails closed.
+
+Reader/output cancellation, EOF, absolute expiry and blocked-output checks
+join the controller's worker and input reader before return. Late teardown
+failure overrides a nominal cancel. Native results/attestations stay private
+and have no JSON representation; joined capture emits only terminal state
+`captured`, with no import/package/execution authority. Independent reviewed
+profile import and the public CLI/embedded entry remain M93.4 work. Existing
+iCoT/controller behavior and fixture/asset/lock bytes remain unchanged.
+
+Focused race tests and controller subprocess tests passed; focused Go vet and
+`make fast` passed. Logs `/tmp/openudon-m93-2-final-test.log`,
+`/tmp/openudon-m93-2-vet.log`, `/tmp/openudon-m93-2-fast.log`. The first new
+test compile failed because a Response contains a slice and is not comparable;
+replaced those comparisons with reflect.DeepEqual before the passing run.
+No failed run is acceptance evidence. No native/browser qualification is
+claimed by pipe/fake-controller checks; M93.5 still owns fresh headless and
+human-visible evidence of both journeys, review and publication. Evolution
+v47 direction and persisted review count 0/10 remain unchanged.
+
+M93.3 is now the sole general in-progress row across the goal. M93.4/M93.5
+and all downstream consumers remain pending.
+
+## M93.3 complete; M93.4 selected — 2026-10-01
+
+Added a registration adapter over the unchanged native v4 no-submit worker and
+existing controller-owned profile, typed history, preview and verification
+validators. A reviewed fixed profile/URL/origins/bounds is normalized before
+launch and sent once at worker readiness. Subsequent decisions require exact
+protocol review. Pure current-state validation lives in the controller and
+reuses its existing command preparation; it grants no traffic or review state.
+GET/HEAD navigation remains within approved origins, verification binds the
+observed candidate, and refusal sends no native command. Event projection
+transmits only current observation/latest preview, not full history. Disclosure
+consent remains per observation and invokes no model. Native closed diagnostics
+remain visible, with containment failure taking precedence; authenticated
+blocked-script/diagnostic-file settings are not invented for registration.
+
+The generic stream driver is shared by both adapters and reads registration's
+retained terminal outcome only after channel closure. This handles a candidate
+or late failure dropped by the bounded event queue. Private native candidates
+have no JSON representation and grant no package/import/execution authority.
+Intentional close/canceled outcomes report cancellation, not worker failure.
+During implementation, registration's existing defer order exposed stream
+closure before private cleanup and lacked an explicit protocol-reader join.
+Fixed both within this row's teardown scope: cancellation, process termination,
+reader join and inbox/executable cleanup now precede channel closure. A native
+subprocess test blocks cleanup and proves the channel cannot close early.
+
+Race tests passed for both adapters and native controller subprocesses; focused
+vet passed. Full routine make fast and final document checks pass (logs
+/tmp/openudon-m93-3-final-test.log, /tmp/openudon-m93-3-vet.log,
+/tmp/openudon-m93-3-fast.log). An initial new test compile used a nonexistent
+ControlMetadata.Public field; corrected it to the native checkbox definition
+and exact check/public_form_preview request before the passing run. No failed
+attempt is acceptance evidence. Existing fixture/asset/lock bytes and sibling
+code are untouched. Evolution v47 and persisted review count 0/10 remain.
+
+M93.4 is the sole general in-progress row. Public command/start transport,
+embedding the shared hidden worker into openudon, independent profile review/
+package admission and submission write classification are next. M93.5 still
+requires fresh headless/visible qualification, bounded review and publication;
+all downstream consumers remain pending. No live target or registration was
+contacted and no native/browser qualification is claimed by these unit checks.
+
+## M93.4 complete; M93.5 selected — 2026-10-01
+
+The public `openudon browser-capture` command consumes a closed, embedded
+`openudon.browser-capture-start.v1` start file only after its exact byte SHA-256
+is approved. Native normalization preserves goal/dashboard/role/context/origins,
+continuation, private-root isolation and bounded deadlines. The main executable
+embeds the retained closed worker dispatcher, not a second worker. iCoT remains
+on the same implementation. Start parsing errors discard raw input/path text;
+credential/model/unknown fields and changed start digests fail before startup.
+
+After native worker/reader/private cleanup joins, independent attested auth
+reconstruction or native registration adoption feeds the existing virtual-source
+validator. A separate import_review event/card is required on the same one-use
+gate and absolute deadline; completion approval is not import approval. The
+approved immutable candidate/target plan uses the existing atomic authoring
+writer, with native profile/review bytes and a reviewed start/transaction/file
+receipt committed together. Conservative write effects cover submission/login
+recipes. The native workspace fingerprint rejects changed brief/intent/session/
+review files; expiry and writer create-only/expected-prior-digest checks run
+again before replacement. Errors/uncertain terminal delivery grant no retry.
+Full-package approval, promotion and execution remain separate downstream gates.
+
+Focused race tests including native controller subprocesses and CLI tests passed
+(`/tmp/openudon-m93-4-final-test.log`). Full Go vet passed
+(`/tmp/openudon-m93-4-vet.log`); routine make fast passed
+(`/tmp/openudon-m93-4-fast.log`). New tests cover no dispatch/write on start
+rejection, separate post-join import approval for both modes, refusal, stale
+binding, expiry, failed commit, changed workspace, target collisions, exact
+receipt file digests and create-only replay refusal. The continuation shortcut
+is rejected for continue_current_page. Initial helper/test corrections included
+renamed goal variables and the native goal path's query-free representation;
+an initial expiry test incorrectly mutated a copied scalar and was corrected
+to let the real bound expire. No failed attempt is acceptance evidence.
+
+The confirmed desktop `/var/tmp/openudon-m93-browser-n5sop97f` expired normally
+at 2026-10-01T07:58:47.686588+00:00. Its supervisor records zero remaining
+owned processes and removal of the private auth directory. The independent
+human-confirmation record remains valid for M93.0. Do not replay that closed
+operation. M93.5 can prepare a fresh bounded session under the already approved
+later-reuse authority, with its own selected operation binding.
+
+Actual built main-dispatch checks also passed: capture help, unknown-flag
+rejection without argument echo, and the shared hidden worker dispatcher
+(/tmp/openudon-m93-4-command-check.json). This is browser-free command wiring,
+not native qualification. Final document-memory and diff/format checks passed.
+
+No native/browser qualification or visible journey is claimed from unit checks.
+M93.5 is now the sole general in-progress row. It still needs both synthetic
+capture modes through the public command, fresh current-stack owner qualification,
+human-visible authenticated/TOTP and registration evidence, persisted review
+(0/10 not started), publication and exact downstream reconciliation. Existing
+fixture/asset/lock bytes and sibling code are unchanged; evolution v47 remains.
+
+## M93.5 qualification preflight — 2026-10-01
+
+M93.4 implementation source is frozen at
+`589a13658cde776c5cb0764bf886972a95b0061f` in the clean disposable bundle
+`/var/tmp/openudon-m93-qualified-hvccxp50`. Eighteen exact repository checkouts
+were copied from the current v5 compatibility/build-input closure plus the
+published Authoring source; no sibling worktree was changed. The M91 exact
+read-only installed Node dependencies are reused as bytes only; no execution
+report or development result is reused. The frozen source's offline make check
+passed (`offline.log`). Source/build metadata and all fresh gate outputs remain
+outside repositories; this is qualification in progress, not acceptance.
+
+Planned native operation: fresh current v5 loopback owner qualification,
+three complete repeats (39 stages), followed by independent report verification.
+Purpose: qualify the retained native UI/controller/profile/runtime stack after
+the M93 adapters/worker/import changes. Estimated duration: 20–40 minutes
+(estimate, not observed timing); no result-reuse speedup is claimed. Native
+owner context remains bounded at two hours. Use an installed temporary Xvfb
+with TCP disabled and private X authentication under M93.5's already approved
+later-reuse authority; verify its owned display/auth cleanup after the run.
+Do not restore/replay closed M93.0. Additional actual public-command checks and
+both human-visible journeys remain necessary. Review count stays 0/10.
+
+## M93.5 fresh checks and empty-output correction — 2026-10-01
+
+The initial native1 preflight refused an ignored empty .openudon-run directory
+created by frozen offline make check. Preserved that test-created directory
+outside all source roots; all eighteen frozen repositories again had clean
+tracked/untracked/ignored status. No tracked source or lock was changed. Native1
+ran no browser stages and its temporary display/auth cleanup was verified.
+Native2 began the required fresh current suite, then was deliberately interrupted
+by SIGINT to its uniquely identified evaluator after an independent public CLI
+probe found a native completion serialization bug. Neither attempt qualifies
+M93. Their distinct invocation/log/report/teardown records remain in the frozen
+bundle; no failed output was overwritten or relabeled as success.
+
+The actual public capture command traversed fixture sign-in, separate issued
+POST/action approvals, password/identifier checkpoint kinds, selected TOTP and
+the separate typed goal URL. Its completion with no selected outputs failed:
+checkpointResponse cloned an empty slice into nil, so the required reviewed
+native output choice became JSON null and the worker rejected it as absent.
+Fixed the shared controller serializer to keep an explicit zero-length array.
+A JSON round-trip regression proves the native worker receives non-nil empty
+Outputs for both nil and empty supervising selections; all semantic/confirmation
+gates remain in the existing worker. Focused controller/capture race tests and
+routine make fast passed (/tmp/openudon-m93-5-empty-outputs-test.log and
+/tmp/openudon-m93-5-empty-outputs-fast.log). Fresh actual-command success and
+complete qualification of the revised source remain pending.
+
+The first disposable probe also exposed its own checkpoint-key mistake: native
+checkpoint records use camelCase, not the supervising command's snake_case.
+Corrected only the temporary consumer helper before its fresh run; kept both
+failed summaries and helper snapshots. No frame content, credential values,
+worker-result paths or private diagnostics were placed in ordinary goal/audit
+records. Fixture authoring uses no real credential/code or target account.
+M93.5 remains in progress; persisted closing review remains 0/10, not started.
+
+## M93.5 corrected command evidence and retained protocol selection
+
+Fresh actual public authenticated/TOTP command succeeded at corrected source
+`04e7e272adf2689327fe9ac73b81cb5e56e97fab`, CLI SHA-256
+`02325988b6bb4db24f460a4ffd67e1a274c983dc111540bbc7e7ab5e2ccdb992`.
+It exercised 35 bounded events, separate POST/action approvals, all three
+identifier/password/TOTP kinds, typed goal independent of dashboard, explicit
+empty output selection, independent post-join profile approval and committed
+native profiles/review/receipt. Receipt digest
+`7ed81f918306cbd7ce086d418e8fe52c84e63a21858edcba3fc5048746df276b`;
+metadata-only summary and helper snapshot are in the corrected disposable
+bundle `/var/tmp/openudon-m93-qualified-2dps71pu`. Only the fixture's two
+approved POSTs occurred. This is credential-free synthetic authoring, not a
+human-visible journey or workflow/runtime execution.
+
+A simple registration fixture was correctly rejected by native v4's profile
+normalizer before worker startup: BRP 1.2 requires typed inputs and provider
+verification. Preserving retained simpler registration profiles therefore
+needs the already existing native v1/v2/v3 choices, not new owner semantics.
+The reviewed start now optionally declares the exact native protocol; omission
+keeps v4. Its byte digest fixes that choice before worker launch, with no
+fallback after failure. All native version-specific gates remain authoritative.
+The adapter reuses the same controller; it no longer rejects older native
+configs before native normalization. Closed schema/config tests cover all four
+existing values and reject unknown versions. Focused race tests and make fast
+passed (/tmp/openudon-m93-5-protocol-selection-final-test.log and
+/tmp/openudon-m93-5-protocol-selection-final-fast.log). Initial compile removed
+an import still used for closed diagnostic validation; restored before passing
+checks. Original wording is preserved in the knowledge journal. No new direction
+or sibling code was introduced; evolution v47 remains.
+
+Native2's deliberate interruption returned deadline_or_cancellation at
+registration_driver after six pass-1 stages passed; all owned display processes
+and private auth were verified removed. It is partial evidence at its original
+source, not qualification of the corrected source. Both actual registration
+modes, a complete fresh native suite on final source, human-visible journeys,
+review/publication and downstream acceptance remain pending. Review count is
+still 0/10. M93.5 is the sole general in-progress row.
+
+## M93.5 final-source public command checks — 2026-10-01
+
+All three actual public-command checks passed on frozen source
+`f1273b622445d60dc7f3ea849e5b7f1a1f1e733a`, CLI SHA-256
+`50ed529b5375c01bc8aab0ef91b2910c55672074794b10e0dbcbcd70c10987e9`.
+Bundle: `/var/tmp/openudon-m93-qualified-8heukane`; metadata-only summaries
+and exact helper snapshots are retained in separate disposable check roots.
+Authenticated/TOTP: 35 events, 4.609 seconds, separate native POST approvals,
+identifier/password/TOTP kinds, independent goal URL, explicit empty outputs,
+post-join import approval; receipt SHA-256
+`b5ac17b3e2bd1bef5c795d7785d9a43d5fc10605dea63a66127624d3172bcf39`.
+Simple registration v2: 10 events, 3.572 seconds, no submission, reviewed
+profile and independent import; receipt SHA-256
+`84140520b51bb814127ced536bd8e9fb6f1ad2a3abc0010dfcc243e3850af7d0`.
+Typed verification registration v4: 14 events, 3.494 seconds, exact verification
+refusal followed by a fresh approved card, no submission, independent reviewed
+profile import; receipt SHA-256
+`bbd43efd392b57e3720c0f5ed617b399e1c82ff0248226aef0e976821e7291ad`.
+All used disposable credential-free loopback fixtures and private temporary
+Xvfb displays. These are automated authoring checks, not human-visible
+acceptance or workflow runtime execution.
+
+Full Go vet passed (`/tmp/openudon-m93-5-final-vet.log`). The native3 operation
+is running the current v5 suite on all eighteen clean frozen checkouts at this
+exact application source, with three fresh repeats and private TCP-disabled
+X authentication. Its invocation, log and display metadata are retained;
+no pass is claimed before completion and independent report verification.
+M93.5 remains the sole general in-progress row. Closing review stays0/10.
+
+## M93.5 private visible session ready — 2026-10-01
+
+Fresh later-reuse operation under the selected M93.5 row is ready at
+`/var/tmp/openudon-m93-browser-h_9348ri`; display `:98`, loopback-only
+VNC127.0.0.1:5901 and noVNC relay127.0.0.1:6080, X TCP disabled, private
+authentication, bounded expiry `2026-10-01T09:37:04.333275+00:00`.
+The approved installed components and protected SSH-forwarding boundary are
+unchanged; no service/firewall/public listener was created. Supervisor helper
+SHA-256 `930cb6a66d3ab30254c2ecfbfbd8ff52120ed8bdb078cd660d2d178bd2a86291` checks M93.5,
+not the closed M93.0 row. It owns teardown of all desktop children and private
+authentication. A new password stays only in the session's private directory
+and must be retrieved by the user in their SSH terminal, never in goal output.
+
+Disposable visible consumer helpers are prepared for the exact f1273b6 public
+CLI. They pause for local desktop input/approval prompts; credential/code
+values enter only the native browser, never the protocol, ordinary logs or
+audit. The registration fixture uses an in-page verification double and never
+submits an account. No journey has run or been confirmed yet. An asynchronous
+readiness question is pending; independent native qualification continues.
+
+Full make check and final document check passed
+(`/tmp/openudon-m93-5-final-check.log`, `/tmp/openudon-m93-5-final-doc.log`).
+Review stays0/10; this operation and these checks do not establish acceptance.
+
+## M93.5 complete native qualification — 2026-10-01
+
+Current v5 native qualification passed all39 stages across three fresh complete
+repeats on exact source `f1273b622445d60dc7f3ea849e5b7f1a1f1e733a`.
+Report: `/var/tmp/openudon-m93-qualified-8heukane/evidence/native3-current-loopback.json`;
+SHA-256 `daebc8569e8a7b28cf6d105e993670b44adf4ea8aea9b8cc8bd157831931064e`.
+The make target's independent report verification also passed. Its temporary
+display99 owned process exited, private authentication directory was removed,
+and gate exit code was0; teardown metadata is retained beside the report.
+Earlier native1/native2 failures remain at their original source/attempt
+identities and were not relabeled. All eighteen frozen repositories remained
+clean after this complete qualification; no historical fixture or lock changed.
+Final-source gofmt check is clean.
+
+A separate integration-v6 check is now running on the same exact source and
+frozen dependencies. No integration result is claimed yet. The independently
+prepared M93.5 visible desktop remains ready with the user's readiness reply
+pending; neither visible journey has started. Native39 is automated evidence
+and does not substitute for that human checkpoint. Review remains0/10, not
+started until the remaining automated integration check finishes. M93.5 is
+still in progress; publication and downstream acceptance remain incomplete.
+
+## Closing review iteration1 started — 2026-10-01
+
+Persisted before reviewing. Source under review:
+`f1273b622445d60dc7f3ea849e5b7f1a1f1e733a`, plus subsequent status-only
+checkpoint commits. Review the complete M93 diff from accepted M92 closure
+`f33d41f7202c00b986b640dee17861a39c79c027`: protocol/start schemas and
+conformance; native adapters/decision validation; private inputs; issued exact
+authority; shared worker; cancellation/reader/process/private cleanup;
+independent attested profile reconstruction and atomic import; compatibility;
+fixtures; command/metadata/documentation and approved desktop operations.
+
+All required automated evidence is now passing: full make check, full vet,
+focused race/conformance checks, three actual final-source public mode probes,
+full current native39 with independent verification, integration-v6 seventeen
+passed/zero failed/three optional unrequested with independent verification,
+and document/gofmt/diff checks. Integration report:
+`/var/tmp/openudon-m93-qualified-8heukane/evidence/integration1-v6.json`.
+No human-visible journey is implied by these results. The readiness reply and
+both visible journeys remain pending. Do not publish/accept or advance a
+consumer until the missing human evidence and normal closure are complete.
+Resume this interrupted review at iteration1, not a new number.
+
+## Closing review iteration1 result — 2026-10-01
+
+Result: passed, no P1/P2 or higher findings and no carried findings. Reviewed
+the complete58-file M93 source/doc/test change, including bounded closed
+schemas and issued-reference forgery/replay/refusal checks; pure native
+validation and immutable review cards; authenticated continuation and current
+output/MFA choices; retained registration protocol/version gates; disclosure
+consent; filtered environment and private credential/code input; reader/worker
+join and retained late teardown failures; independent attested/virtual-source
+reconstruction; create-only profiles/receipt and expected-digest review append;
+workspace drift, expiry and atomic rollback; cancellation/lost output with no
+automatic retry; built main dispatch, shared worker and iCoT compatibility.
+Checked documented CLI/profile authority against the actual final-source
+probes, native39 and integration17 reports; all historical fixture/UI/lock and
+dependency files remain unchanged. All eighteen frozen checkouts remained
+clean after integration. Source and dependency identities remain exact f1273b6
+and its recorded closure; subsequent repository commits change status only.
+No runtime fix or additional test repetition is required by this review.
+
+Integration v6 report SHA-256:
+`bb22138402e89088e654146fe09a97bbfdd148bb504c56762a89b74b7c1f5cea`;
+seventeen passed, zero failed, three optional unrequested, independent verify
+passed. Native39 report SHA-256 remains
+`daebc8569e8a7b28cf6d105e993670b44adf4ea8aea9b8cc8bd157831931064e`.
+Evolution v47 remains appropriate: implementation preserves the approved
+retained-capability/public-protocol direction; no direction change was made.
+
+The explicit human-visible checkpoint is still incomplete: readiness reply
+is pending and neither prepared visible journey has run. M93.5 stays selected
+and in progress under its bounded desktop later-reuse authority. Do not infer
+a human answer from elapsed time or automated passes. Resume the prepared
+visible authenticated/TOTP and verification-registration consumers after the
+user is ready, then obtain explicit confirmation of both journeys. If the
+desktop expires, retain its teardown and restore a new bounded session under
+M93.5; never reopen M93.0 or reset the review counter. Acceptance, publication,
+retirement and exact downstream reconciliation remain pending; no consumer
+may advance yet.
+
+## M93.5 connection restoration — 2026-10-01 12:27 UTC
+
+The user reported noVNC Connect failed. Safe inspection proved the prior
+session expired at09:37:04.486968 UTC, with all owned processes stopped and
+private authentication removed; ports5901/6080 were absent. No capture journey
+had run. Restarted the already approved bounded later-reuse operation under
+M93.5, preserving M93.0 closure and review1/10 passed.
+
+Fresh root `/var/tmp/openudon-m93-browser-s3lttof5`, expires
+`2026-10-01T13:27:53.330220+00:00`. Exact loopback VNC/relay listeners are
+ready; X TCP remains disabled and HTTP vnc.html returned200 with the full
+viewer. Private password/authentication remain local and outside repository
+output. The existing SSH tunnel can be reused after browser refresh and new
+password retrieval in the user's SSH terminal. No public listener, firewall,
+installation or permanent service was changed. Human readiness and both
+visible journeys remain pending; automated qualifications are unchanged.
+
+## M93.5 connected desktop and visible consumers — 2026-10-01 12:33 UTC
+
+The user explicitly reported noVNC connected, dismissed the connection
+message and saw the empty desktop. Started the real authenticated/TOTP
+public-CLI consumer on approved private display98 at12:30:04 UTC. It completed
+in42.363 seconds with35 events, exact local login/TOTP POSTs, all three native
+human-input checkpoints and separate reviewed-profile import. The helper
+reported pass; receipt SHA-256
+`faaaf5696219913a578d26db9892f4b8de2b4ec5295a56df910e9a023267ee5b`.
+Its local button observations are not final user-visible acceptance.
+
+Started the actual registration-v4 visible consumer on the same bounded
+private desktop. It is waiting for local refusal/approval and profile review
+prompts; no result is claimed yet. Both helpers use qualified source
+`f1273b622445d60dc7f3ea849e5b7f1a1f1e733a` and binary SHA-256
+`50ed529b5375c01bc8aab0ef91b2910c55672074794b10e0dbcbcd70c10987e9`.
+No credential/code values or raw protocol frames were recorded here.
+Explicit final confirmation that both journeys were visible still remains
+required. M93.5 remains in progress, review1/10 passed, and acceptance,
+publication and downstream advancement remain pending.
+
+## M93.5 visible registration result — 2026-10-01 12:36 UTC
+
+The user explicitly confirmed seeing Chromium and the local prompt. When the
+prompt moved behind Chromium, safe inspection confirmed it remained open;
+raised only its existing window, without pressing a button or deciding an
+action. The user subsequently reported clicking Continue several times and
+returning to the empty desktop. The actual registration-v4 consumer completed
+with exit0 at12:36:13.638621 UTC:14 events,201.14 seconds, five local Continue
+observations (exact verification refusal, fresh verification approval, recipe
+review, native completion, separate import). No registration POST occurred.
+
+Summary: `/var/tmp/openudon-m93-qualified-8heukane/visible-registration-v4-0s4s5w2h/summary.json`;
+receipt SHA-256 `552bd875fcd4fdcf09ec4c9d285a27d1931438b9dcd01c1c9e223f00c9602ef0`.
+The authenticated summary is at
+`/var/tmp/openudon-m93-qualified-8heukane/visible-auth-xdtadnf9/summary.json`.
+Both helpers reported pass on the qualified source/binary recorded above.
+No credential/code value, full protocol frame or private browser content was
+added to the ledger. Explicit final human confirmation of BOTH visibly
+observed journeys is now requested and pending; a subprocess pass or local
+button observation does not substitute for that answer. M93.5 remains in
+progress with review1/10 passed. No publication or downstream advancement.
+
+## Final producer qualification and explicit human acceptance — 2026-10-01
+
+The user explicitly answered “I saw and accept both journeys” after the two
+actual visible consumers completed. This satisfies the required human-visible
+checkpoint for authenticated/TOTP and verification-registration capture; it
+authorizes no real account, network target or runtime action.
+
+All qualification is on exact application source
+`f1273b622445d60dc7f3ea849e5b7f1a1f1e733a`; CLI SHA-256
+`50ed529b5375c01bc8aab0ef91b2910c55672074794b10e0dbcbcd70c10987e9`.
+Qualification summary: `/var/tmp/openudon-m93-qualified-8heukane/qualification-summary.json`;
+SHA-256 `abdb8490206a3e734f009a6f9430d903017635270327366b4e40bdf95e625da6`.
+Full check, vet, affected race/conformance, exact-schema and built-command
+checks passed. Current native v5 passed39/39 in three fresh complete repeats,
+integration-v6 passed17/0/3 optional unrequested, both independent verifiers
+and bounded native display teardown passed. The private human desktop remains
+under its original one-hour expiry; capture workers have joined and closed.
+Review1/10 passed with no open findings. No application code changed after the
+qualified source, only truthful status/checkpoint metadata. Earlier failed
+attempts and their original identities remain retained above.
+
+Prepare successfully recorded exact-diff source publication before pushing;
+then reconcile every pending consumer to that verified full revision. M93.5
+stays in progress until publication and normal downstream/retirement closure.
+
+## Acceptance and exact downstream reconciliation — 2026-10-01
+
+Qualified source `f1273b622445d60dc7f3ea849e5b7f1a1f1e733a` was published
+with successfully recorded prepush diff/range/digest/scope and independently
+verified at `d5b483afc93dc5b25ac319b1ce590f5d4d6fd682`. Manifest:
+`/var/tmp/openudon-m93-qualified-8heukane/publication-source-d5b483afc93d/publication.json`.
+Every required automated and both visible gates passed; the user explicitly
+accepted both journeys. Review1 passed, all task rows are complete.
+
+Reconciled OpenUdon M94/M95, Kinet A10/W09/M19/U07 and W8M W28/W29 against
+the exact producer above. Consumers retain their own ledgers and pending
+acceptance; no UI/audit adoption, Gate5B or runtime operation is fabricated.
+Current architecture/stack and reusable schema/empty-output lessons already
+describe the qualified implementation. Product now names the additive public
+capture interface. Evolution v47 direction is unchanged; repair its M93 link
+at retirement. Remaining order begins M94, then Kinet A10/W08/W09/W10/M19/U07,
+Gate5B and the retained consumer/removal/final-adoption milestones.
+````

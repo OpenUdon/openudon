@@ -1,0 +1,26 @@
+{
+  "diagnostics": [
+    {
+      "code": "discovery.provider_unknown",
+      "message": "an exact provider key has no catalog match",
+      "severity": "error"
+    }
+  ],
+  "examined_operations": 0,
+  "incomplete": true,
+  "limits": {
+    "max_context_bytes": 524288,
+    "max_operations": 50000,
+    "max_results": 20,
+    "timeout_millis": 30000
+  },
+  "outcome": "blocked",
+  "qualified_operations": 0,
+  "schema_version": "apitools.catalog-discovery/v1",
+  "scope": {
+    "complete": false,
+    "provider_constrained": true,
+    "provider_ids": null
+  },
+  "truncated": false
+}

@@ -60,6 +60,7 @@ func TestJourneyGuidedBundlesAuthorAndImportStrictly(t *testing.T) {
 				t.Fatal("strict import did not materialize both canonical profiles")
 			}
 			workflow, err := synthesize.WriteBrowserScenarioWorkflow(synthesize.BrowserScenarioWorkflowRequest{
+				UWSVersion: manifest.Expected.UWSVersion,
 				ExampleDir: exampleDir, AuthenticationPath: importedAuthenticationPath, CapabilityPath: capabilityPath,
 				AuthenticationFlow: journeyAuthenticationFlow, Session: journeySession,
 				CredentialSlotBindings: map[string]string{}, Inputs: blueprint.inputs, Actions: blueprint.workflow,
