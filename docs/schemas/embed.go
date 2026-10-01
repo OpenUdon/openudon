@@ -6,3 +6,8 @@ import "embed"
 
 //go:embed openudon.simulate-input.v1.schema.json openudon.step-authoring.v1.schema.json
 var SimulationInputResources embed.FS
+
+// BrowserCaptureResources is the single published, offline capture wire schema.
+//
+//go:embed openudon.browser-capture.v1.schema.json
+var BrowserCaptureResources embed.FS

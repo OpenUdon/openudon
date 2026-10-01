@@ -1401,3 +1401,24 @@ package digest and revision-bound pending intent writes. M92 records observed
 producer and browser qualification with exact source identities. The final
 pure-simulation namespace fix does not change browser/authoring/executor code
 or pins; native evidence retains its original source identity.
+
+## M93.1 supervising capture envelope foundation
+
+`internal/browsercapture` implements `openudon.browser-capture.v1` as a
+process-local single-owner gate above the existing neutral browser controllers.
+A new session has random IDs, one mode, a fixed deadline, monotonic event
+revisions and bounded transient reduced views. A typed proposal executes
+nothing: it produces an exact server-held review card; approval/refusal names
+that issued event/action/digest and consumes it once. Changed or unpublishable
+worker state invalidates earlier authority. Terminal results, cancellation and
+expiry cannot restore or replay a command. The existing controllers retain
+semantic validation, origin/action/verification gates and private browser input.
+
+The closed wire imports Browsertools reduced record types, keeps full
+registration history controller-local, and exposes no worker-result paths,
+attestations, raw page/browser state or credential/code values. Model-disclosure
+proposals bind the current observation and supply no model invocation themselves.
+Kinet owns transient UI/Ask handling and its A10/W09 persistence projection.
+The exact published schema is embedded and enforced before typed records are
+interpreted. This foundation alone exposes no capture CLI or completed journey;
+M93.2–M93.5 own adapters, profiles/worker handoff and acceptance.

@@ -1137,3 +1137,18 @@ python3-websockify 0.13.0+dfsg1-2ubuntu1; `/usr/share/novnc/vnc.html` is
 served by a temporary loopback relay at 127.0.0.1:6080. Exact fresh session
 bindings/expiry and automated readiness/teardown evidence live in status-M93.md. Both listeners must remain loopback-only and SSH-forwarded, with
 password-required VNC, clipboard disabled and bounded automatic teardown.
+
+## M93.1 capture protocol foundation
+
+`docs/schemas/openudon.browser-capture.v1.schema.json` is the exact embedded
+resource in `docs/schemas.BrowserCaptureResources`; runtime decoders use the
+already-pinned JSON Schema v6 dependency and shared strict evidencefile reader.
+No new dependency, worker implementation or schema engine was added. The
+NDJSON message ceiling is 256 KiB, nesting 64 levels, session count 4096
+events and absolute deadline at most two hours. Native Browsertools reduced
+records keep their own field semantics; a registration event transmits the
+current observation/latest preview rather than the entire growing history.
+Published examples and `go test ./internal/browsercapture` cover both mode
+envelopes, TOTP checkpoint metadata, reviewed proposals and exact single-use
+approval/refusal. See `docs/browser-capture-protocol.md`; later M93 tasks
+expose the command and run browser/transaction qualification.

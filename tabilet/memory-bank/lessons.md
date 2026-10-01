@@ -115,6 +115,14 @@ compare faithfully. Evidence: `internal/udonreport/v5.go` and its alias/null,
 presence, identity and timestamp mutation tests; M90 review finding R90-3 in
 [M90 history](../docs/history/status-M90.md). Keep legacy wire behavior under its own version.
 
+Capture's M93.1 uses the same exact-schema rule: the public resource is
+embedded, duplicate keys/unknown nested fields are rejected before interpreting
+the closed union, and conformance uses the actual decoders. Evidence:
+`internal/browsercapture/conformance_test.go` and
+`docs/browser-capture-protocol.md`. Its process-local gate additionally binds
+review to immutable issued arguments and consumes approval/refusal once; a
+failed new-state publication must destroy old action authority.
+
 ## Keep hypothetical execution separate from executable approval
 
 Project unresolved contracts only in memory for preview, using public runtime
