@@ -110,6 +110,10 @@ func DecodeRequest(data []byte) (Request, error) {
 	if json.Unmarshal(data, &fields) != nil {
 		return Request{}, invalid
 	}
+	var encodedStart string
+	if json.Unmarshal(fields["start"], &encodedStart) != nil {
+		return Request{}, invalid
+	}
 	for key := range fields {
 		switch key {
 		case "version", "kind", "request_id", "start", "receipt_path", "receipt_sha256", "transaction_sha256", "input_sha256", "expected_totp", "registration_authority", "workflow_name", "allow_overwrite", "flow", "action", "cleanup_disposition", "inputs", "input_bindings":

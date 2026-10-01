@@ -187,3 +187,26 @@ func TestPlanDigestBindsOwnerRequestInventoryReceiptAndPreview(t *testing.T) {
 		t.Fatal("self digest unstable", err)
 	}
 }
+
+func TestNativeStartTransportRejectsNumericByteArray(t *testing.T) {
+	var request map[string]any
+	if err := json.Unmarshal(requestFixture(t, "authenticated"), &request); err != nil {
+		t.Fatal(err)
+	}
+	start, err := base64.StdEncoding.DecodeString(request["start"].(string))
+	if err != nil {
+		t.Fatal(err)
+	}
+	values := make([]int, len(start))
+	for i, b := range start {
+		values[i] = int(b)
+	}
+	request["start"] = values
+	data, err := json.Marshal(request)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := DecodeRequest(data); err == nil {
+		t.Fatal("non-base64 byte-array start accepted")
+	}
+}
