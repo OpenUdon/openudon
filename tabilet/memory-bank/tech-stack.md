@@ -1113,3 +1113,17 @@ Conformance loads local schema resources only. Current browser compatibility
 and build-input files are versioned `*-v5.json`; native v5 and integration v6
 qualify the UWS 1.12/M45 context and preserve all earlier report contexts.
 The temporary M92 Xvfb permission is synthetic loopback qualification only.
+
+## M93 private development desktop
+
+The approved M93.0 operation prepares the existing development host with
+Xvfb 2:21.1.22-1ubuntu1, xauth 1:1.1.2-1.1build1, Openbox 3.6.1-12ubuntu3
+and x11vnc 0.9.17-2. Temporary X authentication/private password files are
+owner-only; X listens on no TCP port and VNC listens on 127.0.0.1:5901 only.
+Use an SSH tunnel and Remote Desktop Manager; clipboard exchange and VNC
+remote command/control are disabled. A bounded user process, not a permanent
+system service, owns teardown. Exact session bindings/expiry and the required
+human connection checkpoint live in status-M93.md. Desktop setup grants no
+capture target, model disclosure, credentials, registration or execution
+permission and proves no M93.5 journey. Restoring an expired session requires
+its currently selected authorized operation; never replay closed task rows.

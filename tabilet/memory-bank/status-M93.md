@@ -1,6 +1,6 @@
 # Status M93 — Supervised authenticated and registration browser capture
 
-**State:** Approved planning, 2026-09-30; every task pending. No implementation or publication is established by this record.
+**State:** M93.0 private desktop operation selected; other rows remain pending. M92 is accepted/published; no capture implementation is claimed.
 
 **Goal.** Expose both existing browser-capture journeys to Kinet through a bounded non-interactive protocol.
 
@@ -19,7 +19,7 @@ Publish openudon.browser-capture.v1 events and decisions for state, reduced obse
 
 | Item | State | Notes |
 | --- | --- | --- |
-| M93.0 — Prepare the private remote desktop (operation) | `[ ]` | Operation row: run only while the launch request's named EXTERNAL_MUTATIONS authorization for the development desktop is in force. Check installation privilege first and stop if missing. Install and start Xvfb, a minimal window manager and x11vnc on the existing host; x11vnc listens on loopback only. The user connects once with Remote Desktop Manager through an SSH tunnel to confirm the session. No public listener, firewall change or permanent service; record versions and display bindings. Reused by M93.5, Kinet W09/U07 and W8M W28/W29. |
+| M93.0 — Prepare the private remote desktop (operation) | `[~]` | Operation row: run only while the launch request's named EXTERNAL_MUTATIONS authorization for the development desktop is in force. Check installation privilege first and stop if missing. Install and start Xvfb, a minimal window manager and x11vnc on the existing host; x11vnc listens on loopback only. The user connects once with Remote Desktop Manager through an SSH tunnel to confirm the session. No public listener, firewall change or permanent service; record versions and display bindings. Reused by M93.5, Kinet W09/U07 and W8M W28/W29. |
 | M93.1 — Freeze capture event/decision protocol | `[ ]` | Bound fields and event sizes; publish conformance fixtures and issued-reference/revision validation for both modes. |
 | M93.2 — Authenticated and TOTP capture | `[ ]` | Preserve goal/dashboard/origin policy, MFA-kind selection, human credential entry, disclosure consent and exact action approval. |
 | M93.3 — Registration and verification capture | `[ ]` | Retain registration authority, preview/navigation, verification approval, diagnostics and blocked-script rules; no production-registration authority is implied. |
@@ -113,3 +113,64 @@ its own private desktop and obtain the user's Remote Desktop Manager
 connection confirmation; M92's disposable Xvfb is already torn down and proves
 neither M93.0 nor M93.5 human acceptance. Capture submissions retain write
 effects; any pending resolution binds the exact contract/current revision.
+
+## M93.0 selected — 2026-10-01
+
+M92 normal closure is independently verified published at
+`f33d41f7202c00b986b640dee17861a39c79c027`; resolve its permanent history
+record, not a missing active status. Qualified application is96c16acacc7f442858dac8a0fcb36c84991ebddf.
+This is the sole general in-progress row across the goal's package ledgers.
+The approved Kinet launcher explicitly authorizes installing/running Xvfb,
+a minimal window manager and x11vnc on vps-f7dfc687.vps.ovh.us, with VNC
+loopback-only and SSH transport, no public listener/firewall/permanent service.
+Check actual installation privilege before installation and stop if missing.
+Preserve private X authentication, private VNC credentials and disposable
+settings. Record exact installed versions and display/session bindings. The
+user must connect once with Remote Desktop Manager and confirm the display
+before this operation completes or M93.1 begins. Synthetic M92 Xvfb evidence
+is already torn down and is not this human checkpoint's acceptance.
+
+## M93.0 first startup attempt — retained diagnostic 2026-10-01
+
+Installed the authorized missing Openbox/x11vnc packages after successful
+noninteractive installation privilege and repository metadata checks; existing
+Xvfb/xauth remain installed. The first private desktop attempt created its
+listener, but the helper's short RFB-banner socket probe timed out during the
+VNC server's connection sniffing. That is not a human connection result.
+Attempt `/var/tmp/openudon-m93-desktop-xqnd4u4y` records failure and teardown:
+all owned children exited and its private authentication/password directory
+was removed. Never reuse that failed attempt as acceptance. Correct the helper
+readiness check to verify the exact x11vnc PID owns the loopback TCP listener;
+start a new disposable session. The required human RDM check remains pending.
+
+## M93.0 desktop ready; human checkpoint pending — 2026-10-01
+
+Privilege check `sudo -n -v` passed. Authorized apt metadata refresh and
+`apt-get install --no-install-recommends openbox x11vnc` completed with exit 0;
+logs `/var/tmp/openudon-m93-desktop-apt-update.log` and
+`/var/tmp/openudon-m93-desktop-apt-install.log`. Installed versions:
+Openbox 3.6.1-12ubuntu3, x11vnc 0.9.17-2, Xvfb 2:21.1.22-1ubuntu1,
+xauth 1:1.1.2-1.1build1. No permanent service, firewall or public listener
+was configured. New private session `/var/tmp/openudon-m93-desktop-uyyn13g5` uses display `:98`,
+1280x800x24, TCP disabled for X and exact VNC listener 127.0.0.1:5901.
+Owned listener PID and absence of X TCP listener were independently checked.
+RFB 3.8 probe offered only password authentication (type 2), no unauthenticated
+access; this is a local readiness check, not the human confirmation.
+
+Root/private directories are 0700, Xauthority/password files 0600 and owned by
+peter. Password values are absent from commands, environment, repo and audit;
+retrieve the private password only in the user's SSH terminal. Clipboard
+exchange, x11vnc remote-control and external-command hooks are disabled;
+existing user x11vnc config is bypassed. No provider secrets enter child env.
+A standalone user supervisor expires this disposable session at
+`2026-10-01T04:00:24.673997+00:00` and removes private credentials after stopping its owned
+children. No system service was installed. Session metadata/expiry and local
+RFB evidence remain in that private root. The prior failed attempt is retained
+separately with verified teardown; it was not retried as historical evidence.
+
+Human connection instructions: on the user's workstation, forward local
+15901 to this host's 127.0.0.1:5901 with SSH. In Remote Desktop Manager choose
+VNC, host 127.0.0.1, port 15901 and the private VNC password. The display contains
+an OpenUdon M93.0 connection-check message. The user must confirm that message
+is visible before M93.0 can complete. Until then this row remains in progress,
+M93.1–M93.5 remain pending, and the ordered goal waits at its explicit checkpoint.
