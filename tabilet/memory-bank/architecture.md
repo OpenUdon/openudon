@@ -1422,3 +1422,21 @@ Kinet owns transient UI/Ask handling and its A10/W09 persistence projection.
 The exact published schema is embedded and enforced before typed records are
 interpreted. This foundation alone exposes no capture CLI or completed journey;
 M93.2–M93.5 own adapters, profiles/worker handoff and acceptance.
+
+M93.2 adds the authenticated/TOTP adapter over `browserauthor.Session` and a
+single-owner closeable-stream driver reusable by both modes. Controller-owned
+pure decision checks reuse its existing observation/checkpoint conversions;
+actual dispatch retains native worker and parent-attestation checks. No worker,
+profile validator or model client is duplicated. A proposal never responds to
+the controller; only the exact one-use approved command does. Worker-issued
+origin/action approvals remain independent checkpoints. Disclosure consent is
+an exact observation event, not a model call or persistent session grant.
+
+The adapter closes and joins its reader and drains controller events through
+joined worker closure on EOF, malformed/stale input, cancellation, absolute
+expiry or output failure. Late teardown failure overrides a nominal cancel.
+A joined capture emits terminal state `captured` with no profile metadata;
+its private result/attestation has no JSON representation and remains input
+to M93.4's independent review/package lifecycle. M93.3 registration and M93.4
+command/worker embedding/import are still pending, with M93.5 owning fresh
+browser and human-visible acceptance of both journeys.

@@ -1152,3 +1152,17 @@ Published examples and `go test ./internal/browsercapture` cover both mode
 envelopes, TOTP checkpoint metadata, reviewed proposals and exact single-use
 approval/refusal. See `docs/browser-capture-protocol.md`; later M93 tasks
 expose the command and run browser/transaction qualification.
+
+## M93.2 authenticated supervising transport
+
+`internal/browsercapture.RunAuthenticated` wraps the existing controller;
+`browserauthor.NormalizeConfig` and `ValidateResponse` are neutral pure entry
+points over its existing configuration/decision checks. An internal generic
+stream driver serializes both mode adapters without a second browser engine.
+Input/output must be closeable pipes or local sockets whose closure interrupts
+I/O. Absolute context expiry closes them; worker and reader teardown join before
+return. Invalid input is fail-closed and never echoed. Private completion data
+has no JSON representation. No dependency, public CLI or profile import is added
+by this row. Race/pipe tests include TOTP and credential acknowledgments,
+separate worker origin denial, exact observation disclosure, replay, changed
+state, EOF, expiry, blocked output and late teardown failure.

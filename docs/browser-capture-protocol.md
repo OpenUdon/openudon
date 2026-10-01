@@ -1,8 +1,9 @@
 # Supervising-product browser capture protocol
 
-M93.1 implements the `openudon.browser-capture.v1` event/decision foundation.
-The adapter and command are subsequent M93 work; this document does not claim
-that a capture command, browser journey or package import is already available.
+M93.1 implements the `openudon.browser-capture.v1` event/decision foundation;
+M93.2 adds the internal authenticated/TOTP transport over the existing browser
+controller. Registration, the public command, profile import and complete
+browser qualification remain subsequent M93 work.
 
 The public [schema](schemas/openudon.browser-capture.v1.schema.json) is also the
 exact embedded resource used by the decoder. [Wire examples](examples/browser-capture/v1/)
@@ -34,7 +35,9 @@ levels, and the session at 4096 events. No restoration or replay is supported.
 5. A worker event invalidates earlier references and unapproved proposals.
    After a decision, another proposal cannot reuse the proposal card as an old
    worker observation. The adapter must publish fresh state. A stale/forged
-   message is refused without consuming the legitimate pending decision.
+   message is refused without consuming the legitimate pending decision by the
+   gate. The stream adapter fails closed on malformed, stale or forged input:
+   it cancels and joins the worker instead of granting reconnect/retry authority.
 
 The existing browser controllers recheck their semantic gates on dispatch.
 In particular, approving a click proposal does not waive a subsequently issued
@@ -77,5 +80,27 @@ and unknown fields, mode isolation, changed-state invalidation, forged IDs,
 wrong digests, refusal, single-use approval, expiry, cancellation and bounded
 records. Native controller/capture fixtures and package transactions are later
 M93 checks. Existing iCoT UI/control/terminal paths remain available during 5A.
+The authenticated adapter owns closeable input/output pipes or local sockets.
+EOF, cancellation and absolute expiry close transport ends to unblock readers
+and writers; the adapter drains controller events until worker teardown joins.
+Late teardown failure cannot be reported as a clean cancel. It accepts only
+the fields offered by the current controller state, validates current candidate
+and approval IDs and offered MFA kinds through controller-owned pure helpers,
+and dispatches an exact approved command once. Worker-issued origin/action
+approvals remain separate checkpoints. The native POST ceiling is retained.
+
+An approved disclosure card emits `type: disclosure` only for that observation;
+refusal emits fresh current state without consent. No model is invoked, and
+consent never carries to another observation. After joined native completion,
+the internal adapter emits a terminal `result` with state `captured` and no
+profile metadata: the worker path/digest/attestation remain process-private
+inputs to later independent review/import. `captured` is not an imported
+profile, package acceptance or permission to execute a workflow.
+
+Adapter tests use fake controllers and real pipe ownership to cover TOTP,
+credential acknowledgments, separate origin denial, observation-bound
+disclosure, malformed/stale/replayed input, blocked output, expiry, EOF and
+late teardown failures. Existing controller tests exercise its real subprocess
+protocol separately. These tests do not replace fresh browser qualification.
 Acceptance/published consumer adoption requires all M93 tasks, both visible
 journeys, the persisted milestone review and exact upstream reconciliation.

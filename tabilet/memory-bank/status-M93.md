@@ -1,6 +1,6 @@
 # Status M93 — Supervised authenticated and registration browser capture
 
-**State:** M93.0 private desktop confirmed; M93.1 protocol foundation complete; M93.2 authenticated adapter selected. M92 is accepted/published; capture implementation/qualification remain incomplete.
+**State:** M93.0 private desktop confirmed; M93.1 protocol and M93.2 authenticated adapter complete; M93.3 registration selected. M92 is accepted/published; capture command/import/qualification remain incomplete.
 
 **Goal.** Expose both existing browser-capture journeys to Kinet through a bounded non-interactive protocol.
 
@@ -21,8 +21,8 @@ Publish openudon.browser-capture.v1 events and decisions for state, reduced obse
 | --- | --- | --- |
 | M93.0 — Prepare the private remote desktop (operation) | `[+]` | Operation row: run only while the launch request's named EXTERNAL_MUTATIONS authorization for the development desktop is in force. Check installation privilege first and stop if missing. Install and start Xvfb, a minimal window manager, x11vnc, the full noVNC viewer and websockify on the existing host; x11vnc and websockify listen on loopback only. The user connects once with noVNC in a local browser through an SSH tunnel to confirm the session. No public listener, firewall change or permanent service; record versions, display bindings, relay checks and teardown. Reused by M93.5, Kinet W09/U07 and W8M W28/W29. |
 | M93.1 — Freeze capture event/decision protocol | `[+]` | Bound fields and event sizes; publish conformance fixtures and issued-reference/revision validation for both modes. |
-| M93.2 — Authenticated and TOTP capture | `[~]` | Preserve goal/dashboard/origin policy, MFA-kind selection, human credential entry, disclosure consent and exact action approval. |
-| M93.3 — Registration and verification capture | `[ ]` | Retain registration authority, preview/navigation, verification approval, diagnostics and blocked-script rules; no production-registration authority is implied. |
+| M93.2 — Authenticated and TOTP capture | `[+]` | Preserve goal/dashboard/origin policy, MFA-kind selection, human credential entry, disclosure consent and exact action approval. |
+| M93.3 — Registration and verification capture | `[~]` | Retain registration authority, preview/navigation, verification approval, diagnostics and blocked-script rules; no production-registration authority is implied. |
 | M93.4 — Embed worker and import reviewed profiles | `[ ]` | Reuse Browsertools worker entry and package lifecycle; classify submissions as write; preserve iCoT on the same implementation during 5A. |
 | M93.5 — Qualify headless and visible sessions, review and publish | `[ ]` | Requires M93.0's prepared desktop; run both synthetic modes and human-visible evidence, owner qualification, review and publication. Do not defer this environment prerequisite to Kinet W09. |
 
@@ -293,3 +293,36 @@ lesson were updated; evolution v47 direction is unchanged.
 M93.2 is the sole in-progress row. This foundation exposes no capture CLI yet
 and supplies no real browser journey, profile import, M93.5 qualification,
 milestone review or publication. Review count remains 0/10.
+
+## M93.2 complete; M93.3 selected — 2026-10-01
+
+Added internal authenticated/TOTP capture over the unchanged native
+`browserauthor.Session` worker loop. Controller-owned pure configuration and
+decision helpers reuse existing normalization and observation/checkpoint
+conversion; only offered fields, current candidate/approval IDs and MFA kinds
+are accepted. No credential or code field exists. The adapter issues exact
+review cards before dispatch, preserves native origin/action approvals and
+POST bounds, and emits disclosure consent for only the exact observation. It
+never calls a model. A single-owner bounded closeable-stream loop is reusable
+by the registration adapter. Invalid/stale/replayed input fails closed.
+
+Reader/output cancellation, EOF, absolute expiry and blocked-output checks
+join the controller's worker and input reader before return. Late teardown
+failure overrides a nominal cancel. Native results/attestations stay private
+and have no JSON representation; joined capture emits only terminal state
+`captured`, with no import/package/execution authority. Independent reviewed
+profile import and the public CLI/embedded entry remain M93.4 work. Existing
+iCoT/controller behavior and fixture/asset/lock bytes remain unchanged.
+
+Focused race tests and controller subprocess tests passed; focused Go vet and
+`make fast` passed. Logs `/tmp/openudon-m93-2-final-test.log`,
+`/tmp/openudon-m93-2-vet.log`, `/tmp/openudon-m93-2-fast.log`. The first new
+test compile failed because a Response contains a slice and is not comparable;
+replaced those comparisons with reflect.DeepEqual before the passing run.
+No failed run is acceptance evidence. No native/browser qualification is
+claimed by pipe/fake-controller checks; M93.5 still owns fresh headless and
+human-visible evidence of both journeys, review and publication. Evolution
+v47 direction and persisted review count 0/10 remain unchanged.
+
+M93.3 is now the sole general in-progress row across the goal. M93.4/M93.5
+and all downstream consumers remain pending.
