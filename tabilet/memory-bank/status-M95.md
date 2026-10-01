@@ -298,3 +298,13 @@ source remains `d3589d4742272b3d024328192768374da4c0c637`; closure changes
 only documentation and retirement records. Its permanent history record exists
 and literal source/status equality is validated. Gate5B is still unapproved;
 this reconciliation advances no consumer task or operational authority.
+
+## Explicit Gate5B approval — 2026-10-01
+
+User answered “Approve Gate5B and continue” after accepted/published U07,
+approved23-capability inventory and both retained journey demonstrations.
+Resume the existing order W28 → M95 → M20 → W29 with task commits and standing
+scoped normal publication. Preserve package-local ledgers, source/build evidence,
+no-automatic-expensive-cache-fallback and single execution ownership. No live
+account, target operation, M17 deployment or extra discontinuation is authorized.
+Receipt: `/var/tmp/kinet-stage5-gate5b-receipt.json`.
