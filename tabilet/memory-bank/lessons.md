@@ -41,6 +41,13 @@ for existing reports and add the explicit markers to a new report version.
 E22 review iteration 2 found and corrected this gap for Browser 1.10 count
 evidence; see the [E22 history record](../docs/history/status-E22.md).
 
+M91's frozen integration detected a stale v10-only marker after P08 had
+broadened the real test to v10/v11. Relocate current paths and require the
+actual modern marker in a new report version; preserve all historical
+selectors/locks. Compare fixture/asset bytes and shared function bodies as
+well as counters, then run fresh native qualification at the extracted
+source. See M91's closing record (resolved through the history index).
+
 ## Exercise browser profiles through trusted package preparation
 
 When adding a browser profile version, test the package lifecycle and trusted

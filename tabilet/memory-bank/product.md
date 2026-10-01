@@ -422,3 +422,11 @@ Current-stack native input identity is available as an explicit browser-free end
 
 Explicit report-v5 selection adds value-free per-step run-evidence v3; legacy
 defaults remain unchanged. See ../../docs/per-step-run-evidence.md.
+
+## Retained expert authoring entry
+
+`openudon authoring` provides lint, reconcile, repair, reports, variants,
+scorecards and explicit model evaluation over shared implementation. Legacy
+iCoT terminal/UI/control remains available during Stage 5A; M95 removes it
+only after approved replacements qualify. Extraction itself changes no
+user approval or execution authority.

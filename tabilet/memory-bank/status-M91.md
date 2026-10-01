@@ -1,6 +1,6 @@
 # Status M91 — iCoT inventory and behavior-preserving extraction
 
-**State:** M91.1–M91.5 complete; M91.6 resumed with explicit temporary test-display authority. Native qualification/review/acceptance remain incomplete.
+**State:** M91.1–M91.5 complete; M91.6 qualification and closing review passed. Source publication, downstream reconciliation and retirement remain pending.
 
 **Goal.** Move shared implementation out of iCoT while keeping all current consumers working.
 
@@ -42,7 +42,7 @@ Lineage: M87–M90 remain accepted step/handoff foundations; E23/E24 are retired
 
 ## Closing review
 
-Persisted iteration count: 0/10. Not started; this reconciliation is intake, not a closing-review iteration. Resume any interrupted future review at its persisted number. Acceptance, exact source/build revisions, publication and downstream reconciliation remain pending and must be recorded from observed evidence before normal package retirement.
+Persisted iteration count: 1/10. Iteration 1 passed; no open P1/P2-or-higher findings. Publication and downstream reconciliation remain pending, so the milestone is not yet closed.
 
 ## Execution reconciliation — 2026-09-30
 
@@ -366,3 +366,87 @@ setup and human-visible checkpoints. M91.6 resumes as the single general row
 in progress; review remains 0/10. No package installation or live-target
 authority is added. Fresh current native qualification uses verified candidate
 `3fd40d3f874bdcf668a018550112a02cd0d02409` and exact frozen dependencies.
+
+## Temporary-display native qualification in progress
+
+Kinet launcher exception is committed at
+`3b7c6c6816f7e17f46789bf9a8db684a9b959fd3` (approval received 2026-10-01); the installed `xvfb-run` starts
+Xvfb with TCP disabled and a temporary authentication directory protected by
+mode 0700, and its EXIT trap removes authentication and kills the display.
+No authentication cookie was read or retained. No TCP listener was observed
+at display :99's port. The source remains
+`3fd40d3f874bdcf668a018550112a02cd0d02409`; qualification uses the exact
+frozen current closure, an external read-only dependency bundle, no provider
+credentials and unchanged Chromium sandbox requirements.
+
+Fresh native attempt `native3` passed its first complete 13-stage loopback
+repeat and started repeat 2. This is partial progress, not acceptance or
+human-visible evidence. The invocation and log are retained under
+`/var/tmp/openudon-m91-qualified-1y6zysvk/`; the pending report is
+`evidence/native3-current-loopback.json`. M91.6 remains the sole general
+in-progress row, and review remains 0/10 until all required gates finish.
+Final equivalence inspection finds all 405 retained fixture bytes and frozen
+integration/scenario locks unchanged. Current integration guidance now names
+v5 and the neutral paths while preserving v1–v4 verification contracts.
+
+Native attempt `native3` has now also passed all 13 stages of repeat 2 and
+started fresh repeat 3. Neither completed repeat was reused from development
+cache or an earlier failed attempt. Acceptance/review remain incomplete until
+the final repeat and independent report verification finish.
+
+## M91.6 native qualification passed; closing review 1 started
+
+Clean application source `3fd40d3f874bdcf668a018550112a02cd0d02409` passed
+three fresh, complete current-stack native repeats: 39/39 stages, independently
+verified by the owner CLI. No result reuse, moving source substitutions or
+sandbox override was used. Observed Go 1.26.6 and Node 24.14.1 are recorded
+with the existing Chromium 151.0.7922.34, Playwright 1.62.1 and Playwright-Go
+v0.6201.0 baseline. This does not claim W8M's exact Node 24.13.0 prerequisite.
+Temporary display teardown and authentication-directory removal are verified.
+
+Final qualification summary: `/var/tmp/openudon-m91-qualified-1y6zysvk/qualification.json`;
+SHA-256 `9a2524deddccc400457ae76d2e432a205898a181bcfe8bdc84f62348b4c28075`.
+Native report: `evidence/native3-current-loopback.json`, SHA-256
+`f8f4a0d9341fb2f88d72a7e71b24baefe91479f7cdcdbacbc28c8e6af58b7042`.
+The summary binds source/closure, integration/native reports, invocation, log,
+fixture equivalence and display teardown. Prior failed and partial reports are
+retained separately, without acceptance claims. M93.0 and visible human
+checkpoints remain pending. M91.6 stays in progress through review/publication;
+closing review iteration 1 is now persisted as started before inspection.
+
+## Closing review 1 passed
+
+Reviewed the entire M91 source change range, new expert dispatch/adapters,
+neutral Authoring pin, browser/report/qualification rebasing, fixtures and
+maintained operator contracts. Normalized relocation inspection found 152
+identical Go files and 11 manually reviewed exceptions: extracted shared
+flag/provider helpers, two relocated terminal tests, and adjusted fixture/root
+paths. The two terminal test bodies are retained; authenticated staging still
+uses the same transactional writer. Type aliases and forwarding functions
+preserve the single implementation and existing wire fields.
+
+Reviewed exact human approval, no-write planning/refusal, worker cancellation
+and process joining, secret boundaries, HTTP/control isolation, package
+recovery, legacy v10/v11 dispatch, frozen report readers/locks, named tests and
+actual native source/tool bindings. All 405 fixture bytes and three embedded
+assets remain unchanged. The versioned current handoff marker matches P08's
+actual v10/v11 test; historical markers stay frozen. The new expert commands
+retain report labels and no UI/control/worker command is admitted.
+
+No P1/P2-or-higher finding remains; no new discontinuation, live provider or
+real target action occurred. Later M95 must remove the obsolete renamed UI and
+interactive transports while retaining the neutral expert/seed/evaluation core;
+Kinet W08 still owns fresh qualification of M92 adoption. M93.0 and the later
+human-visible checkpoints are unchanged. Review artifact:
+`/var/tmp/openudon-m91-qualified-1y6zysvk/review1-relocation.json`.
+Current application files are byte-identical to qualified source
+`3fd40d3f874bdcf668a018550112a02cd0d02409`; subsequent edits are records/docs.
+
+Final owner `make fast` (full provider-free Go suite plus doc-memory checks)
+and `git diff --check` passed after consolidation; log
+`/tmp/openudon-m91-review1-fast.log`. All three embedded UI assets compare
+byte-for-byte to the inventory baseline. Existing evolution v47 remains:
+implementation advances its approved extraction boundary without a new product
+or contract direction. No extra review iteration or browser repeat is needed
+for these record/documentation edits. Source publication is now ready under
+the coordinator's automatic scoped exact-diff/fast-forward policy.

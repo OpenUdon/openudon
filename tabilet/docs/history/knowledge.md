@@ -1536,3 +1536,107 @@ considering runtime adoption or its separately gated read-only operation.
   authorized count remains unused. P07 itself made no target contact and
   authorizes no target operation, runtime adoption, push, or publication.
 ````
+
+## 2026-10-01 — M91 extraction consolidated
+
+Sources: architecture.md and tech-stack.md, their M91 extraction/adoption
+sections. Interim per-task statements are consolidated into the completed
+implementation contract after review 1 and fresh qualification at
+`3fd40d3f874bdcf668a018550112a02cd0d02409`. Public behavior remains retained
+and iCoT removal stays M95. Replacements: current M91 sections in those files.
+
+### Previous architecture wording
+
+````markdown
+## M91 shared implementation extraction
+
+The transactional writer now lives in `internal/artifactwriter`; coupled draft
+review, session/discovery and elicitation helpers live in `internal/elicitor`.
+Step authoring, browser scenarios and retained iCoT callers import these shared
+packages. Current test-command paths follow the new locations. Public CLI and
+wire contracts, fixture bytes, approval and report semantics remain unchanged.
+M91.3 still separates transport-specific Authoring iCoT adapters; this relocation
+alone does not establish the final dependency boundary or milestone acceptance.
+
+## M91 neutral Authoring engine adoption
+
+`internal/authoring` now delegates progressive, prompt and atomic interview
+contracts to `github.com/OpenUdon/authoring/engine`. Shared elicitor and step
+authoring therefore no longer import Authoring's iCoT compatibility facade.
+Product APIs, private session/transcript versions and approval behavior stay
+unchanged; remaining OpenUdon-local iCoT browser/evaluation extraction is M91.4/5.
+
+## M91 browser implementation relocation
+
+`internal/browserauthor` owns asynchronous capture controllers,
+`internal/authoringengine` owns headless lifecycle, and `internal/authoringui`
+retains the local UI/control transport during 5A. Shared terminal capture,
+attestation/staging, closed worker dispatch and scenario qualification now live
+in `internal/browserauthoring`; the retained iCoT terminal delegates through
+aliases/forwarders. Browser scenario consumers import that shared package, not
+the terminal. Artifact writes use the existing neutral transactional writer.
+Both registration and authenticated/TOTP capture and their approval/uncertainty
+contracts remain unchanged. M95 owns later entry-point retirement after parity.
+
+## M91 neutral expert/evaluation entry
+
+`internal/authoringcli` owns the single retained terminal/expert implementation.
+`internal/icot` is a temporary compatibility adapter during 5A.
+`openudon authoring` exposes the closed expert lint/reconcile/repair/report,
+variants/scorecard and explicit model-evaluation commands, without exposing the
+old UI/control or worker transport. Existing report wires and canonical legacy
+command labels remain compatible. M95 owns deletion of obsolete interaction
+and transport code after replacement evidence; this extraction does not count
+as retirement. Integration evaluation v5 uses relocated selectors while v1–v4
+continue verifying their immutable selectors/locks. Current native browser
+runner paths follow shared packages; report wire/stage identities remain stable.
+````
+
+### Previous stack wording
+
+````markdown
+## M91 shared implementation extraction
+
+Shared writer/review checks now use `go test ./internal/artifactwriter
+./internal/elicitor ./internal/stepauthoring`. The Makefile's current adversarial
+selectors follow those locations. Frozen historical integration-report selector
+commands and lock bytes remain unchanged; M91.5 owns versioned evaluation
+rebasing. Relocation checks passed `make fast` and focused transactional/race
+checks with unchanged tracked fixture bytes. Final smoke and frozen integration
+qualification remain required before milestone acceptance.
+
+## M91.3 exact neutral-engine dependency
+
+OpenUdon pins Authoring `v0.0.0-20260930234600-18056cb6b0c1`, Origin.Hash
+`18056cb6b0c1007dd567a4a825a6b4311a357185`, after verified M29 closure
+`dc8f3d61970ae628fc0399b0ef42187aa62a3e5b`. Only this module was updated;
+UWS and APItools adoption remain M92 and M94. The adapter uses public `engine`
+APIs; default checks remain provider/credential free and standalone tests use
+the published module with GOWORK off.
+
+## M91 browser checks after relocation
+
+Current focused selectors use `internal/browserauthoring`,
+`internal/browserauthor`, `internal/authoringengine`, and
+`internal/authoringui`. UI build tags and response schemas retain their existing
+names; embedded assets move byte-for-byte. M91.5 still owns rebasing versioned
+evaluation/native runner selectors. Frozen report selectors and build-input
+locks remain immutable. The affected authorized smoke and frozen integration
+qualification run after that rebase in M91.6, before final acceptance.
+
+## M91 expert and integration evaluation commands
+
+Use `openudon authoring lint|reconcile|repair|report|variants|scorecard|replay-eval|authoring-eval`
+for retained expert/evaluation commands. Subcommand flags/help, report schema
+versions and canonical `icot ...` report labels remain unchanged for
+compatibility; actual launcher argv is captured separately in qualification.
+The Make evaluation targets now invoke this expert entry. Model-backed replay/
+authoring evaluation still requires explicit invocation and provider authority;
+default checks are fake/model free.
+
+`openudon.browser-integration-eval.v5` retains all 19 gates and named-test
+inventories with relocated source/dependency paths. v1–v4 verification and
+compatibility/build-input locks stay unchanged. v5 engine/UI dependency scans
+also reject either iCoT package. Current native browser selectors use shared
+UI/controller locations, with the same build tags, assertions and stage names.
+````

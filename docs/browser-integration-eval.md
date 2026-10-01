@@ -7,8 +7,8 @@ Browserdriver checkouts and writes one value-free report with an adjacent
 SHA-256 sidecar.
 
 M86 v2 reports use their frozen compatibility lock. E21 v3 reports use their
-frozen current compatibility lock and 14-repository Udon build closure. New
-current v4 matrices use the exact Browser 1.10 compatibility lock for UWS M05,
+frozen current compatibility lock and 14-repository Udon build closure. The v4
+matrices use the exact Browser 1.10 compatibility lock for UWS M05,
 Browsertools M32, Browserdriver M15 and Udon M43, and validate the separate
 clean 14-repository Udon build closure before running gates. OpenUdon and every
 pinned sibling checkout must be clean. Historical v1 reports remain verified
@@ -36,19 +36,21 @@ go run ./cmd/openudon browser-integration-eval \
 
 The default run does not launch a browser, contact a target, read credential
 values, execute a workflow, or retain subprocess stdout/stderr. It exercises
-synthetic records and fake browser implementations, exercises iCoT's strict
-live protocol/result adapters without launching a child browser, checks that
-iCoT's engine has no Browsertools capture or Playwright implementation
-dependency. The UI package has an explicit registration qualification adapter
+synthetic records and fake browser implementations, exercises the shared
+strict live protocol/result adapters without launching a child browser, and
+checks that the shared authoring engine has no Browsertools capture, Playwright
+implementation, or either iCoT compatibility-package dependency. The UI package
+has an explicit registration qualification adapter
 that uses Playwright, but its dependency graph contains no Browsertools
-capture implementation; ordinary matrix execution does not call that adapter.
+capture implementation or either iCoT compatibility package; ordinary matrix
+execution does not call that adapter.
 The separately re-executed hidden worker remains Browsertools-owned. The
 matrix runs Browserdriver's offline protocol tests and uses Browsertools doctor only to
 observe pinned component availability without installation, browser launch, or
 network access.
 
-New current v4 runs accept `--browserdriver-node-modules` for the separately
-supplied Browserdriver dependencies. Retained E21 v3 reports remain verifiable
+Current v5 runs, like retained v4 runs, accept `--browserdriver-node-modules`
+for the separately supplied Browserdriver dependencies. Retained E21 v3 reports remain verifiable
 with their frozen lock. The directory must be outside the clean
 source checkout and its `@types/node`, `playwright`, `playwright-core`, and
 `typescript` versions must match `package-lock.json`. The Browserdriver npm
@@ -67,7 +69,7 @@ they drift.
 |---|---|
 | OpenUdon authoring | API preference, anonymous handoff, strict author-session v2 orchestration, identical pre-publication validation for bundled and expert workers, disclosure-path rejection, human-only typed MFA/output review, exact new-origin approval, process-private trace/auth/output/context/origin attestation, minimal child environment, exact bounds authority, a real Browsertools-produced private result through validation/staging, and malformed/tampered/substituted rejection |
 | OpenUdon package/handoff | Strict live and portability verification, private/tampered input rejection, value-free package review, authentication/capability separation, UWS 1.11 default, Browser 1.8/1.9 templates, named Browser 1.10 count-profile and current-journey fixtures, and v10/v11 trusted handoff |
-| iCoT dependency boundary | The engine dependency graph contains no Browsertools capture, Playwright adapter, or Playwright-Go implementation package. The UI qualification adapter may link Playwright; the UI graph contains no Browsertools capture implementation. |
+| Shared authoring dependency boundary | The engine dependency graph contains no Browsertools capture, Playwright adapter, Playwright-Go implementation, or OpenUdon/Authoring iCoT compatibility package. The UI qualification adapter may link Playwright; its graph contains no Browsertools capture or iCoT implementation. Historical gate IDs are retained. |
 | OpenUdon repository boundary | Production source contains no private executor, desired-state parser, or removed apitools lifecycle imports |
 | Browsertools producer | Observation-generation authority, human-selected MFA kind, bounded reviewed outputs, action-time exact-name/unique-role proof, complete context inventory, current goal proof, deterministic output, offline doctor behavior, Browser 1.10 typed count-output round trip, and invalid declaration rejection |
 | UWS contract | Immutable older compatibility plus UWS 1.11 typed conformance, root-scoped goto, Browser 1.8/1.9 template safety, Browser 1.10 count fixtures and constraints, context contracts, and scalar conversion |
@@ -75,8 +77,14 @@ they drift.
 | Browserdriver runtime | Offline v2/v3 legacy NDJSON, v10 Browser 1.8/1.9 templates, v11 Browser 1.10 exact connected and rendered-visible counts, integer schema constraints, missing/ambiguous-root and malformed-selector rejection, failure non-disclosure, exact-origin/context guards, credential lookup, and session isolation |
 | Component inventory | Browsertools doctor reports pinned Chromium, Firefox, and WebKit readiness without installing or launching anything |
 
-The current report contract is `openudon.browser-integration-eval.v4`. The v3
-verifier remains bound to E21's frozen lock and v2 remains bound to M86's; v1
+The current report contract is `openudon.browser-integration-eval.v5`. M91
+relocates current selectors to `internal/authoringcli`, `browserauthoring`,
+`elicitor`, `authoringengine` and `authoringui`, retaining all 19 gates and
+named semantic coverage. Its current handoff selector requires the modern
+v10/v11 authentication-authority test, which replaced the former v10-only
+test in P08. v1–v4 retain their original commands, markers and immutable locks;
+v5 uses the same Browser 1.10 lock as v4. The v3 verifier remains bound to E21's
+frozen lock and v2 remains bound to M86's; v1
 remains available for historical reports. Validation fixes
 the gate order, repository names, command argv, assertions, authority claims,
 counter totals, and closed value-free detail vocabulary. Passing Go gates must

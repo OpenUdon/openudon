@@ -1022,47 +1022,39 @@ M44 artifact pair. Default checks skip that real executor. Qualification binds
 source, exact closure and binary digests and executes a private binary copy;
 see [per-step run evidence](../../docs/per-step-run-evidence.md).
 
-## M91 shared implementation extraction
-
-Shared writer/review checks now use `go test ./internal/artifactwriter
-./internal/elicitor ./internal/stepauthoring`. The Makefile's current adversarial
-selectors follow those locations. Frozen historical integration-report selector
-commands and lock bytes remain unchanged; M91.5 owns versioned evaluation
-rebasing. Relocation checks passed `make fast` and focused transactional/race
-checks with unchanged tracked fixture bytes. Final smoke and frozen integration
-qualification remain required before milestone acceptance.
-
-## M91.3 exact neutral-engine dependency
+## Shared authoring commands and qualification (M91)
 
 OpenUdon pins Authoring `v0.0.0-20260930234600-18056cb6b0c1`, Origin.Hash
-`18056cb6b0c1007dd567a4a825a6b4311a357185`, after verified M29 closure
-`dc8f3d61970ae628fc0399b0ef42187aa62a3e5b`. Only this module was updated;
-UWS and APItools adoption remain M92 and M94. The adapter uses public `engine`
-APIs; default checks remain provider/credential free and standalone tests use
-the published module with GOWORK off.
+`18056cb6b0c1007dd567a4a825a6b4311a357185`, after published M29 closure
+`dc8f3d61970ae628fc0399b0ef42187aa62a3e5b`. Adapters use public `engine` APIs.
+Only this dependency changed; UWS 1.12 and APItools adoption remain M92/M94.
+Default checks remain provider/credential free; standalone checks use the
+actual published module with GOWORK off.
 
-## M91 browser checks after relocation
-
-Current focused selectors use `internal/browserauthoring`,
-`internal/browserauthor`, `internal/authoringengine`, and
-`internal/authoringui`. UI build tags and response schemas retain their existing
-names; embedded assets move byte-for-byte. M91.5 still owns rebasing versioned
-evaluation/native runner selectors. Frozen report selectors and build-input
-locks remain immutable. The affected authorized smoke and frozen integration
-qualification run after that rebase in M91.6, before final acceptance.
-
-## M91 expert and integration evaluation commands
+Focused source paths are `internal/artifactwriter`, `elicitor`, `stepauthoring`,
+`browserauthoring`, `browserauthor`, `authoringengine`, `authoringui` and
+`authoringcli`. Current Make selectors follow them. UI build tags/response
+versions and embedded asset bytes retain their contracts.
 
 Use `openudon authoring lint|reconcile|repair|report|variants|scorecard|replay-eval|authoring-eval`
-for retained expert/evaluation commands. Subcommand flags/help, report schema
-versions and canonical `icot ...` report labels remain unchanged for
-compatibility; actual launcher argv is captured separately in qualification.
-The Make evaluation targets now invoke this expert entry. Model-backed replay/
-authoring evaluation still requires explicit invocation and provider authority;
-default checks are fake/model free.
+for retained expert/evaluation commands. Subcommand flags/help, report schemas
+and canonical `icot ...` report labels remain compatible; qualification binds
+actual launcher argv separately. Model-backed evaluation still requires
+explicit invocation and provider authority.
 
-`openudon.browser-integration-eval.v5` retains all 19 gates and named-test
-inventories with relocated source/dependency paths. v1–v4 verification and
-compatibility/build-input locks stay unchanged. v5 engine/UI dependency scans
-also reject either iCoT package. Current native browser selectors use shared
-UI/controller locations, with the same build tags, assertions and stage names.
+`openudon.browser-integration-eval.v5` retains all 19 gates with neutral paths
+and preserved semantic coverage. v1–v4 readers and all compatibility/build
+locks remain frozen. `make browser-system-current-check` qualifies the existing
+exact current browser closure, using external read-only modules and three
+fresh sandboxed loopback repeats. M91 observed Go 1.26.6, Node 24.14.1, Chromium
+151.0.7922.34 and Playwright 1.62.1/Playwright-Go v0.6201.0. W8M's exact Node
+24.13.0 requirement is separate and was not qualified by this owner gate.
+
+Qualified application source: `3fd40d3f874bdcf668a018550112a02cd0d02409`.
+Summary: `/var/tmp/openudon-m91-qualified-1y6zysvk/qualification.json`, SHA-256
+`9a2524deddccc400457ae76d2e432a205898a181bcfe8bdc84f62348b4c28075`.
+Required integration: 16 pass, zero fail, three unrequested optional gates.
+Native qualification: 39/39 stages across three fresh repeats; report verifies.
+All 405 retained fixtures and three embedded UI assets remain unchanged.
+The temporary approved test display was torn down; M93's desktop/human-visible
+checks and Kinet W08's fresh M92 consumer qualification remain pending.

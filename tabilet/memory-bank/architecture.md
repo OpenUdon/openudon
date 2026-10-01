@@ -1316,45 +1316,30 @@ signature/archive verification). Canonical external run-config revalidation
 preserves explicit v5 only for HTTP-only packages. Report validation never
 imports a private executor package or decides a downstream retry.
 
-## M91 shared implementation extraction
+## Shared authoring implementation (M91)
 
-The transactional writer now lives in `internal/artifactwriter`; coupled draft
-review, session/discovery and elicitation helpers live in `internal/elicitor`.
-Step authoring, browser scenarios and retained iCoT callers import these shared
-packages. Current test-command paths follow the new locations. Public CLI and
-wire contracts, fixture bytes, approval and report semantics remain unchanged.
-M91.3 still separates transport-specific Authoring iCoT adapters; this relocation
-alone does not establish the final dependency boundary or milestone acceptance.
+`internal/artifactwriter` owns the transactional writer; `internal/elicitor`
+owns shared draft review, discovery, catalog planning and session helpers.
+`internal/authoring` delegates prompt, progressive and atomic interviews to
+the public Authoring `engine` package. These consumers no longer depend on
+either iCoT compatibility package. Approval, rollback and uncertainty rules
+remain unchanged.
 
-## M91 neutral Authoring engine adoption
+`internal/browserauthor` owns capture controllers, `internal/authoringengine`
+owns headless lifecycle, and `internal/browserauthoring` owns shared capture,
+worker dispatch, attestation/staging and scenario helpers. `internal/authoringui`
+retains the local UI/control transport during 5A. Registration and authenticated/
+TOTP capture, private credential input and bounded child environment/actions
+retain their contracts; the existing transactional writer stages artifacts.
 
-`internal/authoring` now delegates progressive, prompt and atomic interview
-contracts to `github.com/OpenUdon/authoring/engine`. Shared elicitor and step
-authoring therefore no longer import Authoring's iCoT compatibility facade.
-Product APIs, private session/transcript versions and approval behavior stay
-unchanged; remaining OpenUdon-local iCoT browser/evaluation extraction is M91.4/5.
+`internal/authoringcli` contains the single retained terminal/expert
+implementation. `internal/icot` temporarily forwards legacy entry points.
+`openudon authoring` exposes only the closed expert commands; existing report
+wires and canonical legacy command labels remain compatible. M95 owns actual
+removal of obsolete interaction/UI assets after replacement qualification.
 
-## M91 browser implementation relocation
-
-`internal/browserauthor` owns asynchronous capture controllers,
-`internal/authoringengine` owns headless lifecycle, and `internal/authoringui`
-retains the local UI/control transport during 5A. Shared terminal capture,
-attestation/staging, closed worker dispatch and scenario qualification now live
-in `internal/browserauthoring`; the retained iCoT terminal delegates through
-aliases/forwarders. Browser scenario consumers import that shared package, not
-the terminal. Artifact writes use the existing neutral transactional writer.
-Both registration and authenticated/TOTP capture and their approval/uncertainty
-contracts remain unchanged. M95 owns later entry-point retirement after parity.
-
-## M91 neutral expert/evaluation entry
-
-`internal/authoringcli` owns the single retained terminal/expert implementation.
-`internal/icot` is a temporary compatibility adapter during 5A.
-`openudon authoring` exposes the closed expert lint/reconcile/repair/report,
-variants/scorecard and explicit model-evaluation commands, without exposing the
-old UI/control or worker transport. Existing report wires and canonical legacy
-command labels remain compatible. M95 owns deletion of obsolete interaction
-and transport code after replacement evidence; this extraction does not count
-as retirement. Integration evaluation v5 uses relocated selectors while v1–v4
-continue verifying their immutable selectors/locks. Current native browser
-runner paths follow shared packages; report wire/stage identities remain stable.
+Integration evaluation v5 uses neutral paths and the actual modern v10/v11
+authentication-authority marker; v1–v4 retain immutable selectors and locks.
+Native stage/wire identities remain unchanged. Fresh owner qualification
+passed three complete current-stack repeats, with source/tool bindings and
+without result reuse or sandbox overrides; consumer adoption is separate.

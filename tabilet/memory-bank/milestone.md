@@ -309,7 +309,7 @@ search the history index before allocating a future ID.
 
 | ID | Milestone | Status file | State |
 | --- | --- | --- | --- |
-| M91 | iCoT inventory and behavior-preserving extraction | [status-M91.md](status-M91.md) | M91.1 inventory approved; extraction pending |
+| M91 | iCoT inventory and behavior-preserving extraction | [status-M91.md](status-M91.md) | Source qualified; review 1 passed; publication/closure pending |
 | M92 | UWS 1.12, pending packages and pure simulation | [status-M92.md](status-M92.md) | Approved planning; pending |
 | M93 | Supervised authenticated and registration browser capture | [status-M93.md](status-M93.md) | Approved planning; pending |
 | M94 | Catalog discovery and digest-bound source provisioning | [status-M94.md](status-M94.md) | Approved planning; pending |
