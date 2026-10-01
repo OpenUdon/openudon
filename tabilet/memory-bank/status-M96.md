@@ -1,6 +1,6 @@
 # Status M96 — Reviewed capture package authoring
 
-**State:** M96.1–M96.3 verified; M96.4 qualified and review1 passed, 2026-10-01. Publication, exact downstream reconciliation and final acceptance remain pending.
+**State:** M96.1–M96.3 verified; M96.4 qualified and review1 passed, 2026-10-01. Publication is blocked on authorization to integrate the advanced remote; downstream reconciliation and final acceptance remain pending.
 
 **Goal.** Make a reviewed native capture usable for ordinary browser source/step/package authoring without iCoT.
 
@@ -25,7 +25,7 @@ Reject malformed/unknown fields, stale input/receipt/revision, changed mode/poli
 | M96.1 — Freeze reviewed capture package contract | `[+]` | Versioned bounded request/result and approval bindings, public fixtures for authenticated/TOTP and registration, provenance and compatibility. |
 | M96.2 — Expose neutral adoption and package authoring | `[+]` | Native receipt/source validation and exact approval reuse neutral engine/materialization/writer; real main CLI dispatch; no iCoT or capture replay. |
 | M96.3 — Verify conformance and refusal behavior | `[+]` | Owner/revision/digest/mode/policy/path/replay/interruption and side-write checks; retained legacy/protected fixtures unchanged. |
-| M96.4 — Qualify, review and publish replacement | `[~]` | Frozen exact-source synthetic loopback capture→adoption→build→prepare/promote/inspect/recovery for both modes/TOTP; three fresh native repeats and required integration gates; bounded review, publication and downstream reconciliation before retirement. |
+| M96.4 — Qualify, review and publish replacement | `[!]` | Frozen exact-source synthetic loopback capture→adoption→build→prepare/promote/inspect/recovery for both modes/TOTP; three fresh native repeats and required integration gates; bounded review, publication and downstream reconciliation before retirement. |
 
 ## Acceptance and verification
 
@@ -110,3 +110,7 @@ Full implementation, tests, CLI dispatch, public fixtures, native validators, so
 ### M96.4 qualified review checkpoint
 
 M96-DOC1 is resolved in current product/architecture/stack/operator contract and lessons; original intermediate memory/transport wording is preserved as literal source excerpts in the knowledge journal. Document-memory/format/diff gates passed. Evolution v48 already defines the approved public contract direction, so no new version for delivery progress. Source-bound summary `/var/tmp/openudon-m96-qualified-yvoho85o/qualification-summary.json`, SHA-256 `b9dd479ed50bb9efd356b77b604a57df400a93ecff82b8e533182616859b3871`, retains all failures/superseded identities, three fresh native passes39stages, integration17/0/3optional, independent verifiers, both modes/TOTP public capture/package lifecycle and98 canary-free public example/store files. All53 preexisting protected schema/fixture bytes unchanged. Actual application source remains `eed683f27d448ca96af90e7bc5987967a6cd0335`; the single permanent partial-build test delta is separately full-check/race/vet qualified and changes no production source/dependency/contract/old fixture/runtime bytes. No capture is replayed and no live account or replacement-journey runtime operation ran. Task4 remains in progress for publication and actual upstream/downstream reconciliation before retirement.
+
+## Publication preflight pause — advanced remote
+
+Source/review checkpoint committed at `2c5c3e1f43ffe459041a22fae6ce80eae6a39504`. Read-only ls-remote/fetch found origin/main advanced from the recorded `04dacce77a29f5e6db427dc47e3ed9ef766b2c32` to `ca4baa941c4d278b62d87892bdc42dccbd9bcfb5`, containing consumer handoff `595cf907b6a22b82127360d7dae1bd77b956c96c` and its merge. The upstream delta is only docs/consumer-totp-qualification-handoff.md plus additions in lessons.md and tech-stack.md; no application/source/dependency change. M96 local commits diverge from that remote. The confirmed GOAL policy allows scoped normal fast-forward publication, but tabilet/GOAL.md explicitly requires authorization for a merge. No push, merge or rewrite occurred. Prepare an isolated exact preview retaining both sets of documentation, then request the missing local merge authority; retain all qualified source identities. M19 stays blocked and the mandatory user W27-status pause before W28 remains independent of this received historical handoff.
