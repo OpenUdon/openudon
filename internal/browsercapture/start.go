@@ -41,6 +41,7 @@ type AuthenticationStart struct {
 	Diagnostic          bool     `json:"diagnostic,omitempty"`
 }
 type RegistrationStart struct {
+	Protocol      string                            `json:"protocol,omitempty"`
 	ProfileID     string                            `json:"profile_id"`
 	URL           string                            `json:"url"`
 	Origins       []string                          `json:"origins"`
@@ -113,8 +114,12 @@ func (request StartRequest) RegistrationConfig(private, driver string) (browsera
 		return browserauthor.RegistrationConfig{}, browserauthor.RegistrationCommand{}, errors.New("registration start required")
 	}
 	reg := request.Registration
+	protocol := reg.Protocol
+	if protocol == "" {
+		protocol = registrationauthorsession.ProtocolV4
+	}
 	absolute, idle := request.timeouts()
-	config, err := browserauthor.NormalizeRegistrationConfig(browserauthor.RegistrationConfig{PrivateRoot: private, DriverDir: driver, TransactionID: reg.TransactionID, Protocol: registrationauthorsession.ProtocolV4, Absolute: absolute, OperatorIdle: idle})
+	config, err := browserauthor.NormalizeRegistrationConfig(browserauthor.RegistrationConfig{PrivateRoot: private, DriverDir: driver, TransactionID: reg.TransactionID, Protocol: protocol, Absolute: absolute, OperatorIdle: idle})
 	if err != nil {
 		return browserauthor.RegistrationConfig{}, browserauthor.RegistrationCommand{}, errors.New("registration authority invalid")
 	}

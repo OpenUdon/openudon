@@ -478,3 +478,42 @@ failed summaries and helper snapshots. No frame content, credential values,
 worker-result paths or private diagnostics were placed in ordinary goal/audit
 records. Fixture authoring uses no real credential/code or target account.
 M93.5 remains in progress; persisted closing review remains 0/10, not started.
+
+## M93.5 corrected command evidence and retained protocol selection
+
+Fresh actual public authenticated/TOTP command succeeded at corrected source
+`04e7e272adf2689327fe9ac73b81cb5e56e97fab`, CLI SHA-256
+`02325988b6bb4db24f460a4ffd67e1a274c983dc111540bbc7e7ab5e2ccdb992`.
+It exercised 35 bounded events, separate POST/action approvals, all three
+identifier/password/TOTP kinds, typed goal independent of dashboard, explicit
+empty output selection, independent post-join profile approval and committed
+native profiles/review/receipt. Receipt digest
+`7ed81f918306cbd7ce086d418e8fe52c84e63a21858edcba3fc5048746df276b`;
+metadata-only summary and helper snapshot are in the corrected disposable
+bundle `/var/tmp/openudon-m93-qualified-2dps71pu`. Only the fixture's two
+approved POSTs occurred. This is credential-free synthetic authoring, not a
+human-visible journey or workflow/runtime execution.
+
+A simple registration fixture was correctly rejected by native v4's profile
+normalizer before worker startup: BRP 1.2 requires typed inputs and provider
+verification. Preserving retained simpler registration profiles therefore
+needs the already existing native v1/v2/v3 choices, not new owner semantics.
+The reviewed start now optionally declares the exact native protocol; omission
+keeps v4. Its byte digest fixes that choice before worker launch, with no
+fallback after failure. All native version-specific gates remain authoritative.
+The adapter reuses the same controller; it no longer rejects older native
+configs before native normalization. Closed schema/config tests cover all four
+existing values and reject unknown versions. Focused race tests and make fast
+passed (/tmp/openudon-m93-5-protocol-selection-final-test.log and
+/tmp/openudon-m93-5-protocol-selection-final-fast.log). Initial compile removed
+an import still used for closed diagnostic validation; restored before passing
+checks. Original wording is preserved in the knowledge journal. No new direction
+or sibling code was introduced; evolution v47 remains.
+
+Native2's deliberate interruption returned deadline_or_cancellation at
+registration_driver after six pass-1 stages passed; all owned display processes
+and private auth were verified removed. It is partial evidence at its original
+source, not qualification of the corrected source. Both actual registration
+modes, a complete fresh native suite on final source, human-visible journeys,
+review/publication and downstream acceptance remain pending. Review count is
+still 0/10. M93.5 is the sole general in-progress row.

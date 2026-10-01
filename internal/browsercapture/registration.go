@@ -26,8 +26,9 @@ type RegistrationCompletion struct {
 
 // RunRegistration consumes fixedStart only after the caller has obtained
 // approval for its exact initial URL/origins/profile/bounds. Later commands
-// require protocol review cards. New capture uses native v4, including explicit
-// verification approval; legacy controllers keep their original defaults.
+// require protocol review cards. The reviewed start selects one existing native
+// protocol; v4 includes explicit verification approval. Controller/worker gates
+// retain their own version-specific policies and legacy defaults.
 func RunRegistration(ctx context.Context, config browserauthor.RegistrationConfig, fixedStart browserauthor.RegistrationCommand, in io.ReadCloser, out io.WriteCloser) (RegistrationCompletion, error) {
 	return runRegistration(ctx, config, fixedStart, in, out, func(ctx context.Context, cfg browserauthor.RegistrationConfig) (registrationSession, error) {
 		return browserauthor.StartRegistration(ctx, cfg)
@@ -39,9 +40,6 @@ func runRegistration(ctx context.Context, config browserauthor.RegistrationConfi
 	var admission func(context.Context, browserauthor.RegistrationEvent) (*profileImport, error)
 	if len(complete) > 0 {
 		admission = complete[0]
-	}
-	if config.Protocol != registrationauthorsession.ProtocolV4 {
-		return RegistrationCompletion{}, errors.New("browser capture registration protocol unsupported")
 	}
 	config, err := browserauthor.NormalizeRegistrationConfig(config)
 	if err != nil {

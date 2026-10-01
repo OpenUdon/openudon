@@ -1169,7 +1169,8 @@ state, EOF, expiry, blocked output and late teardown failure.
 
 ## M93.3 registration supervising transport
 
-`RunRegistration` uses native `browsertools.registration-author-session.v4`,
+`RunRegistration` uses the explicitly reviewed existing native protocol (v1–v4);
+v4 is the start default and retains native verification support.
 its reviewed GET/HEAD/no-submit start and existing verification/preview/profile
 validators. Legacy registration transports keep their original version defaults.
 `RegistrationSession.ValidateDecision` is a pure check against its own current

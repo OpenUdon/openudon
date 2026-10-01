@@ -135,6 +135,15 @@
         },
         "bounds": {
           "$ref": "https://openudon.dev/schemas/openudon.browser-capture.v1.schema.json#/$defs/registrationauthorsessionBounds"
+        },
+        "protocol": {
+          "type": "string",
+          "enum": [
+            "browsertools.registration-author-session.v1",
+            "browsertools.registration-author-session.v2",
+            "browsertools.registration-author-session.v3",
+            "browsertools.registration-author-session.v4"
+          ]
         }
       },
       "required": [

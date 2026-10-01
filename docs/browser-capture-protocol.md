@@ -99,7 +99,8 @@ inputs to later independent review/import. `captured` is not an imported
 profile, package acceptance or permission to execute a workflow.
 
 Registration capture fixes a reviewed initial profile ID, URL, origins and
-bounds before launch and uses native registration protocol v4. The worker's
+bounds and native protocol before launch. Default is native v4; a reviewed
+start can explicitly select existing v1/v2/v3 for retained simpler profiles. The worker's
 ready event sends only that fixed start; subsequent commands need exact
 protocol review cards. Current-state proposal checks run through the native
 controller's pure validation over its own observation/history/preview state.
@@ -206,3 +207,13 @@ conservatively classified as `write`. This local authoring approval is separate
 from later full-package preparation, promotion, trusted run approval and execution;
 it grants none of those permissions. Ordinary jobs/audit persist only their own
 explicit metadata projection, not complete frames or source bytes.
+
+
+Registration start optionally declares `protocol` as one of the four existing
+`browsertools.registration-author-session.v1` through `.v4` values. Omission
+selects v4. The exact start digest binds that choice before launch; no automatic
+fallback occurs on failure. The native owner retains protocol-specific profile,
+query, typed-input/preview and verification checks. Simple BRP 1.0 fixtures can
+use native v2; typed-input BRP 1.1 uses v3, and verification/input BRP 1.2 uses
+v4. Preview or verification commands in an older protocol are rejected by its
+native validator; selecting it never disables a gate in the selected protocol.

@@ -1831,3 +1831,24 @@ Use an SSH tunnel and Remote Desktop Manager; clipboard exchange and VNC
 remote command/control are disabled. A bounded user process, not a permanent
 system service, owns teardown. Exact session bindings/expiry and the required
 ````
+
+
+## 2026-10-01 — M93 reviewed native registration protocol selection
+
+Source: current architecture/stack before the M93.5 retained-profile checks,
+at `04e7e272adf2689327fe9ac73b81cb5e56e97fab`. These initially described
+only the newly added v4 adapter:
+
+```text
+and uses the existing no-submit v4 controller, including native verification,
+`RunRegistration` uses native `browsertools.registration-author-session.v4`,
+
+```
+
+Replacement: [capture architecture](../../memory-bank/architecture.md#m931-supervising-capture-envelope-foundation)
+and [M93.4 stack](../../memory-bank/tech-stack.md#m934-command-reviewed-start-and-profile-admission).
+The reviewed start now optionally selects an existing native v1/v2/v3/v4.
+Default remains v4. Native v4 requires verification/input BRP 1.2; older native
+protocols retain simpler existing profiles and their own native query/profile/
+preview/verification rules. No automatic fallback, new worker or relaxed gate
+was introduced. M93.5 qualification remains open; this is no acceptance claim.

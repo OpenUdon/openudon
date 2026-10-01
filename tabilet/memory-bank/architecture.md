@@ -1442,7 +1442,7 @@ M93.4 adds command/worker embedding/import, with M93.5 owning fresh
 browser and human-visible acceptance of both journeys.
 
 The registration adapter consumes an already reviewed fixed initial authority
-and uses the existing no-submit v4 controller, including native verification,
+and uses the selected existing no-submit controller; v4 includes native verification,
 public preview and canonical profile/history validation. Current-state proposal
 checks use an immutable controller-owned snapshot; no consumer reconstructs
 the registration state machine or resends full history. Only current observation

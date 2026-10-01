@@ -8,6 +8,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/OpenUdon/browsertools/registrationauthorsession"
 	"github.com/OpenUdon/openudon/internal/browserauthor"
 )
 
@@ -89,5 +90,29 @@ func TestCaptureRegistrationStartKeepsFiniteNativeDefaults(t *testing.T) {
 	}
 	if cfg.Absolute != browserauthor.DefaultAbsolute || cfg.OperatorIdle != browserauthor.DefaultOperatorIdle || start.URL != request.Registration.URL || start.Confirmed {
 		t.Fatal("registration start authority changed")
+	}
+}
+
+func TestReviewedRegistrationStartSelectsExistingNativeProtocols(t *testing.T) {
+	root := t.TempDir()
+	if err := os.Chmod(root, 0700); err != nil {
+		t.Fatal(err)
+	}
+	for _, protocol := range []string{registrationauthorsession.ProtocolV1, registrationauthorsession.ProtocolV2, registrationauthorsession.ProtocolV3, registrationauthorsession.ProtocolV4} {
+		request := StartRequest{Version: StartVersion, Mode: Registration, Registration: &RegistrationStart{Protocol: protocol, ProfileID: "register", URL: "https://members.example.test/register", Origins: []string{"https://members.example.test"}, TransactionID: "register-test"}}
+		data, _ := json.Marshal(request)
+		decoded, err := DecodeStart(data)
+		if err != nil {
+			t.Fatal(err)
+		}
+		config, _, err := decoded.RegistrationConfig(root, "")
+		if err != nil || config.Protocol != protocol {
+			t.Fatal("reviewed native protocol changed", err)
+		}
+		request.Registration.Protocol = "browsertools.registration-author-session.v999"
+		data, _ = json.Marshal(request)
+		if _, err := DecodeStart(data); err == nil {
+			t.Fatal("unknown native protocol accepted")
+		}
 	}
 }
