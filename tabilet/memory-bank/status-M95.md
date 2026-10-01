@@ -58,3 +58,32 @@ APItools source and its five-outcome/explicit-root/native-reference contract
 before removal. Producer publication satisfies the metadata prerequisite only;
 it establishes no iCoT replacement journey, Gate 5B approval or W28 acceptance.
 Retain all existing removal gates and pending outcomes.
+
+## M91 exact producer reconciliation — 2026-10-01
+
+Accepted extraction application source: `3fd40d3f874bdcf668a018550112a02cd0d02409`;
+qualified review/source publication: `c8f2de71d983bea93dc1c045568c397a10a4eb56`.
+Resolve the producer through OpenUdon's history index and its permanent M91
+record; no producer ledger is merged here. Review 1 passed, 405 fixture bytes
+and three UI assets stayed identical, integration v5 passed 16 required gates
+with three unrequested optional gates, and native current-stack qualification
+passed three fresh complete repeats (39 stages). Summary SHA-256:
+`9a2524deddccc400457ae76d2e432a205898a181bcfe8bdc84f62348b4c28075`.
+
+The single implementations now live in `internal/artifactwriter`, `elicitor`,
+`browserauthor`, `browserauthoring`, `authoringengine`, `authoringui` and
+`authoringcli`; Authoring is pinned to its published neutral `engine` source
+`18056cb6b0c1007dd567a4a825a6b4311a357185`. `internal/icot` is a temporary
+legacy forwarding adapter, and the old UI/control/terminal still works during
+5A. All current public approval, credentials, cancellation, recovery and
+v10/v11 browser dispatch boundaries remain unchanged. Historical report
+selectors/locks and `.icot` package data stay frozen. These source facts satisfy
+the extraction prerequisite only; every task in this consumer remains pending.
+
+M95.2 must remove obsolete UI/control/interactive code and assets now under
+`authoringui` and `authoringcli`, not merely delete the old `internal/icot`
+facade. Expert scorecards and seed/replay cases currently invoke the shared
+legacy Main internally; preserve their noninteractive draft/core behavior
+through an explicit neutral entry when removing interactive transports. Retain
+all inventory evidence gates, and qualify replacement commands independently
+before deleting anything. This reconciliation authorizes no early removal.

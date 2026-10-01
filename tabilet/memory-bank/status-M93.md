@@ -43,3 +43,30 @@ Lineage: Preserve accepted browser-authoring/transaction gates and M91 inventory
 ## Closing review
 
 Persisted iteration count: 0/10. Not started; this reconciliation is intake, not a closing-review iteration. Resume any interrupted future review at its persisted number. Acceptance, exact source/build revisions, publication and downstream reconciliation remain pending and must be recorded from observed evidence before normal package retirement.
+
+## M91 exact producer reconciliation — 2026-10-01
+
+Accepted extraction application source: `3fd40d3f874bdcf668a018550112a02cd0d02409`;
+qualified review/source publication: `c8f2de71d983bea93dc1c045568c397a10a4eb56`.
+Resolve the producer through OpenUdon's history index and its permanent M91
+record; no producer ledger is merged here. Review 1 passed, 405 fixture bytes
+and three UI assets stayed identical, integration v5 passed 16 required gates
+with three unrequested optional gates, and native current-stack qualification
+passed three fresh complete repeats (39 stages). Summary SHA-256:
+`9a2524deddccc400457ae76d2e432a205898a181bcfe8bdc84f62348b4c28075`.
+
+The single implementations now live in `internal/artifactwriter`, `elicitor`,
+`browserauthor`, `browserauthoring`, `authoringengine`, `authoringui` and
+`authoringcli`; Authoring is pinned to its published neutral `engine` source
+`18056cb6b0c1007dd567a4a825a6b4311a357185`. `internal/icot` is a temporary
+legacy forwarding adapter, and the old UI/control/terminal still works during
+5A. All current public approval, credentials, cancellation, recovery and
+v10/v11 browser dispatch boundaries remain unchanged. Historical report
+selectors/locks and `.icot` package data stay frozen. These source facts satisfy
+the extraction prerequisite only; every task in this consumer remains pending.
+
+Capture adapters reuse neutral browserauthor/browserauthoring controllers and
+existing Browsertools workers. The temporary M91 Xvfb session was automatically
+torn down and grants no M93.0 completion or visible demonstration evidence.
+Perform M93.0 under its own named operation authority and retain both journey
+checkpoints. The runtime sandbox and private human credential path stay closed.

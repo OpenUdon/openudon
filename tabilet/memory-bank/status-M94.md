@@ -78,3 +78,29 @@ does not qualify future `step discover`. M93 remains the upstream prerequisite
 and no command, source confirmation, integration test or publication is marked
 complete by this handoff. The rollback pin remains the original published
 APItools M79 revision until M94's own implementation adopts this release.
+
+## M91 exact producer reconciliation — 2026-10-01
+
+Accepted extraction application source: `3fd40d3f874bdcf668a018550112a02cd0d02409`;
+qualified review/source publication: `c8f2de71d983bea93dc1c045568c397a10a4eb56`.
+Resolve the producer through OpenUdon's history index and its permanent M91
+record; no producer ledger is merged here. Review 1 passed, 405 fixture bytes
+and three UI assets stayed identical, integration v5 passed 16 required gates
+with three unrequested optional gates, and native current-stack qualification
+passed three fresh complete repeats (39 stages). Summary SHA-256:
+`9a2524deddccc400457ae76d2e432a205898a181bcfe8bdc84f62348b4c28075`.
+
+The single implementations now live in `internal/artifactwriter`, `elicitor`,
+`browserauthor`, `browserauthoring`, `authoringengine`, `authoringui` and
+`authoringcli`; Authoring is pinned to its published neutral `engine` source
+`18056cb6b0c1007dd567a4a825a6b4311a357185`. `internal/icot` is a temporary
+legacy forwarding adapter, and the old UI/control/terminal still works during
+5A. All current public approval, credentials, cancellation, recovery and
+v10/v11 browser dispatch boundaries remain unchanged. Historical report
+selectors/locks and `.icot` package data stay frozen. These source facts satisfy
+the extraction prerequisite only; every task in this consumer remains pending.
+
+Current discovery helpers are under neutral elicitor/sourcecatalog, and expert
+evaluation is available through `openudon authoring`. APItools adoption remains
+M94.1 at the separately published producer pin; reuse its metadata/index/rank
+logic rather than copying the neutral helper algorithms again.

@@ -1,6 +1,47 @@
+# Retired milestone M91 - iCoT inventory and behavior-preserving extraction
+
+**Milestone.** M91
+**Outcome.** completed
+**Retired.** 2026-10-01
+**Source status.** tabilet/memory-bank/status-M91.md
+**Source specification.** tabilet/memory-bank/milestone.md#m91---icot-inventory-and-behavior-preserving-extraction
+**Evidence.** c8f2de71d983bea93dc1c045568c397a10a4eb56
+**Worktree.** includes uncommitted changes
+**Review.** passed
+**Review iterations.** 1
+**Verification.** Offline/full/standalone/race checks, make fast, scorecard103/103 and report verification, fresh affected smoke, frozen integration16/0/3-unrequested and native39/39 with independent verification passed; all405fixtures/threeUIassets and historical locks unchanged; display teardown verified; exact source publication independently verified. Qualified application source3fd40d3f874bdcf668a018550112a02cd0d02409, qualification-summary SHA2569a2524deddccc400457ae76d2e432a205898a181bcfe8bdc84f62348b4c28075; detailed evidence below.
+**Consolidated into.** product.md, architecture.md, tech-stack.md, lessons.md, docs/browser-integration-eval.md and the knowledge journal; pending M92–M95 and Kinet W08 reconciled to exact source; evolution v47 unchanged.
+
+## Milestone specification
+
+````markdown
+### M91 — iCoT inventory and behavior-preserving extraction
+
+Approved execution prerequisite: Authoring M29 publishes the additive neutral
+engine before M91.3 resumes. M91.1/M91.2 remain complete; no accepted evidence
+or closing-review counter is reset. Old Authoring iCoT APIs remain supported.
+
+
+**Goal.** Move shared implementation out of iCoT while keeping all current consumers working.
+
+**Scope and compatibility.** Inventory terminal authoring, ui/control protocols, browser authoring/transactions, lint/repair/reconcile/report, evaluation/variants/scorecards, corpus/provider tooling, worker dispatch, qualification, docs and W8M consumers. Retain capabilities through replacement commands or Kinet; do not silently discontinue an unmatched journey. Keep registration and authenticated/TOTP capture. Present any additional discontinuation for explicit approval before removal. Extract artifactwriter, review/sanitization, source discovery/catalog planning/session types and browser/qualification helpers into neutral packages, without duplicating them. Rebase non-iCoT importers and evaluation; iCoT remains functional in 5A. Preserve P07/P08 v11 dispatch and E23/E24 current-stack inputs, including any already-landed W27 upstream handoffs.
+
+**Dependencies.** Accepted/published M90 at ed5b206a524e6e193123b2d06714b75160379560; current P07/P08 and E23/E24 behavior. Udon M45 precedes this milestone in the serial launch order, not as an extraction API prerequisite.
+
+**Downstream.** M92–M95; Kinet W08; M93 supplies the W8M replacement contract.
+
+**Acceptance.** Step conformance fixtures remain byte-identical and evaluation/qualification results comparable. No non-iCoT importer depends on internal/icot or authoring/icot. Qualify extraction within OpenUdon; Kinet's existing script always checks pinned M90 and is not evidence for this revision. Kinet W08 subsequently qualifies adopted M92 containing this extraction. Run make check, owner fast/smoke gates and required frozen integration qualification; bounded review and publication.
+
+Status, task-sized commit units, review provenance and persisted review counter: [status-M91.md](status-M91.md).
+
+````
+
+## Status record
+
+````markdown
 # Status M91 — iCoT inventory and behavior-preserving extraction
 
-**State:** M91.1–M91.5 complete; M91.6 qualification and closing review passed. Source publication, downstream reconciliation and retirement remain pending.
+**State:** Complete and accepted; qualified source is published, review 1 passed. Downstream reconciliation and normal retirement are recorded below.
 
 **Goal.** Move shared implementation out of iCoT while keeping all current consumers working.
 
@@ -24,7 +65,7 @@ Inventory terminal authoring, ui/control protocols, browser authoring/transactio
 | M91.3 — Extract discovery and session logic | `[+]` | Move local/catalog discovery, planning and session types; decouple non-iCoT authoring consumers from Authoring icot. |
 | M91.4 — Extract browser worker and qualification helpers | `[+]` | Move process dispatch/launch and scenario/registration helpers; preserve both capture modes and current-stack inputs. |
 | M91.5 — Rebase evaluation | `[+]` | Move lint/evaluation, variants and scorecard callers off cmd/icot without changing their fixture corpus or expected coverage. |
-| M91.6 — Prove equivalence, review and publish | `[~]` | Check imports, fixtures, evaluation and owner qualification; preserve P07/P08 dispatch; publish accepted source. Consumer qualification belongs to Kinet W08, without weakening its production pin. |
+| M91.6 — Prove equivalence, review and publish | `[+]` | Check imports, fixtures, evaluation and owner qualification; preserve P07/P08 dispatch; publish accepted source. Consumer qualification belongs to Kinet W08, without weakening its production pin. |
 
 ## Acceptance and verification
 
@@ -42,7 +83,7 @@ Lineage: M87–M90 remain accepted step/handoff foundations; E23/E24 are retired
 
 ## Closing review
 
-Persisted iteration count: 1/10. Iteration 1 passed; no open P1/P2-or-higher findings. Publication and downstream reconciliation remain pending, so the milestone is not yet closed.
+Persisted iteration count: 1/10. Iteration 1 passed; no open P1/P2-or-higher findings. Qualified source publication passed; downstream consumers are reconciled and normal retirement is recorded below.
 
 ## Execution reconciliation — 2026-09-30
 
@@ -450,3 +491,32 @@ implementation advances its approved extraction boundary without a new product
 or contract direction. No extra review iteration or browser repeat is needed
 for these record/documentation edits. Source publication is now ready under
 the coordinator's automatic scoped exact-diff/fast-forward policy.
+
+## M91.6 complete — publication verified and downstream reconciled
+
+Application source `3fd40d3f874bdcf668a018550112a02cd0d02409` is accepted and published through
+review/source publication `c8f2de71d983bea93dc1c045568c397a10a4eb56` on the verified
+OpenUdon origin/main. Normal fast-forward publication covered the exact
+inspected range `e12a6488b86cafddb9298c7917de84fbc1cc85ff..c8f2de71d983bea93dc1c045568c397a10a4eb56`,
+patch SHA-256 `52e7661c7a56ec159c95e8b98e2946f0e0cd8ea082ace0b71325f733d4cc1156`.
+Remote main was independently checked after the push. Publication evidence:
+`/var/tmp/openudon-m91-publication-c8f2de71d983/publication.json`.
+
+M92–M95 and Kinet W08 now reference that exact accepted application source and
+published review context. M92 owns UWS 1.12/pending/simulation adoption and its
+fresh versioned qualification contexts; M93 owns supervised replacement
+capture and later desktop/human checkpoints; M94 owns published APItools
+adoption; M95 owns deleting renamed obsolete UI/interactive code, while keeping
+neutral expert/seed/evaluation capabilities. W08 still qualifies its actual
+adopted M92/executor and does not repin to M91 now. All downstream task rows
+remain pending. Kinet's launcher removes only completed M91 from its remaining
+order, preserving existing policies and human gates. Records stay package-local.
+
+Review passed 1/10; all required owner/fixture/scorecard/standalone/race/smoke,
+frozen integration and 39-stage native gates passed. Temporary X display is
+stopped and authentication deleted. This is producer acceptance, not consumer
+adoption, runtime authority, Gate 5B or either visible journey. Evolution v47
+is unchanged; useful selector/equivalence lessons are consolidated with prior
+wording preserved in the knowledge journal. Normal retirement preserves the
+complete specification and this full status record.
+````

@@ -158,3 +158,4 @@ subsequently closed under the normal reviewed procedure.
 | E21 | completed | 2026-09-30 | [status-E21.md](status-E21.md) | Original accepted work and 1-iteration review preserved; prerequisite closure reconciled before Stage 5 extraction. |
 | P07 | completed | 2026-09-30 | [status-P07.md](status-P07.md) | Original accepted work and 2-iteration review preserved; prerequisite closure reconciled before Stage 5 extraction. |
 | P08 | completed | 2026-09-30 | [status-P08.md](status-P08.md) | Original accepted work and 1-iteration review preserved; prerequisite closure reconciled before Stage 5 extraction. |
+| M91 | completed | 2026-10-01 | [status-M91.md](status-M91.md) | Retained23journeys; neutral shared/expert extraction, published Authoring engine, frozen integration and fresh native39; review1 passed; consumers separately reconciled. |
