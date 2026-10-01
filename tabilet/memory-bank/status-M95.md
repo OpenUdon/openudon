@@ -127,3 +127,41 @@ and qualification markers when removing iCoT transports. M95 removal still
 waits for its own stated M93/M94, U07, Gate5B and W28 evidence. Preserve old readers,
 locks and package fixtures; replacement runtime adoption requires fresh
 owner/consumer qualification rather than reusing M92's binary identity.
+
+## M93 exact producer reconciliation — 2026-10-01
+
+Qualified application source: `f1273b622445d60dc7f3ea849e5b7f1a1f1e733a`;
+source/qualification publication independently verified at `d5b483afc93dc5b25ac319b1ce590f5d4d6fd682`.
+CLI SHA-256 `50ed529b5375c01bc8aab0ef91b2910c55672074794b10e0dbcbcd70c10987e9`.
+Qualification: `/var/tmp/openudon-m93-qualified-8heukane/qualification-summary.json`;
+SHA-256 `abdb8490206a3e734f009a6f9430d903017635270327366b4e40bdf95e625da6`. Full check/vet/affected race and conformance passed;
+native39 in three fresh repeats, integration17/0/3 optional unrequested and
+independent verifiers passed. Both actual visible loopback consumers passed,
+and the user explicitly confirmed seeing and accepting BOTH journeys.
+Review1/10 passed without open findings. Resolve the producer via OpenUdon's
+history index and permanent M93 record; do not merge or recreate its ledger.
+
+The actual public command is `openudon browser-capture` with an exact approved
+closed `openudon.browser-capture-start.v1` file SHA, safe disjoint package and
+private roots, bounded NDJSON `openudon.browser-capture.v1`, random issued
+session/event/action references, current revision and immutable command SHA.
+Proposal executes nothing; exact approval/refusal consumes one card. Native
+origin/action/completion gates remain separate. A successful joined native
+capture then requires a separate `import_review` decision and independent
+canonical validation before atomic profile/review/receipt publication. The
+receipt is `expected/browser-capture/<transaction-id>.json`; result exposes
+only profile ID, transaction SHA and read/write effect. Login/submission
+recipes classify as write. Worker errors, stale input, expiry, cancellation or
+lost output grant no automatic retry. Native registration v4 is the default;
+reviewed v1–v3 remain explicit retained choices. iCoT remains on this same
+implementation until M95. No hosted capture, live target or runtime authority.
+
+Credential/code values enter the private headed browser only. Reduced labels,
+structural URLs, canonical profiles and full event/command/view bodies may be
+personal data: keep them transient, never generic durable job/audit payloads.
+Model disclosure requires an exact observation-bound user consent. All rows
+in this downstream consumer remain pending until its own acceptance checks.
+
+Preserve the new public capture command and shared embedded worker when removing
+iCoT; never remove native validation, private input, canonical reconstruction or
+profile import. Inventory, Kinet U07, Gate5B and W8M W28 remain unsatisfied.

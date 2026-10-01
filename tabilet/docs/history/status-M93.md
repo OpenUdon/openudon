@@ -1,6 +1,42 @@
+# Retired milestone M93 - Supervised authenticated and registration browser capture
+
+**Milestone.** M93
+**Outcome.** completed
+**Retired.** 2026-10-01
+**Source status.** tabilet/memory-bank/status-M93.md
+**Source specification.** tabilet/memory-bank/milestone.md#m93---supervised-authenticated-and-registration-browser-capture
+**Evidence.** d5b483afc93dc5b25ac319b1ce590f5d4d6fd682
+**Worktree.** includes uncommitted changes
+**Review.** passed
+**Review iterations.** 1
+**Verification.** Full make check, full vet, affected race/conformance, public schemas/CLI, document/format/diff passed. Final application f1273b622445d60dc7f3ea849e5b7f1a1f1e733a: native39/three fresh repeats and integration17/zero failures/three optional unrequested independently verified, native display teardown verified. Actual public authenticated/TOTP and registration visible consumers passed; user explicitly saw and accepted both. No registration submission; private-input values excluded. Qualified source publication independently verified at d5b483afc93dc5b25ac319b1ce590f5d4d6fd682, successful prepush exact-diff manifest retained. Qualification-summary SHA256 abdb8490206a3e734f009a6f9430d903017635270327366b4e40bdf95e625da6. Failed/partial attempts preserve their original evidence below.
+**Consolidated into.** product.md, architecture.md, tech-stack.md, lessons.md and docs/browser-capture-protocol.md; exact producer reconciled to OpenUdon M94/M95, Kinet A10/W09/M19/U07 and W8M W28/W29. Evolution v47 direction unchanged.
+
+## Milestone specification
+
+````markdown
+### M93 — Supervised authenticated and registration browser capture
+
+**Goal.** Expose both existing browser-capture journeys to Kinet through a bounded non-interactive protocol.
+
+**Scope and compatibility.** Publish openudon.browser-capture.v1 events and decisions for state, reduced observation, issued action approvals, human sign-in/MFA-kind checkpoints, preview, diagnostic and result. Bind decisions to issued IDs and revisions. Cover authenticated goal/dashboard/origin capture including TOTP, and registration-authority binding, verification approvals, preview/navigation, diagnostic and blocked-script policies. Preserve exact origins, action approvals, deadlines, POST limits, cancellation/teardown and explicit model-disclosure consent; human-guided is the default. Embed the existing Browsertools worker under openudon and import only reviewed profiles using package transactions. Credentials/codes stay in the private browser input path, never application protocol payloads or ordinary logs; this does not prohibit the human's protected desktop input transport. Keep iCoT on the shared implementation until M95.
+
+**Dependencies.** M92 accepted/published; M91 retained-journey inventory. Existing Browsertools authorworker/authorsession and registration protocols; no new Browsertools work is presumed.
+
+**Downstream.** M94; Kinet W09/M19/U07; W8M W28/W29.
+
+**Acceptance.** Versioned conformance and headless loopback checks cover both capture modes, TOTP, verification refusal, stale decisions, expiry and teardown. Before visible qualification, operation row M93.0 prepares Xvfb, a minimal window manager, x11vnc, the full noVNC viewer and websockify on the development host under the launch reference's named authorization; x11vnc and websockify listen on loopback only and the user connects with noVNC in a local browser through an SSH tunnel. Record versions/display bindings and preserve Chromium sandboxing. Use disposable fixtures and bounded sessions; no public listener, service deployment or real target login. One explicit human-visible qualification covers both retained journeys. Qualify under owner policy; review and publish. A proven upstream protocol gap requires its owner's own approved plan, not copied code.
+
+Status, task-sized commit units, review provenance and persisted review counter: [status-M93.md](status-M93.md).
+
+````
+
+## Status record
+
+````markdown
 # Status M93 — Supervised authenticated and registration browser capture
 
-**State:** M93.0–M93.4 complete; M93.5 all qualification and human acceptance passed; exact source publication and downstream reconciliation are the remaining closure actions.
+**State:** Completed and accepted; qualified source published and every pending consumer reconciled. Normal retirement/publication of closure is the remaining action.
 
 **Goal.** Expose both existing browser-capture journeys to Kinet through a bounded non-interactive protocol.
 
@@ -24,7 +60,7 @@ Publish openudon.browser-capture.v1 events and decisions for state, reduced obse
 | M93.2 — Authenticated and TOTP capture | `[+]` | Preserve goal/dashboard/origin policy, MFA-kind selection, human credential entry, disclosure consent and exact action approval. |
 | M93.3 — Registration and verification capture | `[+]` | Retain registration authority, preview/navigation, verification approval, diagnostics and blocked-script rules; no production-registration authority is implied. |
 | M93.4 — Embed worker and import reviewed profiles | `[+]` | Reuse Browsertools worker entry and package lifecycle; classify submissions as write; preserve iCoT on the same implementation during 5A. |
-| M93.5 — Qualify headless and visible sessions, review and publish | `[~]` | Requires M93.0's prepared desktop; run both synthetic modes and human-visible evidence, owner qualification, review and publication. Do not defer this environment prerequisite to Kinet W09. |
+| M93.5 — Qualify headless and visible sessions, review and publish | `[+]` | Requires M93.0's prepared desktop; run both synthetic modes and human-visible evidence, owner qualification, review and publication. Do not defer this environment prerequisite to Kinet W09. |
 
 ## Acceptance and verification
 
@@ -737,3 +773,22 @@ attempts and their original identities remain retained above.
 Prepare successfully recorded exact-diff source publication before pushing;
 then reconcile every pending consumer to that verified full revision. M93.5
 stays in progress until publication and normal downstream/retirement closure.
+
+## Acceptance and exact downstream reconciliation — 2026-10-01
+
+Qualified source `f1273b622445d60dc7f3ea849e5b7f1a1f1e733a` was published
+with successfully recorded prepush diff/range/digest/scope and independently
+verified at `d5b483afc93dc5b25ac319b1ce590f5d4d6fd682`. Manifest:
+`/var/tmp/openudon-m93-qualified-8heukane/publication-source-d5b483afc93d/publication.json`.
+Every required automated and both visible gates passed; the user explicitly
+accepted both journeys. Review1 passed, all task rows are complete.
+
+Reconciled OpenUdon M94/M95, Kinet A10/W09/M19/U07 and W8M W28/W29 against
+the exact producer above. Consumers retain their own ledgers and pending
+acceptance; no UI/audit adoption, Gate5B or runtime operation is fabricated.
+Current architecture/stack and reusable schema/empty-output lessons already
+describe the qualified implementation. Product now names the additive public
+capture interface. Evolution v47 direction is unchanged; repair its M93 link
+at retirement. Remaining order begins M94, then Kinet A10/W08/W09/W10/M19/U07,
+Gate5B and the retained consumer/removal/final-adoption milestones.
+````

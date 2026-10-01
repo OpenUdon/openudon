@@ -11,8 +11,11 @@ passed, with retained fixtures/assets and historical locks unchanged.
 M92 is also accepted/published: public UWS 1.12, package pending steps and pure
 simulation qualified at `96c16acacc7f442858dac8a0fcb36c84991ebddf`; review4
 passed, final integration and exact earlier native39 context independently
-verified. M93–M95 remain pending capture/catalog/removal work. Resolve both
-completed prerequisites through the history index.
+verified. M93 is also qualified, human-accepted and published at application
+`f1273b622445d60dc7f3ea849e5b7f1a1f1e733a` through
+`d5b483afc93dc5b25ac319b1ce590f5d4d6fd682`; native39, integration17 and both
+visible journeys passed, review1 passed. M94/M95 remain catalog/removal work.
+Resolve completed prerequisites through the [history index](../docs/history/index.md).
 
 E24 completed [actual namespace binding](../docs/history/status-E24.md).
 E23 completed the current-stack/external-module browser-free input helper; see
@@ -134,15 +137,15 @@ The history index holds 134 legacy-preserved status IDs and five normally review
 ### Stage 5 coordination (approved planning, 2026-09-30)
 
 M91 is an accepted published extraction prerequisite. OpenUdon owns remaining
-M93–M95 target work; M92 is accepted pending/simulation functionality. The
+M94/M95 target work; M92 pending/simulation and M93 supervised capture are accepted. The
 canonical cross-package text (order, Gate 5B, the W27 handoff rule, gates,
 publication policy, and the F01–F10 / SR01–SR06 findings table) is Kinet
 `docs/kinet-order.md` §6 (`../../../kinet/docs/kinet-order.md`); Kinet's
 `tabilet/memory-bank/suggested.txt` is the only launch reference.
 
 ```text
-Completed prerequisites: APItools M81/M80, Udon M45, Authoring M29, OpenUdon M91/M92
-Remaining: OpenUdon M93 → M94
+Completed prerequisites: APItools M81/M80, Udon M45, Authoring M29, OpenUdon M91/M92/M93
+Remaining: OpenUdon M94
 → Kinet A10 → W08 → W09 → W10 → M19 → U07
 → Gate 5B → W8M W28 → OpenUdon M95 → Kinet M20 → W8M W29
 ```
@@ -154,20 +157,6 @@ Remaining: OpenUdon M93 → M94
   named authorization.
 - Before consuming an upstream revision, record its actual accepted source,
   publication and qualification evidence. Never invent a future hash.
-
-### M93 — Supervised authenticated and registration browser capture
-
-**Goal.** Expose both existing browser-capture journeys to Kinet through a bounded non-interactive protocol.
-
-**Scope and compatibility.** Publish openudon.browser-capture.v1 events and decisions for state, reduced observation, issued action approvals, human sign-in/MFA-kind checkpoints, preview, diagnostic and result. Bind decisions to issued IDs and revisions. Cover authenticated goal/dashboard/origin capture including TOTP, and registration-authority binding, verification approvals, preview/navigation, diagnostic and blocked-script policies. Preserve exact origins, action approvals, deadlines, POST limits, cancellation/teardown and explicit model-disclosure consent; human-guided is the default. Embed the existing Browsertools worker under openudon and import only reviewed profiles using package transactions. Credentials/codes stay in the private browser input path, never application protocol payloads or ordinary logs; this does not prohibit the human's protected desktop input transport. Keep iCoT on the shared implementation until M95.
-
-**Dependencies.** M92 accepted/published; M91 retained-journey inventory. Existing Browsertools authorworker/authorsession and registration protocols; no new Browsertools work is presumed.
-
-**Downstream.** M94; Kinet W09/M19/U07; W8M W28/W29.
-
-**Acceptance.** Versioned conformance and headless loopback checks cover both capture modes, TOTP, verification refusal, stale decisions, expiry and teardown. Before visible qualification, operation row M93.0 prepares Xvfb, a minimal window manager, x11vnc, the full noVNC viewer and websockify on the development host under the launch reference's named authorization; x11vnc and websockify listen on loopback only and the user connects with noVNC in a local browser through an SSH tunnel. Record versions/display bindings and preserve Chromium sandboxing. Use disposable fixtures and bounded sessions; no public listener, service deployment or real target login. One explicit human-visible qualification covers both retained journeys. Qualify under owner policy; review and publish. A proven upstream protocol gap requires its owner's own approved plan, not copied code.
-
-Status, task-sized commit units, review provenance and persisted review counter: [status-M93.md](status-M93.md).
 
 ### M94 — Catalog discovery and digest-bound source provisioning
 
@@ -254,7 +243,7 @@ external services.
 
 ## Active And Parked Tracks
 
-- Remaining approved work: M93 → M94, then M95 after Kinet U07 and W8M W28. M91 is accepted/published extraction; APItools M81/M80, Udon M45 and Authoring M29 remain accepted prerequisites in their own ledgers.
+- Remaining approved work: M94, then M95 after Kinet U07 and W8M W28. M91 is accepted/published extraction; APItools M81/M80, Udon M45 and Authoring M29 remain accepted prerequisites in their own ledgers.
 
 - Completed: M90 publishes explicit report-v5 handoff and strict v3 per-step
   evidence for Kinet W07; see the [M90 history](../docs/history/status-M90.md).
@@ -269,7 +258,7 @@ external services.
   1.10 current-stack qualification and review remain complete; W8M's local W21
   candidate and any runtime adoption remain separate. The adopted W8M locks
   are unchanged. No deployment, public canary, or target operation is authorized.
-- Active: approved Stage 5 M93–M95. M92 supplies pending/simulation; M91 retained all 23 journeys and extracted
+- Active: approved Stage 5 M94/M95. M93 supplies accepted supervised capture; M92 supplies pending/simulation; M91 retained all 23 journeys and extracted
   shared implementation; no capability removal is claimed. E21/P07/P08
   completed normal history retirement before M91, preserving all original
   task outcomes, qualification evidence and review counts. W8M owns its later
@@ -288,7 +277,6 @@ search the history index before allocating a future ID.
 
 | ID | Milestone | Status file | State |
 | --- | --- | --- | --- |
-| M93 | Supervised authenticated and registration browser capture | [status-M93.md](status-M93.md) | M93.0–M93.4 complete; M93.5 in progress |
 | M94 | Catalog discovery and digest-bound source provisioning | [status-M94.md](status-M94.md) | Approved planning; pending |
 | M95 | Remove iCoT after consumer migration | [status-M95.md](status-M95.md) | Approved planning; pending |
 

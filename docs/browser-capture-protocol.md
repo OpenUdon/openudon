@@ -3,9 +3,9 @@
 M93.1 implements the `openudon.browser-capture.v1` event/decision foundation;
 M93.2 adds the authenticated/TOTP transport and M93.3 the registration
 transport over the existing browser controllers. M93.4 adds the public command,
-shared embedded worker and independently reviewed atomic profile import. Fresh
-browser qualification, visible journey evidence, review and publication remain
-M93.5 work.
+shared embedded worker and independently reviewed atomic profile import. M93 is qualified and published: native39, integration17, both explicitly
+user-accepted visible loopback journeys and review1 passed. Resolve exact
+source/build/evidence through its [history record](../tabilet/docs/history/status-M93.md).
 
 The public [schema](schemas/openudon.browser-capture.v1.schema.json) is also the
 exact embedded resource used by the decoder. [Wire examples](examples/browser-capture/v1/)
@@ -80,7 +80,9 @@ not treat consent as permission for later observations or external actions.
 `go test ./internal/browsercapture` verifies the exact public schema, duplicate
 and unknown fields, mode isolation, changed-state invalidation, forged IDs,
 wrong digests, refusal, single-use approval, expiry, cancellation and bounded
-records. Native browser qualification and visible journey checks remain M93.5 work. Existing iCoT UI/control/terminal paths remain available during 5A.
+records. Native browser qualification and both visible journey checks passed under M93;
+consumer adoption still requires its own qualification. Existing iCoT
+UI/control/terminal paths remain available during 5A.
 The authenticated adapter owns closeable input/output pipes or local sockets.
 EOF, cancellation and absolute expiry close transport ends to unblock readers
 and writers; the adapter drains controller events until worker teardown joins.

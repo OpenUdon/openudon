@@ -444,3 +444,14 @@ M92.3 previews bound and pending contracts using fixtures, explicit examples or
 public schema synthesis. Pending results remain hypothetical; browser outputs
 are mocked contracts. Exported previews redact scalar values and object field
 names, retain declared step/effect/provenance, and grant no execution authority.
+
+## Supervised public browser capture
+
+`openudon browser-capture` exposes authenticated/TOTP and no-submit registration
+recipe capture to supervising products through bounded reviewed-start/event
+contracts. Credentials stay in the private headed browser; exact immutable
+user approvals precede native actions and a separate profile import. Reviewed
+profiles do not grant workflow execution. M93 is qualified and user-accepted
+at application `f1273b622445d60dc7f3ea849e5b7f1a1f1e733a`, with source publication
+`d5b483afc93dc5b25ac319b1ce590f5d4d6fd682`; see its permanent history record.
+iCoT remains available during 5A. Kinet and W8M independently qualify adoption.
