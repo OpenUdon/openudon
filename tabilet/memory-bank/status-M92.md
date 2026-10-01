@@ -506,3 +506,24 @@ the corrected command from `tabilet/` passed with exit 0 before publication
 (`/tmp/openudon-m92-source-doc-final.log`). No failed invocation is counted as
 verification. Review iteration4 remains passed: this formatting/digest fix
 introduces no behavioral finding; its whole-range delta was inspected.
+
+## Corrected final producer qualification — 2026-10-01
+
+Current qualified application source is `96c16acacc7f442858dac8a0fcb36c84991ebddf`. This supersedes the
+previous final producer checkpoint solely for new example bytes and current
+record consolidation, retaining all prior attempts and their source identities.
+Fresh frozen `make check` and integration v6 passed17/0/3-unrequested with all
+fourteen named producer markers (`/var/tmp/openudon-m92-corrected-producer-z89k3b36`). Independent integration and native
+report verification passed; all eighteen sources and module origins were
+rechecked. Summary SHA-256 `a87277a65341e17b3f2e40daf275197cc02ff4377d160fdd0ba383fb7684ec30`;
+exact trimpath CLI SHA-256 `dd109478d24321733fc63b20c163340e4786727fe18f39146c69be714d8edbef`.
+
+The delta proof still binds native source7efb58678954a037a54e5d5874020258ce98cdca
+and its actual39/39 fresh browser checks; browser/runtime/authoring/pin scope
+remains byte-identical. No native run is relabeled. The only new fixture change
+removed a trailing blank and refreshed the actual package digest to
+`f81f4e1efe898996b04b5c330eb0d5eb9fd80b6f39c03bed3cf24b3e4ec04d13`.
+All other result fields remain identical; focused CLI/schema fixture checks
+and document checks passed. Whole outgoing range whitespace check passed.
+Review4 remains passed with no findings. Publication/reconciliation/closure
+are still pending at this checkpoint.
