@@ -233,6 +233,7 @@ func (executor *realExecutor) executeLoopback(ctx context.Context, manifest Mani
 		bindings[slot] = "scenario_" + slot
 	}
 	workflow, workflowErr := synthesize.WriteBrowserScenarioWorkflow(synthesize.BrowserScenarioWorkflowRequest{
+		UWSVersion: manifest.Expected.UWSVersion,
 		ExampleDir: exampleDir, AuthenticationPath: author.AuthenticationPath, CapabilityPath: author.CapabilityPath,
 		AuthenticationFlow: "authenticated_goal", CapabilityAction: "reach_authenticated_goal", Session: "scenario_session",
 		CredentialSlotBindings: bindings,
@@ -355,6 +356,7 @@ func (executor *realExecutor) executeJourney(ctx context.Context, manifest Manif
 	result.Phases = append(result.Phases, PhaseResult{ID: "profile_imported", Status: StatusPass, Detail: "ok"})
 
 	workflowRequest := synthesize.BrowserScenarioWorkflowRequest{
+		UWSVersion: manifest.Expected.UWSVersion,
 		ExampleDir: exampleDir, AuthenticationPath: authenticationPath, CapabilityPath: capabilityPath,
 		AuthenticationFlow: journeyAuthenticationFlow, Session: journeySession,
 		CredentialSlotBindings: map[string]string{}, Inputs: blueprint.inputs, Actions: blueprint.workflow,
@@ -585,6 +587,7 @@ func (executor *realExecutor) executePublic(ctx context.Context, manifest Manife
 	result.Phases = append(result.Phases, PhaseResult{ID: "browsertools_probe", Status: StatusPass, Detail: "ok"})
 
 	workflow, err := synthesize.WriteBrowserScenarioWorkflow(synthesize.BrowserScenarioWorkflowRequest{
+		UWSVersion: manifest.Expected.UWSVersion,
 		ExampleDir: caseRoot, AuthenticationPath: authenticationPath, CapabilityPath: profilePath,
 		AuthenticationFlow: publicScenarioFlow, CapabilityAction: publicScenarioAction, Session: publicScenarioSession,
 		CredentialSlotBindings: map[string]string{},

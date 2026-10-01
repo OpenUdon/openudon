@@ -1058,3 +1058,25 @@ Native qualification: 39/39 stages across three fresh repeats; report verifies.
 All 405 retained fixtures and three embedded UI assets remain unchanged.
 The temporary approved test display was torn down; M93's desktop/human-visible
 checks and Kinet W08's fresh M92 consumer qualification remain pending.
+
+## M92 applied UWS dependency and executor compatibility
+
+M92.1 pins published UWS source `a7688f54c68f5a75c7cc95aa2b31cea98b31af41`
+as `v0.0.0-20260927134327-a7688f54c68f`; Browsertools stays at its
+existing `3abe70efc03d9ccb97b8b30e5e86328f60a70c64` module. New authoring
+packages default to UWS 1.12.0. Rebuilding reads existing HCL/export versions
+before artifact writes, preserves the declared version, and refuses conflicting,
+unsafe or unsupported declarations. Historical scenario qualification selects
+its manifest version explicitly and cannot override an existing document.
+
+`make report-v5-m45-qualification` is an opt-in loopback-only gate selecting the
+accepted M45 executor/closure via `OPENUDON_M45_EXECUTOR` and
+`OPENUDON_M45_CLOSURE`. Its test verifies both digests, source identity, the
+clean fourteen-source closure and all four passed qualification commands before
+executing a private binary copy. It covers eight report-v5 cases at each of
+UWS 1.11 and 1.12. The M44 gate retains its own frozen binding. Udon remains an
+external CLI, never an imported dependency.
+
+M91's browser integration v5/current scenario v4 locks remain immutable rollback
+contexts. They do not qualify M92's newer pin. M92.4 must publish a new current
+qualification context and selectors before milestone acceptance.

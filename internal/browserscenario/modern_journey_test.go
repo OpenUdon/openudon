@@ -62,7 +62,7 @@ func TestCurrentScenarioCorpusAndModernSynthesis(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			if result.UWSVersion != "1.11.0" || filepath.Dir(result.Path) != root {
+			if result.UWSVersion != "1.12.0" || filepath.Dir(result.Path) != root {
 				t.Fatalf("workflow = %#v", result)
 			}
 		})
@@ -119,6 +119,7 @@ func TestCurrentV4CampaignCountProfilesAndFixtures(t *testing.T) {
 				t.Fatalf("expected outputs = %#v", blueprint.expectedOutputs)
 			}
 			workflow, err := synthesize.WriteBrowserScenarioWorkflow(synthesize.BrowserScenarioWorkflowRequest{
+				UWSVersion: "1.11.0", // Frozen v4 scenario corpus.
 				ExampleDir: root, AuthenticationPath: authentication, CapabilityPath: capability,
 				AuthenticationFlow: journeyAuthenticationFlow, Session: journeySession,
 				CredentialSlotBindings: map[string]string{}, Actions: blueprint.workflow,

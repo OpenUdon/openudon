@@ -13,7 +13,7 @@ import (
 	"github.com/OpenUdon/uws/uws1"
 )
 
-func TestGenerateWorkflowDefaultsToUWS111WithContextAuthentication(t *testing.T) {
+func TestGenerateWorkflowDefaultsToUWS112WithContextAuthentication(t *testing.T) {
 	if _, err := schemas.BrowserAuthenticationProfileSchema("uws.browser-authentication.1.1"); err != nil {
 		t.Skip("the standalone dependency pin predates UWS 1.8")
 	}
@@ -38,15 +38,15 @@ func TestGenerateWorkflowDefaultsToUWS111WithContextAuthentication(t *testing.T)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if doc.UWS != "1.11.0" {
-		t.Fatalf("UWS version = %q, want 1.11.0", doc.UWS)
+	if doc.UWS != "1.12.0" {
+		t.Fatalf("UWS version = %q, want 1.12.0", doc.UWS)
 	}
 	if got := doc.Operations[0].Extensions[uws1.ExtensionOperationProfile]; got != "uws.browser-authentication-call.1.1" {
 		t.Fatalf("authentication call profile = %#v", got)
 	}
 }
 
-func TestGenerateWorkflowDefaultsToUWS111WithContextCapability(t *testing.T) {
+func TestGenerateWorkflowDefaultsToUWS112WithContextCapability(t *testing.T) {
 	if _, err := schemas.BrowserSourceProfileSchema("uws.browser.1.6"); err != nil {
 		t.Skip("the standalone dependency pin predates UWS 1.8")
 	}
@@ -68,12 +68,12 @@ func TestGenerateWorkflowDefaultsToUWS111WithContextCapability(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if doc.UWS != "1.11.0" {
-		t.Fatalf("UWS version = %q, want 1.11.0", doc.UWS)
+	if doc.UWS != "1.12.0" {
+		t.Fatalf("UWS version = %q, want 1.12.0", doc.UWS)
 	}
 }
 
-func TestGenerateWorkflowDefaultsToUWS111WithScalarAccessibilityCapability(t *testing.T) {
+func TestGenerateWorkflowDefaultsToUWS112WithScalarAccessibilityCapability(t *testing.T) {
 	if _, err := schemas.BrowserSourceProfileSchema("uws.browser.1.7"); err != nil {
 		t.Fatal("the pinned UWS dependency lacks browser 1.7:", err)
 	}
@@ -95,8 +95,8 @@ func TestGenerateWorkflowDefaultsToUWS111WithScalarAccessibilityCapability(t *te
 	if err != nil {
 		t.Fatal(err)
 	}
-	if doc.UWS != "1.11.0" {
-		t.Fatalf("UWS version = %q, want 1.11.0", doc.UWS)
+	if doc.UWS != "1.12.0" {
+		t.Fatalf("UWS version = %q, want 1.12.0", doc.UWS)
 	}
 }
 
@@ -126,7 +126,7 @@ func TestGenerateWorkflowAcceptsVersionedBrowserTemplates(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			if doc.UWS != "1.11.0" || doc.Operations[0].Request["body"].(map[string]any)["term"] != "a/b" {
+			if doc.UWS != "1.12.0" || doc.Operations[0].Request["body"].(map[string]any)["term"] != "a/b" {
 				t.Fatalf("versioned template request was not preserved: %#v", doc)
 			}
 			if err := doc.Validate(); err != nil {
@@ -168,7 +168,7 @@ func TestGenerateWorkflowLowersBrowserAuthenticationAndNamedSession(t *testing.T
 	if err != nil {
 		t.Fatal(err)
 	}
-	if doc.UWS != "1.11.0" || len(doc.Operations) != 2 {
+	if doc.UWS != "1.12.0" || len(doc.Operations) != 2 {
 		t.Fatalf("generated document version/operations = %s/%d", doc.UWS, len(doc.Operations))
 	}
 	auth, ok, err := browserauthentication.ReadAuthenticationExtension(doc.Operations[0].Extensions)

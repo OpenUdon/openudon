@@ -40,6 +40,8 @@ type Options struct {
 }
 
 type Result struct {
+	// Private scenario qualification may explicitly select a historical version.
+	declaredUWSVersion string
 	ExampleDir         string
 	ProjectPath        string
 	IntentPath         string
@@ -258,6 +260,10 @@ func prepareRefinement(ctx context.Context, opts Options) (*refinementState, err
 		return nil, err
 	}
 	result := resultPaths(exampleDir)
+	// Refuse version drift before discovery or any artifact writes.
+	if _, err := workflowUWSVersion(result); err != nil {
+		return nil, err
+	}
 	projectBytes, _, err := evidencefile.ReadRegular(result.ProjectPath, evidencefile.DefaultMaxBytes)
 	if err != nil {
 		return nil, fmt.Errorf("read project brief: %w", err)
@@ -514,6 +520,10 @@ func Promote(ctx context.Context, opts Options) (*Result, error) {
 		return nil, err
 	}
 	result := resultPaths(exampleDir)
+	// Refuse version drift before discovery or any artifact writes.
+	if _, err := workflowUWSVersion(result); err != nil {
+		return nil, err
+	}
 	projectBytes, _, err := evidencefile.ReadRegular(result.ProjectPath, evidencefile.DefaultMaxBytes)
 	if err != nil {
 		return nil, fmt.Errorf("read project brief: %w", err)

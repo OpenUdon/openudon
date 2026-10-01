@@ -1,6 +1,6 @@
 # Status M92 — UWS 1.12, pending packages and pure simulation
 
-**State:** Approved planning, 2026-09-30; every task pending. No implementation or publication is established by this record.
+**State:** M92.1 implemented and checked; remaining pending/simulation work and milestone qualification are not accepted.
 
 **Goal.** Preview reviewed or unresolved workflows without network calls or executor invocation.
 
@@ -19,7 +19,7 @@ New packages declare UWS 1.12 and carry confirmed read/write/unknown effects. Ex
 
 | Item | State | Notes |
 | --- | --- | --- |
-| M92.1 — Adopt UWS 1.12 and qualified executor compatibility | `[ ]` | Pin exact published UWS; record accepted M45 source/build closure. New packages use 1.12; already-approved packages are unchanged. |
+| M92.1 — Adopt UWS 1.12 and qualified executor compatibility | `[+]` | Pin exact published UWS; record accepted M45 source/build closure. New packages use 1.12; already-approved packages are unchanged. |
 | M92.2 — Effects and package pending steps | `[ ]` | Generate effects from confirmed contracts; author/resolve pending steps through commands; assessment distinguishes them and every approval/run path refuses them. |
 | M92.3 — Versioned pure simulation | `[ ]` | Implement the simulation-only projection and public mockruntime adapter; label pending/hypothetical results and redact credential-bound values before output. No package publication or mutation authority follows from simulation. |
 | M92.4 — Qualify contracts, review and publish | `[ ]` | Commit producer fixtures and refusal cases, prove zero network/executor activity and package immutability, run owner checks, review and publish. |
@@ -98,3 +98,36 @@ qualified context; M91's existing 1.11 compatibility/native locks are historical
 rollback evidence, not proof of that future adoption. Add versioned current
 qualification inputs/selectors as needed and preserve old report readers/locks.
 Do not run the old fixed-M90 Kinet script as evidence for this source.
+
+## M92.1 selected — 2026-10-01
+
+M91 normal closure is independently verified on origin/main at
+`50553d40de065048906ee5dcfd2ed46b1150abf8`; its accepted application source
+is `3fd40d3f874bdcf668a018550112a02cd0d02409`. M92.1 is now the sole general
+in-progress row across this run's active ledgers. Preserve published UWS/udon
+contracts and use their exact accepted source/builds; no sibling implementation
+is authorized by this task. Existing package versions/approvals and frozen
+historical qualification selectors/locks remain unchanged. Review stays 0/10.
+
+## M92.1 task evidence — 2026-10-01
+
+Published UWS module resolved with exact Origin.Hash
+`a7688f54c68f5a75c7cc95aa2b31cea98b31af41`, without a replacement.
+M45 executor and closure digests above were independently rechecked. The
+opt-in real executor handoff passed all sixteen cases (eight each at 1.11/1.12),
+using disposable loopback services only; raw payload canaries stayed out of
+run evidence. Logs: `/tmp/openudon-m92-1-m45.log`. Synthesis, scenario and
+trusted-runner owner tests passed (`/tmp/openudon-m92-1-owner.log`). Version
+retention/refusal tests prove existing bytes unchanged by generation. New
+package assertions now use 1.12; immutable scenario manifests and old locks
+remain unchanged, with their versions explicitly selected in qualification.
+The initial broad check identified stale fresh-package default assertions;
+these were corrected only where the tests author new disposable packages.
+M92.4 still owns new browser qualification contexts/selectors and final checks.
+No simulation, pending authoring, milestone acceptance or publication is
+claimed by this row.
+
+Task verification additionally passed standalone `make fast` (including full
+Go tests, vet, build, repository/boundary/document gates) and `git diff --check`;
+log `/tmp/openudon-m92-1-fast.log`. The separate version-refusal pipeline
+test passed, proving refusal occurs before any refinement artifact is created.

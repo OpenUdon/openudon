@@ -218,3 +218,8 @@ qualify: browser-system-check
 report-v5-qualification:
 	@test -n "$(OPENUDON_M44_EXECUTOR)" -a -n "$(OPENUDON_M44_CLOSURE)" || { echo "set OPENUDON_M44_EXECUTOR and OPENUDON_M44_CLOSURE to the accepted frozen M44 build"; exit 2; }
 	OPENUDON_M44_QUALIFY=1 OPENUDON_M44_EXECUTOR="$(OPENUDON_M44_EXECUTOR)" OPENUDON_M44_CLOSURE="$(OPENUDON_M44_CLOSURE)" $(GO) test ./internal/trustedrunner -run '^TestPublishedM44Qualification$$' -count=1 -v
+
+.PHONY: report-v5-m45-qualification
+report-v5-m45-qualification:
+	@test -n "$(OPENUDON_M45_EXECUTOR)" -a -n "$(OPENUDON_M45_CLOSURE)" || { echo "set OPENUDON_M45_EXECUTOR and OPENUDON_M45_CLOSURE to the accepted frozen M45 build"; exit 2; }
+	OPENUDON_M45_QUALIFY=1 OPENUDON_M45_EXECUTOR="$(OPENUDON_M45_EXECUTOR)" OPENUDON_M45_CLOSURE="$(OPENUDON_M45_CLOSURE)" $(GO) test ./internal/trustedrunner -run '^TestPublishedM45Qualification$$' -count=1 -v

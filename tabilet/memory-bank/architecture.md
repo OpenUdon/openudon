@@ -1343,3 +1343,15 @@ authentication-authority marker; v1–v4 retain immutable selectors and locks.
 Native stage/wire identities remain unchanged. Fresh owner qualification
 passed three complete current-stack repeats, with source/tool bindings and
 without result reuse or sandbox overrides; consumer adoption is separate.
+
+## M92.1 version-preserving authoring
+
+Synthesis reads declared versions from bounded regular existing HCL/export
+artifacts before refinement/discovery writes. Conflicting declarations refuse
+without rewriting the package. New packages default to public UWS 1.12.0;
+existing declared versions retain their generation and approval path. Browser
+qualification explicitly carries the immutable manifest version into the same
+synthesis implementation; it cannot overwrite a different existing declaration.
+External executor compatibility uses M45's verified frozen binary and build
+closure, including report-v5 evidence for both retained 1.11 and new 1.12
+packages. Broader M92 browser qualification remains pending.

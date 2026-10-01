@@ -73,7 +73,12 @@ func loadUWSDocumentFile(path string) (*uws1.Document, error) {
 	if err != nil {
 		return nil, err
 	}
+	return decodeUWSDocument(path, data)
+}
+
+func decodeUWSDocument(path string, data []byte) (*uws1.Document, error) {
 	var doc uws1.Document
+	var err error
 	switch strings.ToLower(filepath.Ext(path)) {
 	case ".hcl":
 		err = convert.UnmarshalHCL(data, &doc)
@@ -86,6 +91,56 @@ func loadUWSDocumentFile(path string) (*uws1.Document, error) {
 		return nil, err
 	}
 	return &doc, nil
+}
+
+// workflowUWSVersion keeps declared package versions when rebuilding. Only a
+// package without either generated document adopts the new authoring default.
+func workflowUWSVersion(result Result) (string, error) {
+	workflowPath, uwsPath := result.WorkflowPath, result.UWSPath
+	if workflowPath == "" && result.ExampleDir != "" {
+		workflowPath = filepath.Join(result.ExampleDir, "workflows", "workflow.hcl")
+	}
+	if uwsPath == "" && result.ExampleDir != "" {
+		uwsPath = filepath.Join(result.ExampleDir, "workflows", "workflow.uws.yaml")
+	}
+	version := ""
+	for _, path := range []string{workflowPath, uwsPath} {
+		if path == "" {
+			continue
+		}
+		data, _, err := evidencefile.ReadRegular(path, evidencefile.DefaultMaxBytes)
+		if errors.Is(err, os.ErrNotExist) {
+			continue
+		}
+		if err != nil {
+			return "", fmt.Errorf("read existing UWS version: %w", err)
+		}
+		document, err := decodeUWSDocument(path, data)
+		if err != nil {
+			return "", fmt.Errorf("existing UWS document could not be decoded")
+		}
+		// Delegate version policy to the public model, retaining its exact
+		// declared value. Other document gaps belong to normal assessment.
+		for _, issue := range document.ValidateResult().Errors {
+			if issue.Path == "uws" {
+				return "", fmt.Errorf("existing UWS document declares an unsupported version")
+			}
+		}
+		if version != "" && version != document.UWS {
+			return "", fmt.Errorf("existing workflow and exported UWS versions disagree")
+		}
+		version = document.UWS
+	}
+	if result.declaredUWSVersion != "" {
+		if version != "" && version != result.declaredUWSVersion {
+			return "", fmt.Errorf("scenario UWS version differs from its existing document")
+		}
+		version = result.declaredUWSVersion
+	}
+	if version == "" {
+		version = "1.12.0"
+	}
+	return version, nil
 }
 
 func generateWorkflowDocument(result Result, intent *rollout.Intent) (*uws1.Document, error) {
@@ -112,8 +167,12 @@ func generateWorkflowDocument(result Result, intent *rollout.Intent) (*uws1.Docu
 		timeout = normalized.Workflow.Timeout
 		idempotency = normalized.Workflow.Idempotency
 	}
+	version, err := workflowUWSVersion(result)
+	if err != nil {
+		return nil, err
+	}
 	doc := &uws1.Document{
-		UWS: "1.11.0",
+		UWS: version,
 		Info: &uws1.Info{
 			Title:       title,
 			Description: description,

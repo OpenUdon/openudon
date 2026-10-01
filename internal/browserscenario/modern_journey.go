@@ -174,6 +174,7 @@ func (executor *realExecutor) executeModernJourney(ctx context.Context, manifest
 	}
 	result.Phases = append(result.Phases, PhaseResult{ID: "profile_reviewed", Status: StatusPass, Detail: "ok"})
 	workflow, err := synthesize.WriteBrowserScenarioWorkflow(synthesize.BrowserScenarioWorkflowRequest{
+		UWSVersion: manifest.Expected.UWSVersion,
 		ExampleDir: exampleDir, AuthenticationPath: authentication, CapabilityPath: capability,
 		AuthenticationFlow: journeyAuthenticationFlow, Session: journeySession,
 		CredentialSlotBindings: map[string]string{}, Inputs: blueprint.inputs, Actions: blueprint.workflow,
