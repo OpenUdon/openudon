@@ -9,7 +9,7 @@ remains frozen; APItools' M81/M80 planning changes are consumed without edits.
 ## Remaining package-owned work
 
 - [M91](../docs/history/status-M91.md): Move shared implementation out of iCoT while keeping all current consumers working.
-- [M92](../memory-bank/status-M92.md): Preview reviewed or unresolved workflows without network calls or executor invocation.
+- [M92](../docs/history/status-M92.md): Preview reviewed or unresolved workflows without network calls or executor invocation.
 - [M93](../memory-bank/status-M93.md): Expose both existing browser-capture journeys to Kinet through a bounded non-interactive protocol.
 - [M94](../memory-bank/status-M94.md): Expose APItools catalog discovery and artifact provisioning without broadening evidence or authority.
 - [M95](../memory-bank/status-M95.md): Remove OpenUdon's iCoT terminal, UI, control and planner after their replacements qualify.

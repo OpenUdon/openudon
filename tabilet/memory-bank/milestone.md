@@ -6,9 +6,13 @@ Stage 5 M91 extraction is complete, accepted and published at qualified
 application source `3fd40d3f874bdcf668a018550112a02cd0d02409`, through
 review/source publication `c8f2de71d983bea93dc1c045568c397a10a4eb56`.
 Review 1 passed; required frozen integration and three fresh native repeats
-passed, with retained fixtures/assets and historical locks unchanged. M92–M95
-remain approved pending work; no simulation, new capture contract, catalog
-adoption or iCoT removal is claimed. Resolve M91 through the history index.
+passed, with retained fixtures/assets and historical locks unchanged.
+
+M92 is also accepted/published: public UWS 1.12, package pending steps and pure
+simulation qualified at `96c16acacc7f442858dac8a0fcb36c84991ebddf`; review4
+passed, final integration and exact earlier native39 context independently
+verified. M93–M95 remain pending capture/catalog/removal work. Resolve both
+completed prerequisites through the history index.
 
 E24 completed [actual namespace binding](../docs/history/status-E24.md).
 E23 completed the current-stack/external-module browser-free input helper; see
@@ -130,17 +134,15 @@ The history index holds 134 legacy-preserved status IDs and five normally review
 ### Stage 5 coordination (approved planning, 2026-09-30)
 
 M91 is an accepted published extraction prerequisite. OpenUdon owns remaining
-M92–M95 target work. M92.1–M92.3 are implemented with task checks; M92.4
-producer conformance/runtime qualification/review remains active, so M92
-acceptance is not claimed. The
+M93–M95 target work; M92 is accepted pending/simulation functionality. The
 canonical cross-package text (order, Gate 5B, the W27 handoff rule, gates,
 publication policy, and the F01–F10 / SR01–SR06 findings table) is Kinet
 `docs/kinet-order.md` §6 (`../../../kinet/docs/kinet-order.md`); Kinet's
 `tabilet/memory-bank/suggested.txt` is the only launch reference.
 
 ```text
-Completed prerequisites: APItools M81/M80, Udon M45, Authoring M29, OpenUdon M91
-Remaining: OpenUdon M92 → M93 → M94
+Completed prerequisites: APItools M81/M80, Udon M45, Authoring M29, OpenUdon M91/M92
+Remaining: OpenUdon M93 → M94
 → Kinet A10 → W08 → W09 → W10 → M19 → U07
 → Gate 5B → W8M W28 → OpenUdon M95 → Kinet M20 → W8M W29
 ```
@@ -152,20 +154,6 @@ Remaining: OpenUdon M92 → M93 → M94
   named authorization.
 - Before consuming an upstream revision, record its actual accepted source,
   publication and qualification evidence. Never invent a future hash.
-
-### M92 — UWS 1.12, pending packages and pure simulation
-
-**Goal.** Preview reviewed or unresolved workflows without network calls or executor invocation.
-
-**Scope and compatibility.** New packages declare UWS 1.12 and carry confirmed read/write/unknown effects. Existing packages retain declared versions and approval behavior. Step commands publish unresolved contracts as UWS pending steps. assess reports them; approval-template, dry run and real run refuse them. openudon simulate emits openudon.simulate.v1 with per-step results, response provenance and bounded would-be requests. Use UWS mockruntime, Mock Fixture Format 1.0, examples or bounded synthesis. Since UWS refuses executing pending steps, create only an in-memory simulation projection with synthetic operations for pending outputs; use the public orchestrator and mock runtime, never a second workflow engine. Preserve original IDs and pending labels, never save or approve that projection, and do not invent an endpoint for an unresolved step. Browser outputs are mocked contracts, not snapshot/replay verification.
-
-**Dependencies.** M91 accepted/published; Udon M45 accepted/published with frozen executor closure; published UWS 1.12 a7688f54c68f5a75c7cc95aa2b31cea98b31af41.
-
-**Downstream.** M93; Kinet W08; audit producer contracts for Kinet A10.
-
-**Acceptance.** No network, credential resolution or executor call; original package bytes and digest unchanged by simulation. Test pending-only, mixed and nested pending shapes and invalid schemas; all execution gates refuse pending packages. Demonstrate bounded secret-free write/unknown previews and deterministic fixture/example/synthesis behavior. Publish versioned conformance fixtures; make check, relevant owner gates, bounded review and publication.
-
-Status, task-sized commit units, review provenance and persisted review counter: [status-M92.md](status-M92.md).
 
 ### M93 — Supervised authenticated and registration browser capture
 
@@ -266,7 +254,7 @@ external services.
 
 ## Active And Parked Tracks
 
-- Remaining approved work: M92 → M93 → M94, then M95 after Kinet U07 and W8M W28. M91 is accepted/published extraction; APItools M81/M80, Udon M45 and Authoring M29 remain accepted prerequisites in their own ledgers.
+- Remaining approved work: M93 → M94, then M95 after Kinet U07 and W8M W28. M91 is accepted/published extraction; APItools M81/M80, Udon M45 and Authoring M29 remain accepted prerequisites in their own ledgers.
 
 - Completed: M90 publishes explicit report-v5 handoff and strict v3 per-step
   evidence for Kinet W07; see the [M90 history](../docs/history/status-M90.md).
@@ -281,7 +269,7 @@ external services.
   1.10 current-stack qualification and review remain complete; W8M's local W21
   candidate and any runtime adoption remain separate. The adopted W8M locks
   are unchanged. No deployment, public canary, or target operation is authorized.
-- Active: approved Stage 5 M92–M95. M91 retained all 23 journeys and extracted
+- Active: approved Stage 5 M93–M95. M92 supplies pending/simulation; M91 retained all 23 journeys and extracted
   shared implementation; no capability removal is claimed. E21/P07/P08
   completed normal history retirement before M91, preserving all original
   task outcomes, qualification evidence and review counts. W8M owns its later
@@ -300,7 +288,6 @@ search the history index before allocating a future ID.
 
 | ID | Milestone | Status file | State |
 | --- | --- | --- | --- |
-| M92 | UWS 1.12, pending packages and pure simulation | [status-M92.md](status-M92.md) | Approved planning; pending |
 | M93 | Supervised authenticated and registration browser capture | [status-M93.md](status-M93.md) | Approved planning; pending |
 | M94 | Catalog discovery and digest-bound source provisioning | [status-M94.md](status-M94.md) | Approved planning; pending |
 | M95 | Remove iCoT after consumer migration | [status-M95.md](status-M95.md) | Approved planning; pending |

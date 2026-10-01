@@ -87,3 +87,43 @@ legacy Main internally; preserve their noninteractive draft/core behavior
 through an explicit neutral entry when removing interactive transports. Retain
 all inventory evidence gates, and qualify replacement commands independently
 before deleting anything. This reconciliation authorizes no early removal.
+
+## M92 exact producer reconciliation — 2026-10-01
+
+Final qualified application source: `96c16acacc7f442858dac8a0fcb36c84991ebddf`;
+source/qualification publication independently verified at `bbb03effbe4215cf15473c4dfec561b64b80a122`.
+Review 4/10 passed with no open findings. Frozen final producer bundle:
+`/var/tmp/openudon-m92-corrected-producer-z89k3b36`, summary SHA-256 `a87277a65341e17b3f2e40daf275197cc02ff4377d160fdd0ba383fb7684ec30`;
+CLI SHA-256 `dd109478d24321733fc63b20c163340e4786727fe18f39146c69be714d8edbef`. Published UWS source is
+`a7688f54c68f5a75c7cc95aa2b31cea98b31af41` (1.12); exact M45 executor source,
+binary and fourteen-source closure remain accepted: source
+`238f2e487d50ffec057b7a109a35c9db03f59c55`, executor SHA-256
+`cb4b94c968aa3f3de4106a440fdcd02e6c210941eb25e6666b84cfbc7f63868b`,
+closure SHA-256
+`10d4c613c4882365f2799789d456e8a3b15484b1995a052e334616cad9d0fd59`.
+Final frozen full checks and integration v6 passed seventeen required gates
+(fourteen named producer tests), zero failed, three optional unrequested.
+Fresh native v5 passed39/39 at `7efb58678954a037a54e5d5874020258ce98cdca`.
+Its evidence retains that actual source; the final delta changes only pure
+simulation inventory, its test/marker, current documents and a new example's
+formatting/digest, with browser/runtime/authoring/pin scope proven identical.
+Both reports independently verify; temporary display teardown is verified.
+Never relabel native evidence or treat a same-version binary as adoption.
+
+Additive contracts and local conformance fixtures are
+`openudon.step-pending.v1`, `openudon.simulate-input.v1`, and
+`openudon.simulate.v1`. The legacy step-authoring v1 remains unchanged. New
+packages default to UWS1.12, existing declarations remain unchanged. Pending
+contracts refuse every approval/dry/real path across both artifacts and all
+branches/workflows before credential/executor dispatch. Simulation is pure
+public mock orchestration and in-memory projection, with no network, browser
+worker, credentials or executor. Browser results are mocked contracts, not
+page verification; previews grant no action authority. Every task in this
+consumer remains pending; resolve producer closure through OpenUdon's history
+index after normal retirement, preserving each package's own ledger.
+
+Retain the new pending/simulation commands, schemas, public UWS mock semantics
+and qualification markers when removing iCoT transports. M95 removal still
+waits for its own stated M93/M94, U07, Gate5B and W28 evidence. Preserve old readers,
+locks and package fixtures; replacement runtime adoption requires fresh
+owner/consumer qualification rather than reusing M92's binary identity.

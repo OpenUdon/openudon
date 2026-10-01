@@ -1,6 +1,42 @@
+# Retired milestone M92 - UWS 1.12, pending packages and pure simulation
+
+**Milestone.** M92
+**Outcome.** completed
+**Retired.** 2026-10-01
+**Source status.** tabilet/memory-bank/status-M92.md
+**Source specification.** tabilet/memory-bank/milestone.md#m92---uws-112-pending-packages-and-pure-simulation
+**Evidence.** bbb03effbe4215cf15473c4dfec561b64b80a122
+**Worktree.** includes uncommitted changes
+**Review.** passed
+**Review iterations.** 4
+**Verification.** Owner and frozen make check, separate vet, affected race, document-memory and actual-schema/CLI conformance passed. Final-source integration v6 passed17/0/3-unrequested with14 required producer markers; independent verifier passed. Fresh native v5 passed39/39 at its exact earlier source7efb58678954a037a54e5d5874020258ce98cdca; unchanged browser/runtime/pin scope is separately proven, not relabeled as new execution. Final application96c16acacc7f442858dac8a0fcb36c84991ebddf, qualification-summary SHA256a87277a65341e17b3f2e40daf275197cc02ff4377d160fdd0ba383fb7684ec30. M45 real-report cases16/16, zero simulation HTTP/executor calls, package immutability, version retention and all pending execution refusals passed. Display teardown and exact source publication independently verified; failed attempts retained below.
+**Consolidated into.** product.md, architecture.md, tech-stack.md, lessons.md, docs/simulation.md and docs/step-pending.md; OpenUdon M93/M94/M95 and Kinet A10/W08 reconciled to exact published producer. Evolution v47 direction unchanged.
+
+## Milestone specification
+
+````markdown
+### M92 — UWS 1.12, pending packages and pure simulation
+
+**Goal.** Preview reviewed or unresolved workflows without network calls or executor invocation.
+
+**Scope and compatibility.** New packages declare UWS 1.12 and carry confirmed read/write/unknown effects. Existing packages retain declared versions and approval behavior. Step commands publish unresolved contracts as UWS pending steps. assess reports them; approval-template, dry run and real run refuse them. openudon simulate emits openudon.simulate.v1 with per-step results, response provenance and bounded would-be requests. Use UWS mockruntime, Mock Fixture Format 1.0, examples or bounded synthesis. Since UWS refuses executing pending steps, create only an in-memory simulation projection with synthetic operations for pending outputs; use the public orchestrator and mock runtime, never a second workflow engine. Preserve original IDs and pending labels, never save or approve that projection, and do not invent an endpoint for an unresolved step. Browser outputs are mocked contracts, not snapshot/replay verification.
+
+**Dependencies.** M91 accepted/published; Udon M45 accepted/published with frozen executor closure; published UWS 1.12 a7688f54c68f5a75c7cc95aa2b31cea98b31af41.
+
+**Downstream.** M93; Kinet W08; audit producer contracts for Kinet A10.
+
+**Acceptance.** No network, credential resolution or executor call; original package bytes and digest unchanged by simulation. Test pending-only, mixed and nested pending shapes and invalid schemas; all execution gates refuse pending packages. Demonstrate bounded secret-free write/unknown previews and deterministic fixture/example/synthesis behavior. Publish versioned conformance fixtures; make check, relevant owner gates, bounded review and publication.
+
+Status, task-sized commit units, review provenance and persisted review counter: [status-M92.md](status-M92.md).
+
+````
+
+## Status record
+
+````markdown
 # Status M92 — UWS 1.12, pending packages and pure simulation
 
-**State:** Final producer qualification and closing review 4 passed. Publication, downstream reconciliation and normal retirement remain pending.
+**State:** Completed and accepted; qualified source published and downstream reconciled. Normal retirement is the remaining closure action.
 
 **Goal.** Preview reviewed or unresolved workflows without network calls or executor invocation.
 
@@ -22,7 +58,7 @@ New packages declare UWS 1.12 and carry confirmed read/write/unknown effects. Ex
 | M92.1 — Adopt UWS 1.12 and qualified executor compatibility | `[+]` | Pin exact published UWS; record accepted M45 source/build closure. New packages use 1.12; already-approved packages are unchanged. |
 | M92.2 — Effects and package pending steps | `[+]` | Generate effects from confirmed contracts; author/resolve pending steps through commands; assessment distinguishes them and every approval/run path refuses them. |
 | M92.3 — Versioned pure simulation | `[+]` | Implement the simulation-only projection and public mockruntime adapter; label pending/hypothetical results and redact credential-bound values before output. No package publication or mutation authority follows from simulation. |
-| M92.4 — Qualify contracts, review and publish | `[~]` | Commit producer fixtures and refusal cases, prove zero network/executor activity and package immutability, run owner checks, review and publish. |
+| M92.4 — Qualify contracts, review and publish | `[+]` | Commit producer fixtures and refusal cases, prove zero network/executor activity and package immutability, run owner checks, review and publish. |
 
 ## Acceptance and verification
 
@@ -527,3 +563,34 @@ All other result fields remain identical; focused CLI/schema fixture checks
 and document checks passed. Whole outgoing range whitespace check passed.
 Review4 remains passed with no findings. Publication/reconciliation/closure
 are still pending at this checkpoint.
+
+## Acceptance and exact downstream reconciliation — 2026-10-01
+
+All four task rows are complete. Review4/10 passed, no open findings. Final
+application `96c16acacc7f442858dac8a0fcb36c84991ebddf` and its qualification
+record are published through `bbb03effbe4215cf15473c4dfec561b64b80a122`;
+independent `ls-remote` confirmed that exact remote SHA after a normal FF push.
+The successful prepush record is
+`/var/tmp/openudon-m92-corrected-producer-z89k3b36/publication-source-bbb03effbe42/publication.json`:
+actual range50553d40de065048906ee5dcfd2ed46b1150abf8..bbb03effbe4215cf15473c4dfec561b64b80a122,
+outgoing patch SHA-256
+`97099cc718388105f04c4d86db01602f669332f7df034b08e02ba2e70d0c75ad`.
+The earlier refused preflight pushed nothing and is not counted as a success.
+
+OpenUdon M93/M94/M95 and Kinet A10/W08 now bind exact qualified/published
+producer, additive contracts, distinct final-producer/actual-native sources,
+M45 source/binary/closure and consumer-specific checks. Audit's scope is
+corrected to record only actually exported simulation metadata, never infer
+method/host/body/matching digests from redacted shapes. W08 still owns its exact
+adapter/script/image/local/no-network qualification and confirmed resolution;
+M93.0 retains its own private-desktop/human connection checkpoint. Every
+consumer task remains pending; none is completed merely by reconciliation.
+
+OpenUdon document-memory checks and `git diff --check` passed. Kinet's changed
+consumer specifications passed `make check` (format, vet and full tests), log
+`/tmp/kinet-m92-reconciliation-check.log`. Current facts and reusable lessons
+are consolidated, evolution v47's direction is unchanged, and the whole
+milestone is accepted. Retire the complete specification/status with honest
+observed HEAD and included uncommitted closing records; then publish only that
+metadata closure. Remaining order starts M93 after closure, not before it.
+````

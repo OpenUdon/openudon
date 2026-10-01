@@ -70,3 +70,46 @@ existing Browsertools workers. The temporary M91 Xvfb session was automatically
 torn down and grants no M93.0 completion or visible demonstration evidence.
 Perform M93.0 under its own named operation authority and retain both journey
 checkpoints. The runtime sandbox and private human credential path stay closed.
+
+## M92 exact producer reconciliation — 2026-10-01
+
+Final qualified application source: `96c16acacc7f442858dac8a0fcb36c84991ebddf`;
+source/qualification publication independently verified at `bbb03effbe4215cf15473c4dfec561b64b80a122`.
+Review 4/10 passed with no open findings. Frozen final producer bundle:
+`/var/tmp/openudon-m92-corrected-producer-z89k3b36`, summary SHA-256 `a87277a65341e17b3f2e40daf275197cc02ff4377d160fdd0ba383fb7684ec30`;
+CLI SHA-256 `dd109478d24321733fc63b20c163340e4786727fe18f39146c69be714d8edbef`. Published UWS source is
+`a7688f54c68f5a75c7cc95aa2b31cea98b31af41` (1.12); exact M45 executor source,
+binary and fourteen-source closure remain accepted: source
+`238f2e487d50ffec057b7a109a35c9db03f59c55`, executor SHA-256
+`cb4b94c968aa3f3de4106a440fdcd02e6c210941eb25e6666b84cfbc7f63868b`,
+closure SHA-256
+`10d4c613c4882365f2799789d456e8a3b15484b1995a052e334616cad9d0fd59`.
+Final frozen full checks and integration v6 passed seventeen required gates
+(fourteen named producer tests), zero failed, three optional unrequested.
+Fresh native v5 passed39/39 at `7efb58678954a037a54e5d5874020258ce98cdca`.
+Its evidence retains that actual source; the final delta changes only pure
+simulation inventory, its test/marker, current documents and a new example's
+formatting/digest, with browser/runtime/authoring/pin scope proven identical.
+Both reports independently verify; temporary display teardown is verified.
+Never relabel native evidence or treat a same-version binary as adoption.
+
+Additive contracts and local conformance fixtures are
+`openudon.step-pending.v1`, `openudon.simulate-input.v1`, and
+`openudon.simulate.v1`. The legacy step-authoring v1 remains unchanged. New
+packages default to UWS1.12, existing declarations remain unchanged. Pending
+contracts refuse every approval/dry/real path across both artifacts and all
+branches/workflows before credential/executor dispatch. Simulation is pure
+public mock orchestration and in-memory projection, with no network, browser
+worker, credentials or executor. Browser results are mocked contracts, not
+page verification; previews grant no action authority. Every task in this
+consumer remains pending; resolve producer closure through OpenUdon's history
+index after normal retirement, preserving each package's own ledger.
+
+Reuse neutral browserauthor/browserauthoring/authoringui controllers and current
+Browsertools worker interfaces; preserve both capture modes and exact-origin,
+issued-decision/revision/deadline/private-input rules. Native selectors are now
+v5 and integration v6 with separate retained v4/v5 readers. M93.0 must prepare
+its own private desktop and obtain the user's Remote Desktop Manager
+connection confirmation; M92's disposable Xvfb is already torn down and proves
+neither M93.0 nor M93.5 human acceptance. Capture submissions retain write
+effects; any pending resolution binds the exact contract/current revision.

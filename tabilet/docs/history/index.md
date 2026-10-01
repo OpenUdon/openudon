@@ -159,3 +159,4 @@ subsequently closed under the normal reviewed procedure.
 | P07 | completed | 2026-09-30 | [status-P07.md](status-P07.md) | Original accepted work and 2-iteration review preserved; prerequisite closure reconciled before Stage 5 extraction. |
 | P08 | completed | 2026-09-30 | [status-P08.md](status-P08.md) | Original accepted work and 1-iteration review preserved; prerequisite closure reconciled before Stage 5 extraction. |
 | M91 | completed | 2026-10-01 | [status-M91.md](status-M91.md) | Retained23journeys; neutral shared/expert extraction, published Authoring engine, frozen integration and fresh native39; review1 passed; consumers separately reconciled. |
+| M92 | completed | 2026-10-01 | [status-M92.md](status-M92.md) | Public UWS1.12, pending admission/refusal and pure simulation; final producer conformance/integration, exact earlier native39 context, review4 passed; downstream pins separately reconciled. |
