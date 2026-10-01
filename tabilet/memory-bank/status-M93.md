@@ -669,3 +669,24 @@ output. The existing SSH tunnel can be reused after browser refresh and new
 password retrieval in the user's SSH terminal. No public listener, firewall,
 installation or permanent service was changed. Human readiness and both
 visible journeys remain pending; automated qualifications are unchanged.
+
+## M93.5 connected desktop and visible consumers — 2026-10-01 12:33 UTC
+
+The user explicitly reported noVNC connected, dismissed the connection
+message and saw the empty desktop. Started the real authenticated/TOTP
+public-CLI consumer on approved private display98 at12:30:04 UTC. It completed
+in42.363 seconds with35 events, exact local login/TOTP POSTs, all three native
+human-input checkpoints and separate reviewed-profile import. The helper
+reported pass; receipt SHA-256
+`faaaf5696219913a578d26db9892f4b8de2b4ec5295a56df910e9a023267ee5b`.
+Its local button observations are not final user-visible acceptance.
+
+Started the actual registration-v4 visible consumer on the same bounded
+private desktop. It is waiting for local refusal/approval and profile review
+prompts; no result is claimed yet. Both helpers use qualified source
+`f1273b622445d60dc7f3ea849e5b7f1a1f1e733a` and binary SHA-256
+`50ed529b5375c01bc8aab0ef91b2910c55672074794b10e0dbcbcd70c10987e9`.
+No credential/code values or raw protocol frames were recorded here.
+Explicit final confirmation that both journeys were visible still remains
+required. M93.5 remains in progress, review1/10 passed, and acceptance,
+publication and downstream advancement remain pending.
