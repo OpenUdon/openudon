@@ -1,6 +1,6 @@
 # Status M93 — Supervised authenticated and registration browser capture
 
-**State:** M93.0 private desktop operation selected; other rows remain pending. M92 is accepted/published; no capture implementation is claimed.
+**State:** M93.0 private desktop confirmed; M93.1 protocol implementation selected. M92 is accepted/published; capture implementation/qualification remain incomplete.
 
 **Goal.** Expose both existing browser-capture journeys to Kinet through a bounded non-interactive protocol.
 
@@ -19,8 +19,8 @@ Publish openudon.browser-capture.v1 events and decisions for state, reduced obse
 
 | Item | State | Notes |
 | --- | --- | --- |
-| M93.0 — Prepare the private remote desktop (operation) | `[~]` | Operation row: run only while the launch request's named EXTERNAL_MUTATIONS authorization for the development desktop is in force. Check installation privilege first and stop if missing. Install and start Xvfb, a minimal window manager, x11vnc, the full noVNC viewer and websockify on the existing host; x11vnc and websockify listen on loopback only. The user connects once with noVNC in a local browser through an SSH tunnel to confirm the session. No public listener, firewall change or permanent service; record versions, display bindings, relay checks and teardown. Reused by M93.5, Kinet W09/U07 and W8M W28/W29. |
-| M93.1 — Freeze capture event/decision protocol | `[ ]` | Bound fields and event sizes; publish conformance fixtures and issued-reference/revision validation for both modes. |
+| M93.0 — Prepare the private remote desktop (operation) | `[+]` | Operation row: run only while the launch request's named EXTERNAL_MUTATIONS authorization for the development desktop is in force. Check installation privilege first and stop if missing. Install and start Xvfb, a minimal window manager, x11vnc, the full noVNC viewer and websockify on the existing host; x11vnc and websockify listen on loopback only. The user connects once with noVNC in a local browser through an SSH tunnel to confirm the session. No public listener, firewall change or permanent service; record versions, display bindings, relay checks and teardown. Reused by M93.5, Kinet W09/U07 and W8M W28/W29. |
+| M93.1 — Freeze capture event/decision protocol | `[~]` | Bound fields and event sizes; publish conformance fixtures and issued-reference/revision validation for both modes. |
 | M93.2 — Authenticated and TOTP capture | `[ ]` | Preserve goal/dashboard/origin policy, MFA-kind selection, human credential entry, disclosure consent and exact action approval. |
 | M93.3 — Registration and verification capture | `[ ]` | Retain registration authority, preview/navigation, verification approval, diagnostics and blocked-script rules; no production-registration authority is implied. |
 | M93.4 — Embed worker and import reviewed profiles | `[ ]` | Reuse Browsertools worker entry and package lifecycle; classify submissions as write; preserve iCoT on the same implementation during 5A. |
@@ -248,3 +248,18 @@ Privately retrieve the password with SSH from
 or chat. The user must confirm seeing "OpenUdon M93.0 connection check".
 M93.0 remains in progress and M93.1–M93.5 remain pending until that evidence
 arrives. Review count remains 0/10. The goal is open, not completed.
+
+## M93.0 human connection accepted; M93.1 selected — 2026-10-01
+
+The user reported that the browser view is good after receiving the SSH/noVNC
+connection instructions for `/var/tmp/openudon-m93-browser-n5sop97f`. This
+satisfies M93.0's required human desktop connection checkpoint alongside its
+recorded readiness/security/automatic-teardown checks. The separate observation
+record is `human-confirmation.json` in that disposable root. Earlier attempts
+remain retained failures/expiry records. The active session keeps its original
+bounded expiry; no public listener or permanent service is authorized.
+
+M93.0 is complete; its operation is not replayed. M93.1 is the sole selected
+general row. M93.2–M93.5 remain pending. This human connection does not qualify
+authenticated/TOTP or registration capture, accept M93, or satisfy later M93.5
+or Kinet U07 visible journeys. Review count remains 0/10.

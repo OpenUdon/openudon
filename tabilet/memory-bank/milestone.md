@@ -288,7 +288,7 @@ search the history index before allocating a future ID.
 
 | ID | Milestone | Status file | State |
 | --- | --- | --- | --- |
-| M93 | Supervised authenticated and registration browser capture | [status-M93.md](status-M93.md) | M93.0 operation in progress; capture pending |
+| M93 | Supervised authenticated and registration browser capture | [status-M93.md](status-M93.md) | M93.0 complete; M93.1 protocol in progress |
 | M94 | Catalog discovery and digest-bound source provisioning | [status-M94.md](status-M94.md) | Approved planning; pending |
 | M95 | Remove iCoT after consumer migration | [status-M95.md](status-M95.md) | Approved planning; pending |
 
