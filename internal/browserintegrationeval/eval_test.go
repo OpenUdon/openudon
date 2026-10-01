@@ -764,7 +764,11 @@ func TestHistoricalV4InventoryRemainsFrozenAfterExtraction(t *testing.T) {
 		t.Fatal("extraction dropped qualification coverage")
 	}
 	for index, spec := range current {
-		if !reflect.DeepEqual(spec.RequiredPasses, specs[index].RequiredPasses) {
+		expectedPasses := append([]string(nil), specs[index].RequiredPasses...)
+		for index, name := range expectedPasses {
+			expectedPasses[index] = strings.ReplaceAll(name, "BrowserV10ConfigPreservesAuthenticationWithoutRegistrationAuthority", "BrowserModernConfigPreservesAuthenticationWithoutRegistrationAuthority")
+		}
+		if !reflect.DeepEqual(spec.RequiredPasses, expectedPasses) {
 			t.Fatalf("named coverage changed for %s", spec.ID)
 		}
 		for _, arg := range spec.Args {
@@ -784,4 +788,29 @@ func TestHistoricalV4InventoryRemainsFrozenAfterExtraction(t *testing.T) {
 			}
 		}
 	}
+}
+
+func TestCurrentHandoffRequiresModernAuthenticationAuthorityEvidence(t *testing.T) {
+	lock, specs, err := contractForVersion(ReportVersion)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, spec := range specs {
+		if spec.ID != "openudon-uws111-browser19-handoff" {
+			continue
+		}
+		var oldEvidence, currentEvidence strings.Builder
+		for _, name := range spec.RequiredPasses {
+			fmt.Fprintf(&currentEvidence, "--- PASS: %s (0.00s)\n", name)
+			fmt.Fprintf(&oldEvidence, "--- PASS: %s (0.00s)\n", strings.ReplaceAll(name, "BrowserModernConfigPreservesAuthenticationWithoutRegistrationAuthority", "BrowserV10ConfigPreservesAuthenticationWithoutRegistrationAuthority"))
+		}
+		if evaluateGate(spec, CommandOutput{Stdout: oldEvidence.String()}, lock).Status != StatusFail {
+			t.Fatal("accepted stale authority marker")
+		}
+		if evaluateGate(spec, CommandOutput{Stdout: currentEvidence.String()}, lock).Status != StatusPass {
+			t.Fatal("rejected complete modern authority evidence")
+		}
+		return
+	}
+	t.Fatal("missing handoff gate")
 }

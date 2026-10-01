@@ -24,7 +24,7 @@ Inventory terminal authoring, ui/control protocols, browser authoring/transactio
 | M91.3 — Extract discovery and session logic | `[+]` | Move local/catalog discovery, planning and session types; decouple non-iCoT authoring consumers from Authoring icot. |
 | M91.4 — Extract browser worker and qualification helpers | `[+]` | Move process dispatch/launch and scenario/registration helpers; preserve both capture modes and current-stack inputs. |
 | M91.5 — Rebase evaluation | `[+]` | Move lint/evaluation, variants and scorecard callers off cmd/icot without changing their fixture corpus or expected coverage. |
-| M91.6 — Prove equivalence, review and publish | `[ ]` | Check imports, fixtures, evaluation and owner qualification; preserve P07/P08 dispatch; publish accepted source. Consumer qualification belongs to Kinet W08, without weakening its production pin. |
+| M91.6 — Prove equivalence, review and publish | `[~]` | Check imports, fixtures, evaluation and owner qualification; preserve P07/P08 dispatch; publish accepted source. Consumer qualification belongs to Kinet W08, without weakening its production pin. |
 
 ## Acceptance and verification
 
@@ -271,3 +271,63 @@ both iCoT packages. All 405 fixture bytes are unchanged. Logs:
 `/tmp/openudon-m91-5-standalone.log`, `/tmp/openudon-m91-5-deps.txt`.
 Final smoke/frozen qualification and review/publication remain M91.6; no
 provider/model, real account, desktop operation or capability removal occurred.
+
+## M91.6 selected
+
+Qualify clean source `2a75879c0f0a38c810877f602e90cbb9724609b8` with exact
+existing compatibility/build-input sources, provider-free/offline checks and
+fresh sandboxed loopback evidence. Verify availability before running; preserve
+immutable locked inputs and distinguish development smoke from native
+qualification. No substituted moving tips, disabled sandbox or desktop/live
+operation is permitted. Persist the closing-review counter before review,
+then publish/reconcile/retire only after all required gates pass.
+
+## M91.6 qualification progress and display prerequisite
+
+Frozen source is `2a75879c0f0a38c810877f602e90cbb9724609b8` in
+`/var/tmp/openudon-m91-qualified-1y6zysvk`, with exact existing source locks and
+separately copied read-only, lock-matched JavaScript modules. Frozen `make check`
+and owner `go vet` pass. Sandbox-enabled Chromium readiness passes with the
+locked 151.0.7922.34 runtime. A fresh `make smoke` UI stage passes (67,676ms),
+with no reuse and no runtime-qualification claim. Preparatory failures (empty
+ignored test directory, historical development build-input selection and
+JavaScript dependency directory layout) are preserved and corrected only in
+disposable inputs. Frozen compatibility locks were not modified.
+
+Fresh current native qualification passed its UI stage, then stopped at
+registration with `worker_failed`. The existing Browsertools registration and
+authenticated captures intentionally launch headed Chromium; this host has
+installed Xvfb but no running X display. The private diagnostic and failed
+report remain in `evidence/native2-current-loopback.json*`; no pass is inferred.
+The launch reference's desktop authority is explicitly restricted to M93.0 and
+later consumers, so an earlier temporary M91 test display requires a narrow
+authority extension. The user has been asked to approve installed Xvfb for
+disposable loopback qualification with TCP disabled, temporary authentication
+and automatic teardown, plus recording that exception in the coordinator
+launcher. No desktop process was started, no system package installed, and
+M93.0/human-visible checkpoints were not consumed.
+
+The provider-free frozen integration matrix can proceed independently. M91.6
+remains selected for those checks; full native qualification, persisted closing
+review (still 0/10), publication and closure remain incomplete.
+
+## M91.6 current integration selector correction
+
+The frozen integration matrix observed 15 passing gates, three unrequested
+optional browser checks and one failed required marker. The v4-derived
+handoff selector still named the absent
+`TestBrowserV10ConfigPreservesAuthenticationWithoutRegistrationAuthority`;
+P08's existing replacement is
+`TestBrowserModernConfigPreservesAuthenticationWithoutRegistrationAuthority`,
+which actually checks authentication and registration refusal for both v10 and
+v11. v5 now selects/requires that real test. Gate/named-test counts and semantic
+coverage are preserved; immutable historical v1–v4 markers remain unchanged.
+A regression check rejects the stale marker and requires the actual current
+proof. The first frozen report remains failed evidence at source `2a75879c0f0a38c810877f602e90cbb9724609b8`;
+a new clean source/qualification is required before acceptance.
+
+The selector correction passed focused integration/handoff suites, owner
+`make check` and `go vet`. A source checkpoint is needed for clean frozen
+qualification; its commit records this verified correction and incomplete
+M91.6 evidence, not milestone acceptance. Pending display authority remains
+separate from source verification and publication.

@@ -923,6 +923,16 @@ func extractedGates() []gate {
 				}
 			}
 			spec.Args = args
+		case "openudon-uws111-browser19-handoff":
+			// P08 broadened the original v10-only test to both modern action
+			// protocols. Require its real current marker, retaining the frozen
+			// historical marker in v1–v4 readers.
+			for index, arg := range spec.Args {
+				spec.Args[index] = strings.ReplaceAll(arg, "BrowserV10ConfigPreservesAuthenticationWithoutRegistrationAuthority", "BrowserModernConfigPreservesAuthenticationWithoutRegistrationAuthority")
+			}
+			for index, name := range spec.RequiredPasses {
+				spec.RequiredPasses[index] = strings.ReplaceAll(name, "BrowserV10ConfigPreservesAuthenticationWithoutRegistrationAuthority", "BrowserModernConfigPreservesAuthenticationWithoutRegistrationAuthority")
+			}
 		case "icot-dependency-boundary":
 			spec.Args = []string{"go", "list", "-deps", "./internal/authoringengine"}
 			spec.Assertions = []string{"shared authoring engine has no Browsertools capture, Playwright or iCoT implementation dependency"}
