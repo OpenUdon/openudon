@@ -1,6 +1,6 @@
 # Status M91 — iCoT inventory and behavior-preserving extraction
 
-**State:** M91.1–M91.5 complete; final qualification remains pending. The 23-capability inventory is approved.
+**State:** M91.1–M91.5 complete; M91.6 blocked on temporary headed-test display authority. The 23-capability inventory is approved; milestone acceptance remains incomplete.
 
 **Goal.** Move shared implementation out of iCoT while keeping all current consumers working.
 
@@ -24,7 +24,7 @@ Inventory terminal authoring, ui/control protocols, browser authoring/transactio
 | M91.3 — Extract discovery and session logic | `[+]` | Move local/catalog discovery, planning and session types; decouple non-iCoT authoring consumers from Authoring icot. |
 | M91.4 — Extract browser worker and qualification helpers | `[+]` | Move process dispatch/launch and scenario/registration helpers; preserve both capture modes and current-stack inputs. |
 | M91.5 — Rebase evaluation | `[+]` | Move lint/evaluation, variants and scorecard callers off cmd/icot without changing their fixture corpus or expected coverage. |
-| M91.6 — Prove equivalence, review and publish | `[~]` | Check imports, fixtures, evaluation and owner qualification; preserve P07/P08 dispatch; publish accepted source. Consumer qualification belongs to Kinet W08, without weakening its production pin. |
+| M91.6 — Prove equivalence, review and publish | `[!]` | Check imports, fixtures, evaluation and owner qualification; preserve P07/P08 dispatch; publish accepted source. Consumer qualification belongs to Kinet W08, without weakening its production pin. |
 
 ## Acceptance and verification
 
@@ -331,3 +331,27 @@ The selector correction passed focused integration/handoff suites, owner
 qualification; its commit records this verified correction and incomplete
 M91.6 evidence, not milestone acceptance. Pending display authority remains
 separate from source verification and publication.
+
+## M91.6 independent checks finished — awaiting display authority
+
+Corrected clean candidate `3fd40d3f874bdcf668a018550112a02cd0d02409` passed
+the fresh frozen v5 integration matrix and independent report verification:
+16 passing required gates, zero failures and three unrequested optional browser
+checks. Evidence includes 33 authoring, 27 package, eight handoff and other
+named producer/consumer tests, 157 Browserdriver tests and actual engine/UI
+dependency scans. Historical v4 selector hash is still unchanged. Report:
+`/var/tmp/openudon-m91-qualified-1y6zysvk/evidence/integration2-v5.json`;
+invocation/log: `integration2-invocation.json` / `integration2.log`.
+`partial-qualification.json` binds the candidate and retained evidence digests
+and explicitly records incomplete native qualification. Earlier failed reports
+and original-source development smoke remain distinct evidence.
+
+M91.6 is now blocked only on the requested temporary Xvfb authority extension.
+There is no running X server/display on the verified named host. Existing
+M93.0 desktop authority is not reused early without approval. Once approved,
+record the narrow launcher exception, resume this same row and perform fresh
+three-pass current native qualification with TCP-disabled authenticated Xvfb
+and automatic teardown; then start review at its retained 0/10 counter.
+No M91 publication/acceptance/retirement or downstream implementation has
+started; M93.0 and the visible human checkpoints remain pending. One execution
+owner retains the run, with no general row in progress and no second audit run.
