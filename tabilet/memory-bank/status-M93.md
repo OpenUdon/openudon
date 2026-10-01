@@ -1,6 +1,6 @@
 # Status M93 — Supervised authenticated and registration browser capture
 
-**State:** M93.0 private desktop confirmed; M93.1 protocol and M93.2 authenticated adapter complete; M93.3 registration selected. M92 is accepted/published; capture command/import/qualification remain incomplete.
+**State:** M93.0 private desktop and M93.1–M93.3 protocol/adapters complete; M93.4 command/worker/import selected. M92 is accepted/published; capture command/import/qualification remain incomplete.
 
 **Goal.** Expose both existing browser-capture journeys to Kinet through a bounded non-interactive protocol.
 
@@ -22,8 +22,8 @@ Publish openudon.browser-capture.v1 events and decisions for state, reduced obse
 | M93.0 — Prepare the private remote desktop (operation) | `[+]` | Operation row: run only while the launch request's named EXTERNAL_MUTATIONS authorization for the development desktop is in force. Check installation privilege first and stop if missing. Install and start Xvfb, a minimal window manager, x11vnc, the full noVNC viewer and websockify on the existing host; x11vnc and websockify listen on loopback only. The user connects once with noVNC in a local browser through an SSH tunnel to confirm the session. No public listener, firewall change or permanent service; record versions, display bindings, relay checks and teardown. Reused by M93.5, Kinet W09/U07 and W8M W28/W29. |
 | M93.1 — Freeze capture event/decision protocol | `[+]` | Bound fields and event sizes; publish conformance fixtures and issued-reference/revision validation for both modes. |
 | M93.2 — Authenticated and TOTP capture | `[+]` | Preserve goal/dashboard/origin policy, MFA-kind selection, human credential entry, disclosure consent and exact action approval. |
-| M93.3 — Registration and verification capture | `[~]` | Retain registration authority, preview/navigation, verification approval, diagnostics and blocked-script rules; no production-registration authority is implied. |
-| M93.4 — Embed worker and import reviewed profiles | `[ ]` | Reuse Browsertools worker entry and package lifecycle; classify submissions as write; preserve iCoT on the same implementation during 5A. |
+| M93.3 — Registration and verification capture | `[+]` | Retain registration authority, preview/navigation, verification approval, diagnostics and blocked-script rules; no production-registration authority is implied. |
+| M93.4 — Embed worker and import reviewed profiles | `[~]` | Reuse Browsertools worker entry and package lifecycle; classify submissions as write; preserve iCoT on the same implementation during 5A. |
 | M93.5 — Qualify headless and visible sessions, review and publish | `[ ]` | Requires M93.0's prepared desktop; run both synthetic modes and human-visible evidence, owner qualification, review and publication. Do not defer this environment prerequisite to Kinet W09. |
 
 ## Acceptance and verification
@@ -326,3 +326,45 @@ v47 direction and persisted review count 0/10 remain unchanged.
 
 M93.3 is now the sole general in-progress row across the goal. M93.4/M93.5
 and all downstream consumers remain pending.
+
+## M93.3 complete; M93.4 selected — 2026-10-01
+
+Added a registration adapter over the unchanged native v4 no-submit worker and
+existing controller-owned profile, typed history, preview and verification
+validators. A reviewed fixed profile/URL/origins/bounds is normalized before
+launch and sent once at worker readiness. Subsequent decisions require exact
+protocol review. Pure current-state validation lives in the controller and
+reuses its existing command preparation; it grants no traffic or review state.
+GET/HEAD navigation remains within approved origins, verification binds the
+observed candidate, and refusal sends no native command. Event projection
+transmits only current observation/latest preview, not full history. Disclosure
+consent remains per observation and invokes no model. Native closed diagnostics
+remain visible, with containment failure taking precedence; authenticated
+blocked-script/diagnostic-file settings are not invented for registration.
+
+The generic stream driver is shared by both adapters and reads registration's
+retained terminal outcome only after channel closure. This handles a candidate
+or late failure dropped by the bounded event queue. Private native candidates
+have no JSON representation and grant no package/import/execution authority.
+Intentional close/canceled outcomes report cancellation, not worker failure.
+During implementation, registration's existing defer order exposed stream
+closure before private cleanup and lacked an explicit protocol-reader join.
+Fixed both within this row's teardown scope: cancellation, process termination,
+reader join and inbox/executable cleanup now precede channel closure. A native
+subprocess test blocks cleanup and proves the channel cannot close early.
+
+Race tests passed for both adapters and native controller subprocesses; focused
+vet passed. Full routine make fast and final document checks pass (logs
+/tmp/openudon-m93-3-final-test.log, /tmp/openudon-m93-3-vet.log,
+/tmp/openudon-m93-3-fast.log). An initial new test compile used a nonexistent
+ControlMetadata.Public field; corrected it to the native checkbox definition
+and exact check/public_form_preview request before the passing run. No failed
+attempt is acceptance evidence. Existing fixture/asset/lock bytes and sibling
+code are untouched. Evolution v47 and persisted review count 0/10 remain.
+
+M93.4 is the sole general in-progress row. Public command/start transport,
+embedding the shared hidden worker into openudon, independent profile review/
+package admission and submission write classification are next. M93.5 still
+requires fresh headless/visible qualification, bounded review and publication;
+all downstream consumers remain pending. No live target or registration was
+contacted and no native/browser qualification is claimed by these unit checks.

@@ -1166,3 +1166,20 @@ has no JSON representation. No dependency, public CLI or profile import is added
 by this row. Race/pipe tests include TOTP and credential acknowledgments,
 separate worker origin denial, exact observation disclosure, replay, changed
 state, EOF, expiry, blocked output and late teardown failure.
+
+## M93.3 registration supervising transport
+
+`RunRegistration` uses native `browsertools.registration-author-session.v4`,
+its reviewed GET/HEAD/no-submit start and existing verification/preview/profile
+validators. Legacy registration transports keep their original version defaults.
+`RegistrationSession.ValidateDecision` is a pure check against its own current
+snapshot; `NormalizeRegistrationConfig` and `NormalizeRegistrationStart` reuse
+existing authority/bounds/URL helpers before allocating a worker. No dependency
+or public command is added. Native terminal outcomes remain separately readable
+after joined worker/reader/private cleanup, including a dropped late failure.
+Authenticated blocked-script/diagnostic-file options stay mode-specific;
+registration uses its existing closed diagnostics and no-submit traffic policy.
+Tests cover verification refusal, preview definitions, symbolic canonical
+profile validation, exact current generations, retained outcomes, private
+cleanup ordering and value-free bounded wire. Public CLI/worker embedding,
+independent package import and fresh native/visible qualification remain M93.4/5.

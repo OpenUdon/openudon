@@ -1,9 +1,9 @@
 # Supervising-product browser capture protocol
 
 M93.1 implements the `openudon.browser-capture.v1` event/decision foundation;
-M93.2 adds the internal authenticated/TOTP transport over the existing browser
-controller. Registration, the public command, profile import and complete
-browser qualification remain subsequent M93 work.
+M93.2 adds the internal authenticated/TOTP transport and M93.3 the registration
+transport over the existing browser controllers. The public command, profile
+import and complete browser qualification remain subsequent M93 work.
 
 The public [schema](schemas/openudon.browser-capture.v1.schema.json) is also the
 exact embedded resource used by the decoder. [Wire examples](examples/browser-capture/v1/)
@@ -96,6 +96,27 @@ the internal adapter emits a terminal `result` with state `captured` and no
 profile metadata: the worker path/digest/attestation remain process-private
 inputs to later independent review/import. `captured` is not an imported
 profile, package acceptance or permission to execute a workflow.
+
+Registration capture fixes a reviewed initial profile ID, URL, origins and
+bounds before launch and uses native registration protocol v4. The worker's
+ready event sends only that fixed start; subsequent commands need exact
+protocol review cards. Current-state proposal checks run through the native
+controller's pure validation over its own observation/history/preview state.
+Navigation remains GET/HEAD within approved origins. Verification approval
+binds the offered submit candidate and native verification authority; refusing
+the protocol card sends no verification command or traffic grant.
+
+Reduced events send only the current observation and latest preview. Profile
+review uses native canonical parsing, symbolic binding checks and typed
+history/preview validation; these are not implemented by a new capture engine.
+The native controller retains its terminal outcome independently of a full
+event stream. The adapter checks that outcome after joined closure so a dropped
+candidate or late containment failure cannot be confused with a clean close.
+Private registration candidates also have no JSON representation and await
+independent package transaction admission. Diagnostic codes use the native
+closed vocabulary; raw worker text is discarded. Blocked-script/diagnostic
+file settings remain authenticated-mode policies; registration rejects them
+and retains its existing native no-submit/verification traffic policy.
 
 Adapter tests use fake controllers and real pipe ownership to cover TOTP,
 credential acknowledgments, separate origin denial, observation-bound

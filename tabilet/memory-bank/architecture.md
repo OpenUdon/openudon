@@ -1437,6 +1437,23 @@ joined worker closure on EOF, malformed/stale input, cancellation, absolute
 expiry or output failure. Late teardown failure overrides a nominal cancel.
 A joined capture emits terminal state `captured` with no profile metadata;
 its private result/attestation has no JSON representation and remains input
-to M93.4's independent review/package lifecycle. M93.3 registration and M93.4
-command/worker embedding/import are still pending, with M93.5 owning fresh
+to M93.4's independent review/package lifecycle. M93.3 adds registration;
+M93.4 command/worker embedding/import is pending, with M93.5 owning fresh
 browser and human-visible acceptance of both journeys.
+
+The registration adapter consumes an already reviewed fixed initial authority
+and uses the existing no-submit v4 controller, including native verification,
+public preview and canonical profile/history validation. Current-state proposal
+checks use an immutable controller-owned snapshot; no consumer reconstructs
+the registration state machine or resends full history. Only current observation
+and latest preview cross the stream. GET/HEAD navigation stays within approved
+origins; exact verification refusal sends no command. Native reduced terminal
+diagnostics are retained, with containment failures taking precedence.
+
+The shared driver reads the native registration controller's retained terminal
+outcome after joined closure; a dropped terminal event cannot hide a candidate
+or late containment failure. Registration now joins its protocol reader and
+private cleanup before closing its event stream. A native subprocess check
+holds private cleanup and proves the stream cannot close early. Private
+candidates stay in-process with no wire representation until independent
+M93.4 package admission. iCoT remains on the same native implementation.

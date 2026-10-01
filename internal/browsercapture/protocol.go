@@ -1,5 +1,5 @@
-// Package browsercapture defines the supervising-product protocol above the
-// existing Browsertools-backed controllers. It does not execute browser actions.
+// Package browsercapture defines the supervising-product protocol and adapters
+// above existing Browsertools-backed controllers. It owns no browser engine.
 package browsercapture
 
 import (

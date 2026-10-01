@@ -63,9 +63,12 @@ func runAuthenticated(ctx context.Context, config browserauthor.Config, in io.Re
 		}, reduceAuthentication,
 		validate, func(ctx context.Context, command Command) error {
 			return session.Respond(ctx, *command.Authentication)
-		})
+		}, nil, nil)
 	if err != nil {
 		return AuthenticatedCompletion{}, err
+	}
+	if event.State == "canceled" || event.State == "closed" {
+		return AuthenticatedCompletion{}, ErrCanceled
 	}
 	if event.Result == nil || event.Attestation == nil {
 		return AuthenticatedCompletion{}, errWorker
@@ -85,6 +88,9 @@ func reduceAuthentication(event browserauthor.Event) (string, View, bool) {
 	case event.State == "failed" || event.State == "canceled" || event.State == "closed":
 		view.Authentication = nil
 		view.Diagnostic = "worker_failed"
+		if event.State == "canceled" || event.State == "closed" {
+			view.Diagnostic = "canceled"
+		}
 		if event.ErrorCode == "worker_teardown" {
 			view.Diagnostic = "worker_teardown"
 		}

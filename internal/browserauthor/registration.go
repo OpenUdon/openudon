@@ -89,14 +89,17 @@ type RegistrationEvent struct {
 
 // RegistrationSession owns one isolated worker process.
 type RegistrationSession struct {
-	mu          sync.Mutex
-	cancel      context.CancelFunc
-	commands    chan RegistrationCommand
-	events      chan RegistrationEvent
-	done        chan struct{}
-	closed      bool
-	terminal    RegistrationEvent
-	terminalSet bool
+	mu                 sync.Mutex
+	cancel             context.CancelFunc
+	commands           chan RegistrationCommand
+	events             chan RegistrationEvent
+	done               chan struct{}
+	closed             bool
+	terminal           RegistrationEvent
+	terminalSet        bool
+	decisionState      *registrationRunState
+	decisionEventState string
+	decisionGeneration int
 }
 
 // StartRegistration stabilizes the current iCoT executable beneath the
@@ -246,36 +249,44 @@ type registrationRunState struct {
 }
 
 func (session *RegistrationSession) run(ctx context.Context, config RegistrationConfig, inbox *browsercandidate.PrivateInbox, child *processgroup.InteractiveChild, cleanup func()) {
-	defer cleanup()
-	defer inbox.Close()
 	defer close(session.events)
 	defer close(session.done)
+	defer cleanup()
+	defer inbox.Close()
 	defer func() {
 		session.mu.Lock()
 		session.closed = true
 		session.mu.Unlock()
 	}()
+	messages := make(chan registrationauthorsession.ServerMessage)
+	readDone := make(chan error, 1)
+	scanStopped := make(chan struct{})
+	go func() {
+		defer close(scanStopped)
+		scanRegistrationMessages(ctx, child.Output(), config.Protocol, messages, readDone)
+	}()
 	waited := false
 	defer func() {
+		session.cancel()
 		_ = child.Input().Close()
 		if !waited {
 			if err := child.Terminate(); errors.Is(err, processgroup.ErrTerminationTimeout) {
 				session.publishTerminal(RegistrationEvent{State: "failed", ErrorCode: "worker_teardown"})
 			}
 		}
+		_ = child.Output().Close()
+		<-scanStopped
 	}()
-	messages := make(chan registrationauthorsession.ServerMessage)
-	readDone := make(chan error, 1)
-	go scanRegistrationMessages(ctx, child.Output(), config.Protocol, messages, readDone)
 	first, err := receiveRegistration(ctx, messages, readDone)
 	if err != nil || !validRegistrationHello(first, config.Protocol) {
 		session.publishTerminal(RegistrationEvent{State: "failed", ErrorCode: "protocol_negotiation"})
 		return
 	}
+	state := registrationRunState{phase: "awaiting_start", protocol: config.Protocol}
+	session.rememberDecisionState(state, RegistrationEvent{State: "ready"})
 	if !session.publish(ctx, RegistrationEvent{State: "ready"}) {
 		return
 	}
-	state := registrationRunState{phase: "awaiting_start", protocol: config.Protocol}
 	for {
 		command, ok := session.awaitRegistrationCommand(ctx, config.OperatorIdle)
 		if !ok {
@@ -323,6 +334,7 @@ func (session *RegistrationSession) run(ctx context.Context, config Registration
 			session.publishTerminal(RegistrationEvent{State: "failed", ErrorCode: "worker_protocol"})
 			return
 		}
+		session.rememberDecisionState(state, event)
 		if !session.publish(ctx, event) {
 			return
 		}
@@ -406,6 +418,7 @@ func (session *RegistrationSession) publish(ctx context.Context, event Registrat
 
 func (session *RegistrationSession) publishTerminal(event RegistrationEvent) {
 	session.mu.Lock()
+	session.decisionState = nil
 	if event.ErrorCode == "worker_teardown" && event.Diagnostic == "" {
 		// Keep the validated first failure when process-tree teardown also fails.
 		event.Diagnostic = session.terminal.Diagnostic
@@ -427,6 +440,20 @@ func registrationWorkerExitCode(err error) string {
 }
 
 func normalizeRegistrationConfig(config RegistrationConfig) (RegistrationConfig, *browsercandidate.PrivateInbox, error) {
+	config, err := NormalizeRegistrationConfig(config)
+	if err != nil {
+		return RegistrationConfig{}, nil, err
+	}
+	inbox, err := browsercandidate.OpenPrivateInbox(config.PrivateRoot)
+	if err != nil {
+		return RegistrationConfig{}, nil, err
+	}
+	return config, inbox, nil
+}
+
+// NormalizeRegistrationConfig validates immutable controller bounds before
+// the supervising transport starts a worker or allocates a private inbox.
+func NormalizeRegistrationConfig(config RegistrationConfig) (RegistrationConfig, error) {
 	if config.OperatorIdle <= 0 {
 		config.OperatorIdle = DefaultOperatorIdle
 	}
@@ -434,20 +461,19 @@ func normalizeRegistrationConfig(config RegistrationConfig) (RegistrationConfig,
 		config.Absolute = DefaultAbsolute
 	}
 	if config.OperatorIdle > DefaultOperatorIdle || config.Absolute > DefaultAbsolute || !registrationTransactionID.MatchString(config.TransactionID) {
-		return RegistrationConfig{}, nil, errors.New("registration author configuration is invalid")
+		return RegistrationConfig{}, errors.New("registration author configuration is invalid")
 	}
 	if config.Protocol == "" {
 		config.Protocol = registrationauthorsession.ProtocolV1
 	}
 	if config.Protocol != registrationauthorsession.ProtocolV1 && config.Protocol != registrationauthorsession.ProtocolV2 && (config.Protocol != registrationauthorsession.ProtocolV3 && config.Protocol != registrationauthorsession.ProtocolV4) {
-		return RegistrationConfig{}, nil, errors.New("registration author protocol is invalid")
+		return RegistrationConfig{}, errors.New("registration author protocol is invalid")
 	}
 	config.DriverDir = strings.TrimSpace(config.DriverDir)
-	inbox, err := browsercandidate.OpenPrivateInbox(config.PrivateRoot)
-	if err != nil {
-		return RegistrationConfig{}, nil, err
+	if err := validatePrivateRoot(config.PrivateRoot); err != nil {
+		return RegistrationConfig{}, err
 	}
-	return config, inbox, nil
+	return config, nil
 }
 
 func prepareRegistrationCommand(command RegistrationCommand, state registrationRunState) (registrationauthorsession.ClientMessage, *browsercandidate.RegistrationReview, error) {

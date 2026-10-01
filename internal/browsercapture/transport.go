@@ -22,7 +22,8 @@ var (
 // This loop is shared by both capture adapters, not a second browser engine.
 func drive[E any](ctx context.Context, mode string, absolute time.Duration, in io.ReadCloser, out io.WriteCloser,
 	start func(context.Context) (<-chan E, func(), error), reduce func(E) (string, View, bool),
-	validate Validator, respond func(context.Context, Command) error) (result E, err error) {
+	validate Validator, respond func(context.Context, Command) error,
+	prepare func(context.Context, E) error, retained func() (E, bool)) (result E, err error) {
 	var zero E
 	if ctx == nil || in == nil || out == nil {
 		return zero, errors.New("browser capture transport required")
@@ -50,6 +51,14 @@ func drive[E any](ctx context.Context, mode string, absolute time.Duration, in i
 			_, view, _ := reduce(update)
 			if view.Diagnostic == "worker_teardown" {
 				err = errWorker
+			}
+		}
+		if retained != nil {
+			if terminal, ok := retained(); ok {
+				_, view, _ := reduce(terminal)
+				if view.Diagnostic == "worker_teardown" {
+					err = errWorker
+				}
 			}
 		}
 	}()
@@ -95,6 +104,12 @@ func drive[E any](ctx context.Context, mode string, absolute time.Duration, in i
 			return zero, ErrCanceled
 		case update, ok := <-updates:
 			if !ok {
+				if retained != nil {
+					if terminal, recorded := retained(); recorded {
+						_, current, finished = reduce(terminal)
+						last = terminal
+					}
+				}
 				if !finished {
 					return zero, errWorker
 				}
@@ -106,6 +121,11 @@ func drive[E any](ctx context.Context, mode string, absolute time.Duration, in i
 					return zero, emitErr
 				}
 				return last, nil
+			}
+			if prepare != nil {
+				if prepareErr := prepare(bounded, update); prepareErr != nil {
+					return zero, errWorker
+				}
 			}
 			kind, view, terminal := reduce(update)
 			if finished && !terminal {
