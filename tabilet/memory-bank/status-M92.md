@@ -490,3 +490,19 @@ are unchanged from published M91 closure. Review 4/10 passed with no findings.
 Evolution v47 direction is unchanged; current facts and reusable namespace/
 preview/admission lessons are consolidated. Source publication and exact
 consumer reconciliation are the remaining closing operations.
+
+## Source-publication preflight correction — 2026-10-01
+
+The exact outgoing range check refused a trailing blank line in the new
+simulation example's `project.md`; no push was performed. Removed that line
+and refreshed its package-byte-dependent digest using the actual CLI producer;
+all other result fields stayed identical. This changes new unpublished fixture
+bytes only, no runtime or historical fixture/lock. Final producer verification
+must bind the corrected source. The previous final bundle remains immutable
+with its actual source and result; it is not silently relabeled.
+
+A source document check was first invoked from the wrong directory and failed;
+the corrected command from `tabilet/` passed with exit 0 before publication
+(`/tmp/openudon-m92-source-doc-final.log`). No failed invocation is counted as
+verification. Review iteration4 remains passed: this formatting/digest fix
+introduces no behavioral finding; its whole-range delta was inspected.
