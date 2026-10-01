@@ -114,3 +114,15 @@ interpreting report outcomes; reject timestamp precision the consumer cannot
 compare faithfully. Evidence: `internal/udonreport/v5.go` and its alias/null,
 presence, identity and timestamp mutation tests; M90 review finding R90-3 in
 [M90 history](../docs/history/status-M90.md). Keep legacy wire behavior under its own version.
+
+## Keep hypothetical execution separate from executable approval
+
+Project unresolved contracts only in memory for preview, using public runtime
+semantics and explicit response fixtures/examples/schemas. Never publish or
+approve a fabricated operation. Reserve every public identity namespace,
+including parallel groups, before choosing synthetic names. Pending admission
+must check every workflow/branch and both generated artifacts before stored
+quality, credentials or executor dispatch. Evidence: M92 pending refusal,
+public orchestration and namespace regression tests, resolved through its
+milestone/history record. Export provenance and labels without private values;
+preview success grants no execution authority.

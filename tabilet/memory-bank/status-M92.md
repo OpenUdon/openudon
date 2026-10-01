@@ -1,6 +1,6 @@
 # Status M92 — UWS 1.12, pending packages and pure simulation
 
-**State:** Fresh native qualification passed at its exact source; R4 is fixed with affected checks passed. Closing review iteration 4 is in progress; final producer qualification, publication, reconciliation and acceptance remain pending.
+**State:** Final producer qualification and closing review 4 passed. Publication, downstream reconciliation and normal retirement remain pending.
 
 **Goal.** Preview reviewed or unresolved workflows without network calls or executor invocation.
 
@@ -458,3 +458,35 @@ Native three-repeat evidence at its exact checkpoint is independently verified.
 No P1/P2-or-higher or lower carried finding remains. This passes review 4/10;
 final producer integration/source qualification, publication, reconciliation
 and normal retirement still have to complete before acceptance.
+
+## Final producer qualification — 2026-10-01
+
+Qualified application source is
+`e2cd96d8bd827bdebca8e5c9c312b0becbb312b1`. A fresh immutable eighteen-source
+bundle `/var/tmp/openudon-m92-final-producer-ctv379hp` passed standalone
+`make check` and integration v6 (17 required passed, zero failed, three optional
+unrequested); all fourteen named pending/simulation producer tests passed.
+Independent report verification passed. Exact published UWS/Browsertools/
+Authoring module origins match, no replacements, Go 1.26.6, provider-free
+allowlist and offline module resolution. Sources were independently checked
+clean, including ignored paths. Final trimpath CLI records exact VCS source
+and `vcs.modified=false`, SHA-256
+`f5c873e65c1e6dc73ffbd57af2085495988507800c33bbd0c912f4ed2565a322`.
+
+Qualification summary: `qualification-summary.json` in that bundle, SHA-256
+`083362ea35e06224a4d84459af71e5ec6658f94c5bc588ab435b53b395f47faf`.
+It binds the exact final producer and separately the native39 runtime source
+`7efb58678954a037a54e5d5874020258ce98cdca`. Its reviewed delta is exactly two
+pure mock inventory lines, their regression/integration marker and status.
+Browser/runtime/authoring code, native selectors/locks and dependency pins
+are byte-identical. Under the owner's policy to reserve fresh native runs for
+runtime/integration candidates rather than every edit, no unchanged browser
+suite was repeated for this simulation-only fix. The final CLI independently
+verified the original native report; no new execution identity or claim native
+ran the later source is made. Consumers still qualify their own exact pins.
+
+All old tracked examples, step-authoring fixtures and authoring UI source/assets
+are unchanged from published M91 closure. Review 4/10 passed with no findings.
+Evolution v47 direction is unchanged; current facts and reusable namespace/
+preview/admission lessons are consolidated. Source publication and exact
+consumer reconciliation are the remaining closing operations.

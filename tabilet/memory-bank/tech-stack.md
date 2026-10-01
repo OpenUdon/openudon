@@ -1081,8 +1081,9 @@ UWS 1.11 and 1.12. The M44 gate retains its own frozen binding. Udon remains an
 external CLI, never an imported dependency.
 
 M91's browser integration v5/current scenario v4 locks remain immutable rollback
-contexts. They do not qualify M92's newer pin. M92.4 must publish a new current
-qualification context and selectors before milestone acceptance.
+contexts. They do not qualify M92's newer pin. M92 publishes separate v5
+locks/build inputs and current report selectors, with its own source-bound
+qualification evidence.
 
 M92.2 adds `openudon step pending --example DIR --request FILE|-`, with
 `openudon.step-pending.v1` request/result envelopes. See `docs/step-pending.md`
@@ -1100,8 +1101,8 @@ M92.3 adds `openudon simulate --example DIR [--input FILE] [--fixtures FILE]
 1.12 `mockruntime`, public fixture/JCS matching and deterministic schema synthesis;
 the exact transitive dependency is `github.com/gowebpki/jcs v1.0.2`. No private
 executor import or schema/expression engine is introduced. Numeric user inputs
-retain JSON number identity for fixture matching. M92.4 owns final producer
-conformance and runtime qualification.
+retain JSON number identity for fixture matching. M92 records passed producer
+conformance and source-bound runtime qualification; consumer adoption is separate.
 
 ## M92.4 producer and runtime contracts
 

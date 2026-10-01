@@ -1357,7 +1357,7 @@ qualification explicitly carries the immutable manifest version into the same
 synthesis implementation; it cannot overwrite a different existing declaration.
 External executor compatibility uses M45's verified frozen binary and build
 closure, including report-v5 evidence for both retained 1.11 and new 1.12
-packages. Broader M92 browser qualification remains pending.
+packages. M92 records passed fresh three-repeat browser qualification at its exact runtime checkpoint and separately verified final simulation producer revision.
 
 M92.2 shares declared-version reading in `uwsexec` across synthesis and pending
 commands. Pending intent schema field sets are JSON strings in HCL, decoded
@@ -1386,7 +1386,7 @@ No network, browser worker, executor or credential resolver is connected.
 Explicit fixtures/examples/schemas supply responses; original package files
 and digest are checked again after computation. Fixed diagnostics and bounded
 redacted shapes are exported as `openudon.simulate.v1`. This is preview evidence,
-not approval or real-run evidence; final M92 qualification remains pending.
+not approval or real-run evidence; M92 records final producer conformance and the distinct native-runtime qualification context.
 
 ## M92.4 conformance and qualification context
 
@@ -1397,5 +1397,7 @@ declared UWS edge and the effective UWS 1.12 module; it never rewrites that
 sibling's go.mod. Fresh-package qualification advances only declared UWS versions
 while retaining all fixture journey semantics. Published pending/simulation
 schemas and examples are checked offline against actual owner output, including
-package digest and revision-bound pending intent writes. Final observed browser
-qualification and milestone acceptance remain pending.
+package digest and revision-bound pending intent writes. M92 records observed
+producer and browser qualification with exact source identities. The final
+pure-simulation namespace fix does not change browser/authoring/executor code
+or pins; native evidence retains its original source identity.
