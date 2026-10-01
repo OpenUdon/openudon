@@ -1333,3 +1333,15 @@ contracts to `github.com/OpenUdon/authoring/engine`. Shared elicitor and step
 authoring therefore no longer import Authoring's iCoT compatibility facade.
 Product APIs, private session/transcript versions and approval behavior stay
 unchanged; remaining OpenUdon-local iCoT browser/evaluation extraction is M91.4/5.
+
+## M91 browser implementation relocation
+
+`internal/browserauthor` owns asynchronous capture controllers,
+`internal/authoringengine` owns headless lifecycle, and `internal/authoringui`
+retains the local UI/control transport during 5A. Shared terminal capture,
+attestation/staging, closed worker dispatch and scenario qualification now live
+in `internal/browserauthoring`; the retained iCoT terminal delegates through
+aliases/forwarders. Browser scenario consumers import that shared package, not
+the terminal. Artifact writes use the existing neutral transactional writer.
+Both registration and authenticated/TOTP capture and their approval/uncertainty
+contracts remain unchanged. M95 owns later entry-point retirement after parity.

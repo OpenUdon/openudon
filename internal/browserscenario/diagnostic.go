@@ -8,9 +8,9 @@ import (
 	"os"
 	"sort"
 
+	"github.com/OpenUdon/openudon/internal/browserauthor"
+	"github.com/OpenUdon/openudon/internal/browserauthoring"
 	"github.com/OpenUdon/openudon/internal/evidencefile"
-	"github.com/OpenUdon/openudon/internal/icot"
-	"github.com/OpenUdon/openudon/internal/icot/browserauthor"
 )
 
 const authoringFailureDiagnosticVersion = "openudon.browser-scenario-authoring-diagnostic.v2"
@@ -18,8 +18,8 @@ const legacyAuthoringFailureDiagnosticVersion = "openudon.browser-scenario-autho
 const authoringFailureDiagnosticLimit = 64 << 10
 
 type scenarioAuthoringFailure struct {
-	Scenario  string                               `json:"scenario"`
-	Authoring icot.BrowserScenarioAuthorDiagnostic `json:"authoring"`
+	Scenario  string                                           `json:"scenario"`
+	Authoring browserauthoring.BrowserScenarioAuthorDiagnostic `json:"authoring"`
 }
 
 type authoringFailureDiagnostic struct {
@@ -42,9 +42,9 @@ type legacyAuthoringFailureDiagnostic struct {
 }
 
 func appendAuthoringFailure(result ScenarioResult, cause error) ScenarioResult {
-	diagnostic, ok := icot.BrowserScenarioFailureDiagnostic(cause)
+	diagnostic, ok := browserauthoring.BrowserScenarioFailureDiagnostic(cause)
 	if !ok {
-		diagnostic = icot.BrowserScenarioAuthorDiagnostic{Phase: "unknown", Code: "operation_failed"}
+		diagnostic = browserauthoring.BrowserScenarioAuthorDiagnostic{Phase: "unknown", Code: "operation_failed"}
 	}
 	result.AuthoringDiagnostic = &diagnostic
 	return appendFailure(result, "authoring_v2", "authoring_failed")
@@ -114,7 +114,7 @@ func ValidateAuthoringFailureDiagnostic(data []byte, report *Report) error {
 		}
 		record.Version, record.ReportSHA256 = legacy.Version, legacy.ReportSHA256
 		for _, failure := range legacy.Failures {
-			record.Failures = append(record.Failures, scenarioAuthoringFailure{Scenario: failure.Scenario, Authoring: icot.BrowserScenarioAuthorDiagnostic{Phase: failure.Authoring.Phase, Code: failure.Authoring.Code}})
+			record.Failures = append(record.Failures, scenarioAuthoringFailure{Scenario: failure.Scenario, Authoring: browserauthoring.BrowserScenarioAuthorDiagnostic{Phase: failure.Authoring.Phase, Code: failure.Authoring.Code}})
 		}
 	default:
 		return invalid

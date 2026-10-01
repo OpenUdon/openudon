@@ -617,19 +617,6 @@ func promptDefaultMode(mode string) (authoring.PromptDefaultMode, error) {
 	}
 }
 
-type repeatedFlag []string
-
-func (values *repeatedFlag) String() string { return strings.Join(*values, ",") }
-
-func (values *repeatedFlag) Set(value string) error {
-	value = strings.TrimSpace(value)
-	if value == "" {
-		return errors.New("flag value may not be empty")
-	}
-	*values = append(*values, value)
-	return nil
-}
-
 func parseLocalSourceFlags(apiSources, openAPIs []string) ([]apitools.LocalSource, error) {
 	values := make([]string, 0, len(apiSources)+len(openAPIs))
 	values = append(values, apiSources...)

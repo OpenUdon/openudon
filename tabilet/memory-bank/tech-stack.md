@@ -1040,3 +1040,13 @@ OpenUdon pins Authoring `v0.0.0-20260930234600-18056cb6b0c1`, Origin.Hash
 UWS and APItools adoption remain M92 and M94. The adapter uses public `engine`
 APIs; default checks remain provider/credential free and standalone tests use
 the published module with GOWORK off.
+
+## M91 browser checks after relocation
+
+Current focused selectors use `internal/browserauthoring`,
+`internal/browserauthor`, `internal/authoringengine`, and
+`internal/authoringui`. UI build tags and response schemas retain their existing
+names; embedded assets move byte-for-byte. M91.5 still owns rebasing versioned
+evaluation/native runner selectors. Frozen report selectors and build-input
+locks remain immutable. The affected authorized smoke and frozen integration
+qualification run after that rebase in M91.6, before final acceptance.

@@ -14,10 +14,10 @@ import (
 	"time"
 
 	"github.com/OpenUdon/browsertools/authorpolicy"
+	"github.com/OpenUdon/openudon/internal/authoringengine"
+	uiserver "github.com/OpenUdon/openudon/internal/authoringui"
 	transactionengine "github.com/OpenUdon/openudon/internal/browsertransaction/engine"
 	"github.com/OpenUdon/openudon/internal/elicitor"
-	"github.com/OpenUdon/openudon/internal/icot/engine"
-	uiserver "github.com/OpenUdon/openudon/internal/icot/ui"
 	"github.com/OpenUdon/openudon/internal/packagepipeline"
 )
 

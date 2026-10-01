@@ -829,19 +829,3 @@ func resolveExtractor(noLLM bool, provider, model string, temperature float64, o
 	fmt.Fprintf(out, "icot: using LLM extraction with %s/%s\n", actualProvider, actualModel)
 	return elicitor.NewChatExtractor(chat, &temperature), true
 }
-
-func providerFromEnv() string {
-	if os.Getenv("OPENUDON_LLM_PROVIDER") != "" {
-		return strings.ToLower(strings.TrimSpace(os.Getenv("OPENUDON_LLM_PROVIDER")))
-	}
-	return "copilot-api"
-}
-
-func firstNonEmpty(values ...string) string {
-	for _, value := range values {
-		if strings.TrimSpace(value) != "" {
-			return strings.TrimSpace(value)
-		}
-	}
-	return ""
-}

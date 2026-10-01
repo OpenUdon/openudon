@@ -17,10 +17,10 @@ import (
 	"time"
 
 	"github.com/OpenUdon/browsertools/registrationprofile"
+	icotui "github.com/OpenUdon/openudon/internal/authoringui"
 	"github.com/OpenUdon/openudon/internal/browsertransaction"
 	"github.com/OpenUdon/openudon/internal/browserworkflow"
 	"github.com/OpenUdon/openudon/internal/evidencefile"
-	icotui "github.com/OpenUdon/openudon/internal/icot/ui"
 	"github.com/OpenUdon/openudon/internal/packageartifacts"
 	"github.com/OpenUdon/openudon/internal/packagepipeline"
 	"github.com/OpenUdon/openudon/internal/registrationattestation"

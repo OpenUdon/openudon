@@ -1,6 +1,6 @@
 # Status M91 — iCoT inventory and behavior-preserving extraction
 
-**State:** M91.1 complete; the user approved the 23-capability inventory. M91.2 is complete. M91.1–M91.3 complete; browser/evaluation extraction remains pending.
+**State:** M91.1–M91.4 complete; evaluation rebase and final qualification remain pending. The 23-capability inventory is approved.
 
 **Goal.** Move shared implementation out of iCoT while keeping all current consumers working.
 
@@ -22,7 +22,7 @@ Inventory terminal authoring, ui/control protocols, browser authoring/transactio
 | M91.1 — Inventory journeys and consumers | `[+]` | Record retained/replaced/discontinued journeys and replacement checks; inventory both W8M capture modes, expert CLI and evaluation surfaces; approve any new discontinuation explicitly. |
 | M91.2 — Extract artifact writing and draft review | `[+]` | Move transactional artifactwriter and shared review/sanitization into neutral implementation; prove byte-equivalent fixtures. |
 | M91.3 — Extract discovery and session logic | `[+]` | Move local/catalog discovery, planning and session types; decouple non-iCoT authoring consumers from Authoring icot. |
-| M91.4 — Extract browser worker and qualification helpers | `[ ]` | Move process dispatch/launch and scenario/registration helpers; preserve both capture modes and current-stack inputs. |
+| M91.4 — Extract browser worker and qualification helpers | `[+]` | Move process dispatch/launch and scenario/registration helpers; preserve both capture modes and current-stack inputs. |
 | M91.5 — Rebase evaluation | `[ ]` | Move lint/evaluation, variants and scorecard callers off cmd/icot without changing their fixture corpus or expected coverage. |
 | M91.6 — Prove equivalence, review and publish | `[ ]` | Check imports, fixtures, evaluation and owner qualification; preserve P07/P08 dispatch; publish accepted source. Consumer qualification belongs to Kinet W08, without weakening its production pin. |
 
@@ -196,3 +196,39 @@ Logs: `/tmp/openudon-m91-3-focused.log`, `/tmp/openudon-m91-3-standalone.log`,
 `/tmp/openudon-m91-3-fast.log`, `/tmp/openudon-m91-3-deps.txt`.
 M91.4/5 own remaining OpenUdon browser/evaluation import seams; closing review
 stays 0/10 and no final extraction acceptance is claimed.
+
+## M91.4 selected
+
+Relocate browser controllers, authoring engine/application and their UI/
+qualification adapters into shared packages while retaining current command
+entry points, wire schemas, both capture modes and every private approval gate.
+Rebase only current imports/command paths; frozen selectors/reports and legacy
+session/dispatch inputs remain immutable. Extract root browser scenario/worker
+helpers so non-iCoT qualification no longer imports the terminal package.
+
+## M91.4 complete — shared browser/app implementation
+
+Capture controllers, engine and UI/control move to `internal/browserauthor`,
+`internal/authoringengine` and `internal/authoringui`. Root capture, closed worker
+dispatch, attestation/staging and scenario helpers move to
+`internal/browserauthoring`; retained terminal calls use thin aliases/forwarders.
+No algorithm is copied. The shared staging code calls the neutral artifact
+writer directly. CLI integration/route-selection tests remain in the terminal;
+their bodies are preserved exactly. All 78 moved files match after package,
+import, fixture-root and direct-writer adjustments. All 405 tracked corpus/step
+fixtures and three embedded UI assets are unchanged.
+
+Focused workspace/standalone tests and `make fast` pass, as do the six affected
+race suites (retained terminal: 82.979s). The standalone shared scenario, worker,
+engine and UI closure excludes OpenUdon `internal/icot` and Authoring `icot`.
+The first fast run exposed a current release-test source path; its relocated
+path is corrected and the sandbox assertion retained. Logs:
+`/tmp/openudon-m91-4-shared-browser.log`,
+`/tmp/openudon-m91-4-fast-fixed.log`, `/tmp/openudon-m91-4-race.log`,
+`/tmp/openudon-m91-4-standalone.log`, `/tmp/openudon-m91-4-deps.txt`.
+
+Both capture modes, TOTP, worker argv, wire/session versions and all approval
+gates remain available. Frozen integration selectors/locks remain unchanged;
+M91.5 owns current evaluation rebase. The affected authorized smoke and frozen
+integration gate follow that rebase in M91.6. Review stays 0/10; no final
+acceptance, human demonstration or runtime adoption is claimed.

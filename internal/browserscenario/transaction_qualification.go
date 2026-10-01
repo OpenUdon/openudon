@@ -14,12 +14,12 @@ import (
 	"time"
 
 	"github.com/OpenUdon/openudon/internal/artifactwriter"
+	icotengine "github.com/OpenUdon/openudon/internal/authoringengine"
+	"github.com/OpenUdon/openudon/internal/browserauthoring"
 	"github.com/OpenUdon/openudon/internal/browsercandidate"
 	"github.com/OpenUdon/openudon/internal/browsertransaction"
 	"github.com/OpenUdon/openudon/internal/elicitor"
 	"github.com/OpenUdon/openudon/internal/evidencefile"
-	"github.com/OpenUdon/openudon/internal/icot"
-	icotengine "github.com/OpenUdon/openudon/internal/icot/engine"
 	"github.com/OpenUdon/openudon/internal/packagepipeline"
 	"github.com/OpenUdon/openudon/internal/synthesize"
 	"github.com/OpenUdon/openudon/internal/trustedrunner"
@@ -136,7 +136,7 @@ func (executor *realExecutor) runBAPBCPQualification(ctx context.Context, enviro
 		}
 	}
 	var candidate *browsercandidate.AuthenticationCapability
-	author, err := icot.RunBrowserScenarioAuthor(ctx, icot.BrowserScenarioAuthorRequest{
+	author, err := browserauthoring.RunBrowserScenarioAuthor(ctx, browserauthoring.BrowserScenarioAuthorRequest{
 		BrowsertoolsPath: executor.browsertools, ExampleDir: exampleDir, PrivateRoot: privateRoot,
 		InitialURL: fixture.InitialURL(), AuthenticationURL: fixture.AuthenticationURL(), GoalURL: fixture.GoalURL(),
 		GoalContext: manifest.Goal.Context, GoalRole: manifest.Goal.Role, GoalLabel: manifest.Goal.Name,

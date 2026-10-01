@@ -18,9 +18,9 @@ import (
 
 	"github.com/OpenUdon/browsertools/authprofile"
 	"github.com/OpenUdon/browsertools/profile"
+	"github.com/OpenUdon/openudon/internal/browserauthoring"
 	"github.com/OpenUdon/openudon/internal/browserverify"
 	"github.com/OpenUdon/openudon/internal/evidencefile"
-	"github.com/OpenUdon/openudon/internal/icot"
 	"github.com/OpenUdon/openudon/internal/processgroup"
 	"github.com/OpenUdon/openudon/internal/synthesize"
 	"github.com/OpenUdon/openudon/internal/udonreport"
@@ -195,7 +195,7 @@ func (executor *realExecutor) executeLoopback(ctx context.Context, manifest Mani
 		_ = os.RemoveAll(caseRoot)
 		return appendFailure(result, "authoring_v2", "staging_failed")
 	}
-	author, authorErr := icot.RunBrowserScenarioAuthor(ctx, icot.BrowserScenarioAuthorRequest{
+	author, authorErr := browserauthoring.RunBrowserScenarioAuthor(ctx, browserauthoring.BrowserScenarioAuthorRequest{
 		BrowsertoolsPath: executor.browsertools, ExampleDir: exampleDir, PrivateRoot: privateRoot,
 		InitialURL: fixture.InitialURL(), AuthenticationURL: fixture.AuthenticationURL(), GoalURL: fixture.GoalURL(),
 		GoalContext: manifest.Goal.Context, GoalRole: manifest.Goal.Role, GoalLabel: manifest.Goal.Name,
@@ -892,7 +892,7 @@ func (executor *realExecutor) runJourneyUdonWithProtocol(ctx context.Context, ex
 	return replayResult{outputs: outputs}
 }
 
-func validAuthorResult(manifest Manifest, result icot.BrowserScenarioAuthorResult) bool {
+func validAuthorResult(manifest Manifest, result browserauthoring.BrowserScenarioAuthorResult) bool {
 	if result.AuthenticationProfile != "uws.browser-authentication.1.1" || result.CapabilityProfile != manifest.Expected.BrowserProfile ||
 		result.ReviewedChallengeKind != manifest.Authentication.ChallengeKind || !result.PrivateEnvelopePreserved || result.EnvelopeDigest == "" {
 		return false
@@ -909,10 +909,10 @@ func validAuthorResult(manifest Manifest, result icot.BrowserScenarioAuthorResul
 	return hasTOTP == (manifest.Authentication.ChallengeKind == "totp") && len(result.CredentialSlotKinds) == 2+btoi(hasTOTP)
 }
 
-func scenarioAuthorOutputs(outputs []Output) []icot.BrowserScenarioOutput {
-	result := make([]icot.BrowserScenarioOutput, len(outputs))
+func scenarioAuthorOutputs(outputs []Output) []browserauthoring.BrowserScenarioOutput {
+	result := make([]browserauthoring.BrowserScenarioOutput, len(outputs))
 	for index, output := range outputs {
-		result[index] = icot.BrowserScenarioOutput{Key: output.Key, Type: output.Type, Role: output.Role, Name: output.Name, LocatorMode: output.LocatorMode}
+		result[index] = browserauthoring.BrowserScenarioOutput{Key: output.Key, Type: output.Type, Role: output.Role, Name: output.Name, LocatorMode: output.LocatorMode}
 	}
 	return result
 }

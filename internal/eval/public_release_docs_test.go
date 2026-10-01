@@ -76,7 +76,7 @@ func TestRequiredUIBrowserGateCannotDisableSandbox(t *testing.T) {
 		"sandbox-disable override is forbidden",
 		"chromium_sandbox_enabled",
 	} {
-		if !strings.Contains(makefile+readRepoFile(t, root, "internal", "icot", "ui", "phase_c_browser_test.go"), want) {
+		if !strings.Contains(makefile+readRepoFile(t, root, "internal", "authoringui", "phase_c_browser_test.go"), want) {
 			t.Fatalf("sandboxed UI browser gate missing %q", want)
 		}
 	}

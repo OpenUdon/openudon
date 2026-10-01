@@ -10,8 +10,8 @@ import (
 	"testing"
 	"time"
 
+	uiserver "github.com/OpenUdon/openudon/internal/authoringui"
 	"github.com/OpenUdon/openudon/internal/browsertransaction"
-	uiserver "github.com/OpenUdon/openudon/internal/icot/ui"
 )
 
 func TestUICommandRequiresExampleAndValidFlags(t *testing.T) {
