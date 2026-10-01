@@ -255,6 +255,12 @@ func canonicalAuthenticatedProfileJSON(data []byte) ([]byte, error) {
 	return json.Marshal(object)
 }
 
+// CanonicalSourceBytes uses the same native context/number normalization as
+// candidate construction when reading already imported public source files.
+func CanonicalSourceBytes(data []byte) ([]byte, error) {
+	return canonicalAuthenticatedProfileJSON(data)
+}
+
 func validateAuthenticatedReview(data []byte, kind, schema, sourceDigest, observedAt string) error {
 	var review authorresult.Review
 	decoder := json.NewDecoder(bytes.NewReader(data))

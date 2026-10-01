@@ -1502,3 +1502,7 @@ provenance path to the source-add result shape; local v1 remains unchanged.
 ## M96.1 wire foundation — 2026-10-01
 
 M96.1 freezes the additive browser-author v1 request/plan/result types and strict decoder in internal/browserpackage. Native capture start remains reused; this commit implements no CLI adoption, writer or delivery. Ordinary authoring and package promotion are separate boundaries.
+
+## M96.2 adapter implementation — acceptance pending
+
+M96.2 implements browser-author plan/apply over validated imported native receipts, pure neutral elicitor lowering and the existing artifact writer. Read-only plans bind package inventory/request/source identities and exact file actions; apply revalidates exact confirmed plan and inventory before writing, then deterministic native build. Writer observation callback identifies only its own staging/backup paths. Output loss/build failure never implies no authoring commit. No capture rerun or runtime/promotion occurs.

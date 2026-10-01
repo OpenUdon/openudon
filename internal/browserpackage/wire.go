@@ -31,7 +31,7 @@ type Request struct {
 	Version               string            `json:"version"`
 	Kind                  string            `json:"kind"`
 	RequestID             string            `json:"request_id"`
-	Start                 json.RawMessage   `json:"start"`
+	Start                 []byte            `json:"start"`
 	ReceiptPath           string            `json:"receipt_path"`
 	ReceiptSHA256         string            `json:"receipt_sha256"`
 	TransactionSHA256     string            `json:"transaction_sha256"`
@@ -78,6 +78,7 @@ type Plan struct {
 	Blockers          []string                           `json:"blockers"`
 	Preview           *engine.Preview                    `json:"preview,omitempty"`
 	WriteConflicts    []engine.WriteConflict             `json:"write_conflicts"`
+	FileActions       []elicitor.FileAction              `json:"file_actions"`
 	PlanSHA256        string                             `json:"plan_sha256"`
 }
 

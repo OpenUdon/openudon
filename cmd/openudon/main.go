@@ -19,6 +19,7 @@ import (
 	"github.com/OpenUdon/openudon/internal/browserauthoring"
 	"github.com/OpenUdon/openudon/internal/browsercapture"
 	"github.com/OpenUdon/openudon/internal/browserintegrationeval"
+	"github.com/OpenUdon/openudon/internal/browserpackage"
 	"github.com/OpenUdon/openudon/internal/browserscenario"
 	"github.com/OpenUdon/openudon/internal/browsertransactioneval"
 	"github.com/OpenUdon/openudon/internal/buildinfo"
@@ -49,6 +50,7 @@ func main() {
 		fmt.Fprintf(flag.CommandLine.Output(), "  authoring retained expert lint, repair, reconcile, variants, reports and evaluation\n")
 		fmt.Fprintf(flag.CommandLine.Output(), "  approval-template print approval JSON for a validated handoff package\n")
 		fmt.Fprintf(flag.CommandLine.Output(), "  build     regenerate workflow/UWS from an existing intent.hcl\n")
+		fmt.Fprintf(flag.CommandLine.Output(), "  browser-author plan/apply a reviewed capture through neutral authoring\n")
 		fmt.Fprintf(flag.CommandLine.Output(), "  browser-integration-eval run or verify provider-free cross-repo browser evidence\n")
 		fmt.Fprintf(flag.CommandLine.Output(), "  browser-system-eval run or verify the complete local browser engineering gate\n")
 		fmt.Fprintf(flag.CommandLine.Output(), "  browser-system-input hash exact qualification inputs without running browsers\n")
@@ -90,6 +92,10 @@ func main() {
 		ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 		defer stop()
 		os.Exit(browsercapture.RunCommand(ctx, flag.Args()[1:], os.Stdin, os.Stdout, os.Stderr))
+	case "browser-author":
+		ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
+		defer stop()
+		os.Exit(browserpackage.RunCommand(ctx, flag.Args()[1:], os.Stdin, os.Stdout, os.Stderr))
 	case "authoring":
 		os.Exit(authoringcli.RunExpert(flag.Args()[1:], os.Stdin, os.Stdout, os.Stderr))
 	case "check":

@@ -2,26 +2,7 @@
   "version": "openudon.browser-author.v1",
   "kind": "request",
   "request_id": "sample-authenticated",
-  "start": {
-    "version": "openudon.browser-capture-start.v1",
-    "mode": "authenticated",
-    "absolute_seconds": 600,
-    "operator_idle_seconds": 180,
-    "authentication": {
-      "profile_id": "member",
-      "url": "https://members.example.test/login",
-      "dashboard_url": "https://members.example.test/dashboard",
-      "goal_url": "https://members.example.test/status",
-      "goal": "Review member status",
-      "origins": [
-        "https://members.example.test"
-      ],
-      "goal_role": "heading",
-      "goal_context": "main",
-      "goal_label": "Status",
-      "after_authentication": "ask_after_authentication"
-    }
-  },
+  "start": "ewogICJ2ZXJzaW9uIjogIm9wZW51ZG9uLmJyb3dzZXItY2FwdHVyZS1zdGFydC52MSIsCiAgIm1vZGUiOiAiYXV0aGVudGljYXRlZCIsCiAgImFic29sdXRlX3NlY29uZHMiOiA2MDAsCiAgIm9wZXJhdG9yX2lkbGVfc2Vjb25kcyI6IDE4MCwKICAiYXV0aGVudGljYXRpb24iOiB7CiAgICAicHJvZmlsZV9pZCI6ICJtZW1iZXIiLAogICAgInVybCI6ICJodHRwczovL21lbWJlcnMuZXhhbXBsZS50ZXN0L2xvZ2luIiwKICAgICJkYXNoYm9hcmRfdXJsIjogImh0dHBzOi8vbWVtYmVycy5leGFtcGxlLnRlc3QvZGFzaGJvYXJkIiwKICAgICJnb2FsX3VybCI6ICJodHRwczovL21lbWJlcnMuZXhhbXBsZS50ZXN0L3N0YXR1cyIsCiAgICAiZ29hbCI6ICJSZXZpZXcgbWVtYmVyIHN0YXR1cyIsCiAgICAib3JpZ2lucyI6IFsKICAgICAgImh0dHBzOi8vbWVtYmVycy5leGFtcGxlLnRlc3QiCiAgICBdLAogICAgImdvYWxfcm9sZSI6ICJoZWFkaW5nIiwKICAgICJnb2FsX2NvbnRleHQiOiAibWFpbiIsCiAgICAiZ29hbF9sYWJlbCI6ICJTdGF0dXMiLAogICAgImFmdGVyX2F1dGhlbnRpY2F0aW9uIjogImFza19hZnRlcl9hdXRoZW50aWNhdGlvbiIKICB9Cn0K",
   "receipt_path": "expected/browser-capture/member.json",
   "receipt_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
   "transaction_sha256": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",

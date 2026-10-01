@@ -2,6 +2,7 @@ package browserpackage
 
 import (
 	"bytes"
+	"encoding/base64"
 	"encoding/json"
 	"os"
 	"strings"
@@ -68,9 +69,11 @@ func TestRequestRejectsAmbiguityValuesAndPolicySubstitution(t *testing.T) {
 		"absolute-receipt":     func(r map[string]any) { r["receipt_path"] = "/tmp/receipt.json" },
 		"bad-digest":           func(r map[string]any) { r["transaction_sha256"] = strings.Repeat("a", 64) },
 		"registration-on-auth": func(r map[string]any) { r["registration_authority"] = "extra" },
-		"mixed-native-mode":    func(r map[string]any) { r["start"].(map[string]any)["registration"] = map[string]any{} },
+		"mixed-native-mode": func(r map[string]any) {
+			mutateStart(r, func(s map[string]any) { s["registration"] = map[string]any{} })
+		},
 		"native-credential": func(r map[string]any) {
-			r["start"].(map[string]any)["authentication"].(map[string]any)["password"] = "sentinel-secret"
+			mutateStart(r, func(s map[string]any) { s["authentication"].(map[string]any)["password"] = "sentinel-secret" })
 		},
 		"input-value":      func(r map[string]any) { r["input_bindings"] = map[string]any{"name": "sentinel-secret"} },
 		"undeclared-input": func(r map[string]any) { r["input_bindings"] = map[string]any{"name": "inputs.name"} },
@@ -99,6 +102,31 @@ func TestRequestRejectsAmbiguityValuesAndPolicySubstitution(t *testing.T) {
 		if _, err := DecodeRequest(data); err == nil {
 			t.Fatal("ambiguous/oversized request accepted")
 		}
+	}
+}
+
+func mutateStart(r map[string]any, mutate func(map[string]any)) {
+	data, _ := base64.StdEncoding.DecodeString(r["start"].(string))
+	var start map[string]any
+	_ = json.Unmarshal(data, &start)
+	mutate(start)
+	data, _ = json.Marshal(start)
+	r["start"] = base64.StdEncoding.EncodeToString(data)
+}
+
+func TestExactStartBytesSurviveOuterSerialization(t *testing.T) {
+	r, err := DecodeRequest(requestFixture(t, "authenticated"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	r.Start = append(append([]byte(" \n"), r.Start...), '\n')
+	data, err := json.MarshalIndent(r, "", "  ")
+	if err != nil {
+		t.Fatal(err)
+	}
+	parsed, err := DecodeRequest(data)
+	if err != nil || !bytes.Equal(parsed.Start, r.Start) {
+		t.Fatal("native receipt byte binding changed", err)
 	}
 }
 

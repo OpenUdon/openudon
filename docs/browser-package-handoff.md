@@ -1,6 +1,6 @@
 # Reviewed capture package handoff (approved target)
 
-OpenUdon M96 is approved pending work, not an implemented command. [Its package-local status](../tabilet/memory-bank/status-M96.md) owns delivery and acceptance.
+OpenUdon M96 is active work: v1 wire and command implementation exist; native qualification, review and acceptance remain pending. [Its package-local status](../tabilet/memory-bank/status-M96.md) owns delivery and acceptance.
 
 The published M93 capture contract imports canonical profiles and a receipt. Existing package preparation requires a fully reviewed/built package. Ordinary native virtual-source adoption/materialization is currently reachable through retained iCoT; capture import alone cannot bridge these boundaries.
 
@@ -10,7 +10,7 @@ Kinet remains an external CLI consumer. After the exact producer is accepted/pub
 
 ## M96.1 frozen command and wire
 
-Planned public commands (implemented in M96.2):
+Public commands (M96.2 implementation; acceptance pending):
 
 ```text
 openudon browser-author plan --example DIR --request FILE|-
@@ -28,7 +28,7 @@ Request version `openudon.browser-author.v1`, kind `request`, max256KiB UTF-8:
 | Field | Contract |
 | --- | --- |
 | `request_id`, `workflow_name` | Bounded lowercase identifiers |
-| `start` | Unchanged closed native capture start; exact serialized bytes bind the receipt start hash |
+| `start` | Base64 of the exact UTF-8 native start file bytes; decoding reuses the closed native start schema and its exact receipt hash |
 | `receipt_path` | Clean example-relative `expected/browser-capture/ID.json` |
 | `receipt_sha256` | Lowercase64hex of the exact receipt file bytes |
 | `transaction_sha256` | Native tagged transaction digest |
@@ -51,17 +51,20 @@ is an inert unsupported-runtime recipe, retaining all native safety policies.
 Plan version above, kind `plan`: request ID, tagged exact request-byte digest,
 tagged current input digest, receipt and transaction digests, native candidates,
 operation catalog, readiness, blocker codes, optional native preview, native
-write conflicts and `plan_sha256`. Arrays retain native deterministic order.
+write conflicts, exact native file actions and `plan_sha256`. Arrays retain native deterministic order.
 The plan digest hashes encoding/json's compact typed struct serialization with
-its own field empty. Exact request hashes include whitespace; starts retain
-native raw member order and whitespace for receipt matching. A missing initial
+its own field empty. Exact request hashes include whitespace; base64-decoded starts retain
+the original native bytes for receipt matching regardless of outer JSON formatting. A missing initial
 input digest permits catalog inspection only; use the returned digest to form
 a bound request, re-plan, then confirm that exact plan.
 
 Input inventory is sorted package-relative regular-file `{path,sha256,bytes}`
 records (tagged byte digests), serialized with encoding/json and tagged SHA-256.
-`.git` is excluded; symlinks/special files are refused. Bounds:512 files,
-8MiB per file,32MiB total. No input may change between review and commit.
+`.git` is excluded; symlinks/special files, foreign ownership, hardlinks and
+group/world-writable package files/root are refused. Bounds:512 files,
+8MiB per file,32MiB total. No input may change between review and commit. The shared native writer reports
+its exact own staged temporary/backup files to the inventory guard; only those
+paths are excluded during its pre-replacement comparison, never a wildcard.
 
 Result version above, kind `result`: request ID/digest, approved plan digest,
 outcome `authored` or `build_failed`, written relative paths and native quality
@@ -73,3 +76,5 @@ Package prepare/promote/inspect/recover remains a distinct later authority.
 Reports are at most2MiB. Personal previews/candidates stay transient; observers
 retain only approved metadata. [Synthetic request fixtures](fixtures/browser-author-v1/README.md)
 have placeholder hashes and grant no authority.
+
+The adapter reconstructs imported candidates via native browserauthoring/browsercandidate validation, then uses the pure neutral elicitor workflow lowering and the existing artifact writer directly. Imported profiles already occupy physical source paths; opening the interactive engine would rediscover and collide with those virtual sources. This transport reuses the neutral components without changing that engine collision rule or adding another writer.

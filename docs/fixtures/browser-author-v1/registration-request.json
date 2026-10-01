@@ -2,20 +2,7 @@
   "version": "openudon.browser-author.v1",
   "kind": "request",
   "request_id": "sample-registration",
-  "start": {
-    "version": "openudon.browser-capture-start.v1",
-    "mode": "registration",
-    "absolute_seconds": 600,
-    "operator_idle_seconds": 180,
-    "registration": {
-      "profile_id": "dedicated-test-user",
-      "url": "https://members.example.test/register",
-      "origins": [
-        "https://members.example.test"
-      ],
-      "transaction_id": "dedicated-test-registration"
-    }
-  },
+  "start": "ewogICJ2ZXJzaW9uIjogIm9wZW51ZG9uLmJyb3dzZXItY2FwdHVyZS1zdGFydC52MSIsCiAgIm1vZGUiOiAicmVnaXN0cmF0aW9uIiwKICAiYWJzb2x1dGVfc2Vjb25kcyI6IDYwMCwKICAib3BlcmF0b3JfaWRsZV9zZWNvbmRzIjogMTgwLAogICJyZWdpc3RyYXRpb24iOiB7CiAgICAicHJvZmlsZV9pZCI6ICJkZWRpY2F0ZWQtdGVzdC11c2VyIiwKICAgICJ1cmwiOiAiaHR0cHM6Ly9tZW1iZXJzLmV4YW1wbGUudGVzdC9yZWdpc3RlciIsCiAgICAib3JpZ2lucyI6IFsKICAgICAgImh0dHBzOi8vbWVtYmVycy5leGFtcGxlLnRlc3QiCiAgICBdLAogICAgInRyYW5zYWN0aW9uX2lkIjogImRlZGljYXRlZC10ZXN0LXJlZ2lzdHJhdGlvbiIKICB9Cn0K",
   "receipt_path": "expected/browser-capture/signup.json",
   "receipt_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
   "transaction_sha256": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",

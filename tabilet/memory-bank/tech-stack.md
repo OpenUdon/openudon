@@ -1242,3 +1242,7 @@ confirmation, conflict, indeterminate-write and no-automatic-replay contract.
 ## M96.1 wire foundation — 2026-10-01
 
 M96.1 offline wire checks: GOWORK=off go test ./internal/browserpackage and affected race. Public synthetic authenticated/registration request/plan/partial-write-result examples are docs/fixtures/browser-author-v1. Command dispatch/native package qualification remain M96.2–M96.4 work.
+
+## M96.2 adapter implementation — acceptance pending
+
+Public browser-author plan/apply dispatch uses the same native source/candidate/profile/review validators and artifact writer. Starts are base64 exact UTF-8 bytes, not reserialized embedded objects; no new dependency or Kinet external v1 change. Native package build is offline; actual browser/integration qualification remains M96.4.

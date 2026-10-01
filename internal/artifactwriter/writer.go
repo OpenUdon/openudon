@@ -356,8 +356,19 @@ func Commit(prepared Prepared, force bool) (Result, error) {
 // artifact replacement, allowing an engine to bind the commit to its accepted
 // workspace fingerprint.
 func CommitChecked(prepared Prepared, force bool, beforeReplace func() error) (Result, error) {
+	var observed func([]string) error
+	if beforeReplace != nil {
+		observed = func([]string) error { return beforeReplace() }
+	}
+	return CommitCheckedObserved(prepared, force, observed)
+}
+
+// CommitCheckedObserved additionally identifies this transaction's exact
+// private staging/backup files to a complete-inventory guard. No wildcard or
+// caller-selected exclusion is introduced; legacy CommitChecked is unchanged.
+func CommitCheckedObserved(prepared Prepared, force bool, beforeReplace func([]string) error) (Result, error) {
 	var cleanupWarnings []string
-	if err := writeFilesAtomicReporting(prepared.ExampleRoot, prepared.Files, force, beforeReplace, func(err error) {
+	if err := writeFilesAtomicReportingObserved(prepared.ExampleRoot, prepared.Files, force, beforeReplace, func(err error) {
 		cleanupWarnings = append(cleanupWarnings, err.Error())
 	}); err != nil {
 		return Result{}, err
@@ -386,6 +397,14 @@ func writeFilesAtomic(exampleRoot string, files []GeneratedFile, force bool, bef
 }
 
 func writeFilesAtomicReporting(exampleRoot string, files []GeneratedFile, force bool, beforeReplace func() error, reportCleanup func(error)) error {
+	var observed func([]string) error
+	if beforeReplace != nil {
+		observed = func([]string) error { return beforeReplace() }
+	}
+	return writeFilesAtomicReportingObserved(exampleRoot, files, force, observed, reportCleanup)
+}
+
+func writeFilesAtomicReportingObserved(exampleRoot string, files []GeneratedFile, force bool, beforeReplace func([]string) error, reportCleanup func(error)) error {
 	// Validate the complete transaction before creating a directory, temporary
 	// file, or backup. Ambiguous plans must be byte-for-byte read-only failures.
 	root, err := validateTransactionPlan(exampleRoot, files)
@@ -488,7 +507,15 @@ func writeFilesAtomicReporting(exampleRoot string, files []GeneratedFile, force 
 			return rollbackFailure(err, backups, renamed, tmpPaths)
 		}
 		if index == 0 && beforeReplace != nil {
-			if err := beforeReplace(); err != nil {
+			var transient []string
+			for _, path := range tmpPaths {
+				transient = append(transient, path)
+			}
+			for _, backup := range backups {
+				transient = append(transient, backup.backupPath)
+			}
+			sort.Strings(transient)
+			if err := beforeReplace(transient); err != nil {
 				cleanupTemps(tmpPaths)
 				if cleanupErr := cleanupBackups(backups); cleanupErr != nil {
 					return errors.Join(err, cleanupErr)

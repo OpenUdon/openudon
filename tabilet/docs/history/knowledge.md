@@ -1881,3 +1881,7 @@ both journeys. Replacement: current architecture sentence links M93 history.
 ```markdown
 M93.5's native/visible qualification and accepted publication are still pending.
 ```
+
+## 2026-10-01 — M96 unpublished exact start transport correction
+
+Original M96.1 contract at `5dfd12625b309dc08c3620c65d0b7d72b1731f3d`, docs/browser-package-handoff.md: “start: Unchanged closed native capture start; exact serialized bytes bind the receipt start hash” and “starts retain native raw member order and whitespace for receipt matching.” Nested JSON serialization compacts/re-indents raw bytes, making that receipt binding unreliable. M96.2 corrects the still-unpublished wire to base64 of exact native file bytes (Go []byte), reusing native schema validation after decoding. No accepted legacy contract or Kinet external v1 is changed. Replacement: [native handoff contract](../../../docs/browser-package-handoff.md#m961-frozen-command-and-wire). The M96.1 qualification keeps its original byte hashes and does not claim to test the correction.
