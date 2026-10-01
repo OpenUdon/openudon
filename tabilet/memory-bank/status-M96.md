@@ -25,7 +25,7 @@ Reject malformed/unknown fields, stale input/receipt/revision, changed mode/poli
 | M96.1 — Freeze reviewed capture package contract | `[+]` | Versioned bounded request/result and approval bindings, public fixtures for authenticated/TOTP and registration, provenance and compatibility. |
 | M96.2 — Expose neutral adoption and package authoring | `[+]` | Native receipt/source validation and exact approval reuse neutral engine/materialization/writer; real main CLI dispatch; no iCoT or capture replay. |
 | M96.3 — Verify conformance and refusal behavior | `[+]` | Owner/revision/digest/mode/policy/path/replay/interruption and side-write checks; retained legacy/protected fixtures unchanged. |
-| M96.4 — Qualify, review and publish replacement | `[ ]` | Frozen exact-source synthetic loopback capture→adoption→build→prepare/promote/inspect/recovery for both modes/TOTP; three fresh native repeats and required integration gates; bounded review, publication and downstream reconciliation before retirement. |
+| M96.4 — Qualify, review and publish replacement | `[~]` | Frozen exact-source synthetic loopback capture→adoption→build→prepare/promote/inspect/recovery for both modes/TOTP; three fresh native repeats and required integration gates; bounded review, publication and downstream reconciliation before retirement. |
 
 ## Acceptance and verification
 
@@ -70,3 +70,13 @@ Focused checks exposed encoding/json case-insensitive aliases and missing genera
 ### M96.3 verified task
 
 Full make check, affected race, full Go vet, formatting and diff checks passed on baseline `7eb3c9634a626fb81b0f88369ee656eeab8faeb7` plus frozen task bytes in `/var/tmp/openudon-m96-3-qualified-5l48zy67`. All 53 protected pre-M96 fixture/schema files remain unchanged. The real dispatch and library refusal/interruption tests are offline; M96.4 browser qualification/review/publication remain required.
+
+## M96.4 selection
+
+M96.3 committed at `8c2606451a4d012d7418d3b539a87a27dcb50275`. M96.4 is the sole general in-progress row. Freeze that exact application source and locked dependencies, run fresh real main capture→author→build→native package lifecycle plus native3/integration, then persisted review/publication/reconciliation/closure. The authorized private temporary Xvfb is new; M93 historical evidence/desktop remain untouched.
+
+### M96.4 qualification discovery — origin policy
+
+Exact frozen candidate `8c2606451a4d012d7418d3b539a87a27dcb50275` passed fresh main capture→author/build→prepare/promote/inspect/recovery for authenticated/TOTP, retained registration v2 and typed registration v4. During independent policy diagnostics, a resealed receipt/start with an added origin still produced a ready plan (`/var/tmp/openudon-m96-policy-diagnostic-3_vfos9n/observation.json`). No writes ran in that diagnostic. Native adoption now compares immutable start/review origins against transaction provenance; fresh refusal tests cover the substitution. The first frozen candidate is not accepted. Corrected exact-source qualification is required; its old runs retain actual identities and cannot be upgraded into acceptance. This is task qualification discovery, not the closing review (still0/10).
+
+Origin-policy correction passed fresh full make check, affected browserpackage/browserauthoring race, full vet and diff checks; exact changed bytes and check-log hash are recorded in the first frozen bundle `origin-correction-context.json`. The original concurrent integration attempt recorded12 pass/5 failure/3 optional unrequested; failure diagnostics remain private. A direct Chromium inventory rerun passed. Its failed report is retained, not treated as acceptance; corrected candidate receives fresh required gates.

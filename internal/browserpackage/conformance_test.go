@@ -87,7 +87,7 @@ func TestUnsafePackageModesAndHardlinksAreRefused(t *testing.T) {
 }
 
 func TestReboundReceiptCannotChangeNativeReviewOrStartPolicy(t *testing.T) {
-	for _, mutation := range []string{"expired", "unreviewed", "start-goal", "profile", "extra-file", "source-bytes", "totp", "review"} {
+	for _, mutation := range []string{"expired", "unreviewed", "start-goal", "start-origins", "profile", "extra-file", "source-bytes", "totp", "review"} {
 		t.Run(mutation, func(t *testing.T) {
 			root, r := authorFixture(t, "authenticated", false)
 			recPath := filepath.Join(root, filepath.FromSlash(r.ReceiptPath))
@@ -104,13 +104,15 @@ func TestReboundReceiptCannotChangeNativeReviewOrStartPolicy(t *testing.T) {
 				rec.Transaction.Provenance.ExpiresAt = time.Now().Add(-time.Hour).UTC().Format(time.RFC3339Nano)
 			case "unreviewed":
 				rec.Transaction.State = browsertransaction.StatePrepared
-			case "start-goal", "profile":
+			case "start-goal", "start-origins", "profile":
 				var start browsercapture.StartRequest
 				if err := json.Unmarshal(r.Start, &start); err != nil {
 					t.Fatal(err)
 				}
 				if mutation == "start-goal" {
 					start.Authentication.Goal = "A different outcome"
+				} else if mutation == "start-origins" {
+					start.Authentication.Origins = append(start.Authentication.Origins, "https://unexpected.example.test")
 				} else {
 					start.Authentication.ProfileID = "other"
 				}

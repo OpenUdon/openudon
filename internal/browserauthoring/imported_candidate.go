@@ -5,6 +5,7 @@ import (
 	"errors"
 	"path/filepath"
 	"reflect"
+	"slices"
 	"time"
 
 	"github.com/OpenUdon/openudon/internal/browsercandidate"
@@ -40,6 +41,15 @@ func ImportedAuthenticationCandidate(cfg LiveConfig, transaction browsertransact
 	}
 	want := liveGoalPredicate{Origin: goalOrigin, Path: goalPath, Context: cfg.GoalContext, Role: cfg.GoalRole, Label: label}
 	if review == nil || review.Version != authenticatedAuthoringReviewVersion || review.ProfileID != cfg.ProfileID || review.EnvelopeSHA256 != transaction.Provenance.ResultSHA256 || review.ObservedAt != transaction.Provenance.ObservedAt || review.Goal != cfg.Goal || !reflect.DeepEqual(review.GoalPredicate, want) || review.AuthenticationTarget != filepath.ToSlash(filepath.Join("browser-authentication", transaction.ID+"-auth.json")) || review.CapabilityTarget != filepath.ToSlash(filepath.Join("browser-profiles", transaction.ID+".json")) {
+		return nil, invalid
+	}
+	origins := slices.Clone(cfg.Origins)
+	slices.Sort(origins)
+	reviewOrigins := slices.Clone(review.Origins)
+	slices.Sort(reviewOrigins)
+	transactionOrigins := slices.Clone(transaction.Provenance.Origins)
+	slices.Sort(transactionOrigins)
+	if !slices.Equal(origins, transactionOrigins) || !slices.Equal(origins, reviewOrigins) {
 		return nil, invalid
 	}
 	authentication, err = browsercandidate.CanonicalSourceBytes(authentication)

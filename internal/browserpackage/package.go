@@ -7,6 +7,7 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+	"slices"
 	"sort"
 	"strings"
 	"syscall"
@@ -184,6 +185,19 @@ func readImport(root string, r Request, at time.Time) (elicitor.VirtualBrowserTr
 	}
 	start, err := browsercapture.DecodeStart(r.Start)
 	if err != nil {
+		return elicitor.VirtualBrowserTransactionInput{}, invalidEvidence
+	}
+	var origins []string
+	if start.Authentication != nil {
+		origins = start.Authentication.Origins
+	} else if start.Registration != nil {
+		origins = start.Registration.Origins
+	}
+	origins = slices.Clone(origins)
+	slices.Sort(origins)
+	transactionOrigins := slices.Clone(rec.Transaction.Provenance.Origins)
+	slices.Sort(transactionOrigins)
+	if !slices.Equal(origins, transactionOrigins) {
 		return elicitor.VirtualBrowserTransactionInput{}, invalidEvidence
 	}
 	paths := map[string][]byte{}
