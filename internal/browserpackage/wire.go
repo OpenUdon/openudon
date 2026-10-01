@@ -79,6 +79,7 @@ type Plan struct {
 	Preview           *engine.Preview                    `json:"preview,omitempty"`
 	WriteConflicts    []engine.WriteConflict             `json:"write_conflicts"`
 	FileActions       []elicitor.FileAction              `json:"file_actions"`
+	ArtifactSHA256    map[string]string                  `json:"artifact_sha256,omitempty"`
 	PlanSHA256        string                             `json:"plan_sha256"`
 }
 
@@ -86,14 +87,15 @@ type Plan struct {
 // reviewed authoring files were committed but native package build failed;
 // losing output requires inspection, never blindly repeating apply.
 type Result struct {
-	Version       string   `json:"version"`
-	Kind          string   `json:"kind"`
-	RequestID     string   `json:"request_id"`
-	RequestSHA256 string   `json:"request_sha256"`
-	PlanSHA256    string   `json:"plan_sha256"`
-	Outcome       string   `json:"outcome"`
-	Written       []string `json:"written"`
-	QualityStatus string   `json:"quality_status"`
+	Version         string   `json:"version"`
+	Kind            string   `json:"kind"`
+	RequestID       string   `json:"request_id"`
+	RequestSHA256   string   `json:"request_sha256"`
+	PlanSHA256      string   `json:"plan_sha256"`
+	Outcome         string   `json:"outcome"`
+	Written         []string `json:"written"`
+	QualityStatus   string   `json:"quality_status"`
+	CleanupRequired bool     `json:"cleanup_required,omitempty"`
 }
 
 func DecodeRequest(data []byte) (Request, error) {
@@ -101,6 +103,30 @@ func DecodeRequest(data []byte) (Request, error) {
 	invalid := errors.New("browser author request invalid")
 	if len(data) == 0 || len(data) > MaxRequestBytes || !utf8.Valid(data) || evidencefile.DecodeStrict(data, &r) != nil {
 		return Request{}, invalid
+	}
+	// encoding/json matches struct keys without regard to case. The public
+	// transport has exact keys; aliases must not bypass unknown-field refusal.
+	var fields map[string]json.RawMessage
+	if json.Unmarshal(data, &fields) != nil {
+		return Request{}, invalid
+	}
+	for key := range fields {
+		switch key {
+		case "version", "kind", "request_id", "start", "receipt_path", "receipt_sha256", "transaction_sha256", "input_sha256", "expected_totp", "registration_authority", "workflow_name", "allow_overwrite", "flow", "action", "cleanup_disposition", "inputs", "input_bindings":
+		default:
+			return Request{}, invalid
+		}
+	}
+	var inputs []map[string]json.RawMessage
+	if value, exists := fields["inputs"]; exists && json.Unmarshal(value, &inputs) != nil {
+		return Request{}, invalid
+	}
+	for _, input := range inputs {
+		for key := range input {
+			if key != "name" && key != "type" && key != "sensitive" {
+				return Request{}, invalid
+			}
+		}
 	}
 	if r.Version != Version || r.Kind != "request" || !identifier.MatchString(r.RequestID) || !identifier.MatchString(r.WorkflowName) || r.ExpectedTOTP == nil {
 		return Request{}, invalid

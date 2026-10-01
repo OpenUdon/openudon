@@ -61,6 +61,9 @@ func TestPublishedPlanAndPartialWriteResultFixtures(t *testing.T) {
 func TestRequestRejectsAmbiguityValuesAndPolicySubstitution(t *testing.T) {
 	base := requestFixture(t, "authenticated")
 	for name, change := range map[string]func(map[string]any){
+		"case-alias":           func(r map[string]any) { r["Version"] = r["version"]; delete(r, "version") },
+		"duplicate-case":       func(r map[string]any) { r["VERSION"] = r["version"] },
+		"input-case":           func(r map[string]any) { r["inputs"] = []any{map[string]any{"Name": "name", "type": "string"}} },
 		"wrong-version":        func(r map[string]any) { r["version"] = "new" },
 		"unknown-secret":       func(r map[string]any) { r["password"] = "sentinel-secret" },
 		"missing-totp":         func(r map[string]any) { delete(r, "expected_totp") },
@@ -170,6 +173,7 @@ func TestPlanDigestBindsOwnerRequestInventoryReceiptAndPreview(t *testing.T) {
 		func(p *Plan) { p.ReceiptSHA256 = strings.Repeat("b", 64) },
 		func(p *Plan) { p.TransactionSHA256 = Digest([]byte("other transaction")) },
 		func(p *Plan) { p.Ready = true },
+		func(p *Plan) { p.ArtifactSHA256 = map[string]string{"project.md": Digest([]byte("changed"))} },
 	} {
 		changed := p
 		mutate(&changed)

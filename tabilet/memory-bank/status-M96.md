@@ -1,6 +1,6 @@
 # Status M96 — Reviewed capture package authoring
 
-**State:** M96.1/M96.2 verified, 2026-10-01; M96.3/M96.4 pending. Native qualification and milestone acceptance remain unproved.
+**State:** M96.1–M96.3 verified, 2026-10-01; M96.4 pending. Native qualification and milestone acceptance remain unproved.
 
 **Goal.** Make a reviewed native capture usable for ordinary browser source/step/package authoring without iCoT.
 
@@ -24,7 +24,7 @@ Reject malformed/unknown fields, stale input/receipt/revision, changed mode/poli
 | --- | --- | --- |
 | M96.1 — Freeze reviewed capture package contract | `[+]` | Versioned bounded request/result and approval bindings, public fixtures for authenticated/TOTP and registration, provenance and compatibility. |
 | M96.2 — Expose neutral adoption and package authoring | `[+]` | Native receipt/source validation and exact approval reuse neutral engine/materialization/writer; real main CLI dispatch; no iCoT or capture replay. |
-| M96.3 — Verify conformance and refusal behavior | `[ ]` | Owner/revision/digest/mode/policy/path/replay/interruption and side-write checks; retained legacy/protected fixtures unchanged. |
+| M96.3 — Verify conformance and refusal behavior | `[+]` | Owner/revision/digest/mode/policy/path/replay/interruption and side-write checks; retained legacy/protected fixtures unchanged. |
 | M96.4 — Qualify, review and publish replacement | `[ ]` | Frozen exact-source synthetic loopback capture→adoption→build→prepare/promote/inspect/recovery for both modes/TOTP; three fresh native repeats and required integration gates; bounded review, publication and downstream reconciliation before retirement. |
 
 ## Acceptance and verification
@@ -58,3 +58,15 @@ Unpublished v1 start transport corrected to base64 exact native bytes, preservin
 Initial tests found omitted required workflow output and a guard seeing the native writer's own staged files. Native result output lowering and an additive observation callback on the one existing writer corrected both; legacy callbacks retain their behavior. Both synthetic authentication/TOTP and registration plan→apply→build and replay refusal now pass. These are offline native-library checks, not real browser qualification or milestone acceptance.
 
 Full make check, affected race (browserpackage, artifactwriter, browserauthoring, browsercandidate, elicitor, main CLI), full Go vet and affected formatting passed. Frozen candidate bytes/logs: `/var/tmp/openudon-m96-2-qualified-abrk281_`, based on full `5dfd12625b309dc08c3620c65d0b7d72b1731f3d` plus recorded task bytes. All 53 protected pre-M96 fixture/schema bytes remain unchanged. No browser, model, promotion or executor ran. M96.3/M96.4 and review0/10 remain pending.
+
+## M96.3 selection
+
+M96.2 committed at `7eb3c9634a626fb81b0f88369ee656eeab8faeb7`. M96.3 is the sole general in-progress row; Kinet M19.3 remains blocked. Test exact-key wire closure, side-write/temporary guards, stale native evidence, cancellation/output loss and legacy preservation before native qualification.
+
+### M96.3 conformance progress
+
+Focused checks exposed encoding/json case-insensitive aliases and missing generated-artifact byte bindings; closed exact keys and native prepared-file digests now address both. Native cleanup warnings are retained as a bounded `cleanup_required` flag, without paths/text disclosure. Inventory validates directory ownership/modes too. Read-only catalog/unbound/conflict refusals, mode/path/native-policy drift, expiry, private writer transient guards, cancellation and output loss/replay are tested. Initial conflict-readiness assertion incorrectly ignored explicit allow_overwrite; corrected before rerunning checks. No native/browser acceptance is claimed.
+
+### M96.3 verified task
+
+Full make check, affected race, full Go vet, formatting and diff checks passed on baseline `7eb3c9634a626fb81b0f88369ee656eeab8faeb7` plus frozen task bytes in `/var/tmp/openudon-m96-3-qualified-5l48zy67`. All 53 protected pre-M96 fixture/schema files remain unchanged. The real dispatch and library refusal/interruption tests are offline; M96.4 browser qualification/review/publication remain required.

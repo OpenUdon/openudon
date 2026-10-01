@@ -69,7 +69,6 @@ func inputDigest(ctx context.Context, root string, ignored map[string]bool) (str
 			if !e.IsDir() {
 				return invalidEvidence
 			}
-			return nil
 		}
 		if ignored[p] {
 			return nil
@@ -84,6 +83,13 @@ func inputDigest(ctx context.Context, root string, ignored map[string]bool) (str
 			return invalidEvidence
 		}
 		if e.IsDir() {
+			info, err := e.Info()
+			if err != nil {
+				return invalidEvidence
+			}
+			if st, ok := info.Sys().(*syscall.Stat_t); !ok || st.Uid != uint32(os.Geteuid()) || info.Mode().Perm()&0022 != 0 {
+				return invalidEvidence
+			}
 			return nil
 		}
 		if !e.Type().IsRegular() || len(files) >= 512 {
@@ -346,6 +352,17 @@ func prepare(ctx context.Context, example string, data []byte) (preparation, err
 			return preparation{}, invalidEvidence
 		}
 		plan.FileActions = artifactwriter.ProposedFileActions(prepared)
+		plan.ArtifactSHA256 = map[string]string{}
+		for _, file := range prepared.Files {
+			rel, err := filepath.Rel(root, file.Path)
+			if err != nil || !safeRelative(filepath.ToSlash(rel)) {
+				return preparation{}, invalidEvidence
+			}
+			plan.ArtifactSHA256[filepath.ToSlash(rel)] = Digest([]byte(file.Content))
+		}
+		if len(plan.WriteConflicts) > 0 && !r.AllowOverwrite {
+			plan.Blockers = append(plan.Blockers, "overwrite_authority_required")
+		}
 		plan.Preview = &engine.Preview{ProjectMD: artifacts.ProjectMD, IntentHCL: artifacts.IntentHCL, ProjectPath: filepath.Join(root, "project.md"), IntentPath: filepath.Join(root, rollout.IntentPath)}
 		plan.Ready = len(plan.Blockers) == 0
 		result.files = prepared
@@ -405,7 +422,7 @@ func Apply(ctx context.Context, example string, data []byte, expectedPlan string
 	if err != nil {
 		return Result{}, errors.New("browser author commit failed; inspect before another proposal")
 	}
-	result := Result{Version: Version, Kind: "result", RequestID: p.request.RequestID, RequestSHA256: p.plan.RequestSHA256, PlanSHA256: p.plan.PlanSHA256, Outcome: "build_failed", Written: []string{}, QualityStatus: "fail"}
+	result := Result{Version: Version, Kind: "result", RequestID: p.request.RequestID, RequestSHA256: p.plan.RequestSHA256, PlanSHA256: p.plan.PlanSHA256, Outcome: "build_failed", Written: []string{}, QualityStatus: "fail", CleanupRequired: len(written.CleanupWarnings) != 0}
 	for _, name := range written.Written {
 		rel, err := filepath.Rel(p.root, name)
 		if err != nil {

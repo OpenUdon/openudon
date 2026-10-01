@@ -42,7 +42,7 @@ Request version `openudon.browser-author.v1`, kind `request`, max256KiB UTF-8:
 | `input_bindings` | At most32 native parameter→`inputs.NAME` references, declared above; never arbitrary expressions or literals |
 | `allow_overwrite` | Explicit permission for the exact authoring conflicts bound into the reviewed plan; default false |
 
-Unknown/duplicate keys, mixed modes, native schema violations and unsafe paths
+Unknown/duplicate keys and capitalization aliases, mixed modes, native schema violations and unsafe paths
 are refused without payload echo. Native canonical receipt/source/review/expiry
 and immutable start policy validation remain required in M96.2. The source pair
 and session/credential lowering reuse neutral elicitor semantics. Registration
@@ -51,7 +51,7 @@ is an inert unsupported-runtime recipe, retaining all native safety policies.
 Plan version above, kind `plan`: request ID, tagged exact request-byte digest,
 tagged current input digest, receipt and transaction digests, native candidates,
 operation catalog, readiness, blocker codes, optional native preview, native
-write conflicts, exact native file actions and `plan_sha256`. Arrays retain native deterministic order.
+write conflicts, exact native file actions, package-relative `artifact_sha256` byte digests for every prepared file and `plan_sha256`. Arrays retain native deterministic order.
 The plan digest hashes encoding/json's compact typed struct serialization with
 its own field empty. Exact request hashes include whitespace; base64-decoded starts retain
 the original native bytes for receipt matching regardless of outer JSON formatting. A missing initial
@@ -61,14 +61,14 @@ a bound request, re-plan, then confirm that exact plan.
 Input inventory is sorted package-relative regular-file `{path,sha256,bytes}`
 records (tagged byte digests), serialized with encoding/json and tagged SHA-256.
 `.git` is excluded; symlinks/special files, foreign ownership, hardlinks and
-group/world-writable package files/root are refused. Bounds:512 files,
+group/world-writable package files/directories/root are refused. Bounds:512 files,
 8MiB per file,32MiB total. No input may change between review and commit. The shared native writer reports
 its exact own staged temporary/backup files to the inventory guard; only those
 paths are excluded during its pre-replacement comparison, never a wildcard.
 
 Result version above, kind `result`: request ID/digest, approved plan digest,
 outcome `authored` or `build_failed`, written relative paths and native quality
-status. `authored` proves local authoring/build only. `build_failed` means the
+status, with `cleanup_required: true` when the native writer reports incomplete temporary cleanup (warning text is not disclosed). Cleanup uncertainty requires inspection before delivery. `authored` proves local authoring/build only. `build_failed` means the
 native authoring commit succeeded but build did not pass; it never claims no
 writes. Lost output requires inspection of actual artifacts and a fresh proposal,
 never automatic apply replay. Replay is refused by changed package inventory.
