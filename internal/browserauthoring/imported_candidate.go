@@ -9,6 +9,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/OpenUdon/browsertools/authprofile"
 	"github.com/OpenUdon/openudon/internal/browsercandidate"
 	"github.com/OpenUdon/openudon/internal/browsertransaction"
 	"github.com/OpenUdon/openudon/internal/evidencefile"
@@ -63,6 +64,31 @@ func ImportedAuthenticationCandidate(cfg LiveConfig, transaction browsertransact
 	}
 	authentication, err = browsercandidate.CanonicalSourceBytes(authentication)
 	if err != nil {
+		return nil, invalid
+	}
+	// The public review retains the goal predicate; the native authentication
+	// recipe independently retains the original login and dashboard proof.
+	// Match both against the approved start rather than trusting a resealed
+	// receipt hash to describe the same captured policy.
+	auth, err := authprofile.Parse(authentication)
+	if err != nil {
+		return nil, invalid
+	}
+	flow, ok := auth.Flows["authenticated_goal"]
+	login, _, err := normalizeBrowserAuthoringURL(cfg.URL)
+	if err != nil || !ok || len(flow.Sequence) == 0 {
+		return nil, invalid
+	}
+	initial := flow.Sequence[0].Navigate
+	if flow.Sequence[0].NavigateTarget != nil {
+		initial = flow.Sequence[0].NavigateTarget.URL
+	}
+	initial, _, err = normalizeBrowserAuthoringURL(initial)
+	if err != nil || initial != login {
+		return nil, invalid
+	}
+	dashboardOrigin, dashboardPath, err := originAndPath(cfg.DashboardURL)
+	if err != nil || flow.Success.Origin != dashboardOrigin || flow.Success.Path != dashboardPath {
 		return nil, invalid
 	}
 	capability, err = browsercandidate.CanonicalSourceBytes(capability)

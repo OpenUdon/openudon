@@ -88,7 +88,7 @@ func TestUnsafePackageModesAndHardlinksAreRefused(t *testing.T) {
 }
 
 func TestReboundReceiptCannotChangeNativeReviewOrStartPolicy(t *testing.T) {
-	for _, mutation := range []string{"expired", "unreviewed", "start-goal", "start-origins", "profile", "extra-file", "source-bytes", "totp", "review"} {
+	for _, mutation := range []string{"expired", "unreviewed", "start-goal", "start-origins", "start-login", "start-dashboard", "profile", "extra-file", "source-bytes", "totp", "review"} {
 		t.Run(mutation, func(t *testing.T) {
 			root, r := authorFixture(t, "authenticated", false)
 			recPath := filepath.Join(root, filepath.FromSlash(r.ReceiptPath))
@@ -105,7 +105,7 @@ func TestReboundReceiptCannotChangeNativeReviewOrStartPolicy(t *testing.T) {
 				rec.Transaction.Provenance.ExpiresAt = time.Now().Add(-time.Hour).UTC().Format(time.RFC3339Nano)
 			case "unreviewed":
 				rec.Transaction.State = browsertransaction.StatePrepared
-			case "start-goal", "start-origins", "profile":
+			case "start-goal", "start-origins", "start-login", "start-dashboard", "profile":
 				var start browsercapture.StartRequest
 				if err := json.Unmarshal(r.Start, &start); err != nil {
 					t.Fatal(err)
@@ -114,6 +114,10 @@ func TestReboundReceiptCannotChangeNativeReviewOrStartPolicy(t *testing.T) {
 					start.Authentication.Goal = "A different outcome"
 				} else if mutation == "start-origins" {
 					start.Authentication.Origins = append(start.Authentication.Origins, "https://unexpected.example.test")
+				} else if mutation == "start-login" {
+					start.Authentication.URL = "https://members.example.test/other-login"
+				} else if mutation == "start-dashboard" {
+					start.Authentication.DashboardURL = "https://members.example.test/other-dashboard"
 				} else {
 					start.Authentication.ProfileID = "other"
 				}
@@ -164,6 +168,34 @@ func TestReboundReceiptCannotChangeNativeReviewOrStartPolicy(t *testing.T) {
 			after, _ := InputDigest(context.Background(), root)
 			if after != r.InputSHA256 {
 				t.Fatal("refusal changed package")
+			}
+		})
+	}
+}
+
+func TestOriginalReceiptBindsExactStartInBothModes(t *testing.T) {
+	for _, mode := range []string{"authenticated", "registration"} {
+		t.Run(mode, func(t *testing.T) {
+			root, r := authorFixture(t, mode, false)
+			before := r.InputSHA256
+			var start browsercapture.StartRequest
+			if err := json.Unmarshal(r.Start, &start); err != nil {
+				t.Fatal(err)
+			}
+			if mode == "authenticated" {
+				start.Authentication.URL = "https://members.example.test/other-login"
+			} else {
+				start.Registration.ProfileID = "other"
+				start.Registration.URL = "https://app.example.test/other-register"
+			}
+			r.Start, _ = json.Marshal(start)
+			data, _ := json.Marshal(r)
+			if _, err := Prepare(context.Background(), root, data); err == nil {
+				t.Fatal("changed start accepted against original approved receipt")
+			}
+			after, err := InputDigest(context.Background(), root)
+			if err != nil || after != before {
+				t.Fatal("start refusal changed original package", err)
 			}
 		})
 	}

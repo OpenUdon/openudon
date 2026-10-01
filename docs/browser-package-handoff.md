@@ -58,6 +58,16 @@ the original native bytes for receipt matching regardless of outer JSON formatti
 input digest permits catalog inspection only; use the returned digest to form
 a bound request, re-plan, then confirm that exact plan.
 
+Receipt digests must come from the separately approved original capture, not
+from a replacement receipt supplied by a model. Receipts are content-addressed
+local evidence, not signed attestations. The exact original start hash binds all
+start fields in both modes. Authentication additionally matches its native
+recipe's initial login and dashboard success proof, and its public goal review.
+Registration recipes may navigate among the approved origins after the initial
+page; their source does not retain the separate capture profile ID or initial
+URL. Preserve their original receipt/start binding and native origin/transaction
+checks rather than inventing a profile-ID equality or narrowing valid recipes.
+
 Input inventory is sorted package-relative regular-file `{path,sha256,bytes}`
 records (tagged byte digests), serialized with encoding/json and tagged SHA-256.
 `.git` is excluded; symlinks/special files, foreign ownership, hardlinks and
