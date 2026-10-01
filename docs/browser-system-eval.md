@@ -78,7 +78,7 @@ supplementary inspection. A separate tagged diagnostic runs that UI journey
 without the Udon build prerequisites:
 
 ```sh
-go test -tags=browser_system_qualification ./internal/icot/ui \
+go test -tags=browser_system_qualification ./internal/authoringui \
   -run '^TestBrowserSystemRealRegistrationUI$' -count=1 -timeout=6m
 ```
 
@@ -297,3 +297,12 @@ inputs only: it never installs dependencies, runs a browser, qualifies a runtime
 or grants cache reuse. Consumers own their cache eligibility and fresh journeys.
 
 E24 additionally binds actual process user, mount, network, PID, UTS, IPC, cgroup and available time namespace identities before/after current input inventory. Values are hashed only. Legacy input v1 and completed E23 history remain unchanged.
+
+## Shared implementation selectors (M91)
+
+Current native selectors use `internal/authoringui` and
+`internal/browserauthor`; their stage identities and sandbox requirements are
+unchanged. Integration report v5 relocates source/dependency selectors and
+retains all 19 gates/named tests; historical v1–v4 readers keep the original
+selectors and locks. New runtime acceptance still requires fresh qualification
+of the exact source and independently supplied locked dependencies.

@@ -1,4 +1,4 @@
-package icot
+package authoringcli
 
 import (
 	"context"

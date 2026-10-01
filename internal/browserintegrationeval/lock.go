@@ -43,9 +43,12 @@ func contractForVersion(version string) (browserscenario.CompatibilityLock, []ga
 	case CurrentV3ReportVersion:
 		lock, err := decodeCompatibilityLock(currentV3CompatibilityLock)
 		return lock, currentV3Gates(), err
-	case ReportVersion:
+	case CurrentV4ReportVersion:
 		lock, err := decodeCompatibilityLock(currentV4CompatibilityLock)
 		return lock, currentGates(), err
+	case ReportVersion:
+		lock, err := decodeCompatibilityLock(currentV4CompatibilityLock)
+		return lock, extractedGates(), err
 	default:
 		return browserscenario.CompatibilityLock{}, nil, fmt.Errorf("unsupported browser integration report version %q", version)
 	}

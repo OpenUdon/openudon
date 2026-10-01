@@ -34,7 +34,7 @@ func TestM86CurrentLockSnapshotRetainsPublishedPins(t *testing.T) {
 }
 
 func TestCurrentV4ReportVersionUsesPublishedBrowser110LockAndBuildClosure(t *testing.T) {
-	lock, gates, err := contractForVersion(ReportVersion)
+	lock, gates, err := contractForVersion(CurrentV4ReportVersion)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -112,7 +112,7 @@ func TestHistoricalIntegrationGateInventoriesRemainFrozen(t *testing.T) {
 }
 
 func TestCurrentV4GatesRequireBrowser110CountMarkers(t *testing.T) {
-	_, gates, err := contractForVersion(ReportVersion)
+	_, gates, err := contractForVersion(CurrentV4ReportVersion)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -400,17 +400,17 @@ func TestCurrentDependencyBoundarySeparatesEngineFromUIQualification(t *testing.
 	if err != nil {
 		t.Fatal(err)
 	}
-	for _, spec := range currentGates() {
+	for _, spec := range extractedGates() {
 		switch spec.ID {
 		case "icot-dependency-boundary":
-			if !equalStrings(spec.Args, []string{"go", "list", "-deps", "./internal/icot/engine"}) {
+			if !equalStrings(spec.Args, []string{"go", "list", "-deps", "./internal/authoringengine"}) {
 				t.Fatalf("engine scan widened: %#v", spec.Args)
 			}
 			if got := evaluateGate(spec, CommandOutput{Stdout: "github.com/mxschmitt/playwright-go\n"}, lock); got.Status != StatusFail {
 				t.Fatal("engine accepted Playwright implementation dependency")
 			}
 		case "icot-ui-capture-boundary":
-			if !equalStrings(spec.Args, []string{"go", "list", "-deps", "./internal/icot/ui"}) {
+			if !equalStrings(spec.Args, []string{"go", "list", "-deps", "./internal/authoringui"}) {
 				t.Fatalf("UI scan narrowed: %#v", spec.Args)
 			}
 			if got := evaluateGate(spec, CommandOutput{Stdout: "github.com/mxschmitt/playwright-go\n"}, lock); got.Status != StatusPass {
@@ -635,7 +635,7 @@ func (runner *fakeRunner) Run(_ context.Context, command Command) CommandOutput 
 		}
 		return CommandOutput{Stdout: output.String(), Stderr: "PASSWORD=member-password-value"}
 	case "dependency_scan":
-		return CommandOutput{Stdout: "runtime\nfmt\ngithub.com/OpenUdon/openudon/internal/icot\n"}
+		return CommandOutput{Stdout: "runtime\nfmt\ngithub.com/OpenUdon/openudon/internal/authoringengine\n"}
 	case "command":
 		return CommandOutput{Stdout: strings.Join(spec.RequiredLines, "\n") + "\n"}
 	case "npm_test":
@@ -740,5 +740,48 @@ func writeReportAndDigest(t *testing.T, path string, data []byte) {
 	line := "sha256:" + hex.EncodeToString(sum[:]) + "  " + filepath.Base(path) + "\n"
 	if err := os.WriteFile(path+".sha256", []byte(line), 0o600); err != nil {
 		t.Fatal(err)
+	}
+}
+
+func TestHistoricalV4InventoryRemainsFrozenAfterExtraction(t *testing.T) {
+	_, specs, err := contractForVersion(CurrentV4ReportVersion)
+	if err != nil {
+		t.Fatal(err)
+	}
+	data, err := json.Marshal(specs)
+	if err != nil {
+		t.Fatal(err)
+	}
+	sum := sha256.Sum256(data)
+	if got := hex.EncodeToString(sum[:]); got != "737ddc4b2616d7eee34713be10d4e1781108b5e80c7caabdf8916bf9a7fdc539" {
+		t.Fatalf("historical v4 inventory changed: %s", got)
+	}
+	_, current, err := contractForVersion(ReportVersion)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(current) != len(specs) {
+		t.Fatal("extraction dropped qualification coverage")
+	}
+	for index, spec := range current {
+		if !reflect.DeepEqual(spec.RequiredPasses, specs[index].RequiredPasses) {
+			t.Fatalf("named coverage changed for %s", spec.ID)
+		}
+		for _, arg := range spec.Args {
+			if strings.Contains(arg, "./internal/icot") {
+				t.Fatalf("current selector still uses iCoT: %s", arg)
+			}
+		}
+		if spec.Kind == "dependency_scan" {
+			for _, forbidden := range []string{"github.com/OpenUdon/openudon/internal/icot", "github.com/OpenUdon/authoring/icot"} {
+				lock, err := loadCurrentCompatibilityLock()
+				if err != nil {
+					t.Fatal(err)
+				}
+				if evaluateGate(spec, CommandOutput{Stdout: forbidden + "\n"}, lock).Status != StatusFail {
+					t.Fatalf("%s accepted %s", spec.ID, forbidden)
+				}
+			}
+		}
 	}
 }

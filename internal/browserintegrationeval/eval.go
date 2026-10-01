@@ -31,7 +31,8 @@ const (
 	LegacyReportVersion    = "openudon.browser-integration-eval.v1"
 	M86ReportVersion       = "openudon.browser-integration-eval.v2"
 	CurrentV3ReportVersion = "openudon.browser-integration-eval.v3"
-	ReportVersion          = "openudon.browser-integration-eval.v4"
+	CurrentV4ReportVersion = "openudon.browser-integration-eval.v4"
+	ReportVersion          = "openudon.browser-integration-eval.v5"
 	StatusPass             = "pass"
 	StatusFail             = "fail"
 	StatusSkipped          = "skipped"
@@ -357,7 +358,7 @@ func Validate(report *Report) error {
 	if report == nil {
 		return fmt.Errorf("browser integration report is required")
 	}
-	if report.Version != ReportVersion && report.Version != CurrentV3ReportVersion && report.Version != M86ReportVersion && report.Version != LegacyReportVersion {
+	if report.Version != ReportVersion && report.Version != CurrentV4ReportVersion && report.Version != CurrentV3ReportVersion && report.Version != M86ReportVersion && report.Version != LegacyReportVersion {
 		return fmt.Errorf("browser integration report version is unsupported")
 	}
 	if report.Status != StatusPass && report.Status != StatusFail {
@@ -899,7 +900,43 @@ func currentGates() []gate {
 	return gates
 }
 
-func defaultGates() []gate { return currentGates() }
+// extractedGates relocates current selectors without altering historical v1–v4
+// commands, assertions, locks or named-test inventories.
+func extractedGates() []gate {
+	gates := currentGates()
+	for index := range gates {
+		spec := &gates[index]
+		switch spec.ID {
+		case "openudon-authoring", "openudon-package-handoff":
+			var args []string
+			for _, value := range spec.Args {
+				switch value {
+				case "./internal/icot":
+					args = append(args, "./internal/authoringcli")
+					if spec.ID == "openudon-authoring" {
+						args = append(args, "./internal/browserauthoring")
+					}
+				case "./internal/icot/elicitor":
+					args = append(args, "./internal/elicitor")
+				default:
+					args = append(args, value)
+				}
+			}
+			spec.Args = args
+		case "icot-dependency-boundary":
+			spec.Args = []string{"go", "list", "-deps", "./internal/authoringengine"}
+			spec.Assertions = []string{"shared authoring engine has no Browsertools capture, Playwright or iCoT implementation dependency"}
+			spec.Forbidden = append(spec.Forbidden, "github.com/OpenUdon/openudon/internal/icot", "github.com/OpenUdon/authoring/icot")
+		case "icot-ui-capture-boundary":
+			spec.Args = []string{"go", "list", "-deps", "./internal/authoringui"}
+			spec.Assertions = []string{"shared UI qualification may use Playwright but has no Browsertools capture or iCoT implementation dependency"}
+			spec.Forbidden = append(spec.Forbidden, "github.com/OpenUdon/openudon/internal/icot", "github.com/OpenUdon/authoring/icot")
+		}
+	}
+	return gates
+}
+
+func defaultGates() []gate { return extractedGates() }
 
 func gateDeadline(spec gate) time.Duration {
 	switch spec.Kind {

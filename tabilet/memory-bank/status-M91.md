@@ -1,6 +1,6 @@
 # Status M91 — iCoT inventory and behavior-preserving extraction
 
-**State:** M91.1–M91.4 complete; evaluation rebase and final qualification remain pending. The 23-capability inventory is approved.
+**State:** M91.1–M91.5 complete; final qualification remains pending. The 23-capability inventory is approved.
 
 **Goal.** Move shared implementation out of iCoT while keeping all current consumers working.
 
@@ -23,7 +23,7 @@ Inventory terminal authoring, ui/control protocols, browser authoring/transactio
 | M91.2 — Extract artifact writing and draft review | `[+]` | Move transactional artifactwriter and shared review/sanitization into neutral implementation; prove byte-equivalent fixtures. |
 | M91.3 — Extract discovery and session logic | `[+]` | Move local/catalog discovery, planning and session types; decouple non-iCoT authoring consumers from Authoring icot. |
 | M91.4 — Extract browser worker and qualification helpers | `[+]` | Move process dispatch/launch and scenario/registration helpers; preserve both capture modes and current-stack inputs. |
-| M91.5 — Rebase evaluation | `[ ]` | Move lint/evaluation, variants and scorecard callers off cmd/icot without changing their fixture corpus or expected coverage. |
+| M91.5 — Rebase evaluation | `[+]` | Move lint/evaluation, variants and scorecard callers off cmd/icot without changing their fixture corpus or expected coverage. |
 | M91.6 — Prove equivalence, review and publish | `[ ]` | Check imports, fixtures, evaluation and owner qualification; preserve P07/P08 dispatch; publish accepted source. Consumer qualification belongs to Kinet W08, without weakening its production pin. |
 
 ## Acceptance and verification
@@ -232,3 +232,42 @@ gates remain available. Frozen integration selectors/locks remain unchanged;
 M91.5 owns current evaluation rebase. The affected authorized smoke and frozen
 integration gate follow that rebase in M91.6. Review stays 0/10; no final
 acceptance, human demonstration or runtime adoption is claimed.
+
+## M91.5 selected
+
+Move retained terminal/expert implementation to a neutral CLI package and keep
+iCoT as a compatibility adapter during 5A. Publish `openudon authoring` expert
+lint/reconcile/repair/report/variants/scorecard/replay/authoring-eval commands;
+retain old report schemas and canonical command labels. Rebase current Make
+evaluation and browser-system source selectors. Add a versioned integration
+selector for relocated tests/dependency scans while retaining immutable v1–v4
+readers, locks and named coverage. No provider run or capture removal is implied.
+
+## M91.5 complete — expert CLI and current selectors
+
+All 16 retained terminal/expert files move to `internal/authoringcli`, with
+implementation/test bodies unchanged except the package declaration. iCoT's
+public internal API is a compatibility facade. `openudon authoring` exposes
+eight expert/evaluation commands and rejects UI/control/worker interaction;
+existing subcommand flags, report versions and canonical legacy command labels
+are preserved. Current Make evaluation targets use this new entry.
+
+Integration evaluation v5 relocates selectors while retaining all 19 gates and
+every named-test inventory. v1–v4 readers/locks remain supported and immutable;
+v4 selector SHA-256 is
+`737ddc4b2616d7eee34713be10d4e1781108b5e80c7caabdf8916bf9a7fdc539`.
+v5 dependency scans also reject both iCoT packages. Native browser runner
+selectors follow the shared UI/controller paths, preserving stage identities,
+input inventory, wires and sandboxing. No source/binary lock was advanced.
+
+Workspace/standalone CLI, browser-system, integration-validator and evaluation
+tests pass; `make fast` passes. The replacement CLI actually ran the full
+provider-free scorecard: 103/103 passed, zero false passes or diagnostic gaps;
+its report verifies. Variants validation and all eight provider-family coverage
+checks pass. The standalone OpenUdon command/step/scenario closure excludes
+both iCoT packages. All 405 fixture bytes are unchanged. Logs:
+`/tmp/openudon-m91-5-cli.log`, `/tmp/openudon-m91-5-selectors.log`,
+`/tmp/openudon-m91-5-fast.log`, `/tmp/openudon-m91-5-scorecard.log`,
+`/tmp/openudon-m91-5-standalone.log`, `/tmp/openudon-m91-5-deps.txt`.
+Final smoke/frozen qualification and review/publication remain M91.6; no
+provider/model, real account, desktop operation or capability removal occurred.

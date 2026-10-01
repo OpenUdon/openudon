@@ -1050,3 +1050,19 @@ names; embedded assets move byte-for-byte. M91.5 still owns rebasing versioned
 evaluation/native runner selectors. Frozen report selectors and build-input
 locks remain immutable. The affected authorized smoke and frozen integration
 qualification run after that rebase in M91.6, before final acceptance.
+
+## M91 expert and integration evaluation commands
+
+Use `openudon authoring lint|reconcile|repair|report|variants|scorecard|replay-eval|authoring-eval`
+for retained expert/evaluation commands. Subcommand flags/help, report schema
+versions and canonical `icot ...` report labels remain unchanged for
+compatibility; actual launcher argv is captured separately in qualification.
+The Make evaluation targets now invoke this expert entry. Model-backed replay/
+authoring evaluation still requires explicit invocation and provider authority;
+default checks are fake/model free.
+
+`openudon.browser-integration-eval.v5` retains all 19 gates and named-test
+inventories with relocated source/dependency paths. v1–v4 verification and
+compatibility/build-input locks stay unchanged. v5 engine/UI dependency scans
+also reject either iCoT package. Current native browser selectors use shared
+UI/controller locations, with the same build tags, assertions and stage names.

@@ -59,7 +59,7 @@ release-saas-check:
 	$(GO) run ./cmd/openudon n8n-bridge validate --root examples/eval
 	mkdocs build --strict --site-dir $(OPENUDON_RELEASE_SITE_DIR)
 	for fixture in $(OPENUDON_RELEASE_SAAS_FIXTURES); do \
-		$(GO) run ./cmd/icot lint --example ./examples/eval/$$fixture; \
+		$(GO) run ./cmd/openudon authoring lint --example ./examples/eval/$$fixture; \
 	done
 	rm -rf "$(OPENUDON_RELEASE_DEMO_ROOT)"
 	mkdir -p "$(OPENUDON_RELEASE_DEMO_ROOT)/approvals"
@@ -109,7 +109,7 @@ browser-transaction-adversarial:
 	$(GO) test -count=1 ./internal/registrationattestation ./internal/udonrunner ./internal/udonreport -run '^(TestReadOutsideRepoAcceptsExactOwnerOnlyArtifact|TestReadOutsideRepoRejectsUnsafePathModeAndDrift|TestDecodeRejectsValuesUnknownFieldsAndLifecycleDrift|TestBrowserRegistrationEvidenceRejectsExecutorConstruction|TestDockerBrowserRegistrationCarriesOnlyV4NamesAndApprovals|TestDecodeRequiresTypedV3FailureAndNoSuccessCode)$$'
 	$(GO) test -count=1 ./internal/synthesize -run '^(TestValidateBrowserRegistrationReviewRejectsTamper|TestBrowserRegistrationProfileRejectsPIIAndSecretShapedValues|TestValidatePackagedBrowserProfileRejectsRawOrSecretShapedFields|TestNoSecretsQualityReportsOnlyArtifactPaths)$$'
 	$(GO) test -count=1 ./internal/browsertransactioneval ./internal/browserscenario -run '^(TestReportRejectsContractDriftFailureAndDependencyMismatch|TestVerifyFileRejectsTamperUnknownMissingDuplicateNoncanonicalAndSymlink|TestCompatibilityLockRejectsDirtyOrDriftedSibling|TestStrictJSONRejectsDuplicateKeysAtEveryObjectDepth)$$'
-	$(GO) test -count=1 ./internal/icot ./internal/authoringui -run '^(TestBrowserTransactionTerminalDenialCancellationExpiryAndUsage|TestBrowserTransactionTerminalIndeterminateRecoveryUsesExactSharedState|TestV4BrowserTransactionResourceAndV3RouteClosure|TestBrowserTransactionTransportBoundsAndTypedErrors|TestConcurrentSameRevisionMutationHasOneWinner)$$'
+	$(GO) test -count=1 ./internal/authoringcli ./internal/authoringui -run '^(TestBrowserTransactionTerminalDenialCancellationExpiryAndUsage|TestBrowserTransactionTerminalIndeterminateRecoveryUsesExactSharedState|TestV4BrowserTransactionResourceAndV3RouteClosure|TestBrowserTransactionTransportBoundsAndTypedErrors|TestConcurrentSameRevisionMutationHasOneWinner)$$'
 	cd "$${OPENUDON_BROWSERTOOLS_REPO:-../browsertools}" && $(GO) test -count=1 ./registrationauthorsession ./registrationauthorworker ./registrationauthorresult ./registrationauthor ./capture -run '^(TestStrictDecoderRejectsDuplicateTrailingDeepAndUnknownFields|TestProtocolAndPhaseMismatchesFailClosed|TestBackendFailureAndCancellationReturnFixedDiagnostics|TestFinishRequiresCleanBoundedNetworkSummary|TestCancellationInterruptsBlockedOwnedInputAndClosesBrowser|TestOversizedProtocolLineFailsWithoutEcho|TestSessionInterfaceHasNoMutationOrStateExportSurface|TestRunCancellationInterruptsReadAndClosesSession|TestWorkerSourceExposesNoPlaywrightOrEnvironmentSurface|TestVerifyRejectsEveryBoundIdentityAndSafetyMutation|TestDecodeRejectsUnclosedDuplicateUnknownDeepAndSensitiveInput|TestReadPrivateExactRejectsSymlinkModeAndTamper|TestBuildRejectsObservationAndSelectionDrift|TestChromeSandboxHelperRejectsUserControlledAndNoncanonicalPaths|TestPlaywrightRegistrationHasNoInputSubmitOrStateAPI|TestRegistrationNetworkGuardAllowsOnlyApprovedGETAndHEAD|TestRegistrationNetworkGuardBoundsAndCloseAccounting|TestValidateRegistrationBrowserRequestIsExactAndFinite|TestRegistrationURLFactsRejectsDisclosureAndQuery)$$'
 
 browser-transaction-qualification:
@@ -138,24 +138,24 @@ icot-ui-browser-check-unsandboxed:
 	OPENUDON_ICOT_UI_BROWSER_DISABLE_SANDBOX=1 $(GO) test -tags=icot_ui_browser ./internal/authoringui -run '^TestPhaseCBrowser' -count=1 -timeout=3m -v
 
 eval-seed-build:
-	$(GO) test ./internal/icot -run TestEvalReferenceSeedBuildMatrix -count=1
+	$(GO) test ./internal/authoringcli -run TestEvalReferenceSeedBuildMatrix -count=1
 
 icot-authoring-scorecard:
-	$(GO) run ./cmd/icot scorecard --root examples/eval --include-variants --out eval/runs/icot-authoring-scorecard-local
-	$(GO) run ./cmd/icot report verify --file eval/runs/icot-authoring-scorecard-local/scorecard.json
+	$(GO) run ./cmd/openudon authoring scorecard --root examples/eval --include-variants --out eval/runs/icot-authoring-scorecard-local
+	$(GO) run ./cmd/openudon authoring report verify --file eval/runs/icot-authoring-scorecard-local/scorecard.json
 
 icot-replay-repair-check:
 	rm -rf "$(OPENUDON_ICOT_REPLAY_REPAIR_OUT_DIR)"
 	mkdir -p "$(OPENUDON_ICOT_REPLAY_REPAIR_OUT_DIR)"
 	set -e; for fixture in $(OPENUDON_ICOT_REPLAY_REPAIR_FIXTURES); do \
-		$(GO) run ./cmd/icot replay-eval --root examples/eval --name "$$fixture" --provider $(OPENUDON_LLM_PROVIDER) --model $(OPENUDON_LLM_MODEL) --prompt-mode fast --review-repair --out-dir "$(OPENUDON_ICOT_REPLAY_REPAIR_OUT_DIR)/$$fixture"; \
+		$(GO) run ./cmd/openudon authoring replay-eval --root examples/eval --name "$$fixture" --provider $(OPENUDON_LLM_PROVIDER) --model $(OPENUDON_LLM_MODEL) --prompt-mode fast --review-repair --out-dir "$(OPENUDON_ICOT_REPLAY_REPAIR_OUT_DIR)/$$fixture"; \
 	done
 
 icot-variants-validate:
-	$(GO) run ./cmd/icot variants validate --root examples/eval
+	$(GO) run ./cmd/openudon authoring variants validate --root examples/eval
 
 icot-variants-coverage:
-	$(GO) run ./cmd/icot variants coverage --root examples/eval
+	$(GO) run ./cmd/openudon authoring variants coverage --root examples/eval
 
 product-smoke-check:
 	$(GO) run ./cmd/openudon smoke-matrix --mode dry-run --workdir .openudon-run/product-smoke --out .openudon-run/product-smoke/summary.json

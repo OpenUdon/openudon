@@ -15,6 +15,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/OpenUdon/openudon/internal/authoringcli"
 	"github.com/OpenUdon/openudon/internal/browserintegrationeval"
 	"github.com/OpenUdon/openudon/internal/browserscenario"
 	"github.com/OpenUdon/openudon/internal/browsertransactioneval"
@@ -43,6 +44,7 @@ func main() {
 		fmt.Fprintf(flag.CommandLine.Output(), "Commands:\n")
 		fmt.Fprintf(flag.CommandLine.Output(), "  check     verify required sibling repositories are present\n")
 		fmt.Fprintf(flag.CommandLine.Output(), "  assess    assess existing example artifacts and write quality reports\n")
+		fmt.Fprintf(flag.CommandLine.Output(), "  authoring retained expert lint, repair, reconcile, variants, reports and evaluation\n")
 		fmt.Fprintf(flag.CommandLine.Output(), "  approval-template print approval JSON for a validated handoff package\n")
 		fmt.Fprintf(flag.CommandLine.Output(), "  build     regenerate workflow/UWS from an existing intent.hcl\n")
 		fmt.Fprintf(flag.CommandLine.Output(), "  browser-integration-eval run or verify provider-free cross-repo browser evidence\n")
@@ -78,6 +80,8 @@ func main() {
 	}
 
 	switch command {
+	case "authoring":
+		os.Exit(authoringcli.RunExpert(flag.Args()[1:], os.Stdin, os.Stdout, os.Stderr))
 	case "check":
 		if err := config.CheckSiblings("."); err != nil {
 			fmt.Fprintln(os.Stderr, err)

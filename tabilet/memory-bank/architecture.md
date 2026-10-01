@@ -1345,3 +1345,16 @@ aliases/forwarders. Browser scenario consumers import that shared package, not
 the terminal. Artifact writes use the existing neutral transactional writer.
 Both registration and authenticated/TOTP capture and their approval/uncertainty
 contracts remain unchanged. M95 owns later entry-point retirement after parity.
+
+## M91 neutral expert/evaluation entry
+
+`internal/authoringcli` owns the single retained terminal/expert implementation.
+`internal/icot` is a temporary compatibility adapter during 5A.
+`openudon authoring` exposes the closed expert lint/reconcile/repair/report,
+variants/scorecard and explicit model-evaluation commands, without exposing the
+old UI/control or worker transport. Existing report wires and canonical legacy
+command labels remain compatible. M95 owns deletion of obsolete interaction
+and transport code after replacement evidence; this extraction does not count
+as retirement. Integration evaluation v5 uses relocated selectors while v1–v4
+continue verifying their immutable selectors/locks. Current native browser
+runner paths follow shared packages; report wire/stage identities remain stable.
