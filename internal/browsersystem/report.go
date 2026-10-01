@@ -20,7 +20,8 @@ import (
 const (
 	Version          = "openudon.browser-system-qualification.v2"
 	CurrentV3Version = "openudon.browser-system-qualification.v3"
-	CurrentVersion   = "openudon.browser-system-qualification.v4"
+	CurrentV4Version = "openudon.browser-system-qualification.v4"
+	CurrentVersion   = "openudon.browser-system-qualification.v5"
 	legacyVersion    = "openudon.browser-system-qualification.v1"
 )
 
@@ -101,14 +102,17 @@ func validToolchains(value Toolchains, lock browserscenario.CompatibilityLock) b
 
 func Validate(r *Report) error {
 	bad := errors.New("browser system report is invalid")
-	if r == nil || (r.Version != CurrentVersion && r.Version != CurrentV3Version && r.Version != Version && r.Version != legacyVersion) || (r.Suite != "offline" && r.Suite != "loopback") || (r.Version == CurrentVersion || r.Version == CurrentV3Version) && r.Suite != "loopback" || (r.Status != "pass" && r.Status != "fail") || r.PlaywrightGo != "v0.6201.0" || r.NetworkClaim != "application_request_allowlists_not_network_wide_containment" {
+	if r == nil || (r.Version != CurrentVersion && r.Version != CurrentV4Version && r.Version != CurrentV3Version && r.Version != Version && r.Version != legacyVersion) || (r.Suite != "offline" && r.Suite != "loopback") || (r.Version == CurrentVersion || r.Version == CurrentV4Version || r.Version == CurrentV3Version) && r.Suite != "loopback" || (r.Status != "pass" && r.Status != "fail") || r.PlaywrightGo != "v0.6201.0" || r.NetworkClaim != "application_request_allowlists_not_network_wide_containment" {
 		return bad
 	}
 	stack := browserscenario.StackHistorical
-	if r.Version == CurrentV3Version || r.Version == CurrentVersion {
+	if r.Version == CurrentV3Version || r.Version == CurrentV4Version || r.Version == CurrentVersion {
 		stack = browserscenario.StackCurrent
 	}
 	lock, err := browserscenario.LoadCompatibilityLockForStack(stack)
+	if r.Version == CurrentV4Version {
+		lock, err = browserscenario.LoadCurrentCompatibilityLockV4()
+	}
 	if r.Version == CurrentV3Version {
 		lock, err = browserscenario.LoadCurrentCompatibilityLockV3()
 	}
@@ -119,6 +123,9 @@ func Validate(r *Report) error {
 	expectedBuildCommits := map[string]string{}
 	if r.Suite == "loopback" {
 		build, err := browserscenario.LoadQualificationBuildInputLockForStack(stack)
+		if r.Version == CurrentV4Version {
+			build, err = browserscenario.LoadCurrentQualificationBuildInputLockV4(lock)
+		}
 		if r.Version == CurrentV3Version {
 			build, err = browserscenario.LoadCurrentQualificationBuildInputLockV3(lock)
 		}
@@ -240,6 +247,9 @@ func validateProof(stage Stage, suite, stack, reportVersion string) error {
 			if reportVersion == CurrentV3Version && r.Version != browserscenario.CurrentV3ReportVersion && r.Version != browserscenario.CurrentV3JourneyVersion {
 				return bad
 			}
+			if reportVersion == CurrentV4Version && r.Version != browserscenario.CurrentV4ReportVersion && r.Version != browserscenario.CurrentV4JourneyVersion {
+				return bad
+			}
 			if reportVersion == CurrentVersion && r.Version != browserscenario.CurrentReportVersion && r.Version != browserscenario.CurrentJourneyReportVersion {
 				return bad
 			}
@@ -255,6 +265,8 @@ func validateProof(stage Stage, suite, stack, reportVersion string) error {
 		var err error
 		if stack == browserscenario.StackCurrent {
 			if reportVersion == CurrentVersion {
+				manifests, err = browserscenario.LoadCurrentManifestsV5(time.Now())
+			} else if reportVersion == CurrentV4Version {
 				manifests, err = browserscenario.LoadCurrentManifestsV4(time.Now())
 			} else {
 				manifests, err = browserscenario.LoadCurrentManifests(time.Now())
@@ -295,6 +307,13 @@ func validateProof(stage Stage, suite, stack, reportVersion string) error {
 			return bad
 		}
 		expected, err := browserscenario.LoadQualificationBuildInputLockForStack(stack)
+		if reportVersion == CurrentV4Version {
+			lock, e := browserscenario.LoadCurrentCompatibilityLockV4()
+			if e != nil {
+				return bad
+			}
+			expected, err = browserscenario.LoadCurrentQualificationBuildInputLockV4(lock)
+		}
 		if reportVersion == CurrentV3Version {
 			lock, lockErr := browserscenario.LoadCurrentCompatibilityLockV3()
 			if lockErr != nil {

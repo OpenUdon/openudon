@@ -22,7 +22,7 @@ New packages declare UWS 1.12 and carry confirmed read/write/unknown effects. Ex
 | M92.1 — Adopt UWS 1.12 and qualified executor compatibility | `[+]` | Pin exact published UWS; record accepted M45 source/build closure. New packages use 1.12; already-approved packages are unchanged. |
 | M92.2 — Effects and package pending steps | `[+]` | Generate effects from confirmed contracts; author/resolve pending steps through commands; assessment distinguishes them and every approval/run path refuses them. |
 | M92.3 — Versioned pure simulation | `[+]` | Implement the simulation-only projection and public mockruntime adapter; label pending/hypothetical results and redact credential-bound values before output. No package publication or mutation authority follows from simulation. |
-| M92.4 — Qualify contracts, review and publish | `[ ]` | Commit producer fixtures and refusal cases, prove zero network/executor activity and package immutability, run owner checks, review and publish. |
+| M92.4 — Qualify contracts, review and publish | `[~]` | Commit producer fixtures and refusal cases, prove zero network/executor activity and package immutability, run owner checks, review and publish. |
 
 ## Acceptance and verification
 
@@ -208,3 +208,35 @@ race checks passed (`/tmp/openudon-m92-3-final-owner-race.log`).
 all bounds and the explicit bound-response requirement. M92.4 owns versioned
 producer fixtures, fresh adoption/browser evidence, deep review and publication;
 no milestone acceptance is claimed by this task.
+
+## M92.4 selected — 2026-10-01
+
+M92.3 pure simulation is committed. This is the sole general in-progress row.
+Add versioned producer conformance and fresh UWS 1.12/M45 browser qualification
+contexts, preserve all historical locks/selectors/fixtures, then perform the
+required deep review, publication and downstream reconciliation. The temporary
+M92 display authority above applies only to this synthetic qualification.
+
+## M92.4 producer candidate evidence — 2026-10-01
+
+Published local schemas/fixtures match real pending authoring, packaging and
+simulation outputs, including intent/package digests. Top-level CLI simulation
+of the disposable copied fixture succeeds; approval/run refuse pending packages
+and leave their bytes/files unchanged. Conformance/refusal tests passed
+(`/tmp/openudon-m92-4-conformance.log`,
+`/tmp/openudon-m92-4-cli.log`). Standalone owner `make check` and `make fast`
+passed (`/tmp/openudon-m92-4-check.log`,
+`/tmp/openudon-m92-4-final-fast.log`).
+
+New versioned scenario/journey v5, integration v6 and native-system v5 contexts
+pin accepted UWS 1.12/M45 source and the exact fourteen-source M45 closure.
+They separately record the retained declared Browsertools→UWS 1.11 edge from
+the effective 1.12 module. Earlier locks/selectors/corpora remain unchanged;
+current verifier independently accepted M91's actual native v4 report
+(`/tmp/openudon-m92-4-old-native-verify.log`).
+
+The source checkpoint supports fresh frozen qualification; it is not milestone
+acceptance or publication. Integration v6 has the nineteen retained gates plus
+a new required pending/simulation producer gate. Runtime qualification and
+persisted whole-milestone review remain outstanding. Evolution v47 was checked;
+this implements its approved contract direction, so no new version is needed.

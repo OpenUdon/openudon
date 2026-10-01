@@ -1,0 +1,35 @@
+{
+  "version": "openudon.simulate.v1",
+  "tier": "simulation",
+  "status": "completed",
+  "uws_version": "1.12.0",
+  "package_sha256": "5882a13575cb1a86f890f6ae2e2cd1b363475521a716f6f3e9dd6adfa8c1fd5d",
+  "package_unchanged": true,
+  "hypothetical": true,
+  "values_policy": "all preview scalar values and object field names redacted",
+  "steps": [
+    {
+      "step_id": "report",
+      "binding": "pending",
+      "effect": "read",
+      "simulation_outcome": "simulated",
+      "response_provenance": [
+        "live-read"
+      ],
+      "outputs": {
+        "[field 1]": {
+          "[field 1]": "[redacted]"
+        }
+      }
+    }
+  ],
+  "would_be_requests": [
+    {
+      "step_id": "report",
+      "effect": "read",
+      "endpoint_status": "unresolved",
+      "response_provenance": "synthesized"
+    }
+  ],
+  "diagnostics": []
+}

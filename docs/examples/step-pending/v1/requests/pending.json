@@ -1,0 +1,31 @@
+{
+  "version": "openudon.step-pending.v1",
+  "kind": "request",
+  "command": "step.pending",
+  "step_id": "report",
+  "contract": {
+    "id": "report_contract",
+    "purpose": "Obtain a report",
+    "inputs": {
+      "type": "object"
+    },
+    "outputs": {
+      "type": "object",
+      "properties": {
+        "text": {
+          "type": "string"
+        }
+      }
+    },
+    "effect": "read"
+  },
+  "intent_revision": {
+    "state": "missing"
+  },
+  "scaffold": {
+    "workflow": {
+      "name": "report",
+      "description": "Preview a report"
+    }
+  }
+}

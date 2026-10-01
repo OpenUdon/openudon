@@ -130,7 +130,9 @@ The history index holds 134 legacy-preserved status IDs and five normally review
 ### Stage 5 coordination (approved planning, 2026-09-30)
 
 M91 is an accepted published extraction prerequisite. OpenUdon owns remaining
-M92–M95 target work; no remaining functionality is claimed. The
+M92–M95 target work. M92.1–M92.3 are implemented with task checks; M92.4
+producer conformance/runtime qualification/review remains active, so M92
+acceptance is not claimed. The
 canonical cross-package text (order, Gate 5B, the W27 handoff rule, gates,
 publication policy, and the F01–F10 / SR01–SR06 findings table) is Kinet
 `docs/kinet-order.md` §6 (`../../../kinet/docs/kinet-order.md`); Kinet's

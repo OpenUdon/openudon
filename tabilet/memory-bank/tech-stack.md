@@ -1099,3 +1099,13 @@ the exact transitive dependency is `github.com/gowebpki/jcs v1.0.2`. No private
 executor import or schema/expression engine is introduced. Numeric user inputs
 retain JSON number identity for fixture matching. M92.4 owns final producer
 conformance and runtime qualification.
+
+## M92.4 producer and runtime contracts
+
+Published additive schemas: `openudon.step-pending.v1`,
+`openudon.simulate-input.v1` and `openudon.simulate.v1`, with versioned
+examples under `docs/examples/step-pending/v1` and `docs/examples/simulation/v1`.
+Conformance loads local schema resources only. Current browser compatibility
+and build-input files are versioned `*-v5.json`; native v5 and integration v6
+qualify the UWS 1.12/M45 context and preserve all earlier report contexts.
+The temporary M92 Xvfb permission is synthetic loopback qualification only.

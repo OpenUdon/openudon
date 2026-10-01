@@ -1384,3 +1384,15 @@ Explicit fixtures/examples/schemas supply responses; original package files
 and digest are checked again after computation. Fixed diagnostics and bounded
 redacted shapes are exported as `openudon.simulate.v1`. This is preview evidence,
 not approval or real-run evidence; final M92 qualification remains pending.
+
+## M92.4 conformance and qualification context
+
+New current browser evidence selects scenario/journey v5, integration v6 and
+native system v5. Exact UWS 1.12/M45 locks preserve old report readers and their
+frozen contexts. The new lock separately records Browsertools' retained older
+declared UWS edge and the effective UWS 1.12 module; it never rewrites that
+sibling's go.mod. Fresh-package qualification advances only declared UWS versions
+while retaining all fixture journey semantics. Published pending/simulation
+schemas and examples are checked offline against actual owner output, including
+package digest and revision-bound pending intent writes. Final observed browser
+qualification and milestone acceptance remain pending.

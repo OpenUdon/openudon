@@ -61,7 +61,7 @@ func addInputGoDependencies(ctx context.Context, root, udon string, qualificatio
 }
 
 const InputVersion = "openudon.browser-qualification-input.v1"
-const CurrentInputVersion = "openudon.browser-qualification-input.v2"
+const CurrentInputVersion = "openudon.browser-qualification-input.v3"
 
 // InputIdentity is a browser-free inventory, not evidence that tests executed.
 // Its hash includes exact source locations: moving a prepared checkout requires

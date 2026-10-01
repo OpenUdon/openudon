@@ -47,9 +47,9 @@ func LoadQualificationBuildInputLock(compatibility CompatibilityLock) (Qualifica
 }
 
 // LoadCurrentQualificationBuildInputLock returns the active current-stack build
-// closure. New current-stack evidence uses the Browser 1.10 v4 closure.
+// closure. New current-stack evidence uses the UWS 1.12/M45 v5 closure.
 func LoadCurrentQualificationBuildInputLock(compatibility CompatibilityLock) (QualificationBuildInputLock, error) {
-	return LoadCurrentQualificationBuildInputLockV4(compatibility)
+	return LoadCurrentQualificationBuildInputLockV5(compatibility)
 }
 
 // LoadCurrentQualificationBuildInputLockV3 returns E21's frozen 14-source
@@ -115,8 +115,40 @@ func LoadCurrentQualificationBuildInputLockV4(compatibility CompatibilityLock) (
 	return lock, nil
 }
 
+func LoadCurrentQualificationBuildInputLockV5(compatibility CompatibilityLock) (QualificationBuildInputLock, error) {
+	data, err := contracts.ReadFile("current-qualification-build-inputs-v5.json")
+	if err != nil {
+		return QualificationBuildInputLock{}, err
+	}
+	var lock QualificationBuildInputLock
+	if err := decodeStrict(data, &lock); err != nil {
+		return QualificationBuildInputLock{}, err
+	}
+	if err := ValidateQualificationBuildInputLock(lock, compatibility); err != nil || len(lock.Components) != 14 {
+		return QualificationBuildInputLock{}, errors.New("UWS 1.12/M45 qualification build-input lock is invalid")
+	}
+	compatibilityComponents := map[string]LockedRevision{}
+	for _, component := range compatibility.Components {
+		compatibilityComponents[component.Name] = component
+	}
+	for _, name := range []string{"browsertools", "uws"} {
+		locked := compatibilityComponents[name]
+		matched := false
+		for _, component := range lock.Components {
+			if component.Name == name {
+				matched = component.Commit == locked.Commit
+				break
+			}
+		}
+		if !matched {
+			return QualificationBuildInputLock{}, fmt.Errorf("UWS 1.12/M45 %s build input differs from the compatibility lock", name)
+		}
+	}
+	return lock, nil
+}
+
 // LoadQualificationBuildInputLockForStack selects the historical M86 closure
-// or the active Browser 1.10 v4 closure by explicit stack name.
+// or the active UWS 1.12/M45 v5 closure by explicit stack name.
 func LoadQualificationBuildInputLockForStack(stack string) (QualificationBuildInputLock, error) {
 	compatibility, err := LoadCompatibilityLockForStack(stack)
 	if err != nil {

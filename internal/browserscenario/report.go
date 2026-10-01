@@ -24,8 +24,10 @@ const (
 	M86CurrentJourneyVersion    = "openudon.browser-journey-eval.v2"
 	CurrentV3ReportVersion      = "openudon.browser-scenario-eval.v3"
 	CurrentV3JourneyVersion     = "openudon.browser-journey-eval.v3"
-	CurrentReportVersion        = "openudon.browser-scenario-eval.v4"
-	CurrentJourneyReportVersion = "openudon.browser-journey-eval.v4"
+	CurrentV4ReportVersion      = "openudon.browser-scenario-eval.v4"
+	CurrentV4JourneyVersion     = "openudon.browser-journey-eval.v4"
+	CurrentReportVersion        = "openudon.browser-scenario-eval.v5"
+	CurrentJourneyReportVersion = "openudon.browser-journey-eval.v5"
 	StatusPass                  = "pass"
 	StatusFail                  = "fail"
 	StatusNotRun                = "not_run"
@@ -160,6 +162,11 @@ func ValidateReport(report *Report) error {
 			if report.Suite == SuiteJourney {
 				wantVersion = CurrentV3JourneyVersion
 			}
+		case isCurrentV4ReportVersion(report.Version):
+			wantVersion = CurrentV4ReportVersion
+			if report.Suite == SuiteJourney {
+				wantVersion = CurrentV4JourneyVersion
+			}
 		default:
 			wantVersion = CurrentReportVersion
 			if report.Suite == SuiteJourney {
@@ -191,8 +198,10 @@ func ValidateReport(report *Report) error {
 			lock, err = LoadCurrentCompatibilityLockV2()
 		case isCurrentV3ReportVersion(report.Version):
 			lock, err = LoadCurrentCompatibilityLockV3()
-		default:
+		case isCurrentV4ReportVersion(report.Version):
 			lock, err = LoadCurrentCompatibilityLockV4()
+		default:
+			lock, err = LoadCurrentCompatibilityLockV5()
 		}
 		if err != nil {
 			return err
@@ -258,7 +267,7 @@ func ValidateReport(report *Report) error {
 			if required := currentCaseAssertion[result.ID]; required != "" && (!assertionSeen[required] || !assertionSeen["udon_v10_replay"] || !phaseSeen["udon_v10"]) {
 				return fmt.Errorf("current browser scenario %q has no v10/template evidence", result.ID)
 			}
-			if isCurrentV4ReportVersion(report.Version) && isBrowser110ManifestID(result.ID) &&
+			if (isCurrentV4ReportVersion(report.Version) || isCurrentV5ReportVersion(report.Version)) && isBrowser110ManifestID(result.ID) &&
 				(!assertionSeen["browser110_count"] || !assertionSeen["udon_v11_replay"] || !phaseSeen["udon_v11"]) {
 				return fmt.Errorf("current Browser 1.10 scenario %q has no v11 count evidence", result.ID)
 			}
@@ -377,14 +386,21 @@ func isCurrentV3ReportVersion(version string) bool {
 }
 
 func isCurrentV4ReportVersion(version string) bool {
+	return version == CurrentV4ReportVersion || version == CurrentV4JourneyVersion
+}
+
+func isCurrentV5ReportVersion(version string) bool {
 	return version == CurrentReportVersion || version == CurrentJourneyReportVersion
 }
 
 func isCurrentReportVersion(version string) bool {
-	return isM86CurrentReportVersion(version) || isCurrentV3ReportVersion(version) || isCurrentV4ReportVersion(version)
+	return isM86CurrentReportVersion(version) || isCurrentV3ReportVersion(version) || isCurrentV4ReportVersion(version) || isCurrentV5ReportVersion(version)
 }
 
 func currentManifestsForReport(version string, at time.Time) ([]Manifest, error) {
+	if isCurrentV5ReportVersion(version) {
+		return LoadCurrentManifestsV5(at)
+	}
 	if isCurrentV4ReportVersion(version) {
 		return LoadCurrentManifestsV4(at)
 	}

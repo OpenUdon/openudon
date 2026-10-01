@@ -32,7 +32,8 @@ const (
 	M86ReportVersion       = "openudon.browser-integration-eval.v2"
 	CurrentV3ReportVersion = "openudon.browser-integration-eval.v3"
 	CurrentV4ReportVersion = "openudon.browser-integration-eval.v4"
-	ReportVersion          = "openudon.browser-integration-eval.v5"
+	CurrentV5ReportVersion = "openudon.browser-integration-eval.v5"
+	ReportVersion          = "openudon.browser-integration-eval.v6"
 	StatusPass             = "pass"
 	StatusFail             = "fail"
 	StatusSkipped          = "skipped"
@@ -358,7 +359,7 @@ func Validate(report *Report) error {
 	if report == nil {
 		return fmt.Errorf("browser integration report is required")
 	}
-	if report.Version != ReportVersion && report.Version != CurrentV4ReportVersion && report.Version != CurrentV3ReportVersion && report.Version != M86ReportVersion && report.Version != LegacyReportVersion {
+	if report.Version != ReportVersion && report.Version != CurrentV5ReportVersion && report.Version != CurrentV4ReportVersion && report.Version != CurrentV3ReportVersion && report.Version != M86ReportVersion && report.Version != LegacyReportVersion {
 		return fmt.Errorf("browser integration report version is unsupported")
 	}
 	if report.Status != StatusPass && report.Status != StatusFail {
@@ -946,7 +947,30 @@ func extractedGates() []gate {
 	return gates
 }
 
-func defaultGates() []gate { return extractedGates() }
+// uws112Gates selects real current test markers without rewriting earlier
+// reports' exact selectors or browser protocol expectations.
+func uws112Gates() []gate {
+	gates := extractedGates()
+	for i := range gates {
+		for j, arg := range gates[i].Args {
+			gates[i].Args[j] = strings.ReplaceAll(arg, "DefaultsToUWS111", "DefaultsToUWS112")
+		}
+		for j, assertion := range gates[i].Assertions {
+			gates[i].Assertions[j] = strings.ReplaceAll(assertion, "UWS 1.11 default", "UWS 1.12 default")
+		}
+		for j, name := range gates[i].RequiredPasses {
+			gates[i].RequiredPasses[j] = strings.ReplaceAll(name, "DefaultsToUWS111", "DefaultsToUWS112")
+		}
+	}
+	gates = append(gates, gate{
+		ID: "openudon-pending-simulation", Repository: "openudon", Kind: "go_test",
+		Args:           []string{"go", "test", "-v", "./internal/simulation", "./internal/stepauthoringcontract", "./internal/stepauthoring", "./internal/synthesize", "./internal/trustedrunner", "./cmd/openudon", "-run", "Test(PublishedSimulation|SimulationSchema|SimulationMocks|FixturesExamples|PublicOrchestrator|PublishedPending|PendingAuthorResolve|PendingAdmission|PendingPackage|Pending.*Refus|SimulateCLI)", "-count=1"},
+		Assertions:     []string{"public pending/simulation schemas match actual producer output", "pending approval/run refusals precede assessor and executor", "pure preview has zero network/executor calls and unchanged package digest", "fixture precedence and public orchestrator data flow remain deterministic"},
+		RequiredPasses: []string{"TestPublishedSimulationFixturesAndRuntimeConform", "TestSimulationSchemaRejectsAuthorityAndPendingEndpointDrift", "TestSimulationMocksWritesAndUnknownsWithNoNetworkOrExecutor", "TestFixturesExamplesSynthesisAndRefusalRemainDeterministic", "TestPublicOrchestratorOwnsParallelBranchesAndLoop", "TestPublishedPendingProtocolConformsWithoutNetwork", "TestPendingAuthorResolveAndConfirmedEffect", "TestPendingAdmissionRefusesEveryPathDespiteStoredPass", "TestPendingPackageUsesPublicContractsAndAssessment", "TestSimulateCLIUsesPublishedPendingPackageWithoutChangingIt"},
+	})
+	return gates
+}
+func defaultGates() []gate { return uws112Gates() }
 
 func gateDeadline(spec gate) time.Duration {
 	switch spec.Kind {

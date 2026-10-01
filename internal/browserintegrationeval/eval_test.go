@@ -41,7 +41,7 @@ func TestCurrentV4ReportVersionUsesPublishedBrowser110LockAndBuildClosure(t *tes
 	if len(lock.Components) != 4 || len(gates) != 19 {
 		t.Fatalf("current contract has %d components and %d gates", len(lock.Components), len(gates))
 	}
-	scenarioLock, err := browserscenario.LoadCurrentCompatibilityLock()
+	scenarioLock, err := browserscenario.LoadCurrentCompatibilityLockV4()
 	if err != nil || !reflect.DeepEqual(lock, scenarioLock) {
 		t.Fatalf("integration and scenario current locks differ: %v", err)
 	}
@@ -56,7 +56,7 @@ func TestCurrentV4ReportVersionUsesPublishedBrowser110LockAndBuildClosure(t *tes
 			t.Fatalf("current %s pin = %s", component.Name, component.Commit)
 		}
 	}
-	build, err := browserscenario.LoadCurrentQualificationBuildInputLock(lock)
+	build, err := browserscenario.LoadCurrentQualificationBuildInputLockV4(lock)
 	if err != nil || len(build.Components) != 14 {
 		t.Fatalf("current build closure = %d components, err = %v", len(build.Components), err)
 	}
@@ -308,7 +308,7 @@ func TestRunWritesAndVerifiesValueFreeProviderFreeMatrix(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Run: %v", err)
 	}
-	if report.Status != StatusPass || report.Summary != (Summary{Total: 19, Passed: 16, Skipped: 3}) {
+	if report.Status != StatusPass || report.Summary != (Summary{Total: 20, Passed: 17, Skipped: 3}) {
 		t.Fatalf("report summary = %#v", report)
 	}
 	if report.BrowserLaunchedByDefault || report.TargetContactedByICoT || report.CredentialEnvironmentReadByICoT || report.PlanningDeliverablesWritten {
@@ -433,9 +433,9 @@ func TestRunOptInsPassOrHonestlySkipUnavailableComponents(t *testing.T) {
 		wantSkip    int
 		wantCalls   int
 	}{
-		{name: "installed components pass", doctorReady: true, wantPass: 19, wantCalls: 1},
-		{name: "missing components skip", wantPass: 16, wantSkip: 3},
-		{name: "named tests skip", doctorReady: true, skipOptIns: true, wantPass: 16, wantSkip: 3, wantCalls: 1},
+		{name: "installed components pass", doctorReady: true, wantPass: 20, wantCalls: 1},
+		{name: "missing components skip", wantPass: 17, wantSkip: 3},
+		{name: "named tests skip", doctorReady: true, skipOptIns: true, wantPass: 17, wantSkip: 3, wantCalls: 1},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			runner := &fakeRunner{t: t, doctorReady: test.doctorReady, skipOptIns: test.skipOptIns}
@@ -698,7 +698,11 @@ func makeTestRepos(t *testing.T) map[string]string {
 	openudonMod := fmt.Sprintf("module example.test/openudon\n\nrequire (\n\t%s %s\n\t%s %s\n)\n",
 		locked["browsertools"].Module, locked["browsertools"].Version,
 		locked["uws"].Module, locked["uws"].Version)
-	browsertoolsMod := fmt.Sprintf("module example.test/browsertools\n\nrequire %s %s\n", locked["uws"].Module, locked["uws"].Version)
+	browsertoolsUWS := locked["uws"]
+	if lock.BrowsertoolsUWSRequirement != nil {
+		browsertoolsUWS = *lock.BrowsertoolsUWSRequirement
+	}
+	browsertoolsMod := fmt.Sprintf("module example.test/browsertools\n\nrequire %s %s\n", browsertoolsUWS.Module, browsertoolsUWS.Version)
 	if err := os.WriteFile(filepath.Join(root, "go.mod"), []byte(openudonMod), 0o600); err != nil {
 		t.Fatal(err)
 	}
@@ -756,7 +760,7 @@ func TestHistoricalV4InventoryRemainsFrozenAfterExtraction(t *testing.T) {
 	if got := hex.EncodeToString(sum[:]); got != "737ddc4b2616d7eee34713be10d4e1781108b5e80c7caabdf8916bf9a7fdc539" {
 		t.Fatalf("historical v4 inventory changed: %s", got)
 	}
-	_, current, err := contractForVersion(ReportVersion)
+	_, current, err := contractForVersion(CurrentV5ReportVersion)
 	if err != nil {
 		t.Fatal(err)
 	}

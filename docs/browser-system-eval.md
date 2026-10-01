@@ -22,10 +22,11 @@ openudon browser-system-eval --verify /tmp/browser-system-current-loopback.json
 Use `--repo-root` for OpenUdon and `--udon-repo` for an exact disposable Udon
 checkout with the auxiliary sibling checkouts required by
 `internal/browserscenario/qualification-build-inputs.json` for the historical
-default. The Browser 1.10 current stack uses
+default. The retained Browser 1.10 v4 context uses
 `internal/browserscenario/current-qualification-build-inputs-v4.json`, requires
 all 14 replacement checkouts and primary sources to be clean at their exact
-locked revisions before starting, and emits a v4 native report. The v3 native
+locked revisions before starting, and emitted v4 native reports. The current
+UWS 1.12/M45 v5 context is described below. The v3 native
 reader keeps E21's frozen locks; the v2 reader keeps M86's original baseline
 and the v1 reader keeps its 11-stage loopback inventory. `--stack` defaults to
 `historical`. `make
@@ -306,3 +307,21 @@ unchanged. Integration report v5 relocates source/dependency selectors and
 retains all 19 gates/named tests; historical v1–v4 readers keep the original
 selectors and locks. New runtime acceptance still requires fresh qualification
 of the exact source and independently supplied locked dependencies.
+
+## M92 UWS 1.12 qualification context
+
+New current qualifications use scenario/journey reports v5, browser integration
+v6, browser-system reports v5 and qualification-input identity v3. Their
+versioned locks pin UWS a7688f54c68f5a75c7cc95aa2b31cea98b31af41 and Udon
+M45 source 238f2e487d50ffec057b7a109a35c9db03f59c55. The fourteen-source
+build closure matches the accepted M45 closure; Browserdriver and Browsertools
+retain their prior accepted revisions.
+
+Browsertools' declared go.mod UWS requirement remains 80ee9bfb24a6; the new
+compatibility lock records that edge separately from the effective UWS 1.12
+module selected by the OpenUdon/Udon builds. Pin checks verify both facts.
+The v5 scenario policy authors the unchanged fixture journeys as fresh UWS
+1.12 packages. Earlier scenario/integration/system versions retain their exact
+locks, selectors, build closures and package-version expectations. Verification
+never upgrades an old report into current adoption evidence. M92 acceptance
+still requires observed fresh qualification, not merely these context files.

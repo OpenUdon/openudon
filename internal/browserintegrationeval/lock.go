@@ -17,6 +17,9 @@ var currentV3CompatibilityLock []byte
 //go:embed current-compatibility-lock-v4.json
 var currentV4CompatibilityLock []byte
 
+//go:embed current-compatibility-lock-v5.json
+var currentV5CompatibilityLock []byte
+
 func decodeCompatibilityLock(data []byte) (browserscenario.CompatibilityLock, error) {
 	var lock browserscenario.CompatibilityLock
 	if err := browserverify.DecodeStrictJSON(data, &lock); err != nil {
@@ -29,7 +32,7 @@ func decodeCompatibilityLock(data []byte) (browserscenario.CompatibilityLock, er
 }
 
 func loadCurrentCompatibilityLock() (browserscenario.CompatibilityLock, error) {
-	return decodeCompatibilityLock(currentV4CompatibilityLock)
+	return decodeCompatibilityLock(currentV5CompatibilityLock)
 }
 
 func contractForVersion(version string) (browserscenario.CompatibilityLock, []gate, error) {
@@ -46,9 +49,12 @@ func contractForVersion(version string) (browserscenario.CompatibilityLock, []ga
 	case CurrentV4ReportVersion:
 		lock, err := decodeCompatibilityLock(currentV4CompatibilityLock)
 		return lock, currentGates(), err
-	case ReportVersion:
+	case CurrentV5ReportVersion:
 		lock, err := decodeCompatibilityLock(currentV4CompatibilityLock)
 		return lock, extractedGates(), err
+	case ReportVersion:
+		lock, err := decodeCompatibilityLock(currentV5CompatibilityLock)
+		return lock, uws112Gates(), err
 	default:
 		return browserscenario.CompatibilityLock{}, nil, fmt.Errorf("unsupported browser integration report version %q", version)
 	}
